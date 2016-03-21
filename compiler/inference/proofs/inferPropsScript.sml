@@ -3207,7 +3207,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
     rfs[]>>
     first_x_assum(qspecl_then[`subst++subst'`,`s'`,`num_gen'`,`s''`,`ts''`] mp_tac)>>
-    discharge_hyps>-
+    impl_tac>-
       (fsrw_tac [ARITH_ss] []>>
       reverse CONJ_TAC>-
         metis_tac[]>>

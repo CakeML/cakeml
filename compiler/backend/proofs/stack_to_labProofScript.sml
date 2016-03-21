@@ -303,7 +303,7 @@ val finish_tac =
     gen_tac >>
     qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
     first_x_assum(qspec_then`ss`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`ss`] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
       full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
@@ -319,7 +319,7 @@ val finish_tac =
     map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
     qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
     first_x_assum(qspec_then`ss`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`ss`] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
       full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
@@ -875,7 +875,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ full_simp_tac(srw_ss())[code_installed_def]
       \\ first_x_assum(qspecl_then[`n`,`l`,`upd_pc (t1.pc +1) t1`]mp_tac)
       \\ full_simp_tac(srw_ss())[good_syntax_def]
-      \\ discharge_hyps >- metis_tac[state_rel_with_pc]
+      \\ impl_tac >- metis_tac[state_rel_with_pc]
       \\ strip_tac
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[get_var_def]
@@ -908,7 +908,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
       \\ first_x_assum(qspecl_then[`n`,`l`,`inc_pc t1`]mp_tac)
       \\ simp[] \\ full_simp_tac(srw_ss())[good_syntax_def]
-      \\ discharge_hyps
+      \\ impl_tac
       >- ( simp[inc_pc_def,GSYM upd_pc_def] \\ metis_tac[state_rel_with_pc] )
       \\ strip_tac
       \\ fsrw_tac[ARITH_ss][inc_pc_def,dec_clock_def]
@@ -924,7 +924,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ imp_res_tac code_installed_append_imp
     \\ full_simp_tac(srw_ss())[code_installed_def]
     \\ first_x_assum(qspecl_then[`n`,`l`,`inc_pc t1`]mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       simp[inc_pc_def,GSYM upd_pc_def,state_rel_with_pc]
       \\ full_simp_tac(srw_ss())[good_syntax_def] )
@@ -936,7 +936,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def]
     \\ `t2.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def]
     \\ first_x_assum(qspecl_then[`n`,`l`,`dec_clock (upd_pc t1.pc t2)`]mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       simp[flatten_def,code_installed_def]
       \\ match_mp_tac state_rel_dec_clock
@@ -1127,7 +1127,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     strip_tac >>
     qmatch_assum_abbrev_tac`code_installed pc (FST (flatten _ nx lx)) _` >>
     last_x_assum(qspecl_then[`nx`,`lx`,`t1 with <| pc := pc; regs := regs; clock := s.clock-1 |>`]mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[] >>
       conj_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
       ntac 2 (last_x_assum(qspec_then`ARB`kall_tac)) >>
@@ -1141,7 +1141,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       first_x_assum(qspec_then`t1 with <| regs := regs; pc := t1.pc+1; clock := ck + (ck1+t1.clock)|>`
         (mp_tac o Q.GENL[`ck1`,`ck`])) >> simp[] >>
       simp[RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- (
+      impl_tac >- (
         ntac 2 (last_x_assum(qspec_then`ARB`kall_tac))>>
         qpat_assum`_ ⇒ ∀x. _`kall_tac >>
         qpat_assum`_ _ _ _`kall_tac >>
@@ -1232,7 +1232,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       qexists_tac`ck+1`>>simp[] >>
       qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
       first_x_assum(qspec_then`ss`mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[Abbr`ss`] >>
         srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
         full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
@@ -1251,7 +1251,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       gen_tac >>
       qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
       first_x_assum(qspec_then`ss`mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[Abbr`ss`] >>
         srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
         full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
@@ -1281,7 +1281,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       gen_tac >>
       qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
       first_x_assum(qspec_then`ss`mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[Abbr`ss`] >>
         srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
         full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
@@ -1303,7 +1303,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >>
     first_x_assum drule >>
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
-    discharge_hyps >- (
+    impl_tac >- (
       qpat_assum`_ = t2.pc`(assume_tac o SYM) >>
       imp_res_tac code_installed_append_imp >>
       full_simp_tac(srw_ss())[code_installed_def] ) >>
@@ -1406,7 +1406,7 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
     first_x_assum(qspec_then`0`mp_tac)>>srw_tac[][]>>
     simp[Once labSemTheory.evaluate_def]) >>
   first_x_assum(qspec_then`r with clock := r.clock+1`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     imp_res_tac stackPropsTheory.evaluate_consts >> full_simp_tac(srw_ss())[] ) >>
   BasicProvers.TOP_CASE_TAC >> simp[] >>
   BasicProvers.TOP_CASE_TAC >> simp[] >>
@@ -1451,7 +1451,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
       imp_res_tac state_rel_with_clock >>
       first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
       disch_then drule >>
-      discharge_hyps >- (
+      impl_tac >- (
         srw_tac[][] >> TRY strip_tac >> full_simp_tac(srw_ss())[] >>
         Cases_on`q = SOME (Result (Loc 1 0))`>>full_simp_tac(srw_ss())[]>>
         metis_tac[]) >>
@@ -1476,14 +1476,14 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
           drule (GEN_ALL flatten_call_correct) >>
           drule state_rel_with_clock >> strip_tac >>
           disch_then drule >>
-          discharge_hyps >- (
+          impl_tac >- (
             srw_tac[][] >> TRY strip_tac >> full_simp_tac(srw_ss())[] >>
             last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
             srw_tac[][] >> metis_tac[]) >>
           strip_tac >> full_simp_tac(srw_ss())[] >>
           drule labPropsTheory.evaluate_ADD_clock >>
           disch_then(qspec_then`k'`mp_tac) >>
-          discharge_hyps >- (
+          impl_tac >- (
             last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
             strip_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
           simp[] >>
@@ -1505,7 +1505,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
         imp_res_tac state_rel_with_clock >>
         first_x_assum(qspec_then`k'+1+k`strip_assume_tac) >>
         disch_then drule >>
-        discharge_hyps >- (
+        impl_tac >- (
           simp[] >> rveq >>
           last_x_assum(qspec_then`k'+1+k`mp_tac) >>
           simp[] >> srw_tac[][] ) >>
@@ -1513,7 +1513,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
         rator_x_assum`stackSem$evaluate`mp_tac >>
         drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
         disch_then(qspec_then`k'+1`mp_tac) >>
-        discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         simp[] >> ntac 2 strip_tac >>
         fsrw_tac[ARITH_ss][] >> rveq >> full_simp_tac(srw_ss())[] >>
         qpat_assum`∀extra. _ ∧ _`(qspec_then`ck+k`mp_tac)>>simp[]>>
@@ -1526,7 +1526,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
       first_x_assum(qspec_then`k'+1+k`strip_assume_tac) >>
       disch_then drule >>
       simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k'+1+k`mp_tac) >> srw_tac[][] ) >>
       strip_tac >>
       fsrw_tac[ARITH_ss][] >>
@@ -1548,7 +1548,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
     drule (GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k+1`strip_assume_tac) >>
     disch_then drule >> simp[] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k+1`mp_tac) >>full_simp_tac(srw_ss())[]>> srw_tac[][]) >>
     strip_tac >>
     asm_exists_tac >> simp[] >> full_simp_tac(srw_ss())[] >>
@@ -1657,7 +1657,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   drule (GEN_ALL state_rel_with_clock) >>
   disch_then(qspec_then`k+1`strip_assume_tac) >>
   disch_then drule >> simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     last_x_assum(qspec_then`k+1`mp_tac) >>full_simp_tac(srw_ss())[]>> srw_tac[][]) >>
   strip_tac >>
   reverse conj_tac >> strip_tac >- (

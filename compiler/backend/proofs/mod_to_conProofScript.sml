@@ -709,7 +709,7 @@ val pmatch = Q.prove (
               full_simp_tac(srw_ss())[cenv_inv_def,exhaustive_env_correct_def,PULL_EXISTS] >> simp[] >>
               qmatch_assum_rename_tac`FLOOKUP gtagenv (cn,TypeId tid) = _` >>
               first_x_assum(qspecl_then[`tid`,`cn`]mp_tac) >>
-              discharge_hyps >- full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][] >>
+              impl_tac >- full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][] >>
               first_x_assum(qspec_then`cn`mp_tac) >> simp[] >>
               strip_tac >> simp[] >>
               imp_res_tac length_vs_rel >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -741,7 +741,7 @@ val pmatch = Q.prove (
           >- (
             full_simp_tac(srw_ss())[exhaustive_env_correct_def,PULL_EXISTS] >>
             first_x_assum(qspecl_then[`tid`,`id_to_n n`]mp_tac) >>
-            discharge_hyps >- full_simp_tac(srw_ss())[FLOOKUP_DEF] >> strip_tac >> simp[] >>
+            impl_tac >- full_simp_tac(srw_ss())[FLOOKUP_DEF] >> strip_tac >> simp[] >>
             first_assum(qspec_then`id_to_n n`mp_tac) >> simp[] >> strip_tac >>
             first_assum(qspec_then`n'`mp_tac) >> simp[] >> strip_tac >>
             imp_res_tac length_vs_rel >> full_simp_tac(srw_ss())[] >>
@@ -1376,7 +1376,7 @@ val compile_exp_correct = Q.prove (
    simp[pat_bindings] >>
    qspecl_then[`env.c`,`s.refs`,`p`,`v`,`env.v`]mp_tac (CONJUNCT1 pmatch) >> simp[] >>
    disch_then(qspecl_then[`env_i2.v`,`s_i2.refs`,`v_i2`,`tagenv`,`gtagenv`,`env_i2.exh`]mp_tac) >>
-   discharge_hyps >- (
+   impl_tac >- (
      full_simp_tac(srw_ss())[env_all_rel_cases,s_rel_cases] >>
      strip_tac >> full_simp_tac(srw_ss())[] ) >> strip_tac >>
    every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[match_result_rel_def] >>
@@ -1682,14 +1682,14 @@ val alloc_tag_cenv_inv = prove(
       srw_tac[][Abbr`tagexh`] >- (
         every_case_tac  >> simp[FLOOKUP_UPDATE,sptreeTheory.lookup_insert] >> srw_tac[][] >>
         first_x_assum(qspecl_then[`i`,`cn'`]mp_tac) >>
-        (discharge_hyps >- full_simp_tac(srw_ss())[FLOOKUP_DEF]) >> srw_tac[][] >>
+        (impl_tac >- full_simp_tac(srw_ss())[FLOOKUP_DEF]) >> srw_tac[][] >>
         res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> simp[] ) >>
       every_case_tac >> simp[FLOOKUP_UPDATE] >> srw_tac[][sptreeTheory.lookup_insert] >>
       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       TRY (
         qmatch_assum_rename_tac`FLOOKUP gtagenv (cnz,TypeId i) = SOME (tag,az)` >>
         first_x_assum(qspecl_then[`i`,`cnz`]mp_tac) >>
-        (discharge_hyps >- full_simp_tac(srw_ss())[FLOOKUP_DEF]) >> srw_tac[][] >>
+        (impl_tac >- full_simp_tac(srw_ss())[FLOOKUP_DEF]) >> srw_tac[][] >>
         res_tac >> full_simp_tac(srw_ss())[] >> simp[]) >>
       res_tac >> full_simp_tac(srw_ss())[] >>
       metis_tac[] ) >>
@@ -1709,7 +1709,7 @@ val alloc_tag_cenv_inv = prove(
     full_simp_tac(srw_ss())[exhaustive_env_correct_def,get_exh_def,PULL_EXISTS] >>
     qmatch_assum_rename_tac`FLOOKUP gtagenv (cnz,TypeId i) = SOME _` >>
     last_x_assum(qspecl_then[`i`,`cnz`]mp_tac) >>
-    (discharge_hyps >- full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][]) >>
+    (impl_tac >- full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][]) >>
     first_assum(match_exists_tac o concl) >>
     simp[] ) >>
   qpat_abbrev_tac`tag:num = X Y` >>
@@ -1799,13 +1799,13 @@ val FOLDL_alloc_tag_cenv_inv = prove(
   `∃cn ts. x = (cn,ts)` by metis_tac[PAIR] >>
   full_simp_tac(srw_ss())[] >> BasicProvers.VAR_EQ_TAC >>
   first_x_assum(qspecl_then[`envC`,`st`,`gtagenv`,`tids`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[MAP_SNOC,ALL_DISTINCT_SNOC] ) >>
   BasicProvers.LET_ELIM_TAC >> rev_full_simp_tac(srw_ss())[] >>
   first_x_assum(mp_tac o MATCH_MP(
     GEN_ALL(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tag_cenv_inv))) >>
   disch_then(qspecl_then[`TypeId(mk_id mn tn)`,`TypeId (mk_id mn tn) INSERT tids`,`cn`,`LENGTH ts`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[MAP_SNOC,ALL_DISTINCT_SNOC] >>
     Cases_on`envC`>>full_simp_tac(srw_ss())[merge_alist_mod_env_def]) >>
   simp[merge_alist_mod_env_assoc,merge_alist_mod_env_def] >>
@@ -1855,7 +1855,7 @@ val alloc_tags_cenv_inv = prove(
     qexists_tac`tids`>>simp[]) >>
   first_x_assum(qspecl_then[`constrs`,`tids`]mp_tac o
     MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]FOLDL_alloc_tag_cenv_inv)) >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[terminationTheory.check_dup_ctors_thm,ALL_DISTINCT_APPEND,FST_pair] >>
     metis_tac[SND] ) >>
   simp[] >> strip_tac >>
@@ -1863,7 +1863,7 @@ val alloc_tags_cenv_inv = prove(
   first_x_assum(fn th =>
     first_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
   disch_then(qspec_then`TypeId(mk_id mn tn) INSERT tids`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     imp_res_tac check_dup_ctors_cons >>
     simp[] >>
     conj_tac >- metis_tac[DISJOINT_SYM] >>
@@ -1967,7 +1967,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     simp[Once(GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
     disch_then(qspec_then`get_tagenv tagenv_st`mp_tac) >>
-    discharge_hyps_keep >- (
+    impl_keep_tac >- (
       full_simp_tac(srw_ss())[cenv_inv_def] >> simp[gtagenv_weak_refl] >>
       match_mp_tac (GEN_ALL exhaustive_env_correct_exh_weak) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
@@ -2015,7 +2015,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     qpat_abbrev_tac`env_i2:conSem$environment = _ with v := _` >>
     disch_then(qspec_then`env_i2`mp_tac) >>
     simp[Abbr`env_i2`] >>
-    discharge_hyps_keep >- (
+    impl_keep_tac >- (
       full_simp_tac(srw_ss())[cenv_inv_def] >> simp[gtagenv_weak_refl] >>
       match_mp_tac (GEN_ALL exhaustive_env_correct_exh_weak) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
@@ -2029,13 +2029,13 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     qpat_abbrev_tac`s_i2:'ffi conSem$state = _ with globals updated_by _` >>
     disch_then(qspec_then`s_i2`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`s_i2`] >>
       full_simp_tac(srw_ss())[s_rel_cases] >>
       MATCH_MP_TAC EVERY2_APPEND_suff >>
       simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
       simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> srw_tac[][] ) >>
-    discharge_hyps >- (
+    impl_tac >- (
       imp_res_tac modPropsTheory.evaluate_state_const >> simp[] ) >>
     simp[PULL_EXISTS] >> rpt gen_tac >>
     simp[GSYM AND_IMP_INTRO] >>
@@ -2051,7 +2051,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
     qpat_abbrev_tac`s_i2:'ffi conSem$state = _ with globals updated_by _` >>
     disch_then(qspec_then`s_i2`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       full_simp_tac(srw_ss())[s_rel_cases,Abbr`s_i2`] >>
       simp[compile_funs_map] >>
       full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF,UNCURRY] >>
@@ -2082,7 +2082,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     first_x_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tags_cenv_inv)) >>
     qmatch_assum_rename_tac`compile_decs (alloc_tags mn tagenv_st ls) ds = _` >>
     disch_then(qspecl_then[`mn`,`ls`,`s.defined_types`]mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       simp[combinTheory.o_DEF,LAMBDA_PROD] >>
       PairCases_on`tagenv_st`>>
@@ -2094,12 +2094,12 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     rpt var_eq_tac >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     disch_then(qspecl_then[`s1_i2`]mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       full_simp_tac(srw_ss())[s_rel_cases] >>
       conj_tac >>
       match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
       metis_tac[sv_rel_weakening,v_rel_weakening,OPTREL_MONO] ) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[] >>
       Cases_on`env.c`>>full_simp_tac(srw_ss())[merge_alist_mod_env_def] >>
       simp[Once UNION_COMM] ) >>
@@ -2121,7 +2121,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
       strip_tac >>
       first_x_assum(qspec_then`cn`mp_tac) >>
       first_x_assum(qspec_then`cn`mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         imp_res_tac ALOOKUP_MEM >>
         simp[MEM_MAP,EXISTS_PROD] >>
         metis_tac[] ) >>
@@ -2151,7 +2151,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
   qmatch_assum_rename_tac`no_dup_types (Dexn mn tn ls::ds)` >>
   first_x_assum(qspecl_then[`TypeExn(mk_id mn tn)`,`s.defined_types`,`tn`,`LENGTH ls`]mp_tac o
     MATCH_MP(GEN_ALL(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tag_cenv_inv))) >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[] >>
     PairCases_on`tagenv_st`>>
     full_simp_tac(srw_ss())[next_inv_def,SUBSET_DEF,PULL_EXISTS,astTheory.id_to_n_def,astTheory.mk_id_def] >>
@@ -2168,12 +2168,12 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     metis_tac[SND] ) >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   disch_then(qspecl_then[`s1_i2`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[s_rel_cases] >>
     conj_tac >>
     match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
     metis_tac[sv_rel_weakening,v_rel_weakening,OPTREL_MONO] ) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[GSYM INSERT_SING_UNION] >>
     Cases_on`envC`>>full_simp_tac(srw_ss())[merge_alist_mod_env_def]) >>
   simp[PULL_EXISTS] >> rpt gen_tac >>
@@ -2491,14 +2491,14 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   (compile_prompt_correct |> REWRITE_RULE[GSYM AND_IMP_INTRO]
     |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   simp[GSYM PULL_FORALL] >>
-  discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+  impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
   reverse strip_tac >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >- (
     simp[conSemTheory.evaluate_prog_def] >>
     imp_res_tac evaluate_prompt_exh_weak >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(fn th => mp_tac th >> (discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[result_rel_cases]))) >>
+    first_x_assum(fn th => mp_tac th >> (impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[result_rel_cases]))) >>
     disch_then(qspec_then`exh'`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
     srw_tac[][] >>
     first_assum(match_exists_tac o concl) >> srw_tac[][] ) >>
@@ -2511,7 +2511,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th o SYM)) >>
   CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv (same_const``invariant`` o fst o strip_comb))))) >>
   disch_then drule >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[modPropsTheory.no_dup_mods_eqn, modPropsTheory.no_dup_top_types_eqn] >>
     imp_res_tac modPropsTheory.evaluate_prompt_mods_disjoint >> full_simp_tac(srw_ss())[] >>
     imp_res_tac modPropsTheory.evaluate_prompt_tids >> full_simp_tac(srw_ss())[] >>
@@ -2551,14 +2551,14 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     simp[conSemTheory.evaluate_prog_def] >>
     imp_res_tac evaluate_prompt_exh_weak >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`exh'`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
     srw_tac[][] >>
     metis_tac[gtagenv_weak_trans] ) >>
   rpt var_eq_tac >> simp[] >>
   imp_res_tac evaluate_prompt_exh_weak >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspec_then`exh'`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
   srw_tac[][conSemTheory.evaluate_prog_def] >>
   full_simp_tac(srw_ss())[merge_alist_mod_env_assoc] >>
@@ -2635,7 +2635,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           strip_tac >>
           drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
           simp[RIGHT_FORALL_IMP_THM] >>
-          discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases]) >>
+          impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases]) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
           rator_x_assum`conSem$evaluate_prog`mp_tac >>
           drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
@@ -2648,7 +2648,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         unabbrev_all_tac >>
         drule compile_prog_evaluate >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-        discharge_hyps >- (
+        impl_tac >- (
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           fsrw_tac[ARITH_ss][]) >>
         imp_res_tac invariant_with_clock >>
@@ -2660,7 +2660,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         rator_x_assum`modSem$evaluate_prog`mp_tac >>
         drule (GEN_ALL modPropsTheory.evaluate_prog_add_to_clock) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-        discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[] >>
         strip_tac >>
         spose_not_then strip_assume_tac >>
@@ -2670,7 +2670,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       unabbrev_all_tac >>
       drule compile_prog_evaluate >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>
         fsrw_tac[ARITH_ss][]) >>
       imp_res_tac invariant_with_clock >>
@@ -2685,7 +2685,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       rator_x_assum`conSem$evaluate_prog`mp_tac >>
       drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-      discharge_hyps >- full_simp_tac(srw_ss())[] >>
+      impl_tac >- full_simp_tac(srw_ss())[] >>
       disch_then(qspec_then`k`mp_tac)>>simp[] >>
       rpt strip_tac >> spose_not_then strip_assume_tac >> rveq >>
       fsrw_tac[ARITH_ss][get_exh_def,s_rel_cases,conSemTheory.state_component_equality] >>
@@ -2757,7 +2757,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   simp[] >>
   PairCases_on`tagenv_st'`>>full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[get_exh_def] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-  first_assum(fn th => mp_tac th >> discharge_hyps >- metis_tac[SND]) >>
+  first_assum(fn th => mp_tac th >> impl_tac >- metis_tac[SND]) >>
   strip_tac >> simp[] >> full_simp_tac(srw_ss())[s_rel_cases]);
 
 val prog_to_top_types_def = modSemTheory.prog_to_top_types_def;

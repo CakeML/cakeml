@@ -180,14 +180,14 @@ val parsem_perm = Q.store_thm("parsem_perm",
   Q.ISPEC_THEN`λl. if windmill l then parsem l else ARB`mp_tac
     PERM_lifts_equalities >>
   simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     rpt (pop_assum kall_tac) >>
     rw[] >- (
       Induct_on`x2` >> simp[] >>
       Cases >> rw[] >>
       last_x_assum mp_tac >>
       simp[AND_IMP_INTRO] >>
-      discharge_hyps >- (
+      impl_tac >- (
         fs[windmill_def,ALL_DISTINCT_APPEND] >>
         metis_tac[] ) >>
       strip_tac >>
@@ -379,7 +379,7 @@ val steps_correct = Q.store_thm("steps_correct",
   rw[] >>
   imp_res_tac steps_sem >>
   pop_assum mp_tac >>
-  discharge_hyps >- simp[wf_def] >>
+  impl_tac >- simp[wf_def] >>
   simp[sem_def,seqsem_def]);
 
 (* deterministic algorithm *)
@@ -575,7 +575,7 @@ val parmove_correct = Q.store_thm("parmove_correct",
   `(μ,[],[]) ↪* ([],[],τ)` by metis_tac[pmov_dsteps] >>
   imp_res_tac dsteps_steps >>
   pop_assum mp_tac >>
-  discharge_hyps_keep >- (
+  impl_keep_tac >- (
     match_mp_tac wf_init >>
     simp[Abbr`μ`,EVERY_MAP,UNCURRY] >>
     fs[windmill_def] >>

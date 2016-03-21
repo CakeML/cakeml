@@ -189,7 +189,7 @@ val evaluate_compile = Q.prove(
       \\ Cases_on `op_space_reset o'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ Cases_on `get_vars l' s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
-      \\ discharge_hyps >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
+      \\ impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
       \\ rpt strip_tac
       \\ full_simp_tac(srw_ss())[pMakeSpace_def,space_def]
       \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def]
@@ -232,7 +232,7 @@ val evaluate_compile = Q.prove(
       \\ simp[bvi_to_bvp_def]
       \\ qpat_abbrev_tac`l2 = insert _ _ _`
       \\ disch_then(qspec_then`l2`mp_tac)
-      \\ discharge_hyps >-
+      \\ impl_tac >-
           (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvi_to_bvp_space_locals]
            \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality,bvi_to_bvp_space_locals]
            \\ SRW_TAC [] []

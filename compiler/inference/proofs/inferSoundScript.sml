@@ -296,7 +296,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            >>
            Cases_on`x'`>>fs[]>>
            Q.ISPECL_THEN [`tvs'`,`bindings'`,`tenv with v:=bind_tvar tvs'(bind_var_list2 tenv_v Empty)`,`t'`,`p`,`ienv`,`e`] mp_tac (GEN_ALL infer_pe_complete)>>
-           discharge_hyps>-
+           impl_tac>-
              (fs[Abbr`tenv_v'`,check_cenv_tenvC_ok,sub_completion_def,pure_add_constraints_def]>>
              CONJ_TAC>-
                (Cases_on`tvs'=0`>>fs[num_tvs_bvl2,num_tvs_def,bind_tvar_def])
@@ -320,7 +320,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            fs[MEM_EL])>>
           fs[sub_completion_def]>>
           Q.ISPECL_THEN [`tvs'`,`s''`] mp_tac (GEN_ALL generalise_subst_exist)>>
-          discharge_hyps>-
+          impl_tac>-
             (fs[init_infer_state_def]>>
             `t_wfs FEMPTY` by fs[t_wfs_def]>>
             imp_res_tac infer_e_wfs>>
@@ -334,7 +334,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           >>
           rw[]>>
           pop_assum (qspecl_then[`MAP (t_walkstar s) (MAP SND env)`,`[]`,`FEMPTY`,`num_tvs tenv_v'`,`s'`,`MAP (t_walkstar last_sub) (MAP SND env)`] mp_tac)>>
-         discharge_hyps_keep
+         impl_keep_tac
          >-
            (fs[MAP_MAP_o,combinTheory.o_DEF]>>
            fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
@@ -393,7 +393,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
       |> Q.SPECL[`num_tvs tenv_v'`,`count (st'''':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
       |> mp_tac)>>simp[]>>
           disch_then (qspec_then `t'` mp_tac)>>
-          discharge_hyps>-
+          impl_tac>-
           (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
           metis_tac[])>>
           rw[]>>
@@ -415,7 +415,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
          metis_tac[check_freevars_empty_convert_unconvert_id])>>
        fs[]>>AP_TERM_TAC>>
        Q.ISPECL_THEN [`s''`,`s'`,`subst'`,`tvs'`,`count st''''.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
-       discharge_hyps>-
+       impl_tac>-
          (fs[SUBSET_DEF]>>
          rw[]>>
          fs[IN_FRANGE]>>
@@ -423,7 +423,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        rw[]>>
        pop_assum kall_tac>>
        pop_assum(qspec_then `t_walkstar s t'` mp_tac)>>
-       discharge_hyps>-
+       impl_tac>-
          (
          imp_res_tac infer_p_check_t>>
          fs[EXTENSION,SUBSET_DEF]>>
@@ -589,7 +589,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            metis_tac[])>>
          fs[sub_completion_def]>>
           Q.ISPECL_THEN [`tvs'`,`s'`] mp_tac (GEN_ALL generalise_subst_exist)>>
-          discharge_hyps>-
+          impl_tac>-
             (fs[]>>metis_tac[pure_add_constraints_wfs])
           >>
           rator_x_assum `generalise_list` mp_tac>>
@@ -597,7 +597,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           qpat_abbrev_tac `ts':infer_t list = MAP A B`>>
           rw[]>>
           pop_assum (qspecl_then[`ts`,`[]`,`FEMPTY`,`num_tvs tenv_v''`,`s`,`ts'`] mp_tac)>>
-         discharge_hyps_keep
+         impl_keep_tac
          >-
            (
            fs[MAP_MAP_o,combinTheory.o_DEF]>>
@@ -629,7 +629,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
       |> Q.SPECL[`num_tvs tenv_v''`,`count (st':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
       |> mp_tac)>>simp[]>>
           disch_then (qspec_then `Infer_Tuvar n` mp_tac)>>
-          discharge_hyps>-
+          impl_tac>-
           (fs[check_t_def]>>
            imp_res_tac infer_e_next_uvar_mono>>
            fs[]>>
@@ -661,7 +661,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            fs[MEM_EL] >>
            fs[EL_ALL_DISTINCT_EL_EQ] >>
            first_x_assum(qspecl_then[`n`,`n'`]mp_tac) >>
-           discharge_hyps_keep >- metis_tac[LENGTH_MAP] >>
+           impl_keep_tac >- metis_tac[LENGTH_MAP] >>
            `EL n (MAP FST bindings') = EL n (MAP FST l)` by metis_tac[] >>
            pop_assum SUBST1_TAC >>
            simp[EL_MAP] >>
@@ -678,7 +678,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           metis_tac[])>>
        fs[]>>AP_TERM_TAC>>
        Q.ISPECL_THEN [`s'`,`s`,`subst'`,`tvs'`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
-       discharge_hyps>-
+       impl_tac>-
          (fs[SUBSET_DEF]>>
          rw[]>>
          fs[IN_FRANGE]>>
@@ -686,7 +686,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        rw[]>>
        pop_assum kall_tac>>
        pop_assum(qspec_then `t_walkstar st'.subst (Infer_Tuvar n)` mp_tac)>>
-       discharge_hyps>-
+       impl_tac>-
          (
          fs[EXTENSION,SUBSET_DEF,Abbr`ts`]>>
          fs[MEM_MAP,PULL_EXISTS]>>
@@ -745,7 +745,7 @@ val infer_ds_sound = Q.prove (
  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
  fs[extend_env_new_decs_def,EXISTS_PROD,tenv_bvl_def]>>
  disch_then(qspecl_then[`tenv' with v:= bind_var_list2 ((convert_env2 env'') ++ tenv_v) Empty`]mp_tac) >> simp[] >>
- discharge_hyps >- (
+ impl_tac >- (
    conj_tac >- metis_tac[]>>
    conj_tac >- (
      simp[bvl2_append] >>
@@ -833,7 +833,7 @@ val check_weakE_sound = Q.prove (
   imp_res_tac anub_tl_anub >>
   fs[] >>
   first_x_assum(qspecl_then[`a`,`b`,`st`]mp_tac) >> simp[] >>
-  discharge_hyps_keep >- (
+  impl_keep_tac >- (
     fs[check_env_def,SUBSET_DEF,EVERY_MEM] ) >>
   rw [convert_env2_def, weakE_def] >>
   rw[] >>
@@ -1009,7 +1009,7 @@ val check_specs_sound = Q.prove (
  >- (rw [Once type_specs_cases] >>
      rw [convert_decls_def] >>
      res_tac >>
-     pop_assum mp_tac>>discharge_hyps>-
+     pop_assum mp_tac>>impl_tac>-
        (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
       fs[FEVERY_ALL_FLOOKUP,flookup_update_list_some]>>rw[]>>
       imp_res_tac ALOOKUP_MEM>>
@@ -1024,7 +1024,7 @@ val check_specs_sound = Q.prove (
     fs[FUNION_ASSOC])
  >- (rw [Once type_specs_cases, PULL_EXISTS] >>
      res_tac >>
-     pop_assum mp_tac>>discharge_hyps>-
+     pop_assum mp_tac>>impl_tac>-
        (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
        fs[FEVERY_FUPDATE,FEVERY_FEMPTY,check_freevars_type_name_subst])>>
      strip_tac>>
@@ -1041,7 +1041,7 @@ val check_specs_sound = Q.prove (
      metis_tac[])
  >- (rw [Once type_specs_cases, convert_decls_def] >>
      res_tac >>
-     pop_assum mp_tac>>discharge_hyps>-
+     pop_assum mp_tac>>impl_tac>-
        (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
       fs[FEVERY_FUPDATE,FEVERY_FEMPTY,check_freevars_type_name_subst,check_freevars_def,EVERY_MAP,EVERY_MEM])>>
      rw [PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def] >>
@@ -1086,7 +1086,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          rw [convert_decls_def] >>
          first_x_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] infer_ds_sound)) >>
          disch_then(qspecl_then[`tenv`] mp_tac) >>
-         discharge_hyps>-
+         impl_tac>-
            simp[env_rel_def]>>
          simp[] >> strip_tac >>
          cases_on `o'` >>

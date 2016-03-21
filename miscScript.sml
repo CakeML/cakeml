@@ -6,8 +6,6 @@ val _ = new_theory "misc"
 val _ = ParseExtras.temp_tight_equality()
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
-val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
-val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
 fun drule th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 (* -- *)
@@ -18,6 +16,8 @@ local open integer_wordTheory in
 val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
 val _ = numLib.prefer_num();
 end
+
+val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
 
 val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
@@ -138,7 +138,7 @@ val MAP_KEYS_COMPOSE = Q.store_thm("MAP_KEYS_COMPOSE",
   \\ drule (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
   \\ `?y. x' = f y` by (full_simp_tac(srw_ss())[SURJ_DEF] \\ metis_tac []) \\ srw_tac[][]
   \\ pop_assum (qspec_then `y` mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (full_simp_tac(srw_ss())[MAP_KEYS_def] \\ qexists_tac `f y` \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac LINV_DEF \\ full_simp_tac(srw_ss())[]) \\ srw_tac[][]
   \\ `INJ (LINV f UNIV) (FDOM t) UNIV` by
@@ -836,7 +836,7 @@ val C_BIT_11 = store_thm("C_BIT_11",
     first_x_assum MATCH_MP_TAC >>
     srw_tac[][] >>
     first_x_assum(qspec_then`SUC z`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[] >> simp[LOG2_TIMES2] ) >>
     simp[BIT_TIMES2] ) >>
@@ -858,7 +858,7 @@ val C_BIT_11 = store_thm("C_BIT_11",
   first_x_assum MATCH_MP_TAC >>
   srw_tac[][] >>
   first_x_assum(qspec_then`SUC z`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> simp[LOG2_TIMES2_1,LOG2_TIMES2] ) >>
   simp[BIT_TIMES2_1,BIT_TIMES2])
@@ -1226,7 +1226,7 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
   imp_res_tac MEM_PERM >>
   full_simp_tac(srw_ss())[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
   first_x_assum(qspec_then`n`mp_tac) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   disch_then(Q.X_CHOOSE_THEN`m`strip_assume_tac) >>
   qexists_tac`m` >>
   simp[EL_MAP] >>

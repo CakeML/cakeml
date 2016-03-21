@@ -144,7 +144,7 @@ val new_specification_correct = store_thm("new_specification_correct",
     imp_res_tac proves_sound >>
     fs[entails_def] >>
     first_x_assum(qspec_then`i`mp_tac) >>
-    discharge_hyps >- fs[models_def] >> strip_tac >>
+    impl_tac >- fs[models_def] >> strip_tac >>
     map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
     fs[theory_ok_def] >>
     conj_tac >- (
@@ -162,11 +162,11 @@ val new_specification_correct = store_thm("new_specification_correct",
   imp_res_tac proves_sound >> pop_assum mp_tac >>
   rw[entails_def] >>
   first_x_assum(qspec_then`i`mp_tac) >>
-  discharge_hyps >- fs[models_def] >>
+  impl_tac >- fs[models_def] >>
   rw[satisfies_def] >>
   qmatch_abbrev_tac`termsem tmenv ii v (VSUBST ilist tm) = True` >>
   qspecl_then[`tm`,`ilist`]mp_tac termsem_VSUBST >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[welltyped_def,Abbr`ilist`,MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
     metis_tac[has_type_rules] ) >>
   simp[] >> disch_then kall_tac >>
@@ -592,7 +592,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     match_mp_tac satisfies_extend >>
     fs[entails_def] >>
     first_x_assum(qspec_then`i`mp_tac) >>
-    discharge_hyps >- fs[models_def] >> strip_tac >>
+    impl_tac >- fs[models_def] >> strip_tac >>
     map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
     fs[theory_ok_def] >>
     conj_tac >- (
@@ -743,7 +743,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[Abbr`x`,Abbr`b`] >>
     fs[is_valuation_def,is_term_valuation_def] >>
     first_x_assum (qspecl_then[`strlit "r"`,`typeof witness`]mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       match_mp_tac type_ok_extend >>
       qexists_tac`tysof ctxt` >> simp[] ) >>
     simp[] ) >>
@@ -755,7 +755,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   `inhabited a` by (
     simp[Abbr`a`] >>
     first_x_assum(qspec_then`MAP v0 (MAP implode (STRING_SORT (MAP explode (tvars pred))))`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[EVERY_MAP,EVERY_MEM] >>
       fs[is_valuation_def,is_type_valuation_def] ) >>
     simp[] ) >>
@@ -814,7 +814,7 @@ val extends_consistent = store_thm("extends_consistent",
                ∃i'. equal_on (sigof ctxt1) i i' ∧
                     i' models (thyof ctxt))`
     mp_tac extends_ind >>
-  discharge_hyps >- (
+  impl_tac >- (
     rpt gen_tac >> strip_tac >>
     full_simp_tac std_ss [] >>
     conj_asm1_tac >- metis_tac[updates_theory_ok] >>
@@ -828,7 +828,7 @@ val extends_consistent = store_thm("extends_consistent",
     full_simp_tac std_ss [MEM] >>
     reverse(Cases_on`∃p. upd = NewAxiom p`) >- (
       imp_res_tac updates_consistent >> pop_assum kall_tac >>
-      pop_assum mp_tac >> discharge_hyps >- metis_tac[] >>
+      pop_assum mp_tac >> impl_tac >- metis_tac[] >>
       BasicProvers.VAR_EQ_TAC >>
       disch_then(imp_res_tac o SIMP_RULE std_ss [sound_update_def]) >>
       qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))` >>

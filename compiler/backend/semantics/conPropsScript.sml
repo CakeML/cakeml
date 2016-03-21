@@ -150,7 +150,7 @@ val evaluate_dec_add_to_clock = Q.store_thm("evaluate_dec_add_to_clock",
   Cases_on`d`>>srw_tac[][evaluate_dec_def]>>
   first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_to_clock >>
-  first_x_assum(fn th => mp_tac th >> discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[])) >>
+  first_x_assum(fn th => mp_tac th >> impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[])) >>
   disch_then(qspec_then`extra`strip_assume_tac) >> simp[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[]);

@@ -561,7 +561,7 @@ val small_eval_opapp_err = prove(
   imp_res_tac e_step_add_ctxt >>
   pop_assum(qspec_then`[Capp Opapp (v1::v0) () es,env]`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspecl_then[`env'`,`v`,`v1::v0`]mp_tac) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   metis_tac[transitive_RTC,transitive_def] );
 
 val small_eval_app_err = prove(
@@ -583,7 +583,7 @@ val small_eval_app_err = prove(
   imp_res_tac e_step_add_ctxt >>
   pop_assum(qspec_then`[Capp op (v1::v0) () es,env]`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspecl_then[`op`,`env'`,`v`,`v1::v0`]mp_tac) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   metis_tac[transitive_RTC,transitive_def] );
 
 val do_app_not_timeout = Q.prove (

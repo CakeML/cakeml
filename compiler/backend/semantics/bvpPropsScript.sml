@@ -230,7 +230,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
          srw_tac[][]>>
          qpat_abbrev_tac`ss = call_env X Y` >>
          first_x_assum(qspec_then`ss.stack`mp_tac) >>
-         (discharge_hyps >- (
+         (impl_tac >- (
             simp[Abbr`ss`] >>
             EVAL_TAC >>
             Cases_on`handler`>>EVAL_TAC >>

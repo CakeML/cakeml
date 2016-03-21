@@ -453,7 +453,7 @@ val Recclosure_addargs = Q.store_thm(
       disch_then (qspecl_then [`j`, `vs11 ++ vs1`, `vs21 ++ vs2`] mp_tac) >>
       simp[] >>
       disch_then (qspecl_then [`s1`, `s2`, `lopt`] mp_tac) >> simp[] >>
-      discharge_hyps
+      impl_tac
       >- (irule EVERY2_APPEND_suff >> simp[] >>
           irule val_rel_mono_list >> qexists_tac `i` >> simp[]) >>
       simp[dest_closure_def] >> Cases_on `lopt` >> full_simp_tac(srw_ss())[check_loc_def] >>
@@ -497,7 +497,7 @@ val unused_vars_correct = Q.store_thm(
       first_x_assum
         (qspecl_then [`s21.clock`, `e2::es`, `env1`, `env2`, `s11`, `s21`,
                       `kis`, `s21.clock`] mp_tac) >> simp[] >>
-      discharge_hyps
+      impl_tac
       >- (full_simp_tac(srw_ss())[LIST_RELi_EL_EQN] >> rpt strip_tac >>
           irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       `s11 with clock := s21.clock = s11 ∧ s21 with clock := s21.clock = s21`
@@ -695,7 +695,7 @@ val unused_vars_correct = Q.store_thm(
             >- (first_x_assum
                   (qspecl_then [`s21.clock`, `[f]`, `env1`, `env2`, `s11`,
                                 `s21`, `kis`, `s21.clock`] mp_tac) >>
-                simp[] >> discharge_hyps
+                simp[] >> impl_tac
                 >- (lfs[LIST_RELi_EL_EQN] >> rpt strip_tac >>
                     irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >>
                     simp[]) >>
@@ -763,7 +763,7 @@ val unused_vars_correct = Q.store_thm(
             (qspecl_then [`s11`, `s21`,
                           `count N ∪ IMAGE ((+) N) kis`,
                           `k' + (LENGTH vs2 + 1) - N`]
-                         mp_tac) >> simp[] >> discharge_hyps
+                         mp_tac) >> simp[] >> impl_tac
           >- (conj_tac
               >- (qx_gen_tac `v` >> strip_tac >>
                   Cases_on `v < N` >> simp[] >> qexists_tac `v - N` >>
@@ -814,7 +814,7 @@ val unused_vars_correct = Q.store_thm(
                          `s1`, `s2`,
                          `count (LENGTH fns) ∪ IMAGE ((+) (LENGTH fns)) kis`,
                          `j`] mp_tac) >> simp[exp_size_def] >>
-         discharge_hyps
+         impl_tac
          >- (conj_tac
              >- (qx_gen_tac `vv` >> Cases_on `vv < LENGTH fns` >> simp[] >>
                  strip_tac >> qexists_tac `vv - LENGTH fns` >> simp[]) >>
@@ -854,7 +854,7 @@ val unused_vars_correct = Q.store_thm(
           reverse conj_tac >- metis_tac[val_rel_mono] >>
           first_x_assum (qspec_then `kN` mp_tac) >> simp[] >>
           disch_then (qspecl_then [`vs11 ++ vs1`, `vs21 ++ vs2`] mp_tac) >>
-          discharge_hyps
+          impl_tac
           >- (irule EVERY2_APPEND_suff >> simp[] >>
               metis_tac[val_rel_mono_list,
                         DECIDE ``x ≤ y ∧ y < z ⇒ x ≤ z:num``]) >>
@@ -872,7 +872,7 @@ val unused_vars_correct = Q.store_thm(
         `s11`, `s21`,
         `count (N + LENGTH fns) ∪ IMAGE ((+) (N + LENGTH fns)) kis`,
         `k3 + (LENGTH vs2 + 1) - N`] mp_tac) >>
-      discharge_hyps
+      impl_tac
       >- (simp[] >> rpt strip_tac
           >- (irule (val_rel_mono |> CONJUNCTS |> last) >>
               qexists_tac `kk` >> simp[])

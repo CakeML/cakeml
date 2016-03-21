@@ -393,7 +393,7 @@ val inst_select_exp_thm = prove(``
       >>
         (last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
         disch_then (qspec_then`e`mp_tac)>>
-        discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
+        impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
         full_simp_tac(srw_ss())[binary_branch_exp_def,every_var_exp_def,the_words_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[IS_SOME_EXISTS]>>rev_full_simp_tac(srw_ss())[]>>
         qpat_assum`A=SOME w` mp_tac>>simp[Once word_exp_def]>>FULL_CASE_TAC>>
         FULL_CASE_TAC>>fs[]>>
@@ -412,7 +412,7 @@ val inst_select_exp_thm = prove(``
       (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
       disch_then (qspec_then`e`mp_tac)>>
-      discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
+      impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
       strip_tac>>full_simp_tac(srw_ss())[word_exp_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       res_tac>>
       pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
@@ -431,7 +431,7 @@ val inst_select_exp_thm = prove(``
       last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
       disch_then assume_tac>> first_assum mp_tac>>
       disch_then (qspec_then`e1`mp_tac)>>
-        discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
+        impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
       Cases_on`word_exp s e1`>>fs[]>>Cases_on`x`>>
       Cases_on`word_exp s e2`>>fs[]>>Cases_on`x`>>fs[]>>
       strip_tac>>res_tac>>
@@ -477,7 +477,7 @@ val inst_select_exp_thm = prove(``
         first_x_assum(qspecl_then[`e2`] mp_tac)>>
         simp[exp_size_def]>>
         disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`Word c''`,`loc''`] mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           (srw_tac[][locals_rel_def]>-(Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def])
           >-
             (match_mp_tac every_var_exp_mono>>
@@ -514,7 +514,7 @@ val inst_select_exp_thm = prove(``
       EVERY_CASE_TAC>>fs[]))
   >-
     (*Shift*)
-    (simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
+    (simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
     full_simp_tac(srw_ss())[LET_THM,word_exp_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
     >-
       (`word_sh s' c' (num_exp n) = SOME c'` by
@@ -614,7 +614,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
         imp_res_tac inst_select_exp_thm>>
         pop_assum kall_tac>>
         fs[AND_IMP_INTRO]>>
-        pop_assum mp_tac>>discharge_hyps>-
+        pop_assum mp_tac>>impl_tac>-
           (assume_tac flatten_exp_binary_branch_exp>>
           pop_assum(qspec_then`pull_exp exp` mp_tac)>>simp[binary_branch_exp_def]>>
           imp_res_tac flatten_exp_every_var_exp>>
@@ -639,7 +639,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
         full_simp_tac(srw_ss())[AND_IMP_INTRO]>>
         ntac 2 (pop_assum kall_tac)>>
         pop_assum mp_tac>>
-        discharge_hyps>-
+        impl_tac>-
           (full_simp_tac(srw_ss())[every_var_def,Abbr`expr`]>>
           metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp,pull_exp_every_var_exp])>>
         disch_then (qspecl_then [`temp`,`c`] assume_tac)>>
@@ -667,7 +667,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
       full_simp_tac(srw_ss())[AND_IMP_INTRO]>>
       ntac 2 (pop_assum kall_tac)>>
       pop_assum mp_tac>>
-      discharge_hyps
+      impl_tac
       >-
         (full_simp_tac(srw_ss())[every_var_def]>>
         metis_tac[pull_exp_every_var_exp,flatten_exp_every_var_exp,flatten_exp_binary_branch_exp])

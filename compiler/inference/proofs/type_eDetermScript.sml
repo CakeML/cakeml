@@ -93,7 +93,7 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
   imp_res_tac infer_p_next_uvar_mono >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   qspecl_then[`num_tvs tenv.v`,`si2`,`s''`]mp_tac(GEN_ALL t_compat_bi_ground) >>
-  discharge_hyps >- simp[] >> strip_tac >> simp[] >>
+  impl_tac >- simp[] >> strip_tac >> simp[] >>
   conj_tac >- (
     fs[SUBSET_DEF,EXTENSION] >> rw[] >> res_tac >> DECIDE_TAC ) >>
   fs[simp_tenv_invC_def] >>
@@ -305,7 +305,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
       |> REWRITE_RULE[GSYM AND_IMP_INTRO]
       |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >> simp[] >>
-     discharge_hyps >- (
+     impl_tac >- (
        simp[Abbr q1,EVERY_MEM,MEM_MAP,PULL_EXISTS,check_t_def,Infer_Tbool_def,Infer_Tint_def] ) >>
      strip_tac >>
      match_mp_tac (MP_CANON check_s_more3) >>
@@ -331,10 +331,10 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  first_x_assum(mp_tac o MATCH_MP th)) >>
  imp_res_tac infer_p_next_uvar_mono >>
  `count st.next_uvar ⊆ count st'.next_uvar` by simp[SUBSET_DEF] >>
- discharge_hyps >- metis_tac[SUBSET_TRANS] >> simp[] >>
- discharge_hyps >- metis_tac[tenv_inv_empty_to] >> strip_tac >>
- discharge_hyps >- metis_tac[SUBSET_TRANS] >> simp[] >>
- discharge_hyps >- metis_tac[tenv_inv_empty_to] >> strip_tac >>
+ impl_tac >- metis_tac[SUBSET_TRANS] >> simp[] >>
+ impl_tac >- metis_tac[tenv_inv_empty_to] >> strip_tac >>
+ impl_tac >- metis_tac[SUBSET_TRANS] >> simp[] >>
+ impl_tac >- metis_tac[tenv_inv_empty_to] >> strip_tac >>
  imp_res_tac infer_p_check_t>>
  assume_tac (infer_p_sound |> CONJUNCT1)>>
  first_assum (qspecl_then
@@ -365,7 +365,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  pop_assum(assume_tac o SYM) >> simp[] >>
  fs[EVERY_MEM] >>
  first_x_assum(qspec_then`EL n tenv'`mp_tac) >>
- discharge_hyps >- metis_tac[MEM_EL] >> simp[] >> strip_tac >>
+ impl_tac >- metis_tac[MEM_EL] >> simp[] >> strip_tac >>
  qmatch_assum_rename_tac`check_t 0 (count st'.next_uvar) tt` >>
  `t_vars tt ⊆ count (st'.next_uvar)` by imp_res_tac check_t_t_vars >>
  imp_res_tac infer_p_check_s>> ntac 7 (pop_assum kall_tac)>>
@@ -385,7 +385,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   imp_res_tac t_walkstar_vars_notin>>
   `t_walkstar s1 tt ≠ t_walkstar s2 tt` by
     (Q.ISPECL_THEN [`s2`,`s1`,`n'`]mp_tac (GEN_ALL t_walkstar_diff)>>
-    discharge_hyps>-
+    impl_tac>-
       (rfs[]>>
       `MEM n' l` by fs[]>>
       `t_walkstar s1 (Infer_Tuvar n') = Infer_Tbool ∧
@@ -466,13 +466,13 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
      Cases_on`tvs=0`>>fs[num_tvs_bvl2,num_tvs_def]>>
      rfs[])>>
    Q.ISPECL_THEN [`init_infer_state`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP SND tenv''`,`tvs`] mp_tac extend_multi_props>>
-   discharge_hyps>-
+   impl_tac>-
        fs[init_infer_state_def,t_wfs_def,pure_add_constraints_def,count_def]
    >>
    BasicProvers.LET_ELIM_TAC>>
    first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_complete))) >>
    disch_then(qspecl_then[`s'`,`ienv with inf_v:=itenv2`,`st`,`new_constraints`]mp_tac) >>
-   discharge_hyps>-
+   impl_tac>-
       (fs[]>>
       conj_tac >- (
        simp[Abbr`itenv2`,MAP2_MAP,LENGTH_COUNT_LIST,check_env_merge] >>
@@ -612,7 +612,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
    `pure_add_constraints st'.subst (constraints' ++ls) s''` by metis_tac[pure_add_constraints_append]>>
    imp_res_tac pure_add_constraints_swap>>
    pop_assum mp_tac >>
-   discharge_hyps>-
+   impl_tac>-
      metis_tac[infer_e_wfs]>>
    rw[]>>
    fs[pure_add_constraints_append]>>
@@ -620,7 +620,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
    qexists_tac`constraints'`>>qexists_tac`si`>>
    simp[]>>
    qspecl_then[`tvs`,`si`,`s''`]mp_tac(GEN_ALL t_compat_bi_ground) >>
-   discharge_hyps >-
+   impl_tac >-
     FULL_SIMP_TAC(srw_ss())[num_tvs_bind_var_list,bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def]>>
    rw[]>>
    fs[MAP_EQ_f]>>

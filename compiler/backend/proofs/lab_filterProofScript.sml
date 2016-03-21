@@ -164,7 +164,7 @@ val all_skips_evaluate = prove(``
     metis_tac[state_rw]
   >>
     srw_tac[][]>>first_assum(qspec_then`0` mp_tac)>>
-    discharge_hyps>-
+    impl_tac>-
       full_simp_tac(srw_ss())[]>>
     strip_tac>>full_simp_tac(srw_ss())[]>>
     simp[Once evaluate_def,asm_fetch_def,asm_inst_def]>>
@@ -173,7 +173,7 @@ val all_skips_evaluate = prove(``
     `k' + (k+1 + s.clock) -1 = k' + s.clock+k` by DECIDE_TAC>>
     full_simp_tac(srw_ss())[]>>
     first_x_assum(qspec_then `s with <|pc:=s.pc+1;clock:=k'+s.clock|>` mp_tac)>>
-    discharge_hyps>-
+    impl_tac>-
       (srw_tac[][]>>first_x_assum(qspec_then`i+1` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
       metis_tac[arithmeticTheory.ADD_COMM,ADD_ASSOC])>>
     srw_tac[][]>>first_x_assum(qspec_then`0` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
@@ -207,11 +207,11 @@ val adjust_pc_all_skips = prove(``
     full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>Cases_on`pc=0`
     >-
       (first_assum(qspec_then`0` mp_tac)>>
-      full_simp_tac(srw_ss())[]>>discharge_hyps>-DECIDE_TAC>>strip_tac>>
+      full_simp_tac(srw_ss())[]>>impl_tac>-DECIDE_TAC>>strip_tac>>
       full_simp_tac(srw_ss())[not_skip_def]>>
-      first_x_assum(qspecl_then[`0`,`Section k' ys::xs`]mp_tac)>>discharge_hyps>-
+      first_x_assum(qspecl_then[`0`,`Section k' ys::xs`]mp_tac)>>impl_tac>-
       (full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      first_x_assum(qspec_then`i+1` mp_tac)>>discharge_hyps>-DECIDE_TAC>>
+      first_x_assum(qspec_then`i+1` mp_tac)>>impl_tac>-DECIDE_TAC>>
       srw_tac[][])>>
       full_simp_tac(srw_ss())[Once adjust_pc_def])
     >>
@@ -329,7 +329,7 @@ val loc_to_pc_eq_SOME = prove(``
           simp[Once loc_to_pc_def,SimpLHS])>>
         srw_tac[][]>>
         (last_x_assum(qspec_then`pc` mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
           DECIDE_TAC)>>
         srw_tac[][]>>
@@ -342,7 +342,7 @@ val loc_to_pc_eq_SOME = prove(``
         (simp[]>>simp[Once loc_to_pc_def,SimpLHS]>>
         srw_tac[][]>>
         last_x_assum(qspec_then`pc-1` mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
           DECIDE_TAC)>>
         srw_tac[][]>>
@@ -356,7 +356,7 @@ val loc_to_pc_eq_SOME = prove(``
       >>
         simp[]>>srw_tac[][]>>
         last_x_assum (qspec_then`pc` mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
          (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
           DECIDE_TAC)>>
         srw_tac[][]>>
@@ -399,7 +399,7 @@ val all_skips_get_lab_after = prove(``
   >>
     `¬not_skip h` by
       (full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]>>
-      first_x_assum(qspec_then`0` mp_tac)>>discharge_hyps>-
+      first_x_assum(qspec_then`0` mp_tac)>>impl_tac>-
         DECIDE_TAC>>
       srw_tac[][]>>
       full_simp_tac(srw_ss())[not_skip_def])>>
@@ -427,7 +427,7 @@ val get_lab_after_adjust = prove(``
       full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def])
     >>
       first_assum(qspec_then`k'` mp_tac)>>
-      discharge_hyps>-
+      impl_tac>-
         full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]
       >> simp[])
   >>
@@ -444,7 +444,7 @@ val get_lab_after_adjust = prove(``
         full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def])
       >>
         first_assum(qspec_then`k'` mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]>>
         simp[])
     >>
@@ -474,7 +474,7 @@ val upd_pc_tac =
   first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
   qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
   first_x_assum(qspec_then`B` mp_tac)>>
-  discharge_hyps>-
+  impl_tac>-
   (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality])>>
   srw_tac[][Abbr`B`]>>
   qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
@@ -487,7 +487,7 @@ val inc_pc_tac =
   first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
   qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
   first_x_assum(qspec_then`B` mp_tac)>>
-  discharge_hyps>-
+  impl_tac>-
   (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
   `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
   metis_tac[adjust_pc_all_skips])>>
@@ -621,7 +621,7 @@ val filter_correct = prove(
        first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
        qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
        first_x_assum(qspec_then`B` mp_tac)>>
-       discharge_hyps>-
+       impl_tac>-
          (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
          `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
          metis_tac[adjust_pc_all_skips])>>
@@ -665,7 +665,7 @@ val state_rel_IMP_sem_EQ_sem = prove(
     `state_rel (s with clock := k) (t with clock := k)` by full_simp_tac(srw_ss())[state_rel_def] >>
     drule (REWRITE_RULE[GSYM CONJ_ASSOC](ONCE_REWRITE_RULE[CONJ_COMM]filter_correct)) >>
     simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    discharge_hyps >- full_simp_tac(srw_ss())[state_rel_def] >>
+    impl_tac >- full_simp_tac(srw_ss())[state_rel_def] >>
     simp[FST_EQ_EQUIV,PULL_EXISTS] >>
     rpt gen_tac >> strip_tac >>
     full_simp_tac(srw_ss())[FST_EQ_EQUIV] >>
@@ -681,7 +681,7 @@ val state_rel_IMP_sem_EQ_sem = prove(
         rator_x_assum`evaluate`mp_tac >>
         drule filter_correct >>
         disch_then(qspec_then`t with clock := k`mp_tac) >>
-        discharge_hyps >- full_simp_tac(srw_ss())[state_rel_def] >>
+        impl_tac >- full_simp_tac(srw_ss())[state_rel_def] >>
         strip_tac >> full_simp_tac(srw_ss())[] >> strip_tac >>
         qcase_tac`t with clock := a + b`>>
         qcase_tac`t with clock := c`>>
@@ -698,7 +698,7 @@ val state_rel_IMP_sem_EQ_sem = prove(
         srw_tac[][] >> full_simp_tac(srw_ss())[] ) >>
       drule filter_correct >>
       disch_then(qspec_then`t with clock := k`mp_tac) >>
-      discharge_hyps >- full_simp_tac(srw_ss())[state_rel_def] >>
+      impl_tac >- full_simp_tac(srw_ss())[state_rel_def] >>
       strip_tac >> full_simp_tac(srw_ss())[] >>
       qexists_tac`k+k'`>>simp[] >>
       every_case_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -745,7 +745,7 @@ val state_rel_IMP_sem_EQ_sem = prove(
       Q.ISPEC_THEN `s with clock := k` mp_tac filter_correct >>
       Cases_on`evaluate (s with clock := k)`>>full_simp_tac(srw_ss())[] >>
       disch_then(qspec_then`t with clock := k`mp_tac) >>
-      discharge_hyps >- ( full_simp_tac(srw_ss())[state_rel_def] ) >>
+      impl_tac >- ( full_simp_tac(srw_ss())[state_rel_def] ) >>
       simp[] >> strip_tac >>
       conj_tac >> strip_tac >- (
         rev_full_simp_tac(srw_ss())[] >> qexists_tac`k+k'`>>simp[] ) >>

@@ -598,7 +598,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
       drule compile_evaluate >>
-      discharge_hyps >- ( rw[] >> strip_tac >> fs[] ) >>
+      impl_tac >- ( rw[] >> strip_tac >> fs[] ) >>
       strip_tac >> fs[] ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
@@ -614,7 +614,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         Cases_on`s'.ffi.final_event`>>fs[]>-(
           unabbrev_all_tac >>
           drule compile_evaluate >>
-          discharge_hyps >- fs[] >>
+          impl_tac >- fs[] >>
           strip_tac >>
           drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
           simp[] >>
@@ -629,7 +629,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
         unabbrev_all_tac >>
         drule compile_evaluate >>
-        discharge_hyps >- (
+        impl_tac >- (
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
         strip_tac >>
@@ -643,7 +643,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       unabbrev_all_tac >>
       drule compile_evaluate >>
       simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>
         rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
       strip_tac >> rveq >>
@@ -658,7 +658,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       rveq >> fsrw_tac[ARITH_ss][] >>
       fs[compile_state_def,state_component_equality] >> rfs[]) >>
     drule compile_evaluate >> simp[] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
       fs[] >> rpt strip_tac >> fs[] ) >>
     strip_tac >>

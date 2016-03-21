@@ -106,13 +106,13 @@ val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_de
 fun init_tac q =
   fs[models_def] >>
   first_x_assum(qspec_then q mp_tac) >>
-  discharge_hyps >- (unabbrev_all_tac >> EVAL_TAC) >>
+  impl_tac >- (unabbrev_all_tac >> EVAL_TAC) >>
   simp[satisfies_def] >>
   strip_tac >>
   simp[interprets_def] >>
   qx_gen_tac`τ`>>strip_tac >>
   qspecl_then[`tysof sig`,`tyaof i`,`τ`]mp_tac (UNDISCH term_valuation_exists) >>
-  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  impl_tac >- fs[is_interpretation_def] >> strip_tac >>
   first_x_assum(qspec_then`(τ,σ)`mp_tac) >> simp[] >>
   qabbrev_tac`v = (τ,σ)` >>
   `is_structure sig i v` by fs[is_structure_def] >>
@@ -346,7 +346,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[typesem_def] >>
     Q.PAT_ABBREV_TAC`aa:'U = X (strlit "A")` >>
     qspecl_then[`pp`,`aa`,`boolset`]mp_tac(UNDISCH in_funspace_abstract) >>
-    discharge_hyps >- (fs[is_type_valuation_def,Abbr`aa`] >> metis_tac[boolean_in_boolset]) >>
+    impl_tac >- (fs[is_type_valuation_def,Abbr`aa`] >> metis_tac[boolean_in_boolset]) >>
     disch_then(qx_choose_then`pf`strip_assume_tac) >> simp[] >>
     `∀x. x <: aa ⇒ Abstract aa boolset (λm. True) ' x = True` by (
       rw[] >> match_mp_tac apply_abstract_matchable >> rw[mem_boolset] ) >>
@@ -367,13 +367,13 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     qx_gen_tac`pp` >> strip_tac >>
     simp[boolean_in_boolset] >>
     qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
-    discharge_hyps >- (fs[is_bool_sig_def,is_exists_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
+    impl_tac >- (fs[is_bool_sig_def,is_exists_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,
          mlstringTheory.implode_def] >>
     fs[interprets_def] >>
     qpat_assum`∀t. is_type_valuation t ⇒ Z`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
     simp[combinTheory.APPLY_UPDATE_THM] >>
@@ -424,12 +424,12 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     match_mp_tac (UNDISCH abstract_eq) >>
     imp_res_tac typesem_Fun >>
     qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
-    discharge_hyps >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
+    impl_tac >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
     fs[interprets_def] >>
     qpat_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
     simp[combinTheory.APPLY_UPDATE_THM] >>
@@ -462,12 +462,12 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     imp_res_tac typesem_Bool >> simp[] >>
     imp_res_tac typesem_Fun >>
     qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
-    discharge_hyps >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
+    impl_tac >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
     fs[interprets_def] >>
     qpat_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
     simp[combinTheory.APPLY_UPDATE_THM] >> disch_then kall_tac >>

@@ -523,7 +523,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      >-
        (fs[sub_completion_def]>>
         Q.ISPECL_THEN [`t`,`s`,`tvs`,`st.next_uvar`,`num_tvs tenv.v`] mp_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst) >>
-        discharge_hyps_keep>-
+        impl_keep_tac>-
           (fs[]>>
           metis_tac[pure_add_constraints_wfs,check_t_more])
         >>
@@ -536,7 +536,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
         assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
         pop_assum(qspecl_then[`t'`,`0`,`subst`,`ls`,`ARB`] mp_tac)>>
-        discharge_hyps>-fs[]>>
+        impl_tac>-fs[]>>
         rw[]>>
         fs[deBruijn_inc0]>>
         qexists_tac`MAP (deBruijn_subst 0 ls) subst`>>
@@ -575,7 +575,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      >-
        (fs[sub_completion_def]>>
         Q.ISPECL_THEN [`t`,`s`,`tvs`,`st.next_uvar`,`num_tvs tenv.v`] mp_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst) >>
-        discharge_hyps_keep>-
+        impl_keep_tac>-
           (fs[]>>
           metis_tac[pure_add_constraints_wfs,check_t_more])
         >>
@@ -588,7 +588,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
         assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
         pop_assum(qspecl_then[`t''`,`0`,`subst`,`ls`,`ARB`] mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           fs[]>>
         rw[]>>
         fs[deBruijn_inc0]>>

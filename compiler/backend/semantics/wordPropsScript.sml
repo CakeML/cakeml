@@ -2080,11 +2080,11 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     full_simp_tac(srw_ss())[every_var_def]>>rev_full_simp_tac(srw_ss())[]
     >-
       (first_x_assum(qspec_then`p`mp_tac)>>full_simp_tac(srw_ss())[GSYM PULL_FORALL]>>
-      discharge_hyps>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)>>strip_tac>>
+      impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)>>strip_tac>>
       res_tac>>full_simp_tac(srw_ss())[])
     >>
       (first_x_assum(qspec_then`p0`mp_tac)>>full_simp_tac(srw_ss())[GSYM PULL_FORALL]>>
-      discharge_hyps>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)>>strip_tac>>
+      impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)>>strip_tac>>
       res_tac>>full_simp_tac(srw_ss())[]))
   >-
     (*alloc*)

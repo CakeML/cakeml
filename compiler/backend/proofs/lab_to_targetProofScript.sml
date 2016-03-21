@@ -2710,7 +2710,7 @@ val remove_labels_loop_thm = Q.prove(
   >> strip_tac >> rveq THEN1
    (full_simp_tac(srw_ss())[]
     >> last_x_assum mp_tac
-    >> discharge_hyps >- srw_tac[][good_syntax_def]
+    >> impl_tac >- srw_tac[][good_syntax_def]
     >> simp[] >> strip_tac >> fs []
     >> drule enc_secs_again_IMP_similar
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
@@ -2781,7 +2781,7 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
   >> strip_tac
   >> drule (GEN_ALL remove_labels_loop_thm)
   >> disch_then(qspec_then`mc_conf`mp_tac)
-  >> discharge_hyps
+  >> impl_tac
   >- ( simp[good_syntax_def] )
   >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]
   >> rw [] >> res_tac);

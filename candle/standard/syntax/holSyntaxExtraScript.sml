@@ -630,7 +630,7 @@ val orda_lx_trans = prove(
     simp[] >>
     disch_then(qspecl_then[`MAP SND env2`,`t3`]mp_tac) >>
     simp[] >>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[LIST_EQ_REWRITE,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] ) >>
     simp[RACONV_eq_orda] ) >>
   qmatch_abbrev_tac`d ⇒ X` >> strip_tac >>
@@ -1578,7 +1578,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     Cases >> simp[REV_ASSOCD] >>
     strip_tac >>
     qpat_assum`p ⇒ qq`mp_tac >>
-    discharge_hyps >- metis_tac[] >> strip_tac >>
+    impl_tac >- metis_tac[] >> strip_tac >>
     rw[] >> fs[] >>
     Cases_on`r`>>fs[] )
   >- simp[VSUBST_def]
@@ -1590,13 +1590,13 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
   srw_tac[][VSUBST_def] >>
   reverse(rw[]) >- (
     first_x_assum(qspec_then`ilist'`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`ilist'`,MEM_FILTER] >>
       metis_tac[] ) >>
     rw[Abbr`t'`] >>
     qmatch_abbrev_tac`bind v n (dbVSUBST ls tt) = X` >>
     qspecl_then[`tt`,`v`,`n`,`ls`]mp_tac bind_dbVSUBST >>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[MEM_MAP,EVERY_MEM,EXISTS_PROD,FORALL_PROD,Abbr`ls`,GSYM LEFT_FORALL_IMP_THM,Abbr`ilist'`,MEM_FILTER] >>
       qunabbrev_tac`v` >>
       conj_tac >- (
@@ -1608,12 +1608,12 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
       qmatch_assum_rename_tac`k = db u` >>
       `∃x ty. u = Var x ty` by metis_tac[] >>
       qspecl_then[`ilist`,`x`,`ty`]mp_tac REV_ASSOCD_MAP_db >>
-      discharge_hyps >- metis_tac[] >>
+      impl_tac >- metis_tac[] >>
       simp[] >> strip_tac >>
       BasicProvers.CASE_TAC >- (
         qmatch_abbrev_tac`¬dbVFREE_IN (dbVar s t) (db tz)` >>
         qspecl_then[`tz`,`Var s t`]mp_tac dbVFREE_IN_VFREE_IN >>
-        discharge_hyps >- (
+        impl_tac >- (
           qmatch_assum_abbrev_tac`Abbrev(tz = REV_ASSOCD y l d)` >>
           Q.ISPECL_THEN[`l`,`y`,`d`]mp_tac REV_ASSOCD_MEM >>
           map_every qunabbrev_tac[`y`,`tz`,`d`] >>
@@ -1630,7 +1630,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     fs[dbVFREE_IN_bind]) >>
   TRY(rw[Abbr`z`] >> NO_TAC) >>
   first_x_assum(qspec_then`ilist''`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
     metis_tac[WELLTYPED_CLAUSES] ) >>
   qunabbrev_tac`ilist''` >> rw[] >>
@@ -1638,20 +1638,20 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
   qmatch_assum_rename_tac`Abbrev(z = Var (VARIANT ta s tb) bty)` >>
   qspecl_then[`tt`,`v`,`(b,tb)`,`n`,`ls`]mp_tac bind_dbVSUBST_cons >>
   simp[Abbr`v`] >>
-  discharge_hyps >- (
+  impl_tac >- (
     qunabbrev_tac`zz` >>
     simp[Abbr`z`,dbVFREE_IN_dbVSUBST] >>
     Q.PAT_ABBREV_TAC`z = VARIANT ta s tb` >>
     simp[dbVFREE_IN_bind] >>
     rpt gen_tac >>
     qspecl_then[`ilist'`,`y`,`ty`]mp_tac REV_ASSOCD_MAP_db >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`ilist'`,MEM_FILTER] >>
       metis_tac[] ) >>
     rw[] >>
     qmatch_assum_abbrev_tac`tv = db tu` >>
     qspecl_then[`tu`,`Var z tb`]mp_tac dbVFREE_IN_VFREE_IN >>
-    discharge_hyps >- (
+    impl_tac >- (
       qmatch_assum_abbrev_tac`Abbrev(tu = REV_ASSOCD c l d)` >>
       Q.ISPECL_THEN[`l`,`c`,`d`]mp_tac REV_ASSOCD_MEM >>
       map_every qunabbrev_tac[`c`,`tu`,`d`,`l`,`ilist'`] >>
@@ -1734,13 +1734,13 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
     qmatch_abbrev_tac`bind (x,TYPE_SUBST tyin ty) 0 (db tt) = X` >>
     ntac 3 (pop_assum kall_tac) >>
     qspecl_then[`db tm`,`x,ty`,`0`,`tyin`]mp_tac dbINST_bind >>
-    discharge_hyps >- (
+    impl_tac >- (
       qx_gen_tac`ty2` >>
       qspecl_then[`tm`,`Var x ty2`]mp_tac dbVFREE_IN_VFREE_IN >>
       rw[] >>
       qmatch_assum_abbrev_tac`INST_CORE env' tyin tm = Y` >>
       qspecl_then[`sizeof tm`,`tm`,`env'`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[Abbr`env'`] >>
         metis_tac[] ) >>
       simp[Abbr`Y`] >>
@@ -1754,12 +1754,12 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
     disch_then(qspec_then`tm`mp_tac) >> simp[] >>
     disch_then(qspecl_then[`tyin`,`env'`,`tt`]mp_tac) >>
     simp[Abbr`env'`] >>
-    discharge_hyps >- metis_tac[] >>
+    impl_tac >- metis_tac[] >>
     rw[] ) >>
   qmatch_abbrev_tac`bind (z,TYPE_SUBST tyin ty) 0 (db tt) = dbINST tyin (bind (x,ty) 0 (db tm))` >>
   ntac 3 (pop_assum kall_tac) >>
   qspecl_then[`db tm`,`z,ty`,`x,ty`,`0`,`[]`]mp_tac bind_dbVSUBST_cons >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[] >>
     simp[dbVFREE_IN_bind] >>
     `∃tmi. INST_CORE [] tyin tm = Result tmi` by (
@@ -1792,20 +1792,20 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
     simp[Abbr`tv`] >>
     match_mp_tac VSUBST_WELLTYPED >>
     simp[] >> simp[Once has_type_cases] ) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`env'`] >>
     metis_tac[] ) >>
   rw[] >>
   qspecl_then[`tm`,`[Var z ty,Var x ty]`]mp_tac VSUBST_dbVSUBST >>
   simp[] >> disch_then(strip_assume_tac o SYM) >> simp[] >>
   qspecl_then[`db tv`,`z,ty`,`0`,`tyin`]mp_tac dbINST_bind >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[] >>
     qx_gen_tac`ty2` >>
     qspecl_then[`tv`,`Var z ty2`]mp_tac dbVFREE_IN_VFREE_IN >>
     rw[] >>
     qspecl_then[`sizeof tv`,`tv`,`env'`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`env'`] >>
       metis_tac[] ) >>
     simp[] >>
@@ -2140,7 +2140,7 @@ val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
     TRY (
       qexists_tac`SND (rename_bvars names env tm)`>>simp[] >>
       qspecl_then[`names`,`env`,`tm`]mp_tac FST_rename_bvars >>
-      discharge_hyps >- DECIDE_TAC >> strip_tac >>
+      impl_tac >- DECIDE_TAC >> strip_tac >>
       first_assum (assume_tac o Q.AP_TERM`LENGTH`) >>
       fs[LENGTH_DROP] >>
       `LENGTH (bv_names tm) ≤ LENGTH names` by DECIDE_TAC >>
@@ -2688,7 +2688,7 @@ val proves_ACONV_lemma = prove(
     qspecl_then[`thy`,`h1++h0::hr`,`c`,`h`]mp_tac addAssum >>
     imp_res_tac WELLTYPED_LEMMA >> simp[] >>
     qspecl_then[`h1`,`h`,`h0`,`hr`]mp_tac term_union_replace >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       rpt(qpat_assum`EVERY P (X::Y)`kall_tac) >>
       rw[] >>
@@ -2701,7 +2701,7 @@ val proves_ACONV_lemma = prove(
       metis_tac[alpha_lt_trans_ACONV,ACONV_SYM]) >>
     disch_then SUBST1_TAC >> strip_tac >>
     first_x_assum(qspecl_then[`h1++[h]`,`hr`]mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >- metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] >>
       conj_tac >- (
         imp_res_tac proves_term_ok >> fs[] >>
@@ -2723,7 +2723,7 @@ val proves_ACONV_lemma = prove(
   qspecl_then[`thy`,`h1++h''`,`c`,`h`]mp_tac addAssum >>
   imp_res_tac WELLTYPED_LEMMA >> simp[] >>
   qspecl_then[`h1`,`h`,`h''`]mp_tac term_union_insert >>
-  discharge_hyps >- (
+  impl_tac >- (
     fs[EVERY_MEM,EXISTS_MEM] >>
     conj_tac >- (
       rw[] >>
@@ -2739,7 +2739,7 @@ val proves_ACONV_lemma = prove(
     metis_tac[ACONV_SYM,alpha_lt_trans_ACONV] ) >>
   disch_then SUBST1_TAC >> strip_tac >>
   first_x_assum(qspecl_then[`h1++[h]`,`h''`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >- metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] >>
     conj_tac >- (
       imp_res_tac proves_term_ok >> fs[] >>
@@ -2781,7 +2781,7 @@ val sym_equation = store_thm("sym_equation",
   qspecl_then[`[]`,`SND thyh`,`Equal (typeof p)`,`p`]mp_tac appThm_equation >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[] >> discharge_hyps_keep
+  simp[] >> impl_keep_tac
     >- fs[term_ok_equation,EQUATION_HAS_TYPE_BOOL] >>
   simp[term_union_thm] >>
   strip_tac >> mp_tac appThm_equation >>
@@ -2820,10 +2820,10 @@ val trans_equation = store_thm("trans_equation",
   rfs[term_ok_equation] >>
   qspecl_then[`Comb (Equal (typeof t3)) t3`,`thy`]mp_tac refl_equation >>
   simp[term_ok_clauses] >>
-  discharge_hyps >- metis_tac[term_ok_type_ok,term_ok_welltyped] >>
+  impl_tac >- metis_tac[term_ok_type_ok,term_ok_welltyped] >>
   disch_then(mp_tac o MATCH_MP appThm_equation) >>
   disch_then(qspecl_then[`h1`,`t2a`,`t1`]mp_tac) >>
-  discharge_hyps >- metis_tac[sym_equation] >>
+  impl_tac >- metis_tac[sym_equation] >>
   fs[EQUATION_HAS_TYPE_BOOL] >>
   imp_res_tac ACONV_TYPE >> rfs[] >>
   qpat_assum`typeof t3 = X`(assume_tac o SYM) >>
@@ -2831,8 +2831,8 @@ val trans_equation = store_thm("trans_equation",
   disch_then(mp_tac o MATCH_MP eqMp_equation) >>
   disch_then(qspecl_then[`h2`,`t3 === t2b`]mp_tac) >>
   simp[term_union_thm] >>
-  discharge_hyps >- metis_tac[sym_equation] >>
-  discharge_hyps >- (
+  impl_tac >- metis_tac[sym_equation] >>
+  impl_tac >- (
     simp[ACONV_def,RACONV,equation_def] >>
     simp[GSYM ACONV_def] ) >>
   metis_tac[sym_equation])

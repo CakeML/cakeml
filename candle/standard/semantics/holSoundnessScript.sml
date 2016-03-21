@@ -189,7 +189,7 @@ val INST_correct = store_thm("INST_correct",
   TRY ( match_mp_tac VSUBST_HAS_TYPE >> metis_tac[] ) >>
   TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
   qspecl_then[`c`,`ilist`]mp_tac termsem_VSUBST >>
-  discharge_hyps >- metis_tac[welltyped_def] >>
+  impl_tac >- metis_tac[welltyped_def] >>
   disch_then(qspecl_then[`tmsof(sigof thy)`,`i`,`v`]SUBST1_TAC) >>
   first_x_assum(qspec_then`i`mp_tac) >> rw[] >>
   first_x_assum(match_mp_tac o MP_CANON) >>
@@ -207,7 +207,7 @@ val INST_correct = store_thm("INST_correct",
     fs[models_def] >> metis_tac[is_std_interpretation_is_type] ) >>
   gen_tac >> strip_tac >>
   qspecl_then[`h`,`VSUBST ilist`,`t`]mp_tac MEM_term_image >>
-  discharge_hyps >- rw[] >> strip_tac >>
+  impl_tac >- rw[] >> strip_tac >>
   first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
   metis_tac[MEM_term_image_imp,termsem_VSUBST,welltyped_def,VSUBST_WELLTYPED,termsem_aconv])
 
@@ -241,7 +241,7 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     metis_tac[type_ok_TYPE_SUBST |> SIMP_RULE(srw_ss())[EVERY_MAP,EVERY_MEM]]) >>
   gen_tac >> strip_tac >>
   qspecl_then[`h`,`INST tyin`,`t`]mp_tac MEM_term_image >>
-  discharge_hyps >- rw[] >> strip_tac >>
+  impl_tac >- rw[] >> strip_tac >>
   first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
   metis_tac[MEM_term_image_imp,SIMP_RULE(srw_ss())[]termsem_INST,
             welltyped_def,INST_WELLTYPED,termsem_aconv])

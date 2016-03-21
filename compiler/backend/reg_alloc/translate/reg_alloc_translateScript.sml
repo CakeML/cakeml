@@ -55,7 +55,7 @@ val rpt_do_step_alt = prove(``
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  discharge_hyps>- 
+  impl_tac>- 
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
@@ -76,7 +76,7 @@ val rpt_do_step2_alt = prove(``
   Cases_on`do_step2 s`>>
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step2_clock_lemma>>
-  discharge_hyps>- 
+  impl_tac>- 
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
@@ -99,7 +99,7 @@ val rpt_do_step_side_def = prove(``
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  discharge_hyps>- 
+  impl_tac>- 
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
@@ -124,7 +124,7 @@ val rpt_do_step2_side_def = prove(``
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step2_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  discharge_hyps>- 
+  impl_tac>- 
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>

@@ -2879,7 +2879,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
          full_simp_tac(srw_ss())[bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def])) >>
  TRY (
    qpat_assum`_ ⇒ _`mp_tac >>
-   discharge_hyps >- (
+   impl_tac >- (
      match_mp_tac tenv_tabbrev_ok_merge >>
      srw_tac[][tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def,
          FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_UPDATE] >>
@@ -2901,7 +2901,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
      srw_tac[][check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
  TRY (
    qpat_assum`_ ⇒ _`mp_tac >>
-   discharge_hyps >- (
+   impl_tac >- (
      match_mp_tac tenv_tabbrev_ok_merge >>
      srw_tac[][tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def,
          FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_UPDATE] >>

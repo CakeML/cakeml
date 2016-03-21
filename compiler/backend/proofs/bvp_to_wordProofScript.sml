@@ -679,7 +679,7 @@ val word_gc_move_thm = prove(
   \\ full_simp_tac(srw_ss())[word_list_APPEND]
   \\ disch_then (qspec_then `ys` assume_tac)
   \\ SEP_F_TAC
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (full_simp_tac(srw_ss())[ADD1,SUM_APPEND,X_LE_DIV,RIGHT_ADD_DISTRIB]
     \\ Cases_on `2 ** shift_length conf` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `n` \\ full_simp_tac(srw_ss())[MULT_CLAUSES]
@@ -893,7 +893,7 @@ val word_gc_move_loop_thm = prove(
   \\ rev_full_simp_tac(srw_ss())[]
   \\ qcase_tac `word_payload _ _ tag _ conf = _`
   \\ drule word_payload_T_IMP
-  \\ discharge_hyps THEN1 (fs []) \\ strip_tac
+  \\ impl_tac THEN1 (fs []) \\ strip_tac
   \\ `k <> 0` by
    (fs [heap_length_APPEND,el_length_def,heap_length_def] \\ decide_tac)
   \\ full_simp_tac std_ss []
@@ -919,7 +919,7 @@ val word_gc_move_loop_thm = prove(
   \\ first_x_assum drule
   \\ disch_then (qspec_then `xs` mp_tac)
   \\ fs [] \\ strip_tac \\ SEP_F_TAC
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (full_simp_tac(srw_ss())[NOT_LESS] \\ qpat_assum `_ <= heap_length heap` mp_tac
     \\ qpat_assum `heap_length heap <= _ ` mp_tac
     \\ qpat_assum `heap_length heap <= _ ` mp_tac
@@ -1067,7 +1067,7 @@ val word_gc_fun_lemma = prove(
   \\ disch_then drule
   \\ disch_then (qspec_then `emp` mp_tac)
   \\ full_simp_tac(srw_ss())[SEP_CLAUSES]
-  \\ discharge_hyps
+  \\ impl_tac
   THEN1 (imp_res_tac full_gc_IMP \\ fs [])
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac full_gc_IMP_LENGTH
@@ -2484,7 +2484,7 @@ val gc_lemma = prove(
   \\ full_simp_tac(srw_ss())[]
   \\ pop_assum (qspecl_then [`l1`,`l2`] mp_tac) \\ srw_tac[][]
   \\ pop_assum (mp_tac o MATCH_MP state_rel_gc)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (full_simp_tac(srw_ss())[wordSemTheory.call_env_def,call_env_def,
         wordSemTheory.push_env_def,fromList_def]
     \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -2494,7 +2494,7 @@ val gc_lemma = prove(
       (state_rel_pop_env_IMP |> REWRITE_RULE [GSYM AND_IMP_INTRO]
          |> Q.GEN `s2`)) \\ srw_tac[][]
   \\ pop_assum (qspec_then `s with <| locals := x ; space := 0 |>` mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (full_simp_tac(srw_ss())[pop_env_def,push_env_def,call_env_def,
       bvpSemTheory.state_component_equality])
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -3223,7 +3223,7 @@ val assign_thm = Q.prove(
     \\ ntac 2 (pop_assum kall_tac)
     \\ drule evaluate_StoreEach
     \\ disch_then (qspecl_then [`3::MAP adjust_var args`,`1`] mp_tac)
-    \\ discharge_hyps THEN1
+    \\ impl_tac THEN1
      (fs [wordSemTheory.get_vars_def,Abbr`t5`,wordSemTheory.get_var_def,
           lookup_insert,get_vars_with_store,get_vars_adjust_var] \\ NO_TAC)
     \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
@@ -3417,7 +3417,7 @@ val assign_thm = Q.prove(
     \\ ntac 2 (pop_assum kall_tac)
     \\ drule evaluate_StoreEach
     \\ disch_then (qspecl_then [`3::MAP adjust_var args`,`1`] mp_tac)
-    \\ discharge_hyps THEN1
+    \\ impl_tac THEN1
      (fs [wordSemTheory.get_vars_def,Abbr`t5`,wordSemTheory.get_var_def,
           lookup_insert,get_vars_with_store,get_vars_adjust_var] \\ NO_TAC)
     \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
@@ -3837,7 +3837,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       strip_tac >>
       drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      discharge_hyps >- (
+      impl_tac >- (
         strip_tac >> full_simp_tac(srw_ss())[] ) >>
       drule(GEN_ALL state_rel_ext_with_clock) >>
       disch_then(qspec_then`k'`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
@@ -3847,7 +3847,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
       drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
       simp[RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`ck`mp_tac) >>
       fsrw_tac[ARITH_ss][inc_clock_def] >> srw_tac[][] >>
       every_case_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -3891,7 +3891,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
                     initial_state_with_simp,IS_SOME_EXISTS,initial_state_simp]) >>
       drule compile_correct >> simp[] >>
       simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>srw_tac[][]>>
         strip_tac>>full_simp_tac(srw_ss())[])>>
       drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
@@ -3915,7 +3915,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       rator_x_assum`wordSem$evaluate`mp_tac >>
       drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
       simp[RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+      impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
       disch_then(qspec_then`k+ck`mp_tac) >>
       fsrw_tac[ARITH_ss][inc_clock_def]>> srw_tac[][] >>
       every_case_tac>>full_simp_tac(srw_ss())[]>>rveq>>rev_full_simp_tac(srw_ss())[]>>
@@ -3923,7 +3923,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
       srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
     drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
@@ -3943,7 +3943,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     strip_tac >>
     drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
     disch_then drule >>
@@ -3952,7 +3952,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
     drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
-    discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`ck`mp_tac) >>
     fsrw_tac[ARITH_ss][inc_clock_def] >> srw_tac[][] >>
     every_case_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -3964,7 +3964,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     strip_tac >>
     drule(compile_correct)>>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps >- (
+    impl_tac >- (
       strip_tac >> full_simp_tac(srw_ss())[] >>
       last_x_assum(qspec_then`k`mp_tac) >>
       simp[] ) >>
@@ -4044,7 +4044,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
     drule compile_correct >>
     simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
       strip_tac >> full_simp_tac(srw_ss())[] ) >>
     drule(state_rel_ext_with_clock) >>
@@ -4065,7 +4065,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   (fn g => subterm (fn tm => Cases_on`^(replace_term(#1(dest_exists(#2 g)))(``k:num``)(assert(has_pair_type)tm))`) (#2 g) g) >>
   drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-  discharge_hyps >- (
+  impl_tac >- (
     last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
     strip_tac >> full_simp_tac(srw_ss())[] ) >>
   drule(state_rel_ext_with_clock) >>

@@ -2175,7 +2175,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
      first_x_assum(fn th =>
        first_assum(mp_tac o MATCH_MP (CONV_RULE(STRIP_QUANT_CONV(HO_REWR_CONV(swap_imp))) th))) >>
      disch_then(qspecl_then[`tenvS'`,`flat_to_ctMap new_tenv11 ⊌ ctMap`]mp_tac) >>
-     discharge_hyps >- (
+     impl_tac >- (
          full_simp_tac(srw_ss())[decs_type_sound_invariant_def, extend_dec_env_def] >>
          simp [extend_env_new_decs_def] >> srw_tac[][]
          >- (imp_res_tac type_d_tenvT_ok >>

@@ -365,7 +365,7 @@ val evaluate_CopyGlobals_code = Q.prove(
   qpat_abbrev_tac`l2 = LUPDATE x y z` >>
   qpat_abbrev_tac`rf = s.refs |+ X` >>
   first_x_assum(qspecl_then[`l2`,`s with refs := rf`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`rf`,FLOOKUP_UPDATE] >>
     simp[Abbr`l2`] ) >>
   strip_tac >>
@@ -422,7 +422,7 @@ val evaluate_AllocGlobal_code = Q.prove(
   qpat_abbrev_tac`l1 = REPLICATE _ _` >>
   qpat_abbrev_tac`rf = s.refs |+ _ |+ _` >>
   qspecl_then[`Number(1+ &SUC n)::ls`,`n`,`l1`,`s with <| global := SOME p1; refs := rf|>`]mp_tac evaluate_CopyGlobals_code >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`rf`,FLOOKUP_UPDATE] >>
     IF_CASES_TAC >> simp[] >- (
       full_simp_tac(srw_ss())[FLOOKUP_DEF] >> metis_tac[LEAST_NOTIN_FDOM] ) >>
@@ -783,7 +783,7 @@ val compile_exps_correct = Q.prove(
     \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ full_simp_tac(srw_ss())[]
     \\ rpt var_eq_tac
-    \\ TRY (discharge_hyps >- (spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
+    \\ TRY (impl_tac >- (spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
     \\ TRY (REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
       \\ `?d. c1 = [d]` by (Cases_on `c1` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
       \\ SIMP_TAC std_ss [Once bviPropsTheory.evaluate_CONS] \\ full_simp_tac(srw_ss())[]
@@ -800,7 +800,7 @@ val compile_exps_correct = Q.prove(
       \\ IMP_RES_TAC evaluate_code_const \\ full_simp_tac(srw_ss())[inc_clock_def])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
     \\ `s2 = s6` by (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[])
-    \\ discharge_hyps >- metis_tac[evaluate_global_mono,inc_clock_global]
+    \\ impl_tac >- metis_tac[evaluate_global_mono,inc_clock_global]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
     \\ Q.MATCH_ASSUM_RENAME_TAC
         `evaluate (c2,MAP (adjust_bv b3) env,inc_clock c4 t2) =
@@ -833,7 +833,7 @@ val compile_exps_correct = Q.prove(
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC aux_code_installed_APPEND \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
     \\ TRY (
-      discharge_hyps >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
+      impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
       \\ REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
       \\ `?d. c1 = [d]` by (Cases_on `c1` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
       \\ SIMP_TAC std_ss [Once iEval_def] \\ full_simp_tac(srw_ss())[]
@@ -853,7 +853,7 @@ val compile_exps_correct = Q.prove(
         \\ IMP_RES_TAC evaluate_code_const \\ full_simp_tac(srw_ss())[inc_clock_def])
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
-      \\ discharge_hyps >- metis_tac[evaluate_global_mono,inc_clock_global]
+      \\ impl_tac >- metis_tac[evaluate_global_mono,inc_clock_global]
       \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ IMP_RES_TAC evaluate_inv_clock \\ full_simp_tac(srw_ss())[inc_clock_ADD]
       \\ REV_FULL_SIMP_TAC std_ss []
@@ -872,7 +872,7 @@ val compile_exps_correct = Q.prove(
         \\ IMP_RES_TAC evaluate_code_const \\ full_simp_tac(srw_ss())[inc_clock_def])
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
-      \\ discharge_hyps >- metis_tac[evaluate_global_mono,inc_clock_global]
+      \\ impl_tac >- metis_tac[evaluate_global_mono,inc_clock_global]
       \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ IMP_RES_TAC evaluate_inv_clock \\ full_simp_tac(srw_ss())[inc_clock_ADD]
       \\ REV_FULL_SIMP_TAC std_ss []
@@ -890,7 +890,7 @@ val compile_exps_correct = Q.prove(
     \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ full_simp_tac(srw_ss())[]
     \\ TRY (
-      discharge_hyps >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
+      impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
       \\ REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
       \\ `?d. c2 = [d]` by (Cases_on `c2` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
       \\ SIMP_TAC std_ss [Once iEval_def] \\ full_simp_tac(srw_ss())[]
@@ -906,7 +906,7 @@ val compile_exps_correct = Q.prove(
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ IMP_RES_TAC evaluate_code_const \\ full_simp_tac(srw_ss())[inc_clock_def])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >- metis_tac[evaluate_global_mono,inc_clock_global]
+    \\ impl_tac >- metis_tac[evaluate_global_mono,inc_clock_global]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
     \\ Q.MATCH_ASSUM_RENAME_TAC
         `evaluate ([d],MAP (adjust_bv b3) a ++
@@ -1662,7 +1662,7 @@ val optimise_semantics = Q.store_thm("optimise_semantics",
     Q.ISPECL_THEN[`xs`,`env`,`s`]mp_tac optimise_evaluate >>
     Cases_on`evaluate (xs,env,s)` >>
     simp[Abbr`s`] >>
-    discharge_hyps >- METIS_TAC[FST] >>
+    impl_tac >- METIS_TAC[FST] >>
     full_simp_tac(srw_ss())[fromAList_optimise,fromAList_toAList,wf_fromAList] >>
     full_simp_tac(srw_ss())[GSYM fromAList_optimise] >>
     imp_res_tac bvlPropsTheory.evaluate_code >>
@@ -1696,7 +1696,7 @@ val optimise_semantics = Q.store_thm("optimise_semantics",
   ntac 2 strip_tac >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac bvlPropsTheory.evaluate_add_clock >>
-  rpt(first_x_assum (fn th => mp_tac th >> discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]))) >>
+  rpt(first_x_assum (fn th => mp_tac th >> impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]))) >>
   simp[bvlPropsTheory.inc_clock_def] >>
   TRY (
     disch_then(qspec_then`k1`strip_assume_tac) >>
@@ -1739,7 +1739,7 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   `state_rel b1 (dec_clock 1 s1) (dec_clock 1 t1)` by (
     full_simp_tac(srw_ss())[state_rel_def,bvlSemTheory.dec_clock_def,bviSemTheory.dec_clock_def] ) >>
   disch_then drule >>
-  discharge_hyps >- (
+  impl_tac >- (
     full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,bviSemTheory.dec_clock_def] >>
     full_simp_tac(srw_ss())[state_ok_def] ) >>
   strip_tac >>
@@ -1993,7 +1993,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
       disch_then(fn th => subterm (mp_tac o C SPEC th o #2 o boolSyntax.dest_let) (concl tmp)))
     bvi_stubs_evaluate >>
   simp[Once state_rel_def,FLOOKUP_UPDATE] >>
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >- (
       qexists_tac`init_number_of_globals+1`>>simp[]>>EVAL_TAC ) >>
     rpt var_eq_tac >>
@@ -2052,13 +2052,13 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
       drule bviPropsTheory.evaluate_add_clock >>
-      discharge_hyps >- full_simp_tac(srw_ss())[] >> strip_tac >>
+      impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
       rator_x_assum`bvlSem$evaluate`kall_tac >>
       last_assum(qspec_then`SUC k'`mp_tac)>>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       drule (GEN_ALL compile_prog_evaluate) >>
       disch_then drule >>
-      discharge_hyps >- ( full_simp_tac(srw_ss())[] >> METIS_TAC[FST] ) >>
+      impl_tac >- ( full_simp_tac(srw_ss())[] >> METIS_TAC[FST] ) >>
       strip_tac >>
       strip_tac >>
       first_x_assum(qspec_then`SUC ck`mp_tac) >>
@@ -2084,19 +2084,19 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           unabbrev_all_tac >>
           drule (GEN_ALL compile_prog_evaluate) >>
           disch_then drule >>
-          discharge_hyps >- (
+          impl_tac >- (
             simp[] >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
             full_simp_tac(srw_ss())[bvlSemTheory.evaluate_def] >>
             every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
           strip_tac >>
           drule bviPropsTheory.evaluate_add_clock >>
-          discharge_hyps >- (
+          impl_tac >- (
             CASE_TAC >> full_simp_tac(srw_ss())[] >>
             CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[bviPropsTheory.inc_clock_def]>>
           rator_x_assum`bviSem$evaluate`mp_tac >>
           drule bviPropsTheory.evaluate_add_clock >>
-          discharge_hyps >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+          impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`ck+k`mp_tac)>>simp[bviPropsTheory.inc_clock_def]>>
           ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
           full_simp_tac(srw_ss())[state_component_equality] >>
@@ -2107,7 +2107,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         unabbrev_all_tac >>
         drule (GEN_ALL compile_prog_evaluate) >>
         disch_then drule >>
-        discharge_hyps >- (
+        impl_tac >- (
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           fsrw_tac[ARITH_ss][] >> strip_tac >>
           spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
@@ -2116,7 +2116,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         strip_tac >>
         rator_x_assum`bvlSem$evaluate`mp_tac >>
         drule bvlPropsTheory.evaluate_add_clock >>
-        discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[bvlPropsTheory.inc_clock_def] >>
         first_x_assum(qspec_then`ck+k`mp_tac)>>simp[] >>
         fsrw_tac[ARITH_ss][] >>
@@ -2127,7 +2127,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       unabbrev_all_tac >>
       drule (GEN_ALL compile_prog_evaluate) >>
       disch_then drule >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k+SUC k'`mp_tac)>>
         fsrw_tac[ARITH_ss][] ) >>
       strip_tac >> rveq >>
@@ -2138,7 +2138,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
       rator_x_assum`bviSem$evaluate`mp_tac >>
       drule bviPropsTheory.evaluate_add_clock >>
-      discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`ck+SUC k`mp_tac)>>simp[bviPropsTheory.inc_clock_def] >>
       fsrw_tac[ARITH_ss][ADD1] >>
       ntac 2 strip_tac >> rveq >>
@@ -2151,14 +2151,14 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     unabbrev_all_tac >>
     drule (GEN_ALL compile_prog_evaluate) >>
     disch_then drule >> simp[] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k+1`mp_tac)>>fsrw_tac[ARITH_ss][] ) >>
     strip_tac >>
     asm_exists_tac >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >- (
       rator_x_assum`bvlSem$evaluate`mp_tac >>
       drule bvlPropsTheory.evaluate_add_clock >>
-      discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`1`mp_tac)>>simp[bvlPropsTheory.inc_clock_def] ) >>
     rev_full_simp_tac(srw_ss())[state_rel_def] >> full_simp_tac(srw_ss())[] ) >>
   strip_tac >>
@@ -2198,7 +2198,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     strip_tac >>
     drule (GEN_ALL compile_prog_evaluate) >>
     disch_then drule >>
-    discharge_hyps >- full_simp_tac(srw_ss())[] >>
+    impl_tac >- full_simp_tac(srw_ss())[] >>
     strip_tac >>
     qmatch_assum_rename_tac`bvlSem$evaluate(_,[],_ (SUC k)) = (_,rr)` >>
     reverse(Cases_on`rr.ffi.final_event`) >- (
@@ -2216,7 +2216,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
     rator_x_assum`bviSem$evaluate`mp_tac >>
     drule bviPropsTheory.evaluate_add_clock >>
-    discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`SUC ck`mp_tac) >>
     simp[bviPropsTheory.inc_clock_def] >>
     fsrw_tac[ARITH_ss][ADD1] >>

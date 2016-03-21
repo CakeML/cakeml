@@ -961,7 +961,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
   REPEAT STRIP_TAC \\ MP_TAC compile_exp_lemma \\ full_simp_tac(srw_ss())[]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[compile_exp_def,LET_DEF]
   \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ full_simp_tac(srw_ss())[]
-  \\ discharge_hyps >- (rpt strip_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][COUNT_LIST_GENLIST]);
+  \\ impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][COUNT_LIST_GENLIST]);
 
 val state_rel_dec_clock = Q.prove(
   `state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)`,
@@ -994,7 +994,7 @@ val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
   imp_res_tac state_rel_dec_clock >>
   disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal``state_rel`` o fst o strip_comb)))))) >>
   simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[lookup_def,bvpSemTheory.dec_clock_def] >>
     full_simp_tac(srw_ss())[jump_exc_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -1046,7 +1046,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
       drule compile_prog_evaluate >>
-      discharge_hyps >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
+      impl_tac >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
       strip_tac >> full_simp_tac(srw_ss())[] >> rveq >>
       every_case_tac >> full_simp_tac(srw_ss())[] ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -1063,15 +1063,15 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
           unabbrev_all_tac >>
           drule compile_prog_evaluate >>
-          discharge_hyps >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+          impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
           strip_tac >>
           drule bvpPropsTheory.evaluate_add_clock >>
-          discharge_hyps >- (
+          impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
           rator_x_assum`bvpSem$evaluate`mp_tac >>
           drule bvpPropsTheory.evaluate_add_clock >>
-          discharge_hyps >- (
+          impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
           ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
@@ -1081,20 +1081,20 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
         unabbrev_all_tac >>
         drule compile_prog_evaluate >>
-        discharge_hyps >- (
+        impl_tac >- (
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
         strip_tac >>
         rator_x_assum`bviSem$evaluate`mp_tac >>
         drule bviPropsTheory.evaluate_add_clock >>
-        discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[inc_clock_def] >>
         ntac 2 strip_tac >> rveq >>
         fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
       first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
       unabbrev_all_tac >>
       drule compile_prog_evaluate >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>
         rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
       strip_tac >> rveq >>
@@ -1103,12 +1103,12 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
       rator_x_assum`bvpSem$evaluate`mp_tac >>
       drule bvpPropsTheory.evaluate_add_clock >>
-      discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>
       ntac 2 strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
     drule compile_prog_evaluate >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
       full_simp_tac(srw_ss())[] >> rpt strip_tac >> full_simp_tac(srw_ss())[] ) >>
     strip_tac >>
@@ -1122,7 +1122,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
     strip_tac >>
     drule compile_prog_evaluate >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] ) >>
     strip_tac >>
     full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1134,7 +1134,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
     strip_tac >>
     drule compile_prog_evaluate >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] ) >>
     strip_tac >>
     full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1149,7 +1149,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g))) >>
   drule compile_prog_evaluate >>
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
     last_x_assum(qspec_then`k`mp_tac)>>simp[]) >>
   strip_tac >> simp[] >>

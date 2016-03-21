@@ -195,7 +195,7 @@ val filter_bitmap_MAP_IMP = Q.store_thm("filter_bitmap_MAP_IMP",
   \\ Cases_on`l` \\ fs[]
   \\ rveq
   \\ first_x_assum drule
-  \\ discharge_hyps >- metis_tac[]
+  \\ impl_tac >- metis_tac[]
   \\ simp[]
   \\ rw[]
   \\ metis_tac[PAIR]);
@@ -1423,11 +1423,11 @@ val dec_stack_lemma1 = prove(``
       (qpat_assum`A ∧ B ⇒ C` mp_tac>>
       imp_res_tac abs_stack_IMP_LENGTH>>
       simp[]>>
-      discharge_hyps>-
+      impl_tac>-
         (imp_res_tac word_stack_dec_stack_shape>>
         simp[]>>fsrw_tac[][])>>
       imp_res_tac list_rel_lastn>>
-      pop_assum(qspec_then`v00+1` mp_tac)>>discharge_hyps>-
+      pop_assum(qspec_then`v00+1` mp_tac)>>impl_tac>-
         DECIDE_TAC>>
       metis_tac[LIST_REL_abs_frame_eq_handler_val])
     >- (
@@ -1476,11 +1476,11 @@ val dec_stack_lemma = prove(``
     (qpat_assum`A ∧ B ⇒ C` mp_tac>>
     imp_res_tac abs_stack_IMP_LENGTH>>
     simp[]>>
-    discharge_hyps>-
+    impl_tac>-
       (imp_res_tac word_stack_dec_stack_shape>>
       simp[]>>fs[])>>
     imp_res_tac list_rel_lastn>>
-    pop_assum(qspec_then`s1.handler+1` mp_tac)>>discharge_hyps>-
+    pop_assum(qspec_then`s1.handler+1` mp_tac)>>impl_tac>-
       DECIDE_TAC>>
     metis_tac[LIST_REL_abs_frame_eq_handler_val])
   )|> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
@@ -1624,7 +1624,7 @@ val alloc_IMP_alloc = prove(
       srw_tac[][]
       >-
         (qpat_assum`A ∧ B ⇒ C` mp_tac>>
-        discharge_hyps>-
+        impl_tac>-
           (srw_tac[][]>-
             DECIDE_TAC>>
           `SUC (LENGTH s3.stack) - (s3.handler+1) =
@@ -1747,11 +1747,11 @@ val alloc_IMP_alloc2 = prove(``
   ntac 6 (pop_assum kall_tac)>>
   pop_assum mp_tac>>
   disch_then(qspecl_then [`set_store AllocSize (Word c) t`,`lens`,`k`] mp_tac)>>
-  discharge_hyps>-
+  impl_tac>-
     (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def,state_rel_def,LET_THM,env_to_list_def,lookup_def]>>
     fs[FUN_EQ_THM,wf_def]>>
     metis_tac[])>>
-  discharge_hyps_keep>-
+  impl_keep_tac>-
     (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def])>>
   rw[]>>
   fs[]>>
@@ -2538,7 +2538,7 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   \\ first_x_assum drule
   \\ qpat_abbrev_tac`rr = (_ =+ r _) _`
   \\ disch_then(qspec_then`rr`mp_tac)
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[Abbr`rr`,APPLY_UPDATE_THM]
     \\ conj_tac
@@ -2616,7 +2616,7 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
   \\ qpat_abbrev_tac`rr = _ r`
   \\ qispl_then[`SOME x`,`ms`,`rr`]mp_tac (Q.GEN`k`seqsem_move_unchanged)
-  \\ discharge_hyps >- ( fs[MEM_FILTER] )
+  \\ impl_tac >- ( fs[MEM_FILTER] )
   \\ simp[] \\ disch_then kall_tac
   \\ simp[Abbr`rr`,APPLY_UPDATE_THM]
   \\ fs[find_index_def]
@@ -2952,7 +2952,7 @@ val ALL_DISTINCT_parmove = Q.store_thm("ALL_DISTINCT_parmove",
      FILTER_REVERSE,MAP_REVERSE,ALL_DISTINCT_REVERSE]
   \\ qmatch_goalsub_abbrev_tac`pmov p`
   \\ qspec_then`p`mp_tac ALL_DISTINCT_pmov
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[Abbr`p`,parmoveTheory.wf_def,parmoveTheory.windmill_def]
     \\ simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP,FILTER_MAP]
@@ -3002,7 +3002,7 @@ val parmove_preserves_moves = Q.store_thm("parmove_preserves_moves",
   \\ qspec_then`p`strip_assume_tac pmov_final
   \\ simp[state_to_list_def,Abbr`p`]
   \\ disch_then(qspecl_then[`SOME x`,`SOME y`]mp_tac)
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[parmoveTheory.wf_def,EVERY_MAP,EVERY_MEM,IS_SOME_EXISTS,UNCURRY]
     \\ simp[MEM_MAP,UNCURRY,EXISTS_PROD]
@@ -3405,7 +3405,7 @@ val TIMES2_DIV2_lemma = Q.prove(
   \\ simp[MAP_OPTION_MAP_FILTER_IS_SOME]
   \\ ntac 2 AP_TERM_TAC
   \\ qispl_then[`moves`,`DIV2`]mp_tac(Q.GENL[`f`,`ls`]parmove_MAP_INJ)
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[]
     \\ fs[EVERY_MEM]
@@ -3474,7 +3474,7 @@ val parsem_parmove_DIV2_lemma = Q.prove(
      (FILTER IS_SOME (MAP FST (parmove moves))))`,
   rw[]
   \\ drule(Q.ISPEC`DIV2`(Q.GEN`f`(ONCE_REWRITE_RULE[CONJ_COMM]parmove_MAP_INJ)))
-  \\ discharge_hyps
+  \\ impl_tac
   >- ( simp[] \\ rw[] \\ metis_tac[EVERY_MEM,EVEN_DIV2_INJ] )
   \\ simp[]
   \\ disch_then kall_tac
@@ -3497,7 +3497,7 @@ val parsem_parmove_DIV2_lemma = Q.prove(
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
     \\ simp[] )
   \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`r`,`f`]parsem_MAP_INJ)
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[INJ_DEF]
     \\ Cases \\ simp[]
@@ -3637,7 +3637,7 @@ val alist_insert_get_vars = Q.store_thm("alist_insert_get_vars",
   \\ qmatch_assum_rename_tac`get_var a s = SOME c`
   \\ qmatch_assum_rename_tac`¬MEM b _`
   \\ disch_then(qspec_then`FILTER ($<> (SOME b)) ls`mp_tac)
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[MEM_FILTER]
     \\ conj_tac
@@ -3669,7 +3669,7 @@ val alist_insert_get_vars = Q.store_thm("alist_insert_get_vars",
   \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP f ll)`
   \\ qispl_then[`ll`,`f`,`SOME x`]mp_tac ALOOKUP_MAP_INJ_FST
   \\ simp[]
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[INJ_DEF,Abbr`f`,Abbr`ll`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
     \\ rw[] \\ fs[] )
@@ -3680,7 +3680,7 @@ val alist_insert_get_vars = Q.store_thm("alist_insert_get_vars",
   \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP f ll)`
   \\ qispl_then[`ll`,`f`,`SOME x`]mp_tac ALOOKUP_MAP_INJ_FST
   \\ simp[]
-  \\ discharge_hyps
+  \\ impl_tac
   >- (
     simp[INJ_DEF,Abbr`f`,Abbr`ll`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
     \\ rw[] \\ fs[] )
@@ -3916,7 +3916,7 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
     \\ ntac 2 strip_tac
     \\ last_x_assum drule
     \\ disch_then drule
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       qmatch_asmsub_abbrev_tac`list_max ls`
       \\ qspec_then`ls`mp_tac list_max_max
@@ -3933,7 +3933,7 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
     first_x_assum drule \\ strip_tac
     \\ first_x_assum drule \\ simp[] \\ strip_tac
     \\ first_x_assum drule \\ simp[]
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       qmatch_asmsub_abbrev_tac`list_max ls`
       \\ qspec_then`ls`mp_tac list_max_max
@@ -4298,7 +4298,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
                 reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
                 word_allocTheory.max_var_exp_def,list_max_def]
-        \\ discharge_hyps
+        \\ impl_tac
         >- (
           conj_tac >- metis_tac[]
           \\ rw[] \\ fs[TWOxDIV2] )
@@ -4330,7 +4330,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
               reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               word_allocTheory.max_var_exp_def,list_max_def]
-      \\ discharge_hyps
+      \\ impl_tac
       >- (
         conj_tac >- metis_tac[]
         \\ rw[] \\ fs[TWOxDIV2] )
@@ -4414,7 +4414,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
                 reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
                 word_allocTheory.max_var_exp_def,list_max_def]
-        \\ discharge_hyps
+        \\ impl_tac
         >- (
           conj_tac >- metis_tac[]
           \\ rw[] \\ fs[TWOxDIV2] )
@@ -4457,9 +4457,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ disch_then (fn th => drule th >> mp_tac th)
       \\ pop_assum kall_tac
       \\ disch_then drule
-      \\ discharge_hyps >- (rw[] \\ simp[TWOxDIV2])
+      \\ impl_tac >- (rw[] \\ simp[TWOxDIV2])
       \\ strip_tac
-      \\ discharge_hyps >- (rw[] \\ simp[TWOxDIV2])
+      \\ impl_tac >- (rw[] \\ simp[TWOxDIV2])
       \\ strip_tac
       \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
       \\ simp[Abbr`tt`]
@@ -4724,7 +4724,7 @@ val evaluate_stack_move = prove(``
   ntac 4 strip_tac>>
   simp[]>>
   first_x_assum(qspecl_then[`tar+1`,`t`,`offset`] mp_tac)>>
-  discharge_hyps>-
+  impl_tac>-
     simp[]>>
   strip_tac>>fsrw_tac[][stackSemTheory.state_component_equality]>>
   reverse IF_CASES_TAC>-
@@ -4879,7 +4879,7 @@ val evaluate_PushHandler = prove(``
     simp[TAKE_TAKE_MIN,LENGTH_TAKE,DROP_LENGTH_NIL_rwt]>>
     imp_res_tac (DROP_SUB2|>INST_TYPE[alpha|->``:'a word_loc``])>>
     pop_assum(qspec_then`TAKE t.stack_space t.stack` mp_tac)>>
-    discharge_hyps>- simp[]>>
+    impl_tac>- simp[]>>
     strip_tac>>
     qpat_assum`A=rest` SUBST_ALL_TAC>>
     Cases_on`rest`>>fs[]>>
@@ -4997,7 +4997,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ Cases_on`1 ≤ f`
     THEN1
       (drule evaluate_wLive
-      \\ discharge_hyps_keep
+      \\ impl_keep_tac
       THEN1
         (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
         fs[GSYM toAList_domain,EVERY_MEM]>>
@@ -5008,7 +5008,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
       \\ Cases_on `alloc c t5` \\ fs []
       \\ qcase_tac `alloc c t5 = (res1,t1)` \\ fs []
-      \\ drule alloc_IMP_alloc \\ discharge_hyps >- (fs[])
+      \\ drule alloc_IMP_alloc \\ impl_tac >- (fs[])
       \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
     \\
@@ -5059,7 +5059,7 @@ val comp_correct = Q.store_thm("comp_correct",
          case x of NONE => get_var (k+1) t
                  | SOME i => get_var (2*i) s`
     \\ disch_then(qspec_then`r`mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       simp[Abbr`r`]
       \\ conj_tac
@@ -5127,7 +5127,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ simp[] \\ disch_then kall_tac
     \\ simp[Abbr`mvs`]
     \\ Q.ISPEC_THEN`r`drule (Q.GEN`r`parsem_parmove_DIV2_lemma)
-    \\ discharge_hyps >- simp[]
+    \\ impl_tac >- simp[]
     \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC)
     \\ qpat_abbrev_tac`ls = FILTER _ _`
     \\ simp[set_vars_def]
@@ -5380,7 +5380,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs [state_rel_def,LET_DEF,push_locals_def,stackSemTheory.evaluate_def,LET_THM]
     \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def]
     \\ qpat_assum` A ⇒ B` mp_tac
-    \\ discharge_hyps>-
+    \\ impl_tac>-
       (`s.handler+1 ≤ LENGTH s.stack` by DECIDE_TAC>>
       imp_res_tac LASTN_HD>>
       ntac 3 (pop_assum sym_sub_tac)>>
@@ -5454,12 +5454,12 @@ val comp_correct = Q.store_thm("comp_correct",
     rw[]>>fs[]
     >-
       (first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs`,`lens`] mp_tac)>>
-      discharge_hyps>-
+      impl_tac>-
        (fs[convs_def,word_allocTheory.max_var_def]>>
          metis_tac[IS_PREFIX_TRANS,comp_IMP_isPREFIX,evaluate_consts])>>
       strip_tac>>qexists_tac`ck`>>rfs[])>>
     first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs'`,`lens`] mp_tac)>>
-    discharge_hyps>-
+    impl_tac>-
       (fs[convs_def,word_allocTheory.max_var_def]
        >> metis_tac[IS_PREFIX_TRANS,comp_IMP_isPREFIX,evaluate_consts])>>
     strip_tac>>qexists_tac`ck`>>rfs[])
@@ -5653,7 +5653,7 @@ val comp_correct = Q.store_thm("comp_correct",
             simp[])
       \\ first_x_assum drule
       \\ disch_then (qspec_then `bs'` mp_tac) \\ fsrw_tac[] []
-      \\ discharge_hyps THEN1
+      \\ impl_tac THEN1
         (CONJ_ASM1_TAC>-
           (qpat_assum`A=SOME(q,r)`mp_tac>>
           Cases_on`dest`>>
@@ -5705,7 +5705,7 @@ val comp_correct = Q.store_thm("comp_correct",
     first_assum (mp_tac o MATCH_MP ((GEN_ALL evaluate_wLive)|>REWRITE_RULE[GSYM AND_IMP_INTRO]))>>
     disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o REWRITE_RULE[AND_IMP_INTRO])>>
     simp[]>>
-    discharge_hyps_keep>-
+    impl_keep_tac>-
       (Cases_on`handler`>>TRY(PairCases_on`x''`)>>
       fsrw_tac[][convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
       fsrw_tac[][GSYM toAList_domain,EVERY_MEM]>>
@@ -5769,7 +5769,7 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
       simp[evaluate_stack_move_clock]>>
       Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f`] mp_tac evaluate_stack_move>>
-      discharge_hyps_keep>-
+      impl_keep_tac>-
         (qpat_assum`s.clock ≠ 0 ⇒ P` kall_tac>>
         qpat_assum`∀a b c. P` kall_tac>>
         unabbrev_all_tac>>simp[]>>
@@ -5947,7 +5947,7 @@ val comp_correct = Q.store_thm("comp_correct",
       Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
       first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
       Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
-      discharge_hyps>-
+      impl_tac>-
         (CONJ_ASM1_TAC>-
           (qpat_assum`A=SOME(q,r)`mp_tac>>
           Cases_on`dest`>>
@@ -6061,7 +6061,7 @@ val comp_correct = Q.store_thm("comp_correct",
         ntac 3 (pop_assum kall_tac)>>
         rveq>>fsrw_tac[][]>>
         first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs'`,`lens`] mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           (fsrw_tac[][convs_def]>>rw[]
           >-
             (qpat_assum`A<B:num` mp_tac>>
@@ -6159,7 +6159,7 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
     simp[evaluate_stack_move_clock]>>
     Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f+3`] mp_tac evaluate_stack_move>>
-    discharge_hyps_keep>-
+    impl_keep_tac>-
       (qpat_assum`s.clock ≠ 0 ⇒ P` kall_tac>>
       qpat_assum`∀a b c. P` kall_tac>>
       qpat_assum`∀a b. P` kall_tac>>
@@ -6345,14 +6345,14 @@ val comp_correct = Q.store_thm("comp_correct",
      simp[EL_DROP]>>
      disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
      ntac 60 (last_x_assum kall_tac)>>
-     discharge_hyps>-
+     impl_tac>-
        DECIDE_TAC>>
      qpat_assum`A=v` sym_sub_tac>>
      simp[])>>
     Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
     first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
     Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
-    discharge_hyps>-
+    impl_tac>-
       (CONJ_ASM1_TAC>-
         (qpat_assum`A=SOME(q,r)`mp_tac>>
         Cases_on`dest`>>
@@ -6479,7 +6479,7 @@ val comp_correct = Q.store_thm("comp_correct",
         ntac 4 (pop_assum kall_tac)>>
         rveq>>fsrw_tac[][]>>
         first_x_assum(qspecl_then[`k`,`f`,`f'`,`t2`,`bs'`,`lens`] mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           (fsrw_tac[][convs_def]>>rw[]
           >-
             (qpat_assum`A<B:num` mp_tac>>
@@ -6579,7 +6579,7 @@ val comp_correct = Q.store_thm("comp_correct",
         imp_res_tac filter_bitmap_MEM>>
         ntac 2 (pop_assum kall_tac)>>
         pop_assum (qspec_then`(n DIV 2 ,v)` mp_tac)>>
-        discharge_hyps>-
+        impl_tac>-
           (fs[MEM_MAP,MAP_FST_def]>>
           qexists_tac`y`>>
           simp[mem_list_rearrange,MEM_QSORT]>>
@@ -6608,7 +6608,7 @@ val comp_correct = Q.store_thm("comp_correct",
       ntac 4 (pop_assum kall_tac)>>
       rveq>>fsrw_tac[][]>>
       first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs''`,`lens`] mp_tac)>>
-      discharge_hyps>-
+      impl_tac>-
         (fsrw_tac[][convs_def]>>rw[]
         >-
           fs[word_allocTheory.max_var_def]
@@ -6722,7 +6722,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
       strip_tac >>
       drule comp_Call >> fs[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      discharge_hyps >- ( strip_tac >> fs[] ) >>
+      impl_tac >- ( strip_tac >> fs[] ) >>
       drule(GEN_ALL state_rel_with_clock) >>
       disch_then(qspec_then`k''`strip_assume_tac) >> fs[] >>
       disch_then drule >> simp[] >>
@@ -6742,11 +6742,11 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
         Cases_on`r`>>fs[] >> rveq >>
         drule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
         simp[RIGHT_FORALL_IMP_THM] >>
-        discharge_hyps >- (strip_tac >> fs[]) >>
+        impl_tac >- (strip_tac >> fs[]) >>
         disch_then(qspec_then`k''`mp_tac)>>simp[]>>strip_tac>>
         drule comp_Call >>
         simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-        discharge_hyps >- (strip_tac >> fs[]) >>
+        impl_tac >- (strip_tac >> fs[]) >>
         drule (GEN_ALL state_rel_with_clock) >> simp[] >>
         disch_then(qspec_then`k'+k''`mp_tac)>>simp[]>>strip_tac>>
         disch_then drule>>
@@ -6781,7 +6781,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
                     ]) >>
       drule comp_Call >>
       simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- (
+      impl_tac >- (
         last_x_assum(qspec_then`k'+k''`mp_tac)>>rw[]>>
         strip_tac>>fs[])>>
       drule(GEN_ALL state_rel_with_clock)>>simp[]>>
@@ -6810,7 +6810,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     rw[] >> fs[] >>
     drule comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       rw[] >> strip_tac >> fs[] ) >>
     drule(GEN_ALL state_rel_with_clock) >>
@@ -6829,7 +6829,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     strip_tac >>
     drule comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    impl_tac >- ( strip_tac >> fs[] ) >>
     drule(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
     disch_then drule >>
@@ -6838,7 +6838,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
     drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
-    discharge_hyps >- (strip_tac >> fs[]) >>
+    impl_tac >- (strip_tac >> fs[]) >>
     disch_then(qspec_then`ck`mp_tac) >>
     simp[] >> rw[] >> fs[] >>
     every_case_tac >> fs[] >> rw[] >> fs[]) >>
@@ -6850,7 +6850,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     strip_tac >>
     drule comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps >- (
+    impl_tac >- (
       strip_tac >> fs[] >>
       last_x_assum(qspec_then`k'`mp_tac) >>
       simp[] ) >>
@@ -6926,7 +6926,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
     drule comp_Call >>
     simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-    discharge_hyps >- (
+    impl_tac >- (
       last_x_assum(qspec_then`k'`mp_tac)>>rw[]>>
       strip_tac >> fs[] ) >>
     drule(GEN_ALL state_rel_with_clock) >>
@@ -6941,7 +6941,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
   (fn g => subterm (fn tm => Cases_on`^(replace_term(#1(dest_exists(#2 g)))(``k':num``)(assert(has_pair_type)tm))`) (#2 g) g) >>
   drule comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-  discharge_hyps >- (
+  impl_tac >- (
     last_x_assum(qspec_then`k'`mp_tac)>>rw[]>>
     strip_tac >> fs[] ) >>
   drule(state_rel_with_clock) >>

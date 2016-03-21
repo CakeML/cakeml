@@ -446,7 +446,7 @@ val raconv_thm = prove(
   \\ Q.PAT_ASSUM `!tm2.bbb` (MP_TAC o Q.SPECL
         [`t4`,`((Var s' ty,Var s4 ty4)::env)`])
   \\ FULL_SIMP_TAC std_ss [EVERY_DEF]
-  \\ discharge_hyps
+  \\ impl_tac
   THEN1 (REPEAT STRIP_TAC \\ MATCH_MP_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [])
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [])
 
@@ -874,7 +874,7 @@ val vsubst_aux_thm = prove(
       qmatch_assum_rename_tac`VFREE_IN (Var x ty) pm` >>
       qmatch_assum_rename_tac`VFREE_IN qm pm2` >>
       first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[] >> spose_not_then STRIP_ASSUME_TAC >> fs[] ) >>
       strip_tac >- METIS_TAC[vfree_in_thm] >>
       first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
@@ -882,7 +882,7 @@ val vsubst_aux_thm = prove(
       METIS_TAC[vfree_in_thm,TERM] ) >>
     Q.PAT_ABBREV_TAC`thet = FILTER P theta` >>
     first_x_assum(qspec_then`thet`mp_tac)>>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[EVERY_MEM,Abbr`thet`,MEM_FILTER,FORALL_PROD]>>
       rw[]>>METIS_TAC[])>>
     rw[Abbr`thet`] >>
@@ -937,7 +937,7 @@ val vsubst_aux_thm = prove(
       last_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >> simp[] >>
       strip_tac >>
       first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         conj_tac >- (
           spose_not_then STRIP_ASSUME_TAC >>
           Cases_on`qm`>>fs[] >>
@@ -1505,7 +1505,7 @@ val ALPHA_THM_thm = Q.store_thm("ALPHA_THM_thm",
   `ACONV t c` by METIS_TAC[aconv_thm] >> fs[] >>
   qspecl_then[`list_to_hypset h []`,`r`]mp_tac map_type_of >>
   simp[] >>
-  discharge_hyps_keep >- (
+  impl_keep_tac >- (
     rw[EVERY_MEM] >>
     imp_res_tac MEM_list_to_hypset_imp >> fs[EVERY_MEM] ) >>
   strip_tac >>
@@ -2009,7 +2009,7 @@ val new_specification_thm = store_thm("new_specification_thm",
   first_x_assum(qspecl_then[`l`,`defs`,`s`]mp_tac) >>
   Cases_on`map f l s` >> simp[]>>
   reverse(Cases_on`q`)>>simp[] >>
-  (discharge_hyps >- fs[]) >> simp[] >>
+  (impl_tac >- fs[]) >> simp[] >>
   strip_tac >>
   BasicProvers.CASE_TAC >- (
     simp[failwith_def] ) >>
@@ -2162,7 +2162,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   Cases_on `freesin [] P` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] >>
   simp[Once ex_bind_def] >>
   qspec_then`x`mp_tac type_of_thm >>
-  discharge_hyps >- METIS_TAC[STATE_def,TERM_Comb,THM] >>
+  impl_tac >- METIS_TAC[STATE_def,TERM_Comb,THM] >>
   simp[] >> disch_then kall_tac >>
   simp[Once ex_bind_def] >>
   Q.PAT_ABBREV_TAC`vs:string list = QSORT R X` >>
@@ -2248,7 +2248,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   rpt(qpat_assum`Z = s`kall_tac)>>
   Cases_on`mk_comb (Const repname repty,a) s2` >>
   MP_TAC (mk_comb_thm |> Q.INST [`f`|->`Const repname repty`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[] >>
     conj_asm1_tac >- METIS_TAC[mk_const_thm,EVERY_DEF] >>
     imp_res_tac TERM >>
@@ -2317,7 +2317,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   `mk_comb (P,Var (strlit "r") (term_type x)) s2 = (HolRes (Comb P (Var (strlit "r") (term_type x))), s2)` by (
     Cases_on`mk_comb (P,Var (strlit "r") (term_type x)) s2` >>
     MP_TAC (mk_comb_thm |> Q.INST [`f`|->`P`,`a`|->`Var (strlit "r") (term_type x)`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
-    discharge_hyps >- (
+    impl_tac >- (
       rfs[STATE_def,TERM_Comb,TERM_Var_SIMP] >>
       imp_res_tac term_type ) >>
     strip_tac >>

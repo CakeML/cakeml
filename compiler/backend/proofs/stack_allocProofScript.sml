@@ -654,7 +654,7 @@ val memcpy_code_thm = prove(
          (s3 with clock := s3.clock - n).mdomain = (b1,m1,T)` by
        (unabbrev_all_tac \\ full_simp_tac(srw_ss())[])
   \\ first_x_assum drule \\ full_simp_tac(srw_ss())[]
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
     (unabbrev_all_tac \\ full_simp_tac(srw_ss())[FLOOKUP_UPDATE,GSYM word_add_n2w] \\ decide_tac)
   \\ strip_tac
   \\ `s3 with clock := s3.clock - n + n = s3` by
@@ -771,7 +771,7 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   \\ full_simp_tac(srw_ss())[]
   \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
        (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
-  \\ full_simp_tac(srw_ss())[] \\ discharge_hyps THEN1
+  \\ full_simp_tac(srw_ss())[] \\ impl_tac THEN1
     (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
      \\ fs [bvp_to_wordPropsTheory.decode_length_def])
   \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
@@ -859,7 +859,7 @@ val word_gc_move_list_code_thm = store_thm("word_gc_move_list_code_thm",
             (1,r1) |+ (2,r2) |+ (3,Word pa1') |+ (4,Word i1') |+
             (5,w1) |+ (6,r6) |+ (8,Word (a + bytes_in_word));
           memory := (a =+ w1) m1' |>` mp_tac)
-  \\ rpt (discharge_hyps THEN1 (fs [] \\ tac)) \\ fs []
+  \\ rpt (impl_tac THEN1 (fs [] \\ tac)) \\ fs []
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
   \\ pop_assum mp_tac
@@ -943,7 +943,7 @@ val word_gc_move_loop_code_thm = prove(
     \\ `s.memory = s5.memory /\ s.mdomain = s5.mdomain` by
          (unabbrev_all_tac \\ fs [])
     \\ fs [] \\ first_x_assum drule \\ fs []
-    \\ fs [AND_IMP_INTRO] \\ discharge_hyps
+    \\ fs [AND_IMP_INTRO] \\ impl_tac
     THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE])
     \\ strip_tac \\ qexists_tac `ck + 1` \\ fs []
     \\ qunabbrev_tac `s5` \\ fs []
@@ -970,7 +970,7 @@ val word_gc_move_loop_code_thm = prove(
             (8,Word (pb1 + bytes_in_word)) |>`
   \\ drule word_gc_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)
-  \\ fs [AND_IMP_INTRO] \\ discharge_hyps
+  \\ fs [AND_IMP_INTRO] \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def])
   \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
   \\ pop_assum mp_tac
@@ -978,7 +978,7 @@ val word_gc_move_loop_code_thm = prove(
   \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
   \\ qpat_assum `Abbrev _` assume_tac
   \\ fs [] \\ qpat_assum `_ = _` kall_tac
-  \\ first_x_assum drule \\ discharge_hyps
+  \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
   \\ drule (evaluate_add_clock |> GEN_ALL)
@@ -1085,7 +1085,7 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
           (unabbrev_all_tac \\ fs []) \\ fs []
     \\ first_x_assum drule
     \\ disch_then (qspec_then `old ++ [h]` mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     THEN1 (unabbrev_all_tac
          \\ fs [FLOOKUP_UPDATE,word_add_n2w]
          \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w])
@@ -1120,7 +1120,7 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ `s.memory = s4.memory /\ s.mdomain = s4.mdomain` by
            (unabbrev_all_tac \\ fs []) \\ fs []
   \\ drule (word_gc_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
-  \\ discharge_hyps THEN1 (unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE])
+  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE])
   \\ strip_tac
   \\ qabbrev_tac `s5 = s with
         <|regs :=
@@ -1132,7 +1132,7 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
            (unabbrev_all_tac \\ fs []) \\ fs []
   \\ first_x_assum drule
   \\ disch_then (qspec_then `old ++ [x1]` mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
@@ -1243,7 +1243,7 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ fs []
   \\ drule (word_gc_move_bitmap_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ disch_then (qspecl_then [`init`,`old`] mp_tac)
-  \\ discharge_hyps
+  \\ impl_tac
   THEN1 (unabbrev_all_tac \\ rfs [get_var_def] \\ tac \\ fs [FLOOKUP_DEF])
   \\ strip_tac \\ drule (GEN_ALL evaluate_add_clock)
   \\ reverse (Cases_on `word_msb h`) \\ fs []
@@ -1283,7 +1283,7 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ disch_then (qspecl_then [`EL (w2n (w + -1w))
          s5.bitmaps ⋙ (dimindex (:α) - 1)`,`old ++ x0`] mp_tac)
   \\ fs [AND_IMP_INTRO]
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [] \\ tac
     \\ rfs [RIGHT_ADD_DISTRIB]
     \\ imp_res_tac word_gc_move_bitmaps_LENGTH \\ fs [])
@@ -1381,7 +1381,7 @@ val word_gc_move_roots_bitmaps_code_thm =
   \\ drule (word_gc_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspecl_then [`c`,`old ++ [Word c]`] mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac \\ rpt strip_tac
     \\ fs [RIGHT_ADD_DISTRIB]
     \\ rfs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
@@ -1421,7 +1421,7 @@ val word_gc_move_roots_bitmaps_code_thm =
   \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspec_then `old ++ Word c::x0` mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [] \\ tac \\ fs [ADD1,RIGHT_ADD_DISTRIB]
     \\ rfs [] \\ imp_res_tac word_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
@@ -1503,7 +1503,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
     \\ qpat_abbrev_tac `(s3:('a,'b)stackSem$state) = _`)
   \\ drule (GEN_ALL word_gc_move_code_thm)
   \\ disch_then (qspec_then `s3` mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF])
   \\ strip_tac \\ fs []
@@ -1525,7 +1525,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ fs [AND_IMP_INTRO]
   \\ disch_then (qspecl_then [`ys1`,`s4`,`[]`] mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
     (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
      \\ fs [FLOOKUP_DEF] \\ Cases_on `ys2` \\ fs []
      \\ metis_tac [EL_LENGTH_APPEND,NULL,HD])
@@ -1543,7 +1543,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ fs [AND_IMP_INTRO]
   \\ disch_then (qspec_then `s5` mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
     (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
      \\ fs [FLOOKUP_DEF,FDOM_FUPDATE,FUPDATE_LIST,FAPPLY_FUPDATE_THM])
   \\ strip_tac \\ pop_assum mp_tac
@@ -1658,7 +1658,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `word_gc_fun c = word_gc_fun c` by fs []
     \\ disch_then drule
     \\ disch_then (qspecl_then [`n'`,`m`,`regs`] mp_tac) \\ fs []
-    \\ discharge_hyps THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
+    \\ impl_tac THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
     \\ fs [state_component_equality]
     \\ metis_tac[alloc_length_stack])
@@ -1843,7 +1843,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
     \\ split_pair_tac \\ fs[]
     \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac)
-    \\ discharge_hyps THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[])
+    \\ impl_tac THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `res <> NONE` \\ full_simp_tac(srw_ss())[]
     THEN1 (rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -1855,7 +1855,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ fs[state_component_equality])
     \\ full_simp_tac(srw_ss())[STOP_def]
     \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs1`]mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     THEN1 (full_simp_tac(srw_ss())[good_syntax_def] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
            \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\ res_tac
            \\ fs[dec_clock_def])
@@ -1965,7 +1965,7 @@ val comp_correct = Q.store_thm("comp_correct",
     THEN1
      (Cases_on `w = Loc z2 z3` \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ last_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs |+ (z1,Loc z2 z3) `]mp_tac)
-      \\ discharge_hyps
+      \\ impl_tac
       >- (
         imp_res_tac evaluate_consts \\ fs[]
         \\ fs[dec_clock_def,set_var_def]
@@ -1974,7 +1974,7 @@ val comp_correct = Q.store_thm("comp_correct",
         \\ simp[] )
       \\ strip_tac \\ fs[] \\ rfs[]
       \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs1`]mp_tac)
-      \\ discharge_hyps
+      \\ impl_tac
       >- (
         imp_res_tac evaluate_consts \\ fs[]
         \\ metis_tac[] )
@@ -1994,7 +1994,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
     THEN1
      (first_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs |+ (z1,Loc z2 z3)`]mp_tac)
-      \\ discharge_hyps
+      \\ impl_tac
       >- (
         imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
         \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[]
@@ -2009,7 +2009,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
     \\ Cases_on `w = Loc x'1 x'2` \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ last_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs |+ (z1,Loc z2 z3)`]mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
       \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[]
@@ -2017,7 +2017,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ simp[]
       \\ NO_TAC) \\ srw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
     \\ first_x_assum (qspecl_then[`m'`,`n`,`c`,`regs1`]mp_tac)
-    \\ discharge_hyps
+    \\ impl_tac
     >- (
       imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
       \\ rw[] \\ res_tac \\ fs[] \\ NO_TAC) \\ srw_tac[][]
@@ -2089,7 +2089,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       Cases_on`res=SOME Error`>>simp[]>>
       drule comp_correct_thm >>
       simp[good_syntax_def,RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- metis_tac[] >>
+      impl_tac >- metis_tac[] >>
       simp[comp_def] >>
       strip_tac >>
       qpat_assum`_ ≠ SOME TimeOut`mp_tac >>
@@ -2109,7 +2109,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         simp[] >> strip_tac >>
         drule comp_correct_thm >>
         simp[RIGHT_FORALL_IMP_THM] >>
-        discharge_hyps >- (
+        impl_tac >- (
           simp[Abbr`e`,good_syntax_def] >>
           reverse conj_tac >- metis_tac[] >>
           rpt(first_x_assum(qspec_then`k+k'`mp_tac))>>srw_tac[][] ) >>
@@ -2120,7 +2120,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
           drule (GEN_ALL evaluate_add_clock) >>
           disch_then(qspec_then`ck+k`mp_tac) >>
           simp[] >>
-          discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+          impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
           simp[] >> ntac 3 strip_tac >>
           rveq >> full_simp_tac(srw_ss())[] >>
           `t'.ffi = r''.ffi` by full_simp_tac(srw_ss())[state_component_equality] >>
@@ -2140,7 +2140,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[] >> strip_tac >>
       drule comp_correct_thm >>
       simp[RIGHT_FORALL_IMP_THM] >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[good_syntax_def] >>
         reverse conj_tac >- metis_tac[] >>
         rpt(first_x_assum(qspec_then`k+k'`mp_tac))>>srw_tac[][] ) >>
@@ -2154,13 +2154,13 @@ val compile_semantics = Q.store_thm("compile_semantics",
       drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`ck+k`mp_tac) >>
       simp[] >>
-      discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
       `t.ffi = t'.ffi` by full_simp_tac(srw_ss())[state_component_equality] >>
       BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
     drule comp_correct_thm >>
     simp[RIGHT_FORALL_IMP_THM] >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[good_syntax_def] >>
       reverse conj_tac >- metis_tac[] >>
       rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][]) >>
@@ -2240,7 +2240,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   drule comp_correct_thm >>
   simp[comp_def,RIGHT_FORALL_IMP_THM] >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[good_syntax_def] >>
     reverse conj_tac >- metis_tac[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][] ) >>
@@ -2276,7 +2276,7 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
    semantics start s = semantics start (make_init (fromAList code) s)`,
   srw_tac[][] \\ drule (CONV_RULE(LAND_CONV(lift_conjunct_conv(can dest_neg)))compile_semantics)
   \\ full_simp_tac(srw_ss())[make_init_def,lookup_fromAList]
-  \\ discharge_hyps THEN1 (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
+  \\ impl_tac THEN1 (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
   \\ disch_then (assume_tac o GSYM)
   \\ full_simp_tac(srw_ss())[] \\ AP_TERM_TAC
   \\ full_simp_tac(srw_ss())[state_component_equality]

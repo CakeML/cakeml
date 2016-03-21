@@ -277,7 +277,7 @@ val compile_correct = Q.store_thm("compile_correct",
   CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
   simp[mod_to_conProofTheory.cenv_inv_def] >>
   disch_then(qspec_then`gtagenv`mp_tac)>>
-  discharge_hyps >- (
+  impl_tac >- (
     rw[Abbr`s`,prim_config_eq] >>
     fs[prim_config_eq] >>
     rator_x_assum`next_inv`mp_tac >>
@@ -297,7 +297,7 @@ val compile_correct = Q.store_thm("compile_correct",
   rfs[] >> fs[] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP (REWRITE_RULE[GSYM AND_IMP_INTRO]con_to_decProofTheory.compile_semantics))) >>
   simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     rator_x_assum`mod_to_con$compile_prog`mp_tac >>
     simp[prim_config_eq] >> EVAL_TAC >>
     `semantics env2 s2 p ≠ Fail` by simp[] >>
@@ -368,7 +368,7 @@ val compile_correct = Q.store_thm("compile_correct",
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","e","c"]))
    |> qispl_then[`st3`,`e3`,`c.clos_conf`]mp_tac) >>
   simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[CONJ_ASSOC] >>
     conj_tac >- (
       unabbrev_all_tac >>
@@ -414,7 +414,7 @@ val compile_correct = Q.store_thm("compile_correct",
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
   qunabbrev_tac`c'''`>>fs[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     (clos_to_bvlProofTheory.compile_all_distinct_locs
      |> ONCE_REWRITE_RULE[CONJ_ASSOC,CONJ_COMM]
      |> ONCE_REWRITE_RULE[CONJ_COMM]
@@ -431,7 +431,7 @@ val compile_correct = Q.store_thm("compile_correct",
    |> GEN_ALL
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start"]))
    |> qispl_then[`p3`,`s3`,`ffi`]mp_tac) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   disch_then (SUBST_ALL_TAC o SYM)
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]

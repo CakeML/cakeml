@@ -263,7 +263,7 @@ val recClosure_add_arg0 = Q.prove(
           disch_then
             (qspecl_then [`k`, `CE1`, `CE2`, `vs1 ++ AE1`, `vs2 ++ AE2`]
                          mp_tac) >>
-          simp[] >> discharge_hyps
+          simp[] >> impl_tac
           >- (conj_tac
               >- (irule val_rel_mono_list >> qexists_tac `i` >> simp[]) >>
               irule EVERY2_APPEND_suff >> simp[] >> irule val_rel_mono_list >>
@@ -295,7 +295,7 @@ val recClosure_add_arg0 = Q.prove(
           `0 < LENGTH vs1` by (Cases_on `vs1` >> fs[]) >>
           first_x_assum (qspec_then `kk + 1 - LENGTH vs1` mp_tac) >> simp[] >>
           disch_then (qspecl_then [`k`, `CE1`, `CE2`, `AE1`, `AE2`] mp_tac) >>
-          simp[] >> discharge_hyps
+          simp[] >> impl_tac
           >- (`k ≤ i` by decide_tac >> metis_tac [val_rel_mono_list]) >>
           disch_then (irule o CONJUNCT2) >> simp[TAKE_DROP]) >>
       simp[exec_rel_rw, evaluate_ev_def] >> qx_gen_tac `kk` >> strip_tac >>
@@ -323,7 +323,7 @@ val recClosure_add_arg0 = Q.prove(
                               GENLIST (Recclosure NONE [] CE2 fns2)
                                       (LENGTH fns1) ++
                               CE2`, `s1`, `s2`] mp_tac) >>
-              simp[] >> discharge_hyps
+              simp[] >> impl_tac
               >- (rpt (irule EVERY2_APPEND_suff)
                   >- (irule EVERY2_DROP >> simp[])
                   >- (`k ≤ i` by simp[] >> metis_tac[val_rel_mono_list])
@@ -375,7 +375,7 @@ val recClosure_add_arg0 = Q.prove(
                                `s1`, `s2`,
                                `kk + (LENGTH AE1 + 1) - (fina1 + m)`]
                               mp_tac) >> simp[] >>
-      discharge_hyps
+      impl_tac
       >- (rpt (irule EVERY2_APPEND_suff) >> simp[EVERY2_DROP]
           >- (irule val_rel_mono_list >> qexists_tac `i` >> simp[])
           >- (simp[Abbr`Recs`] >> first_x_assum (qspec_then `k` mp_tac) >>
@@ -413,7 +413,7 @@ val recClosure_add_arg0 = Q.prove(
       simp[] >> first_x_assum (qspec_then `kk - (LENGTH vv1 - 1)` mp_tac) >>
       simp[] >>
       disch_then (qspecl_then [`k`, `CE1`, `CE2`, `AE1`, `AE2`] mp_tac) >>
-      simp[] >> discharge_hyps
+      simp[] >> impl_tac
       >- (`k ≤ i` by simp[] >> metis_tac[val_rel_mono_list]) >>
       disch_then (irule o CONJUNCT2) >> simp[] >>
       REWRITE_TAC [GSYM APPEND_ASSOC] >> irule EVERY2_APPEND_suff >> simp[] >>
@@ -434,7 +434,7 @@ val recClosure_add_arg0 = Q.prove(
                   `s1`, `s2`,
                    `kk + (LENGTH pfx1 + 1) - m`]
                  mp_tac) >> simp[] >>
-  discharge_hyps
+  impl_tac
   >- (`k ≤ i` by simp[] >> reverse (irule EVERY2_APPEND_suff)
       >- metis_tac[val_rel_mono_list] >>
       reverse (irule EVERY2_APPEND_suff)

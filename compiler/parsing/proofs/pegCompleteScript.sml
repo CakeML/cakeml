@@ -1715,7 +1715,7 @@ val completeness = store_thm(
           first_assum
             (qspecl_then [`Ept`, `nE`, `Efr`, `SemicolonT :: TLDfr`]
                          mp_tac) >>
-          discharge_hyps >- simp[] >>
+          impl_tac >- simp[] >>
           strip_tac >>
           map_every qexists_tac [`[Ept]`, `TLDfr`, `[TLDpt]`] >>
           simp[] >> conj_tac

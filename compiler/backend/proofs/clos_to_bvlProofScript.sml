@@ -1251,7 +1251,7 @@ val ToList = Q.prove(
   pop_assum SUBST1_TAC >> simp[] >>
   simp[SNOC_APPEND] >>
   first_x_assum(qspecl_then[`[x] ++ ws`,`dec_clock 1 s`]mp_tac) >>
-  discharge_hyps >- simp[dec_clock_def] >>
+  impl_tac >- simp[dec_clock_def] >>
   simp[list_to_v_def,EL_APPEND1,EL_LENGTH_APPEND,dec_clock_def,ADD1]);
 
 val eq_res_def = Define`
@@ -1335,7 +1335,7 @@ val equality = Q.prove(
     `block_equality_code = (4,SND block_equality_code)` by simp[block_equality_code_def] >>
     pop_assum SUBST1_TAC >> simp[] >>
     first_x_assum(qspecl_then[`t1`,`[]`,`[]`,`s`]mp_tac) >>
-    discharge_hyps >- simp[] >> strip_tac >>
+    impl_tac >- simp[] >> strip_tac >>
     qexists_tac`ck+1` >>
     full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def]>>
     simp[] >> fsrw_tac[ARITH_ss][]) >>
@@ -1352,7 +1352,7 @@ val equality = Q.prove(
   pop_assum SUBST1_TAC >> simp[] >>
   simp[EL_LENGTH_APPEND] >>
   first_x_assum(qspec_then`s`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[] >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] ) >>
   strip_tac >>
   reverse(Cases_on`do_eq v1 v2`)>>full_simp_tac(srw_ss())[]>>
@@ -1365,7 +1365,7 @@ val equality = Q.prove(
     \\ `equality_code = (2,SND equality_code)` by simp[equality_code_def]
     \\ pop_assum SUBST1_TAC \\ simp[]) >>
   first_x_assum(qspecl_then[`t`,`vs1++[v1]`,`vs2++[v2]`,`s`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[inc_clock_def]
     \\ full_simp_tac(srw_ss())[do_eq_list_T_every]) >> strip_tac >>
   qexists_tac`ck+1+ck'+1` >>
@@ -2326,7 +2326,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
              (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``env_rel`` o #1 o strip_comb))))th))))
     \\ simp[]
-    \\ discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[])
+    \\ impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[])
     \\ IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ ONCE_REWRITE_TAC [bEval_CONS]
     \\ qmatch_assum_rename_tac`evaluate ([x],_) = (v3,_)`
@@ -2336,7 +2336,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ FIRST_X_ASSUM (qspecl_then[`aux1'`,`t2`]mp_tac) >> simp[]
     \\ imp_res_tac evaluate_code >> full_simp_tac(srw_ss())[]
     \\ disch_then(qspecl_then[`env''`,`f2`]mp_tac)
-    \\ discharge_hyps >- (
+    \\ impl_tac >- (
          imp_res_tac env_rel_SUBMAP >>
          simp[] >>
          imp_res_tac evaluate_const >> full_simp_tac(srw_ss())[] >>
@@ -2375,8 +2375,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ full_simp_tac(srw_ss())[]
     \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
     \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
-    \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
-    \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
+    \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
+    \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ strip_tac
     \\ imp_res_tac compile_exps_SING >> srw_tac[][]
     \\ qmatch_assum_rename_tac`result_rel _ _ v2 _`
@@ -2427,7 +2427,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
     \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
     \\ full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
+    \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ strip_tac
     \\ imp_res_tac compile_exps_SING >> srw_tac[][]
     \\ qmatch_assum_rename_tac`result_rel _ _ v2 _`
@@ -2446,7 +2446,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ qmatch_assum_rename_tac`LIST_REL _ v1 v2`
     \\ qmatch_assum_rename_tac`env_rel _ _ _ env1 env2`
     \\ disch_then(qspec_then`v2 ++ env2`mp_tac) >> full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >-
+    \\ impl_tac >-
      (MATCH_MP_TAC env_rel_APPEND \\ full_simp_tac(srw_ss())[]
       \\ IMP_RES_TAC env_rel_SUBMAP \\ full_simp_tac(srw_ss())[])
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
@@ -2465,7 +2465,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ IMP_RES_TAC compile_exps_IMP_code_installed
     \\ disch_then (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
     \\ IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
+    \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ full_simp_tac(srw_ss())[bEval_def]
     \\ qmatch_assum_rename_tac`closSem$evaluate _ = (v2,_)`
     \\ reverse (Cases_on `v2`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -2486,7 +2486,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
     \\ full_simp_tac(srw_ss())[]
     \\ disch_then (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
+    \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ reverse (Cases_on `p0`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> srw_tac[][] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -2495,7 +2495,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ disch_then (MP_TAC o Q.SPECL [`t2`,`v'::env''`,`f2`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC evaluate_const \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC evaluate_code \\ full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >-
+    \\ impl_tac >-
       (full_simp_tac(srw_ss())[env_rel_def] \\ IMP_RES_TAC env_rel_SUBMAP \\ full_simp_tac(srw_ss())[])
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ qexists_tac `ck + ck'`
@@ -2534,7 +2534,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       `ToList_code = (3,SND ToList_code)` by simp[ToList_code_def] >>
       pop_assum SUBST1_TAC >> simp[] >>
       qspecl_then[`clos_tag_shift n`,`ys`,`[]`](Q.ISPEC_THEN`t2 with clock := LENGTH l + t2.clock`mp_tac)(GEN_ALL ToList) >>
-      discharge_hyps >- (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
+      impl_tac >- (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
       simp[list_to_v_def,dec_clock_def] >>
       disch_then kall_tac >>
       imp_res_tac list_to_v >>
@@ -2566,7 +2566,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       `do_eq w1 w2 = do_eq v1 v2` by (imp_res_tac do_eq >> simp[]) >>
       `do_eq w2 w1 = do_eq w1 w2` by (METIS_TAC[do_eq_sym]) >>
       qspecl_then[`w2`,`w1`,`t2`]mp_tac (CONJUNCT1 equality) >>
-      discharge_hyps >- simp[] >> strip_tac >>
+      impl_tac >- simp[] >> strip_tac >>
       qexists_tac`ck+ck'+1` >>
       imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
       first_x_assum(qspec_then`ck'+1`mp_tac) >>
@@ -3223,7 +3223,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ `code_installed aux7 t2.code` by metis_tac []
     \\ `env_rel f2 t2.refs t2.code env env''` by metis_tac [env_rel_SUBMAP]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t2`,`env''`,`f2`]) \\ full_simp_tac(srw_ss())[]
-    \\ discharge_hyps >- (
+    \\ impl_tac >- (
         imp_res_tac evaluate_const >> full_simp_tac(srw_ss())[] >>
         spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ disch_then (strip_assume_tac o SIMP_RULE (srw_ss()) [GSYM RIGHT_EXISTS_IMP_THM]) >>
@@ -3245,7 +3245,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ res_tac
     \\ pop_assum mp_tac
     \\ REWRITE_TAC[AND_IMP_INTRO]
-    \\ discharge_hyps >- metis_tac[evaluate_const]
+    \\ impl_tac >- metis_tac[evaluate_const]
     \\ disch_then (qspec_then `env''` strip_assume_tac)
     \\ `LENGTH v' ≠ 0 ∧ 0 < LENGTH v' ∧ LENGTH args = LENGTH v'` by decide_tac
     \\ full_simp_tac(srw_ss())[]
@@ -4038,7 +4038,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   disch_then(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
   disch_then(qspec_then`sb.clock`mp_tac) >> simp[] >>
-  discharge_hyps_keep >- full_simp_tac(srw_ss())[clos_numberProofTheory.state_rel_def] >>
+  impl_keep_tac >- full_simp_tac(srw_ss())[clos_numberProofTheory.state_rel_def] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`res_rel _ q` >>
   Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
@@ -4048,7 +4048,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
    |> GEN_ALL
    |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
   simp[GSYM PULL_FORALL] >>
-  discharge_hyps_keep >- (
+  impl_keep_tac >- (
     strip_tac >>
     Cases_on`r`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
@@ -4058,7 +4058,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     qcase_tac`Rabort a` >>
     Cases_on`a`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] ) >>
-  discharge_hyps >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>
+  impl_tac >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>
   disch_then(fn th => first_assum(qspec_then`[]`strip_assume_tac o MATCH_MP th)) >>
   imp_res_tac evaluate_const >> simp[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -4070,7 +4070,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[env_rel_def] >>
-  discharge_hyps >- (
+  impl_tac >- (
     rpt var_eq_tac >>
     full_simp_tac(srw_ss())[code_installed_def] >>
     imp_res_tac clos_removeProofTheory.every_Fn_SOME_remove >> simp[] >>
@@ -4113,19 +4113,19 @@ val compile_semantics = Q.store_thm("compile_semantics",
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
       drule bvlPropsTheory.evaluate_add_clock >>
-      discharge_hyps >- full_simp_tac(srw_ss())[] >> strip_tac >>
+      impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
       rator_x_assum`closSem$evaluate`kall_tac >>
       last_assum(qspec_then`k'`mp_tac)>>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       drule (GEN_ALL compile_evaluate) >>
       rpt(disch_then drule) >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      discharge_hyps >- ( strip_tac >> PROVE_TAC[FST] ) >>
+      impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
       disch_then drule >>
       drule(GEN_ALL full_state_rel_with_clock) >>
       disch_then(qspec_then`k'`mp_tac)>>simp[] >> strip_tac >>
       disch_then drule >> simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
       strip_tac >>
       first_x_assum(qspec_then`ck`mp_tac) >>
@@ -4152,16 +4152,16 @@ val compile_semantics = Q.store_thm("compile_semantics",
           drule(GEN_ALL full_state_rel_with_clock) >>
           disch_then(qspec_then`k`mp_tac)>>simp[] >> strip_tac >>
           disch_then drule >> simp[] >>
-          discharge_hyps >- (
+          impl_tac >- (
             metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
           strip_tac >>
           drule bvlPropsTheory.evaluate_add_clock >>
-          discharge_hyps >- (
+          impl_tac >- (
             PROVE_TAC[FST,full_result_rel_abort] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[bvlPropsTheory.inc_clock_def]>>
           rator_x_assum`bvlSem$evaluate`mp_tac >>
           drule bvlPropsTheory.evaluate_add_clock >>
-          discharge_hyps >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+          impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`ck+k`mp_tac)>>simp[bvlPropsTheory.inc_clock_def]>>
           ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
           full_simp_tac(srw_ss())[state_component_equality] >>
@@ -4172,20 +4172,20 @@ val compile_semantics = Q.store_thm("compile_semantics",
         drule (GEN_ALL compile_evaluate) >>
         rpt(disch_then drule) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-        discharge_hyps >- ( strip_tac >> PROVE_TAC[FST] ) >>
+        impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
         disch_then drule >>
         drule(GEN_ALL full_state_rel_with_clock) >>
         disch_then(qspec_then`k'+k`mp_tac)>>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[])) >> strip_tac >>
         disch_then drule >>
-        discharge_hyps >- (
+        impl_tac >- (
           simp[] >>
           metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
         strip_tac >>
         rator_x_assum`closSem$evaluate`mp_tac >>
         drule (Q.GEN`extra`(SIMP_RULE std_ss [] (CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-        discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>
         first_x_assum(qspec_then`ck+k`mp_tac)>>simp[] >>
         fsrw_tac[ARITH_ss][] >>
@@ -4199,12 +4199,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
       drule (GEN_ALL compile_evaluate) >>
       rpt(disch_then drule) >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      discharge_hyps_keep >- ( strip_tac >> PROVE_TAC[FST] ) >>
+      impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
       disch_then drule >>
       drule(GEN_ALL full_state_rel_with_clock) >>
       disch_then(qspec_then`k+k'`mp_tac)>>simp[] >> strip_tac >>
       disch_then drule >> simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
       strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][] >>
@@ -4216,7 +4216,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
       rator_x_assum`bvlSem$evaluate`mp_tac >>
       drule bvlPropsTheory.evaluate_add_clock >>
-      discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`ck+k`mp_tac)>>simp[bvlPropsTheory.inc_clock_def] >>
       fsrw_tac[ARITH_ss][ADD1] >>
       strip_tac >> spose_not_then strip_assume_tac >> rveq >>
@@ -4226,12 +4226,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
     drule (GEN_ALL compile_evaluate) >>
     rpt(disch_then drule) >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    discharge_hyps_keep >- ( strip_tac >> PROVE_TAC[FST] ) >>
+    impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
     disch_then drule >>
     drule(GEN_ALL full_state_rel_with_clock) >>
     disch_then(qspec_then`k`mp_tac)>>simp[] >> strip_tac >>
     disch_then drule >> simp[] >>
-    discharge_hyps >- (
+    impl_tac >- (
       metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
     strip_tac >>
     qexists_tac`ck + k` >> simp[] >>
@@ -4285,7 +4285,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       imp_res_tac full_result_rel_ffi >> full_simp_tac(srw_ss())[]) >>
     rator_x_assum`bvlSem$evaluate`mp_tac >>
     drule bvlPropsTheory.evaluate_add_clock >>
-    discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`ck`mp_tac) >>
     simp[bvlPropsTheory.inc_clock_def] >>
     fsrw_tac[ARITH_ss][ADD1] >>
@@ -4331,7 +4331,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
    |> GEN_ALL |> SIMP_RULE(srw_ss()++QUANT_INST_ss[pair_default_qp])[]
    |> Q.SPECL[`initial_state (s:'ffi closSem$state).ffi (fromAList p) k`,`s`,`k`,`e`,`c`]
    |> mp_tac) >>
-  (discharge_hyps >- (
+  (impl_tac >- (
     simp[] >>
     metis_tac[full_state_rel_with_clock,initial_state_with_simp,
               compile_all_distinct_locs, code_installed_fromAList] )) >>

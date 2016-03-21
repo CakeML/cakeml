@@ -40,7 +40,7 @@ val proves_consistent = store_thm("proves_consistent",
   qmatch_abbrev_tac`termsem (tmsof (sigof thy)) i v (s === t) ≠ True` >>
   qspecl_then[`sigof thy`,`i`,`v`,`s`,`t`]mp_tac(UNDISCH termsem_equation) >>
   simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[term_ok_equation,is_structure_def] >>
     fs[models_def,theory_ok_def] ) >>
   simp[Abbr`s`,Abbr`t`,termsem_def,boolean_eq_true,Abbr`v`,true_neq_false])
@@ -96,7 +96,7 @@ fun tac extends_bool unfold =
   qspecl_then[`init_ctxt`,`mk_bool_ctxt init_ctxt`]mp_tac(UNDISCH extends_consistent) >>
   simp[] >> disch_then(qspec_then`i`mp_tac) >>
   simp[init_theory_ok] >>
-  discharge_hyps >- (EVAL_TAC >> simp[]) >>
+  impl_tac >- (EVAL_TAC >> simp[]) >>
   disch_then(qx_choose_then`i2`strip_assume_tac) >>
   qmatch_assum_abbrev_tac`ctxt extends ctxt0` >>
   `theory_ok (thyof ctxt0)` by (
@@ -110,7 +110,7 @@ fun tac extends_bool unfold =
   unfold >>
   qspec_then`mk_bool_ctxt init_ctxt`mp_tac(UNDISCH eta_has_model) >>
   `∀ctxt. sigof ctxt = sigof (thyof ctxt)` by simp[] >>
-  discharge_hyps >- (
+  impl_tac >- (
     match_mp_tac is_bool_sig_std >>
     match_mp_tac bool_has_bool_sig >>
     metis_tac[theory_ok_sig,init_theory_ok] ) >>
@@ -123,13 +123,13 @@ fun tac extends_bool unfold =
       metis_tac[extends_theory_ok,bool_extends_init,init_theory_ok] >>
     match_mp_tac eta_extends >>
     metis_tac[theory_ok_sig] ) >>
-  discharge_hyps >- ( rw[] >> EVAL_TAC ) >>
+  impl_tac >- ( rw[] >> EVAL_TAC ) >>
   disch_then(qspec_then`i2`mp_tac) >>
   qspecl_then[`init_ctxt`,`i2`]mp_tac(UNDISCH bool_has_bool_interpretation) >>
-  discharge_hyps >- (
+  impl_tac >- (
     metis_tac[extends_theory_ok,bool_extends_init,init_theory_ok] ) >>
   strip_tac >>
-  discharge_hyps >- fs[is_bool_interpretation_def] >>
+  impl_tac >- fs[is_bool_interpretation_def] >>
   disch_then(qx_choose_then`i3`strip_assume_tac)
 
 val fhol_has_model = store_thm("fhol_has_model",
@@ -183,7 +183,7 @@ val hol_has_model = store_thm("hol_has_model",
   qspec_then`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`mp_tac
     (infinity_has_model |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] |> UNDISCH |> UNDISCH) >>
   pop_assum kall_tac >>
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >- (
       match_mp_tac (MP_CANON extends_theory_ok) >>
       qexists_tac`mk_eta_ctxt (mk_bool_ctxt init_ctxt)` >>
@@ -194,7 +194,7 @@ val hol_has_model = store_thm("hol_has_model",
       simp[] ) >>
     EVAL_TAC ) >>
   disch_then(qspec_then`i3`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[] >>
     fs[is_bool_interpretation_def] >>
     fs[is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,

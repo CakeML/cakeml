@@ -84,7 +84,7 @@ val termsem_typesem = store_thm("termsem_typesem",
     first_x_assum (qspecl_then[`name`,`ty0`]mp_tac) >>
     simp[] >> disch_then(qspec_then`λx. if MEM x (tyvars ty0) then τi x else boolset`mp_tac) >>
     simp[Abbr`X`,Abbr`τi`] >>
-    discharge_hyps >- (
+    impl_tac >- (
       fs[is_type_valuation_def] >>
       reverse(rw[])>-metis_tac[mem_boolset]>>
       match_mp_tac (UNDISCH typesem_inhabited) >>
@@ -291,7 +291,7 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
     rw[GSYM MAP_MAP_o] >>
     qmatch_assum_abbrev_tac`ALOOKUP ls (Var s ty) = SOME x` >>
     Q.ISPECL_THEN[`ls`,`termsem Γ i v`,`s`,`ty`]mp_tac ALOOKUP_MAP_dest_var >>
-    discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
+    impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
     rw[]) >>
   rw[] >>
   Q.PAT_ABBREV_TAC`il = FILTER X ilist` >>
@@ -306,7 +306,7 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
   rpt AP_TERM_TAC >> simp[FUN_EQ_THM] >> rw[] >>
   qmatch_abbrev_tac `termsem Γ i vv xx = yy` >>
   first_x_assum(qspec_then`il`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`il`] >> fs[IN_DISJOINT,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
     metis_tac[] ) >>
   disch_then(qspecl_then[`Γ`,`i`,`vv`]mp_tac) >>
@@ -319,7 +319,7 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
   qmatch_assum_abbrev_tac`ALOOKUP (MAP (dest_var ## f) ls) (z,tyr) = X` >>
   qunabbrev_tac`X` >>
   Q.ISPECL_THEN[`ls`,`f`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
-  (discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`,Abbr`il`,MEM_FILTER] >> metis_tac[])) >>
+  (impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`,Abbr`il`,MEM_FILTER] >> metis_tac[])) >>
   qmatch_assum_abbrev_tac`Abbrev(il = FILTER P ilist)` >>
   qmatch_assum_abbrev_tac`Abbrev(ls = MAP sw il)` >>
   `ls = FILTER (P o sw) (MAP sw ilist)` by (
@@ -331,13 +331,13 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
     rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
     qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
     Q.ISPECL_THEN[`ls`,`termsem Γ i v`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
-    discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
+    impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
     rw[] >> fs[Abbr`P`] ) >>
   simp[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
   rw[Abbr`f`] >>
   qmatch_assum_abbrev_tac`ALOOKUP ls vv = SOME zz` >>
   Q.ISPECL_THEN[`ls`,`termsem Γ i v`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
-  (discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[])) >>
+  (impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[])) >>
   rw[] >> fs[Abbr`zz`] >>
   match_mp_tac termsem_frees >>
   rw[combinTheory.APPLY_UPDATE_THM] >>
@@ -413,7 +413,7 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
   rw[] >> rpt AP_TERM_TAC >>
   unabbrev_all_tac >> rw[FUN_EQ_THM] >>
   first_x_assum(qspec_then`tyin`mp_tac) >> simp[] >>
-  discharge_hyps >- ( fs[IN_DISJOINT] >> metis_tac[] ) >>
+  impl_tac >- ( fs[IN_DISJOINT] >> metis_tac[] ) >>
   rw[] >>
   match_mp_tac termsem_frees >>
   rw[] >>
@@ -728,7 +728,7 @@ val satisfies_reduce = store_thm("satisfies_reduce",
     last_x_assum match_mp_tac >>
     imp_res_tac VFREE_IN_types_in >>
     fs[] ) >>
-  discharge_hyps >- ( fs[EVERY_MEM] ) >>
+  impl_tac >- ( fs[EVERY_MEM] ) >>
   simp[])
 
 val models_reduce = store_thm("models_reduce",

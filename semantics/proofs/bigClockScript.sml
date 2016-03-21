@@ -740,7 +740,7 @@ val not_evaluate_decs_timeout = Q.store_thm("not_evaluate_decs_timeout",
   imp_res_tac dec_unclocked >>
   qspecl_then[`mn`,`env`,`s`,`res0 with clock := s.clock`,`h`,`res1`]mp_tac (GSYM dec_clocked_unclocked_equiv) >>
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
-  discharge_hyps >- metis_tac[] >> strip_tac >>
+  impl_tac >- metis_tac[] >> strip_tac >>
   reverse(Cases_on`res1`)>>fs[]>-metis_tac[]>>
   PairCases_on`a`>>fs[]>>
   res_tac >> disj2_tac >>
@@ -1011,7 +1011,7 @@ val not_evaluate_prog_timeout = Q.store_thm("not_evaluate_prog_timeout",
   imp_res_tac top_unclocked >>
   qspecl_then[`env`,`s`,`res0 with clock := s .clock`,`h`,`(res1,res2),res3`]mp_tac (GSYM top_clocked_unclocked_equiv) >>
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
-  discharge_hyps >- metis_tac[] >> strip_tac >>
+  impl_tac >- metis_tac[] >> strip_tac >>
   reverse(Cases_on`res3`)>>fs[]>-metis_tac[]>>
   PairCases_on`a`>>fs[]>>
   res_tac >> disj1_tac >>

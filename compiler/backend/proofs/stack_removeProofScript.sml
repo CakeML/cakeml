@@ -396,7 +396,7 @@ val write_bytearray_EQ = prove(
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_load_byte_aux_def]
   \\ Cases_on `m1 (byte_align a)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ `byte_align a IN d` by full_simp_tac(srw_ss())[SUBSET_DEF] \\ full_simp_tac(srw_ss())[]
-  \\ qpat_assum `xx ==> yy` mp_tac \\ discharge_hyps THEN1 (metis_tac [])
+  \\ qpat_assum `xx ==> yy` mp_tac \\ impl_tac THEN1 (metis_tac [])
   \\ srw_tac[][]
   \\ `write_bytearray (a + 1w) new_bytes m1 d1 be (byte_align a) =
       write_bytearray (a + 1w) new_bytes m d be (byte_align a)` by
@@ -566,7 +566,7 @@ val evaluate_stack_alloc = Q.store_thm("evaluate_stack_alloc",
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   >- (
     drule evaluate_single_stack_alloc
-    \\ discharge_hyps
+    \\ impl_tac
     >- ( srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[state_rel_def] )
     \\ simp[]
     \\ strip_tac
@@ -1484,7 +1484,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         \\ simp[Once(GSYM AND_IMP_INTRO)]
         \\ disch_then drule
         \\ simp[AND_IMP_INTRO] >>
-        discharge_hyps >- (
+        impl_tac >- (
           simp[Abbr`e`,good_syntax_def] >>
           rpt(first_x_assum(qspec_then`k'+k''`mp_tac))>>srw_tac[][] ) >>
         simp[Abbr`e`,comp_def] >>
@@ -1497,7 +1497,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
           drule (GEN_ALL evaluate_add_clock) >>
           disch_then(qspec_then`ck+k'`mp_tac) >>
           simp[] >>
-          discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+          impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
           simp[] >> ntac 3 strip_tac >>
           rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
         rator_x_assum`evaluate`mp_tac >>
@@ -1514,7 +1514,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[] >> strip_tac >>
       drule comp_correct >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      discharge_hyps >- (
+      impl_tac >- (
         rpt(first_x_assum(qspec_then`k'`mp_tac))>>srw_tac[][] ) >>
       simp[good_syntax_def,comp_def] >>
       drule (GEN_ALL state_rel_with_clock) >>
@@ -1542,7 +1542,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     strip_tac >>
     drule comp_correct >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO,good_syntax_def] >>
-    discharge_hyps >- (
+    impl_tac >- (
       rpt(first_x_assum(qspec_then`k'`mp_tac))>>srw_tac[][]) >>
     simp[comp_def] >>
     drule (GEN_ALL state_rel_with_clock)
@@ -1656,7 +1656,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   drule comp_correct >>
   simp[comp_def,good_syntax_def,RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-  discharge_hyps >- (
+  impl_tac >- (
     rpt(first_x_assum(qspec_then`k'`mp_tac))>>srw_tac[][] ) >>
   drule (GEN_ALL state_rel_with_clock) >>
   disch_then(qspec_then`k'`strip_assume_tac) >>
@@ -1733,7 +1733,7 @@ val store_list_code_thm = store_thm("store_list_code_thm",
     \\ first_x_assum (qspec_then `s4` mp_tac)
     \\ unabbrev_all_tac \\ fs []
     \\ rpt strip_tac \\ first_x_assum drule
-    \\ discharge_hyps
+    \\ impl_tac
     THEN1 (fs [get_var_def,FLOOKUP_UPDATE,EVERY_MEM])
     \\ strip_tac
     \\ fs [state_component_equality,ADD1,GSYM word_add_n2w,
@@ -1764,7 +1764,7 @@ val store_list_code_thm = store_thm("store_list_code_thm",
     \\ first_x_assum (qspec_then `s4` mp_tac)
     \\ unabbrev_all_tac \\ fs []
     \\ rpt strip_tac \\ first_x_assum drule
-    \\ discharge_hyps
+    \\ impl_tac
     THEN1 (fs [get_var_def,FLOOKUP_UPDATE,EVERY_MEM])
     \\ strip_tac
     \\ fs [state_component_equality,ADD1,GSYM word_add_n2w,
@@ -2080,7 +2080,7 @@ val init_code_thm = store_thm("init_code_thm",
   \\ qpat_abbrev_tac `xs = MAP _ bitmaps ++ _`
   \\ drule (GEN_ALL store_list_code_thm)
   \\ disch_then (qspecl_then [`0`,`k+1`,`xs`,`s7`] mp_tac)
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [get_var_def] \\ tac
     \\ fs [EVERY_MAP]
     \\ fs [store_list_def] \\ EVAL_TAC
@@ -2100,7 +2100,7 @@ val init_code_thm = store_thm("init_code_thm",
   \\ fs [init_reduce_def]
   \\ rpt (qpat_assum `evaluate _ = _` kall_tac)
   \\ drule MOD_LESS_EQ_MOD_IMP
-  \\ discharge_hyps THEN1
+  \\ impl_tac THEN1
    (unabbrev_all_tac
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def,max_stack_alloc_def]
     \\ rfs [] \\ decide_tac) \\ strip_tac

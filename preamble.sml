@@ -73,12 +73,6 @@ in
 end
 (* -- *)
 
-(* TODO: replace these with impl_tac etc. *)
-val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
-val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
-val discharge_hyps_keep = match_mp_tac IMP_IMP >> conj_asm1_tac
-(* -- *)
-
 val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 (* TODO: this doesn't prove the hyps if there's more than one *)

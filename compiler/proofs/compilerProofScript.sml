@@ -143,7 +143,7 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ qmatch_asmsub_rename_tac`pegexec$Result r`
   \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
   \\ fs[markerTheory.Abbrev_def]
-  \\ discharge_hyps >- (
+  \\ impl_tac >- (
       metis_tac[pegTheory.start_IN_Gexprs,
                 SIMP_CONV (srw_ss()) [cmlPEGTheory.cmlPEG_def]``cmlPEG.start``])
   \\ strip_tac

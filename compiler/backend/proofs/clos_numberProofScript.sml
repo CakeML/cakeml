@@ -753,7 +753,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(qspecl_then[`dec_clock 1 t1`,`n`]mp_tac) >>
-    discharge_hyps >- full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] >> srw_tac[][])
+    impl_tac >- full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] >> srw_tac[][])
   THEN1 (* Call *)
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>

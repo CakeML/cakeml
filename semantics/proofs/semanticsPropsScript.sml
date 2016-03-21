@@ -45,9 +45,9 @@ val prog_clocked_zero_determ = Q.prove(
    r = u ∧ (s with clock := y.clock) = (t with clock := y.clock)`,
   strip_tac >>
   qspecl_then[`x`,`y`,`z`,`s with clock := y.clock`,`r`](mp_tac o #2 o EQ_IMP_RULE)(prog_clocked_unclocked_equiv) >>
-  discharge_hyps >- (simp[] >> metis_tac[]) >>
+  impl_tac >- (simp[] >> metis_tac[]) >>
   qspecl_then[`x`,`y`,`z`,`t with clock := y.clock`,`u`](mp_tac o #2 o EQ_IMP_RULE)(prog_clocked_unclocked_equiv) >>
-  discharge_hyps >- (simp[] >> metis_tac[]) >>
+  impl_tac >- (simp[] >> metis_tac[]) >>
   metis_tac[prog_determ,PAIR_EQ])
 
 val prog_clocked_timeout_smaller = Q.prove(

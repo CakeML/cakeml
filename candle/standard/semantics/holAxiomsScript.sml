@@ -43,7 +43,7 @@ val eta_has_model = store_thm("eta_has_model",
   rfs[termsem_def] >>
   rfs[typesem_def] >>
   qspecl_then[`tmvof v ((strlit "f"),Fun A B)`,`tyvof v (strlit "A")`,`tyvof v (strlit "B")`]mp_tac (UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- ( fs[is_valuation_def,is_type_valuation_def] ) >>
+  impl_tac >- ( fs[is_valuation_def,is_type_valuation_def] ) >>
   rw[] >> rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   rw[] >- (
@@ -119,7 +119,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
     simp[Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
     fs[interprets_def] >>
     last_x_assum(qspec_then`tyvof v`mp_tac) >>
-    discharge_hyps >- fs[is_valuation_def] >>
+    impl_tac >- fs[is_valuation_def] >>
     simp[] >> disch_then kall_tac >>
     simp[Boolrel_def] >>
     qmatch_abbrev_tac`(Abstract bs fbs fi ' fz) ' fy = True` >>
@@ -301,7 +301,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
   simp[] >>
   disch_then(qspec_then`i`mp_tac) >>
   simp[models_def] >>
-  discharge_hyps >- (
+  impl_tac >- (
     fs[mk_infinity_ctxt_def] >> rw[] ) >>
   disch_then(qx_choose_then`i1`strip_assume_tac) >>
   simp[conexts_of_upd_def] >>
@@ -427,9 +427,9 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[Abbr`int`] >>
     fs[interprets_def] >>
     first_x_assum(qspec_then`K boolset`mp_tac) >>
-    discharge_hyps >- (simp[is_type_valuation_def,mem_boolset]>>PROVE_TAC[]) >> strip_tac >>
+    impl_tac >- (simp[is_type_valuation_def,mem_boolset]>>PROVE_TAC[]) >> strip_tac >>
     first_assum(qspec_then`(strlit "A" =+ (Funspace inf inf)) (K boolset)`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
       reverse(rw[mem_boolset])>-metis_tac[]>>
       qexists_tac`Abstract inf inf I` >>
@@ -437,7 +437,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       rw[] ) >>
     simp[combinTheory.APPLY_UPDATE_THM] >> disch_then kall_tac >>
     first_x_assum(qspec_then`(strlit "A" =+ inf) (K boolset)`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
       rw[mem_boolset]>>
       metis_tac[]) >>
@@ -447,14 +447,14 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     first_assum(qspec_then`Const (strlit "ONE_ONE") (Fun (Fun A B) Bool) ===
                            Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))`
                 mp_tac) >>
-    discharge_hyps >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
+    impl_tac >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
     simp[satisfies_def] >>
     qabbrev_tac`τ = (strlit "A" =+ inf) ((strlit "B" =+ inf) (K boolset))` >>
     `is_type_valuation τ` by (
       simp[is_type_valuation_def,Abbr`τ`,combinTheory.APPLY_UPDATE_THM] >>
       rw[] >> metis_tac[boolean_in_boolset] ) >>
     qspecl_then[`tysof ctxt1`,`tyaof i1`,`τ`]mp_tac (UNDISCH term_valuation_exists) >>
-    discharge_hyps >- fs[is_interpretation_def] >>
+    impl_tac >- fs[is_interpretation_def] >>
     strip_tac >>
     disch_then(qspec_then`τ,σ`mp_tac) >> simp[] >>
     `is_std_sig (sigof ctxt1)` by (
@@ -485,7 +485,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     first_assum(qspec_then`Const (strlit "ONTO") (Fun (Fun A B) Bool) ===
                            Abs g (FAy (EXx (y === Comb g x)))`
                 mp_tac) >>
-    discharge_hyps >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
+    impl_tac >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
     simp[satisfies_def] >>
     disch_then(qspec_then`τ,σ`mp_tac) >> simp[] >>
     Q.PAT_ABBREV_TAC`eq = X === Y` >>
@@ -499,8 +499,8 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     EVAL_STRING_SORT >>
     simp[mlstringTheory.implode_def] >> disch_then kall_tac >>
     ntac 2 (last_x_assum(qspec_then`τ`mp_tac)) >>
-    discharge_hyps >- rw[] >> strip_tac >>
-    discharge_hyps >- rw[] >> strip_tac >>
+    impl_tac >- rw[] >> strip_tac >>
+    impl_tac >- rw[] >> strip_tac >>
     simp[] >>
     simp[termsem_def,identity_instance] >>
     qspecl_then[`tmsof ctxt1`,`i1`,`strlit "!"`]mp_tac instance_def >>
