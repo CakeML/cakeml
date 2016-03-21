@@ -26,6 +26,7 @@ compiler/inference/proofs
 compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
+compiler/proofs
 
 # candle
 candle/set-theory
