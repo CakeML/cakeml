@@ -1764,9 +1764,10 @@ val compile_decs_correct = Q.prove (
     \\ fs [extend_dec_env_def]
     \\ imp_res_tac evaluate_dec_globals \\ fs[]
     \\ first_x_assum(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(
-         lift_conjunct_conv(equal "s_rel" o #1 o dest_const o #1 o strip_comb)))))
+         move_conj_left(equal "s_rel" o #1 o dest_const o #1 o strip_comb)))))
     \\ simp[]
-    \\ disch_then (drule o REWRITE_RULE[GSYM AND_IMP_INTRO]) (* TODO: why is REWRITE_RULE necessary? *)
+    \\ disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(
+         move_conj_left(equal "compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
     \\ fs[Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST |> SIMP_RULE(srw_ss())[LAMBDA_PROD]]
     \\ fs[Q.ISPEC`I:α#β -> α#β`LAMBDA_PROD |> GSYM |> SIMP_RULE (srw_ss())[]]
     \\ simp[env_all_rel_cases,PULL_EXISTS]
@@ -2175,7 +2176,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   \\ split_pair_tac \\ fs[]
   \\ drule(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_decs_correct))
   \\ simp[AND_IMP_INTRO]
-  \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(
+  \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(
        equal"compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
   \\ disch_then drule
   \\ disch_then(qspec_then`<|c := env.c; v := []|>`mp_tac)

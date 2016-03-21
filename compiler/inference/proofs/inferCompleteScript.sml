@@ -140,14 +140,18 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
  >- (
    rw[PULL_EXISTS] >>
    (infer_pe_complete
-    |> (CONV_RULE(LAND_CONV(lift_conjunct_conv(can(match_term``type_e h i j``)))))
+    |> (CONV_RULE(LAND_CONV(move_conj_left(can(match_term``type_e h i j``)))))
     |> REWRITE_RULE[GSYM AND_IMP_INTRO] |> GEN_ALL
     |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
    simp [bind_tvar_rewrites, num_tvs_bvl2, num_tvs_def] >>
-   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
+   simp[AND_IMP_INTRO] >>
+   disch_then(drule o
+     CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(equal"type_p" o #1 o dest_const o #1 o strip_comb))))) >>
    disch_then(qspecl_then[`ienv`]mp_tac) >>
+   simp[GSYM AND_IMP_INTRO] >>
+   impl_keep_tac >- simp[check_env_def] >>
    impl_tac >- (
-     fs[tenv_alpha_def,tenv_invC_def,bind_tvar_rewrites] >>
+     fs[tenv_alpha_def,tenv_invC_def,bind_tvar_rewrites,check_env_def] >>
      rpt gen_tac >> strip_tac >>
      qmatch_assum_abbrev_tac`lookup_tenv x tvs tenvx = SOME y` >>
      `num_tvs tenvx = 0` by
@@ -165,8 +169,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
      `tvs = tvs + 0` by simp[] >> pop_assum SUBST1_TAC >>
      match_mp_tac(MP_CANON(CONJUNCT2 check_t_more2)) >>
      first_assum ACCEPT_TAC *) >>
-   impl_keep_tac >- simp[check_env_def] >>
-   simp[]>>
    strip_tac >> simp[] >>
    imp_res_tac infer_p_bindings >> fs[] >>
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
@@ -177,7 +179,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
    impl_tac >- (
      conj_tac >- (
        match_mp_tac t_unify_check_s >>
-       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+       CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``t_unify`` o fst o strip_comb o lhs))) >>
        first_assum(match_exists_tac o concl) >> simp[] >>
        fs[GSYM init_infer_state_def] >>
        `t_wfs (init_infer_state.subst)` by rw[init_infer_state_def,t_wfs_def] >>
@@ -185,7 +187,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
        `t_wfs st'.subst` by imp_res_tac infer_p_wfs >>
        imp_res_tac infer_p_check_t >> simp[] >>
        imp_res_tac(CONJUNCT1 infer_e_check_t) >>
-       conj_tac >- (
+       reverse conj_tac >- (
          match_mp_tac (MP_CANON(CONJUNCT1 check_t_more5)) >>
          rfs[init_infer_state_def] >>
          rfs[check_env_def] >>
@@ -342,9 +344,9 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
        qexists_tac `count st'.next_uvar`>>
        fs[]>>
        match_mp_tac t_unify_check_s>>
-       CONV_TAC (STRIP_QUANT_CONV (lift_conjunct_conv is_eq)) >>
+       CONV_TAC (STRIP_QUANT_CONV (move_conj_left is_eq)) >>
        first_assum (match_exists_tac o concl)>>
-       fs[]>>CONJ_TAC>-
+       fs[]>>reverse CONJ_TAC>-
          (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
          qexists_tac`count st.next_uvar`>>
          fs[]>>
@@ -392,16 +394,15 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
  (* Non generalised let *)
  >- (simp[PULL_EXISTS] >>
      (infer_pe_complete
-      |> CONV_RULE(LAND_CONV(lift_conjunct_conv(same_const``type_e`` o fst o strip_comb)))
+      |> CONV_RULE(LAND_CONV(move_conj_left(same_const``type_e`` o fst o strip_comb)))
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
       |> GEN_ALL
       |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      rfs[]>>
      simp[num_tvs_bvl2,num_tvs_def] >>
-     simp[GSYM AND_IMP_INTRO]>>
-     disch_then(fn th => first_assum(mp_tac o MATCH_MP th))>>
+     disch_then(drule o
+       CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(equal"type_p" o #1 o dest_const o #1 o strip_comb))))) >>
      disch_then(qspecl_then[`ienv`] mp_tac)>>
-     simp[AND_IMP_INTRO]>>
      impl_tac >- (
        fs[tenv_alpha_def,check_env_def]) >>
      strip_tac >> simp[] >>
@@ -409,7 +410,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
      pop_assum (qspecl_then [`[]`] assume_tac) >>
      fs [] >>
      (type_pe_determ_infer_e
-      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``type_pe_determ`` o fst o strip_comb))))
+      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``type_pe_determ`` o fst o strip_comb))))
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
       |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      simp[num_tvs_bvl2,num_tvs_def] >>
@@ -484,7 +485,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
    first_assum(mp_tac o MATCH_MP(
      generalise_complete
-     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))
+     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(is_eq))))
      |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
    disch_then(qspec_then`st'.next_uvar`mp_tac) >>
    simp[AND_IMP_INTRO] >>
@@ -665,7 +666,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
    >>
    disch_then(strip_assume_tac o CONJUNCT2) >>
    pop_assum(fn th => (first_assum(
-     mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO](CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(can(match_term``X = (a,b,c)``)))))th))))) >>
+     mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO](CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(can(match_term``X = (a,b,c)``)))))th))))) >>
    simp[LENGTH_NIL] >>
    `t_wfs st'.subst` by
      (imp_res_tac infer_e_wfs>>
@@ -673,7 +674,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         pop_assum mp_tac>>impl_tac>-fs[t_wfs_def]>>
         metis_tac[pure_add_constraints_wfs])>>
    impl_keep_tac >-
-      (CONJ_ASM1_TAC>-
+      (reverse CONJ_ASM2_TAC>-
       (fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST]>>
       rw[]>>match_mp_tac t_walkstar_check >>
       rw[]
@@ -831,7 +832,7 @@ val infer_ds_complete = prove(``
     (infer_d_complete|>REWRITE_RULE[env_rel_def,GSYM check_cenv_tenvC_ok,tenv_bvl_def]|>
       CONV_RULE(
         STRIP_QUANT_CONV(LAND_CONV(
-          lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))))
+          move_conj_left(same_const``type_d`` o fst o strip_comb))))
     |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
     |> (fn th => first_assum(mp_tac o MATCH_MP th)))>>
   disch_then (Q.ISPECL_THEN [`st`,`ienv`,`idecls`] mp_tac)>>
@@ -879,7 +880,7 @@ fun any_match_mp impth th =
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
     val c = first(can (C match_term (concl th))) h
     val th2 = impth
-      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv (equal c))))
+      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (equal c))))
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
   in
     MATCH_MP th2 th  end

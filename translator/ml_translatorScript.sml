@@ -1407,7 +1407,7 @@ val Decls_CONS = store_thm("Decls_CONS",
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   first_assum(match_exists_tac o concl) >> simp[] >- (
     rw[Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def] >>
-    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_decs`` o fst o strip_comb))) >>
+    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_decs`` o fst o strip_comb))) >>
     Cases_on`r`>>fs[combine_dec_result_def] >>
     first_assum(match_exists_tac o concl) >>
     simp[extend_dec_env_def,merge_alist_mod_env_assoc] >>

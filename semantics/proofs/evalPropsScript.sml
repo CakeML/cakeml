@@ -589,7 +589,7 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     Cases_on`e`>>simp[] )
   >- (
     disj1_tac >>
-    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_dec`` o fst o strip_comb))) >>
+    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(equal``evaluate_dec`` o fst o strip_comb))) >>
     first_assum(split_pair_match o concl) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     fsrw_tac[DNF_ss][EQ_IMP_THM] >>
@@ -600,7 +600,7 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     Cases_on`r`>> simp[combine_dec_result_def,combine_mod_result_def,merge_alist_mod_env_def] )
   >- (
     disj2_tac >>
-    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_dec`` o fst o strip_comb))) >>
+    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(equal``evaluate_dec`` o fst o strip_comb))) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     fsrw_tac[DNF_ss][EQ_IMP_THM,FORALL_PROD,merge_alist_mod_env_def] >>
     `∃z. r' = map_result (λenvE. ([],envE)) I z` by (

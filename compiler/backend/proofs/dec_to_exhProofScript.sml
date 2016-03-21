@@ -604,7 +604,7 @@ val exh_to_exists_match = Q.prove (
 fun exists_lift_conj_tac tm =
   CONV_TAC(
     STRIP_BINDER_CONV(SOME existential)
-      (lift_conjunct_conv(same_const tm o fst o strip_comb)))
+      (move_conj_left(same_const tm o fst o strip_comb)))
 
 val Boolv_disjoint = LIST_CONJ [
   EVAL``conSem$Boolv T = Boolv F``,

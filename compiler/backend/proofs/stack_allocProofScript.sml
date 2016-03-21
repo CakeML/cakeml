@@ -2274,7 +2274,7 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
    ALL_DISTINCT (MAP FST code) /\
    semantics start (make_init (fromAList code) s) <> Fail ==>
    semantics start s = semantics start (make_init (fromAList code) s)`,
-  srw_tac[][] \\ drule (CONV_RULE(LAND_CONV(lift_conjunct_conv(can dest_neg)))compile_semantics)
+  srw_tac[][] \\ drule (CONV_RULE(LAND_CONV(move_conj_left(can dest_neg)))compile_semantics)
   \\ full_simp_tac(srw_ss())[make_init_def,lookup_fromAList]
   \\ impl_tac THEN1 (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
   \\ disch_then (assume_tac o GSYM)

@@ -118,7 +118,7 @@ val add_to_counter = Q.store_thm ("add_to_counter",
   fs[] >> rfs[] >>
   TRY (metis_tac[]) >>
   disj1_tac >>
-  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_list`` o fst o strip_comb))) >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
   simp[] >>
   fsrw_tac[ARITH_ss][] >>
@@ -159,7 +159,7 @@ val add_clock = Q.prove (
       first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
   TRY (
       srw_tac[DNF_ss][] >> disj1_tac >>
-      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_list`` o fst o strip_comb))) >>
+      CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
   metis_tac [add_to_counter, with_clock_with_clock, with_clock_clock,
              arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_0,
@@ -518,7 +518,7 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
  >- (fs [] >>
      disj1_tac >>
-     CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(can lhs))) >>
+     CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(can lhs))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      imp_res_tac clock_monotone >>
      fs [] >>
@@ -676,7 +676,7 @@ val decs_add_clock = Q.store_thm("decs_add_clock",
   metis_tac[] >>
   srw_tac[DNF_ss][] >- (disj1_tac >> metis_tac[]) >>
   disj2_tac >>
-  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(same_const``evaluate_decs`` o fst o strip_comb))) >>
+  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(same_const``evaluate_decs`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   imp_res_tac dec_add_to_counter >> fs[] >>
   metis_tac[]);

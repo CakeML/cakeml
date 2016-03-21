@@ -2305,7 +2305,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
        f1 ⊑ f2 ∧
        FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
        s2.clock = t2.clock)`,
-
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (srw_tac[][] >> full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
@@ -2324,7 +2323,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ IMP_RES_TAC compile_exps_IMP_code_installed
     \\ first_x_assum(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
-             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``env_rel`` o #1 o strip_comb))))th))))
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``env_rel`` o #1 o strip_comb))))th))))
     \\ simp[]
     \\ impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[])
     \\ IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
@@ -2371,11 +2370,14 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ SRW_TAC [] [] \\ IMP_RES_TAC compile_exps_IMP_code_installed
     \\ first_x_assum(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
-             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))th))))
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(is_eq))))th))))
     \\ full_simp_tac(srw_ss())[]
-    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
-    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
-    \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
+    \\ simp[AND_IMP_INTRO]
+    \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``code_installed`` o fst o strip_comb)))))
+    \\ disch_then drule
+    \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``env_rel`` o fst o strip_comb)))))
+    \\ disch_then drule
+    \\ simp[GSYM AND_IMP_INTRO]
     \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ strip_tac
     \\ imp_res_tac compile_exps_SING >> srw_tac[][]
@@ -2422,11 +2424,14 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ SRW_TAC [] [] \\ IMP_RES_TAC compile_exps_IMP_code_installed
     \\ first_x_assum(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
-             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))th))))
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(is_eq))))th))))
     \\ full_simp_tac(srw_ss())[]
-    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
-    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
-    \\ full_simp_tac(srw_ss())[]
+    \\ simp[AND_IMP_INTRO]
+    \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``code_installed`` o fst o strip_comb)))))
+    \\ disch_then drule
+    \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``env_rel`` o fst o strip_comb)))))
+    \\ disch_then drule
+    \\ simp[GSYM AND_IMP_INTRO]
     \\ impl_tac >- ( spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] )
     \\ strip_tac
     \\ imp_res_tac compile_exps_SING >> srw_tac[][]
@@ -2436,13 +2441,13 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ rev_full_simp_tac(srw_ss())[]
     \\ first_x_assum(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
-             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))th))))
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(is_eq))))th))))
     \\ IMP_RES_TAC evaluate_const \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC evaluate_code \\ full_simp_tac(srw_ss())[]
     \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(REWRITE_CONV[AND_IMP_INTRO])))
     \\ disch_then(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
-             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal"state_rel" o #1 o dest_const o #1 o strip_comb))))th))))
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(equal"state_rel" o #1 o dest_const o #1 o strip_comb))))th))))
     \\ qmatch_assum_rename_tac`LIST_REL _ v1 v2`
     \\ qmatch_assum_rename_tac`env_rel _ _ _ env1 env2`
     \\ disch_then(qspec_then`v2 ++ env2`mp_tac) >> full_simp_tac(srw_ss())[]
@@ -4014,7 +4019,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   simp[full_result_rel_def,PULL_EXISTS] >>
   qmatch_assum_abbrev_tac`res_rel _ q` >>
   Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``res_rel`` o fst o strip_comb))) >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   (clos_numberProofTheory.renumber_code_locs_correct
    |> CONJUNCT1 |> SIMP_RULE std_ss []
@@ -4022,6 +4027,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   simp[] >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   disch_then(qspec_then`c.next_loc`mp_tac) >> simp[] >> strip_tac >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_numberProof$state_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   rator_x_assum`renumber_code_locs_list`mp_tac >>
   specl_args_of_then``renumber_code_locs_list``
@@ -4042,6 +4048,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >>
   qmatch_assum_abbrev_tac`res_rel _ q` >>
   Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   (clos_annotateProofTheory.annotate_correct
    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -4061,12 +4068,13 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   impl_tac >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>
   disch_then(fn th => first_assum(qspec_then`[]`strip_assume_tac o MATCH_MP th)) >>
   imp_res_tac evaluate_const >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_annotateProof$state_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   qmatch_assum_abbrev_tac`closSem$evaluate tmp = _` >>
   qspec_then`tmp`mp_tac(CONJUNCT1 compile_exps_correct) >>
   simp[Abbr`tmp`] >>
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``clos_to_bvlProof$state_rel`` o fst o strip_comb))))) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``clos_to_bvlProof$state_rel`` o fst o strip_comb))))) >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[env_rel_def] >>
@@ -4076,8 +4084,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     imp_res_tac clos_removeProofTheory.every_Fn_SOME_remove >> simp[] >>
     strip_tac >> full_simp_tac(srw_ss())[] ) >>
   strip_tac >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``result_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``result_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   srw_tac[][bvlSemTheory.evaluate_def] >>
   srw_tac[][bvlSemTheory.find_code_def] >>

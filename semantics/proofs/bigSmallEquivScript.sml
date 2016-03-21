@@ -1221,9 +1221,11 @@ val evaluate_state_app_cons = Q.prove(
     TRY (
       disj1_tac >>
       CONV_TAC(STRIP_QUANT_CONV
-        (lift_conjunct_conv(same_const``bigStep$evaluate`` o fst o strip_comb))) >>
+        (move_conj_left(same_const``bigStep$evaluate`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> srw_tac[][] >>
       TRY(first_assum(split_pair_match o concl)) >>
+      TRY(CONV_TAC(STRIP_QUANT_CONV
+          (move_conj_left(same_const``bigStep$evaluate_list`` o fst o strip_comb)))) >>
       first_assum(match_exists_tac o concl) >> srw_tac[][] >> NO_TAC) >>
     TRY (
       disj2_tac >> disj1_tac >>

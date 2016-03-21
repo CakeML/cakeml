@@ -1499,12 +1499,12 @@ val constrain_op_check_s = Q.prove (
  >- (match_mp_tac t_unify_check_s >>
      metis_tac[check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``t_unify`` o fst o strip_comb o lhs))) >>
      first_assum(match_exists_tac o concl) >>
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
      metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``t_unify`` o fst o strip_comb o lhs))) >>
      first_assum(match_exists_tac o concl) >>
      metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
@@ -1678,11 +1678,11 @@ srw_tac[] [] >|
       `check_s tvs (count st'''.next_uvar) st'''.subst` by metis_tac [] >>
       `t_wfs s` by metis_tac [t_unify_wfs] >>
       match_mp_tac t_unify_check_s >>
-      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+      CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
-      conj_tac >- metis_tac[check_t_more2, arithmeticTheory.ADD_0] >>
+      reverse conj_tac >- metis_tac[check_t_more2, arithmeticTheory.ADD_0] >>
       match_mp_tac t_unify_check_s >>
-      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+      CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       metis_tac [check_t_more2, arithmeticTheory.ADD_0],
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
@@ -1704,15 +1704,15 @@ srw_tac[] [] >|
      `check_s tvs (count st''.next_uvar) st''.subst` by metis_tac [] >>
      `check_s tvs (count st''.next_uvar) s` by (
        match_mp_tac t_unify_check_s >>
-       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+       CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
        first_assum(match_exists_tac o concl) >> simp[] >>
        metis_tac [ check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] ) >>
      match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
      first_assum(match_exists_tac o concl) >>
      conj_tac >- simp[] >>
-     reverse conj_tac >- simp[] >>
-     conj_tac >- ( metis_tac[check_t_more2,arithmeticTheory.ADD_0] ) >>
+     conj_tac >- simp[] >>
+     reverse conj_tac >- ( metis_tac[check_t_more2,arithmeticTheory.ADD_0] ) >>
      first_x_assum(match_mp_tac) >>
      first_assum(match_exists_tac o concl) >>
      conj_tac >- simp[] >>

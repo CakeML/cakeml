@@ -460,12 +460,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
     disch_then drule >> simp[] >>
     strip_tac >>
     first_x_assum drule >>
-    CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``code_installed`` o fst o strip_comb))))) >>
+    CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``code_installed`` o fst o strip_comb))))) >>
     fsrw_tac[ARITH_ss][] >>
     disch_then drule >>
     strip_tac >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
+      CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``state_rel`` o fst o strip_comb))) >>
       asm_exists_tac >> simp[] >>
       simp[Q.SPEC`Seq _ _`flatten_def,UNCURRY] >>
       qexists_tac`ck+ck'`>>simp[FILTER_APPEND]>>srw_tac[][] >>
@@ -474,7 +474,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
     TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
     res_tac >>
-    ((CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
+    ((CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``state_rel`` o fst o strip_comb))) >>
       asm_exists_tac >> simp[] ) ORELSE
      (CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`t2'` >> simp[])) >>
     qexists_tac`ck+ck'`>>simp[]>>srw_tac[][] >>
@@ -953,7 +953,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ full_simp_tac(srw_ss())[get_pc_value_def]
     \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
     \\ fsrw_tac[ARITH_ss][inc_pc_def,dec_clock_def,upd_pc_def]
-    \\ ((CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
+    \\ ((CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``state_rel`` o fst o strip_comb))) >>
         asm_exists_tac >> simp[] ) ORELSE
         (CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`t2'` >> simp[]))
     \\ TRY (

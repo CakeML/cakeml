@@ -772,9 +772,8 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   `weak_decls_other_mods mn (union_decls decls'' decls1) (union_decls decls'' decls2)`
              by (metis_tac [weak_decls_other_mods_union]) >>
   imp_res_tac type_d_tenvT_ok >>
-  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))) >>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``type_d`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
   (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
   qexists_tac`new_tenv`>>fs[]>>
   first_x_assum match_mp_tac >>

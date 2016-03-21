@@ -1963,7 +1963,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     disch_then(qspec_then`env_i2`mp_tac o (CONV_RULE(RESORT_FORALL_CONV(sort_vars["env_i2"])))) >>
     simp[env_rel_el,LENGTH_NIL_SYM] >>
     simp[Abbr`env_i2`] >>
-    CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``s_rel`` o fst o strip_comb))))) >>
+    CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``s_rel`` o fst o strip_comb))))) >>
     simp[Once(GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
     disch_then(qspec_then`get_tagenv tagenv_st`mp_tac) >>
@@ -2007,7 +2007,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
   >- (
     first_assum(mp_tac o MATCH_MP (CONJUNCT1 compile_exp_correct)) >>
     simp[env_all_rel_cases,PULL_EXISTS] >>
-    CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``s_rel`` o fst o strip_comb))))) >>
+    CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``s_rel`` o fst o strip_comb))))) >>
     simp[GSYM AND_IMP_INTRO,env_rel_el,LENGTH_NIL_SYM] >>
     simp[Once result_rel_cases,PULL_EXISTS,vs_rel_list_rel] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
@@ -2505,17 +2505,17 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >>
   first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >> simp[] >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left is_eq)))) >>
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   `∃a b c. st' = (a,b,c)` by metis_tac[PAIR] >> var_eq_tac >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th o SYM)) >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv (same_const``invariant`` o fst o strip_comb))))) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left (same_const``invariant`` o fst o strip_comb))))) >>
   disch_then drule >>
   impl_tac >- (
     full_simp_tac(srw_ss())[modPropsTheory.no_dup_mods_eqn, modPropsTheory.no_dup_top_types_eqn] >>
     imp_res_tac modPropsTheory.evaluate_prompt_mods_disjoint >> full_simp_tac(srw_ss())[] >>
     imp_res_tac modPropsTheory.evaluate_prompt_tids >> full_simp_tac(srw_ss())[] >>
-    reverse conj_tac >- (
+    conj_tac >- (
       full_simp_tac(srw_ss())[modSemTheory.no_dup_mods_def,modSemTheory.evaluate_prompt_def,LET_THM] >>
       BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >>
       first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
@@ -2749,7 +2749,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   PairCases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   pop_assum(mp_tac o SYM) >>
   specl_args_of_then``modSem$evaluate_prog``compile_prog_evaluate mp_tac >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``invariant`` o fst o strip_comb))))) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``invariant`` o fst o strip_comb))))) >>
   PairCases_on`tagenv_st` >>
   imp_res_tac invariant_with_clock >>
   first_x_assum(qspec_then`k`strip_assume_tac) >>

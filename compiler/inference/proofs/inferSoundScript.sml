@@ -356,9 +356,9 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            qexists_tac `count st''''.next_uvar`>>
            fs[]>>
            match_mp_tac t_unify_check_s>>
-           CONV_TAC (STRIP_QUANT_CONV (lift_conjunct_conv is_eq)) >>
+           CONV_TAC (STRIP_QUANT_CONV (move_conj_left is_eq)) >>
            first_assum (match_exists_tac o concl)>>
-           fs[]>>rw[]
+           fs[]>>(reverse(rw[]))
            >-
              (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
              qexists_tac`count st'''.next_uvar`>>
@@ -761,7 +761,7 @@ val infer_ds_sound = Q.prove (
    rfs[]>>
    fs[EXTENSION,MEM_MAP,PULL_EXISTS,EXISTS_PROD,convert_env2_def])>>
  strip_tac >>
- CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))) >>
+ CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``type_d`` o fst o strip_comb))) >>
  first_assum(match_exists_tac o concl) >> simp[] >>
  fs[convert_append_decls,bvl2_append] >>
  pop_assum mp_tac>>
@@ -770,6 +770,7 @@ val infer_ds_sound = Q.prove (
  `A = B` by
    (unabbrev_all_tac>>fs[type_environment_component_equality])>>
  strip_tac>>rfs[]>>
+ CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``type_ds`` o fst o strip_comb))) >>
  first_assum(match_exists_tac o concl) >> simp[] >>
  simp[convert_env2_def,append_new_dec_tenv_def]);
 
@@ -1094,7 +1095,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          >- (fs [convert_menv_def] >>
              rw [] >>
              fs [convert_env2_def, convert_decls_def,mod_lift_new_dec_tenv_def] >>
-             CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_ds`` o fst o strip_comb))) >>
+             CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``type_ds`` o fst o strip_comb))) >>
              first_assum(match_exists_tac o concl) >>
              simp[union_decls_def,mod_lift_new_dec_tenv_def] >>
              metis_tac [INSERT_SING_UNION])
@@ -1104,22 +1105,22 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
              `check_env {} env''' ∧ flat_tenv_tabbrev_ok tenvT'''` by (
                first_x_assum(mp_tac o MATCH_MP(
                  check_specs_check
-                 |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))
+                 |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left is_eq)))
                  |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
                simp[])>>
              imp_res_tac check_specs_sound >>
              fs[convert_decls_def,EXISTS_PROD]>>
-             CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_ds`` o fst o strip_comb))) >>
+             CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``type_ds`` o fst o strip_comb))) >>
              first_assum(match_exists_tac o concl) >> simp[] >>
              fs[weak_new_dec_tenv_def]>>
              Q.LIST_EXISTS_TAC [`tenvT''''`,`cenv''''`,`convert_env2 env''''`,`decls''''`]>>
              fs[mod_lift_new_dec_tenv_def,convert_env2_def,union_decls_def,empty_inf_decls_def,Once INSERT_SING_UNION]>>
-             rw[]
-             >- metis_tac [check_flat_weakT_sound]
-             >- metis_tac[check_flat_weakC_sound,flat_weakC_anub]
-             >- metis_tac [check_weakE_sound, convert_env2_def, weakE_anub, convert_env2_anub]
+             (reverse(rw[]))
              >- (fs[weak_decls_def,check_weak_decls_def,list_subset_def,SUBSET_DEF,EVERY_MEM]>>
                metis_tac[])
+             >- metis_tac [check_weakE_sound, convert_env2_def, weakE_anub, convert_env2_anub]
+             >- metis_tac[check_flat_weakC_sound,flat_weakC_anub]
+             >- metis_tac [check_flat_weakT_sound]
              >>
                fs[convert_menv_def]))
      >>
@@ -1157,7 +1158,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
              rw [FEVERY_FUPDATE, FEVERY_FEMPTY] >>
              first_x_assum(mp_tac o MATCH_MP(
                check_specs_check
-               |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))
+               |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left is_eq)))
                |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
              fs [check_env_def, check_flat_cenv_def]))
      >- (fs[success_eqns]>>
@@ -1187,7 +1188,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
              rw [] >>
              first_x_assum(mp_tac o MATCH_MP(
                check_specs_check
-               |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))
+               |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left is_eq)))
                |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
              fs [check_env_def, check_flat_cenv_def] >>
              Cases_on`tenv.c` >>
@@ -1203,7 +1204,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          rw [] >>
          first_x_assum(mp_tac o MATCH_MP(
            check_specs_check
-           |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))
+           |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left is_eq)))
            |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
          rw[]))>>
  rw [EXISTS_PROD,lift_new_dec_tenv_def,convert_menv_def]>>
@@ -1264,7 +1265,7 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
      rw [] >>
      fs [success_eqns] >>
      rw [] >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_top`` o fst o strip_comb))) >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``type_top`` o fst o strip_comb))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      qabbrev_tac`tenv' = tenv with
      <|t := (merge_mod_env tenvT'' tenv.t);

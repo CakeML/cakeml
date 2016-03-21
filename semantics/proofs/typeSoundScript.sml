@@ -2166,7 +2166,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
              metis_tac [weak_decls_union2, type_d_mod, type_ds_mod, consistent_ctMap_weakening, decs_type_sound_invariant_def]))
      >- (
      srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal"evaluate_dec" o fst o dest_const o fst o strip_comb))) >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(equal"evaluate_dec" o fst o dest_const o fst o strip_comb))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      PairCases_on`res`>>
      full_simp_tac(srw_ss())[append_new_dec_tenv_def] >> rpt var_eq_tac >>
@@ -2191,9 +2191,10 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
          >- (imp_res_tac type_d_mod >>
              full_simp_tac(srw_ss())[union_decls_def])) >>
      strip_tac >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(equal"evaluate_decs" o fst o dest_const o fst o strip_comb))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      qexists_tac`tenvS''` >>
-     simp[GSYM CONJ_ASSOC] >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(equal"store_type_extension" o fst o dest_const o fst o strip_comb))) >>
      conj_tac >- metis_tac[store_type_extension_trans] >>
      Cases_on`r`>>full_simp_tac(srw_ss())[combine_dec_result_def] >>
      TRY(
@@ -2655,20 +2656,20 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
      full_simp_tac(srw_ss())[]
      >- (disj1_tac >>
          simp [PULL_EXISTS] >>
-         CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``bigStep$evaluate_prog`` o fst o strip_comb))) >>
+         CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``bigStep$evaluate_prog`` o fst o strip_comb))) >>
          first_assum(match_exists_tac o concl) >> simp[] >>
          simp [combine_mod_result_def] >>
          full_simp_tac(srw_ss())[update_type_sound_inv_def, FUNION_ASSOC, combine_mod_result_def, union_decls_assoc, merge_alist_mod_env_assoc, bvl2_append, merge_alist_mod_env_assoc, merge_mod_env_assoc, extend_top_env_def, append_new_top_tenv_def])
      >- (disj2_tac >>
          srw_tac[DNF_ss][] >> disj1_tac >>
-         CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``bigStep$evaluate_prog`` o fst o strip_comb))) >>
+         CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``bigStep$evaluate_prog`` o fst o strip_comb))) >>
          first_assum(match_exists_tac o concl) >> simp[] >>
          srw_tac[][FST_union_decls] >>
          full_simp_tac(srw_ss())[combine_mod_result_def, FST_union_decls, UNION_ASSOC] >>
          metis_tac[SUBSET_REFL]))
  >- (disj2_tac >>
      srw_tac[DNF_ss][] >> disj2_tac >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``bigStep$evaluate_top`` o fst o strip_comb))) >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``bigStep$evaluate_top`` o fst o strip_comb))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      metis_tac[SUBSET_REFL]));
 

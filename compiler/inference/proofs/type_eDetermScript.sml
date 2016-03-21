@@ -290,7 +290,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
      match_mp_tac t_walkstar_check >>
      simp[check_t_def,FDOM_FUPDATE_LIST] >>
      (t_unify_check_s
-      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))))
+      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``t_unify`` o fst o strip_comb o lhs))))
       |> REWRITE_RULE[GSYM AND_IMP_INTRO]
       |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      imp_res_tac infer_p_next_uvar_mono >>
@@ -301,7 +301,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
      disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
      strip_tac >>
      (pure_add_constraints_check_s
-      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))))
+      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``pure_add_constraints`` o fst o strip_comb))))
       |> REWRITE_RULE[GSYM AND_IMP_INTRO]
       |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >> simp[] >>

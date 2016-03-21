@@ -1,7 +1,7 @@
 structure preamble =
 struct
 local open intLib wordsLib in end
-open HolKernel bossLib boolLib boolSimps pairLib lcsymtacs
+open HolKernel bossLib boolLib boolSimps pairLib markerLib lcsymtacs
      Parse Defn Tactic res_quanTheory quantHeuristicsLib pairTheory
      optionTheory sumTheory combinTheory listTheory rich_listTheory
      alistTheory llistTheory lprefix_lubTheory arithmeticTheory
@@ -77,28 +77,6 @@ val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 (* TODO: this doesn't prove the hyps if there's more than one *)
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
-
-(* TODO: replace with markerLib.move_conj_left *)
-(* resort conjuncts so that one satisfying P appears first *)
-local
-  val finish = TRY_CONV (REWR_CONV (GSYM CONJ_ASSOC))
-in
-  fun lift_conjunct_conv P =
-    let
-      fun loop tm =
-        if P tm handle HOL_ERR _ => false then ALL_CONV
-        else
-          let
-            val (c1,c2) = dest_conj tm
-          in
-            (LAND_CONV (loop c1) THENC finish) ORELSEC
-            (RAND_CONV (loop c2) THENC REWR_CONV CONJ_SYM THENC finish)
-          end handle HOL_ERR _ => NO_CONV
-    in
-      W loop
-    end
-end
-(* -- *)
 
 (* TODO: move to HOL? *)
 val match_exists_tac = part_match_exists_tac (hd o strip_conj)
