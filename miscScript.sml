@@ -19,6 +19,25 @@ val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
 val _ = numLib.prefer_num();
 end
 
+val revdroprev = Q.store_thm("revdroprev",
+  `∀l n.
+     n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
+  ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
+  qcase_tac `n ≤ SUC (LENGTH l)` >>
+  `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
+  >- simp[TAKE_APPEND2] >>
+  simp[TAKE_APPEND1] >>
+  `LENGTH l + 1 - SUC m = LENGTH l - m`
+     suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
+  simp[]);
+
+val revtakerev = Q.store_thm("revtakerev",
+  `∀n l. n ≤ LENGTH l ⇒ REVERSE (TAKE n (REVERSE l)) = DROP (LENGTH l - n) l`,
+  Induct >> simp[DROP_LENGTH_NIL] >>
+  qx_gen_tac `l` >>
+  `l = [] ∨ ∃f e. l = SNOC e f` by metis_tac[SNOC_CASES] >> simp[] >>
+  simp[DROP_APPEND1]);
+
 val lsl_lsr = Q.store_thm("lsl_lsr",
   `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`,
   Cases_on`n` \\ simp[]

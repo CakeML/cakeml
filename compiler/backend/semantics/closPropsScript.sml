@@ -2,20 +2,6 @@ open preamble closLangTheory closSemTheory
 
 val _ = new_theory"closProps"
 
-(* TODO: move *)
-val revdroprev = Q.store_thm("revdroprev",
-  `∀l n.
-     n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
-  ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
-  qcase_tac `n ≤ SUC (LENGTH l)` >>
-  `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
-  >- simp[TAKE_APPEND2] >>
-  simp[TAKE_APPEND1] >>
-  `LENGTH l + 1 - SUC m = LENGTH l - m`
-     suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
-  simp[]);
-(* -- *)
-
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s:'ffi closSem$state) with clock := s.clock = s`,
   srw_tac[][closSemTheory.state_component_equality])

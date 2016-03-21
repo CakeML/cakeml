@@ -1851,13 +1851,6 @@ val optCASE_NONE_F = Q.prove(
   `option_CASE opt F f ⇔ ∃r. opt = SOME r ∧ f r`,
   Cases_on `opt` >> simp[]);
 
-val revtakerev = Q.store_thm("revtakerev",
-  `∀n l. n ≤ LENGTH l ⇒ REVERSE (TAKE n (REVERSE l)) = DROP (LENGTH l - n) l`,
-  Induct >> simp[DROP_LENGTH_NIL] >>
-  qx_gen_tac `l` >>
-  `l = [] ∨ ∃f e. l = SNOC e f` by metis_tac[SNOC_CASES] >> simp[] >>
-  simp[DROP_APPEND1]);
-
 val exp_rel_sing =
     exp_rel_def |> Q.SPECL [`[e1]`, `[e2]`]
                 |> SIMP_RULE (srw_ss()) [exec_rel_rw, evaluate_ev_def]
