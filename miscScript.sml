@@ -14,6 +14,11 @@ fun drule th =
 
 (* TODO: move/categorize *)
 
+local open integer_wordTheory in
+val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
+val _ = numLib.prefer_num();
+end
+
 val lsl_lsr = Q.store_thm("lsl_lsr",
   `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`,
   Cases_on`n` \\ simp[]

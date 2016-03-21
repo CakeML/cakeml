@@ -2,10 +2,6 @@ open preamble closLangTheory conLangTheory
 
 val _ = new_theory"closSem"
 
-(* TODO: move *)
-val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
-(* -- *)
-
 (* differs from store_v by removing the single value Refv *)
 val _ = Datatype `
   ref = ValueArray ('a list)
