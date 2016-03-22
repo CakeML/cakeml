@@ -43,10 +43,19 @@ Directory structure:
     A proof-producing translator from HOL functions to CakeML.
 
 - unverified/interp
+- unverified/front-end
     Unverified implementation, in Haskell, of the CakeML frontend augmented
     with informative error messages.
-- unverified/bytecode
-    An unverified implementation of CakeML bytecode, written in C
+- unverified/ocaml-syntax
+    A translator from OCaml to CakeML
+- unverified/hol-light-syntax
+    Another translator from OCaml to CakeML, targetted at translating HOL Light
+- unverified/reg_alloc
+    An implementation of CakeML's (verified) register allocator in Standard ML,
+    used for a translation-validation based optimisation for evaluating the
+    compiler in the logic.
+- unverified/benchmarks
+    Some ML benchmarks
 
 - candle
     Verification of a HOL theorem prover, based on HOL Light
