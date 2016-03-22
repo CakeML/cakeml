@@ -868,6 +868,12 @@ val gc_move_refs_thm = prove(
         gc_inv conf state' heap0``,
   cheat);
 
+val gc_move_list_consts = store_thm("gc_move_list_consts",
+  ``!xs conf state ys state1.
+      (gc_move_list conf state xs = (ys,state1)) ==>
+      (state1.r3 = state.r3) /\ (state1.r2 = state.r2)``,
+  cheat);
+
 val gc_move_data_thm = prove(
   ``!conf state.
       gc_inv conf state heap0 /\
@@ -924,6 +930,7 @@ THEN1
   \\ qpat_assum `state'.r = _` (fn th => once_rewrite_tac [GSYM th])
   \\ fs [heap_addresses_def,heap_addresses_APPEND,heap_length_def
         ,GSYM UNION_ASSOC,GSYM INSERT_SING_UNION,heap_length_APPEND,el_length_def])
+\\ drule gc_move_list_consts \\ strip_tac \\ fs []
 \\ qpat_assum `!i j:num. _` (qspecl_then [`i`,`j`] mp_tac)
 \\ rw [] \\ fs []
 \\ Cases_on `is_final conf.limit state'.h1 state'.r3 state'.r2 state'.r1 j`
