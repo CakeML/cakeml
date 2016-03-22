@@ -1160,6 +1160,69 @@ val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
   srw_tac[][state_rel_def]);
 
 (* -------------------------------------------------------
+    init
+   ------------------------------------------------------- *)
+
+val flat_NIL = prove(
+  ``flat [] xs = []``,
+  Cases_on `xs` \\ fs [flat_def]);
+
+val state_rel_init = store_thm("state_rel_init",
+  ``t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
+    code_rel c code t.code ∧ good_dimindex (:α) ∧
+    shift_length c < dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc l1 l2) ∧
+    limit ≤ dimword (:α) DIV 2 ** shift_length c ∧
+    limit ≤ dimword (:α) DIV 2 ** (shift (:'a) + 1) /\
+    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
+    c.len_size + 6 < dimindex (:α) ∧
+    FLOOKUP t.store Globals = SOME (Word 0w) /\
+    FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
+    FLOOKUP t.store OtherHeap = FLOOKUP t.store EndOfHeap ∧
+    FLOOKUP t.store NextFree = SOME (Word curr) ∧
+    FLOOKUP t.store EndOfHeap =
+      SOME (Word (curr + bytes_in_word * n2w limit)) ∧
+    FLOOKUP t.store HeapLength =
+      SOME (Word (bytes_in_word * n2w limit)) ∧
+    (word_list_exists curr (limit + limit)) (fun2set (t.memory,t.mdomain)) /\
+    t.stack = [] /\ byte_aligned curr ==>
+    state_rel c l1 l2 (initial_state ffi code t.clock) (t:('a,'ffi) state) [] []``,
+  simp_tac std_ss [word_list_exists_ADD]
+  \\ fs [state_rel_thm,bvpSemTheory.initial_state_def,
+    join_env_def,lookup_def,the_global_def,
+    libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac
+  \\ `FILTER (λ(n,v). n ≠ 0 ∧ EVEN n)
+        (toAList (inter t.locals (insert 0 () LN))) = []` by
+   (fs [FILTER_EQ_NIL] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
+    \\ fs [lookup_inter_alt]) \\ fs []
+  \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
+  \\ match_mp_tac IMP_memory_rel_Number
+  \\ fs [] \\ conj_tac
+  THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
+  \\ fs [memory_rel_def]
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ `limit * (dimindex (:α) DIV 8) + 1 < dimword (:α)` by
+   (fs [labPropsTheory.good_dimindex_def,dimword_def]
+    \\ rfs [shift_def] \\ decide_tac)
+  \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def]
+  \\ qexists_tac `heap_expand limit`
+  \\ qexists_tac `0`
+  \\ qexists_tac `limit`
+  \\ reverse conj_tac THEN1
+   (fs[abs_ml_inv_def,roots_ok_def,heap_ok_def,heap_length_heap_expand,
+       unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
+    \\ fs [heap_expand_def,heap_lookup_def]
+    \\ rw [] \\ fs [isForwardPointer_def,bc_ref_inv_def,reachable_refs_def])
+  \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
+  \\ fs [FLOOKUP_DEF]
+  \\ fs [byte_aligned_def,bytes_in_word_def,labPropsTheory.good_dimindex_def,
+         word_mul_n2w]
+  \\ simp_tac bool_ss [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``)]
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ simp_tac bool_ss [aligned_add_pow] \\ rfs []);
+
+(* -------------------------------------------------------
     compiler proof
    ------------------------------------------------------- *)
 
@@ -3816,7 +3879,7 @@ val state_rel_ext_with_clock = prove(
 
 (* observational semantics preservation *)
 
-val compile_semantics = Q.store_thm("compile_semantics",
+val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
   `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t /\
    semantics ffi (fromAList prog) start <> Fail ==>
    semantics t start IN
@@ -4089,6 +4152,22 @@ val compile_semantics = Q.store_thm("compile_semantics",
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
   simp[EL_APPEND1]);
 
-val bvp_to_word_compile_semantics = compile_semantics;
+val compile_semantics = save_thm("compile_semantics",
+  compile_semantics_lemma |> Q.GEN `conf`
+  |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
+  |> REWRITE_RULE [state_rel_ext_def]
+  |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
+  |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,
+       FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
+  |> SIMP_RULE std_ss [wordSemTheory.state_component_equality]
+  |> SIMP_RULE (srw_ss()) []
+  |> (fn th => MATCH_MP th (UNDISCH state_rel_init
+               |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`]))
+  |> SIMP_RULE (srw_ss()) []
+  |> ONCE_REWRITE_RULE [EQ_SYM_EQ] |> GEN_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> SPEC_ALL |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO]
+  |> REWRITE_RULE [GSYM CONJ_ASSOC]);
 
 val _ = export_theory();

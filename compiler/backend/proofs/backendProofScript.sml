@@ -142,6 +142,42 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
 
 val code_installed_def = fetch "-" "code_installed_def" |> SPEC_ALL
 
+(*
+
+val imp_code_installed = prove(
+  ``ffi.final_event = NONE /\
+    backend_correct mc_conf.target ==>
+    code_installed (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms)``,
+
+  strip_tac \\ fs [code_installed_def,lab_to_targetProofTheory.good_syntax_def]
+  \\ fs [EXISTS_PROD]
+
+  bvp_to_wordProofTheory.state_rel_ext_def
+
+  bvp_to_wordProofTheory.state_rel_def
+
+  full_make_init_def
+
+  full_make_init_def
+  stack_allocProofTheory.make_init_def
+  stack_removeProofTheory.make_init_opt_def
+  stack_removeProofTheory.init_reduce_def
+
+  full_init_pre_fail_def
+
+make_init_opt_def
+
+  \\ GEN_EXISTS_TAC "y" `5`
+
+
+
+  state_rel_ext_def
+
+good_init_state_def
+
+
+*)
+
 (* --- composing source-to-target --- *)
 
 val cnv = computeLib.compset_conv (wordsLib.words_compset())
