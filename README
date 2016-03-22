@@ -42,10 +42,9 @@ Directory structure:
 - translator
     A proof-producing translator from HOL functions to CakeML.
 
-- unverified/interp
 - unverified/front-end
-    Unverified implementation, in Haskell, of the CakeML frontend augmented
-    with informative error messages.
+    Stale unverified implementation, in Haskell, of the CakeML frontend
+    augmented with informative error messages.
 - unverified/ocaml-syntax
     A translator from OCaml to CakeML
 - unverified/hol-light-syntax
