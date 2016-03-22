@@ -4,7 +4,7 @@ A verified implementation of a significant subset of Standard ML in the HOL4
 theorem prover (http://hol-theorem-prover.org).
 
 We build CakeML using the latest development version of HOL4.
-We build HOL on PolyML 5.5.2 (http://www.polyml.org).
+We build HOL on PolyML 5.6 (http://www.polyml.org).
 Example build instructions can be found in build-instructions.sh.
 
 This branch (master) contains the latest development version of CakeML.
@@ -42,6 +42,10 @@ Directory structure:
 - translator
     A proof-producing translator from HOL functions to CakeML.
 
+- candle
+    Verification of a HOL theorem prover, based on HOL Light
+    (http://www.cl.cam.ac.uk/~jrh13/hol-light/), implemented in CakeML.
+
 - unverified/front-end
     Stale unverified implementation, in Haskell, of the CakeML frontend
     augmented with informative error messages.
@@ -56,10 +60,6 @@ Directory structure:
 - unverified/benchmarks
     Some ML benchmarks
 
-- candle
-    Verification of a HOL theorem prover, based on HOL Light
-    (http://www.cl.cam.ac.uk/~jrh13/hol-light/), implemented in CakeML.
-
 - explorer
     Tools for stepping through execution of the compiler from one intermediate
     language to the next, and pretty-printing the intermediate results. An
@@ -69,15 +69,17 @@ Directory structure:
     Small theory of wrapped strings, so the translator can distinguish them
     from char lists and target CakeML strings.
 
-- compute_basicLib.sml
-    Build compsets for evaluation in the logic.
+- basicComputeLib.sml
+    Build a basic compset for evaluation in the logic.
 
-- miscLib.sml, miscScript.sml, preamble.sml
+- miscScript.sml, preamble.sml
     Theorems and proof tools (e.g. tactics) used throughout the development.
 
 - lem_lib_stub
     empty versions of the Lem libraries (which we don't use, but building with
     Lem requires)
+- lib.lem
+    Extensions to Lem's built-in library to target things we need in HOL
 
 - developers
     scripts for running regression tests and other miscellany
