@@ -502,7 +502,6 @@ val semantics_def = Define`
            (IMAGE (λk. fromList (FST (evaluate env (st with clock := k) es)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
-  ["do_eq_UNION_aux","do_eq_UNION",
-   "evaluate_tupled_aux","evaluate_tupled"];
+  ["do_eq_UNION_aux","do_eq_UNION", "evaluate_tupled_aux"];
 
 val _ = export_theory()
