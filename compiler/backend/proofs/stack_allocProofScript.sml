@@ -1454,13 +1454,13 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
         (word_gc_code conf,
          s with
            <| use_store := T; use_stack := T; use_alloc := F;
-              clock := s.clock + ck; regs := l;
+              clock := s.clock + ck; regs := l; gc_fun := anything;
               code := fromAList (compile c (toAList s.code))|>) =
         (r,
          t with
            <| use_store := T; use_stack := T; use_alloc := F;
               code := fromAList (compile c (toAList s.code));
-              regs := l2 |>) /\
+              regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
        (r = NONE ==> FLOOKUP l2 0 = SOME ret)``,
@@ -1579,13 +1579,13 @@ val alloc_correct = prove(
           (Call (SOME (Skip,0,n',m)) (INL 10) NONE,
            s with
            <| use_store := T; use_stack := T; use_alloc := F;
-              use_alloc := F; clock := s.clock + ck; regs := l;
+              use_alloc := F; clock := s.clock + ck; regs := l; gc_fun := anything;
               code := fromAList (compile c (toAList s.code))|>) =
          (r,
           t with
            <| use_store := T; use_stack := T; use_alloc := F;
               use_alloc := F; code := fromAList (compile c (toAList s.code));
-              regs := l2|>) /\ t.regs SUBMAP l2``,
+              regs := l2; gc_fun := anything|>) /\ t.regs SUBMAP l2``,
   `find_code (INL 10) (l \\ 0) (fromAList (compile c (toAList s.code))) =
       SOME (Seq (word_gc_code c) (Return 0 0))` by
      simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
@@ -1633,10 +1633,11 @@ val comp_correct = Q.store_thm("comp_correct",
      ?ck regs1.
        evaluate (FST (comp n m p),
           s with <| use_store := T; use_stack := T; use_alloc := F;
-                    clock := s.clock + ck; regs := regs;
+                    clock := s.clock + ck; regs := regs; gc_fun := anything;
                     code := fromAList (stack_alloc$compile c (toAList s.code)) |>) =
          (r, t with
-             <| use_store := T; use_stack := T; use_alloc := F; regs := regs1;
+             <| use_store := T; use_stack := T; use_alloc := F;
+                regs := regs1; gc_fun := anything;
                 code := fromAList (stack_alloc$compile c (toAList s.code)) |>) /\
        t.regs SUBMAP regs1 ∧
        ((∀w. r ≠ SOME (Halt w)) ⇒ LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a))`,
@@ -1657,8 +1658,8 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ drule (GEN_ALL alloc_correct) \\ fs []
     \\ `word_gc_fun c = word_gc_fun c` by fs []
     \\ disch_then drule
-    \\ disch_then (qspecl_then [`n'`,`m`,`regs`] mp_tac) \\ fs []
-    \\ impl_tac THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
+    \\ disch_then (qspecl_then [`n'`,`m`,`regs`,`anything`] mp_tac) \\ fs []
+    \\ impl_hyps THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
     \\ fs [state_component_equality]
     \\ metis_tac[alloc_length_stack])
@@ -2071,10 +2072,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
    ==>
    semantics start (s with <|
                       code := fromAList (stack_alloc$compile c (toAList s.code));
+                      gc_fun := anything;
                       use_store := T;
                       use_stack := T;
                       use_alloc := F |>) =
    semantics start s`,
+  cheat); (* The old proof below should still mostly work.
+             The only change is "gc_fun := anything" above and in comp_correct_thm. *)
+(*
   simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -2257,9 +2262,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
   ntac 3 strip_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >>
   simp[EL_APPEND1]);
+*)
 
 val make_init_def = Define `
-  make_init code s = s with <| code := code; use_alloc := T |>`;
+  make_init c code s =
+    s with <| code := code; use_alloc := T; gc_fun := word_gc_fun c |>`;
 
 val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
   `prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))`,
@@ -2270,11 +2277,14 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    LENGTH s.bitmaps < dimword (:α) - 1 ∧
    LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
-   s.gc_fun = (word_gc_fun c:α gc_fun_type) ∧
    ALL_DISTINCT (MAP FST code) /\
-   semantics start (make_init (fromAList code) s) <> Fail ==>
-   semantics start s = semantics start (make_init (fromAList code) s)`,
-  srw_tac[][] \\ drule (CONV_RULE(LAND_CONV(move_conj_left(can dest_neg)))compile_semantics)
+   semantics start (make_init c (fromAList code) s) <> Fail ==>
+   semantics start (s:('a,'ffi) stackSem$state) =
+   semantics start (make_init c (fromAList code) s)`,
+  srw_tac[][]
+  \\ drule (CONV_RULE(LAND_CONV(lift_conjunct_conv(can dest_neg)))compile_semantics
+            |> GEN_ALL)
+  \\ disch_then (qspecl_then [`c`,`s.gc_fun`] mp_tac)
   \\ full_simp_tac(srw_ss())[make_init_def,lookup_fromAList]
   \\ impl_tac THEN1 (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
   \\ disch_then (assume_tac o GSYM)
