@@ -26,24 +26,9 @@ val has_pair_type = can dest_prod o type_of
    the equations might not be theorems -- indeed, in many cases they
    won't be theorems.
 *)
-fun term_rewrite eq_tms tm = let
-  fun get_rw_thm eq_tm =
-    ASSUME (list_mk_forall (free_vars eq_tm, eq_tm))
-  in tm |> QCONV (PURE_REWRITE_CONV (map get_rw_thm eq_tms))
-        |> concl |> dest_eq |> snd end
-(*
-TODO: The above term_rewrite doesn't work as often because it universally
-quantifies variables that should remain free. Maybe? But the below version does
-not work with universally quantified equations at all. botworld_quoteTheory
-fails with the above version but works with the below.
-
-fun term_rewrite eqs tm =
-  let
-    fun match_and_subst tm eq =
-      let val (s1,s2) = match_term (lhs eq) tm in mk_thm([],subst s1 (inst s2 eq)) end
-    fun rw1 tm = tryfind (match_and_subst tm) eqs
-  in tm |> QCONV (DEPTH_CONV rw1) |> concl |> rhs end
-*)
+fun term_rewrite eq_tms tm =
+  tm |> QCONV (PURE_REWRITE_CONV (map (curry mk_thm []) eq_tms))
+     |> concl |> rhs
 
 (* replace (syntactically equal) subterms of one term by another *)
 (* TODO: can Term.subst be used instead always? If so, delete. *)
