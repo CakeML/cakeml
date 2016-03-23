@@ -6635,22 +6635,6 @@ val comp_correct = Q.store_thm("comp_correct",
       strip_tac>>
       fs[state_rel_def]));
 
-val make_init_def = Define `
-  make_init (t:('a,'ffi)stackSem$state) code =
-    <| locals  := LN
-     ; store   := t.store \\ Handler
-     ; stack   := []
-     ; memory  := t.memory
-     ; mdomain := t.mdomain
-     ; permute := K I
-     ; gc_fun  := t.gc_fun
-     ; handler := 0
-     ; clock   := t.clock
-     ; code    := code
-     ; be      := t.be
-     ; ffi     := t.ffi
-     ; termdep := 0 |> `;
-
 val evaluate_Seq_Skip = prove(
   ``stackSem$evaluate (Seq Skip p,s) = evaluate (p,s)``,
   fs [stackSemTheory.evaluate_def,LET_THM]);
@@ -6967,11 +6951,28 @@ val init_state_ok_def = Define `
     t.stack_space <= LENGTH t.stack /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
+    FLOOKUP t.regs 0 = SOME (Loc 1 0) /\
     LENGTH t.bitmaps + 1 < dimword (:'a) /\
     [4w] ≼ t.bitmaps /\
     LENGTH t.stack < dimword (:'a) /\
     DROP t.stack_space t.stack = [Word 0w] /\
     FLOOKUP t.store Handler = SOME (Word (n2w (LENGTH t.stack - 2)))`
+
+val make_init_def = Define `
+  make_init (t:('a,'ffi)stackSem$state) code =
+    <| locals  := insert 0 (Loc 1 0) LN
+     ; store   := t.store \\ Handler
+     ; stack   := []
+     ; memory  := t.memory
+     ; mdomain := t.mdomain
+     ; permute := K I
+     ; gc_fun  := t.gc_fun
+     ; handler := 0
+     ; clock   := t.clock
+     ; code    := code
+     ; be      := t.be
+     ; ffi     := t.ffi
+     ; termdep := 0 |> `;
 
 val init_state_ok_IMP_state_rel = prove(
   ``lookup 5 t.code = SOME (raise_stub k) /\
@@ -6989,7 +6990,9 @@ val init_state_ok_IMP_state_rel = prove(
   \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
-  \\ fs[flookup_thm,wf_def] \\ every_case_tac \\ fs [] \\ TRY(metis_tac[]) \\ decide_tac);
+  \\ fs[flookup_thm,wf_def] \\ every_case_tac \\ fs []
+  \\ fs [lookup_insert,lookup_def] \\ rpt var_eq_tac
+  \\ fs [wf_def,Once insert_def,lookup_insert] \\ metis_tac[]);
 
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init t code`]
