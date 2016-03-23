@@ -1659,7 +1659,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `word_gc_fun c = word_gc_fun c` by fs []
     \\ disch_then drule
     \\ disch_then (qspecl_then [`n'`,`m`,`regs`,`anything`] mp_tac) \\ fs []
-    \\ impl_hyps THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
+    \\ impl_tac THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
     \\ fs [state_component_equality]
     \\ metis_tac[alloc_length_stack])
@@ -2282,7 +2282,7 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
    semantics start (s:('a,'ffi) stackSem$state) =
    semantics start (make_init c (fromAList code) s)`,
   srw_tac[][]
-  \\ drule (CONV_RULE(LAND_CONV(lift_conjunct_conv(can dest_neg)))compile_semantics
+  \\ drule (CONV_RULE(LAND_CONV(move_conj_left(can dest_neg)))compile_semantics
             |> GEN_ALL)
   \\ disch_then (qspecl_then [`c`,`s.gc_fun`] mp_tac)
   \\ full_simp_tac(srw_ss())[make_init_def,lookup_fromAList]
