@@ -1949,7 +1949,7 @@ val init_prop_def = Define `
 val init_code_pre_def = Define `
   init_code_pre k s <=>
     ?ptr2 ptr3 ptr4.
-      good_dimindex (:'a) /\ 10 <= k /\
+      good_dimindex (:'a) /\ 8 <= k /\
       {k; k + 1; k + 2} SUBSET s.ffi_save_regs /\
       ~s.use_stack /\ ~s.use_store /\ ~s.use_alloc /\
       FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
@@ -2328,15 +2328,29 @@ val IMP_code_rel = Q.prove(
   \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
   \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]);
 
+val make_init_any_def = Define `
+  make_init_any max_heap bitmaps k code s =
+    case make_init_opt max_heap bitmaps k code s of
+    | SOME t => t
+    | NONE => s with <| mdomain := EMPTY
+                      ; bitmaps := bitmaps
+                      ; use_stack := T
+                      ; use_store := T
+                      ; stack := [Word 0w]
+                      ; stack_space := 0
+                      ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
+                                   (CurrHeap::store_list)) |>`
+
 val make_init_semantics = store_thm("make_init_semantics",
   ``init_pre max_heap bitmaps k start s2 /\
     EVERY (\(n,p). good_syntax p k /\ 3 < n) code /\
     s2.code = fromAList (compile max_heap bitmaps k start code) /\
     IS_SOME (make_init_opt max_heap bitmaps k (fromAList code) s2) /\
-    THE (make_init_opt max_heap bitmaps k (fromAList code) s2) = s1 /\
+    make_init_any max_heap bitmaps k (fromAList code) s2 = s1 /\
     semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
-  Cases_on `make_init_opt max_heap bitmaps k (fromAList code) s2` \\ fs []
+  fs [make_init_any_def]
+  \\ Cases_on `make_init_opt max_heap bitmaps k (fromAList code) s2` \\ fs []
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac IMP_code_rel
   \\ drule (make_init_opt_SOME_semantics |> GEN_ALL)
