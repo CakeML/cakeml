@@ -57,6 +57,11 @@ val StoreEach_def = Define `
 val shift_length_def = Define `
   shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
 
+val max_heap_limit_def = Define `
+  max_heap_limit (:'a) c =
+    MIN (dimword (:'a) DIV 2 ** shift_length c)
+        (dimword (:'a) DIV 2 ** (shift (:'a) + 1))`
+
 val all_ones_def = Define `
   all_ones m n = (m - 1 -- n) (~0w)`
 

@@ -48,8 +48,10 @@ val compile_def = Define`
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
+    let c = c with stack_conf updated_by
+             (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
     let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
-      lab_to_target$compile c.lab_conf p`;
+      lab_to_target$compile c.lab_conf (p:'a prog)`;
 
 val to_mod_def = Define`
   to_mod c p =
@@ -126,8 +128,10 @@ val to_stack_def = Define`
 val to_lab_def = Define`
   to_lab c p =
   let (c,p) = to_stack c p in
+  let c = c with stack_conf updated_by
+           (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
   let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
-  (c,p)`;
+  (c,p:'a prog)`;
 
 val to_target_def = Define`
   to_target c p =
@@ -164,8 +168,10 @@ val from_lab_def = Define`
 
 val from_stack_def = Define`
   from_stack c p =
+  let c = c with stack_conf updated_by
+           (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
   let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
-  from_lab c p`;
+  from_lab c (p:'a prog)`;
 
 val from_word_def = Define`
   from_word c p =

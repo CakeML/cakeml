@@ -1167,33 +1167,44 @@ val flat_NIL = prove(
   ``flat [] xs = []``,
   Cases_on `xs` \\ fs [flat_def]);
 
+val conf_ok_def = Define `
+  conf_ok (:'a) c <=>
+    shift_length c < dimindex (:α) ∧
+    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
+    c.len_size + 6 < dimindex (:α)`
+
+val init_store_ok_def = Define `
+  init_store_ok c store m (dm:'a word set) <=>
+    ?limit curr.
+      limit <= max_heap_limit (:'a) c /\
+      FLOOKUP store Globals = SOME (Word 0w) /\
+      FLOOKUP store CurrHeap = SOME (Word curr) ∧
+      FLOOKUP store OtherHeap = FLOOKUP store EndOfHeap ∧
+      FLOOKUP store NextFree = SOME (Word curr) ∧
+      FLOOKUP store EndOfHeap =
+        SOME (Word (curr + bytes_in_word * n2w limit)) ∧
+      FLOOKUP store HeapLength =
+        SOME (Word (bytes_in_word * n2w limit)) ∧
+      (word_list_exists curr (limit + limit)) (fun2set (m,dm)) ∧
+      byte_aligned curr`
+
 val state_rel_init = store_thm("state_rel_init",
   ``t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
-    code_rel c code t.code ∧ good_dimindex (:α) ∧
-    shift_length c < dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc l1 l2) ∧
-    limit ≤ dimword (:α) DIV 2 ** shift_length c ∧
-    limit ≤ dimword (:α) DIV 2 ** (shift (:'a) + 1) /\
-    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 6 < dimindex (:α) ∧
-    FLOOKUP t.store Globals = SOME (Word 0w) /\
-    FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
-    FLOOKUP t.store OtherHeap = FLOOKUP t.store EndOfHeap ∧
-    FLOOKUP t.store NextFree = SOME (Word curr) ∧
-    FLOOKUP t.store EndOfHeap =
-      SOME (Word (curr + bytes_in_word * n2w limit)) ∧
-    FLOOKUP t.store HeapLength =
-      SOME (Word (bytes_in_word * n2w limit)) ∧
-    (word_list_exists curr (limit + limit)) (fun2set (t.memory,t.mdomain)) /\
-    t.stack = [] /\ byte_aligned curr ==>
+    code_rel c code t.code ∧
+    good_dimindex (:α) ∧
+    lookup 0 t.locals = SOME (Loc l1 l2) ∧
+    t.stack = [] /\
+    conf_ok (:'a) c /\
+    init_store_ok c t.store t.memory t.mdomain ==>
     state_rel c l1 l2 (initial_state ffi code t.clock) (t:('a,'ffi) state) [] []``,
-  simp_tac std_ss [word_list_exists_ADD]
+  simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
   \\ fs [state_rel_thm,bvpSemTheory.initial_state_def,
     join_env_def,lookup_def,the_global_def,
-    libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac
+    libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
   \\ `FILTER (λ(n,v). n ≠ 0 ∧ EVEN n)
         (toAList (inter t.locals (insert 0 () LN))) = []` by
    (fs [FILTER_EQ_NIL] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
-    \\ fs [lookup_inter_alt]) \\ fs []
+    \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
