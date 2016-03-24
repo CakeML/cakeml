@@ -221,7 +221,7 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
   fs [LET_THM, decSemTheory.evaluate_def] >>
   rw[libTheory.opt_bind_def] >>
   rw[pat_bindings_def,pmatch_def] >>
-  first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
+  first_assum(split_pair_case0_tac o lhs o concl) >> fs[] >>
   imp_res_tac compile_decs_correct >> pop_assum kall_tac >>
   pop_assum mp_tac >> impl_tac >- (strip_tac >> fs[]) >> strip_tac >>
   simp[] >>
@@ -247,18 +247,18 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   induct_on `p` >>
   rw [evaluate_prog_def,compile_prog_def, LET_THM,LENGTH_NIL]
   >- (fs[dec_result_rel_cases,decSemTheory.evaluate_def,state_component_equality]) >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> fs [] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> fs [] >>
   rw [] >>
   rw [decSemTheory.evaluate_def] >>
   rw [pat_bindings_def,pmatch_def] >>
-  first_assum(split_pair_case_tac o lhs o concl) >> fs [] >>
+  first_assum(split_pair_case0_tac o lhs o concl) >> fs [] >>
   first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prompt_correct)) >>
   simp[] >>
   impl_tac >- (strip_tac >> fs[]) >> strip_tac >> simp[] >>
   fs[dec_result_rel_cases,pmatch_def,LET_THM,EVAL``none_tag < 1``] >> fs[] >>
   rpt var_eq_tac >> simp[] >- (
-    first_assum(split_pair_case_tac o lhs o concl) >> fs [] >> rw[] >>
+    first_assum(split_pair_case0_tac o lhs o concl) >> fs [] >> rw[] >>
     first_x_assum drule >> simp[]) >>
   EVAL_TAC);
 

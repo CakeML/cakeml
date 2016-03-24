@@ -151,7 +151,7 @@ val evaluate_add_clock = store_thm("evaluate_add_clock",
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_applied_pair_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspec_then`k1`mp_tac) >> simp[]);
 
@@ -171,7 +171,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   simp[Once evaluate_def,SimpR``$/\``] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_applied_pair_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[call_FFI_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
@@ -201,7 +201,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     first_x_assum match_mp_tac >> simp[] ) >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_applied_pair_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   first_x_assum match_mp_tac >> simp[]);
 

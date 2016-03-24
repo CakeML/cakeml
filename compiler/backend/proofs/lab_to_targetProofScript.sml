@@ -2316,7 +2316,7 @@ val enc_secs_again_IMP_similar = prove(
   ``∀pos labs enc code code1 ok.
   enc_secs_again pos labs enc code = (code1,ok) ==> code_similar code code1``,
   ho_match_mp_tac enc_secs_again_ind>>fs[enc_secs_again_def]>>rw[]>>
-  ntac 2 (split_pair_tac>>fs[])>>
+  ntac 2 (pairarg_tac>>fs[])>>
   rveq>>fs[code_similar_def]>>
   imp_res_tac enc_lines_again_IMP_similar>>
   fs[]);
@@ -2374,7 +2374,7 @@ val enc_lines_again_simp_EQ = prove(``
   enc_lines_again labs pos enc ls (acc,b) = (REVERSE acc ++ ls',b ∧ flag)``,
   ho_match_mp_tac (fetch "-" "enc_lines_again_simp_ind")>>
   fs[enc_lines_again_simp_def,enc_lines_again_def]>>rw[]>>
-  split_pair_tac>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>
   rw[EQ_IMP_THM]>>fs[])
 
 val enc_lines_again_simp_lemma = prove(``
@@ -2384,7 +2384,7 @@ val enc_lines_again_simp_lemma = prove(``
   sec_length lines n = sec_length lines' n``,
   ho_match_mp_tac (fetch "-" "enc_lines_again_simp_ind")>>
   fs[enc_lines_again_simp_def]>>rw[]>>
-  split_pair_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   rveq>>fs[asm_line_labs_def,full_sec_length_def]>>
   fs[sec_length_def])
 
@@ -2394,7 +2394,7 @@ val enc_lines_again_T_IMP = prove(``
   full_sec_length lines = full_sec_length lines'``,
   strip_tac>>
   Q.ISPECL_THEN[`labs`,`pos`,`enc`,`lines`,`[]:'a line list`,`T`] assume_tac enc_lines_again_simp_EQ>>
-  fs[]>>split_pair_tac>>fs[]>>
+  fs[]>>pairarg_tac>>fs[]>>
   `flag = T` by fs[]>>
   pop_assum SUBST_ALL_TAC>>
   imp_res_tac enc_lines_again_simp_lemma>>
@@ -2407,10 +2407,10 @@ val enc_secs_again_T_IMP = prove(``
   compute_labels pos code acc = compute_labels pos sec_list acc``,
   Induct_on`code`>>fs[enc_secs_again_def]>>rw[]>>
   Cases_on`h`>>fs[compute_labels_def]>>
-  split_pair_tac>>fs[enc_secs_again_def]>>
-  ntac 2 (split_pair_tac>>fs[])>>
+  pairarg_tac>>fs[enc_secs_again_def]>>
+  ntac 2 (pairarg_tac>>fs[])>>
   rveq>>fs[compute_labels_def]>>
-  split_pair_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   imp_res_tac enc_lines_again_T_IMP>>
   fs[]>>
   res_tac>>
@@ -2444,7 +2444,7 @@ val compute_labels_simp_EQ = prove(``
   res = union acc res'``,
   HO_MATCH_MP_TAC compute_labels_ind>>fs[compute_labels_simp_def,compute_labels_def,wf_def]>>
   ntac 7 strip_tac>>
-  split_pair_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm] >>
   fs[wf_union,wf_insert,wf_def]>>
   fs[lookup_union,lookup_insert,lookup_def]>>
@@ -2483,7 +2483,7 @@ val lab_lookup_compute_labels_simp_lemma = prove(``
   simp[Once loc_to_pc_def]
   \\ IF_CASES_TAC \\ fs []
   \\ fs [compute_labels_simp_def]
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ ...)
 
 val lab_lookup_compute_labels = prove(
@@ -2518,7 +2518,7 @@ val sec_names_compute_labels_simp = prove(``
   x ∈ domain (compute_labels_simp n ls)``,
   ho_match_mp_tac (theorem "compute_labels_simp_ind")>>
   rw[compute_labels_simp_def,sec_names_def]>>
-  split_pair_tac>>fs[])
+  pairarg_tac>>fs[])
 
 (*
 
@@ -2529,7 +2529,7 @@ val compute_labels_simp_has_label = prove(``
   IS_SOME (lab_lookup l1 l2 (compute_labels_simp pos sec_list))``,
   ho_match_mp_tac (theorem "compute_labels_simp_ind")>>
   rw[compute_labels_simp_def,sec_names_def,has_label_def]>>
-  split_pair_tac>>fs[lab_lookup_def,sec_labs_def]>>
+  pairarg_tac>>fs[lab_lookup_def,sec_labs_def]>>
   imp_res_tac asm_line_labs_acc>>
   fs[lookup_insert]
   >-
@@ -2623,7 +2623,7 @@ val IS_SOME_lab_lookup_compute_labels = prove(
   \\ ho_match_mp_tac loc_to_pc_ind
   \\ rw[compute_labels_simp_def]
   >- ( EVAL_TAC \\ simp[lookup_def] )
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ fs[lab_lookup_def]
   \\ simp[lookup_insert]
   \\ IF_CASES_TAC \\ fs[]
@@ -2705,7 +2705,7 @@ val remove_labels_loop_thm = Q.prove(
   HO_MATCH_MP_TAC remove_labels_loop_ind  >> rpt gen_tac >> strip_tac
   >> simp[Once remove_labels_loop_def]
   >> rpt gen_tac
-  >> split_pair_tac \\ fs []
+  >> pairarg_tac \\ fs []
   >> reverse IF_CASES_TAC >> full_simp_tac(srw_ss())[]
   >> strip_tac >> rveq THEN1
    (full_simp_tac(srw_ss())[]
@@ -2714,7 +2714,7 @@ val remove_labels_loop_thm = Q.prove(
     >> simp[] >> strip_tac >> fs []
     >> drule enc_secs_again_IMP_similar
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ conj_asm1_tac
   THEN1 (imp_res_tac enc_secs_again_IMP_similar \\

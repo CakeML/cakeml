@@ -695,8 +695,8 @@ val inst_select_thm = store_thm("inst_select_thm",``
   >-
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM,every_var_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    ntac 2 (split_pair_tac>>full_simp_tac(srw_ss())[])>>
-    Cases_on`res' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>
+    ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
+    Cases_on`res'' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>
     rveq>>
     res_tac>>
     last_x_assum kall_tac>>
@@ -876,8 +876,8 @@ val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
     metis_tac[])
   >-
     (IF_CASES_TAC>>full_simp_tac(srw_ss())[LET_THM,every_inst_def]>>
-    ntac 2(split_pair_tac>>full_simp_tac(srw_ss())[])>>
-    Cases_on`res' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>rveq>>
+    ntac 2(pairarg_tac>>full_simp_tac(srw_ss())[])>>
+    Cases_on`res'' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>rveq>>
     res_tac>>
     full_simp_tac(srw_ss())[]>>rveq>>
     full_simp_tac(srw_ss())[])

@@ -1726,7 +1726,7 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   srw_tac[][bviSemTheory.evaluate_def,find_code_def] >>
   first_assum(drule o last o CONJUNCTS o CONV_RULE(REWR_CONV state_rel_def)) >>
-  simp[] >> strip_tac >> split_pair_tac >> full_simp_tac(srw_ss())[] >- (
+  simp[] >> strip_tac >> pairarg_tac >> full_simp_tac(srw_ss())[] >- (
     qpat_assum`0n = _`(assume_tac o SYM) >> simp[] >>
     `t1.clock = 0` by full_simp_tac(srw_ss())[state_rel_def] >> simp[] >>
     simp[inc_clock_def] >>
@@ -1816,7 +1816,7 @@ val compile_exps_aux_sorted = Q.store_thm("compile_exps_aux_sorted",
    SORTED $< (MAP FST aux) ∧ EVERY (between n n1) (MAP FST aux) ∧ n ≤ n1`,
    ho_match_mp_tac compile_exps_ind >>
    simp[compile_exps_def] >> srw_tac[][] >>
-   rpt (split_pair_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
+   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
    rpt ((sorted_lt_append |> match_mp_tac) >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
    full_simp_tac(srw_ss())[EVERY_MEM,between_def] >>
    srw_tac[][] >> res_tac >> decide_tac);
@@ -1862,10 +1862,10 @@ val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
   Induct_on`prog`>>simp[compile_list_def]>>
   qx_gen_tac`p`>>PairCases_on`p`>>
   rpt gen_tac >> strip_tac >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[compile_single_def,LET_THM] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac compile_exps_aux_sorted >>
   rpt var_eq_tac >>
   first_x_assum drule >> strip_tac >>
@@ -1934,11 +1934,11 @@ val compile_list_imp = Q.prove(
   qx_gen_tac`p`>>PairCases_on`p`>>
   simp[compile_list_def] >>
   rpt gen_tac >> strip_tac >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >>
   full_simp_tac(srw_ss())[compile_single_def,LET_THM] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >>
   BasicProvers.FULL_CASE_TAC >- (
     full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
@@ -1984,7 +1984,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
      (map_result (MAP (adjust_bv b2)) (adjust_bv b2) (case r of Rerr(Rraise v) => Rval [v] | _ => r),s2) ∧
    state_rel b2 s s2`,
   srw_tac[][compile_prog_def,LET_THM] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >> var_eq_tac >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >> var_eq_tac >>
   `num_stubs ≤ num_stubs + 2 * start` by simp[] >>
   drule (GEN_ALL compile_single_evaluate) >>
   simp[state_ok_def] >>
@@ -2175,7 +2175,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       full_simp_tac(srw_ss())[bviSemTheory.evaluate_def] >>
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[compile_prog_def,LET_THM] >>
-      split_pair_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
+      pairarg_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
       full_simp_tac(srw_ss())[find_code_def,lookup_fromAList,ALOOKUP_APPEND,bvi_stubs_def] >>
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       TRY(rpt(qpat_assum`_ = _`mp_tac) >> EVAL_TAC >> NO_TAC) >>

@@ -236,7 +236,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   Cases_on`a`>>fs[] >>
   every_case_tac >> rw[] >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def] >>
-  split_pair_tac >> fs[] >>
+  pairarg_tac >> fs[] >>
   fs[call_FFI_def] >>
   every_case_tac >> fs[] >> rfs[] >>
   rpt var_eq_tac >> fs[] >>
@@ -258,7 +258,7 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
   every_case_tac >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
-  TRY split_pair_tac >> fs[] >>
+  TRY pairarg_tac >> fs[] >>
   first_x_assum(qspec_then`k`mp_tac)>>simp[]);
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
@@ -292,7 +292,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
      unabbrev_all_tac >> simp[] >> EVAL_TAC >>
      simp[asm_inst_consts,IS_SOME_EXISTS] >> rw[] >>
      first_x_assum match_mp_tac >> simp[]) >>
-    (fn g => (subterm split_applied_pair_tac (#2 g) g)) >>
+    (fn g => (subterm split_uncurry_arg_tac (#2 g) g)) >>
     simp[] >>
     fs[call_FFI_def] >>
     qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events ∧ _` >>
@@ -310,7 +310,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-  (fn g => (subterm split_applied_pair_tac (#2 g) g)) >>
+  (fn g => (subterm split_uncurry_arg_tac (#2 g) g)) >>
   simp[] >> fs[call_FFI_def]);
 
 val _ = export_theory();

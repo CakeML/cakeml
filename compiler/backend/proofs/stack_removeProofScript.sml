@@ -911,7 +911,7 @@ val comp_correct = Q.prove(
   THEN1 (* Seq *)
    (full_simp_tac(srw_ss())[] \\ simp [Once comp_def]
     \\ full_simp_tac(srw_ss())[evaluate_def,good_syntax_def,LET_DEF]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ reverse(Cases_on `res = NONE`) \\ full_simp_tac(srw_ss())[]
     >- (rpt var_eq_tac
       \\ first_x_assum drule >> simp[]
@@ -973,7 +973,7 @@ val comp_correct = Q.prove(
       \\ qexists_tac `0`
       \\ simp [Once comp_def,evaluate_def]
       \\ full_simp_tac(srw_ss())[good_syntax_def,get_var_def])
-    \\ strip_tac \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ strip_tac \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ rev_full_simp_tac(srw_ss())[get_var_def] \\ full_simp_tac(srw_ss())[]
     \\ qpat_assum `SOME (Word _) = _` (assume_tac o GSYM) \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `res <> NONE` \\ full_simp_tac(srw_ss())[]
@@ -1021,8 +1021,9 @@ val comp_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[state_rel_def,code_rel_def] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `t1.clock = 0` \\ full_simp_tac(srw_ss())[]
     THEN1 (srw_tac[][] \\ qexists_tac`t1.clock` \\ full_simp_tac(srw_ss())[state_rel_def,code_rel_def])
-    \\ first_assum(subterm split_pair_case_tac o concl) \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `v'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    (* \\ split_pair_case_tac \\ full_simp_tac(srw_ss())[] (* TODO: split_pair_case_tac broken? *) *)
+    \\ Cases_on`evaluate (x,dec_clock s)`\\fs[]
+    \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ `state_rel k (dec_clock s) (dec_clock t1)` by metis_tac [state_rel_IMP]
     \\ res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ qexists_tac`ck`
@@ -1170,7 +1171,7 @@ val comp_correct = Q.prove(
     \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
     \\ imp_res_tac read_bytearray_IMP_read_bytearray \\ full_simp_tac(srw_ss())[]
     \\ pop_assum kall_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[LET_THM]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ `t1.ffi = s.ffi` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[markerTheory.Abbrev_def] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT]

@@ -302,13 +302,13 @@ val compile_oracle = store_thm("compile_oracle",``
      to_con_def,
      to_mod_def,to_livesets_def] >>
   fs[compile_def]>>
-  split_pair_tac>>
+  pairarg_tac>>
   fs[bvp_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
   unabbrev_all_tac>>fs[]>>
-  split_pair_tac>>fs[]>>
-  split_pair_tac>>fs[]>>
-  split_pair_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   rveq>>fs[]>>
   ntac 2 (pop_assum mp_tac)>>
   qpat_abbrev_tac`progs = MAP A B`>>
@@ -319,7 +319,7 @@ val compile_oracle = store_thm("compile_oracle",``
   rveq>>fs[]>>
   match_mp_tac LIST_EQ>>
   rw[]>>fs[EL_MAP,EL_ZIP,full_compile_single_def,compile_single_def]>>
-  rpt(split_pair_tac>>fs[])>>
+  rpt(pairarg_tac>>fs[])>>
   fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
   rveq>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])

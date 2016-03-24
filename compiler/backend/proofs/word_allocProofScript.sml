@@ -790,8 +790,9 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     impl_tac>- full_simp_tac(srw_ss())[strong_locals_rel_def,get_live_def]>>
     strip_tac>>
     qexists_tac`perm'`>>simp[]>>
-    ntac 2 (split_pair_tac>>full_simp_tac(srw_ss())[])>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+    pop_assum mp_tac >>
+    ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
+    IF_CASES_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
     metis_tac[])
   >- (*Call*)
     (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def,get_vars_perm]>>
@@ -1435,7 +1436,7 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
   >-
     (first_x_assum(qspecl_then[`p`,`live`] mp_tac)>>impl_tac>-
     size_tac>>
-    split_pair_tac>>simp[])
+    pairarg_tac>>simp[])
   >-
     (*Call*)
     (Cases_on`o'`>>fs1
@@ -3517,9 +3518,11 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     strip_tac>>
     qexists_tac`perm'`>>simp[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    ntac 3 (split_pair_tac>>full_simp_tac(srw_ss())[])>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    rveq>>full_simp_tac(srw_ss())[])
+    ntac 2 (pop_assum mp_tac) >>
+    ntac 4 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
+    ntac 2 (pop_assum mp_tac) >>
+    ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
+    rw[] >> fs[])
   >- (*Call*)
    (goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
    Cases_on`o'`
@@ -5200,7 +5203,7 @@ val fake_moves_wf_cutsets = prove(``
   fake_moves ls A B C = (L,R,D,E,G) ⇒
   wf_cutsets L ∧ wf_cutsets R``,
   Induct>>fs[fake_moves_def,wf_cutsets_def]>>rw[]>>
-  split_pair_tac>>fs[]>>EVERY_CASE_TAC>>fs[]>>
+  pairarg_tac>>fs[]>>EVERY_CASE_TAC>>fs[]>>
   rveq>>fs[wf_cutsets_def,fake_move_def]>>
   metis_tac[])
 
@@ -5210,22 +5213,23 @@ val ssa_cc_trans_wf_cutsets = prove(``
   wf_cutsets prog'``,
   ho_match_mp_tac ssa_cc_trans_ind>>fs[wf_cutsets_def,ssa_cc_trans_def,fix_inconsistencies_def,list_next_var_rename_move_def]>>
   rw[]>>
-  rpt(split_pair_tac>>fs[])>>rveq>>fs[wf_cutsets_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>fs[wf_cutsets_def]>>
   fs[wf_fromAList,fake_moves_wf_cutsets]
   >-
     metis_tac[fake_moves_wf_cutsets]
   >>
   EVERY_CASE_TAC>>fs[]>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
-  rpt(split_pair_tac>>fs[])>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
   metis_tac[fake_moves_wf_cutsets])
 
 val full_ssa_cc_trans_wf_cutsets = store_thm("full_ssa_cc_trans_wf_cutsets",``
   ∀n prog.
   wf_cutsets (full_ssa_cc_trans n prog)``,
   fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
-  rw[]>>split_pair_tac>>fs[]>>
-  split_pair_tac>>fs[]>>
-  split_pair_tac>>rveq>>fs[wf_cutsets_def]>>
+  rw[]>>pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  rveq>>fs[wf_cutsets_def]>>
   Q.ISPECL_THEN [`prog`,`ssa`,`n'`] assume_tac ssa_cc_trans_wf_cutsets>>
   rfs[])
 
@@ -5418,7 +5422,7 @@ val pre_post_conventions_word_alloc = prove(``
   FULL_CASE_TAC>>fs[]>>
   imp_res_tac oracle_colour_ok_conventions >>
   fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
-  split_pair_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   `undir_graph clash_graph` by
     (imp_res_tac clash_tree_to_spg_props>>
     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
@@ -5684,7 +5688,7 @@ val full_ssa_cc_trans_distinct_tar_reg = store_thm("full_ssa_cc_trans_distinct_t
   simp[every_inst_def]>>CONJ_TAC
   >-
     (full_simp_tac(srw_ss())[setup_ssa_def,list_next_var_rename_move_def,LET_THM]>>
-    split_pair_tac>>full_simp_tac(srw_ss())[]>>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>
     metis_tac[every_inst_def])
   >>
   assume_tac limit_var_props>>

@@ -120,7 +120,7 @@ val word_gc_fun_thm = prove(
       in
         if word_gc_fun_assum conf s /\ c2 then SOME (ws2,m1,s1) else NONE``,
   full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]);
 
@@ -145,9 +145,9 @@ val word_gc_move_loop_F = store_thm("word_gc_move_loop_F",
   ``!k conf pb i pa old m dm i1 pa1 m1 c1.
       word_gc_move_loop k conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1``,
   Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ rw []
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
-  \\ split_pair_tac \\ fs []);
+  \\ pairarg_tac \\ fs []);
 
 val word_gc_move_loop_ok = store_thm("word_gc_move_loop_ok",
   ``word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) = (i1,pa1,m1,c1) ==> c1 ==> c``,
@@ -192,10 +192,10 @@ val gc_thm = prove(
   \\ full_simp_tac(srw_ss())[LET_THM,word_gc_move_roots_bitmaps_def]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   THEN1
-   (rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
+   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
     \\ imp_res_tac word_gc_move_loop_F \\ fs [])
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[]
           \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
   \\ Cases_on `dec_stack s.bitmaps ws2 (DROP s.stack_space s.stack)`
   THEN1
@@ -227,10 +227,12 @@ val word_gc_move_roots_APPEND = prove(
         let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ys,i1,pa1,curr,m1,dm) in
           (ws1++ws2,i2,pa2,m2,c1 /\ c2)``,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
-  \\ srw_tac[][] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ srw_tac[][] \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
   \\ EQ_TAC \\ fs[] \\ rw[]);
 
 val map_bitmap_APPEND = prove(
@@ -255,7 +257,7 @@ val word_gc_move_roots_IMP_LENGTH = store_thm("word_gc_move_roots_IMP_LENGTH",
       word_gc_move_roots conf (xs,r0,r1,curr,r2,dm) = (ys,i2,pa2,m2,c) ==>
       LENGTH ys = LENGTH xs``,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM] \\ srw_tac[][]
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[])
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac);
 
 val filter_bitmap_map_bitmap = store_thm("filter_bitmap_map_bitmap",
@@ -471,7 +473,7 @@ val word_gc_move_bitmaps_unroll = prove(
    (full_simp_tac(srw_ss())[word_gc_move_bitmap_def,get_bits_def,LET_THM]
     \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
     \\ full_simp_tac(srw_ss())[]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
     \\ full_simp_tac(srw_ss())[]
     \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
@@ -479,7 +481,7 @@ val word_gc_move_bitmaps_unroll = prove(
   \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ qcase_tac `_ = SOME y`
   \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[LET_THM]
-  \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ qcase_tac `_ = SOME z`
   \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[LET_THM]
   \\ full_simp_tac(srw_ss())[word_gc_move_bitmap_def,LET_THM] \\ rev_full_simp_tac(srw_ss())[get_bits_intro]
@@ -504,12 +506,12 @@ val word_gc_move_bitmaps_unroll = prove(
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[word_gc_move_roots_APPEND,LET_THM]
-  \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ qpat_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
   \\ drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
-  \\ `LENGTH x0 = LENGTH ws1` by (imp_res_tac word_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[])
+  \\ `LENGTH x0 = LENGTH wl'` by (imp_res_tac word_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[])
   \\ disch_then drule
   \\ disch_then (qspecl_then [`ws2`,`x'`] mp_tac)
   \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
@@ -583,12 +585,12 @@ val word_gc_move_bitmap_unroll = prove(
   THEN1
    (full_simp_tac(srw_ss())[word_gc_move_bitmap_def,LET_THM]
     \\ ntac 2 (CASE_TAC \\ full_simp_tac(srw_ss())[])
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]))
   \\ full_simp_tac(srw_ss())[word_gc_move_bitmap_def,LET_THM]
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] THEN1 (split_pair_tac \\ full_simp_tac(srw_ss())[])
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] THEN1 (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
-  \\ ntac 3 (split_pair_tac \\ full_simp_tac(srw_ss())[]) \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+  \\ ntac 3 (pairarg_tac \\ full_simp_tac(srw_ss())[]) \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
@@ -644,7 +646,7 @@ val memcpy_code_thm = prove(
   \\ simp [Once memcpy_def]
   \\ rpt gen_tac \\ strip_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[ADD1,GSYM word_add_n2w]
-  \\ split_pair_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ simp [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
   \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def,word_add_n2w,get_var_def]
   \\ tac
@@ -759,7 +761,7 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
     \\ once_rewrite_tac [split_num_forall_to_10]
     \\ full_simp_tac(srw_ss())[nine_less])
-  \\ split_pair_tac \\ full_simp_tac(srw_ss())[ptr_to_addr_def,isWord_thm]
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[ptr_to_addr_def,isWord_thm]
   \\ strip_tac \\ rpt var_eq_tac \\ tac
   \\ full_simp_tac(srw_ss())[is_fwd_ptr_def,theWord_def,clear_top_inst_def] \\ tac
   \\ qabbrev_tac `len = decode_length conf v`
@@ -834,8 +836,8 @@ val word_gc_move_list_code_thm = store_thm("word_gc_move_list_code_thm",
   \\ rpt strip_tac \\ simp [LET_THM]
   \\ qpat_assum `_ = (a1,i1,pa1,m1,T)` mp_tac
   \\ `n2w (SUC n) + -1w = n2w n` by fs [ADD1,GSYM word_add_n2w]
-  \\ split_pair_tac \\ simp []
-  \\ split_pair_tac \\ simp []
+  \\ pairarg_tac \\ simp []
+  \\ pairarg_tac \\ simp []
   \\ strip_tac
   \\ rpt var_eq_tac
   \\ `n < dimword (:'a)` by decide_tac
@@ -922,7 +924,7 @@ val word_gc_move_loop_code_thm = prove(
   \\ `k-1 < k` by decide_tac
   \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ Cases_on `word_bit 2 (theWord (s.memory pb1))`
   \\ fs [word_bit_test] THEN1
    (strip_tac
@@ -1097,7 +1099,7 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
     \\ once_rewrite_tac [split_num_forall_to_10]
     \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ strip_tac \\ rpt var_eq_tac
   \\ qcase_tac `_ = SOME (new1,st1,i1,pa1,m1,T)`
   \\ simp_tac std_ss [word_gc_move_bitmap_code_def,get_var_def,evaluate_def]
@@ -1179,7 +1181,7 @@ val word_gc_move_bitmaps_LENGTH = store_thm("word_gc_move_bitmaps_LENGTH",
        SOME (xs,stack1,i1,pa1,m1,T) ==>
     LENGTH stack = LENGTH xs + LENGTH stack1``,
   fs [word_gc_move_bitmaps_def]
-  \\ every_case_tac \\ fs [] \\ split_pair_tac \\ fs []
+  \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs [] \\ rw []
   \\ imp_res_tac map_bitmap_IMP_LENGTH \\ fs []
   \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []);
@@ -1363,7 +1365,7 @@ val word_gc_move_roots_bitmaps_code_thm =
   \\ Cases_on `word_gc_move_bitmaps conf
        (hd,stack,s.bitmaps,i,pa,curr,s.memory,s.mdomain)` \\ fs []
   \\ PairCases_on `x` \\ fs []
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ strip_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ simp_tac std_ss [word_gc_move_roots_bitmaps_code_def,evaluate_def]
@@ -1470,9 +1472,9 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
   \\ drule gc_thm \\ fs [] \\ disch_then kall_tac
   \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM]
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ reverse IF_CASES_TAC THEN1 rw [] \\ fs []
   \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
   \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
@@ -1751,9 +1753,9 @@ val comp_correct = Q.store_thm("comp_correct",
   \\ conj_tac (* Seq *) >- (
     rpt strip_tac
     \\ simp [Once comp_def,dec_clock_def] \\ full_simp_tac(srw_ss())[evaluate_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ full_simp_tac(srw_ss())[good_syntax_def,evaluate_def]
     \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac)
     \\ match_mp_tac IMP_IMP \\ conj_tac
@@ -1788,7 +1790,7 @@ val comp_correct = Q.store_thm("comp_correct",
   \\ conj_tac (* If *) >- (
     rpt strip_tac
     \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ qpat_assum`_ = (r,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -1810,7 +1812,7 @@ val comp_correct = Q.store_thm("comp_correct",
   \\ conj_tac (* While *) >- (
     rpt strip_tac
     \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ qpat_assum`_ = (r,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -1842,7 +1844,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- simp[state_component_equality]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ split_pair_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
     \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac)
     \\ impl_tac THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ full_simp_tac(srw_ss())[]
@@ -1927,7 +1929,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ simp[state_component_equality])
     \\ qmatch_assum_rename_tac `good_syntax (Call (SOME z) dest handler)`
     \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[] \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `find_code dest (s.regs \\ z1) s.code` \\ full_simp_tac(srw_ss())[]
     \\ `s.regs \\ z1 ⊑ regs \\ z1`
     by (
@@ -1940,7 +1942,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ pop_assum (qspec_then`c`strip_assume_tac) \\ full_simp_tac(srw_ss())[good_syntax_def]
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1
      (srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-      \\ TRY split_pair_tac \\ full_simp_tac(srw_ss())[evaluate_def]
+      \\ TRY pairarg_tac \\ full_simp_tac(srw_ss())[evaluate_def]
       \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
     \\ Cases_on `evaluate (x,dec_clock (set_var z1 (Loc z2 z3) s))`
@@ -1949,7 +1951,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ TRY (
       qcase_tac`Exception` ORELSE
       qcase_tac`Result` ORELSE (
-      every_case_tac \\ full_simp_tac(srw_ss())[] \\ TRY split_pair_tac
+      every_case_tac \\ full_simp_tac(srw_ss())[] \\ TRY pairarg_tac
       \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
       \\ qpat_abbrev_tac`pp = (z1,_)`
       \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs |+ pp`]mp_tac)
@@ -1981,7 +1983,7 @@ val comp_correct = Q.store_thm("comp_correct",
         \\ metis_tac[] )
       \\ strip_tac \\ fs[] \\ rw[]
       \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-      \\ TRY (PairCases_on `x'` \\ fs[] \\ split_pair_tac \\ full_simp_tac(srw_ss())[])
+      \\ TRY (PairCases_on `x'` \\ fs[] \\ pairarg_tac \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
       \\ rator_x_assum`evaluate`mp_tac
       \\ first_assum (mp_tac o Q.SPEC `ck'` o
@@ -2006,7 +2008,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[]
       \\ simp[state_component_equality])
     \\ PairCases_on `x'` \\ full_simp_tac(srw_ss())[]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
     \\ Cases_on `w = Loc x'1 x'2` \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ last_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs |+ (z1,Loc z2 z3)`]mp_tac)
@@ -2036,7 +2038,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
     \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
-    \\ split_pair_tac \\ fs[] \\ rw[]
+    \\ pairarg_tac \\ fs[] \\ rw[]
     \\ simp[markerTheory.Abbrev_def]
     \\ match_mp_tac SUBMAP_DRESTRICT
     \\ simp[])

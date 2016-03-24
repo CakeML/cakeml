@@ -1220,7 +1220,7 @@ val compile_exp_correct = Q.prove (
   ho_match_mp_tac modSemTheory.evaluate_ind >>
   srw_tac[][conSemTheory.evaluate_def,modSemTheory.evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
-  TRY(first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[])
+  TRY(first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[])
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     imp_res_tac modPropsTheory.evaluate_sing >>
@@ -1499,7 +1499,7 @@ val tagacc_accumulates = Q.prove (
   every_case_tac >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[LET_THM] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   res_tac >> srw_tac[][]
   >> metis_tac[alloc_tag_accumulates,alloc_tags_accumulates,FUNION_ASSOC])
 
@@ -1943,7 +1943,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     simp[cenv_inv_def] >> metis_tac[gtagenv_weak_refl] ) >>
   simp[modSemTheory.evaluate_decs_def] >>
   rpt gen_tac >>
-  (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> simp[] >>
+  split_pair_case_tac >> simp[] >>
   reverse BasicProvers.CASE_TAC >- (
     strip_tac >>
     rpt var_eq_tac >>
@@ -1953,7 +1953,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     Cases_on`h`>>full_simp_tac(srw_ss())[modSemTheory.evaluate_dec_def,LET_THM] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     rpt var_eq_tac >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
     rpt var_eq_tac >>
     first_assum(mp_tac o MATCH_MP(CONJUNCT1 compile_exp_correct)) >>
     simp[] >>
@@ -1992,13 +1992,13 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     `next_weak tagenv_st0 st'0` by metis_tac[compile_decs_next_weak,FST] >>
     full_simp_tac(srw_ss())[next_weak_def] >> res_tac >> simp[] ) >>
   BasicProvers.CASE_TAC >>
-  (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> simp[] >>
+  split_pair_case_tac >> simp[] >>
   srw_tac[][] >>
   imp_res_tac modPropsTheory.no_dup_types_cons_imp >>
   rator_x_assum`mod_to_con$compile_decs`mp_tac >>
   simp[compile_decs_def] >>
   BasicProvers.CASE_TAC >> strip_tac >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   full_simp_tac(srw_ss())[modSemTheory.evaluate_dec_def] >> rpt BasicProvers.VAR_EQ_TAC >>
@@ -2190,7 +2190,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
   full_simp_tac(srw_ss())[flat_envC_tagged_def] >>
   simp[ALOOKUP_APPEND] >>
   rpt gen_tac >>
-  Cases_on`ALOOKUP new_tds'' cn`>>full_simp_tac(srw_ss())[]>-(
+  BasicProvers.TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>-(
     strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     full_simp_tac(srw_ss())[lookup_tag_flat_def,FLOOKUP_FUNION] >>
@@ -2255,7 +2255,7 @@ val FDOM_compile_decs_exh = prove(
   Induct >> simp[compile_decs_def,modPropsTheory.tids_of_decs_thm] >>
   rpt gen_tac >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >- (
     pop_assum mp_tac >>
     specl_args_of_then``alloc_tags``alloc_tags_exh_FDOM strip_assume_tac >>
@@ -2276,7 +2276,7 @@ val compile_decs_dummy_env_num_defs =prove(
   Induct >> simp[compile_decs_def,modSemTheory.decs_to_dummy_env_def,conLangTheory.num_defs_def] >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >> srw_tac[][] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   srw_tac[][] >>
   simp[modSemTheory.dec_to_dummy_env_def,conLangTheory.num_defs_def,compile_funs_map]);
@@ -2300,10 +2300,10 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
   srw_tac[][compile_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   qcase_tac`Prompt mn ds` >>
-  first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[modSemTheory.evaluate_prompt_def, conSemTheory.evaluate_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >>
   full_simp_tac(srw_ss())[invariant_def]
   >- (
@@ -2483,11 +2483,11 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     srw_tac[][conSemTheory.evaluate_prog_def] >>
     metis_tac[gtagenv_weak_refl,cenv_inv_def,invariant_def]) >>
   full_simp_tac(srw_ss())[LET_THM] >>
-  first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >>
-  first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
   Cases_on`h`>>full_simp_tac(srw_ss())[] >>
-  first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   (compile_prompt_correct |> REWRITE_RULE[GSYM AND_IMP_INTRO]
     |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   simp[GSYM PULL_FORALL] >>
@@ -2502,7 +2502,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
     srw_tac[][] >>
     first_assum(match_exists_tac o concl) >> srw_tac[][] ) >>
-  first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >>
   first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >> simp[] >>
   CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left is_eq)))) >>
@@ -2518,7 +2518,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     conj_tac >- (
       full_simp_tac(srw_ss())[modSemTheory.no_dup_mods_def,modSemTheory.evaluate_prompt_def,LET_THM] >>
       BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-      first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
+      first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
       rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[modSemTheory.update_mod_state_def] >>
       imp_res_tac modPropsTheory.evaluate_decs_state_const >> full_simp_tac(srw_ss())[] >>
@@ -2577,7 +2577,7 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
       OPTION_REL (CURRY (UNCURRY (result_rel v_rel gtagenv') o (Rerr ## Rerr))) res res_i2 ∧
       s_rel gtagenv' s' s'_i2`,
   srw_tac[][modSemTheory.evaluate_prog_def,LET_THM] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   first_x_assum(mp_tac o MATCH_MP compile_prog_correct) >> simp[] >>
   disch_then(fn th => (first_assum (mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th)))) >>
   disch_then(fn th => (first_assum (mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th)))) >> srw_tac[][] >>
@@ -2792,7 +2792,7 @@ val compile_decs_exh_unchanged = Q.store_thm("compile_decs_exh_unchanged",
    FLOOKUP (get_exh st') (Short t) = SOME v`,
   Induct >> simp[compile_decs_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   res_tac >> full_simp_tac(srw_ss())[] >>
   pop_assum kall_tac >>
   first_x_assum match_mp_tac >- (
@@ -2813,7 +2813,7 @@ val compile_prompt_exh_unchanged = Q.store_thm("compile_prompt_exh_unchanged",
     Cases_on`l`>>full_simp_tac(srw_ss())[compile_decs_def] >> rveq >- full_simp_tac(srw_ss())[get_exh_def] >>
     Cases_on`t'`>>fsrw_tac[ARITH_ss][]>>
     every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+    pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
     full_simp_tac(srw_ss())[compile_decs_def] >> rveq >> full_simp_tac(srw_ss())[get_exh_def] >>
     PairCases_on`st`>>
     full_simp_tac(srw_ss())[decs_to_types_def,alloc_tag_def,LET_THM] >>

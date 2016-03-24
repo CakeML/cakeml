@@ -791,7 +791,7 @@ val read_bitmap_insert_bitmap = Q.store_thm("read_bitmap_insert_bitmap",
     fs[IS_PREFIX_APPEND,IS_SOME_EXISTS]
     \\ match_mp_tac read_bitmap_append_extra
     \\ simp[] )
-  \\ split_pair_tac >> fsrw_tac[][]
+  \\ pairarg_tac >> fsrw_tac[][]
   \\ rveq
   \\ REWRITE_TAC[GSYM ADD1]
   \\ REWRITE_TAC[DROP]
@@ -802,7 +802,7 @@ val insert_bitmap_length = Q.store_thm("insert_bitmap_length",
   `∀ls ls' i. insert_bitmap bm ls = (ls',i) ⇒ i ≤ LENGTH ls ∧ LENGTH ls ≤ LENGTH ls'`,
   Induct >> simp[insert_bitmap_def]
   \\ rw[] >> simp[]
-  \\ split_pair_tac >> fs[]
+  \\ pairarg_tac >> fs[]
   \\ rw[] >> simp[]);
 
 (*
@@ -935,7 +935,7 @@ val env_to_list_K_I_IMP = prove(
   \\ Induct_on `l` \\ fs []
   \\ Cases_on `l` \\ fs [SORTED_DEF] \\ rw []
   \\ res_tac \\ fs [key_val_compare_def,LET_DEF]
-  \\ split_pair_tac \\ fs [] \\ split_pair_tac \\ fs [])
+  \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs [])
 
 val evaluate_wLive = Q.prove(
   `wLive names bs (k,f,f') = (wlive_prog,bs') /\
@@ -950,7 +950,7 @@ val evaluate_wLive = Q.prove(
      !i. i ≠ k ==> get_var i t5 = get_var i t`,
   fsrw_tac[] [wLive_def,LET_THM] \\ rpt strip_tac \\
   `f ≠ 0` by DECIDE_TAC \\ fsrw_tac[][] \\ pop_assum kall_tac
-  \\ split_pair_tac \\ fsrw_tac[] [] \\ rpt var_eq_tac
+  \\ pairarg_tac \\ fsrw_tac[] [] \\ rpt var_eq_tac
   \\ fsrw_tac[] [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
          stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_THM]
  \\ `t.stack_space <= LENGTH t.stack /\
@@ -2187,7 +2187,7 @@ val insert_bitmap_isPREFIX = Q.store_thm("insert_bitmap_isPREFIX",
   Induct
   \\ rw[insert_bitmap_def,LET_THM]
   \\ fs[IS_PREFIX_APPEND]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ rveq \\ simp[]);
 
 val wLive_isPREFIX = Q.store_thm("wLive_isPREFIX",
@@ -2196,7 +2196,7 @@ val wLive_isPREFIX = Q.store_thm("wLive_isPREFIX",
   \\ PairCases_on`c`
   \\ fs[wLive_def,LET_THM]
   \\ Cases_on`c1=0` \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ rw[]
   \\ imp_res_tac insert_bitmap_isPREFIX);
 
@@ -2205,14 +2205,14 @@ val comp_IMP_isPREFIX = Q.store_thm("comp_IMP_isPREFIX",
   ho_match_mp_tac comp_ind
   \\ rw[comp_def,LET_THM]
   \\ every_case_tac \\ fs[]
-  \\ rpt (split_pair_tac >> fs[])
+  \\ rpt (pairarg_tac >> fs[])
   \\ rveq
   \\ metis_tac[IS_PREFIX_TRANS,wLive_isPREFIX]);
 
 val compile_prog_isPREFIX = prove(
   ``compile_prog x y k bs = (prog,bs1) ==> bs ≼ bs1``,
   fs [compile_prog_def,LET_THM] \\ rw []
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ imp_res_tac comp_IMP_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
 
@@ -2220,8 +2220,8 @@ val compile_word_to_stack_isPREFIX = prove(
   ``!code k bs progs1 bs1.
        compile_word_to_stack k code bs = (progs1,bs1) ==> bs ≼ bs1``,
   Induct \\ fs [compile_word_to_stack_def,FORALL_PROD,LET_THM] \\ rw []
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs [] \\ rw []
   \\ res_tac \\ fs []
   \\ imp_res_tac compile_prog_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
@@ -2238,7 +2238,7 @@ val wMoveAux_thm = Q.store_thm("wMoveAux_thm",
   rw[wMoveAux_def] >- rw[stackSemTheory.evaluate_def]
   \\ Cases_on`xs` >> rw[wMoveAux_def]
   \\ rw[stackSemTheory.evaluate_def]
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ rw[]);
 
 val with_same_locals = save_thm("with_same_locals[simp]",
@@ -3292,7 +3292,7 @@ val call_dest_lemma = prove(
   Cases_on`dest`>>fs[call_dest_def,bad_dest_args_def,LENGTH_NIL]>>rw[]
   >-
     (fs[wReg2_def,TWOxDIV2,LET_THM]>>
-    split_pair_tac>>fs[]>>rveq>>
+    pairarg_tac>>fs[]>>rveq>>
     EVERY_CASE_TAC>>rw[]
     >-
       (fs[wStackLoad_def,stackSemTheory.evaluate_def,state_rel_def]>>
@@ -3698,7 +3698,7 @@ val wf_fromList2 = prove(``
   ∀ls. wf(fromList2 ls)``,
   ho_match_mp_tac SNOC_INDUCT>>
   fs[fromList2_def,FOLDL_SNOC,wf_def]>>rw[]>>
-  split_pair_tac>>fs[wf_insert])
+  pairarg_tac>>fs[wf_insert])
 
 val wStackLoad_append = Q.store_thm("wStackLoad_append",
   `wStackLoad (l1 ++ l2) = wStackLoad l1 o (wStackLoad l2)`,
@@ -4239,7 +4239,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ rveq
       \\ qmatch_asmsub_rename_tac`get_var (2 * v) s`
       \\ Cases_on`get_var (2 * v) s`\\fs[]
-      \\ split_pair_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
       \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧ _ t'`
       \\ simp[]
       \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
@@ -4274,7 +4274,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ rveq
     \\ fs[GSYM LEFT_ADD_DISTRIB]
     \\ simp[wInst_def]
-    \\ rpt(split_pair_tac \\ fs[])
+    \\ rpt(pairarg_tac \\ fs[])
     \\ simp[wStackLoad_append]
     \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧ _ t'`
     \\ simp[]
@@ -4389,8 +4389,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ rveq
     \\ fs[GSYM LEFT_ADD_DISTRIB]
     \\ simp[wInst_def]
-    \\ split_pair_tac \\ fs[]
-    \\ TRY(split_pair_tac \\ fs[])
+    \\ pairarg_tac \\ fs[]
+    \\ TRY(pairarg_tac \\ fs[])
     \\ simp[wStackLoad_append]
     \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧ _ t'`
     \\ simp[]
@@ -4677,7 +4677,7 @@ val evaluate_call_dest_clock = prove(``
    (SND(evaluate(q0,t))) with clock := clk)``,
   Cases_on`dest`>>fs[call_dest_def,LET_THM]>>rw[]>>
   simp[stackSemTheory.evaluate_def]>>
-  split_pair_tac>>fs[]>>rveq>>fs[evaluate_wStackLoad_clock])
+  pairarg_tac>>fs[]>>rveq>>fs[evaluate_wStackLoad_clock])
 
 val evaluate_wLive_clock = prove(``
   ∀x t q bs bs'.
@@ -4689,7 +4689,7 @@ val evaluate_wLive_clock = prove(``
   >-
     simp[stackSemTheory.evaluate_def]
   >>
-    split_pair_tac>>fs[]>>rveq>>
+    pairarg_tac>>fs[]>>rveq>>
     simp[stackSemTheory.evaluate_def,FORALL_PROD,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.set_var_def,stackSemTheory.word_exp_def,empty_env_def,stackSemTheory.get_var_def]>>
     EVERY_CASE_TAC>>fs[])
 
@@ -4753,12 +4753,12 @@ val evaluate_stack_move_seq = prove(``
   Induct>>rw[]>>fs[stack_move_def,LET_THM]
   >-
     (simp[stackSemTheory.evaluate_def]>>
-    split_pair_tac>>simp[]>>IF_CASES_TAC>>fs[])
+    pairarg_tac>>simp[]>>IF_CASES_TAC>>fs[])
   >>
     simp[Once stackSemTheory.evaluate_def]>>
     pop_assum kall_tac>>
     simp[stackSemTheory.evaluate_def]>>
-    rpt(split_pair_tac>>fs[])>>
+    rpt(pairarg_tac>>fs[])>>
     rpt (pop_assum mp_tac)>>
     IF_CASES_TAC>>fs[]>>
     rpt IF_CASES_TAC>>fs[])
@@ -4770,7 +4770,7 @@ val evaluate_stack_move_clock = prove(``
   (FST (evaluate(prog,t:('a,'ffi)stackSem$state)),
    (SND (evaluate(prog,t)) with clock:=clk))``,
   Induct>>fs[LET_THM,stack_move_def,stackSemTheory.evaluate_def]>>rw[]>>
-  TRY(split_pair_tac>>fs[])>>
+  TRY(pairarg_tac>>fs[])>>
   simp[]>>
   (*get_var_set_var?*)
   fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE])|>SIMP_RULE arith_ss [LET_THM]
@@ -5232,7 +5232,7 @@ val comp_correct = Q.store_thm("comp_correct",
   THEN1 (* Set *) (
     Cases_on`exp`>>fs[flat_exp_conventions_def]
     \\ fs[comp_def,LET_THM]
-    \\ split_pair_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
     \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
     \\ last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -5273,9 +5273,9 @@ val comp_correct = Q.store_thm("comp_correct",
   THEN1 (* Seq *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
-    \\ split_pair_tac \\ fs []
-    \\ split_pair_tac \\ fs []
-    \\ split_pair_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs []
     \\ `max_var c1 < 2 * f' + 2 * k /\ max_var c2 < 2 * f' + 2 * k` by
       (fs [word_allocTheory.max_var_def] \\ decide_tac)
     \\ `post_alloc_conventions k c1 /\
@@ -5479,7 +5479,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs [wordSemTheory.evaluate_def]
     \\ qpat_assum `aaa = (res,s1)` mp_tac
     \\ rpt (ntac 2 (TOP_CASE_TAC \\ fs []))
-    \\ fs [LET_DEF] \\ split_pair_tac \\ fs [] \\ rw [] \\ fs []
+    \\ fs [LET_DEF] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
     \\ fs [comp_def,stackSemTheory.evaluate_def]
     \\ fs [stackSemTheory.get_var_def]
     \\ `FLOOKUP t.regs 1 = get_var 2 s /\
@@ -5506,7 +5506,7 @@ val comp_correct = Q.store_thm("comp_correct",
      (* gets us quickly to the Call case *)
     (*reverse (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [])*)
     simp [Once LET_DEF,comp_def]
-    \\ split_pair_tac \\ fs []
+    \\ pairarg_tac \\ fs []
     \\ Cases_on `ret` \\ fs []
     THEN1
      (goalStack.print_tac "comp_correct tail call case">>
@@ -5546,7 +5546,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs []
       \\ res_tac \\ fsrw_tac[] [stackSemTheory.dec_clock_def]
       \\ fsrw_tac[] [compile_prog_def,LET_THM]
-      \\ split_pair_tac \\ fsrw_tac[] []
+      \\ pairarg_tac \\ fsrw_tac[] []
       \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs[]
       \\ fsrw_tac[] [stackSemTheory.evaluate_def]
       \\ qabbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`
@@ -5573,7 +5573,7 @@ val comp_correct = Q.store_thm("comp_correct",
               imp_res_tac get_vars_length_lemma>>
               Cases_on`dest`>>simp[find_code_def,call_dest_def,add_ret_loc_def]>>
               rpt TOP_CASE_TAC>>simp[]>>
-              rw[]>>TRY split_pair_tac>>fsrw_tac[][]>>
+              rw[]>>TRY pairarg_tac>>fsrw_tac[][]>>
               Cases_on`x`>>fsrw_tac[][]>>
               simp[])>>
             fsrw_tac[][wf_fromList2]>>
@@ -5689,8 +5689,8 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ fsrw_tac[] [EVAL ``(call_env q (dec_clock s)).handler``,AC ADD_COMM ADD_ASSOC])
     \\ goalStack.print_tac "comp_correct returning call case(s)"
     \\ PairCases_on `x` \\ fs [LET_DEF]
-    \\ split_pair_tac \\ fs []
-    \\ split_pair_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs []
     \\ rator_x_assum`wordSem$evaluate`mp_tac
     \\ simp[wordSemTheory.evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -5736,7 +5736,7 @@ val comp_correct = Q.store_thm("comp_correct",
         `f' ≠ 0` by DECIDE_TAC>>
         fsrw_tac[][state_rel_def])>>
       fsrw_tac[][comp_def,LET_THM]>>
-      TRY(split_pair_tac>>fsrw_tac[][])>>
+      TRY(pairarg_tac>>fsrw_tac[][])>>
       imp_res_tac comp_IMP_isPREFIX>>
       metis_tac[evaluate_consts,IS_PREFIX_TRANS]))>>
     strip_tac>>
@@ -5821,7 +5821,7 @@ val comp_correct = Q.store_thm("comp_correct",
       `t.clock ≠ 0` by
         metis_tac[state_rel_def]>>
       fs [compile_prog_def,LET_THM]>>
-      split_pair_tac>>fs[]>>
+      pairarg_tac>>fs[]>>
       rveq>>
       qabbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
       qabbrev_tac `m' = (if m = 0 then 0 else m + 1)`>>
@@ -5860,7 +5860,7 @@ val comp_correct = Q.store_thm("comp_correct",
             `LENGTH args ≠ 0` by fsrw_tac[][LENGTH_NIL]>>
             rpt TOP_CASE_TAC>>simp[]>>
             rw[]>>
-            split_pair_tac>>fsrw_tac[][]>>
+            pairarg_tac>>fsrw_tac[][]>>
             Cases_on`x`>>fsrw_tac[][]>>
             simp[])>>
          fsrw_tac[][bad_dest_args_def]>>
@@ -6119,7 +6119,7 @@ val comp_correct = Q.store_thm("comp_correct",
     >>
     goalStack.print_tac"Handler case">>
     PairCases_on`x''`>>simp[]>>
-    split_pair_tac>>simp[stackSemTheory.evaluate_def]>>
+    pairarg_tac>>simp[stackSemTheory.evaluate_def]>>
     reverse(Cases_on`3 ≤ t5.stack_space`)>-
       (simp[PushHandler_def,stackSemTheory.evaluate_def]>>
       fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
@@ -6214,7 +6214,7 @@ val comp_correct = Q.store_thm("comp_correct",
     `t.clock ≠ 0` by
       metis_tac[state_rel_def]>>
     fsrw_tac[][compile_prog_def,LET_THM]>>
-    split_pair_tac>>fsrw_tac[][]>>
+    pairarg_tac>>fsrw_tac[][]>>
     rveq>>
     qabbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
     qabbrev_tac `m' = (if m = 0 then 0 else m + 1)`>>
@@ -6252,7 +6252,7 @@ val comp_correct = Q.store_thm("comp_correct",
           `LENGTH args ≠ 0` by fsrw_tac[][LENGTH_NIL]>>
           rpt TOP_CASE_TAC>>simp[]>>
           rw[]>>
-          split_pair_tac>>fsrw_tac[][]>>
+          pairarg_tac>>fsrw_tac[][]>>
           Cases_on`x`>>fsrw_tac[][]>>
           simp[])>>
         fsrw_tac[][bad_dest_args_def]>>
@@ -7010,8 +7010,8 @@ val compile_word_to_stack_IMP_ALOOKUP = prove(
         bs2 ≼ x ∧ ALOOKUP progs n = SOME stack_prog``,
   Induct \\ fs [] \\ strip_tac \\ PairCases_on `h`
   \\ fs [compile_word_to_stack_def] \\ rw [] \\ fs [LET_THM]
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs [] \\ rw []
   \\ imp_res_tac compile_word_to_stack_isPREFIX
   THEN1 (asm_exists_tac \\ fs [] \\ imp_res_tac IS_PREFIX_TRANS)
   \\ first_x_assum match_mp_tac
@@ -7029,13 +7029,13 @@ val compile_semantics = store_thm("compile_semantics",
   \\ rw [compile_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
   \\ qexists_tac `k` \\ fs []
   \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM] \\ rw [] \\ fs []
-  THEN1 (split_pair_tac \\ fs [])
+  THEN1 (pairarg_tac \\ fs [])
   \\ Cases_on `n=5` \\ fs []
   \\ TRY
     (imp_res_tac ALOOKUP_MEM>>
     fs[EVERY_MEM,FORALL_PROD]>>
     metis_tac[])
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ match_mp_tac compile_word_to_stack_IMP_ALOOKUP
   \\ metis_tac []);
 

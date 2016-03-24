@@ -1958,10 +1958,10 @@ val clash_tree_to_spg_props = store_thm("clash_tree_to_spg_props",``
   Induct>>fs[clash_tree_to_spg_def]
   >-
     (ntac 7 strip_tac>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     imp_res_tac extend_clique_props>>
     ntac 5 (pop_assum kall_tac)>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     Q.ISPECL_THEN [`l0`,`FILTER (λx. ¬MEM x l) live''`,`G''`,`G'''`,`livein` ] mp_tac extend_clique_props>>
     impl_tac>-
       fs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
@@ -1974,10 +1974,10 @@ val clash_tree_to_spg_props = store_thm("clash_tree_to_spg_props",``
     fs[clique_g_insert_subgraph,clique_g_insert_undir,clique_g_insert_is_clique])
   >-
     (ntac 6 strip_tac>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     last_x_assum(qspecl_then[`live`,`G`,`G''`,`t1_live`] assume_tac)>>
     rfs[]>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     last_x_assum(qspecl_then[`live`,`G''`,`G'''`,`t2_live`] mp_tac)>>
     impl_tac>-
       metis_tac[sp_g_is_clique_subgraph,is_subgraph_trans]>>
@@ -1993,7 +1993,7 @@ val clash_tree_to_spg_props = store_thm("clash_tree_to_spg_props",``
       fs[clique_g_insert_subgraph,clique_g_insert_undir,clique_g_insert_is_clique]>>
       metis_tac[is_subgraph_trans,clique_g_insert_subgraph])
   >>
-    ntac 5 strip_tac>>split_pair_tac>>fs[]>>
+    ntac 5 strip_tac>>pairarg_tac>>fs[]>>
     first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
     rfs[]>>
     metis_tac[is_subgraph_trans])
@@ -2022,10 +2022,10 @@ val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_
   domain flivein = IMAGE col (domain livein)``,
   Induct>>rw[clash_tree_to_spg_def,check_clash_tree_def]
   >-
-    (split_pair_tac>>fs[]>>
+    (pairarg_tac>>fs[]>>
     imp_res_tac extend_clique_props>>
     ntac 5 (pop_assum kall_tac)>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     Q.ISPECL_THEN [`l0`,`FILTER (λx. ¬MEM x l) live''`,`G''`,`G'''`,`livein` ] mp_tac extend_clique_props>>
     impl_tac>-
       fs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
@@ -2072,8 +2072,8 @@ val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_
     fs[domain_fromAList,MAP_MAP_o,o_DEF,EXTENSION,MEM_MAP,EXISTS_PROD]>>
     fs[MEM_toAList,domain_lookup])
   >-
-    (split_pair_tac>>fs[]>>
-    split_pair_tac>>fs[]>>
+    (pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     imp_res_tac clash_tree_to_spg_props>>fs[]>>
     `sp_g_is_clique livelist G''` by metis_tac[sp_g_is_clique_subgraph]>>
     rfs[]>>fs[]>>
@@ -2132,7 +2132,7 @@ val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_
       fs[domain_fromAList,MAP_MAP_o,o_DEF,EXTENSION,MEM_MAP,EXISTS_PROD]>>
       fs[MEM_toAList,domain_lookup])
   >>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     first_x_assum(qspecl_then[`G`,`livelist`,`live`,`flive`,`col`,`G''`,`live''`] mp_tac)>>
     impl_tac>-
       metis_tac[clash_tree_to_spg_props,colouring_satisfactory_subgraph]>>
@@ -2166,7 +2166,7 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
   x ∈ domain G'``,
   Induct>>fs[in_clash_tree_def,clash_tree_to_spg_def]
   >-
-    (rw[]>>split_pair_tac>>fs[]>>split_pair_tac>>fs[]>>
+    (rw[]>>pairarg_tac>>fs[]>>pairarg_tac>>fs[]>>
     imp_res_tac extend_clique_props>>
     rfs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
     rpt (qpat_assum`!a b c.P` kall_tac)>>
@@ -2176,13 +2176,13 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
     fs[clique_g_insert_domain,toAList_domain])
   >-
     (ntac 6 strip_tac>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     last_x_assum(qspecl_then[`live`,`G`,`G''`,`t1_live`] assume_tac)>>
     rfs[]>>
     imp_res_tac clash_tree_to_spg_props>>
     ntac 4 (pop_assum kall_tac)>>
     rpt(qpat_assum `A ⇒ B` kall_tac)>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     last_x_assum(qspecl_then[`live`,`G''`,`G'''`,`t2_live`] assume_tac)>>
     rfs[]>>
     imp_res_tac sp_g_is_clique_subgraph>>
@@ -2203,7 +2203,7 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
     rw[]>>fs[is_subgraph_def,SUBSET_DEF,toAList_domain])
   >>
     ntac 5 strip_tac>>
-    split_pair_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
     rfs[]>>
     imp_res_tac clash_tree_to_spg_props>>

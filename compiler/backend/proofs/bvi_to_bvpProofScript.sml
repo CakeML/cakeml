@@ -988,7 +988,7 @@ val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
     full_simp_tac(srw_ss())[call_env_def,state_rel_def] >>
     rpt var_eq_tac >> simp[] ) >>
   simp[] >> full_simp_tac(srw_ss())[] >>
-  first_assum(subterm split_pair_case_tac o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(subterm split_pair_case0_tac o concl) >> full_simp_tac(srw_ss())[] >>
   drule (GEN_ALL compile_exp_correct) >>
   simp[var_corr_def,SIMP_RULE std_ss [NULL_EQ]NULL_GENLIST] >>
   imp_res_tac state_rel_dec_clock >>

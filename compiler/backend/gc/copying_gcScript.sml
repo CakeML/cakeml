@@ -882,15 +882,15 @@ val gc_move_list_IMP_LENGTH = store_thm("gc_move_list_IMP_LENGTH",
       (gc_move_list (l5,h,a,n,heap,c,k) =
         (xs,ys,a1,xs1,heap1,c1)) ==> (LENGTH xs = LENGTH l5)``,
   Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[] \\ rw []
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ rw []
   \\ res_tac \\ fs []);
 
 val full_gc_IMP_LENGTH = store_thm("full_gc_IMP_LENGTH",
   ``(full_gc (xs,heap,limit) = (roots2,heap2,h,T)) ==>
     (LENGTH roots2 = LENGTH xs)``,
   fs [full_gc_def,LET_THM]
-  \\ rpt (split_pair_tac \\ fs []) \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []);
 
 val _ = export_theory();

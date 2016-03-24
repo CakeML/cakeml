@@ -70,7 +70,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
   >- (qexists_tac`0`>>simp[state_component_equality])
   >- (*hard*)
     (qpat_assum`A=(res,rst)`mp_tac>>simp[]>>
-    split_pair_tac>>full_simp_tac(srw_ss())[]>>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     strip_tac>>full_simp_tac(srw_ss())[]>>
     rveq>>
@@ -82,7 +82,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
     metis_tac[])
   >-
     (qpat_assum`A=(res,rst)`mp_tac>>simp[]>>
-    split_pair_tac>>full_simp_tac(srw_ss())[]>>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>-
       (strip_tac>>full_simp_tac(srw_ss())[]>>
       imp_res_tac evaluate_code_const>>
@@ -104,7 +104,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
     ntac 5(TOP_CASE_TAC>>full_simp_tac(srw_ss())[]))
   >-
     (ntac 6(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
-    full_simp_tac(srw_ss())[LET_THM]>>split_pair_tac>>full_simp_tac(srw_ss())[state_component_equality]>>
+    full_simp_tac(srw_ss())[LET_THM]>>pairarg_tac>>full_simp_tac(srw_ss())[state_component_equality]>>
     rveq>>full_simp_tac(srw_ss())[])
   >>
     simp[markerTheory.Abbrev_def]>>

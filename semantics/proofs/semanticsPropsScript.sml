@@ -68,8 +68,8 @@ val with_clock_ffi = Q.prove(
 
 val tac0 =
     full_simp_tac(srw_ss())[evaluate_prog_with_clock_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
+    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
+    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     imp_res_tac functional_evaluate_prog >>
     full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def]
 
@@ -158,7 +158,7 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
       imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
     full_simp_tac(srw_ss())[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
     CCONTR_TAC >> full_simp_tac(srw_ss())[] >>
-    first_assum(split_applied_pair_tac o rand o lhs o concl) >>
+    first_assum(split_uncurry_arg_tac o rand o lhs o concl) >>
     imp_res_tac functional_evaluate_prog >>
     (whole_prog_type_soundness
      |> REWRITE_RULE[GSYM AND_IMP_INTRO]

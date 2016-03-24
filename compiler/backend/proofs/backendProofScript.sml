@@ -207,7 +207,7 @@ val from_bvp_ignore = prove(
   ``from_bvp (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
     from_bvp c prog``,
   fs [from_bvp_def,from_word_def,from_stack_def,from_lab_def]
-  \\ rpt (split_pair_tac \\ fs []));
+  \\ rpt (pairarg_tac \\ fs []));
 
 val code_installed_ignore = prove(
   ``code_installed
@@ -358,8 +358,8 @@ val compile_correct = Q.store_thm("compile_correct",
   rator_x_assum`con_to_dec$compile`mp_tac >>
   `c'.next_global = 0` by (
     fs[source_to_modTheory.compile_def,LET_THM] >>
-    split_pair_tac >> fs[] >>
-    split_pair_tac >> fs[] >>
+    pairarg_tac >> fs[] >>
+    pairarg_tac >> fs[] >>
     rveq >> simp[prim_config_eq] ) >> fs[] >>
   strip_tac >> fs[] >>
   qunabbrev_tac`c''`>>fs[] >>
@@ -471,7 +471,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then (SUBST_ALL_TAC o SYM)
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
-    \\ split_pair_tac \\ fs [])
+    \\ pairarg_tac \\ fs [])
   \\ `code_installed (bytes,c'''',ffi,ffi_limit,mc,ms)` by
         (fs [Abbr`c''''`,code_installed_ignore] \\ NO_TAC)
   \\ drule (GEN_ALL machine_sem_implements_bvp_sem)

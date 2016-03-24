@@ -564,7 +564,7 @@ val evaluate_def = tDefine "evaluate" `
    \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
    \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
    \\ full_simp_tac(srw_ss())[set_var_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
-   \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[])
+   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
    \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
    \\ decide_tac)
 
@@ -587,7 +587,7 @@ val alloc_clock = store_thm("alloc_clock",
   \\ rpt (disch_then strip_assume_tac)
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[push_env_def,set_store_def,call_env_def,LET_THM,pop_env_def]
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[])
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]);
 
@@ -614,7 +614,7 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -624,7 +624,7 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   \\ TRY (PairCases_on `x`)
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[])
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ decide_tac);
 
 val fix_clock_evaluate = prove(

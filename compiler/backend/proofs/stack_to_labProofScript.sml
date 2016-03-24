@@ -268,8 +268,8 @@ val flatten_leq = Q.store_thm("flatten_leq",
   CASE_TAC >> simp[] >> full_simp_tac(srw_ss())[] >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >>
-  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >>
+  TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   simp[]);
 
 val no_ret_correct = Q.store_thm("no_ret_correct",
@@ -280,7 +280,7 @@ val no_ret_correct = Q.store_thm("no_ret_correct",
   full_simp_tac(srw_ss())[GSYM no_ret_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   rev_full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
-  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   METIS_TAC[NOT_SOME_NONE,FST,option_CASES] );
 
 val compile_jump_correct = Q.store_thm("compile_jump_correct",
@@ -435,7 +435,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     rator_x_assum`evaluate`mp_tac >>
     simp[Once stackSemTheory.evaluate_def] >>
     strip_tac >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    pairarg_tac >> full_simp_tac(srw_ss())[] >>
     rator_x_assum`code_installed`mp_tac >>
     simp[Once flatten_def] >>
     simp[UNCURRY] >> strip_tac >>
@@ -533,8 +533,8 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qpat_assum`_ = (r,_)`mp_tac >>
     BasicProvers.TOP_CASE_TAC >> simp[] >> strip_tac >>
     fs[Q.SPEC`If _ _ _ _ _`flatten_def,LET_THM] >>
-    split_pair_tac >> fs[] >>
-    split_pair_tac >> fs[] >>
+    pairarg_tac >> fs[] >>
+    pairarg_tac >> fs[] >>
     Cases_on`c1=Skip`>>fs[]>-(
       Cases_on`c2=Skip`>>fs[] >- (
         fs[Q.SPEC`Skip`flatten_def]>>
@@ -834,13 +834,13 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ simp[]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
       strip_tac \\ rveq \\ full_simp_tac(srw_ss())[]
       \\ rator_x_assum`code_installed`mp_tac
       \\ simp[Once flatten_def]
-      \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+      \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
       \\ simp[code_installed_def] \\ strip_tac
       \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def]
       \\ full_simp_tac(srw_ss())[get_var_def]
@@ -867,7 +867,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ rev_full_simp_tac(srw_ss())[]
       \\ rator_x_assum`code_installed`mp_tac
       \\ simp[Once flatten_def]
-      \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+      \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
       \\ simp[code_installed_def]
       \\ strip_tac
       \\ simp[flatten_def,FILTER_APPEND]
@@ -895,7 +895,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       strip_tac \\ rveq \\ full_simp_tac(srw_ss())[]
       \\ rator_x_assum`code_installed`mp_tac
       \\ simp[Once flatten_def]
-      \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+      \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
       \\ simp[code_installed_def] \\ strip_tac
       \\ imp_res_tac code_installed_append_imp
       \\ full_simp_tac(srw_ss())[code_installed_def]
@@ -919,7 +919,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ full_simp_tac(srw_ss())[STOP_def]
     \\ rator_x_assum`code_installed`mp_tac
     \\ simp[Once flatten_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ simp[code_installed_def] \\ strip_tac
     \\ imp_res_tac code_installed_append_imp
     \\ full_simp_tac(srw_ss())[code_installed_def]
@@ -1077,7 +1077,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       full_simp_tac(srw_ss())[dec_clock_def,upd_pc_def] >>
       map_every qexists_tac[`ck`,`t2`]>>full_simp_tac(srw_ss())[] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-    (fn g => subterm split_pair_case_tac (#2 g) g) >>
+    split_pair_case_tac >>
     var_eq_tac >> full_simp_tac(srw_ss())[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
@@ -1085,10 +1085,10 @@ val flatten_correct = Q.store_thm("flatten_correct",
       map_every qexists_tac[`0`,`t1`] >>
       full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[state_rel_def,empty_env_def] ) >>
     `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >>
-    (fn g => subterm split_pair_case_tac (#2 g) g) >>
+    split_pair_case_tac >>
     simp[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    pairarg_tac >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[code_installed_def] >>
     strip_tac >>
     qho_match_abbrev_tac`∃ck t2.
@@ -1182,8 +1182,8 @@ val flatten_correct = Q.store_thm("flatten_correct",
           simp[Once flatten_def,ADD1] ) >>
         qexists_tac`ck+ck'+1` >>
         simp[Once flatten_def] >>
-        (fn g => subterm (split_pair_case_tac o assert (C free_in (#2 g))) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-        split_pair_tac >> full_simp_tac(srw_ss())[] >>
+        split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+        pairarg_tac >> full_simp_tac(srw_ss())[] >>
         full_simp_tac(srw_ss())[code_installed_def] >>
         imp_res_tac code_installed_append_imp >>
         full_simp_tac(srw_ss())[code_installed_def] >>
@@ -1206,7 +1206,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       BasicProvers.TOP_CASE_TAC >> simp[] >>
       BasicProvers.TOP_CASE_TAC >> simp[] >>
       BasicProvers.TOP_CASE_TAC >> simp[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-      split_pair_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+      pairarg_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
       imp_res_tac code_installed_append_imp >>
       fsrw_tac[ARITH_ss][code_installed_def] >>
       imp_res_tac code_installed_append_imp >>
@@ -1294,7 +1294,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       NO_TAC) ORELSE
      (ntac 2 BasicProvers.TOP_CASE_TAC >>
       IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> strip_tac >> rveq)) >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    pairarg_tac >> full_simp_tac(srw_ss())[] >>
     imp_res_tac code_installed_append_imp >>
     pop_assum mp_tac >>
     simp_tac(srw_ss()++ARITH_ss)[code_installed_def] >>
@@ -1315,7 +1315,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     Cases_on`get_var ptr s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`get_var len s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
-    split_pair_tac >> simp[] >> srw_tac[][] >> simp[] >>
+    pairarg_tac >> simp[] >> srw_tac[][] >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def,good_syntax_def] >>
     qexists_tac`2` >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -1330,7 +1330,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     full_simp_tac(srw_ss())[] >>
     `s.memory = t1.mem ∧ s.mdomain = t1.mem_domain ∧ s.be = t1.be` by full_simp_tac(srw_ss())[state_rel_def] >>
     full_simp_tac(srw_ss())[] >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    pairarg_tac >> full_simp_tac(srw_ss())[] >>
     (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
     full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT] >> rev_full_simp_tac(srw_ss())[] >>
     reverse conj_tac

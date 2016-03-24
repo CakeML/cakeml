@@ -961,11 +961,11 @@ val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
    every_Fn_vs_NONE es'`,
   ho_match_mp_tac remove_ind >>
   srw_tac[][remove_def] >> full_simp_tac(srw_ss())[LET_THM] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac remove_SING >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
   simp[GSYM every_Fn_vs_NONE_EVERY] >>
@@ -999,7 +999,7 @@ val remove_correct = Q.store_thm("remove_correct",
     exp_rel (:'ffi) es es'`,
   ho_match_mp_tac remove_ind >>
   srw_tac[][remove_def] >> full_simp_tac(srw_ss())[LET_THM] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac remove_SING >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   TRY (qcase_tac`Let` >>
@@ -1203,11 +1203,11 @@ val every_Fn_SOME_remove = Q.store_thm("every_Fn_SOME_remove",
    every_Fn_SOME es'`,
   ho_match_mp_tac remove_ind >>
   srw_tac[][remove_def] >> full_simp_tac(srw_ss())[LET_THM] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac remove_SING >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
   ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
   simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
   simp[GSYM every_Fn_SOME_EVERY] >>

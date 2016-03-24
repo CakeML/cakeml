@@ -154,7 +154,7 @@ val comp_correct = Q.prove(
          \\ fs [] \\ rw [] \\ fs [empty_env_def,dec_clock_def])
   THEN1
    (simp [Once evaluate_def,Once comp_def]
-    \\ fs [evaluate_def,LET_DEF] \\ split_pair_tac \\ fs []
+    \\ fs [evaluate_def,LET_DEF] \\ rpt (pairarg_tac \\ fs [])
     \\ rw [] \\ fs [] \\ rfs [] \\ fs []
     \\ imp_res_tac evaluate_consts \\ fs [])
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
@@ -171,9 +171,12 @@ val comp_correct = Q.prove(
   THEN1 (* While *)
    (simp [Once comp_def] \\ fs [evaluate_def,get_var_def]
     \\ reverse every_case_tac
-    \\ fs [LET_THM] \\ split_pair_tac \\ fs []
+    \\ fs [LET_THM]
+    \\ qpat_assum`(λ(x,y). _) _ = _`mp_tac
+    \\ pairarg_tac \\ fs []
     \\ Cases_on `res = NONE` \\ fs []
     \\ Cases_on `s1.clock = 0` \\ fs []
+    \\ strip_tac
     THEN1 (rpt var_eq_tac \\ fs [rename_state_def,empty_env_def])
     \\ `(rename_state f s1).clock <> 0` by fs [rename_state_def] \\ fs []
     \\ fs [comp_STOP_While] \\ rfs []
@@ -227,17 +230,17 @@ val comp_correct = Q.prove(
       qpat_assum`_ = (r,_)`mp_tac >>
       BasicProvers.TOP_CASE_TAC >> fs[] >>
       reverse(Cases_on`handler`)>>fs[]>-(
-        (fn g => subterm split_pair_case_tac (#2 g) g) >> simp[] ) >>
+        split_pair_case_tac >> simp[] ) >>
       simp[Once rename_state_def] >>
       IF_CASES_TAC >> fs[] >- (
         rw[] >> EVAL_TAC >> simp[state_component_equality] ) >>
       simp[dec_clock_rename_state] >>
       BasicProvers.TOP_CASE_TAC >> fs[] >>
       BasicProvers.TOP_CASE_TAC >> fs[] ) >>
-    (fn g => subterm split_pair_case_tac (#2 g) g) >> simp[] >>
+    split_pair_case_tac >> simp[] >>
     rveq >> pop_assum mp_tac >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
-    (fn g => subterm split_pair_case_tac (#2 g) g) >> simp[] >>
+    split_pair_case_tac >> simp[] >>
     strip_tac >> rveq >> fs[] >>
     simp[Once rename_state_def] >>
     simp[DOMSUB_MAP_KEYS] >>
@@ -281,7 +284,7 @@ val comp_correct = Q.prove(
     simp[Once rename_state_def] >>
     fs[LET_THM] >>
     simp[EVAL``(rename_state f s).ffi``] >>
-    split_pair_tac >> fs[] >> rveq >>
+    pairarg_tac >> fs[] >> rveq >>
     simp[rename_state_def,state_component_equality] >>
     dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
     metis_tac[BIJ_DEF])

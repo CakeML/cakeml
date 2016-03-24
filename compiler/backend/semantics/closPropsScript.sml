@@ -1060,7 +1060,7 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[evaluate_def] >>
   TRY (
     qcase_tac`Boolv T` >>
-    first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+    first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     reverse(BasicProvers.CASE_TAC) >> full_simp_tac(srw_ss())[] >- (
       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] ) >>
@@ -1125,7 +1125,7 @@ val tac =
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[dec_clock_def] >> full_simp_tac(srw_ss())[do_app_add_to_clock] >>
-  TRY(first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2]

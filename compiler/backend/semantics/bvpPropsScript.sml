@@ -160,7 +160,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     full_simp_tac(srw_ss())[cut_state_opt_def,cut_state_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
     rpt var_eq_tac >> full_simp_tac(srw_ss())[do_app_with_locals] >>
-    TRY(first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
+    TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
     imp_res_tac do_app_const >> simp[] >>
     EVAL_TAC >> simp[])
   THEN1 (
@@ -690,7 +690,7 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][call_env_def] )
   >- (
     full_simp_tac(srw_ss())[LET_THM] >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    pairarg_tac >> full_simp_tac(srw_ss())[] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     rev_full_simp_tac(srw_ss())[] >> srw_tac[][] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] )
@@ -770,7 +770,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
     (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
   recInduct evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-  TRY (split_pair_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])>>
+  TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])>>
   imp_res_tac cut_state_opt_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac pop_env_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[] >>
@@ -801,7 +801,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[set_var_with_const] >>
     metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS,set_var_const,set_var_with_const,with_clock_ffi]) >>
-  rpt (split_pair_tac >> full_simp_tac(srw_ss())[]) >>
+  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
   every_case_tac >> full_simp_tac(srw_ss())[cut_state_opt_with_const] >> rev_full_simp_tac(srw_ss())[] >>
   rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac do_app_change_clock >> full_simp_tac(srw_ss())[] >>

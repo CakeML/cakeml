@@ -265,7 +265,7 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ imp_res_tac do_app_clock >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]
   \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]
-  \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+  \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]);
 

@@ -1013,13 +1013,13 @@ val compile_exp_correct' = Q.prove (
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, modSemTheory.evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
-  TRY(first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[])
+  TRY(first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[])
   >- (
     qpat_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >> simp[] >> strip_tac >>
     simp[] >>
-    first_assum(fn th => subterm split_pair_case_tac (concl th)) >> full_simp_tac(srw_ss())[] >>
+    first_assum(fn th => subterm split_pair_case0_tac (concl th)) >> full_simp_tac(srw_ss())[] >>
     qpat_assum`_ = (_,r)`mp_tac >>
     reverse BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       srw_tac[][] >>
@@ -1056,10 +1056,10 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
     >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse] >>
     `env_i1.c = env.c` by full_simp_tac(srw_ss())[env_all_rel_cases] >>
-    `v3' = Rerr (Rabort Rtype_error) ∨
-     (?err. v3' = Rerr err ∧ err ≠ Rabort Rtype_error) ∨
-     (?v. v3' = Rval v)`
-       by (Cases_on `v3'` >> full_simp_tac(srw_ss())[]) >>
+    `v3 = Rerr (Rabort Rtype_error) ∨
+     (?err. v3 = Rerr err ∧ err ≠ Rabort Rtype_error) ∨
+     (?v. v3 = Rval v)`
+       by (Cases_on `v3` >> full_simp_tac(srw_ss())[]) >>
     full_simp_tac(srw_ss())[] >>
     srw_tac[][result_rel_cases] >>
     first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
@@ -1666,8 +1666,8 @@ val compile_decs_num_bindings = Q.prove(
   srw_tac[][compile_decs_def] >>
   srw_tac[][decs_to_dummy_env_def] >>
   full_simp_tac(srw_ss())[LET_THM] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[fupdate_list_foldl] >>
   srw_tac[][decs_to_dummy_env_def] >>
   res_tac >>
@@ -1724,7 +1724,7 @@ val compile_decs_correct = Q.prove (
     rpt gen_tac >>
     qspec_tac (`d2::ds`, `ds`) >>
     rw [compile_decs_def, compile_dec_def] >>
-    ntac 2 (split_pair_tac \\ fs[])
+    ntac 2 (pairarg_tac \\ fs[])
     \\ rveq
     \\ simp[evaluate_decs_def]
     \\ qpat_assum`_ = (_,_,r)`mp_tac
@@ -2047,7 +2047,7 @@ val compile_top_decs = Q.store_thm("compile_top_decs",
    (next,menv,env,Prompt mno ds)`,
   rw[compile_top_def]
   \\ every_case_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ fs[Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST |> SIMP_RULE(srw_ss())[LAMBDA_PROD]]
   \\ fs[Q.ISPEC`I:α#β -> α#β`LAMBDA_PROD |> GSYM |> SIMP_RULE (srw_ss())[]]
   \\ imp_res_tac compile_decs_dec \\ fs[]);
@@ -2069,7 +2069,7 @@ val evaluate_tops_decs = Q.store_thm("evaluate_tops_decs",
        let (st'',new_ctors',r) = evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) prog in
          (st'',merge_alist_mod_env new_ctors' new_ctors,combine_mod_result new_mods new_vals r)`,
   Cases_on`prog` \\ simp[funBigStepTheory.evaluate_tops_def]
-  \\ rpt (split_pair_tac \\ fs[])
+  \\ rpt (pairarg_tac \\ fs[])
   >- (
     every_case_tac \\ fs[]
     \\ rw[funBigStepTheory.evaluate_tops_def,combine_mod_result_def]
@@ -2130,15 +2130,15 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   \\ fs[compile_prog_def]
   >- ( rw[funBigStepTheory.evaluate_tops_def,evaluate_prompts_def] \\ fs[] )
   \\ rw[]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ rw[]
   \\ simp[evaluate_prompts_def]
-  \\ (fn g => subterm split_pair_case_tac (#2 g) g) \\ fs[]
+  \\ split_pair_case_tac \\ fs[]
   \\ fs[compile_top_decs]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ rw[]
   \\ fs[evaluate_prompt_def]
   \\ rator_x_assum`COND`mp_tac
@@ -2155,7 +2155,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       qpat_assum`¬prompt_mods_ok NONE _`mp_tac
       \\ simp[prompt_mods_ok_def]
       \\ fs[compile_decs_def]
-      \\ split_pair_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
       \\ rveq \\ fs[]
       \\ Cases_on`d` \\ fs[compile_dec_def] \\ rveq \\ fs[]
       \\ NO_TAC)
@@ -2169,11 +2169,11 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ fs[no_dup_types_def,decs_to_types_def]
     \\ Cases_on`prog`\\fs[funBigStepTheory.evaluate_tops_def,funBigStepTheory.evaluate_decs_def]
     \\ every_case_tac \\ fs[] )
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ strip_tac
   \\ fs[evaluate_tops_decs]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ drule(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_decs_correct))
   \\ simp[AND_IMP_INTRO]
   \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(
@@ -2202,8 +2202,8 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ fs[s_rel_cases,update_mod_state_def]
     \\ fs[result_rel_cases]
     \\ metis_tac[v_rel_weakening] )
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ strip_tac \\ rveq \\ fs[]
   \\ first_x_assum drule
   \\ qmatch_goalsub_abbrev_tac`evaluate_prompts _ s2 _`
@@ -2264,9 +2264,9 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ fs[] )
   \\ strip_tac
   \\ fs[extend_top_env_def]
-  \\ `new_ctors' = mod_cenv mno cenv`
+  \\ `new_ctors' = mod_cenv mno cenv''`
   by (
-    Cases_on`mno`\\fs[mod_cenv_def]
+    Cases_on`mno`\\fs[mod_cenv_def] \\ rveq \\ fs[]
     \\ every_case_tac \\ fs[] )
   \\ rveq \\ fs[]
   \\ reverse(Cases_on`r''`)\\fs[]
@@ -2433,8 +2433,8 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog (semantics env2 s2 (SND (compile c prog)))`,
   rw[semantics_prog_def,SND_eq,precondition_def,compile_def]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ simp[modSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[SND_eq]
   >- (
@@ -2444,7 +2444,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) \\ fs[]
     \\ spose_not_then strip_assume_tac \\ fs[]
     \\ fs[evaluate_prog_with_clock_def]
-    \\ split_pair_tac \\ fs[] \\ rw[]
+    \\ pairarg_tac \\ fs[] \\ rw[]
     \\ drule (GEN_ALL whole_compile_prog_correct)
     \\ imp_res_tac invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
@@ -2461,7 +2461,7 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[] \\ rw[semantics_prog_def]
     \\ fs[evaluate_prog_with_clock_def]
     \\ qexists_tac`k`
-    \\ split_pair_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
     \\ drule (GEN_ALL whole_compile_prog_correct)
     \\ imp_res_tac invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
@@ -2484,7 +2484,7 @@ val compile_correct = Q.store_thm("compile_correct",
   >- (
     rw[]
     \\ fs[evaluate_prog_with_clock_def]
-    \\ split_pair_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
     \\ drule (GEN_ALL whole_compile_prog_correct)
     \\ imp_res_tac invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
@@ -2516,7 +2516,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp[FUN_EQ_THM]
     \\ fs[evaluate_prog_with_clock_def]
     \\ gen_tac
-    \\ split_pair_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
     \\ AP_TERM_TAC
     \\ drule (GEN_ALL whole_compile_prog_correct)
     \\ imp_res_tac invariant_change_clock
@@ -2540,8 +2540,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ simp[prefix_chain_def,PULL_EXISTS]
   \\ simp[evaluate_prog_with_clock_def]
   \\ qx_genl_tac[`k1`,`k2`]
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ metis_tac[funBigStepPropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
 
 val _ = export_theory ();

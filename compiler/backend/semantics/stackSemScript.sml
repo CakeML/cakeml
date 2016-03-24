@@ -546,7 +546,7 @@ val evaluate_clock = store_thm("evaluate_clock",
     \\ IMP_RES_TAC inst_clock
     \\ IMP_RES_TAC alloc_clock
     \\ fs [set_var_def,set_store_def,dec_clock_def,LET_THM]
-    \\ rpt (split_pair_tac \\ fs [])
+    \\ rpt (pairarg_tac \\ fs [])
     \\ every_case_tac \\ fs []
     \\ imp_res_tac fix_clock_IMP \\ fs []
     \\ imp_res_tac LESS_EQ_TRANS \\ fs [] \\ rfs []

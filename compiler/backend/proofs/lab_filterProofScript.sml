@@ -643,7 +643,7 @@ val filter_correct = prove(
         same_inst_tac)
       >>
         imp_res_tac loc_to_pc_eq_SOME>>full_simp_tac(srw_ss())[]>>
-        split_pair_tac>>full_simp_tac(srw_ss())[]>>
+        pairarg_tac>>full_simp_tac(srw_ss())[]>>
         srw_tac[][]>>upd_pc_tac)
     >-
       same_inst_tac

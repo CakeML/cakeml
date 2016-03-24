@@ -138,7 +138,7 @@ val evaluate_prompt_add_to_clock = Q.prove(
   Cases_on`p` >>
   srw_tac[][evaluate_prompt_def] >>
   full_simp_tac(srw_ss())[LET_THM] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   simp[] >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_decs_add_to_clock >> rev_full_simp_tac(srw_ss())[] >>
   rpt(first_x_assum(qspec_then`extra`mp_tac))>>simp[]);
@@ -170,7 +170,7 @@ val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
    evaluate_prog env (s with clock := s.clock + extra) prog =
      (s' with clock := s'.clock + extra,r)`,
   srw_tac[][evaluate_prog_def] >> full_simp_tac(srw_ss())[LET_THM] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   imp_res_tac evaluate_prompts_add_to_clock >>
   rev_full_simp_tac(srw_ss())[] >>
   rpt(first_x_assum(qspec_then`extra`mp_tac))>>simp[]);
@@ -245,8 +245,8 @@ val evaluate_dec_add_to_clock_io_events_mono = Q.store_thm("evaluate_dec_add_to_
      (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi =
      (FST (evaluate_dec env s prog)).ffi)`,
   Cases_on`prog`>>srw_tac[][evaluate_dec_def]>> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_pair_case_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_pair_case_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+  split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
   qmatch_assum_abbrev_tac`evaluate ee (s with clock := _) pp = _` >>
   qispl_then[`ee`,`s`,`pp`,`extra`]mp_tac(CONJUNCT1 evaluate_add_to_clock_io_events_mono) >>
   simp[] >> strip_tac >>
@@ -287,7 +287,7 @@ val evaluate_prompt_io_events_mono = Q.store_thm("evaluate_prompt_io_events_mono
      (IS_SOME y.ffi.final_event ⇒ a.ffi = y.ffi)`,
    Cases_on`z`>>srw_tac[][evaluate_prompt_def] >>
    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-   full_simp_tac(srw_ss())[LET_THM] >> split_pair_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+   full_simp_tac(srw_ss())[LET_THM] >> pairarg_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
    imp_res_tac evaluate_decs_io_events_mono);
 
 val evaluate_prompt_add_to_clock_io_events_mono = Q.store_thm("evaluate_prompt_add_to_clock_io_events_mono",
@@ -299,7 +299,7 @@ val evaluate_prompt_add_to_clock_io_events_mono = Q.store_thm("evaluate_prompt_a
      (FST (evaluate_prompt env s prog)).ffi)`,
   Cases_on`prog`>>srw_tac[][evaluate_prompt_def]>>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
-  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  TRY pairarg_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   qmatch_assum_abbrev_tac`evaluate_decs ee (ss with clock := _ + extra) pp = _` >>
   qispl_then[`ee`,`ss`,`pp`,`extra`]mp_tac evaluate_decs_add_to_clock_io_events_mono >>
   simp[]);

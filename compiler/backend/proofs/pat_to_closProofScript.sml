@@ -151,7 +151,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     rpt gen_tac >> strip_tac >>
     qpat_assum`X = res`mp_tac >>
     simp[Once evaluate_cons] >>
-    (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+    split_pair_case_tac >> fs[] >>
     simp[Once evaluate_CONS] >> strip_tac >>
     every_case_tac >> fs[] >>
     imp_res_tac evaluate_sing >> rw[] >>fs[] >> rfs[]) >>
@@ -181,7 +181,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def] >>
     Cases_on`op=Op(Op Opapp)`>>fs[] >- (
-      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      split_pair_case_tac >> fs[] >>
       qmatch_assum_rename_tac `_ = (s1,r1)` >>
       reverse(Cases_on`r1`)>>fs[] >- (
         rw[]>>fs[evaluate_def,MAP_REVERSE,ETA_AX] >>
@@ -204,18 +204,18 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       rpt var_eq_tac >> fs[LENGTH_eq] >> var_eq_tac >>
       simp[evaluate_def] >>
       fs[Once evaluate_CONS] >>
-      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      split_pair_case_tac >> fs[] >>
       fs[evaluate_def] >>
       pop_assum mp_tac >>
-      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      split_pair_case_tac >> fs[] >>
       BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
       rpt var_eq_tac >> fs[] >>
-      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      split_pair_case_tac >> fs[] >>
       BasicProvers.CASE_TAC >> fs[] >> rpt var_eq_tac >>
       imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] >> rw[] >>
       qmatch_assum_rename_tac`_ = (s1,Rval [d; c])` >>
       Cases_on`do_opapp [c; d]`>>fs[] >>
-      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      split_pair_case_tac >> fs[] >>
       rpt var_eq_tac >>
       IF_CASES_TAC >> fs[] >- (
         simp[evaluate_def] >> fs[do_opapp_def] >>
@@ -224,14 +224,14 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       simp[evaluate_def] >> fs[do_opapp_def] >>
       Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,EL_MAP,LET_THM,ETA_AX] >>simp[] >>
       rpt var_eq_tac >> fs[build_rec_env_pat_def] >>
-      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      split_pair_case_tac >> fs[] >>
       fs[MAP_GENLIST,o_DEF,ETA_AX] >>
       fsrw_tac[boolSimps.ETA_ss][] >>
       BasicProvers.CASE_TAC >> fs[] >>
       imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] >>
       simp[evaluate_def] >> rw[] >>
       imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] ) >>
-    (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+    split_pair_case_tac >> fs[] >>
     reverse BasicProvers.CASE_TAC >> fs[] >> rfs[] >- (
       reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>

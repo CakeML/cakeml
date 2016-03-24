@@ -2312,11 +2312,11 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
   THEN1 (* CONS *)
    (srw_tac[][] >>
     full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
-    \\ first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-    \\ last_assum(valOf o bvk_find_term(K true)(split_pair_case_tac) o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ last_assum(valOf o bvk_find_term(K true)(split_pair_case0_tac) o concl) >> full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_THM]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[PULL_FORALL]
     \\ FIRST_X_ASSUM (qspec_then`aux1`mp_tac)
     \\ SRW_TAC [] []
@@ -2362,11 +2362,11 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
   THEN1 (* If *)
    (srw_tac[][] >>
     full_simp_tac(srw_ss())[compile_exps_def,cEval_def,LET_THM]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bEval_def]
-    \\ first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ IMP_RES_TAC compile_exps_IMP_code_installed
     \\ first_x_assum(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -2417,10 +2417,10 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
   THEN1 (* Let *)
    (srw_tac[][] >>
     full_simp_tac(srw_ss())[compile_exps_def,cEval_def,LET_THM]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bEval_def]
-    \\ first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ IMP_RES_TAC compile_exps_IMP_code_installed
     \\ first_x_assum(fn th =>
            first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -2463,8 +2463,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
   THEN1 (* Raise *)
    (srw_tac[][] >>
     full_simp_tac(srw_ss())[cEval_def,compile_exps_def,LET_THM] \\ SRW_TAC [] [bEval_def]
-    \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-    \\ first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+    \\ first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[PULL_FORALL] \\ SRW_TAC [] []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_exps_IMP_code_installed
@@ -3012,7 +3012,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       `?c2 aux3. compile_exps [body] aux1 = ([c2],aux3)` by
               METIS_TAC [PAIR,compile_exps_SING]
       \\ full_simp_tac(srw_ss())[LET_THM]
-      \\ first_assum(split_applied_pair_tac o lhs o concl)
+      \\ first_assum(split_uncurry_arg_tac o lhs o concl)
       \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ simp[bEval_def, bvlPropsTheory.evaluate_APPEND, bvlSemTheory.do_app_def]
       \\ IMP_RES_TAC lookup_vars_IMP
@@ -3863,7 +3863,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
    compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   srw_tac[][compile_def] >>
   full_simp_tac(srw_ss())[compile_def,LET_THM] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
   rator_x_assum`compile_exps`mp_tac >>
   specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
   simp[ALL_DISTINCT_APPEND] >>
@@ -3893,7 +3893,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     simp[ALL_DISTINCT_REVERSE] >>
     simp[clos_annotateProofTheory.annotate_code_locs] >>
     full_simp_tac(srw_ss())[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
     metis_tac[clos_removeProofTheory.remove_distinct_locs,FST,SND,
               clos_removeProofTheory.code_loc'_def,
               clos_numberProofTheory.renumber_code_locs_distinct] ) >>
@@ -3909,7 +3909,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   spose_not_then strip_assume_tac >>
   rveq >> res_tac >>
   full_simp_tac(srw_ss())[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
-  split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   qspecl_then[`c.next_loc`,`z`]mp_tac clos_numberProofTheory.renumber_code_locs_distinct >>
   simp[EXISTS_MEM] >> spose_not_then strip_assume_tac >>
   res_tac >> decide_tac);
@@ -4004,7 +4004,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
      evaluate ([Call 0 (SOME c'.start) []],[],s1 with clock := s.clock + ck) = (r1,s'1) ∧
      full_result_rel (r,s') (r1,s'1)`,
   srw_tac[][compile_def,LET_THM,full_state_rel_def] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
   `∃z. es = [z]` by (
     metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
               clos_numberTheory.renumber_code_locs_length,

@@ -252,7 +252,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ disch_then drule
   \\ strip_tac
   \\ simp[semantics_prog_def,evaluate_prog_with_clock_def]
-  \\ gen_tac \\ split_pair_tac \\ fs[]
+  \\ gen_tac \\ pairarg_tac \\ fs[]
   \\ imp_res_tac functional_evaluate_prog
   \\ qpat_assum`_ ⇒ _`mp_tac
   \\ simp[PULL_EXISTS]

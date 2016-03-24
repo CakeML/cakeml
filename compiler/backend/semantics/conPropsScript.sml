@@ -148,7 +148,7 @@ val evaluate_dec_add_to_clock = Q.store_thm("evaluate_dec_add_to_clock",
    evaluate_dec env (s with clock := s.clock + extra) d =
      (s' with clock := s'.clock + extra,r)`,
   Cases_on`d`>>srw_tac[][evaluate_dec_def]>>
-  first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+  first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_to_clock >>
   first_x_assum(fn th => mp_tac th >> impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[])) >>
   disch_then(qspec_then`extra`strip_assume_tac) >> simp[] >>
@@ -228,8 +228,8 @@ val evaluate_dec_add_to_clock_io_events_mono = Q.store_thm("evaluate_dec_add_to_
      (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi =
      (FST (evaluate_dec env s prog)).ffi)`,
   Cases_on`prog`>>srw_tac[][evaluate_dec_def]>>
-  (fn g => subterm split_pair_case_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_pair_case_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+  split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
   qmatch_assum_abbrev_tac`evaluate ee (s with clock := _) pp = _` >>
   qispl_then[`ee`,`s`,`pp`,`extra`]mp_tac(CONJUNCT1 evaluate_add_to_clock_io_events_mono) >>
   simp[] >> strip_tac >>

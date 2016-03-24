@@ -15,11 +15,12 @@ val every_case_tac = BasicProvers.EVERY_CASE_TAC;
 val full_case_tac = BasicProvers.FULL_CASE_TAC;
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
+val match_exists_tac = part_match_exists_tac (hd o strip_conj)
+val asm_exists_tac = first_assum(match_exists_tac o concl)
+val has_pair_type = can dest_prod o type_of
 (* -- *)
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
-
-val has_pair_type = can dest_prod o type_of
 
 (* treat the given eq_tms (list of equations) as rewrite thereoms,
    return the resulting term, note we can't return a theorem because
@@ -58,14 +59,17 @@ in
 end
 (* -- *)
 
+val preamble_ERR = mk_HOL_ERR"preamble"
+
+fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
+
+fun drule th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
 val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 (* TODO: this doesn't prove the hyps if there's more than one *)
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
-
-(* TODO: move to HOL? *)
-val match_exists_tac = part_match_exists_tac (hd o strip_conj)
-val asm_exists_tac = first_assum(match_exists_tac o concl)
 
 (* if the first conjunct under the goal's existential prefix matches the term
    except for some places where it has structure and the term just has variables,
@@ -85,53 +89,6 @@ fun split_pair_match tm (g as (_,w)) =
     map_every (TRY o PairCases_on) (map (C cons [] o ANTIQUOTE) vs)
   end g
 
-(* TODO: move to HOL? and others below... *)
-fun split_applied_pair_tac tm =
-  let
-    val (f,p) = dest_comb tm
-    val (x,b) = pairSyntax.dest_pabs f
-    val (x,s) = variant_of_term (free_vars p) x
-    val xs = pairSyntax.strip_pair x
-    val g = list_mk_exists(xs,mk_eq(p,x))
-    val th = prove(g, SIMP_TAC bool_ss [GSYM pairTheory.EXISTS_PROD])
-  in
-    strip_assume_tac th
-  end
-
-local
-  val is_pair_case = same_const``pair_CASE``
-  exception Not_pair_case
-  fun loop tm vs =
-    let
-      val (f,x) = dest_comb tm
-      val _ = assert is_pair_case (fst (strip_comb f))
-    in
-      let
-        val (v,b) = dest_abs x
-        val vs = v::vs
-      in
-        case total dest_abs b of
-          NONE => (vs,tm)
-        | SOME (v,tm) => loop tm vs
-          handle Not_pair_case => (v::vs,tm)
-      end handle HOL_ERR _ => (vs,tm)
-    end handle HOL_ERR _ => raise Not_pair_case
-in
-  fun strip_pair_case tm =
-    (case loop tm [] of (vs,b) => (rand(rator tm),rev vs,b))
-    handle Not_pair_case => raise mk_HOL_ERR "" "strip_pair_case" "not a pair case"
-end
-
-fun split_pair_case_tac tm =
-  let
-    val (p,vs,b) = strip_pair_case tm
-    val vs = map (variant (free_varsl [b,p])) vs
-    val g = list_mk_exists(vs,mk_eq(p,pairSyntax.list_mk_pair vs))
-    val th = prove(g, SIMP_TAC bool_ss [GSYM pairTheory.EXISTS_PROD])
-  in
-    strip_assume_tac th
-  end
-
 (* the theorem is of the form [!x1 .. xn. P] and the goal contains a subterm
    [f v1 .. vn]. apply ttac to [P[vi/xi]]. *)
 fun specl_args_of_then f th (ttac:thm_tactic) (g as (_,w)) =
@@ -141,24 +98,6 @@ fun specl_args_of_then f th (ttac:thm_tactic) (g as (_,w)) =
   in
     ttac (ISPECL vs th)
   end g
-
-val preamble_ERR = mk_HOL_ERR"preamble"
-
-fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
-
-local
-val find_and_split_pair = partial(preamble_ERR"find_and_split_pair""not found")
-  (bvk_find_term
-    (fn (ls,tm) => is_comb tm andalso List.all (not o curry HOLset.member(FVL[rand tm]empty_tmset)) ls)
-    split_applied_pair_tac)
-in
-val split_pair_tac =
-  first_assum(find_and_split_pair o concl) ORELSE
-  (fn g => find_and_split_pair (#2 g) g)
-end
-
-fun drule th =
-  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 (* TODO: all the following might not be used? *)
 
