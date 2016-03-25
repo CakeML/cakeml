@@ -132,14 +132,6 @@ val get_var_set_var = Q.store_thm("get_var_set_var",
   `get_var x (set_var x' y z) = if x = x' then SOME y else get_var x z`,
   EVAL_TAC \\ srw_tac[][]);
 
-(*
-val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
-  `good_dimindex(:'a) ⇒
-   (bytes_in_word:'a word * n) << word_shift (:'a) = (if dimindex(:'a) = 32 then 16w else 64w) * n`,
-  EVAL_TAC \\ srw_tac[][]
-  \\ simp[WORD_MUL_LSL]);
-*)
-
 val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
   `good_dimindex(:'a) ∧ w2n (bytes_in_word:'a word) * w2n n < dimword(:'a) ⇒
    (bytes_in_word:'a word * n) >>> word_shift (:'a) = n`,
@@ -2365,8 +2357,9 @@ val make_init_any_def = Define `
   make_init_any max_heap bitmaps k code s =
     case make_init_opt max_heap bitmaps k code s of
     | SOME t => t
-    | NONE => s with <| mdomain := EMPTY
-                      ; bitmaps := bitmaps
+    | NONE => s with <| regs := FEMPTY |+ (0,Loc 1 0)
+                      ; mdomain := EMPTY
+                      ; bitmaps := [4w]
                       ; use_stack := T
                       ; use_store := T
                       ; use_alloc := F
@@ -2417,7 +2410,9 @@ val make_init_any_ffi = store_thm("make_init_any_ffi",
   \\ fs [] \\ fs [state_component_equality]);
 
 val make_init_any_bitmaps = store_thm("make_init_any_bitmaps",
-  ``(make_init_any max_heap bitmaps k code s).bitmaps = bitmaps``,
+  ``(make_init_any max_heap bitmaps k code s).bitmaps =
+       if IS_SOME (make_init_opt max_heap bitmaps k code s)
+       then bitmaps else [4w]``,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []);
 

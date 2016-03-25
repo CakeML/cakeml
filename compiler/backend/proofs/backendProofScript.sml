@@ -149,15 +149,17 @@ val full_make_init_gc_fun = prove(
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]);
 
 val full_make_init_bitmaps = prove(
-  ``(full_make_init
+  ``full_init_pre
+         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
+          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          save_regs) ==>
+    (full_make_init
          (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
           make_init mc_conf ffi save_regs io_regs t m ms code2,
           save_regs)).bitmaps = bitmaps``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      stack_removeProofTheory.make_init_any_def,
-      stack_removeProofTheory.make_init_opt_def,
-      stack_removeProofTheory.init_reduce_def]
-  \\ every_case_tac \\ fs []);
+      stack_removeProofTheory.make_init_any_bitmaps]
+  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
 
 val full_make_init_ffi = prove(
   ``(full_make_init
@@ -207,8 +209,7 @@ val full_init_pre_IMP_init_state_ok = prove(
   \\ CASE_TAC \\ fs [] THEN1
    (fs [init_state_ok_def,gc_fun_ok_word_gc_fun] \\ strip_tac
     \\ fs [FUPDATE_LIST,stack_removeTheory.store_list_def,FLOOKUP_UPDATE]
-    \\ TRY (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
-    \\ cheat (* bitmaps must be set to [4w] on init failure *))
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
   \\ fs [] \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [init_state_ok_def,gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
@@ -221,7 +222,7 @@ val full_init_pre_IMP_init_state_ok = prove(
   \\ fs [] \\ rpt var_eq_tac \\ fs[ADD1]
   \\ qpat_assum `LENGTH t2 = x.stack_space` (assume_tac o GSYM)
   \\ fs [DROP_LENGTH_APPEND]
-  \\ cheat (* handler has incorrect init value *));
+  \\ cheat (* the pointless init value of the handler doesn't match... *));
 
 (*
 
@@ -232,11 +233,11 @@ val imp_code_installed = prove(
   strip_tac \\ fs [code_installed_def,lab_to_targetProofTheory.good_syntax_def]
   \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
-  \\ fs [full_make_init_ffi,full_make_init_gc_fun,full_make_init_bitmaps]
+  \\ fs [full_make_init_ffi,full_make_init_gc_fun]
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
                 ([], [full_init_pre_IMP_init_store_ok,
                       full_init_pre_IMP_init_state_ok], []))
-  \\ simp_tac (std_ss++CONJ_ss) [] \\ fs [GSYM CONJ_ASSOC]
+  \\ simp_tac (std_ss++CONJ_ss) [full_make_init_bitmaps] \\ fs [GSYM CONJ_ASSOC]
   \\ cheat);
 
 *)
