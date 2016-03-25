@@ -2279,6 +2279,10 @@ val word_gc_move_roots_IMP_EVERY2 = prove(
   \\ UNABBREV_ALL_TAC \\ srw_tac[][] \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]);
 
+val gc_fun_ok_word_gc_fun = store_thm("gc_fun_ok_word_gc_fun",
+  ``gc_fun_ok (word_gc_fun c1)``,
+  fs [gc_fun_ok_def] \\ rw [] \\ cheat); (* move to bvp-to-word proof ? *)
+
 val word_gc_IMP_EVERY2 = prove(
   ``word_gc_fun c (xs,m,dm,st) = SOME (ys,m1,s1) ==>
     EVERY2 (\x y. (isWord x <=> isWord y) /\ (~isWord x ==> x = y)) xs ys``,

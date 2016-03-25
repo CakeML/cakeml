@@ -1913,6 +1913,7 @@ val init_reduce_def = Define `
       s with
       <| use_stack := T;
          use_store := T;
+         use_alloc := F;
          bitmaps := bitmaps;
          mdomain := addresses heap_ptr heap_sp;
          code := code;
@@ -1921,8 +1922,8 @@ val init_reduce_def = Define `
          store := FEMPTY |++ (MAP (\n. case store_init k n of
                                        | INL w => (n,Word w)
                                        | INR i => (n,s.regs ' i))
-                               (CurrHeap::store_list)) |>
-`
+                               (CurrHeap::store_list)) |>`
+
 val init_reduce_stack_space = prove(
   ``(init_reduce k code bitmaps s8).stack_space <=
     LENGTH (init_reduce k code bitmap s8).stack``,
@@ -1941,6 +1942,13 @@ val init_prop_def = Define `
        FLOOKUP s.store AllocSize = SOME (Word 0w) /\
        FLOOKUP s.store Globals = SOME (Word 0w) /\
        FLOOKUP s.store Handler = SOME (Word 0w) /\
+       s.use_stack /\ s.use_store /\
+       FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
+       LENGTH s.bitmaps + 1 < dimword (:'a) /\
+       (case s.bitmaps of [] => F | h::_ => h = 4w) /\
+       LENGTH s.stack < dimword (:'a) /\
+       (other = curr + bytes_in_word * n2w len) /\
+       byte_aligned curr /\
        LAST s.stack = Word 0w /\
        LENGTH s.stack = SUC s.stack_space /\
        len + len <= max_heap /\
@@ -2181,8 +2189,9 @@ val init_code_thm = store_thm("init_code_thm",
 val make_init_opt_def = Define `
   make_init_opt max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
     case evaluate (init_code max_heap bitmaps k,s) of
-    | (NONE,t) => SOME (init_reduce k code bitmaps t)
-    | (SOME _,t) => NONE`
+    | (SOME _,t) => NONE
+    | (NONE,t) => if init_prop max_heap (init_reduce k code bitmaps t)
+                  then SOME (init_reduce k code bitmaps t) else NONE`
 
 val init_pre_def = Define `
   init_pre max_heap bitmaps k start s <=>
@@ -2217,6 +2226,15 @@ val evaluate_init_code_clock = prove(
     evaluate (init_code max_heap bitmaps k,s with clock := c) =
       (res,t with clock := c)``,
   srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ fs []
+  \\ fs [clock_neutral_def,init_code_def] \\ rw []
+  \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
+         list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
+
+val evaluate_init_code_ffi = prove(
+  ``evaluate (init_code max_heap bitmaps k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
+    evaluate (init_code max_heap bitmaps k,s with ffi := c) =
+      (res,(t with ffi := c):('a,'ffi) stackSem$state)``,
+  srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
@@ -2337,8 +2355,10 @@ val make_init_any_def = Define `
                       ; bitmaps := bitmaps
                       ; use_stack := T
                       ; use_store := T
+                      ; use_alloc := F
                       ; stack := [Word 0w]
                       ; stack_space := 0
+                      ; code := code
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>`
 
@@ -2373,7 +2393,48 @@ val make_init_semantics_fail = store_thm("make_init_semantics_fail",
   \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
 val make_init_any_ffi = store_thm("make_init_any_ffi",
-  ``(make_init_any max_heap bitmaps k code s).ffi = s.ffi``,
-  cheat);
+  ``(make_init_any max_heap bitmaps k code s).ffi =
+    (s:('a,'ffi) stackSem$state).ffi``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []
+  \\ imp_res_tac evaluate_init_code_ffi
+  \\ pop_assum (qspec_then `s.ffi` mp_tac)
+  \\ `s with ffi := s.ffi = s` by fs [state_component_equality]
+  \\ fs [] \\ fs [state_component_equality]);
+
+val make_init_any_bitmaps = store_thm("make_init_any_bitmaps",
+  ``(make_init_any max_heap bitmaps k code s).bitmaps = bitmaps``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_use_stack = store_thm("make_init_any_use_stack",
+  ``(make_init_any max_heap bitmaps k code s).use_stack``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_use_store = store_thm("make_init_any_use_store",
+  ``(make_init_any max_heap bitmaps k code s).use_store``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_use_alloc = store_thm("make_init_any_use_alloc",
+  ``~(make_init_any max_heap bitmaps k code s).use_alloc``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_code = store_thm("make_init_any_code",
+  ``(make_init_any max_heap bitmaps k code s).code = code``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_stack_limit = store_thm("make_init_any_stack_limit",
+  ``LENGTH ((make_init_any max_heap (bitmaps:'a word list) k code s).stack) *
+      (dimindex (:'a) DIV 8) < dimword (:'a)``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ reverse (every_case_tac \\ fs [LENGTH_read_mem])
+  \\ TRY (fs [labPropsTheory.good_dimindex_def] \\ rw []
+          \\ fs [dimword_def] \\ NO_TAC)
+  \\ qabbrev_tac `w = (theWord (r.regs ' k) + -1w * theWord (r.regs ' (k + 1)))`
+  \\ Cases_on `w` \\ fs [] \\ cheat (* can be made true *));
 
 val _ = export_theory();

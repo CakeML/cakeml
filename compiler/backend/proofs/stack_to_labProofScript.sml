@@ -1751,36 +1751,6 @@ fun define_abbrev name tm = let
   val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
   in Define `^n ^vars = ^tm` end
 
-val make_init_any_bitmaps = prove(
-  ``(make_init_any max_heap bitmaps k code s).bitmaps = bitmaps``,
-  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
-  \\ every_case_tac \\ fs []);
-
-val make_init_any_use_stack = prove(
-  ``(make_init_any max_heap bitmaps k code s).use_stack``,
-  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
-  \\ every_case_tac \\ fs []);
-
-val make_init_any_use_store = prove(
-  ``(make_init_any max_heap bitmaps k code s).use_store``,
-  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
-  \\ every_case_tac \\ fs []);
-
-val make_init_any_use_alloc = prove(
-  ``~(make_init_any max_heap bitmaps k code s).use_alloc``,
-  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
-  \\ every_case_tac \\ fs [] \\ cheat);
-
-val make_init_any_code = prove(
-  ``(make_init_any max_heap bitmaps k code s).code = code``,
-  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
-  \\ every_case_tac \\ fs [] \\ cheat);
-
-val make_init_any_stack_limit = prove(
-  ``LENGTH ((make_init_any max_heap (bitmaps:'a word list) k code s).stack) *
-      (dimindex (:'a) DIV 8) < dimword (:'a)``,
-  cheat);
-
 val FLOOKUP_regs = prove(
   ``!regs n v f s.
       FLOOKUP (FEMPTY |++ MAP (λr. (r,read_reg r s)) regs) n = SOME v ==>

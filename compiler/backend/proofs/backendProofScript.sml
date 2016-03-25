@@ -142,8 +142,6 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
 
 val code_installed_def = fetch "-" "code_installed_def" |> SPEC_ALL
 
-(*
-
 val full_make_init_gc_fun = prove(
   ``(full_make_init
          (bitmaps,c1,code,f,k,max_heap,regs, xx,
@@ -167,23 +165,62 @@ val full_make_init_ffi = prove(
           make_init mc_conf ffi save_regs io_regs t m ms code2,
           save_regs)).ffi = ffi``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      make_init_any_ffi] \\ EVAL_TAC);
+      stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
 
 val full_init_pre_IMP_init_store_ok = prove(
-  ``full_init_pre (bitmaps:'a word list,c1,code3,f,k,max_heap,regs,s,save_regs) /\
-    good_dimindex (:α) ==>
-    init_state_ok
-      (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
-      (full_make_init
-        (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)) ∧
+  ``max_heap = 2 * max_heap_limit (:'a) c1 ==>
     init_store_ok c1
       ((full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).store \\ Handler)
+          (bitmaps,c1,code3,f,k,max_heap,regs,(s:('a,'ffi)labSem$state),
+             save_regs)).store \\ Handler)
        (full_make_init
           (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).memory
        (full_make_init
           (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).mdomain``,
-  cheat);
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_def]
+  \\ CASE_TAC \\ fs [] THEN1
+   (fs [init_store_ok_def,FUPDATE_LIST,stack_removeTheory.store_list_def,
+        FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
+    \\ rw [] \\ qexists_tac `0` \\ fs [word_list_exists_def]
+    \\ fs [set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,LENGTH_NIL]
+    \\ fs [word_list_def,set_sepTheory.emp_def,set_sepTheory.fun2set_def]
+    \\ EVAL_TAC)
+  \\ fs [stack_removeProofTheory.make_init_opt_def]
+  \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
+  \\ fs [init_store_ok_def,stack_removeProofTheory.init_prop_def]
+  \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
+       stack_removeProofTheory.word_list_exists_ADD]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]);
+
+val full_init_pre_IMP_init_state_ok = prove(
+  ``2 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
+    good_dimindex (:α) ==>
+    init_state_ok
+      (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
+      (full_make_init
+        (bitmaps:'a word list,c1,code3,f,k,max_heap,regs,s,save_regs))``,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_def]
+  \\ CASE_TAC \\ fs [] THEN1
+   (fs [init_state_ok_def,gc_fun_ok_word_gc_fun] \\ strip_tac
+    \\ fs [FUPDATE_LIST,stack_removeTheory.store_list_def,FLOOKUP_UPDATE]
+    \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def] \\ cheat)
+  \\ fs [stack_removeProofTheory.make_init_opt_def] \\ every_case_tac \\ fs []
+  \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
+  \\ fs [init_state_ok_def,gc_fun_ok_word_gc_fun]
+  \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
+  \\ fs [stack_removeProofTheory.init_prop_def]
+  \\ `x.stack <> []` by (rpt strip_tac \\ fs [])
+  \\ `?t1 t2. x.stack = SNOC t1 t2` by metis_tac [SNOC_CASES]
+  \\ fs [] \\ rpt var_eq_tac \\ fs[ADD1]
+  \\ qpat_assum `LENGTH t2 = x.stack_space` (assume_tac o GSYM)
+  \\ fs [DROP_LENGTH_APPEND]
+  \\ conj_tac THEN1 (every_case_tac \\ fs [])
+  \\ cheat (* handler has incorrect init value *));
+
+(*
 
 val imp_code_installed = prove(
   ``ffi.final_event = NONE /\
@@ -193,13 +230,10 @@ val imp_code_installed = prove(
   \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
   \\ fs [full_make_init_ffi,full_make_init_gc_fun,full_make_init_bitmaps]
-  \\ rewrite_tac [CONJ_ASSOC]
-  \\ rewrite_tac [METIS_PROVE []
-       ``((((b0/\b1)/\b2)/\b3)/\b4)/\b5 <=> b3/\b4/\b0/\b1/\(b1 ==> b2/\b5)``]
-  \\ simp_tac std_ss[]
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
-                ([], [full_init_pre_IMP_init_store_ok], []))
-  \\ simp_tac (std_ss++CONJ_ss) []
+                ([], [full_init_pre_IMP_init_store_ok,
+                      full_init_pre_IMP_init_state_ok], []))
+  \\ simp_tac (std_ss++CONJ_ss) [] \\ fs [GSYM CONJ_ASSOC]
   \\ cheat);
 
 *)

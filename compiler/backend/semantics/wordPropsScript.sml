@@ -2154,4 +2154,13 @@ val lookup_fromList2 = store_thm("lookup_fromList2",
   \\ `n = LENGTH l * 2 + 1` by decide_tac
   \\ full_simp_tac(srw_ss())[MOD_TIMES]);
 
+val gc_fun_ok_def = Define `
+  gc_fun_ok (f:'a gc_fun_type) =
+    !wl m d s wl1 m1 s1.
+      Handler IN FDOM s /\
+      (f (wl,m,d,s \\ Handler) = SOME (wl1,m1,s1)) ==>
+      (LENGTH wl = LENGTH wl1) /\
+      ~(Handler IN FDOM s1) /\
+      (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
+
 val _ = export_theory();

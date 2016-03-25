@@ -520,15 +520,6 @@ val stack_rel_def = Define `
       t_handler = SOME(Word (n2w (t_stack_length - handler_val (LASTN (s_handler+1) stack))))) ∧
       stack_rel_aux k t_stack_length s_stack stack`
 
-val gc_fun_ok_def = Define `
-  gc_fun_ok (f:'a gc_fun_type) =
-    !wl m d s wl1 m1 s1.
-      Handler IN FDOM s /\
-      (f (wl,m,d,s \\ Handler) = SOME (wl1,m1,s1)) ==>
-      (LENGTH wl = LENGTH wl1) /\
-      ~(Handler IN FDOM s1) /\
-      (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
-
 (*f is the size of the current frame + 1 most of the time
   (extra word for the bitmap pointer)
   f' is the size of the current frame
