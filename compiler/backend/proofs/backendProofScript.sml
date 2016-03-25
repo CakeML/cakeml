@@ -221,8 +221,7 @@ val full_init_pre_IMP_init_state_ok = prove(
   \\ `?t1 t2. x.stack = SNOC t1 t2` by metis_tac [SNOC_CASES]
   \\ fs [] \\ rpt var_eq_tac \\ fs[ADD1]
   \\ qpat_assum `LENGTH t2 = x.stack_space` (assume_tac o GSYM)
-  \\ fs [DROP_LENGTH_APPEND]
-  \\ cheat (* the pointless init value of the handler doesn't match... *));
+  \\ fs [DROP_LENGTH_APPEND] \\ fs [FLOOKUP_DEF]);
 
 (*
 

@@ -6947,7 +6947,7 @@ val init_state_ok_def = Define `
     [4w] ≼ t.bitmaps /\
     LENGTH t.stack < dimword (:'a) /\
     DROP t.stack_space t.stack = [Word 0w] /\
-    FLOOKUP t.store Handler = SOME (Word (n2w (LENGTH t.stack - 2)))`
+    Handler IN FDOM t.store`
 
 val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
