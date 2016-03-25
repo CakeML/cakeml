@@ -1945,12 +1945,12 @@ val init_prop_def = Define `
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
        LENGTH s.bitmaps + 1 < dimword (:'a) /\
-       (case s.bitmaps of [] => F | h::_ => h = 4w) /\
        LENGTH s.stack < dimword (:'a) /\
        (other = curr + bytes_in_word * n2w len) /\
        byte_aligned curr /\
        LAST s.stack = Word 0w /\
        LENGTH s.stack = SUC s.stack_space /\
+       LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) /\
        len + len <= max_heap /\
        (word_list_exists curr len * word_list_exists other len)
           (fun2set (s.memory,s.mdomain))`
@@ -1966,6 +1966,15 @@ val init_code_pre_def = Define `
       FLOOKUP s.regs 4 = SOME (Word ptr4) /\
       (word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
         (fun2set (s.memory,s.mdomain))`
+
+val byte_aligned_bytes_in_word_MULT = prove(
+  ``good_dimindex (:'a) ==>
+    byte_aligned (bytes_in_word * w:'a word)``,
+  fs [labPropsTheory.good_dimindex_def] \\ rw []
+  \\ fs [alignmentTheory.byte_aligned_def,bytes_in_word_def]
+  \\ qspecl_then [`2`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
+  \\ qspecl_then [`3`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
+  \\ fs [WORD_MUL_LSL]);
 
 val init_code_thm = store_thm("init_code_thm",
   ``init_code_pre k s /\ code_rel k code s.code /\
@@ -2182,9 +2191,14 @@ val init_code_thm = store_thm("init_code_thm",
     \\ unabbrev_all_tac
     \\ fs [labPropsTheory.good_dimindex_def,bytes_in_word_def]
     \\ rfs [dimword_def] \\ fs [])
-  \\ fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
-  \\ match_mp_tac LESS_EQ_LESS_TRANS
-  \\ qexists_tac `d * max_heap` \\ fs []);
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1
+   (fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
+    \\ match_mp_tac LESS_EQ_LESS_TRANS
+    \\ qexists_tac `d * max_heap` \\ fs [])
+  \\ `LENGTH rest1 + 1 < dimword (:'a)` by (Cases_on `d` \\ fs [MULT_CLAUSES])
+  \\ `LENGTH bitmaps + 1 < dimword (:'a)` by (Cases_on `d` \\ fs [MULT_CLAUSES])
+  \\ fs [byte_aligned_bytes_in_word_MULT]);
 
 val make_init_opt_def = Define `
   make_init_opt max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
@@ -2430,11 +2444,13 @@ val make_init_any_code = store_thm("make_init_any_code",
 val make_init_any_stack_limit = store_thm("make_init_any_stack_limit",
   ``LENGTH ((make_init_any max_heap (bitmaps:'a word list) k code s).stack) *
       (dimindex (:'a) DIV 8) < dimword (:'a)``,
-  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  fs [make_init_any_def]
   \\ reverse (every_case_tac \\ fs [LENGTH_read_mem])
-  \\ TRY (fs [labPropsTheory.good_dimindex_def] \\ rw []
-          \\ fs [dimword_def] \\ NO_TAC)
-  \\ qabbrev_tac `w = (theWord (r.regs ' k) + -1w * theWord (r.regs ' (k + 1)))`
-  \\ Cases_on `w` \\ fs [] \\ cheat (* can be made true *));
+  \\ fs [make_init_opt_def]
+  \\ reverse (every_case_tac \\ fs [LENGTH_read_mem])
+  \\ fs [init_prop_def] \\ fs [dimword_def] \\ fs [DIV_LT_X]
+  \\ match_mp_tac LESS_EQ_LESS_TRANS
+  \\ qexists_tac `8 * dimindex (:'a)` \\ fs []
+  \\ fs [X_LT_EXP_X_IFF]);
 
 val _ = export_theory();

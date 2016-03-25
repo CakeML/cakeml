@@ -196,28 +196,31 @@ val full_init_pre_IMP_init_store_ok = prove(
 
 val full_init_pre_IMP_init_state_ok = prove(
   ``2 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
+    (case bitmaps of [] => F | h::_ => 4w = h) /\
     good_dimindex (:α) ==>
     init_state_ok
       (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
       (full_make_init
         (bitmaps:'a word list,c1,code3,f,k,max_heap,regs,s,save_regs))``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      stack_removeProofTheory.make_init_any_def]
+      stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ CASE_TAC \\ fs [] THEN1
    (fs [init_state_ok_def,gc_fun_ok_word_gc_fun] \\ strip_tac
     \\ fs [FUPDATE_LIST,stack_removeTheory.store_list_def,FLOOKUP_UPDATE]
-    \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def] \\ cheat)
-  \\ fs [stack_removeProofTheory.make_init_opt_def] \\ every_case_tac \\ fs []
-  \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
+    \\ TRY (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+    \\ cheat (* bitmaps must be set to [4w] on init failure *))
+  \\ fs [] \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [init_state_ok_def,gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
+  \\ `init_prop max_heap x /\ x.bitmaps = 4w::t` by
+        (fs [stack_removeProofTheory.make_init_opt_def]
+         \\ every_case_tac \\ fs [stack_removeProofTheory.init_reduce_def] \\ rw [])
   \\ fs [stack_removeProofTheory.init_prop_def]
   \\ `x.stack <> []` by (rpt strip_tac \\ fs [])
   \\ `?t1 t2. x.stack = SNOC t1 t2` by metis_tac [SNOC_CASES]
   \\ fs [] \\ rpt var_eq_tac \\ fs[ADD1]
   \\ qpat_assum `LENGTH t2 = x.stack_space` (assume_tac o GSYM)
   \\ fs [DROP_LENGTH_APPEND]
-  \\ conj_tac THEN1 (every_case_tac \\ fs [])
   \\ cheat (* handler has incorrect init value *));
 
 (*
