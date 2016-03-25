@@ -144,37 +144,63 @@ val code_installed_def = fetch "-" "code_installed_def" |> SPEC_ALL
 
 (*
 
+val full_make_init_gc_fun = prove(
+  ``(full_make_init
+         (bitmaps,c1,code,f,k,max_heap,regs, xx,
+          save_regs)).gc_fun = word_gc_fun c1``,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def]);
+
+val full_make_init_bitmaps = prove(
+  ``(full_make_init
+         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
+          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          save_regs)).bitmaps = bitmaps``,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_def,
+      stack_removeProofTheory.make_init_opt_def,
+      stack_removeProofTheory.init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val full_make_init_ffi = prove(
+  ``(full_make_init
+         (bitmaps,c1,code,f,k,max_heap,regs,
+          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          save_regs)).ffi = ffi``,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      make_init_any_ffi] \\ EVAL_TAC);
+
+val full_init_pre_IMP_init_store_ok = prove(
+  ``full_init_pre (bitmaps:'a word list,c1,code3,f,k,max_heap,regs,s,save_regs) /\
+    good_dimindex (:α) ==>
+    init_state_ok
+      (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
+      (full_make_init
+        (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)) ∧
+    init_store_ok c1
+      ((full_make_init
+          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).store \\ Handler)
+       (full_make_init
+          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).memory
+       (full_make_init
+          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).mdomain``,
+  cheat);
+
 val imp_code_installed = prove(
   ``ffi.final_event = NONE /\
     backend_correct mc_conf.target ==>
     code_installed (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms)``,
-
   strip_tac \\ fs [code_installed_def,lab_to_targetProofTheory.good_syntax_def]
   \\ fs [EXISTS_PROD]
-
-  bvp_to_wordProofTheory.state_rel_ext_def
-
-  bvp_to_wordProofTheory.state_rel_def
-
-  full_make_init_def
-
-  full_make_init_def
-  stack_allocProofTheory.make_init_def
-  stack_removeProofTheory.make_init_opt_def
-  stack_removeProofTheory.init_reduce_def
-
-  full_init_pre_fail_def
-
-make_init_opt_def
-
-  \\ GEN_EXISTS_TAC "y" `5`
-
-
-
-  state_rel_ext_def
-
-good_init_state_def
-
+  \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
+  \\ fs [full_make_init_ffi,full_make_init_gc_fun,full_make_init_bitmaps]
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ rewrite_tac [METIS_PROVE []
+       ``((((b0/\b1)/\b2)/\b3)/\b4)/\b5 <=> b3/\b4/\b0/\b1/\(b1 ==> b2/\b5)``]
+  \\ simp_tac std_ss[]
+  \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
+                ([], [full_init_pre_IMP_init_store_ok], []))
+  \\ simp_tac (std_ss++CONJ_ss) []
+  \\ cheat);
 
 *)
 

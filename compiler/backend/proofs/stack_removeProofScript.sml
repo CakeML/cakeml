@@ -2372,4 +2372,8 @@ val make_init_semantics_fail = store_thm("make_init_semantics_fail",
   \\ imp_res_tac IMP_code_rel \\ rfs []
   \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
+val make_init_any_ffi = store_thm("make_init_any_ffi",
+  ``(make_init_any max_heap bitmaps k code s).ffi = s.ffi``,
+  cheat);
+
 val _ = export_theory();
