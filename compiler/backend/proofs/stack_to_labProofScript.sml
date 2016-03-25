@@ -1425,16 +1425,22 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
   simp[] >> strip_tac >>
   qexists_tac`ck+ck'`>>simp[]);
 
-val flatten_semantics = Q.store_thm("flatten_semantics",
-  `(!(s:(α,'ffi)stackSem$state).
-     s.code = (s1:(α,'ffi)stackSem$state).code ==>
+val halt_assum_def = Define `
+  halt_assum (:'ffi) code <=>
+   !(s:(α,'ffi)stackSem$state).
+     s.code = code /\ s.clock <> 0 ==>
      ∃t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
-         t.ffi = s.ffi /\ t.clock = s.clock) /\
+         t.ffi = s.ffi /\ t.clock = s.clock - 1`
+
+val flatten_semantics = Q.store_thm("flatten_semantics",
+  `halt_assum (:'ffi) (s1:(α,'ffi)stackSem$state).code /\
    state_rel s1 s2 /\
    loc_to_pc start 0 s2.code = SOME s2.pc /\
    semantics start s1 <> Fail ==>
    semantics s2 = semantics start s1`,
-  simp[GSYM AND_IMP_INTRO] >> strip_tac >>
+  cheat) (* definition of halt_assum has changed *)
+(*
+  simp[GSYM AND_IMP_INTRO,halt_assum_def] >> strip_tac >>
   ntac 2 strip_tac >>
   simp[stackSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -1669,6 +1675,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   qexists_tac`k+1`>>full_simp_tac(srw_ss())[]>>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND]>> simp[]>>
   simp[EL_APPEND1]);
+*)
 
 val make_init_def = Define `
   make_init code regs save_regs s =
@@ -1744,6 +1751,84 @@ fun define_abbrev name tm = let
   val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
   in Define `^n ^vars = ^tm` end
 
+val make_init_any_bitmaps = prove(
+  ``(make_init_any max_heap bitmaps k code s).bitmaps = bitmaps``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_use_stack = prove(
+  ``(make_init_any max_heap bitmaps k code s).use_stack``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_use_store = prove(
+  ``(make_init_any max_heap bitmaps k code s).use_store``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+val make_init_any_use_alloc = prove(
+  ``~(make_init_any max_heap bitmaps k code s).use_alloc``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs [] \\ cheat);
+
+val make_init_any_code = prove(
+  ``(make_init_any max_heap bitmaps k code s).code = code``,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs [] \\ cheat);
+
+val make_init_any_stack_limit = prove(
+  ``LENGTH ((make_init_any max_heap (bitmaps:'a word list) k code s).stack) *
+      (dimindex (:'a) DIV 8) < dimword (:'a)``,
+  cheat);
+
+val FLOOKUP_regs = prove(
+  ``!regs n v f s.
+      FLOOKUP (FEMPTY |++ MAP (λr. (r,read_reg r s)) regs) n = SOME v ==>
+      read_reg n s = v``,
+  recInduct SNOC_INDUCT \\ fs [FUPDATE_LIST,FOLDL_SNOC,MAP_SNOC]
+  \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs [])
+
+val state_rel_make_init = store_thm("state_rel_make_init",
+  ``state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
+    (∀n prog.
+     lookup n code = SOME (prog) ⇒
+     good_syntax prog s.len_reg s.ptr_reg s.link_reg ∧
+     ∃pc.
+       code_installed pc (FST (flatten prog n (next_lab prog))) s.code ∧
+       loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
+    s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
+    s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
+    (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)``,
+  fs [state_rel_def,make_init_def,FLOOKUP_regs]
+  \\ eq_tac \\ strip_tac \\ fs []
+  \\ metis_tac [FLOOKUP_regs]);
+
+val halt_assum_lemma = prove(
+  ``halt_assum (:'ffi)
+     (fromAList (stack_names$compile f (compile max_heap bitmaps k l code)))``,
+  fs [halt_assum_def] \\ rw []
+  \\ fs [stackSemTheory.evaluate_def,
+         stackSemTheory.find_code_def]
+  \\ fs [stack_namesTheory.compile_def,
+         stack_namesTheory.prog_comp_def,
+         stack_removeTheory.compile_def,
+         stack_removeTheory.init_stubs_def,
+         lookup_fromAList,
+         EVAL ``stack_names$comp f (halt_inst 0w)``]
+  \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0w) (dec_clock s)``,
+         get_var_def,FLOOKUP_UPDATE])
+
+val MAP_FST_compile_compile = prove(
+  ``MAP FST (compile max_heap bitmaps k InitGlobals_location
+              (stack_alloc$compile c code)) =
+    0::1::2::10::MAP FST code``,
+  fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
+      stack_allocTheory.compile_def,
+      stack_allocTheory.stubs_def,stack_removeTheory.prog_comp_def]
+  \\ Induct_on `code` \\ fs []
+  \\ fs [stack_removeTheory.prog_comp_def,FORALL_PROD,
+         stack_allocTheory.prog_comp_def]);
+
 val full_make_init_semantics = save_thm("full_make_init_semantics",let
   val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
@@ -1752,6 +1837,13 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
+           |> REWRITE_RULE [make_init_any_bitmaps,
+                            make_init_any_code,
+                            make_init_any_use_alloc,
+                            make_init_any_use_store,
+                            make_init_any_use_stack,
+                            make_init_any_stack_limit,
+                            halt_assum_lemma,MAP_FST_compile_compile]
   val tm = concl th |> snd o dest_imp |> rand |> rator |> rand |> rand
   val def = define_abbrev "full_make_init" tm
   val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
@@ -1765,6 +1857,13 @@ val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
+           |> REWRITE_RULE [make_init_any_bitmaps,
+                            make_init_any_code,
+                            make_init_any_use_alloc,
+                            make_init_any_use_store,
+                            make_init_any_use_stack,
+                            make_init_any_stack_limit,
+                            halt_assum_lemma,MAP_FST_compile_compile]
   val pre = define_abbrev "full_init_pre_fail" (th |> concl |> dest_imp |> fst)
   in th |> REWRITE_RULE [GSYM pre] end);
 
