@@ -2512,6 +2512,7 @@ val has_label_def = Define `
      has_label l1 l2 rest \/
      l2 ≠ 0 ∧ ?x. MEM (Label l1 l2 x) xs)`
 
+(*
 val sec_names_compute_labels_simp = prove(``
   ∀n ls x.
   MEM x (sec_names ls) ⇔
@@ -2519,7 +2520,7 @@ val sec_names_compute_labels_simp = prove(``
   ho_match_mp_tac (theorem "compute_labels_simp_ind")>>
   rw[compute_labels_simp_def,sec_names_def]>>
   pairarg_tac>>fs[])
-
+*)
 (*
 
 val compute_labels_simp_has_label = prove(``
@@ -2561,7 +2562,10 @@ val lab_lookup_sec_labels = prove(
   THEN1 (fs [lab_lookup_def,lookup_def])
   \\ rw [] \\ Cases_on `h`
   \\ simp_tac std_ss [section_labels_def,lab_lookup_insert]
-  \\ TRY IF_CASES_TAC \\ asm_rewrite_tac [] \\ fs []);
+  \\ TRY IF_CASES_TAC \\ asm_rewrite_tac [] \\ fs []
+  \\ simp_tac std_ss [section_labels_def,lab_lookup_insert]
+  \\ TRY IF_CASES_TAC \\ asm_rewrite_tac [] \\ fs []
+  \\ simp_tac std_ss [section_labels_def,lab_lookup_insert]);
 
 val compute_labels_has_label = prove(
   ``!sec_list pos l1 l2.
@@ -2584,7 +2588,8 @@ val compute_labels_has_label = prove(
   \\ qspec_tac (`pos`,`pos`)
   \\ Induct_on `l` \\ fs []
   \\ Cases \\ fs [section_labels_def,lab_lookup_insert]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs[lab_lookup_insert]
+  \\ rw[]);
 
 val loc_to_pc_has_label = prove(
   ``!l1 l2 sec_list.
@@ -2678,7 +2683,7 @@ val lab_lookup_compute_labels_test = prove(
       loc_to_pc l1 l2 sec_list = SOME x2 ==>
       lab_lookup l1 l2 (compute_labels_alt pos sec_list) =
       SOME (pos_val x2 pos sec_list)``,
-  ho_match_mp_tac compute_labels_alt_ind>>fs[sec_names_def]>>
+  ho_match_mp_tac compute_labels_alt_ind>>fs[]>>
   CONJ_TAC
   >-
     (rw[]>>
@@ -2759,7 +2764,6 @@ val lab_lookup_compute_labels_test = prove(
         rw[]>>
         simp[])
     >>
-      (*Not in the current section*)
       Cases_on`h`>>fs[section_labels_def]
       >-
         (fs[line_length_def,line_ok_def,sec_length_def]>>
@@ -2768,8 +2772,18 @@ val lab_lookup_compute_labels_test = prove(
         >-
           (Cases_on`l2=n0`>>fs[]
           >-
-            (`n0 ≠ 0` by cheat>>
-            rw[]>> metis_tac[pos_val_0])
+            (IF_CASES_TAC>>rw[]
+            >-
+              metis_tac[pos_val_0]
+            >>
+            first_x_assum(qspecl_then[`pos`,`k`,`sec_list`] mp_tac)>>
+            fs[sec_length_def,line_ok_def,sec_length_add]>>
+            impl_tac>-
+              metis_tac[]>>
+            rw[]>>
+            res_tac>>rfs[lookup_insert]>>
+            pop_assum mp_tac>>
+            TOP_CASE_TAC>>fs[])
           >>
           first_x_assum(qspecl_then[`pos`,`k`,`sec_list`] mp_tac)>>
           fs[sec_length_def,line_ok_def,sec_length_add]>>
@@ -2813,6 +2827,24 @@ val lab_lookup_compute_labels_test = prove(
         rw[]>>
         simp[]);
 
+(*pos needs to be even, but we only know that at the
+"start" of every section. The induction isn't nice*)
+val all_enc_ok_lab_lookup_even = prove(
+  ``∀pos sec_list l1 l2 x c enc labs.
+      all_enc_ok c enc labs pos sec_list ∧
+      lab_lookup l1 l2 (compute_labels_alt pos sec_list) = SOME x ∧
+      EVEN pos ⇒
+      EVEN x``,
+  ho_match_mp_tac compute_labels_alt_ind>>fs[]>>
+  CONJ_TAC
+  >-
+    (rw[]>>
+    fs[compute_labels_alt_def,loc_to_pc_def,lab_lookup_def,lookup_def])
+  >>
+    rw[]>>
+    (*maybe prove a split for compute_labels_alt so that it distinguishes between the current section *)
+    cheat);
+
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code code2 labs.
     remove_labels_loop n c e code = SOME (code2,labs) ∧
@@ -2852,9 +2884,10 @@ val remove_labels_loop_thm = Q.prove(
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
   \\ rw []
-  THEN1 (fs [EVERY_MEM,MEM_all_labels,FORALL_PROD]
-         \\ res_tac \\ fs [check_lab_def])
   \\ qpat_assum `_ = compute_labels_alt 0 sec_list` sym_sub_tac
+  THEN1 (
+    match_mp_tac all_enc_ok_lab_lookup_even>>
+    qexists_tac`0n`>>fs[]>>metis_tac[])
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
   \\ fs[GSYM PULL_EXISTS]
   \\ CONJ_TAC>- metis_tac[]

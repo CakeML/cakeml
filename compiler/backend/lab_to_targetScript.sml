@@ -78,7 +78,11 @@ val lab_insert_def = Define `
 val section_labels_def = Define `
   (section_labels pos [] labs = labs) /\
   (section_labels pos (Label l1 l2 len :: xs) labs =
-     lab_insert l1 l2 (pos+len) (section_labels (pos+len) xs labs)) /\
+     (*Ignore 0 labels*)
+     if l2 = 0 then
+       section_labels (pos+len) xs labs
+     else
+       lab_insert l1 l2 (pos+len) (section_labels (pos+len) xs labs)) /\
   (section_labels pos (Asm _ _ len :: xs) labs =
      section_labels (pos+len) xs labs) /\
   (section_labels pos (LabAsm _ _ _ len :: xs) labs =
@@ -301,10 +305,7 @@ val pos_val_def = Define `
 
 val check_lab_def = Define `
   check_lab sec_list (l1,l2,pos) <=>
-    EVEN pos /\
-    case loc_to_pc_comp l1 l2 sec_list of
-    | NONE => T
-    | SOME x2 => pos_val x2 0 sec_list = pos`
+    EVEN pos`
 
 val all_labels_def = Define `
   all_labels labs =
@@ -335,9 +336,7 @@ val remove_labels_loop_def = Define `
         (* compute the labels again, redundant TODO: remove *)
         let labs2 = compute_labels_alt 0 sec_list in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs /\
-             EVERY (check_lab sec_list) (all_labels labs) /\
-             ALL_DISTINCT (sec_names sec_list)
+          if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs
           then SOME (sec_list,labs)
           else NONE
       else
