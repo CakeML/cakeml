@@ -2061,8 +2061,8 @@ val comp_correct_thm =
   |> REWRITE_RULE [SUBMAP_REFL]
 
 val with_same_regs_lemma = Q.prove(
-  `s with <| regs := s.regs; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
-   s with <| use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>`,
+  `s with <| regs := s.regs; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
+   s with <| gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>`,
   simp[state_component_equality])
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
@@ -2079,9 +2079,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
                       use_stack := T;
                       use_alloc := F |>) =
    semantics start s`,
-  cheat); (* The old proof below should still mostly work.
-             The only change is "gc_fun := anything" above and in comp_correct_thm. *)
-(*
   simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -2231,7 +2228,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       LESS_EQ_EXISTS,
       evaluate_add_clock_io_events_mono
         |> CONV_RULE(SWAP_FORALL_CONV)
-        |> Q.SPEC`s with <| use_stack := T; use_store := T; use_alloc := F; clock := k; code := c|>`
+        |> Q.SPEC`s with <| gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c|>`
         |> SIMP_RULE(srw_ss())[],
       evaluate_add_clock_io_events_mono
         |> CONV_RULE(SWAP_FORALL_CONV)
@@ -2264,7 +2261,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
   ntac 3 strip_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >>
   simp[EL_APPEND1]);
-*)
 
 val make_init_def = Define `
   make_init c code s =
