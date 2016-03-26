@@ -2673,19 +2673,145 @@ val loc_to_pc_comp_thm = prove(
   \\ TOP_CASE_TAC \\ fs [CONJ_ASSOC])
 
 val lab_lookup_compute_labels_test = prove(
-  ``∀l1 l2 sec_list x2 conf enc labs nop pos.
-      EVERY (check_lab sec_list)
-        (all_labels (compute_labels_alt 0 sec_list)) /\
-      ALL_DISTINCT (sec_names sec_list) /\
+  ``∀pos sec_list l1 l2 x2 c enc labs nop.
+      all_enc_ok c enc labs pos sec_list /\
       loc_to_pc l1 l2 sec_list = SOME x2 ==>
-      lab_lookup l1 l2 (compute_labels_alt 0 sec_list) =
-      SOME (pos_val x2 0 sec_list)``,
-  fs [EVERY_MEM, FORALL_PROD, MEM_all_labels]
-  \\ rw [] \\ fs [IS_SOME_EXISTS,PULL_EXISTS] \\ res_tac
-  \\ Cases_on `lab_lookup l1 l2 (compute_labels_alt 0 sec_list)` \\ fs []
-  THEN1 (metis_tac [IS_SOME_DEF,IS_SOME_lab_lookup_compute_labels])
-  \\ res_tac \\ fs [check_lab_def]
-  \\ qpat_assum `!x._` kall_tac \\ rfs [loc_to_pc_comp_thm]);
+      lab_lookup l1 l2 (compute_labels_alt pos sec_list) =
+      SOME (pos_val x2 pos sec_list)``,
+  ho_match_mp_tac compute_labels_alt_ind>>fs[sec_names_def]>>
+  CONJ_TAC
+  >-
+    (rw[]>>
+    fs[compute_labels_alt_def,loc_to_pc_def])
+  >>
+  Induct_on`lines`>>fs[]>>rw[]
+  >-
+    (fs[loc_to_pc_def,compute_labels_alt_def,sec_length_def,section_labels_def,pos_val_def,all_enc_ok_def]>>
+    Cases_on`k=l1`>>fs[lab_lookup_def,lab_insert_def,lookup_insert]
+    >-
+      (IF_CASES_TAC>>fs[]>>rveq
+      >-
+        metis_tac[GSYM pos_val_0]
+      >>
+        res_tac>>
+        FULL_CASE_TAC>>fs[])
+    >> metis_tac[])
+  >>
+    pop_assum mp_tac>>simp[Once loc_to_pc_def]>>
+    fs[compute_labels_alt_def,sec_length_def,section_labels_def,pos_val_def,all_enc_ok_def]>>
+    Cases_on`k=l1`>>fs[lab_lookup_def,lab_insert_def,lookup_insert]
+    >-
+      (*In the current section*)
+      (IF_CASES_TAC>>fs[]>>rveq
+      >-
+        (strip_tac>>rveq>>IF_CASES_TAC>>fs[]>>
+        Cases_on`h`>>fs[line_ok_def,line_length_def]>>
+        rfs[]>>
+        metis_tac[GSYM pos_val_0])
+      >>
+      Cases_on`h`>>fs[section_labels_def]
+      >-
+        (fs[line_length_def,line_ok_def]>>
+        Cases_on`n=k`>>fs[lab_insert_def,lookup_insert]
+        >-
+          (IF_CASES_TAC>>fs[lookup_insert,line_length_def]
+          >-
+            (rw[]>>
+            metis_tac[pos_val_0])
+          >>
+            first_x_assum(qspecl_then[`pos`,`k`,`sec_list`] mp_tac)>>
+            fs[sec_length_def,line_ok_def,sec_length_add]>>
+            impl_tac>-
+              metis_tac[]>>
+            rw[]>>
+            res_tac>>rfs[lookup_insert])
+        >>
+          first_x_assum(qspecl_then[`pos`,`k`,`sec_list`] mp_tac)>>
+          fs[sec_length_def,line_ok_def,sec_length_add]>>
+          impl_tac>-
+            metis_tac[]>>
+          rw[]>>
+          res_tac>>rfs[lookup_insert])
+      >-
+        (TOP_CASE_TAC>>fs[line_length_def]>>
+        first_x_assum(qspecl_then[`pos+LENGTH l`,`k`,`sec_list`] mp_tac)>>
+        fs[sec_length_def,line_ok_def,sec_length_add]>>
+        impl_tac>-
+          metis_tac[]>>
+        strip_tac>>
+        rveq>>fs[]>>
+        res_tac>>
+        rfs[lookup_insert]>>
+        rw[]>>
+        simp[])
+      >>
+        `n = LENGTH l` by
+          (Cases_on`a`>>fs[line_ok_def])>>
+        TOP_CASE_TAC>>fs[line_length_def]>>
+        first_x_assum(qspecl_then[`pos+LENGTH l`,`k`,`sec_list`] mp_tac)>>
+        fs[sec_length_def,line_ok_def,sec_length_add]>>
+        impl_tac>-
+          metis_tac[]>>
+        strip_tac>>
+        rveq>>fs[]>>
+        res_tac>>
+        rfs[lookup_insert]>>
+        rw[]>>
+        simp[])
+    >>
+      (*Not in the current section*)
+      Cases_on`h`>>fs[section_labels_def]
+      >-
+        (fs[line_length_def,line_ok_def,sec_length_def]>>
+        fs[lab_insert_def]>>
+        Cases_on`n=l1`>>fs[lookup_insert]
+        >-
+          (Cases_on`l2=n0`>>fs[]
+          >-
+            (`n0 ≠ 0` by cheat>>
+            rw[]>> metis_tac[pos_val_0])
+          >>
+          first_x_assum(qspecl_then[`pos`,`k`,`sec_list`] mp_tac)>>
+          fs[sec_length_def,line_ok_def,sec_length_add]>>
+          impl_tac>-
+            metis_tac[]>>
+          rw[]>>
+          res_tac>>rfs[lookup_insert]>>
+          pop_assum mp_tac>>
+          TOP_CASE_TAC>>fs[])
+        >>
+          first_x_assum(qspecl_then[`pos`,`k`,`sec_list`] mp_tac)>>
+          fs[sec_length_def,line_ok_def,sec_length_add]>>
+          impl_tac>-
+            metis_tac[]>>
+          rw[]>>
+          res_tac>>rfs[lookup_insert])
+      >-
+        (TOP_CASE_TAC>>fs[line_length_def]>>
+        first_x_assum(qspecl_then[`pos+LENGTH l`,`k`,`sec_list`] mp_tac)>>
+        fs[sec_length_def,line_ok_def,sec_length_add]>>
+        impl_tac>-
+          metis_tac[]>>
+        strip_tac>>
+        rveq>>fs[]>>
+        res_tac>>
+        rfs[lookup_insert]>>
+        rw[]>>
+        simp[])
+      >>
+        `n = LENGTH l` by
+          (Cases_on`a`>>fs[line_ok_def])>>
+        TOP_CASE_TAC>>fs[line_length_def]>>
+        first_x_assum(qspecl_then[`pos+LENGTH l`,`k`,`sec_list`] mp_tac)>>
+        fs[sec_length_def,line_ok_def,sec_length_add]>>
+        impl_tac>-
+          metis_tac[]>>
+        strip_tac>>
+        rveq>>fs[]>>
+        res_tac>>
+        rfs[lookup_insert]>>
+        rw[]>>
+        simp[]);
 
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code code2 labs.
@@ -2728,10 +2854,10 @@ val remove_labels_loop_thm = Q.prove(
   \\ rw []
   THEN1 (fs [EVERY_MEM,MEM_all_labels,FORALL_PROD]
          \\ res_tac \\ fs [check_lab_def])
-  \\ fs []
-  \\ qpat_assum `_ = compute_labels_alt 0 sec_list` (fn th => fs [GSYM th])
+  \\ qpat_assum `_ = compute_labels_alt 0 sec_list` sym_sub_tac
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
-  \\ fs [code_similar_upd_lab_len]
+  \\ fs[GSYM PULL_EXISTS]
+  \\ CONJ_TAC>- metis_tac[]
   \\ qpat_assum `_ = SOME x2` (fn th => fs [GSYM th])
   \\ match_mp_tac code_similar_loc_to_pc
   \\ match_mp_tac code_similar_sym
