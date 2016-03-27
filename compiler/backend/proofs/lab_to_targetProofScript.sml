@@ -2827,23 +2827,74 @@ val lab_lookup_compute_labels_test = prove(
         rw[]>>
         simp[]);
 
-(*pos needs to be even, but we only know that at the
-"start" of every section. The induction isn't nice*)
+(*For a single section*)
+val all_enc_ok_lab_lookup_even_lem = prove(``
+  ∀lines c enc labs pos l1 l2 x lab k.
+  all_enc_ok c enc labs pos [Section k lines] ∧
+  (∀l1 l2 x. lab_lookup l1 l2 lab = SOME x ⇒ EVEN x) ∧
+  lab_lookup l1 l2 (section_labels pos lines lab) = SOME x ⇒
+  EVEN x``,
+  Induct>>rw[section_labels_def]
+  >-
+    metis_tac[]
+  >>
+  Cases_on`h`>>TRY(Cases_on`a`)>>fs[section_labels_def,all_enc_ok_def,line_length_def,line_ok_def]
+  >-
+    (Cases_on`n0=0`>>fs[]>>rfs[]>- metis_tac[]>>fs[lab_lookup_insert]>>
+    EVERY_CASE_TAC>>fs[]>>
+    metis_tac[])
+  >>
+    (rveq>>fs[]>>
+    metis_tac[]))
+
+val all_enc_ok_split = prove(``
+  ∀c enc labs pos k lines xs.
+  all_enc_ok c enc labs pos (Section k lines::xs) ⇒
+  all_enc_ok c enc labs pos [Section k lines] ∧
+  all_enc_ok c enc labs (pos + sec_length lines 0) xs``,
+  Induct_on`lines`>>rw[all_enc_ok_def,sec_length_def,all_enc_ok_def]>>
+  Cases_on`h`>>TRY(Cases_on`a`)>>fs[sec_length_def,sec_length_add,line_length_def,line_ok_def]>>rveq>>rfs[]>>
+  metis_tac[ADD_ASSOC])
+
+val all_enc_ok_even = prove(``
+  ∀lines pos.
+  all_enc_ok c enc labs pos [Section k lines] ⇒
+  EVEN (sec_length lines pos)``,
+  Induct>>fs[all_enc_ok_def,sec_length_def]>>Cases>>
+  TRY(Cases_on`a`)>>
+  rw[]>>fs[line_ok_def,line_length_def,sec_length_add,sec_length_def]>>
+  rfs[]>>
+  `n + sec_length lines pos = sec_length lines (n + pos)` by
+    metis_tac[sec_length_add,ADD_COMM]>>
+  fs[])
+
 val all_enc_ok_lab_lookup_even = prove(
-  ``∀pos sec_list l1 l2 x c enc labs.
+  ``∀c enc labs pos sec_list l1 l2 x.
       all_enc_ok c enc labs pos sec_list ∧
       lab_lookup l1 l2 (compute_labels_alt pos sec_list) = SOME x ∧
       EVEN pos ⇒
       EVEN x``,
-  ho_match_mp_tac compute_labels_alt_ind>>fs[]>>
-  CONJ_TAC
+  Induct_on`sec_list`>>
+  fs[all_enc_ok_def,compute_labels_alt_def,lab_lookup_insert]>>
+  rw[]
   >-
-    (rw[]>>
-    fs[compute_labels_alt_def,loc_to_pc_def,lab_lookup_def,lookup_def])
+    fs[lab_lookup_def,lookup_def]
   >>
-    rw[]>>
-    (*maybe prove a split for compute_labels_alt so that it distinguishes between the current section *)
-    cheat);
+  Cases_on`h`>>fs[compute_labels_alt_def,lab_lookup_insert]>>
+  EVERY_CASE_TAC>>rveq>>fs[]>>
+  imp_res_tac all_enc_ok_split>>
+  match_mp_tac all_enc_ok_lab_lookup_even_lem>>
+  first_assum (match_exists_tac o concl)>>
+  fs[CONJ_COMM]>>
+  first_assum (match_exists_tac o concl)>>fs[]>>rw[]>>
+  first_assum match_mp_tac>>
+  first_assum (match_exists_tac o concl)>>
+  fs[GSYM PULL_EXISTS]>>
+  (reverse CONJ_TAC>-
+    (first_assum (match_exists_tac o concl)>>fs[CONJ_COMM]))>>
+  Q.SPECL_THEN [`l`,`0`,`pos`] assume_tac (GSYM sec_length_add)>>
+  fs[]>>
+  metis_tac[all_enc_ok_even]);
 
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code code2 labs.
@@ -2887,7 +2938,8 @@ val remove_labels_loop_thm = Q.prove(
   \\ qpat_assum `_ = compute_labels_alt 0 sec_list` sym_sub_tac
   THEN1 (
     match_mp_tac all_enc_ok_lab_lookup_even>>
-    qexists_tac`0n`>>fs[]>>metis_tac[])
+    first_assum (match_exists_tac o concl)>>fs[]>>
+    metis_tac[])
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
   \\ fs[GSYM PULL_EXISTS]
   \\ CONJ_TAC>- metis_tac[]
