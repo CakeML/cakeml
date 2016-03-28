@@ -337,9 +337,9 @@ val BIJ_FLOOKUP_MAPKEYS = prove(
 local
 val lemma = prove(
   ``(from_bvp c prog = SOME (bytes,ffi_limit) /\
-    EVERY (\n. 30 <= n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
-    good_init_state mc_conf (t:'a asm_state)
-      m ms ffi ffi_limit bytes io_regs save_regs) /\
+     EVERY (\n. 30 <= n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+     good_init_state mc_conf (t:'a asm_state)
+       m ms ffi ffi_limit bytes io_regs save_regs) /\
     (bvp_to_wordProof$conf_ok (:α) c.bvp_conf /\
     c.lab_conf.encoder = mc_conf.target.encode /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
@@ -484,8 +484,8 @@ val clean_bvp_to_target_thm = let
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
     |> Q.GENL [`t`,`m`,`io_regs`]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
-  val tm = th |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-              |> butlast |> last
+    |> ONCE_REWRITE_RULE [METIS_PROVE[]``b1/\b2/\b3/\b4/\b5<=>b4/\b1/\b2/\b3/\b5``]
+  val tm = th |> concl |> dest_imp |> fst |> dest_conj |> fst
   val installed_def = define_abbrev "installed" tm
   val th = th |> REWRITE_RULE [GSYM installed_def]
   in th end
@@ -521,21 +521,22 @@ val from_bvp_ignore = prove(
   fs [from_bvp_def,from_word_def,from_stack_def,from_lab_def]
   \\ rpt (pairarg_tac \\ fs []));
 
-val code_installed_ignore = prove(
-  ``code_installed_def
-      (bytes, c with <|source_conf := x; mod_conf := y; clos_conf := z |>,
-       ffi,ffi_limit,mc,ms) = code_installed (bytes,c,ffi,ffi_limit,mc,ms)``,
-  fs [code_installed_def,from_bvp_ignore]);
+val clos_to_bvp_names = store_thm("clos_to_bvp_names",
+  ``clos_to_bvl$compile c e4 = (c2,p2) /\
+    bvl_to_bvi$compile n1 n p2 = (k,p3,n2) ==>
+    EVERY (λn. 30 <= n) (MAP FST (bvi_to_bvp$compile_prog p3)) /\
+    ALL_DISTINCT (MAP FST (bvi_to_bvp$compile_prog p3))``,
+  cheat);
 
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
    c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
    c.clos_conf = (prim_config:'a backend$config).clos_conf ∧
-   good_dimindex (:α) ∧
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,ffi_limit) ∧
-   code_installed (bytes,c,ffi,ffi_limit,mc,ms) ⇒
+   conf_ok c mc ∧
+   installed (bytes,ffi,ffi_limit,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
@@ -784,21 +785,14 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ pairarg_tac \\ fs [])
-  \\ `code_installed (bytes,c'''',ffi,ffi_limit,mc,ms)` by
-        (fs [Abbr`c''''`,code_installed_ignore] \\ NO_TAC)
-  \\ drule (GEN_ALL machine_sem_implements_bvp_sem)
+  \\ qcase_tac `from_bvp c4 p4 = _`
+  \\ drule (GEN_ALL clean_bvp_to_target_thm)
   \\ disch_then drule
-  \\ simp[implements_def]
-  \\ `to_bvp c prog = (c'''',p'''')`
-  by (
-    simp[to_bvp_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_exh_def,to_dec_def,to_con_def,to_mod_def]
-    \\ fs[mod_to_conTheory.compile_def]
-    \\ fs[clos_to_bvlTheory.compile_def]
-    \\ unabbrev_all_tac \\ fs[exh_to_patTheory.compile_def] )
-  \\ simp[Abbr`c''''`]
-  \\ disch_then match_mp_tac
-  \\ spose_not_then (strip_assume_tac o SYM)
-  \\ fs[]
-  (* TODO: bvp_to_wordProofTheory.inter_insert why is this theorem in that theory? it should be moved *));
+  \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ NO_TAC)
+  \\ simp[implements_def,AND_IMP_INTRO]
+  \\ disch_then match_mp_tac \\ fs []
+  \\ qunabbrev_tac `p4` \\ fs []
+  \\ drule (GEN_ALL clos_to_bvp_names)
+  \\ disch_then drule \\ fs []);
 
 val _ = export_theory();

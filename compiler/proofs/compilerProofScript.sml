@@ -86,22 +86,17 @@ val semantics_init_def = Define`
                  tdecs := prim_tdecs;
                  tenv := prim_tenv |>`;
 
-(* the real code_installed should do this? *)
-val code_installed_cc_def = Define`
-  code_installed_cc (a,b,c,d,e,f) = code_installed (a,b.backend_config,c,d,e,f)`;
-(* -- *)
-
 val config_ok_def = Define`
-  config_ok (cc:α compiler$config) ⇔
+  config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config.inf_env ∧
     prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
     cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
     cc.backend_config.clos_conf = (prim_config:α backend$config).clos_conf ∧
-    good_dimindex (:α)`;
+    backendProof$conf_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
-  initial_condition (st:'ffi top_state) (cc:α compiler$config) ⇔
+  initial_condition (st:'ffi top_state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     type_sound_invariants (NONE:(unit,v) semanticPrimitives$result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
@@ -109,7 +104,7 @@ val initial_condition_def = Define`
     cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
     cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
     cc.backend_config.clos_conf = (prim_config:α backend$config).clos_conf ∧
-    good_dimindex (:α)`;
+    backendProof$conf_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
   `parse_prog = parse`,
@@ -198,8 +193,8 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ strip_tac \\ fs[]);
 
 val compile_correct_gen = Q.store_thm("compile_correct_gen",
-  `∀(st:'ffi top_state) (cc:α compiler$config) prelude input.
-    initial_condition st cc ⇒
+  `∀(st:'ffi top_state) (cc:α compiler$config) prelude input mc.
+    initial_condition st cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure TypeError => semantics st prelude input = IllTyped
@@ -207,8 +202,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
     | Success (bytes,ffi_limit) =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
-        ∀mc ms.
-          code_installed (bytes,cc.backend_config,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
+        ∀ms.
+          installed (bytes,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
@@ -266,8 +261,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ fs[]);
 
 val compile_correct = Q.store_thm("compile_correct",
-  `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config).
-    config_ok cc ⇒
+  `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc.
+    config_ok cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure TypeError => semantics_init ffi prelude input = IllTyped
@@ -275,8 +270,8 @@ val compile_correct = Q.store_thm("compile_correct",
     | Success (bytes,ffi_limit) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
-        ∀mc ms.
-          code_installed_cc (bytes,cc,ffi,ffi_limit,mc,ms) ⇒
+        ∀ms.
+          installed (bytes,ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
@@ -284,12 +279,12 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
   \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[initSemEnvTheory.prim_sem_env_eq]
   \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen
-  \\ fs[Abbr`st`,code_installed_cc_def]
+  \\ fs[Abbr`st`]
   \\ disch_then match_mp_tac
   \\ fs[initial_condition_def,config_ok_def]
   \\ qpat_assum`prim_tdecs = _`(SUBST1_TAC o SYM)
   \\ Cases_on`THE (prim_sem_env ffi)`
   \\ match_mp_tac prim_type_sound_invariants
-  \\ simp[] );
+  \\ simp[]);
 
 val _ = export_theory();
