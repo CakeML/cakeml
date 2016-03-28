@@ -3522,6 +3522,9 @@ val assign_thm = Q.prove(
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ fs [make_cons_ptr_def,get_lowerbits_def])
+  \\ Cases_on `op = BlockCmp` \\ fs [] THEN1 cheat
+  \\ Cases_on `?tag len. op = TagLenEq tag len` \\ fs [] THEN1 cheat
+  \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1 cheat
   \\ Cases_on `op = ToList` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
