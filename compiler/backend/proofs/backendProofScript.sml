@@ -143,13 +143,13 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
     (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
   val lemma = METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``
   val th = GENL vs th |> SIMP_RULE std_ss [lemma]
-  val def = define_abbrev "code_installed"
+  val def = define_abbrev "bvp_to_word_precond"
                (th |> concl |> dest_imp |> fst)
   val th = th |> REWRITE_RULE [GSYM def]
               |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
   in th end);
 
-val code_installed_def = fetch "-" "code_installed_def" |> SPEC_ALL
+val bvp_to_word_precond_def = fetch "-" "bvp_to_word_precond_def" |> SPEC_ALL
 
 val full_make_init_gc_fun = prove(
   ``(full_make_init
@@ -361,8 +361,8 @@ val lemma = prove(
     MEM (find_name c.stack_conf.reg_names (c.stack_conf.stack_ptr+2))
       mc_conf.caller_saved_regs /\
     8 <= c.stack_conf.stack_ptr) ==>
-    code_installed (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
-  strip_tac \\ fs [code_installed_def,lab_to_targetProofTheory.good_syntax_def]
+    bvp_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
+  strip_tac \\ fs [bvp_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
@@ -475,12 +475,12 @@ in
          can prove that each backend's config is correct without
          requiring to build all the proofs. *)
 val conf_ok_def = Define `conf_ok c mc_conf = ^tm`
-val imp_code_installed = lemma |> REWRITE_RULE [GSYM conf_ok_def]
+val imp_bvp_to_word_precond = lemma |> REWRITE_RULE [GSYM conf_ok_def]
 end
 
 val clean_bvp_to_target_thm = let
   val th =
-    IMP_TRANS imp_code_installed machine_sem_implements_bvp_sem
+    IMP_TRANS imp_bvp_to_word_precond machine_sem_implements_bvp_sem
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
     |> Q.GENL [`t`,`m`,`io_regs`]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
