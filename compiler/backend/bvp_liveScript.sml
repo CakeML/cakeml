@@ -4,7 +4,24 @@ val _ = new_theory "bvp_live";
 
 (* This script defines an optimisation that minimises the live var
    annotations that are attached to MakeSpace, Assign and Call in BVP
-   programs. *)
+   programs. It also deletes dead code. *)
+
+val is_pure_def = Define `
+  (is_pure SetGlobalsPtr = F) /\
+  (is_pure Ref = F) /\
+  (is_pure RefByte = F) /\
+  (is_pure RefArray = F) /\
+  (is_pure Update = F) /\
+  (is_pure UpdateByte = F) /\
+  (is_pure (Cons _) = F) /\
+  (is_pure (FFI _) = F) /\
+  (is_pure (FromList _) = F) /\
+  (is_pure Add = F) /\
+  (is_pure Sub = F) /\
+  (is_pure Mult = F) /\
+  (is_pure Div = F) /\
+  (is_pure Mod = F) /\
+  (is_pure _ = T)`
 
 val compile_def = Define `
   (compile Skip live = (Skip,live)) /\
@@ -20,8 +37,9 @@ val compile_def = Define `
   (compile (MakeSpace k names) live =
      let l1 = inter names live in (MakeSpace k l1,l1)) /\
   (compile (Assign v op vs NONE) live =
-     let l1 = list_insert vs (delete v live) in
-       (Assign v op vs NONE,l1)) /\
+     if IS_NONE (lookup v live) /\ is_pure op then (Skip,live) else
+       let l1 = list_insert vs (delete v live) in
+         (Assign v op vs NONE,l1)) /\
   (compile (Assign v op vs (SOME names)) live =
      let l1 = inter names (list_insert vs (delete v live)) in
        (Assign v op vs (SOME l1),l1)) /\

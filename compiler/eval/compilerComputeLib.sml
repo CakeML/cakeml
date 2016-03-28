@@ -301,6 +301,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvp_spaceTheory.op_space_req_def
     ,bvp_spaceTheory.compile_def
       (* ---- bvp_live ---- *)
+    ,bvp_liveTheory.is_pure_def
     ,bvp_liveTheory.compile_def
     ]
   ,computeLib.Tys

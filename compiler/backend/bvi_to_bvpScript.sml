@@ -110,7 +110,7 @@ val compile_SING_IMP = store_thm("compile_SING_IMP",
 (* combine bvp optimisations *)
 
 val optimise_def = Define `
-  optimise prog = bvp_space$compile (FST (bvp_live$compile (simp prog Skip) LN))`;
+  optimise prog = bvp_space$compile (simp (FST (bvp_live$compile prog LN)) Skip)`;
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)

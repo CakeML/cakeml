@@ -78,6 +78,19 @@ val state_rel_IMP_get_vars = prove(
   \\ every_case_tac >> fs[]
   \\ RES_TAC \\ fs [] \\ SRW_TAC [] []);
 
+val is_pure_do_app_Rerr_IMP = prove(
+  ``is_pure op /\ do_app op xs s = Rerr e ==>
+    Rabort Rtype_error = e``,
+  Cases_on `op` \\ fs [is_pure_def,do_app_def]
+  \\ EVAL_TAC \\ every_case_tac \\ fs []
+  \\ fs [state_component_equality]);
+
+val is_pure_do_app_Rval_IMP = prove(
+  ``is_pure op /\ do_app op x s = Rval (q,r) ==> r = s``,
+  Cases_on `op` \\ fs [is_pure_def,do_app_def]
+  \\ EVAL_TAC \\ every_case_tac \\ fs []
+  \\ fs [state_component_equality]);
+
 val evaluate_compile = Q.prove(
   `!c s1 res s2 l2 t1 l1 d.
       (evaluate (c,s1) = (res,s2)) /\ state_rel s1 t1 l1 /\
@@ -98,7 +111,16 @@ val evaluate_compile = Q.prove(
      \\ fs [set_var_def,lookup_insert])
   THEN1 (* Assign *)
     (Cases_on `names_opt` THEN1
-      (fs [evaluate_def,get_var_def,LET_DEF]
+      (fs [compile_def]
+       \\ Cases_on `lookup dest l2 = NONE ∧ is_pure op` \\ fs []
+       THEN1
+        (rpt var_eq_tac \\ fs [evaluate_def,cut_state_opt_def]
+         \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
+         \\ imp_res_tac is_pure_do_app_Rerr_IMP \\ fs []
+         \\ imp_res_tac is_pure_do_app_Rval_IMP \\ fs [] \\ rpt var_eq_tac
+         \\ fs [state_rel_def,set_var_def,lookup_insert,domain_lookup] \\ rw [])
+       \\ fs [] \\ pop_assum kall_tac \\ rpt var_eq_tac
+       \\ fs [evaluate_def,get_var_def,LET_DEF]
        \\ every_case_tac >> fs[] \\ SRW_TAC [] []
        \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def] \\ rw[]
        \\ qmatch_assum_rename_tac`get_vars args _ = SOME xx`
@@ -107,7 +129,7 @@ val evaluate_compile = Q.prove(
        \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app_err
        \\ fs [state_rel_def,set_var_def,lookup_insert]
        \\ SRW_TAC [] [call_env_def] \\ IMP_RES_TAC do_app_const
-       \\ fs [domain_list_insert])
+       \\ fs [domain_list_insert,state_component_equality] \\ rfs [])
      \\ fs [evaluate_def,get_var_def,LET_DEF]
      \\ every_case_tac >> fs[] \\ SRW_TAC [] []
      \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def]
