@@ -66,13 +66,23 @@ val from_word = let
     |> Q.INST [`code`|->`code3`]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_stack end
 
+val full_make_init_ffi = prove(
+  ``(full_make_init
+         (bitmaps,c1,code,f,k,max_heap,regs,
+          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          save_regs)).ffi = ffi``,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
+
 val from_bvp = let
   val lemma1 = bvp_to_wordProofTheory.compile_semantics
     |> REWRITE_RULE [CONJ_ASSOC]
-    |> MATCH_MP implements_intro_ext
+    |> MATCH_MP (GSYM implements_intro_ext)
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code4`]
-  in simple_match_mp (MATCH_MP implements_trans lemma1) from_word end
+  in simple_match_mp (MATCH_MP implements_trans lemma1) from_word
+     |> SIMP_RULE (srw_ss()) [full_make_init_ffi,
+          word_to_stackProofTheory.make_init_def] end
 
 val from_bvp_fail = let
   val th = bvpPropsTheory.Resource_limit_hit_implements_semantics
@@ -114,8 +124,7 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
   val th1 = disch_assums th
   val th2 = disch_assums th_fail
   val lemma = METIS_PROVE [] ``(b1 ==> x) /\ (b2 ==> x) ==> (b1 \/ b2 ==> x)``
-  val lemma2 = METIS_PROVE []
-    ``(!x. P x ==> R x ==> Q x) ==> (!x. P x /\ R x) ==> !x. R x ==> Q x``
+  val lemma2 = METIS_PROVE [] ``(P ==> R ==> Q) ==> P /\ R ==> R ==> Q``
   val th = simple_match_mp lemma (CONJ th1 th2)
            |> DISCH_ALL
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
@@ -127,7 +136,7 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
                          ``:'b``|->``:'a``,
                          ``:'c``|->``:'b``,
                          ``:'d``|->``:'c``]
-           |> Q.GEN `prog` |> HO_MATCH_MP lemma2
+           |> MATCH_MP lemma2
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
   val vs = diff (free_vars lhs) (free_vars rhs) |> sort
@@ -160,14 +169,6 @@ val full_make_init_bitmaps = prove(
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_bitmaps]
   \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
-
-val full_make_init_ffi = prove(
-  ``(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,regs,
-          make_init mc_conf ffi save_regs io_regs t m ms code2,
-          save_regs)).ffi = ffi``,
-  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
 
 val full_init_pre_IMP_init_store_ok = prove(
   ``max_heap = 2 * max_heap_limit (:'a) c1 ==>
@@ -223,23 +224,271 @@ val full_init_pre_IMP_init_state_ok = prove(
   \\ qpat_assum `LENGTH t2 = x.stack_space` (assume_tac o GSYM)
   \\ fs [DROP_LENGTH_APPEND] \\ fs [FLOOKUP_DEF]);
 
-(*
+val bvp_to_word_compile_imp = prove(
+  ``compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
+        (MAP (compile_part c.bvp_conf) prog) = (col,p) ==>
+    code_rel c.bvp_conf (fromAList prog)
+      (fromAList (MAP ((compile_part c.bvp_conf) :
+         num # num # bvp$prog -> num # num # 'a wordLang$prog) prog)) /\
+    code_rel_ext
+      (fromAList (MAP ((compile_part c.bvp_conf) :
+         num # num # bvp$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
+    EVERY
+    (λ(n,m,prog).
+       flat_exp_conventions prog ∧
+       post_alloc_conventions
+         (mc_conf.target.config.reg_count −
+          (LENGTH mc_conf.target.config.avoid_regs + 5)) prog) p /\
+    (compile mc_conf.target.config p = (c2,prog1) ==>
+     EVERY (\p. stack_to_labProof$good_syntax p 2 1 0) (MAP SND prog1) /\
+     EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
+     EVERY (\p. stack_removeProof$good_syntax p c.stack_conf.stack_ptr)
+       (MAP SND prog1))``,
+  cheat);
 
-val imp_code_installed = prove(
-  ``ffi.final_event = NONE /\
-    backend_correct mc_conf.target ==>
-    code_installed (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms)``,
+val stack_alloc_syntax = prove(
+  ``EVERY (λp. good_syntax p 2 1 0) (MAP SND prog1) /\
+    EVERY (\p. stack_removeProof$good_syntax p c.stack_conf.stack_ptr)
+       (MAP SND prog1) ==>
+    EVERY (λp. good_syntax p 2 1 0) (MAP SND (compile c.bvp_conf prog1)) /\
+    EVERY (\p. stack_removeProof$good_syntax p c.stack_conf.stack_ptr)
+       (MAP SND (compile c.bvp_conf prog1))``,
+  cheat);
+
+val word_to_stack_compile_imp = prove(
+  ``word_to_stack$compile c p = (c2,prog1) ==>
+    (case c2.bitmaps of [] => F | h::v1 => 4w = h)``,
+  fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
+  \\ imp_res_tac compile_word_to_stack_isPREFIX
+  \\ Cases_on `bitmaps` \\ fs []);
+
+val make_init_opt_imp_bitmaps_limit = prove(
+  ``make_init_opt max_heap bitmaps k code s = SOME x ==>
+    LENGTH (bitmaps:'a word list) < dimword (:'a) − 1``,
+  fs [stack_removeProofTheory.make_init_opt_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [stack_removeProofTheory.init_prop_def,
+         stack_removeProofTheory.init_reduce_def]);
+
+val bvp_to_word_names = prove(
+  ``word_to_word$compile c1 c2 (MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = MAP FST prog``,
+  cheat);
+
+val word_to_stack_names = prove(
+  ``word_to_stack$compile c1 p = (c2,prog1) ==>
+    MAP FST prog1 = 5::MAP FST p``,
+  fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs []
+  \\ rw [] \\ fs [] \\ cheat);
+
+val stack_alloc_names = prove(
+  ``stack_alloc$compile c1 p = prog1 ==>
+    MAP FST prog1 = 10::MAP FST p``,
+  fs [stack_allocTheory.compile_def,stack_allocTheory.stubs_def] \\ rw []
+  \\ fs [MAP_MAP_o,MAP_EQ_f,FORALL_PROD,stack_allocTheory.prog_comp_def]);
+
+val code_installed_prog_to_section = prove(
+  ``ALOOKUP prog4 n = SOME prog3 ==>
+    ?pc.
+      code_installed pc (FST (flatten prog3 n (next_lab prog3)))
+        (MAP prog_to_section prog4) /\
+      loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
+  cheat);
+
+val stack_remove_syntax_pres = prove(
+  ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
+    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog2) ==>
+    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog3)``,
+  cheat);
+
+val stack_names_syntax_pres = prove(
+  ``Abbrev (prog4 = stack_names$compile f prog3) /\
+    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog3) ==>
+    EVERY (λp. good_syntax p (find_name f 2)
+                             (find_name f 1)
+                             (find_name f 0)) (MAP SND prog4)``,
+  cheat);
+
+val MEM_pair_IMP = prove(
+  ``!xs. MEM (x,y) xs ==> MEM x (MAP FST xs) /\ MEM y (MAP SND xs)``,
+  Induct \\ fs [FORALL_PROD] \\ metis_tac []);
+
+val IS_SOME_EQ_CASE = prove(
+  ``IS_SOME x <=> case x of NONE => F | SOME _ => T``,
+  Cases_on `x` \\ fs []);
+
+val compile_eq_imp = prove(
+  ``x = x' /\ y = y' ==>
+    lab_to_target$compile x y = lab_to_target$compile x' y'``,
+  fs []);
+
+val BIJ_FLOOKUP_MAPKEYS = prove(
+  ``BIJ bij UNIV UNIV ==>
+    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)``,
+  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
+  \\ match_mp_tac (METIS_PROVE []
+      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
+  \\ fs [] \\ rw []
+  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
+  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
+  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
+  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
+
+local
+val lemma = prove(
+  ``(from_bvp c prog = SOME (bytes,ffi_limit) /\
+    EVERY (\n. 30 <= n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+    good_init_state mc_conf (t:'a asm_state)
+      m ms ffi ffi_limit bytes io_regs save_regs) /\
+    (bvp_to_wordProof$conf_ok (:α) c.bvp_conf /\
+    c.lab_conf.encoder = mc_conf.target.encode /\
+    c.lab_conf.asm_conf = mc_conf.target.config /\
+    backend_correct mc_conf.target /\ good_dimindex (:'a) /\
+    find_name c.stack_conf.reg_names PERMUTES UNIV /\
+    (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) ∉
+      ({mc_conf.len_reg; mc_conf.ptr_reg} UNION save_regs) /\
+    find_name c.stack_conf.reg_names 2 = mc_conf.len_reg /\
+    find_name c.stack_conf.reg_names 1 = mc_conf.ptr_reg /\
+    (find_name c.stack_conf.reg_names 0 =
+       case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) /\
+    2 < mc_conf.target.config.reg_count −
+         (LENGTH mc_conf.target.config.avoid_regs + 5) /\
+    save_regs = set mc_conf.caller_saved_regs /\
+    MEM (find_name c.stack_conf.reg_names c.stack_conf.stack_ptr)
+      mc_conf.caller_saved_regs /\
+    MEM (find_name c.stack_conf.reg_names (c.stack_conf.stack_ptr+1))
+      mc_conf.caller_saved_regs /\
+    MEM (find_name c.stack_conf.reg_names (c.stack_conf.stack_ptr+2))
+      mc_conf.caller_saved_regs /\
+    8 <= c.stack_conf.stack_ptr) ==>
+    code_installed (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
   strip_tac \\ fs [code_installed_def,lab_to_targetProofTheory.good_syntax_def]
-  \\ fs [EXISTS_PROD]
+  \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
+        fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
   \\ fs [full_make_init_ffi,full_make_init_gc_fun]
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
                 ([], [full_init_pre_IMP_init_store_ok,
                       full_init_pre_IMP_init_state_ok], []))
   \\ simp_tac (std_ss++CONJ_ss) [full_make_init_bitmaps] \\ fs [GSYM CONJ_ASSOC]
-  \\ cheat);
+  \\ fs [from_bvp_def] \\ pairarg_tac \\ fs []
+  \\ fs [from_word_def] \\ pairarg_tac \\ fs []
+  \\ fs [from_stack_def,stack_to_labTheory.compile_def]
+  \\ fs [from_lab_def]
+  \\ asm_exists_tac \\ fs []
+  \\ qcase_tac `_ = (c2,prog1)`
+  \\ qabbrev_tac `prog2 = compile c.bvp_conf prog1`
+  \\ qpat_assum `_ = SOME _` mp_tac
+  \\ qpat_abbrev_tac `prog3 = compile _ _ _ _ _`
+  \\ qabbrev_tac `prog4 = compile c.stack_conf.reg_names prog3`
+  \\ disch_then (assume_tac o GSYM) \\ fs []
+  \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
+                ([], [compile_eq_imp], [])) \\ fs []
+  \\ GEN_EXISTS_TAC "c1" `c.bvp_conf` \\ fs []
+  \\ fs [bvp_to_wordTheory.compile_def]
+  \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
+  \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.bvp_conf` \\ fs []
+  \\ drule bvp_to_word_compile_imp \\ strip_tac
+  \\ GEN_EXISTS_TAC "x1" `fromAList (MAP (compile_part c.bvp_conf) prog)` \\ fs []
+  \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
+  \\ GEN_EXISTS_TAC "bitmaps" `c2.bitmaps` \\ fs []
+  \\ GEN_EXISTS_TAC "codeN" `prog1` \\ fs []
+  \\ drule word_to_stack_compile_imp \\ strip_tac \\ fs []
+  \\ fs [full_init_pre_def |> SIMP_RULE (std_ss++CONJ_ss) [],full_init_pre_fail_def]
+  \\ GEN_EXISTS_TAC "k" `c.stack_conf.stack_ptr` \\ fs []
+  \\ GEN_EXISTS_TAC "f" `c.stack_conf.reg_names` \\ fs []
+  \\ `?regs. init_pre (2 * max_heap_limit (:α) c.bvp_conf) c2.bitmaps
+        c.stack_conf.stack_ptr InitGlobals_location
+        (make_init c.stack_conf.reg_names (fromAList prog3)
+           (make_init (fromAList prog4) regs save_regs
+              (make_init mc_conf ffi save_regs io_regs t m ms
+                 (MAP prog_to_section prog4))))` by
+   (fs [stack_removeProofTheory.init_pre_def,
+        stack_namesProofTheory.make_init_def,GSYM PULL_EXISTS]
+    \\ conj_tac THEN1
+     (unabbrev_all_tac
+      \\ fs [stack_removeTheory.compile_def,lookup_fromAList,
+             stack_removeTheory.init_stubs_def])
+    \\ fs [stack_to_labProofTheory.make_init_def,
+           lab_to_targetProofTheory.make_init_def,
+           stack_removeProofTheory.init_code_pre_def]
+    \\ qexists_tac `MAP (find_name c.stack_conf.reg_names) [2;3;4]`
+    \\ fs [MAP,BIJ_FLOOKUP_MAPKEYS,FUPDATE_LIST] \\ fs [FLOOKUP_UPDATE]
+    \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
+    \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
+    \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
+    \\ cheat (* almost true *))
+  \\ qexists_tac `regs` \\ fs []
+  \\ fs [IS_SOME_EQ_CASE] \\ CASE_TAC \\ fs []
+  \\ SIMP_TAC (std_ss++CONJ_ss)
+       [EVAL ``(make_init mc_conf ffi save_regs io_regs t m ms code).code``,
+        EVAL ``(make_init mc_conf ffi save_regs io_regs t m ms code).pc``]
+  \\ imp_res_tac make_init_opt_imp_bitmaps_limit \\ fs []
+  \\ `loc_to_pc 0 0 (MAP prog_to_section prog4) = SOME 0` by
+   (qunabbrev_tac `prog4`
+    \\ qunabbrev_tac `prog3`
+    \\ fs [stack_removeTheory.compile_def,
+           stack_removeTheory.init_stubs_def,
+           stack_namesTheory.compile_def,
+           stack_namesTheory.prog_comp_def,
+           stack_to_labTheory.prog_to_section_def]
+    \\ pairarg_tac \\ fs [] \\ fs [Once labSemTheory.loc_to_pc_def]) \\ fs []
+  \\ imp_res_tac bvp_to_word_names
+  \\ imp_res_tac word_to_stack_names \\ fs [ALOOKUP_NONE]
+  \\ `MAP FST prog2 = 10::MAP FST prog1` by metis_tac [stack_alloc_names] \\ fs []
+  \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
+  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM] \\ strip_tac \\ res_tac \\ fs []))
+  \\ conj_tac \\ TRY
+   (imp_res_tac stack_alloc_syntax \\ rfs []
+    \\ fs [EVERY_MEM,FORALL_PROD] \\ rw []
+    \\ `MEM p_1 (MAP FST prog2) /\ MEM p_2 (MAP SND prog2)` by
+     (fs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
+      \\ rpt (asm_exists_tac \\ fs [])) \\ fs [] \\ rfs []
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ res_tac \\ fs [] \\ NO_TAC)
+  \\ TRY conj_tac
+  \\ TRY (rpt strip_tac \\ qcase_tac `ALOOKUP prog1 k = SOME _`
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ imp_res_tac MEM_pair_IMP \\ rfs [EVERY_MEM]
+    \\ res_tac \\ fs [])
+  \\ fs [state_rel_make_init,lab_to_targetProofTheory.make_init_def]
+  \\ fs [PULL_EXISTS] \\ rpt strip_tac
+  \\ TRY (qcase_tac `byte_aligned w`
+    \\ `byte_aligned (w + t.regs mc_conf.ptr_reg)` by
+          fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_add_sub]
+    \\ pop_assum mp_tac
+    \\ qspec_tac (`w + t.regs mc_conf.ptr_reg`,`v`)
+    \\ Cases \\ fs [stack_removeProofTheory.aligned_w2n,
+         alignmentTheory.byte_aligned_def]
+    \\ fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+  \\ fs [GSYM PULL_EXISTS] \\ fs [lookup_fromAList]
+  \\ drule code_installed_prog_to_section \\ fs [] \\ strip_tac
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ imp_res_tac MEM_pair_IMP
+  \\ imp_res_tac stack_alloc_syntax \\ rfs []
+  \\ drule stack_remove_syntax_pres \\ fs [] \\ strip_tac
+  \\ drule stack_names_syntax_pres \\ fs []
+  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [])
+  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
+val tm = lemma |> concl |> dest_imp |> fst |> dest_conj |> snd
+in
+(* TODO: this conf_ok should be defined in backendTheory, so that we
+         can prove that each backend's config is correct without
+         requiring to build all the proofs. *)
+val conf_ok_def = Define `conf_ok c mc_conf = ^tm`
+val imp_code_installed = lemma |> REWRITE_RULE [GSYM conf_ok_def]
+end
 
-*)
+val clean_bvp_to_target_thm = let
+  val th =
+    IMP_TRANS imp_code_installed machine_sem_implements_bvp_sem
+    |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
+    |> Q.GENL [`t`,`m`,`io_regs`]
+    |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
+  val tm = th |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
+              |> butlast |> last
+  val installed_def = define_abbrev "installed" tm
+  val th = th |> REWRITE_RULE [GSYM installed_def]
+  in th end
 
 (* --- composing source-to-target --- *)
 
@@ -273,7 +522,7 @@ val from_bvp_ignore = prove(
   \\ rpt (pairarg_tac \\ fs []));
 
 val code_installed_ignore = prove(
-  ``code_installed
+  ``code_installed_def
       (bytes, c with <|source_conf := x; mod_conf := y; clos_conf := z |>,
        ffi,ffi_limit,mc,ms) = code_installed (bytes,c,ffi,ffi_limit,mc,ms)``,
   fs [code_installed_def,from_bvp_ignore]);

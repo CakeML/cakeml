@@ -4184,22 +4184,41 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
   simp[EL_APPEND1]);
 
-val compile_semantics = save_thm("compile_semantics",
-  compile_semantics_lemma |> Q.GEN `conf`
-  |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
-  |> REWRITE_RULE [state_rel_ext_def]
-  |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
-  |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,
-       FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
-  |> SIMP_RULE std_ss [wordSemTheory.state_component_equality]
-  |> SIMP_RULE (srw_ss()) []
-  |> (fn th => MATCH_MP th (UNDISCH state_rel_init
-               |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`]))
-  |> SIMP_RULE (srw_ss()) []
-  |> ONCE_REWRITE_RULE [EQ_SYM_EQ] |> GEN_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> SPEC_ALL |> DISCH_ALL
-  |> REWRITE_RULE [AND_IMP_INTRO]
-  |> REWRITE_RULE [GSYM CONJ_ASSOC]);
+fun define_abbrev name tm = let
+  val vs = free_vars tm |> sort
+    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
+  val vars = foldr mk_pair (last vs) (butlast vs)
+  val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
+  in Define `^n ^vars = ^tm` end
+
+val code_termdep_equiv = prove(
+  ``t' with <|code := l; termdep := 0|> = t <=>
+    ?x1 x2.
+      t.code = l /\ t.termdep = 0 /\ t' = t with <|code := x1; termdep := x2|>``,
+  fs [wordSemTheory.state_component_equality] \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
+
+val compile_semantics = save_thm("compile_semantics",let
+  val th1 =
+    compile_semantics_lemma |> Q.GEN `conf`
+    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
+    |> REWRITE_RULE [state_rel_ext_def]
+    |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
+    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,
+         FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
+    |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
+    |> REWRITE_RULE [ASSUME ``(t:('a,'ffi) wordSem$state).clock =
+                              (t':('a,'ffi) wordSem$state).clock``]
+    |> (fn th => MATCH_MP th (UNDISCH state_rel_init
+            |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`,`t`|->`t'`]))
+    |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
+    |> Q.GENL [`p_1'`,`p_1''`,`p_1'''`,`p_1''''`,`p_2`]
+    |> SIMP_RULE std_ss [METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``]
+    |> DISCH ``(t':('a,'ffi) wordSem$state).code = code``
+    |> SIMP_RULE std_ss [] |> UNDISCH
+  val def = define_abbrev "code_rel_ext" (th1 |> concl |> dest_imp |> fst)
+  in th1 |> REWRITE_RULE [GSYM def,code_termdep_equiv]
+         |> SIMP_RULE std_ss [PULL_EXISTS,PULL_FORALL] |> SPEC_ALL
+         |> DISCH_ALL |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
+         |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
 val _ = export_theory();

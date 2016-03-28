@@ -3015,7 +3015,7 @@ val make_init_def = Define `
   make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t m (ms:'state) code =
     <| regs       := \k. Word ((t.regs k):'a word)
      ; mem        := m
-     ; mem_domain := { t.regs mc_conf.ptr_reg + w |w| w <+ t.regs mc_conf.len_reg }
+     ; mem_domain := { t.regs mc_conf.ptr_reg + w |w| w <+ t.regs mc_conf.len_reg /\ byte_aligned w }
      ; pc         := 0
      ; be         := mc_conf.target.config.big_endian
      ; ffi        := ffi
@@ -3032,7 +3032,9 @@ val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
 val good_init_state_def = Define `
   good_init_state (mc_conf: ('a,'state,'b) machine_config) t m ms
-        ffi_index_limit bytes io_regs save_regs <=>
+        ffi ffi_index_limit bytes io_regs save_regs <=>
+    ffi.final_event = NONE /\
+    byte_aligned (t.regs mc_conf.ptr_reg) /\
     mc_conf.target.state_rel t ms /\ ~t.failed /\
     good_dimindex (:'a) /\
     mc_conf.prog_addresses = t.mem_domain /\
@@ -3067,7 +3069,8 @@ val good_init_state_def = Define `
     (case mc_conf.target.config.link_reg of NONE => T | SOME r => t.lr = r) /\
     code_loaded bytes mc_conf ms /\
     bytes_in_mem (mc_conf.target.get_pc ms) bytes t.mem t.mem_domain
-      {w + t.regs mc_conf.ptr_reg | w | w <+ t.regs mc_conf.len_reg} /\
+      { w + t.regs mc_conf.ptr_reg | w |
+        w <+ t.regs mc_conf.len_reg /\ byte_aligned w } /\
     (!ms2 k index new_bytes t1 x.
        mc_conf.target.state_rel
          (t1 with
@@ -3089,9 +3092,10 @@ val good_init_state_def = Define `
         (mc_conf.ffi_interfer k index new_bytes ms2)) /\
     !a w labs.
       byte_align a = w + t.regs mc_conf.ptr_reg /\
-      w <+ t.regs mc_conf.len_reg ==>
+      w <+ t.regs mc_conf.len_reg /\ byte_aligned w ==>
       ?w'.
-        (a = w' + t.regs mc_conf.ptr_reg /\ w' <+ t.regs mc_conf.len_reg) /\
+        a = w' + t.regs mc_conf.ptr_reg /\ w' <+ t.regs mc_conf.len_reg /\
+        byte_aligned w' /\
         word_loc_val_byte (mc_conf.target.get_pc ms) labs m a
           mc_conf.target.config.big_endian = SOME (t.mem a)`
 
@@ -3110,7 +3114,7 @@ val IMP_state_rel_make_init = prove(
     enc_ok mc_conf.target.encode mc_conf.target.config /\
     remove_labels clock mc_conf.target.config mc_conf.target.encode code =
       SOME (code2,labs) /\
-    good_init_state mc_conf t m ms (find_ffi_index_limit code)
+    good_init_state mc_conf t m ms ffi (find_ffi_index_limit code)
       (prog_to_bytes code2) io_regs save_regs ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms,T)
@@ -3125,7 +3129,7 @@ val IMP_state_rel_make_init = prove(
          fs [alignmentTheory.aligned_bitwise_and]
   \\ fs [alignmentTheory.aligned_add_sub]
   \\ fs [alignmentTheory.aligned_1_lsb]
-  \\ fs [EVEN_ODD]);
+  \\ fs [EVEN_ODD,CONJ_ASSOC] \\ rw [] \\ res_tac);
 
 val semantics_make_init = save_thm("semantics_make_init",
   machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -3159,7 +3163,7 @@ val semantics_compile = store_thm("semantics_compile",
     c.asm_conf = mc_conf.target.config /\
     c.encoder = mc_conf.target.encode /\
     compile c code = SOME (bytes,ffi_limit) /\
-    good_init_state mc_conf t m ms ffi_limit bytes io_regs save_regs /\
+    good_init_state mc_conf t m ms ffi ffi_limit bytes io_regs save_regs /\
     semantics (make_init mc_conf ffi save_regs io_regs t m ms code) <> Fail ==>
     machine_sem mc_conf ffi ms =
     {semantics (make_init mc_conf ffi save_regs io_regs t m ms code)}``,

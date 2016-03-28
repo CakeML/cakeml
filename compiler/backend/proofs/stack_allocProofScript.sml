@@ -2067,7 +2067,7 @@ val with_same_regs_lemma = Q.prove(
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `(!k prog. lookup k s.code = SOME prog ==> 30 ≤ k /\ good_syntax prog) /\
+  `(!k prog. lookup k s.code = SOME prog ==> k <> 10 /\ good_syntax prog) /\
    s.gc_fun = (word_gc_fun c:α gc_fun_type) /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
    semantics start s <> Fail
@@ -2271,7 +2271,7 @@ val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
   srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]);
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `(!k prog. ALOOKUP code k = SOME prog ==> 30 ≤ k /\ good_syntax prog) /\
+  `(!k prog. ALOOKUP code k = SOME prog ==> k <> 10 /\ good_syntax prog) /\
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    LENGTH s.bitmaps < dimword (:α) - 1 ∧
    LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧

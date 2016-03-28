@@ -2207,7 +2207,7 @@ val compile_prog_isPREFIX = prove(
   \\ imp_res_tac comp_IMP_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
 
-val compile_word_to_stack_isPREFIX = prove(
+val compile_word_to_stack_isPREFIX = store_thm("compile_word_to_stack_isPREFIX",
   ``!code k bs progs1 bs1.
        compile_word_to_stack k code bs = (progs1,bs1) ==> bs ≼ bs1``,
   Induct \\ fs [compile_word_to_stack_def,FORALL_PROD,LET_THM] \\ rw []
