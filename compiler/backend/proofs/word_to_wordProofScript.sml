@@ -544,4 +544,55 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
   full_simp_tac(srw_ss())[Abbr`prog`,word_removeTheory.remove_must_terminate_def,LET_THM]>>
   qexists_tac`clk`>>full_simp_tac(srw_ss())[ADD_COMM])
 
+val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
+
+(* syntax going into stackLang *)
+val compile_conventions = store_thm("compile_to_word_conventions",``
+  let (_,progs) = compile wc ac p in
+  MAP FST progs = MAP FST p ∧
+  EVERY (λ(n,m,prog).
+    flat_exp_conventions prog ∧
+    post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
+    full_inst_ok_less ac prog ∧
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs``,
+  fs[compile_def]>>pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>rveq>>rw[]
+  >-
+    (match_mp_tac LIST_EQ>>
+    fs[next_n_oracle_def,EL_MAP,full_compile_single_def]>>
+    rw[]>>
+    qpat_abbrev_tac`q = EL x A`>>
+    fs[markerTheory.Abbrev_def]>>PairCases_on`q`>>
+    pop_assum (assume_tac o SYM)>>
+    fs[compile_single_def]>>
+    pop_assum mp_tac>>
+    fs[EL_MAP,EL_ZIP,LENGTH_GENLIST])>>
+  fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
+  fs[full_compile_single_def,compile_single_def]>>
+  CONJ_TAC>-
+    (match_mp_tac (el 1 rmt_thms)>>
+    match_mp_tac word_alloc_flat_exp_conventions>>
+    IF_CASES_TAC>>
+    TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
+    match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
+    fs[inst_select_flat_exp_conventions])>>
+  CONJ_TAC>-
+    (match_mp_tac (el 3 rmt_thms)>>
+    match_mp_tac pre_post_conventions_word_alloc>>
+    IF_CASES_TAC>>
+    TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
+    fs[full_ssa_cc_trans_pre_alloc_conventions])>>
+  CONJ_TAC>-
+    (match_mp_tac (el 2 rmt_thms)>>
+    match_mp_tac word_alloc_full_inst_ok_less>>
+    IF_CASES_TAC>>
+    TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
+    match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
+    (*These need to be assumed, and part of it proved for bvp_to_word*)
+    cheat)>>
+  rw[]>>
+  match_mp_tac (el 4 rmt_thms)>>
+  match_mp_tac word_alloc_two_reg_inst>>
+  fs[three_to_two_reg_two_reg_inst])
+
 val _ = export_theory();

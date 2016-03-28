@@ -1,18 +1,44 @@
 open preamble BasicProvers
      wordLangTheory wordSemTheory
+     asmTheory
 
 (*
 Main lemmas:
-0) Clock lemmas
-1) Swapping stack for one with identical values (but different keys)
-2) Swapping the permutation
-3) Effect of extra locals
-4) Some properties of every_var etc.
+0) Clock lemmas (add_clock, dec_clock, IO monotonicity)
+1) Code table constancy across eval
+2) Swapping stack for one with identical values (but different keys)
+3) Thms to handle the permutation oracle
+4) mono and conj for every_var etc.
+5) Effect of extra locals (locals_rel)
+6) Other misc things and defs followed by syntactic things
 *)
 
 val _ = new_theory "wordProps";
 
-(* evaluate clock monotonicity *)
+(*TODO: Move to misc*)
+val lookup_fromList2 = store_thm("lookup_fromList2",
+  ``!l n. lookup n (fromList2 l) =
+          if EVEN n then lookup (n DIV 2) (fromList l) else NONE``,
+  recInduct SNOC_INDUCT \\ srw_tac[][]
+  THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[lookup_def])
+  THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[lookup_def])
+  \\ full_simp_tac(srw_ss())[fromList2_def,FOLDL_SNOC]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ full_simp_tac(srw_ss())[GSYM fromList2_def,FOLDL_SNOC]
+  \\ full_simp_tac(srw_ss())[lookup_insert,lookup_fromList,DIV_LT_X]
+  \\ `!k. FST (FOLDL (λ(i,t) a. (i + 2,insert i a t)) (k,LN) l) =
+        k + LENGTH l * 2` by
+   (qspec_tac (`LN`,`t`) \\ qspec_tac (`l`,`l`) \\ Induct \\ full_simp_tac(srw_ss())[FOLDL]
+    \\ full_simp_tac(srw_ss())[MULT_CLAUSES, AC ADD_COMM ADD_ASSOC])
+  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[GSYM DIV_LT_X,EL_SNOC]
+  \\ full_simp_tac(srw_ss())[MULT_DIV,SNOC_APPEND,EL_LENGTH_APPEND,EVEN_MOD2,MOD_EQ_0]
+  \\ TRY decide_tac
+  \\ full_simp_tac(srw_ss())[DIV_LT_X]
+  \\ `n = LENGTH l * 2 + 1` by decide_tac
+  \\ full_simp_tac(srw_ss())[MOD_TIMES]);
+
+(* Clock lemmas *)
 
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).clock = z.clock ∧
@@ -194,6 +220,8 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi`,
   EVAL_TAC)
 
+(* Standard add clock lemma for FBS *)
+
 val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   `∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
@@ -252,13 +280,19 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rveq>>full_simp_tac(srw_ss())[]>>
   metis_tac[]);
 
-(*This allows one to "count" the number of ticks made by a program*)
 val tac = EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]
 val tac2 =
   strip_tac>>rveq>>full_simp_tac(srw_ss())[]>>
   imp_res_tac evaluate_clock>>full_simp_tac(srw_ss())[]>>
   `¬ (s.clock ≤ r'.clock)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
   `s.clock -1 -r'.clock = s.clock - r'.clock-1` by DECIDE_TAC>>full_simp_tac(srw_ss())[]
+
+(* This lemma is interesting in wordLang because of the use of MustTerminate
+
+   To remove MustTerminate, we need to inject an exact number of clock ticks
+   corresponding to the ticks used in the MustTerminate block
+
+   The number of clock ticks is fixed for any program, and can be characterized by st.clock - rst.clock *)
 
 val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
   `∀prog st res rst.
@@ -333,6 +367,8 @@ val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
         simp[])
       >>
         tac2)
+
+(* IO and clock monotonicity *)
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
@@ -1826,21 +1862,6 @@ val every_stack_var_conj = store_thm("every_stack_var_conj",``
   TRY(Cases_on`x`>>Cases_on`r`>>full_simp_tac(srw_ss())[])>>
   TRY(metis_tac[EVERY_CONJ,every_name_conj]))
 
-(*Recursor for instructions since we use it a lot when flattening*)
-val every_inst_def = Define`
-  (every_inst P (Inst i) ⇔ P i) ∧
-  (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
-  (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
-  (every_inst P (MustTerminate n p) ⇔ every_inst P p) ∧
-  (every_inst P (Call ret dest args handler)
-    ⇔ (case ret of
-        NONE => T
-      | SOME (n,names,ret_handler,l1,l2) => every_inst P ret_handler ∧
-      (case handler of
-        NONE => T
-      | SOME (n,h,l1,l2) => every_inst P h))) ∧
-  (every_inst P prog ⇔ T)`
-
 (* Locals extend lemma *)
 val locals_rel_def = Define`
   locals_rel temp (s:'a word_loc num_map) t ⇔ (∀x. x < temp ⇒ lookup x s = lookup x t)`
@@ -2132,28 +2153,6 @@ val mem_list_rearrange = store_thm("mem_list_rearrange",``
   >- metis_tac[]>>
   qexists_tac `g n`>>full_simp_tac(srw_ss())[])
 
-val lookup_fromList2 = store_thm("lookup_fromList2",
-  ``!l n. lookup n (fromList2 l) =
-          if EVEN n then lookup (n DIV 2) (fromList l) else NONE``,
-  recInduct SNOC_INDUCT \\ srw_tac[][]
-  THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[lookup_def])
-  THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[lookup_def])
-  \\ full_simp_tac(srw_ss())[fromList2_def,FOLDL_SNOC]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[GSYM fromList2_def,FOLDL_SNOC]
-  \\ full_simp_tac(srw_ss())[lookup_insert,lookup_fromList,DIV_LT_X]
-  \\ `!k. FST (FOLDL (λ(i,t) a. (i + 2,insert i a t)) (k,LN) l) =
-        k + LENGTH l * 2` by
-   (qspec_tac (`LN`,`t`) \\ qspec_tac (`l`,`l`) \\ Induct \\ full_simp_tac(srw_ss())[FOLDL]
-    \\ full_simp_tac(srw_ss())[MULT_CLAUSES, AC ADD_COMM ADD_ASSOC])
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[GSYM DIV_LT_X,EL_SNOC]
-  \\ full_simp_tac(srw_ss())[MULT_DIV,SNOC_APPEND,EL_LENGTH_APPEND,EVEN_MOD2,MOD_EQ_0]
-  \\ TRY decide_tac
-  \\ full_simp_tac(srw_ss())[DIV_LT_X]
-  \\ `n = LENGTH l * 2 + 1` by decide_tac
-  \\ full_simp_tac(srw_ss())[MOD_TIMES]);
-
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
     !wl m d s wl1 m1 s1.
@@ -2162,5 +2161,163 @@ val gc_fun_ok_def = Define `
       (LENGTH wl = LENGTH wl1) /\
       ~(Handler IN FDOM s1) /\
       (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
+
+(* wordLang syntactic things *)
+(* No expressions occur except in Set, where it must be a Var expr *)
+val flat_exp_conventions_def = Define`
+  (*These should be converted to Insts*)
+  (flat_exp_conventions (Assign v exp) = F) ∧
+  (flat_exp_conventions (Store exp num) = F) ∧
+  (*The only place where top level (expression) vars are allowed*)
+  (flat_exp_conventions (Set store_name (Var r)) = T) ∧
+  (flat_exp_conventions (Set store_name _) = F) ∧
+  (flat_exp_conventions (Seq p1 p2) =
+    (flat_exp_conventions p1 ∧ flat_exp_conventions p2)) ∧
+  (flat_exp_conventions (If cmp r1 ri e2 e3) =
+    (flat_exp_conventions e2 ∧
+    flat_exp_conventions e3)) ∧
+  (flat_exp_conventions (MustTerminate n p) =
+    flat_exp_conventions p) ∧
+  (flat_exp_conventions (Call ret dest args h) =
+    ((case ret of
+      NONE => T
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+        flat_exp_conventions ret_handler) ∧
+    (case h of
+      NONE => T
+    | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
+  (flat_exp_conventions _ = T)`
+
+(* Well-formed instructions *)
+val inst_ok_less_def = Define`
+  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
+    c.valid_imm (INL b) w) ∧
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Mem m r (Addr r' w)) =
+    addr_offset_ok w c) ∧
+  (inst_ok_less _ _ = T)`
+
+(* Instructions have distinct targets and read vars -- set by SSA form *)
+val distinct_tar_reg_def = Define`
+  (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
+    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
+  (distinct_tar_reg  (Arith (Shift l r1 r2 n))
+    ⇔ r1 ≠ r2) ∧
+  (distinct_tar_reg _ ⇔ T)`
+
+(*Instructions are 2 register code for arith ok*)
+val two_reg_inst_def = Define`
+  (two_reg_inst (Arith (Binop bop r1 r2 ri))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (Shift l r1 r2 n))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst _ ⇔ T)`
+
+(* Recursor over instructions *)
+val every_inst_def = Define`
+  (every_inst P (Inst i) ⇔ P i) ∧
+  (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
+  (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
+  (every_inst P (MustTerminate n p) ⇔ every_inst P p) ∧
+  (every_inst P (Call ret dest args handler)
+    ⇔ (case ret of
+        NONE => T
+      | SOME (n,names,ret_handler,l1,l2) => every_inst P ret_handler ∧
+      (case handler of
+        NONE => T
+      | SOME (n,h,l1,l2) => every_inst P h))) ∧
+  (every_inst P prog ⇔ T)`
+
+(* Every instruction is well-formed, including the jump hidden in If *)
+val full_inst_ok_less_def = Define`
+  (full_inst_ok_less c (Inst i) ⇔ inst_ok_less c i) ∧
+  (full_inst_ok_less c (Seq p1 p2) ⇔
+    (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
+  (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
+    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
+    full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
+  (full_inst_ok_less c (MustTerminate n p) ⇔ full_inst_ok_less c p) ∧
+  (full_inst_ok_less c (Call ret dest args handler)
+    ⇔ (case ret of
+        NONE => T
+      | SOME (n,names,ret_handler,l1,l2) => full_inst_ok_less c ret_handler ∧
+      (case handler of
+        NONE => T
+      | SOME (n,h,l1,l2) => full_inst_ok_less c h))) ∧
+  (full_inst_ok_less c prog ⇔ T)`
+
+(* All cutsets are well-formed *)
+val wf_cutsets_def = Define`
+  (wf_cutsets (Alloc n s) = wf s) ∧
+  (wf_cutsets (Call ret dest args h) =
+    (case ret of
+      NONE => T
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      wf cutset ∧
+      wf_cutsets ret_handler ∧
+      (case h of
+        NONE => T
+      | SOME (v,prog,l1,l2) =>
+        wf_cutsets prog))) ∧
+  (wf_cutsets (FFI x y z args) = wf args) ∧
+  (wf_cutsets (MustTerminate _ s) = wf_cutsets s) ∧
+  (wf_cutsets (Seq s1 s2) =
+    (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
+  (wf_cutsets (If cmp r1 ri e2 e3) =
+    (wf_cutsets e2 ∧
+     wf_cutsets e3)) ∧
+  (wf_cutsets _ = T)`
+
+(* Syntactic conventions for allocator *)
+val call_arg_convention_def = Define`
+  (call_arg_convention (Return x y) = (y=2)) ∧
+  (call_arg_convention (Raise y) = (y=2)) ∧
+  (call_arg_convention (FFI x y z args) = (y = 2 ∧ z = 4)) ∧
+  (call_arg_convention (Alloc n s) = (n=2)) ∧
+  (call_arg_convention (Call ret dest args h) =
+    (case ret of
+      NONE => args = GENLIST (\x.2*x) (LENGTH args)
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
+      (v = 2) ∧ call_arg_convention ret_handler ∧
+    (case h of  (*Does not check the case where Calls are ill-formed*)
+      NONE => T
+    | SOME (v,prog,l1,l2) =>
+      (v = 2) ∧ call_arg_convention prog))) ∧
+  (call_arg_convention (MustTerminate _ s1) =
+    call_arg_convention s1) ∧
+  (call_arg_convention (Seq s1 s2) =
+    (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
+  (call_arg_convention (If cmp r1 ri e2 e3) =
+    (call_arg_convention e2 ∧
+     call_arg_convention e3)) ∧
+  (call_arg_convention p = T)`
+
+(*Before allocation, generated by SSA CC*)
+val pre_alloc_conventions_def = Define`
+  pre_alloc_conventions p =
+    (every_stack_var is_stack_var p ∧
+    call_arg_convention p)`
+
+(*After allocation, generated by allocator and/or the oracles*)
+val post_alloc_conventions_def = Define`
+  post_alloc_conventions k prog =
+    (every_var is_phy_var prog ∧
+    every_stack_var (λx. x ≥ 2*k) prog ∧
+    call_arg_convention prog)`
+
+(* This is the current order of passes and the required syntactic conventions
+that they need to establish or preserve
+
+BVP-to-word (every_inst (\i.F))
+Inst select (flat_exp_conventions, full_inst_ok_less) -- DONE
+SSA (flat_exp_conventions, full_inst_ok_less, pre_alloc_conventions, wf_cutsets ) -- DONE
+3-to-2 reg (flat_exp_conventions, full_inst_ok_less, pre_alloc_conventions, wf_cutsets, every_inst two_reg_inst) -- DONE
+register allocation (flat_exp_conventions, full_inst_ok_less, post_alloc_conventions, every_inst two_reg_inst) -- DONE
+word_remove (flat_exp_conventions, full_inst_ok_less, post_alloc_conventions, every_inst two_reg_inst)
+word_to_word (everything in word_remove)
+word_to_stack (probably needs to extend full_inst_ok_less and two_reg_inst)
+*)
 
 val _ = export_theory();

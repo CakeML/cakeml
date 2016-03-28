@@ -2,6 +2,7 @@ open preamble BasicProvers word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";
 
+(* semantics *)
 val alloc_termdep_code_frame = prove(``
   alloc c names (s with <|termdep:=d;code:=l|>) =
   (FST (alloc c names s),SND(alloc c names s) with <|termdep:=d;code:=l|>)``,
@@ -172,5 +173,27 @@ val word_remove_correct = store_thm("word_remove_correct",``
       qexists_tac`clk`>>
       `s.clock -1 + clk = clk + s.clock-1`by DECIDE_TAC>>
       rveq>>full_simp_tac(srw_ss())[])
+
+(* syntactic preservation all in one go *)
+val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,post_alloc_conventions_def,call_arg_convention_def,wordLangTheory.every_stack_var_def,wordLangTheory.every_var_def]
+
+val remove_must_terminate_conventions = store_thm("remove_must_terminate_conventions",``
+  ∀p c k.
+  let comp = remove_must_terminate p in
+  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
+  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
+  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
+  (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp)``,
+  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
+  fs[remove_must_terminate_def]>>fs convs>>
+  TRY
+  (qcase_tac`args = A`>>
+  Cases_on`ret`>>fs[]>>
+  PairCases_on`x`>>fs[]>>
+  Cases_on`h`>>fs[]>- metis_tac[]>>
+  PairCases_on`x`>>fs[]>>
+  metis_tac[])>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[])
 
 val _ = export_theory();

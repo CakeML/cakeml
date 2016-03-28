@@ -1,9 +1,45 @@
 open preamble BasicProvers
      wordLangTheory wordPropsTheory word_instTheory wordSemTheory
-     asmTheory word_allocTheory word_allocProofTheory
+     asmTheory
 
 val _ = new_theory "word_instProof";
 
+(* TODO: Move, but some of these are specific instantiations *)
+val PERM_SWAP_SIMP = prove(``
+  PERM (A ++ (B::C)) (B::(A++C))``,
+  match_mp_tac APPEND_PERM_SYM>>full_simp_tac(srw_ss())[]>>
+  metis_tac[PERM_APPEND])
+
+val EL_FILTER = prove(``
+  ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))``,
+  Induct>>srw_tac[][]>>
+  Cases_on`x`>>full_simp_tac(srw_ss())[EL])
+
+val PERM_SWAP = prove(``
+  PERM (A ++ B ++ C) (B++(A++C))``,
+  full_simp_tac(srw_ss())[PERM_DEF]>>srw_tac[][]>>
+  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
+  >-
+    (full_simp_tac(srw_ss())[FILTER_APPEND]>>DECIDE_TAC)
+  >>
+  srw_tac[][]>>
+  imp_res_tac EL_FILTER>>
+  last_x_assum SUBST_ALL_TAC>>
+  imp_res_tac EL_FILTER>>
+  metis_tac[])
+
+(* Instruction selection and assorted optimisation correctness
+0) pull_exp correctness -- this does pull_ops and optimize_consts
+1) pull_exp syntax
+2) flatten_exp correctness -- makes stuff into binary branching trees
+3) flatten_exp syntax -- prove the above property (binary_branch_exp -- not counted as a "global" syntactic convention since it is only used locally here)
+4) inst_select_exp and inst_select correctness
+5) inst_select syntax -- flat_exp_conventions and full_inst_ok_less
+6) three_to_two_reg correctness
+7) three_to_two_reg syntax -- two_reg_insts and some preservation ones
+*)
+
+(* pull_exp correctness *)
 val convert_sub_ok = prove(``
   ∀ls.
   word_exp s (convert_sub ls) = word_exp s (Op Sub ls)``,
@@ -42,29 +78,6 @@ val pull_ops_simp_def = Define`
     |  (Op op' ls) => if op = op' then ls ++ (pull_ops_simp op xs) else x::(pull_ops_simp op xs)
     |  _  => x::(pull_ops_simp op xs))`
 
-val PERM_SWAP_SIMP = prove(``
-  PERM (A ++ (B::C)) (B::(A++C))``,
-  match_mp_tac APPEND_PERM_SYM>>full_simp_tac(srw_ss())[]>>
-  metis_tac[PERM_APPEND])
-
-val EL_FILTER = prove(``
-  ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))``,
-  Induct>>srw_tac[][]>>
-  Cases_on`x`>>full_simp_tac(srw_ss())[EL])
-
-val PERM_SWAP = prove(``
-  PERM (A ++ B ++ C) (B++(A++C))``,
-  full_simp_tac(srw_ss())[PERM_DEF]>>srw_tac[][]>>
-  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
-  >-
-    (full_simp_tac(srw_ss())[FILTER_APPEND]>>DECIDE_TAC)
-  >>
-  srw_tac[][]>>
-  imp_res_tac EL_FILTER>>
-  last_x_assum SUBST_ALL_TAC>>
-  imp_res_tac EL_FILTER>>
-  metis_tac[])
-
 val pull_ops_simp_pull_ops_perm = prove(``
   ∀ls x.
   PERM (pull_ops op ls x) ((pull_ops_simp op ls)++x)``,
@@ -81,6 +94,8 @@ val pull_ops_simp_pull_ops_word_exp = prove(``
   pop_assum match_mp_tac>>
   assume_tac pull_ops_simp_pull_ops_perm>>
   pop_assum (qspecl_then [`ls`,`[]`] assume_tac)>>full_simp_tac(srw_ss())[])
+
+(* TODO: Maybe move to props, if these are needed elsewhere *)
 
 val word_exp_op_mono = prove(``
   op ≠ Sub ⇒
@@ -137,6 +152,8 @@ val pull_ops_ok = prove(``
   `b ≠ Sub` by srw_tac[][]>>
   imp_res_tac word_exp_op_op>>
   pop_assum (qspec_then`l` assume_tac)>>full_simp_tac(srw_ss())[])
+
+(* Done with pull_ops, next is optimize_consts *)
 
 val word_exp_swap_head = prove(``
   ∀B.
@@ -251,6 +268,7 @@ val pull_exp_ok = prove(``
   res_tac>>fs[]>>
   rfs[])
 
+(* pull_exp syntax *)
 val convert_sub_every_var_exp = prove(``
   ∀ls.
   (∀x. MEM x ls ⇒ every_var_exp P x) ⇒
@@ -286,8 +304,7 @@ val pull_exp_every_var_exp = prove(``
     match_mp_tac pull_ops_every_var_exp>>srw_tac[][]>>
     metis_tac[MEM_MAP])
 
-(*First step: Make op expressions have exactly 2 args*)
-(*Semantics*)
+(* flatten_exp correctness *)
 val flatten_exp_ok = prove(``
   ∀exp s x.
   word_exp s exp = SOME x ⇒
@@ -332,7 +349,7 @@ val binary_branch_exp_def = tDefine "binary_branch_exp" `
    \\ full_simp_tac(srw_ss())[exp_size_def]
    \\ TRY (DECIDE_TAC))
 
-(*Syntax*)
+(* flatten_exp syntax *)
 val flatten_exp_binary_branch_exp = prove(``
   ∀exp.
   binary_branch_exp (flatten_exp exp)``,
@@ -344,7 +361,9 @@ val flatten_exp_every_var_exp = prove(``
   every_var_exp P (flatten_exp exp)``,
   ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP])
 
-(*2nd step: Convert expressions to insts*)
+(* inst_select correctness
+  Main difficulty: Dealing with multiple choice of optimizations, depending on whether we are allowed to use them w.r.t. to the asm configuration
+*)
 val inst_select_exp_thm = prove(``
   ∀c tar temp exp s w loc.
   binary_branch_exp exp ∧
@@ -777,38 +796,14 @@ val inst_select_thm = store_thm("inst_select_thm",``
       >>
         full_simp_tac(srw_ss())[state_component_equality])
 
-(*No expressions occur except in Set, where it must be a Var expr*)
-val flat_exp_conventions_def = Define`
-  (*These should be converted to Insts*)
-  (flat_exp_conventions (Assign v exp) = F) ∧
-  (flat_exp_conventions (Store exp num) = F) ∧
-  (*The only place where top level (expression) vars are allowed*)
-  (flat_exp_conventions (Set store_name (Var r)) = T) ∧
-  (flat_exp_conventions (Set store_name _) = F) ∧
-  (flat_exp_conventions (Seq p1 p2) =
-    (flat_exp_conventions p1 ∧ flat_exp_conventions p2)) ∧
-  (flat_exp_conventions (If cmp r1 ri e2 e3) =
-    (flat_exp_conventions e2 ∧
-    flat_exp_conventions e3)) ∧
-  (flat_exp_conventions (MustTerminate n p) =
-    flat_exp_conventions p) ∧
-  (flat_exp_conventions (Call ret dest args h) =
-    ((case ret of
-      NONE => T
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-        flat_exp_conventions ret_handler) ∧
-    (case h of
-      NONE => T
-    | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
-  (flat_exp_conventions _ = T)`
-
+(* inst_select syntax *)
 val inst_select_exp_flat_exp_conventions = prove(``
   ∀c tar temp exp.
   flat_exp_conventions (inst_select_exp c tar temp exp)``,
   ho_match_mp_tac inst_select_exp_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM])
 
-val inst_select_flat_exp_conventions = prove(``
+val inst_select_flat_exp_conventions = store_thm("inst_select_flat_exp_conventions",``
   ∀c temp prog.
   flat_exp_conventions (inst_select c temp prog)``,
   ho_match_mp_tac inst_select_ind >>srw_tac[][]>>
@@ -818,43 +813,27 @@ val inst_select_flat_exp_conventions = prove(``
   metis_tac[inst_select_exp_flat_exp_conventions])
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
-(*Note: We carry the assumption that 0 addr offsets are allowed by the config*)
-(*Note: Need to do more for Ifs*)
-val inst_ok_less_def = Define`
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
-    c.valid_imm (INL b) w) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
-    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Mem m r (Addr r' w)) =
-    addr_offset_ok w c) ∧
-  (inst_ok_less _ _ = T)`
-
-val inst_select_exp_inst_ok_less = prove(``
+val inst_select_exp_full_inst_ok_less = prove(``
   ∀c tar temp exp.
   addr_offset_ok 0w c ⇒
-  every_inst (inst_ok_less c) (inst_select_exp c tar temp exp)``,
-  ho_match_mp_tac inst_select_exp_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[inst_select_exp_def,every_inst_def,LET_THM,inst_ok_less_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[every_inst_def,inst_ok_less_def,inst_select_exp_def,LET_THM] )
+  full_inst_ok_less c (inst_select_exp c tar temp exp)``,
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
+  fs[inst_select_exp_def,LET_THM,inst_ok_less_def,full_inst_ok_less_def]>>
+  every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM])
 
-val inst_select_inst_ok_less = prove(``
+val inst_select_full_inst_ok_less = store_thm("inst_select_full_inst_ok_less",``
   ∀c temp prog.
   addr_offset_ok 0w c ∧
-  every_inst (inst_ok_less c) prog
+  every_inst (λi. F) prog
   ⇒
-  every_inst (inst_ok_less c) (inst_select c temp prog)``,
-  ho_match_mp_tac inst_select_ind>>srw_tac[][inst_select_def,every_inst_def]>>
-  full_simp_tac(srw_ss())[LET_THM]>>unabbrev_all_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_inst_def,inst_ok_less_def]>>
-  metis_tac[inst_select_exp_inst_ok_less])
+  full_inst_ok_less c (inst_select c temp prog)``,
+  ho_match_mp_tac inst_select_ind>>
+  rw[inst_select_def,full_inst_ok_less_def,every_inst_def]>>
+  EVERY_CASE_TAC>>
+  fs[inst_select_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def]>>
+  metis_tac[inst_select_exp_full_inst_ok_less])
 
-(*3rd step: 3 to 2 reg if necessary*)
-
-(*Instructions are 2 register code for arith ok*)
-val two_reg_inst_def = Define`
-  (two_reg_inst (Arith (Binop bop r1 r2 ri))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst (Arith (Shift l r1 r2 n))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst _ ⇔ T)`
+(* three_to_two_reg semantics *)
 
 (*Semantics preservation*)
 val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
@@ -900,7 +879,7 @@ val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
       res_tac>>full_simp_tac(srw_ss())[]>>
       rev_full_simp_tac(srw_ss())[])
 
-(*Syntactic correctness*)
+(* Syntactic three_to_two_reg *)
 val three_to_two_reg_two_reg_inst = store_thm("three_to_two_reg_two_reg_inst",``
   ∀prog. every_inst two_reg_inst (three_to_two_reg prog)``,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -913,7 +892,7 @@ val three_to_two_reg_wf_cutsets = store_thm("three_to_two_reg_wf_cutsets",
 val three_to_two_reg_pre_alloc_conventions = store_thm("three_to_two_reg_pre_alloc_conventions",
   ``∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)``,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,three_to_two_reg_def,LET_THM]>>
+  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>
@@ -924,161 +903,14 @@ val three_to_two_reg_flat_exp_conventions = store_thm("three_to_two_reg_flat_exp
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
 
-val three_to_two_reg_inst_ok_less = store_thm("three_to_two_reg_inst_ok_less",
-  ``∀prog. every_inst (inst_ok_less c) prog ⇒
-  every_inst (inst_ok_less c) (three_to_two_reg prog)``,
+val three_to_two_reg_full_inst_ok_less = store_thm("three_to_two_reg_full_inst_ok_less",
+  ``∀prog. full_inst_ok_less c prog ⇒
+  full_inst_ok_less c (three_to_two_reg prog)``,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[every_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
+  full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
   >-
-    (Cases_on`bop`>>Cases_on`ri`>>fs[inst_ok_less_def])
+    (Cases_on`bop`>>Cases_on`ri`>>fs[full_inst_ok_less_def,inst_ok_less_def,every_inst_def])
   >>
     Cases_on`n`>>fs[inst_ok_less_def])
-(*word_alloc preserves syntactic conventions*)
-val word_alloc_two_reg_inst_lem = prove(``
-  ∀f prog.
-  every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (apply_colour f prog)``,
-  ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[every_inst_def]>>srw_tac[][]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
-    full_simp_tac(srw_ss())[apply_colour_inst_def,two_reg_inst_def])
-  >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def])
-
-val word_alloc_two_reg_inst = store_thm("word_alloc_two_reg_inst",``
-  ∀alg k prog col_opt.
-  every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (word_alloc alg k prog col_opt)``,
-  full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
-  srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[word_alloc_two_reg_inst_lem])
-
-val word_alloc_flat_exp_conventions_lem = prove(``
-  ∀f prog.
-  flat_exp_conventions prog ⇒
-  flat_exp_conventions (apply_colour f prog)``,
-  ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>srw_tac[][]
-  >-
-    (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
-  >>
-    Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
-
-val word_alloc_flat_exp_conventions = store_thm("word_alloc_flat_exp_conventions",``
-  ∀alg k prog col_opt.
-  flat_exp_conventions prog ⇒
-  flat_exp_conventions (word_alloc alg k prog col_opt)``,
-  full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
-  srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[word_alloc_flat_exp_conventions_lem])
-
-val word_alloc_inst_ok_less_lem = prove(``
-  ∀f prog c.
-  every_inst (inst_ok_less c) prog ⇒
-  every_inst (inst_ok_less c) (apply_colour f prog)``,
-  ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[every_inst_def]>>srw_tac[][]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    full_simp_tac(srw_ss())[apply_colour_inst_def,inst_ok_less_def])
-  >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def])
-
-val word_alloc_inst_ok_less = store_thm("word_alloc_inst_ok_less",``
-  ∀alg k prog col_opt c.
-  every_inst (inst_ok_less c) prog ⇒
-  every_inst (inst_ok_less c) (word_alloc alg k prog col_opt)``,
-  full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
-  srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[word_alloc_inst_ok_less_lem])
-
-(*ssa preserves all syntactic conventions
-  Note: only flat_exp and inst_ok_less are needed since 3-to-2 reg comes after SSA (if required)
-  SLOW PROOF
-*)
-val fake_moves_conventions = prove(``
-  ∀ls ssal ssar na l r a b c conf.
-  fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒
-  flat_exp_conventions l ∧
-  flat_exp_conventions r ∧
-  every_inst (inst_ok_less conf) l ∧
-  every_inst (inst_ok_less conf) r ∧
-  every_inst distinct_tar_reg l ∧
-  every_inst distinct_tar_reg r``,
-  Induct>>full_simp_tac(srw_ss())[fake_moves_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[flat_exp_conventions_def,every_inst_def]>>
-  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> full_simp_tac(srw_ss())[LET_THM]>>
-  unabbrev_all_tac>>
-  metis_tac[flat_exp_conventions_def,fake_move_def,inst_ok_less_def,every_inst_def,distinct_tar_reg_def])
-
-(*ssa generates distinct regs and also preserves flattening*)
-val ssa_cc_trans_flat_exp_conventions = prove(``
-  ∀prog ssa na.
-  flat_exp_conventions prog ⇒
-  flat_exp_conventions (FST (ssa_cc_trans prog ssa na))``,
-  ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
-  unabbrev_all_tac>>
-  full_simp_tac(srw_ss())[flat_exp_conventions_def]
-  >-
-    (pop_assum mp_tac>>full_simp_tac(srw_ss())[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
-    metis_tac[fake_moves_conventions,flat_exp_conventions_def])
-  >-
-    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
-    LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
-  >-
-    (Cases_on`exp`>>full_simp_tac(srw_ss())[ssa_cc_trans_exp_def,flat_exp_conventions_def])
-  >-
-    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
-    LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
-  >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def]
-    >-
-      (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
-      LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
-    >>
-      LET_ELIM_TAC>>unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[list_next_var_rename_move_def,flat_exp_conventions_def]>>
-      full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
-      rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-      metis_tac[fake_moves_conventions,flat_exp_conventions_def])
-
-val full_ssa_cc_trans_flat_exp_conventions = store_thm("full_ssa_cc_trans_flat_exp_conventions",``
-  ∀prog n.
-  flat_exp_conventions prog ⇒
-  flat_exp_conventions (full_ssa_cc_trans n prog)``,
-  full_simp_tac(srw_ss())[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
-  LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
-  metis_tac[ssa_cc_trans_flat_exp_conventions,FST])
-
-val ssa_cc_trans_inst_ok_less = prove(``
-  ∀prog ssa na c.
-  every_inst (inst_ok_less c) prog ⇒
-  every_inst (inst_ok_less c) (FST (ssa_cc_trans prog ssa na))``,
-  ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
-  unabbrev_all_tac>>
-  full_simp_tac(srw_ss())[every_inst_def]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
-    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def])
-  >-
-    (pop_assum mp_tac>>full_simp_tac(srw_ss())[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>
-    full_simp_tac(srw_ss())[every_inst_def,EQ_SYM_EQ]>>
-    metis_tac[fake_moves_conventions])
-  >>TRY
-    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
-    LET_ELIM_TAC>>full_simp_tac(srw_ss())[every_inst_def,EQ_SYM_EQ])
-  >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]>>
-    LET_ELIM_TAC>>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]>>
-    full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
-    rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-    metis_tac[fake_moves_conventions,every_inst_def])
-
-val full_ssa_cc_trans_inst_ok_less = store_thm("full_ssa_cc_trans_inst_ok_less",``
-  ∀prog n c.
-  every_inst (inst_ok_less c) prog ⇒
-  every_inst (inst_ok_less c) (full_ssa_cc_trans n prog)``,
-  full_simp_tac(srw_ss())[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
-  LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def,EQ_SYM_EQ]>>
-  metis_tac[ssa_cc_trans_inst_ok_less,FST])
 
 val _ = export_theory ();

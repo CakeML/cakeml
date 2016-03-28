@@ -55,8 +55,11 @@ val _ = Datatype `
        | LocValue num num num    (* assign v1 := Loc v2 v3 *)
        | FFI num num num num_set (*FFI index, array_ptr, array_len, cut-set*) `;
 
-(* Defines some convenient recursors for defining the conventions
-   Also used to compute *)
+(* wordLang uses syntactic invariants compared to stackLang that uses semantic flags
+   Some of these are also used to EVAL (e.g. for the oracle)
+*)
+
+(* Recursors for variables *)
 val every_var_exp_def = tDefine "every_var_exp" `
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
@@ -145,7 +148,7 @@ val every_stack_var_def = Define `
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
   (every_stack_var P p = T)`
 
-(*Moved from wordSem*)
+(*Moved from wordSem, because we use them to simplify constant expressions in word_inst*)
 val num_exp_def = Define `
   (num_exp (Nat n) = n) /\
   (num_exp (Add x y) = num_exp x + num_exp y) /\
