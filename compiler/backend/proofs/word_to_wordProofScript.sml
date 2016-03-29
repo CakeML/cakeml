@@ -548,6 +548,7 @@ val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FOR
 
 (* syntax going into stackLang *)
 val compile_conventions = store_thm("compile_to_word_conventions",``
+  addr_offset_ok 0w ac ∧ EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ⇒
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY (λ(n,m,prog).
@@ -556,17 +557,19 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     full_inst_ok_less ac prog ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs``,
   fs[compile_def]>>pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>rveq>>rw[]
+  pairarg_tac>>fs[]>>rveq>>rw[]>>
+  `LENGTH n_oracles = LENGTH p` by
+    (fs[next_n_oracle_def]>>metis_tac[LENGTH_GENLIST])
   >-
     (match_mp_tac LIST_EQ>>
-    fs[next_n_oracle_def,EL_MAP,full_compile_single_def]>>
+    fs[EL_MAP,full_compile_single_def]>>
     rw[]>>
     qpat_abbrev_tac`q = EL x A`>>
     fs[markerTheory.Abbrev_def]>>PairCases_on`q`>>
     pop_assum (assume_tac o SYM)>>
     fs[compile_single_def]>>
     pop_assum mp_tac>>
-    fs[EL_MAP,EL_ZIP,LENGTH_GENLIST])>>
+    fs[EL_MAP,EL_ZIP])>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
   CONJ_TAC>-
@@ -588,8 +591,8 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
     match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
-    (*These need to be assumed, and part of it proved for bvp_to_word*)
-    cheat)>>
+    match_mp_tac inst_select_full_inst_ok_less>>
+    metis_tac[EL_MEM])>>
   rw[]>>
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
