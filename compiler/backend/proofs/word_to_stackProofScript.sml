@@ -571,9 +571,9 @@ val evaluate_SeqStackFree = prove(
   \\ fs [stackSemTheory.state_component_equality]);
 
 val convs_def = LIST_CONJ
-  [word_allocTheory.post_alloc_conventions_def,
-   word_allocTheory.call_arg_convention_def,
-   word_instProofTheory.flat_exp_conventions_def,
+  [wordPropsTheory.post_alloc_conventions_def,
+   wordPropsTheory.call_arg_convention_def,
+   wordPropsTheory.flat_exp_conventions_def,
    wordLangTheory.every_var_def,
    wordLangTheory.every_var_imm_def,
    wordLangTheory.every_stack_var_def,
@@ -5606,7 +5606,7 @@ val comp_correct = Q.store_thm("comp_correct",
             ntac 3 strip_tac>>
             imp_res_tac (GSYM domain_lookup)>>
             imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-            fsrw_tac[][word_allocTheory.post_alloc_conventions_def,word_allocTheory.call_arg_convention_def]>>
+            fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
             `lookup n s.locals = SOME v` by
               (qpat_assum`args=A` SUBST_ALL_TAC>>
               imp_res_tac get_vars_fromList2_eq>>
@@ -5889,7 +5889,7 @@ val comp_correct = Q.store_thm("comp_correct",
         rpt(qpat_assum`!a b c. A ⇒ B` kall_tac)>>
         imp_res_tac (GSYM domain_lookup)>>
         imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-        fsrw_tac[][word_allocTheory.post_alloc_conventions_def,word_allocTheory.call_arg_convention_def]>>
+        fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
         `isPREFIX q (Loc x3 x4::x)` by
            (qpat_assum`A=SOME(q,r)` mp_tac>>
            Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
@@ -6280,7 +6280,7 @@ val comp_correct = Q.store_thm("comp_correct",
       rpt(qpat_assum`!a b c. A ⇒ B` kall_tac)>>
       imp_res_tac (GSYM domain_lookup)>>
       imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-      fsrw_tac[][word_allocTheory.post_alloc_conventions_def,word_allocTheory.call_arg_convention_def]>>
+      fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
       `isPREFIX q (Loc x3 x4::x)` by
          (qpat_assum`A=SOME(q,r)` mp_tac>>
          Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
