@@ -78,7 +78,7 @@ val prog_comp_lemma = prove(
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
 val lookup_IMP_lookup_compile = prove(
-  ``lookup dest s.code = SOME x /\ 30 <= dest ==>
+  ``lookup dest s.code = SOME x /\ dest ≠ 10 ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
             SOME (FST (comp m1 n1 x))``,
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
@@ -1628,7 +1628,7 @@ val find_code_regs_SUBMAP = Q.store_thm("find_code_regs_SUBMAP",
 val comp_correct = Q.store_thm("comp_correct",
   `!p (s:('a,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
-     (!k prog. lookup k s.code = SOME prog ==> 30 <= k /\ good_syntax prog) /\
+     (!k prog. lookup k s.code = SOME prog ==> k ≠ 10 /\ good_syntax prog) /\
      s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
      s.regs SUBMAP regs ==>
