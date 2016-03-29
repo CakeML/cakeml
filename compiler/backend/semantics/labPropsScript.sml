@@ -1,4 +1,5 @@
-open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory;
+open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
+     semanticsPropsTheory;
 
 val _ = new_theory"labProps";
 
@@ -312,5 +313,13 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
   (fn g => (subterm split_uncurry_arg_tac (#2 g) g)) >>
   simp[] >> fs[call_FFI_def]);
+
+val align_dm_def = Define `
+  align_dm (s:('a,'ffi) labSem$state) =
+    (s with mem_domain := s.mem_domain INTER byte_aligned)`
+
+val implements_align_dm = store_thm("implements_align_dm",
+  ``implements {semantics s} {semantics (align_dm s)}``,
+  cheat);
 
 val _ = export_theory();
