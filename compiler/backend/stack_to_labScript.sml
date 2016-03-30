@@ -96,14 +96,13 @@ val prog_to_section_def = Define `
 
 val _ = Datatype`config =
   <| reg_names : num num_map
-   ; stack_ptr : num
    ; max_heap : num
    |>`;
 
 val compile_def = Define `
-  compile c c2 c3 prog =
+  compile c c2 c3 sp prog =
     let prog = stack_alloc$compile c2 prog in
-    let prog = stack_remove$compile c.max_heap c3.bitmaps c.stack_ptr InitGlobals_location prog in
+    let prog = stack_remove$compile c.max_heap c3.bitmaps sp InitGlobals_location prog in
     let prog = stack_names$compile c.reg_names prog in
       MAP prog_to_section prog`;
 
