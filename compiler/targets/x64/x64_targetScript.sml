@@ -161,7 +161,7 @@ val x64_cmp_dec_def = Define`
 val fetch_decode_def = Define`
    fetch_decode l =
    case x64_decode (TAKE 20 l) of
-      Zfull_inst (_, i, r) => (i, r ++ DROP 20 l)
+      Zfull_inst (_, i, SOME r) => (i, r ++ DROP 20 l)
     | _ => ARB`
 
 val x64_dec_def = Define`

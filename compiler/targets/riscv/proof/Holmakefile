@@ -1,0 +1,6 @@
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = ../ ../../asm
+
+ifdef POLY
+HOLHEAP = $(HOLDIR)/examples/l3-machine-code/riscv/prog/riscv-step-heap
+endif
