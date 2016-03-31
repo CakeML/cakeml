@@ -461,7 +461,22 @@ val stack_alloc_syntax = prove(
        (MAP SND (compile c.bvp_conf prog1))``,
   fs[stack_allocTheory.compile_def]>>
   EVAL_TAC>>fs[]>>
-  cheat);
+  qid_spec_tac`prog1`>>Induct>>
+  fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
+  ntac 3 strip_tac>>fs[]>>
+  qpat_abbrev_tac`l = next_lab A` >> pop_assum kall_tac>>
+  qpat_assum`good_syntax p_2 2 1 0` mp_tac>>
+  qpat_assum`good_syntax p_2 sp` mp_tac>>
+  qpat_assum`10 ≤ sp` mp_tac>>
+  rpt (pop_assum kall_tac)>>
+  map_every qid_spec_tac [`p_2`,`l`,`p_1`]>>
+  ho_match_mp_tac stack_allocTheory.comp_ind>>
+  Cases_on`p_2`>>rw[]>>
+  simp[Once stack_allocTheory.comp_def]>>fs convs>>
+  TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
+    Cases_on`o'`>>TRY(PairCases_on`x`)>>fs convs>>
+    BasicProvers.EVERY_CASE_TAC)>>
+  rpt(pairarg_tac>>fs convs));
 
 val word_to_stack_compile_imp = prove(
   ``word_to_stack$compile c p = (c2,prog1) ==>
@@ -516,7 +531,30 @@ val stack_remove_syntax_pres = prove(
   ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
     EVERY (λp. good_syntax p 2 1 0) (MAP SND prog2) ==>
     EVERY (λp. good_syntax p 2 1 0) (MAP SND prog3)``,
-  cheat);
+  rw[]>>
+  unabbrev_all_tac>>fs[]>>
+  EVAL_TAC>>
+  IF_CASES_TAC>>EVAL_TAC>>
+  pop_assum kall_tac>>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,stack_removeTheory.prog_comp_def]>>
+  TRY(CONJ_TAC>-
+    (Induct_on`bitmaps`>>fs[stack_removeTheory.store_list_code_def]>>
+    EVAL_TAC>>fs[]))>>
+  (rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
+  map_every qid_spec_tac[`p_2`,`k`]>>
+  ho_match_mp_tac stack_removeTheory.comp_ind>>
+  Cases_on`p_2`>>rw[]>>
+  ONCE_REWRITE_TAC [stack_removeTheory.comp_def]>>
+  fs convs>>
+  TRY(IF_CASES_TAC>>fs convs)
+  >-
+    (BasicProvers.EVERY_CASE_TAC>>fs[])
+  >-
+    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def]>>
+    rpt (IF_CASES_TAC>>fs convs)>>
+    first_assum match_mp_tac>>
+    EVAL_TAC>>fs[])
+  >- EVAL_TAC));
 
 val stack_names_syntax_pres = prove(
   ``Abbrev (prog4 = stack_names$compile f prog3) /\
@@ -524,7 +562,16 @@ val stack_names_syntax_pres = prove(
     EVERY (λp. good_syntax p (find_name f 2)
                              (find_name f 1)
                              (find_name f 0)) (MAP SND prog4)``,
-  cheat);
+  rw[]>>
+  unabbrev_all_tac>>fs[stack_namesTheory.compile_def]>>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,stack_namesTheory.prog_comp_def]>>
+  rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
+  map_every qid_spec_tac[`p_2`,`f`]>>
+  ho_match_mp_tac stack_namesTheory.comp_ind>>
+  Cases_on`p_2`>>rw[]>>
+  ONCE_REWRITE_TAC [stack_namesTheory.comp_def]>>
+  fs convs>>
+  BasicProvers.EVERY_CASE_TAC>>fs[]);
 
 val MEM_pair_IMP = prove(
   ``!xs. MEM (x,y) xs ==> MEM x (MAP FST xs) /\ MEM y (MAP SND xs)``,
