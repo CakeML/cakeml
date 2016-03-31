@@ -14,6 +14,7 @@ open preamble initSemEnvTheory semanticsPropsTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
 local open compilerComputeLib bvpPropsTheory in end
+open word_to_stackTheory
 
 val _ = new_theory"backendProof";
 
@@ -229,61 +230,158 @@ val sa_gs_def = stack_allocProofTheory.good_syntax_def
 val sl_gs_def = stack_to_labProofTheory.good_syntax_def
 val convs = [sr_gs_def,sa_gs_def,sl_gs_def,wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
 
-open word_to_stackTheory
+val stack_move_sa_gs = prove(``
+  ∀n st off i p.
+  good_syntax p ⇒
+  good_syntax (stack_move n st off i p)``,
+  Induct>>rw[stack_move_def,sa_gs_def])
 
 val word_to_stack_sa_gs = prove(``
   ∀p n args.
   good_syntax (FST(word_to_stack$comp p n args))``,
-  ho_match_mp_tac comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
-  >- cheat (*wMove*)
-  >- cheat (*wInst*)
+  recInduct comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
+  >-
+    (fs[wMove_def]>>qpat_abbrev_tac`ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,sa_gs_def]>>
+    Cases_on`ls`>>fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs convs)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,sa_gs_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sa_gs_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs[sa_gs_def])
   >- (rpt (pairarg_tac>>fs[sa_gs_def])>>
   Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,sa_gs_def])
   >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sa_gs_def,wStackLoad_def])
-  >- cheat (*Call*)
-  >- (rpt(pairarg_tac>>fs[sa_gs_def])>>rveq>>fs[sa_gs_def]))
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs convs>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,sa_gs_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs convs>>
+    rpt(pairarg_tac>>fs[StackArgs_def,sa_gs_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs convs>>
+    match_mp_tac stack_move_sa_gs>>fs convs))
+  >>
+    rpt(pairarg_tac>>fs[sa_gs_def])>>rveq>>fs[sa_gs_def]);
+
+val stack_move_sr_gs = prove(``
+  ∀n st off i p k.
+  i < k ∧
+  good_syntax p k ⇒
+  good_syntax (stack_move n st off i p) k``,
+  Induct>>rw[stack_move_def,sr_gs_def])
 
 val word_to_stack_sr_gs = prove(``
   ∀p n args.
   post_alloc_conventions (FST args) p ∧
   1 ≤ FST args ⇒
   good_syntax (FST(word_to_stack$comp p n args)) (FST args+2)``,
-  ho_match_mp_tac comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>> fs convs
-  >- cheat
-  >- cheat
+  recInduct comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>> fs convs
+  >-
+    (fs[wMove_def]>>
+    qpat_abbrev_tac`ls = parmove A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,sr_gs_def]>>
+    Cases_on`ls`>>
+    fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    Cases_on`p_1''`>>Cases_on`p_2'`>>fs[format_var_def]>>
+    BasicProvers.EVERY_CASE_TAC>>fs convs)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,sr_gs_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sr_gs_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs convs)
   >- (rpt (pairarg_tac>>fs convs)>>
   Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,sr_gs_def])
-  >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sr_gs_def,wStackLoad_def]>>
-  (*TODO: Make the compiler check name ≠ BitmapBase more explicitly...*)
-  cheat)
-  >- cheat
+  >-
+    (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[sr_gs_def,wStackLoad_def]>>
+    (*TODO: Make the compiler check name ≠ BitmapBase more explicitly or
+      delete this syntactic check using semantics?*)
+    cheat)
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs convs)>>
+    fs[wStackLoad_def,sr_gs_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs convs)>>
+    Cases_on`handler`>>TRY(PairCases_on`x`)>>TRY(PairCases_on`x'`)>>
+    fs convs>>
+    rpt(pairarg_tac>>fs[StackArgs_def,sa_gs_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs convs>>
+    match_mp_tac stack_move_sr_gs>>fs convs))
   >- (rpt(pairarg_tac>>fs[sr_gs_def])>>rveq>>fs[sr_gs_def]))
+
+val stack_move_sl_gs = prove(``
+  ∀n st off i p.
+  good_syntax p 2 1 0 ⇒
+  good_syntax (stack_move n st off i p) 2 1 0``,
+  Induct>>rw[stack_move_def,sl_gs_def])
 
 val word_to_stack_sl_gs = prove(``
   ∀p n args.
   post_alloc_conventions (FST args) p ⇒
   good_syntax (FST(word_to_stack$comp p n args)) 2 1 0``,
   ho_match_mp_tac comp_ind >>fs[comp_def,sl_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
-  >- cheat
-  >- cheat
+  >-
+    (fs[wMove_def]>>
+    qpat_abbrev_tac`ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,sl_gs_def]>>
+    Cases_on`ls`>>
+    fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs convs)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,sl_gs_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sl_gs_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs convs)
   >- (rpt (pairarg_tac>>fs convs)>>
   Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,sl_gs_def])
   >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sl_gs_def,wStackLoad_def])
-  >- cheat
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs convs)>>
+    fs[wStackLoad_def,sl_gs_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs convs)>>
+    Cases_on`handler`>>TRY(PairCases_on`x`)>>TRY(PairCases_on`x'`)>>
+    fs convs>>
+    rpt(pairarg_tac>>fs[StackArgs_def,sl_gs_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs convs>>
+    match_mp_tac stack_move_sl_gs>>fs convs))
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def])
-  (*the conventions for FFI is flipped... or should the check be 1 2 0 instead?*)
+  (*TODO: the conventions for ptr and len in FFI are flipped...
+    or should the check be 1 2 0 instead?*)
   >- cheat
-  >- cheat)
+  >- cheat);
 
 val bvp_to_word_compile_imp = prove(
   ``
-    (LENGTH mc_conf.target.config.avoid_regs + 3) < mc_conf.target.config.reg_count ∧
+    (LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
         (MAP (compile_part c.bvp_conf) prog) = (col,p) ==>
     code_rel c.bvp_conf (fromAList prog)
@@ -322,7 +420,36 @@ val bvp_to_word_compile_imp = prove(
   rw[]>>fs[word_to_stackTheory.compile_def]>>pairarg_tac>>fs[]>>rveq>>
   fs[word_to_stackTheory.raise_stub_def,sr_gs_def,sa_gs_def,sl_gs_def]>>
   fs[word_to_stackTheory.compile_word_to_stack_def]>>
-  cheat);
+  qabbrev_tac`b=[4w]`>>pop_assum kall_tac>>
+  qpat_assum`A=(col,p)` kall_tac>>
+  rpt (pop_assum mp_tac)>>
+  map_every qid_spec_tac [`progs`,`bitmaps`,`p`,`b`]>>
+  Induct_on`p`>>
+  fs[compile_word_to_stack_def,FORALL_PROD]>>rw[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  rveq>>fs[]>>
+  (reverse CONJ_TAC>-metis_tac[])>>
+  qpat_assum`A=(prog,bitmaps')` mp_tac>>
+  FULL_SIMP_TAC std_ss [compile_prog_def,LET_THM]>>
+  qpat_abbrev_tac`m = MAX A B`>>
+  pairarg_tac>>fs[]>>strip_tac>>
+  rveq>>fs[]>>
+  pop_assum (assume_tac o SYM o Q.AP_TERM`FST`)>>fs convs
+  >-
+    (match_mp_tac word_to_stack_sl_gs>>fs convs)
+  >-
+    metis_tac[word_to_stack_sa_gs]
+  >>
+    qpat_abbrev_tac`rc = A - B:num`>>
+    qpat_abbrev_tac`rc2 = A - B:num`>>
+    qpat_abbrev_tac`arg = (A,B,C)`>>
+    `rc2 = FST arg + 2` by
+      (unabbrev_all_tac>>fs[])>>
+    simp[]>>
+    match_mp_tac word_to_stack_sr_gs>>
+    fs convs>>
+    unabbrev_all_tac>>fs[]);
 
 val stack_alloc_syntax = prove(
   ``10 ≤ sp ∧
