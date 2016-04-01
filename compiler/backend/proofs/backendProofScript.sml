@@ -32,30 +32,19 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
 
 (* --- composing bvp-to-target --- *)
 
-val implements_intro_final = prove(
-  ``(b /\ x <> Fail ==> y = {x}) ==> b ==> implements y {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
-
 val from_stack = let
-  val lemma1 = lab_to_targetProofTheory.semantics_compile
-    |> REWRITE_RULE [CONJ_ASSOC]
-    |> MATCH_MP implements_intro_final
-    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+  val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
   val lemma2 = stack_to_labProofTheory.full_make_init_semantics |> UNDISCH
     |> Q.INST [`code`|->`code1`]
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1 end
 
 val from_stack_fail = let
-  val lemma1 = lab_to_targetProofTheory.semantics_compile
-    |> REWRITE_RULE [CONJ_ASSOC]
-    |> MATCH_MP implements_intro_final
-    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+  val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
   val lemma2 = stack_to_labProofTheory.full_make_init_semantics_fail |> UNDISCH
     |> Q.INST [`code`|->`code1`]
-  val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t m ms code2).ffi``
+  val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code2).ffi``
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
      |> REWRITE_RULE [th] end
 
@@ -70,7 +59,7 @@ val from_word = let
 val full_make_init_ffi = prove(
   ``(full_make_init
          (bitmaps,c1,code,f,k,max_heap,regs,
-          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs)).ffi = ffi``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
@@ -136,7 +125,8 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
            |> INST_TYPE [``:'a``|->``:'ffi``,
                          ``:'b``|->``:'a``,
                          ``:'c``|->``:'b``,
-                         ``:'d``|->``:'c``]
+                         ``:'d``|->``:'c``,
+                         ``:'state``|->``:'b``]
            |> MATCH_MP lemma2
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
@@ -161,11 +151,11 @@ val full_make_init_gc_fun = prove(
 val full_make_init_bitmaps = prove(
   ``full_init_pre
          (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
-          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs) ==>
     (full_make_init
          (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
-          make_init mc_conf ffi save_regs io_regs t m ms code2,
+          make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs)).bitmaps = bitmaps``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_bitmaps]
@@ -598,13 +588,90 @@ val BIJ_FLOOKUP_MAPKEYS = prove(
   \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
   \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
-(* Broken *)
+val word_list_exists_imp = prove(
+  ``dm = addresses a n /\
+    dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
+    word_list_exists a n (fun2set (m1,dm:'a word set))``,
+  metis_tac [stack_removeProofTheory.word_list_exists_addresses]);
+
+val addresses_thm = store_thm("addresses_thm",
+  ``!n a. addresses a n = { a + n2w i * bytes_in_word | i < n }``,
+  Induct \\ fs [stack_removeProofTheory.addresses_def]
+  \\ rw [EXTENSION] \\ eq_tac \\ rw []
+  THEN1 (qexists_tac `0` \\ fs [])
+  THEN1 (qexists_tac `SUC i` \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
+  \\ Cases_on `i` \\ fs []
+  \\ disj2_tac \\ fs []
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+
+val IMP_MULT_DIV_LESS = prove(
+  ``m <> 0 /\ d < k ==> m * (d DIV m) < k``,
+  strip_tac \\ `0 < m` by decide_tac
+  \\ drule DIVISION
+  \\ disch_then (qspec_then `d` assume_tac)
+  \\ decide_tac);
+
+val WORD_LS_IMP = prove(
+  ``a <=+ b ==>
+    ?k. Abbrev (b = a + n2w k) /\
+        w2n (b - a) = k /\
+        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)``,
+  Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
+  \\ fs [markerTheory.Abbrev_def]
+  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs [] \\ rw [] THEN1
+   (rewrite_tac [GSYM word_sub_def]
+    \\ once_rewrite_tac [WORD_ADD_COMM]
+    \\ rewrite_tac [WORD_ADD_SUB])
+  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ qcase_tac `k < m:num` \\ qexists_tac `k - n` \\ fs [])
+
+val byte_aligned_mult = prove(
+  ``good_dimindex (:'a) ==>
+    byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)``,
+  fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
+  \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
+        bvp_to_wordPropsTheory.aligned_add_pow]);
+
+val DIV_LESS_DIV = prove(
+  ``n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k``,
+  strip_tac
+  \\ drule DIVISION \\ disch_then (qspec_then `n` (strip_assume_tac o GSYM))
+  \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
+  \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]);
+
+val MOD_SUB_LEMMA = prove(
+  ``n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0``,
+  Cases_on `m <= n` \\ fs []
+  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
+  \\ qpat_assum `(m + _) MOD k = 0` mp_tac
+  \\ drule MOD_PLUS
+  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
+
+val LESS_MULT_LEMMA = prove(
+  ``n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num``,
+  Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
+  \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
+  \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
+  \\ fs [])
+
 local
 val lemma = prove(
   ``(from_bvp c prog = SOME (bytes,ffi_limit) /\
      EVERY (\n. 30 <= n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+     byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
+     byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
+     t.regs (find_name c.stack_conf.reg_names 2) <=+
+     t.regs (find_name c.stack_conf.reg_names 4) /\
+     Abbrev (dm = { w | t.regs (find_name c.stack_conf.reg_names 2) <=+ w /\
+                        w <+ t.regs (find_name c.stack_conf.reg_names 4) }) /\
      good_init_state mc_conf (t:'a asm_state)
-       m ms ffi ffi_limit bytes io_regs save_regs) /\
+       m ms ffi ffi_limit bytes io_regs save_regs dm) /\
     (bvp_to_wordProof$conf_ok (:α) c.bvp_conf /\
     c.lab_conf.encoder = mc_conf.target.encode /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
@@ -662,11 +729,37 @@ val lemma = prove(
   \\ fs [full_init_pre_def |> SIMP_RULE (std_ss++CONJ_ss) [],full_init_pre_fail_def]
   \\ GEN_EXISTS_TAC "k" `c.stack_conf.stack_ptr` \\ fs []
   \\ GEN_EXISTS_TAC "f" `c.stack_conf.reg_names` \\ fs []
+  \\ `∀a. byte_align a ∈ dm ⇒ a ∈ dm` by
+   (qunabbrev_tac `dm` \\ fs [] \\ rfs []
+    \\ Cases_on `t.regs mc_conf.len_reg`
+    \\ Cases_on `t.regs (find_name c.stack_conf.reg_names 4)` \\ Cases
+    \\ fs [alignmentTheory.byte_align_def,alignmentTheory.byte_aligned_def]
+    \\ fs [alignmentTheory.align_w2n,WORD_LO,WORD_LS]
+    \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
+         (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC) \\ fs []
+    \\ fs [stack_removeProofTheory.aligned_w2n]
+    \\ qcase_tac `l:num < _`
+    \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
+    \\ `(l DIV (dimindex (:α) DIV 8) * (dimindex (:α) DIV 8)) < dimword (:α)` by
+     (drule DIVISION
+      \\ disch_then (qspec_then `l` (strip_assume_tac o GSYM)) \\ rfs []) \\ fs []
+    \\ strip_tac
+    \\ drule DIVISION
+    \\ disch_then (qspec_then `l` (strip_assume_tac o GSYM)) \\ rfs []
+    \\ qpat_assum `_ = _` (fn th => once_rewrite_tac [GSYM th])
+    \\ drule DIVISION
+    \\ disch_then (qspec_then `n'` (strip_assume_tac o GSYM)) \\ rfs []
+    \\ qpat_assum `_ < (nnn:num)` mp_tac
+    \\ qpat_assum `_ = _` (fn th => once_rewrite_tac [GSYM th])
+    \\ qabbrev_tac `k = dimindex (:'a) DIV 8`
+    \\ qabbrev_tac `n1 = l DIV k`
+    \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
+    \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.bvp_conf) c2.bitmaps
         c.stack_conf.stack_ptr InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
-              (make_init mc_conf ffi save_regs io_regs t m ms
+              (make_init mc_conf ffi save_regs io_regs t m (dm INTER byte_aligned) ms
                  (MAP prog_to_section prog4))))` by
    (fs [stack_removeProofTheory.init_pre_def,
         stack_namesProofTheory.make_init_def,GSYM PULL_EXISTS]
@@ -682,12 +775,51 @@ val lemma = prove(
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
-    \\ cheat (* almost true *))
+    \\ qpat_assum `_ = mc_conf.len_reg` (fn th => fs [GSYM th])
+    \\ qunabbrev_tac `dm`
+    \\ rpt (qpat_assum `byte_aligned (t.regs _)` mp_tac)
+    \\ rpt (qpat_assum `_ <=+ _` mp_tac)
+    \\ qspec_tac (`t.regs (find_name c.stack_conf.reg_names 2)`,`a`)
+    \\ qspec_tac (`t.regs (find_name c.stack_conf.reg_names 4)`,`b`)
+    \\ `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
+         rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]
+    \\ fs [] \\ rpt strip_tac
+    \\ match_mp_tac word_list_exists_imp \\ fs []
+    \\ fs [addresses_thm]
+    \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
+    \\ reverse conj_tac THEN1
+     (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
+      \\ rfs [labPropsTheory.good_dimindex_def])
+    \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
+    \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
+    \\ rw [] \\ reverse eq_tac THEN1
+     (rw [] \\ fs [] \\ qexists_tac `i * (dimindex (:α) DIV 8)` \\ fs []
+      \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
+      \\ drule X_LT_DIV \\ disch_then (fn th => fs [th])
+      \\ fs [RIGHT_ADD_DISTRIB]
+      \\ fs [GSYM word_mul_n2w,GSYM bytes_in_word_def]
+      \\ fs [byte_aligned_mult])
+    \\ rw [] \\ fs []
+    \\ `i < dimword (:'a)` by metis_tac [LESS_TRANS,w2n_lt] \\ fs []
+    \\ qexists_tac `i DIV (dimindex (:α) DIV 8)`
+    \\ rfs [alignmentTheory.byte_aligned_def,
+         ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
+    \\ fs [stack_removeProofTheory.aligned_w2n]
+    \\ drule DIVISION
+    \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
+    \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
+         (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+    \\ fs [] \\ rfs [] \\ `-1w * a + b = b - a` by fs []
+    \\ full_simp_tac std_ss []
+    \\ Cases_on `a` \\ Cases_on `b`
+    \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
+    \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
+    \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs [] \\ NO_TAC)
   \\ qexists_tac `regs` \\ fs []
   \\ fs [IS_SOME_EQ_CASE] \\ CASE_TAC \\ fs []
   \\ SIMP_TAC (std_ss++CONJ_ss)
-       [EVAL ``(make_init mc_conf ffi save_regs io_regs t m ms code).code``,
-        EVAL ``(make_init mc_conf ffi save_regs io_regs t m ms code).pc``]
+       [EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code).code``,
+        EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code).pc``]
   \\ imp_res_tac make_init_opt_imp_bitmaps_limit \\ fs []
   \\ `loc_to_pc 0 0 (MAP prog_to_section prog4) = SOME 0` by
    (qunabbrev_tac `prog4`
@@ -717,14 +849,11 @@ val lemma = prove(
     \\ res_tac \\ fs [])
   \\ fs [state_rel_make_init,lab_to_targetProofTheory.make_init_def]
   \\ fs [PULL_EXISTS] \\ rpt strip_tac
-  \\ TRY (qcase_tac `byte_aligned w`
-    \\ `byte_aligned (w + t.regs mc_conf.ptr_reg)` by
-          fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_add_sub]
-    \\ pop_assum mp_tac
-    \\ qspec_tac (`w + t.regs mc_conf.ptr_reg`,`v`)
-    \\ Cases \\ fs [stack_removeProofTheory.aligned_w2n,
-         alignmentTheory.byte_aligned_def]
-    \\ fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+  \\ TRY
+   (fs [IN_DEF] \\ qcase_tac `byte_aligned w` \\ Cases_on `w`
+    \\ fs [stack_removeProofTheory.aligned_w2n,
+           alignmentTheory.byte_aligned_def]
+    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ NO_TAC)
   \\ fs [GSYM PULL_EXISTS] \\ fs [lookup_fromAList]
   \\ drule code_installed_prog_to_section \\ fs [] \\ strip_tac
   \\ imp_res_tac ALOOKUP_MEM
@@ -747,9 +876,12 @@ val clean_bvp_to_target_thm = let
   val th =
     IMP_TRANS imp_bvp_to_word_precond machine_sem_implements_bvp_sem
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
-    |> Q.GENL [`t`,`m`,`io_regs`]
+    |> Q.GENL [`t`,`m`,`dm`,`io_regs`]
+    |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
+    |> SIMP_RULE std_ss [CONJ_ASSOC,GSYM PULL_EXISTS]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
     |> ONCE_REWRITE_RULE [METIS_PROVE[]``b1/\b2/\b3/\b4/\b5<=>b4/\b1/\b2/\b3/\b5``]
+    |> SIMP_RULE std_ss [markerTheory.Abbrev_def]
   val tm = th |> concl |> dest_imp |> fst |> dest_conj |> fst
   val installed_def = define_abbrev "installed" tm
   val th = th |> REWRITE_RULE [GSYM installed_def]
@@ -801,7 +933,7 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,ffi_limit) ∧
    conf_ok c mc ∧
-   installed (bytes,ffi,ffi_limit,mc,ms) ⇒
+   installed (bytes,c,ffi,ffi_limit,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
@@ -1051,6 +1183,8 @@ val compile_correct = Q.store_thm("compile_correct",
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ pairarg_tac \\ fs [])
   \\ qcase_tac `from_bvp c4 p4 = _`
+  \\ `installed (bytes,c4,ffi,ffi_limit,mc,ms)` by
+       (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
   \\ drule (GEN_ALL clean_bvp_to_target_thm)
   \\ disch_then drule
   \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ NO_TAC)

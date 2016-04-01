@@ -409,10 +409,10 @@ val cmp_lem14 =
 val dec_neq0 = blastLib.BBLAST_PROVE ``!x: word4. (x || 8w) <> 0w``
 
 val is_rax_Zreg2num = Q.prove(
-   `!n. n < 16 /\ is_rax (reg n) ==> (Zreg2num RAX = n)`,
+   `!n. n < 16 /\ is_rax (reg n) ==> (0 = n)`,
    rw [x64Theory.is_rax_def]
    \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ rfs [x64Theory.num2Zreg_thm, x64Theory.Zreg2num_thm]
+   \\ rfs []
    )
 
 (* some rewrites ---------------------------------------------------------- *)
@@ -507,6 +507,7 @@ in
               \\ asm_simp_tac (srw_ss())
                    ([dec_thm, x64_bop_dec_def, is_rax_Zreg2num,
                      x64Theory.immediate32_def, x64Theory.immediate8_def,
+                     x64Theory.oimmediate8_def,
                      const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
                      binop_lem6, binop_lem7, binop_lem8, binop_lem10,
                      blastLib.BBLAST_PROVE

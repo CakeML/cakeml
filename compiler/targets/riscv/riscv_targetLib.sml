@@ -4,53 +4,63 @@ struct
 open HolKernel boolLib bossLib
 open riscvTheory riscv_targetTheory utilsLib asmLib
 
-(*
 val ERR = Feedback.mk_HOL_ERR "riscv_targetLib"
-*)
 
 fun riscv_type s = Type.mk_thy_type {Thy = "riscv", Tyop = s, Args = []}
 
-fun add_riscv_encode_compset cmp =
-   ( computeLib.add_thms
+val riscv_tys =
+  List.map riscv_type
+     ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store"]
+
+local
+  fun dst tm = case Lib.total boolSyntax.dest_strip_comb tm of
+                  SOME ("riscv_target$riscv_enc", [t]) => SOME t
+                | _ => NONE
+in
+  val riscv_encode_conv =
+   Conv.memoize dst (Redblackmap.mkDict Term.compare)
+     (K true)
+     (* listSyntax.is_list *)
+     (ERR "riscv_encode_conv" "")
+     (computeLib.compset_conv (wordsLib.words_compset())
+      [computeLib.Defs
        [riscv_enc_def, riscv_encode_def, riscv_const32_def, riscv_bop_r_def,
         riscv_bop_i_def, riscv_sh_def, riscv_memop_def, Encode_def, opc_def,
-        Itype_def, Rtype_def, Stype_def, SBtype_def, Utype_def, UJtype_def,
-        riscv_config_def] cmp
-   ; utilsLib.add_datatypes
-       (``:('a, 'b) sum`` ::
-        List.map riscv_type
-          ["instruction", "Shift", "ArithI", "ArithR", "Branch",
-           "Load", "Store"]) cmp
-   )
+        Itype_def, Rtype_def, Stype_def, SBtype_def, Utype_def, UJtype_def],
+       computeLib.Tys ([``:('a, 'b) sum``, ``:asm$cmp``] @ riscv_tys),
+       computeLib.Convs
+         [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
+       computeLib.Extenders [pairLib.add_pair_compset]])
+end
 
-fun add_riscv_decode_compset cmp =
-   ( computeLib.add_thms
-       [Decode_def, riscv_dec_def, fetch_decode_def, riscv_dec_const32_def,
-        boolify32_n2w] cmp
-   ; computeLib.add_conv
-       (bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV) cmp
-   )
+val add_riscv_encode_compset = computeLib.extend_compset
+  [computeLib.Convs [(``riscv_target$riscv_enc``, 1, riscv_encode_conv)],
+   computeLib.Defs [riscv_targetTheory.riscv_config_def],
+   computeLib.Tys [``:('a, 'b) sum``]]
+
+val add_riscv_decode_compset = computeLib.extend_compset
+  [computeLib.Defs
+     [Decode_def, riscv_dec_def, fetch_decode_def, riscv_dec_const32_def,
+      asImm12_def, asImm20_def, asSImm12_def, boolify32_n2w],
+   computeLib.Tys riscv_tys,
+   computeLib.Convs [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]]
 
 val riscv_encode_decode_conv =
-   let
-      val cmp = wordsLib.words_compset ()
-   in
-      List.app (fn f => f cmp)
-          [bitstringLib.add_bitstring_compset,
-           integer_wordLib.add_integer_word_compset,
-           intReduce.add_int_compset,
-           utilsLib.add_base_datatypes,
-           asmLib.add_asm_compset,
-           add_riscv_encode_compset,
-           add_riscv_decode_compset]
-    ; computeLib.CBV_CONV cmp
-   end
+  computeLib.compset_conv (wordsLib.words_compset())
+    [computeLib.Extenders
+       [bitstringLib.add_bitstring_compset,
+        integer_wordLib.add_integer_word_compset,
+        intReduce.add_int_compset,
+        utilsLib.add_base_datatypes,
+        asmLib.add_asm_compset,
+        add_riscv_encode_compset,
+        add_riscv_decode_compset]]
 
 (* Testing
 
 open riscv_targetLib
 
-riscv_encode_decode_conv
+Count.apply riscv_encode_decode_conv
    ``MAP (\i. let l = riscv_enc i in (asm_ok i riscv_config, l, riscv_dec l))
       [ Inst Skip
       ; Inst (Const 8 0w)

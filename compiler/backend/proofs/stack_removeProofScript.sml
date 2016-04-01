@@ -1875,7 +1875,7 @@ val INSERT_DELETE_EQ_DELETE = prove(
   ``(x INSERT s) DELETE x = s DELETE x``,
   fs [EXTENSION] \\ metis_tac []);
 
-val word_list_exists_addresses = prove(
+val word_list_exists_addresses = store_thm("word_list_exists_addresses",
   ``!n a. (dimindex(:'a) DIV 8) * n < dimword (:'a) /\
           good_dimindex (:'a) ==>
           word_list_exists a n (fun2set (m1,addresses (a:'a word) n))``,

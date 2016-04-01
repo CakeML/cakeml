@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib arm6_targetTheory;
+open asmLib arm6_targetTheory arm_stepLib;
 
 val () = new_theory "arm6_target_correct"
 

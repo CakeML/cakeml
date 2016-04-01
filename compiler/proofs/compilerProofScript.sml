@@ -203,7 +203,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀ms.
-          installed (bytes,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
+          installed (bytes,cc.backend_config,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
@@ -260,6 +260,10 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ imp_res_tac determTheory.prog_determ
   \\ fs[]);
 
+val code_installed_def = Define `
+  code_installed (bytes,cc,ffi,ffi_limit,mc,ms) =
+    installed (bytes,cc.backend_config,ffi,ffi_limit,mc,ms)`
+
 val compile_correct = Q.store_thm("compile_correct",
   `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc.
     config_ok cc mc ⇒
@@ -271,11 +275,11 @@ val compile_correct = Q.store_thm("compile_correct",
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed (bytes,ffi,ffi_limit,mc,ms) ⇒
+          code_installed (bytes,cc,ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
-  rw[semantics_init_def]
+  rw[semantics_init_def,code_installed_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
   \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[initSemEnvTheory.prim_sem_env_eq]
   \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen

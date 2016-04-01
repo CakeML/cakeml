@@ -4,7 +4,7 @@ struct
 open HolKernel boolLib bossLib
 open x64_targetLib asmLib;
 open compilerComputeLib;
-open x64DisassembleLib
+open x64AssemblerLib
 
 (* open x64_targetTheory *)
 
@@ -22,7 +22,7 @@ val eval = computeLib.CBV_CONV cmp
 fun print_asm res =
   let val res = (rand o concl) res
       val bytes = hd(pairSyntax.strip_pair (optionSyntax.dest_some res))
-      val dis = x64_disassemble bytes
+      val dis = x64_disassemble_term bytes
       val maxlen = 30
       fun pad 0 = ()
       |   pad n = (print" ";pad (n-1))
