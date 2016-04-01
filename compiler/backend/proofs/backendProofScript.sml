@@ -614,7 +614,10 @@ val clean_bvp_to_target_thm = let
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
     |> Q.GENL [`t`,`m`,`dm`,`io_regs`]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
+    |> SIMP_RULE std_ss [CONJ_ASSOC,GSYM PULL_EXISTS]
+    |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
     |> ONCE_REWRITE_RULE [METIS_PROVE[]``b1/\b2/\b3/\b4/\b5<=>b4/\b1/\b2/\b3/\b5``]
+    |> SIMP_RULE std_ss [markerTheory.Abbrev_def]
   val tm = th |> concl |> dest_imp |> fst |> dest_conj |> fst
   val installed_def = define_abbrev "installed" tm
   val th = th |> REWRITE_RULE [GSYM installed_def]
@@ -666,7 +669,7 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,ffi_limit) ∧
    conf_ok c mc ∧
-   installed (bytes,ffi,ffi_limit,mc,ms) ⇒
+   installed (bytes,c,ffi,ffi_limit,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
@@ -916,6 +919,8 @@ val compile_correct = Q.store_thm("compile_correct",
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ pairarg_tac \\ fs [])
   \\ qcase_tac `from_bvp c4 p4 = _`
+  \\ `installed (bytes,c4,ffi,ffi_limit,mc,ms)` by
+       (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
   \\ drule (GEN_ALL clean_bvp_to_target_thm)
   \\ disch_then drule
   \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ NO_TAC)
