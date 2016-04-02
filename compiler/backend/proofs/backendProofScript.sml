@@ -769,7 +769,7 @@ val lemma = prove(
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.bvp_conf) c2.bitmaps
-        sp InitGlobals_location
+        (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
               (make_init mc_conf ffi save_regs io_regs t m (dm INTER byte_aligned) ms
@@ -828,7 +828,8 @@ val lemma = prove(
     \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
     \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
     \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs [] \\ NO_TAC)
-  \\ qexists_tac `regs` \\ fs []
+  \\ qexists_tac `regs` \\ fs [] \\ rfs []
+  \\ pop_assum kall_tac
   \\ fs [IS_SOME_EQ_CASE] \\ CASE_TAC \\ fs []
   \\ SIMP_TAC (std_ss++CONJ_ss)
        [EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code).code``,
@@ -877,9 +878,10 @@ val lemma = prove(
   \\ drule stack_remove_syntax_pres \\ fs [] \\ strip_tac
   \\ drule stack_names_syntax_pres \\ fs []
   \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [])
-  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
-(*TODO: lemma proof fixed, but stuff below here broken because of the abbrev..*)
-val tm =|> concl |> dest_imp |> fst |> dest_conj |> snd
+  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
+  |> Q.GEN `ra_regs` |> SIMP_RULE std_ss [GSYM PULL_EXISTS,
+       METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``];
+val tm = lemma |> concl |> dest_imp |> fst |> dest_conj |> snd
 in
 (* TODO: this conf_ok should be defined in backendTheory, so that we
          can prove that each backend's config is correct without
@@ -1203,7 +1205,7 @@ val compile_correct = Q.store_thm("compile_correct",
        (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
   \\ drule (GEN_ALL clean_bvp_to_target_thm)
   \\ disch_then drule
-  \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ NO_TAC)
+  \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ metis_tac [])
   \\ simp[implements_def,AND_IMP_INTRO]
   \\ disch_then match_mp_tac \\ fs []
   \\ qunabbrev_tac `p4` \\ fs []
