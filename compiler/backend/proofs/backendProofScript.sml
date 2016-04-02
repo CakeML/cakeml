@@ -514,13 +514,90 @@ val stack_alloc_names = prove(
   fs [stack_allocTheory.compile_def,stack_allocTheory.stubs_def] \\ rw []
   \\ fs [MAP_MAP_o,MAP_EQ_f,FORALL_PROD,stack_allocTheory.prog_comp_def]);
 
+val code_installed'_def = Define `
+  (code_installed' n [] code ⇔ T) /\
+  (code_installed' n (x::xs) code ⇔
+     if is_Label x then code_installed' n xs code
+     else asm_fetch_aux n code = SOME x ∧ code_installed' (n + 1) xs code)`
+
+val code_installed'_simp = store_thm("code_installed'_simp",
+  ``!lines. code_installed' 0 lines (Section n (lines ++ rest)::other)``,
+  Induct \\ fs [code_installed'_def]
+  \\ fs [labSemTheory.asm_fetch_aux_def]
+  \\ cheat (* easy-ish *));
+
+val loc_to_pc_skip_section = prove(
+  ``!lines.
+      n <> p ==>
+      loc_to_pc n 0 (Section p lines :: xs) =
+      case loc_to_pc n 0 xs of
+      | NONE => NONE
+      | SOME k => SOME (k + LENGTH (FILTER (\x. ~(is_Label x)) lines))``,
+  Induct \\ once_rewrite_tac [labSemTheory.loc_to_pc_def] \\ fs []
+  THEN1 (every_case_tac \\ fs [])
+  \\ strip_tac \\ IF_CASES_TAC \\ fs [] \\ CASE_TAC \\ fs []);
+
+val asm_fetch_aux_add = prove(
+  ``!ys pc rest.
+      asm_fetch_aux (pc + LENGTH (FILTER (λx. ¬is_Label x) ys))
+        (Section pos ys::rest) = asm_fetch_aux pc rest``,
+  Induct \\ fs [labSemTheory.asm_fetch_aux_def,ADD1]);
+
+val labs_correct_def = Define `
+  (labs_correct n [] code ⇔ T) /\
+  (labs_correct n (x::xs) code ⇔
+     if is_Label x then labs_correct n xs code /\
+       (case x of
+        | Label l1 l2 v2 => loc_to_pc l1 l2 code = SOME n
+        | _ => T)
+     else labs_correct (n + 1) xs code)`
+
+val code_installed_eq = prove(
+  ``!pc xs code.
+      code_installed pc xs code <=>
+      code_installed' pc xs code /\ labs_correct pc xs code``,
+  Induct_on `xs`
+  \\ fs [code_installed_def,code_installed'_def,labs_correct_def]
+  \\ ntac 3 strip_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on `h` \\ fs [lab_to_targetTheory.is_Label_def]
+  \\ rw [] \\ eq_tac \\ fs []);
+
+val code_installed_cons = prove(
+  ``!xs ys pos pc.
+      code_installed' pc xs rest ==>
+      code_installed' (pc + LENGTH (FILTER (λx. ¬is_Label x) ys)) xs
+        (Section pos ys :: rest)``,
+  Induct \\ fs [] \\ fs [code_installed'_def]
+  \\ ntac 4 strip_tac \\ IF_CASES_TAC \\ fs []
+  \\ rw [] \\ res_tac \\ fs [asm_fetch_aux_add]);
+
+val code_installed_prog_to_section_lemma = prove(
+  ``!prog4 n prog3.
+      ALOOKUP prog4 n = SOME prog3 ==>
+      ?pc.
+        code_installed' pc (FST (flatten prog3 n (next_lab prog3)))
+          (MAP prog_to_section prog4) /\
+        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
+  Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
+  THEN1
+   (fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac \\ fs []
+    \\ once_rewrite_tac [labSemTheory.loc_to_pc_def]
+    \\ fs [code_installed'_simp])
+  \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
+  \\ fs [loc_to_pc_skip_section,code_installed_cons]);
+
 val code_installed_prog_to_section = prove(
-  ``ALOOKUP prog4 n = SOME prog3 ==>
-    ?pc.
-      code_installed pc (FST (flatten prog3 n (next_lab prog3)))
-        (MAP prog_to_section prog4) /\
-      loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
-  cheat);
+  ``!prog4 n prog3.
+      ALOOKUP prog4 n = SOME prog3 ==>
+      ?pc.
+        code_installed pc (FST (flatten prog3 n (next_lab prog3)))
+          (MAP prog_to_section prog4) /\
+        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
+  rpt strip_tac \\ fs [code_installed_eq]
+  \\ drule code_installed_prog_to_section_lemma \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ cheat (* probably needs to know that all labels are distinct *));
 
 val stack_remove_syntax_pres = prove(
   ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
