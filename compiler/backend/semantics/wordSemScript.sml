@@ -453,7 +453,7 @@ val evaluate_def = tDefine "evaluate" `
      | NONE => (SOME Error, s)
      | SOME x => (NONE, set_var v x s)) /\
   (evaluate (Set v exp,s) =
-     if v = Handler then (SOME Error,s)
+     if v = Handler ∨ v = BitmapBase then (SOME Error,s)
      else
      case word_exp s exp of
      | NONE => (SOME Error, s)

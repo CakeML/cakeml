@@ -298,10 +298,7 @@ val word_to_stack_sr_gs = prove(``
   Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,sr_gs_def])
   >-
     (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>
-    fs[sr_gs_def,wStackLoad_def]>>
-    (*TODO: Make the compiler check name ≠ BitmapBase more explicitly or
-      delete this syntactic check using semantics?*)
-    cheat)
+    fs[sr_gs_def,wStackLoad_def])
   >-
     (Cases_on`ret`>>fs[]
     >-
@@ -364,10 +361,7 @@ val word_to_stack_sl_gs = prove(``
     rveq>>fs convs>>
     match_mp_tac stack_move_sl_gs>>fs convs))
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def])
-  (*TODO: the conventions for ptr and len in FFI are flipped...
-    or should the check be 1 2 0 instead?*)
-  >- cheat
-  >- cheat);
+  >> cheat);
 
 val bvp_to_word_compile_imp = prove(
   ``
@@ -402,8 +396,19 @@ val bvp_to_word_compile_imp = prove(
   CONJ_TAC>-
     (fs[lookup_fromAList,word_to_wordTheory.compile_def]>>
     pairarg_tac>>fs[]>>rveq>>
-    (*existential shouldn't be there on p_2 because it's the oracle dependant on n*)
-    cheat)>>
+    `LENGTH prog = LENGTH n_oracles` by
+      (fs[word_to_wordTheory.next_n_oracle_def]>>
+      metis_tac[LENGTH_GENLIST])>>
+    pop_assum mp_tac>>
+    ntac 2 (pop_assum kall_tac)>>
+    qid_spec_tac`n_oracles`>>
+    qid_spec_tac`prog`>>
+    Induct>>fs[]>>rw[]>>
+    Cases_on`n_oracles`>>
+    PairCases_on`h`>>
+    fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,bvp_to_wordTheory.compile_part_def]>>
+    IF_CASES_TAC>>fs[]>>
+    metis_tac[])>>
   CONJ_ASM1_TAC>-
     (assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
     pop_assum (qspecl_then [`c.word_to_word_conf`,`(MAP (compile_part c.bvp_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
@@ -441,6 +446,7 @@ val bvp_to_word_compile_imp = prove(
     fs convs>>
     unabbrev_all_tac>>fs[]);
 
+(* Broken if changed to 1 2 0*)
 val stack_alloc_syntax = prove(
   ``10 ≤ sp ∧
     EVERY (λp. good_syntax p 2 1 0) (MAP SND prog1) /\
@@ -683,16 +689,18 @@ val lemma = prove(
     find_name c.stack_conf.reg_names 1 = mc_conf.ptr_reg /\
     (find_name c.stack_conf.reg_names 0 =
        case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) /\
-    2 < mc_conf.target.config.reg_count −
-         (LENGTH mc_conf.target.config.avoid_regs + 5) /\
+    Abbrev (ra_regs = (mc_conf.target.config.reg_count −
+          (LENGTH mc_conf.target.config.avoid_regs + 5))) /\
+    2 < ra_regs ∧
     save_regs = set mc_conf.caller_saved_regs /\
-    MEM (find_name c.stack_conf.reg_names c.stack_conf.stack_ptr)
+    MEM (find_name c.stack_conf.reg_names (ra_regs+2))
       mc_conf.caller_saved_regs /\
-    MEM (find_name c.stack_conf.reg_names (c.stack_conf.stack_ptr+1))
+    MEM (find_name c.stack_conf.reg_names (ra_regs+3))
       mc_conf.caller_saved_regs /\
-    MEM (find_name c.stack_conf.reg_names (c.stack_conf.stack_ptr+2))
+    MEM (find_name c.stack_conf.reg_names (ra_regs+4))
       mc_conf.caller_saved_regs /\
-    8 <= c.stack_conf.stack_ptr) ==>
+    10 ≤ ra_regs +2 /\
+    (LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count) ==>
     bvp_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
   strip_tac \\ fs [bvp_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
@@ -711,7 +719,7 @@ val lemma = prove(
   \\ qcase_tac `_ = (c2,prog1)`
   \\ qabbrev_tac `prog2 = compile c.bvp_conf prog1`
   \\ qpat_assum `_ = SOME _` mp_tac
-  \\ qpat_abbrev_tac `prog3 = compile _ _ _ _ _`
+  \\ qpat_abbrev_tac `prog3 = compile _ c2.bitmaps _ _ prog2`
   \\ qabbrev_tac `prog4 = compile c.stack_conf.reg_names prog3`
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
@@ -726,8 +734,13 @@ val lemma = prove(
   \\ GEN_EXISTS_TAC "bitmaps" `c2.bitmaps` \\ fs []
   \\ GEN_EXISTS_TAC "codeN" `prog1` \\ fs []
   \\ drule word_to_stack_compile_imp \\ strip_tac \\ fs []
+  \\ rfs[]
   \\ fs [full_init_pre_def |> SIMP_RULE (std_ss++CONJ_ss) [],full_init_pre_fail_def]
-  \\ GEN_EXISTS_TAC "k" `c.stack_conf.stack_ptr` \\ fs []
+  \\ qabbrev_tac `sp = mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)`
+  \\ `sp = ra_regs+2` by
+    (unabbrev_all_tac>>
+    fs[])
+  \\ GEN_EXISTS_TAC "k" `sp` \\ fs []
   \\ GEN_EXISTS_TAC "f" `c.stack_conf.reg_names` \\ fs []
   \\ `∀a. byte_align a ∈ dm ⇒ a ∈ dm` by
    (qunabbrev_tac `dm` \\ fs [] \\ rfs []
@@ -756,7 +769,7 @@ val lemma = prove(
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.bvp_conf) c2.bitmaps
-        c.stack_conf.stack_ptr InitGlobals_location
+        sp InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
               (make_init mc_conf ffi save_regs io_regs t m (dm INTER byte_aligned) ms
@@ -836,7 +849,8 @@ val lemma = prove(
   \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
   \\ rpt (conj_tac THEN1 (fs [EVERY_MEM] \\ strip_tac \\ res_tac \\ fs []))
   \\ conj_tac \\ TRY
-   (imp_res_tac stack_alloc_syntax \\ rfs []
+   (imp_res_tac (INST_TYPE[beta|->alpha]stack_alloc_syntax)
+    \\ pop_assum(qspec_then`c`assume_tac) \\ rfs[]
     \\ fs [EVERY_MEM,FORALL_PROD] \\ rw []
     \\ `MEM p_1 (MAP FST prog2) /\ MEM p_2 (MAP SND prog2)` by
      (fs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
@@ -858,12 +872,14 @@ val lemma = prove(
   \\ drule code_installed_prog_to_section \\ fs [] \\ strip_tac
   \\ imp_res_tac ALOOKUP_MEM
   \\ imp_res_tac MEM_pair_IMP
-  \\ imp_res_tac stack_alloc_syntax \\ rfs []
+  \\ imp_res_tac (INST_TYPE[beta|->alpha]stack_alloc_syntax)
+  \\ ntac 2 (first_x_assum (qspec_then`c` assume_tac))\\ rfs []
   \\ drule stack_remove_syntax_pres \\ fs [] \\ strip_tac
   \\ drule stack_names_syntax_pres \\ fs []
   \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [])
   |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
-val tm = lemma |> concl |> dest_imp |> fst |> dest_conj |> snd
+(*TODO: lemma proof fixed, but stuff below here broken because of the abbrev..*)
+val tm =|> concl |> dest_imp |> fst |> dest_conj |> snd
 in
 (* TODO: this conf_ok should be defined in backendTheory, so that we
          can prove that each backend's config is correct without

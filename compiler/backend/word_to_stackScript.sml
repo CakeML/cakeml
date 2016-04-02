@@ -204,6 +204,8 @@ val comp_def = Define `
      let (q2,bs) = comp p2 bs kf in
        (wStackLoad (x1++x2) (If cmp r' ri' q1 q2),bs)) /\
   (comp (Set name exp) bs kf =
+    if name = BitmapBase then (Skip,bs) (*Impossible*)
+    else
      case exp of
      | Var n => let (x1,r') = wReg1 n kf in (wStackLoad x1 (Set name r'),bs)
      | _ => (Skip,bs) (* impossible *)) /\

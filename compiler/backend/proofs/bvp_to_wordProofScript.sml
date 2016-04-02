@@ -3858,10 +3858,11 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
   \\ full_simp_tac(srw_ss())[state_rel_def]);
 
 val state_rel_ext_def = Define `
-  state_rel_ext (c,t',k',a',c',col) l1 l2 s u <=>
+  state_rel_ext c l1 l2 s u <=>
     ?t l.
       state_rel c l1 l2 s t [] [] /\
       (!n v. lookup n t.code = SOME v ==>
+             ∃t' k' a' c' col.
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
       u = t with <|code := l;termdep:=0|>`
 
@@ -3883,13 +3884,9 @@ val compile_correct = store_thm("compile_correct",
                             ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
-  gen_tac \\ PairCases_on `x`
+  gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
   \\ qcase_tac `state_rel x0 l1 l2 s t [] []`
-  \\ `(!n v. lookup n t.code = SOME v ==>
-             ?x1 x2 x3 x4 x5.
-                lookup n l = SOME (SND (full_compile_single x1 x2 x3 x4 ((n,v),x5))))`
-        by (full_simp_tac(srw_ss())[] \\ metis_tac [])
   \\ drule compile_word_to_word_thm \\ srw_tac[][]
   \\ drule compile_correct_lemma \\ full_simp_tac(srw_ss())[]
   \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
@@ -3907,7 +3904,7 @@ val compile_correct = store_thm("compile_correct",
 val state_rel_ext_with_clock = prove(
   ``state_rel_ext a b c s1 s2 ==>
     state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)``,
-  PairCases_on `a` \\ full_simp_tac(srw_ss())[state_rel_ext_def] \\ srw_tac[][]
+  full_simp_tac(srw_ss())[state_rel_ext_def] \\ srw_tac[][]
   \\ drule state_rel_with_clock
   \\ strip_tac \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]);
@@ -4214,7 +4211,6 @@ val compile_semantics = save_thm("compile_semantics",let
     |> (fn th => MATCH_MP th (UNDISCH state_rel_init
             |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`,`t`|->`t'`]))
     |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
-    |> Q.GENL [`p_1'`,`p_1''`,`p_1'''`,`p_1''''`,`p_2`]
     |> SIMP_RULE std_ss [METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``]
     |> DISCH ``(t':('a,'ffi) wordSem$state).code = code``
     |> SIMP_RULE std_ss [] |> UNDISCH
