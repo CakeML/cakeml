@@ -2273,7 +2273,7 @@ val wf_cutsets_def = Define`
 val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (FFI x y z args) = (y = 2 ∧ z = 4)) ∧
+  (call_arg_convention (FFI x y z args) = (y = 4 ∧ z = 2)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of
