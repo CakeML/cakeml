@@ -360,8 +360,7 @@ val word_to_stack_sl_gs = prove(``
     rpt(pairarg_tac>>fs[StackArgs_def,sl_gs_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
     rveq>>fs convs>>
     match_mp_tac stack_move_sl_gs>>fs convs))
-  >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def])
-  >> cheat);
+  >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def]));
 
 val bvp_to_word_compile_imp = prove(
   ``
