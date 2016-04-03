@@ -913,4 +913,24 @@ val three_to_two_reg_full_inst_ok_less = store_thm("three_to_two_reg_full_inst_o
   >>
     Cases_on`n`>>fs[inst_ok_less_def])
 
+(* label preservation stuff *)
+val inst_select_exp_no_lab = prove(``
+  ∀c temp temp' exp.
+  extract_labels (inst_select_exp c temp temp' exp) = []``,
+  ho_match_mp_tac inst_select_exp_ind>>rw[inst_select_exp_def]>>fs[extract_labels_def]>>
+  rpt(TOP_CASE_TAC>>fs[extract_labels_def,inst_select_exp_def]))
+
+val inst_select_lab_pres = store_thm("inst_select_lab_pres",``
+  ∀c temp prog.
+  extract_labels prog = extract_labels (inst_select c temp prog)``,
+  ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
+  TRY(metis_tac[inst_select_exp_no_lab])>>
+  EVERY_CASE_TAC>>fs[extract_labels_def]>>
+  TRY(metis_tac[inst_select_exp_no_lab]))
+
+val three_to_two_reg_lab_pres = store_thm ("three_to_two_reg_lab_pres",``
+  ∀prog.
+  extract_labels prog = extract_labels (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[])
+
 val _ = export_theory ();

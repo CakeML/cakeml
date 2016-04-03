@@ -5849,6 +5849,40 @@ val word_alloc_full_inst_ok_less = store_thm("word_alloc_full_inst_ok_less",``
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_full_inst_ok_less_lem])
 
+(* label preservation theorems *)
+val fake_moves_no_labs = prove(``
+  ∀ls a b c d e f g h.
+  fake_moves ls a b c = (d,e,f,g,h) ⇒
+  extract_labels d = [] ∧ extract_labels e = []``,
+  Induct>>fs[fake_moves_def,extract_labels_def,fake_move_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
+  metis_tac[])
+
+val full_ssa_cc_trans_lab_pres = store_thm ("full_ssa_cc_trans_lab_pres",``
+  ∀prog n.
+  extract_labels prog = extract_labels (full_ssa_cc_trans n prog)``,
+  rw[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  ntac 3 (pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
+  pop_assum kall_tac >> pop_assum mp_tac>>
+  map_every qid_spec_tac (rev[`prog`,`ssa`,`n'`,`prog'`,`ssa'`,`na'`])>>
+  ho_match_mp_tac ssa_cc_trans_ind>>rw[extract_labels_def,ssa_cc_trans_def,list_next_var_rename_move_def,fix_inconsistencies_def]>>
+  rveq>>fs[extract_labels_def]>>EVERY_CASE_TAC>>
+  rpt(pairarg_tac>>fs[]>>rveq>>fs[extract_labels_def])>>
+  imp_res_tac fake_moves_no_labs>>
+  fs[])
+
+val apply_colour_lab_pres = prove(``
+  ∀col prog.
+  extract_labels prog = extract_labels (apply_colour col prog)``,
+  ho_match_mp_tac apply_colour_ind>>fs[extract_labels_def]>>rw[]>>
+  EVERY_CASE_TAC>>fs[])
+
+val word_alloc_lab_pres = store_thm("word_alloc_lab_pres",``
+  extract_labels prog = extract_labels (word_alloc alg k prog col_opt)``,
+  fs[word_alloc_def,oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>metis_tac[apply_colour_lab_pres])
+
 (* MISC *)
 val list_max_IMP = prove(``
   ∀ls.

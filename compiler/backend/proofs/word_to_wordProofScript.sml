@@ -554,6 +554,7 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
   (*addr_offset_ok 0w ac ∧ EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ⇒*)
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
+  MAP (extract_labels o SND o SND) progs = MAP (extract_labels o SND o SND) p ∧
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog
@@ -572,7 +573,18 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     pop_assum (assume_tac o SYM)>>
     fs[compile_single_def]>>
     pop_assum mp_tac>>
-    fs[EL_MAP,EL_ZIP])>>
+    fs[EL_MAP,EL_ZIP])
+  >-
+    (match_mp_tac LIST_EQ>>
+    fs[EL_MAP,full_compile_single_def]>>
+    rw[]>>
+    qpat_abbrev_tac`q = EL x A`>>
+    fs[markerTheory.Abbrev_def]>>PairCases_on`q`>>
+    pop_assum (mp_tac o SYM)>>
+    fs[EL_MAP,EL_ZIP]>>
+    fs[compile_single_def]>>
+    fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
+    IF_CASES_TAC>>fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,GSYM inst_select_lab_pres])>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
   CONJ_TAC>-
