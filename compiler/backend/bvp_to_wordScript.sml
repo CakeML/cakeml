@@ -94,7 +94,7 @@ val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2)``)
 
 val assign_def = Define `
-  assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
+  assign (c:bvp_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
     case op of
     | Const i =>
@@ -277,7 +277,7 @@ val assign_def = Define `
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
-  comp c (n:num) (l:num) (p:bvp$prog) =
+  comp c (secn:num) (l:num) (p:bvp$prog) =
     case p of
     | Skip => (Skip:'a wordLang$prog,l)
     | Tick => (Tick,l)
@@ -285,12 +285,12 @@ val comp_def = Define `
     | Return n => (Return 0 (adjust_var n),l)
     | Move n1 n2 => (Move 0 [(adjust_var n1 ,adjust_var n2)],l)
     | Seq p1 p2 =>
-        let (q1,l1) = comp c n l p1 in
-        let (q2,l2) = comp c n l1 p2 in
+        let (q1,l1) = comp c secn l p1 in
+        let (q2,l2) = comp c secn l1 p2 in
           (Seq q1 q2,l2)
     | If n p1 p2 =>
-        let (q1,l1) = comp c n l p1 in
-        let (q2,l2) = comp c n l1 p2 in
+        let (q1,l1) = comp c secn l p1 in
+        let (q2,l2) = comp c secn l1 p2 in
           (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
     | MakeSpace n names =>
         let k = dimindex (:'a) DIV 8 in
@@ -300,17 +300,17 @@ val comp_def = Define `
                (If Lower 1 (Imm w)
                  (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)))
                 Skip),l)
-    | Assign dest op args names => assign c n l dest op args names
+    | Assign dest op args names => assign c secn l dest op args names
     | Call ret target args handler =>
         case ret of
         | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
         | SOME (n,names) =>
-            let ret = SOME (adjust_var n, adjust_set names, Skip, n, l) in
+            let ret = SOME (adjust_var n, adjust_set names, Skip, secn, l) in
               case handler of
               | NONE => (Call ret target (MAP adjust_var args) NONE, l+1)
               | SOME (n,p) =>
-                  let (q1,l1) = comp c n (l+2) p in
-                  let handler = SOME (adjust_var n, q1, n, l+1) in
+                  let (q1,l1) = comp c secn (l+2) p in
+                  let handler = SOME (adjust_var n, q1, secn, l+1) in
                     (Call ret target (MAP adjust_var args) handler, l1)`
 
 val compile_part_def = Define `
