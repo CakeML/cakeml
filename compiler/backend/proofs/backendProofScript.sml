@@ -520,11 +520,29 @@ val code_installed'_def = Define `
      if is_Label x then code_installed' n xs code
      else asm_fetch_aux n code = SOME x ∧ code_installed' (n + 1) xs code)`
 
+val code_installed'_cons_label = prove(
+  ``!lines pos.
+      is_Label h ==>
+      code_installed' pos lines (Section n (h::xs)::other) =
+      code_installed' pos lines (Section n xs::other)``,
+  Induct \\ fs [code_installed'_def]
+  \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def]);
+
+val code_installed'_cons_non_label = prove(
+  ``!lines pos.
+      ~is_Label h ==>
+      code_installed' (pos+1) lines (Section n (h::xs)::other) =
+      code_installed' pos lines (Section n xs::other)``,
+  Induct \\ fs [code_installed'_def]
+  \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def])
+  |> Q.SPECL [`lines`,`0`] |> SIMP_RULE std_ss [];
+
 val code_installed'_simp = store_thm("code_installed'_simp",
   ``!lines. code_installed' 0 lines (Section n (lines ++ rest)::other)``,
   Induct \\ fs [code_installed'_def]
   \\ fs [labSemTheory.asm_fetch_aux_def]
-  \\ cheat (* easy-ish *));
+  \\ rpt strip_tac \\ IF_CASES_TAC
+  \\ fs [code_installed'_cons_label,code_installed'_cons_non_label]);
 
 val loc_to_pc_skip_section = prove(
   ``!lines.
