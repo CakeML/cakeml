@@ -7030,4 +7030,57 @@ val compile_semantics = store_thm("compile_semantics",
   \\ match_mp_tac compile_word_to_stack_IMP_ALOOKUP
   \\ metis_tac []);
 
+val stack_move_no_labs = prove(``
+  ∀n a b c p.
+  extract_labels p = [] ⇒
+  extract_labels (stack_move n a b c p) = []``,
+  Induct>>rw[stack_move_def]>>
+  EVAL_TAC>>metis_tac[])
+
+val word_to_stack_lab_pres = store_thm("word_to_stack_lab_pres",``
+  ∀p bs kf.
+  extract_labels p = extract_labels (FST (comp p bs kf))``,
+  ho_match_mp_tac comp_ind>>
+  rw[comp_def,extract_labels_def,wordPropsTheory.extract_labels_def]>>
+  TRY(PairCases_on`kf`)>>TRY(PairCases_on`kf'`)>>
+  fs[wReg1_def,wRegImm2_def]
+  >-
+    (fs[wMove_def]>>qpat_abbrev_tac `ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,FORALL_PROD,extract_labels_def]>>
+    Cases_on`ls`>>rw[]>>EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>EVAL_TAC>>
+    EVERY_CASE_TAC>>EVAL_TAC)
+  >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
+  >- (rpt(pairarg_tac>>fs[])>>EVAL_TAC)
+  >-
+    (Cases_on`ri`>>fs[wRegImm2_def,wReg2_def]>>EVERY_CASE_TAC>>
+    fs[wStackLoad_def]>>
+    rpt(pairarg_tac>>fs[])>>
+    EVAL_TAC)
+  >- (EVERY_CASE_TAC>>fs[]>>EVAL_TAC)
+  >- (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC)
+  >-
+    (pairarg_tac>>fs[]>>
+    `extract_labels q0 = []` by
+      (Cases_on`dest`>>fs[call_dest_def,wReg2_def]>>pop_assum mp_tac>>
+      EVERY_CASE_TAC>>fs[]>>
+      rw[]>>EVAL_TAC)>>
+    Cases_on`ret`>>fs[]
+    >-
+      (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC)
+    >>
+      EVERY_CASE_TAC>>fs[wLive_def]>>
+      EVERY_CASE_TAC>>fs[]>>
+      rpt(pairarg_tac>>fs[])>>rveq>>fs[]>>
+      Cases_on`dest'`>>EVAL_TAC>>fs[]>>
+      match_mp_tac stack_move_no_labs>>
+      EVAL_TAC)
+  >-
+    (fs[wLive_def]>>rpt(pairarg_tac>>fs[])>>
+    EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
+  >- (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC))
+
 val _ = export_theory();

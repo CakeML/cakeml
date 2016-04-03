@@ -340,4 +340,11 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ rw[prog_comp_eta,ALOOKUP_MAP_gen,ALOOKUP_toAList,lookup_fromAList]);
 
+val stack_names_lab_pres = store_thm("stack_names_lab_pres",``
+  ∀f p.
+  extract_labels p = extract_labels (comp f p)``,
+  HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
+  once_rewrite_tac [comp_def]>>fs[extract_labels_def]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[])
+
 val _ = export_theory();

@@ -408,4 +408,22 @@ val dec_stack_length = store_thm("dec_stack_length",``
   imp_res_tac map_bitmap_length>>
   simp[]>>metis_tac[])
 
+val extract_labels_def = Define`
+  (extract_labels (Call ret dest h) =
+    (case ret of
+      NONE => []
+    | SOME (ret_handler,_,l1,l2) =>
+      let ret_rest = extract_labels ret_handler in
+    (case h of
+      NONE => [(l1,l2)] ++ ret_rest
+    | SOME (prog,l1',l2') =>
+      let h_rest = extract_labels prog in
+      [(l1,l2);(l1',l2')]++ret_rest++h_rest))) ∧
+  (extract_labels (While _ _ _ s1) = extract_labels s1) ∧
+  (extract_labels (Seq s1 s2) =
+    extract_labels s1 ++ extract_labels s2) ∧
+  (extract_labels (If cmp r1 ri e2 e3) =
+    (extract_labels e2 ++ extract_labels e3)) ∧
+  (extract_labels _ = [])`
+
 val _ = export_theory();
