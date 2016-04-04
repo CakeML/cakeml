@@ -105,7 +105,9 @@ val v_inv_def = tDefine "v_inv" `
   (v_inv (RefPtr n) (x,f,heap) <=>
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
   (v_inv (Block n vs) (x,f,heap) <=>
-     if vs = [] then (x = Data (Word (BlockNil n))) else
+     if vs = []
+     then (x = Data (Word (BlockNil n))) /\ n < dimword(:'a) DIV 16
+     else
        ?ptr xs.
          EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
          (x = Pointer ptr (Word (ptr_bits conf n (LENGTH xs)))) /\
@@ -735,7 +737,8 @@ val cons_thm = store_thm("cons_thm",
   \\ metis_tac [])
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
-  ``abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp) limit ==>
+  ``abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp) limit /\
+    tag < dimword (:'a) DIV 16 ==>
     abs_ml_inv conf ((Block tag [])::stack) refs
                      (Data (Word (BlockNil tag))::roots,heap,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
@@ -1650,7 +1653,9 @@ val word_payload_def = Define `
      (* header: ...00 *)
      (make_header conf (n2w n << 2) (LENGTH ys),
       MAP (word_addr conf) ys,
-      (qs = []) /\ (LENGTH ys = l))) /\
+      (qs = []) /\ (LENGTH ys = l) /\
+      encode_header conf (n * 4) (LENGTH ys) =
+        SOME (make_header conf (n2w n << 2) (LENGTH ys):'a word))) /\
   (word_payload ys l (RefTag) qs conf =
      (* header: ...10 *)
      (make_header conf 2w (LENGTH ys),
@@ -1827,6 +1832,7 @@ val word_ml_inv_Unit = store_thm("word_ml_inv_Unit",
   \\ fs [bvlSemTheory.Unit_def,EVAL ``tuple_tag``]
   \\ drule (GEN_ALL cons_thm_EMPTY)
   \\ disch_then (qspec_then `0` mp_tac)
+  \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ fs [BlockNil_def]);
 
 val memory_rel_Unit = store_thm("memory_rel_Unit",
@@ -2218,6 +2224,13 @@ val less_pow_dimindex_sub_imp = prove(
   ``n < 2 ** (dimindex (:'a) - k) ==> n < dimword (:'a)``,
   fs [dimword_def] \\ metis_tac [LESS_EXO_SUB]);
 
+val encode_header_NEQ_0 = store_thm("encode_header_NEQ_0",
+  ``encode_header c n k = SOME w ==> w <> 0w``,
+  fs [encode_header_def] \\ rw []
+  \\ fs [make_header_def,LET_DEF]
+  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) []
+  \\ qexists_tac `0` \\ fs [] \\ EVAL_TAC);
+
 val encode_header_IMP = prove(
   ``encode_header c tag len = SOME (hd:'a word) /\
     c.len_size + 6 < dimindex (:'a) /\ good_dimindex (:'a) ==>
@@ -2457,13 +2470,14 @@ val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
     good_dimindex (:'a) ==>
     ?w. v = Word w /\
         if vals = [] then
-          w = n2w tag * 16w + 2w /\ ~(w ' 0)
+          w = n2w tag * 16w + 2w /\ ~(w ' 0) /\ tag < dimword (:'a) DIV 16
         else
           ?a x.
             w ' 0 /\ ~(word_bit 3 x) /\
             get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
             decode_length c x = n2w (LENGTH vals) /\
-            LENGTH vals < 2 ** (dimindex (:'a) − 4)``,
+            LENGTH vals < 2 ** (dimindex (:'a) − 4) /\
+            encode_header c (4 * tag) (LENGTH vals) = SOME x``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def]
   \\ CASE_TAC \\ fs [] \\ rw []
@@ -2484,6 +2498,30 @@ val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
   \\ fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
   \\ fs [labPropsTheory.good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+
+val memory_rel_tag_limit = store_thm("memory_rel_tag_limit",
+  ``memory_rel c be refs sp st m dm ((Block tag l,w)::rest) ==>
+    tag < dimword (:'a) DIV 16``,
+  cheat);
+
+val memory_rel_test_nil_eq = store_thm("memory_rel_test_nil_eq",
+  ``memory_rel c be refs sp st m dm ((Block tag l,w:'a word_loc)::rest) /\
+    n < dimword (:'a) DIV 16 ==>
+    ?v. w = Word v /\ (v = n2w (16 * n + 2) <=> tag = n /\ l = [])``,
+  cheat);
+
+val memory_rel_test_none_eq = store_thm("memory_rel_test_none_eq",
+  ``encode_header c (4 * n) len = NONE /\
+    memory_rel c be refs sp st m dm ((Block tag l,w:'a word_loc)::rest) /\
+    len <> 0 ==>
+    ~(tag = n /\ LENGTH l = len)``,
+  cheat);
+
+val encode_header_EQ = store_thm("encode_header_EQ",
+  ``encode_header c t1 l1 = SOME w1 /\
+    encode_header c t2 l2 = SOME w2 ==>
+    (w1 = w2 <=> t1 = t2 /\ l1 = l2)``,
+  cheat);
 
 val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
@@ -2925,6 +2963,8 @@ val memory_rel_Boolv_T = store_thm("memory_rel_Boolv_T",
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
   \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
+  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
+  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
 
@@ -2934,6 +2974,8 @@ val memory_rel_Boolv_F = store_thm("memory_rel_Boolv_F",
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
   \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
+  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
+  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
 
