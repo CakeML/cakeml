@@ -5,7 +5,7 @@ open HolKernel boolLib bossLib;
 
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory stringLib;
-open ml_translatorTheory intLib lcsymtacs;
+open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 
@@ -192,7 +192,10 @@ in
      val n = !decl_name
      in if n <> "" then n else
           let val c = current_theory() in (decl_name := c; c) end end
-  fun get_DeclAssum () = ``DeclAssum ^(get_mn()) ^(!decl_term) env tys``
+  val get_DeclAssum =
+    let val env = mk_var("env",``:v environment``)
+        val tys = mk_var("tys",``:tid_or_exn -> bool``)
+      in fn () => mk_DeclAssum (get_mn(), !decl_term, env, tys) end
   fun get_decls () = let
     val rw = !decl_abbrev
     val tm = QCONV (REWRITE_CONV [rw]) (!decl_term) |> concl |> rand
@@ -377,8 +380,7 @@ in
     val _ = (cert_memory := (n,const,th,TRUTH)::(!cert_memory))
     in th end;
   fun store_cert th pres decl_assum_x = let
-    val decl_assum = (th |> hyp |> first
-                        (can (match_term ``DeclAssum mn ds env tys``)))
+    val decl_assum = (th |> hyp |> first is_DeclAssum)
     val decl = (decl_assum |> rator |> rator |> rand |> rator |> rand)
     val _ = snoc_decl decl
     val _ = let
@@ -569,11 +571,6 @@ in
          if name = "prod" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
          if name = "list" then ``Tapp ^tt_list (TC_name (Short ^name_tm))`` else
                                ``Tapp ^tt_list (TC_name (^(full_id name_tm)))`` end
-  val vector_type_pat = ``:'a ml_translator$vector``
-  fun dest_vector_type ty =
-    if can (match_type vector_type_pat) ty then
-      dest_type ty |> snd |> hd
-    else failwith "not vector type"
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -589,15 +586,18 @@ in
       in mk_var(name,mk_type("fun",[ty,``:v->bool``])) end else
     if can dest_fun_type ty then let
       val (t1,t2) = dest_fun_type ty
-      in ``Arrow (^(get_type_inv t1)) (^(get_type_inv t2))`` end else
-    if ty = oneSyntax.one_ty then ``UNIT_TYPE`` else
-    if ty = bool then ``BOOL`` else
-    if ty = word8 then ``WORD8`` else
-    if ty = numSyntax.num then ``NUM`` else
-    if ty = intSyntax.int_ty then ``INT`` else
-    if ty = stringSyntax.char_ty then ``CHAR`` else
-    if ty = mlstringSyntax.mlstring_ty then ``STRING_TYPE`` else
-    if can dest_vector_type ty then let
+      in ``Arrow (^(get_type_inv t1)) (^(get_type_inv t2))``
+         (* TODO: Why is this not equivalent?
+            list_mk_icomb(Arrow,[get_type_inv t1, get_type_inv t2]) *)
+      end else
+    if ty = oneSyntax.one_ty then UNIT_TYPE else
+    if ty = bool then BOOL else
+    if ty = word8 then WORD8 else
+    if ty = numSyntax.num then NUM else
+    if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
+    if ty = stringSyntax.char_ty then CHAR else
+    if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
+    if is_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
          |> concl |> dest_eq |> fst |> rator |> rator end
@@ -1120,9 +1120,9 @@ fun define_ref_inv is_exn_type tys = let
               |> map (last o list_dest dest_exists)
               |> map (tl o list_dest dest_conj) |> Lib.flatten
               |> map (rator o rator) |> filter (fn t => t <> tm)
-    val ys = map (fn tm => ``EqualityType ^tm``) xs
+    val ys = map mk_EqualityType xs
    (* val ys = map (fst o dest_imp o concl o D o SIMP_EqualityType_ASSUMS o ASSUME) ys *)
-    val tm1 = ``EqualityType ^tm``
+    val tm1 = mk_EqualityType tm
     val ys = filter (fn y => not (mem y [tm1,T])) ys
     val tm2 = if ys = [] then T else list_mk_conj ys
     val goal = mk_imp(tm2,tm1)
@@ -1354,11 +1354,11 @@ fun derive_thms_for_type is_exn_type ty = let
       val env = foldr (fn ((x,n,v),y) => ``write ^n ^v ^y``) env (rev xs)
       val tm = map (fn (x,n,v) => mk_comb(find_inv x,v)) xs @ [pxs]
       val tm = if tm = [] then T else list_mk_conj tm
-      val tm = mk_imp(tm,``Eval ^env ^exp (^ret_inv ^fxs)``)
+      val tm = mk_imp(tm,mk_Eval (env, exp, mk_comb(ret_inv,fxs)))
       val vs = map (fn (x,_,_) => x) xs @ map (fn (_,_,v) => v) xs
       val tm = list_mk_forall(vs,tm)
       val n = numSyntax.term_of_int n
-      val tm = ``TAG ^n ^tm``
+      val tm = mk_TAG(n,tm)
       in tm end;
     (* all_distincts *)
     fun mk_alld (n,f,fxs,pxs,tm,exp,xs) = let
@@ -1548,7 +1548,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,``:word8``,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,``:'a vector``]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,``:word8``,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
