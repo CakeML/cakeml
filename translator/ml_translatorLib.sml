@@ -813,7 +813,7 @@ local
   fun pack_state () = let
     val name = get_decl_name () ^ suffix
     val name_tm = stringSyntax.fromMLstring name
-    val tag_lemma = ISPEC ``b:bool`` (ISPEC name_tm TAG_def) |> GSYM
+    val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
     val p1 = pack_certs()
     val p2 = pack_types()
     val p = pack_pair I I (p1,p2)
@@ -1016,7 +1016,7 @@ fun define_ref_inv is_exn_type tys = let
     val ss = map get_type_inv vars
     val input = mk_var("input",ty)
     val ml_ty_name = full_name_of_type ty
-    val def_name = mk_var(name,list_mk_type (ss @ [input]) ``:v -> bool``)
+    val def_name = mk_var(name,list_mk_type (ss @ [input]) (``:v`` --> bool))
     val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,``v:v``])
     in (ml_ty_name,xs,ty,lhs,input) end
   val ys = map mk_lhs all
@@ -1242,7 +1242,7 @@ fun derive_thms_for_type is_exn_type ty = let
                   |> list_dest dest_forall |> last |> dest_eq |> fst
                   |> rator |> rand |> type_of |> dest_type |> snd
                   |> map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype)
-      val ts_tm = listSyntax.mk_list(ts,``:string``)
+      val ts_tm = listSyntax.mk_list(ts,stringSyntax.string_ty)
       val dtype = pairSyntax.list_mk_pair[ts_tm,tyname,lines]
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
@@ -1744,7 +1744,7 @@ fun prove_EvalPatRel goal hol2deep = let
     goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
          |> filter (can (match_term lookup_cons_pat))
   val pat = ``~(x = y:'a)``
-  fun badtype ty = Lib.mem ty [``:'a list``,numSyntax.num]
+  fun badtype ty = Lib.mem ty [listSyntax.mk_list_type alpha,numSyntax.num]
   fun tac (hs,gg) = let
     val find_neg = find_term (fn tm => can (match_term pat) tm andalso
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
