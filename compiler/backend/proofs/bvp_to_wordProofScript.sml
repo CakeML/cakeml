@@ -1371,7 +1371,7 @@ val state_rel_pop_env_set_var_IMP = prove(
     pop_env s1 = SOME s2 ==>
     ?t2 l8 l9 ll.
       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
-      state_rel c l8 l9 (set_var q a s2) (set_var (adjust_var q) w t2) [] ll``,
+      state_rel c l8 l9 (set_var q1 a s2) (set_var (adjust_var q1) w t2) [] ll``,
   full_simp_tac(srw_ss())[pop_env_def]
   \\ Cases_on `s1.stack` \\ full_simp_tac(srw_ss())[] \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -1761,7 +1761,7 @@ val find_code_thm_handler = prove(
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
         state_rel c q l (call_env ys (push_env x T (dec_clock s)))
           (call_env args1 (push_env y
-             (SOME (adjust_var x0,(prog1:'a wordLang$prog),x0,l + 1))
+             (SOME (adjust_var x0,(prog1:'a wordLang$prog),nn,l + 1))
           (dec_clock t))) [] ((l1,l2)::locs)``,
   reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[wordSemTheory.find_code_def] \\ srw_tac[][]
@@ -1873,7 +1873,7 @@ val mk_loc_jump_exc = prove(
   ``mk_loc
        (jump_exc
           (call_env args1
-             (push_env y (SOME (adjust_var x0,prog1,x0,l))
+             (push_env y (SOME (adjust_var n,prog1,x0,l))
                 (dec_clock t)))) = Loc x0 l``,
   full_simp_tac(srw_ss())[wordSemTheory.push_env_def,wordSemTheory.call_env_def,
       wordSemTheory.jump_exc_def]
@@ -3750,25 +3750,28 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac [])
   THEN1 (* If *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `comp c n l c1` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `comp c n r c2` \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ fs [LET_DEF]
+    \\ pairarg_tac \\ fs [] \\ qcase_tac `comp c n4 l c1 = (q4,l4)`
+    \\ pairarg_tac \\ fs [] \\ qcase_tac `comp c _ _ _ = (q5,l5)`
     \\ full_simp_tac(srw_ss())[bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP
-    \\ full_simp_tac(srw_ss())[wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ full_simp_tac(srw_ss())[wordSemTheory.get_var_imm_def,
+          asmSemTheory.word_cmp_def]
     \\ imp_res_tac get_var_T_OR_F
     \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[] THEN1
      (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`l`] mp_tac)
+      \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l`] mp_tac)
       \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[])
     \\ Cases_on `x = Boolv F` \\ full_simp_tac(srw_ss())[] THEN1
      (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
+      \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l4`] mp_tac)
       \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]))
   THEN1 (* Call *)
-   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
+   (`t.clock = s.clock` by fs [state_rel_def]
+    \\ once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `ret`
     \\ full_simp_tac(srw_ss())[bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
            wordSemTheory.add_ret_loc_def,get_vars_inc_clock]
@@ -3777,28 +3780,33 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
       \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `find_code dest x s.code` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
+      \\ qcase_tac `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
       \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def]
-      \\ mp_tac find_code_thm \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      THEN1 (full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-      \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ res_tac
-      \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ full_simp_tac(srw_ss())[]
+      \\ drule (GEN_ALL find_code_thm) \\ rpt (disch_then drule)
+      \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
+      THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
+      \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs[]
+      \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
+      \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ res_tac
+      \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
       \\ `t.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def]
-      \\ Cases_on `res1` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `res1` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ fs[]
       \\ every_case_tac \\ full_simp_tac(srw_ss())[mk_loc_def]
-      \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
+      \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
              wordSemTheory.dec_clock_def]
       \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[mk_loc_def])
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ `domain (adjust_set r) <> {}` by full_simp_tac(srw_ss())[adjust_set_def,domain_fromAList]
+    \\ `domain (adjust_set r) <> {}` by fs[adjust_set_def,domain_fromAList]
     \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[wordSemTheory.evaluate_def]
     \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac state_rel_get_vars_IMP \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
-     (Cases_on `bvlSem$find_code dest x s.code` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
+     (Cases_on `bvlSem$find_code dest x s.code` \\ fs[]
+      \\ qcase_tac `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
+      \\ qcase_tac `_ = SOME (actual_args,called_prog)`
       \\ imp_res_tac bvl_find_code
       \\ `¬bad_dest_args dest (MAP adjust_var args)` by
         (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
@@ -3807,19 +3815,23 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
       \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
       \\ Cases_on `bvpSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
-      \\ mp_tac find_code_thm_ret \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def]
+      \\ full_simp_tac(srw_ss())[]
+      \\ rpt_drule find_code_thm_ret
+      \\ disch_then (qspecl_then [`n`,`l`] strip_assume_tac) \\ fs []
       \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      THEN1 (full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def,state_rel_def])
+      THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
       \\ Cases_on `evaluate (prog,call_env ys (push_env x F (dec_clock s)))`
       \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
       \\ res_tac (* inst ind hyp *)
-      \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ full_simp_tac(srw_ss())[]
+      \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac)
+      \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
       THEN1
        (`s1.ffi = r'.ffi` by all_tac \\ full_simp_tac(srw_ss())[]
-        \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
+        \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+        \\ full_simp_tac(srw_ss())[set_var_def]
         \\ imp_res_tac bvpPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
         \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[])
       \\ reverse (Cases_on `x'` \\ full_simp_tac(srw_ss())[])
@@ -3833,14 +3845,14 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
            (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
         \\ imp_res_tac eval_exc_stack_shorter)
       \\ Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac state_rel_pop_env_set_var_IMP \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
+      \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
       \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[])
     (* with handler *)
     \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
-    \\ `?prog1 h1. comp c x0 (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
-    \\ Cases_on `bvlSem$find_code dest x' s.code` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
+    \\ `?prog1 h1. comp c n (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
+    \\ fs[wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
+    \\ Cases_on `bvlSem$find_code dest x' s.code` \\ fs[] \\ Cases_on `x` \\ fs[]
     \\ imp_res_tac bvl_find_code
     \\ `¬bad_dest_args dest (MAP adjust_var args)` by
         (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
@@ -3849,15 +3861,15 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
     \\ Cases_on `bvpSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
-    \\ mp_tac find_code_thm_handler \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ rpt_drule find_code_thm_handler \\ fs []
+    \\ disch_then (qspecl_then [`x0`,`n`,`prog1`,`n`,`l`] strip_assume_tac) \\ fs []
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    THEN1 (full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def,state_rel_def])
+    THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
     \\ Cases_on `evaluate (prog,call_env ys (push_env x T (dec_clock s)))`
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
     \\ res_tac (* inst ind hyp *)
-    \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ full_simp_tac(srw_ss())[]
+    \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
       \\ `r'.ffi.io_events ≼ s1.ffi.io_events ∧
@@ -3871,10 +3883,9 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] THEN1
      (Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac state_rel_pop_env_set_var_IMP \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[]
-      \\ match_mp_tac (GEN_ALL evaluate_IMP_domain_EQ) \\ full_simp_tac(srw_ss())[]
-      \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
+      \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
+      \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
+      \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[])
     \\ reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][])
     \\ full_simp_tac(srw_ss())[mk_loc_jump_exc]
@@ -3883,16 +3894,18 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp,jump_exc_push_env_SOME]
     \\ imp_res_tac eval_push_env_T_Raise_IMP_stack_length
     \\ `LENGTH s.stack = LENGTH locs` by
-         (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
+         (full_simp_tac(srw_ss())[state_rel_def]
+          \\ imp_res_tac LIST_REL_LENGTH \\ fs[]) \\ fs []
     \\ full_simp_tac(srw_ss())[LASTN_ADD1] \\ srw_tac[][]
     \\ first_x_assum (qspec_then `x0` assume_tac)
     \\ res_tac (* inst ind hyp *)
-    \\ pop_assum (qspecl_then [`x0`,`l+2`] strip_assume_tac) \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+    \\ pop_assum (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
     \\ `jump_exc (set_var (adjust_var x0) w t1) = jump_exc t1` by
-          full_simp_tac(srw_ss())[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
+          fs[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
     \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
     \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[])
     \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
