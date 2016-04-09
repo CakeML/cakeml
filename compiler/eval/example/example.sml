@@ -489,6 +489,9 @@ Tdec
   (Dlet (Pvar "test")
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
 
+val _ = PolyML.print_depth 5;
+val _ = Globals.max_print_depth := 10;
+
 (* 382.4 s*)
 val fib_bytes = Count.apply to_bytes fib
 (* 451.4 s*)
@@ -498,16 +501,13 @@ val queue_bytes = Count.apply to_bytes queue
 (* 472.3 s*)
 val btree_bytes = Count.apply to_bytes btree
 
-val _ = PolyML.print_depth 5;
-
-val _ = Globals.max_print_depth := 20;
 open x64_exportLib
 
 val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-val _ = x64_exportLib.write_cake_S 1 1 0 (extract_bytes fib_bytes) "fib.S"
-val _ = x64_exportLib.write_cake_S 1 1 0 (extract_bytes qsort_bytes) "qsort.S"
-val _ = x64_exportLib.write_cake_S 1 1 0 (extract_bytes queue_bytes) "queue.S"
-val _ = x64_exportLib.write_cake_S 1 1 0 (extract_bytes btree_bytes) "btree.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes fib_bytes) "fib.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes qsort_bytes) "qsort.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes queue_bytes) "queue.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes btree_bytes) "btree.S"
 
 (*"*)
 
@@ -533,4 +533,3 @@ val _ = dump_file "queue_check" (rconc queue_check)
 val _ = dump_file "btree_check" (rconc btree_check)
 
 *)
-

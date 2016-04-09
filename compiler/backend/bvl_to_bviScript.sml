@@ -31,6 +31,28 @@ val compile_int_def = tDefine "compile_int" `
  (WF_REL_TAC `measure (Num o ABS)`
   \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
 
+val alloc_glob_count_def = tDefine "alloc_glob_count" `
+  (alloc_glob_count [] = 0:num) /\
+  (alloc_glob_count (x::y::xs) =
+     alloc_glob_count [x] + alloc_glob_count (y::xs) /\
+  (alloc_glob_count [(Var _):bvl$exp] = 0) /\
+  (alloc_glob_count [If x y z] =
+     alloc_glob_count [x] +
+     alloc_glob_count [y] +
+     alloc_glob_count [z]) /\
+  (alloc_glob_count [Handle x y] =
+     alloc_glob_count [x] +
+     alloc_glob_count [y]) /\
+  (alloc_glob_count [Tick x] = alloc_glob_count [x]) /\
+  (alloc_glob_count [Raise x] = alloc_glob_count [x]) /\
+  (alloc_glob_count [Let xs x] = alloc_glob_count (x::xs)) /\
+  (alloc_glob_count [Call _ _ xs] = alloc_glob_count xs) /\
+  (alloc_glob_count [Op op xs] =
+     if op = AllocGlobal then 1 + alloc_glob_count xs
+                         else alloc_glob_count xs) /\
+  (alloc_glob_count [_] = 0))`
+  (WF_REL_TAC `measure exp1_size`)
+
 val AllocGlobal_location_def = Define`
   AllocGlobal_location = 100:num`;
 val CopyGlobals_location_def = Define`
@@ -57,21 +79,17 @@ val CopyGlobals_code_def = Define`
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
-(* TODO: move this constant into the config *)
-val init_number_of_globals_def = Define `
-  init_number_of_globals = (30:num)`;
-
 val InitGlobals_code_def = Define`
-  InitGlobals_code start = (0:num,
+  InitGlobals_code start n = (0:num,
     Let [Op SetGlobalsPtr
-          [Op Ref ((REPLICATE init_number_of_globals (Op (Const 0) [])) ++
+          [Op Ref ((REPLICATE n (Op (Const 0) [])) ++
                    [Op (Const 1) []])]]
      (Call 0 (SOME start) [] (SOME (Var 0))))`;
 
 val bvi_stubs_def = Define `
-  bvi_stubs start = [(AllocGlobal_location, AllocGlobal_code);
-                     (CopyGlobals_location, CopyGlobals_code);
-                     (InitGlobals_location, InitGlobals_code start)]`;
+  bvi_stubs start n = [(AllocGlobal_location, AllocGlobal_code);
+                       (CopyGlobals_location, CopyGlobals_code);
+                       (InitGlobals_location, InitGlobals_code start n)]`;
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -162,8 +180,9 @@ val compile_list_def = Define `
 
 val compile_prog_def = Define `
   compile_prog start n prog =
+    let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
-      (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) ++ code, n1)`;
+      (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
 val optimise_def = Define`
   optimise =

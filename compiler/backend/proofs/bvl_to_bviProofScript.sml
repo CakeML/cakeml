@@ -1760,11 +1760,16 @@ val evaluate_REPLICATE_0 = prove(
   \\ fs [EVAL ``small_enough_int 0``]);
 
 val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
-  `∀start ffi0 code k. 0 < k ∧ num_stubs ≤ start ⇒
-  let t0 = <| global := SOME 0; ffi := ffi0; clock := k; code := fromAList (bvi_stubs start ++ code);
+  `∀kk start ffi0 code k.
+     0 < k ∧ num_stubs ≤ start ⇒
+  let t0 = <| global := SOME 0
+            ; ffi := ffi0
+            ; clock := k
+            ; code := fromAList (bvi_stubs start kk ++ code);
               refs := FEMPTY |+ (0,ValueArray ([Number 1] ++
-                             REPLICATE init_number_of_globals (Number 0))) |> in
-   evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi0 (fromAList (bvi_stubs start ++ code)) (k+1)) =
+                             REPLICATE kk (Number 0))) |> in
+      evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
+        initial_state ffi0 (fromAList (bvi_stubs start kk ++ code)) (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
      ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)`,
   srw_tac[][bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
@@ -1786,13 +1791,15 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
     full_simp_tac(srw_ss())[lookup_fromAList,ALOOKUP_APPEND] >>
     rpt var_eq_tac >>
     simp[bviSemTheory.state_component_equality] >>
-    unabbrev_all_tac >> EVAL_TAC >> simp[]) >>
+    unabbrev_all_tac \\ fs [REVERSE_APPEND,REVERSE_REPLICATE] >>
+    EVAL_TAC >> simp[]) >>
   Cases_on`x`>>simp[] >>
   reverse IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     full_simp_tac(srw_ss())[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
     rpt var_eq_tac >>
     simp[bviSemTheory.state_component_equality] >>
-    unabbrev_all_tac >> EVAL_TAC >> simp[]) >>
+    unabbrev_all_tac >> fs [REVERSE_APPEND,REVERSE_REPLICATE] >>
+    EVAL_TAC >> simp[]) >>
   simp[] >>
   var_eq_tac >>
   simp[Once bviSemTheory.dec_clock_def] >>
@@ -1973,7 +1980,8 @@ val compile_list_imp = Q.prove(
 
 val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   `compile_prog start n prog = (start', prog', n') ∧
-   evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) = (r,s) ∧
+   evaluate ([Call 0 (SOME start) []],[],
+             initial_state ffi0 (fromAList prog) k) = (r,s) ∧
    0 < k ∧
    ALL_DISTINCT (MAP FST prog) ∧
    bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
@@ -1988,14 +1996,15 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   `num_stubs ≤ num_stubs + 2 * start` by simp[] >>
   drule (GEN_ALL compile_single_evaluate) >>
   simp[state_ok_def] >>
-  qspecl_then[`num_stubs + 2 * start`,`ffi0`,`code`]
+  qabbrev_tac `kk = alloc_glob_count (MAP (λ(_,_,p). p) prog)` >>
+  qspecl_then[`kk`,
+       `num_stubs + 2 * start`,`ffi0`,`code`]
     (fn tmp =>
       disch_then(fn th => subterm (mp_tac o C SPEC th o #2 o boolSyntax.dest_let) (concl tmp)))
     bvi_stubs_evaluate >>
   simp[Once state_rel_def,FLOOKUP_UPDATE] >>
   impl_tac >- (
-    conj_tac >- (
-      qexists_tac`init_number_of_globals+1`>>simp[]>>EVAL_TAC ) >>
+    conj_tac >- (qexists_tac`kk+1`>>simp[]>>EVAL_TAC) >>
     rpt var_eq_tac >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
     simp[bvi_stubs_def] >>
@@ -2026,12 +2035,14 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   strip_tac >>
   `0 < ck + k` by simp[] >>
   drule (GEN_ALL bvi_stubs_evaluate) >>
+  disch_then (qspec_then `kk` mp_tac) >>
   disch_then drule >>
   disch_then(qspecl_then[`ffi0`,`code`]mp_tac) >>
   simp[] >>
   rpt var_eq_tac >>
   fsrw_tac[ARITH_ss][inc_clock_def] >>
-  Cases_on`r`>>full_simp_tac(srw_ss())[]>> TRY(Cases_on`e`)>>full_simp_tac(srw_ss())[] >>
+  Cases_on`r`>>full_simp_tac(srw_ss())[]>>
+  TRY(Cases_on`e`)>>full_simp_tac(srw_ss())[] >>
   PROVE_TAC[ADD_ASSOC,ADD_COMM]);
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
