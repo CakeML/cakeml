@@ -680,6 +680,9 @@ val labels_ok_labs_correct = prove(``
     pop_assum mp_tac>>
     pop_assum mp_tac>>
     pop_assum mp_tac>>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
     rpt (pop_assum kall_tac)>>
     qid_spec_tac`x`>>
     Induct_on`l'`>>rw[labs_correct_def]>>fs[AND_IMP_INTRO]
@@ -689,8 +692,28 @@ val labels_ok_labs_correct = prove(``
     >-
       (Cases_on`h`>>fs[]>>
       `n'' ≠ n` by
-        fs[extract_labels_def,FORALL_PROD]>>
-      cheat)
+        (fs[extract_labels_def]>>
+        first_x_assum(qspec_then`n'',n0` mp_tac)>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>
+      ntac 4 (pop_assum kall_tac)>>
+      ntac 2 (pop_assum mp_tac)>>
+      rpt (pop_assum kall_tac)>>
+      map_every qid_spec_tac [`n''`,`n0`,`l`]>>
+      Induct>> once_rewrite_tac [labSemTheory.loc_to_pc_def]>>fs[]>>
+      rw[]>>fs[lab_to_targetTheory.is_Label_def,extract_labels_def,AND_IMP_INTRO]
+      >-
+        (fs[FORALL_PROD]>>metis_tac[])
+      >-
+        (fs[FORALL_PROD]>>metis_tac[])
+      >-
+        (first_assum match_mp_tac>>
+        Cases_on`h`>>fs[extract_labels_def])
+      >>
+        rveq>>fs[loc_to_pc_skip_section]>>
+        first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
+        impl_tac>- (Cases_on`h`>>fs[extract_labels_def])>>
+        fs[])
     >>
       first_x_assum (qspec_then`x+1` mp_tac)>>
       impl_tac

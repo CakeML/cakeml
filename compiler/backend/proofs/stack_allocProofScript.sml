@@ -2294,4 +2294,61 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
   \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
+val extract_labels_next_lab = store_thm("extract_labels_next_lab",``
+  ∀p e.
+  MEM e (extract_labels p) ⇒
+  SND e < next_lab p``,
+  ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
+  once_rewrite_tac [next_lab_def]>>fs[extract_labels_def]>>
+  fs[extract_labels_def]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[MAX_DEF]);
+
+val stack_alloc_lab_pres = store_thm("stack_alloc_lab_pres",``
+  ∀n nl p.
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
+  ALL_DISTINCT (extract_labels p) ∧
+  next_lab p ≤ nl ⇒
+  let (cp,nl') = comp n nl p in
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels cp) ∧
+  ALL_DISTINCT (extract_labels cp) ∧
+  (∀lab. MEM lab (extract_labels cp) ⇒ MEM lab (extract_labels p) ∨ (nl ≤ SND lab ∧ SND lab < nl')) ∧
+  nl ≤ nl'``,
+  HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
+  once_rewrite_tac [comp_def]>>fs[extract_labels_def]
+  >-
+    (BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
+    rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
+    qpat_assum`A<=nl` mp_tac>>
+    simp[Once next_lab_def]>>
+    strip_tac>>
+    fs[ALL_DISTINCT_APPEND]
+    >-
+      (CCONTR_TAC>>fs[]>>
+      res_tac>>fs[])
+    >>
+      `next_lab q ≤ m'` by fs[]>>
+      fs[]>>rfs[]>>
+      `r < nl ∧ r' < nl` by
+        fs[MAX_DEF]>>
+      rw[]>>
+      TRY(CCONTR_TAC>>fs[]>>
+      res_tac>>fs[])
+      >- metis_tac[]
+      >>
+        imp_res_tac extract_labels_next_lab>>fs[])
+  >>
+  TRY
+  (rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
+  qpat_assum`A<=nl` mp_tac>>
+  simp[Once next_lab_def])>>
+  (strip_tac>>
+  fs[ALL_DISTINCT_APPEND]>>rw[]
+  >-
+    (CCONTR_TAC>>fs[]>>
+    res_tac>>fs[]>- metis_tac[]>>
+    imp_res_tac extract_labels_next_lab>>
+    fs[])
+  >>
+    res_tac>>fs[]));
+
 val _ = export_theory();

@@ -155,10 +155,11 @@ val next_lab_def = Define `
     case p of
     | Seq p1 p2 => MAX (next_lab p1) (next_lab p2)
     | If _ _ _ p1 p2 => MAX (next_lab p1) (next_lab p2)
+    | While _ _ _ p => next_lab p
     | Call NONE _ NONE => 1
     | Call NONE _ (SOME (_,_,l2)) => l2 + 1
-    | Call (SOME (_,_,_,l2)) _ NONE => l2 + 1
-    | Call (SOME (_,_,_,l2)) _ (SOME (_,_,l3)) => MAX l2 l3 + 1
+    | Call (SOME (p,_,_,l2)) _ NONE => MAX (next_lab p) (l2 + 1)
+    | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) => MAX (MAX (next_lab p) (next_lab p')) (MAX l2 l3 + 1)
     | _ => 1`
 
 val comp_def = Define `
