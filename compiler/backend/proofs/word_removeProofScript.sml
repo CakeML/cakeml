@@ -175,7 +175,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
       rveq>>full_simp_tac(srw_ss())[])
 
 (* syntactic preservation all in one go *)
-val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,post_alloc_conventions_def,call_arg_convention_def,wordLangTheory.every_stack_var_def,wordLangTheory.every_var_def]
+val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,post_alloc_conventions_def,call_arg_convention_def,wordLangTheory.every_stack_var_def,wordLangTheory.every_var_def,extract_labels_def]
 
 val remove_must_terminate_conventions = store_thm("remove_must_terminate_conventions",``
   ∀p c k.
@@ -183,7 +183,8 @@ val remove_must_terminate_conventions = store_thm("remove_must_terminate_convent
   (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
   (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
   (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
-  (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp)``,
+  (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp) ∧
+  (extract_labels p = extract_labels comp)``,
   ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
   fs[remove_must_terminate_def]>>fs convs>>
   TRY

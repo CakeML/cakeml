@@ -546,16 +546,20 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
 
 val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
-(* syntax going into stackLang *)
+(* syntax going into stackLang
+  inst_ok_less and two_reg_inst are IGNORED for now
+  since we still have an exit check in lab_to_target
+*)
 val compile_conventions = store_thm("compile_to_word_conventions",``
-  addr_offset_ok 0w ac ∧ EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ⇒
+  (*addr_offset_ok 0w ac ∧ EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ⇒*)
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
+  MAP (extract_labels o SND o SND) progs = MAP (extract_labels o SND o SND) p ∧
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
-    post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    full_inst_ok_less ac prog ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs``,
+    post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog
+    (*full_inst_ok_less ac prog ∧
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)*)) progs``,
   fs[compile_def]>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>rveq>>rw[]>>
   `LENGTH n_oracles = LENGTH p` by
@@ -569,7 +573,18 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     pop_assum (assume_tac o SYM)>>
     fs[compile_single_def]>>
     pop_assum mp_tac>>
-    fs[EL_MAP,EL_ZIP])>>
+    fs[EL_MAP,EL_ZIP])
+  >-
+    (match_mp_tac LIST_EQ>>
+    fs[EL_MAP,full_compile_single_def]>>
+    rw[]>>
+    qpat_abbrev_tac`q = EL x A`>>
+    fs[markerTheory.Abbrev_def]>>PairCases_on`q`>>
+    pop_assum (mp_tac o SYM)>>
+    fs[EL_MAP,EL_ZIP]>>
+    fs[compile_single_def]>>
+    fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
+    IF_CASES_TAC>>fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,GSYM inst_select_lab_pres])>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
   CONJ_TAC>-
@@ -579,13 +594,12 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
-  CONJ_TAC>-
-    (match_mp_tac (el 3 rmt_thms)>>
-    match_mp_tac pre_post_conventions_word_alloc>>
-    IF_CASES_TAC>>
-    TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
-    fs[full_ssa_cc_trans_pre_alloc_conventions])>>
-  CONJ_TAC>-
+  match_mp_tac (el 3 rmt_thms)>>
+  match_mp_tac pre_post_conventions_word_alloc>>
+  IF_CASES_TAC>>
+  TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
+  fs[full_ssa_cc_trans_pre_alloc_conventions])
+  (* Rest of the proof for the other two conventions
     (match_mp_tac (el 2 rmt_thms)>>
     match_mp_tac word_alloc_full_inst_ok_less>>
     IF_CASES_TAC>>
@@ -596,6 +610,6 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
   rw[]>>
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
-  fs[three_to_two_reg_two_reg_inst])
+  fs[three_to_two_reg_two_reg_inst]*)
 
 val _ = export_theory();

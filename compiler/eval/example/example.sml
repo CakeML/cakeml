@@ -8,7 +8,7 @@ val clos_conf = ``<|next_loc := 104 ; start:=103|>``
 val bvp_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
-val stack_conf = ``<|reg_names:=x64_names;stack_ptr:= x64_config.reg_count - (3+LENGTH x64_config.avoid_regs);max_heap:=1000000|>``
+val stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
 (*??*)
 val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config;init_clock:=5|>``
 
@@ -48,45 +48,7 @@ fun to_bytes prog =
     test2
   end
 
-(*Version that doesn't do the EVERY check*)
-val remove_labels_loop_nc_def = Define `
-  remove_labels_loop_nc clock c enc sec_list =
-    (* compute labels *)
-    let labs = compute_labels_alt 0 sec_list in
-    (* update encodings and lengths (but not label lengths) *)
-    let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
-      (* done ==> labs are still fine *)
-      if done then
-        (* adjust label lengths *)
-        let sec_list = upd_lab_len 0 sec_list in
-        (* compute labels again *)
-        let labs = compute_labels_alt 0 sec_list in
-        (* update encodings *)
-        let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
-        (* move label padding into instructions *)
-        let sec_list = pad_code (enc (Inst Skip)) sec_list in
-        (* compute the labels again, redundant TODO: remove *)
-        let labs2 = compute_labels_alt 0 sec_list in
-        (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs /\
-             ALL_DISTINCT (sec_names sec_list)
-          then SOME (sec_list,labs)
-          else NONE
-      else
-        (* repeat *)
-        if clock = 0:num then NONE else
-          remove_labels_loop_nc (clock-1) c enc sec_list`
-
-val eval = computeLib.compset_conv (wordsLib.words_compset())
-    [computeLib.Extenders
-      [compilerComputeLib.add_compiler_compset
-      ,x64_targetLib.add_x64_encode_compset
-      ,asmLib.add_asm_compset
-      ],
-     computeLib.Defs [remove_labels_loop_nc_def]
-    ]
-
-(*to_bytes without the final check*)
+(*to_bytes verbose*)
 fun to_bytes_verbose prog =
   let
   val prog = ``^(initial_prog) ++ ^(prog)``
@@ -118,7 +80,7 @@ fun to_bytes_verbose prog =
     (*unverified: let p = MAP (λa,b,prog. a,b,FST(remove_dead prog LN)) p in*)
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
-    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
+    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
     (c,p)``
   val _ = println "First encoding"
   val test4 = Count.apply eval``
@@ -131,7 +93,7 @@ fun to_bytes_verbose prog =
   val _ = println "Remove labels loop"
   val test5 = Count.apply eval``
     let (c,enc,sec_list,limit,clk) = ^(rconc test4) in
-    remove_labels_loop_nc clk c enc sec_list``
+    remove_labels_loop clk c enc sec_list``
   val _ = println "Extract byte list"
   val test6 = Count.apply eval``
     case ^(rconc test5) of
@@ -527,22 +489,29 @@ Tdec
   (Dlet (Pvar "test")
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
 
-val fib_bytes = to_bytes_verbose fib
-val qsort_bytes = to_bytes_verbose qsort
-val queue_bytes = to_bytes_verbose queue
-val btree_bytes = to_bytes_verbose btree
-
 val _ = PolyML.print_depth 5;
+val _ = Globals.max_print_depth := 10;
 
-val _ = Globals.max_print_depth := 20;
+(* 382.4 s*)
+val fib_bytes = Count.apply to_bytes fib
+(* 451.4 s*)
+val qsort_bytes = Count.apply to_bytes qsort
+(* 513.3 s*)
+val queue_bytes = Count.apply to_bytes queue
+(* 472.3 s*)
+val btree_bytes = Count.apply to_bytes btree
+
 open x64_exportLib
-val _ = x64_exportLib.write_cake_S 1 1 0 fib_bytes "fib.S"
-val _ = x64_exportLib.write_cake_S 1 1 0 qsort_bytes "qsort.S"
-val _ = x64_exportLib.write_cake_S 1 1 0 queue_bytes "queue.S"
-val _ = x64_exportLib.write_cake_S 1 1 0 btree_bytes "btree.S"
+
+val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes fib_bytes) "fib.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes qsort_bytes) "qsort.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes queue_bytes) "queue.S"
+val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes btree_bytes) "btree.S"
+
 (*"*)
 
-(*Check*)
+(*Check
 
 fun dump_file file t =
   let
@@ -558,10 +527,9 @@ val queue_check = to_bytes queue
 val btree_check = to_bytes btree
 val _ = Globals.max_print_depth := ~1;
 
-val _ = dump_file "fib_check" (rconc fib_check)
+val _ = dump_file "fib_check" (rconc test3)
 val _ = dump_file "qsort_check" (rconc qsort_check)
 val _ = dump_file "queue_check" (rconc queue_check)
 val _ = dump_file "btree_check" (rconc btree_check)
 
-
-
+*)

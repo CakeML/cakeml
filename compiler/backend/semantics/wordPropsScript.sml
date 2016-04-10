@@ -2273,7 +2273,7 @@ val wf_cutsets_def = Define`
 val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (FFI x y z args) = (y = 2 ∧ z = 4)) ∧
+  (call_arg_convention (FFI x y z args) = (y = 4 ∧ z = 2)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of
@@ -2319,5 +2319,28 @@ word_remove (flat_exp_conventions, full_inst_ok_less, post_alloc_conventions, ev
 word_to_word (everything in word_remove)
 word_to_stack (probably needs to extend full_inst_ok_less and two_reg_inst)
 *)
+
+(* This is for label preservation -- wordLang shouldn't need to inspect the labels explicitly
+  We will need theorems of the form:
+  extract_labels prog = extract_labels (transform prog)
+*)
+
+val extract_labels_def = Define`
+  (extract_labels (Call ret dest args h) =
+    (case ret of
+      NONE => []
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      let ret_rest = extract_labels ret_handler in
+    (case h of
+      NONE => [(l1,l2)] ++ ret_rest
+    | SOME (v,prog,l1',l2') =>
+      let h_rest = extract_labels prog in
+      [(l1,l2);(l1',l2')]++ret_rest++h_rest))) ∧
+  (extract_labels (MustTerminate _ s1) = extract_labels s1) ∧
+  (extract_labels (Seq s1 s2) =
+    extract_labels s1 ++ extract_labels s2) ∧
+  (extract_labels (If cmp r1 ri e2 e3) =
+    (extract_labels e2 ++ extract_labels e3)) ∧
+  (extract_labels _ = [])`
 
 val _ = export_theory();

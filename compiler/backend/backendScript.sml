@@ -50,7 +50,7 @@ val compile_def = Define`
     let c = c with word_conf := c' in
     let c = c with stack_conf updated_by
              (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
-    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
+    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
       lab_to_target$compile c.lab_conf (p:'a prog)`;
 
 val to_mod_def = Define`
@@ -130,7 +130,7 @@ val to_lab_def = Define`
   let (c,p) = to_stack c p in
   let c = c with stack_conf updated_by
            (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
-  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
+  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
   (c,p:'a prog)`;
 
 val to_target_def = Define`
@@ -170,7 +170,7 @@ val from_stack_def = Define`
   from_stack c p =
   let c = c with stack_conf updated_by
            (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
-  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
+  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
   from_lab c (p:'a prog)`;
 
 val from_word_def = Define`
@@ -325,9 +325,9 @@ val compile_oracle = store_thm("compile_oracle",``
   BasicProvers.EVERY_CASE_TAC>>fs[])
 
 val to_livesets_invariant = store_thm("to_livesets_invariant",``
-  to_livesets (c with word_conf:=wc) p =
+  to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
-    (rcm,c with word_conf:=wc,p)``,
+    (rcm,c with word_to_word_conf:=wc,p)``,
   srw_tac[][FUN_EQ_THM,
      to_bvp_def,
      to_bvi_def,

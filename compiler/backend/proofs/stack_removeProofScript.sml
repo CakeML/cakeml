@@ -2448,4 +2448,19 @@ val make_init_any_stack_limit = store_thm("make_init_any_stack_limit",
   \\ qexists_tac `8 * dimindex (:'a)` \\ fs []
   \\ fs [X_LT_EXP_X_IFF]);
 
+val stack_remove_lab_pres = store_thm("stack_remove_lab_pres",``
+  ∀k p.
+  extract_labels p = extract_labels (comp k p)``,
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  once_rewrite_tac [comp_def]>>fs[extract_labels_def]>>
+  TRY(IF_CASES_TAC)>>
+  fs[extract_labels_def]
+  >- (BasicProvers.EVERY_CASE_TAC>>fs[])
+  >-
+    (qid_spec_tac`n`>>completeInduct_on`n`>>rw[Once stack_alloc_def]>>
+    fs[extract_labels_def,single_stack_alloc_def]>>
+    first_assum match_mp_tac>>
+    fs[max_stack_alloc_def])
+  >- EVAL_TAC);
+
 val _ = export_theory();

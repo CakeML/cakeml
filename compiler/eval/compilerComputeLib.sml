@@ -260,6 +260,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [ (* ---- bvl_to_bvi ---- *)
      bvl_to_bviTheory.destLet_def
+    ,bvl_to_bviTheory.alloc_glob_count_def
     ,bvl_to_bviTheory.num_stubs_def
     ,bvl_to_bviTheory.compile_prog_def
     ,bvl_to_bviTheory.compile_list_def
@@ -276,7 +277,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
-    ,bvl_to_bviTheory.init_number_of_globals_def
     ]
   ,computeLib.Tys
     [ (* ---- bvp ---- *)
