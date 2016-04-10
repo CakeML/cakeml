@@ -605,6 +605,106 @@ val code_installed_prog_to_section_lemma = prove(
   \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
   \\ fs [loc_to_pc_skip_section,code_installed_cons]);
 
+(*TODO: Move to stack_to_lab theory*)
+val extract_labels_def = Define`
+  (extract_labels [] = []) ∧
+  (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
+  (extract_labels (x::xs) = extract_labels xs)`
+
+val labels_ok_def = Define`
+  labels_ok code ⇔
+  (*Section names are distinct*)
+  ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
+  EVERY (λs. case s of Section n lines =>
+    let labs = extract_labels lines in
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
+    ALL_DISTINCT labs) code`
+
+val extract_labels_append = prove(``
+  ∀A B.
+  extract_labels (A++B) = extract_labels A ++ extract_labels B``,
+  Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def])
+
+val labs_correct_hd = prove(``
+  ∀extra l.
+  ALL_DISTINCT (extract_labels (extra++l)) ∧
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (extra++l)) ⇒
+  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) ::code)``,
+  Induct_on`l`>>fs[labs_correct_def]>>rw[]
+  >-
+    (first_x_assum(qspec_then `extra++[h]` mp_tac)>>
+    Cases_on`h`>>fs[extract_labels_def,lab_to_targetTheory.is_Label_def,FILTER_APPEND]>>
+    metis_tac[APPEND_ASSOC,APPEND])
+  >-
+    (Cases_on`h`>>fs[]>>
+    ntac 2 (pop_assum mp_tac)>>
+    rpt (pop_assum kall_tac)>>
+    Induct_on`extra`>>fs[extract_labels_def]>>rw[]
+    >-
+      (once_rewrite_tac [labSemTheory.loc_to_pc_def]>>
+      fs[])
+    >>
+    `n = n' ∧ n0 ≠ 0` by
+      (Cases_on`h`>>fs[extract_labels_append,extract_labels_def])>>
+    once_rewrite_tac [labSemTheory.loc_to_pc_def]>>
+    Cases_on`h`>>fs[extract_labels_def]>>
+    IF_CASES_TAC>>fs[extract_labels_append,extract_labels_def])
+  >>
+    first_x_assum(qspec_then `extra++[h]` mp_tac)>>
+    Cases_on`h`>>fs[extract_labels_def,FILTER_APPEND]>>
+    metis_tac[APPEND_ASSOC,APPEND])
+
+val labels_ok_labs_correct = prove(``
+  ∀code.
+  labels_ok code ⇒
+  EVERY ( λs. case s of Section n lines =>
+      case loc_to_pc n 0 code of
+       SOME pc => labs_correct pc lines code
+      | _ => T) code``,
+  Induct>>fs[labels_ok_def]>>Cases_on`h`>>fs[]>>
+  rw[]
+  >-
+    (once_rewrite_tac[labSemTheory.loc_to_pc_def]>>fs[]>>
+    assume_tac (Q.SPEC `[]` labs_correct_hd)>>fs[])
+  >>
+    fs[EVERY_MEM]>>rw[]>>res_tac>>
+    Cases_on`s`>>fs[]>>
+    `n ≠ n'` by
+      (fs[MEM_MAP]>>
+      last_x_assum kall_tac>>
+      last_x_assum (qspec_then`Section n' l'` assume_tac)>>rfs[])>>
+    fs[loc_to_pc_skip_section]>>
+    BasicProvers.EVERY_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>
+    pop_assum kall_tac>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    rpt (pop_assum kall_tac)>>
+    qid_spec_tac`x`>>
+    Induct_on`l'`>>rw[labs_correct_def]>>fs[AND_IMP_INTRO]
+    >-
+      (first_assum match_mp_tac>>
+      Cases_on`h`>>fs[ALL_DISTINCT,extract_labels_def])
+    >-
+      (Cases_on`h`>>fs[]>>
+      `n'' ≠ n` by
+        fs[extract_labels_def,FORALL_PROD]>>
+      cheat)
+    >>
+      first_x_assum (qspec_then`x+1` mp_tac)>>
+      impl_tac
+      >-
+        (Cases_on`h`>>fs[ALL_DISTINCT,extract_labels_def])
+      >>
+       fs[]);
+
+val labs_correct_append = prove(``
+  ∀ls pc.
+  labs_correct pc (ls ++ rest) code ⇒
+  labs_correct pc ls code``,
+  Induct>>fs[labs_correct_def]>>rw[]);
+
 val code_installed_prog_to_section = prove(
   ``!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
@@ -615,7 +715,15 @@ val code_installed_prog_to_section = prove(
   rpt strip_tac \\ fs [code_installed_eq]
   \\ drule code_installed_prog_to_section_lemma \\ strip_tac
   \\ asm_exists_tac \\ fs []
-  \\ cheat (* probably needs to know that all labels are distinct *));
+  \\ `labels_ok (MAP prog_to_section prog4)` by cheat
+  \\ imp_res_tac labels_ok_labs_correct
+  \\ fs[EVERY_MEM,MEM_MAP]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ first_x_assum (qspec_then`prog_to_section (n,prog3)` mp_tac)
+  \\ impl_tac >- metis_tac[]
+  \\ BasicProvers.TOP_CASE_TAC>>fs[stack_to_labTheory.prog_to_section_def]
+  \\ pairarg_tac>>fs[]>>rveq>>fs[]
+  \\ metis_tac[labs_correct_append]);
 
 val stack_remove_syntax_pres = prove(
   ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
