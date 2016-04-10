@@ -225,7 +225,7 @@ val assign_def = Define `
                           (Assign (adjust_var dest) FALSE_CONST)],l)
                | _ => (Skip,l))
     | TagLenEq tag len => (case args of
-               | [v1] => if len = 0 then
+               | [v1] => (if len = 0 then
                            if tag < dimword (:'a) DIV 16 then
                              (If Equal (adjust_var v1) (Imm (n2w (16 * tag + 2)))
                                 (Assign (adjust_var dest) TRUE_CONST)
@@ -241,7 +241,7 @@ val assign_def = Define `
                                   (Assign 1 (Load (real_addr c (adjust_var v1))));
                                 If Equal 1 (Imm h)
                                   (Assign (adjust_var dest) TRUE_CONST)
-                                  (Assign (adjust_var dest) FALSE_CONST)],l)
+                                  (Assign (adjust_var dest) FALSE_CONST)],l))
                | _ => (Skip,l))
     | TagEq tag => (case args of
                | [v1] => (list_Seq

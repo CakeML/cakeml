@@ -4302,4 +4302,37 @@ val compile_semantics = save_thm("compile_semantics",let
          |> DISCH_ALL |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
+(*TODO: Connect to the wordLang transformations*)
+val bvp_to_word_lab_pres_lem = prove(``
+  ∀c n l p.
+  l ≠ 0 ⇒
+  let (cp,l') = comp c n l p in
+  l ≤ l' ∧
+  EVERY (λ(l1,l2). l1 = n ∧ l ≤ l2 ∧ l2 < l') (extract_labels cp) ∧
+  ALL_DISTINCT (extract_labels cp)``,
+  HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
+  once_rewrite_tac[comp_def]>>fs[extract_labels_def]
+  >-
+    (BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
+    rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
+    fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+    res_tac>>fs[]>>
+    CCONTR_TAC>>fs[]>>res_tac>>fs[])
+  >-
+    (fs[assign_def]>>
+    Cases_on`o'`>>
+    fs[extract_labels_def,GiveUp_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[extract_labels_def,list_Seq_def]>>
+    qpat_abbrev_tac`A = 0w`>>
+    qpat_abbrev_tac`ls = 3n::rest`>>
+    rpt(pop_assum kall_tac)>>
+    qid_spec_tac`A`>>Induct_on`ls`>>
+    fs[StoreEach_def,extract_labels_def])
+  >>
+    (rpt (pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
+    rw[]>>
+    res_tac>>fs[]>>
+    CCONTR_TAC>>fs[]>>res_tac>>fs[]));
+
 val _ = export_theory();
