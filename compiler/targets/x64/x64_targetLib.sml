@@ -53,9 +53,10 @@ val add_x64_decode_compset = computeLib.extend_compset
       x64_cmp_dec_def, x64_sh_def, x64_cmp_def, isZm_def, OpSize_def,
       readPrefixes_def, readPrefix_def, prefixGroup_def, readOpcodeModRM_def,
       readModRM_def, readSIB_def, readSibDisplacement_def,
-      readDisplacement_def, RexReg_def, rec'REX_def, immediate8_def,
-      immediate16_def, immediate32_def, immediate64_def, immediate_def,
-      full_immediate_def, listTheory.MEM, boolify8_n2w],
+      readDisplacement_def, RexReg_def, rec'REX_def, oimmediate8_def,
+      immediate8_def, immediate16_def, immediate32_def, immediate64_def,
+      immediate_def, oimmediate_def, full_immediate_def, listTheory.MEM,
+      boolify8_n2w],
    computeLib.Extenders [add_x64_datatypes],
    computeLib.Tys [``:('a, 'b) sum``, ``:Zinst``, ``:REX``],
    computeLib.Convs [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]]

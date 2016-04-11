@@ -18,9 +18,7 @@ local
                 | _ => NONE
 in
   val riscv_encode_conv =
-   Conv.memoize dst (Redblackmap.mkDict Term.compare)
-     (K true)
-     (* listSyntax.is_list *)
+   Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "riscv_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
