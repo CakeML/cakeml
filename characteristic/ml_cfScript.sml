@@ -71,6 +71,37 @@ val store2heap_append = Q.prove (
   Induct \\ fs [store2heap_def, store2heap_aux_append]
 );
 
+val store2heap_aux_suc = Q.prove (
+  `!s n u v. ((u, v) IN store2heap_aux n s) = ((SUC u, v) IN store2heap_aux (SUC n) s)`,
+  Induct
+  THEN1 (strip_tac \\ fs [store2heap_def, store2heap_aux_def])
+  THEN1 (
+    once_rewrite_tac [store2heap_aux_def] \\ rpt strip_tac \\
+    once_rewrite_tac [IN_INSERT] \\ eq_tac \\ rpt strip_tac
+    THEN1 (disj1_tac \\ fs [])
+    THEN1 (
+      disj2_tac \\ first_assum (qspecl_then [`SUC n`, `u`, `v`] assume_tac)
+      \\ cheat
+    )
+    THEN1 (disj1_tac \\ fs [])
+    THEN1 (
+      disj2_tac \\ first_assum (qspecl_then [`SUC n`, `u`, `v`] assume_tac)
+      \\ cheat
+    )
+  )
+);
+
+val store2heap_alloc_disjoint = Q.prove (
+  `!s x. ~ ((LENGTH s, x) IN (store2heap s))`,
+  Induct
+  THEN1 (strip_tac \\ fs [store2heap_def, store2heap_aux_def])
+  THEN1 (
+    fs [store2heap_def, store2heap_aux_def] \\
+    rewrite_tac [DECIDE ``1 = SUC 0``] \\
+    fs [GSYM store2heap_aux_suc]
+  )
+);
+
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
   st2heap (:'ffi) (st: 'ffi state) = store2heap st.refs`;
@@ -137,14 +168,8 @@ val app_local = Q.prove(
 
 
 val app_ref_def = Define `
-  app_ref (:'ffi) (x: v) env H Q =
-    !(h: heap) (i: heap) (st: 'ffi state).
-      SPLIT (st2heap (:'ffi) st) (h, i) ==> H h ==>
-      ?(s': v store) (r: num) h'.
-        store_alloc (Refv x) st.refs = (s', r) /\
-        h' = (r, x) INSERT h /\
-        SPLIT3 (st2heap (:'ffi) (st with <| refs := s' |>)) (h', {}, i) /\
-        Q (Loc r) h'`;
+  app_ref (x: v) env H Q =
+    !(r: num). SEP_IMP (H * one (r, x)) (Q (Loc r))`;
 
 val app_assign_def = Define `
   app_assign (r: num) (x: v) env H Q =
@@ -192,10 +217,10 @@ val cf_fundecl_def = Define `
          F2 env H Q)`;
 
 val cf_ref_def = Define `
-  cf_ref (:'ffi) x = local (\env H Q.
+  cf_ref x = local (\env H Q.
     ?xv.
       exp2v env x = SOME xv /\
-      app_ref (:'ffi) xv env H Q)`;
+      app_ref xv env H Q)`;
 
 val cf_assign_def = Define `
   cf_assign r x = local (\env H Q.
@@ -227,7 +252,7 @@ val cf_def = Define `
       | _ => \env H Q. F) /\
   cf (:'ffi) (App Opref args) = 
     (case args of
-       | [x] => cf_ref (:'ffi) x
+       | [x] => cf_ref x
        | _ => \env H Q. F) /\
   cf (:'ffi) (App Opassign args) = 
     (case args of
@@ -323,7 +348,8 @@ val cf_sound = Q.prove (
          PROVE_TAC [bigStepTheory.evaluate_rules],
          METIS_TAC [SEP_IMP_def]
        ]
-  ) THEN1 (
+  )
+  THEN1 (
     strip_tac \\ match_mp_tac sound_local \\ rewrite_tac [sound_def]
     \\ REPEAT strip_tac \\ fs []
     \\ res_tac
@@ -332,7 +358,8 @@ val cf_sound = Q.prove (
          SPLIT_TAC,
          PROVE_TAC [bigStepTheory.evaluate_rules]
        ]
-  ) THEN1 (
+  )
+  THEN1 (
 
     (* App *)
     Cases \\ rewrite_tac cf_defs \\ rewrite_tac [sound_false]
@@ -340,24 +367,14 @@ val cf_sound = Q.prove (
     \\ match_mp_tac sound_local
     \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs []
 
-    (* Cases_on `l` THENL [ *)
-    (*   ALL_TAC, *)
-    (*   qcase_tac `App _ (_ :: l)` \\ *)
-    (*   Cases_on `l` THENL [ *)
-    (*     ALL_TAC, *)
-    (*     qcase_tac `App _ (_ :: _ :: l)` \\ Cases_on `l` *)
-    (*   ] *)
-    (* ] \\ Induct \\ rewrite_tac cf_defs \\ fs [] \\ rewrite_tac [sound_false] *)
-    (* \\ match_mp_tac sound_local \\ rewrite_tac [sound_def] *)
-    (* \\ REPEAT strip_tac \\ fs [] *)
     THEN1 (
       (* Opapp *)
       once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs []
-      \\ qpat_assum `app_basic _ _ _ _ _` (assume_tac o REWRITE_RULE [app_basic_def])
+      \\ qpat_assum `app_basic _ _ _ _ _ _` (assume_tac o REWRITE_RULE [app_basic_def])
       \\ res_tac
       \\ qcase_tac `Q v' h_f` \\ qcase_tac `evaluate F env' st exp (st', Rval v')`
       \\ qcase_tac `SPLIT3 _ (h_f, h_g, h_k)`
-      \\ Q.LIST_EXISTS_TAC [`v'`, `env`, `st'`, `h_f`, `h_g`]
+      \\ Q.LIST_EXISTS_TAC [`v'`, `st'`, `h_f`, `h_g`]
       \\ strip_tac THENL [SPLIT_TAC, fs []]
       \\ Q.LIST_EXISTS_TAC [`[xv; fv]`, `env'`, `exp`, `st`] \\ fs []
       \\ prove_tac [exp2v_evaluate, bigStepTheory.evaluate_rules]
@@ -374,13 +391,24 @@ val cf_sound = Q.prove (
          \\ Q.EXISTS_TAC `st` \\ strip_tac THENL [prove_tac [exp2v_evaluate], all_tac]
          \\ prove_tac [bigStepTheory.evaluate_rules]) \\
       fs [PULL_EXISTS] \\
-      qpat_assum `app_ref _ _ _ _ _` (assume_tac o REWRITE_RULE [app_ref_def]) \\
-      pop_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
-      qcase_tac `Q (Loc r) h'` \\
-      fs [st2heap_def] \\ rw [] \\
-      `SPLIT3 (store2heap s') ((r,xv) INSERT h_i, h_k, {})` by SPLIT_TAC \\
-      rpt (asm_exists_tac \\ fs []) \\
-      fs [semanticPrimitivesTheory.do_app_def]
+      qpat_assum `app_ref _ _ _ _` (assume_tac o REWRITE_RULE [app_ref_def]) \\
+      fs [SEP_IMP_def] \\
+      GEN_EXISTS_TAC "vs" `[xv]` \\
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
+      pop_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,xv) INSERT h_i`] mp_tac)
+      \\ impl_tac
+      THEN1 (
+        fs [STAR_def, one_def] \\ qexists_tac `h_i` \\ fs [st2heap_def] \\
+        strip_assume_tac store2heap_alloc_disjoint \\
+        pop_assum (qspecl_then [`st.refs`, `xv`] assume_tac) \\
+        SPLIT_TAC
+      )
+      THEN1 (
+        strip_tac \\ once_rewrite_tac [CONJ_COMM] \\ rpt (asm_exists_tac \\ fs []) \\
+        qexists_tac `{}` \\ fs [st2heap_def, store2heap_append] \\ 
+        strip_assume_tac store2heap_alloc_disjoint \\
+        pop_assum (qspecl_then [`st.refs`, `xv`] assume_tac) \\ SPLIT_TAC
+      )
     )
     THEN1 (
       (* Opderef *)
@@ -390,10 +418,10 @@ val cf_sound = Q.prove (
   THEN1 (
 
     gen_tac \\ qcase_tac `Let opt e1 e2` \\
-    Cases_on `e1` \\ 
-    rewrite_tac cf_defs
+    (* Cases_on `e1` \\  *)
+    (* rewrite_tac cf_defs \\ *)
 
-    Cases_on `opt` \\ Cases_on `e1` \\ fs []
+    Cases_on `opt` \\ fs []
     THEN1 (
         rewrite_tac cf_defs \\ match_mp_tac sound_local \\
         rewrite_tac [sound_def] \\ REPEAT strip_tac \\ fs [] \\
@@ -411,9 +439,7 @@ val cf_sound = Q.prove (
         rpt (asm_exists_tac \\ fs [])
     )
     THEN1
-        
-        Cases_on `e1` 
-
+      cheat
   )
 );
 
