@@ -84,15 +84,14 @@ val flatten_def = Define `
     | Call NONE dest _ => (List [compile_jump dest],m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
         let (xs,m) = flatten p1 n m in
-          (List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
-                 compile_jump dest; Label l1 l2 0] ++ xs ++
-           (case handler of
-            | NONE => List []
-            | SOME (p2,k1,k2) =>
-                let (ys,m) = flatten p2 n m in
-                  List [LabAsm (Jump (Lab n m)) 0w [] 0; Label k1 k2 0] ++
-                  ys ++ List [Label n m 0]),
-           if IS_SOME handler then m+1 else m)
+        let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
+                 compile_jump dest; Label l1 l2 0] ++ xs in
+        (case handler of
+        | NONE => (prefix, m)
+        | SOME (p2,k1,k2) =>
+            let (ys,m) = flatten p2 n m in
+              (prefix ++ (List [LabAsm (Jump (Lab n m)) 0w [] 0; Label k1 k2 0] ++
+              ys ++ List [Label n m 0]), m+1))
     | JumpLower r1 r2 target =>
         (List [LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
     | FFI ffi_index _ _ lr => (List [LabAsm (LocValue lr (Lab n m)) 0w [] 0;
