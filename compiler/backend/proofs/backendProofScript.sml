@@ -594,7 +594,7 @@ val code_installed_prog_to_section_lemma = prove(
   ``!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed' pc (FST (flatten prog3 n (next_lab prog3)))
+        code_installed' pc (append (FST (flatten prog3 n (next_lab prog3))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
   Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
@@ -732,7 +732,7 @@ val code_installed_prog_to_section = prove(
   ``!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed pc (FST (flatten prog3 n (next_lab prog3)))
+        code_installed pc (append (FST (flatten prog3 n (next_lab prog3))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
   rpt strip_tac \\ fs [code_installed_eq]

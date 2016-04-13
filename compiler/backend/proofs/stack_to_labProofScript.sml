@@ -89,6 +89,16 @@ val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
 
 (* -- *)
 
+val append_aux_thm = store_thm("append_aux_thm",
+  ``!l xs. append_aux l xs = append_aux l [] ++ xs``,
+  Induct \\ metis_tac [APPEND,APPEND_ASSOC,append_aux_def]);
+
+val append_thm = store_thm("append_thm[simp]",
+  ``append (Append l1 l2) = append l1 ++ append l2 /\
+    append (List xs) = xs``,
+  fs [append_def,append_aux_def]
+  \\ once_rewrite_tac [append_aux_thm] \\ fs []);
+
 val code_installed_def = Define`
   (code_installed n [] code = T) ∧
   (code_installed n (x::xs) code ⇔
@@ -116,7 +126,8 @@ val state_rel_def = Define`
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
       good_syntax prog t.len_reg t.ptr_reg t.link_reg ∧
-      ∃pc. code_installed pc (FST (flatten prog n (next_lab prog))) t.code ∧
+      ∃pc. code_installed pc
+             (append (FST (flatten prog n (next_lab prog)))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
     t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
@@ -337,7 +348,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
      good_syntax prog t1.len_reg t1.ptr_reg t1.link_reg ∧
-     code_installed t1.pc (FST (flatten prog n l)) t1.code
+     code_installed t1.pc (append (FST (flatten prog n l))) t1.code
      ⇒
      ∃ck t2.
      case r of SOME (Halt w) =>
@@ -357,7 +368,8 @@ val flatten_correct = Q.store_thm("flatten_correct",
        t2.code = t1.code ∧
        case r of
        | NONE =>
-         t2.pc = t1.pc + LENGTH (FILTER ($~ o is_Label) (FST(flatten prog n l))) ∧
+         t2.pc = t1.pc + LENGTH (FILTER ($~ o is_Label)
+                           (append (FST(flatten prog n l)))) ∧
          state_rel s2 t2
        | SOME (Result (Loc n1 n2)) =>
            ∀w. loc_to_pc n1 n2 t2.code = SOME w ⇒
@@ -1125,7 +1137,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     drule(GEN_ALL compile_jump_correct) >>
     disch_then drule >>
     strip_tac >>
-    qmatch_assum_abbrev_tac`code_installed pc (FST (flatten _ nx lx)) _` >>
+    qmatch_assum_abbrev_tac`code_installed pc (append (FST (flatten _ nx lx))) _` >>
     last_x_assum(qspecl_then[`nx`,`lx`,`t1 with <| pc := pc; regs := regs; clock := s.clock-1 |>`]mp_tac) >>
     impl_tac >- (
       simp[] >>
@@ -1760,7 +1772,7 @@ val state_rel_make_init = store_thm("state_rel_make_init",
      lookup n code = SOME (prog) ⇒
      good_syntax prog s.len_reg s.ptr_reg s.link_reg ∧
      ∃pc.
-       code_installed pc (FST (flatten prog n (next_lab prog))) s.code ∧
+       code_installed pc (append (FST (flatten prog n (next_lab prog)))) s.code ∧
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
     s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
     s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
