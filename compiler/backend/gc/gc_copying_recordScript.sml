@@ -214,10 +214,10 @@ val gc_move_h1 = prove(
      THEN1 fs []
   \\ Cases_on `x`
   \\ fs [LET_THM]
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ fs []
   \\ Cases_on `conf.isRef (DataElement l n' b)`
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ fs []);
 
 val gc_move_list_def = Define `
@@ -234,9 +234,9 @@ val gc_move_list_h1 = prove(
   Induct
   \\ fs [gc_move_list_def,LET_THM]
   \\ rw []
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ fs []
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ fs []
   \\ rpt var_eq_tac
   \\ drule (GSYM gc_move_h1)
@@ -653,7 +653,7 @@ THEN1
 \\ fs [isSomeDataElement_def,LET_THM]
 \\ imp_res_tac heap_lookup_SPLIT
 \\ reverse (rw [])
-\\ split_pair_tac \\ fs []
+\\ pairarg_tac \\ fs []
 \\ fs [gc_forward_ptr_thm]
 \\ qpat_assum `_ = heap` (fn th => assume_tac (GSYM th))
 
@@ -882,7 +882,7 @@ val gc_move_ALT = store_thm("gc_move_ALT",
   \\ rw []
   \\ rw []
   \\ unabbrev_all_tac
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ fs [fetch "-" "gc_state_component_equality"]);
 
 val gc_move_list_ALT = store_thm("gc_move_list_ALT",
@@ -898,14 +898,14 @@ val gc_move_list_ALT = store_thm("gc_move_list_ALT",
   \\ pop_assum (fn th => assume_tac (GSYM th))
   \\ rpt strip_tac
   \\ simp [LET_THM]
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ fs []
-  \\ split_pair_tac
+  \\ pairarg_tac
   \\ fs []
   \\ rpt var_eq_tac
   \\ qpat_assum `!state. _` (fn th => once_rewrite_tac [GSYM th]) (* valj vilken assumption *)
   \\ fs [LET_THM]
-  \\ rpt (split_pair_tac \\ fs []));
+  \\ rpt (pairarg_tac \\ fs []));
 
 val gc_move_list_APPEND_lemma = prove(
   ``!ys state.
@@ -913,7 +913,7 @@ val gc_move_list_APPEND_lemma = prove(
         (?h2' r4'. (state'.h2 = state.h2 ++ h2') /\ (state'.r4 = r4' ++ state.r4))``,
   once_rewrite_tac [gc_move_list_ALT]
   \\ rw [LET_THM]
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ rw []);
 
 val heap_addresses_APPEND = prove(
@@ -1003,7 +1003,7 @@ THEN1
   fs [gc_inv_def,heap_length_def,SUM_APPEND,el_length_def]
 \\ `isDataElement h` by fs [gc_inv_def]
 \\ Cases_on `h` \\ fs [isDataElement_def]
-\\ split_pair_tac \\ fs []
+\\ pairarg_tac \\ fs []
 \\ drule gc_move_list_thm
 \\ disch_then (qspec_then `l` mp_tac) \\ fs []
 \\ discharge_hyps
@@ -1020,7 +1020,7 @@ THEN1
   (qpat_assum `gc_move_list conf state l = _` mp_tac
   \\ once_rewrite_tac [gc_move_list_ALT]
   \\ fs [LET_THM]
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ rw [] \\ fs [])
 \\ qpat_assum `gc_inv conf _ _ /\ _ /\ _ ==> _` kall_tac
 \\ qpat_assum `gc_inv conf state heap0` kall_tac
@@ -1194,7 +1194,7 @@ val full_gc_thm = store_thm("full_gc_thm",
   \\ imp_res_tac gc_inv_init
   \\ fs [full_gc_def]
   \\ fs [LET_THM]
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ drule gc_move_list_thm
   \\ disch_then (qspec_then `roots` mp_tac)
   \\ discharge_hyps
@@ -1538,18 +1538,18 @@ val gc_move_ok = store_thm("gc_move_ok",
   \\ Cases_on `x`
   \\ fs [fetch "-" "gc_state_component_equality",LET_THM]
   THEN1
-    (split_pair_tac
+    (pairarg_tac
     \\ Cases_on `conf.isRef (DataElement l n' b)` \\ fs []
-    \\ TRY split_pair_tac
+    \\ TRY pairarg_tac
     \\ fs [fetch "-" "gc_state_component_equality"]
     \\ rpt var_eq_tac
     \\ imp_res_tac gc_forward_ptr_ok)
   THEN1
     metis_tac []
   THEN1
-    (split_pair_tac
+    (pairarg_tac
     \\ Cases_on `conf.isRef (DataElement l n' b')` \\ fs []
-    \\ TRY split_pair_tac
+    \\ TRY pairarg_tac
     \\ fs [fetch "-" "gc_state_component_equality"]
     THEN1 metis_tac []
     \\ qpat_assum `_ = state'.h2` (mp_tac o GSYM)
@@ -1559,7 +1559,7 @@ val gc_move_ok = store_thm("gc_move_ok",
     metis_tac []
   THEN1
     (Cases_on `conf.isRef (DataElement l n' b)` \\ fs []
-    \\ TRY split_pair_tac \\ fs [fetch "-" "gc_state_component_equality"]
+    \\ TRY pairarg_tac \\ fs [fetch "-" "gc_state_component_equality"]
     THEN1
       (rpt var_eq_tac \\ fs []
       \\ qpat_assum `_ = state'.r4` (mp_tac o GSYM) \\ strip_tac
@@ -1575,8 +1575,8 @@ val gc_move_list_ok = store_thm("gc_move_list_ok",
   Induct
   \\ fs [gc_move_list_def]
   \\ rpt strip_tac
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_assum `!xs'. _` (qspecl_then [`xs''`, `state''`,`state'`] mp_tac)
   \\ strip_tac
@@ -1622,15 +1622,15 @@ val gc_move_list_IMP_LENGTH = store_thm("gc_move_list_IMP_LENGTH",
   (*     (gc_move_list (l5,h,a,n,heap,c,k) = *)
   (*       (xs,ys,a1,xs1,heap1,c1)) ==> (LENGTH xs = LENGTH l5)``, *)
   (* Induct \\ fs [gc_move_list_def,LET_THM] \\ rw [] *)
-  (* \\ split_pair_tac \\ fs[] *)
-  (* \\ split_pair_tac \\ fs[] \\ rw [] *)
+  (* \\ pairarg_tac \\ fs[] *)
+  (* \\ pairarg_tac \\ fs[] \\ rw [] *)
   (* \\ res_tac \\ fs []); *)
 
 val full_gc_IMP_LENGTH = store_thm("full_gc_IMP_LENGTH",
   ``(full_gc conf (xs,heap) = (roots2,h1,r1,a,r,T)) ==>
     (LENGTH roots2 = LENGTH xs)``,
   fs [full_gc_def,LET_THM]
-  \\ rpt (split_pair_tac \\ fs []) \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []);
 
 *)
