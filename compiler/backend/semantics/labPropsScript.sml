@@ -462,8 +462,8 @@ val mem_store_align_dm = Q.store_thm("mem_store_align_dm",
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0]));
 
 val mem_store_byte_aux_align_dm = Q.store_thm("mem_store_byte_aux_align_dm",
-  `mem_store_byte_aux s.mem s.mem_domain be x c = SOME y ⇒
-   mem_store_byte_aux s.mem (align_dm s).mem_domain be x c = SOME y`,
+  `mem_store_byte_aux mem s.mem_domain be x c = SOME y ⇒
+   mem_store_byte_aux mem (align_dm s).mem_domain be x c = SOME y`,
   rw[mem_store_byte_aux_def]
   \\ every_case_tac \\ fs[]
   \\ fs[align_dm_def]
@@ -516,6 +516,34 @@ val get_ret_Loc_align_dm = Q.store_thm("get_ret_Loc_align_dm[simp]",
   `get_ret_Loc (align_dm s) = get_ret_Loc s`,
   EVAL_TAC);
 
+val read_bytearray_mem_load_byte_aux_align_dm = Q.store_thm("read_bytearray_mem_load_byte_aux_align_dm[simp]",
+  `∀y x.
+    read_bytearray x y (mem_load_byte_aux s.mem (align_dm s).mem_domain s.be) =
+   read_bytearray x y (mem_load_byte_aux s.mem s.mem_domain s.be)`,
+  Induct \\ rw[read_bytearray_def]
+  \\ match_mp_tac EQ_SYM
+  \\ BasicProvers.TOP_CASE_TAC
+  >- (
+    fs[mem_load_byte_aux_def]
+    \\ Cases_on`s.mem (byte_align x)` \\ fs[]
+    \\ simp[align_dm_def] )
+  \\ imp_res_tac mem_load_byte_aux_align_dm
+  \\ simp[]);
+
+val write_bytearray_align_dm = Q.store_thm("write_bytearray_align_dm[simp]",
+  `∀y x. write_bytearray x y s.mem (align_dm s).mem_domain s.be =
+   write_bytearray x y s.mem s.mem_domain s.be`,
+  Induct \\ rw[write_bytearray_def]
+  \\ match_mp_tac EQ_SYM
+  \\ BasicProvers.TOP_CASE_TAC
+  >- (
+    fs[mem_store_byte_aux_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ simp[align_dm_def] )
+  \\ imp_res_tac mem_store_byte_aux_align_dm \\ fs[]);
+
 val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   `good_dimindex(:α) ⇒
    ∀(s:(α,'ffi) labSem$state).
@@ -540,7 +568,11 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
-  \\ cheat);
+  \\ pairarg_tac \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[align_dm_def]);
 
 val UNCURRY_eq_pair = Q.store_thm("UNCURRY_eq_pair",
   `UNCURRY f v = z ⇔ ∃a b. v = (a,b) ∧ f a b = z`,
