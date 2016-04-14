@@ -318,8 +318,247 @@ val align_dm_def = Define `
   align_dm (s:('a,'ffi) labSem$state) =
     (s with mem_domain := s.mem_domain INTER byte_aligned)`
 
-val implements_align_dm = store_thm("implements_align_dm",
-  ``implements {semantics s} {semantics (align_dm s)}``,
-  cheat);
+val align_dm_const = Q.store_thm("align_dm_const[simp]",
+  `(align_dm s).clock = s.clock ∧
+   (align_dm s).pc = s.pc ∧
+   (align_dm s).code = s.code ∧
+   (align_dm s).mem = s.mem ∧
+   (align_dm s).be = s.be ∧
+   (align_dm s).len_reg = s.len_reg ∧
+   (align_dm s).link_reg = s.link_reg ∧
+   (align_dm s).ptr_reg = s.ptr_reg ∧
+   (align_dm s).io_regs = s.io_regs ∧
+   (align_dm s).ffi = s.ffi ∧
+   (align_dm s).failed = s.failed`,
+  EVAL_TAC);
+
+val align_dm_with_clock = Q.store_thm("align_dm_with_clock",
+  `align_dm (s with clock := k) = align_dm s with clock := k`,
+  EVAL_TAC);
+
+val asm_fetch_align_dm = Q.store_thm("asm_fetch_align_dm[simp]",
+  `asm_fetch (align_dm s) = asm_fetch s`,
+  rw[asm_fetch_def]);
+
+val read_reg_align_dm = Q.store_thm("read_reg_align_dm[simp]",
+  `read_reg n (align_dm s) = read_reg n s`,
+  EVAL_TAC);
+
+val upd_reg_align_dm = Q.store_thm("upd_reg_align_dm[simp]",
+  `upd_reg x y (align_dm s) = align_dm (upd_reg x y s)`,
+  EVAL_TAC);
+
+val upd_mem_align_dm = Q.store_thm("upd_mem_align_dm[simp]",
+  `upd_mem x y (align_dm s) = align_dm (upd_mem x y s)`,
+  EVAL_TAC);
+
+val binop_upd_align_dm = Q.store_thm("binop_upd_align_dm[simp]",
+  `binop_upd x y z w (align_dm s) = align_dm (binop_upd x y z w s)`,
+  Cases_on`y` \\ simp[binop_upd_def]);
+
+val reg_imm_align_dm = Q.store_thm("reg_imm_align_dm[simp]",
+  `reg_imm r (align_dm s) = reg_imm r s`,
+  Cases_on`r` \\ EVAL_TAC);
+
+val assert_align_dm = Q.store_thm("assert_align_dm[simp]",
+  `assert b (align_dm s) = align_dm (assert b s)`,
+  EVAL_TAC);
+
+val arith_upd_align_dm = Q.store_thm("arith_upd_align_dm[simp]",
+  `arith_upd x (align_dm s) = align_dm (arith_upd x s)`,
+  Cases_on`x` \\ rw[arith_upd_def]
+  \\ every_case_tac \\ fs[]);
+
+val addr_align_dm = Q.store_thm("addr_align_dm[simp]",
+  `addr a (align_dm s) = addr a s`,
+  Cases_on`a` \\ EVAL_TAC);
+
+val mem_load_align_dm = Q.store_thm("mem_load_align_dm",
+  `good_dimindex (:α) ⇒
+   mem_load n (a:α addr) (align_dm s) = align_dm (mem_load n a s)`,
+  strip_tac
+  \\ simp[mem_load_def]
+  \\ every_case_tac \\ fs[]
+  \\ AP_TERM_TAC
+  \\ EVAL_TAC
+  \\ simp[state_component_equality]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ fs[alignmentTheory.byte_aligned_def,IN_DEF]
+  \\ fs[good_dimindex_def]
+  \\ fs[alignmentTheory.aligned_def]
+  \\ Cases_on`x` \\ rfs[alignmentTheory.align_w2n]
+  \\ rfs[]
+  \\ rfs[dimword_def]
+  \\ spose_not_then strip_assume_tac
+  \\ fs[DIV_MOD_MOD_DIV]
+  \\ qpat_assum`_ ≠ _`mp_tac \\ simp[]
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  >- (
+    CONV_TAC(RAND_CONV(REWR_CONV(Q.SPECL[`4`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[])))
+    \\ first_assum (CHANGED_TAC o SUBST1_TAC)
+    \\ CONV_TAC(RAND_CONV(SIMP_CONV(srw_ss())[]))
+    \\ match_mp_tac LESS_MOD
+    \\ metis_tac[Q.SPECL[`4`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0])
+  >- (
+    CONV_TAC(RAND_CONV(REWR_CONV(Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[])))
+    \\ first_assum (CHANGED_TAC o SUBST1_TAC)
+    \\ CONV_TAC(RAND_CONV(SIMP_CONV(srw_ss())[]))
+    \\ match_mp_tac LESS_MOD
+    \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0]));
+
+val mem_load_byte_aux_align_dm = Q.store_thm("mem_load_byte_aux_align_dm",
+  `mem_load_byte_aux s.mem s.mem_domain be x = SOME y ⇒
+   mem_load_byte_aux s.mem (align_dm s).mem_domain be x = SOME y`,
+  rw[mem_load_byte_aux_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ last_x_assum mp_tac \\ simp[]
+  \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ fs[alignmentTheory.aligned_align]);
+
+val mem_load_byte_align_dm = Q.store_thm("mem_load_byte_align_dm",
+  `good_dimindex (:α) ⇒
+   mem_load_byte n (a:α addr) (align_dm s) = align_dm (mem_load_byte n a s)`,
+  strip_tac
+  \\ simp[mem_load_byte_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac mem_load_byte_aux_align_dm
+  \\ fs[]
+  \\ fs[mem_load_byte_aux_def]
+  \\ fs[align_dm_def]
+  \\ every_case_tac \\ fs[]);
+
+val mem_store_align_dm = Q.store_thm("mem_store_align_dm",
+  `good_dimindex (:α) ⇒
+   mem_store n (a:α addr) (align_dm s) = align_dm (mem_store n a s)`,
+  strip_tac
+  \\ simp[mem_store_def]
+  \\ every_case_tac \\ fs[]
+  \\ AP_TERM_TAC
+  \\ EVAL_TAC
+  \\ simp[state_component_equality]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ fs[alignmentTheory.byte_aligned_def,IN_DEF]
+  \\ fs[good_dimindex_def]
+  \\ fs[alignmentTheory.aligned_def]
+  \\ Cases_on`x` \\ rfs[alignmentTheory.align_w2n]
+  \\ rfs[]
+  \\ rfs[dimword_def]
+  \\ spose_not_then strip_assume_tac
+  \\ fs[DIV_MOD_MOD_DIV]
+  \\ qpat_assum`_ ≠ _`mp_tac \\ simp[]
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  >- (
+    CONV_TAC(RAND_CONV(REWR_CONV(Q.SPECL[`4`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[])))
+    \\ first_assum (CHANGED_TAC o SUBST1_TAC)
+    \\ CONV_TAC(RAND_CONV(SIMP_CONV(srw_ss())[]))
+    \\ match_mp_tac LESS_MOD
+    \\ metis_tac[Q.SPECL[`4`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0])
+  >- (
+    CONV_TAC(RAND_CONV(REWR_CONV(Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[])))
+    \\ first_assum (CHANGED_TAC o SUBST1_TAC)
+    \\ CONV_TAC(RAND_CONV(SIMP_CONV(srw_ss())[]))
+    \\ match_mp_tac LESS_MOD
+    \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0]));
+
+val mem_store_byte_aux_align_dm = Q.store_thm("mem_store_byte_aux_align_dm",
+  `mem_store_byte_aux s.mem s.mem_domain be x c = SOME y ⇒
+   mem_store_byte_aux s.mem (align_dm s).mem_domain be x c = SOME y`,
+  rw[mem_store_byte_aux_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ last_x_assum mp_tac \\ simp[]
+  \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ fs[alignmentTheory.aligned_align]);
+
+val mem_store_byte_align_dm = Q.store_thm("mem_store_byte_align_dm",
+  `good_dimindex (:α) ⇒
+   mem_store_byte n (a:α addr) (align_dm s) = align_dm (mem_store_byte n a s)`,
+  strip_tac
+  \\ simp[mem_store_byte_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac mem_store_byte_aux_align_dm
+  \\ fs[]
+  \\ fs[mem_store_byte_aux_def]
+  \\ fs[align_dm_def]
+  \\ every_case_tac \\ fs[]);
+
+val mem_op_align_dm = Q.store_thm("mem_op_align_dm",
+  `good_dimindex (:α) ⇒
+   mem_op m n (a:α addr) (align_dm s) = align_dm (mem_op m n a s)`,
+  Cases_on`m`
+  \\ simp[mem_op_def,
+          mem_load_align_dm,mem_load_byte_align_dm,
+          mem_store_align_dm,mem_store_byte_align_dm]);
+
+val asm_inst_align_dm = Q.store_thm("asm_inst_align_dm",
+  `good_dimindex (:α) ⇒
+   asm_inst (i:α inst) (align_dm s) = align_dm (asm_inst i s)`,
+  Cases_on`i` \\ simp[asm_inst_def,mem_op_align_dm]);
+
+val dec_clock_align_dm = Q.store_thm("dec_clock_align_dm[simp]",
+  `dec_clock (align_dm s) = align_dm (dec_clock s)`,
+  EVAL_TAC);
+
+val inc_pc_align_dm = Q.store_thm("inc_pc_align_dm[simp]",
+  `inc_pc (align_dm s) = align_dm (inc_pc s)`,
+  EVAL_TAC);
+
+val upd_pc_align_dm = Q.store_thm("upd_pc_align_dm[simp]",
+  `upd_pc p (align_dm s) = align_dm (upd_pc p s)`,
+  EVAL_TAC);
+
+val get_pc_value_align_dm = Q.store_thm("get_pc_value_align_dm[simp]",
+  `get_pc_value x (align_dm s) = get_pc_value x s`,
+  EVAL_TAC \\ every_case_tac);
+
+val get_ret_Loc_align_dm = Q.store_thm("get_ret_Loc_align_dm[simp]",
+  `get_ret_Loc (align_dm s) = get_ret_Loc s`,
+  EVAL_TAC);
+
+val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
+  `good_dimindex(:α) ⇒
+   ∀(s:(α,'ffi) labSem$state).
+      evaluate (align_dm s) =
+      let (r,s') = evaluate s in (r, align_dm s')`,
+  strip_tac
+  \\ ho_match_mp_tac evaluate_ind
+  \\ rpt strip_tac
+  \\ simp[Once evaluate_def]
+  \\ IF_CASES_TAC >- ( simp[Once evaluate_def] )
+  \\ BasicProvers.TOP_CASE_TAC >- ( simp[Once evaluate_def] )
+  \\ BasicProvers.TOP_CASE_TAC >- ( simp[Once evaluate_def] )
+  >- (
+    BasicProvers.TOP_CASE_TAC
+    \\ simp[asm_inst_align_dm]
+    \\ simp[Once evaluate_def,SimpRHS]
+    \\ rw[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[])
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ simp[Once evaluate_def,SimpRHS]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ cheat);
+
+val UNCURRY_eq_pair = Q.store_thm("UNCURRY_eq_pair",
+  `UNCURRY f v = z ⇔ ∃a b. v = (a,b) ∧ f a b = z`,
+  Cases_on`v`\\ rw[UNCURRY]);
+
+val implements_align_dm = Q.store_thm("implements_align_dm",
+  `good_dimindex(:α) ⇒
+   implements {semantics (s:(α,'ffi) labSem$state)} {semantics (align_dm s)}`,
+  strip_tac
+  \\ irule implements_intro
+  \\ qexists_tac`T` \\ simp[]
+  \\ simp[semantics_def,GSYM align_dm_with_clock]
+  \\ simp[evaluate_align_dm,UNCURRY_eq_pair,PULL_EXISTS]
+  \\ simp[UNCURRY]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ strip_tac
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ simp[FUN_EQ_THM]
+  \\ METIS_TAC[]);
 
 val _ = export_theory();
