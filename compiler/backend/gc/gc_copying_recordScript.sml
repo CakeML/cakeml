@@ -31,7 +31,7 @@ val EVERY2_APPEND = store_thm("EVERY2_APPEND",
   Induct \\ Cases_on `ts` \\ full_simp_tac (srw_ss()) [LENGTH,CONJ_ASSOC]);
 
 val BIJ_UPDATE = prove(
-  ``BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
     BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
   simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
@@ -69,7 +69,7 @@ val _ = Datatype `
      ; a : num                         (* heap_length (h1 ++ h2) *)
      ; n : num                         (* unused heap space *)
      ; r : num                         (* heap_length (r4 ++ r3 ++ r2 ++ r1) *)
-     ; c : bool                        (* OK *)
+     ; ok : bool                       (* OK *)
      ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
      |>`;
 
@@ -84,14 +84,16 @@ val starting_state_def = Define `
      ; a := 0
      ; n := 0
      ; r := 0
-     ; c := T
+     ; ok := T
      ; heap := []
      |>`;
 
 val _ = Datatype `
   gc_conf =
-    <| limit : num              (* end of heap *)
+    <| limit : num              (* size of heap *)
      ; isRef : ('a, 'b) heap_element -> bool
+     ; gen_start : num          (* start of generation *)
+     ; gen_end : num            (* end of generation *)
      |>`;
 
 
@@ -136,10 +138,6 @@ val heap_ok_def = Define `
     (!ptr xs l d u. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr u) xs ==>
                     isSomeDataElement (heap_lookup ptr heap))`;
 
-(* split heap into two 0-a, a-limit *)
-(* fail if a is not a "good location", *)
-(* meaning it is at some heap element not "between"? *)
-(* return option type? *)
 val heap_split_def = Define `
   (heap_split 0 heap = ([], heap)) /\
   (heap_split a (el::heap) =
@@ -149,9 +147,6 @@ val heap_split_def = Define `
     else let (h1, h2) = heap_split (a - l) heap
     in (el::h1, h2))`;
 
-(* segment heap into three 0-a, a-b, b-limit *)
-(* where a-b should could be the young generation *)
-(* in a generational garbage collector *)
 val heap_segment_def = Define `
   heap_segment (a, b) heap =
     let (h1, heap') = heap_split a heap
@@ -159,12 +154,6 @@ val heap_segment_def = Define `
     in let (h2, h3) = heap_split (b - l) heap'
     in (h1, h2, h3)`;
 
-(* assume heap_ok? for now, yes *)
-(* old generations 0-a *)
-(* current generation a-b *)
-(* references b-limit *)
-(* add that all references h2 are at end? *)
-(* or perhaps, after gc move b left and then this holds *)
 val heap_gen_ok_def = Define `
   heap_gen_ok (a, b) isRef heap limit =
     (a <= b) /\ (b <= limit) /\
@@ -183,38 +172,37 @@ val heap_gen_ok_def = Define `
 
 val gc_forward_ptr_def = Define `
   (* replace cell at a with a forwardpointer to ptr *)
-  (gc_forward_ptr a [] ptr d c = ([],F)) /\
-  (gc_forward_ptr a (x::xs) ptr d c =
+  (gc_forward_ptr a [] ptr d ok = ([],F)) /\
+  (gc_forward_ptr a (x::xs) ptr d ok =
      if a = 0 then
-       (ForwardPointer ptr d ((el_length x)-1) :: xs, isDataElement x /\ c) else
+       (ForwardPointer ptr d ((el_length x)-1) :: xs, isDataElement x /\ ok) else
      if a < el_length x then (x::xs,F) else
-       let (xs,c) = gc_forward_ptr (a - el_length x) xs ptr d c in
-         (x::xs,c))`;
+       let (xs,ok) = gc_forward_ptr (a - el_length x) xs ptr d ok in
+         (x::xs,ok))`;
 
-(* a - address to end of h2 *)
-(* n - amount of empty space *)
-(* r - adress to start of r2 *)
 val gc_move_def = Define `
   (gc_move conf state (Data d) = (Data d, state)) /\
   (gc_move conf state (Pointer ptr d) =
      case heap_lookup ptr state.heap of
      | SOME (DataElement xs l dd) =>
-       let c = state.c /\ l+1 <= state.n /\ (state.a + state.n + state.r = conf.limit) in
+       let ok = state.ok /\ l+1 <= state.n /\ (state.a + state.n + state.r = conf.limit) in
        let n = state.n - (l + 1) in
         if conf.isRef (DataElement xs l dd) then
           (* put refs in r4 *)
           let r4 = (DataElement xs l dd) :: state.r4 in
-          let r = state.r + l + 1 in
-          let (heap, c) = gc_forward_ptr ptr state.heap (conf.limit - r) d c in
-            (Pointer r d,state with <| r4 := r4; n := n; r := r; heap := heap; c := c |>)
+          let r = state.r + (l + 1) in
+          let (heap, c) = gc_forward_ptr ptr state.heap (state.a + n) d ok in
+            (Pointer (state.a + n) d
+            ,state with <| r4 := r4; n := n; r := r; heap := heap; ok := ok |>)
         else
           (* put data in h2 *)
           let h2 = state.h2 ++ [DataElement xs l dd] in
-          let (heap,c) = gc_forward_ptr ptr state.heap state.a d state.c in
+          let (heap,ok) = gc_forward_ptr ptr state.heap state.a d ok in
           let a = state.a + l + 1 in
-            (Pointer a d, state with <| h2 := h2; n := n; a := a; heap := heap; c := c |>)
+            (Pointer state.a d
+            ,state with <| h2 := h2; n := n; a := a; heap := heap; ok := ok |>)
      | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,state)
-     | _ => (Pointer ptr d, state with <| c := F |>) )`;
+     | _ => (Pointer ptr d, state with <| ok := F |>) )`;
 
 val gc_move_h1 = prove(
   ``!x x' state state'.
@@ -260,15 +248,15 @@ val gc_move_data_def = tDefine "gc_move_data" `
     case state.h2 of
     | [] => state
     | h::h2 =>
-      if conf.limit < heap_length (state.h1 ++ h::h2) then state with <| c := F |> else
+      if conf.limit < heap_length (state.h1 ++ h::h2) then state with <| ok := F |> else
        case h of
        | DataElement xs l d =>
          let (xs,state) = gc_move_list conf state xs in
          let h1 = state.h1 ++ [DataElement xs l d] in
          let h2 = TL state.h2 in
-         let c = state.c /\ state.h2 <> [] /\ (HD state.h2 = h) in
-           gc_move_data conf (state with <| h1 := h1; h2 := h2; c := c |>)
-       | _ => state with <| c := F |>)`
+         let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
+           gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
+       | _ => state with <| ok := F |>)`
   (WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ imp_res_tac gc_move_list_h1
@@ -286,7 +274,7 @@ val gc_move_refs_def = tDefine "gc_move_refs" `
         let (xs,state) = gc_move_list conf state xs in
         let r3 = state.r3 ++ [DataElement xs l d] in
           gc_move_refs conf (state with <| r2 := r2; r3 := r3 |>)
-      | _ => state with <| c := F |>`
+      | _ => state with <| ok := F |>`
   (WF_REL_TAC `measure (\(conf,state). heap_length state.r2)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ decide_tac);
@@ -299,11 +287,11 @@ val gc_move_loop_def = Define `
       | ([],[]) => state
       | (h2,[]) =>
         let state = gc_move_data conf state in
-          if clock = 0 then state with <| c := F |> else
+          if clock = 0 then state with <| ok := F |> else
           gc_move_loop conf state (clock-1)
       | (h2,r4) =>
         let state = gc_move_refs conf (state with <| r2 := r4; r4 := [] |>) in
-          if clock = 0 then state with <| c := F |> else
+          if clock = 0 then state with <| ok := F |> else
           gc_move_loop conf state (clock-1)`
 
 (* Magnus: I've made the gc_move_loop clocked to make the termination
@@ -318,17 +306,17 @@ val heap_expand_def = Define `
 one calls with bounds that are 0 and limit *)
 val full_gc_def = Define `
   full_gc conf (roots,heap) =
-    let c0 = (heap_length heap = conf.limit) in
+    let ok0 = (heap_length heap = conf.limit) in
     let state = starting_state with <| heap := heap; n := conf.limit |> in
     let (roots,state) = gc_move_list conf state roots in
     let state = gc_move_loop conf state conf.limit in
-    let c = c0 /\ state.c /\
-            (state.a = heap_length state.h1) /\
-            (state.r = heap_length state.r1) /\
-            (heap_length state.heap = conf.limit) /\
-            (state.n = conf.limit - state.a - state.r) /\
-            state.a + state.r <= conf.limit in
-      (roots,state.h1,state.r1,state.a,state.r,c)`;
+    let ok = ok0 /\ state.ok /\
+             (state.a = heap_length state.h1) /\
+             (state.r = heap_length state.r1) /\
+             (heap_length state.heap = conf.limit) /\
+             (state.n = conf.limit - state.a - state.r) /\
+             state.a + state.r <= conf.limit in
+      (roots,state.h1,state.r1,state.a,state.r,ok)`;
 
 (* Invariant *)
 
@@ -369,11 +357,11 @@ val heaps_similar_def = Define `
                    else (h = h0)) heap0 heap`
 
 val is_final_def = Define `
-  is_final limit h1 r3 r2 r1 ptr =
-    let h1end = heap_length h1 in
-    let r1start = limit - heap_length r1 in
-    let r3start = limit - (heap_length (r3 ++ r2 ++ r1)) in
-    let r3end = r3start + heap_length r3 in
+  is_final state ptr =
+    let h1end = heap_length state.h1 in
+    let r3start = state.a + state.n + heap_length state.r4 in
+    let r3end = r3start + heap_length state.r3 in
+    let r1start = r3end + heap_length state.r2 in
     ptr < h1end \/
     r1start <= ptr \/
     (r3start <= ptr /\ ptr < r3end)`;
@@ -387,12 +375,11 @@ val gc_inv_def = Define `
     let heap' = state.h1 ++ state.h2 ++
                 heap_expand state.n ++ state.r4 ++
                 state.r3 ++ state.r2 ++ state.r1 in
-    (state.a + state.n + state.r = conf.limit) /\
-    (state.a = heap_length (state.h1 ++ state.h2)) /\
-    (state.r = heap_length (state.r4 ++ state.r3 ++ state.r2 ++ state.r1)) /\
-    (* empty space in new heap = empty + reclaimed space in old heap *)
-    (state.n = heap_length (FILTER (\h. ~(isForwardPointer h)) state.heap)) /\
-    state.c /\
+    (heap_length (state.h1 ++ state.h2) = state.a) /\
+    (heap_length (state.r4 ++ state.r3 ++ state.r2 ++ state.r1) = state.r) /\
+    (heap_length (FILTER (\h. ~(isForwardPointer h)) state.heap) = state.n) /\
+    (state.r + state.a + state.n = conf.limit) /\
+    state.ok /\
     ((heap_length state.heap) = conf.limit) /\
     (* the initial heap is well-formed *)
     heap_ok heap0 conf.limit /\
@@ -401,22 +388,23 @@ val gc_inv_def = Define `
     (* the new heap consists of DataElements *)
     EVERY isDataElement state.h1 /\ EVERY isDataElement state.h2 /\
     EVERY isDataElement state.r1 /\ EVERY isDataElement state.r2 /\
+    EVERY isDataElement state.r3 /\ EVERY isDataElement state.r4 /\
     (* forward pointers consitute a bijection into the new heap *)
     BIJ (heap_map1 state.heap) (FDOM (heap_map 0 state.heap))
         (heap_addresses 0 (state.h1 ++ state.h2) UNION
-         heap_addresses (conf.limit - state.r) (state.r4 ++ state.r3 ++ state.r2 ++ state.r1)) /\
-    !i j. let is_final_test = is_final conf.limit state.h1 state.r3 state.r2 state.r1 j in
+         heap_addresses (state.a + state.n) (state.r4 ++ state.r3 ++ state.r2 ++ state.r1)) /\
+    !i j.
       (FLOOKUP (heap_map 0 state.heap) i = SOME j) ==>
       ?xs l d.
         (heap_lookup i heap0 = SOME (DataElement xs l d)) /\
         (heap_lookup j heap' =
           SOME (DataElement
-                 (if is_final_test
+                 (if is_final state j
                    then ADDR_MAP (heap_map1 state.heap) xs
-                   else xs) (* maybe element j is already moved *)
+                   else xs)
                  l d)) /\
         !ptr d.
-          MEM (Pointer ptr d) xs /\ is_final_test ==>
+          MEM (Pointer ptr d) xs /\ is_final state j ==>
           ptr IN FDOM (heap_map 0 state.heap)`;
 
 (* Invariant maintained *)
@@ -544,10 +532,11 @@ val heap_similar_Data_IMP = prove(
   \\ full_simp_tac std_ss [heaps_similar_IMP_heap_length]);
 
 val heaps_similar_lemma = prove(
-  ``!ha heap0.
-      heaps_similar heap0 (ha ++ DataElement ys l d::hb) ==>
+  ``!ha heap0 hb h1 h2 ys l d u l.
+      heaps_similar heap0 (ha ++ [DataElement ys l d] ++ hb) ==>
       heaps_similar heap0 (ha ++ [ForwardPointer (heap_length (h1 ++ h2)) u l] ++ hb)``,
-  full_simp_tac std_ss [heaps_similar_def] \\ rpt strip_tac
+  full_simp_tac std_ss [heaps_similar_def,APPEND,GSYM APPEND_ASSOC]
+  \\ rpt strip_tac
   \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss []
   \\ imp_res_tac LIST_REL_LENGTH
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
@@ -572,16 +561,40 @@ val NOT_IN_heap_addresses = prove(
   THEN1 (Cases_on `h` \\ EVAL_TAC \\ decide_tac) \\ metis_tac [])
   |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [];
 
+val NOT_IN_heap_addresses_less = prove(
+  ``!xs m n. (m < n) ==> ~(m IN heap_addresses n xs)``,
+  Induct \\ rw [] \\ fs [heap_addresses_def]);
+
 val heap_lookup_PREFIX = store_thm("heap_lookup_PREFIX",
   ``!xs. (heap_lookup (heap_length xs) (xs ++ x::ys) = SOME x)``,
   Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def,APPEND,heap_length_def]
   \\ SRW_TAC [] [] \\ Cases_on `h`
   \\ full_simp_tac std_ss [el_length_def] \\ decide_tac);
 
+val heap_lookup_PREFIX_ALT = prove(
+  ``!xs x ys. (heap_lookup (heap_length xs) (xs ++ [x] ++ ys) = SOME x)``,
+  Induct \\ fs [heap_lookup_def,APPEND,heap_length_def]
+  \\ rw [] \\ Cases_on `h` \\ fs [el_length_def]);
+
 val heap_lookup_EXTEND = store_thm("heap_lookup_EXTEND",
   ``!xs n ys x. (heap_lookup n xs = SOME x) ==>
                 (heap_lookup n (xs ++ ys) = SOME x)``,
   Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def] \\ SRW_TAC [] []);
+
+(* val heap_lookup_MODIFY = prove( *)
+(*   ``!xs n m el ys x l d. *)
+(*     (el <> DataElement x l d) /\ *)
+(*     (heap_lookup n (xs ++ heap_expand m ++ ys) = SOME (DataElement x l d)) ==> *)
+(*     (heap_lookup n (xs ++ [el] ++ heap_expand (m - el_length el) ++ ys) = *)
+(*       SOME (DataElement x l d))`` *)
+(* Induct \\ fs [heap_lookup_def,heap_expand_def] *)
+(* rpt strip_tac *)
+
+
+(* Cases_on `n < m` *)
+(* fs [] *)
+(* THEN1 *)
+
 
 val ADDR_MAP_EQ = prove(
   ``!xs. (!p d. MEM (Pointer p d) xs ==> (f p = g p)) ==>
@@ -604,11 +617,23 @@ val FDOM_heap_map = prove(
   \\ TRY decide_tac \\ metis_tac [])
   |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [];
 
+val el_length_NOT_0 = prove(
+  ``!e. el_length e <> 0``,
+  Cases \\ fs [el_length_def]);
+
+val APPEND_CONS_LEMMA = prove(
+  ``!xs y ys. xs ++ [y] ++ ys = xs ++ y::ys``,
+  fs [EVAL ``[y] ++ ys``]);
+
+val heap_length_APPEND = store_thm("heap_length_APPEND",
+  ``heap_length (xs ++ ys) = heap_length xs + heap_length ys``,
+  SRW_TAC [] [heap_length_def,SUM_APPEND]);
+
 val gc_move_thm = prove(
   ``!x state.
        gc_inv conf state heap0 /\
        (!ptr u. (x = Pointer ptr u) ==> isSomeDataOrForward (heap_lookup ptr state.heap)) ==>
-       ?state'. (* x3 h23 r23 a3 n3 r3 heap3 c3. *)
+       ?state'.
          (gc_move conf state x =
          (ADDR_APPLY (heap_map1 state'.heap) x,state')) /\
          (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM (heap_map 0 state'.heap)) /\
@@ -630,10 +655,103 @@ THEN1
 \\ reverse (rw [])
 \\ split_pair_tac \\ fs []
 \\ fs [gc_forward_ptr_thm]
+\\ qpat_assum `_ = heap` (fn th => assume_tac (GSYM th))
 
+THEN1                           (* ~isRef *)
+(
+`heap_map 0 (ha ++ [ForwardPointer state.a a l] ++ hb) =
+  heap_map 0 (ha ++ DataElement ys l d::hb) |+ (heap_length ha,state.a)` by all_tac
+THEN1
+  (once_rewrite_tac [GSYM (EVAL ``[x] ++ xs``)]
+  \\ simp [APPEND_NIL,APPEND_ASSOC]
+  \\ fs [heap_map_APPEND]
+  \\ fs [heap_length_def,el_length_def]
+  \\ fs [heap_map_def,SUM_APPEND]
+  \\ fs [GSYM fmap_EQ_THM,heap_map_APPEND]
+  \\ fs [EXTENSION] \\ strip_tac THEN1 metis_tac []
+  \\ fs [FUNION_DEF,FAPPLY_FUPDATE_THM] \\ strip_tac
+  \\ Cases_on `x = SUM (MAP el_length ha)` \\ full_simp_tac std_ss []
+  \\ fs [GSYM heap_length_def]
+  \\ fs [FDOM_heap_map])
+\\ `~(heap_length ha IN FDOM (heap_map 0 (ha ++ DataElement ys l d::hb)))` by all_tac
+THEN1 full_simp_tac std_ss [NOT_IN_heap_map]
+\\ rpt strip_tac
+\\ TRY (fs [heap_map1_def] \\ NO_TAC)
+THEN1
+  metis_tac [isSomeDataOrForward_lemma |> SIMP_RULE std_ss [isSomeDataOrForward_def,isSomeDataElement_def,isSomeForwardPointer_def]]
+\\ fs [gc_inv_def,heap_map1_def]
+\\ Q.ABBREV_TAC `ff = heap_map 0 (ha ++ DataElement ys l d::hb)`
+\\ `l + 1 ≤ state.n` by all_tac
+THEN1 fs [heap_length_def,FILTER_APPEND,isForwardPointer_def,SUM_APPEND,el_length_def]
+\\ rpt strip_tac
+\\ TRY (fs [heap_length_def,FILTER_APPEND,isForwardPointer_def,SUM_APPEND,el_length_def] \\ NO_TAC)
+THEN1 rw []
+THEN1 metis_tac [heaps_similar_lemma]
+THEN1 fs [isDataElement_def]
+THEN1
+  (qpat_assum `!i j:num. _` kall_tac
+  \\ fs [APPEND_ASSOC,heap_addresses_SNOC]
+  \\ simp [UNION_COMM]
+  \\ simp [GSYM UNION_ASSOC,GSYM INSERT_SING_UNION]
+  \\ fs []
+  \\ `~(state.a IN heap_addresses 0 (state.h1 ++ state.h2) ∪ heap_addresses (state.a + state.n)
+     (state.r4 ++ state.r3 ++ state.r2 ++ state.r1))` by all_tac
+  THEN1
+    (fs [IN_UNION]
+    \\ strip_tac
+    THEN1
+      (qpat_assum `_ = state.a` (fn th => simp [GSYM th])
+      \\ fs [NOT_IN_heap_addresses])
+    THEN1
+      fs [NOT_IN_heap_addresses_less])
+  \\ drule BIJ_UPDATE
+  \\ disch_then (qspecl_then [`heap_length ha`,`state.a`] mp_tac)
+  \\ qpat_assum `BIJ _ _ _` mp_tac
+  \\ once_rewrite_tac [APPEND_CONS_LEMMA]
+  \\ rw []
+  \\ `(\a'. (ff |+ (heap_length ha,state.a)) ' a') =
+    ((heap_length ha =+ state.a) (\a. ff ' a))` by all_tac
+  THEN1
+    fs [FUN_EQ_THM,APPLY_UPDATE_THM,FAPPLY_FUPDATE_THM]
+  \\ fs [])
+\\ Cases_on `i = heap_length ha`
+\\ fs []
+THEN1
+  (`j = state.a` by all_tac
+  THEN1 fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ fs []
+  \\ `heap_lookup (heap_length ha) heap0 = SOME (DataElement ys l d)` by all_tac
+  THEN1
+    (qpat_assum `heaps_similar _ _` mp_tac
+    \\ once_rewrite_tac [APPEND_CONS_LEMMA]
+    \\ strip_tac
+    \\ imp_res_tac heap_similar_Data_IMP
+    \\ fs []
+    \\ fs [heap_lookup_PREFIX_ALT])
+  \\ fs []
+  \\ simp [is_final_def]
+  \\ `~(state.a < heap_length state.h1)` by all_tac
+  THEN1 fs [heap_length_APPEND]
+  \\ fs []
+  \\ qpat_assum `heap_length _ = state.a` (fn th => assume_tac (GSYM th))
+  \\ qspecl_then [`state.h1 ++ state.h2`, `DataElement ys l d`, `heap_expand (state.n − (l + 1)) ++ state.r4 ++ state.r3 ++ state.r2 ++ state.r1`] mp_tac heap_lookup_PREFIX_ALT
+  \\ fs [])
 
+\\ `FLOOKUP ff i = SOME j` by all_tac
+THEN1 fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+\\ qpat_assum `!i j:num. _` (qspecl_then [`i`,`j`] mp_tac)
+\\ once_rewrite_tac [APPEND_CONS_LEMMA]
+\\ fs []
+\\ strip_tac
+\\ fs []
+\\ `(heap_lookup j (state.h1 ++ state.h2 ++ DataElement ys l d::heap_expand (state.n − (l + 1)) ++ state.r4 ++ state.r3 ++ state.r2 ++ state.r1)) =
+    SOME (DataElement (if is_final state j then ADDR_MAP (λa. ff ' a) xs else xs) l' d')` by all_tac
+THEN1 cheat
+
+\\ cheat)
 
   \\ cheat);
+
   (* Cases_on `x` *)
   (* \\ simp_tac (srw_ss()) [gc_move_def,ADDR_APPLY_def] *)
   (* \\ simp_tac std_ss [Once isSomeDataOrForward_def] *)
@@ -824,10 +942,6 @@ val NOT_LESS_IMP_heap_lookup = store_thm("NOT_LESS_IMP_heap_lookup",
   THEN1 (Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ `F` by decide_tac)
   THEN1 (Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ `F` by decide_tac));
 
-val heap_length_APPEND = store_thm("heap_length_APPEND",
-  ``heap_length (xs ++ ys) = heap_length xs + heap_length ys``,
-  SRW_TAC [] [heap_length_def,SUM_APPEND]);
-
 val GREATER_IMP_heap_lookup = prove(
   ``!ys xs j .
     (heap_length (xs ++ ys) <= j + heap_length ys) ==>
@@ -850,14 +964,6 @@ val heap_similar_Data_IMP_DataOrForward = prove(
   \\ full_simp_tac std_ss [] \\ SRW_TAC [] [] \\ full_simp_tac std_ss []
   THEN1 full_simp_tac std_ss [isSomeDataElement_def]
   \\ full_simp_tac std_ss [] \\ res_tac);
-
-val is_final_APPEND_h1 = prove(
-  ``!xs h1 r3 r2 r1 j limit.
-    is_final limit h1 r3 r2 r1 j ==>
-    is_final limit (h1++xs) r3 r2 r1 j``,
-  Induct \\ fs [is_final_def]
-  \\ rw []
-  \\  fs [heap_length_APPEND]);
 
 val gc_move_refs_thm = prove(
   ``!state.
@@ -927,18 +1033,18 @@ THEN1
   fs [isDataElement_def]
 THEN1
   (qpat_assum `BIJ _ _ _` mp_tac
-  \\ qpat_assum `state'.r = _` (fn th => once_rewrite_tac [GSYM th])
   \\ fs [heap_addresses_def,heap_addresses_APPEND,heap_length_def
         ,GSYM UNION_ASSOC,GSYM INSERT_SING_UNION,heap_length_APPEND,el_length_def])
 \\ drule gc_move_list_consts \\ strip_tac \\ fs []
 \\ qpat_assum `!i j:num. _` (qspecl_then [`i`,`j`] mp_tac)
 \\ rw [] \\ fs []
-\\ Cases_on `is_final conf.limit state'.h1 state'.r3 state'.r2 state'.r1 j`
+\\ Cases_on `is_final state j`
 \\ fs [is_final_def]
 THEN1
   (imp_res_tac LESS_IMP_heap_lookup
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ fs [heap_length_APPEND] \\ fs [])
+  \\ fs [heap_length_APPEND] \\ fs []
+  \\ cheat)
 
 THEN1                           (* HERE *)
   (strip_tac \\ fs []
@@ -1107,9 +1213,6 @@ val full_gc_thm = store_thm("full_gc_thm",
     \\ fs [heap_map1_def,SUBMAP_DEF]
     \\ metis_tac [])
   \\ TRY (fs [heap_ok_def,gc_inv_def,LET_THM] \\ NO_TAC)
-  THEN1 (imp_res_tac gc_inv_imp_n \\ fs [])
-  THEN1
-    (imp_res_tac gc_inv_imp_n \\ decide_tac)
   \\ rpt strip_tac
   \\ fs [heap_map1_def,SUBMAP_DEF]
   \\ metis_tac []);
@@ -1195,24 +1298,19 @@ val heap_lookup_AND_APPEND_IMP = prove(
   \\ rpt strip_tac
   \\ res_tac);
 
-val el_length_NOT_0 = prove(
-  ``!e. el_length e <> 0``,
-  Cases \\ fs [el_length_def]);
-
 val heap_lookup_AND_PREPEND_IMP = prove(
-  ``!xs n ys d d1.
+  ``!n xs ys d d1.
       (heap_lookup n ys = SOME d) /\
-      (heap_lookup (n + heap_length xs) (xs++ys) = SOME d1) ==>
+      (heap_lookup (heap_length xs + n) (xs++ys) = SOME d1) ==>
       (d1 = d)``,
-  Induct_on `n`
-  \\ Induct_on `xs`
+  Induct
+  \\ Induct
   \\ fs [heap_lookup_def,heap_length_def]
-  THEN1 (rpt strip_tac \\ fs [])
+  THEN1 (rw [] \\ fs [])
   THEN1
     (rpt strip_tac
     \\ fs [el_length_NOT_0]
-    \\ res_tac
-    \\ fs [])
+    \\ res_tac)
   THEN1 (rpt strip_tac \\ fs [])
   \\ rpt strip_tac
   \\ Induct_on `ys`
@@ -1238,6 +1336,7 @@ val full_gc_ok = store_thm("full_gc_ok",
       state.a + state.r <= conf.limit /\
       roots_ok roots2 heap' /\
       heap_ok heap' conf.limit``,
+
   rpt strip_tac
   \\ mp_tac full_gc_thm
   \\ fs [LET_THM]
@@ -1270,7 +1369,7 @@ val full_gc_ok = store_thm("full_gc_ok",
       (imp_res_tac heap_lookup_IMP_heap_addresses
       \\ fs [BIJ_DEF,SURJ_DEF,heap_map1_def,FLOOKUP_DEF])
     \\ res_tac
-    \\ `is_final conf.limit state.h1 [] [] state.r1 j` by all_tac
+    \\ `is_final state j` by all_tac
     THEN1
       (simp [is_final_def,LET_THM]
       \\ imp_res_tac heap_lookup_LESS
@@ -1290,24 +1389,24 @@ val full_gc_ok = store_thm("full_gc_ok",
     \\ fs [isSomeDataElement_def])
   THEN1                           (* in Unused heap *)
     fs [MEM_heap_expand_FALSE]
+
   THEN1                           (* in r1 heap *)
     (`?j. heap_lookup j state.r1 =
           SOME (DataElement xs l d)` by all_tac
     THEN1 metis_tac [MEM_IMP_heap_lookup,MEM_APPEND]
-    \\ `heap_length (state.h1 ++ heap_expand state.n) = conf.limit - state.r` by all_tac
+    \\ `state.a + state.n = heap_length (state.h1 ++ heap_expand state.n)` by all_tac
     THEN1
       simp [heap_length_APPEND,heap_length_heap_expand]
-    \\ `?i. (FLOOKUP (heap_map 0 state.heap) i = SOME (heap_length (state.h1 ++ heap_expand state.n) + j))` by all_tac
+    \\ `?i. (FLOOKUP (heap_map 0 state.heap) i = SOME (state.a + state.n + j))` by all_tac
     THEN1
-      (imp_res_tac heap_lookup_IMP_heap_addresses2
-      \\ pop_assum (mp_tac o Q.SPECL [`state.h1 ++ (heap_expand state.n)`])
+      (imp_res_tac heap_lookup_IMP_heap_addresses_GEN
+      \\ pop_assum (qspecl_then [`state.a + state.n`] mp_tac)
       \\ simp []
       \\ strip_tac
       \\ fs [BIJ_DEF,SURJ_DEF,heap_map1_def,FLOOKUP_DEF])
     \\ res_tac
-    \\ `is_final conf.limit state.h1 [] [] state.r1
-                 (heap_length (state.h1 ++ heap_expand state.n) + j)` by all_tac
-    THEN1 simp [is_final_def,LET_THM]
+    \\ `is_final state (state.a + state.n + j)` by all_tac
+    THEN1 simp [is_final_def,LET_THM,heap_length_def]
     \\ fs []
     \\ imp_res_tac heap_lookup_AND_PREPEND_IMP
     \\ fs [] \\ rpt var_eq_tac \\ fs []
@@ -1426,8 +1525,8 @@ val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
   \\ res_tac);
 
 val gc_move_ok = store_thm("gc_move_ok",
-  ``(gc_move conf state x = (x',state')) /\ state'.c ==>
-    state.c /\
+  ``(gc_move conf state x = (x',state')) /\ state'.ok ==>
+    state.ok /\
     ((state.a = b + heap_length state.h2) ==> (state'.a = b + heap_length state'.h2)) /\
     ((state.r = c + heap_length state.r4) ==> (state'.r = c + heap_length state'.r4))``,
   Cases_on `x`
@@ -1469,8 +1568,8 @@ val gc_move_ok = store_thm("gc_move_ok",
 
 val gc_move_list_ok = store_thm("gc_move_list_ok",
   ``!xs xs' state state'.
-      (gc_move_list conf state xs = (xs',state')) /\ state'.c ==>
-      state.c /\
+      (gc_move_list conf state xs = (xs',state')) /\ state'.ok ==>
+      state.ok /\
       ((state.a = b + heap_length state.h2) ==> (state'.a = b + heap_length state'.h2)) /\
       ((state.r = c + heap_length state.r4) ==> (state'.r = c + heap_length state'.r4))``,
   Induct
