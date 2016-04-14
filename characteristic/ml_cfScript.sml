@@ -264,7 +264,9 @@ val app_assign_def = Define `
 
 val app_deref_def = Define `
   app_deref (r: num) env H Q =
-    !h x. (r, x) IN h ==> H h ==> Q x h`;
+    ?x F.
+      SEP_IMP H (F * one (r, x)) /\
+      SEP_IMP H (Q x)`;
 
 (* CF *)
 
@@ -526,7 +528,22 @@ val cf_sound = Q.prove (
     )
     THEN1 (
       (* Opderef *)
-      cheat
+      once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+      `evaluate_list F env st [h] (st, Rval [Loc rv])` by
+        (once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+         qexists_tac `st` \\ strip_tac THENL [prove_tac [exp2v_evaluate], all_tac] \\
+         prove_tac [bigStepTheory.evaluate_rules]) \\
+      fs [PULL_EXISTS] \\
+      fs [app_deref_def, SEP_IMP_def, st2heap_def] \\
+      rpt (qpat_assum `!s. H s ==> _` drule \\ rewrite_tac [STAR_def] \\ strip_tac) \\ fs [one_def] \\
+      qcase_tac `SPLIT h_i (h_i', {(rv,x)})` \\ qcase_tac `FF h_i'` \\
+      GEN_EXISTS_TAC "vs" `[Loc rv]` \\
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
+      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
+      rpt (asm_exists_tac \\ fs []) \\
+      qspecl_then [`st.refs`, `rv`, `x`] assume_tac store2heap_IN_type \\
+      `(rv,x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
     )
   )
   THEN1 (
