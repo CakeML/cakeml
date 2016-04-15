@@ -7083,4 +7083,39 @@ val word_to_stack_lab_pres = store_thm("word_to_stack_lab_pres",``
     EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
   >- (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC))
 
+val word_to_stack_compile_lab_pres = store_thm("word_to_stack_compile_lab_pres",``
+  EVERY (λn,m,p.
+    let labs = extract_labels p in
+    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+    ALL_DISTINCT labs) prog ⇒
+  let (c,p) = compile asm_conf prog in
+    MAP FST p = (5::MAP FST prog) ∧
+    EVERY (λn,p.
+      let labs = extract_labels p in
+      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+      ALL_DISTINCT labs) p``,
+  fs[compile_def]>>pairarg_tac>>rw[]>>
+  pairarg_tac>>fs[]>>rveq>>fs[]>>
+  EVAL_TAC>>
+  qabbrev_tac`b=[4w]`>>pop_assum kall_tac>>
+  rpt (pop_assum mp_tac)>>
+  map_every qid_spec_tac [`progs`,`bitmaps`,`prog`,`b`]>>
+  Induct_on`prog`>>
+  fs[compile_word_to_stack_def,FORALL_PROD]>>rw[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  rveq>>fs[]
+  >-
+    metis_tac[]
+  >>
+  res_tac>>fs[]>>
+  qpat_assum`compile_prog _ _ _ _ = _` mp_tac>>
+  qpat_assum`ALL_DISTINCT _` mp_tac>>
+  qpat_assum`EVERY _ (extract_labels p_2)` mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  FULL_SIMP_TAC std_ss [compile_prog_def,LET_THM]>>
+  qpat_abbrev_tac`m = if _ then _ else _`>>
+  pairarg_tac>>rw[]>>EVAL_TAC>>
+  metis_tac[FST,word_to_stack_lab_pres])
+  
 val _ = export_theory();

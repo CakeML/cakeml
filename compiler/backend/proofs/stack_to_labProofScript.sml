@@ -1965,8 +1965,18 @@ val MAP_prog_to_section_FST = prove(``
   match_mp_tac LIST_EQ>>rw[EL_MAP]>>Cases_on`EL x prog`>>fs[prog_to_section_def]>>
   pairarg_tac>>fs[])
 
-val stack_to_lab_compile_lab_pres = prove(``
-  EVERY (λn. 30 ≤ n) (MAP FST prog) ∧
+val extract_label_store_list_code = prove(``
+  ∀a t ls.
+  extract_labels (store_list_code a t ls) = []``,
+  ho_match_mp_tac stack_removeTheory.store_list_code_ind>>
+  EVAL_TAC>>fs[])
+
+val stack_to_lab_compile_lab_pres = store_thm("stack_to_lab_compile_lab_pres",``
+  EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ 10) (MAP FST prog) ∧
+  EVERY (λn,p.
+    let labs = extract_labels p in
+    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+    ALL_DISTINCT labs) prog ∧
   ALL_DISTINCT (MAP FST prog) ⇒
   labels_ok (compile c c2 c3 sp prog)``,
   rw[labels_ok_def,stack_to_labTheory.compile_def]
@@ -1978,8 +1988,19 @@ val stack_to_lab_compile_lab_pres = prove(``
     rw[]>>pairarg_tac>>fs[extract_labels_def,extract_labels_append]>>
     Q.ISPECL_THEN [`p_2`,`p_1`,`next_lab p_2`] mp_tac stack_to_lab_lab_pres>>
     impl_tac>-
-      (*TODO: need to chain and add assumptions*)
-      (fs[]>>cheat)>>
+      (*stack_names*)
+      (fs[stack_namesTheory.compile_def,MEM_MAP]>>Cases_on`y`>>fs[stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres]>>
+      (*stack_remove*)
+      fs[stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,MEM_MAP]>>
+      EVAL_TAC>>BasicProvers.EVERY_CASE_TAC>>EVAL_TAC>>fs[extract_label_store_list_code]>>Cases_on`y`>>fs[stack_removeTheory.prog_comp_def,GSYM stack_remove_lab_pres]>>
+      (*stack_alloc*)
+      fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def,MEM_MAP]>>
+      EVAL_TAC>>Cases_on`y`>>fs[stack_allocTheory.prog_comp_def]>>
+      Q.SPECL_THEN [`q''`,`next_lab r''`,`r''`] mp_tac stack_alloc_lab_pres>>
+      impl_tac>-
+        (res_tac>>fs[EVERY_MEM,FORALL_PROD]>>
+        metis_tac[])>>
+      rw[]>>pairarg_tac>>fs[])>>
     fs[EVERY_MEM]>>rw[]>>res_tac>>fs[ALL_DISTINCT_APPEND]
     >-
       (qsuff_tac`1 ≤ m` >> fs[]>>
