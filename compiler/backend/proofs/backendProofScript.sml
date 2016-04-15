@@ -37,7 +37,8 @@ val from_stack = let
     |> Q.INST [`code`|->`code2`]
   val lemma2 = stack_to_labProofTheory.full_make_init_semantics |> UNDISCH
     |> Q.INST [`code`|->`code1`]
-  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1 end
+  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
+     |> INST_TYPE [``:'state``|->``:'b``] end
 
 val from_stack_fail = let
   val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
@@ -46,7 +47,8 @@ val from_stack_fail = let
     |> Q.INST [`code`|->`code1`]
   val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code2).ffi``
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
-     |> REWRITE_RULE [th] end
+     |> REWRITE_RULE [th]
+     |> INST_TYPE [``:'state``|->``:'b``] end
 
 val from_word = let
   val lemma1 = word_to_stackProofTheory.compile_semantics
@@ -54,6 +56,7 @@ val from_word = let
     |> MATCH_MP implements_intro_ext
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code3`]
+    |> INST_TYPE [``:'b``|->``:'a``]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_stack end
 
 val full_make_init_ffi = prove(
@@ -70,6 +73,7 @@ val from_bvp = let
     |> MATCH_MP (GSYM implements_intro_ext)
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code4`]
+    |> INST_TYPE [``:'b``|->``:'a``]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_word
      |> SIMP_RULE (srw_ss()) [full_make_init_ffi,
           word_to_stackProofTheory.make_init_def] end
@@ -120,13 +124,9 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
            |> UNDISCH_ALL
            |> Q.INST [`c`|->`c1`,`start`|->`InitGlobals_location`]
-           |> DISCH ``from_bvp (c:'b backend$config) prog = SOME (bytes,ffi_limit)``
+           |> DISCH ``from_bvp (c:'a backend$config) prog = SOME (bytes,ffi_limit)``
            |> DISCH_ALL
-           |> INST_TYPE [``:'a``|->``:'ffi``,
-                         ``:'b``|->``:'a``,
-                         ``:'c``|->``:'b``,
-                         ``:'d``|->``:'c``,
-                         ``:'state``|->``:'b``]
+           |> INST_TYPE [``:'state``|->``:'a``]
            |> MATCH_MP lemma2
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
@@ -869,7 +869,7 @@ val LESS_MULT_LEMMA = prove(
   Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
   \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
   \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
-  \\ fs [])
+  \\ fs []);
 
 local
 val lemma = prove(
@@ -905,7 +905,8 @@ val lemma = prove(
     MEM (find_name c.stack_conf.reg_names (ra_regs+4))
       mc_conf.caller_saved_regs /\
     10 ≤ ra_regs +2 /\
-    (LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count) ==>
+    (LENGTH mc_conf.target.config.avoid_regs + 5) <
+      (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
     bvp_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
   strip_tac \\ fs [bvp_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
@@ -992,8 +993,9 @@ val lemma = prove(
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
-              (make_init mc_conf ffi save_regs io_regs t m (dm INTER byte_aligned) ms
-                 (MAP prog_to_section prog4))))` by
+              (make_init mc_conf ffi save_regs io_regs t m
+                  (dm INTER byte_aligned) (ms:'b)
+                   (MAP prog_to_section prog4))))` by
    (fs [stack_removeProofTheory.init_pre_def,
         stack_namesProofTheory.make_init_def,GSYM PULL_EXISTS]
     \\ conj_tac THEN1
