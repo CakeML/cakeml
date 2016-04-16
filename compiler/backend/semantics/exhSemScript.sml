@@ -265,7 +265,7 @@ val do_app_def = Define `
   | (W8fromInt, [Litv (IntLit i)]) =>
     SOME (s, Rval (Litv (Word8 (i2w i))))
   | (W8toInt, [Litv (Word8 w)]) =>
-    SOME (s, Rval (Litv (IntLit (w2i w))))
+    SOME (s, Rval (Litv (IntLit (& (w2n w)))))
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
