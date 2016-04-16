@@ -78,7 +78,7 @@ val compile_def = tDefine"compile"`
     Op Ref (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op W8fromInt)) es) =
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
-      Op W8FromInt [compile (HD es)]) ∧
+      Op Mod [compile (HD es); Op (Const 256) []]) ∧
   (compile (App (Op (Op W8toInt)) es) =
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
   (compile (App (Op (Op Ord)) es) =
