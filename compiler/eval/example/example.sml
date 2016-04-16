@@ -1,10 +1,11 @@
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_compileLib;
 
+(*Doesn't match*)
 val source_conf = ``<|next_global:=0;mod_env:=(FEMPTY,FEMPTY)|>``
 val mod_conf = ``<|next_exception:=LN;tag_env:=(FEMPTY,FEMPTY);exh_ctors_env:=FEMPTY|>``
 (*Note: needs to satisfy the conditions in clos*)
-val clos_conf = ``<|next_loc := 104 ; start:=103|>``
+val clos_conf = rconc (EVAL ``prim_config.clos_conf``)
 val bvp_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
@@ -33,7 +34,7 @@ val initial_prog = rconc (EVAL``prim_types_program``)
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes prog =
+fun to_bytes conf prog =
   let
   val prog = ``^(initial_prog) ++ ^(prog)``
   val _ = println "Compile to livesets"
@@ -49,7 +50,7 @@ fun to_bytes prog =
   end
 
 (*to_bytes verbose*)
-fun to_bytes_verbose prog =
+fun to_bytes_verbose conf prog =
   let
   val prog = ``^(initial_prog) ++ ^(prog)``
   val _ = println "Compile to livesets"
@@ -493,13 +494,13 @@ val _ = PolyML.print_depth 5;
 val _ = Globals.max_print_depth := 10;
 
 (* 382.4 s*)
-val fib_bytes = Count.apply to_bytes fib
+val fib_bytes = Count.apply to_bytes conf fib
 (* 451.4 s*)
-val qsort_bytes = Count.apply to_bytes qsort
+val qsort_bytes = Count.apply to_bytes conf qsort
 (* 513.3 s*)
-val queue_bytes = Count.apply to_bytes queue
+val queue_bytes = Count.apply to_bytes conf queue
 (* 472.3 s*)
-val btree_bytes = Count.apply to_bytes btree
+val btree_bytes = Count.apply to_bytes conf btree
 
 open x64_exportLib
 
