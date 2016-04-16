@@ -786,16 +786,41 @@ val Eval_NUM_EQ_0 = store_thm("Eval_NUM_EQ_0",
 
 (* word8 conversions *)
 
-val Eval_w82i = Q.store_thm("Eval_w82i",
-  `Eval env x1 (WORD8 w) ==> Eval env (App W8toInt [x1]) (INT (w2i w))`,
+val Eval_w82n = store_thm("Eval_w82n",
+  ``Eval env x1 (WORD8 w) ==> Eval env (App W8toInt [x1]) (NUM (w2n w))``,
   rw[Eval_def,WORD8_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases)]
-  \\ rw[do_app_cases,PULL_EXISTS,INT_def]
-  \\ ONCE_REWRITE_TAC[CONJ_COMM]
-  \\ asm_exists_tac \\ rw[]
-  \\ EVAL_TAC);
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b1/\b3/\b4``]
+  \\ asm_exists_tac \\ simp[]
+  \\ rw[do_app_cases] \\ EVAL_TAC);
+
+val w2i_eq_w2n = store_thm("w2i_eq_w2n", (* TODO: move to integer_wordTheory *)
+  ``w2i (w:'a word) =
+    if w2n w < INT_MIN (:'a) then & (w2n w) else & (w2n w) - & dimword (:'a)``,
+  Cases_on `w` \\ rw [integer_wordTheory.w2i_n2w_pos]
+  \\ fs [NOT_LESS] \\ fs [integer_wordTheory.w2i_n2w_neg]
+  \\ `n <= dimword (:'a)` by decide_tac
+  \\ imp_res_tac (GSYM INT_SUB) \\ fs []);
+
+val Eval_w82i = Q.store_thm("Eval_w82i",
+  `Eval env x1 (WORD8 w) ==>
+   Eval env (Let (SOME "i") (App W8toInt [x1])
+               (If (App (Opb Lt) [Var (Short "i"); Lit (IntLit 128)])
+                  (Var (Short "i"))
+                  (App (Opn Minus) [Var (Short "i"); Lit (IntLit 256)])))
+     (INT (w2i w))`,
+  `w2i w = let i = & (w2n w) in if i < 128 then i else i - 256` by fs [w2i_eq_w2n]
+  \\ full_simp_tac std_ss [] \\ strip_tac
+  \\ match_mp_tac (GEN_ALL Eval_Let)
+  \\ imp_res_tac Eval_w82n \\ fs [NUM_def]
+  \\ asm_exists_tac \\ fs [] \\ rpt strip_tac
+  \\ match_mp_tac (GEN_ALL (MP_CANON Eval_If))
+  \\ rpt (qexists_tac `T`) \\ rpt strip_tac
+  \\ TRY (match_mp_tac (MP_CANON Eval_INT_SUB))
+  \\ TRY (match_mp_tac (MP_CANON Eval_NUM_LESS))
+  \\ fs [NUM_def,Eval_Var_SIMP,Eval_Val_INT]);
 
 val Eval_i2w8 = Q.store_thm("Eval_i2w8",
   `Eval env x1 (INT i) ==> Eval env (App W8fromInt [x1]) (WORD8 (i2w i))`,
@@ -813,42 +838,6 @@ val Eval_n2w8 = Q.store_thm("Eval_n2w8",
   rw[NUM_def]
   \\ drule Eval_i2w8
   \\ simp[integer_wordTheory.i2w_def]);
-
-(* TODO: have specialised versions of this (e.g., with a side-condition rather than runtime test)?
-         or, add a new primitive to CakeML? *)
-val Eval_w82n = store_thm("Eval_w82n",
-  ``Eval env x1 (WORD8 w) ==> Eval env
-    (Let (SOME "i") (App W8toInt [x1])
-      (If (App (Opb Lt) [Var(Short"i"); Lit (IntLit 0)])
-          (App (Opn Plus) [Var(Short"i"); Lit (IntLit 256)])
-          (Var(Short"i"))))
-    (NUM (w2n w))``,
-  rw[Eval_def,WORD8_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ asm_exists_tac \\ simp[]
-  \\ rw[do_app_cases]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[do_if_def]
-  \\ ntac 5 (rw[Once evaluate_cases,PULL_EXISTS])
-  \\ rw[lookup_var_id_def,opt_bind_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[do_app_cases,opb_lookup_def]
-  \\ ntac 6 (rw[Once evaluate_cases,PULL_EXISTS])
-  \\ rw[lookup_var_id_def,opt_bind_def]
-  \\ rw[do_app_cases,opn_lookup_def]
-  \\ TRY(EVAL_TAC\\NO_TAC)
-  \\ rw[NUM_def,INT_def]
-  \\ fs[integer_wordTheory.w2i_def,word_msb_neg]
-  \\ rw[] \\ fs[]
-  \\ Cases_on`w`
-  \\ fs[]
-  \\ REWRITE_TAC[GSYM WORD_NEG_LMUL]
-  \\ REWRITE_TAC[word_mul_n2w]
-  \\ simp[]
-  \\ simp[GSYM INT_SUB]);
 
 (* list definition *)
 
