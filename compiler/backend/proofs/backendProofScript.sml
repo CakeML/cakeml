@@ -1448,7 +1448,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ imp_res_tac clos_to_bvp_names
   \\ fs[AND_IMP_INTRO]
   \\ pop_assum mp_tac \\ impl_keep_tac
-  >- cheat
+  >-  EVAL_TAC
   \\ fs[]);
 
 val _ = export_theory();
