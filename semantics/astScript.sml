@@ -17,7 +17,8 @@ val _ = Hol_datatype `
     IntLit of int
   | Char of char
   | StrLit of string
-  | Word8 of word8`;
+  | Word8 of word8
+  | Word64 of word64`;
 
 
 (* Built-in binary operations *)
@@ -26,6 +27,12 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  opb = Lt | Gt | Leq | Geq`;
+
+val _ = Hol_datatype `
+ opw = Andw | Orw | Xor | Add | Sub`;
+
+val _ = Hol_datatype `
+ shift = Lsl | Lsr | Asr`;
 
 
 (* Module names *)
@@ -69,10 +76,19 @@ val _ = Define `
 
 
 val _ = Hol_datatype `
+ word_size = W8 | W64`;
+
+
+val _ = Hol_datatype `
  op =
   (* Operations on integers *)
     Opn of opn
   | Opb of opb
+  (* Operations on words *)
+  | Opw of word_size => opw
+  | Shift of word_size => shift
+  | W8fromW64
+  | W64fromW8
   | Equality
   (* Function application *)
   | Opapp
@@ -85,9 +101,9 @@ val _ = Hol_datatype `
   | Aw8sub
   | Aw8length
   | Aw8update
-  (* Word8 operations *)
-  | W8fromInt
-  | W8toInt
+  (* Word/integer conversions *)
+  | WordFromInt of word_size
+  | WordToInt of word_size
   (* Char operations *)
   | Ord
   | Chr

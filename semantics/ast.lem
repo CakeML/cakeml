@@ -7,10 +7,13 @@ type lit =
   | Char of char
   | StrLit of string
   | Word8 of word8
+  | Word64 of word64
 
 (* Built-in binary operations *)
 type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
+type opw = Andw | Orw | Xor | Add | Sub
+type shift = Lsl | Lsr | Asr
 
 (* Module names *)
 type modN = string
@@ -46,10 +49,17 @@ let id_to_n id =
     | Long _ n -> n
   end
 
+type word_size = W8 | W64
+
 type op =
   (* Operations on integers *)
   | Opn of opn
   | Opb of opb
+  (* Operations on words *)
+  | Opw of word_size * opw
+  | Shift of word_size * shift
+  | W8fromW64
+  | W64fromW8
   | Equality
   (* Function application *)
   | Opapp
@@ -62,9 +72,9 @@ type op =
   | Aw8sub
   | Aw8length
   | Aw8update
-  (* Word8 operations *)
-  | W8fromInt
-  | W8toInt
+  (* Word/integer conversions *)
+  | WordFromInt of word_size
+  | WordToInt of word_size
   (* Char operations *)
   | Ord
   | Chr

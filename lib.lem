@@ -101,6 +101,56 @@ declare hol target_rep function integerFromWord8 = `w2i`
 instance (Numeral word8)
   let fromNumeral w = word8FromNat (fromNumeral w)
 end
+type word64
+declare hol target_rep type word64 = `word64`
+val natFromWord64 : word64 -> nat
+declare hol target_rep function natFromWord64 = `w2n`
+val word64FromNat : nat -> word64
+declare hol target_rep function word64FromNat = `n2w`
+val word64FromInteger : integer -> word64
+declare hol target_rep function word64FromInteger = `i2w`
+val integerFromWord64 : word64 -> integer
+declare hol target_rep function integerFromWord64 = `w2i`
+instance (Numeral word64)
+  let fromNumeral w = word64FromNat (fromNumeral w)
+end
+val word8FromWord64 : word64 -> word8
+declare hol target_rep function word8FromWord64 = `w2w`
+val word64FromWord8 : word8 -> word64
+declare hol target_rep function word64FromWord8 = `w2w`
+val W8and : word8 -> word8 -> word8
+declare hol target_rep function W8and = `word_and`
+val W8or : word8 -> word8 -> word8
+declare hol target_rep function W8or = `word_or`
+val W8xor : word8 -> word8 -> word8
+declare hol target_rep function W8xor = `word_xor`
+val W8add : word8 -> word8 -> word8
+declare hol target_rep function W8add = `word_add`
+val W8sub : word8 -> word8 -> word8
+declare hol target_rep function W8sub = `word_sub`
+val W64and : word64 -> word64 -> word64
+declare hol target_rep function W64and = `word_and`
+val W64or : word64 -> word64 -> word64
+declare hol target_rep function W64or = `word_or`
+val W64xor : word64 -> word64 -> word64
+declare hol target_rep function W64xor = `word_xor`
+val W64add : word64 -> word64 -> word64
+declare hol target_rep function W64add = `word_add`
+val W64sub : word64 -> word64 -> word64
+declare hol target_rep function W64sub = `word_sub`
+
+val W8lsl : word8 -> nat -> word8
+declare hol target_rep function W8lsl = `word_lsl`
+val W8lsr : word8 -> nat -> word8
+declare hol target_rep function W8lsr = `word_lsr`
+val W8asr : word8 -> nat -> word8
+declare hol target_rep function W8asr = `word_asr`
+val W64lsl : word64 -> nat -> word64
+declare hol target_rep function W64lsl = `word_lsl`
+val W64lsr : word64 -> nat -> word64
+declare hol target_rep function W64lsr = `word_lsr`
+val W64asr : word64 -> nat -> word64
+declare hol target_rep function W64asr = `word_asr`
 
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)
