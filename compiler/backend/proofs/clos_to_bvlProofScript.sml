@@ -974,7 +974,6 @@ val do_app = Q.prove(
      v_rel f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
-
   Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   >- (
     imp_res_tac state_rel_globals >>
@@ -1097,14 +1096,6 @@ val do_app_err = Q.prove(
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
     Cases_on`t'`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
     every_case_tac >> full_simp_tac(srw_ss())[])
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
