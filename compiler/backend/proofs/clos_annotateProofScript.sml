@@ -292,9 +292,6 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
     \\ IMP_RES_TAC v_to_list \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [])
-  THEN1 (* W8FromInt *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* UpdateByte *)
    (rpt strip_tac >>IMP_RES_TAC do_app_IMP_case
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
