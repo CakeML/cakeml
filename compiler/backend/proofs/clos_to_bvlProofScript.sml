@@ -974,6 +974,7 @@ val do_app = Q.prove(
      v_rel f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
+
   Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   >- (
     imp_res_tac state_rel_globals >>
@@ -1023,9 +1024,6 @@ val do_app = Q.prove(
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
     imp_res_tac v_to_list >> full_simp_tac(srw_ss())[] >> srw_tac[][] )
-  >- (
-    every_case_tac >> fsrw_tac[][v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
-    imp_res_tac v_to_list >> fsrw_tac[][] >> srw_tac[][] )
   >- (
     every_case_tac >> fsrw_tac[][v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
     fsrw_tac[][LIST_REL_EL_EQN] >> metis_tac[clos_tag_shift_inj])
