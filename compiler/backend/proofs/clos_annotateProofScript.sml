@@ -397,14 +397,6 @@ val do_app_err_thm = Q.prove(
       Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
       every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
