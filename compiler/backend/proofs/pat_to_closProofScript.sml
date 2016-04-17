@@ -14,9 +14,19 @@ val i2w_w2n = store_thm("i2w_w2n[simp]", (* TODO: move to integer_word *)
 val w2n_i2w = store_thm("w2n_i2w", (* TODO: move to integer_word *)
   ``&w2n ((i2w n):'a word) = n % (& dimword (:'a))``,
   fs [integer_wordTheory.i2w_def] \\ Cases_on `n` \\ fs []
-  THEN1 (match_mp_tac (GSYM integerTheory.INT_MOD) \\ fs [ZERO_LT_dimword])
+  \\ `dimword (:α) <> 0` by cheat
+  \\ imp_res_tac integerTheory.INT_MOD \\ fs []
+  \\ fs [wordsTheory.word_2comp_n2w]
   \\ fs [integerTheory.INT_MOD_NEG_NUMERATOR]
-  \\ cheat); (* local proof *)
+  \\ `&dimword (:α) <> 0i` by fs []
+  \\ imp_res_tac (UNDISCH integerTheory.INT_MOD_SUB |> GSYM |> DISCH_ALL)
+  \\ pop_assum (fn th => once_rewrite_tac [th]) \\ fs []
+  \\ fs [integerTheory.INT_MOD_NEG_NUMERATOR]
+  \\ qcase_tac `k <> 0n` \\ pop_assum mp_tac
+  \\ qcase_tac `n <> 0n` \\ pop_assum mp_tac \\ rw []
+  \\ `n MOD k < k` by fs [MOD_LESS]
+  \\ `n MOD k <= k` by fs []
+  \\ fs [integerTheory.INT_SUB]);
 
 (* --- *)
 
