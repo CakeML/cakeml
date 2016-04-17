@@ -5,31 +5,6 @@ open preamble integerTheory intLib
 
 val _ = new_theory"pat_to_closProof"
 
-(* TODO: move *)
-
-val i2w_w2n = store_thm("i2w_w2n[simp]", (* TODO: move to integer_word *)
-  ``i2w (&w2n w) = w``,
-  fs [integer_wordTheory.i2w_def]);
-
-val w2n_i2w = store_thm("w2n_i2w", (* TODO: move to integer_word *)
-  ``&w2n ((i2w n):'a word) = n % (& dimword (:'a))``,
-  fs [integer_wordTheory.i2w_def] \\ Cases_on `n` \\ fs []
-  \\ `dimword (:α) <> 0` by cheat
-  \\ imp_res_tac integerTheory.INT_MOD \\ fs []
-  \\ fs [wordsTheory.word_2comp_n2w]
-  \\ fs [integerTheory.INT_MOD_NEG_NUMERATOR]
-  \\ `&dimword (:α) <> 0i` by fs []
-  \\ imp_res_tac (UNDISCH integerTheory.INT_MOD_SUB |> GSYM |> DISCH_ALL)
-  \\ pop_assum (fn th => once_rewrite_tac [th]) \\ fs []
-  \\ fs [integerTheory.INT_MOD_NEG_NUMERATOR]
-  \\ qcase_tac `k <> 0n` \\ pop_assum mp_tac
-  \\ qcase_tac `n <> 0n` \\ pop_assum mp_tac \\ rw []
-  \\ `n MOD k < k` by fs [MOD_LESS]
-  \\ `n MOD k <= k` by fs []
-  \\ fs [integerTheory.INT_SUB]);
-
-(* --- *)
-
 (* value translation *)
 
 val compile_v_def = tDefine"compile_v"`
@@ -443,7 +418,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       imp_res_tac evaluate_length >> fs[] )
     >- ( (* W8fromInt *)
       Cases_on`es`>>fs[LENGTH_NIL]>>
-      rw[evaluate_def,do_app_def,w2n_i2w])
+      rw[evaluate_def,do_app_def,integer_wordTheory.w2n_i2w])
     >- ( (* wrong args for Chr *)
       imp_res_tac evaluate_length >> fs[] )
     >- ( (* Chr *)

@@ -796,14 +796,6 @@ val Eval_w82n = store_thm("Eval_w82n",
   \\ asm_exists_tac \\ simp[]
   \\ rw[do_app_cases] \\ EVAL_TAC);
 
-val w2i_eq_w2n = store_thm("w2i_eq_w2n", (* TODO: move to integer_wordTheory *)
-  ``w2i (w:'a word) =
-    if w2n w < INT_MIN (:'a) then & (w2n w) else & (w2n w) - & dimword (:'a)``,
-  Cases_on `w` \\ rw [integer_wordTheory.w2i_n2w_pos]
-  \\ fs [NOT_LESS] \\ fs [integer_wordTheory.w2i_n2w_neg]
-  \\ `n <= dimword (:'a)` by decide_tac
-  \\ imp_res_tac (GSYM INT_SUB) \\ fs []);
-
 val Eval_w82i = Q.store_thm("Eval_w82i",
   `Eval env x1 (WORD8 w) ==>
    Eval env (Let (SOME "i") (App W8toInt [x1])
@@ -811,7 +803,8 @@ val Eval_w82i = Q.store_thm("Eval_w82i",
                   (Var (Short "i"))
                   (App (Opn Minus) [Var (Short "i"); Lit (IntLit 256)])))
      (INT (w2i w))`,
-  `w2i w = let i = & (w2n w) in if i < 128 then i else i - 256` by fs [w2i_eq_w2n]
+  `w2i w = let i = & (w2n w) in if i < 128 then i else i - 256`
+       by fs [integer_wordTheory.w2i_eq_w2n]
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ match_mp_tac (GEN_ALL Eval_Let)
   \\ imp_res_tac Eval_w82n \\ fs [NUM_def]
