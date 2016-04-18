@@ -58,7 +58,8 @@ val _ = Datatype `
 
 val _ = Datatype `
   gc_state =
-    <| h1 : ('a, 'b) heap_element list (* final left heap *)
+    <| old : ('a, 'b) heap_element list (* older generations *)
+     ; h1 : ('a, 'b) heap_element list (* final left heap *)
      ; h2 : ('a, 'b) heap_element list (* not updated left heap *)
 
      ; r4 : ('a, 'b) heap_element list (* not updated right heap *)
@@ -66,16 +67,18 @@ val _ = Datatype `
      ; r2 : ('a, 'b) heap_element list (* temp. not updated right heap *)
      ; r1 : ('a, 'b) heap_element list (* final right heap *)
 
-     ; a : num                         (* heap_length (h1 ++ h2) *)
+     ; a : num                         (* heap_length (og ++ h1 ++ h2) *)
      ; n : num                         (* unused heap space *)
      ; r : num                         (* heap_length (r4 ++ r3 ++ r2 ++ r1) *)
+
      ; ok : bool                       (* OK *)
      ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
      |>`;
 
-val starting_state_def = Define `
-  starting_state =
-    <| h1 := []
+val empty_state_def = Define `
+  empty_state =
+    <| old := []
+     ; h1 := []
      ; h2 := []
      ; r4 := []
      ; r3 := []
@@ -94,6 +97,7 @@ val _ = Datatype `
      ; isRef : ('a, 'b) heap_element -> bool
      ; gen_start : num          (* start of generation *)
      ; gen_end : num            (* end of generation *)
+     ; refs_start : num         (* start of references, gen_end < refs_start *)
      |>`;
 
 
@@ -155,18 +159,19 @@ val heap_segment_def = Define `
     in (h1, h2, h3)`;
 
 val heap_gen_ok_def = Define `
-  heap_gen_ok (a, b) isRef heap limit =
-    (a <= b) /\ (b <= limit) /\
-    ?h1 h2 h3.
-      ((h1, h2, h3) = heap_segment (a, b) heap) /\
-      (* h1 points only to itself and references *)
+  heap_gen_ok conf heap limit =
+    (conf.gen_end <= conf.gen_end) /\
+    (conf.gen_end <= conf.limit) /\
+    ?old current refs.
+      ((old, current, refs) = heap_segment (conf.gen_start, conf.gen_end) heap) /\
+      (* old points only to itself and references *)
       (!ptr xs l d u.
-        MEM (DataElement xs l d) h1 /\ MEM (Pointer ptr u) xs ==>
-          (ptr < a \/ b <= ptr)) /\
-      (* h1 contains no references *)
-      (!el. MEM el h1 ==> ~ (isRef el)) /\
-      (* h3 only contains references *)
-      (!el. MEM el h3 ==> isRef el)`;
+        MEM (DataElement xs l d) old /\ MEM (Pointer ptr u) xs ==>
+          (ptr < conf.gen_start \/ conf.gen_end <= ptr)) /\
+      (* old contains no references *)
+      (!el. MEM el old ==> ~ (conf.isRef el)) /\
+      (* refs only contains references *)
+      (!el. MEM el refs ==> conf.isRef el)`;
 
 (* The GC is a copying collector which moves elements *)
 
@@ -183,6 +188,8 @@ val gc_forward_ptr_def = Define `
 val gc_move_def = Define `
   (gc_move conf state (Data d) = (Data d, state)) /\
   (gc_move conf state (Pointer ptr d) =
+     if ptr < conf.gen_start \/ conf.gen_end >= ptr then
+       (Pointer ptr d, state) else
      case heap_lookup ptr state.heap of
      | SOME (DataElement xs l dd) =>
        let ok = state.ok /\ l+1 <= state.n /\ (state.a + state.n + state.r = conf.limit) in
@@ -208,10 +215,11 @@ val gc_move_h1 = prove(
   ``!x x' state state'.
     ((x',state') = gc_move conf state x) ==>
     (state.h1 = state'.h1)``,
-  Cases_on `x`
-  \\ fs [gc_move_def] \\ rpt strip_tac
+  Cases
+  \\ fs [gc_move_def]
+  \\ rw []
   \\ Cases_on `heap_lookup n state.heap`
-     THEN1 fs []
+  THEN1 fs []
   \\ Cases_on `x`
   \\ fs [LET_THM]
   \\ pairarg_tac
@@ -233,17 +241,13 @@ val gc_move_list_h1 = prove(
     (state.h1 = state'.h1)``,
   Induct
   \\ fs [gc_move_list_def,LET_THM]
-  \\ rw []
-  \\ pairarg_tac
-  \\ fs []
-  \\ pairarg_tac
-  \\ fs []
-  \\ rpt var_eq_tac
+  \\ rw [] \\ pairarg_tac
+  \\ fs [] \\ pairarg_tac
+  \\ fs [] \\ rpt var_eq_tac
   \\ drule (GSYM gc_move_h1)
   \\ metis_tac []);
 
-(* TODO: this was previously named gc_move_loop *)
-val gc_move_data_def = tDefine "gc_move_data" `
+val gc_move_data_def = tDefine "gc_move_data"  `
   (gc_move_data conf state =
     case state.h2 of
     | [] => state
@@ -279,7 +283,6 @@ val gc_move_refs_def = tDefine "gc_move_refs" `
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ decide_tac);
 
-
 (* The main gc loop, calls gc_move_data and gc_move_ref *)
 val gc_move_loop_def = Define `
   gc_move_loop conf state (clock : num) =
@@ -294,31 +297,42 @@ val gc_move_loop_def = Define `
           if clock = 0 then state with <| ok := F |> else
           gc_move_loop conf state (clock-1)`
 
-(* Magnus: I've made the gc_move_loop clocked to make the termination
-           proof obvious. This clock can also become handy in the
-           refinement proofs later on (in other files). *)
-
-val heap_expand_def = Define `
-  heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
-
-
-(* TODO: when we have generations add function partial_gc that this
-one calls with bounds that are 0 and limit *)
-val full_gc_def = Define `
-  full_gc conf (roots,heap) =
+val partial_gc_def = Define `
+  partial_gc conf (roots,heap) =
     let ok0 = (heap_length heap = conf.limit) in
-    let state = starting_state with <| heap := heap; n := conf.limit |> in
+    let (old,current,refs) = heap_segment (conf.gen_start,conf.refs_start) heap in
+    let a = heap_length old in
+    let r = heap_length refs in
+    let n = heap_length current in
+    let state = empty_state
+        with <| heap := heap
+              ; old := old
+              ; r2 := refs
+              ; a := a; n := n; r := r |> in
+      (* process roots: *)
     let (roots,state) = gc_move_list conf state roots in
+      (* process references: *)
+    let state = gc_move_refs conf state in
+      (* process rest: *)
     let state = gc_move_loop conf state conf.limit in
     let ok = ok0 /\ state.ok /\
-             (state.a = heap_length state.h1) /\
+             (state.a = heap_length (state.old ++ state.h1)) /\
              (state.r = heap_length state.r1) /\
              (heap_length state.heap = conf.limit) /\
              (state.n = conf.limit - state.a - state.r) /\
              state.a + state.r <= conf.limit in
-      (roots,state.h1,state.r1,state.a,state.r,ok)`;
+      (roots,state.old,state.h1,state.r1,state.a,state.r,ok)`;
+
+val full_gc_def = Define `
+  full_gc conf (roots,heap) =
+    partial_gc
+      (conf with <| gen_start := 0; gen_end := conf.limit; refs_start := conf.limit |>)
+      (roots,heap)`;
 
 (* Invariant *)
+
+val heap_expand_def = Define `
+  heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
 
 val heap_map_def = Define `
   (heap_map a [] = FEMPTY) /\
@@ -358,7 +372,7 @@ val heaps_similar_def = Define `
 
 val is_final_def = Define `
   is_final state ptr =
-    let h1end = heap_length state.h1 in
+    let h1end = heap_length (state.old ++ state.h1) in
     let r3start = state.a + state.n + heap_length state.r4 in
     let r3end = r3start + heap_length state.r3 in
     let r1start = r3end + heap_length state.r2 in
@@ -372,20 +386,24 @@ val is_final_def = Define `
 val gc_inv_def = Define `
   gc_inv conf state heap0 =
     (* heap' = current heap *)
-    let heap' = state.h1 ++ state.h2 ++
+    let heap' = state.old ++ state.h1 ++ state.h2 ++
                 heap_expand state.n ++ state.r4 ++
                 state.r3 ++ state.r2 ++ state.r1 in
-    (heap_length (state.h1 ++ state.h2) = state.a) /\
+    let (old0,_) = heap_split conf.gen_start heap0 in
+    (heap_length (state.old ++ state.h1 ++ state.h2) = state.a) /\
     (heap_length (state.r4 ++ state.r3 ++ state.r2 ++ state.r1) = state.r) /\
     (heap_length (FILTER (\h. ~(isForwardPointer h)) state.heap) = state.n) /\
     (state.r + state.a + state.n = conf.limit) /\
     state.ok /\
     ((heap_length state.heap) = conf.limit) /\
+    (* old generations unchanged *)
+    (old0 = state.old) /\
     (* the initial heap is well-formed *)
     heap_ok heap0 conf.limit /\
     (* ForwardPointers have the correct size *)
     heaps_similar heap0 state.heap /\
     (* the new heap consists of DataElements *)
+    EVERY isDataElement state.old /\
     EVERY isDataElement state.h1 /\ EVERY isDataElement state.h2 /\
     EVERY isDataElement state.r1 /\ EVERY isDataElement state.r2 /\
     EVERY isDataElement state.r3 /\ EVERY isDataElement state.r4 /\
