@@ -86,9 +86,7 @@ val _ = Hol_datatype `
   | Opb of opb
   (* Operations on words *)
   | Opw of word_size => opw
-  | Shift of word_size => shift
-  | W8fromW64
-  | W64fromW8
+  | Shift of word_size => shift => num
   | Equality
   (* Function application *)
   | Opapp

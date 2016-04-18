@@ -561,14 +561,10 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (Shift W8 op, [Litv (Word8 w); Litv (Word64 n)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w (w2n n)))))
-    | (Shift W64 op, [Litv (Word64 w); Litv (Word64 n)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w (w2n n)))))
-    | (W8fromW64, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (w2w w))))
-    | (W64fromW8, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (w2w w))))
+    | (Shift W8 op n, [Litv (Word8 w)]) =>
+        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
+    | (Shift W64 op n, [Litv (Word64 w)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE

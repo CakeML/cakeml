@@ -461,14 +461,10 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (Shift W8 op, [Litv (Word8 w); Litv (Word64 n)]) ->
-        Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w (natFromWord64 n)))))
-    | (Shift W64 op, [Litv (Word64 w); Litv (Word64 n)]) ->
-        Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w (natFromWord64 n)))))
-    | (W8fromW64, [Litv (Word64 w)]) ->
-        Just ((s,t), Rval (Litv (Word8 (word8FromWord64 w))))
-    | (W64fromW8, [Litv (Word8 w)]) ->
-        Just ((s,t), Rval (Litv (Word64 (word64FromWord8 w))))
+    | (Shift W8 op n, [Litv (Word8 w)]) ->
+        Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
+    | (Shift W64 op n, [Litv (Word64 w)]) ->
+        Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
