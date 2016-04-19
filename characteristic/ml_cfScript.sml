@@ -454,6 +454,22 @@ val cf_base_case_tac =
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [SEP_IMP_def]
 ;  
 
+val cf_strip_sound_tac =
+  match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
+  once_rewrite_tac [bigStepTheory.evaluate_cases] \\
+  fs [libTheory.opt_bind_def, PULL_EXISTS] (* \\ *)
+  (* ((qmatch_assum_rename_tac `sound _ _ _`) handle _ => fs [st2heap_def]) *)
+;
+
+fun cf_evaluate_list_tac st =
+  rpt (
+    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+    qexists_tac st \\ fs [exp2v_evaluate] \\
+    TRY (qmatch_rename_tac `evaluate_list _ _ _ [] _` \\
+         prove_tac [bigStepTheory.evaluate_rules])
+  )
+;
+
 val cf_sound = Q.prove (
   `!(r: 'ffi itself) e. sound (:'ffi) e (cf (:'ffi) e)`,
   recInduct cf_ind \\ rpt strip_tac \\
@@ -467,10 +483,8 @@ val cf_sound = Q.prove (
       (* function declaration *)
       Cases_on `opt` \\ Cases_on `e1` \\
       fs [is_bound_Fun_def, Fun_body_def, Fun_param_def, SOME_val_def] \\
-      match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-      once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [libTheory.opt_bind_def] \\
-      fs [PULL_EXISTS] \\
-      qcase_tac `Fun n body` \\ GEN_EXISTS_TAC "v'" `Closure env n body` \\
+      cf_strip_sound_tac \\ qcase_tac `Fun n body` \\
+      GEN_EXISTS_TAC "v'" `Closure env n body` \\
       first_x_assum (qspec_then `Closure env n body` assume_tac) \\
       qmatch_assum_abbrev_tac `HH ==> cf _ e2 _ _ _` \\ qsuff_tac `HH` \\ qunabbrev_tac `HH`
       THEN1 (
@@ -492,9 +506,7 @@ val cf_sound = Q.prove (
     )
     THEN1 (
       (* other cases of let-binding *)
-      match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-      once_rewrite_tac [bigStepTheory.evaluate_cases] \\
-      fs [PULL_EXISTS] \\
+      cf_strip_sound_tac \\
       qpat_assum `sound _ e1 _` (drule o REWRITE_RULE [sound_def]) \\
       rpt (disch_then drule) \\ strip_tac \\
       first_assum (qspec_then `v` assume_tac) \\
@@ -507,10 +519,8 @@ val cf_sound = Q.prove (
   )
   THEN1 (
     (* App Opapp *)
-    every_case_tac \\ rewrite_tac [sound_false] \\
-    match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    fs [app_basic_def] \\ res_tac \\ fs [PULL_EXISTS] \\
+    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
+    cf_strip_sound_tac \\ fs [app_basic_def] \\ res_tac \\
     qcase_tac `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
     `SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g)` by SPLIT_TAC \\
     GEN_EXISTS_TAC "vs" `[xv; fv]` \\
@@ -519,36 +529,26 @@ val cf_sound = Q.prove (
   )
   THEN1 (
     (* App Opref *)
-    every_case_tac \\ rewrite_tac [sound_false] \\
-    match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [PULL_EXISTS, st2heap_def] \\
-    GEN_EXISTS_TAC "vs" `[xv]` \\
+    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
+    cf_strip_sound_tac \\ GEN_EXISTS_TAC "vs" `[xv]` \\
     fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
-    fs [app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
+    fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
     first_x_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,xv) INSERT h_i`] mp_tac) \\
     impl_tac
     THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
     THEN1 (
       strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
-      `evaluate_list F env st [h] (st, Rval [xv])` by (
-        once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-        qexists_tac `st` \\ fs [exp2v_evaluate] \\ prove_tac [bigStepTheory.evaluate_rules]
-      ) \\
+      `evaluate_list F env st [h] (st, Rval [xv])` by (cf_evaluate_list_tac `st`) \\
       rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append_Refv] \\
       assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
     )
   )
   THEN1 (
     (* App Opassign *)
-    every_case_tac \\ rewrite_tac [sound_false] \\
-    match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [PULL_EXISTS, st2heap_def] \\
-    fs [app_assign_def, SEP_IMP_def, st2heap_def] \\
-    `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by
-      (once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-       qexists_tac `st` \\ fs [exp2v_evaluate] \\
-       prove_tac [bigStepTheory.evaluate_rules, exp2v_evaluate]) \\
-    qpat_assum `!s. H s ==> _` drule \\ rewrite_tac [STAR_def] \\ strip_tac \\ fs [one_def] \\
+    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
+    cf_strip_sound_tac \\ fs [app_assign_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
+    `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by (cf_evaluate_list_tac `st`) \\
+    qpat_assum `!s. H s ==> _` drule \\ strip_tac \\
     qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
     GEN_EXISTS_TAC "vs" `[xv; Loc rv]` \\ 
     fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_assign_def] \\
@@ -564,21 +564,16 @@ val cf_sound = Q.prove (
       SPLIT2_TAC
     ) \\
     rpt (asm_exists_tac \\ fs []) \\
-    first_assum match_mp_tac \\ fs [STAR_def] \\
-    qexists_tac `h_i'` \\ strip_assume_tac store2heap_IN_unique_key \\
-    SPLIT_TAC
+    first_assum match_mp_tac \\ qexists_tac `h_i'` \\
+    strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
   )
   THEN1 (
     (* App Opderef *)
-    every_case_tac \\ rewrite_tac [sound_false] \\
-    match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [PULL_EXISTS, st2heap_def] \\
-    `evaluate_list F env st [h] (st, Rval [Loc rv])` by
-      (once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-       qexists_tac `st` \\ strip_tac THENL [prove_tac [exp2v_evaluate], all_tac] \\
-       prove_tac [bigStepTheory.evaluate_rules]) \\
-    fs [app_deref_def, SEP_IMP_def, one_def] \\
-    rpt (qpat_assum `!s. H s ==> _` drule \\ rewrite_tac [STAR_def] \\ strip_tac) \\ fs [] \\
+    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
+    cf_strip_sound_tac \\
+    `evaluate_list F env st [h] (st, Rval [Loc rv])` by (cf_evaluate_list_tac `st`) \\
+    fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def] \\
+    rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
     qcase_tac `SPLIT h_i (h_i', {(rv,x)})` \\ qcase_tac `FF h_i'` \\
     GEN_EXISTS_TAC "vs" `[Loc rv]` \\
     fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
