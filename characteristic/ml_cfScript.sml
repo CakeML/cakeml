@@ -365,36 +365,27 @@ val star_split = Q.prove (
      ((H1 * H2) (h1 UNION h2) ==> (H3 * H4) (h3 UNION h4)) ==>
      DISJOINT h1 h2 ==> H1 h1 ==> H2 h2 ==>
      ?u v. H3 u /\ H4 v /\ SPLIT (h3 UNION h4) (u, v)`,
-  rewrite_tac [STAR_def] \\ fs []
-  \\ REPEAT strip_tac
-  \\ `SPLIT (h1 UNION h2) (h1, h2)` by SPLIT_TAC
-  \\ METIS_TAC []
+  fs [STAR_def] \\ rpt strip_tac \\
+  `SPLIT (h1 UNION h2) (h1, h2)` by SPLIT_TAC \\
+  metis_tac []
 );
 
 val sound_local = Q.prove (
   `!e R. sound (:'ffi) e R ==> sound (:'ffi) e (local R)`,
-  REPEAT strip_tac
-  \\ rewrite_tac [sound_def, local_def]
-  \\ REPEAT strip_tac
-  \\ res_tac
-  \\ qcase_tac `(H_i * H_k) h_i` \\ qcase_tac `R env H_i Q_f`
-  \\ qcase_tac `SEP_IMPPOST (Q_f *+ H_k) (Q *+ H_g)`
-  \\ qpat_assum `(_ * _) h_i` (assume_tac o REWRITE_RULE [STAR_def]) \\ fs []
-  \\ qcase_tac `H_i h'_i` \\ qcase_tac `H_k h'_k`
-  \\ qpat_assum `sound _ _ _` (drule o REWRITE_RULE [sound_def])
-  \\ REPEAT strip_tac
-  \\ pop_assum (qspecl_then [`st`, `h'_i`, `h_k UNION h'_k`] assume_tac)
-  \\ `SPLIT (st2heap (:'ffi) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC
-  \\ res_tac
-  \\ qcase_tac `SPLIT3 _ (h'_f, _, h'_g)`
-  \\ qpat_assum `SEP_IMPPOST (Q_f *+ _) _`
-       ((qspecl_then [`v`, `h'_f UNION h'_k`] assume_tac)
-        o REWRITE_RULE [SEP_IMPPOST_def, STARPOST_def, SEP_IMP_def])
-  \\ fs []
-  \\ `DISJOINT h'_f h'_k` by SPLIT_TAC
-  \\ `?h_f h''_g. Q v h_f /\ H_g h''_g /\ SPLIT (h'_f UNION h'_k) (h_f, h''_g)` by METIS_TAC [star_split]
-  \\ Q.LIST_EXISTS_TAC [`v`, `st'`, `h_f`, `h'_g UNION h''_g`] \\ fs []
-  \\ SPLIT_TAC
+  rpt strip_tac \\ rewrite_tac [sound_def, local_def] \\ rpt strip_tac \\
+  res_tac \\ qcase_tac `(H_i * H_k) h_i` \\ qcase_tac `R env H_i Q_f` \\
+  qcase_tac `SEP_IMPPOST (Q_f *+ H_k) (Q *+ H_g)` \\
+  fs [STAR_def] \\ qcase_tac `H_i h'_i` \\ qcase_tac `H_k h'_k` \\
+  `SPLIT (st2heap (:'ffi) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC \\
+  qpat_assum `sound _ _ _` (drule o REWRITE_RULE [sound_def]) \\
+  rpt (disch_then drule) \\ rpt strip_tac \\ qcase_tac `SPLIT3 _ (h'_f, _, h'_g)` \\
+  fs [SEP_IMPPOST_def, STARPOST_def, SEP_IMP_def, STAR_def] \\
+  first_x_assum (qspecl_then [`v`, `h'_f UNION h'_k`] assume_tac) \\
+  `DISJOINT h'_f h'_k` by SPLIT_TAC \\
+  `?h_f h''_g. Q v h_f /\ H_g h''_g /\ SPLIT (h'_f UNION h'_k) (h_f, h''_g)` by
+    metis_tac [star_split] \\
+  Q.LIST_EXISTS_TAC [`v`, `st'`, `h_f`, `h'_g UNION h''_g`] \\ fs [] \\
+  SPLIT_TAC
 );
 
 val sound_false = Q.prove (`!e. sound (:'ffi) e (\env H Q. F)`, rewrite_tac [sound_def]);
