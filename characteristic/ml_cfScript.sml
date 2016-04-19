@@ -586,9 +586,19 @@ val cf_sound = Q.prove (
 );
 
 val cf_sound' = Q.prove (
-  `!ffi e H Q st. cf ffi e H Q ==> H (st2heap ffi st) ==>
-     ?env st' v. evaluate F env st e (st', Rval v)
-                 /\ Q v (st2heap ffi st')`,
-  cheat);
+  `!e env H Q st.
+     cf (:'ffi) e env H Q ==> H (st2heap (:'ffi) st) ==>
+     ?st' h_f h_g v.
+       evaluate F env st e (st', Rval v) /\
+       SPLIT (st2heap (:'ffi) st') (h_f, h_g) /\
+       Q v h_f`,
+
+  rpt strip_tac \\ qspecl_then [`(:'ffi)`, `e`] assume_tac cf_sound \\
+  fs [sound_def, st2heap_def] \\
+  `SPLIT (store2heap st.refs) (store2heap st.refs, {})` by SPLIT_TAC \\
+  res_tac \\ qcase_tac `SPLIT3 (store2heap st'.refs) (h_f, {}, h_g)` \\
+  `SPLIT (store2heap st'.refs) (h_f, h_g)` by SPLIT_TAC \\
+  rpt (asm_exists_tac \\ fs [])
+);
 
 val _ = export_theory();
