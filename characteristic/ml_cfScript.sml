@@ -243,4 +243,60 @@ val cf_def = Define `
 val cf_defs = [cf_def, cf_lit_def, cf_var_def, cf_fundecl_def, cf_let_def,
                cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
 
+(* Soundness of cf *)
+
+val sound_def = Define `
+  sound (:'ffi) e R =
+    !env H Q. R env H Q ==>
+    !st h_i h_k. SPLIT (st2heap (:'ffi) st) (h_i, h_k) ==>
+    H h_i ==>
+      ?v st' h_f h_g.
+        SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g) /\
+        evaluate F env st e (st', Rval v) /\
+        Q v h_f`;
+
+(* ? from set_sepScript.sml, + SPLIT3_def *)
+val SPLIT_ss = rewrites [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,
+                         SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF];
+
+val SPLIT_TAC = FULL_SIMP_TAC (pure_ss++SPLIT_ss) [] \\ METIS_TAC [];
+
+val star_split = Q.prove (
+  `!H1 H2 H3 H4 h1 h2 h3 h4.
+     ((H1 * H2) (h1 UNION h2) ==> (H3 * H4) (h3 UNION h4)) ==>
+     DISJOINT h1 h2 ==> H1 h1 ==> H2 h2 ==>
+     ?u v. H3 u /\ H4 v /\ SPLIT (h3 UNION h4) (u, v)`,
+  rewrite_tac [STAR_def] \\ fs []
+  \\ REPEAT strip_tac
+  \\ `SPLIT (h1 UNION h2) (h1, h2)` by SPLIT_TAC
+  \\ METIS_TAC []
+);
+
+val sound_local = Q.prove (
+  `!e R. sound (:'ffi) e R ==> sound (:'ffi) e (local R)`,
+  REPEAT strip_tac
+  \\ rewrite_tac [sound_def, local_def]
+  \\ REPEAT strip_tac
+  \\ res_tac
+  \\ qcase_tac `(H_i * H_k) h_i` \\ qcase_tac `R env H_i Q_f`
+  \\ qcase_tac `SEP_IMPPOST (Q_f *+ H_k) (Q *+ H_g)`
+  \\ qpat_assum `(_ * _) h_i` (assume_tac o REWRITE_RULE [STAR_def]) \\ fs []
+  \\ qcase_tac `H_i h'_i` \\ qcase_tac `H_k h'_k`
+  \\ qpat_assum `sound _ _ _` (drule o REWRITE_RULE [sound_def])
+  \\ REPEAT strip_tac
+  \\ pop_assum (qspecl_then [`st`, `h'_i`, `h_k UNION h'_k`] assume_tac)
+  \\ `SPLIT (st2heap (:'ffi) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC
+  \\ res_tac
+  \\ qcase_tac `SPLIT3 _ (h'_f, _, h'_g)`
+  \\ qpat_assum `SEP_IMPPOST (Q_f *+ _) _`
+       ((qspecl_then [`v`, `h'_f UNION h'_k`] assume_tac)
+        o REWRITE_RULE [SEP_IMPPOST_def, STARPOST_def, SEP_IMP_def])
+  \\ fs []
+  \\ `DISJOINT h'_f h'_k` by SPLIT_TAC
+  \\ `?h_f h''_g. Q v h_f /\ H_g h''_g /\ SPLIT (h'_f UNION h'_k) (h_f, h''_g)` by METIS_TAC [star_split]
+  \\ Q.LIST_EXISTS_TAC [`v`, `st'`, `h_f`, `h'_g UNION h''_g`] \\ fs []
+  \\ SPLIT_TAC
+);
+
+val sound_false = Q.prove (`!e. sound (:'ffi) e (\env H Q. F)`, rewrite_tac [sound_def]);
 val _ = export_theory();
