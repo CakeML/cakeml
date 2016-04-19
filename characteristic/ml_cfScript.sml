@@ -3,49 +3,6 @@ open set_sepTheory ml_translatorTheory;
 
 val _ = new_theory "ml_cf";
 
-(*
-STAR_def
-bigStepTheory.evaluate_rules
-bigStepTheory.evaluate_ind
-*)
-
-(*
-  ``(one (2n, Litv (IntLit 5)) * anything) (fmap2set (s:v_map))``
-*)
-
-(* val _ = type_abbrev("v_map",``:num |-> v``); *)
-
-(* val fmap2set_def = Define ` *)
-(*   fmap2set (f:'a |-> 'b) = fun2set ((\a. f ' a), FDOM f)` *)
-
-(* val storev2v_def = Define ` *)
-(*   storev2v (Refv v) = v`; *)
-
-(* val store2fmap_aux_def = Define ` *)
-(*   store2fmap_aux n [] = FEMPTY /\ *)
-(*   store2fmap_aux n (h::t) = (store2fmap_aux (n+1: num) t) |+ (n, storev2v h)`; *)
-
-(* val store2fmap_def = Define `store2fmap l = store2fmap_aux (0: num) l`; *)
-
-(* val state_disjoint_def = Define ` *)
-(*   state_disjoint s1 s2 = DISJOINT (fmap2set s1) (fmap2set s2)`; *)
-
-(* val state_disjoint_3_def = Define ` *)
-(*   state_disjoint_3 s1 s2 s3 = *)
-(*     (state_disjoint s1 s2 /\ state_disjoint s2 s3 /\ state_disjoint s1 s3)`; *)
-
-(* val state_split_def = Define ` *)
-(*   state_split s (u, v) = SPLIT (fmap2set s) (fmap2set u, fmap2set v)`; *)
-
-(* val SPLIT_3_def = Define ` *)
-(*   SPLIT_3 (s:'a set) (u,v,w) = *)
-(*     ((u UNION v UNION w = s) /\ *)
-(*      DISJOINT u v /\ DISJOINT v w /\ DISJOINT u w)`; *)
-
-(* val state_split_3_def = Define ` *)
-(*   state_split_3 s (u, v, w) = *)
-(*     SPLIT_3 (fmap2set s) (fmap2set u, fmap2set v, fmap2set w)`; *)
-
 (* Heaps *)
 val _ = type_abbrev("heap", ``:(num # v) -> bool``);
 
@@ -348,7 +305,6 @@ val SOME_val_def = Define `
 val cf_def = tDefine "cf" `
   cf (:'ffi) (Lit l) = cf_lit l /\
   cf (:'ffi) (Var name) = cf_var name /\
-
   cf (:'ffi) (Let opt e1 e2) =
     (if is_bound_Fun opt e1 then
        cf_fundecl (:'ffi) (SOME_val opt) (Fun_param e1)
@@ -356,7 +312,6 @@ val cf_def = tDefine "cf" `
      else
        cf_let opt (cf (:'ffi) e1) (cf (:'ffi) e2))
  /\
-
   cf (:'ffi) (App Opapp args) = 
     (case args of
       | [f; x] => cf_app2 (:'ffi) f x
@@ -397,7 +352,6 @@ val sound_def = Define `
         evaluate F env st e (st', Rval v) /\
         Q v h_f`;
 
-(* ? from set_sepScript.sml, + SPLIT3_def *)
 val SPLIT_ss = rewrites [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
                          SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF];
 
@@ -458,7 +412,6 @@ val cf_strip_sound_tac =
   match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\
   fs [libTheory.opt_bind_def, PULL_EXISTS] (* \\ *)
-  (* ((qmatch_assum_rename_tac `sound _ _ _`) handle _ => fs [st2heap_def]) *)
 ;
 
 fun cf_evaluate_list_tac st =
