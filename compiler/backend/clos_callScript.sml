@@ -122,4 +122,16 @@ val compile_def = Define `
   compile F x = (x,[]) /\
   compile T x = let (xs,g) = calls [x] (LN,[]) in (HD xs,SND g)`
 
+val selftest = let
+  (* example code *)
+  val f = ``Fn (SOME 800) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
+  val g = ``Fn (SOME 900) NONE 1 (App (SOME 800) (Var 1) [Var 0])``
+  val f_g_5 = ``App (SOME 900) (Var 1) [App (SOME 900) (Var 0) [Op (Const 5) []]]``
+  val let_let = ``Let [^f] (Let [^g] ^f_g_5)``
+  (* compiler evaluation *)
+  val tm = EVAL ``compile T ^let_let`` |> concl
+  val n = tm |> find_terms (aconv ``closLang$Call``) |> length
+  val _ = (n = 5) orelse failwith "clos_call implementation broken"
+  in tm end
+
 val _ = export_theory();
