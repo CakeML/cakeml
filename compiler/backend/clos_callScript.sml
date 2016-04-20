@@ -59,7 +59,6 @@ val calls_def = tDefine "calls" `
      let (e1,g) = calls [x] g in
      let e1 = HD e1 in
      let (es,g) = calls xs g in
-     (* loc_opt ought to be SOME *)
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
          (* Call might need to tick more like in BVL *)
@@ -70,11 +69,13 @@ val calls_def = tDefine "calls" `
   (calls [Fn loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
-       if closed (Fn loc_opt ws num_args x1) then
-         let g = (insert loc () (FST g),SND g) in
-         let (e1,g) = calls [x1] g in
-           ([Fn loc_opt ws num_args (Call (loc+1) (GENLIST Var num_args))],
-            (FST g,(loc+1,num_args,HD e1)::SND g))
+     let new_g = (insert loc () (FST g),SND g) in
+     let (e1,new_g) = calls [x1] new_g in
+       (* Closedness is checked on the transformed program because
+          the calls function can sometimes remove free variables. *)
+       if closed (Fn loc_opt ws num_args (HD e1)) then
+         ([Fn loc_opt ws num_args (Call (loc+1) (GENLIST Var num_args))],
+          (FST new_g,(loc+1,num_args,HD e1)::SND new_g))
        else
          let (e1,g) = calls [x1] g in
            ([Fn loc_opt ws num_args (HD e1)],g)) /\
