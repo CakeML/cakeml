@@ -12,6 +12,39 @@ fun drule th =
 
 (* TODO: move/categorize *)
 
+val SORTED_FILTER = store_thm("SORTED_FILTER",
+  ``∀R ls P. transitive R ∧ SORTED R ls ⇒ SORTED R (FILTER P ls)``,
+  ho_match_mp_tac SORTED_IND >>
+  rw[] >> rw[] >> rfs[SORTED_EQ] >> fs[SORTED_EQ] >>
+  first_x_assum(qspec_then`P`mp_tac) >> rw[] >>
+  rfs[SORTED_EQ] >> fs[MEM_FILTER])
+
+val LENGTH_EQ_FILTER_FILTER = store_thm("LENGTH_EQ_FILTER_FILTER",
+  ``!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
+         (LENGTH xs = LENGTH (FILTER P xs) + LENGTH (FILTER Q xs))``,
+  Induct \\ SIMP_TAC std_ss [LENGTH,FILTER,EVERY_DEF] \\ STRIP_TAC
+  \\ Cases_on `P h` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD_CLAUSES]);
+
+val LIST_REL_MAP_FILTER_NEQ = store_thm("LIST_REL_MAP_FILTER_NEQ",
+  ``∀P f1 f2 z1 z2 l1 l2.
+      LIST_REL P (MAP f1 l1) (MAP f2 l2) ∧
+      (∀y1 y2. MEM (y1,y2) (ZIP(l1,l2)) ⇒ (SND y1 ≠ z1 ⇔ SND y2 ≠ z2) ∧ (P (f1 y1) (f2 y2)))
+      ⇒
+      LIST_REL P (MAP f1 (FILTER (λ(x,y). y ≠ z1) l1)) (MAP f2 (FILTER (λ(x,y). y ≠ z2) l2))``,
+  ntac 5 gen_tac >>
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  Cases >> simp[] >>
+  strip_tac >>
+  Cases_on`h`>>fs[] >> rw[] >>
+  METIS_TAC[SND])
+
+val MAP_EQ_MAP_IMP = store_thm("MAP_EQ_MAP_IMP",
+  ``!xs ys f.
+      (!x y. MEM x xs /\ MEM y ys /\ (f x = f y) ==> (x = y)) ==>
+      (MAP f xs = MAP f ys) ==> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [MAP] \\ METIS_TAC []);
+
 local open integer_wordTheory in
 val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
 val _ = numLib.prefer_num();
