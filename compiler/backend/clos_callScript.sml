@@ -126,7 +126,7 @@ val selftest = let
   (* example code *)
   val f = ``Fn (SOME 800) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
   val g = ``Fn (SOME 900) NONE 1 (App (SOME 800) (Var 1) [Var 0])``
-  val f_g_5 = ``App (SOME 900) (Var 1) [App (SOME 900) (Var 0) [Op (Const 5) []]]``
+  val f_g_5 = ``App (SOME 800) (Var 1) [App (SOME 900) (Var 0) [Op (Const 5) []]]``
   val let_let = ``Let [^f] (Let [^g] ^f_g_5)``
   (* compiler evaluation *)
   val tm = EVAL ``compile T ^let_let`` |> concl
