@@ -14,6 +14,24 @@ val EL_MEM_LEMMA = prove(
   ``!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs``,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
+val insert_each_def = Define `
+  (insert_each p 0 g = g) /\
+  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))`
+
+val code_list_def = Define `
+  (code_list loc [] g = g) /\
+  (code_list loc ((n,p)::xs) (g1,g2) =
+     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))`
+
+val calls_list_def = Define `
+  (calls_list loc [] = []) /\
+  (calls_list loc ((n,_)::xs) =
+     (n,Call (loc+1) (GENLIST Var n))::calls_list (loc+2n) xs)`;
+
+val exp3_size_MAP_SND = prove(
+  ``!fns. exp3_size (MAP SND fns) <= exp1_size fns``,
+  Induct \\ fs [exp_size_def,FORALL_PROD]);
+
 val calls_def = tDefine "calls" `
   (calls [] g = ([],g)) /\
   (calls ((x:closLang$exp)::y::xs) g =
@@ -69,23 +87,35 @@ val calls_def = tDefine "calls" `
   (calls [Fn loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
-     let new_g = (insert loc () (FST g),SND g) in
+     let new_g = insert_each loc 1 g in
      let (e1,new_g) = calls [x1] new_g in
+     let new_g = (FST new_g,(loc+1,num_args,HD e1)::SND new_g) in
        (* Closedness is checked on the transformed program because
           the calls function can sometimes remove free variables. *)
        if closed (Fn loc_opt ws num_args (HD e1)) then
-         ([Fn loc_opt ws num_args (Call (loc+1) (GENLIST Var num_args))],
-          (FST new_g,(loc+1,num_args,HD e1)::SND new_g))
+         ([Fn loc_opt ws num_args
+             (Call (loc+1) (GENLIST Var num_args))],new_g)
        else
          let (e1,g) = calls [x1] g in
            ([Fn loc_opt ws num_args (HD e1)],g)) /\
-  (calls [Letrec loc_opt _ fns x1] g =
-      ARB)`
+  (calls [Letrec loc_opt ws fns x1] g =
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+     let new_g = insert_each loc (LENGTH fns) g in
+     let (fns1,new_g) = calls (MAP SND fns) new_g in
+       if EVERY2 (\(n,_) p. closed (Fn NONE NONE n p)) fns fns1 then
+         let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
+         let (e1,g) = calls [x1] new_g in
+           ([Letrec loc_opt ws (calls_list loc fns) (HD e1)],new_g)
+       else
+         let (fns1,g) = calls (MAP SND fns) g in
+         let (e1,g) = calls [x1] g in
+           ([Letrec loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))`
  (WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ fs [GSYM NOT_LESS]
   \\ IMP_RES_TAC EL_MEM_LEMMA
   \\ IMP_RES_TAC exp1_size_lemma
+  \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
   \\ DECIDE_TAC);
 
 val compile_def = Define `
