@@ -143,6 +143,7 @@ val _ = Hol_datatype `
   | TC_string
   | TC_ref
   | TC_word8
+  | TC_word64
   | TC_word8array
   | TC_fn
   | TC_tup
@@ -177,6 +178,13 @@ val _ = Define `
 
 val _ = Define `
  (Tword8 = (Tapp [] TC_word8))`;
+
+val _ = Define `
+ (Tword64 = (Tapp [] TC_word64))`;
+
+ val _ = Define `
+ (Tword W8 = Tword8)
+/\     (Tword W64 = Tword64)`;
 
 val _ = Define `
  (Tword8array = (Tapp [] TC_word8array))`;

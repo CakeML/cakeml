@@ -110,6 +110,7 @@ type tctor =
   | TC_string
   | TC_ref
   | TC_word8
+  | TC_word64
   | TC_word8array
   | TC_fn
   | TC_tup
@@ -132,6 +133,9 @@ let Tchar = Tapp [] TC_char
 let Tstring = Tapp [] TC_string
 let Tref t = Tapp [t] TC_ref
 let Tword8 = Tapp [] TC_word8
+let Tword64 = Tapp [] TC_word64
+let rec Tword W8 = Tword8
+and     Tword W64 = Tword64
 let Tword8array = Tapp [] TC_word8array
 let Tfn t1 t2 = Tapp [t1;t2] TC_fn
 let Texn = Tapp [] TC_exn

@@ -296,58 +296,43 @@ val _ = Define `
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
- (type_op op ts t = 
-  ((case (op,ts) of
-         (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) => (t2 = t2') /\ (t = t3')
-     | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tint)
-     | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t =
-                                                       Tapp []
-                                                         (TC_name
-                                                            (Short "bool")))
-     | (Equality, [t1; t2]) => (t1 = t2) /\
-                                 (t = Tapp [] (TC_name (Short "bool")))
-     | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\
-                                               (t = Tapp [] TC_tup)
-     | (Opref, [t1]) => (t = Tapp [t1] TC_ref)
-     | (Opderef, [Tapp [t1] TC_ref]) => (t = t1)
-     | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) => (t =
-                                                            Tapp []
-                                                              TC_word8array)
-     | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t =
-                                                               Tapp []
-                                                                 TC_word8)
-     | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
-     | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => 
-   t = Tapp [] TC_tup
-     | (W8fromInt, [Tapp [] TC_int]) => t = Tapp [] TC_word8
-     | (W8toInt, [Tapp [] TC_word8]) => t = Tapp [] TC_int
-     | (Ord, [Tapp [] TC_char]) => (t = Tint)
-     | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t =
-                                                           Tapp []
-                                                             (TC_name
-                                                                (Short "bool")))
-     | (Explode, [Tapp [] TC_string]) => t =
-                                           Tapp [Tapp [] TC_char]
-                                             (TC_name (Short "list"))
-     | (Implode, [Tapp [Tapp [] TC_char] (TC_name (Short "list"))]) => 
-   t = Tapp [] TC_string
-     | (Strlen, [Tapp [] TC_string]) => t = Tint
-     | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) => t =
-                                                              Tapp [t1]
-                                                                TC_vector
-     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) => t = t1
-     | (Vlength, [Tapp [t1] TC_vector]) => (t = Tapp [] TC_int)
-     | (Aalloc, [Tapp [] TC_int; t1]) => t = Tapp [t1] TC_array
-     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
-     | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
-     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\
-                                                                (t =
-                                                                   Tapp 
-                                                                   [] 
-                                                                   TC_tup)
-     | (FFI n, [Tapp [] TC_word8array]) => t = Tapp [] TC_tup
-     | _ => F
-   )))`;
+ (type_op op ts t =  
+((case (op,ts) of
+      (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) => (t2 = t2') /\ (t = t3')
+    | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tint)
+    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tapp [] (TC_name (Short "bool")))
+    | (Opw W8 _, [Tapp [] TC_word8; Tapp [] TC_word8]) => (t = Tapp [] TC_word8)
+    | (Opw W64 _, [Tapp [] TC_word64; Tapp [] TC_word64]) => (t = Tapp [] TC_word64)
+    | (Shift W8 _ _, [Tapp [] TC_word8]) => (t = Tapp [] TC_word8)
+    | (Shift W64 _ _, [Tapp [] TC_word64]) => (t = Tapp [] TC_word64)
+    | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tapp [] (TC_name (Short "bool")))
+    | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
+    | (Opref, [t1]) => (t = Tapp [t1] TC_ref)
+    | (Opderef, [Tapp [t1] TC_ref]) => (t = t1)
+    | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) => (t = Tapp [] TC_word8array)
+    | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
+    | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
+    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_tup
+    | (WordFromInt W8, [Tapp [] TC_int]) => t = Tapp [] TC_word8
+    | (WordToInt W8, [Tapp [] TC_word8]) => t = Tapp [] TC_int
+    | (WordFromInt W64, [Tapp [] TC_int]) => t = Tapp [] TC_word64
+    | (WordToInt W64, [Tapp [] TC_word64]) => t = Tapp [] TC_int
+    | (Chr, [Tapp [] TC_int]) => (t = Tchar)
+    | (Ord, [Tapp [] TC_char]) => (t = Tint)
+    | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t = Tapp [] (TC_name (Short "bool")))
+    | (Explode, [Tapp [] TC_string]) => t = Tapp [Tapp [] TC_char] (TC_name (Short "list"))
+    | (Implode, [Tapp [Tapp [] TC_char] (TC_name (Short "list"))]) => t = Tapp [] TC_string
+    | (Strlen, [Tapp [] TC_string]) => t = Tint
+    | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) => t = Tapp [t1] TC_vector
+    | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) => t = t1
+    | (Vlength, [Tapp [t1] TC_vector]) => (t = Tapp [] TC_int)
+    | (Aalloc, [Tapp [] TC_int; t1]) => t = Tapp [t1] TC_array
+    | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
+    | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
+    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
+    | (FFI n, [Tapp [] TC_word8array]) => t = Tapp [] TC_tup
+    | _ => F
+  )))`;
 
 
 (*val check_type_names : tenv_tabbrev -> t -> bool*)

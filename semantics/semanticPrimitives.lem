@@ -173,6 +173,7 @@ let lit_same_type l1 l2 =
     | (Char _, Char _) -> true
     | (StrLit _, StrLit _) -> true
     | (Word8 _, Word8 _) -> true
+    | (Word64 _, Word64 _) -> true
     | _ -> false
   end
 
@@ -748,6 +749,7 @@ let tc_to_string tc =
   | TC_string -> "<string>"
   | TC_ref -> "<ref>"
   | TC_word8 -> "<word8>"
+  | TC_word64 -> "<word64>"
   | TC_word8array -> "<word8array>"
   | TC_exn -> "<exn>"
   | TC_vector -> "<vector>"

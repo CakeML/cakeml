@@ -224,6 +224,7 @@ val _ = Define `
     | (Char _, Char _) => T
     | (StrLit _, StrLit _) => T
     | (Word8 _, Word8 _) => T
+    | (Word64 _, Word64 _) => T
     | _ => F
   )))`;
 
@@ -884,6 +885,7 @@ val _ = Define `
   | TC_string => "<string>"
   | TC_ref => "<ref>"
   | TC_word8 => "<word8>"
+  | TC_word64 => "<word64>"
   | TC_word8array => "<word8array>"
   | TC_exn => "<exn>"
   | TC_vector => "<vector>"
