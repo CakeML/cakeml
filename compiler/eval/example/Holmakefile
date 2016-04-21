@@ -1,5 +1,3 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../x64
-#$(HOLDIR)/examples/l3-machine-code/x64/step $(HOLDIR)/examples/l3-machine-code/x64/prog ..
-
+INCLUDES = ../../targets/x64 ../../targets/asm .. $(HOLDIR)/examples/l3-machine-code/x64/model ../../../unverified/reg_alloc  $(HOLDIR)/examples/fun-op-sem/lprefix_lub ../x64
 
