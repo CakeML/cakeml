@@ -20,12 +20,15 @@ val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,
 
 val Tword_simp = Q.store_thm("Tword_simp[simp]",
   `(∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
+   (Tword8 ≠ Tword64) ∧
    (∀z. Tword z ≠ Tchar) ∧
    (∀z. Tword z ≠ Tint) ∧
    (∀z v. Tword z ≠ Tvar v) ∧
    (∀z v. Tword z ≠ Tvar_db v) ∧
    (∀n a. (Tword W8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
-   (∀n a. (Tword W64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))`,
+   (∀n a. (Tword W64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64)) ∧
+   (∀n a. (Tword8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
+   (∀n a. (Tword64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))`,
   rpt conj_tac \\ rpt Cases \\ EVAL_TAC);
 
 val lit_same_type_refl = store_thm("lit_same_type_refl",

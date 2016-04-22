@@ -188,6 +188,11 @@ T
 ==>
 type_v tvs cenv senv (Litv (Word8 w)) Tword8)
 
+/\ (! tvs cenv senv w.
+T
+==>
+type_v tvs cenv senv (Litv (Word64 w)) Tword64)
+
 /\ (! tvs cenv senv cn vs tvs' tn ts' ts.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\

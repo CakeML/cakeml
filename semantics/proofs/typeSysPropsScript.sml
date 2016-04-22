@@ -1831,8 +1831,9 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  (!tenvS tenvC envM tenvM. consistent_mod_env tenvS tenvC envM tenvM ⇒
    T)`,
  ho_match_mp_tac type_v_strongind >>
- srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def] >-
- metis_tac [] >>
+ srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def]
+ >- rw[Tword64_def,check_freevars_def]
+ >- metis_tac [] >>
  res_tac
  >- metis_tac [num_tvs_def, type_e_freevars, bind_tvar_def,
                tenv_val_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]
@@ -2001,6 +2002,7 @@ val type_subst = Q.store_thm ("type_subst",
  srw_tac[][deBruijn_inc_def, deBruijn_subst_def] >>
  srw_tac[][nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      nil_deBruijn_subst]
+ >- rw[Tword64_def,deBruijn_subst_def]
  >- (srw_tac[][EVERY_MAP] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
      srw_tac[][] >>
