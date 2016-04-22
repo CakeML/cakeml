@@ -1,24 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs;
-open x64_targetLib asmLib;
-open x64AssemblerLib;
 
-(* For some reason, lprefix_lub has to be opened before compilerComputeLib,
-  and after x64 things... *)
-
-open lprefix_lubTheory;
-open compilerComputeLib;
-open x64_exportLib
-
-val cmp = wordsLib.words_compset ()
-val () = computeLib.extend_compset
-    [computeLib.Extenders
-      [compilerComputeLib.add_compiler_compset
-      ,x64_targetLib.add_x64_encode_compset
-      ,asmLib.add_asm_compset
-      ]
-    ] cmp
-
-val eval = computeLib.CBV_CONV cmp
+val _ = ParseExtras.temp_loose_equality()
+open x64_compileLib
 
 val rconc = rhs o concl
 
