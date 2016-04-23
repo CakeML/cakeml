@@ -467,6 +467,11 @@ T
 ==>
 type_p tvs tenv_ctor (Plit (Word8 w)) Tword8 [])
 
+/\ (! tvs tenv_ctor w.
+T
+==>
+type_p tvs tenv_ctor (Plit (Word64 w)) Tword64 [])
+
 /\ (! tvs tenv_ctor cn ps ts tvs' tn ts' bindings.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\

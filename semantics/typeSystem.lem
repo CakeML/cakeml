@@ -410,6 +410,13 @@ type_p tvs tenv_ctor (Plit (Word8 w)) Tword8 []
 
 and
 
+plit_word64 : forall tvs tenv_ctor w.
+true
+==>
+type_p tvs tenv_ctor (Plit (Word64 w)) Tword64 []
+
+and
+
 pcon_some : forall tvs tenv_ctor cn ps ts tvs' tn ts' bindings.
 List.all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
