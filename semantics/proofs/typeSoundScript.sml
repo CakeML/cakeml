@@ -1273,12 +1273,14 @@ val exp_type_preservation = Q.prove (
              rw[Once type_v_cases_eqn] >>
              metis_tac[Tword_def,Tword8_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
-             fs[Once type_v_cases_eqn])
+             fs[Once type_v_cases_eqn] >>
+             metis_tac[])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              rw[Once type_v_cases_eqn] >>
              metis_tac[Tword_def,Tword8_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
-             fs[Once type_v_cases_eqn])
+             fs[Once type_v_cases_eqn] >>
+             metis_tac[])
          >- (full_simp_tac(srw_ss())[do_opapp_def] >>
              every_case_tac >>
              full_simp_tac(srw_ss())[] >>
@@ -1419,6 +1421,10 @@ val exp_type_preservation = Q.prove (
          >- do_app_exn_tac
          >- do_app_exn_tac
          >- do_app_exn_tac
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             metis_tac[Tword_def,Tword8_def])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             metis_tac[Tword_def,Tword64_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              metis_tac[])
          >- (srw_tac[][Once type_v_cases_eqn] >>
