@@ -20,16 +20,25 @@ val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,
 
 val Tword_simp = Q.store_thm("Tword_simp[simp]",
   `(∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
+   (∀z1 z2. (TC_word z1 = TC_word z2) ⇔ (z1 = z2)) ∧
+   (∀z. TC_word z ≠ TC_string) ∧
+   (∀z. TC_word z ≠ TC_tup) ∧
+   (∀z. TC_word z ≠ TC_word8array) ∧
    (Tword8 ≠ Tword64) ∧
    (∀z. Tword z ≠ Tchar) ∧
    (∀z. Tword z ≠ Tint) ∧
    (∀z v. Tword z ≠ Tvar v) ∧
    (∀z v. Tword z ≠ Tvar_db v) ∧
+   (∀z. (Tword8 = Tword z) ⇔ (z = W8)) ∧
+   (∀z. (Tword64 = Tword z) ⇔ (z = W64)) ∧
+   (∀z. (Tword z = Tword8) ⇔ (z = W8)) ∧
+   (∀z. (Tword z = Tword64) ⇔ (z = W64)) ∧
    (∀n a. (Tword W8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
    (∀n a. (Tword W64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64)) ∧
+   (∀z. (Tword z = Tapp a n) ⇔ (a = [] ∧ n = TC_word z)) ∧
    (∀n a. (Tword8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
    (∀n a. (Tword64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))`,
-  rpt conj_tac \\ rpt Cases \\ EVAL_TAC);
+  rpt conj_tac \\ rpt Cases \\ EVAL_TAC \\ metis_tac[]);
 
 val lit_same_type_refl = store_thm("lit_same_type_refl",
   ``∀l. lit_same_type l l``,

@@ -1007,7 +1007,7 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((?n. op = FFI n) ∧ ts = [Tword8array] ∧ t3 = Tapp [] TC_tup))`,
  srw_tac[][type_op_def] >>
  every_case_tac >>
- full_simp_tac(srw_ss())[Tchar_def,Tword_def,Tword8_def,Tword64_def] >>
+ full_simp_tac(srw_ss())[Tchar_def,Tword_def,Tword8_def,Tword64_def,TC_word_def] >>
  metis_tac []);
 
 (* ---------- type_p ---------- *)
@@ -1030,7 +1030,7 @@ val type_p_freevars = Q.store_thm ("type_p_freevars",
    EVERY (check_freevars tvs []) ts ∧
    EVERY (check_freevars tvs []) (MAP SND env'))`,
 ho_match_mp_tac type_p_ind >>
-srw_tac[][check_freevars_def, bind_tvar_def, bind_var_list_def, Tchar_def] >>
+srw_tac[][check_freevars_def, bind_tvar_def, bind_var_list_def, Tchar_def, Tword64_def, Tword_def] >>
 metis_tac []);
 
 val type_p_subst = Q.store_thm ("type_p_subst",
@@ -1059,7 +1059,7 @@ val type_p_subst = Q.store_thm ("type_p_subst",
 ho_match_mp_tac type_p_strongind >>
 srw_tac[][] >>
 ONCE_REWRITE_TAC [type_p_cases] >>
-srw_tac[][deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def] >|
+srw_tac[][deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def, Tword_def, Tword64_def] >|
 [metis_tac [check_freevars_lem],
  srw_tac[][EVERY_MAP] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
@@ -1143,11 +1143,10 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
  ho_match_mp_tac type_e_strongind >>
  srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
      tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
- full_simp_tac(srw_ss())[check_freevars_def,Tchar_def]
+ full_simp_tac(srw_ss())[check_freevars_def,Tchar_def,Tword_def]
  >- metis_tac [deBruijn_subst_check_freevars]
  >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
  >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
- >- (Cases_on`wz` \\ rw[Tword_def,Tword8_def,Tword64_def,check_freevars_def])
  >- (cases_on `pes` >>
      full_simp_tac(srw_ss())[RES_FORALL, num_tvs_bind_var_list] >>
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
@@ -1216,6 +1215,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
      bind_tvar_rewrites, num_tvs_def, OPTION_MAP_DEF,
      num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_val_ok_def, Tchar_def] >>
  `tenv_val_ok tenvE2` by metis_tac [tenv_val_ok_db_merge, bind_tvar_def, tenv_val_ok_def]
+ >- simp[Tword_def,deBruijn_subst_def]
  >- metis_tac [check_freevars_lem]
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
      srw_tac[][] >>
@@ -1295,7 +1295,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
  >- (full_simp_tac(srw_ss())[type_op_cases] >>
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[Tword_def,Tword8_def,Tword64_def])) >>
-     full_simp_tac(srw_ss())[deBruijn_subst_def,Tchar_def] >>
+     full_simp_tac(srw_ss())[deBruijn_subst_def,Tchar_def,Tword_def] >>
      metis_tac [])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
@@ -1832,7 +1832,8 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
    T)`,
  ho_match_mp_tac type_v_strongind >>
  srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def]
- >- rw[Tword64_def,check_freevars_def]
+ >- rw[Tword_def,check_freevars_def]
+ >- rw[Tword64_def,Tword_def,check_freevars_def]
  >- metis_tac [] >>
  res_tac
  >- metis_tac [num_tvs_def, type_e_freevars, bind_tvar_def,
@@ -2002,7 +2003,8 @@ val type_subst = Q.store_thm ("type_subst",
  srw_tac[][deBruijn_inc_def, deBruijn_subst_def] >>
  srw_tac[][nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      nil_deBruijn_subst]
- >- rw[Tword64_def,deBruijn_subst_def]
+ >- rw[Tword_def,deBruijn_subst_def]
+ >- rw[Tword_def,Tword64_def,deBruijn_subst_def]
  >- (srw_tac[][EVERY_MAP] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
      srw_tac[][] >>

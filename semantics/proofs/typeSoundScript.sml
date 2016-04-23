@@ -52,12 +52,14 @@ val tid_exn_not = Q.prove (
  (!tn. tid_exn_to_tc tn ≠ TC_fn) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word64) ∧
+ (!tn wz. tid_exn_to_tc tn ≠ TC_word wz) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8array) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_vector) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_array)`,
  srw_tac[][] >>
  cases_on `tn` >>
  full_simp_tac(srw_ss())[tid_exn_to_tc_def] >>
+ Cases_on`wz` \\ EVAL_TAC >>
  metis_tac []);
 
 val has_lists_v_to_list = Q.prove (
@@ -436,11 +438,10 @@ val exp_type_progress = Q.prove (
            fs[is_ccon_def]
            \\ qhdtm_x_assum`type_v`mp_tac
            \\ simp[Once type_v_cases]
-           \\ Cases_on`wz` \\ simp[Tword_def,tid_exn_not]
            \\ strip_tac
            \\ TRY ( imp_res_tac type_funs_Tfn \\ fs[] \\ NO_TAC)
            \\ rveq \\ simp[]
-           \\ every_case_tac \\ fs[Once type_v_cases,tid_exn_not,GSYM Tword_def]
+           \\ every_case_tac \\ fs[Once type_v_cases,tid_exn_not,GSYM Tword_def,tid_exn_not]
            \\ imp_res_tac type_funs_Tfn \\ fs[] )
          >- (
            fs[is_ccon_def]
@@ -1274,13 +1275,13 @@ val exp_type_preservation = Q.prove (
              metis_tac[Tword_def,Tword8_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              fs[Once type_v_cases_eqn] >>
-             metis_tac[])
+             metis_tac[Tword64_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              rw[Once type_v_cases_eqn] >>
              metis_tac[Tword_def,Tword8_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              fs[Once type_v_cases_eqn] >>
-             metis_tac[])
+             metis_tac[Tword64_def])
          >- (full_simp_tac(srw_ss())[do_opapp_def] >>
              every_case_tac >>
              full_simp_tac(srw_ss())[] >>
