@@ -465,7 +465,7 @@ val lookup_tenvC_st_ex_success = Q.prove (
  fs [st_ex_return_def]);
 
 val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 op st v st'.
+`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 op st v st'.
   ((case op of
        Opn opn => f1
      | Opb opb => f2
@@ -492,12 +492,16 @@ val op_case_expand = Q.prove (
      | Asub => f23
      | Aupdate => f24
      | FFI n => f25
-     | W8fromInt => f26
-     | W8toInt => f27) st
+     | WordFromInt wz => f26
+     | WordToInt wz => f27
+     | Opw wz opw => f28
+     | Shift wz sh n => f29) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
    (?opb. (op = Opb opb) ∧ (f2 st = (Success v, st'))) ∨
+   (?wz opw. (op = Opw wz opw) ∧ (f28 st = (Success v, st'))) ∨
+   (?wz sh n. (op = Shift wz sh n) ∧ (f29 st = (Success v, st'))) ∨
    ((op = Equality) ∧ (f3 st = (Success v, st'))) ∨
    ((op = Opapp) ∧ (f4 st = (Success v, st'))) ∨
    ((op = Opassign) ∧ (f5 st = (Success v, st'))) ∨
@@ -509,8 +513,8 @@ val op_case_expand = Q.prove (
    ((op = Aw8update) ∧ (f11 st = (Success v, st'))) ∨
    ((op = Ord) ∧ (f12 st = (Success v, st'))) ∨
    ((op = Chr) ∧ (f13 st = (Success v, st'))) ∨
-   ((op = W8fromInt) ∧ (f26 st = (Success v, st'))) ∨
-   ((op = W8toInt) ∧ (f27 st = (Success v, st'))) ∨
+   ((?wz. op = WordFromInt wz) ∧ (f26 st = (Success v, st'))) ∨
+   ((?wz. op = WordToInt wz) ∧ (f27 st = (Success v, st'))) ∨
    (?opb. (op = Chopb opb)) ∧ (f14 st = (Success v, st')) ∨
    ((op = Explode) ∧ (f15 st = (Success v, st'))) ∨
    ((op = Implode) ∧ (f16 st = (Success v, st'))) ∨
@@ -1437,10 +1441,17 @@ val constrain_op_check_s = Q.prove (
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_string)` by rw [check_t_def] >>
+ `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
  every_case_tac >>
  fs [success_eqns] >>
  rw [] >>
  fs [infer_st_rewrs]
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
  >- (`check_s tvs (count st.next_uvar) s`
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
      metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
