@@ -487,6 +487,13 @@ type_e tenv (Lit (Word8 w)) Tword8
 
 and
 
+lit_word64 : forall tenv w.
+true
+==>
+type_e tenv (Lit (Word64 w)) Tword64
+
+and
+
 raise : forall tenv e t.
 check_freevars (num_tvs tenv.v) [] t &&
 type_e tenv e Texn

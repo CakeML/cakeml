@@ -1144,6 +1144,7 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
  srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
      tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
  full_simp_tac(srw_ss())[check_freevars_def,Tchar_def,Tword_def]
+ >- rw[Tword64_def,Tword_def,check_freevars_def]
  >- metis_tac [deBruijn_subst_check_freevars]
  >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
  >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
@@ -1216,6 +1217,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
      num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_val_ok_def, Tchar_def] >>
  `tenv_val_ok tenvE2` by metis_tac [tenv_val_ok_db_merge, bind_tvar_def, tenv_val_ok_def]
  >- simp[Tword_def,deBruijn_subst_def]
+ >- simp[Tword_def,deBruijn_subst_def,Tword64_def]
  >- metis_tac [check_freevars_lem]
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
      srw_tac[][] >>
@@ -3054,6 +3056,7 @@ val type_e_closed = prove(
       type_funs tenv funs ts ⇒
       FV_defs funs ⊆ (IMAGE Short (tenv_names tenv.v)) ∪ tmenv_dom tenv.m)``,
   ho_match_mp_tac type_e_strongind >>
+  strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>

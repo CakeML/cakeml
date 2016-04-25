@@ -521,6 +521,11 @@ T
 ==>
 type_e tenv (Lit (Word8 w)) Tword8)
 
+/\ (! tenv w.
+T
+==>
+type_e tenv (Lit (Word64 w)) Tword64)
+
 /\ (! tenv e t.
 (check_freevars (num_tvs tenv.v) [] t /\
 type_e tenv e Texn)
