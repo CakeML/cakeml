@@ -225,10 +225,96 @@ val app_deref_def = Define `
       SEP_IMP H (F * one (r, x)) /\
       SEP_IMP H (Q x)`;
 
+(* ANF related *)
+
+val exp2v_def = Define `
+  exp2v _ (Lit l) = SOME (Litv l) /\
+  exp2v env (Var name) = lookup_var_id name env /\
+  exp2v _ _ = NONE`;
+
+val exp2v_evaluate = Q.prove (
+  `!e env st v. exp2v env e = SOME v ==>
+   evaluate F env st e (st, Rval v)`,
+  Induct \\ fs [exp2v_def] \\ prove_tac [bigStepTheory.evaluate_rules]
+);
+
+val exp2v_list_def = Define `
+  exp2v_list env [] = SOME [] /\
+  exp2v_list env (x :: xs) =
+    (case exp2v env x of
+      | NONE => NONE
+      | SOME v =>
+        (case exp2v_list env xs of
+          | NONE => NONE
+          | SOME vs => SOME (v :: vs)))`;
+
+val exp2v_list_evaluate = Q.prove (
+  `!l lv env st. exp2v_list env l = SOME lv ==>
+   evaluate_list F env st l (st, Rval lv)`,
+  Induct
+  THEN1 (fs [exp2v_list_def] \\ prove_tac [bigStepTheory.evaluate_rules])
+  THEN1 (
+    rpt strip_tac \\ fs [exp2v_list_def] \\
+    Cases_on `exp2v env h` \\ fs [] \\
+    Cases_on `exp2v_list env l` \\ fs [] \\
+    qpat_assum `_::_ = _` (assume_tac o GSYM) \\
+    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+    qexists_tac `st` \\ fs [exp2v_evaluate]
+  )
+);
+
+val evaluate_list_rcons = Q.prove (
+  `!env st st' st'' l x lv v.
+     evaluate_list F env st l (st', Rval lv) /\
+     evaluate F env st' x (st'', Rval v) ==>
+     evaluate_list F env st (l ++ [x]) (st'', Rval (lv ++ [v]))`,
+
+  Induct_on `l`
+  THEN1 (
+    rpt strip_tac \\ fs [] \\
+    qpat_assum `evaluate_list _ _ _ _ _` mp_tac \\
+    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+    rpt strip_tac \\ qexists_tac `st''` \\ fs [] \\
+    prove_tac [bigStepTheory.evaluate_rules]
+  )
+  THEN1 (
+    rpt strip_tac \\ fs [] \\
+    qpat_assum `evaluate_list _ _ _ _ _` mp_tac \\
+    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+    rpt strip_tac \\ 
+    Q.LIST_EXISTS_TAC [`v'`, `vs ++ [v]`] \\ fs [] \\
+    asm_exists_tac \\ fs [] \\
+    metis_tac []
+  )
+);
+
+val exp2v_list_REVERSE = Q.prove (
+  `!l (st: 'ffi state) lv env. exp2v_list env l = SOME lv ==>
+   evaluate_list F env st (REVERSE l) (st, Rval (REVERSE lv))`,
+  Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
+  fs [exp2v_list_def]
+  THEN1 (prove_tac [bigStepTheory.evaluate_rules])
+  THEN1 (
+    Cases_on `exp2v env h` \\ fs [] \\
+    Cases_on `exp2v_list env l` \\ fs [] \\
+    first_assum drule \\ disch_then (qspec_then `st` assume_tac) \\
+    match_mp_tac evaluate_list_rcons \\ qexists_tac `st` \\
+    fs [exp2v_evaluate]
+  )
+);
+
 (* CF *)
 
 val cf_lit_def = Define `
   cf_lit l = local (\env H Q. SEP_IMP H (Q (Litv l)))`;
+
+val cf_con_def = Define `
+  cf_con cn args = local (\env H Q.
+    ?argsv cv.
+      do_con_check env.c cn (LENGTH args) /\
+      (build_conv env.c cn argsv = SOME cv) /\
+      (exp2v_list env args = SOME argsv) /\
+      SEP_IMP H (Q cv))`;
 
 val cf_var_def = Define `
   cf_var name = local (\env H Q.
@@ -242,17 +328,6 @@ val cf_let_def = Define `
   cf_let n F1 F2 = local (\env H Q.
     ?Q'. F1 env H Q' /\
          !xv. F2 (env with <| v := opt_bind n xv env.v |>) (Q' xv) Q)`;
-
-val exp2v_def = Define `
-  exp2v _ (Lit l) = SOME (Litv l) /\
-  exp2v env (Var name) = lookup_var_id name env /\
-  exp2v _ _ = NONE`;
-
-val exp2v_evaluate = Q.prove (
-  `!e env st v. exp2v env e = SOME v ==>
-   evaluate F env st e (st, Rval v)`,
-  Induct \\ fs [exp2v_def] \\ prove_tac [bigStepTheory.evaluate_rules]
-);
 
 val cf_app2_def = Define `
   cf_app2 (:'ffi) f x = local (\env H Q.
@@ -304,6 +379,7 @@ val SOME_val_def = Define `
 
 val cf_def = tDefine "cf" `
   cf (:'ffi) (Lit l) = cf_lit l /\
+  cf (:'ffi) (Con opt args) = cf_con opt args /\ 
   cf (:'ffi) (Var name) = cf_var name /\
   cf (:'ffi) (Let opt e1 e2) =
     (if is_bound_Fun opt e1 then
@@ -337,7 +413,7 @@ val cf_def = tDefine "cf" `
 
 val cf_ind = fetch "-" "cf_ind";
 
-val cf_defs = [cf_def, cf_lit_def, cf_var_def, cf_fundecl_def, cf_let_def,
+val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
                cf_seq_def,cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
 
 (* Soundness of cf *)
@@ -419,6 +495,12 @@ val cf_sound = Q.prove (
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [] \\ rewrite_tac [sound_false]
   THEN1 (* Lit *) cf_base_case_tac
+  THEN1 (
+    (* Con *)
+    cf_base_case_tac \\ fs [PULL_EXISTS, st2heap_def] \\
+    mp_tac exp2v_list_REVERSE \\ rpt (disch_then drule) \\
+    strip_tac \\ qexists_tac `cv` \\ qexists_tac `REVERSE argsv` \\ fs []
+  )
   THEN1 (* Var *) cf_base_case_tac
   THEN1 (
     (* Let *)
