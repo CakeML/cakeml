@@ -792,6 +792,16 @@ t = convert_t (t_walkstar s' t')``,
      fs[pure_add_constraints_combine]>>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] TC_int);(h',B)]`>>
      pac_tac)
+  >- (*word->word->word*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] (TC_word wz)`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] (TC_word _));(h',B)]`>>
+    pac_tac)
+  >- (*word->word*)
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,h')]`>>
+    pac_tac)
   >- (*Opapp --> Example with fresh unification variable*)
     ((*First find the extension to s and prove every property of s is carried over*)
     extend_uvar_tac ``t``>>

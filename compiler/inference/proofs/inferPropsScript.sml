@@ -3036,6 +3036,10 @@ val unconvert_t_def = tDefine "unconvert_t" `
 
 val unconvert_t_ind = theorem"unconvert_t_ind"
 
+val unconvert_t_Tword = Q.store_thm("unconvert_t_Tword[simp]",
+  `unconvert_t (Tword wz) = Infer_Tapp [] (TC_word wz)`,
+  EVAL_TAC);
+
 val check_freevars_empty_convert_unconvert_id = store_thm("check_freevars_empty_convert_unconvert_id",
 ``!t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t``,
   ho_match_mp_tac unconvert_t_ind>>

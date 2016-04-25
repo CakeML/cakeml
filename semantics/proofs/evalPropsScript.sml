@@ -24,6 +24,10 @@ val Tword_simp = Q.store_thm("Tword_simp[simp]",
    (∀z. TC_word z ≠ TC_string) ∧
    (∀z. TC_word z ≠ TC_tup) ∧
    (∀z. TC_word z ≠ TC_word8array) ∧
+   (∀z. (TC_word z = TC_word8) ⇔ (z = W8)) ∧
+   (∀z. (TC_word z = TC_word64) ⇔ (z = W64)) ∧
+   (∀z. (TC_word8 = TC_word z) ⇔ (z = W8)) ∧
+   (∀z. (TC_word64 = TC_word z) ⇔ (z = W64)) ∧
    (Tword8 ≠ Tword64) ∧
    (∀z. Tword z ≠ Tchar) ∧
    (∀z. Tword z ≠ Tint) ∧
@@ -35,7 +39,7 @@ val Tword_simp = Q.store_thm("Tword_simp[simp]",
    (∀z. (Tword z = Tword64) ⇔ (z = W64)) ∧
    (∀n a. (Tword W8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
    (∀n a. (Tword W64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64)) ∧
-   (∀z. (Tword z = Tapp a n) ⇔ (a = [] ∧ n = TC_word z)) ∧
+   (∀z a n. (Tword z = Tapp a n) ⇔ (a = [] ∧ n = TC_word z)) ∧
    (∀n a. (Tword8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
    (∀n a. (Tword64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))`,
   rpt conj_tac \\ rpt Cases \\ EVAL_TAC \\ metis_tac[]);
