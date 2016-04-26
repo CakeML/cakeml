@@ -6,6 +6,7 @@
 *.ui
 *.o
 .HOLMK
+.hollogs
 
 # regression test logs
 regression.log
