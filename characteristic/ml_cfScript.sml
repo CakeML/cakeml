@@ -225,6 +225,16 @@ val app_deref_def = Define `
       SEP_IMP H (F * one (r, x)) /\
       SEP_IMP H (Q x)`;
 
+
+val app_opn_def = Define `
+  app_opn opn i1 i2 env H Q =
+    ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
+     SEP_IMP H (Q (Litv (IntLit (opn_lookup opn i1 i2)))))`;
+
+val app_opb_def = Define `
+  app_opb opb i1 i2 env H Q =
+    SEP_IMP H (Q (Boolv (opb_lookup opb i1 i2)))`;
+
 (* ANF related *)
 
 val exp2v_def = Define `
@@ -320,14 +330,24 @@ val cf_var_def = Define `
   cf_var name = local (\env H Q.
     !h. H h ==> ?v. lookup_var_id name env = SOME v /\ Q v h)`;
 
-val cf_seq_def = Define `
-  cf_seq F1 F2 = local (\env H Q.
-    ?Q'. F1 env H Q' /\ !xv. F2 env (Q' xv) Q)`;
-
 val cf_let_def = Define `
   cf_let n F1 F2 = local (\env H Q.
     ?Q'. F1 env H Q' /\
          !xv. F2 (env with <| v := opt_bind n xv env.v |>) (Q' xv) Q)`;
+
+val cf_opn_def = Define `
+  cf_opn opn x1 x2 = local (\env H Q.
+    ?i1 i2.
+      exp2v env x1 = SOME (Litv (IntLit i1)) /\
+      exp2v env x2 = SOME (Litv (IntLit i2)) /\
+      app_opn opn i1 i2 env H Q)`;
+
+val cf_opb_def = Define `
+  cf_opb opb x1 x2 = local (\env H Q.
+    ?i1 i2.
+      exp2v env x1 = SOME (Litv (IntLit i1)) /\
+      exp2v env x2 = SOME (Litv (IntLit i2)) /\
+      app_opb opb i1 i2 env H Q)`;
 
 val cf_app2_def = Define `
   cf_app2 (:'ffi) f x = local (\env H Q.
@@ -389,6 +409,14 @@ val cf_def = tDefine "cf" `
        cf_let opt (cf (:'ffi) e1) (cf (:'ffi) e2)) /\
   cf (:'ffi) (App op args) =
     (case op of
+        | Opn opn =>
+          (case args of
+            | [x1; x2] => cf_opn opn x1 x2
+            | _ => \env H Q. F)
+        | Opb opb =>
+          (case args of
+            | [x1; x2] => cf_opb opb x1 x2
+            | _ => \env H Q. F)
         | Opapp =>
           (case args of
              | [f; x] => cf_app2 (:'ffi) f x
@@ -415,7 +443,7 @@ val cf_def = tDefine "cf" `
 val cf_ind = fetch "-" "cf_ind";
 
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
-               cf_seq_def,cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
+               cf_opn_def, cf_opb_def, cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
 
 (* Soundness of cf *)
 
@@ -547,7 +575,18 @@ val cf_sound = Q.prove (
   THEN1 (
     (* App *)
     Cases_on `op` \\ fs [sound_false] \\ every_case_tac \\ fs [sound_false] \\
-    cf_strip_sound_tac 
+    cf_strip_sound_tac
+    \\ TRY (
+      (* Opn & Opb *)
+      (qcase_tac `app_opn op _ _ _ _ _` ORELSE qcase_tac `app_opb op _ _ _ _ _`) \\
+      fs [app_opn_def, app_opb_def, st2heap_def] \\
+      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
+      asm_exists_tac \\ fs [] \\
+      GEN_EXISTS_TAC "vs" `[Litv (IntLit i2); Litv (IntLit i1)]` \\
+      Cases_on `op` \\ fs [semanticPrimitivesTheory.do_app_def] \\
+      qexists_tac `st` \\ rpt strip_tac \\ fs [SEP_IMP_def] \\
+      cf_evaluate_list_tac `st`
+    )
     THEN1 (
       (* Opapp *)
       fs [app_basic_def] \\ res_tac \\
@@ -609,6 +648,7 @@ val cf_sound = Q.prove (
       qspecl_then [`st.refs`, `rv`, `x`] assume_tac store2heap_IN_type \\
       `(rv,x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
     )
+  )
 );
 
 val cf_sound' = Q.prove (
