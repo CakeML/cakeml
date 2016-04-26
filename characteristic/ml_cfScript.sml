@@ -199,6 +199,34 @@ val app_deref_def = Define `
       SEP_IMP H (F * one (r, Refv x)) /\
       SEP_IMP H (Q x)`;
 
+val app_aw8alloc_def = Define `
+  app_aw8alloc (n: int) w env H Q =
+    !(loc: num).
+      n >= 0 /\
+      SEP_IMP (H * one (loc, W8array (REPLICATE (Num (ABS n)) w)))
+              (Q (Loc loc))`;
+
+val app_aw8sub_def = Define `
+  app_aw8sub (loc: num) (i: int) env H Q =
+    ?ws F.
+      let n = Num (ABS i) in
+      0 <= i /\ n < LENGTH ws /\
+      SEP_IMP H (F * one (loc, W8array ws)) /\
+      SEP_IMP H (Q (Litv (Word8 (EL n ws))))`;
+
+val app_aw8length_def = Define `
+  app_aw8length (loc: num) env H Q =
+    ?ws F.
+      SEP_IMP H (F * one (loc, W8array ws)) /\
+      SEP_IMP H (Q (Litv (IntLit (int_of_num (LENGTH ws)))))`;
+
+val app_aw8update_def = Define `
+  app_aw8update (loc: num) (i: int) w env H Q =
+    ?ws F.
+      let n = Num (ABS i) in
+      0 <= i /\ n < LENGTH ws /\
+      SEP_IMP H (F * one (loc, W8array ws)) /\
+      SEP_IMP (F * one (loc, W8array (LUPDATE w n ws))) (Q (Conv NONE []))`;
 
 val app_opn_def = Define `
   app_opn opn i1 i2 env H Q =
@@ -358,6 +386,34 @@ val cf_deref_def = Define `
       exp2v env r = SOME (Loc rv) /\
       app_deref rv env H Q)`;
 
+val cf_aw8alloc_def = Define `
+  cf_aw8alloc xn xw = local (\env H Q.
+    ?n w.
+      exp2v env xn = SOME (Litv (IntLit n)) /\
+      exp2v env xw = SOME (Litv (Word8 w)) /\
+      app_aw8alloc n w env H Q)`;
+
+val cf_aw8sub_def = Define `
+  cf_aw8sub xl xi = local (\env H Q.
+    ?l i.
+      exp2v env xl = SOME (Loc l) /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      app_aw8sub l i env H Q)`;
+
+val cf_aw8length_def = Define `
+  cf_aw8length xl = local (\env H Q.
+    ?l. 
+      exp2v env xl = SOME (Loc l) /\
+      app_aw8length l env H Q)`;
+
+val cf_aw8update_def = Define `
+  cf_aw8update xl xi xw = local (\env H Q.
+    ?l i w.
+      exp2v env xl = SOME (Loc l) /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      exp2v env xw = SOME (Litv (Word8 w)) /\
+      app_aw8update l i w env H Q)`;
+
 val is_bound_Fun_def = Define `
   is_bound_Fun (SOME _) (Fun _ _) = T /\
   is_bound_Fun _ _ = F`;
@@ -407,6 +463,22 @@ val cf_def = tDefine "cf" `
           (case args of
              | [r] => cf_deref r
              | _ => \env H Q. F)
+        | Aw8alloc =>
+          (case args of
+             | [n; w] => cf_aw8alloc n w
+             | _ => \env H Q. F)
+        | Aw8sub =>
+          (case args of
+             | [l; n] => cf_aw8sub l n
+             | _ => \env H Q. F)
+        | Aw8length =>
+          (case args of
+             | [l] => cf_aw8length l
+             | _ => \env H Q. F)
+        | Aw8update =>
+          (case args of
+             | [l; n; w] => cf_aw8update l n w
+             | _ => \env H Q. F)
         | _ => \env H Q.F) /\
   cf _ _ = \env H Q. F`
 
@@ -417,7 +489,8 @@ val cf_def = tDefine "cf" `
 val cf_ind = fetch "-" "cf_ind";
 
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
-               cf_opn_def, cf_opb_def, cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
+               cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
+               cf_aw8update_def, cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
 
 (* Soundness of cf *)
 
@@ -622,6 +695,81 @@ val cf_sound = Q.prove (
       rpt (asm_exists_tac \\ fs []) \\
       qspecl_then [`st.refs`, `rv`, `Refv x`] assume_tac store2heap_IN_EL \\
       `(rv,Refv x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
+    )
+    THEN1 (
+      (* Aw8alloc *)
+      GEN_EXISTS_TAC "vs" `[Litv (Word8 w); Litv (IntLit n)]` \\
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
+      fs [st2heap_def, app_aw8alloc_def, SEP_IMP_def, STAR_def, one_def] \\
+      first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
+      first_x_assum (qspecl_then [`(LENGTH st.refs, W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`]
+                     mp_tac) \\ impl_tac
+      THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
+      THEN1 (
+        strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
+        `evaluate_list F env st [h'; h] (st, Rval [Litv (Word8 w); Litv (IntLit n)])` by
+          (cf_evaluate_list_tac `st`) \\
+        `~ (n < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
+        fs [] \\ rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append] \\
+        assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
+      )
+    )
+    THEN1 (
+      (* Aw8sub *)
+      GEN_EXISTS_TAC "vs" `[Litv (IntLit i); Loc l]` \\
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
+        by (cf_evaluate_list_tac `st`) \\
+      fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def] \\
+      rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
+      qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
+      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
+      rpt (asm_exists_tac \\ fs []) \\
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
+      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\ fs [] \\
+      `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
+      `~ (i < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\ fs []
+    )
+    THEN1 (
+      (* Aw8length *)
+      GEN_EXISTS_TAC "vs" `[Loc l]` \\
+      `evaluate_list F env st [h] (st, Rval [Loc l])` by (cf_evaluate_list_tac `st`) \\
+      fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def] \\
+      rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
+      qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
+      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
+      rpt (asm_exists_tac \\ fs []) \\
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
+      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\ fs [] \\
+      `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
+      fs []
+    )
+    THEN1 (
+      (* Aw8update *)
+      GEN_EXISTS_TAC "vs" `[Litv (Word8 w); Litv (IntLit i); Loc l]` \\
+      `evaluate_list F env st [h''; h'; h]
+         (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
+          by (cf_evaluate_list_tac `st`) \\
+      fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
+      qpat_assum `!s. H s ==> _` drule \\ strip_tac \\
+      qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
+      GEN_EXISTS_TAC "s2" `st` \\
+      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
+      `~ (i < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
+      fs [semanticPrimitivesTheory.do_app_def,
+          semanticPrimitivesTheory.store_lookup_def,
+          semanticPrimitivesTheory.store_assign_def,
+          semanticPrimitivesTheory.store_v_same_type_def] \\
+      qexists_tac `(l, W8array (LUPDATE w (Num (ABS i)) ws)) INSERT h_i'` \\
+      qexists_tac `{}` \\ strip_tac
+      THEN1 (
+        mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
+        SPLIT2_TAC
+      )
+      THEN1 (
+        first_assum match_mp_tac \\ qexists_tac `h_i'` \\
+        strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
+      )
     )
   )
 );
