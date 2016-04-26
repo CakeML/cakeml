@@ -386,25 +386,26 @@ val cf_def = tDefine "cf" `
        cf_fundecl (:'ffi) (SOME_val opt) (Fun_param e1)
          (cf (:'ffi) (Fun_body e1)) (cf (:'ffi) e2)
      else
-       cf_let opt (cf (:'ffi) e1) (cf (:'ffi) e2))
- /\
-  cf (:'ffi) (App Opapp args) = 
-    (case args of
-      | [f; x] => cf_app2 (:'ffi) f x
-      | _ => \env H Q. F) /\
-  cf (:'ffi) (App Opref args) = 
-    (case args of
-       | [x] => cf_ref x
-       | _ => \env H Q. F) /\
-  cf (:'ffi) (App Opassign args) = 
-    (case args of
-       | [r; x] => cf_assign r x
-       | _ => \env H Q. F) /\
-  cf (:'ffi) (App Opderef args) =
-    (case args of
-       | [r] => cf_deref r
-       | _ => \env H Q. F) /\
-
+       cf_let opt (cf (:'ffi) e1) (cf (:'ffi) e2)) /\
+  cf (:'ffi) (App op args) =
+    (case op of
+        | Opapp =>
+          (case args of
+             | [f; x] => cf_app2 (:'ffi) f x
+             | _ => \env H Q. F)
+        | Opref => 
+          (case args of
+             | [x] => cf_ref x
+             | _ => \env H Q. F)
+        | Opassign => 
+          (case args of
+             | [r; x] => cf_assign r x
+             | _ => \env H Q. F)
+        | Opderef => 
+          (case args of
+             | [r] => cf_deref r
+             | _ => \env H Q. F)
+        | _ => \env H Q.F) /\
   cf _ _ = \env H Q. F`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw [] \\
@@ -544,71 +545,70 @@ val cf_sound = Q.prove (
     )
   )
   THEN1 (
-    (* App Opapp *)
-    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
-    cf_strip_sound_tac \\ fs [app_basic_def] \\ res_tac \\
-    qcase_tac `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
-    `SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g)` by SPLIT_TAC \\
-    GEN_EXISTS_TAC "vs" `[xv; fv]` \\
-    asm_exists_tac \\ fs [] \\
-    prove_tac [exp2v_evaluate, bigStepTheory.evaluate_rules]
-  )
-  THEN1 (
-    (* App Opref *)
-    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
-    cf_strip_sound_tac \\ GEN_EXISTS_TAC "vs" `[xv]` \\
-    fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
-    fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
-    first_x_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,xv) INSERT h_i`] mp_tac) \\
-    impl_tac
-    THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
+    (* App *)
+    Cases_on `op` \\ fs [sound_false] \\ every_case_tac \\ fs [sound_false] \\
+    cf_strip_sound_tac 
     THEN1 (
-      strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
-      `evaluate_list F env st [h] (st, Rval [xv])` by (cf_evaluate_list_tac `st`) \\
-      rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append_Refv] \\
-      assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
+      (* Opapp *)
+      fs [app_basic_def] \\ res_tac \\
+      qcase_tac `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
+      `SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g)` by SPLIT_TAC \\
+      GEN_EXISTS_TAC "vs" `[xv; fv]` \\
+      asm_exists_tac \\ fs [] \\
+      prove_tac [exp2v_evaluate, bigStepTheory.evaluate_rules]
     )
-  )
-  THEN1 (
-    (* App Opassign *)
-    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
-    cf_strip_sound_tac \\ fs [app_assign_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
-    `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by (cf_evaluate_list_tac `st`) \\
-    qpat_assum `!s. H s ==> _` drule \\ strip_tac \\
-    qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
-    GEN_EXISTS_TAC "vs" `[xv; Loc rv]` \\ 
-    fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_assign_def] \\
-    `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
-    `store_v_same_type (EL rv st.refs) (Refv xv)` by (
-      fs [semanticPrimitivesTheory.store_v_same_type_def] \\
-      qspecl_then [`st.refs`, `rv`, `x'`] assume_tac store2heap_IN_type \\
-      `(rv, x') IN store2heap st.refs` by SPLIT_TAC \\ fs []
-    ) \\
-    `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs))
-       ((rv, xv) INSERT h_i', h_k, {})` by (
-      mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
-      SPLIT2_TAC
-    ) \\
-    rpt (asm_exists_tac \\ fs []) \\
-    first_assum match_mp_tac \\ qexists_tac `h_i'` \\
-    strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
-  )
-  THEN1 (
-    (* App Opderef *)
-    every_case_tac \\ rewrite_tac [sound_false] \\ fs [] \\
-    cf_strip_sound_tac \\
-    `evaluate_list F env st [h] (st, Rval [Loc rv])` by (cf_evaluate_list_tac `st`) \\
-    fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def] \\
-    rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
-    qcase_tac `SPLIT h_i (h_i', {(rv,x)})` \\ qcase_tac `FF h_i'` \\
-    GEN_EXISTS_TAC "vs" `[Loc rv]` \\
-    fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-    `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
-    `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
-    rpt (asm_exists_tac \\ fs []) \\
-    qspecl_then [`st.refs`, `rv`, `x`] assume_tac store2heap_IN_type \\
-    `(rv,x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
-  )
+    THEN1 (
+      (* Opassign *)
+      fs [app_assign_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
+      `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by (cf_evaluate_list_tac `st`) \\
+      qpat_assum `!s. H s ==> _` drule \\ strip_tac \\
+      qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
+      GEN_EXISTS_TAC "vs" `[xv; Loc rv]` \\ 
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_assign_def] \\
+      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `store_v_same_type (EL rv st.refs) (Refv xv)` by (
+        fs [semanticPrimitivesTheory.store_v_same_type_def] \\
+        qspecl_then [`st.refs`, `rv`, `x'`] assume_tac store2heap_IN_type \\
+        `(rv, x') IN store2heap st.refs` by SPLIT_TAC \\ fs []
+      ) \\
+      `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs))
+         ((rv, xv) INSERT h_i', h_k, {})` by (
+        mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
+        SPLIT2_TAC
+      ) \\
+      rpt (asm_exists_tac \\ fs []) \\
+      first_assum match_mp_tac \\ qexists_tac `h_i'` \\
+      strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
+    )
+    THEN1 (
+      (* Opref *)
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
+      fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
+      GEN_EXISTS_TAC "vs" `[xv]` \\
+      first_x_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,xv) INSERT h_i`] mp_tac) \\
+      impl_tac
+      THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
+      THEN1 (
+        strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
+        `evaluate_list F env st [h] (st, Rval [xv])` by (cf_evaluate_list_tac `st`) \\
+        rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append_Refv] \\
+        assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
+      )
+    )
+    THEN1 (
+      (* Opderef *)
+      `evaluate_list F env st [h] (st, Rval [Loc rv])` by (cf_evaluate_list_tac `st`) \\
+      fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def] \\
+      rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
+      qcase_tac `SPLIT h_i (h_i', {(rv,x)})` \\ qcase_tac `FF h_i'` \\
+      GEN_EXISTS_TAC "vs" `[Loc rv]` \\
+      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
+      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
+      rpt (asm_exists_tac \\ fs []) \\
+      qspecl_then [`st.refs`, `rv`, `x`] assume_tac store2heap_IN_type \\
+      `(rv,x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
+    )
 );
 
 val cf_sound' = Q.prove (
