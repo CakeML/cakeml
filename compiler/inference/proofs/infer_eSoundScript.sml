@@ -511,6 +511,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      binop_tac
  (* Lit word8 *)
  >- binop_tac
+ (* Lit word64 *)
+ >- binop_tac
  (* Var short *)
  >-
      (rw [t_lookup_var_id_def] >>

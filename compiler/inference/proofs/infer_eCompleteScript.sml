@@ -1569,6 +1569,10 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      imp_res_tac sub_completion_wfs >>
      rw [t_walkstar_eqn1, convert_t_def] >>
      metis_tac [t_compat_refl])
+ >- (qexists_tac `s` >>
+     imp_res_tac sub_completion_wfs >>
+     rw [t_walkstar_eqn1, convert_t_def] >>
+     metis_tac [t_compat_refl])
  >-
    (*Raise*)
    (imp_res_tac check_freevars_to_check_t>>
@@ -1888,7 +1892,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       AP_TERM_TAC>>
       qpat_assum `A = unconvert_t B` (assume_tac o (Q.AP_TERM `convert_t`))>>
       metis_tac[convert_infer_deBruijn_subst,check_freevars_empty_convert_unconvert_id]))
-   >- (*Fun*)
+ >- (*Fun*)
    (imp_res_tac check_freevars_to_check_t>>
    fs[sub_completion_def]>>
    imp_res_tac pure_add_constraints_success>>
