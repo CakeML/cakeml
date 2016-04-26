@@ -3163,4 +3163,10 @@ val memory_rel_zero_space = store_thm("memory_rel_zero_space",
   fs [memory_rel_def,heap_in_memory_store_def]
   \\ rw [] \\ fs [] \\ rpt (asm_exists_tac \\ fs []) \\ metis_tac []);
 
+val encode_header_tag_mask = store_thm("encode_header_tag_mask",
+  ``encode_header c (4 * tag) n = SOME w ==>
+    (w && (tag_mask c ‖ 2w)) = n2w (16 * tag + 2) /\
+    tag < dimword (:α) DIV 16``,
+  cheat);
+
 val _ = export_theory();

@@ -243,7 +243,8 @@ val assign_def = Define `
                                   (Assign (adjust_var dest) TRUE_CONST)
                                   (Assign (adjust_var dest) FALSE_CONST)],l))
                | _ => (Skip,l))
-    | TagEq tag => (case args of
+    | TagEq tag => (if tag < dimword (:'a) DIV 16 then
+               case args of
                | [v1] => (list_Seq
                    [Assign 1 (Var (adjust_var v1));
                     If Test (adjust_var v1) (Imm 1w) Skip
@@ -253,7 +254,8 @@ val assign_def = Define `
                     If Equal 1 (Imm (n2w (16 * tag + 2)))
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST)],l)
-               | _ => (Skip,l))
+               | _ => (Skip,l)
+                    else (Assign (adjust_var dest) FALSE_CONST,l))
     | Add => (case args of
               | [v1;v2] =>
                   (Seq (Assign 1 (Op Or [Var (adjust_var v1);
