@@ -4,34 +4,23 @@ open set_sepTheory ml_translatorTheory;
 val _ = new_theory "ml_cf";
 
 (* Heaps *)
-val _ = type_abbrev("heap", ``:(num # v) -> bool``);
+val _ = type_abbrev("heap", ``:(num # v semanticPrimitives$store_v) -> bool``);
 
 val store2heap_aux_def = Define `
   store2heap_aux n [] = ({}: heap) /\
-  store2heap_aux n ((Refv v) :: t) = (n, v) INSERT (store2heap_aux (n+1: num) t) /\
-  store2heap_aux n (_ :: t) = store2heap_aux (n+1: num) t`;
+  store2heap_aux n (v :: t) = (n, v) INSERT (store2heap_aux (n+1: num) t)`;
 
 val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`;
 
-val store2heap_aux_append_Refv = Q.prove (
-  `!s n x. store2heap_aux n (s ++ [Refv x]) = (LENGTH s + n, x) INSERT store2heap_aux n s`,
+val store2heap_aux_append = Q.prove (
+  `!s n x. store2heap_aux n (s ++ [x]) = (LENGTH s + n, x) INSERT store2heap_aux n s`,
   Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def, INSERT_COMM]
   \\ fs [DECIDE ``(LENGTH s + 1) = SUC (LENGTH s)``]
 );
 
-val store2heap_aux_append_Varray = Q.prove (
-  `!s n. store2heap_aux n (s ++ [Varray _]) = store2heap_aux n s`,
-  Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def, INSERT_COMM]
-);
-
-val store2heap_aux_append_W8array = Q.prove (
-  `!s n. store2heap_aux n (s ++ [W8array _]) = store2heap_aux n s`,
-  Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def, INSERT_COMM]
-);
-
-val store2heap_append_Refv = Q.prove (
-  `!s x. store2heap (s ++ [Refv x]) = (LENGTH s, x) INSERT store2heap s`,
-  fs [store2heap_def, store2heap_aux_append_Refv]
+val store2heap_append = Q.prove (
+  `!s x. store2heap (s ++ [x]) = (LENGTH s, x) INSERT store2heap s`,
+  fs [store2heap_def, store2heap_aux_append]
 );
 
 val store2heap_aux_suc = Q.prove (
@@ -82,8 +71,8 @@ val tac_store2heap_IN =
   rw_tac arith_ss []
 ;
 
-val store2heap_IN_type = Q.prove (
-  `!s r x. (r, x) IN (store2heap s) ==> EL r s = Refv x`,
+val store2heap_IN_EL = Q.prove (
+  `!s r x. (r, x) IN (store2heap s) ==> EL r s = x`,
   tac_store2heap_IN
 );
 
@@ -96,22 +85,17 @@ val store2heap_IN_unique_key = Q.prove (
 val store2heap_LUPDATE = Q.prove (
   `!s r x y. 
     (r, y) IN (store2heap s) ==>
-    store2heap (LUPDATE (Refv x) r s) = (r, x) INSERT ((store2heap s) DELETE (r, y))`,
-  Induct THENL [all_tac, Cases] \\ fs [store2heap_def, store2heap_aux_def] \\ (
-    Cases_on `r`
-    \\ fs [LUPDATE_def, INSERT_DEF, DELETE_DEF, EXTENSION, store2heap_aux_def]
-    THEN1 (
-      qx_genl_tac [`x`, `y`] \\
-      qspecl_then [`s`, `1`, `0`, `y`] assume_tac store2heap_aux_IN_bound \\
-      fs [] \\ rw_tac std_ss [] \\ metis_tac []
-    )
-  )
+    store2heap (LUPDATE x r s) = (r, x) INSERT ((store2heap s) DELETE (r, y))`,
+  Induct \\
+  fs [store2heap_def, store2heap_aux_def] \\
+  Cases_on `r` \\ qx_genl_tac [`v`, `x`, `y`] \\
+  qspecl_then [`s`, `1`, `0`, `y`] assume_tac store2heap_aux_IN_bound \\
+  fs [LUPDATE_def, INSERT_DEF, DELETE_DEF, EXTENSION, store2heap_aux_def]
+  THEN1 (metis_tac [])
 
-  (* `a` is fragile *)
   THEN1 (
-    qx_genl_tac [`x`, `y`] \\ strip_tac \\ qx_gen_tac `u` \\
-    qspecl_then [`s`, `1`, `0`, `a`] assume_tac store2heap_aux_IN_bound \\ 
-    Cases_on `u = (0,a)` \\ Cases_on `u` \\ fs []
+    strip_tac \\ qx_gen_tac `u` \\
+    Cases_on `u = (0,v)` \\ Cases_on `u` \\ fs []
 
     (* fix names *)
     THEN1 (
@@ -124,23 +108,13 @@ val store2heap_LUPDATE = Q.prove (
     )
     THEN1 (
       qspecl_then [`s`, `1`, `0`, `r`] assume_tac store2heap_aux_IN_bound \\
-      qspecl_then [`LUPDATE (Refv x) n s`, `1`, `0`, `r`] assume_tac store2heap_aux_IN_bound \\
+      qspecl_then [`LUPDATE x n s`, `1`, `0`, `r`] assume_tac store2heap_aux_IN_bound \\
       Cases_on `q` \\ fs [] \\
       qpat_assum `(SUC _,_) IN store2heap_aux 1 _` mp_tac \\
       rewrite_tac [ONE, GSYM store2heap_aux_suc] \\ rpt strip_tac \\
       first_assum drule \\ disch_then (qspecl_then [`x`, `(n', r)`] assume_tac) \\
       fs []
     )
-  )
-
-  THEN (
-    rewrite_tac [ONE, GSYM store2heap_aux_suc] \\ ntac 3 strip_tac \\
-    qx_gen_tac `x'` \\ Cases_on `x'` \\ 
-    qspecl_then [`s`, `1`, `0`, `r`] assume_tac store2heap_aux_IN_bound \\
-    qspecl_then [`LUPDATE (Refv x) n s`, `1`, `0`, `r`] assume_tac store2heap_aux_IN_bound \\
-    Cases_on `q` \\ fs [GSYM store2heap_aux_suc] \\
-    first_assum drule \\ disch_then (qspecl_then [`x`, `(n', r)`] assume_tac) \\
-    fs []
   )
 );
 
@@ -211,18 +185,18 @@ val app_local = Q.prove(
 
 val app_ref_def = Define `
   app_ref (x: v) env H Q =
-    !(r: num). SEP_IMP (H * one (r, x)) (Q (Loc r))`;
+    !(r: num). SEP_IMP (H * one (r, Refv x)) (Q (Loc r))`;
 
 val app_assign_def = Define `
   app_assign (r: num) (x: v) env H Q =
     ?x' F.
-      SEP_IMP H (F * one (r, x')) /\
-      SEP_IMP (F * one (r, x)) (Q (Conv NONE []))`;
+      SEP_IMP H (F * one (r, Refv x')) /\
+      SEP_IMP (F * one (r, Refv x)) (Q (Conv NONE []))`;
 
 val app_deref_def = Define `
   app_deref (r: num) env H Q =
     ?x F.
-      SEP_IMP H (F * one (r, x)) /\
+      SEP_IMP H (F * one (r, Refv x)) /\
       SEP_IMP H (Q x)`;
 
 
@@ -606,12 +580,13 @@ val cf_sound = Q.prove (
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_assign_def] \\
       `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
       `store_v_same_type (EL rv st.refs) (Refv xv)` by (
+        `(rv, Refv x') IN (store2heap st.refs)` by SPLIT2_TAC \\
         fs [semanticPrimitivesTheory.store_v_same_type_def] \\
-        qspecl_then [`st.refs`, `rv`, `x'`] assume_tac store2heap_IN_type \\
-        `(rv, x') IN store2heap st.refs` by SPLIT_TAC \\ fs []
-      ) \\
+        qspecl_then [`st.refs`, `rv`, `Refv x'`] assume_tac store2heap_IN_EL \\
+        fs []
+       ) \\
       `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs))
-         ((rv, xv) INSERT h_i', h_k, {})` by (
+         ((rv, Refv xv) INSERT h_i', h_k, {})` by (
         mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
         SPLIT2_TAC
       ) \\
@@ -624,13 +599,13 @@ val cf_sound = Q.prove (
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
       fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
       GEN_EXISTS_TAC "vs" `[xv]` \\
-      first_x_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,xv) INSERT h_i`] mp_tac) \\
+      first_x_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,Refv xv) INSERT h_i`] mp_tac) \\
       impl_tac
       THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
       THEN1 (
         strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
         `evaluate_list F env st [h] (st, Rval [xv])` by (cf_evaluate_list_tac `st`) \\
-        rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append_Refv] \\
+        rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append] \\
         assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
       )
     )
@@ -639,14 +614,14 @@ val cf_sound = Q.prove (
       `evaluate_list F env st [h] (st, Rval [Loc rv])` by (cf_evaluate_list_tac `st`) \\
       fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def] \\
       rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
-      qcase_tac `SPLIT h_i (h_i', {(rv,x)})` \\ qcase_tac `FF h_i'` \\
+      qcase_tac `SPLIT h_i (h_i', {(rv,Refv x)})` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "vs" `[Loc rv]` \\
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
       `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
       rpt (asm_exists_tac \\ fs []) \\
-      qspecl_then [`st.refs`, `rv`, `x`] assume_tac store2heap_IN_type \\
-      `(rv,x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
+      qspecl_then [`st.refs`, `rv`, `Refv x`] assume_tac store2heap_IN_EL \\
+      `(rv,Refv x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
     )
   )
 );
