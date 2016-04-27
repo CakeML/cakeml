@@ -199,7 +199,6 @@ val do_app_def = Define `
          Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 >= n2),s)
-    | (WordConst w,[]) => Rval (Word64 w,s)
     | (WordOp W8 opw,[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Error

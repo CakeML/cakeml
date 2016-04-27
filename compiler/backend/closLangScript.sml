@@ -44,7 +44,6 @@ val _ = Datatype `
      | LessEq        (* <= over the integers *)
      | Greater       (* > over the integers *)
      | GreaterEq     (* >= over the integers *)
-     | WordConst word64
      | WordOp word_size opw
      | WordShift word_size shift num
      | WordFromInt
