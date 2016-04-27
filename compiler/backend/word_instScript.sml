@@ -3,6 +3,8 @@ open preamble wordLangTheory sortingTheory;
 val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";
 
+val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
+
 (*Scheme:
 1) Pull all nested ops and consts as far up as possible and convert
   Sub [ x ; Const w ] to Add [x ; Const -w]
