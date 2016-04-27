@@ -920,6 +920,8 @@ val do_app = Q.prove (
   srw_tac[][]
   >- tac
   >- tac
+  >- tac
+  >- tac
   >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>

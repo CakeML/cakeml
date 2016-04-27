@@ -170,6 +170,14 @@ val do_app_def = Define `
       SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
+  | (Opw wz op, [Litv w1; Litv w2]) =>
+     (case do_word_op op wz w1 w2 of
+          | NONE => NONE
+          | SOME w => SOME ((s,t), Rval (Litv w)))
+  | (Shift wz sh n, [Litv w]) =>
+      (case do_shift sh n wz w of
+         | NONE => NONE
+         | SOME w => SOME ((s,t), Rval (Litv w)))
   | (Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
@@ -224,10 +232,12 @@ val do_app_def = Define `
               | NONE => NONE
               | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
      | _ => NONE)
-  | (W8fromInt, [Litv (IntLit i)]) =>
-    SOME ((s,t), Rval (Litv (Word8 (i2w i))))
-  | (W8toInt, [Litv (Word8 w)]) =>
-    SOME ((s,t), Rval (Litv (IntLit (& (w2n w)))))
+  | (WordFromInt wz, [Litv (IntLit i)]) =>
+    SOME ((s,t), Rval (Litv (do_word_from_int wz i)))
+  | (WordToInt wz, [Litv w]) =>
+    (case do_word_to_int wz w of
+      | NONE => NONE
+      | SOME i => SOME ((s,t), Rval (Litv (IntLit i))))
   | (Ord, [Litv (Char c)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>

@@ -156,6 +156,8 @@ val do_app = prove(
   full_simp_tac(srw_ss())[exhSemTheory.do_app_def]
   >- tac
   >- tac
+  >- (every_case_tac \\ tac)
+  >- tac
   >- (BasicProvers.EVERY_CASE_TAC >>
       full_simp_tac(srw_ss())[do_eq, patSemTheory.do_app_def] >>
       srw_tac[][exhSemTheory.prim_exn_def, patSemTheory.prim_exn_def, patSemTheory.Boolv_def, exhSemTheory.Boolv_def])

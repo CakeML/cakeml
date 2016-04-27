@@ -138,6 +138,14 @@ val do_app_def = Define `
           SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Op (Op (Opb op)), [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
+    | (Op (Op (Opw wz op)), [Litv w1; Litv w2]) =>
+       (case do_word_op op wz w1 w2 of
+            | NONE => NONE
+            | SOME w => SOME (s, Rval (Litv w)))
+    | (Op (Op (Shift wz sh n)), [Litv w]) =>
+        (case do_shift sh n wz w of
+           | NONE => NONE
+           | SOME w => SOME (s, Rval (Litv w)))
     | (Op (Op Equality), [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -207,10 +215,12 @@ val do_app_def = Define `
                   )
         | _ => NONE
         )
-    | (Op (Op W8fromInt), [Litv (IntLit i)]) =>
-      SOME (s, Rval (Litv (Word8 (i2w i))))
-    | (Op (Op W8toInt), [Litv (Word8 w)]) =>
-      SOME (s, Rval (Litv (IntLit (& (w2n w)))))
+    | (Op (Op (WordFromInt wz)), [Litv (IntLit i)]) =>
+      SOME (s, Rval (Litv (do_word_from_int wz i)))
+    | (Op (Op (WordToInt wz)), [Litv w]) =>
+      (case do_word_to_int wz w of
+        | NONE => NONE
+        | SOME i => SOME (s, Rval (Litv (IntLit i))))
     | (Op (Op Ord), [Litv (Char c)]) =>
           SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Op (Op Chr), [Litv (IntLit i)]) =>
@@ -314,6 +324,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
   `patSem$do_app s op vs = SOME x ⇒
     (∃z n1 n2. op = (Op (Op (Opn z))) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
     (∃z n1 n2. op = (Op (Op (Opb z))) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
+    (∃z wz w1 w2. op = (Op (Op (Opw wz z))) ∧ vs = [Litv w1; Litv w2]) ∨
+    (∃sh z wz w. op = (Op (Op (Shift wz sh z))) ∧ vs = [Litv w]) ∨
     (∃v1 v2. op = (Op (Op Equality)) ∧ vs = [v1; v2]) ∨
     (∃lnum v. op = (Op (Op Opassign)) ∧ vs = [Loc lnum; v]) ∨
     (∃n. op = (Op (Op Opderef)) ∧ vs = [Loc n]) ∨
@@ -325,8 +337,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃lnum i. op = (Op (Op Aw8sub)) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = (Op (Op Aw8length)) ∧ vs = [Loc n]) ∨
     (∃lnum i w. op = (Op (Op Aw8update)) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
-    (∃w. op = (Op (Op W8toInt)) ∧ vs = [Litv (Word8 w)]) ∨
-    (∃n. op = (Op (Op W8fromInt)) ∧ vs = [Litv (IntLit n)]) ∨
+    (∃wz w. op = (Op (Op (WordToInt wz))) ∧ vs = [Litv w]) ∨
+    (∃wz n. op = (Op (Op (WordFromInt wz))) ∧ vs = [Litv (IntLit n)]) ∨
     (∃c. op = (Op (Op Ord)) ∧ vs = [Litv (Char c)]) ∨
     (∃n. op = (Op (Op Chr)) ∧ vs = [Litv (IntLit n)]) ∨
     (∃z c1 c2. op = (Op (Op (Chopb z))) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
