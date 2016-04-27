@@ -25,6 +25,7 @@ val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
+  (adjust_bv b (Word64 w) = Word64 w) /\
   (adjust_bv b (RefPtr r) = RefPtr (b r)) /\
   (adjust_bv b (CodePtr c) = CodePtr (num_stubs + 2 * c)) /\
   (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))`
@@ -740,9 +741,12 @@ val do_app_adjust = Q.prove(
     METIS_TAC[INJ_DEF] )
   \\ (* Add, Sub, Mult, Div, Mod, Less, ... *)
    (REPEAT STRIP_TAC
-    \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[] \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `h'` \\ full_simp_tac(srw_ss())[] \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `t'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
+    \\ TRY(Cases_on `t` \\ full_simp_tac(srw_ss())[])
+    \\ TRY (Cases_on`w` \\ fs[])
+    \\ TRY(Cases_on `h'` \\ full_simp_tac(srw_ss())[])
+    \\ TRY(Cases_on `h` \\ full_simp_tac(srw_ss())[])
+    \\ TRY(Cases_on `t'` \\ full_simp_tac(srw_ss())[]) \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def,bvl_to_bvi_id]
     \\ every_case_tac >> full_simp_tac(srw_ss())[bvl_to_bvi_id] >> srw_tac[][]
     \\ EVAL_TAC )) |> INST_TYPE[alpha|->``:'ffi``];
