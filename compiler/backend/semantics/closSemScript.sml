@@ -53,6 +53,7 @@ val do_eq_def = tDefine "do_eq" `
                              do_eq_list xs ys
                            else Eq_val F
           | Number _ => Eq_type_error
+          | Word64 _ => Eq_type_error
           | RefPtr _ => Eq_type_error
           | _ => Eq_val T)
      | RefPtr i =>
