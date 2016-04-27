@@ -500,6 +500,14 @@ val do_app = Q.prove (
   >- ((* Opb *)
       srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
+  >- ((* Opw *)
+      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]
+      \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
+  >- ((* Shift *)
+      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]
+      \\ Cases_on`w'` \\ Cases_on`s` \\ fs[shift8_lookup_def,shift64_lookup_def])
   >- ((* Equality *)
       srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
@@ -576,10 +584,10 @@ val do_app = Q.prove (
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][])
-  >- ((* W8fromInt *)
+  >- ((* WordFromInt *)
     srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
-  >- ((* W8toInt *)
+  >- ((* WordToInt *)
     srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* Ord *)

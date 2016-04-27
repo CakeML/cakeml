@@ -1198,6 +1198,8 @@ val do_app_v_rel = store_thm("do_app_v_rel",
           full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
       >- (BasicProvers.EVERY_CASE_TAC >>
           full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
+      >- (BasicProvers.EVERY_CASE_TAC >>
+          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
       >- (
         imp_res_tac do_eq_v_rel >>
         BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[] )
