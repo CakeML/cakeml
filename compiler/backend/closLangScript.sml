@@ -43,7 +43,12 @@ val _ = Datatype `
      | Less          (* < over the integers *)
      | LessEq        (* <= over the integers *)
      | Greater       (* > over the integers *)
-     | GreaterEq     (* >= over the integers *) `
+     | GreaterEq     (* >= over the integers *)
+     | WordConst word64
+     | WordOp word_size opw
+     | WordShift word_size shift num
+     | WordFromInt
+     | WordToInt`
 
 val _ = Datatype `
   exp = Var num

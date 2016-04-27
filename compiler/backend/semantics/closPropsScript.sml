@@ -529,9 +529,11 @@ val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
                        case_def = TypeBase.case_def_of ``:eq_result`` }
 val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
                      case_def = TypeBase.case_def_of ``:app_kind`` }
+val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
+                     case_def = TypeBase.case_def_of ``:word_size`` }
 val eqs = LIST_CONJ (map prove_case_eq_thm [
   op_thms, list_thms, option_thms, v_thms, ref_thms, result_thms,
-  eq_result_thms, error_result_thms, appkind_thms])
+  eq_result_thms, error_result_thms, appkind_thms, word_size_thms])
 
 val _ = save_thm ("eqs", eqs);
 
