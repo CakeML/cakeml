@@ -1,7 +1,6 @@
-open HolKernel Parse boolLib bossLib;
-
+open preamble match_goal
 open simpleSexpTheory astTheory
-open monadsyntax lcsymtacs
+open monadsyntax
 
 val _ = new_theory "fromSexp";
 
@@ -22,6 +21,13 @@ val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 (* TODO: move*)
+
+val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
+  `(∀x y. f x = f y ⇒ x = y)
+   ⇒ ∀o1 o2.
+     OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
+  strip_tac \\ Cases \\ Cases \\ simp[]);
+
 val OPTION_CHOICE_NONE = Q.store_thm("OPTION_CHOICE_NONE[simp]",
   `OPTION_CHOICE x NONE = x`,
   Cases_on`x`>>simp[]);
@@ -31,6 +37,28 @@ val OPTION_BIND_OPTION_GUARD = Q.store_thm("OPTION_BIND_OPTION_GUARD",
 
 val OPTION_IGNORE_BIND_OPTION_GUARD = Q.store_thm("OPTION_IGNORE_BIND_OPTION_GUARD",
   `OPTION_IGNORE_BIND (OPTION_GUARD b) f = if b then f else NONE`, rw[])
+
+val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
+  `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
+   ∃a b c. x = SOME a ∧ y = SOME b ∧ z = SOME c ∧ f a b c = r`,
+  Cases_on`x`\\simp[] \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ Cases_on`y`\\fs[]);
+
+val FOLDR_SX_CONS_INJ = Q.store_thm("FOLDR_SX_CONS_INJ",
+  `∀l1 l2. FOLDR SX_CONS nil l1 = FOLDR SX_CONS nil l2 ⇒ l1 = l2`,
+  Induct \\ simp[]
+  >- ( Induct \\ simp[] )
+  \\ gen_tac \\ Induct \\ simp[]);
+
+val strip_sxcons_11 = Q.store_thm("strip_sxcons_11",
+  `∀s1 s2 x. strip_sxcons s1 = SOME x ∧ strip_sxcons s2 = SOME x ⇒ s1 = s2`,
+  ho_match_mp_tac simpleSexpTheory.strip_sxcons_ind
+  \\ ntac 4 strip_tac
+  \\ simp[Once simpleSexpTheory.strip_sxcons_def]
+  \\ CASE_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]
+  \\ pop_assum mp_tac
+  \\ simp[Once simpleSexpTheory.strip_sxcons_def]
+  \\ CASE_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]);
 
 val dstrip_sexp_size = store_thm(
   "dstrip_sexp_size",
@@ -236,7 +264,7 @@ val sexplit_def = Define`
     do
       (nm,args) <- dstrip_sexp s;
       assert(LENGTH args = 1);
-      guard (nm = "-") (lift (λn. IntLit (-&n)) (odestSXNUM (HD args))) ++
+      guard (nm = "-") (OPTION_BIND (odestSXNUM (HD args)) (λn. if n = 0 then NONE else SOME (IntLit (-&n)))) ++
       guard (nm = "char")
             do
               cs <- odestSXSTR (HD args);
@@ -488,13 +516,25 @@ val sexptop_def = Define`
 val listsexp_def = Define`
   listsexp = FOLDR SX_CONS nil`;
 
+val listsexp_11 = Q.store_thm("listsexp_11[simp]",
+  `∀ l1 l2. listsexp l1 = listsexp l2 ⇔ l1 = l2`,
+  Induct >> gen_tac >> cases_on `l2` >> fs[listsexp_def]);
+
 val optsexp_def = Define`
   (optsexp NONE = SX_SYM "NONE") ∧
   (optsexp (SOME x) = listsexp [SX_SYM "SOME"; x])`;
 
+val optsexp_11 = Q.store_thm("optsexp_11[simp]",
+  `optsexp o1 = optsexp o2 ⇔ o1 = o2`,
+  cases_on `o1` >> cases_on `o2` >> fs[optsexp_def, listsexp_def]);
+
 val idsexp_def = Define`
   (idsexp (Short n) = listsexp [SX_SYM"Short"; SX_STR n]) ∧
   (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SX_STR ns; SX_STR n])`;
+
+val idsexp_11 = Q.store_thm("idsexp_11[simp]",
+  `∀ i1 i2. idsexp i1 = idsexp i2 ⇔ i1 = i2`,
+  Induct >> gen_tac >> cases_on `i2` >> fs[idsexp_def]);
 
 val tctorsexp_def = Define`
   (tctorsexp (TC_name id) = listsexp [SX_SYM "TC_name"; idsexp id]) ∧
@@ -511,6 +551,10 @@ val tctorsexp_def = Define`
   (tctorsexp TC_vector = SX_SYM "TC_vector") ∧
   (tctorsexp TC_array = SX_SYM "TC_array")`;
 
+val tctorsexp_11 = Q.store_thm("tctorsexp_11[simp]",
+  `∀ t1 t2. tctorsexp t1 = tctorsexp t2 ⇔ t1 = t2`,
+  Induct >> gen_tac >> cases_on `t2` >> fs[tctorsexp_def, listsexp_def]);
+
 val typesexp_def = tDefine"typesexp"`
   (typesexp (Tvar s) = listsexp [SX_SYM "Tvar"; SX_STR s]) ∧
   (typesexp (Tvar_db n) = listsexp [SX_SYM "Tvar_db"; SX_NUM n]) ∧
@@ -521,6 +565,16 @@ val typesexp_def = tDefine"typesexp"`
    first_x_assum(qspec_then`ct`strip_assume_tac)>>
    decide_tac);
 
+val typesexp_11 = Q.store_thm("typesexp_11[simp]",
+  `∀t1 t2. typesexp t1 = typesexp t2 ⇔ t1 = t2`,
+  ho_match_mp_tac (theorem"typesexp_ind")
+  \\ simp[typesexp_def]
+  \\ rpt conj_tac \\ simp[PULL_FORALL]
+  \\ CONV_TAC(RESORT_FORALL_CONV List.rev)
+  \\ Cases \\ simp[typesexp_def]
+  \\ srw_tac[ETA_ss][EQ_IMP_THM]
+  \\ metis_tac[MAP_EQ_MAP_IMP]);
+
 val litsexp_def = Define`
   (litsexp (IntLit i) =
    if i < 0 then listsexp [SX_SYM "-"; SX_NUM (Num(-i))]
@@ -529,6 +583,11 @@ val litsexp_def = Define`
   (litsexp (StrLit s) = SX_STR s) ∧
   (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)]) ∧
   (litsexp (Word64 w) = listsexp [SX_SYM "word64"; SX_NUM (w2n w)])`;
+
+val litsexp_11 = Q.store_thm("litsexp_11[simp]",
+  `∀l1 l2. litsexp l1 = litsexp l2 ⇔ l1 = l2`,
+  Cases \\ Cases \\ rw[litsexp_def,EQ_IMP_THM,listsexp_def]
+  \\ intLib.COOPER_TAC);
 
 val patsexp_def = tDefine"patsexp"`
   (patsexp (Pvar s) = SX_STR s) ∧
@@ -541,9 +600,26 @@ val patsexp_def = tDefine"patsexp"`
    first_x_assum(qspec_then`cn`strip_assume_tac)>>
    decide_tac )
 
+val patsexp_11 = Q.store_thm("patsexp_11[simp]",
+  `∀p1 p2. patsexp p1 = patsexp p2 ⇔ p1 = p2`,
+  ho_match_mp_tac (theorem"patsexp_ind")
+  \\ rpt conj_tac \\ simp[PULL_FORALL]
+  \\ CONV_TAC(RESORT_FORALL_CONV List.rev)
+  \\ Cases \\ rw[patsexp_def,listsexp_def]
+  \\ rw[EQ_IMP_THM]
+  >- ( metis_tac[OPTION_MAP_INJ,idsexp_11] )
+  \\ imp_res_tac FOLDR_SX_CONS_INJ
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ first_x_assum match_mp_tac
+  \\ simp[] \\ metis_tac[]);
+
 val lopsexp_def = Define`
   (lopsexp And = SX_SYM "And") ∧
   (lopsexp Or = SX_SYM "Or")`;
+
+val lopsexp_11 = Q.store_thm("lopsexp_11[simp]",
+  `∀l1 l2. lopsexp l1 = lopsexp l2 ⇔ l1 = l2`,
+  Cases \\ Cases \\ simp[lopsexp_def]);
 
 val opsexp_def = Define`
   (opsexp (Opn Plus) = SX_SYM "OpnPlus") ∧
@@ -602,6 +678,12 @@ val opsexp_def = Define`
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
   (opsexp (FFI n) = SX_CONS (SX_SYM "FFI") (SX_NUM n))`;
 
+val opsexp_11 = Q.store_thm("opsexp_11[simp]",
+  `∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2`,
+  Cases \\ TRY(Cases_on`o'`)
+  \\ Cases \\ TRY(Cases_on`o'`)
+  \\ simp[opsexp_def]);
+
 val expsexp_def = tDefine"expsexp"`
   (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
   (expsexp (Handle e pes) = listsexp [SX_SYM "Handle"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
@@ -626,12 +708,41 @@ val expsexp_def = tDefine"expsexp"`
    first_x_assum(strip_assume_tac o SPEC_ALL) >>
    decide_tac);
 
+val expsexp_11 = Q.store_thm("expsexp_11[simp]",
+  `∀e1 e2. expsexp e1 = expsexp e2 ⇒ e1 = e2`,
+  ho_match_mp_tac (theorem"expsexp_ind")
+  \\ rpt conj_tac \\ simp[PULL_FORALL]
+  \\ CONV_TAC(RESORT_FORALL_CONV List.rev)
+  \\ Cases \\ rw[expsexp_def]
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ TRY(first_x_assum match_mp_tac \\ rw[FORALL_PROD])
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ metis_tac[OPTION_MAP_INJ,idsexp_11,simpleSexpTheory.sexp_11]);
+
 val type_defsexp_def = Define`
   type_defsexp = listsexp o
     MAP (λ(xs,x,ls).
       SX_CONS (listsexp (MAP SX_STR xs))
         (SX_CONS (SX_STR x)
           (listsexp (MAP (λ(y,ts). SX_CONS (SX_STR y) (listsexp (MAP typesexp ts))) ls))))`;
+
+val type_defsexp_11 = Q.store_thm("type_defsexp_11[simp]",
+  `∀t1 t2. type_defsexp t1 = type_defsexp t2 ⇔ t1 = t2`,
+  rw[type_defsexp_def,EQ_IMP_THM]
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ first_x_assum match_mp_tac
+  \\ rw[FORALL_PROD]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+  \\ conj_tac
+  >- (
+    Q.ISPEC_THEN`SX_STR`match_mp_tac INJ_MAP_EQ
+    \\ simp[INJ_DEF] )
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ first_x_assum match_mp_tac
+  \\ rw[FORALL_PROD]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+  \\ Q.ISPEC_THEN`typesexp`match_mp_tac INJ_MAP_EQ
+  \\ simp[INJ_DEF]);
 
 val decsexp_def = Define`
   (decsexp (Dlet p e) = listsexp [SX_SYM "Dlet"; patsexp p; expsexp e]) ∧
@@ -642,6 +753,13 @@ val decsexp_def = Define`
   (decsexp (Dtabbrev ns x t) = listsexp [SX_SYM "Dtabbrev"; listsexp (MAP SX_STR ns); SX_STR x; typesexp t]) ∧
   (decsexp (Dexn x ts) = listsexp [SX_SYM "Dexn"; SX_STR x; listsexp (MAP typesexp ts)])`;
 
+val decsexp_11 = Q.store_thm("decsexp_11[simp]",
+  `∀d1 d2. decsexp d1 = decsexp d2 ⇔ d1 = d2`,
+  Cases \\ Cases \\ rw[decsexp_def,EQ_IMP_THM]
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ TRY (first_x_assum match_mp_tac \\ rw[])
+  \\ rpt(pairarg_tac \\ fs[]));
+
 val specsexp_def = Define`
   (specsexp (Sval x t) = listsexp [SX_SYM "Sval"; SX_STR x; typesexp t]) ∧
   (specsexp (Stype t) = listsexp [SX_SYM "Stype"; type_defsexp t]) ∧
@@ -649,12 +767,30 @@ val specsexp_def = Define`
   (specsexp (Stype_opq ns x) = listsexp [SX_SYM "Stype_opq"; listsexp (MAP SX_STR ns); SX_STR x]) ∧
   (specsexp (Sexn x ts) = listsexp [SX_SYM "Sexn"; SX_STR x; listsexp (MAP typesexp ts)])`;
 
+val specsexp_11 = Q.store_thm("specsexp_11[simp]",
+  `∀s1 s2. specsexp s1 = specsexp s2 ⇔ s1 = s2`,
+  Induct >> gen_tac >> cases_on `s2` >> fs[specsexp_def] >> rpt gen_tac >> simp[]
+  \\ rw[EQ_IMP_THM]
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ first_x_assum match_mp_tac
+  \\ rw[]);
+
 val topsexp_def = Define`
   (topsexp (Tmod modN specopt declist) =
      listsexp [SX_SYM "Tmod"; SX_STR modN; optsexp (OPTION_MAP (listsexp o MAP specsexp) specopt);
                listsexp (MAP decsexp declist)]) ∧
   (topsexp (Tdec dec) =
      listsexp [SX_SYM "Tdec"; decsexp dec])`;
+
+val topsexp_11 = Q.store_thm("topsexp_11[simp]",
+  `∀ t1 t2. topsexp t1 = topsexp t2 ⇔ t1 = t2`,
+  Induct >> gen_tac >> cases_on `t2`
+  \\ rw[topsexp_def,EQ_IMP_THM]
+  \\ imp_res_tac(MP_CANON OPTION_MAP_INJ) \\ fs[]
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ first_x_assum match_mp_tac \\ rw[]
+  \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
+  \\ first_x_assum match_mp_tac \\ rw[]);
 
 (* round trip *)
 
@@ -842,14 +978,22 @@ val sexptop_topsexp = Q.store_thm("sexptop_topsexp",
   `sexptop (topsexp t) = SOME t`,
   Cases_on`t` >> simp[topsexp_def,sexptop_def]);
 
-(*
 val sexpopt_SOME = Q.store_thm("sexpopt_SOME",
-  `sexpopt f s = SOME opt ⇔ ∃x. s = SX_CONS(SX_SYM"SOME")(SX_CONS x nil) ∧ f x = opt`,
-  rw[sexpopt_def] >>
-  Cases_on`s`>>simp[odestSXSYM_def,dstrip_sexp_SOME,PULL_EXISTS] >>
-  rw[EQ_IMP_THM] >>
-  spose_not_then strip_assume_tac >> fs[]
-*)
+  `sexpopt f s = SOME opt ⇒ ∃x. s = optsexp x ∧ (case x of NONE => opt = NONE | SOME s => IS_SOME opt ∧ opt = f s)`,
+  rw[sexpopt_def]
+  \\ Cases_on`odestSXSYM s` \\ fs[dstrip_sexp_SOME] \\ rw[]
+  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD] \\ rw[]
+  \\ every_case_tac \\ fs[dstrip_sexp_SOME]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[] \\ fs[] \\ rw[]
+  \\ fs[odestSXSYM_def]
+  \\ fs[Once strip_sxcons_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ TRY (
+    qexists_tac`NONE` \\ EVAL_TAC
+    \\ Cases_on`s` \\ fs[odestSXSYM_def]
+    \\ NO_TAC)
+  \\ qexists_tac`SOME e1`
+  \\ EVAL_TAC \\ simp[]);
 
 val listsexp_MAP_EQ_f = Q.store_thm("listsexp_MAP_EQ_f",
   `(∀x. MEM x ls ⇒ f1 x = f2 x) ⇒
@@ -872,9 +1016,272 @@ val sexplist_SOME = Q.store_thm("sexplist_SOME",
   qmatch_assum_rename_tac`f a = return h` >>
   qexists_tac`a::l` >> simp[listsexp_def] )
 
+val sexppair_SOME = Q.store_thm("sexppair_SOME",
+  `sexppair f1 f2 s = SOME p ⇒ ∃x y. f1 x = SOME (FST p) ∧ f2 y = SOME (SND p) ∧ s = SX_CONS x y`,
+  rw[sexppair_def]
+  \\ every_case_tac \\ fs[]);
+
+val litsexp_sexplit = Q.store_thm("litsexp_sexplit",
+  `∀s l. sexplit s = SOME l ⇒ litsexp l = s`,
+  rw[sexplit_def]
+  \\ reverse(Cases_on`odestSXNUM s`) \\ fs[]
+  >- (
+    rw[litsexp_def]
+    \\ Cases_on`s` \\ fs[odestSXNUM_def] )
+  \\ reverse(Cases_on`odestSXSTR s`) \\ fs[]
+  >- ( rw[litsexp_def])
+  \\ pairarg_tac \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ every_case_tac \\ fs[] \\ rw[litsexp_def]
+  \\ fs[dstrip_sexp_SOME]
+  \\ rw[listsexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
+  \\ fs[]
+  \\ fs[Once strip_sxcons_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ Cases_on`e1` \\ fs[odestSXNUM_def]);
+
+val idsexp_sexpid_odestSXSTR = Q.store_thm("idsexp_sexpid_odestSXSTR",
+  `sexpid odestSXSTR x = SOME y ⇒ x = idsexp y`,
+  rw[sexpid_def]
+  \\ fs[dstrip_sexp_SOME] \\ rw[]
+  \\ fs[]
+  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ rw[idsexp_def,listsexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
+  \\ fs[]
+  \\ fs[Once strip_sxcons_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[Once strip_sxcons_def]
+  \\ every_case_tac \\ fs[]);
+
+val patsexp_sexppat = Q.store_thm("patsexp_sexppat",
+  `∀s p. sexppat s = SOME p ⇒ patsexp p = s`,
+  ho_match_mp_tac (theorem"sexppat_ind")
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ rw[Once sexppat_def]
+  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ reverse(Cases_on`odestSXSTR s`) \\ fs[]
+  >- ( rw[patsexp_def] )
+  \\ pairarg_tac \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ rw[patsexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ rw[] \\ fs[]
+  \\ fs[dstrip_sexp_SOME]
+  \\ rw[listsexp_def]
+  \\ fs[Once strip_sxcons_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ imp_res_tac litsexp_sexplit
+  \\ imp_res_tac sexpopt_SOME
+  \\ rveq \\ fs[]
+  >- (
+    Cases_on`x`\\fs[optsexp_def,sexpopt_def,odestSXSYM_def,listsexp_def,dstrip_sexp_SOME]
+    \\ rveq \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+    \\ imp_res_tac idsexp_sexpid_odestSXSTR )
+  \\ fs[Once strip_sxcons_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ imp_res_tac sexplist_SOME \\ rw[]
+  \\ rw[listsexp_def] \\ AP_TERM_TAC
+  \\ fs[LIST_EQ_REWRITE,EL_MAP]
+  \\ rfs[EL_MAP] \\ rw[]
+  \\ first_x_assum(match_mp_tac o MP_CANON)
+  \\ simp[]
+  \\ simp[sxMEM_def]
+  \\ metis_tac[MEM_EL]);
+
+val opsexp_sexpop = Q.store_thm("opsexp_sexpop",
+  `sexpop s = SOME p ⇒ opsexp p = s`,
+  Cases_on`s` \\ rw[sexpop_def] \\ rw[opsexp_def]
+  \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
+  \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
+  \\ rw[opsexp_def]);
+
+val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
+  `sexplop s = SOME z ⇒ lopsexp z = s`,
+  Cases_on`s` \\ rw[sexplop_def] \\ rw[lopsexp_def]);
+
+val (strip_sxcons_mtac:matcher*mg_tactic) =
+  (mg.a"h"`strip_sxcons _ = SOME _`,
+    (fn(a,t)=>
+     strip_assume_tac(ONCE_REWRITE_RULE[strip_sxcons_def](a"h"))
+     \\ kill_asm(a"h")
+     \\ every_case_tac \\ fs[]
+     \\ rveq))
+
+val expsexp_sexpexp = Q.store_thm("expsexp_sexpexp",
+  `∀s e. sexpexp s = SOME e ⇒ expsexp e = s`,
+  ho_match_mp_tac (theorem"sexpexp_ind")
+  \\ rpt gen_tac \\ strip_tac \\ gen_tac
+  \\ rw[Once sexpexp_def]
+  \\ pairarg_tac \\ rveq
+  \\ pop_assum mp_tac \\ simp[]
+  \\ full_simp_tac std_ss [PULL_EXISTS]
+  \\ simp[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ rpt (
+    IF_CASES_TAC >|[
+      pop_assum strip_assume_tac \\ rveq
+      \\ rpt (pop_assum mp_tac)
+      \\ CONV_TAC(DEPTH_CONV stringLib.string_EQ_CONV)
+      \\ rw[] \\ fs[],
+      ALL_TAC])
+  \\ rw[expsexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3,dstrip_sexp_SOME]
+  \\ rveq \\ fs[listsexp_def] \\ fs[GSYM listsexp_def]
+  \\ rpt(match1_tac strip_sxcons_mtac)
+  \\ imp_res_tac litsexp_sexplit
+  \\ imp_res_tac idsexp_sexpid_odestSXSTR
+  \\ imp_res_tac opsexp_sexpop
+  \\ imp_res_tac sexplist_SOME
+  \\ imp_res_tac sexpopt_SOME
+  \\ rw[]
+  \\ TRY (
+    fs[LIST_EQ_REWRITE,EL_MAP]
+    \\ rw[] \\ rfs[EL_MAP]
+    \\ res_tac
+    \\ imp_res_tac sexppair_SOME
+    \\ imp_res_tac patsexp_sexppat
+    \\ TRY pairarg_tac \\ fs[]
+    \\ imp_res_tac sexppair_SOME
+    \\ imp_res_tac patsexp_sexppat
+    \\ TRY pairarg_tac \\ fs[]
+    \\ first_x_assum (match_mp_tac o MP_CANON)
+    \\ simp[sxMEM_def]
+    \\ metis_tac[MEM_EL] )
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ fs[IS_SOME_EXISTS]
+  \\ imp_res_tac idsexp_sexpid_odestSXSTR
+  \\ fs[OPTION_APPLY_MAP2,OPTION_APPLY_MAP3]
+  \\ fs[] \\ rveq
+  \\ rw[expsexp_def,listsexp_def]
+  \\ imp_res_tac sexpopt_SOME
+  \\ every_case_tac \\ fs[IS_SOME_EXISTS]
+  \\ rw[] \\ fs[odestSXSTR_def]
+  \\ imp_res_tac lopsexp_sexplop);
+
+val tctorsexp_sexptctor = Q.store_thm("tctorsexp_sexptctor",
+  `sexptctor s = SOME t ⇒ tctorsexp t = s`,
+  rw[sexptctor_def]
+  \\ qmatch_assum_abbrev_tac`OPTION_CHOICE o1 o2 = _`
+  \\ Cases_on`o1` \\ fs[markerTheory.Abbrev_def]
+  >- (
+    rfs[]
+    \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+    \\ every_case_tac \\ fs[] \\ rw[tctorsexp_def]
+    \\ Cases_on`s` \\ fs[odestSXSYM_def])
+  \\ fs[dstrip_sexp_SOME]
+  \\ rveq \\ fs[]
+  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ fs[odestSXSYM_def]
+  \\ rveq
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ rveq \\ fs[]
+  \\ match1_tac strip_sxcons_mtac
+  \\ simp[tctorsexp_def,listsexp_def]
+  \\ imp_res_tac idsexp_sexpid_odestSXSTR
+  \\ rw[]);
+
+val typesexp_sexptype = Q.store_thm("typesexp_sexptype",
+  `∀s t. sexptype s = SOME t ⇒ typesexp t = s`,
+  ho_match_mp_tac(theorem"sexptype_ind")
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ rw[Once sexptype_def]
+  \\ fs[dstrip_sexp_SOME,PULL_EXISTS]
+  \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ rw[typesexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ rw[] \\ fs[] \\ rw[listsexp_def] \\ fs[GSYM listsexp_def]
+  \\ rpt(match1_tac strip_sxcons_mtac)
+  \\ TRY(Cases_on`e1`\\fs[odestSXNUM_def]\\NO_TAC)
+  \\ imp_res_tac tctorsexp_sexptctor \\ simp[]
+  \\ imp_res_tac sexplist_SOME \\ rw[]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP]
+  \\ rw[]
+  \\ first_x_assum(MATCH_MP_TAC o MP_CANON)
+  \\ simp[Once strip_sxcons_def]
+  \\ simp[Once strip_sxcons_def]
+  \\ simp[Once strip_sxcons_def]
+  \\ simp[EL_MAP]
+  \\ simp[sxMEM_def]
+  \\ metis_tac[MEM_EL]);
+
+val type_defsexp_sexptype_def = Q.store_thm("type_defsexp_sexptype_def",
+  `sexptype_def s = SOME x ⇒ type_defsexp x = s`,
+  rw[sexptype_def_def,type_defsexp_def]
+  \\ imp_res_tac sexplist_SOME \\ rw[]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP]
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ res_tac
+  \\ imp_res_tac sexppair_SOME
+  \\ imp_res_tac sexppair_SOME
+  \\ fs[] \\ rveq \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac sexplist_SOME \\ rw[]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP]
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ res_tac
+  \\ imp_res_tac sexppair_SOME
+  \\ fs[] \\ rveq \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac sexplist_SOME \\ rw[]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP]
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ metis_tac[typesexp_sexptype]);
+
 val decsexp_sexpdec = Q.store_thm("decsexp_sexpdec",
   `sexpdec s = SOME d ⇒ decsexp d = s`,
-  cheat)
+  rw[sexpdec_def]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[dstrip_sexp_SOME]
+  \\ rpt var_eq_tac
+  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ every_case_tac \\ fs[decsexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ rw[] \\ fs[]
+  \\ rpt(match1_tac strip_sxcons_mtac)
+  \\ fs[OPTION_APPLY_MAP3]
+  \\ rw[decsexp_def]
+  \\ rveq \\ fs[listsexp_def] \\ fs[GSYM listsexp_def]
+  \\ imp_res_tac patsexp_sexppat
+  \\ imp_res_tac expsexp_sexpexp
+  \\ imp_res_tac sexplist_SOME
+  \\ imp_res_tac type_defsexp_sexptype_def
+  \\ imp_res_tac typesexp_sexptype
+  \\ rw[]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP]
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ res_tac
+  \\ imp_res_tac sexppair_SOME
+  \\ imp_res_tac typesexp_sexptype
+  \\ fs[] \\ rveq \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac sexppair_SOME
+  \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac expsexp_sexpexp);
+
+val specsexp_sexpspec = Q.store_thm("specsexp_sexpspec",
+  `sexpspec s = SOME z ⇒ specsexp z = s`,
+  rw[sexpspec_def]
+  \\ fs[dstrip_sexp_SOME]
+  \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ fs[OPTION_APPLY_MAP3,OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ rw[] \\ fs[]
+  \\ rpt (match1_tac strip_sxcons_mtac)
+  \\ rw[specsexp_def,listsexp_def]
+  \\ rw[GSYM listsexp_def]
+  \\ imp_res_tac typesexp_sexptype
+  \\ imp_res_tac type_defsexp_sexptype_def
+  \\ imp_res_tac sexplist_SOME \\ rw[]
+  \\ fs[LIST_EQ_REWRITE]
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ metis_tac[typesexp_sexptype]);
 
 val topsexp_sexptop = Q.store_thm("topsexp_sexptop",
   `sexptop s = SOME t ⇒ topsexp t = s`,
@@ -893,6 +1300,23 @@ val topsexp_sexptop = Q.store_thm("topsexp_sexptop",
   Cases_on`t`>>fsrw_tac[ARITH_ss][] >>
   rpt var_eq_tac >>
   imp_res_tac sexplist_SOME >>
-  cheat)
+  rveq
+  \\ imp_res_tac sexpopt_SOME
+  \\ rveq
+  \\ reverse conj_tac
+  >- (
+    AP_TERM_TAC
+    \\ fs[LIST_EQ_REWRITE]
+    \\ rw[] \\ rfs[EL_MAP]
+    \\ metis_tac[decsexp_sexpdec] )
+  \\ every_case_tac \\ fs[]
+  \\ rw[]
+  \\ fs[IS_SOME_EXISTS]
+  \\ imp_res_tac sexplist_SOME
+  \\ rw[]
+  \\ fs[LIST_EQ_REWRITE]
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ fs[EL_MAP]
+  \\ metis_tac[specsexp_sexpspec]);
 
 val _ = export_theory();

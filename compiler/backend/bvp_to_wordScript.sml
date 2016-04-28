@@ -35,6 +35,7 @@ val tag_mask_def = Define `
 val encode_header_def = Define `
   encode_header (conf:bvp_to_word$config) tag len =
     if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
+       tag < dimword (:'a) DIV 16 /\
        len < 2 ** (dimindex (:'a) - 4) /\
        len < 2 ** conf.len_size
     then SOME ((make_header conf (n2w tag) len):'a word)
@@ -243,7 +244,8 @@ val assign_def = Define `
                                   (Assign (adjust_var dest) TRUE_CONST)
                                   (Assign (adjust_var dest) FALSE_CONST)],l))
                | _ => (Skip,l))
-    | TagEq tag => (case args of
+    | TagEq tag => (if tag < dimword (:'a) DIV 16 then
+               case args of
                | [v1] => (list_Seq
                    [Assign 1 (Var (adjust_var v1));
                     If Test (adjust_var v1) (Imm 1w) Skip
@@ -253,7 +255,8 @@ val assign_def = Define `
                     If Equal 1 (Imm (n2w (16 * tag + 2)))
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST)],l)
-               | _ => (Skip,l))
+               | _ => (Skip,l)
+                    else (Assign (adjust_var dest) FALSE_CONST,l))
     | Add => (case args of
               | [v1;v2] =>
                   (Seq (Assign 1 (Op Or [Var (adjust_var v1);

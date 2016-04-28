@@ -2,9 +2,11 @@ structure x64_compileLib =
 struct
 
 open HolKernel boolLib bossLib
+
+val _ = ParseExtras.temp_loose_equality()
 open x64_targetLib asmLib;
-open compilerComputeLib;
 open x64AssemblerLib
+open compilerComputeLib
 
 (* open x64_targetTheory *)
 
