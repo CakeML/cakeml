@@ -682,6 +682,14 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   `∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2`,
   Cases \\ TRY(Cases_on`o'`)
   \\ Cases \\ TRY(Cases_on`o'`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`w`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`s`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`w'`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`s'`)
   \\ simp[opsexp_def]);
 
 val expsexp_def = tDefine"expsexp"`
@@ -1096,6 +1104,8 @@ val opsexp_sexpop = Q.store_thm("opsexp_sexpop",
   Cases_on`s` \\ rw[sexpop_def] \\ rw[opsexp_def]
   \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
   \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
+  \\ pop_assum mp_tac
+  \\ rpt IF_CASES_TAC \\ rw[]
   \\ rw[opsexp_def]);
 
 val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
