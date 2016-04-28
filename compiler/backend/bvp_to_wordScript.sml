@@ -35,6 +35,7 @@ val tag_mask_def = Define `
 val encode_header_def = Define `
   encode_header (conf:bvp_to_word$config) tag len =
     if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
+       tag < dimword (:'a) DIV 16 /\
        len < 2 ** (dimindex (:'a) - 4) /\
        len < 2 ** conf.len_size
     then SOME ((make_header conf (n2w tag) len):'a word)
