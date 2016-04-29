@@ -158,10 +158,10 @@ val is_local_def = Define `
 (** App *)
 
 val app_basic_def = Define `
-  app_basic (:'ffi) (f: v) (x: v) env (H: hprop) (Q: v -> hprop) =
+  app_basic (:'ffi) (f: v) (x: v) _ (H: hprop) (Q: v -> hprop) =
     !(h: heap) (i: heap) (st: 'ffi state).
       SPLIT (st2heap (:'ffi) st) (h, i) ==> H h ==>
-      ?exp (v': v) (h': heap) (g: heap) (st': 'ffi state).
+      ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state).
         SPLIT3 (st2heap (:'ffi) st') (h', g, i) /\
         Q v' h' /\
         (do_opapp [f;x] = SOME (env, exp)) /\
@@ -363,7 +363,7 @@ val cf_fundecl_def = Define `
     !fv.
       (!xv H' Q'.
         F1 (env with v := (n, xv)::env.v) H' Q' ==>
-        app_basic (:'ffi) fv xv (env with v := (n, xv)::env.v) H' Q')
+        app_basic (:'ffi) fv xv env H' Q')
       ==>
       F2 (env with v := (f, fv)::env.v) H Q)`;
 
