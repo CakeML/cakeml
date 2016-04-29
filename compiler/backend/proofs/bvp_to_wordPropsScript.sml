@@ -2568,13 +2568,73 @@ val memory_rel_test_none_eq = store_thm("memory_rel_test_none_eq",
   strip_tac \\ drule memory_rel_Block_IMP \\ fs [] \\ rw []
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs [LENGTH_NIL,PULL_EXISTS]);
 
+val not_bit_lt_2 = Q.prove(
+  `!i n. n < 2 ==> ~BIT (i + 1) n`,
+  metis_tac [EVAL ``2n ** 1``, DECIDE ``1 <= i + 1n``, bitTheory.TWOEXP_MONO2,
+     arithmeticTheory.LESS_LESS_EQ_TRANS, bitTheory.NOT_BIT_GT_TWOEXP])
+
+val not_bit_lt_2exp = Q.prove(
+  `!p x n. n < 2 ** (p + 1) ==> ~BIT (p + (x + 1)) n`,
+  metis_tac [DECIDE ``p + 1 <= p + (x + 1n)``, bitTheory.TWOEXP_MONO2,
+     arithmeticTheory.LESS_LESS_EQ_TRANS, bitTheory.NOT_BIT_GT_TWOEXP])
+
 val encode_header_EQ = store_thm("encode_header_EQ",
   ``encode_header c t1 l1 = SOME (w1:'a word) /\
     encode_header c t2 l2 = SOME (w2:'a word) /\
-    c.len_size + 2 <= dimindex (:'a) ==>
+    c.len_size + 2 < dimindex (:'a) ==>
     (w1 = w2 <=> t1 = t2 /\ l1 = l2)``,
   fs [encode_header_def] \\ rw [] \\ fs [make_header_def,LET_THM]
-  \\ cheat); (* local word proof? *)
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+  \\ Tactical.REVERSE EQ_TAC >- rw []
+  \\ `4 <= dimindex(:'a)`
+  by (CCONTR_TAC
+      \\ `(dimindex(:'a) = 2) \/ (dimindex(:'a) = 3)` by decide_tac
+      \\ fs [wordsTheory.dimword_def])
+  \\ `?p. dimindex(:'a) = c.len_size + 2 + (p + 1n)`
+  by metis_tac [arithmeticTheory.LESS_ADD_1]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ fs []
+  \\ rw []
+  >- (
+    fs [GSYM ADD1]
+    \\ `t1 = BITS p 0 t1 /\ t2 = BITS p 0 t2`
+    by metis_tac [bitTheory.BITS_ZEROL]
+    \\ NTAC 2 (pop_assum SUBST1_TAC)
+    \\ rw [GSYM bitTheory.BIT_BITS_THM]
+    \\ `x + 2 < p + (c.len_size + 3)` by decide_tac
+    \\ res_tac
+    \\ fs []
+    \\ rfs []
+  )
+  \\ Cases_on `p = 0`
+  \\ fs []
+  >- (
+    Cases_on `c.len_size - 1 = 0`
+    \\ full_simp_tac bool_ss [] >- fs []
+    \\ `c.len_size - 1 = SUC (c.len_size - 2)` by decide_tac
+    \\ fs []
+    \\ `l1 = BITS (c.len_size - 2) 0 l1 /\ l2 = BITS (c.len_size - 2) 0 l2`
+    by metis_tac [bitTheory.BITS_ZEROL]
+    \\ NTAC 2 (pop_assum SUBST1_TAC)
+    \\ rw [GSYM bitTheory.BIT_BITS_THM]
+    \\ `x + 3 < c.len_size + 3` by decide_tac
+    \\ res_tac
+    \\ fs []
+    \\ rfs [not_bit_lt_2]
+  )
+  \\ Cases_on `c.len_size = 0`
+  \\ fs []
+  \\ `c.len_size = SUC (c.len_size - 1)` by decide_tac
+  \\ fs []
+  \\ `l1 = BITS (c.len_size - 1) 0 l1 /\ l2 = BITS (c.len_size - 1) 0 l2`
+  by metis_tac [bitTheory.BITS_ZEROL]
+  \\ NTAC 2 (pop_assum SUBST1_TAC)
+  \\ rw [GSYM bitTheory.BIT_BITS_THM]
+  \\ `x + (p + 3) < p + (c.len_size + 3)` by decide_tac
+  \\ res_tac
+  \\ fs []
+  \\ rfs [not_bit_lt_2exp]
+  );
 
 val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
