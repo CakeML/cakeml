@@ -12,6 +12,15 @@ fun drule th =
 
 (* TODO: move/categorize *)
 
+val LUPDATE_NIL = store_thm("LUPDATE_NIL",
+  ``!xs n x. (LUPDATE x n xs = []) = (xs = [])``,
+  Cases \\ Cases_on `n` \\ FULL_SIMP_TAC (srw_ss()) [LUPDATE_def]);
+
+val ALL_DISTINCT_FLAT_REVERSE = store_thm("ALL_DISTINCT_FLAT_REVERSE",
+  ``!xs. ALL_DISTINCT (FLAT (REVERSE xs)) = ALL_DISTINCT (FLAT xs)``,
+  Induct \\ fs [ALL_DISTINCT_APPEND]
+  \\  fs [MEM_FLAT,PULL_EXISTS] \\ METIS_TAC []);
+
 val SORTED_FILTER = store_thm("SORTED_FILTER",
   ``∀R ls P. transitive R ∧ SORTED R ls ⇒ SORTED R (FILTER P ls)``,
   ho_match_mp_tac SORTED_IND >>
