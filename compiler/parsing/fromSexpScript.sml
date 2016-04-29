@@ -22,6 +22,106 @@ val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 (* TODO: move*)
 
+val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
+  `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ strip_tac \\ var_eq_tac
+  \\ EVAL_TAC);
+
+val EVERY_isHexDigit_num_to_hex_string = Q.store_thm("EVERY_isHexDigit_num_to_hex_string",
+  `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`,
+  rw[ASCIInumbersTheory.num_to_hex_string_def,ASCIInumbersTheory.n2s_def]
+  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
+  \\ simp[EVERY_MEM]
+  \\ gen_tac\\ strip_tac
+  \\ match_mp_tac isHexDigit_HEX
+  \\ qspecl_then[`16`,`n`]mp_tac numposrepTheory.n2l_BOUND
+  \\ rw[EVERY_MEM]
+  \\ res_tac
+  \\ decide_tac);
+
+val isHexDigit_isPrint = Q.store_thm("isHexDigit_isPrint",
+  `∀x. isHexDigit x ⇒ isPrint x`,
+  EVAL_TAC \\ rw[]);
+
+val num_to_hex_string_length_1 = Q.store_thm("num_to_hex_string_length_1",
+  `∀x. x < 16 ⇒ (LENGTH (num_to_hex_string x) = 1)`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ strip_tac \\ var_eq_tac
+  \\ EVAL_TAC);
+
+val num_to_hex_string_length_2 = Q.store_thm("num_to_hex_string_length_2",
+  `∀x. 16 ≤ x ∧ x < 256 ⇒ (LENGTH (num_to_hex_string x) = 2)`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV (RAND_CONV EVAL))
+  \\ strip_tac \\ var_eq_tac \\ pop_assum mp_tac
+  \\ EVAL_TAC);
+
+val num_from_hex_string_length_2 = Q.store_thm("num_from_hex_string_length_2",
+  `num_from_hex_string [d1;d2] < 256`,
+  rw[ASCIInumbersTheory.num_from_hex_string_def,
+     ASCIInumbersTheory.s2n_def,
+     numposrepTheory.l2n_def]
+  \\ qspecl_then[`UNHEX d1`,`16`]mp_tac MOD_LESS
+  \\ impl_tac >- rw[]
+  \\ qspecl_then[`UNHEX d2`,`16`]mp_tac MOD_LESS
+  \\ impl_tac >- rw[]
+  \\ decide_tac);
+
+val num_from_hex_string_leading_0 = Q.store_thm("num_from_hex_string_leading_0",
+  `∀ls. ls ≠ [] ⇒ (num_from_hex_string (#"0" :: ls) = num_from_hex_string ls)`,
+  simp[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def]
+  \\ ho_match_mp_tac SNOC_INDUCT \\ simp[]
+  \\ simp[REVERSE_SNOC]
+  \\ simp[numposrepTheory.l2n_def]
+  \\ rw[]
+  \\ Cases_on`ls` \\ fs[numposrepTheory.l2n_def]
+  \\ EVAL_TAC);
+
+val num_from_hex_string_length_2_less_16 = Q.store_thm("num_from_hex_string_length_2_less_16",
+  `∀h1 h2. isHexDigit h1 ⇒ num_from_hex_string [h1;h2] < 16 ⇒ h1 = #"0"`,
+  rw[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def,
+     numposrepTheory.l2n_def]
+  \\ Cases_on`UNHEX h1 MOD 16` \\ fs[]
+  \\ fs[MOD_EQ_0_DIVISOR]
+  \\ fs[stringTheory.isHexDigit_def]
+  \\ Cases_on`h1` \\ fs[]
+  >- (
+    `MEM (n - 48) (COUNT_LIST (58 - 48))` by simp[MEM_COUNT_LIST]
+    \\ pop_assum mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ strip_tac
+    \\ rfs[SUB_RIGHT_EQ]
+    \\ fs[ASCIInumbersTheory.UNHEX_def])
+  >- (
+    `MEM (n - 97) (COUNT_LIST (103 - 97))` by simp[MEM_COUNT_LIST]
+    \\ pop_assum mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ strip_tac
+    \\ rfs[SUB_RIGHT_EQ]
+    \\ fs[ASCIInumbersTheory.UNHEX_def]
+    \\ `n = 97` by decide_tac
+    \\ fs[ASCIInumbersTheory.UNHEX_def] )
+  \\ `MEM (n - 65) (COUNT_LIST (71 - 65))` by simp[MEM_COUNT_LIST]
+  \\ pop_assum mp_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ strip_tac
+  \\ rfs[SUB_RIGHT_EQ]
+  \\ fs[ASCIInumbersTheory.UNHEX_def]
+  \\ `n = 65` by decide_tac
+  \\ fs[ASCIInumbersTheory.UNHEX_def] )
+
+val num_from_hex_string_num_to_hex_string = Q.store_thm("num_from_hex_string_num_to_hex_string[simp]",
+  `num_from_hex_string (num_to_hex_string n) = n`,
+  ASCIInumbersTheory.num_hex_string
+  |> SIMP_RULE std_ss [combinTheory.o_DEF,FUN_EQ_THM]
+  |> MATCH_ACCEPT_TAC)
+
 val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
   `(∀x y. f x = f y ⇒ x = y)
    ⇒ ∀o1 o2.
@@ -105,6 +205,110 @@ val exp_ind =
   |> UNDISCH_ALL |> CONJUNCT1
   |> DISCH_ALL |> Q.GEN`P`
 (* -- *)
+
+val encode_control_def = Define`
+  (encode_control "" = "") ∧
+  (encode_control (c::cs) =
+    if c = #"\\" then c::c::(encode_control cs)
+    else if isPrint c then c::(encode_control cs)
+    else (#"\\" :: ((if ORD c < 16 then "0" else "")++num_to_hex_string (ORD c)))
+         ++(encode_control cs))`;
+
+val decode_control_def = Define`
+  (decode_control "" = SOME "") ∧
+  (decode_control (c::cs) =
+     if c = #"\\" then
+     case cs of
+     | #"\\"::cs => OPTION_MAP (CONS c) (decode_control cs)
+     | d1::d2::cs =>
+       OPTION_IGNORE_BIND (OPTION_GUARD
+         (isHexDigit d1 ∧ isHexDigit d2
+          ∧ (isAlpha d1 ⇒ isUpper d1)
+          ∧ (isAlpha d2 ⇒ isUpper d2)
+          ∧ ¬isPrint (CHR (num_from_hex_string[d1;d2]))))
+       (OPTION_MAP (CONS (CHR (num_from_hex_string[d1;d2]))) (decode_control cs))
+     | _ => NONE
+     else OPTION_IGNORE_BIND (OPTION_GUARD (isPrint c)) (OPTION_MAP (CONS c) (decode_control cs)))`;
+
+val EVERY_isPrint_encode_control = Q.store_thm("EVERY_isPrint_encode_control",
+  `∀ls. EVERY isPrint (encode_control ls)`,
+  Induct \\ rw[encode_control_def]
+  \\ TRY (qmatch_rename_tac`isPrint _` \\ EVAL_TAC)
+  \\ metis_tac[EVERY_isHexDigit_num_to_hex_string,MONO_EVERY,isHexDigit_isPrint,EVERY_CONJ]);
+
+val decode_encode_control = Q.store_thm("decode_encode_control[simp]",
+  `∀ls. decode_control (encode_control ls) = SOME ls`,
+  Induct \\ rw[encode_control_def,decode_control_def]
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ rw[decode_control_def,encode_control_def]
+  \\ fs[] \\ rw[decode_control_def]
+  \\ imp_res_tac num_to_hex_string_length_1
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_1] \\ rfs[]
+  \\ fs[]
+  \\ fs[arithmeticTheory.NOT_LESS]
+  \\ qspec_then`h`strip_assume_tac stringTheory.ORD_BOUND
+  \\ imp_res_tac num_to_hex_string_length_2
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rfs[]
+  \\ rw[] \\ fs[] \\ rw[]
+  \\ simp[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ qspec_then`ORD h`strip_assume_tac EVERY_isHexDigit_num_to_hex_string
+  \\ rfs[]
+  \\ TRY (pop_assum mp_tac \\ EVAL_TAC \\ NO_TAC)
+  \\ simp[num_from_hex_string_leading_0]
+  \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+  \\ simp[stringTheory.CHR_ORD]
+  \\ rpt conj_tac
+  \\ TRY (EVAL_TAC \\ NO_TAC));
+
+val encode_decode_control = Q.store_thm("encode_decode_control",
+  `∀ls r. decode_control ls = SOME r ⇒ ls = encode_control r`,
+  ho_match_mp_tac (theorem"decode_control_ind")
+  \\ rw[]
+  >- ( fs[decode_control_def] \\ rw[encode_control_def] )
+  \\ pop_assum mp_tac
+  \\ reverse(rw[Once decode_control_def])
+  >- (
+    fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+    \\ rw[encode_control_def] )
+  \\ last_x_assum mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  >- (
+    rw[] \\ fs[]
+    \\ rw[encode_control_def] )
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ simp[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ rw[] \\ fs[] \\ rw[] \\ fs[] \\ rw[]
+  \\ simp[encode_control_def]
+  \\ IF_CASES_TAC
+  >- ( fs[stringTheory.isPrint_def] )
+  \\ simp[num_from_hex_string_length_2]
+  \\ fs[stringTheory.isHexDigit_def]
+  \\ rpt (match1_tac(mg.aub`ORD c_`,(fn(a,t)=>Cases_on`^(t"c")`\\fs[])))
+  \\ match_tac([mg.au`l_:num ≤ n_`,
+                mg.au`n_:num ≤ h_`],
+               (fn(a,t)=>
+                 `MEM ((^(t"n")) - (^(t"l"))) (COUNT_LIST (SUC (^(t"h")) - (^(t"l"))))`
+                 by simp[MEM_COUNT_LIST]
+                 \\ pop_assum mp_tac
+                 \\ CONV_TAC(LAND_CONV EVAL)))
+  \\ strip_tac \\ fs[SUB_RIGHT_EQ]
+  \\ TRY(match_tac([mg.au`l_:num ≤ n_`,
+                    mg.au`n_:num ≤ l_`],
+               (fn(a,t)=>`^(t"l") = ^(t"n")` by decide_tac)))
+  \\ fs[stringTheory.isPrint_def,stringTheory.isAlpha_def,stringTheory.isLower_def,stringTheory.isUpper_def]
+  \\ match_tac([mg.au`l_:num ≤ n_`,
+                mg.au`n_:num ≤ h_`],
+               (fn(a,t)=>
+                 `MEM ((^(t"n")) - (^(t"l"))) (COUNT_LIST (SUC (^(t"h")) - (^(t"l"))))`
+                 by simp[MEM_COUNT_LIST]
+                 \\ pop_assum mp_tac
+                 \\ CONV_TAC(LAND_CONV EVAL)))
+  \\ strip_tac \\ fs[SUB_RIGHT_EQ]
+  \\ TRY(match_tac([mg.au`l_:num ≤ n_`,
+                    mg.au`n_:num ≤ l_`],
+               (fn(a,t)=>`^(t"l") = ^(t"n")` by decide_tac)))
+  \\ fs[]);
 
 
 val odestSXSTR_def = Define`
