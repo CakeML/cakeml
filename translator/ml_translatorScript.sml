@@ -74,8 +74,12 @@ val NUM_def = Define `
 val BOOL_def = Define `
   BOOL b = \v:v. (v = Boolv b)`;
 
-val WORD8_def = Define `
-  WORD8 w = \v:v. (v = Litv (Word8 w))`;
+val WORD_def = Define `
+  WORD (w:'a word) =
+    \v:v. dimindex (:'a) <= 64 /\
+          (v = Litv (if dimindex (:'a) <= 8
+                     then Word8 (w2w w << (8 - dimindex (:'a)))
+                     else Word64 (w2w w << (64 - dimindex (:'a)))))`;
 
 val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
@@ -228,10 +232,6 @@ val Eval_Val_BOOL_F = store_thm("Eval_Val_BOOL_F",
   \\ fs [do_app_def] \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ EVAL_TAC);
 
-val Eval_Val_WORD8 = store_thm("Eval_Val_WORD8",
-  ``!w. Eval env (Lit (Word8 w)) (WORD8 w)``,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,WORD8_def,Eval_def]);
-
 val Eval_Val_CHAR = store_thm("Eval_Val_CHAR",
   ``!c. Eval env (Lit (Char c)) (CHAR c)``,
   SIMP_TAC (srw_ss()) [CHAR_def,Eval_def,Once evaluate_cases])
@@ -272,15 +272,26 @@ val EqualityType_def = Define `
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)`;
 
+val Eq_lemma = prove(
+  ``n < dimword (:'a) /\ dimindex (:α) <= k ==>
+    (n * 2n ** (k − dimindex (:α))) < 2 ** k``,
+  fs [dimword_def] \\ rw []
+  \\ fs [LESS_EQ_EXISTS] \\ rw [] \\ fs [EXP_ADD]
+  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
+
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\
-    EqualityType BOOL /\ EqualityType WORD8 /\
+    EqualityType BOOL /\ EqualityType WORD /\
     EqualityType CHAR /\ EqualityType STRING_TYPE /\
     EqualityType UNIT_TYPE``,
   EVAL_TAC \\ fs [no_closures_def,
     types_match_def, lit_same_type_def,
     stringTheory.ORD_11,mlstringTheory.explode_11]
-  \\ SRW_TAC [] [] \\ EVAL_TAC);
+  \\ SRW_TAC [] [] \\ EVAL_TAC
+  \\ fs [w2w_def] \\ Cases_on `x1` \\ Cases_on `x2`
+  \\ fs [WORD_MUL_LSL,word_mul_n2w]
+  \\ imp_res_tac Eq_lemma \\ fs []
+  \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]);
 
 val types_match_list_length = prove(
   ``!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2``,
@@ -784,53 +795,325 @@ val Eval_NUM_EQ_0 = store_thm("Eval_NUM_EQ_0",
   \\ `(n = 0) = (&n <= 0)` by intLib.COOPER_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
 
-(* word8 conversions *)
 
-val Eval_w82n = store_thm("Eval_w82n",
-  ``Eval env x1 (WORD8 w) ==> Eval env (App W8toInt [x1]) (NUM (w2n w))``,
-  rw[Eval_def,WORD8_def]
+(* word operations *)
+
+val Eval_word_and = store_thm("Eval_word_and",
+  ``Eval env x1 (WORD (w1:'a word)) /\
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Andw) [x1;x2])
+      (WORD (word_and w1 w2))``,
+  rw[Eval_def,WORD_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b3/\b1/\b4``]
+  \\ asm_exists_tac \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
+  \\ fs [GSYM WORD_w2w_OVER_BITWISE]);
+
+val Eval_word_or = store_thm("Eval_word_or",
+  ``Eval env x1 (WORD (w1:'a word)) /\
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Orw) [x1;x2])
+      (WORD (word_or w1 w2))``,
+  rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b3/\b1/\b4``]
+  \\ asm_exists_tac \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
+  \\ fs [GSYM WORD_w2w_OVER_BITWISE]);
+
+val Eval_word_xor = store_thm("Eval_word_xor",
+  ``Eval env x1 (WORD (w1:'a word)) /\
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Xor) [x1;x2])
+      (WORD (word_xor w1 w2))``,
+  rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b3/\b1/\b4``]
+  \\ asm_exists_tac \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
+  \\ fs [GSYM WORD_w2w_OVER_BITWISE]);
+
+val DISTRIB_ANY = prove(
+  ``(p * m + p * n = p * (m + n)) /\
+    (p * m + n * p = p * (m + n)) /\
+    (m * p + p * n = p * (m + n)) /\
+    (m * p + n * p = p * (m + n:num)) /\
+    (p * m - p * n = p * (m - n)) /\
+    (p * m - n * p = p * (m - n)) /\
+    (m * p - p * n = p * (m - n)) /\
+    (m * p - n * p = p * (m - n:num))``,
+  fs [LEFT_ADD_DISTRIB]);
+
+val MOD_COMMON_FACTOR_ANY = prove(
+  ``!n p q. 0 < n ∧ 0 < q ==>
+            ((n * p) MOD (n * q) = n * p MOD q) /\
+            ((p * n) MOD (n * q) = n * p MOD q) /\
+            ((n * p) MOD (q * n) = n * p MOD q) /\
+            ((p * n) MOD (q * n) = n * p MOD q)``,
+  fs [GSYM MOD_COMMON_FACTOR]);
+
+val Eval_word_add_lemma = prove(
+  ``dimindex (:'a) <= k ==>
+    (2 ** (k − dimindex (:α)) * q MOD dimword (:α)) MOD 2 ** k =
+    (2 ** (k − dimindex (:α)) * q) MOD 2 ** k``,
+  rw [] \\ fs [LESS_EQ_EXISTS]
+  \\ rw [EXP_ADD,dimword_def,MOD_COMMON_FACTOR_ANY]);
+
+val Eval_word_add = store_thm("Eval_word_add",
+  ``Eval env x1 (WORD (w1:'a word)) /\
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Add) [x1;x2])
+      (WORD (word_add w1 w2))``,
+  rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b3/\b1/\b4``]
+  \\ asm_exists_tac \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
+  \\ Cases_on `w1` \\ Cases_on `w2`
+  \\ fs [word_add_n2w,w2w_def,WORD_MUL_LSL,word_mul_n2w,GSYM RIGHT_ADD_DISTRIB]
+  \\ imp_res_tac Eval_word_add_lemma \\ fs []);
+
+val Eval_word_sub_lemma = prove(
+  ``dimindex (:'a) <= k /\ n' < dimword (:α) ==>
+    (n * 2 ** (k − dimindex (:α)) +
+      (2 ** k − (n' * 2 ** (k − dimindex (:α))) MOD 2 ** k) MOD 2 ** k) MOD 2 ** k =
+    ((n + dimword (:α) − n') * 2 ** (k − dimindex (:α))) MOD 2 ** k``,
+  fs [LESS_EQ_EXISTS,dimword_def] \\ rw []
+  \\ fs [RIGHT_ADD_DISTRIB,RIGHT_SUB_DISTRIB,EXP_ADD]
+  \\ full_simp_tac std_ss [DISTRIB_ANY,MOD_COMMON_FACTOR_ANY] \\ AP_TERM_TAC
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [Once (GSYM MOD_PLUS)]
+  \\ `n + 2 ** dimindex (:α) − n' = n + (2 ** dimindex (:α) − n')` by decide_tac
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs [Once (GSYM MOD_PLUS)]);
+
+val Eval_word_sub = store_thm("Eval_word_sub",
+  ``Eval env x1 (WORD (w1:'a word)) /\
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Sub) [x1;x2])
+      (WORD (word_sub w1 w2))``,
+  rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b3/\b1/\b4``]
+  \\ asm_exists_tac \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
+  \\ Cases_on `w1` \\ Cases_on `w2`
+  \\ fs [word_add_n2w,w2w_def,WORD_MUL_LSL,word_mul_n2w,GSYM RIGHT_ADD_DISTRIB]
+  \\ once_rewrite_tac [WORD_ADD_COMM]
+  \\ fs [GSYM (SIMP_CONV (srw_ss()) [word_sub_def] ``w-v:'a word``)]
+  \\ fs [word_add_n2w,w2w_def,WORD_MUL_LSL,word_mul_n2w,GSYM RIGHT_ADD_DISTRIB]
+  \\ imp_res_tac Eval_word_add_lemma
+  \\ fs [word_2comp_n2w,word_add_n2w]
+  \\ imp_res_tac Eval_word_sub_lemma \\ fs []);
+
+val w2n_w2w_8 = prove(
+  ``dimindex (:α) < 8 ==>
+    w2n ((w2w:'a word ->word8) w << (8 − dimindex (:α)) >>>
+            (8 − dimindex (:α))) = w2n w``,
+  Cases_on `w` \\ fs [w2n_lsr,w2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
+  \\ rw []  \\ drule (DECIDE ``n<m ==> n <= m:num``)
+  \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw []
+  \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 8``),EXP_ADD]
+  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+
+val w2n_w2w_64 = prove(
+  ``dimindex (:α) < 64 ==>
+    w2n ((w2w:'a word ->word64) w << (64 − dimindex (:α)) >>>
+            (64 − dimindex (:α))) = w2n w``,
+  Cases_on `w` \\ fs [w2n_lsr,w2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
+  \\ rw []  \\ drule (DECIDE ``n<m ==> n <= m:num``)
+  \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw []
+  \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 64``),EXP_ADD]
+  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+
+val Eval_w2n = store_thm("Eval_w2n",
+  ``Eval env x1 (WORD (w:'a word)) ==>
+    Eval env
+      (if dimindex (:'a) = 8 then
+         App (WordToInt W8) [x1]
+       else if dimindex (:'a) = 64 then
+         App (WordToInt W64) [x1]
+       else if dimindex (:'a) < 8 then
+         App (WordToInt W8) [App (Shift W8 Lsr (8 - dimindex (:'a))) [x1]]
+       else
+         App (WordToInt W64) [App (Shift W64 Lsr (64 - dimindex (:'a))) [x1]])
+      (NUM (w2n w))``,
+  rw[Eval_def,WORD_def] \\ fs []
+  \\ TRY (* takes care of = 8 and = 64 cases *)
+   (rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b1/\b3/\b4``]
+    \\ asm_exists_tac \\ simp[]
+    \\ fs [empty_state_def,state_component_equality]
+    \\ fs [do_app_def,NUM_def,INT_def,w2w_def]
+    \\ assume_tac w2n_lt \\ rfs [dimword_def])
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
   \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b1/\b3/\b4``]
-  \\ asm_exists_tac \\ simp[]
-  \\ rw[do_app_cases] \\ EVAL_TAC);
+  \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality,do_app_def]
+  \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
-val Eval_w82i = Q.store_thm("Eval_w82i",
-  `Eval env x1 (WORD8 w) ==>
-   Eval env (Let (SOME "i") (App W8toInt [x1])
-               (If (App (Opb Lt) [Var (Short "i"); Lit (IntLit 128)])
-                  (Var (Short "i"))
-                  (App (Opn Minus) [Var (Short "i"); Lit (IntLit 256)])))
-     (INT (w2i w))`,
-  `w2i w = let i = & (w2n w) in if i < 128 then i else i - 256`
-       by fs [integer_wordTheory.w2i_eq_w2n]
-  \\ full_simp_tac std_ss [] \\ strip_tac
-  \\ match_mp_tac (GEN_ALL Eval_Let)
-  \\ imp_res_tac Eval_w82n \\ fs [NUM_def]
-  \\ asm_exists_tac \\ fs [] \\ rpt strip_tac
-  \\ match_mp_tac (GEN_ALL (MP_CANON Eval_If))
-  \\ rpt (qexists_tac `T`) \\ rpt strip_tac
-  \\ TRY (match_mp_tac (MP_CANON Eval_INT_SUB))
-  \\ TRY (match_mp_tac (MP_CANON Eval_NUM_LESS))
-  \\ fs [NUM_def,Eval_Var_SIMP,Eval_Val_INT]);
-
-val Eval_i2w8 = Q.store_thm("Eval_i2w8",
-  `Eval env x1 (INT i) ==> Eval env (App W8fromInt [x1]) (WORD8 (i2w i))`,
-  rw[Eval_def,INT_def]
+val Eval_n2w = store_thm("Eval_n2w",
+  ``dimindex (:'a) <= 64 ==>
+    Eval env x1 (NUM n) ==>
+    Eval env
+      (if dimindex (:'a) = 8 then
+         App (WordFromInt W8) [x1]
+       else if dimindex (:'a) = 64 then
+         App (WordFromInt W64) [x1]
+       else if dimindex (:'a) < 8 then
+         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
+       else
+         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
+      (WORD ((n2w n):'a word))``,
+  rw[Eval_def,WORD_def] \\ fs [] \\ rfs []
+  \\ TRY (* takes care of = 8 and = 64 cases *)
+   (rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\b1/\b3``]
+    \\ asm_exists_tac \\ simp[]
+    \\ fs [empty_state_def,state_component_equality]
+    \\ fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def]
+    \\ fs [dimword_def] \\ NO_TAC)
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases)]
-  \\ rw[do_app_cases,PULL_EXISTS,WORD8_def]
-  \\ ONCE_REWRITE_TAC[CONJ_COMM]
-  \\ asm_exists_tac \\ rw[]
-  \\ EVAL_TAC);
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b1/\b3/\b4``]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality,do_app_def,NUM_def,INT_def]
+  \\ fs [shift8_lookup_def,shift64_lookup_def,
+         w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ rw [dimword_def] \\ TRY (drule (DECIDE ``n<m ==> n <= m:num``))
+  \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw [] \\ fs []
+  \\ full_simp_tac bool_ss
+       [GSYM (EVAL ``2n ** 8``),GSYM (EVAL ``2n ** 64``),EXP_ADD]
+  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
 
-val Eval_n2w8 = Q.store_thm("Eval_n2w8",
-  `Eval env x1 (NUM n) ==> Eval env (App W8fromInt [x1]) (WORD8 (n2w n))`,
-  rw[NUM_def]
-  \\ drule Eval_i2w8
-  \\ simp[integer_wordTheory.i2w_def]);
+val Eval_word_lsl = store_thm("Eval_word_lsl",
+  ``Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Lsl n) [x1])
+      (WORD (word_lsl w1 n))``,
+  rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\b3/\b1``]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [LESS_EQ_EXISTS]
+  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+  \\ fs [fcpTheory.CART_EQ,word_lsl_def,fcpTheory.FCP_BETA,w2w] \\ rw []
+  \\ Cases_on `w1 ' (i − (n + p))` \\ fs []);
+
+val Eval_word_lsr = store_thm("Eval_word_lsr",
+  ``Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+              let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+                if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                  App (Shift w Lsr n) [x1]
+                else
+                  App (Shift w Lsl k) [App (Shift w Lsr (n+k)) [x1]])
+      (WORD (word_lsr w1 n))``,
+  rw[Eval_def,WORD_def]
+  \\ TRY (* takes care of = 8 and = 64 cases *)
+   (rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\b3/\b1``]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [empty_state_def,state_component_equality]
+    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
+    \\ eq_tac \\ rfs [w2w] \\ rw [] \\ rfs [w2w] \\ NO_TAC)
+  \\ fs []
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b1/\b3/\b4``]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [LESS_EQ_EXISTS,do_app_def]
+  \\ fs [shift8_lookup_def,shift64_lookup_def]
+  \\ fs [fcpTheory.CART_EQ,word_lsr_def,word_lsl_def,fcpTheory.FCP_BETA,w2w]
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+  \\ fs [fcpTheory.FCP_BETA,w2w]
+  \\ imp_res_tac (DECIDE  ``p <= i ==> (i - p + n = (i + n) - p:num)``) \\ fs []
+  \\ TRY (`i − p + (n + p) < 8` by decide_tac \\ fs [fcpTheory.FCP_BETA,w2w])
+  \\ TRY (`i − p + (n + p) < 64` by decide_tac \\ fs [fcpTheory.FCP_BETA,w2w]));
+
+val Eval_word_asr = store_thm("Eval_word_lsr",
+  ``Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+              let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+                if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                  App (Shift w Asr n) [x1]
+                else
+                  App (Shift w Lsl k) [App (Shift w Asr (n+k)) [x1]])
+      (WORD (word_asr w1 n))``,
+  rw[Eval_def,WORD_def]
+  \\ TRY (* takes care of = 8 and = 64 cases *)
+   (rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once evaluate_cases,PULL_EXISTS]
+    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\b3/\b1``]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [empty_state_def,state_component_equality]
+    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
+    \\ fs [word_msb_def] \\ rfs [w2w] \\ rw [] \\ rfs [w2w] \\ NO_TAC)
+  \\ fs []
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4<=>b2/\b1/\b3/\b4``]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [empty_state_def,state_component_equality]
+  \\ fs [LESS_EQ_EXISTS,do_app_def]
+  \\ fs [shift8_lookup_def,shift64_lookup_def]
+  \\ fs [fcpTheory.CART_EQ,word_asr_def,word_lsl_def,fcpTheory.FCP_BETA,w2w]
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+  \\ fs [fcpTheory.FCP_BETA,w2w,word_msb_def]
+  \\ imp_res_tac (DECIDE ``8 = k ==> 7 = k - 1n``) \\ fs []
+  \\ imp_res_tac (DECIDE ``64 = k ==> 63 = k - 1n``) \\ fs []);
 
 (* list definition *)
 
