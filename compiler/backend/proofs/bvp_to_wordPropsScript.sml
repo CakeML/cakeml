@@ -2505,19 +2505,31 @@ val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
 
 val make_header_tag_mask = prove(
-  ``k < 2 ** (dimindex (:α) − (conf.len_size + 2)) ==>
+  ``k < 2 ** (dimindex (:α) − (c.len_size + 2)) ==>
     (tag_mask c && make_header c ((n2w k):'a word) n) = n2w (4 * k)``,
-  cheat); (* local word proof? *)
+  srw_tac [wordsLib.WORD_MUL_LSL_ss, boolSimps.LET_ss]
+       [tag_mask_def, make_header_def, GSYM wordsTheory.word_mul_n2w]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+  \\ Cases_on `2 <= i`
+  \\ simp []
+  \\ Cases_on `dimindex (:'a) <= i + c.len_size`
+  \\ simp []
+  \\ `?p. dimindex(:'a) = i + (p + 1)`
+  by metis_tac [arithmeticTheory.LESS_ADD_1]
+  \\ fs []
+  \\ `?q. c.len_size = p + 1 + q`
+  by metis_tac [arithmeticTheory.LESS_EQUAL_ADD]
+  \\ fs []
+  \\ `i - (q + 2) <= i - 2` by decide_tac
+  \\ metis_tac [bitTheory.NOT_BIT_GT_TWOEXP, bitTheory.TWOEXP_MONO2,
+                arithmeticTheory.LESS_LESS_EQ_TRANS]
+  );
 
 val make_header_and_2 = prove(
   ``(2w && make_header c w n) = 2w``,
   fs [make_header_def]
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
   \\ Cases_on `i=1` \\ fs []);
-
-val BIT0_ODD = store_thm("BIT0_ODD",
-  ``BIT 0 m = ODD m``,
-  fs [bitTheory.BIT_def,bitTheory.BITS_THM2,bitTheory.ODD_MOD2_LEM]);
 
 val encode_header_tag_mask = store_thm("encode_header_tag_mask",
   ``encode_header c (4 * tag) n = SOME (w:'a word) /\ good_dimindex (:'a) ==>
@@ -2530,7 +2542,7 @@ val encode_header_tag_mask = store_thm("encode_header_tag_mask",
   \\ match_mp_tac (GSYM WORD_ADD_OR)
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
   \\ fs [bitTheory.BIT_DIV2 |> Q.SPEC `0` |> SIMP_RULE std_ss [ADD1]
-           |> GSYM,BIT0_ODD]
+           |> GSYM,bitTheory.BIT0_ODD]
   \\ rewrite_tac [DECIDE ``16 * n = (8 * n) * 2n``,
         MATCH_MP MULT_DIV (DECIDE ``0<2n``),ODD_MULT] \\ fs []);
 
@@ -2548,7 +2560,7 @@ val LESS_DIV_16_IMP = prove(
 
 val MULT_BIT0 = prove(
   ``BIT 0 (m * n) <=> BIT 0 m /\ BIT 0 n``,
-  fs [BIT0_ODD,ODD_MULT]);
+  fs [bitTheory.BIT0_ODD,ODD_MULT]);
 
 val memory_rel_test_nil_eq = store_thm("memory_rel_test_nil_eq",
   ``memory_rel c be refs sp st m dm ((Block tag l,w:'a word_loc)::rest) /\
@@ -2568,15 +2580,12 @@ val memory_rel_test_none_eq = store_thm("memory_rel_test_none_eq",
   strip_tac \\ drule memory_rel_Block_IMP \\ fs [] \\ rw []
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs [LENGTH_NIL,PULL_EXISTS]);
 
-val not_bit_lt_2 = Q.prove(
-  `!i n. n < 2 ==> ~BIT (i + 1) n`,
-  metis_tac [EVAL ``2n ** 1``, DECIDE ``1 <= i + 1n``, bitTheory.TWOEXP_MONO2,
-     arithmeticTheory.LESS_LESS_EQ_TRANS, bitTheory.NOT_BIT_GT_TWOEXP])
-
 val not_bit_lt_2exp = Q.prove(
   `!p x n. n < 2 ** (p + 1) ==> ~BIT (p + (x + 1)) n`,
   metis_tac [DECIDE ``p + 1 <= p + (x + 1n)``, bitTheory.TWOEXP_MONO2,
      arithmeticTheory.LESS_LESS_EQ_TRANS, bitTheory.NOT_BIT_GT_TWOEXP])
+
+val not_bit_lt_2 = not_bit_lt_2exp |> Q.SPEC `0` |> SIMP_RULE (srw_ss()) []
 
 val encode_header_EQ = store_thm("encode_header_EQ",
   ``encode_header c t1 l1 = SOME (w1:'a word) /\
