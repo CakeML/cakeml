@@ -3,6 +3,20 @@ open set_sepTheory ml_translatorTheory;
 
 val _ = new_theory "ml_cf";
 
+(* Utils *)
+val SPLIT3_def = Define `
+  SPLIT3 (s:'a set) (u,v,w) =
+    ((u UNION v UNION w = s) /\
+     DISJOINT u v /\ DISJOINT v w /\ DISJOINT u w)`;
+
+val SPLIT_ss = rewrites [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,
+                         UNION_DEF,SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,
+                         IN_DIFF];
+
+val SPLIT_TAC = FULL_SIMP_TAC (pure_ss++SPLIT_ss) [] \\ METIS_TAC [];
+val SPLIT2_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
+                         SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
+                 \\ metis_tac [];
 (* Heaps *)
 val _ = type_abbrev("heap", ``:(num # v semanticPrimitives$store_v) -> bool``);
 
@@ -122,12 +136,6 @@ val store2heap_LUPDATE = Q.prove (
 val st2heap_def = Define `
   st2heap (:'ffi) (st: 'ffi state) = store2heap st.refs`;
 
-(* Utils *)
-val SPLIT3_def = Define `
-  SPLIT3 (s:'a set) (u,v,w) =
-    ((u UNION v UNION w = s) /\
-     DISJOINT u v /\ DISJOINT v w /\ DISJOINT u w)`;
-
 (* Heap assertions *)
 val _ = type_abbrev("hprop", ``:heap -> bool``);
 
@@ -154,6 +162,47 @@ val local_def = Define `
 
 val is_local_def = Define `
   is_local cf = (cf = local cf)`;
+
+(* Properties of [local] *)
+
+val local_elim = Q.prove (
+  `!cf env H Q. cf env H Q ==> local cf env H Q`,
+  fs [local_def] \\ rpt strip_tac \\
+  Q.LIST_EXISTS_TAC [`H`, `emp`, `emp`, `Q`] \\
+  fs [SEP_IMPPOST_def, SEP_IMP_def, STAR_def, SPLIT_def, emp_def]
+);
+
+val local_local = Q.prove (
+  `!cf. local (local cf) = local cf`,
+  qsuff_tac `!cf env H Q. local (local cf) env H Q = local cf env H Q`
+  THEN1 (metis_tac []) \\
+  rpt strip_tac \\ eq_tac \\
+  fs [local_elim] \\
+  fs [local_def] \\ rpt strip_tac \\ first_x_assum drule \\
+  disch_then (qx_choosel_then [`H1`, `H2`, `Hg`, `Q1`] strip_assume_tac) \\
+  fs [STAR_def] \\ qcase_tac `SPLIT h (h1, h2)` \\
+  first_x_assum drule \\
+  disch_then (qx_choosel_then [`H1'`, `H2'`, `Hg'`, `Q1'`] strip_assume_tac) \\
+  Q.LIST_EXISTS_TAC [`H1'`, `H2' * H2`, `Hg * Hg'`, `Q1'`] \\ fs [PULL_EXISTS] \\
+  qcase_tac `SPLIT h1 (h11, h12)` \\
+  `SPLIT h (h11, h12 UNION h2)` by SPLIT_TAC \\
+  `(H2' * H2) (h12 UNION h2)` by (fs [STAR_def] \\ SPLIT_TAC) \\
+  asm_exists_tac \\ fs [] \\
+  fs [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `x` \\
+  rpt (first_x_assum (qspec_then `x` assume_tac)) \\
+  rewrite_tac [STAR_ASSOC] \\
+  match_mp_tac SEP_IMP_TRANS \\ qexists_tac `Q1 x * Hg' * H2` \\ strip_tac
+  THEN1 (match_mp_tac SEP_IMP_STAR \\ fs [SEP_IMP_REFL]) \\
+  match_mp_tac SEP_IMP_TRANS \\ qexists_tac `Q x * Hg * Hg'` \\ fs [SEP_IMP_REFL] \\
+  qsuff_tac `SEP_IMP ((Q1 x * H2) * Hg') ((Q x * Hg) * Hg')`
+  THEN1 fs [AC STAR_ASSOC STAR_COMM] \\
+  match_mp_tac SEP_IMP_STAR \\ fs [SEP_IMP_REFL]
+);
+
+val local_is_local = Q.prove (
+  `!F. is_local (local F) = T`,
+  metis_tac [is_local_def, local_local]
+);
 
 (** App *)
 
@@ -503,14 +552,6 @@ val sound_def = Define `
         SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g) /\
         evaluate F env st e (st', Rval v) /\
         Q v h_f`;
-
-val SPLIT_ss = rewrites [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
-                         SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF];
-
-val SPLIT_TAC = FULL_SIMP_TAC (pure_ss++SPLIT_ss) [] \\ METIS_TAC [];
-val SPLIT2_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
-                         SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
-                 \\ metis_tac [];
 
 val star_split = Q.prove (
   `!H1 H2 H3 H4 h1 h2 h3 h4.
