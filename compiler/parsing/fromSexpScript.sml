@@ -810,7 +810,7 @@ val litsexp_def = Define`
   (litsexp (IntLit i) =
    if i < 0 then listsexp [SX_SYM "-"; SX_NUM (Num(-i))]
             else SX_NUM (Num i)) ∧
-  (litsexp (Char c) = listsexp [SX_SYM "char"; SX_STR [c]]) ∧
+  (litsexp (Char c) = listsexp [SX_SYM "char"; SEXSTR [c]]) ∧
   (litsexp (StrLit s) = SEXSTR s) ∧
   (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)]) ∧
   (litsexp (Word64 w) = listsexp [SX_SYM "word64"; SX_NUM (w2n w)])`;
@@ -1655,7 +1655,9 @@ val opsexp_valid = Q.store_thm("opsexp_valid[simp]",
   `∀op. valid_sexp (opsexp op)`,
   Cases \\ simp[opsexp_def]
   \\ TRY (EVAL_TAC \\ NO_TAC)
-  \\ Cases_on`o'` \\ simp[opsexp_def]
+  \\ TRY(Cases_on`o'`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ EVAL_TAC);
 
 val lopsexp_valid = Q.store_thm("lopsexp_valid[simp]",
