@@ -12,17 +12,6 @@ val evaluate_ind = bigStepTheory.evaluate_ind;
 
 val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="bigStep"};
 
-(* TODO: move *)
-val LUPDATE_NIL = prove(
-  ``!xs n x. (LUPDATE x n xs = []) = (xs = [])``,
-  Cases \\ Cases_on `n` \\ FULL_SIMP_TAC (srw_ss()) [LUPDATE_def]);
-
-val ALL_DISTINCT_FLAT_REVERSE = prove(
-  ``!xs. ALL_DISTINCT (FLAT (REVERSE xs)) = ALL_DISTINCT (FLAT xs)``,
-  Induct \\ fs [ALL_DISTINCT_APPEND]
-  \\  fs [MEM_FLAT,PULL_EXISTS] \\ METIS_TAC []);
-(* -- *)
-
 (* Definitions *)
 
 val empty_state_def = Define`

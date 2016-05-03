@@ -204,7 +204,7 @@ val decode_word_def = Define`
    decode_word l =
    let (w, rest) = fetch_word l in
    let cond = (31 >< 28) w : word4 in
-   let s = SND (SetPassCondition cond ^dec_state_tm) in
+   let s = SetPassCondition cond ^dec_state_tm in
       (cond, FST (DecodeARM w s), rest)`
 
 val arm6_dec_aux_def = Define`

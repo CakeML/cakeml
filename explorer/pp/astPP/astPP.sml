@@ -726,10 +726,10 @@ fun stypeopqPrint sys d t pg str brk blk =
     >>str (toString ty)>>str ";"
   end;
 
-val _=add_astPP("stypeopqprint",``Stype_opq l t``,genPrint stypeopqPrint);
+val _ = add_astPP("stypeopqprint",``Stype_opq l t``,genPrint stypeopqPrint);
 
 (*Stabbrev*)
-val _ = add_astPP("stabbrevprint",``Sabbrev x y z``,genPrint (dtabbrevPrint));
+val _ = add_astPP("stabbrevprint",``Stabbrev x y z``,genPrint (dtabbrevPrint));
 
 (*Booleans - no special-casing required
 fun boolPrint b sys d t pg str brk blk =
@@ -749,7 +749,7 @@ fun astlistPrint sys d t pg str brk blk =
     printterms ls
   end;
 
-val _=add_astPP("astlistprint",``x:prog``,genPrint astlistPrint);
+val _=add_astPP("astlistprint",``x:ast$prog``,genPrint astlistPrint);
 
 fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())

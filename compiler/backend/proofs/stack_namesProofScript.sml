@@ -336,7 +336,7 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ fs [rename_state_def,state_component_equality]
   \\ `find_name f o LINV (find_name f) UNIV = I` by
    (imp_res_tac BIJ_LINV_INV \\ fs [FUN_EQ_THM])
-  \\ fs [GSYM IMAGE_COMPOSE] \\ fs [MAP_KEYS_COMPOSE]
+  \\ fs [GSYM IMAGE_COMPOSE] \\ fs [MAP_KEYS_BIJ_LINV]
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ rw[prog_comp_eta,ALOOKUP_MAP_gen,ALOOKUP_toAList,lookup_fromAList]);
 
