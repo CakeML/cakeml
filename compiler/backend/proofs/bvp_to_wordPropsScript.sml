@@ -9,7 +9,7 @@ val get_lowerbits_def = Define `
   (get_lowerbits conf _ = 1w)`;
 
 val _ = Datatype `
-  tag = BlockTag num | RefTag | BytesTag num | NumTag bool`;
+  tag = BlockTag num | RefTag | BytesTag num | NumTag bool | Word64Tag`;
 
 val BlockRep_def = Define `
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])`;
@@ -83,6 +83,17 @@ val small_int_def = Define `
 val BlockNil_def = Define `
   BlockNil n = n2w n << 4 + 2w`;
 
+val Word64Rep_def = Define`
+  Word64Rep (:'a) (w:word64) =
+    if dimindex (:'a) < 64 then
+      DataElement [] 2 (Word64Tag, [Word ((63 >< 32) w); Word ((31 >< 0) w)])
+    else
+      DataElement [] 1 (Word64Tag, [Word (((63 >< 0) w):'a word)])`;
+
+val Word64Rep_DataElement = Q.store_thm("Word64Rep_DataElement",
+  `∀a w. ∃l d. (Word64Rep a w:'a ml_el) = DataElement [] l d`,
+  Cases \\ rw[Word64Rep_def]);
+
 val v_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> v_size v <= v1_size vs``,
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
@@ -100,6 +111,9 @@ val v_inv_def = tDefine "v_inv" `
        F /\ (* TODO: remove this line, so that bignums are allowed *)
        ?ptr. (x = Pointer ptr (Word 0w)) /\
              (heap_lookup ptr heap = SOME (Bignum i))) /\
+  (v_inv (Word64 w) (x,f,heap) <=>
+    ?ptr. (x = Pointer ptr (Word 0w)) /\
+          (heap_lookup ptr heap = SOME (Word64Rep (:'a) w))) /\
   (v_inv (CodePtr n) (x,f,heap) <=>
      (x = Data (Loc n 0))) /\
   (v_inv (RefPtr n) (x,f,heap) <=>
@@ -117,6 +131,7 @@ val v_inv_def = tDefine "v_inv" `
 
 val get_refs_def = tDefine "get_refs" `
   (get_refs (Number _) = []) /\
+  (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
   (get_refs (RefPtr p) = [p]) /\
   (get_refs (Block tag vs) = FLAT (MAP get_refs vs))`
@@ -294,6 +309,13 @@ val v_inv_related = prove(
     \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,Bignum_def]
     \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
     \\ full_simp_tac std_ss [ADDR_MAP_def] \\ fs [])
+  THEN1
+   (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
+    \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def]
+    \\ full_simp_tac std_ss [gc_related_def]
+    \\ first_x_assum drule
+    \\ qspecl_then[`:'a`,`c`]strip_assume_tac Word64Rep_DataElement
+    \\ fs[ADDR_MAP_def])
   THEN1
    (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
     \\ Cases_on `l = []` \\ full_simp_tac std_ss []
@@ -649,6 +671,11 @@ val v_inv_SUBMAP = prove(
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,Bignum_def] \\ srw_tac [] []
     \\ imp_res_tac heap_store_rel_lemma \\ full_simp_tac std_ss [])
+  THEN1 (
+    rw[] \\ fs[v_inv_def]
+    \\ qspecl_then[`:'a`,`c`]strip_assume_tac Word64Rep_DataElement
+    \\ fs[]
+    \\ imp_res_tac heap_store_rel_lemma )
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
     \\ Cases_on `l = []` \\ full_simp_tac std_ss []
     \\ full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
@@ -904,8 +931,10 @@ val heap_store_RefBlock = prove(
 
 val NOT_isRefBlock = prove(
   ``~(isRefBlock (Bignum x)) /\
+    ~(isRefBlock (Word64Rep a w)) /\
     ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))``,
-  simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def,Bignum_def]);
+  simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def,Bignum_def]
+  \\ Cases_on`a` \\ EVAL_TAC \\ rw[]);
 
 val v_inv_Ref = prove(
   ``RefBlock_inv heap heap2 ==>
@@ -916,6 +945,9 @@ val v_inv_Ref = prove(
     \\ rpt strip_tac \\ full_simp_tac std_ss []
     \\ full_simp_tac std_ss [RefBlock_inv_def]
     \\ metis_tac [NOT_isRefBlock])
+  THEN1 (
+    fs[v_inv_def,RefBlock_inv_def]
+    \\ metis_tac[NOT_isRefBlock] )
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
     \\ Cases_on `l = []` \\ full_simp_tac std_ss []
     \\ full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
@@ -1116,6 +1148,12 @@ val v_inv_IMP = prove(
       v_inv conf y (x,f,ha ++ [Bytes be ys ws] ++ hb)``,
   completeInduct_on `v_size y` \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `y` \\ fs [v_inv_def] \\ rw [] \\ fs []
+  >- (
+    fs[heap_lookup_APPEND,heap_length_APPEND,Bytes_def,heap_length_def,el_length_def]
+    \\ rw[] \\ fs[]
+    \\ fs[heap_lookup_def]
+    \\ fs[Word64Rep_def]
+    \\ IF_CASES_TAC \\ fs[] )
   \\ qexists_tac `xs'` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ conj_tac THEN1
    (qpat_assum `LIST_REL _ _ _` mp_tac
