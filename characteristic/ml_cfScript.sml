@@ -544,45 +544,45 @@ val cf_def = tDefine "cf" `
         | Opn opn =>
           (case args of
             | [x1; x2] => cf_opn opn x1 x2
-            | _ => \env H Q. F)
+            | _ => local (\env H Q. F))
         | Opb opb =>
           (case args of
             | [x1; x2] => cf_opb opb x1 x2
-            | _ => \env H Q. F)
+            | _ => local (\env H Q. F))
         | Opapp =>
           (case args of
-             | [f; x] => cf_app2 (:'ffi) f x
-             | _ => \env H Q. F)
+            | [f; x] => cf_app2 (:'ffi) f x
+            | _ => local (\env H Q. F))
         | Opref => 
           (case args of
              | [x] => cf_ref x
-             | _ => \env H Q. F)
+             | _ => local (\env H Q. F))
         | Opassign => 
           (case args of
              | [r; x] => cf_assign r x
-             | _ => \env H Q. F)
+             | _ => local (\env H Q. F))
         | Opderef => 
           (case args of
              | [r] => cf_deref r
-             | _ => \env H Q. F)
+             | _ => local (\env H Q. F))
         | Aw8alloc =>
           (case args of
              | [n; w] => cf_aw8alloc n w
-             | _ => \env H Q. F)
+             | _ => local (\env H Q. F))
         | Aw8sub =>
           (case args of
              | [l; n] => cf_aw8sub l n
-             | _ => \env H Q. F)
+             | _ => local (\env H Q. F))
         | Aw8length =>
           (case args of
              | [l] => cf_aw8length l
-             | _ => \env H Q. F)
+             | _ => local (\env H Q. F))
         | Aw8update =>
           (case args of
              | [l; n; w] => cf_aw8update l n w
-             | _ => \env H Q. F)
-        | _ => \env H Q.F) /\
-  cf _ _ = \env H Q. F`
+             | _ => local (\env H Q. F))
+        | _ => local (\env H Q.F)) /\
+  cf _ _ = local (\env H Q. F)`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw [] \\
    Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def, Fun_body_def] \\
@@ -594,6 +594,23 @@ val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_le
                cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app2_def, cf_app_def, cf_ref_def, cf_assign_def,
                cf_deref_def];
+
+val cf_local = Q.prove (
+  `!e. is_local (cf (:'ffi) e)`,
+  qsuff_tac `!(r: 'ffi itself) e. is_local (cf (:'ffi) e)`
+  THEN1 (fs []) \\
+  recInduct cf_ind \\ rpt strip_tac \\
+  fs (local_local :: local_is_local :: cf_defs)
+  THEN1 (
+    Cases_on `opt` \\ Cases_on `e1` \\
+    fs [is_bound_Fun_def, Fun_body_def, Fun_param_def, SOME_val_def,
+        local_is_local]
+  )
+  THEN1 (
+    Cases_on `op` \\ fs [local_is_local] \\
+    every_case_tac \\ fs [local_is_local]
+  )
+);
 
 (* Soundness of cf *)
 
@@ -664,7 +681,7 @@ fun cf_evaluate_list_tac st =
 val cf_sound = Q.prove (
   `!(r: 'ffi itself) e. sound (:'ffi) e (cf (:'ffi) e)`,
   recInduct cf_ind \\ rpt strip_tac \\
-  rewrite_tac cf_defs \\ fs [] \\ rewrite_tac [sound_false]
+  rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
   THEN1 (
     (* Con *)
