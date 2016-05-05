@@ -207,7 +207,7 @@ val local_is_local = Q.prove (
 (** App *)
 
 val app_basic_def = Define `
-  app_basic (:'ffi) (f: v) (x: v) _ (H: hprop) (Q: v -> hprop) =
+  app_basic (:'ffi) (f: v) (x: v) (H: hprop) (Q: v -> hprop) =
     !(h: heap) (i: heap) (st: 'ffi state).
       SPLIT (st2heap (:'ffi) st) (h, i) ==> H h ==>
       ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state).
@@ -217,46 +217,46 @@ val app_basic_def = Define `
         evaluate F env st exp (st', Rval v')`;
 
 val app_basic_local = Q.prove(
-  `!f x. is_local (app_basic (:'ffi) f x)`,
+  `!f x. is_local (\env. app_basic (:'ffi) f x)`,
   cheat);
 
 val app_def = Define `
-  app (:'ffi) (f: v) ([]: v list) env (H: hprop) (Q: v -> hprop) = F /\
-  app (:'ffi) f [x] env H Q = app_basic (:'ffi) f x env H Q /\
-  app (:'ffi) f (x::xs) env H Q =
-    app_basic (:'ffi) f x env H
-      (\g. SEP_EXISTS H'. H' * (cond (app (:'ffi) g xs env H' Q)))`;
+  app (:'ffi) (f: v) ([]: v list) (H: hprop) (Q: v -> hprop) = F /\
+  app (:'ffi) f [x] H Q = app_basic (:'ffi) f x H Q /\
+  app (:'ffi) f (x::xs) H Q =
+    app_basic (:'ffi) f x H
+      (\g. SEP_EXISTS H'. H' * (cond (app (:'ffi) g xs H' Q)))`;
 
 val app_local = Q.prove(
-  `!f xs. is_local (app (:'ffi) f xs)`,
+  `!f xs. is_local (\env. app (:'ffi) f xs)`,
   cheat);
 
 
 val app_ref_def = Define `
-  app_ref (x: v) env H Q =
+  app_ref (x: v) H Q =
     !(r: num). SEP_IMP (H * one (r, Refv x)) (Q (Loc r))`;
 
 val app_assign_def = Define `
-  app_assign (r: num) (x: v) env H Q =
+  app_assign (r: num) (x: v) H Q =
     ?x' F.
       SEP_IMP H (F * one (r, Refv x')) /\
       SEP_IMP (F * one (r, Refv x)) (Q (Conv NONE []))`;
 
 val app_deref_def = Define `
-  app_deref (r: num) env H Q =
+  app_deref (r: num) H Q =
     ?x F.
       SEP_IMP H (F * one (r, Refv x)) /\
       SEP_IMP H (Q x)`;
 
 val app_aw8alloc_def = Define `
-  app_aw8alloc (n: int) w env H Q =
+  app_aw8alloc (n: int) w H Q =
     !(loc: num).
       n >= 0 /\
       SEP_IMP (H * one (loc, W8array (REPLICATE (Num (ABS n)) w)))
               (Q (Loc loc))`;
 
 val app_aw8sub_def = Define `
-  app_aw8sub (loc: num) (i: int) env H Q =
+  app_aw8sub (loc: num) (i: int) H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
@@ -264,13 +264,13 @@ val app_aw8sub_def = Define `
       SEP_IMP H (Q (Litv (Word8 (EL n ws))))`;
 
 val app_aw8length_def = Define `
-  app_aw8length (loc: num) env H Q =
+  app_aw8length (loc: num) H Q =
     ?ws F.
       SEP_IMP H (F * one (loc, W8array ws)) /\
       SEP_IMP H (Q (Litv (IntLit (int_of_num (LENGTH ws)))))`;
 
 val app_aw8update_def = Define `
-  app_aw8update (loc: num) (i: int) w env H Q =
+  app_aw8update (loc: num) (i: int) w H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
@@ -278,12 +278,12 @@ val app_aw8update_def = Define `
       SEP_IMP (F * one (loc, W8array (LUPDATE w n ws))) (Q (Conv NONE []))`;
 
 val app_opn_def = Define `
-  app_opn opn i1 i2 env H Q =
+  app_opn opn i1 i2 H Q =
     ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
      SEP_IMP H (Q (Litv (IntLit (opn_lookup opn i1 i2)))))`;
 
 val app_opb_def = Define `
-  app_opb opb i1 i2 env H Q =
+  app_opb opb i1 i2 H Q =
     SEP_IMP H (Q (Boolv (opb_lookup opb i1 i2)))`;
 
 (* ANF related *)
@@ -391,28 +391,28 @@ val cf_opn_def = Define `
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opn opn i1 i2 env H Q)`;
+      app_opn opn i1 i2 H Q)`;
 
 val cf_opb_def = Define `
   cf_opb opb x1 x2 = local (\env H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opb opb i1 i2 env H Q)`;
+      app_opb opb i1 i2 H Q)`;
 
 val cf_app2_def = Define `
   cf_app2 (:'ffi) f x = local (\env H Q.
     ?fv xv.
       exp2v env f = SOME fv /\
       exp2v env x = SOME xv /\
-      app_basic (:'ffi) fv xv env H Q)`;
+      app_basic (:'ffi) fv xv H Q)`;
 
 val cf_fundecl_def = Define `
   cf_fundecl (:'ffi) f n F1 F2 = local (\env H Q.
     !fv.
       (!xv H' Q'.
         F1 (env with v := (n, xv)::env.v) H' Q' ==>
-        app_basic (:'ffi) fv xv env H' Q')
+        app_basic (:'ffi) fv xv H' Q')
       ==>
       F2 (env with v := (f, fv)::env.v) H Q)`;
 
@@ -420,40 +420,40 @@ val cf_ref_def = Define `
   cf_ref x = local (\env H Q.
     ?xv.
       exp2v env x = SOME xv /\
-      app_ref xv env H Q)`;
+      app_ref xv H Q)`;
 
 val cf_assign_def = Define `
   cf_assign r x = local (\env H Q.
     ?rv xv.
       exp2v env r = SOME (Loc rv) /\
       exp2v env x = SOME xv /\
-      app_assign rv xv env H Q)`;
+      app_assign rv xv H Q)`;
 
 val cf_deref_def = Define `
   cf_deref r = local (\env H Q.
     ?rv.
       exp2v env r = SOME (Loc rv) /\
-      app_deref rv env H Q)`;
+      app_deref rv H Q)`;
 
 val cf_aw8alloc_def = Define `
   cf_aw8alloc xn xw = local (\env H Q.
     ?n w.
       exp2v env xn = SOME (Litv (IntLit n)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_aw8alloc n w env H Q)`;
+      app_aw8alloc n w H Q)`;
 
 val cf_aw8sub_def = Define `
   cf_aw8sub xl xi = local (\env H Q.
     ?l i.
       exp2v env xl = SOME (Loc l) /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_aw8sub l i env H Q)`;
+      app_aw8sub l i H Q)`;
 
 val cf_aw8length_def = Define `
   cf_aw8length xl = local (\env H Q.
     ?l. 
       exp2v env xl = SOME (Loc l) /\
-      app_aw8length l env H Q)`;
+      app_aw8length l H Q)`;
 
 val cf_aw8update_def = Define `
   cf_aw8update xl xi xw = local (\env H Q.
@@ -461,7 +461,7 @@ val cf_aw8update_def = Define `
       exp2v env xl = SOME (Loc l) /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_aw8update l i w env H Q)`;
+      app_aw8update l i w H Q)`;
 
 val is_bound_Fun_def = Define `
   is_bound_Fun (SOME _) (Fun _ _) = T /\
@@ -666,7 +666,7 @@ val cf_sound = Q.prove (
     cf_strip_sound_tac
     \\ TRY (
       (* Opn & Opb *)
-      (qcase_tac `app_opn op _ _ _ _ _` ORELSE qcase_tac `app_opb op _ _ _ _ _`) \\
+      (qcase_tac `app_opn op` ORELSE qcase_tac `app_opb op`) \\
       fs [app_opn_def, app_opb_def, st2heap_def] \\
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
       asm_exists_tac \\ fs [] \\
