@@ -231,6 +231,52 @@ val app_local = Q.prove(
   `!f xs. is_local (\env. app (:'ffi) f xs)`,
   cheat);
 
+val curried_def = Define `
+  curried (:'ffi) (n: num) (f: v) =
+    case n of
+     | 0 => F
+     | SUC 0 => T
+     | SUC n =>
+       !x.
+         app_basic (:'ffi) f x emp
+           (\g. cond (curried (:'ffi) n g /\
+                      !xs H Q.
+                        LENGTH xs = n ==>
+                        app (:'ffi) f (x::xs) H Q ==>
+                        app (:'ffi) g xs H Q))`;
+
+(* app_over_app / app_over_take *)
+
+(** When [curried n f] holds and the number of the arguments [xs] is less than
+    [n], then [app f xs] is a function [g] such that [app g ys] has the same
+    behavior as [app f (xs++ys)]. *)
+
+val app_partial = Q.prove (
+  `!n xs f. curried (:'ffi) n f ==> (0 < LENGTH xs /\ LENGTH xs < n) ==>
+   app (:'ffi) f xs emp (\g. cond (
+     curried (:'ffi) (n - LENGTH xs) g /\
+     !ys H Q. (LENGTH xs + LENGTH ys = n) ==>
+       app (:'ffi) f (xs ++ ys) H Q ==> app (:'ffi) g ys H Q))`,
+  completeInduct_on `n` \\ Cases_on `n`
+  THEN1 (rpt strip_tac \\ fs [])
+
+  THEN1 (
+    Cases_on `xs` \\ rpt strip_tac \\ fs [] \\
+    qcase_tac `x::zs` \\ qcase_tac `LENGTH zs < n` \\
+    Cases_on `zs` \\ fs []
+
+    THEN1 (
+      (* xs = x :: zs = [x] *)
+      fs [app_def] \\ cheat
+    )
+    THEN1 (
+      (* xs = x :: zs = [x::y::t] *)
+      qcase_tac `x::y::t` \\ fs [app_def] \\ cheat
+    )
+  )
+);
+
+(* // *)
 
 val app_ref_def = Define `
   app_ref (x: v) H Q =
@@ -400,6 +446,13 @@ val cf_opb_def = Define `
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
       app_opb opb i1 i2 H Q)`;
 
+val cf_app_def = Define `
+  cf_app (:'ffi) f args = local (\env H Q.
+    ?fv argsv.
+      exp2v env f = SOME fv /\
+      exp2v_list env args = SOME argsv /\
+      app (:'ffi) fv argsv H Q)`;
+
 val cf_app2_def = Define `
   cf_app2 (:'ffi) f x = local (\env H Q.
     ?fv xv.
@@ -539,7 +592,8 @@ val cf_ind = fetch "-" "cf_ind";
 
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
                cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
-               cf_aw8update_def, cf_app2_def, cf_ref_def, cf_assign_def, cf_deref_def];
+               cf_aw8update_def, cf_app2_def, cf_app_def, cf_ref_def, cf_assign_def,
+               cf_deref_def];
 
 (* Soundness of cf *)
 
