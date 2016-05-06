@@ -1,4 +1,4 @@
-OPTIONS = QUIT_ON_FAILURE
+CLINE_OPTIONS = --qof -j1
 INCLUDES = ../ ../../asm
 
 ifdef POLY
