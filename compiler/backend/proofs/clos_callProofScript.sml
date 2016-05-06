@@ -4,6 +4,7 @@ val _ = new_theory"clos_callProof";
 
 (* value relation *)
 
+(*
 val (approx_rules,approx_ind,approx_cases) = Hol_reln`
   (approx (Clos n a e) (Closure (SOME n) arg_env clo_env a exp)) ∧
   (* I don't think Recclosures are ever tracked (they will just be Other)
@@ -70,6 +71,7 @@ val env_rel_def = Define`
   env_rel code as env1 env2 ⇔
     LENGTH as = LENGTH env1 ∧
     LIST_REL (UNCURRY (v_rel code)) (ZIP(as,env1)) env2`;
+    *)
 
 (* compiler correctness *)
 
