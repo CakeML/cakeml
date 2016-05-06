@@ -37,7 +37,8 @@ val from_stack = let
     |> Q.INST [`code`|->`code2`]
   val lemma2 = stack_to_labProofTheory.full_make_init_semantics |> UNDISCH
     |> Q.INST [`code`|->`code1`]
-  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1 end
+  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
+     |> INST_TYPE [``:'state``|->``:'b``] end
 
 val from_stack_fail = let
   val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
@@ -46,7 +47,8 @@ val from_stack_fail = let
     |> Q.INST [`code`|->`code1`]
   val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code2).ffi``
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
-     |> REWRITE_RULE [th] end
+     |> REWRITE_RULE [th]
+     |> INST_TYPE [``:'state``|->``:'b``] end
 
 val from_word = let
   val lemma1 = word_to_stackProofTheory.compile_semantics
@@ -54,6 +56,7 @@ val from_word = let
     |> MATCH_MP implements_intro_ext
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code3`]
+    |> INST_TYPE [``:'b``|->``:'a``]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_stack end
 
 val full_make_init_ffi = prove(
@@ -70,6 +73,7 @@ val from_bvp = let
     |> MATCH_MP (GSYM implements_intro_ext)
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code4`]
+    |> INST_TYPE [``:'b``|->``:'a``]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_word
      |> SIMP_RULE (srw_ss()) [full_make_init_ffi,
           word_to_stackProofTheory.make_init_def] end
@@ -120,13 +124,9 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
            |> UNDISCH_ALL
            |> Q.INST [`c`|->`c1`,`start`|->`InitGlobals_location`]
-           |> DISCH ``from_bvp (c:'b backend$config) prog = SOME (bytes,ffi_limit)``
+           |> DISCH ``from_bvp (c:'a backend$config) prog = SOME (bytes,ffi_limit)``
            |> DISCH_ALL
-           |> INST_TYPE [``:'a``|->``:'ffi``,
-                         ``:'b``|->``:'a``,
-                         ``:'c``|->``:'b``,
-                         ``:'d``|->``:'c``,
-                         ``:'state``|->``:'b``]
+           |> INST_TYPE [``:'state``|->``:'a``]
            |> MATCH_MP lemma2
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
@@ -594,7 +594,7 @@ val code_installed_prog_to_section_lemma = prove(
   ``!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed' pc (FST (flatten prog3 n (next_lab prog3)))
+        code_installed' pc (append (FST (flatten prog3 n (next_lab prog3))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
   Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
@@ -604,26 +604,6 @@ val code_installed_prog_to_section_lemma = prove(
     \\ fs [code_installed'_simp])
   \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
   \\ fs [loc_to_pc_skip_section,code_installed_cons]);
-
-(*TODO: Move to stack_to_lab theory*)
-val extract_labels_def = Define`
-  (extract_labels [] = []) ∧
-  (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
-  (extract_labels (x::xs) = extract_labels xs)`
-
-val labels_ok_def = Define`
-  labels_ok code ⇔
-  (*Section names are distinct*)
-  ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
-  EVERY (λs. case s of Section n lines =>
-    let labs = extract_labels lines in
-    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
-    ALL_DISTINCT labs) code`
-
-val extract_labels_append = prove(``
-  ∀A B.
-  extract_labels (A++B) = extract_labels A ++ extract_labels B``,
-  Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def])
 
 val labs_correct_hd = prove(``
   ∀extra l.
@@ -730,15 +710,15 @@ val labs_correct_append = prove(``
 
 val code_installed_prog_to_section = prove(
   ``!prog4 n prog3.
+      labels_ok (MAP prog_to_section prog4) ∧
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed pc (FST (flatten prog3 n (next_lab prog3)))
+        code_installed pc (append (FST (flatten prog3 n (next_lab prog3))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
   rpt strip_tac \\ fs [code_installed_eq]
   \\ drule code_installed_prog_to_section_lemma \\ strip_tac
   \\ asm_exists_tac \\ fs []
-  \\ `labels_ok (MAP prog_to_section prog4)` by cheat
   \\ imp_res_tac labels_ok_labs_correct
   \\ fs[EVERY_MEM,MEM_MAP]
   \\ imp_res_tac ALOOKUP_MEM
@@ -889,7 +869,7 @@ val LESS_MULT_LEMMA = prove(
   Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
   \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
   \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
-  \\ fs [])
+  \\ fs []);
 
 local
 val lemma = prove(
@@ -925,7 +905,8 @@ val lemma = prove(
     MEM (find_name c.stack_conf.reg_names (ra_regs+4))
       mc_conf.caller_saved_regs /\
     10 ≤ ra_regs +2 /\
-    (LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count) ==>
+    (LENGTH mc_conf.target.config.avoid_regs + 5) <
+      (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
     bvp_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
   strip_tac \\ fs [bvp_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
@@ -938,8 +919,23 @@ val lemma = prove(
   \\ simp_tac (std_ss++CONJ_ss) [full_make_init_bitmaps] \\ fs [GSYM CONJ_ASSOC]
   \\ fs [from_bvp_def] \\ pairarg_tac \\ fs []
   \\ fs [from_word_def] \\ pairarg_tac \\ fs []
-  \\ fs [from_stack_def,stack_to_labTheory.compile_def]
+  \\ fs [from_stack_def]
   \\ fs [from_lab_def]
+  \\ last_x_assum mp_tac
+  \\ qpat_abbrev_tac `tp = compile _ _ _ _ p'`
+  (*Parts of this proof can be re-used...*)
+  \\ `labels_ok tp` by
+    (fs[Abbr`tp`]>>match_mp_tac stack_to_lab_compile_lab_pres>>
+    assume_tac (bvp_to_word_compile_lab_pres|>GEN_ALL |>Q.SPECL[`c.word_to_word_conf`,`prog`,`c.bvp_conf`,`mc_conf.target.config`])>>
+    rfs[]>>
+    assume_tac(word_to_stack_compile_lab_pres|>INST_TYPE[beta|->alpha]|>GEN_ALL|> Q.SPECL[`p`,`mc_conf.target.config`])>>
+    rfs[]>>
+    rw[]>>fs[EVERY_MEM]>>rw[]>>
+    res_tac>>fs[]>>
+    CCONTR_TAC>>
+    fs[]>>res_tac>>fs[])
+  \\ strip_tac
+  \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []
   \\ qcase_tac `_ = (c2,prog1)`
   \\ qabbrev_tac `prog2 = compile c.bvp_conf prog1`
@@ -997,8 +993,9 @@ val lemma = prove(
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
-              (make_init mc_conf ffi save_regs io_regs t m (dm INTER byte_aligned) ms
-                 (MAP prog_to_section prog4))))` by
+              (make_init mc_conf ffi save_regs io_regs t m
+                  (dm INTER byte_aligned) (ms:'b)
+                   (MAP prog_to_section prog4))))` by
    (fs [stack_removeProofTheory.init_pre_def,
         stack_namesProofTheory.make_init_def,GSYM PULL_EXISTS]
     \\ conj_tac THEN1
@@ -1162,11 +1159,25 @@ val from_bvp_ignore = prove(
   \\ rpt (pairarg_tac \\ fs []));
 
 val clos_to_bvp_names = store_thm("clos_to_bvp_names",
-  ``clos_to_bvl$compile c e4 = (c2,p2) /\
+  ``
+    clos_to_bvl$num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
+    clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n p2 = (k,p3,n2) ==>
     EVERY (λn. 30 <= n) (MAP FST (bvi_to_bvp$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_bvp$compile_prog p3))``,
-  cheat);
+    fs[Once (GSYM bvi_to_bvpProofTheory.MAP_FST_compile_prog)]>>
+    fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
+    strip_tac>>
+    pairarg_tac>>fs[]>>rveq>>fs[]>>
+    EVAL_TAC>>
+    fs[EVERY_MEM]>>
+    imp_res_tac compile_all_distinct_locs>>
+    fs[]>>
+    imp_res_tac compile_list_distinct_locs>>
+    rfs[bvl_to_bviTheory.num_stubs_def]>>
+    fs[EVERY_MEM]>>rw[]
+    >- (res_tac>>fs[])>>
+    CCONTR_TAC>>fs[]>>res_tac>>fs[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -1434,7 +1445,10 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ simp[implements_def,AND_IMP_INTRO]
   \\ disch_then match_mp_tac \\ fs []
   \\ qunabbrev_tac `p4` \\ fs []
-  \\ drule (GEN_ALL clos_to_bvp_names)
-  \\ disch_then drule \\ fs []);
+  \\ imp_res_tac clos_to_bvp_names
+  \\ fs[AND_IMP_INTRO]
+  \\ pop_assum mp_tac \\ impl_keep_tac
+  >-  EVAL_TAC
+  \\ fs[]);
 
 val _ = export_theory();

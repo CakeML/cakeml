@@ -628,9 +628,6 @@ val do_app_adjust = Q.prove(
       `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
       metis_tac[INJ_DEF]) >>
     METIS_TAC[])
-  THEN1 (* W8FromInt *) (
-    every_case_tac >> fs[bEvalOp_def,adjust_bv_def] >>
-    rw[] >> rw[bvl_to_bvi_id,adjust_bv_def])
   THEN1 (* FromList *) (
     Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[] >>

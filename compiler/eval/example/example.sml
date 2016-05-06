@@ -1,15 +1,22 @@
 open HolKernel boolLib bossLib lcsymtacs;
-open x64_compileLib;
 
+val _ = ParseExtras.temp_loose_equality()
+open x64_compileLib
+
+val rconc = rhs o concl
+
+(*Doesn't match the theorem
 val source_conf = ``<|next_global:=0;mod_env:=(FEMPTY,FEMPTY)|>``
 val mod_conf = ``<|next_exception:=LN;tag_env:=(FEMPTY,FEMPTY);exh_ctors_env:=FEMPTY|>``
-(*Note: needs to satisfy the conditions in clos*)
-val clos_conf = ``<|next_loc := 104 ; start:=103|>``
+*)
+
+val source_conf = rconc(EVAL``prim_config.source_conf``)
+val mod_conf = rconc(EVAL``prim_config.mod_conf``)
+val clos_conf = rconc (EVAL ``prim_config.clos_conf``)
 val bvp_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
 val stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
-(*??*)
 val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config;init_clock:=5|>``
 
 val conf = ``<|source_conf:=^(source_conf);
@@ -26,16 +33,14 @@ val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20;
 val _ = PolyML.print_depth 5;
 
-val rconc = rhs o concl
-
 (*Compilation of basis_prog is very slow, so we avoid it for now*)
-val initial_prog = rconc (EVAL``prim_types_program``)
+(*val initial_prog = rconc (EVAL``prim_types_program``)*)
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes prog =
+fun to_bytes conf prog =
   let
-  val prog = ``^(initial_prog) ++ ^(prog)``
+  (*val prog = ``^(initial_prog) ++ ^(prog)``*)
   val _ = println "Compile to livesets"
   val test = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
@@ -49,9 +54,9 @@ fun to_bytes prog =
   end
 
 (*to_bytes verbose*)
-fun to_bytes_verbose prog =
+fun to_bytes_verbose conf prog =
   let
-  val prog = ``^(initial_prog) ++ ^(prog)``
+  (*val prog = ``^(initial_prog) ++ ^(prog)``*)
   val _ = println "Compile to livesets"
   val test = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
@@ -97,9 +102,9 @@ fun to_bytes_verbose prog =
   val _ = println "Extract byte list"
   val test6 = Count.apply eval``
     case ^(rconc test5) of
-    SOME (sec_list,l1) => prog_to_bytes sec_list
-    | NONE => [] `` in
-    rconc test6 end
+    SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,l1)
+    | NONE => NONE`` in
+    test6 end
 
 val btree = ``
 [Tdec
@@ -489,25 +494,28 @@ Tdec
   (Dlet (Pvar "test")
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
 
+val xeq5 = ``
+  [Tdec (Dlet (Pvar"x") (Lit (IntLit 5)))]``
+
 val _ = PolyML.print_depth 5;
 val _ = Globals.max_print_depth := 10;
 
-(* 382.4 s*)
-val fib_bytes = Count.apply to_bytes fib
-(* 451.4 s*)
-val qsort_bytes = Count.apply to_bytes qsort
-(* 513.3 s*)
-val queue_bytes = Count.apply to_bytes queue
-(* 472.3 s*)
-val btree_bytes = Count.apply to_bytes btree
+val xeq5_bytes = Count.apply to_bytes_verbose conf xeq5;
 
-open x64_exportLib
+val fib_bytes = Count.apply to_bytes conf fib;
+
+val qsort_bytes = Count.apply to_bytes conf qsort;
+
+val queue_bytes = Count.apply to_bytes conf queue;
+
+val btree_bytes = Count.apply to_bytes conf btree;
 
 val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes fib_bytes) "fib.S"
-val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes qsort_bytes) "qsort.S"
-val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes queue_bytes) "queue.S"
-val _ = x64_exportLib.write_cake_S 1000 1000 0 (extract_bytes btree_bytes) "btree.S"
+val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes xeq5_bytes) "xeq5.S"
+val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes fib_bytes) "fib.S"
+val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes qsort_bytes) "qsort.S"
+val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes queue_bytes) "queue.S"
+val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes btree_bytes) "btree.S"
 
 (*"*)
 

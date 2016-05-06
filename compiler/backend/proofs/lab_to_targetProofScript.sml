@@ -3185,11 +3185,20 @@ val semantics_compile_lemma = store_thm("semantics_compile_lemma",
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
 
+val good_init_state_good_dimindex = Q.store_thm("good_init_state_good_dimindex",
+  `good_init_state (mc_conf:(α,β,γ)machine_config) (t:α asm_state) m (ms:β) (ffi:'ffi ffi_state) ffi_limit bytes io_regs save_regs dm ⇒
+   good_dimindex (:α)`,
+  rw[good_init_state_def]);
+
 val semantics_compile = save_thm("semantics_compile",let
-  val th1 = MATCH_MP semanticsPropsTheory.implements_trans implements_align_dm
-  val th2 = MATCH_MP th1 (semantics_compile_lemma |> UNDISCH) |> DISCH_ALL
+  val th0 = MATCH_MP implements_align_dm (UNDISCH good_init_state_good_dimindex)
+  val th1 = MATCH_MP semanticsPropsTheory.implements_trans th0
+  val th2 = MATCH_MP th1 (semantics_compile_lemma |> UNDISCH
+                          |> INST_TYPE[alpha|->``:'ffi``,beta|->alpha,delta|->gamma,gamma|->beta])
+                     |> DISCH_ALL
   val th3 = th2 |> SIMP_RULE (srw_ss()) [align_dm_def,make_init_def]
                 |> REWRITE_RULE [GSYM make_init_def]
+                |> REWRITE_RULE [AND_IMP_INTRO]
   in th3 end);
 
 val _ = export_theory();

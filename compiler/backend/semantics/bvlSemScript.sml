@@ -80,7 +80,7 @@ val do_app_def = Define `
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (RefByte,[Number i;Number b]) =>
-         if 0 ≤ i ∧ (∃w:word8. b = w2i w) then
+         if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
@@ -95,19 +95,18 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
-             then Rval (Number (w2i (EL (Num i) ws)),s)
+             then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
-            (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = w2i w)
+            (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
                Rval (Unit, s with refs := s.refs |+
                  (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
-    | (W8FromInt,[Number i]) => Rval (Number (w2i((i2w i):word8)), s)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)

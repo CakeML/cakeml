@@ -2871,6 +2871,14 @@ val inter_insert_ODD_adjust_set = store_thm("inter_insert_ODD_adjust_set",
   \\ rw [] \\ rw [] \\ fs []
   \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]);
 
+val inter_insert_ODD_adjust_set_alt = store_thm("inter_insert_ODD_adjust_set_alt",
+  ``!k. ODD k ==>
+      inter (insert k v s) (adjust_set t) =
+      inter s (adjust_set t)``,
+  fs [spt_eq_thm,wf_inter,lookup_inter_alt,lookup_insert]
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]);
+
 val get_vars_adjust_var = prove(
   ``ODD k ==>
     get_vars (MAP adjust_var args) (t with locals := insert k w s) =
@@ -2915,6 +2923,35 @@ val get_vars_1_imp = prove(
     wordSem$get_var x1 s = SOME y1``,
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
+val LESS_DIV_16_IMP = prove(
+  ``n < k DIV 16 ==> 16 * n + 2 < k:num``,
+  fs [X_LT_DIV]);
+
+val word_exp_real_addr = prove(
+  ``get_real_addr c t.store ptr_w = SOME a /\
+    shift_length c < dimindex (:α) ∧ good_dimindex (:α) /\
+    lookup (adjust_var a1) (t:('a,'ffi) wordSem$state).locals = SOME (Word ptr_w) ==>
+    !w. word_exp (t with locals := insert 1 (Word (w:'a word)) t.locals)
+          (real_addr c (adjust_var a1)) = SOME (Word a)``,
+  rpt strip_tac \\ match_mp_tac (GEN_ALL get_real_addr_lemma)
+  \\ fs [wordSemTheory.get_var_def,lookup_insert])
+
+val word_exp_real_addr_2 = prove(
+  ``get_real_addr c (t:('a,'ffi) wordSem$state).store ptr_w = SOME a /\
+    shift_length c < dimindex (:α) ∧ good_dimindex (:α) /\
+    lookup (adjust_var a1) t.locals = SOME (Word ptr_w) ==>
+    !w1 w2.
+      word_exp
+        (t with locals := insert 3 (Word (w1:'a word)) (insert 1 (Word w2) t.locals))
+        (real_addr c (adjust_var a1)) = SOME (Word a)``,
+  rpt strip_tac \\ match_mp_tac (GEN_ALL get_real_addr_lemma)
+  \\ fs [wordSemTheory.get_var_def,lookup_insert])
+
+val encode_header_IMP_BIT0 = prove(
+  ``encode_header c tag l = SOME w ==> w ' 0``,
+  fs [encode_header_def,make_header_def] \\ rw []
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_index]);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -2929,6 +2966,58 @@ val assign_thm = Q.prove(
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_1] \\ clean_tac
+    \\ qpat_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
+    \\ strip_tac
+    \\ simp_tac std_ss [state_rel_thm] \\ strip_tac \\ fs [] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac \\ fs []
+    \\ fs [assign_def,list_Seq_def] \\ eval_tac
+    \\ reverse IF_CASES_TAC THEN1
+     (eval_tac
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+      \\ `n' <> tag` by
+       (strip_tac \\ clean_tac
+        \\ rpt_drule memory_rel_Block_IMP \\ strip_tac \\ fs []
+        \\ CCONTR_TAC \\ fs []
+        \\ imp_res_tac encode_header_tag_mask \\ NO_TAC)
+      \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+      \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+    \\ imp_res_tac get_vars_1_imp
+    \\ eval_tac \\ fs [wordSemTheory.get_var_def,asmSemTheory.word_cmp_def,
+         wordSemTheory.get_var_imm_def,lookup_insert]
+    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac \\ fs []
+    \\ fs [word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
+    \\ pop_assum mp_tac \\ IF_CASES_TAC \\ fs [] THEN1
+     (fs [word_mul_n2w,word_add_n2w] \\ strip_tac
+      \\ fs [LESS_DIV_16_IMP,DECIDE ``16 * n = 16 * m <=> n = m:num``]
+      \\ IF_CASES_TAC \\ fs [lookup_insert]
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+      \\ TRY (match_mp_tac memory_rel_Boolv_T)
+      \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ `!w. word_exp (t with locals := insert 1 (Word w) t.locals)
+          (real_addr c (adjust_var a1)) = SOME (Word a)` by
+      (strip_tac \\ match_mp_tac (GEN_ALL get_real_addr_lemma)
+       \\ fs [wordSemTheory.get_var_def,lookup_insert] \\ NO_TAC) \\ fs []
+    \\ rpt_drule encode_header_tag_mask \\ fs []
+    \\ fs [LESS_DIV_16_IMP,DECIDE ``16 * n = 16 * m <=> n = m:num``]
+    \\ strip_tac \\ fs []
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+    \\ TRY (match_mp_tac memory_rel_Boolv_T)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs [])
   \\ Cases_on `?tag len. op = TagLenEq tag len` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -2985,7 +3074,8 @@ val assign_thm = Q.prove(
        \\ fs [wordSemTheory.get_var_def,lookup_insert]) \\ fs []
     \\ drule (GEN_ALL encode_header_EQ)
     \\ qpat_assum `encode_header _ _ _ = _` (assume_tac o GSYM)
-    \\ disch_then drule \\ fs []
+    \\ disch_then drule \\ fs [] \\ impl_tac
+    \\ TRY (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC) \\ fs []
     \\ disch_then kall_tac \\ fs [DECIDE ``4 * k = 4 * l <=> k = l:num``]
     \\ rw [lookup_insert,adjust_var_11] \\ fs []
     \\ rw [lookup_insert,adjust_var_11] \\ fs []
@@ -3592,8 +3682,79 @@ val assign_thm = Q.prove(
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ fs [make_cons_ptr_def,get_lowerbits_def])
-  \\ Cases_on `op = BlockCmp` \\ fs [] THEN1 cheat
-  \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1 cheat
+  \\ Cases_on `op = BlockCmp` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ qpat_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
+    \\ strip_tac
+    \\ simp_tac std_ss [state_rel_thm] \\ strip_tac \\ fs [] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac \\ fs []
+    \\ fs [assign_def,list_Seq_def]
+    \\ imp_res_tac get_vars_2_imp
+    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac \\ fs []
+    \\ rpt_drule memory_rel_tl \\ strip_tac
+    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac \\ fs []
+    \\ qcase_tac `if ll2 = [] then _ else (_:bool)` \\ pop_assum mp_tac
+    \\ qcase_tac `if ll1 = [] then _ else (_:bool)` \\ pop_assum mp_tac
+    \\ rpt strip_tac \\ fs [] \\ clean_tac
+    \\ eval_tac
+    \\ fs [wordSemTheory.get_var_def,asmSemTheory.word_cmp_def,
+         wordSemTheory.get_var_imm_def,lookup_insert]
+    \\ fs [word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
+    \\ IF_CASES_TAC \\ fs [] \\ clean_tac
+    THEN1 (* first argument is nil-cons *)
+     (fs [wordSemTheory.get_var_def,asmSemTheory.word_cmp_def,
+          wordSemTheory.get_var_imm_def,lookup_insert]
+      \\ IF_CASES_TAC \\ fs [] \\ clean_tac
+      THEN1 (* nil-cons cmp nil-cons *)
+       (fs [lookup_insert,word_mul_n2w,X_LT_DIV,
+          DECIDE ``16 * n = 16 * m <=> n = m:num``,
+          DECIDE ``16 * (n + 1) ≤ k ==> 16 * n < k:num``]
+        \\ IF_CASES_TAC \\ fs [] \\ fs [lookup_insert]
+        \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+        \\ TRY (match_mp_tac memory_rel_Boolv_T)
+        \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs [])
+      \\ rpt_drule word_exp_real_addr_2
+      \\ rpt strip_tac \\ fs [lookup_insert]
+      \\ IF_CASES_TAC \\ fs []
+      THEN1 (imp_res_tac encode_header_IMP_BIT0 \\ fs [])
+      \\ fs [GSYM LENGTH_NIL]
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+      \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs [])
+    \\ rpt_drule word_exp_real_addr \\ fs [insert_shadow]
+    \\ fs [wordSemTheory.get_var_def,asmSemTheory.word_cmp_def,
+          wordSemTheory.get_var_imm_def,lookup_insert]
+    \\ IF_CASES_TAC \\ fs [lookup_insert]
+    THEN1 (* non-nil-cons cmp nil-cons *)
+     (IF_CASES_TAC \\ fs []
+      \\ imp_res_tac encode_header_IMP_BIT0 \\ fs []
+      \\ fs [GSYM LENGTH_NIL]
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+      \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+    \\ rpt_drule word_exp_real_addr_2 \\ fs [] \\ fs [lookup_insert]
+    \\ IF_CASES_TAC \\ fs [] \\ rpt strip_tac
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+    \\ drule (GEN_ALL encode_header_EQ)
+    \\ qpat_assum `encode_header _ _ _ = _` kall_tac
+    \\ disch_then drule \\ impl_tac
+    \\ TRY (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+    \\ fs [] \\ rpt strip_tac
+    \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs [])
   \\ Cases_on `op = ToList` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
@@ -4334,5 +4495,36 @@ val bvp_to_word_lab_pres_lem = prove(``
     rw[]>>
     res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[]));
+
+val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
+  let (c,p) = compile bvp_conf word_conf asm_conf prog in
+    MAP FST p = MAP FST prog ∧
+    EVERY (λn,m,p.
+      let labs = extract_labels p in
+      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+      ALL_DISTINCT labs) p``,
+  fs[compile_def]>>
+  qpat_abbrev_tac`bvpp = MAP (A B) prog`>>
+  assume_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`bvpp`,`asm_conf`])>>
+  pairarg_tac>>fs[Abbr`bvpp`]>>
+  fs[EVERY_MEM]>>rw[]
+  >-
+    (match_mp_tac LIST_EQ>>rw[EL_MAP]>>
+    Cases_on`EL x prog`>>Cases_on`r`>>fs[compile_part_def])
+  >>
+    qpat_assum`MAP A B = MAP C D` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
+    fs[EL_MAP,MEM_EL,FORALL_PROD]>>
+    rw[]>>pop_assum(qspec_then`n` assume_tac)>>
+    Cases_on`EL n p`>>Cases_on`r`>>rfs[]>>
+    fs[EL_MAP]>>
+    Cases_on`EL n prog`>>Cases_on`r`>>fs[compile_part_def]>>
+    Q.SPECL_THEN [`bvp_conf`,`q''`,`1n`,`r''`]assume_tac bvp_to_word_lab_pres_lem>>
+    fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>rw[]>>
+    res_tac>>fs[]>>
+    last_x_assum mp_tac>>
+    simp[LIST_EQ_REWRITE]>>
+    fs[EL_MAP]>>
+    disch_then(qspec_then`n` assume_tac)>>
+    rfs[compile_part_def]);
 
 val _ = export_theory();

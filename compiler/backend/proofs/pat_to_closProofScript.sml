@@ -9,7 +9,7 @@ val _ = new_theory"pat_to_closProof"
 
 val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv (IntLit i)) = (Number i):closSem$v) ∧
-  (compile_v (Litv (Word8 w)) = (Number (w2i w))) ∧
+  (compile_v (Litv (Word8 w)) = (Number (& (w2n w)))) ∧
   (compile_v (Litv (Char c)) = (Number (& ORD c))) ∧
   (compile_v (Litv (StrLit s)) =
     (Block string_tag (MAP (Number o $& o ORD) s))) ∧
@@ -158,7 +158,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >- (
     Cases_on`l`>>
     rw[evaluate_def,do_app_def] >> rw[] >>
-    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF] ) >>
+    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF]) >>
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def] >>
     every_case_tac >> fs[] >>
@@ -418,7 +418,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       imp_res_tac evaluate_length >> fs[] )
     >- ( (* W8fromInt *)
       Cases_on`es`>>fs[LENGTH_NIL]>>
-      rw[evaluate_def,do_app_def])
+      rw[evaluate_def,do_app_def,integer_wordTheory.w2n_i2w])
     >- ( (* wrong args for Chr *)
       imp_res_tac evaluate_length >> fs[] )
     >- ( (* Chr *)

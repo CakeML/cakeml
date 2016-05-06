@@ -19,7 +19,7 @@ val compile_def = tDefine"compile"`
   (compile (Lit (IntLit i)) =
     Op (Const i) []) ∧
   (compile (Lit (Word8 w)) =
-    Op (Const (w2i w)) []) ∧
+    Op (Const (& (w2n w))) []) ∧
   (compile (Lit (Char c)) =
     Op (Const (& ORD c)) []) ∧
   (compile (Lit (StrLit s)) =
@@ -78,7 +78,7 @@ val compile_def = tDefine"compile"`
     Op Ref (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op W8fromInt)) es) =
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
-      Op W8FromInt [compile (HD es)]) ∧
+      Op Mod [Op (Const 256) []; compile (HD es)]) ∧
   (compile (App (Op (Op W8toInt)) es) =
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
   (compile (App (Op (Op Ord)) es) =

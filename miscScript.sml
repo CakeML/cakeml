@@ -12,12 +12,11 @@ fun drule th =
 
 (* TODO: move/categorize *)
 
-local open integer_wordTheory in
-val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
 val _ = numLib.prefer_num();
-end
 
 val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
+
+val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
 
 val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
@@ -38,27 +37,6 @@ val revtakerev = Q.store_thm("revtakerev",
   `l = [] ∨ ∃f e. l = SNOC e f` by metis_tac[SNOC_CASES] >> simp[] >>
   simp[DROP_APPEND1]);
 
-val lsl_lsr = Q.store_thm("lsl_lsr",
-  `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`,
-  Cases_on`n` \\ simp[]
-  \\ qmatch_assum_rename_tac`n < dimword _`
-  \\ srw_tac[][]
-  \\ REWRITE_TAC[GSYM wordsTheory.w2n_11]
-  \\ REWRITE_TAC[wordsTheory.w2n_lsr]
-  \\ simp[]
-  \\ simp[word_lsl_n2w]
-  \\ srw_tac[][]
-  >- (
-    simp[ZERO_DIV]
-    \\ Cases_on`n`
-    \\ full_simp_tac(srw_ss())[dimword_def]
-    \\ full_simp_tac(srw_ss())[bitTheory.LT_TWOEXP]
-    \\ full_simp_tac(srw_ss())[bitTheory.LOG2_def]
-    \\ qmatch_asmsub_rename_tac`SUC n * 2 ** a`
-    \\ qspecl_then[`a`,`2`,`SUC n`]mp_tac logrootTheory.LOG_EXP
-    \\ simp[] )
-  \\ simp[MULT_DIV]);
-
 val read_bytearray_def = Define `
   (read_bytearray a 0 get_byte = SOME []) /\
   (read_bytearray a (SUC n) get_byte =
@@ -77,116 +55,13 @@ val read_bytearray_LENGTH = store_thm("read_bytearray_LENGTH",
 val shift_seq_def = Define `
   shift_seq k s = \i. s (i + k:num)`;
 
-val TotOrd_list_cmp = store_thm("TotOrd_list_cmp",
-  ``∀c. TotOrd c ⇒ TotOrd (list_cmp c)``,
-  srw_tac[][] >> imp_res_tac list_cmp_ListOrd >> simp[TO_ListOrd])
-
-val StrongLinearOrder_of_TO_TO_of_LinearOrder = store_thm("StrongLinearOrder_of_TO_TO_of_LinearOrder",
-  ``∀R. irreflexive R ⇒ (StrongLinearOrder_of_TO (TO_of_LinearOrder R) = R)``,
-  srw_tac[][irreflexive_def] >>
-  srw_tac[][FUN_EQ_THM,StrongLinearOrder_of_TO,TO_of_LinearOrder] >>
-  srw_tac[][])
-
-val TO_of_LinearOrder_LEX = store_thm("TO_of_LinearOrder_LEX",
-  ``∀R V. irreflexive R ∧ irreflexive V
-    ⇒ TO_of_LinearOrder (R LEX V) = (TO_of_LinearOrder R) lexTO (TO_of_LinearOrder V)``,
-  simp[lexTO,StrongLinearOrder_of_TO_TO_of_LinearOrder])
-
-val TO_of_LinearOrder_LLEX = store_thm("TO_of_LinearOrder_LLEX",
-  ``∀R. irreflexive R ⇒ (TO_of_LinearOrder (LLEX R) = list_cmp (TO_of_LinearOrder R))``,
-  srw_tac[][irreflexive_def] >>
-  simp[FUN_EQ_THM] >>
-  Induct >- (
-    Cases >> simp[list_cmp_def,TO_of_LinearOrder] ) >>
-  gen_tac >> Cases >>
-  simp[list_cmp_def,TO_of_LinearOrder] >>
-  pop_assum(assume_tac o GSYM) >> simp[] >>
-  srw_tac[][TO_of_LinearOrder] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[])
-
-val LLEX_EL_THM = store_thm("LLEX_EL_THM",
-  ``!R l1 l2. LLEX R l1 l2 <=>
-              ∃n. n <= LENGTH l1 /\ n < LENGTH l2 /\
-                  TAKE n l1 = TAKE n l2 /\
-                  (n < LENGTH l1 ==> R (EL n l1) (EL n l2))``,
-  GEN_TAC THEN Induct THEN Cases_on`l2` THEN SRW_TAC[][] THEN
-  SRW_TAC[][EQ_IMP_THM] THEN1 (
-    Q.EXISTS_TAC`0` THEN SRW_TAC[][] )
-  THEN1 (
-    Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
-  Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
-  METIS_TAC[])
-
 val SUM_SET_IN_LT = store_thm("SUM_SET_IN_LT",
-  ``∀s x y. FINITE s ∧ x ∈ s ∧ y < x ⇒ y < SUM_SET s``,
-  simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-  ho_match_mp_tac FINITE_INDUCT >> simp[] >>
-  simp[SUM_SET_THM] >> srw_tac[][] >> simp[] >>
-  res_tac >> simp[SUM_SET_DELETE])
-
-val IMAGE_I = store_thm("IMAGE_I[simp]",
-  ``IMAGE I s = s``,
-  full_simp_tac(srw_ss())[EXTENSION]);
-
-val MAP_KEYS_COMPOSE = Q.store_thm("MAP_KEYS_COMPOSE",
-  `BIJ (f:num->num) UNIV UNIV ==> MAP_KEYS f (MAP_KEYS (LINV f UNIV) t) = t`,
-  srw_tac[][finite_mapTheory.fmap_EXT,MAP_KEYS_def,PULL_EXISTS,GSYM IMAGE_COMPOSE]
-  \\ `f o LINV f UNIV = I` by
-    (imp_res_tac BIJ_LINV_INV \\ full_simp_tac(srw_ss())[combinTheory.o_DEF,FUN_EQ_THM])
-  \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[combinTheory.o_DEF,FUN_EQ_THM]
-  \\ imp_res_tac BIJ_LINV_BIJ \\ full_simp_tac(srw_ss())[BIJ_DEF]
-  \\ `INJ f (FDOM (MAP_KEYS (LINV f UNIV) t)) UNIV` by full_simp_tac(srw_ss())[INJ_DEF]
-  \\ drule (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
-  \\ `?y. x' = f y` by (full_simp_tac(srw_ss())[SURJ_DEF] \\ metis_tac []) \\ srw_tac[][]
-  \\ pop_assum (qspec_then `y` mp_tac)
-  \\ impl_tac THEN1
-   (full_simp_tac(srw_ss())[MAP_KEYS_def] \\ qexists_tac `f y` \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac LINV_DEF \\ full_simp_tac(srw_ss())[]) \\ srw_tac[][]
-  \\ `INJ (LINV f UNIV) (FDOM t) UNIV` by
-    (qpat_assum `INJ (LINV f UNIV) UNIV UNIV` mp_tac \\ simp [INJ_DEF])
-  \\ imp_res_tac (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
-  \\ imp_res_tac LINV_DEF \\ full_simp_tac(srw_ss())[]);
+  ``!s x y. FINITE s /\ x IN s /\ y < x ==> y < SUM_SET s``,
+  metis_tac[SUM_SET_IN_LE,LESS_LESS_EQ_TRANS]);
 
 val BIJ_IMP_11 = store_thm("BIJ_IMP_11",
   ``BIJ f UNIV UNIV ==> !x y. (f x = f y) = (x = y)``,
   full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF] \\ metis_tac []);
-
-val FLOOKUP_MAP_KEYS = Q.store_thm("FLOOKUP_MAP_KEYS",
-  `INJ f (FDOM m) UNIV ⇒
-   FLOOKUP (MAP_KEYS f m) k =
-   OPTION_BIND (some x. k = f x ∧ x ∈ FDOM m) (FLOOKUP m)`,
-  strip_tac >> DEEP_INTRO_TAC some_intro >>
-  simp[FLOOKUP_DEF,MAP_KEYS_def]);
-
-val FLOOKUP_MAP_KEYS_MAPPED = Q.store_thm("FLOOKUP_MAP_KEYS_MAPPED",
-  `INJ f UNIV UNIV ⇒
-   FLOOKUP (MAP_KEYS f m) (f k) = FLOOKUP m k`,
-  strip_tac >>
-  `INJ f (FDOM m) UNIV` by metis_tac[INJ_SUBSET,SUBSET_UNIV,SUBSET_REFL] >>
-  simp[FLOOKUP_MAP_KEYS] >>
-  DEEP_INTRO_TAC some_intro >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[INJ_DEF] >> full_simp_tac(srw_ss())[FLOOKUP_DEF] >> metis_tac[]);
-
-val DRESTRICT_MAP_KEYS_IMAGE = Q.store_thm("DRESTRICT_MAP_KEYS_IMAGE",
-  `INJ f UNIV UNIV ⇒
-   DRESTRICT (MAP_KEYS f fm) (IMAGE f s) = MAP_KEYS f (DRESTRICT fm s)`,
-  srw_tac[][fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
-  dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS,FDOM_DRESTRICT] >>
-  conj_tac >- ( metis_tac[IN_INTER,IN_UNIV,INJ_DEF] ) >>
-  DEEP_INTRO_TAC some_intro >>
-  DEEP_INTRO_TAC some_intro >>
-  srw_tac[][FLOOKUP_DRESTRICT] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-  metis_tac[INJ_DEF,IN_UNIV]);
-
-val DOMSUB_MAP_KEYS = Q.store_thm("DOMSUB_MAP_KEYS",
-  `BIJ f UNIV UNIV ⇒
-   (MAP_KEYS f fm) \\ (f s) = MAP_KEYS f (fm \\ s)`,
-  srw_tac[][fmap_domsub] >>
-  dep_rewrite.DEP_REWRITE_TAC[GSYM DRESTRICT_MAP_KEYS_IMAGE] >>
-  srw_tac[][] >- full_simp_tac(srw_ss())[BIJ_DEF] >>
-  AP_TERM_TAC >>
-  srw_tac[][EXTENSION] >>
-  full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF] >>
-  metis_tac[]);
 
 val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
   `∀f al x.
@@ -1663,6 +1538,37 @@ val LENGTH_LASTN_LESS = store_thm("LENGTH_LASTN_LESS",
   Induct \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][]
   \\ first_x_assum (qspec_then `n` assume_tac)
   \\ decide_tac);
+
+val MAP_EQ_MAP_IMP = store_thm("MAP_EQ_MAP_IMP",
+  ``!xs ys f.
+      (!x y. MEM x xs /\ MEM y ys /\ (f x = f y) ==> (x = y)) ==>
+      (MAP f xs = MAP f ys) ==> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [MAP] \\ METIS_TAC []);
+(*
+NB: this is weaker:
+val MAP_EQ_MAP_IMP = save_thm("MAP_EQ_MAP_IMP",
+  INJ_MAP_EQ |> SIMP_RULE (srw_ss()) [INJ_DEF]);
+*)
+
+val LENGTH_EQ_FILTER_FILTER = store_thm("LENGTH_EQ_FILTER_FILTER",
+  ``!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
+         (LENGTH xs = LENGTH (FILTER P xs) + LENGTH (FILTER Q xs))``,
+  Induct \\ SIMP_TAC std_ss [LENGTH,FILTER,EVERY_DEF] \\ STRIP_TAC
+  \\ Cases_on `P h` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD_CLAUSES]);
+
+val LIST_REL_MAP_FILTER_NEQ = store_thm("LIST_REL_MAP_FILTER_NEQ",
+  ``∀P f1 f2 z1 z2 l1 l2.
+      LIST_REL P (MAP f1 l1) (MAP f2 l2) ∧
+      (∀y1 y2. MEM (y1,y2) (ZIP(l1,l2)) ⇒ (SND y1 ≠ z1 ⇔ SND y2 ≠ z2) ∧ (P (f1 y1) (f2 y2)))
+      ⇒
+      LIST_REL P (MAP f1 (FILTER (λ(x,y). y ≠ z1) l1)) (MAP f2 (FILTER (λ(x,y). y ≠ z2) l2))``,
+  ntac 5 gen_tac >>
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  Cases >> simp[] >>
+  strip_tac >>
+  Cases_on`h`>>fs[] >> rw[] >>
+  METIS_TAC[SND])
 
 (* move into HOL? *)
 
