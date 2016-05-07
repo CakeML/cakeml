@@ -22,7 +22,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../basicComputeLib ffi/ffiTheory
+BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../basicComputeLib ffi/ffiTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 all: $(HOLHEAP)

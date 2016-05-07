@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib Parse;
 open lexer_funTheory cmlPtreeConversionTheory initialProgramTheory; (* TODO: should be included in termination *)
-open terminationTheory;
+open terminationTheory lprefix_lubTheory;
 
 val _ = new_theory "semantics";
 

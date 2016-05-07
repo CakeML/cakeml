@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../unverified/reg_alloc $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+INCLUDES = ../../.. ../../../unverified/reg_alloc
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
