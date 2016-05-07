@@ -169,10 +169,10 @@ val irc_alloc_def = Define`
 (*Prove that irc alloc is an instance of the actual algorithm*)
 val irc_alloc_reg_alloc_3 = prove(``
   ∀G k moves ct.
-  irc_alloc ct k moves = reg_alloc 3 (FST (clash_tree_to_spg ct [] LN)) k moves`,
+  irc_alloc ct k moves = reg_alloc 3 (FST (clash_tree_to_spg ct [] LN)) k moves``,
   fs[irc_alloc_def,reg_alloc_def])
 
-val _ = translate irc_alloc_def
+val _ = translate irc_alloc_def;
 
 (*Dump to file*)
 (*
@@ -192,6 +192,8 @@ val _ = disable_astPP();
 *)
 
 (*val _ = Feedback.set_trace "TheoryPP.include_docs" 0;*)
+
 val _ = ml_translatorLib.print_asts:=true;
 
 val _ = export_theory();
+
