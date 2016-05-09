@@ -28,6 +28,7 @@ val binop = HolKernel.syntax_fns2 "ml_translator"
 
 val (TAG,mk_TAG,dest_TAG,is_TAG) = binop "TAG";
 val (PreImp,mk_PreImp,dest_PreImp,is_PreImp) = binop "PreImp";
+val (lookup_cons,mk_lookup_cons,dest_lookup_cons,is_lookup_cons) = binop "lookup_cons";
 
 fun mk_vector_type ty = mk_thy_type{Thy="ml_translator",Tyop="vector",Args=[ty]};
 

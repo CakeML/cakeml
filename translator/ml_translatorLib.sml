@@ -1284,7 +1284,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val xs = dtype |> rand |> rator |> rand |> rand |> rand
                    |> listSyntax.dest_list |> fst
                    |> map pairSyntax.dest_pair
-    in map (fn (n,l) => ``Dexn ^n ^l``) xs end
+    in map astSyntax.mk_Dexn xs end
   (* cons assumption *)
   fun smart_full_id tyname =
     if is_list_type orelse is_option_type orelse is_pair_type
@@ -1295,7 +1295,8 @@ fun derive_thms_for_type is_exn_type ty = let
     val tyi = if is_exn_type then mk_TypeExn else mk_TypeId
     val name = if is_exn_type then full_id x1 else smart_full_id tyname
     val env = mk_var("env",venvironment)
-    in ``lookup_cons ^x1 ^env = SOME ^(pairSyntax.mk_pair(l,tyi name))`` end
+    val pr = pairSyntax.mk_pair(l,tyi name)
+    in mk_eq (mk_lookup_cons (x1,env), optionSyntax.mk_some (pr)) end
   val type_assum =
       dtype_list
       |> listSyntax.dest_list |> fst
@@ -1372,11 +1373,10 @@ fun derive_thms_for_type is_exn_type ty = let
     (* assums *)
     val vs = map (fn (n,f,fxs,pxs,tm,exp,xs) => map (fn (x,_,_) => x) xs) ts |> flatten
     val b0 = mk_var("b0",bool)
-    fun mk_container tm = mk_comb(``CONTAINER:bool->bool``,tm)
-    val tm = b0::map (fn (n,f,fxs,pxs,tm,exp,xs) => mk_imp(mk_container(mk_eq(input_var,tm)),pxs)) ts
+    val tm = b0::map (fn (n,f,fxs,pxs,tm,exp,xs) => mk_imp(mk_CONTAINER(mk_eq(input_var,tm)),pxs)) ts
              |> list_mk_conj
     val tm = list_mk_forall(vs,tm)
-    val result = mk_imp(``TAG () ^tm``,result)
+    val result = mk_imp(mk_TAG (``()``, tm),result)
     (* tags *)
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
@@ -1401,7 +1401,8 @@ fun derive_thms_for_type is_exn_type ty = let
     (* goal *)
     val hyps = map mk_hyp ts
     val x = mk_comb(rator (rator inv_lhs),input_var)
-    val hyp0 = ``TAG (0:num) (b0 ==> Eval env ^exp_var ^x)``
+    val ev = mk_Eval(mk_var("env", venvironment),exp_var,x)
+    val hyp0 = mk_TAG(``(0:num)``, ``(b0 ==> ^ev)``)
     val hyps = list_mk_conj(hyp0::hyps)
     val goal = mk_imp(type_assum,mk_imp(tt,mk_imp(hyps,result)))
     val evaluate_Mat =
@@ -1486,7 +1487,8 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val tag_name = if name = "PAIR_TYPE"
                    then optionSyntax.mk_none(``:tvarN id``)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
-    val result = ``Eval env (Con ^tag_name ^exps_tm) (^inv ^tm)``
+    val result = mk_Eval(mk_var("env", venvironment),
+                         ``Con ^tag_name ^exps_tm``, ``(^inv ^tm)``)
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
@@ -2004,14 +2006,13 @@ fun pattern_complete def vs = let
     in x end
   val pat_tm = list_mk_disj (map tt lines)
   val pat_tm = subst (map (fn (y,x) => x |-> y) ws) pat_tm
-  val pre_tm = ``PRECONDITION ^pat_tm``
+  val pre_tm = mk_PRECONDITION pat_tm
   in pre_tm end
 
 fun single_line_def def = let
   val lhs = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
                 |> concl |> dest_eq |> fst
   val const = lhs |> repeat rator
-  fun mk_container tm = ``CONTAINER ^tm``
   in if filter (not o is_var) (dest_args lhs) = [] then (def,NONE) else let
   val name = const |> dest_const |> fst
   val thy = #Thy (dest_thy_const const)
@@ -2075,7 +2076,7 @@ fun single_line_def def = let
             SIMP_CONV std_ss [Once pair_case_def,GSYM curried]) (subst [a|->c,v|->cc] tm)
            |> concl |> rand |> rand
   val vs = free_vars tm
-  val goal = mk_eq(mk_container c2, mk_container tm)
+  val goal = mk_eq(mk_CONTAINER c2, mk_CONTAINER tm)
   val pre_tm =
     if not (can (find_term is_arb) goal) then T else let
       val vs = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_args |> tl
@@ -2091,7 +2092,7 @@ fun single_line_def def = let
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
     \\ SRW_TAC [] [] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
-    |> REWRITE_RULE [EVAL ``PRECONDITION T``]
+    |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
     |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
   in (lemma,SOME ind) end end
   handle HOL_ERR _ => failwith("Preprocessor failed: unable to reduce definition to single line.")
@@ -2936,7 +2937,7 @@ fun extract_precondition_non_rec th pre_var =
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
     in if rhs = T then
-      (UNDISCH_ALL (SIMP_RULE std_ss [EVAL ``PRECONDITION T``] th),NONE)
+      (UNDISCH_ALL (SIMP_RULE std_ss [EVAL (mk_PRECONDITION T)] th),NONE)
     else let
 (*
     in if free_vars rhs = [] then
@@ -3134,7 +3135,7 @@ fun remove_Eq th = let
 fun rev_param_list tm =
   if is_comb tm then rand tm :: rev_param_list (rator tm) else []
 
-val EVAL_T_F = LIST_CONJ [EVAL ``CONTAINER TRUE``, EVAL ``CONTAINER FALSE``]
+val EVAL_T_F = LIST_CONJ [EVAL (mk_CONTAINER TRUE), EVAL (mk_CONTAINER FALSE)]
 
 fun reset_translation () =
   (cert_reset(); type_reset(); print_reset(); finalise_reset());
@@ -3311,8 +3312,8 @@ val _ = (max_print_depth := 25)
     val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
     val th = Q.INST [`shaddow_env`|->`env`] th |> REWRITE_RULE []
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-                        (SIMP_CONV std_ss [EVAL ``CONTAINER TRUE``,
-                                           EVAL ``CONTAINER FALSE``])) th
+                        (SIMP_CONV std_ss [EVAL (mk_CONTAINER TRUE),
+                                           EVAL (mk_CONTAINER FALSE)])) th
     val th = clean_assumptions th
     val (lhs,rhs) = dest_eq (concl def)
     val pre_var = get_pre_var lhs fname
