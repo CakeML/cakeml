@@ -1699,8 +1699,12 @@ val word_payload_def = Define `
      (make_header conf 2w (LENGTH ys),
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l))) /\
+  (word_payload ys l Word64Tag qs conf =
+     (* header: ...1101 *)
+     (make_header conf 13w l,
+      qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (NumTag b) qs conf =
-     (* header: ...101 or ...001 *)
+     (* header: ...0101 or ...0001 *)
      (make_header conf (b2w b << 2 || 1w) (LENGTH qs),
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
