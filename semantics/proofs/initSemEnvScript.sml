@@ -106,4 +106,29 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
      rw [mk_binop_def, mk_unop_def] >>
      CONV_TAC interp_conv));
 
+val prim_tdecs_def = Define
+  `prim_tdecs =
+    <|defined_mods := {};
+      defined_exns :=
+        {Short"Subscript"
+        ;Short"Div"
+        ;Short"Chr"
+        ;Short"Bind"};
+      defined_types :=
+        {Short"option"
+        ;Short"list"
+        ;Short"bool"}|>`;
+
+val prim_tenv_def = Define`
+  prim_tenv = <|c := ([],[]); m := FEMPTY; v := Empty; t := (FEMPTY,FEMPTY)|>`;
+
+(* TODO: rename semantics and call semantics_init semantics instead? *)
+open semanticsTheory
+val semantics_init_def = Define`
+  semantics_init ffi =
+    semantics <| sem_st := FST(THE (prim_sem_env ffi));
+                 sem_env := SND(THE (prim_sem_env ffi));
+                 tdecs := prim_tdecs;
+                 tenv := prim_tenv |>`;
+
 val _ = export_theory ();

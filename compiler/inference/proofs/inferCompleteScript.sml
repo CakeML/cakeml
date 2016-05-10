@@ -874,41 +874,6 @@ val infer_ds_complete = prove(``
   rw[]>>
   fs[convert_append_decls,append_new_dec_tenv_def,tenv_alpha_bind_var_list2,check_env_def]);
 
-(*TODO move to miscLib*)
-fun any_match_mp impth th =
-  let
-    val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
-    val c = first(can (C match_term (concl th))) h
-    val th2 = impth
-      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (equal c))))
-      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
-  in
-    MATCH_MP th2 th  end
-
-(* TODO: move? *)
-val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
-  ``(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
-      ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
-    (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
-      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
-  Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
-  simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
-
-val infer_type_subst_nil = store_thm("infer_type_subst_nil",
-  ``(∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
-    (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)``,
-  ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
-  rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
-  fsrw_tac[boolSimps.ETA_ss][])
-
-val check_freevars_more = store_thm("check_freevars_more",
-  ``∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c``,
-  ho_match_mp_tac check_freevars_ind >>
-  rw[check_freevars_def] >-
-    fs[SUBSET_DEF] >>
-  fs[EVERY_MEM])
-(* -- *)
-
 val t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
