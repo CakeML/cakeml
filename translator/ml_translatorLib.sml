@@ -113,6 +113,9 @@ structure semanticPrimitivesSyntax = struct
   val (TypeId_tm,mk_TypeId,dest_TypeId,is_TypeId) = s "TypeId"
   val (TypeExn_tm,mk_TypeExn,dest_TypeExn,is_TypeExn) = s "TypeExn"
   end
+  local val s = HolKernel.syntax_fns2 "semanticPrimitives" in
+  val (Conv_tm,mk_Conv,dest_Conv,is_Conv) = s "Conv"
+  end
 end
 
 open semanticPrimitivesSyntax
@@ -143,6 +146,8 @@ structure astSyntax = struct
   val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
   val (Tvar_tm,mk_Tvar,dest_Tvar,is_Tvar) = s "Tvar"
+  val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"
+  val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise"
   val (TC_name_tm,mk_TC_name,dest_TC_name,is_TC_name) = s "TC_name"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
@@ -151,6 +156,8 @@ structure astSyntax = struct
   val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon"
   val (Tapp_tm,mk_Tapp,dest_Tapp,is_Tapp) = s "Tapp"
+  val (Mat_tm,mk_Mat,dest_Mat,is_Mat) = s "Mat"
+  val (Con_tm,mk_Con,dest_Con,is_Con) = s "Con"
   end
 end
 
@@ -1078,7 +1085,8 @@ fun define_ref_inv is_exn_type tys = let
                    else if is_list_type orelse is_option_type then
                      optionSyntax.mk_some(pairSyntax.mk_pair(str, mk_TypeId(astSyntax.mk_Short str_ty_name)))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
-      val tm = mk_conj(``v = Conv ^tag_tm ^vs``,tm)
+      val tm = mk_conj(mk_eq(mk_var("v", v_ty),
+                            mk_Conv(tag_tm, vs)),tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
@@ -1362,21 +1370,22 @@ fun derive_thms_for_type is_exn_type ty = let
       val vars = map (fn (x,n,v) => astSyntax.mk_Pvar n) xs
       val vars = listSyntax.mk_list(vars,astSyntax.pat_ty)
       val tag_tm = if name = "PAIR_TYPE"
-                   then optionSyntax.mk_none(``:tvarN id``)
+                   then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
       in pairSyntax.mk_pair(astSyntax.mk_Pcon(tag_tm,vars), exp) end) ts
     val patterns = listSyntax.mk_list(patterns,astSyntax.pat_exp_ty)
     val ret_inv = get_type_inv ret_ty
-    val result = mk_comb(ret_inv,exp)
     val exp_var = mk_var("exp", astSyntax.exp_ty)
-    val result = ``Eval env (Mat ^exp_var ^patterns) ^result``
+    val result = mk_Eval(mk_var("env", venvironment),
+                         astSyntax.mk_Mat(exp_var, patterns),
+                         mk_comb(ret_inv,exp))
     (* assums *)
     val vs = map (fn (n,f,fxs,pxs,tm,exp,xs) => map (fn (x,_,_) => x) xs) ts |> flatten
     val b0 = mk_var("b0",bool)
     val tm = b0::map (fn (n,f,fxs,pxs,tm,exp,xs) => mk_imp(mk_CONTAINER(mk_eq(input_var,tm)),pxs)) ts
              |> list_mk_conj
     val tm = list_mk_forall(vs,tm)
-    val result = mk_imp(mk_TAG (``()``, tm),result)
+    val result = mk_imp(mk_TAG (oneSyntax.one_tm, tm),result)
     (* tags *)
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
@@ -1402,7 +1411,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val hyps = map mk_hyp ts
     val x = mk_comb(rator (rator inv_lhs),input_var)
     val ev = mk_Eval(mk_var("env", venvironment),exp_var,x)
-    val hyp0 = mk_TAG(``(0:num)``, ``(b0 ==> ^ev)``)
+    val hyp0 = mk_TAG(numSyntax.zero_tm, mk_imp(b0, ev))
     val hyps = list_mk_conj(hyp0::hyps)
     val goal = mk_imp(type_assum,mk_imp(tt,mk_imp(hyps,result)))
     val evaluate_Mat =
@@ -1485,14 +1494,17 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
     val tag_name = if name = "PAIR_TYPE"
-                   then optionSyntax.mk_none(``:tvarN id``)
+                   then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
     val result = mk_Eval(mk_var("env", venvironment),
-                         ``Con ^tag_name ^exps_tm``, ``(^inv ^tm)``)
+                         astSyntax.mk_Con(tag_name, exps_tm),
+                         mk_comb(inv,tm))
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
-    val tms = map (fn (x,exp) => ``Eval env ^exp ^(find_inv x)``) exps
+    val tms = map (fn (x,exp) => mk_Eval(mk_var("env", venvironment),
+                                         exp,
+                                         find_inv x)) exps
     val tm = if tms = [] then T else list_mk_conj tms
     val cons_assum = type_assum
                      |> list_dest dest_conj
@@ -1504,13 +1516,14 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     fun add_primes str 0 = []
       | add_primes str n = mk_var(str,v_ty) :: add_primes (str ^ "'") (n-1)
     val witness = listSyntax.mk_list(add_primes "res" (length xs),v_ty)
+    val revw = listSyntax.mk_reverse(witness)
     val lemma = prove(goal,
       SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       (*\\ PairCases_on `env`*)
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
            (*all_env_to_cenv_def,*)lookup_cons_def,build_conv_def,id_to_n_def]
-      \\ EXISTS_TAC ``REVERSE ^witness``
+      \\ EXISTS_TAC revw
       \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
       \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,evaluate_list_SIMP,APPEND,CONS_11])
     in (pat,lemma) end;
@@ -1634,7 +1647,7 @@ fun inst_case_thm_for tm = let
   val ns = map (fn n => (n,args n)) names
   fun rename_var prefix ty v =
     mk_var(prefix ^ implode (tl (explode (fst (dest_var v)))),ty)
-  val ts = find_terms (can (match_term ``CONTAINER (b:bool)``)) (concl th)
+  val ts = find_terms (can (match_term (mk_CONTAINER (mk_var("b", bool))))) (concl th)
            |> map (rand o rand)
            |> map (fn tm => (tm,map (fn x => (x,rename_var "n" stringSyntax.string_ty x,
                                                 rename_var "v" v_ty x))
@@ -1875,7 +1888,7 @@ fun to_pattern tm =
       val (args,_) = listSyntax.dest_list args
       val args = listSyntax.mk_list(map to_pattern args,``:pat``)
     in
-      ``Pcon ^name ^args``
+      astSyntax.mk_Pcon(name, args)
     end
   else if can(match_term``Lit l``) tm then
     ``Plit ^(rand tm)``
@@ -2410,7 +2423,9 @@ fun inst_Eval_env v th = let
   val name = fst (dest_var v)
   val str = stringLib.fromMLstring name
   val inv = get_type_inv (type_of v)
-  val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
+  val assum = mk_Eval(mk_var("env", venvironment),
+                      astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                        mk_comb(inv, v))
   val new_env = ``write ^str (v:v) env``
   val old_env = new_env |> rand
   val c = SIMP_CONV bool_ss [Eval_Var_SIMP,lookup_var_write]
@@ -2465,8 +2480,10 @@ fun apply_Eval_Recclosure recc fname v th = let
   val pat = lemma |> concl |> find_term (can (match_term ``Eval env``))
   val new_env = pat |> rand
   val old_env = mk_var("env",venvironment)
-  val assum = subst [old_env|->new_env]
-                ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
+  val assum_eval = mk_Eval(mk_var("env", venvironment),
+                           astSyntax.mk_Var(astSyntax.mk_Short(vname_str)),
+                           mk_comb(inv, v))
+  val assum = subst [old_env|->new_env] assum_eval
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum (* |> SIMP_RULE bool_ss [] *)
                |> INST [old_env|->new_env]
@@ -2617,7 +2634,9 @@ fun hol2deep tm =
     val (name,ty) = dest_var tm
     val inv = get_type_inv ty
     val str = stringSyntax.fromMLstring name
-    val result = ASSUME (mk_comb(``Eval env (Var (Short ^str))``,mk_comb(inv,tm)))
+    val result = ASSUME (mk_Eval(mk_var("env", venvironment),
+                       astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                       mk_comb(inv,tm)))
     in check_inv "var" tm result end else
   (* constants *)
   if tm = oneSyntax.one_tm then Eval_Val_UNIT else
@@ -2630,8 +2649,8 @@ fun hol2deep tm =
     SPEC (rand tm) Eval_Val_STRING else
   if (tm = T) then Eval_Val_BOOL_T else
   if (tm = F) then Eval_Val_BOOL_F else
-  if (tm = ``TRUE``) then Eval_Val_BOOL_TRUE else
-  if (tm = ``FALSE``) then Eval_Val_BOOL_FALSE else
+  if (tm = TRUE) then Eval_Val_BOOL_TRUE else
+  if (tm = FALSE) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)
   inst_cons_thm tm hol2deep handle HOL_ERR _ =>
   (* data-type pattern-matching *)
@@ -2652,7 +2671,10 @@ fun hol2deep tm =
     val inv = mk_inv xs (get_type_inv (type_of tm))
     val ss = fst (match_term lhs tm)
     val pre = subst ss pre_var
-    val h = ASSUME ``PreImp ^pre (Eval env (Var (Short ^str)) (^inv ^f))``
+    val pre_imp = mk_PreImp(pre, mk_Eval(mk_var("env", venvironment),
+                                         astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                                         mk_comb(inv,f)))
+    val h = ASSUME pre_imp
             |> RW [PreImp_def] |> UNDISCH
     val ys = map (fn tm => MATCH_MP Eval_Eq (hol2deep tm)) xs
     fun apply_arrow hyp [] = hyp
@@ -2885,7 +2907,10 @@ fun hol2deep tm =
     in check_inv "abs" tm result end else
   if is_arb tm then let
     val inv = get_type_inv (type_of tm)
-    val goal = ``PRECONDITION F ==> Eval env (Raise (Con(SOME(Short"Bind"))[])) (^inv ^tm)``
+    val goal = mk_imp(mk_PRECONDITION F,
+                      mk_Eval(mk_var("env", venvironment),
+                              astSyntax.mk_Raise(``(Con(SOME(Short"Bind")) [])``),
+                              mk_comb(inv,tm)))
     val result = prove(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
     in check_inv "arb" tm result end
   else raise (UnableToTranslate tm)
