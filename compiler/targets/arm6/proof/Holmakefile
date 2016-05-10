@@ -1,4 +1,3 @@
-CLINE_OPTIONS = --qof -j1
 INCLUDES = .. ../../asm
 
 ifdef POLY

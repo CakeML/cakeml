@@ -558,8 +558,6 @@ fun next_tac n =
             x64_next_def, x64_proj_def]
    \\ NTAC 2 STRIP_TAC
 
-fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
-
 fun state_tac thms l =
    REPEAT (qpat_assum `NextStateX64 q = z` (K all_tac))
    \\ rfs ([x64Theory.RexReg_def, x64_asm_state_def, asmPropsTheory.all_pcs,
@@ -716,6 +714,8 @@ val decode_cmp_tac =
    x64_asm_deterministic
    x64_backend_correct
    ------------------------------------------------------------------------- *)
+
+val print_tac = asmLib.print_tac "encode"
 
 val x64_encoding = Count.apply Q.prove (
    `!i. asm_ok i x64_config ==>
@@ -945,6 +945,8 @@ val x64_asm_deterministic_config =
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [x64_config_def] x64_encoding ::
    enc_ok_rwts
+
+val print_tac = asmLib.print_tac "correct"
 
 val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,

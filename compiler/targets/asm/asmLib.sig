@@ -11,6 +11,7 @@ sig
    val find_env: Term.term -> (Term.term * Term.term) option
    val mk_bytes_in_memory:
       Term.term * Term.term * Term.term * Term.term -> Term.term
+   val print_tac : string -> string -> Tactic.tactic
    val strip_bytes_in_memory: Term.term -> Term.term list option
    val split_bytes_in_memory_tac: int -> Tactic.tactic
    val using_first: int -> (Thm.thm list -> Tactic.tactic) -> Tactic.tactic

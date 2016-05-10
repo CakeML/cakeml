@@ -686,14 +686,13 @@ fun next_tac n =
          asmPropsTheory.interference_ok_def, arm8_proj_def]
    \\ NTAC 2 strip_tac
 
-fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
-
 (* -------------------------------------------------------------------------
    arm8_asm_deterministic
    arm8_backend_correct
    ------------------------------------------------------------------------- *)
 
 val ext12 = ``(11 >< 0) : word64 -> word12``
+val print_tac = asmLib.print_tac "encode"
 
 val arm8_encoding = Count.apply Q.prove (
    `!i. asm_ok i arm8_config ==>
@@ -828,6 +827,8 @@ val arm8_asm_deterministic_config =
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm8_config_def] arm8_encoding ::
    enc_ok_rwts
+
+val print_tac = asmLib.print_tac "correct"
 
 val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
    `backend_correct arm8_target`,
