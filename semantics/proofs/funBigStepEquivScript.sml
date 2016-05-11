@@ -3,12 +3,6 @@ open terminationTheory
 
 val _ = new_theory"funBigStepEquiv"
 
-(* TODO: move *)
-val merge_alist_mod_env_empty = Q.store_thm("merge_alist_mod_env_empty[simp]",
-  `merge_alist_mod_env ([],[]) x = x`,
-  Cases_on`x`>>EVAL_TAC)
-(* -- *)
-
 val s = ``s:'ffi state``
 
 val evaluate_eq_run_eval_list = Q.store_thm("evaluate_eq_run_eval_list",
