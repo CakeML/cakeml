@@ -66,6 +66,16 @@ fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true
 fun drule th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
+fun any_match_mp impth th =
+  let
+    val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
+    val c = first(can (C match_term (concl th))) h
+    val th2 = impth
+      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (equal c))))
+      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+  in
+    MATCH_MP th2 th  end
+
 val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 (* TODO: this doesn't prove the hyps if there's more than one *)

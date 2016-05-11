@@ -2390,7 +2390,7 @@ val count_list_one = Q.prove (
 `COUNT_LIST 1 = [0]`,
 metis_tac [COUNT_LIST_def, MAP, DECIDE ``1 = SUC 0``]);
 
-val check_freevars_more = Q.prove (
+val check_freevars_more_append = Q.prove (
 `(!t x fvs1 fvs2.
   check_freevars x fvs1 t ⇒
   check_freevars x (fvs2++fvs1) t ∧
@@ -2415,7 +2415,22 @@ val t_to_freevars_check = Q.store_thm ("t_to_freevars_check",
 Induct >>
 rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
 rw [] >>
-metis_tac [check_freevars_more]);
+metis_tac [check_freevars_more_append]);
+
+val check_freevars_more = store_thm("check_freevars_more",
+  ``∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c``,
+  ho_match_mp_tac check_freevars_ind >>
+  rw[check_freevars_def] >-
+    fs[SUBSET_DEF] >>
+  fs[EVERY_MEM])
+
+val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
+  ``(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
+      ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
+    (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
+      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
+  Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
+  simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
 
 val infer_type_subst_empty_check = store_thm("infer_type_subst_empty_check",``
   (∀t.
@@ -3130,6 +3145,13 @@ val deBruijn_subst_nothing = store_thm("deBruijn_subst_nothing",
   fs[deBruijn_subst_def]>>rw[]>>
   fs[LIST_EQ_REWRITE]>>rw[]>>
   fs[MEM_EL,EL_MAP])
+
+val infer_type_subst_nil = store_thm("infer_type_subst_nil",
+  ``(∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
+    (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
+  rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
+  fsrw_tac[boolSimps.ETA_ss][])
 
 val menv_alpha_def = Define`
   menv_alpha = fmap_rel (λitenv tenv. tenv_alpha itenv (bind_var_list2 tenv Empty))`

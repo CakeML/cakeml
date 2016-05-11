@@ -16,6 +16,10 @@ val _ = numLib.prefer_num();
 
 val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
 
+val SUBSET_IMP = store_thm("SUBSET_IMP",
+  ``s SUBSET t ==> (x IN s ==> x IN t)``,
+  fs[pred_setTheory.SUBSET_DEF]);
+
 val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
 
 val revdroprev = Q.store_thm("revdroprev",

@@ -12,6 +12,10 @@ val with_same_v = Q.store_thm("with_same_v[simp]",
   `(env:'v environment) with v := env.v = env`,
   srw_tac[][environment_component_equality]);
 
+val with_same_clock = Q.store_thm("with_same_clock",
+  `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
+  rw[semanticPrimitivesTheory.state_component_equality])
+
 val mk_id_11 = Q.store_thm("mk_id_11[simp]",
   `mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
   map_every Cases_on[`a`,`c`] >> EVAL_TAC)

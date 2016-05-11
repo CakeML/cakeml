@@ -1,9 +1,9 @@
-INCLUDES = ../../.. ../../../unverified/reg_alloc $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+INCLUDES = ../../.. ../../../unverified/reg_alloc
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../heap
+PARENT_HOLHEAP = ../../../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))

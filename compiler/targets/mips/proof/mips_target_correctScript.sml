@@ -267,8 +267,6 @@ val decode_tac =
    \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
    \\ blastLib.FULL_BBLAST_TAC
 
-fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
-
 local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (hd asl) of
@@ -320,6 +318,8 @@ val enc_ok_tac =
    mips_asm_deterministic
    mips_backend_correct
    ------------------------------------------------------------------------- *)
+
+val print_tac = asmLib.print_tac "encode"
 
 val mips_encoding = Count.apply Q.prove (
    `!i. asm_ok i mips_config ==>
@@ -436,6 +436,8 @@ val mips_asm_deterministic_config =
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [mips_config_def] mips_encoding ::
    enc_ok_rwts
+
+val print_tac = asmLib.print_tac "correct"
 
 val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
    `backend_correct mips_target`,

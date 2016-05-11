@@ -53,6 +53,9 @@ val asm_rwts =
 
 (* some custom tools/tactics ---------------------------------------------- *)
 
+fun print_tac s1 s2 gs =
+  (print (s2 ^ (if s1 = "" then "" else " (" ^ s1 ^ ")") ^ "\n"); ALL_TAC gs)
+
 fun using_first n thms_tac =
    POP_ASSUM_LIST
       (fn thms =>

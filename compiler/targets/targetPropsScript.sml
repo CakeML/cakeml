@@ -6,14 +6,6 @@ open preamble
 val _ = ParseExtras.temp_tight_equality();
 val _ = new_theory"targetProps";
 
-(* TODO: move *)
-
-val SUBSET_IMP = prove(
-  ``s SUBSET t ==> (x IN s ==> x IN t)``,
-  full_simp_tac(srw_ss())[pred_setTheory.SUBSET_DEF]);
-
-(* -- *)
-
 val asserts_restrict = prove(
   ``!n next1 next2 s P Q.
       (!k. k <= n ==> (next1 k = next2 k)) ==>

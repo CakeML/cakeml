@@ -1,4 +1,3 @@
-OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../../asm
 
 ifdef POLY

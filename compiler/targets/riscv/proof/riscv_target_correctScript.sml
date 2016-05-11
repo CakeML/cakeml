@@ -257,8 +257,6 @@ val decode_tac =
    \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
    \\ blastLib.FULL_BBLAST_TAC
 
-fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
-
 local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (hd asl) of
@@ -303,6 +301,8 @@ val enc_ok_tac =
    riscv_asm_deterministic
    riscv_backend_correct
    ------------------------------------------------------------------------- *)
+
+val print_tac = asmLib.print_tac "encode"
 
 val riscv_encoding = Count.apply Q.prove (
    `!i. asm_ok i riscv_config ==>
@@ -411,6 +411,8 @@ val riscv_asm_deterministic_config =
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [riscv_config_def] riscv_encoding ::
    enc_ok_rwts
+
+val print_tac = asmLib.print_tac "correct"
 
 val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
    `backend_correct riscv_target`,

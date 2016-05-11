@@ -4291,7 +4291,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
                 word_allocTheory.max_var_exp_def,list_max_def]
         \\ impl_tac
         >- (
-          conj_tac >- metis_tac[]
+          TRY (conj_tac >- metis_tac[])
           \\ rw[] \\ fs[TWOxDIV2] )
         \\ simp[] )
       \\ drule (GEN_ALL word_exp_thm2)
@@ -4323,7 +4323,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
               word_allocTheory.max_var_exp_def,list_max_def]
       \\ impl_tac
       >- (
-        conj_tac >- metis_tac[]
+        TRY(conj_tac >- metis_tac[])
         \\ rw[] \\ fs[TWOxDIV2] )
       \\ simp[]
       \\ rw[]
@@ -4407,7 +4407,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
                 word_allocTheory.max_var_exp_def,list_max_def]
         \\ impl_tac
         >- (
-          conj_tac >- metis_tac[]
+          TRY(conj_tac >- metis_tac[])
           \\ rw[] \\ fs[TWOxDIV2] )
         \\ simp[]
         \\ fs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def,state_rel_def])
@@ -5540,8 +5540,8 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ pairarg_tac \\ fsrw_tac[] []
       \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs[]
       \\ fsrw_tac[] [stackSemTheory.evaluate_def]
-      \\ qabbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`
-      \\ qabbrev_tac `m' = (if m = 0 then 0 else m + 1)` \\ rw []
+      \\ qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`
+      \\ qpat_abbrev_tac `m' = (if _ then 0 else m + 1)` \\ rw []
       \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args) (k,f,f') <
              m' - (LENGTH q - k)` \\ fsrw_tac[] []
       THEN1 (* Hit stack limit case *)
@@ -5814,8 +5814,8 @@ val comp_correct = Q.store_thm("comp_correct",
       fs [compile_prog_def,LET_THM]>>
       pairarg_tac>>fs[]>>
       rveq>>
-      qabbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
-      qabbrev_tac `m' = (if m = 0 then 0 else m + 1)`>>
+      qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
+      qpat_abbrev_tac `m' = (if _ then 0 else m + 1)`>>
       simp[stackSemTheory.evaluate_def]>>
       `t'.use_stack` by
         fs[Abbr`t6`,stackSemTheory.state_component_equality]>>
@@ -5864,10 +5864,8 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[env_to_list_def]>>
         fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
         `sargs ≤ m ∧ m ≤ m'` by
-           (unabbrev_all_tac>>
-           simp[]>>
-           rpt (pop_assum kall_tac)>>
-           rw[MAX_DEF]>>DECIDE_TAC)>>
+           (fs[markerTheory.Abbrev_def]
+            \\ rveq \\ rw[MAX_DEF])>>
         CONJ_TAC>-
           simp[FUN_EQ_THM]>>
         CONJ_TAC>-
@@ -5875,7 +5873,8 @@ val comp_correct = Q.store_thm("comp_correct",
         CONJ_ASM1_TAC>-
           DECIDE_TAC>>
         CONJ_TAC>-
-          (fsrw_tac[][Abbr`m`,Abbr`m'`])>>
+          (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
+           \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
         CONJ_TAC>-
           simp[wf_fromList2]>>
         fsrw_tac[][DROP_DROP_EQ]>>
@@ -6207,8 +6206,8 @@ val comp_correct = Q.store_thm("comp_correct",
     fsrw_tac[][compile_prog_def,LET_THM]>>
     pairarg_tac>>fsrw_tac[][]>>
     rveq>>
-    qabbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
-    qabbrev_tac `m' = (if m = 0 then 0 else m + 1)`>>
+    qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
+    qpat_abbrev_tac `m' = (if _ then 0 else m + 1)`>>
     simp[stackSemTheory.evaluate_def]>>
     `t''.use_stack` by
       fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
@@ -6255,10 +6254,8 @@ val comp_correct = Q.store_thm("comp_correct",
       fsrw_tac[][dec_clock_def,call_env_def,push_env_def,env_to_list_def,LET_THM]>>
       fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
       `sargs ≤ m ∧ m ≤ m'` by
-         (unabbrev_all_tac>>
-         simp[]>>
-         rpt (pop_assum kall_tac)>>
-         rw[MAX_DEF]>>DECIDE_TAC)>>
+       (fs[markerTheory.Abbrev_def]
+        \\ rveq \\ rw[MAX_DEF])>>
       fsrw_tac[][state_rel_def]>>
       CONJ_TAC>-
         simp[FUN_EQ_THM]>>
@@ -6267,7 +6264,8 @@ val comp_correct = Q.store_thm("comp_correct",
       CONJ_ASM1_TAC>-
         DECIDE_TAC>>
       CONJ_TAC>-
-        (fsrw_tac[][Abbr`m`,Abbr`m'`])>>
+        (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
+         \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
       CONJ_TAC>-
         simp[wf_fromList2]>>
       fsrw_tac[][DROP_DROP_EQ]>>
@@ -7117,5 +7115,5 @@ val word_to_stack_compile_lab_pres = store_thm("word_to_stack_compile_lab_pres",
   qpat_abbrev_tac`m = if _ then _ else _`>>
   pairarg_tac>>rw[]>>EVAL_TAC>>
   metis_tac[FST,word_to_stack_lab_pres])
-  
+
 val _ = export_theory();

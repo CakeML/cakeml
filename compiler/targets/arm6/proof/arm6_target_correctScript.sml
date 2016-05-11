@@ -586,8 +586,6 @@ fun next_state_tac1 f l (asl, g) =
       \\ next_state_tac0 f `env ^t ^tm` l
    end (asl, g)
 
-fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
-
 local
    val th = REWRITE_RULE [arm6_ok_def] arm6_asm_state
 in
@@ -738,6 +736,8 @@ val decode_tac0 =
    arm6_asm_deterministic
    arm6_backend_correct
    ------------------------------------------------------------------------- *)
+
+val print_tac = asmLib.print_tac "encode"
 
 val arm6_encoding = Count.apply Q.prove (
    `!i. asm_ok i arm6_config ==>
@@ -892,6 +892,8 @@ val tac2 =
    \\ reg_tac
    \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
           updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
+
+val print_tac = asmLib.print_tac "correct"
 
 val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
    `backend_correct arm6_target`,
