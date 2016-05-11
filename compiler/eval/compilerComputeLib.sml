@@ -169,24 +169,8 @@ val add_compiler_compset = computeLib.extend_compset
       (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
-  ,computeLib.Tys
-    [ (* ---- clos_call ---- *)
-     ``:clos_call$val_approx``
-    ]
   ,computeLib.Defs
-    [clos_callTheory.get_free_vars_def
-    ,clos_callTheory.merge_def
-    ,clos_callTheory.call_intro_def
-    ,clos_callTheory.calls_def
-    ,clos_callTheory.calls_body_def
-    ,clos_callTheory.adjust_all_def
-    ,clos_callTheory.calls_app_def
-    ,clos_callTheory.Seq_def
-    ,clos_callTheory.pure_def
-    ,clos_callTheory.pure_op_def
-    ,clos_callTheory.calls_op_def
-    ,clos_callTheory.adjust_vars_def
-    ,clos_callTheory.dest_Clos_def
+    [clos_callTheory.calls_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
     ,clos_annotateTheory.shifted_env_def
