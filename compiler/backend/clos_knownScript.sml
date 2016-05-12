@@ -177,9 +177,27 @@ val compile_def = Define `
   in f 4 end
 
   val f = ``Fn (SOME 900) NONE 1 (App NONE (Op (Global 60) []) [Op Add [Var 0; Op (Const 1) []]])``
-  val g = ``Op (SetGlobal 60) [Var 0]``
+  val g = ``closLang$Op (SetGlobal 60) [Var 0]``
   val exp = ``Let [^f] (Let [^g] (App NONE (Var 1) [Op (Const 4) []]))``
   val ev = EVAL ``compile T ^exp``
+
+  TEST 2A
+
+  let
+    val f = fn k => k + 1
+    val g = set_global 60 f
+  in
+    get_global 60 3
+  end
+
+  val f = ``Fn (SOME 900) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
+  val g = ``closLang$Op (SetGlobal 60) [Var 0]``
+  val exp = ``Let [^f] (Let [^g] (App NONE
+                                      (Op (Global 60) [])
+                                      [Op (Const 3) []]))``
+  val ev = EVAL ``compile T ^exp``
+
+
 
   TEST 3
 
@@ -188,6 +206,7 @@ val compile_def = Define `
             val g = fn k => k - 1
             in (f,g) end
   in #1 xy 4 end
+
 
   val f = ``Fn (SOME 800) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
   val g = ``Fn (SOME 900) NONE 1 (Op Sub [Var 0; Op (Const 1) []])``
