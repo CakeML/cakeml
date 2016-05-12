@@ -55,7 +55,7 @@ val known_op_def = Define `
      | (a::xs) =>
        case lookup n g of
        | NONE => (Other,insert n a g)
-       | SOME other => (Other,insert n Other g)) /\
+       | SOME other => (Other,insert n (merge other a) g)) /\
   (known_op (Cons _) as g = (Tuple as,g)) /\
   (known_op (Const i) as g = (Int i,g)) /\
   (known_op El as g =
