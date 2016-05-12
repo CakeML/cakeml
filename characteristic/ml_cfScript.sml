@@ -1,9 +1,15 @@
 open HolKernel Parse boolLib bossLib preamble;
-open set_sepTheory ml_translatorTheory;
+open set_sepTheory helperLib ml_translatorTheory;
 
 val _ = new_theory "ml_cf";
 
-(* Utils *)
+(*------------------------------------------------------------------*)
+(** Heaps *)
+
+val _ = type_abbrev("loc", ``:num``);
+val _ = type_abbrev("heap", ``:(loc # v semanticPrimitives$store_v) set``);
+val _ = type_abbrev("hprop", ``:heap -> bool``);
+
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
     ((u UNION v UNION w = s) /\
@@ -17,8 +23,152 @@ val SPLIT_TAC = FULL_SIMP_TAC (pure_ss++SPLIT_ss) [] \\ METIS_TAC [];
 val SPLIT2_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
                          SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
                  \\ metis_tac [];
-(* Heaps *)
-val _ = type_abbrev("heap", ``:(num # v semanticPrimitives$store_v) -> bool``);
+
+(*------------------------------------------------------------------*)
+(** Heap predicates *)
+
+(* in set_sepTheory: emp, one, STAR, SEP_EXISTS, cond *)
+
+(* STAR for post-conditions *)
+val STARPOST_def = Define `
+  STARPOST (Q: v -> hprop) (H: hprop) =
+    \x. (Q x) * H`;
+
+(* SEP_IMP lifted for post-conditions *)
+val SEP_IMPPOST_def = Define `
+  SEP_IMPPOST (Q1: v -> hprop) (Q2: v -> hprop) =
+    !x. SEP_IMP (Q1 x) (Q2 x)`;
+
+(* Garbage collection predicate *)
+val GC_def = Define `GC: hprop = SEP_EXISTS H. H`;
+
+(*------------------------------------------------------------------*)
+(** Notations for heap predicates *)
+
+val _ = overload_on ("*+", Term `STARPOST`);
+val _ = add_infix ("*+", 480, HOLgrammars.LEFT);
+
+(* todo *)
+
+(*------------------------------------------------------------------*)
+(** Additionnal properties of STAR *)
+
+val STARPOST_emp = Q.prove (
+  `!Q. Q *+ emp = Q`,
+  strip_tac \\ fs [STARPOST_def] \\ metis_tac [SEP_CLAUSES]
+);
+
+(*------------------------------------------------------------------*)
+(** Normalization of STAR *)
+
+val rew_heap_thms =
+  [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp];
+
+val rew_heap = full_simp_tac bool_ss rew_heap_thms;
+
+val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC];
+
+(*------------------------------------------------------------------*)
+(** Specification predicates for values *)
+
+(* todo *)
+
+val Ref_def = Define `
+  Ref (v: v) (r: v) : hprop =
+    SEP_EXISTS l. cond (r = Loc l) * one (l, Refv v)`;
+
+(*------------------------------------------------------------------*)
+(** Extraction from H1 in SEP_IMP H1 H2 *)
+
+val hpull_prop = Q.prove (
+  `!H H' P.
+    (P ==> SEP_IMP H H') ==>
+    SEP_IMP (H * cond P) H'`,
+  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
+  SPLIT_TAC
+);
+
+val hpull_exists = Q.prove (
+  `!A H H' J.
+    (!x. SEP_IMP (H * (J x)) H') ==>
+    SEP_IMP (H * $SEP_EXISTS J) H'`,
+  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS] \\
+  SPLIT_TAC
+);
+
+val SEP_IMP_rew = Q.prove (
+  `!H1 H2 H1' H2'. H1 = H2 ==> H1' = H2' ==> SEP_IMP H1 H1' = SEP_IMP H2 H2'`,
+  rew_heap
+);
+
+(** Tactics *)
+
+fun SEP_IMP_conv convl convr =
+  match_goal.match1_tac
+    (match_goal.mg.c `SEP_IMP H1_ H2_`,
+    fn (_, matched) =>
+       let
+         val rew_H1 = convl (matched "H1")
+         val rew_H2 = convr (matched "H2")
+         val rew_goal = MATCH_MP (MATCH_MP SEP_IMP_rew rew_H1) rew_H2
+       in
+         CONV_TAC (REWR_CONV rew_goal)
+       end)
+
+fun check_SEP_IMP tac =
+  match_goal.match1_tac (match_goal.mg.c `SEP_IMP _ _`, K tac)
+
+fun find_map f [] = NONE
+  | find_map f (x :: xs) =
+    (case f x of
+         NONE => find_map f xs
+       | SOME y => SOME y)
+
+fun prove_conv_to tac tm tm' =
+  snd (tac ([], mk_eq (tm', tm))) []
+
+fun rearrange_star_conv tm rest =
+  let val rearranged = list_mk_star (rest @ [tm]) ``:hprop`` in
+    prove_conv_to rew_heap_AC rearranged
+  end
+
+fun hpull_one_unsafe (g as (asl, w)) =
+  let
+    val (_,[l,r]) = strip_comb w
+    val ls = list_dest dest_star l
+    fun rearrange tm =
+      let val rest = filter (fn tm' => tm' <> tm) ls in
+        SEP_IMP_conv (rearrange_star_conv tm rest) REFL
+      end
+    fun pull tm =
+      let val (c, args) = strip_comb tm in
+        if is_const c andalso #Name (dest_thy_const c) = "cond" then
+          SOME (rearrange tm \\ irule hpull_prop \\ rpt strip_tac)
+        else if is_const c andalso #Name (dest_thy_const c) = "SEP_EXISTS" then
+          SOME (rearrange tm \\ irule hpull_exists \\ rpt strip_tac \\
+                BETA_TAC)
+        else
+          NONE
+      end
+  in
+    case find_map pull ls of
+        NONE => NO_TAC g
+      | SOME tac => tac g
+  end
+
+val hpull_one = check_SEP_IMP hpull_one_unsafe
+
+val hpull_setup =
+  (* remove ``emp`` in the left heap*)
+  SEP_IMP_conv (SIMP_CONV bool_ss [SEP_CLAUSES]) REFL
+
+val hpull =
+  hpull_setup \\
+  rpt hpull_one
+
+
+(*------------------------------------------------------------------*)
+(** Conversion from semantic stores to heaps *)
 
 val store2heap_aux_def = Define `
   store2heap_aux n [] = ({}: heap) /\
@@ -135,19 +285,6 @@ val store2heap_LUPDATE = Q.prove (
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
   st2heap (:'ffi) (st: 'ffi state) = store2heap st.refs`;
-
-(* Heap assertions *)
-val _ = type_abbrev("hprop", ``:heap -> bool``);
-
-val STARPOST_def = Define `
-  STARPOST (Q: v -> hprop) (H: hprop) = \x. (Q x) * H`;
-
-val SEP_IMPPOST_def = Define `
-  SEP_IMPPOST (Q1: v -> hprop) (Q2: v -> hprop) =
-    !x. SEP_IMP (Q1 x) (Q2 x)`;
-
-val _ = overload_on ("*+", Term `STARPOST`);
-val _ = add_infix ("*+", 480, HOLgrammars.LEFT);
 
 (* Locality *)
 
