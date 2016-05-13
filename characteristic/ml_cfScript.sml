@@ -58,6 +58,14 @@ val STARPOST_emp = Q.prove (
   strip_tac \\ fs [STARPOST_def] \\ metis_tac [SEP_CLAUSES]
 );
 
+val SEP_IMP_one_frame = Q.prove (
+  `!H H' l v v'.
+     SEP_IMP H H' ==>
+     v = v' ==>
+     SEP_IMP (H * one (l, v)) (H' * one (l, v'))`,
+  rpt strip_tac \\ fs [SEP_IMP_def, one_def, STAR_def] \\ SPLIT_TAC
+);
+
 (*------------------------------------------------------------------*)
 (** Normalization of STAR *)
 
@@ -166,6 +174,131 @@ val hpull =
   hpull_setup \\
   rpt hpull_one
 
+(* test goal:
+  g `SEP_IMP (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop) Z`;
+*)
+
+(*------------------------------------------------------------------*)
+(** Simplification in H2 on SEP_IMP H1 H2 *)
+
+(** Lemmas *)
+
+val hsimpl_prop = Q.prove (
+  `!H' H P.
+    SEP_IMP H' H ==>
+    P ==>
+    SEP_IMP H' (H * cond P)`,
+  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
+  SPLIT_TAC
+);
+
+val hsimpl_exists = Q.prove (
+  `!x H' H J.
+    SEP_IMP H' (H * J x) ==>
+    SEP_IMP H' (H * $SEP_EXISTS J)`,
+  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS] \\
+  SPLIT_TAC
+);
+
+val hsimpl_gc = Q.prove (
+  `!H. SEP_IMP H GC`,
+  fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
+);
+
+(** Tactics *)
+
+fun hsimpl_cancel_one_unsafe (g as (asl, w)) =
+  let
+    val (_,[l,r]) = strip_comb w
+    val ls = list_dest dest_star l
+    val rs = list_dest dest_star r
+    val is = intersect ls rs
+    fun rearrange tm1 tm2 =
+      let
+        val ls' = filter (fn tm' => tm' <> tm1) ls
+        val rs' = filter (fn tm' => tm' <> tm2) rs
+        val convl = rearrange_star_conv tm1 ls'
+        val convr = rearrange_star_conv tm2 rs'
+      in
+        SEP_IMP_conv convl convr
+      end
+    fun one_loc tm =
+      let val (c, args) = strip_comb tm in
+        if is_const c andalso #Name (dest_thy_const c) = "one" then
+          SOME (hd (snd (strip_comb (hd args))))
+        else
+          NONE
+      end
+    fun find_matching_one () =
+      find_map (fn tm1 =>
+        case one_loc tm1 of
+            NONE => NONE
+          | SOME l =>
+            find_map (fn tm2 =>
+              case one_loc tm2 of
+                  NONE => NONE
+                | SOME l' =>
+                  if l = l' then SOME (tm1, tm2)
+                  else NONE) rs) ls
+  in
+    case is of
+        tm :: _ =>
+        (rearrange tm tm \\ irule SEP_IMP_FRAME) g
+      | [] =>
+        case find_matching_one () of
+            NONE => NO_TAC g
+          | SOME (tm1, tm2) =>
+            (rearrange tm1 tm2 \\ irule SEP_IMP_one_frame) g
+  end
+
+val hsimpl_cancel_one = check_SEP_IMP hsimpl_cancel_one_unsafe
+    
+(* test goal:
+  g `SEP_IMP (A:hprop * B * C * one (l, v) * D) (B * Z * one (l, v') * Y * D * A)`;
+*)
+
+fun hsimpl_step_unsafe (g as (asl, w)) =
+  let
+    val (_,[l,r]) = strip_comb w
+    val rs = list_dest dest_star r
+    fun rearrange tm =
+      let val rest = filter (fn tm' => tm' <> tm) rs in
+        SEP_IMP_conv REFL (rearrange_star_conv tm rest)
+      end
+    fun simpl tm =
+      let val (c, args) = strip_comb tm in
+        if is_const c andalso #Name (dest_thy_const c) = "cond" then
+          SOME (rearrange tm \\ irule hsimpl_prop)
+        else if is_const c andalso #Name (dest_thy_const c) = "SEP_EXISTS" then
+          SOME (rearrange tm \\ irule hsimpl_exists \\ BETA_TAC)
+        else
+          NONE
+      end
+  in
+    case find_map simpl rs of
+        NONE => NO_TAC g
+      | SOME tac => tac g
+  end
+
+val hsimpl_step = check_SEP_IMP hsimpl_step_unsafe
+
+(* test goal:
+  g `SEP_IMP Z (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop)`;
+*)
+
+val hsimpl_setup =
+  SEP_IMP_conv
+      (SIMP_CONV bool_ss [SEP_CLAUSES])
+      (SIMP_CONV bool_ss [SEP_CLAUSES])
+
+val hsimpl =
+  (* hsimpl_setup \\ *)
+  rpt hsimpl_cancel_one \\
+  rpt hsimpl_step
+
+(* test goal:
+  g `SEP_IMP (A:hprop * B * C * one (l, v) * one (l', u) * D) (B * Z * one (l, v') * one (l', u') * Y * cond Q * D * A)`;
+*)
 
 (*------------------------------------------------------------------*)
 (** Conversion from semantic stores to heaps *)
