@@ -12,11 +12,6 @@ val word_index_test = store_thm("word_index_test",
   ``n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))``,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
-val word_bit_test = store_thm("word_bit_test",
-  ``word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)``,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
-    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
-
 val word_and_one_eq_0_iff = store_thm("word_and_one_eq_0_iff", (* same in stack_alloc *)
   ``!w. ((w && 1w) = 0w) <=> ~(w ' 0)``,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
@@ -3154,7 +3149,7 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule memory_rel_zero_space \\ fs [])
-(*
+  (*
   \\ Cases_on `op = LengthByte` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -3188,8 +3183,8 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ match_mp_tac (IMP_memory_rel_Number_num3
          |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs [])
-*)
- \\ Cases_on `op = IsBlock` \\ fs [] THEN1
+  *)
+  \\ Cases_on `op = IsBlock` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -3210,6 +3205,22 @@ val assign_thm = Q.prove(
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
       \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+    THEN1
+     (rpt_drule memory_rel_Word64_IMP \\ strip_tac \\ clean_tac
+      \\ fs[bvpSemTheory.get_vars_def,wordSemTheory.get_vars_def]
+      \\ every_case_tac \\ fs[] \\ clean_tac
+      \\ fs[assign_def] \\ eval_tac
+      \\ simp[wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def,get_addr_and_1_not_0]
+      \\ drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_real_addr`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ simp[] \\ disch_then drule \\ simp[] \\ strip_tac
+      \\ simp[Once wordSemTheory.get_var_def]
+      \\ fs[word_bit_test]
+      \\ simp[lookup_insert]
+      \\ conj_tac >- rw[]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,inter_insert_ODD_adjust_set]
+      \\ match_mp_tac memory_rel_insert \\ fs []
+      (* \\ match_mp_tac memory_rel_Boolv_F \\ fs [] *)
+      \\ cheat (* looks like either the Word64 header or the IsBlock implementation is wrong *))
     THEN1
      (rpt_drule memory_rel_Block_IMP \\ strip_tac \\ clean_tac
       \\ pop_assum mp_tac \\ IF_CASES_TAC \\ clean_tac \\ strip_tac

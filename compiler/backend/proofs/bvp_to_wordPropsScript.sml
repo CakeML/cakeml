@@ -91,7 +91,7 @@ val Word64Rep_def = Define`
       DataElement [] 1 (Word64Tag, [Word (((63 >< 0) w):'a word)])`;
 
 val Word64Rep_DataElement = Q.store_thm("Word64Rep_DataElement",
-  `∀a w. ∃l d. (Word64Rep a w:'a ml_el) = DataElement [] l d`,
+  `∀a w. ∃l d. (Word64Rep a w:'a ml_el) = DataElement [] l (Word64Tag,d)`,
   Cases \\ rw[Word64Rep_def]);
 
 val v_size_LEMMA = prove(
@@ -181,6 +181,13 @@ val abs_ml_inv_def = Define `
     bc_stack_ref_inv conf stack refs (roots,heap,be)`;
 
 (* --- *)
+
+(* TODO: move/reorganise various things in this file *)
+
+val word_bit_test = store_thm("word_bit_test",
+  ``word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)``,
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
 
 val MOD_EQ_0_0 = store_thm("MOD_EQ_0_0",
   ``∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)``,
@@ -2997,6 +3004,29 @@ val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   \\ fs [word_addr_def,Smallnum_def,integer_wordTheory.i2w_def]
   \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
+
+val memory_rel_Word64_IMP = Q.store_thm("memory_rel_Word64_IMP",
+  `memory_rel c be refs sp st m dm ((Word64 w64,v:'a word_loc)::vars) /\
+   good_dimindex (:'a) ==>
+   ?ptr x w.
+     v = Word (get_addr c ptr (Word 0w)) ∧
+     get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧
+     x ∈ dm ∧ m x = Word w ∧ ¬(word_bit 3 w)`,
+  fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+     bc_stack_ref_inv_def,v_inv_def] \\ rw[]
+  \\ fs[word_addr_def]
+  \\ qexists_tac`ptr` \\ simp[]
+  \\ fs[heap_in_memory_store_def]
+  \\ imp_res_tac get_real_addr_get_addr
+  \\ simp[]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ qspecl_then[`:'a`,`w64`]strip_assume_tac Word64Rep_DataElement
+  \\ fs[word_heap_APPEND,word_heap_def,word_el_def,UNCURRY,word_list_def]
+  \\ SEP_R_TAC \\ simp[]
+  \\ simp[word_payload_def]
+  \\ simp[word_bit_test]
+  \\ simp [make_header_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]);
 
 val IMP_memory_rel_Number = store_thm("IMP_memory_rel_Number",
   ``good_dimindex (:'a) /\ small_int (:'a) i /\
