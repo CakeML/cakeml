@@ -22,27 +22,26 @@ val _ = Datatype `
              | Int int      (* used to index tuples *)
              | Other        (* unknown *)
              | Impossible`  (* value 'returned' by Raise *)
+val val_approx_size_def = definition "val_approx_size_def"
 
 val merge_def = tDefine "merge" `
-  (merge x y =
-     case (x,y) of
-     | (Impossible,y) => y
-     | (x,Impossible) => x
-     | (Tuple xs, Tuple ys) =>
-          if LENGTH xs = LENGTH ys then
-            Tuple (merge_list xs ys)
-          else Other
-     | (Clos _ _, Clos _ _) => if x = y then x else Other
-     | (Int i, Int j) => if i = j then x else Other
-     | _ => Other) /\
-  (merge_list xs ys =
-     case (xs,ys) of
-     | (x::xs,y::ys) => merge x y :: merge_list xs ys
-     | _ => [])`
- (WF_REL_TAC `measure
-    (\x. case x of
-         | INL (x,_) => val_approx_size x
-         | INR (x,_) => val_approx1_size x)`)
+  (merge Impossible y = y) ∧
+  (merge x Impossible = x) ∧
+  (merge (Tuple xs) (Tuple ys) =
+     if LENGTH xs = LENGTH ys then Tuple (MAP2 merge xs ys)
+     else Other) ∧
+  (merge (Clos m1 n1) (Clos m2 n2) = if m1 = m2 ∧ n1 = n2 then Clos m1 n1
+                                     else Other) ∧
+  (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
+  (merge _ _ = Other)
+` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
+   rw[val_approx_size_def] >> simp[] >> qcase_tac `MEM x xs` >>
+   qcase_tac `MEM y ys` >>
+   first_x_assum (qspecl_then [`y::TL (TL ys)`, `x`, `y`] mp_tac) >>
+   impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
+   qcase_tac `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
+val merge_def =
+    save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
 val known_op_def = Define `
   (known_op (Global n) as g =
