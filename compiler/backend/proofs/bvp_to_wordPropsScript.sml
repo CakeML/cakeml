@@ -1707,15 +1707,15 @@ val word_payload_def = Define `
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l Word64Tag qs conf =
-     (* header: ...1101 *)
-     (make_header conf 13w l,
+     (* header: ...011 *)
+     (make_header conf 3w l,
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (NumTag b) qs conf =
      (* header: ...0101 or ...0001 *)
      (make_header conf (b2w b << 2 || 1w) (LENGTH qs),
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
-     (* header: ...11 *)
+     (* header: ...111 *)
      ((make_byte_header conf n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
           n < 2 ** (conf.len_size + if dimindex (:'a) = 32 then 2 else 3)))`;
@@ -3011,7 +3011,7 @@ val memory_rel_Word64_IMP = Q.store_thm("memory_rel_Word64_IMP",
    ?ptr x w.
      v = Word (get_addr c ptr (Word 0w)) ∧
      get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧
-     x ∈ dm ∧ m x = Word w ∧ ¬(word_bit 3 w)`,
+     x ∈ dm ∧ m x = Word w ∧ word_bit 3 w`,
   fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
      bc_stack_ref_inv_def,v_inv_def] \\ rw[]
   \\ fs[word_addr_def]

@@ -3219,8 +3219,7 @@ val assign_thm = Q.prove(
       \\ conj_tac >- rw[]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,inter_insert_ODD_adjust_set]
       \\ match_mp_tac memory_rel_insert \\ fs []
-      (* \\ match_mp_tac memory_rel_Boolv_F \\ fs [] *)
-      \\ cheat (* looks like either the Word64 header or the IsBlock implementation is wrong *))
+      \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
     THEN1
      (rpt_drule memory_rel_Block_IMP \\ strip_tac \\ clean_tac
       \\ pop_assum mp_tac \\ IF_CASES_TAC \\ clean_tac \\ strip_tac
