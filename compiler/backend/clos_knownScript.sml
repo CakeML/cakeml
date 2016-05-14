@@ -106,7 +106,7 @@ val known_def = tDefine "known" `
        ([(Tick e1,a1)],g)) /\
   (known [Handle x1 x2] vs g =
      let (e1,g) = known [x1] vs g in
-     let (e2,g) = known [x2] vs g in
+     let (e2,g) = known [x2] (Other::vs) g in
      let (e1,a1) = HD e1 in
      let (e2,a2) = HD e2 in
        ([(Handle e1 e2,merge a1 a2)],g)) /\
