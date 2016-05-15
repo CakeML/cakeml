@@ -18,15 +18,15 @@ pp.o : buildPP.exe
 regression.o : buildPP.exe
 	./$<
 
-
-
 HOLHEAP = heap
+PARENT_HOLHEAP = ../compiler/eval/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 BARE_THYS = pp/allPP
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
-
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

@@ -52,11 +52,7 @@ fun printBody src out =
                         ,`conLang`
                         ,`decLang`
                         ,`exhLang`
-                        ,`patLang`
-                        ,`intLang`
-                        ,`Bytecode 1`
-                        ,`Bytecode 2`
-                        ,`x86`]
+                        ,`patLang`]
                end)),
              DIV([],
                Sequence
@@ -82,6 +78,7 @@ fun printBody src out =
                DIV( [],
                  Sequence
                  [
+                   (*
                    DIV([("id","globals")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o (term_to_html_string 80)) (#globMap out)))),
                    DIV([("id","modules")],Preformatted(String.concat
@@ -90,6 +87,7 @@ fun printBody src out =
                    (map ((fn s => s^"\n") o term_to_string) (#ctors out)))),
                    DIV([("id","annotations")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#annotations out))))
+                   *)
                  ])
              ]),
           (*Javascript call*)

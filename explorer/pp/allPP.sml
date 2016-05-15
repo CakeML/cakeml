@@ -25,16 +25,18 @@ val () = computeLib.extend_compset
       ,initialProgramTheory.mk_unop_def
       ,initialProgramTheory.mk_ffi_def
       ,backendTheory.prim_config_def
+      ,optionTheory.OPTION_MAP2_DEF
+      ,miscTheory.anub_def
       ]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp
 
-val () = enable_astPP();
-val () = enable_modPP();
-val () = enable_conPP();
-val () = enable_exhPP();
-val () = enable_patPP();
+val () = disable_astPP();
+val () = disable_modPP();
+val () = disable_conPP();
+val () = disable_exhPP();
+val () = disable_patPP();
 
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
