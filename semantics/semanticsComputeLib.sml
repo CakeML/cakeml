@@ -77,6 +77,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,isAlphaNumPrime_def
       ,is_single_char_symbol_def
       ,processIdent_def
+      ,mkCharS_def
       ]
     end,
    computeLib.Defs
@@ -91,12 +92,14 @@ val add_lexparse_compset = computeLib.extend_compset
       ,destLf_def
       ,destTyvarPT_def
       ,destLongidT_def
+      ,destCharT_def
       ,isLongidT_def
       ,isWhitespaceT_def
       ,isString_def
       ,isAlphaSym_def
       ,isSymbolT_def
       ,isAlphaT_def
+      ,isCharT_def
       ]
     end,
    computeLib.Tys
@@ -139,6 +142,10 @@ val add_lexparse_compset = computeLib.extend_compset
       ,ptree_OptTypEqn_def
       ,safeTL_def
       ,oHD_def
+      ,mk_binop_def
+      ,ptree_PbaseList1_def
+      ,mkFun_def
+      ,dePat_def
       ]
     end
   ]

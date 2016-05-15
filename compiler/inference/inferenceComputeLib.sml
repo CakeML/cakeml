@@ -1,15 +1,9 @@
 structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib lcsymtacs
+  open inferTheory
 
-  fun add_inference_compset compset =
-  let
-
-    val () = semanticsComputeLib.add_ast_compset compset
-
-    val get_wfs = unifyLib.add_unify_compset compset
-
-    open inferTheory
-    val () = computeLib.add_thms
+  val add_inference_compset = computeLib.extend_compset
+  [computeLib.Defs
     [infer_prog_def
     ,infer_top_def
     ,infer_d_def
@@ -53,21 +47,20 @@ structure inferenceComputeLib = struct
     ,flookup_st_ex_def
     ,alistTheory.alist_to_fmap_def
     ,alistTheory.ALOOKUP_def
-    ] compset
-
-    val () = basicComputeLib.add_datatype ``:infer_t`` compset
-    val () = basicComputeLib.add_datatype ``:atom`` compset
-    val () = basicComputeLib.add_datatype ``:('a,'b)exc`` compset
-    val () = basicComputeLib.add_datatype ``:'a infer_st`` compset
-  in
-   get_wfs
-  end
-
-  val the_inference_compset = let
-    val c = wordsLib.words_compset ()
-    val get_wfs = add_inference_compset c
-  in
-    c
-  end
+    ],
+   computeLib.Tys
+    [``:infer_t``
+    ,``:atom``
+    ,``:('a,'b)exc``
+    ,``:'a infer_st``
+    ,``:inferencer_config``
+    ,``:inf_decls``
+    ,``:inf_environment``
+    ]
+    ,computeLib.Extenders
+    [semanticsComputeLib.add_ast_compset
+    ,fn compset => (unifyLib.add_unify_compset compset; ())
+    ]
+  ]
 
 end
