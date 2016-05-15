@@ -161,9 +161,29 @@ val assign_def = Define `
                             Const 1w])],l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
     | Equal => (case args of
-               | [v1;v2] => (If Equal (adjust_var v1) (Reg (adjust_var v2))
-                              (Assign (adjust_var dest) TRUE_CONST)
-                              (Assign (adjust_var dest) FALSE_CONST),l)
+               | [v1;v2] =>
+                 let retf = Assign (adjust_var dest) FALSE_CONST in
+                 let rett = Assign (adjust_var dest) TRUE_CONST in
+                 (If Equal (adjust_var v1) (Reg (adjust_var v2)) rett
+                    (If Test (adjust_var v1) (Imm 1w) retf
+                       (Seq (Assign 1 (Load (real_addr c (adjust_var v1))))
+                          (If Test 1 (Imm 4w) retf
+                             (If Test 1 (Imm 16w)
+                               (let a1 = real_addr c (adjust_var v1) in
+                                let a2 = real_addr c (adjust_var v2) in
+                                list_Seq [
+                                  Assign 1 (Load (Op Add [a1; Const bytes_in_word]));
+                                  Assign 3 (Load (Op Add [a2; Const bytes_in_word]));
+                                  If Equal 1 (Reg 3)
+                                    (if dimindex (:'a) = 32 then rett
+                                     else
+                                       list_Seq [
+                                         Assign 1 (Load (Op Add [a1; Const (bytes_in_word <<1)]));
+                                         Assign 3 (Load (Op Add [a2; Const (bytes_in_word <<1)]));
+                                         If Equal 1 (Reg 3) rett retf])
+                                    retf])
+                               retf))))
+                 ,l)
                 | _ => (Skip,l))
     | Less => (case args of
                | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))

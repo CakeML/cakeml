@@ -513,6 +513,12 @@ val is_fws_ptr_OR_15 = prove(
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
   \\ qexists_tac `0` \\ fs []);
 
+val is_fws_ptr_OR_31 = prove(
+  ``~is_fwd_ptr (Word (w || 31w))``,
+  full_simp_tac(srw_ss())[is_fwd_ptr_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
+  \\ qexists_tac `0` \\ fs []);
+
 val select_get_lowerbits = prove(
   ``(shift_length conf − 1 -- 0) (get_lowerbits conf a) =
     get_lowerbits conf a``,
@@ -605,7 +611,7 @@ val NOT_is_fwd_ptr = prove(
   ``word_payload addrs ll tag tt1 conf = (h,ts,c5) ==> ~is_fwd_ptr (Word h)``,
   Cases_on `tag` \\ fs [word_payload_def] \\ rw []
   \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,is_fws_ptr_OR_15,
-      isWord_def,theWord_def,make_header_def,LET_DEF,make_byte_header_def]);
+      is_fws_ptr_OR_31,isWord_def,theWord_def,make_header_def,LET_DEF,make_byte_header_def]);
 
 val word_gc_move_thm = prove(
   ``(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
@@ -2947,6 +2953,32 @@ val encode_header_IMP_BIT0 = prove(
   fs [encode_header_def,make_header_def] \\ rw []
   \\ fs [word_or_def,fcpTheory.FCP_BETA,word_index]);
 
+(*
+val get_addr_inj = Q.store_thm("get_addr_inj",
+  `p1 * 2 ** shift_length c < dimword (:'a) ∧
+   p2 * 2 ** shift_length c < dimword (:'a) ⇒
+   get_addr c p1 (Word 0w) = get_addr c p2 (Word 0w) ⇒ p1 = p2`,
+  rw[get_addr_def,get_lowerbits_def]
+  \\ `1 < 2 ** shift_length c` by (
+    fs[ONE_LT_EXP,shift_length_NOT_ZERO,GSYM NOT_ZERO_LT_ZERO] )
+  \\ `dimword (:'a) < dimword(:'a) * 2 ** shift_length c` by fs[]
+  \\ `p1 < dimword (:'a) ∧ p2 < dimword (:'a)`
+  by (
+    imp_res_tac LESS_TRANS
+    \\ fs[LT_MULT_LCANCEL])
+  \\ `n2w p1 << shift_length c >>> shift_length c = n2w p1`
+  by ( match_mp_tac lsl_lsr \\ fs[] )
+  \\ `n2w p2 << shift_length c >>> shift_length c = n2w p2`
+  by ( match_mp_tac lsl_lsr \\ fs[] )
+  \\ cheat);
+*)
+
+val Word64Rep_inj = Q.store_thm("Word64Rep_inj",
+  `good_dimindex(:'a) ⇒
+   (Word64Rep (:'a) w1 = Word64Rep (:'a) w2 ⇔ w1 = w2)`,
+  rw[good_dimindex_def,Word64Rep_def]
+  \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][Word64Rep_def,EQ_IMP_THM]);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -3445,12 +3477,69 @@ val assign_thm = Q.prove(
     \\ strip_tac
     \\ TRY (rpt_drule memory_rel_Number_EQ) \\ rw [] \\ fs []
     \\ TRY (rpt_drule memory_rel_RefPtr_EQ) \\ rw [] \\ fs []
+    \\ TRY (
+      `(v1 && 1w) = 0w` by (
+        imp_res_tac memory_rel_Number_IMP
+        \\ fs[Smallnum_bits]
+        \\ NO_TAC))
     \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac
     \\ fs [wordSemTheory.get_var_imm_def] \\ clean_tac
+    \\ TRY (
+      `∃a x. (v1 && 1w) <> 0w /\ (word_bit 2 x ⇔ word_bit 4 x) ∧
+           word_exp t (real_addr c (adjust_var a1)) = SOME (Word a) ∧
+           a ∈ t.mdomain ∧ t.memory a = Word x` by (
+        imp_res_tac memory_rel_RefPtr_IMP
+        \\ fs[word_and_one_eq_0_iff]
+        \\ drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_real_addr`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+        \\ fs[]
+        \\ NO_TAC))
+    \\ TRY (
+      rpt_drule memory_rel_Word64_IMP
+      \\ imp_res_tac memory_rel_tl
+      \\ rpt_drule memory_rel_Word64_IMP
+      \\ rpt strip_tac \\ clean_tac
+      \\ fs[assign_def] \\ eval_tac
+      \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def,get_addr_and_1_not_0]
+      \\ IF_CASES_TAC \\ fs[lookup_insert]
+      >- (
+        conj_tac >- rw[]
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ match_mp_tac memory_rel_insert \\ fs []
+        \\ clean_tac \\ fs[]
+        \\ qmatch_goalsub_rename_tac`Boolv (w1 = w2)`
+        \\ clean_tac
+        \\ `w1 = w2`
+        by (
+          qhdtm_x_assum`memory_rel`kall_tac
+          \\ qhdtm_x_assum`memory_rel`mp_tac
+          \\ simp[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+                  bc_stack_ref_inv_def,v_inv_def,word_addr_def,reachable_refs_def]
+          \\ qmatch_assum_rename_tac`heap_lookup p1 heap = _ (_ _ w1)`
+          \\ qmatch_assum_rename_tac`heap_lookup p2 heap = _ (_ _ w2)`
+          \\ `p1 = p2` by cheat (* get_addr is injective? *)
+          \\ rfs[Word64Rep_inj] )
+        \\ simp[]
+        \\ match_mp_tac memory_rel_Boolv_T
+        \\ simp[] )
+      \\ drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_real_addr`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ simp[] \\ disch_then kall_tac
+      \\ simp[wordSemTheory.get_var_def]
+      \\ fs[word_bit_test]
+      \\ simp[list_Seq_def]
+      \\ eval_tac
+      \\ qpat_abbrev_tac`tt = t with locals := _`
+      \\ `get_var (adjust_var a1) tt = get_var (adjust_var a1) t`
+      by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+      \\ rfs[]
+      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ simp[Abbr`tt`]
+      \\ cheat)
     \\ fs [assign_def] \\ eval_tac
     \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ fs[wordSemTheory.get_var_def,word_bit_test]
     \\ IF_CASES_TAC \\ fs []
     \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
