@@ -1,171 +1,101 @@
 structure allPP = struct local
-open astPP modPP conPP exhPP patPP miscPP
-open preamble
-open HolKernel boolLib bossLib Parse
-open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_x64Lib
-open lexer_implTheory
-open initialProgramTheory initCompEnvTheory
-open progToBytecodeTheory
+open astPP modPP conPP exhPP patPP
+open preamble compilerComputeLib
+open inferenceComputeLib parsingComputeLib
 
-val _ = enable_astPP();
-val _ = enable_modPP();
-val _ = enable_conPP();
-val _ = enable_exhPP();
-val _ = enable_patPP();
-val _ = enable_miscPP();
+val cmp = wordsLib.words_compset ()
+
+(*TODO: Some of these should possiblymove into their own compute libs*)
+val () = computeLib.extend_compset
+    [computeLib.Extenders
+      [compilerComputeLib.add_compiler_compset,
+       inferenceComputeLib.add_inference_compset,
+       parsingComputeLib.add_parsing_compset
+      ],
+     computeLib.Defs
+      [lexer_funTheory.lexer_fun_def
+      ,cmlParseTheory.parse_prog_def
+      ,inferTheory.init_config_def
+      ,inferTheory.infertype_prog_def
+      ,inferTheory.empty_inf_decls_def
+      ,inferTheory.init_env_def
+      ,initialProgramTheory.prim_types_program_def
+      ,initialProgramTheory.basis_program_def
+      ,initialProgramTheory.mk_binop_def
+      ,initialProgramTheory.mk_unop_def
+      ,initialProgramTheory.mk_ffi_def
+      ,backendTheory.prim_config_def
+      ]
+    ] cmp
+
+val eval = computeLib.CBV_CONV cmp
+
+val () = enable_astPP();
+val () = enable_modPP();
+val () = enable_conPP();
+val () = enable_exhPP();
+val () = enable_patPP();
 
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
 
-val compile_primitives_def = Define`
-  compile_primitives =
-   (FST (THE basis_env)).comp_rs`;
-
-val cs = the_basic_compset
-val _ = add_compiler_compset false cs
-val _ = add_parsing_compset cs
-val _ = add_inference_compset cs
-val _ = add_ast_compset cs
-val _ = add_lexparse_compset cs
-val _ = add_bytecode_compset cs
-val _ = add_labels_compset cs
-val _ = add_free_vars_compset cs
-val _ = add_x64_compset cs
-val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,infer_all_asts_def,remove_labels_all_asts_def] cs
-
-(*TODO: Move into HOL once I figure out where...*)
-val _ = computeLib.add_thms [nub_def,rich_listTheory.COUNT_LIST_AUX_def_compute,rich_listTheory.COUNT_LIST_compute] cs
-
-val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
-
-val eval = computeLib.CBV_CONV cs
+(* Basis configuration *)
+val basis_config =rhsThm (eval ``FST(to_pat prim_config basis_program)``)
 
 in
 
 exception compilationError of string;
 type allIntermediates = {
-  ils:term list,
-  globMap:term list,
-  ctors:term list,
-  modMap:term list,
-  annotations:term list}
+  ils:term list}
 (*Return all intermediates during compilation in a record*)
 
 fun allIntermediates prog =
   let
-      val t1 = eval ``get_all_asts ^(prog)``
-      val ast = rand (rhsThm t1)
+      val t1 = rhsThm (eval ``parse_prog (lexer_fun ^(prog))``)
 
-      val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
+      val ast = if optionSyntax.is_none t1
+                then raise compilationError "Parse Error"
+                else optionSyntax.dest_some t1;
 
-      val infer = eval ``infer_all_asts ^(t1|>concl|>rhs)``
-      val infer_res = rhsThm infer;
-      (*Bypass type checks -- dangerous!*)
-      val _ = let val (res,msg) = dest_comb infer_res in
-                if (term_to_string res) = "Failure" then raise compilationError ("Type Inference Error: "^(term_to_string msg)) else () end;
+      val infer = rhsThm (eval ``infertype_prog init_config (prim_types_program ++ basis_program ++ ^(ast))``)
 
-      (*i1 translation*)
-      val n = rhsThm (eval ``compile_primitives.next_global``)
-      val (m1,m2) = pairSyntax.dest_pair( rhsThm( eval ``compile_primitives.globals_env``))
-      val l1 = eval ``prog_to_i1 ^(n) ^(m1) ^(m2) ^(ast)``
-      val [v1,v2,m2,p1] = pairSyntax.strip_pair(rhsThm l1)
+      val _ = if optionSyntax.is_none infer
+              then raise compilationError "Type Inference Error"
+              else ()
 
-      (*Assume start from fempty*)
-      val (_,modMap) = finite_mapSyntax.strip_fupdate v2
-      val (_,globMap) = finite_mapSyntax.strip_fupdate m2
+      val c = basis_config
 
-      (*i2 translation*)
-      val l2 = eval ``prog_to_i2 compile_primitives.contags_env ^(p1) ``
-      val (v,rest) = pairSyntax.dest_pair (rhsThm l2)
-      val (exh,p2) = pairSyntax.dest_pair rest
+      val cp = rhsThm (eval ``
+        let (c,p) = (^(c),^(ast)) in
+        let (c',p) = source_to_mod$compile c.source_conf p in
+        let c = c with source_conf := c' in
+        (c,p)``)
+      val (c,mod_prog) = pairSyntax.dest_pair cp
 
-      val p2' = (v,exh,p2)
-      (*print the CTORS (num,name,typeid)*)
-      val [_,_,_,ct] =pairSyntax.strip_pair v
+      val cp = rhsThm (eval ``
+        let (c,p) = (^(c),^(mod_prog)) in
+        let (c',p) = mod_to_con$compile c.mod_conf p in
+        let c = c with mod_conf := c' in
+        (c,p)``)
+      val (c,con_prog) = pairSyntax.dest_pair cp
 
-      val (_,ctors) = finite_mapSyntax.strip_fupdate ct;
-      (*i3 translation*)
-      val arg1 = rhsThm( eval ``(none_tag,SOME(TypeId (Short "option")))``)
-      val arg2 = rhsThm( eval ``(some_tag,SOME(TypeId (Short "option")))``)
-      val l3 = eval ``prog_to_i3 ^(arg1) ^(arg2) ^(n) ^(p2)``
-      val (v,p3) = pairSyntax.dest_pair(rhsThm l3)
+      val ce = rhsThm (eval ``
+        let (c,p) = (^(c),^(con_prog)) in
+        let (n,e) = con_to_dec$compile c.source_conf.next_global p in
+        let c = c with source_conf updated_by (λc. c with next_global := n) in
+        (c,e)``)
+      val (c,dec_prog) = pairSyntax.dest_pair ce
 
-      (*exp to exh trans*)
-      val exp_to_exh = eval ``exp_to_exh (^(exh) ⊌ compile_primitives.exh) ^(p3)``
-      val p4 = rhsThm exp_to_exh
+      val exh_prog = rhsThm (eval``
+        let (c,e) = (^(c),^(dec_prog)) in
+        let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+        e``)
 
-      (*exp_to_pat trans*)
-      val exp_to_pat = eval ``exp_to_pat [] ^(p4)``
-      val p5 = rhsThm exp_to_pat
-
-      (*exp_to_cexp*)
-      val exp_to_Cexp = eval ``exp_to_Cexp ^(p5)``
-      val p6 = rhsThm exp_to_Cexp
-
-      (*compileCexp*)
-      val cs = rhsThm (eval ``<|out:=[];next_label:=compile_primitives.rnext_label|>``);
-
-      val lab_closures = eval ``label_closures (LENGTH []) (^(cs).next_label) ^(p6)``
-      val (Ce,nl) = pairSyntax.dest_pair(rhsThm lab_closures)
-
-      val _ = (collectAnnotations := ([]:term list))
-      (*Cheat and call PP internally so that the stateful annotations are updated*)
-      val _ = term_to_string Ce
-      val p6 = Ce
-
-      val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
-
-      val compile_Cexp = eval ``compile [] TCNonTail 0 ^(cs) ^(Ce)``
-      (*val compile_Cexp = eval ``compile_Cexp [] 0
-                           <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``*)
-      val p7_1 = rhsThm compile_Cexp
-
-      (*compile print err*)
-      val compile_print_err = eval ``compile_print_err ^(p7_1)``;
-      val p7_2 = rhsThm compile_print_err
-
-      (*Add it*)
-      val addIt = eval ``case FLOOKUP ^(m2) "it" of
-                             NONE => ^(p7_2)
-                           | SOME n =>
-                               (let r = emit ^(p7_2) [Gread n; Print]
-                                in
-                                  emit r (MAP PrintC (EXPLODE "\n")))``
-
-      val p7_3 = rhsThm addIt
-
-      val emit = eval ``emit ^(p7_3) [Stop T]``
-      val p7_4 = rhsThm emit
-
-      val rev = eval ``REVERSE (^p7_4).out``
-
-      val p7 = rhsThm rev
-
-      val code_labels_ok_thm = prove(
-        ``code_labels_ok ^p7``,
-         cheat)
-
-      val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
-
-      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (\x.0) (Success ^(p7))``
-
-      (*Remove labels for bytecode*)
-      val p8 = rhsThm rem_labels |> rand
-
-      (*Remove labels for asm*)
-      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
-
-      (*Bytecode to asm*)
-      val asm = eval ``bc_compile 0 ^(rhsThm rem_labels |> rand)``
-      val p9 = rhsThm asm
-
-      val p8 = rhsThm (eval ``(NONE,^(p8))``)
-
-      val p7 = rhsThm (eval ``(SOME x,^(p7))``)
+      val pat_prog = rhsThm (eval``
+        exh_to_pat$compile ^(exh_prog)``)
 
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
-      ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
+     {ils=[ast,mod_prog,con_prog,dec_prog,exh_prog,pat_prog]}
   end;
 end
 end

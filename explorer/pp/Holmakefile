@@ -1,4 +1,4 @@
-INCLUDES = ./astPP ../../compiler/eval
+INCLUDES = ./astPP ../../compiler/eval ../../compiler/parsing ../../compiler/inference
 
 OPTIONS = QUIT_ON_FAILURE
 
