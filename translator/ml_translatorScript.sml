@@ -229,6 +229,15 @@ val Eval_Val_STRING = store_thm("Eval_Val_STRING",
   ``!s. Eval env (Lit (StrLit s)) (STRING_TYPE (strlit s))``,
   SIMP_TAC (srw_ss()) [STRING_TYPE_def,Eval_def,Once evaluate_cases])
 
+val Eval_Val_WORD = store_thm("Eval_Val_WORD",
+  ``!w:'a word.
+    dimindex(:'a) ≤ 64 ⇒
+    Eval env (Lit (if dimindex(:'a) ≤ 8
+                   then Word8 (w2w w << (8-dimindex(:'a)))
+                   else Word64 (w2w w << (64-dimindex(:'a)))))
+             (WORD w)``,
+  SIMP_TAC (srw_ss()) [WORD_def,Eval_def,Once evaluate_cases])
+
 (* Equality *)
 
 val no_closures_def = tDefine "no_closures" `

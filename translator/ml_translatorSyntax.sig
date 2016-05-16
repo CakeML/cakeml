@@ -48,7 +48,7 @@ sig
   val FALSE : term
 
   val BOOL        : term
-  val WORD8       : term
+  val WORD       : term
   val NUM         : term
   val INT         : term
   val CHAR        : term

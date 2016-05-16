@@ -12,7 +12,7 @@ val (CONTAINER,mk_CONTAINER,dest_CONTAINER,is_CONTAINER) = monop "CONTAINER";
 val (PRECONDITION,mk_PRECONDITION,dest_PRECONDITION,is_PRECONDITION) = monop "PRECONDITION";
 
 val BOOL        = prim_mk_const{Thy="ml_translator",Name="BOOL"}
-val WORD8       = prim_mk_const{Thy="ml_translator",Name="WORD8"}
+val WORD       = prim_mk_const{Thy="ml_translator",Name="WORD"}
 val NUM         = prim_mk_const{Thy="ml_translator",Name="NUM"}
 val INT         = prim_mk_const{Thy="ml_translator",Name="INT"}
 val CHAR        = prim_mk_const{Thy="ml_translator",Name="CHAR"}
