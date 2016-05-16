@@ -197,6 +197,40 @@ val compile_def = Define `
   val ev = EVAL ``compile T ^exp``
 
 
+  TEST 2B (* works nicely *)
+
+  let
+    val f = fn k => k + 1
+    val g = set_global 60 f
+    val h = set_global 62 (get_global 60)
+  in
+    h
+  end
+
+  val h = ``closLang$Op (SetGlobal 62) [Op (Global 60) []]``
+  val exp = ``Let [^f] (Let [^g] (Let [^h] (Var 0)))``
+
+  val ev1 = EVAL ``known [^exp] [] LN``
+
+  TEST 2C
+    (* is ghastly; the g-map will never pick up a good value for global 62 *)
+
+  let
+    val f = fn k => k + 1
+    val h = fn k => set_global 62 (get_global 60)
+    val g = set_global 60 f
+  in
+    h 1
+  end
+
+  val h = ``Fn (SOME 800) NONE 1
+               (closLang$Op (SetGlobal 62) [Op (Global 60) []])``
+  val exp = ``Let [^f] (Let [^h]
+                (Let [^g] (App NONE (Var 1) [Op (Const 1) []])))``
+
+  val ev1 = EVAL ``known [^exp] [] LN``
+  val ev2 = EVAL ``known [^exp] [] ^(#2 (dest_pair (rhs (concl ev1))))``
+
 
   TEST 3
 
