@@ -3017,7 +3017,13 @@ val memory_rel_Word64_IMP = Q.store_thm("memory_rel_Word64_IMP",
    ?ptr x w.
      v = Word (get_addr c ptr (Word 0w)) ∧
      get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧
-     x ∈ dm ∧ m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w`,
+     x ∈ dm ∧ m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w ∧
+     (x + bytes_in_word) ∈ dm ∧
+     if dimindex (:'a) < 64 then
+       (m (x + bytes_in_word) = Word ((63 >< 32) w64) ∧
+        (x + (bytes_in_word << 1)) ∈ dm ∧ m (x + (bytes_in_word << 1)) = Word ((31 >< 0) w64))
+     else
+       (m (x + bytes_in_word) = Word ((63 >< 0) w64))`,
   fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
      bc_stack_ref_inv_def,v_inv_def] \\ rw[]
   \\ fs[word_addr_def]
@@ -3027,12 +3033,20 @@ val memory_rel_Word64_IMP = Q.store_thm("memory_rel_Word64_IMP",
   \\ simp[]
   \\ imp_res_tac heap_lookup_SPLIT
   \\ qspecl_then[`:'a`,`w64`]strip_assume_tac Word64Rep_DataElement
+  \\ fs[Word64Rep_def]
   \\ fs[word_heap_APPEND,word_heap_def,word_el_def,UNCURRY,word_list_def]
   \\ SEP_R_TAC \\ simp[]
-  \\ simp[word_payload_def]
-  \\ simp[word_bit_test]
-  \\ simp [make_header_def]
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]);
+  \\ ONCE_REWRITE_TAC[CONJ_ASSOC]
+  \\ ONCE_REWRITE_TAC[CONJ_ASSOC]
+  \\ conj_tac
+  >- (
+    simp[word_payload_def]
+    \\ simp[word_bit_test]
+    \\ simp [make_header_def]
+    \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
+  \\ IF_CASES_TAC \\ fs[] \\ rveq
+  \\ fs[word_payload_def,word_list_def,LSL_ONE]
+  \\ SEP_R_TAC \\ fs[]);
 
 val IMP_memory_rel_Number = store_thm("IMP_memory_rel_Number",
   ``good_dimindex (:'a) /\ small_int (:'a) i /\

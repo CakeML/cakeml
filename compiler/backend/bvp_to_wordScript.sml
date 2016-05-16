@@ -175,12 +175,12 @@ val assign_def = Define `
                                   Assign 1 (Load (Op Add [a1; Const bytes_in_word]));
                                   Assign 3 (Load (Op Add [a2; Const bytes_in_word]));
                                   If Equal 1 (Reg 3)
-                                    (if dimindex (:'a) = 32 then rett
-                                     else
+                                    (if dimindex (:'a) < 64 then
                                        list_Seq [
                                          Assign 1 (Load (Op Add [a1; Const (bytes_in_word <<1)]));
                                          Assign 3 (Load (Op Add [a2; Const (bytes_in_word <<1)]));
-                                         If Equal 1 (Reg 3) rett retf])
+                                         If Equal 1 (Reg 3) rett retf]
+                                     else rett)
                                     retf])
                                retf))))
                  ,l)
