@@ -2,6 +2,7 @@ open HolKernel Parse boolLib bossLib;
 
 open preamble
 open closPropsTheory clos_knownTheory
+open bagTheory
 
 val _ = new_theory "clos_knownProof";
 
@@ -139,11 +140,9 @@ val subapprox_Tuple = Q.store_thm(
   simp[subapprox_def, MAP2_MAP, LIST_REL_EL_EQN] >>
   Cases_on `LENGTH as1 = LENGTH as2` >> simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]);
 
-(* "better" is arguable; g2 has more entries, but where they differ, g2's
-   entries say less about the value *)
 val better_definedg_def = Define`
   better_definedg g1 g2 ⇔
-    ∀k. k ∈ domain g1 ⇒ k ∈ domain g2 ∧ THE (lookup k g1) <: THE (lookup k g2)
+    ∀k. k ∈ domain g1 ⇒ k ∈ domain g2 ∧ lookup k g1 = lookup k g2
 `;
 
 val better_definedg_refl = Q.store_thm(
@@ -154,25 +153,166 @@ val better_definedg_refl = Q.store_thm(
 val better_definedg_trans = Q.store_thm(
   "better_definedg_trans",
   `better_definedg g1 g2 ∧ better_definedg g2 g3 ⇒ better_definedg g1 g3`,
-  simp[better_definedg_def] >> metis_tac[subapprox_trans]);
+  simp[better_definedg_def])
+
+val opn_fresh_def = Define`
+  (opn_fresh (SetGlobal n) g ⇔ n ∉ domain g) ∧
+  (opn_fresh _ g ⇔ T)
+`;
 
 val known_op_better_definedg = Q.store_thm(
   "known_op_better_definedg",
-  `known_op opn apxs g0 = (a,g) ⇒ better_definedg g0 g`,
-  Cases_on `opn` >> simp[known_op_def, pair_case_eq, eqs, va_case_eq,
-                         bool_case_eq] >> rw[] >> rw[]
-  >- (rw[better_definedg_def, lookup_insert] >> rw[] >>
-      fs[lookup_NONE_domain])
-  >- (rw[better_definedg_def, lookup_insert] >> rw[] >>
-      simp[subapprox_def]));
+  `known_op opn apxs g0 = (a,g) ∧ opn_fresh opn g0 ⇒ better_definedg g0 g`,
+  Cases_on `opn` >>
+  simp[known_op_def, pair_case_eq, eqs, va_case_eq, opn_fresh_def,
+       bool_case_eq] >> rw[] >> rw[]
+  >- (rw[better_definedg_def, lookup_insert] >> rw[] >> fs[])
+  >- fs[GSYM lookup_NONE_domain]);
+
+val exp_size_MEM = Q.store_thm(
+  "exp_size_MEM",
+  `(∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
+   (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)`,
+  conj_tac >| [Induct_on `elist`, Induct_on `ealist`] >> dsimp[] >>
+  rpt strip_tac >> res_tac >> simp[]);
+
+val op_gbag_def = Define`
+  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
+  op_gbag _ = {||}
+`;
+
+val opn_fresh_gbag = Q.store_thm(
+  "opn_fresh_gbag",
+  `opn_fresh opn g ⇔ DISJOINT (SET_OF_BAG (op_gbag opn)) (domain g)`,
+  Cases_on `opn` >> simp[opn_fresh_def, op_gbag_def] >>
+  simp[DISJOINT_DEF, SET_OF_BAG_INSERT, EXTENSION]);
+
+val known_op_adds_gbag = Q.store_thm(
+  "known_op_adds_gbag",
+  `known_op opn apxs g0 = (apx,g) ⇒
+   domain g ⊆ domain g0 ∪ SET_OF_BAG (op_gbag opn)`,
+  Cases_on `opn` >> dsimp[known_op_def, op_gbag_def, eqs, va_case_eq] >> rw[] >>
+  simp[domain_insert]);
+
+val set_globals_def = tDefine "set_globals" `
+  (set_globals (Var _) = {||}) ∧
+  (set_globals (If e1 e2 e3) =
+    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
+  (set_globals (Let binds e) =
+    FOLDR $BAG_UNION (set_globals e) (MAP set_globals binds)) ∧
+  (set_globals (Raise e) = set_globals e) ∧
+  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Tick e) = set_globals e) ∧
+  (set_globals (Call _ args) = FOLDR $BAG_UNION {||} (MAP set_globals args)) ∧
+  (set_globals (App _ f args) =
+    FOLDR $BAG_UNION (set_globals f) (MAP set_globals args)) ∧
+  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
+  (set_globals (Letrec _ _ fbinds bod) =
+    FOLDR (λne s. set_globals (SND ne) ⊎ s) (set_globals bod) fbinds) ∧
+  (set_globals (Op opn args) =
+    FOLDR $BAG_UNION (op_gbag opn) (MAP set_globals args))
+`
+  (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[])
+
+val elist_globals_def = Define`
+  elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)
+`;
+val elist_globals_thm = Q.store_thm(
+  "elist_globals_thm[simp]",
+  `elist_globals [] = {||} ∧
+   elist_globals (exp::rest) = set_globals exp ⊎ elist_globals rest`,
+  simp[elist_globals_def]);
+val FOLDR_BAG_UNION_extract_acc = Q.store_thm(
+  "FOLDR_BAG_UNION_extract_acc",
+  `∀l a b. a ⊎ FOLDR (BAG_UNION o f) b l = FOLDR (BAG_UNION o f) (a ⊎ b) l`,
+  Induct_on `l` >> simp[] >> metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
+
+val foldr_bu =
+    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
+                                |> INST_TYPE [alpha |-> ``:β bag``]
+                                |> Q.INST [`b` |-> `{||}`, `f` |-> `I`]
+                                |> SIMP_RULE (srw_ss()) []
+                                |> GSYM
+
+val foldr_bu' =
+    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
+                                |> Q.INST [`b` |-> `{||}`, `f` |-> `λa. g a`]
+                                |> SIMP_RULE (srw_ss()) [o_ABS_R]
+                                |> GSYM
+
+
+val set_globals_def = save_thm("set_globals_def[simp]",
+  set_globals_def |> ONCE_REWRITE_RULE [foldr_bu]
+                  |> SIMP_RULE (srw_ss() ++ ETA_ss) [GSYM elist_globals_def])
+val set_globals_ind = theorem "set_globals_ind"
+
+val FINITE_BAG_FOLDR = Q.store_thm(
+  "FINITE_BAG_FOLDR",
+  `∀l f a.
+     FINITE_BAG a ∧ (∀e a. FINITE_BAG a ∧ MEM e l ⇒ FINITE_BAG (f e a)) ⇒
+     FINITE_BAG (FOLDR f a l)`,
+  Induct >> simp[]);
+
+val FINITE_set_globals = Q.store_thm(
+  "FINITE_set_globals[simp]",
+  `∀e. FINITE_BAG (set_globals e)`,
+  ho_match_mp_tac set_globals_ind >> simp[elist_globals_def] >> rpt strip_tac >>
+  TRY (irule FINITE_BAG_FOLDR >> dsimp[MEM_MAP] >> NO_TAC) >>
+  qcase_tac `op_gbag opn` >> Cases_on `opn` >> simp[op_gbag_def]);
+
+val FINITE_BAG_elist_globals = Q.store_thm(
+  "FINITE_BAG_elist_globals[simp]",
+  `FINITE_BAG (elist_globals es)`,
+  Induct_on `es` >> fs[]);
 
 val known_better_definedg = Q.store_thm(
   "known_better_definedg",
   `∀es apxs g0 alist g.
-     known es apxs g0 = (alist, g) ⇒ better_definedg g0 g`,
-  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rw[] >>
-  metis_tac[better_definedg_trans, known_op_better_definedg]);
+     known es apxs g0 = (alist, g) ∧ BAG_ALL_DISTINCT (elist_globals es) ∧
+     DISJOINT (domain g0) (SET_OF_BAG (elist_globals es)) ⇒
+     better_definedg g0 g ∧
+     domain g ⊆ SET_OF_BAG (elist_globals es) ∪ domain g0`,
+  ho_match_mp_tac known_ind >>
+  simp[known_def, BAG_ALL_DISTINCT_BAG_UNION, SET_OF_BAG_UNION] >>
+  rpt conj_tac >> rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[DISJOINT_SYM, BAG_DISJOINT]
+  >- (qhdtm_x_assum `$==>` mp_tac >>
+      impl_tac >- (fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+      rpt strip_tac >- metis_tac[better_definedg_trans] >>
+      fs[SUBSET_DEF] >> metis_tac[])
+  >- (qcase_tac `known [guard] apxs g0 = (ga,g1)` >>
+      qcase_tac `known [tb] apxs g1 = (ta,g2)` >>
+      qpat_assum `DISJOINT (domain g1) (SET_OF_BAG (set_globals tb)) ⇒ _`
+                 mp_tac >>
+      impl_tac >- (fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+      strip_tac >> qhdtm_x_assum `$==>` mp_tac >>
+      impl_tac >- (fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+      rpt strip_tac >- metis_tac[better_definedg_trans] >>
+      fs[SUBSET_DEF] >> metis_tac[])
+  >- (qhdtm_x_assum `$==>` mp_tac >>
+      impl_tac >- (fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+      rpt strip_tac >- metis_tac[better_definedg_trans] >>
+      fs[SUBSET_DEF] >> metis_tac[])
+  >- (qhdtm_x_assum `$==>` mp_tac >>
+      impl_tac >- (fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+      rpt strip_tac >- metis_tac[better_definedg_trans] >>
+      fs[SUBSET_DEF] >> metis_tac[])
+  >- ((* op case *)
+      qcase_tac `known_op opn _ g1 = (aa, gg)` >>
+      `opn_fresh opn g1`
+        by (simp[opn_fresh_gbag] >> fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >>
+            metis_tac[]) >>
+      conj_tac >- metis_tac[known_op_better_definedg, better_definedg_trans] >>
+      imp_res_tac known_op_adds_gbag >> fs[SUBSET_DEF] >> metis_tac[])
+  >- (qhdtm_x_assum `$==>` mp_tac >>
+      impl_tac >- (fs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+      rpt strip_tac >- metis_tac[better_definedg_trans] >>
+      fs[SUBSET_DEF] >> metis_tac[])
+  >- (RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [Once foldr_bu']) >>
+      fs[BAG_ALL_DISTINCT_BAG_UNION, SET_OF_BAG_UNION, DISJOINT_SYM] >>
+      simp_tac (srw_ss()) [Once foldr_bu'] >>
+      simp[SET_OF_BAG_UNION] >> fs[SUBSET_DEF] >> metis_tac[]))
 
 val val_approx_val_def = tDefine "val_approx_val" `
   (val_approx_val (Clos n m) v ⇔ ∃e1 e2 b. v = Closure (SOME n) e1 e2 m b) ∧
@@ -225,6 +365,7 @@ val val_approx_better_approx = Q.store_thm(
   ho_match_mp_tac (theorem "val_approx_val_ind") >> dsimp[] >> rpt gen_tac >>
   qcase_tac `Tuple a2s <: apx2` >>
   Cases_on `apx2` >> dsimp[] >> simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
+
 
 val state_globals_approx_def = Define`
   state_globals_approx s g ⇔
