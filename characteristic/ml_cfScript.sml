@@ -966,6 +966,16 @@ val cf_local = Q.prove (
 
 (* Soundness of cf *)
 
+val EnvCorr_def = Define `
+  EnvCorr env certs =
+    FEVERY (\(name, P). ?v. lookup_var_id name env = SOME v /\ P v) certs
+`;
+
+val DeclCorr_def = Define `
+  DeclCorr mn ds certs =
+    ?env tys. DeclAssum mn ds env tys /\ EnvCorr env certs
+`;
+
 val sound_def = Define `
   sound (:'ffi) e R =
     !env H Q. R env H Q ==>
@@ -1253,5 +1263,91 @@ val cf_sound' = Q.prove (
   `SPLIT (store2heap st'.refs) (h_f, h_g)` by SPLIT_TAC \\
   rpt (asm_exists_tac \\ fs [])
 );
+
+
+(* add to ml_translatorScript? *)
+val Decls_SNOC = Q.prove (
+  `!mn env1 (s1: unit state) ds1 d env3 s3.
+     Decls mn env1 s1 (SNOC d ds1) env3 s3 =
+     ?env2 s2.
+       Decls mn env1 s1 ds1 env2 s2 /\
+       Decls mn env2 s2 [d] env3 s3`,
+  cheat (* todo *)
+);
+
+val DeclCorr_NIL = Q.prove (
+  `!mn. DeclCorr mn [] FEMPTY`,
+  rpt gen_tac \\ fs [DeclCorr_def, EnvCorr_def] \\ 
+  assume_tac (Q.SPEC `mn` DeclAssumExists_NIL) \\ fs [DeclAssumExists_def] \\
+  asm_exists_tac \\ fs [FEVERY_FEMPTY]
+);
+
+val DeclCorr_SNOC_Dlet_Fun = Q.prove (
+  `!mn name n body ds certs P.
+     DeclCorr mn ds certs ==>
+     (!env. EnvCorr env certs ==> P (Closure env n body)) ==>
+     DeclCorr mn (SNOC (Dlet (Pvar name) (Fun n body)) ds)
+       (certs |+ (Short name, P))`,
+
+  rpt strip_tac \\ fs [DeclCorr_def, EnvCorr_def] \\
+  fs [DeclAssum_def, Decls_SNOC, PULL_EXISTS] \\
+  asm_exists_tac \\ fs [Decls_Dlet, write_def, PULL_EXISTS] \\
+  rpt (asm_exists_tac \\ fs []) \\
+  once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+  fs [FEVERY_FUPDATE, FEVERY_DEF, DRESTRICT_DEF, COMPL_DEF] \\
+  strip_tac
+  THEN1 (fs [semanticPrimitivesTheory.lookup_var_id_def])
+  THEN1 (
+    rpt strip_tac \\ rpt (first_x_assum drule \\ strip_tac) \\
+    once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs [] \\
+    qcase_tac `lookup_var_id var _ = _` \\
+    Cases_on `var` \\ fs [semanticPrimitivesTheory.lookup_var_id_def]
+  )
+);
+
+open initialProgramTheory;
+
+val decls_0 = Define `decls_0 = []`;
+val certs_0 = Define `certs_0 = FEMPTY`;
+
+val declcorr_0 = Q.prove (
+  `DeclCorr NONE decls_0 certs_0`,
+  metis_tac [decls_0, certs_0, DeclCorr_NIL]
+);
+
+val decls_1 = Define `
+  decls_1 = SNOC (mk_unop "ref" Opref) decls_0`;
+val certs_1 = Define `
+  certs_1 = certs_0
+    |+ (Short "ref", (\f. !x. app_basic (:unit) f x emp (Ref x)))`;
+
+val declcorr_1 = Q.prove (
+  `DeclCorr NONE decls_1 certs_1`,
+  fs [decls_1, certs_1, mk_unop_def] \\ irule DeclCorr_SNOC_Dlet_Fun \\
+  fs [declcorr_0] \\ rpt strip_tac \\ irule app_basic_of_cf \\
+  fs cf_defs \\ irule local_elim \\
+  fs [exp2v_def, semanticPrimitivesTheory.lookup_var_id_def] \\
+  fs [app_ref_def, Ref_def] \\ rpt strip_tac \\ hsimpl \\
+  qcase_tac `one (r, _)` \\ qexists_tac `r` \\ hsimpl
+);
+
+val decls_2 = Define `
+  decls_2 = SNOC (mk_unop "!" Opderef) decls_1`;
+val certs_2 = Define `
+  certs_2 = certs_1
+    |+ (Short "!", (\f.
+         !l x. app_basic (:unit) f (Loc l)
+           (Ref x (Loc l)) (\y. cond (y = x) * Ref x (Loc l))))`;
+
+val declcorr_2 = Q.prove (
+  `DeclCorr NONE decls_2 certs_2`,
+  fs [decls_2, certs_2, mk_unop_def] \\ irule DeclCorr_SNOC_Dlet_Fun \\
+  fs [declcorr_1] \\ rpt strip_tac \\ irule app_basic_of_cf \\
+  fs cf_defs \\ irule local_elim \\
+  fs [exp2v_def, semanticPrimitivesTheory.lookup_var_id_def] \\
+  fs [app_deref_def, Ref_def] \\ Q.LIST_EXISTS_TAC [`x`, `Z:hprop`] \\
+  strip_tac \\ hsimpl \\ qexists_tac `l` \\ hsimpl
+);
+
 
 val _ = export_theory();
