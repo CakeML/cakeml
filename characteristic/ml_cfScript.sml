@@ -51,6 +51,17 @@ val _ = add_infix ("*+", 480, HOLgrammars.LEFT);
 (* todo *)
 
 (*------------------------------------------------------------------*)
+(** Properties of GC *)
+
+val GC_STAR_GC = Q.prove (
+  `GC * GC = GC`,
+  fs [GC_def] \\ irule EQ_EXT \\ strip_tac \\ rew_heap \\
+  fs [SEP_EXISTS] \\ eq_tac \\ rpt strip_tac
+  THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
+  metis_tac []
+);
+
+(*------------------------------------------------------------------*)
 (** Additionnal properties of STAR *)
 
 val STARPOST_emp = Q.prove (
@@ -105,7 +116,8 @@ val SEP_IMP_one_frame_single_r = Q.prove (
 (** Normalization of STAR *)
 
 val rew_heap_thms =
-  [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp];
+  [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp,
+   SEP_IMPPOST_def, STARPOST_def];
 
 val rew_heap = full_simp_tac bool_ss rew_heap_thms;
 
@@ -507,10 +519,10 @@ val st2heap_def = Define `
 
 val local_def = Define `
   local cf env (H: hprop) (Q: v -> hprop) =
-    !(h: heap). H h ==> ?H1 H2 H3 Q1.
+    !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
       cf env H1 Q1 /\
-      SEP_IMPPOST (Q1 *+ H2) (Q *+ H3)`;
+      SEP_IMPPOST (Q1 *+ H2) (Q *+ GC)`;
 
 val is_local_def = Define `
   is_local cf = (cf = local cf)`;
@@ -520,8 +532,8 @@ val is_local_def = Define `
 val local_elim = Q.prove (
   `!cf env H Q. cf env H Q ==> local cf env H Q`,
   fs [local_def] \\ rpt strip_tac \\
-  Q.LIST_EXISTS_TAC [`H`, `emp`, `emp`, `Q`] \\
-  fs [SEP_IMPPOST_def, SEP_IMP_def, STAR_def, SPLIT_def, emp_def]
+  Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\
+  rew_heap \\ rpt strip_tac \\ hsimpl
 );
 
 val local_local = Q.prove (
@@ -531,11 +543,11 @@ val local_local = Q.prove (
   rpt strip_tac \\ eq_tac \\
   fs [local_elim] \\
   fs [local_def] \\ rpt strip_tac \\ first_x_assum drule \\
-  disch_then (qx_choosel_then [`H1`, `H2`, `Hg`, `Q1`] strip_assume_tac) \\
+  disch_then (qx_choosel_then [`H1`, `H2`, `Q1`] strip_assume_tac) \\
   fs [STAR_def] \\ qcase_tac `SPLIT h (h1, h2)` \\
   first_x_assum drule \\
-  disch_then (qx_choosel_then [`H1'`, `H2'`, `Hg'`, `Q1'`] strip_assume_tac) \\
-  Q.LIST_EXISTS_TAC [`H1'`, `H2' * H2`, `Hg * Hg'`, `Q1'`] \\ fs [PULL_EXISTS] \\
+  disch_then (qx_choosel_then [`H1'`, `H2'`, `Q1'`] strip_assume_tac) \\
+  Q.LIST_EXISTS_TAC [`H1'`, `H2' * H2`, `Q1'`] \\ fs [PULL_EXISTS] \\
   qcase_tac `SPLIT h1 (h11, h12)` \\
   `SPLIT h (h11, h12 UNION h2)` by SPLIT_TAC \\
   `(H2' * H2) (h12 UNION h2)` by (fs [STAR_def] \\ SPLIT_TAC) \\
@@ -543,10 +555,11 @@ val local_local = Q.prove (
   fs [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `x` \\
   rpt (first_x_assum (qspec_then `x` assume_tac)) \\
   rewrite_tac [STAR_ASSOC] \\
-  match_mp_tac SEP_IMP_TRANS \\ qexists_tac `Q1 x * Hg' * H2` \\ strip_tac
+  match_mp_tac SEP_IMP_TRANS \\ qexists_tac `Q1 x * GC * H2` \\ strip_tac
   THEN1 (match_mp_tac SEP_IMP_STAR \\ fs [SEP_IMP_REFL]) \\
-  match_mp_tac SEP_IMP_TRANS \\ qexists_tac `Q x * Hg * Hg'` \\ fs [SEP_IMP_REFL] \\
-  qsuff_tac `SEP_IMP ((Q1 x * H2) * Hg') ((Q x * Hg) * Hg')`
+  match_mp_tac SEP_IMP_TRANS \\ qexists_tac `Q x * (GC * GC)` \\ strip_tac
+  THENL [all_tac, fs [GC_STAR_GC, SEP_IMP_REFL]] \\
+  qsuff_tac `SEP_IMP ((Q1 x * H2) * GC) ((Q x * GC) * GC)`
   THEN1 fs [AC STAR_ASSOC STAR_COMM] \\
   match_mp_tac SEP_IMP_STAR \\ fs [SEP_IMP_REFL]
 );
