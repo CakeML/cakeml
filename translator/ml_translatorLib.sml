@@ -641,7 +641,10 @@ in
       end else
     if ty = oneSyntax.one_ty then UNIT_TYPE else
     if ty = bool then BOOL else
-    if wordsSyntax.is_word_type ty then WORD else
+    if wordsSyntax.is_word_type ty andalso word_ty_ok ty then
+      let val dim = wordsSyntax.dest_word_type ty in
+        inst [alpha|->dim] WORD
+      end else
     if ty = numSyntax.num then NUM else
     if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
     if ty = stringSyntax.char_ty then CHAR else
@@ -1600,7 +1603,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,word8,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2649,7 +2652,7 @@ fun hol2deep tm =
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
   if is_word_literal tm andalso word_ty_ok (type_of tm) then
     let val dim = wordsSyntax.dim_of tm in
-    SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD) |> SIMP_RULE std_ss [EVAL (wordsSyntax.mk_dimindex dim)]
+    SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD) |> CONV_RULE wordsLib.WORD_CONV
     end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
@@ -2792,15 +2795,12 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_i2w8 th1
     in check_inv "i2w8" tm result end else
   *)
-  (* n2w 'a word *)
-  (* TODO: Does 'a need to be manually instantiated?
-     I think is n2w guarantees tm has word type,
-     and second check is redundant now because Eval_n2w is generic
-  *)
-  if wordsSyntax.is_n2w tm (*andalso (type_of tm = word8)*) then let
+  (* n2w 'a word for known 'a*)
+  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then
+    let val dim = wordsSyntax.dim_of tm
     val x1 = tm |> rand
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_n2w th1
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
   (* w82i
   if integer_wordSyntax.is_w2i tm andalso (type_of (rand tm) = word8) then let
@@ -2809,12 +2809,13 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_w82i th1
     in check_inv "w82i" tm result end else
   *)
-  (* w2n 'a word *)
-  (* TODO: same as above*)
-  if wordsSyntax.is_w2n tm (*andalso (type_of (rand tm) = word8)*) then let
-    val x1 = tm |> rand
+  (* w2n 'a word for known 'a*)
+  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then
+    let val x1 = tm |> rand
+    val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_w2n th1
+    (* th1 should have instantiated 'a already *)
+    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE wordsLib.WORD_CONV
     in check_inv "w2n" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
@@ -3278,6 +3279,20 @@ val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty;
 val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
+
+words testing...
+(* OK *)
+val def = Define`ok = 8w :8 word`
+val def = Define`ok2 = 8w :64 word`
+(* Fails with weird error because 8w is treated as a comb..., but these should fail anyway *)
+val def = Define`fail = 8w :65 word`
+val def = Define`fail2 = 8w :'a word`
+
+(* OK *)
+val def = Define`n2w8 x = (n2w x):word8`
+val def = Define`w82n w = (w2n (w:word8))`
+val def = Define`n2w10 x = (n2w x):10 word`
+val def = Define`w102n w = (w2n (w:10 word))`
 
 *)
 
