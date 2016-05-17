@@ -297,6 +297,19 @@ val assign_def = Define `
                                       Var (adjust_var v2)]))
                           GiveUp),l)
               | _ => (Skip,l))
+    | WordOp W8 opw =>
+      (case args of
+        | [v1;v2] =>
+          (Assign (adjust_var dest)
+            (Op (case opw of
+                 | Andw => And
+                 | Orw => Or
+                 | Xor => Xor
+                 | Add => Add
+                 | Sub => Sub)
+                [Var (adjust_var v1);
+                 Var (adjust_var v2)]), l)
+        | _ => (Skip,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `

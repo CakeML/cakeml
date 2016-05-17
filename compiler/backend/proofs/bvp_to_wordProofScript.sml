@@ -3666,6 +3666,38 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
+  \\ Cases_on `∃opw. op = WordOp W8 opw` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH
+    \\ fs[do_app]
+    \\ every_case_tac \\ fs[]
+    \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ clean_tac
+    \\ fs[state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ imp_res_tac memory_rel_Number_IMP
+    \\ imp_res_tac memory_rel_tl
+    \\ imp_res_tac memory_rel_Number_IMP
+    \\ qhdtm_x_assum`memory_rel`kall_tac
+    \\ fs[wordSemTheory.get_vars_def]
+    \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ simp[assign_def] \\ eval_tac
+    \\ fs[wordSemTheory.get_var_def]
+    \\ qhdtm_x_assum`$some`mp_tac
+    \\ DEEP_INTRO_TAC some_intro \\ fs[]
+    \\ strip_tac \\ clean_tac
+    \\ BasicProvers.CASE_TAC \\ fs[lookup_insert]
+    \\ (conj_tac >- rw[])
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs[]
+    >- ( match_mp_tac memory_rel_And \\ fs[] )
+    >- ( match_mp_tac memory_rel_Or \\ fs[] )
+    >- ( match_mp_tac memory_rel_Xor \\ fs[] )
+    >- ( cheat (* Add might need to clear bits in case of overflow? *) )
+    >- ( cheat (* Sub might need to clear bits in case of overflow? *) ))
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
@@ -3981,7 +4013,8 @@ val assign_thm = Q.prove(
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = SetGlobal i` \\ fs [] THEN1 (fs [do_app])
   \\ `assign c n l dest op args names_opt = (GiveUp,l)` by
-        (Cases_on `op` \\ fs [assign_def] \\ NO_TAC) \\ fs []);
+        (Cases_on `op` \\ fs [assign_def]
+         \\ every_case_tac \\ fs [] \\ NO_TAC) \\ fs []);
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
