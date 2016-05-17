@@ -2953,11 +2953,11 @@ val encode_header_IMP_BIT0 = prove(
   fs [encode_header_def,make_header_def] \\ rw []
   \\ fs [word_or_def,fcpTheory.FCP_BETA,word_index]);
 
-(*
 val get_addr_inj = Q.store_thm("get_addr_inj",
   `p1 * 2 ** shift_length c < dimword (:'a) ∧
-   p2 * 2 ** shift_length c < dimword (:'a) ⇒
-   get_addr c p1 (Word 0w) = get_addr c p2 (Word 0w) ⇒ p1 = p2`,
+   p2 * 2 ** shift_length c < dimword (:'a) ∧
+   get_addr c p1 (Word (0w:'a word)) = get_addr c p2 (Word 0w)
+   ⇒ p1 = p2`,
   rw[get_addr_def,get_lowerbits_def]
   \\ `1 < 2 ** shift_length c` by (
     fs[ONE_LT_EXP,shift_length_NOT_ZERO,GSYM NOT_ZERO_LT_ZERO] )
@@ -2970,8 +2970,19 @@ val get_addr_inj = Q.store_thm("get_addr_inj",
   by ( match_mp_tac lsl_lsr \\ fs[] )
   \\ `n2w p2 << shift_length c >>> shift_length c = n2w p2`
   by ( match_mp_tac lsl_lsr \\ fs[] )
-  \\ cheat);
-*)
+  \\ qmatch_assum_abbrev_tac`(x || 1w) = (y || 1w)`
+  \\ `x = y`
+  by (
+    unabbrev_all_tac
+    \\ fsrw_tac[wordsLib.WORD_BIT_EQ_ss][]
+    \\ rw[]
+    \\ rfs[word_index]
+    \\ Cases_on`i` \\ fs[]
+    \\ last_x_assum(qspec_then`SUC n`mp_tac)
+    \\ simp[] )
+  \\ `n2w p1 = n2w p2` by metis_tac[]
+  \\ imp_res_tac n2w_11
+  \\ rfs[]);
 
 val Word64Rep_inj = Q.store_thm("Word64Rep_inj",
   `good_dimindex(:'a) ⇒
@@ -3518,7 +3529,20 @@ val assign_thm = Q.prove(
           \\ rw[]
           \\ qmatch_assum_rename_tac`heap_lookup p1 heap = _ (_ _ w1)`
           \\ qmatch_assum_rename_tac`heap_lookup p2 heap = _ (_ _ w2)`
-          \\ `p1 = p2` by cheat (* get_addr is injective? *)
+          \\ `p1 = p2`
+          by (
+            match_mp_tac get_addr_inj
+            \\ simp[]
+            \\ imp_res_tac heap_lookup_LESS
+            \\ fs[heap_ok_def]
+            \\ fs[heap_in_memory_store_def]
+            \\ rfs[]
+            \\ conj_tac
+            \\ qmatch_abbrev_tac`(p:num) * b < d`
+            \\ `p < d DIV b` by metis_tac[LESS_LESS_EQ_TRANS]
+            \\ `0 < b` by simp[Abbr`b`]
+            \\ `(p + 1) * b ≤ d` by metis_tac[X_LT_DIV]
+            \\ DECIDE_TAC)
           \\ fs[] \\ rfs[Word64Rep_inj] )
         \\ simp[]
         \\ match_mp_tac memory_rel_Boolv_T
