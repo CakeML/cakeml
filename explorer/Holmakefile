@@ -3,20 +3,10 @@ INCLUDES = pp
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-pp.cgi : pp.o
-	cc -o $@ $< -lpolymain -lpolyml
-
-regression.cgi : regression.o
-	cc -o $@ $< -lpolymain -lpolyml
-
-buildPP.exe : buildPP.uo heap
-	$(HOLMOSMLC) -o $@ $<
-
-pp.o : buildPP.exe
-	./$<
-
-regression.o : buildPP.exe
-	./$<
+pp.cgi : pp.sml html.uo heap
+	$(POLYC) -o $@ $<
+regression.cgi : regression.sml pp.uo html.uo heap
+	$(POLYC) -o $@ $<
 
 HOLHEAP = heap
 PARENT_HOLHEAP = ../compiler/eval/heap
