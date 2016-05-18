@@ -51,17 +51,6 @@ val _ = add_infix ("*+", 480, HOLgrammars.LEFT);
 (* todo *)
 
 (*------------------------------------------------------------------*)
-(** Properties of GC *)
-
-val GC_STAR_GC = Q.prove (
-  `GC * GC = GC`,
-  fs [GC_def] \\ irule EQ_EXT \\ strip_tac \\ rew_heap \\
-  fs [SEP_EXISTS] \\ eq_tac \\ rpt strip_tac
-  THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
-  metis_tac []
-);
-
-(*------------------------------------------------------------------*)
 (** Additionnal properties of STAR *)
 
 val STARPOST_emp = Q.prove (
@@ -122,6 +111,17 @@ val rew_heap_thms =
 val rew_heap = full_simp_tac bool_ss rew_heap_thms;
 
 val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC];
+
+(*------------------------------------------------------------------*)
+(** Properties of GC *)
+
+val GC_STAR_GC = Q.prove (
+  `GC * GC = GC`,
+  fs [GC_def] \\ irule EQ_EXT \\ strip_tac \\ rew_heap \\
+  fs [SEP_EXISTS] \\ eq_tac \\ rpt strip_tac
+  THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
+  metis_tac []
+);
 
 (*------------------------------------------------------------------*)
 (** Specification predicates for values *)
