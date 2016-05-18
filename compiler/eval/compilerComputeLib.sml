@@ -593,6 +593,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,backendTheory.to_dec_def
     ,backendTheory.to_livesets_def
     ,backendTheory.from_livesets_def
+    ,backendTheory.prim_config_def
     ]
   ,computeLib.Tys
     [ (*asm -- 'a should be 64*)

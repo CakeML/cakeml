@@ -11,22 +11,6 @@ val () = computeLib.extend_compset
       [compilerComputeLib.add_compiler_compset,
        inferenceComputeLib.add_inference_compset,
        parsingComputeLib.add_parsing_compset
-      ],
-     computeLib.Defs
-      [lexer_funTheory.lexer_fun_def
-      ,cmlParseTheory.parse_prog_def
-      ,inferTheory.init_config_def
-      ,inferTheory.infertype_prog_def
-      ,inferTheory.empty_inf_decls_def
-      ,inferTheory.init_env_def
-      ,initialProgramTheory.prim_types_program_def
-      ,initialProgramTheory.basis_program_def
-      ,initialProgramTheory.mk_binop_def
-      ,initialProgramTheory.mk_unop_def
-      ,initialProgramTheory.mk_ffi_def
-      ,backendTheory.prim_config_def
-      ,optionTheory.OPTION_MAP2_DEF
-      ,miscTheory.anub_def
       ]
     ] cmp
 

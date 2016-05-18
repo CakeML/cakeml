@@ -45,8 +45,10 @@ structure inferenceComputeLib = struct
     ,check_weak_decls_def
     ,list_subset_def
     ,flookup_st_ex_def
-    ,alistTheory.alist_to_fmap_def
-    ,alistTheory.ALOOKUP_def
+    ,init_config_def
+    ,infertype_prog_def
+    ,empty_inf_decls_def
+    ,init_env_def
     ],
    computeLib.Tys
     [``:infer_t``

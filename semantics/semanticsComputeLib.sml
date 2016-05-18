@@ -45,6 +45,11 @@ val add_ast_compset = computeLib.extend_compset
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
+    ,initialProgramTheory.prim_types_program_def
+    ,initialProgramTheory.basis_program_def
+    ,initialProgramTheory.mk_binop_def
+    ,initialProgramTheory.mk_unop_def
+    ,initialProgramTheory.mk_ffi_def
     ],
    computeLib.Tys
     [``:MMLnonT``
@@ -78,6 +83,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,is_single_char_symbol_def
       ,processIdent_def
       ,mkCharS_def
+      ,lexer_fun_def
       ]
     end,
    computeLib.Defs
