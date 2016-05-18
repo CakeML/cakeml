@@ -223,17 +223,13 @@ val check_closure_def = Define`
 val equality_code_def = Define`
   equality_code = (2:num,
     If (Op IsBlock [Var 0])
-       (If (Op IsBlock [Var 1])
-           (check_closure 0
-             (check_closure 1
-               (If (Op BlockCmp [Var 0; Var 1])
-                   (Call 0 (SOME block_equality_location)
-                     [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
-                   (Bool F))))
-           (Bool F))
-       (If (Op IsBlock [Var 1])
-           (Bool F)
-           (Op Equal [Var 0; Var 1])))`;
+       (check_closure 0
+         (check_closure 1
+           (If (Op BlockCmp [Var 0; Var 1])
+               (Call 0 (SOME block_equality_location)
+                 [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
+               (Bool F))))
+       (Op Equal [Var 0; Var 1]))`;
 
 val block_equality_code_def = Define`
   (* 4 arguments: block1, block2, length, index to check*)
