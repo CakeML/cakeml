@@ -156,6 +156,8 @@ val do_app = prove(
   full_simp_tac(srw_ss())[exhSemTheory.do_app_def]
   >- tac
   >- tac
+  >- (every_case_tac \\ tac)
+  >- tac
   >- (BasicProvers.EVERY_CASE_TAC >>
       full_simp_tac(srw_ss())[do_eq, patSemTheory.do_app_def] >>
       srw_tac[][exhSemTheory.prim_exn_def, patSemTheory.prim_exn_def, patSemTheory.Boolv_def, exhSemTheory.Boolv_def])
@@ -1192,6 +1194,8 @@ val do_app_v_rel = store_thm("do_app_v_rel",
       Cases_on`op`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
       Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
       Cases_on`o''`>>full_simp_tac(srw_ss())[state_rel_def]
+      >- (BasicProvers.EVERY_CASE_TAC >>
+          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
       >- (BasicProvers.EVERY_CASE_TAC >>
           full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
       >- (BasicProvers.EVERY_CASE_TAC >>

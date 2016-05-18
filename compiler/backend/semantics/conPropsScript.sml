@@ -10,6 +10,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
   `conSem$do_app s op vs = SOME x ⇒
     (∃z n1 n2. op = (Op (Opn z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
     (∃z n1 n2. op = (Op (Opb z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
+    (∃wz z w1 w2. op = (Op (Opw wz z)) ∧ vs = [Litv w1; Litv w2]) ∨
+    (∃wz z n w. op = (Op (Shift wz z n)) ∧ vs = [Litv w]) ∨
     (∃v1 v2. op = (Op Equality) ∧ vs = [v1; v2]) ∨
     (∃lnum v. op = (Op Opassign) ∧ vs = [Loc lnum; v]) ∨
     (∃n. op = (Op Opderef) ∧ vs = [Loc n]) ∨
@@ -18,8 +20,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃lnum i. op = (Op Aw8sub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = (Op Aw8length) ∧ vs = [Loc n]) ∨
     (∃lnum i w. op = (Op Aw8update) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
-    (∃w. op = (Op W8toInt) ∧ vs = [Litv (Word8 w)]) ∨
-    (∃n. op = (Op W8fromInt) ∧ vs = [Litv (IntLit n)]) ∨
+    (∃wz w. op = (Op (WordToInt wz)) ∧ vs = [Litv w]) ∨
+    (∃wz n. op = (Op (WordFromInt wz)) ∧ vs = [Litv (IntLit n)]) ∨
     (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
     (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
     (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨

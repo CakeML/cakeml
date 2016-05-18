@@ -10,6 +10,7 @@ val _ = new_theory"bvlSem"
 val _ = Datatype `
   v =
     Number int          (* integer *)
+  | Word64 word64
   | Block num (v list)  (* cons block: tag and payload *)
   | CodePtr num         (* code pointer *)
   | RefPtr num          (* pointer to ref cell *)`;
@@ -45,7 +46,7 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'f
 
 (* same as closSem$do_app, except:
     - ToList is removed
-    - Equal only compares integers
+    - Equal is non-recursive
     - IsBlock is added
     - Label is added *)
 
@@ -116,10 +117,12 @@ val do_app_def = Define `
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (Equal,[Number n1;Number n2]) => Rval (Boolv (n1 = n2), s)
+    | (Equal,[Word64 w1;Word64 w2]) => Rval (Boolv (w1 = w2), s)
     | (Equal,[RefPtr r1;RefPtr r2]) => Rval (Boolv (r1 = r2), s)
     | (BlockCmp,[Block t1 vs1;Block t2 vs2]) =>
         Rval (Boolv (t1 = t2 ∧ LENGTH vs1 = LENGTH vs2), s)
     | (IsBlock,[Number i]) => Rval (Boolv F, s)
+    | (IsBlock,[Word64 _]) => Rval (Boolv F, s)
     | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
     | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
     | (Ref,xs) =>
@@ -157,6 +160,22 @@ val do_app_def = Define `
          Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 >= n2),s)
+    | (WordOp W8 opw,[Number n1; Number n2]) =>
+       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+        | NONE => Error
+        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
+    | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
+        Rval (Word64 (opw_lookup opw w1 w2),s)
+    | (WordShift W8 sh n, [Number i]) =>
+       (case some (w:word8). i = &(w2n w) of
+        | NONE => Error
+        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
+    | (WordShift W64 sh n, [Word64 w]) =>
+        Rval (Word64 (shift_lookup sh w n),s)
+    | (WordFromInt, [Number i]) =>
+        Rval (Word64 (i2w i),s)
+    | (WordToInt, [Word64 w]) =>
+        Rval (Number (&(w2n w)),s)
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>

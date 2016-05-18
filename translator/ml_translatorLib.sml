@@ -134,6 +134,7 @@ structure astSyntax = struct
   val TC_string = prim_mk_const{Thy="ast",Name="TC_string"};
   val TC_ref = prim_mk_const{Thy="ast",Name="TC_ref"};
   val TC_word8 = prim_mk_const{Thy="ast",Name="TC_word8"};
+  val TC_word64 = prim_mk_const{Thy="ast",Name="TC_word64"};
   val TC_word8array = prim_mk_const{Thy="ast",Name="TC_word8array"};
   val TC_fn = prim_mk_const{Thy="ast",Name="TC_fn"};
   val TC_tup = prim_mk_const{Thy="ast",Name="TC_tup"};
@@ -162,6 +163,7 @@ structure astSyntax = struct
 end
 
 val word8 = wordsSyntax.mk_int_word_type 8
+val word = wordsSyntax.mk_word_type ``:'a``
 val venvironment = mk_environment v_ty
 val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
 val Dtype_x = astSyntax.mk_Dtype (mk_var("x",#1(dom_rng(type_of astSyntax.Dtype_tm))));
@@ -554,6 +556,19 @@ fun full_name_of_type ty =
     in thy_name ^ name_of_type ty end
   else name_of_type ty;
 
+(* ty must be a word type and dim ≤ 64 *)
+fun word_ty_ok ty =
+  if wordsSyntax.is_word_type ty then
+    let val fcp_dim = wordsSyntax.dest_word_type ty in
+      if fcpSyntax.is_numeric_type fcp_dim then
+        let val dim = fcpSyntax.dest_int_numeric_type fcp_dim in
+          dim <= 64
+        end
+      else
+        false
+    end
+  else false;
+
 local
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
@@ -582,7 +597,12 @@ in
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
     if ty = bool then Tapp [] (astSyntax.mk_TC_name(astSyntax.mk_Short(stringSyntax.fromMLstring"bool"))) else
-    if ty = word8 then Tapp [] astSyntax.TC_word8 else
+    if word_ty_ok ty then
+      (*dim ≤ 64 guaranteeed*)
+      let val dim = (fcpSyntax.dest_int_numeric_type o wordsSyntax.dest_word_type) ty in
+        if dim <= 8 then Tapp [] astSyntax.TC_word8
+        else Tapp [] astSyntax.TC_word64
+      end else
     if ty = intSyntax.int_ty then Tapp [] astSyntax.TC_int else
     if ty = numSyntax.num then Tapp [] astSyntax.TC_int else
     if ty = stringSyntax.char_ty then Tapp [] astSyntax.TC_char else
@@ -628,7 +648,10 @@ in
       end else
     if ty = oneSyntax.one_ty then UNIT_TYPE else
     if ty = bool then BOOL else
-    if ty = word8 then WORD8 else
+    if wordsSyntax.is_word_type ty andalso word_ty_ok ty then
+      let val dim = wordsSyntax.dest_word_type ty in
+        inst [alpha|->dim] WORD
+      end else
     if ty = numSyntax.num then NUM else
     if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
     if ty = stringSyntax.char_ty then CHAR else
@@ -1595,7 +1618,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,word8,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2599,6 +2622,11 @@ in
     else false
 end
 
+fun is_word_literal tm =
+  if wordsSyntax.is_word_type (type_of tm)
+  then numSyntax.is_numeral (rand tm)
+  else false
+
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
@@ -2642,8 +2670,10 @@ fun hol2deep tm =
   if tm = oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
-  if is_word8_literal tm then
-    SPEC (tm |> rand) Eval_Val_WORD8 |> SIMP_RULE std_ss [] else
+  if is_word_literal tm andalso word_ty_ok (type_of tm) then
+    let val dim = wordsSyntax.dim_of tm in
+    SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD) |> CONV_RULE wordsLib.WORD_CONV
+    end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
@@ -2781,30 +2811,35 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
-  (* i2w8 *)
+  (* i2w8
   if integer_wordSyntax.is_i2w tm andalso (type_of tm = word8) then let
     val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_i2w8 th1
     in check_inv "i2w8" tm result end else
-  (* n2w8 *)
-  if wordsSyntax.is_n2w tm andalso (type_of tm = word8) then let
+  *)
+  (* n2w 'a word for known 'a*)
+  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then
+    let val dim = wordsSyntax.dim_of tm
     val x1 = tm |> rand
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_n2w8 th1
-    in check_inv "n2w8" tm result end else
-  (* w82i *)
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w |> CONV_RULE wordsLib.WORD_CONV) th1
+    in check_inv "n2w" tm result end else
+  (* w82i
   if integer_wordSyntax.is_w2i tm andalso (type_of (rand tm) = word8) then let
     val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_w82i th1
     in check_inv "w82i" tm result end else
-  (* w82n *)
-  if wordsSyntax.is_w2n tm andalso (type_of (rand tm) = word8) then let
-    val x1 = tm |> rand
+  *)
+  (* w2n 'a word for known 'a*)
+  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then
+    let val x1 = tm |> rand
+    val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_w82n th1
-    in check_inv "w82n" tm result end else
+    (* th1 should have instantiated 'a already *)
+    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE wordsLib.WORD_CONV
+    in check_inv "w2n" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
     val x1 = tm |> rand
@@ -3270,6 +3305,20 @@ val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty;
 val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
+
+words testing...
+(* OK *)
+val def = Define`ok = 8w :8 word`
+val def = Define`ok2 = 8w :64 word`
+(* Fails with weird error because 8w is treated as a comb..., but these should fail anyway *)
+val def = Define`fail = 8w :65 word`
+val def = Define`fail2 = 8w :'a word`
+
+(* OK *)
+val def = Define`n2w8 x = (n2w x):word8`
+val def = Define`w82n w = (w2n (w:word8))`
+val def = Define`n2w10 x = (n2w x):10 word`
+val def = Define`w102n w = (w2n (w:10 word))`
 
 *)
 

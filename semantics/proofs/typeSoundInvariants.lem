@@ -173,6 +173,13 @@ type_v tvs cenv senv (Litv (Word8 w)) Tword8
 
 and
 
+lit_word64 : forall tvs cenv senv w.
+true
+==>
+type_v tvs cenv senv (Litv (Word64 w)) Tword64
+
+and
+
 conv_some : forall tvs cenv senv cn vs tvs' tn ts' ts.
 List.all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&

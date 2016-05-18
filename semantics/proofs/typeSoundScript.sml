@@ -51,12 +51,15 @@ val tid_exn_not = Q.prove (
  (!tn. tid_exn_to_tc tn ≠ TC_tup) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_fn) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_word64) ∧
+ (!tn wz. tid_exn_to_tc tn ≠ TC_word wz) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8array) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_vector) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_array)`,
  srw_tac[][] >>
  cases_on `tn` >>
  full_simp_tac(srw_ss())[tid_exn_to_tc_def] >>
+ Cases_on`wz` \\ EVAL_TAC >>
  metis_tac []);
 
 val has_lists_v_to_list = Q.prove (
@@ -113,6 +116,7 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
     (∃env n e. v = Closure env n e) ∨
     (∃env funs n. v = Recclosure env funs n)) ∧
   (type_v tvs ctMap tenvS v Tword8 ⇒ (∃n. v = Litv (Word8 n))) ∧
+  (type_v tvs ctMap tenvS v Tword64 ⇒ (∃n. v = Litv (Word64 n))) ∧
   (type_v tvs ctMap tenvS v Tword8array ⇒ (∃n. v = Loc n)) ∧
   (!t3. ctMap_has_lists ctMap ∧ type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list"))) ⇒
         (?vs. v_to_list v = SOME vs) ∧
@@ -135,13 +139,14 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
    Cases_on`cn = "true"`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[LENGTH_NIL]>- metis_tac[] >>
    Cases_on`cn = "false"`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[LENGTH_NIL]>- metis_tac[] >>
    metis_tac[optionTheory.NOT_SOME_NONE]) >>
+ fs[Tword64_def,Tchar_def] >>
  imp_res_tac has_lists_v_to_list >>
  full_simp_tac(srw_ss())[] >>
  fsrw_tac[][GSYM PULL_EXISTS] >>
  fsrw_tac[boolSimps.DNF_ss][] >>
  first_x_assum match_mp_tac >>
  srw_tac[][Once type_v_cases_eqn, tid_exn_to_tc_def] >>
- metis_tac []);
+ metis_tac [Tchar_def]);
 
 val tac =
 full_simp_tac(srw_ss())[Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
@@ -429,6 +434,22 @@ val exp_type_progress = Q.prove (
          srw_tac[][] >>
          imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
          srw_tac[][do_opapp_def, do_app_def, return_def]
+         >- (
+           fs[is_ccon_def]
+           \\ qhdtm_x_assum`type_v`mp_tac
+           \\ simp[Once type_v_cases]
+           \\ strip_tac
+           \\ TRY ( imp_res_tac type_funs_Tfn \\ fs[] \\ NO_TAC)
+           \\ rveq \\ simp[]
+           \\ every_case_tac \\ fs[Once type_v_cases,tid_exn_not,GSYM Tword_def,tid_exn_not]
+           \\ imp_res_tac type_funs_Tfn \\ fs[] )
+         >- (
+           fs[is_ccon_def]
+           \\ qhdtm_x_assum`type_v`mp_tac
+           \\ simp[Once type_v_cases]
+           \\ Cases_on`wz` \\ simp[Tword_def,tid_exn_not]
+           \\ strip_tac
+           \\ TRY ( imp_res_tac type_funs_Tfn \\ fs[Tword64_def] \\ NO_TAC))
          >- (every_case_tac >>
              full_simp_tac(srw_ss())[is_ccon_def] >>
              full_simp_tac(srw_ss())[Once type_v_cases] >>
@@ -496,6 +517,11 @@ val exp_type_progress = Q.prove (
              full_simp_tac(srw_ss())[] >>
              full_simp_tac(srw_ss())[store_v_same_type_def])
          >- every_case_tac
+         >- (
+           fs[is_ccon_def]
+           \\ every_case_tac \\ fs[Once type_v_cases,tid_exn_not,GSYM Tword_def]
+           \\ imp_res_tac type_funs_Tfn \\ fs[] )
+         >- srw_tac [boolSimps.DNF_ss] [markerTheory.Abbrev_def]
          >- srw_tac [boolSimps.DNF_ss] [markerTheory.Abbrev_def]
          >- (every_case_tac >>
              full_simp_tac(srw_ss())[store_alloc_def])
@@ -1244,6 +1270,18 @@ val exp_type_preservation = Q.prove (
              SIMP_TAC (srw_ss()++boolSimps.DNF_ss) [prim_exn_def] >>
              metis_tac [type_v_exn])
          >- ( metis_tac [type_v_Boolv])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             rw[Once type_v_cases_eqn] >>
+             metis_tac[Tword_def,Tword8_def])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             fs[Once type_v_cases_eqn] >>
+             metis_tac[Tword64_def])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             rw[Once type_v_cases_eqn] >>
+             metis_tac[Tword_def,Tword8_def])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             fs[Once type_v_cases_eqn] >>
+             metis_tac[Tword64_def])
          >- (full_simp_tac(srw_ss())[do_opapp_def] >>
              every_case_tac >>
              full_simp_tac(srw_ss())[] >>
@@ -1384,6 +1422,10 @@ val exp_type_preservation = Q.prove (
          >- do_app_exn_tac
          >- do_app_exn_tac
          >- do_app_exn_tac
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             metis_tac[Tword_def,Tword8_def])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             metis_tac[Tword_def,Tword64_def])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              metis_tac[])
          >- (srw_tac[][Once type_v_cases_eqn] >>

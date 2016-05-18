@@ -7,10 +7,13 @@ type lit =
   | Char of char
   | StrLit of string
   | Word8 of word8
+  | Word64 of word64
 
 (* Built-in binary operations *)
 type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
+type opw = Andw | Orw | Xor | Add | Sub
+type shift = Lsl | Lsr | Asr
 
 (* Module names *)
 type modN = string
@@ -46,10 +49,15 @@ let id_to_n id =
     | Long _ n -> n
   end
 
+type word_size = W8 | W64
+
 type op =
   (* Operations on integers *)
   | Opn of opn
   | Opb of opb
+  (* Operations on words *)
+  | Opw of word_size * opw
+  | Shift of word_size * shift * nat
   | Equality
   (* Function application *)
   | Opapp
@@ -62,9 +70,9 @@ type op =
   | Aw8sub
   | Aw8length
   | Aw8update
-  (* Word8 operations *)
-  | W8fromInt
-  | W8toInt
+  (* Word/integer conversions *)
+  | WordFromInt of word_size
+  | WordToInt of word_size
   (* Char operations *)
   | Ord
   | Chr
@@ -102,6 +110,7 @@ type tctor =
   | TC_string
   | TC_ref
   | TC_word8
+  | TC_word64
   | TC_word8array
   | TC_fn
   | TC_tup
@@ -123,7 +132,11 @@ let Tint = Tapp [] TC_int
 let Tchar = Tapp [] TC_char
 let Tstring = Tapp [] TC_string
 let Tref t = Tapp [t] TC_ref
-let Tword8 = Tapp [] TC_word8
+let rec TC_word W8 = TC_word8
+and     TC_word W64 = TC_word64
+let Tword wz = Tapp [] (TC_word wz)
+let Tword8 = Tword W8
+let Tword64 = Tword W64
 let Tword8array = Tapp [] TC_word8array
 let Tfn t1 t2 = Tapp [t1;t2] TC_fn
 let Texn = Tapp [] TC_exn

@@ -458,6 +458,7 @@ val sexptctor_def = Define`
        guard (nm = "TC_string") (return TC_string) ++
        guard (nm = "TC_ref") (return TC_ref) ++
        guard (nm = "TC_word8") (return TC_word8) ++
+       guard (nm = "TC_word64") (return TC_word64) ++
        guard (nm = "TC_word8array") (return TC_word8array) ++
        guard (nm = "TC_fn") (return TC_fn) ++
        guard (nm = "TC_tup") (return TC_tup) ++
@@ -506,6 +507,12 @@ val sexplit_def = Define`
               n <- odestSXNUM (HD args);
               assert(n < 256);
               return (Word8 (n2w n))
+            od ++
+      guard (nm = "word64")
+            do
+              n <- odestSXNUM (HD args);
+              assert(n < 2**64);
+              return (Word64 (n2w n))
             od
     od
 `;
@@ -542,6 +549,16 @@ val sexpop_def = Define`
   if s = "OpbGt" then SOME (Opb Gt) else
   if s = "OpbLeq" then SOME (Opb Leq) else
   if s = "OpbGeq" then SOME (Opb Geq) else
+  if s = "Opw8Andw" then SOME (Opw W8 Andw) else
+  if s = "Opw8Orw" then SOME (Opw W8 Orw) else
+  if s = "Opw8Xor" then SOME (Opw W8 Xor) else
+  if s = "Opw8Add" then SOME (Opw W8 Add) else
+  if s = "Opw8Sub" then SOME (Opw W8 Sub) else
+  if s = "Opw64Andw" then SOME (Opw W64 Andw) else
+  if s = "Opw64Orw" then SOME (Opw W64 Orw) else
+  if s = "Opw64Xor" then SOME (Opw W64 Xor) else
+  if s = "Opw64Add" then SOME (Opw W64 Add) else
+  if s = "Opw64Sub" then SOME (Opw W64 Sub) else
   if s = "Equality" then SOME Equality else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
@@ -553,8 +570,10 @@ val sexpop_def = Define`
   if s = "Aw8update" then SOME Aw8update else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
-  if s = "W8fromInt" then SOME W8fromInt else
-  if s = "W8toInt" then SOME W8toInt else
+  if s = "W8fromInt" then SOME (WordFromInt W8) else
+  if s = "W8toInt" then SOME (WordToInt W8) else
+  if s = "W64fromInt" then SOME (WordFromInt W64) else
+  if s = "W64toInt" then SOME (WordToInt W64) else
   if s = "ChopbLt" then SOME (Chopb Lt) else
   if s = "ChopbGt" then SOME (Chopb Gt) else
   if s = "ChopbLeq" then SOME (Chopb Leq) else
@@ -569,7 +588,14 @@ val sexpop_def = Define`
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else NONE) ∧
-  (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) = if s = "FFI" then SOME (FFI n) else NONE) ∧
+  (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) =
+    if s = "FFI" then SOME (FFI n) else
+    if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
+    if s = "Shift8Lsr" then SOME (Shift W8 Lsr n) else
+    if s = "Shift8Asr" then SOME (Shift W8 Asr n) else
+    if s = "Shift64Lsl" then SOME (Shift W64 Lsl n) else
+    if s = "Shift64Lsr" then SOME (Shift W64 Lsr n) else
+    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else NONE) ∧
   (sexpop _ = NONE)`;
 
 val sexplop_def = Define`
@@ -748,6 +774,7 @@ val tctorsexp_def = Define`
   (tctorsexp TC_string = SX_SYM "TC_string") ∧
   (tctorsexp TC_ref = SX_SYM "TC_ref") ∧
   (tctorsexp TC_word8 = SX_SYM "TC_word8") ∧
+  (tctorsexp TC_word64 = SX_SYM "TC_word64") ∧
   (tctorsexp TC_word8array = SX_SYM "TC_word8array") ∧
   (tctorsexp TC_fn = SX_SYM "TC_fn") ∧
   (tctorsexp TC_tup = SX_SYM "TC_tup") ∧
@@ -785,7 +812,8 @@ val litsexp_def = Define`
             else SX_NUM (Num i)) ∧
   (litsexp (Char c) = listsexp [SX_SYM "char"; SEXSTR [c]]) ∧
   (litsexp (StrLit s) = SEXSTR s) ∧
-  (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)])`;
+  (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)]) ∧
+  (litsexp (Word64 w) = listsexp [SX_SYM "word64"; SX_NUM (w2n w)])`;
 
 val litsexp_11 = Q.store_thm("litsexp_11[simp]",
   `∀l1 l2. litsexp l1 = litsexp l2 ⇔ l1 = l2`,
@@ -834,6 +862,22 @@ val opsexp_def = Define`
   (opsexp (Opb Gt) = SX_SYM "OpbGt") ∧
   (opsexp (Opb Leq) = SX_SYM "OpbLeq") ∧
   (opsexp (Opb Geq) = SX_SYM "OpbGeq") ∧
+  (opsexp (Opw W8 Andw) = SX_SYM "Opw8Andw") ∧
+  (opsexp (Opw W8 Orw) = SX_SYM "Opw8Orw") ∧
+  (opsexp (Opw W8 Xor) = SX_SYM "Opw8Xor") ∧
+  (opsexp (Opw W8 Add) = SX_SYM "Opw8Add") ∧
+  (opsexp (Opw W8 Sub) = SX_SYM "Opw8Sub") ∧
+  (opsexp (Opw W64 Andw) = SX_SYM "Opw64Andw") ∧
+  (opsexp (Opw W64 Orw) = SX_SYM "Opw64Orw") ∧
+  (opsexp (Opw W64 Xor) = SX_SYM "Opw64Xor") ∧
+  (opsexp (Opw W64 Add) = SX_SYM "Opw64Add") ∧
+  (opsexp (Opw W64 Sub) = SX_SYM "Opw64Sub") ∧
+  (opsexp (Shift W8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
+  (opsexp (Shift W8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
+  (opsexp (Shift W8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
+  (opsexp (Shift W64 Lsl n) = SX_CONS (SX_SYM "Shift64Lsl") (SX_NUM n)) ∧
+  (opsexp (Shift W64 Lsr n) = SX_CONS (SX_SYM "Shift64Lsr") (SX_NUM n)) ∧
+  (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
@@ -845,8 +889,10 @@ val opsexp_def = Define`
   (opsexp Aw8update = SX_SYM "Aw8update") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
-  (opsexp W8fromInt = SX_SYM "W8fromInt") ∧
-  (opsexp W8toInt = SX_SYM "W8toInt") ∧
+  (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧
+  (opsexp (WordToInt W8) = SX_SYM "W8toInt") ∧
+  (opsexp (WordFromInt W64) = SX_SYM "W64fromInt") ∧
+  (opsexp (WordToInt W64) = SX_SYM "W64toInt") ∧
   (opsexp (Chopb Lt) = SX_SYM "ChopbLt") ∧
   (opsexp (Chopb Gt) = SX_SYM "ChopbGt") ∧
   (opsexp (Chopb Leq)= SX_SYM "ChopbLeq") ∧
@@ -867,6 +913,14 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   `∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2`,
   Cases \\ TRY(Cases_on`o'`)
   \\ Cases \\ TRY(Cases_on`o'`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`w`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`s`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`w'`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`s'`)
   \\ simp[opsexp_def]);
 
 val expsexp_def = tDefine"expsexp"`
@@ -1125,6 +1179,7 @@ val sexplit_litsexp = Q.store_thm("sexplit_litsexp[simp]",
   Cases_on`l`>>simp[sexplit_def,litsexp_def] >- (
     rw[] >> intLib.ARITH_TAC ) >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
+  ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   ONCE_REWRITE_TAC[wordsTheory.w2n_lt] >>
   rw[])
 
@@ -1147,7 +1202,9 @@ val sexppat_patsexp = Q.store_thm("sexppat_patsexp[simp]",
 val sexpop_opsexp = Q.store_thm("sexpop_opsexp[simp]",
   `sexpop (opsexp op) = SOME op`,
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
-  Cases_on`o'`>>rw[sexpop_def,opsexp_def]);
+  TRY(Cases_on`o'`>>rw[sexpop_def,opsexp_def]) >>
+  TRY(Cases_on`w`>>rw[sexpop_def,opsexp_def]) >>
+  TRY(Cases_on`s`>>rw[sexpop_def,opsexp_def]));
 
 val sexplop_lopsexp = Q.store_thm("sexplop_lopsexp[simp]",
   `sexplop (lopsexp l) = SOME l`,
@@ -1299,6 +1356,8 @@ val opsexp_sexpop = Q.store_thm("opsexp_sexpop",
   Cases_on`s` \\ rw[sexpop_def] \\ rw[opsexp_def]
   \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
   \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
+  \\ pop_assum mp_tac
+  \\ rpt IF_CASES_TAC \\ rw[]
   \\ rw[opsexp_def]);
 
 val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
@@ -1596,7 +1655,9 @@ val opsexp_valid = Q.store_thm("opsexp_valid[simp]",
   `∀op. valid_sexp (opsexp op)`,
   Cases \\ simp[opsexp_def]
   \\ TRY (EVAL_TAC \\ NO_TAC)
-  \\ Cases_on`o'` \\ simp[opsexp_def]
+  \\ TRY(Cases_on`o'`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ EVAL_TAC);
 
 val lopsexp_valid = Q.store_thm("lopsexp_valid[simp]",

@@ -20,6 +20,8 @@ val compile_def = tDefine"compile"`
     Op (Const i) []) ∧
   (compile (Lit (Word8 w)) =
     Op (Const (& (w2n w))) []) ∧
+  (compile (Lit (Word64 w)) =
+    Op WordFromInt [Op (Const (w2i w)) []]) ∧
   (compile (Lit (Char c)) =
     Op (Const (& ORD c)) []) ∧
   (compile (Lit (StrLit s)) =
@@ -51,6 +53,10 @@ val compile_def = tDefine"compile"`
       (If (Op Equal [Var 0; Op (Const 0) []])
           (Raise (Op (Cons div_tag) []))
           (Op Mod [Var 0; Var 1]))) ∧
+  (compile (App (Op (Op (Opw wz opw))) es) =
+      Op (WordOp wz opw) (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op (Shift wz sh n))) es) =
+      Op (WordShift wz sh n) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op (Opb Lt))) es) =
     Op Less (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op (Opb Gt))) es) =
@@ -76,11 +82,14 @@ val compile_def = tDefine"compile"`
     Op Deref ((Op (Const 0) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App (Op (Op Opref)) es) =
     Op Ref (REVERSE (MAP compile es))) ∧
-  (compile (App (Op (Op W8fromInt)) es) =
-    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
-      Op Mod [Op (Const 256) []; compile (HD es)]) ∧
-  (compile (App (Op (Op W8toInt)) es) =
+  (compile (App (Op (Op (WordFromInt W8))) es) =
+      Op Mod ((Op (Const 256) [])::(REVERSE (MAP compile es)))) ∧
+  (compile (App (Op (Op (WordFromInt W64))) es) =
+      Op WordFromInt (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op (WordToInt W8))) es) =
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
+  (compile (App (Op (Op (WordToInt W64))) es) =
+    Op WordToInt (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Ord)) es) =
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
   (compile (App (Op (Op Chr)) es) =

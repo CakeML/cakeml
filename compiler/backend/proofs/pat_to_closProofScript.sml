@@ -10,6 +10,7 @@ val _ = new_theory"pat_to_closProof"
 val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv (IntLit i)) = (Number i):closSem$v) ∧
   (compile_v (Litv (Word8 w)) = (Number (& (w2n w)))) ∧
+  (compile_v (Litv (Word64 w)) = (Word64 w)) ∧
   (compile_v (Litv (Char c)) = (Number (& ORD c))) ∧
   (compile_v (Litv (StrLit s)) =
     (Block string_tag (MAP (Number o $& o ORD) s))) ∧
@@ -158,7 +159,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >- (
     Cases_on`l`>>
     rw[evaluate_def,do_app_def] >> rw[] >>
-    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF]) >>
+    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF] >>
+    every_case_tac \\ simp[]) >>
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def] >>
     every_case_tac >> fs[] >>
@@ -195,8 +197,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         simp[evaluate_def,do_app_def] >>
         rw[do_opapp_def] >>
         Cases_on`a`>>fs[]>>
-        Cases_on`t`>>fs[LENGTH_eq]>>rw[]>>fs[]>-
-          (every_case_tac >> fs[]) >>
+        Cases_on`t`>>fs[LENGTH_eq]>>rw[]>>fs[]>>
         Cases_on`REVERSE t' ++ [h'] ++ [h]`>>fs[]>>
         Cases_on`t`>>fs[]>>
         Cases_on`t''`>>fs[LENGTH_eq] >>
@@ -243,11 +244,16 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       TRY ( qmatch_goalsub_rename_tac`Opn op` >> Cases_on`op`) >>
       TRY ( qmatch_goalsub_rename_tac`Opb op` >> Cases_on`op`) >>
       TRY ( qmatch_goalsub_rename_tac`Chopb op` >> Cases_on`op`) >>
+      TRY ( qmatch_goalsub_rename_tac`WordFromInt wz` >> Cases_on`wz`) >>
+      TRY ( qmatch_goalsub_rename_tac`WordToInt wz` >> Cases_on`wz`) >>
       fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >> pop_assum mp_tac >>
         simp[Once evaluate_CONS] >>
         every_case_tac >> fs[do_app_def] )
+      >- (
+        rw[Once evaluate_CONS,evaluate_def] >>
+        rw[do_app_def] )
       >- (
         rw[Once evaluate_CONS,evaluate_def] >>
         rw[do_app_def] )
@@ -269,6 +275,19 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def,
                       MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
       rw[] >> COOPER_TAC )
+    >- ( (* Opw *)
+         every_case_tac \\ fs[] \\ rveq
+         \\ fs[SWAP_REVERSE_SYM] \\ rveq
+         \\ Cases_on`wz`\\Cases_on`w1`\\Cases_on`w2`\\fs[]\\rveq
+         \\ fs[ETA_AX,MAP_REVERSE]
+         \\ simp[evaluate_def,do_app_def]
+         \\ DEEP_INTRO_TAC some_intro
+         \\ simp[FORALL_PROD] )
+    >- ( (* Shift *)
+         every_case_tac \\ fs[] \\ rveq
+         \\ Cases_on`wz`\\Cases_on`w`\\fs[]\\rveq
+         \\ fs[ETA_AX,MAP_REVERSE]
+         \\ simp[evaluate_def,do_app_def] )
     >- ( (* Equal *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
@@ -410,15 +429,17 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,dec_to_exhTheory.tuple_tag_def,true_neq_false])
-    >- ( (* wrong args for W8toInt *)
-      imp_res_tac evaluate_length >> fs[] )
-    >- ( (* W8toInt *)
-      Cases_on`es`>>fs[LENGTH_NIL])
-    >- ( (* wrong args for W8fromInt *)
-      imp_res_tac evaluate_length >> fs[] )
-    >- ( (* W8fromInt *)
-      Cases_on`es`>>fs[LENGTH_NIL]>>
-      rw[evaluate_def,do_app_def,integer_wordTheory.w2n_i2w])
+    >- ( (* WordToInt *)
+      every_case_tac \\ fs[] \\ rveq
+      \\ imp_res_tac evaluate_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_1]
+      \\ Cases_on`wz` \\ Cases_on`w` \\ fs[ETA_AX] \\ rveq
+      \\ simp[evaluate_def,do_app_def])
+    >- ( (* WordFromInt *)
+      Cases_on`wz`\\fs[ETA_AX,MAP_REVERSE]
+      >- (
+        simp[Once evaluate_CONS,evaluate_def,do_app_def]
+        \\ simp[integer_wordTheory.w2n_i2w] )
+      \\ simp[evaluate_def,do_app_def])
     >- ( (* wrong args for Chr *)
       imp_res_tac evaluate_length >> fs[] )
     >- ( (* Chr *)

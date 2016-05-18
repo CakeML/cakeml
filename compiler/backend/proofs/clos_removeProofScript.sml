@@ -1,6 +1,6 @@
 open preamble closPropsTheory clos_relationTheory clos_removeTheory;
-
 open closSemTheory closLangTheory clos_relationPropsTheory indexedListsTheory
+
 val _ = new_theory"clos_removeProof";
 
 val _ = Parse.bring_to_front_overload"Let"{Name="Let",Thy="closLang"};
@@ -192,6 +192,7 @@ val pure_expressions_clean0 = Q.prove(
       full_simp_tac(srw_ss())[pure_op_def, do_app_def, eqs, bool_case_eq] >>
       srw_tac[][] >>
       rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
+      every_case_tac \\ fs[] >>
       full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
   >- (every_case_tac >> simp[])
   >- (every_case_tac >> full_simp_tac(srw_ss())[])) |> SIMP_RULE (srw_ss()) []
