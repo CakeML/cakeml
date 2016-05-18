@@ -43,7 +43,6 @@ explorer/pp
 explorer
 
 # tests
-semantics/testing
 compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
