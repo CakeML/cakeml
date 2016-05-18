@@ -3,7 +3,10 @@ open preamble
      stackLangTheory
      stackSemTheory
      stackPropsTheory
+     bvp_to_wordPropsTheory
      bvp_to_wordProofTheory
+
+     (* TODO: the bvp_to_word* are possibly only for lemmas that should be moved anyway *)
 
 val _ = new_theory"stack_allocProof";
 
