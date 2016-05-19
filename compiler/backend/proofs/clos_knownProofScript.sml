@@ -406,6 +406,11 @@ val mapped_globals_ffiupdate = Q.store_thm(
   `mapped_globals (s with ffi := v) = mapped_globals s`,
   simp[mapped_globals_def]);
 
+val mapped_globals_clockupdate = Q.store_thm(
+  "mapped_globals_clockupdate[simp]",
+  `mapped_globals (s with clock updated_by f) = mapped_globals s`,
+  simp[mapped_globals_def]);
+
 val mapped_globals_dec_clock = Q.store_thm(
   "mapped_globals_dec_clock[simp]",
   `mapped_globals (dec_clock n s) = mapped_globals s`,
@@ -477,6 +482,16 @@ val ssgc_free_def = Define`
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v)
 `;
+
+val ssgc_free_clockupd = Q.store_thm(
+  "ssgc_free_clockupd[simp]",
+  `ssgc_free (s with clock updated_by f) = ssgc_free s`,
+  simp[ssgc_free_def])
+
+val ssgc_free_dec_clock = Q.store_thm(
+  "ssgc_free_dec_clock[simp]",
+  `ssgc_free (dec_clock n s) ⇔ ssgc_free s`,
+  simp[closSemTheory.dec_clock_def])
 
 val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Var _) ⇔ T) ∧
@@ -566,8 +581,80 @@ val do_app_ssgc = Q.store_thm(
       >- metis_tac[])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[]))
 
-val ssgc_evaluate = Q.store_thm(
-  "ssgc_evaluate",
+val EVERY_lookup_vars = Q.store_thm(
+  "EVERY_lookup_vars",
+  `∀vs env env'. EVERY P env ∧ lookup_vars vs env = SOME env' ⇒ EVERY P env'`,
+  Induct >> simp[closSemTheory.lookup_vars_def, eqs, PULL_EXISTS] >>
+  metis_tac[MEM_EL, EVERY_MEM]);
+
+val FOLDR_BU_EQ_EMPTY = Q.store_thm(
+  "FOLDR_BU_EQ_EMPTY",
+  `FOLDR (λx. BAG_UNION (f x)) a l = {||} ⇔
+     a = {||} ∧ ∀e. MEM e l ⇒ f e = {||}`,
+  Induct_on `l` >> dsimp[] >> metis_tac[])
+
+val elglobals_EQ_EMPTY = Q.store_thm(
+  "elglobals_EQ_EMPTY",
+  `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,
+  Induct_on `l` >> dsimp[]);
+
+val set_globals_empty_esgc_free = Q.store_thm(
+  "set_globals_empty_esgc_free",
+  `set_globals e = {||} ⇒ esgc_free e`,
+  completeInduct_on `exp_size e` >> fs[PULL_FORALL] >> Cases >>
+  simp[] >> strip_tac >> rveq >> fs[AND_IMP_INTRO] >>
+  simp[EVERY_MEM, elglobals_EQ_EMPTY, FOLDR_BU_EQ_EMPTY, MEM_MAP] >>
+  rw[] >> rw[] >>
+  first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
+
+val mapped_globals_grows = Q.store_thm(
+  "mapped_globals_grows",
+
+val lem = Q.prove(
+  `(∀a es env (s0:α closSem$state) res s.
+      a = (es,env,s0) ∧ evaluate(es,env,s0) = (res,s) ⇒
+      mapped_globals s0 ⊆ mapped_globals s) ∧
+   (∀lopt f args (s0:α closSem$state) res s.
+      evaluate_app lopt f args s0 = (res, s) ⇒
+      mapped_globals s0 ⊆ mapped_globals s)`,
+  ho_match_mp_tac closSemTheory.evaluate_ind >> rw[closSemTheory.evaluate_def]
+  >- fs[closSemTheory.evaluate_def]
+  >- (fs[pair_case_eq, result_case_eq] >> rveq >> fs[] >>
+      metis_tac[SUBSET_TRANS])
+  >- fs[closSemTheory.evaluate_def, bool_case_eq]
+  >- (fs[pair_case_eq, result_case_eq, bool_case_eq] >> rveq >> fixeqs >>
+      fs[] >> metis_tac[SUBSET_TRANS])
+  >- (fs[pair_case_eq, result_case_eq] >> rveq >> fs[] >>
+      metis_tac[SUBSET_TRANS])
+  >- fs[result_case_eq, pair_case_eq]
+  >- (fs[result_case_eq, pair_case_eq, error_case_eq] >> rveq >> fs[] >>
+      metis_tac[SUBSET_TRANS])
+  >- (fs[pair_case_eq, result_case_eq] >> rveq >> fs[] >>
+      qcase_tac `closSem$do_app opn` >> Cases_on `opn` >>
+      fs[closSemTheory.do_app_def, eqs, bool_case_eq, pair_case_eq] >> rw[] >>
+      fs[]
+      >- (qcase_tac `closSem$evaluate(_,_,s0) = (_, s1)` >>
+          irule SUBSET_TRANS >> qexists_tac `mapped_globals s1` >> simp[] >>
+          simp[mapped_globals_def] >>
+          fs[SUBSET_DEF, PULL_EXISTS, closSemTheory.get_global_def,
+             EL_LUPDATE, bool_case_eq] >> metis_tac[])
+      >- (simp[mapped_globals_def, SUBSET_DEF, closSemTheory.get_global_def,
+               EL_APPEND_EQN, bool_case_eq] >> rpt strip_tac >>
+          simp[]))
+  >- fs[closSemTheory.evaluate_def, bool_case_eq, eqs]
+  >- (fs[eqs, PULL_EXISTS] >> rveq >> fs[])
+  >- (fs[pair_case_eq, result_case_eq] >> rveq >> fs[] >>
+      metis_tac[SUBSET_TRANS])
+  >- (fs[pair_case_eq, result_case_eq, eqs, bool_case_eq] >> rveq >> fixeqs >>
+      fs[] >> metis_tac[SUBSET_TRANS])
+  >- (fs[eqs, bool_case_eq, pair_case_eq] >> rveq >> fs[] >>
+      metis_tac[SUBSET_TRANS]))
+
+val mapped_globals_grow = save_thm(
+  "mapped_globals_grow",
+  lem |> CONJUNCT1 |> SIMP_RULE bool_ss [])
+
+val ssgc_evaluate0 = Q.prove(
   `(∀a es env (s0:α closSem$state) res s.
       ssgc_free s0 ∧ EVERY vsgc_free env ∧
       EVERY esgc_free es ∧ a = (es,env,s0) ∧
@@ -619,13 +706,96 @@ val ssgc_evaluate = Q.store_thm(
           qcase_tac `Rerr err` >> Cases_on `err` >> simp[] >>
           fs[SUBSET_DEF, SET_OF_BAG_UNION] >> metis_tac[])
       >- (fs[SUBSET_DEF, SET_OF_BAG_UNION] >> metis_tac[]))
-  >- ((* Fn *) cheat)
-  >- ((* Letrec *) cheat)
-  >- ((* App *) cheat)
-  >- ((* Tick *) cheat)
-  >- ((* Call *) cheat)
-  >- ((* evaluate_app *) cheat))
+  >- ((* Fn *)
+      simp[closSemTheory.evaluate_def, eqs, bool_case_eq] >> rpt gen_tac >>
+      strip_tac >> rveq >> fs[] >> metis_tac[EVERY_lookup_vars])
+  >- ((* Letrec *)
+      simp[Once foldr_bu', SET_OF_BAG_UNION] >>
+      simp[closSemTheory.evaluate_def, bool_case_eq, eqs] >>
+      rpt (gen_tac ORELSE disch_then strip_assume_tac) >> rveq >>
+      fs[EVERY_GENLIST]
+      >- (fs[SUBSET_DEF] >> metis_tac[])
+      >- (imp_res_tac EVERY_lookup_vars >> fs[SUBSET_DEF] >> metis_tac[]))
+  >- ((* App *)
+      rpt gen_tac >> strip_tac >>
+      simp[closSemTheory.evaluate_def, bool_case_eq, pair_case_eq,
+           result_case_eq] >>
+      rpt (gen_tac ORELSE disch_then strip_assume_tac) >> rveq >> fs[]
+      >- (imp_res_tac evaluate_SING >> rveq >>
+          fs[SET_OF_BAG_UNION, SUBSET_DEF] >> metis_tac[])
+      >- (fs[SET_OF_BAG_UNION, SUBSET_DEF] >> metis_tac[])
+      >- (fs[SET_OF_BAG_UNION, SUBSET_DEF] >> metis_tac[]))
+  >- ((* Tick *)
+      simp[closSemTheory.evaluate_def, bool_case_eq] >>
+      rpt (gen_tac ORELSE disch_then strip_assume_tac) >> rveq >> fixeqs >>
+      fs[])
+  >- ((* Call *)
+      rpt gen_tac >> strip_tac >>
+      simp[closSemTheory.evaluate_def, pair_case_eq, result_case_eq, eqs,
+           bool_case_eq] >>
+      rpt (gen_tac ORELSE disch_then strip_assume_tac) >> rveq >> fixeqs >>
+      fs[] >> fs[closSemTheory.find_code_def, eqs, pair_case_eq] >> rveq >>
+      qcase_tac `FLOOKUP _.code _ = SOME (_, fbody)` >>
+      `set_globals fbody = {||}` suffices_by
+        (strip_tac >> fs[SUBSET_DEF] >>
+         imp_res_tac set_globals_empty_esgc_free >> fs[]) >>
+      fs[ssgc_free_def] >> metis_tac[])
+  >- ((* evaluate_app *)
+      rpt gen_tac >> strip_tac >>
+      simp[closSemTheory.evaluate_def, eqs, bool_case_eq, pair_case_eq] >>
+      rpt (gen_tac ORELSE disch_then strip_assume_tac) >> rveq >> fixeqs >>
+      fs[]
+      >- (fs[closSemTheory.dest_closure_def, eqs, bool_case_eq] >> rveq >>
+          fs[] >> pairarg_tac >> fs[bool_case_eq])
+      >- (fs[closSemTheory.dest_closure_def, eqs, bool_case_eq] >> rveq >>
+          fs[EVERY_REVERSE, EVERY_DROP, EVERY_TAKE]
+          >- (imp_res_tac set_globals_empty_esgc_free >> fs[] >>
+              metis_tac[SUBSET_ANTISYM, mapped_globals_grow,
+                        mapped_globals_dec_clock]) >>
+          pairarg_tac >>
+          fs[elglobals_EQ_EMPTY, bool_case_eq] >> rveq >>
+          fs[EVERY_DROP, EVERY_TAKE, EVERY_REVERSE, EVERY_GENLIST,
+             elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS] >>
+          qcase_tac `EL ii fns = (_, fbody)` >>
+          `ii < LENGTH fns` by simp[] >>
+          `set_globals fbody = {||}` by metis_tac[MEM_EL,SND] >>
+          imp_res_tac set_globals_empty_esgc_free >> fs[] >>
+          metis_tac[SUBSET_ANTISYM, mapped_globals_grow,
+                    mapped_globals_dec_clock])
+      >- (fs[closSemTheory.dest_closure_def, eqs, bool_case_eq] >> rveq >>
+          fs[EVERY_TAKE, EVERY_REVERSE, EVERY_DROP]
+          >- (imp_res_tac set_globals_empty_esgc_free >> fs[] >>
+              metis_tac[SUBSET_ANTISYM, mapped_globals_dec_clock,
+                        mapped_globals_grow]) >>
+          pairarg_tac >>
+          fs[elglobals_EQ_EMPTY, bool_case_eq] >> rveq >>
+          fs[EVERY_DROP, EVERY_TAKE, EVERY_REVERSE, EVERY_GENLIST,
+             elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS] >>
+          qcase_tac `EL ii fns = (_, fbody)` >>
+          `ii < LENGTH fns` by simp[] >>
+          `set_globals fbody = {||}` by metis_tac[MEM_EL,SND] >>
+          imp_res_tac set_globals_empty_esgc_free >> fs[] >>
+          metis_tac[SUBSET_ANTISYM, mapped_globals_grow,
+                    mapped_globals_dec_clock])
+      >- (fs[closSemTheory.dest_closure_def, eqs, bool_case_eq] >> rveq >>
+          fs[EVERY_TAKE, EVERY_REVERSE, EVERY_DROP]
+          >- (imp_res_tac set_globals_empty_esgc_free >> fs[] >>
+              metis_tac[SUBSET_ANTISYM, mapped_globals_dec_clock,
+                        mapped_globals_grow]) >>
+          pairarg_tac >>
+          fs[elglobals_EQ_EMPTY, bool_case_eq] >> rveq >>
+          fs[EVERY_DROP, EVERY_TAKE, EVERY_REVERSE, EVERY_GENLIST,
+             elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS] >>
+          qcase_tac `EL ii fns = (_, fbody)` >>
+          `ii < LENGTH fns` by simp[] >>
+          `set_globals fbody = {||}` by metis_tac[MEM_EL,SND] >>
+          imp_res_tac set_globals_empty_esgc_free >> fs[] >>
+          metis_tac[SUBSET_ANTISYM, mapped_globals_grow,
+                    mapped_globals_dec_clock])))
 
+val ssgc_evaluate = save_thm(
+  "ssgc_evaluate",
+  ssgc_evaluate0 |> CONJUNCT1 |> SIMP_RULE bool_ss []);
 
 (*
 val known_correct_approx = Q.store_thm(
