@@ -3740,8 +3740,38 @@ val assign_thm = Q.prove(
       by (
         unabbrev_all_tac
         \\ qmatch_goalsub_rename_tac`w2n (w1 + -1w * w2)`
-        \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
-        \\ cheat (* probably similar to above *))
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+        \\ simp[WORD_MUL_LSL]
+        \\ ONCE_REWRITE_TAC[GSYM n2w_w2n]
+        \\ REWRITE_TAC[w2n_lsr]
+        \\ simp[word_mul_n2w,word_add_n2w]
+        \\ REWRITE_TAC[WORD_SUB_INTRO,WORD_MULT_CLAUSES]
+        \\ Cases_on`w1` \\ Cases_on`w2`
+        \\ REWRITE_TAC[addressTheory.word_arith_lemma2]
+        \\ reverse(rw[]) \\ fs[NOT_LESS,GSYM LEFT_SUB_DISTRIB,GSYM RIGHT_SUB_DISTRIB]
+        >- (
+          qmatch_goalsub_abbrev_tac`(a * b) MOD f DIV d`
+          \\ qspecl_then[`a * b`,`d`,`f DIV d`]mp_tac (GSYM DIV_MOD_MOD_DIV)
+          \\ (impl_tac >- fs[Abbr`d`,Abbr`f`,good_dimindex_def,dimword_def])
+          \\ `d * (f DIV d) = f` by fs[good_dimindex_def,Abbr`f`,Abbr`d`,dimword_def]
+          \\ pop_assum SUBST_ALL_TAC
+          \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
+          \\ unabbrev_all_tac
+          \\ qmatch_goalsub_abbrev_tac`a * (b * d) DIV d`
+          \\ `a * (b * d) DIV d = a * b`
+          by (
+            qspecl_then[`d`,`a * b`]mp_tac MULT_DIV
+            \\ impl_tac >- simp[Abbr`d`]
+            \\ simp[] )
+          \\ pop_assum SUBST_ALL_TAC
+          \\ fs[Abbr`a`,Abbr`d`,dimword_def,good_dimindex_def]
+          \\ qmatch_goalsub_abbrev_tac`(a * b) MOD q`
+          \\ qspecl_then[`a`,`b`,`q DIV a`](mp_tac o GSYM) MOD_COMMON_FACTOR
+          \\ (impl_tac >- simp[Abbr`a`,Abbr`q`])
+          \\ simp[Abbr`a`,Abbr`q`] \\ disch_then kall_tac
+          \\ `b < 256` by simp[Abbr`b`]
+          \\ simp[] )
+        \\ cheat (* harder version of above *))
       \\ pop_assum SUBST_ALL_TAC
       \\ match_mp_tac IMP_memory_rel_Number
       \\ fs[]
