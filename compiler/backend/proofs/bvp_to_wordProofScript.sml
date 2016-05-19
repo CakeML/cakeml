@@ -3689,15 +3689,61 @@ val assign_thm = Q.prove(
     \\ qhdtm_x_assum`$some`mp_tac
     \\ DEEP_INTRO_TAC some_intro \\ fs[]
     \\ strip_tac \\ clean_tac
-    \\ BasicProvers.CASE_TAC \\ fs[lookup_insert]
+    \\ BasicProvers.CASE_TAC \\ eval_tac \\ fs[lookup_insert]
     \\ (conj_tac >- rw[])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs[]
     >- ( match_mp_tac memory_rel_And \\ fs[] )
     >- ( match_mp_tac memory_rel_Or \\ fs[] )
     >- ( match_mp_tac memory_rel_Xor \\ fs[] )
-    >- ( cheat (* Add might need to clear bits in case of overflow? *) )
-    >- ( cheat (* Sub might need to clear bits in case of overflow? *) ))
+    >- (
+      qmatch_goalsub_abbrev_tac`Word w`
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ `w = Smallnum i`
+      by (
+        unabbrev_all_tac
+        \\ qmatch_goalsub_rename_tac`w2n (w1 + w2)`
+        \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
+        \\ simp[Smallnum_i2w]
+        \\ REWRITE_TAC[GSYM integerTheory.INT_MUL,GSYM integer_wordTheory.word_i2w_mul]
+        \\ simp[EVAL``i2w 4``]
+        \\ REWRITE_TAC[GSYM WORD_ADD_LSL,GSYM WORD_LEFT_ADD_DISTRIB,integer_wordTheory.word_i2w_add]
+        \\ simp[WORD_MUL_LSL]
+        \\ ONCE_REWRITE_TAC[WORD_MULT_COMM]
+        \\ REWRITE_TAC[GSYM WORD_MULT_ASSOC,word_mul_n2w]
+        \\ simp[]
+        \\ REWRITE_TAC[integerTheory.INT_ADD]
+        \\ simp[integer_wordTheory.i2w_def]
+        \\ qmatch_goalsub_rename_tac`n2w(n1+n2)`
+        \\ qspecl_then[`8`,`n1+n2`](mp_tac o SYM) WORD_AND_EXP_SUB1
+        \\ simp[word_mul_n2w]
+        \\ qpat_abbrev_tac`m = n1 + n2`
+        \\ `m < 512` by simp[Abbr`m`]
+        \\ fs[good_dimindex_def]
+        \\ cheat (* can prove by brute force, but there should be a better way *)))
+      \\ pop_assum SUBST_ALL_TAC
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ fs[]
+      \\ fs[Abbr`i`,small_int_def]
+      \\ qmatch_goalsub_rename_tac`w2n w`
+      \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
+      \\ fs[good_dimindex_def,dimword_def] )
+    >- (
+      qmatch_goalsub_abbrev_tac`Word w`
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ `w = Smallnum i`
+      by (
+        unabbrev_all_tac
+        \\ qmatch_goalsub_rename_tac`w2n (w1 + -1w * w2)`
+        \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
+        \\ cheat (* probably similar to above *))
+      \\ pop_assum SUBST_ALL_TAC
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ fs[]
+      \\ fs[Abbr`i`,small_int_def]
+      \\ qmatch_goalsub_rename_tac`w2n w`
+      \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
+      \\ fs[good_dimindex_def,dimword_def] ))
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac

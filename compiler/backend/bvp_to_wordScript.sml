@@ -300,15 +300,15 @@ val assign_def = Define `
     | WordOp W8 opw =>
       (case args of
         | [v1;v2] =>
-          (Assign (adjust_var dest)
-            (Op (case opw of
-                 | Andw => And
-                 | Orw => Or
-                 | Xor => Xor
-                 | Add => Add
-                 | Sub => Sub)
-                [Var (adjust_var v1);
-                 Var (adjust_var v2)]), l)
+           (Assign (adjust_var dest)
+            (case opw of
+             | Andw => Op And [Var (adjust_var v1); Var (adjust_var v2)]
+             | Orw  => Op Or  [Var (adjust_var v1); Var (adjust_var v2)]
+             | Xor  => Op Xor [Var (adjust_var v1); Var (adjust_var v2)]
+             | Add  => let k = Nat (dimindex(:'a)-10) in Shift Lsr (Shift Lsl
+                      (Op Add [Var (adjust_var v1); Var (adjust_var v2)]) k) k
+             | Sub  => let k = Nat (dimindex(:'a)-10) in Shift Lsr (Shift Lsl
+                      (Op Sub [Var (adjust_var v1); Var (adjust_var v2)]) k) k), l)
         | _ => (Skip,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
