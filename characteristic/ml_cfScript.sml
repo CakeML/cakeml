@@ -1290,15 +1290,31 @@ val cf_sound' = Q.prove (
   rpt (asm_exists_tac \\ fs [])
 );
 
+val cf_sound_local = Q.prove (
+  `!e env H Q h i st.
+     cf (:'ffi) e env H Q ==>
+     SPLIT (st2heap (:'ffi) st) (h, i) ==>
+     H h ==>
+     ?st' h' g v.
+       evaluate F env st e (st', Rval v) /\
+       SPLIT3 (st2heap (:'ffi) st') (h', g, i) /\
+       Q v h'`,
+  rpt strip_tac \\
+  `sound (:'ffi) e (local (cf (:'ffi) e))` by
+    (match_mp_tac sound_local \\ fs [cf_sound]) \\
+  fs [sound_def, st2heap_def] \\
+  `local (cf (:'ffi) e) env H Q` by (fs [REWRITE_RULE [is_local_def] cf_local |> GSYM]) \\
+  res_tac \\ `SPLIT3 (store2heap st'.refs) (h_f, h_g, i)` by SPLIT_TAC \\
+  rpt (asm_exists_tac \\ fs [])
+);
 
-(* add to ml_translatorScript? *)
-val Decls_SNOC = Q.prove (
-  `!mn env1 (s1: unit state) ds1 d env3 s3.
-     Decls mn env1 s1 (SNOC d ds1) env3 s3 =
-     ?env2 s2.
-       Decls mn env1 s1 ds1 env2 s2 /\
-       Decls mn env2 s2 [d] env3 s3`,
-  cheat (* todo *)
+val app_basic_of_cf = Q.prove (
+  `!body x env v H Q.
+    cf (:'ffi) body (env with v := (v,x)::env.v) H Q ==>
+    app_basic (:'ffi) (Closure env v body) x H Q`,
+  rpt strip_tac \\ fs [app_basic_def, semanticPrimitivesTheory.do_opapp_def] \\
+  rpt strip_tac \\ mp_tac cf_sound_local \\ rpt (disch_then drule) \\
+  rpt strip_tac \\ rpt (asm_exists_tac \\ fs [])
 );
 
 val DeclCorr_NIL = Q.prove (

@@ -1720,6 +1720,14 @@ val Decls_APPEND = store_thm("Decls_APPEND",
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS,AC CONJ_COMM CONJ_ASSOC]
   \\ METIS_TAC []);
 
+val Decls_SNOC = store_thm("Decls_SNOC",
+  ``!s1 s3 mn env1 ds1 d env3.
+     Decls mn env1 s1 (SNOC d ds1) env3 s3 =
+     ?env2 s2.
+       Decls mn env1 s1 ds1 env2 s2 /\
+       Decls mn env2 s2 [d] env3 s3``,
+  METIS_TAC [SNOC_APPEND, Decls_APPEND]);
+
 val DeclAssum_Dtype = store_thm("DeclAssum_Dtype",
   ``(!env tys. DeclAssum mn ds env tys ==> Eval env (Var n) P) ==>
     !tds. (!env tys. DeclAssum mn (SNOC (Dtype tds) ds) env tys ==>
