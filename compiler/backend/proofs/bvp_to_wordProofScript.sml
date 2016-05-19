@@ -3771,7 +3771,50 @@ val assign_thm = Q.prove(
           \\ simp[Abbr`a`,Abbr`q`] \\ disch_then kall_tac
           \\ `b < 256` by simp[Abbr`b`]
           \\ simp[] )
-        \\ cheat (* harder version of above *))
+        \\ simp[word_2comp_n2w]
+        \\ qmatch_goalsub_abbrev_tac`(4 * (b * d)) MOD f`
+        \\ qmatch_goalsub_abbrev_tac`f - y MOD f`
+        \\ `f = d * 2**10`
+        by (
+          unabbrev_all_tac
+          \\ fs[dimword_def,good_dimindex_def] )
+        \\ qunabbrev_tac`f`
+        \\ pop_assum SUBST_ALL_TAC
+        \\ fs[]
+        \\ qmatch_goalsub_abbrev_tac`m MOD (1024 * d) DIV d`
+        \\ qspecl_then[`m`,`d`,`1024`]mp_tac DIV_MOD_MOD_DIV
+        \\ impl_tac >- simp[Abbr`d`] \\ simp[]
+        \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
+        \\ qspecl_then[`1024 * d`,`(m DIV d) MOD 1024`]mp_tac LESS_MOD
+        \\ impl_tac
+        >- (
+          qspecl_then[`m DIV d`,`1024`]mp_tac MOD_LESS
+          \\ impl_tac >- simp[]
+          \\ `1024 < 1024 * d`
+          by (
+            simp[Abbr`d`,ONE_LT_EXP]
+            \\ fs[good_dimindex_def] )
+          \\ decide_tac )
+        \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
+        \\ fs[Abbr`m`,Abbr`y`]
+        \\ qspecl_then[`d`,`4 * b`,`1024`]mp_tac MOD_COMMON_FACTOR
+        \\ impl_tac >- simp[Abbr`d`] \\ simp[]
+        \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
+        \\ qmatch_assum_rename_tac`n2 < 256n`
+        \\ `n2 <= 256` by simp[]
+        \\ drule LESS_EQ_ADD_SUB
+        \\ qmatch_assum_rename_tac`n1 < n2`
+        \\ disch_then(qspec_then`n1`(CHANGED_TAC o SUBST_ALL_TAC))
+        \\ REWRITE_TAC[LEFT_ADD_DISTRIB]
+        \\ simp[LEFT_SUB_DISTRIB,Abbr`b`]
+        \\ `4 * (d * n2) - 4 * (d * n1) = (4 * d) * (n2 - n1)` by simp[]
+        \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+        \\ `1024 * d - 4 * d * (n2 - n1) = (1024 - 4 * (n2 - n1)) * d` by simp[]
+        \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+        \\ `0 < d` by simp[Abbr`d`]
+        \\ drule MULT_DIV
+        \\ disch_then(CHANGED_TAC o (fn th => REWRITE_TAC[th]))
+        \\ simp[])
       \\ pop_assum SUBST_ALL_TAC
       \\ match_mp_tac IMP_memory_rel_Number
       \\ fs[]
