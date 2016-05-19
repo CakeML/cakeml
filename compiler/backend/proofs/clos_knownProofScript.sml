@@ -607,9 +607,6 @@ val set_globals_empty_esgc_free = Q.store_thm(
   rw[] >> rw[] >>
   first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
 
-val mapped_globals_grows = Q.store_thm(
-  "mapped_globals_grows",
-
 val lem = Q.prove(
   `(∀a es env (s0:α closSem$state) res s.
       a = (es,env,s0) ∧ evaluate(es,env,s0) = (res,s) ⇒
