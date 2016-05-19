@@ -32,6 +32,8 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
 
 (* --- composing bvp-to-target --- *)
 
+(* TODO: this section is full of stuff that needs to be moved *)
+
 val from_stack = let
   val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
@@ -318,14 +320,14 @@ val word_to_stack_sr_gs = prove(``
 
 val stack_move_sl_gs = prove(``
   ∀n st off i p.
-  good_syntax p 2 1 0 ⇒
-  good_syntax (stack_move n st off i p) 2 1 0``,
+  good_syntax p 1 2 0 ⇒
+  good_syntax (stack_move n st off i p) 1 2 0``,
   Induct>>rw[stack_move_def,sl_gs_def])
 
 val word_to_stack_sl_gs = prove(``
   ∀p n args.
   post_alloc_conventions (FST args) p ⇒
-  good_syntax (FST(word_to_stack$comp p n args)) 2 1 0``,
+  good_syntax (FST(word_to_stack$comp p n args)) 1 2 0``,
   ho_match_mp_tac comp_ind >>fs[comp_def,sl_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
   >-
     (fs[wMove_def]>>
@@ -380,7 +382,7 @@ val bvp_to_word_compile_imp = prove(
          (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5)) prog) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
-     EVERY (\p. stack_to_labProof$good_syntax p 2 1 0) (MAP SND prog1) /\
+     EVERY (\p. stack_to_labProof$good_syntax p 1 2 0) (MAP SND prog1) /\
      EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
      EVERY (\p. stack_removeProof$good_syntax p (mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)))
        (MAP SND prog1))``,
@@ -445,13 +447,12 @@ val bvp_to_word_compile_imp = prove(
     fs convs>>
     unabbrev_all_tac>>fs[]);
 
-(* Broken if changed to 1 2 0*)
 val stack_alloc_syntax = prove(
   ``10 ≤ sp ∧
-    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog1) /\
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog1) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND prog1) ==>
-    EVERY (λp. good_syntax p 2 1 0) (MAP SND (compile c.bvp_conf prog1)) /\
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND (compile c.bvp_conf prog1)) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND (compile c.bvp_conf prog1))``,
   fs[stack_allocTheory.compile_def]>>
@@ -460,7 +461,7 @@ val stack_alloc_syntax = prove(
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
   qpat_abbrev_tac`l = next_lab A` >> pop_assum kall_tac>>
-  qpat_assum`good_syntax p_2 2 1 0` mp_tac>>
+  qpat_assum`good_syntax p_2 1 2 0` mp_tac>>
   qpat_assum`good_syntax p_2 sp` mp_tac>>
   qpat_assum`10 ≤ sp` mp_tac>>
   rpt (pop_assum kall_tac)>>
@@ -730,8 +731,8 @@ val code_installed_prog_to_section = prove(
 
 val stack_remove_syntax_pres = prove(
   ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
-    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog2) ==>
-    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog3)``,
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog2) ==>
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3)``,
   rw[]>>
   unabbrev_all_tac>>fs[]>>
   EVAL_TAC>>
@@ -759,9 +760,9 @@ val stack_remove_syntax_pres = prove(
 
 val stack_names_syntax_pres = prove(
   ``Abbrev (prog4 = stack_names$compile f prog3) /\
-    EVERY (λp. good_syntax p 2 1 0) (MAP SND prog3) ==>
-    EVERY (λp. good_syntax p (find_name f 2)
-                             (find_name f 1)
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3) ==>
+    EVERY (λp. good_syntax p (find_name f 1)
+                             (find_name f 2)
                              (find_name f 0)) (MAP SND prog4)``,
   rw[]>>
   unabbrev_all_tac>>fs[stack_namesTheory.compile_def]>>

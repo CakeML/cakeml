@@ -4773,10 +4773,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     Q.ISPECL_THEN [`ls`,`ssa`,`na+2`,`mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props>>
     `is_stack_var (na+2)` by full_simp_tac(srw_ss())[is_alloc_var_flip]>>
     rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[set_vars_def,alist_insert_def]>>
-    qpat_abbrev_tac `rcstlocs = insert 4 A (insert 2 B rcst.locals)`>>
+    qpat_abbrev_tac `rcstlocs = insert 2 A (insert 4 B rcst.locals)`>>
     full_simp_tac(srw_ss())[get_var_def]>>
-    `lookup 4 rcstlocs = SOME (Word c') ∧
-     lookup 2 rcstlocs = SOME (Word c)` by
+    `lookup 4 rcstlocs = SOME (Word c) ∧
+     lookup 2 rcstlocs = SOME (Word c')` by
       full_simp_tac(srw_ss())[Abbr`rcstlocs`,lookup_insert]>>
     full_simp_tac(srw_ss())[]>>
     Q.ISPECL_THEN [`s`,`st.locals`,`rcstlocs`,`x`
