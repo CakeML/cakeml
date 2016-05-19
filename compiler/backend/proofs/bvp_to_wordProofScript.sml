@@ -3703,24 +3703,29 @@ val assign_thm = Q.prove(
       by (
         unabbrev_all_tac
         \\ qmatch_goalsub_rename_tac`w2n (w1 + w2)`
-        \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
-        \\ simp[Smallnum_i2w]
-        \\ REWRITE_TAC[GSYM integerTheory.INT_MUL,GSYM integer_wordTheory.word_i2w_mul]
-        \\ simp[EVAL``i2w 4``]
-        \\ REWRITE_TAC[GSYM WORD_ADD_LSL,GSYM WORD_LEFT_ADD_DISTRIB,integer_wordTheory.word_i2w_add]
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
         \\ simp[WORD_MUL_LSL]
-        \\ ONCE_REWRITE_TAC[WORD_MULT_COMM]
-        \\ REWRITE_TAC[GSYM WORD_MULT_ASSOC,word_mul_n2w]
-        \\ simp[]
-        \\ REWRITE_TAC[integerTheory.INT_ADD]
-        \\ simp[integer_wordTheory.i2w_def]
-        \\ qmatch_goalsub_rename_tac`n2w(n1+n2)`
-        \\ qspecl_then[`8`,`n1+n2`](mp_tac o SYM) WORD_AND_EXP_SUB1
-        \\ simp[word_mul_n2w]
-        \\ qpat_abbrev_tac`m = n1 + n2`
-        \\ `m < 512` by simp[Abbr`m`]
-        \\ fs[good_dimindex_def]
-        \\ cheat (* can prove by brute force, but there should be a better way *)))
+        \\ ONCE_REWRITE_TAC[GSYM n2w_w2n]
+        \\ REWRITE_TAC[w2n_lsr]
+        \\ simp[word_mul_n2w,word_add_n2w]
+        \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
+        \\ fs[good_dimindex_def,dimword_def,GSYM LEFT_ADD_DISTRIB]
+        \\ qmatch_goalsub_abbrev_tac`(a * b) MOD f DIV d`
+        \\ qspecl_then[`a * b`,`d`,`f DIV d`]mp_tac (GSYM DIV_MOD_MOD_DIV)
+        \\ simp[Abbr`a`,Abbr`d`,Abbr`f`] \\ disch_then kall_tac
+        \\ qmatch_goalsub_abbrev_tac`d * b DIV f`
+        \\ `d * b = (b * (d DIV f)) * f`
+        by simp[Abbr`d`,Abbr`f`]
+        \\ pop_assum SUBST_ALL_TAC
+        \\ qspecl_then[`f`,`b * (d DIV f)`]mp_tac MULT_DIV
+        \\ (impl_tac >- simp[Abbr`f`])
+        \\ disch_then SUBST_ALL_TAC
+        \\ simp[Abbr`d`,Abbr`f`]
+        \\ qmatch_goalsub_abbrev_tac`a * b MOD q`
+        \\ qspecl_then[`a`,`b`,`q`]mp_tac MOD_COMMON_FACTOR
+        \\ (impl_tac >- simp[Abbr`a`,Abbr`q`])
+        \\ disch_then SUBST_ALL_TAC
+        \\ simp[Abbr`a`,Abbr`q`])
       \\ pop_assum SUBST_ALL_TAC
       \\ match_mp_tac IMP_memory_rel_Number
       \\ fs[]
