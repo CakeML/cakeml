@@ -3689,7 +3689,7 @@ val assign_thm = Q.prove(
     \\ qhdtm_x_assum`$some`mp_tac
     \\ DEEP_INTRO_TAC some_intro \\ fs[]
     \\ strip_tac \\ clean_tac
-    \\ BasicProvers.CASE_TAC \\ eval_tac \\ fs[lookup_insert]
+    \\ Cases_on`opw` \\ simp[] \\ eval_tac \\ fs[lookup_insert]
     \\ (conj_tac >- rw[])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs[]
@@ -3822,6 +3822,29 @@ val assign_thm = Q.prove(
       \\ qmatch_goalsub_rename_tac`w2n w`
       \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
       \\ fs[good_dimindex_def,dimword_def] ))
+  \\ Cases_on `∃opw. op = WordOp W64 opw` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH
+    \\ fs[do_app]
+    \\ every_case_tac \\ fs[]
+    \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ clean_tac
+    \\ fs[state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ drule memory_rel_Word64_IMP
+    \\ imp_res_tac memory_rel_tl
+    \\ drule memory_rel_Word64_IMP
+    \\ qhdtm_x_assum`memory_rel`kall_tac
+    \\ simp[] \\ ntac 2 strip_tac
+    \\ clean_tac
+    \\ simp[assign_def]
+    \\ BasicProvers.TOP_CASE_TAC
+    >- simp[]
+    \\ simp[list_Seq_def]
+    \\ cheat)
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac

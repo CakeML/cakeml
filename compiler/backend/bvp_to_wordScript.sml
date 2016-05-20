@@ -94,6 +94,17 @@ val real_offset_def = Define `
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2)``)
 
+val _ = Datatype`
+  word_op_type = Bitwise binop | Carried binop`;
+
+val lookup_word_op_def = Define`
+  (lookup_word_op Andw = Bitwise And) ∧
+  (lookup_word_op Orw = Bitwise Or) ∧
+  (lookup_word_op Xor = Bitwise Xor) ∧
+  (lookup_word_op Add = Carried Add) ∧
+  (lookup_word_op Sub = Carried Sub)`;
+val _ = export_rewrites["lookup_word_op_def"];
+
 val assign_def = Define `
   assign (c:bvp_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -301,15 +312,52 @@ val assign_def = Define `
       (case args of
         | [v1;v2] =>
            (Assign (adjust_var dest)
-            (case opw of
-             | Andw => Op And [Var (adjust_var v1); Var (adjust_var v2)]
-             | Orw  => Op Or  [Var (adjust_var v1); Var (adjust_var v2)]
-             | Xor  => Op Xor [Var (adjust_var v1); Var (adjust_var v2)]
-             | Add  => let k = Nat (dimindex(:'a)-10) in Shift Lsr (Shift Lsl
-                      (Op Add [Var (adjust_var v1); Var (adjust_var v2)]) k) k
-             | Sub  => let k = Nat (dimindex(:'a)-10) in Shift Lsr (Shift Lsl
-                      (Op Sub [Var (adjust_var v1); Var (adjust_var v2)]) k) k), l)
+            (case lookup_word_op opw of
+             | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
+             | Carried op => let k = Nat (dimindex(:'a)-10) in
+               Shift Lsr (Shift Lsl
+                 (Op op [Var (adjust_var v1); Var (adjust_var v2)]) k) k), l)
         | _ => (Skip,l))
+    | WordOp W64 opw =>
+      (case args of
+       | [v1;v2] =>
+         let len = if dimindex(:'a) < 64 then 2 else 1 in
+         (case encode_header c 3 len of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) => (Seq (list_Seq [
+                Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * n2w len)]);
+                Set EndOfHeap (Var 1);
+                Assign 3 (Const header);
+                Store (Var 1) 3;
+                Assign (adjust_var dest)
+                  (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                            (Nat (shift_length c − shift (:'a)));
+                          Const 1w])])
+              (if len = 1 then
+                Seq
+                  (Assign 3
+                     (Op (case opw of Andw => And
+                                    | Orw => Or
+                                    | Xor => Xor
+                                    | Add => Add
+                                    | Sub => Sub)
+                       [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
+                        Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]))
+                  (Store (Op Add [Var 1; Const bytes_in_word]) 3)
+               else
+               (case lookup_word_op opw of
+                | Bitwise op => list_Seq [
+                    Assign 3 (Op op
+                     [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
+                      Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]);
+                    Store (Op Add [Var 1; Const bytes_in_word]) 3;
+                    Assign 3 (Op op
+                      [Load (Op Add [real_addr c (adjust_var v1); Const (bytes_in_word <<1)]);
+                       Load (Op Add [real_addr c (adjust_var v2); Const (bytes_in_word <<1)])]);
+                    Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 3]
+                | Carried Add => GiveUp (* TODO: implement *)
+                | Carried Sub => GiveUp (* TODO: implement *))), l))
+       | _ => (Skip,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
