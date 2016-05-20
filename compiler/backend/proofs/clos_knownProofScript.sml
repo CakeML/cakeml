@@ -831,7 +831,6 @@ val ssgc_free_preserved_SING = Q.store_thm(
      by metis_tac[known_preserves_esgc_free] >>
   `EVERY esgc_free [e1']` by fs[] >>
   metis_tac[ssgc_evaluate]);
-
 (*
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
@@ -920,28 +919,51 @@ val known_correct_approx = Q.store_thm(
   >- ((* let *)
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       fs[closSemTheory.evaluate_def, eqs, pair_case_eq, result_case_eq] >>
-      rveq >>
-      qcase_tac `evaluate (MAP FST binds', env, s0) = (Rval bvs, s1)` >>
-      first_x_assum
-       (fn th => qspecl_then [`env`, `s0`, `s1`, `bvs`] mp_tac th >>
-                 simp[] >> disch_then (CONJUNCTS_THEN assume_tac)) >>
-      qcase_tac `evaluate ([bod'], bvs ++ env, s1) = (Rval vs, s)` >>
-      qcase_tac `known [bod] (MAP SND binds' ++ as) g1 = (kres,g)` >>
-      qcase_tac `HD kres = (bod',kapx)` >>
-      `kres = [(bod',kapx)]` by metis_tac[known_sing, HD, PAIR_EQ] >>
-      pop_assum SUBST_ALL_TAC >> fs[] >>
-      first_x_assum (qspecl_then [`bvs ++ env`, `s1`, `s`, `vs`] mp_tac) >>
-      simp[EVERY2_APPEND_suff])
-  >- ((* raise *) qcase_tac `known [exp1] as g0` >>
-      `∃exp' ea g1. known [exp1] as g0 = ([(exp',ea)], g1)`
-        by metis_tac [known_sing] >> fs[] >> rw[] >> fs[] >> rw[] >>
-      fs[closSemTheory.evaluate_def, pair_case_eq, result_case_eq])
-  >- ((* tick *) qcase_tac `known [exp1] as g0` >>
-      `∃exp' ea g1. known [exp1] as g0 = ([(exp',ea)], g1)`
-        by metis_tac [known_sing] >> fs[] >> rw[] >> fs[] >> rw[] >>
+      rveq
+      >- (qcase_tac `evaluate (MAP FST binds', env, s0) = (Rval bvs, s1)` >>
+          first_x_assum
+            (fn th => qspecl_then [`env`, `s0`, `s1`, `Rval bvs`] mp_tac th >>
+                      simp[] >> disch_then (CONJUNCTS_THEN assume_tac)) >>
+          qcase_tac `evaluate ([bod'], bvs ++ env, s1) = (result, s)` >>
+          qspecl_then [`MAP FST binds'`, `env`, `s0`, `Rval bvs`, `s1`]
+                      mp_tac ssgc_evaluate >> simp[] >> impl_tac
+          >- (simp[ALL_EL_MAP] >> metis_tac [known_preserves_esgc_free]) >>
+          strip_tac >> imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
+          first_x_assum
+            (qspecl_then [`bvs ++ env`, `s1`, `s`, `result`] mp_tac) >>
+          simp[EVERY2_APPEND_suff])
+      >- (qcase_tac `evaluate (MAP FST binds',env,s0) = (Rerr err, s)` >>
+          first_x_assum
+            (fn th =>
+               qspecl_then [`env`, `s0`, `s`, `Rerr err`] mp_tac th >>
+               simp[] >>
+               disch_then (assume_tac o assert (not o is_imp o concl))) >>
+          metis_tac[state_approx_better_definedg, known_better_definedg]))
+  >- ((* raise *)
+      pairarg_tac >> fs[] >> imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
+      fs[closSemTheory.evaluate_def, pair_case_eq, result_case_eq] >> rveq >>
+      simp[] >> metis_tac[])
+  >- ((* tick *)
+      pairarg_tac >> fs[] >> imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
       fs[closSemTheory.evaluate_def, pair_case_eq, result_case_eq,
-         bool_case_eq] >> metis_tac[state_globals_approx_dec_clock])
+         bool_case_eq] >> rveq >> simp[]
+      >- metis_tac[state_approx_better_definedg, known_better_definedg] >>
+      fixeqs >> first_x_assum irule >>
+      map_every qexists_tac [`env`, `dec_clock 1 s0`] >> simp[])
   >- ((* handle *)
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      fs[closSemTheory.evaluate_def, pair_case_eq, result_case_eq,
+         error_case_eq] >> rveq >> fs[]
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+          qcase_tac `evaluate([e1],env,s0) = (Rval vs,s)` >>
+          first_x_assum
+            (fn th => qspecl_then [`env`, `s0`, `s`, `Rval vs`] mp_tac th >>
+                      simp[] >> disch_then (CONJUNCTS_THEN strip_assume_tac)) >>
+          fs[] >> metis_tac[val_approx_val_merge_I, known_better_definedg,
+                            state_approx_better_definedg])
+      >- (qcase_tac `evaluate([e1],env,s0) = (Rerr(Rraise exn),s1)
+
+
       qcase_tac `known [exp1] as g0` >>
       `∃exp1' ea1 g1. known [exp1] as g0 = ([(exp1',ea1)], g1)`
         by metis_tac [known_sing] >> fs[] >>
