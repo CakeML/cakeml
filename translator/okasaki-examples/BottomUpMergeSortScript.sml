@@ -153,11 +153,11 @@ rw [] >|
           `(n+1) DIV 2 = n DIV 2 + 1 DIV 2`
                      by metis_tac [arithmeticTheory.ADD_DIV_RWT] >>
           fs [],
-      `LENGTH seg + LENGTH xs = LENGTH seg * 2`
+      `LENGTH seg + LENGTH xs = 2 * LENGTH seg`
                     by decide_tac >>
           `sortable_inv leq (n DIV 2 +  1,
                              add_seg leq (mrg leq seg xs) xss (n DIV 2))
-                        (LENGTH seg * 2)`
+                        (2 * LENGTH seg)`
                     by metis_tac [mrg_sorted, mrg_length] >>
           cases_on `add_seg leq (mrg leq seg xs) xss (n DIV 2)` >>
           fs [] >-
