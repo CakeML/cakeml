@@ -1018,9 +1018,10 @@ val Eval_n2w = store_thm("Eval_n2w",
   \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
 
 val Eval_word_lsl = store_thm("Eval_word_lsl",
-  ``Eval env x1 (WORD (w1:'a word)) ==>
-    Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Lsl n) [x1])
-      (WORD (word_lsl w1 n))``,
+  ``!n.
+      Eval env x1 (WORD (w1:'a word)) ==>
+      Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Lsl n) [x1])
+        (WORD (word_lsl w1 n))``,
   rw[Eval_def,WORD_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
@@ -1035,14 +1036,15 @@ val Eval_word_lsl = store_thm("Eval_word_lsl",
   \\ Cases_on `w1 ' (i − (n + p))` \\ fs []);
 
 val Eval_word_lsr = store_thm("Eval_word_lsr",
-  ``Eval env x1 (WORD (w1:'a word)) ==>
-    Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
-              let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
-                if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
-                  App (Shift w Lsr n) [x1]
-                else
-                  App (Shift w Lsl k) [App (Shift w Lsr (n+k)) [x1]])
-      (WORD (word_lsr w1 n))``,
+  ``!n.
+      Eval env x1 (WORD (w1:'a word)) ==>
+      Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+                let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+                  if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                    App (Shift w Lsr n) [x1]
+                  else
+                    App (Shift w Lsl k) [App (Shift w Lsr (n+k)) [x1]])
+        (WORD (word_lsr w1 n))``,
   rw[Eval_def,WORD_def]
   \\ TRY (* takes care of = 8 and = 64 cases *)
    (rw[Once evaluate_cases,PULL_EXISTS]
@@ -1074,15 +1076,16 @@ val Eval_word_lsr = store_thm("Eval_word_lsr",
   \\ TRY (`i − p + (n + p) < 8` by decide_tac \\ fs [fcpTheory.FCP_BETA,w2w])
   \\ TRY (`i − p + (n + p) < 64` by decide_tac \\ fs [fcpTheory.FCP_BETA,w2w]));
 
-val Eval_word_asr = store_thm("Eval_word_lsr",
-  ``Eval env x1 (WORD (w1:'a word)) ==>
-    Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
-              let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
-                if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
-                  App (Shift w Asr n) [x1]
-                else
-                  App (Shift w Lsl k) [App (Shift w Asr (n+k)) [x1]])
-      (WORD (word_asr w1 n))``,
+val Eval_word_asr = store_thm("Eval_word_asr",
+  ``!n.
+      Eval env x1 (WORD (w1:'a word)) ==>
+      Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+                let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+                  if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                    App (Shift w Asr n) [x1]
+                  else
+                    App (Shift w Lsl k) [App (Shift w Asr (n+k)) [x1]])
+        (WORD (word_asr w1 n))``,
   rw[Eval_def,WORD_def]
   \\ TRY (* takes care of = 8 and = 64 cases *)
    (rw[Once evaluate_cases,PULL_EXISTS]

@@ -2566,7 +2566,8 @@ in
 end
 
 fun is_word_literal tm =
-  if wordsSyntax.is_word_type (type_of tm)
+  if wordsSyntax.is_word_type (type_of tm) andalso
+     wordsSyntax.is_n2w tm
   then numSyntax.is_numeral (rand tm)
   else false
 
@@ -2594,6 +2595,20 @@ val strlen_pat = Eval_strlen |> SPEC_ALL
 val chr_pat = Eval_Chr |> concl |> funpow 4 rand
 val ord_pat = Eval_Ord |> concl |> funpow 3 rand
 
+fun dest_word_binop tm =
+  if wordsSyntax.is_word_and tm then Eval_word_and else
+  if wordsSyntax.is_word_add tm then Eval_word_add else
+  if wordsSyntax.is_word_or  tm then Eval_word_or  else
+  if wordsSyntax.is_word_xor tm then Eval_word_xor else
+  if wordsSyntax.is_word_sub tm then Eval_word_sub else
+    failwith("not a word binop")
+
+fun dest_word_shift tm =
+  if wordsSyntax.is_word_lsl tm then Eval_word_lsl else
+  if wordsSyntax.is_word_lsr tm then Eval_word_lsr else
+  if wordsSyntax.is_word_asr tm then Eval_word_asr else
+    failwith("not a word shift")
+
 (*
 val tm = rhs
 val tm = rhs_tm
@@ -2613,10 +2628,13 @@ fun hol2deep tm =
   if tm = oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
-  if is_word_literal tm andalso word_ty_ok (type_of tm) then
-    let val dim = wordsSyntax.dim_of tm in
-    SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD) |> CONV_RULE wordsLib.WORD_CONV
-    end else
+  if is_word_literal tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
+    val result = SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD)
+                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                 |> (fn th => MP th TRUTH)
+                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
@@ -2754,35 +2772,40 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
-  (* i2w8
-  if integer_wordSyntax.is_i2w tm andalso (type_of tm = word8) then let
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
-    val result = MATCH_MP Eval_i2w8 th1
-    in check_inv "i2w8" tm result end else
-  *)
   (* n2w 'a word for known 'a*)
-  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then
-    let val dim = wordsSyntax.dim_of tm
+  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
     val x1 = tm |> rand
     val th1 = hol2deep x1
-    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w |> CONV_RULE wordsLib.WORD_CONV) th1
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
+                           |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
-  (* w82i
-  if integer_wordSyntax.is_w2i tm andalso (type_of (rand tm) = word8) then let
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
-    val result = MATCH_MP Eval_w82i th1
-    in check_inv "w82i" tm result end else
-  *)
   (* w2n 'a word for known 'a*)
-  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then
-    let val x1 = tm |> rand
+  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
+    val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
-    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE wordsLib.WORD_CONV
+    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
+  (* word_add, _and, _or, _xor, _sub *)
+  if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
+    val lemma = dest_word_binop tm
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep (tm |> rand)
+    val result = MATCH_MP lemma (CONJ th1 th2)
+                |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_binop" tm result end else
+  (* word_lsl, _lsr, _asr *)
+  if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
+    val n = tm |> rand
+    val _ = numSyntax.is_numeral n orelse
+            failwith "2nd arg to word shifts must be numeral constant"
+    val lemma = dest_word_shift tm |> SPEC n |> SIMP_RULE std_ss [LET_THM]
+    val th1 = hol2deep (tm |> rator |> rand)
+    val result = MATCH_MP lemma th1
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_shift" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
     val x1 = tm |> rand
@@ -3253,7 +3276,7 @@ words testing...
 (* OK *)
 val def = Define`ok = 8w :8 word`
 val def = Define`ok2 = 8w :64 word`
-(* Fails with weird error because 8w is treated as a comb..., but these should fail anyway *)
+(* Fails, but these should fail anyway *)
 val def = Define`fail = 8w :65 word`
 val def = Define`fail2 = 8w :'a word`
 
@@ -3262,6 +3285,9 @@ val def = Define`n2w8 x = (n2w x):word8`
 val def = Define`w82n w = (w2n (w:word8))`
 val def = Define`n2w10 x = (n2w x):10 word`
 val def = Define`w102n w = (w2n (w:10 word))`
+val def = Define`ok w = w + 1w:63 word`
+val def = Define`ok w = (n2w (w2n (w:28 word)):30 word)`
+val def = Define`ok (w:24 word) = (w >> 3)`
 
 *)
 
