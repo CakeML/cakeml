@@ -111,7 +111,7 @@ val known_def = tDefine "known" `
      let (e2,a2) = HD e2 in
        ([(Handle e1 e2,merge a1 a2)],g)) /\
   (known [Call dest xs] vs g =
-     let (e1,l1) = known xs vs g in
+     let (e1,g) = known xs vs g in
        ([(Call dest (MAP FST e1),Other)],g)) /\
   (known [Op op xs] vs g =
      let (e1,g) = known xs vs g in
