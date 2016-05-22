@@ -2092,6 +2092,7 @@ fun single_line_def def = let
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
     \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
+    \\ fs[]
     \\ SRW_TAC [] [] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
     |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]

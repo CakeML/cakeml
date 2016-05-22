@@ -53,6 +53,48 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+(* backend, without the 'a config bits *)
+
+val _ = translate (source_to_modTheory.compile_def)
+
+val _ = translate (mod_to_conTheory.compile_def)
+
+val _ = translate (con_to_decTheory.compile_def)
+
+val _ = translate (dec_to_exhTheory.compile_exp_def)
+
+(* TODO: Move to exh_to_pat asexecutable rewrite *)
+val pure_op_op_eqn = prove(``
+  pure_op_op op =
+  case op of
+    Opref => F
+  | Opapp => F
+  | Opassign => F
+  | Aw8update => F
+  | Aw8alloc => F
+  | Aw8sub => F
+  | Vsub => F
+  | Chr => F
+  | Aupdate => F
+  | Aalloc => F
+  | Asub => F
+  | Opn Divide => F
+  | Opn Modulo => F
+  | FFI _ => F
+  | _ => T``,
+  Cases_on`op`>>fs[]>>
+  Cases_on`o'`>>fs[])
+
+val _ = translate (pure_op_op_eqn)
+
+val _ = translate (exh_to_patTheory.compile_def)
+
+(*
+continue here:
+have to translate w2i
+val _ = translate (pat_to_closTheory.compile_def)
+*)
+
 (* parsing: peg_exec and cmlPEG *)
 
 val _ = translate (def_of_const ``cmlPEG``);
@@ -461,13 +503,13 @@ val infer_prog_def = prove(``
      rw[infer_prog_def]>>EVAL_TAC>>
      BasicProvers.EVERY_CASE_TAC>>PairCases_on`a`>>
      fs[]>>
-     PairCases_on`a'`>>fs[])
+     PairCases_on`a'`>>fs[]);
 
 (* translating infer ``infer_prog`` doesn't work, maybe because
   there is an explicit record not written as an update inside
 *)
-val _ = translate infer_prog_def
+val _ = translate infer_prog_def;
 
-val _ = translate (infer_def ``infertype_prog``)
+val _ = translate (infer_def ``infertype_prog``);
 
 val _ = export_theory();
