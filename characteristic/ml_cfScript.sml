@@ -605,6 +605,24 @@ val app_def = Define `
     app_basic (:'ffi) f x H
       (\g. SEP_EXISTS H'. H' * (cond (app (:'ffi) g xs H' Q)))`;
 
+val app_alt_ind = Q.prove (
+  `!f xs x H Q.
+     xs <> [] ==>
+     app (:'ffi) f (xs ++ [x]) H Q =
+     app (:'ffi) f xs H
+       (\g. SEP_EXISTS H'. H' * (cond (app_basic (:'ffi) g x H' Q)))`,
+  Induct_on `xs` \\ fs [] \\ rpt strip_tac \\
+  Cases_on `xs` \\ fs [app_def]
+)
+
+val app_alt_ind_w = Q.prove (
+  `!F xs x H Q.
+     app (:'ffi) f (xs ++ [x]) H Q ==> xs <> [] ==>
+     app (:'ffi) f xs H
+       (\g. SEP_EXISTS H'. H' * (cond (app_basic (:'ffi) g x H' Q)))`,
+  rpt strip_tac \\ fs [app_alt_ind]
+)
+
 val app_local = Q.prove(
   `!f xs. is_local (\env. app (:'ffi) f xs)`,
   cheat);
@@ -652,6 +670,25 @@ val app_partial = Q.prove (
       qcase_tac `x::y::t` \\ fs [app_def] \\ cheat
     )
   )
+);
+
+(* Extracting multiarguments lambda/app from the ast *)
+val dest_opapp_def = Define `
+  dest_opapp (App Opapp l) =
+       (case l of
+          | [f; x] =>
+            (case dest_opapp f of
+               | SOME (f', args) => SOME (f', args ++ [x])
+               | NONE => SOME (f, [x]))
+          | _ => NONE) /\
+  dest_opapp _ = NONE
+`;
+
+val dest_opapp_not_empty_arglist = Q.prove (
+  `!e f args. dest_opapp e = SOME (f, args) ==> args <> []`,
+  Cases \\ fs [dest_opapp_def] \\ qcase_tac `App op _` \\
+  Cases_on `op` \\ fs [dest_opapp_def] \\ every_case_tac \\
+  fs []
 );
 
 (* // *)
@@ -788,6 +825,25 @@ val exp2v_list_REVERSE = Q.prove (
   )
 );
 
+val exp2v_list_rcons = Q.prove (
+  `!xs x l env.
+     exp2v_list env (xs ++ [x]) = SOME l ==>
+     ?xvs xv.
+       l = xvs ++ [xv] /\
+       exp2v_list env xs = SOME xvs /\
+       exp2v env x = SOME xv`,
+  Induct_on `xs` \\ fs [exp2v_list_def] \\ rpt strip_tac \\ every_case_tac \\
+  fs [] \\ first_assum drule \\ rpt strip_tac \\ fs [] \\
+  qpat_assum `_ = l` (assume_tac o GSYM) \\ fs []
+)
+
+val exp2v_list_LENGTH = Q.prove (
+  `!l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv`,
+  Induct_on `l` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
+  every_case_tac \\ fs [] \\ res_tac \\
+  qpat_assum `_::_ = _` (assume_tac o GSYM) \\ fs []
+);
+
 (* CF *)
 
 val cf_lit_def = Define `
@@ -831,12 +887,13 @@ val cf_app_def = Define `
       exp2v_list env args = SOME argsv /\
       app (:'ffi) fv argsv H Q)`;
 
-val cf_app2_def = Define `
-  cf_app2 (:'ffi) f x = local (\env H Q.
-    ?fv xv.
-      exp2v env f = SOME fv /\
-      exp2v env x = SOME xv /\
-      app_basic (:'ffi) fv xv H Q)`;
+(* val cf_app2_def = Define ` *)
+(*   cf_app2 (:'ffi) f x1 x2 = local (\env H Q. *)
+(*     ?fv x1v x2v. *)
+(*       exp2v env f = SOME fv /\ *)
+(*       exp2v env x1 = SOME x1v /\ *)
+(*       exp2v env x2 = SOME x2v /\ *)
+(*       app2 (:'ffi) fv x1v x2v H Q)`; *)
 
 val cf_fundecl_def = Define `
   cf_fundecl (:'ffi) f n F1 F2 = local (\env H Q.
@@ -928,9 +985,9 @@ val cf_def = tDefine "cf" `
             | [x1; x2] => cf_opb opb x1 x2
             | _ => local (\env H Q. F))
         | Opapp =>
-          (case args of
-            | [f; x] => cf_app2 (:'ffi) f x
-            | _ => local (\env H Q. F))
+          (case dest_opapp (App op args) of
+            | SOME (f, xs) => cf_app (:'ffi) f xs
+            | NONE => local (\env H Q. F))
         | Opref => 
           (case args of
              | [x] => cf_ref x
@@ -970,7 +1027,7 @@ val cf_ind = fetch "-" "cf_ind";
 
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
                cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
-               cf_aw8update_def, cf_app2_def, cf_app_def, cf_ref_def, cf_assign_def,
+               cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def,
                cf_deref_def];
 
 val cf_local = Q.prove (
@@ -1052,10 +1109,13 @@ val cf_base_case_tac =
 ;  
 
 val cf_strip_sound_tac =
-  match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
+  match_mp_tac sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs []
+
+val cf_evaluate_step_tac =
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\
-  fs [libTheory.opt_bind_def, PULL_EXISTS] (* \\ *)
-;
+  fs [libTheory.opt_bind_def, PULL_EXISTS]
+
+val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
 
 fun cf_evaluate_list_tac st =
   rpt (
@@ -1085,7 +1145,7 @@ val cf_sound = Q.prove (
       (* function declaration *)
       Cases_on `opt` \\ Cases_on `e1` \\
       fs [is_bound_Fun_def, Fun_body_def, Fun_param_def, SOME_val_def] \\
-      cf_strip_sound_tac \\ qcase_tac `Fun n body` \\
+      cf_strip_sound_full_tac \\ qcase_tac `Fun n body` \\
       GEN_EXISTS_TAC "v'" `Closure env n body` \\
       first_x_assum (qspec_then `Closure env n body` assume_tac) \\
       qmatch_assum_abbrev_tac `HH ==> cf _ e2 _ _ _` \\ qsuff_tac `HH` \\ qunabbrev_tac `HH`
@@ -1108,7 +1168,7 @@ val cf_sound = Q.prove (
     )
     THEN1 (
       (* other cases of let-binding *)
-      cf_strip_sound_tac \\
+      cf_strip_sound_full_tac \\
       qpat_assum `sound _ e1 _` (drule o REWRITE_RULE [sound_def]) \\
       rpt (disch_then drule) \\ strip_tac \\
       first_assum (qspec_then `v` assume_tac) \\
@@ -1121,9 +1181,10 @@ val cf_sound = Q.prove (
   )
   THEN1 (
     (* App *)
-    Cases_on `op` \\ fs [sound_false] \\ every_case_tac \\ fs [sound_false] \\
-    cf_strip_sound_tac
-    \\ TRY (
+    Cases_on `op` \\ fs [sound_false] \\ every_case_tac \\
+    fs [sound_false] \\ cf_strip_sound_tac \\
+    (qcase_tac `(App Opapp _)` ORELSE cf_evaluate_step_tac) \\
+    TRY (
       (* Opn & Opb *)
       (qcase_tac `app_opn op` ORELSE qcase_tac `app_opb op`) \\
       fs [app_opn_def, app_opb_def, st2heap_def] \\
@@ -1136,12 +1197,66 @@ val cf_sound = Q.prove (
     )
     THEN1 (
       (* Opapp *)
-      fs [app_basic_def] \\ res_tac \\
-      qcase_tac `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
-      `SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g)` by SPLIT_TAC \\
-      GEN_EXISTS_TAC "vs" `[xv; fv]` \\
-      asm_exists_tac \\ fs [] \\
-      prove_tac [exp2v_evaluate, bigStepTheory.evaluate_rules]
+      qcase_tac `dest_opapp _ = SOME (f, xs)` \\
+      schneiderUtils.UNDISCH_ALL_TAC \\ SPEC_ALL_TAC \\
+      CONV_TAC (RESORT_FORALL_CONV (fn l =>
+        (op @) (partition (fn v => fst (dest_var v) = "xs") l))) \\
+      gen_tac \\ completeInduct_on `LENGTH xs` \\ rpt strip_tac \\
+      fs [] \\ qpat_assum `dest_opapp _ = _` mp_tac \\
+      rewrite_tac [dest_opapp_def] \\ every_case_tac \\ fs [] \\
+      rpt strip_tac \\ qpat_assum `_ = xs` (assume_tac o GSYM) \\ fs []
+      (* 1 argument *)
+      THEN1 (
+        qcase_tac `xs = [x]` \\ fs [exp2v_list_def] \\ full_case_tac \\ fs [] \\
+        qpat_assum `_ = argsv` (assume_tac o GSYM) \\ qcase_tac `argsv = [xv]` \\
+        cf_evaluate_step_tac \\ GEN_EXISTS_TAC "vs" `[xv; fv]` \\
+        fs [app_def, app_basic_def] \\ res_tac \\
+        qcase_tac `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
+        `SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g)` by SPLIT_TAC \\
+        asm_exists_tac \\ fs [] \\
+        prove_tac [exp2v_evaluate, bigStepTheory.evaluate_rules]
+      )
+      (* 2+ arguments *)
+      THEN1 (
+        qcase_tac `dest_opapp papp_ = SOME (f, pxs)` \\
+        qcase_tac `xs = pxs ++ [x]` \\ fs [LENGTH] \\
+        drule exp2v_list_rcons \\ rpt strip_tac \\ fs [] \\
+        (* Do some unfolding, by definition of dest_opapp *)
+        `?papp. papp_ = App Opapp papp` by (
+          Cases_on `papp_` \\ TRY (fs [dest_opapp_def] \\ NO_TAC) \\
+          qcase_tac `dest_opapp (App op _)` \\
+          Cases_on `op` \\ TRY (fs [dest_opapp_def] \\ NO_TAC)
+        ) \\ fs [] \\
+        (* Prepare for, and apply lemma [app_alt_ind_w] to split app *)
+        drule dest_opapp_not_empty_arglist \\ strip_tac \\
+        `xvs <> []` by (drule exp2v_list_LENGTH \\ rpt strip_tac \\
+                        first_assum irule \\ fs [LENGTH_NIL]) \\
+        drule app_alt_ind_w \\ rpt (disch_then drule) \\ strip_tac \\
+        (* Specialize induction hypothesis with xs := pxs *)
+        `LENGTH pxs < LENGTH pxs + 1` by (fs []) \\
+        last_assum drule \\ disch_then (qspec_then `pxs` mp_tac) \\ fs [] \\
+        rpt (disch_then drule) \\ rpt strip_tac \\ fs [SEP_EXISTS, cond_def, STAR_def]
+        (* Cleanup *)
+        \\ qcase_tac `app_basic _ g xv H' Q` \\
+        rfs [prove(``!h h'. SPLIT h (h', {}) = (h' = h)``, SPLIT_TAC)] \\
+        (* Start unfolding the goal and instantiating exists *)
+        cf_evaluate_step_tac \\ GEN_EXISTS_TAC "vs" `[xv; g]` \\
+        GEN_EXISTS_TAC "s2" `st'` \\
+        `SPLIT (st2heap (:'ffi) st') (h_f, h_k UNION h_g)` by SPLIT_TAC \\
+        (* Exploit the [app_basic (:'ffi) g xv H' Q] we got from the ind. hyp. *)
+        fs [app_basic_def] \\
+        first_assum drule \\ rpt (disch_then drule) \\ rpt strip_tac \\
+        (* Prove the goal *)
+        qcase_tac `SPLIT3 (st2heap _ st'') (h_f', h_g', _)` \\
+        `SPLIT3 (st2heap (:'ffi) st'') (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC \\
+        `evaluate_list F env st [x; App Opapp papp] (st', Rval [xv; g])` by (
+          once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+          qexists_tac `st` \\ fs [exp2v_evaluate] \\
+          once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+          qexists_tac `st'` \\ prove_tac [bigStepTheory.evaluate_rules]
+        ) \\
+        rpt (asm_exists_tac \\ fs [])
+      )
     )
     THEN1 (
       (* Opassign *)
