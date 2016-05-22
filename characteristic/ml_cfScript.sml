@@ -87,7 +87,7 @@ val SEP_IMP_one_frame_single_l = Q.prove (
   `!H' l v v'.
      v = v' /\ SEP_IMP emp H' ==>
      SEP_IMP (one (l, v)) (H' * one (l, v'))`,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\ 
+  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
   simp [Once CONJ_COMM] \\ asm_exists_tac \\ SPLIT_TAC
 );
 
@@ -95,7 +95,7 @@ val SEP_IMP_one_frame_single_r = Q.prove (
   `!H l v v'.
      v = v' /\ SEP_IMP H emp ==>
      SEP_IMP (H * one (l, v)) (one (l, v'))`,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\ 
+  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
   rpt strip_tac \\ res_tac \\ SPLIT_TAC
 );
 
@@ -1117,14 +1117,11 @@ val cf_evaluate_step_tac =
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
 
-fun cf_evaluate_list_tac st =
-  rpt (
+fun cf_evaluate_list_tac [] = prove_tac [bigStepTheory.evaluate_rules]
+  | cf_evaluate_list_tac (st::sts) =
     once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    qexists_tac st \\ fs [exp2v_evaluate] \\
-    TRY (qmatch_rename_tac `evaluate_list _ _ _ [] _` \\
-         prove_tac [bigStepTheory.evaluate_rules])
-  )
-;
+    qexists_tac st \\ strip_tac THENL [fs [exp2v_evaluate], all_tac] \\
+    cf_evaluate_list_tac sts
 
 val cf_sound = Q.prove (
   `!(r: 'ffi itself) e. sound (:'ffi) e (cf (:'ffi) e)`,
@@ -1193,7 +1190,7 @@ val cf_sound = Q.prove (
       GEN_EXISTS_TAC "vs" `[Litv (IntLit i2); Litv (IntLit i1)]` \\
       Cases_on `op` \\ fs [semanticPrimitivesTheory.do_app_def] \\
       qexists_tac `st` \\ rpt strip_tac \\ fs [SEP_IMP_def] \\
-      cf_evaluate_list_tac `st`
+      cf_evaluate_list_tac [`st`, `st`]
     )
     THEN1 (
       (* Opapp *)
@@ -1249,19 +1246,16 @@ val cf_sound = Q.prove (
         (* Prove the goal *)
         qcase_tac `SPLIT3 (st2heap _ st'') (h_f', h_g', _)` \\
         `SPLIT3 (st2heap (:'ffi) st'') (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC \\
-        `evaluate_list F env st [x; App Opapp papp] (st', Rval [xv; g])` by (
-          once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-          qexists_tac `st` \\ fs [exp2v_evaluate] \\
-          once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-          qexists_tac `st'` \\ prove_tac [bigStepTheory.evaluate_rules]
-        ) \\
+        `evaluate_list F env st [x; App Opapp papp] (st', Rval [xv; g])` by
+          (cf_evaluate_list_tac [`st`, `st'`]) \\
         rpt (asm_exists_tac \\ fs [])
       )
     )
     THEN1 (
       (* Opassign *)
       fs [app_assign_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
-      `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by (cf_evaluate_list_tac `st`) \\
+      `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\
       qpat_assum `!s. H s ==> _` drule \\ strip_tac \\
       qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "vs" `[xv; Loc rv]` \\ 
@@ -1287,19 +1281,22 @@ val cf_sound = Q.prove (
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
       fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
       GEN_EXISTS_TAC "vs" `[xv]` \\
-      first_x_assum (qspecl_then [`LENGTH st.refs`, `(LENGTH st.refs,Refv xv) INSERT h_i`] mp_tac) \\
+      (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`LENGTH st.refs`, `(LENGTH st.refs,Refv xv) INSERT h_i`] \\
       impl_tac
       THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
       THEN1 (
         strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
-        `evaluate_list F env st [h] (st, Rval [xv])` by (cf_evaluate_list_tac `st`) \\
+        `evaluate_list F env st [h] (st, Rval [xv])` by
+          (cf_evaluate_list_tac [`st`, `st`]) \\
         rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append] \\
         assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
       )
     )
     THEN1 (
       (* Opderef *)
-      `evaluate_list F env st [h] (st, Rval [Loc rv])` by (cf_evaluate_list_tac `st`) \\
+      `evaluate_list F env st [h] (st, Rval [Loc rv])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def] \\
       rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
       qcase_tac `SPLIT h_i (h_i', {(rv,Refv x)})` \\ qcase_tac `FF h_i'` \\
@@ -1317,13 +1314,14 @@ val cf_sound = Q.prove (
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
       fs [st2heap_def, app_aw8alloc_def, SEP_IMP_def, STAR_def, one_def] \\
       first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
-      first_x_assum (qspecl_then [`(LENGTH st.refs, W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`]
-                     mp_tac) \\ impl_tac
+      (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`(LENGTH st.refs, W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
+      impl_tac
       THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
       THEN1 (
         strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
         `evaluate_list F env st [h'; h] (st, Rval [Litv (Word8 w); Litv (IntLit n)])` by
-          (cf_evaluate_list_tac `st`) \\
+          (cf_evaluate_list_tac [`st`, `st`]) \\
         `~ (n < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
         fs [] \\ rpt (asm_exists_tac \\ fs []) \\ fs [store2heap_append] \\
         assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
@@ -1333,7 +1331,7 @@ val cf_sound = Q.prove (
       (* Aw8sub *)
       GEN_EXISTS_TAC "vs" `[Litv (IntLit i); Loc l]` \\
       `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
-        by (cf_evaluate_list_tac `st`) \\
+        by (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def] \\
       rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
       qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
@@ -1347,7 +1345,8 @@ val cf_sound = Q.prove (
     THEN1 (
       (* Aw8length *)
       GEN_EXISTS_TAC "vs" `[Loc l]` \\
-      `evaluate_list F env st [h] (st, Rval [Loc l])` by (cf_evaluate_list_tac `st`) \\
+      `evaluate_list F env st [h] (st, Rval [Loc l])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def] \\
       rpt (qpat_assum `!s. H s ==> _` drule \\ strip_tac) \\ fs [] \\
       qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
@@ -1363,7 +1362,7 @@ val cf_sound = Q.prove (
       GEN_EXISTS_TAC "vs" `[Litv (Word8 w); Litv (IntLit i); Loc l]` \\
       `evaluate_list F env st [h''; h'; h]
          (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
-          by (cf_evaluate_list_tac `st`) \\
+          by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\
       fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
       qpat_assum `!s. H s ==> _` drule \\ strip_tac \\
       qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
