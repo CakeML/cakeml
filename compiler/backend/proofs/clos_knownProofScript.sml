@@ -303,7 +303,12 @@ val known_better_definedg = Q.store_thm(
   metis_tac[better_definedg_trans, known_op_better_definedg]);
 
 val val_approx_val_def = tDefine "val_approx_val" `
-  (val_approx_val (Clos n m) v ⇔ ∃e1 e2 b. v = Closure (SOME n) e1 e2 m b) ∧
+  (val_approx_val (Clos m n) v ⇔
+     (∃e1 e2 b. v = Closure (SOME m) e1 e2 n b) ∨
+     (∃lopt env fs j.
+        v = Recclosure lopt [] env fs j ∧
+        n = FST (EL j fs) ∧
+        m = j + (case lopt of NONE => 0 | SOME l => l))) ∧
   (val_approx_val (Tuple vas) v ⇔
     ∃n vs. v = Block n vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
   (val_approx_val Impossible v ⇔ F) ∧
