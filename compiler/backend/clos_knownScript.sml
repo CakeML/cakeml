@@ -115,7 +115,7 @@ val known_def = tDefine "known" `
        ([(Call dest (MAP FST e1),Other)],g)) /\
   (known [Op op xs] vs g =
      let (e1,g) = known xs vs g in
-     let (a,g) = known_op op (MAP SND e1) g in
+     let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
        ([(Op op (MAP FST e1),a)],g)) /\
   (known [App loc_opt x xs] vs g =
      let (e1,g) = known [x] vs g in
