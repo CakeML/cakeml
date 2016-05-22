@@ -118,8 +118,8 @@ val known_def = tDefine "known" `
      let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
        ([(Op op (MAP FST e1),a)],g)) /\
   (known [App loc_opt x xs] vs g =
-     let (e1,g) = known [x] vs g in
      let (e2,g) = known xs vs g in
+     let (e1,g) = known [x] vs g in
      let (e1,a1) = HD e1 in
      let new_loc_opt = (case dest_Clos a1 of
                         | NONE => NONE
