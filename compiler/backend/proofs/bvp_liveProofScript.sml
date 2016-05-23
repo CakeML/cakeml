@@ -88,8 +88,8 @@ val is_pure_do_app_Rerr_IMP = prove(
 val is_pure_do_app_Rval_IMP = prove(
   ``is_pure op /\ do_app op x s = Rval (q,r) ==> r = s``,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
-  \\ EVAL_TAC \\ every_case_tac \\ fs []
-  \\ fs [state_component_equality]);
+  \\ EVAL_TAC \\ every_case_tac \\ fs [bvp_spaceTheory.op_space_req_def]
+  \\ fs [state_component_equality,is_pure_def]);
 
 val evaluate_compile = Q.prove(
   `!c s1 res s2 l2 t1 l1 d.
