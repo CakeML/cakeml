@@ -21,7 +21,7 @@ val compile_def = tDefine"compile"`
   (compile (Lit (Word8 w)) =
     Op (Const (& (w2n w))) []) ∧
   (compile (Lit (Word64 w)) =
-    Op WordFromInt [Op (Const (w2i w)) []]) ∧
+    Op WordFromInt [Op (Const (&(w2n w))) []]) ∧
   (compile (Lit (Char c)) =
     Op (Const (& ORD c)) []) ∧
   (compile (Lit (StrLit s)) =

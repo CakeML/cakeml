@@ -63,36 +63,29 @@ val _ = translate (con_to_decTheory.compile_def)
 
 val _ = translate (dec_to_exhTheory.compile_exp_def)
 
-(* TODO: Move to exh_to_pat asexecutable rewrite *)
-val pure_op_op_eqn = prove(``
-  pure_op_op op =
-  case op of
-    Opref => F
-  | Opapp => F
-  | Opassign => F
-  | Aw8update => F
-  | Aw8alloc => F
-  | Aw8sub => F
-  | Vsub => F
-  | Chr => F
-  | Aupdate => F
-  | Aalloc => F
-  | Asub => F
-  | Opn Divide => F
-  | Opn Modulo => F
-  | FFI _ => F
-  | _ => T``,
-  Cases_on`op`>>fs[]>>
-  Cases_on`o'`>>fs[])
-
-val _ = translate (pure_op_op_eqn)
+val _ = translate (exh_to_patTheory.pure_op_op_eqn)
 
 val _ = translate (exh_to_patTheory.compile_def)
+
+val _ = translate (pat_to_closTheory.compile_def)
+
+(*TODO: slow, and the final name might not be compile_4 *)
+val _ = prove(``
+  ∀x. compile_4_side x ⇔ T``,
+  recInduct pat_to_closTheory.compile_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "compile_4_side_def")]>>
+  Cases_on`es`>>fs[])|>update_precondition;
+
+(* goes through with side conditions *)
+val _ = translate (clos_numberTheory.renumber_code_locs_def)
+
+(*val _ = translate (clos_numberTheory.renumber_code_locs_def)
+val _ = translate (clos_to_bvlTheory.compile_def)*)
 
 (*
 continue here:
 have to translate w2i
-val _ = translate (pat_to_closTheory.compile_def)
 *)
 
 (* parsing: peg_exec and cmlPEG *)
