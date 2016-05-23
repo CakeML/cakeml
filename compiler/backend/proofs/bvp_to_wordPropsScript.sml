@@ -4,6 +4,11 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
 
 val _ = new_theory "bvp_to_wordProps";
 
+(* TODO: move? *)
+val clean_tac = rpt var_eq_tac \\ rpt (qpat_assum `T` kall_tac)
+fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
+(* -- *)
+
 val get_lowerbits_def = Define `
   (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
   (get_lowerbits conf _ = 1w)`;
@@ -2105,9 +2110,6 @@ val word_list_APPEND = store_thm("word_list_APPEND",
               word_list a xs * word_list (a + n2w (LENGTH xs) * bytes_in_word) ys``,
   Induct \\ full_simp_tac(srw_ss())[word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,
                 GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
-
-val clean_tac = rpt var_eq_tac \\ rpt (qpat_assum `T` kall_tac)
-fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val memory_rel_El = store_thm("memory_rel_El",
   ``memory_rel c be refs sp st m dm
