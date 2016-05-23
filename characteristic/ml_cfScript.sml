@@ -846,6 +846,46 @@ val exp2v_list_LENGTH = Q.prove (
 
 (* CF *)
 
+val extend_env_def = Define `
+  extend_env ns vs env =
+    case ns of
+     | [] =>
+       (case vs of
+          | [] => SOME env
+          | _ => NONE)
+     | n::ns =>
+       (case vs of
+          | v::vs =>
+            extend_env ns vs (env with v := (n, v)::env.v)
+          | _ => NONE)
+`
+
+val extend_env_LENGTH = Q.prove (
+  `!ns vs env env'.
+     extend_env ns vs env = SOME env' ==>
+     LENGTH ns = LENGTH vs`,
+  Induct \\ rpt gen_tac
+  THEN1 (fs [extend_env_def] \\ every_case_tac \\ fs [LENGTH])
+  THEN1 (
+    fs [LENGTH] \\ once_rewrite_tac [extend_env_def] \\ fs [] \\
+    every_case_tac \\ strip_tac \\ last_assum drule \\ fs [LENGTH]
+  )
+);
+
+val naryFun_def = Define ` 
+  naryFun ns body =
+    case ns of
+     | [] => body
+     | n::ns => Fun n (naryFun ns body)
+`
+
+val naryClosure_def = Define `
+  naryClosure env ns body =
+    case ns of
+      | [] => ARB
+      | n::ns => Closure env n (naryFun ns body)
+`
+
 val cf_lit_def = Define `
   cf_lit l = local (\env H Q. SEP_IMP H (Q (Litv l)))`;
 
@@ -887,20 +927,13 @@ val cf_app_def = Define `
       exp2v_list env args = SOME argsv /\
       app (:'ffi) fv argsv H Q)`;
 
-(* val cf_app2_def = Define ` *)
-(*   cf_app2 (:'ffi) f x1 x2 = local (\env H Q. *)
-(*     ?fv x1v x2v. *)
-(*       exp2v env f = SOME fv /\ *)
-(*       exp2v env x1 = SOME x1v /\ *)
-(*       exp2v env x2 = SOME x2v /\ *)
-(*       app2 (:'ffi) fv x1v x2v H Q)`; *)
-
 val cf_fundecl_def = Define `
-  cf_fundecl (:'ffi) f n F1 F2 = local (\env H Q.
+  cf_fundecl (:'ffi) f ns F1 F2 = local (\env H Q.
     !fv.
-      (!xv H' Q'.
-        F1 (env with v := (n, xv)::env.v) H' Q' ==>
-        app_basic (:'ffi) fv xv H' Q')
+      (!xvs env' H' Q'.
+        extend_env ns xvs env = SOME env' ==>
+        F1 env' H' Q' ==>
+        app (:'ffi) fv xvs H' Q')
       ==>
       F2 (env with v := (f, fv)::env.v) H Q)`;
 
@@ -956,10 +989,44 @@ val is_bound_Fun_def = Define `
   is_bound_Fun _ _ = F`;
 
 val Fun_body_def = Define `
-  Fun_body (Fun _ body) = body`;
+  Fun_body (Fun _ body) =
+    (case Fun_body body of
+       | NONE => SOME body
+       | SOME body' => SOME body') /\
+  Fun_body _ = NONE
+`
 
-val Fun_param_def = Define `
-  Fun_param (Fun n _) = n`;
+val Fun_body_exp_size = Q.prove (
+  `!e e'. Fun_body e = SOME e' ==> exp_size e' < exp_size e`,
+  Induct \\ fs [Fun_body_def] \\ every_case_tac \\ fs [astTheory.exp_size_def]
+);
+
+val is_bound_Fun_unfold = Q.prove (
+  `!opt e. is_bound_Fun opt e ==> (?n body. e = Fun n body)`,
+  Cases_on `e` \\ fs [is_bound_Fun_def]
+);
+
+val Fun_params_def = Define `
+  Fun_params (Fun n body) =
+    n :: (Fun_params body) /\
+  Fun_params _ =
+    []
+`
+
+val Fun_params_Fun_body_NONE = Q.prove (
+  `!e. Fun_body e = NONE ==> Fun_params e = []`,
+  Cases \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac
+);
+
+val Fun_params_Fun_body_repack = Q.prove (
+  `!e e'.
+     Fun_body e = SOME e' ==>
+     naryFun (Fun_params e) e' = e`,
+  Induct \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac \\
+  rpt strip_tac \\ fs [Once naryFun_def] \\ TRY every_case_tac \\
+  TRY (fs [Fun_params_Fun_body_NONE, Once naryFun_def] \\ NO_TAC) \\
+  once_rewrite_tac [naryFun_def] \\ fs []
+)
 
 val SOME_val_def = Define `
   SOME_val (SOME x) = x`; 
@@ -970,8 +1037,11 @@ val cf_def = tDefine "cf" `
   cf (:'ffi) (Var name) = cf_var name /\
   cf (:'ffi) (Let opt e1 e2) =
     (if is_bound_Fun opt e1 then
-       cf_fundecl (:'ffi) (SOME_val opt) (Fun_param e1)
-         (cf (:'ffi) (Fun_body e1)) (cf (:'ffi) e2)
+       (case Fun_body e1 of
+          | SOME body =>
+            cf_fundecl (:'ffi) (SOME_val opt) (Fun_params e1)
+              (cf (:'ffi) body) (cf (:'ffi) e2)
+          | NONE => local (\env H Q. F))
      else
        cf_let opt (cf (:'ffi) e1) (cf (:'ffi) e2)) /\
   cf (:'ffi) (App op args) =
@@ -1020,8 +1090,8 @@ val cf_def = tDefine "cf" `
   cf _ _ = local (\env H Q. F)`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw [] \\
-   Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def, Fun_body_def] \\
-   fs [astTheory.exp_size_def]);
+   Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
+   drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]);
 
 val cf_ind = fetch "-" "cf_ind";
 
@@ -1037,9 +1107,8 @@ val cf_local = Q.prove (
   recInduct cf_ind \\ rpt strip_tac \\
   fs (local_local :: local_is_local :: cf_defs)
   THEN1 (
-    Cases_on `opt` \\ Cases_on `e1` \\
-    fs [is_bound_Fun_def, Fun_body_def, Fun_param_def, SOME_val_def,
-        local_is_local]
+    Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def, local_is_local] \\
+    fs [Fun_body_def] \\ every_case_tac \\ fs [local_is_local]
   )
   THEN1 (
     Cases_on `op` \\ fs [local_is_local] \\
@@ -1123,6 +1192,50 @@ fun cf_evaluate_list_tac [] = prove_tac [bigStepTheory.evaluate_rules]
     qexists_tac st \\ strip_tac THENL [fs [exp2v_evaluate], all_tac] \\
     cf_evaluate_list_tac sts
 
+val app_basic_of_sound_cf = Q.prove (
+  `!body x env v H Q.
+    sound (:'ffi) body (cf (:'ffi) body) ==>
+    cf (:'ffi) body (env with v := (v,x)::env.v) H Q ==>
+    app_basic (:'ffi) (Closure env v body) x H Q`,
+
+    rpt strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\ fs [sound_def] \\
+    first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
+    fs [semanticPrimitivesTheory.do_opapp_def] \\
+    `SPLIT3 (st2heap (:'ffi) st') (h_f,h_g,i)` by SPLIT_TAC \\
+    rpt (asm_exists_tac \\ fs [])
+)
+
+val app_of_sound_cf = Q.prove (
+  `!ns env body xvs env' H Q.
+     ns <> [] ==>
+     extend_env ns xvs env = SOME env' ==>
+     sound (:'ffi) body (cf (:'ffi) body) ==>
+     cf (:'ffi) body env' H Q ==>
+     app (:'ffi) (naryClosure env ns body) xvs H Q`,
+  Induct \\ rpt strip_tac \\ rewrite_tac [naryClosure_def] \\ fs [] \\
+  drule extend_env_LENGTH \\ disch_then (assume_tac o GSYM) \\
+  qcase_tac `extend_env (n::ns) _ _ = SOME _` \\ Cases_on `ns`
+
+  THEN1 (
+    Cases_on `xvs` \\
+    fs [naryFun_def, LENGTH_NIL, extend_env_def, app_def, app_basic_of_sound_cf]
+  )
+  THEN1 (
+    Cases_on `xvs` \\ fs [] \\ qpat_assum `extend_env _ _ _ = SOME _` mp_tac \\
+    rewrite_tac [Once extend_env_def] \\ fs [] \\ strip_tac \\
+    qcase_tac `extend_env (m::ns) xvs (env with v := (n,xv)::env.v) = SOME _` \\
+    Cases_on `xvs` \\ fs [] \\ fs [app_def, app_basic_def] \\ rpt strip_tac \\
+    fs [semanticPrimitivesTheory.do_opapp_def] \\ 
+    fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS] \\
+    fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h' = h)`, SPLIT_TAC)] \\ 
+    `SPLIT3 (st2heap (:'ffi) st) (h', {}, i)` by SPLIT_TAC \\ 
+    first_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
+    rpt (asm_exists_tac \\ fs []) \\
+    fs [Once naryFun_def, Once naryClosure_def] \\
+    fs [Once bigStepTheory.evaluate_cases]
+  )
+)
+
 val cf_sound = Q.prove (
   `!(r: 'ffi itself) e. sound (:'ffi) e (cf (:'ffi) e)`,
   recInduct cf_ind \\ rpt strip_tac \\
@@ -1140,27 +1253,45 @@ val cf_sound = Q.prove (
     Cases_on `is_bound_Fun opt e1` \\ fs []
     THEN1 (
       (* function declaration *)
-      Cases_on `opt` \\ Cases_on `e1` \\
-      fs [is_bound_Fun_def, Fun_body_def, Fun_param_def, SOME_val_def] \\
-      cf_strip_sound_full_tac \\ qcase_tac `Fun n body` \\
-      GEN_EXISTS_TAC "v'" `Closure env n body` \\
-      first_x_assum (qspec_then `Closure env n body` assume_tac) \\
-      qmatch_assum_abbrev_tac `HH ==> cf _ e2 _ _ _` \\ qsuff_tac `HH` \\ qunabbrev_tac `HH`
+      (* Eliminate the impossible case (Fun_body _ = NONE), then we call
+        cf_strip_sound_tac *)
+      drule is_bound_Fun_unfold \\ strip_tac \\ fs [Fun_body_def] \\
+      BasicProvers.TOP_CASE_TAC \\ cf_strip_sound_tac \\
+      (* Perform induction on the number of function parameters collected *)
+      (* ?? schneiderUtils.UNDISCH_ALL_TAC does not work *)
+      rpt (fn g => schneiderUtils.UNDISCH_HD_TAC g handle _ => NO_TAC g) \\
+      SPEC_ALL_TAC \\ gen_tac \\ completeInduct_on `LENGTH (Fun_params e1)` \\
+      rpt strip_tac \\
+      (* Simplify, since we know opt = SOME _ *)
+      Cases_on `opt` \\ fs [is_bound_Fun_def, SOME_val_def, Fun_params_def] \\
+      (* Case split on Fun_body *)
+      qpat_assum `(case Fun_body _ of NONE => _ | SOME_ => _) = _` mp_tac \\
+      every_case_tac \\ disch_then (assume_tac o GSYM) \\ fs []
       THEN1 (
-        strip_tac \\ first_assum drule \\ strip_tac \\
+        (* 1 parameter *)
+        last_x_assum (K all_tac) \\ (* we don't need the induction hypothesis *)
+        fs [Fun_params_Fun_body_NONE] \\ qcase_tac `Fun n body` \\
+        first_x_assum (qspec_then `Closure env n body` mp_tac) \\
+        qspec_then `[n]` assume_tac app_of_sound_cf \\
+        fs [naryClosure_def, naryFun_def] \\ strip_tac \\
         qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
-        rpt (disch_then drule) \\ strip_tac \\
-        qexists_tac `v` \\ GEN_EXISTS_TAC "s2" `st` \\
-        rpt (asm_exists_tac \\ fs []) \\
-        once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs []
+        disch_then (mp_tac o Q.SPEC `st`) \\ rpt (disch_then drule) \\
+        strip_tac \\ cf_evaluate_step_tac \\ asm_exists_tac \\ fs [] \\
+        rpt (fs [Once CONJ_COMM] \\ asm_exists_tac \\ fs []) \\
+        fs [Once bigStepTheory.evaluate_cases] 
       )
       THEN1 (
-        rpt strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
-        qpat_assum `sound _ body _` (drule o REWRITE_RULE [sound_def]) \\
-        disch_then (mp_tac o Q.SPEC `st'`) \\ rpt (disch_then drule) \\ strip_tac \\ 
-        fs [semanticPrimitivesTheory.do_opapp_def] \\
-        `SPLIT3 (st2heap (:'ffi) st'') (h_f,h_g,i)` by SPLIT_TAC \\
-        rpt (asm_exists_tac \\ fs [])
+        (* 2+ parameters *)
+        qcase_tac `Fun n body` \\ qcase_tac `Fun_body body = SOME body'` \\
+        (fn tm => first_x_assum (qspec_then tm mp_tac))
+          `naryClosure env (n::Fun_params body) body'` \\
+        assume_tac app_of_sound_cf \\ fs [] \\ strip_tac \\
+        qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
+        disch_then (mp_tac o Q.SPEC `st`) \\ rpt (disch_then drule) \\
+        strip_tac \\ cf_evaluate_step_tac \\ asm_exists_tac \\ fs [] \\
+        rpt (fs [Once CONJ_COMM] \\ asm_exists_tac \\ fs []) \\
+        fs [naryClosure_def, Fun_params_Fun_body_repack] \\
+        fs [Once bigStepTheory.evaluate_cases]
       )
     )
     THEN1 (
@@ -1426,10 +1557,17 @@ val app_basic_of_cf = Q.prove (
   `!body x env v H Q.
     cf (:'ffi) body (env with v := (v,x)::env.v) H Q ==>
     app_basic (:'ffi) (Closure env v body) x H Q`,
-  rpt strip_tac \\ fs [app_basic_def, semanticPrimitivesTheory.do_opapp_def] \\
-  rpt strip_tac \\ mp_tac cf_sound_local \\ rpt (disch_then drule) \\
-  rpt strip_tac \\ rpt (asm_exists_tac \\ fs [])
-);
+  fs [app_basic_of_sound_cf, cf_sound]
+)
+
+val app_of_cf = Q.prove (
+  `!ns env body xvs env' H Q.
+     ns <> [] ==>
+     extend_env ns xvs env = SOME env' ==>
+     cf (:'ffi) body env' H Q ==>
+     app (:'ffi) (naryClosure env ns body) xvs H Q`,
+  fs [app_of_sound_cf, cf_sound]
+)
 
 val DeclCorr_NIL = Q.prove (
   `!mn. DeclCorr mn [] FEMPTY`,
