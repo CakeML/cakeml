@@ -786,6 +786,86 @@ val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   \\ Cases_on `x = Block tag []` \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [get_refs_def] \\ metis_tac []);
 
+(* word64 *)
+
+val word64_thm = Q.store_thm("word64_thm",
+  `abs_ml_inv conf stack refs (roots,heap,be,a,sp) limit ∧
+   Word64Rep (:'a) w64 = DataElement [] len (Word64Tag,xs) ∧
+   LENGTH xs < sp
+   ⇒
+   ∃heap2.
+     heap_store_unused a sp (Word64Rep (:'a) w64) heap = (heap2,T) ∧
+     abs_ml_inv conf (Word64 w64::stack) refs
+       (Pointer (a + sp - len - 1) (Word 0w)::roots,heap2,be,a,sp - len - 1) limit`,
+  rw[abs_ml_inv_def]
+  \\ qpat_abbrev_tac`wr = Word64Rep _ _`
+  \\ `el_length wr = len + 1`
+  by ( fs[Abbr`wr`,Word64Rep_def] \\ rw[] \\ fs[el_length_def])
+  \\ `LENGTH xs = len`
+  by (
+    fs[Word64Rep_def]
+    \\ every_case_tac \\ fs[]
+    \\ clean_tac \\ fs[] )
+  \\ clean_tac
+  \\ rpt_drule IMP_heap_store_unused
+  \\ disch_then(qspec_then`wr`mp_tac)
+  \\ impl_tac >- fs[] \\ strip_tac
+  \\ asm_exists_tac \\ simp[]
+  \\ conj_tac
+  >- (
+    fs[roots_ok_def,heap_store_rel_def]
+    \\ rw[] \\ rfs[]
+    >- (simp[Abbr`wr`,Word64Rep_def] \\ rw[isSomeDataElement_def])
+    \\ res_tac \\ res_tac \\ fs[] )
+  \\ conj_tac
+  >- (
+    fs[heap_ok_def] \\ rfs[]
+    \\ fs[Abbr`wr`]
+    \\ conj_tac
+    >- (
+      first_x_assum match_mp_tac
+      \\ simp[Word64Rep_def] \\ rw[isForwardPointer_def] )
+    \\ rw[]
+    >- (
+      fs[Word64Rep_def]
+      \\ every_case_tac \\ rfs[]
+      \\ clean_tac \\ fs[] )
+    \\ metis_tac[heap_store_rel_lemma,isSomeDataElement_def] )
+  \\ rfs[]
+  \\ fs[bc_stack_ref_inv_def]
+  \\ qexists_tac`f` \\ fs[]
+  \\ `isDataElement wr`
+  by (
+    simp[Abbr`wr`,Word64Rep_def]
+    \\ rw[isDataElement_def] )
+  \\ fs[]
+  \\ conj_tac
+  >- fs[INJ_DEF]
+  \\ conj_tac
+  >- (
+    simp[v_inv_def]
+    \\ match_mp_tac EVERY2_MEM_MONO
+    \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+    \\ simp[FORALL_PROD] \\ rw[]
+    \\ match_mp_tac v_inv_SUBMAP
+    \\ simp[] )
+  \\ fs[reachable_refs_def,PULL_EXISTS]
+  \\ rw[]
+  >- fs[get_refs_def]
+  \\ fs[bc_ref_inv_def]
+  \\ first_x_assum rpt_drule
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rw[]
+  \\ fs[RefBlock_def,Bytes_def]
+  \\ imp_res_tac heap_store_rel_lemma
+  \\ fs[]
+  \\ TRY asm_exists_tac \\ fs[]
+  \\ match_mp_tac EVERY2_MEM_MONO
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+  \\ simp[FORALL_PROD] \\ rw[]
+  \\ match_mp_tac v_inv_SUBMAP
+  \\ simp[] )
 
 (* update ref *)
 
