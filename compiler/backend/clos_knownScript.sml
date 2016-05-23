@@ -134,8 +134,10 @@ val known_def = tDefine "known" `
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
   (known [Letrec loc_opt _ fns x1] vs g =
-     let loc = (case loc_opt of NONE => 0 | SOME n => n) in
-     let clos = GENLIST (\i. Clos (loc + i) (FST (EL i fns))) (LENGTH fns) in
+     let gfn = case loc_opt of
+                   NONE => K Other
+                 | SOME n => \i. Clos (n + i) (FST (EL i fns)) in
+     let clos = GENLIST gfn (LENGTH fns) in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)
      let new_fns = MAP (\(num_args,x).
