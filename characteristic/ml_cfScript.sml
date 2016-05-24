@@ -873,18 +873,75 @@ val extend_env_LENGTH = Q.prove (
 );
 
 val naryFun_def = Define ` 
-  naryFun ns body =
-    case ns of
-     | [] => body
-     | n::ns => Fun n (naryFun ns body)
+  naryFun [] body = body /\
+  naryFun (n::ns) body = Fun n (naryFun ns body)
 `
 
 val naryClosure_def = Define `
-  naryClosure env ns body =
-    case ns of
-      | [] => ARB
-      | n::ns => Closure env n (naryFun ns body)
+  naryClosure env (n::ns) body = Closure env n (naryFun ns body)
 `
+
+val app_one_naryClosure = Q.prove (
+  `!env n ns x xs body H Q.
+     ns <> [] ==> xs <> [] ==>
+     app (:'ffi) (naryClosure env (n::ns) body) (x::xs) H Q ==>
+     app (:'ffi) (naryClosure (env with v := (n, x)::env.v) ns body) xs H Q`,
+
+  rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
+  qcase_tac `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
+  Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''_xs`] \\
+  fs [app_def, naryClosure_def, naryFun_def] \\ 
+  fs [app_basic_def] \\ rpt strip_tac \\
+  first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
+  fs [SEP_EXISTS, cond_def, STAR_def] \\
+  fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h = h')`, SPLIT_TAC)] \\
+  qpat_assum `do_opapp _ = _`
+    (assume_tac o REWRITE_RULE [semanticPrimitivesTheory.do_opapp_def]) \\
+  fs [] \\ qpat_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
+  qpat_assum `evaluate _ _ _ _ _`
+    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ fs []
+  \\ fs [semanticPrimitivesTheory.do_opapp_def] \\
+  qcase_tac `SPLIT _ (h_f, h_k)` \\ 
+  qcase_tac `SPLIT3 _ (h_f', h_g, h_k)` \\
+  qcase_tac `H' h_f'` \\
+  `SPLIT (st2heap (:'ffi) st) (h_f', h_g UNION h_k)` by SPLIT_TAC \\
+  first_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
+  qcase_tac `SPLIT3 (st2heap _ st'') (h_f'', h_g'', _)` \\
+  `SPLIT3 (st2heap (:'ffi) st'') (h_f'', h_g UNION h_g'', h_k)` by SPLIT_TAC
+  \\ rpt (asm_exists_tac \\ fs []) \\ (* first goal is proved here *)
+  rewrite_tac [Once CONJ_COMM] \\ rpt (asm_exists_tac \\ fs [])
+)
+
+val curried_naryClosure = Q.prove (
+  `!env len ns body. 
+     ns <> [] ==> len = LENGTH ns ==>
+     curried (:'ffi) len (naryClosure env ns body)`,
+
+  Induct_on `ns` \\ fs [naryClosure_def, naryFun_def] \\ Cases_on `ns`
+  THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def])
+  THEN1 (
+    rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
+    rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
+    fs [emp_def, cond_def, semanticPrimitivesTheory.do_opapp_def] \\ 
+    qcase_tac `SPLIT (st2heap _ st) ({}, h_k)` \\
+    `SPLIT3 (st2heap (:'ffi) st) ({}, {}, h_k)` by SPLIT_TAC \\
+    qcase_tac `env with v := (n, x) :: env.v` \\
+    first_x_assum (qspecl_then [`env with v := (n,x)::env.v`, `body`]
+      assume_tac) \\
+    rpt (asm_exists_tac \\ fs []) \\ rpt strip_tac \\
+    fs [Once bigStepTheory.evaluate_cases] \\
+    fs [GSYM naryFun_def, GSYM naryClosure_def] \\
+    irule app_one_naryClosure \\ Cases_on `xs` \\ fs []
+  )
+)
+
+val curried_Closure = Q.prove (
+  `!env n body. curried (:'ffi) 1 (Closure env n body)`,
+  rpt strip_tac \\
+  once_rewrite_tac [Q.prove(`Closure env n body = naryClosure env [n] body`,
+                            fs [naryClosure_def, naryFun_def])] \\
+  irule curried_naryClosure \\ fs []
+)
 
 val cf_lit_def = Define `
   cf_lit l = local (\env H Q. SEP_IMP H (Q (Litv l)))`;
@@ -930,6 +987,7 @@ val cf_app_def = Define `
 val cf_fundecl_def = Define `
   cf_fundecl (:'ffi) f ns F1 F2 = local (\env H Q.
     !fv.
+      curried (:'ffi) (LENGTH ns) fv /\
       (!xvs env' H' Q'.
         extend_env ns xvs env = SOME env' ==>
         F1 env' H' Q' ==>
@@ -1212,7 +1270,7 @@ val app_of_sound_cf = Q.prove (
      sound (:'ffi) body (cf (:'ffi) body) ==>
      cf (:'ffi) body env' H Q ==>
      app (:'ffi) (naryClosure env ns body) xvs H Q`,
-  Induct \\ rpt strip_tac \\ rewrite_tac [naryClosure_def] \\ fs [] \\
+  Induct \\ rpt strip_tac \\ fs [naryClosure_def] \\
   drule extend_env_LENGTH \\ disch_then (assume_tac o GSYM) \\
   qcase_tac `extend_env (n::ns) _ _ = SOME _` \\ Cases_on `ns`
 
@@ -1231,8 +1289,7 @@ val app_of_sound_cf = Q.prove (
     `SPLIT3 (st2heap (:'ffi) st) (h', {}, i)` by SPLIT_TAC \\ 
     first_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
     rpt (asm_exists_tac \\ fs []) \\
-    fs [Once naryFun_def, Once naryClosure_def] \\
-    fs [Once bigStepTheory.evaluate_cases]
+    fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases]
   )
 )
 
@@ -1273,7 +1330,7 @@ val cf_sound = Q.prove (
         fs [Fun_params_Fun_body_NONE] \\ qcase_tac `Fun n body` \\
         first_x_assum (qspec_then `Closure env n body` mp_tac) \\
         qspec_then `[n]` assume_tac app_of_sound_cf \\
-        fs [naryClosure_def, naryFun_def] \\ strip_tac \\
+        fs [naryClosure_def, naryFun_def, curried_Closure] \\ strip_tac \\
         qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
         disch_then (mp_tac o Q.SPEC `st`) \\ rpt (disch_then drule) \\
         strip_tac \\ cf_evaluate_step_tac \\ asm_exists_tac \\ fs [] \\
@@ -1285,7 +1342,10 @@ val cf_sound = Q.prove (
         qcase_tac `Fun n body` \\ qcase_tac `Fun_body body = SOME body'` \\
         (fn tm => first_x_assum (qspec_then tm mp_tac))
           `naryClosure env (n::Fun_params body) body'` \\
-        assume_tac app_of_sound_cf \\ fs [] \\ strip_tac \\
+        disch_then (fn t => mp_tac t \\
+          KNOW_TAC (concl t |> (fst o dest_imp) |> (fst o dest_conj)))
+        THEN1 (irule curried_naryClosure \\ fs []) \\ fs [] \\
+        assume_tac app_of_sound_cf \\ fs [] \\ rpt strip_tac \\
         qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
         disch_then (mp_tac o Q.SPEC `st`) \\ rpt (disch_then drule) \\
         strip_tac \\ cf_evaluate_step_tac \\ asm_exists_tac \\ fs [] \\
