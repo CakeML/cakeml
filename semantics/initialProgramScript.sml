@@ -17,26 +17,26 @@ val _ = new_theory "initialProgram"
 
 (*val mk_binop : string -> op -> dec*)
 val _ = Define `
- (mk_binop name prim =  
-(Dlet (Pvar name) (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))))`;
+ (mk_binop name prim=  
+ (Dlet (Pvar name) (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))))`;
 
 
 (*val mk_unop : string -> op -> dec*)
 val _ = Define `
- (mk_unop name prim =  
-(Dlet (Pvar name) (Fun "x" (App prim [Var (Short "x")]))))`;
+ (mk_unop name prim=  
+ (Dlet (Pvar name) (Fun "x" (App prim [Var (Short "x")]))))`;
 
 
 (*val mk_ffi : nat -> dec*)
 val _ = Define `
- (mk_ffi n =  
-(Dlet (Pvar ( STRCAT"ffi" (num_to_dec_string n))) (Fun "x" (App (FFI n) [Var (Short "x")]))))`;
+ (mk_ffi n=  
+ (Dlet (Pvar ( STRCAT"ffi" (num_to_dec_string n))) (Fun "x" (App (FFI n) [Var (Short "x")]))))`;
 
 
 (*val prim_types_program : prog*)
 val _ = Define `
- (prim_types_program =  
-([Tdec (Dexn "Bind" []);
+ (prim_types_program=  
+ ([Tdec (Dexn "Bind" []);
    Tdec (Dexn "Chr" []);
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Subscript" []);
@@ -47,8 +47,8 @@ val _ = Define `
 
 (*val basis_program : prog*)
 val _ = Define `
- (basis_program =  
-([Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
+ (basis_program=  
+ ([Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
    Tdec (Dtabbrev [] "string" (Tapp [] TC_string));
    Tdec (Dtabbrev [] "unit" (Tapp [] TC_tup));
    Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
@@ -105,22 +105,22 @@ val _ = Define `
       mk_unop "implode" Implode;
       mk_unop "size" Strlen];
    Tmod "Ffi" NONE
-     [mk_ffi( 0);
-      mk_ffi( 1);
-      mk_ffi( 2);
-      mk_ffi( 3);
-      mk_ffi( 4);
-      mk_ffi( 5);
-      mk_ffi( 6);
-      mk_ffi( 7);
-      mk_ffi( 8);
-      mk_ffi( 9)] ]))`;
+     [mk_ffi(I 0);
+      mk_ffi(I 1);
+      mk_ffi(I 2);
+      mk_ffi(I 3);
+      mk_ffi(I 4);
+      mk_ffi(I 5);
+      mk_ffi(I 6);
+      mk_ffi(I 7);
+      mk_ffi(I 8);
+      mk_ffi(I 9)] ]))`;
 
 
 (*val add_to_sem_env : forall 'ffi. Eq 'ffi => (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (add_to_sem_env (st, env) prog =  
-(let res = ({ res | res | evaluate_whole_prog F env st prog res }) in
+ (add_to_sem_env (st, env) prog=  
+ (let res = ({ res | res | evaluate_whole_prog F env st prog res }) in
     if res = {} then
       NONE
     else
@@ -133,17 +133,17 @@ val _ = Define `
 
 (*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (prim_sem_env ffi =  
-(add_to_sem_env
-    (<| clock :=( 0); ffi := ffi; refs := []; defined_mods := {}; defined_types := {} |>,
-     <| m := []; c := ([],[]); v := [] |>)
+ (prim_sem_env ffi=  
+ (add_to_sem_env
+    (<| clock :=(I 0); ffi := ffi; refs := ([]); defined_mods := ({}); defined_types := ({}) |>,
+     <| m := ([]); c := ([],[]); v := ([]) |>)
         prim_types_program))`;
 
 
 (*val basis_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (basis_sem_env ffi =  
-(add_to_sem_env (THE (prim_sem_env ffi)) basis_program))`;
+ (basis_sem_env ffi=  
+ (add_to_sem_env (THE (prim_sem_env ffi)) basis_program))`;
 
 
 (*open import TypeSystem*)

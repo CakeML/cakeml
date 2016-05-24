@@ -61,18 +61,18 @@ val _ = Hol_datatype `
 
 (*val push : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (push env s e c' cs = (Estep (env, s, Exp e, ((c',env)::cs))))`;
+ (push env s e c' cs=  (Estep (env, s, Exp e, ((c',env)::cs))))`;
 
 
 (*val return : forall 'ffi. environment v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (return env s v c = (Estep (env, s, Val v, c)))`;
+ (return env s v c=  (Estep (env, s, Val v, c)))`;
 
 
 (*val application : forall 'ffi. op -> environment v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (application op env s vs c =  
-((case op of
+ (application op env s vs c=  
+ ((case op of
       Opapp =>
       (case do_opapp vs of
           SOME (env,e) => Estep (env, s, Exp e, c)
@@ -94,8 +94,8 @@ val _ = Define `
 (* apply a context to a value *)
 (*val continue : forall 'ffi. store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (continue s v cs =  
-((case cs of
+ (continue s v cs=  
+ ((case cs of
       [] => Estuck
     | (Craise () , env) :: c=>
         (case c of
@@ -133,9 +133,9 @@ val _ = Define `
         else
           Eabort Rtype_error
     | (Clet n ()  e, env) :: c =>
-        Estep (( env with<| v := opt_bind n v env.v |>), s, Exp e, c)
+        Estep (( env with<| v := (opt_bind n v env.v) |>), s, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
-        if do_con_check env.c n (LENGTH vs + 1) then
+        if do_con_check env.c n (LENGTH vs +I 1) then
            (case build_conv env.c n (v::vs) of
                NONE => Eabort Rtype_error
              | SOME v => return env s v c
@@ -143,7 +143,7 @@ val _ = Define `
         else
           Eabort Rtype_error
     | (Ccon n vs ()  (e::es), env) :: c =>
-        if do_con_check env.c n (((LENGTH vs + 1) + 1) + LENGTH es) then
+        if do_con_check env.c n (((LENGTH vs +I 1) +I 1) + LENGTH es) then
           push env s e (Ccon n (v::vs) ()  es) c
         else
           Eabort Rtype_error
@@ -158,8 +158,8 @@ val _ = Define `
 
 (*val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi*)
 val _ = Define `
- (e_step (env, s, ev, c) =  
-((case ev of
+ (e_step (env, s, ev, c)=  
+ ((case ev of
       Val v  =>
 	continue s v c
     | Exp e =>
@@ -202,7 +202,7 @@ val _ = Define `
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
                 Eabort Rtype_error
               else
-                Estep (( env with<| v := build_rec_env funs env env.v |>),
+                Estep (( env with<| v := (build_rec_env funs env env.v) |>),
                        s, Exp e, c)
         )
   )))`;
@@ -214,28 +214,28 @@ val _ = Define `
 (*val small_eval : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
 val _ = Define `
- (e_step_reln st1 st2 =
+ (e_step_reln st1 st2= 
   (e_step st1 = Estep st2))`;
 
 
  val _ = Define `
 
-(small_eval env s e c (s', Rval v) =  
-(? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])))
+(small_eval env s e c (s', Rval v)=  
+ (? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])))
 /\
-(small_eval env s e c (s', Rerr (Rraise v)) =  
-(? env' env''. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
+(small_eval env s e c (s', Rerr (Rraise v))=  
+ (? env' env''. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
 /\
-(small_eval env s e c (s', Rerr (Rabort a)) =  
-(? env' e' c'.
+(small_eval env s e c (s', Rerr (Rabort a))=  
+ (? env' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') /\
     (e_step (env',s',e',c') = Eabort a)))`;
 
 
 (*val e_diverges : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> bool*)
 val _ = Define `
- (e_diverges env s e =  
-(! env' s' e' c'.
+ (e_diverges env s e=  
+ (! env' s' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')
     ==>
 (? env'' s'' e'' c''.
