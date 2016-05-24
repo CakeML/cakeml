@@ -947,7 +947,7 @@ val known_op_correct_approx = Q.store_thm(
       >- (qcase_tac `nn - LENGTH (ss:'a closSem$state).globals` >>
           `nn - LENGTH ss.globals = 0` by simp[] >>
           pop_assum (fn th => fs[th])))
-  >- (rveq >> fs[LIST_REL_EL_EQN]))
+  >- (rveq >> fs[LIST_REL_EL_EQN]));
 
 val say = say0 "known_correct_approx"
 val known_correct_approx = Q.store_thm(
