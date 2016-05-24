@@ -2175,12 +2175,15 @@ fun all_distinct [] = []
       in if mem x ys then ys else x::ys end
 
 fun get_induction_for_def def = let
-  val res = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
-                |> concl |> dest_eq |> fst |> repeat rator
-                |> dest_thy_const
-  in fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-     fetch_from_thy (#Thy res) ((#Name res) ^ "_IND") end
-  handle HOL_ERR _ => let
+  val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> all_distinct
+  fun get_ind [] = raise ERR "get_ind" "Bind Error"
+    | get_ind [res] =
+      (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+      fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))
+    | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
+  in
+    get_ind names
+  end handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun aux [] = []
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
