@@ -459,6 +459,15 @@ type_es <|tenv with v = bind_tvar tvs tenv.v|> es ts2
 ==>
 type_ctxt tvs all_cenv senv tenv (Ccon Nothing vs () es) t (Tapp (List.reverse ts2++[t]++ts1) TC_tup)
 
+and
+
+tannot : forall tvs all_cenv senv tenv e t.
+true
+==>
+type_ctxt tvs all_cenv senv tenv (Ctannot () t) t
+
+
+
 let poly_context cs =
   match cs with
     | (Ccon cn vs () es,env) :: cs -> List.all is_value es

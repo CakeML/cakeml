@@ -91,15 +91,15 @@ evaluate ck env s (Fun n e) (s, Rval (Closure env n e)))
 /\ (! ck env es vs env' e bv s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
-(ck ==> ~ (s2.clock =(I 0))) /\
-evaluate ck env' (if ck then ( s2 with<| clock := (s2.clock - I 1) |>) else s2) e bv)
+(ck ==> ~ (s2.clock =( 0))) /\
+evaluate ck env' (if ck then ( s2 with<| clock := s2.clock -  1 |>) else s2) e bv)
 ==>
 evaluate ck env s1 (App Opapp es) bv)
 
 /\ (! ck env es vs env' e s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
-(s2.clock =I 0) /\
+(s2.clock = 0) /\
 ck)
 ==>
 evaluate ck env s1 (App Opapp es) (s2, Rerr (Rabort Rtimeout_error)))
@@ -184,7 +184,7 @@ evaluate ck env s (Mat e pes) (s', Rerr err))
 
 /\ (! ck env n e1 e2 v bv s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\
-evaluate ck ( env with<| v := (opt_bind n v env.v) |>) s2 e2 bv)
+evaluate ck ( env with<| v := opt_bind n v env.v |>) s2 e2 bv)
 ==>
 evaluate ck env s1 (Let n e1 e2) bv)
 
@@ -195,7 +195,7 @@ evaluate ck env s (Let n e1 e2) (s', Rerr err))
 
 /\ (! ck env funs e bv s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
-evaluate ck ( env with<| v := (build_rec_env funs env env.v) |>) s e bv)
+evaluate ck ( env with<| v := build_rec_env funs env env.v |>) s e bv)
 ==>
 evaluate ck env s (Letrec funs e) bv)
 
@@ -203,6 +203,12 @@ evaluate ck env s (Letrec funs e) bv)
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
 ==>
 evaluate ck env s (Letrec funs e) (s, Rerr (Rabort Rtype_error)))
+
+/\ (! ck env e t s bv.
+(evaluate ck env s e bv)
+==>
+evaluate ck env s (Tannot e t) bv)
+
 
 /\ (! ck env s.
 T
@@ -305,7 +311,7 @@ evaluate_dec ck mn env s (Dletrec funs) (s, Rerr (Rabort Rtype_error)))
 DISJOINT new_tdecs s.defined_types /\
 ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))
 ==>
-evaluate_dec ck mn env s (Dtype tds) (( s with<| defined_types := (new_tdecs UNION s.defined_types) |>), Rval (build_tdefs mn tds, [])))
+evaluate_dec ck mn env s (Dtype tds) (( s with<| defined_types := new_tdecs UNION s.defined_types |>), Rval (build_tdefs mn tds, [])))
 
 /\ (! ck mn env tds s.
 (~ (check_dup_ctors tds) \/
@@ -322,7 +328,7 @@ evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval ([], [])))
 /\ (! ck mn env cn ts s.
 (~ (TypeExn (mk_id mn cn) IN s.defined_types))
 ==>
-evaluate_dec ck mn env s (Dexn cn ts) (( s with<| defined_types := ({TypeExn (mk_id mn cn)} UNION s.defined_types) |>), Rval ([(cn, (LENGTH ts, TypeExn (mk_id mn cn)))], [])))
+evaluate_dec ck mn env s (Dexn cn ts) (( s with<| defined_types := {TypeExn (mk_id mn cn)} UNION s.defined_types |>), Rval ([(cn, (LENGTH ts, TypeExn (mk_id mn cn)))], [])))
 
 /\ (! ck mn env cn ts s.
 (TypeExn (mk_id mn cn) IN s.defined_types)
@@ -361,14 +367,14 @@ evaluate_top ck env s1 (Tdec d) (s2, ([],[]), Rerr err))
 no_dup_types ds /\
 evaluate_decs ck (SOME mn) env s1 ds (s2, new_tds, Rval new_env))
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (( s2 with<| defined_mods := ({mn} UNION s2.defined_mods) |>), ([(mn,new_tds)], []), Rval ([(mn,new_env)], [])))
+evaluate_top ck env s1 (Tmod mn specs ds) (( s2 with<| defined_mods := {mn} UNION s2.defined_mods |>), ([(mn,new_tds)], []), Rval ([(mn,new_env)], [])))
 
 /\ (! ck s1 s2 env ds mn specs new_tds err.
 (~ (mn IN s1.defined_mods) /\
 no_dup_types ds /\
 evaluate_decs ck (SOME mn) env s1 ds (s2, new_tds, Rerr err))
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (( s2 with<| defined_mods := ({mn} UNION s2.defined_mods) |>), ([(mn,new_tds)], []), Rerr err))
+evaluate_top ck env s1 (Tmod mn specs ds) (( s2 with<| defined_mods := {mn} UNION s2.defined_mods |>), ([(mn,new_tds)], []), Rerr err))
 
 /\ (! ck s1 env ds mn specs.
 (~ (no_dup_types ds))
@@ -400,8 +406,8 @@ evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err))`;
 (*val evaluate_whole_prog : forall 'ffi. Eq 'ffi => bool -> environment v -> state 'ffi -> prog ->
           state 'ffi * env_ctor * result (env_mod * env_val) v -> bool*)
 val _ = Define `
- (evaluate_whole_prog ck env s1 tops (s2, new_tds, res)=  
- (if no_dup_mods tops s1.defined_mods /\ no_dup_top_types tops s1.defined_types then
+ (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
+(if no_dup_mods tops s1.defined_mods /\ no_dup_top_types tops s1.defined_types then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
   else    
 (s1 = s2) /\ (new_tds = ([],[])) /\ (res = Rerr (Rabort Rtype_error))))`;
@@ -409,8 +415,8 @@ val _ = Define `
 
 (*val dec_diverges : forall 'ffi. environment v -> state 'ffi -> dec -> bool*)
 val _ = Define `
- (dec_diverges env st d=  
- ((case d of
+ (dec_diverges env st d =  
+((case d of
       Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env (st.refs, st.ffi) e
     | Dletrec funs => F
     | Dtype tds => F

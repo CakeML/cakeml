@@ -138,6 +138,14 @@ evaluate_list false env s es (s', Rerr err)
 ==>
 evaluate_ctxt env s (Ccon cn vs () es) v (s', Rerr err)
 
+and
+
+tannot : forall env e v s.
+true
+==>
+evaluate_ctxt env s (Ctannot () t) v (s, Rval v)
+
+
 indreln
 [evaluate_ctxts : forall 'ffi. state 'ffi -> list ctxt -> result v v -> state 'ffi * result v v -> bool]
 

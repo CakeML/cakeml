@@ -441,6 +441,14 @@ type_p tvs tenv_ctor (Pref p) (Tref t) bindings
 
 and
 
+ptypeannot : forall tvs tenv_ctor p t bindings.
+check_freevars 0 [] t &&
+type_p tvs tenv_ctor p t bindings
+==>
+type_p tvs tenv_ctor (Ptannot p t) t bindings
+
+and
+
 empty : forall tvs tenv_ctor.
 true
 ==>
@@ -619,6 +627,14 @@ type_funs <|tenv with v = bind_var_list 0 bindings tenv.v|> funs bindings &&
 type_e <|tenv with v = bind_var_list 0 bindings tenv.v|> e t
 ==>
 type_e tenv (Letrec funs e) t
+
+and
+
+typeannot: forall tenv e t.
+check_freevars 0 [] t &&
+type_e tenv e t
+==>
+type_e tenv (Tannot e t) t
 
 and
 

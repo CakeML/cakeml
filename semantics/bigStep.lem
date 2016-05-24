@@ -260,6 +260,14 @@ evaluate ck env s (Letrec funs e) (s, Rerr (Rabort Rtype_error))
 
 and
 
+tannot : forall ck env e t s bv.
+evaluate ck env s e bv
+==>
+evaluate ck env s (Tannot e t) bv
+
+
+and
+
 empty : forall ck env s.
 true
 ==>

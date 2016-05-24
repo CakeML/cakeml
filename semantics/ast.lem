@@ -178,7 +178,7 @@ type exp =
      The first varN is the function's name, and the second varN
      is its parameter. *)
   | Letrec of list (varN * varN * exp) * exp
-  | Etannot of exp * t
+  | Tannot of exp * t
 
 type type_def = list (list tvarN * typeN * list (conN * list t))
 
