@@ -2092,8 +2092,7 @@ fun single_line_def def = let
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
     \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ fs[]
-    \\ SRW_TAC [] [] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ SRW_TAC [] [LET_THM] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
     |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
     |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
@@ -2176,15 +2175,12 @@ fun all_distinct [] = []
       in if mem x ys then ys else x::ys end
 
 fun get_induction_for_def def = let
-  val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> all_distinct
-  fun get_ind [] = raise ERR "get_ind" "Bind Error"
-    | get_ind [res] =
-      (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-      fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))
-    | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
-  in
-    get_ind names
-   end handle HOL_ERR _ => let
+  val res = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                |> concl |> dest_eq |> fst |> repeat rator
+                |> dest_thy_const
+  in fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+     fetch_from_thy (#Thy res) ((#Name res) ^ "_IND") end
+  handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun aux [] = []
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
