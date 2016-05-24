@@ -305,10 +305,10 @@ val known_better_definedg = Q.store_thm(
 val val_approx_val_def = tDefine "val_approx_val" `
   (val_approx_val (Clos m n) v ⇔
      (∃e1 e2 b. v = Closure (SOME m) e1 e2 n b) ∨
-     (∃lopt env fs j.
-        v = Recclosure lopt [] env fs j ∧
-        n = FST (EL j fs) ∧
-        m = j + (case lopt of NONE => 0 | SOME l => l))) ∧
+     (∃base env fs j.
+        v = Recclosure (SOME base) [] env fs j ∧
+        m = base + j ∧
+        n = FST (EL j fs))) ∧
   (val_approx_val (Tuple vas) v ⇔
     ∃n vs. v = Block n vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
   (val_approx_val Impossible v ⇔ F) ∧
@@ -1229,12 +1229,10 @@ val known_correct_approx = Q.store_thm(
                MEM_GENLIST, PULL_EXISTS] >> impl_tac
           >- (rpt conj_tac
               >- fs[LIST_REL_EL_EQN]
-              >- (qx_gen_tac `i` >> Cases_on `i < LENGTH fns` >> simp[] >>
-                  Cases_on `lopt` >> simp[Abbr`ff`, EL_MAP]
-                  >- (pairarg_tac >> simp[])
-                  >- (pairarg_tac >> simp[])
-                  >- fs[LIST_REL_EL_EQN]
-                  >- fs[LIST_REL_EL_EQN])
+              >- (qx_gen_tac `i` >> reverse (Cases_on `i < LENGTH fns`) >>
+                  simp[] >- fs[LIST_REL_EL_EQN] >>
+                  Cases_on `lopt` >> simp[] >>
+                  simp[Abbr`ff`, EL_MAP] >> pairarg_tac >> simp[])
               >- (fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
                   cheat) (* metis_tac[known_preserves_setGlobals] *)) >>
           metis_tac[])
