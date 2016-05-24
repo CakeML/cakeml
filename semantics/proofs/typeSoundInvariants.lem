@@ -461,10 +461,10 @@ type_ctxt tvs all_cenv senv tenv (Ccon Nothing vs () es) t (Tapp (List.reverse t
 
 and
 
-tannot : forall tvs all_cenv senv tenv e t.
+tannot : forall tvs all_cenv senv tenv t.
 true
 ==>
-type_ctxt tvs all_cenv senv tenv (Ctannot () t) t
+type_ctxt tvs all_cenv senv tenv (Ctannot () t) t t
 
 
 

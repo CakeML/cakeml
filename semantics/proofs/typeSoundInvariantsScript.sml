@@ -408,7 +408,14 @@ type_ctxt tvs all_cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE
 type_vs tvs all_cenv senv vs ts1 /\
 type_es (tenv with<| v := bind_tvar tvs tenv.v|>) es ts2)
 ==>
-type_ctxt tvs all_cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVERSE ts2++[t])++ts1) TC_tup))`;
+type_ctxt tvs all_cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVERSE ts2++[t])++ts1) TC_tup))
+
+/\ (! tvs all_cenv senv tenv t.
+T
+==>
+type_ctxt tvs all_cenv senv tenv (Ctannot ()  t) t t)`;
+
+
 
 val _ = Define `
  (poly_context cs =  

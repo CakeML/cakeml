@@ -140,7 +140,7 @@ evaluate_ctxt env s (Ccon cn vs () es) v (s', Rerr err)
 
 and
 
-tannot : forall env e v s.
+tannot : forall env v s t.
 true
 ==>
 evaluate_ctxt env s (Ctannot () t) v (s, Rval v)
