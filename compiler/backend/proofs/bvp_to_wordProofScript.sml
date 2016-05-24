@@ -597,10 +597,6 @@ val memcpy_thm = prove(
   \\ full_simp_tac(srw_ss())[] \\ imp_res_tac (DECIDE ``n+1n<k ==> n<k``) \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ SEP_R_TAC \\ full_simp_tac(srw_ss())[WORD_LEFT_ADD_DISTRIB]);
 
-val word_payload_IMP = prove(
-  ``word_payload addrs ll tags tt1 conf = (h,ts,T) ==> LENGTH ts = ll``,
-  Cases_on `tags` \\ full_simp_tac(srw_ss())[word_payload_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
-
 val LESS_EQ_IMP_APPEND = prove(
   ``!n xs. n <= LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n``,
   Induct_on `xs` \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[LENGTH_NIL]
@@ -951,32 +947,6 @@ val word_gc_move_loop_thm = prove(
   \\ full_simp_tac(srw_ss())[word_heap_APPEND,heap_length_def,el_length_def,SUM_APPEND]
   \\ full_simp_tac(srw_ss())[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,SEP_CLAUSES]
   \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM,word_heap_APPEND]);
-
-val word_el_IMP_word_list_exists = prove(
-  ``!temp p curr.
-      (p * word_el curr temp conf) s ==>
-      (p * word_list_exists curr (el_length temp)) s``,
-  Cases \\ fs[word_el_def,el_length_def,GSYM ADD1,word_list_exists_thm]
-  THEN1 (full_simp_tac(srw_ss())[SEP_CLAUSES,SEP_EXISTS_THM] \\ metis_tac [])
-  \\ Cases_on `b`
-  \\ fs[word_el_def,el_length_def,GSYM ADD1,word_list_exists_thm,LET_THM]
-  \\ srw_tac[][] \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] \\ srw_tac[][]
-  \\ fs[word_list_def,SEP_CLAUSES,SEP_EXISTS_THM,word_list_exists_def]
-  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ imp_res_tac word_payload_IMP \\ asm_exists_tac \\ fs [] \\ metis_tac []);
-
-val word_heap_IMP_word_list_exists = prove(
-  ``!temp p curr.
-      (p * word_heap curr temp conf) s ==>
-      (p * word_list_exists curr (heap_length temp)) s``,
-  Induct \\ full_simp_tac(srw_ss())[heap_length_def,
-              word_heap_def,word_list_exists_thm]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_el_def,word_list_exists_ADD]
-  \\ full_simp_tac(srw_ss())[STAR_ASSOC] \\ res_tac
-  \\ pop_assum mp_tac
-  \\ once_rewrite_tac [STAR_COMM] \\ full_simp_tac(srw_ss())[STAR_ASSOC]
-  \\ metis_tac [word_el_IMP_word_list_exists]);
 
 val word_full_gc_thm = prove(
   ``(full_gc (roots,heap,limit) = (roots1,heap1,a1,T)) /\
