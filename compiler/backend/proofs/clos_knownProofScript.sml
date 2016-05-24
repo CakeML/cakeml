@@ -1234,7 +1234,15 @@ val known_correct_approx = Q.store_thm(
                   Cases_on `lopt` >> simp[] >>
                   simp[Abbr`ff`, EL_MAP] >> pairarg_tac >> simp[])
               >- (fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-                  cheat) (* metis_tac[known_preserves_setGlobals] *)) >>
+                  simp[Abbr`ff`] >> rpt strip_tac >>
+                  qmatch_abbrev_tac `
+                    set_globals (FST (HD (FST (known [_] ENV g0)))) = {||}` >>
+                  qcase_tac `MEM (nargs, fbody) fns` >>
+                  `set_globals fbody = {||}` by metis_tac[] >>
+                  Cases_on `known [fbody] ENV g0` >> simp[] >>
+                  imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
+                  first_x_assum (mp_tac o MATCH_MP known_preserves_setGlobals)>>
+                  simp[])) >>
           metis_tac[])
       >- metis_tac[state_approx_better_definedg, known_better_definedg]))
 
