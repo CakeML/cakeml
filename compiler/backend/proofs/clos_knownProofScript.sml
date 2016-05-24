@@ -1246,4 +1246,103 @@ val known_correct_approx = Q.store_thm(
           metis_tac[])
       >- metis_tac[state_approx_better_definedg, known_better_definedg]))
 
+val kca_sing_sga =
+    known_correct_approx
+      |> Q.SPECL [`[e]`, `as`, `g0`, `[(e',a)]`, `g`]
+      |> SIMP_RULE (srw_ss()) [PULL_FORALL]
+      |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL
+val say = say0 "known_correct";
+val nailIH =
+    first_assum (fn lr => first_assum (fn knwnth => first_assum (fn sga =>
+      first_x_assum (mp_tac o C MATCH_MP (CONJ lr (CONJ sga knwnth))))))
+fun sel_ihpc f =
+    first_assum (fn asm => first_x_assum (fn ih =>
+      mp_tac (PART_MATCH (f o strip_conj o #1 o dest_imp) ih (concl asm))))
+
+
+val known_correct0 = Q.prove(
+  `(∀a es env (s0:α closSem$state) res s g0 g as ealist.
+      a = (es,env,s0) ∧ evaluate (es, env, s0) = (res, s) ∧ EVERY esgc_free es ∧
+      LIST_REL val_approx_val as env ∧ EVERY vsgc_free env ∧
+      state_globals_approx s0 g0 ∧
+      ssgc_free s0 ∧ known es as g0 = (ealist, g) ⇒
+      evaluate(MAP FST ealist, env, s0) = (res, s)) ∧
+   (∀lopt f args (s0:α closSem$state) res s.
+      evaluate_app lopt f args s0 = (res,s) ∧ EVERY vsgc_free args ⇒ T)`,
+  ho_match_mp_tac closSemTheory.evaluate_ind >> rpt conj_tac
+  >- (say "nil" >> simp[closSemTheory.evaluate_def, known_def])
+  >- (say "cons" >>
+      simp[closSemTheory.evaluate_def, known_def, pair_case_eq,
+           result_case_eq] >>
+      rpt strip_tac >> rveq >> rpt (pairarg_tac >> fs[]) >> rveq >> simp[] >>
+      nailIH
+      >- (imp_res_tac evaluate_SING >> rveq >> fs[] >>
+          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
+          simp[Once evaluate_CONS, pair_case_eq, result_case_eq] >>
+          first_x_assum irule >>
+          metis_tac[kca_sing_sga, ssgc_free_preserved_SING])
+      >- (imp_res_tac evaluate_SING >> rveq >> fs[] >>
+          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
+          simp[Once evaluate_CONS, pair_case_eq, result_case_eq] >>
+          first_x_assum irule >>
+          metis_tac[ssgc_free_preserved_SING, kca_sing_sga])
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
+          simp[Once evaluate_CONS]))
+  >- (say "var" >>
+      simp[closSemTheory.evaluate_def, bool_case_eq, known_def])
+  >- (say "if" >>
+      simp[closSemTheory.evaluate_def, pair_case_eq, bool_case_eq,
+           result_case_eq, known_def] >> rpt strip_tac >> rveq >> fs[] >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> fixeqs >> nailIH
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+          imp_res_tac evaluate_SING >> rveq >> fs[] >> rveq >> strip_tac >>
+          simp[closSemTheory.evaluate_def] >> sel_ihpc last >> simp[] >>
+          disch_then irule >- metis_tac[ssgc_free_preserved_SING] >>
+          metis_tac[kca_sing_sga])
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+          imp_res_tac evaluate_SING >> rveq >> fs[] >> rveq >> strip_tac >>
+          simp[closSemTheory.evaluate_def] >> sel_ihpc last >> simp[] >>
+          disch_then irule >- metis_tac[ssgc_free_preserved_SING] >>
+          irule state_approx_better_definedg >>
+          imp_res_tac known_better_definedg >>
+          metis_tac[kca_sing_sga])
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+          simp[closSemTheory.evaluate_def])
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+          simp[closSemTheory.evaluate_def]))
+  >- (say "let" >>
+      simp[closSemTheory.evaluate_def, pair_case_eq, result_case_eq] >>
+      rpt strip_tac >> rveq >> fs[known_def] >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> nailIH
+      >- (strip_tac >> simp[closSemTheory.evaluate_def] >>
+          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+          sel_ihpc last >> simp[] >> disch_then MATCH_MP_TAC >>
+          qcase_tac `evaluate (MAP FST al1,env,s0) = (Rval vs, s1)` >>
+          qcase_tac `evaluate ([bod], vs ++ env, s1) = (res,ss)` >>
+          qcase_tac `known [bod] (MAP SND al1 ++ as) g1 = ([(bod',ba)], g)` >>
+          qspecl_then [`MAP FST al1`, `env`, `s0`, `Rval vs`, `s1`] mp_tac
+                      ssgc_evaluate >> simp[] >> impl_tac
+          >- (simp[ALL_EL_MAP] >> metis_tac[known_preserves_esgc_free]) >>
+          strip_tac >>
+          qcase_tac `known es as g0 = (al1,g1)` >>
+          qspecl_then [`es`, `as`, `g0`] mp_tac known_correct_approx >> simp[]>>
+          disch_then (qspecl_then [`env`, `s0`, `s1`, `Rval vs`] mp_tac) >>
+          simp[EVERY2_APPEND_suff])
+      >- simp[closSemTheory.evaluate_def])
+  >- (say "raise" >> cheat)
+  >- (say "handle" >> cheat)
+  >- (say "op" >> cheat)
+  >- (say "fn" >> cheat)
+  >- (say "letrec" >> cheat)
+  >- (say "app" >> cheat)
+  >- (say "tick" >> cheat)
+  >- (say "call" >> cheat)
+  >- (say "evaluate_app(nil)" >> simp[])
+  >- (say "evaluate_app(cons)" >> simp[]))
+
+val known_correct = save_thm(
+  "known_correct",
+  known_correct0 |> SIMP_RULE (srw_ss()) []);
+
+
 val _ = export_theory();
