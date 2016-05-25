@@ -15,6 +15,10 @@ val pair_case_eq = Q.prove (
  Cases_on `x` >>
  srw_tac[][]);
 
+val v_case_eq =
+    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:closSem$v``,
+                      nchotomy = TypeBase.nchotomy_of ``:closSem$v``}
+
 val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
                       nchotomy = TypeBase.nchotomy_of ``:val_approx``}
@@ -51,6 +55,11 @@ val evaluate_list_members_individually = Q.store_thm(
   imp_res_tac evaluate_SING >> rw[] >> metis_tac[]);
 
 (* simple properties of constants from clos_known: i.e., merge and known *)
+val dest_Clos_eq_SOME = Q.store_thm(
+  "dest_Clos_eq_SOME[simp]",
+  `dest_Clos a = SOME (i, j) ⇔ a = Clos i j`,
+  Cases_on `a` >> simp[]);
+
 
 val merge_Other = Q.store_thm(
   "merge_Other[simp]",
@@ -62,6 +71,11 @@ val known_LENGTH = Q.store_thm(
   `∀es vs g. LENGTH (FST (known es vs g)) = LENGTH es`,
   ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]))
+
+val known_LENGTH_EQ_E = Q.store_thm(
+  "known_LENGTH_EQ_E",
+  `known es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`,
+  metis_tac[FST, known_LENGTH]);
 
 val known_sing = Q.store_thm(
   "known_sing",
@@ -304,7 +318,7 @@ val known_better_definedg = Q.store_thm(
 
 val val_approx_val_def = tDefine "val_approx_val" `
   (val_approx_val (Clos m n) v ⇔
-     (∃e1 e2 b. v = Closure (SOME m) e1 e2 n b) ∨
+     (∃e2 b. v = Closure (SOME m) [] e2 n b) ∨
      (∃base env fs j.
         v = Recclosure (SOME base) [] env fs j ∧
         m = base + j ∧
@@ -1259,13 +1273,29 @@ fun sel_ihpc f =
     first_assum (fn asm => first_x_assum (fn ih =>
       mp_tac (PART_MATCH (f o strip_conj o #1 o dest_imp) ih (concl asm))))
 
+val evaluate_app_NONE_SOME = Q.store_thm(
+  "evaluate_app_NONE_SOME",
+  `evaluate_app NONE fval argvs s0 = (res, s) ∧
+   res ≠ Rerr (Rabort Rtype_error) ∧
+   ((∃e2 b. fval = Closure (SOME mm) [] e2 (LENGTH argvs) b) ∨
+    (∃base env fs j.
+            fval = Recclosure (SOME base) [] env fs j ∧ mm = base + j ∧
+            LENGTH argvs = FST (EL j fs))) ⇒
+   evaluate_app (SOME mm) fval argvs s0 = (res, s)`,
+  Cases_on `argvs = []` >>
+  simp[evaluate_app_rw] >> Cases_on `fval` >>
+  simp[eqs, result_case_eq, bool_case_eq, pair_case_eq] >>
+  rpt strip_tac >> fs[closSemTheory.dest_closure_def] >> rveq >> fs[] >>
+  rpt (pairarg_tac >> fs[]) >> rveq >>
+  fs[closSemTheory.check_loc_def, revdroprev, revtakerev]);
 
 val known_correct0 = Q.prove(
   `(∀a es env (s0:α closSem$state) res s g0 g as ealist.
       a = (es,env,s0) ∧ evaluate (es, env, s0) = (res, s) ∧ EVERY esgc_free es ∧
       LIST_REL val_approx_val as env ∧ EVERY vsgc_free env ∧
       state_globals_approx s0 g0 ∧
-      ssgc_free s0 ∧ known es as g0 = (ealist, g) ⇒
+      ssgc_free s0 ∧ known es as g0 = (ealist, g) ∧
+      res ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate(MAP FST ealist, env, s0) = (res, s)) ∧
    (∀lopt f args (s0:α closSem$state) res s.
       evaluate_app lopt f args s0 = (res,s) ∧ EVERY vsgc_free args ⇒ T)`,
@@ -1289,7 +1319,7 @@ val known_correct0 = Q.prove(
       >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
           simp[Once evaluate_CONS]))
   >- (say "var" >>
-      simp[closSemTheory.evaluate_def, bool_case_eq, known_def])
+      simp[closSemTheory.evaluate_def, bool_case_eq, known_def] >> csimp[])
   >- (say "if" >>
       simp[closSemTheory.evaluate_def, pair_case_eq, bool_case_eq,
            result_case_eq, known_def] >> rpt strip_tac >> rveq >> fs[] >>
@@ -1306,8 +1336,6 @@ val known_correct0 = Q.prove(
           irule state_approx_better_definedg >>
           imp_res_tac known_better_definedg >>
           metis_tac[kca_sing_sga])
-      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-          simp[closSemTheory.evaluate_def])
       >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
           simp[closSemTheory.evaluate_def]))
   >- (say "let" >>
@@ -1334,7 +1362,34 @@ val known_correct0 = Q.prove(
   >- (say "op" >> cheat)
   >- (say "fn" >> cheat)
   >- (say "letrec" >> cheat)
-  >- (say "app" >> cheat)
+  >- (say "app" >>
+      simp[closSemTheory.evaluate_def, pair_case_eq, result_case_eq,
+           bool_case_eq, known_def] >> rpt strip_tac >> rveq >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      nailIH >> strip_tac >>
+      simp[closSemTheory.evaluate_def, pair_case_eq, result_case_eq,
+           bool_case_eq]
+      >- (imp_res_tac evaluate_SING >> imp_res_tac known_sing_EQ_E >>
+          rveq >> fs[] >> rveq >>
+          imp_res_tac known_LENGTH_EQ_E >> fs[PULL_EXISTS] >>
+          sel_ihpc last >> simp[] >> impl_keep_tac
+          >- metis_tac[ssgc_evaluate, known_correct_approx] >>
+          pop_assum strip_assume_tac >>
+          strip_tac >> simp[] >> imp_res_tac evaluate_IMP_LENGTH >> fs[] >>
+          every_case_tac >> rveq >> simp[] >> fs[] >> rw[] >>
+          qcase_tac `
+            known [fexp] apxs g1 = ([(fexp', Clos mm (LENGTH argalist))], g)` >>
+          qcase_tac `evaluate([fexp'],env,s1) = (Rval[fval],s2)` >>
+          qspecl_then [`[fexp]`, `apxs`, `g1`] mp_tac known_correct_approx >>
+          simp[] >>
+          disch_then (qspecl_then [`env`, `s1`, `s2`, `Rval [fval]`] mp_tac) >>
+          simp[] >> metis_tac[evaluate_app_NONE_SOME])
+      >- (sel_ihpc last >> simp[] >>
+          imp_res_tac known_sing_EQ_E >> fs[] >>
+          imp_res_tac known_LENGTH_EQ_E >> rveq >> fs[] >>
+          reverse impl_tac >- simp[] >>
+          metis_tac[ssgc_evaluate, known_correct_approx])
+      >- (imp_res_tac known_LENGTH_EQ_E >> fs[]))
   >- (say "tick" >> cheat)
   >- (say "call" >> cheat)
   >- (say "evaluate_app(nil)" >> simp[])
