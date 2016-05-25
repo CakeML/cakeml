@@ -4,6 +4,23 @@ struct
 open HolKernel boolLib bossLib Parse astTheory stringLib
 open Portable smpp term_pp_types
 
+(* Bring forward explicitly so that the PP rules don't confuse things*)
+fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
+
+val _ = bring_fwd_ctors "ast" ``:ast$lit``
+val _ = bring_fwd_ctors "ast" ``:ast$opn``
+val _ = bring_fwd_ctors "ast" ``:ast$opb``
+val _ = bring_fwd_ctors "ast" ``:'a ast$id``
+val _ = bring_fwd_ctors "ast" ``:ast$op``
+val _ = bring_fwd_ctors "ast" ``:ast$lop``
+val _ = bring_fwd_ctors "ast" ``:ast$tctor``
+val _ = bring_fwd_ctors "ast" ``:ast$t``
+val _ = bring_fwd_ctors "ast" ``:ast$pat``
+val _ = bring_fwd_ctors "ast" ``:ast$exp``
+val _ = bring_fwd_ctors "ast" ``:ast$dec``
+val _ = bring_fwd_ctors "ast" ``:ast$spec``
+val _ = bring_fwd_ctors "ast" ``:ast$top``
+
 val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 
 (*Control whether lists are printed as Cons(1,Cons...) or in list syntax*)

@@ -224,6 +224,8 @@ val infer_p_def = tDefine "infer_p" `
   return (Infer_Tapp [] TC_string, [])) ∧
 (infer_p cenv (Plit (Word8 w)) =
   return (Infer_Tapp [] TC_word8, [])) ∧
+(infer_p cenv (Plit (Word64 w)) =
+  return (Infer_Tapp [] TC_word64, [])) ∧
 (infer_p cenv (Pcon cn_opt ps) =
   case cn_opt of
     | NONE =>
@@ -267,6 +269,15 @@ constrain_op op ts =
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] (TC_name (Short "bool")))
        od
+   | (Opw wz opw, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] (TC_word wz));
+          () <- add_constraint t2 (Infer_Tapp [] (TC_word wz));
+          return (Infer_Tapp [] (TC_word wz))
+       od
+   | (Shift wz sh n, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] (TC_word wz));
+          return (Infer_Tapp [] (TC_word wz))
+       od
    | (Equality, [t1;t2]) =>
        do () <- add_constraint t1 t2;
           return (Infer_Tapp [] (TC_name (Short "bool")))
@@ -306,12 +317,12 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_tup)
         od
-   | (W8fromInt, [t]) =>
+   | (WordFromInt wz, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
-          return (Infer_Tapp [] TC_word8)
+          return (Infer_Tapp [] (TC_word wz))
        od
-   | (W8toInt, [t]) =>
-       do () <- add_constraint t (Infer_Tapp [] TC_word8);
+   | (WordToInt wz, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] (TC_word wz));
           return (Infer_Tapp [] TC_int)
        od
    | (Chr, [t]) =>
@@ -404,6 +415,8 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] TC_string)) ∧
 (infer_e ienv (Lit (Word8 w)) =
   return (Infer_Tapp [] TC_word8)) ∧
+(infer_e ienv (Lit (Word64 w)) =
+  return (Infer_Tapp [] TC_word64)) ∧
 (infer_e ienv (Var (Short n)) =
   do (tvs,t) <- lookup_st_ex (\x.x) n ienv.inf_v;
      uvs <- n_fresh_uvar tvs;

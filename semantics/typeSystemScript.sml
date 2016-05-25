@@ -301,6 +301,10 @@ val _ = Define `
       (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) => (t2 = t2') /\ (t = t3')
     | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tint)
     | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tapp [] (TC_name (Short "bool")))
+    | (Opw W8 _, [Tapp [] TC_word8; Tapp [] TC_word8]) => (t = Tapp [] TC_word8)
+    | (Opw W64 _, [Tapp [] TC_word64; Tapp [] TC_word64]) => (t = Tapp [] TC_word64)
+    | (Shift W8 _ _, [Tapp [] TC_word8]) => (t = Tapp [] TC_word8)
+    | (Shift W64 _ _, [Tapp [] TC_word64]) => (t = Tapp [] TC_word64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tapp [] (TC_name (Short "bool")))
     | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
     | (Opref, [t1]) => (t = Tapp [t1] TC_ref)
@@ -309,8 +313,10 @@ val _ = Define `
     | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
     | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
     | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_tup
-    | (W8fromInt, [Tapp [] TC_int]) => t = Tapp [] TC_word8
-    | (W8toInt, [Tapp [] TC_word8]) => t = Tapp [] TC_int
+    | (WordFromInt W8, [Tapp [] TC_int]) => t = Tapp [] TC_word8
+    | (WordToInt W8, [Tapp [] TC_word8]) => t = Tapp [] TC_int
+    | (WordFromInt W64, [Tapp [] TC_int]) => t = Tapp [] TC_word64
+    | (WordToInt W64, [Tapp [] TC_word64]) => t = Tapp [] TC_int
     | (Chr, [Tapp [] TC_int]) => (t = Tchar)
     | (Ord, [Tapp [] TC_char]) => (t = Tint)
     | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t = Tapp [] (TC_name (Short "bool")))
@@ -461,6 +467,11 @@ T
 ==>
 type_p tvs tenv_ctor (Plit (Word8 w)) Tword8 [])
 
+/\ (! tvs tenv_ctor w.
+T
+==>
+type_p tvs tenv_ctor (Plit (Word64 w)) Tword64 [])
+
 /\ (! tvs tenv_ctor cn ps ts tvs' tn ts' bindings.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\
@@ -509,6 +520,11 @@ type_e tenv (Lit (StrLit s)) Tstring)
 T
 ==>
 type_e tenv (Lit (Word8 w)) Tword8)
+
+/\ (! tenv w.
+T
+==>
+type_e tenv (Lit (Word64 w)) Tword64)
 
 /\ (! tenv e t.
 (check_freevars (num_tvs tenv.v) [] t /\

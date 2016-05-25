@@ -238,8 +238,8 @@ val ssa_cc_trans_def = Define`
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(4,cptr);(2,clen)])
-               (Seq (FFI ffi_index 4 2 stack_set) (ret_mov)))) in
+               (Seq (Move 0 [(2,cptr);(4,clen)])
+               (Seq (FFI ffi_index 2 4 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in

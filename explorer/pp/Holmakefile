@@ -1,20 +1,20 @@
-INCLUDES = ../.. $(HOLDIR)/examples/l3-machine-code/x64/model $(HOLDIR)/examples/formal-languages/context-free ./astPP #../../parsing ../../compiler ../../inference ../../semantics ../../initial ../../bytecode ./astPP ../../x86-64/compile ../../standalone ./astPP
+INCLUDES = ./astPP ../../compiler/eval ../../compiler/parsing ../../compiler/inference
 
 OPTIONS = QUIT_ON_FAILURE
 
-ifdef POLY
-HOLHEAP = heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP)
+all: $(TARGETS)
 .PHONY: all
 
-BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory ./astPP/astPP #../../compiler/free_varsTheory ./astPP/astPP ../../x86-64/compile/bc_compileTheory
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../../compiler/eval/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

@@ -4,7 +4,7 @@ struct
 open HolKernel boolLib bossLib;
 
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open terminationTheory stringLib;
+open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
@@ -105,63 +105,8 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-structure semanticPrimitivesSyntax = struct
-  val v_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="v",Args=[]};
-  val tid_or_exn_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="tid_or_exn",Args=[]};
-  fun mk_environment ty = mk_thy_type{Thy="semanticPrimitives",Tyop="environment",Args=[ty]};
-  local val s = HolKernel.syntax_fns1 "semanticPrimitives" in
-  val (TypeId_tm,mk_TypeId,dest_TypeId,is_TypeId) = s "TypeId"
-  val (TypeExn_tm,mk_TypeExn,dest_TypeExn,is_TypeExn) = s "TypeExn"
-  end
-  local val s = HolKernel.syntax_fns2 "semanticPrimitives" in
-  val (Conv_tm,mk_Conv,dest_Conv,is_Conv) = s "Conv"
-  end
-end
-
-open semanticPrimitivesSyntax
-
-structure astSyntax = struct
-  fun id_ty ty = mk_thy_type{Thy="ast",Tyop="id",Args=[ty]};
-  val str_id_ty = id_ty stringSyntax.string_ty;
-  val pat_ty = mk_thy_type{Thy="ast",Tyop="pat",Args=[]};
-  val exp_ty = mk_thy_type{Thy="ast",Tyop="exp",Args=[]};
-  val pat_exp_ty = pairSyntax.mk_prod(pat_ty,exp_ty);
-  val dec_ty = mk_thy_type{Thy="ast",Tyop="dec",Args=[]};
-  val decs_ty = listSyntax.mk_list_type dec_ty;
-  val t_ty = mk_thy_type{Thy="ast",Tyop="t",Args=[]};
-  val TC_int = prim_mk_const{Thy="ast",Name="TC_int"};
-  val TC_char = prim_mk_const{Thy="ast",Name="TC_char"};
-  val TC_string = prim_mk_const{Thy="ast",Name="TC_string"};
-  val TC_ref = prim_mk_const{Thy="ast",Name="TC_ref"};
-  val TC_word8 = prim_mk_const{Thy="ast",Name="TC_word8"};
-  val TC_word8array = prim_mk_const{Thy="ast",Name="TC_word8array"};
-  val TC_fn = prim_mk_const{Thy="ast",Name="TC_fn"};
-  val TC_tup = prim_mk_const{Thy="ast",Name="TC_tup"};
-  val TC_exn = prim_mk_const{Thy="ast",Name="TC_exn"};
-  val TC_vector = prim_mk_const{Thy="ast",Name="TC_vector"};
-  val TC_array = prim_mk_const{Thy="ast",Name="TC_array"};
-  local val s = HolKernel.syntax_fns1 "ast" in
-  val (Short_tm,mk_Short,dest_Short,is_Short) = s "Short"
-  val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
-  val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
-  val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
-  val (Tvar_tm,mk_Tvar,dest_Tvar,is_Tvar) = s "Tvar"
-  val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"
-  val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise"
-  val (TC_name_tm,mk_TC_name,dest_TC_name,is_TC_name) = s "TC_name"
-  end
-  local val s = HolKernel.syntax_fns2 "ast" in
-  val (Long_tm,mk_Long,dest_Long,is_Long) = s "Long"
-  val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
-  val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
-  val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon"
-  val (Tapp_tm,mk_Tapp,dest_Tapp,is_Tapp) = s "Tapp"
-  val (Mat_tm,mk_Mat,dest_Mat,is_Mat) = s "Mat"
-  val (Con_tm,mk_Con,dest_Con,is_Con) = s "Con"
-  end
-end
-
 val word8 = wordsSyntax.mk_int_word_type 8
+val word = wordsSyntax.mk_word_type ``:'a``
 val venvironment = mk_environment v_ty
 val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
 val Dtype_x = astSyntax.mk_Dtype (mk_var("x",#1(dom_rng(type_of astSyntax.Dtype_tm))));
@@ -554,6 +499,19 @@ fun full_name_of_type ty =
     in thy_name ^ name_of_type ty end
   else name_of_type ty;
 
+(* ty must be a word type and dim ≤ 64 *)
+fun word_ty_ok ty =
+  if wordsSyntax.is_word_type ty then
+    let val fcp_dim = wordsSyntax.dest_word_type ty in
+      if fcpSyntax.is_numeric_type fcp_dim then
+        let val dim = fcpSyntax.dest_int_numeric_type fcp_dim in
+          dim <= 64
+        end
+      else
+        false
+    end
+  else false;
+
 local
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
@@ -582,7 +540,12 @@ in
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
     if ty = bool then Tapp [] (astSyntax.mk_TC_name(astSyntax.mk_Short(stringSyntax.fromMLstring"bool"))) else
-    if ty = word8 then Tapp [] astSyntax.TC_word8 else
+    if word_ty_ok ty then
+      (*dim ≤ 64 guaranteeed*)
+      let val dim = (fcpSyntax.dest_int_numeric_type o wordsSyntax.dest_word_type) ty in
+        if dim <= 8 then Tapp [] astSyntax.TC_word8
+        else Tapp [] astSyntax.TC_word64
+      end else
     if ty = intSyntax.int_ty then Tapp [] astSyntax.TC_int else
     if ty = numSyntax.num then Tapp [] astSyntax.TC_int else
     if ty = stringSyntax.char_ty then Tapp [] astSyntax.TC_char else
@@ -628,7 +591,10 @@ in
       end else
     if ty = oneSyntax.one_ty then UNIT_TYPE else
     if ty = bool then BOOL else
-    if ty = word8 then WORD8 else
+    if wordsSyntax.is_word_type ty andalso word_ty_ok ty then
+      let val dim = wordsSyntax.dest_word_type ty in
+        inst [alpha|->dim] WORD
+      end else
     if ty = numSyntax.num then NUM else
     if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
     if ty = stringSyntax.char_ty then CHAR else
@@ -991,9 +957,13 @@ fun derive_record_specific_thms ty = let
   val a_lemmas = map prove_accessor_eq (zip access_funs xs)
   fun prove_updates_eq (a,x) = let
     val v = mk_var("v",type_of tm)
-    val t = type_of x
-    val g = mk_var("g",mk_type("fun",[t,t]))
-    val f = foldr mk_abs (subst [x|->mk_comb(g,x)] tm) xs
+    val (t,ti) = type_of a |> dom_rng
+    val ti = dom_rng ti |> #2
+    val g = mk_var("g",t)
+    val s = match_type (type_of tm) ti
+    val tmi = Term.inst s tm
+    val xi = Term.inst s x
+    val f = foldr mk_abs (subst [xi|->mk_comb(g,x)] tmi) xs
     val ty1 = case_tm |> type_of |> dest_type |> snd |> el 2
                                  |> dest_type |> snd |> hd
     val i = match_type ty1 (type_of f)
@@ -1003,8 +973,27 @@ fun derive_record_specific_thms ty = let
     val tac = Cases THEN SRW_TAC [] [DB.fetch thy_name (ty_name ^ "_fn_updates")]
     in prove(goal,tac) end
   val b_lemmas = map prove_updates_eq (zip update_funs xs)
-  val arb = mk_arb(type_of tm)
-  val tm2 = foldr (fn ((a,x),y) => mk_comb(``^a (K ^x)``,y)) arb (zip update_funs xs)
+  val rtype = type_of tm
+  val {Args,Thy,Tyop} = dest_thy_type rtype
+  fun new_rtype() = let
+    val Args = List.tabulate (length Args,fn _ => gen_tyvar())
+    in mk_thy_type{Args=Args,Thy=Thy,Tyop=Tyop} end
+  fun foldthis ((fupd,var),(rtype,y)) =
+    let
+      val (fty,updty) = fupd |> type_of |> dom_rng
+      val (r1,r2) = dom_rng updty
+      val s = match_type updty (rtype --> new_rtype())
+              handle HOL_ERR _ => match_type updty (rtype --> rtype)
+      val ifupd = inst s fupd
+      val (g1,g2) = dom_rng (type_subst s fty)
+      val (x,_) = dest_var var
+      val x = mk_var(x,g2)
+      val k = combinSyntax.mk_K_1 (x,g1)
+    in (type_subst s r2,mk_comb(mk_comb(ifupd,k),y)) end
+  val arb = mk_arb (new_rtype())
+  val (_,tm2) = foldr foldthis (type_of arb,arb) (zip update_funs xs)
+  val s = match_type (type_of tm2) rtype
+  val tm2 = inst s tm2
   val goal = mk_eq(tm2,tm)
   val rw_lemma = prove(goal,SRW_TAC []
     [DB.fetch thy_name (ty_name ^ "_component_equality")])
@@ -1595,7 +1584,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,word8,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2103,7 +2092,7 @@ fun single_line_def def = let
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
     \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ SRW_TAC [] [] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ SRW_TAC [] [LET_THM] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
     |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
     |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
@@ -2186,12 +2175,15 @@ fun all_distinct [] = []
       in if mem x ys then ys else x::ys end
 
 fun get_induction_for_def def = let
-  val res = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
-                |> concl |> dest_eq |> fst |> repeat rator
-                |> dest_thy_const
-  in fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-     fetch_from_thy (#Thy res) ((#Name res) ^ "_IND") end
-  handle HOL_ERR _ => let
+  val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> all_distinct
+  fun get_ind [] = raise ERR "get_ind" "Bind Error"
+    | get_ind [res] =
+      (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+      fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))
+    | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
+  in
+    get_ind names
+  end handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun aux [] = []
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
@@ -2599,6 +2591,12 @@ in
     else false
 end
 
+fun is_word_literal tm =
+  if wordsSyntax.is_word_type (type_of tm) andalso
+     wordsSyntax.is_n2w tm
+  then numSyntax.is_numeral (rand tm)
+  else false
+
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
@@ -2623,6 +2621,20 @@ val strlen_pat = Eval_strlen |> SPEC_ALL
 val chr_pat = Eval_Chr |> concl |> funpow 4 rand
 val ord_pat = Eval_Ord |> concl |> funpow 3 rand
 
+fun dest_word_binop tm =
+  if wordsSyntax.is_word_and tm then Eval_word_and else
+  if wordsSyntax.is_word_add tm then Eval_word_add else
+  if wordsSyntax.is_word_or  tm then Eval_word_or  else
+  if wordsSyntax.is_word_xor tm then Eval_word_xor else
+  if wordsSyntax.is_word_sub tm then Eval_word_sub else
+    failwith("not a word binop")
+
+fun dest_word_shift tm =
+  if wordsSyntax.is_word_lsl tm then Eval_word_lsl else
+  if wordsSyntax.is_word_lsr tm then Eval_word_lsr else
+  if wordsSyntax.is_word_asr tm then Eval_word_asr else
+    failwith("not a word shift")
+
 (*
 val tm = rhs
 val tm = rhs_tm
@@ -2642,8 +2654,13 @@ fun hol2deep tm =
   if tm = oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
-  if is_word8_literal tm then
-    SPEC (tm |> rand) Eval_Val_WORD8 |> SIMP_RULE std_ss [] else
+  if is_word_literal tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
+    val result = SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD)
+                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                 |> (fn th => MP th TRUTH)
+                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
@@ -2781,30 +2798,40 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
-  (* i2w8 *)
-  if integer_wordSyntax.is_i2w tm andalso (type_of tm = word8) then let
+  (* n2w 'a word for known 'a*)
+  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
     val x1 = tm |> rand
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_i2w8 th1
-    in check_inv "i2w8" tm result end else
-  (* n2w8 *)
-  if wordsSyntax.is_n2w tm andalso (type_of tm = word8) then let
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
+                           |> CONV_RULE wordsLib.WORD_CONV) th1
+    in check_inv "n2w" tm result end else
+  (* w2n 'a word for known 'a*)
+  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
     val x1 = tm |> rand
+    val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_n2w8 th1
-    in check_inv "n2w8" tm result end else
-  (* w82i *)
-  if integer_wordSyntax.is_w2i tm andalso (type_of (rand tm) = word8) then let
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
-    val result = MATCH_MP Eval_w82i th1
-    in check_inv "w82i" tm result end else
-  (* w82n *)
-  if wordsSyntax.is_w2n tm andalso (type_of (rand tm) = word8) then let
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
-    val result = MATCH_MP Eval_w82n th1
-    in check_inv "w82n" tm result end else
+    (* th1 should have instantiated 'a already *)
+    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "w2n" tm result end else
+  (* word_add, _and, _or, _xor, _sub *)
+  if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
+    val lemma = dest_word_binop tm
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep (tm |> rand)
+    val result = MATCH_MP lemma (CONJ th1 th2)
+                |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_binop" tm result end else
+  (* word_lsl, _lsr, _asr *)
+  if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
+    val n = tm |> rand
+    val _ = numSyntax.is_numeral n orelse
+            failwith "2nd arg to word shifts must be numeral constant"
+    val lemma = dest_word_shift tm |> SPEC n |> SIMP_RULE std_ss [LET_THM]
+    val th1 = hol2deep (tm |> rator |> rand)
+    val result = MATCH_MP lemma th1
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_shift" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
     val x1 = tm |> rand
@@ -3270,6 +3297,23 @@ val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty;
 val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
+
+words testing...
+(* OK *)
+val def = Define`ok = 8w :8 word`
+val def = Define`ok2 = 8w :64 word`
+(* Fails, but these should fail anyway *)
+val def = Define`fail = 8w :65 word`
+val def = Define`fail2 = 8w :'a word`
+
+(* OK *)
+val def = Define`n2w8 x = (n2w x):word8`
+val def = Define`w82n w = (w2n (w:word8))`
+val def = Define`n2w10 x = (n2w x):10 word`
+val def = Define`w102n w = (w2n (w:10 word))`
+val def = Define`ok w = w + 1w:63 word`
+val def = Define`ok w = (n2w (w2n (w:28 word)):30 word)`
+val def = Define`ok (w:24 word) = (w >> 3)`
 
 *)
 

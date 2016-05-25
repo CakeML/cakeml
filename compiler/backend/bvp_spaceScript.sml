@@ -7,6 +7,9 @@ val _ = new_theory "bvp_space";
 val op_space_req_def = Define `
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
   (op_space_req Ref l = l + 1) /\
+  (op_space_req (WordOp W64 _) _ = 3) /\
+  (op_space_req (WordShift W64 _ _) _ = 3) /\
+  (op_space_req WordFromInt _ = 3) /\
   (op_space_req _ _ = 0)`;
 
 val pMakeSpace_def = Define `

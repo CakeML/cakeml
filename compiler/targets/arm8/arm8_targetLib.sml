@@ -32,7 +32,7 @@ in
         EncodeBitMask_def, Encode_def, e_data_def, e_branch_def,
         e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
         EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
-        SystemHintOp2num_thm, ShiftType2num_thm, LSL_def, LSR_def,
+        SystemHintOp2num_thm, ShiftType2num_thm,
         DecodeBitMasks_def, HighestSetBit_def, Ones_def, Replicate_def,
         pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY],
        es,

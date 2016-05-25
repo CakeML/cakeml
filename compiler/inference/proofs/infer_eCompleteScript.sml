@@ -792,6 +792,16 @@ t = convert_t (t_walkstar s' t')``,
      fs[pure_add_constraints_combine]>>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] TC_int);(h',B)]`>>
      pac_tac)
+  >- (*word->word->word*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] (TC_word wz)`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] (TC_word _));(h',B)]`>>
+    pac_tac)
+  >- (*word->word*)
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,h')]`>>
+    pac_tac)
   >- (*Opapp --> Example with fresh unification variable*)
     ((*First find the extension to s and prove every property of s is carried over*)
     extend_uvar_tac ``t``>>
@@ -1559,6 +1569,10 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      imp_res_tac sub_completion_wfs >>
      rw [t_walkstar_eqn1, convert_t_def] >>
      metis_tac [t_compat_refl])
+ >- (qexists_tac `s` >>
+     imp_res_tac sub_completion_wfs >>
+     rw [t_walkstar_eqn1, convert_t_def] >>
+     metis_tac [t_compat_refl])
  >-
    (*Raise*)
    (imp_res_tac check_freevars_to_check_t>>
@@ -1878,7 +1892,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       AP_TERM_TAC>>
       qpat_assum `A = unconvert_t B` (assume_tac o (Q.AP_TERM `convert_t`))>>
       metis_tac[convert_infer_deBruijn_subst,check_freevars_empty_convert_unconvert_id]))
-   >- (*Fun*)
+ >- (*Fun*)
    (imp_res_tac check_freevars_to_check_t>>
    fs[sub_completion_def]>>
    imp_res_tac pure_add_constraints_success>>

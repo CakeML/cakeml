@@ -1,13 +1,19 @@
 (*Pretty printing for conLang & decLang*)
 structure conPP =
 struct
-open astPP modPP
+open astPP modPP conLangTheory
+
+val _ = bring_fwd_ctors "conLang" ``:conLang$op``
+val _ = bring_fwd_ctors "conLang" ``:conLang$pat``
+val _ = bring_fwd_ctors "conLang" ``:conLang$exp``
+val _ = bring_fwd_ctors "conLang" ``:conLang$dec``
+val _ = bring_fwd_ctors "conLang" ``:conLang$prompt``
 
 val conPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 
 fun add_conPP hd = conPrettyPrinters:= (hd:: !conPrettyPrinters)
 
-fun i2_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+fun con_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
     open term_pp_types PPBackEnd
     val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
@@ -19,20 +25,20 @@ fun i2_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     sty [FG DarkBlue] (str"g" >> sys (Top,Top,Top) d num) >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _=add_conPP("i2_initglobal",``App_i2 (Init_global_var_i2 n) x``,i2_initglobalPrint);
+val _=add_conPP("con_initglobal",``App (Init_global_var n) x``,con_initglobalPrint);
 
-(*i2_extend_global creates n top level decls*)
-fun i2_extendglobalPrint sys d t pg str brk blk =
+(*con_extend_global creates n top level decls*)
+fun con_extendglobalPrint sys d t pg str brk blk =
   let
     val n = rand t
   in
     str"extend_global ">>sys (pg,pg,pg) d n
   end;
 
-val _=add_conPP("i2_extendglobal",``Extend_global_i2 n``,genPrint i2_extendglobalPrint);
+val _=add_conPP("con_extendglobal",``Extend_global n``,genPrint con_extendglobalPrint);
 
-(*i2_prompt*)
-fun i2_promptPrint sys d t pg str brk blk=
+(*con_prompt*)
+fun con_promptPrint sys d t pg str brk blk=
   let
     val (_,ls) = dest_comb t
     fun printAll [] = str""
@@ -42,39 +48,39 @@ fun i2_promptPrint sys d t pg str brk blk=
     add_newline>>blk CONSISTENT 2 (
     str "prompt {">>printAll (#1(listSyntax.dest_list ls)))>>add_newline>>str "}"
   end;
-val _=add_conPP("i2_promptprint",``Prompt_i2 x``,genPrint (i2_promptPrint));
+val _=add_conPP("con_promptprint",``Prompt x``,genPrint (con_promptPrint));
 
-(*i2_Pvar*)
-val _=add_conPP ("i2_pvarprint", ``Pvar_i2 x``, genPrint pvarPrint);
+(*con_Pvar*)
+val _=add_conPP ("con_pvarprint", ``Pvar x``, genPrint pvarPrint);
 
-(*i2_Plit*)
-val _=add_conPP("i2_plitprint", ``Plit_i2 x``, genPrint plitPrint);
+(*con_Plit*)
+val _=add_conPP("con_plitprint", ``Plit x``, genPrint plitPrint);
 
 
-(*i2_pg level letrec list varN*varN*exp -- Only strip once *)
-val _=add_conPP ("i2_dletrecprint", ``Dletrec_i2 x``, genPrint dletrecPrint);
+(*con_pg level letrec list varN*varN*exp -- Only strip once *)
+val _=add_conPP ("con_dletrecprint", ``Dletrec x``, genPrint dletrecPrint);
 
-(*i2_Nested mutually recursive letrec*)
-val _=add_conPP ("i2_letrecprint", ``Letrec_i2 x y``,genPrint letrecPrint);
+(*con_Nested mutually recursive letrec*)
+val _=add_conPP ("con_letrecprint", ``Letrec x y``,genPrint letrecPrint);
 
-(*i2_Lambdas varN*expr *)
-val _=add_conPP ("i2_lambdaprint", ``Fun_i2 x y``,genPrint lambdaPrint);
+(*con_Lambdas varN*expr *)
+val _=add_conPP ("con_lambdaprint", ``Fun x y``,genPrint lambdaPrint);
 
-(*i2_pglevel Dlet nat*expr *)
-val _=add_conPP ("i2_dletvalprint", ``Dlet_i2 x y``,genPrint i1_dletvalPrint);
+(*con_pglevel Dlet nat*expr *)
+val _=add_conPP ("con_dletvalprint", ``Dlet x y``,genPrint mod_dletvalPrint);
 
-(*i2_Inner Let SOME*)
-val _=add_conPP ("i2_letvalprint", ``Let_i2 (SOME x) y z``,genPrint letvalPrint);
+(*con_Inner Let SOME*)
+val _=add_conPP ("con_letvalprint", ``Let (SOME x) y z``,genPrint letvalPrint);
 
-(*i2_Inner Let NONE*)
-val _=add_conPP ("i2_letnoneprint",``Let_i2 NONE y z ``,genPrint letnonePrint);
+(*con_Inner Let NONE*)
+val _=add_conPP ("con_letnoneprint",``Let NONE y z ``,genPrint letnonePrint);
 
 (*Prints all constructor args in a list comma separated*)
 
 
-(*i2 Con, reuse AST CON NONE*)
+(*con Con, reuse AST CON NONE*)
 (*
-fun i2_pconPrint sys d t pg str brk blk =
+fun con_pconPrint sys d t pg str brk blk =
   let
     val (_,name) = dest_comb (rator t)
     val (x::_) = pairSyntax.strip_pair name
@@ -84,7 +90,7 @@ fun i2_pconPrint sys d t pg str brk blk =
   end;
 *)
 
-fun i2_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+fun con_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
     open term_pp_types PPBackEnd
     val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
@@ -95,59 +101,59 @@ fun i2_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     sty [FG RedBrown] (str "c" >> sys (Top,Top,Top) d x )>> (pconPrint sys d t Top str brk blk)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _=add_conPP ("i2_conprint", ``Con_i2 x y``,i2_pconPrint);
-val _=add_conPP ("i2_pconprint", ``Pcon_i2 x y``,i2_pconPrint);
+val _=add_conPP ("con_conprint", ``Con x y``,con_pconPrint);
+val _=add_conPP ("con_pconprint", ``Pcon x y``,con_pconPrint);
 (*TODO: Add special cases for built in CTORS?*)
 
-(*val _=add_conPP ("i2_conprint", ``Con_i2 x y``,genPrint i2_pconPrint);
-val _=add_conPP ("i2_pconprint", ``Pcon_i2 x y``,genPrint i2_pconPrint);*)
+(*val _=add_conPP ("con_conprint", ``Con x y``,genPrint con_pconPrint);
+val _=add_conPP ("con_pconprint", ``Pcon x y``,genPrint con_pconPrint);*)
 
-(*i2_Literals*)
-(*i2_Pattern lit*)
-val _=add_conPP ("i2_litprint", ``Lit_i2 x``, genPrint plitPrint);
+(*con_Literals*)
+(*con_Pattern lit*)
+val _=add_conPP ("con_litprint", ``Lit x``, genPrint plitPrint);
 
-(*i2 local Var name, no more long names*)
-val _=add_conPP ("i2_varlocalprint", ``Var_local_i2 x``,genPrint i1_varlocalPrint);
+(*con local Var name, no more long names*)
+val _=add_conPP ("con_varlocalprint", ``Var_local x``,genPrint mod_varlocalPrint);
 
-(*i2 global Var name*)
-val _=add_conPP ("i2_varglobalprint", ``Var_global_i2 n``,i1_varglobalPrint);
+(*con global Var name*)
+val _=add_conPP ("con_varglobalprint", ``Var_global n``,mod_varglobalPrint);
 
-(*i2_Matching*)
-val _=add_conPP ("i2_matprint", ``Mat_i2 x y``,genPrint matPrint);
+(*con_Matching*)
+val _=add_conPP ("con_matprint", ``Mat x y``,genPrint matPrint);
 
-(*i2_Apply*)
-val _=add_conPP ("i2_oppappprint", ``App_i2 (Op_i2 Opapp) ls``, genPrint oppappPrint);
+(*con_Apply*)
+val _=add_conPP ("con_oppappprint", ``App (Op Opapp) ls``, genPrint oppappPrint);
 
-(*i2_raise expr*)
-val _=add_conPP ("i2_raiseprint", ``Raise_i2 x``,genPrint raisePrint);
+(*con_raise expr*)
+val _=add_conPP ("con_raiseprint", ``Raise x``,genPrint raisePrint);
 
-(*i2_handle expr * list (pat*expr)*)
-val _=add_conPP ("i2_handleprint", ``Handle_i2 x y``,genPrint handlePrint);
+(*con_handle expr * list (pat*expr)*)
+val _=add_conPP ("con_handleprint", ``Handle x y``,genPrint handlePrint);
 
-(*i2_If-then-else*)
-val _=add_conPP("i2_ifthenelseprint", ``If_i2 x y z``,genPrint ifthenelsePrint);
+(*con_If-then-else*)
+val _=add_conPP("con_ifthenelseprint", ``If x y z``,genPrint ifthenelsePrint);
 
-(*i2 binops*)
-val _=add_conPP ("i2_assignappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 10; x]``,genPrint (infixappPrint ":="));
-val _=add_conPP ("i2_eqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 9; x]``,genPrint (infixappPrint "="));
-val _=add_conPP ("i2_gteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 8; x]``,genPrint (infixappPrint ">="));
-val _=add_conPP ("i2_lteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 7; x]``,genPrint (infixappPrint "<="));
-val _=add_conPP ("i2_gtappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 6; x]``,genPrint (infixappPrint ">"));
-val _=add_conPP ("i2_ltappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 5; x]``,genPrint (infixappPrint "<"));
-val _=add_conPP ("i2_modappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 4; x]``,genPrint (infixappPrint "mod"));
-val _=add_conPP ("i2_divappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 3; x]``,genPrint (infixappPrint "div"));
-val _=add_conPP ("i2_timesappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 2; x]``,genPrint (infixappPrint "*"));
-val _=add_conPP ("i2_minusappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 1; x]``,genPrint (infixappPrint "-"));
-val _=add_conPP ("i2_addappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 0; x]``,genPrint (infixappPrint "+"));
+(*con binops*)
+val _=add_conPP ("con_assignappprint", ``App (Op Opapp) [Var_global 10; x]``,genPrint (infixappPrint ":="));
+val _=add_conPP ("con_eqappprint", ``App (Op Opapp) [Var_global 9; x]``,genPrint (infixappPrint "="));
+val _=add_conPP ("con_gteqappprint", ``App (Op Opapp) [Var_global 8; x]``,genPrint (infixappPrint ">="));
+val _=add_conPP ("con_lteqappprint", ``App (Op Opapp) [Var_global 7; x]``,genPrint (infixappPrint "<="));
+val _=add_conPP ("con_gtappprint", ``App (Op Opapp) [Var_global 6; x]``,genPrint (infixappPrint ">"));
+val _=add_conPP ("con_ltappprint", ``App (Op Opapp) [Var_global 5; x]``,genPrint (infixappPrint "<"));
+val _=add_conPP ("con_modappprint", ``App (Op Opapp) [Var_global 4; x]``,genPrint (infixappPrint "mod"));
+val _=add_conPP ("con_divappprint", ``App (Op Opapp) [Var_global 3; x]``,genPrint (infixappPrint "div"));
+val _=add_conPP ("con_timesappprint", ``App (Op Opapp) [Var_global 2; x]``,genPrint (infixappPrint "*"));
+val _=add_conPP ("con_minusappprint", ``App (Op Opapp) [Var_global 1; x]``,genPrint (infixappPrint "-"));
+val _=add_conPP ("con_addappprint", ``App (Op Opapp) [Var_global 0; x]``,genPrint (infixappPrint "+"));
 
-(*i2 uops*)
-val _=add_conPP ("i2_refappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 13; x]``,genPrint (prefixappPrint "ref"));
-val _=add_conPP ("i2_derefappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 12;x]``,genPrint (prefixappPrint "!"));
-val _=add_conPP ("i2_negappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 11; x]``,genPrint (prefixappPrint "~"));
+(*con uops*)
+val _=add_conPP ("con_refappprint", ``App (Op Opapp) [Var_global 13; x]``,genPrint (prefixappPrint "ref"));
+val _=add_conPP ("con_derefappprint", ``App (Op Opapp) [Var_global 12;x]``,genPrint (prefixappPrint "!"));
+val _=add_conPP ("con_negappprint", ``App (Op Opapp) [Var_global 11; x]``,genPrint (prefixappPrint "~"));
 
-(*i2 list form*)
+(*con list form*)
 (*TODO: Replace*)
-(*val _=add_conPP("i2listprint",``x:prompt_i2 store``,genPrint astlistPrint);*)
+(*val _=add_conPP("conlistprint",``x:prompt_con store``,genPrint astlistPrint);*)
 
 fun enable_conPP_verbose () = map temp_add_user_printer (!conPrettyPrinters);
 fun enable_conPP () = (enable_conPP_verbose();())

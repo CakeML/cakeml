@@ -104,6 +104,7 @@ fs [] >|
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
+ metis_tac [APPEND, sub_completion_more_vars],
  PairCases_on `v'` >>
      fs [] >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
@@ -509,8 +510,9 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
  (* Lit string *)
      binop_tac
  (* Lit word8 *)
- >-
-     binop_tac
+ >- binop_tac
+ (* Lit word64 *)
+ >- binop_tac
  (* Var short *)
  >-
      (rw [t_lookup_var_id_def] >>

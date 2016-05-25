@@ -156,6 +156,8 @@ val do_app = prove(
   full_simp_tac(srw_ss())[exhSemTheory.do_app_def]
   >- tac
   >- tac
+  >- (every_case_tac \\ tac)
+  >- tac
   >- (BasicProvers.EVERY_CASE_TAC >>
       full_simp_tac(srw_ss())[do_eq, patSemTheory.do_app_def] >>
       srw_tac[][exhSemTheory.prim_exn_def, patSemTheory.prim_exn_def, patSemTheory.Boolv_def, exhSemTheory.Boolv_def])
@@ -1196,6 +1198,8 @@ val do_app_v_rel = store_thm("do_app_v_rel",
           full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
       >- (BasicProvers.EVERY_CASE_TAC >>
           full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
+      >- (BasicProvers.EVERY_CASE_TAC >>
+          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
       >- (
         imp_res_tac do_eq_v_rel >>
         BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[] )
@@ -1362,8 +1366,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     srw_tac[][Once exp_rel_cases] >>
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
-    qpat_assum`_ = (_,r1)`mp_tac >> split_pair_case_tac >> full_simp_tac(srw_ss())[] >> (* TODO: split_pair_case_tac not working *)
-    strip_tac >>
+    split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> full_simp_tac(srw_ss())[] >>
     rveq >>
@@ -1390,8 +1393,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     srw_tac[][Once exp_rel_cases] >>
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
-    qpat_assum`_ = (_,r1)`mp_tac >> split_pair_case_tac >> full_simp_tac(srw_ss())[] >> (* TODO: split_pair_case_tac not working *)
-    strip_tac >>
+    split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`evaluate env1 s1 _ = (_,r)` >>
@@ -1406,8 +1408,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     srw_tac[][Once exp_rel_cases] >>
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
-    qpat_assum`_ = (_,r1)`mp_tac >> split_pair_case_tac >> full_simp_tac(srw_ss())[] >> (* TODO: split_pair_case_tac not working *)
-    strip_tac >>
+    split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`evaluate env1 s1 _ = (_,r)` >>
@@ -1420,8 +1421,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     srw_tac[][Once exp_rel_cases] >>
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
-    qpat_assum`_ = (_,r1)`mp_tac >> split_pair_case_tac >> full_simp_tac(srw_ss())[] >> (* TODO: split_pair_case_tac not working *)
-    strip_tac >>
+    split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`evaluate env1 s1 _ = (_,r)` >>

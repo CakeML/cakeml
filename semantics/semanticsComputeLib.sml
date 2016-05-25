@@ -45,6 +45,11 @@ val add_ast_compset = computeLib.extend_compset
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
+    ,initialProgramTheory.prim_types_program_def
+    ,initialProgramTheory.basis_program_def
+    ,initialProgramTheory.mk_binop_def
+    ,initialProgramTheory.mk_unop_def
+    ,initialProgramTheory.mk_ffi_def
     ],
    computeLib.Tys
     [``:MMLnonT``
@@ -77,6 +82,8 @@ val add_lexparse_compset = computeLib.extend_compset
       ,isAlphaNumPrime_def
       ,is_single_char_symbol_def
       ,processIdent_def
+      ,mkCharS_def
+      ,lexer_fun_def
       ]
     end,
    computeLib.Defs
@@ -91,12 +98,14 @@ val add_lexparse_compset = computeLib.extend_compset
       ,destLf_def
       ,destTyvarPT_def
       ,destLongidT_def
+      ,destCharT_def
       ,isLongidT_def
       ,isWhitespaceT_def
       ,isString_def
       ,isAlphaSym_def
       ,isSymbolT_def
       ,isAlphaT_def
+      ,isCharT_def
       ]
     end,
    computeLib.Tys
@@ -139,6 +148,10 @@ val add_lexparse_compset = computeLib.extend_compset
       ,ptree_OptTypEqn_def
       ,safeTL_def
       ,oHD_def
+      ,mk_binop_def
+      ,ptree_PbaseList1_def
+      ,mkFun_def
+      ,dePat_def
       ]
     end
   ]

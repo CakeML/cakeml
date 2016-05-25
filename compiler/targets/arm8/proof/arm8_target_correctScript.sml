@@ -58,7 +58,7 @@ val DecodeBitMasks_SOME = Q.prove(
 val ShiftValue0 = Q.prove(
    `!x. ShiftValue (x, DecodeShift 0w, 0) = x`,
    rw [arm8Theory.ShiftValue_def, arm8Theory.DecodeShift_def,
-       arm8Theory.num2ShiftType_thm, arm8Theory.LSL_def]
+       arm8Theory.num2ShiftType_thm]
    )
 
 val valid_immediate_thm = Q.prove(
@@ -163,10 +163,9 @@ val lem12 = Q.prove(
 val lem13 = Q.prove(
    `!c: word64.
        (c = w2w ((11 >< 0) (c >>> 3) : word12) << 3) ==>
-       (LSL (w2w (v2w [c ' 14; c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8;
-                       c ' 7; c ' 6; c ' 5; c ' 4; c ' 3]: word12),3) = c)`,
-   simp [arm8Theory.LSL_def]
-   \\ blastLib.BBLAST_TAC
+       (w2w (v2w [c ' 14; c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8;
+                  c ' 7; c ' 6; c ' 5; c ' 4; c ' 3]: word12) << 3 = c)`,
+   blastLib.BBLAST_TAC
    )
 
 val lem14 = Q.prove(
@@ -186,21 +185,18 @@ val lem16 =
 
 val lem17 = Q.prove(
    `!c: word64.
-       (c = w2w ((11 >< 0) c : word12)) ==>
-       (LSL (w2w (v2w [c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
-                       c ' 6; c ' 5; c ' 4; c ' 3; c ' 2;
-                       c ' 1; c ' 0]: word12),0) = c)`,
-   simp [arm8Theory.LSL_def]
-   \\ blastLib.BBLAST_TAC
+      (c = w2w ((11 >< 0) c : word12)) ==>
+      (w2w (v2w [c ' 11; c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5; c ' 4;
+                 c ' 3; c ' 2; c ' 1; c ' 0]: word12) = c)`,
+   blastLib.BBLAST_TAC
    )
 
 val lem18 = Q.prove(
    `!c: word64.
        (c = w2w ((11 >< 0) (c >>> 2) : word12) << 2) ==>
-       (LSL (w2w (v2w [c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
-                       c ' 6; c ' 5; c ' 4; c ' 3; c ' 2]: word12),2) = c)`,
-   simp [arm8Theory.LSL_def]
-   \\ blastLib.BBLAST_TAC
+       (w2w (v2w [c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
+                  c ' 6; c ' 5; c ' 4; c ' 3; c ' 2]: word12) << 2 = c)`,
+   blastLib.BBLAST_TAC
    )
 
 val lem19 = Q.prove(
@@ -334,10 +330,10 @@ val lsl = Q.prove(
        Abbrev (r = n2w ((64 - n) MOD 64)) /\
        Abbrev (q = r + 63w) /\
        (DecodeBitMasks (1w, q, r, F) = SOME (wmask, tmask)) ==>
-       ((tmask && wmask) && ROR (x,w2n r) = x << n)`,
-   lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.ROR_def,
-        arm8Theory.Replicate_def, arm8Theory.Ones_def,
-        arm8Theory.HighestSetBit_def, word_log2_7, EVAL ``w2i (6w: word7)``,
+       ((tmask && wmask) && x #>> (w2n r) = x << n)`,
+   lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.Replicate_def,
+        arm8Theory.Ones_def, arm8Theory.HighestSetBit_def, word_log2_7,
+        EVAL ``w2i (6w: word7)``,
         and_max ``:6``, ev ``v2w (PAD_LEFT T 6 []) : word6``]
    \\ qunabbrev_tac `q`
    \\ qunabbrev_tac `r`
@@ -398,10 +394,10 @@ val lsr = Q.prove(
    `!n x wmask: word64 tmask.
        n < 64n /\
        (DecodeBitMasks (1w, 63w, n2w n, F) = SOME (wmask, tmask)) ==>
-       ((tmask && wmask) && ROR (x,n) = x >>> n)`,
-   lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.ROR_def,
-        arm8Theory.Replicate_def, arm8Theory.Ones_def,
-        arm8Theory.HighestSetBit_def, EVAL ``w2i (6w: word7)``,
+       ((tmask && wmask) && x #>> n = x >>> n)`,
+   lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.Replicate_def,
+        arm8Theory.Ones_def, arm8Theory.HighestSetBit_def,
+        EVAL ``w2i (6w: word7)``,
         and_max ``:6``, ev ``v2w (PAD_LEFT T 6 []) : word6``]
    \\ simp [bitstringTheory.length_pad_left, replicate1, lsl_lem1]
    \\ Cases_on `n = 0`
@@ -432,9 +428,9 @@ val asr2 = Q.prove(
        (DecodeBitMasks (1w, 63w, n2w n, F) = SOME (wmask, tmask)) ==>
        (n2w (0x10000000000000000 - 2 ** (64 - MIN n 64)) =
         0xFFFFFFFFFFFFFFFFw && ~tmask)`,
-   lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.ROR_def,
-        arm8Theory.Replicate_def, arm8Theory.Ones_def,
-        arm8Theory.HighestSetBit_def, EVAL ``w2i (6w: word7)``,
+   lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.Replicate_def,
+        arm8Theory.Ones_def, arm8Theory.HighestSetBit_def,
+        EVAL ``w2i (6w: word7)``,
         and_max ``:6``, ev ``v2w (PAD_LEFT T 6 []) : word6``]
    \\ simp [bitstringTheory.length_pad_left, replicate1, lsl_lem1]
    \\ Cases_on `n = 0`
@@ -585,8 +581,7 @@ in
               \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
               \\ TRY (qunabbrev_tac `q` \\ qunabbrev_tac `r` \\ simp [lem4])
               \\ lfs [arm8Theory.DecodeShift_def, arm8Theory.num2ShiftType_thm,
-                      arm8Theory.LSL_def, arm8Theory.LSR_def, bop_dec_def, lem1,
-                      alignmentTheory.aligned_extract]
+                      bop_dec_def, lem1, alignmentTheory.aligned_extract]
            end
         | NONE => NO_TAC) (asl, g)
    fun next_state_tac pick fltr state (asl, g) =
@@ -762,12 +757,12 @@ val arm8_encoding = Count.apply Q.prove (
       \\ Cases_on `a`
       \\ Cases_on `m`
       >| [
-         Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,3))),3))`,
-         Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,0))),0))`,
-         Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,2))),2))`,
-         Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,3))),3))`,
-         Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,0))),0))`,
-         Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,2))),2))`
+         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+         Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
+         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`,
+         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+         Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
+         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`
       ]
       \\ decode_tac0
       )
@@ -932,10 +927,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             \\ state_tac [lsr, asr]
             >| [
                 imp_res_tac lsl,
-                `n1 = 0`
-                by (SPOSE_NOT_THEN ASSUME_TAC
-                    \\ IMP_RES_TAC (DECIDE ``n <> 0n ==> 64 - n < 64``)
-                    \\ lfs [markerTheory.Abbrev_def]),
+                imp_res_tac (lsl |> Q.SPEC `0w` |> SIMP_RULE (srw_ss()) []),
                 imp_res_tac asr2
             ]
             \\ simp []
@@ -948,16 +940,16 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          \\ Cases_on `a`
          \\ Cases_on `m`
          >| [
-            Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,3))),3))`,
-            Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,0))),0))`,
-            Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,2))),2))`,
-            Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,3))),3))`,
-            Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,0))),0))`,
-            Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,2))),2))`
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`,
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`
          ]
          \\ lfs enc_rwts
          \\ rfs []
-         \\ fs [arm8Theory.LSL_def, arm8Theory.LSR_def]
+         \\ fs []
          \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
                  by (imp_res_tac lem14 \\ NO_TAC)
                  ORELSE `aligned 4 (c + ms.REG (n2w n'))`

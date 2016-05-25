@@ -4741,9 +4741,9 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     pop_assum mp_tac>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[evaluate_def,get_var_perm]>>
-    Cases_on`get_var n0 st`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`get_var n1 st`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var n0 st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`cut_env s st.locals`>>full_simp_tac(srw_ss())[]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
@@ -4766,14 +4766,14 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qpat_assum`A=A0` sym_sub_tac>>
     full_simp_tac(srw_ss())[Abbr`prog`,evaluate_def,LET_THM]>>
     srw_tac[][]>>
-    `get_vars [cptr;clen] rcst = SOME [Word c;Word c']` by
+    `get_vars [cptr;clen] rcst = SOME [Word c';Word c]` by
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[get_vars_def]>>
       imp_res_tac ssa_locals_rel_get_var>>full_simp_tac(srw_ss())[get_var_def])>>
     qabbrev_tac`f = option_lookup ssa'`>>
     Q.ISPECL_THEN [`ls`,`ssa`,`na+2`,`mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props>>
     `is_stack_var (na+2)` by full_simp_tac(srw_ss())[is_alloc_var_flip]>>
     rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[set_vars_def,alist_insert_def]>>
-    qpat_abbrev_tac `rcstlocs = insert 4 A (insert 2 B rcst.locals)`>>
+    qpat_abbrev_tac `rcstlocs = insert 2 A (insert 4 B rcst.locals)`>>
     full_simp_tac(srw_ss())[get_var_def]>>
     `lookup 4 rcstlocs = SOME (Word c) ∧
      lookup 2 rcstlocs = SOME (Word c')` by

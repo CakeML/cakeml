@@ -145,7 +145,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,exh_to_patTheory.pure_def
     ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
     ,exh_to_patTheory.pure_op_def
-    ,exh_to_patTheory.pure_op_op_def
+    ,exh_to_patTheory.pure_op_op_eqn
     ,exh_to_patTheory.Bool_def
     ,exh_to_patTheory.compile_def
     ]
@@ -577,6 +577,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,backendTheory.to_dec_def
     ,backendTheory.to_livesets_def
     ,backendTheory.from_livesets_def
+    ,backendTheory.prim_config_def
     ]
   ,computeLib.Tys
     [ (*asm -- 'a should be 64*)

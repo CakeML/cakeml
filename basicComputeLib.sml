@@ -46,6 +46,11 @@ val add_basic_compset =
    , miscTheory.bytes_in_word_def
    , miscTheory.UPDATE_LIST_THM
    , miscTheory.list_max_def
+   , miscTheory.anub_def
+     (* should be in HOL *)
+   , optionTheory.OPTION_MAP2_DEF
+   ,alistTheory.alist_to_fmap_def
+   ,alistTheory.ALOOKUP_def
    ]
   ]
 

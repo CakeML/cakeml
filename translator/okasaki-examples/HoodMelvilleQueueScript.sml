@@ -5,6 +5,8 @@ open listTheory arithmeticTheory ml_translatorLib mini_preludeTheory;
 
 val _ = translation_extends "mini_prelude";
 
+val _ = Parse.hide"state";
+
 (* implementation *)
 
 val _ = Hol_datatype `

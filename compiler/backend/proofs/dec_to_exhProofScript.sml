@@ -361,6 +361,8 @@ val do_app_lem = Q.prove (
   full_simp_tac(srw_ss())[conSemTheory.do_app_def]
   >- tac
   >- tac
+  >- tac
+  >- tac
   >- (every_case_tac >>
       imp_res_tac do_eq >>
       full_simp_tac(srw_ss())[] >>

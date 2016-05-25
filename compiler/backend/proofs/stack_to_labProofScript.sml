@@ -31,7 +31,7 @@ val good_syntax_def = Define `
      good_syntax p2 ptr len ret) /\
   (good_syntax (While c r ri p1) ptr len ret <=>
      good_syntax p1 ptr len ret) /\
-  (good_syntax (Halt n) ptr len ret <=> (n = len)) /\
+  (good_syntax (Halt n) ptr len ret <=> (n = ptr)) /\
   (good_syntax (FFI ffi_index ptr' len' ret') ptr len ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (good_syntax (Call x1 _ x2) ptr len ret <=>
@@ -125,7 +125,7 @@ val state_rel_def = Define`
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
-      good_syntax prog t.len_reg t.ptr_reg t.link_reg ∧
+      good_syntax prog t.ptr_reg t.len_reg t.link_reg ∧
       ∃pc. code_installed pc
              (append (FST (flatten prog n (next_lab prog)))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
@@ -348,7 +348,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
   `∀prog s1 r s2 n l t1.
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
-     good_syntax prog t1.len_reg t1.ptr_reg t1.link_reg ∧
+     good_syntax prog t1.ptr_reg t1.len_reg t1.link_reg ∧
      code_installed t1.pc (append (FST (flatten prog n l))) t1.code
      ⇒
      ∃ck t2.
@@ -1360,8 +1360,8 @@ val flatten_correct = Q.store_thm("flatten_correct",
   (* FFI *)
   conj_tac >- (
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
-    Cases_on`get_var ptr s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`get_var len s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var ptr s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
     pairarg_tac >> simp[] >> srw_tac[][] >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def,good_syntax_def] >>
@@ -1806,7 +1806,7 @@ val state_rel_make_init = store_thm("state_rel_make_init",
   ``state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
-     good_syntax prog s.len_reg s.ptr_reg s.link_reg ∧
+     good_syntax prog s.ptr_reg s.len_reg s.link_reg ∧
      ∃pc.
        code_installed pc (append (FST (flatten prog n (next_lab prog)))) s.code ∧
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧

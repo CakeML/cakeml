@@ -1,6 +1,6 @@
 open ASCIInumbersLib intLib;
 open preamble;
-open lexer_funTheory;
+open lexer_funTheory lexer_implTheory;
 
 val _ = new_theory "lexerTests";
 

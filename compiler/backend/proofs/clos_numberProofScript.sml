@@ -127,6 +127,8 @@ val renumber_code_locs_list_els = prove(
 val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (v_rel (Number j) (Number j))
   /\
+  (v_rel (Word64 w) (Word64 w))
+  /\
   (EVERY2 v_rel (xs:closSem$v list) (ys:closSem$v list) ==>
    v_rel (Block t xs) (Block t ys))
   /\
@@ -174,6 +176,7 @@ val state_rel_refs = prove(
 val v_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
   in map f [``v_rel (Number x) y``,
+            ``v_rel (Word64 n) y``,
             ``v_rel (Block n l) y``,
             ``v_rel (RefPtr x) y``,
             ``v_rel (Closure n a l narg x) y``,
@@ -507,25 +510,27 @@ val do_app = prove(
     srw_tac[][] >> match_mp_tac EVERY2_LUPDATE_same >>
     full_simp_tac(srw_ss())[] >> last_x_assum(qspec_then`k`mp_tac) >> simp[] )
   >- (
-    Cases_on`y` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    first_x_assum(qspec_then`n'`mp_tac)>>srw_tac[][v_rel_simp]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[] >>
-    rev_full_simp_tac(srw_ss())[state_rel_def] >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE] >>
-    srw_tac[][] )
+    Cases_on`y`\\fs[v_rel_simp]
+    \\ Cases_on`t`\\fs[v_rel_simp]
+    \\ Cases_on`h`\\fs[v_rel_simp]
+    \\ rveq
+    \\ imp_res_tac state_rel_refs
+    \\ fs[fmap_rel_OPTREL_FLOOKUP]
+    \\ first_x_assum(qspec_then`n'`mp_tac)>>srw_tac[][v_rel_simp]
+    \\ every_case_tac \\ fs[OPTREL_def]
+    \\ rveq\\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE]
+    \\ rw[] \\ rfs[])
   >- (
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     imp_res_tac do_eq >> simp[] >>
     every_case_tac >> simp[v_rel_simp] )
   >> (
+    TRY(Cases_on`w`)\\fs[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp] >>
+    TRY(Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp])>>
+    TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]) >>
     every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp]));
 
 (* compiler correctness *)

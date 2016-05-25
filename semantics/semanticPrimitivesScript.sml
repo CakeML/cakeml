@@ -224,6 +224,7 @@ val _ = Define `
     | (Char _, Char _) => T
     | (StrLit _, StrLit _) => T
     | (Word8 _, Word8 _) => T
+    | (Word64 _, Word64 _) => T
     | _ => F
   )))`;
 
@@ -491,6 +492,46 @@ val _ = Define `
 )))`;
 
 
+(*val opw8_lookup : opw -> word8 -> word8 -> word8*)
+val _ = Define `
+ (opw8_lookup op = ((case op of
+    Andw => word_and
+  | Orw => word_or
+  | Xor => word_xor
+  | Add => word_add
+  | Sub => word_sub
+)))`;
+
+
+(*val opw64_lookup : opw -> word64 -> word64 -> word64*)
+val _ = Define `
+ (opw64_lookup op = ((case op of
+    Andw => word_and
+  | Orw => word_or
+  | Xor => word_xor
+  | Add => word_add
+  | Sub => word_sub
+)))`;
+
+
+(*val shift8_lookup : shift -> word8 -> nat -> word8*)
+val _ = Define `
+ (shift8_lookup sh = ((case sh of
+    Lsl => word_lsl
+  | Lsr => word_lsr
+  | Asr => word_asr
+)))`;
+
+
+(*val shift64_lookup : shift -> word64 -> nat -> word64*)
+val _ = Define `
+ (shift64_lookup sh = ((case sh of
+    Lsl => word_lsl
+  | Lsr => word_lsr
+  | Asr => word_asr
+)))`;
+
+
 (*val Boolv : bool -> v*)
 val _ = Define `
  (Boolv b = (if b
@@ -517,6 +558,14 @@ val _ = Define `
           SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
+    | (Opw W8 op, [Litv (Word8 w1); Litv (Word8 w2)]) =>
+        SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
+    | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (Shift W8 op n, [Litv (Word8 w)]) =>
+        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
+    | (Shift W64 op n, [Litv (Word64 w)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -578,9 +627,13 @@ val _ = Define `
                   )
         | _ => NONE
       )
-    | (W8fromInt, [Litv(IntLit i)]) =>
+    | (WordFromInt W8, [Litv(IntLit i)]) =>
         SOME ((s,t), Rval (Litv (Word8 (i2w i))))
-    | (W8toInt, [Litv (Word8 w)]) =>
+    | (WordFromInt W64, [Litv(IntLit i)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (i2w i))))
+    | (WordToInt W8, [Litv (Word8 w)]) =>
+        SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (Ord, [Litv (Char c)]) =>
           SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
@@ -832,6 +885,7 @@ val _ = Define `
   | TC_string => "<string>"
   | TC_ref => "<ref>"
   | TC_word8 => "<word8>"
+  | TC_word64 => "<word64>"
   | TC_word8array => "<word8array>"
   | TC_exn => "<exn>"
   | TC_vector => "<vector>"

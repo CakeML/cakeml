@@ -31,6 +31,7 @@ val add_parsing_compset = computeLib.extend_compset
     ,peg_linfix_def
     ,mk_linfix_def
     ,mk_rinfix_def
+    ,parse_prog_def
     ]
   ,computeLib.Defs
     [lex_until_toplevel_semicolon_def

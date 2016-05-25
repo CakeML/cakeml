@@ -119,6 +119,27 @@ val ground_list_EVERY = store_thm("ground_list_EVERY",
   gen_tac >> Induct >> simp[])
 val _ = export_rewrites["ground_list_EVERY"]
 
+val pure_op_op_eqn = store_thm("pure_op_op_eqn",``
+  pure_op_op op =
+  case op of
+    Opref => F
+  | Opapp => F
+  | Opassign => F
+  | Aw8update => F
+  | Aw8alloc => F
+  | Aw8sub => F
+  | Vsub => F
+  | Chr => F
+  | Aupdate => F
+  | Aalloc => F
+  | Asub => F
+  | Opn Divide => F
+  | Opn Modulo => F
+  | FFI _ => F
+  | _ => T``,
+  Cases_on`op`>>fs[]>>
+  Cases_on`o'`>>fs[])
+
 val _ = Define `
   sLet e1 e2 =
   if e2 = Var_local 0 then e1

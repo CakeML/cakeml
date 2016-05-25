@@ -496,7 +496,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (LocValue r l1 l2,s) =
      (NONE,set_var r (Loc l1 l2) s)) /\
   (evaluate (FFI ffi_index ptr len names,s) =
-    case (get_var ptr s, get_var len s) of
+    case (get_var len s, get_var ptr s) of
     | SOME (Word w),SOME (Word w2) =>
       (case cut_env names s.locals of
       | NONE => (SOME Error,s)

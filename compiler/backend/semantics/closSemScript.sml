@@ -12,6 +12,7 @@ val _ = Datatype `
 val _ = Datatype `
   v =
     Number int
+  | Word64 word64
   | Block num (v list)
   | RefPtr num
   | Closure (num option) (v list) (v list) num closLang$exp
@@ -42,12 +43,17 @@ val do_eq_def = tDefine "do_eq" `
          (case y of
           | Number j => Eq_val (i = j)
           | _ => Eq_type_error)
+     | Word64 v =>
+         (case y of
+          | Word64 w => Eq_val (v = w)
+          | _ => Eq_type_error)
      | Block t1 xs =>
          (case y of
           | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
                              do_eq_list xs ys
                            else Eq_val F
           | Number _ => Eq_type_error
+          | Word64 _ => Eq_type_error
           | RefPtr _ => Eq_type_error
           | _ => Eq_val T)
      | RefPtr i =>
@@ -57,6 +63,7 @@ val do_eq_def = tDefine "do_eq" `
      | _ =>
          (case y of
           | Number _ => Eq_type_error
+          | Word64 _ => Eq_type_error
           | RefPtr _ => Eq_type_error
           | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\
@@ -193,6 +200,22 @@ val do_app_def = Define `
          Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 >= n2),s)
+    | (WordOp W8 opw,[Number n1; Number n2]) =>
+       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+        | NONE => Error
+        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
+    | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
+        Rval (Word64 (opw_lookup opw w1 w2),s)
+    | (WordShift W8 sh n, [Number i]) =>
+       (case some (w:word8). i = &(w2n w) of
+        | NONE => Error
+        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
+    | (WordShift W64 sh n, [Word64 w]) =>
+        Rval (Word64 (shift_lookup sh w n),s)
+    | (WordFromInt, [Number i]) =>
+        Rval (Word64 (i2w i),s)
+    | (WordToInt, [Word64 w]) =>
+        Rval (Number (&(w2n w)),s)
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
