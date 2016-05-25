@@ -121,10 +121,14 @@ val known_def = tDefine "known" `
      let (e2,g) = known xs vs g in
      let (e1,g) = known [x] vs g in
      let (e1,a1) = HD e1 in
-     let new_loc_opt = (case dest_Clos a1 of
-                        | NONE => NONE
-                        | SOME (loc,arity) => if arity = LENGTH xs
-                                              then SOME loc else NONE) in
+     let new_loc_opt =
+         case loc_opt of
+           | SOME _ => loc_opt
+           | _ => case dest_Clos a1 of
+                    | NONE => NONE
+                    | SOME (loc,arity) => if arity = LENGTH xs
+                                          then SOME loc else NONE
+     in
        ([(App new_loc_opt e1 (MAP FST e2),Other)],g)) /\
   (known [Fn loc_opt ws num_args x1] vs g =
      let (e1,g) = known [x1] (REPLICATE num_args Other ++ vs) g in
