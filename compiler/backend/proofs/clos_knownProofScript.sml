@@ -628,6 +628,7 @@ val do_app_ssgc = Q.store_thm(
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
       metis_tac[])
+  >- dsimp[]
   >- (simp[PULL_FORALL] >> metis_tac[EVERY_MEM, MEM_EL])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
@@ -660,7 +661,9 @@ val do_app_ssgc = Q.store_thm(
       >- metis_tac[]
       >- (irule IMP_EVERY_LUPDATE >> simp[] >> metis_tac[])
       >- metis_tac[])
-  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[]))
+  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
+  >- dsimp[]
+  >- dsimp[])
 
 val EVERY_lookup_vars = Q.store_thm(
   "EVERY_lookup_vars",
