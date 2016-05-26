@@ -97,7 +97,7 @@ val Word64Rep_def = Define`
       DataElement [] 1 (Word64Tag, [Word (((63 >< 0) w):'a word)])`;
 
 val Word64Rep_DataElement = Q.store_thm("Word64Rep_DataElement",
-  `∀a w. ∃l d. (Word64Rep a w:'a ml_el) = DataElement [] l (Word64Tag,d)`,
+  `∀a w. ∃ws. (Word64Rep a w:'a ml_el) = DataElement [] (LENGTH ws) (Word64Tag,ws)`,
   Cases \\ rw[Word64Rep_def]);
 
 val v_size_LEMMA = prove(
@@ -794,7 +794,7 @@ val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
 (* word64 *)
 
 val word64_thm = Q.store_thm("word64_thm",
-  `abs_ml_inv conf stack refs (roots,heap,be,a,sp) limit ∧
+  `abs_ml_inv conf (w1::w2::stack) refs (r1::r2::roots,heap,be,a,sp) limit ∧
    (Word64Rep (:'a) w64 :'a ml_el) = DataElement [] len (Word64Tag,xs) ∧
    LENGTH xs < sp
    ⇒
@@ -853,6 +853,7 @@ val word64_thm = Q.store_thm("word64_thm",
   \\ rw[]
   >- fs[get_refs_def]
   \\ fs[bc_ref_inv_def]
+  \\ fsrw_tac[boolSimps.DNF_ss][]
   \\ first_x_assum rpt_drule
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -2475,7 +2476,7 @@ val get_lowerbits_or_1 = prove(
   Cases_on `v` \\ fs [get_lowerbits_def]);
 
 val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
-  `memory_rel c be refs sp st m dm vars ∧ good_dimindex (:'a) ∧
+  `memory_rel c be refs sp st m dm (w1::w2::vars) ∧ good_dimindex (:'a) ∧
    (Word64Rep (:'a) w64 : 'a ml_el) = DataElement [] (LENGTH ws) (Word64Tag,ws) ∧
    LENGTH ws < sp ∧
    encode_header c 3 (LENGTH ws) = SOME hd
@@ -3641,5 +3642,10 @@ val memory_rel_zero_space = store_thm("memory_rel_zero_space",
     memory_rel c be refs 0 st m dm vars``,
   fs [memory_rel_def,heap_in_memory_store_def]
   \\ rw [] \\ fs [] \\ rpt (asm_exists_tac \\ fs []) \\ metis_tac []);
+
+val memory_rel_less_space = Q.store_thm("memory_rel_less_space",
+  `memory_rel c be refs sp st m dm vars ∧ sp' ≤ sp ⇒
+   memory_rel c be refs sp' st m dm vars`,
+  rw[memory_rel_def] \\ asm_exists_tac \\ simp[]);
 
 val _ = export_theory();

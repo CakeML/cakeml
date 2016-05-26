@@ -3804,6 +3804,8 @@ val assign_thm = Q.prove(
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
     \\ strip_tac
+    \\ fs[wordSemTheory.get_vars_def]
+    \\ every_case_tac \\ fs[] \\ clean_tac
     \\ drule memory_rel_Word64_IMP
     \\ imp_res_tac memory_rel_tl
     \\ drule memory_rel_Word64_IMP
@@ -3814,6 +3816,126 @@ val assign_thm = Q.prove(
     \\ BasicProvers.TOP_CASE_TAC
     >- simp[]
     \\ simp[list_Seq_def]
+    \\ drule(GEN_ALL memory_rel_WordOp64)
+    \\ qpat_abbrev_tac`w64 = opw_lookup _ _ _`
+    \\ disch_then(qspec_then`w64`mp_tac o CONV_RULE(SWAP_FORALL_CONV))
+    \\ qspecl_then[`:'a`,`w64`]strip_assume_tac Word64Rep_DataElement
+    \\ simp[]
+    \\ qmatch_assum_abbrev_tac`encode_header _ _ len = _`
+    \\ `len = LENGTH ws`
+    by (
+      fs[Word64Rep_def,Abbr`len`]
+      \\ IF_CASES_TAC \\ fs[] )
+    \\ qunabbrev_tac`len` \\ fs[]
+    \\ impl_tac
+    >- ( fs[consume_space_def] )
+    \\ strip_tac
+    \\ eval_tac
+    \\ simp[lookup_insert,wordSemTheory.get_var_def]
+    \\ reverse(Cases_on`dimindex(:'a) < 64`) \\ fs[]
+    \\ qpat_assum`_ = LENGTH ws`(assume_tac o SYM) \\ fs[]
+    >- (
+      eval_tac
+      \\ qmatch_goalsub_abbrev_tac`word_exp tt _`
+      \\ `tt.store = t.store` by simp[Abbr`tt`]
+      \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
+      by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+      \\ rfs[]
+      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
+      by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+      \\ rfs[]
+      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ qpat_abbrev_tac`sow = word_op_CASE opw _ _ _ _ _`
+      \\ qpat_abbrev_tac`sw = _ sow _ _ _ _ _`
+      \\ `sw = SOME (w2w w64)`
+      by (
+        simp[Abbr`sow`,Abbr`sw`,Abbr`w64`]
+        \\ Cases_on`opw` \\ simp[]
+        \\ simp[WORD_w2w_EXTRACT,WORD_EXTRACT_OVER_BITWISE]
+        \\ fs[good_dimindex_def,WORD_EXTRACT_OVER_ADD,WORD_EXTRACT_OVER_MUL]
+        \\ qpat_abbrev_tac`neg1 = (_ >< _) (-1w)`
+        \\ `neg1 = -1w`
+        by ( srw_tac[wordsLib.WORD_BIT_EQ_ss][Abbr`neg1`] )
+        \\ pop_assum SUBST_ALL_TAC
+        \\ simp[] )
+      \\ qunabbrev_tac`sw` \\ pop_assum SUBST_ALL_TAC
+      \\ simp[wordSemTheory.get_var_def,lookup_insert]
+      \\ simp[wordSemTheory.mem_store_def]
+      \\ fs[Word64Rep_def] \\ clean_tac
+      \\ fs[store_list_def,lookup_insert,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+      \\ ntac 2 strip_tac
+      \\ fs[consume_space_def] \\ clean_tac
+      \\ fs[]
+      \\ conj_tac >- rw[]
+      \\ fs[inter_insert_ODD_adjust_set]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ match_mp_tac (GEN_ALL memory_rel_less_space)
+      \\ qexists_tac`x.space - 2` \\ simp[]
+      \\ fs[make_ptr_def,FAPPLY_FUPDATE_THM]
+      \\ qmatch_abbrev_tac`memory_rel c F refs sp st mem _ _`
+      \\ qmatch_assum_abbrev_tac`memory_rel c F refs sp st mem' _ _`
+      \\ `mem = mem'`
+      by (
+        simp[Abbr`mem`,Abbr`mem'`,FUN_EQ_THM,APPLY_UPDATE_THM]
+        \\ rw[] \\ fs[bytes_in_word_def]
+        \\ fs[good_dimindex_def] \\ rfs[]
+        \\ pop_assum mp_tac \\ EVAL_TAC
+        \\ simp[dimword_def]
+        \\ simp[WORD_w2w_EXTRACT] )
+      \\ simp[] )
+    \\ reverse BasicProvers.CASE_TAC
+    >- (
+      qpat_abbrev_tac`prg = binop_CASE _ _ _ _ _ _`
+      \\ `prg = GiveUp`
+      by (
+        simp[Abbr`prg`]
+        \\ Cases_on`opw` \\ fs[]
+        \\ clean_tac \\ fs[] )
+      \\ qunabbrev_tac`prg` \\ pop_assum SUBST_ALL_TAC
+      \\ qmatch_goalsub_abbrev_tac`evaluate (GiveUp,tt)`
+      \\ `∃l1 l2 locs. state_rel c l1 l2 x tt [] locs`
+      by (
+        fs[state_rel_thm,Abbr`tt`,lookup_insert]
+        \\ asm_exists_tac
+        \\ fs[inter_insert_ODD_adjust_set_alt] )
+      \\ drule evaluate_GiveUp
+      \\ strip_tac \\ fs[] )
+    \\ eval_tac
+    \\ qmatch_goalsub_abbrev_tac`word_exp tt _`
+    \\ `tt.store = t.store` by simp[Abbr`tt`]
+    \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
+    by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+    \\ rfs[]
+    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
+    by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+    \\ rfs[]
+    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ qpat_abbrev_tac`sw = binop_CASE b _ _ _ _ _`
+    \\ `sw = SOME ((63 >< 32) w64)`
+    by (
+      simp[Abbr`sw`,Abbr`w64`]
+      \\ Cases_on`opw` \\ fs[]
+      \\ clean_tac \\ fs[WORD_EXTRACT_OVER_BITWISE] )
+    \\ qunabbrev_tac`sw` \\ pop_assum SUBST_ALL_TAC
+    \\ simp[lookup_insert,wordSemTheory.get_var_def,wordSemTheory.mem_store_def]
+    \\ fs[Word64Rep_def] \\ clean_tac
+    \\ fs[store_list_def]
+    \\ ntac 2 strip_tac
+    \\ qunabbrev_tac`tt`
+    \\ qmatch_goalsub_abbrev_tac`word_exp tt _`
+    \\ `tt.store = t.store` by simp[Abbr`tt`]
+    \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
+    by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+    \\ rfs[]
+    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
+    by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
+    \\ rfs[]
+    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ simp[APPLY_UPDATE_THM]
     \\ cheat)
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
