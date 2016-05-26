@@ -77,15 +77,14 @@ val _ = prove(``
   simp[Once (fetch "-" "compile_4_side_def")]>>
   Cases_on`es`>>fs[])|>update_precondition;
 
-(* goes through with side conditions *)
+(* goes through with side conditions,
+TODO: not sure why this has to be explicitly translated.. *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
 
-(*val _ = translate (clos_numberTheory.renumber_code_locs_def)
-val _ = translate (clos_to_bvlTheory.compile_def)*)
+val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
+val _ = translate (clos_removeTheory.remove_alt)
 
-(*
-continue here:
-have to translate w2i
+(*val _ = translate (clos_to_bvlTheory.compile_def)
 *)
 
 (* parsing: peg_exec and cmlPEG *)
