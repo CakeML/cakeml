@@ -2475,7 +2475,7 @@ val get_lowerbits_or_1 = prove(
   Cases_on `v` \\ fs [get_lowerbits_def]);
 
 val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
-  `memory_rel c be refs sp st m dm vars ∧
+  `memory_rel c be refs sp st m dm vars ∧ good_dimindex (:'a) ∧
    (Word64Rep (:'a) w64 : 'a ml_el) = DataElement [] (LENGTH ws) (Word64Tag,ws) ∧
    LENGTH ws < sp ∧
    encode_header c 3 (LENGTH ws) = SOME hd
@@ -2501,10 +2501,13 @@ val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
   \\ clean_tac
   \\ qpat_assum`_ (fun2set _)`mp_tac
   \\ ONCE_REWRITE_TAC[STAR_COMM]
-  \\ strip_tac
-  \\ drule word_heap_IMP_word_list_exists
-  \\ simp[heap_length_APPEND,Q.SPEC`Unused _::_`heap_length_def]
-  \\ simp[GSYM heap_length_def,el_length_def]
+  \\ ONCE_REWRITE_TAC[CONS_APPEND]
+  \\ simp[word_heap_APPEND]
+  \\ qmatch_goalsub_rename_tac`[Unused (ex - 1)]`
+  \\ qpat_abbrev_tac`hex = [Unused _]`
+  \\ `hex = heap_expand ex` by simp[Abbr`hex`,heap_expand_def]
+  \\ qunabbrev_tac`hex`
+  \\ simp[word_heap_heap_expand,heap_length_heap_expand]
   \\ qpat_abbrev_tac`len = LENGTH ws + 1`
   \\ simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,minus_lemma]
   \\ REWRITE_TAC[GSYM WORD_LEFT_ADD_DISTRIB,GSYM WORD_ADD_ASSOC]
@@ -2514,15 +2517,20 @@ val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
   \\ simp[n2w_sub]
   \\ REWRITE_TAC[WORD_SUB_INTRO]
   \\ asm_simp_tac std_ss [GSYM n2w_sub]
-  \\ qmatch_goalsub_abbrev_tac`word_list_exists curr x`
-  \\ `x = (a - len) + (len + heap_length hb)`
-  by ( simp[Abbr`a`,Abbr`x`])
-  \\ qunabbrev_tac`x`
-  \\ pop_assum SUBST_ALL_TAC
+  \\ `len ≤ ex` by simp[Abbr`len`]
+  \\ `ex = (ex - len) + len` by simp[]
+  \\ pop_assum SUBST1_TAC
   \\ REWRITE_TAC[word_list_exists_ADD]
-  \\ simp[STAR_ASSOC]
-  \\ CONV_TAC(LAND_CONV(RATOR_CONV(LAND_CONV(REWR_CONV STAR_COMM))))
+  \\ qmatch_goalsub_abbrev_tac`word_list_exists x len`
+  \\ qmatch_goalsub_abbrev_tac`store_list y`
+  \\ `x = y`
+  by (
+    simp[Abbr`x`,Abbr`y`,n2w_sub,WORD_LEFT_ADD_DISTRIB,Abbr`a`,GSYM word_add_n2w] )
+  \\ qunabbrev_tac`x` \\ pop_assum SUBST_ALL_TAC
   \\ simp[GSYM STAR_ASSOC]
+  \\ CONV_TAC(LAND_CONV(RATOR_CONV(RAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV STAR_COMM))))))
+  \\ simp[STAR_ASSOC]
+  \\ CONV_TAC(LAND_CONV(RATOR_CONV(REWR_CONV STAR_COMM)))
   \\ strip_tac
   \\ `len = LENGTH (Word hd::ws)` by simp[Abbr`len`]
   \\ qunabbrev_tac `len` \\ pop_assum SUBST_ALL_TAC
@@ -2532,9 +2540,19 @@ val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
   \\ clean_tac
   \\ reverse conj_tac
   >- (
-    simp[word_addr_def,make_ptr_def,get_addr_def,get_lowerbits_def]
-    \\ cheat (* word proof *) )
-  \\ cheat);
+    simp[word_addr_def,make_ptr_def,get_addr_def,
+         get_lowerbits_def,bytes_in_word_mul_eq_shift])
+  \\ pop_assum mp_tac
+  \\ simp[word_heap_APPEND,heap_length_APPEND,
+          heap_length_heap_expand,word_heap_heap_expand]
+  \\ simp[AC STAR_ASSOC STAR_COMM]
+  \\ simp[word_list_def,word_heap_def,SEP_CLAUSES]
+  \\ simp[word_el_def,word_payload_def]
+  \\ imp_res_tac encode_header_IMP
+  \\ fs[encode_header_def,SEP_CLAUSES]
+  \\ simp[word_list_def]
+  \\ simp[Q.SPEC`[_]`heap_length_def,el_length_def,ADD1]
+  \\ simp[AC STAR_ASSOC STAR_COMM]);
 
 val memory_rel_Cons = store_thm("memory_rel_Cons",
   ``memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
