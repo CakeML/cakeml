@@ -23,9 +23,10 @@ val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
                       nchotomy = TypeBase.nchotomy_of ``:val_approx``}
 val result_ty = ``:(α,β)semanticPrimitives$result``
+val result_CASES = TypeBase.nchotomy_of result_ty
 val result_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of result_ty,
-                      nchotomy = TypeBase.nchotomy_of result_ty}
+                      nchotomy = result_CASES}
 val error_ty = ``:α semanticPrimitives$error_result``
 val error_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of error_ty,
@@ -321,7 +322,7 @@ val val_approx_val_def = tDefine "val_approx_val" `
      (∃e2 b. v = Closure (SOME m) [] e2 n b) ∨
      (∃base env fs j.
         v = Recclosure (SOME base) [] env fs j ∧
-        m = base + j ∧
+        m = base + j ∧ j < LENGTH fs ∧
         n = FST (EL j fs))) ∧
   (val_approx_val (Tuple vas) v ⇔
     ∃n vs. v = Block n vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
@@ -1268,13 +1269,74 @@ val kca_sing_sga =
       |> Q.SPECL [`[e]`, `as`, `g0`, `[(e',a)]`, `g`]
       |> SIMP_RULE (srw_ss()) [PULL_FORALL]
       |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL
+
+val ssgc_free_preserved_SING' = Q.store_thm(
+  "ssgc_free_preserved_SING'",
+  `esgc_free e1 ∧ ssgc_free s0 ∧
+   EVERY vsgc_free env ∧ evaluate([e1],env,s0) = (res,s) ⇒ ssgc_free s`,
+  rpt strip_tac >>
+  `EVERY esgc_free [e1]` by simp[] >>
+  metis_tac[ssgc_evaluate]);
+
 val say = say0 "known_correct";
-val nailIH =
-    first_assum (fn lr => first_assum (fn knwnth => first_assum (fn sga =>
-      first_x_assum (mp_tac o C MATCH_MP (CONJ lr (CONJ sga knwnth))))))
+
+fun nailIHx k = let
+  fun hdt t = (t |> lhs |> strip_comb |> #1)
+              handle HOL_ERR _ => t |> strip_comb |> #1
+  fun sameish t1 t2 = aconv t1 t2 orelse same_const t1 t2
+  fun samehd t1 th2 = sameish (hdt t1) (hdt (concl th2))
+  fun findcs [] a k = raise Fail "strip_conj gave empty list"
+    | findcs [c] a k =
+      first_assum
+        (fn th => k (LIST_CONJ (List.rev (assert (samehd c) th :: a))))
+    | findcs (c::cs) a k =
+      first_assum (fn th => findcs cs (assert (samehd c) th :: a) k)
+in
+  first_x_assum
+    (fn th0 =>
+        let val body = th0 |> concl |> strip_forall |> #2
+            val hyp = #1 (dest_imp body)
+            val cs = strip_conj hyp
+        in
+          findcs cs [] (k o MATCH_MP th0)
+        end)
+end
+
+fun avSPEC_ALL avds th =
+  let
+    fun recurse avds acc th =
+      case Lib.total dest_forall (concl th) of
+          SOME (v,bod) =>
+          let
+            val v' = variant avds v
+          in
+            recurse (v'::avds) (v'::acc) (SPEC v' th)
+          end
+        | NONE => (List.rev acc, th)
+  in
+    recurse avds [] th
+  end
+
+fun PART_MATCH' f th t =
+  let
+    val (vs, bod) = strip_forall (concl th)
+    val hypfvs_set = hyp_frees th
+    val hypfvs = HOLset.listItems hypfvs_set
+    val tfvs = free_vars t
+    val dontspec = union tfvs hypfvs
+    val ((tmsig,_),_) = raw_match [] hypfvs_set (f bod) t ([],[])
+    val dontgen = union (map #redex tmsig) dontspec
+    val (vs, speccedth) = avSPEC_ALL dontspec th
+  in
+    GENL (set_diff vs dontgen) (INST tmsig speccedth)
+  end
+
+fun asmPART_MATCH' f th t =
+    PART_MATCH' (f o strip_conj o #1 o dest_imp) th t
+
 fun sel_ihpc f =
     first_assum (fn asm => first_x_assum (fn ih =>
-      mp_tac (PART_MATCH (f o strip_conj o #1 o dest_imp) ih (concl asm))))
+      mp_tac (asmPART_MATCH' f ih (concl asm))))
 
 val evaluate_app_NONE_SOME = Q.store_thm(
   "evaluate_app_NONE_SOME",
@@ -1292,14 +1354,149 @@ val evaluate_app_NONE_SOME = Q.store_thm(
   rpt (pairarg_tac >> fs[]) >> rveq >>
   fs[check_loc_def, revdroprev, revtakerev]);
 
+val _ = new_constant("kvrel", ``:closSem$v -> closSem$v -> bool``)
+
+val kvrel_def = tDefine "kvrel" `
+  (kvrel (Number i) v ⇔ v = Number i) ∧
+  (kvrel (Word64 w) v ⇔ v = Word64 w) ∧
+  (kvrel (Block n vs) v ⇔ ∃vs'. v = Block n vs' ∧ LIST_REL kvrel vs vs') ∧
+  (kvrel (RefPtr n) v ⇔ v = RefPtr n) ∧
+  (kvrel (Closure lopt vs1 vs2 n bod) v ⇔
+     ∃vs1' vs2' bod'.
+       LIST_REL kvrel vs1 vs1' ∧ LIST_REL kvrel vs2 vs2' ∧
+       set_globals bod = set_globals bod' ∧ v = Closure lopt vs1' vs2' n bod') ∧
+  (kvrel (Recclosure lopt vs1 vs2 fns i) v ⇔
+     ∃vs1' vs2' fns'.
+       LIST_REL kvrel vs1 vs1' ∧ LIST_REL kvrel vs2 vs2' ∧
+       LIST_REL (λ(n1,e1) (n2,e2). n1 = n2 ∧ set_globals e1 = set_globals e2)
+                fns fns' ∧
+        v = Recclosure lopt vs1' vs2' fns' i)
+` (WF_REL_TAC `measure (v_size o FST)` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[])
+val kvrel_ind = theorem "kvrel_ind"
+val kvrel_def = save_thm(
+  "kvrel_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] kvrel_def)
+
+(* necessary kvrel *)
+val kvrel_vsgc_free = Q.store_thm(
+  "kvrel_vsgc_free",
+  `∀v1 v2. kvrel v1 v2 ⇒ (vsgc_free v1 ⇔ vsgc_free v2)`,
+  ho_match_mp_tac kvrel_ind >> simp[] >> rpt strip_tac
+  >- (fs[EVERY_MEM, LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
+  >- (fs[EVERY_MEM, LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
+  >- (fs[EVERY_MEM, LIST_REL_EL_EQN, elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS,
+         FORALL_PROD]>>
+      EQ_TAC >> rpt strip_tac
+      >- (imp_res_tac (MEM_EL |> SPEC_ALL |> EQ_IMP_RULE |> #1 |> GSYM) >>
+          qcase_tac `m < LENGTH fns'` >>
+          Cases_on `EL m fns` >> fs[] >>
+          first_x_assum (qspec_then `m` mp_tac) >> simp[] >> metis_tac[MEM_EL])
+      >- metis_tac[MEM_EL]
+      >- metis_tac[MEM_EL]
+      >- (imp_res_tac (MEM_EL |> SPEC_ALL |> EQ_IMP_RULE |> #1 |> GSYM) >>
+          qcase_tac `m < LENGTH fns` >>
+          Cases_on `EL m fns'` >> fs[] >>
+          first_x_assum (qspec_then `m` mp_tac) >> simp[] >> metis_tac[MEM_EL])
+      >- metis_tac[MEM_EL]
+      >- metis_tac[MEM_EL]))
+
+val kvrel_Boolv = Q.store_thm(
+  "kvrel_Boolv[simp]",
+  `(kvrel (Boolv b) v ⇔ v = Boolv b) ∧
+   (kvrel v (Boolv b) ⇔ v = Boolv b)`,
+  simp[closSemTheory.Boolv_def] >> Cases_on `v` >> simp[] >> metis_tac[]);
+
+val kvrel_EVERY_vsgc_free = Q.store_thm(
+  "kvrel_EVERY_vsgc_free",
+  `∀vs1 vs2.
+     LIST_REL kvrel vs1 vs2 ⇒ (EVERY vsgc_free vs1 ⇔ EVERY vsgc_free vs2)`,
+  Induct_on `LIST_REL` >> simp[] >> metis_tac[kvrel_vsgc_free]);
+
+(* necessary kvrel *)
+val kvrel_val_approx = Q.store_thm(
+  "kvrel_val_approx",
+  `∀v1 v2. kvrel v1 v2 ⇒ ∀a. val_approx_val a v1 ⇔ val_approx_val a v2`,
+  ho_match_mp_tac kvrel_ind >> rw[]
+  >- (Cases_on `a` >> simp[] >> fs[LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
+  >- (Cases_on `a` >> simp[] >> fs[LIST_REL_EL_EQN] >> metis_tac[LENGTH_NIL])
+  >- (Cases_on `a` >> fs[LIST_REL_EL_EQN] >> qcase_tac `lopt = SOME _` >>
+      Cases_on `lopt` >> simp[] >> qcase_tac `EL j` >>
+      qcase_tac `j < LENGTH fns2` >> Cases_on `j < LENGTH fns2` >> simp[] >>
+      qcase_tac `vvs = []` >> reverse (Cases_on `vvs`)
+      >- (simp[] >> qcase_tac `vvs' = []` >> Cases_on `vvs'` >> fs[]) >>
+      fs[LENGTH_NIL, LENGTH_NIL_SYM] >> rfs[] >> res_tac >>
+      fs[UNCURRY]))
+
+val kvrel_LIST_REL_val_approx = Q.store_thm(
+  "kvrel_LIST_REL_val_approx",
+  `∀vs1 vs2.
+      LIST_REL kvrel vs1 vs2 ⇒
+      ∀as. LIST_REL val_approx_val as vs1 ⇔ LIST_REL val_approx_val as vs2`,
+  Induct_on `LIST_REL` >> simp[] >> metis_tac[kvrel_val_approx]);
+
+val ksrel_def = Define`
+  ksrel (s1:'a closSem$state) (s2:'a closSem$state) ⇔
+     (∀g. state_globals_approx s1 g ⇔ state_globals_approx s2 g) ∧
+     (ssgc_free s1 ⇔ ssgc_free s2)
+`;
+
+(* ksrel necessary *)
+val ksrel_sga = Q.store_thm(
+  "ksrel_sga",
+  `ksrel s1 s2 ⇒ (state_globals_approx s1 g ⇔ state_globals_approx s2 g)`,
+  simp[ksrel_def]);
+
+(* ksrel necessary *)
+val ksrel_ssgc_free = Q.store_thm(
+  "ksrel_ssgc_free",
+  `ksrel s1 s2 ⇒ (ssgc_free s1 ⇔ ssgc_free s2)`,
+  simp[ksrel_def]);
+
+val krrel_def = Define`
+  (krrel (Rval vs1, s1) r ⇔
+      ∃s2 vs2. r = (Rval vs2,s2) ∧ LIST_REL kvrel vs1 vs2 ∧ ksrel s1 s2) ∧
+  (krrel (Rerr (Rabort Rtype_error), _) _ ⇔ T) ∧
+  (krrel (Rerr (Rabort Rtimeout_error), s1) (Rerr e, s2) ⇔
+     e = Rabort Rtimeout_error ∧ ksrel s1 s2) ∧
+  (krrel (Rerr (Rraise v1), s1) (Rerr (Rraise v2), s2) ⇔
+     kvrel v1 v2 ∧ ksrel s1 s2) ∧
+  (krrel _ _ ⇔ F)
+`;
+val _ = export_rewrites ["krrel_def"]
+
+val krrel_errval = Q.store_thm(
+  "krrel_errval[simp]",
+  `(krrel (Rerr e, s1) (Rval vs, s2) ⇔ e = Rabort Rtype_error)`,
+  Cases_on `e` >> simp[] >> qcase_tac `Rabort a` >> Cases_on `a` >> simp[]);
+
+val krrel_err_rw = Q.store_thm(
+  "krrel_err_rw",
+  `krrel (Rerr e, s1) r ⇔
+      e = Rabort Rtype_error ∨
+      (∃s2. e = Rabort Rtimeout_error ∧ r = (Rerr (Rabort Rtimeout_error), s2) ∧
+            ksrel s1 s2) ∨
+      (∃v1 v2 s2.
+            e = Rraise v1 ∧ r = (Rerr (Rraise v2),s2) ∧ kvrel v1 v2 ∧
+            ksrel s1 s2)`,
+  Cases_on `e` >> simp[] >> Cases_on `r` >> simp[]
+  >- (qcase_tac `krrel _ (r2, s2)` >> Cases_on `r2` >> simp[] >>
+      qcase_tac `krrel _ (Rerr e,_)` >> Cases_on `e` >> simp[])
+  >- (qcase_tac `Rabort abt` >> Cases_on `abt` >> simp[] >>
+      qcase_tac `krrel _ (r2,s2)` >> Cases_on `r2` >> simp[]));
+
+(*
 val known_correct0 = Q.prove(
-  `(∀a es env (s0:α closSem$state) res s g0 g as ealist.
-      a = (es,env,s0) ∧ evaluate (es, env, s0) = (res, s) ∧ EVERY esgc_free es ∧
-      LIST_REL val_approx_val as env ∧ EVERY vsgc_free env ∧
-      state_globals_approx s0 g0 ∧
-      ssgc_free s0 ∧ known es as g0 = (ealist, g) ∧
-      res ≠ Rerr (Rabort Rtype_error) ⇒
-      evaluate(MAP FST ealist, env, s0) = (res, s)) ∧
+  `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g as ealist.
+      a = (es,env1,s01) ∧ evaluate (es, env1, s01) = (res1, s1) ∧
+      EVERY esgc_free es ∧
+      LIST_REL val_approx_val as env1 ∧ EVERY vsgc_free env1 ∧
+      LIST_REL kvrel env1 env2 ∧ ksrel s01 s02 ∧
+      state_globals_approx s01 g0 ∧
+      ssgc_free s01 ∧ known es as g0 = (ealist, g) ⇒
+      ∃res2 s2.
+        evaluate(MAP FST ealist, env2, s02) = (res2, s2) ∧
+        krrel (res1,s1) (res2,s2)) ∧
    (∀lopt f args (s0:α closSem$state) res s.
       evaluate_app lopt f args s0 = (res,s) ∧ EVERY vsgc_free args ⇒ T)`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac
@@ -1308,29 +1505,55 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, known_def, pair_case_eq,
            result_case_eq] >>
       rpt strip_tac >> rveq >> rpt (pairarg_tac >> fs[]) >> rveq >> simp[] >>
-      nailIH
+      nailIHx strip_assume_tac
       >- (imp_res_tac evaluate_SING >> rveq >> fs[] >>
-          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
-          simp[Once evaluate_CONS, pair_case_eq, result_case_eq] >>
-          first_x_assum irule >>
-          metis_tac[kca_sing_sga, ssgc_free_preserved_SING])
+          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
+          simp[Once evaluate_CONS, pair_case_eq, result_case_eq, PULL_EXISTS] >>
+          sel_ihpc last >> simp[PULL_EXISTS] >>
+          disch_then irule >> simp[]
+          >- metis_tac[ssgc_free_preserved_SING']
+          >- (qpat_assum `known [_] _ _ = _`
+                 (mp_tac o MATCH_MP (GEN_ALL kca_sing_sga)) >> simp[] >>
+              strip_tac >> sel_ihpc last >> reverse impl_tac
+              >- metis_tac[ksrel_sga] >> simp[] >> rpt strip_tac
+              >- metis_tac[kvrel_LIST_REL_val_approx]
+              >- metis_tac[ksrel_sga]
+              >- metis_tac[ksrel_ssgc_free]
+              >- metis_tac[kvrel_EVERY_vsgc_free]))
       >- (imp_res_tac evaluate_SING >> rveq >> fs[] >>
-          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
+          imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
+          simp[Once evaluate_CONS, pair_case_eq, result_case_eq, PULL_EXISTS] >>
+          dsimp[] >> sel_ihpc last >> simp[] >>
+          strip_tac >> sel_ihpc hd >> simp[] >> strip_tac >> sel_ihpc hd >>
+          impl_tac
+          >- (simp[] >> reverse conj_tac
+              >- metis_tac[ssgc_free_preserved_SING']
+              >- (qpat_assum `known [_] _ _ = _`
+                 (mp_tac o MATCH_MP (GEN_ALL kca_sing_sga)) >> simp[] >>
+                 strip_tac >> sel_ihpc last >> reverse impl_tac
+                 >- metis_tac[ksrel_sga] >> simp[] >> rpt strip_tac
+                 >- metis_tac[kvrel_LIST_REL_val_approx]
+                 >- metis_tac[ksrel_sga]
+                 >- metis_tac[ksrel_ssgc_free]
+                 >- metis_tac[kvrel_EVERY_vsgc_free])) >>
+          strip_tac >> simp[] >> fs[krrel_err_rw] >>
+          metis_tac[result_CASES])
+      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
           simp[Once evaluate_CONS, pair_case_eq, result_case_eq] >>
-          first_x_assum irule >>
-          metis_tac[ssgc_free_preserved_SING, kca_sing_sga])
-      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> strip_tac >>
-          simp[Once evaluate_CONS]))
+          dsimp[] >> fs[krrel_err_rw] >>
+          metis_tac[result_CASES, pair_CASES]))
   >- (say "var" >>
-      simp[evaluate_def, bool_case_eq, known_def] >> csimp[])
+      simp[evaluate_def, bool_case_eq, known_def] >>
+      rpt strip_tac >> fs[LIST_REL_EL_EQN])
   >- (say "if" >>
       simp[evaluate_def, pair_case_eq, bool_case_eq,
            result_case_eq, known_def] >> rpt strip_tac >> rveq >> fs[] >>
-      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> fixeqs >> nailIH
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> fixeqs >>
+      nailIHx strip_assume_tac
       >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-          imp_res_tac evaluate_SING >> rveq >> fs[] >> rveq >> strip_tac >>
-          simp[evaluate_def] >> sel_ihpc last >> simp[] >>
-          disch_then irule >- metis_tac[ssgc_free_preserved_SING] >>
+          imp_res_tac evaluate_SING >> rveq >> fs[] >> rveq >>
+          simp[evaluate_def] >> sel_ihpc last >> simp[] >> fs[] >>
+          disch_then irule >> simp[] >- metis_tac[ssgc_free_preserved_SING'] >>
           metis_tac[kca_sing_sga])
       >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
           imp_res_tac evaluate_SING >> rveq >> fs[] >> rveq >> strip_tac >>
@@ -1426,6 +1649,6 @@ val known_correct0 = Q.prove(
 val known_correct = save_thm(
   "known_correct",
   known_correct0 |> SIMP_RULE (srw_ss()) []);
-
+*)
 
 val _ = export_theory();
