@@ -930,14 +930,6 @@ val curried_naryClosure = Q.prove (
   )
 )
 
-val curried_Closure = Q.prove (
-  `!env n body. curried (:'ffi) 1 (Closure env n body)`,
-  rpt strip_tac \\
-  once_rewrite_tac [Q.prove(`Closure env n body = naryClosure env [n] body`,
-                            fs [naryClosure_def, naryFun_def])] \\
-  irule curried_naryClosure \\ fs []
-)
-
 val cf_lit_def = Define `
   cf_lit l = local (\env H Q. SEP_IMP H (Q (Litv l)))`
 
@@ -1409,36 +1401,20 @@ val cf_sound = Q.prove (
         cf_strip_sound_tac *)
       drule is_bound_Fun_unfold \\ strip_tac \\ fs [Fun_body_def] \\
       BasicProvers.TOP_CASE_TAC \\ cf_strip_sound_tac \\
-      (* Simplify, since we know opt = SOME _ *)
+      (* Instantiate the hypothesis with the closure *) 
+      qcase_tac `(case Fun_body _ of _ => _) = SOME inner_body` \\
+      (fn tm => first_x_assum (qspec_then tm mp_tac))
+        `naryClosure env (Fun_params (Fun n body)) inner_body` \\
+      impl_tac \\ strip_tac
+      THEN1 (irule curried_naryClosure \\ fs [Fun_params_def])
+      THEN1 (fs [Fun_params_def, app_of_sound_cf]) \\
+      qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
+      rpt (disch_then drule) \\ strip_tac \\ cf_evaluate_step_tac \\
       Cases_on `opt` \\ fs [is_bound_Fun_def, SOME_val_def, Fun_params_def] \\
-      (* Case split on Fun_body *)
-      qpat_assum `(case Fun_body _ of NONE => _ | SOME_ => _) = _` mp_tac \\
-      every_case_tac \\ disch_then (assume_tac o GSYM)
-      THEN1 (
-        (* 1 parameter *)
-        fs [Fun_params_Fun_body_NONE] \\ qcase_tac `Fun n body` \\
-        first_x_assum (qspec_then `Closure env n body` mp_tac) \\
-        qspec_then `[n]` assume_tac app_of_sound_cf \\
-        fs [naryClosure_def, naryFun_def, curried_Closure] \\ strip_tac \\
-        qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
-        disch_then (mp_tac o Q.SPEC `st`) \\ rpt (disch_then drule) \\
-        strip_tac \\ cf_evaluate_step_tac \\ instantiate \\
-        fs [Once bigStepTheory.evaluate_cases]
-      )
-      THEN1 (
-        (* 2+ parameters *)
-        qcase_tac `Fun n body` \\ qcase_tac `Fun_body body = SOME body'` \\
-        (fn tm => first_x_assum (qspec_then tm mp_tac))
-          `naryClosure env (n::Fun_params body) body'` \\
-        impl_tac \\ strip_tac
-        THEN1 (irule curried_naryClosure \\ fs [])
-        THEN1 (fs [app_of_sound_cf]) \\
-        qpat_assum `sound _ e2 _` (drule o REWRITE_RULE [sound_def]) \\
-        disch_then (mp_tac o Q.SPEC `st`) \\ rpt (disch_then drule) \\
-        strip_tac \\ cf_evaluate_step_tac \\ instantiate \\
-        fs [naryClosure_def, Fun_params_Fun_body_repack] \\
-        fs [Once bigStepTheory.evaluate_cases]
-      )
+      instantiate \\
+      every_case_tac \\ qpat_assum `_ = inner_body` (assume_tac o GSYM) \\
+      fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE,
+          Fun_params_Fun_body_repack, Once bigStepTheory.evaluate_cases]
     )
     THEN1 (
       (* other cases of let-binding *)
