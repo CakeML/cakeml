@@ -845,29 +845,9 @@ val exp2v_list_LENGTH = Q.prove (
 (* CF *)
 
 val extend_env_def = Define `
-  extend_env ns vs env =
-    case ns of
-     | [] =>
-       (case vs of
-          | [] => SOME env
-          | _ => NONE)
-     | n::ns =>
-       (case vs of
-          | v::vs =>
-            extend_env ns vs (env with v := (n, v)::env.v)
-          | _ => NONE)`
-
-val extend_env_LENGTH = Q.prove (
-  `!ns vs env env'.
-     extend_env ns vs env = SOME env' ==>
-     LENGTH ns = LENGTH vs`,
-  Induct \\ rpt gen_tac
-  THEN1 (fs [extend_env_def] \\ every_case_tac \\ fs [LENGTH])
-  THEN1 (
-    fs [LENGTH] \\ once_rewrite_tac [extend_env_def] \\ fs [] \\
-    every_case_tac \\ strip_tac \\ last_assum drule \\ fs [LENGTH]
-  )
-)
+  extend_env [] [] env = env /\
+  extend_env (n::ns) (xv::xvs) env =
+    extend_env ns xvs (env with v := (n,xv)::env.v)`
 
 val naryFun_def = Define `
   naryFun [] body = body /\
@@ -975,9 +955,9 @@ val cf_fundecl_def = Define `
   cf_fundecl (:'ffi) f ns F1 F2 = local (\env H Q.
     !fv.
       curried (:'ffi) (LENGTH ns) fv /\
-      (!xvs env' H' Q'.
-        extend_env ns xvs env = SOME env' ==>
-        F1 env' H' Q' ==>
+      (!xvs H' Q'.
+        LENGTH xvs = LENGTH ns ==>
+        F1 (extend_env ns xvs env) H' Q' ==>
         app (:'ffi) fv xvs H' Q')
       ==>
       F2 (env with v := (f, fv)::env.v) H Q)`
@@ -1280,32 +1260,29 @@ val app_basic_of_sound_cf = Q.prove (
 )
 
 val app_of_sound_cf = Q.prove (
-  `!ns env body xvs env' H Q.
+  `!ns xvs env body H Q.
      ns <> [] ==>
-     extend_env ns xvs env = SOME env' ==>
+     LENGTH ns = LENGTH xvs ==>
      sound (:'ffi) body (cf (:'ffi) body) ==>
-     cf (:'ffi) body env' H Q ==>
+     cf (:'ffi) body (extend_env ns xvs env) H Q ==>
      app (:'ffi) (naryClosure env ns body) xvs H Q`,
-  Induct \\ rpt strip_tac \\ fs [naryClosure_def] \\
-  drule extend_env_LENGTH \\ disch_then (assume_tac o GSYM) \\
-  qcase_tac `extend_env (n::ns) _ _ = SOME _` \\ Cases_on `ns`
 
+  Induct \\ rpt strip_tac \\ fs [naryClosure_def] \\
+  fs [LENGTH_CONS] \\ rw [] \\ qcase_tac `extend_env (n::ns) (xv::xvs) _` \\
+  Cases_on `ns` \\
+  rfs [LENGTH_NIL, LENGTH_CONS, extend_env_def, naryFun_def, app_def]
   THEN1 (
-    Cases_on `xvs` \\
-    fs [naryFun_def, LENGTH_NIL, extend_env_def, app_def,
-        app_basic_of_sound_cf, semanticPrimitivesTheory.do_opapp_def]
+    irule app_basic_of_sound_cf \\
+    fs [semanticPrimitivesTheory.do_opapp_def]
   )
   THEN1 (
-    Cases_on `xvs` \\ fs [] \\ qpat_assum `extend_env _ _ _ = SOME _` mp_tac \\
-    rewrite_tac [Once extend_env_def] \\ fs [] \\ strip_tac \\
-    qcase_tac `extend_env (m::ns) xvs (env with v := (n,xv)::env.v) = SOME _` \\
-    Cases_on `xvs` \\ fs [] \\ fs [app_def, app_basic_def] \\ rpt strip_tac \\
+    rw [] \\ fs [] \\ qcase_tac `extend_env (n'::ns) (xv'::xvs) _` \\
+    fs [app_basic_def] \\ rpt strip_tac \\
     fs [semanticPrimitivesTheory.do_opapp_def] \\
     fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS] \\
     fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h' = h)`, SPLIT_TAC)] \\
-    `SPLIT3 (st2heap (:'ffi) st) (h', {}, i)` by SPLIT_TAC \\
-    first_assum drule \\ rpt (disch_then drule) \\ strip_tac \\
-    rpt (asm_exists_tac \\ fs []) \\
+    `SPLIT3 (st2heap (:'ffi) st) (h, {}, i)` by SPLIT_TAC \\ instantiate \\
+    first_assum drule \\ rpt (disch_then drule) \\ strip_tac \\ instantiate \\
     fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases]
   )
 )
@@ -1686,8 +1663,8 @@ val app_basic_of_cf = Q.prove (
 val app_of_cf = Q.prove (
   `!ns env body xvs env' H Q.
      ns <> [] ==>
-     extend_env ns xvs env = SOME env' ==>
-     cf (:'ffi) body env' H Q ==>
+     LENGTH xvs = LENGTH ns ==>
+     cf (:'ffi) body (extend_env ns xvs env) H Q ==>
      app (:'ffi) (naryClosure env ns body) xvs H Q`,
   fs [app_of_sound_cf, cf_sound]
 )
