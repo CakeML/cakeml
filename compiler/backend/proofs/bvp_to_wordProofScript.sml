@@ -3935,8 +3935,38 @@ val assign_thm = Q.prove(
     by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
     \\ rfs[]
     \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
-    \\ simp[APPLY_UPDATE_THM]
-    \\ cheat)
+    \\ qpat_abbrev_tac`sw = binop_CASE b _ _ _ _ _`
+    \\ `sw = SOME ((31 >< 0) w64)`
+    by (
+      simp[Abbr`sw`,Abbr`w64`]
+      \\ Cases_on`opw` \\ fs[]
+      \\ clean_tac \\ fs[WORD_EXTRACT_OVER_BITWISE] )
+    \\ qunabbrev_tac`sw` \\ pop_assum SUBST_ALL_TAC
+    \\ simp[lookup_insert,wordSemTheory.get_var_def,wordSemTheory.mem_store_def]
+    \\ simp[WORD_MUL_LSL,lookup_insert,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+    \\ ntac 2 strip_tac
+    \\ fs[consume_space_def] \\ clean_tac \\ fs[]
+    \\ conj_tac >- rw[]
+    \\ fs[inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ fs[make_ptr_def,FAPPLY_FUPDATE_THM]
+    \\ qmatch_abbrev_tac`memory_rel c F refs sp st mem _ ((_,w1)::_)`
+    \\ qmatch_assum_abbrev_tac`memory_rel c F refs sp st mem' _ ((_,w2)::_)`
+    \\ `mem = mem'`
+    by (
+      simp[Abbr`mem`,Abbr`mem'`,FUN_EQ_THM,APPLY_UPDATE_THM]
+      \\ rw[] \\ fs[bytes_in_word_def]
+      \\ fs[good_dimindex_def] \\ rfs[]
+      \\ pop_assum mp_tac \\ EVAL_TAC
+      \\ simp[dimword_def]
+      \\ simp[WORD_w2w_EXTRACT]
+      \\ pop_assum mp_tac \\ EVAL_TAC
+      \\ simp[dimword_def]
+      \\ simp[WORD_w2w_EXTRACT])
+    \\ `w1 = w2`
+    by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
+    \\ simp[] )
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac

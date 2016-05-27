@@ -327,32 +327,30 @@ val assign_def = Define `
           | SOME (header:'a word) => (list_Seq [
                 Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * n2w (len+1))]);
                 if len = 1 then
-                 Seq
-                   (Assign 3
-                      (Op (case opw of Andw => And
-                                     | Orw => Or
-                                     | Xor => Xor
-                                     | Add => Add
-                                     | Sub => Sub)
-                        [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
-                         Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]))
-                   (Store (Op Add [Var 1; Const bytes_in_word]) 3)
+                  (Assign 3
+                     (Op (case opw of Andw => And
+                                    | Orw => Or
+                                    | Xor => Xor
+                                    | Add => Add
+                                    | Sub => Sub)
+                       [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
+                        Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]))
                 else
                 (case lookup_word_op opw of
                  | Bitwise op => list_Seq [
                      Assign 3 (Op op
                       [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
                        Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]);
-                     Store (Op Add [Var 1; Const bytes_in_word]) 3;
-                     Assign 3 (Op op
+                     Assign 5 (Op op
                        [Load (Op Add [real_addr c (adjust_var v1); Const (bytes_in_word <<1)]);
                         Load (Op Add [real_addr c (adjust_var v2); Const (bytes_in_word <<1)])]);
-                     Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 3]
+                     Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 5]
                  | Carried Add => GiveUp (* TODO: implement *)
                  | Carried Sub => GiveUp (* TODO: implement *));
-                Set EndOfHeap (Var 1);
+                Store (Op Add [Var 1; Const bytes_in_word]) 3;
                 Assign 3 (Const header);
                 Store (Var 1) 3;
+                Set EndOfHeap (Var 1);
                 Assign (adjust_var dest)
                   (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                             (Nat (shift_length c − shift (:'a)));
