@@ -4063,7 +4063,25 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [])
-  \\ Cases_on `op = DerefByte` \\ fs[] THEN1 cheat
+  \\ Cases_on `op = DerefByte` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+    \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+    \\ imp_res_tac get_vars_2_IMP
+    \\ fs[bviPropsTheory.bvl_to_bvi_id]
+    \\ fs[state_rel_thm,set_var_def]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP )
+    \\ strip_tac
+    \\ fs[get_vars_def]
+    \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP
+    \\ strip_tac \\ clean_tac
+    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ simp[assign_def,list_Seq_def] \\ eval_tac
+    \\ cheat)
   \\ Cases_on `op = El` \\ fs [] \\ fs [] \\ clean_tac THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
