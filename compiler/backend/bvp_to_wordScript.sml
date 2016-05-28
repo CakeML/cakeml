@@ -91,6 +91,11 @@ val real_offset_def = Define `
      Op Add [Const bytes_in_word;
              if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)]`
 
+val real_byte_offset_def = Define`
+  real_byte_offset r : 'a wordLang$exp =
+    Op Add [Const bytes_in_word;
+            Shift Lsr (Var r) (Nat 2)]`;
+
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2)``)
 
@@ -132,6 +137,16 @@ val assign_def = Define `
                             (Load (Op Add [real_addr c (adjust_var v1);
                                            real_offset c (adjust_var v2)])),l)
              | _ => (Skip,l))
+    | DerefByte =>
+      (case args of
+       | [v1;v2] =>
+         (list_Seq [
+            Assign 1 (Op Add [real_addr c (adjust_var v1);
+                              real_byte_offset (adjust_var v2)]);
+            Inst (Mem Load8 3 (Addr 1 0w));
+            Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2))
+          ], l)
+       | _ => (Skip,l))
     | Update => (case args of
              | [v1;v2;v3] =>
                  (Seq (Store (Op Add [real_addr c (adjust_var v1);
@@ -365,7 +380,7 @@ val assign_def = Define `
         let len = Shift Lsr header (Nat k) in
         (list_Seq [
           Assign 1 (Op Add [addr; Const bytes_in_word]);
-          Assign 3 (Op Sub [Shift Lsl len (Nat 2); Const bytes_in_word]);
+          Assign 3 (Shift Lsl (Op Sub [len; Const bytes_in_word]) (Nat 2));
           FFI ffi_index 1 3 (case names of SOME names => adjust_set names | NONE => LN)]
         , l)
        | _ => (GiveUp,l))
