@@ -4277,6 +4277,7 @@ val assign_thm = Q.prove(
     \\ fs [] \\ rpt strip_tac
     \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs [])
+  \\ Cases_on `∃n. op = FFI n` \\ fs[] THEN1 cheat
   \\ Cases_on `op = ToList` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])

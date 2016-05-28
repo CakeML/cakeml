@@ -356,6 +356,19 @@ val assign_def = Define `
                             (Nat (shift_length c − shift (:'a)));
                           Const 1w])], l))
        | _ => (Skip,l))
+    | FFI ffi_index =>
+      (case args of
+       | [v] =>
+        let addr = real_addr c (adjust_var v) in
+        let header = Load addr in
+        let k = dimindex(:'a) - shift(:'a) - c.len_size in
+        let len = Shift Lsr header (Nat k) in
+        (list_Seq [
+          Assign 1 (Op Add [addr; Const bytes_in_word]);
+          Assign 3 (Op Sub [Shift Lsl len (Nat 2); Const bytes_in_word]);
+          FFI ffi_index 1 3 (case names of SOME names => adjust_set names | NONE => LN)]
+        , l)
+       | _ => (GiveUp,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
