@@ -1771,8 +1771,8 @@ val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 val make_byte_header_def = Define `
   make_byte_header conf len =
     (if dimindex (:'a) = 32
-     then n2w (len + 4) << (dimindex (:α) - 2 - conf.len_size) || 31w
-     else n2w (len + 8) << (dimindex (:α) - 3 - conf.len_size) || 31w):'a word`
+     then n2w (len + 3) << (dimindex (:α) - 2 - conf.len_size) || 31w
+     else n2w (len + 7) << (dimindex (:α) - 3 - conf.len_size) || 31w):'a word`
 
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
@@ -1799,7 +1799,8 @@ val word_payload_def = Define `
      (* header: ...11111 *)
      ((make_byte_header conf n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
-          n < 2 ** (conf.len_size + if dimindex (:'a) = 32 then 2 else 3)))`;
+          let k = if dimindex(:'a) = 32 then 2 else 3 in
+          n + (2 ** k - 1) < 2 ** (conf.len_size + k)))`;
 
 val word_payload_T_IMP = store_thm("word_payload_T_IMP",
   ``word_payload l5 n5 tag r conf = (h:'a word,ts,T) /\
@@ -3029,8 +3030,6 @@ val get_byte_eq = store_thm("get_byte_eq",
   rw [] \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs [get_byte_byte_align]);
 
-val TTT_def = Define `TTT x = T`
-
 val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
     FLOOKUP refs p = SOME (ByteArray vals) /\ good_dimindex (:'a) ==>
@@ -3041,11 +3040,11 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
            mem_load_byte_aux m dm be (a + bytes_in_word + n2w i) =
            SOME (EL i vals)) /\
       if dimindex (:'a) = 32 then
-        LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\
-        TTT (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4))
+        LENGTH vals + 3 < 2 ** (dimindex (:'a) - 2) /\
+        (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 3))
       else
-        LENGTH vals + 8 < 2 ** (dimindex (:'a) - 3) /\
-        TTT (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8))``,
+        LENGTH vals + 7 < 2 ** (dimindex (:'a) - 3) /\
+        (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 7))``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
   \\ `bc_ref_inv c p refs (f,heap,be)` by
@@ -3148,17 +3147,16 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ rpt_drule DIVISION
     \\ disch_then (qspec_then `i` strip_assume_tac)
     \\ decide_tac)
-  \\ qpat_assum `LENGTH vals < 2 ** (_ + _)` assume_tac
+  \\ qpat_assum `LENGTH vals + (_ - 1) < 2 ** (_ + _)` assume_tac
   \\ fs [labPropsTheory.good_dimindex_def,make_byte_header_def,
          LENGTH_write_bytes] \\ rfs []
-  \\ fs [TTT_def] (*
   THEN1
-   (`4 <= 30 - c.len_size` by decide_tac
+   (`3 <= 30 - c.len_size` by decide_tac
     \\ `c.len_size <= 30` by decide_tac
     \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `4n <= k`
-    \\ `15w >>> k = 0w`
+    \\ qcase_tac `3n <= k`
+    \\ `31w >>> k = 0w`
     by (srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
         \\ Cases_on `i + k < 32`
         \\ simp [wordsTheory.word_index])
@@ -3167,14 +3165,41 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ simp [wordsTheory.dimword_def]
     \\ `c.len_size = 30 - k` by decide_tac \\ fs []
     \\ fs [EXP_SUB,X_LT_DIV,RIGHT_ADD_DISTRIB]
-    \\ `29 = c.len_size + k - 1` by decide_tac
-    \\ `2n ** 29 = 2 ** (c.len_size + k - 1)` by metis_tac []
-    \\ full_simp_tac bool_ss [EVAL ``2n ** 29``])
-  THEN1
-   (`4 <= 61 - c.len_size` by decide_tac
+    \\ qmatch_assum_abbrev_tac`(x:num) + y ≤ z`
+    \\ qmatch_abbrev_tac`x + y' < z`
+    \\ `y' < y` by simp[Abbr`y`,Abbr`y'`]
+    \\ decide_tac)
+  THEN1 (
+   `4 <= 61 - c.len_size` by decide_tac
     \\ `c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `4n <= k` \\ fs []) *))
+    \\ qcase_tac `4n <= k` \\ fs []
+    \\ Cases_on`5 ≤ k`
+    >- (
+      `31w >>> k = 0w`
+      by (
+        match_mp_tac n2w_lsr_eq_0
+        \\ simp[dimword_def]
+        \\ match_mp_tac LESS_DIV_EQ_ZERO
+        \\ `32 ≤ 2n ** k` suffices_by simp[]
+        \\ `32n = 2 ** 5` by simp[]
+        \\ pop_assum SUBST1_TAC
+        \\ match_mp_tac bitTheory.TWOEXP_MONO2
+        \\ simp[] )
+      \\ simp[]
+      \\ match_mp_tac lsl_lsr
+      \\ simp[dimword_def]
+      \\ `c.len_size = 61 - k` by decide_tac \\ fs []
+      \\ fs [EXP_SUB,X_LT_DIV,RIGHT_ADD_DISTRIB]
+      \\ qmatch_assum_abbrev_tac`(x:num) + y ≤ z`
+      \\ qmatch_abbrev_tac`x + y' < z`
+      \\ `y' < y` by simp[Abbr`y`,Abbr`y'`]
+      \\ decide_tac)
+    \\ `k = 4` by decide_tac
+    \\ clean_tac \\ fs[]
+    \\ `c.len_size = 57` by decide_tac
+    \\ fs[]
+    \\ cheat));
 
 val memory_rel_RefPtr_IMP_lemma = store_thm("memory_rel_RefPtr_IMP_lemma",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>
