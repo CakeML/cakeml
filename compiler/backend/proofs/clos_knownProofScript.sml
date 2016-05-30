@@ -1677,7 +1677,14 @@ val do_app_EQ_Rerr = Q.store_thm(
   `closSem$do_app opn vs s0 = Rerr e ⇒ e = Rabort Rtype_error`,
   Cases_on `opn` >> simp[do_app_def, eqs, bool_case_eq, pair_case_eq] >> rw[]);
 
-(*
+val kvrel_lookup_vars = Q.store_thm(
+  "kvrel_lookup_vars",
+  `∀env01 env02 vars env1.
+     LIST_REL kvrel env01 env02 ∧ lookup_vars vars env01 = SOME env1 ⇒
+     ∃env2. lookup_vars vars env02 = SOME env2 ∧ LIST_REL kvrel env1 env2`,
+  Induct_on `vars` >> simp[lookup_vars_def, eqs, PULL_EXISTS] >>
+  fs[LIST_REL_EL_EQN] >> metis_tac[]);
+
 val known_correct0 = Q.prove(
   `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g as ealist.
       a = (es,env1,s01) ∧ evaluate (es, env1, s01) = (res1, s1) ∧
@@ -1874,9 +1881,13 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, pair_case_eq, result_case_eq,
            known_def, bool_case_eq, eqs] >> rpt strip_tac >> rveq >> fs[] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-      dsimp[evaluate_def, eqs] >> cheat)
+      dsimp[evaluate_def, eqs] >> imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
+      rveq
+      >- (simp[kerel_def] >> metis_tac[])
+      >- metis_tac[option_CASES]
+      >- metis_tac[kerel_def, kvrel_lookup_vars])
   >- (say "letrec" >> cheat)
-  >- (say "app" >>
+  >- (say "app" >> cheat) (*
       simp[evaluate_def, pair_case_eq, result_case_eq,
            bool_case_eq, known_def] >> rpt strip_tac >> rveq >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
@@ -1902,7 +1913,7 @@ val known_correct0 = Q.prove(
           imp_res_tac known_LENGTH_EQ_E >> rveq >> fs[] >>
           reverse impl_tac >- simp[] >>
           metis_tac[ssgc_evaluate, known_correct_approx])
-      >- (imp_res_tac known_LENGTH_EQ_E >> fs[]))
+      >- (imp_res_tac known_LENGTH_EQ_E >> fs[])) *)
   >- (say "tick" >> cheat)
   >- (say "call" >> cheat)
   >- (say "evaluate_app(nil)" >> simp[])
