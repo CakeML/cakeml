@@ -8,6 +8,7 @@ open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
+open mlstringLib mlstringSyntax
 
 structure Parse =
 struct
@@ -898,11 +899,13 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
 fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
   fun is_pair_ty ty = fst (dest_type ty) = "prod"
   fun is_list_ty ty = fst (dest_type ty) = "list"
+  fun is_option_ty ty = fst (dest_type ty) = "option"
   fun all_distinct [] = []
     | all_distinct (x::xs) = if mem x xs then all_distinct xs else x :: all_distinct xs
   val xs = snd (TypeBase.size_of ty) |> CONJUNCTS
            |> map (type_of o rand o fst o dest_eq o  concl o SPEC_ALL)
            |> filter (not o is_pair_ty) |> filter (not o is_list_ty)
+           |> filter (not o is_option_ty)
            |> all_distinct
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
@@ -1047,7 +1050,7 @@ fun define_ref_inv is_exn_type tys = let
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
   val _ = map reg_type ys
-  val rw_lemmas = CONJ LIST_TYPE_SIMP PAIR_TYPE_SIMP
+  val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP,OPTION_TYPE_SIMP]
   val def_tm = let
     fun mk_lines ml_ty_name lhs ty [] input = []
       | mk_lines ml_ty_name lhs ty (x::xs) input = let
@@ -1115,11 +1118,13 @@ fun define_ref_inv is_exn_type tys = let
 *)
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
+                if is_option_type then OPTION_TYPE_def else
                   tDefine name [ANTIQUOTE def_tm] tac
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
+          if is_option_type then inv_def else
             save_thm(name ^ "_def",inv_def)
   val ind = fetch "-" (name ^ "_ind")
             handle HOL_ERR _ => TypeBase.induction_of (hd tys)
@@ -1848,9 +1853,9 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
+    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
     \\ STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
+    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
     (*
     \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
       \\ SRW_TAC [] [Eval_Var_SIMP]

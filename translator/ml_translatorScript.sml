@@ -1151,6 +1151,26 @@ val PAIR_TYPE_SIMP = prove(
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
 
+(* option definition *)
+(* TODO: Apparently, the variable names need to be of a specific form...*)
+val OPTION_TYPE_def = Define `
+  (!a x_2 v.
+     OPTION_TYPE a (SOME x_2) v <=>
+     ?v2_1.
+       v = Conv (SOME ("SOME",TypeId (Short "option"))) [v2_1] /\
+       a x_2 v2_1) /\
+  !a v.
+     OPTION_TYPE a NONE v <=>
+     v = Conv (SOME ("NONE",TypeId (Short "option"))) []`
+
+val OPTION_TYPE_SIMP = prove(
+  ``!x. CONTAINER OPTION_TYPE
+              (\y v. if x = SOME y then p y v else ARB) x =
+           OPTION_TYPE (p:('a -> v -> bool)) x``,
+  Cases>>FULL_SIMP_TAC std_ss [FUN_EQ_THM,OPTION_TYPE_def,DISJ_ASSOC,CONTAINER_def])
+  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
+  |> curry save_thm "OPTION_TYPE_SIMP";
+
 (* characters *)
 
 val Eval_Ord = store_thm("Eval_Ord",
