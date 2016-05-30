@@ -1696,8 +1696,13 @@ val known_correct0 = Q.prove(
       ∃res2 s2.
         evaluate(MAP FST ealist, env2, s02) = (res2, s2) ∧
         krrel (res1,s1) (res2,s2)) ∧
-   (∀lopt f args (s0:α closSem$state) res s.
-      evaluate_app lopt f args s0 = (res,s) ∧ EVERY vsgc_free args ⇒ T)`,
+   (∀lopt f1 args1 (s01:α closSem$state) res1 s1 f2 args2 s02.
+      evaluate_app lopt f1 args1 s01 = (res1,s1) ∧ ssgc_free s01 ∧
+      kvrel f1 f2 ∧ LIST_REL kvrel args1 args2 ∧ ksrel s01 s02 ∧
+      EVERY vsgc_free args1 ⇒
+      ∃res2 s2.
+        evaluate_app lopt f2 args2 s02 = (res2,s2) ∧
+        krrel (res1,s1) (res2,s2))`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac
   >- (say "nil" >> simp[evaluate_def, known_def])
   >- (say "cons" >>
@@ -1887,10 +1892,41 @@ val known_correct0 = Q.prove(
       >- metis_tac[option_CASES]
       >- metis_tac[kerel_def, kvrel_lookup_vars])
   >- (say "letrec" >> cheat)
-  >- (say "app" >> cheat) (*
+  >- (say "app" >>
+      rpt gen_tac >> strip_tac >>
       simp[evaluate_def, pair_case_eq, result_case_eq,
            bool_case_eq, known_def] >> rpt strip_tac >> rveq >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      map_every imp_res_tac [known_sing_EQ_E, evaluate_SING] >> rveq >> fs[] >>
+      rveq
+      >- (nailIHx strip_assume_tac >> rveq >>
+          map_every imp_res_tac [evaluate_IMP_LENGTH, known_LENGTH_EQ_E] >>
+          fs[] >> rw[] >>
+          simp[evaluate_def, bool_case_eq, result_case_eq, pair_case_eq,
+               PULL_EXISTS] >>
+          sel_ihpc last >> simp[PULL_EXISTS] >>
+          map_every qcase_tac [
+            `known [exp1] apxs g1 = ([(exp2,apx2)], g)`,
+            `known exps1 apxs g0 = (alist2,g1)`,
+            `evaluate ([exp1],env1,s11) = (Rval [v1],s21)`,
+            `evaluate (MAP FST alist2,env2,s02) = (Rval vs2,s12)`,
+            `evaluate (exps1,env1,s01) = (Rval vs1,s11)`
+          ] >>
+          disch_then (qspecl_then [`env2`, `s12`] mp_tac) >> simp[] >>
+          impl_tac
+          >- (conj_tac
+             >- (qspecl_then [`exps1`, `apxs`, `g0`, `alist2`, `g1`]
+                             mp_tac known_correct_approx >> simp[] >>
+                 disch_then (qspecl_then [`env2`, `s02`, `s12`, `Rval vs2`]
+                                         mp_tac) >> simp[] >>
+                 reverse impl_tac >- metis_tac[ksrel_sga] >>
+                 metis_tac[kvrel_LIST_REL_val_approx, ksrel_sga,
+                           ksrel_ssgc_free, kvrel_EVERY_vsgc_free])
+             >- metis_tac[ssgc_evaluate]) >>
+          strip_tac >>
+          qcase_tac `evaluate([exp2],env2,s12) = (Rval [v2],s22)` >> simp[] >>
+          cheat) >> cheat) (*
+              >- metis_tac[ssgc_free_preserved_SING']
       nailIH >> strip_tac >>
       simp[evaluate_def, pair_case_eq, result_case_eq, bool_case_eq]
       >- (imp_res_tac evaluate_SING >> imp_res_tac known_sing_EQ_E >>
@@ -1916,12 +1952,11 @@ val known_correct0 = Q.prove(
       >- (imp_res_tac known_LENGTH_EQ_E >> fs[])) *)
   >- (say "tick" >> cheat)
   >- (say "call" >> cheat)
-  >- (say "evaluate_app(nil)" >> simp[])
-  >- (say "evaluate_app(cons)" >> simp[]))
+  >- (say "evaluate_app(nil)" >> cheat)
+  >- (say "evaluate_app(cons)" >> cheat))
 
 val known_correct = save_thm(
   "known_correct",
   known_correct0 |> SIMP_RULE (srw_ss()) []);
-*)
 
 val _ = export_theory();
