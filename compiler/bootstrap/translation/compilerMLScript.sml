@@ -78,14 +78,19 @@ val _ = prove(``
   Cases_on`es`>>fs[])|>update_precondition;
 
 (* goes through with side conditions,
-TODO: not sure why this has to be explicitly translated.. *)
+TODO: make this not have to be explicitly translated, probably by renaming it to renumber_code_locs_list_def
+*)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
 
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 val _ = translate (clos_removeTheory.remove_alt)
+val _ = translate (clos_to_bvlTheory.compile_def)
+(* TODO: See above *)
+val _ = translate (bvl_constTheory.compile_exps_def)
+val _ = translate (bvl_to_bviTheory.compile_def)
+val _ = translate (bvi_to_bvpTheory.compile_def)
 
-(*val _ = translate (clos_to_bvlTheory.compile_def)
-*)
+(**)
 
 (* parsing: peg_exec and cmlPEG *)
 
