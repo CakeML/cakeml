@@ -164,8 +164,9 @@ val bc_ref_inv_def = Define `
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv conf y (z,f,heap)) zs ys)
     | (SOME x, SOME (ByteArray bs)) =>
-        ?ws. LENGTH bs + 8 < 2 ** (dimindex (:'a) - 3) /\
-             LENGTH ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
+        ?ws. (*LENGTH bs + 8 < 2 ** (dimindex (:'a) - 3) /\ *)
+             LENGTH bs ≤ LENGTH ws * (dimindex (:α) DIV 8) /\
+             LENGTH ws ≤ LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
              (heap_lookup x heap = SOME (Bytes be bs (ws:'a word list)))
     | _ => F`;
 
@@ -861,7 +862,7 @@ val word64_thm = Q.store_thm("word64_thm",
   \\ fs[RefBlock_def,Bytes_def]
   \\ imp_res_tac heap_store_rel_lemma
   \\ fs[]
-  \\ TRY asm_exists_tac \\ fs[]
+  \\ TRY (qexists_tac`ws` \\ simp[])
   \\ match_mp_tac EVERY2_MEM_MONO
   \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
   \\ simp[FORALL_PROD] \\ rw[]
@@ -1258,7 +1259,7 @@ val update_byte_ref_thm = store_thm("update_byte_ref_thm",
     ?roots2 h1 h2 ws.
       (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
       heap = h1 ++ [Bytes be xs ws] ++ h2 /\
-      LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\
+      (* LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\ *)
       abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray ys))
         (roots,h1 ++ [Bytes be ys ws] ++ h2,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def]
@@ -1307,7 +1308,7 @@ val update_byte_ref_thm = store_thm("update_byte_ref_thm",
    (fs [] \\ rw [bc_ref_inv_def,FLOOKUP_DEF]
     \\ fs [heap_lookup_APPEND,heap_length_APPEND,Bytes_def,
            heap_length_def,el_length_def,heap_lookup_def]
-    \\ asm_exists_tac \\ fs [])
+    \\ metis_tac[])
   \\ first_x_assum drule
   \\ fs [bc_ref_inv_def]
   \\ strip_tac \\ CASE_TAC \\ fs []
@@ -1320,11 +1321,11 @@ val update_byte_ref_thm = store_thm("update_byte_ref_thm",
     \\ fs [heap_lookup_def,heap_lookup_APPEND,Bytes_def,
            el_length_def,SUM_APPEND,RefBlock_def,heap_length_APPEND]
     \\ rw [] \\ fs [] \\ rfs [heap_length_def,el_length_def] \\ fs [NOT_LESS])
-  \\ asm_exists_tac \\ fs []
   \\ Cases_on `x = heap_length ha`
   THEN1 (fs [INJ_DEF,FLOOKUP_DEF] \\ metis_tac [])
   \\ fs [heap_lookup_APPEND,Bytes_def,heap_length_def,el_length_def,SUM_APPEND]
-  \\ rfs [] \\ rw [] \\ fs [] \\ rfs [heap_lookup_def])
+  \\ rfs [] \\ rw [] \\ fs [] \\ rfs [heap_lookup_def]
+  \\ metis_tac[])
 
 (* new ref *)
 
@@ -1424,8 +1425,7 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
   \\ reverse (Cases_on `x'`) \\ full_simp_tac (srw_ss()) []
-  THEN1 (asm_exists_tac \\ fs []
-         \\ imp_res_tac heap_store_rel_lemma \\ fs [Bytes_def])
+  THEN1 (imp_res_tac heap_store_rel_lemma \\ fs [Bytes_def] \\ metis_tac[])
   \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by
     (full_simp_tac std_ss [RefBlock_def] \\ EVAL_TAC
      \\ simp_tac (srw_ss()) [] \\ NO_TAC)
@@ -3187,6 +3187,12 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
         \\ match_mp_tac bitTheory.TWOEXP_MONO2
         \\ simp[] )
       \\ simp[]
+      \\ conj_tac
+      >- (
+        `c.len_size + 3 ≤ 61` by decide_tac
+        \\ drule bitTheory.TWOEXP_MONO2
+        \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
+        \\ decide_tac)
       \\ match_mp_tac lsl_lsr
       \\ simp[dimword_def]
       \\ `c.len_size = 61 - k` by decide_tac \\ fs []
