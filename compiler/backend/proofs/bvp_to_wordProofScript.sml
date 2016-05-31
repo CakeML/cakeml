@@ -1147,7 +1147,7 @@ val conf_ok_def = Define `
   conf_ok (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 6 < dimindex (:α)`
+    c.len_size + 7 < dimindex (:α)`
 
 val init_store_ok_def = Define `
   init_store_ok c store m (dm:'a word set) <=>

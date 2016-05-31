@@ -1840,7 +1840,7 @@ val heap_in_memory_store_def = Define `
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
-    c.len_size + 6 < dimindex (:'a) /\
+    c.len_size + 7 (* 5 tag bits + 2-3 bits for byte arrays *) < dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\ Globals ∈ FDOM s /\
     ?curr other.
       byte_aligned curr /\ byte_aligned other /\
@@ -2366,7 +2366,7 @@ val encode_header_NEQ_0 = store_thm("encode_header_NEQ_0",
 
 val encode_header_IMP = prove(
   ``encode_header c tag len = SOME (hd:'a word) /\
-    c.len_size + 6 < dimindex (:'a) /\ good_dimindex (:'a) ==>
+    c.len_size + 5 < dimindex (:'a) /\ good_dimindex (:'a) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
     decode_length c hd = n2w len``,
   fs [encode_header_def] \\ rw [make_header_def] \\ fs [decode_length_def]
@@ -3059,18 +3059,22 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
          word_payload_def,word_list_def,Bytes_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ imp_res_tac EVERY2_LENGTH \\ SEP_R_TAC \\ fs [get_addr_0]
-  \\ rpt strip_tac
+  \\ conj_asm1_tac
   THEN1 (fs [make_byte_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
     \\ fs [labPropsTheory.good_dimindex_def]
     \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+  \\ conj_asm1_tac
   THEN1 (fs [make_byte_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
     \\ fs [labPropsTheory.good_dimindex_def]
     \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+  \\ conj_tac
   THEN1 (fs [make_byte_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
     \\ fs [labPropsTheory.good_dimindex_def]
     \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+  \\ conj_tac
   THEN1
-   (fs [wordSemTheory.mem_load_byte_aux_def]
+   (rpt strip_tac
+    \\ fs [wordSemTheory.mem_load_byte_aux_def]
     \\ fs [alignmentTheory.byte_align_def,bytes_in_word_def]
     \\ qabbrev_tac `k = LOG2 (dimindex (:α) DIV 8)`
     \\ `dimindex (:α) DIV 8 = 2 ** k` by
@@ -3150,12 +3154,12 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   \\ qpat_assum `LENGTH vals + (_ - 1) < 2 ** (_ + _)` assume_tac
   \\ fs [labPropsTheory.good_dimindex_def,make_byte_header_def,
          LENGTH_write_bytes] \\ rfs []
-  THEN1
-   (`3 <= 30 - c.len_size` by decide_tac
+  THEN1 (
+    `4 <= 30 - c.len_size` by decide_tac
     \\ `c.len_size <= 30` by decide_tac
     \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `3n <= k`
+    \\ qcase_tac `4n <= k`
     \\ `31w >>> k = 0w`
     by (srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
         \\ Cases_on `i + k < 32`
@@ -3170,42 +3174,35 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ `y' < y` by simp[Abbr`y`,Abbr`y'`]
     \\ decide_tac)
   THEN1 (
-   `4 <= 61 - c.len_size` by decide_tac
+    `5 <= 61 - c.len_size` by decide_tac
     \\ `c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `4n <= k` \\ fs []
-    \\ Cases_on`5 ≤ k`
-    >- (
-      `31w >>> k = 0w`
-      by (
-        match_mp_tac n2w_lsr_eq_0
-        \\ simp[dimword_def]
-        \\ match_mp_tac LESS_DIV_EQ_ZERO
-        \\ `32 ≤ 2n ** k` suffices_by simp[]
-        \\ `32n = 2 ** 5` by simp[]
-        \\ pop_assum SUBST1_TAC
-        \\ match_mp_tac bitTheory.TWOEXP_MONO2
-        \\ simp[] )
-      \\ simp[]
-      \\ conj_tac
-      >- (
-        `c.len_size + 3 ≤ 61` by decide_tac
-        \\ drule bitTheory.TWOEXP_MONO2
-        \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
-        \\ decide_tac)
-      \\ match_mp_tac lsl_lsr
+    \\ qcase_tac `5n <= k` \\ fs []
+    \\ `31w >>> k = 0w`
+    by (
+      match_mp_tac n2w_lsr_eq_0
       \\ simp[dimword_def]
-      \\ `c.len_size = 61 - k` by decide_tac \\ fs []
-      \\ fs [EXP_SUB,X_LT_DIV,RIGHT_ADD_DISTRIB]
-      \\ qmatch_assum_abbrev_tac`(x:num) + y ≤ z`
-      \\ qmatch_abbrev_tac`x + y' < z`
-      \\ `y' < y` by simp[Abbr`y`,Abbr`y'`]
+      \\ match_mp_tac LESS_DIV_EQ_ZERO
+      \\ `32 ≤ 2n ** k` suffices_by simp[]
+      \\ `32n = 2 ** 5` by simp[]
+      \\ pop_assum SUBST1_TAC
+      \\ match_mp_tac bitTheory.TWOEXP_MONO2
+      \\ simp[] )
+    \\ simp[]
+    \\ conj_tac
+    >- (
+      `c.len_size + 3 ≤ 61` by decide_tac
+      \\ drule bitTheory.TWOEXP_MONO2
+      \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
       \\ decide_tac)
-    \\ `k = 4` by decide_tac
-    \\ clean_tac \\ fs[]
-    \\ `c.len_size = 57` by decide_tac
-    \\ fs[]
-    \\ cheat));
+    \\ match_mp_tac lsl_lsr
+    \\ simp[dimword_def]
+    \\ `c.len_size = 61 - k` by decide_tac \\ fs []
+    \\ fs [EXP_SUB,X_LT_DIV,RIGHT_ADD_DISTRIB]
+    \\ qmatch_assum_abbrev_tac`(x:num) + y ≤ z`
+    \\ qmatch_abbrev_tac`x + y' < z`
+    \\ `y' < y` by simp[Abbr`y`,Abbr`y'`]
+    \\ decide_tac));
 
 val memory_rel_RefPtr_IMP_lemma = store_thm("memory_rel_RefPtr_IMP_lemma",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>
