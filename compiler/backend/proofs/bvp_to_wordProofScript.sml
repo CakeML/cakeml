@@ -2795,6 +2795,12 @@ val get_real_offset_lemma = store_thm("get_real_offset_lemma",
   \\ fs [wordSemTheory.get_var_def,real_offset_def] \\ eval_tac \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []);
 
+val get_real_byte_offset_lemma = Q.store_thm("get_real_byte_offset_lemma",
+  `get_var v t = SOME (Word (w:α word)) ∧ good_dimindex (:α) ⇒
+   word_exp t (real_byte_offset v) = SOME (Word (bytes_in_word + (w >>> 2)))`,
+  rw[real_byte_offset_def,wordSemTheory.get_var_def]
+  \\ eval_tac \\ fs[good_dimindex_def]);
+
 val reorder_lemma = prove(
   ``memory_rel c F x.refs x.space t.store t.memory t.mdomain (x1::x2::x3::xs) ==>
     memory_rel c F x.refs x.space t.store t.memory t.mdomain (x3::x1::x2::xs)``,
@@ -4077,11 +4083,68 @@ val assign_thm = Q.prove(
     \\ strip_tac
     \\ fs[get_vars_def]
     \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ rpt_drule memory_rel_RefPtr_IMP
+    \\ fs[bvp_to_bvi_def]
+    \\ rpt_drule memory_rel_ByteArray_IMP
     \\ strip_tac \\ clean_tac
     \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ imp_res_tac memory_rel_tl
+    \\ rpt_drule memory_rel_Number_IMP
+    \\ pop_assum kall_tac
+    \\ strip_tac
+    \\ clean_tac
+    \\ qpat_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac
+    \\ rpt_drule get_real_byte_offset_lemma
     \\ simp[assign_def,list_Seq_def] \\ eval_tac
-    \\ cheat)
+    \\ simp[wordSemTheory.inst_def]
+    \\ eval_tac
+    \\ reverse(Cases_on`t.be = F`) >- cheat
+    \\ fs[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
+    \\ qspecl_then[`i2w i`,`2`](mp_tac o SYM) WORD_MUL_LSL
+    \\ `i2w 4 = 4w` by EVAL_TAC
+    \\ simp[]
+    \\ `i2w i << 2 >>> 2 = i2w i`
+    by (
+      match_mp_tac lsl_lsr
+      \\ REWRITE_TAC[GSYM integerTheory.INT_LT,
+                     GSYM integerTheory.INT_MUL,
+                     integer_wordTheory.w2n_i2w]
+      \\ simp[]
+      \\ reverse(Cases_on`i`) \\ fs[]
+      >- (
+        fs[dimword_def, integerTheory.INT_MOD0] )
+      \\ simp[integerTheory.INT_MOD,dimword_def]
+      \\ fs[small_int_def,dimword_def]
+      \\ fs[X_LT_DIV] )
+    \\ simp[]
+    \\ first_x_assum(qspec_then`Num i`mp_tac)
+    \\ impl_tac >- ( Cases_on`i` \\ fs[] )
+    \\ `i2w i = n2w (Num i)``
+    by (
+      rw[integer_wordTheory.i2w_def]
+      \\ Cases_on`i` \\ fs[] )
+    \\ fs[]
+    \\ `¬(2 ≥ dimindex(:α))` by fs[good_dimindex_def]
+    \\ simp[lookup_insert]
+    \\ ntac 4 strip_tac
+    \\ conj_tac >- rw[]
+    \\ fs[inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ qmatch_goalsub_abbrev_tac`(Number j,Word k)`
+    \\ `small_int (:α) j ∧ k = Smallnum j`
+    by (
+      fs[small_int_def,Abbr`j`]
+      \\ qmatch_goalsub_abbrev_tac`w2n w8`
+      \\ Q.ISPEC_THEN`w8`strip_assume_tac w2n_lt
+      \\ conj_tac
+      >- ( fs[good_dimindex_def,dimword_def] )
+      \\ simp[integer_wordTheory.i2w_def]
+      \\ simp[Abbr`k`,WORD_MUL_LSL]
+      \\ simp[GSYM word_mul_n2w]
+      \\ simp[w2w_def] )
+    \\ simp[]
+    \\ match_mp_tac IMP_memory_rel_Number
+    \\ fs[])
   \\ Cases_on `op = El` \\ fs [] \\ fs [] \\ clean_tac THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
