@@ -1958,9 +1958,9 @@ val memory_rel_tl = store_thm("memory_rel_tl",
   match_mp_tac memory_rel_rearrange \\ fs []);
 
 val word_ml_inv_Unit = store_thm("word_ml_inv_Unit",
-  ``word_ml_inv (heap,F,a,sp) limit c refs ws /\
+  ``word_ml_inv (heap,be,a,sp) limit c refs ws /\
     good_dimindex (:'a) ==>
-    word_ml_inv (heap,F,a,sp) limit c refs
+    word_ml_inv (heap,be,a,sp) limit c refs
       ((Unit,Word (2w:'a word))::ws)``,
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `Data (Word 2w)`
@@ -1972,8 +1972,8 @@ val word_ml_inv_Unit = store_thm("word_ml_inv_Unit",
   \\ fs [BlockNil_def]);
 
 val memory_rel_Unit = store_thm("memory_rel_Unit",
-  ``memory_rel c F refs sp st m dm xs /\ good_dimindex (:'a) ==>
-    memory_rel c F refs sp st m dm ((Unit,Word (2w:'a word))::xs)``,
+  ``memory_rel c be refs sp st m dm xs /\ good_dimindex (:'a) ==>
+    memory_rel c be refs sp st m dm ((Unit,Word (2w:'a word))::xs)``,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac word_ml_inv_Unit \\ fs []);
 
@@ -2057,10 +2057,10 @@ val word_ml_inv_num_lemma = store_thm("word_ml_inv_num_lemma",
   \\ rfs [dimword_def]);
 
 val word_ml_inv_num = store_thm("word_ml_inv_num",
-  ``word_ml_inv (heap,F,a,sp) limit c s.refs ws /\
+  ``word_ml_inv (heap,be,a,sp) limit c s.refs ws /\
     good_dimindex (:'a) /\
     small_enough_int (&n) ==>
-    word_ml_inv (heap,F,a,sp) limit c s.refs
+    word_ml_inv (heap,be,a,sp) limit c s.refs
       ((Number (&n),Word (n2w (4 * n):'a word))::ws)``,
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `Data (Word (Smallnum (&n)))`
@@ -2086,10 +2086,10 @@ val word_ml_inv_neg_num_lemma = store_thm("word_ml_inv_neg_num_lemma",
   \\ rfs [dimword_def]);
 
 val word_ml_inv_neg_num = store_thm("word_ml_inv_neg_num",
-  ``word_ml_inv (heap,F,a,sp) limit c s.refs ws /\
+  ``word_ml_inv (heap,be,a,sp) limit c s.refs ws /\
     good_dimindex (:'a) /\
     small_enough_int (-&n) /\ n <> 0 ==>
-    word_ml_inv (heap,F,a,sp) limit c s.refs
+    word_ml_inv (heap,be,a,sp) limit c s.refs
       ((Number (-&n),Word (-n2w (4 * n):'a word))::ws)``,
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `Data (Word (Smallnum (-&n)))`

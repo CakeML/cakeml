@@ -304,9 +304,9 @@ val unit_some_eq_IS_SOME = prove(
   Cases \\ full_simp_tac(srw_ss())[]);
 
 val word_ml_inv_insert = store_thm("word_ml_inv_insert",
-  ``word_ml_inv (heap,F,a,sp) limit c refs
+  ``word_ml_inv (heap,be,a,sp) limit c refs
       ([(x,w)]++join_env d (toAList (inter l (adjust_set d)))++xs) ==>
-    word_ml_inv (heap,F,a,sp) limit c refs
+    word_ml_inv (heap,be,a,sp) limit c refs
       (join_env (insert dest x d)
         (toAList (inter (insert (adjust_var dest) w l)
                            (adjust_set (insert dest x d))))++xs)``,
@@ -1122,7 +1122,7 @@ val state_rel_thm = Define `
     EVERY2 stack_rel s.stack t.stack /\
     EVERY2 contains_loc t.stack locs /\
     (* there exists some GC-compatible abstraction *)
-    memory_rel c F s.refs s.space t.store t.memory t.mdomain
+    memory_rel c t.be s.refs s.space t.store t.memory t.mdomain
       (v1 ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
@@ -1359,7 +1359,7 @@ val state_rel_pop_env_set_var_IMP = prove(
   \\ full_simp_tac(srw_ss())[lookup_fromAList] \\ rev_full_simp_tac(srw_ss())[]
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ full_simp_tac(srw_ss())[flat_def]
-  \\ `word_ml_inv (heap,F,a',sp) limit c s1.refs
+  \\ `word_ml_inv (heap,t1.be,a',sp) limit c s1.refs
        ((a,w)::(join_env s l ++
          [(the_global s1.global,t1.store ' Globals)] ++ flat t ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -1400,7 +1400,7 @@ val state_rel_jump_exc = prove(
       s.handler + 1 <= LENGTH t.stack` by decide_tac
   \\ imp_res_tac LASTN_IMP_APPEND \\ full_simp_tac(srw_ss())[ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[flat_APPEND,flat_def]
-  \\ `word_ml_inv (heap,F,a,sp) limit c s.refs
+  \\ `word_ml_inv (heap,t.be,a,sp) limit c s.refs
        ((x,w)::(join_env s' l ++
          [(the_global s.global,t.store ' Globals)] ++ flat t' ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -2500,7 +2500,7 @@ val state_rel_gc = prove(
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs``,
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
-  \\ qpat_assum `word_ml_inv (heap,F,a,sp) limit c s.refs xxx` mp_tac
+  \\ qhdtm_x_assum `word_ml_inv` mp_tac
   \\ Q.PAT_ABBREV_TAC `pat = join_env LN _` \\ srw_tac[][]
   \\ `pat = []` by (UNABBREV_ALL_TAC \\ EVAL_TAC) \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ pop_assum (K all_tac)
@@ -2764,9 +2764,9 @@ val memory_rel_get_vars_IMP = prove(
   \\ drule word_ml_inv_get_vars_IMP \\ fs []);
 
 val memory_rel_insert = prove(
-  ``memory_rel c F refs sp st m dm
+  ``memory_rel c be refs sp st m dm
      ([(x,w)] ++ join_env d (toAList (inter l (adjust_set d))) ++ xs) ⇒
-    memory_rel c F refs sp st m dm
+    memory_rel c be refs sp st m dm
      (join_env (insert dest x d)
         (toAList
            (inter (insert (adjust_var dest) w l)
@@ -2802,8 +2802,8 @@ val get_real_byte_offset_lemma = Q.store_thm("get_real_byte_offset_lemma",
   \\ eval_tac \\ fs[good_dimindex_def]);
 
 val reorder_lemma = prove(
-  ``memory_rel c F x.refs x.space t.store t.memory t.mdomain (x1::x2::x3::xs) ==>
-    memory_rel c F x.refs x.space t.store t.memory t.mdomain (x3::x1::x2::xs)``,
+  ``memory_rel c be x.refs x.space t.store t.memory t.mdomain (x1::x2::x3::xs) ==>
+    memory_rel c be x.refs x.space t.store t.memory t.mdomain (x3::x1::x2::xs)``,
   match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs []);
 
 val evaluate_StoreEach = store_thm("evaluate_StoreEach",
@@ -3869,8 +3869,8 @@ val assign_thm = Q.prove(
       \\ match_mp_tac (GEN_ALL memory_rel_less_space)
       \\ qexists_tac`x.space - 2` \\ simp[]
       \\ fs[make_ptr_def,FAPPLY_FUPDATE_THM]
-      \\ qmatch_abbrev_tac`memory_rel c F refs sp st mem _ _`
-      \\ qmatch_assum_abbrev_tac`memory_rel c F refs sp st mem' _ _`
+      \\ qmatch_abbrev_tac`memory_rel c _ refs sp st mem _ _`
+      \\ qmatch_assum_abbrev_tac`memory_rel c _ refs sp st mem' _ _`
       \\ `mem = mem'`
       by (
         simp[Abbr`mem`,Abbr`mem'`,FUN_EQ_THM,APPLY_UPDATE_THM]
@@ -3946,8 +3946,8 @@ val assign_thm = Q.prove(
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ fs[make_ptr_def,FAPPLY_FUPDATE_THM]
-    \\ qmatch_abbrev_tac`memory_rel c F refs sp st mem _ ((_,w1)::_)`
-    \\ qmatch_assum_abbrev_tac`memory_rel c F refs sp st mem' _ ((_,w2)::_)`
+    \\ qmatch_abbrev_tac`memory_rel c _ refs sp st mem _ ((_,w1)::_)`
+    \\ qmatch_assum_abbrev_tac`memory_rel c _ refs sp st mem' _ ((_,w2)::_)`
     \\ `mem = mem'`
     by (
       simp[Abbr`mem`,Abbr`mem'`,FUN_EQ_THM,APPLY_UPDATE_THM]
@@ -4086,7 +4086,6 @@ val assign_thm = Q.prove(
     \\ simp[assign_def,list_Seq_def] \\ eval_tac
     \\ simp[wordSemTheory.inst_def]
     \\ eval_tac
-    \\ reverse(Cases_on`t.be = F`) >- cheat
     \\ fs[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
     \\ qspecl_then[`i2w i`,`2`](mp_tac o SYM) WORD_MUL_LSL
     \\ `i2w 4 = 4w` by EVAL_TAC
@@ -4107,7 +4106,7 @@ val assign_thm = Q.prove(
     \\ simp[]
     \\ first_x_assum(qspec_then`Num i`mp_tac)
     \\ impl_tac >- ( Cases_on`i` \\ fs[] )
-    \\ `i2w i = n2w (Num i)``
+    \\ `i2w i = n2w (Num i)`
     by (
       rw[integer_wordTheory.i2w_def]
       \\ Cases_on`i` \\ fs[] )
@@ -4127,7 +4126,7 @@ val assign_thm = Q.prove(
       \\ Q.ISPEC_THEN`w8`strip_assume_tac w2n_lt
       \\ conj_tac
       >- ( fs[good_dimindex_def,dimword_def] )
-      \\ simp[integer_wordTheory.i2w_def]
+      \\ simp[integer_wordTheory.i2w_def,Smallnum_i2w]
       \\ simp[Abbr`k`,WORD_MUL_LSL]
       \\ simp[GSYM word_mul_n2w]
       \\ simp[w2w_def] )
