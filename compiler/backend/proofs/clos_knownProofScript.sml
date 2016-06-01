@@ -1696,6 +1696,28 @@ val loptrel_def = Define`
        | _ => T
 `;
 
+val ksrel_find_code_SOME = Q.store_thm(
+  "ksrel_find_code_SOME",
+  `ksrel s1 s2 ∧ LIST_REL kvrel vs1 vs2 ∧
+   find_code l vs1 s1.code = SOME (args1,e1) ⇒
+   ∃args2 e2. find_code l vs2 s2.code = SOME(args2,e2) ∧
+              LIST_REL kvrel args1 args2 ∧
+              kerel e1 e2`,
+  simp[ksrel_def, find_code_def, eqs, pair_case_eq] >>
+  simp[fmap_rel_OPTREL_FLOOKUP] >> rpt strip_tac >>
+  rpt (first_x_assum (qspec_then `l` mp_tac)) >>
+  simp[OPTREL_def, EXISTS_PROD] >> fs[LIST_REL_EL_EQN]);
+
+val ksrel_find_code_NONE = Q.store_thm(
+  "ksrel_find_code_NONE",
+  `ksrel s1 s2 ∧ LIST_REL kvrel vs1 vs2 ∧ find_code l vs1 s1.code = NONE ⇒
+   find_code l vs2 s2.code = NONE`,
+  simp[ksrel_def, find_code_def, eqs, pair_case_eq, fmap_rel_OPTREL_FLOOKUP] >>
+  rpt strip_tac >>
+  rpt (first_x_assum (qspec_then `l` mp_tac)) >>
+  simp[OPTREL_def, EXISTS_PROD] >> fs[LIST_REL_EL_EQN] >> rpt strip_tac >>
+  simp[]);
+
 val known_correct0 = Q.prove(
   `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g as ealist.
       a = (es,env1,s01) ∧ evaluate (es, env1, s01) = (res1, s1) ∧
@@ -2004,7 +2026,28 @@ val known_correct0 = Q.prove(
         (qspecl_then [`env2`, `s02 with clock := s02.clock - 1`] mp_tac) >>
       simp[] >> impl_keep_tac >- fs[ksrel_def] >>
       `s02.clock = s01.clock` by fs[ksrel_def] >> simp[])
-  >- (say "call" >> cheat)
+  >- (say "call" >>
+      simp[evaluate_def, pair_case_eq, result_case_eq, eqs, bool_case_eq,
+           known_def] >> rw[]
+      >- (simp[] >> metis_tac[pair_CASES])
+      >- (rpt (pairarg_tac >> fs[]) >> rveq >> nailIHx strip_assume_tac >>
+          simp[evaluate_def] >> rw[] >>
+          map_every qcase_tac [
+            `evaluate(MAP FST alist,env2,s02) = (Rval vs2,s2)`,
+            `ksrel s01 s02`,
+            `evaluate (exps1,env1,s01) = (Rval vs1, s1)`,
+            `known exps1 apxs g0 = (alist,g)`,
+            `ksrel s1 s2`] >>
+          `∃args2 e2. find_code dest vs2 s2.code = SOME(args2,e2)`
+             by metis_tac[ksrel_find_code_SOME] >> dsimp[bool_case_eq] >>
+          `s2.clock = 0` by fs[ksrel_def] >> simp[])
+      >- (fixeqs >> rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+          nailIHx strip_assume_tac >> simp[evaluate_def] >> cheat)
+      >- (rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+          nailIHx strip_assume_tac >> simp[evaluate_def] >>
+          fs[krrel_err_rw] >>
+          dsimp[result_case_eq, eqs, pair_case_eq, bool_case_eq] >>
+          metis_tac[option_CASES, pair_CASES, result_CASES]))
   >- (say "evaluate_app(nil)" >> cheat)
   >- (say "evaluate_app(cons)" >> cheat))
 
