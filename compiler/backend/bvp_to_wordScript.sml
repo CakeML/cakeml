@@ -127,6 +127,7 @@ val assign_def = Define `
     | Global _ => (Skip,l)
     | SetGlobal _ => (Skip,l)
     | AllocGlobal => (Skip,l)
+    (* TODO: FromList *)
     | El => (case args of
              | [v1;v2] => (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
@@ -154,6 +155,7 @@ val assign_def = Define `
                              (adjust_var v3))
                       (Assign (adjust_var dest) Unit),l)
              | _ => (Skip,l))
+    (* TODO: UpdateByte *)
     | Cons tag => if LENGTH args = 0 then
                     if tag < dimword (:'a) DIV 16 then
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
@@ -185,6 +187,8 @@ val assign_def = Define `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
+    (* TODO: RefByte *)
+    (* TODO: RefArray *)
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
     | Equal => (case args of
                | [v1;v2] =>
@@ -334,6 +338,9 @@ val assign_def = Define `
                                       Var (adjust_var v2)]))
                           GiveUp),l)
               | _ => (Skip,l))
+    (* TODO: Mult *)
+    (* TODO: Div *)
+    (* TODO: Mod *)
     | WordOp W8 opw =>
       (case args of
         | [v1;v2] =>
@@ -382,6 +389,39 @@ val assign_def = Define `
                             (Nat (shift_length c − shift (:'a)));
                           Const 1w])], l))
        | _ => (Skip,l))
+    (* TODO: semantics of WordShift needs to limit n to the word size
+    | WordShift W8 sh n => (case args of
+      | [v1] =>
+        (Assign (adjust_var dest)
+           (case sh of
+            | Lsl =>
+              Shift Lsr
+                (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10 + n)))
+                (Nat (dimindex(:'a) - 10))
+            | Lsr =>
+              Shift Lsl
+                (Shift Lsr (Var (adjust_var v1)) (Nat (n+2)))
+                (Nat 2)
+            | Asr =>
+              Shift Lsl
+                (Shift Lsr
+                   (Shift Asr
+                      (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10)))
+                      (Nat n))
+                   (Nat (dimindex(:'a) - 8)))
+                (Nat 2))
+        ,l)
+      | _ => (GiveUp,l)) *)
+    (* TODO: WordShift W64 *)
+    (* TODO:
+    | WordFromInt => (case args of
+      | [v1] =>
+        let len = if dimindex(:'a) < 64 then 2 else 1 in
+        (case encode_header c 3 len of
+         | NONE => (GiveUp,l)
+         | SOME (header:'a word) => ...)
+      | _ => (Skip, l)) *)
+    (* TODO: WordToInt *)
     | FFI ffi_index =>
       (case args of
        | [v] =>

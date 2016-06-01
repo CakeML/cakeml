@@ -3966,6 +3966,34 @@ val assign_thm = Q.prove(
     \\ `w1 = w2`
     by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
     \\ simp[] )
+  (*
+  \\ Cases_on `∃sh n. op = WordShift W8 sh n` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH
+    \\ fs[do_app]
+    \\ every_case_tac \\ fs[]
+    \\ clean_tac
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ qhdtm_x_assum`$some`mp_tac
+    \\ DEEP_INTRO_TAC some_intro \\ fs[]
+    \\ strip_tac \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ disch_then drule \\ fs[] \\ strip_tac
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ clean_tac \\ fs[]
+    \\ rpt_drule memory_rel_Number_IMP
+    \\ strip_tac \\ clean_tac
+    \\ imp_res_tac get_vars_1_imp
+    \\ fs[wordSemTheory.get_var_def]
+    \\ simp[assign_def]
+    \\ BasicProvers.CASE_TAC \\ eval_tac
+    >- (
+      IF_CASES_TAC
+      >- (fs[good_dimindex_def] \\ rfs[])
+  )
+  *)
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
