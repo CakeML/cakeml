@@ -155,7 +155,14 @@ val assign_def = Define `
                              (adjust_var v3))
                       (Assign (adjust_var dest) Unit),l)
              | _ => (Skip,l))
-    (* TODO: UpdateByte *)
+    | UpdateByte => (case args of
+      | [v1;v2;v3] => (list_Seq [
+          Assign 1 (Op Add [real_addr c (adjust_var v1);
+                            real_byte_offset (adjust_var v2)]);
+          Assign 3 (Shift Lsr (Var (adjust_var v3)) (Nat 2));
+          Inst (Mem Store8 3 (Addr 1 0w));
+          Assign (adjust_var dest) Unit], l)
+      | _ => (GiveUp,l))
     | Cons tag => if LENGTH args = 0 then
                     if tag < dimword (:'a) DIV 16 then
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)

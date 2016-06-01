@@ -4090,6 +4090,85 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [])
+  \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+    \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
+    \\ imp_res_tac get_vars_3_IMP
+    \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
+          bviPropsTheory.bvl_to_bvi_id,
+          (*bvpPropsTheory.*)bvi_to_bvp_refs,
+          (*bvpPropsTheory.*)bvp_to_bvi_refs]
+    \\ fs[GSYM (*bvpPropsTheory.*)bvi_to_bvp_refs]
+    \\ fs[bvp_to_bvi_def]
+    \\ fs[state_rel_thm,set_var_def]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP )
+    \\ strip_tac
+    \\ fs[get_vars_def]
+    \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ clean_tac
+    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ imp_res_tac memory_rel_tl
+    \\ rpt_drule memory_rel_Number_IMP
+    \\ imp_res_tac memory_rel_tl
+    \\ rpt_drule memory_rel_Number_IMP
+    \\ ntac 2 (pop_assum kall_tac)
+    \\ ntac 2 strip_tac \\ clean_tac
+    \\ qpat_assum`get_var (adjust_var e2) _ = _`assume_tac
+    \\ rpt_drule get_real_byte_offset_lemma
+    \\ simp[assign_def,list_Seq_def] \\ eval_tac
+    \\ fs[wordSemTheory.get_var_def]
+    \\ simp[lookup_insert,wordSemTheory.inst_def]
+    \\ `2 < dimindex(:'a)` by fs[good_dimindex_def]
+    \\ simp[wordSemTheory.get_var_def,Unit_def]
+    \\ eval_tac
+    \\ simp[lookup_insert]
+    \\ rpt strip_tac
+    \\ simp[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
+    \\ qspecl_then[`ii`,`2`](mp_tac o Q.GEN`ii` o SYM) WORD_MUL_LSL
+    \\ `i2w 4 = 4w` by EVAL_TAC
+    \\ simp[]
+    \\ `i2w i << 2 >>> 2 = i2w i`
+    by (
+      match_mp_tac lsl_lsr
+      \\ Cases_on`i`
+      \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
+    \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+    \\ `i2w (&w2n w) << 2 >>> 2 = i2w (&w2n w)`
+    by (
+      match_mp_tac lsl_lsr
+      \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
+    \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+    \\ `dimindex(:8) ≤ dimindex(:α)` by fs[good_dimindex_def]
+    \\ simp[integer_wordTheory.w2w_i2w]
+    \\ `i2w i = n2w (Num i)`
+    by (
+      rw[integer_wordTheory.i2w_def]
+      \\ `F` by intLib.COOPER_TAC )
+    \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+    \\ disch_then kall_tac
+    \\ first_x_assum(qspec_then`Num i`mp_tac)
+    \\ impl_tac
+    >- (
+      fs[GSYM integerTheory.INT_OF_NUM]
+      \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
+      \\ PROVE_TAC[] )
+    \\ simp[wordSemTheory.mem_load_byte_aux_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac
+    \\ simp[wordSemTheory.mem_store_byte_aux_def]
+    \\ simp[lookup_insert]
+    \\ conj_tac >- rw[]
+    \\ fs[inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ simp[]
+    \\ match_mp_tac memory_rel_Unit
+    \\ cheat (* need a memory_rel_UpdateByte theorem *))
   \\ Cases_on `op = DerefByte` \\ fs[] THEN1 (
     imp_res_tac get_vars_IMP_LENGTH \\ fs[]
     \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
