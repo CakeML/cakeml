@@ -75,20 +75,18 @@ val Decls_Dtabbrev = store_thm("Decls_Dtabbrev",
 val Decls_Dlet = store_thm("Decls_Dlet",
   ``!mn env s1 v e s2 env2.
       Decls mn env s1 [Dlet (Pvar v) e] env2 s2 <=>
-      ?x. s2.defined_types = s1.defined_types /\
-          evaluate F env s1 e (s2,Rval x) /\
+      ?x. evaluate F env s1 e (s2,Rval x) /\
           (env2 = write v x env)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch_def, evaluate_dec_cases,
-       combine_dec_result_def]
+       pmatch_def, evaluate_dec_cases,combine_dec_result_def]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ srw_tac[QUANT_INST_ss[record_default_qp]][]
   \\ simp[environment_component_equality]
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,APPEND, finite_mapTheory.FUNION_FEMPTY_1,
-                           finite_mapTheory.FUNION_FEMPTY_2]
+  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,APPEND,
+       finite_mapTheory.FUNION_FEMPTY_1,finite_mapTheory.FUNION_FEMPTY_2]
   \\ simp[]
   \\ METIS_TAC [big_unclocked, pair_CASES, evaluate_no_new_types_mods,FST]);
 
@@ -392,7 +390,6 @@ val ML_code_NONE_Dlet_var = store_thm("ML_code_NONE_Dlet_var",
   ``ML_code env1 s1 prog NONE env2 s2 ==>
     !e x s3.
       evaluate F env2 s2 e (s3,Rval x) ==>
-      s3.defined_types = s2.defined_types ==>
       !n.
         ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) e)) prog)
           NONE (write n x env2) s3``,
@@ -404,7 +401,6 @@ val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
   ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !e x s3.
       evaluate F env2 s2 e (s3,Rval x) ==>
-      s3.defined_types = s2.defined_types ==>
       !n.
         ML_code env1 s1 prog (SOME (mn,SNOC (Dlet (Pvar n) e) ds,env))
           (write n x env2) s3``,
