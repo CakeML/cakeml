@@ -4,7 +4,7 @@ open astTheory libTheory semanticPrimitivesTheory bigStepTheory
 open mlstringTheory integerTheory;
 open terminationTheory;
 
-val _ = new_theory "ml_decls";
+val _ = new_theory "ml_prog";
 
 
 (* --- declarations --- *)
