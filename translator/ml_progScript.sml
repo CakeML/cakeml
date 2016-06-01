@@ -63,6 +63,15 @@ val Decls_Dexn = store_thm("Decls_Dexn",
   \\ fs[PULL_EXISTS,write_exn_def,write_tds_def,environment_component_equality]
   \\ fs [AC CONJ_COMM CONJ_ASSOC,APPEND]);
 
+val Decls_Dtabbrev = store_thm("Decls_Dtabbrev",
+  ``!mn env s n l env2 s2.
+      Decls mn env s [Dtabbrev x y z] env2 s2 <=> s2 = s /\ env2 = env``,
+  fs [Decls_def]
+  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
+  \\ rw [environment_component_equality] \\ eq_tac \\ fs []);
+
 val Decls_Dlet = store_thm("Decls_Dlet",
   ``!mn env s1 v e s2 env2.
       Decls mn env s1 [Dlet (Pvar v) e] env2 s2 <=>
@@ -254,5 +263,154 @@ val Prog_Tmod = store_thm("Prog_Tmod",
        v := new_env'' ++ env1.v |>`)
   \\ fs [BUTLASTN_LENGTH_APPEND] \\ Cases_on `env1.c`
   \\ fs [merge_alist_mod_env_def,mod_env_update_def,BUTLASTN_LENGTH_APPEND])
+
+
+(* The translator and CF tools use the following definition of ML_code
+   to build verified ML programs. *)
+
+val ML_code_def = Define `
+  (ML_code env1 s1 prog NONE env2 s2 <=>
+     Prog env1 s1 prog env2 s2) /\
+  (ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 <=>
+     ?s.
+       mn ∉ s.defined_mods /\ no_dup_types ds /\
+       Prog env1 s1 prog env s /\
+       Decls (SOME mn) env s ds env2 s2)`
+
+(* opening and closing of modules *)
+
+val ML_code_new_module = store_thm("ML_code_new_module",
+  ``ML_code env1 s1 prog NONE env2 s2 ==>
+    !mn. mn ∉ s2.defined_mods ==>
+         ML_code env1 s1 prog (SOME (mn,[],env2)) env2 s2``,
+  fs [ML_code_def] \\ rw [Decls_NIL] \\ EVAL_TAC);
+
+val ML_code_close_module = store_thm("ML_code_close_module",
+  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+    !sigs.
+      ML_code env1 s1 (SNOC (Tmod mn sigs ds) prog) NONE
+        (env with <| m := (mn,BUTLASTN (LENGTH env.v) env2.v)::env.m ;
+                      c := mod_env_update mn env.c env2.c |>)
+        (s2 with defined_mods := {mn} ∪ s2.defined_mods)``,
+  fs [ML_code_def] \\ rw [] \\ fs [SNOC_APPEND,Prog_APPEND]
+  \\ asm_exists_tac \\ fs [Prog_Tmod]
+  \\ asm_exists_tac \\ fs []);
+
+(* appending a Dtype *)
+
+val ML_code_NONE_Dtype = store_thm("ML_code_NONE_Dtype",
+  ``ML_code env1 s1 prog NONE env2 s2 ==>
+    !tds.
+      check_dup_ctors tds ∧
+      DISJOINT (type_defs_to_new_tdecs NONE tds) s2.defined_types ∧
+      ALL_DISTINCT (MAP (λ(tvs,tn,ctors). tn) tds) ==>
+      ML_code env1 s1 (SNOC (Tdec (Dtype tds)) prog) NONE
+        (write_tds NONE tds env2)
+        (s2 with defined_types :=
+                   type_defs_to_new_tdecs NONE tds ∪ s2.defined_types)``,
+  fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtype]
+  \\ rw [] \\ asm_exists_tac \\ fs []);
+
+val ML_code_SOME_Dtype = store_thm("ML_code_SOME_Dtype",
+  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+    !tds.
+      check_dup_ctors tds ∧ no_dup_types (SNOC (Dtype tds) ds) /\
+      DISJOINT (type_defs_to_new_tdecs (SOME mn) tds) s2.defined_types ∧
+      ALL_DISTINCT (MAP (λ(tvs,tn,ctors). tn) tds) ==>
+      ML_code env1 s1 prog (SOME (mn,SNOC (Dtype tds) ds,env))
+        (write_tds (SOME mn) tds env2)
+        (s2 with defined_types :=
+                   type_defs_to_new_tdecs (SOME mn) tds ∪ s2.defined_types)``,
+  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dtype]
+  \\ rw [] \\ asm_exists_tac \\ fs [] \\ asm_exists_tac \\ fs []);
+
+(* appending a Dexn *)
+
+val ML_code_NONE_Dexn = store_thm("ML_code_NONE_Dexn",
+  ``ML_code env1 s1 prog NONE env2 s2 ==>
+    !n l.
+      TypeExn (mk_id NONE n) ∉ s2.defined_types ==>
+      ML_code env1 s1 (SNOC (Tdec (Dexn n l)) prog) NONE
+        (write_exn NONE n l env2)
+        (s2 with defined_types := {TypeExn (mk_id NONE n)} ∪ s2.defined_types)``,
+  fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dexn]
+  \\ rw [] \\ asm_exists_tac \\ fs []);
+
+val ML_code_SOME_Dexn = store_thm("ML_code_SOME_Dexn",
+  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+    !n l.
+      TypeExn (mk_id (SOME mn) n) ∉ s2.defined_types ==>
+      ML_code env1 s1 prog (SOME (mn,SNOC (Dexn n l) ds,env))
+        (write_exn (SOME mn) n l env2)
+        (s2 with defined_types :=
+                   {TypeExn (mk_id (SOME mn) n)} ∪ s2.defined_types)``,
+  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dexn]
+  \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [no_dup_types_def,  decs_to_types_def]
+  \\ asm_exists_tac \\ fs []);
+
+(* appending a Dtabbrev *)
+
+val ML_code_NONE_Dtabbrev = store_thm("ML_code_NONE_Dtabbrev",
+  ``ML_code env1 s1 prog NONE env2 s2 ==>
+    !x y z.
+      ML_code env1 s1 (SNOC (Tdec (Dtabbrev x y z)) prog) NONE env2 s2``,
+  fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtabbrev]);
+
+val ML_code_SOME_Dtabbrev = store_thm("ML_code_SOME_Dtabbrev",
+  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+    !x y z.
+      ML_code env1 s1 prog (SOME (mn,SNOC (Dtabbrev x y z) ds,env)) env2 s2``,
+  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dtabbrev]
+  \\ rw [] \\ asm_exists_tac \\ fs [no_dup_types_def,  decs_to_types_def]);
+
+(* appending a Letrec *)
+
+val ML_code_NONE_Dletrec = store_thm("ML_code_NONE_Dletrec",
+  ``ML_code env1 s1 prog NONE env2 s2 ==>
+    !fns.
+      ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
+      ML_code env1 s1 (SNOC (Tdec (Dletrec fns)) prog) NONE
+        (write_rec fns env2) s2``,
+  fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dletrec]
+  \\ rw [] \\ asm_exists_tac \\ fs []);
+
+val ML_code_SOME_Dletrec = store_thm("ML_code_SOME_Dletrec",
+  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+    !fns.
+      ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
+      ML_code env1 s1 prog (SOME (mn,SNOC (Dletrec fns) ds,env))
+        (write_rec fns env2) s2``,
+  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dletrec]
+  \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [no_dup_types_def,  decs_to_types_def]
+  \\ asm_exists_tac \\ fs []);
+
+(* appending a Let *)
+
+val ML_code_NONE_Dlet_var = store_thm("ML_code_NONE_Dlet_var",
+  ``ML_code env1 s1 prog NONE env2 s2 ==>
+    !e x s3.
+      evaluate F env2 s2 e (s3,Rval x) ==>
+      s3.defined_types = s2.defined_types ==>
+      !n.
+        ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) e)) prog)
+          NONE (write n x env2) s3``,
+  fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet]
+  \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ asm_exists_tac \\ fs []);
+
+val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
+  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+    !e x s3.
+      evaluate F env2 s2 e (s3,Rval x) ==>
+      s3.defined_types = s2.defined_types ==>
+      !n.
+        ML_code env1 s1 prog (SOME (mn,SNOC (Dlet (Pvar n) e) ds,env))
+          (write n x env2) s3``,
+  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dlet]
+  \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [no_dup_types_def,  decs_to_types_def]
+  \\ NTAC 2 (rw [] \\ asm_exists_tac \\ fs []));
 
 val _ = export_theory();
