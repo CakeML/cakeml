@@ -2869,17 +2869,6 @@ val get_vars_with_store = store_thm("get_vars_with_store",
            get_vars args t``,
   Induct \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]);
 
-val LEAST_NOT_IN_FDOM = prove(
-  ``~((LEAST (ptr:num). ~(ptr IN FDOM refs)) IN FDOM refs)``,
-  qabbrev_tac `p = \ptr. ~(ptr IN FDOM refs)`
-  \\ `p ($LEAST p)` by all_tac
-  \\ TRY (unabbrev_all_tac \\ fs [] \\ NO_TAC)
-  \\ match_mp_tac LEAST_INTRO \\ unabbrev_all_tac \\ fs []
-  \\ assume_tac (MATCH_MP INFINITE_DIFF_FINITE (CONJ INFINITE_NUM_UNIV
-     (FDOM_FINITE |> Q.SPEC `refs`
-        |> INST_TYPE [``:'a``|->``:num``,``:'b``|->``:'a``])))
-  \\ fs [EXTENSION] \\ metis_tac []);
-
 val word_less_lemma1 = prove(
   ``v2 < (v1:'a word) <=> ~(v1 <= v2)``,
   metis_tac [WORD_NOT_LESS]);
@@ -3995,7 +3984,7 @@ val assign_thm = Q.prove(
     \\ strip_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ qabbrev_tac `new = LEAST ptr. ptr ∉ FDOM x.refs`
-    \\ `new ∉ FDOM x.refs` by metis_tac [LEAST_NOT_IN_FDOM]
+    \\ `new ∉ FDOM x.refs` by metis_tac [LEAST_NOTIN_FDOM]
     \\ rpt_drule memory_rel_Ref \\ strip_tac
     \\ fs [list_Seq_def] \\ eval_tac
     \\ fs [wordSemTheory.set_store_def]
