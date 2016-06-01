@@ -3040,7 +3040,7 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
            mem_load_byte_aux m dm be (a + bytes_in_word + n2w i) =
            SOME (EL i vals)) /\
       if dimindex (:'a) = 32 then
-        LENGTH vals + 3 < 2 ** (dimindex (:'a) - 2) /\
+        LENGTH vals + 3 < 2 ** (dimindex (:'a) - 3) /\
         (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 3))
       else
         LENGTH vals + 7 < 2 ** (dimindex (:'a) - 3) /\
@@ -3165,6 +3165,12 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
         \\ Cases_on `i + k < 32`
         \\ simp [wordsTheory.word_index])
     \\ simp []
+    \\ conj_tac
+    >- (
+      `c.len_size + 2 ≤ 29` by decide_tac
+      \\ drule bitTheory.TWOEXP_MONO2
+      \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
+      \\ decide_tac)
     \\ match_mp_tac lsl_lsr
     \\ simp [wordsTheory.dimword_def]
     \\ `c.len_size = 30 - k` by decide_tac \\ fs []

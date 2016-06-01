@@ -3157,7 +3157,6 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule memory_rel_zero_space \\ fs [])
-  (*
   \\ Cases_on `op = LengthByte` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -3181,17 +3180,22 @@ val assign_thm = Q.prove(
     \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
          (match_mp_tac (GEN_ALL get_real_addr_lemma)
           \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
+    \\ IF_CASES_TAC
+    >- ( fs[good_dimindex_def] \\ rfs[shift_def] )
+    \\ pop_assum kall_tac
+    \\ simp[]
     \\ `2 < dimindex (:'a)` by
          (fs [labPropsTheory.good_dimindex_def] \\ fs [])
-    \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ fs [WORD_MUL_LSL,WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ fs [word_mul_n2w]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ fs[good_dimindex_def]
+    \\ rfs[shift_def,bytes_in_word_def,WORD_LEFT_ADD_DISTRIB,word_mul_n2w]
     \\ match_mp_tac (IMP_memory_rel_Number_num3
-         |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs [])
-  *)
+         |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs []
+    \\ fs[good_dimindex_def])
   \\ Cases_on `op = IsBlock` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
