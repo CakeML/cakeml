@@ -30,8 +30,9 @@ fun define_abbrev for_eval name tm =
   if free_vars tm = [] then let
     val n = mk_var(name,type_of tm)
     val tm = mk_eq(n,tm)
-    val def = Definition.new_definition(name,tm)
-    val _ = if for_eval then computeLib.add_persistent_funs [name] else ()
+    val def_name = name ^ "_def"
+    val def = Definition.new_definition(def_name,tm)
+    val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
     in def end
   else let
     val vs = free_vars tm |> sort
@@ -39,8 +40,9 @@ fun define_abbrev for_eval name tm =
     val vars = foldr mk_pair (last vs) (butlast vs)
     val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
     val eq_tm = mk_eq(mk_comb(n,vars),tm)
-    val def = Definition.new_definition(name,eq_tm)
-    val _ = if for_eval then computeLib.add_persistent_funs [name] else ()
+    val def_name = name ^ "_def"
+    val def = Definition.new_definition(def_name,eq_tm)
+    val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
     in def end
 
 fun cond_abbrev dest conv name th = let
@@ -143,7 +145,46 @@ fun add_Dletrec funs v_names (ML_code (ss,envs,vs,th)) = let
   val th = REWRITE_RULE (map GSYM v_defs) th
   in clean (ML_code (ss,envs,v_defs @ vs,th)) end
 
+val (Dlet_Fun_pat,Dletrec_pat,Dtype_pat,Dtabbrev_pat,Dexn_pat) = let
+  val f = rand o repeat (snd o dest_exists)
+  val tm = astTheory.exp_nchotomy |> SPEC_ALL |> concl
+  val y = tm |> dest_disj |> snd |> dest_disj |> snd
+             |> dest_disj |> snd |> dest_disj |> snd
+             |> dest_disj |> snd |> dest_disj |> fst |> f
+  val tm = astTheory.dec_nchotomy |> SPEC_ALL |> concl
+  val (x1,tm) = dest_disj tm
+  val (x2,tm) = dest_disj tm
+  val (x3,tm) = dest_disj tm
+  val (x4,x5) = dest_disj tm
+  in (mk_comb(f x1 |> rator,y), f x2, f x3, f x4, f x5) end
+
+fun add_dec dec_tm =
+  if can (match_term Dexn_pat) dec_tm then let
+    val x1 = dec_tm |> rator |> rand
+    val x2 = dec_tm |> rand
+    in add_Dexn x1 x2 end
+  else if can (match_term Dtype_pat) dec_tm then let
+    val x1 = dec_tm |> rand
+    in add_Dtype x1 end
+  else if can (match_term Dtabbrev_pat) dec_tm then let
+    val x1 = dec_tm |> rator |> rator |> rand
+    val x2 = dec_tm |> rator |> rand
+    val x3 = dec_tm |> rand
+    in add_Dtabbrev x1 x2 x3 end
+  else if can (match_term Dletrec_pat) dec_tm then let
+    val x1 = dec_tm |> rand
+    fun f str = str ^ "_v"
+    val xs = listSyntax.dest_list x1 |> fst
+               |> map (f o stringSyntax.fromHOLstring o rand o rator)
+    in add_Dletrec x1 xs end
+  else failwith("add_dec does not support this shape: " ^ term_to_string dec_tm);
+
 (*
+
+val dec_tm = ``Dletrec [("foo","x",Var (Short "x"));("var","y",Var (Short "y"))]``
+
+add_dec dec_tm init_state
+
 
 val s = init_state
 val mn_str = "hello"
@@ -152,6 +193,10 @@ val s = add_Dtype ``[]:type_def`` s
 val s = add_Dletrec
   ``[("foo","x",Var (Short "x"));("var","y",Var (Short "y"))]`` ["foo_v","var_v"] s
 val s = close_module NONE s
+
+  initialProgramTheory.basis_program
+
+  - write automation for slurping in a concrete program prog
 
 *)
 
