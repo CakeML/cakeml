@@ -437,7 +437,9 @@ val big_clocked_total_lem = Q.prove (
   >- ((* Letrec *)
       `exp_size e' < exp_size (Letrec l e')`
              by srw_tac [ARITH_ss] [exp_size_def] >>
-      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock]));
+      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
+  >- ((* Tannot *)
+     rw [exp_size_def]));
 
 val big_clocked_total = Q.store_thm ("big_clocked_total",
   `!s env e.
