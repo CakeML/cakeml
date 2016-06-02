@@ -275,6 +275,28 @@ val ML_code_def = Define `
        Prog env1 s1 prog env s /\
        Decls (SOME mn) env s ds env2 s2)`
 
+(* an empty program *)
+
+local
+  val init_env_tm =
+    ``SND (THE (prim_sem_env (ARB:unit ffi_state)))``
+    |> SIMP_CONV std_ss [initSemEnvTheory.prim_sem_env_eq]
+    |> concl |> rand
+  val init_state_tm =
+    ``FST(THE (prim_sem_env (ffi:'ffi ffi_state)))``
+    |> SIMP_CONV std_ss [initSemEnvTheory.prim_sem_env_eq]
+    |> concl |> rand
+in
+  val init_env_def = Define `
+    init_env = ^init_env_tm`;
+  val init_state_def = Define `
+    init_state ffi = ^init_state_tm`;
+end
+
+val ML_code_NIL = store_thm("ML_code_NIL",
+  ``ML_code init_env (init_state ffi) [] NONE init_env (init_state ffi)``,
+  fs [ML_code_def,Prog_NIL]);
+
 (* opening and closing of modules *)
 
 val ML_code_new_module = store_thm("ML_code_new_module",
@@ -289,10 +311,11 @@ val ML_code_close_module = store_thm("ML_code_close_module",
       ML_code env1 s1 (SNOC (Tmod mn sigs ds) prog) NONE
         (env with <| m := (mn,BUTLASTN (LENGTH env.v) env2.v)::env.m ;
                       c := mod_env_update mn env.c env2.c |>)
-        (s2 with defined_mods := {mn} ∪ s2.defined_mods)``,
+        (s2 with defined_mods := mn INSERT s2.defined_mods)``,
   fs [ML_code_def] \\ rw [] \\ fs [SNOC_APPEND,Prog_APPEND]
   \\ asm_exists_tac \\ fs [Prog_Tmod]
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+  \\ AP_THM_TAC \\ rpt AP_TERM_TAC \\ fs [EXTENSION]);
 
 (* appending a Dtype *)
 
@@ -408,5 +431,12 @@ val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [no_dup_types_def,  decs_to_types_def]
   \\ NTAC 2 (rw [] \\ asm_exists_tac \\ fs []));
+
+(* misc used by automation *)
+
+val DISJOINT_set_simp = store_thm("DISJOINT_set_simp",
+  ``DISJOINT (set []) s /\
+    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)``,
+  fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
 
 val _ = export_theory();
