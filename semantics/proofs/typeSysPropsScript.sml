@@ -1056,18 +1056,26 @@ val type_p_subst = Q.store_thm ("type_p_subst",
            ps
            (MAP (deBruijn_subst inc targs') ts)
            (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) tenv))`,
-ho_match_mp_tac type_p_strongind >>
-srw_tac[][] >>
-ONCE_REWRITE_TAC [type_p_cases] >>
-srw_tac[][deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def, Tword_def, Tword64_def] >|
-[metis_tac [check_freevars_lem],
- srw_tac[][EVERY_MAP] >>
+ ho_match_mp_tac type_p_strongind >>
+ srw_tac[][] >>
+ ONCE_REWRITE_TAC [type_p_cases] >>
+ simp [deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def, Tword_def, Tword64_def]
+ >- metis_tac [check_freevars_lem]
+ >- (rw [] >>
+     srw_tac[][EVERY_MAP] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
-     srw_tac[][] >>
-     metis_tac [check_freevars_lem, EVERY_MEM],
- metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup],
- metis_tac [],
- metis_tac []]);
+     srw_tac[][]
+     >- metis_tac [check_freevars_lem, EVERY_MEM]
+     >- metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup])
+ >- metis_tac []
+ >- (
+   conj_asm1_tac
+   >- (
+     match_mp_tac (GSYM nil_deBruijn_subst) >>
+     `inc ≥ 0` by decide_tac >>
+     metis_tac [check_freevars_add]) >>
+   metis_tac [])
+ >- metis_tac []);
 
 val type_p_bvl = Q.store_thm ("type_p_bvl",
 `(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
@@ -1437,6 +1445,8 @@ val type_e_subst = Q.store_thm ("type_e_subst",
         srw_tac[][num_tvs_bind_var_list, deBruijn_subst_E_bind_var_list, db_merge_bind_var_list] >>
         pop_assum match_mp_tac >>
         metis_tac [tenv_ok_bind_var_list_funs]))
+ >- cheat
+ >- cheat
  >- (full_simp_tac(srw_ss())[check_freevars_def] >>
      metis_tac [check_freevars_lem])
  >- (full_simp_tac(srw_ss())[check_freevars_def] >>
