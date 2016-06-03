@@ -328,12 +328,6 @@ val word_ml_inv_insert = store_thm("word_ml_inv_insert",
     definition and verification of GC function
    ------------------------------------------------------- *)
 
-val theWord_def = Define `
-  theWord (Word w) = w`
-
-val isWord_def = Define `
-  (isWord (Word w) = T) /\ (isWord _ = F)`;
-
 val ptr_to_addr_def = Define `
   ptr_to_addr conf base (w:'a word) =
     base + ((w >>> (shift_length conf)) * bytes_in_word)`
@@ -4099,9 +4093,8 @@ val assign_thm = Q.prove(
     \\ imp_res_tac get_vars_3_IMP
     \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
           bviPropsTheory.bvl_to_bvi_id,
-          (*bvpPropsTheory.*)bvi_to_bvp_refs,
-          (*bvpPropsTheory.*)bvp_to_bvi_refs]
-    \\ fs[GSYM (*bvpPropsTheory.*)bvi_to_bvp_refs]
+          bvi_to_bvp_refs, bvp_to_bvi_refs]
+    \\ fs[GSYM bvi_to_bvp_refs]
     \\ fs[bvp_to_bvi_def]
     \\ fs[state_rel_thm,set_var_def]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -4151,7 +4144,7 @@ val assign_thm = Q.prove(
       \\ `F` by intLib.COOPER_TAC )
     \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
     \\ disch_then kall_tac
-    \\ first_x_assum(qspec_then`Num i`mp_tac)
+    \\ qpat_assum`∀i. _ ⇒ mem_load_byte_aux _ _ _ _ = _`(qspec_then`Num i`mp_tac)
     \\ impl_tac
     >- (
       fs[GSYM integerTheory.INT_OF_NUM]
@@ -4168,7 +4161,16 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert
     \\ simp[]
     \\ match_mp_tac memory_rel_Unit
-    \\ cheat (* need a memory_rel_UpdateByte theorem *))
+    \\ first_x_assum(qspecl_then[`Num i`,`w`]mp_tac)
+    \\ impl_tac
+    >- (
+      fs[GSYM integerTheory.INT_OF_NUM]
+      \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
+      \\ PROVE_TAC[] )
+    \\ simp[theWord_def] \\ strip_tac
+    \\ drule memory_rel_tl \\ simp[] \\ strip_tac
+    \\ drule memory_rel_tl \\ simp[] \\ strip_tac
+    \\ drule memory_rel_tl \\ simp[])
   \\ Cases_on `op = DerefByte` \\ fs[] THEN1 (
     imp_res_tac get_vars_IMP_LENGTH \\ fs[]
     \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
@@ -4186,6 +4188,7 @@ val assign_thm = Q.prove(
     \\ fs[bvp_to_bvi_def]
     \\ rpt_drule memory_rel_ByteArray_IMP
     \\ strip_tac \\ clean_tac
+    \\ first_x_assum(qspec_then`ARB`kall_tac)
     \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
     \\ imp_res_tac memory_rel_tl
     \\ rpt_drule memory_rel_Number_IMP
