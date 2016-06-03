@@ -3144,7 +3144,7 @@ val write_bytes_same = Q.store_thm("write_bytes_same",
 val set_byte_inj_lemma = Q.store_thm("set_byte_inj_lemma",
   `set_byte k b w1 be = set_byte k b w2 be ∧ (w1 = w2 ⇒ v1 = v2) ⇒
    set_byte k b1 v1 be = set_byte k b1 v2 be`,
-   cheat);
+   cheat); (* this is false *)
 
 val bytes_to_word_inj_lemma = Q.store_thm("bytes_to_word_inj_lemma",
   `∀bw k b1 w1 be w2 b. LENGTH b1 = LENGTH b ∧
@@ -3187,39 +3187,48 @@ val set_byte_change_a = Q.store_thm("set_byte_change_a",
    set_byte a b w be = set_byte a' b w be`,
   rw[set_byte_def,byte_index_def]);
 
-(*
-val set_byte_set_byte = Q.store_thm("set_byte_set_byte",
-  `good_dimindex(:α) ⇒
-   set_byte (a:α word) b (set_byte a b' w be) be = set_byte a b w be`,
-  rw[set_byte_def]
-  \\ Cases_on`b` \\ fs[w2w_n2w]
-  \\ Cases_on`b'` \\ fs[w2w_n2w]
-  \\ fs[n2w_BITS]
-  \\ IF_CASES_TAC >- fs[labPropsTheory.good_dimindex_def]
-  \\ fs[]
-  \\ cheat);
-
-val set_byte_set_byte_diff = Q.store_thm("set_byte_set_byte_diff",
-  `good_dimindex(:α) ∧ a ≠ a' ∧ byte_align a = byte_align a' ⇒
-   set_byte a b (set_byte a' b' w be) be = set_byte a' b' (set_byte a b w be) be`,
-  cheat);
-*)
+val set_byte_sort = store_thm("set_byte_sort",
+  ``set_byte (n2w n1) b1 (set_byte (n2w n2:'a word) b2 w be) be =
+    if n1 = n2 then set_byte (n2w n1) b1 w be else
+    if n1 < dimindex(:α) DIV 8 /\ n2 < dimindex(:α) DIV 8 /\
+       good_dimindex(:α) /\ n2 < n1
+    then
+      set_byte (n2w n2) b2 (set_byte (n2w n1) b1 w be) be
+    else
+      set_byte (n2w n1) b1 (set_byte (n2w n2) b2 w be) be``,
+  rw [] THEN1
+   (fs [set_byte_def]
+    \\ full_simp_tac (std_ss++wordsLib.WORD_BIT_EQ_ss) [word_slice_alt_def]
+    \\ rw [] \\ eq_tac \\ rw []
+    \\ TRY (`F` by decide_tac)
+    \\ metis_tac [])
+  \\ fs [set_byte_def]
+  \\ full_simp_tac (std_ss++wordsLib.WORD_BIT_EQ_ss) [word_slice_alt_def]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ TRY (metis_tac [])
+  \\ fs [byte_index_def]
+  \\ fs[labPropsTheory.good_dimindex_def] \\ rfs[dimword_def]
+  \\ Cases_on `be` \\ fs []
+  \\ fs [LESS_4,LESS_8] \\ rfs []);
 
 val set_byte_bytes_to_word = Q.store_thm("set_byte_bytes_to_word",
   `i < LENGTH ls ∧ i < 2 ** k ∧ 2 ** k = dimindex (:α) DIV 8 ∧
    good_dimindex(:α) ⇒
    set_byte (n2w i) b (bytes_to_word (2 ** k) 0w ls t be) be =
-   bytes_to_word (2 ** k) 0w (LUPDATE b i ls) t be`,
+   bytes_to_word (2 ** k) (0w:'a word) (LUPDATE b i ls) t be`,
   rw[] \\ fs[] \\ fs[labPropsTheory.good_dimindex_def] \\ fs[]
-  >- (
-    fs[LESS_4] \\ fs[]
-    \\ Cases_on`ls` \\ fs[]
-    \\ TRY (Cases_on`t'`) \\ fs[]
-    \\ TRY (Cases_on`t''`) \\ fs[]
-    \\ TRY (Cases_on`t'`) \\ fs[]
-    \\ rewrite_tac[expand_num,bytes_to_word_def,LUPDATE_def]
-    \\ cheat )
-  \\ cheat);
+  \\ fs[LESS_4,LESS_8] \\ fs[]
+  \\ Cases_on`ls` \\ fs[]
+  \\ TRY (Cases_on`t'`) \\ fs[]
+  \\ TRY (Cases_on`t''`) \\ fs[]
+  \\ TRY (Cases_on`t'`) \\ fs[]
+  \\ TRY (Cases_on`t''`) \\ fs[]
+  \\ TRY (Cases_on`t'`) \\ fs[]
+  \\ TRY (Cases_on`t''`) \\ fs[]
+  \\ TRY (Cases_on`t'`) \\ fs[]
+  \\ rewrite_tac[expand_num,bytes_to_word_def,LUPDATE_def] \\ fs [ADD1]
+  \\ rpt (fs [Once set_byte_sort,labPropsTheory.good_dimindex_def]
+          \\ AP_THM_TAC \\ AP_TERM_TAC));
 
 val heap_in_memory_store_UpdateByte = Q.store_thm("heap_in_memory_store_UpdateByte",
   `heap_in_memory_store heap a sp c s m dm limit ∧
