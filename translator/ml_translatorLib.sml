@@ -1237,9 +1237,23 @@ val ty = ``:unit``; derive_thms_for_type false ty
 *)
 
 fun derive_thms_for_type is_exn_type ty = let
-  val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
+  val (_,tyargs) = dest_type ty
+  val (ty_pre,ret_ty_pre) = dest_fun_type (type_of_cases_const ty)
+  val (_,gen_tyargs) = dest_type ty_pre
+  fun inst_fcp_types (x::xs) (y::ys) ty =
+    if is_vartype y andalso fcpSyntax.is_numeric_type x
+    then
+      type_subst [y|->x] (inst_fcp_types xs ys ty)
+    else
+      inst_fcp_types xs ys ty
+  |   inst_fcp_types _ _ ty = ty
+  (* Do not generalize fcp types *)
+  val inst_fcp_types = inst_fcp_types tyargs gen_tyargs
+  val ty = inst_fcp_types ty_pre
+  val ret_ty = inst_fcp_types ret_ty_pre
   val is_record = 0 < length(TypeBase.fields_of ty)
-  val tys = find_mutrec_types ty
+  val tys_pre = find_mutrec_types ty
+  val tys = map inst_fcp_types tys_pre
   val is_pair_type =
     (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
   val is_list_type =
@@ -1275,6 +1289,7 @@ fun derive_thms_for_type is_exn_type ty = let
       val ts = th |> concl |> list_dest dest_conj |> hd
                   |> list_dest dest_forall |> last |> dest_eq |> fst
                   |> rator |> rand |> type_of |> dest_type |> snd
+                  |> filter (not o fcpSyntax.is_numeric_type)
                   |> map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype)
       val ts_tm = listSyntax.mk_list(ts,stringSyntax.string_ty)
       val dtype = pairSyntax.list_mk_pair[ts_tm,tyname,lines]
@@ -1594,7 +1609,8 @@ fun register_term_types tm = let
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
     if not (can dest_type ty) then true else
-    if can (dest_fun_type) ty then true else false
+    if can (dest_fun_type) ty then true else
+    if fcpSyntax.is_numeric_type ty then true else false
   fun typeops ty = let
     val (tname,targs) = dest_type ty
     in ty :: flatten (map typeops targs) end
