@@ -16,13 +16,13 @@ sig
   val close_module : term option (* optional signature *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dtype    : Term.term (* tds *) ->
+  val add_Dtype    : term (* tds *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dexn     : Term.term -> term (* Dexn args *) ->
+  val add_Dexn     : term -> term (* Dexn args *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dtabbrev : Term.term -> Term.term -> Term.term -> (* Dtabbrev args *)
+  val add_Dtabbrev : term -> term -> term -> (* Dtabbrev args *)
                      ml_prog_state -> ml_prog_state
 
   val add_Dlet     : thm (* evaluate thm *) ->
@@ -30,8 +30,16 @@ sig
                      thm list (* v const thms *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dletrec  : Term.term (* funs *) ->
+  val add_Dletrec  : term (* funs *) ->
                      string list (* names of v consts *) ->
                      ml_prog_state -> ml_prog_state
+
+  val add_prog     : term (* prog i.e. list of top *) ->
+                     (string -> string) (* pick name for v abbrev const *) ->
+                     ml_prog_state -> ml_prog_state
+
+  val remove_snocs : ml_prog_state -> ml_prog_state
+
+  val get_thm      : ml_prog_state -> thm (* ML_code thm *)
 
 end

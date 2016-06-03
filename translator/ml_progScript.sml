@@ -434,7 +434,7 @@ val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
 
 val ML_code_NONE_Dlet_Fun = store_thm("ML_code_NONE_Dlet_Fun",
   ``ML_code env1 s1 prog NONE env2 s2 ==>
-    !n v exp.
+    !n v e.
       ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) (Fun v e))) prog)
         NONE (write n (Closure env2 v e) env2) s2``,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet]
@@ -442,7 +442,7 @@ val ML_code_NONE_Dlet_Fun = store_thm("ML_code_NONE_Dlet_Fun",
 
 val ML_code_SOME_Dlet_Fun = store_thm("ML_code_SOME_Dlet_Fun",
   ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-    !n v exp.
+    !n v e.
       ML_code env1 s1 prog (SOME (mn,SNOC (Dlet (Pvar n) (Fun v e)) ds,env))
         (write n (Closure env2 v e) env2) s2``,
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dlet]
