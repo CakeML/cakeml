@@ -1092,14 +1092,16 @@ fun define_ref_inv is_exn_type tys = let
   val size_def = snd (TypeBase.size_of (hd tys))
   fun right_list_dest f tm =
     let val (x,y) = f tm
-    in [x] @ right_list_dest f y end handle HOL_ERR _ => [tm]
+    in (right_list_dest f y) @ [x] end handle HOL_ERR _ => [tm]
   fun build_measure [] = fail()
     | build_measure [ty] = let
         val x = fst (TypeBase.size_of ty)
+        (* Check the number of fcp vars -- not sure if this works for more than one *)
+        val count_fcp = (length o (filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
         val xs = tl (tl (right_list_dest dest_fun_type (type_of x)))
         val s = (x |> dest_const |> fst)
         val s1 = foldr (fn (_,s) => s ^ " (K 0)") s xs
-        val s2 = foldr (fn (_,s) => s ^ " o SND") " o FST" xs
+        val s2 = foldr (fn (_,s) => s ^ " o SND") " o FST" (List.drop (xs,count_fcp))
         in s1 ^ s2  end
     | build_measure (t1::t2::ts) = let
         val s1 = build_measure [t1]
