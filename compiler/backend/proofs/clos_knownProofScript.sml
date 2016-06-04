@@ -1297,7 +1297,6 @@ val ssgc_free_preserved_SING' = Q.store_thm(
   `EVERY esgc_free [e1]` by simp[] >>
   metis_tac[ssgc_evaluate]);
 
-(*
 val say = say0 "known_correct";
 
 fun nailIHx k = let
@@ -1375,7 +1374,8 @@ val evaluate_app_NONE_SOME = Q.store_thm(
   fs[check_loc_def, revdroprev, revtakerev]);
 
 val kerel_def = Define`
-  kerel as g0 e1 e2 ⇔ ∃g apx. known [e1] as g0 = ([(e2,apx)], g)
+  kerel as g0 e1 e2 ⇔
+    ∃g0' g apx. better_definedg g0' g0 ∧ known [e1] as g0' = ([(e2,apx)], g)
 `;
 
 val kvrel_def = tDefine "kvrel" `
@@ -1795,6 +1795,30 @@ val kvrel_dest_closure_SOME_Full = Q.store_thm(
       >- (simp[LIST_REL_GENLIST] >> rpt strip_tac >>
           qexists_tac `envapx` >> simp[])))
 
+val kvrel_better_definedg = Q.store_thm(
+  "kvrel_better_definedg",
+  `∀g v1 v2 g'. kvrel g v1 v2 ∧ better_definedg g g' ⇒ kvrel g' v1 v2`,
+  ho_match_mp_tac kvrel_ind >> simp[PULL_EXISTS] >> rpt strip_tac
+  >- (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
+      simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >> qexists_tac `kvrel g` >>
+      simp[] >> metis_tac[MEM_EL])
+  >- (qcase_tac `LIST_REL val_approx_val envapx _` >> qexists_tac `envapx` >>
+      simp[] >> rpt conj_tac >>
+      TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
+           simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
+           qexists_tac `kvrel g` >> simp[] >> metis_tac[MEM_EL]) >>
+      fs[kerel_def] >> metis_tac[better_definedg_trans])
+  >- (qcase_tac `LIST_REL val_approx_val envapx _` >> qexists_tac `envapx` >>
+      simp[] >> rpt conj_tac >>
+      TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
+           simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
+           qexists_tac `kvrel g` >> simp[] >> metis_tac[MEM_EL]) >>
+      qpat_assum `LIST_REL (UNCURRY _) _ _` mp_tac >> simp[LIST_REL_EL_EQN] >>
+      rpt strip_tac >> fs[] >> rfs[] >> rpt (pairarg_tac >> fs[]) >>
+      qcase_tac `nn < LENGTH _` >> first_x_assum (qspec_then `nn` mp_tac) >>
+      simp[] >> simp[kerel_def] >> metis_tac[better_definedg_trans]))
+
+(*
 val kvrel_subspt = Q.store_thm(
   "kvrel_subspt",
   `∀g v1 v2 g'. kvrel g v1 v2 ∧ subspt g g' ⇒ kvrel g' v1 v2`,
@@ -1817,6 +1841,7 @@ val kvrel_subspt = Q.store_thm(
       rpt strip_tac >> fs[] >> rfs[] >> rpt (pairarg_tac >> fs[]) >>
       qcase_tac `nn < LENGTH _` >> first_x_assum (qspec_then `nn` mp_tac) >>
       simp[] >> simp[kerel_def] >> metis_tac[better_definedg_trans]))
+*)
 
 val kvrel_LIST_REL_better_definedg = Q.store_thm(
   "kvrel_LIST_REL_better_definedg",
@@ -1853,7 +1878,7 @@ val known_correct0 = Q.prove(
       ssgc_free s01 ∧ known es as g0 = (ealist, g) ⇒
       ∃res2 s2.
         evaluate(MAP FST ealist, env2, s02) = (res2, s2) ∧
-        krrel g0 (res1,s1) (res2,s2)) ∧
+        krrel g (res1,s1) (res2,s2)) ∧
    (∀lopt1 f1 args1 (s01:α closSem$state) res1 s1 lopt2 f2 args2 s02 g.
       evaluate_app lopt1 f1 args1 s01 = (res1,s1) ∧ ssgc_free s01 ∧
       kvrel g f1 f2 ∧ LIST_REL (kvrel g) args1 args2 ∧
@@ -2030,6 +2055,8 @@ val known_correct0 = Q.prove(
       imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
       nailIHx strip_assume_tac >> fs[] >>
       simp[evaluate_def, pair_case_eq, result_case_eq, error_case_eq]
+      >- metis_tac[known_better_definedg, kvrel_LIST_REL_better_definedg,
+                   ksrel_better_definedg]
       >- (dsimp[] >> fs[krrel_err_rw, PULL_EXISTS] >>
           sel_ihpc last >> simp[] >> disch_then irule >> simp[]
           >- metis_tac[ssgc_free_preserved_SING']
@@ -2037,7 +2064,7 @@ val known_correct0 = Q.prove(
                (fn th =>
                     mp_tac (asmPART_MATCH' last ssgc_evaluate (concl th)) >>
                     simp[] >> NO_TAC)
-          >- (qcase_tac `LIST_REL kvrel env1 env2` >> rveq >>
+          >- (qcase_tac `LIST_REL (kvrel g0) env1 env2` >> rveq >>
               qcase_tac `evaluate([exp2],env2,s02) = (Rerr (Rraise exn2),s2)` >>
               qcase_tac `known [exp1] as g0 = ([(exp2,apx1)], g0')` >>
               `state_globals_approx s2 g0'` suffices_by metis_tac[ksrel_sga] >>
@@ -2045,32 +2072,58 @@ val known_correct0 = Q.prove(
               map_every qexists_tac [`env2`, `Rerr (Rraise exn2)`, `s02`] >>
               simp[] >>
               metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
-                        kvrel_LIST_REL_val_approx]))
+                        kvrel_LIST_REL_val_approx])
+         >- (metis_tac[kvrel_LIST_REL_better_definedg, known_better_definedg]))
       >- (dsimp[] >> fs[krrel_err_rw] >>
-          metis_tac[pair_CASES, result_CASES, error_CASES]))
+          metis_tac[pair_CASES, result_CASES, error_CASES,
+                    ksrel_better_definedg, known_better_definedg]))
   >- (say "op" >>
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def] >>
       rpt strip_tac >> rveq >> fs[] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> nailIHx strip_assume_tac >>
       simp[evaluate_def, result_case_eq, pair_case_eq]
       >- ((* args evaluate OK, do_app evaluates OK *)
-          dsimp[] >> metis_tac[kvrel_op_correct_Rval, EVERY2_REVERSE])
+          dsimp[] >> rveq >>
+          map_every qcase_tac [
+            `known_op opn (REVERSE (MAP SND alist)) g1 = (apx,g)`,
+            `LIST_REL val_approx_val apxs env1`,
+            `evaluate (args1, env1, s01) = (Rval vs1, s11)`,
+            `evaluate (MAP FST alist, env2, s02) = (Rval vs2, s12)`,
+            `do_app opn (REVERSE vs1) s11 = Rval (v1, s1)`] >>
+          `better_definedg g1 g` by metis_tac[known_op_better_definedg] >>
+          `ksrel g s11 s12` by metis_tac [ksrel_better_definedg] >>
+          `LIST_REL (kvrel g) vs1 vs2`
+            by metis_tac[kvrel_LIST_REL_better_definedg] >>
+          metis_tac[kvrel_op_correct_Rval, EVERY2_REVERSE])
       >- ((* args evaluate OK, do_app errors *)
           dsimp[] >> imp_res_tac do_app_EQ_Rerr >> rw[] >>
           metis_tac[result_CASES, pair_CASES])
       >- ((* args error *) fs[krrel_err_rw] >>
-         dsimp[pair_case_eq] >> metis_tac[result_CASES, pair_CASES]))
+         dsimp[pair_case_eq] >>
+         metis_tac[result_CASES, pair_CASES, known_op_better_definedg,
+                   ksrel_better_definedg, kvrel_better_definedg]))
   >- (say "fn" >>
       simp[evaluate_def, pair_case_eq, result_case_eq,
            known_def, bool_case_eq, eqs] >> rpt strip_tac >> rveq >> fs[] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       dsimp[evaluate_def, eqs] >> imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
       rveq
-      >- (simp[kerel_def, PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_val_approx])
+      >- (simp[kerel_def, PULL_EXISTS] >>
+          qcase_tac `known [exp1] (_ ++ apxs) g0 = _` >>
+          map_every qexists_tac [`apxs`, `g0`] >> simp[] >>
+          metis_tac[kvrel_LIST_REL_val_approx, known_better_definedg,
+                    kvrel_LIST_REL_better_definedg, ksrel_better_definedg])
       >- metis_tac[option_CASES]
-      >- (assume_tac kvrel_lookup_vars >> nailIHx strip_assume_tac >> simp[] >>
-
-metis_tac[kerel_def, kvrel_lookup_vars, kvrel_LIST_REL_val_approx])
+      >- (assume_tac (GEN_ALL kvrel_lookup_vars) >> sel_ihpc last >> simp[] >>
+          simp[kerel_def] >>
+          qcase_tac `known [exp] _ g0 = (_, g1)`>>
+          `better_definedg g0 g1` by metis_tac[known_better_definedg] >>
+          strip_tac >> nailIHx strip_assume_tac >> simp[] >>
+          (* need to show that val_approx works on lookup_vars output *)
+          cheat))
+          (* metis_tac[kvrel_LIST_REL_val_approx,
+                       kvrel_LIST_REL_better_definedg,
+                       ksrel_better_definedg])) *)
   >- (say "letrec" >> cheat)
   >- (say "app" >>
       rpt gen_tac >> strip_tac >>
@@ -2105,29 +2158,41 @@ metis_tac[kerel_def, kvrel_lookup_vars, kvrel_LIST_REL_val_approx])
             mp_tac ssgc_evaluate >> simp[] >>
           disch_then (CONJUNCTS_THEN2 assume_tac
                                       (CONJUNCTS_THEN2 assume_tac kall_tac)) >>
-          impl_tac >- metis_tac[ksrel_sga] >>
+          impl_tac
+          >- metis_tac[ksrel_sga, known_better_definedg,
+                       kvrel_LIST_REL_better_definedg] >>
           strip_tac >>
           qcase_tac `evaluate([exp2],env2,s12) = (Rval [v2],s22)` >> simp[] >>
           qcase_tac `evaluate_app loption1 v1 vs1 s21` >>
           `ssgc_free s21`
              by metis_tac[ksrel_ssgc_free, ssgc_free_preserved_SING'] >> fs[] >>
           reverse (Cases_on `loption1`) >> simp[]
-          >- (first_x_assum irule >> simp[loptrel_def]) >>
+          >- (first_x_assum irule >> simp[loptrel_def] >>
+              metis_tac[known_better_definedg,
+                        kvrel_LIST_REL_better_definedg]) >>
           Cases_on `dest_Clos apx2` >> simp[]
-          >- (first_x_assum irule >> simp[loptrel_def]) >>
+          >- (first_x_assum irule >> simp[loptrel_def] >>
+              metis_tac[known_better_definedg,
+                        kvrel_LIST_REL_better_definedg]) >>
           qcase_tac `dest_Clos apx2 = SOME closapxvalue` >>
           `∃clloc clarity. closapxvalue = (clloc, clarity)`
             by metis_tac[pair_CASES] >> pop_assum SUBST_ALL_TAC >>
           simp[] >> reverse (Cases_on `clarity = LENGTH vs2`) >> simp[]
-          >- (first_x_assum irule >> simp[loptrel_def]) >>
+          >- (first_x_assum irule >> simp[loptrel_def] >>
+              metis_tac[known_better_definedg,
+                        kvrel_LIST_REL_better_definedg]) >>
           first_x_assum irule >> simp[loptrel_def] >>
           qspecl_then [`[exp1]`, `apxs`, `g1`, `[(exp2,apx2)]`, `g`]
              mp_tac known_correct_approx >> simp[] >>
           disch_then (qspecl_then [`env2`, `s12`, `s22`, `Rval [v2]`] mp_tac) >>
           simp[] >> impl_tac
           >- metis_tac[kvrel_LIST_REL_val_approx, ksrel_ssgc_free,
-                       kvrel_EVERY_vsgc_free] >>
-          fs[dest_Clos_eq_SOME] >> rveq >> rw[] >> simp[])
+                       kvrel_EVERY_vsgc_free, known_better_definedg,
+                       kvrel_LIST_REL_better_definedg] >>
+          fs[dest_Clos_eq_SOME] >> rveq >> rw[] >> simp[] >>
+          metis_tac[known_better_definedg, kvrel_LIST_REL_better_definedg,
+                    kvrel_LIST_REL_val_approx, ksrel_ssgc_free,
+                    kvrel_EVERY_vsgc_free])
       >- (map_every imp_res_tac [evaluate_IMP_LENGTH, known_LENGTH_EQ_E] >>
           fs[] >> rw[] >>
           simp[evaluate_def, bool_case_eq, pair_case_eq, result_case_eq,
@@ -2148,26 +2213,31 @@ metis_tac[kerel_def, kvrel_lookup_vars, kvrel_LIST_REL_val_approx])
               simp[] >> impl_tac
               >- metis_tac[kvrel_EVERY_vsgc_free, kvrel_LIST_REL_val_approx,
                            ksrel_ssgc_free, ksrel_sga] >>
-              metis_tac[ksrel_sga, ssgc_evaluate]) >>
+              metis_tac[ksrel_sga, ssgc_evaluate,
+                        known_better_definedg,
+                        kvrel_LIST_REL_better_definedg]) >>
           strip_tac >> simp[] >> fs[krrel_err_rw] >>
           metis_tac[result_CASES,pair_CASES])
       >- (map_every imp_res_tac [evaluate_IMP_LENGTH, known_LENGTH_EQ_E] >>
           fs[] >> rw[] >> nailIHx strip_assume_tac >>
           simp[evaluate_def,pair_case_eq,result_case_eq] >> dsimp[] >>
-          fs[krrel_err_rw] >> metis_tac[result_CASES,pair_CASES])
+          fs[krrel_err_rw] >>
+          metis_tac[result_CASES,pair_CASES,
+                    known_better_definedg, ksrel_better_definedg,
+                    kvrel_better_definedg])
       >- (map_every imp_res_tac [evaluate_IMP_LENGTH, known_LENGTH_EQ_E] >>
           fs[] >> rw[] >> simp[evaluate_def]))
   >- (say "tick" >> simp[dec_clock_def] >> rpt gen_tac >> strip_tac >>
       simp[evaluate_def, bool_case_eq, known_def] >>
       qcase_tac `(s0:α closSem$state).clock = 0` >> Cases_on `s0.clock = 0` >>
       fs[] >> rpt strip_tac >> rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-      simp[evaluate_def] >- fs[ksrel_def] >>
+      simp[evaluate_def] >- (fs[ksrel_def] >> (* easy *) cheat) >>
       fs[dec_clock_def] >> fixeqs >> imp_res_tac known_sing_EQ_E >> rveq >>
       fs[] >> rveq >>
       map_every qcase_tac [
         `known [exp1] apxs g0 = ([(exp2,apx)],g)`,
         `evaluate([exp1],env1,s01 with clock := s01.clock - 1) = (res1,s1)`,
-        `ksrel s01 s02`] >>
+        `ksrel g0 s01 s02`] >>
       sel_ihpc last >> simp[] >>
       disch_then
         (qspecl_then [`env2`, `s02 with clock := s02.clock - 1`] mp_tac) >>
@@ -2232,15 +2302,12 @@ metis_tac[kerel_def, kvrel_lookup_vars, kvrel_LIST_REL_val_approx])
           dsimp[] >> fs[PULL_EXISTS] >>
           map_every qcase_tac [
             `evaluate([exp1],env1,dec_clock _ s01) = (Rval [v1], s11)`,
-            `kerel envapx gg exp1 exp2`] >> fs[kerel_def]
-
-
-cheat)
+            `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >> cheat)
       >- (imp_res_tac evaluate_SING >> fs[])
       >- cheat))
 
 val known_correct = save_thm(
   "known_correct",
   known_correct0 |> SIMP_RULE (srw_ss()) []);
-*)
+
 val _ = export_theory();
