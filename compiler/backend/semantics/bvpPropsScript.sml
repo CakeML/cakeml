@@ -462,13 +462,22 @@ val bvp_to_bvi_ignore = Q.store_thm("bvp_to_bvi_ignore",
   EVAL_TAC);
 
 val bvp_to_bvi_refs = Q.store_thm("bvp_to_bvi_refs",
-  `bvp_to_bvi (s with refs := r) = bvp_to_bvi s with refs := r`,
+  `bvp_to_bvi (s with refs := r) = bvp_to_bvi s with refs := r ∧
+   (bvp_to_bvi s).refs = s.refs`,
+  EVAL_TAC);
+
+val bvp_to_bvi_ffi = Q.store_thm("bvp_to_bvi_ffi",
+  `(bvp_to_bvi s).ffi = s.ffi`,
   EVAL_TAC);
 
 val bvi_to_bvp_refs = Q.store_thm("bvi_to_bvp_refs",
   `((bvi_to_bvp s t with refs := z) = bvi_to_bvp (s with refs := z) t) /\
    ((bvi_to_bvp s t).refs = s.refs)`,
   EVAL_TAC);
+
+val bvp_to_bvi_to_bvp_with_ffi = Q.store_thm("bvp_to_bvi_to_bvp_with_ffi",
+  `bvi_to_bvp (bvp_to_bvi s with ffi := f) s = s with ffi := f`,
+  EVAL_TAC \\ rw[state_component_equality]);
 
 val bvi_to_bvp_space_locals = Q.store_thm("bvi_to_bvp_space_locals",
   `((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\

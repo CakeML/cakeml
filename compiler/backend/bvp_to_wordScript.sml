@@ -439,7 +439,8 @@ val assign_def = Define `
         (list_Seq [
           Assign 1 (Op Add [addr; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen; Const (bytes_in_word-1w)]);
-          FFI ffi_index 1 3 (case names of SOME names => adjust_set names | NONE => LN)]
+          FFI ffi_index 1 3 (adjust_set (case names of SOME names => names | NONE => LN));
+          Assign (adjust_var dest) Unit]
         , l)
        | _ => (GiveUp,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
