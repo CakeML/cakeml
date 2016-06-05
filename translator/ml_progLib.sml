@@ -232,6 +232,10 @@ fun remove_snocs (ML_code (ss,envs,vs,th)) = let
 
 fun get_thm (ML_code (ss,envs,vs,th)) = th
 
+fun get_env s = get_thm s |> concl |> rator |> rand
+
+fun get_state s = get_thm s |> concl |> rand
+
 fun add_prog prog_tm pick_name s = let
   val ts = fst (listSyntax.dest_list prog_tm)
   in remove_snocs (foldl (fn (x,y) => add_top pick_name x y) s ts) end

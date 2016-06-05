@@ -7,6 +7,8 @@ open integerTheory terminationTheory;
 
 val _ = new_theory "ml_pmatch";
 
+val write_def = ml_progTheory.write_def;
+
 val EvalPatRel_def = Define`
   EvalPatRel env a p pat ⇔
     ∀x av. a x av ⇒

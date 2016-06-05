@@ -41,5 +41,7 @@ sig
   val remove_snocs : ml_prog_state -> ml_prog_state
 
   val get_thm      : ml_prog_state -> thm (* ML_code thm *)
+  val get_env      : ml_prog_state -> term (* env in ML_code thm *)
+  val get_state    : ml_prog_state -> term (* state in ML_code thm *)
 
 end
