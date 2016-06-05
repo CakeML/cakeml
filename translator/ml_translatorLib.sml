@@ -1568,7 +1568,14 @@ local
   val translator = ref (fn th => I (th:thm))
   fun do_translate th = (!translator) th
   fun add_type ty = let
+    val fcps = ((filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
     val (rws1,rws2,res) = derive_thms_for_type false ty
+    val (rws1,rws2) =
+      if length fcps > 0 then
+        let val insts = INST_TYPE [alpha|-> hd fcps,beta |-> hd fcps] in
+          (map insts rws1,map insts rws2)
+        end
+      else (rws1,rws2)
     val _ = add_type_thms (rws1,rws2,res)
     val _ = map do_translate rws1
     in res end
