@@ -30,6 +30,10 @@ sig
                      thm list (* v const thms *) ->
                      ml_prog_state -> ml_prog_state
 
+  val add_Dlet_Fun : term -> term -> term (* terms of Dlet (Pvar _) (Fun _ _) *) ->
+                     string (* v const name *) ->
+                     ml_prog_state -> ml_prog_state
+
   val add_Dletrec  : term (* funs *) ->
                      string list (* names of v consts *) ->
                      ml_prog_state -> ml_prog_state
@@ -43,5 +47,6 @@ sig
   val get_thm      : ml_prog_state -> thm (* ML_code thm *)
   val get_env      : ml_prog_state -> term (* env in ML_code thm *)
   val get_state    : ml_prog_state -> term (* state in ML_code thm *)
+  val get_v_defs   : ml_prog_state -> thm list (* v abbrev defs *)
 
 end

@@ -91,15 +91,33 @@ fun Tapp ls x = astSyntax.mk_Tapp(listSyntax.mk_list(ls,astSyntax.t_ty),x)
   fun ml_prog_update f = (prog_state := f (!prog_state));
   fun get_curr_env () = get_env (!prog_state);
   fun get_curr_state () = get_state (!prog_state);
-  fun add_v_thms (name,tm,th,pre_def,module_name) =
-    (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms));
-
+  fun get_curr_v_defs () = get_v_defs (!prog_state);
+  fun get_curr_module_name () = let
+    val th = get_thm (!prog_state)
+    val tm = th |> concl |> rator |> rator |> rand
+    in if optionSyntax.is_none tm then NONE else
+         SOME (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring)
+    end
+  fun add_v_thms (name,th,pre_def) = let
+    val tm = th |> concl |> rator |> rand
+    val module_name = get_curr_module_name ()
+    in (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms)) end;
   fun lookup_v_thm const = let
     val (name,c,th,pre,m) = (first (fn c => can (match_term (#2 c)) const) (!v_thms))
     val th = th |> SPEC_ALL |> UNDISCH_ALL
-    val th = MATCH_MP Eval_Var_Short th
+    val th = (case m of
+                NONE => MATCH_MP Eval_Var_Short th
+              | SOME mod_name =>
+                  if m = get_curr_module_name ()
+                  then MATCH_MP Eval_Var_Short th
+                  else (MATCH_MP Eval_Var_Long th
+                        |> SPEC (stringSyntax.fromMLstring mod_name)))
     val th = SPEC (stringSyntax.fromMLstring name) th |> SPEC_ALL |> UNDISCH_ALL
     in th end
+
+  fun get_current_prog () =
+    get_thm (!prog_state)
+    |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL);
 
 local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
@@ -3338,9 +3356,31 @@ val def = Define`ok w = w + 1w:63 word`
 val def = Define`ok w = (n2w (w2n (w:28 word)):30 word)`
 val def = Define`ok (w:24 word) = (w >> 3)`
 
-val def = Define `the_value = 1:num`;
 val def = Define `foo = \n. the_value + 1 + n`;
 val def = Define `bar = \n m. m + n + the_value`;
+val def = Define `ex1 n = 4 DIV n`;
+
+val def = Define `the_value = 1:num`;
+val _ = translate def
+
+val _ = ml_prog_update (open_module "Bar");
+val def = Define `bar = \n m. m + n + the_value`;
+val _ = translate def
+val _ = ml_prog_update (close_module NONE);
+
+val _ = ml_prog_update (open_module "Hoo");
+val def = Define `HOO = 34:num`;
+val _ = translate def
+val _ = ml_prog_update (close_module NONE);
+
+val _ = ml_prog_update (open_module "Too");
+val def = Define `si = HOO + the_value + 45`;
+val _ = translate def
+val _ = ml_prog_update (close_module NONE);
+
+EVAL (get_curr_env())
+
+get_current_prog ()
 
 *)
 
@@ -3405,6 +3445,7 @@ val _ = (max_print_depth := 25)
     (* non-recursive case *)
     val _ = length thms = 1 orelse failwith "multiple non-rec definitions"
     val (code_def,(fname,def,th,v)) = abbrev_code (hd thms)
+    val fname = get_unique_name fname
     (* remove parameters *)
     val th = D (clean_assumptions th)
     val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
@@ -3424,23 +3465,36 @@ val _ = (max_print_depth := 25)
     (* simpliy EqualityType *)
     val th = SIMP_EqualityType_ASSUMS th
     (* store for later use *)
-    val lemma = th |> PURE_ONCE_REWRITE_RULE [code_def]
-                   |> PURE_ONCE_REWRITE_RULE [Eval_def]
-                   |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-    val v_thm = new_specification("temp",[fname ^ "_v"],lemma)
-                |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-    val _ = delete_binding "temp"
-    val eval_thm = CONJUNCT1 v_thm
-                   |> MATCH_MP evaluate_empty_state_IMP
-                   |> ISPEC (get_curr_state())
-    val v_thm = CONJUNCT2 v_thm
-    val var_str = fname
-    val tm = v_thm |> concl |> rator |> rand
-    val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-    val _ = ml_prog_update (add_Dlet eval_thm var_str [])
-    val _ = add_v_thms (var_str,tm,v_thm,pre_def,NONE)
-    val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
-    in v_thm end
+    val is_fun = code_def |> SPEC_ALL |> concl |> rand |> is_Fun
+    in if is_fun then let
+      val lemma = th |> SIMP_RULE std_ss [evaluate_Fun,Eval_def,code_def]
+      val n = fname |> stringSyntax.fromMLstring
+      val v = lemma |> concl |> rand |> rator |> rand
+      val exp = lemma |> concl |> rand |> rand
+      val v_name = fname ^ "_v"
+      val _ = ml_prog_update (add_Dlet_Fun n v exp v_name)
+      val v_def = hd (get_curr_v_defs ())
+      val v_thm = lemma |> CONV_RULE (RAND_CONV (REWR_CONV (GSYM v_def)))
+      val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
+      val _ = add_v_thms (fname,v_thm,pre_def)
+      val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
+      in save_thm(fname ^ "_v_thm",v_thm) end else let
+      val lemma = th |> PURE_ONCE_REWRITE_RULE [code_def]
+                     |> PURE_ONCE_REWRITE_RULE [Eval_def]
+                     |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+      val v_thm = new_specification("temp",[fname ^ "_v"],lemma)
+                  |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+      val _ = delete_binding "temp"
+      val eval_thm = CONJUNCT1 v_thm
+                     |> MATCH_MP evaluate_empty_state_IMP
+                     |> ISPEC (get_curr_state())
+      val v_thm = CONJUNCT2 v_thm
+      val var_str = fname
+      val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
+      val _ = ml_prog_update (add_Dlet eval_thm var_str [])
+      val _ = add_v_thms (var_str,v_thm,pre_def)
+      val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
+      in save_thm(fname ^ "_v_thm",v_thm) end end
     else (* is_rec *) let
 
     (* abbreviate code *)

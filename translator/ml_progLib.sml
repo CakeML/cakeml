@@ -231,10 +231,12 @@ fun remove_snocs (ML_code (ss,envs,vs,th)) = let
   in (ML_code (ss,envs,vs,th)) end
 
 fun get_thm (ML_code (ss,envs,vs,th)) = th
+fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 
 fun get_env s = get_thm s |> concl |> rator |> rand
 
 fun get_state s = get_thm s |> concl |> rand
+
 
 fun add_prog prog_tm pick_name s = let
   val ts = fst (listSyntax.dest_list prog_tm)

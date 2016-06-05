@@ -2369,4 +2369,8 @@ val PULL_EXISTS_EXTRA = store_thm("PULL_EXISTS_EXTRA",
   ``(Q ==> ?x. P x) <=> ?x. Q ==> P x``,
   metis_tac []);
 
+val evaluate_Fun = store_thm("evaluate_Fun",
+  ``evaluate F env s (Fun n exp) (s,Rval r) <=> r = Closure env n exp``,
+  fs [Once evaluate_cases]);
+
 val _ = export_theory();
