@@ -2544,10 +2544,13 @@ fun apply_Eval_Recclosure recc fname v th = let
 
 fun clean_assumptions th = let
   val th = D th
-  val lhs = lookup_var_id_def |> SPEC_ALL |> concl |> dest_eq |> fst
-  val pattern = mk_eq(lhs,mk_var("_",type_of lhs))
-  val lookup_assums = find_terms (can (match_term pattern)) (concl th)
-  val lemmas = map EVAL lookup_assums
+  val lhs1 = lookup_var_id_def |> SPEC_ALL |> concl |> dest_eq |> fst
+  val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
+  val lhs2 = lookup_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst
+  val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
+  val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
+                                    orelse can (match_term pattern2) tm) (concl th)
+  val lemmas = map (REWRITE_CONV [lookup_cons_def] THENC EVAL) lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
@@ -3254,6 +3257,7 @@ val PreImp_IMP = prove(
 
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
+(*
 local
   val lookup_cons_pat = ``lookup_cons cname env = SOME x``
   val imp_lemma = prove(``!f. (f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
@@ -3276,6 +3280,7 @@ in
     val th = th |> RW [rwt] |> D
     in th end end
 end
+*)
 
 local
   val cs = listLib.list_compset()
@@ -3424,8 +3429,6 @@ val (fname,th,def) = hd thms
     (* optimise generated code *)
     val th = MATCH_MP Eval_OPTIMISE (UNDISCH_ALL th)
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th |> D
-    (* prove lookup_cons *)
-    val th = clean_lookup_cons th
     (* abstract parameters *)
     val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
     val (th,v) = if (length rev_params = 0) then (th,T) else
@@ -3449,7 +3452,6 @@ val _ = (max_print_depth := 25)
     (* remove parameters *)
     val th = D (clean_assumptions th)
     val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
-    val th = Q.INST [`shadow_env`|->`env`] th |> REWRITE_RULE []
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
                         (SIMP_CONV std_ss [EVAL (mk_CONTAINER TRUE),
                                            EVAL (mk_CONTAINER FALSE)])) th
