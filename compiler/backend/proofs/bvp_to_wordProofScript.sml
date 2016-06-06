@@ -4574,10 +4574,106 @@ val assign_thm = Q.prove(
       \\ first_assum drule
       \\ simp_tac(srw_ss())[IS_SOME_EXISTS] \\ strip_tac \\ fs[]
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
-      \\ cheat (* looks false *))
-    \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
+      \\ drule (#1(EQ_IMP_RULE cut_state_eq_some))
+      \\ strip_tac \\ clean_tac
+      \\ fs[bvpSemTheory.cut_env_def] \\ clean_tac
+      \\ fs[lookup_inter_alt,domain_lookup])
     \\ fs[inter_insert_ODD_adjust_set_alt]
-    \\ cheat)
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs[]
+    \\ match_mp_tac memory_rel_Unit \\ fs[]
+    \\ qmatch_goalsub_rename_tac`ByteArray ls'`
+    \\ `LENGTH ls' = LENGTH ls`
+    by (
+      qhdtm_x_assum`call_FFI`mp_tac
+      \\ simp[ffiTheory.call_FFI_def]
+      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+      \\ rw[] \\ rw[] )
+    \\ qmatch_asmsub_abbrev_tac`((RefPtr p,Word w)::vars)`
+    \\ `∀n. n ≤ LENGTH ls ⇒
+        let new_m = write_bytearray (aa + n2w (LENGTH ls - n)) (DROP (LENGTH ls - n) ls') t.memory t.mdomain t.be in
+        memory_rel c t.be (x.refs |+ (p,ByteArray (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))) x.space t.store
+          new_m t.mdomain ((RefPtr p,Word w)::vars) ∧
+        (∀i v. i < LENGTH ls ⇒
+          memory_rel c t.be (x.refs |+ (p,ByteArray (LUPDATE v i (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))))
+            x.space t.store
+            ((byte_align (aa + n2w i) =+
+              Word (set_byte (aa + n2w i) v
+                     (theWord (new_m (byte_align (aa + n2w i)))) t.be)) new_m)
+             t.mdomain ((RefPtr p,Word w)::vars))`
+    by (
+      Induct \\ simp[]
+      >- (
+        simp[DROP_LENGTH_NIL_rwt,wordSemTheory.write_bytearray_def]
+        \\ qpat_abbrev_tac`refs = x.refs |+ _`
+        \\ `refs = x.refs`
+        by(
+          simp[Abbr`refs`,FLOOKUP_EXT,FUN_EQ_THM,FLOOKUP_UPDATE]
+          \\ rw[] \\ rw[] )
+        \\ rw[] )
+      \\ strip_tac \\ fs[]
+      \\ qpat_abbrev_tac`ls2 = TAKE _ _ ++ _`
+      \\ qmatch_asmsub_abbrev_tac`ByteArray ls1`
+      \\ `ls2 = LUPDATE (EL (LENGTH ls - SUC n) ls') (LENGTH ls - SUC n) ls1`
+      by (
+        simp[Abbr`ls1`,Abbr`ls2`,LIST_EQ_REWRITE,EL_APPEND_EQN,EL_LUPDATE]
+        \\ rw[] \\ fs[] \\ simp[EL_TAKE,hd_drop,EL_DROP] )
+      \\ qunabbrev_tac`ls2` \\ fs[]
+      \\ qmatch_goalsub_abbrev_tac`EL i ls'`
+      \\ `i < LENGTH ls` by simp[Abbr`i`]
+      \\ first_x_assum(qspecl_then[`i`,`EL i ls'`]mp_tac)
+      \\ impl_tac >- rw[]
+      \\ `DROP i ls' = EL i ls'::DROP(LENGTH ls - n)ls'`
+      by (
+        Cases_on`ls'` \\ fs[Abbr`i`]
+        \\ simp[LIST_EQ_REWRITE,ADD1,EL_DROP,EL_CONS,PRE_SUB1]
+        \\ IF_CASES_TAC \\ fs[]
+        >- (
+          `LENGTH ls = SUC n` by decide_tac \\ simp[ADD1] )
+        \\ Cases \\ simp[EL_DROP,ADD1,EL_CONS,PRE_SUB1] )
+      \\ first_assum SUBST1_TAC
+      \\ qpat_abbrev_tac`wb = write_bytearray _ (_ :: _) _ _ _`
+      \\ qpat_abbrev_tac `wb1 = write_bytearray _ _ _ _ _`
+      \\ qpat_abbrev_tac`wb2 = _ wb1`
+      \\ `wb2 = wb`
+      by (
+        simp[Abbr`wb2`,Abbr`wb`,wordSemTheory.write_bytearray_def]
+        \\ `aa + n2w i + 1w = aa + n2w (LENGTH ls - n)`
+        by(
+          simp[Abbr`i`,ADD1]
+          \\ REWRITE_TAC[GSYM WORD_ADD_ASSOC]
+          \\ AP_TERM_TAC
+          \\ simp[word_add_n2w] )
+        \\ pop_assum SUBST_ALL_TAC \\ simp[]
+        \\ simp[wordSemTheory.mem_store_byte_aux_def]
+        \\ last_x_assum drule
+        \\ simp[Abbr`g`,wordSemTheory.mem_load_byte_aux_def]
+        \\ BasicProvers.TOP_CASE_TAC \\ simp[] \\ strip_tac
+        \\ qmatch_assum_rename_tac`t.memory _ = Word v`
+        \\ `∃v. wb1 (byte_align (aa + n2w i)) = Word v`
+        by (
+          simp[Abbr`wb1`]
+          \\ cheat (* write_bytearray does not touch an earlier address *) )
+        \\ simp[theWord_def] )
+      \\ qunabbrev_tac`wb2`
+      \\ pop_assum SUBST_ALL_TAC
+      \\ strip_tac
+      \\ conj_tac >- first_assum ACCEPT_TAC
+      \\ drule (GEN_ALL memory_rel_ByteArray_IMP)
+      \\ simp[FLOOKUP_UPDATE]
+      \\ strip_tac
+      \\ `LENGTH ls = LENGTH ls1`
+      by ( unabbrev_all_tac \\ simp[] )
+      \\ metis_tac[] )
+    \\ first_x_assum(qspec_then`LENGTH ls`mp_tac)
+    \\ simp[Abbr`vars`] \\ strip_tac
+    \\ drule memory_rel_tl
+    \\ ntac 10 (pop_assum kall_tac)
+    \\ match_mp_tac memory_rel_rearrange
+    \\ simp[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
+    \\ rw[] \\ rw[] \\ metis_tac[])
   \\ Cases_on `op = ToList` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
