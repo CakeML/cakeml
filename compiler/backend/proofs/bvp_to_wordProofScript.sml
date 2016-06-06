@@ -143,6 +143,16 @@ val ZIP_ID = prove(
   ``!xs. ZIP (MAP FST xs, MAP SND xs) = xs``,
   Induct \\ full_simp_tac(srw_ss())[]);
 
+val write_bytearray_isWord = Q.store_thm("write_bytearray_isWord",
+  `∀ls a m x.
+   isWord (m x) ⇒
+   isWord (write_bytearray a ls m dm be x)`,
+  Induct \\ rw[wordSemTheory.write_bytearray_def]
+  \\ rw[wordSemTheory.mem_store_byte_aux_def]
+  \\ every_case_tac \\ fs[]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[isWord_def]);
+
 (* -- *)
 
 (* -------------------------------------------------------
@@ -4654,8 +4664,11 @@ val assign_thm = Q.prove(
         \\ qmatch_assum_rename_tac`t.memory _ = Word v`
         \\ `∃v. wb1 (byte_align (aa + n2w i)) = Word v`
         by (
-          simp[Abbr`wb1`]
-          \\ cheat (* write_bytearray does not touch an earlier address *) )
+          `isWord (wb1 (byte_align (aa + n2w i)))`
+          suffices_by (metis_tac[isWord_def,wordSemTheory.word_loc_nchotomy])
+          \\ simp[Abbr`wb1`]
+          \\ match_mp_tac write_bytearray_isWord
+          \\ simp[isWord_def] )
         \\ simp[theWord_def] )
       \\ qunabbrev_tac`wb2`
       \\ pop_assum SUBST_ALL_TAC
