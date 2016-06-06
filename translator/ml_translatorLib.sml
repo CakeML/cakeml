@@ -1000,7 +1000,10 @@ fun derive_record_specific_thms ty = let
   val goal = mk_eq(tm2,tm)
   val rw_lemma = prove(goal,SRW_TAC []
     [DB.fetch thy_name (ty_name ^ "_component_equality")])
-  val rw_lemmas = CONJ (DB.fetch thy_name (ty_name ^ "_fupdcanon")) rw_lemma
+  val rw_lemmas =
+    if length(TypeBase.fields_of ty) > 1
+    then CONJ (DB.fetch thy_name (ty_name ^ "_fupdcanon")) rw_lemma
+    else rw_lemma
   in (a_lemmas @ b_lemmas, [rw_lemmas]) end;
 
 fun rename_bound_vars_rule prefix th = let

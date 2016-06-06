@@ -53,44 +53,75 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(* backend, without the 'a config bits *)
+val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o INST_TYPE[alpha|->``:64``] o SPEC_ALL
 
-val _ = translate (source_to_modTheory.compile_def)
-
-val _ = translate (mod_to_conTheory.compile_def)
-
-val _ = translate (con_to_decTheory.compile_def)
-
-val _ = translate (dec_to_exhTheory.compile_exp_def)
-
+(*TODO: Translating them all in 1 shot doesn't work... *)
+val _ = translate (conv64_RHS backendTheory.to_mod_def)
+val _ = translate (conv64_RHS backendTheory.to_con_def)
+val _ = translate (conv64_RHS backendTheory.to_dec_def)
+val _ = translate (conv64_RHS backendTheory.to_exh_def)
 val _ = translate (exh_to_patTheory.pure_op_op_eqn)
+val _ = translate (conv64_RHS backendTheory.to_pat_def)
+val _ = translate (conv64_RHS backendTheory.to_clos_def)
 
-val _ = translate (exh_to_patTheory.compile_def)
-
-val _ = translate (pat_to_closTheory.compile_def)
-
-(*TODO: slow, and the final name might not be compile_4 *)
-val _ = prove(``
+(*TODO: slow proof *)
+val compile_4_side = prove(``
   ∀x. compile_4_side x ⇔ T``,
   recInduct pat_to_closTheory.compile_ind>>
   rw[]>>
   simp[Once (fetch "-" "compile_4_side_def")]>>
   Cases_on`es`>>fs[])|>update_precondition;
 
-(* goes through with side conditions,
+val to_clos_side = prove(``
+  ∀a b. to_clos_side a b ⇔ T``,
+  simp[(fetch "-" "to_clos_side_def")]>>
+  metis_tac[compile_4_side]) |> update_precondition
+
+(*
 TODO: make this not have to be explicitly translated, probably by renaming it to renumber_code_locs_list_def
 *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
-
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 val _ = translate (clos_removeTheory.remove_alt)
-val _ = translate (clos_to_bvlTheory.compile_def)
+
+val remove_side = prove(``
+  ∀x. remove_side x ⇔ T``,
+  recInduct clos_removeTheory.remove_alt_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "remove_side_def")]>>
+  rw[]>>
+  imp_res_tac clos_removeTheory.remove_SING>>fs[]>>
+  TRY(first_x_assum match_mp_tac>>fs[]>>metis_tac[])>>
+  CCONTR_TAC>>fs[]>>
+  imp_res_tac clos_removeTheory.remove_SING>>fs[])|>update_precondition
+
+val _ = translate (conv64_RHS backendTheory.to_bvl_def)
+(* TODO: bunch of preconditions for to_bvl ones... *)
+
 (* TODO: See above *)
 val _ = translate (bvl_constTheory.compile_exps_def)
-val _ = translate (bvl_to_bviTheory.compile_def)
-val _ = translate (bvi_to_bvpTheory.compile_def)
+val _ = translate (conv64_RHS backendTheory.to_bvi_def)
+val _ = translate (bvi_to_bvpTheory.op_requires_names_eqn)
 
-(**)
+val _ = translate (COUNT_LIST_compute)
+val _ = translate (bvi_to_bvpTheory.compile_exp_def)
+
+val _ = translate (conv64_RHS backendTheory.to_bvp_def)
+
+(* TODO: more preconditions, possibly do them earlier to avoid a mess *)
+
+(*
+Some bvp-to-word preliminaries
+val _ = translate (bvp_to_wordTheory.adjust_set_def)
+
+val _ = translate (conv64_RHS word_2comp_def)
+val _ = translate (conv64_RHS bvp_to_wordTheory.GiveUp_def)
+(* val _ = translate (conv64_RHS bvp_to_wordTheory.make_header_def) *)
+val _ = translate (conv64_RHS word_extract_def|>INST_TYPE[beta|->``:64``])
+
+val _ = translate (conv64_RHS word_slice_def)
+val def = (conv64_RHS bvp_to_wordTheory.tag_mask_def)
+*)
 
 (* parsing: peg_exec and cmlPEG *)
 
