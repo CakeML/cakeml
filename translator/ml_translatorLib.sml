@@ -1232,7 +1232,11 @@ val ty = ``:num option``; derive_thms_for_type false ty
 
 val _ = Datatype `exn = A num num | B int`;
 val ty = ``:exn``;
+val is_exn_type = true;
+
+val _ = Datatype `exn1 = A1 num num | B1`;
 val is_exn_type = false;
+val ty = ``:ttt``;
 
 val ty = ``:unit``; derive_thms_for_type false ty
 *)
@@ -1557,8 +1561,11 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
   val _ = if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"]
           then ()
           else if not is_exn_type
-               then print_time "snoc_dtype_decl" snoc_dtype_decl dtype
-               else (map snoc_dexn_decl dexn_list; ())
+               then ml_prog_update (add_Dtype (rand dtype))
+               else let
+                 val exn_tops = map mk_Tdec dexn_list
+                 val exn_prog = listSyntax.mk_list(exn_tops,type_of (hd exn_tops))
+                 in ml_prog_update (add_prog exn_prog I) end
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;
@@ -3384,6 +3391,11 @@ val _ = translate def
 val _ = ml_prog_update (close_module NONE);
 
 EVAL (get_curr_env())
+
+val _ = Datatype `ttt = A1 num num | B1`;
+val def = Define `foo = A1 1 (2+3)`;
+
+val def = Define `ff n = case n of B1 => 5 | A1 k1 k2 => k1 + 6`
 
 get_current_prog ()
 

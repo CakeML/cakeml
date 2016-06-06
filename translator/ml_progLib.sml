@@ -13,10 +13,11 @@ datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
 
 (* helper functions *)
 
-fun prove_assum_by_eval th1 = let
-  val (x,y) = dest_imp (concl th1)
-  val lemma = (EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC EVAL) x
-  val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) th1
+fun prove_assum_by_eval th = let
+  val (x,y) = dest_imp (concl th)
+  val lemma = (EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC
+               EVAL THENC SIMP_CONV (srw_ss()) [] THENC EVAL) x
+  val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) th
   in MP lemma TRUTH end
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
