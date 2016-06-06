@@ -2373,4 +2373,13 @@ val evaluate_Fun = store_thm("evaluate_Fun",
   ``evaluate F env s (Fun n exp) (s,Rval r) <=> r = Closure env n exp``,
   fs [Once evaluate_cases]);
 
+val evaluate_Var = store_thm("evaluate_Var",
+  ``evaluate F env s (Var (Short n)) (s,Rval r) <=>
+    ?v. lookup_var n env = SOME r``,
+  fs [Once evaluate_cases] \\ EVAL_TAC);
+
+val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
+  ``lookup_var n = lookup_var_id (Short n)``,
+  fs [FUN_EQ_THM] \\ EVAL_TAC \\ fs []);
+
 val _ = export_theory();
