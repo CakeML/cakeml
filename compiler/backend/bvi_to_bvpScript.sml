@@ -16,9 +16,12 @@ val op_space_reset_def = Define `
   (op_space_reset RefByte = T) /\
   (op_space_reset _ = F)`;
 
+val op_requires_names_def = Define`
+  op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n))`;
+
 val iAssign_def = Define `
   iAssign n1 op vs live env =
-    if op_space_reset op then
+    if op_requires_names op then
       Assign n1 op vs (SOME (list_to_num_set (vs++live++env)))
     else
       let k = op_space_req op (LENGTH vs) in

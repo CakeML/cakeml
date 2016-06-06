@@ -504,7 +504,7 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ METIS_TAC [])
   THEN1 (* Assign *)
    (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op_space_reset op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
+    \\ Cases_on `op_requires_names op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
      (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
       \\ reverse(Cases_on `do_app op x s`) \\ full_simp_tac(srw_ss())[] >- (

@@ -425,9 +425,9 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[var_corr_def,call_env_def,state_rel_def])
     \\ simp[]
     \\ IMP_RES_TAC do_app_bvp_to_bvi \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op_space_reset op`
+    \\ Cases_on `op_requires_names op`
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
-           cut_state_def,cut_env_def]
+           cut_state_def,cut_env_def,op_requires_names_def]
     \\ full_simp_tac(srw_ss())[bvpSemTheory.do_app_def,do_space_def]
     \\ simp[]
     \\ full_simp_tac(srw_ss())[get_var_def,set_var_def]
@@ -435,6 +435,8 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[state_rel_def]
     \\ IMP_RES_TAC do_app_code \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
+    \\ TRY(qmatch_assum_rename_tac`op = FFI _`
+           \\ fs[op_space_reset_def,bvp_spaceTheory.op_space_req_def,bvp_to_bvi_ignore])
     THEN1
      (REPEAT STRIP_TAC
       THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
@@ -467,10 +469,16 @@ val compile_correct = Q.prove(
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
          \\ full_simp_tac(srw_ss())[jump_exc_def])
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def])
+    THEN1 (
+      rw[lookup_insert,var_corr_def,get_var_def,Abbr`env1`,lookup_inter_EQ]
+      \\ fs[var_corr_def,LIST_REL_EL_EQN,get_var_def] \\ rw[lookup_inter_EQ]
+      \\ fs[lookup_list_to_num_set] \\ res_tac \\ fs[jump_exc_NONE]
+      \\ fs[jump_exc_def] \\ every_case_tac \\ fs[]
+      \\ METIS_TAC[MEM_EL] )
     \\ imp_res_tac get_vars_reverse
     \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac (srw_ss()) []
     \\ Cases_on `op_space_req op (LENGTH vs) = 0`
-    \\ full_simp_tac(srw_ss())[evaluate_def]
+    \\ full_simp_tac(srw_ss())[evaluate_def,op_requires_names_def]
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
           cut_state_def,cut_env_def]
     \\ full_simp_tac(srw_ss())[bvpSemTheory.do_app_def,do_space_def,LET_DEF]

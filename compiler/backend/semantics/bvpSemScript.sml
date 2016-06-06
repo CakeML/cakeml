@@ -157,7 +157,7 @@ val evaluate_def = tDefine "evaluate" `
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
-     if op_space_reset op /\ IS_NONE names_opt then (SOME (Rerr(Rabort Rtype_error)),s) else
+     if op_requires_names op /\ IS_NONE names_opt then (SOME (Rerr(Rabort Rtype_error)),s) else
      case cut_state_opt names_opt s of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME s =>

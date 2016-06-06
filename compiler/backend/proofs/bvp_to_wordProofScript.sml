@@ -2967,7 +2967,7 @@ val IMP_read_bytearray_GENLIST = Q.store_thm("IMP_read_bytearray_GENLIST",
 
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
-   (op_space_reset op ==> names_opt <> NONE) /\
+   (op_requires_names op ==> names_opt <> NONE) /\
    cut_state_opt names_opt s = SOME x /\
    get_vars args x.locals = SOME vals /\
    do_app op vals x = Rval (v,s2) ==>
@@ -4565,6 +4565,8 @@ val assign_thm = Q.prove(
     \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
     \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
     \\ conj_tac >- ( simp[adjust_set_def,lookup_fromAList] )
+    \\ fs[bvi_to_bvpTheory.op_requires_names_def]
+    \\ Cases_on`names_opt`\\fs[]
     \\ conj_tac
     >- (
       fs[cut_state_opt_def]
