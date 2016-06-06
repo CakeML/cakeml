@@ -270,6 +270,7 @@ val add_compiler_compset = computeLib.extend_compset
     [bvpTheory.mk_ticks_def
       (* ---- bvi_to_bvp ---- *)
     ,bvi_to_bvpTheory.op_space_reset_def
+    ,bvi_to_bvpTheory.op_requires_names_eqn
     ,bvi_to_bvpTheory.optimise_def
     ,bvi_to_bvpTheory.compile_prog_def
     ,bvi_to_bvpTheory.compile_part_def
@@ -319,6 +320,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvp_to_wordTheory.max_heap_limit_def
     ,bvp_to_wordTheory.real_addr_def
     ,bvp_to_wordTheory.real_offset_def
+    ,bvp_to_wordTheory.real_byte_offset_def
+    ,bvp_to_wordTheory.lookup_word_op_def
     ,bvp_to_wordTheory.all_ones_def
     ,bvp_to_wordTheory.maxout_bits_def
     ,bvp_to_wordTheory.ptr_bits_def
