@@ -1001,7 +1001,8 @@ val fundecl_rec_aux_def = Define `
   fundecl_rec_aux (:'ffi) fs fvs [] [] [] F2 env H Q =
     (F2 (extend_env_rec fs fvs [] [] env) H Q) /\
   fundecl_rec_aux (:'ffi) fs fvs (ns::ns_acc) (fv::fv_acc) (Fbody::Fs) F2 env H Q =
-    ((!xvs H' Q'.
+    (curried (:'ffi) (LENGTH ns) fv /\
+     (!xvs H' Q'.
         LENGTH xvs = LENGTH ns ==>
         Fbody (extend_env_rec fs fvs ns xvs env) H' Q' ==>
         app (:'ffi) fv xvs H' Q')
@@ -1159,6 +1160,17 @@ val letrec_pull_params_cancel = Q.prove (
   qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
   fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
   fs [Fun_params_Fun_body_repack]
+)
+
+val letrec_pull_params_nonnil_params = Q.prove (
+  `!funs f ns body.
+     MEM (f,ns,body) (letrec_pull_params funs) ==>
+     ns <> []`,
+  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def, MEM] \\
+  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
+  qcase_tac `(f',n',body')::funs` \\
+  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
+  metis_tac []
 )
 
 val SOME_val_def = Define `
@@ -1430,6 +1442,65 @@ val do_opapp_naryRecclosure = Q.prove (
   fs [letrec_pull_params_cancel] \\ eq_tac \\ every_case_tac \\ fs []
 )
 
+val app_one_naryRecclosure = Q.prove (
+  `!funs f n ns body x xs env H Q.
+     ns <> [] ==> xs <> [] ==>
+     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
+     (app (:'ffi) (naryRecclosure env (letrec_pull_params funs) f) (x::xs) H Q ==>
+      app (:'ffi)
+        (naryClosure
+          (env with v := (n, x)::build_rec_env funs env env.v)
+          ns body) xs H Q)`,
+
+  rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
+  qcase_tac `SOME (n::n'::ns, _)` \\ qcase_tac `app _ _ (x::x'::xs)` \\
+  Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
+  fs [app_def, naryClosure_def, naryFun_def] \\
+  fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
+  fs [SEP_EXISTS, cond_def, STAR_def] \\
+  fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h = h')`, SPLIT_TAC)] \\
+  rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+  fs [naryFun_def] \\
+  qpat_assum `evaluate _ _ _ _ _`
+    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
+  fs [semanticPrimitivesTheory.do_opapp_def] \\
+  qcase_tac `SPLIT3 (st2heap _ st) (h_f', h_g', h_k')` \\
+  `SPLIT (st2heap (:'ffi) st) (h_f', h_g' UNION h_k')` by SPLIT_TAC \\
+  first_x_assum progress \\
+  qcase_tac `SPLIT3 (st2heap _ st') (h_f'', h_g'', _)` \\
+  `SPLIT3 (st2heap (:'ffi) st') (h_f'', h_g' UNION h_g'', h_k')` by SPLIT_TAC \\
+  instantiate
+)
+
+val curried_naryRecclosure = Q.prove (
+  `!env funs f len ns body.
+     ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
+     find_recfun f (letrec_pull_params funs) = SOME (ns, body) ==>
+     len = LENGTH ns ==>
+     curried (:'ffi) len (naryRecclosure env (letrec_pull_params funs) f)`,
+
+  rpt strip_tac \\ Cases_on `ns` \\ fs []
+  THEN1 (
+    fs [curried_def, evalPropsTheory.find_recfun_ALOOKUP] \\
+    progress ALOOKUP_MEM \\ progress letrec_pull_params_nonnil_params \\ fs []
+  )
+  THEN1 (
+    qcase_tac `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
+    qcase_tac `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
+    fs [emp_def, cond_def] \\
+    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+    Q.LIST_EXISTS_TAC [
+      `naryClosure (env with v := (n, x)::build_rec_env funs env env.v)
+                   (n'::ns) body`,
+      `{}`, `st`
+    ] \\ rpt strip_tac
+    THEN1 SPLIT_TAC
+    THEN1 (irule curried_naryClosure \\ fs [])
+    THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac [])
+    THEN1 (fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases])
+  )
+)
+
 val find_recfun_map = Q.prove (
   `!l a b c f u v.
      (!a b c. FST (f (a, b, c)) = a) ==>
@@ -1504,7 +1575,7 @@ val app_rec_of_sound_cf = Q.prove (
      params <> [] ==>
      LENGTH params = LENGTH xvs ==>
      ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
-     MEM (f,params,body) (letrec_pull_params funs) ==>
+     find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
      sound (:'ffi) body (cf (:'ffi) body) ==>
      cf (:'ffi) body
        (extend_env_rec
@@ -1516,13 +1587,7 @@ val app_rec_of_sound_cf = Q.prove (
   rpt strip_tac \\ irule app_rec_of_sound_cf_aux
   THEN1 (fs [letrec_pull_params_names])
   THEN1 (qexists_tac `funs` \\ fs [])
-  THEN1 (
-    fs [evalPropsTheory.find_recfun_ALOOKUP] \\
-    CONSEQ_REWRITE_TAC ([ALOOKUP_ALL_DISTINCT_MEM], [], []) \\
-    `FST = (\ ((f:tvarN),(_:tvarN list),(_:exp)). f)` by (
-      irule EQ_EXT \\ qx_gen_tac `x` \\ PairCases_on `x` \\ fs []
-    ) \\ instantiate \\ fs [letrec_pull_params_names] 
-  )
+  THEN1 (instantiate \\ fs [letrec_pull_params_names])
 )
 
 val DROP_EL_CONS = Q.prove (
@@ -1612,17 +1677,25 @@ val cf_letrec_sound_aux = Q.prove (
     fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     impl_tac
     THEN1 (
-      rpt strip_tac \\ irule app_rec_of_sound_cf
-      THEN1 (fs [letrec_pull_params_names])
+      `MEM (f, params, inner_body) (letrec_pull_params funs)` by (
+         qpat_assum `_ = funs` (assume_tac o GSYM) \\
+         fs [letrec_pull_params_append, letrec_pull_params_def] \\
+         qunabbrev_tac `params` \\ qunabbrev_tac `inner_body` \\
+         every_case_tac \\ fs []
+      ) \\
+      `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)` by (
+        fs [evalPropsTheory.find_recfun_ALOOKUP] \\
+        irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [] \\
+        `FST = (\ ((f:tvarN),(_:tvarN list),(_:exp)). f)` by (
+          irule EQ_EXT \\ qx_gen_tac `x` \\ PairCases_on `x` \\ fs []) \\
+        fs [letrec_pull_params_names]
+      ) \\
+      rpt strip_tac
+      THEN1 (irule curried_naryRecclosure \\ fs [])
       THEN1 (
-        Q.LIST_EXISTS_TAC [`inner_body`, `params`] \\ fs [] \\
-        `MEM (f,params,inner_body) (letrec_pull_params funs)` by (
-          qpat_assum `_ = funs` (assume_tac o GSYM) \\
-          fs [letrec_pull_params_append, letrec_pull_params_def] \\
-          qunabbrev_tac `params` \\ qunabbrev_tac `inner_body` \\
-          every_case_tac \\ fs []
-        ) \\ first_assum progress \\ qunabbrev_tac `params` \\
-        every_case_tac \\ fs []
+        irule app_rec_of_sound_cf \\ fs [letrec_pull_params_names] \\
+        first_assum progress \\ qunabbrev_tac `params` \\ every_case_tac \\
+        fs []
       )
     ) \\ strip_tac \\
     qpat_assum `sound _ (Letrec _ _) _` (mp_tac o REWRITE_RULE [sound_def]) \\
