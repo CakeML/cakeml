@@ -65,6 +65,7 @@ fun cond_abbrev dest conv name th = let
 
 fun clean (ML_code (ss,envs,vs,th)) = let
   val (th,new_ss) = cond_abbrev (rand o concl) RAND_CONV "auto_state" th
+  val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
   val (th,new_envs) = cond_abbrev (rand o rator o concl)
                         (RATOR_CONV o RAND_CONV) "auto_env" th
   in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
