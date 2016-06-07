@@ -23,12 +23,12 @@ val char_to_byte_def = Define`
 
 val res = translate char_to_byte_def;
 
-(* TODO: why doesn't this work?
+val res = translate MAP;
+
 val string_to_bytes_def = Define`
   string_to_bytes s = MAP char_to_byte (mlstring$explode s)`;
 
 val res = translate string_to_bytes_def;
-*)
 
 val _ = (print_asts := true);
 

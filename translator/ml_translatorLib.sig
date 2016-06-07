@@ -9,6 +9,9 @@ sig
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
 
+    val ml_prog_update : (ml_progLib.ml_prog_state ->
+                          ml_progLib.ml_prog_state) -> unit
+
     (* wrapper functions *)
 
     val mlDefine   : term quotation -> thm
@@ -30,7 +33,6 @@ sig
     val get_DeclAssumExists : unit -> thm
     val get_cenv_eq_thm     : unit -> thm
     val eq_lemmas           : unit -> thm list
-    val clean_lookup_cons   : thm -> thm
 
     (* loading / storing state of translator *)
 
