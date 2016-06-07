@@ -162,9 +162,13 @@ val lookup_cons_def = zDefine `
     lookup_alist_mod_env (Short name) env.c`;
 
 val lookup_var_write = store_thm("lookup_var_write",
-  ``lookup_var v (write w x env) =
-    if v = w then SOME x else lookup_var v env``,
-  SIMP_TAC std_ss [lookup_var_def,write_def]
+  ``(lookup_var v (write w x env) =
+     if v = w then SOME x else lookup_var v env) /\
+    (lookup_var_id (Short v) (write w x env) =
+     if v = w then SOME x else lookup_var_id (Short v) env) /\
+    (lookup_var_id (Long m v) (write w x env) =
+     lookup_var_id (Long m v) env)``,
+  SIMP_TAC std_ss [lookup_var_id_def,lookup_var_def,write_def]
   \\ simp [] \\ METIS_TAC []);
 
 val Eval_Var_Short = store_thm("Eval_Var_Short",
@@ -456,6 +460,10 @@ val FUN_FORALL = new_binder_definition("FUN_FORALL",
 
 val FUN_EXISTS = new_binder_definition("FUN_EXISTS",
   ``($FUN_EXISTS) = \(abs:'a->'b->v->bool) a v. ?y. abs y a v``);
+
+val FUN_FORALL_INTRO = store_thm("FUN_FORALL_INTRO",
+  ``(!x. p x f v) ==> (FUN_FORALL x. p x) f v``,
+  fs [FUN_FORALL]);
 
 val Eval_FUN_FORALL = store_thm("Eval_FUN_FORALL",
   ``(!x. Eval env exp ((p x) f)) ==>
@@ -2381,5 +2389,7 @@ val evaluate_Var = store_thm("evaluate_Var",
 val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
   ``lookup_var n = lookup_var_id (Short n)``,
   fs [FUN_EQ_THM] \\ EVAL_TAC \\ fs []);
+
+val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
 val _ = export_theory();
