@@ -726,7 +726,7 @@ val do_app_adjust = Q.prove(
     simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bv_ok_def] >>
     TRY BasicProvers.CASE_TAC >>
-    full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+    full_simp_tac(srw_ss())[FLOOKUP_DEF,bvl_to_bvi_def] >>
     METIS_TAC[INJ_DEF])
   THEN1 (* Equal *) (
     simp[bEvalOp_def] >>
