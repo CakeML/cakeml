@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ml_translatorTheory
-open semanticPrimitivesTheory
-open ConseqConv cfHeapsTheory cfHeapsLib cfStoreTheory
+open semanticPrimitivesTheory ConseqConv
+open cfHeapsTheory cfHeapsLib cfStoreTheory cfNormalizeTheory
 
 val _ = new_theory "ml_cf"
 
@@ -75,8 +75,14 @@ val local_is_local = Q.prove (
   metis_tac [is_local_def, local_local]
 )
 
-(** App *)
+(*------------------------------------------------------------------*)
+(** App: [app] is used to give a specification for the application of
+    a value to one or multiple value arguments. It is in particular
+    used in cf to abstract from the concrete representation of
+    closures.
+*)
 
+(* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (:'ffi) (f: v) (x: v) (H: hprop) (Q: v -> hprop) =
     !(h: heap) (i: heap) (st: 'ffi state).
@@ -91,6 +97,8 @@ val app_basic_local = Q.prove(
   `!f x. is_local (\env. app_basic (:'ffi) f x)`,
   cheat)
 
+
+(* [app]: n-ary application *)
 val app_def = Define `
   app (:'ffi) (f: v) ([]: v list) (H: hprop) (Q: v -> hprop) = F /\
   app (:'ffi) f [x] H Q = app_basic (:'ffi) f x H Q /\
@@ -120,26 +128,26 @@ val app_local = Q.prove(
   `!f xs. is_local (\env. app (:'ffi) f xs)`,
   cheat)
 
+
+(* [curried (:'ffi) n f] states that [f] is curried [n] times *)
 val curried_def = Define `
   curried (:'ffi) (n: num) (f: v) =
     case n of
      | 0 => F
      | SUC 0 => T
      | SUC n =>
-       !x.
-         app_basic (:'ffi) f x emp
-           (\g. cond (curried (:'ffi) n g /\
-                      !xs H Q.
-                        LENGTH xs = n ==>
-                        app (:'ffi) f (x::xs) H Q ==>
-                        app (:'ffi) g xs H Q))`
+       !x. app_basic (:'ffi) f x emp
+             (\g. cond (curried (:'ffi) n g /\
+                  !xs H Q.
+                    LENGTH xs = n ==>
+                    app (:'ffi) f (x::xs) H Q ==>
+                    app (:'ffi) g xs H Q))`
 
 (* app_over_app / app_over_take *)
 
 (** When [curried n f] holds and the number of the arguments [xs] is less than
     [n], then [app f xs] is a function [g] such that [app g ys] has the same
     behavior as [app f (xs++ys)]. *)
-
 val app_partial = Q.prove (
   `!n xs f. curried (:'ffi) n f ==> (0 < LENGTH xs /\ LENGTH xs < n) ==>
    app (:'ffi) f xs emp (\g. cond (
@@ -165,7 +173,19 @@ val app_partial = Q.prove (
   )
 )
 
-(* Extracting multiarguments lambda/app from the ast *)
+(*------------------------------------------------------------------*)
+(* Machinery for dealing with n-ary applications/functions in cf.
+
+   Applications and ((mutually)recursive)functions are unary in
+   CakeML's AST.
+   Some machinery is therefore needed to walk down the AST and extract
+   multiple arguments (for an application), or multiple parameters and
+   the final function body (for functions).
+*)
+
+(** 1) n-ary applications *)
+
+(* [dest_opapp]: destruct an n-ary application. *)
 val dest_opapp_def = Define `
   dest_opapp (App Opapp l) =
        (case l of
@@ -183,7 +203,346 @@ val dest_opapp_not_empty_arglist = Q.prove (
   fs []
 )
 
-(* // *)
+(** 2) n-ary single non-recursive functions *)
+
+(* An auxiliary definition *)
+val is_bound_Fun_def = Define `
+  is_bound_Fun (SOME _) (Fun _ _) = T /\
+  is_bound_Fun _ _ = F`
+
+(* [Fun_body]: walk down successive lambdas and return the inner
+   function body *)
+val Fun_body_def = Define `
+  Fun_body (Fun _ body) =
+    (case Fun_body body of
+       | NONE => SOME body
+       | SOME body' => SOME body') /\
+  Fun_body _ = NONE`
+
+val Fun_body_exp_size = Q.prove (
+  `!e e'. Fun_body e = SOME e' ==> exp_size e' < exp_size e`,
+  Induct \\ fs [Fun_body_def] \\ every_case_tac \\
+  fs [astTheory.exp_size_def]
+)
+
+val is_bound_Fun_unfold = Q.prove (
+  `!opt e. is_bound_Fun opt e ==> (?n body. e = Fun n body)`,
+  Cases_on `e` \\ fs [is_bound_Fun_def]
+)
+
+(* [Fun_params]: walk down successive lambdas and return the list of
+   parameters *)
+val Fun_params_def = Define `
+  Fun_params (Fun n body) =
+    n :: (Fun_params body) /\
+  Fun_params _ =
+    []`
+
+val Fun_params_Fun_body_NONE = Q.prove (
+  `!e. Fun_body e = NONE ==> Fun_params e = []`,
+  Cases \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac
+)
+
+(* [naryFun]: build the AST for a n-ary function *)
+val naryFun_def = Define `
+  naryFun [] body = body /\
+  naryFun (n::ns) body = Fun n (naryFun ns body)`
+
+val Fun_params_Fun_body_repack = Q.prove (
+  `!e e'.
+     Fun_body e = SOME e' ==>
+     naryFun (Fun_params e) e' = e`,
+  Induct \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac \\
+  rpt strip_tac \\ fs [Once naryFun_def] \\ TRY every_case_tac \\
+  TRY (fs [Fun_params_Fun_body_NONE, Once naryFun_def] \\ NO_TAC) \\
+  once_rewrite_tac [naryFun_def] \\ fs []
+)
+
+(** 3) n-ary (mutually)recursive functions *)
+
+(** Mutually recursive definitions (and closures) use a list of tuples
+    (function name, parameter name, body). [letrec_pull_params] returns the
+    "n-ary" version of this list, that is, a list of tuples:
+    (function name, parameters names, inner body)
+*)
+val letrec_pull_params_def = Define `
+  letrec_pull_params [] = [] /\
+  letrec_pull_params ((f, n, body)::funs) =
+    (case Fun_body body of
+       | NONE => (f, [n], body)
+       | SOME body' => (f, n::Fun_params body, body')) ::
+    (letrec_pull_params funs)`
+
+val letrec_pull_params_names = Q.prove (
+  `!funs P.
+     MAP (\ (f,_,_). P f) (letrec_pull_params funs) =
+     MAP (\ (f,_,_). P f) funs`,
+  Induct \\ fs [letrec_pull_params_def] \\ rpt strip_tac \\
+  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
+  fs [letrec_pull_params_def] \\ every_case_tac \\ fs []
+)
+
+val letrec_pull_params_LENGTH = Q.prove (
+  `!funs. LENGTH (letrec_pull_params funs) = LENGTH funs`,
+  Induct \\ fs [letrec_pull_params_def] \\ rpt strip_tac \\
+  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
+  fs [letrec_pull_params_def] \\ every_case_tac \\ fs []
+)
+
+val letrec_pull_params_append = Q.prove (
+  `!l l'.
+     letrec_pull_params (l ++ l') =
+     letrec_pull_params l ++ letrec_pull_params l'`,
+  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def] \\
+  qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
+  fs [letrec_pull_params_def]
+)
+
+val letrec_pull_params_cancel = Q.prove (
+  `!funs.
+     MAP (\ (f,ns,body). (f, HD ns, naryFun (TL ns) body))
+         (letrec_pull_params funs) =
+     funs`,
+  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def] \\
+  qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
+  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
+  fs [Fun_params_Fun_body_repack]
+)
+
+val letrec_pull_params_nonnil_params = Q.prove (
+  `!funs f ns body.
+     MEM (f,ns,body) (letrec_pull_params funs) ==>
+     ns <> []`,
+  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def, MEM] \\
+  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
+  qcase_tac `(f',n',body')::funs` \\
+  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
+  metis_tac []
+)
+
+val find_recfun_letrec_pull_params = Q.prove (
+  `!funs f n ns body.
+     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
+     find_recfun f funs = SOME (n, naryFun ns body)`,
+  Induct \\ fs [letrec_pull_params_def]
+  THEN1 (fs [Once find_recfun_def]) \\
+  rpt strip_tac \\ qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
+  qcase_tac `(f',n',body')` \\ fs [letrec_pull_params_def] \\
+  every_case_tac \\ pop_assum mp_tac \\
+  once_rewrite_tac [find_recfun_def] \\ fs [] \\
+  every_case_tac \\ rw [] \\ fs [naryFun_def, Fun_params_Fun_body_repack]
+)
+
+(*------------------------------------------------------------------*)
+(* The semantic counterpart of n-ary functions: n-ary closures
+
+   Also, dealing with environments.
+*)
+
+(* [naryClosure] *)
+val naryClosure_def = Define `
+  naryClosure env (n::ns) body = Closure env n (naryFun ns body)`
+
+(* Properties of [naryClosure] *)
+
+val app_one_naryClosure = Q.prove (
+  `!env n ns x xs body H Q.
+     ns <> [] ==> xs <> [] ==>
+     app (:'ffi) (naryClosure env (n::ns) body) (x::xs) H Q ==>
+     app (:'ffi) (naryClosure (env with v := (n, x)::env.v) ns body) xs H Q`,
+
+  rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
+  qcase_tac `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
+  Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
+  fs [app_def, naryClosure_def, naryFun_def] \\
+  fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
+  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
+  qpat_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
+  fs [] \\ qpat_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
+  qpat_assum `evaluate _ _ _ _ _`
+    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\
+  fs [do_opapp_def] \\
+  progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
+  qcase_tac `SPLIT3 (st2heap _ st'') (h_f'', h_g'', h_g' UNION h_k)` \\
+  `SPLIT3 (st2heap (:'ffi) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
+  \\ instantiate
+)
+
+val curried_naryClosure = Q.prove (
+  `!env len ns body.
+     ns <> [] ==> len = LENGTH ns ==>
+     curried (:'ffi) len (naryClosure env ns body)`,
+
+  Induct_on `ns` \\ fs [naryClosure_def, naryFun_def] \\ Cases_on `ns`
+  THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def])
+  THEN1 (
+    rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
+    rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
+    fs [emp_def, cond_def, do_opapp_def] \\
+    qcase_tac `SPLIT (st2heap _ st) ({}, h_k)` \\
+    `SPLIT3 (st2heap (:'ffi) st) ({}, {}, h_k)` by SPLIT_TAC \\
+    instantiate \\ qcase_tac `(n, x) :: _` \\
+    first_x_assum (qspecl_then [`env with v := (n,x)::env.v`, `body`]
+      assume_tac) \\
+    rpt (asm_exists_tac \\ fs []) \\ rpt strip_tac \\
+    fs [Once bigStepTheory.evaluate_cases] \\
+    fs [GSYM naryFun_def, GSYM naryClosure_def] \\
+    irule app_one_naryClosure \\ Cases_on `xs` \\ fs []
+  )
+)
+
+(* [naryRecclosure] *)
+val naryRecclosure_def = Define `
+  naryRecclosure env naryfuns f =
+    Recclosure env
+    (MAP (\ (f, ns, body). (f, HD ns, naryFun (TL ns) body)) naryfuns)
+    f`
+
+(* Properties of [naryRecclosure] *)
+
+val do_opapp_naryRecclosure = Q.prove (
+  `!funs f n ns body x env env' exp.
+     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
+     (do_opapp [naryRecclosure env (letrec_pull_params funs) f; x] =
+      SOME (env', exp)
+     <=>
+     (ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
+      env' = (env with v := (n, x)::build_rec_env funs env env.v) /\
+      exp = naryFun ns body))`,
+  rpt strip_tac \\ progress find_recfun_letrec_pull_params \\
+  fs [naryRecclosure_def, do_opapp_def, letrec_pull_params_cancel] \\
+  eq_tac \\ every_case_tac \\ fs []
+)
+
+val app_one_naryRecclosure = Q.prove (
+  `!funs f n ns body x xs env H Q.
+     ns <> [] ==> xs <> [] ==>
+     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
+     (app (:'ffi) (naryRecclosure env (letrec_pull_params funs) f) (x::xs) H Q ==>
+      app (:'ffi)
+        (naryClosure
+          (env with v := (n, x)::build_rec_env funs env env.v)
+          ns body) xs H Q)`,
+
+  rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
+  qcase_tac `SOME (n::n'::ns, _)` \\ qcase_tac `app _ _ (x::x'::xs)` \\
+  Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
+  fs [app_def, naryClosure_def, naryFun_def] \\
+  fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
+  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
+  rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+  fs [naryFun_def] \\
+  qpat_assum `evaluate _ _ _ _ _`
+    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
+  fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
+  qcase_tac `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
+  `SPLIT3 (st2heap (:'ffi) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
+  instantiate
+)
+
+val curried_naryRecclosure = Q.prove (
+  `!env funs f len ns body.
+     ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
+     find_recfun f (letrec_pull_params funs) = SOME (ns, body) ==>
+     len = LENGTH ns ==>
+     curried (:'ffi) len (naryRecclosure env (letrec_pull_params funs) f)`,
+
+  rpt strip_tac \\ Cases_on `ns` \\ fs []
+  THEN1 (
+    fs [curried_def, evalPropsTheory.find_recfun_ALOOKUP] \\
+    progress ALOOKUP_MEM \\ progress letrec_pull_params_nonnil_params \\ fs []
+  )
+  THEN1 (
+    qcase_tac `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
+    qcase_tac `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
+    fs [emp_def, cond_def] \\
+    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+    Q.LIST_EXISTS_TAC [
+      `naryClosure (env with v := (n, x)::build_rec_env funs env env.v)
+                   (n'::ns) body`,
+      `{}`, `st`
+    ] \\ rpt strip_tac
+    THEN1 SPLIT_TAC
+    THEN1 (irule curried_naryClosure \\ fs [])
+    THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac [])
+    THEN1 (fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases])
+  )
+)
+
+val letrec_pull_params_repack = Q.prove (
+  `!funs f env.
+     naryRecclosure env (letrec_pull_params funs) f =
+     Recclosure env funs f`,
+  Induct \\ rpt strip_tac \\ fs [naryRecclosure_def, letrec_pull_params_def] \\
+  qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
+  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
+  fs [Fun_params_Fun_body_repack]
+)
+
+(** Extending environments *)
+
+(* [extend_env] *)
+val extend_env_def = Define `
+  extend_env [] [] env = env /\
+  extend_env (n::ns) (xv::xvs) env =
+    extend_env ns xvs (env with v := (n,xv)::env.v)`
+
+val extend_env_rcons = Q.prove (
+  `!ns xvs n xv env.
+     LENGTH ns = LENGTH xvs ==>
+     extend_env (ns ++ [n]) (xvs ++ [xv]) env =
+     let env' = extend_env ns xvs env in
+     (env' with v := (n,xv) :: env'.v)`,
+  Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
+  fs [LENGTH_NIL, LENGTH_CONS, extend_env_def] 
+)
+
+(* [build_rec_env_aux] *)
+val build_rec_env_aux_def = Define `
+  build_rec_env_aux funs (fs: (tvarN, tvarN # exp) alist) env add_to_env =  
+    FOLDR
+      (\ (f,x,e) env'. (f, Recclosure env funs f) :: env')
+      add_to_env
+      fs`
+
+val build_rec_env_zip_aux = Q.prove (
+  `!(fs: (tvarN, tvarN # exp) alist) funs env env_v.
+    ZIP (MAP (\ (f,_,_). f) fs,
+         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) fs)
+      ++ env_v =
+    FOLDR (\ (f,x,e) env'. (f,Recclosure env funs f)::env') env_v fs`,
+  Induct \\ rpt strip_tac THEN1 (fs []) \\
+  qcase_tac `ftuple::fs` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
+  fs [letrec_pull_params_repack]
+)
+
+val build_rec_env_zip = Q.prove (
+  `!funs env env_v.
+    ZIP (MAP (\ (f,_,_). f) funs,
+         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+      ++ env_v =
+    build_rec_env funs env env_v`,
+  fs [build_rec_env_def, build_rec_env_zip_aux]
+)
+
+(* [extend_env_rec] *)
+val extend_env_rec_def = Define `
+  extend_env_rec rec_ns rec_xvs ns xvs env =
+    extend_env ns xvs (env with v := ZIP (rec_ns, rec_xvs) ++ env.v)`
+
+val extend_env_rec_build_rec_env = Q.prove (
+  `!funs env.
+     extend_env_rec
+       (MAP (\ (f,_,_). f) funs)
+       (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+       [] [] env =
+     (env with v := build_rec_env funs env env.v)`,
+  rpt strip_tac \\ fs [extend_env_rec_def, extend_env_def, build_rec_env_zip]
+)
+
+(*------------------------------------------------------------------*)
+(* Definition of the [cf] functions, that generates the characteristic
+   formula of a cakeml expression *)
 
 val app_ref_def = Define `
   app_ref (x: v) H Q =
@@ -238,186 +597,6 @@ val app_opb_def = Define `
   app_opb opb i1 i2 H Q =
     H ==>> Q (Boolv (opb_lookup opb i1 i2))`
 
-(* ANF related *)
-
-val exp2v_def = Define `
-  exp2v _ (Lit l) = SOME (Litv l) /\
-  exp2v env (Var name) = lookup_var_id name env /\
-  exp2v _ _ = NONE`
-
-val exp2v_evaluate = Q.prove (
-  `!e env st v. exp2v env e = SOME v ==>
-   evaluate F env st e (st, Rval v)`,
-  Induct \\ fs [exp2v_def] \\ prove_tac [bigStepTheory.evaluate_rules]
-)
-
-val exp2v_list_def = Define `
-  exp2v_list env [] = SOME [] /\
-  exp2v_list env (x :: xs) =
-    (case exp2v env x of
-      | NONE => NONE
-      | SOME v =>
-        (case exp2v_list env xs of
-          | NONE => NONE
-          | SOME vs => SOME (v :: vs)))`
-
-val exp2v_list_evaluate = Q.prove (
-  `!l lv env st. exp2v_list env l = SOME lv ==>
-   evaluate_list F env st l (st, Rval lv)`,
-  Induct
-  THEN1 (fs [exp2v_list_def] \\ prove_tac [bigStepTheory.evaluate_rules])
-  THEN1 (
-    rpt strip_tac \\ fs [exp2v_list_def] \\
-    Cases_on `exp2v env h` \\ fs [] \\
-    Cases_on `exp2v_list env l` \\ fs [] \\
-    qpat_assum `_::_ = _` (assume_tac o GSYM) \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    qexists_tac `st` \\ fs [exp2v_evaluate]
-  )
-)
-
-val evaluate_list_rcons = Q.prove (
-  `!env st st' st'' l x lv v.
-     evaluate_list F env st l (st', Rval lv) /\
-     evaluate F env st' x (st'', Rval v) ==>
-     evaluate_list F env st (l ++ [x]) (st'', Rval (lv ++ [v]))`,
-
-  Induct_on `l`
-  THEN1 (
-    rpt strip_tac \\ fs [] \\
-    qpat_assum `evaluate_list _ _ _ _ _` mp_tac \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    rpt strip_tac \\ qexists_tac `st''` \\ fs [] \\
-    prove_tac [bigStepTheory.evaluate_rules]
-  )
-  THEN1 (
-    rpt strip_tac \\ fs [] \\
-    qpat_assum `evaluate_list _ _ _ _ _` mp_tac \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    rpt strip_tac \\
-    Q.LIST_EXISTS_TAC [`v'`, `vs ++ [v]`] \\ fs [] \\
-    asm_exists_tac \\ fs [] \\
-    metis_tac []
-  )
-)
-
-val exp2v_list_REVERSE = Q.prove (
-  `!l (st: 'ffi state) lv env. exp2v_list env l = SOME lv ==>
-   evaluate_list F env st (REVERSE l) (st, Rval (REVERSE lv))`,
-  Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
-  fs [exp2v_list_def]
-  THEN1 (prove_tac [bigStepTheory.evaluate_rules])
-  THEN1 (
-    Cases_on `exp2v env h` \\ Cases_on `exp2v_list env l` \\ fs [] \\
-    first_assum progress \\ irule evaluate_list_rcons \\
-    metis_tac [exp2v_evaluate]
-  )
-)
-
-val exp2v_list_rcons = Q.prove (
-  `!xs x l env.
-     exp2v_list env (xs ++ [x]) = SOME l ==>
-     ?xvs xv.
-       l = xvs ++ [xv] /\
-       exp2v_list env xs = SOME xvs /\
-       exp2v env x = SOME xv`,
-  Induct_on `xs` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
-  every_case_tac \\ fs [] \\
-  first_assum progress \\ fs [] \\ rw []
-)
-
-val exp2v_list_LENGTH = Q.prove (
-  `!l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv`,
-  Induct_on `l` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
-  every_case_tac \\ res_tac \\ fs [] \\ rw []
-)
-
-(* CF *)
-
-val extend_env_def = Define `
-  extend_env [] [] env = env /\
-  extend_env (n::ns) (xv::xvs) env =
-    extend_env ns xvs (env with v := (n,xv)::env.v)`
-
-val extend_env_rec_def = Define `
-  extend_env_rec rec_ns rec_xvs ns xvs env =
-    extend_env ns xvs (env with v := ZIP (rec_ns, rec_xvs) ++ env.v)`
-
-val extend_env_rcons = Q.prove (
-  `!ns xvs n xv env.
-     LENGTH ns = LENGTH xvs ==>
-     extend_env (ns ++ [n]) (xvs ++ [xv]) env =
-     let env' = extend_env ns xvs env in
-     (env' with v := (n,xv) :: env'.v)`,
-  Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
-  fs [LENGTH_NIL, LENGTH_CONS, extend_env_def] 
-)
-
-val build_rec_env_aux_def = Define `
-  build_rec_env_aux funs (fs: (tvarN, tvarN # exp) alist) env add_to_env =  
-    FOLDR
-      (\ (f,x,e) env'. (f, Recclosure env funs f) :: env')
-      add_to_env
-      fs`
-
-val naryFun_def = Define `
-  naryFun [] body = body /\
-  naryFun (n::ns) body = Fun n (naryFun ns body)`
-
-val naryClosure_def = Define `
-  naryClosure env (n::ns) body = Closure env n (naryFun ns body)`
-
-val naryRecclosure_def = Define `
-  naryRecclosure env naryfuns f =
-    Recclosure env
-    (MAP (\ (f, ns, body). (f, HD ns, naryFun (TL ns) body)) naryfuns)
-    f`
-
-val app_one_naryClosure = Q.prove (
-  `!env n ns x xs body H Q.
-     ns <> [] ==> xs <> [] ==>
-     app (:'ffi) (naryClosure env (n::ns) body) (x::xs) H Q ==>
-     app (:'ffi) (naryClosure (env with v := (n, x)::env.v) ns body) xs H Q`,
-
-  rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
-  qcase_tac `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
-  Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
-  fs [app_def, naryClosure_def, naryFun_def] \\
-  fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
-  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
-  qpat_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
-  fs [] \\ qpat_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
-  qpat_assum `evaluate _ _ _ _ _`
-    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\
-  fs [do_opapp_def] \\
-  progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
-  qcase_tac `SPLIT3 (st2heap _ st'') (h_f'', h_g'', h_g' UNION h_k)` \\
-  `SPLIT3 (st2heap (:'ffi) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
-  \\ instantiate
-)
-
-val curried_naryClosure = Q.prove (
-  `!env len ns body.
-     ns <> [] ==> len = LENGTH ns ==>
-     curried (:'ffi) len (naryClosure env ns body)`,
-
-  Induct_on `ns` \\ fs [naryClosure_def, naryFun_def] \\ Cases_on `ns`
-  THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def])
-  THEN1 (
-    rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
-    rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
-    fs [emp_def, cond_def, do_opapp_def] \\
-    qcase_tac `SPLIT (st2heap _ st) ({}, h_k)` \\
-    `SPLIT3 (st2heap (:'ffi) st) ({}, {}, h_k)` by SPLIT_TAC \\
-    instantiate \\ qcase_tac `(n, x) :: _` \\
-    first_x_assum (qspecl_then [`env with v := (n,x)::env.v`, `body`]
-      assume_tac) \\
-    rpt (asm_exists_tac \\ fs []) \\ rpt strip_tac \\
-    fs [Once bigStepTheory.evaluate_cases] \\
-    fs [GSYM naryFun_def, GSYM naryClosure_def] \\
-    irule app_one_naryClosure \\ Cases_on `xs` \\ fs []
-  )
-)
 
 val cf_lit_def = Define `
   cf_lit l = local (\env H Q. H ==>> Q (Litv l))`
@@ -540,113 +719,6 @@ val cf_aw8update_def = Define `
       exp2v env xw = SOME (Litv (Word8 w)) /\
       app_aw8update l i w H Q)`
 
-val is_bound_Fun_def = Define `
-  is_bound_Fun (SOME _) (Fun _ _) = T /\
-  is_bound_Fun _ _ = F`
-
-val Fun_body_def = Define `
-  Fun_body (Fun _ body) =
-    (case Fun_body body of
-       | NONE => SOME body
-       | SOME body' => SOME body') /\
-  Fun_body _ = NONE`
-
-val Fun_body_exp_size = Q.prove (
-  `!e e'. Fun_body e = SOME e' ==> exp_size e' < exp_size e`,
-  Induct \\ fs [Fun_body_def] \\ every_case_tac \\ fs [astTheory.exp_size_def]
-)
-
-val is_bound_Fun_unfold = Q.prove (
-  `!opt e. is_bound_Fun opt e ==> (?n body. e = Fun n body)`,
-  Cases_on `e` \\ fs [is_bound_Fun_def]
-)
-
-val Fun_params_def = Define `
-  Fun_params (Fun n body) =
-    n :: (Fun_params body) /\
-  Fun_params _ =
-    []`
-
-val Fun_params_Fun_body_NONE = Q.prove (
-  `!e. Fun_body e = NONE ==> Fun_params e = []`,
-  Cases \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac
-)
-
-val Fun_params_Fun_body_repack = Q.prove (
-  `!e e'.
-     Fun_body e = SOME e' ==>
-     naryFun (Fun_params e) e' = e`,
-  Induct \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac \\
-  rpt strip_tac \\ fs [Once naryFun_def] \\ TRY every_case_tac \\
-  TRY (fs [Fun_params_Fun_body_NONE, Once naryFun_def] \\ NO_TAC) \\
-  once_rewrite_tac [naryFun_def] \\ fs []
-)
-
-val letrec_pull_params_def = Define `
-  letrec_pull_params [] = [] /\
-  letrec_pull_params ((f, n, body)::funs) =
-    (case Fun_body body of
-       | NONE => (f, [n], body)
-       | SOME body' => (f, n::Fun_params body, body')) ::
-    (letrec_pull_params funs)`
-
-val letrec_pull_params_names = Q.prove (
-  `!funs P.
-     MAP (\ (f,_,_). P f) (letrec_pull_params funs) =
-     MAP (\ (f,_,_). P f) funs`,
-  Induct \\ fs [letrec_pull_params_def] \\ rpt strip_tac \\
-  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
-  fs [letrec_pull_params_def] \\ every_case_tac \\ fs []
-)
-
-val letrec_pull_params_LENGTH = Q.prove (
-  `!funs. LENGTH (letrec_pull_params funs) = LENGTH funs`,
-  Induct \\ fs [letrec_pull_params_def] \\ rpt strip_tac \\
-  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
-  fs [letrec_pull_params_def] \\ every_case_tac \\ fs []
-)
-
-val letrec_pull_params_append = Q.prove (
-  `!l l'.
-     letrec_pull_params (l ++ l') =
-     letrec_pull_params l ++ letrec_pull_params l'`,
-  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def] \\
-  qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
-  fs [letrec_pull_params_def]
-)
-
-val letrec_pull_params_repack = Q.prove (
-  `!funs f env.
-     naryRecclosure env (letrec_pull_params funs) f =
-     Recclosure env funs f`,
-  Induct \\ rpt strip_tac \\ fs [naryRecclosure_def, letrec_pull_params_def] \\
-  qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
-  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
-  fs [Fun_params_Fun_body_repack]
-)
-
-val letrec_pull_params_cancel = Q.prove (
-  `!funs.
-     MAP (\ (f,ns,body). (f, HD ns, naryFun (TL ns) body))
-         (letrec_pull_params funs) =
-     funs`,
-  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def] \\
-  qcase_tac `ftuple::_` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
-  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
-  fs [Fun_params_Fun_body_repack]
-)
-
-val letrec_pull_params_nonnil_params = Q.prove (
-  `!funs f ns body.
-     MEM (f,ns,body) (letrec_pull_params funs) ==>
-     ns <> []`,
-  Induct \\ rpt strip_tac \\ fs [letrec_pull_params_def, MEM] \\
-  qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
-  qcase_tac `(f',n',body')::funs` \\
-  fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
-  metis_tac []
-)
-
 val SOME_val_def = Define `
   SOME_val (SOME x) = x`
 
@@ -732,6 +804,10 @@ val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_le
                cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
                cf_fundecl_rec_def]
+
+(*------------------------------------------------------------------*)
+(** Properties about [cf]. The main result is the proof of soundness,
+    [cf_sound] *)
 
 val cf_local = Q.prove (
   `!e. is_local (cf (:'ffi) e)`,
@@ -828,36 +904,6 @@ fun cf_evaluate_list_tac [] = prove_tac [bigStepTheory.evaluate_rules]
     qexists_tac st \\ strip_tac THENL [fs [exp2v_evaluate], all_tac] \\
     cf_evaluate_list_tac sts
 
-val build_rec_env_zip_aux = Q.prove (
-  `!(fs: (tvarN, tvarN # exp) alist) funs env env_v.
-    ZIP (MAP (\ (f,_,_). f) fs,
-         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) fs)
-      ++ env_v =
-    FOLDR (\ (f,x,e) env'. (f,Recclosure env funs f)::env') env_v fs`,
-  Induct \\ rpt strip_tac THEN1 (fs []) \\
-  qcase_tac `ftuple::fs` \\ PairCases_on `ftuple` \\ qcase_tac `(f,n,body)` \\
-  fs [letrec_pull_params_repack]
-)
-
-val build_rec_env_zip = Q.prove (
-  `!funs env env_v.
-    ZIP (MAP (\ (f,_,_). f) funs,
-         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
-      ++ env_v =
-    build_rec_env funs env env_v`,
-  fs [build_rec_env_def, build_rec_env_zip_aux]
-)
-
-val extend_env_rec_build_rec_env = Q.prove (
-  `!funs env.
-     extend_env_rec
-       (MAP (\ (f,_,_). f) funs)
-       (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
-       [] [] env =
-     (env with v := build_rec_env funs env env.v)`,
-  rpt strip_tac \\ fs [extend_env_rec_def, extend_env_def, build_rec_env_zip]
-)
-
 val app_basic_of_sound_cf = Q.prove (
   `!clos body x env env' v H Q.
     do_opapp [clos; x] = SOME (env', body) ==>
@@ -887,88 +933,6 @@ val app_of_sound_cf = Q.prove (
     fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases] \\
     fs [SPLIT_emp2] \\ first_assum progress \\ instantiate \\
     qexists_tac `{}` \\ SPLIT_TAC
-  )
-)
-
-val find_recfun_letrec_pull_params = Q.prove (
-  `!funs f n ns body.
-     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
-     find_recfun f funs = SOME (n, naryFun ns body)`,
-  Induct \\ fs [letrec_pull_params_def]
-  THEN1 (fs [Once find_recfun_def]) \\
-  rpt strip_tac \\ qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
-  qcase_tac `(f',n',body')` \\ fs [letrec_pull_params_def] \\
-  every_case_tac \\ pop_assum mp_tac \\
-  once_rewrite_tac [find_recfun_def] \\ fs [] \\
-  every_case_tac \\ rw [] \\ fs [naryFun_def, Fun_params_Fun_body_repack]
-)
-
-val do_opapp_naryRecclosure = Q.prove (
-  `!funs f n ns body x env env' exp.
-     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
-     (do_opapp [naryRecclosure env (letrec_pull_params funs) f; x] =
-      SOME (env', exp)
-     <=>
-     (ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
-      env' = (env with v := (n, x)::build_rec_env funs env env.v) /\
-      exp = naryFun ns body))`,
-  rpt strip_tac \\ progress find_recfun_letrec_pull_params \\
-  fs [naryRecclosure_def, do_opapp_def, letrec_pull_params_cancel] \\
-  eq_tac \\ every_case_tac \\ fs []
-)
-
-val app_one_naryRecclosure = Q.prove (
-  `!funs f n ns body x xs env H Q.
-     ns <> [] ==> xs <> [] ==>
-     find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
-     (app (:'ffi) (naryRecclosure env (letrec_pull_params funs) f) (x::xs) H Q ==>
-      app (:'ffi)
-        (naryClosure
-          (env with v := (n, x)::build_rec_env funs env env.v)
-          ns body) xs H Q)`,
-
-  rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
-  qcase_tac `SOME (n::n'::ns, _)` \\ qcase_tac `app _ _ (x::x'::xs)` \\
-  Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
-  fs [app_def, naryClosure_def, naryFun_def] \\
-  fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
-  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
-  rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
-  fs [naryFun_def] \\
-  qpat_assum `evaluate _ _ _ _ _`
-    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
-  fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
-  qcase_tac `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
-  `SPLIT3 (st2heap (:'ffi) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
-  instantiate
-)
-
-val curried_naryRecclosure = Q.prove (
-  `!env funs f len ns body.
-     ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
-     find_recfun f (letrec_pull_params funs) = SOME (ns, body) ==>
-     len = LENGTH ns ==>
-     curried (:'ffi) len (naryRecclosure env (letrec_pull_params funs) f)`,
-
-  rpt strip_tac \\ Cases_on `ns` \\ fs []
-  THEN1 (
-    fs [curried_def, evalPropsTheory.find_recfun_ALOOKUP] \\
-    progress ALOOKUP_MEM \\ progress letrec_pull_params_nonnil_params \\ fs []
-  )
-  THEN1 (
-    qcase_tac `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
-    qcase_tac `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
-    fs [emp_def, cond_def] \\
-    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
-    Q.LIST_EXISTS_TAC [
-      `naryClosure (env with v := (n, x)::build_rec_env funs env env.v)
-                   (n'::ns) body`,
-      `{}`, `st`
-    ] \\ rpt strip_tac
-    THEN1 SPLIT_TAC
-    THEN1 (irule curried_naryClosure \\ fs [])
-    THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac [])
-    THEN1 (fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases])
   )
 )
 
