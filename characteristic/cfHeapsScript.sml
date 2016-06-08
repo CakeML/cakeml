@@ -34,7 +34,7 @@ val STARPOST_def = Define `
   STARPOST (Q: v -> hprop) (H: hprop) =
     \x. (Q x) * H`
 
-(* SEP_IMP lifted for post-conditions *)
+(* SEP_IMP lifted to post-conditions *)
 val SEP_IMPPOST_def = Define `
   SEP_IMPPOST (Q1: v -> hprop) (Q2: v -> hprop) =
     !x. SEP_IMP (Q1 x) (Q2 x)`
@@ -74,6 +74,29 @@ val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 
 val _ = overload_on ("~~>", Term `cell`)
 val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
+
+(*------------------------------------------------------------------*)
+(** Low level lemmas about SPLIT and SPLIT3 *)
+
+val SPLIT3_of_SPLIT_emp3 = store_thm ("SPLIT3_of_SPLIT_emp3",
+  ``!h h1 h2. SPLIT h (h1, h2) ==> SPLIT3 h (h1, h2, {})``,
+  SPLIT_TAC
+)
+
+val SPLIT3_swap23 = store_thm ("SPLIT3_swap23",
+  ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT3 h (h1, h3, h2)``,
+  SPLIT_TAC
+)
+
+val SPLIT_emp2 = store_thm ("SPLIT_emp2",
+  ``!h h'. SPLIT h (h', {}) = (h' = h)``,
+  SPLIT_TAC
+)
+
+val SPLIT_of_SPLIT3_2u3 = store_thm ("SPLIT_of_SPLIT3_2u3",
+  ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT h (h1, h2 UNION h3)``,
+  SPLIT_TAC
+)
 
 (*------------------------------------------------------------------*)
 (** Additionnal properties of STAR *)

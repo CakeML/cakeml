@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ml_translatorTheory
+open semanticPrimitivesTheory
 open ConseqConv cfHeapsTheory cfHeapsLib
 
 val _ = new_theory "ml_cf"
@@ -212,23 +213,23 @@ val app_def = Define `
   app (:'ffi) f [x] H Q = app_basic (:'ffi) f x H Q /\
   app (:'ffi) f (x::xs) H Q =
     app_basic (:'ffi) f x H
-      (\g. SEP_EXISTS H'. H' * (cond (app (:'ffi) g xs H' Q)))`
+      (\g. SEP_EXISTS H'. H' * cond (app (:'ffi) g xs H' Q))`
 
 val app_alt_ind = Q.prove (
   `!f xs x H Q.
      xs <> [] ==>
      app (:'ffi) f (xs ++ [x]) H Q =
      app (:'ffi) f xs H
-       (\g. SEP_EXISTS H'. H' * (cond (app_basic (:'ffi) g x H' Q)))`,
+       (\g. SEP_EXISTS H'. H' * cond (app_basic (:'ffi) g x H' Q))`,
   Induct_on `xs` \\ fs [] \\ rpt strip_tac \\
   Cases_on `xs` \\ fs [app_def]
 )
 
 val app_alt_ind_w = Q.prove (
-  `!F xs x H Q.
+  `!f xs x H Q.
      app (:'ffi) f (xs ++ [x]) H Q ==> xs <> [] ==>
      app (:'ffi) f xs H
-       (\g. SEP_EXISTS H'. H' * (cond (app_basic (:'ffi) g x H' Q)))`,
+       (\g. SEP_EXISTS H'. H' * cond (app_basic (:'ffi) g x H' Q))`,
   rpt strip_tac \\ fs [app_alt_ind]
 )
 
@@ -500,22 +501,16 @@ val app_one_naryClosure = Q.prove (
   Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
-  fs [SEP_EXISTS, cond_def, STAR_def] \\
-  fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h = h')`, SPLIT_TAC)] \\
-  qpat_assum `do_opapp _ = _`
-    (assume_tac o REWRITE_RULE [semanticPrimitivesTheory.do_opapp_def]) \\
+  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
+  qpat_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
   fs [] \\ qpat_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
   qpat_assum `evaluate _ _ _ _ _`
-    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ fs []
-  \\ fs [semanticPrimitivesTheory.do_opapp_def] \\
-  qcase_tac `SPLIT _ (h_f, h_k)` \\
-  qcase_tac `SPLIT3 _ (h_f', h_g, h_k)` \\ qcase_tac `H' h_f'` \\
-  `SPLIT (st2heap (:'ffi) st) (h_f', h_g UNION h_k)` by SPLIT_TAC \\
-  first_assum progress \\
-  qcase_tac `SPLIT3 (st2heap _ st'') (h_f'', h_g'', _)` \\
-  `SPLIT3 (st2heap (:'ffi) st'') (h_f'', h_g UNION h_g'', h_k)` by SPLIT_TAC
-  \\ rpt (asm_exists_tac \\ fs []) \\ (* first goal is proved here *)
-  rewrite_tac [Once CONJ_COMM] \\ rpt (asm_exists_tac \\ fs [])
+    (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\
+  fs [do_opapp_def] \\
+  progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
+  qcase_tac `SPLIT3 (st2heap _ st'') (h_f'', h_g'', h_g' UNION h_k)` \\
+  `SPLIT3 (st2heap (:'ffi) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
+  \\ instantiate
 )
 
 val curried_naryClosure = Q.prove (
@@ -528,7 +523,7 @@ val curried_naryClosure = Q.prove (
   THEN1 (
     rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
     rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
-    fs [emp_def, cond_def, semanticPrimitivesTheory.do_opapp_def] \\
+    fs [emp_def, cond_def, do_opapp_def] \\
     qcase_tac `SPLIT (st2heap _ st) ({}, h_k)` \\
     `SPLIT3 (st2heap (:'ffi) st) ({}, {}, h_k)` by SPLIT_TAC \\
     instantiate \\ qcase_tac `(n, x) :: _` \\
@@ -924,10 +919,15 @@ val sound_false = Q.prove (
   rewrite_tac [sound_def]
 )
 
+val sound_local_false = Q.prove (
+  `!e. sound (:'ffi) e (local (\env H Q. F))`,
+  strip_tac \\ irule sound_local \\ fs [sound_false]
+)
+
 val cf_base_case_tac =
   irule sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
   res_tac \\ qcase_tac `SPLIT (st2heap _ st) (h_i, h_k)` \\
-  `SPLIT3 (st2heap (:'ffi) st) (h_i, h_k, {})` by SPLIT_TAC \\ instantiate \\
+  progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [SEP_IMP_def]
 
 val cf_strip_sound_tac =
@@ -962,7 +962,7 @@ val build_rec_env_zip = Q.prove (
          MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
       ++ env_v =
     build_rec_env funs env env_v`,
-  fs [semanticPrimitivesTheory.build_rec_env_def, build_rec_env_zip_aux]
+  fs [build_rec_env_def, build_rec_env_zip_aux]
 )
 
 val extend_env_rec_build_rec_env = Q.prove (
@@ -996,18 +996,14 @@ val app_of_sound_cf = Q.prove (
   Induct \\ rpt strip_tac \\ fs [naryClosure_def, LENGTH_CONS] \\ rw [] \\
   qcase_tac `extend_env (n::ns) (xv::xvs) _` \\ Cases_on `ns` \\
   rfs [LENGTH_NIL, LENGTH_CONS, extend_env_def, naryFun_def, app_def]
-  THEN1 (
-    irule app_basic_of_sound_cf \\
-    fs [semanticPrimitivesTheory.do_opapp_def]
-  )
+  THEN1 (irule app_basic_of_sound_cf \\ fs [do_opapp_def])
   THEN1 (
     rw [] \\ fs [] \\ qcase_tac `extend_env (n'::ns) (xv'::xvs) _` \\
-    fs [app_basic_def] \\ rpt strip_tac \\
-    fs [semanticPrimitivesTheory.do_opapp_def] \\
+    fs [app_basic_def] \\ rpt strip_tac \\ fs [do_opapp_def] \\
     fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS] \\
     fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases] \\
-    fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h' = h)`, SPLIT_TAC)] \\
-    first_assum progress \\ instantiate \\ qexists_tac `{}` \\ SPLIT_TAC
+    fs [SPLIT_emp2] \\ first_assum progress \\ instantiate \\
+    qexists_tac `{}` \\ SPLIT_TAC
   )
 )
 
@@ -1016,11 +1012,11 @@ val find_recfun_letrec_pull_params = Q.prove (
      find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
      find_recfun f funs = SOME (n, naryFun ns body)`,
   Induct \\ fs [letrec_pull_params_def]
-  THEN1 (fs [Once semanticPrimitivesTheory.find_recfun_def]) \\
+  THEN1 (fs [Once find_recfun_def]) \\
   rpt strip_tac \\ qcase_tac `ftuple::funs` \\ PairCases_on `ftuple` \\
   qcase_tac `(f',n',body')` \\ fs [letrec_pull_params_def] \\
   every_case_tac \\ pop_assum mp_tac \\
-  once_rewrite_tac [semanticPrimitivesTheory.find_recfun_def] \\ fs [] \\
+  once_rewrite_tac [find_recfun_def] \\ fs [] \\
   every_case_tac \\ rw [] \\ fs [naryFun_def, Fun_params_Fun_body_repack]
 )
 
@@ -1034,8 +1030,8 @@ val do_opapp_naryRecclosure = Q.prove (
       env' = (env with v := (n, x)::build_rec_env funs env env.v) /\
       exp = naryFun ns body))`,
   rpt strip_tac \\ progress find_recfun_letrec_pull_params \\
-  fs [naryRecclosure_def, semanticPrimitivesTheory.do_opapp_def] \\
-  fs [letrec_pull_params_cancel] \\ eq_tac \\ every_case_tac \\ fs []
+  fs [naryRecclosure_def, do_opapp_def, letrec_pull_params_cancel] \\
+  eq_tac \\ every_case_tac \\ fs []
 )
 
 val app_one_naryRecclosure = Q.prove (
@@ -1053,18 +1049,14 @@ val app_one_naryRecclosure = Q.prove (
   Cases_on `xs` THENL [all_tac, qcase_tac `_::_::x''::xs`] \\
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
-  fs [SEP_EXISTS, cond_def, STAR_def] \\
-  fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h = h')`, SPLIT_TAC)] \\
+  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
   rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
   fs [naryFun_def] \\
   qpat_assum `evaluate _ _ _ _ _`
     (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
-  fs [semanticPrimitivesTheory.do_opapp_def] \\
-  qcase_tac `SPLIT3 (st2heap _ st) (h_f', h_g', h_k')` \\
-  `SPLIT (st2heap (:'ffi) st) (h_f', h_g' UNION h_k')` by SPLIT_TAC \\
-  first_x_assum progress \\
-  qcase_tac `SPLIT3 (st2heap _ st') (h_f'', h_g'', _)` \\
-  `SPLIT3 (st2heap (:'ffi) st') (h_f'', h_g' UNION h_g'', h_k')` by SPLIT_TAC \\
+  fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
+  qcase_tac `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
+  `SPLIT3 (st2heap (:'ffi) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
   instantiate
 )
 
@@ -1104,19 +1096,19 @@ val find_recfun_map = Q.prove (
      find_recfun a l = SOME (b, c) ==>
      find_recfun a (MAP f l) = SOME (u, v)`,
   Induct_on `l`
-  THEN1 (fs [semanticPrimitivesTheory.find_recfun_def]) \\ rpt gen_tac \\
+  THEN1 (fs [find_recfun_def]) \\ rpt gen_tac \\
   NTAC 2 DISCH_TAC \\
   qcase_tac `x::_` \\ PairCases_on `x` \\ qcase_tac `(a',b',c')` \\
-  rewrite_tac [Once semanticPrimitivesTheory.find_recfun_def] \\ fs [] \\
+  rewrite_tac [Once find_recfun_def] \\ fs [] \\
   Cases_on `a' = a` \\ fs [] \\ rpt strip_tac
-  THEN1 (fs [Once semanticPrimitivesTheory.find_recfun_def])
+  THEN1 (fs [Once find_recfun_def])
   THEN1 (
-    rewrite_tac [Once semanticPrimitivesTheory.find_recfun_def] \\ fs [] \\
+    rewrite_tac [Once find_recfun_def] \\ fs [] \\
     `?u' v'. f (a', b', c') = (a', u', v')` by (
       first_assum (qspecl_then [`a'`, `b'`, `c'`] assume_tac) \\
       qabbrev_tac `x' = f (a',b',c')` \\ PairCases_on `x'` \\ fs []
     ) \\ fs [] \\
-    fs [Once semanticPrimitivesTheory.find_recfun_def]
+    fs [Once find_recfun_def]
   )
 )
 
@@ -1147,8 +1139,7 @@ val app_rec_of_sound_cf_aux = Q.prove (
     rw [] \\ qcase_tac `extend_env (n'::params) (xv'::xvs) _` \\
     fs [app_basic_def] \\ rpt strip_tac \\
     rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\
-    fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS] \\
-    fs [Q.prove(`!h h'. SPLIT h (h',{}) = (h' = h)`, SPLIT_TAC)] \\
+    fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
     qcase_tac `SPLIT _ (h, i)` \\
     `SPLIT3 (st2heap (:'ffi) st) (h, {}, i)` by SPLIT_TAC \\ instantiate \\
     (* fixme *)
@@ -1379,17 +1370,17 @@ val cf_sound = Q.prove (
   )
   THEN1 (
     (* App *)
-    Cases_on `op` \\ fs [sound_false] \\ every_case_tac \\
-    fs [sound_false] \\ cf_strip_sound_tac \\
+    Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
+    (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
+    cf_strip_sound_tac \\
     (qcase_tac `(App Opapp _)` ORELSE cf_evaluate_step_tac) \\
     TRY (
       (* Opn & Opb *)
       (qcase_tac `app_opn op` ORELSE qcase_tac `app_opb op`) \\
       fs [app_opn_def, app_opb_def, st2heap_def] \\
-      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
-      instantiate \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       GEN_EXISTS_TAC "vs" `[Litv (IntLit i2); Litv (IntLit i1)]` \\
-      Cases_on `op` \\ fs [semanticPrimitivesTheory.do_app_def] \\
+      Cases_on `op` \\ fs [do_app_def] \\
       qexists_tac `st` \\ rpt strip_tac \\ fs [SEP_IMP_def] \\
       cf_evaluate_list_tac [`st`, `st`]
     )
@@ -1410,8 +1401,8 @@ val cf_sound = Q.prove (
         cf_evaluate_step_tac \\ GEN_EXISTS_TAC "vs" `[xv; fv]` \\
         fs [app_def, app_basic_def] \\ res_tac \\
         qcase_tac `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
-        `SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g)` by SPLIT_TAC \\
-        instantiate \\ prove_tac [exp2v_evaluate, bigStepTheory.evaluate_rules]
+        progress SPLIT3_swap23 \\ instantiate \\
+        cf_evaluate_list_tac [`st`, `st`]
       )
       (* 2+ arguments *)
       THEN1 (
@@ -1434,12 +1425,10 @@ val cf_sound = Q.prove (
         last_assum drule \\ disch_then (qspec_then `pxs` mp_tac) \\ fs [] \\
         disch_then progress \\ fs [SEP_EXISTS, cond_def, STAR_def] \\
         (* Cleanup *)
-        qcase_tac `app_basic _ g xv H' Q` \\
-        rfs [prove(``!h h'. SPLIT h (h', {}) = (h' = h)``, SPLIT_TAC)] \\
+        qcase_tac `app_basic _ g xv H' Q` \\ fs [SPLIT_emp2] \\
         (* Start unfolding the goal and instantiating exists *)
         cf_evaluate_step_tac \\ GEN_EXISTS_TAC "vs" `[xv; g]` \\
-        GEN_EXISTS_TAC "s2" `st'` \\
-        `SPLIT (st2heap (:'ffi) st') (h_f, h_k UNION h_g)` by SPLIT_TAC \\
+        GEN_EXISTS_TAC "s2" `st'` \\ progress SPLIT_of_SPLIT3_2u3 \\ rw [] \\
         (* Exploit the [app_basic (:'ffi) g xv H' Q] we got from the ind. hyp. *)
         fs [app_basic_def] \\ first_assum progress \\
         (* Prove the goal *)
@@ -1452,133 +1441,104 @@ val cf_sound = Q.prove (
       (* Opassign *)
       fs [app_assign_def, SEP_IMP_def,STAR_def,cell_def,one_def, st2heap_def] \\
       `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by
-        (cf_evaluate_list_tac [`st`, `st`]) \\
-      qpat_assum `!s. H s ==> _` progress \\ 
+        (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
+      first_assum progress \\
       qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
-      GEN_EXISTS_TAC "vs" `[xv; Loc rv]` \\
-      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_assign_def] \\
-      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\
-      `store_v_same_type (EL rv st.refs) (Refv xv)` by (
-        `(rv, Refv x') IN (store2heap st.refs)` by SPLIT_TAC \\
-        fs [semanticPrimitivesTheory.store_v_same_type_def] \\
-        qspecl_then [`st.refs`, `rv`, `Refv x'`] assume_tac store2heap_IN_EL \\
-        fs []
-       ) \\
+      fs [do_app_def, store_assign_def] \\
+      `(rv,Refv x') IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      `store_v_same_type (EL rv st.refs) (Refv xv)` by
+        (fs [store_v_same_type_def]) \\ fs [] \\
       `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs))
          ((rv, Refv xv) INSERT h_i', h_k, {})` by (
-        mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
-        SPLIT_TAC
+        rpt_drule_then (fs o sing) store2heap_LUPDATE \\ 
+        drule store2heap_IN_unique_key \\ SPLIT_TAC
       ) \\ instantiate \\ first_assum irule \\
-      strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
+      drule store2heap_IN_unique_key \\ SPLIT_TAC
     )
     THEN1 (
       (* Opref *)
-      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
+      fs [do_app_def, store_alloc_def] \\
       fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      GEN_EXISTS_TAC "vs" `[xv]` \\
+      `evaluate_list F env st [h] (st, Rval [xv])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`LENGTH st.refs`, `(LENGTH st.refs,Refv xv) INSERT h_i`] \\
+      assume_tac store2heap_alloc_disjoint \\
       impl_tac
-      THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
+      THEN1 (qexists_tac `h_i` \\ SPLIT_TAC)
       THEN1 (
-        strip_tac \\
-        `evaluate_list F env st [h] (st, Rval [xv])` by
-          (cf_evaluate_list_tac [`st`, `st`]) \\
-        instantiate \\ fs [store2heap_append] \\ assume_tac store2heap_alloc_disjoint \\
+        strip_tac \\ instantiate \\ fs [store2heap_append] \\
         qexists_tac `{}` \\ SPLIT_TAC
       )
     )
     THEN1 (
       (* Opderef *)
       `evaluate_list F env st [h] (st, Rval [Loc rv])` by
-        (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      rpt (qpat_assum `!s. H s ==> _` progress) \\ fs [] \\
-      qcase_tac `SPLIT h_i (h_i', {(rv,Refv x)})` \\ qcase_tac `FF h_i'` \\
-      GEN_EXISTS_TAC "vs" `[Loc rv]` \\
-      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\
-      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
-      instantiate \\
-      qspecl_then [`st.refs`, `rv`, `Refv x`] assume_tac store2heap_IN_EL \\
-      `(rv,Refv x) IN store2heap st.refs` by SPLIT_TAC \\ fs []
+        (cf_evaluate_list_tac [`st`, `st`]) \\ 
+      fs [st2heap_def, app_deref_def, SEP_IMP_def,STAR_def,one_def,cell_def] \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\ qcase_tac `{(rv,Refv x)}` \\
+      fs [do_app_def, store_lookup_def] \\
+      `(rv,Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
     )
     THEN1 (
       (* Aw8alloc *)
-      GEN_EXISTS_TAC "vs" `[Litv (Word8 w); Litv (IntLit n)]` \\
-      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
-      fs [st2heap_def, app_aw8alloc_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (Word8 w); Litv (IntLit n)])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
+      fs [do_app_def, store_alloc_def, st2heap_def, app_aw8alloc_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`(LENGTH st.refs, W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
-      impl_tac
-      THEN1 (qexists_tac `h_i` \\ assume_tac store2heap_alloc_disjoint \\ SPLIT_TAC)
+      assume_tac store2heap_alloc_disjoint \\ impl_tac
+      THEN1 (instantiate \\ SPLIT_TAC)
       THEN1 (
-        strip_tac \\ once_rewrite_tac [CONJ_COMM] \\
-        `evaluate_list F env st [h'; h] (st, Rval [Litv (Word8 w); Litv (IntLit n)])` by
-          (cf_evaluate_list_tac [`st`, `st`]) \\
-        `~ (n < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
-        fs [] \\ instantiate \\ fs [store2heap_append] \\
-        assume_tac store2heap_alloc_disjoint \\ qexists_tac `{}` \\ SPLIT_TAC
+        rpt strip_tac \\ every_case_tac \\
+        rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
+        fs [store2heap_append] \\ qexists_tac `{}` \\ SPLIT_TAC
       )
     )
     THEN1 (
       (* Aw8sub *)
-      GEN_EXISTS_TAC "vs" `[Litv (IntLit i); Loc l]` \\
       `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
-        by (cf_evaluate_list_tac [`st`, `st`]) \\
+        by (cf_evaluate_list_tac [`st`, `st`]) \\ 
       fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      rpt (qpat_assum `!s. H s ==> _` progress) \\ fs [] \\
-      qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
-      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
-      instantiate \\
-      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\ fs [] \\
-      `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
-      `~ (i < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\ fs []
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\ qcase_tac `{(l,W8array ws)}` \\
+      fs [do_app_def, store_lookup_def] \\
+      `(l,W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
+      instantiate \\ every_case_tac \\
+      rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []
     )
     THEN1 (
       (* Aw8length *)
-      GEN_EXISTS_TAC "vs" `[Loc l]` \\
       `evaluate_list F env st [h] (st, Rval [Loc l])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      rpt (qpat_assum `!s. H s ==> _` progress) \\ fs [] \\
-      qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
-      `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
-      instantiate \\
-      fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\ fs [] \\
-      `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
-      fs []
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\ qcase_tac `{(l,W8array ws)}` \\
+      fs [do_app_def, store_lookup_def] \\
+      `(l,W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
     )
     THEN1 (
       (* Aw8update *)
-      GEN_EXISTS_TAC "vs" `[Litv (Word8 w); Litv (IntLit i); Loc l]` \\
       `evaluate_list F env st [h''; h'; h]
          (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
-          by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\
+          by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
       fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
-      qpat_assum `!s. H s ==> _` progress \\
-      qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
-      GEN_EXISTS_TAC "s2" `st` \\
-      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\
-      `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
-      `~ (i < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
-      fs [semanticPrimitivesTheory.do_app_def,
-          semanticPrimitivesTheory.store_lookup_def,
-          semanticPrimitivesTheory.store_assign_def,
-          semanticPrimitivesTheory.store_v_same_type_def] \\
+      first_x_assum progress \\ qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\
+      `(l,W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+      every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
       qexists_tac `(l, W8array (LUPDATE w (Num (ABS i)) ws)) INSERT h_i'` \\
-      qexists_tac `{}` \\ strip_tac
-      THEN1 (
-        mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
-        SPLIT_TAC
-      )
-      THEN1 (
-        first_assum match_mp_tac \\ qexists_tac `h_i'` \\
-        strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
-      )
+      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
+      THEN1 (rpt_drule_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
     )
   )
 )
@@ -1611,9 +1571,9 @@ val cf_sound_local = Q.prove (
   `sound (:'ffi) e (local (cf (:'ffi) e))` by
     (match_mp_tac sound_local \\ fs [cf_sound]) \\
   fs [sound_def, st2heap_def] \\
-  `local (cf (:'ffi) e) env H Q` by (fs [REWRITE_RULE [is_local_def] cf_local |> GSYM]) \\
-  res_tac \\ `SPLIT3 (store2heap st'.refs) (h_f, h_g, i)` by SPLIT_TAC \\
-  instantiate
+  `local (cf (:'ffi) e) env H Q` by
+    (fs [REWRITE_RULE [is_local_def] cf_local |> GSYM]) \\
+  res_tac \\ progress SPLIT3_swap23 \\ instantiate
 )
 
 val app_basic_of_cf = Q.prove (
@@ -1650,7 +1610,7 @@ val DeclCorr_SNOC_Dlet_Fun = Q.prove (
 
   rpt strip_tac \\ fs [DeclCorr_def, EnvCorr_def] \\
   fs [DeclAssum_def, Decls_SNOC, PULL_EXISTS] \\
-  instantiate \\ fs [Decls_Dlet, write_def, PULL_EXISTS] \\
+  instantiate \\ fs [Decls_Dlet, ml_progTheory.write_def, PULL_EXISTS] \\
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
   fs [FEVERY_FUPDATE, FEVERY_DEF, DRESTRICT_DEF, COMPL_DEF] \\
   strip_tac
