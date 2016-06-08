@@ -17,7 +17,7 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,
 
 val rew_heap_thms =
   [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp,
-   SEP_IMPPOST_def, STARPOST_def]
+   SEP_IMPPOST_def, STARPOST_def, cond_eq_def]
 
 val rew_heap = full_simp_tac bool_ss rew_heap_thms
 val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
@@ -26,6 +26,10 @@ val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
 
 fun dest_sep_imp tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) SEP_IMP_def
+  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+
+fun dest_cell tm = let
+  val format = (fst o dest_eq o concl o SPEC_ALL) cell_def
   in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
 
 fun SEP_IMP_conv convl convr t =
@@ -91,8 +95,8 @@ fun hpull g =
   handle HOL_ERR _ => FAIL_TAC "hpull" g
 
 (* test goals:
-  g `SEP_IMP (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop) Z`;
-  g `SEP_IMP (A * emp * cond P * (SEP_EXISTS x. emp * G x) * cond Q:hprop) Z`;
+  g `(A * cond P * (SEP_EXISTS x. G x) * cond Q :hprop) ==>> Z`;
+  g `(A * emp * cond P * (SEP_EXISTS x. emp * G x) * cond Q :hprop) ==>> Z`;
 *)
 
 (** hsimpl_cancel *)
@@ -111,22 +115,17 @@ fun hsimpl_cancel_one_conseq_conv t =
         val convr = rearrange_star_conv tm2 rs'
       in SEP_IMP_conv convl convr
       end
-    fun one_loc tm =
-      let val (c, args) = strip_comb tm in
-        if is_const c andalso #Name (dest_thy_const c) = "one" then
-          SOME (hd (snd (strip_comb (hd args))))
-        else
-          NONE
-      end
-    fun find_matching_ones () =
+    fun cell_loc tm =
+      SOME (fst (dest_cell tm)) handle _ => NONE
+    fun find_matching_cells () =
       find_map (fn tm1 =>
         Option.mapPartial (fn loc =>
           find_map (fn tm2 =>
             Option.mapPartial (fn loc' =>
               if loc = loc' then SOME (tm1, tm2) else NONE
-            ) (one_loc tm2)
+            ) (cell_loc tm2)
           ) rs
-        ) (one_loc tm1)
+        ) (cell_loc tm1)
       ) ls
 
     val frame_thms = [
@@ -134,10 +133,10 @@ fun hsimpl_cancel_one_conseq_conv t =
       SEP_IMP_frame_single_l,
       SEP_IMP_frame_single_r
     ]
-    val frame_one_thms = [
-      SEP_IMP_one_frame,
-      SEP_IMP_one_frame_single_l,
-      SEP_IMP_one_frame_single_r
+    val frame_cell_thms = [
+      SEP_IMP_cell_frame,
+      SEP_IMP_cell_frame_single_l,
+      SEP_IMP_cell_frame_single_r
     ]
   in
     (case is of
@@ -147,11 +146,11 @@ fun hsimpl_cancel_one_conseq_conv t =
            (CONSEQ_REWRITE_CONV ([], frame_thms, [])
               CONSEQ_CONV_STRENGTHEN_direction)
        | [] =>
-         case find_matching_ones () of
+         case find_matching_cells () of
              SOME (tm1, tm2) =>
              THEN_CONSEQ_CONV
                (rearrange_conv tm1 tm2)
-               (CONSEQ_REWRITE_CONV ([], frame_one_thms, [])
+               (CONSEQ_REWRITE_CONV ([], frame_cell_thms, [])
                   CONSEQ_CONV_STRENGTHEN_direction)
            | NONE => raise UNCHANGED)
       t
@@ -163,7 +162,7 @@ fun hsimpl_cancel g =
     handle HOL_ERR _ => FAIL_TAC "hsimpl_cancel" g
 
 (* test goal:
-  g `SEP_IMP (A:hprop * B * C * one (l, v) * D) (B * Z * one (l, v') * Y * D * A)`;
+  g `(A:hprop * B * C * l ~~> v * D) ==>> (B * Z * l ~~> v' * Y * D * A)`;
 *)
 
 (** hsimpl *)
@@ -209,7 +208,8 @@ val hsimpl_steps =
       (STRENGTHEN_CONSEQ_CONV hsimpl_step_conseq_conv)
 
 (* test goal:
-  g `SEP_IMP Z (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop)`;
+  g `Z ==>> (A * cond P * (SEP_EXISTS x. G x) * cond Q :hprop)`;
+  e rew_heap;
 *)
 
 (** hsimpl *)
@@ -237,6 +237,6 @@ val hsimpl =
   fs [hsimpl_gc, SEP_IMP_REFL]
 
 (* test goal:
-  g `SEP_IMP (A:hprop * B * C * one (l, v) * one (l', u) * D) (B * Z * one (l, v') * one (l', u') * Y * cond Q * D * A)`;
+  g `(A:hprop * B * C * l ~~> v * l' ~~> u * D) ==>> (B * Z * l ~~> v' * l' ~~> u' * Y * cond Q * D * A)`;
 *)
 end

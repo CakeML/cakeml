@@ -42,16 +42,38 @@ val SEP_IMPPOST_def = Define `
 (* Garbage collection predicate *)
 val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
 
+(* cond specialized to equality to some value; as a post-condition *)
+val cond_eq_def = Define `
+  cond_eq v = \x. cond (x = v)`
+
+(* A single memory cell. *)
+val cell_def = Define `
+  cell (l: loc) (v: v semanticPrimitives$store_v) = one (l, v)`
+
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
 
 val _ = overload_on ("*+", Term `STARPOST`)
-val _ = add_infix ("*+", 480, HOLgrammars.LEFT)
+val _ = add_infix ("*+", 580, HOLgrammars.LEFT)
 
-(* val _ = overload_on ("==>>", Term `SEP_IMP`) *)
-(* val _ = add_infix ("==>>", 450, HOLgrammars.RIGHT) *)
+val _ = overload_on ("==>>", Term `SEP_IMP`)
+val _ = add_infix ("==>>", 470, HOLgrammars.RIGHT)
 
-(* todo *)
+val _ = overload_on ("==+>", Term `SEP_IMPPOST`)
+val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
+
+(* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
+(*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
+(*                   paren_style = OnlyIfNecessary, *)
+(*                   pp_elements = [TOK "<", TM, TOK ">"]} *)
+
+(* val _ = add_rule {fixity = Closefix, term_name = "cond_eq", *)
+(*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
+(*                   paren_style = OnlyIfNecessary, *)
+(*                   pp_elements = [TOK "<=", TM, TOK ">"]} *)
+
+val _ = overload_on ("~~>", Term `cell`)
+val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
 
 (*------------------------------------------------------------------*)
 (** Additionnal properties of STAR *)
@@ -63,8 +85,8 @@ val STARPOST_emp = store_thm ("STARPOST_emp",
 
 val SEP_IMP_frame_single_l = store_thm ("SEP_IMP_frame_single_l",
   ``!H' R.
-     SEP_IMP emp H' ==>
-     SEP_IMP R (H' * R)``,
+     (emp ==>> H') ==>
+     (R ==>> H' * R)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
   qx_gen_tac `s` \\ strip_tac \\ Q.LIST_EXISTS_TAC [`{}`, `s`] \\
   SPLIT_TAC
@@ -72,32 +94,32 @@ val SEP_IMP_frame_single_l = store_thm ("SEP_IMP_frame_single_l",
 
 val SEP_IMP_frame_single_r = store_thm ("SEP_IMP_frame_single_r",
   ``!H R.
-     SEP_IMP H emp ==>
-     SEP_IMP (H * R) R``,
+     (H ==>> emp) ==>
+     (H * R ==>> R)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
   qx_gen_tac `s` \\ strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
-val SEP_IMP_one_frame = store_thm ("SEP_IMP_one_frame",
+val SEP_IMP_cell_frame = store_thm ("SEP_IMP_cell_frame",
   ``!H H' l v v'.
-     v = v' /\ SEP_IMP H H' ==>
-     SEP_IMP (H * one (l, v)) (H' * one (l, v'))``,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, STAR_def] \\ SPLIT_TAC
+     (v = v') /\ (H ==>> H') ==>
+     (H * l ~~> v ==>> H' * l ~~> v')``,
+  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, STAR_def] \\ SPLIT_TAC
 )
 
-val SEP_IMP_one_frame_single_l = store_thm ("SEP_IMP_one_frame_single_l",
+val SEP_IMP_cell_frame_single_l = store_thm ("SEP_IMP_cell_frame_single_l",
   ``!H' l v v'.
-     v = v' /\ SEP_IMP emp H' ==>
-     SEP_IMP (one (l, v)) (H' * one (l, v'))``,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
+     (v = v') /\ (emp ==>> H') ==>
+     (l ~~> v ==>> H' * l ~~> v')``,
+  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
   simp [Once CONJ_COMM] \\ asm_exists_tac \\ SPLIT_TAC
 )
 
-val SEP_IMP_one_frame_single_r = store_thm ("SEP_IMP_one_frame_single_r",
+val SEP_IMP_cell_frame_single_r = store_thm ("SEP_IMP_cell_frame_single_r",
   ``!H l v v'.
-     v = v' /\ SEP_IMP H emp ==>
-     SEP_IMP (H * one (l, v)) (one (l, v'))``,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
+     (v = v') /\ (H ==>> emp) ==>
+     (H * l ~~> v ==>> l ~~> v')``,
+  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
   rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
@@ -106,7 +128,7 @@ val SEP_IMP_one_frame_single_r = store_thm ("SEP_IMP_one_frame_single_r",
 
 val rew_heap_thms =
   [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp,
-   SEP_IMPPOST_def, STARPOST_def]
+   SEP_IMPPOST_def, STARPOST_def, cond_eq_def]
 
 val rew_heap = full_simp_tac bool_ss rew_heap_thms
 
@@ -128,37 +150,37 @@ val GC_STAR_GC = store_thm ("GC_STAR_GC",
 
 val Ref_def = Define `
   Ref (v: v) (r: v) : hprop =
-    SEP_EXISTS l. cond (r = Loc l) * one (l, Refv v)`
+    SEP_EXISTS l. cond (r = Loc l) * l ~~> Refv v`
 
 (*------------------------------------------------------------------*)
 (** Extraction from H1 in SEP_IMP H1 H2 *)
 
 val hpull_prop = store_thm ("hpull_prop",
   ``!H H' P.
-     (P ==> SEP_IMP H H') ==>
-     SEP_IMP (H * cond P) H'``,
+     (P ==> H ==>> H') ==>
+     (H * cond P ==>> H')``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 )
 
 val hpull_prop_single = store_thm ("hpull_prop_single",
   ``!H' P.
-     (P ==> SEP_IMP emp H') ==>
-     SEP_IMP (cond P) H'``,
+     (P ==> emp ==>> H') ==>
+     (cond P ==>> H')``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
   SPLIT_TAC
 )
 
 val hpull_exists_single = store_thm ("hpull_exists_single",
   ``!A H' J.
-     (!x. SEP_IMP (J x) H') ==>
-     SEP_IMP ($SEP_EXISTS J) H'``,
+     (!x. (J x) ==>> H') ==>
+     ($SEP_EXISTS J ==>> H')``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
   SPLIT_TAC
 )
 
 val SEP_IMP_rew = store_thm ("SEP_IMP_rew",
-  ``!H1 H2 H1' H2'. H1 = H2 ==> H1' = H2' ==> SEP_IMP H1 H1' = SEP_IMP H2 H2'``,
+  ``!H1 H2 H1' H2'. (H1 = H2) ==> (H1' = H2') ==> (H1 ==>> H1') = (H2 ==>> H2')``,
   rew_heap
 )
 
@@ -169,30 +191,30 @@ val SEP_IMP_rew = store_thm ("SEP_IMP_rew",
 
 val hsimpl_prop = store_thm ("hsimpl_prop",
   ``!H' H P.
-     P /\ SEP_IMP H' H ==>
-     SEP_IMP H' (H * cond P)``,
+     P /\ (H' ==>> H) ==>
+     (H' ==>> H * cond P)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 )
 
 val hsimpl_prop_single = store_thm ("hsimpl_prop_single",
   ``!H' P.
-     P /\ SEP_IMP H' emp ==>
-     SEP_IMP H' (cond P)``,
+     P /\ (H' ==>> emp) ==>
+     (H' ==>> cond P)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
   SPLIT_TAC
 )
 
 val hsimpl_exists_single = store_thm ("hsimpl_exists_single",
   ``!x H' J.
-     SEP_IMP H' (J x) ==>
-     SEP_IMP H' ($SEP_EXISTS J)``,
+     (H' ==>> J x) ==>
+     (H' ==>> $SEP_EXISTS J)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
   SPLIT_TAC
 )
 
 val hsimpl_gc = store_thm ("hsimpl_gc",
-  ``!H. SEP_IMP H GC``,
+  ``!H. H ==>> GC``,
   fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
 )
 

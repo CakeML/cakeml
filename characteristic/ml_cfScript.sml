@@ -144,7 +144,7 @@ val local_def = Define `
     !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
       cf env H1 Q1 /\
-      SEP_IMPPOST (Q1 *+ H2) (Q *+ GC)`
+      (Q1 *+ H2 ==+> Q *+ GC)`
 
 val is_local_def = Define `
   is_local cf = (cf = local cf)`
@@ -303,57 +303,56 @@ val dest_opapp_not_empty_arglist = Q.prove (
 
 val app_ref_def = Define `
   app_ref (x: v) H Q =
-    !(r: num). SEP_IMP (H * one (r, Refv x)) (Q (Loc r))`
+    !(r: num). H * r ~~> Refv x ==>> Q (Loc r)`
 
 val app_assign_def = Define `
   app_assign (r: num) (x: v) H Q =
     ?x' F.
-      SEP_IMP H (F * one (r, Refv x')) /\
-      SEP_IMP (F * one (r, Refv x)) (Q (Conv NONE []))`
+      (H ==>> F * r ~~> Refv x') /\
+      (F * r ~~> Refv x ==>> Q (Conv NONE []))`
 
 val app_deref_def = Define `
   app_deref (r: num) H Q =
     ?x F.
-      SEP_IMP H (F * one (r, Refv x)) /\
-      SEP_IMP H (Q x)`
+      (H ==>> F * r ~~> Refv x) /\
+      (H ==>> Q x)`
 
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
     !(loc: num).
       n >= 0 /\
-      SEP_IMP (H * one (loc, W8array (REPLICATE (Num (ABS n)) w)))
-              (Q (Loc loc))`
+      (H * loc ~~> W8array (REPLICATE (Num (ABS n)) w) ==>> Q (Loc loc))`
 
 val app_aw8sub_def = Define `
   app_aw8sub (loc: num) (i: int) H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
-      SEP_IMP H (F * one (loc, W8array ws)) /\
-      SEP_IMP H (Q (Litv (Word8 (EL n ws))))`
+      (H ==>> F * loc ~~> W8array ws) /\
+      (H ==>> Q (Litv (Word8 (EL n ws))))`
 
 val app_aw8length_def = Define `
   app_aw8length (loc: num) H Q =
     ?ws F.
-      SEP_IMP H (F * one (loc, W8array ws)) /\
-      SEP_IMP H (Q (Litv (IntLit (int_of_num (LENGTH ws)))))`
+      (H ==>> F * loc ~~> W8array ws) /\
+      (H ==>> Q (Litv (IntLit (int_of_num (LENGTH ws)))))`
 
 val app_aw8update_def = Define `
   app_aw8update (loc: num) (i: int) w H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
-      SEP_IMP H (F * one (loc, W8array ws)) /\
-      SEP_IMP (F * one (loc, W8array (LUPDATE w n ws))) (Q (Conv NONE []))`
+      (H ==>> F * loc ~~> W8array ws) /\
+      (F * loc ~~> W8array (LUPDATE w n ws) ==>> Q (Conv NONE []))`
 
 val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
     ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
-     SEP_IMP H (Q (Litv (IntLit (opn_lookup opn i1 i2)))))`
+     (H ==>> Q (Litv (IntLit (opn_lookup opn i1 i2)))))`
 
 val app_opb_def = Define `
   app_opb opb i1 i2 H Q =
-    SEP_IMP H (Q (Boolv (opb_lookup opb i1 i2)))`
+    H ==>> Q (Boolv (opb_lookup opb i1 i2))`
 
 (* ANF related *)
 
@@ -543,7 +542,7 @@ val curried_naryClosure = Q.prove (
 )
 
 val cf_lit_def = Define `
-  cf_lit l = local (\env H Q. SEP_IMP H (Q (Litv l)))`
+  cf_lit l = local (\env H Q. H ==>> Q (Litv l))`
 
 val cf_con_def = Define `
   cf_con cn args = local (\env H Q.
@@ -551,7 +550,7 @@ val cf_con_def = Define `
       do_con_check env.c cn (LENGTH args) /\
       (build_conv env.c cn argsv = SOME cv) /\
       (exp2v_list env args = SOME argsv) /\
-      SEP_IMP H (Q cv))`
+      (H ==>> Q cv))`
 
 val cf_var_def = Define `
   cf_var name = local (\env H Q.
@@ -1451,7 +1450,7 @@ val cf_sound = Q.prove (
     )
     THEN1 (
       (* Opassign *)
-      fs [app_assign_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
+      fs [app_assign_def, SEP_IMP_def,STAR_def,cell_def,one_def, st2heap_def] \\
       `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
       qpat_assum `!s. H s ==> _` progress \\ 
@@ -1475,7 +1474,7 @@ val cf_sound = Q.prove (
     THEN1 (
       (* Opref *)
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
-      fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def] \\
+      fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       GEN_EXISTS_TAC "vs" `[xv]` \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`LENGTH st.refs`, `(LENGTH st.refs,Refv xv) INSERT h_i`] \\
@@ -1493,7 +1492,7 @@ val cf_sound = Q.prove (
       (* Opderef *)
       `evaluate_list F env st [h] (st, Rval [Loc rv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def] \\
+      fs [st2heap_def, app_deref_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       rpt (qpat_assum `!s. H s ==> _` progress) \\ fs [] \\
       qcase_tac `SPLIT h_i (h_i', {(rv,Refv x)})` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "vs" `[Loc rv]` \\
@@ -1508,7 +1507,7 @@ val cf_sound = Q.prove (
       (* Aw8alloc *)
       GEN_EXISTS_TAC "vs" `[Litv (Word8 w); Litv (IntLit n)]` \\
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_alloc_def] \\
-      fs [st2heap_def, app_aw8alloc_def, SEP_IMP_def, STAR_def, one_def] \\
+      fs [st2heap_def, app_aw8alloc_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`(LENGTH st.refs, W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
@@ -1528,7 +1527,7 @@ val cf_sound = Q.prove (
       GEN_EXISTS_TAC "vs" `[Litv (IntLit i); Loc l]` \\
       `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
         by (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def] \\
+      fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       rpt (qpat_assum `!s. H s ==> _` progress) \\ fs [] \\
       qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
@@ -1543,7 +1542,7 @@ val cf_sound = Q.prove (
       GEN_EXISTS_TAC "vs" `[Loc l]` \\
       `evaluate_list F env st [h] (st, Rval [Loc l])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def] \\
+      fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       rpt (qpat_assum `!s. H s ==> _` progress) \\ fs [] \\
       qcase_tac `SPLIT h_i (h_i', {(l,W8array ws)})` \\ qcase_tac `FF h_i'` \\
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
@@ -1559,7 +1558,7 @@ val cf_sound = Q.prove (
       `evaluate_list F env st [h''; h'; h]
          (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
           by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\
-      fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, st2heap_def] \\
+      fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
       qpat_assum `!s. H s ==> _` progress \\
       qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "s2" `st` \\
