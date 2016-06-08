@@ -32,24 +32,46 @@ sig
 
   (** Auxiliary tactics *)
 
-  (* hpull: extract pure facts and existential quantifications from the left
+  (* [hpull]: extract pure facts and existential quantifications from the left
      heap (H1).
 
      For example:
 
       A ?- SEP_IMP (A * cond P) B
      =============================  hpull
-          P ==> SEP_IMP A B
+        A ?- P ==> SEP_IMP A B
 
       SEP_IMP (SEP_EXISTS x. A x * B) C
      ===================================  hpull
-           !x. SEP_IMP (A x * B) C
+        A ?- !x. SEP_IMP (A x * B) C
      
-     hpull fails (raises an exception) if it cannot do anything on the goal.
+     [hpull] fails (raising HOL_ERR) if it cannot do anything on the goal.
    *)
   val hpull : tactic
                  
-  (* hsimpl_cancel:  *)
-  val 
+  (* [hsimpl_cancel]: on a goal of the form [SEP_IMP H1 H2], [hsimpl_cancel]
+     tries to remove subheaps present both in H1 and H2. Moreover, if
+     [one (loc, v)] is in H1 and [one (loc, v')] is in H2, [hsimpl_cancel] will
+     remove both, and produce a subgoal [v = v'].
 
+     For example:
+
+      A ?- SEP_IMP (A * B * one (l, v)) (B * one (l, v'))
+     =====================================================  hsimpl_cancel
+          A ?- v = v'              A ?- SEP_IMP A emp
+
+     [hsimpl_cancel] fails (raising HOL_ERR) if it cannot do anything on the goal.
+   *)
+  val hsimpl_cancel : tactic
+
+  (* [hsimpl_steps]: extract pure facts and existential quantifications from the
+     right heap (H2).
+
+     For example:
+
+      A ?- SEP_IMP A (B * cond P)
+     =============================  hsimpl_steps
+         A ?- P /\ SEP_IMP A B
+   *)
+  val hsimpl_steps : tactic
 end

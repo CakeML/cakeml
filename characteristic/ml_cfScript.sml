@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ml_translatorTheory
-open ConseqConv
+open ConseqConv cfHeapsTheory cfHeapsLib
 
 val _ = new_theory "ml_cf"
 
@@ -16,409 +16,6 @@ fun rpt_drule_then thm_tac thm =
 fun progress thm = rpt_drule_then strip_assume_tac thm
 
 fun sing x = [x]
-
-(*------------------------------------------------------------------*)
-(** Heaps *)
-
-val _ = type_abbrev("loc", ``:num``)
-val _ = type_abbrev("heap", ``:(loc # v semanticPrimitives$store_v) set``)
-val _ = type_abbrev("hprop", ``:heap -> bool``)
-
-val SPLIT3_def = Define `
-  SPLIT3 (s:'a set) (u,v,w) =
-    ((u UNION v UNION w = s) /\
-     DISJOINT u v /\ DISJOINT v w /\ DISJOINT u w)`
-
-val SPLIT_ss = rewrites [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,
-                         UNION_DEF,SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,
-                         IN_DIFF]
-
-val SPLIT_TAC = FULL_SIMP_TAC (pure_ss++SPLIT_ss) [] \\ METIS_TAC []
-val SPLIT2_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
-                         SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
-                 \\ metis_tac []
-
-(*------------------------------------------------------------------*)
-(** Heap predicates *)
-
-(* in set_sepTheory: emp, one, STAR, SEP_EXISTS, cond *)
-
-(* STAR for post-conditions *)
-val STARPOST_def = Define `
-  STARPOST (Q: v -> hprop) (H: hprop) =
-    \x. (Q x) * H`
-
-(* SEP_IMP lifted for post-conditions *)
-val SEP_IMPPOST_def = Define `
-  SEP_IMPPOST (Q1: v -> hprop) (Q2: v -> hprop) =
-    !x. SEP_IMP (Q1 x) (Q2 x)`
-
-(* Garbage collection predicate *)
-val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
-
-(*------------------------------------------------------------------*)
-(** Notations for heap predicates *)
-
-val _ = overload_on ("*+", Term `STARPOST`)
-val _ = add_infix ("*+", 480, HOLgrammars.LEFT)
-
-(* todo *)
-
-(*------------------------------------------------------------------*)
-(** Additionnal properties of STAR *)
-
-val STARPOST_emp = Q.prove (
-  `!Q. Q *+ emp = Q`,
-  strip_tac \\ fs [STARPOST_def] \\ metis_tac [SEP_CLAUSES]
-)
-
-val SEP_IMP_frame_single_l = Q.prove (
-  `!H' R.
-     SEP_IMP emp H' ==>
-     SEP_IMP R (H' * R)`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
-  qx_gen_tac `s` \\ strip_tac \\ Q.LIST_EXISTS_TAC [`{}`, `s`] \\
-  SPLIT_TAC
-)
-
-val SEP_IMP_frame_single_r = Q.prove (
-  `!H R.
-     SEP_IMP H emp ==>
-     SEP_IMP (H * R) R`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
-  qx_gen_tac `s` \\ strip_tac \\ res_tac \\ SPLIT_TAC
-)
-
-val SEP_IMP_one_frame = Q.prove (
-  `!H H' l v v'.
-     v = v' /\ SEP_IMP H H' ==>
-     SEP_IMP (H * one (l, v)) (H' * one (l, v'))`,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, STAR_def] \\ SPLIT_TAC
-)
-
-val SEP_IMP_one_frame_single_l = Q.prove (
-  `!H' l v v'.
-     v = v' /\ SEP_IMP emp H' ==>
-     SEP_IMP (one (l, v)) (H' * one (l, v'))`,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
-  simp [Once CONJ_COMM] \\ asm_exists_tac \\ SPLIT_TAC
-)
-
-val SEP_IMP_one_frame_single_r = Q.prove (
-  `!H l v v'.
-     v = v' /\ SEP_IMP H emp ==>
-     SEP_IMP (H * one (l, v)) (one (l, v'))`,
-  rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
-  rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
-
-(*------------------------------------------------------------------*)
-(** Normalization of STAR *)
-
-val rew_heap_thms =
-  [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp,
-   SEP_IMPPOST_def, STARPOST_def]
-
-val rew_heap = full_simp_tac bool_ss rew_heap_thms
-
-val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
-
-(*------------------------------------------------------------------*)
-(** Properties of GC *)
-
-val GC_STAR_GC = Q.prove (
-  `GC * GC = GC`,
-  fs [GC_def] \\ irule EQ_EXT \\ strip_tac \\ rew_heap \\
-  fs [SEP_EXISTS] \\ eq_tac \\ rpt strip_tac
-  THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
-  metis_tac []
-)
-
-(*------------------------------------------------------------------*)
-(** Specification predicates for values *)
-
-(* todo *)
-
-val Ref_def = Define `
-  Ref (v: v) (r: v) : hprop =
-    SEP_EXISTS l. cond (r = Loc l) * one (l, Refv v)`
-
-(*------------------------------------------------------------------*)
-(** Extraction from H1 in SEP_IMP H1 H2 *)
-
-val hpull_prop = Q.prove (
-  `!H H' P.
-    (P ==> SEP_IMP H H') ==>
-    SEP_IMP (H * cond P) H'`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
-  SPLIT_TAC
-)
-
-val hpull_prop_single = Q.prove (
-  `!H' P.
-    (P ==> SEP_IMP emp H') ==>
-    SEP_IMP (cond P) H'`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
-  SPLIT_TAC
-)
-
-val hpull_exists_single = Q.prove (
-  `!A H' J.
-    (!x. SEP_IMP (J x) H') ==>
-    SEP_IMP ($SEP_EXISTS J) H'`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
-  SPLIT_TAC
-)
-
-val SEP_IMP_rew = Q.prove (
-  `!H1 H2 H1' H2'. H1 = H2 ==> H1' = H2' ==> SEP_IMP H1 H1' = SEP_IMP H2 H2'`,
-  rew_heap
-)
-
-(** Tactics *)
-
-fun dest_sep_imp tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) SEP_IMP_def
-  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
-
-fun SEP_IMP_conv convl convr t =
-  let val (l, r) = dest_sep_imp t handle _ => raise UNCHANGED
-      val rew_t = MATCH_MP (MATCH_MP SEP_IMP_rew (convl l)) (convr r)
-  in REWR_CONV rew_t t
-  end
-
-fun find_map f [] = NONE
-  | find_map f (x :: xs) =
-    (case f x of
-         NONE => find_map f xs
-       | SOME y => SOME y)
-
-fun rearrange_star_conv tm rest =
-  let val rearranged = list_mk_star (rest @ [tm]) ``:hprop`` in
-    fn t => prove (mk_eq (t, rearranged), rew_heap_AC)
-  end
-
-
-fun hpull_one_conseq_conv t =
-  let
-    val (l, r) = dest_sep_imp t handle _ => raise UNCHANGED
-    val ls = list_dest dest_star l
-    fun rearrange_conv tm =
-      let val rest = filter (fn tm' => tm' <> tm) ls in
-        SEP_IMP_conv (rearrange_star_conv tm rest) REFL
-      end
-    fun pull tm =
-      let val (c, args) = strip_comb tm in
-        if is_const c andalso #Name (dest_thy_const c) = "cond" then
-          SOME (
-            THEN_CONSEQ_CONV
-              (rearrange_conv tm)
-              (CONSEQ_REWRITE_CONV ([], [hpull_prop, hpull_prop_single], [])
-                CONSEQ_CONV_STRENGTHEN_direction)
-          )
-        else if is_const c andalso #Name (dest_thy_const c) = "SEP_EXISTS" then
-          SOME (
-            EVERY_CONSEQ_CONV [
-              rearrange_conv tm,
-              CONSEQ_REWRITE_CONV ([], [hpull_exists_single], [])
-                CONSEQ_CONV_STRENGTHEN_direction,
-              REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)
-            ]
-          )
-        else
-          NONE
-      end
-  in
-    case find_map pull ls of
-        NONE => raise UNCHANGED
-      | SOME cc => cc t
-  end
-
-val hpull_setup_conv =
-  (* remove ``emp`` in the left heap, pull SEP_EXISTS *)
-  QCONV (SEP_IMP_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL)
-
-val hpull =
-  TRY (DEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hpull_setup_conv)) \\
-  REDEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hpull_one_conseq_conv)
-
-(* test goals:
-  g `SEP_IMP (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop) Z`;
-  g `SEP_IMP (A * emp * cond P * (SEP_EXISTS x. emp * G x) * cond Q:hprop) Z`;
-*)
-
-(*------------------------------------------------------------------*)
-(** Simplification in H2 on SEP_IMP H1 H2 *)
-
-(** Lemmas *)
-
-val hsimpl_prop = Q.prove (
-  `!H' H P.
-    P /\ SEP_IMP H' H ==>
-    SEP_IMP H' (H * cond P)`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
-  SPLIT_TAC
-)
-
-val hsimpl_prop_single = Q.prove (
-  `!H' P.
-    P /\ SEP_IMP H' emp ==>
-    SEP_IMP H' (cond P)`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
-  SPLIT_TAC
-)
-
-val hsimpl_exists_single = Q.prove (
-  `!x H' J.
-    SEP_IMP H' (J x) ==>
-    SEP_IMP H' ($SEP_EXISTS J)`,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
-  SPLIT_TAC
-)
-
-val hsimpl_gc = Q.prove (
-  `!H. SEP_IMP H GC`,
-  fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
-)
-
-(** Quantifiers Heuristic parameters *)
-
-val sep_qp = combine_qps [
-      instantiation_qp [
-        SEP_IMP_REFL,
-        hsimpl_gc
-      ]
-    ]
-
-(** Tactics *)
-
-fun hsimpl_cancel_one_conseq_conv t =
-  let
-    val (l, r) = dest_sep_imp t handle _ => raise UNCHANGED
-    val ls = list_dest dest_star l
-    val rs = list_dest dest_star r
-    val is = intersect ls rs
-    fun rearrange_conv tm1 tm2 =
-      let
-        val ls' = filter (fn tm' => tm' <> tm1) ls
-        val rs' = filter (fn tm' => tm' <> tm2) rs
-        val convl = rearrange_star_conv tm1 ls'
-        val convr = rearrange_star_conv tm2 rs'
-      in SEP_IMP_conv convl convr
-      end
-    fun one_loc tm =
-      let val (c, args) = strip_comb tm in
-        if is_const c andalso #Name (dest_thy_const c) = "one" then
-          SOME (hd (snd (strip_comb (hd args))))
-        else
-          NONE
-      end
-    fun find_matching_ones () =
-      find_map (fn tm1 =>
-        Option.mapPartial (fn loc =>
-          find_map (fn tm2 =>
-            Option.mapPartial (fn loc' =>
-              if loc = loc' then SOME (tm1, tm2) else NONE
-            ) (one_loc tm2)
-          ) rs
-        ) (one_loc tm1)
-      ) ls
-
-    val frame_thms = [
-      SEP_IMP_FRAME,
-      SEP_IMP_frame_single_l,
-      SEP_IMP_frame_single_r
-    ]
-    val frame_one_thms = [
-      SEP_IMP_one_frame,
-      SEP_IMP_one_frame_single_l,
-      SEP_IMP_one_frame_single_r
-    ]
-  in
-    (case is of
-         tm :: _ =>
-         THEN_CONSEQ_CONV
-           (rearrange_conv tm tm)
-           (CONSEQ_REWRITE_CONV ([], frame_thms, [])
-              CONSEQ_CONV_STRENGTHEN_direction)
-       | [] =>
-         case find_matching_ones () of
-             SOME (tm1, tm2) =>
-             THEN_CONSEQ_CONV
-               (rearrange_conv tm1 tm2)
-               (CONSEQ_REWRITE_CONV ([], frame_one_thms, [])
-                  CONSEQ_CONV_STRENGTHEN_direction)
-           | NONE => raise UNCHANGED)
-      t
-  end
-
-val hsimpl_cancel =
-    REDEPTH_CONSEQ_CONV_TAC
-      (STRENGTHEN_CONSEQ_CONV hsimpl_cancel_one_conseq_conv)
-
-(* test goal:
-  g `SEP_IMP (A:hprop * B * C * one (l, v) * D) (B * Z * one (l, v') * Y * D * A)`;
-*)
-
-fun hsimpl_step_conseq_conv t =
-  let
-    val (l, r) = dest_sep_imp t
-    val rs = list_dest dest_star r
-    fun rearrange_conv tm =
-      let val rest = filter (fn tm' => tm' <> tm) rs in
-        SEP_IMP_conv REFL (rearrange_star_conv tm rest)
-      end
-    fun simpl tm =
-      let val (c, args) = strip_comb tm in
-        if is_const c andalso #Name (dest_thy_const c) = "cond" then
-          SOME (
-            EVERY_CONSEQ_CONV [
-              rearrange_conv tm,
-              CONSEQ_REWRITE_CONV ([], [hsimpl_prop, hsimpl_prop_single], [])
-                CONSEQ_CONV_STRENGTHEN_direction
-            ]
-          )
-        else if is_const c andalso #Name (dest_thy_const c) = "SEP_EXISTS" then
-          SOME (
-            EVERY_CONSEQ_CONV [
-              rearrange_conv tm,
-              CONSEQ_REWRITE_CONV ([], [hsimpl_exists_single], [])
-                CONSEQ_CONV_STRENGTHEN_direction,
-              REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)
-            ]
-          )
-        else
-          NONE
-      end
-  in
-    case find_map simpl rs of
-        NONE => raise UNCHANGED
-      | SOME cc => cc t
-  end
-
-val hsimpl_steps =
-    REDEPTH_CONSEQ_CONV_TAC
-      (STRENGTHEN_CONSEQ_CONV hsimpl_step_conseq_conv)
-
-(* test goal:
-  g `SEP_IMP Z (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop)`;
-*)
-
-val hsimpl_setup_conv =
-  SEP_IMP_conv
-      (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
-      (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
-
-val hsimpl =
-  TRY (DEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hsimpl_setup_conv)) \\
-  TRY hpull \\
-  QUANT_INSTANTIATE_TAC [sep_qp] \\
-  rpt (hsimpl_cancel ORELSE (hsimpl_steps \\ QUANT_INSTANTIATE_TAC [sep_qp])) \\
-  fs [hsimpl_gc, SEP_IMP_REFL]
-
-(* test goal:
-  g `SEP_IMP (A:hprop * B * C * one (l, v) * one (l', u) * D) (B * Z * one (l, v') * one (l', u') * Y * cond Q * D * A)`;
-*)
 
 (*------------------------------------------------------------------*)
 (** Conversion from semantic stores to heaps *)
@@ -1861,9 +1458,9 @@ val cf_sound = Q.prove (
       qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "vs" `[xv; Loc rv]` \\
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_assign_def] \\
-      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\
       `store_v_same_type (EL rv st.refs) (Refv xv)` by (
-        `(rv, Refv x') IN (store2heap st.refs)` by SPLIT2_TAC \\
+        `(rv, Refv x') IN (store2heap st.refs)` by SPLIT_TAC \\
         fs [semanticPrimitivesTheory.store_v_same_type_def] \\
         qspecl_then [`st.refs`, `rv`, `Refv x'`] assume_tac store2heap_IN_EL \\
         fs []
@@ -1871,7 +1468,7 @@ val cf_sound = Q.prove (
       `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs))
          ((rv, Refv xv) INSERT h_i', h_k, {})` by (
         mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
-        SPLIT2_TAC
+        SPLIT_TAC
       ) \\ instantiate \\ first_assum irule \\
       strip_assume_tac store2heap_IN_unique_key \\ SPLIT_TAC
     )
@@ -1901,7 +1498,7 @@ val cf_sound = Q.prove (
       qcase_tac `SPLIT h_i (h_i', {(rv,Refv x)})` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "vs" `[Loc rv]` \\
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `rv < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
       instantiate \\
       qspecl_then [`st.refs`, `rv`, `Refv x`] assume_tac store2heap_IN_EL \\
@@ -1937,7 +1534,7 @@ val cf_sound = Q.prove (
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
       instantiate \\
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\ fs [] \\
+      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\ fs [] \\
       `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
       `~ (i < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\ fs []
     )
@@ -1952,7 +1549,7 @@ val cf_sound = Q.prove (
       `SPLIT3 (store2heap st.refs) (h_i, h_k, {})` by SPLIT_TAC \\
       instantiate \\
       fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.store_lookup_def] \\
-      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\ fs [] \\
+      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\ fs [] \\
       `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
       fs []
     )
@@ -1966,7 +1563,7 @@ val cf_sound = Q.prove (
       qpat_assum `!s. H s ==> _` progress \\
       qcase_tac `SPLIT h_i (h_i', _)` \\ qcase_tac `FF h_i'` \\
       GEN_EXISTS_TAC "s2" `st` \\
-      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT2_TAC) \\
+      `l < LENGTH st.refs` by (mp_tac store2heap_IN_LENGTH \\ SPLIT_TAC) \\
       `EL l st.refs = W8array ws` by (match_mp_tac store2heap_IN_EL \\ SPLIT_TAC) \\
       `~ (i < 0)` by (rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
       fs [semanticPrimitivesTheory.do_app_def,
@@ -1977,7 +1574,7 @@ val cf_sound = Q.prove (
       qexists_tac `{}` \\ strip_tac
       THEN1 (
         mp_tac store2heap_LUPDATE \\ mp_tac store2heap_IN_unique_key \\
-        SPLIT2_TAC
+        SPLIT_TAC
       )
       THEN1 (
         first_assum match_mp_tac \\ qexists_tac `h_i'` \\
@@ -2037,6 +1634,7 @@ val app_of_cf = Q.prove (
   fs [app_of_sound_cf, cf_sound]
 )
 
+(*
 val DeclCorr_NIL = Q.prove (
   `!mn. DeclCorr mn [] FEMPTY`,
   rpt gen_tac \\ fs [DeclCorr_def, EnvCorr_def] \\
@@ -2063,7 +1661,9 @@ val DeclCorr_SNOC_Dlet_Fun = Q.prove (
     fs [semanticPrimitivesTheory.lookup_var_id_def] \\ every_case_tac \\ fs []
   )
 )
+*)
 
+(*
 open initialProgramTheory
 
 val decls_0 = Define `decls_0 = []`
@@ -2107,7 +1707,6 @@ val declcorr_2 = Q.prove (
   fs [exp2v_def, semanticPrimitivesTheory.lookup_var_id_def] \\
   fs [app_deref_def, Ref_def] \\ hsimpl
 )
-
-
+*)
 
 val _ = export_theory()

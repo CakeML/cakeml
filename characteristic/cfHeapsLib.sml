@@ -86,9 +86,9 @@ val hpull_setup_conv =
   QCONV (SEP_IMP_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL)
 
 fun hpull g =
-  TRY (DEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hpull_setup_conv)) \\
-  REDEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hpull_one_conseq_conv) g
-  handle HOL_ERR _ => FAIL_TAC "hpull"
+  (TRY (DEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hpull_setup_conv)) \\
+    REDEPTH_CONSEQ_CONV_TAC (STRENGTHEN_CONSEQ_CONV hpull_one_conseq_conv)) g
+  handle HOL_ERR _ => FAIL_TAC "hpull" g
 
 (* test goals:
   g `SEP_IMP (A * cond P * (SEP_EXISTS x. G x) * cond Q:hprop) Z`;
@@ -157,9 +157,10 @@ fun hsimpl_cancel_one_conseq_conv t =
       t
   end
 
-val hsimpl_cancel =
+fun hsimpl_cancel g =
     REDEPTH_CONSEQ_CONV_TAC
-      (STRENGTHEN_CONSEQ_CONV hsimpl_cancel_one_conseq_conv)
+      (STRENGTHEN_CONSEQ_CONV hsimpl_cancel_one_conseq_conv) g
+    handle HOL_ERR _ => FAIL_TAC "hsimpl_cancel" g
 
 (* test goal:
   g `SEP_IMP (A:hprop * B * C * one (l, v) * D) (B * Z * one (l, v') * Y * D * A)`;

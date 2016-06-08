@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory helperLib ConseqConv
+open set_sepTheory
 
 val _ = new_theory "cfHeaps"
 
@@ -27,7 +27,7 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_I
 (*------------------------------------------------------------------*)
 (** Heap predicates *)
 
-(* in set_sepTheory: emp, one, STAR, SEP_EXISTS, cond *)
+(* in set_sepTheory: emp, one, STAR, SEP_IMP, SEP_EXISTS, cond *)
 
 (* STAR for post-conditions *)
 val STARPOST_def = Define `
@@ -48,52 +48,55 @@ val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
 val _ = overload_on ("*+", Term `STARPOST`)
 val _ = add_infix ("*+", 480, HOLgrammars.LEFT)
 
+(* val _ = overload_on ("==>>", Term `SEP_IMP`) *)
+(* val _ = add_infix ("==>>", 450, HOLgrammars.RIGHT) *)
+
 (* todo *)
 
 (*------------------------------------------------------------------*)
 (** Additionnal properties of STAR *)
 
-val STARPOST_emp = Q.prove (
-  `!Q. Q *+ emp = Q`,
+val STARPOST_emp = store_thm ("STARPOST_emp",
+  ``!Q. Q *+ emp = Q``,
   strip_tac \\ fs [STARPOST_def] \\ metis_tac [SEP_CLAUSES]
 )
 
-val SEP_IMP_frame_single_l = Q.prove (
-  `!H' R.
+val SEP_IMP_frame_single_l = store_thm ("SEP_IMP_frame_single_l",
+  ``!H' R.
      SEP_IMP emp H' ==>
-     SEP_IMP R (H' * R)`,
+     SEP_IMP R (H' * R)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
   qx_gen_tac `s` \\ strip_tac \\ Q.LIST_EXISTS_TAC [`{}`, `s`] \\
   SPLIT_TAC
 )
 
-val SEP_IMP_frame_single_r = Q.prove (
-  `!H R.
+val SEP_IMP_frame_single_r = store_thm ("SEP_IMP_frame_single_r",
+  ``!H R.
      SEP_IMP H emp ==>
-     SEP_IMP (H * R) R`,
+     SEP_IMP (H * R) R``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
   qx_gen_tac `s` \\ strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
-val SEP_IMP_one_frame = Q.prove (
-  `!H H' l v v'.
+val SEP_IMP_one_frame = store_thm ("SEP_IMP_one_frame",
+  ``!H H' l v v'.
      v = v' /\ SEP_IMP H H' ==>
-     SEP_IMP (H * one (l, v)) (H' * one (l, v'))`,
+     SEP_IMP (H * one (l, v)) (H' * one (l, v'))``,
   rpt strip_tac \\ fs [SEP_IMP_def, one_def, STAR_def] \\ SPLIT_TAC
 )
 
-val SEP_IMP_one_frame_single_l = Q.prove (
-  `!H' l v v'.
+val SEP_IMP_one_frame_single_l = store_thm ("SEP_IMP_one_frame_single_l",
+  ``!H' l v v'.
      v = v' /\ SEP_IMP emp H' ==>
-     SEP_IMP (one (l, v)) (H' * one (l, v'))`,
+     SEP_IMP (one (l, v)) (H' * one (l, v'))``,
   rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
   simp [Once CONJ_COMM] \\ asm_exists_tac \\ SPLIT_TAC
 )
 
-val SEP_IMP_one_frame_single_r = Q.prove (
-  `!H l v v'.
+val SEP_IMP_one_frame_single_r = store_thm ("SEP_IMP_one_frame_single_r",
+  ``!H l v v'.
      v = v' /\ SEP_IMP H emp ==>
-     SEP_IMP (H * one (l, v)) (one (l, v'))`,
+     SEP_IMP (H * one (l, v)) (one (l, v'))``,
   rpt strip_tac \\ fs [SEP_IMP_def, one_def, emp_def, STAR_def] \\
   rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
@@ -110,8 +113,8 @@ val rew_heap = full_simp_tac bool_ss rew_heap_thms
 (*------------------------------------------------------------------*)
 (** Properties of GC *)
 
-val GC_STAR_GC = Q.prove (
-  `GC * GC = GC`,
+val GC_STAR_GC = store_thm ("GC_STAR_GC",
+  ``GC * GC = GC``,
   fs [GC_def] \\ irule EQ_EXT \\ strip_tac \\ rew_heap \\
   fs [SEP_EXISTS] \\ eq_tac \\ rpt strip_tac
   THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
@@ -130,32 +133,32 @@ val Ref_def = Define `
 (*------------------------------------------------------------------*)
 (** Extraction from H1 in SEP_IMP H1 H2 *)
 
-val hpull_prop = Q.prove (
-  `!H H' P.
-    (P ==> SEP_IMP H H') ==>
-    SEP_IMP (H * cond P) H'`,
+val hpull_prop = store_thm ("hpull_prop",
+  ``!H H' P.
+     (P ==> SEP_IMP H H') ==>
+     SEP_IMP (H * cond P) H'``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 )
 
-val hpull_prop_single = Q.prove (
-  `!H' P.
-    (P ==> SEP_IMP emp H') ==>
-    SEP_IMP (cond P) H'`,
+val hpull_prop_single = store_thm ("hpull_prop_single",
+  ``!H' P.
+     (P ==> SEP_IMP emp H') ==>
+     SEP_IMP (cond P) H'``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
   SPLIT_TAC
 )
 
-val hpull_exists_single = Q.prove (
-  `!A H' J.
-    (!x. SEP_IMP (J x) H') ==>
-    SEP_IMP ($SEP_EXISTS J) H'`,
+val hpull_exists_single = store_thm ("hpull_exists_single",
+  ``!A H' J.
+     (!x. SEP_IMP (J x) H') ==>
+     SEP_IMP ($SEP_EXISTS J) H'``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
   SPLIT_TAC
 )
 
-val SEP_IMP_rew = Q.prove (
-  `!H1 H2 H1' H2'. H1 = H2 ==> H1' = H2' ==> SEP_IMP H1 H1' = SEP_IMP H2 H2'`,
+val SEP_IMP_rew = store_thm ("SEP_IMP_rew",
+  ``!H1 H2 H1' H2'. H1 = H2 ==> H1' = H2' ==> SEP_IMP H1 H1' = SEP_IMP H2 H2'``,
   rew_heap
 )
 
@@ -164,32 +167,32 @@ val SEP_IMP_rew = Q.prove (
 
 (** Lemmas *)
 
-val hsimpl_prop = Q.prove (
-  `!H' H P.
-    P /\ SEP_IMP H' H ==>
-    SEP_IMP H' (H * cond P)`,
+val hsimpl_prop = store_thm ("hsimpl_prop",
+  ``!H' H P.
+     P /\ SEP_IMP H' H ==>
+     SEP_IMP H' (H * cond P)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 )
 
-val hsimpl_prop_single = Q.prove (
-  `!H' P.
-    P /\ SEP_IMP H' emp ==>
-    SEP_IMP H' (cond P)`,
+val hsimpl_prop_single = store_thm ("hsimpl_prop_single",
+  ``!H' P.
+     P /\ SEP_IMP H' emp ==>
+     SEP_IMP H' (cond P)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
   SPLIT_TAC
 )
 
-val hsimpl_exists_single = Q.prove (
-  `!x H' J.
-    SEP_IMP H' (J x) ==>
-    SEP_IMP H' ($SEP_EXISTS J)`,
+val hsimpl_exists_single = store_thm ("hsimpl_exists_single",
+  ``!x H' J.
+     SEP_IMP H' (J x) ==>
+     SEP_IMP H' ($SEP_EXISTS J)``,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
   SPLIT_TAC
 )
 
-val hsimpl_gc = Q.prove (
-  `!H. SEP_IMP H GC`,
+val hsimpl_gc = store_thm ("hsimpl_gc",
+  ``!H. SEP_IMP H GC``,
   fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
 )
 
