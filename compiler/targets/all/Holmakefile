@@ -1,1 +1,7 @@
-INCLUDES = .. ../arm6/proof ../x64/proof ../arm8/proof ../mips/proof ../riscv/proof
+INCLUDES = .. ../arm6 ../arm8 ../x64 ../mips ../riscv \
+    ../arm6/proof ../arm8/proof ../x64/proof ../mips/proof ../riscv/proof \
+    $(HOLDIR)/examples/l3-machine-code/arm/model \
+    $(HOLDIR)/examples/l3-machine-code/arm8/model \
+    $(HOLDIR)/examples/l3-machine-code/x64/model \
+    $(HOLDIR)/examples/l3-machine-code/mips/model \
+    $(HOLDIR)/examples/l3-machine-code/riscv/model
