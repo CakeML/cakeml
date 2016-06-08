@@ -54,37 +54,4 @@ val riscv_encode_decode_conv =
         add_riscv_encode_compset,
         add_riscv_decode_compset]]
 
-(* Testing
-
-open riscv_targetLib
-
-Count.apply riscv_encode_decode_conv
-   ``MAP (\i. let l = riscv_enc i in (asm_ok i riscv_config, l, riscv_dec l))
-      [ Inst Skip
-      ; Inst (Const 8 0w)
-      ; Inst (Const 2 0x100000000w)
-      ; Inst (Const 2 0x100000001w)
-      ; Inst (Const 2 0x100100001w)
-      ; Inst (Arith (Binop Add 2 2 (Imm 1w)))
-      ; Inst (Arith (Binop Add 2 2 (Reg 3)))
- (*   ; Inst (Arith (Binop Sub 0 0 (Imm 1w)))  not supported in RISC-V *)
-      ; Inst (Arith (Binop Or 2 3 (Imm 0x7FFw)))
-      ; Inst (Arith (Shift Lsr 2 2 1))
-      ; Inst (Arith (Shift Asr 2 2 3))
-      ; Inst (Mem Load 2 (Addr 3 0w))
-      ; Inst (Mem Load 2 (Addr 3 0x10w))
-      ; Inst (Mem Load8 2 (Addr 3 0x10w))
-      ; Inst (Mem Store 2 (Addr 3 0w))
-      ; Inst (Mem Store 2 (Addr 3 0x10w))
-      ; Inst (Mem Store8 2 (Addr 3 0x10w))
-      ; Jump 12w
-      ; JumpCmp Less 2 (Reg 3) 12w
-      ; JumpCmp Less 2 (Imm 1w) 12w
-      ; JumpReg 2
-      ; Call 4w
-      ; Loc 2 4w
-      ]``
-
-*)
-
 end

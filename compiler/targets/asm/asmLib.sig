@@ -8,7 +8,21 @@ sig
       Term.term -> Term.term * Term.term * Term.term * Term.term
    val env_tac:
       (Term.term * Term.term -> Term.term * Tactic.tactic) -> Tactic.tactic
-   val find_env: Term.term -> (Term.term * Term.term) option
+   val find_env:
+      (Term.term -> bool) -> Term.term -> (Term.term * Term.term) option
+   val isAddCarry: Term.term -> bool
+   val isArith: Term.term -> bool
+   val isBinop: Term.term -> bool
+   val isCall: Term.term -> bool
+   val isConst: Term.term -> bool
+   val isInst: Term.term -> bool
+   val isJump: Term.term -> bool
+   val isJumpCmp: Term.term -> bool
+   val isJumpReg: Term.term -> bool
+   val isLoc: Term.term -> bool
+   val isMem: Term.term -> bool
+   val isShift: Term.term -> bool
+   val isSkip: Term.term -> bool
    val mk_bytes_in_memory:
       Term.term * Term.term * Term.term * Term.term -> Term.term
    val print_tac : string -> string -> Tactic.tactic

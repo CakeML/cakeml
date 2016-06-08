@@ -187,19 +187,30 @@ in
 end
 
 local
-   fun dest_env tm =
+   fun dest_env P tm =
       case Lib.total boolSyntax.strip_comb tm of
          SOME (env, [n, ms]) =>
             if Lib.total (fst o Term.dest_var) env = SOME "env" andalso
-               not (optionSyntax.is_the ms)
+               not (P ms) andalso numSyntax.is_numeral n
                then (n, ms)
             else raise ERR "dest_env" ""
        | _ => raise ERR "dest_env" ""
-   val is_env = Lib.can dest_env
+   val find_the_env =
+     let
+       val dest_env = dest_env optionSyntax.is_the
+       val is_env = Lib.can dest_env
+     in
+       HolKernel.bvk_find_term (is_env o snd) dest_env
+     end
 in
-   val find_env = HolKernel.bvk_find_term (is_env o snd) dest_env
+   fun find_env P g =
+      g |> boolSyntax.strip_conj |> List.last
+        |> HolKernel.find_terms (Lib.can (dest_env P))
+        |> Lib.mk_set
+        |> mlibUseful.sort_map (HolKernel.term_size) Int.compare
+        |> Lib.total (dest_env P o List.last)
    fun env_tac f (asl, g) =
-      (case find_env g of
+      (case find_the_env g of
           SOME t_tm =>
             let
                val (tm2, tac) = f t_tm
@@ -208,6 +219,29 @@ in
                >| [tac, all_tac]
             end
         | NONE => ALL_TAC) (asl, g)
+end
+
+local
+  fun can_match [QUOTE s] =
+        Lib.can (Term.match_term (Parse.Term [QUOTE (s ^ " : 'a asm")]))
+    | can_match _ = raise ERR "" ""
+  val syntax1 = #4 o HolKernel.syntax_fns1 "asm"
+  val syntax2 = #4 o HolKernel.syntax_fns2 "asm"
+  val syntax4 = #4 o HolKernel.syntax_fns4 "asm"
+in
+  val isInst = syntax1 "Inst"
+  val isJump = syntax1 "Jump"
+  val isJumpCmp = syntax4 "JumpCmp"
+  val isCall = syntax1 "Call"
+  val isJumpReg = syntax1 "JumpReg"
+  val isLoc = syntax2 "Loc"
+  val isSkip = can_match `asm$Inst (asm$Const _ _)`
+  val isConst = can_match `asm$Inst (asm$Const _ _)`
+  val isArith = can_match `asm$Inst (asm$Arith _)`
+  val isMem = can_match `asm$Inst (asm$Mem _ _ _)`
+  val isBinop = can_match `asm$Inst (asm$Arith (asm$Binop _ _ _ _))`
+  val isShift = can_match `asm$Inst (asm$Arith (asm$Shift _ _ _ _))`
+  val isAddCarry = can_match `asm$Inst (asm$Arith (asm$AddCarry _ _ _ _))`
 end
 
 end

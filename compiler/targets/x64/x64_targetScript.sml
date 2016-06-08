@@ -91,9 +91,8 @@ val x64_encode_jcc_def = Define`
 val x64_enc_def = Define`
    (x64_enc (Inst Skip) = x64$encode Znop) /\
    (x64_enc (Inst (Const r i)) =
-      let sz = if 0w <= i /\ i <= 0x7FFFFFFFw then Z32 else Z64
-      in
-         x64$encode (Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i)))) /\
+      let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64 in
+      x64$encode (Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i)))) /\
    (x64_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       let a = (Z64, Zrm_r (reg r1, num2Zreg r3)) in
         x64$encode
@@ -103,6 +102,12 @@ val x64_enc_def = Define`
        x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
    (x64_enc (Inst (Arith (Shift sh r1 r2 n))) =
        x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r1, n2w n)))) /\
+   (x64_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+       x64$encode (Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w))) ++
+       x64$encode Zcmc ++
+       x64$encode (Zbinop (Zadc, Z64, Zrm_r (reg r1, num2Zreg r3))) ++
+       x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r4, 0w))) ++
+       x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
    (x64_enc (Inst (Mem Load r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, ld r1 r2 a))) /\
    (x64_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
@@ -203,6 +208,27 @@ val x64_dec_def = Define`
                               else if r1 = 0 then 12w else 13w
                       in
                          JumpCmp cmp r1 (Imm n) (a + w)
+                 | (Zcmc, rest2) =>
+                    (case fetch_decode rest2 of
+                        (Zbinop (Zadc, Z64, Zrm_r (Zr r2, r3)), rest3) =>
+                           (case fetch_decode rest3 of
+                               (Zmov (Z_ALWAYS, Z32, Zrm_i (Zr r4, 0w)),
+                                rest4) =>
+                                  (case fetch_decode rest4 of
+                                      (Zbinop
+                                        (Zadc, Z64, Zrm_i (Zr r5, 0w)), _) =>
+                                          let r2 = Zreg2num r2
+                                          and r3 = Zreg2num r3
+                                          in
+                                          if (bop = Zcmp) /\ (n = 1w) /\
+                                             (r5 = r4) /\ (Zreg2num r4 = r1)
+                                             then Inst
+                                                    (Arith
+                                                      (AddCarry r2 r2 r3 r1))
+                                          else ARB
+                                    | _ => ARB)
+                             | _ => ARB)
+                      | _ => ARB)
                  | _ => ARB)
             else
                (case x64_bop_dec bop of

@@ -43,7 +43,7 @@ in
          List.map arm_type
           ["instruction", "Data", "Branch", "LoadStore", "SystemHintOp",
            "MoveWideOp", "LogicalOp", "MemOp", "BranchType", "ShiftType",
-           "MachineCode"])])
+           "AccType", "MachineCode"])])
 end
 
 local
@@ -89,38 +89,5 @@ val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
       add_arm8_encode_compset, add_arm8_decode_compset]]
-
-(* Testing
-
-open arm8_targetLib
-
-Count.apply arm8_encode_decode_conv
-   ``MAP (\i. let l = arm8_enc i in (asm_ok i arm8_config, l, arm8_dec l))
-      [ Inst Skip
-      ; Inst (Const 8 0w)
-      ; Inst (Const 1 0x100000000w)
-      ; Inst (Const 1 0x100000001w)
-      ; Inst (Const 1 0x100100001w)
-      ; Inst (Arith (Binop Add 0 0 (Imm 1w)))
-      ; Inst (Arith (Binop Add 0 0 (Reg 1)))
-      ; Inst (Arith (Binop Sub 0 0 (Imm 1w)))
-      ; Inst (Arith (Binop Or 0 0 (Imm 0xFFFFFFw)))
-      ; Inst (Arith (Shift Lsr 0 0 1))
-      ; Inst (Arith (Shift Asr 1 1 2))
-      ; Inst (Mem Load 0 (Addr 1 0w))
-      ; Inst (Mem Load 0 (Addr 1 0x10w))
-      ; Inst (Mem Load8 0 (Addr 1 0x10w))
-      ; Inst (Mem Store 0 (Addr 1 0w))
-      ; Inst (Mem Store 0 (Addr 1 0x10w))
-      ; Inst (Mem Store8 0 (Addr 1 0x10w))
-      ; Jump 12w
-      ; JumpCmp Less 0 (Reg 1) 12w
-      ; JumpCmp Less 0 (Imm 1w) 12w
-      ; JumpReg 1
-      ; Call 4w
-      ; Loc 1 4w
-      ]``
-
-*)
 
 end

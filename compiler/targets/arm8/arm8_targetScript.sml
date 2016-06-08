@@ -171,6 +171,13 @@ val arm8_enc_def = Define`
                        (BitfieldMove@64
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1)))
                 | NONE => [])) /\
+   (arm8_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+      arm8_encode (Data (AddSubImmediate@64 (1w, T, T, 0w, n2w r4, 0x1Fw))) ++
+      arm8_encode (Data (ConditionalCompareImmediate@64
+                           (1w, F, 0w, 0w, (F, F, T, F), n2w r2))) ++
+      arm8_encode (Data (AddSubCarry@64 (1w, F, T, n2w r3, n2w r2, n2w r1))) ++
+      arm8_encode (Data (MoveWide@64 (1w, MoveWideOp_Z, 0w, 0w, n2w r4))) ++
+      arm8_encode (Data (AddSubCarry@64 (1w, F, F, 31w, n2w r4, n2w r4)))) /\
    (arm8_enc (Inst (Mem Load r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
@@ -288,10 +295,30 @@ val arm8_dec_aux_def = Define`
            Inst (Arith (Shift (if b then Asr else Lsr) (w2n r1) (w2n r2) r))
         else
            Inst (Arith (Shift Lsl (w2n r1) (w2n r2) (63 - s)))
-   | Data (AddSubImmediate@64 (1w, T, T, i, r, 0x1Fw)) =>
-       (case FST (decode_word rest) of
-           Branch (BranchConditional (a, c)) =>
-              JumpCmp (cond_cmp c) (w2n r) (Imm i) (a + 4w)
+   | Data (AddSubImmediate@64 (1w, T, T, i, r1, 0x1Fw)) =>
+       (case decode_word rest of
+           (Branch (BranchConditional (a, c)), _) =>
+              JumpCmp (cond_cmp c) (w2n r1) (Imm i) (a + 4w)
+         | (Data (ConditionalCompareImmediate@64
+                    (1w, F, 0w, 0w, (F, F, T, F), r2)), rest2) =>
+             (case decode_word rest2 of
+                 (Data (AddSubCarry@64 (1w, F, T, r3, r4, r5)), rest3) =>
+                   (case decode_word rest3 of
+                       (Data (MoveWide@64 (1w, MoveWideOp_Z, 0w, 0w, r6)),
+                        rest4) =>
+                          (case FST (decode_word rest4) of
+                              Data (AddSubCarry@64 (1w, F, F, 31w, r7, r8)) =>
+                                 if
+                 (* 4: 1,6,7,8 *)   (r1 = r6) /\ (r6 = r7) /\ (r7 = r8) /\
+                 (* 2: 2,4 *)       (r2 = r4) then
+                 (* 1: 5 *)
+                 (* 3: 3 *)
+                                   Inst (Arith (AddCarry
+                                      (w2n r5) (w2n r2) (w2n r3) (w2n r1)))
+                                 else ARB
+                            | _ => ARB)
+                     | _ => ARB)
+               | _ => ARB)
          | _ => ARB)
    | Data (LogicalImmediate@64 (1w, LogicalOp_AND, T, i, r, 0x1Fw)) =>
        (case FST (decode_word rest) of
