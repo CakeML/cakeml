@@ -672,14 +672,6 @@ val cf_local = Q.prove (
 
 (* Soundness of cf *)
 
-val EnvCorr_def = Define `
-  EnvCorr env certs =
-    FEVERY (\(name, P). ?v. lookup_var_id name env = SOME v /\ P v) certs`
-
-val DeclCorr_def = Define `
-  DeclCorr mn ds certs =
-    ?env tys. DeclAssum mn ds env tys /\ EnvCorr env certs`
-
 val sound_def = Define `
   sound (:'ffi) e R =
     !env H Q. R env H Q ==>
@@ -1284,35 +1276,6 @@ val app_of_cf = Q.prove (
      app (:'ffi) (naryClosure env ns body) xvs H Q`,
   fs [app_of_sound_cf, cf_sound]
 )
-
-(*
-val DeclCorr_NIL = Q.prove (
-  `!mn. DeclCorr mn [] FEMPTY`,
-  rpt gen_tac \\ fs [DeclCorr_def, EnvCorr_def] \\
-  assume_tac (Q.SPEC `mn` DeclAssumExists_NIL) \\ fs [DeclAssumExists_def] \\
-  asm_exists_tac \\ fs [FEVERY_FEMPTY]
-)
-
-val DeclCorr_SNOC_Dlet_Fun = Q.prove (
-  `!mn name n body ds certs P.
-     DeclCorr mn ds certs ==>
-     (!env. EnvCorr env certs ==> P (Closure env n body)) ==>
-     DeclCorr mn (SNOC (Dlet (Pvar name) (Fun n body)) ds)
-       (certs |+ (Short name, P))`,
-
-  rpt strip_tac \\ fs [DeclCorr_def, EnvCorr_def] \\
-  fs [DeclAssum_def, Decls_SNOC, PULL_EXISTS] \\
-  instantiate \\ fs [Decls_Dlet, ml_progTheory.write_def, PULL_EXISTS] \\
-  once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-  fs [FEVERY_FUPDATE, FEVERY_DEF, DRESTRICT_DEF, COMPL_DEF] \\
-  strip_tac
-  THEN1 (fs [semanticPrimitivesTheory.lookup_var_id_def])
-  THEN1 (
-    rpt strip_tac \\ rpt (first_x_assum progress) \\ instantiate \\
-    fs [semanticPrimitivesTheory.lookup_var_id_def] \\ every_case_tac \\ fs []
-  )
-)
-*)
 
 (*
 open initialProgramTheory
