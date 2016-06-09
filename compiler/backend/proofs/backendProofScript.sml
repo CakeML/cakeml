@@ -365,15 +365,15 @@ val word_to_stack_sl_gs = prove(``
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def]));
 
 val bvp_to_word_compile_imp = prove(
-  ``
-    (LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
+  ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
+    EVERY (λn. 30 ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
-        (MAP (compile_part c.bvp_conf) prog) = (col,p) ==>
+        (stubs(:'a) ++ MAP (compile_part c.bvp_conf) prog) = (col,p) ==>
     code_rel c.bvp_conf (fromAList prog)
-      (fromAList (MAP ((compile_part c.bvp_conf) :
+      (fromAList (stubs(:α) ++ MAP ((compile_part c.bvp_conf) :
          num # num # bvp$prog -> num # num # 'a wordLang$prog) prog)) /\
     code_rel_ext
-      (fromAList (MAP ((compile_part c.bvp_conf) :
+      (fromAList (stubs(:α) ++ MAP ((compile_part c.bvp_conf) :
          num # num # bvp$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
     EVERY
     (λ(n,m,prog).
@@ -389,30 +389,77 @@ val bvp_to_word_compile_imp = prove(
   fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
   CONJ_TAC>-
     (fs[lookup_fromAList]>>
-    last_x_assum kall_tac>>
-    last_x_assum kall_tac>>
+     simp[ALOOKUP_APPEND]
+     \\ gen_tac
+     \\ reverse BasicProvers.TOP_CASE_TAC
+     >- (
+       rw[]
+       \\ imp_res_tac ALOOKUP_MEM
+       \\ fs[bvp_to_wordTheory.stubs_def,EVERY_MAP,EVERY_MEM]
+       \\ res_tac \\ fs[] ) >>
+    ntac 4 (last_x_assum kall_tac)>>
+    qid_spec_tac`n` >>
     Induct_on`prog`>>rw[]>>PairCases_on`h`>>
     fs[bvp_to_wordTheory.compile_part_def]>>
     IF_CASES_TAC>>fs[])>>
   CONJ_TAC>-
     (fs[lookup_fromAList,word_to_wordTheory.compile_def]>>
     pairarg_tac>>fs[]>>rveq>>
-    `LENGTH prog = LENGTH n_oracles` by
-      (fs[word_to_wordTheory.next_n_oracle_def]>>
-      metis_tac[LENGTH_GENLIST])>>
+    qmatch_goalsub_abbrev_tac`ALOOKUP ls` >>
+    `LENGTH ls = LENGTH n_oracles` by
+      (fs[word_to_wordTheory.next_n_oracle_def,Abbr`ls`]>>
+      metis_tac[LENGTH_GENLIST]) >>
+    qpat_assum`Abbrev(ls = _)`kall_tac >>
     pop_assum mp_tac>>
-    ntac 2 (pop_assum kall_tac)>>
+    ntac 3 (pop_assum kall_tac)>>
     qid_spec_tac`n_oracles`>>
-    qid_spec_tac`prog`>>
+    qid_spec_tac`ls`>>
     Induct>>fs[]>>rw[]>>
-    Cases_on`n_oracles`>>
-    PairCases_on`h`>>
+    Cases_on`n_oracles`>>fs[]>>
+    PairCases_on`h`>>fs[]>>
     fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,bvp_to_wordTheory.compile_part_def]>>
-    IF_CASES_TAC>>fs[]>>
-    metis_tac[])>>
+    IF_CASES_TAC \\ fs[] \\ rw[] >>
+    metis_tac[]) >>
+    (*
+    `∃sto h t. n_oracles = sto ++ h::t ∧ LENGTH sto = LENGTH (stubs(:α))`
+    by (
+      qispl_then[`n_oracles`,`LENGTH (stubs(:α))`](SUBST1_TAC o SYM)(CONV_RULE SWAP_FORALL_CONV TAKE_DROP)
+      \\ qpat_abbrev_tac`sto = TAKE _ _` \\ qexists_tac`sto`
+      \\ simp[Abbr`sto`]
+      \\ qpat_abbrev_tac`ls = DROP _ _`
+      \\ Cases_on `ls` \\ fs[DROP_NIL,markerTheory.Abbrev_def] )
+    \\ PairCases_on`h`
+    \\ fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,bvp_to_wordTheory.compile_part_def]
+    \\ REWRITE_TAC[GSYM APPEND_ASSOC]
+    \\ qpat_abbrev_tac`tt = [_]++_`
+    \\ `LENGTH tt = LENGTH prog + 1` by fs[Abbr`tt`]
+    \\ fs[GSYM ZIP_APPEND]
+    \\ simp[ALOOKUP_APPEND]
+    \\ reverse BasicProvers.TOP_CASE_TAC
+    >- (
+      imp_res_tac ALOOKUP_MEM
+      \\ Cases_on`n = h0` \\ fs[]
+      >- (
+        fs[MEM_MAP,EXISTS_PROD,word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]
+        \\ rfs[MEM_ZIP]
+        \\ `MEM h0 (MAP FST (stubs (:α)))` by (simp[MEM_MAP,EXISTS_PROD,MEM_EL] \\ metis_tac[])
+        \\ fs[bvp_to_wordTheory.stubs_def] )
+      \\ first_x_assum(qspec_then`sto++t`mp_tac) \\ simp[]
+      \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
+      \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] )
+    \\ simp[Abbr`tt`,word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]
+    \\ IF_CASES_TAC \\ fs[] \\ rw[]
+    >- metis_tac[]
+    >- metis_tac[]
+    \\ first_x_assum(qspec_then`sto++t`mp_tac) \\ simp[]
+    \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
+    \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] ) >>
+    *)
   CONJ_ASM1_TAC>-
     (assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-    pop_assum (qspecl_then [`c.word_to_word_conf`,`(MAP (compile_part c.bvp_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)++(MAP (compile_part c.bvp_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
+  qpat_assum`EVERY _ (MAP FST _)`kall_tac >>
+  qmatch_assum_rename_tac`_ pprog = _` >>
   rw[]>>fs[word_to_stackTheory.compile_def]>>pairarg_tac>>fs[]>>rveq>>
   fs[word_to_stackTheory.raise_stub_def,sr_gs_def,sa_gs_def,sl_gs_def]>>
   fs[word_to_stackTheory.compile_word_to_stack_def]>>
@@ -490,10 +537,10 @@ val make_init_opt_imp_bitmaps_limit = prove(
          stack_removeProofTheory.init_reduce_def]);
 
 val bvp_to_word_names = prove(
-  ``word_to_word$compile c1 c2 (MAP (compile_part c3) prog) = (col,p) ==>
-    MAP FST p = MAP FST prog``,
+  ``word_to_word$compile c1 c2 (stubs(:α) ++ MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = (MAP FST (stubs(:α)))++MAP FST prog``,
   rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-  pop_assum (qspecl_then [`c1`,`(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
+  pop_assum (qspecl_then [`c1`,`stubs(:α)++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
   fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,bvp_to_wordTheory.compile_part_def]);
 
 val word_to_stack_names = prove(
@@ -931,7 +978,7 @@ val lemma = prove(
     rfs[]>>
     assume_tac(word_to_stack_compile_lab_pres|>INST_TYPE[beta|->alpha]|>GEN_ALL|> Q.SPECL[`p`,`mc_conf.target.config`])>>
     rfs[]>>
-    rw[]>>fs[EVERY_MEM]>>rw[]>>
+    rw[]>>fs[EVERY_MEM,bvp_to_wordTheory.stubs_def]>>rw[]>>
     res_tac>>fs[]>>
     CCONTR_TAC>>
     fs[]>>res_tac>>fs[])
@@ -951,7 +998,7 @@ val lemma = prove(
   \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
   \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.bvp_conf` \\ fs []
   \\ drule bvp_to_word_compile_imp \\ strip_tac
-  \\ GEN_EXISTS_TAC "x1" `fromAList (MAP (compile_part c.bvp_conf) prog)` \\ fs []
+  \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α) ++ MAP (compile_part c.bvp_conf) prog)` \\ fs []
   \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
   \\ GEN_EXISTS_TAC "bitmaps" `c2.bitmaps` \\ fs []
   \\ GEN_EXISTS_TAC "codeN" `prog1` \\ fs []
@@ -1070,22 +1117,28 @@ val lemma = prove(
   \\ imp_res_tac bvp_to_word_names
   \\ imp_res_tac word_to_stack_names \\ fs [ALOOKUP_NONE]
   \\ `MAP FST prog2 = 10::MAP FST prog1` by metis_tac [stack_alloc_names] \\ fs []
+  \\ simp[ALL_DISTINCT_APPEND]
   \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
-  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM] \\ strip_tac \\ res_tac \\ fs []))
-  \\ conj_tac \\ TRY
+  \\ TRY(conj_tac >- EVAL_TAC)
+  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM,bvp_to_wordTheory.stubs_def] \\ strip_tac \\ res_tac \\ fs []))
+  \\ (conj_tac >- ( EVAL_TAC \\ fs[EVERY_MEM] \\ rw[] \\ strip_tac \\ res_tac \\ fs[]))
+  \\ (conj_tac THEN1
    (imp_res_tac (INST_TYPE[beta|->alpha]stack_alloc_syntax)
     \\ pop_assum(qspec_then`c`assume_tac) \\ rfs[]
     \\ fs [EVERY_MEM,FORALL_PROD] \\ rw []
     \\ `MEM p_1 (MAP FST prog2) /\ MEM p_2 (MAP SND prog2)` by
      (fs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
       \\ rpt (asm_exists_tac \\ fs [])) \\ fs [] \\ rfs []
-    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ res_tac \\ fs [] \\ NO_TAC)
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ res_tac \\ fs []
+    \\ fs[bvp_to_wordTheory.stubs_def]
+    \\ NO_TAC))
   \\ TRY conj_tac
   \\ TRY (rpt strip_tac \\ qcase_tac `ALOOKUP prog1 k = SOME _`
     \\ imp_res_tac ALOOKUP_MEM
     \\ imp_res_tac MEM_pair_IMP \\ rfs [EVERY_MEM]
     \\ res_tac \\ fs [])
   \\ fs [state_rel_make_init,lab_to_targetProofTheory.make_init_def]
+  \\ TRY (fs[bvp_to_wordTheory.stubs_def] \\ NO_TAC)
   \\ fs [PULL_EXISTS] \\ rpt strip_tac
   \\ TRY
    (fs [IN_DEF] \\ qcase_tac `byte_aligned w` \\ Cases_on `w`

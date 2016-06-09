@@ -5429,15 +5429,17 @@ val bvp_to_word_lab_pres_lem = prove(``
     res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[]));
 
+open match_goal
+
 val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
   let (c,p) = compile bvp_conf word_conf asm_conf prog in
-    MAP FST p = MAP FST prog ∧
-    EVERY (λn,m,p.
+    MAP FST p = MAP FST (stubs(:α)) ++ MAP FST prog ∧
+    EVERY (λn,m,(p:α wordLang$prog).
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
       ALL_DISTINCT labs) p``,
   fs[compile_def]>>
-  qpat_abbrev_tac`bvpp = MAP (A B) prog`>>
+  qpat_abbrev_tac`bvpp = _ ++ MAP (A B) prog`>>
   assume_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`bvpp`,`asm_conf`])>>
   pairarg_tac>>fs[Abbr`bvpp`]>>
   fs[EVERY_MEM]>>rw[]
@@ -5445,19 +5447,30 @@ val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
     (match_mp_tac LIST_EQ>>rw[EL_MAP]>>
     Cases_on`EL x prog`>>Cases_on`r`>>fs[compile_part_def])
   >>
-    qpat_assum`MAP A B = MAP C D` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
+    qmatch_assum_abbrev_tac`MAP FST p = MAP FST p1 ++ MAP FST p2`>>
+    full_simp_tac std_ss [GSYM MAP_APPEND]>>
+    qabbrev_tac`pp = p1 ++ p2` >>
+    qpat_assum`MAP A B = _` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
     fs[EL_MAP,MEM_EL,FORALL_PROD]>>
     rw[]>>pop_assum(qspec_then`n` assume_tac)>>
     Cases_on`EL n p`>>Cases_on`r`>>rfs[]>>
-    fs[EL_MAP]>>
-    Cases_on`EL n prog`>>Cases_on`r`>>fs[compile_part_def]>>
+    Cases_on`n < LENGTH p1` >- (
+      fs[Abbr`pp`,EL_APPEND1,Abbr`p1`]
+      \\ fs[stubs_def,extract_labels_def]
+      \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
+               Cases_on`^(t"n")`\\fs[]
+               \\ imp_res_tac prim_recTheory.SUC_LESS)))) >>
+    qpat_assum`n < LENGTH _`assume_tac >>
+    qpat_assum`LENGTH p = _`assume_tac >>
+    fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
+    Cases_on`EL (n - LENGTH p1) prog`>>Cases_on`r`>>fs[compile_part_def]>>
     Q.SPECL_THEN [`bvp_conf`,`q''`,`1n`,`r''`]assume_tac bvp_to_word_lab_pres_lem>>
     fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>rw[]>>
     res_tac>>fs[]>>
     last_x_assum mp_tac>>
     simp[LIST_EQ_REWRITE]>>
-    fs[EL_MAP]>>
-    disch_then(qspec_then`n` assume_tac)>>
+    disch_then(qspec_then`n` mp_tac)>>
+    fs[EL_MAP,EL_APPEND2]>>
     rfs[compile_part_def]);
 
 val _ = export_theory();

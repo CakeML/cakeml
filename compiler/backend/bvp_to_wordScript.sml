@@ -485,9 +485,16 @@ val comp_def = Define `
 val compile_part_def = Define `
   compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
 
+val stubs_def = Define`
+  stubs (:α) = [
+    (20n,1n,Skip:α wordLang$prog); (* TODO: FromList *)
+    (22n,1n,Skip:α wordLang$prog); (* TODO: RefByte *)
+    (24n,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
+  ]`;
+
 val compile_def = Define `
   compile bvp_conf word_conf asm_conf prog =
-    let p = MAP (compile_part bvp_conf) prog in
+    let p = stubs (:α) ++ MAP (compile_part bvp_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
 val _ = export_theory();
