@@ -119,13 +119,15 @@ val inst_const = Q.store_thm("inst_const",
     t.bitmaps = s.bitmaps`,
   Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][]);
+  full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
+  fs[get_vars_def]>>every_case_tac>>fs[state_component_equality]);
 
 val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
   srw_tac[][inst_def] >>
   CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]);
+  every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]>>
+  fs[get_vars_def,get_var_def]>>every_case_tac>>fs[]);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi ∧
@@ -321,7 +323,11 @@ val inst_clock_neutral = prove(
 val inst_clock_neutral_ffi = prove(
   ``(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
     (inst i s = NONE ==> inst i (s with ffi := k) = NONE)``,
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
+  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality]>>
+  reverse full_case_tac>>fs[]
+  >-
+    (fs[get_vars_def,get_var_def]>>
+    rpt (BasicProvers.TOP_CASE_TAC>>fs[state_component_equality]))
   \\ rpt (srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
