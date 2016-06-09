@@ -38,6 +38,67 @@ val error_case_eq =
                       nchotomy = error_CASES}
 
 (* MOVE candidates *)
+fun nailIHx k = let
+  fun hdt t = (t |> lhs |> strip_comb |> #1)
+              handle HOL_ERR _ => t |> strip_comb |> #1
+  fun sameish t1 t2 = aconv t1 t2 orelse same_const t1 t2
+  fun samehd t1 th2 = sameish (hdt t1) (hdt (concl th2))
+  fun findcs [] a k = raise Fail "strip_conj gave empty list"
+    | findcs [c] a k =
+      first_assum
+        (fn th => k (LIST_CONJ (List.rev (assert (samehd c) th :: a))))
+    | findcs (c::cs) a k =
+      first_assum (fn th => findcs cs (assert (samehd c) th :: a) k)
+in
+  first_x_assum
+    (fn th0 =>
+        let val body = th0 |> concl |> strip_forall |> #2
+            val hyp = #1 (dest_imp body)
+            val cs = strip_conj hyp
+        in
+          findcs cs [] (k o MATCH_MP th0)
+        end)
+end
+
+fun avSPEC_ALL avds th =
+  let
+    fun recurse avds acc th =
+      case Lib.total dest_forall (concl th) of
+          SOME (v,bod) =>
+          let
+            val v' = variant avds v
+          in
+            recurse (v'::avds) (v'::acc) (SPEC v' th)
+          end
+        | NONE => (List.rev acc, th)
+  in
+    recurse avds [] th
+  end
+
+fun PART_MATCH' f th t =
+  let
+    val (vs, _) = strip_forall (concl th)
+    val hypfvs_set = hyp_frees th
+    val hypfvs = HOLset.listItems hypfvs_set
+    val tfvs = free_vars t
+    val dontspec = union tfvs hypfvs
+    val (vs, speccedth) = avSPEC_ALL dontspec th
+    val ((tmsig,_),_) = raw_match [] hypfvs_set (f (concl speccedth)) t ([],[])
+    val dontgen = union (map #redex tmsig) dontspec
+  in
+    GENL (set_diff vs dontgen) (INST tmsig speccedth)
+  end
+
+fun asmPART_MATCH' f th t =
+    PART_MATCH' (f o strip_conj o #1 o dest_imp) th t
+
+fun sel_ihpc f =
+    first_assum (fn asm => first_x_assum (fn ih =>
+      mp_tac (asmPART_MATCH' f ih (concl asm))))
+
+fun resolve_selected f th =
+  first_assum (mp_tac o asmPART_MATCH' f th o concl)
+
 val _ = export_rewrites ["closLang.exp_size_def"]
 
 val any_el_ALT = Q.store_thm(
@@ -152,26 +213,111 @@ val safe_opsetg_def = Define`
          ∃a. args = [a] ∧ no_top_getGlobal a)
 `;
 
-val safe_setglobals_def = tDefine "safe_setglobals" `
-  (safe_setglobals (Var _) = T) ∧
-  (safe_setglobals (If e1 e2 e3) ⇔
-     safe_setglobals e1 ∧ safe_setglobals e2 ∧ safe_setglobals e3) ∧
-  (safe_setglobals (Let bs e) ⇔
-     (∀b. MEM b bs ⇒ safe_setglobals b) ∧ safe_setglobals e) ∧
-  (safe_setglobals (Raise e) = safe_setglobals e) ∧
-  (safe_setglobals (Handle e1 e2) ⇔ safe_setglobals e1 ∧ safe_setglobals e2) ∧
-  (safe_setglobals (Tick e) = safe_setglobals e) ∧
-  (safe_setglobals (Call _ es) = ∀e. MEM e es ⇒ safe_setglobals e) ∧
-  (safe_setglobals (App _ f args) ⇔
-    safe_setglobals f ∧ ∀a. MEM a args ⇒ safe_setglobals a) ∧
-  (safe_setglobals (Fn _ _ _ b) = safe_setglobals b) ∧
-  (safe_setglobals (Letrec _ _ bs b) ⇔
-    (∀n e. MEM (n,e) bs ⇒ safe_setglobals e) ∧ safe_setglobals b) ∧
-  (safe_setglobals (Op opn args) ⇔
-    ∀n a. opn = SetGlobal n ∧ MEM a args ⇒ no_top_getGlobal a)
-` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+val op_gbag_def = Define`
+  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
+  op_gbag _ = {||}
+`;
+
+val set_globals_def = tDefine "set_globals" `
+  (set_globals (Var _) = {||}) ∧
+  (set_globals (If e1 e2 e3) =
+    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
+  (set_globals (Let binds e) =
+    FOLDR $BAG_UNION (set_globals e) (MAP set_globals binds)) ∧
+  (set_globals (Raise e) = set_globals e) ∧
+  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Tick e) = set_globals e) ∧
+  (set_globals (Call _ args) = FOLDR $BAG_UNION {||} (MAP set_globals args)) ∧
+  (set_globals (App _ f args) =
+    FOLDR $BAG_UNION (set_globals f) (MAP set_globals args)) ∧
+  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
+  (set_globals (Letrec _ _ fbinds bod) =
+    FOLDR (λne s. set_globals (SND ne) ⊎ s) (set_globals bod) fbinds) ∧
+  (set_globals (Op opn args) =
+    FOLDR $BAG_UNION (op_gbag opn) (MAP set_globals args))
+`
+  (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
    imp_res_tac exp_size_MEM >> simp[])
 
+val elist_globals_def = Define`
+  elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)
+`;
+val elist_globals_thm = Q.store_thm(
+  "elist_globals_thm[simp]",
+  `elist_globals [] = {||} ∧
+   elist_globals (exp::rest) = set_globals exp ⊎ elist_globals rest`,
+  simp[elist_globals_def]);
+
+val FOLDR_BAG_UNION_extract_acc = Q.store_thm(
+  "FOLDR_BAG_UNION_extract_acc",
+  `∀l a b. a ⊎ FOLDR (BAG_UNION o f) b l = FOLDR (BAG_UNION o f) (a ⊎ b) l`,
+  Induct_on `l` >> simp[] >> metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
+val foldr_bu =
+    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
+                                |> INST_TYPE [alpha |-> ``:β bag``]
+                                |> Q.INST [`b` |-> `{||}`, `f` |-> `I`]
+                                |> SIMP_RULE (srw_ss()) []
+                                |> GSYM
+
+val foldr_bu' =
+    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
+                                |> Q.INST [`b` |-> `{||}`, `f` |-> `λa. g a`]
+                                |> SIMP_RULE (srw_ss()) [o_ABS_R]
+                                |> GSYM
+
+
+val set_globals_def = save_thm("set_globals_def[simp]",
+  set_globals_def |> ONCE_REWRITE_RULE [foldr_bu]
+                  |> SIMP_RULE (srw_ss() ++ ETA_ss) [GSYM elist_globals_def])
+val set_globals_ind = theorem "set_globals_ind"
+
+val known_changed_globals = Q.store_thm(
+  "known_changed_globals",
+  `∀es as g0 alist g.
+     known es as g0 = (alist, g) ⇒
+     ∀i. i ∈ domain g ∧ (i ∈ domain g0 ⇒ lookup i g ≠ lookup i g0) ⇒
+         i ∈ SET_OF_BAG (elist_globals es)`,
+  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
+  >- (map_every qcase_tac [`known [exp1] as g0 = (al,g')`,`i ∈ domain g`] >>
+      Cases_on `i ∈ domain g'` >> fs[] >>
+      Cases_on `i ∈ domain g0` >> fs[] >>
+      Cases_on `lookup i g' = lookup i g0` >> fs[])
+  >- (map_every qcase_tac [
+        `known [exp1] as g0 = (al1,g1)`,
+        `known [exp2] as g1 = (al2,g2)`,
+        `known [exp3] as g2 = (al3,g3)`] >>
+      Cases_on `i ∈ domain g2` >> fs[] >>
+      Cases_on `i ∈ domain g1` >> fs[] >>
+      Cases_on `i ∈ domain g0` >> fs[] >>
+      Cases_on `lookup i g1 = lookup i g0` >> fs[] >>
+      Cases_on `lookup i g2 = lookup i g1` >> fs[])
+  >- (qcase_tac `known exps as g0 = (al1,g1)` >>
+      Cases_on `i ∈ domain g1` >> fs[] >>
+      Cases_on `i ∈ domain g0` >> fs[] >>
+      Cases_on `lookup i g1 = lookup i g0` >> fs[])
+  >- (qcase_tac `known _ _  g0 = (al1,g1)` >>
+      Cases_on `i ∈ domain g1` >> fs[] >>
+      Cases_on `i ∈ domain g0` >> fs[] >>
+      Cases_on `lookup i g1 = lookup i g0` >> fs[])
+  >- (qcase_tac `known _ _  g0 = (_,g1)` >>
+      qcase_tac `known_op opn` >>
+      Cases_on `i ∈ domain g1` >> fs[]
+      >- (Cases_on `i ∈ domain g0` >> fs[] >>
+          Cases_on `lookup i g1 = lookup i g0` >> fs[] >>
+          Cases_on `opn` >> fs[known_op_def, eqs, op_gbag_def] >> rveq >>
+          fs[]
+          >- fs[lookup_insert, bool_case_eq]
+          >- fs[lookup_insert, bool_case_eq]
+          >- (fs[va_case_eq, eqs, bool_case_eq] >> rveq >> fs[])) >>
+      Cases_on `opn` >>
+      fs[known_op_def, eqs, op_gbag_def, va_case_eq, bool_case_eq] >> rveq >>
+      fs[])
+  >- (qcase_tac `known _ _ g0 = (_, g1)` >>
+      Cases_on `i ∈ domain g1` >> fs[] >>
+      Cases_on `lookup i g1 = lookup i g0` >> fs[] >>
+      Cases_on `lookup i g = lookup i g1` >> fs[])
+  >- simp[Once foldr_bu'])
 
 val subspt_def = Define`
   subspt sp1 sp2 ⇔
@@ -200,6 +346,23 @@ val subspt_better_definedg = Q.store_thm(
   `v3 = v1` by metis_tac[SOME_11] >> rveq >>
   `v1 ◁ v2 ∧ v2 ◁ v1` by metis_tac[THE_DEF] >>
   metis_tac[subapprox_antisym])
+
+val subspt_known_elist_globals = Q.store_thm(
+  "subspt_known_elist_globals",
+  `known es1 as1 g0 = (al1, g1) ∧ known es2 as2 g1 = (al2, g2) ∧ subspt g0 g2 ∧
+   BAG_DISJOINT (elist_globals es1) (elist_globals es2) ⇒
+   subspt g0 g1 ∧ subspt g1 g2`,
+  strip_tac >>
+  `subspt g0 g1` by metis_tac[known_better_definedg, subspt_better_definedg] >>
+  simp[] >> fs[subspt_def] >>
+  rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  `better_definedg g1 g2` by metis_tac[known_better_definedg] >>
+  `k ∈ domain g2` by fs[better_definedg_def] >> simp[] >>
+  spose_not_then strip_assume_tac >>
+  `k ∈ SET_OF_BAG (elist_globals es2)` by metis_tac[known_changed_globals] >>
+  Cases_on `k ∈ domain g0` >- metis_tac[] >>
+  `k ∈ SET_OF_BAG (elist_globals es1)` by metis_tac[known_changed_globals] >>
+  fs[BAG_DISJOINT, DISJOINT_DEF, EXTENSION] >> metis_tac[])
 
 (*
 val safe_setglobals_known_fixed_union = Q.store_thm(
@@ -268,11 +431,6 @@ val safe_setglobals_known_subspt = Q.store_thm(
 
 *)
 
-val op_gbag_def = Define`
-  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
-  op_gbag _ = {||}
-`;
-
 val opn_fresh_gbag = Q.store_thm(
   "opn_fresh_gbag",
   `opn_fresh opn g ⇔ DISJOINT (SET_OF_BAG (op_gbag opn)) (domain g)`,
@@ -286,58 +444,7 @@ val known_op_adds_gbag = Q.store_thm(
   Cases_on `opn` >> dsimp[known_op_def, op_gbag_def, eqs, va_case_eq] >> rw[] >>
   simp[domain_insert]);
 
-val set_globals_def = tDefine "set_globals" `
-  (set_globals (Var _) = {||}) ∧
-  (set_globals (If e1 e2 e3) =
-    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
-  (set_globals (Let binds e) =
-    FOLDR $BAG_UNION (set_globals e) (MAP set_globals binds)) ∧
-  (set_globals (Raise e) = set_globals e) ∧
-  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Tick e) = set_globals e) ∧
-  (set_globals (Call _ args) = FOLDR $BAG_UNION {||} (MAP set_globals args)) ∧
-  (set_globals (App _ f args) =
-    FOLDR $BAG_UNION (set_globals f) (MAP set_globals args)) ∧
-  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
-  (set_globals (Letrec _ _ fbinds bod) =
-    FOLDR (λne s. set_globals (SND ne) ⊎ s) (set_globals bod) fbinds) ∧
-  (set_globals (Op opn args) =
-    FOLDR $BAG_UNION (op_gbag opn) (MAP set_globals args))
-`
-  (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[])
 
-val elist_globals_def = Define`
-  elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)
-`;
-val elist_globals_thm = Q.store_thm(
-  "elist_globals_thm[simp]",
-  `elist_globals [] = {||} ∧
-   elist_globals (exp::rest) = set_globals exp ⊎ elist_globals rest`,
-  simp[elist_globals_def]);
-val FOLDR_BAG_UNION_extract_acc = Q.store_thm(
-  "FOLDR_BAG_UNION_extract_acc",
-  `∀l a b. a ⊎ FOLDR (BAG_UNION o f) b l = FOLDR (BAG_UNION o f) (a ⊎ b) l`,
-  Induct_on `l` >> simp[] >> metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
-
-val foldr_bu =
-    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
-                                |> INST_TYPE [alpha |-> ``:β bag``]
-                                |> Q.INST [`b` |-> `{||}`, `f` |-> `I`]
-                                |> SIMP_RULE (srw_ss()) []
-                                |> GSYM
-
-val foldr_bu' =
-    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
-                                |> Q.INST [`b` |-> `{||}`, `f` |-> `λa. g a`]
-                                |> SIMP_RULE (srw_ss()) [o_ABS_R]
-                                |> GSYM
-
-
-val set_globals_def = save_thm("set_globals_def[simp]",
-  set_globals_def |> ONCE_REWRITE_RULE [foldr_bu]
-                  |> SIMP_RULE (srw_ss() ++ ETA_ss) [GSYM elist_globals_def])
-val set_globals_ind = theorem "set_globals_ind"
 
 val FINITE_BAG_FOLDR = Q.store_thm(
   "FINITE_BAG_FOLDR",
@@ -965,18 +1072,21 @@ val ssgc_free_preserved_SING = Q.store_thm(
 val known_op_correct_approx = Q.store_thm(
   "known_op_correct_approx",
   `known_op opn args g0 = (a,g) ∧ LIST_REL val_approx_val args vs ∧
-   state_globals_approx s0 g0 ∧
+   subspt g g' ∧
+   state_globals_approx s0 g' ∧
    do_app opn vs s0 = Rval (v, s) ⇒
-   state_globals_approx s g ∧ val_approx_val a v`,
+   state_globals_approx s g' ∧ val_approx_val a v`,
   Cases_on `opn` >>
   simp[known_op_def, do_app_def, eqs, va_case_eq, bool_case_eq,
        pair_case_eq] >>
   rpt strip_tac >> rveq >> fs[]
-  >- (fs[state_globals_approx_def] >> metis_tac[SOME_11])
+  >- (fs[state_globals_approx_def] >> res_tac >>
+      fs[subspt_def] >> metis_tac[SOME_11, domain_lookup])
   >- (fs[state_globals_approx_def, get_global_def, EL_LUPDATE,
-         lookup_insert, bool_case_eq] >> rw[] >> simp[] >> metis_tac[])
+         lookup_insert, bool_case_eq] >> rw[] >> simp[] >>
+      fs[subspt_def])
   >- (fs[state_globals_approx_def, get_global_def, EL_LUPDATE,
-         bool_case_eq, lookup_insert] >> rw[] >>
+         bool_case_eq, lookup_insert] >> rw[] >> fs[subspt_def] >>
       metis_tac[val_approx_val_merge_I])
   >- (fs[state_globals_approx_def, get_global_def, EL_APPEND_EQN,
          bool_case_eq] >> rw[]
@@ -986,18 +1096,27 @@ val known_op_correct_approx = Q.store_thm(
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
 
+val known_CONS = Q.store_thm(
+  "known_CONS",
+  `known (e::es) as g0 =
+    let (al1,g') = known [e] as g0 in
+    let (all,g) = known es as g'
+    in
+       (al1 ++ all, g)`,
+  Cases_on `es` >> simp[known_def] >> pairarg_tac >> simp[]);
+
+(*
 val say = say0 "known_correct_approx"
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
-  `∀es as g0 all g.
-     known es as g0 = (all,g) ⇒
-     ∀env s0 s vs result.
-        LIST_REL val_approx_val as env ∧
-        state_globals_approx s0 g ∧ ssgc_free s0 ∧ EVERY vsgc_free env ∧
-        EVERY esgc_free es ∧
-        evaluate(MAP FST all, env, s0) = (result, s) ⇒
-        state_globals_approx s g ∧
-        ∀vs. result = Rval vs ⇒ LIST_REL val_approx_val (MAP SND all) vs`,
+  `∀es as g0 all g env s0 s result g'.
+     known es as g0 = (all,g) ∧ BAG_ALL_DISTINCT (elist_globals es) ∧
+     LIST_REL val_approx_val as env ∧ subspt g0 g ∧ subspt g g' ∧
+     state_globals_approx s0 g' ∧ ssgc_free s0 ∧ EVERY vsgc_free env ∧
+     EVERY esgc_free es ∧ evaluate(MAP FST all, env, s0) = (result, s)
+    ⇒
+     state_globals_approx s g' ∧
+     ∀vs. result = Rval vs ⇒ LIST_REL val_approx_val (MAP SND all) vs`,
   ho_match_mp_tac known_ind >> simp[known_def] >>
   rpt conj_tac >> rpt (gen_tac ORELSE disch_then strip_assume_tac)
   >- (* nil *) (say "nil" >> fs[evaluate_def] >> rw[])
@@ -1013,33 +1132,50 @@ val known_correct_approx = Q.store_thm(
         by (Cases_on `al2` >> fs[] >> metis_tac[pair_CASES]) >> rveq >>
       fs[evaluate_def, pair_case_eq, result_case_eq] >> rveq
       >- (qcase_tac `evaluate ([exp1'], env, s0) = (Rval v1, s1)` >>
-          first_x_assum (fn th =>
-            qspecl_then [`env`, `s0`, `s1`, `Rval v1`] mp_tac th >>
-            simp[] >>
-            disch_then (CONJUNCTS_THEN strip_assume_tac)) >>
-          rveq >> fs[] >>
-          qcase_tac `evaluate(_::_, env, s1) = (Rval vs, s)` >>
-          `ssgc_free s1` by metis_tac[ssgc_free_preserved_SING] >>
-          first_x_assum (qspecl_then [`env`, `s1`, `s`, `Rval vs`] mp_tac) >>
-          simp[])
-      >- (simp[] >>
-          qcase_tac `evaluate ([exp1'], env, s0) = (Rval v1, s1)` >>
-          first_x_assum (fn th =>
-            qspecl_then [`env`, `s0`, `s1`, `Rval v1`] mp_tac th >>
-            simp[] >>
-            disch_then (CONJUNCTS_THEN strip_assume_tac)) >>
-          `ssgc_free s1` suffices_by metis_tac[] >>
-          metis_tac[ssgc_free_preserved_SING])
-      >- (simp[] >>
-          qcase_tac `evaluate ([exp1'], env, s0) = (Rerr error, s1)` >>
-          first_x_assum (qspecl_then [`env`, `s0`, `s1`, `Rerr error`] mp_tac)>>
+          qpat_assum `closSem$evaluate([_],_,_) = _` (fn th =>
+            first_x_assum (fn ith =>
+              mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
           simp[] >>
-          metis_tac[known_better_definedg, state_approx_better_definedg]))
+          disch_then (resolve_selected last) >> simp[] >>
+          fs[BAG_ALL_DISTINCT_BAG_UNION] >>
+          `subspt g0 g1 ∧ subspt g1 g`
+            by first_assum (fn kth2 =>
+                  first_assum (fn kth1 => mp_tac
+                            (asmPART_MATCH' hd
+                                            (GEN_ALL subspt_known_elist_globals)
+                                            (concl kth1))) >>
+                  simp[] >> disch_then (resolve_selected hd) >> simp[]) >>
+          simp[] >> impl_keep_tac >- metis_tac[subspt_trans] >> strip_tac >>
+          rveq >> fs[] >> sel_ihpc last >> simp[] >>
+          metis_tac[ssgc_free_preserved_SING])
+      >- (simp[] >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
+          qpat_assum `closSem$evaluate ([_],_,_) = _` (fn th =>
+            first_x_assum (fn ith =>
+              mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+          simp[] >>
+          disch_then (resolve_selected last) >> simp[] >>
+          first_assum (fn kth2 =>
+                  first_assum (fn kth1 => mp_tac
+                            (asmPART_MATCH' hd
+                                            (GEN_ALL subspt_known_elist_globals)
+                                            (concl kth1))) >>
+                  simp[] >> disch_then (resolve_selected hd) >> simp[]) >>
+          strip_tac >> impl_tac >- metis_tac[subspt_trans] >> rw[] >>
+          sel_ihpc last >> simp[] >> disch_then irule >> simp[]>>
+          metis_tac[ssgc_free_preserved_SING])
+      >- (simp[] >> sel_ihpc last >> simp[] >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
+          first_assum (fn kth2 =>
+                  first_assum (fn kth1 => mp_tac
+                            (asmPART_MATCH' hd
+                                            (GEN_ALL subspt_known_elist_globals)
+                                            (concl kth1))) >>
+                  simp[] >> disch_then (resolve_selected hd) >> simp[]) >>
+          metis_tac[subspt_trans]))
   >- ((* Var *) say "var" >>
       fs[any_el_ALT, evaluate_def, bool_case_eq] >>
       fs[LIST_REL_EL_EQN])
   >- ((* If *) say "if" >>
-      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       qcase_tac `known [ge] as g0 = (_, g1)` >>
       `∃ge' apx1. known [ge] as g0 = ([(ge',apx1)], g1)`
          by metis_tac[known_sing, PAIR_EQ] >>
@@ -1049,51 +1185,55 @@ val known_correct_approx = Q.store_thm(
       qcase_tac `known [eb] as g2 = (_, g3)` >>
       `∃eb' apx3. known [eb] as g2 = ([(eb',apx3)], g3)`
          by metis_tac[known_sing, PAIR_EQ] >> fs[] >> rveq >> fs[] >> rveq >>
+      `subspt g0 g1 ∧ subspt g1 g2 ∧ subspt g2 g3`
+         by (`∃al01. known [ge;tb] as g0 = (al01,g2)` by simp[known_def] >>
+             first_assum (fn th =>
+               mp_tac (asmPART_MATCH' hd (GEN_ALL subspt_known_elist_globals)
+                                      (concl th))) >> simp[] >>
+             disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
+             qpat_assum `known [_] _ g0 = (_,g1)` (fn th =>
+               mp_tac (asmPART_MATCH' hd (GEN_ALL subspt_known_elist_globals)
+                                      (concl th)) >> assume_tac th) >>
+             simp[] >> disch_then (resolve_selected hd) >> simp[]) >>
       reverse
         (fs[evaluate_def, pair_case_eq, result_case_eq,
             bool_case_eq]) >> rveq >> fixeqs >> simp[]
-      >- metis_tac[known_better_definedg, state_approx_better_definedg]
-      >- metis_tac[known_better_definedg, state_approx_better_definedg] >>
+      >- (sel_ihpc last >> simp[] >> metis_tac[subspt_trans])
+      >- (sel_ihpc last >> simp[] >> metis_tac[subspt_trans]) >>
       (* two cases from here on *)
       qcase_tac `evaluate ([ge'], env, s0) = (Rval gvs, s1)` >>
-      first_x_assum
-       (fn th => qspecl_then [`env`, `s0`, `s1`, `Rval gvs`] mp_tac th >>
-                 simp[] >>
-                 disch_then (CONJUNCTS_THEN strip_assume_tac)) >>
-      rveq >> fs[] >> rveq >>
-      qcase_tac `evaluate ([somebr], env, s1) = (someres, s2)` >>
-      `state_globals_approx s1 g2`
-        by metis_tac[known_better_definedg, state_approx_better_definedg] >>
-      `ssgc_free s1` by metis_tac[ssgc_free_preserved_SING] >>
-      first_x_assum
-       (fn th => qspecl_then [`env`, `s1`, `s2`, `someres`] mp_tac th >>
-                 simp[] >>
-                 disch_then (CONJUNCTS_THEN strip_assume_tac)) >>
-      metis_tac[val_approx_val_merge_I, known_better_definedg,
-                state_approx_better_definedg])
+      qpat_assum `evaluate ([ge'], _, _) = _` (fn th =>
+        first_x_assum (fn ith =>
+          mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+      simp[] >> disch_then (resolve_selected last) >> simp[] >>
+      (impl_keep_tac >- metis_tac[subspt_trans]) >>
+      strip_tac >> rveq >> fs[] >> rveq >> sel_ihpc last >> simp[] >>
+      disch_then (resolve_selected (el 2)) >> simp[] >>
+      impl_tac
+      >- metis_tac[ssgc_free_preserved_SING]
+      >- metis_tac[val_approx_val_merge_I]
+      >- (conj_tac >- metis_tac[subspt_trans] >>
+          irule (GEN_ALL ssgc_free_preserved_SING) >> metis_tac[])
+      >- metis_tac[val_approx_val_merge_I])
   >- ((* let *) say "let" >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       fs[evaluate_def, eqs, pair_case_eq, result_case_eq] >>
-      rveq
-      >- (qcase_tac `evaluate (MAP FST binds', env, s0) = (Rval bvs, s1)` >>
-          first_x_assum
-            (fn th => qspecl_then [`env`, `s0`, `s1`, `Rval bvs`] mp_tac th >>
-                      simp[] >> disch_then (CONJUNCTS_THEN assume_tac)) >>
-          qcase_tac `evaluate ([bod'], bvs ++ env, s1) = (result, s)` >>
-          qspecl_then [`MAP FST binds'`, `env`, `s0`, `Rval bvs`, `s1`]
-                      mp_tac ssgc_evaluate >> simp[] >> impl_tac
-          >- (simp[ALL_EL_MAP] >> metis_tac [known_preserves_esgc_free]) >>
-          strip_tac >> imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
-          first_x_assum
-            (qspecl_then [`bvs ++ env`, `s1`, `s`, `result`] mp_tac) >>
-          simp[EVERY2_APPEND_suff])
-      >- (qcase_tac `evaluate (MAP FST binds',env,s0) = (Rerr err, s)` >>
-          first_x_assum
-            (fn th =>
-               qspecl_then [`env`, `s0`, `s`, `Rerr err`] mp_tac th >>
-               simp[] >>
-               disch_then (assume_tac o assert (not o is_imp o concl))) >>
-          metis_tac[state_approx_better_definedg, known_better_definedg]))
+      rveq >> sel_ihpc last >> simp[] >> disch_then (resolve_selected last) >>
+      simp[] >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
+      map_every qcase_tac [`known [bod] _ g1 = (_, g)`,
+                           `known _ _ g0 = (_, g1)`] >>
+      qpat_assum `known [_] _ _ = _` (fn th =>
+        mp_tac (asmPART_MATCH' (el 2) (GEN_ALL subspt_known_elist_globals)
+                               (concl th)) >> assume_tac th) >> simp[] >>
+      disch_then (resolve_selected hd) >> simp[] >>
+      (impl_tac >- fs[BAG_DISJOINT, DISJOINT_SYM]) >> strip_tac >> simp[] >>
+      (impl_tac >- metis_tac[subspt_trans]) >> strip_tac >> simp[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      sel_ihpc last >> simp[EVERY2_APPEND_suff] >>
+      disch_then (resolve_selected (el 2)) >> simp[] >> reverse impl_tac
+      >- rw[] >> resolve_selected hd ssgc_evaluate >> simp[] >>
+      disch_then (resolve_selected last) >> simp[] >>
+      imp_res_tac known_preserves_esgc_free >> simp[ALL_EL_MAP])
   >- ((* raise *) say "raise" >>
       pairarg_tac >> fs[] >> imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
       fs[evaluate_def, pair_case_eq, result_case_eq] >> rveq >>
@@ -1101,82 +1241,76 @@ val known_correct_approx = Q.store_thm(
   >- ((* tick *) say "tick" >>
       pairarg_tac >> fs[] >> imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
       fs[evaluate_def, pair_case_eq, result_case_eq,
-         bool_case_eq] >> rveq >> simp[]
-      >- metis_tac[state_approx_better_definedg, known_better_definedg] >>
-      fixeqs >> first_x_assum irule >>
-      map_every qexists_tac [`env`, `dec_clock 1 s0`] >> simp[])
+         bool_case_eq] >> rveq >> simp[] >>
+      fixeqs >> first_x_assum irule >> simp[] >>
+      metis_tac[state_globals_approx_dec_clock, ssgc_free_dec_clock])
   >- ((* handle *) say "handle" >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      map_every qcase_tac [`known _ (_ :: _) g1 = (_, g)`,
+                           `known _ _ g0 = (_, g1)`] >>
+      qpat_assum `known _ (_ :: _) _ = _` (fn th =>
+        mp_tac (asmPART_MATCH' (el 2) (GEN_ALL subspt_known_elist_globals)
+                               (concl th)) >> assume_tac th) >> simp[] >>
+      disch_then (resolve_selected hd) >> simp[] >>
+      fs[BAG_ALL_DISTINCT_BAG_UNION] >> strip_tac >>
       fs[evaluate_def, pair_case_eq, result_case_eq,
-         error_case_eq] >> rveq >> fs[]
-      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-          qcase_tac `evaluate([e1],env,s0) = (Rval vs,s)` >>
-          first_x_assum
-            (fn th => qspecl_then [`env`, `s0`, `s`, `Rval vs`] mp_tac th >>
-                      simp[] >> disch_then (CONJUNCTS_THEN strip_assume_tac)) >>
-          fs[] >> metis_tac[val_approx_val_merge_I, known_better_definedg,
-                            state_approx_better_definedg])
-      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-          qcase_tac `evaluate([exp1],env,s0) = (Rerr(Rraise exc),s1)` >>
-          first_x_assum
-            (fn th => qspecl_then [`env`, `s0`, `s1`, `Rerr (Rraise exc)`]
-                                  mp_tac th >> simp[] >>
-                      disch_then
-                        (assume_tac o assert (not o is_imp o concl))) >>
-          qcase_tac `evaluate([hnd],exc::env,s1) = (result,s)` >>
-          first_x_assum (qspecl_then [`exc::env`, `s1`, `s`, `result`] mp_tac)>>
-          simp[] >>
-          qspecl_then [`[exp1]`, `env`, `s0`, `Rerr (Rraise exc)`, `s1`]
-                      mp_tac ssgc_evaluate >> simp[] >> impl_tac
-          >- (qcase_tac `known [exp0] as g0 = ([(exp1,_)], _)` >>
-              qspecl_then [`[exp0]`, `as`] mp_tac known_preserves_esgc_free >>
-              disch_then (IMP_RES_THEN mp_tac) >> simp[]) >> simp[] >>
-          rpt strip_tac >> simp[] >> fs[] >> metis_tac[val_approx_val_merge_I])
-      >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-          qcase_tac `evaluate([exp1],env,s0) = (Rerr (Rabort abt), s)` >>
-          first_x_assum
-            (fn th => qspecl_then [`env`, `s0`, `s`, `Rerr (Rabort abt)`]
-                                  mp_tac th >> simp[] >>
-                      disch_then
-                        (assume_tac o assert (not o is_imp o concl))) >>
-          metis_tac[known_better_definedg, state_approx_better_definedg]))
+         error_case_eq] >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
+      >- (sel_ihpc last >> simp[] >> disch_then (resolve_selected last) >>
+          simp[] >> reverse impl_keep_tac
+          >- metis_tac[val_approx_val_merge_I] >>
+          metis_tac[subspt_trans])
+      >- (qpat_assum `closSem$evaluate _ = (Rerr _, _)`
+           (fn th => first_x_assum (fn ith =>
+              mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+          simp[] >> disch_then (resolve_selected last) >> simp[] >>
+          impl_keep_tac >- metis_tac[subspt_trans] >>
+          strip_tac >> sel_ihpc last >> simp[PULL_EXISTS] >>
+          disch_then (resolve_selected (el 2)) >> simp[] >> reverse impl_tac
+          >- metis_tac[val_approx_val_merge_I] >>
+          conj_tac >- metis_tac[ssgc_free_preserved_SING] >>
+          resolve_selected hd ssgc_evaluate >>
+          disch_then (resolve_selected last) >> simp[] >> reverse impl_tac
+          >- simp[] >>
+          imp_res_tac known_preserves_esgc_free >> fs[])
+      >- (sel_ihpc last >> simp[] >> metis_tac[subspt_trans]))
   >- ((* call *) say "call" >> pairarg_tac >> fs[] >> rveq >> fs[] >>
       fs[evaluate_def, pair_case_eq, result_case_eq, eqs,
          bool_case_eq] >>
-      rveq >> fs[]
-      >- (qcase_tac `evaluate(MAP FST args,env,s0) = (Rval vs, s)` >>
-          first_x_assum (qspecl_then [`env`, `s0`, `s`, `Rval vs`] mp_tac) >>
-          simp[])
-      >- (qcase_tac `evaluate(MAP FST arg_es,env,s0) = (Rval vs, s)` >>
-          first_x_assum (qspecl_then [`env`, `s0`, `s`, `Rval vs`] mp_tac) >>
-          simp[])
-      >- (fixeqs >>
-          qcase_tac `evaluate(MAP FST arg_es, env, s0) = (Rval vs, s1)` >>
-          first_x_assum (qspecl_then [`env`, `s0`, `s1`, `Rval vs`] mp_tac) >>
-          simp[] >> rw[]
-          >- (qcase_tac `evaluate([body],args,dec_clock 1 s1) = (result,s)` >>
-              qspecl_then [`MAP FST arg_es`, `env`, `s0`, `Rval vs`, `s1`]
-                          mp_tac ssgc_evaluate >> simp[] >>
-              impl_tac
-              >- (simp[ALL_EL_MAP] >> metis_tac[known_preserves_esgc_free]) >>
-              rw[] >>
-              qspecl_then [`[body]`, `args`, `dec_clock 1 s1`, `result`, `s`]
-                          mp_tac ssgc_evaluate >> simp[] >>
-              fs[find_code_def, eqs, pair_case_eq] >> rveq >>
-              simp[] >>
-              `set_globals body = {||}`
-                by (Q.UNDISCH_THEN `ssgc_free s1` mp_tac >>
-                    simp[ssgc_free_def] >> metis_tac[])  >>
-              simp[set_globals_empty_esgc_free] >> strip_tac >>
-              `mapped_globals s1 ⊆ mapped_globals s`
-                by metis_tac[mapped_globals_grow, mapped_globals_dec_clock] >>
-              metis_tac[mglobals_extend_EMPTY_state_globals_approx])
-          >- metis_tac[evaluate_SING])
-      >- (qcase_tac `evaluate(MAP FST arg_es,env,s0) = (Rerr err, s)` >>
-          first_x_assum (qspecl_then [`env`, `s0`] mp_tac) >> simp[]))
+      rveq >> fs[] >> sel_ihpc last >> simp[] >> fixeqs >>
+      disch_then (resolve_selected last) >> simp[] >>
+      reverse (rpt strip_tac)
+      >- (rveq >> imp_res_tac evaluate_SING >> simp[]) >>
+      map_every qcase_tac [
+        `evaluate([body],args,dec_clock 1 s1) = (result,s)`,
+        `evaluate(MAP FST alist,env,s0) = (Rval vs, s1)`] >>
+      `ssgc_free s1 ∧ EVERY vsgc_free vs`
+         by (resolve_selected hd ssgc_evaluate >> simp[] >>
+             disch_then (resolve_selected last) >> simp[] >>
+             reverse impl_tac >- simp[] >>
+             imp_res_tac known_preserves_esgc_free >> simp[ALL_EL_MAP]) >>
+      `set_globals body = {||}`
+         by (Q.UNDISCH_THEN `ssgc_free s1` mp_tac >>
+             simp[ssgc_free_def] >> fs[find_code_def, eqs, pair_case_eq] >>
+             metis_tac[])  >>
+      `mapped_globals s1 ⊆ mapped_globals s`
+         by metis_tac[mapped_globals_grow, mapped_globals_dec_clock] >>
+      `mglobals_extend s1 {} s`
+         by (qspecl_then [`[body]`, `args`, `dec_clock 1 s1`, `result`, `s`]
+                         mp_tac ssgc_evaluate >> simp[] >>
+             fs[find_code_def, eqs, pair_case_eq] >> rveq >>
+             simp[set_globals_empty_esgc_free]) >>
+      metis_tac[mglobals_extend_EMPTY_state_globals_approx])
   >- ((* op *) say "op" >> rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      fs[BAG_ALL_DISTINCT_BAG_UNION]
+subspt_better_definedg
       fs[evaluate_def, pair_case_eq, result_case_eq] >> rveq >>
-      fs[] >>
+      fs[] >> sel_ihpc last >> simp[] >> disch_then (resolve_selected last) >>
+      simp[] >>
+      (impl_keep_tac
+       >- metis_tac[known_op_better_definedg, better_definedg_trans]) >>
+      simp[]
+
       qcase_tac `evaluate(MAP FST args,env,s0)` >>
       first_x_assum (qspecl_then [`env`, `s0`] mp_tac) >> simp[]
       >- metis_tac[known_op_correct_approx, LIST_REL_REVERSE_EQ] >>
@@ -1299,63 +1433,6 @@ val ssgc_free_preserved_SING' = Q.store_thm(
 
 val say = say0 "known_correct";
 
-fun nailIHx k = let
-  fun hdt t = (t |> lhs |> strip_comb |> #1)
-              handle HOL_ERR _ => t |> strip_comb |> #1
-  fun sameish t1 t2 = aconv t1 t2 orelse same_const t1 t2
-  fun samehd t1 th2 = sameish (hdt t1) (hdt (concl th2))
-  fun findcs [] a k = raise Fail "strip_conj gave empty list"
-    | findcs [c] a k =
-      first_assum
-        (fn th => k (LIST_CONJ (List.rev (assert (samehd c) th :: a))))
-    | findcs (c::cs) a k =
-      first_assum (fn th => findcs cs (assert (samehd c) th :: a) k)
-in
-  first_x_assum
-    (fn th0 =>
-        let val body = th0 |> concl |> strip_forall |> #2
-            val hyp = #1 (dest_imp body)
-            val cs = strip_conj hyp
-        in
-          findcs cs [] (k o MATCH_MP th0)
-        end)
-end
-
-fun avSPEC_ALL avds th =
-  let
-    fun recurse avds acc th =
-      case Lib.total dest_forall (concl th) of
-          SOME (v,bod) =>
-          let
-            val v' = variant avds v
-          in
-            recurse (v'::avds) (v'::acc) (SPEC v' th)
-          end
-        | NONE => (List.rev acc, th)
-  in
-    recurse avds [] th
-  end
-
-fun PART_MATCH' f th t =
-  let
-    val (vs, _) = strip_forall (concl th)
-    val hypfvs_set = hyp_frees th
-    val hypfvs = HOLset.listItems hypfvs_set
-    val tfvs = free_vars t
-    val dontspec = union tfvs hypfvs
-    val (vs, speccedth) = avSPEC_ALL dontspec th
-    val ((tmsig,_),_) = raw_match [] hypfvs_set (f (concl speccedth)) t ([],[])
-    val dontgen = union (map #redex tmsig) dontspec
-  in
-    GENL (set_diff vs dontgen) (INST tmsig speccedth)
-  end
-
-fun asmPART_MATCH' f th t =
-    PART_MATCH' (f o strip_conj o #1 o dest_imp) th t
-
-fun sel_ihpc f =
-    first_assum (fn asm => first_x_assum (fn ih =>
-      mp_tac (asmPART_MATCH' f ih (concl asm))))
 
 val evaluate_app_NONE_SOME = Q.store_thm(
   "evaluate_app_NONE_SOME",
@@ -1374,8 +1451,8 @@ val evaluate_app_NONE_SOME = Q.store_thm(
   fs[check_loc_def, revdroprev, revtakerev]);
 
 val kerel_def = Define`
-  kerel as g0 e1 e2 ⇔
-    ∃g0' g apx. better_definedg g0' g0 ∧ known [e1] as g0' = ([(e2,apx)], g)
+  kerel as g' e1 e2 ⇔
+    ∃g0 g apx. better_definedg g g' ∧ known [e1] as g0 = ([(e2,apx)], g)
 `;
 
 val kvrel_def = tDefine "kvrel" `
@@ -1867,14 +1944,14 @@ val krrel_better_definedg = Q.store_thm(
   Cases_on `res1` >> simp[krrel_err_rw] >>
   metis_tac[kvrel_LIST_REL_better_definedg, ksrel_better_definedg,
             kvrel_better_definedg]);
-(*
+
 val known_correct0 = Q.prove(
   `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g g' as ealist.
       a = (es,env1,s01) ∧ evaluate (es, env1, s01) = (res1, s1) ∧
       EVERY esgc_free es ∧ better_definedg g g' ∧
       LIST_REL val_approx_val as env1 ∧ EVERY vsgc_free env1 ∧
       LIST_REL (kvrel g') env1 env2 ∧ ksrel g' s01 s02 ∧
-      state_globals_approx s01 g0 ∧
+      state_globals_approx s01 g' ∧
       ssgc_free s01 ∧ known es as g0 = (ealist, g) ⇒
       ∃res2 s2.
         evaluate(MAP FST ealist, env2, s02) = (res2, s2) ∧
@@ -1882,7 +1959,7 @@ val known_correct0 = Q.prove(
    (∀lopt1 f1 args1 (s01:α closSem$state) res1 s1 lopt2 f2 args2 s02 g.
       evaluate_app lopt1 f1 args1 s01 = (res1,s1) ∧ ssgc_free s01 ∧
       kvrel g f1 f2 ∧ LIST_REL (kvrel g) args1 args2 ∧
-      ksrel g s01 s02 ∧
+      ksrel g s01 s02 ∧ state_globals_approx s01 g ∧
       EVERY vsgc_free args1 ∧ loptrel f2 (LENGTH args1) lopt1 lopt2 ⇒
       ∃res2 s2.
         evaluate_app lopt2 f2 args2 s02 = (res2,s2) ∧
@@ -1907,7 +1984,8 @@ val known_correct0 = Q.prove(
             disch_then
               (fn impth => mp_tac (asmPART_MATCH' last impth (concl th)))) >>
       simp[] >> impl_keep_tac
-      >- metis_tac[known_better_definedg, better_definedg_trans] >> rw[]
+      >- metis_tac[known_better_definedg, better_definedg_trans] >>
+      rw[]
       >- (imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
           sel_ihpc last >> simp[] >> strip_tac >>
           sel_ihpc (el 3) >> simp[] >> strip_tac >>
@@ -2088,19 +2166,27 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, pair_case_eq, result_case_eq,
            error_case_eq, known_def] >> rpt strip_tac >> rveq >> fs[] >>
       rpt (pairarg_tac >> fs[]) >> rveq >>
-      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-      nailIHx strip_assume_tac >> fs[] >>
-      simp[evaluate_def, pair_case_eq, result_case_eq, error_case_eq]
-      >- metis_tac[known_better_definedg, kvrel_LIST_REL_better_definedg,
-                   ksrel_better_definedg]
-      >- (dsimp[] >> fs[krrel_err_rw, PULL_EXISTS] >>
-          sel_ihpc last >> simp[] >> disch_then irule >> simp[]
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
+      >- (sel_ihpc last >> simp[] >> strip_tac >> sel_ihpc last >> simp[] >>
+          strip_tac >> sel_ihpc last >> simp[] >> impl_tac
+          >- metis_tac[known_better_definedg, better_definedg_trans] >>
+          rw[] >> simp[evaluate_def])
+      >- (dsimp[evaluate_def, pair_case_eq, result_case_eq, error_case_eq] >>
+          fs[PULL_EXISTS] >>
+          qhdtm_assum `state_globals_approx` (fn th => first_x_assum (fn ith =>
+            mp_tac (asmPART_MATCH' (el 5) ith (concl th)))) >> simp[] >>
+          rpt (disch_then (fn ith => first_assum (fn th =>
+                 mp_tac (asmPART_MATCH' last ith (concl th)))) >> simp[]) >>
+          impl_keep_tac
+          >- metis_tac[known_better_definedg, better_definedg_trans] >> rw[] >>
+          simp[] >> fs[krrel_err_rw] >> rveq >> sel_ihpc last >> simp[] >>
+          disch_then irule >> simp[]
           >- metis_tac[ssgc_free_preserved_SING']
           >- first_assum
                (fn th =>
                     mp_tac (asmPART_MATCH' last ssgc_evaluate (concl th)) >>
                     simp[] >> NO_TAC)
-          >- (qcase_tac `LIST_REL (kvrel g0) env1 env2` >> rveq >>
+          >- (qcase_tac `LIST_REL (kvrel gg) env1 env2` >> rveq >>
               qcase_tac `evaluate([exp2],env2,s02) = (Rerr (Rraise exn2),s2)` >>
               qcase_tac `known [exp1] as g0 = ([(exp2,apx1)], g0')` >>
               `state_globals_approx s2 g0'` suffices_by metis_tac[ksrel_sga] >>
@@ -2108,11 +2194,15 @@ val known_correct0 = Q.prove(
               map_every qexists_tac [`env2`, `Rerr (Rraise exn2)`, `s02`] >>
               simp[] >>
               metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
-                        kvrel_LIST_REL_val_approx])
-         >- (metis_tac[kvrel_LIST_REL_better_definedg, known_better_definedg]))
-      >- (dsimp[] >> fs[krrel_err_rw] >>
-          metis_tac[pair_CASES, result_CASES, error_CASES,
-                    ksrel_better_definedg, known_better_definedg]))
+                        kvrel_LIST_REL_val_approx]))
+      >- (sel_ihpc last >> simp[] >>
+          rpt (disch_then (fn ith => first_assum (fn th =>
+                 mp_tac (asmPART_MATCH' last ith (concl th)))) >> simp[]) >>
+          impl_keep_tac
+          >- metis_tac[known_better_definedg, better_definedg_trans] >> rw[] >>
+          simp[evaluate_def] >>
+          fs[krrel_err_rw, result_case_eq, error_case_eq] >> dsimp[] >>
+          metis_tac[pair_CASES, result_CASES, error_CASES]))
   >- (say "op" >>
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def] >>
       rpt strip_tac >> rveq >> fs[] >>
@@ -2328,7 +2418,11 @@ val known_correct0 = Q.prove(
           dsimp[] >> fs[PULL_EXISTS] >>
           map_every qcase_tac [
             `evaluate([exp1],env1,dec_clock _ s01) = (Rval [v1], s11)`,
-            `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >> cheat)
+            `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
+          rpt disj1_tac >> sel_ihpc last >> simp[] >>
+
+
+cheat)
       >- (imp_res_tac evaluate_SING >> fs[])
       >- cheat))
 
