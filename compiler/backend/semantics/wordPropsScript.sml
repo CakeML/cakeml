@@ -191,13 +191,13 @@ val assign_with_const = Q.store_thm("assign_with_const[simp]",
 
 val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
-  srw_tac[][inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
+  rw[inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME s' ⇒
    s'.clock = s.clock ∧
    s'.ffi = s.ffi`,
-  srw_tac[][inst_def] >>
+  rw[inst_def] >>
   every_case_tac >>full_simp_tac(srw_ss())[] >>
   imp_res_tac assign_const >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
@@ -1006,8 +1006,9 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     assume_tac get_vars_stack_swap_simp>>
     full_simp_tac(srw_ss())[s_key_eq_refl])
   >-(*Inst*)
-    (full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def]>>
+    (full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def,LET_THM]>>
     every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
+    fs[get_vars_stack_swap_simp]>>
     srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,mem_store_def]>>
@@ -1015,7 +1016,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     rfs[]>>
     HINT_EXISTS_TAC>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
-  >-(*Assign*)
+  >- (*Assign*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     rpt strip_tac>>
     HINT_EXISTS_TAC>>
@@ -1628,8 +1629,8 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     full_simp_tac(srw_ss())[set_vars_perm])
   >-
     (qexists_tac`perm`>>
-    full_simp_tac(srw_ss())[inst_def,assign_def]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def]>>
+    full_simp_tac(srw_ss())[inst_def,assign_def,LET_THM]>>every_case_tac>>
+    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm]>>
     rfs[]>>fs[]>>rveq>>
     fs[state_component_equality])
   >-
@@ -1997,8 +1998,16 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       full_simp_tac(srw_ss())[state_component_equality]>>
       srestac>>metis_tac[])
     >-
-      (Cases_on`a`>>full_simp_tac(srw_ss())[assign_def]>>
-      qpat_assum`A=(res,rst)` mp_tac>>
+      (reverse (Cases_on`a`)>>fs[assign_def,LET_THM]>>
+      qpat_assum`A=(res,rst)` mp_tac
+      >-
+        (qpat_abbrev_tac`ls = [n0;n1;n2]`>>
+        FULL_CASE_TAC>>fs[]>>
+        imp_res_tac locals_rel_get_vars>>fs[every_var_inst_def]>>
+        unabbrev_all_tac>>fs[]>>
+        EVERY_CASE_TAC>>rw[]>>
+        fs[locals_rel_set_var,state_component_equality,set_var_def])
+      >>
       qpat_abbrev_tac`A = word_exp B C`>>
       Cases_on`A`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>srw_tac[][]>>
       pop_assum (assume_tac o SYM)>>
@@ -2194,6 +2203,11 @@ val inst_ok_less_def = Define`
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 n)) =
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
+     (((c.ISA_name = "MIPS") \/
+       (c.ISA_name = "RISC-V")) ==> r1 <> r3 /\ r1 <> r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
@@ -2204,6 +2218,9 @@ val distinct_tar_reg_def = Define`
     ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
   (distinct_tar_reg  (Arith (Shift l r1 r2 n))
     ⇔ r1 ≠ r2) ∧
+  (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4 ∧
+      r4 ≠ r2 ∧ r4 ≠ r3) ∧
   (distinct_tar_reg _ ⇔ T)`
 
 (*Instructions are 2 register code for arith ok*)
@@ -2211,6 +2228,8 @@ val two_reg_inst_def = Define`
   (two_reg_inst (Arith (Binop bop r1 r2 ri))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (Shift l r1 r2 n))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (AddCarry r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst _ ⇔ T)`
 

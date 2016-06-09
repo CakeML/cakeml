@@ -376,6 +376,15 @@ val inst_def = Define `
     | Arith (Shift sh r1 r2 n) =>
         assign r1
           (Shift sh (Var r2) (Nat n)) s
+    | Arith (AddCarry r1 r2 r3 r4) =>
+        (let vs = get_vars [r2;r3;r4] s in
+        case vs of
+        SOME [Word l;Word r;Word c] =>
+          let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
+            SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
+                 (set_var r1 (Word (n2w res)) s))
+
+        | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
@@ -593,7 +602,7 @@ val alloc_clock = store_thm("alloc_clock",
 
 val inst_clock = prove(
   ``inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep``,
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def]
+  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []);
