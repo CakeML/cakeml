@@ -110,6 +110,21 @@ val lookup_word_op_def = Define`
   (lookup_word_op Sub = Carried Sub)`;
 val _ = export_rewrites["lookup_word_op_def"];
 
+val RefByte_location_def = Define`
+  RefByte_location = 22n`;
+
+val RefByte_code_def = Define`
+  (* 0 = remaining number of bytes to set
+     2 = pointer to next byte to set
+     4 = byte value *)
+  RefByte_code =
+  If Equal 0 (Imm 0w) Skip
+  (list_Seq [
+    Inst (Mem Store8 4 (Addr 2 0w));
+    Assign 2 (Op Add [Var 2; Const 1w]);
+    Assign 0 (Op Sub [Var 0; Const 1w]);
+    Call NONE (SOME RefByte_location) [0;2;4] NONE])`;
+
 val assign_def = Define `
   assign (c:bvp_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -194,6 +209,32 @@ val assign_def = Define `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
+    | RefByte => (case args of
+      | [v1;v2] =>
+        (list_Seq [
+          (* length in bytes *)
+          Assign 5 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+          (* fake length for header *)
+          Assign 7 (Shift Lsl (Op Add [Var 5; Const (1w << shift(:'a) - 1w)])
+                              (Nat (dimindex(:'a) - shift(:'a) - c.len_size)));
+          (* length in words in bytes *)
+          Assign 9 (Shift Lsl (Shift Lsr (Var 7) (Nat (dimindex(:'a) - c.len_size))) (Nat (shift(:'a))));
+          Alloc 9
+            (insert 5 () (insert 7 () (insert 9 ()
+              (adjust_set (insert v2 () (case names of SOME names => names | NONE => LN))))));
+          Assign 1 (Op Sub [Lookup EndOfHeap; Var 9]);
+          Set EndOfHeap (Var 1);
+          (* header *)
+          Assign 3 (Op Or [Var 7; Const 31w]);
+          Store (Var 1) 3;
+          Assign 3 (Op Add [Var 1; Const bytes_in_word]);
+          Assign 7 (Shift Lsr (Var (adjust_var v2)) (Nat 2));
+          MustTerminate (dimword(:'a)) (Call NONE (SOME RefByte_location) [5;3;7] NONE);
+          Assign (adjust_var dest)
+            (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                      (Nat (shift_length c - shift(:'a)));
+                    Const 1w])], l)
+      | _ => (Skip,l))
     (* TODO: RefByte *)
     (* TODO: RefArray *)
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
@@ -488,7 +529,7 @@ val compile_part_def = Define `
 val stubs_def = Define`
   stubs (:α) = [
     (20n,1n,Skip:α wordLang$prog); (* TODO: FromList *)
-    (22n,1n,Skip:α wordLang$prog); (* TODO: RefByte *)
+    (RefByte_location,3n,RefByte_code);
     (24n,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
   ]`;
 

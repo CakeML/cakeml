@@ -4273,6 +4273,7 @@ val assign_thm = Q.prove(
     \\ simp[]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ fs[])
+  \\ Cases_on `op = RefByte` \\ fs[] THEN1 cheat
   \\ Cases_on `op = El` \\ fs [] \\ fs [] \\ clean_tac THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
