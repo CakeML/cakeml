@@ -3,7 +3,7 @@ struct
 
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ConseqConv
-open cfHeapsTheory
+open cfHeapsBaseTheory
 
 (** Prove an "easy" goal about sets, involving UNION, DISJOINT,... Useful after
     unfolding the definitions of heap predicates. *)
