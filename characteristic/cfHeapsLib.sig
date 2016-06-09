@@ -28,6 +28,7 @@ sig
       in case one wants to do some more fine grained manipulations.
    *)
   val hsimpl : tactic
+  val hsimpl_conseq_conv : ConseqConv.directed_conseq_conv
 
 
   (** Auxiliary tactics *)
@@ -48,6 +49,7 @@ sig
      [hpull] fails (raising HOL_ERR) if it cannot do anything on the goal.
    *)
   val hpull : tactic
+  val hpull_conseq_conv : ConseqConv.directed_conseq_conv
                  
   (* [hsimpl_cancel]: on a goal of the form [SEP_IMP H1 H2], [hsimpl_cancel]
      tries to remove subheaps present both in H1 and H2. Moreover, if
@@ -63,6 +65,7 @@ sig
      [hsimpl_cancel] fails (raising HOL_ERR) if it cannot do anything on the goal.
    *)
   val hsimpl_cancel : tactic
+  val hsimpl_cancel_conseq_conv : ConseqConv.directed_conseq_conv
 
   (* [hsimpl_steps]: extract pure facts and existential quantifications from the
      right heap (H2).
@@ -74,4 +77,5 @@ sig
          A ?- P /\ SEP_IMP A B
    *)
   val hsimpl_steps : tactic
+  val hsimpl_steps_conseq_conv : ConseqConv.directed_conseq_conv
 end
