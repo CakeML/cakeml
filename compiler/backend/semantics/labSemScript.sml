@@ -76,6 +76,14 @@ val arith_upd_def = Define `
   (arith_upd (Shift l r1 r2 n) s =
      case read_reg r2 s of
      | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s
+     | _ => assert F s) /\
+  (arith_upd (AddCarry r1 r2 r3 r4) s =
+     case (read_reg r2 s, read_reg r3 s, read_reg r4 s) of
+     | (Word w2, Word w3, Word w4) =>
+       let r = w2n w2 + w2n w3 + (if w4 = 0w then 0 else 1)
+       in
+         upd_reg r4 (Word (if dimword(:'a) <= r then 1w else 0w))
+            (upd_reg r1 (Word (n2w r)) s)
      | _ => assert F s)`
 
 val addr_def = Define `

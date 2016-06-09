@@ -534,7 +534,7 @@ val filter_correct = prove(
       >>
       Cases_on`a`>>full_simp_tac(srw_ss())[arith_upd_def]>>
         TRY(Cases_on`r`>>Cases_on`b`)>>full_simp_tac(srw_ss())[]>>
-        EVERY_CASE_TAC>>full_simp_tac(srw_ss())[binop_upd_def]>>
+        EVERY_CASE_TAC>>full_simp_tac(srw_ss())[binop_upd_def,LET_THM]>>
         TRY(Cases_on`m`>>full_simp_tac(srw_ss())[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def])>>EVERY_CASE_TAC>>
         full_simp_tac(srw_ss())[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>srw_tac[][]>>res_tac>>
         TRY(first_x_assum(qspec_then`0` mp_tac)>>
