@@ -229,7 +229,7 @@ val Eval_FLOOKUP = prove(
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
     PULL_EXISTS,FMAP_EQ_ALIST_def] THEN METIS_TAC [])
   |> (fn th => MATCH_MP th ALOOKUP_eval)
-  (* |> store_eval_thm; *)
+  |> add_user_proved_v_thm;
 
 val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
 val AUPDATE_eval = translate AUPDATE_def;
@@ -252,7 +252,7 @@ val Eval_FUPDATE = prove(
   THEN Q.LIST_EXISTS_TAC [`u'`,`AUPDATE l x'`]
   THEN FULL_SIMP_TAC std_ss [] THEN METIS_TAC [FMAP_EQ_ALIST_UPDATE,PAIR])
   |> (fn th => MATCH_MP th AUPDATE_eval)
-  (* |> store_eval_thm; *)
+  |> add_user_proved_v_thm;
 
 val NIL_eval = hol2deep ``[]:('a # 'b) list``
 
@@ -264,7 +264,7 @@ val Eval_FEMPTY = prove(
   THEN FULL_SIMP_TAC (srw_ss()) [ALOOKUP_def,FUN_EQ_THM,
          finite_mapTheory.FLOOKUP_DEF])
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
-  (* |> store_eval_thm; *)
+  |> add_eval_thm;
 
 val AEVERY_AUX_def = Define `
   (AEVERY_AUX aux P [] = T) /\
@@ -305,7 +305,7 @@ val Eval_FEVERY = prove(
   THEN Q.LIST_EXISTS_TAC [`u1`]
   THEN FULL_SIMP_TAC (srw_ss()) [BOOL_def,AEVERY_EQ_FEVERY,Boolv_11])
   |> (fn th => MATCH_MP th AEVERY_eval)
-  (* |> store_eval_thm; *)
+  |> add_user_proved_v_thm;
 
 val AMAP_def = Define `
   (AMAP f [] = []) /\
@@ -335,7 +335,7 @@ val Eval_o_f = prove(
   THEN Q.LIST_EXISTS_TAC [`u1`,`AMAP x l`]
   THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_o_f])
   |> (fn th => MATCH_MP th AMAP_eval)
-  (* |> store_eval_thm; *)
+  |> add_user_proved_v_thm;
 
 val ALOOKUP_APPEND = prove(
   ``!l1 l2 x.
@@ -369,7 +369,7 @@ val Eval_FUNION = prove(
   THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF,FUNION_DEF,IN_UNION]
   THEN REPEAT STRIP_TAC THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [])
   |> MATCH_MP (MATCH_MP Eval_WEAKEN APPEND_eval)
-  (* |> store_eval_thm *)
+  |> add_eval_thm;
 
 val ADEL_def = Define `
   (ADEL [] z = []) /\
@@ -399,7 +399,7 @@ val Eval_fmap_domsub = prove(
   THEN Q.LIST_EXISTS_TAC [`u'`,`ADEL l x'`]
   THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_ADEL])
   |> (fn th => MATCH_MP th ADEL_eval)
-  (* |> store_eval_thm; *)
+  |> add_user_proved_v_thm;
 
 
 (* while, owhile and least *)

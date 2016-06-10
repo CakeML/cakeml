@@ -103,6 +103,10 @@ fun remove_Eq_from_v_thm th = let
                           thm (* certificate *) *
                           thm (* precond definition *) *
                           string option (* module name *)) list);
+  val eval_thms = ref ([] : (string (* name *) *
+                            term (* HOL term *) *
+                            thm (* certificate: Eval env exp (P tm) *)) list);
+
   val prog_state = ref ml_progLib.init_state;
 
   fun ml_prog_update f = (prog_state := f (!prog_state));
@@ -119,6 +123,16 @@ fun remove_Eq_from_v_thm th = let
     val tm = th |> concl |> rator |> rand
     val module_name = get_curr_module_name ()
     in (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms)) end;
+
+  fun add_user_proved_v_thm th = let
+    val th = UNDISCH_ALL th
+    val v = th |> concl |> rand
+    val _ = (type_of v = v_ty) orelse failwith("add_user_proved_v_thm not a v thm")
+    val tm = th |> concl |> rator |> rand
+    val (name,_,_,_,module_name) = first (fn (name,tm,th,_,_) =>
+          (th |> concl |> rand) = v) (!v_thms)
+    in ((v_thms := (name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
+
   fun lookup_v_thm const = let
     val (name,c,th,pre,m) = (first (fn c => can (match_term (#2 c)) const) (!v_thms))
     val th = th |> SPEC_ALL |> UNDISCH_ALL
@@ -131,6 +145,10 @@ fun remove_Eq_from_v_thm th = let
                         |> SPEC (stringSyntax.fromMLstring mod_name)))
     val th = SPEC (stringSyntax.fromMLstring name) th |> SPEC_ALL |> UNDISCH_ALL
     in th end
+
+  fun lookup_eval_thm const = let
+    val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
+    in th |> SPEC_ALL |> UNDISCH_ALL end
 
   fun get_current_prog () =
     get_thm (!prog_state)
@@ -149,6 +167,14 @@ fun remove_Eq_from_v_thm th = let
            in (name,tm,th,new_pre,module) end end
     val _ = (v_thms := map update_aux (!v_thms))
     in new_pre end
+
+  fun add_eval_thm th = let
+    val tm = concl (th |> SPEC_ALL |> UNDISCH_ALL)
+    val const = tm |> rand |> rand
+    val n = term_to_string const
+    val _ = (eval_thms := (n,const,th)::(!eval_thms))
+    in th end;
+
 
 
 
@@ -2729,10 +2755,6 @@ fun dest_word_shift tm =
 (*
 val tm = rhs
 val tm = rhs_tm
-
-val tm = ``the_value``
-
-val tm = ``the_value + 1:num``
 *)
 
 fun hol2deep tm =
@@ -2807,7 +2829,15 @@ fun hol2deep tm =
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
                   match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
-    in check_inv "lookup_cert" tm result end else
+    in check_inv "lookup_v_thm" tm result end else
+  (* previously translated term *)
+  if can lookup_eval_thm tm then let
+    val th = lookup_eval_thm tm
+    val inv = hol2deep (mk_var("v",type_of tm)) |> concl |> rand |> rator
+    val pat = th |> concl |> rand |> rator
+    val (ss,ii) = match_term pat inv
+    val result = INST ss (INST_TYPE ii th)
+    in check_inv "lookup_eval_thm" tm result end else
   (* built-in binary operations *)
   if can dest_builtin_binop tm then let
     val (p,x1,x2,lemma) = dest_builtin_binop tm

@@ -21,10 +21,12 @@ sig
 
     val add_type_inv   : term -> hol_type -> unit
     val get_type_inv   : hol_type -> term
-    val store_eval_thm : thm -> thm
+
+    val add_eval_thm   : thm -> thm
+    val add_user_proved_v_thm : thm -> thm
+
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
-    val store_cert     : thm -> thm list -> thm -> thm
     val get_DeclAssum  : unit -> term
 
     val register_exn_type   : hol_type -> unit
