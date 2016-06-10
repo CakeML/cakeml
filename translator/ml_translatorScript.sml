@@ -2392,4 +2392,10 @@ val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
 
 val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
+val Eval_evaluate_IMP = store_thm("Eval_evaluate_IMP",
+  ``Eval env exp P /\
+    evaluate F env empty_state exp (empty_state, Rval v) ==>
+    P v``,
+  fs [Eval_def] \\ rw [] \\ imp_res_tac evaluate_11_Rval \\ fs []);
+
 val _ = export_theory();

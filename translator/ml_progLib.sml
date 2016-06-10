@@ -2,7 +2,7 @@ structure ml_progLib :> ml_progLib =
 struct
 
 open preamble;
-open ml_progTheory astSyntax;
+open ml_progTheory astSyntax packLib;
 
 (* state *)
 
@@ -239,10 +239,18 @@ fun get_env s = get_thm s |> concl |> rator |> rand
 
 fun get_state s = get_thm s |> concl |> rand
 
-
 fun add_prog prog_tm pick_name s = let
   val ts = fst (listSyntax.dest_list prog_tm)
   in remove_snocs (foldl (fn (x,y) => add_top pick_name x y) s ts) end
+
+fun pack_ml_prog_state (ML_code (ss,envs,vs,th)) =
+  pack_4tuple (pack_list pack_thm) (pack_list pack_thm)
+    (pack_list pack_thm) pack_thm (ss,envs,vs,th)
+
+fun unpack_ml_prog_state th =
+  ML_code (unpack_4tuple (unpack_list unpack_thm) (unpack_list unpack_thm)
+    (unpack_list unpack_thm) unpack_thm th)
+
 
 (*
 

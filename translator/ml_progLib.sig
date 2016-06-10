@@ -49,4 +49,7 @@ sig
   val get_state    : ml_prog_state -> term (* state in ML_code thm *)
   val get_v_defs   : ml_prog_state -> thm list (* v abbrev defs *)
 
+  val pack_ml_prog_state   : ml_prog_state -> thm
+  val unpack_ml_prog_state : thm -> ml_prog_state
+
 end

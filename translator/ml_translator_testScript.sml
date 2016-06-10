@@ -30,6 +30,12 @@ val string_to_bytes_def = Define`
 
 val res = translate string_to_bytes_def;
 
+val def = Define `bar = []:'a list`
+val res = translate def
+
+val def = Define `foo = if bar = []:'a list then [] else []:'a list`
+val res = translate def
+
 val _ = (print_asts := true);
 
 val _ = export_theory();

@@ -98,6 +98,7 @@ fun remove_Eq_from_v_thm th = let
 
 
 (* new state *)
+
   val v_thms = ref ([] : (string (* name *) *
                           term (* HOL term *) *
                           thm (* certificate *) *
@@ -106,8 +107,8 @@ fun remove_Eq_from_v_thm th = let
   val eval_thms = ref ([] : (string (* name *) *
                             term (* HOL term *) *
                             thm (* certificate: Eval env exp (P tm) *)) list);
-
   val prog_state = ref ml_progLib.init_state;
+
 
   fun ml_prog_update f = (prog_state := f (!prog_state));
   fun get_curr_env () = get_env (!prog_state);
@@ -123,7 +124,6 @@ fun remove_Eq_from_v_thm th = let
     val tm = th |> concl |> rator |> rand
     val module_name = get_curr_module_name ()
     in (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms)) end;
-
   fun add_user_proved_v_thm th = let
     val th = UNDISCH_ALL th
     val v = th |> concl |> rand
@@ -132,7 +132,6 @@ fun remove_Eq_from_v_thm th = let
     val (name,_,_,_,module_name) = first (fn (name,tm,th,_,_) =>
           (th |> concl |> rand) = v) (!v_thms)
     in ((v_thms := (name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
-
   fun lookup_v_thm const = let
     val (name,c,th,pre,m) = (first (fn c => can (match_term (#2 c)) const) (!v_thms))
     val th = th |> SPEC_ALL |> UNDISCH_ALL
@@ -145,15 +144,12 @@ fun remove_Eq_from_v_thm th = let
                         |> SPEC (stringSyntax.fromMLstring mod_name)))
     val th = SPEC (stringSyntax.fromMLstring name) th |> SPEC_ALL |> UNDISCH_ALL
     in th end
-
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
     in th |> SPEC_ALL |> UNDISCH_ALL end
-
   fun get_current_prog () =
     get_thm (!prog_state)
     |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL);
-
   fun update_precondition new_pre = let
     fun update_aux (name,tm,th,pre,module)= let
       val th1 = D th
@@ -167,16 +163,28 @@ fun remove_Eq_from_v_thm th = let
            in (name,tm,th,new_pre,module) end end
     val _ = (v_thms := map update_aux (!v_thms))
     in new_pre end
-
   fun add_eval_thm th = let
     val tm = concl (th |> SPEC_ALL |> UNDISCH_ALL)
     val const = tm |> rand |> rand
     val n = term_to_string const
     val _ = (eval_thms := (n,const,th)::(!eval_thms))
     in th end;
-
-
-
+  fun pack_v_thms () = let
+    val pack_vs = pack_list (pack_5tuple pack_string pack_term
+                             pack_thm pack_thm (pack_option pack_string))
+    val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
+    in pack_triple pack_vs pack_evals pack_ml_prog_state
+         (!v_thms,!eval_thms,!prog_state) end
+  fun unpack_v_thms th = let
+    val unpack_vs = unpack_list (unpack_5tuple unpack_string unpack_term
+                                 unpack_thm unpack_thm (unpack_option unpack_string))
+    val unpack_evals = unpack_list (unpack_triple
+                          unpack_string unpack_term unpack_thm)
+    val (x1,x2,x3) = unpack_triple unpack_vs unpack_evals unpack_ml_prog_state th
+    val _ = v_thms := x1
+    val _ = eval_thms := x2
+    val _ = prog_state := x3
+    in () end
 
 
 local
@@ -873,16 +881,18 @@ local
     val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
     val p1 = pack_certs()
     val p2 = pack_types()
-    val p = pack_pair I I (p1,p2)
+    val p3 = pack_v_thms()
+    val p = pack_triple I I I (p1,p2,p3)
     val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
     val _ = check_uptodate_term (concl th)
     in save_thm(name,th) end
   fun unpack_state name = let
     val th = fetch name (name ^ suffix)
     val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
-    val (p1,p2) = unpack_pair I I th
+    val (p1,p2,p3) = unpack_triple I I I th
     val _ = unpack_certs p1
     val _ = unpack_types p2
+    val _ = unpack_v_thms p3
     in () end;
   val finalised = ref false
 in
@@ -3585,16 +3595,23 @@ val _ = (max_print_depth := 25)
       val _ = add_v_thms (fname,v_thm,pre_def)
       val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
       in save_thm(fname ^ "_v_thm",v_thm) end else let
-      val lemma = th |> PURE_ONCE_REWRITE_RULE [code_def]
-                     |> PURE_ONCE_REWRITE_RULE [Eval_def]
-                     |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-      val v_thm = new_specification("temp",[fname ^ "_v"],lemma)
-                  |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-      val _ = delete_binding "temp"
-      val eval_thm = CONJUNCT1 v_thm
+      val eval_v_thm = let
+        val vs = free_vars (concl th)
+        fun aux (v,th) = let
+          val (ss,ii) = match_term v UNIT_TYPE
+          in INST ss (INST_TYPE ii th) end
+        val th1 = foldl aux th vs
+        val lemma = th1 |> PURE_ONCE_REWRITE_RULE [Eval_def]
+                        |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+        val v_thm = new_specification("temp",[fname ^ "_v"],lemma)
+                    |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+        val _ = delete_binding "temp"
+        in CONJUNCT1 v_thm end
+      val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th eval_v_thm)
+                  |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
+      val eval_thm = eval_v_thm
                      |> MATCH_MP evaluate_empty_state_IMP
                      |> ISPEC (get_curr_state())
-      val v_thm = CONJUNCT2 v_thm
       val var_str = fname
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
       val _ = ml_prog_update (add_Dlet eval_thm var_str [])
