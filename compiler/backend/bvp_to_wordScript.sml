@@ -114,16 +114,17 @@ val RefByte_location_def = Define`
   RefByte_location = 22n`;
 
 val RefByte_code_def = Define`
-  (* 0 = remaining number of bytes to set
-     2 = pointer to next byte to set
-     4 = byte value *)
+  (* 0 = return address
+     2 = remaining number of bytes to set
+     4 = pointer to next byte to set
+     6 = byte value *)
   RefByte_code =
-  If Equal 0 (Imm 0w) Skip
+  If Equal 2 (Imm 0w) (Return 0 4)
   (list_Seq [
-    Inst (Mem Store8 4 (Addr 2 0w));
-    Assign 2 (Op Add [Var 2; Const 1w]);
-    Assign 0 (Op Sub [Var 0; Const 1w]);
-    Call NONE (SOME RefByte_location) [0;2;4] NONE])`;
+    Inst (Mem Store8 6 (Addr 4 0w));
+    Assign 4 (Op Add [Var 4; Const 1w]);
+    Assign 2 (Op Sub [Var 2; Const 1w]);
+    Call NONE (SOME RefByte_location) [2;4;6] NONE])`;
 
 val assign_def = Define `
   assign (c:bvp_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -211,29 +212,32 @@ val assign_def = Define `
                             Const 1w])],l))
     | RefByte => (case args of
       | [v1;v2] =>
+        let names = case names of SOME names => names | NONE => LN in
+        let names2 = insert 1 () (adjust_set names) in
+        let names1 =
+          (insert 3 () (insert 5 () (insert (adjust_var v2) () names2))) in
         (list_Seq [
           (* length in bytes *)
-          Assign 5 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+          Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
           (* fake length for header *)
-          Assign 7 (Shift Lsl (Op Add [Var 5; Const (1w << shift(:'a) - 1w)])
+          Assign 5 (Shift Lsl (Op Add [Var 3; Const (1w << shift(:'a) - 1w)])
                               (Nat (dimindex(:'a) - shift(:'a) - c.len_size)));
-          (* length in words in bytes *)
-          Assign 9 (Shift Lsl (Shift Lsr (Var 7) (Nat (dimindex(:'a) - c.len_size))) (Nat (shift(:'a))));
-          Alloc 9
-            (insert 5 () (insert 7 () (insert 9 ()
-              (adjust_set (insert v2 () (case names of SOME names => names | NONE => LN))))));
-          Assign 1 (Op Sub [Lookup EndOfHeap; Var 9]);
+          (* length in words *)
+          Assign 1 (Shift Lsr (Var 5) (Nat (dimindex(:'a) - c.len_size)));
+          Alloc 1 names1;
+          Assign 1 (Op Sub [Lookup EndOfHeap; Shift Lsl (Var 1) (Nat (shift(:'a)))]);
           Set EndOfHeap (Var 1);
           (* header *)
-          Assign 3 (Op Or [Var 7; Const 31w]);
-          Store (Var 1) 3;
-          Assign 3 (Op Add [Var 1; Const bytes_in_word]);
+          Assign 5 (Op Or [Var 5; Const 31w]);
+          Store (Var 1) 5;
+          Assign 5 (Op Add [Var 1; Const bytes_in_word]);
           Assign 7 (Shift Lsr (Var (adjust_var v2)) (Nat 2));
-          MustTerminate (dimword(:'a)) (Call NONE (SOME RefByte_location) [5;3;7] NONE);
+          MustTerminate (dimword(:'a))
+            (Call (SOME (5,names2,Skip,secn,l)) (SOME RefByte_location) [3;5;7] NONE);
           Assign (adjust_var dest)
             (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                       (Nat (shift_length c - shift(:'a)));
-                    Const 1w])], l)
+                    Const 1w])], l+1)
       | _ => (Skip,l))
     (* TODO: RefByte *)
     (* TODO: RefArray *)
