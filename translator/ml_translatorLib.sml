@@ -83,6 +83,14 @@ fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
   in if is_imp (concl th) then th else DISCH T th end
 
+fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
+
+fun find_const_name str = let
+  fun aux n = let
+    val s = str ^ "_" ^ int_to_string n
+    in if is_const_str s then aux (n+1) else s end
+  in if is_const_str str then aux 0 else str end
+
 fun remove_Eq_from_v_thm th = let
   val pat = ``Arrow (Eq a (x:'a)) (b:'b -> v -> bool)``
   val tms = find_terms (can (match_term pat)) (concl th)
@@ -3587,7 +3595,7 @@ val _ = (max_print_depth := 25)
       val n = fname |> stringSyntax.fromMLstring
       val v = lemma |> concl |> rand |> rator |> rand
       val exp = lemma |> concl |> rand |> rand
-      val v_name = fname ^ "_v"
+      val v_name = find_const_name (fname ^ "_v")
       val _ = ml_prog_update (add_Dlet_Fun n v exp v_name)
       val v_def = hd (get_curr_v_defs ())
       val v_thm = lemma |> CONV_RULE (RAND_CONV (REWR_CONV (GSYM v_def)))
@@ -3603,7 +3611,8 @@ val _ = (max_print_depth := 25)
         val th1 = foldl aux th vs
         val lemma = th1 |> PURE_ONCE_REWRITE_RULE [Eval_def]
                         |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-        val v_thm = new_specification("temp",[fname ^ "_v"],lemma)
+        val v_name = find_const_name (fname ^ "_v")
+        val v_thm = new_specification("temp",[v_name],lemma)
                     |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
         val _ = delete_binding "temp"
         in CONJUNCT1 v_thm end
@@ -3770,7 +3779,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
       |> first (can (find_term (fn tm => tm = rator ``Recclosure e``)))
       |> rand |> rator |> rand |> REWRITE_CONV code_defs |> concl |> rand
     val ii = INST [mk_var("cl_env",venvironment) |-> get_curr_env()]
-    val v_names = map (fn x => #1 x ^ "_v") thms
+    val v_names = map (fn x => find_const_name (#1 x ^ "_v")) thms
     val _ = ml_prog_update (add_Dletrec recc v_names)
     val v_defs = take (length v_names) (get_curr_v_defs ())
     val jj = INST [mk_var("env",venvironment) |-> get_curr_env()]
