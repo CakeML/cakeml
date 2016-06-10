@@ -345,10 +345,14 @@ val ALOOKUP_APPEND = prove(
   Induct THEN FULL_SIMP_TAC std_ss [APPEND,ALOOKUP_def,FORALL_PROD]
   THEN SRW_TAC [] []);
 
-val APPEND_eval = ``x ++ (y:('a # 'b) list)``
-  |> repeat rator |> hol2deep
-  |> DISCH_ALL |> Q.INST [`shaddow_env`|->`env`]
-  |> REWRITE_RULE [] |> UNDISCH_ALL
+val append_eval = let
+  val th = fetch "-" "append_v_thm"
+  val inv = ``x ++ (y:('a # 'b) list)``
+            |> repeat rator |> hol2deep |> concl |> rand
+  val pat = th |> concl |> rator
+  val (ii,ss) = match_term pat inv
+  val th = INST ii (INST_TYPE ss th)
+  in th end
 
 val Eval_FUNION = prove(
   ``!v. (LIST_TYPE (PAIR_TYPE a b) --> LIST_TYPE (PAIR_TYPE a b) -->
@@ -368,8 +372,8 @@ val Eval_FUNION = prove(
   THEN FULL_SIMP_TAC std_ss [ALOOKUP_APPEND,FUN_EQ_THM]
   THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF,FUNION_DEF,IN_UNION]
   THEN REPEAT STRIP_TAC THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN APPEND_eval)
-  |> add_eval_thm;
+  |> (fn th => MATCH_MP th append_eval)
+  |> add_user_proved_v_thm;
 
 val ADEL_def = Define `
   (ADEL [] z = []) /\
