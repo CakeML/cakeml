@@ -4273,7 +4273,48 @@ val assign_thm = Q.prove(
     \\ simp[]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ fs[])
-  \\ Cases_on `op = RefByte` \\ fs[] THEN1 cheat
+  \\ Cases_on `op = RefByte` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+    \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+    \\ imp_res_tac get_vars_2_IMP
+    \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
+          CONJUNCT2 bvp_to_bvi_refs,
+          bviPropsTheory.bvl_to_bvi_id,
+          bvp_to_bvi_to_bvp_with_refs]
+    \\ fs[state_rel_thm,set_var_def]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP)
+    \\ strip_tac
+    \\ fs[get_vars_def]
+    \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ rpt_drule memory_rel_Number_IMP
+    \\ imp_res_tac memory_rel_tl
+    \\ rpt_drule memory_rel_Number_IMP
+    \\ pop_assum kall_tac \\ rw[]
+    \\ fs[wordSemTheory.get_var_def]
+    \\ rw[assign_def,list_Seq_def] \\ eval_tac
+    \\ IF_CASES_TAC \\ fs[]
+    >- fs[good_dimindex_def]
+    \\ IF_CASES_TAC
+    >- ( fs[good_dimindex_def,shift_def] )
+    \\ pop_assum kall_tac \\ fs[]
+    \\ `c.len_size <> 0` by
+        (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+    \\ IF_CASES_TAC >- fs[]
+    \\ pop_assum kall_tac \\ fs[]
+    \\ fs[wordSemTheory.get_var_def]
+    \\ qmatch_goalsub_abbrev_tac`insert 3 (Word len)`
+    \\ qmatch_goalsub_abbrev_tac`insert 5 (Word fakelen)`
+    \\ qmatch_goalsub_abbrev_tac`insert 1 (Word lenw)`
+    \\ Cases_on`names_opt`
+    >- (
+      fs[bvi_to_bvpTheory.op_requires_names_def,
+         bvi_to_bvpTheory.op_space_reset_def] )
+    \\ fs[]
+    \\ cheat)
   \\ Cases_on `op = El` \\ fs [] \\ fs [] \\ clean_tac THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
