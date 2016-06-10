@@ -1049,7 +1049,7 @@ fun list_dest f tm =
   handle HOL_ERR _ => [tm];
 
 (*
-  val ty = ``:'a + 'b``
+  val ty = ``:'a # 'b``
   val tys = find_mutrec_types ty
 *)
 
@@ -1175,6 +1175,7 @@ fun define_ref_inv is_exn_type tys = let
   val ys2 = map (fn ((_,th),(ml_ty_name,xs,ty,lhs,input)) =>
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
+
   (* equality type -- TODO: make this work for mutrec *)
   val eq_lemmas = let
     val tm = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
@@ -1212,6 +1213,7 @@ fun define_ref_inv is_exn_type tys = let
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ TRY (Cases_on `x2`)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
+        \\ EVAL_TAC
         \\ REPEAT STRIP_TAC \\ METIS_TAC []))
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
