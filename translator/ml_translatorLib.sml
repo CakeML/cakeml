@@ -117,7 +117,6 @@ fun remove_Eq_from_v_thm th = let
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
 
-
   fun ml_prog_update f = (prog_state := f (!prog_state));
   fun get_curr_env () = get_env (!prog_state);
   fun get_curr_state () = get_state (!prog_state);
@@ -209,9 +208,10 @@ local
 in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
   fun INST_mn th = INST [mk_var("mn",optionSyntax.mk_option(stringSyntax.string_ty)) |-> get_mn()] th
-  fun full_id name =
-    astSyntax.mk_Long(optionSyntax.dest_some (get_mn ()),name)
-    handle HOL_ERR _ => astSyntax.mk_Short(name)
+  fun full_id n =
+    case get_curr_module_name () of
+      SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,n)
+    | NONE => astSyntax.mk_Short n
   fun translate_into_module name =
     if not (listSyntax.is_nil (!decl_term)) then
       failwith "translate_into_module can only be used on an empty translation"
@@ -587,12 +587,12 @@ fun word_ty_ok ty =
     end
   else false;
 
-local
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
   val preprocessor_rws = ref ([]:thm list)
   val type_memory = ref ([]:(hol_type * thm * (term * thm) list * thm) list)
   val all_eq_lemmas = ref (CONJUNCTS EqualityType_NUM_BOOL)
+local
 in
   fun type_reset () =
     (type_mappings := [];
@@ -1148,9 +1148,11 @@ fun define_ref_inv is_exn_type tys = let
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,v_ty)
       val tyi = if is_exn_type then mk_TypeExn else mk_TypeId
       val tag_tm = if is_pair_type then
-                     optionSyntax.mk_none(pairSyntax.mk_prod(stringSyntax.string_ty, tid_or_exn_ty))
+                     optionSyntax.mk_none(pairSyntax.mk_prod(
+                       stringSyntax.string_ty, tid_or_exn_ty))
                    else if is_list_type orelse is_option_type then
-                     optionSyntax.mk_some(pairSyntax.mk_pair(str, mk_TypeId(astSyntax.mk_Short str_ty_name)))
+                     optionSyntax.mk_some(pairSyntax.mk_pair(str,
+                       mk_TypeId(astSyntax.mk_Short str_ty_name)))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
       val tm = mk_conj(mk_eq(mk_var("v", v_ty),
                             mk_Conv(tag_tm, vs)),tm)
@@ -1219,7 +1221,6 @@ fun define_ref_inv is_exn_type tys = let
   val ys2 = map (fn ((_,th),(ml_ty_name,xs,ty,lhs,input)) =>
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
-
   (* equality type -- TODO: make this work for mutrec *)
   val eq_lemmas = let
     val tm = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
@@ -1314,7 +1315,7 @@ val is_exn_type = true;
 
 val _ = Datatype `exn1 = A1 num num | B1`;
 val is_exn_type = false;
-val ty = ``:ttt``;
+val ty = ``:even``;
 
 val ty = ``:unit``; derive_thms_for_type false ty
 *)
@@ -1464,6 +1465,7 @@ fun derive_thms_for_type is_exn_type ty = let
       val tag_tm = if name = "PAIR_TYPE"
                    then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
+                (* else optionSyntax.mk_some(full_id str) *)
       in pairSyntax.mk_pair(astSyntax.mk_Pcon(tag_tm,vars), exp) end) ts
     val patterns = listSyntax.mk_list(patterns,astSyntax.pat_exp_ty)
     val ret_inv = get_type_inv ret_ty
@@ -1588,6 +1590,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val tag_name = if name = "PAIR_TYPE"
                    then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
+                (* else optionSyntax.mk_some(full_id str) *)
     val result = mk_Eval(mk_var("env", venvironment),
                          astSyntax.mk_Con(tag_name, exps_tm),
                          mk_comb(inv,tm))
@@ -1629,9 +1632,15 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val x = inv_lhs |> rator |> rand
     val input = mk_var("input",type_of x)
     val inv_lhs = subst [x|->input] inv_lhs
+
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
+
     val conses = print_time "conses" (map (derive_cons ty inv_lhs inv_def)) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
+
+
+
+
   val res = map make_calls (zip case_thms inv_defs)
 (*
   val dexn = hd dexn_list
@@ -3590,6 +3599,7 @@ val _ = (max_print_depth := 25)
     val th = SIMP_EqualityType_ASSUMS th
     (* store for later use *)
     val is_fun = code_def |> SPEC_ALL |> concl |> rand |> is_Fun
+
     in if is_fun then let
       val lemma = th |> SIMP_RULE std_ss [evaluate_Fun,Eval_def,code_def]
       val n = fname |> stringSyntax.fromMLstring
@@ -3603,6 +3613,7 @@ val _ = (max_print_depth := 25)
       val _ = add_v_thms (fname,v_thm,pre_def)
       val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
       in save_thm(fname ^ "_v_thm",v_thm) end else let
+
       val eval_v_thm = let
         val vs = free_vars (concl th)
         fun aux (v,th) = let
@@ -3618,9 +3629,11 @@ val _ = (max_print_depth := 25)
         in CONJUNCT1 v_thm end
       val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th eval_v_thm)
                   |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
+                  |> REWRITE_RULE [code_def]
       val eval_thm = eval_v_thm
                      |> MATCH_MP evaluate_empty_state_IMP
                      |> ISPEC (get_curr_state())
+                     |> REWRITE_RULE [code_def]
       val var_str = fname
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
       val _ = ml_prog_update (add_Dlet eval_thm var_str [])
@@ -3755,7 +3768,6 @@ val (fname,def,th,v) = hd thms
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ METIS_TAC [])
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
-
 (*
 val (th,(fname,def,_,pre)) = hd (zip results thms)
 *)
@@ -3835,5 +3847,13 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
+
+(*
+
+TODO:
+ - ensure datatypes defined in modules can be used outside a module
+   (the type thms need to be reproved)
+
+*)
 
 end

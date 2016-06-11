@@ -7,8 +7,6 @@ val _ = (use_full_type_names := false);
 
 val _ = ml_prog_update (open_module "Even");
 
-(*
-
 val _ = Datatype `
   even = Even num`;
 
@@ -19,12 +17,8 @@ val two_def = mlDefine `
   two = Even 2`;
 
 val add_def = mlDefine `
-  add (Even m) (Even n) = Even (m + n)`;
-
-*)
-
-val zero_def = mlDefine `
-  zero = 0:num`;
+  add x y =
+    case x of Even m => case y of Even n => Even (m + n)`;
 
 val _ = ml_prog_update (close_module NONE);
 
