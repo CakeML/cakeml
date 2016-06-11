@@ -40,7 +40,6 @@ fun dest_vector_type ty =
 val is_vector_type = can dest_vector_type;
 
 val (Eval,mk_Eval,dest_Eval,is_Eval) = HolKernel.syntax_fns3 "ml_translator" "Eval";
-val (DeclAssum,mk_DeclAssum,dest_DeclAssum,is_DeclAssum) = HolKernel.syntax_fns4 "ml_translator" "DeclAssum";
 val (Eq,mk_Eq,dest_Eq,is_Eq) = HolKernel.syntax_fns4 "ml_translator" "Eq";
 val (Arrow,mk_Arrow,dest_Arrow,is_Arrow) = HolKernel.syntax_fns4 "ml_translator" "Arrow";
 

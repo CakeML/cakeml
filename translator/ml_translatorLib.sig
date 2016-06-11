@@ -27,13 +27,10 @@ sig
 
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
-    val get_DeclAssum  : unit -> term
 
     val register_exn_type   : hol_type -> unit
     val full_name_of_type   : hol_type -> string
     val case_of             : hol_type -> thm
-    val get_DeclAssumExists : unit -> thm
-    val get_cenv_eq_thm     : unit -> thm
     val eq_lemmas           : unit -> thm list
 
     (* loading / storing state of translator *)
@@ -41,11 +38,6 @@ sig
     val translation_extends   : string -> unit
     val reset_translation     : unit -> unit   (* bring back to initial state *)
     val finalise_translation  : unit -> unit   (* happens automatically at export *)
-    val get_cert              : string -> thm * thm
-    val get_decls             : unit -> term
-
-    val translate_into_module       : string -> unit
-    val finalise_module_translation : unit -> thm
 
     (* simplification of preconditions / sideconditions *)
 
@@ -60,7 +52,6 @@ sig
 
     (* internals, for ml_hol_kernel *)
 
-    val lookup_cert              : term -> thm
     val match_rec_pattern        : term -> term * string * term
     val install_rec_pattern      : term -> string -> term
     val uninstall_rec_patterns   : unit -> unit

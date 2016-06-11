@@ -7,11 +7,6 @@ sig
   val is_Eval   : term -> bool
   val Eval      : term
 
-  val mk_DeclAssum   : term * term * term * term -> term
-  val dest_DeclAssum : term -> term * term * term * term
-  val is_DeclAssum   : term -> bool
-  val DeclAssum      : term
-
   val mk_EqualityType   : term -> term
   val dest_EqualityType : term -> term
   val is_EqualityType   : term -> bool
