@@ -176,7 +176,7 @@ val Ref_def = Define `
     SEP_EXISTS l. cond (r = Loc l) * l ~~> Refv v`
 
 (*------------------------------------------------------------------*)
-(** Extraction from H1 in SEP_IMP H1 H2 *)
+(** Extraction from H1 in H1 ==>> H2 *)
 
 val hpull_prop = store_thm ("hpull_prop",
   ``!H H' P.
@@ -208,7 +208,7 @@ val SEP_IMP_rew = store_thm ("SEP_IMP_rew",
 )
 
 (*------------------------------------------------------------------*)
-(** Simplification in H2 on SEP_IMP H1 H2 *)
+(** Simplification in H2 on H1 ==>> H2 *)
 
 (** Lemmas *)
 

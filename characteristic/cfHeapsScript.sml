@@ -3,6 +3,8 @@ open set_sepTheory cfHeapsBaseTheory cfHeapsLib
 
 val _ = new_theory "cfHeaps"
 
+fun sing x = [x]
+
 (*------------------------------------------------------------------*)
 (** Locality *)
 
@@ -23,11 +25,7 @@ val is_local_def = Define `
 val local_elim = store_thm ("local_elim",
   ``!cf env H Q. cf env H Q ==> local cf env H Q``,
   fs [local_def] \\ rpt strip_tac \\
-  Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\
-  rew_heap \\ fs [SEP_IMP_def, STAR_def] \\
-  rpt strip_tac \\ qcase_tac `Q x s` \\ Q.LIST_EXISTS_TAC [`{}`, `s`] \\
-  fs [GC_def, SEP_EXISTS] \\ strip_tac THEN1 SPLIT_TAC \\
-  qexists_tac `emp` \\ fs [emp_def]
+  Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\ hsimpl \\ rew_heap
 )
 
 val local_local = store_thm ("local_local",
