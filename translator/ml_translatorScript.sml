@@ -1942,4 +1942,85 @@ val pair_CASE_UNCURRY = store_thm("pair_CASE_UNCURRY",
   ``!x y. pair_CASE x y = UNCURRY y x``,
   Cases \\ EVAL_TAC \\ fs []);
 
+val IF_T = store_thm("IF_T",``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
+val IF_F = store_thm("IF_F",``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+
+val sat_hyp_lemma = store_thm("sat_hyp_lemma",
+  ``(b1 ==> (x1 = x2)) /\ (x1 ==> y) ==> b1 /\ x2 ==> y``,
+  Cases_on `b1` \\ Cases_on `x1` \\ Cases_on `x2` \\ Cases_on `y` \\ EVAL_TAC);
+
+val IMP_EQ_F = store_thm("IMP_EQ_F",``~b ==> (b = F)``,REWRITE_TAC [])
+val IMP_EQ_T = store_thm("IMP_EQ_T",``b ==> (b = T)``,REWRITE_TAC [])
+
+val IF_TAKEN = store_thm("IF_TAKEN",
+  ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``,
+  SIMP_TAC std_ss []);
+
+val LIST_TYPE_And = store_thm("LIST_TYPE_And",
+  ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
+  SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
+  \\ FULL_SIMP_TAC std_ss [MEM,LIST_TYPE_def]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [And_def])
+
+val EVERY_MEM_CONTAINER = store_thm("EVERY_MEM_CONTAINER",
+  ``!P l. EVERY P l <=> !e. CONTAINER (MEM e l) ==> P (e:'a)``,
+  SIMP_TAC std_ss [EVERY_MEM,CONTAINER_def]);
+
+val PRECONDITION_EQ_CONTAINER = store_thm("PRECONDITION_EQ_CONTAINER",
+  ``(PRECONDITION p = CONTAINER p) /\
+    (CONTAINER ~p = ~CONTAINER p) /\ CONTAINER T``,
+  EVAL_TAC);
+
+val CONTAINER_NOT_ZERO = store_thm("CONTAINER_NOT_ZERO",
+  ``!P. (~(CONTAINER (b = 0)) ==> P b) =
+        !n. (CONTAINER (b = SUC n)) ==> P (SUC n:num)``,
+  REPEAT STRIP_TAC THEN Cases_on `b`
+  THEN EVAL_TAC THEN SRW_TAC [] [ADD1]);
+
+val IMP_PreImp_LEMMA = store_thm("IMP_PreImp_LEMMA",
+  ``!b1 b2 b3. (b1 ==> b3 ==> b2) ==> b3 ==> PreImp b1 b2``,
+  REPEAT Cases THEN REWRITE_TAC [PreImp_def,PRECONDITION_def]);
+
+val PRE_IMP = store_thm("PRE_IMP",
+  ``T /\ PRECONDITION b ==> PRECONDITION b``,
+  EVAL_TAC)
+
+val PreImp_IMP_T = store_thm("PreImp_IMP_T",
+  ``PreImp b1 b2 /\ T ==> PreImp b1 b2``,
+  EVAL_TAC)
+
+val CONJ_IMP = store_thm("CONJ_IMP",
+  ``!b1 b2 b12 b3 b4 b34.
+      (b1 /\ b2 ==> b12) /\ (b3 /\ b4 ==> b34) ==>
+      ((b1 /\ b3) /\ (b2 /\ b4) ==> b12 /\ b34)``,
+    REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+
+val IMP_SPLIT = store_thm("IMP_SPLIT",
+  ``!b12 b3 b4 b34.
+      (b12 = b12) /\ (b3 /\ b4 ==> b34) ==>
+      ((b12 ==> b3) /\ (b12 ==> b4) ==> (b12 ==> b34))``,
+  REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+
+val FORALL_SPLIT = store_thm("FORALL_SPLIT",
+  ``(!x. P1 x /\ P2 x ==> P (x:'a)) ==>
+    ($! P1 ) /\ ($! P2 ) ==> $! P ``,
+  FULL_SIMP_TAC std_ss [FORALL_THM]);
+
+val DEFAULT_IMP = store_thm("DEFAULT_IMP",
+  ``!b1. b1 /\ b1 ==> b1``,
+  SIMP_TAC std_ss []);
+
+val combine_lemma = store_thm("combine_lemma",
+  ``!b1 b2 b3 b4. (b1 /\ b2 ==> b3) /\ (b3 ==> b4) ==> b2 ==> b1 ==> b4``,
+  REPEAT Cases THEN SIMP_TAC std_ss [])
+
+val IMP_PreImp_THM = store_thm("IMP_PreImp_THM",
+  ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
+  Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
+
+val PreImp_IMP = store_thm("PreImp_IMP",
+  ``(PRECONDITION x ==> PreImp x y) ==> PreImp x y``,
+  SIMP_TAC std_ss [PreImp_def]);
+
 val _ = export_theory();

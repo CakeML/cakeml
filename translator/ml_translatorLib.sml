@@ -1167,8 +1167,6 @@ fun derive_thms_for_type is_exn_type ty = let
         |> SIMP_RULE std_ss []]
       \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args env.v`
       \\ FULL_SIMP_TAC (srw_ss()) []);
-    val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
-    val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
     fun print_tac s g = (print s; ALL_TAC g)
     val _ = print "Case translation:"
     val init_tac =
@@ -1417,10 +1415,6 @@ fun inst_case_thm_for tm = let
   val th = MP th TRUTH
   in th end handle HOL_ERR e => (inst_case_thm_for_fail := tm; raise HOL_ERR e);
 
-val sat_hyp_lemma = prove(
-  ``(b1 ==> (x1 = x2)) /\ (x1 ==> y) ==> b1 /\ x2 ==> y``,
-  Cases_on `b1` \\ Cases_on `x1` \\ Cases_on `x2` \\ Cases_on `y` \\ EVAL_TAC);
-
 val last_fail = ref T;
 (*
   val tm = !last_fail
@@ -1567,8 +1561,6 @@ fun prove_EvalPatRel goal hol2deep = let
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
-
-val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
 
 val prove_EvalPatBind_fail = ref T;
 val goal = !prove_EvalPatBind_fail;
@@ -2094,16 +2086,11 @@ val AUTO_ETA_EXPAND_CONV = let (* ``K ($=) --> K (\x y. x = y)`` *)
     else fail()
   in aux 0 end
 
-local
-  val l1 = prove(``~b ==> (b = F)``,REWRITE_TAC [])
-  val l2 = prove(``b ==> (b = T)``,REWRITE_TAC [])
-in
-  fun force_eqns def = let
-    fun f th = if is_eq (concl (SPEC_ALL th)) then th else
-                 GEN_ALL (MATCH_MP l1 (SPEC_ALL th)) handle HOL_ERR _ =>
-                 GEN_ALL (MATCH_MP l2 (SPEC_ALL th))
-    in LIST_CONJ (map f (CONJUNCTS (SPEC_ALL def))) end
-end
+fun force_eqns def = let
+  fun f th = if is_eq (concl (SPEC_ALL th)) then th else
+               GEN_ALL (MATCH_MP IMP_EQ_F (SPEC_ALL th)) handle HOL_ERR _ =>
+               GEN_ALL (MATCH_MP IMP_EQ_T (SPEC_ALL th))
+  in LIST_CONJ (map f (CONJUNCTS (SPEC_ALL def))) end
 
 val use_mem_intro = ref false;
 
@@ -2350,9 +2337,6 @@ val FILTER_pattern = ``FILTER (f:'a->bool)``
 val EVERY_pattern = ``EVERY (f:'a->bool)``
 val EXISTS_pattern = ``EXISTS (f:'a->bool)``
 val is_precond = can (match_term ``PRECONDITION b``)
-
-val IF_TAKEN = prove(
-  ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``, SIMP_TAC std_ss []);
 
 local
   val ty = word8
@@ -2656,19 +2640,7 @@ fun hol2deep tm =
     val thi = th_f |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN v
     val thi = HO_MATCH_MP Eq_IMP_And thi
     val thi = MATCH_MP (MATCH_MP Eval_Arrow th_m) thi
-    val list_type_def = LIST_CONJ [
-      EVAL ``LIST_TYPE (a:('a -> v -> bool)) [] v``,
-      EVAL ``LIST_TYPE (a:('a -> v -> bool)) (x::xs) v``]
-    val LIST_TYPE_And = prove(
-      ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
-      SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
-      \\ FULL_SIMP_TAC std_ss [MEM,list_type_def]
-      \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [And_def])
     val thi = RW [LIST_TYPE_And] thi
-    val EVERY_MEM_CONTAINER = prove(
-      ``!P l. EVERY P l <=> !e. CONTAINER (MEM e l) ==> P (e:'a)``,
-      SIMP_TAC std_ss [EVERY_MEM,CONTAINER_def]);
     val thi = MATCH_MP And_IMP_Eq thi
     val thi = SIMP_RULE std_ss [EVERY_MEM_CONTAINER] thi
     val result = thi |> UNDISCH_ALL
@@ -2730,17 +2702,6 @@ fun hol2val tm = let
 
 (* collect precondition *)
 
-val PRECONDITION_EQ_CONTAINER = prove(
-  ``(PRECONDITION p = CONTAINER p) /\
-    (CONTAINER ~p = ~CONTAINER p) /\ CONTAINER T``,
-  EVAL_TAC);
-
-val CONTAINER_NOT_ZERO = prove(
-  ``!P. (~(CONTAINER (b = 0)) ==> P b) =
-        !n. (CONTAINER (b = SUC n)) ==> P (SUC n:num)``,
-  REPEAT STRIP_TAC THEN Cases_on `b`
-  THEN EVAL_TAC THEN SRW_TAC [] [ADD1]);
-
 fun every [] = true
   | every (x::xs) = x andalso every xs
 
@@ -2771,11 +2732,6 @@ fun extract_precondition_non_rec th pre_var =
     in if rhs = T then
       (UNDISCH_ALL (SIMP_RULE std_ss [EVAL (mk_PRECONDITION T)] th),NONE)
     else let
-(*
-    in if free_vars rhs = [] then
-      (UNDISCH_ALL (SIMP_RULE std_ss [EVAL ``PRECONDITION T``] th),NONE)
-    else let
-*)
     val def_tm = mk_eq(pre_var,rhs)
     val pre_def = quietDefine [ANTIQUOTE def_tm]
     val c = REWR_CONV (GSYM pre_def)
@@ -2784,52 +2740,28 @@ fun extract_precondition_non_rec th pre_var =
     val pre_def = clean_precondition pre_def
     in (th,SOME pre_def) end end
 
-val IMP_PreImp_LEMMA = prove(
-  ``!b1 b2 b3. (b1 ==> b3 ==> b2) ==> b3 ==> PreImp b1 b2``,
-  REPEAT Cases THEN REWRITE_TAC [PreImp_def,PRECONDITION_def]);
-
-local
-  val PRE_IMP = prove(``T /\ PRECONDITION b ==> PRECONDITION b``,EVAL_TAC)
-  val PreImp_IMP = prove(``PreImp b1 b2 /\ T ==> PreImp b1 b2``,EVAL_TAC)
-  val CONJ_IMP = prove(
-    ``!b1 b2 b12 b3 b4 b34.
-        (b1 /\ b2 ==> b12) /\ (b3 /\ b4 ==> b34) ==>
-        ((b1 /\ b3) /\ (b2 /\ b4) ==> b12 /\ b34)``,
-      REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
-  val IMP_SPLIT = prove(
-    ``!b12 b3 b4 b34.
-        (b12 = b12) /\ (b3 /\ b4 ==> b34) ==>
-        ((b12 ==> b3) /\ (b12 ==> b4) ==> (b12 ==> b34))``,
-    REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
-  val FORALL_SPLIT = prove(
-    ``(!x. P1 x /\ P2 x ==> P (x:'a)) ==>
-      ($! P1 ) /\ ($! P2 ) ==> $! P ``,
-    FULL_SIMP_TAC std_ss [FORALL_THM]);
-  val DEFAULT_IMP = prove(``!b1. b1 /\ b1 ==> b1``,SIMP_TAC std_ss []);
-in
-  fun derive_split tm =
-    if can (match_term (PRE_IMP |> concl |> rand)) tm then let
-      val m = fst (match_term (PRE_IMP |> concl |> rand) tm)
-      in INST m PRE_IMP end else
-    if can (match_term (PreImp_IMP |> concl |> rand)) tm then let
-      val m = fst (match_term (PreImp_IMP |> concl |> rand) tm)
-      in INST m PreImp_IMP end else
-    if is_conj tm then let
-      val (x1,x2) = dest_conj tm
-      in MATCH_MP CONJ_IMP (CONJ (derive_split x1) (derive_split x2)) end else
-    if is_imp tm then let
-      val (x1,x2) = dest_imp tm
-      val th1 = REFL x1
-      val th2 = derive_split x2
-      in MATCH_MP IMP_SPLIT (CONJ th1 th2) end else
-    if is_forall tm then let
-      val (v,body) = dest_forall tm
-      val th = derive_split body
-      val th = CONV_RULE (RAND_CONV (UNBETA_CONV v) THENC
-                 (RATOR_CONV o RAND_CONV) (BINOP_CONV (UNBETA_CONV v))) th
-      in MATCH_MP FORALL_SPLIT (GEN v th) end else
-    SPEC tm DEFAULT_IMP
-end
+fun derive_split tm =
+  if can (match_term (PRE_IMP |> concl |> rand)) tm then let
+    val m = fst (match_term (PRE_IMP |> concl |> rand) tm)
+    in INST m PRE_IMP end else
+  if can (match_term (PreImp_IMP_T |> concl |> rand)) tm then let
+    val m = fst (match_term (PreImp_IMP_T |> concl |> rand) tm)
+    in INST m PreImp_IMP_T end else
+  if is_conj tm then let
+    val (x1,x2) = dest_conj tm
+    in MATCH_MP CONJ_IMP (CONJ (derive_split x1) (derive_split x2)) end else
+  if is_imp tm then let
+    val (x1,x2) = dest_imp tm
+    val th1 = REFL x1
+    val th2 = derive_split x2
+    in MATCH_MP IMP_SPLIT (CONJ th1 th2) end else
+  if is_forall tm then let
+    val (v,body) = dest_forall tm
+    val th = derive_split body
+    val th = CONV_RULE (RAND_CONV (UNBETA_CONV v) THENC
+               (RATOR_CONV o RAND_CONV) (BINOP_CONV (UNBETA_CONV v))) th
+    in MATCH_MP FORALL_SPLIT (GEN v th) end else
+  SPEC tm DEFAULT_IMP
 
 fun diff [] ys = []
   | diff (x::xs) ys = if mem x ys then diff xs ys else x :: diff xs ys
@@ -2878,9 +2810,6 @@ val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
       in (fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
 
-  val combine_lemma = prove(
-    ``!b1 b2 b3 b4. (b1 /\ b2 ==> b3) /\ (b3 ==> b4) ==> b2 ==> b1 ==> b4``,
-    REPEAT Cases THEN SIMP_TAC std_ss [])
 (*
   val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
 *)
@@ -2985,118 +2914,13 @@ fun abbrev_code (fname,def,th,v) = let
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
-val IMP_PreImp_THM = prove(
-  ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
-  Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
-
-val PreImp_IMP = prove(
-  ``(PRECONDITION x ==> PreImp x y) ==> PreImp x y``,
-  SIMP_TAC std_ss [PreImp_def]);
-
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
-
-(*
-local
-  val lookup_cons_pat = ``lookup_cons cname env = SOME x``
-  val imp_lemma = prove(``!f. (f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
-                        REPEAT STRIP_TAC THEN FULL_SIMP_TAC bool_ss []) |> SPEC_ALL
-in
-  fun clean_lookup_cons th = let
-    val tms = find_terms (can (match_term lookup_cons_pat)) (concl th)
-              |> all_distinct
-    in if length tms = 0 then th else let
-    val lemmas = MATCH_MP (INST_mn DeclAssumCons_cons_lookup) (get_cenv_eq_thm ())
-                 |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
-                               DEPTH_CONV PairRules.PBETA_CONV)
-                 |> SPEC_ALL |> UNDISCH |> CONJUNCTS
-    fun in_term_list [] t = false
-      | in_term_list (tm::tms) t = aconv t tm orelse in_term_list tms t
-    val rwt = filter (in_term_list tms o concl) lemmas
-                    |> map (Q.INST [`env`|->`shadow_env`])
-                    |> map (UNDISCH o Q.SPEC `env` o MATCH_MP imp_lemma)
-                    |> LIST_CONJ
-    val th = th |> RW [rwt] |> D
-    in th end end
-end
-*)
 
 (*
 
 translate def
 
 val def = Define `fac n = if n = 0 then 1 else fac (n-1) * (n:num)`;
-val def = Define `foo n = if n = 0 then 1 else foo (n-1) * (fac n:num)`;
-val def = Define `the_value = 1:num`;
-val def = Define `goo k = next k + 1`;
-val def = Define `next n = n+1:num`;
-val ty = ``:'a + 'b``; register_type ty;
-val ty = ``:'a option``; register_type ty;
-val def = Define `goo k = next k + 1`;
-
-words testing...
-(* OK *)
-val def = Define`ok = 8w :8 word`
-val def = Define`ok2 = 8w :64 word`
-(* Fails, but these should fail anyway *)
-val def = Define`fail = 8w :65 word`
-val def = Define`fail2 = 8w :'a word`
-
-(* OK *)
-val def = Define`n2w8 x = (n2w x):word8`
-val def = Define`w82n w = (w2n (w:word8))`
-val def = Define`n2w10 x = (n2w x):10 word`
-val def = Define`w102n w = (w2n (w:10 word))`
-val def = Define`ok w = w + 1w:63 word`
-val def = Define`ok w = (n2w (w2n (w:28 word)):30 word)`
-val def = Define`ok (w:24 word) = (w >> 3)`
-
-val def = Define `foo = \n. the_value + 1 + n`;
-val def = Define `bar = \n m. m + n + the_value`;
-val def = Define `ex1 n = 4 DIV n`;
-
-val def = Define `the_value = 1:num`;
-val _ = translate def
-
-val _ = ml_prog_update (open_module "Bar");
-val def = Define `bar = \n m. m + n + the_value`;
-val _ = translate def
-val _ = ml_prog_update (close_module NONE);
-
-val _ = ml_prog_update (open_module "Hoo");
-val def = Define `HOO = 34:num`;
-val _ = translate def
-val _ = ml_prog_update (close_module NONE);
-
-val _ = ml_prog_update (open_module "Too");
-val def = Define `si = HOO + the_value + 45`;
-val _ = translate def
-val _ = ml_prog_update (close_module NONE);
-
-EVAL (get_curr_env())
-
-val _ = Datatype `ttt = A1 num num | B1`;
-val def = Define `foo = A1 1 (2+3)`;
-
-val def = Define `ff n = case n of B1 => 5 | A1 k1 k2 => k1 + 6`
-
-get_current_prog ()
-
-val def = Define `ff n = if n < 5 then 4 else ff (n-1:num)`
-
-val def = Define `
-  (even n = if n = 0 then T else odd (n-1)) /\
-  (odd n = if n = 0 then F else even (n-1:num))`
-
-val def = APPEND
-
-val _ = translate APPEND
-val _ = translate REVERSE_DEF
-
-time (fn x => (translate APPEND; translate REVERSE_DEF)) ()
-
-val def = HD
-val def = APPEND
-val def = FRONT_DEF
 
 *)
 
