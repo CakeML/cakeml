@@ -1915,7 +1915,6 @@ val krrel_better_subspt = Q.store_thm(
   Cases_on `res1` >> simp[krrel_err_rw] >>
   metis_tac[kvrel_LIST_REL_subspt, ksrel_subspt, kvrel_subspt]);
 
-(*
 val known_correct0 = Q.prove(
   `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g g' as ealist.
       a = (es,env1,s01) ∧ evaluate (es, env1, s01) = (res1, s1) ∧
@@ -2119,105 +2118,104 @@ val known_correct0 = Q.prove(
       >- (simp[kerel_def, PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_val_approx])
       >- metis_tac[option_CASES]
       >- (resolve_selected last (GEN_ALL kvrel_lookup_vars) >> simp[] >>
-          disch_then (resolve_selected hd) >> simp[] >> strip_tac
+          disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
           simp[kerel_def] >> cheat))
           (* need to show that val_approx works on lookup_vars output *)
   >- (say "letrec" >> cheat)
   >- (say "app" >>
       rpt gen_tac >> strip_tac >>
       simp[evaluate_def, pair_case_eq, result_case_eq,
-           bool_case_eq, known_def] >> rpt strip_tac >> rveq >>
+           bool_case_eq, known_def, BAG_ALL_DISTINCT_BAG_UNION] >>
+      rpt strip_tac >> rveq >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       map_every imp_res_tac [known_sing_EQ_E, evaluate_SING] >> rveq >> fs[] >>
       rveq
-      >- (qhdtm_assum `state_globals_approx` (fn th => first_x_assum(fn impth =>
-            mp_tac (asmPART_MATCH' (el 5) impth (concl th)))) >> simp[] >>
-          rpt (disch_then (fn impth => first_assum (fn th =>
-                 mp_tac (asmPART_MATCH' last impth (concl th)))) >> simp[]) >>
+      >- (map_every qcase_tac [
+            `known [fexp] apxs g1 = ([(fexp',fapx)], g)`,
+            `known args apxs g0 = (alist, g1)`,
+            `subspt g gg`] >>
+          patresolve `known [_] _ _ = _` (el 2) subspt_known_elist_globals >>
+          simp[] >> disch_then (resolve_selected (el 1)) >> simp[] >>
+          impl_tac >- fs[BAG_DISJOINT, DISJOINT_SYM] >> strip_tac >>
+          first_x_assum (patresolve `known args _ _ = _` last) >> simp[] >>
+          `subspt g1 gg` by metis_tac[subspt_trans] >>
+          rpt (disch_then (resolve_selected last) >> simp[]) >> rw[] >>
+          simp[evaluate_def] >> imp_res_tac known_LENGTH_EQ_E >> fs[] >>
+          first_x_assum (patresolve `known [_] _ _ = _` last) >> simp[] >>
+          disch_then (resolve_selected (el 2)) >> simp[] >>
+          disch_then (resolve_selected hd) >> simp[] >>
+          resolve_selected hd ssgc_evaluate >> simp[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
           impl_keep_tac
-          >- metis_tac[known_better_definedg, better_definedg_trans] >>
-          rw[] >> simp[evaluate_def] >> imp_res_tac known_LENGTH_EQ_E >>
-          fs[] >> simp[pair_case_eq, result_case_eq, PULL_EXISTS] >>
-          sel_ihpc last >> simp[] >> strip_tac >> sel_ihpc (el 3) >> simp[] >>
-          strip_tac >> sel_ihpc hd >> simp[PULL_EXISTS] >>
-          map_every qcase_tac [
-            `known [exp1] apxs g1 = ([(exp2,apx2)], g)`,
-            `known exps1 apxs g0 = (alist2,g1)`,
-            `evaluate ([exp1],env1,s11) = (Rval [v1],s21)`,
-            `evaluate (MAP FST alist2,env2,s02) = (Rval vs2,s12)`,
-            `evaluate (exps1,env1,s01) = (Rval vs1,s11)`
-          ] >>
-          qspecl_then [`exps1`, `apxs`, `g0`, `alist2`, `g1`]
-             mp_tac known_correct_approx >> simp[] >>
-          disch_then (qspecl_then [`env2`, `s02`, `s12`, `Rval vs2`]
-                                  mp_tac) >> simp[] >>
-          impl_tac
-          >- metis_tac[kvrel_LIST_REL_val_approx, ksrel_sga,
-                       ksrel_ssgc_free, kvrel_EVERY_vsgc_free] >>
-          strip_tac >>
-          qspecl_then [`exps1`, `env1`, `s01`, `Rval vs1`, `s11`]
-            mp_tac ssgc_evaluate >> simp[] >>
-          disch_then (CONJUNCTS_THEN2 assume_tac
-                                      (CONJUNCTS_THEN2 assume_tac kall_tac)) >>
-          impl_tac >- metis_tac[ksrel_sga] >>
-          strip_tac >>
-          qcase_tac `evaluate([exp2],env2,s12) = (Rval [v2],s22)` >> simp[] >>
-          qcase_tac `evaluate_app loption1 v1 vs1 s21` >>
+          >- (patresolve `closSem$evaluate (MAP FST _, _, _) = _` last
+                         known_correct_approx >>
+              simp[] >> disch_then (resolve_selected hd) >> simp[] >>
+              metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
+                        kvrel_LIST_REL_val_approx]) >>
+          rw[] >> simp[] >>
+          qcase_tac `evaluate_app loption1 v1 vs1 s21 = (result,ss1)` >>
           `ssgc_free s21`
-             by metis_tac[ksrel_ssgc_free, ssgc_free_preserved_SING'] >> fs[] >>
+            by metis_tac[ksrel_ssgc_free, ssgc_free_preserved_SING'] >> fs[] >>
+          first_x_assum (resolve_selected hd) >> simp[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
+          `state_globals_approx s21 gg`
+            by (patresolve `known [_] _ _ = _` hd (GEN_ALL kca_sing_sga) >>
+                simp[] >> disch_then (resolve_selected last) >> simp[] >>
+                metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
+                          kvrel_LIST_REL_val_approx]) >> fs[] >>
           reverse (Cases_on `loption1`) >> simp[]
           >- (first_x_assum irule >> simp[loptrel_def]) >>
-          Cases_on `dest_Clos apx2` >> simp[]
+          qcase_tac `dest_Clos fapprox` >> Cases_on `dest_Clos fapprox` >>
+          simp[]
           >- (first_x_assum irule >> simp[loptrel_def]) >>
-          qcase_tac `dest_Clos apx2 = SOME closapxvalue` >>
+          qcase_tac `dest_Clos fapprox = SOME closapxvalue` >>
           `∃clloc clarity. closapxvalue = (clloc, clarity)`
             by metis_tac[pair_CASES] >> pop_assum SUBST_ALL_TAC >>
-          simp[] >> reverse (Cases_on `clarity = LENGTH exps1`) >> simp[]
+          simp[] >> qcase_tac `LENGTH args > 0` >>
+          reverse (Cases_on `clarity = LENGTH args`) >> simp[]
           >- (first_x_assum irule >> simp[loptrel_def]) >>
           first_x_assum irule >> simp[loptrel_def] >>
-          qspecl_then [`[exp1]`, `apxs`, `g1`, `[(exp2,apx2)]`, `g`]
+          qspecl_then [`[fexp]`, `apxs`, `g1`, `[(fexp',fapprox)]`, `g`]
              mp_tac known_correct_approx >> simp[] >>
-          disch_then (qspecl_then [`env2`, `s12`, `s22`, `Rval [v2]`] mp_tac) >>
-          simp[] >> impl_tac
+          disch_then (resolve_selected last) >> simp[] >>
+          disch_then (qspec_then `gg` mp_tac) >> impl_tac
           >- metis_tac[kvrel_LIST_REL_val_approx, ksrel_ssgc_free,
-                       kvrel_EVERY_vsgc_free] >>
+                       kvrel_EVERY_vsgc_free, ksrel_sga] >>
           fs[dest_Clos_eq_SOME] >> rveq >> rw[] >> simp[] >>
           metis_tac[evaluate_length_imp])
-      >- (qhdtm_assum `state_globals_approx` (fn th => first_x_assum(fn impth =>
-            mp_tac (asmPART_MATCH' (el 5) impth (concl th)))) >> simp[] >>
-          rpt (disch_then (fn impth => first_assum (fn th =>
-                 mp_tac (asmPART_MATCH' last impth (concl th)))) >> simp[]) >>
-          impl_keep_tac
-          >- metis_tac[known_better_definedg, better_definedg_trans] >>
-          rw[] >> simp[evaluate_def] >> imp_res_tac known_LENGTH_EQ_E >>
-          fs[] >> simp[pair_case_eq, result_case_eq, PULL_EXISTS] >>
-          sel_ihpc last >> simp[] >> strip_tac >> sel_ihpc (el 3) >> simp[] >>
-          strip_tac >> sel_ihpc hd >> simp[PULL_EXISTS] >>
-          reverse impl_tac
-          >- (rw[] >> simp[] >> fs[krrel_err_rw] >> dsimp[] >>
-              metis_tac[pair_CASES, result_CASES]) >>
-          map_every qcase_tac [
-             `state_globals_approx s01 g0`,
-             `evaluate(args1,env1,s01) = (Rval vs1, s11)`,
-             `evaluate([exp1],env1,s11) = (Rerr err1, s21)`,
-             `evaluate(MAP FST alist,env2,s02) = (Rval vs2,s12)`,
-             `known [exp1] apxs g1 = ([(exp2,apx)], g)`] >>
-          qspecl_then [`args1`, `apxs`, `g0`, `alist`, `g1`] mp_tac
-                      known_correct_approx >> simp[] >>
-          disch_then
-            (qspecl_then [`env2`, `s02`, `s12`, `Rval vs2`] mp_tac) >>
-          simp[] >> impl_tac
-          >- metis_tac[kvrel_EVERY_vsgc_free, kvrel_LIST_REL_val_approx,
-                       ksrel_ssgc_free, ksrel_sga] >>
-          metis_tac[ksrel_sga, ssgc_evaluate,
-                    known_better_definedg,
-                    kvrel_LIST_REL_better_definedg])
-      >- (qhdtm_assum `state_globals_approx` (fn th => first_x_assum(fn impth =>
-            mp_tac (asmPART_MATCH' (el 5) impth (concl th)))) >> simp[] >>
-          rpt (disch_then (fn impth => first_assum (fn th =>
-                 mp_tac (asmPART_MATCH' last impth (concl th)))) >> simp[]) >>
-          impl_keep_tac
-          >- metis_tac[known_better_definedg, better_definedg_trans] >> rw[] >>
+      >- (map_every qcase_tac [
+            `known [fexp] apxs g1 = ([(fexp',fapx)], g)`,
+            `known args apxs g0 = (alist, g1)`,
+            `subspt g gg`] >>
+          patresolve `known [_] _ _ = _` (el 2) subspt_known_elist_globals >>
+          simp[] >> disch_then (resolve_selected (el 1)) >> simp[] >>
+          impl_tac >- fs[BAG_DISJOINT, DISJOINT_SYM] >> strip_tac >>
+          first_x_assum (patresolve `known args _ _ = _` last) >> simp[] >>
+          `subspt g1 gg` by metis_tac[subspt_trans] >>
+          rpt (disch_then (resolve_selected last) >> simp[]) >> rw[] >>
+          simp[evaluate_def] >> imp_res_tac known_LENGTH_EQ_E >> fs[] >>
+          sel_ihpc last >> simp[] >>
+          disch_then (resolve_selected (el 2)) >> simp[] >>
+          disch_then (resolve_selected hd) >> simp[] >> reverse impl_tac
+          >- (rw[] >> simp[] >> fs[krrel_err_rw] >>
+              dsimp[result_case_eq] >> metis_tac[pair_CASES, result_CASES]) >>
+          conj_tac
+          >- (patresolve `closSem$evaluate (MAP FST _, _, _) = _` last
+                         known_correct_approx >>
+              simp[] >> disch_then (resolve_selected hd) >> simp[] >>
+              metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
+                        kvrel_LIST_REL_val_approx]) >>
+          metis_tac [ssgc_evaluate])
+      >- (map_every qcase_tac [
+            `known [fexp] apxs g1 = ([(fexp',fapx)], g)`,
+            `known args apxs g0 = (alist, g1)`,
+            `subspt g gg`] >>
+          patresolve `known [_] _ _ = _` (el 2) subspt_known_elist_globals >>
+          simp[] >> disch_then (resolve_selected (el 1)) >> simp[] >>
+          impl_tac >- fs[BAG_DISJOINT, DISJOINT_SYM] >> strip_tac >>
+          first_x_assum (patresolve `known args _ _ = _` last) >> simp[] >>
+          `subspt g1 gg` by metis_tac[subspt_trans] >> strip_tac >>
+          nailIHx strip_assume_tac >>
           simp[evaluate_def, bool_case_eq, result_case_eq, pair_case_eq] >>
           imp_res_tac known_LENGTH_EQ_E >> rveq >> fs[] >>
           fs[krrel_err_rw] >> dsimp[] >>
@@ -2228,16 +2226,17 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, bool_case_eq, known_def] >>
       qcase_tac `(s0:α closSem$state).clock = 0` >> Cases_on `s0.clock = 0` >>
       fs[] >> rpt strip_tac >> rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-      simp[evaluate_def] >- (fs[ksrel_def] >> (* easy *) cheat) >>
+      simp[evaluate_def] >- fs[ksrel_def] >>
       fs[dec_clock_def] >> fixeqs >> imp_res_tac known_sing_EQ_E >> rveq >>
       fs[] >> rveq >>
       map_every qcase_tac [
         `known [exp1] apxs g0 = ([(exp2,apx)],g)`,
         `evaluate([exp1],env1,s01 with clock := s01.clock - 1) = (res1,s1)`,
-        `ksrel g0 s01 s02`] >>
+        `ksrel gg s01 s02`] >>
       sel_ihpc last >> simp[] >>
       disch_then
-        (qspecl_then [`env2`, `s02 with clock := s02.clock - 1`] mp_tac) >>
+        (qspecl_then [`env2`, `s02 with clock := s02.clock - 1`, `gg`]
+                     mp_tac) >>
       simp[] >> impl_keep_tac >- fs[ksrel_def] >>
       `s02.clock = s01.clock` by fs[ksrel_def] >> simp[])
   >- (say "call" >>
@@ -2260,55 +2259,40 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, eqs, bool_case_eq, pair_case_eq, result_case_eq] >>
       rpt strip_tac >> rveq >> fs[]
       >- metis_tac[pair_CASES]
-      >- (simp[evaluate_def, eqs, bool_case_eq] >>
-          first_assum
-            (mp_tac o
-             asmPART_MATCH' hd (GEN_ALL kvrel_dest_closure_SOME_Partial) o
-             concl) >> simp[PULL_EXISTS] >> strip_tac >>
-          sel_ihpc hd >> simp[] >> strip_tac >> sel_ihpc hd >> simp[] >>
-          strip_tac >> sel_ihpc hd >> imp_res_tac LIST_REL_LENGTH >>
-          strip_tac >> fs[] >> nailIHx strip_assume_tac >> simp[] >>
-          fs[ksrel_def])
-      >- (simp[evaluate_def, eqs, bool_case_eq] >>
-          first_assum
-            (mp_tac o
-             asmPART_MATCH' hd (GEN_ALL kvrel_dest_closure_SOME_Partial) o
-             concl) >> simp[PULL_EXISTS] >> strip_tac >>
-          sel_ihpc (el 3) >> simp[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
-          strip_tac >> nailIHx strip_assume_tac >> simp[] >>
-          fs[ksrel_def, dec_clock_def])
-      >- (simp[evaluate_def, eqs, bool_case_eq] >>
-          first_assum
-            (mp_tac o
-             asmPART_MATCH' hd (GEN_ALL kvrel_dest_closure_SOME_Full) o
-             concl) >> simp[PULL_EXISTS] >> strip_tac >>
-          sel_ihpc (el 3) >> simp[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
-          strip_tac >> nailIHx strip_assume_tac >> simp[] >>
-          `s02.clock = s01.clock` by fs[ksrel_def] >>
-          imp_res_tac LIST_REL_LENGTH >> fs[] >>
-          fs[ksrel_def])
       >- (simp[evaluate_def, eqs, bool_case_eq, pair_case_eq] >>
-          first_assum
-            (mp_tac o
-             asmPART_MATCH' hd (GEN_ALL kvrel_dest_closure_SOME_Full) o
-             concl) >> simp[PULL_EXISTS] >> strip_tac >>
-          sel_ihpc (el 3) >> simp[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
-          strip_tac >> nailIHx strip_assume_tac >> simp[] >>
+          resolve_selected hd (GEN_ALL kvrel_dest_closure_SOME_Partial) >>
+          simp[PULL_EXISTS] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >>
+          strip_tac >> simp[] >> fs[ksrel_def])
+      >- (simp[evaluate_def, eqs, bool_case_eq, pair_case_eq] >>
+          resolve_selected hd (GEN_ALL kvrel_dest_closure_SOME_Partial) >>
+          simp[PULL_EXISTS] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
+          simp[] >> fs[ksrel_def, dec_clock_def])
+      >- (simp[evaluate_def, eqs, bool_case_eq, pair_case_eq] >>
+          resolve_selected hd (GEN_ALL kvrel_dest_closure_SOME_Full) >>
+          simp[PULL_EXISTS] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
+          simp[] >> imp_res_tac LIST_REL_LENGTH >> fs[ksrel_def])
+      >- (simp[evaluate_def, eqs, bool_case_eq, pair_case_eq] >>
+          resolve_selected hd (GEN_ALL kvrel_dest_closure_SOME_Full) >>
+          simp[PULL_EXISTS] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
+          simp[] >> qcase_tac `ksrel g s01 s02` >>
           `s02.clock = s01.clock` by fs[ksrel_def] >>
           imp_res_tac LIST_REL_LENGTH >> fs[] >> simp[PULL_EXISTS] >>
           dsimp[] >> fs[PULL_EXISTS] >>
           map_every qcase_tac [
             `evaluate([exp1],env1,dec_clock _ s01) = (Rval [v1], s11)`,
             `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
-          rpt disj1_tac >> sel_ihpc last >> simp[] >>
-
-
-cheat)
+          rpt disj1_tac >>
+          first_x_assum (patresolve `known [exp1] _ _ = _` last) >> simp[] >>
+          cheat)
       >- (imp_res_tac evaluate_SING >> fs[])
       >- cheat))
 
 val known_correct = save_thm(
   "known_correct",
   known_correct0 |> SIMP_RULE (srw_ss()) []);
-*)
+
 val _ = export_theory();
