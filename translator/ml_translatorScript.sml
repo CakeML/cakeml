@@ -1,6 +1,6 @@
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory evalPropsTheory bigClockTheory;
+     determTheory evalPropsTheory bigClockTheory packLib;
 open mlstringTheory integerTheory;
 open terminationTheory ml_progTheory;
 
@@ -40,8 +40,8 @@ val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
     !v. P v ==> ?u. evaluate_closure v cl u /\ Q u`;
 
 val Arrow_def = Define `
-  Arrow a b f =
-    \v. !x. AppReturns (a x) v (b (f x))`;
+  Arrow a b =
+    \f v. !x. AppReturns (a x) v (b (f x))`;
 
 val _ = overload_on ("-->",``Arrow``)
 
@@ -1994,7 +1994,7 @@ val CONJ_IMP = store_thm("CONJ_IMP",
   ``!b1 b2 b12 b3 b4 b34.
       (b1 /\ b2 ==> b12) /\ (b3 /\ b4 ==> b34) ==>
       ((b1 /\ b3) /\ (b2 /\ b4) ==> b12 /\ b34)``,
-    REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+  REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
 
 val IMP_SPLIT = store_thm("IMP_SPLIT",
   ``!b12 b3 b4 b34.
@@ -2022,5 +2022,61 @@ val IMP_PreImp_THM = store_thm("IMP_PreImp_THM",
 val PreImp_IMP = store_thm("PreImp_IMP",
   ``(PRECONDITION x ==> PreImp x y) ==> PreImp x y``,
   SIMP_TAC std_ss [PreImp_def]);
+
+val evaluate_Mat = save_thm("evaluate_Mat",
+  ``evaluate c x env (Mat e pats) (xx,Rval res)``
+  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) []))
+
+val evaluate_match_Conv = save_thm("evaluate_match_Conv",
+  ``evaluate_match c env st args
+       ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
+  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
+      SIMP_CONV (srw_ss()) [pmatch_def]))
+
+val evaluate_match_rw = store_thm("evaluate_match_rw",
+  ``evaluate_match c env st args
+      ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
+    ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
+    case pmatch env.c st.refs (Pcon xx pats) args env.v of
+    | No_match =>
+        evaluate_match c env st args pats2 errv (yyy,Rval y)
+    | Match env7 =>
+        evaluate c (env with v := env7) st exp2 (yyy,Rval y)
+    | _ => F``,
+  SIMP_TAC std_ss [evaluate_match_Conv
+    |> SIMP_RULE std_ss []]
+  \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args env.v`
+  \\ FULL_SIMP_TAC (srw_ss()) []);
+
+(* terms used by the Lib file *)
+
+val translator_terms = save_thm("translator_terms",
+  pack_list (pack_pair pack_string pack_term)
+    [("find_recfun",``find_recfun name (funs:('a,'b # 'c) alist)``),
+     ("eq type",``EqualityType (a:'a->v->bool)``),
+     ("lookup_cons",``lookup_cons s e = SOME x``),
+     ("lookup_var_id",``lookup_var_id s e = SOME (x:v)``),
+     ("eq remove",``!b x. Eq b x = (b:'a->v->bool)``),
+     ("map pat",``MAP (f:'a->'b)``),
+     ("filter pat",``FILTER (f:'a->bool)``),
+     ("every pat",``EVERY (f:'a->bool)``),
+     ("exists pat",``EXISTS (f:'a->bool)``),
+     ("n = 0",``(n = (0:num))``),
+     ("0 = n",``(0 = (n:num))``),
+     ("bind",``(Con(SOME(Short"Bind")) [])``),
+     ("eq arrow",``Eq (a:'a->v->bool) x --> (b:'b->v->bool)``),
+     ("arrow eq",``Arrow (Eq a (x:'a)) (b:'b->v->bool)``),
+     ("precond = T",``!b. PRECONDITION b = T``),
+     ("WF",``WF:('a -> 'a -> bool) -> bool``),
+     ("COND",``COND:bool -> 'a -> 'a -> 'a``),
+     ("not eq",``~(x = y:'a)``),
+     ("lookup_cons eq",``lookup_cons n env = x``),
+     ("Eval Var",``Eval env (Var n) (a (y:'a))``),
+     ("PMATCH_ROW",``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``),
+     ("PMATCH_ROW_T",``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``),
+     ("PMATCH",``PMATCH x (l :('a -> 'b option) list)``),
+     ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
+     ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
+     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``)]);
 
 val _ = export_theory();

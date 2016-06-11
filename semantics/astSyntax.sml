@@ -30,9 +30,11 @@ structure astSyntax = struct
   val (Tvar_tm,mk_Tvar,dest_Tvar,is_Tvar) = s "Tvar"
   val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
+  val (Plit_tm,mk_Plit,dest_Plit,is_Plit) = s "Plit"
   val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise"
   val (TC_name_tm,mk_TC_name,dest_TC_name,is_TC_name) = s "TC_name"
   val (Tdec_tm,mk_Tdec,dest_Tdec,is_Tdec) = s "Tdec"
+  val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
   val (Long_tm,mk_Long,dest_Long,is_Long) = s "Long"

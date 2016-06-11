@@ -1,7 +1,7 @@
 structure ml_translatorSyntax :> ml_translatorSyntax =
 struct
 
-open HolKernel boolLib ml_translatorTheory;
+open HolKernel boolLib ml_translatorTheory semanticPrimitivesSyntax;
 
 val ERR = Feedback.mk_HOL_ERR "ml_translatorSyntax";
 
@@ -40,7 +40,22 @@ fun dest_vector_type ty =
 val is_vector_type = can dest_vector_type;
 
 val (Eval,mk_Eval,dest_Eval,is_Eval) = HolKernel.syntax_fns3 "ml_translator" "Eval";
-val (Eq,mk_Eq,dest_Eq,is_Eq) = HolKernel.syntax_fns4 "ml_translator" "Eq";
-val (Arrow,mk_Arrow,dest_Arrow,is_Arrow) = HolKernel.syntax_fns4 "ml_translator" "Arrow";
+
+fun mk_Eq(t1,t2) = let
+  val (Eq,mk_Eq4,_,_) = HolKernel.syntax_fns4 "ml_translator" "Eq";
+  val v1 = mk_var("v1",type_of t2)
+  val v2 = mk_var("v2",v_ty)
+  in mk_Eq4(t1,t2,v1,v2) |> rator |> rator end
+
+fun mk_Arrow(t1,t2) = let
+  val (Arrow,mk_Arrow4,dest_Arrow4,is_Arrow) =
+    HolKernel.syntax_fns4 "ml_translator" "Arrow";
+  val a = t1 |> type_of |> dest_type |> snd |> hd
+  val b = t2 |> type_of |> dest_type |> snd |> hd
+  val v1 = mk_var("v1",mk_type("fun",[a,b]))
+  val v2 = mk_var("v1",v_ty)
+  in mk_Arrow4(t1,t2,v1,v2) |> rator |> rator end
+
+val (write,mk_write,dest_write,is_write) = HolKernel.syntax_fns3 "ml_prog" "write";
 
 end

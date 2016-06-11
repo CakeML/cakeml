@@ -26,10 +26,7 @@ sig
   val dest_TAG : term -> term * term
   val is_TAG   : term -> bool
 
-  val mk_Eq   : term * term * term * term -> term
-  val dest_Eq : term -> term * term * term * term
-  val is_Eq   : term -> bool
-  val Eq      : term
+  val mk_Eq   : term * term -> term
 
   val mk_PreImp   : term * term -> term
   val dest_PreImp : term -> term * term
@@ -59,8 +56,11 @@ sig
   val dest_LIST_TYPE : term -> term * term * term
   val is_LIST_TYPE   : term -> bool
 
-  val mk_Arrow   : term * term * term * term -> term
-  val dest_Arrow : term -> term * term * term * term
-  val is_Arrow   : term -> bool
-  val Arrow      : term
+  val mk_Arrow   : term * term -> term
+
+  val dest_write : term -> term * term * term
+  val is_write   : term -> bool
+  val mk_write   : term * term * term -> term
+  val write      : term
+
 end
