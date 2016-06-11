@@ -693,6 +693,26 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         metis_tac[])>>
       full_simp_tac(srw_ss())[])
     >-
+      (fs[get_vars_perm]>>
+      Cases_on`get_vars [n0;n1;n2] st`>>fs[]>>
+      imp_res_tac strong_locals_rel_get_vars>>fs[]>>
+      pop_assum kall_tac>> pop_assum mp_tac>>
+      impl_tac>-
+        metis_tac[]>>
+      fs[]>>
+      `∀n'. n' ∈ domain live ⇒
+       (n' ≠ n2 ⇒ f n' ≠ f n2) ∧
+       (n' ≠ n ⇒ f n' ≠ f n)` by
+        (qpat_assum`INJ f A B` mp_tac>>
+        rpt (pop_assum kall_tac)>>rw[]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,get_writes_def,get_writes_inst_def,domain_insert,IN_UNION]>>
+        metis_tac[IN_INSERT])>>
+      every_case_tac>>fs[set_var_def,strong_locals_rel_def,lookup_insert]>>
+      rw[]>>
+      pop_assum mp_tac>>
+      ntac 2 IF_CASES_TAC>>fs[]>>
+      metis_tac[])
+    >-
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
       impl_tac>-
@@ -1410,25 +1430,19 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
     >>
       qexists_tac`s1`>>full_simp_tac(srw_ss())[Abbr`s1`,domain_numset_list_insert,domain_union])
   >-
-    (Cases_on`i`>>fs1>>full_simp_tac(srw_ss())[get_writes_inst_def]
+    (Cases_on`i`>>fs1>>full_simp_tac(srw_ss())[get_writes_inst_def]>>
+    `∀P A B. P A ∨ P B ⇒ (?y:num_set. (y = A ∨ y = B) ∧ P y)` by metis_tac[]
     >-
-      (srw_tac[][]>>qexists_tac`union (insert n () LN) live`>>full_simp_tac(srw_ss())[domain_union])
+      (srw_tac[][]>>
+      first_x_assum ho_match_mp_tac>>fs[domain_union])
     >-
       (Cases_on`a`>>fs1>>full_simp_tac(srw_ss())[get_writes_inst_def]>>
       EVERY_CASE_TAC>>srw_tac[][]>>
       full_simp_tac(srw_ss())[every_var_imm_def,in_clash_sets_def]>>
-      TRY(qexists_tac`union (insert n () LN) live`>>full_simp_tac(srw_ss())[domain_union]>>
-          NO_TAC)>>
-      TRY(qexists_tac`insert n0 () (insert n' () (delete n live))`>>full_simp_tac(srw_ss())[]>>
-          NO_TAC)>>
-      qexists_tac`insert n0 () (delete n live)`>>full_simp_tac(srw_ss())[])
+      first_x_assum ho_match_mp_tac>> fs[domain_union])
     >>
       Cases_on`m`>>Cases_on`a`>>fs1>>full_simp_tac(srw_ss())[get_writes_inst_def]>>srw_tac[][]>>
-      TRY(qexists_tac`union (insert n () LN) live`>>full_simp_tac(srw_ss())[domain_union]>>
-          NO_TAC)>>
-      TRY(qexists_tac`insert n' () (delete n live)`>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-      TRY(qexists_tac`insert n' () (insert n () live)`>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-      HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])
+      first_x_assum ho_match_mp_tac>> fs[domain_union])
   >-
     (srw_tac[][]>>
     TRY(qexists_tac`union (insert n () LN) live`>>full_simp_tac(srw_ss())[domain_union])>>
@@ -1764,6 +1778,7 @@ val subset_tac =
   HINT_EXISTS_TAC>>fs[domain_numset_list_insert_eq_union,SUBSET_DEF]>>
   simp[domain_union]
 
+(* TODO: Fixed up to here *)
 val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
   ∀prog f live flive livein flivein.
   wf_cutsets prog ∧
@@ -1816,6 +1831,16 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
         fs[INJ_IMP_IMAGE_DIFF_single])
       >>
       fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
+    >-
+      start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF_single])
+      >>
+      insert_insert
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]
+        CON
+        subset_tac
     >>
       Cases_on`m`>>fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_inst_def]>>
       start_tac>>

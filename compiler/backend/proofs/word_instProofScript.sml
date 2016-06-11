@@ -892,7 +892,7 @@ val three_to_two_reg_wf_cutsets = store_thm("three_to_two_reg_wf_cutsets",
 val three_to_two_reg_pre_alloc_conventions = store_thm("three_to_two_reg_pre_alloc_conventions",
   ``∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)``,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def]>>
+  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>
@@ -910,8 +910,10 @@ val three_to_two_reg_full_inst_ok_less = store_thm("three_to_two_reg_full_inst_o
   full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
   >-
     (Cases_on`bop`>>Cases_on`ri`>>fs[full_inst_ok_less_def,inst_ok_less_def,every_inst_def])
+  >-
+    (Cases_on`n`>>fs[inst_ok_less_def])
   >>
-    Cases_on`n`>>fs[inst_ok_less_def])
+    metis_tac[inst_ok_less_def])
 
 (* label preservation stuff *)
 val inst_select_exp_no_lab = prove(``

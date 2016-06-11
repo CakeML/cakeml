@@ -2288,8 +2288,13 @@ val wf_cutsets_def = Define`
      wf_cutsets e3)) ∧
   (wf_cutsets _ = T)`
 
+val inst_arg_convention_def = Define`
+  (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention _ = T)`
+
 (* Syntactic conventions for allocator *)
 val call_arg_convention_def = Define`
+  (call_arg_convention (Inst i) = inst_arg_convention i) ∧
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (FFI x ptr len args) = (ptr = 2 ∧ len = 4)) ∧
