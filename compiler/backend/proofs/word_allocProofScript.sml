@@ -5687,9 +5687,11 @@ val ssa_cc_trans_full_inst_ok_less = prove(``
     LET_ELIM_TAC>>
     unabbrev_all_tac>>full_simp_tac(srw_ss())[full_inst_ok_less_def]>>
     full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
-    rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-    fs[next_var_rename_def]>>
-    `is_alloc_var (n'+4) ∧ ssa_map_ok (n'+4) (insert ret n' ssa'')` by cheat
+    rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
+    `is_alloc_var (n'+4) ∧ ssa_map_ok (n'+4) (insert ret n' ssa'')` by
+      (rw[]>>fs[is_alloc_var_add]>>
+      match_mp_tac ssa_map_ok_extend>>
+      metis_tac[convention_partitions])
     >-
       (first_assum match_mp_tac>>rpt var_eq_tac>>
       rw[]>>

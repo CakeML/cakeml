@@ -4202,6 +4202,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
    inst i s = SOME s' ∧
    every_var_inst is_phy_var i ∧
    max_var_inst i < 2 * f' + 2 * k ∧
+   inst_arg_convention i ∧
    state_rel k f f' s t lens
   ⇒
    ∃t'.
@@ -4221,7 +4222,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def] )
   >- (
     reverse BasicProvers.FULL_CASE_TAC
-    \\ fs[wordLangTheory.every_var_inst_def,word_allocTheory.max_var_inst_def]
+    \\ fs[wordLangTheory.every_var_inst_def,word_allocTheory.max_var_inst_def,inst_arg_convention_def]
+    >-
+      cheat
     >- (
       fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
       \\ simp[wInst_def,TWOxDIV2]
