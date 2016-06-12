@@ -328,21 +328,6 @@ val known_changed_globals = Q.store_thm(
       Cases_on `lookup i g = lookup i g1` >> fs[])
   >- simp[Once foldr_bu'])
 
-val subspt_def = Define`
-  subspt sp1 sp2 ⇔
-    ∀k. k ∈ domain sp1 ⇒ k ∈ domain sp2 ∧ lookup k sp2 = lookup k sp1
-`;
-
-val subspt_refl = Q.store_thm(
-  "subspt_refl[simp]",
-  `subspt sp sp`,
-  simp[subspt_def])
-
-val subspt_trans = Q.store_thm(
-  "subspt_trans",
-  `subspt sp1 sp2 ∧ subspt sp2 sp3 ⇒ subspt sp1 sp3`,
-  metis_tac[subspt_def]);
-
 val subspt_better_definedg = Q.store_thm(
   "subspt_better_definedg",
   `subspt sp1 sp3 ∧ better_definedg sp1 sp2 ∧ better_definedg sp2 sp3 ⇒
