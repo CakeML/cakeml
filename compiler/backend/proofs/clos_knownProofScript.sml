@@ -1909,6 +1909,34 @@ val ksrel_subspt = Q.store_thm(
   >- (irule fmap_rel_mono >> qexists_tac `ref_rel (kvrel g)` >> simp[] >>
       Cases >> simp[PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_subspt]));
 
+val vsgc_free_Full_app_set_globals = Q.store_thm(
+  "vsgc_free_Full_app_set_globals",
+  `∀fval lopt args fe env args'.
+     vsgc_free fval ∧ EVERY vsgc_free args ∧
+     dest_closure lopt fval args = SOME (Full_app fe env args')
+   ⇒
+     set_globals fe = {||} ∧ EVERY vsgc_free env`,
+  simp[dest_closure_def, v_case_eq, bool_case_eq] >> rpt strip_tac >> fs[]
+  >- (rveq >> simp[EVERY_REVERSE, EVERY_TAKE])
+  >- (pairarg_tac >> fs[bool_case_eq] >> rveq >>
+      fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD,
+         NOT_LESS_EQUAL] >>
+      metis_tac[MEM_EL])
+  >- (pairarg_tac >> fs[bool_case_eq] >>
+      simp[EVERY_REVERSE, EVERY_TAKE, EVERY_GENLIST]))
+
+val known_emptySetGlobals_unchanged_g = Q.store_thm(
+  "known_emptySetGlobals_unchanged_g",
+  `∀es as g0 alist g.
+     known es as g0 = (alist, g) ∧ elist_globals es = {||} ⇒
+     g = g0`,
+  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
+  rveq >> fs[]
+  >- (qcase_tac `known_op opn` >> Cases_on `opn` >>
+      fs[known_op_def, eqs, op_gbag_def, va_case_eq, bool_case_eq]) >>
+  fs[Once foldr_bu']);
+
 val krrel_better_subspt = Q.store_thm(
   "krrel_better_subspt",
   `krrel g (res1,s1) (res2,s2) ∧ subspt g g' ⇒ krrel g' (res1,s1) (res2,s2)`,
@@ -1929,7 +1957,7 @@ val known_correct0 = Q.prove(
    (∀lopt1 f1 args1 (s01:α closSem$state) res1 s1 lopt2 f2 args2 s02 g.
       evaluate_app lopt1 f1 args1 s01 = (res1,s1) ∧ ssgc_free s01 ∧
       kvrel g f1 f2 ∧ LIST_REL (kvrel g) args1 args2 ∧
-      ksrel g s01 s02 ∧ state_globals_approx s01 g ∧
+      ksrel g s01 s02 ∧ state_globals_approx s01 g ∧ vsgc_free f1 ∧
       EVERY vsgc_free args1 ∧ loptrel f2 (LENGTH args1) lopt1 lopt2 ⇒
       ∃res2 s2.
         evaluate_app lopt2 f2 args2 s02 = (res2,s2) ∧
@@ -2159,10 +2187,13 @@ val known_correct0 = Q.prove(
           first_x_assum (resolve_selected hd) >> simp[] >>
           rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
           `state_globals_approx s21 gg`
-            by (patresolve `known [_] _ _ = _` hd (GEN_ALL kca_sing_sga) >>
+            by (patresolve `known [_] _ _ = _` hd known_correct_approx >>
                 simp[] >> disch_then (resolve_selected last) >> simp[] >>
                 metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
                           kvrel_LIST_REL_val_approx]) >> fs[] >>
+          `vsgc_free v1`
+            by (patresolve `closSem$evaluate ([_],_,_) = (Rval [v1],_)` last
+                           ssgc_evaluate >> simp[]) >> fs[] >>
           reverse (Cases_on `loption1`) >> simp[]
           >- (first_x_assum irule >> simp[loptrel_def]) >>
           qcase_tac `dest_Clos fapprox` >> Cases_on `dest_Clos fapprox` >>
@@ -2287,7 +2318,38 @@ val known_correct0 = Q.prove(
             `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
           rpt disj1_tac >>
           first_x_assum (patresolve `known [exp1] _ _ = _` last) >> simp[] >>
-          cheat)
+          map_every qcase_tac [
+            `evaluate([exp1],env1,
+                      dec_clock (SUC (LENGTH iargs1) - LENGTH args2) s01)`,
+            `LIST_REL (kvrel gg) env1 env2`] >>
+          disch_then (qspecl_then [
+             `env2`,
+             `dec_clock (SUC (LENGTH iargs1) - LENGTH args2) s02`,
+             `gg`] mp_tac) >> simp[] >>
+          `set_globals exp1 = {||} ∧ EVERY vsgc_free env1 ∧ esgc_free exp1`
+            by metis_tac[vsgc_free_Full_app_set_globals, EVERY_DEF,
+                         set_globals_empty_esgc_free] >> simp[] >>
+          qspec_then `[exp1]` mp_tac known_emptySetGlobals_unchanged_g >>
+          disch_then (resolve_selected hd) >> simp[] >>
+          disch_then SUBST_ALL_TAC >>
+          qcase_tac `LIST_REL val_approx_val envapx env1` >>
+          `LIST_REL val_approx_val envapx env1`
+            by metis_tac[kvrel_LIST_REL_val_approx] >>
+          impl_tac >- (simp[] >> fs[ksrel_def, dec_clock_def]) >> rw[] >>
+          simp[] >> first_x_assum irule >> simp[]
+          >- metis_tac[ssgc_free_preserved_SING', ssgc_free_dec_clock]
+          >- (patresolve `evaluate([exp1],_,_) = _` last ssgc_evaluate >>
+              simp[])
+          >- cheat
+          >- (patresolve `known [exp1] _ _ = _` hd known_correct_approx >>
+              simp[] >> disch_then (resolve_selected last) >> simp[] >>
+              metis_tac[ksrel_sga, ksrel_ssgc_free, kvrel_EVERY_vsgc_free])
+          >- (fs[loptrel_def] >> qcase_tac `lopt2 = NONE` >>
+              Cases_on `lopt2` >> fs[] >>
+              Q.MATCH_ASMSUB_RENAME_TAC `v_CASE f2` >> Cases_on `f2` >> fs[]
+              >- (qcase_tac `option_CASE locopt` >> Cases_on `locopt` >>
+                  fs[] >> rveq >> fs[dest_closure_def] >> cheat)
+              >- cheat))
       >- (imp_res_tac evaluate_SING >> fs[])
       >- cheat))
 
