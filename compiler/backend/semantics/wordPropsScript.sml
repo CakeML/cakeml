@@ -2219,8 +2219,7 @@ val distinct_tar_reg_def = Define`
   (distinct_tar_reg  (Arith (Shift l r1 r2 n))
     ⇔ r1 ≠ r2) ∧
   (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
-    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4 ∧
-      r4 ≠ r2 ∧ r4 ≠ r3) ∧
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg _ ⇔ T)`
 
 (*Instructions are 2 register code for arith ok*)
