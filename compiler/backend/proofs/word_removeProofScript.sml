@@ -61,7 +61,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
     EVERY_CASE_TAC>>
     full_simp_tac(srw_ss())[set_vars_def,state_component_equality]>>rev_full_simp_tac(srw_ss())[])
   >-
-    (Cases_on`i`>>full_simp_tac(srw_ss())[inst_def,state_component_equality,assign_def,GSYM word_exp_termdep_code_frame,get_var_def]>>
+    (Cases_on`i`>>full_simp_tac(srw_ss())[inst_def,state_component_equality,assign_def,GSYM word_exp_termdep_code_frame,get_var_def,GSYM get_vars_termdep_code_frame,LET_THM]>>
     rpt(TOP_CASE_TAC>>full_simp_tac(srw_ss())[set_var_def,state_component_equality,mem_load_def,get_var_def,mem_store_def]))
   >- tac
   >- tac
