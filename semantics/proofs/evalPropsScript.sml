@@ -767,6 +767,7 @@ val FV_def = tDefine "FV"`
   (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
   (FV (Let xo e b) = FV e ∪ (FV b DIFF (case xo of NONE => {} | SOME x => {Short x}))) ∧
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
+  (FV (Tannot e t) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧

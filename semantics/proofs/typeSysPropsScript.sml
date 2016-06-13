@@ -1068,13 +1068,11 @@ val type_p_subst = Q.store_thm ("type_p_subst",
      >- metis_tac [check_freevars_lem, EVERY_MEM]
      >- metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup])
  >- metis_tac []
- >- (
-   conj_asm1_tac
-   >- (
-     match_mp_tac (GSYM nil_deBruijn_subst) >>
-     `inc ≥ 0` by decide_tac >>
-     metis_tac [check_freevars_add]) >>
-   metis_tac [])
+ >- (conj_asm1_tac
+     >- (match_mp_tac (GSYM nil_deBruijn_subst) >>
+         `! n:num . n ≥ 0` by decide_tac >>
+         metis_tac [check_freevars_add]) >>
+     metis_tac [])
  >- metis_tac []);
 
 val type_p_bvl = Q.store_thm ("type_p_bvl",
@@ -1445,8 +1443,15 @@ val type_e_subst = Q.store_thm ("type_e_subst",
         srw_tac[][num_tvs_bind_var_list, deBruijn_subst_E_bind_var_list, db_merge_bind_var_list] >>
         pop_assum match_mp_tac >>
         metis_tac [tenv_ok_bind_var_list_funs]))
- >- cheat
- >- cheat
+ >- (match_mp_tac (GSYM nil_deBruijn_subst) >>
+     `! n:num . n ≥ 0` by decide_tac >>
+     metis_tac [check_freevars_add])
+ >- (* This goal follows immediately from the previous one, how to just use it? *)
+    (`t = deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t`
+     by (match_mp_tac (GSYM nil_deBruijn_subst) >>
+         `! n:num . n ≥ 0` by decide_tac >>
+         metis_tac [check_freevars_add]) >>
+     metis_tac [])
  >- (full_simp_tac(srw_ss())[check_freevars_def] >>
      metis_tac [check_freevars_lem])
  >- (full_simp_tac(srw_ss())[check_freevars_def] >>
@@ -2555,6 +2560,8 @@ val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
      metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                 arithmeticTheory.GREATER_EQ])
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
+ >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
+ >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]);
 
 (* ---------- type_d ---------- *)
@@ -3156,6 +3163,7 @@ val type_e_closed = prove(
     srw_tac[][] >>
     full_simp_tac(srw_ss())[EXTENSION] >>
     metis_tac []) >>
+  strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   simp[] >>
