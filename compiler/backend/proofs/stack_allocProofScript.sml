@@ -5,6 +5,7 @@ open preamble
      stackPropsTheory
      bvp_to_wordPropsTheory
      bvp_to_wordProofTheory
+     local open blastLib in end
 
      (* TODO: the bvp_to_word* are possibly only for lemmas that should be moved anyway *)
 
@@ -1682,13 +1683,13 @@ val comp_correct = Q.store_thm("comp_correct",
       every_case_tac \\ fs[] \\ rw[]
       \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
       \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ rw[] \\ fs[word_exp_def]
+      \\ rw[] \\ fs[word_exp_def,get_vars_def,get_var_def]
       \\ every_case_tac \\ fs[]
       \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
       \\ fs[state_component_equality]
       \\ match_mp_tac SUBMAP_mono_FUPDATE
       \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
+      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB,SUBMAP_mono_FUPDATE,SUBMAP_DOMSUB_gen] )
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
