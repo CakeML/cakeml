@@ -189,11 +189,12 @@ val inst_correct = Q.store_thm("inst_correct",
   simp[inst_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   srw_tac[][assign_def,word_exp_def] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM] >>
+  full_simp_tac(srw_ss())[LET_THM,get_vars_def,get_var_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac state_rel_read_reg_FLOOKUP_regs >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+  imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
   imp_res_tac word_sh_word_shift >>
   full_simp_tac(srw_ss())[wordLangTheory.num_exp_def,wordLangTheory.word_op_def] >> srw_tac[][] >>
+  imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
   TRY ( full_simp_tac(srw_ss())[binop_upd_def] >> match_mp_tac set_var_upd_reg >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
   TRY ( Cases_on`b`>>full_simp_tac(srw_ss())[binop_upd_def] >> NO_TAC) >>
   TRY (
@@ -201,8 +202,10 @@ val inst_correct = Q.store_thm("inst_correct",
     full_simp_tac(srw_ss())[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>
     full_simp_tac(srw_ss())[word_exp_def,LET_DEF] \\ every_case_tac \\ full_simp_tac(srw_ss())[]>>
     res_tac \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] >>
-    qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+    TRY ( qpat_assum`Loc _ _ = read_reg _ _`(assume_tac o SYM) ) >>
+    TRY(qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[]) >>
     `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
     qmatch_assum_rename_tac`c1 + c2 ∈ s1.mdomain` >>
     `w2n (c1 + c2) MOD (dimindex (:'a) DIV 8) = 0` by metis_tac [state_rel_def] >>
     full_simp_tac(srw_ss())[] \\ match_mp_tac set_var_upd_reg \\ full_simp_tac(srw_ss())[]) >>
@@ -212,9 +215,11 @@ val inst_correct = Q.store_thm("inst_correct",
     every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
     res_tac >>
-    qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+    TRY ( qpat_assum`Loc _ _ = read_reg _ _`(assume_tac o SYM) ) >>
+    TRY(qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[]) >>
     `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[labSemTheory.mem_store_def,labSemTheory.addr_def] >>
+    imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
     qmatch_assum_abbrev_tac`mem_store cc _ _ = _` >>
     `cc ∈ s1.mdomain` by full_simp_tac(srw_ss())[stackSemTheory.mem_store_def] >>
     first_assum(fn th => first_assum(
@@ -244,6 +249,7 @@ val inst_correct = Q.store_thm("inst_correct",
     \\ simp[wordSemTheory.mem_store_byte_aux_def]
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac
+    \\ TRY (qpat_assum`Word _ = read_reg _ _`(assume_tac o SYM)\\ fs[])
     \\ rveq
     \\ fs[GSYM upd_mem_def]
     \\ match_mp_tac (GEN_ALL mem_store_upd_mem)
