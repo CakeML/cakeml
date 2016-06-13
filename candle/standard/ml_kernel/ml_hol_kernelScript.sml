@@ -4,7 +4,7 @@ val _ = new_theory "ml_hol_kernel";
 
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
-open ml_translatorTheory ml_translatorLib;
+open ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 
@@ -146,7 +146,7 @@ fun derive_case_of ty = let
         \\ FULL_SIMP_TAC std_ss [] \\ ASM_SIMP_TAC (srw_ss()) []
         \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
         \\ DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`res`,`s`] \\ STRIP_TAC
-        THEN1 (IMP_RES_TAC evaluate_empty_state_IMP \\ FULL_SIMP_TAC std_ss [])
+        THEN1 (match_mp_tac (MP_CANON evaluate_empty_state_IMP) \\ fs [])
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
         \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
               lookup_alist_mod_env_def,lookup_cons_def,same_tid_def,id_to_n_def,
@@ -586,15 +586,15 @@ fun m2deep tm =
   (* data-type pattern-matching *)
   inst_case_thm tm m2deep handle HOL_ERR _ =>
   (* previously translated term *)
-  if can lookup_cert tm then let
-    val th = lookup_cert tm
+  if can lookup_v_thm tm then let
+    val th = lookup_v_thm tm
     val inv = smart_get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
     val (ss,ii) = match_term (th |> concl |> rand) target
     val result = INST ss (INST_TYPE ii th)
                  |> MATCH_MP Eval_IMP_PURE
                  |> REWRITE_RULE [GSYM ArrowM_def]
-    in check_inv "lookup_cert" tm result end else
+    in check_inv "lookup_v_thm" tm result end else
   (* if *)
   if can (match_term ``if b then x:'a M else y:'a M``) tm then let
     val (t,x1,x2) = dest_cond tm
@@ -607,21 +607,13 @@ fun m2deep tm =
   (* ref: get_the_(...) *)
   if can (first (fn (t,_,_) => t = tm)) read_refs then let
     val (_,t,result) = first (fn (t,_,_) => t = tm) read_refs
-    val th = get_cert (t |> dest_const |> fst) |> fst |> SPEC_ALL |> UNDISCH_ALL
-    val th = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Var_SWAP_ENV)
-                      (th |> Q.INST [`env`|->`shaddow_env`]) |> UNDISCH_ALL
-             handle HOL_ERR _ => th
-    val result = MATCH_MP result th
+    val result = result |> UNDISCH_ALL
     in check_inv "get" tm result end else
   (* ref: set_the_(...) *)
   if can (first (fn (t,_,_) => can (match_term t) tm)) write_refs then let
     val (_,t,result) = (first (fn (t,_,_) => can (match_term t) tm)) write_refs
-    val th = get_cert (t |> dest_const |> fst) |> fst |> SPEC_ALL |> UNDISCH_ALL
-    val th = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Var_SWAP_ENV)
-                      (th |> Q.INST [`env`|->`shaddow_env`]) |> UNDISCH_ALL
-             handle HOL_ERR _ => th
-    val result = MATCH_MP result th
-    val result = MATCH_MP result (hol2deep (tm |> rand))
+    val th = result |> UNDISCH
+    val result = MATCH_MP th (hol2deep (tm |> rand))
     in check_inv "set" tm result end else
   (* recursive pattern *)
   if can match_rec_pattern tm then let
@@ -671,7 +663,10 @@ val res = (get_m_type_inv (type_of tm))
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
 
-val def = assoc_def;
+fun get_curr_prog_state () = let
+  val k = ref init_state
+  val _ = ml_prog_update (fn s => (k := s; s))
+  in !k end
 
 fun m_translate def = let
   val original_def = def
@@ -697,7 +692,7 @@ fun m_translate def = let
   val th = CONV_RULE ((RAND_CONV o RAND_CONV)
              (REWRITE_CONV [CONTAINER_def] THENC ONCE_REWRITE_CONV [GSYM def])) th
   (* abstract parameters *)
-  val th = clean_lookup_cons (D th)
+  val th = clean_assumptions (D th)
   val (th,v) = if no_params then (th,T) else
                  (foldr (fn (v,th) => apply_EvalM_Fun v th true) th
                     (rev (if is_rec then butlast rev_params else rev_params)),
@@ -708,14 +703,6 @@ fun m_translate def = let
   val th = if is_rec then Q.INST [`shaddow_env`|->`cl_env`] th
                      else Q.INST [`shaddow_env`|->`env`] th
   val th = th |> REWRITE_RULE [lookup_cons_write]
-  (* DeclAssumExists *)
-  val decl_assum_ex = let
-    val fs = find_term (can (match_term ``write_rec funs``)) (concl th) |> rand
-    val c = REWRITE_CONV [MAP] THENC EVAL
-    val th = DeclAssumExists_SNOC_Dletrec |> SPEC fs |> SPEC_ALL
-             |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
-    val th = MP th TRUTH
-    in th end handle HOL_ERR _ => DeclAssumExists_SNOC_Dlet_Fun
   (* collect precondition *)
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
                       (SIMP_CONV std_ss [EVAL ``CONTAINER TRUE``,
@@ -763,22 +750,41 @@ fun m_translate def = let
   (* abbreviate code *)
   val th = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
   val th = RW [ArrowM_def] th
-  val th = if is_rec then
-             th |> DISCH (first (can (find_term (fn tm => tm = rator ``Recclosure (ARB:v environment)``))) (hyp th))
-                |> Q.INST [`cl_env`|->`env`,`env`|->`env1`] |> DISCH (get_DeclAssum ())
-                |> Q.GEN `env` |> Q.GEN `env1`
-                |> REWRITE_RULE [AND_IMP_INTRO]
-                |> MATCH_MP M_DeclAssum_Dletrec_INTRO |> Q.SPEC `env` |> UNDISCH_ALL
-           else
-             th |> DISCH (get_DeclAssum ()) |> Q.GEN `env`
-                |> MATCH_MP M_DeclAssum_Dlet_INTRO
-                |> SPEC fname_str |> Q.SPEC `env` |> UNDISCH_ALL
+  val th = if is_rec then let
+      val recc = (first (can (find_term
+                    (fn tm => tm = rator ``Recclosure (ARB:v environment)``)))
+                        (hyp th)) |> rand |> rator |> rand
+      val v_names = map (fn x => find_const_name (x ^ "_v"))
+                      (recc |> listSyntax.dest_list |> fst
+                            |> map (stringSyntax.fromHOLstring o rand o rator))
+      val _ = ml_prog_update (add_Dletrec recc v_names)
+      val s = get_curr_prog_state ()
+      val v_def = hd (get_v_defs s)
+      val cl_env = v_def |> concl |> rand |> rator |> rator |> rand
+      val th = th |> Q.INST [`cl_env`|->`^cl_env`]
+                  |> DISCH_ALL |> REWRITE_RULE [GSYM v_def]
+                  |> clean_assumptions |> DISCH_ALL
+                  |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+      val th = th |> DISCH (first (can (match_term ``LOOKUP_VAR _ _ _``)) (hyp th))
+      val th = MATCH_MP LOOKUP_VAR_EvalM_IMP (Q.GEN `env` th)
+      in th end
+    else let
+      val th = th |> Q.INST [`env`|->`^(get_env (get_curr_prog_state ()))`]
+                  |> D |> clean_assumptions |> UNDISCH_ALL
+      val th = th |> MATCH_MP EvalM_Fun_PURE_IMP
+      val v = th |> concl |> rand |> rator |> rand
+      val e = th |> concl |> rand |> rand
+      val v_name = find_const_name (fname ^ "_v")
+      val _ = ml_prog_update (add_Dlet_Fun fname_str v e v_name)
+      val s = get_curr_prog_state ()
+      val v_def = hd (get_v_defs s)
+      val th = th |> REWRITE_RULE [GSYM v_def]
+      in th end
   val th = RW [GSYM ArrowM_def] th
-  val th = MATCH_MP EvalM_ArrowM_IMP th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-  val th = store_cert th [pre] decl_assum_ex |> Q.SPEC `env` |> UNDISCH_ALL
-  val _ = print_fname fname original_def
+  val _ = add_v_thms (fname,th,pre)
+  val th = save_thm(fname ^ "_v_thm",th)
   in th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "
     val _ = print_term tm
@@ -999,7 +1005,6 @@ val def = PROVE_HYP_def |> m_translate
 val def = list_to_hypset_def |> translate
 val def = ALPHA_THM_def |> m_translate
 
-val kernel_thm = finalise_module_translation ();
-val _ = save_thm("kernel_thm", Q.SPEC `NONE` kernel_thm);
+val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)
 
 val _ = export_theory();

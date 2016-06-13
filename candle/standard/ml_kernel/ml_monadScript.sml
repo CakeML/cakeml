@@ -311,7 +311,7 @@ val TERM_TYPE_EXISTS = prove(
   \\ fs [fetch "-" "TERM_TYPE_def",STRING_TYPE_def]
   \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []);
 
-val HOL_STORE_EXISTS = prove(
+val HOL_STORE_EXISTS = store_thm("HOL_STORE_EXISTS",
   ``?(s:unit state) refs. HOL_STORE s.refs refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
   \\ Q.EXISTS_TAC `<| refs :=
@@ -325,6 +325,21 @@ val HOL_STORE_EXISTS = prove(
                       the_context        := [] ;
                       the_axioms         := [] |>`
   \\ FULL_SIMP_TAC (srw_ss()) [LIST_TYPE_def]);
+
+val LOOKUP_VAR_EvalM_IMP = store_thm("LOOKUP_VAR_EvalM_IMP",
+  ``(!env. LOOKUP_VAR n env v ==> EvalM env (Var (Short n)) (PURE P g)) ==>
+    P g v``,
+  fs [LOOKUP_VAR_def,lookup_var_def,EvalM_def,PURE_def,AND_IMP_INTRO,
+      Once evaluate_cases,PULL_EXISTS,lookup_var_id_def,PULL_FORALL]
+  \\ rw [] \\ pop_assum match_mp_tac
+  \\ qexists_tac `<|v := [n,v]|>` \\ fs []
+  \\ metis_tac [HOL_STORE_EXISTS]);
+
+val EvalM_Fun_PURE_IMP = store_thm("EvalM_Fun_PURE_IMP",
+  ``EvalM env (Fun n exp) (PURE P f) ==>
+    P f (Closure env n exp)``,
+  fs [EvalM_def,PURE_def,PULL_EXISTS,evaluate_Fun]
+  \\ rw [] \\ pop_assum match_mp_tac \\ metis_tac [HOL_STORE_EXISTS])
 
 val EvalM_ArrowM_IMP = store_thm("EvalM_ArrowM_IMP",
   ``EvalM env (Var x) ((a -M-> b) f) ==>

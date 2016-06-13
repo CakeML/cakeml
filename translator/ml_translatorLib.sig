@@ -76,4 +76,8 @@ sig
     val pmatch_preprocess_conv   : term -> thm
     exception UnableToTranslate of term
 
+    val find_const_name : string -> string
+    val add_v_thms : string * thm * thm -> unit
+    val lookup_v_thm : term -> thm
+
 end
