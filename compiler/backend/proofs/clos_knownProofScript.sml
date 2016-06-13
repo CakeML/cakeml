@@ -1900,15 +1900,18 @@ val vsgc_free_Full_app_set_globals = Q.store_thm(
      vsgc_free fval ∧ EVERY vsgc_free args ∧
      dest_closure lopt fval args = SOME (Full_app fe env args')
    ⇒
-     set_globals fe = {||} ∧ EVERY vsgc_free env`,
+     set_globals fe = {||} ∧ EVERY vsgc_free env ∧ EVERY vsgc_free args'`,
   simp[dest_closure_def, v_case_eq, bool_case_eq] >> rpt strip_tac >> fs[]
   >- (rveq >> simp[EVERY_REVERSE, EVERY_TAKE])
+  >- (rveq >> simp[EVERY_REVERSE, EVERY_DROP])
   >- (pairarg_tac >> fs[bool_case_eq] >> rveq >>
       fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD,
          NOT_LESS_EQUAL] >>
       metis_tac[MEM_EL])
   >- (pairarg_tac >> fs[bool_case_eq] >>
-      simp[EVERY_REVERSE, EVERY_TAKE, EVERY_GENLIST]))
+      simp[EVERY_REVERSE, EVERY_TAKE, EVERY_GENLIST])
+  >- (pairarg_tac >> fs[bool_case_eq] >>
+      simp[EVERY_REVERSE, EVERY_DROP, EVERY_GENLIST]))
 
 val known_emptySetGlobals_unchanged_g = Q.store_thm(
   "known_emptySetGlobals_unchanged_g",
@@ -1927,6 +1930,42 @@ val krrel_better_subspt = Q.store_thm(
   `krrel g (res1,s1) (res2,s2) ∧ subspt g g' ⇒ krrel g' (res1,s1) (res2,s2)`,
   Cases_on `res1` >> simp[krrel_err_rw] >>
   metis_tac[kvrel_LIST_REL_subspt, ksrel_subspt, kvrel_subspt]);
+
+val dest_closure_SOME_Full_app_args_nil = Q.store_thm(
+  "dest_closure_SOME_Full_app_args_nil",
+  `dest_closure (SOME loc) f args = SOME (Full_app exp1 env args1) ⇒
+   args1 = []`,
+  simp[dest_closure_def, eqs, bool_case_eq, revtakerev] >> strip_tac >> rveq
+  >- (fs[check_loc_def] >> simp[DROP_LENGTH_NIL_rwt]) >>
+  pairarg_tac >> fs[bool_case_eq] >> rveq >> fs[check_loc_def] >> rveq >>
+  simp[DROP_LENGTH_NIL_rwt]);
+
+val eqtI_thm = EQ_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 2 |> GSYM
+
+val v_caseT = v_case_eq |> INST_TYPE [alpha |-> bool] |> Q.INST [`v` |-> `T`]
+                        |> REWRITE_RULE []
+val optcaset = ``option$option_CASE``
+val opt_caseT = eqs |> CONJUNCTS
+                    |> List.find (fn th => th |> concl |> lhs |> lhs
+                                              |> strip_comb
+                                              |> #1 |> same_const optcaset)
+                    |> valOf
+                    |> INST_TYPE [beta |-> bool]
+                    |> Q.INST [`v'` |-> `T`]
+                    |> SIMP_RULE (srw_ss()) []
+
+
+val loptrel_arg1_SOME = save_thm(
+  "loptrel_arg1_SOME",
+  loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `SOME loc1`]
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+
+val loptrel_arg1_NONE = save_thm(
+  "loptrel_arg1_NONE",
+  loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `NONE`]
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+
+
 
 val known_correct0 = Q.prove(
   `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g g' as ealist.
@@ -2299,6 +2338,8 @@ val known_correct0 = Q.prove(
           imp_res_tac LIST_REL_LENGTH >> fs[] >> simp[PULL_EXISTS] >>
           dsimp[] >> fs[PULL_EXISTS] >>
           map_every qcase_tac [
+            `dest_closure lopt1 f1 (iarg1 :: iargs) =
+               SOME (Full_app exp1 env1 args1)`,
             `evaluate([exp1],env1,dec_clock _ s01) = (Rval [v1], s11)`,
             `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
           rpt disj1_tac >>
@@ -2311,7 +2352,8 @@ val known_correct0 = Q.prove(
              `env2`,
              `dec_clock (SUC (LENGTH iargs1) - LENGTH args2) s02`,
              `gg`] mp_tac) >> simp[] >>
-          `set_globals exp1 = {||} ∧ EVERY vsgc_free env1 ∧ esgc_free exp1`
+          `set_globals exp1 = {||} ∧ EVERY vsgc_free env1 ∧
+           EVERY vsgc_free args1 ∧ esgc_free exp1`
             by metis_tac[vsgc_free_Full_app_set_globals, EVERY_DEF,
                          set_globals_empty_esgc_free] >> simp[] >>
           qspec_then `[exp1]` mp_tac known_emptySetGlobals_unchanged_g >>
@@ -2321,20 +2363,26 @@ val known_correct0 = Q.prove(
           `LIST_REL val_approx_val envapx env1`
             by metis_tac[kvrel_LIST_REL_val_approx] >>
           impl_tac >- (simp[] >> fs[ksrel_def, dec_clock_def]) >> rw[] >>
-          simp[] >> first_x_assum irule >> simp[]
+          simp[] >>
+          qcase_tac `loptrel f2 _ lopt1 lopt2` >>
+          reverse (Cases_on `lopt1`)
+          >- (fs[loptrel_arg1_SOME] >> rveq >>
+              imp_res_tac dest_closure_SOME_Full_app_args_nil >> fs[] >>
+              rveq >> simp[]) >>
+          qpat_assum `loptrel _ _ _ _` mp_tac >>
+          simp[loptrel_arg1_NONE] >> reverse strip_tac >> rveq
+          >- (imp_res_tac dest_closure_SOME_Full_app_args_nil >> fs[] >>
+              rveq >> simp[])
+          >- (imp_res_tac dest_closure_SOME_Full_app_args_nil >> fs[] >>
+              rveq >> simp[]) >>
+          first_x_assum irule >> simp[]
           >- metis_tac[ssgc_free_preserved_SING', ssgc_free_dec_clock]
           >- (patresolve `evaluate([exp1],_,_) = _` last ssgc_evaluate >>
               simp[])
-          >- cheat
           >- (patresolve `known [exp1] _ _ = _` hd known_correct_approx >>
               simp[] >> disch_then (resolve_selected last) >> simp[] >>
               metis_tac[ksrel_sga, ksrel_ssgc_free, kvrel_EVERY_vsgc_free])
-          >- (fs[loptrel_def] >> qcase_tac `lopt2 = NONE` >>
-              Cases_on `lopt2` >> fs[] >>
-              Q.MATCH_ASMSUB_RENAME_TAC `v_CASE f2` >> Cases_on `f2` >> fs[]
-              >- (qcase_tac `option_CASE locopt` >> Cases_on `locopt` >>
-                  fs[] >> rveq >> fs[dest_closure_def] >> cheat)
-              >- cheat))
+          >- simp[loptrel_def])
       >- (imp_res_tac evaluate_SING >> fs[])
       >- cheat))
 
