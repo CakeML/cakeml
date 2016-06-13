@@ -2384,7 +2384,43 @@ val known_correct0 = Q.prove(
               metis_tac[ksrel_sga, ksrel_ssgc_free, kvrel_EVERY_vsgc_free])
           >- simp[loptrel_def])
       >- (imp_res_tac evaluate_SING >> fs[])
-      >- cheat))
+      >- (simp[evaluate_def, eqs, bool_case_eq, pair_case_eq] >>
+          resolve_selected hd (GEN_ALL kvrel_dest_closure_SOME_Full) >>
+          simp[PULL_EXISTS] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
+          simp[] >> qcase_tac `ksrel g s01 s02` >>
+          `s02.clock = s01.clock` by fs[ksrel_def] >>
+          imp_res_tac LIST_REL_LENGTH >> fs[] >> simp[PULL_EXISTS] >>
+          dsimp[] >>
+          map_every qcase_tac [
+            `dest_closure lopt1 f1 (iarg1 :: iargs) =
+               SOME (Full_app exp1 env1 args1)`,
+            `evaluate([exp1],env1,dec_clock _ s01) = (Rerr err1, s1)`,
+            `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
+          first_x_assum (patresolve `known [exp1] _ _ = _` last) >> simp[] >>             map_every qcase_tac [
+            `evaluate([exp1],env1,
+                      dec_clock (SUC (LENGTH iargs1) - LENGTH args2) s01)`,
+            `LIST_REL (kvrel gg) env1 env2`] >>
+          disch_then (qspecl_then [
+             `env2`,
+             `dec_clock (SUC (LENGTH iargs1) - LENGTH args2) s02`,
+             `gg`] mp_tac) >> simp[] >>
+          `set_globals exp1 = {||} ∧ EVERY vsgc_free env1 ∧
+           EVERY vsgc_free args1 ∧ esgc_free exp1`
+            by metis_tac[vsgc_free_Full_app_set_globals, EVERY_DEF,
+                         set_globals_empty_esgc_free] >> simp[] >>
+          qspec_then `[exp1]` mp_tac known_emptySetGlobals_unchanged_g >>
+          disch_then (resolve_selected hd) >> simp[] >>
+          disch_then SUBST_ALL_TAC >>
+          qcase_tac `LIST_REL val_approx_val envapx env1` >>
+          `LIST_REL val_approx_val envapx env1`
+            by metis_tac[kvrel_LIST_REL_val_approx] >>
+          impl_tac >- (simp[] >> fs[ksrel_def, dec_clock_def]) >> rw[] >>
+          simp[] >> fs[krrel_err_rw] >>
+          qcase_tac `evaluate([exp2],_,_) = (res2,_)` >>
+          Cases_on `res2`
+          >- (imp_res_tac evaluate_SING >> simp[] >> metis_tac[pair_CASES]) >>
+          simp[])))
 
 val known_correct = save_thm(
   "known_correct",
