@@ -120,6 +120,7 @@ val inst_rename = Q.store_thm("inst_rename",
     DEEP_INTRO_TAC some_intro >> simp[] >>
     simp[find_name_def] ) >>
   CASE_TAC >> fs[assign_def,word_exp_def] >>
+  CASE_TAC >> rfs[get_vars_def] >>
   every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordLangTheory.num_exp_def] >>
   rw[] >> fs[] >> rfs[] >> rw[set_var_find_name]
   \\ every_case_tac \\ fs [wordLangTheory.word_op_def]
