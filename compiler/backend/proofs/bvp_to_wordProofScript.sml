@@ -5501,7 +5501,8 @@ val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
       \\ fs[stubs_def,extract_labels_def]
       \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
                Cases_on`^(t"n")`\\fs[]
-               \\ imp_res_tac prim_recTheory.SUC_LESS)))) >>
+               \\ imp_res_tac prim_recTheory.SUC_LESS)))
+      \\ EVAL_TAC \\ rw[]) >>
     qpat_assum`n < LENGTH _`assume_tac >>
     qpat_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
