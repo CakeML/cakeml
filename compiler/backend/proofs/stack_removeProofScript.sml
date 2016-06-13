@@ -166,6 +166,7 @@ val good_syntax_inst_def = Define`
   (good_syntax_inst (Const n _) k ⇔ n < k) ∧
   (good_syntax_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
   (good_syntax_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
+  (good_syntax_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (good_syntax_inst _ _ ⇔ T)`;
 val _ = export_rewrites["good_syntax_inst_def"];
 
@@ -720,6 +721,11 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ rveq \\ simp[])
   >- (
     reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    >- (
+      fs[get_vars_def]
+      \\ every_case_tac \\ fs[]
+      \\ imp_res_tac state_rel_get_var \\ fs[]
+      \\ rw[] \\ fs[] )
     >- (
       drule state_rel_word_exp
       \\ qpat_assum`_ = SOME _`mp_tac
