@@ -2479,4 +2479,21 @@ val known_correct = save_thm(
   "known_correct",
   known_correct0 |> SIMP_RULE (srw_ss()) []);
 
+val known_preserves_every_Fn_NONE = Q.store_thm(
+  "known_preserves_every_Fn_NONE",
+  `∀es as g0 alist g.
+     known es as g0 = (alist,g) ∧ every_Fn_vs_NONE es ⇒
+     every_Fn_vs_NONE (MAP FST alist)`,
+  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
+  >- (simp[Once every_Fn_vs_NONE_EVERY] >> simp[GSYM every_Fn_vs_NONE_EVERY])
+  >- (simp[Once every_Fn_vs_NONE_EVERY] >>
+      simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rpt strip_tac >>
+      nailIHx mp_tac >> qcase_tac `known[bod] env g0` >>
+      Cases_on `known[bod] env g0` >> simp[] >> imp_res_tac known_sing_EQ_E >>
+      rveq >> fs[] >> rveq >> disch_then irule >>
+      fs[Once every_Fn_vs_NONE_EVERY] >>
+      fs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]));
+
 val _ = export_theory();
