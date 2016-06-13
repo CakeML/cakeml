@@ -929,7 +929,17 @@ val arith_upd_lemma = Q.prove(
     EVAL_TAC >>
     qmatch_assum_rename_tac`read_reg r _ = _` >>
     first_x_assum(qspec_then`r`mp_tac) >>
-    simp[] >> EVAL_TAC >> srw_tac[][] ));
+    simp[] >> EVAL_TAC >> srw_tac[][] )
+  >> (
+    unabbrev_all_tac
+    \\ first_assum(qspec_then`n0`mp_tac)
+    \\ first_assum(qspec_then`n1`mp_tac)
+    \\ first_assum(qspec_then`n2`mp_tac)
+    \\ first_x_assum(qspec_then`r`mp_tac)
+    \\ every_case_tac \\ fs[]
+    \\ EVAL_TAC \\ rw[] \\ EVAL_TAC \\ fs[]
+    \\ fs[read_reg_def]
+    \\ fs[labSemTheory.assert_def]));
 
 val MULT_ADD_LESS_MULT = prove(
   ``!m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num``,
