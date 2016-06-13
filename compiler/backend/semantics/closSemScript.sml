@@ -263,15 +263,6 @@ val check_clock_lemma = prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of clos_exp expressions. *)
 
-val lookup_vars_def = Define `
-  (lookup_vars [] env = SOME []) /\
-  (lookup_vars (v::vs) env =
-     if v < LENGTH env then
-       case lookup_vars vs env of
-       | SOME xs => SOME (EL v env :: xs)
-       | NONE => NONE
-     else NONE)`
-
 val check_loc_opt_def = Define `
   (check_loc NONE loc num_params num_args so_far ⇔
     num_args ≤ max_app) /\

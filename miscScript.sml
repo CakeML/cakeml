@@ -1602,4 +1602,13 @@ val subspt_trans = Q.store_thm(
   `subspt sp1 sp2 ∧ subspt sp2 sp3 ⇒ subspt sp1 sp3`,
   metis_tac[subspt_def]);
 
+val lookup_vars_def = Define `
+  (lookup_vars [] env = SOME []) /\
+  (lookup_vars (v::vs) env =
+     if v < LENGTH env then
+       case lookup_vars vs env of
+       | SOME xs => SOME (EL v env :: xs)
+       | NONE => NONE
+     else NONE)`
+
 val _ = export_theory()
