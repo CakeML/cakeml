@@ -130,10 +130,10 @@ val known_def = tDefine "known" `
                                           then SOME loc else NONE
      in
        ([(App new_loc_opt e1 (MAP FST e2),Other)],g)) /\
-  (known [Fn loc_opt ws num_args x1] vs g =
+  (known [Fn loc_opt ws_opt num_args x1] vs g =
      let (e1,g) = known [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD e1 in
-       ([(Fn loc_opt ws num_args body,
+       ([(Fn loc_opt NONE num_args body,
           case loc_opt of
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
