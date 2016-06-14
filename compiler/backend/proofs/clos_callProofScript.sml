@@ -76,9 +76,8 @@ val subg_def = Define`
   subg g0 g1 ⇔
     subspt (FST g0) (FST g1) ∧
     IS_SUFFIX (SND g1) (SND g0) ∧
-    (ALL_DISTINCT (MAP FST (SND g0)) ⇒ ALL_DISTINCT (MAP FST (SND g1)))`;
+    ALL_DISTINCT (MAP FST (SND g1))`;
 
-(*
 val v_rel_subg = Q.store_thm("v_rel_subg",
   `∀g v1 v2 g'.
     v_rel g v1 v2 ∧ subg g g' ⇒
@@ -107,8 +106,13 @@ val v_rel_subg = Q.store_thm("v_rel_subg",
   \\ fs[indexedListsTheory.LIST_RELi_EL_EQN]
   \\ rw[]
   \\ TRY (first_x_assum drule \\ rw[] \\ pairarg_tac \\ fs[])
-  \\ metis_tac[ALOOKUP_prefix,IS_SUFFIX_APPEND]
-*)
+  \\ fs[IS_SUFFIX_APPEND,ALOOKUP_APPEND]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ qpat_assum`ALOOKUP _ _ = SOME _`(SUBST_ALL_TAC o SYM)
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ rfs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
+  \\ metis_tac[FST]);
 
 (* syntactic properties of compiler *)
 
@@ -168,7 +172,6 @@ val calls_IS_SUFFIX = Q.store_thm("calls_IS_SUFFIX",
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ metis_tac[IS_SUFFIX_TRANS,IS_SUFFIX_CONS,code_list_IS_SUFFIX]);
 
-(*
 val calls_add_SUC_code_locs = Q.store_thm("calls_add_SUC_code_locs",
   `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
     set (MAP FST (SND g)) ⊆
@@ -180,11 +183,13 @@ val calls_add_SUC_code_locs = Q.store_thm("calls_add_SUC_code_locs",
   \\ imp_res_tac calls_length
   \\ fs[MAP_FST_code_list,LIST_TO_SET_GENLIST]
   \\ fs[SUBSET_DEF,PULL_EXISTS,ADD1]
-  \\ metis_tac[]
+  \\ metis_tac[]);
 
+(*
 val calls_ALL_DISTINCT = Q.store_thm("calls_ALL_DISTINCT",
   `∀xs g0 ys g.
     calls xs g0 = (ys,g) ∧ ALL_DISTINCT (MAP FST (SND g0)) ∧
+    ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0)))
     ⇒ ALL_DISTINCT (MAP FST (SND g))`,
   ho_match_mp_tac calls_ind
@@ -192,6 +197,26 @@ val calls_ALL_DISTINCT = Q.store_thm("calls_ALL_DISTINCT",
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
   \\ fs[code_locs_def]
   \\ every_case_tac \\ fs[] \\ rw[]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ fs[ALL_DISTINCT_APPEND]
+    \\ spose_not_then strip_assume_tac \\ rw[]
+    \\ imp_res_tac calls_IS_SUFFIX
+    \\ fs[IS_SUFFIX_APPEND]
+    \\ metis_tac[MEM_APPEND,numTheory.INV_SUC] )
+  \\ TRY (
+    qcase_tac`MEM 1n _`
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[ALL_DISTINCT_APPEND,SUBSET_DEF]
+    \\ metis_tac[ONE,numTheory.INV_SUC] )
+  \\ TRY (
+    qcase_tac`MEM (_ + 1n) _`
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[ALL_DISTINCT_APPEND,SUBSET_DEF,ADD1]
+    \\ metis_tac[ADD1,numTheory.INV_SUC] )
+  \\ TRY (
 
 val calls_subg = Q.store_thm("calls_subg",
   `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ subg g0 g`,
