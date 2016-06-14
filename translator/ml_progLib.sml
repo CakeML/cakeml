@@ -13,10 +13,15 @@ datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
 
 (* helper functions *)
 
+val reduce_conv =
+  (* this could be a custom compset, but it's easier to get the
+     necessary state updates directly from EVAL *)
+  EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC
+  EVAL THENC SIMP_CONV (srw_ss()) [] THENC EVAL;
+
 fun prove_assum_by_eval th = let
   val (x,y) = dest_imp (concl th)
-  val lemma = (EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC
-               EVAL THENC SIMP_CONV (srw_ss()) [] THENC EVAL) x
+  val lemma = reduce_conv x
   val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) th
   in MP lemma TRUTH end
 
@@ -54,20 +59,22 @@ fun define_abbrev for_eval name tm = let
   val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
   in def end
 
-fun cond_abbrev dest conv name th = let
+fun cond_abbrev dest conv eval name th = let
   val tm = dest th
   val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
   in if is_const x andalso all is_var vs then (th,[])
      else let
+       val th = CONV_RULE (conv eval) th
+       val tm = dest th
        val def = define_abbrev true (find_name name) tm |> SPEC_ALL
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        in (th,[def]) end end
 
 fun clean (ML_code (ss,envs,vs,th)) = let
-  val (th,new_ss) = cond_abbrev (rand o concl) RAND_CONV "auto_state" th
-  val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
+  val (th,new_ss) = cond_abbrev (rand o concl)
+                      RAND_CONV reduce_conv "auto_state" th
   val (th,new_envs) = cond_abbrev (rand o rator o concl)
-                        (RATOR_CONV o RAND_CONV) "auto_env" th
+                        (RATOR_CONV o RAND_CONV) EVAL "auto_env" th
   in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
 
 (* --- *)
