@@ -2496,4 +2496,62 @@ val known_preserves_every_Fn_NONE = Q.store_thm(
       fs[Once every_Fn_vs_NONE_EVERY] >>
       fs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]));
 
+fun abbrevify (asl,g) =
+  let val (l,r) = dest_imp g
+      fun abc t = if is_forall t then REWR_CONV (GSYM markerTheory.Abbrev_def) t
+                  else ALL_CONV t
+  in
+    if is_forall r then
+      CONV_TAC (LAND_CONV (EVERY_CONJ_CONV abc)) >> strip_tac
+    else ALL_TAC
+  end (asl,g)
+
+val unabbrevify = RULE_ASSUM_TAC (REWRITE_RULE [markerTheory.Abbrev_def])
+
+val known_increases_subspt_info = Q.store_thm(
+  "known_increases_subspt_info",
+  `∀es as g0 alist1 g1 g2 alist2 g.
+      known es as g0 = (alist1,g1) ∧ BAG_ALL_DISTINCT (elist_globals es) ∧
+      subspt g0 g1 ∧ subspt g1 g2 ∧
+      known es as g2 = (alist2,g) ⇒ subspt g2 g`,
+  ho_match_mp_tac known_ind >> rpt conj_tac >> rpt gen_tac >> abbrevify >>
+  fs[known_def, BAG_ALL_DISTINCT_BAG_UNION] >> rpt strip_tac
+  >- (rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      patresolve `known [_] _ _ = _` hd subspt_known_elist_globals >> simp[] >>
+      rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >> fs[] >>
+      qcase_tac `known [exp1] as g0 = (_, g01)` >>
+      qcase_tac `known _ as g01 = (_, g1)` >>
+      qcase_tac `known [exp1] as g2 = (_, g21)` >>
+      unabbrevify >>
+      `subspt g01 g2` by metis_tac[subspt_trans] >>
+      `subspt g2 g21` by metis_tac[] >>
+      `subspt g1 g21` by metis_tac[subspt_trans] >>
+      `subspt g21 g` by metis_tac[] >> metis_tac[subspt_trans])
+  >- (qcase_tac `known [ge] as g0` >> Cases_on `known [ge] as g0` >>
+      qcase_tac `known [ge] as g0 = (apx1, g01)` >> fs[] >>
+      qcase_tac `known [tb] as g01` >> Cases_on `known [tb] as g01` >>
+      qcase_tac `known [tb] as g01 = (apx2,g02)` >> fs[] >>
+      qcase_tac `known [eb] as g02` >> Cases_on `known [eb] as g02` >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      `∃apxs. known [ge;tb] as g0 = (apxs, g02)` by simp[known_def] >>
+      resolve_selected hd subspt_known_elist_globals >> simp[] >>
+      rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
+      Cases_on `known [ge] as g2` >>
+      qcase_tac `known [ge] as g2 = (apx1',g21)` >> fs[] >>
+      Cases_on `known [tb] as g21` >>
+      qcase_tac `known [tb] as g21 = (apx2',g22)` >> fs[] >>
+      Cases_on `known [eb] as g22` >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      patresolve `known [ge] as g0 = _` hd subspt_known_elist_globals >>
+      simp[] >>
+      rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >> fs[] >>
+      unabbrevify >> `subspt g01 g2` by metis_tac[subspt_trans] >>
+      `subspt g2 g21` by metis_tac[] >>
+      `subspt g02 g21` by metis_tac[subspt_trans] >>
+      `subspt g21 g22` by metis_tac[] >>
+      `subspt g1 g22` by metis_tac[subspt_trans] >>
+      `subspt g22 g` by metis_tac[] >> metis_tac[subspt_trans]) >>
+  cheat)
+
 val _ = export_theory();
