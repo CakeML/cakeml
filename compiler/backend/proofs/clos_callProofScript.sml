@@ -6,10 +6,6 @@ val _ = new_theory"clos_callProof";
 
 (* value relation *)
 
-open clos_knownProofTheory
-
-(* TODO: above open is just for subspt *)
-
 (* TODO: move *)
 
 val IS_SUFFIX_TRANS = Q.store_thm("IS_SUFFIX_TRANS",
