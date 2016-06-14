@@ -27,11 +27,14 @@ structure astSyntax = struct
   val (Short_tm,mk_Short,dest_Short,is_Short) = s "Short"
   val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
   val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
-  val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
   val (Tvar_tm,mk_Tvar,dest_Tvar,is_Tvar) = s "Tvar"
   val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"
+  val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
+  val (Plit_tm,mk_Plit,dest_Plit,is_Plit) = s "Plit"
   val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise"
   val (TC_name_tm,mk_TC_name,dest_TC_name,is_TC_name) = s "TC_name"
+  val (Tdec_tm,mk_Tdec,dest_Tdec,is_Tdec) = s "Tdec"
+  val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
   val (Long_tm,mk_Long,dest_Long,is_Long) = s "Long"
@@ -41,6 +44,11 @@ structure astSyntax = struct
   val (Tapp_tm,mk_Tapp,dest_Tapp,is_Tapp) = s "Tapp"
   val (Mat_tm,mk_Mat,dest_Mat,is_Mat) = s "Mat"
   val (Con_tm,mk_Con,dest_Con,is_Con) = s "Con"
+  val (Fun_tm,mk_Fun,dest_Fun,is_Fun) = s "Fun"
+  end
+  local val s = HolKernel.syntax_fns3 "ast" in
+  val (Dtabbrev_tm,mk_Dtabbrev,dest_Dtabbrev,is_Dtabbrev) = s "Dtabbrev"
+  val (Tmod_tm,mk_Tmod,dest_Tmod,is_Tmod) = s "Tmod"
   end
   end
 end

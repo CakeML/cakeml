@@ -1,6 +1,6 @@
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory holKernelTheory;
-open terminationTheory
+open terminationTheory ml_progLib ml_progTheory
 
 val _ = new_theory "ml_monad";
 
@@ -19,11 +19,11 @@ fun D th = let
 
 val _ = (use_full_type_names := false);
 
-val _ = translate_into_module "Kernel";
-
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
+
+val _ = ml_prog_update (open_module "Kernel");
 
 (* construct type refinement invariants *)
 
@@ -126,8 +126,6 @@ val _ = register_exn_type ``:hol_exn``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def"
 
 (*
-  fetch "-" "PAIR_TYPE_def";
-  fetch "-" "LIST_TYPE_def";
   fetch "-" "TYPE_TYPE_def";
   fetch "-" "TERM_TYPE_def";
   fetch "-" "THM_TYPE_def";
@@ -175,7 +173,8 @@ val EvalM_return = store_thm("EvalM_return",
     EvalM env exp (HOL_MONAD a (ex_return x))``,
   SIMP_TAC std_ss [Eval_def,EvalM_def,HOL_MONAD_def,ex_return_def]
   \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`s`,`Rval res`,`refs`]
-  \\ IMP_RES_TAC evaluate_empty_state_IMP
+  \\ IMP_RES_TAC (evaluate_empty_state_IMP
+                  |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 (* bind *)
@@ -296,7 +295,8 @@ val Eval_IMP_PURE = store_thm("Eval_IMP_PURE",
   ``Eval env exp (P x) ==> EvalM env exp (PURE P x)``,
   SIMP_TAC std_ss [Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `res`
-  \\ IMP_RES_TAC evaluate_empty_state_IMP
+  \\ IMP_RES_TAC (evaluate_empty_state_IMP
+                  |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ ASM_SIMP_TAC std_ss []);
 
 val TYPE_TYPE_EXISTS = prove(
@@ -311,7 +311,7 @@ val TERM_TYPE_EXISTS = prove(
   \\ fs [fetch "-" "TERM_TYPE_def",STRING_TYPE_def]
   \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []);
 
-val HOL_STORE_EXISTS = prove(
+val HOL_STORE_EXISTS = store_thm("HOL_STORE_EXISTS",
   ``?(s:unit state) refs. HOL_STORE s.refs refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
   \\ Q.EXISTS_TAC `<| refs :=
@@ -325,6 +325,21 @@ val HOL_STORE_EXISTS = prove(
                       the_context        := [] ;
                       the_axioms         := [] |>`
   \\ FULL_SIMP_TAC (srw_ss()) [LIST_TYPE_def]);
+
+val LOOKUP_VAR_EvalM_IMP = store_thm("LOOKUP_VAR_EvalM_IMP",
+  ``(!env. LOOKUP_VAR n env v ==> EvalM env (Var (Short n)) (PURE P g)) ==>
+    P g v``,
+  fs [LOOKUP_VAR_def,lookup_var_def,EvalM_def,PURE_def,AND_IMP_INTRO,
+      Once evaluate_cases,PULL_EXISTS,lookup_var_id_def,PULL_FORALL]
+  \\ rw [] \\ pop_assum match_mp_tac
+  \\ qexists_tac `<|v := [n,v]|>` \\ fs []
+  \\ metis_tac [HOL_STORE_EXISTS]);
+
+val EvalM_Fun_PURE_IMP = store_thm("EvalM_Fun_PURE_IMP",
+  ``EvalM env (Fun n exp) (PURE P f) ==>
+    P f (Closure env n exp)``,
+  fs [EvalM_def,PURE_def,PULL_EXISTS,evaluate_Fun]
+  \\ rw [] \\ pop_assum match_mp_tac \\ metis_tac [HOL_STORE_EXISTS])
 
 val EvalM_ArrowM_IMP = store_thm("EvalM_ArrowM_IMP",
   ``EvalM env (Var x) ((a -M-> b) f) ==>
@@ -456,7 +471,8 @@ val EvalM_failwith = store_thm("EvalM_failwith",
   srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[Once(CONJUNCT2 evaluate_cases)] >>
-  imp_res_tac evaluate_empty_state_IMP >>
+  IMP_RES_TAC (evaluate_empty_state_IMP
+               |> INST_TYPE [``:'ffi``|->``:unit``]) >>
   rw[do_con_check_def,build_conv_def] >>
   fs [lookup_cons_def] >>
   fs [lookup_alist_mod_env_def] >>
@@ -571,14 +587,16 @@ val EvalM_If = store_thm("EvalM_If",
     \\ DISJ1_TAC
     \\ Q.EXISTS_TAC `Boolv T` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def]
     \\ Q.EXISTS_TAC `s` \\ FULL_SIMP_TAC std_ss [Eval_def]
-    \\ IMP_RES_TAC evaluate_empty_state_IMP
+    \\ IMP_RES_TAC (evaluate_empty_state_IMP
+                    |> INST_TYPE [``:'ffi``|->``:unit``])
     \\ FULL_SIMP_TAC std_ss [])
   THEN1
    (Q.LIST_EXISTS_TAC [`s2`,`res`,`refs2`] \\ ASM_SIMP_TAC std_ss []
     \\ DISJ1_TAC
     \\ Q.EXISTS_TAC `Boolv F` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def,Boolv_11]
     \\ Q.EXISTS_TAC `s` \\ FULL_SIMP_TAC std_ss [Eval_def]
-    \\ IMP_RES_TAC evaluate_empty_state_IMP
+    \\ IMP_RES_TAC (evaluate_empty_state_IMP
+                    |> INST_TYPE [``:'ffi``|->``:unit``])
     \\ FULL_SIMP_TAC std_ss []));
 
 val Eval_Var_SIMP2 = store_thm("Eval_Var_SIMP2",
@@ -599,7 +617,8 @@ val EvalM_Let = store_thm("EvalM_Let",
   \\ FULL_SIMP_TAC std_ss [LET_DEF] \\ DISJ1_TAC
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.LIST_EXISTS_TAC [`res'`,`s`]
-  \\ IMP_RES_TAC evaluate_empty_state_IMP
+  \\ IMP_RES_TAC (evaluate_empty_state_IMP
+                  |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ FULL_SIMP_TAC std_ss [opt_bind_def,write_def]);
 
 (* PMATCH *)
@@ -693,282 +712,124 @@ val EvalM_PMATCH = store_thm("EvalM_PMATCH",
   `empty_state.refs = empty_store` by EVAL_TAC >>
   rw[]);
 
-(* declarations *)
-
-val M_DeclAssum_Dlet_INTRO = store_thm("M_DeclAssum_Dlet_INTRO",
-  ``(!env. DeclAssum mn ds env tys ==> EvalM env (Fun n exp) (PURE P x)) ==>
-    (!v env. DeclAssum mn (SNOC (Dlet (Pvar v) (Fun n exp)) ds) env tys ==>
-             EvalM env (Var (Short v)) (PURE P x))``,
-  METIS_TAC [DeclAssum_Dlet_INTRO,EvalM_PURE_EQ,Eval_IMP_PURE]);
-
-val M_DeclAssum_Dletrec_INTRO = store_thm("M_DeclAssum_Dletrec_INTRO",
-  ``(!env1 env.
-      DeclAssum mn ds env tys /\
-      LOOKUP_VAR v env1 (Recclosure env [(v,xs,f)] v) ==>
-      EvalM env1 (Var (Short v)) (PURE P x)) ==>
-    !env. DeclAssum mn (SNOC (Dletrec [(v,xs,f)]) ds) env tys ==>
-          EvalM env (Var (Short v)) (PURE P x)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
-    MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,
-    Eval_Var_SIMP,LOOKUP_VAR_SIMP]
-  \\ FULL_SIMP_TAC std_ss [EvalM_def,PURE_def,PULL_EXISTS]
-  \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ Q.PAT_ASSUM `!env1.bbb` (MP_TAC o
-        Q.SPEC `write v (Recclosure env2 [(v,xs,f)] v) env`)
-  \\ FULL_SIMP_TAC (srw_ss()) [LOOKUP_VAR_SIMP,
-       write_rec_def,write_def,lookup_var_id_def,lookup_var_def,
-       build_rec_env_def] \\ METIS_TAC []);
-
-(* fast-ish evaluation *)
-
-val evaluate_SIMP =
-  [``evaluate a0 a1 x (Letrec o' e) a3``,
-   ``evaluate a0 a1 x (Let s e e0) a3``,
-   ``evaluate a0 a1 x (Mat e l) a3``,
-   ``evaluate a0 a1 x (If e e0 e1) a3``,
-   ``evaluate a0 a1 x (Log l e e0) a3``,
-   ``evaluate a0 a1 x (App o' e0) a3``,
-   ``evaluate a0 a1 x (Fun s e) a3``,
-   ``evaluate a0 a1 x (Var s) a3``,
-   ``evaluate a0 a1 x (Con s l) a3``,
-   ``evaluate a0 a1 x (Lit l) a3``,
-   ``evaluate a0 a1 x (Handle e s) a3``,
-   ``evaluate a0 a1 x (Raise e) a3``,
-   ``evaluate_list a0 a1 x [] a3``,
-   ``evaluate_list a0 a1 x (h::t) a3``]
-  |> map (SIMP_CONV (srw_ss()) [Once evaluate_cases])
-  |> LIST_CONJ;
-
-fun get_tm_eval () = let
-  val tm = get_DeclAssum () |> rator |> rand;
-  fun get_all n =
-    fetch "-" ("ml_monad_decls_" ^ (int_to_string n)) :: get_all (n+1)
-    handle HOL_ERR _ => []
-  in tm |> REWRITE_CONV (get_all 0 @ [APPEND,SNOC_APPEND]) end
-
-val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
-
-val DeclAssumExists_SNOC_Dlet_Ref_lemma = prove(
-  ``!ds name n exp P.
-      (!env tys. DeclAssum mn ds env tys ==> Eval env exp P) ==>
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dlet (Pvar name) (App Opref [exp])) ds)``,
-  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
-  \\ RES_TAC \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
-  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec_cases]
-  \\ SIMP_TAC (srw_ss()) [APPEND_NIL]
-  \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
-       combine_dec_result_def,merge_alist_mod_env_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def]
-  \\ imp_res_tac evaluate_empty_state_IMP
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
-  \\ simp[Once evaluate_cases,do_app_def,PULL_EXISTS]
-  \\ simp[evaluate_list_cases,PULL_EXISTS]
-  \\ first_x_assum(qspec_then`s`strip_assume_tac)
-  \\ first_assum (match_exists_tac o concl)
-  \\ simp[store_alloc_def]
-  \\ srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][]
-  \\ first_assum (match_exists_tac o concl)
-  \\ simp[]);
-
-val DeclAssumExists_SNOC_Dlet_Ref = prove(
-  ``!ds name n exp P.
-      (!env tys. DeclAssum mn ds env tys ==> Q env ==> Eval env exp P) ==>
-      (!env tys. DeclAssum mn ds env tys ==> Q env) ==>
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dlet (Pvar name) (App Opref [exp])) ds)``,
-  METIS_TAC [DeclAssumExists_SNOC_Dlet_Ref_lemma]);
-
-fun all_decls () =
-  (fetch "-" "ml_monad_decls_0" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_1" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_2" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_3" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_4" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_5" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_6" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_7" handle HOL_ERR _ => TRUTH) ::
-  (fetch "-" "ml_monad_decls_8" handle HOL_ERR _ => TRUTH) :: [] |> LIST_CONJ;
-
-fun DeclAssumExists_lemma lemma = let
-  val th = DISCH (get_DeclAssum ()) lemma
-           |> Q.GENL [`tys`,`env`]
-           |> HO_MATCH_MP (DeclAssumExists_SNOC_Dlet_Ref |> SPEC_ALL)
-  val goal = th |> concl |> dest_imp |> fst
-  val l = MATCH_MP DeclAssumCons_cons_lookup (get_cenv_eq_thm ())
-          |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
-                        DEPTH_CONV PairRules.PBETA_CONV)
-  in MP th (auto_prove "ref lemma" (goal,REPEAT STRIP_TAC THEN IMP_RES_TAC l)) end
-
-val exp_size_lemma = prove(
-  ``!xs a. MEM a xs ==> exp_size a <= exp6_size xs``,
-  Induct \\ SRW_TAC [] [exp_size_def] \\ RES_TAC \\ DECIDE_TAC);
-
-val obviously_pure_def = tDefine "obviously_pure" `
-  (obviously_pure (Lit _) = T) /\
-  (obviously_pure (Con n xs) = EVERY obviously_pure xs) /\
-  (obviously_pure _ = F)`
-  (WF_REL_TAC `measure exp_size` \\ SRW_TAC [] []
-   \\ IMP_RES_TAC exp_size_lemma \\ DECIDE_TAC)
-
-val simple_decl_def = Define `
-  (simple_decl (Dtype y) = T) /\
-  (simple_decl (Dexn n l) = T) /\
-  (simple_decl (Dlet (Pvar k) (App Opref [exp])) = obviously_pure exp) /\
-  (simple_decl _ = F)`
-
-val decl_let_def = Define `
-  (decl_let (Dlet (Pvar k) y) = T) /\
-  (decl_let _ = F)`
-
-val obviously_pure_IMP = prove(
-  ``!e s1 s2 v.
-      obviously_pure e /\ evaluate F env2 s1 e (s2,Rval v) ==>
-      (s2 = s1)``,
-  HO_MATCH_MP_TAC (theorem "obviously_pure_ind")
-  \\ SRW_TAC [] [obviously_pure_def,evaluate_SIMP]
-  \\ FULL_SIMP_TAC std_ss [GSYM EVERY_MEM]
-  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
-  \\ REPEAT (POP_ASSUM MP_TAC) \\ Q.SPEC_TAC (`env2`,`env`)
-  \\ Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`s2`,`s2`) \\ Q.SPEC_TAC (`vs`,`vs`)
-  \\ ONCE_REWRITE_TAC [GSYM rich_listTheory.EVERY_REVERSE]
-  \\ Q.SPEC_TAC (`REVERSE xs`,`xs`)
-  \\ Induct_on `xs` \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS]
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
-
-val LENGTH_FILTER_decl_let = prove(
-  ``!ds s1 s2 env env2.
-      EVERY simple_decl ds /\ Decls mn env s1 ds env2 s2 ==>
-      (LENGTH (FILTER decl_let ds) + LENGTH s1.refs = LENGTH s2.refs)``,
-  Induct \\ SRW_TAC [] [Decls_NIL,FILTER,LENGTH]
-  \\ FULL_SIMP_TAC std_ss [Once Decls_CONS]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
-  \\ TRY (Cases_on `e`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
-  \\ TRY (Cases_on `p`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
-  \\ TRY (Cases_on `u`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_Dexn] \\ SRW_TAC [] [] \\ RES_TAC
-  \\ FULL_SIMP_TAC std_ss [Decls_Dtype] \\ SRW_TAC [] [] \\ RES_TAC
-  \\ FULL_SIMP_TAC std_ss [Decls_Dlet]
-  \\ fs[]
-  \\ Cases_on `o'` \\ fs [simple_decl_def]
-  \\ Cases_on `l` \\ fs [simple_decl_def]
-  \\ Cases_on `t` \\ fs [simple_decl_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS] \\ SRW_TAC [] []
-  \\ IMP_RES_TAC obviously_pure_IMP
-  \\ FULL_SIMP_TAC (srw_ss()) [do_app_def,store_alloc_def,LET_DEF]
-  \\ SRW_TAC [] [] \\ RES_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,LENGTH_APPEND] \\ DECIDE_TAC);
-
-val simple_decl_IMP = prove(
-  ``EVERY simple_decl (SNOC (Dlet (Pvar n) exp) ds) /\
-    (k = LENGTH (FILTER decl_let ds)) ==>
-    (DeclAssum mn (SNOC (Dlet (Pvar n) exp) ds) env tys ==>
-     Eval env (Var (Short n)) ((=) (Loc k)))``,
-  Q.SPEC_TAC (`k`,`k`) \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,
-       Decls_Dlet,Eval_Var_SIMP,EVERY_APPEND,EVERY_DEF]
-  \\ FULL_SIMP_TAC (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]
-  \\ Cases_on `exp` \\ fs [simple_decl_def,evaluate_SIMP]
-  \\ Cases_on `l` \\ fs [simple_decl_def,evaluate_SIMP]
-  \\ Cases_on `t` \\ fs [simple_decl_def]
-  \\ Cases_on `o'` \\ fs [simple_decl_def]
-  \\ SRW_TAC [] [] \\ fs [evaluate_list_cases] \\ SRW_TAC [] []
-  \\ fs [simple_decl_def,do_app_def,LET_DEF,store_alloc_def]
-  \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ IMP_RES_TAC LENGTH_FILTER_decl_let
-  \\ IMP_RES_TAC obviously_pure_IMP
-  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ fs[initSemEnvTheory.prim_sem_env_eq]);
-
-fun tac () =
-  SIMP_TAC std_ss [all_decls (),PULL_EXISTS]
-  \\ CONV_TAC ((RAND_CONV o RAND_CONV) EVAL)
-  \\ MATCH_MP_TAC simple_decl_IMP \\ EVAL_TAC
-
-
 (* ref 0 *)
 
-val lemma = hol2deep ``[(strlit"bool",0); (strlit"fun",2:num)]`` |> D |> SIMP_RULE std_ss []
-val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
-val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
-val tm = get_DeclAssum () |> rator |> rator |> rand;
+val init_type_constants_def = Define `
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`
+
+val init_type_constants_v = translate init_type_constants_def
 
 val the_type_constants_def = Define `
     the_type_constants = Loc 0`;
 
-val th = prove(
-  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
-    Eval env (Var (Short n)) ($= the_type_constants)``,
-  tac ()) |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
 
-val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
-
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_type_constants")])
+        (^(get_state k) with refs := [Refv init_type_constants_v],
+         Rval (the_type_constants))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_type_constants") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_type_constants" [the_type_constants_def] k end)
 
 (* ref 1 *)
 
-val lemma = hol2deep ``[(strlit"=",
-  Tyapp (strlit"fun")
-    [Tyvar (strlit"A");
-     Tyapp (strlit"fun")
-       [Tyvar (strlit"A");
-        Tyapp (strlit"bool") []]])]``
-            |> D |> SIMP_RULE std_ss []
-val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
-val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
-val tm = get_DeclAssum () |> rator |> rator |> rand;
+val init_term_constants_def = Define `
+  init_term_constants = [(strlit"=",
+    Tyapp (strlit"fun")
+      [Tyvar (strlit"A");
+       Tyapp (strlit"fun")
+         [Tyvar (strlit"A");
+          Tyapp (strlit"bool") []]])]`
+
+val init_term_constants_v = translate init_term_constants_def
 
 val the_term_constants_def = Define `
     the_term_constants = Loc 1`;
 
-val th = prove(
-  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
-    Eval env (Var (Short n)) ($= the_term_constants)``,
-  tac ()) |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
 
-val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
-
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_term_constants")])
+        (^(get_state k) with refs := [Refv init_type_constants_v;
+                                      Refv init_term_constants_v],
+         Rval (the_term_constants))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_term_constants") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_term_constants" [the_term_constants_def] k end)
 
 (* ref 2 *)
 
-val lemma = hol2deep ``[]:thm list`` |> D |> SIMP_RULE std_ss []
-val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
-val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
-val tm = get_DeclAssum () |> rator |> rator |> rand;
+val init_axioms_def = Define `
+  init_axioms = []:thm list`
+
+val init_axioms_v = translate init_axioms_def
 
 val the_axioms_def = Define `
     the_axioms = Loc 2`;
 
-val th = prove(
-  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
-    Eval env (Var (Short n)) ($= the_axioms)``,
-  tac ()) |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
 
-val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
-
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_axioms")])
+        (^(get_state k) with refs := [Refv init_type_constants_v;
+                                      Refv init_term_constants_v;
+                                      Refv init_axioms_v],
+         Rval (the_axioms))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_axioms") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_axioms" [the_axioms_def] k end)
 
 (* ref 3 *)
 
-val lemma = hol2deep (rhs(concl(holSyntaxTheory.init_ctxt_def))) |> D |> SIMP_RULE std_ss []
-val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
-val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
-val tm = get_DeclAssum () |> rator |> rator |> rand;
+val init_context_def = Define `
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`
+
+val init_context_v = translate init_context_def
 
 val the_context_def = Define `
     the_context = Loc 3`;
 
-val th = prove(
-  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
-    Eval env (Var (Short n)) ($= the_context)``,
-  tac ()) |> Q.INST [`n`|->`"the_context"`] |> UNDISCH;
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
 
-val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
-
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_context")])
+        (^(get_state k) with refs := [Refv init_type_constants_v;
+                                      Refv init_term_constants_v;
+                                      Refv init_axioms_v;
+                                      Refv init_context_v],
+         Rval (the_context))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_context") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_context" [the_context_def] k end)
 
 (* read and update refs *)
 
@@ -978,7 +839,6 @@ fun read_tac n =
   \\ SIMP_TAC (srw_ss()) [option_CASE_LEMMA2]
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC std_ss [EvalM_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ fs [the_type_constants_def,
        the_term_constants_def,the_axioms_def,the_context_def,
@@ -999,35 +859,33 @@ fun read_tac n =
   \\ fs[state_component_equality];
 
 val get_type_constants_thm = store_thm("get_the_type_constants_thm",
-  ``Eval env (Var (Short "the_type_constants")) ($= the_type_constants) ==>
+  ``lookup_var_id (Short "the_type_constants") env = SOME the_type_constants ==>
     EvalM env (App Opderef [Var (Short "the_type_constants")])
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM))
                  get_the_type_constants)``,
   read_tac ``0:num``);
 
 val get_term_constants_thm = store_thm("get_the_term_constants_thm",
-  ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
+  ``lookup_var_id (Short "the_term_constants") env = SOME the_term_constants ==>
     EvalM env (App Opderef [Var (Short "the_term_constants")])
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE))
                  get_the_term_constants)``,
   read_tac ``1:num``);
 
 val get_the_axioms_thm = store_thm("get_the_axioms_thm",
-  ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
+  ``lookup_var_id (Short "the_axioms") env = SOME the_axioms ==>
     EvalM env (App Opderef [Var (Short "the_axioms")])
       (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
   read_tac ``2:num``);
 
 val get_the_context_thm = store_thm("get_the_context_thm",
-  ``Eval env (Var (Short "the_context")) ($= the_context) ==>
+  ``lookup_var_id (Short "the_context") env = SOME the_context ==>
     EvalM env (App Opderef [Var (Short "the_context")])
       (HOL_MONAD (LIST_TYPE UPDATE_TYPE) get_the_context)``,
   read_tac ``3:num``);
 
 fun update_tac n r =
-  SIMP_TAC std_ss [Once Eval_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [option_CASE_LEMMA2]
+  SIMP_TAC (srw_ss()) [option_CASE_LEMMA2]
   \\ STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC std_ss [EvalM_def]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
@@ -1058,28 +916,28 @@ fun update_tac n r =
   \\ simp[state_component_equality];
 
 val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
-  ``Eval env (Var (Short "the_type_constants")) ($= the_type_constants) ==>
+  ``lookup_var_id (Short "the_type_constants") env = SOME the_type_constants ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x) ==>
     EvalM env (App Opassign [Var (Short "the_type_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_type_constants x))``,
   update_tac ``0n`` `refs with the_type_constants := x`);
 
 val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
-  ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
+  ``lookup_var_id (Short "the_term_constants") env = SOME the_term_constants ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x) ==>
     EvalM env (App Opassign [Var (Short "the_term_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
   update_tac ``1n`` `refs with the_term_constants := x`);
 
 val set_the_axioms_thm = store_thm("set_the_axioms_thm",
-  ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
+  ``lookup_var_id (Short "the_axioms") env = SOME the_axioms ==>
     Eval env exp (LIST_TYPE THM_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_axioms"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_axioms x))``,
   update_tac ``2n`` `refs with the_axioms := x`);
 
 val set_the_context_thm = store_thm("set_the_context_thm",
-  ``Eval env (Var (Short "the_context")) ($= the_context) ==>
+  ``lookup_var_id (Short "the_context") env = SOME the_context ==>
     Eval env exp (LIST_TYPE UPDATE_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_context"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_context x))``,

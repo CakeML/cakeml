@@ -10,7 +10,9 @@ val _ = register_type ``:'a # 'b``;
 
 val res = translate HD;
 val res = translate TL;
-val res = translate APPEND;
+val append_v_thm = translate APPEND;
+
+val _ = save_thm("append_v_thm",append_v_thm);
 
 val res = translate REV_DEF;
 val res = translate REVERSE_REV;

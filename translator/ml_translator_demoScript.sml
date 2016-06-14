@@ -14,9 +14,9 @@ val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
 
-val _ = finalise_translation ();
-
 (* using the certificte theorem *)
+
+(*
 
 val (qsort_eval,_) = get_cert "qsort"
 
@@ -55,5 +55,6 @@ val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
   THEN IMP_RES_TAC Eval_QSORT_EXPANDED
   THEN METIS_TAC [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]);
 
+*)
 
 val _ = export_theory();
