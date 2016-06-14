@@ -329,6 +329,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvp_to_wordTheory.comp_def
     ,bvp_to_wordTheory.compile_part_def
     ,bvp_to_wordTheory.compile_def
+    ,bvp_to_wordTheory.stubs_def
+    ,bvp_to_wordTheory.RefByte_location_def
+    ,bvp_to_wordTheory.RefByte_code_def
       (* ---- wordLang word_to_word ---- *)
     ,word_to_wordTheory.compile_single_def
     ,word_to_wordTheory.full_compile_single_def
@@ -357,7 +360,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_allocTheory.max_var_exp_def
     ,word_allocTheory.max3_def
     ,word_allocTheory.setup_ssa_def
-    ,word_allocTheory.remove_dead_def
     ,word_allocTheory.oracle_colour_ok_def
     ,word_allocTheory.every_even_colour_def
     ,word_allocTheory.check_colouring_ok_alt_def
@@ -365,7 +367,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_allocTheory.get_clash_tree_def
     ,word_allocTheory.get_reads_exp_def
     ,word_allocTheory.get_delta_inst_def
-    ,word_allocTheory.remove_dead_inst_def
     ,word_allocTheory.ssa_cc_trans_def
     ,word_allocTheory.get_live_def
     ,word_allocTheory.numset_list_insert_def

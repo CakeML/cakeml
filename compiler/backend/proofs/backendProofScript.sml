@@ -220,7 +220,9 @@ val full_init_pre_IMP_init_state_ok = prove(
 val sr_gs_def = stack_removeProofTheory.good_syntax_def
 val sa_gs_def = stack_allocProofTheory.good_syntax_def
 val sl_gs_def = stack_to_labProofTheory.good_syntax_def
-val convs = [sr_gs_def,sa_gs_def,sl_gs_def,wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
+val convs = [sr_gs_def,sa_gs_def,sl_gs_def,wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def,wordPropsTheory.inst_arg_convention_def]
+
+val code_and_locs = [bvp_to_wordTheory.RefByte_code_def,bvp_to_wordTheory.RefByte_location_def]
 
 val stack_move_sa_gs = prove(``
   ∀n st off i p.
@@ -293,7 +295,7 @@ val word_to_stack_sr_gs = prove(``
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
-    fs[wStackLoad_def,sr_gs_def])
+    fs[wStackLoad_def,sr_gs_def]>>fs convs)
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sr_gs_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs convs)
   >- (rpt (pairarg_tac>>fs convs)>>
@@ -341,7 +343,7 @@ val word_to_stack_sl_gs = prove(``
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
-    fs[wStackLoad_def,sl_gs_def])
+    fs[wStackLoad_def,sl_gs_def]>>fs convs)
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[sl_gs_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs convs)
   >- (rpt (pairarg_tac>>fs convs)>>
@@ -396,7 +398,9 @@ val bvp_to_word_compile_imp = prove(
        rw[]
        \\ imp_res_tac ALOOKUP_MEM
        \\ fs[bvp_to_wordTheory.stubs_def,EVERY_MAP,EVERY_MEM]
-       \\ res_tac \\ fs[] ) >>
+       \\ res_tac \\ fs[] \\
+       fs code_and_locs
+       ) >>
     ntac 4 (last_x_assum kall_tac)>>
     qid_spec_tac`n` >>
     Induct_on`prog`>>rw[]>>PairCases_on`h`>>
@@ -980,6 +984,7 @@ val lemma = prove(
     rfs[]>>
     rw[]>>fs[EVERY_MEM,bvp_to_wordTheory.stubs_def]>>rw[]>>
     res_tac>>fs[]>>
+    EVAL_TAC>>
     CCONTR_TAC>>
     fs[]>>res_tac>>fs[])
   \\ strip_tac
@@ -1119,8 +1124,8 @@ val lemma = prove(
   \\ `MAP FST prog2 = 10::MAP FST prog1` by metis_tac [stack_alloc_names] \\ fs []
   \\ simp[ALL_DISTINCT_APPEND]
   \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
-  \\ TRY(conj_tac >- EVAL_TAC)
-  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM,bvp_to_wordTheory.stubs_def] \\ strip_tac \\ res_tac \\ fs []))
+  \\ fs ([bvp_to_wordTheory.stubs_def]@code_and_locs)
+  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM,bvp_to_wordTheory.stubs_def] \\ strip_tac \\ res_tac \\ fs [] \\ EVAL_TAC))
   \\ (conj_tac >- ( EVAL_TAC \\ fs[EVERY_MEM] \\ rw[] \\ strip_tac \\ res_tac \\ fs[]))
   \\ (conj_tac THEN1
    (imp_res_tac (INST_TYPE[beta|->alpha]stack_alloc_syntax)
