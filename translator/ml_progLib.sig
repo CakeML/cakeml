@@ -52,4 +52,6 @@ sig
   val pack_ml_prog_state   : ml_prog_state -> thm
   val unpack_ml_prog_state : thm -> ml_prog_state
 
+  val define_abbrev : bool -> string -> term -> thm
+
 end

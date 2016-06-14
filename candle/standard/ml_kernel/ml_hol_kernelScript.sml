@@ -1007,4 +1007,23 @@ val def = ALPHA_THM_def |> m_translate
 
 val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)
 
+(* extract the interesting thm *)
+
+val _ = Globals.max_print_depth := 10;
+
+fun define_abbrev_conv name tm = let
+  val def = define_abbrev true name tm
+  in GSYM def |> SPEC_ALL end
+
+val candle_prog_thm =
+  get_thm (get_curr_prog_state ())
+  |> REWRITE_RULE [ML_code_def]
+  |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV)
+                (EVAL THENC define_abbrev_conv "candle_code"))
+  |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+                (EVAL THENC define_abbrev_conv "candle_init_env"))
+  |> CONV_RULE ((RAND_CONV)
+                (EVAL THENC define_abbrev_conv "candle_init_state"))
+  |> curry save_thm "candle_prog_thm"
+
 val _ = export_theory();
