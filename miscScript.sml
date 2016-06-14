@@ -41,6 +41,25 @@ val revtakerev = Q.store_thm("revtakerev",
   `l = [] ∨ ∃f e. l = SNOC e f` by metis_tac[SNOC_CASES] >> simp[] >>
   simp[DROP_APPEND1]);
 
+val times_add_o = Q.store_thm("times_add_o",
+  `(λn:num. k * n + x) = ($+ x) o ($* k)`,
+  rw[FUN_EQ_THM]);
+
+val SORTED_inv_image_LESS_PLUS = Q.store_thm("SORTED_inv_image_LESS_PLUS",
+  `SORTED (inv_image $< (arithmetic$+ k)) = SORTED $<`,
+  simp[FUN_EQ_THM]
+  \\ Induct
+  \\ Q.ISPEC_THEN`$+ k`(fn th => simp[MATCH_MP SORTED_EQ th])
+      (MATCH_MP transitive_inv_image transitive_LESS)
+  \\ simp[MATCH_MP SORTED_EQ transitive_LESS]);
+
+val SORTED_GENLIST_TIMES = Q.store_thm("SORTED_GENLIST_TIMES",
+  `0 < k ⇒ ∀n. SORTED prim_rec$< (GENLIST ($* k) n)`,
+  strip_tac
+  \\ Induct \\ simp[GENLIST,SNOC_APPEND]
+  \\ match_mp_tac SORTED_APPEND
+  \\ simp[MEM_GENLIST,PULL_EXISTS]);
+
 val read_bytearray_def = Define `
   (read_bytearray a 0 get_byte = SOME []) /\
   (read_bytearray a (SUC n) get_byte =

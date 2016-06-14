@@ -59,7 +59,7 @@ val code_locs_def = tDefine "code_locs" `
      let loc = case loc_opt of NONE => 0 | SOME n => n in
      let c1 = code_locs (MAP SND fns) in
      let c2 = code_locs [x1] in
-     c1 ++ GENLIST ($+ loc) (LENGTH fns) ++ c2) /\
+     c1 ++ GENLIST (λn. loc + 2*n) (LENGTH fns) ++ c2) /\
   (code_locs [Handle x1 x2] =
      let c1 = code_locs [x1] in
      let c2 = code_locs [x2] in
