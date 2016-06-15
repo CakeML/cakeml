@@ -63,6 +63,8 @@ val known_op_def = Define `
          if 0 <= i /\ i < &LENGTH xs
          then (EL (Num i) xs,g)
          else (Other,g)
+     | Impossible::xs => (Impossible,g)
+     | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g)) /\
   (known_op op as g = (Other,g))`
 

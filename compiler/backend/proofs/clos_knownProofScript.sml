@@ -2508,50 +2508,182 @@ fun abbrevify (asl,g) =
 
 val unabbrevify = RULE_ASSUM_TAC (REWRITE_RULE [markerTheory.Abbrev_def])
 
+val say = say0 "known_idem"
+val merge_subapprox_cong = Q.store_thm(
+  "merge_subapprox_cong",
+  `a1 ◁ a2 ∧ b1 ◁ b2 ⇒ merge a1 b1 ◁ merge a2 b2`,
+  simp[subapprox_def] >>
+  metis_tac[merge_comm, merge_assoc]);
+
+val known_op_increases_subspt_info = Q.store_thm(
+  "known_op_increases_subspt_info",
+  `∀opn as1 g0 a1 a2 g1 g2 as2 g.
+     known_op opn as1 g0 = (a1,g1) ∧ subspt g0 g1 ∧ subspt g1 g2 ∧
+     LIST_REL $◁ as2 as1 ∧ known_op opn as2 g2 = (a2,g)
+    ⇒
+     a2 ◁ a1 ∧ subspt g2 g`,
+  rpt gen_tac >> Cases_on `opn` >>
+  simp[known_op_def, eqs, va_case_eq, bool_case_eq] >>
+  disch_then strip_assume_tac >> rveq >> simp[] >> fs[]
+  >- (fs[subspt_def] >> metis_tac[domain_lookup, NOT_SOME_NONE])
+  >- (fs[subspt_def] >> metis_tac[domain_lookup, subapprox_refl, SOME_11])
+  >- fs[subspt_def, DISJ_IMP_THM, lookup_insert]
+  >- (fs[subspt_def, DISJ_IMP_THM, lookup_insert, FORALL_AND_THM] >> rveq >>
+      rw[] >> fs[subapprox_def, merge_comm])
+  >- fs[subspt_def, lookup_insert, DISJ_IMP_THM]
+  >- (fs[subspt_def, lookup_insert, DISJ_IMP_THM, FORALL_AND_THM] >> rveq >>
+      rw[] >> fs[subapprox_def] >> metis_tac[merge_comm, merge_assoc])
+  >- (fs[LIST_REL_EL_EQN] >>
+      metis_tac[integerTheory.INT_INJ, integerTheory.INT_OF_NUM,
+                integerTheory.INT_LT])
+  >- (fs[LIST_REL_EL_EQN] >> rfs[]))
+
 val known_increases_subspt_info = Q.store_thm(
   "known_increases_subspt_info",
-  `∀es as g0 alist1 g1 g2 alist2 g.
-      known es as g0 = (alist1,g1) ∧ BAG_ALL_DISTINCT (elist_globals es) ∧
-      subspt g0 g1 ∧ subspt g1 g2 ∧
-      known es as g2 = (alist2,g) ⇒ subspt g2 g`,
+  `∀es as1 g0 alist1 g1 g2 as2 alist2 g.
+      known es as1 g0 = (alist1,g1) ∧ BAG_ALL_DISTINCT (elist_globals es) ∧
+      subspt g0 g1 ∧ subspt g1 g2 ∧ LIST_REL $◁ as2 as1 ∧
+      known es as2 g2 = (alist2,g)
+     ⇒
+      subspt g2 g ∧
+      LIST_REL $◁ (MAP SND alist2) (MAP SND alist1)`,
   ho_match_mp_tac known_ind >> rpt conj_tac >> rpt gen_tac >> abbrevify >>
-  fs[known_def, BAG_ALL_DISTINCT_BAG_UNION] >> rpt strip_tac
+  fs[known_def, BAG_ALL_DISTINCT_BAG_UNION] >>
+  rpt (gen_tac ORELSE disch_then strip_assume_tac)
+  >- (rveq >> simp[])
   >- (rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-      patresolve `known [_] _ _ = _` hd subspt_known_elist_globals >> simp[] >>
+      map_every qcase_tac [`LIST_REL _ (MAP SND alist2) (MAP SND alist1)`,
+                           `known (exp2::es) as1 g01 = (alist1, g1)`,
+                           `known [exp1] as1 g0 = ([(_,apx1)], g01)`,
+                           `known [exp1] as2 g2 = ([(_,apx2)], g21)`] >>
+      patresolve `known [_] _ g0 = _` hd subspt_known_elist_globals >> simp[] >>
       rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >> fs[] >>
-      qcase_tac `known [exp1] as g0 = (_, g01)` >>
-      qcase_tac `known _ as g01 = (_, g1)` >>
-      qcase_tac `known [exp1] as g2 = (_, g21)` >>
       unabbrevify >>
       `subspt g01 g2` by metis_tac[subspt_trans] >>
+      first_x_assum (resolve_selected hd) >> simp[] >>
+      rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
       `subspt g2 g21` by metis_tac[] >>
       `subspt g1 g21` by metis_tac[subspt_trans] >>
       `subspt g21 g` by metis_tac[] >> metis_tac[subspt_trans])
-  >- (qcase_tac `known [ge] as g0` >> Cases_on `known [ge] as g0` >>
-      qcase_tac `known [ge] as g0 = (apx1, g01)` >> fs[] >>
-      qcase_tac `known [tb] as g01` >> Cases_on `known [tb] as g01` >>
-      qcase_tac `known [tb] as g01 = (apx2,g02)` >> fs[] >>
-      qcase_tac `known [eb] as g02` >> Cases_on `known [eb] as g02` >> fs[] >>
-      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-      `∃apxs. known [ge;tb] as g0 = (apxs, g02)` by simp[known_def] >>
+  >- (say "var" >> rveq >> simp[any_el_ALT] >> fs[LIST_REL_EL_EQN] >> rw[])
+  >- (say "if" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >>
+      fs[PULL_EXISTS, EXISTS_PROD] >> rveq >>
+      map_every qcase_tac [
+        `merge apx2' apx3' ◁ merge apx2 apx3`,
+        `known [tb] as1 g01 = ([(_,apx2)], g02)`,
+        `known [tb] as2 g11 = ([(_,apx2')], g12)`,
+        `known [eb] as1 g02 = ([(_,apx3)], g1)`,
+        `known [ge] as1 g0 = ([(_,apx1)], g01)`] >>
+      `∃apxs. known [ge;tb] as1 g0 = (apxs, g02)` by simp[known_def] >>
       resolve_selected hd subspt_known_elist_globals >> simp[] >>
       rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
-      Cases_on `known [ge] as g2` >>
-      qcase_tac `known [ge] as g2 = (apx1',g21)` >> fs[] >>
-      Cases_on `known [tb] as g21` >>
-      qcase_tac `known [tb] as g21 = (apx2',g22)` >> fs[] >>
-      Cases_on `known [eb] as g22` >> fs[] >>
-      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-      patresolve `known [ge] as g0 = _` hd subspt_known_elist_globals >>
+      patresolve `known [ge] as1 g0 = _` hd subspt_known_elist_globals >>
       simp[] >>
       rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >> fs[] >>
-      unabbrevify >> `subspt g01 g2` by metis_tac[subspt_trans] >>
-      `subspt g2 g21` by metis_tac[] >>
-      `subspt g02 g21` by metis_tac[subspt_trans] >>
-      `subspt g21 g22` by metis_tac[] >>
-      `subspt g1 g22` by metis_tac[subspt_trans] >>
-      `subspt g22 g` by metis_tac[] >> metis_tac[subspt_trans]) >>
-  cheat)
+      unabbrevify >>
+      `subspt g01 g2` by metis_tac[subspt_trans] >>
+      first_x_assum (resolve_selected hd) >> simp[] >>
+      disch_then (resolve_selected last) >> simp[] >> strip_tac >>
+      first_x_assum (patresolve `known [tb] as2 _ = _` (el 3)) >> simp[] >>
+      impl_keep_tac
+      >- metis_tac[subspt_trans] >> strip_tac >>
+      first_x_assum (patresolve `known [eb] as2 _ = _` (el 3)) >> simp[] >>
+      impl_keep_tac
+      >- metis_tac[subspt_trans] >> strip_tac >>
+      conj_tac >- metis_tac[subspt_trans] >>
+      metis_tac[merge_subapprox_cong])
+  >- (say "let" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      map_every qcase_tac [`apx' ◁ apx`,
+                           `known [bod] _ g01 = ([(_, apx)], g02)`,
+                           `known [bod] _ g21 = ([(_, apx')], g22)`,
+                           `known binds as1 g0 = (_, g01)`,
+                           `known binds as2 g2 = (_, g21)`] >>
+      patresolve `known binds as1 g0 = _` hd subspt_known_elist_globals >>
+      simp[] >>
+      rpt (disch_then (resolve_selected hd) >> simp[]) >> impl_tac
+      >- fs[BAG_DISJOINT, DISJOINT_SYM] >> strip_tac >> fs[] >> unabbrevify >>
+      first_x_assum (patresolve `known binds as2 _ = _` (el 3)) >> simp[] >>
+      impl_keep_tac >- metis_tac [subspt_trans] >> strip_tac >>
+      first_x_assum (patresolve `known [bod] _ g21 = _` (el 3)) >>
+      simp[EVERY2_APPEND_suff] >> impl_keep_tac >- metis_tac[subspt_trans] >>
+      metis_tac[subspt_trans])
+  >- (say "raise" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >> unabbrevify >>
+      metis_tac[])
+  >- (say "tick" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >> unabbrevify >>
+      fs[EXISTS_PROD] >> metis_tac[CONS_11, PAIR_EQ])
+  >- (say "handle" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      map_every qcase_tac [
+        `merge apx1' apx2' ◁ merge apx1 apx2`,
+        `known [exp1] as1 g0 = ([(_,apx1)], g01)`,
+        `known [exp1] as2 g2 = ([(_,apx1')], g21)`,
+        `known [hndlr] (Other::as1) g01 = ([(_,apx2)], g1)`,
+        `known [hndlr] (Other::as2) g21 = ([(_,apx2')], gg)`] >>
+      patresolve `known [exp1] as1 g0 = _` hd subspt_known_elist_globals >>
+      simp[] >> disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
+      fs[] >> unabbrevify >>
+      first_x_assum (patresolve `known [exp1] _ g2 = _` last) >> simp[] >>
+      impl_keep_tac >- metis_tac[subspt_trans] >> strip_tac >>
+      fs[PULL_EXISTS, EXISTS_PROD] >>
+      first_x_assum (patresolve `known [hndlr] _ g21 = _` last) >> simp[] >>
+      impl_keep_tac >- metis_tac[subspt_trans] >>
+      metis_tac[merge_subapprox_cong, subspt_trans])
+  >- (say "call" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> unabbrevify >> metis_tac[])
+  >- (say "op" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      map_every qcase_tac [`apx' ◁ apx`,
+                           `known_op opn _ g01 = (apx,g1)`,
+                           `known_op opn _ g21 = (apx',gg)`] >>
+      patresolve `known_op _ _ g01 = _` (el 2) subspt_known_op_elist_globals >>
+      simp[] >> disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
+      fs[] >> unabbrevify >>
+      first_x_assum (patresolve `known _ _ g2 = _` last) >> simp[] >>
+      impl_keep_tac >- metis_tac[subspt_trans] >> strip_tac >>
+      patresolve `known_op _ _ g01 = _` hd known_op_increases_subspt_info >>
+      simp[] >>
+      disch_then (patresolve `known_op _ _ g21 = _` last) >>
+      simp[LIST_REL_REVERSE_EQ] >> metis_tac[subspt_trans])
+  >- (say "app" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      map_every qcase_tac [`subspt g2 gg`, `subspt g1 g2`,
+                           `known args as2 g2 = (_, g21)`,
+                           `known [f] as1 g11 = (_, g1)`] >>
+      patresolve `known _ _ _ = (_, g11)` hd subspt_known_elist_globals >>
+      simp[] >>
+      disch_then (resolve_selected hd) >> simp[] >> impl_keep_tac
+      >- fs[BAG_DISJOINT, DISJOINT_SYM] >> strip_tac >> fs[] >> unabbrevify >>
+      first_x_assum (patresolve `known _ _ g2 = _` last) >> simp[] >>
+      impl_keep_tac >- metis_tac[subspt_trans] >> strip_tac >>
+      first_x_assum (patresolve `known _ _ g21 = _` last) >> simp[] >>
+      metis_tac[subspt_trans])
+  >- (say "fn" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> rveq >> unabbrevify >>
+      qcase_tac `subspt gg2 gg` >>
+      first_x_assum (patresolve `known _ _ gg2 = _` last) >>
+      simp[] >> reverse impl_tac >- metis_tac[subspt_trans] >>
+      simp[LIST_REL_REPLICATE_same, EVERY2_APPEND_suff])
+  >- (say "letrec" >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> rveq >>
+      fs[Once foldr_bu', BAG_ALL_DISTINCT_BAG_UNION] >>
+      imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
+      map_every qcase_tac [`apx1' ◁ apx1`,
+                           `known [bod] _ g0 = ([(_,apx1)], g1)`,
+                           `known [bod] _ g2 = ([(_,apx1')], g)`] >>
+      unabbrevify >>
+      first_x_assum (patresolve `known _ _ g2 = _` last) >> simp[] >>
+      disch_then irule >> irule EVERY2_APPEND_suff >> simp[] >>
+      simp[LIST_REL_GENLIST]))
 
 val _ = export_theory();
