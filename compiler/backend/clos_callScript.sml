@@ -68,8 +68,8 @@ val calls_def = tDefine "calls" `
      let e2 = HD e2 in
        ([Handle e1 e2],g)) /\
   (calls [Call dest xs] g =
-     let (e1,l1) = calls xs g in
-       ([Call dest e1],g)) /\
+     let (xs,g) = calls xs g in
+       ([Call dest xs],g)) /\
   (calls [Op op xs] g =
      let (e1,g) = calls xs g in
        ([Op op e1],g)) /\

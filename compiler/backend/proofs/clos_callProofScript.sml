@@ -429,19 +429,58 @@ val calls_correct = Q.store_thm("calls_correct",
   (* Letrec *)
   \\ conj_tac >- cheat
   (* App *)
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (
+    rw[evaluate_def,calls_def]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ fs[code_locs_def]
+    \\ qpat_assum`_ = (res,_)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_subg) th))
+    \\ simp[]
+    \\ impl_tac >- fs[ALL_DISTINCT_APPEND] \\ strip_tac
+    \\ drule calls_subg
+    \\ impl_keep_tac >- (
+      imp_res_tac calls_add_SUC_code_locs
+      \\ fs[subg_def,ALL_DISTINCT_APPEND,IN_DISJOINT,SUBSET_DEF]
+      \\ metis_tac[numTheory.INV_SUC] )
+    \\ strip_tac
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ rfs[]
+      \\ first_x_assum drule \\ simp[]
+      \\ `g'' = g` by (every_case_tac \\ fs[])
+      \\ rveq \\ fs[]
+      \\ disch_then drule
+      \\ disch_then drule
+      \\ strip_tac
+      \\ imp_res_tac calls_length
+      \\ every_case_tac \\ fs[] \\ rw[evaluate_def]
+      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
+      \\ Cases_on`es` \\ fs[]
+      \\ cheat )
+    \\ cheat)
   (* Tick *)
   \\ conj_tac >- cheat
   (* Call *)
   \\ conj_tac >- (
     rw[evaluate_def,calls_def]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ rw[evaluate_def]
+    \\ pairarg_tac \\ fs[]
     \\ qpat_assum`_ = (res,s)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ cheat
-  )
+    \\ `r.code = FEMPTY`
+    by (
+      imp_res_tac evaluate_const
+      \\ fs[state_rel_def])
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- ( simp[find_code_def] )
+    \\ strip_tac \\ rveq \\ rfs[]
+    \\ rw[evaluate_def]
+    \\ first_x_assum drule
+    \\ fs[code_locs_def]
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ rw[] \\ rw[] )
   \\ conj_tac >- ( rw[evaluate_def] \\ rw[] )
   (* app cons *)
   \\ simp[evaluate_def]
