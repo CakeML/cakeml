@@ -2,11 +2,6 @@ open preamble closLangTheory clos_freeTheory;
 
 val _ = new_theory "clos_call";
 
-val has_side_effect_def = Define ` (* TODO: improve *)
-  (has_side_effect (Var v) = F) /\
-  (has_side_effect (Fn _ _ _ _) = F) /\
-  (has_side_effect _ = T)`
-
 val closed_def = Define `
   closed x = isEmpty (db_to_set (SND (free [x])))`
 
@@ -80,9 +75,9 @@ val calls_def = tDefine "calls" `
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
          (* Call might need to tick more like in BVL *)
-         (let call = Call (loc + 1) es in
-            if has_side_effect x then ([Let [e1;call] (Var 1)],g)
-            else ([call],g))
+         if pure x then ([Call (loc+1) es],g) else
+           ([Let (SNOC e1 es)
+              (Call (loc+1) (GENLIST Var (LENGTH es)))],g)
        else ([App loc_opt e1 es],g)) /\
   (calls [Fn loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
