@@ -4,15 +4,6 @@ open closSemTheory
 
 val _ = new_theory "clos_mtiProof";
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
 val collect_args_correct = Q.prove (
 `!num_args e num_args' e' e''.
   collect_args num_args e = (num_args', e') ∧

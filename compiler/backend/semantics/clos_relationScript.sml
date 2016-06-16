@@ -8,15 +8,6 @@ val refl_list_rel_refl = Q.store_thm ("refl_list_rel_refl",
  match_mp_tac EVERY2_refl >>
  srw_tac[][]);
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
 val butlastn_nil = Q.store_thm ("butlastn_nil",
 `!n l. n ≤ LENGTH l ⇒ (BUTLASTN n l = [] ⇔ LENGTH l = n)`,
  Induct_on `n` >>

@@ -7,15 +7,6 @@ open bagTheory
 
 val _ = new_theory "clos_knownProof";
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
 val value_CASES = TypeBase.nchotomy_of ``:closSem$v``
 val v_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:closSem$v``,

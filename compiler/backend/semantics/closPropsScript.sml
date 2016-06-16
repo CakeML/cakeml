@@ -2,6 +2,19 @@ open preamble closLangTheory closSemTheory
 
 val _ = new_theory"closProps"
 
+(* TODO: move *)
+
+val bool_case_eq = Q.store_thm("bool_case_eq",
+  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
+  srw_tac[][] >> metis_tac[]);
+
+val pair_case_eq = Q.store_thm("pair_case_eq",
+`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
+ Cases_on `x` >>
+ srw_tac[][]);
+
+(* -- *)
+
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s:'ffi closSem$state) with clock := s.clock = s`,
   srw_tac[][closSemTheory.state_component_equality])
@@ -487,10 +500,6 @@ val lookup_vars_MEM = prove(
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL
   |> curry save_thm "lookup_vars_MEM";
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
 val clock_lemmas = Q.store_thm ("clock_lemmas",
 `!s. (s with clock := s.clock) = s`,
  srw_tac[][state_component_equality]);
@@ -536,15 +545,6 @@ val eqs = LIST_CONJ (map prove_case_eq_thm [
   eq_result_thms, error_result_thms, appkind_thms, word_size_thms])
 
 val _ = save_thm ("eqs", eqs);
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
 
 val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,

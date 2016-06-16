@@ -6,15 +6,6 @@ val _ = new_theory"clos_removeProof";
 val _ = Parse.bring_to_front_overload"Let"{Name="Let",Thy="closLang"};
 
 (* TODO: move *)
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
 val FOLDL_acc = Q.prove(
   `∀l f m l0.
      FOLDL (λ(n,a) e. (n + 1n, f n e::a)) (m,l0) l =
