@@ -120,6 +120,10 @@ val v_rel_subg = Q.store_thm("v_rel_subg",
   \\ rfs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
   \\ metis_tac[FST]);
 
+val subg_refl = Q.store_thm("subg_refl",
+  `∀g. ALL_DISTINCT (MAP FST (SND g)) ⇒ subg g g`,
+  rw[subg_def]);
+
 val subg_trans = Q.store_thm("subg_trans",
   `∀g1 g2 g3. subg g1 g2 ∧ subg g2 g3 ⇒ subg g1 g3`,
   rw[subg_def] \\ metis_tac[subspt_trans,IS_SUFFIX_TRANS]);
@@ -140,6 +144,27 @@ val state_rel_subg = Q.store_thm("state_rel_subg",
     \\ Cases \\ Cases \\ fs[]
     \\ match_mp_tac (GEN_ALL LIST_REL_mono)
     \\ metis_tac[v_rel_subg] ));
+
+val code_includes_subg = Q.store_thm("code_includes_subg",
+  `subg g1 g2 ⇒ code_includes (SND g2) code ⇒ code_includes (SND g1) code`,
+  rw[subg_def,code_includes_def,IS_SUFFIX_APPEND]
+  \\ first_x_assum match_mp_tac
+  \\ rw[ALOOKUP_APPEND]
+  \\ BasicProvers.CASE_TAC
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ rfs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
+  \\ res_tac \\ fs[]
+  \\ metis_tac[FST]);
+
+(*
+val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
+  `dest_closure (SOME loc) v1 env = SOME x ∧
+   v_rel g v1 v2 ⇒
+   ∃e2. ALOOKUP (SND g) (loc+1) = SOME (LENGTH env,e2)`,
+  rw[dest_closure_def]
+  \\ every_case_tac \\ fs[v_rel_def]
+  \\ rw[] \\ fs[check_loc_def] \\ rw[]
+*)
 
 (* syntactic properties of compiler *)
 
@@ -320,8 +345,11 @@ val calls_correct = Q.store_thm("calls_correct",
     ALL_DISTINCT (MAP FST (SND g0)) ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
-    LIST_REL (v_rel g) env1 env2 ∧
-    state_rel g s0 t0
+    (*
+    subg g00 g0 ∧ LIST_REL (v_rel g00) env1 env2 ∧ state_rel g00 s0 t0 ∧
+    *)
+    LIST_REL (v_rel g0) env1 env2 ∧
+    state_rel g0 s0 t0 ∧ code_includes (SND g) t0.code
     ⇒
     ∃res' t.
     evaluate (ys,env2,t0) = (res',t) ∧
@@ -330,7 +358,7 @@ val calls_correct = Q.store_thm("calls_correct",
   (∀loco f args (s0:'ffi closSem$state) loc g t0 res s f' args'.
     evaluate_app loco f args s0 = (res,s) ∧
     res ≠ Rerr (Rabort Rtype_error) ∧
-    v_rel g f f' ∧ loco = SOME loc ∧ EVEN loc ∧
+    v_rel g f f' ∧ (* loco = SOME loc ∧ EVEN loc ∧ *)
     LIST_REL (v_rel g) args args' ∧
     state_rel g s0 t0
     ⇒
@@ -340,7 +368,11 @@ val calls_correct = Q.store_thm("calls_correct",
     result_rel (LIST_REL (v_rel g)) (v_rel g) res res')`,
   ho_match_mp_tac evaluate_ind
   \\ conj_tac
-  >- ( simp[evaluate_def,calls_def] )
+  >- (
+    rw[]
+    \\ fs[calls_def,evaluate_def]
+    \\ rveq \\ fs[evaluate_def]
+    \\ metis_tac[state_rel_subg])
   \\ conj_tac
   >- (
     rw[evaluate_def,calls_def]
@@ -423,9 +455,20 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ CASE_TAC \\ fs[] \\ rveq
     \\ simp[evaluate_def]
     (*
+    \\ TRY ( reverse conj_tac >- (
+      qpat_assum`subg (_,_ :: _) _`mp_tac
+      \\ simp[subg_def,IS_SUFFIX_APPEND]
+      \\ strip_tac
+      \\ simp[ALOOKUP_APPEND]
+      \\ CASE_TAC
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ rfs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,ALL_DISTINCT_APPEND]
+      \\ metis_tac[FST] ))
+    *)
     \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
     \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
-    \\ metis_tac[v_rel_subg]*))
+    \\ metis_tac[v_rel_subg])
   (* Letrec *)
   \\ conj_tac >- cheat
   (* App *)
@@ -452,19 +495,92 @@ val calls_correct = Q.store_thm("calls_correct",
       strip_tac \\ rveq \\ rfs[]
       \\ first_x_assum drule \\ simp[]
       \\ rpt(disch_then drule)
+      \\ impl_tac >- ( metis_tac[code_includes_subg] )
       \\ strip_tac
       \\ imp_res_tac calls_length
+      \\ `state_rel g r t` by metis_tac[state_rel_subg,evaluate_const]
+      \\ `exc_rel (v_rel g) e e'`
+      by ( Cases_on`e`\\fs[] \\ metis_tac[v_rel_subg])
       \\ every_case_tac \\ fs[] \\ rw[evaluate_def]
       \\ simp[evaluate_append])
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ qmatch_asmsub_rename_tac`err ≠ Rerr _`
+    \\ Cases_on`err = Rerr (Rabort Rtype_error)` \\ fs[]
+    \\ first_x_assum drule \\ fs[]
+    \\ first_x_assum drule \\ fs[]
+    \\ rpt(disch_then drule)
+    \\ impl_tac >- metis_tac[code_includes_subg]
+    \\ strip_tac \\ fs[]
+    \\ disch_then(qspecl_then[`env2`,`t`]mp_tac)
+    \\ impl_tac
+    >- ( metis_tac[LIST_REL_mono,v_rel_subg,subg_trans,evaluate_const] )
+    \\ strip_tac \\ rveq
+    \\ qpat_assum`_ = (ys,_)`mp_tac
+    \\ qmatch_goalsub_abbrev_tac`COND b`
+    \\ reverse IF_CASES_TAC \\ fs[]
     >- (
-      strip_tac \\ rveq \\ rfs[]
-      \\ first_x_assum drule \\ simp[] \\ strip_tac
-      \\ first_x_assum drule \\ simp[]
-      \\ rpt (disch_then drule) \\ strip_tac
+      strip_tac \\ rveq
+      \\ simp[evaluate_def]
       \\ imp_res_tac calls_length
+      \\ simp[]
+      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ rveq \\ fs[]
+      \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+      >- ( strip_tac \\ rveq \\ fs[] )
+      \\ strip_tac \\ fs[] \\ rfs[]
+      \\ imp_res_tac evaluate_length_imp
+      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ rveq \\ fs[]
+      \\ first_x_assum drule
+      \\ qmatch_assum_rename_tac `LIST_REL (v_rel g') ev1 ev2`
+      \\ `LIST_REL (v_rel g) ev1 ev2` by metis_tac[LIST_REL_mono,v_rel_subg]
+      \\ rpt(disch_then drule)
+      \\ disch_then ACCEPT_TAC )
+    \\ fs[markerTheory.Abbrev_def,IS_SOME_EXISTS]
+    \\ rveq \\ fs[]
+    \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]
+    \\ simp[evaluate_def]
+    >- (
+      drule (Q.GEN`s`pure_correct)
+      \\ disch_then(qspec_then`r`mp_tac)
+      \\ simp[]
+      \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+      >- (CASE_TAC \\ fs[])
+      \\ ntac 2 strip_tac \\ rveq
+      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+      \\ rfs[] \\ rveq
+      \\ first_x_assum drule
+      \\ qmatch_assum_rename_tac `LIST_REL (v_rel g') ev1 ev2`
+      \\ `LIST_REL (v_rel g) ev1 ev2` by metis_tac[LIST_REL_mono,v_rel_subg]
+      \\ rpt(disch_then drule)
+      \\ strip_tac
+      \\ simp[find_code_def]
+      \\ Cases_on`ev1 = []`
+      >- ( imp_res_tac evaluate_length_imp \\ rfs[] )
+      \\ fs[evaluate_app_rw]
+      \\ qpat_assum`_ = (res,_)`mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ strip_tac
       \\ cheat )
+    \\ simp[evaluate_append]
+    \\ imp_res_tac calls_length
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ rveq \\ fs[]
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- ( rw[] \\ rw[] )
+    \\ strip_tac \\ fs[]
+    \\ simp[evaluate_GENLIST_Var]
+    \\ imp_res_tac evaluate_length_imp
+    \\ simp[TAKE_APPEND1,TAKE_LENGTH_ID_rwt]
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ rveq \\ rfs[]
+    \\ first_x_assum drule
+    \\ qmatch_assum_rename_tac `LIST_REL (v_rel g') ev1 ev2`
+    \\ `LIST_REL (v_rel g) ev1 ev2` by metis_tac[LIST_REL_mono,v_rel_subg]
+    \\ rpt(disch_then drule)
+    \\ strip_tac
+    \\ simp[find_code_def]
+    \\ imp_res_tac evaluate_const \\ fs[]
     \\ cheat)
   (* Tick *)
   \\ conj_tac >- cheat
