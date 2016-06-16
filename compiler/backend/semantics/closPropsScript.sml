@@ -546,6 +546,38 @@ val eqs = LIST_CONJ (map prove_case_eq_thm [
 
 val _ = save_thm ("eqs", eqs);
 
+val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
+  `(∀t es E (s:'ffi closSem$state). t = (es,E,s) ∧ EVERY closLang$pure es ⇒
+               case evaluate(es, E, s) of
+                 (Rval vs, s') => s' = s ∧ LENGTH vs = LENGTH es
+               | (Rerr (Rraise a), _) => F
+               | (Rerr (Rabort a), _) => a = Rtype_error) ∧
+   (∀(n: num option) (v:closSem$v)
+     (vl : closSem$v list) (s : 'ffi closSem$state). T)`,
+  ho_match_mp_tac evaluate_ind >> simp[pure_def] >>
+  rpt strip_tac >> simp[evaluate_def]
+  >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
+      rpt (qpat_assum `_ ==> _` mp_tac) >> simp[] >> full_simp_tac(srw_ss())[] >>
+      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
+  >- srw_tac[][]
+  >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
+      qcase_tac `pure_op opn` >> Cases_on `opn` >>
+      full_simp_tac(srw_ss())[pure_op_def, do_app_def, eqs, bool_case_eq] >>
+      srw_tac[][] >>
+      rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
+      every_case_tac \\ fs[] >>
+      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
+  >- (every_case_tac >> simp[])
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])) |> SIMP_RULE (srw_ss()) []
+
+val pure_correct = save_thm(
+  "pure_correct",
+  EVERY_pure_correct |> Q.SPECL [`[e]`, `env`, `s`]
+                     |> SIMP_RULE (srw_ss()) [])
+
 val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
  srw_tac[][]);

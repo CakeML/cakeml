@@ -150,7 +150,7 @@ val remove_fv = Q.store_thm("remove_fv",
 )
 
 val mustkeep_def = Define`
-  mustkeep n e vset ⇔ has_var n vset ∨ ¬clos_remove$pure e
+  mustkeep n e vset ⇔ has_var n vset ∨ ¬pure e
 `;
 val rm1_def = Define`
   rm1 vset n i e = if mustkeep (n + i) e vset then HD (FST (remove [e]))
@@ -160,38 +160,6 @@ val rm1_def = Define`
 val rm1_o_SUC = Q.prove(
   `rm1 keeps n o SUC = rm1 keeps (n + 1)`,
   simp[FUN_EQ_THM, ADD1, rm1_def]);
-
-val pure_expressions_clean0 = Q.prove(
-  `(∀t es E (s:'ffi closSem$state). t = (es,E,s) ∧ EVERY clos_remove$pure es ⇒
-               case evaluate(es, E, s) of
-                 (Rval vs, s') => s' = s ∧ LENGTH vs = LENGTH es
-               | (Rerr (Rraise a), _) => F
-               | (Rerr (Rabort a), _) => a = Rtype_error) ∧
-   (∀(n: num option) (v:closSem$v)
-     (vl : closSem$v list) (s : 'ffi closSem$state). T)`,
-  ho_match_mp_tac evaluate_ind >> simp[pure_def] >>
-  rpt strip_tac >> simp[evaluate_def]
-  >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
-      rpt (qpat_assum `_ ==> _` mp_tac) >> simp[] >> full_simp_tac(srw_ss())[] >>
-      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
-  >- srw_tac[][]
-  >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
-      qcase_tac `pure_op opn` >> Cases_on `opn` >>
-      full_simp_tac(srw_ss())[pure_op_def, do_app_def, eqs, bool_case_eq] >>
-      srw_tac[][] >>
-      rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
-      every_case_tac \\ fs[] >>
-      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
-  >- (every_case_tac >> simp[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])) |> SIMP_RULE (srw_ss()) []
-
-val pure_expressions_clean = save_thm(
-  "pure_expressions_clean",
-  pure_expressions_clean0 |> Q.SPECL [`[e]`, `env`, `s`]
-                          |> SIMP_RULE (srw_ss()) [])
 
 val keepval_rel_def = Define`
   keepval_rel tyit c kis i v1 v2 =
@@ -251,7 +219,7 @@ val evaluate_MAPrm1 = Q.prove(
           reverse (Cases_on `mustkeep b e keeps`)
           >- (full_simp_tac(srw_ss())[mustkeep_def] >>
               IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
-                           pure_expressions_clean >>
+                           pure_correct >>
               simp[]) >>
           simp[] >> qcase_tac `remove [e]` >> Cases_on `remove [e]` >>
           imp_res_tac remove_SING >> var_eq_tac >> full_simp_tac(srw_ss())[] >>
@@ -269,7 +237,7 @@ val evaluate_MAPrm1 = Q.prove(
       reverse (Cases_on `mustkeep b e keeps`) >> simp[]
       >- (full_simp_tac(srw_ss())[mustkeep_def] >>
           IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
-                       pure_expressions_clean >> simp[]) >>
+                       pure_correct >> simp[]) >>
       qcase_tac `remove [e]` >> Cases_on `remove [e]` >>
       imp_res_tac remove_SING >> var_eq_tac >> full_simp_tac(srw_ss())[] >>
       first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
@@ -288,7 +256,7 @@ val evaluate_MAPrm1 = Q.prove(
                     do_app_def, rm1_o_SUC, pair_case_eq, eqs] >>
               full_simp_tac(srw_ss())[mustkeep_def] >>
               IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
-                           pure_expressions_clean >> simp[] >> srw_tac[][] >>
+                           pure_correct >> simp[] >> srw_tac[][] >>
               first_x_assum
                 (qspecl_then [`s1`, `s2`, `j`, `i`, `b + 1`, `env1`, `env2`]
                              mp_tac) >>
@@ -316,7 +284,7 @@ val evaluate_MAPrm1 = Q.prove(
                 do_app_def, rm1_o_SUC, pair_case_eq, eqs] >>
           full_simp_tac(srw_ss())[mustkeep_def] >>
           IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
-                       pure_expressions_clean >> simp[] >> srw_tac[][] >>
+                       pure_correct >> simp[] >> srw_tac[][] >>
           first_x_assum
             (qspecl_then [`s1`, `s2`, `j`, `i`, `b + 1`, `env1`, `env2`]
                          mp_tac) >>
@@ -342,7 +310,7 @@ val evaluate_MAPrm1 = Q.prove(
             do_app_def, rm1_o_SUC, pair_case_eq, eqs] >>
       full_simp_tac(srw_ss())[mustkeep_def] >>
       IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
-                   pure_expressions_clean >> simp[] >> srw_tac[][] >>
+                   pure_correct >> simp[] >> srw_tac[][] >>
       first_x_assum
         (qspecl_then [`s1`, `s2`, `j`, `i`, `b + 1`, `env1`, `env2`]
                      mp_tac) >>
