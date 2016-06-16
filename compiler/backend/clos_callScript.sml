@@ -69,9 +69,9 @@ val calls_def = tDefine "calls" `
      let (e1,g) = calls xs g in
        ([Op op e1],g)) /\
   (calls [App loc_opt x xs] g =
+     let (es,g) = calls xs g in
      let (e1,g) = calls [x] g in
      let e1 = HD e1 in
-     let (es,g) = calls xs g in
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
          (* Call might need to tick more like in BVL *)
