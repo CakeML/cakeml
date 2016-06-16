@@ -1,10 +1,10 @@
 open HolKernel boolLib bossLib
-open ml_translatorLib ml_monadTheory ml_hol_kernelTheory astPP
+open ml_translatorLib ml_monadProgTheory ml_hol_kernelProgTheory astPP
 
 val _ = new_theory"ppKernel"
 
 val pat = ``Tmod "Kernel" _ _``
-val decls = ml_hol_kernelTheory.candle_code_def |> concl |> rand
+val decls = ml_hol_kernelProgTheory.candle_code_def |> concl |> rand
             |> find_term (can (match_term pat)) |> rand
 
 fun equalityprinter _ _ sysp _ gs d t =

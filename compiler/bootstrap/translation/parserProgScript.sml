@@ -5,7 +5,7 @@ open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open std_preludeTheory;
 
-val _ = new_theory "parserTranslation"
+val _ = new_theory "parserProg"
 
 val _ = translation_extends "std_prelude";
 

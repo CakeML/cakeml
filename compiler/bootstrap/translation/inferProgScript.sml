@@ -1,12 +1,12 @@
 open HolKernel Parse boolLib bossLib;
 open preamble;
-open parserTranslationTheory;
+open parserProgTheory;
 open inferTheory
 open ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "inferTranslation"
+val _ = new_theory "inferProg"
 
-val _ = translation_extends "parserTranslation";
+val _ = translation_extends "parserProg";
 
 (* translator setup *)
 

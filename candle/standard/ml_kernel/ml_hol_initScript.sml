@@ -1,5 +1,5 @@
 open preamble
-open ml_translatorLib ml_hol_kernelTheory holKernelProofTheory ml_monadTheory
+open ml_translatorLib ml_hol_kernelProgTheory holKernelProofTheory ml_monadProgTheory
 open bigStepTheory
 open terminationTheory
 

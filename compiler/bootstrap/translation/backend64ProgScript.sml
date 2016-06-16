@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib;
 open preamble;
-open terminationTheory inferTranslationTheory
+open terminationTheory inferProgTheory
 open ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "compilerML"
+val _ = new_theory "backend64Prog"
 
-val _ = translation_extends "inferTranslation";
+val _ = translation_extends "inferProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE

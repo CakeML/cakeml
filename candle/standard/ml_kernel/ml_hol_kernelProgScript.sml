@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib lcsymtacs;
 
-val _ = new_theory "ml_hol_kernel";
+val _ = new_theory "ml_hol_kernelProg";
 
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
@@ -14,11 +14,11 @@ val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
 open holKernelTheory;
-open ml_monadTheory;
+open ml_monadProgTheory;
 
 val _ = (print_asts := true);
 
-val _ = translation_extends "ml_monad";
+val _ = translation_extends "ml_monadProg";
 
 val _ = (use_full_type_names := false);
 
@@ -75,7 +75,7 @@ val ty = ``:def``; val _ = derive_case_of ty;
 fun derive_case_of ty = let
   fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val name = get_name ty
-  val inv_def = fetch "ml_monad" (name ^ "_def") handle HOL_ERR _ =>
+  val inv_def = fetch "ml_monadProg" (name ^ "_def") handle HOL_ERR _ =>
                 fetch "ml_translator" (name ^ "_def")
   val case_th = get_nchotomy_of ty
 (*

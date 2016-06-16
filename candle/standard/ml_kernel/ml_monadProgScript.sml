@@ -2,7 +2,7 @@ open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatche
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory holKernelTheory;
 open terminationTheory ml_progLib ml_progTheory
 
-val _ = new_theory "ml_monad";
+val _ = new_theory "ml_monadProg";
 
 infix \\ val op \\ = op THEN;
 
