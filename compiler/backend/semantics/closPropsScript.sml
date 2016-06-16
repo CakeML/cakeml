@@ -810,6 +810,19 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
  every_case_tac >>
  srw_tac[][]);
 
+val evaluate_GENLIST_Var = Q.store_thm("evaluate_GENLIST_Var",
+  `∀n env s.
+   evaluate (GENLIST Var n, env, s) =
+   if n ≤ LENGTH env then
+     (Rval (TAKE n env),s)
+   else
+     (Rerr (Rabort Rtype_error),s)`,
+  Induct \\ simp[evaluate_def,GENLIST,SNOC_APPEND,evaluate_append]
+  \\ rw[]
+  \\ REWRITE_TAC[GSYM SNOC_APPEND]
+  \\ match_mp_tac SNOC_EL_TAKE
+  \\ simp[]);
+
 val evaluate_length_imp = Q.store_thm ("evaluate_length_imp",
 `evaluate (es,env,s1) = (Rval vs, s2) ⇒ LENGTH es = LENGTH vs`,
  srw_tac[][] >>
