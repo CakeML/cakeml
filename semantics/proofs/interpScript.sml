@@ -207,6 +207,10 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      run_eval (env with v := build_rec_env funs env env.v) e
    else
      raise (Rabort Rtype_error)) ∧
+ (!env t e.
+   run_eval env (Tannot e t)
+   =
+   run_eval env e) ∧
  (!env.
    run_eval_list env []
    =
@@ -278,6 +282,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      fs [remove_lambda_pair, GSYM evaluate_run_eval] >>
      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
  >- metis_tac [fst_lem, run_eval_spec, pair_CASES]
+ >- metis_tac [fst_lem, run_eval_spec]
  >- metis_tac [fst_lem, run_eval_spec]
  >- (rw [GSYM evaluate_run_eval_list] >>
      rw [Once evaluate_cases])
