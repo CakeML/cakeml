@@ -29,6 +29,11 @@ val error_case_eq =
                       nchotomy = error_CASES}
 
 (* MOVE candidates *)
+val subspt_LN = Q.store_thm(
+  "subspt_LN[simp]",
+  `(subspt LN sp ⇔ T) ∧ (subspt sp LN ⇔ domain sp = {})`,
+  simp[subspt_def] >> simp[EXTENSION]);
+
 fun nailIHx k = let
   fun hdt t = (t |> lhs |> strip_comb |> #1)
               handle HOL_ERR _ => t |> strip_comb |> #1
@@ -117,6 +122,7 @@ val evaluate_eq_nil = Q.store_thm(
   Q.ISPECL_THEN [`h::t`, `env`, `s0`] mp_tac (CONJUNCT1 evaluate_LENGTH) >>
   simp[]);
 
+(* unused *)
 val evaluate_list_members_individually = Q.store_thm(
   "evaluate_list_members_individually",
   `∀es env (s0:'a closSem$state) vs s.
@@ -131,83 +137,13 @@ val evaluate_list_members_individually = Q.store_thm(
   rpt strip_tac >> reverse (Cases_on `n` >> fs[]) >- metis_tac[] >>
   imp_res_tac evaluate_SING >> rw[] >> metis_tac[]);
 
-(* MOVE-HOL candidate *)
+(* MOVE-HOL candidate; unused here *)
 val union_idem = Q.store_thm(
   "union_idem[simp]",
   `∀spt. union spt spt = spt`,
   Induct >> simp[union_def]);
 
-val _ = temp_overload_on ("⊌", ``union``)
-
-
 (* simple properties of constants from clos_known: i.e., merge and known *)
-val opn_fresh_def = Define`
-  (opn_fresh (SetGlobal n) g ⇔ n ∉ domain g) ∧
-  (opn_fresh _ g ⇔ T)
-`;
-
-val gidem_op_def = Define`
-  gidem_op apxs opn ⇔
-    ∀g0 apx0 g. known_op opn apxs g0 = (apx0,g) ⇒
-                ∃apx. known_op opn apxs g = (apx,g)
-`;
-
-val non_SetGlobal_gidem_op = Q.store_thm(
-  "non_SetGlobal_gidem_op",
-  `(∀n. opn ≠ SetGlobal n) ⇒ gidem_op apxs opn`,
-  Cases_on `opn` >>
-  simp[gidem_op_def, known_op_def, eqs, va_case_eq, bool_case_eq] >> dsimp[]);
-
-val safe_op_def = Define`
-  safe_op opn apxs g0 ⇔
-    ∀n a0. opn = SetGlobal n ∧ lookup n g0 = SOME a0 ⇒ apxs = [a0]
-`;
-
-val no_top_getGlobal_def = tDefine "no_top_getGlobal" `
-  (no_top_getGlobal (Var _) = T) ∧
-  (no_top_getGlobal (If e1 e2 e3) ⇔
-    no_top_getGlobal e1 ∧ no_top_getGlobal e2 ∧ no_top_getGlobal e3) ∧
-  (no_top_getGlobal (Let bs e) ⇔
-    (∀b. MEM b bs ⇒ no_top_getGlobal b) ∧ no_top_getGlobal e) ∧
-  (no_top_getGlobal (Raise e) ⇔ no_top_getGlobal e) ∧
-  (no_top_getGlobal (Handle e1 e2) ⇔
-    no_top_getGlobal e1 ∧ no_top_getGlobal e2) ∧
-  (no_top_getGlobal (Tick e) ⇔ no_top_getGlobal e) ∧
-  (no_top_getGlobal (Call _ es) ⇔ ∀e. MEM e es ⇒ no_top_getGlobal e) ∧
-  (no_top_getGlobal (App _ f args) ⇔
-    no_top_getGlobal f ∧ ∀a. MEM a args ⇒ no_top_getGlobal a) ∧
-  (no_top_getGlobal (Fn _ _ _ _) ⇔ T) ∧
-  (no_top_getGlobal (Letrec _ _ _ b) = no_top_getGlobal b) ∧
-  (no_top_getGlobal (Op opn args) ⇔
-    (∀n. opn ≠ Global n) ∧ ∀a. MEM a args ⇒ no_top_getGlobal a)
-` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[])
-
-(* val no_top_getGlobal_g_varies = Q.store_thm(
-  "no_top_getGlobal_g_varies",
-  `∀es as g0 alist g.
-    known es as g0 = (alist,g) ∧ (∀e. MEM e es ⇒ no_top_getGlobal e) ⇒
-    ∀g0'. ∃g'. known es as g0' = (alist,g')`,
-  ho_match_mp_tac known_ind >> simp[known_def, no_top_getGlobal_def] >>
-  rpt strip_tac >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> imp_res_tac known_sing_EQ_E >> rveq >>
-  fs[] >> rveq >>
-  TRY (qcase_tac `known_op opn` >> Cases_on `opn` >>
-       fs[known_op_def, eqs, va_case_eq, bool_case_eq] >>
-       rveq >> simp[] >> metis_tac[PAIR_EQ, REVERSE, MAP, NOT_CONS_NIL])
-  >- metis_tac[PAIR_EQ, CONS_11]
-  >- metis_tac[PAIR_EQ, CONS_11]
-  >- metis_tac[PAIR_EQ, CONS_11]
-  >- metis_tac[PAIR_EQ, CONS_11]
-  >- metis_tac[PAIR_EQ, CONS_11]
-  >- metis_tac[PAIR_EQ, CONS_11] *)
-
-val safe_opsetg_def = Define`
-  safe_opsetg opn args =
-    (∀n. opn = SetGlobal n ⇒
-         ∃a. args = [a] ∧ no_top_getGlobal a)
-`;
-
 val op_gbag_def = Define`
   op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
   op_gbag _ = {||}
@@ -369,88 +305,6 @@ val subspt_known_op_elist_globals = Q.store_thm(
   `k ∈ SET_OF_BAG (elist_globals es)` by metis_tac[known_changed_globals] >>
   fs[BAG_DISJOINT, DISJOINT_DEF, EXTENSION] >> metis_tac[])
 
-(*
-val safe_setglobals_known_fixed_union = Q.store_thm(
-  "safe_setglobals_known_fixed_union",
-  `∀es as g0 alist g.
-      known es as g0 = (alist,g) ∧
-      (∀e. MEM e es ⇒ safe_setglobals e)
-     ⇒
-      ∃Δ. g = Δ ⊌ g0 ∧
-          ∀g0'. ∃alist'. known es as g0' = (alist',Δ ⊌ g0')`,
-  ho_match_mp_tac known_ind >> simp[known_def, safe_setglobals_def] >>
-  rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-  imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
-  >- (qexists_tac `LN` >> simp[])
-  >- (full_simp_tac (srw_ss() ++ DNF_ss) [] >>
-      qcase_tac `g = union Δ₁ (union Δ₂ g0)` >>
-      qexists_tac `union Δ₁ Δ₂` >> simp[union_assoc] >> qx_gen_tac `g0'` >>
-      map_every qcase_tac [
-        `known [exp1] as g0 = _`,
-        `known (exp2::exps) as _ = _`
-      ] >>
-      `∃alist0. known [exp1] as g0' = (alist0,union Δ₂ g0')` by metis_tac[] >>
-      simp[] >>
-      `∃alist1.
-        known (exp2::exps) as (union Δ₂ g0') = (alist1,union Δ₁ (union Δ₂ g0'))`
-          by metis_tac[] >> simp[union_assoc])
-  >- (qexists_tac `LN` >> simp[])
-  >- (qcase_tac `union d3 (union d2 (union d1 g0)) = union _ g0` >>
-      qexists_tac `union d3 (union d2 d1)` >> simp[union_assoc] >>
-      qx_gen_tac `g0'` >> qcase_tac `known [exp1] as g0'` >>
-      `∃a1. known [exp1] as g0' = (a1,union d1 g0')` by metis_tac[] >> simp[] >>
-      qcase_tac `known [exp2] as (union d1 g0')` >>
-      `∃a2. known [exp2] as (union d1 g0') = (a2,union d2 (union d1 g0'))`
-        by metis_tac[] >> simp[] >>
-      qcase_tac `known [exp3] as (d2 ⊌ (d1 ⊌ g0'))` >>
-      `∃a3. known [exp3] as (d2 ⊌ (d1 ⊌ g0')) = (a3, d3 ⊌ (d2 ⊌ (d1 ⊌ g0')))`
-        by metis_tac[] >> simp[] >>
-      imp_res_tac known_sing_EQ_E >> fs[] >> rveq >> simp[union_assoc])
-  >- (qcase_tac `d2 ⊌ (d1 ⊌ g0) = _ ⊌ g0` >> qexists_tac `d2 ⊌ d1` >>
-      simp[union_assoc] >> qx_gen_tac
-
-
-val safe_setglobals_known_subspt = Q.store_thm(
-  "safe_setglobals_known_subspt",
-  `∀es as g0 alist g g1.
-      known es as g0 = (alist,g) ∧ subspt g0 g1 ∧ subspt g0 g ∧
-      (∀e. MEM e es ⇒ safe_setglobals e)
-     ⇒
-      ∃alist' g'. known es as g1 = (alist',g') ∧
-                  MAP FST alist' = MAP FST alist`,
-  ho_match_mp_tac known_ind >> simp[known_def, safe_setglobals_def] >>
-  rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-  imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
-  >- (full_simp_tac (srw_ss() ++ DNF_ss) [] >>
-      map_every qcase_tac [
-        `subspt g0 g1`, `known [exp0] as g0 = ([(exp1,apx1)], g01)`,
-        `known [exp0] as g1 = ([(exp2,apx2)], g02)`] >>
-      `subspt g0 g01`
-        by metis_tac[subspt_better_definedg, known_better_definedg] >>
-      first_x_assum
-        (fn th => qspec_then `g1` mp_tac th >> simp[] >>
-                  disch_then (assume_tac o assert (not o is_imp o concl))) >>
-      rveq
-
-*)
-
-val opn_fresh_gbag = Q.store_thm(
-  "opn_fresh_gbag",
-  `opn_fresh opn g ⇔ DISJOINT (SET_OF_BAG (op_gbag opn)) (domain g)`,
-  Cases_on `opn` >> simp[opn_fresh_def, op_gbag_def] >>
-  simp[DISJOINT_DEF, SET_OF_BAG_INSERT, EXTENSION]);
-
-val known_op_adds_gbag = Q.store_thm(
-  "known_op_adds_gbag",
-  `known_op opn apxs g0 = (apx,g) ⇒
-   domain g ⊆ domain g0 ∪ SET_OF_BAG (op_gbag opn)`,
-  Cases_on `opn` >> dsimp[known_op_def, op_gbag_def, eqs, va_case_eq] >> rw[] >>
-  simp[domain_insert]);
-
-
-
 val FINITE_BAG_FOLDR = Q.store_thm(
   "FINITE_BAG_FOLDR",
   `∀l f a.
@@ -470,41 +324,6 @@ val FINITE_BAG_elist_globals = Q.store_thm(
   `FINITE_BAG (elist_globals es)`,
   Induct_on `es` >> fs[]);
 
-val unchanging_gapx_def = Define`
-  unchanging_gapx es g0 g ⇔
-    ∀i. i ∈ SET_OF_BAG (elist_globals es) ∧ i ∈ domain g0 ⇒
-        lookup i g0 = lookup i g
-`;
-
-val unchanging_gapx_CONS = Q.store_thm(
-  "unchanging_gapx_CONS",
-  `unchanging_gapx (e::es) g0 g ⇔
-     (∀i. i <: set_globals e ∧ i ∈ domain g0 ⇒ lookup i g0 = lookup i g) ∧
-     unchanging_gapx es g0 g`,
-  dsimp[unchanging_gapx_def])
-
-val unchanging_gapx_NIL = Q.store_thm(
-  "unchanging_gapx_NIL[simp]",
-  `unchanging_gapx [] g0 g ⇔ T`,
-  simp[unchanging_gapx_def]);
-
-val unchanging_gapx_LN = Q.store_thm(
-  "unchanging_gapx_LN[simp]",
-  `unchanging_gapx es LN g ⇔ T`,
-  simp[unchanging_gapx_def]);
-
-val unchanging_gapx_SING = Q.store_thm(
-  "unchanging_gapx_SING",
-  `unchanging_gapx [e] g0 g ⇔
-     (∀i. i <: set_globals e ∧ i ∈ domain g0 ⇒ lookup i g0 = lookup i g)`,
-  simp[unchanging_gapx_CONS]);
-
-val unchanging_gapx_CONS2 = Q.store_thm(
-  "unchanging_gapx_CONS2",
-  `unchanging_gapx (e1::e2::es) g0 g ⇔
-     unchanging_gapx [e1] g0 g ∧ unchanging_gapx (e2::es) g0 g`,
-  simp[unchanging_gapx_CONS]);
-
 val state_globals_approx_def = Define`
   state_globals_approx s g ⇔
     ∀k v.
@@ -519,14 +338,6 @@ val state_approx_better_definedg = Q.store_thm(
   csimp[better_definedg_def, state_globals_approx_def, domain_lookup,
         PULL_EXISTS] >>
   metis_tac[val_approx_better_approx]);
-
-val known_preserves_gwf = Q.store_thm(
-  "known_preserves_gwf",
-  `∀exps apxs g0 alist g. known exps apxs g0 = (alist,g) ∧ wf g0 ⇒ wf g`,
-  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rw[] >> qcase_tac `known_op opn` >>
-  Cases_on `opn` >> fs[known_op_def, eqs, va_case_eq, bool_case_eq] >>
-  rw[wf_insert]);
 
 val mapped_globals_def = Define`
   mapped_globals (s:'a closSem$state) =
@@ -1101,15 +912,6 @@ val known_op_correct_approx = Q.store_thm(
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
 
-val known_CONS = Q.store_thm(
-  "known_CONS",
-  `known (e::es) as g0 =
-    let (al1,g') = known [e] as g0 in
-    let (all,g) = known es as g'
-    in
-       (al1 ++ all, g)`,
-  Cases_on `es` >> simp[known_def] >> pairarg_tac >> simp[]);
-
 val say = say0 "known_correct_approx"
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
@@ -1405,23 +1207,6 @@ val ssgc_free_preserved_SING' = Q.store_thm(
   metis_tac[ssgc_evaluate]);
 
 val say = say0 "known_correct";
-
-
-val evaluate_app_NONE_SOME = Q.store_thm(
-  "evaluate_app_NONE_SOME",
-  `evaluate_app NONE fval argvs s0 = (res, s) ∧
-   res ≠ Rerr (Rabort Rtype_error) ∧
-   ((∃e2 b. fval = Closure (SOME mm) [] e2 (LENGTH argvs) b) ∨
-    (∃base env fs j.
-            fval = Recclosure (SOME base) [] env fs j ∧ mm = base + j ∧
-            LENGTH argvs = FST (EL j fs))) ⇒
-   evaluate_app (SOME mm) fval argvs s0 = (res, s)`,
-  Cases_on `argvs = []` >>
-  simp[evaluate_app_rw] >> Cases_on `fval` >>
-  simp[eqs, result_case_eq, bool_case_eq, pair_case_eq] >>
-  rpt strip_tac >> fs[dest_closure_def] >> rveq >> fs[] >>
-  rpt (pairarg_tac >> fs[]) >> rveq >>
-  fs[check_loc_def, revdroprev, revtakerev]);
 
 val kerel_def = Define`
   kerel as g' e1 e2 ⇔
@@ -2676,11 +2461,6 @@ val known_increases_subspt_info = Q.store_thm(
       first_x_assum (patresolve `known _ _ g2 = _` last) >> simp[] >>
       disch_then irule >> irule EVERY2_APPEND_suff >> simp[] >>
       simp[LIST_REL_GENLIST]))
-
-val subspt_LN = Q.store_thm(
-  "subspt_LN[simp]",
-  `(subspt LN sp ⇔ T) ∧ (subspt sp LN ⇔ domain sp = {})`,
-  simp[subspt_def] >> simp[EXTENSION]);
 
 val sga_subspt = Q.store_thm(
   "sga_subspt",
