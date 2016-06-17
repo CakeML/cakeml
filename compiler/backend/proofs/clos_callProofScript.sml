@@ -72,6 +72,11 @@ val v_rel_def = tDefine"v_rel"`
 
 val v_rel_ind = theorem"v_rel_ind";
 
+val wfg_def = Define`
+  wfg g ⇔
+    domain (FST g) ⊆ EVEN ∧
+    set (MAP FST (SND g)) ⊆ IMAGE SUC (domain (FST g))`;
+
 val code_includes_def = Define`
   code_includes al code ⇔
     ∀k v. ALOOKUP al k = SOME v ⇒ FLOOKUP code k = SOME v`;
@@ -176,6 +181,13 @@ val SND_insert_each = Q.store_thm("SND_insert_each[simp]",
   `∀p n g. SND (insert_each p n g) = SND g`,
   ho_match_mp_tac insert_each_ind
   \\ rw[insert_each_def]);
+
+val domain_FST_insert_each = Q.store_thm("domain_FST_insert_each",
+  `∀p n g. domain (FST (insert_each p n g)) = set (GENLIST (λi. 2 * i + p) n) ∪ domain (FST g)`,
+  ho_match_mp_tac insert_each_ind
+  \\ rw[insert_each_def,GENLIST_CONS,o_DEF,ADD1,LEFT_ADD_DISTRIB]
+  \\ simp[EXTENSION,MEM_GENLIST]
+  \\ metis_tac[ADD_ASSOC,ADD_COMM]);
 
 val MAP_FST_code_list = Q.store_thm("MAP_FST_code_list",
   `∀loc fns g.
@@ -300,6 +312,61 @@ val calls_subg = Q.store_thm("calls_subg",
     ⇒ subg g0 g`,
   rw[subg_def] \\ metis_tac[calls_IS_SUFFIX,calls_subspt,calls_ALL_DISTINCT]);
 
+val wfg_insert_each = Q.store_thm("wfg_insert_each",
+  `∀n g loc. wfg g ∧ (0 < n ⇒ EVEN loc) ⇒ wfg (insert_each loc n g)`,
+  Induct \\ Cases \\ rw[insert_each_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs[wfg_def,SUBSET_DEF,IN_EVEN]
+  \\ metis_tac[EVEN_ADD,EVAL``EVEN 2``]);
+
+val wfg_code_list = Q.store_thm("wfg_code_list",
+  `∀ls g loc. wfg g ∧ set (GENLIST (λi. loc + 2 * i) (LENGTH ls)) ⊆ domain (FST g) ⇒ wfg (code_list loc ls g)`,
+  rw[wfg_def,SUBSET_DEF,MEM_GENLIST,MAP_FST_code_list]
+  >- (
+    fs[ADD1,PULL_EXISTS]
+    \\ metis_tac[ADD_ASSOC] )
+  \\ metis_tac[]);
+
+val calls_wfg = Q.store_thm("calls_wfg",
+  `∀xs g0 ys g.
+    calls xs g0 = (ys,g) ∧
+    set (code_locs xs) ⊆ EVEN ∧
+    every_Fn_SOME xs ∧ wfg g0 ⇒
+    wfg g`,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def] \\ rw[] \\ fs[code_locs_def]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ every_case_tac \\ fs[] \\ rw[]
+  >- (
+    drule wfg_insert_each \\ fs[IN_EVEN]
+    \\ disch_then(qspec_then`1`mp_tac) \\ simp[]
+    \\ disch_then drule \\ rw[]
+    \\ fs[wfg_def,ADD1]
+    \\ imp_res_tac calls_subspt
+    \\ fs[subspt_def,domain_lookup]
+    \\ first_x_assum match_mp_tac
+    \\ REWRITE_TAC[ONE]
+    \\ Cases_on`g0`
+    \\ REWRITE_TAC[insert_each_def]
+    \\ simp[lookup_insert] )
+  \\ `0 < LENGTH fns ⇒ EVEN x`
+  by (
+    Cases_on`fns` \\ fs[SUBSET_DEF,IN_EVEN,MEM_GENLIST]
+    \\ first_x_assum match_mp_tac
+    \\ qexists_tac`0` \\ simp[] )
+  \\ drule wfg_insert_each
+  \\ disch_then drule \\ rw[]
+  \\ fs[]
+  \\ match_mp_tac wfg_code_list
+  \\ imp_res_tac calls_length
+  \\ fs[SUBSET_DEF]
+  \\ imp_res_tac calls_subspt
+  \\ fs[subspt_def,domain_lookup]
+  \\ rw[] \\ first_x_assum match_mp_tac
+  \\ qmatch_abbrev_tac`lookup k d = SOME _`
+  \\ `k ∈ domain d` suffices_by simp[domain_lookup]
+  \\ simp[Abbr`d`,domain_FST_insert_each]);
+
 val closed_Fn = Q.store_thm("closed_Fn",
   `closed (Fn loco vs args e) ⇔
    ∀v. has_var v (SND (free [e])) ⇒ v < args`,
@@ -337,9 +404,6 @@ val calls_correct = Q.store_thm("calls_correct",
     ALL_DISTINCT (MAP FST (SND g0)) ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
-    (*
-    subg g00 g0 ∧ LIST_REL (v_rel g00) env1 env2 ∧ state_rel g00 s0 t0 ∧
-    *)
     LIST_REL (v_rel g0) env1 env2 ∧
     state_rel g0 s0 t0 ∧ code_includes (SND g) t0.code
     ⇒
