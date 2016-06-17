@@ -312,6 +312,23 @@ val calls_subg = Q.store_thm("calls_subg",
     ⇒ subg g0 g`,
   rw[subg_def] \\ metis_tac[calls_IS_SUFFIX,calls_subspt,calls_ALL_DISTINCT]);
 
+val calls_domain = Q.store_thm("calls_domain",
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
+    domain (FST g) ⊆ domain (FST g0) ∪ IMAGE PRE (set (MAP FST (SND g)))`,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ fs[SUBSET_DEF] \\ rw[]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ TRY (
+    imp_res_tac calls_subspt
+    \\ imp_res_tac calls_IS_SUFFIX
+    \\ fs[IS_SUFFIX_APPEND] \\ fs[]
+    \\ metis_tac[])
+  \\ imp_res_tac calls_length
+  \\ fs[domain_FST_insert_each,MAP_FST_code_list,MEM_GENLIST]
+  \\ metis_tac[EVAL``PRE 1``,prim_recTheory.PRE,ADD1,ADD_ASSOC]);
+
 val wfg_insert_each = Q.store_thm("wfg_insert_each",
   `∀n g loc. wfg g ∧ (0 < n ⇒ EVEN loc) ⇒ wfg (insert_each loc n g)`,
   Induct \\ Cases \\ rw[insert_each_def]
