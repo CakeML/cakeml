@@ -296,6 +296,12 @@ val small_eval_letrec = Q.prove (
    small_eval (env with v := build_rec_env funs env env.v) s e1 c r)`,
 small_eval_step_tac);
 
+val small_eval_tannot = Q.prove (
+`!env s e t c r.
+small_eval env s (Tannot e t) c r =
+small_eval env s e ((Ctannot () t,env)::c) r`,
+cheat);
+
 val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `
 (!env s. small_eval_list env s [] (s, Rval [])) ∧
 (!s1 env e es v vs s2 s3 env'.
@@ -710,7 +716,7 @@ val big_exp_to_small_exp = Q.prove (
      (ck = F) ⇒ small_eval_match env (to_small_st s) v pes err_v (to_small_res r))`,
    ho_match_mp_tac evaluate_ind >>
    srw_tac[][small_eval_log, small_eval_if, small_eval_match,
-       small_eval_handle, small_eval_let, small_eval_letrec,
+             small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot,
        to_small_res_def, small_eval_raise]
    >- (srw_tac[][return_def, small_eval_def, Once RTC_CASES1, e_step_reln_def, e_step_def] >>
        metis_tac [RTC_REFL])
@@ -1148,6 +1154,9 @@ val big_exp_to_small_exp = Q.prove (
        qexists_tac `Exp (Letrec funs e)` >>
        qexists_tac `[]` >>
        srw_tac[][RTC_REFL, e_step_def])
+
+   >- cheat
+
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
        metis_tac [APPEND,e_step_add_ctxt, small_eval_list_rules])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
