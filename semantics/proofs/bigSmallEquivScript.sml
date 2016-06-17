@@ -297,10 +297,10 @@ val small_eval_letrec = Q.prove (
 small_eval_step_tac);
 
 val small_eval_tannot = Q.prove (
-`!env s e t c r.
-small_eval env s (Tannot e t) c r =
-small_eval env s e ((Ctannot () t,env)::c) r`,
-cheat);
+`!env s e1 t c r.
+  small_eval env s (Tannot e1 t) c r =
+  small_eval env s e1 ((Ctannot () t,env)::c) r`,
+ small_eval_step_tac);
 
 val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `
 (!env s. small_eval_list env s [] (s, Rval [])) ∧
