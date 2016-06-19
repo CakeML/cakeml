@@ -1,33 +1,8 @@
 open HolKernel boolLib bossLib lcsymtacs;
 
-val _ = ParseExtras.temp_loose_equality()
-open x64_compileLib
+open x64_compileLib x64_exportLib
 
 val rconc = rhs o concl
-
-(*Doesn't match the theorem
-val source_conf = ``<|next_global:=0;mod_env:=(FEMPTY,FEMPTY)|>``
-val mod_conf = ``<|next_exception:=LN;tag_env:=(FEMPTY,FEMPTY);exh_ctors_env:=FEMPTY|>``
-*)
-
-val source_conf = rconc(EVAL``prim_config.source_conf``)
-val mod_conf = rconc(EVAL``prim_config.mod_conf``)
-val clos_conf = rconc (EVAL ``prim_config.clos_conf``)
-val bvp_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
-val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
-(*val word_conf = ``<| bitmaps := [] |>``*)
-val stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
-val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config;init_clock:=5|>``
-
-val conf = ``<|source_conf:=^(source_conf);
-               mod_conf:=^(mod_conf);
-               clos_conf:=^(clos_conf);
-               bvp_conf:=^(bvp_conf);
-               word_to_word_conf:=^(word_to_word_conf);
-               (*word_conf:=^(word_conf);*)
-               stack_conf:=^(stack_conf);
-               lab_conf:=^(lab_conf)
-               |>``
 
 val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20;
@@ -38,11 +13,10 @@ val _ = PolyML.print_depth 5;
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes conf prog =
+fun to_bytes prog =
   let
-  (*val prog = ``^(initial_prog) ++ ^(prog)``*)
   val _ = println "Compile to livesets"
-  val test = Count.apply eval``to_livesets ^(conf) ^(prog)``
+  val test = Count.apply eval``to_livesets x64_compiler_config ^(prog)``
   val _ = println "External oracle"
   val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test)))
   val _ = println "Eval with oracle attached"
@@ -52,59 +26,6 @@ fun to_bytes conf prog =
   in
     test2
   end
-
-(*to_bytes verbose*)
-fun to_bytes_verbose conf prog =
-  let
-  (*val prog = ``^(initial_prog) ++ ^(prog)``*)
-  val _ = println "Compile to livesets"
-  val test = Count.apply eval``to_livesets ^(conf) ^(prog)``
-  val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test)))
-  val _ = println "Eval with oracle attached"
-  val test2 = Count.apply eval``
-    let ((k,clashmov),c,p) = ^(rconc test) in
-    let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
-    let (n_oracles,col) = next_n_oracle (LENGTH p) ^(oracles) in
-    let alg = word_conf.reg_alg in
-    let prog_with_oracles = ZIP (n_oracles,ZIP(clashmov,p)) in
-    let p =
-      MAP (λ(col_opt,((tree,moves),name_num,arg_count,prog)).
-        case oracle_colour_ok k col_opt tree prog of
-          NONE =>
-            (let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-               let col = reg_alloc alg clash_graph k moves
-               in
-                 (name_num,arg_count,remove_must_terminate (apply_colour (total_colour col) prog)))
-        | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
-    let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-    (c,p)``
-  val _ = println "Compile to labLang"
-  val test3 = Count.apply eval``
-    let (c,p) = ^(rconc test2) in
-    (*unverified: let p = MAP (λa,b,prog. a,b,FST(remove_dead prog LN)) p in*)
-    let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
-    let c = c with word_conf := c' in
-    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
-    (c,p)``
-  val _ = println "First encoding"
-  val test4 = Count.apply eval``
-    let (c,p) = ^(rconc test3) in
-    let p = filter_skip p in
-    let c = c.lab_conf in
-    let limit = find_ffi_index_limit p in
-    let (c,enc,clk) = (c.asm_conf,c.encoder,c.init_clock) in
-    (c,enc,enc_sec_list enc p,limit,clk)``
-  val _ = println "Remove labels loop"
-  val test5 = Count.apply eval``
-    let (c,enc,sec_list,limit,clk) = ^(rconc test4) in
-    remove_labels_loop clk c enc sec_list``
-  val _ = println "Extract byte list"
-  val test6 = Count.apply eval``
-    case ^(rconc test5) of
-    SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,l1)
-    | NONE => NONE`` in
-    test6 end
 
 val btree = ``
 [Tdec
@@ -494,50 +415,19 @@ Tdec
   (Dlet (Pvar "test")
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
 
-val xeq5 = ``
-  [Tdec (Dlet (Pvar"x") (Lit (IntLit 5)))]``
+val benchmarks = [fib,btree,queue,qsort]
 
-val _ = PolyML.print_depth 5;
-val _ = Globals.max_print_depth := 10;
-
-val xeq5_bytes = Count.apply to_bytes_verbose conf xeq5;
-
-val fib_bytes = Count.apply to_bytes conf fib;
-
-val qsort_bytes = Count.apply to_bytes conf qsort;
-
-val queue_bytes = Count.apply to_bytes conf queue;
-
-val btree_bytes = Count.apply to_bytes conf btree;
+val benchmarks_compiled = map to_bytes benchmarks
 
 val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes xeq5_bytes) "xeq5.S"
-val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes fib_bytes) "fib.S"
-val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes qsort_bytes) "qsort.S"
-val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes queue_bytes) "queue.S"
-val _ = x64_exportLib.write_cake_S 10 10 0 (extract_bytes btree_bytes) "btree.S"
 
-(*"*)
+val benchmarks_bytes = map extract_bytes benchmarks_compiled
 
-(*Check
+fun write_asm [] n = ()
+  | write_asm (x::xs) n =
+    (write_cake_S 50 50 0 x ("exec/benchmark_" ^ (Int.toString(n))^ ".S") ;
+    write_asm xs (n+1))
 
-fun dump_file file t =
-  let
-    val f = TextIO.openOut (file)
-  in
-    TextIO.output(f,term_to_string t);
-    TextIO.closeOut f
-  end
+val _ = write_asm benchmarks_bytes 0;
 
-val fib_check = to_bytes fib
-val qsort_check = to_bytes qsort
-val queue_check = to_bytes queue
-val btree_check = to_bytes btree
-val _ = Globals.max_print_depth := ~1;
 
-val _ = dump_file "fib_check" (rconc test3)
-val _ = dump_file "qsort_check" (rconc qsort_check)
-val _ = dump_file "queue_check" (rconc queue_check)
-val _ = dump_file "btree_check" (rconc btree_check)
-
-*)
