@@ -1,4 +1,4 @@
-INCLUDES = ../.. ../../semantics ../targets/asm reg_alloc
+INCLUDES = ../.. ../../semantics ../targets ../targets/asm reg_alloc
 
 OPTIONS = QUIT_ON_FAILURE
 
