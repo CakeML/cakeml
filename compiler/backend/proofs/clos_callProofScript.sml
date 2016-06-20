@@ -27,6 +27,18 @@ val v_size_lemma = prove(
   ``MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl``,
   Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
   res_tac >> simp[]);
+
+val list_to_num_set_append = Q.store_thm("list_to_num_set_append",
+  `∀l1 l2. list_to_num_set (l1 ++ l2) = union (list_to_num_set l1) (list_to_num_set l2)`,
+  Induct \\ rw[list_to_num_set_def]
+  \\ rw[Once insert_union]
+  \\ rw[Once insert_union,SimpRHS]
+  \\ rw[union_assoc])
+
+val subspt_domain_SUBSET = Q.store_thm("subspt_domain_SUBSET",
+  `subspt s1 s2 ⇒ domain s1 ⊆ domain s2`,
+  rw[subspt_def,SUBSET_DEF]);
+
 (* -- *)
 
 val subg_def = Define`
@@ -198,6 +210,14 @@ val domain_FST_insert_each = Q.store_thm("domain_FST_insert_each",
   \\ rw[insert_each_def,GENLIST_CONS,o_DEF,ADD1,LEFT_ADD_DISTRIB]
   \\ simp[EXTENSION,MEM_GENLIST]
   \\ metis_tac[ADD_ASSOC,ADD_COMM]);
+
+val SND_code_list_change = Q.store_thm("SND_code_list_change",
+  `∀loc fns g g'. SND g = SND g' ⇒
+    SND (code_list loc fns g) = SND (code_list loc fns g')`,
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def]
+  \\ Cases_on`g'` \\ rw[code_list_def]
+  \\ fs[FORALL_PROD]);
 
 val MAP_FST_code_list = Q.store_thm("MAP_FST_code_list",
   `∀loc fns g.
@@ -438,6 +458,182 @@ val closed_Fn = Q.store_thm("closed_Fn",
   \\ Cases_on`lookup (args+n) (db_to_set l)` \\ rw[]
   \\ Cases_on `x` \\ fs[GSYM lookup_db_to_set]
   \\ res_tac \\ fs[]);
+
+(* alternative definition of calls which tracks more information *)
+
+val exp_size_def = closLangTheory.exp_size_def;
+val exp1_size_lemma = closLangTheory.exp1_size_lemma;
+val EL_MEM_LEMMA = prove(
+  ``!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs``,
+  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
+val exp3_size_MAP_SND = prove(
+  ``!fns. exp3_size (MAP SND fns) <= exp1_size fns``,
+  Induct \\ fs [exp_size_def,FORALL_PROD]);
+val calls2_def = tDefine "calls2" `
+  (calls2 [] g = ([],g)) /\
+  (calls2 ((x:closLang$exp)::y::xs) g =
+     let (e1,g) = calls2 [x] g in
+     let (e2,g) = calls2 (y::xs) g in
+       (e1 ++ e2,g)) /\
+  (calls2 [Var v] g =
+     ([Var v],g)) /\
+  (calls2 [If x1 x2 x3] g =
+     let (e1,g) = calls2 [x1] g in
+     let (e2,g) = calls2 [x2] g in
+     let (e3,g) = calls2 [x3] g in
+     let e1 = HD e1 in
+     let e2 = HD e2 in
+     let e3 = HD e3 in
+       ([If e1 e2 e3],g)) /\
+  (calls2 [Let xs x2] g =
+     let (e1,g) = calls2 xs g in
+     let (e2,g) = calls2 [x2] g in
+     let e2 = HD e2 in
+       ([Let e1 e2],g)) /\
+  (calls2 [Raise x1] g =
+     let (e1,g) = calls2 [x1] g in
+     let e1 = HD e1 in
+       ([Raise e1],g)) /\
+  (calls2 [Tick x1] g =
+     let (e1,g) = calls2 [x1] g in
+     let e1 = HD e1 in
+       ([Tick e1],g)) /\
+  (calls2 [Handle x1 x2] g =
+     let (e1,g) = calls2 [x1] g in
+     let (e2,g) = calls2 [x2] g in
+     let e1 = HD e1 in
+     let e2 = HD e2 in
+       ([Handle e1 e2],g)) /\
+  (calls2 [Call dest xs] g =
+     let (xs,g) = calls2 xs g in
+       ([Call dest xs],g)) /\
+  (calls2 [Op op xs] g =
+     let (e1,g) = calls2 xs g in
+       ([Op op e1],g)) /\
+  (calls2 [App loc_opt x xs] g =
+     let (es,g) = calls2 xs g in
+     let (e1,g) = calls2 [x] g in
+     let e1 = HD e1 in
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+       if IS_SOME loc_opt /\ loc ∈ (FST (FST g)) then
+         if pure x then ([Call (loc+1) es],g) else
+           ([Let (SNOC e1 es)
+              (Call (loc+1) (GENLIST Var (LENGTH es)))],g)
+       else ([App loc_opt e1 es],g)) /\
+  (calls2 [Fn loc_opt ws num_args x1] g =
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+     let new_g = ((loc INSERT (FST (FST g)),SND(FST g)),SND g) in
+     let (e1,new_g) = calls2 [x1] new_g in
+     let new_g = (FST new_g,(loc+1,num_args,HD e1)::SND new_g) in
+       if closed (Fn loc_opt ws num_args (HD e1)) then
+         ([Fn loc_opt ws num_args
+             (Call (loc+1) (GENLIST Var num_args))],new_g)
+       else
+         let g = ((FST(FST g),(loc INSERT (SND (FST g)))),SND g) in
+         let (e1,g) = calls2 [x1] g in
+           ([Fn loc_opt ws num_args (HD e1)],g)) /\
+  (calls2 [Letrec loc_opt ws fns x1] g =
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+     let new_g = ((set (GENLIST (λi. 2*i+loc) (LENGTH fns)) ∪ (FST(FST g)),SND (FST g)), SND g) in
+     let (fns1,new_g) = calls2 (MAP SND fns) new_g in
+       if EVERY2 (\(n,_) p. closed (Fn NONE NONE n p)) fns fns1 then
+         let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
+         let (e1,g) = calls2 [x1] new_g in
+           ([Letrec loc_opt ws (calls_list loc fns) (HD e1)],new_g)
+       else
+         let g = ((FST(FST g),(set (GENLIST (λi. 2*i+loc) (LENGTH fns)) ∪ (SND (FST g)))),SND g) in
+         let (fns1,g) = calls2 (MAP SND fns) g in
+         let (e1,g) = calls2 [x1] g in
+           ([Letrec loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))`
+ (WF_REL_TAC `measure (exp3_size o FST)`
+  \\ REPEAT STRIP_TAC
+  \\ fs [GSYM NOT_LESS]
+  \\ IMP_RES_TAC EL_MEM_LEMMA
+  \\ IMP_RES_TAC exp1_size_lemma
+  \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
+  \\ DECIDE_TAC);
+
+val calls2_ind = theorem"calls2_ind";
+
+val calls_calls2 = Q.store_thm("calls_calls2",
+  `∀xs g0 ys g g02.
+    calls xs g0 = (ys,g)
+    ⇒
+    (*let g2 = set (code_locs xs) DIFF (domain (FST g) DIFF domain (FST g0)) in *)
+    ∃g2.
+    calls2 xs ((domain(FST g0),g02),SND g0) = (ys,((domain (FST g), g2),SND g))(* ∧
+    DISJOINT g02 g2 ∧
+    DISJOINT g2 (domain (FST g) DIFF domain (FST g0)) *)`,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def,calls2_def,code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq
+  \\ TRY (
+    first_x_assum(qspec_then`g02`mp_tac)\\rw[]
+    \\ first_x_assum(qspec_then`g2`mp_tac)\\rw[]
+    \\ first_x_assum(qspec_then`g2'`mp_tac)\\rw[])
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ TRY (
+    first_x_assum(qspec_then`g02`mp_tac)\\rw[]
+    \\ first_x_assum(qspec_then`g2`mp_tac)\\rw[]
+    \\ NO_TAC)
+  \\ TRY (
+    fs[domain_FST_insert_each,GSYM INSERT_SING_UNION]
+    \\ first_x_assum(qspec_then`g02`mp_tac)\\rw[]
+    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
+    \\ first_x_assum(qspec_then`g2`mp_tac)\\rw[]
+    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
+    \\ fs[domain_lookup] \\ rfs[IS_SOME_EXISTS]
+    \\ NO_TAC)
+  \\ TRY (
+    first_x_assum(qspec_then`0 INSERT g02`mp_tac) \\ rw[]
+    \\ fs[domain_FST_insert_each,GSYM INSERT_SING_UNION]
+    \\ first_x_assum(qspec_then`g02`mp_tac) \\ rw[]
+    \\ fs[] \\ NO_TAC)
+  \\ TRY (
+    first_x_assum(qspec_then`x INSERT g02`mp_tac) \\ rw[]
+    \\ fs[domain_FST_insert_each,GSYM INSERT_SING_UNION]
+    \\ first_x_assum(qspec_then`g02`mp_tac) \\ rw[]
+    \\ fs[] \\ NO_TAC)
+  \\ TRY (
+    fs[domain_FST_insert_each]
+    \\ last_x_assum(qspec_then`g02`mp_tac) \\ rw[]
+    \\ qpat_assum`calls2 _ (code_list _ _ _) = _`mp_tac
+    \\ CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV(REWR_CONV (GSYM PAIR)))))
+    \\ PURE_REWRITE_TAC[FST_code_list]
+    \\ simp[]
+    \\ qmatch_goalsub_abbrev_tac`code_list ll ff (g1,SND gg)`
+    \\ qispl_then[`ll`,`ff`,`(g1,SND gg)`,`gg`]mp_tac SND_code_list_change
+    \\ simp[] \\ disch_then kall_tac \\ unabbrev_all_tac
+    \\ first_x_assum(qspec_then`g2`mp_tac)\\rw[] \\ fs[]
+    \\ CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV(GSYM PAIR))))
+    \\ PURE_REWRITE_TAC[FST_code_list]
+    \\ simp[]
+    \\ match_mp_tac SND_code_list_change
+    \\ simp[] )
+  \\ TRY (
+   fs[domain_FST_insert_each]
+   \\ first_x_assum(qspec_then`g02`mp_tac) \\ rw[]
+   \\ qmatch_asmsub_abbrev_tac`g01 ∪ g02`
+   \\ first_x_assum(qspec_then`g01 ∪ g02`mp_tac)
+   \\ rw[]
+   \\ first_x_assum(qspec_then`g2'`mp_tac) \\ rw[] ));
+
+(*
+val calls2_disjoint = Q.store_thm("calls2_disjoint",
+  `∀xs g0 ys g.
+    calls2 xs g0 = (ys,g) ∧
+    DISJOINT (FST (FST g0)) (SND (FST g0)) ∧
+    every_Fn_SOME xs ∧
+    DISJOINT (FST (FST g0)) (set (code_locs xs)) ∧
+    DISJOINT (SND (FST g0)) (set (code_locs xs))
+    ⇒
+    DISJOINT (FST (FST g)) (SND (FST g))`,
+  ho_match_mp_tac calls2_ind
+  \\ rw[calls2_def] \\ fs[code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ first_x_assum match_mp_tac
+*)
 
 (* compiler correctness *)
 
