@@ -2,6 +2,8 @@ open HolKernel boolLib bossLib lcsymtacs;
 
 open x64_compileLib x64_exportLib
 
+val _ = new_theory "benchmark"
+
 val rconc = rhs o concl
 
 val _ = PolyML.timing true;
@@ -16,15 +18,25 @@ fun println s = print (strcat s "\n");
 fun to_bytes prog =
   let
   val _ = println "Compile to livesets"
-  val test = Count.apply eval``to_livesets x64_compiler_config ^(prog)``
+  val init = Count.apply eval``to_livesets x64_compiler_config ^(prog)``
   val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test)))
-  val _ = println "Eval with oracle attached"
+  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc init)))
+  val wc = ``<|reg_alg:=1;col_oracle:= ^(oracles)|>``
+  val _ = println "Repeat compilation with oracle"
+  (*This repeats the "to_livesets" step, but that isn't very costly*)
+  val compile_thm = Count.apply eval``
+    compile (x64_compiler_config with word_to_word_conf := ^(wc)) ^(prog)``
+  (* Alternatively: we can use the theories to manipulate init directly
+  however, running the simplifier on the result takes quite long as well
+  val rw = backendTheory.to_livesets_invariant |> SIMP_RULE std_ss[LET_THM]
+   |> GEN_ALL |> ISPECL [wc,prog,``x64_compiler_config``]
+   |> ONCE_REWRITE_RULE[init] |> SIMP_RULE std_ss []
   val test2 = Count.apply eval``
-    let (rcm,c,p) = ^(rconc test) in
-    from_livesets (rcm,c with word_to_word_conf:= <|reg_alg:=1;col_oracle:= ^(oracles)|>,p)``
+    let (rcm,c,p) = ^(rconc init) in
+    from_livesets (rcm,c with word_to_word_conf:= ^(wc),p)``
+   *)
   in
-    test2
+    compile_thm
   end
 
 val btree = ``
@@ -416,6 +428,7 @@ Tdec
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
 
 val benchmarks = [fib,btree,queue,qsort]
+val names = ["fib","btree","queue","qsort"]
 
 val benchmarks_compiled = map to_bytes benchmarks
 
@@ -423,11 +436,13 @@ val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
 
-fun write_asm [] n = ()
-  | write_asm (x::xs) n =
-    (write_cake_S 50 50 0 x ("exec/benchmark_" ^ (Int.toString(n))^ ".S") ;
-    write_asm xs (n+1))
+fun write_asm [] = ()
+  | write_asm ((name,bytes)::xs) =
+    (write_cake_S 50 50 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
+    write_asm xs)
 
-val _ = write_asm benchmarks_bytes 0;
+val _ = write_asm (zip names benchmarks_bytes);
 
+val _ = map save_thm (zip names benchmarks_compiled);
 
+val _ = export_theory ();
