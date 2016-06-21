@@ -68,9 +68,11 @@ sig
      [hpull_conseq_conv] fails if the goal is not of the form ``_ ==>> _``. If
      the goal is of this form but there is nothing to pull, UNCHANGED is raised.
    *)
+  val hpull : tactic
+  val hpull_one : tactic
   val hpull_one_conseq_conv : directed_conseq_conv
   val hpull_conseq_conv : directed_conseq_conv
-                 
+
   (* [hsimpl_cancel_conseq_conv]: on a goal of the form [H1 ==>> H2],
      [hsimpl_cancel_conseq_conv] tries to remove subheaps present both in H1 and
      H2. Moreover, if [one (loc, v)] is in H1 and [one (loc, v')] is in H2,

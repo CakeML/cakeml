@@ -148,6 +148,9 @@ val hpull_conseq_conv =
   STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
   STRENGTHEN_CONSEQ_CONV (ITERATED_LOOP_CONSEQ_CONV hpull_base)
 
+val hpull_one = CONSEQ_CONV_TAC hpull_one_conseq_conv
+val hpull = CONSEQ_CONV_TAC hpull_conseq_conv
+
 (* test goals:
   g `(A * cond P * (SEP_EXISTS x. G x) * cond Q :hprop) ==>> Z`;
   e (CONSEQ_CONV_TAC hpull_one_conseq_conv \\ strip_tac);
