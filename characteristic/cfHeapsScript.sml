@@ -61,4 +61,104 @@ val local_is_local = store_thm ("local_is_local",
   metis_tac [is_local_def, local_local]
 )
 
+val local_frame_gc = store_thm ("local_frame_gc",
+  ``!F H H1 H2 Q1 Q.
+      is_local F ==>
+      F H1 Q1 ==>
+      H ==>> H1 * H2 ==>
+      Q1 *+ H2 ==+> Q *+ GC ==>
+      F H Q``,
+  fs [is_local_def] \\ rpt strip_tac \\ last_assum (once_rewrite_tac o sing) \\
+  rewrite_tac [local_def] \\ rpt strip_tac \\
+  Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac \\ fs [SEP_IMP_def]
+)
+
+val local_frame = store_thm ("local_frame",
+  ``!H1 H2 Q1 F H Q.
+      is_local F ==>
+      F H1 Q1 ==>
+      H ==>> H1 * H2 ==>
+      Q1 *+ H2 ==+> Q ==>
+      F H Q``,
+  fs [is_local_def] \\ rpt strip_tac \\ last_assum (once_rewrite_tac o sing) \\
+  rewrite_tac [local_def] \\ rpt strip_tac \\
+  Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac
+  THEN1 (fs [SEP_IMP_def])
+  THEN1 (
+    rew_heap \\ qx_gen_tac `x` \\ (* todo: hchange *)
+    first_assum (fn t => irule (MATCH_MP hchange_lemma' (Q.SPEC `x` t))) \\
+    QUANT_TAC [("x'", `x`, [])] \\ hsimpl \\ qexists_tac `emp` \\ hsimpl
+  )
+)
+
+val local_gc_pre_on = store_thm ("local_gc_pre_on",
+  ``!HG H' F H Q.
+     is_local F ==>
+     H ==>> HG * H' ==>
+     F H' Q ==>
+     F H Q``,
+  rpt strip_tac \\ fs [is_local_def] \\
+  last_assum (once_rewrite_tac o sing) \\
+  fs [local_def] \\ rpt strip_tac \\
+  Q.LIST_EXISTS_TAC [`H'`, `HG`, `Q`] \\ rpt strip_tac
+  THEN1 (once_rewrite_tac [STAR_COMM] \\ fs [SEP_IMP_def])
+  THEN1 (fs [])
+  THEN1 hsimpl
+)
+
+(* Extraction of premisses from [local] *)
+
+val local_intro_prop = store_thm ("local_intro_prop",
+  ``!F H P Q.
+      is_local F ==>
+      (P ==> F H Q) ==>
+      F (H * cond P) Q``,
+  rpt strip_tac \\ fs [is_local_def] \\
+  last_assum (once_rewrite_tac o sing) \\
+  fs [local_def] \\ rpt strip_tac \\
+  Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\ rew_heap \\ rpt strip_tac \\
+  TRY (fs [STAR_def, cond_def] \\ SPLIT_TAC) \\ hsimpl
+)
+
+(** Extraction of existentials from [local] *)
+
+val local_extract_exists = store_thm ("local_extract_exists",
+  ``!F A J Q.
+      is_local F ==>
+      (!x. F (J x) Q) ==>
+      F ($SEP_EXISTS J) Q``,
+  rpt strip_tac \\ fs [is_local_def] \\ last_assum (once_rewrite_tac o sing) \\
+  fs [local_def] \\ rpt strip_tac \\ fs [SEP_EXISTS] \\ qcase_tac `J x _` \\
+  Q.LIST_EXISTS_TAC [`J x`, `emp`, `Q`] \\ rpt strip_tac \\ rew_heap \\
+  hsimpl
+)
+
+(** Auxiliary lemmas for [hclean]. Mostly repackaging of previous lemmas *)
+
+val hclean_prop = store_thm ("hclean_prop",
+ ``!F H P Q.
+      is_local F /\
+      (P ==> F H Q) ==>
+      F (H * cond P) Q``,
+  fs [local_intro_prop]
+)
+
+val hclean_prop_single = store_thm ("hclean_prop_single",
+  ``!F P Q.
+      is_local F /\
+      (P ==> F emp Q) ==>
+      F (cond P) Q``,
+  qx_gen_tac `HF` \\
+  qspecl_then [`HF`, `emp`] mp_tac local_intro_prop \\
+  rew_heap
+)
+
+val hclean_exists_single = store_thm ("hclean_exists_single",
+  ``!F A J Q.
+      is_local F /\
+      (!x. F (J x) Q) ==>
+      F ($SEP_EXISTS J) Q``,
+  fs [local_extract_exists]
+)
+
 val _ = export_theory()
