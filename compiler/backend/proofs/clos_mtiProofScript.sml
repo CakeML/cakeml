@@ -67,7 +67,7 @@ val dest_closure_Recclosure_EQ_NONE = Q.store_thm(
   "dest_closure_Recclosure_EQ_NONE",
   `dest_closure locopt (Recclosure loc argE cloE fns i) args = NONE ⇔
      LENGTH fns ≤ i ∨ FST (EL i fns) ≤ LENGTH argE ∨
-     ¬check_loc locopt (lift ($+ i) loc) (FST (EL i fns))
+     ¬check_loc locopt (lift ($+ (2*i)) loc) (FST (EL i fns))
          (LENGTH args) (LENGTH argE)`,
   simp[dest_closure_def, UNCURRY] >> rw[] >>
   Cases_on `LENGTH fns ≤ i` >> simp[] >>
