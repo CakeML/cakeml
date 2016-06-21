@@ -154,6 +154,21 @@ fun print_dcc direction t = (
   REFL_CONSEQ_CONV t
 )
 
+type iterated_conseq_conv_base =
+     term -> (conseq_conv * (conseq_conv -> conseq_conv)) option
+
+fun ITERATED_STEP_CONSEQ_CONV base t =
+  case base t of
+      NONE => raise UNCHANGED
+    | SOME (cc, _) => cc t
+
+fun ITERATED_LOOP_CONSEQ_CONV base t =
+  let val (cc1, cc_cont1) =
+          case base t of
+              NONE => raise UNCHANGED
+            | SOME x => x
+  in THEN_CONSEQ_CONV cc1 (cc_cont1 (ITERATED_LOOP_CONSEQ_CONV base)) t end
+
 (*----------------------------------------------------------------------------*)
 (* A conseq_conv that instantiate evars of the goal to match the conclusion
    of the rewriting theorem, using unification

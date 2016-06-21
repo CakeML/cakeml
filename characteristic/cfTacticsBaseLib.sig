@@ -72,6 +72,14 @@ sig
   val print_cc : conseq_conv
   val print_dcc : directed_conseq_conv
 
+  type iterated_conseq_conv_base =
+       term -> (conseq_conv * (conseq_conv -> conseq_conv)) option
+
+  val ITERATED_STEP_CONSEQ_CONV : iterated_conseq_conv_base -> conseq_conv
+  val ITERATED_LOOP_CONSEQ_CONV : iterated_conseq_conv_base -> conseq_conv
+
+  (* -- *)
+
   val MATCH_IMP_STRENGTHEN_CONSEQ_CONV : thm -> conseq_conv
   
   (** Tactics to deal with goals of the form [?x1..xn. A1 /\ ... /\ Am], where
