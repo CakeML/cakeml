@@ -23,7 +23,7 @@ val app_basic_def = Define `
         evaluate F env st exp (st', Rval v')`
 
 val app_basic_local = prove (
-  ``!f x. is_local (\env. app_basic (:'ffi) f x)``,
+  ``!f x. is_local (app_basic (:'ffi) f x)``,
   cheat)
 
 
@@ -53,8 +53,8 @@ val app_alt_ind_w = store_thm ("app_alt_ind_w",
   rpt strip_tac \\ fs [app_alt_ind]
 )
 
-val app_local = prove (
-  ``!f xs. is_local (\env. app (:'ffi) f xs)``,
+val app_local = store_thm ("app_local",
+  ``!f xs. xs <> [] ==> is_local (app (:'ffi) f xs)``,
   cheat)
 
 

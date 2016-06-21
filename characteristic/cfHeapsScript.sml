@@ -11,10 +11,10 @@ fun sing x = [x]
 (* local = frame rule + consequence rule + garbage collection *)
 
 val local_def = Define `
-  local cf env (H: hprop) (Q: v -> hprop) =
+  local cf (H: hprop) (Q: v -> hprop) =
     !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
-      cf env H1 Q1 /\
+      cf H1 Q1 /\
       (Q1 *+ H2 ==+> Q *+ GC)`
 
 val is_local_def = Define `
@@ -23,14 +23,14 @@ val is_local_def = Define `
 (* Properties of [local] *)
 
 val local_elim = store_thm ("local_elim",
-  ``!cf env H Q. cf env H Q ==> local cf env H Q``,
+  ``!cf H Q. cf H Q ==> local cf H Q``,
   fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\ hsimpl \\ rew_heap
 )
 
 val local_local = store_thm ("local_local",
   ``!cf. local (local cf) = local cf``,
-  qsuff_tac `!cf env H Q. local (local cf) env H Q = local cf env H Q`
+  qsuff_tac `!cf H Q. local (local cf) H Q = local cf H Q`
   THEN1 (metis_tac []) \\
   rpt strip_tac \\ eq_tac \\
   fs [local_elim] \\
