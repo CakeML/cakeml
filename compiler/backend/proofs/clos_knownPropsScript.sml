@@ -171,7 +171,7 @@ val val_approx_val_def = tDefine "val_approx_val" `
      (∃e2 b. v = Closure (SOME m) [] e2 n b) ∨
      (∃base env fs j.
         v = Recclosure (SOME base) [] env fs j ∧
-        m = base + j ∧ j < LENGTH fs ∧
+        m = base + 2*j ∧ j < LENGTH fs ∧
         n = FST (EL j fs))) ∧
   (val_approx_val (Tuple vas) v ⇔
     ∃n vs. v = Block n vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
