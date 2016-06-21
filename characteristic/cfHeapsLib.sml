@@ -93,6 +93,28 @@ fun rearrange_star_conv tm rest =
     fn t => prove (mk_eq (t, rearranged), rew_heap_AC)
   end
 
+(** hpullable *)
+
+val hpullable_error = ERR "hpullable" "need to first call xpull"
+
+(* [hpullable_rec H] raises an error if the heap predicate [H]
+   contains existentials or non-empty pure facts. *)
+
+fun hpullable_rec tm =
+  let val hs = list_dest dest_star tm in
+    app (fn h =>
+      if is_cond h orelse is_sep_exists h then
+        raise hpullable_error
+      else ()) hs
+  end
+
+(* [hpullable t] applies to a term of the form [H ==>> H'], and raises
+   an error if [H] contains extractible quantifiers or facts *)
+
+fun hpullable tm =
+  let val (l, _) = dest_sep_imp tm
+  in hpullable_rec l end
+
 (** hpull *)
 
 fun hpull_one_base t =

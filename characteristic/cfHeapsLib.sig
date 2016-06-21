@@ -79,4 +79,8 @@ sig
      UNCHANGED is raised.
    *)
   val hsimpl_steps_conseq_conv : ConseqConv.directed_conseq_conv
+
+  (** hpullable *)
+  val hpullable_rec : term -> unit
+  val hpullable : term -> unit
 end
