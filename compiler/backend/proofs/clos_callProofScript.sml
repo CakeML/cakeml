@@ -345,12 +345,12 @@ val calls_ALL_DISTINCT = Q.store_thm("calls_ALL_DISTINCT",
     \\ fs[IS_SUFFIX_APPEND]
     \\ metis_tac[MEM_APPEND,numTheory.INV_SUC] )
   \\ TRY (
-    qcase_tac`MEM 1n _`
+    rename1`MEM 1n _`
     \\ imp_res_tac calls_add_SUC_code_locs
     \\ fs[ALL_DISTINCT_APPEND,SUBSET_DEF]
     \\ metis_tac[ONE,numTheory.INV_SUC] )
   \\ TRY (
-    qcase_tac`MEM (_ + 1n) _`
+    rename1`MEM (_ + 1n) _`
     \\ imp_res_tac calls_add_SUC_code_locs
     \\ fs[ALL_DISTINCT_APPEND,SUBSET_DEF,ADD1]
     \\ metis_tac[ADD1,numTheory.INV_SUC] )

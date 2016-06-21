@@ -35,7 +35,7 @@ val known_sing = Q.store_thm(
   "known_sing",
   `∀e vs g. ∃e' a g'. known [e] vs g = ([(e',a)], g')`,
   rpt strip_tac >> Cases_on `known [e] vs g` >>
-  qcase_tac `known [e] vs g = (res,g')` >>
+  rename1 `known [e] vs g = (res,g')` >>
   qspecl_then [`[e]`, `vs`, `g`] mp_tac known_LENGTH >> simp[] >>
   Cases_on `res` >> simp[LENGTH_NIL] >> metis_tac[pair_CASES])
 
@@ -200,7 +200,7 @@ val val_approx_better_approx = Q.store_thm(
   `∀a1 v a2.
      a1 ◁ a2 ∧ val_approx_val a1 v ⇒ val_approx_val a2 v`,
   ho_match_mp_tac (theorem "val_approx_val_ind") >> dsimp[] >> rpt gen_tac >>
-  qcase_tac `Tuple a2s ◁ apx2` >>
+  rename1 `Tuple a2s ◁ apx2` >>
   Cases_on `apx2` >> dsimp[] >> simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
 
 val _ = export_theory();
