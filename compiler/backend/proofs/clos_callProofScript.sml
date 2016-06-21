@@ -139,11 +139,11 @@ val code_includes_def = Define`
     ∀k v. ALOOKUP al k = SOME v ⇒ FLOOKUP code k = SOME v`;
 
 val state_rel_def = Define`
-  state_rel g (s:'ffi closSem$state) (t:'ffi closSem$state) ⇔
+  state_rel g l (s:'ffi closSem$state) (t:'ffi closSem$state) ⇔
     (s.ffi = t.ffi) ∧
     (s.clock = t.clock) ∧
-    LIST_REL (OPTREL (v_rel g)) s.globals t.globals ∧
-    fmap_rel (ref_rel (v_rel g)) s.refs t.refs ∧
+    LIST_REL (OPTREL (v_rel g l)) s.globals t.globals ∧
+    fmap_rel (ref_rel (v_rel g l)) s.refs t.refs ∧
     s.code = FEMPTY ∧ code_includes (SND g) t.code`;
 
 (* properties of value relation *)
