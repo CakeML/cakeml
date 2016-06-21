@@ -33,6 +33,9 @@ sig
   *)
   val ORELSE_CONSEQ_CONV : conseq_conv -> conseq_conv -> conseq_conv
 
+  val EVERY_CONSEQ_CONV : conseq_conv list -> conseq_conv
+  val FIRST_CONSEQ_CONV : conseq_conv list -> conseq_conv
+
   val CUSTOM_THEN_DCC :
     (conseq_conv -> conseq_conv -> conseq_conv) ->
     directed_conseq_conv -> directed_conseq_conv -> directed_conseq_conv
@@ -48,6 +51,10 @@ sig
   val EVERY_DCC : directed_conseq_conv list -> directed_conseq_conv
   val CHANGED_DCC : directed_conseq_conv -> directed_conseq_conv
   val QCHANGED_DCC : directed_conseq_conv -> directed_conseq_conv
+
+  val CONV_DCC : conv -> directed_conseq_conv
+  val STRENGTHEN_CONSEQ_CONV : conseq_conv -> directed_conseq_conv
+  val WEAKEN_CONSEQ_CONV : conseq_conv -> directed_conseq_conv
 
   val TOP_REDEPTH_CONSEQ_CONV : directed_conseq_conv -> directed_conseq_conv
 

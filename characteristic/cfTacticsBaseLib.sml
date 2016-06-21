@@ -30,6 +30,39 @@ fun UNCHANGED_CONV conv t =
 infixr 3 THEN_DCC
 infixr 3 ORELSE_DCC
 
+fun CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir thm t =
+let
+   val thm_term	= concl	thm;
+in
+   if (aconv thm_term t) then
+      CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir (EQT_INTRO thm) t
+   else if (is_imp_only thm_term) then
+      let
+         val (t1, t2) = dest_imp thm_term;
+         val _ = if (aconv t1 t2) then raise UNCHANGED else ();
+
+         val g' = if (aconv t2 t) then CONSEQ_CONV_STRENGTHEN_direction else
+                  if (aconv t1 t) then CONSEQ_CONV_WEAKEN_direction else
+                  raise UNCHANGED;
+         val g'' = if (dir = CONSEQ_CONV_UNKNOWN_direction) then g' else dir;
+         val _ = if not (g' = g'') then raise UNCHANGED else ();
+      in
+         (g'', thm)
+      end
+   else if (is_eq thm_term) then
+      (dir,
+        if ((lhs thm_term = t) andalso not (rhs thm_term = t)) then
+           if (dir = CONSEQ_CONV_UNKNOWN_direction) then
+              thm
+           else if (dir = CONSEQ_CONV_STRENGTHEN_direction) then
+              snd (EQ_IMP_RULE thm)
+           else
+              fst (EQ_IMP_RULE thm)
+        else raise UNCHANGED)
+   else
+      raise UNCHANGED
+end
+
 fun CUSTOM_THEN_CONSEQ_CONV handler1 handler2 (c1:conv) c2 t =
     let
        val thm0_opt =
@@ -67,6 +100,14 @@ val THEN_CONSEQ_CONV =
 fun ORELSE_CONSEQ_CONV (c1:conv) (c2:conv) t =
   c1 t handle HOL_ERR _ => c2 t
 
+fun EVERY_CONSEQ_CONV [] t = raise UNCHANGED
+  | EVERY_CONSEQ_CONV ((c1:conv)::L) t =
+    (THEN_CONSEQ_CONV c1 (EVERY_CONSEQ_CONV L)) t
+
+fun FIRST_CONSEQ_CONV [] t = raise UNCHANGED
+  | FIRST_CONSEQ_CONV (c1::L) t =
+    ORELSE_CONSEQ_CONV c1 (FIRST_CONSEQ_CONV L) t
+
 fun CUSTOM_THEN_DCC THEN_CC DCC1 DCC2 direction =
   THEN_CC (DCC1 direction) (DCC2 direction)
 
@@ -79,6 +120,22 @@ fun (DCC1 ORELSE_DCC DCC2) direction =
 fun EVERY_DCC [] direction t = raise UNCHANGED
   | EVERY_DCC (c1::L) direction t =
     (c1 THEN_DCC (EVERY_DCC L)) direction t
+
+fun CONV_DCC conv dir t =
+let
+   val _ = if (type_of t = bool) then () else raise UNCHANGED;
+   val thm = conv t
+in
+  snd (CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir thm t)
+end
+
+fun STRENGTHEN_CONSEQ_CONV conv dir =
+  if dir = CONSEQ_CONV_WEAKEN_direction then raise UNCHANGED
+  else CONV_DCC conv dir
+
+fun WEAKEN_CONSEQ_CONV conv dir =
+  if dir = CONSEQ_CONV_STRENGTHEN_direction then raise UNCHANGED
+  else CONV_DCC conv dir
 
 fun CHANGED_DCC dcc direction =
   CHANGED_CONSEQ_CONV (dcc direction)

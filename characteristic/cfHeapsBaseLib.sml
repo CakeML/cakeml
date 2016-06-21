@@ -159,6 +159,9 @@ val hpull_conseq_conv =
 
   g `(A * emp * cond P * (SEP_EXISTS x. emp * G x) * cond Q :hprop) ==>> Z`;
   e (CONSEQ_CONV_TAC hpull_conseq_conv);
+
+  g `(A * emp) ==>> Z`;
+  e (CONSEQ_CONV_TAC hpull_conseq_conv);
 *)
 
 (** hsimpl_cancel *)
