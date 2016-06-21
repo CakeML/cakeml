@@ -1,12 +1,30 @@
 signature cfHeapsBaseLib =
 sig
   include Abbrev
+  type conseq_conv = ConseqConv.conseq_conv
+  type directed_conseq_conv = ConseqConv.directed_conseq_conv
 
+  (*----------------------------------------------------------------*)
+
+  val dest_sep_imp : term -> term * term
+  val dest_cell : term -> term * term
+
+  val is_cond : term -> bool
+  val is_sep_exists : term -> bool
+
+  val SEP_IMPPOST_conseq_conv : conseq_conv -> conseq_conv
+  val SEP_IMPPOST_DCC : directed_conseq_conv -> directed_conseq_conv
+  val WITH_SEP_IMPPOST_DCC : directed_conseq_conv -> directed_conseq_conv
+
+  val SEP_IMP_conv : conv -> conv -> conv
+  val rearrange_star_conv : term -> term list -> conv
+
+  (*----------------------------------------------------------------*)
   (* Prove an "easy" goal about sets, involving UNION, DISJOINT,... Useful
     after unfolding the definitions of heap predicates. *)
   val SPLIT_TAC : tactic
 
-
+  (*----------------------------------------------------------------*)
   (** Normalization of STAR *)
 
   (* Normalize modulo AC of STAR *)
@@ -32,7 +50,7 @@ sig
       which it doesn't fail, that is on every [SEP_IMP] and [SEP_IMPPOST].
    *)
   val hsimpl : tactic
-  val hsimpl_conseq_conv : ConseqConv.directed_conseq_conv
+  val hsimpl_conseq_conv : directed_conseq_conv
 
 
   (** Auxiliary directed_conseq_convs, that are used to implement
@@ -50,8 +68,8 @@ sig
      [hpull_conseq_conv] fails if the goal is not of the form ``_ ==>> _``. If
      the goal is of this form but there is nothing to pull, UNCHANGED is raised.
    *)
-  val hpull_one_conseq_conv : ConseqConv.directed_conseq_conv
-  val hpull_conseq_conv : ConseqConv.directed_conseq_conv
+  val hpull_one_conseq_conv : directed_conseq_conv
+  val hpull_conseq_conv : directed_conseq_conv
                  
   (* [hsimpl_cancel_conseq_conv]: on a goal of the form [H1 ==>> H2],
      [hsimpl_cancel_conseq_conv] tries to remove subheaps present both in H1 and
@@ -66,7 +84,7 @@ sig
      ``_ ==>> _``. If the goal is of this form does but there is nothing to do,
      UNCHANGED is raised.
    *)
-  val hsimpl_cancel_conseq_conv : ConseqConv.directed_conseq_conv
+  val hsimpl_cancel_conseq_conv : directed_conseq_conv
 
   (* [hsimpl_steps]: extract pure facts and existential quantifications from the
      right heap (H2).
@@ -78,7 +96,7 @@ sig
      ``_ ==>> _``. If the goal is of this form but there is nothing to do,
      UNCHANGED is raised.
    *)
-  val hsimpl_steps_conseq_conv : ConseqConv.directed_conseq_conv
+  val hsimpl_steps_conseq_conv : directed_conseq_conv
 
   (** hpullable *)
   val hpullable_rec : term -> unit

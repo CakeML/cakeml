@@ -70,23 +70,11 @@ fun SEP_IMPPOST_DCC dcc =
 fun WITH_SEP_IMPPOST_DCC dcc =
   dcc ORELSE_DCC (SEP_IMPPOST_DCC dcc)
 
-fun UNCHANGED_CONV conv t =
-  let val thm = conv t
-      val (l,r) = dest_eq (concl thm) in
-    if l = r then raise UNCHANGED else thm
-  end
-
 fun SEP_IMP_conv convl convr t =
   let val (l, r) = dest_sep_imp t
       val rew_t = MATCH_MP (MATCH_MP SEP_IMP_rew (convl l)) (convr r)
   in UNCHANGED_CONV (REWR_CONV rew_t) t
   end
-
-fun find_map f [] = NONE
-  | find_map f (x :: xs) =
-    (case f x of
-         NONE => find_map f xs
-       | SOME y => SOME y)
 
 fun rearrange_star_conv tm rest =
   let val rearranged = list_mk_star (rest @ [tm]) ``:hprop`` in

@@ -5,6 +5,25 @@ open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ConseqConv
 open quantHeuristicsLib quantHeuristicsTools
 
+fun find_map f [] = NONE
+  | find_map f (x :: xs) =
+    (case f x of
+         NONE => find_map f xs
+       | SOME y => SOME y)
+
+(*----------------------------------------------------------------------------*)
+(* Conv++ *)
+
+fun NCONV 0 conv = REFL
+  | NCONV 1 conv = conv
+  | NCONV n conv = conv THENC (NCONV (n-1) conv)
+
+fun UNCHANGED_CONV conv t =
+  let val thm = conv t
+      val (l,r) = dest_eq (concl thm) in
+    if l = r then raise UNCHANGED else thm
+  end
+
 (*------------------------------------------------------------------*)
 (** ConseqConv++ *)
 
@@ -228,13 +247,6 @@ fun LIST_IMP_FORALL_INTRO ([], thm) = thm
 fun LIST_IMP_EXISTS_INTRO ([], thm) = thm
   | LIST_IMP_EXISTS_INTRO (v::vs, thm) =
     IMP_EXISTS_INTRO (v, LIST_IMP_EXISTS_INTRO (vs, thm))
-
-(*----------------------------------------------------------------------------*)
-(* Conv++ *)
-
-fun NCONV 0 conv = REFL
-  | NCONV 1 conv = conv
-  | NCONV n conv = conv THENC (NCONV (n-1) conv)
 
 (*----------------------------------------------------------------------------*)
 (* Tactics to deal with goals of the form [?x1..xn. A1 /\ ... /\ Am], with a

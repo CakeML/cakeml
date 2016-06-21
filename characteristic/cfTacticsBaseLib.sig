@@ -5,7 +5,10 @@ sig
   type conseq_conv = ConseqConv.conseq_conv
   type directed_conseq_conv = ConseqConv.directed_conseq_conv
 
+  val find_map : ('a -> 'b option) -> 'a list -> 'b option
+
   val NCONV : int -> conv -> conv
+  val UNCHANGED_CONV : conv -> conv
 
   val CUSTOM_THEN_CONSEQ_CONV :
     (exn -> bool) -> (exn -> bool) ->
