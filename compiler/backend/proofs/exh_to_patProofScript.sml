@@ -273,7 +273,7 @@ val pure_correct = Q.store_thm("pure_correct",
   srw_tac[][patSemTheory.evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   TRY (
-    qcase_tac`op ≠ Op (Op Opapp)` >>
+    rename1`op ≠ Op (Op Opapp)` >>
     imp_res_tac patSemTheory.do_app_cases >>
     srw_tac[][] >> full_simp_tac(srw_ss())[patSemTheory.do_app_def] >>
     rev_full_simp_tac(srw_ss())[]>>srw_tac[][] >>
@@ -281,12 +281,12 @@ val pure_correct = Q.store_thm("pure_correct",
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     NO_TAC) >>
   TRY (
-    qcase_tac`do_if (HD vs) e1 e2 = SOME ee` >>
+    rename1`do_if (HD vs) e1 e2 = SOME ee` >>
     full_simp_tac(srw_ss())[patSemTheory.do_if_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     metis_tac lemmas) >>
   TRY (
-    qcase_tac`evaluate env s (e::es)` >>
+    rename1`evaluate env s (e::es)` >>
     ONCE_REWRITE_TAC[CONS_APPEND] >>
     REWRITE_TAC[evaluate_append_Rval_iff,evaluate_append_Rerr] >>
     metis_tac lemmas ) >>
@@ -312,7 +312,7 @@ val ground_correct = store_thm("ground_correct",
   srw_tac[][patSemTheory.evaluate_def] >>
   res_tac >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   TRY (
-    qcase_tac`n1:num < n2` >>
+    rename1`n1:num < n2` >>
     full_simp_tac(srw_ss())[LIST_EQ_REWRITE] >>
     rev_full_simp_tac(srw_ss())[rich_listTheory.EL_TAKE] >>
     NO_TAC) >>

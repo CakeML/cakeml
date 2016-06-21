@@ -88,7 +88,7 @@ val app_partial = prove (
 
   THEN1 (
     Cases_on `xs` \\ rpt strip_tac \\ fs [] \\
-    qcase_tac `x::zs` \\ qcase_tac `LENGTH zs < n` \\
+    rename1 `x::zs` \\ rename1 `LENGTH zs < n` \\
     Cases_on `zs` \\ fs []
 
     THEN1 (
@@ -97,7 +97,7 @@ val app_partial = prove (
     )
     THEN1 (
       (* xs = x :: zs = [x::y::t] *)
-      qcase_tac `x::y::t` \\ fs [app_def] \\ cheat
+      rename1 `x::y::t` \\ fs [app_def] \\ cheat
     )
   )
 )

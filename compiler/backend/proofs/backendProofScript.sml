@@ -890,7 +890,7 @@ val WORD_LS_IMP = prove(
     \\ rewrite_tac [WORD_ADD_SUB])
   \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
   \\ eq_tac \\ rw [] \\ fs []
-  \\ qcase_tac `k < m:num` \\ qexists_tac `k - n` \\ fs [])
+  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
 
 val byte_aligned_mult = prove(
   ``good_dimindex (:'a) ==>
@@ -990,7 +990,7 @@ val lemma = prove(
   \\ strip_tac
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []
-  \\ qcase_tac `_ = (c2,prog1)`
+  \\ rename1 `_ = (c2,prog1)`
   \\ qabbrev_tac `prog2 = compile c.bvp_conf prog1`
   \\ qpat_assum `_ = SOME _` mp_tac
   \\ qpat_abbrev_tac `prog3 = compile _ c2.bitmaps _ _ prog2`
@@ -1025,7 +1025,7 @@ val lemma = prove(
     \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
          (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC) \\ fs []
     \\ fs [stack_removeProofTheory.aligned_w2n]
-    \\ qcase_tac `l:num < _`
+    \\ rename1 `l:num < _`
     \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
     \\ `(l DIV (dimindex (:α) DIV 8) * (dimindex (:α) DIV 8)) < dimword (:α)` by
      (drule DIVISION
@@ -1138,7 +1138,7 @@ val lemma = prove(
     \\ fs[bvp_to_wordTheory.stubs_def]
     \\ NO_TAC))
   \\ TRY conj_tac
-  \\ TRY (rpt strip_tac \\ qcase_tac `ALOOKUP prog1 k = SOME _`
+  \\ TRY (rpt strip_tac \\ rename1 `ALOOKUP prog1 k = SOME _`
     \\ imp_res_tac ALOOKUP_MEM
     \\ imp_res_tac MEM_pair_IMP \\ rfs [EVERY_MEM]
     \\ res_tac \\ fs [])
@@ -1146,7 +1146,7 @@ val lemma = prove(
   \\ TRY (fs[bvp_to_wordTheory.stubs_def] \\ NO_TAC)
   \\ fs [PULL_EXISTS] \\ rpt strip_tac
   \\ TRY
-   (fs [IN_DEF] \\ qcase_tac `byte_aligned w` \\ Cases_on `w`
+   (fs [IN_DEF] \\ rename1 `byte_aligned w` \\ Cases_on `w`
     \\ fs [stack_removeProofTheory.aligned_w2n,
            alignmentTheory.byte_aligned_def]
     \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ NO_TAC)
@@ -1495,7 +1495,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ pairarg_tac \\ fs [])
-  \\ qcase_tac `from_bvp c4 p4 = _`
+  \\ rename1 `from_bvp c4 p4 = _`
   \\ `installed (bytes,c4,ffi,ffi_limit,mc,ms)` by
        (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
   \\ drule (GEN_ALL clean_bvp_to_target_thm)

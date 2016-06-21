@@ -683,8 +683,8 @@ val state_rel_IMP_sem_EQ_sem = prove(
         disch_then(qspec_then`t with clock := k`mp_tac) >>
         impl_tac >- full_simp_tac(srw_ss())[state_rel_def] >>
         strip_tac >> full_simp_tac(srw_ss())[] >> strip_tac >>
-        qcase_tac`t with clock := a + b`>>
-        qcase_tac`t with clock := c`>>
+        rename1`t with clock := a + b`>>
+        rename1`t with clock := c`>>
         qabbrev_tac`d = a+b` >>
         qspecl_then[`c`,`d`]mp_tac LESS_EQ_CASES >>
         simp[LESS_EQ_EXISTS] >> strip_tac >>

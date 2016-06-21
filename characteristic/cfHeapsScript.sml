@@ -36,11 +36,11 @@ val local_local = store_thm ("local_local",
   fs [local_elim] \\
   fs [local_def] \\ rpt strip_tac \\ first_x_assum drule \\
   disch_then (qx_choosel_then [`H1`, `H2`, `Q1`] strip_assume_tac) \\
-  fs [STAR_def] \\ qcase_tac `SPLIT h (h1, h2)` \\
+  fs [STAR_def] \\ rename1 `SPLIT h (h1, h2)` \\
   first_x_assum drule \\
   disch_then (qx_choosel_then [`H1'`, `H2'`, `Q1'`] strip_assume_tac) \\
   Q.LIST_EXISTS_TAC [`H1'`, `H2' * H2`, `Q1'`] \\ fs [PULL_EXISTS] \\
-  qcase_tac `SPLIT h1 (h11, h12)` \\
+  rename1 `SPLIT h1 (h11, h12)` \\
   `SPLIT h (h11, h12 UNION h2)` by SPLIT_TAC \\
   `(H2' * H2) (h12 UNION h2)` by (fs [STAR_def] \\ SPLIT_TAC) \\
   asm_exists_tac \\ fs [] \\

@@ -2158,7 +2158,7 @@ val memory_rel_El = store_thm("memory_rel_El",
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [EL_LENGTH_APPEND]
   \\ imp_res_tac heap_lookup_SPLIT
-  \\ qcase_tac `heap = ha ++ DataElement (ys1 ++ y::ys2) tt yy::hb`
+  \\ rename1 `heap = ha ++ DataElement (ys1 ++ y::ys2) tt yy::hb`
   \\ PairCases_on `yy`
   \\ qpat_assum `abs_ml_inv _ _ _ _ _` kall_tac
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
@@ -3220,7 +3220,7 @@ val bytes_to_word_eq_lemma = store_thm("bytes_to_word_eq_lemma",
   \\ Cases_on `bs` \\ Cases_on `bs'` \\ fs [bytes_to_word_simp]
   \\ assume_tac (UNDISCH set_byte_eq_ARB)
   \\ pop_assum (fn th => once_rewrite_tac [th]) \\ fs []
-  \\ rpt (qcase_tac `LENGTH t1 = LENGTH t2`
+  \\ rpt (rename1 `LENGTH t1 = LENGTH t2`
     \\ Cases_on `t1` \\ Cases_on `t2` \\ fs [bytes_to_word_simp]
     \\ NTAC 30 (fs [Once set_byte_sort_dec])
     \\ assume_tac (UNDISCH set_byte_eq_ARB)
@@ -3680,7 +3680,7 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
     \\ `c.len_size <= 30` by decide_tac
     \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `4n <= k`
+    \\ rename1 `4n <= k`
     \\ `31w >>> k = 0w`
     by (srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
         \\ Cases_on `i + k < 32`
@@ -3704,7 +3704,7 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
     `5 <= 61 - c.len_size` by decide_tac
     \\ `c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `5n <= k` \\ fs []
+    \\ rename1 `5n <= k` \\ fs []
     \\ `31w >>> k = 0w`
     by (
       match_mp_tac n2w_lsr_eq_0

@@ -53,7 +53,7 @@ val push_env_const = Q.store_thm("push_env_const[simp]",
   `(push_env x y z).clock = z.clock ∧
    (push_env x y z).ffi = z.ffi`,
   Cases_on`y`>>simp[push_env_def,UNCURRY] >>
-  qcase_tac`SOME p` >>
+  rename1`SOME p` >>
   PairCases_on`p` >>
   srw_tac[][push_env_def] >> srw_tac[][]);
 
@@ -61,7 +61,7 @@ val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
   `(push_env x y (z with clock := k) = push_env x y z with clock := k) ∧
    (push_env x y (z with locals := l) = push_env x y z with locals := l)`,
   Cases_on`y`>>srw_tac[][push_env_def] >- simp[state_component_equality] >>
-  qcase_tac`SOME p` >>
+  rename1`SOME p` >>
   PairCases_on`p` >>
   srw_tac[][push_env_def] >> simp[state_component_equality]);
 
@@ -232,7 +232,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
   TRY (
-    qcase_tac`find_code _ (add_ret_loc _ _)` >>
+    rename1`find_code _ (add_ret_loc _ _)` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     Cases_on`find_code dest (add_ret_loc (SOME x) x') s.code`>>full_simp_tac(srw_ss())[]>>
     PairCases_on`x''`>>PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
@@ -248,7 +248,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     rev_full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[])>>
   TRY (
-    qcase_tac`find_code _ (add_ret_loc _ _)` >>
+    rename1`find_code _ (add_ret_loc _ _)` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     Cases_on`find_code dest (add_ret_loc ret x') s.code`>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[]>>
@@ -411,7 +411,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[] >- (
@@ -455,7 +455,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
     metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[] >- (
@@ -541,7 +541,7 @@ val evaluate_code_const = store_thm("evaluate_code_const",``
   ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code``,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
   >-
-    (qcase_tac `bad_dest_args _ _`>>
+    (rename1 `bad_dest_args _ _`>>
     pop_assum mp_tac>>
     ntac 5 (TOP_CASE_TAC>>fs[])
     >-

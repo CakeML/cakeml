@@ -968,8 +968,8 @@ val evaluate_wLive = Q.prove(
     \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
            |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fsrw_tac[] [] \\ decide_tac)
-  \\ TRY(qcase_tac`flat_exp_conventions A`>>metis_tac[])
-  \\ TRY(qcase_tac`post_alloc_conventions A B`>>metis_tac[])
+  \\ TRY(rename1`flat_exp_conventions A`>>metis_tac[])
+  \\ TRY(rename1`post_alloc_conventions A B`>>metis_tac[])
   \\ fsrw_tac[][wf_def]
   \\ fsrw_tac[] [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fsrw_tac[] []
@@ -5053,7 +5053,7 @@ val comp_correct = Q.store_thm("comp_correct",
     THEN1 fs [wordSemTheory.alloc_def]
     \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
     \\ Cases_on `wLive names bs (k,f,f')`
-    \\ qcase_tac `wLive names bs (k,f,f') = (wlive_prog,bs1)`
+    \\ rename1 `wLive names bs (k,f,f') = (wlive_prog,bs1)`
     \\ Cases_on`1 ≤ f`
     THEN1
       (drule evaluate_wLive
@@ -5067,7 +5067,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ fs [stackSemTheory.evaluate_def,LET_THM]
       \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
       \\ Cases_on `alloc c t5` \\ fs []
-      \\ qcase_tac `alloc c t5 = (res1,t1)` \\ fs []
+      \\ rename1 `alloc c t5 = (res1,t1)` \\ fs []
       \\ drule alloc_IMP_alloc \\ impl_tac >- (fs[])
       \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
@@ -5382,7 +5382,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ Cases_on `get_var n s` \\ fs []
     \\ Cases_on `get_var m s` \\ fs [] \\ rw []
     \\ Cases_on `x` \\ fs []
-    \\ qcase_tac `get_var n s = SOME (Loc l1 l2)`
+    \\ rename1 `get_var n s = SOME (Loc l1 l2)`
     \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
     \\ fs [reg_allocTheory.is_phy_var_def,word_allocTheory.max_var_def]
     \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
@@ -5429,7 +5429,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ pop_assum mp_tac
     \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
     \\ qexists_tac `1`
-    \\ qcase_tac `LASTN (s.handler + 1) s.stack =
+    \\ rename1 `LASTN (s.handler + 1) s.stack =
           StackFrame l (SOME (h1,l3,l4))::rest`
     \\ fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,jump_exc_def,

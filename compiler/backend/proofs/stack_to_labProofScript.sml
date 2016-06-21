@@ -198,7 +198,7 @@ val inst_correct = Q.store_thm("inst_correct",
   TRY ( full_simp_tac(srw_ss())[binop_upd_def] >> match_mp_tac set_var_upd_reg >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
   TRY ( Cases_on`b`>>full_simp_tac(srw_ss())[binop_upd_def] >> NO_TAC) >>
   TRY (
-    qcase_tac `mem_load` >>
+    rename1 `mem_load` >>
     full_simp_tac(srw_ss())[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>
     full_simp_tac(srw_ss())[word_exp_def,LET_DEF] \\ every_case_tac \\ full_simp_tac(srw_ss())[]>>
     res_tac \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] >>
@@ -210,7 +210,7 @@ val inst_correct = Q.store_thm("inst_correct",
     `w2n (c1 + c2) MOD (dimindex (:'a) DIV 8) = 0` by metis_tac [state_rel_def] >>
     full_simp_tac(srw_ss())[] \\ match_mp_tac set_var_upd_reg \\ full_simp_tac(srw_ss())[]) >>
   TRY (
-    qcase_tac`mem_store` >>
+    rename1`mem_store` >>
     full_simp_tac(srw_ss())[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
@@ -228,7 +228,7 @@ val inst_correct = Q.store_thm("inst_correct",
     imp_res_tac mem_store_upd_mem >>
     qpat_assum`Word _ = _`(assume_tac o SYM) >> fs[]) >>
   TRY (
-    qcase_tac`mem_store_byte_aux`
+    rename1`mem_store_byte_aux`
     \\ fs[wordSemTheory.mem_store_byte_aux_def]
     \\ every_case_tac \\ fs[]
     \\ fs[mem_store_byte_def,addr_def]
@@ -1321,7 +1321,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         imp_res_tac code_installed_append_imp >> fs[] ) >>
       strip_tac >>
       finish_tac ) >>
-    qcase_tac`SOME (Exception w)` >>
+    rename1`SOME (Exception w)` >>
     fs[lab_to_loc_def] >>
     BasicProvers.TOP_CASE_TAC >>
     ((strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[] >>

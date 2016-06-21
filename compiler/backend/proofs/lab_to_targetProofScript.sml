@@ -1210,7 +1210,7 @@ val Inst_lemma = Q.prove(
           ntac 4 (FULL_CASE_TAC>>fs[])>>
           rfs[get_byte_def,byte_index_def]>>rveq>>
           Cases_on `c + t1.regs n'`>>
-          qcase_tac `k < dimword (:α)`>>
+          rename1 `k < dimword (:α)`>>
           drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
           strip_tac \\ fs [word_add_n2w] >>
@@ -1243,7 +1243,7 @@ val Inst_lemma = Q.prove(
           ntac 8 (FULL_CASE_TAC>>fs[])>>
           rfs[get_byte_def,byte_index_def]>>rveq>>
           Cases_on `c + t1.regs n'`>>
-          qcase_tac `k < dimword (:α)`>>
+          rename1 `k < dimword (:α)`>>
           drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
           strip_tac \\ fs [word_add_n2w] >>

@@ -120,7 +120,7 @@ val remove_def = tDefine "remove" `
        ([Call dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[] >>
-  qcase_tac `MEM ee xx` >>
+  rename1 `MEM ee xx` >>
   Induct_on `xx` >> rpt strip_tac >> lfs[exp_size_def] >> res_tac >>
   simp[])
 

@@ -216,7 +216,7 @@ val implements_trans = store_thm("implements_trans",
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
   \\ Cases_on `Fail IN y` \\ full_simp_tac(srw_ss())[]
   THEN1 (full_simp_tac(srw_ss())[SUBSET_DEF] \\ res_tac \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[SUBSET_DEF] \\ srw_tac[][] \\ qcase_tac `a IN x`
+  \\ full_simp_tac(srw_ss())[SUBSET_DEF] \\ srw_tac[][] \\ rename1 `a IN x`
   \\ reverse (res_tac \\ full_simp_tac(srw_ss())[])
   THEN1 (res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ metis_tac [])
   \\ res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]

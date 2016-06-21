@@ -117,7 +117,7 @@ val store2heap_LUPDATE = store_thm ("store2heap_LUPDATE",
     (* fix names *)
     THEN1 (
       Cases_on `q` \\ fs [] \\
-      qcase_tac `(SUC nn, xx) IN store2heap_aux 1 (LUPDATE _ _ _)` \\
+      rename1 `(SUC nn, xx) IN store2heap_aux 1 (LUPDATE _ _ _)` \\
       qpat_assum `_ IN store2heap_aux 1 _` mp_tac \\
       rewrite_tac [ONE, GSYM store2heap_aux_suc] \\ rpt strip_tac \\
       first_assum drule \\ disch_then (qspecl_then [`x`, `(nn, xx)`] assume_tac) \\

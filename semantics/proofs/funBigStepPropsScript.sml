@@ -22,11 +22,11 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   srw_tac[][terminationTheory.evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   TRY (
-    qcase_tac`op ≠ Opapp` >>
+    rename1`op ≠ Opapp` >>
     imp_res_tac do_app_io_events_mono >>
     metis_tac[IS_PREFIX_TRANS] ) >>
   TRY (
-    qcase_tac`op = Opapp` >>
+    rename1`op = Opapp` >>
     rev_full_simp_tac(srw_ss())[dec_clock_def] >>
     metis_tac[IS_PREFIX_TRANS] ) >>
   metis_tac[IS_PREFIX_TRANS,FST])
@@ -177,7 +177,7 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
-    qcase_tac`op = Opapp` >>
+    rename1`op = Opapp` >>
     every_case_tac >> full_simp_tac(srw_ss())[dec_clock_def] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
     TRY(first_x_assum(qspec_then`extra`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>NO_TAC)>>
     imp_res_tac evaluate_add_to_clock >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>

@@ -813,7 +813,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
     imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>

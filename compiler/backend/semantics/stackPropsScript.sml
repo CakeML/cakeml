@@ -188,7 +188,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY (
-    qcase_tac`find_code dest (_ \\ _)` >>
+    rename1`find_code dest (_ \\ _)` >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
       BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
@@ -213,7 +213,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
     NO_TAC) >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     full_simp_tac(srw_ss())[get_var_def] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
@@ -226,7 +226,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     rveq >> fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
   TRY (
-    qcase_tac`While`
+    rename1`While`
     \\ BasicProvers.TOP_CASE_TAC \\ fs[get_var_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -250,7 +250,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   fsrw_tac[ARITH_ss][dec_clock_def] >>
   TRY (
-    qcase_tac`call_FFI` >>
+    rename1`call_FFI` >>
     pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
   metis_tac[]);
 
@@ -268,7 +268,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
   TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
   TRY (
-    qcase_tac`While`
+    rename1`While`
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]

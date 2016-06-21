@@ -633,7 +633,7 @@ val word_gc_move_thm = prove(
     \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[word_addr_def,word_gc_move_def]
     \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ qcase_tac `heap_lookup k heap = SOME x`
+  \\ rename1 `heap_lookup k heap = SOME x`
   \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_addr_def]
   \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[word_gc_move_def,get_addr_and_1_not_0]
   \\ imp_res_tac copying_gcTheory.heap_lookup_LESS
@@ -649,7 +649,7 @@ val word_gc_move_thm = prove(
     \\ full_simp_tac(srw_ss())[shift_around_under_big_shift]
     \\ full_simp_tac(srw_ss())[get_addr_def,select_shift_out]
     \\ full_simp_tac(srw_ss())[select_get_lowerbits,heap_length_def])
-  \\ qcase_tac `_ = SOME (DataElement addrs ll tt)`
+  \\ rename1 `_ = SOME (DataElement addrs ll tt)`
   \\ PairCases_on `tt`
   \\ full_simp_tac(srw_ss())[word_el_def]
   \\ `?h ts c5. word_payload addrs ll tt0 tt1 conf =
@@ -746,7 +746,7 @@ val word_gc_move_roots_thm = prove(
   \\ disch_then drule \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ SEP_F_TAC \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ qcase_tac `_ = (xs7,xs8,a7,LENGTH xs9,heap7,T)`
+  \\ rename1 `_ = (xs7,xs8,a7,LENGTH xs9,heap7,T)`
   \\ qexists_tac `xs9` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[word_heap_APPEND]
   \\ full_simp_tac(srw_ss())[AC STAR_COMM STAR_ASSOC]
@@ -806,7 +806,7 @@ val word_gc_move_list_thm = prove(
   \\ pop_assum kall_tac
   \\ SEP_F_TAC \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ qcase_tac `_ = (xs7,xs8,a7,LENGTH xs9,heap7,T)`
+  \\ rename1 `_ = (xs7,xs8,a7,LENGTH xs9,heap7,T)`
   \\ qexists_tac `xs9` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[word_heap_APPEND]
   \\ full_simp_tac(srw_ss())[AC STAR_COMM STAR_ASSOC]
@@ -857,7 +857,7 @@ val word_gc_move_loop_thm = prove(
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac gc_move_loop_ok \\ full_simp_tac(srw_ss())[]
-  \\ qcase_tac `HD h5 = DataElement l5 n5 b5`
+  \\ rename1 `HD h5 = DataElement l5 n5 b5`
   \\ Cases_on `h5` \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ qpat_assum `word_gc_move_loop _ _ _ = _` mp_tac
@@ -894,7 +894,7 @@ val word_gc_move_loop_thm = prove(
   \\ full_simp_tac std_ss [word_list_def] \\ SEP_R_TAC
   \\ full_simp_tac(srw_ss())[isWord_def,theWord_def]
   \\ rev_full_simp_tac(srw_ss())[]
-  \\ qcase_tac `word_payload _ _ tag _ conf = _`
+  \\ rename1 `word_payload _ _ tag _ conf = _`
   \\ drule word_payload_T_IMP
   \\ impl_tac THEN1 (fs []) \\ strip_tac
   \\ `k <> 0` by
@@ -1002,7 +1002,7 @@ val word_full_gc_thm = prove(
   \\ full_simp_tac(srw_ss())[word_heap_heap_expand]
   \\ full_simp_tac(srw_ss())[word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] \\ strip_tac
-  \\ qcase_tac `LENGTH ys = heap_length temp`
+  \\ rename1 `LENGTH ys = heap_length temp`
   \\ qexists_tac `ys` \\ full_simp_tac(srw_ss())[heap_length_def]
   \\ qexists_tac `xs1'` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM]);
@@ -2830,7 +2830,7 @@ val evaluate_StoreEach = store_thm("evaluate_StoreEach",
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ first_x_assum match_mp_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ qcase_tac `get_vars qs t = SOME ts`
+  \\ rename1 `get_vars qs t = SOME ts`
   \\ pop_assum mp_tac
   \\ qspec_tac (`ts`,`ts`)
   \\ qspec_tac (`qs`,`qs`)
@@ -4473,8 +4473,8 @@ val assign_thm = Q.prove(
     \\ rpt_drule memory_rel_Block_IMP \\ strip_tac \\ fs []
     \\ rpt_drule memory_rel_tl \\ strip_tac
     \\ rpt_drule memory_rel_Block_IMP \\ strip_tac \\ fs []
-    \\ qcase_tac `if ll2 = [] then _ else (_:bool)` \\ pop_assum mp_tac
-    \\ qcase_tac `if ll1 = [] then _ else (_:bool)` \\ pop_assum mp_tac
+    \\ rename1 `if ll2 = [] then _ else (_:bool)` \\ pop_assum mp_tac
+    \\ rename1 `if ll1 = [] then _ else (_:bool)` \\ pop_assum mp_tac
     \\ rpt strip_tac \\ fs [] \\ clean_tac
     \\ eval_tac
     \\ fs [wordSemTheory.get_var_def,asmSemTheory.word_cmp_def,
@@ -4887,8 +4887,8 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
   THEN1 (* If *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ fs [LET_DEF]
-    \\ pairarg_tac \\ fs [] \\ qcase_tac `comp c n4 l c1 = (q4,l4)`
-    \\ pairarg_tac \\ fs [] \\ qcase_tac `comp c _ _ _ = (q5,l5)`
+    \\ pairarg_tac \\ fs [] \\ rename1 `comp c n4 l c1 = (q4,l4)`
+    \\ pairarg_tac \\ fs [] \\ rename1 `comp c _ _ _ = (q5,l5)`
     \\ full_simp_tac(srw_ss())[bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP
@@ -4916,7 +4916,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
       \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `find_code dest x s.code` \\ full_simp_tac(srw_ss())[]
-      \\ qcase_tac `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
+      \\ rename1 `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
       \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def]
       \\ drule (GEN_ALL find_code_thm) \\ rpt (disch_then drule)
@@ -4941,8 +4941,8 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ full_simp_tac(srw_ss())[wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
      (Cases_on `bvlSem$find_code dest x s.code` \\ fs[]
-      \\ qcase_tac `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
-      \\ qcase_tac `_ = SOME (actual_args,called_prog)`
+      \\ rename1 `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
+      \\ rename1 `_ = SOME (actual_args,called_prog)`
       \\ imp_res_tac bvl_find_code
       \\ `¬bad_dest_args dest (MAP adjust_var args)` by
         (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
@@ -5104,7 +5104,7 @@ val compile_correct = store_thm("compile_correct",
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
-  \\ qcase_tac `state_rel x0 l1 l2 s t [] []`
+  \\ rename1 `state_rel x0 l1 l2 s t [] []`
   \\ drule compile_word_to_word_thm \\ srw_tac[][]
   \\ drule compile_correct_lemma \\ full_simp_tac(srw_ss())[]
   \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by

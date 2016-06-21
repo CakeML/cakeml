@@ -4789,7 +4789,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     srw_tac[][]>>full_simp_tac(srw_ss())[alist_insert_def]>>
     assume_tac (INST_TYPE [gamma|->beta] (GEN_ALL ssa_locals_rel_get_var))>>
     qpat_abbrev_tac`rcst=cst with locals:=A`>>
-    qcase_tac `get_var _ cst = SOME (Loc l1 l2)`>>
+    rename1 `get_var _ cst = SOME (Loc l1 l2)`>>
     first_assum(qspecl_then[`Loc l1 l2`,`st`,`ssa`,`na`,`n`,`rcst`] assume_tac)>>
     first_x_assum(qspecl_then[`x'`,`st`,`ssa`,`na`,`n0`,`rcst`] assume_tac)>>
     unabbrev_all_tac>>rev_full_simp_tac(srw_ss())[]>>
@@ -5058,7 +5058,7 @@ val max_var_max = store_thm("max_var_max",``
   >-
     (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,MAX_DEF]>>
     LET_ELIM_TAC>>
-    qcase_tac`toAList tree`>>
+    rename1`toAList tree`>>
     TRY(
     `∀z. z ∈ domain tree ⇒ z ≤ cutset_max` by
       (srw_tac[][]>>

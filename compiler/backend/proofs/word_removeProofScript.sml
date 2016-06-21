@@ -188,7 +188,7 @@ val remove_must_terminate_conventions = store_thm("remove_must_terminate_convent
   ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
   fs[remove_must_terminate_def]>>fs convs>>
   TRY
-  (qcase_tac`args = A`>>
+  (rename1`args = A`>>
   Cases_on`ret`>>fs[]>>
   PairCases_on`x`>>fs[]>>
   Cases_on`h`>>fs[]>- metis_tac[]>>

@@ -329,7 +329,7 @@ val flatten_exp_ok = prove(``
     fs[op_consts_def,word_exp_def,LET_THM,word_op_def,the_words_def]>>
     Cases_on`word_exp s exp`>>fs[]>>Cases_on`x'`>>fs[]>>
     (*4 cases*)
-    TRY(qpat_assum`A=SOME x` mp_tac>>qcase_tac`word_exp s exp'`>>
+    TRY(qpat_assum`A=SOME x` mp_tac>>rename1`word_exp s exp'`>>
     Cases_on`word_exp s exp'`>>fs[]>>Cases_on`x'`>>fs[]>>
     FULL_CASE_TAC>>fs[]>>
     first_x_assum(qspec_then`s` assume_tac)>>rfs[]>>

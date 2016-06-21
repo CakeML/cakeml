@@ -368,7 +368,7 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
-    qcase_tac`Boolv T = HD _` >>
+    rename1`Boolv T = HD _` >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     rpt(IF_CASES_TAC >> full_simp_tac(srw_ss())[]) >>
@@ -377,7 +377,7 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
     imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
     (qpat_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[] ) >>
   TRY (
-    qcase_tac`bviSem$do_app` >>
+    rename1`bviSem$do_app` >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >>
     imp_res_tac do_app_code >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
@@ -390,7 +390,7 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
     disch_then(qspec_then`fromAList (code++extra)`mp_tac) >>
     simp[] >> NO_TAC) >>
   TRY (
-    qcase_tac`bvlSem$find_code` >>
+    rename1`bvlSem$find_code` >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
@@ -544,7 +544,7 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
-    qcase_tac`Boolv T` >>
+    rename1`Boolv T` >>
     qmatch_assum_rename_tac`IS_SOME _.ffi.final_event` >>
     ntac 4 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     ntac 2 (TRY (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[])) >>

@@ -496,7 +496,7 @@ val compile_correct = Q.prove(
       THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,
                var_corr_def,get_var_def,lookup_insert]
         \\ REPEAT STRIP_TAC
-        \\ qcase_tac `l1 < LENGTH corr`
+        \\ rename1 `l1 < LENGTH corr`
         \\ `EL l1 corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= n1 /\ l1 < LENGTH corr` by DECIDE_TAC
         \\ `lookup n1 t2.locals = NONE` by METIS_TAC []

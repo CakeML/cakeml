@@ -297,7 +297,7 @@ val peg_sound = store_thm(
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> csimp[] >>
-          qcase_tac
+          rename1
            `peg_eval _ (inp0, nt (mkNT nTopLevelDec) _) (SOME (inp1,_))` >>
           `LENGTH inp1 < LENGTH inp0`
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec] >>
@@ -311,26 +311,26 @@ val peg_sound = store_thm(
       strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
       >- (dsimp[APPEND_EQ_CONS] >> csimp[] >>
           first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
-          qcase_tac `peg_eval _ (inp0, _) (SOME(SemicolonT::inp1,_))` >>
+          rename1 `peg_eval _ (inp0, _) (SOME(SemicolonT::inp1,_))` >>
           `LENGTH (SemicolonT :: inp1) < LENGTH inp0`
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nE] >>
           fs[] >> metis_tac[DECIDE ``SUC x < y ⇒ x < y``])
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
           csimp[] >>
-          qcase_tac
+          rename1
             `peg_eval _ (inp0, nt (mkNT nTopLevelDec) I) (SOME(inp1,_))` >>
           `LENGTH inp1 < LENGTH inp0` suffices_by metis_tac[] >>
           metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
       >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
       >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
-      >- (qcase_tac `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
+      >- (rename1 `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
           first_x_assum(qspecl_then [`mkNT nTopLevelDec`, `ip1`, `pt`] mp_tac)>>
           simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
           `LENGTH ip1 < LENGTH ip0` suffices_by metis_tac[] >>
           metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
       >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
       >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
-      >- (qcase_tac `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
+      >- (rename1 `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
           first_x_assum(qspecl_then [`mkNT nTopLevelDec`, `ip1`, `pt`] mp_tac)>>
           simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
           `LENGTH ip1 < LENGTH ip0` suffices_by metis_tac[] >>
@@ -1000,7 +1000,7 @@ val peg_sound = store_thm(
       rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC))
       >- (asm_match `isInt h` >> Cases_on `h` >> fs[])
       >- (asm_match `isString h` >> Cases_on `h` >> fs[])
-      >- (qcase_tac `isCharT h` >> Cases_on `h` >> fs[])
+      >- (rename1 `isCharT h` >> Cases_on `h` >> fs[])
       >- (* () *) dsimp[]
       >- ((* peg_EbaseParen 1 *)
           IMP_RES_THEN match_mp_tac peg_EbaseParen_sound >> simp[])
