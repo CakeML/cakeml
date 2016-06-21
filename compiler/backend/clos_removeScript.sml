@@ -79,7 +79,7 @@ val remove_def = tDefine "remove" `
        ([Call dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[] >>
-  qcase_tac `MEM ee xx` >>
+  rename1 `MEM ee xx` >>
   Induct_on `xx` >> rpt strip_tac >> lfs[exp_size_def] >> res_tac >>
   simp[])
 
@@ -119,5 +119,85 @@ val remove_CONS = store_thm("remove_CONS",
   \\ Cases_on `remove [x]` \\ fs []
   \\ Cases_on `remove (h::t)` \\ fs [SING_HD]
   \\ IMP_RES_TAC remove_SING \\ fs []);
+
+val enumerate_def = Define`
+  (enumerate n [] = []) ∧
+  (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
+
+val LENGTH_enumerate = prove(``
+  ∀xs k. LENGTH (enumerate k xs) = LENGTH xs``,
+  Induct>>fs[enumerate_def])
+
+val EL_enumerate = prove(``
+  ∀xs n k.
+  n < LENGTH xs ⇒
+  EL n (enumerate k xs) = (n+k,EL n xs)``,
+  Induct>>fs[enumerate_def]>>rw[]>>
+  Cases_on`n`>>fs[])
+
+val MAP_enumerate_MAPi = prove(``
+  ∀f xs.
+  MAP f (enumerate 0 xs) = MAPi (λn e. f (n,e)) xs``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
+
+val MAPi_enumerate_MAP = prove(``
+  ∀f xs.
+  MAPi f xs = MAP (λi,e. f i e) (enumerate 0 xs)``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
+
+val MEM_enumerate = prove(``
+  ∀xs i e.
+  i < LENGTH xs ⇒
+  (MEM (i,e) (enumerate 0 xs) ⇔ EL i xs = e)``,
+  fs[MEM_EL]>>rw[]>>eq_tac>>rw[LENGTH_enumerate]>>
+  imp_res_tac EL_enumerate>>fs[]>>
+  qexists_tac`i`>>fs[])
+
+val MEM_enumerate_IMP = prove(``
+  ∀xs i e.
+  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs``,
+  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
+  qexists_tac`n`>>fs[])
+
+val remove_alt = save_thm ("remove_alt",remove_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
+
+val remove_alt_ind = store_thm("remove_alt_ind",``
+    ∀P.
+     P [] ∧
+     (∀x y xs.
+        (∀c1 l1. (c1,l1) = remove [x] ⇒ P (y::xs)) ∧ P [x] ⇒
+        P (x::y::xs)) ∧ (∀v. P [Var v]) ∧
+     (∀x1 x2 x3.
+        (∀c1 l1 c2 l2.
+           (c1,l1) = remove [x1] ∧ (c2,l2) = remove [x2] ⇒ P [x3]) ∧
+        (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
+        P [If x1 x2 x3]) ∧
+     (∀xs x2.
+        (∀c2 l2 e i.
+           (c2,l2) = remove [x2] ∧ MEM (i,e) (enumerate 0 xs) ∧ (has_var i l2 ∨ ¬pure e) ⇒
+           P [e]) ∧ P [x2] ⇒
+        P [Let xs x2]) ∧ (∀x1. P [x1] ⇒ P [Raise x1]) ∧
+     (∀x1. P [x1] ⇒ P [Tick x1]) ∧ (∀op xs. P xs ⇒ P [Op op xs]) ∧
+     (∀loc_opt x1 xs2.
+        (∀c1 l1. (c1,l1) = remove [x1] ⇒ P xs2) ∧ P [x1] ⇒
+        P [App loc_opt x1 xs2]) ∧
+     (∀loc vs_opt num_args x1. P [x1] ⇒ P [Fn loc vs_opt num_args x1]) ∧
+     (∀loc vs_opt fns x1.
+        (∀m c2 l2 n x.
+           m = LENGTH fns ∧ (c2,l2) = remove [x1] ∧ ¬no_overlap m l2 ∧
+           MEM (n,x) fns ⇒
+           P [x]) ∧ (∀m. m = LENGTH fns ⇒ P [x1]) ⇒
+        P [Letrec loc vs_opt fns x1]) ∧
+     (∀x1 x2.
+        (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
+        P [Handle x1 x2]) ∧ (∀dest xs. P xs ⇒ P [Call dest xs]) ⇒
+     ∀v. P v``,
+  ntac 2 strip_tac>>
+  ho_match_mp_tac remove_ind>>
+  fs[]>>rw[]>>TRY(metis_tac[])>>
+  last_assum match_mp_tac>>
+  rw[]>>
+  imp_res_tac MEM_enumerate_IMP>>
+  metis_tac[]);
 
 val _ = export_theory()

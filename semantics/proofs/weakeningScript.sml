@@ -766,7 +766,7 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   `tenv_ctor_ok (merge_alist_mod_env ([],FST (SND new_tenv1)) ttt.c)`
          by (rw [tenv_ctor_ok_merge] >>
              metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
-  qcase_tac `weak_decls decls1 decls2` >>
+  rename1 `weak_decls decls1 decls2` >>
   `weak_decls (union_decls decls'' decls1) (union_decls decls'' decls2)`
              by (metis_tac [weak_decls_union]) >>
   `weak_decls_other_mods mn (union_decls decls'' decls1) (union_decls decls'' decls2)`

@@ -710,12 +710,12 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         imp_res_tac renumber_code_locs_list_length >>
         srw_tac[][LIST_REL_EL_EQN,EL_GENLIST] >>
         srw_tac[][v_rel_simp] >> METIS_TAC[SND])
-    >- (qcase_tac `lookup_vars vv EE` >> Cases_on `lookup_vars vv EE` >> full_simp_tac(srw_ss())[]
-        >- (qcase_tac `LIST_REL v_rel env1 EE` >>
+    >- (rename1 `lookup_vars vv EE` >> Cases_on `lookup_vars vv EE` >> full_simp_tac(srw_ss())[]
+        >- (rename1 `LIST_REL v_rel env1 EE` >>
             `lookup_vars vv env1 = NONE`
                 by metis_tac[lookup_vars_NONE_related_env] >>
             full_simp_tac(srw_ss())[] >> srw_tac[][]) >>
-        qcase_tac `LIST_REL v_rel env1 EE` >>
+        rename1 `LIST_REL v_rel env1 EE` >>
         full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >>
         first_x_assum match_mp_tac >> simp[] >>
         `∃ee. lookup_vars vv env1 = SOME ee`

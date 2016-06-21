@@ -90,7 +90,8 @@ val () = Datatype `
 
 val () = Datatype `
   arith = Binop binop reg reg ('a reg_imm)
-        | Shift shift reg reg num`
+        | Shift shift reg reg num
+        | AddCarry num num num num`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
@@ -152,7 +153,14 @@ val arith_ok_def = Define `
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) =
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
-     ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a))`
+     ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
+  (arith_ok (AddCarry r1 r2 r3 r4) (c: 'a asm_config) =
+     (c.two_reg_arith ==> (r1 = r2)) /\
+     reg_ok r1 c /\ reg_ok r2 c /\
+     reg_ok r3 c /\ reg_ok r4 c /\
+     (* Require register inequality for some architectures *)
+     (((c.ISA_name = "MIPS") \/
+       (c.ISA_name = "RISC-V")) ==> r1 <> r3 /\ r1 <> r4))`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`

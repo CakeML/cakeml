@@ -148,10 +148,10 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   `!e. ?e'. intro_multi [e] = [e']`,
   Induct_on `e` >>
   srw_tac[][intro_multi_def] >>
-  TRY (qcase_tac `App loc e es` >> Cases_on `loc`) >>
-  TRY (qcase_tac `Fn loc vars num_args e` >> Cases_on `loc` >> Cases_on `vars`) >>
-  TRY (qcase_tac `Letrec locopt _ _ _` >> Cases_on `locopt`) >>
-  TRY (qcase_tac `Letrec _ fvopt _ _` >> Cases_on `fvopt`) >>
+  TRY (rename1 `App loc e es` >> Cases_on `loc`) >>
+  TRY (rename1 `Fn loc vars num_args e` >> Cases_on `loc` >> Cases_on `vars`) >>
+  TRY (rename1 `Letrec locopt _ _ _` >> Cases_on `locopt`) >>
+  TRY (rename1 `Letrec _ fvopt _ _` >> Cases_on `fvopt`) >>
   srw_tac[][intro_multi_def] >>
   TRY (Cases_on `collect_args num_args e`) >>
   TRY (Cases_on `collect_apps es e`) >>
@@ -171,11 +171,11 @@ val collect_args_idem = Q.store_thm (
     `num_args'' < num_args'` by decide_tac >>
     `num_args' ≤ num_args''` by metis_tac [collect_args_more] >>
     full_simp_tac (srw_ss()++ARITH_ss) [])
- >- (qcase_tac `App loc e es` >>
+ >- (rename1 `App loc e es` >>
      Cases_on `loc` >>
      srw_tac[][collect_args_def, intro_multi_def] >>
      srw_tac[][collect_args_def, intro_multi_def])
- >- (qcase_tac `Letrec locopt fvsopt` >>
+ >- (rename1 `Letrec locopt fvsopt` >>
      Cases_on `locopt` >> Cases_on `fvsopt` >>
      rw[intro_multi_def, collect_args_def]));
 
@@ -195,13 +195,13 @@ val collect_apps_idem = Q.store_thm (
     `LENGTH es ≤ LENGTH es'` by metis_tac [collect_apps_more] >>
     full_simp_tac (srw_ss()++ARITH_ss) []) >>
  FIRST [
-   qcase_tac `Fn loc vars _ _` >>
+   rename1 `Fn loc vars _ _` >>
    Cases_on `loc` >>
    Cases_on `vars` >>
    srw_tac[][collect_apps_def, intro_multi_def] >>
    srw_tac[][collect_apps_def, intro_multi_def]
  ,
-   qcase_tac `Letrec locopt fvsopt` >>
+   rename1 `Letrec locopt fvsopt` >>
    Cases_on `locopt` >> Cases_on `fvsopt` >>
    simp[collect_apps_def, intro_multi_def]
  ]);

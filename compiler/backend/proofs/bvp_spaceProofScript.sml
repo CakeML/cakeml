@@ -39,9 +39,8 @@ val evaluate_compile = Q.prove(
     \\ Q.EXISTS_TAC `insert dest x l` \\ full_simp_tac(srw_ss())[lookup_insert]
     \\ METIS_TAC [])
   THEN1 (* Assign *)
-   (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op_space_reset op`
-    \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
+   (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
+    \\ BasicProvers.CASE_TAC \\ fs[] THEN1
      (Cases_on `get_vars args s.locals`
       \\ full_simp_tac(srw_ss())[cut_state_opt_def]
       \\ `get_vars args l =
@@ -186,7 +185,7 @@ val evaluate_compile = Q.prove(
         \\ Q.PAT_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
         \\ AP_TERM_TAC \\ AP_TERM_TAC
         \\ full_simp_tac(srw_ss())[state_component_equality,add_space_def])
-      \\ Cases_on `op_space_reset o'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+      \\ Cases_on `op_requires_names o'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ Cases_on `get_vars l' s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
       \\ impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
@@ -215,6 +214,7 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[do_app_def,do_space_alt]
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
+      \\ `¬op_space_reset o'` by fs[bvi_to_bvpTheory.op_requires_names_def] \\ fs[]
       \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
       \\ full_simp_tac(srw_ss())[]
       \\ `(bvp_to_bvi (s with space := s.space - op_space_req o' (LENGTH l'))) =

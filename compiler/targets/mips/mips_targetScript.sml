@@ -14,7 +14,7 @@ val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 
 val mips_config_def = Define`
    mips_config =
-   <| ISA_name := "mips"
+   <| ISA_name := "MIPS"
     ; reg_count := 32
     ; avoid_regs := [0; 1]
     ; link_reg := SOME 31
@@ -150,6 +150,13 @@ val mips_enc_def = Define`
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
+   (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+       encs [ArithR (SLTU (0w, n2w r4, 1w));
+             ArithR (DADDU (n2w r2, n2w r3, n2w r1));
+             ArithR (SLTU (n2w r1, n2w r3, n2w r4));
+             ArithR (DADDU (n2w r1, 1w, n2w r1));
+             ArithR (SLTU (n2w r1, 1w, 1w));
+             ArithR (OR (n2w r4, 1w, n2w r4))]) /\
    (mips_enc (Inst (Mem mop r1 (Addr r2 a))) =
        case mips_memop mop of
           INL f => mips_encode (Load (f (n2w r2, n2w r1, w2w a)))
@@ -220,6 +227,29 @@ val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
                when_nop rest1
                  (JumpCmp NotLower (w2n r1) (Reg (w2n r2))
                           (sw2sw ((a + 2w) << 2)))
+          | (ArithR (DADDU (r3, r4, r5)), rest1) =>
+               (case fetch_decode rest1 of
+                   (ArithR (SLTU (r6, r7, r8)), rest2) =>
+                      (case fetch_decode rest2 of
+                          (ArithR (DADDU (r9, 1w, r10)), rest3) =>
+                             (case fetch_decode rest3 of
+                                 (ArithR (SLTU (r11, 1w, 1w)), rest4) =>
+                                    (case fetch_decode rest4 of
+                                        (ArithR (OR (r12, 1w, r13)), _) =>
+                                           if (r1 = 0w) /\
+                                              (r2 = r8) /\ (r8 = r12) /\
+                                              (r12 = r13) /\
+                                              (r4 = r7) /\
+                                              (r5 = r6) /\ (r6 = r9) /\
+                                              (r9 = r10) /\ (r10 = r11) then
+                                              Inst (Arith
+                                                (AddCarry (w2n r5) (w2n r3)
+                                                   (w2n r4) (w2n r2)))
+                                           else ARB
+                                      | _ => ARB)
+                               | _ => ARB)
+                        | _ => ARB)
+                 | _ => ARB)
           | _ => ARB)
     | (ArithR (AND (r1, r2, 1w)), rest) =>
         (case fetch_decode rest of

@@ -23,12 +23,21 @@ val char_to_byte_def = Define`
 
 val res = translate char_to_byte_def;
 
-(* TODO: why doesn't this work?
+val res = translate MAP;
+
 val string_to_bytes_def = Define`
   string_to_bytes s = MAP char_to_byte (mlstring$explode s)`;
 
 val res = translate string_to_bytes_def;
-*)
+
+val def = Define `bar = []:'a list`
+val res = translate def
+
+val def = Define `foo = if bar = []:'a list then [] else []:'a list`
+val res = translate def
+
+val def = Define `foo = 4:num`
+val res = translate def
 
 val _ = (print_asts := true);
 

@@ -9,6 +9,9 @@ sig
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
 
+    val ml_prog_update : (ml_progLib.ml_prog_state ->
+                          ml_progLib.ml_prog_state) -> unit
+
     (* wrapper functions *)
 
     val mlDefine   : term quotation -> thm
@@ -18,30 +21,23 @@ sig
 
     val add_type_inv   : term -> hol_type -> unit
     val get_type_inv   : hol_type -> term
-    val store_eval_thm : thm -> thm
+
+    val add_eval_thm   : thm -> thm
+    val add_user_proved_v_thm : thm -> thm
+
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
-    val store_cert     : thm -> thm list -> thm -> thm
-    val get_DeclAssum  : unit -> term
 
     val register_exn_type   : hol_type -> unit
     val full_name_of_type   : hol_type -> string
     val case_of             : hol_type -> thm
-    val get_DeclAssumExists : unit -> thm
-    val get_cenv_eq_thm     : unit -> thm
     val eq_lemmas           : unit -> thm list
-    val clean_lookup_cons   : thm -> thm
 
     (* loading / storing state of translator *)
 
     val translation_extends   : string -> unit
     val reset_translation     : unit -> unit   (* bring back to initial state *)
     val finalise_translation  : unit -> unit   (* happens automatically at export *)
-    val get_cert              : string -> thm * thm
-    val get_decls             : unit -> term
-
-    val translate_into_module       : string -> unit
-    val finalise_module_translation : unit -> thm
 
     (* simplification of preconditions / sideconditions *)
 
@@ -56,7 +52,6 @@ sig
 
     (* internals, for ml_hol_kernel *)
 
-    val lookup_cert              : term -> thm
     val match_rec_pattern        : term -> term * string * term
     val install_rec_pattern      : term -> string -> term
     val uninstall_rec_patterns   : unit -> unit
@@ -80,5 +75,9 @@ sig
     val to_pattern               : term -> term
     val pmatch_preprocess_conv   : term -> thm
     exception UnableToTranslate of term
+
+    val find_const_name : string -> string
+    val add_v_thms : string * thm * thm -> unit
+    val lookup_v_thm : term -> thm
 
 end

@@ -18,7 +18,7 @@ val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
 
 val riscv_config_def = Define`
    riscv_config =
-   <| ISA_name := "riscv"
+   <| ISA_name := "RISC-V"
     ; reg_count := 32
     ; avoid_regs := [0; 1]
     ; link_reg := SOME 31
@@ -123,6 +123,13 @@ val riscv_enc_def = Define`
      riscv_encode (ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i)))) /\
    (riscv_enc (Inst (Arith (Shift sh r1 r2 n))) =
      riscv_encode (Shift (riscv_sh sh (n2w r1, n2w r2, n2w n)))) /\
+   (riscv_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+     riscv_encode (ArithR (SLTU (1w, 0w, n2w r4))) ++
+     riscv_encode (ArithR (ADD (n2w r1, n2w r2, n2w r3))) ++
+     riscv_encode (ArithR (SLTU (n2w r4, n2w r1, n2w r3))) ++
+     riscv_encode (ArithR (ADD (n2w r1, n2w r1, 1w))) ++
+     riscv_encode (ArithR (SLTU (1w, n2w r1, 1w))) ++
+     riscv_encode (ArithR (OR (n2w r4, n2w r4, 1w)))) /\
    (riscv_enc (Inst (Mem mop r1 (Addr r2 a))) =
       case riscv_memop mop of
          INL f => riscv_encode (Load (f (n2w r1, n2w r2, w2w a)))
@@ -286,6 +293,30 @@ val riscv_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
        Inst (Arith (Shift Lsr (w2n r1) (w2n r2) (w2n n)))
     | (Shift (SRAI (r1, r2, n)), _) =>
        Inst (Arith (Shift Asr (w2n r1) (w2n r2) (w2n n)))
+    (* AddCarry *)
+    | (ArithR (SLTU (1w, 0w, r1)), rest) =>
+       (case fetch_decode rest of
+           (ArithR (ADD (r2, r3, r4)), rest2) =>
+              (case fetch_decode rest2 of
+                  (ArithR (SLTU (r5, r6, r7)), rest3) =>
+                    (case fetch_decode rest3 of
+                       (ArithR (ADD (r8, r9, 1w)), rest4) =>
+                          (case fetch_decode rest4 of
+                              (ArithR (SLTU (1w, r10, 1w)), rest5) =>
+                                 (case FST (fetch_decode rest5) of
+                                     ArithR (OR (r11, r12, 1w)) =>
+                                       if (r1 = r5) /\ (r5 = r11) /\
+                                          (r11 = r12) /\
+                                          (r2 = r6) /\ (r6 = r8) /\ (r8 = r9) /\
+                                          (r9 = r10) /\ (r4 = r7) then
+                                         Inst (Arith (AddCarry
+                                           (w2n r2) (w2n r3) (w2n r4) (w2n r1)))
+                                       else ARB
+                                   | _ => ARB)
+                            | _ => ARB)
+                     | _ => ARB)
+                | _ => ARB)
+         |  _ => ARB)
     (* Load *)
     | (Load (LD (r1, r2, a)), _) =>
        Inst (Mem Load (w2n r1) (Addr (w2n r2) (sw2sw a)))

@@ -166,6 +166,7 @@ val good_syntax_inst_def = Define`
   (good_syntax_inst (Const n _) k ⇔ n < k) ∧
   (good_syntax_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
   (good_syntax_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
+  (good_syntax_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (good_syntax_inst _ _ ⇔ T)`;
 val _ = export_rewrites["good_syntax_inst_def"];
 
@@ -411,7 +412,7 @@ val write_bytearray_lemma = prove(
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ res_tac \\ full_simp_tac(srw_ss())[]
   \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[]
-  \\ qcase_tac `xx IN d`
+  \\ rename1 `xx IN d`
   \\ Cases_on `xx IN d1` \\ res_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac write_bytearray_IGNORE \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac write_bytearray_EQ \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
@@ -721,6 +722,11 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
   >- (
     reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
+      fs[get_vars_def]
+      \\ every_case_tac \\ fs[]
+      \\ imp_res_tac state_rel_get_var \\ fs[]
+      \\ rw[] \\ fs[] )
+    >- (
       drule state_rel_word_exp
       \\ qpat_assum`_ = SOME _`mp_tac
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -987,7 +993,7 @@ val comp_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,LET_THM] \\ full_simp_tac(srw_ss())[STOP_def]
     \\ first_x_assum drule \\ full_simp_tac(srw_ss())[good_syntax_def]
     \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
-    \\ qcase_tac `state_rel k s3 t3`
+    \\ rename1 `state_rel k s3 t3`
     \\ `state_rel k (dec_clock s3) (dec_clock t3)` by
         (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ rev_full_simp_tac(srw_ss())[] \\ NO_TAC)
     \\ first_x_assum drule \\ full_simp_tac(srw_ss())[]
@@ -1988,11 +1994,11 @@ val init_code_thm = store_thm("init_code_thm",
   \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac
   \\ fs [] \\ tac
   \\ Cases_on `ptr2` \\ fs []
-  \\ qcase_tac `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
+  \\ rename1 `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
   \\ Cases_on `ptr3` \\ fs []
-  \\ qcase_tac `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
+  \\ rename1 `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
   \\ Cases_on `ptr4` \\ fs []
-  \\ qcase_tac `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
+  \\ rename1 `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
   \\ `~(dimindex (:'a) <= word_shift (:'a))` by
     fs [labPropsTheory.good_dimindex_def,dimword_def,word_shift_def]
   \\ fs [WORD_LO,NOT_LESS]
@@ -2025,20 +2031,20 @@ val init_code_thm = store_thm("init_code_thm",
       ((ptr3 − ptr2) DIV 2) MOD d = 0` by
     (unabbrev_all_tac \\ fs [labPropsTheory.good_dimindex_def])
   \\ ntac 4 (drule MOD_EQ_IMP_MULT \\ asm_rewrite_tac [] \\ pop_assum kall_tac)
-  \\ strip_tac \\ qcase_tac `ptr2 = d * h2`
-  \\ strip_tac \\ qcase_tac `ptr3 = d * h3`
-  \\ strip_tac \\ qcase_tac `ptr4 = d * h4`
-  \\ strip_tac \\ qcase_tac `_ = d * hi`
+  \\ strip_tac \\ rename1 `ptr2 = d * h2`
+  \\ strip_tac \\ rename1 `ptr3 = d * h3`
+  \\ strip_tac \\ rename1 `ptr4 = d * h4`
+  \\ strip_tac \\ rename1 `_ = d * hi`
   \\ rpt var_eq_tac \\ fs []
   \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ rfs [] \\ fs []
   \\ rpt (qpat_assum `_ MOD _ = 0n` kall_tac)
   \\ qpat_assum `h2 <= h3` mp_tac
   \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
-  \\ strip_tac \\ qcase_tac `h3 = h2 + heap_length`
+  \\ strip_tac \\ rename1 `h3 = h2 + heap_length`
   \\ qpat_assum `h3 <= h4` mp_tac
   \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
-  \\ strip_tac \\ qcase_tac `h4 = h3 + stack_length`
+  \\ strip_tac \\ rename1 `h4 = h3 + stack_length`
   \\ rpt var_eq_tac \\ fs [LEFT_ADD_DISTRIB]
   \\ full_simp_tac std_ss [GSYM ADD_ASSOC]
   \\ qpat_assum `n2w _ ⋙ 1 = n2w _` kall_tac
@@ -2051,7 +2057,7 @@ val init_code_thm = store_thm("init_code_thm",
         (unabbrev_all_tac \\ decide_tac)
   \\ pop_assum mp_tac
   \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
-  \\ strip_tac \\ qcase_tac `_ = _ + _ + rest_of_stack_len:num`
+  \\ strip_tac \\ rename1 `_ = _ + _ + rest_of_stack_len:num`
   \\ var_eq_tac \\ full_simp_tac std_ss []
   \\ qabbrev_tac `bitst_len = LENGTH bitmaps + LENGTH store_list`
   \\ full_simp_tac std_ss [ADD_ASSOC]
@@ -2059,11 +2065,11 @@ val init_code_thm = store_thm("init_code_thm",
   \\ fs [bytes_in_word_def,word_mul_n2w,word_add_n2w]
   \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ qcase_tac `LENGTH rest = rest_of_stack_len`
+  \\ rename1 `LENGTH rest = rest_of_stack_len`
   \\ qpat_assum `LENGTH rest = rest_of_stack_len` mp_tac
-  \\ qcase_tac `LENGTH bitst = bitst_len`
+  \\ rename1 `LENGTH bitst = bitst_len`
   \\ qpat_assum `LENGTH bitst = bitst_len` mp_tac
-  \\ qcase_tac `LENGTH heap = heap_length`
+  \\ rename1 `LENGTH heap = heap_length`
   \\ qpat_assum `LENGTH heap = heap_length` mp_tac
   \\ rpt strip_tac \\ rpt var_eq_tac
   \\ full_simp_tac std_ss [LEFT_ADD_DISTRIB,ADD_ASSOC]

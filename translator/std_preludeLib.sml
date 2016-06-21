@@ -228,8 +228,8 @@ val Eval_FLOOKUP = prove(
         ((FMAP_TYPE b a --> b --> OPTION_TYPE a) FLOOKUP) v``,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
     PULL_EXISTS,FMAP_EQ_ALIST_def] THEN METIS_TAC [])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN ALOOKUP_eval)
-  |> store_eval_thm;
+  |> (fn th => MATCH_MP th ALOOKUP_eval)
+  |> add_user_proved_v_thm;
 
 val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
 val AUPDATE_eval = translate AUPDATE_def;
@@ -251,8 +251,8 @@ val Eval_FUPDATE = prove(
   THEN REPEAT STRIP_TAC THEN RES_TAC
   THEN Q.LIST_EXISTS_TAC [`u'`,`AUPDATE l x'`]
   THEN FULL_SIMP_TAC std_ss [] THEN METIS_TAC [FMAP_EQ_ALIST_UPDATE,PAIR])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN AUPDATE_eval)
-  |> store_eval_thm;
+  |> (fn th => MATCH_MP th AUPDATE_eval)
+  |> add_user_proved_v_thm;
 
 val NIL_eval = hol2deep ``[]:('a # 'b) list``
 
@@ -264,7 +264,7 @@ val Eval_FEMPTY = prove(
   THEN FULL_SIMP_TAC (srw_ss()) [ALOOKUP_def,FUN_EQ_THM,
          finite_mapTheory.FLOOKUP_DEF])
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
-  |> store_eval_thm;
+  |> add_eval_thm;
 
 val AEVERY_AUX_def = Define `
   (AEVERY_AUX aux P [] = T) /\
@@ -304,8 +304,8 @@ val Eval_FEVERY = prove(
   THEN Q.MATCH_ASSUM_RENAME_TAC `BOOL (AEVERY x l) u1`
   THEN Q.LIST_EXISTS_TAC [`u1`]
   THEN FULL_SIMP_TAC (srw_ss()) [BOOL_def,AEVERY_EQ_FEVERY,Boolv_11])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN AEVERY_eval)
-  |> store_eval_thm;
+  |> (fn th => MATCH_MP th AEVERY_eval)
+  |> add_user_proved_v_thm;
 
 val AMAP_def = Define `
   (AMAP f [] = []) /\
@@ -334,8 +334,8 @@ val Eval_o_f = prove(
   THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a c) (AMAP x l) u1`
   THEN Q.LIST_EXISTS_TAC [`u1`,`AMAP x l`]
   THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_o_f])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN AMAP_eval)
-  |> store_eval_thm;
+  |> (fn th => MATCH_MP th AMAP_eval)
+  |> add_user_proved_v_thm;
 
 val ALOOKUP_APPEND = prove(
   ``!l1 l2 x.
@@ -345,10 +345,14 @@ val ALOOKUP_APPEND = prove(
   Induct THEN FULL_SIMP_TAC std_ss [APPEND,ALOOKUP_def,FORALL_PROD]
   THEN SRW_TAC [] []);
 
-val APPEND_eval = ``x ++ (y:('a # 'b) list)``
-  |> repeat rator |> hol2deep
-  |> DISCH_ALL |> Q.INST [`shaddow_env`|->`env`]
-  |> REWRITE_RULE [] |> UNDISCH_ALL
+val append_eval = let
+  val th = fetch "-" "append_v_thm"
+  val inv = ``x ++ (y:('a # 'b) list)``
+            |> repeat rator |> hol2deep |> concl |> rand
+  val pat = th |> concl |> rator
+  val (ii,ss) = match_term pat inv
+  val th = INST ii (INST_TYPE ss th)
+  in th end
 
 val Eval_FUNION = prove(
   ``!v. (LIST_TYPE (PAIR_TYPE a b) --> LIST_TYPE (PAIR_TYPE a b) -->
@@ -368,8 +372,8 @@ val Eval_FUNION = prove(
   THEN FULL_SIMP_TAC std_ss [ALOOKUP_APPEND,FUN_EQ_THM]
   THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF,FUNION_DEF,IN_UNION]
   THEN REPEAT STRIP_TAC THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN APPEND_eval)
-  |> store_eval_thm;
+  |> (fn th => MATCH_MP th append_eval)
+  |> add_user_proved_v_thm;
 
 val ADEL_def = Define `
   (ADEL [] z = []) /\
@@ -398,8 +402,8 @@ val Eval_fmap_domsub = prove(
   THEN REPEAT STRIP_TAC THEN RES_TAC
   THEN Q.LIST_EXISTS_TAC [`u'`,`ADEL l x'`]
   THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_ADEL])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN ADEL_eval)
-  |> store_eval_thm;
+  |> (fn th => MATCH_MP th ADEL_eval)
+  |> add_user_proved_v_thm;
 
 
 (* while, owhile and least *)

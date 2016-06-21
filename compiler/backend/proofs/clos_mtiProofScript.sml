@@ -36,7 +36,7 @@ val collect_args_max_app = Q.store_thm(
   "collect_args_max_app",
   `∀e e' n n'. n ≤ max_app ∧ collect_args n e = (n', e') ⇒ n' ≤ max_app`,
   Induct >> simp[collect_args_def] >> rpt gen_tac >>
-  qcase_tac `Fn opt1 opt2 nn body` >>
+  rename1 `Fn opt1 opt2 nn body` >>
   Cases_on `opt1` >> Cases_on `opt2` >>
   simp[collect_args_def] >> rw[] >> metis_tac[]);
 
@@ -44,7 +44,7 @@ val collect_args_never_decreases = Q.store_thm(
   "collect_args_never_decreases",
   `∀e e' n n'. collect_args n e = (n', e') ⇒ n ≤ n'`,
   Induct >> simp[collect_args_def] >> rpt gen_tac >>
-  qcase_tac `Fn opt1 opt2 nn body` >>
+  rename1 `Fn opt1 opt2 nn body` >>
   Cases_on `opt1` >> Cases_on `opt2` >>
   simp[collect_args_def] >> rw[] >> res_tac >> simp[]);
 
@@ -134,7 +134,7 @@ val dest_addarg_Fn_EQ_SOME = Q.store_thm(
   "dest_addarg_Fn_EQ_SOME",
   `dest_addarg_Fn n e = SOME (m, body) ⇔
     e = Fn NONE NONE m body ∧ n + m ≤ max_app (* ∧ 0 < m *)`,
-  Cases_on `e` >> simp[] >> qcase_tac `Fn opt1 opt2` >>
+  Cases_on `e` >> simp[] >> rename1 `Fn opt1 opt2` >>
   Cases_on `opt1` >> Cases_on `opt2` >> simp[] >> metis_tac[ADD_COMM]);
 
 val TAKE_EQ_NIL = Q.store_thm(
@@ -271,8 +271,8 @@ val recClosure_add_arg0 = Q.prove(
             by metis_tac[LIST_REL_EL_EQN] >>
           pop_assum mp_tac >> simp[Abbr`Rf`, option_case_NONE_F] >>
           simp[dest_addarg_Fn_EQ_SOME, FORALL_PROD, PULL_EXISTS] >>
-          rpt strip_tac >> qcase_tac `fina2 = fina1 + m` >>
-          qcase_tac `exp_rel (:'ffi) [fib01] [fib2]` >>
+          rpt strip_tac >> rename1 `fina2 = fina1 + m` >>
+          rename1 `exp_rel (:'ffi) [fib01] [fib2]` >>
           simp[evaluate_def] >> reverse (Cases_on `LENGTH vs1 ≤ kk + 1`) >>
           simp[]
           >- (simp[evaluate_app_rw, TAKE_EQ_NIL, dest_closure_def,
@@ -348,8 +348,8 @@ val recClosure_add_arg0 = Q.prove(
         by metis_tac[LIST_REL_EL_EQN] >>
       pop_assum mp_tac >> simp[Abbr`Rf`, option_case_NONE_F] >>
       simp[dest_addarg_Fn_EQ_SOME, FORALL_PROD, PULL_EXISTS] >>
-      rpt strip_tac >> qcase_tac `fina2 = fina1 + m` >>
-      qcase_tac `fib1 = Fn NONE NONE m fib01` >>
+      rpt strip_tac >> rename1 `fina2 = fina1 + m` >>
+      rename1 `fib1 = Fn NONE NONE m fib01` >>
       simp[evaluate_def, evaluate_app_rw, TAKE_EQ_NIL, dest_closure_def,
            check_loc_second_NONE, revtakerev, revdroprev] >>
       Cases_on `kk + (LENGTH AE1 + 1) < fina1 + m` >> simp[]
@@ -468,7 +468,7 @@ val recClosure_add_arg = Q.store_thm(
   `EVERY (λ(n,e). n ≤ max_app ∧ n ≠ 0) fns2`
     by (fs[EVERY_MEM, MEM_EL, LIST_REL_EL_EQN, FORALL_PROD, PULL_EXISTS] >>
         rfs[] >> rpt gen_tac >> strip_tac >>
-        qcase_tac `(n2,b2) = EL fidx fns2` >>
+        rename1 `(n2,b2) = EL fidx fns2` >>
         qpat_assum `(n2,b2) = _` (assume_tac o SYM) >>
         `∃n1 b1. EL fidx fns1 = (n1,b1)` by metis_tac[pair_CASES] >>
         `n1 ≠ 0 ∧ n1 ≤ max_app` by metis_tac[] >>
@@ -495,21 +495,21 @@ val mti_letrec1_size_decrease = Q.store_thm(
   "mti_letrec1_size_decrease",
   `mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
   Cases_on `b` >> simp[Cong DISJ_CONG] >>
-  qcase_tac `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
+  rename1 `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
   simp[Cong DISJ_CONG] >> rw[] >>
   simp[Cong DISJ_CONG, closLangTheory.exp_size_def]);
 
 val mti_letrec1_size_LEQ = Q.store_thm(
   "mti_letrec1_size_LEQ",
   `exp_size (SND (mti_letrec1 (n,b))) ≤ exp_size b`,
-  Cases_on `b` >> simp[] >> qcase_tac `Fn opt1 opt2` >>
+  Cases_on `b` >> simp[] >> rename1 `Fn opt1 opt2` >>
   Cases_on `opt1` >> Cases_on `opt2` >> simp[] >> rw[] >>
   simp[closLangTheory.exp_size_def]);
 
 val mti_letrec1_unchangedE_unchangedN = Q.store_thm(
   "mti_letrec1_unchangedE_unchangedN",
   `mti_letrec1 (n,b) = (m,b) ⇒ n = m`,
-  Cases_on `b` >> simp[] >> qcase_tac `Fn opt1 opt2` >>
+  Cases_on `b` >> simp[] >> rename1 `Fn opt1 opt2` >>
   map_every Cases_on [`opt1`, `opt2`] >> simp[] >> rw[] >>
   pop_assum (mp_tac o AP_TERM ``closLang$exp_size``) >>
   simp[closLangTheory.exp_size_def]);
@@ -538,8 +538,8 @@ val mti_letrec1_correct = Q.store_thm(
                    [Letrec NONE NONE (MAP mti_letrec1 fns) b]`,
   irule recClosure_add_arg >> simp[exp_rel_refl] >>
   simp[LIST_REL_EL_EQN, EL_MAP] >> qx_gen_tac `n` >> strip_tac >>
-  Cases_on `EL n fns` >> simp[] >> qcase_tac `mti_letrec1 (m, e)` >>
-  Cases_on `e` >> simp[exp_rel_refl] >> qcase_tac `Fn opt1 opt2` >>
+  Cases_on `EL n fns` >> simp[] >> rename1 `mti_letrec1 (m, e)` >>
+  Cases_on `e` >> simp[exp_rel_refl] >> rename1 `Fn opt1 opt2` >>
   Cases_on `opt1` >> Cases_on `opt2` >> rw[exp_rel_refl])
 
 val exp_size_MAP_mti_letrec1 = Q.store_thm(
@@ -556,18 +556,18 @@ val mti_letrec_row_def = tDefine "mti_letrec_row" `
       else mti_letrec_row fns'`
   (WF_REL_TAC `measure (closLang$exp3_size o MAP SND)` >>
    simp[LIST_EQ_REWRITE, PULL_EXISTS] >> csimp[EL_MAP] >> Induct >>
-   simp[closLangTheory.exp_size_def] >> rpt gen_tac >> qcase_tac `i < SUC _` >>
+   simp[closLangTheory.exp_size_def] >> rpt gen_tac >> rename1 `i < SUC _` >>
    Cases_on `i` >> simp[] >> strip_tac
-   >- (qcase_tac `mti_letrec1 me = me` >> Cases_on `me` >> simp[] >>
-       qcase_tac `mti_letrec1 (n,e)` >>
+   >- (rename1 `mti_letrec1 me = me` >> Cases_on `me` >> simp[] >>
+       rename1 `mti_letrec1 (n,e)` >>
        `∃n' e'. mti_letrec1 (n,e) = (n',e')` by metis_tac[pair_CASES] >>
        `exp_size e' < exp_size e`
          by (fs[] >> metis_tac[mti_letrec1_size_decrease]) >> fs[] >>
        `exp3_size (MAP SND (MAP mti_letrec1 fns)) ≤ exp3_size (MAP SND fns)`
          by metis_tac[exp_size_MAP_mti_letrec1] >>
        simp[]) >>
-   qcase_tac `mti_letrec1 me` >> Cases_on `me` >>
-   qcase_tac `mti_letrec1 (m,e)` >> simp[] >> res_tac >>
+   rename1 `mti_letrec1 me` >> Cases_on `me` >>
+   rename1 `mti_letrec1 (m,e)` >> simp[] >> res_tac >>
    `exp_size (SND (mti_letrec1(m,e))) ≤ exp_size e`
      by metis_tac[mti_letrec1_size_LEQ] >> simp[])
 
@@ -575,7 +575,7 @@ val mti_letrec_expanded = Q.store_thm(
   "mti_letrec_expanded",
   `UNCURRY mti_letrec x = UNCURRY mti_letrec (mti_letrec1 x)`,
   Cases_on `x` >> simp[] >> simp[SimpLHS, Once mti_letrec_def] >>
-  qcase_tac `mti_letrec1 (n,b)` >> Cases_on `mti_letrec1 (n,b)` >> simp[] >>
+  rename1 `mti_letrec1 (n,b)` >> Cases_on `mti_letrec1 (n,b)` >> simp[] >>
   rw[] >> imp_res_tac mti_letrec1_unchangedE_unchangedN >> rw[] >>
   simp[Once mti_letrec_def]);
 
@@ -586,7 +586,7 @@ val mti_letrec_mti_letrec_row = Q.store_thm(
   simp[Once mti_letrec_row_def] >> rw[] >> fs[]
   >- (fs[LIST_EQ_REWRITE, EL_MAP] >> qx_gen_tac `i` >> strip_tac >>
       Cases_on `EL i fns` >> simp[Once mti_letrec_def] >>
-      qcase_tac `mti_letrec1 (m,b)` >>
+      rename1 `mti_letrec1 (m,b)` >>
       `mti_letrec1 (m,b) = (m,b)` by metis_tac[] >> simp[]) >>
   first_x_assum (SUBST_ALL_TAC o SYM) >>
   simp[MAP_MAP_o] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
@@ -649,12 +649,12 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
  >- (reverse (irule compat_letrec)
      >- metis_tac[intro_multi_sing, HD] >>
      simp[LIST_REL_EL_EQN] >> qx_gen_tac `n` >>
-     qcase_tac `EL mm fns` >>
+     rename1 `EL mm fns` >>
      Cases_on `EL mm fns` >> simp[exp_rel_refl])
  >- (reverse (irule compat_letrec)
      >- metis_tac[intro_multi_sing, HD] >>
      simp[LIST_REL_EL_EQN] >> qx_gen_tac `n` >>
-     qcase_tac `EL mm fns` >> Cases_on `EL mm fns` >>
+     rename1 `EL mm fns` >> Cases_on `EL mm fns` >>
      simp[exp_rel_refl])
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 

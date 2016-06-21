@@ -165,8 +165,8 @@ val dstrip_sexp_size = store_thm(
   ``∀s sym args. dstrip_sexp s = SOME (sym, args) ⇒
                  ∀e. MEM e args ⇒ sexp_size e < sexp_size s``,
   Induct >> simp[dstrip_sexp_def, sexp_size_def] >>
-  qcase_tac `sexp_CASE sxp` >> Cases_on `sxp` >> simp[] >> rpt strip_tac >>
-  qcase_tac `MEM sxp0 sxpargs` >> qcase_tac `strip_sxcons sxp'` >>
+  rename1 `sexp_CASE sxp` >> Cases_on `sxp` >> simp[] >> rpt strip_tac >>
+  rename1 `MEM sxp0 sxpargs` >> rename1 `strip_sxcons sxp'` >>
   `sxMEM sxp0 sxp'` by metis_tac[sxMEM_def] >> imp_res_tac sxMEM_sizelt >>
   simp[]);
 
@@ -413,7 +413,7 @@ val monad_unitbind_CONG = store_thm(
   ``∀m11 m21 m12 m22.
       m11 = m12 ∧ (m12 = SOME () ⇒ m21 = m22) ⇒
       monad_unitbind m11 m21 = monad_unitbind m12 m22``,
-  simp[] >> rpt gen_tac >> qcase_tac `m12 = SOME ()` >>
+  simp[] >> rpt gen_tac >> rename1 `m12 = SOME ()` >>
   Cases_on `m12` >> simp[]);
 
 val sexplist_CONG = store_thm(
@@ -423,7 +423,7 @@ val sexplist_CONG = store_thm(
       (sexplist p1 s1 = sexplist p2 s2)``,
   simp[sxMEM_def] >> Induct >> dsimp[Once strip_sxcons_def]
   >- (ONCE_REWRITE_TAC [sexplist_def] >> simp[] >>
-      qcase_tac `strip_sxcons t` >> Cases_on `strip_sxcons t` >>
+      rename1 `strip_sxcons t` >> Cases_on `strip_sxcons t` >>
       simp[]
       >- (simp[strip_sxcons_FAIL_sexplist_FAIL, monad_bind_FAIL]) >>
       map_every qx_gen_tac [`p1`, `p2`] >> strip_tac >>
@@ -481,7 +481,7 @@ val sexptype_def = tDefine "sexptype" `
                      (sexptctor (EL 1 args))))
     od
 ` (WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac >>
-   qcase_tac `sxMEM s0 (HD args)` >>
+   rename1 `sxMEM s0 (HD args)` >>
    `sexp_size s0 < sexp_size (HD args)` by metis_tac[sxMEM_sizelt] >>
    `MEM (HD args) args`
       by metis_tac[DECIDE ``0n < 2``, rich_listTheory.EL_MEM, listTheory.EL] >>
@@ -650,7 +650,7 @@ val sexpexp_def = tDefine "sexpexp" `
 `
   (WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
    >> TRY
-     (qcase_tac `sxMEM sx0 (EL 1 args)` >>
+     (rename1 `sxMEM sx0 (EL 1 args)` >>
        `sexp_size sx0 < sexp_size (EL 1 args)` by simp[sxMEM_sizelt] >>
        rw[] >> fs[sexp_size_def] >>
        `sexp_size (EL 1 args) < sexp_size s`

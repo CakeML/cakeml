@@ -826,7 +826,7 @@ t = convert_t (t_walkstar s' t')``,
   >-
     (extend_uvar_tac ``t``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    qcase_tac `[(h, Infer_Tapp _ _)]` >>
+    rename1 `[(h, Infer_Tapp _ _)]` >>
     replace_uvar_tac>>
     rest_uvar_tac)
   >-
@@ -893,7 +893,7 @@ t = convert_t (t_walkstar s' t')``,
   >-
     (extend_uvar_tac ``t2``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    qcase_tac `[(h,Infer_Tapp _ _)]` >>
+    rename1 `[(h,Infer_Tapp _ _)]` >>
     replace_uvar_tac>>
     rest_uvar_tac>>
     `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
@@ -904,7 +904,7 @@ t = convert_t (t_walkstar s' t')``,
     fs[pure_add_constraints_combine]>>
     extend_uvar_tac ``t``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B);C]`>>
-    qcase_tac `[(h,Infer_Tapp _ _); _]` >>
+    rename1 `[(h,Infer_Tapp _ _); _]` >>
     replace_uvar_tac>>
     (*Doesn't work because we don't know check_t of RHS in the tactic*)
     `t_walkstar s' h' = Infer_Tapp [] TC_int` by
@@ -913,7 +913,7 @@ t = convert_t (t_walkstar s' t')``,
   >-
     (extend_uvar_tac ``t1``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    qcase_tac `[(h, Infer_Tapp _ _)]` >>
+    rename1 `[(h, Infer_Tapp _ _)]` >>
     replace_uvar_tac>>
     rest_uvar_tac)
   >-
@@ -925,7 +925,7 @@ t = convert_t (t_walkstar s' t')``,
     fs[pure_add_constraints_combine]>>
     extend_uvar_tac ``t``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B);C]`>>
-    qcase_tac `[(h,Infer_Tapp _ _); _]` >>
+    rename1 `[(h,Infer_Tapp _ _); _]` >>
     replace_uvar_tac>>
     `t_walkstar s' h' = Infer_Tapp [] TC_int` by
       metis_tac[submap_t_walkstar_replace]>>
@@ -933,7 +933,7 @@ t = convert_t (t_walkstar s' t')``,
   >-
     (extend_uvar_tac ``t1``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    qcase_tac `[(h, Infer_Tapp _ _)]` >>
+    rename1 `[(h, Infer_Tapp _ _)]` >>
     replace_uvar_tac>>
     rest_uvar_tac)
   >-

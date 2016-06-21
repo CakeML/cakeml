@@ -2663,7 +2663,7 @@ val type_d_new_tenv_ok = Q.store_thm ("type_d_new_tenv_ok",
    srw_tac[][] >>
    every_case_tac >>
    full_simp_tac(srw_ss())[] >>
-   qcase_tac `MEM b bindings` >>
+   rename1 `MEM b bindings` >>
    PairCases_on `b` >>
    full_simp_tac(srw_ss())[] >>
    srw_tac[][] >>
@@ -2676,7 +2676,7 @@ val type_d_new_tenv_ok = Q.store_thm ("type_d_new_tenv_ok",
    srw_tac[][] >>
    every_case_tac >>
    full_simp_tac(srw_ss())[] >>
-   qcase_tac `MEM b bindings` >>
+   rename1 `MEM b bindings` >>
    PairCases_on `b` >>
    full_simp_tac(srw_ss())[] >>
    srw_tac[][] >>
@@ -2692,7 +2692,7 @@ val type_d_new_tenv_ok = Q.store_thm ("type_d_new_tenv_ok",
    srw_tac[][] >>
    every_case_tac >>
    rev_full_simp_tac(srw_ss())[] >>
-   qcase_tac `MEM b bindings` >>
+   rename1 `MEM b bindings` >>
    PairCases_on `b` >>
    full_simp_tac(srw_ss())[] >>
    srw_tac[][] >>

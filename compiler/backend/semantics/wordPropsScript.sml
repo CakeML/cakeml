@@ -53,7 +53,7 @@ val push_env_const = Q.store_thm("push_env_const[simp]",
   `(push_env x y z).clock = z.clock ∧
    (push_env x y z).ffi = z.ffi`,
   Cases_on`y`>>simp[push_env_def,UNCURRY] >>
-  qcase_tac`SOME p` >>
+  rename1`SOME p` >>
   PairCases_on`p` >>
   srw_tac[][push_env_def] >> srw_tac[][]);
 
@@ -61,7 +61,7 @@ val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
   `(push_env x y (z with clock := k) = push_env x y z with clock := k) ∧
    (push_env x y (z with locals := l) = push_env x y z with locals := l)`,
   Cases_on`y`>>srw_tac[][push_env_def] >- simp[state_component_equality] >>
-  qcase_tac`SOME p` >>
+  rename1`SOME p` >>
   PairCases_on`p` >>
   srw_tac[][push_env_def] >> simp[state_component_equality]);
 
@@ -191,13 +191,13 @@ val assign_with_const = Q.store_thm("assign_with_const[simp]",
 
 val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
-  srw_tac[][inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
+  rw[inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME s' ⇒
    s'.clock = s.clock ∧
    s'.ffi = s.ffi`,
-  srw_tac[][inst_def] >>
+  rw[inst_def] >>
   every_case_tac >>full_simp_tac(srw_ss())[] >>
   imp_res_tac assign_const >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
@@ -232,7 +232,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
   TRY (
-    qcase_tac`find_code _ (add_ret_loc _ _)` >>
+    rename1`find_code _ (add_ret_loc _ _)` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     Cases_on`find_code dest (add_ret_loc (SOME x) x') s.code`>>full_simp_tac(srw_ss())[]>>
     PairCases_on`x''`>>PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
@@ -248,7 +248,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     rev_full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[])>>
   TRY (
-    qcase_tac`find_code _ (add_ret_loc _ _)` >>
+    rename1`find_code _ (add_ret_loc _ _)` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     Cases_on`find_code dest (add_ret_loc ret x') s.code`>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[]>>
@@ -411,7 +411,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[] >- (
@@ -455,7 +455,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
     metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[] >- (
@@ -541,7 +541,7 @@ val evaluate_code_const = store_thm("evaluate_code_const",``
   ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code``,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
   >-
-    (qcase_tac `bad_dest_args _ _`>>
+    (rename1 `bad_dest_args _ _`>>
     pop_assum mp_tac>>
     ntac 5 (TOP_CASE_TAC>>fs[])
     >-
@@ -1006,8 +1006,9 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     assume_tac get_vars_stack_swap_simp>>
     full_simp_tac(srw_ss())[s_key_eq_refl])
   >-(*Inst*)
-    (full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def]>>
+    (full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def,LET_THM]>>
     every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
+    fs[get_vars_stack_swap_simp]>>
     srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,mem_store_def]>>
@@ -1015,7 +1016,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     rfs[]>>
     HINT_EXISTS_TAC>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
-  >-(*Assign*)
+  >- (*Assign*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     rpt strip_tac>>
     HINT_EXISTS_TAC>>
@@ -1628,8 +1629,8 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     full_simp_tac(srw_ss())[set_vars_perm])
   >-
     (qexists_tac`perm`>>
-    full_simp_tac(srw_ss())[inst_def,assign_def]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def]>>
+    full_simp_tac(srw_ss())[inst_def,assign_def,LET_THM]>>every_case_tac>>
+    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm]>>
     rfs[]>>fs[]>>rveq>>
     fs[state_component_equality])
   >-
@@ -1997,8 +1998,16 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       full_simp_tac(srw_ss())[state_component_equality]>>
       srestac>>metis_tac[])
     >-
-      (Cases_on`a`>>full_simp_tac(srw_ss())[assign_def]>>
-      qpat_assum`A=(res,rst)` mp_tac>>
+      (reverse (Cases_on`a`)>>fs[assign_def,LET_THM]>>
+      qpat_assum`A=(res,rst)` mp_tac
+      >-
+        (qpat_abbrev_tac`ls = [n0;n1;n2]`>>
+        FULL_CASE_TAC>>fs[]>>
+        imp_res_tac locals_rel_get_vars>>fs[every_var_inst_def]>>
+        unabbrev_all_tac>>fs[]>>
+        EVERY_CASE_TAC>>rw[]>>
+        fs[locals_rel_set_var,state_component_equality,set_var_def])
+      >>
       qpat_abbrev_tac`A = word_exp B C`>>
       Cases_on`A`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>srw_tac[][]>>
       pop_assum (assume_tac o SYM)>>
@@ -2194,6 +2203,11 @@ val inst_ok_less_def = Define`
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 n)) =
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
+     (((c.ISA_name = "MIPS") \/
+       (c.ISA_name = "RISC-V")) ==> r1 <> r3 /\ r1 <> r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
@@ -2204,6 +2218,8 @@ val distinct_tar_reg_def = Define`
     ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
   (distinct_tar_reg  (Arith (Shift l r1 r2 n))
     ⇔ r1 ≠ r2) ∧
+  (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg _ ⇔ T)`
 
 (*Instructions are 2 register code for arith ok*)
@@ -2211,6 +2227,8 @@ val two_reg_inst_def = Define`
   (two_reg_inst (Arith (Binop bop r1 r2 ri))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (Shift l r1 r2 n))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (AddCarry r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst _ ⇔ T)`
 
@@ -2269,8 +2287,13 @@ val wf_cutsets_def = Define`
      wf_cutsets e3)) ∧
   (wf_cutsets _ = T)`
 
+val inst_arg_convention_def = Define`
+  (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention _ = T)`
+
 (* Syntactic conventions for allocator *)
 val call_arg_convention_def = Define`
+  (call_arg_convention (Inst i) = inst_arg_convention i) ∧
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (FFI x ptr len args) = (ptr = 2 ∧ len = 4)) ∧

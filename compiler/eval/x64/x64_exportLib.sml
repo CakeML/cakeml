@@ -1,17 +1,18 @@
 structure x64_exportLib =
 struct
+local open HolKernel boolLib bossLib lcsymtacs in
 
 fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
-  val heap_line  = "    .space  " ^ (int_to_string heap_mb) ^
+  val heap_line  = "    .space  " ^ (Int.toString heap_mb) ^
                    " * 1024 * 1024   # heap size in bytes"
-  val stack_line = "    .space  " ^ int_to_string stack_mb ^
+  val stack_line = "    .space  " ^ Int.toString stack_mb ^
                    " * 1024 * 1024   # stack size in bytes"
   fun ffi_asm 0 = []
     | ffi_asm n = let
     val n = n - 1
-    in ("cake_ffi" ^ (int_to_string n) ^ ":") ::
+    in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
        "     pushq   %r15"::
-       "     jmp     cdecl(ffi" ^ (int_to_string n) ^ ")"::
+       "     jmp     cdecl(ffi" ^ (Int.toString n) ^ ")"::
        "     .p2align 3"::
        "":: ffi_asm n end
   in
@@ -104,7 +105,7 @@ fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
     | each g (x::xs) = (g x; each g xs)
   val _ = each (fn line => TextIO.output (f,line)) lines
   val _ = TextIO.closeOut f
-  val _ = print ("Generated " ^ filename ^ " (" ^ int_to_string (length lines) ^ " lines)\n")
+  val _ = print ("Generated " ^ filename ^ " (" ^ Int.toString (length lines) ^ " lines)\n")
   in () end
 
 (*
@@ -112,5 +113,5 @@ fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
 val _ = write_cake_S 50 50 0 bytes_tm ""
 
 *)
-
+end
 end

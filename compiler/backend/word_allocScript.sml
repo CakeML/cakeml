@@ -84,44 +84,55 @@ val fix_inconsistencies_def = Define`
     (Seq (Move 1 Lmov) Lseq,Seq (Move 1 Rmov) Rseq,na'',ssa_L'')`
 
 (*ssa_cc_trans_inst does not need to interact with stack*)
+(* Note: this needs to return a prog to support specific registers for AddCarry and other special insts
+*)
 val ssa_cc_trans_inst_def = Define`
   (ssa_cc_trans_inst Skip ssa na = (Skip,ssa,na)) ∧
   (ssa_cc_trans_inst (Const reg w) ssa na =
     let (reg',ssa',na') = next_var_rename reg ssa na in
-      ((Const reg' w),ssa',na')) ∧
+      (Inst (Const reg' w),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Binop bop r1 r2 ri)) ssa na =
     case ri of
       Reg r3 =>
       let r3' = option_lookup ssa r3 in
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
-        (Arith (Binop bop r1' r2' (Reg r3')),ssa',na')
+        (Inst (Arith (Binop bop r1' r2' (Reg r3'))),ssa',na')
     | _ =>
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
-        (Arith (Binop bop r1' r2' ri),ssa',na')) ∧
+        (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Shift shift r1 r2 n)) ssa na =
     let r2' = option_lookup ssa r2 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
-      (Arith (Shift shift r1' r2' n),ssa',na')) ∧
+      (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    let r4' = option_lookup ssa r4 in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let mov_in = Move 0 [(0,r4')] in (* r4 -> reg 0 *)
+    let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
+    let mov_out = Move 0 [(r4'',0)] in (* reg 0 -> r4 *)
+      (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
-      (Mem Load r' (Addr a' w),ssa',na')) ∧
+      (Inst (Mem Load r' (Addr a' w)),ssa',na')) ∧
   (ssa_cc_trans_inst (Mem Store r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
-      (Mem Store r' (Addr a' w),ssa,na)) ∧
+      (Inst (Mem Store r' (Addr a' w)),ssa,na)) ∧
   (ssa_cc_trans_inst (Mem Load8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
-      (Mem Load8 r' (Addr a' w),ssa',na')) ∧
+      (Inst (Mem Load8 r' (Addr a' w)),ssa',na')) ∧
   (ssa_cc_trans_inst (Mem Store8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
-      (Mem Store8 r' (Addr a' w),ssa,na)) ∧
+      (Inst (Mem Store8 r' (Addr a' w)),ssa,na)) ∧
   (*Catchall -- for future instructions to be added*)
-  (ssa_cc_trans_inst x ssa na = (x,ssa,na))`
+  (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))`
 
 (*Expressions only ever need to lookup a variable's current ssa map
   so it doesn't need the other parts *)
@@ -159,7 +170,7 @@ val ssa_cc_trans_def = Define`
       (Move pri (ZIP(ren_ls1,ren_ls2)),ssa',na')) ∧
   (ssa_cc_trans (Inst i) ssa na =
     let (i',ssa',na') = ssa_cc_trans_inst i ssa na in
-      (Inst i',ssa',na')) ∧
+      (i',ssa',na')) ∧
   (ssa_cc_trans (Assign num exp) ssa na=
     let exp' = ssa_cc_trans_exp ssa exp in
     let (num',ssa',na') = next_var_rename num ssa na in
@@ -311,7 +322,9 @@ val apply_colour_inst_def = Define`
     Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧
   (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
     Arith (Shift shift (f r1) (f r2) n)) ∧
-  (apply_colour_inst f (Mem Load r (Addr a w)) =
+  (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
+    Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
+   (apply_colour_inst f (Mem Load r (Addr a w)) =
     Mem Load (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Store r (Addr a w)) =
     Mem Store (f r) (Addr (f a) w)) ∧
@@ -364,6 +377,7 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
+  (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst (Mem Load8 r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst inst = LN)`
@@ -378,6 +392,9 @@ val get_live_inst_def = Define`
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 n)) live =
     insert r2 () (delete r1 live)) ∧
+  (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
+    (*r4 is live anyway*)
+    insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
   (get_live_inst (Mem Load r (Addr a w)) live =
     insert a () (delete r live)) ∧
   (get_live_inst (Mem Store r (Addr a w)) live =
@@ -454,7 +471,7 @@ val get_live_def = Define`
       case ret of NONE => args_set
                 | SOME (_,cutset,_) => union cutset args_set)`
 
-(*Dead instruction removal -- returns a flag if instruction is to be removed*)
+(*Dead instruction removal -- Not verified 
 val remove_dead_inst_def = Define`
   (remove_dead_inst Skip (live:num_set) = T) ∧
   (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
@@ -522,6 +539,7 @@ val remove_dead_def = Define`
         SOME(v',FST (remove_dead prog live),l1,l2)) in
     (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h,args_set)) ∧
   (remove_dead prog live = (prog,get_live prog live))`
+*)
 
 (*Single step immediate writes by a prog*)
 val get_writes_def = Define`
@@ -575,6 +593,7 @@ val get_delta_inst_def = Define`
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
   (get_delta_inst (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
   (get_delta_inst (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
@@ -730,6 +749,7 @@ val max_var_inst_def = Define`
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧

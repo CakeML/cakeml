@@ -4049,8 +4049,8 @@ val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   Cases_on`e`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
   Cases_on`r`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
   Cases_on`e`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  qcase_tac`err = Rabort ac` >>
-  qcase_tac`ab = a` >>
+  rename1`err = Rabort ac` >>
+  rename1`ab = a` >>
   Cases_on`ab`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
   Cases_on`ac`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]);
 
@@ -4143,10 +4143,10 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     strip_tac >>
     Cases_on`r`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
-    qcase_tac`res_rel (Rerr err,_) _` >>
+    rename1`res_rel (Rerr err,_) _` >>
     Cases_on`err`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
-    qcase_tac`Rabort a` >>
+    rename1`Rabort a` >>
     Cases_on`a`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] ) >>
   impl_tac >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>

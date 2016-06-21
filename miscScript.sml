@@ -26,7 +26,7 @@ val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
   ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
-  qcase_tac `n ≤ SUC (LENGTH l)` >>
+  rename1 `n ≤ SUC (LENGTH l)` >>
   `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
   >- simp[TAKE_APPEND2] >>
   simp[TAKE_APPEND1] >>

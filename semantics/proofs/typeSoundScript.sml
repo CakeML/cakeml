@@ -1924,7 +1924,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      pop_assum (qspecl_then [`st.ffi`, `e`, `t`, `0`] mp_tac) >>
      simp [bind_tvar_def, v_unchanged] >>
      srw_tac[][] >>
-     qcase_tac `small_eval _ _ _ _ (st2,res)` >>
+     rename1 `small_eval _ _ _ _ (st2,res)` >>
      cases_on `res` >>
      full_simp_tac(srw_ss())[]
      >- (`(pmatch env.c (FST st2) p a [] = No_match) ∨
@@ -2192,7 +2192,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
      pop_assum mp_tac >>
      simp [] >>
      srw_tac[][] >>
-     qcase_tac `type_s _ tenvS' st'.refs` >>
+     rename1 `type_s _ tenvS' st'.refs` >>
      `(?cenv'' env''. (?err. r = Rerr err) ∨ r = Rval (cenv'',env''))`
                    by (cases_on `r` >> metis_tac [pair_CASES]) >>
      full_simp_tac(srw_ss())[GSYM union_decls_assoc]
@@ -2402,7 +2402,7 @@ val top_type_soundness_lem = Q.prove (
      pop_assum mp_tac >>
      simp [] >>
      srw_tac[][] >>
-     qcase_tac `type_s _ tenvS' st'.refs` >>
+     rename1 `type_s _ tenvS' st'.refs` >>
      `(?err. r = Rerr err) ∨ (?new_c new_v. r = Rval (new_c,new_v))`
                 by (cases_on `r` >> metis_tac [pair_CASES]) >>
      srw_tac[][]
@@ -2467,7 +2467,7 @@ val top_type_soundness_lem = Q.prove (
      simp [] >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[GSYM PULL_FORALL] >>
-     qcase_tac `evaluate_decs _ _ _ _ _ (st',cenv2,r)` >>
+     rename1 `evaluate_decs _ _ _ _ _ (st',cenv2,r)` >>
      `(?err. r = Rerr err) ∨ (?env2. r = Rval env2)`
                 by (cases_on `r` >> metis_tac []) >>
      srw_tac[][]
@@ -2675,7 +2675,7 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
  assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] top_type_soundness) >>
  rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP th))) >>
  full_simp_tac(srw_ss())[] >>
- qcase_tac `evaluate_top _ _ _ top (st',cenv2,r)` >>
+ rename1 `evaluate_top _ _ _ top (st',cenv2,r)` >>
  `type_sound_invariants (NONE:('b,v) result option)
         (update_type_sound_inv (decls1,tenv,st,env) decls'
            new_tenv_t new_tenv_m new_tenv_c new_tenv_v st' cenv2 r)`

@@ -12,5 +12,8 @@ structure semanticPrimitivesSyntax = struct
   local val s = HolKernel.syntax_fns2 "semanticPrimitives" in
   val (Conv_tm,mk_Conv,dest_Conv,is_Conv) = s "Conv"
   end
+  local val s = HolKernel.syntax_fns3 "semanticPrimitives" in
+  val (Recclosure_tm,mk_Recclosure,dest_Recclosure,is_Recclosure) = s "Recclosure"
+  end
   end
 end

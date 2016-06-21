@@ -31,7 +31,7 @@ val FOLDR_UNZIP = Q.store_thm(
    let (ts, fvs) = UNZIP l in
      (ts, list_mk_Union (fvs ++ [A]))`,
   Induct_on `l` >> simp[db_varsTheory.list_mk_Union_def] >>
-  qcase_tac `UNZIP ll` >> Cases_on `UNZIP ll` >> full_simp_tac(srw_ss())[FORALL_PROD]);
+  rename1 `UNZIP ll` >> Cases_on `UNZIP ll` >> full_simp_tac(srw_ss())[FORALL_PROD]);
 
 val ALL_DISTINCT_FLAT = Q.store_thm(
   "ALL_DISTINCT_FLAT",
@@ -103,49 +103,49 @@ val remove_fv = Q.store_thm("remove_fv",
   `∀xs cs l. remove xs = (cs, l) ⇒ ∀n. fv n cs ⇔ has_var n l`,
   ho_match_mp_tac remove_ind >> simp[remove_def, fv_def, UNCURRY] >>
   rpt strip_tac
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
-      qcase_tac `FST (remove(e'::es))` >> Cases_on `remove(e'::es)` >> full_simp_tac(srw_ss())[])
-  >- (qcase_tac `FST (remove[E1])` >> Cases_on `remove [E1]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
+      rename1 `FST (remove(e'::es))` >> Cases_on `remove(e'::es)` >> full_simp_tac(srw_ss())[])
+  >- (rename1 `FST (remove[E1])` >> Cases_on `remove [E1]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> full_simp_tac(srw_ss())[] >>
-      qcase_tac `FST (remove[E2])` >> Cases_on `remove[E2]` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+      rename1 `FST (remove[E2])` >> Cases_on `remove[E2]` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
       imp_res_tac remove_SING >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-      qcase_tac `FST (remove[E3])` >> Cases_on `remove[E3]` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+      rename1 `FST (remove[E3])` >> Cases_on `remove[E3]` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
       imp_res_tac remove_SING >> full_simp_tac(srw_ss())[])
-  >- (qcase_tac `FST (remove[E1])` >> Cases_on `remove[E1]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[E1])` >> Cases_on `remove[E1]` >> full_simp_tac(srw_ss())[] >>
       simp[FOLDR_UNZIP, FPAIR, FST_UNZIP_MAPi, combinTheory.o_ABS_R,
            SND_UNZIP_MAPi] >>
       simp_tac (srw_ss() ++ COND_elim_ss)[] >>
       imp_res_tac remove_SING >> srw_tac[][] >> dsimp[fv_MAPi, EXISTS_MEM, MEM_MAPi] >>
       eq_tac >> dsimp[] >> qx_gen_tac `i` >>
-      qcase_tac `i < LENGTH xs` >> Cases_on `i < LENGTH xs` >> simp[] >>
+      rename1 `i < LENGTH xs` >> Cases_on `i < LENGTH xs` >> simp[] >>
       `MEM (EL i xs) xs` by metis_tac[MEM_EL] >> srw_tac[][const_0_def, fv_def] >>
       Cases_on `remove [EL i xs]` >> full_simp_tac(srw_ss())[] >> imp_res_tac remove_SING >> srw_tac[][] >>
       full_simp_tac(srw_ss())[] >> metis_tac[FST,SND,HD])
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> srw_tac[][])
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> srw_tac[][])
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
-      imp_res_tac remove_SING >> srw_tac[][] >> qcase_tac `FST (remove xs)` >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac remove_SING >> srw_tac[][] >> rename1 `FST (remove xs)` >>
       Cases_on `remove xs` >> full_simp_tac(srw_ss())[])
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> srw_tac[][])
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove[e]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove[e]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> srw_tac[][] >>
-      qcase_tac `no_overlap (LENGTH fns) e'frees` >>
+      rename1 `no_overlap (LENGTH fns) e'frees` >>
       Cases_on `no_overlap (LENGTH fns) e'frees` >> full_simp_tac(srw_ss())[] >> srw_tac[][]
       >- (simp[fv_def, LENGTH_REPLICATE, const_0_def]) >>
       simp[fv_def, MAP_MAP_o, pairTheory.o_UNCURRY_R, combinTheory.o_ABS_R] >>
       dsimp[EXISTS_MEM, MEM_MAP, EXISTS_PROD] >>
-      qcase_tac `has_var (n + LENGTH fns)` >>
+      rename1 `has_var (n + LENGTH fns)` >>
       Cases_on `has_var (n + LENGTH fns) e'frees` >> simp[] >>
       eq_tac >> dsimp[] >> qx_genl_tac [`m`, `fb`] >> strip_tac >>
       first_x_assum (qspecl_then [`m`, `fb`] mp_tac) >> simp[] >>
       Cases_on `remove [fb]` >> simp[] >> imp_res_tac remove_SING >> srw_tac[][] >>
       full_simp_tac(srw_ss())[] >> metis_tac[SND,FST,HD])
-  >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
+  >- (rename1 `FST (remove[e])` >> Cases_on `remove [e]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> srw_tac[][] >>
-      qcase_tac `FST (remove[e2])` >> Cases_on `remove [e2]` >> full_simp_tac(srw_ss())[] >>
+      rename1 `FST (remove[e2])` >> Cases_on `remove [e2]` >> full_simp_tac(srw_ss())[] >>
       imp_res_tac remove_SING >> srw_tac[][])
 )
 
@@ -205,12 +205,12 @@ val evaluate_MAPrm1 = Q.prove(
   map_every qid_spec_tac [`env2`, `env1`, `b`, `i`, `j`, `s2`, `s1`] >>
   Induct_on `es` >> simp[evaluate_def, LIST_RELi_thm]
   >- metis_tac[val_rel_mono] >>
-  rpt gen_tac >> qcase_tac `evaluate(e::es,_,_)` >>
+  rpt gen_tac >> rename1 `evaluate(e::es,_,_)` >>
   ONCE_REWRITE_TAC [evaluate_CONS] >> dsimp[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
   Cases_on `evaluate ([e], env1, s1 with clock := j)` >> simp[] >>
-  qcase_tac `evaluate([e], env1, _) = (result, s1')` >>
+  rename1 `evaluate([e], env1, _) = (result, s1')` >>
   reverse (Cases_on `result`) >> simp[]
-  >- (qcase_tac `evaluate _ = (Rerr error, s1')` >>
+  >- (rename1 `evaluate _ = (Rerr error, s1')` >>
       Cases_on `error` >> dsimp[res_rel_rw, eqs, pair_case_eq]
       >- (disj2_tac >> simp[rm1_def] >>
           asm_simp_tac (srw_ss() ++ COND_elim_ss)
@@ -221,15 +221,15 @@ val evaluate_MAPrm1 = Q.prove(
               IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
                            pure_correct >>
               simp[]) >>
-          simp[] >> qcase_tac `remove [e]` >> Cases_on `remove [e]` >>
+          simp[] >> rename1 `remove [e]` >> Cases_on `remove [e]` >>
           imp_res_tac remove_SING >> var_eq_tac >> full_simp_tac(srw_ss())[] >>
-          qcase_tac `remove [e] = ([e'], _)` >>
+          rename1 `remove [e] = ([e'], _)` >>
           first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
           simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
           disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
           simp[] >> disch_then (qspec_then `j` mp_tac) >> simp[res_rel_rw] >>
           metis_tac[]) >>
-      qcase_tac `evaluate _ = (Rerr (Rabort ab), s1')` >>
+      rename1 `evaluate _ = (Rerr (Rabort ab), s1')` >>
       Cases_on `ab` >> dsimp[res_rel_rw, pair_case_eq, eqs] >> disj2_tac >>
       simp[rm1_def] >>
       asm_simp_tac (srw_ss() ++ COND_elim_ss ++ CONJ_ss)
@@ -238,18 +238,18 @@ val evaluate_MAPrm1 = Q.prove(
       >- (full_simp_tac(srw_ss())[mustkeep_def] >>
           IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
                        pure_correct >> simp[]) >>
-      qcase_tac `remove [e]` >> Cases_on `remove [e]` >>
+      rename1 `remove [e]` >> Cases_on `remove [e]` >>
       imp_res_tac remove_SING >> var_eq_tac >> full_simp_tac(srw_ss())[] >>
       first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
       simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
       disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
       simp[] >> disch_then (qspec_then `j` mp_tac) >> simp[res_rel_rw]) >>
-  qcase_tac `evaluate _ = (Rval r1list, s1')` >>
+  rename1 `evaluate _ = (Rval r1list, s1')` >>
   `∃r1. r1list = [r1]` by metis_tac[evaluate_SING] >> var_eq_tac >> simp[] >>
   `∃r1' s1''. evaluate (es,env1,s1') = (r1',s1'')`
      by metis_tac[pair_CASES] >> simp[] >>
   reverse (Cases_on `r1'`) >> simp[]
-  >- (qcase_tac `evaluate(es,env1,s1') = (Rerr err, s1'')` >>
+  >- (rename1 `evaluate(es,env1,s1') = (Rerr err, s1'')` >>
       Cases_on `err` >> simp[res_rel_rw]
       >- (simp[rm1_def] >> reverse (Cases_on `mustkeep b e keeps`) >> simp[]
           >- (dsimp[const_0_def, evaluate_def,
@@ -267,7 +267,7 @@ val evaluate_MAPrm1 = Q.prove(
           disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
           simp[] >> disch_then (qspec_then `j` mp_tac) >>
           dsimp[res_rel_rw, rm1_o_SUC] >> rpt strip_tac >>
-          qcase_tac `state_rel s1'.clock s1' s2'` >>
+          rename1 `state_rel s1'.clock s1' s2'` >>
           first_x_assum (qspecl_then [`s1'`, `s2'`, `s2'.clock`, `s2'.clock`,
                                       `b + 1`, `env1`, `env2`] mp_tac) >>
           full_simp_tac(srw_ss())[] >> asm_rewrite_tac[] >>
@@ -277,7 +277,7 @@ val evaluate_MAPrm1 = Q.prove(
           dsimp[res_rel_rw, eqs, pair_case_eq] >> disch_then irule >>
           irule val_rel_mono_list >> qexists_tac `i` >> simp[] >>
           imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >> simp[]) >>
-      qcase_tac `evaluate (es,_,_) = (Rerr (Rabort abt), _)` >>
+      rename1 `evaluate (es,_,_) = (Rerr (Rabort abt), _)` >>
       Cases_on `abt` >> simp[res_rel_rw] >>
       simp[rm1_def] >> reverse (Cases_on `mustkeep b e keeps`) >> simp[]
       >- (dsimp[const_0_def, evaluate_def,
@@ -295,7 +295,7 @@ val evaluate_MAPrm1 = Q.prove(
       disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
       simp[] >> disch_then (qspec_then `j` mp_tac) >>
       dsimp[res_rel_rw, rm1_o_SUC] >> rpt strip_tac >>
-      qcase_tac `state_rel s1'.clock s1' s2'` >>
+      rename1 `state_rel s1'.clock s1' s2'` >>
       first_x_assum (qspecl_then [`s1'`, `s2'`, `s2'.clock`, `s2'.clock`,
                                   `b + 1`, `env1`, `env2`] mp_tac) >>
       full_simp_tac(srw_ss())[] >> asm_rewrite_tac[] >>
@@ -326,7 +326,7 @@ val evaluate_MAPrm1 = Q.prove(
   dsimp[res_rel_rw, rm1_o_SUC] >> rpt strip_tac >>
   dsimp[LIST_RELi_thm, combinTheory.o_ABS_L, ADD1, eqs, pair_case_eq,
         keepval_rel_o_SUC, GSPEC_o, ELplus1, keepval_rel_def] >>
-  qcase_tac `state_rel s1'.clock s1' s2'` >>
+  rename1 `state_rel s1'.clock s1' s2'` >>
   first_x_assum (qspecl_then [`s1'`, `s2'`, `s2'.clock`, `s2'.clock`,
                               `b + 1`, `env1`, `env2`] mp_tac) >>
   full_simp_tac(srw_ss())[] >> asm_rewrite_tac[] >>
@@ -347,7 +347,7 @@ val LIST_RELi_APPEND_I = Q.store_thm(
   `LIST_RELi R l1 l2 ∧ LIST_RELi (R o ((+) (LENGTH l1))) m1 m2 ⇒
    LIST_RELi R (l1 ++ m1) (l2 ++ m2)`,
   simp[LIST_RELi_EL_EQN] >> rpt strip_tac >>
-  qcase_tac `i < LENGTH l2 + LENGTH m2` >> Cases_on `i < LENGTH l2`
+  rename1 `i < LENGTH l2 + LENGTH m2` >> Cases_on `i < LENGTH l2`
   >- simp[EL_APPEND1]
   >- (simp[EL_APPEND2] >> first_x_assum (qspec_then `i - LENGTH l2` mp_tac) >>
       simp[]))
@@ -399,17 +399,17 @@ val Recclosure_addargs = Q.store_thm(
   dsimp[UNCURRY, bool_case_eq] >> rpt strip_tac >- full_simp_tac(srw_ss())[]
   >- (imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
       simp[exec_rel_rw, evaluate_ev_def] >>
-      qcase_tac `j < i` >> qx_gen_tac `k` >> reverse COND_CASES_TAC
+      rename1 `j < i` >> qx_gen_tac `k` >> reverse COND_CASES_TAC
       >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
       simp[] >>
       `∃N fb. EL pos fns = (N,fb)` by metis_tac[pair_CASES] >> full_simp_tac(srw_ss())[] >>
-      qcase_tac `LIST_REL (val_rel (:'ffi) j) vs11 vs21` >> strip_tac >>
+      rename1 `LIST_REL (val_rel (:'ffi) j) vs11 vs21` >> strip_tac >>
       qpat_assum `val_rel (:'ffi) _ _ _` mp_tac >>
       simp[val_rel_rw, is_closure_def, check_closures_def,
            clo_can_apply_def, clo_to_partial_args_def,
            clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def] >>
-      qcase_tac `state_rel j s1 s2` >>
-      qcase_tac `check_loc lopt` >>
+      rename1 `state_rel j s1 s2` >>
+      rename1 `check_loc lopt` >>
       disch_then (qspecl_then [`j`, `vs11 ++ vs1`, `vs21 ++ vs2`] mp_tac) >>
       simp[] >>
       disch_then (qspecl_then [`s1`, `s2`, `lopt`] mp_tac) >> simp[] >>
@@ -434,15 +434,15 @@ val unused_vars_correct = Q.store_thm(
   full_simp_tac(srw_ss())[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> Cases_on `es`
   >- (simp[evaluate_def, res_rel_rw] >> metis_tac[val_rel_mono]) >>
   ONCE_REWRITE_TAC [fv_CONS, evaluate_CONS, every_Fn_vs_NONE_CONS] >>
-  dsimp[] >> rpt gen_tac >> qcase_tac `exp3_size (e::es)` >>
+  dsimp[] >> rpt gen_tac >> rename1 `exp3_size (e::es)` >>
   reverse (Cases_on `es`)
-  >- (qcase_tac `exp3_size (e1::e2::es)` >> srw_tac[][] >>
+  >- (rename1 `exp3_size (e1::e2::es)` >> srw_tac[][] >>
       first_assum
         (qspecl_then [`[e1]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
       simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
       strip_tac >> simp[res_rel_rw] >>
-      qcase_tac `evaluate(_, env1, _) = (_, s11)` >>
-      qcase_tac `evaluate(_, env2, _) = (_, s21)` >>
+      rename1 `evaluate(_, env1, _) = (_, s11)` >>
+      rename1 `evaluate(_, env2, _) = (_, s21)` >>
       imp_res_tac evaluate_SING >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >>
       `s21.clock = i ∨ s21.clock < i` by simp[]
@@ -473,14 +473,14 @@ val unused_vars_correct = Q.store_thm(
       >- (irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `i` >> simp[])
   >- ((* If *)
-      qcase_tac `evaluate([gd],env1,_)` >> full_simp_tac(srw_ss())[DISJ_IMP_THM, FORALL_AND_THM] >>
+      rename1 `evaluate([gd],env1,_)` >> full_simp_tac(srw_ss())[DISJ_IMP_THM, FORALL_AND_THM] >>
       first_assum
         (qspecl_then [`[gd]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
       simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
       strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[] >>
       rpt var_eq_tac >> reverse COND_CASES_TAC
       >- (reverse COND_CASES_TAC >> simp[] >> var_eq_tac >> full_simp_tac(srw_ss())[] >>
-          qcase_tac `(_, env1, s11)` >> qcase_tac `([e1], env2, s21)` >>
+          rename1 `(_, env1, s11)` >> rename1 `([e1], env2, s21)` >>
           `res_rel (evaluate ([e1], env1, s11 with clock := s21.clock))
                    (evaluate ([e1], env2, s21 with clock := s21.clock))`
             by (imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >>
@@ -503,7 +503,7 @@ val unused_vars_correct = Q.store_thm(
           strip_tac >> simp[res_rel_rw] >>
           imp_res_tac evaluate_SING >> srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
       var_eq_tac >> full_simp_tac(srw_ss())[] >> var_eq_tac >>
-      qcase_tac `(_, env1, s11)` >> qcase_tac `([E], env2, s21)` >>
+      rename1 `(_, env1, s11)` >> rename1 `([E], env2, s21)` >>
       `res_rel (evaluate ([E], env1, s11 with clock := s21.clock))
                (evaluate ([E], env2, s21 with clock := s21.clock))`
         by (imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >>
@@ -526,13 +526,13 @@ val unused_vars_correct = Q.store_thm(
       strip_tac >> simp[res_rel_rw] >>
       imp_res_tac evaluate_SING >> srw_tac[][] >> full_simp_tac(srw_ss())[])
   >- ((* Let *)
-      qcase_tac `(bexps,env1,_)` >> full_simp_tac(srw_ss())[DISJ_IMP_THM, FORALL_AND_THM] >>
+      rename1 `(bexps,env1,_)` >> full_simp_tac(srw_ss())[DISJ_IMP_THM, FORALL_AND_THM] >>
       first_assum
         (qspecl_then [`bexps`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
                      mp_tac) >> simp[exp_size_def] >>
       simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >> simp[res_rel_rw] >>
-      qcase_tac `([E], bvs1 ++ env1, s11)` >>
-      qcase_tac `([E], bvs2 ++ env2, s21)` >>
+      rename1 `([E], bvs1 ++ env1, s11)` >>
+      rename1 `([E], bvs2 ++ env2, s21)` >>
       `res_rel (evaluate ([E], bvs1 ++ env1, s11))
                (evaluate([E], bvs2 ++ env2, s21))`
         by (imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >>
@@ -571,7 +571,7 @@ val unused_vars_correct = Q.store_thm(
             irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >>
       simp[res_rel_rw] >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[])
-  >- ((* Raise *) full_simp_tac(srw_ss())[exp_size_def] >> qcase_tac `fv _ [E]` >>
+  >- ((* Raise *) full_simp_tac(srw_ss())[exp_size_def] >> rename1 `fv _ [E]` >>
       first_x_assum
         (qspecl_then [`[E]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
                      mp_tac) >>
@@ -579,15 +579,15 @@ val unused_vars_correct = Q.store_thm(
       rpt strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >>
       srw_tac[][] >> full_simp_tac(srw_ss())[])
   >- ((* Handle *) full_simp_tac(srw_ss())[exp_size_def, DISJ_IMP_THM, FORALL_AND_THM] >>
-      qcase_tac `evaluate([body],env1,_)` >>
-      qcase_tac `fv (_ + 1) [hndlr]` >>
+      rename1 `evaluate([body],env1,_)` >>
+      rename1 `fv (_ + 1) [hndlr]` >>
       first_assum
         (qspecl_then [`[body]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
                      mp_tac) >> simp[exp_size_def] >>
       simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
       simp[res_rel_rw] >- (imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[]) >>
-      qcase_tac `state_rel s21.clock s11 s21` >>
-      qcase_tac `val_rel (:'ffi) s21.clock exn1 exn2` >>
+      rename1 `state_rel s21.clock s11 s21` >>
+      rename1 `val_rel (:'ffi) s21.clock exn1 exn2` >>
       `s11 with clock := s21.clock = s11 ∧ s21 with clock := s21.clock = s21`
         by simp[state_component_equality] >> simp[] >>
       `res_rel (evaluate([hndlr],exn1::env1,s11))
@@ -613,7 +613,7 @@ val unused_vars_correct = Q.store_thm(
             irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >>
       rpt strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[])
-  >- ((* Tick *) full_simp_tac(srw_ss())[exp_size_def] >> qcase_tac `fv _ [E]` >>
+  >- ((* Tick *) full_simp_tac(srw_ss())[exp_size_def] >> rename1 `fv _ [E]` >>
       srw_tac[][] >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono])>>
       simp[dec_clock_def] >>
       first_x_assum
@@ -622,19 +622,19 @@ val unused_vars_correct = Q.store_thm(
       simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
       rpt strip_tac >> simp[res_rel_rw] >>
       imp_res_tac evaluate_SING >> srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- ((* Call *) full_simp_tac(srw_ss())[exp_size_def] >> qcase_tac `fv _ args` >>
+  >- ((* Call *) full_simp_tac(srw_ss())[exp_size_def] >> rename1 `fv _ args` >>
       first_x_assum
         (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
                      mp_tac) >>
       simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
       rpt strip_tac >> simp[res_rel_rw] >>
-      qcase_tac `closSem$find_code fnum res1 s11.code` >>
+      rename1 `closSem$find_code fnum res1 s11.code` >>
       Cases_on `find_code fnum res1 s11.code` >- simp[res_rel_rw] >> simp[] >>
-      qcase_tac `find_code fnum res1 s11.code = SOME pp` >>
+      rename1 `find_code fnum res1 s11.code = SOME pp` >>
       Cases_on `pp` >> simp[] >>
-      qcase_tac `find_code fnum res1 s11.code = SOME (env11,b1)` >>
-      qcase_tac `state_rel s21.clock s11 s21` >>
-      qcase_tac `find_code fnum res2 s21.code` >>
+      rename1 `find_code fnum res1 s11.code = SOME (env11,b1)` >>
+      rename1 `state_rel s21.clock s11 s21` >>
+      rename1 `find_code fnum res2 s21.code` >>
       qspecl_then [`s21.clock`, `fnum`, `res1`, `s11`, `env11`, `b1`, `res2`,
                    `s21`] mp_tac find_code_related >> simp[] >> dsimp[] >>
       srw_tac[][] >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
@@ -643,13 +643,13 @@ val unused_vars_correct = Q.store_thm(
       simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
       simp[res_rel_rw, dec_clock_def] >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[])
   >- ((* App *) full_simp_tac(srw_ss())[exp_size_def, FORALL_AND_THM, DISJ_IMP_THM] >>
-      srw_tac[][] >> qcase_tac `exp3_size args` >>
+      srw_tac[][] >> rename1 `exp3_size args` >>
       first_assum
         (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
                      mp_tac) >>
       simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
-      rpt strip_tac >> simp[res_rel_rw] >> qcase_tac `fv _ [f]` >>
-      qcase_tac `state_rel s21.clock s11 s21` >>
+      rpt strip_tac >> simp[res_rel_rw] >> rename1 `fv _ [f]` >>
+      rename1 `state_rel s21.clock s11 s21` >>
       `res_rel (evaluate([f],env1,s11)) (evaluate([f],env2,s21))`
         by (Cases_on `s21.clock < i`
             >- (first_x_assum
@@ -673,9 +673,9 @@ val unused_vars_correct = Q.store_thm(
       pop_assum mp_tac >>
       simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
       simp[res_rel_rw] >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[] >>
-      qcase_tac `state_rel s22.clock s12 s22` >> rpt var_eq_tac >>
-      qcase_tac `evaluate_app opt fr1 argr1 s12` >>
-      qcase_tac `evaluate_app opt fr2 argr2 s22` >>
+      rename1 `state_rel s22.clock s12 s22` >> rpt var_eq_tac >>
+      rename1 `evaluate_app opt fr1 argr1 s12` >>
+      rename1 `evaluate_app opt fr2 argr2 s22` >>
       Cases_on `argr1 = []` >- full_simp_tac(srw_ss())[evaluate_def, res_rel_rw] >>
       `res_rel (evaluate_app opt fr1 argr1 s12)
                (evaluate_app opt fr2 argr2 s22)`
@@ -688,9 +688,9 @@ val unused_vars_correct = Q.store_thm(
       simp[res_rel_rw] >> imp_res_tac evaluate_app_SING >> full_simp_tac(srw_ss())[])
   >- ((* Fn *) full_simp_tac(srw_ss())[exp_size_def] >> rpt var_eq_tac >> srw_tac[][] >>
       simp[res_rel_rw] >> reverse conj_tac >- metis_tac[val_rel_mono] >>
-      qcase_tac `every_Fn_vs_NONE [body]` >>
-      qcase_tac `N ≤ max_app` >>
-      qcase_tac `Closure opt [] env1 N body` >>
+      rename1 `every_Fn_vs_NONE [body]` >>
+      rename1 `N ≤ max_app` >>
+      rename1 `Closure opt [] env1 N body` >>
       Q.UNDISCH_THEN `j ≤ i` mp_tac >>
       `∀j vs1 vs2.
          j ≤ i ∧ LIST_REL (val_rel (:'ffi) j) vs1 vs2 ∧ LENGTH vs2 < N ⇒
@@ -708,11 +708,11 @@ val unused_vars_correct = Q.store_thm(
       dsimp[bool_case_eq] >> conj_tac
       >- (rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >> simp[] >> full_simp_tac(srw_ss())[] >>
           simp[exec_rel_rw, evaluate_ev_def] >>
-          qcase_tac `k < j` >> reverse (srw_tac[][])
+          rename1 `k < j` >> reverse (srw_tac[][])
           >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
-          qcase_tac `N ≤ k' + (LENGTH vs2 + 1)` >>
-          qcase_tac `LIST_REL (val_rel (:'ffi) k) vs11 vs21` >>
-          qcase_tac `state_rel k s11 s21` >>
+          rename1 `N ≤ k' + (LENGTH vs2 + 1)` >>
+          rename1 `LIST_REL (val_rel (:'ffi) k) vs11 vs21` >>
+          rename1 `state_rel k s11 s21` >>
           first_assum
             (qspecl_then [
                `k`, `[body]`,
@@ -751,22 +751,22 @@ val unused_vars_correct = Q.store_thm(
       reverse COND_CASES_TAC >> simp[res_rel_rw]
       >- metis_tac[DECIDE``0n≤x``,val_rel_mono] >>
       reverse conj_tac
-      >- (qcase_tac `state_rel _ s11 s21` >> qcase_tac `ii < j` >>
+      >- (rename1 `state_rel _ s11 s21` >> rename1 `ii < j` >>
           irule (val_rel_mono |> CONJUNCTS |> last) >> qexists_tac `ii` >>
           simp[]) >>
       first_x_assum irule >> simp[] >>
       irule EVERY2_APPEND_suff
-      >- (qcase_tac `ii < j` >> irule val_rel_mono_list >> qexists_tac `ii` >>
+      >- (rename1 `ii < j` >> irule val_rel_mono_list >> qexists_tac `ii` >>
           simp[]) >>
       irule val_rel_mono_list >> qexists_tac `j` >> simp[])
   >- ((* Letrec *) full_simp_tac(srw_ss())[exp_size_def] >>
-      qcase_tac `every_Fn_vs_NONE (MAP SND fns)` >> COND_CASES_TAC >> simp[] >>
-      qcase_tac `Recclosure opt [] env1 fns` >>
+      rename1 `every_Fn_vs_NONE (MAP SND fns)` >> COND_CASES_TAC >> simp[] >>
+      rename1 `Recclosure opt [] env1 fns` >>
       qabbrev_tac
         `fns1_E = GENLIST (Recclosure opt [] env1 fns) (LENGTH fns)` >>
       qabbrev_tac
         `fns2_E = GENLIST (Recclosure opt [] env2 fns) (LENGTH fns)` >>
-      qcase_tac `evaluate([body],fns1_E ++ _, _)` >>
+      rename1 `evaluate([body],fns1_E ++ _, _)` >>
       `LIST_REL (val_rel (:'ffi) i) fns1_E fns2_E` suffices_by
         (strip_tac >>
          first_x_assum
@@ -836,7 +836,7 @@ val unused_vars_correct = Q.store_thm(
       >- (simp[] >> rpt strip_tac
           >- (irule (val_rel_mono |> CONJUNCTS |> last) >>
               qexists_tac `kk` >> simp[])
-          >- (qcase_tac `vv < N + LENGTH fns` >>
+          >- (rename1 `vv < N + LENGTH fns` >>
               Cases_on `vv < N + LENGTH fns` >> simp[] >>
               qexists_tac `vv - (N + LENGTH fns)` >> simp[] >>
               first_x_assum irule >> disj1_tac >>
@@ -873,14 +873,14 @@ val unused_vars_correct = Q.store_thm(
       imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >>
       irule (CONJUNCT1 val_rel_mono) >> qexists_tac `kk` >> simp[])
   >- ((* Op *) full_simp_tac(srw_ss())[exp_size_def] >>
-      qcase_tac `evaluate(args,_,s1 with clock := j)` >>
+      rename1 `evaluate(args,_,s1 with clock := j)` >>
       first_x_assum
         (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
       simp[] >> simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
       simp[res_rel_rw] >>
-      qcase_tac `state_rel s21.clock s11 s21`>>
-      qcase_tac `LIST_REL (val_rel (:'ffi) s21.clock) rv1 rv2` >>
-      qcase_tac `do_app opn (REVERSE rv1) s11` >>
+      rename1 `state_rel s21.clock s11 s21`>>
+      rename1 `LIST_REL (val_rel (:'ffi) s21.clock) rv1 rv2` >>
+      rename1 `do_app opn (REVERSE rv1) s11` >>
       qspecl_then [`s21.clock`, `opn`, `rv1`, `rv2`, `s11`, `s21`] mp_tac
                   res_rel_do_app >> simp[] >>
       simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
@@ -962,7 +962,7 @@ val remove_correct = Q.store_thm("remove_correct",
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac remove_SING >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-  TRY (qcase_tac`Let` >>
+  TRY (rename1`Let` >>
        lfs[FOLDR_UNZIP, FPAIR, PAIR_MAP, FST_UNZIP_MAPi,
            SND_UNZIP_MAPi, combinTheory.o_ABS_R] >> srw_tac[][] >>
        simp_tac (srw_ss() ++ COND_elim_ss) [] >>
@@ -974,8 +974,8 @@ val remove_correct = Q.store_thm("remove_correct",
           rm1_def |> GSYM |> SPEC_ALL
                   |> Q.INST [`n` |-> `0`] |> SIMP_RULE (srw_ss()) []] >>
        qx_gen_tac `j` >> strip_tac >>
-       qcase_tac `remove [body] = ([body'], keeps)` >>
-       qcase_tac `MEM _ es` >> mp_tac (Q.INST [`b` |-> `0`] evaluate_MAPrm1) >>
+       rename1 `remove [body] = ([body'], keeps)` >>
+       rename1 `MEM _ es` >> mp_tac (Q.INST [`b` |-> `0`] evaluate_MAPrm1) >>
        simp[] >> full_simp_tac(srw_ss())[GSYM mustkeep_def] >>
        `∀e. MEM e es ⇒ every_Fn_vs_NONE [e]`
           by full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY, EVERY_MEM] >> full_simp_tac(srw_ss())[] >>
@@ -983,13 +983,13 @@ val remove_correct = Q.store_thm("remove_correct",
        `∃r1 s1'. evaluate (es,env1,s1 with clock := j) = (r1,s1')`
           by metis_tac[pair_CASES] >> simp[] >>
        reverse (Cases_on `r1`) >> simp[]
-       >- (qcase_tac `evaluate _ = (Rerr err, s1')` >>
+       >- (rename1 `evaluate _ = (Rerr err, s1')` >>
            Cases_on `err` >> dsimp[res_rel_rw, eqs, pair_case_eq] >>
-           qcase_tac `evaluate _ = (Rerr (Rabort abt), s1')` >>
+           rename1 `evaluate _ = (Rerr (Rabort abt), s1')` >>
            Cases_on `abt` >> dsimp[res_rel_rw]) >>
        dsimp[] >> rpt strip_tac >> full_simp_tac(srw_ss())[] >>
-       qcase_tac `state_rel s21.clock s11 s21` >>
-       qcase_tac `vs1 ++ env1` >> qcase_tac `vs2 ++ env2` >>
+       rename1 `state_rel s21.clock s11 s21` >>
+       rename1 `vs1 ++ env1` >> rename1 `vs2 ++ env2` >>
        qspecl_then [`s21.clock`, `[body]`, `vs1 ++ env1`, `s11`, `[body']`,
                     `vs2 ++ env2`, `s21`] mp_tac unused_vars_correct2 >>
        `every_Fn_vs_NONE [body']` by metis_tac[every_Fn_vs_NONE_remove] >>
@@ -1006,9 +1006,9 @@ val remove_correct = Q.store_thm("remove_correct",
        >- metis_tac[remove_fv] >>
        full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> irule (CONJUNCT1 val_rel_mono) >>
        qexists_tac `i` >> simp[] >> imp_res_tac evaluate_clock >> lfs[]) >>
-  TRY (qcase_tac`Letrec` >>
+  TRY (rename1`Letrec` >>
        lfs[MAP_MAP_o, combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R] >>
-       qcase_tac `remove [body] = ([body'], body'frees)` >>
+       rename1 `remove [body] = ([body'], body'frees)` >>
        Cases_on `no_overlap (LENGTH fns) body'frees` >> full_simp_tac(srw_ss())[]
        >- (srw_tac[][] >> simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
            qx_genl_tac [`i`, `env1`, `env2`, `s1`, `s2`] >> strip_tac >>
@@ -1060,7 +1060,7 @@ val code_locs_FST_remove_sing = Q.store_thm(
   `code_locs (FST (remove [e])) = code_loc' (HD (FST (remove [e])))`,
   Cases_on `remove [e]` >> imp_res_tac remove_SING >> simp[]);
 
-fun qccase q = qcase_tac q >> Cases_on q
+fun qccase q = rename1 q >> Cases_on q
 
 val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
   `∀es.
@@ -1068,8 +1068,8 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
     (ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs (FST (remove es))))`,
   ho_match_mp_tac remove_ind >> simp[remove_def, code_locs_def] >>
   rpt conj_tac >> rpt gen_tac >> disch_then strip_assume_tac
-  >- (qcase_tac `remove[x]` >> Cases_on `remove[x]` >> full_simp_tac(srw_ss())[] >>
-      qcase_tac `remove (y::xs)` >> Cases_on `remove(y::xs)` >>
+  >- (rename1 `remove[x]` >> Cases_on `remove[x]` >> full_simp_tac(srw_ss())[] >>
+      rename1 `remove (y::xs)` >> Cases_on `remove(y::xs)` >>
       full_simp_tac(srw_ss())[code_locs_append, ALL_DISTINCT_APPEND] >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
       metis_tac[])
   >- ((* if *) qccase `remove[x1]` >> full_simp_tac(srw_ss())[] >>
@@ -1090,7 +1090,7 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
           lfs[code_locs_FLAT_MAP, ALL_DISTINCT_FLAT, MEM_MAP, PULL_EXISTS,
               EL_MAP, MEM_FLAT] >> conj_tac >- (srw_tac[][] >> metis_tac[MEM_EL]) >>
           srw_tac[][] >>
-          qcase_tac `j < LENGTH xs` >> qcase_tac `i < j` >>
+          rename1 `j < LENGTH xs` >> rename1 `i < j` >>
           `i < LENGTH xs` by simp[] >>
           `MEM (EL i xs) xs ∧ MEM (EL j xs) xs` by metis_tac[MEM_EL] >>
           metis_tac[SUBSET_DEF])
@@ -1132,8 +1132,8 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
                  FORALL_PROD] >> metis_tac[])
           >- (lfs[ALL_DISTINCT_FLAT, code_locs_FLAT_MAP, MEM_MAP, PULL_EXISTS,
                   FORALL_PROD, UNCURRY, EL_MAP] >>
-              qcase_tac `bb < LENGTH fns` >>
-              qcase_tac `aa < bb` >>
+              rename1 `bb < LENGTH fns` >>
+              rename1 `aa < bb` >>
               `(∃aan aaf. EL aa fns = (aan, aaf)) ∧
                (∃bbn bbf. EL bb fns = (bbn, bbf))` by metis_tac[PAIR] >>
               full_simp_tac(srw_ss())[] >> `aa < LENGTH fns` by simp[] >>

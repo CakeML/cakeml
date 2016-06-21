@@ -35,11 +35,11 @@ val merge_def = tDefine "merge" `
   (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
   (merge _ _ = Other)
 ` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
-   rw[val_approx_size_def] >> simp[] >> qcase_tac `MEM x xs` >>
-   qcase_tac `MEM y ys` >>
+   rw[val_approx_size_def] >> simp[] >> rename1 `MEM x xs` >>
+   rename1 `MEM y ys` >>
    first_x_assum (qspecl_then [`y::TL (TL ys)`, `x`, `y`] mp_tac) >>
    impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
-   qcase_tac `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
+   rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
 val merge_def =
     save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
