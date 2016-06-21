@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory cfHeapsBaseTheory cfHeapsLib
+open set_sepTheory cfHeapsBaseTheory cfHeapsBaseLib
 
 val _ = new_theory "cfHeaps"
 

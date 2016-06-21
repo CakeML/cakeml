@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsTheory cfHeapsLib cfStoreTheory cfNormalizeTheory
+open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
 
 val _ = new_theory "cfApp"
 

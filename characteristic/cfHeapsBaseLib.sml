@@ -1,4 +1,4 @@
-structure cfHeapsLib :> cfHeapsLib =
+structure cfHeapsBaseLib :> cfHeapsBaseLib =
 struct
 
 open HolKernel Parse boolLib bossLib preamble

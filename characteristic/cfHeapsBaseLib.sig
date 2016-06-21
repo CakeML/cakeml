@@ -1,4 +1,4 @@
-signature cfHeapsLib =
+signature cfHeapsBaseLib =
 sig
   include Abbrev
 
