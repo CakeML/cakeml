@@ -95,7 +95,7 @@ fun rearrange_star_conv tm rest =
 
 (** hpull *)
 
-fun hpull_one_conseq_conv t =
+fun hpull_one_base t =
   let
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
@@ -109,7 +109,8 @@ fun hpull_one_conseq_conv t =
           THEN_CONSEQ_CONV
             (rearrange_conv tm)
             (CONSEQ_TOP_REWRITE_CONV ([], [hpull_prop, hpull_prop_single], [])
-              CONSEQ_CONV_STRENGTHEN_direction)
+              CONSEQ_CONV_STRENGTHEN_direction),
+          IMP_CONCL_CONSEQ_CONV
         )
       else if is_sep_exists tm then
         SOME (
@@ -118,25 +119,45 @@ fun hpull_one_conseq_conv t =
             CONSEQ_TOP_REWRITE_CONV ([], [hpull_exists_single], [])
               CONSEQ_CONV_STRENGTHEN_direction,
             REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)
-          ]
+          ],
+          STRIP_FORALL_CONSEQ_CONV
         )
       else
         NONE
-  in
-    case find_map pull ls of
-        NONE => raise UNCHANGED
-      | SOME cc => cc t
-  end
+  in find_map pull ls end
 
 val hpull_setup_conv =
   (* cleanup the left heap a bit (remove ``emp``, pull SEP_EXISTS,...) *)
   SEP_IMP_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
 
+val hpull_one_conseq_conv =
+  let fun hpull_one_cc t =
+        case hpull_one_base t of
+            NONE => raise UNCHANGED
+          | SOME (cc, _) => cc t
+  in
+    STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
+    STRENGTHEN_CONSEQ_CONV hpull_one_cc
+  end
+
 val hpull_conseq_conv =
-  (STRENGTHEN_CONSEQ_CONV hpull_setup_conv) THEN_DCC
-  TOP_REDEPTH_CONSEQ_CONV (STRENGTHEN_CONSEQ_CONV hpull_one_conseq_conv)
+  let fun hpull_loop_cc t =
+        let val (cc1, cc_cont1) =
+                case hpull_one_base t of
+                    NONE => raise UNCHANGED
+                  | SOME x => x
+        in THEN_CONSEQ_CONV cc1 (cc_cont1 hpull_loop_cc) t end
+  in
+    STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
+    STRENGTHEN_CONSEQ_CONV hpull_loop_cc
+  end
 
 (* test goals:
+  g `(A * cond P * (SEP_EXISTS x. G x) * cond Q :hprop) ==>> Z`;
+  e (CONSEQ_CONV_TAC hpull_one_conseq_conv \\ strip_tac);
+  e (CONSEQ_CONV_TAC hpull_one_conseq_conv \\ strip_tac);
+  e (CONSEQ_CONV_TAC hpull_one_conseq_conv \\ strip_tac);
+
   g `(A * cond P * (SEP_EXISTS x. G x) * cond Q :hprop) ==>> Z`;
   e (CONSEQ_CONV_TAC hpull_conseq_conv);
 
