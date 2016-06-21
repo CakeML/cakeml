@@ -312,7 +312,7 @@ val hsimpl_conseq_conv =
       hpull_conseq_conv,
       QUANT_INSTANTIATE_CONSEQ_CONV [sep_qp],
       REDEPTH_CONSEQ_CONV (
-        hsimpl_cancel_conseq_conv ORELSE_DCC
+        (CHANGED_DCC hsimpl_cancel_conseq_conv) ORELSE_DCC
         (hsimpl_steps_conseq_conv THEN_DCC
          (QUANT_INSTANTIATE_CONSEQ_CONV [sep_qp]))
       ),

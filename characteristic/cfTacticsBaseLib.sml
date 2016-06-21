@@ -77,7 +77,7 @@ fun TOP_REDEPTH_CONSEQ_CONV dcc =
 fun mk_binop_conseq_conv mono_thm =
   let
     fun cc_l_r cc1 cc2 t =
-      let val (l,r) = dest_conj t
+      let val (l,r) = (rand (rator t), rand t)
           val thm_l_r = CONJ (cc1 l) (cc2 r)
           val thm = GEN_ALL mono_thm
       in
