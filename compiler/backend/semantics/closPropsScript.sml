@@ -632,7 +632,7 @@ val _ = export_rewrites ["is_closure_def"]
 
 val clo_to_loc_def = Define `
 (clo_to_loc (Closure l _ _ _ _) = l) ∧
-(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) i) l)`;
+(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) (2 * i)) l)`;
 val _ = export_rewrites ["clo_to_loc_def"]
 
 val clo_to_env_def = Define `

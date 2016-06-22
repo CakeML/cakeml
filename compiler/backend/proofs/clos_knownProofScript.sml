@@ -1230,7 +1230,7 @@ val kvrel_def = tDefine "kvrel" `
      EVERY (λ(n,e). every_Fn_vs_NONE [e]) fns1 ∧
      let gfn = case lopt of
                  | NONE => K Other
-                 | SOME n => (λi. Clos (n + i) (FST (EL i fns1))) in
+                 | SOME n => (λi. Clos (n + 2*i) (FST (EL i fns1))) in
      let clos = GENLIST gfn (LENGTH fns1)
      in
        ∃vs2 env2 fns2 eapx.
@@ -1545,7 +1545,7 @@ val loptrel_def = Define`
        | (Closure (SOME loc1) ae _ n bod, SOME loc2) =>
             loc1 = loc2 ∧ n = numargs ∧ ae = []
        | (Recclosure (SOME loc1) ae _ fns i, SOME loc2) =>
-         i < LENGTH fns ∧ loc2 = loc1 + i ∧ numargs = FST (EL i fns) ∧
+         i < LENGTH fns ∧ loc2 = loc1 + 2 * i ∧ numargs = FST (EL i fns) ∧
          ae = []
        | _ => F
 `;
@@ -1619,7 +1619,7 @@ val kvrel_dest_closure_SOME_Full = Q.store_thm(
       qexists_tac `REPLICATE nargs Other ++
                    GENLIST (case locc of
                               | NONE => K Other
-                              | SOME n => (λi. Clos (i + n) (FST (EL i fns1))))
+                              | SOME n => (λi. Clos (2*i + n) (FST (EL i fns1))))
                            (LENGTH fns2) ++ envapx` >> simp[] >>
       conj_tac
       >- (fs[loptrel_def] >> Cases_on `lopt2` >> fs[] >>

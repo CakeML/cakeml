@@ -778,13 +778,6 @@ val exp_rel_semantics = Q.store_thm("exp_rel_semantics",
   srw_tac[][state_rel_refl]);
 *)
 
-
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
 val res_rel_val2 = Q.store_thm(
   "res_rel_val2",
   `res_rel v (Rval l2, (s2:'ffi closSem$state)) ⇔

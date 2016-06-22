@@ -142,7 +142,7 @@ val known_def = tDefine "known" `
   (known [Letrec loc_opt _ fns x1] vs g =
      let gfn = case loc_opt of
                    NONE => K Other
-                 | SOME n => \i. Clos (n + i) (FST (EL i fns)) in
+                 | SOME n => \i. Clos (n + 2*i) (FST (EL i fns)) in
      let clos = GENLIST gfn (LENGTH fns) in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)

@@ -291,8 +291,13 @@ val dest_closure_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~(check_loc loc_opt (OPTION_MAP ((+)i) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
-             ¬(LENGTH arg_env < num_args) then NONE else
+             ~check_loc loc_opt
+                        (OPTION_MAP ((+) (2*i)) loc) num_args
+                        (LENGTH args)
+                        (LENGTH arg_env) ∨
+             ¬(LENGTH arg_env < num_args)
+          then NONE
+          else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
               if ¬(LENGTH args + LENGTH arg_env < num_args) then
                 SOME (Full_app exp
