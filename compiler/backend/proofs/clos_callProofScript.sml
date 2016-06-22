@@ -169,6 +169,16 @@ val SND_insert_each = Q.store_thm("SND_insert_each[simp]",
   ho_match_mp_tac insert_each_ind
   \\ rw[insert_each_def]);
 
+val calls_list_MAPi = Q.store_thm("calls_list_MAPi",
+  `∀loc. calls_list loc = MAPi (λi p. (FST p, Call (loc+2*i+1) (GENLIST Var (FST p))))`,
+  simp[FUN_EQ_THM]
+  \\ CONV_TAC(SWAP_FORALL_CONV)
+  \\ Induct \\ simp[calls_list_def]
+  \\ Cases \\ simp[calls_list_def]
+  \\ simp[o_DEF,ADD1,LEFT_ADD_DISTRIB]
+  \\ rw[] \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM]);
+
 val domain_FST_insert_each = Q.store_thm("domain_FST_insert_each",
   `∀p n g. domain (FST (insert_each p n g)) = set (GENLIST (λi. 2 * i + p) n) ∪ domain (FST g)`,
   ho_match_mp_tac insert_each_ind
@@ -194,6 +204,33 @@ val MAP_FST_code_list = Q.store_thm("MAP_FST_code_list",
   \\ rw[o_DEF,ADD1]
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ rw[FUN_EQ_THM]);
+
+val SND_code_list_ZIP = Q.store_thm("SND_code_list_ZIP",
+  `∀loc fns g. SND (code_list loc fns g) =
+   REVERSE(ZIP (GENLIST ($+ (loc+1) o $* 2) (LENGTH fns), fns)) ++ (SND g)`,
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def,GENLIST_CONS]
+  \\ simp[REVERSE_ZIP,o_DEF,ADD1,LEFT_ADD_DISTRIB]);
+
+val ALOOKUP_code_list = Q.store_thm("ALOOKUP_code_list",
+  `∀loc fns g k.
+    ALOOKUP (SND (code_list loc fns g)) k =
+    case some i. i < LENGTH fns ∧ k = loc + 2*i+1 of
+    | SOME i => SOME (EL i fns)
+    | NONE => ALOOKUP (SND g) k`,
+  rw[SND_code_list_ZIP,ALOOKUP_APPEND]
+  \\ dep_rewrite.DEP_REWRITE_TAC[alookup_distinct_reverse]
+  \\ conj_asm1_tac
+  >- simp[MAP_ZIP,ALL_DISTINCT_GENLIST]
+  \\ BasicProvers.TOP_CASE_TAC
+  >- (
+    fs[ALOOKUP_ZIP_FAIL,MEM_GENLIST]
+    \\ DEEP_INTRO_TAC some_intro
+    \\ simp[] \\ metis_tac[] )
+  \\ drule (GEN_ALL ALOOKUP_ALL_DISTINCT_MEM)
+  \\ simp[MEM_ZIP,PULL_EXISTS]
+  \\ imp_res_tac ALOOKUP_MEM \\ fs[MEM_ZIP]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]);
 
 val insert_each_subspt = Q.store_thm("insert_each_subspt",
   `∀p n g. subspt (FST g) (FST (insert_each p n g))`,
@@ -676,7 +713,7 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
    ∃e l1 l2 xs n ls g01 g1 l1' l2'.
      x = Full_app e l1 l2 ∧ EL n xs = (LENGTH env1,e) ∧
      calls (MAP SND xs) g01 = (ls,g1) ∧ n < LENGTH ls ∧
-     subg (code_list loc (ZIP (MAP FST xs,ls)) g1) g ∧
+     subg (code_list (loc - 2*n) (ZIP (MAP FST xs,ls)) g1) g ∧
      ALOOKUP (SND g) (loc+1) = SOME (LENGTH env1,EL n ls) ∧
      dest_closure (SOME loc) v2 env2 = SOME (Full_app (Call (loc+1) (GENLIST Var (LENGTH env1))) l1' l2') ∧
      LIST_REL (v_rel g l) l1 l1' ∧ LIST_REL (v_rel g l) l2 l2' ∧
@@ -708,7 +745,49 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
     \\ simp[LIST_REL_REVERSE_EQ,TAKE_APPEND2,REVERSE_APPEND,DROP_APPEND2]
     \\ match_mp_tac EVERY2_APPEND_suff
     \\ fsrw_tac[ETA_ss][])
-  \\ cheat (* needs even locs update *));
+  \\ last_assum(part_match_exists_tac(el 2 o strip_conj) o concl)
+  \\ asm_exists_tac \\ simp[]
+  \\ qhdtm_x_assum`COND`mp_tac
+  \\ reverse IF_CASES_TAC
+  >- (
+    simp[SUBSET_DEF,MEM_GENLIST,PULL_EXISTS]
+    \\ fs[NOT_LESS_EQUAL]
+    \\ metis_tac[ADD_COMM] )
+  \\ strip_tac \\ rveq
+  \\ imp_res_tac calls_length
+  \\ fs[]
+  \\ fs[calls_list_MAPi]
+  \\ rfs[NOT_LESS_EQUAL]
+  \\ fs[indexedListsTheory.EL_MAPi]
+  \\ conj_tac
+  >- (
+    fs[subg_def,IS_SUFFIX_APPEND]
+    \\ simp[ALOOKUP_APPEND]
+    \\ reverse BasicProvers.CASE_TAC
+    >- (
+      imp_res_tac ALOOKUP_MEM
+      \\ rfs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
+      \\ fs[MAP_FST_code_list,ALL_DISTINCT_APPEND,MEM_GENLIST]
+      \\ res_tac \\ fs[]
+      \\ fs[SND_code_list_ZIP,MEM_ZIP]
+      \\ rfs[EL_GENLIST,FORALL_PROD]
+      \\ fs[MEM_MAP,PULL_EXISTS,FORALL_PROD]
+      \\ fs[MEM_EL,PULL_FORALL]
+      \\ fs[METIS_PROVE[]``¬A ∨ B ⇔ A ⇒ B``]
+      \\ fs[AND_IMP_INTRO]
+      \\ metis_tac[PAIR])
+    \\ simp[ALOOKUP_code_list]
+    \\ DEEP_INTRO_TAC some_intro
+    \\ simp[EL_ZIP,EL_MAP] )
+  \\ simp[revtakerev,revdroprev]
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ fsrw_tac[ETA_ss][]
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ simp[LIST_REL_GENLIST]
+  \\ simp[v_rel_def]
+  \\ fsrw_tac[ETA_ss][]
+  \\ simp[calls_list_MAPi] \\ rw[]
+  \\ qexists_tac`g0` \\ simp[]);
 
 (* compiler correctness *)
 
