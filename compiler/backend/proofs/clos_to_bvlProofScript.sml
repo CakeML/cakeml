@@ -165,12 +165,12 @@ val ETA2_THM = Q.prove (
 
 val p_genlist = Q.prove (
   `EL k exps_ps = ((n',e),p) ∧
-   MAP SND exps_ps = GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps) ∧
+   MAP SND exps_ps = GENLIST (λn. loc + num_stubs + 2*n) (LENGTH exps_ps) ∧
    k < LENGTH exps_ps
    ⇒
-   p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))`,
+   p = EL k (GENLIST (λn. loc + num_stubs + 2*n) (LENGTH exps_ps))`,
   srw_tac[][] >>
-  `EL k (MAP SND exps_ps) = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [] >>
+  `EL k (MAP SND exps_ps) = EL k (GENLIST (λn. loc + num_stubs + 2*n) (LENGTH exps_ps))` by metis_tac [] >>
   rev_full_simp_tac(srw_ss())[EL_MAP]);
 
 val list_CASE_same = Q.store_thm("list_CASE_same",
@@ -619,7 +619,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
            (Block closure_tag (CodePtr (p + num_stubs) :: Number (&(num_args-1)) :: ys)))
     /\
     ((exps = MAP FST exps_ps) /\
-     (ps = MAP SND exps_ps) /\ (ps = GENLIST (\n. loc + num_stubs + n) (LENGTH exps_ps)) /\
+     (ps = MAP SND exps_ps) /\ (ps = GENLIST (\n. loc + num_stubs + 2*n) (LENGTH exps_ps)) /\
      (rs = MAP (\((n,e),p). Block closure_tag [CodePtr p; Number (&(n-1)); RefPtr r]) exps_ps) /\
      ~(r IN fs) /\
      (FLOOKUP refs r = SOME (ValueArray (rs ++ ys))) /\
@@ -1516,7 +1516,7 @@ val compile_exps_LIST_IMP_compile_exps_EL = prove(
       code_installed aux5 t1.code ==>
       ?aux c aux1'.
         compile_exps [e] aux = ([c],aux1') /\
-        lookup (i + n8) t1.code = SOME (num_args + 1,SND (code_for_recc_case k num_args c)) /\
+        lookup (n8 + 2*i) t1.code = SOME (num_args + 1,SND (code_for_recc_case k num_args c)) /\
         code_installed aux1' t1.code``,
   HO_MATCH_MP_TAC SNOC_INDUCT \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ Cases_on `i = LENGTH exps` \\ full_simp_tac(srw_ss())[] THEN1
@@ -1572,21 +1572,21 @@ val compile_exps_LIST_IMP_compile_exps_EL = prove(
 
 val evaluate_recc_Lets = prove(
   ``!(ll:(num#'a) list) n7 rr env' t1 ys c8 (x:(num#'a)) (x':(num#'a)) ck.
-     EVERY (\n. n7 + num_stubs + n IN domain t1.code) (GENLIST I (LENGTH ll)) ==>
+     EVERY (\n. n7 + num_stubs + 2* n IN domain t1.code) (GENLIST I (LENGTH ll)) ==>
      (evaluate
        ([recc_Lets (n7 + num_stubs) (REVERSE (MAP FST ll)) (LENGTH ll) (HD c8)],
-        Block closure_tag [CodePtr (n7 + (num_stubs + LENGTH ll)); Number (&(FST x-1)); RefPtr rr]::env',
+        Block closure_tag [CodePtr (n7 + (num_stubs + 2 * LENGTH ll)); Number (&(FST x-1)); RefPtr rr]::env',
         t1 with <| refs := t1.refs |+ (rr,
                ValueArray
                (MAP (K (Number 0)) (MAP FST ll) ++
-                [Block closure_tag [CodePtr (n7 + (num_stubs + LENGTH ll)); Number (&(FST x'-1)); RefPtr rr]]++ys));clock := ck |>) =
+                [Block closure_tag [CodePtr (n7 + (num_stubs + 2* LENGTH ll)); Number (&(FST x'-1)); RefPtr rr]]++ys));clock := ck |>) =
       evaluate
        ([HD c8],
-        MAP2 (\n args. Block closure_tag [CodePtr (n7 + num_stubs + n); Number &(args-1); RefPtr rr])
+        MAP2 (\n args. Block closure_tag [CodePtr (n7 + num_stubs + 2* n); Number &(args-1); RefPtr rr])
                   (GENLIST I (LENGTH ll + 1)) (MAP FST ll ++ [FST x]) ++ env',
         t1 with <| refs := t1.refs |+ (rr,
                ValueArray
-               (MAP2 (\n args. Block closure_tag [CodePtr (n7 + num_stubs + n); Number &(args-1); RefPtr rr])
+               (MAP2 (\n args. Block closure_tag [CodePtr (n7 + num_stubs + 2* n); Number &(args-1); RefPtr rr])
                   (GENLIST I (LENGTH ll + 1)) (MAP FST ll ++ [FST x']) ++ ys)); clock := ck |>))``,
   recInduct SNOC_INDUCT \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [recc_Lets_def] \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -1604,9 +1604,9 @@ val evaluate_recc_Lets = prove(
   \\ simp []
   \\ rw_tac std_ss [PROVE [APPEND_ASSOC] ``!(a:'a list) b c d. a ++ b ++ c ++ d = a ++ b ++ (c ++ d)``] >>
   first_x_assum (qspecl_then [`n7`, `rr`,
-                   `Block closure_tag [CodePtr (n7 + (num_stubs + SUC (LENGTH l))); Number (&(FST x'-1)); RefPtr rr]::env'`,
+                   `Block closure_tag [CodePtr (n7 + (num_stubs + 2 * SUC (LENGTH l))); Number (&(FST x'-1)); RefPtr rr]::env'`,
                    `t1`,
-                   `[Block closure_tag [CodePtr (n7 + (num_stubs + SUC (LENGTH l))); Number (&(FST x''-1)); RefPtr rr]] ++ ys`,
+                   `[Block closure_tag [CodePtr (n7 + (num_stubs + 2 * SUC (LENGTH l))); Number (&(FST x''-1)); RefPtr rr]] ++ ys`,
                    `c8`,
                     `x`,
                     `x`,
@@ -1684,7 +1684,7 @@ val dest_closure_part_app = Q.prove (
 
 val get_loc_def = Define `
   (get_loc (Closure (SOME loc) args env num_args exp) = SOME loc) ∧
-  (get_loc (Recclosure (SOME loc) args env fns i) = SOME (loc + i)) ∧
+  (get_loc (Recclosure (SOME loc) args env fns i) = SOME (loc + 2*i)) ∧
   (get_loc _ = NONE)`;
 
 val get_old_args_def = Define `
@@ -1888,7 +1888,7 @@ val cl_rel_get_loc = Q.prove (
   srw_tac[][] >>
   full_simp_tac(srw_ss())[EL_MAP] >>
   srw_tac[][] >>
-  `p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [p_genlist] >>
+  `p = EL k (GENLIST (λn. loc + num_stubs + 2*n) (LENGTH exps_ps))` by metis_tac [p_genlist] >>
   srw_tac[][] >>
   ARITH_TAC);
 
@@ -1915,7 +1915,7 @@ val dest_closure'_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~(check_loc' loc_opt (lift ($+ i) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
+             ~(check_loc' loc_opt (lift ($+ (2 *i)) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
              ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
               if ¬(LENGTH args + LENGTH arg_env < num_args) then
@@ -3163,7 +3163,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ srw_tac[][evaluate_MAP_Const]
     \\ Q.ABBREV_TAC `rr = LEAST ptr. ptr NOTIN FDOM t1.refs`
     \\ full_simp_tac(srw_ss())[recc_Let0_def]
-    \\ `x + num_stubs + (LENGTH exps - 1) IN domain t1.code` by
+    \\ `x + num_stubs + 2* (LENGTH exps - 1) IN domain t1.code` by
      (IMP_RES_TAC compile_exps_IMP_code_installed
       \\ IMP_RES_TAC compile_exps_LENGTH
       \\ full_simp_tac(srw_ss())[domain_lookup,code_installed_def]
@@ -3185,7 +3185,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
          by full_simp_tac(srw_ss())[LENGTH_MAP]
     \\ POP_ASSUM (fn th => REWRITE_TAC [th])
     \\ srw_tac[][lupdate_append2]
-    \\ `EVERY (\n. x + num_stubs + n IN domain t1.code) (GENLIST I (LENGTH ll))` by
+    \\ `EVERY (\n. x + num_stubs + 2*n IN domain t1.code) (GENLIST I (LENGTH ll))` by
      (full_simp_tac(srw_ss())[EVERY_GENLIST]
       \\ IMP_RES_TAC compile_exps_IMP_code_installed
       \\ IMP_RES_TAC compile_exps_LENGTH
@@ -3204,7 +3204,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ `[HD c8] = c8` by (IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
     \\ qpat_abbrev_tac`t1refs = t1.refs |+ (rr,vv)`
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1 with <| refs := t1refs; clock := ck+s.clock|>`,
-       `MAP2 (\n args. Block closure_tag [CodePtr (x + num_stubs + n); Number &(args-1); RefPtr rr])
+       `MAP2 (\n args. Block closure_tag [CodePtr (x + num_stubs + 2*n); Number &(args-1); RefPtr rr])
           (GENLIST I (LENGTH (ll:(num#closLang$exp) list) + 1)) (MAP FST ll ++ [FST (x'':(num#closLang$exp))]) ++ env''`,`f1`])
     \\ `~(rr IN FDOM t1.refs)` by ALL_TAC THEN1
      (UNABBREV_ALL_TAC
@@ -3253,7 +3253,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ qexists_tac `ys`
       \\ qabbrev_tac `exps = ll++[x'']`
       \\ `LENGTH ll + 1 = LENGTH exps` by full_simp_tac(srw_ss())[Abbr `exps`]
-      \\ Q.EXISTS_TAC `ZIP (exps,GENLIST (\i.x+num_stubs+i) (LENGTH exps))`
+      \\ Q.EXISTS_TAC `ZIP (exps,GENLIST (\i.x+num_stubs+2*i) (LENGTH exps))`
       \\ full_simp_tac(srw_ss())[LENGTH_ZIP, EL_MAP, LENGTH_MAP, EL_ZIP, MAP_ZIP]
       \\ `?num e. EL n exps = (num, e)` by metis_tac [pair_CASES]
       \\ `1 < LENGTH exps` by (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
@@ -3287,6 +3287,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ res_tac
       \\ `?num e. EL i exps = (num, e)` by metis_tac [pair_CASES]
       \\ full_simp_tac(srw_ss())[]
+      \\ REWRITE_TAC[ADD_ASSOC]
       \\ MATCH_MP_TAC (compile_exps_LIST_IMP_compile_exps_EL |> SPEC_ALL)
       \\ full_simp_tac(srw_ss())[Abbr`exps`]))
   THEN1 (* App *)
@@ -3812,7 +3813,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
 val build_aux_thm = prove(
   ``∀c n aux n7 aux7.
     build_aux n c aux = (n7,aux7++aux) ⇒
-    (MAP FST aux7) = (REVERSE (GENLIST ($+ n) (LENGTH c)))``,
+    (MAP FST aux7) = (REVERSE (GENLIST ($+ n o $* 2) (LENGTH c)))``,
   Induct >> simp[build_aux_def] >> srw_tac[][] >>
   qmatch_assum_abbrev_tac`build_aux nn kk auxx = Z` >>
   qspecl_then[`kk`,`nn`,`auxx`]strip_assume_tac build_aux_acc >>

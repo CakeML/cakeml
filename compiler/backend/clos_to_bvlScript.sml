@@ -59,11 +59,11 @@ val code_for_recc_case_def = Define `
 
 val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
-  (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
+  (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+2) xs ((i,x) :: aux))`;
 
 val build_aux_LENGTH = store_thm("build_aux_LENGTH",
   ``!l n aux n1 t.
-      (build_aux n l aux = (n1,t)) ==> (n1 = n + LENGTH l)``,
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + 2 * LENGTH l)``,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
 
 val build_aux_MOVE = store_thm("build_aux_MOVE",
@@ -82,20 +82,20 @@ val build_aux_acc = Q.store_thm("build_aux_acc",
 val build_aux_MEM = store_thm("build_aux_MEM",
   ``!c n aux n7 aux7.
        (build_aux n c aux = (n7,aux7)) ==>
-       !k. k < LENGTH c ==> ?d. MEM (n + k,d) aux7``,
+       !k. k < LENGTH c ==> ?d. MEM (n + 2*k,d) aux7``,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`(n,h)::aux`]) \\ fs []
   \\ REPEAT STRIP_TAC
   \\ Cases_on `k` \\ fs []
-  THEN1 (MP_TAC (Q.SPECL [`c`,`n+1`,`(n,h)::aux`] build_aux_acc) \\ fs []
+  THEN1 (MP_TAC (Q.SPECL [`c`,`n+2`,`(n,h)::aux`] build_aux_acc) \\ fs []
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
-  \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC [ADD_COMM, ADD_ASSOC]);
+  \\ RES_TAC \\ fs [ADD1,LEFT_ADD_DISTRIB] \\ METIS_TAC []);
 
 val build_aux_APPEND1 = store_thm("build_aux_APPEND1",
   ``!xs x n aux.
       build_aux n (xs ++ [x]) aux =
         let (n1,aux1) = build_aux n xs aux in
-          (n1+1,(n1,x)::aux1)``,
+          (n1+2,(n1,x)::aux1)``,
   Induct \\ fs [build_aux_def,LET_DEF]);
 
 val recc_Let_def = Define `
@@ -109,7 +109,7 @@ val recc_Lets_def = Define `
   recc_Lets n nargs k rest =
     if k = 0:num then rest else
       let k = k - 1 in
-        Let [recc_Let (n + k) (HD nargs) k] (recc_Lets n (TL nargs) k rest)`;
+        Let [recc_Let (n + 2*k) (HD nargs) k] (recc_Lets n (TL nargs) k rest)`;
 
 val recc_Let0_def = Define `
   recc_Let0 n num_args i =
@@ -119,7 +119,7 @@ val recc_Let0_def = Define `
 val build_recc_lets_def = Define `
   build_recc_lets (nargs:num list) vs n1 fns_l (c3:bvl$exp) =
     Let [Let [Op Ref (REVERSE (MAP (K (mk_const 0)) nargs ++ MAP Var vs))]
-           (recc_Let0 (n1 + (fns_l - 1)) (HD (REVERSE nargs)) (fns_l - 1))]
+           (recc_Let0 (n1 + (2 * (fns_l - 1))) (HD (REVERSE nargs)) (fns_l - 1))]
       (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)`;
 
 val num_stubs_def = Define `
