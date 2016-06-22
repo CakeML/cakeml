@@ -2493,4 +2493,35 @@ val compile_correct = Q.store_thm(
   disch_then (resolve_selected (el 2)) >> simp[] >>
   metis_tac[sga_subspt, subspt_LN])
 
+val known_code_locs = Q.store_thm("known_code_locs",
+  `∀xs vs g.
+   code_locs (MAP FST (FST (known xs vs g))) = code_locs xs`,
+  ho_match_mp_tac known_ind
+  \\ rw[known_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[code_locs_append]
+  \\ fs[code_locs_def]
+  \\ imp_res_tac known_sing_EQ_E \\ fs[]
+  \\ fs[code_locs_map]
+  \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ qmatch_goalsub_abbrev_tac`FST p`
+  \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
+  \\ pop_assum(assume_tac o SYM)
+  \\ imp_res_tac known_sing_EQ_E \\ fs[]);
+
+val compile_code_locs = Q.store_thm("compile_code_locs",
+  `code_locs [compile b e] = code_locs [e]`,
+  Cases_on`b` \\ rw[compile_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ pop_assum mp_tac
+  \\ specl_args_of_then``known``known_code_locs mp_tac
+  \\ rw[] \\ fs[]
+  \\ pop_assum mp_tac
+  \\ specl_args_of_then``known``known_code_locs mp_tac
+  \\ rw[] \\ fs[]
+  \\ imp_res_tac known_sing_EQ_E \\ fs[]);
+
 val _ = export_theory();
