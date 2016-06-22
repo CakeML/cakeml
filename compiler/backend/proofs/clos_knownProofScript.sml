@@ -1,5 +1,3 @@
-open HolKernel Parse boolLib bossLib;
-
 open preamble
 open closPropsTheory clos_knownTheory closSemTheory
 open clos_knownPropsTheory
