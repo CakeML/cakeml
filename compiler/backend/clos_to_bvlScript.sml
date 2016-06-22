@@ -3,6 +3,7 @@ local open conLangTheory pat_to_closTheory in (* for list tags *) end;
 local open
   clos_mtiTheory
   clos_callTheory
+  clos_knownTheory
   clos_removeTheory
   clos_numberTheory
   clos_annotateTheory
@@ -420,8 +421,9 @@ val compile_def = Define`
   let es = intro_multi [e] in
   let (n,es) = renumber_code_locs_list c.next_loc es in
   let c = c with next_loc := n in
-  (* TODO: let (exp,calls) = call_intro es in *)
-  let (es,_) = remove es in
+  let e = clos_known$compile T (* TODO: replace with config flag *) (HD es) in
+  (* TODO: let (e,aux) = clos_call$compile T e in, and compile the aux below *)
+  let (es,_) = remove [e] in
   let es = annotate es in
   let (es,aux) = compile_exps es [] in
   (c,toAList init_code ++ MAP (λe. (c.start,0,e)) es ++ aux)`;

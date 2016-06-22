@@ -6,6 +6,7 @@ open preamble
 local open
   clos_mtiProofTheory
   clos_numberProofTheory
+  clos_knownProofTheory
   clos_removeProofTheory
   clos_annotateProofTheory
 in end
@@ -3981,10 +3982,11 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
     metis_tac[clos_removeProofTheory.remove_distinct_locs,FST,SND,
               clos_removeProofTheory.code_loc'_def,
+              clos_knownProofTheory.compile_code_locs,
               clos_numberProofTheory.renumber_code_locs_distinct] ) >>
   simp[toAList_domain] >>
   simp[clos_annotateProofTheory.annotate_code_locs,MAP_REVERSE] >>
-  qspec_then`es`mp_tac clos_removeProofTheory.remove_distinct_locs >>
+  qspec_then`[compile T (HD es)]`mp_tac clos_removeProofTheory.remove_distinct_locs >>
   simp[SUBSET_DEF] >> strip_tac >>
   simp[MEM_MAP,PULL_EXISTS] >>
   gen_tac >> strip_tac >- (
@@ -3997,6 +3999,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   qspecl_then[`c.next_loc`,`z`]mp_tac clos_numberProofTheory.renumber_code_locs_distinct >>
   simp[EXISTS_MEM] >> spose_not_then strip_assume_tac >>
+  fs[SIMP_RULE(srw_ss())[]clos_knownProofTheory.compile_code_locs] >>
   res_tac >> decide_tac);
 
 (* composed compiler correctness *)
