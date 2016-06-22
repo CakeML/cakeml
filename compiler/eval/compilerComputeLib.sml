@@ -156,6 +156,8 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [closLangTheory.max_app_def
+    ,closLangTheory.pure_def
+    ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
     ,pat_to_closTheory.string_tag_def
@@ -183,8 +185,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_removeTheory.no_overlap_def_compute
     ,clos_removeTheory.remove_def
     ,clos_removeTheory.const_0_def
-    ,clos_removeTheory.pure_def
-    ,clos_removeTheory.pure_op_def
     ]
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
