@@ -1,5 +1,7 @@
 open preamble closLangTheory closSemTheory
 
+open bagTheory
+
 val _ = new_theory"closProps"
 
 (* TODO: move *)
@@ -1222,5 +1224,158 @@ val evaluate_timeout_clocks0 = Q.store_thm(
        s'.clock = 0)`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
   dsimp[evaluate_def, eqs, pair_case_eq, bool_case_eq])
+
+val _ = export_rewrites ["closLang.exp_size_def"]
+
+val exp_size_MEM = Q.store_thm(
+  "exp_size_MEM",
+  `(∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
+   (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)`,
+  conj_tac >| [Induct_on `elist`, Induct_on `ealist`] >> dsimp[] >>
+  rpt strip_tac >> res_tac >> simp[]);
+
+val evaluate_eq_nil = Q.store_thm(
+  "evaluate_eq_nil[simp]",
+  `closSem$evaluate(es,env,s0) = (Rval [], s) ⇔ s0 = s ∧ es = []`,
+  Cases_on `es` >> simp[evaluate_def] >>
+  strip_tac >> rename1 `evaluate(h::t, env, s0)` >>
+  Q.ISPECL_THEN [`h::t`, `env`, `s0`] mp_tac (CONJUNCT1 evaluate_LENGTH) >>
+  simp[]);
+
+
+(* finding the SetGlobal operations *)
+val op_gbag_def = Define`
+  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
+  op_gbag _ = {||}
+`;
+
+val exp2_size_rw = Q.store_thm(
+  "exp2_size_rw[simp]",
+  `exp2_size h = 1 + FST h + exp_size (SND h)`,
+  Cases_on `h` >> simp[])
+
+val exp1_size_rw = Q.store_thm(
+  "exp1_size_rw[simp]",
+  `exp1_size fbinds =
+     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds`,
+  Induct_on `fbinds` >> simp[]);
+
+val set_globals_def = tDefine "set_globals" `
+  (set_globals (Var _) = {||}) ∧
+  (set_globals (If e1 e2 e3) =
+    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
+  (set_globals (Let binds e) = set_globals e ⊎ elist_globals binds) ∧
+  (set_globals (Raise e) = set_globals e) ∧
+  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Tick e) = set_globals e) ∧
+  (set_globals (Call _ args) = elist_globals args) ∧
+  (set_globals (App _ f args) = set_globals f ⊎ elist_globals args) ∧
+  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
+  (set_globals (Letrec _ _ fbinds bod) =
+    set_globals bod ⊎ elist_globals (MAP SND fbinds)) ∧
+  (set_globals (Op opn args) = op_gbag opn ⊎ elist_globals args) ∧
+  (elist_globals [] = {||}) ∧
+  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
+`
+  (WF_REL_TAC `
+      measure (λa. case a of INL e => exp_size e | INR el => exp3_size el)` >>
+   simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[])
+val _ = export_rewrites ["set_globals_def"]
+
+(* {foo}sgc_free: foo is free of SetGlobal closures, meaning closures that
+   include calls to SetGlobal, for
+     foo = {(e)xpr, (v)alue, (r)esult, and (s)tate}
+*)
+val v_size_lemma = Q.store_thm(
+  "v_size_lemma",
+  `MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl`,
+  Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
+  res_tac >> simp[]);
+
+(* value is setglobal-closure free *)
+val vsgc_free_def = tDefine "vsgc_free" `
+  (vsgc_free (Closure _ VL1 VL2 _ body) ⇔
+     set_globals body = {||} ∧
+     EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
+  (vsgc_free (Recclosure _ VL1 VL2 bods _) ⇔
+     elist_globals (MAP SND bods) = {||} ∧
+     EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
+  (vsgc_free (Block _ VL) ⇔ EVERY vsgc_free VL) ∧
+  (vsgc_free _ ⇔ T)
+` (WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[])
+
+val vsgc_free_def = save_thm(
+  "vsgc_free_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] vsgc_free_def)
+
+val vsgc_free_Unit = Q.store_thm(
+  "vsgc_free_Unit[simp]",
+  `vsgc_free Unit`,
+  simp[Unit_def]);
+
+val vsgc_free_Boolv = Q.store_thm(
+  "vsgc_free_Boolv[simp]",
+  `vsgc_free (Boolv b)`,
+  simp[Boolv_def]);
+
+(* result is setglobal-closure free *)
+val rsgc_free_def = Define`
+  (rsgc_free (Rval vs) ⇔ EVERY vsgc_free vs) ∧
+  (rsgc_free (Rerr (Rabort _)) ⇔ T) ∧
+  (rsgc_free (Rerr (Rraise v)) ⇔ vsgc_free v)
+`;
+val _ = export_rewrites ["rsgc_free_def"]
+
+(* state is setglobal-closure free *)
+val ssgc_free_def = Define`
+  ssgc_free (s:'a closSem$state) ⇔
+    (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
+    (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
+    (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v)
+`;
+
+val ssgc_free_clockupd = Q.store_thm(
+  "ssgc_free_clockupd[simp]",
+  `ssgc_free (s with clock updated_by f) = ssgc_free s`,
+  simp[ssgc_free_def])
+
+val ssgc_free_dec_clock = Q.store_thm(
+  "ssgc_free_dec_clock[simp]",
+  `ssgc_free (dec_clock n s) ⇔ ssgc_free s`,
+  simp[dec_clock_def])
+
+val esgc_free_def = tDefine "esgc_free" `
+  (esgc_free (Var _) ⇔ T) ∧
+  (esgc_free (If e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
+  (esgc_free (Let binds e) ⇔ EVERY esgc_free binds ∧ esgc_free e) ∧
+  (esgc_free (Raise e) ⇔ esgc_free e) ∧
+  (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Tick e) ⇔ esgc_free e) ∧
+  (esgc_free (Call _ args) ⇔ EVERY esgc_free args) ∧
+  (esgc_free (App _ e args) ⇔ esgc_free e ∧ EVERY esgc_free args) ∧
+  (esgc_free (Fn _ _ _ b) ⇔ set_globals b = {||}) ∧
+  (esgc_free (Letrec _ _ binds bod) ⇔
+    elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
+  (esgc_free (Op _ args) ⇔ EVERY esgc_free args)
+` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[])
+val esgc_free_def = save_thm("esgc_free_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+
+val elglobals_EQ_EMPTY = Q.store_thm(
+  "elglobals_EQ_EMPTY",
+  `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,
+  Induct_on `l` >> dsimp[]);
+
+val set_globals_empty_esgc_free = Q.store_thm(
+  "set_globals_empty_esgc_free",
+  `set_globals e = {||} ⇒ esgc_free e`,
+  completeInduct_on `exp_size e` >> fs[PULL_FORALL] >> Cases >>
+  simp[] >> strip_tac >> rveq >> fs[AND_IMP_INTRO] >>
+  simp[EVERY_MEM, elglobals_EQ_EMPTY, MEM_MAP] >>
+  rw[] >> rw[] >>
+  first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
 
 val _ = export_theory();

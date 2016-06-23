@@ -476,8 +476,7 @@ val app_combine = Q.store_thm ("app_combine",
  full_simp_tac(srw_ss())[] >>
  `res_rel (evaluate_app NONE (HD vs3) vs1 s3) (evaluate_app NONE (HD vs3') vs1' s3')` by (
    Cases_on `vs1 = []` >>
-   full_simp_tac(srw_ss())[]
-   >- simp [evaluate_def, res_rel_rw] >>
+   full_simp_tac(srw_ss())[] >>
    match_mp_tac res_rel_evaluate_app >>
    srw_tac[][] >>
    imp_res_tac evaluate_clock >>
