@@ -489,11 +489,11 @@ val _ = export_rewrites ["mti_letrec1_def"]
 
 val mti_letrec1_size_decrease = Q.store_thm(
   "mti_letrec1_size_decrease",
-  `mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
+  `∀m b n b'.
+     mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
   Cases_on `b` >> simp[Cong DISJ_CONG] >>
   rename1 `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
-  simp[Cong DISJ_CONG] >> rw[] >>
-  simp[Cong DISJ_CONG, closLangTheory.exp_size_def]);
+  dsimp[bool_case_eq]);
 
 val mti_letrec1_size_LEQ = Q.store_thm(
   "mti_letrec1_size_LEQ",
