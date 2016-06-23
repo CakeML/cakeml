@@ -132,78 +132,116 @@ fun check_dec tm f (l : term) =
          )
   end
 
-fun encodings q =
+fun encoding q =
   let
     val tm = Feedback.trace ("notify type variable guesses", 0) Parse.Term q
     val tm32 = reduce (Term.inst [Type.alpha |-> ty32] tm)
     val tm64 = reduce (Term.inst [Type.alpha |-> ty64] tm)
     val ok64 = ok tm64
-    val arm6_ok = ok tm32 arm6_config
-    val arm8_ok = ok64 arm8_config
-    val mips_ok = ok64 mips_config
-    val riscv_ok = ok64 riscv_config
-    val x64_ok = ok64 x64_config
     val asm32 = Parse.term_to_string tm32
     val asm64 = Parse.term_to_string tm64
   in
-    print "=============================================================\n"
-  ; print_heading "ASM"
-  ; if asm32 = asm64 then print asm32
-    else print ("32 asm: " ^ asm32 ^ "\n64 asm: " ^ asm64)
-  ; print "\n"
-  ; print_heading "ARMv6"
-  ; if arm6_ok
-      then let
-             val l = eval (mk_arm6_enc tm32)
-           in
-             armAssemblerLib.print_arm_disassemble
-               (string_quotation (split32 false l))
-           ; check_dec tm32 mk_arm6_dec l
-           end
-    else print_not_ok ()
-  ; print_heading "ARMv8"
-  ; if arm8_ok
-      then let
-             val l = eval (mk_arm8_enc tm64)
-           in
-             arm8AssemblerLib.print_arm8_disassemble
-               (string_quotation (split32 false l))
-           ; check_dec tm64 mk_arm8_dec l
-           end
-    else print_not_ok ()
-  ; print_heading "x86-64"
-  ; if x64_ok
-      then let
-             val l = eval (mk_x64_enc tm64)
-           in
-             print_x64_disassemble l
-           ; check_dec tm64 mk_x64_dec l
-           end
-    else print_not_ok ()
-  ; print_heading "MIPS-64"
-  ; if mips_ok
-      then let
-             val l = (eval (mk_mips_enc tm64))
-           in
-             print_mips_disassemble (split32 true l)
-           ; check_dec tm64 mk_mips_dec l
-           end
-    else print_not_ok ()
-  ; print_heading "RISC-V"
-  ; if riscv_ok
-      then let
-             val l = eval (mk_riscv_enc tm64)
-           in
-             print_riscv_disassemble (split32 false l)
-           ; check_dec tm64 mk_riscv_dec l
-           end
-    else print_not_ok ()
-  ; print "\n"
+    { asm = fn SOME is64 => print (if is64 then asm64 else asm32)
+             | NONE =>
+                 if asm32 = asm64 then print asm32
+                 else print ("32 asm: " ^ asm32 ^ "\n    64 asm: " ^ asm64),
+      arm6 = fn () =>
+              if ok tm32 arm6_config
+                then let
+                       val l = eval (mk_arm6_enc tm32)
+                     in
+                       armAssemblerLib.print_arm_disassemble
+                         (string_quotation (split32 false l))
+                     ; check_dec tm32 mk_arm6_dec l
+                     end
+              else print_not_ok (),
+      arm8 = fn () =>
+              if ok64 arm8_config
+                then let
+                       val l = eval (mk_arm8_enc tm64)
+                     in
+                       arm8AssemblerLib.print_arm8_disassemble
+                         (string_quotation (split32 false l))
+                     ; check_dec tm64 mk_arm8_dec l
+                     end
+              else print_not_ok (),
+      x64 = fn () =>
+              if ok64 x64_config
+                then let
+                       val l = eval (mk_x64_enc tm64)
+                     in
+                       print_x64_disassemble l
+                     ; check_dec tm64 mk_x64_dec l
+                     end
+              else print_not_ok (),
+      mips = fn () =>
+              if ok64 mips_config
+                then let
+                       val l = (eval (mk_mips_enc tm64))
+                     in
+                       print_mips_disassemble (split32 true l)
+                     ; check_dec tm64 mk_mips_dec l
+                     end
+              else print_not_ok (),
+      riscv = fn () =>
+              if ok64 riscv_config
+                then let
+                       val l = eval (mk_riscv_enc tm64)
+                     in
+                       print_riscv_disassemble (split32 false l)
+                     ; check_dec tm64 mk_riscv_dec l
+                     end
+              else print_not_ok ()
+    }
+  end
+
+datatype arch = Compare | All | ARMv6 | ARMv8 | x86_64 | MIPS | RISCV
+
+fun encodings arches l =
+  let
+    val es = List.map encoding l
+    fun yes a = Lib.mem All arches orelse Lib.mem a arches
+  in
+    if Lib.mem Compare arches
+       then let
+              fun pr h a f = if yes a then (print_heading h; f ()) else ()
+            in
+              List.app
+                (fn {arm6, arm8, asm, mips, riscv, x64} =>
+                        ( print_heading "ASM"
+                        ; asm NONE
+                        ; print "\n"
+                        ; pr "ARMv6" ARMv6 arm6
+                        ; pr "ARMv8" ARMv8 arm8
+                        ; pr "x86-64" x86_64 x64
+                        ; pr "MIPS-64" MIPS mips
+                        ; pr "RISC-V" RISCV riscv
+                        )) es
+            end
+    else let
+           fun pr h a f =
+             if yes a
+               then ( print_heading h
+                    ; General.ignore
+                        (List.app (fn p => ( print (UTF8.chr 0x2022 ^ " ")
+                                           ; #asm p (SOME (a <> ARMv6))
+                                           ; print "\n"
+                                           ; f p ()
+                                           ; print "\n")) es)
+                    )
+             else ()
+         in
+           pr "ARMv6" ARMv6 (#arm6)
+         ; pr "ARMv8" ARMv8 (#arm8)
+         ; pr "x86-64" x86_64 (#x64)
+         ; pr "MIPS-64" MIPS (#mips)
+         ; pr "RISC-V" RISCV (#riscv)
+         end
   end
 
 (*
 
-val () = List.app encodings
+val () = encodings [All]
    [
     `Inst Skip`,
     `Inst (Const 8 0w)`,
