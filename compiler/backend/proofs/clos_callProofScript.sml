@@ -1,4 +1,4 @@
-open preamble match_goal
+open preamble match_goal dep_rewrite
      closSemTheory closPropsTheory
      clos_callTheory
      db_varsTheory clos_freeProofTheory;
@@ -219,7 +219,7 @@ val ALOOKUP_code_list = Q.store_thm("ALOOKUP_code_list",
     | SOME i => SOME (EL i fns)
     | NONE => ALOOKUP (SND g) k`,
   rw[SND_code_list_ZIP,ALOOKUP_APPEND]
-  \\ dep_rewrite.DEP_REWRITE_TAC[alookup_distinct_reverse]
+  \\ DEP_REWRITE_TAC[alookup_distinct_reverse]
   \\ conj_asm1_tac
   >- simp[MAP_ZIP,ALL_DISTINCT_GENLIST]
   \\ BasicProvers.TOP_CASE_TAC
