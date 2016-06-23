@@ -4051,28 +4051,6 @@ val full_result_rel_def = Define`
       result_rel (LIST_REL clos_annotateProof$v_rel) clos_annotateProof$v_rel rc rd ∧
       result_rel (LIST_REL (v_rel f s2.refs s2.code)) (v_rel f s2.refs s2.code) rd r2`;
 
-val res_rel_arg2_typeerror = Q.store_thm(
-  "res_rel_arg2_typeerror[simp]",
-  `res_rel (r1,s1) (Rerr (Rabort Rtype_error),s2) ⇔
-     r1 = Rerr (Rabort Rtype_error)`,
-  Cases_on `r1` >> simp[clos_relationTheory.res_rel_rw] >>
-  rename1 `res_rel (Rerr err,_)` >> Cases_on `err` >>
-  simp[clos_relationTheory.res_rel_rw] >>
-  rename1 `res_rel (Rerr (Rabort abt),_)` >> Cases_on `abt` >>
-  simp[clos_relationTheory.res_rel_rw])
-
-val res_rel_arg2_timeout = Q.store_thm(
-  "res_rel_arg2_timeout",
-  `res_rel (r1,s1) (Rerr (Rabort Rtimeout_error), s2) ⇔
-     r1 = Rerr (Rabort Rtype_error) ∨
-     r1 = Rerr (Rabort Rtimeout_error) ∧
-     state_rel s1.clock s1 s2`,
-  Cases_on `r1` >> simp[clos_relationTheory.res_rel_rw] >>
-  rename1`res_rel (Rerr err, _)` >> Cases_on `err` >>
-  simp[clos_relationTheory.res_rel_rw] >>
-  rename1`res_rel (Rerr (Rabort abt),_)` >> Cases_on `abt`>>
-  simp[clos_relationTheory.res_rel_rw]);
-
 val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel (r,x) (Rerr (Rabort a),y) ⇒
    r = Rerr (Rabort a)`,
@@ -4084,13 +4062,8 @@ val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   Cases_on`e0`>> fs[clos_relationTheory.res_rel_rw]>>
   fs[clos_knownProofTheory.krrel_err_rw] >> rveq >>
   Cases_on`e1` >> fs[] >> rveq >>
-  fs[res_rel_arg2_timeout] >> rveq >>
+  fs[clos_relationPropsTheory.res_rel_arg2_timeout] >> rveq >>
   fs[clos_relationTheory.res_rel_rw])
-
-val res_rel_arg1_timeout = Q.store_thm("res_rel_arg1_timeout[simp]",
-  `res_rel (Rerr (Rabort Rtimeout_error), s1) (r2,s2) ⇔
-     r2 = Rerr (Rabort Rtimeout_error) ∧ state_rel s1.clock s1 s2`,
-  simp[clos_relationTheory.res_rel_rw])
 
 val full_result_rel_timeout = Q.store_thm("full_result_rel_timeout",
   `full_result_rel (Rerr(Rabort Rtimeout_error),x) (r,y) ⇒

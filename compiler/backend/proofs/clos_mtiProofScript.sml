@@ -191,7 +191,6 @@ val exp_rel_exec_rel_Exp1 = Q.store_thm(
       >- fs[evaluate_def, res_rel_rw] >>
       irule res_rel_evaluate_app >> simp[] >> imp_res_tac evaluate_clock >>
       fs[] >> irule val_rel_mono_list >> qexists_tac `i` >> simp[])
-  >- simp[res_rel_rw]
   >- simp[res_rel_rw])
 
 val recClosure_add_arg0 = Q.prove(
@@ -337,7 +336,6 @@ val recClosure_add_arg0 = Q.prove(
                   irule EVERY2_TAKE >> irule val_rel_mono_list >>
                   qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >>
                   fs[])
-              >- simp[res_rel_rw]
               >- simp[res_rel_rw]) >>
           simp[] >> fs[dest_addarg_Fn_EQ_SOME] >>
           strip_tac >> `m = 0` by simp[] >> rveq >> fs[] >>
@@ -380,7 +378,6 @@ val recClosure_add_arg0 = Q.prove(
           >- (irule res_rel_evaluate_app >> simp[TAKE_EQ_NIL] >>
               irule EVERY2_TAKE >> irule val_rel_mono_list >>
               qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >> fs[]))
-      >- simp[res_rel_rw]
       >- simp[res_rel_rw]) >>
   `LENGTH fns2 = LENGTH fns1 ∧ LENGTH CE2 = LENGTH CE1 ∧
    LENGTH AE2 = LENGTH AE1` by fs[LIST_REL_EL_EQN] >>
@@ -443,7 +440,6 @@ val recClosure_add_arg0 = Q.prove(
       >- (irule res_rel_evaluate_app >> simp[TAKE_EQ_NIL] >>
           irule EVERY2_TAKE >> irule val_rel_mono_list >>
           qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >> fs[]))
-  >- simp[res_rel_rw]
   >- simp[res_rel_rw])
 
 val recClosure_add_arg_lem = save_thm(
