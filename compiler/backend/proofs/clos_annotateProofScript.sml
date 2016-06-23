@@ -914,9 +914,9 @@ val shift_correct = Q.prove(
          (full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ `s2'.clock = t2.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `t2.clock = 0` \\ full_simp_tac(srw_ss())[]
-    THEN1 (SRW_TAC [] [])
-    \\ FIRST_X_ASSUM (qspecl_then[`v'`,`dec_clock 1 t2`,`0`,
+    \\ Cases_on `t2.clock < ticks+1` \\ full_simp_tac(srw_ss())[]
+    THEN1 (SRW_TAC [] [] \\ fs[state_rel_def])
+    \\ FIRST_X_ASSUM (qspecl_then[`v'`,`dec_clock (ticks+1) t2`,`0`,
          `LENGTH v'`,`LN`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (imp_res_tac evaluate_const
@@ -934,7 +934,7 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[evaluate_def] \\ SRW_TAC [] [])
   THEN1 (* evaluate_app CONS *)
    (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `dest_closure loc_opt f (v41::v42)` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `dest_closure loc_opt f (v42::v43)` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Partial_app *)
      (reverse (`?z. (dest_closure loc_opt f' (y::ys) = SOME (Partial_app z)) /\
@@ -975,14 +975,16 @@ val shift_correct = Q.prove(
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ TRY (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC) \\ rev_full_simp_tac(srw_ss())[]
-      \\ Q.ABBREV_TAC `env3 =
-         REVERSE (TAKE (n - LENGTH vals') (REVERSE v42 ++ [v41])) ++
+      \\ qpat_assum`_ = (res,_)`mp_tac
+      \\ Q.PAT_ABBREV_TAC `env3 =
+         REVERSE (TAKE (n - LENGTH vals') (REVERSE _ ++ [_])) ++
             l' ++ l0'`
-      \\ Q.ABBREV_TAC `n3 =
+      \\ Q.PAT_ABBREV_TAC `n3 =
            (SUC (LENGTH ys) - (LENGTH ys + 1 - (n - LENGTH vals')))`
+      \\ strip_tac
       \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ full_simp_tac(srw_ss())[]
       \\ `q <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
-      \\ Q.ABBREV_TAC `env3' =
+      \\ Q.PAT_ABBREV_TAC `env3' =
            REVERSE (TAKE (n - LENGTH vals') (REVERSE ys ++ [y])) ++
            vals' ++ env'`
       \\ FIRST_X_ASSUM (qspecl_then [`env3'`,`dec_clock n3 s1'`,
@@ -1030,11 +1032,13 @@ val shift_correct = Q.prove(
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
     \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
     THEN1 (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[state_rel_def])
-    \\ Q.ABBREV_TAC `env3 =
-         REVERSE (TAKE (q - LENGTH vals') (REVERSE v42 ++ [v41])) ++
+    \\ qpat_assum`_ = (res,_)`mp_tac
+    \\ Q.PAT_ABBREV_TAC `env3 =
+         REVERSE (TAKE (q - LENGTH vals') (REVERSE _ ++ [_])) ++
             l' ++ GENLIST (Recclosure o' [] l0' l1) (LENGTH cs') ++ l0'`
-    \\ Q.ABBREV_TAC `n3 =
+    \\ Q.PAT_ABBREV_TAC `n3 =
            (SUC (LENGTH ys) - (LENGTH ys + 1 - (q - LENGTH vals')))`
+    \\ strip_tac
     \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ full_simp_tac(srw_ss())[]
     \\ `q'' <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
     \\ Q.ABBREV_TAC `env3' =

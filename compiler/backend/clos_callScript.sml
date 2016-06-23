@@ -21,7 +21,7 @@ val code_list_def = Define `
 val calls_list_def = Define `
   (calls_list loc [] = []) /\
   (calls_list loc ((n,_)::xs) =
-     (n,Call (loc+1) (GENLIST Var n))::calls_list (loc+2n) xs)`;
+     (n,Call 0 (loc+1) (GENLIST Var n))::calls_list (loc+2n) xs)`;
 
 val exp3_size_MAP_SND = prove(
   ``!fns. exp3_size (MAP SND fns) <= exp1_size fns``,
@@ -62,9 +62,9 @@ val calls_def = tDefine "calls" `
      let e1 = HD e1 in
      let e2 = HD e2 in
        ([Handle e1 e2],g)) /\
-  (calls [Call dest xs] g =
+  (calls [Call ticks dest xs] g =
      let (xs,g) = calls xs g in
-       ([Call dest xs],g)) /\
+       ([Call ticks dest xs],g)) /\
   (calls [Op op xs] g =
      let (e1,g) = calls xs g in
        ([Op op e1],g)) /\
@@ -74,10 +74,9 @@ val calls_def = tDefine "calls" `
      let e1 = HD e1 in
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
-         (* Call might need to tick more like in BVL *)
-         if pure x then ([Call (loc+1) es],g) else
+         if pure x then ([Call (LENGTH es-1) (loc+1) es],g) else
            ([Let (SNOC e1 es)
-              (Call (loc+1) (GENLIST Var (LENGTH es)))],g)
+              (Call (LENGTH es-1) (loc+1) (GENLIST Var (LENGTH es)))],g)
        else ([App loc_opt e1 es],g)) /\
   (calls [Fn loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
@@ -89,7 +88,7 @@ val calls_def = tDefine "calls" `
           the calls function can sometimes remove free variables. *)
        if closed (Fn loc_opt ws num_args (HD e1)) then
          ([Fn loc_opt ws num_args
-             (Call (loc+1) (GENLIST Var num_args))],new_g)
+             (Call 0 (loc+1) (GENLIST Var num_args))],new_g)
        else
          let (e1,g) = calls [x1] g in
            ([Fn loc_opt ws num_args (HD e1)],g)) /\

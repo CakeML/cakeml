@@ -408,14 +408,14 @@ val evaluate_def = tDefine "evaluate" `
        (Rerr(Rabort Rtype_error), s)) /\
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
-  (evaluate ([Call dest xs],env,s1) =
+  (evaluate ([Call ticks dest xs],env,s1) =
      case evaluate (xs,env,s1) of
      | (Rval vs,s) =>
          (case find_code dest vs s.code of
           | NONE => (Rerr(Rabort Rtype_error),s)
           | SOME (args,exp) =>
-              if (s.clock = 0) \/ (s1.clock = 0) then (Rerr(Rabort Rtimeout_error),s) else
-                  evaluate ([exp],args,dec_clock 1 (check_clock s s1)))
+              if (s.clock < ticks+1) \/ (s1.clock < ticks+1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
+                  evaluate ([exp],args,dec_clock (ticks+1) (check_clock s s1)))
      | res => res) ∧
   (evaluate_app loc_opt f [] s = (Rval [f], s)) ∧
   (evaluate_app loc_opt f args s =

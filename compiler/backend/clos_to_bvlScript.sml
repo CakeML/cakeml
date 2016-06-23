@@ -335,9 +335,9 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c1,aux1) = compile_exps [x1] aux in
      let (c2,aux2) = compile_exps [x2] aux1 in
        ([Handle (HD c1) (HD c2)], aux2)) /\
-  (compile_exps [Call dest xs] aux =
+  (compile_exps [Call ticks dest xs] aux =
      let (c1,aux1) = compile_exps xs aux in
-       ([Call 0 (SOME (dest + num_stubs)) c1],aux1))`
+       ([Call ticks (SOME (dest + num_stubs)) c1],aux1))`
   (WF_REL_TAC `measure (exp3_size o FST)` >>
    srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
    `!l. closLang$exp3_size (MAP SND l) <= exp1_size l`

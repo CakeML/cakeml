@@ -50,9 +50,9 @@ val free_def = tDefine "free" `
      let (c1,l1) = free [x1] in
      let (c2,l2) = free [x2] in
        ([Handle (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
-  (free [Call dest xs] =
+  (free [Call ticks dest xs] =
      let (c1,l1) = free xs in
-       ([Call dest c1],l1))`
+       ([Call ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
 

@@ -74,9 +74,9 @@ val remove_def = tDefine "remove" `
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove [x2] in
        ([Handle (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
-  (remove [Call dest xs] =
+  (remove [Call ticks dest xs] =
      let (c1,l1) = remove xs in
-       ([Call dest c1],l1))`
+       ([Call ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[] >>
   rename1 `MEM ee xx` >>
@@ -190,7 +190,7 @@ val remove_alt_ind = store_thm("remove_alt_ind",``
         P [Letrec loc vs_opt fns x1]) ∧
      (∀x1 x2.
         (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
-        P [Handle x1 x2]) ∧ (∀dest xs. P xs ⇒ P [Call dest xs]) ⇒
+        P [Handle x1 x2]) ∧ (∀ticks dest xs. P xs ⇒ P [Call ticks dest xs]) ⇒
      ∀v. P v``,
   ntac 2 strip_tac>>
   ho_match_mp_tac remove_ind>>

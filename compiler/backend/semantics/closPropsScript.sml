@@ -77,7 +77,7 @@ val code_locs_def = tDefine "code_locs" `
      let c1 = code_locs [x1] in
      let c2 = code_locs [x2] in
        c1 ++ c2) /\
-  (code_locs [Call dest xs] =
+  (code_locs [Call ticks dest xs] =
      code_locs xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -133,7 +133,7 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME [Handle x1 x2] ⇔
      contains_App_SOME [x1] ∨
      contains_App_SOME [x2]) /\
-  (contains_App_SOME [Call dest xs] ⇔
+  (contains_App_SOME [Call ticks dest xs] ⇔
      contains_App_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -180,7 +180,7 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
   (every_Fn_SOME [Handle x1 x2] ⇔
      every_Fn_SOME [x1] ∧
      every_Fn_SOME [x2]) ∧
-  (every_Fn_SOME [Call dest xs] ⇔
+  (every_Fn_SOME [Call ticks dest xs] ⇔
      every_Fn_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -228,7 +228,7 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
   (every_Fn_vs_NONE [Handle x1 x2] ⇔
      every_Fn_vs_NONE [x1] ∧
      every_Fn_vs_NONE [x2]) ∧
-  (every_Fn_vs_NONE [Call dest xs] ⇔
+  (every_Fn_vs_NONE [Call ticks dest xs] ⇔
      every_Fn_vs_NONE xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -276,7 +276,7 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
   (every_Fn_vs_SOME [Handle x1 x2] ⇔
      every_Fn_vs_SOME [x1] ∧
      every_Fn_vs_SOME [x2]) ∧
-  (every_Fn_vs_SOME [Call dest xs] ⇔
+  (every_Fn_vs_SOME [Call ticks dest xs] ⇔
      every_Fn_vs_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -312,7 +312,7 @@ val fv_def = tDefine "fv" `
      EXISTS (\(num_args, x). fv (n + num_args + LENGTH fns) [x]) fns \/ fv (n + LENGTH fns) [x1]) /\
   (fv n [Handle x1 x2] <=>
      fv n [x1] \/ fv (n+1) [x2]) /\
-  (fv n [Call dest xs] <=> fv n xs)`
+  (fv n [Call ticks dest xs] <=> fv n xs)`
  (WF_REL_TAC `measure (exp3_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
   Induct_on `fns` >>
@@ -1167,6 +1167,7 @@ val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
 val lemma = DECIDE``¬(x < y - z) ⇒ ((a:num) + x - (y - z) = x - (y - z) + a)``
 val lemma2 = DECIDE``x ≠ 0n ⇒ a + (x - 1) = a + x - 1``
+val lemma3 = DECIDE``¬(x:num < t+1) ⇒ a + (x - (t+1)) = a + x - (t+1)``
 
 val tac =
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1175,7 +1176,7 @@ val tac =
   TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
-  metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2]
+  metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2,lemma3]
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀p es env ^s.

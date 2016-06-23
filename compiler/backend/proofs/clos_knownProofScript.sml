@@ -156,7 +156,7 @@ val set_globals_def = tDefine "set_globals" `
   (set_globals (Raise e) = set_globals e) ∧
   (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
   (set_globals (Tick e) = set_globals e) ∧
-  (set_globals (Call _ args) = FOLDR $BAG_UNION {||} (MAP set_globals args)) ∧
+  (set_globals (Call _ _ args) = FOLDR $BAG_UNION {||} (MAP set_globals args)) ∧
   (set_globals (App _ f args) =
     FOLDR $BAG_UNION (set_globals f) (MAP set_globals args)) ∧
   (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
@@ -464,7 +464,7 @@ val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Raise e) ⇔ esgc_free e) ∧
   (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
   (esgc_free (Tick e) ⇔ esgc_free e) ∧
-  (esgc_free (Call _ args) ⇔ EVERY esgc_free args) ∧
+  (esgc_free (Call _ _ args) ⇔ EVERY esgc_free args) ∧
   (esgc_free (App _ e args) ⇔ esgc_free e ∧ EVERY esgc_free args) ∧
   (esgc_free (Fn _ _ _ b) ⇔ set_globals b = {||}) ∧
   (esgc_free (Letrec _ _ binds bod) ⇔
@@ -1069,7 +1069,7 @@ val known_correct_approx = Q.store_thm(
       reverse (rpt strip_tac)
       >- (rveq >> imp_res_tac evaluate_SING >> simp[]) >>
       map_every rename1 [
-        `evaluate([body],args,dec_clock 1 s1) = (result,s)`,
+        `evaluate([body],args,dec_clock (ticks+1) s1) = (result,s)`,
         `evaluate(MAP FST alist,env,s0) = (Rval vs, s1)`] >>
       `ssgc_free s1 ∧ EVERY vsgc_free vs`
          by (resolve_selected hd ssgc_evaluate >> simp[] >>
@@ -1083,7 +1083,7 @@ val known_correct_approx = Q.store_thm(
       `mapped_globals s1 ⊆ mapped_globals s`
          by metis_tac[mapped_globals_grow, mapped_globals_dec_clock] >>
       `mglobals_extend s1 {} s`
-         by (qspecl_then [`[body]`, `args`, `dec_clock 1 s1`, `result`, `s`]
+         by (qspecl_then [`[body]`, `args`, `dec_clock (ticks+1) s1`, `result`, `s`]
                          mp_tac ssgc_evaluate >> simp[] >>
              fs[find_code_def, eqs, pair_case_eq] >> rveq >>
              simp[set_globals_empty_esgc_free]) >>

@@ -378,7 +378,7 @@ val state_rel_clock = Q.store_thm ("state_rel_clock[simp]",
  srw_tac[][]);
 
 val find_code_related = Q.store_thm ("find_code_related",
-`!c n vs (s:'ffi closSem$state) args e vs' s'.
+`!c tt n vs (s:'ffi closSem$state) args e vs' s'.
   state_rel c s s' ∧
   LIST_REL (val_rel (:'ffi) c) vs vs' ∧
   find_code n vs s.code = SOME (args,e)
@@ -386,10 +386,10 @@ val find_code_related = Q.store_thm ("find_code_related",
   ?args' e'.
     find_code n vs' s'.code = SOME (args',e') ∧
     LIST_REL (val_rel (:'ffi) c) args args' ∧
-    (c ≠ 0 ⇒ exec_rel (c-1) (Exp [e] args, s) (Exp [e'] args', s'))`,
+    (¬(c < (tt+1)) ⇒ exec_rel (c-(tt+1)) (Exp [e] args, s) (Exp [e'] args', s'))`,
  srw_tac[][find_code_def] >>
- `c-1 ≤ c` by decide_tac >>
- `state_rel (c-1) s s'` by metis_tac [val_rel_mono] >>
+ `c-(tt+1) ≤ c` by decide_tac >>
+ `state_rel (c-(tt+1)) s s'` by metis_tac [val_rel_mono] >>
  qpat_assum `state_rel c s s'` mp_tac >>
  simp [Once state_rel_rw, fmap_rel_OPTREL_FLOOKUP] >>
  srw_tac[][] >>
@@ -406,7 +406,7 @@ val find_code_related = Q.store_thm ("find_code_related",
  full_simp_tac(srw_ss())[AND_IMP_INTRO] >>
  first_x_assum match_mp_tac >>
  simp [] >>
- `c-1 ≤ c` by decide_tac >>
+ `c-(tt+1) ≤ c` by decide_tac >>
  metis_tac [val_rel_mono_list]);
 
 val dest_closure_opt = Q.store_thm ("dest_closure_opt",
@@ -1544,10 +1544,10 @@ val compat_tick = Q.store_thm ("compat_tick",
  srw_tac[][]);
 
 val compat_call = Q.store_thm ("compat_call",
-`!n es es'.
+`!ticks n es es'.
   exp_rel (:'ffi) es es'
   ⇒
-  exp_rel (:'ffi) [Call n es] [Call n es']`,
+  exp_rel (:'ffi) [Call ticks n es] [Call ticks n es']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  srw_tac[][] >>
@@ -1570,13 +1570,13 @@ val compat_call = Q.store_thm ("compat_call",
  `?args' e'.
    find_code n vs' s'''.code = SOME (args',e') ∧
    LIST_REL (val_rel (:'ffi) s'''.clock) args args' ∧
-   (s'''.clock ≠ 0 ⇒ exec_rel (s'''.clock − 1) (Exp [e] args,s'') (Exp [e'] args',s'''))`
+   (¬(s'''.clock < ticks+1) ⇒ exec_rel (s'''.clock − (ticks+1)) (Exp [e] args,s'') (Exp [e'] args',s'''))`
          by metis_tac [find_code_related] >>
  srw_tac[][res_rel_rw]
- >- (`0 ≤ i` by decide_tac >>
+ >- (`0 ≤ s'''.clock` by decide_tac >>
      metis_tac [val_rel_mono]) >>
  full_simp_tac(srw_ss())[evaluate_ev_def, exec_rel_rw, dec_clock_def] >>
- `s'''.clock - 1 ≤ s'''.clock - 1` by decide_tac >>
+ `s'''.clock - (ticks+1) ≤ s'''.clock - (ticks+1)` by decide_tac >>
  metis_tac []);
 
 val compat_app = Q.store_thm ("compat_app",

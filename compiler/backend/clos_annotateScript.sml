@@ -64,9 +64,9 @@ val shift_def = tDefine "shift" `
      let c1 = shift [x1] m l i in
      let c2 = shift [x2] m (l+1) i in
        ([Handle (HD c1) (HD c2)])) /\
-  (shift [Call dest xs] m l i =
+  (shift [Call ticks dest xs] m l i =
      let c1 = shift xs m l i in
-       ([Call dest c1]))`
+       ([Call ticks dest c1]))`
  (WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);

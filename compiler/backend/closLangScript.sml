@@ -56,7 +56,7 @@ val _ = Datatype `
       | Raise exp
       | Handle exp exp
       | Tick exp
-      | Call num (exp list)
+      | Call num (* ticks *) num (* loc *) (exp list) (* args *)
       | App (num option) exp (exp list)
       | Fn (num option) (num list option) num exp
       | Letrec (num option) (num list option) ((num # exp) list) exp
@@ -97,7 +97,7 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (Tick _) ⇔ F)
     ∧
-  (pure (Call _ _) ⇔ F)
+  (pure (Call _ _ _) ⇔ F)
     ∧
   (pure (App _ _ _) ⇔ F)
     ∧

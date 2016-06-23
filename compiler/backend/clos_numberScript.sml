@@ -44,9 +44,9 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs n x2 in
      (n,Handle x1 x2)) /\
-  (renumber_code_locs n (Call dest xs) =
+  (renumber_code_locs n (Call ticks dest xs) =
      let (n,xs) = renumber_code_locs_list n xs in
-     (n,Call dest xs))`
+     (n,Call ticks dest xs))`
  (WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>

@@ -99,7 +99,7 @@ val v_rel_def = tDefine"v_rel"`
        v = Closure loco vs2 env2 n bod2 ∧
        let (es,new_g) = calls [bod1] (insert_each loc 1 g0) in
        if (∀v. has_var v (SND (free es)) ⇒ v < n) then
-         bod2 = Call (loc+1) (GENLIST Var n) ∧
+         bod2 = Call 0 (loc+1) (GENLIST Var n) ∧
          subg (FST new_g,(loc+1,n,HD es)::SND new_g) g
        else
          let (e1,new_g) = calls [bod1] g0 in
@@ -150,6 +150,10 @@ val state_rel_clock = Q.store_thm("state_rel_clock",
   `state_rel g l s t ⇒ s.clock = t.clock`,
   rw[state_rel_def]);
 
+val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
+  `state_rel g l s t ⇒ state_rel g l (s with clock := k) (t with clock := k)`,
+  rw[state_rel_def]);
+
 (* syntactic properties of compiler *)
 
 val calls_length = Q.store_thm("calls_length",
@@ -170,7 +174,7 @@ val SND_insert_each = Q.store_thm("SND_insert_each[simp]",
   \\ rw[insert_each_def]);
 
 val calls_list_MAPi = Q.store_thm("calls_list_MAPi",
-  `∀loc. calls_list loc = MAPi (λi p. (FST p, Call (loc+2*i+1) (GENLIST Var (FST p))))`,
+  `∀loc. calls_list loc = MAPi (λi p. (FST p, Call 0 (loc+2*i+1) (GENLIST Var (FST p))))`,
   simp[FUN_EQ_THM]
   \\ CONV_TAC(SWAP_FORALL_CONV)
   \\ Induct \\ simp[calls_list_def]
@@ -715,7 +719,7 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
      calls (MAP SND xs) g01 = (ls,g1) ∧ n < LENGTH ls ∧
      subg (code_list (loc - 2*n) (ZIP (MAP FST xs,ls)) g1) g ∧
      ALOOKUP (SND g) (loc+1) = SOME (LENGTH env1,EL n ls) ∧
-     dest_closure (SOME loc) v2 env2 = SOME (Full_app (Call (loc+1) (GENLIST Var (LENGTH env1))) l1' l2') ∧
+     dest_closure (SOME loc) v2 env2 = SOME (Full_app (Call 0 (loc+1) (GENLIST Var (LENGTH env1))) l1' l2') ∧
      LIST_REL (v_rel g l) l1 l1' ∧ LIST_REL (v_rel g l) l2 l2' ∧
      LENGTH env1 ≤ LENGTH l1`,
   rw[dest_closure_def]
@@ -1135,10 +1139,10 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ IF_CASES_TAC \\ fs[]
       >- (
         strip_tac \\ rveq
-        \\ strip_tac \\ rveq
-        \\ fs[]
-        \\ IF_CASES_TAC \\ fs[]
-        \\ cheat (* Call clock needs fixing *) )
+        \\ strip_tac \\ rveq \\ fs[]
+        \\ imp_res_tac evaluate_length_imp \\ fs[]
+        \\ match_mp_tac state_rel_with_clock
+        \\ metis_tac[state_rel_subg] )
       \\ simp[evaluate_def,evaluate_GENLIST_Var]
       \\ simp[find_code_def]
       \\ simp[Once dec_clock_def]
@@ -1189,10 +1193,11 @@ val calls_correct = Q.store_thm("calls_correct",
       strip_tac \\ rveq
       \\ strip_tac \\ rveq
       \\ fs[]
-      \\ IF_CASES_TAC \\ fs[]
-      \\ cheat (* Call clock needs fixing *) )
+      \\ match_mp_tac state_rel_with_clock
+      \\ metis_tac[state_rel_subg])
     \\ simp[evaluate_def,evaluate_GENLIST_Var]
     \\ simp[find_code_def]
+    \\ simp[Once dec_clock_def]
     \\ simp[Once dec_clock_def]
     \\ cheat)
   (* Tick *)

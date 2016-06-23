@@ -779,7 +779,8 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     Cases_on`x`>>full_simp_tac(srw_ss())[code_rel_def] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]
+      >- ( match_mp_tac state_rel_clock \\ rw[] ) >>
       first_x_assum MATCH_MP_TAC >>
       simp[] >>
       full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] ) >>
@@ -788,7 +789,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
    (full_simp_tac(srw_ss())[evaluate_def] >>
-    Cases_on `dest_closure NONE f (v41::v42)` >>
+    Cases_on `dest_closure NONE f (v42::v43)` >>
     full_simp_tac(srw_ss())[] >>
     srw_tac[][]
     >- (imp_res_tac dest_closure_v_rel_none >>

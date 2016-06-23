@@ -96,8 +96,8 @@ val intro_multi_def = tDefine "intro_multi"`
     [Handle (HD (intro_multi [e1])) (HD (intro_multi [e2]))]) ∧
   (intro_multi [Tick e] =
     [Tick (HD (intro_multi [e]))]) ∧
-  (intro_multi [Call n es] =
-    [Call n (intro_multi es)]) ∧
+  (intro_multi [Call ticks n es] =
+    [Call ticks n (intro_multi es)]) ∧
   (intro_multi [App NONE e es] =
     let (es', e') = collect_apps es e in
       [App NONE (HD (intro_multi [e'])) (intro_multi es')]) ∧

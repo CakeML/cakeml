@@ -3407,7 +3407,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
           lookup (dest + num_stubs) t2.code = SOME (LENGTH a,c2) /\
           code_installed aux2 t2.code` by METIS_TAC [state_rel_def]
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `t2.clock = 0` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `t2.clock < ticks+1` \\ full_simp_tac(srw_ss())[]
     THEN1 (qexists_tac `ck` >> SRW_TAC [] [] \\ Q.EXISTS_TAC `f2` >> full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1'`]) \\ full_simp_tac(srw_ss())[]
@@ -3426,10 +3426,11 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
            by (imp_res_tac evaluate_add_clock >>
                fsrw_tac[ARITH_ss] [inc_clock_def])
     \\ srw_tac[][inc_clock_def]
-    \\ `p1.clock − 1 + ck' = t2.clock + ck' - 1` by simp []
+    \\ `p1.clock − (ticks+1) + ck' = t2.clock + ck' - (ticks + 1)` by simp []
     \\ full_simp_tac(srw_ss())[closSemTheory.dec_clock_def, bvlSemTheory.dec_clock_def]
     \\ Q.EXISTS_TAC `f2'` \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
+    \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[]
+    \\ `F` by decide_tac)
   THEN1
    ((* cEvalApp [] *)
     full_simp_tac(srw_ss())[cEval_def] >>
@@ -3442,7 +3443,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
    ((* cEvalApp real app *)
     qpat_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
     \\ simp [cEval_def]
-    \\ qabbrev_tac `args = v41::v42`
+    \\ qpat_abbrev_tac `args = _::_`
     \\ DISCH_TAC
     \\ qabbrev_tac `args' = args''`
     \\ `LENGTH args' ≠ 0` by metis_tac [LIST_REL_LENGTH, LENGTH, DECIDE ``SUC x ≠ 0``]
@@ -3479,7 +3480,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                by (full_simp_tac(srw_ss())[state_rel_def] >>
                    decide_tac) >>
         simp [find_code_def] >>
-        `SUC (LENGTH v42) = LENGTH args` by metis_tac [LENGTH] >>
+        `SUC (LENGTH v43) = LENGTH args` by metis_tac [LENGTH] >>
         full_simp_tac(srw_ss())[] >>
         srw_tac[][]
         >- (`s1.clock < LENGTH args'` by decide_tac >>
@@ -3540,7 +3541,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                 >- simp [] >>
                 metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND])))
     >- ((* Enough arguments to do something *)
-         `SUC (LENGTH v42) = LENGTH args` by metis_tac [LENGTH] >>
+         `SUC (LENGTH v43) = LENGTH args` by metis_tac [LENGTH] >>
          `every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e]` by (
            rator_x_assum`dest_closure`mp_tac >>
            simp[dest_closure_def] >>

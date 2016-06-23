@@ -635,11 +635,11 @@ val unused_vars_correct = Q.store_thm(
       rename1 `find_code fnum res1 s11.code = SOME (env11,b1)` >>
       rename1 `state_rel s21.clock s11 s21` >>
       rename1 `find_code fnum res2 s21.code` >>
-      qspecl_then [`s21.clock`, `fnum`, `res1`, `s11`, `env11`, `b1`, `res2`,
+      qspecl_then [`s21.clock`, `n0`, `fnum`, `res1`, `s11`, `env11`, `b1`, `res2`,
                    `s21`] mp_tac find_code_related >> simp[] >> dsimp[] >>
       srw_tac[][] >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
       full_simp_tac(srw_ss())[exec_rel_rw, evaluate_ev_def] >>
-      pop_assum (qspec_then `s21.clock - 1` mp_tac) >> simp[] >>
+      pop_assum (qspec_then `s21.clock - (n0+1)` mp_tac) >> simp[] >>
       simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
       simp[res_rel_rw, dec_clock_def] >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[])
   >- ((* App *) full_simp_tac(srw_ss())[exp_size_def, FORALL_AND_THM, DISJ_IMP_THM] >>
