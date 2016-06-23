@@ -4098,28 +4098,12 @@ val full_result_rel_timeout = Q.store_thm("full_result_rel_timeout",
   srw_tac[][full_result_rel_def] >>
   rpt (fs[clos_knownProofTheory.krrel_err_rw] >> rveq));
 
-val krrel_ffi = Q.store_thm(
-  "krrel_ffi",
-  `krrel gmap (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
-   s2.ffi = s1.ffi`,
-  Cases_on `r1` >> Cases_on`r2` >>
-  simp[clos_knownProofTheory.krrel_def, clos_knownProofTheory.ksrel_def] >>
-  simp[clos_knownProofTheory.krrel_err_rw, clos_knownProofTheory.ksrel_def] >>
-  rw[])
-
-val krrel_arg2_typeerror = Q.store_thm(
-  "krrel_arg2_typeerror[simp]",
-  `krrel g (res1, s1) (Rerr (Rabort Rtype_error), s2) ⇔
-    res1 = Rerr (Rabort Rtype_error)`,
-  Cases_on `res1` >>
-  simp[clos_knownProofTheory.krrel_def, clos_knownProofTheory.krrel_err_rw]);
-
 val full_result_rel_ffi = Q.store_thm("full_result_rel_ffi",
   `r ≠ Rerr (Rabort Rtype_error) ⇒
    full_result_rel (r,s) (r1,s1) ⇒ s.ffi = s1.ffi`,
   srw_tac[][full_result_rel_def] >>
   imp_res_tac clos_relationPropsTheory.res_rel_ffi >>
-  imp_res_tac krrel_ffi >>
+  imp_res_tac clos_knownProofTheory.krrel_ffi >>
   fs[clos_annotateProofTheory.state_rel_def,
      clos_numberProofTheory.state_rel_def,
      state_rel_def] >> rfs[] >>

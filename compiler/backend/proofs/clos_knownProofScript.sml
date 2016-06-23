@@ -1400,6 +1400,19 @@ val krrel_err_rw = Q.store_thm(
   >- (rename1 `Rabort abt` >> Cases_on `abt` >> simp[] >>
       rename1 `krrel _ _ (r2,s2)` >> Cases_on `r2` >> simp[]));
 
+val krrel_ffi = Q.store_thm(
+  "krrel_ffi",
+  `krrel gmap (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
+   s2.ffi = s1.ffi`,
+  Cases_on `r1` >> Cases_on`r2` >>
+  simp[krrel_def, ksrel_def, krrel_err_rw, ksrel_def] >> rw[])
+
+val krrel_arg2_typeerror = Q.store_thm(
+  "krrel_arg2_typeerror[simp]",
+  `krrel g (res1, s1) (Rerr (Rabort Rtype_error), s2) ⇔
+    res1 = Rerr (Rabort Rtype_error)`,
+  Cases_on `res1` >> simp[krrel_def, krrel_err_rw]);
+
 (* necesssary kvrel *)
 val kvrel_v_to_list = Q.store_thm(
   "kvrel_v_to_list",
