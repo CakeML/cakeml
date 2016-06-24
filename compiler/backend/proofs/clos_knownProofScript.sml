@@ -1031,25 +1031,26 @@ val ssgc_free_preserved_SING' = Q.store_thm(
 
 val say = say0 "known_correct";
 
-val kerel_def = Define`
-  kerel as g' e1 e2 ⇔
+val exp_rel_def = Define`
+  exp_rel as g' e1 e2 ⇔
     ∃g0 g apx. subspt g g' ∧ known [e1] as g0 = ([(e2,apx)], g)
 `;
+val _ = temp_overload_on ("kerel", ``clos_knownProof$exp_rel``)
 
-val kvrel_def = tDefine "kvrel" `
-  (kvrel g (Number i) v ⇔ v = Number i) ∧
-  (kvrel g (Word64 w) v ⇔ v = Word64 w) ∧
-  (kvrel g (Block n vs) v ⇔
-     ∃vs'. v = Block n vs' ∧ LIST_REL (kvrel g) vs vs') ∧
-  (kvrel g (RefPtr n) v ⇔ v = RefPtr n) ∧
-  (kvrel g (Closure lopt vs1 env1 n bod1) v ⇔
+val val_rel_def = tDefine "val_rel" `
+  (val_rel g (Number i) v ⇔ v = Number i) ∧
+  (val_rel g (Word64 w) v ⇔ v = Word64 w) ∧
+  (val_rel g (Block n vs) v ⇔
+     ∃vs'. v = Block n vs' ∧ LIST_REL (val_rel g) vs vs') ∧
+  (val_rel g (RefPtr n) v ⇔ v = RefPtr n) ∧
+  (val_rel g (Closure lopt vs1 env1 n bod1) v ⇔
      every_Fn_vs_NONE [bod1] ∧
      ∃vs2 env2 bod2 eapx.
-       LIST_REL (kvrel g) vs1 vs2 ∧ LIST_REL (kvrel g) env1 env2 ∧
+       LIST_REL (val_rel g) vs1 vs2 ∧ LIST_REL (val_rel g) env1 env2 ∧
        LIST_REL val_approx_val eapx env2 ∧
        kerel (REPLICATE n Other ++ eapx) g bod1 bod2 ∧
        v = Closure lopt vs2 env2 n bod2) ∧
-  (kvrel g (Recclosure lopt vs1 env1 fns1 i) v ⇔
+  (val_rel g (Recclosure lopt vs1 env1 fns1 i) v ⇔
      EVERY (λ(n,e). every_Fn_vs_NONE [e]) fns1 ∧
      let gfn = case lopt of
                  | NONE => K Other
@@ -1057,7 +1058,7 @@ val kvrel_def = tDefine "kvrel" `
      let clos = GENLIST gfn (LENGTH fns1)
      in
        ∃vs2 env2 fns2 eapx.
-         LIST_REL (kvrel g) vs1 vs2 ∧ LIST_REL (kvrel g) env1 env2 ∧
+         LIST_REL (val_rel g) vs1 vs2 ∧ LIST_REL (val_rel g) env1 env2 ∧
          LIST_REL val_approx_val eapx env2 ∧
          LIST_REL (λ(n1,e1) (n2,e2).
                      n1 = n2 ∧
@@ -1066,19 +1067,21 @@ val kvrel_def = tDefine "kvrel" `
          v = Recclosure lopt vs2 env2 fns2 i)
 ` (WF_REL_TAC `measure (v_size o FST o SND)` >> simp[v_size_def] >>
    rpt strip_tac >> imp_res_tac v_size_lemma >> simp[])
-val kvrel_ind = theorem "kvrel_ind"
-val kvrel_def = save_thm(
-  "kvrel_def[simp]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] kvrel_def)
+val val_rel_ind = theorem "val_rel_ind"
+val val_rel_def = save_thm(
+  "val_rel_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] val_rel_def)
+
+val _ = temp_overload_on ("kvrel", ``clos_knownProof$val_rel``)
 
 (* necessary kvrel *)
 val kvrel_vsgc_free = Q.store_thm(
   "kvrel_vsgc_free",
   `∀g v1 v2. kvrel g v1 v2 ⇒ (vsgc_free v1 ⇔ vsgc_free v2)`,
-  ho_match_mp_tac kvrel_ind >> simp[] >> rpt strip_tac
+  ho_match_mp_tac val_rel_ind >> simp[] >> rpt strip_tac
   >- (fs[EVERY_MEM, LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
   >- (fs[EVERY_MEM, LIST_REL_EL_EQN] >>
-      fs[kerel_def] >> imp_res_tac known_preserves_setGlobals >>
+      fs[exp_rel_def] >> imp_res_tac known_preserves_setGlobals >>
       fs[] >> metis_tac[MEM_EL])
   >- (fs[EVERY_MEM, LIST_REL_EL_EQN, elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS,
          FORALL_PROD]>>
@@ -1087,7 +1090,7 @@ val kvrel_vsgc_free = Q.store_thm(
           rename1 `m < LENGTH fns2` >>
           Cases_on `EL m fns1` >> fs[] >>
           first_x_assum (qspec_then `m` mp_tac) >> simp[] >>
-          rw[kerel_def] >>
+          rw[exp_rel_def] >>
           imp_res_tac known_preserves_setGlobals >> fs[] >>
           metis_tac[MEM_EL])
       >- metis_tac[MEM_EL]
@@ -1096,7 +1099,7 @@ val kvrel_vsgc_free = Q.store_thm(
           rename1 `m < LENGTH fns1` >>
           Cases_on `EL m fns2` >> fs[] >>
           first_x_assum (qspec_then `m` mp_tac) >> simp[] >>
-          rw[kerel_def] >>
+          rw[exp_rel_def] >>
           imp_res_tac known_preserves_setGlobals >> fs[] >>
           metis_tac[MEM_EL])
       >- metis_tac[MEM_EL]
@@ -1125,7 +1128,7 @@ val kvrel_val_approx = Q.store_thm(
   "kvrel_val_approx",
   `∀g v1 v2.
      kvrel g v1 v2 ⇒ ∀a. val_approx_val a v1 ⇔ val_approx_val a v2`,
-  ho_match_mp_tac kvrel_ind >> rw[]
+  ho_match_mp_tac val_rel_ind >> rw[]
   >- (Cases_on `a` >> simp[] >> fs[LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
   >- (Cases_on `a` >> simp[] >> fs[LIST_REL_EL_EQN] >> metis_tac[LENGTH_NIL])
   >- (Cases_on `a` >> fs[LIST_REL_EL_EQN] >> rename1 `lopt = SOME _` >>
@@ -1143,13 +1146,15 @@ val kvrel_LIST_REL_val_approx = Q.store_thm(
       ∀as. LIST_REL val_approx_val as vs1 ⇔ LIST_REL val_approx_val as vs2`,
   Induct_on `LIST_REL` >> simp[] >> metis_tac[kvrel_val_approx]);
 
-val ksrel_def = Define`
-  ksrel g (s1:'a closSem$state) (s2:'a closSem$state) ⇔
+val state_rel_def = Define`
+  state_rel g (s1:'a closSem$state) (s2:'a closSem$state) ⇔
      s2.clock = s1.clock ∧ s2.ffi = s1.ffi ∧
      LIST_REL (OPTREL (kvrel g)) s1.globals s2.globals ∧
      fmap_rel (ref_rel (kvrel g)) s1.refs s2.refs ∧
      s1.code = FEMPTY ∧ s2.code = FEMPTY
 `;
+val _ = temp_overload_on ("ksrel", ``clos_knownProof$state_rel``)
+val ksrel_def = state_rel_def
 
 (* ksrel necessary *)
 val ksrel_sga = Q.store_thm(
@@ -1193,17 +1198,19 @@ val ksrel_ssgc_free = Q.store_thm(
       pop_assum mp_tac >> simp_tac(srw_ss()) [OPTREL_def] >> simp[] >>
       metis_tac[kvrel_vsgc_free, MEM_EL]))
 
-val krrel_def = Define`
-  (krrel g (Rval vs1, s1) r ⇔
+val res_rel_def = Define`
+  (res_rel g (Rval vs1, s1) r ⇔
       ∃s2 vs2. r = (Rval vs2,s2) ∧ LIST_REL (kvrel g) vs1 vs2 ∧ ksrel g s1 s2) ∧
-  (krrel g (Rerr (Rabort Rtype_error), _) _ ⇔ T) ∧
-  (krrel g (Rerr (Rabort Rtimeout_error), s1) (Rerr e, s2) ⇔
+  (res_rel g (Rerr (Rabort Rtype_error), _) _ ⇔ T) ∧
+  (res_rel g (Rerr (Rabort Rtimeout_error), s1) (Rerr e, s2) ⇔
      e = Rabort Rtimeout_error ∧ ksrel g s1 s2) ∧
-  (krrel g (Rerr (Rraise v1), s1) (Rerr (Rraise v2), s2) ⇔
+  (res_rel g (Rerr (Rraise v1), s1) (Rerr (Rraise v2), s2) ⇔
      kvrel g v1 v2 ∧ ksrel g s1 s2) ∧
-  (krrel _ _ _ ⇔ F)
+  (res_rel _ _ _ ⇔ F)
 `;
-val _ = export_rewrites ["krrel_def"]
+val _ = export_rewrites ["res_rel_def"]
+val _ = temp_overload_on ("krrel", ``clos_knownProof$res_rel``)
+val krrel_def = res_rel_def
 
 val krrel_errval = Q.store_thm(
   "krrel_errval[simp]",
@@ -1244,7 +1251,7 @@ val kvrel_v_to_list = Q.store_thm(
   `∀g v1 v2 l1.
      kvrel g v1 v2 ∧ v_to_list v1 = SOME l1 ⇒
      ∃l2. v_to_list v2 = SOME l2 ∧ LIST_REL (kvrel g) l1 l2`,
-  ho_match_mp_tac kvrel_ind >> simp[v_to_list_def, PULL_EXISTS] >>
+  ho_match_mp_tac val_rel_ind >> simp[v_to_list_def, PULL_EXISTS] >>
   rpt strip_tac >> rename1 `v_to_list (closSem$Block _ vs2)` >>
   Cases_on `vs2` >> fs[v_to_list_def] >> rw[] >> fs[v_to_list_def] >>
   rename1 `v_to_list (closSem$Block _ (_ :: vs2'))` >>
@@ -1471,7 +1478,7 @@ val kvrel_dest_closure_SOME_Full = Q.store_thm(
 val kvrel_subspt = Q.store_thm(
   "kvrel_subspt",
   `∀g v1 v2 g'. kvrel g v1 v2 ∧ subspt g g' ⇒ kvrel g' v1 v2`,
-  ho_match_mp_tac kvrel_ind >> simp[PULL_EXISTS] >> rpt strip_tac
+  ho_match_mp_tac val_rel_ind >> simp[PULL_EXISTS] >> rpt strip_tac
   >- (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
       simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >> qexists_tac `kvrel g` >>
       simp[] >> metis_tac[MEM_EL])
@@ -1480,7 +1487,7 @@ val kvrel_subspt = Q.store_thm(
       TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
            simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
            qexists_tac `kvrel g` >> simp[] >> metis_tac[MEM_EL]) >>
-      fs[kerel_def] >> metis_tac[subspt_trans])
+      fs[exp_rel_def] >> metis_tac[subspt_trans])
   >- (rename1 `LIST_REL val_approx_val envapx _` >> qexists_tac `envapx` >>
       simp[] >> rpt conj_tac >>
       TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
@@ -1489,7 +1496,7 @@ val kvrel_subspt = Q.store_thm(
       qpat_assum `LIST_REL (UNCURRY _) _ _` mp_tac >> simp[LIST_REL_EL_EQN] >>
       rpt strip_tac >> fs[] >> rfs[] >> rpt (pairarg_tac >> fs[]) >>
       rename1 `nn < LENGTH _` >> first_x_assum (qspec_then `nn` mp_tac) >>
-      simp[] >> simp[kerel_def] >> metis_tac[subspt_trans]))
+      simp[] >> simp[exp_rel_def] >> metis_tac[subspt_trans]))
 
 val kvrel_LIST_REL_subspt = Q.store_thm(
   "kvrel_LIST_REL_subspt",
@@ -1788,7 +1795,7 @@ val known_correct0 = Q.prove(
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       dsimp[evaluate_def, eqs] >> imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
       rveq >>
-      simp[kerel_def, PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_val_approx])
+      simp[exp_rel_def, PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_val_approx])
   >- (say "letrec" >>
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def, bool_case_eq,
            eqs] >> rpt strip_tac >> rveq >> fs[] >>
@@ -1816,7 +1823,7 @@ val known_correct0 = Q.prove(
                   >- metis_tac[kvrel_LIST_REL_val_approx] >>
                   simp[LIST_REL_EL_EQN, EL_MAP] >>
                   qx_gen_tac `nn` >> strip_tac >> pairarg_tac >>
-                  simp[] >> simp[kerel_def] >>
+                  simp[] >> simp[exp_rel_def] >>
                   map_every rename1 [`ksrel gg ss1 ss2`, `subspt g gg`,
                                        `subspt g0 g`] >>
                   ntac 2 (qexists_tac `g0`) >> simp[] >>
@@ -2001,7 +2008,7 @@ val known_correct0 = Q.prove(
             `dest_closure lopt1 f1 (iarg1 :: iargs) =
                SOME (Full_app exp1 env1 args1)`,
             `evaluate([exp1],env1,dec_clock _ s01) = (Rval [v1], s11)`,
-            `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
+            `kerel envapx gg exp1 exp2`] >> fs[exp_rel_def] >>
           rpt disj1_tac >>
           first_x_assum (patresolve `known [exp1] _ _ = _` last) >> simp[] >>
           map_every rename1 [
@@ -2058,7 +2065,7 @@ val known_correct0 = Q.prove(
             `dest_closure lopt1 f1 (iarg1 :: iargs) =
                SOME (Full_app exp1 env1 args1)`,
             `evaluate([exp1],env1,dec_clock _ s01) = (Rerr err1, s1)`,
-            `kerel envapx gg exp1 exp2`] >> fs[kerel_def] >>
+            `kerel envapx gg exp1 exp2`] >> fs[exp_rel_def] >>
           first_x_assum (patresolve `known [exp1] _ _ = _` last) >> simp[] >>             map_every rename1 [
             `evaluate([exp1],env1,
                       dec_clock (SUC (LENGTH iargs1) - LENGTH args2) s01)`,

@@ -18,6 +18,12 @@ val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bv
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
 
 val _ = temp_overload_on ("kcompile", ``clos_known$compile``)
+val _ = temp_overload_on ("kvrel", ``clos_knownProof$val_rel``)
+val _ = temp_overload_on ("kerel", ``clos_knownProof$exp_rel``)
+val _ = temp_overload_on ("ksrel", ``clos_knownProof$state_rel``)
+val _ = temp_overload_on ("krrel", ``clos_knownProof$res_rel``)
+
+val _ = temp_overload_on ("state_rel", ``clos_relation$state_rel``)
 
 (* TODO: move? *)
 
@@ -4022,7 +4028,8 @@ val full_state_rel_def = Define`
       clos_to_bvlProof$state_rel f sd s2`;
 
 val full_state_rel_with_clock = Q.store_thm("full_state_rel_with_clock",
-  `full_state_rel s1 s2 ⇒ full_state_rel (s1 with clock := k) (s2 with clock := k)`,
+  `full_state_rel s1 s2 ⇒
+   full_state_rel (s1 with clock := k) (s2 with clock := k)`,
   srw_tac[][full_state_rel_def] >>
   qmatch_goalsub_rename_tac`clos_relation$state_rel ck` >>
   first_x_assum(qspec_then`ck`strip_assume_tac) >>
@@ -4033,7 +4040,7 @@ val full_state_rel_with_clock = Q.store_thm("full_state_rel_with_clock",
   qexists_tac`sd with clock := k` >> simp[] >>
   qexists_tac`f`>>simp[] >>
   fs[clos_numberProofTheory.state_rel_def,
-     clos_knownProofTheory.ksrel_def,
+     clos_knownProofTheory.state_rel_def,
      clos_annotateProofTheory.state_rel_def]);
 
 val full_result_rel_def = Define`
@@ -4057,7 +4064,7 @@ val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
    r = Rerr (Rabort a)`,
   srw_tac[][full_result_rel_def] >>
   Cases_on`rb'`>> fs[clos_relationTheory.res_rel_rw]>>
-  Cases_on`rb` >> fs[clos_knownProofTheory.krrel_def] >> rveq >>
+  Cases_on`rb` >> fs[clos_knownProofTheory.res_rel_def] >> rveq >>
   rename[`evalProps$exc_rel clos_numberProof$v_rel e1 e2`,
          `res_rel (Rerr e0,sb') (Rerr (Rabort a), sc)`] >>
   Cases_on`e0`>> fs[clos_relationTheory.res_rel_rw]>>
@@ -4113,8 +4120,10 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >>
   simp[full_result_rel_def,PULL_EXISTS] >>
   qmatch_assum_abbrev_tac`res_rel _ q` >>
-  Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``res_rel`` o fst o strip_comb))) >>
+  Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
+  pop_assum(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+  CONV_TAC(STRIP_QUANT_CONV
+    (move_conj_left(same_const``clos_relation$res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
 
   (* renumber_correct *)
@@ -4124,7 +4133,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   simp[] >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   disch_then(qspec_then`c.next_loc`mp_tac) >> simp[] >> strip_tac >>
-  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_numberProof$state_rel`` o fst o strip_comb))) >>
+  CONV_TAC(STRIP_QUANT_CONV
+    (move_conj_left(same_const``clos_numberProof$state_rel`` o fst o
+                    strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   rator_x_assum`renumber_code_locs_list`mp_tac >>
   specl_args_of_then``renumber_code_locs_list``
