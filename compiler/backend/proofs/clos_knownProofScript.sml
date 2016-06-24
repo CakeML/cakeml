@@ -97,28 +97,11 @@ fun patresolve p f th =
   qpat_assum p (fn cth => mp_tac (asmPART_MATCH' f th (concl cth)) >>
                           assume_tac cth)
 
-val _ = export_rewrites ["closLang.exp_size_def"]
-
 val any_el_ALT = Q.store_thm(
   "any_el_ALT",
   `∀l n d. any_el n l d = if n < LENGTH l then EL n l else d`,
   Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
   fs[]);
-
-val exp_size_MEM = Q.store_thm(
-  "exp_size_MEM",
-  `(∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
-   (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)`,
-  conj_tac >| [Induct_on `elist`, Induct_on `ealist`] >> dsimp[] >>
-  rpt strip_tac >> res_tac >> simp[]);
-
-val evaluate_eq_nil = Q.store_thm(
-  "evaluate_eq_nil[simp]",
-  `closSem$evaluate(es,env,s0) = (Rval [], s) ⇔ s0 = s ∧ es = []`,
-  Cases_on `es` >> simp[evaluate_def] >>
-  strip_tac >> rename1 `evaluate(h::t, env, s0)` >>
-  Q.ISPECL_THEN [`h::t`, `env`, `s0`] mp_tac (CONJUNCT1 evaluate_LENGTH) >>
-  simp[]);
 
 (* unused *)
 val evaluate_list_members_individually = Q.store_thm(
@@ -142,64 +125,6 @@ val union_idem = Q.store_thm(
   Induct >> simp[union_def]);
 
 (* simple properties of constants from clos_known: i.e., merge and known *)
-val op_gbag_def = Define`
-  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
-  op_gbag _ = {||}
-`;
-
-val set_globals_def = tDefine "set_globals" `
-  (set_globals (Var _) = {||}) ∧
-  (set_globals (If e1 e2 e3) =
-    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
-  (set_globals (Let binds e) =
-    FOLDR $BAG_UNION (set_globals e) (MAP set_globals binds)) ∧
-  (set_globals (Raise e) = set_globals e) ∧
-  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Tick e) = set_globals e) ∧
-  (set_globals (Call _ _ args) = FOLDR $BAG_UNION {||} (MAP set_globals args)) ∧
-  (set_globals (App _ f args) =
-    FOLDR $BAG_UNION (set_globals f) (MAP set_globals args)) ∧
-  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
-  (set_globals (Letrec _ _ fbinds bod) =
-    FOLDR (λne s. set_globals (SND ne) ⊎ s) (set_globals bod) fbinds) ∧
-  (set_globals (Op opn args) =
-    FOLDR $BAG_UNION (op_gbag opn) (MAP set_globals args))
-`
-  (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[])
-
-val elist_globals_def = Define`
-  elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)
-`;
-val elist_globals_thm = Q.store_thm(
-  "elist_globals_thm[simp]",
-  `elist_globals [] = {||} ∧
-   elist_globals (exp::rest) = set_globals exp ⊎ elist_globals rest`,
-  simp[elist_globals_def]);
-
-val FOLDR_BAG_UNION_extract_acc = Q.store_thm(
-  "FOLDR_BAG_UNION_extract_acc",
-  `∀l a b. a ⊎ FOLDR (BAG_UNION o f) b l = FOLDR (BAG_UNION o f) (a ⊎ b) l`,
-  Induct_on `l` >> simp[] >> metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
-val foldr_bu =
-    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
-                                |> INST_TYPE [alpha |-> ``:β bag``]
-                                |> Q.INST [`b` |-> `{||}`, `f` |-> `I`]
-                                |> SIMP_RULE (srw_ss()) []
-                                |> GSYM
-
-val foldr_bu' =
-    FOLDR_BAG_UNION_extract_acc |> SPEC_ALL
-                                |> Q.INST [`b` |-> `{||}`, `f` |-> `λa. g a`]
-                                |> SIMP_RULE (srw_ss()) [o_ABS_R]
-                                |> GSYM
-
-
-val set_globals_def = save_thm("set_globals_def[simp]",
-  set_globals_def |> ONCE_REWRITE_RULE [foldr_bu]
-                  |> SIMP_RULE (srw_ss() ++ ETA_ss) [GSYM elist_globals_def])
-val set_globals_ind = theorem "set_globals_ind"
-
 val known_op_changed_globals = Q.store_thm(
   "known_op_changed_globals",
   `∀opn as g0 a g.
@@ -250,8 +175,7 @@ val known_changed_globals = Q.store_thm(
   >- (rename1 `known _ _ g0 = (_, g1)` >>
       Cases_on `i ∈ domain g1` >> fs[] >>
       Cases_on `lookup i g1 = lookup i g0` >> fs[] >>
-      Cases_on `lookup i g = lookup i g1` >> fs[])
-  >- simp[Once foldr_bu'])
+      Cases_on `lookup i g = lookup i g1` >> fs[]));
 
 val subspt_better_definedg = Q.store_thm(
   "subspt_better_definedg",
@@ -312,15 +236,9 @@ val FINITE_BAG_FOLDR = Q.store_thm(
 
 val FINITE_set_globals = Q.store_thm(
   "FINITE_set_globals[simp]",
-  `∀e. FINITE_BAG (set_globals e)`,
-  ho_match_mp_tac set_globals_ind >> simp[elist_globals_def] >> rpt strip_tac >>
-  TRY (irule FINITE_BAG_FOLDR >> dsimp[MEM_MAP] >> NO_TAC) >>
+  `(∀e. FINITE_BAG (set_globals e)) ∧ ∀es. FINITE_BAG (elist_globals es)`,
+  ho_match_mp_tac set_globals_ind >> simp[] >> rpt strip_tac >>
   rename1 `op_gbag opn` >> Cases_on `opn` >> simp[op_gbag_def]);
-
-val FINITE_BAG_elist_globals = Q.store_thm(
-  "FINITE_BAG_elist_globals[simp]",
-  `FINITE_BAG (elist_globals es)`,
-  Induct_on `es` >> fs[]);
 
 val state_globals_approx_def = Define`
   state_globals_approx s g ⇔
@@ -398,82 +316,6 @@ val state_globals_approx_ffifupd = Q.store_thm(
   `state_globals_approx (s with ffi updated_by f) g ⇔
    state_globals_approx s g`,
   simp[state_globals_approx_def]);
-
-val v_size_lemma = prove(
-  ``MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl``,
-  Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
-  res_tac >> simp[]);
-
-(* value is setglobal-closure free *)
-val vsgc_free_def = tDefine "vsgc_free" `
-  (vsgc_free (Closure _ VL1 VL2 _ body) ⇔
-     set_globals body = {||} ∧
-     EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
-  (vsgc_free (Recclosure _ VL1 VL2 bods _) ⇔
-     elist_globals (MAP SND bods) = {||} ∧
-     EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
-  (vsgc_free (Block _ VL) ⇔ EVERY vsgc_free VL) ∧
-  (vsgc_free _ ⇔ T)
-` (WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def] >>
-   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[])
-
-val vsgc_free_def = save_thm(
-  "vsgc_free_def[simp]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] vsgc_free_def)
-
-val vsgc_free_Unit = Q.store_thm(
-  "vsgc_free_Unit[simp]",
-  `vsgc_free Unit`,
-  simp[Unit_def]);
-
-val vsgc_free_Boolv = Q.store_thm(
-  "vsgc_free_Boolv[simp]",
-  `vsgc_free (Boolv b)`,
-  simp[Boolv_def]);
-
-(* result is setglobal-closure free *)
-val rsgc_free_def = Define`
-  (rsgc_free (Rval vs) ⇔ EVERY vsgc_free vs) ∧
-  (rsgc_free (Rerr (Rabort _)) ⇔ T) ∧
-  (rsgc_free (Rerr (Rraise v)) ⇔ vsgc_free v)
-`;
-val _ = export_rewrites ["rsgc_free_def"]
-
-(* state is setglobal-closure free *)
-val ssgc_free_def = Define`
-  ssgc_free (s:'a closSem$state) ⇔
-    (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
-    (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
-    (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v)
-`;
-
-val ssgc_free_clockupd = Q.store_thm(
-  "ssgc_free_clockupd[simp]",
-  `ssgc_free (s with clock updated_by f) = ssgc_free s`,
-  simp[ssgc_free_def])
-
-val ssgc_free_dec_clock = Q.store_thm(
-  "ssgc_free_dec_clock[simp]",
-  `ssgc_free (dec_clock n s) ⇔ ssgc_free s`,
-  simp[dec_clock_def])
-
-val esgc_free_def = tDefine "esgc_free" `
-  (esgc_free (Var _) ⇔ T) ∧
-  (esgc_free (If e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
-  (esgc_free (Let binds e) ⇔ EVERY esgc_free binds ∧ esgc_free e) ∧
-  (esgc_free (Raise e) ⇔ esgc_free e) ∧
-  (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Tick e) ⇔ esgc_free e) ∧
-  (esgc_free (Call _ _ args) ⇔ EVERY esgc_free args) ∧
-  (esgc_free (App _ e args) ⇔ esgc_free e ∧ EVERY esgc_free args) ∧
-  (esgc_free (Fn _ _ _ b) ⇔ set_globals b = {||}) ∧
-  (esgc_free (Letrec _ _ binds bod) ⇔
-    elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
-  (esgc_free (Op _ args) ⇔ EVERY esgc_free args)
-` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[])
-val esgc_free_def = save_thm("esgc_free_def[simp]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
 val value_ind =
   TypeBase.induction_of ``:closSem$v``
@@ -612,26 +454,6 @@ val EVERY_lookup_vars = Q.store_thm(
   Induct >> simp[lookup_vars_def, eqs, PULL_EXISTS] >>
   metis_tac[MEM_EL, EVERY_MEM]);
 
-val FOLDR_BU_EQ_EMPTY = Q.store_thm(
-  "FOLDR_BU_EQ_EMPTY",
-  `FOLDR (λx. BAG_UNION (f x)) a l = {||} ⇔
-     a = {||} ∧ ∀e. MEM e l ⇒ f e = {||}`,
-  Induct_on `l` >> dsimp[] >> metis_tac[])
-
-val elglobals_EQ_EMPTY = Q.store_thm(
-  "elglobals_EQ_EMPTY",
-  `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,
-  Induct_on `l` >> dsimp[]);
-
-val set_globals_empty_esgc_free = Q.store_thm(
-  "set_globals_empty_esgc_free",
-  `set_globals e = {||} ⇒ esgc_free e`,
-  completeInduct_on `exp_size e` >> fs[PULL_FORALL] >> Cases >>
-  simp[] >> strip_tac >> rveq >> fs[AND_IMP_INTRO] >>
-  simp[EVERY_MEM, elglobals_EQ_EMPTY, FOLDR_BU_EQ_EMPTY, MEM_MAP] >>
-  rw[] >> rw[] >>
-  first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
-
 val lem = Q.prove(
   `(∀a es env (s0:α closSem$state) res s.
       a = (es,env,s0) ∧ evaluate(es,env,s0) = (res,s) ⇒
@@ -748,13 +570,11 @@ val ssgc_evaluate0 = Q.prove(
       simp[evaluate_def, eqs, bool_case_eq] >> rpt gen_tac >>
       strip_tac >> rveq >> fs[] >> metis_tac[EVERY_lookup_vars])
   >- ((* Letrec *) say "letrec" >>
-      simp[Once foldr_bu', SET_OF_BAG_UNION] >>
       simp[evaluate_def, bool_case_eq, eqs] >>
       rpt (gen_tac ORELSE disch_then strip_assume_tac) >> rveq >>
-      fs[EVERY_GENLIST]
-      >- (metis_tac[mglobals_extend_SUBSET, SUBSET_UNION])
-      >- (imp_res_tac EVERY_lookup_vars >> fs[] >>
-          metis_tac[mglobals_extend_SUBSET, SUBSET_UNION]))
+      fs[EVERY_GENLIST] >>
+      imp_res_tac EVERY_lookup_vars >> fs[] >>
+      metis_tac[mglobals_extend_SUBSET, SUBSET_UNION])
   >- ((* App *) say "app" >>
       rpt gen_tac >> strip_tac >>
       simp[evaluate_def, bool_case_eq, pair_case_eq,
@@ -828,6 +648,10 @@ val ssgc_evaluate = save_thm(
   "ssgc_evaluate",
   ssgc_evaluate0 |> CONJUNCT1 |> SIMP_RULE bool_ss []);
 
+val elist_globals_FOLDR = prove(
+  ``elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)``,
+  Induct_on `es` >> simp[]);
+
 val known_preserves_setGlobals = Q.store_thm(
   "known_preserves_setGlobals",
   `∀es as g0 all g.
@@ -835,12 +659,15 @@ val known_preserves_setGlobals = Q.store_thm(
       elist_globals (MAP FST all) = elist_globals es`,
   ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rw[] >> fs[] >> imp_res_tac known_sing_EQ_E >>
-  rw[] >> fs[] >> rw[] >> simp[FOLDR_MAP] >>
-  irule FOLDR_CONG >> simp[] >> rpt strip_tac >> pairarg_tac >>
+  rw[] >> fs[] >> rw[] >> simp[elist_globals_FOLDR] >>
+  irule FOLDR_CONG >> simp[] >>
+  simp[LIST_EQ_REWRITE, EL_MAP] >>
+  rpt strip_tac >> pairarg_tac >>
   simp[]>> rw[] >>
   qmatch_abbrev_tac `set_globals (FST (HD (FST (known [X] ENV G0)))) =
                      set_globals X` >>
-  rename1 `MEM (nn,X) fns` >> res_tac >> rfs[] >>
+  rename1 `EL x fns = (nn,X)` >> `MEM (nn,X) fns` by metis_tac[MEM_EL] >>
+  res_tac >> rfs[] >>
   `∃X' APX g'. known [X] ENV G0 = ([(X',APX)], g')` by metis_tac[known_sing] >>
   fs[])
 
@@ -860,7 +687,7 @@ val known_preserves_esgc_free = Q.store_thm(
   ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rw[] >> fs[] >> imp_res_tac known_sing_EQ_E >>
   rw[] >> fs[] >> rw[ALL_EL_MAP]
-  >- (imp_res_tac known_preserves_setGlobals >> fs[elist_globals_def])
+  >- (imp_res_tac known_preserves_setGlobals >> fs[])
   >- (fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS] >> rpt strip_tac >>
       pairarg_tac >> rw[] >> fs[FORALL_PROD] >>
       qmatch_abbrev_tac
@@ -869,7 +696,7 @@ val known_preserves_esgc_free = Q.store_thm(
       rpt (first_x_assum (qspecl_then [`nn`, `X`] mp_tac)) >> simp[] >>
       `∃X' APX gg. known [X] ENV g00 = ([(X',APX)], gg)`
         by metis_tac[known_sing] >> simp[] >>
-      imp_res_tac known_preserves_setGlobals >> fs[elist_globals_def]))
+      imp_res_tac known_preserves_setGlobals >> fs[]))
 
 val ssgc_free_preserved_SING = Q.store_thm(
   "ssgc_free_preserved_SING",
@@ -881,7 +708,6 @@ val ssgc_free_preserved_SING = Q.store_thm(
      by metis_tac[known_preserves_esgc_free] >>
   `EVERY esgc_free [e1']` by fs[] >>
   metis_tac[ssgc_evaluate]);
-
 
 val known_op_correct_approx = Q.store_thm(
   "known_op_correct_approx",
@@ -1167,7 +993,6 @@ val known_correct_approx = Q.store_thm(
           first_x_assum (qspecl_then [
             `GENLIST (Recclosure lopt [] env (MAP ff fns)) (LENGTH fns) ++ env`,
             `s0`] mp_tac) >> simp[] >>
-          fs[Once foldr_bu', BAG_ALL_DISTINCT_BAG_UNION] >>
           imp_res_tac LIST_REL_LENGTH >>
           simp[LIST_REL_EL_EQN, EL_GENLIST, EL_APPEND_EQN, EVERY_MEM,
                MEM_GENLIST, PULL_EXISTS] >>
@@ -1399,6 +1224,19 @@ val krrel_err_rw = Q.store_thm(
       rename1 `krrel _ _ (Rerr e,_)` >> Cases_on `e` >> simp[])
   >- (rename1 `Rabort abt` >> Cases_on `abt` >> simp[] >>
       rename1 `krrel _ _ (r2,s2)` >> Cases_on `r2` >> simp[]));
+
+val krrel_ffi = Q.store_thm(
+  "krrel_ffi",
+  `krrel gmap (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
+   s2.ffi = s1.ffi`,
+  Cases_on `r1` >> Cases_on`r2` >>
+  simp[krrel_def, ksrel_def, krrel_err_rw, ksrel_def] >> rw[])
+
+val krrel_arg2_typeerror = Q.store_thm(
+  "krrel_arg2_typeerror[simp]",
+  `krrel g (res1, s1) (Rerr (Rabort Rtype_error), s2) ⇔
+    res1 = Rerr (Rabort Rtype_error)`,
+  Cases_on `res1` >> simp[krrel_def, krrel_err_rw]);
 
 (* necesssary kvrel *)
 val kvrel_v_to_list = Q.store_thm(
@@ -1696,10 +1534,9 @@ val known_emptySetGlobals_unchanged_g = Q.store_thm(
      g = g0`,
   ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
-  rveq >> fs[]
-  >- (rename1 `known_op opn` >> Cases_on `opn` >>
-      fs[known_op_def, eqs, op_gbag_def, va_case_eq, bool_case_eq]) >>
-  fs[Once foldr_bu']);
+  rveq >> fs[] >>
+  rename1 `known_op opn` >> Cases_on `opn` >>
+  fs[known_op_def, eqs, op_gbag_def, va_case_eq, bool_case_eq]);
 
 val krrel_better_subspt = Q.store_thm(
   "krrel_better_subspt",
@@ -1956,14 +1793,14 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def, bool_case_eq,
            eqs] >> rpt strip_tac >> rveq >> fs[] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-      fs[Once foldr_bu', BAG_ALL_DISTINCT_BAG_UNION] >>
+      fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       simp[evaluate_def, eqs, bool_case_eq] >> dsimp[] >>
       simp[EVERY_MAP, EXISTS_MAP]
       >- (disj1_tac >> simp[EVERY_MEM, FORALL_PROD] >>
           imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
           sel_ihpc last >> simp[EVERY_GENLIST] >>
           rpt (disch_then (resolve_selected last) >> simp[]) >>
-          rename1 `BAG_ALL_DISTINCT (FOLDR _ _ fns1)` >>
+          rename1 `BAG_ALL_DISTINCT (elist_globals (MAP SND fns1))` >>
           `∀n e. MEM (n,e) fns1 ⇒ n ≤ max_app ∧ n ≠ 0`
             by fs[EVERY_MEM, FORALL_PROD] >> simp[] >> strip_tac >>
           simp[GSYM PULL_EXISTS] >> simp[Once EQ_SYM_EQ] >>
@@ -2450,7 +2287,6 @@ val known_increases_subspt_info = Q.store_thm(
       simp[LIST_REL_REPLICATE_same, EVERY2_APPEND_suff])
   >- (say "letrec" >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> rveq >>
-      fs[Once foldr_bu', BAG_ALL_DISTINCT_BAG_UNION] >>
       imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
       map_every rename1 [`apx1' ◁ apx1`,
                            `known [bod] _ g0 = ([(_,apx1)], g1)`,

@@ -476,8 +476,7 @@ val app_combine = Q.store_thm ("app_combine",
  full_simp_tac(srw_ss())[] >>
  `res_rel (evaluate_app NONE (HD vs3) vs1 s3) (evaluate_app NONE (HD vs3') vs1' s3')` by (
    Cases_on `vs1 = []` >>
-   full_simp_tac(srw_ss())[]
-   >- simp [evaluate_def, res_rel_rw] >>
+   full_simp_tac(srw_ss())[] >>
    match_mp_tac res_rel_evaluate_app >>
    srw_tac[][] >>
    imp_res_tac evaluate_clock >>
@@ -844,5 +843,32 @@ val val_rel_bool = Q.store_thm(
   "val_rel_bool[simp]",
   `val_rel (:'ffi) c (Boolv b) v ⇔ v = Boolv b`,
   Cases_on `v` >> simp[val_rel_rw, Boolv_def] >> metis_tac[]);
+
+val res_rel_arg2_typeerror = Q.store_thm(
+  "res_rel_arg2_typeerror[simp]",
+  `res_rel (r1,s1) (Rerr (Rabort Rtype_error),s2) ⇔
+     r1 = Rerr (Rabort Rtype_error)`,
+  Cases_on `r1` >> simp[res_rel_rw] >>
+  rename1 `res_rel (Rerr err,_)` >> Cases_on `err` >>
+  simp[res_rel_rw] >>
+  rename1 `res_rel (Rerr (Rabort abt),_)` >> Cases_on `abt` >>
+  simp[res_rel_rw])
+
+val res_rel_arg2_timeout = Q.store_thm(
+  "res_rel_arg2_timeout",
+  `res_rel (r1,s1) (Rerr (Rabort Rtimeout_error), s2) ⇔
+     r1 = Rerr (Rabort Rtype_error) ∨
+     r1 = Rerr (Rabort Rtimeout_error) ∧
+     state_rel s1.clock s1 s2`,
+  Cases_on `r1` >> simp[res_rel_rw] >>
+  rename1`res_rel (Rerr err, _)` >> Cases_on `err` >>
+  simp[res_rel_rw] >>
+  rename1`res_rel (Rerr (Rabort abt),_)` >> Cases_on `abt`>>
+  simp[res_rel_rw]);
+
+val res_rel_arg1_timeout = Q.store_thm("res_rel_arg1_timeout[simp]",
+  `res_rel (Rerr (Rabort Rtimeout_error), s1) (r2,s2) ⇔
+     r2 = Rerr (Rabort Rtimeout_error) ∧ state_rel s1.clock s1 s2`,
+  simp[res_rel_rw])
 
 val _ = export_theory();

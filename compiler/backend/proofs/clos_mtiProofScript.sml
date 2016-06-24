@@ -191,7 +191,6 @@ val exp_rel_exec_rel_Exp1 = Q.store_thm(
       >- fs[evaluate_def, res_rel_rw] >>
       irule res_rel_evaluate_app >> simp[] >> imp_res_tac evaluate_clock >>
       fs[] >> irule val_rel_mono_list >> qexists_tac `i` >> simp[])
-  >- simp[res_rel_rw]
   >- simp[res_rel_rw])
 
 val recClosure_add_arg0 = Q.prove(
@@ -337,7 +336,6 @@ val recClosure_add_arg0 = Q.prove(
                   irule EVERY2_TAKE >> irule val_rel_mono_list >>
                   qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >>
                   fs[])
-              >- simp[res_rel_rw]
               >- simp[res_rel_rw]) >>
           simp[] >> fs[dest_addarg_Fn_EQ_SOME] >>
           strip_tac >> `m = 0` by simp[] >> rveq >> fs[] >>
@@ -380,7 +378,6 @@ val recClosure_add_arg0 = Q.prove(
           >- (irule res_rel_evaluate_app >> simp[TAKE_EQ_NIL] >>
               irule EVERY2_TAKE >> irule val_rel_mono_list >>
               qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >> fs[]))
-      >- simp[res_rel_rw]
       >- simp[res_rel_rw]) >>
   `LENGTH fns2 = LENGTH fns1 ∧ LENGTH CE2 = LENGTH CE1 ∧
    LENGTH AE2 = LENGTH AE1` by fs[LIST_REL_EL_EQN] >>
@@ -443,7 +440,6 @@ val recClosure_add_arg0 = Q.prove(
       >- (irule res_rel_evaluate_app >> simp[TAKE_EQ_NIL] >>
           irule EVERY2_TAKE >> irule val_rel_mono_list >>
           qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >> fs[]))
-  >- simp[res_rel_rw]
   >- simp[res_rel_rw])
 
 val recClosure_add_arg_lem = save_thm(
@@ -493,11 +489,11 @@ val _ = export_rewrites ["mti_letrec1_def"]
 
 val mti_letrec1_size_decrease = Q.store_thm(
   "mti_letrec1_size_decrease",
-  `mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
+  `∀m b n b'.
+     mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
   Cases_on `b` >> simp[Cong DISJ_CONG] >>
   rename1 `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
-  simp[Cong DISJ_CONG] >> rw[] >>
-  simp[Cong DISJ_CONG, closLangTheory.exp_size_def]);
+  dsimp[bool_case_eq]);
 
 val mti_letrec1_size_LEQ = Q.store_thm(
   "mti_letrec1_size_LEQ",

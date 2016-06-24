@@ -17,6 +17,8 @@ val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
 
+val _ = temp_overload_on ("kcompile", ``clos_known$compile``)
+
 (* TODO: move? *)
 
 val ARITH_TAC = intLib.ARITH_TAC;
@@ -4007,10 +4009,11 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
 
 val full_state_rel_def = Define`
   full_state_rel s1 s2 ⇔
-    ∀k. ∃sa sb sc sd f.
-      state_rel k s1 sa ∧ s1.clock = sa.clock ∧
-      clos_numberProof$state_rel sa sb ∧
-      state_rel k sb sc ∧ sb.clock = sc.clock ∧
+    ∀k. ∃sa sb sb' sc sd f.
+      state_rel k s1 sa ∧ s1.clock = sa.clock ∧         (* intro_multi *)
+      clos_numberProof$state_rel sa sb ∧                   (* renumber *)
+      ksrel LN sb sb' ∧                                       (* known *)
+      state_rel k sb' sc ∧ sb.clock = sc.clock ∧
       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
       clos_annotateProof$state_rel sc sd ∧
       (* TODO: (some of) these FEVERYs are redundant given the state_rels *)
@@ -4025,18 +4028,21 @@ val full_state_rel_with_clock = Q.store_thm("full_state_rel_with_clock",
   first_x_assum(qspec_then`ck`strip_assume_tac) >>
   qexists_tac`sa with clock := k` >> simp[] >>
   qexists_tac`sb with clock := k` >> simp[] >>
+  qexists_tac`sb' with clock := k` >> simp[] >>
   qexists_tac`sc with clock := k` >> simp[] >>
   qexists_tac`sd with clock := k` >> simp[] >>
   qexists_tac`f`>>simp[] >>
-  full_simp_tac(srw_ss())[clos_numberProofTheory.state_rel_def,
+  fs[clos_numberProofTheory.state_rel_def,
+     clos_knownProofTheory.ksrel_def,
      clos_annotateProofTheory.state_rel_def]);
 
 val full_result_rel_def = Define`
   full_result_rel (r1,s1) (r2,s2) ⇔
-    ∃ra rb rc rd sa sb sc sd f.
+    ∃ra rb rb' kgmap rc rd sa sb sb' sc sd f.
       res_rel (r1,s1) (ra,sa) ∧
       clos_numberProof$state_rel sa sb ∧
-      res_rel (rb,sb) (rc,sc) ∧
+      krrel kgmap (rb,sb) (rb',sb') ∧
+      res_rel (rb',sb') (rc,sc) ∧
       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
       clos_annotateProof$state_rel sc sd ∧
       FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sd.code ∧
@@ -4047,39 +4053,37 @@ val full_result_rel_def = Define`
       result_rel (LIST_REL (v_rel f s2.refs s2.code)) (v_rel f s2.refs s2.code) rd r2`;
 
 val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
-  `r ≠ Rerr(Rabort Rtype_error) ⇒
-  (full_result_rel (r,x) (Rerr (Rabort a),y) ⇒ r = Rerr (Rabort a))`,
+  `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel (r,x) (Rerr (Rabort a),y) ⇒
+   r = Rerr (Rabort a)`,
   srw_tac[][full_result_rel_def] >>
-  Cases_on`rb`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  Cases_on`e`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  Cases_on`r`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  Cases_on`e`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  rename1`err = Rabort ac` >>
-  rename1`ab = a` >>
-  Cases_on`ab`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  Cases_on`ac`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]);
+  Cases_on`rb'`>> fs[clos_relationTheory.res_rel_rw]>>
+  Cases_on`rb` >> fs[clos_knownProofTheory.krrel_def] >> rveq >>
+  rename[`evalProps$exc_rel clos_numberProof$v_rel e1 e2`,
+         `res_rel (Rerr e0,sb') (Rerr (Rabort a), sc)`] >>
+  Cases_on`e0`>> fs[clos_relationTheory.res_rel_rw]>>
+  fs[clos_knownProofTheory.krrel_err_rw] >> rveq >>
+  Cases_on`e1` >> fs[] >> rveq >>
+  fs[clos_relationPropsTheory.res_rel_arg2_timeout] >> rveq >>
+  fs[clos_relationTheory.res_rel_rw])
 
 val full_result_rel_timeout = Q.store_thm("full_result_rel_timeout",
-  `full_result_rel (Rerr(Rabort Rtimeout_error),x) (r,y) ⇒ r = Rerr (Rabort Rtimeout_error)`,
+  `full_result_rel (Rerr(Rabort Rtimeout_error),x) (r,y) ⇒
+   r = Rerr (Rabort Rtimeout_error)`,
   srw_tac[][full_result_rel_def] >>
-  Cases_on`ra`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]>>
-  srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[]);
+  rpt (fs[clos_knownProofTheory.krrel_err_rw] >> rveq));
 
 val full_result_rel_ffi = Q.store_thm("full_result_rel_ffi",
   `r ≠ Rerr (Rabort Rtype_error) ⇒
    full_result_rel (r,s) (r1,s1) ⇒ s.ffi = s1.ffi`,
   srw_tac[][full_result_rel_def] >>
   imp_res_tac clos_relationPropsTheory.res_rel_ffi >>
-  full_simp_tac(srw_ss())[clos_annotateProofTheory.state_rel_def,
+  imp_res_tac clos_knownProofTheory.krrel_ffi >>
+  fs[clos_annotateProofTheory.state_rel_def,
      clos_numberProofTheory.state_rel_def,
-     state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
-  first_x_assum(match_mp_tac o GSYM) >>
-  strip_tac >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  Cases_on`r`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
-  Cases_on`e`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
-  Cases_on`a`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]);
+     state_rel_def] >> rfs[] >>
+  rename1 `krrel _ (res1, _) (res2, _)` >>
+  Cases_on `res2 = Rerr (Rabort Rtype_error)` >> fs[] >- (rveq >> fs[]) >>
+  Cases_on `res1 = Rerr (Rabort Rtype_error)` >> fs[])
 
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s) = (r,s') ∧
@@ -4099,6 +4103,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
               clos_numberTheory.renumber_code_locs_length,
               LENGTH, ONE] ) >>
   first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
+
+  (* intro_multi correct *)
   qspec_then`[e]`mp_tac clos_mtiProofTheory.intro_multi_correct >>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
   disch_then(fn th => last_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
@@ -4110,6 +4116,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+
+  (* renumber_correct *)
   (clos_numberProofTheory.renumber_code_locs_correct
    |> CONJUNCT1 |> SIMP_RULE std_ss []
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
@@ -4126,6 +4134,17 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_SOME)
     assume_tac >>
   strip_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+
+  (* known correct *)
+  rename[`kcompile T kexp0`, `evaluate([kexp0],_,ks0) = (kres1, ks1)`,
+         `ksrel LN ks0 ks02`] >>
+  mp_tac (clos_knownProofTheory.compile_correct
+            |> INST_TYPE [alpha |-> ``:'ffi``]
+            |> Q.INST [`e0` |-> `kexp0`, `e` |->  `kcompile T kexp0`,
+                       `s01` |-> `ks0`, `s1` |-> `ks1`, `res1` |-> `kres1`,
+                       `s02` |-> `ks02`]) >>
+  simp[] >> cheat (* >>
+
   imp_res_tac clos_removeProofTheory.remove_correct >>
   pop_assum kall_tac >>
   pop_assum mp_tac >>
@@ -4191,7 +4210,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   qexists_tac`ck+1` >>
   simp[bvlSemTheory.dec_clock_def] >>
   metis_tac[clos_numberProofTheory.state_rel_def,
-            clos_annotateProofTheory.state_rel_def]);
+            clos_annotateProofTheory.state_rel_def] *));
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧

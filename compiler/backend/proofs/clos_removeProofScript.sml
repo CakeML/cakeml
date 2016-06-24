@@ -434,12 +434,14 @@ val unused_vars_correct = Q.store_thm(
   full_simp_tac(srw_ss())[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> Cases_on `es`
   >- (simp[evaluate_def, res_rel_rw] >> metis_tac[val_rel_mono]) >>
   ONCE_REWRITE_TAC [fv_CONS, evaluate_CONS, every_Fn_vs_NONE_CONS] >>
-  dsimp[] >> rpt gen_tac >> rename1 `exp3_size (e::es)` >>
+  dsimp[] >> rpt gen_tac >>
+  rename1 `exp3_size es + (closLang$exp_size e + 1)` >>
   reverse (Cases_on `es`)
-  >- (rename1 `exp3_size (e1::e2::es)` >> srw_tac[][] >>
+  >- (rename1 `exp3_size (e2::es) + (closLang$exp_size e1 + 1)` >>
+      srw_tac[][] >>
       first_assum
         (qspecl_then [`[e1]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
-      simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
+      simp[] >> simp[SimpL ``$==>``, res_rel_cases] >>
       strip_tac >> simp[res_rel_rw] >>
       rename1 `evaluate(_, env1, _) = (_, s11)` >>
       rename1 `evaluate(_, env2, _) = (_, s21)` >>

@@ -196,7 +196,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       IF_CASES_TAC >> fs[LENGTH_eq] >- (
         simp[evaluate_def,do_app_def] >>
         rw[do_opapp_def] >>
-        Cases_on`a`>>fs[]>>
+        Cases_on`a`>>fs[LENGTH_NIL_SYM]>>
         Cases_on`t`>>fs[LENGTH_eq]>>rw[]>>fs[]>>
         Cases_on`REVERSE t' ++ [h'] ++ [h]`>>fs[]>>
         Cases_on`t`>>fs[]>>
