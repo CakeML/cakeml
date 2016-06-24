@@ -806,15 +806,24 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
      ∃c2. x2 = Partial_app c2 ∧ v_rel g l c1 c2
     | Full_app e1 args1 rest1 =>
       ∃e2 args2 rest2.
-        x2 = Full_app e2 args2 rest2 (* ∧
+        x2 = Full_app e2 args2 rest2 ∧
         LIST_REL (v_rel g l) args1 args2 ∧
-        LIST_REL (v_rel g l) rest1 rest2*))`,
+        LIST_REL (v_rel g l) rest1 rest2)`,
   rw[dest_closure_def]
   \\ Cases_on`v1` \\ fs[v_rel_def]
   \\ rveq \\ fs[]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
   \\ rw[] \\ fs[] \\ rveq \\ fs[]
   \\ rpt(pairarg_tac \\ fs[])
+  >- (
+    fs[revtakerev,revdroprev]
+    \\ conj_tac
+    >- (
+      match_mp_tac EVERY2_APPEND_suff
+      \\ fsrw_tac[ETA_ss][]
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs[]
+      \\ match_mp_tac EVERY2_DROP \\ fs[] )
+    \\ match_mp_tac EVERY2_TAKE \\ fs[])
   >- (
     simp[v_rel_def]
     \\ qexists_tac`g0` \\ fs[]
@@ -830,6 +839,19 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
     \\ fs[EL_ZIP,EL_MAP])
   \\ fs[]
   \\ rw[] \\ fs[] \\ rw[]
+  \\ fs[revdroprev,revtakerev]
+  \\ TRY ( match_mp_tac EVERY2_TAKE \\ fs[] )
+  >- (
+    match_mp_tac EVERY2_APPEND_suff \\ fs[]
+    \\ match_mp_tac EVERY2_APPEND_suff
+    \\ fs[LIST_REL_GENLIST]
+    \\ conj_tac
+    >- (
+      match_mp_tac EVERY2_APPEND_suff \\ fs[]
+      \\ match_mp_tac EVERY2_DROP \\ fs[] )
+    \\ simp[v_rel_def]
+    \\ ntac 2 strip_tac
+    \\ qexists_tac`g0` \\ fsrw_tac[ETA_ss][] )
   \\ simp[v_rel_def]
   \\ qexists_tac`g0` \\ fs[]
   \\ fsrw_tac[ETA_ss][]
@@ -1385,7 +1407,22 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ imp_res_tac LIST_REL_LENGTH
     \\ rw[] \\ fs[] \\ rw[dec_clock_def]
     \\ match_mp_tac state_rel_with_clock \\ fs[] )
-  \\ rw[] \\ fs[]
+  \\ fs[PULL_EXISTS]
+  \\ rpt gen_tac \\ strip_tac
+  \\ simp[evaluate_app_rw]
+  \\ drule (GEN_ALL dest_closure_v_rel)
+  \\ disch_then drule \\ fs[PULL_EXISTS]
+  \\ disch_then drule \\ disch_then drule
+  \\ strip_tac \\ fs[]
+  \\ imp_res_tac state_rel_clock \\ fs[]
+  \\ qexists_tac`0` \\ fs[]
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
+  \\ rw[] \\ fs[] \\  rw[]
+  >- ( match_mp_tac state_rel_with_clock \\ fs[] )
+  \\ qpat_assum`_ = (res,_)`mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ qmatch_assum_rename_tac`_ = (res',_)`
+  \\ Cases_on`res' = Rerr (Rabort Rtype_error)` \\ fs[]
   \\ cheat);
 
 val _ = export_theory();
