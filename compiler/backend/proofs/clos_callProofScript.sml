@@ -795,6 +795,47 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
   \\ simp[calls_list_MAPi] \\ rw[]
   \\ qexists_tac`g0` \\ simp[]);
 
+val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
+  `dest_closure loco v1 env1 = SOME x1 ∧
+   v_rel g l v1 v2 ∧
+   LIST_REL (v_rel g l) env1 env2
+   ⇒
+   ∃x2.
+   dest_closure loco v2 env2 = SOME x2 ∧
+   (case x1 of Partial_app c1 =>
+     ∃c2. x2 = Partial_app c2 ∧ v_rel g l c1 c2
+    | Full_app e1 args1 rest1 =>
+      ∃e2 args2 rest2.
+        x2 = Full_app e2 args2 rest2 (* ∧
+        LIST_REL (v_rel g l) args1 args2 ∧
+        LIST_REL (v_rel g l) rest1 rest2*))`,
+  rw[dest_closure_def]
+  \\ Cases_on`v1` \\ fs[v_rel_def]
+  \\ rveq \\ fs[]
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
+  \\ rw[] \\ fs[] \\ rveq \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[])
+  >- (
+    simp[v_rel_def]
+    \\ qexists_tac`g0` \\ fs[]
+    \\ match_mp_tac EVERY2_APPEND_suff
+    \\ fsrw_tac[ETA_ss][] )
+  \\ fsrw_tac[ETA_ss][]
+  \\ `LENGTH fns2 = LENGTH l1 ∧ num_args = num_args'`
+  by (
+    every_case_tac \\ fs[calls_list_MAPi]
+    \\ imp_res_tac calls_length \\ fs[]
+    \\ rw[] \\ rfs[indexedListsTheory.EL_MAPi] \\ fs[]
+    \\ qpat_assum`¬(LENGTH _ ≤ _)`assume_tac
+    \\ fs[EL_ZIP,EL_MAP])
+  \\ fs[]
+  \\ rw[] \\ fs[] \\ rw[]
+  \\ simp[v_rel_def]
+  \\ qexists_tac`g0` \\ fs[]
+  \\ fsrw_tac[ETA_ss][]
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ fs[]);
+
 (* compiler correctness *)
 
 val calls_correct = Q.store_thm("calls_correct",
@@ -1330,10 +1371,20 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ simp[evaluate_def]
   \\ rpt gen_tac \\ strip_tac
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ BasicProvers.TOP_CASE_TAC
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
-    rw[] \\ rw[evaluate_def]
-    \\ cheat)
+    simp[PULL_EXISTS]
+    \\ rpt gen_tac \\ strip_tac
+    \\ simp[evaluate_app_rw]
+    \\ drule (GEN_ALL dest_closure_v_rel)
+    \\ disch_then drule \\ fs[PULL_EXISTS]
+    \\ disch_then drule \\ disch_then drule
+    \\ strip_tac \\ fs[]
+    \\ imp_res_tac state_rel_clock \\ fs[]
+    \\ qexists_tac`0` \\ fs[]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ rw[] \\ fs[] \\ rw[dec_clock_def]
+    \\ match_mp_tac state_rel_with_clock \\ fs[] )
   \\ rw[] \\ fs[]
   \\ cheat);
 
