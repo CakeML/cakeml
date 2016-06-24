@@ -20,7 +20,6 @@ val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos
 val _ = temp_overload_on ("kcompile", ``clos_known$compile``)
 val _ = temp_overload_on ("kvrel", ``clos_knownProof$val_rel``)
 val _ = temp_overload_on ("kerel", ``clos_knownProof$exp_rel``)
-val _ = temp_overload_on ("ksrel", ``clos_knownProof$state_rel``)
 val _ = temp_overload_on ("krrel", ``clos_knownProof$res_rel``)
 
 val _ = temp_overload_on ("state_rel", ``clos_relation$state_rel``)
@@ -798,6 +797,13 @@ val state_rel_def = Define `
         (compile_exps [c] aux1 = ([c2],aux2)) /\
         (lookup (name + num_stubs) t.code = SOME (arity,c2)) /\
         code_installed aux2 t.code)`;
+
+(* workaround for overloading bug - otherwise, this could be kept at
+   head of script file, and its effect wouldn't be disturbed by definition
+   above
+*)
+val _ = temp_overload_on ("ksrel", ``clos_knownProof$state_rel``)
+
 
 val state_rel_globals = prove(
   ``state_rel f s t ⇒
