@@ -74,9 +74,9 @@ val calls_def = tDefine "calls" `
      let e1 = HD e1 in
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
-         if pure x then ([Call (LENGTH es-1) (loc+1) es],g) else
+         if pure x then ([Call (LENGTH es) (loc+1) es],g) else
            ([Let (SNOC e1 es)
-              (Call (LENGTH es-1) (loc+1) (GENLIST Var (LENGTH es)))],g)
+              (Call (LENGTH es) (loc+1) (GENLIST Var (LENGTH es)))],g)
        else ([App loc_opt e1 es],g)) /\
   (calls [Fn loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
