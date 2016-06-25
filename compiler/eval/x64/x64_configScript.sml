@@ -8,7 +8,8 @@ val rconc = rhs o concl
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)
 val mod_conf = rconc(EVAL``prim_config.mod_conf``)
-val clos_conf = rconc (EVAL ``prim_config.clos_conf``)
+(* Note: prim_config condition in backend needs to be relaxed *)
+val clos_conf = rconc (EVAL ``prim_config.clos_conf with do_known:=T``)
 val bvp_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)

@@ -16,6 +16,7 @@ open clos_callTheory
 open clos_annotateTheory
 open clos_freeTheory
 open clos_removeTheory
+open clos_knownTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
@@ -56,6 +57,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$dec``
     ,``:modLang$prompt``
     ]
+  (* Move to basicCompute when all the new defs are collected *)
+  ,computeLib.Defs[miscTheory.any_el_def]
   ,computeLib.Defs
     [ (* ---- source_to_mod ---- *)
      miscTheory.tlookup_def (* not sure if this is needed *)
@@ -153,6 +156,7 @@ val add_compiler_compset = computeLib.extend_compset
     [ (* ---- closLang ---- *)
      ``:closLang$exp``
     ,``:closLang$op``
+    ,``:clos_known$val_approx``
     ]
   ,computeLib.Defs
     [closLangTheory.max_app_def
@@ -185,6 +189,12 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_removeTheory.no_overlap_def_compute
     ,clos_removeTheory.remove_def
     ,clos_removeTheory.const_0_def
+      (* ---- clos_known---- *)
+    ,clos_knownTheory.merge_def
+    ,clos_knownTheory.compile_def
+    ,clos_knownTheory.dest_Clos_def
+    ,clos_knownTheory.known_def
+    ,clos_knownTheory.known_op_def
     ]
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
