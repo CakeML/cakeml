@@ -101,6 +101,11 @@ val v_rel_def = tDefine"v_rel"`
   (v_rel g l (Closure loco vs1 env1 n bod1) v ⇔
      ∃loc vs2 env2 bod2 g0.
        loco = SOME loc ∧ EVEN loc ∧
+       (*
+       every_Fn_SOME [bod1] ∧ every_Fn_vs_NONE [bod1] ∧
+       set (code_locs [bod1]) ⊆ EVEN ∧
+       ALL_DISTINCT (code_locs [bod1]) ∧ wfg g0
+       *)
        LIST_REL (v_rel g l) vs1 vs2 ∧ LIST_REL (v_rel g l) env1 env2 ∧
        v = Closure loco vs2 env2 n bod2 ∧
        let (es,new_g) = calls [bod1] (insert_each loc 1 g0) in
@@ -138,7 +143,8 @@ val wfg'_def = Define`
 val wfg_def = Define`
   wfg g ⇔
     domain (FST g) ⊆ EVEN ∧
-    set (MAP FST (SND g)) = IMAGE SUC (domain (FST g))`;
+    set (MAP FST (SND g)) = IMAGE SUC (domain (FST g)) ∧
+    ALL_DISTINCT (MAP FST (SND g))`;
 
 val code_includes_def = Define`
   code_includes al code ⇔
@@ -432,6 +438,8 @@ val calls_wfg = Q.store_thm("calls_wfg",
   `∀xs g0 ys g.
     calls xs g0 = (ys,g) ∧
     set (code_locs xs) ⊆ EVEN ∧
+    ALL_DISTINCT (code_locs xs) ∧
+    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
     every_Fn_SOME xs ∧ wfg g0
     ⇒
     wfg g`,
@@ -442,6 +450,7 @@ val calls_wfg = Q.store_thm("calls_wfg",
   \\ imp_res_tac calls_IS_SUFFIX
   \\ imp_res_tac calls_add_SUC_code_locs
   \\ fs[wfg_def,wfg'_def,SET_EQ_SUBSET]
+  \\ imp_res_tac calls_ALL_DISTINCT
   \\ fs[SUBSET_DEF,IS_SUFFIX_APPEND] \\ rw[]
   \\ res_tac \\ rw[]
   \\ res_tac \\ rw[] \\ fs[]
@@ -869,7 +878,6 @@ val calls_correct = Q.store_thm("calls_correct",
     every_Fn_SOME xs ∧ every_Fn_vs_NONE xs ∧
     set (code_locs xs) ⊆ EVEN ∧
     wfg g0 ∧
-    ALL_DISTINCT (MAP FST (SND g0)) ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
     LIST_REL (v_rel g0 l0) env1 env2 ∧
@@ -911,10 +919,12 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ drule calls_subg
     \\ impl_tac
     >- (
-      last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_ALL_DISTINCT) th))
-      \\ rw[]
+      last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_wfg) th))
+      \\ rw[wfg_def]
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs[IN_DISJOINT,SUBSET_DEF]
+      \\ spose_not_then strip_assume_tac \\ rw[]
+      \\ fs[SET_EQ_SUBSET,SUBSET_DEF]
       \\ metis_tac[numTheory.INV_SUC] )
     \\ strip_tac
     \\ imp_res_tac calls_length
@@ -951,16 +961,16 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs[closed_Fn]
     \\ CONV_TAC(RESORT_EXISTS_CONV(List.rev))
     \\ `subg g0 (insert_each x 1 g0)`
-    by ( simp[subg_def,insert_each_subspt] )
+    by ( simp[subg_def,insert_each_subspt] \\ fs[wfg_def])
     \\ `subg g0 g`
     by (
       every_case_tac \\ fs[] \\ rw[]
       \\ drule calls_subg
       \\ qhdtm_x_assum`calls`kall_tac
       \\ drule calls_subg
-      \\ (impl_tac >- fs[ALL_DISTINCT_APPEND])
+      \\ (impl_tac >- (fs[ALL_DISTINCT_APPEND] \\ fs[wfg_def]))
       \\ strip_tac
-      \\ (impl_tac >- fs[ALL_DISTINCT_APPEND])
+      \\ (impl_tac >- (fs[ALL_DISTINCT_APPEND] \\ fs[wfg_def]))
       \\ strip_tac \\ fs[]
       \\ match_mp_tac subg_trans
       \\ last_assum (part_match_exists_tac (hd o strip_conj) o concl)
@@ -996,7 +1006,7 @@ val calls_correct = Q.store_thm("calls_correct",
             \\ fs[SET_EQ_SUBSET,SUBSET_DEF,PULL_EXISTS]
             \\ metis_tac[] )
           \\ `MEM (SUC x) (MAP FST (SND g))`
-          by ( imp_res_tac calls_wfg \\ fs[wfg_def] )
+          by ( drule calls_wfg \\ fs[ALL_DISTINCT_APPEND,wfg_def] )
           \\ fs[SUBSET_DEF]
           \\ metis_tac[numTheory.INV_SUC] ))
       \\ match_mp_tac subg_refl \\ fs[subg_def] ))
@@ -1015,7 +1025,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_subg) th))
     \\ simp[]
-    \\ impl_keep_tac >- fs[ALL_DISTINCT_APPEND] \\ strip_tac
+    \\ impl_keep_tac >- fs[ALL_DISTINCT_APPEND,wfg_def] \\ strip_tac
     \\ drule calls_subg
     \\ impl_keep_tac >- (
       imp_res_tac calls_add_SUC_code_locs
@@ -1026,10 +1036,19 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ rveq \\ fs[]
     \\ qpat_abbrev_tac`l = l0 ∪ _`
     \\ `l0 ⊆ l` by simp[Abbr`l`]
+    \\ `wfg g'`
+    by (
+      match_mp_tac calls_wfg
+      \\ asm_exists_tac
+      \\ fs[ALL_DISTINCT_APPEND] )
+    \\ `wfg g`
+    by (
+      match_mp_tac calls_wfg
+      \\ asm_exists_tac \\ fs[] )
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       strip_tac \\ rveq \\ rfs[]
-      \\ first_x_assum drule \\ fs[DISJOINT_SYM]
+      \\ first_x_assum drule \\ fs[DISJOINT_SYM,ALL_DISTINCT_APPEND]
       \\ rpt(disch_then drule)
       \\ impl_tac >- ( metis_tac[code_includes_subg] )
       \\ qpat_abbrev_tac`l' = l0 ∪ _`
@@ -1039,14 +1058,8 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ spose_not_then strip_assume_tac
         \\ imp_res_tac calls_add_SUC_code_locs
         \\ `x ∉ set (code_locs [x1])` by (fs[ALL_DISTINCT_APPEND]\\ metis_tac[])
-        \\ `MEM (SUC x) (MAP FST (SND g))`
-        by ( imp_res_tac calls_wfg \\ fs[wfg_def] )
-        \\ `¬MEM (SUC x) (MAP FST (SND g'))`
-        by (
-          imp_res_tac calls_wfg
-          \\ fs[wfg_def]
-          \\ fs[SET_EQ_SUBSET,SUBSET_DEF,PULL_EXISTS]
-          \\ metis_tac[] )
+        \\ `MEM (SUC x) (MAP FST (SND g))` by ( fs[wfg_def] )
+        \\ `¬MEM (SUC x) (MAP FST (SND g'))` by ( fs[wfg_def] )
         \\ fs[SUBSET_DEF]
         \\ metis_tac[numTheory.INV_SUC] )
       \\ strip_tac
@@ -1065,6 +1078,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ Cases_on`err = Rerr (Rabort Rtype_error)` \\ fs[]
     \\ first_x_assum drule \\ fs[]
     \\ first_x_assum drule \\ fs[DISJOINT_SYM]
+    \\ fs[ALL_DISTINCT_APPEND]
     \\ rpt(disch_then drule)
     \\ impl_tac >- metis_tac[code_includes_subg]
     \\ strip_tac \\ fs[]
@@ -1075,14 +1089,8 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ spose_not_then strip_assume_tac
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ `x ∉ set (code_locs [x1])` by (fs[ALL_DISTINCT_APPEND]\\ metis_tac[])
-      \\ `MEM (SUC x) (MAP FST (SND g))`
-      by ( imp_res_tac calls_wfg \\ fs[wfg_def] )
-      \\ `¬MEM (SUC x) (MAP FST (SND g'))`
-      by (
-        imp_res_tac calls_wfg
-        \\ fs[wfg_def]
-        \\ fs[SET_EQ_SUBSET,SUBSET_DEF,PULL_EXISTS]
-        \\ metis_tac[] )
+      \\ `MEM (SUC x) (MAP FST (SND g))` by ( fs[wfg_def] )
+      \\ `¬MEM (SUC x) (MAP FST (SND g'))` by ( fs[wfg_def])
       \\ fs[SUBSET_DEF]
       \\ metis_tac[numTheory.INV_SUC] )
     \\ disch_then(qspecl_then[`env2`,`t`,`l'`]mp_tac)
@@ -1093,7 +1101,6 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ spose_not_then strip_assume_tac
       \\ `x ∉ domain (FST g0)` by metis_tac[]
       \\ `¬MEM (SUC x) (MAP FST (SND g0))` by fs[wfg_def]
-      \\ `wfg g'` by imp_res_tac calls_wfg
       \\ `MEM (SUC x) (MAP FST (SND g'))` by fs[wfg_def]
       \\ `MEM x (code_locs args)`
       by (
@@ -1111,7 +1118,6 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ impl_tac
     >- (
       imp_res_tac evaluate_const \\ fs[]
-      \\ imp_res_tac calls_wfg \\ fs[]
       \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
       \\ metis_tac[v_rel_subg,subg_trans] )
     \\ strip_tac \\ rveq
@@ -1167,7 +1173,6 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ simp[markerTheory.Abbrev_def,IS_SOME_EXISTS]
     \\ strip_tac \\ rveq \\ fs[]
     \\ `x ∈ domain (FST g)` by simp[domain_lookup]
-    \\ `wfg g` by imp_res_tac calls_wfg
     \\ `x ∉ ll`
     by (
       simp[Abbr`ll`]
@@ -1423,6 +1428,13 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ qmatch_assum_rename_tac`_ = (res',_)`
   \\ Cases_on`res' = Rerr (Rabort Rtype_error)` \\ fs[]
+  \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+  >- (
+    strip_tac \\ rveq \\ fs[]
+    \\ cheat )
+  \\ imp_res_tac evaluate_length_imp
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ strip_tac \\ rveq \\ fs[]
   \\ cheat);
 
 val _ = export_theory();
