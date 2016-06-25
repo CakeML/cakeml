@@ -2114,6 +2114,23 @@ val known_preserves_every_Fn_NONE = Q.store_thm(
       fs[Once every_Fn_vs_NONE_EVERY] >>
       fs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]));
 
+val known_preserves_every_Fn_SOME = Q.store_thm(
+  "known_preserves_every_Fn_SOME",
+  `∀es as g0 alist g.
+     known es as g0 = (alist,g) ∧ every_Fn_SOME es ⇒
+     every_Fn_SOME (MAP FST alist)`,
+  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
+  >- (simp[Once every_Fn_SOME_EVERY]>>simp[GSYM every_Fn_SOME_EVERY])
+  >- (simp[Once every_Fn_SOME_EVERY] >>
+      simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rpt strip_tac >>
+      nailIHx mp_tac >> rename1 `known[bod] env g0` >>
+      Cases_on `known[bod] env g0` >> simp[] >> imp_res_tac known_sing_EQ_E >>
+      rveq >> fs[] >> rveq >> disch_then irule >>
+      fs[Once every_Fn_SOME_EVERY] >>
+      fs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]));
+
 fun abbrevify (asl,g) =
   let val (l,r) = dest_imp g
       fun abc t = if is_forall t then REWR_CONV (GSYM markerTheory.Abbrev_def) t

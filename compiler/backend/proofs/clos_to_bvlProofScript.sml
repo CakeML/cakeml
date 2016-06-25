@@ -4203,16 +4203,18 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
    |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
   simp[GSYM PULL_FORALL] >>
   impl_keep_tac >- (
-    cheat>>
     strip_tac >>
     Cases_on`r`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
+    Cases_on`b`>>fs[clos_knownProofTheory.opt_res_rel_def]
+    (*Not sure why the proof got so much easier,
+      hopefully due to automatic rewrites and not a bad contradiction...
     rename1`res_rel (Rerr err,_) _` >>
     Cases_on`err`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     rename1`Rabort a` >>
     Cases_on`a`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] ) >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]*) )>>
   impl_tac >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>
   disch_then(fn th => first_assum(qspec_then`[]`strip_assume_tac o MATCH_MP th)) >>
   imp_res_tac evaluate_const >> simp[] >>
@@ -4227,11 +4229,19 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   disch_then(qspec_then`[]`mp_tac) >>
   simp[env_rel_def] >>
   impl_tac >- (
-    cheat>>
     rpt var_eq_tac >>
     full_simp_tac(srw_ss())[code_installed_def] >>
-    imp_res_tac clos_removeProofTheory.every_Fn_SOME_remove >> simp[] >>
-    strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    CONJ_TAC>-
+      (strip_tac >> full_simp_tac(srw_ss())[] )
+    >>
+      match_mp_tac (clos_removeProofTheory.every_Fn_SOME_remove|>REWRITE_RULE[AND_IMP_INTRO]) >> simp[] >>
+      qexists_tac`[kcompile b kexp0]`>>
+      Cases_on`b`>>
+      fs[clos_knownTheory.compile_def]>>
+      rpt (pairarg_tac>>fs[])>>
+      imp_res_tac clos_knownProofTheory.known_preserves_every_Fn_SOME>>
+      imp_res_tac clos_knownPropsTheory.known_sing_EQ_E>>
+      fs[])>>
   strip_tac >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``result_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
