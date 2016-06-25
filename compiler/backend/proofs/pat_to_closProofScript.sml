@@ -739,4 +739,12 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   fs[EVERY_MEM,REPLICATE_GENLIST,MEM_GENLIST] >>
   rw[] >> rw[]);
 
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `∀e. esgc_free (compile e)`,
+  cheat)
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀e. BAG_ALL_DISTINCT (set_globals (compile e))`,
+  cheat);
+
 val _ = export_theory()
