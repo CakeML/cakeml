@@ -2314,17 +2314,32 @@ val state_globals_LN = Q.store_thm(
   `state_globals_approx s LN ⇔ ∀n v. get_global n s.globals ≠ SOME (SOME v)`,
   simp[state_globals_approx_def] >> simp[lookup_def]);
 
+(* Optionally applied state relation and result relation*)
+val opt_state_rel_def = Define`
+  opt_state_rel b g s1 s2 ⇔
+  if b then state_rel g s1 s2
+       else s1 = s2`
+
+val opt_res_rel_def = Define`
+  opt_res_rel b g r1 r2 ⇔
+  if b then res_rel g r1 r2
+        else r1 = r2`
+
+(* Some assumptions can be removed if b = F *)
 val compile_correct = Q.store_thm(
   "compile_correct",
-  `compile T e0 = e ∧ evaluate ([e0], [], s01) = (res1, s1) ∧
-   esgc_free e0 ∧ every_Fn_vs_NONE [e0] ∧ ksrel LN s01 s02 ∧
+  `compile b e0 = e ∧ evaluate ([e0], [], s01) = (res1, s1) ∧
+   esgc_free e0 ∧ every_Fn_vs_NONE [e0] ∧
+   opt_state_rel b LN s01 s02 ∧
    state_globals_approx s01 LN ∧ BAG_ALL_DISTINCT (set_globals e0) ∧
    ssgc_free s01
     ⇒
    ∃res2 s2 g.
      evaluate([e], [], s02) = (res2, s2) ∧
-     krrel g (res1,s1) (res2,s2)`,
-  simp[compile_def] >> rpt (pairarg_tac >> simp[]) >>
+     opt_res_rel b g (res1,s1) (res2,s2)`,
+  reverse (Cases_on`b`)>>
+  simp[compile_def,opt_state_rel_def,opt_res_rel_def] >- metis_tac[]>>
+  rpt (pairarg_tac >> simp[]) >>
   map_every rename1 [`known [e0] [] LN = (alist0, g1)`,
                        `known [e0] [] g1 = (alist, g)`] >>
   imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rw[] >>
