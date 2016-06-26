@@ -1,14 +1,29 @@
 open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory
+open set_sepTheory llistTheory stringTheory
 
 val _ = new_theory "cfHeapsBase"
 
 (*------------------------------------------------------------------*)
 (** Heaps *)
 
-val _ = type_abbrev("loc", ``:num``)
-val _ = type_abbrev("heap", ``:(loc # v semanticPrimitives$store_v) set``)
+val _ = Datatype `
+  ffi = Str string
+      | Num num
+      | Cons ffi ffi
+      | Stream (num llist)`
+
+val _ = type_abbrev("loc", ``:num``) (* should be: temp_type_abbrev *)
+
+val _ = Datatype `
+  heap_part = Mem loc (v semanticPrimitives$store_v)
+            | FFI_part num ffi (word8 list -> ffi -> (word8 list # ffi) option)`
+
+val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
+
+val _ = type_abbrev("ffi_proj",
+  ``: ('ffi -> (num |-> ffi)) #
+      ((num |-> ffi) -> 'ffi -> 'ffi)``)
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
@@ -48,7 +63,7 @@ val cond_eq_def = Define `
 
 (* A single memory cell. *)
 val cell_def = Define `
-  cell (l: loc) (v: v semanticPrimitives$store_v) = one (l, v)`
+  cell l v = one (Mem l v)`
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)

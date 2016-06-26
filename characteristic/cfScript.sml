@@ -194,8 +194,8 @@ val naryClosure_def = Define `
 val app_one_naryClosure = store_thm ("app_one_naryClosure",
   ``!env n ns x xs body H Q.
      ns <> [] ==> xs <> [] ==>
-     app (:'ffi) (naryClosure env (n::ns) body) (x::xs) H Q ==>
-     app (:'ffi) (naryClosure (env with v := (n, x)::env.v) ns body) xs H Q``,
+     app (p:'ffi ffi_proj) (naryClosure env (n::ns) body) (x::xs) H Q ==>
+     app (p:'ffi ffi_proj) (naryClosure (env with v := (n, x)::env.v) ns body) xs H Q``,
 
   rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
   rename1 `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
@@ -210,14 +210,14 @@ val app_one_naryClosure = store_thm ("app_one_naryClosure",
   fs [do_opapp_def] \\
   progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
   rename1 `SPLIT3 (st2heap _ st'') (h_f'', h_g'', h_g' UNION h_k)` \\
-  `SPLIT3 (st2heap (:'ffi) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
+  `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
   \\ instantiate
 )
 
 val curried_naryClosure = store_thm ("curried_naryClosure",
   ``!env len ns body.
      ns <> [] ==> len = LENGTH ns ==>
-     curried (:'ffi) len (naryClosure env ns body)``,
+     curried (p:'ffi ffi_proj) len (naryClosure env ns body)``,
 
   Induct_on `ns` \\ fs [naryClosure_def, naryFun_def] \\ Cases_on `ns`
   THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def])
@@ -226,7 +226,7 @@ val curried_naryClosure = store_thm ("curried_naryClosure",
     rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
     fs [emp_def, cond_def, do_opapp_def] \\
     rename1 `SPLIT (st2heap _ st) ({}, h_k)` \\
-    `SPLIT3 (st2heap (:'ffi) st) ({}, {}, h_k)` by SPLIT_TAC \\
+    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, {}, h_k)` by SPLIT_TAC \\
     instantiate \\ rename1 `(n, x) :: _` \\
     first_x_assum (qspecl_then [`env with v := (n,x)::env.v`, `body`]
       assume_tac) \\
@@ -264,8 +264,8 @@ val app_one_naryRecclosure = store_thm ("app_one_naryRecclosure",
   ``!funs f n ns body x xs env H Q.
      ns <> [] ==> xs <> [] ==>
      find_recfun f (letrec_pull_params funs) = SOME (n::ns, body) ==>
-     (app (:'ffi) (naryRecclosure env (letrec_pull_params funs) f) (x::xs) H Q ==>
-      app (:'ffi)
+     (app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) (x::xs) H Q ==>
+      app (p:'ffi ffi_proj)
         (naryClosure
           (env with v := (n, x)::build_rec_env funs env env.v)
           ns body) xs H Q)``,
@@ -282,7 +282,7 @@ val app_one_naryRecclosure = store_thm ("app_one_naryRecclosure",
     (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
   fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   rename1 `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
-  `SPLIT3 (st2heap (:'ffi) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
+  `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
   instantiate
 )
 
@@ -291,7 +291,7 @@ val curried_naryRecclosure = store_thm ("curried_naryRecclosure",
      ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
      find_recfun f (letrec_pull_params funs) = SOME (ns, body) ==>
      len = LENGTH ns ==>
-     curried (:'ffi) len (naryRecclosure env (letrec_pull_params funs) f)``,
+     curried (p:'ffi ffi_proj) len (naryRecclosure env (letrec_pull_params funs) f)``,
 
   rpt strip_tac \\ Cases_on `ns` \\ fs []
   THEN1 (
@@ -340,12 +340,12 @@ val extend_env_rcons = store_thm ("extend_env_rcons",
      let env' = extend_env ns xvs env in
      (env' with v := (n,xv) :: env'.v)``,
   Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
-  fs [LENGTH_NIL, LENGTH_CONS, extend_env_def] 
+  fs [LENGTH_NIL, LENGTH_CONS, extend_env_def]
 )
 
 (* [build_rec_env_aux] *)
 val build_rec_env_aux_def = Define `
-  build_rec_env_aux funs (fs: (tvarN, tvarN # exp) alist) env add_to_env =  
+  build_rec_env_aux funs (fs: (tvarN, tvarN # exp) alist) env add_to_env =
     FOLDR
       (\ (f,x,e) env'. (f, Recclosure env funs f) :: env')
       add_to_env
@@ -479,44 +479,44 @@ val cf_opb_def = Define `
       app_opb opb i1 i2 H Q)`
 
 val cf_app_def = Define `
-  cf_app (:'ffi) f args = local (\env H Q.
+  cf_app (p:'ffi ffi_proj) f args = local (\env H Q.
     ?fv argsv.
       exp2v env f = SOME fv /\
       exp2v_list env args = SOME argsv /\
-      app (:'ffi) fv argsv H Q)`
+      app (p:'ffi ffi_proj) fv argsv H Q)`
 
 val cf_fundecl_def = Define `
-  cf_fundecl (:'ffi) f ns F1 F2 = local (\env H Q.
+  cf_fundecl (p:'ffi ffi_proj) f ns F1 F2 = local (\env H Q.
     !fv.
-      curried (:'ffi) (LENGTH ns) fv /\
+      curried (p:'ffi ffi_proj) (LENGTH ns) fv /\
       (!xvs H' Q'.
         LENGTH xvs = LENGTH ns ==>
         F1 (extend_env ns xvs env) H' Q' ==>
-        app (:'ffi) fv xvs H' Q')
+        app (p:'ffi ffi_proj) fv xvs H' Q')
       ==>
       F2 (env with v := (f, fv)::env.v) H Q)`
 
 val fundecl_rec_aux_def = Define `
-  fundecl_rec_aux (:'ffi) fs fvs [] [] [] F2 env H Q =
+  fundecl_rec_aux (p:'ffi ffi_proj) fs fvs [] [] [] F2 env H Q =
     (F2 (extend_env_rec fs fvs [] [] env) H Q) /\
-  fundecl_rec_aux (:'ffi) fs fvs (ns::ns_acc) (fv::fv_acc) (Fbody::Fs) F2 env H Q =
-    (curried (:'ffi) (LENGTH ns) fv /\
+  fundecl_rec_aux (p:'ffi ffi_proj) fs fvs (ns::ns_acc) (fv::fv_acc) (Fbody::Fs) F2 env H Q =
+    (curried (p:'ffi ffi_proj) (LENGTH ns) fv /\
      (!xvs H' Q'.
         LENGTH xvs = LENGTH ns ==>
         Fbody (extend_env_rec fs fvs ns xvs env) H' Q' ==>
-        app (:'ffi) fv xvs H' Q')
+        app (p:'ffi ffi_proj) fv xvs H' Q')
      ==>
-     (fundecl_rec_aux (:'ffi) fs fvs ns_acc fv_acc Fs F2 env H Q)) /\
+     (fundecl_rec_aux (p:'ffi ffi_proj) fs fvs ns_acc fv_acc Fs F2 env H Q)) /\
   fundecl_rec_aux _ _ _ _ _ _ _ _ _ _ = F`
 
 val cf_fundecl_rec_def = Define `
-  cf_fundecl_rec (:'ffi) fs Fs F2 = local (\env H Q.
+  cf_fundecl_rec (p:'ffi ffi_proj) fs Fs F2 = local (\env H Q.
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
     !(fvs: v list).
       LENGTH fvs = LENGTH fs ==>
       ALL_DISTINCT f_names /\
-      fundecl_rec_aux (:'ffi) f_names fvs f_args fvs Fs F2 env H Q)`
+      fundecl_rec_aux (p:'ffi ffi_proj) f_names fvs f_args fvs Fs F2 env H Q)`
 
 val cf_ref_def = Define `
   cf_ref x = local (\env H Q.
@@ -569,23 +569,23 @@ val SOME_val_def = Define `
   SOME_val (SOME x) = x`
 
 val cf_def = tDefine "cf" `
-  cf (:'ffi) (Lit l) = cf_lit l /\
-  cf (:'ffi) (Con opt args) = cf_con opt args /\
-  cf (:'ffi) (Var name) = cf_var name /\
-  cf (:'ffi) (Let opt e1 e2) =
+  cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
+  cf (p:'ffi ffi_proj) (Con opt args) = cf_con opt args /\
+  cf (p:'ffi ffi_proj) (Var name) = cf_var name /\
+  cf (p:'ffi ffi_proj) (Let opt e1 e2) =
     (if is_bound_Fun opt e1 then
        (case Fun_body e1 of
           | SOME body =>
-            cf_fundecl (:'ffi) (SOME_val opt) (Fun_params e1)
-              (cf (:'ffi) body) (cf (:'ffi) e2)
+            cf_fundecl (p:'ffi ffi_proj) (SOME_val opt) (Fun_params e1)
+              (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
           | NONE => local (\env H Q. F))
      else
-       cf_let opt (cf (:'ffi) e1) (cf (:'ffi) e2)) /\
-  cf (:'ffi) (Letrec funs e) =
-    (cf_fundecl_rec (:'ffi) (letrec_pull_params funs)
-       (MAP (\x. cf (:'ffi) (SND (SND x))) (letrec_pull_params funs))
-       (cf (:'ffi) e)) /\
-  cf (:'ffi) (App op args) =
+       cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
+  cf (p:'ffi ffi_proj) (Letrec funs e) =
+    (cf_fundecl_rec (p:'ffi ffi_proj) (letrec_pull_params funs)
+       (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) (letrec_pull_params funs))
+       (cf (p:'ffi ffi_proj) e)) /\
+  cf (p:'ffi ffi_proj) (App op args) =
     (case op of
         | Opn opn =>
           (case args of
@@ -597,7 +597,7 @@ val cf_def = tDefine "cf" `
             | _ => local (\env H Q. F))
         | Opapp =>
           (case dest_opapp (App op args) of
-            | SOME (f, xs) => cf_app (:'ffi) f xs
+            | SOME (f, xs) => cf_app (p:'ffi ffi_proj) f xs
             | NONE => local (\env H Q. F))
         | Opref =>
           (case args of
@@ -656,9 +656,8 @@ val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_le
     [cf_sound] *)
 
 val cf_local = store_thm ("cf_local",
-  ``!e. is_local (cf (:'ffi) e)``,
-  qsuff_tac `!(r: 'ffi itself) e. is_local (cf (:'ffi) e)`
-  THEN1 (fs []) \\
+  ``!e. is_local (cf (p:'ffi ffi_proj) e)``,
+  Q.SPEC_TAC (`p`,`p`) \\
   recInduct cf_ind \\ rpt strip_tac \\
   fs (local_local :: local_is_local :: cf_defs)
   THEN1 (
@@ -674,12 +673,12 @@ val cf_local = store_thm ("cf_local",
 (* Soundness of cf *)
 
 val sound_def = Define `
-  sound (:'ffi) e R =
+  sound (p:'ffi ffi_proj) e R =
     !env H Q. R env H Q ==>
-    !st h_i h_k. SPLIT (st2heap (:'ffi) st) (h_i, h_k) ==>
+    !st h_i h_k. SPLIT (st2heap (p:'ffi ffi_proj) st) (h_i, h_k) ==>
     H h_i ==>
       ?v st' h_f h_g.
-        SPLIT3 (st2heap (:'ffi) st') (h_f, h_k, h_g) /\
+        SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f, h_k, h_g) /\
         evaluate F env st e (st', Rval v) /\
         Q v h_f`
 
@@ -694,12 +693,12 @@ val star_split = Q.prove (
 )
 
 val sound_local = store_thm ("sound_local",
-  ``!e R. sound (:'ffi) e R ==> sound (:'ffi) e (local R)``,
+  ``!e R. sound (p:'ffi ffi_proj) e R ==> sound (p:'ffi ffi_proj) e (local R)``,
   rpt strip_tac \\ rewrite_tac [sound_def, local_def] \\ rpt strip_tac \\
   res_tac \\ rename1 `(H_i * H_k) h_i` \\ rename1 `R env H_i Q_f` \\
   rename1 `SEP_IMPPOST (Q_f *+ H_k) (Q *+ H_g)` \\
   fs [STAR_def] \\ rename1 `H_i h'_i` \\ rename1 `H_k h'_k` \\
-  `SPLIT (st2heap (:'ffi) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC \\
+  `SPLIT (st2heap (p:'ffi ffi_proj) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC \\
   qpat_assum `sound _ _ _` (progress o REWRITE_RULE [sound_def]) \\
   rename1 `SPLIT3 _ (h'_f, _, h'_g)` \\
   fs [SEP_IMPPOST_def, STARPOST_def, SEP_IMP_def, STAR_def] \\
@@ -712,12 +711,12 @@ val sound_local = store_thm ("sound_local",
 )
 
 val sound_false = store_thm ("sound_false",
-  ``!e. sound (:'ffi) e (\env H Q. F)``,
+  ``!e. sound (p:'ffi ffi_proj) e (\env H Q. F)``,
   rewrite_tac [sound_def]
 )
 
 val sound_local_false = Q.prove (
-  `!e. sound (:'ffi) e (local (\env H Q. F))`,
+  `!e. sound (p:'ffi ffi_proj) e (local (\env H Q. F))`,
   strip_tac \\ irule sound_local \\ fs [sound_false]
 )
 
@@ -745,9 +744,9 @@ fun cf_evaluate_list_tac [] = prove_tac [bigStepTheory.evaluate_rules]
 val app_basic_of_sound_cf = Q.prove (
   `!clos body x env env' v H Q.
     do_opapp [clos; x] = SOME (env', body) ==>
-    sound (:'ffi) body (cf (:'ffi) body) ==>
-    cf (:'ffi) body env' H Q ==>
-    app_basic (:'ffi) clos x H Q`,
+    sound (p:'ffi ffi_proj) body (cf (p:'ffi ffi_proj) body) ==>
+    cf (p:'ffi ffi_proj) body env' H Q ==>
+    app_basic (p:'ffi ffi_proj) clos x H Q`,
   fs [app_basic_def, sound_def] \\ rpt strip_tac \\ first_x_assum progress \\
   instantiate \\ SPLIT_TAC
 )
@@ -756,9 +755,9 @@ val app_of_sound_cf = Q.prove (
   `!ns xvs env body H Q.
      ns <> [] ==>
      LENGTH ns = LENGTH xvs ==>
-     sound (:'ffi) body (cf (:'ffi) body) ==>
-     cf (:'ffi) body (extend_env ns xvs env) H Q ==>
-     app (:'ffi) (naryClosure env ns body) xvs H Q`,
+     sound (p:'ffi ffi_proj) body (cf (p:'ffi ffi_proj) body) ==>
+     cf (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
+     app (p:'ffi ffi_proj) (naryClosure env ns body) xvs H Q`,
 
   Induct \\ rpt strip_tac \\ fs [naryClosure_def, LENGTH_CONS] \\ rw [] \\
   rename1 `extend_env (n::ns) (xv::xvs) _` \\ Cases_on `ns` \\
@@ -804,12 +803,12 @@ val app_rec_of_sound_cf_aux = Q.prove (
      naryfuns = letrec_pull_params funs ==>
      ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) ==>
      find_recfun f naryfuns = SOME (params, body) ==>
-     sound (:'ffi) body (cf (:'ffi) body) ==>
+     sound (p:'ffi ffi_proj) body (cf (p:'ffi ffi_proj) body) ==>
      fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns ==>
-     cf (:'ffi) body
+     cf (p:'ffi ffi_proj) body
        (extend_env_rec (MAP (\ (f,_,_). f) naryfuns) fvs params xvs env) H Q ==>
-     app (:'ffi) (naryRecclosure env naryfuns f) xvs H Q`,
-  
+     app (p:'ffi ffi_proj) (naryRecclosure env naryfuns f) xvs H Q`,
+
   Cases_on `params` \\ rpt strip_tac \\ rw [] \\
   fs [LENGTH_CONS] \\ rfs [] \\ qpat_assum `xvs = _` (K all_tac) \\
   rename1 `extend_env_rec _ _ (n::params) (xv::xvs) _` \\
@@ -817,7 +816,7 @@ val app_rec_of_sound_cf_aux = Q.prove (
   fs [extend_env_def, app_def]
   THEN1 (
     irule app_basic_of_sound_cf \\
-    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ 
+    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\
     fs [naryFun_def, letrec_pull_params_names, build_rec_env_zip]
   )
   THEN1 (
@@ -826,7 +825,7 @@ val app_rec_of_sound_cf_aux = Q.prove (
     rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\
     fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
     rename1 `SPLIT _ (h, i)` \\
-    `SPLIT3 (st2heap (:'ffi) st) (h, {}, i)` by SPLIT_TAC \\ instantiate \\
+    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) (h, {}, i)` by SPLIT_TAC \\ instantiate \\
     (* fixme *)
     qexists_tac `naryClosure
       (env with v := (n,xv)::(ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
@@ -848,14 +847,14 @@ val app_rec_of_sound_cf = Q.prove (
      LENGTH params = LENGTH xvs ==>
      ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
      find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
-     sound (:'ffi) body (cf (:'ffi) body) ==>
-     cf (:'ffi) body
+     sound (p:'ffi ffi_proj) body (cf (p:'ffi ffi_proj) body) ==>
+     cf (p:'ffi ffi_proj) body
        (extend_env_rec
-          (MAP (\ (f,_,_). f) funs) 
+          (MAP (\ (f,_,_). f) funs)
           (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
           params xvs env)
         H Q ==>
-     app (:'ffi) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q`,
+     app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q`,
   rpt strip_tac \\ irule app_rec_of_sound_cf_aux
   THEN1 (fs [letrec_pull_params_names])
   THEN1 (qexists_tac `funs` \\ fs [])
@@ -874,22 +873,22 @@ val cf_letrec_sound_aux = Q.prove (
   `!funs e.
      let naryfuns = letrec_pull_params funs in
      (∀x. MEM x naryfuns ==>
-          sound (:'ffi) (SND (SND x)) (cf (:'ffi) (SND (SND x)))) ==>
-     sound (:'ffi) e (cf (:'ffi) e) ==>
+          sound (p:'ffi ffi_proj) (SND (SND x)) (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+     sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
      !fns rest.
        funs = rest ++ fns ==>
        let naryrest = letrec_pull_params rest in
        let naryfns = letrec_pull_params fns in
-       sound (:'ffi) (Letrec funs e)
+       sound (p:'ffi ffi_proj) (Letrec funs e)
          (\env H Q.
             let fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns in
             ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) /\
-            fundecl_rec_aux (:'ffi)
+            fundecl_rec_aux (p:'ffi ffi_proj)
               (MAP (\ (f,_,_). f) naryfuns) fvs
               (MAP (\ (_,ns,_). ns) naryfns)
               (DROP (LENGTH naryrest) fvs)
-              (MAP (\x. cf (:'ffi) (SND (SND x))) naryfns)
-              (cf (:'ffi) e) env H Q)`,
+              (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
+              (cf (p:'ffi ffi_proj) e) env H Q)`,
 
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
   THEN1 (
@@ -910,7 +909,7 @@ val cf_letrec_sound_aux = Q.prove (
     rewrite_tac [sound_def] \\ BETA_TAC \\ rpt gen_tac \\
     qmatch_abbrev_tac `(LET _ fvs) ==> _` \\ fs [] \\
     (* unfold letrec_pull_params (_::_); extract the body/params *)
-    rewrite_tac [letrec_pull_params_def] \\ 
+    rewrite_tac [letrec_pull_params_def] \\
     fs [Q.prove(`!opt a b c a' b' c'.
        (case opt of NONE => (a,b,c) | SOME x => (a', b', c' x)) =
        ((case opt of NONE => a | SOME x => a'),
@@ -927,7 +926,7 @@ val cf_letrec_sound_aux = Q.prove (
     `tail = (naryRecclosure env (letrec_pull_params funs) f) ::
             DROP (LENGTH (letrec_pull_params rest) + 1) fvs` by (
       qunabbrev_tac `tail` \\ rewrite_tac [GSYM ADD1] \\
-      fs [letrec_pull_params_LENGTH] \\ 
+      fs [letrec_pull_params_LENGTH] \\
       mp_tac (Q.ISPECL [`fvs: v list`,
                         `LENGTH (rest: (tvarN, tvarN # exp) alist)`]
               DROP_EL_CONS) \\
@@ -979,26 +978,26 @@ val cf_letrec_sound_aux = Q.prove (
 val cf_letrec_sound = Q.prove (
   `!funs e.
     (!x. MEM x (letrec_pull_params funs) ==>
-         sound (:'ffi) (SND (SND x)) (cf (:'ffi) (SND (SND x)))) ==>
-    sound (:'ffi) e (cf (:'ffi) e) ==>
-    sound (:'ffi) (Letrec funs e)
+         sound (p:'ffi ffi_proj) (SND (SND x)) (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+    sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
+    sound (p:'ffi ffi_proj) (Letrec funs e)
       (\env H Q.
         let fvs = MAP
           (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
           funs in
         ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
-        fundecl_rec_aux (:'ffi)
+        fundecl_rec_aux (p:'ffi ffi_proj)
           (MAP (\ (f,_,_). f) funs) fvs
           (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
-          (MAP (\x. cf (:'ffi) (SND (SND x))) (letrec_pull_params funs))
-          (cf (:'ffi) e) env H Q)`,
+          (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) (letrec_pull_params funs))
+          (cf (p:'ffi ffi_proj) e) env H Q)`,
   rpt strip_tac \\ mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound_aux) \\
   fs [] \\ disch_then (qspecl_then [`funs`, `[]`] mp_tac) \\
   fs [letrec_pull_params_names, letrec_pull_params_def]
 )
 
 val cf_sound = store_thm ("cf_sound",
-  ``!(r: 'ffi itself) e. sound (:'ffi) e (cf (:'ffi) e)``,
+  ``!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)``,
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
@@ -1018,7 +1017,7 @@ val cf_sound = store_thm ("cf_sound",
         cf_strip_sound_tac *)
       progress is_bound_Fun_unfold \\ fs [Fun_body_def] \\
       BasicProvers.TOP_CASE_TAC \\ cf_strip_sound_tac \\
-      (* Instantiate the hypothesis with the closure *) 
+      (* Instantiate the hypothesis with the closure *)
       rename1 `(case Fun_body _ of _ => _) = SOME inner_body` \\
       (fn tm => first_x_assum (qspec_then tm mp_tac))
         `naryClosure env (Fun_params (Fun n body)) inner_body` \\
@@ -1037,9 +1036,9 @@ val cf_sound = store_thm ("cf_sound",
       cf_strip_sound_full_tac \\
       qpat_assum `sound _ e1 _` (progress o REWRITE_RULE [sound_def]) \\
       first_assum (qspec_then `v` assume_tac) \\
-      `SPLIT (st2heap (:'ffi) st') (h_f, h_k UNION h_g)` by SPLIT_TAC \\
+      `SPLIT (st2heap (p:'ffi ffi_proj) st') (h_f, h_k UNION h_g)` by SPLIT_TAC \\
       qpat_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
-      `SPLIT3 (st2heap (:'ffi) st'') (h_f',h_k, h_g UNION h_g')` by SPLIT_TAC \\
+      `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f',h_k, h_g UNION h_g')` by SPLIT_TAC \\
       instantiate
     )
   )
@@ -1114,33 +1113,41 @@ val cf_sound = store_thm ("cf_sound",
         (* Start unfolding the goal and instantiating exists *)
         cf_evaluate_step_tac \\ GEN_EXISTS_TAC "vs" `[xv; g]` \\
         GEN_EXISTS_TAC "s2" `st'` \\ progress SPLIT_of_SPLIT3_2u3 \\ rw [] \\
-        (* Exploit the [app_basic (:'ffi) g xv H' Q] we got from the ind. hyp. *)
+        (* Exploit the [app_basic (p:'ffi ffi_proj) g xv H' Q] we got from the ind. hyp. *)
         fs [app_basic_def] \\ first_assum progress \\
         (* Prove the goal *)
         rename1 `SPLIT3 (st2heap _ st'') (h_f', h_g', _)` \\
-        `SPLIT3 (st2heap (:'ffi) st'') (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
+        `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
         \\ instantiate \\ cf_evaluate_list_tac [`st`, `st'`]
       )
     )
     THEN1 (
       (* Opassign *)
-      fs [app_assign_def, SEP_IMP_def,STAR_def,cell_def,one_def, st2heap_def] \\
+      fs [app_assign_def, SEP_IMP_def,STAR_def,cell_def,one_def] \\
       `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       first_assum progress \\
       rename1 `SPLIT h_i (h_i', _)` \\ rename1 `FF h_i'` \\
       fs [do_app_def, store_assign_def] \\
-      `(rv,Refv x') IN (store2heap st.refs)` by SPLIT_TAC \\
+      `Mem rv (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
+      `Mem rv (Refv x') IN (store2heap st.refs)` by
+          fs [st2heap_def,Mem_NOT_IN_ffi2heap] \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       `store_v_same_type (EL rv st.refs) (Refv xv)` by
         (fs [store_v_same_type_def]) \\ fs [] \\
-      `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs))
-         ((rv, Refv xv) INSERT h_i', h_k, {})` by (
-        rpt_drule_then (fs o sing) store2heap_LUPDATE \\ 
-        drule store2heap_IN_unique_key \\ SPLIT_TAC
-      ) \\ instantiate \\ first_assum irule \\
-      drule store2heap_IN_unique_key \\ SPLIT_TAC
-    )
+      `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs) ∪ ffi2heap p st.ffi)
+         (Mem rv (Refv xv) INSERT h_i', h_k, {})` by
+       (rpt_drule_then (fs o sing) store2heap_LUPDATE \\
+        drule store2heap_IN_unique_key \\
+        fs [st2heap_def,SPLIT3_def,SPLIT_def] \\ rw [] \\
+        assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\ SPLIT_TAC)
+      \\ fs [st2heap_def]
+      \\ instantiate \\ first_assum irule \\ instantiate
+      \\ drule store2heap_IN_unique_key \\ rw []
+      \\ `!x y. Mem x y IN h_i ==> Mem x y IN store2heap st.refs` by
+       (rw [] \\ CCONTR_TAC \\ fs [] \\ fs [SPLIT_def,EXTENSION]
+        \\ metis_tac [Mem_NOT_IN_ffi2heap])
+      \\ SPLIT_TAC)
     THEN1 (
       (* Opref *)
       fs [do_app_def, store_alloc_def] \\
@@ -1148,8 +1155,9 @@ val cf_sound = store_thm ("cf_sound",
       `evaluate_list F env st [h] (st, Rval [xv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
-        [`LENGTH st.refs`, `(LENGTH st.refs,Refv xv) INSERT h_i`] \\
+        [`LENGTH st.refs`, `Mem (LENGTH st.refs)(Refv xv) INSERT h_i`] \\
       assume_tac store2heap_alloc_disjoint \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
       THEN1 (qexists_tac `h_i` \\ SPLIT_TAC)
       THEN1 (
@@ -1160,12 +1168,13 @@ val cf_sound = store_thm ("cf_sound",
     THEN1 (
       (* Opderef *)
       `evaluate_list F env st [h] (st, Rval [Loc rv])` by
-        (cf_evaluate_list_tac [`st`, `st`]) \\ 
+        (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_deref_def, SEP_IMP_def,STAR_def,one_def,cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `{(rv,Refv x)}` \\
+      rpt (first_x_assum progress) \\
       fs [do_app_def, store_lookup_def] \\
-      `(rv,Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      `Mem rv (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
     )
     THEN1 (
@@ -1176,8 +1185,10 @@ val cf_sound = store_thm ("cf_sound",
       fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
-        [`(LENGTH st.refs, W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
-      assume_tac store2heap_alloc_disjoint \\ impl_tac
+        [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
+      assume_tac store2heap_alloc_disjoint \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      impl_tac
       THEN1 (instantiate \\ SPLIT_TAC)
       THEN1 (
         rpt strip_tac \\ every_case_tac \\
@@ -1188,12 +1199,13 @@ val cf_sound = store_thm ("cf_sound",
     THEN1 (
       (* Aw8sub *)
       `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
-        by (cf_evaluate_list_tac [`st`, `st`]) \\ 
+        by (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `{(l,W8array ws)}` \\
+      rpt (first_x_assum progress) \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       fs [do_app_def, store_lookup_def] \\
-      `(l,W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+      `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
       instantiate \\ every_case_tac \\
       rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []
@@ -1203,10 +1215,11 @@ val cf_sound = store_thm ("cf_sound",
       `evaluate_list F env st [h] (st, Rval [Loc l])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
       fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `{(l,W8array ws)}` \\
+      rpt (first_x_assum progress) \\
       fs [do_app_def, store_lookup_def] \\
-      `(l,W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+      `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
     )
     THEN1 (
@@ -1215,12 +1228,13 @@ val cf_sound = store_thm ("cf_sound",
          (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
           by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
       fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
-      first_x_assum progress \\ rename1 `SPLIT h_i (h_i', {(l,W8array ws)})` \\
-      `(l,W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+      first_x_assum progress \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
       every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
-      qexists_tac `(l, W8array (LUPDATE w (Num (ABS i)) ws)) INSERT h_i'` \\
+      qexists_tac `Mem l (W8array (LUPDATE w (Num (ABS i)) ws)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (rpt_drule_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
@@ -1230,33 +1244,32 @@ val cf_sound = store_thm ("cf_sound",
 
 val cf_sound' = store_thm ("cf_sound'",
   ``!e env H Q st.
-     cf (:'ffi) e env H Q ==> H (st2heap (:'ffi) st) ==>
+     cf (p:'ffi ffi_proj) e env H Q ==> H (st2heap (p:'ffi ffi_proj) st) ==>
      ?st' h_f h_g v.
        evaluate F env st e (st', Rval v) /\
-       SPLIT (st2heap (:'ffi) st') (h_f, h_g) /\
+       SPLIT (st2heap (p:'ffi ffi_proj) st') (h_f, h_g) /\
        Q v h_f``,
-
-  rpt strip_tac \\ qspecl_then [`(:'ffi)`, `e`] assume_tac cf_sound \\
-  fs [sound_def, st2heap_def] \\
-  `SPLIT (store2heap st.refs) (store2heap st.refs, {})` by SPLIT_TAC \\
-  res_tac \\ rename1 `SPLIT3 (store2heap st'.refs) (h_f, {}, h_g)` \\
-  `SPLIT (store2heap st'.refs) (h_f, h_g)` by SPLIT_TAC \\ instantiate
+  rpt strip_tac \\ qspecl_then [`(p:'ffi ffi_proj)`, `e`] assume_tac cf_sound \\
+  fs [sound_def] \\
+  `SPLIT (st2heap p st) (st2heap p st, {})` by SPLIT_TAC \\
+  res_tac \\ rename1 `SPLIT3 (st2heap p st') (h_f, {}, h_g)` \\
+  `SPLIT (st2heap p st') (h_f, h_g)` by SPLIT_TAC \\ instantiate
 )
 
 val cf_sound_local = store_thm ("cf_sound_local",
   ``!e env H Q h i st.
-     cf (:'ffi) e env H Q ==>
-     SPLIT (st2heap (:'ffi) st) (h, i) ==>
+     cf (p:'ffi ffi_proj) e env H Q ==>
+     SPLIT (st2heap (p:'ffi ffi_proj) st) (h, i) ==>
      H h ==>
      ?st' h' g v.
        evaluate F env st e (st', Rval v) /\
-       SPLIT3 (st2heap (:'ffi) st') (h', g, i) /\
+       SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h', g, i) /\
        Q v h'``,
   rpt strip_tac \\
-  `sound (:'ffi) e (local (cf (:'ffi) e))` by
+  `sound (p:'ffi ffi_proj) e (local (cf (p:'ffi ffi_proj) e))` by
     (match_mp_tac sound_local \\ fs [cf_sound]) \\
   fs [sound_def, st2heap_def] \\
-  `local (cf (:'ffi) e) env H Q` by
+  `local (cf (p:'ffi ffi_proj) e) env H Q` by
     (fs [REWRITE_RULE [is_local_def] cf_local |> GSYM]) \\
   res_tac \\ progress SPLIT3_swap23 \\ instantiate
 )
@@ -1264,8 +1277,8 @@ val cf_sound_local = store_thm ("cf_sound_local",
 val app_basic_of_cf = store_thm ("app_basic_of_cf",
   ``!clos body x env env' v H Q.
      do_opapp [clos; x] = SOME (env', body) ==>
-     cf (:'ffi) body env' H Q ==>
-     app_basic (:'ffi) clos x H Q``,
+     cf (p:'ffi ffi_proj) body env' H Q ==>
+     app_basic (p:'ffi ffi_proj) clos x H Q``,
   fs [app_basic_of_sound_cf, cf_sound]
 )
 
@@ -1273,8 +1286,8 @@ val app_of_cf = store_thm ("app_of_cf",
   ``!ns env body xvs env' H Q.
      ns <> [] ==>
      LENGTH xvs = LENGTH ns ==>
-     cf (:'ffi) body (extend_env ns xvs env) H Q ==>
-     app (:'ffi) (naryClosure env ns body) xvs H Q``,
+     cf (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
+     app (p:'ffi ffi_proj) (naryClosure env ns body) xvs H Q``,
   fs [app_of_sound_cf, cf_sound]
 )
 
