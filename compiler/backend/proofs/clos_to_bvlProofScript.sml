@@ -4232,6 +4232,39 @@ val intro_multi_preserves_esgc_free = Q.store_thm(
         by metis_tac[intro_multi_preserves_elist_globals] >>
       fs[] >> metis_tac[collect_args_preserves_set_globals]))
 
+val renumber_code_locs_elist_globals = Q.store_thm(
+  "renumber_code_locs_elist_globals",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ⇒
+      elist_globals es' = elist_globals es) ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n, e') ⇒
+      set_globals e' = set_globals e)`,
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind >>
+  simp[clos_numberTheory.renumber_code_locs_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  rename1`renumber_code_locs_list locn (MAP SND functions)` >>
+  qspecl_then [`locn`, `MAP SND functions`] mp_tac
+    (CONJUNCT1 clos_numberTheory.renumber_code_locs_length) >>
+  simp[] >> simp[MAP_ZIP]);
+
+val renumber_code_locs_esgc_free = Q.store_thm(
+  "renumber_code_locs_esgc_free",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY esgc_free es ⇒
+      EVERY esgc_free es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ esgc_free e ⇒ esgc_free e')`,
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind >>
+  simp[clos_numberTheory.renumber_code_locs_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
+  >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
+  >- (rename1`renumber_code_locs_list locn (MAP SND functions)` >>
+      qspecl_then [`locn`, `MAP SND functions`] mp_tac
+        (CONJUNCT1 clos_numberTheory.renumber_code_locs_length) >>
+      simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
+      simp[]))
+
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s) = (r,s') ∧
    ¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧ esgc_free e ∧
@@ -4293,7 +4326,13 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     by metis_tac[clos_mtiTheory.intro_multi_sing] >>
   `EVERY esgc_free [e]` by simp[] >>
   `EVERY esgc_free [ime]` by metis_tac[intro_multi_preserves_esgc_free] >>
-  fs[] >>
+  `elist_globals [ime] = elist_globals [e]`
+    by metis_tac[intro_multi_preserves_elist_globals] >>
+  rename1`renumber_code_locs_list _ (intro_multi [e]) = (_, [ren_e])` >>
+  `elist_globals [ren_e] = elist_globals [ime]`
+    by metis_tac[renumber_code_locs_elist_globals] >>
+  `EVERY esgc_free [ren_e]`
+    by metis_tac[renumber_code_locs_esgc_free] >> fs[] >>
   rename[`kcompile b kexp0`, `evaluate([kexp0],_,ks0) = (kres1, ks1)`,
          `opt_state_rel b LN ks0 ks02`] >>
 
