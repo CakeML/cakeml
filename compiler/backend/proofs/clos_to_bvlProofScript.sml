@@ -4438,14 +4438,15 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
             clos_annotateProofTheory.state_rel_def]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧
+  `¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧ esgc_free e ∧
+   BAG_ALL_DISTINCT (set_globals e) ∧
    compile c e = (c',p) ∧ num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
    full_state_rel c.do_known (s:'ffi closSem$state) (initial_state s.ffi (fromAList p) s.clock) ∧
    semantics [] s [e] ≠ Fail
    ⇒
    semantics s.ffi (fromAList p) c'.start =
    semantics [] s [e]`,
-  simp[GSYM AND_IMP_INTRO] >> ntac 6 strip_tac >>
+  rpt strip_tac >> qpat_assum `closSem$semantics _ _ _ ≠ Fail` mp_tac >>
   simp[closSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
