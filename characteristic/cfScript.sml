@@ -1285,4 +1285,20 @@ val app_of_cf = store_thm ("app_of_cf",
   fs [app_of_sound_cf, cf_sound]
 )
 
+val app_rec_of_cf = store_thm ("app_rec_of_cf",
+  ``!f params body funs xvs env H Q.
+     params <> [] ==>
+     LENGTH params = LENGTH xvs ==>
+     ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
+     find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
+     cf (:'ffi) body
+       (extend_env_rec
+          (MAP (\ (f,_,_). f) funs) 
+          (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+          params xvs env)
+        H Q ==>
+     app (:'ffi) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q``,
+  fs [app_rec_of_sound_cf, cf_sound]
+)
+
 val _ = export_theory()
