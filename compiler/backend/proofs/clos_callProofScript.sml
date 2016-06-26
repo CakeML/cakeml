@@ -471,6 +471,54 @@ val closed_Fn = Q.store_thm("closed_Fn",
   \\ Cases_on `x` \\ fs[GSYM lookup_db_to_set]
   \\ res_tac \\ fs[]);
 
+val calls_el_sing = Q.store_thm("calls_el_sing",
+  `∀xs g0 ys g i.
+    calls xs g0 = (ys,g) ∧
+    i < LENGTH xs ∧
+    ALL_DISTINCT (MAP FST (SND g0)) ∧
+    ALL_DISTINCT (code_locs xs) ∧
+    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0)))
+    ⇒
+     ∃g1 g2.
+       calls [EL i xs] g1 = ([EL i ys],g2) ∧
+       subg g0 g1 ∧ subg g2 g`,
+  ho_match_mp_tac calls_ind \\ rw[]
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ TRY (
+    rveq \\ asm_exists_tac \\ fs[]
+    \\ metis_tac[calls_ALL_DISTINCT,subg_refl,calls_subg] )
+  \\ fs[calls_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
+  \\ Cases_on`i` \\ fs[]
+  >- (
+    asm_exists_tac \\ fs[]
+    \\ conj_tac
+    \\ TRY (match_mp_tac subg_refl \\ fs[] )
+    \\ match_mp_tac calls_subg
+    \\ asm_exists_tac \\ fs[]
+    \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
+    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ first_x_assum drule
+  \\ impl_tac
+  >- (
+    fs[code_locs_def,ALL_DISTINCT_APPEND]
+    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ rw[] \\ asm_exists_tac \\ rw[]
+  \\ match_mp_tac subg_trans
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl) \\ rw[]
+  \\ match_mp_tac calls_subg
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
+
 (* properties of value relation *)
 
 val subg_refl = Q.store_thm("subg_refl",
