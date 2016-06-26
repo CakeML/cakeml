@@ -4107,9 +4107,135 @@ val full_result_rel_ffi = Q.store_thm("full_result_rel_ffi",
   Cases_on `res2 = Rerr (Rabort Rtype_error)` >> fs[] >- (rveq >> fs[]) >>
   Cases_on `res1 = Rerr (Rabort Rtype_error)` >> fs[])
 
+val EVERY_HD = Q.prove(
+  `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
+  Cases_on `l` >> simp[]);
+
+val intro_multi_EQ_NIL = Q.store_thm(
+  "intro_multi_EQ_NIL[simp]",
+  `∀es. intro_multi es = [] ⇔ es = []`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[clos_mtiTheory.intro_multi_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]))
+
+val elist_globals_APPEND = Q.store_thm(
+  "elist_globals_APPEND",
+  `elist_globals (es1 ++ es2) = elist_globals es1 ⊎ elist_globals es2`,
+  Induct_on `es1` >> simp[] >> simp[bagTheory.ASSOC_BAG_UNION]);
+
+val collect_apps_preserves_set_globals = Q.store_thm(
+  "collect_apps_preserves_set_globals",
+  `∀es e es' e'.
+     collect_apps es e = (es',e') ⇒
+     elist_globals es ⊎ set_globals e = elist_globals es' ⊎ set_globals e'`,
+  ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
+  simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rpt strip_tac
+  >- (pop_assum (assume_tac o SYM) >> fs[elist_globals_APPEND] >>
+      metis_tac[bagTheory.COMM_BAG_UNION, bagTheory.ASSOC_BAG_UNION])
+  >- (rveq >> simp[]))
+
+val collect_apps_preserves_esgc_free = Q.store_thm(
+  "collect_apps_preserves_esgc_free",
+  `∀es e es' e'.
+     collect_apps es e = (es',e') ∧ EVERY esgc_free es ∧ esgc_free e ⇒
+     EVERY esgc_free es' ∧ esgc_free e'`,
+  ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
+  simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rw[] >>
+  simp[] >> metis_tac[]);
+
+val collect_args_preserves_set_globals = Q.store_thm(
+  "collect_args_preserves_set_globals",
+  `∀n e n' e'. collect_args n e = (n',e') ⇒ set_globals e' = set_globals e`,
+  ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
+  simp[clos_mtiTheory.collect_args_def, bool_case_eq] >> dsimp[] >>
+  rpt strip_tac >> pop_assum (assume_tac o SYM) >> fs[]);
+
+val collect_args_preserves_esgc_free = Q.store_thm(
+  "collect_args_preserves_esgc_free",
+  `∀n e n' e'. collect_args n e = (n',e') ∧ esgc_free e ⇒ esgc_free e'`,
+  ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
+  simp[clos_mtiTheory.collect_args_def, bool_case_eq] >> dsimp[] >>
+  rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]);
+
+val intro1_pat = ``intro_multi [e]``
+fun intro_sing th =
+  case gen_find_term
+         (fn (bvs,t) => if can (match_term intro1_pat) t andalso
+                           null (intersect bvs (free_vars t))
+                        then SOME t
+                        else NONE)
+                     (concl th)
+   of
+      SOME t => strip_assume_tac
+                  (PART_MATCH (lhs o #2 o dest_exists)
+                              clos_mtiTheory.intro_multi_sing t)
+    | NONE => NO_TAC
+
+
+val elist_globals_FOLDR = prove(
+  ``elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)``,
+  Induct_on `es` >> simp[]);
+
+val intro_multi_preserves_elist_globals = Q.store_thm(
+  "intro_multi_preserves_elist_globals",
+  `∀es. elist_globals (intro_multi es) = elist_globals es`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[] >> rpt conj_tac >> simp[clos_mtiTheory.intro_multi_def] >>
+  rpt strip_tac >> fs[] >>
+  TRY (rpt (first_assum intro_sing >> fs[] >> pop_assum mp_tac) >> NO_TAC)
+  >- (pairarg_tac >> fs[] >> first_assum intro_sing >> fs[] >>
+      imp_res_tac collect_apps_preserves_set_globals >>
+      metis_tac[bagTheory.COMM_BAG_UNION])
+  >- (pairarg_tac >> fs[] >> first_assum intro_sing >> fs[] >>
+      imp_res_tac collect_args_preserves_set_globals)
+  >- (first_assum intro_sing >> fs[] >> simp[elist_globals_FOLDR] >>
+      irule FOLDR_CONG >> simp[] >>
+      simp[LIST_EQ_REWRITE] >> simp[EL_MAP] >> rpt strip_tac >>
+      rpt (pairarg_tac >> fs[]) >>
+      imp_res_tac collect_args_preserves_set_globals >>
+      rename1 `HD (intro_multi [e3])` >>
+      `∃e3'. intro_multi [e3] = [e3']`
+        by metis_tac[clos_mtiTheory.intro_multi_sing] >> simp[] >>
+      rename1`EL n fns = (nn,e2)` >> `MEM (nn,e2) fns` by metis_tac[MEM_EL] >>
+      res_tac >> rfs[]))
+
+val intro_multi_preserves_esgc_free = Q.store_thm(
+  "intro_multi_preserves_esgc_free",
+  `∀es. EVERY esgc_free es ⇒ EVERY esgc_free (intro_multi es)`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[] >> rpt conj_tac >> simp[clos_mtiTheory.intro_multi_def] >>
+  rpt strip_tac >> fs[] >> simp[EVERY_HD]
+  >- (pairarg_tac >> fs[] >>
+      imp_res_tac collect_apps_preserves_esgc_free >> fs[EVERY_HD])
+  >- (pairarg_tac >> fs[] >> imp_res_tac collect_args_preserves_set_globals >>
+      rename1`HD (intro_multi [e1])` >>
+      `elist_globals [e1] = {||}` by simp[] >>
+      `elist_globals (intro_multi [e1]) = {||}`
+         by metis_tac[intro_multi_preserves_elist_globals] >>
+      first_assum intro_sing >> fs[])
+  >- (first_assum intro_sing >> fs[] >> rename1`intro_multi [e0]` >>
+      qspec_then `[e0]` mp_tac intro_multi_preserves_elist_globals >>
+      simp[])
+  >- (first_assum intro_sing >> fs[] >> rename1`intro_multi [e0]` >>
+      qspec_then `[e0]` mp_tac intro_multi_preserves_elist_globals >>
+      simp[])
+  >- (rpt (pairarg_tac >> fs[]) >> fs[elist_globals_FOLDR] >>
+      qpat_assum `FOLDR _ _ _ = {||}`
+        (fn th => CONV_TAC (RAND_CONV (REWR_CONV (SYM th)))) >>
+      irule FOLDR_CONG >> simp[] >> simp[LIST_EQ_REWRITE] >>
+      rpt strip_tac >> simp[EL_MAP] >> rpt (pairarg_tac >> fs[]) >>
+      rename1`HD (intro_multi [e2])` >>
+      `∃e2'. intro_multi [e2] = [e2']`
+        by metis_tac[clos_mtiTheory.intro_multi_sing] >>
+      simp[] >>
+      `elist_globals [e2'] = elist_globals [e2]`
+        by metis_tac[intro_multi_preserves_elist_globals] >>
+      fs[] >> metis_tac[collect_args_preserves_set_globals]))
+
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s) = (r,s') ∧
-   ¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧
+   ¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧ esgc_free e ∧
+   BAG_ALL_DISTINCT (set_globals e) ∧
    r ≠ Rerr (Rabort Rtype_error) ∧
    compile c e = (c',p)  ∧
    full_state_rel c.do_known (s:'ffi closSem$state) s1 ∧
@@ -4119,7 +4245,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
      evaluate ([Call 0 (SOME c'.start) []],[],s1 with clock := s.clock + ck) = (r1,s'1) ∧
      full_result_rel c.do_known (r,s') (r1,s'1)`,
   srw_tac[][compile_def,LET_THM,full_state_rel_def] >>
-  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >>
+      full_simp_tac(srw_ss())[]) >>
   `∃z. es = [z]` by (
     metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
               clos_numberTheory.renumber_code_locs_length,
@@ -4160,8 +4287,13 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_SOME)
     assume_tac >>
   strip_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-  (* known correct *)
 
+  (* known correct *)
+  `∃ime. intro_multi [e] = [ime]`
+    by metis_tac[clos_mtiTheory.intro_multi_sing] >>
+  `EVERY esgc_free [e]` by simp[] >>
+  `EVERY esgc_free [ime]` by metis_tac[intro_multi_preserves_esgc_free] >>
+  fs[] >>
   rename[`kcompile b kexp0`, `evaluate([kexp0],_,ks0) = (kres1, ks1)`,
          `opt_state_rel b LN ks0 ks02`] >>
 
@@ -4171,7 +4303,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
                      `s01` |-> `ks0`, `s1` |-> `ks1`, `res1` |-> `kres1`,
                      `s02` |-> `ks02`])>>
   simp[]>>
-  impl_tac>- cheat>> (* some of the ks0 things might need to move into assums? *)
+  impl_tac
+  >- cheat>> (* some of the ks0 things might need to move into assums? *)
   strip_tac>>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``opt_res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
