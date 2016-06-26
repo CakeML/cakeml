@@ -2556,6 +2556,7 @@ val compile_row_set_globals = prove(``
   rpt (pairarg_tac>>fs[sLet_def])>>
   qpat_assum `A=f` sym_sub_tac>>rw[op_gbag_def]>>
   pop_assum  (assume_tac o Q.AP_TERM`patProps$set_globals`)>>
+  rfs[])
 
 val set_globals_eq = Q.store_thm("set_globals_eq",
   `(∀bvs exp. set_globals (compile_exp bvs exp) ≤ set_globals exp) ∧
