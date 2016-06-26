@@ -1383,6 +1383,10 @@ val elist_globals_append = Q.store_thm("elist_globals_append",
   `∀a b. elist_globals (a++b) =
   elist_globals a ⊎ elist_globals b`,
   Induct>>fs[set_globals_def,ASSOC_BAG_UNION])
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
 
 val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
   `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
