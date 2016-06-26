@@ -413,4 +413,52 @@ val compile_semantics = Q.store_thm("compile_semantics",
   rpt var_eq_tac >>
   fs[dec_result_rel_cases,compile_state_def]);
 
+val set_globals_esgc = prove(``
+  (∀e. set_globals e = {||} ⇒ conProps$esgc_free e) ∧
+  (∀es. elist_globals es = {||} ⇒ EVERY conProps$esgc_free es)``,
+  ho_match_mp_tac set_globals_ind>>rw[])
+
+val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",
+ `∀prog a b c.
+  EVERY (λp. decs_set_globals p = {||}) prog ⇒
+  esgc_free (SND (con_to_dec$compile_prog a b c prog))`,
+  Induct>>
+  fs[compile_prog_def,compile_prompt_def]>>
+  Cases>>rw[]>>
+  pairarg_tac>>fs[]>>
+  reverse CONJ_TAC
+  >-
+    (first_x_assum(qspecl_then[`a`,`b`,`c+num_defs l`] assume_tac)>>
+    rfs[])
+  >>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum mp_tac>>
+    qid_spec_tac`c`>>
+    qid_spec_tac`l`>>
+    Induct>>fs[compile_decs_def]>>
+    Cases>>fs[dec_set_globals_def]
+    >-
+      (fs[set_globals_esgc]>>
+      qpat_abbrev_tac`ls = GENLIST f n`>>rw[]>>
+      rpt(pop_assum kall_tac)>>
+      qid_spec_tac`c`>>
+      Induct_on`ls`>>fs[init_globals_def])
+    >>
+      rw[]>>
+      qpat_assum`elist_globals (MAP (SND o SND) l') = {||}` mp_tac>>
+      rpt(pop_assum kall_tac)>>
+      qid_spec_tac`c`>>
+      Induct_on`l'`>>
+      fs[init_global_funs_def]>>
+      rw[]>>PairCases_on`h`>>
+      fs[init_global_funs_def,esgc_free_def])
+
+(* needs generalization *)
+val no_set_globals_imp_bag_all_distinct = Q.store_thm("no_set_globals_imp_bag_all_distinct",
+ `∀prog a b c.
+  EVERY (λp. decs_set_globals p = {||}) prog ⇒
+  BAG_ALL_DISTINCT (set_globals (SND (con_to_dec$compile_prog a b c prog)))`,
+  Induct>>
+  cheat)
+
 val _ = export_theory ();
