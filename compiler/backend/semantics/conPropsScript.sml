@@ -407,4 +407,12 @@ val evaluate_prog_globals = Q.store_thm("evaluate_prog_globals",
   Induct_on`p`>>srw_tac[][evaluate_prog_def] >> srw_tac[][LENGTH_NIL] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> res_tac >> full_simp_tac(srw_ss())[]);
 
+open bagTheory
+
+(* finding the InitGlobal operations *)
+val op_gbag_def = Define`
+  op_gbag (Init_global_var n) = BAG_INSERT n {||} ∧
+  op_gbag _ = {||}
+`;
+
 val _ = export_theory()

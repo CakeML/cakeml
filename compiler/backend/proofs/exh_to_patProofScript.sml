@@ -2535,4 +2535,125 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   specl_args_of_then``exhSem$evaluate``(CONJUNCT1 compile_exp_evaluate) mp_tac >>
   simp[state_rel_def,compile_state_def])
 
+val set_globals_let_els = prove(``
+  ∀n m e.
+  set_globals (Let_Els n m e) = set_globals e``,
+  ho_match_mp_tac Let_Els_ind>>rw[Let_Els_def,sLet_def,op_gbag_def]>>
+  pop_assum sym_sub_tac>>fs[])
+
+val compile_pat_empty = prove(``
+  (∀p. set_globals (compile_pat p) = {||}) ∧
+  (∀n ps. set_globals (compile_pats n ps) = {||})``,
+  ho_match_mp_tac compile_pat_ind>>
+  rw[compile_pat_def,op_gbag_def,sIf_def,sLet_def,set_globals_let_els]>>
+  every_case_tac>>fs[])
+
+val compile_row_set_globals = prove(``
+  (∀bvs p a b f exp.
+  compile_row bvs p = (a,b,f) ⇒ set_globals (f exp) = set_globals exp) ∧
+  (∀bvs n k ps a b f exp. compile_cols bvs n k ps = (a,b,f) ⇒ set_globals (f exp) = set_globals exp)``,
+  ho_match_mp_tac compile_row_ind>>rw[compile_row_def]>>fs[]>>
+  rpt (pairarg_tac>>fs[sLet_def])>>
+  qpat_assum `A=f` sym_sub_tac>>rw[op_gbag_def]>>
+  pop_assum  (assume_tac o Q.AP_TERM`patProps$set_globals`)>>
+
+val set_globals_eq = Q.store_thm("set_globals_eq",
+  `(∀bvs exp. set_globals (compile_exp bvs exp) ≤ set_globals exp) ∧
+   (∀bvs exps.
+     elist_globals(compile_exps bvs exps) ≤ elist_globals exps) ∧
+   (∀bvs funs.
+     elist_globals(compile_funs bvs funs) ≤ elist_globals (MAP (SND o SND) funs)) ∧
+   (∀bvs pes.
+     set_globals(compile_pes bvs pes) ≤ elist_globals (MAP SND pes))`,
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def,sLet_def,sIf_def]>>
+  fs[bagTheory.SUB_BAG_UNION]
+  >-
+    (full_case_tac>>fs[])
+  >-
+    (Cases_on`op`>>fs[conPropsTheory.op_gbag_def,op_gbag_def])
+  >-
+    (every_case_tac>>
+    imp_res_tac compile_row_set_globals>>
+    simp[])
+  >-
+    (every_case_tac>>
+    fs[compile_pat_empty])
+  >>
+    Q.ISPEC_THEN `p` assume_tac (CONJUNCT1 compile_pat_empty)>>
+    every_case_tac>>fs[]>>
+    imp_res_tac compile_row_set_globals>>
+    fs[bagTheory.SUB_BAG_UNION])
+
+val esgc_free_let_els = prove(``
+  ∀n m e.
+  esgc_free e ⇒
+  esgc_free (Let_Els n m e)``,
+  ho_match_mp_tac Let_Els_ind>>rw[Let_Els_def,sLet_def,op_gbag_def])
+
+val compile_pat_esgc_free = prove(``
+  (∀p. esgc_free (compile_pat p)) ∧
+  (∀n ps. esgc_free (compile_pats n ps))``,
+  ho_match_mp_tac compile_pat_ind>>
+  rw[compile_pat_def,op_gbag_def,sIf_def,sLet_def,esgc_free_let_els]>>
+  every_case_tac>>fs[])
+
+val compile_row_esgc_free = prove(``
+  (∀bvs p a b f exp.
+  compile_row bvs p = (a,b,f) ∧ esgc_free exp ⇒
+  esgc_free (f exp)) ∧
+  (∀bvs n k ps a b f exp.
+  compile_cols bvs n k ps = (a,b,f) ∧ esgc_free exp ⇒
+  esgc_free (f exp))``,
+  ho_match_mp_tac compile_row_ind>>rw[compile_row_def]>>fs[]>>
+  rpt (pairarg_tac>>fs[sLet_def])>>
+  qpat_assum `A=f` sym_sub_tac>>rw[op_gbag_def])
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `(∀bvs exp. esgc_free exp ⇒ esgc_free (compile_exp bvs exp)) ∧
+   (∀bvs exps.
+     EVERY esgc_free exps ⇒ EVERY esgc_free (compile_exps bvs exps)) ∧
+   (∀bvs funs.
+     EVERY esgc_free (MAP (SND o SND)funs) ⇒ EVERY esgc_free (compile_funs bvs funs)) ∧
+   (∀bvs pes.
+     EVERY esgc_free (MAP SND pes) ⇒ esgc_free (compile_pes bvs pes))`,
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def,sLet_def,sIf_def]
+  >- (every_case_tac>>fs[])
+  >-
+    (Q.SPECL_THEN [`SOME x::bvs`,`exp`] assume_tac (el 1 (CONJUNCTS set_globals_eq))>>
+    rfs[])
+  >-
+    (Q.SPECL_THEN [`MAP (SOME o FST) funs ++bvs`,`funs`] assume_tac (el 3 (CONJUNCTS set_globals_eq))>>
+    rfs[])
+  >-
+    (every_case_tac>>rfs[]>>
+    imp_res_tac compile_row_esgc_free)
+  >- fs[compile_pat_esgc_free]
+  >>
+    Q.ISPEC_THEN `p` assume_tac (CONJUNCT1 compile_pat_esgc_free)>>
+    every_case_tac>>rfs[]>>
+    imp_res_tac compile_row_esgc_free)
+
+(* TODO: Move to HOL *)
+val BAG_ALL_DISTINCT_LT = prove(``
+  ∀s t.
+  s ≤ t ∧
+  BAG_ALL_DISTINCT t ⇒
+  BAG_ALL_DISTINCT s``,
+  fs[bagTheory.BAG_ALL_DISTINCT,bagTheory.SUB_BAG,bagTheory.BAG_INN]>>
+  rw[]>>
+  CCONTR_TAC>>
+  `s e ≥ 2` by fs[]>>
+  res_tac>>
+  first_x_assum(qspec_then`e` assume_tac)>>
+  DECIDE_TAC);
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
+       BAG_ALL_DISTINCT (set_globals (compile_exp [] e))`,
+  rw[]>>
+  match_mp_tac BAG_ALL_DISTINCT_LT>>
+  HINT_EXISTS_TAC>>fs[set_globals_eq])
+
 val _ = export_theory()

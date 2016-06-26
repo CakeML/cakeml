@@ -242,7 +242,6 @@ val not_evaluate_list_append = store_thm("not_evaluate_list_append",
             semanticPrimitivesTheory.result_distinct] )
 *)
 
-(* TODO: Move to an appropriate ancestor of all the early props...*)
 open bagTheory
 
 (* finding the InitGlobal operations *)
