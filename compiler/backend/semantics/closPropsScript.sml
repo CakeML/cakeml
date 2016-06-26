@@ -1379,4 +1379,14 @@ val set_globals_empty_esgc_free = Q.store_thm(
   rw[] >> rw[] >>
   first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
 
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
+
+val elist_globals_APPEND = Q.store_thm(
+  "elist_globals_APPEND",
+  `elist_globals (es1 ++ es2) = elist_globals es1 ⊎ elist_globals es2`,
+  Induct_on `es1` >> simp[] >> simp[bagTheory.ASSOC_BAG_UNION]);
+
 val _ = export_theory();

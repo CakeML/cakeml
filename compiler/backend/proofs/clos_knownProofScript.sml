@@ -648,10 +648,6 @@ val ssgc_evaluate = save_thm(
   "ssgc_evaluate",
   ssgc_evaluate0 |> CONJUNCT1 |> SIMP_RULE bool_ss []);
 
-val elist_globals_FOLDR = prove(
-  ``elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)``,
-  Induct_on `es` >> simp[]);
-
 val known_preserves_setGlobals = Q.store_thm(
   "known_preserves_setGlobals",
   `∀es as g0 all g.

@@ -873,4 +873,37 @@ val renumber_code_locs_EVEN = Q.store_thm("renumber_code_locs_EVEN",
   \\ fs[MAP_ZIP,EVERY_GENLIST] \\ rw[]
   \\ simp[EVEN_MOD2,SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]);
 
+val renumber_code_locs_elist_globals = Q.store_thm(
+  "renumber_code_locs_elist_globals",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ⇒
+      elist_globals es' = elist_globals es) ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n, e') ⇒
+      set_globals e' = set_globals e)`,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[renumber_code_locs_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  rename1`renumber_code_locs_list locn (MAP SND functions)` >>
+  qspecl_then [`locn`, `MAP SND functions`] mp_tac
+    (CONJUNCT1 renumber_code_locs_length) >>
+  simp[] >> simp[MAP_ZIP]);
+
+val renumber_code_locs_esgc_free = Q.store_thm(
+  "renumber_code_locs_esgc_free",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY esgc_free es ⇒
+      EVERY esgc_free es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ esgc_free e ⇒ esgc_free e')`,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[renumber_code_locs_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
+  >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
+  >- (rename1`renumber_code_locs_list locn (MAP SND functions)` >>
+      qspecl_then [`locn`, `MAP SND functions`] mp_tac
+        (CONJUNCT1 renumber_code_locs_length) >>
+      simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
+      simp[]))
+
 val _ = export_theory()
