@@ -36,7 +36,7 @@ fun prove_local_conseq_conv ctx =
           CONSEQ_CONV_STRENGTHEN_direction)) ctx
   in FIRST_CONSEQ_CONV ctx_cc end
 
-fun hclean_base ctx t =
+fun hclean_cont_conseq_conv ctx t =
   let
     val (_, pre, _) = dest_F_pre_post t
     val hs = list_dest dest_star pre
@@ -59,7 +59,7 @@ fun hclean_base ctx t =
               CONSEQ_CONV_STRENGTHEN_direction,
             try_prove_local_cc
           ],
-          IMP_CONCL_CONSEQ_CONV
+          (rand, IMP_CONCL_CONSEQ_CONV)
         )
       else if is_sep_exists tm then
         SOME (
@@ -72,11 +72,15 @@ fun hclean_base ctx t =
               (REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)),
             try_prove_local_cc
           ],
-          STRIP_FORALL_CONSEQ_CONV
+          (snd o strip_forall, STRIP_FORALL_CONSEQ_CONV)
         )
       else
         NONE
-  in find_map pull hs end
+  in
+    case find_map pull hs of
+        NONE => raise UNCHANGED
+      | SOME (cc, cont) => (cc t, cont)
+  end
 
 val hclean_setup_conv =
     F_pre_post_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
@@ -84,12 +88,13 @@ val hclean_setup_conv =
 fun hclean_one_conseq_conv ctx =
   STRENGTHEN_CONSEQ_CONV hclean_setup_conv THEN_DCC
   STRENGTHEN_CONSEQ_CONV
-    (ITERATED_STEP_CONSEQ_CONV (hclean_base ctx))
+    (STEP_CONT_CONSEQ_CONV (hclean_cont_conseq_conv ctx))
 
 fun hclean_conseq_conv ctx =
   STRENGTHEN_CONSEQ_CONV hclean_setup_conv THEN_DCC
   STRENGTHEN_CONSEQ_CONV
-    (ITERATED_LOOP_CONSEQ_CONV (hclean_base ctx))
+    (STEP_CONT_CONSEQ_CONV
+      (LOOP_CONT_CONSEQ_CONV (hclean_cont_conseq_conv ctx)))
   
 val hclean_one = ASM_CONSEQ_CONV_TAC hclean_one_conseq_conv
 val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv

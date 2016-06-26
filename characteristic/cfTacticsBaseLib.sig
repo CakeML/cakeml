@@ -79,11 +79,17 @@ sig
   val print_cc : conseq_conv
   val print_dcc : directed_conseq_conv
 
-  type iterated_conseq_conv_base =
-       term -> (conseq_conv * (conseq_conv -> conseq_conv)) option
+  type subterm_cont =
+     (term -> term) * (conseq_conv -> conseq_conv)
 
-  val ITERATED_STEP_CONSEQ_CONV : iterated_conseq_conv_base -> conseq_conv
-  val ITERATED_LOOP_CONSEQ_CONV : iterated_conseq_conv_base -> conseq_conv
+  type cont_conseq_conv = term -> thm * subterm_cont
+
+  val STEP_CONT_CONSEQ_CONV : cont_conseq_conv -> conseq_conv
+  val THEN_CONT_CONSEQ_CONV :
+    cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
+  val EVERY_CONT_CONSEQ_CONV : cont_conseq_conv list -> cont_conseq_conv
+  val LOOP_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
+  val INPLACE_CONT_CONSEQ_CONV : conseq_conv -> cont_conseq_conv
 
   (* -- *)
 

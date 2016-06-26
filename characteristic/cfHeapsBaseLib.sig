@@ -9,6 +9,8 @@ sig
   val dest_sep_imp : term -> term * term
   val dest_cell : term -> term * term
 
+  val is_sep_imp : term -> bool
+  val is_sep_imppost : term -> bool
   val is_cond : term -> bool
   val is_sep_exists : term -> bool
 
@@ -50,6 +52,7 @@ sig
       which it doesn't fail, that is on every [SEP_IMP] and [SEP_IMPPOST].
    *)
   val hsimpl : tactic
+  val hsimpl_top : tactic
   val hsimpl_conseq_conv : directed_conseq_conv
 
 
@@ -86,19 +89,25 @@ sig
      ``_ ==>> _``. If the goal is of this form does but there is nothing to do,
      UNCHANGED is raised.
    *)
+  val hsimpl_cancel : tactic
+  val hsimpl_cancel_one : tactic
   val hsimpl_cancel_conseq_conv : directed_conseq_conv
+  val hsimpl_cancel_one_conseq_conv : directed_conseq_conv
 
-  (* [hsimpl_steps]: extract pure facts and existential quantifications from the
+  (* [hpullr]: extract pure facts and existential quantifications from the
      right heap (H2).
 
      For example, `` A ==>> (B * cond P)`` gets converted to
      ``P /\ A ==>> B``.
 
-     [hsimpl_steps_conseq_conv] fails if the goal is not of the form
+     [hpullr_conseq_conv] fails if the goal is not of the form
      ``_ ==>> _``. If the goal is of this form but there is nothing to do,
      UNCHANGED is raised.
    *)
-  val hsimpl_steps_conseq_conv : directed_conseq_conv
+  val hpullr : tactic
+  val hpullr_one : tactic
+  val hpullr_conseq_conv : directed_conseq_conv
+  val hpullr_one_conseq_conv : directed_conseq_conv
 
   (** hpullable *)
   val hpullable_rec : term -> unit
