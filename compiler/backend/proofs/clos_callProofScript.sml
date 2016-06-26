@@ -69,13 +69,11 @@ val wfg_def = Define`
     ALL_DISTINCT (MAP FST (SND g))`;
 
 val closure_rel_def = Define`
-  closure_rel g l g0 l0 v1 v2 vs2 env2 ⇔
-    ∃loc n vs1 env1 bod1 bod2.
-     v1 = Closure (SOME loc) vs1 env1 n bod1 ∧
-     v2 = Closure (SOME loc) vs2 env2 n bod2 ∧
+  closure_rel g l g0 l0 loc vs1 env1 n bod1 vs2 env2 bod2 ⇔
      EVEN loc ∧
      every_Fn_SOME [bod1] ∧ every_Fn_vs_NONE [bod1] ∧
      set (code_locs [bod1]) ⊆ EVEN ∧
+     ¬MEM loc (code_locs [bod1]) ∧
      ALL_DISTINCT (code_locs [bod1]) ∧ wfg g0 ∧
      DISJOINT (IMAGE SUC (set (code_locs [bod1]))) (set (MAP FST (SND g0))) ∧
      ¬ MEM (SUC loc) (MAP FST (SND g0)) ∧
@@ -89,10 +87,7 @@ val closure_rel_def = Define`
        bod2 = HD e1 ∧ subg new_g g ∧ loc ∈ l`;
 
 val recclosure_rel_def = Define`
-  recclosure_rel g l g0 l0 v1 v2 vs2 env2 ⇔
-    ∃loc i vs1 env1 fns1 fns2.
-     v1 = Recclosure (SOME loc) vs1 env1 fns1 i ∧
-     v2 = Recclosure (SOME loc) vs2 env2 fns2 i ∧
+  recclosure_rel g l g0 l0 loc i vs1 env1 fns1 vs2 env2 fns2 ⇔
      EVEN loc ∧
      every_Fn_SOME (MAP SND fns1) ∧ every_Fn_vs_NONE (MAP SND fns1) ∧
      set (code_locs (MAP SND fns1)) ⊆ EVEN ∧
@@ -119,23 +114,27 @@ val v_rel_def = tDefine"v_rel"`
     ∃vs'. v = Block n vs' ∧ LIST_REL (v_rel g l) vs vs') ∧
   (v_rel g l (RefPtr n) v ⇔ v = RefPtr n) ∧
   (v_rel g l (Closure loco vs1 env1 n bod1) v ⇔
-     ∃g0 l0 vs2 env2.
-       closure_rel g l g0 l0 (Closure loco vs1 env1 n bod1) v vs2 env2 ∧
+     ∃g0 l0 loc vs2 env2 bod2.
+       closure_rel g l g0 l0 loc vs1 env1 n bod1 vs2 env2 bod2 ∧
+       v = Closure (SOME loc) vs2 env2 n bod2 ∧ loco = SOME loc ∧
        LIST_REL (v_rel g l) vs1 vs2 ∧ LIST_REL (v_rel g l) env1 env2) ∧
   (v_rel g l (Recclosure loco vs1 env1 fns1 i) v ⇔
-     ∃g0 l0 vs2 env2.
-       recclosure_rel g l g0 l0 (Recclosure loco vs1 env1 fns1 i) v vs2 env2 ∧
+     ∃g0 l0 loc vs2 env2 fns2.
+       recclosure_rel g l g0 l0 loc i vs1 env1 fns1 vs2 env2 fns2 ∧
+       v = Recclosure (SOME loc) vs2 env2 fns2 i ∧ loco = SOME loc ∧
        LIST_REL (v_rel g l) vs1 vs2 ∧ LIST_REL (v_rel g l) env1 env2)`
   (WF_REL_TAC `measure (v_size o FST o SND o SND)` >> simp[v_size_def] >>
    rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]);
 
 val v_rel_ind = theorem"v_rel_ind";
 
+(*
 val clos_rel_def = Define`
   clos_rel g l g0 l0 v1 v2 ⇔
     ∃vs2 env2.
       closure_rel g l g0 l0 v1 v2 vs2 env2 ∨
       recclosure_rel g l g0 l0 v1 v2 vs2 env2`;
+*)
 
 val code_includes_def = Define`
   code_includes al code ⇔
@@ -471,54 +470,6 @@ val closed_Fn = Q.store_thm("closed_Fn",
   \\ Cases_on `x` \\ fs[GSYM lookup_db_to_set]
   \\ res_tac \\ fs[]);
 
-val calls_el_sing = Q.store_thm("calls_el_sing",
-  `∀xs g0 ys g i.
-    calls xs g0 = (ys,g) ∧
-    i < LENGTH xs ∧
-    ALL_DISTINCT (MAP FST (SND g0)) ∧
-    ALL_DISTINCT (code_locs xs) ∧
-    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0)))
-    ⇒
-     ∃g1 g2.
-       calls [EL i xs] g1 = ([EL i ys],g2) ∧
-       subg g0 g1 ∧ subg g2 g`,
-  ho_match_mp_tac calls_ind \\ rw[]
-  \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
-  \\ TRY (
-    rveq \\ asm_exists_tac \\ fs[]
-    \\ metis_tac[calls_ALL_DISTINCT,subg_refl,calls_subg] )
-  \\ fs[calls_def]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
-  \\ Cases_on`i` \\ fs[]
-  >- (
-    asm_exists_tac \\ fs[]
-    \\ conj_tac
-    \\ TRY (match_mp_tac subg_refl \\ fs[] )
-    \\ match_mp_tac calls_subg
-    \\ asm_exists_tac \\ fs[]
-    \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
-    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
-    \\ imp_res_tac calls_add_SUC_code_locs
-    \\ fs[IN_DISJOINT,SUBSET_DEF]
-    \\ metis_tac[numTheory.INV_SUC] )
-  \\ first_x_assum drule
-  \\ impl_tac
-  >- (
-    fs[code_locs_def,ALL_DISTINCT_APPEND]
-    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
-    \\ imp_res_tac calls_add_SUC_code_locs
-    \\ fs[IN_DISJOINT,SUBSET_DEF]
-    \\ metis_tac[numTheory.INV_SUC] )
-  \\ rw[] \\ asm_exists_tac \\ rw[]
-  \\ match_mp_tac subg_trans
-  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl) \\ rw[]
-  \\ match_mp_tac calls_subg
-  \\ asm_exists_tac \\ fs[]
-  \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
-
 (* properties of value relation *)
 
 val subg_refl = Q.store_thm("subg_refl",
@@ -585,6 +536,68 @@ val code_includes_subg = Q.store_thm("code_includes_subg",
 val code_includes_ALOOKUP = Q.store_thm("code_includes_ALOOKUP",
   `code_includes al code ∧ ALOOKUP al loc = SOME r ⇒ FLOOKUP code loc = SOME r`,
   rw[code_includes_def]);
+
+val calls_el_sing = Q.store_thm("calls_el_sing",
+  `∀xs g0 ys g i.
+    calls xs g0 = (ys,g) ∧
+    i < LENGTH xs ∧
+    ALL_DISTINCT (MAP FST (SND g0)) ∧
+    ALL_DISTINCT (code_locs xs) ∧
+    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0)))
+    ⇒
+     ∃g1 g2.
+       calls [EL i xs] g1 = ([EL i ys],g2) ∧
+       subg g0 g1 ∧ subg g2 g`,
+  ho_match_mp_tac calls_ind \\ rw[]
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ TRY (
+    rveq \\ asm_exists_tac \\ fs[]
+    \\ metis_tac[calls_ALL_DISTINCT,subg_refl,calls_subg] )
+  \\ fs[calls_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
+  \\ Cases_on`i` \\ fs[]
+  >- (
+    asm_exists_tac \\ fs[]
+    \\ conj_tac
+    \\ TRY (match_mp_tac subg_refl \\ fs[] )
+    \\ match_mp_tac calls_subg
+    \\ asm_exists_tac \\ fs[]
+    \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
+    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ first_x_assum drule
+  \\ impl_tac
+  >- (
+    fs[code_locs_def,ALL_DISTINCT_APPEND]
+    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ rw[] \\ asm_exists_tac \\ rw[]
+  \\ match_mp_tac subg_trans
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl) \\ rw[]
+  \\ match_mp_tac calls_subg
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
+
+val closure_rel_recclosure = Q.store_thm("closure_rel_recclosure",
+  `closure_rel g l g0 l0 loc vs1 env1 n bod1 vs2 env2 bod2 ⇔
+   recclosure_rel g l g0 l0 loc 0 vs1 env1 [(n,bod1)] vs2 env2 [(n,bod2)]`,
+  rw[closure_rel_def,recclosure_rel_def,GSYM ADD1]
+  \\ rw[EQ_IMP_THM]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ imp_res_tac calls_length \\ fs[]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ rveq \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`COND b1 _ _`
+  \\ IF_CASES_TAC \\ fs[] \\ rveq
+  \\ fs[calls_list_def,GSYM ADD1]
+  \\ Cases_on`new_g` \\ fs[code_list_def,GSYM ADD1]);
 
 (*
 val subg_lemma1 = Q.store_thm("subg_lemma1",
@@ -850,7 +863,9 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
         every_Fn_SOME [e1] ∧
         every_Fn_vs_NONE [e1] ∧
         set (code_locs [e1]) ⊆ EVEN ∧
-        ALL_DISTINCT (code_locs [e1]))`,
+        ALL_DISTINCT (code_locs [e1]) (*∧
+        (∃e2 g0 g1.
+          calls [e1] g0 = ([e2],g1)*))`,
   rw[dest_closure_def]
   \\ Cases_on`v1` \\ fs[v_rel_def,closure_rel_def,recclosure_rel_def]
   \\ rveq \\ fs[]
