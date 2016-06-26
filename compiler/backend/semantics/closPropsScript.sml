@@ -1379,4 +1379,13 @@ val set_globals_empty_esgc_free = Q.store_thm(
   rw[] >> rw[] >>
   first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
 
+val elist_globals_append = Q.store_thm("elist_globals_append",
+  `∀a b. elist_globals (a++b) =
+  elist_globals a ⊎ elist_globals b`,
+  Induct>>fs[set_globals_def,ASSOC_BAG_UNION])
+
+val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
+  `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
+  Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
+
 val _ = export_theory();

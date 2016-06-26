@@ -242,4 +242,66 @@ val not_evaluate_list_append = store_thm("not_evaluate_list_append",
             semanticPrimitivesTheory.result_distinct] )
 *)
 
+(* TODO: Move to an appropriate ancestor of all the early props...*)
+open bagTheory
+
+(* finding the InitGlobal operations *)
+val op_gbag_def = Define`
+  op_gbag (Op (Init_global_var n)) = BAG_INSERT n {||} ∧
+  op_gbag _ = {||}
+`;
+
+(* Same naming scheme as clos *)
+val set_globals_def = tDefine "set_globals"`
+  (set_globals (Raise e) = set_globals e) ∧
+  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Con _ es) = elist_globals es) ∧
+  (set_globals (Fun e) = set_globals e) ∧
+  (set_globals (App op es) = op_gbag op ⊎ elist_globals es) ∧
+  (set_globals (If e1 e2 e3) = set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
+  (set_globals (Let e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Seq e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Letrec es e) =
+    set_globals e ⊎ elist_globals es) ∧
+  (set_globals _ = {||}) ∧
+  (elist_globals [] = {||}) ∧
+  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)`
+ (WF_REL_TAC `
+      measure (λa. case a of INL e => exp_size e | INR el => exp1_size el)` >>
+  rw[]);
+val _ = export_rewrites ["set_globals_def"]
+
+val elist_globals_append = Q.store_thm("elist_globals_append",
+  `∀a b. elist_globals (a++b) =
+  elist_globals a ⊎ elist_globals b`,
+  Induct>>fs[set_globals_def,ASSOC_BAG_UNION])
+
+val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
+  `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
+  Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
+
+val exp_size_MEM = Q.store_thm(
+  "exp_size_MEM",
+  `(∀elist e. MEM e elist ⇒ exp_size e < patLang$exp1_size elist)`,
+  Induct>>rw[]>>fs[patLangTheory.exp_size_def]>>rw[]>>
+  res_tac>>fs[])
+
+val esgc_free_def = tDefine "esgc_free" `
+  (esgc_free (Raise e) ⇔ esgc_free e) ∧
+  (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Con _ es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (Fun e) ⇔ set_globals e = {||}) ∧
+  (esgc_free (App op es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (If e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
+  (esgc_free (Let e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Seq e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Letrec es e) ⇔
+    elist_globals es = {||} ∧ esgc_free e) ∧
+  (esgc_free _ = T)`
+  (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[])
+
+val esgc_free_def = save_thm("esgc_free_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+
 val _ = export_theory()
