@@ -453,7 +453,7 @@ val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",
       rw[]>>PairCases_on`h`>>
       fs[init_global_funs_def,esgc_free_def])
 
-val no_set_globals_imp_bag_all_distinct = Q.store_thm("no_set_globals_imp_bag_all_distinct",
+val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
  `∀prog c.
   EVERY (λp. decs_set_globals p = {||}) prog ⇒
   let (n,p) =(con_to_dec$compile_prog a b c prog) in
@@ -532,5 +532,13 @@ val no_set_globals_imp_bag_all_distinct = Q.store_thm("no_set_globals_imp_bag_al
     match_mp_tac (METIS_PROVE[] ``∀P Q. (P ⇒ Q)  ⇒ (¬P ∨ Q)``)>>
     rw[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
   rw[]>>res_tac>>fs[]);
+
+val no_set_globals_imp_bag_all_distinct = Q.store_thm("no_set_globals_imp_bag_all_distinct",
+ `∀prog c.
+  EVERY (λp. decs_set_globals p = {||}) prog ⇒
+  BAG_ALL_DISTINCT (set_globals (SND (con_to_dec$compile_prog a b c prog)))`,
+  rw[]>>imp_res_tac no_set_globals_imp_bag_all_distinct_lem>>
+  first_x_assum(qspecl_then[`c`,`b`,`a`] assume_tac)>>fs[]>>pairarg_tac>>
+  fs[]);
 
 val _ = export_theory ();

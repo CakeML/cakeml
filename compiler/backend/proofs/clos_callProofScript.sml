@@ -1719,7 +1719,6 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `code_includes (SND gd) t0.code`
     by ( metis_tac[code_includes_subg,state_rel_def] )
     \\ pop_assum mp_tac
-    \\ simp[Abbr`gd`]
     \\ imp_res_tac calls_length \\ fs[]
     \\ `ALOOKUP (SND gd) (2 * i + loc + 1) = SOME (EL i (ZIP (MAP FST fns1,es)))`
     by (
@@ -1741,7 +1740,7 @@ val calls_correct = Q.store_thm("calls_correct",
     >- (
       fs[wfg_def,domain_FST_insert_each]
       \\ fs[SUBSET_DEF,SET_EQ_SUBSET,IN_DISJOINT,MEM_GENLIST,
-            PULL_EXISTS,IN_EVEN,EVEN_ADD,EVEN_DOUBLE]
+            PULL_EXISTS,IN_EVEN,EVEN_ADD,EVEN_DOUBLE])
     *)
     \\ cheat )
   \\ imp_res_tac evaluate_length_imp
