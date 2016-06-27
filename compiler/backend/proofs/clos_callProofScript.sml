@@ -887,6 +887,92 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
     \\ metis_tac[MEM_EL] ));
 *)
 
+val v_rel_Unit = store_thm("v_rel_Unit[simp]",
+  ``v_rel g1 l1 Unit Unit``,
+  EVAL_TAC \\ fs []);
+
+val do_app_thm = prove(
+  ``state_rel g1 l1 r t /\
+    LIST_REL (v_rel g1 l1) a v ==>
+    case do_app op (REVERSE a) r of
+      Rerr (Rraise _) => F
+    | Rerr (Rabort e) => (e = Rtype_error)
+    | Rval (w,s) =>
+       ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
+               v_rel g1 l1 w w' /\ state_rel g1 l1 s s'``,
+  once_rewrite_tac [GSYM REVERSE_REVERSE]
+  \\ qspec_tac (`REVERSE a`,`xs`)
+  \\ qspec_tac (`REVERSE v`,`ys`)
+  \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ]
+  \\ Cases_on `op = Add \/ op = Sub \/ op = Mult \/ op = Div \/ op = Mod` THEN1
+   (fs [] \\ rw []
+    \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw [])
+  \\ Cases_on `?n. op = Global n` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac
+    \\ fs [get_global_def,do_app_def,state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_EL_EQN]
+    \\ res_tac \\ rw []
+    \\ qpat_assum `!x.bbb` mp_tac
+    \\ rfs [] \\ full_case_tac \\ fs [OPTREL_def])
+  \\ Cases_on `?n. op = SetGlobal n` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac
+    \\ fs [get_global_def,do_app_def,state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_EL_EQN]
+    \\ res_tac \\ rw []
+    \\ qpat_assum `!x.bbb` mp_tac
+    \\ rfs [] \\ full_case_tac
+    \\ fs [OPTREL_def,EL_LUPDATE] \\ rw [] \\ rw [])
+  \\ Cases_on `op = AllocGlobal` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac
+    \\ fs [get_global_def,do_app_def,state_rel_def]
+    \\ fs [OPTREL_def,EL_LUPDATE] \\ rw [] \\ rw [])
+  \\ Cases_on `?tag. op = Cons tag` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac
+    \\ fs [do_app_def,state_rel_def]
+    \\ fs [v_rel_def] \\ rw []
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ Cases_on `op = El` \\ fs [] \\ rw [] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ fs [LIST_REL_EL_EQN] \\ res_tac \\ rw [])
+  \\ Cases_on `op = LengthBlock` \\ fs [] \\ rw [] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `op = Length` \\ fs [] \\ rw [] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ fs [fmap_rel_OPTREL_FLOOKUP]
+    \\ first_x_assum (qspec_then `n` mp_tac)
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `op = LengthByte` \\ fs [] \\ rw [] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ fs [fmap_rel_OPTREL_FLOOKUP]
+    \\ first_x_assum (qspec_then `n` mp_tac)
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `op = RefByte` \\ fs [] \\ rw [] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ `FDOM r.refs = FDOM t.refs` by fs [fmap_rel_def] \\ fs []
+    \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [])
+  \\ Cases_on `op = GlobalsPtr` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac)
+  \\ Cases_on `op = SetGlobalsPtr` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac)
+  \\ Cases_on `op = RefArray` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ `FDOM r.refs = FDOM t.refs` by fs [fmap_rel_def] \\ fs []
+    \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [LIST_REL_REPLICATE_same])
+  \\ Cases_on `op` \\ fs []
+  \\ cheat (* Magnus can do *));
+
 (* compiler correctness *)
 
 val calls_correct = Q.store_thm("calls_correct",
@@ -950,7 +1036,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs[code_locs_def]
     \\ metis_tac[state_rel_subg,SUBSET_REFL])
   \\ conj_tac
-  >- (cheat)
+  >- (cheat) (* Magnus can do *)
   (*
     rw[evaluate_def,calls_def]
     \\ pairarg_tac \\ fs[]
@@ -979,7 +1065,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qexists_tac `0` \\ fs []
     \\ fs [LIST_REL_EL_EQN])
   (* If *)
-  \\ conj_tac >- cheat
+  \\ conj_tac >- cheat (* Magnus can do *)
   (* Let *)
   \\ conj_tac >-
    (fs [evaluate_def,calls_def] \\ rw []
@@ -1039,7 +1125,24 @@ val calls_correct = Q.store_thm("calls_correct",
   (* Handle *)
   \\ conj_tac >- cheat (* Magnus can do *)
   (* Op *)
-  \\ conj_tac >- cheat (* Magnus can do *)
+  \\ conj_tac >-
+   (fs [evaluate_def,calls_def] \\ rw []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ fs [evaluate_def]
+    \\ Cases_on `evaluate (xs,env,s)` \\ fs []
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+    \\ first_x_assum drule \\ fs [code_locs_def]
+    \\ rpt (disch_then drule \\ fs[])
+    \\ strip_tac \\ qexists_tac `ck` \\ fs []
+    \\ reverse (Cases_on `q`) \\ fs [] \\ rw [] \\ fs []
+    \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
+    \\ rw []
+    \\ drule (GEN_ALL do_app_thm)
+    \\ rpt (disch_then drule \\ fs[])
+    \\ disch_then (qspec_then `op` mp_tac) \\ fs []
+    THEN1 (every_case_tac \\ fs [])
+    \\ rename1 `_ = Rval rr` \\ PairCases_on `rr`
+    \\ fs [] \\ rw [] \\ fs [])
   (* Fn *)
   \\ conj_tac >- (
     rw[evaluate_def]
