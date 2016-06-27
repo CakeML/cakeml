@@ -106,7 +106,7 @@ val Type_OK0 = store_thm(
   >- metis_tac[tuplify_OK]
   >- metis_tac[TyOp_OK]
   >- metis_tac[]
-  >- (qcase_tac `ptree_head pt'` >>
+  >- (rename1 `ptree_head pt'` >>
       `destTyvarPT pt' = NONE` by (Cases_on `pt'` >> fs[] >> fs[]) >>
       simp[] >> metis_tac[TyOp_OK])
   >- metis_tac [TyOp_OK]
@@ -243,8 +243,8 @@ val PbaseList1_OK = store_thm(
   dsimp[Once ptree_PbaseList1_def]
   >- (erule strip_assume_tac (Pattern_OK0 |> Q.INST [`N` |-> `nPbase`] |> n) >>
       fs[])
-  >- (qcase_tac `ptree_head pbt = NN nPbase` >>
-      qcase_tac `ptree_fringe pbt = MAP TK pbtoks` >>
+  >- (rename1 `ptree_head pbt = NN nPbase` >>
+      rename1 `ptree_fringe pbt = MAP TK pbtoks` >>
       mp_tac
         (Pattern_OK0 |> Q.INST [`N` |-> `nPbase`, `pt` |-> `pbt`,
                                 `toks` |-> `pbtoks`] |> n) >>
@@ -504,7 +504,7 @@ val TopLevelDec_OK = store_thm(
   start
   >- (erule strip_assume_tac (n Structure_OK) >> simp[ptree_TopLevelDec_def]) >>
   erule strip_assume_tac (n Decl_OK) >> simp[ptree_TopLevelDec_def] >>
-  qcase_tac `ptree_Structure pt` >>
+  rename1 `ptree_Structure pt` >>
   Cases_on `ptree_Structure pt` >> simp[]);
 
 val TopLevelDecs_OK = store_thm(
@@ -533,7 +533,7 @@ val REPLTop_OK = store_thm(
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_REPLTop_def]
   >- (erule strip_assume_tac (n TopLevelDec_OK) >> simp[]) >>
-  qcase_tac `ptree_TopLevelDec pt0` >>
+  rename1 `ptree_TopLevelDec pt0` >>
   Cases_on `ptree_TopLevelDec pt0` >> simp[] >>
   erule strip_assume_tac (n E_OK) >> simp[]);
 *)

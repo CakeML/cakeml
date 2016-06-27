@@ -4,9 +4,11 @@ struct
 open HolKernel boolLib bossLib
 
 val _ = ParseExtras.temp_loose_equality()
+
 open x64_targetLib asmLib;
-open x64AssemblerLib
-open compilerComputeLib
+open x64AssemblerLib;
+open compilerComputeLib;
+open x64_configTheory
 
 (* open x64_targetTheory *)
 
@@ -16,7 +18,9 @@ val () = computeLib.extend_compset
       [compilerComputeLib.add_compiler_compset
       ,x64_targetLib.add_x64_encode_compset
       ,asmLib.add_asm_compset
-      ]
+      ],
+     computeLib.Defs
+      [x64_configTheory.x64_compiler_config_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

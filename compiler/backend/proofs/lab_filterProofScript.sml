@@ -534,7 +534,7 @@ val filter_correct = prove(
       >>
       Cases_on`a`>>full_simp_tac(srw_ss())[arith_upd_def]>>
         TRY(Cases_on`r`>>Cases_on`b`)>>full_simp_tac(srw_ss())[]>>
-        EVERY_CASE_TAC>>full_simp_tac(srw_ss())[binop_upd_def]>>
+        EVERY_CASE_TAC>>full_simp_tac(srw_ss())[binop_upd_def,LET_THM]>>
         TRY(Cases_on`m`>>full_simp_tac(srw_ss())[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def])>>EVERY_CASE_TAC>>
         full_simp_tac(srw_ss())[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>srw_tac[][]>>res_tac>>
         TRY(first_x_assum(qspec_then`0` mp_tac)>>
@@ -683,8 +683,8 @@ val state_rel_IMP_sem_EQ_sem = prove(
         disch_then(qspec_then`t with clock := k`mp_tac) >>
         impl_tac >- full_simp_tac(srw_ss())[state_rel_def] >>
         strip_tac >> full_simp_tac(srw_ss())[] >> strip_tac >>
-        qcase_tac`t with clock := a + b`>>
-        qcase_tac`t with clock := c`>>
+        rename1`t with clock := a + b`>>
+        rename1`t with clock := c`>>
         qabbrev_tac`d = a+b` >>
         qspecl_then[`c`,`d`]mp_tac LESS_EQ_CASES >>
         simp[LESS_EQ_EXISTS] >> strip_tac >>

@@ -66,39 +66,4 @@ val x64_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
       add_x64_encode_compset, add_x64_decode_compset]]
 
-(* Testing
-
-open x64_targetLib
-
-Count.apply x64_encode_decode_conv
-   ``MAP (\i. let l = x64_enc i in
-                 (asm_ok i x64_config, l, x64_dec (PAD_RIGHT ARB 20 l)))
-      [ Inst Skip
-      ; Inst (Const 0 0w)
-      ; Inst (Const 8 0w)
-      ; Inst (Const 1 0x100000000w)
-      ; Inst (Arith (Binop Add 0 0 (Imm 1w)))
-      ; Inst (Arith (Binop Add 0 0 (Imm 100000000w)))
-      ; Inst (Arith (Binop Add 1 1 (Imm 100000000w)))
-      ; Inst (Arith (Binop Add 0 0 (Reg 1)))
-      ; Inst (Arith (Binop Sub 0 0 (Imm 1w)))
-      ; Inst (Arith (Shift Lsr 0 0 1))
-      ; Inst (Arith (Shift Asr 1 1 2))
-      ; Inst (Mem Load 0 (Addr 1 0w))
-      ; Inst (Mem Load 0 (Addr 1 0x1000w))
-      ; Inst (Mem Load32 0 (Addr 1 0x1000w))
-      ; Inst (Mem Load8 0 (Addr 1 0x1000w))
-      ; Inst (Mem Store 0 (Addr 1 0w))
-      ; Inst (Mem Store 0 (Addr 1 0x1000w))
-      ; Inst (Mem Store32 0 (Addr 1 0x1000w))
-      ; Inst (Mem Store8 0 (Addr 1 0x1000w))
-      ; Jump 12w
-      ; JumpCmp Less 0 (Reg 1) 12w
-      ; JumpCmp Less 0 (Imm 1w) 12w
-      ; JumpReg 1
-      ; Loc 1 4w
-      ]``
-
-*)
-
 end

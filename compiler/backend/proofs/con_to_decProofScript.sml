@@ -156,7 +156,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     simp[init_global_funs_thm] >>
     simp[libTheory.opt_bind_def] ) >>
   reverse every_case_tac >> fs[] >> rw[] >- (
-    qcase_tac`Rerr err` >>
+    rename1`Rerr err` >>
     qexists_tac`Rerr err` >>
     rw[result_rel_cases]
     >-(Cases_on`err`>>fs[]) >>

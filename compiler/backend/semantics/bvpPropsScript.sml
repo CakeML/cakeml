@@ -461,6 +461,28 @@ val bvp_to_bvi_ignore = Q.store_thm("bvp_to_bvi_ignore",
    (bvp_to_bvi (s with <| locals := l; space := t |>) = bvp_to_bvi s)`,
   EVAL_TAC);
 
+val bvp_to_bvi_refs = Q.store_thm("bvp_to_bvi_refs",
+  `bvp_to_bvi (s with refs := r) = bvp_to_bvi s with refs := r ∧
+   (bvp_to_bvi s).refs = s.refs`,
+  EVAL_TAC);
+
+val bvp_to_bvi_ffi = Q.store_thm("bvp_to_bvi_ffi",
+  `(bvp_to_bvi s).ffi = s.ffi`,
+  EVAL_TAC);
+
+val bvi_to_bvp_refs = Q.store_thm("bvi_to_bvp_refs",
+  `((bvi_to_bvp s t with refs := z) = bvi_to_bvp (s with refs := z) t) /\
+   ((bvi_to_bvp s t).refs = s.refs)`,
+  EVAL_TAC);
+
+val bvp_to_bvi_to_bvp_with_ffi = Q.store_thm("bvp_to_bvi_to_bvp_with_ffi",
+  `bvi_to_bvp (bvp_to_bvi s with ffi := f) s = s with ffi := f`,
+  EVAL_TAC \\ rw[state_component_equality]);
+
+val bvp_to_bvi_to_bvp_with_refs = Q.store_thm("bvp_to_bvi_to_bvp_with_refs",
+  `bvi_to_bvp (bvp_to_bvi s with refs := f) s = s with refs := f`,
+  EVAL_TAC \\ rw[state_component_equality]);
+
 val bvi_to_bvp_space_locals = Q.store_thm("bvi_to_bvp_space_locals",
   `((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
    ((bvi_to_bvp s t).locals = t.locals) /\
@@ -486,7 +508,7 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ METIS_TAC [])
   THEN1 (* Assign *)
    (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op_space_reset op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
+    \\ Cases_on `op_requires_names op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
      (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
       \\ reverse(Cases_on `do_app op x s`) \\ full_simp_tac(srw_ss())[] >- (
@@ -791,7 +813,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
-    qcase_tac`find_code` >>
+    rename1`find_code` >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
     imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>

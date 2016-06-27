@@ -1,13 +1,14 @@
 open HolKernel Parse boolLib bossLib;
 open preamble;
-open cmlParseTheory cmlPEGTheory;
+open parserProgTheory;
 open inferTheory
-open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "compilerML"
+val _ = new_theory "inferProg"
 
-val _ = std_preludeLib.std_prelude ();
+val _ = translation_extends "parserProg";
+
+(* translator setup *)
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -21,14 +22,12 @@ fun list_mk_fun_type [ty] = ty
       mk_fun_type ty1 (list_mk_fun_type tys)
   | list_mk_fun_type _ = fail()
 
-(* translator setup *)
-
 val _ = register_type ``:lexer_fun$symbol``;
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = prove(
+val NOT_NIL_AND_LEMMA = store_thm("NOT_NIL_AND_LEMMA",
   ``(b <> [] /\ x) = if b = [] then F else x``,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
@@ -52,95 +51,6 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
-
-(* backend, without the 'a config bits *)
-
-val _ = translate (source_to_modTheory.compile_def)
-
-val _ = translate (mod_to_conTheory.compile_def)
-
-val _ = translate (con_to_decTheory.compile_def)
-
-val _ = translate (dec_to_exhTheory.compile_exp_def)
-
-val _ = translate (exh_to_patTheory.pure_op_op_eqn)
-
-val _ = translate (exh_to_patTheory.compile_def)
-
-val _ = translate (pat_to_closTheory.compile_def)
-
-(*TODO: slow, and the final name might not be compile_4 *)
-val _ = prove(``
-  ∀x. compile_4_side x ⇔ T``,
-  recInduct pat_to_closTheory.compile_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "compile_4_side_def")]>>
-  Cases_on`es`>>fs[])|>update_precondition;
-
-(* goes through with side conditions *)
-val _ = translate (clos_numberTheory.renumber_code_locs_def)
-
-(*val _ = translate (clos_numberTheory.renumber_code_locs_def)
-val _ = translate (clos_to_bvlTheory.compile_def)*)
-
-(*
-continue here:
-have to translate w2i
-*)
-
-(* parsing: peg_exec and cmlPEG *)
-
-val _ = translate (def_of_const ``cmlPEG``);
-
-val INTRO_FLOOKUP = prove(
-  ``(if n IN FDOM G.rules
-     then EV (G.rules ' n) i r y fk
-     else Result NONE) =
-    (case FLOOKUP G.rules n of
-       NONE => Result NONE
-     | SOME x => EV x i r y fk)``,
-  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
-
-val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
-                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
-
-val _ = translate (def_of_const ``peg_exec``);
-
-(* parsing: cmlvalid *)
-
-val monad_unitbind_assert = prove(
-  ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
-
-val _ = translate grammarTheory.ptree_head_def
-
-(* parsing: ptree converstion *)
-
-val OPTION_BIND_THM = prove(
-  ``!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i``,
-  Cases THEN SRW_TAC [] []);
-
-val _ = (extra_preprocessing :=
-  [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert]);
-
-val _ = translate (def_of_const ``ptree_Expr``);
-val _ = translate (def_of_const ``ptree_TopLevelDecs``);
-
-(* parsing: top-level parser *)
-
-val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
-
-val _ = ParseExtras.temp_tight_equality()
-
-val parse_prog_side_def = prove(
-  ``!x. parse_prog_side x = T``,
-  SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
-    fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
-  THEN REPEAT STRIP_TAC
-  THEN STRIP_ASSUME_TAC (Q.SPEC `x` owhile_TopLevelDecs_total)
-  THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
-  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
-  |> update_precondition;
 
 (* type inference: t_walkstar and t_unify *)
 
@@ -324,7 +234,7 @@ val _ = translate (def_of_const``lookup_st_ex``)
 val _ = translate (def_of_const ``fresh_uvar``)
 val _ = translate (def_of_const ``n_fresh_uvar``)
 val _ = translate (def_of_const ``init_infer_state``)
-val _ = translate (def_of_const ``init_state``)
+val _ = translate (def_of_const ``infer$init_state``)
 val _ = translate (def_of_const ``get_next_uvar``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)

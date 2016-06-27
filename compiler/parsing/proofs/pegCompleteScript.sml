@@ -1707,11 +1707,11 @@ val completeness = store_thm(
       rpt gen_tac >> strip_tac >> rveq >> simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG] >> fs[]
       >- (disj1_tac >> dsimp[] >> fs[DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
-          qcase_tac `ptree_head Ept = NN nE` >>
+          rename1 `ptree_head Ept = NN nE` >>
           fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >>
-          qcase_tac `ptree_fringe Ept = MAP TK Efr` >>
-          qcase_tac `ptree_head TLDpt = NN nTopLevelDecs` >>
-          qcase_tac `ptree_fringe TLDpt = MAP TK TLDfr` >>
+          rename1 `ptree_fringe Ept = MAP TK Efr` >>
+          rename1 `ptree_head TLDpt = NN nTopLevelDecs` >>
+          rename1 `ptree_fringe TLDpt = MAP TK TLDfr` >>
           first_assum
             (qspecl_then [`Ept`, `nE`, `Efr`, `SemicolonT :: TLDfr`]
                          mp_tac) >>
@@ -1725,10 +1725,10 @@ val completeness = store_thm(
           simp[])
       >- (disj2_tac >> fs[MAP_EQ_APPEND] >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
           rveq >>
-          qcase_tac `ptree_head TLDpt = NN nTopLevelDec` >>
-          qcase_tac `ptree_head NeTLDspt = NN nNonETopLevelDecs` >>
-          qcase_tac `ptree_fringe TLDpt = MAP TK TLDfr` >>
-          qcase_tac `ptree_fringe NeTLDspt = MAP TK NeTLDsfr` >>
+          rename1 `ptree_head TLDpt = NN nTopLevelDec` >>
+          rename1 `ptree_head NeTLDspt = NN nNonETopLevelDecs` >>
+          rename1 `ptree_fringe TLDpt = MAP TK TLDfr` >>
+          rename1 `ptree_fringe NeTLDspt = MAP TK NeTLDsfr` >>
           `peg_eval cmlPEG (TLDfr ++ NeTLDsfr, nt (mkNT nTopLevelDec) I)
                            (SOME (NeTLDsfr, [TLDpt]))`
              by (Cases_on `NeTLDsfr = []`
@@ -1740,7 +1740,7 @@ val completeness = store_thm(
                  `0 < LENGTH NeTLDsfr` by (Cases_on `NeTLDsfr` >> fs[]) >>
                  first_x_assum irule >> simp[] >>
                  Cases_on `NeTLDsfr` >> fs[] >>
-                 qcase_tac `ptree_fringe NeTLDspt = TK tok1 :: _` >>
+                 rename1 `ptree_fringe NeTLDspt = TK tok1 :: _` >>
                  `tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]`
                    by metis_tac[firstSet_nonempty_fringe] >>
                  fs[]) >>
@@ -1911,15 +1911,15 @@ val completeness = store_thm(
       >- (first_x_assum (unify_firstconj mp_tac) >> simp[] >>
           asm_match `ptree_fringe pt = MAP TK pfx` >>
           disch_then (qspec_then `pt` mp_tac) >> simp[NT_rank_def] >>
-          strip_tac >> disj2_tac >> qcase_tac `sfx ≠ []` >>
+          strip_tac >> disj2_tac >> rename1 `sfx ≠ []` >>
           Cases_on `sfx` >> simp[not_peg0_peg_eval_NIL_NONE] >>
           match_mp_tac peg_respects_firstSets >> simp[] >> fs[]) >>
       normlist >> first_assum (unify_firstconj mp_tac) >>
       simp_tac (srw_ss()) [] >>
       erule mp_tac
             (MATCH_MP fringe_length_not_nullable nullable_PbaseList1) >>
-      simp[] >> qcase_tac `0 < LENGTH plf` >> strip_tac >>
-      qcase_tac `ptree_head ppt = NN nPbase` >>
+      simp[] >> rename1 `0 < LENGTH plf` >> strip_tac >>
+      rename1 `ptree_head ppt = NN nPbase` >>
       disch_then (qspec_then `ppt` mp_tac) >> simp[] >>
       strip_tac >> first_x_assum match_mp_tac >> simp[] >>
       erule mp_tac
@@ -2064,10 +2064,10 @@ val completeness = store_thm(
       rveq >> fs[MAP_EQ_CONS])
   >- (print_tac "nNonETopLevelDecs" >> strip_tac >>
       fs[MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_APPEND]
-      >- (qcase_tac `ptree_head TLDpt = NN nTopLevelDec` >>
-          qcase_tac `ptree_head NeTLDpt = NN nNonETopLevelDecs` >>
-          qcase_tac `ptree_fringe TLDpt = MAP TK TLDfr` >>
-          qcase_tac `ptree_fringe NeTLDpt = MAP TK NeTLDfr` >>
+      >- (rename1 `ptree_head TLDpt = NN nTopLevelDec` >>
+          rename1 `ptree_head NeTLDpt = NN nNonETopLevelDecs` >>
+          rename1 `ptree_fringe TLDpt = MAP TK TLDfr` >>
+          rename1 `ptree_fringe NeTLDpt = MAP TK NeTLDfr` >>
           simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rveq >>
           `peg_eval cmlPEG (TLDfr ++ NeTLDfr, nt (mkNT nTopLevelDec) I)
                            (SOME (NeTLDfr, [TLDpt]))`
@@ -2077,7 +2077,7 @@ val completeness = store_thm(
                                                mp_tac) >>
                     simp[NT_rank_def]) >>
                 first_x_assum irule >> simp[] >> fs[] >>
-                qcase_tac `ptree_fringe NeTLDpt = TK tok1 :: _` >>
+                rename1 `ptree_fringe NeTLDpt = TK tok1 :: _` >>
                 `tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]`
                   by metis_tac[firstSet_nonempty_fringe] >>
                 rw[] >> fs[]) >>
@@ -2469,7 +2469,7 @@ val completeness = store_thm(
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       Q.REFINE_EXISTS_TAC `[pt]` >> simp[] >> normlist >>
       first_assum (unify_firstconj kall_tac o has_length) >> simp[] >>
-      qcase_tac `peg_eval cmlPEG (ppfx ++ sfx, _) _` >>
+      rename1 `peg_eval cmlPEG (ppfx ++ sfx, _) _` >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [`P` |-> `nDtypeCons`, `SEP` |-> `TK BarT`,
                                  `C` |-> `NN nDconstructor`,

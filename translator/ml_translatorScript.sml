@@ -1,8 +1,8 @@
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory evalPropsTheory bigClockTheory;
+     determTheory evalPropsTheory bigClockTheory packLib;
 open mlstringTheory integerTheory;
-open terminationTheory;
+open terminationTheory ml_progTheory;
 
 val _ = new_theory "ml_translator";
 
@@ -40,8 +40,8 @@ val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
     !v. P v ==> ?u. evaluate_closure v cl u /\ Q u`;
 
 val Arrow_def = Define `
-  Arrow a b f =
-    \v. !x. AppReturns (a x) v (b (f x))`;
+  Arrow a b =
+    \f v. !x. AppReturns (a x) v (b (f x))`;
 
 val _ = overload_on ("-->",``Arrow``)
 
@@ -109,9 +109,6 @@ val Eval_Arrow = store_thm("Eval_Arrow",
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ METIS_TAC []);
 
-val write_def = Define `
-  write name v env = env with v := (name,v)::env.v`;
-
 val Eval_Fun = store_thm("Eval_Fun",
   ``(!v x. a x v ==> Eval (write name v env) body (b ((f:'a->'b) x))) ==>
     Eval env (Fun name body) ((a --> b) f)``,
@@ -165,10 +162,26 @@ val lookup_cons_def = zDefine `
     lookup_alist_mod_env (Short name) env.c`;
 
 val lookup_var_write = store_thm("lookup_var_write",
-  ``lookup_var v (write w x env) =
-    if v = w then SOME x else lookup_var v env``,
-  SIMP_TAC std_ss [lookup_var_def,write_def]
+  ``(lookup_var v (write w x env) =
+     if v = w then SOME x else lookup_var v env) /\
+    (lookup_var_id (Short v) (write w x env) =
+     if v = w then SOME x else lookup_var_id (Short v) env) /\
+    (lookup_var_id (Long m v) (write w x env) =
+     lookup_var_id (Long m v) env)``,
+  SIMP_TAC std_ss [lookup_var_id_def,lookup_var_def,write_def]
   \\ simp [] \\ METIS_TAC []);
+
+val Eval_Var_Short = store_thm("Eval_Var_Short",
+  ``P v ==> !name env.
+               (lookup_var_id (Short name) env = SOME v) ==>
+               Eval env (Var (Short name)) P``,
+  fs [Eval_def,Once evaluate_cases]);
+
+val Eval_Var_Long = store_thm("Eval_Var_Long",
+  ``P v ==> !m name env.
+               (lookup_var_id (Long m name) env = SOME v) ==>
+               Eval env (Var (Long m name)) P``,
+  fs [Eval_def,Once evaluate_cases]);
 
 val Eval_Var_SWAP_ENV = store_thm("Eval_Var_SWAP_ENV",
   ``!env1.
@@ -448,6 +461,10 @@ val FUN_FORALL = new_binder_definition("FUN_FORALL",
 val FUN_EXISTS = new_binder_definition("FUN_EXISTS",
   ``($FUN_EXISTS) = \(abs:'a->'b->v->bool) a v. ?y. abs y a v``);
 
+val FUN_FORALL_INTRO = store_thm("FUN_FORALL_INTRO",
+  ``(!x. p x f v) ==> (FUN_FORALL x. p x) f v``,
+  fs [FUN_FORALL]);
+
 val Eval_FUN_FORALL = store_thm("Eval_FUN_FORALL",
   ``(!x. Eval env exp ((p x) f)) ==>
     Eval env exp ((FUN_FORALL x. p x) f)``,
@@ -490,10 +507,6 @@ val FUN_EXISTS_Eq = prove(
 
 val FUN_QUANT_SIMP = save_thm("FUN_QUANT_SIMP",
   LIST_CONJ [FUN_EXISTS_Eq,FUN_FORALL_PUSH1,FUN_FORALL_PUSH2]);
-
-val write_rec_def = Define `
-  write_rec funs env2 =
-    env2 with v := build_rec_env funs env2 env2.v`;
 
 val FOLDR_LEMMA = prove(
   ``!funs. FOLDR (λ(f,x,e) env'. (f,rrr f)::env') env3 funs =
@@ -1151,6 +1164,26 @@ val PAIR_TYPE_SIMP = prove(
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
 
+(* option definition *)
+(* TODO: Apparently, the variable names need to be of a specific form...*)
+val OPTION_TYPE_def = Define `
+  (!a x_2 v.
+     OPTION_TYPE a (SOME x_2) v <=>
+     ?v2_1.
+       v = Conv (SOME ("SOME",TypeId (Short "option"))) [v2_1] /\
+       a x_2 v2_1) /\
+  !a v.
+     OPTION_TYPE a NONE v <=>
+     v = Conv (SOME ("NONE",TypeId (Short "option"))) []`
+
+val OPTION_TYPE_SIMP = prove(
+  ``!x. CONTAINER OPTION_TYPE
+              (\y v. if x = SOME y then p y v else ARB) x =
+           OPTION_TYPE (p:('a -> v -> bool)) x``,
+  Cases>>FULL_SIMP_TAC std_ss [FUN_EQ_THM,OPTION_TYPE_def,DISJ_ASSOC,CONTAINER_def])
+  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
+  |> curry save_thm "OPTION_TYPE_SIMP";
+
 (* characters *)
 
 val Eval_Ord = store_thm("Eval_Ord",
@@ -1364,104 +1397,7 @@ val Eval_length = store_thm("Eval_length",
   conj_tac >- record_simp_failure_tac >>
   metis_tac []);
 
-(* evaluation of declarations *)
-
-val Decls_def = Define `
-  Decls mn env s1 ds env2 s2 =
-    ?new_tds res_env.
-      evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
-      env2.m = env.m ∧
-      env2.c = merge_alist_mod_env ([],new_tds) env.c ∧
-      env2.v = res_env ++ env.v`;
-
-val DeclAssum_def = zDefine `
-  DeclAssum mn ds env tys =
-    ?s. Decls mn (SND(THE (prim_sem_env empty_state.ffi))) (FST(THE (prim_sem_env empty_state.ffi)))
-          ds env s ∧ s.clock = 0 ∧ s.defined_types = tys`;
-
-val _ = computeLib.add_funs
-  [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]];
-
-val write_tds_def = Define `
-  write_tds mn tds env =
-    env with c := merge_alist_mod_env ([],build_tdefs mn tds) env.c`;
-
-val Decls_Dtype = store_thm("Decls_Dtype",
-  ``!mn env s tds env2 s2.
-      Decls mn env s [Dtype tds] env2 s2 <=>
-      check_dup_ctors tds /\
-      DISJOINT (type_defs_to_new_tdecs mn tds) s.defined_types /\
-      ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) /\
-      s2 = s with defined_types := type_defs_to_new_tdecs mn tds UNION s.defined_types /\
-      (env2 = write_tds mn tds env)``,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
-  \\ srw_tac[QUANT_INST_ss[record_default_qp]][]
-  \\ rw[write_tds_def,environment_component_equality]
-  \\ METIS_TAC[]);
-
-val write_exn_def = Define `
-  write_exn mn n l env =
-    env with c := merge_alist_mod_env ([],[(n,LENGTH l,TypeExn (mk_id mn n))]) env.c`;
-
-val Decls_Dexn = store_thm("Decls_Dexn",
-  ``!mn env s n l env2 s2.
-      Decls mn env s [Dexn n l] env2 s2 <=>
-      TypeExn (mk_id mn n) NOTIN s.defined_types /\
-      s2 = s with defined_types := {TypeExn (mk_id mn n)} UNION s.defined_types /\
-      env2 = write_exn mn n l env``,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
-  \\ srw_tac[QUANT_INST_ss[record_default_qp]][]
-  \\ fs[PULL_EXISTS,write_exn_def,write_tds_def,environment_component_equality]
-  \\ fs [AC CONJ_COMM CONJ_ASSOC,APPEND]);
-
-val Decls_Dlet = store_thm("Decls_Dlet",
-  ``!mn env s1 v e s2 env2.
-      Decls mn env s1 [Dlet (Pvar v) e] env2 s2 <=>
-      ?x. s2.defined_types = s1.defined_types /\
-          evaluate F env s1 e (s2,Rval x) /\
-          (env2 = write v x env)``,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch_def, evaluate_dec_cases,
-       combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ srw_tac[QUANT_INST_ss[record_default_qp]][]
-  \\ simp[environment_component_equality]
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,APPEND, finite_mapTheory.FUNION_FEMPTY_1,
-                           finite_mapTheory.FUNION_FEMPTY_2]
-  \\ simp[]
-  \\ METIS_TAC [big_unclocked, pair_CASES, evaluate_no_new_types_mods,FST]);
-
-val FOLDR_LEMMA = prove(
-  ``!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-            FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs``,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
-
-val Decls_Dletrec = store_thm("Decls_Dletrec",
-  ``!mn env s1 funs s2 env2.
-      Decls mn env s1 [Dletrec funs] env2 s2 <=>
-      (s2 = s1) /\
-      ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
-      (env2 = write_rec funs env)``,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch_def,evaluate_dec_cases,
-       combine_dec_result_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,
-       APPEND,write_rec_def,APPEND,merge_alist_mod_env_empty,
-       build_rec_env_def,FOLDR_LEMMA]
-  \\ fs [environment_component_equality]
-  \\ METIS_TAC []);
+(* evaluate lemmas *)
 
 val _ = temp_overload_on("has_emp",``\x. (FST x).refs = empty_store``)
 
@@ -1544,6 +1480,20 @@ val do_app_lemma = prove(
                                store_alloc_def]
   \\ rw []);
 
+val do_app_lemma_gen = prove(
+  ``!op.
+      (do_app (empty_store,io1) op vs = SOME ((empty_store,(io:unit ffi_state)),e'')) ==>
+      !t. do_app (t:('ffi,v)store_ffi) op vs = SOME (t,e'')``,
+  Cases \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on`t` \\ fs[do_app_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def]
+  \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ TRY (Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def, LET_THM, store_lookup_def,
+                               store_alloc_def]
+  \\ rw []);
+
 val pmatch_empty_store = store_thm("pmatch_empty_store",
   ``(!cenv (s:v store) (p:pat) v env x.
       (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
@@ -1560,6 +1510,74 @@ val pmatch_empty_store = store_thm("pmatch_empty_store",
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.PAT_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
   \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val s0 = ``s:unit state``
+val t = ``t:'ffi state``
+
+val evaluate_empty_store_IMP_any_store = prove(
+ ``(!ck env ^s0 e r1.
+      evaluate ck env s e r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
+      !^t. evaluate ck env t e (t,SND r1)) /\
+   (!ck env ^s0 es r1.
+      evaluate_list ck env s es r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
+      !^t. evaluate_list ck env t es (t,SND r1)) /\
+   (!ck env ^s0 v pes errv r1.
+      evaluate_match ck env s v pes errv r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
+      !^t. evaluate_match ck env t v pes errv (t,SND r1))``,
+  HO_MATCH_MP_TAC sind \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ FULL_SIMP_TAC (srw_ss()) []
+  THEN1
+   (Cases_on `r1`
+    \\ `s'.refs = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
+    \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC [])
+  THEN1
+   METIS_TAC []
+  THEN1
+   (Cases_on `r1`
+    \\ rw []
+    \\ fs []
+    \\ `s2.refs = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
+    \\ rw []
+    \\ `s.refs = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
+    \\ METIS_TAC [pair_CASES, FST, SND])
+  THEN1
+   (`s2.refs = empty_store` by METIS_TAC [do_app_empty_store,FST] \\ fs []
+    \\ imp_res_tac do_app_lemma_gen \\ fs[] \\ rw[]
+    \\ disj1_tac
+    \\ Q.LIST_EXISTS_TAC[`vs`,`t`]
+    \\ simp[]
+    \\ simp[state_component_equality])
+  THEN1
+   (`s'.refs = empty_store` by
+      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma_gen
+    \\ METIS_TAC [pair_CASES, FST, SND])
+  THEN1
+   (FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma_gen
+    \\ METIS_TAC [pair_CASES, FST, SND, Boolv_11])
+  THEN1
+   (`s'.refs = empty_store` by
+      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
+    \\ fs [do_if_def]
+    \\ Cases_on `v = Boolv T` \\ fs []
+    \\ Cases_on `v = Boolv F` \\ fs [Boolv_11]
+    \\ METIS_TAC [pair_CASES, FST, SND, Boolv_11])
+  \\ TRY
+   (`s'.refs = empty_store` by
+      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma
+    \\ METIS_TAC [pair_CASES, FST, SND])
+  \\ Cases_on `r1` \\ fs []
+  \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
+  \\ IMP_RES_TAC evaluate_empty_store_lemma \\ fs []
+  \\ IMP_RES_TAC pmatch_empty_store \\ fs []);
+
+val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
+  `evaluate F env empty_state exp (empty_state,Rval x) ⇒
+   ∀(s:'ffi state). evaluate F env s exp (s,Rval x)`,
+  strip_tac \\ imp_res_tac evaluate_empty_store_IMP_any_store \\ fs []
+  \\ pop_assum match_mp_tac \\ EVAL_TAC);
 
 val t = ``t:'ffi state``
 
@@ -1622,213 +1640,10 @@ val evaluate_empty_store_IMP_any_store = prove(
   \\ IMP_RES_TAC evaluate_empty_store_lemma \\ fs []
   \\ IMP_RES_TAC pmatch_empty_store \\ fs []);
 
-val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
-  `evaluate F env empty_state exp (empty_state,Rval x) ⇒
-   ∀(s:unit state). evaluate F env s exp (s,Rval x)`,
+val evaluate_empty_state_IMP = prove(
+  ``evaluate F env empty_state exp (empty_state,Rval x) ⇒
+    ∀(s:unit state). evaluate F env s exp (s,Rval x)``,
   rw[] >> imp_res_tac evaluate_empty_store_IMP_any_store >> fs[empty_state_def])
-
-(*
-val evaluate_empty_store_IMP = store_thm("evaluate_empty_store_IMP",
-  ``evaluate F env (c,empty_store) x ((c',empty_store),Rval y) ==>
-    !s. evaluate F env s x (s,Rval y)``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_empty_store_IMP_any_store
-  \\ FULL_SIMP_TAC (srw_ss()) []);
-
-val evaluate_empty_store_EQ = store_thm("evaluate_empty_store_EQ",
-  ``evaluate F env (c,empty_store) x ((c,empty_store),Rval y) =
-    !s. evaluate F env s x (s,Rval y)``,
-  METIS_TAC [evaluate_empty_store_IMP]);
-
-val evaluate_empty_store = store_thm("evaluate_empty_store",
-  ``evaluate F env (c,s2) xs (((c',empty_store),Rval ys)) <=>
-    evaluate F env (c,s2) xs (((c',empty_store),Rval ys)) /\ (s2 = empty_store)``,
-  REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss []);
-
-val evaluate_list_empty_store = prove(
-  ``evaluate_list F env (c,s2) xs ((c',empty_store),Rval ys) ==> (s2 = empty_store)``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_empty_store_lemma
-  \\ FULL_SIMP_TAC (srw_ss()) []);
-*)
-
-val Decls_NIL = store_thm("Decls_NIL",
-  ``!s1 s3 mn env1 ds1 ds2 env3.
-      Decls mn env1 s1 [] env3 s3 <=> (env3 = env1) /\ (s3 = s1)``,
-  REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [APPEND,Decls_def,PULL_EXISTS]
-  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [merge_alist_mod_env_def]
-  \\ METIS_TAC [environment_component_equality]);
-
-val Decls_CONS = store_thm("Decls_CONS",
-  ``!s1 s3 mn env1 ds1 ds2 env3.
-      Decls mn env1 s1 (d::ds2) env3 s3 =
-      ?env2 s2.
-         Decls mn env1 s1 [d] env2 s2 /\
-         Decls mn env2 s2 ds2 env3 s3``,
-  rw[Decls_def,PULL_EXISTS] >>
-  rw[Once evaluate_decs_cases,PULL_EXISTS] >>
-  rw[Once evaluate_decs_cases,SimpRHS,PULL_EXISTS] >>
-  rw[EQ_IMP_THM] >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> simp[] >- (
-    rw[Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def] >>
-    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_decs`` o fst o strip_comb))) >>
-    Cases_on`r`>>fs[combine_dec_result_def] >>
-    first_assum(match_exists_tac o concl) >>
-    simp[extend_dec_env_def,merge_alist_mod_env_assoc] >>
-    Cases_on`env1.c`>>simp[merge_alist_mod_env_def] ) >>
-  ntac 2 (rator_x_assum`evaluate_decs`mp_tac) >>
-  rw[Once evaluate_decs_cases] >> fs[] >>
-  qpat_abbrev_tac`env2' = extend_dec_env X Y Z` >>
-  `env2 = env2'` by (
-    simp[environment_component_equality,Abbr`env2'`,extend_dec_env_def] >>
-    fs[combine_dec_result_def] ) >>
-  rw[Abbr`env2'`] >>
-  first_assum(match_exists_tac o concl) >>
-  fs[combine_dec_result_def,merge_alist_mod_env_assoc] >>
-  Cases_on`env1.c`>>simp[merge_alist_mod_env_def]);
-
-val Decls_APPEND = store_thm("Decls_APPEND",
-  ``!s1 s3 mn env1 ds1 ds2 env3.
-      Decls mn env1 s1 (ds1 ++ ds2) env3 s3 =
-      ?env2 s2.
-         Decls mn env1 s1 ds1 env2 s2 /\
-         Decls mn env2 s2 ds2 env3 s3``,
-  Induct_on `ds1` \\ FULL_SIMP_TAC std_ss [APPEND,Decls_NIL]
-  \\ ONCE_REWRITE_TAC [Decls_CONS]
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS,AC CONJ_COMM CONJ_ASSOC]
-  \\ METIS_TAC []);
-
-val DeclAssum_Dtype = store_thm("DeclAssum_Dtype",
-  ``(!env tys. DeclAssum mn ds env tys ==> Eval env (Var n) P) ==>
-    !tds. (!env tys. DeclAssum mn (SNOC (Dtype tds) ds) env tys ==>
-                     Eval env (Var n) P)``,
-  SRW_TAC [] []
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dtype]
-  \\ fs[] >> rw[] >> fs[PULL_EXISTS]
-  \\ res_tac >> pop_assum mp_tac
-  \\ simp[Eval_def,write_tds_def]
-  \\ simp[Once evaluate_cases]
-  \\ simp[Once evaluate_cases]
-  \\ simp[lookup_var_id_def]);
-
-val DeclAssum_Dexn = store_thm("DeclAssum_Dexn",
-  ``(!env tys. DeclAssum mn ds env tys ==> Eval env (Var n) P) ==>
-    !m l. (!env tys. DeclAssum mn (SNOC (Dexn m l) ds) env tys ==>
-                     Eval env (Var n) P)``,
-  SRW_TAC [] []
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dexn]
-  \\ fs[] >> rw[] >> fs[PULL_EXISTS]
-  \\ res_tac >> pop_assum mp_tac
-  \\ simp[Eval_def,write_exn_def]
-  \\ simp[Once evaluate_cases]
-  \\ simp[Once evaluate_cases]
-  \\ simp[lookup_var_id_def]);
-
-val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
-  ``!ds n P.
-      (!env. DeclAssum mn ds env tys ==> Eval env (Var (Short n)) P) ==>
-      !v e. ~(v = n) ==> (!env. DeclAssum mn (SNOC (Dlet (Pvar v) e) ds) env tys ==>
-            Eval env (Var (Short n)) P)``,
-  rw []
-  \\ fs [DeclAssum_def, SNOC_APPEND,Decls_APPEND,Decls_Dlet]
-  \\ fs [APPEND,Eval_Var_SIMP, write_def]
-  \\ rw []
-  \\ FIRST_X_ASSUM match_mp_tac
-  \\ first_assum(match_exists_tac o concl)
-  \\ rw[]
-  \\ fs[Decls_def]
-  \\ imp_res_tac decs_unclocked
-  \\ fs[initSemEnvTheory.prim_sem_env_eq]);
-
-val DeclAssum_Dletrec_LEMMA = prove(
-  ``!funs xs.
-      ~MEM n (MAP FST funs) ==>
-      (ALOOKUP (FOLDR (\(x1,x2,x3) x4. (x1, P x1 x2 x3 x4):: x4) xs funs) n =
-       ALOOKUP xs n)``,
-  Induct
-  \\ rw []
-  \\ FULL_SIMP_TAC (srw_ss()) [FOLDR,FORALL_PROD,MEM,MAP]
-  \\ PairCases_on `h`
-  \\ fs []);
-
-val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
-  ``!ds n P.
-      (!env. DeclAssum mn ds env tys ==> Eval env (Var (Short n)) P) ==>
-      !funs. ~(MEM n (MAP FST funs)) ==>
-             (!env. DeclAssum mn (SNOC (Dletrec funs) ds) env tys ==>
-                    Eval env (Var (Short n)) P)``,
-  rw [] \\ fs [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec]
-  \\ RES_TAC
-  \\ FULL_SIMP_TAC std_ss [Eval_def]
-  \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss []
-  \\ POP_ASSUM (K ALL_TAC)
-  \\ POP_ASSUM MP_TAC
-  \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def,write_rec_def]
-  \\ SIMP_TAC std_ss [Once EQ_SYM_EQ]
-  \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [build_rec_env_def]
-  \\ ASM_SIMP_TAC std_ss [DeclAssum_Dletrec_LEMMA]);
-
-val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
-  ``(!env. DeclAssum mn ds env tys ==> Eval env exp P) ==>
-    (!v env. DeclAssum mn (SNOC (Dlet (Pvar v) exp) ds) env tys ==>
-             Eval env (Var (Short v)) P)``,
-  rw [DeclAssum_def,SNOC_APPEND,PULL_EXISTS,Decls_Dlet,Decls_APPEND]
-  \\ FULL_SIMP_TAC std_ss [GSYM empty_store_def]
-  \\ `s2.clock = 0` by (
-        fs[Decls_def] >>
-        imp_res_tac decs_unclocked >>
-        fs[initSemEnvTheory.prim_sem_env_eq] ) >>
-  `Eval env2 exp P` by (res_tac >> rfs[] ) >>
-  pop_assum mp_tac >>
-  rw[Eval_Var_SIMP,Eval_def] >>
-  imp_res_tac evaluate_empty_state_IMP >>
-  metis_tac[evaluate_11_Rval]);
-
-val lemma = Q.prove(
-  `∀ls x. MEM x (MAP FST ls) ∧
-   ALL_DISTINCT (MAP FST ls)
-   ⇒
-   (ALOOKUP (FOLDR (λ(f,x,e) env'.
-    env' with v := (f,xf f)::env'.v) env ls).v x =
-    SOME (xf x))`,
-  Induct >> simp[UNCURRY] >> rw[])
-
-val DeclAssum_Dletrec_INTRO_ALT = store_thm("DeclAssum_Dletrec_INTRO_ALT",
-  ``!funs.
-      (!env1 env.
-        DeclAssum mn ds env tys /\
-        EVERY ( \ (b,P,(v,rest)).
-          LOOKUP_VAR v env1 (Recclosure env (MAP (SND o SND) funs) v)) funs ==>
-        EVERY ( \ (b,P,(v,rest)).
-          b ==> Eval env1 (Var (Short v)) P) funs) ==>
-      !env. DeclAssum mn (SNOC (Dletrec (MAP (SND o SND) funs)) ds) env tys ==>
-            EVERY ( \ (b,P,(v,rest)).
-              b ==> Eval env (Var (Short v)) P) funs``,
-  rw[DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec] >>
-  fs[EVERY_MEM,FORALL_PROD,PULL_EXISTS] >> rw[] >>
-  first_x_assum(match_mp_tac o MP_CANON) >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  rw[write_rec_thm,LOOKUP_VAR_def,lookup_var_def,write_def] >>
-  ho_match_mp_tac lemma >>
-  fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS,FST_triple] >>
-  METIS_TAC[]);
-
-val DeclAssum_Dletrec_INTRO = store_thm("DeclAssum_Dletrec_INTRO",
-  ``(!env1 env.
-       DeclAssum mn ds env tys /\
-       LOOKUP_VAR v env1 (Recclosure env [(v,xs,f)] v) ==>
-       Eval env1 (Var (Short v)) P) ==>
-    !env. DeclAssum mn (SNOC (Dletrec [(v,xs,f)]) ds) env tys ==>
-          Eval env (Var (Short v)) P``,
-  (DeclAssum_Dletrec_INTRO_ALT |> Q.SPEC `[(T,P,v,xs,f)]`
-    |> SIMP_RULE std_ss [EVERY_DEF,MAP] |> ASSUME_TAC)
-  \\ FULL_SIMP_TAC std_ss []);
 
 (* a few misc. lemmas that help the automation *)
 
@@ -1894,118 +1709,7 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   ``(MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
-(* DeclAssum exists *)
-
-val DeclAssumExists_def = Define `
-  DeclAssumExists mn ds = ?env tys. DeclAssum mn ds env tys`;
-
-val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``;
-
-val DeclAssumExists_SNOC_Dtype = store_thm("DeclAssumExists_SNOC_Dtype",
-  ``!funs ds.
-      DeclAssumExists mn ds ==>
-      !tds.
-         (!env tys.
-            DeclAssum mn ds env tys ==>
-            check_dup_ctors tds /\
-            ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) /\
-            DISJOINT (type_defs_to_new_tdecs mn tds) tys) ==>
-         DeclAssumExists mn (SNOC (Dtype tds) ds)``,
-  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,Decls_Dtype]
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
-  \\ RES_TAC \\ first_assum(match_exists_tac o concl)
-  \\ FULL_SIMP_TAC std_ss [] \\ simp[]);
-
-val DeclAssumExists_SNOC_Dexn = store_thm("DeclAssumExists_SNOC_Dexn",
-  ``!funs ds.
-      DeclAssumExists mn ds ==>
-      !n l.
-         (!env tys.
-            DeclAssum mn ds env tys ==>
-            TypeExn (mk_id mn n) NOTIN tys) ==>
-         DeclAssumExists mn (SNOC (Dexn n l) ds)``,
-  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,Decls_Dexn]
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
-  \\ first_assum(match_exists_tac o concl) >> simp[]);
-
-val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
-  ``!ds name n exp.
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dlet (Pvar name) (Fun n exp)) ds)``,
-  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND]
-  \\ simp[PULL_EXISTS]
-  \\ first_assum(match_exists_tac o concl) >> simp[]
-  \\ SIMP_TAC std_ss [Decls_def]
-  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec_cases]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
-       combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_def,merge_alist_mod_env_empty]
-  \\ srw_tac[QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
-  \\ METIS_TAC[PAIR]);
-
-val DeclAssumExists_SNOC_Dlet_ALT = store_thm("DeclAssumExists_SNOC_Dlet_ALT",
-  ``!ds name n exp P.
-      (!env tys. DeclAssum mn ds env tys ==>
-                 ?res. evaluate F env empty_state exp (empty_state,Rval res)) ==>
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dlet (Pvar name) exp) ds)``,
-  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
-  \\ first_assum(match_exists_tac o concl) >> simp[]
-  \\ simp[Decls_def,PULL_EXISTS]
-  \\ simp[Once evaluate_decs_cases]
-  \\ simp[Once evaluate_dec_cases,PULL_EXISTS]
-  \\ res_tac
-  \\ imp_res_tac evaluate_empty_store_IMP_any_store >> fs[]
-  \\ simp[pmatch_def,pat_bindings_def]
-  \\ simp[Once evaluate_decs_cases]
-  \\ simp[combine_dec_result_def]
-  \\ map_every qexists_tac[`env with v := (name,res)::env.v`,`s`,`res`]
-  \\ simp[]
-  \\ first_x_assum match_mp_tac >> simp[empty_state_def]);
-
-val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
-  ``!ds name n exp P.
-      (!env tys. DeclAssum mn ds env tys ==> Eval env exp P) ==>
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dlet (Pvar name) exp) ds)``,
-  NTAC 6 STRIP_TAC
-  \\ MATCH_MP_TAC (GEN_ALL DeclAssumExists_SNOC_Dlet_ALT)
-  \\ FULL_SIMP_TAC std_ss [Eval_def]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ FULL_SIMP_TAC std_ss [empty_store_def] \\ METIS_TAC []);
-
-val DeclAssumExists_SNOC_Dletrec = store_thm("DeclAssumExists_SNOC_Dletrec",
-  ``!funs ds.
-      ALL_DISTINCT (MAP FST funs) ==>
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dletrec funs) ds)``,
-  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND]
-  \\ simp[PULL_EXISTS]
-  \\ first_assum(match_exists_tac o concl) >> simp[]
-  \\ SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ ONCE_REWRITE_TAC [evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ simp[combine_dec_result_def,FST_triple]
-  \\ srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]);
-
-val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
-  ``!mn. DeclAssumExists mn []``,
-  SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
-     DeclAssumExists_def,DeclAssum_def,Decls_def,initSemEnvTheory.prim_sem_env_eq]
-  >> srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]);
+(* always_evaluates *)
 
 val always_evaluates_def = Define `
   always_evaluates env exp =
@@ -2037,29 +1741,6 @@ val always_evaluates_fn = store_thm("always_evaluates_fn",
   FULL_SIMP_TAC std_ss [always_evaluates_def]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC [] []);
 
-val DeclAssumExists_evaluate = store_thm("DeclAssumExists_evaluate",
-  ``!ds name n exp P.
-      (!env tys. DeclAssum mn ds env tys ==> always_evaluates env exp) ==>
-      DeclAssumExists mn ds ==>
-      DeclAssumExists mn (SNOC (Dlet (Pvar name) exp) ds)``,
-  fs [always_evaluates_def]
-  \\ SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
-  \\ RES_TAC \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
-  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec_cases]
-  \\ SIMP_TAC std_ss [APPEND_NIL]
-  \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
-       combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS] \\ RES_TAC
-  \\ SRW_TAC [] [] \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s`)
-  \\ first_assum(match_exists_tac o concl) >> simp[]
-  \\ simp[]
-  \\ srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]
-  \\ imp_res_tac big_unclocked >> rfs[]);
-
 (* lookup cons *)
 
 val lookup_cons_write = store_thm("lookup_cons_write",
@@ -2068,6 +1749,13 @@ val lookup_cons_write = store_thm("lookup_cons_write",
       (lookup_cons name (write_rec funs env) = lookup_cons name env)``,
   Induct \\ REPEAT STRIP_TAC
   \\ fs [write_rec_def,write_def,lookup_cons_def]);
+
+val lookup_var_id_write = store_thm("lookup_var_id_write",
+  ``(lookup_var_id (Short name) (write n v env) =
+       if n = name then SOME v else lookup_var_id (Short name) env) /\
+    (lookup_var_id (Long mn name) (write n v env) =
+       lookup_var_id (Long mn name) env)``,
+  EVAL_TAC \\ rw [] \\ fs [lookup_var_id_def]);
 
 val DISJOINT_set_SIMP = store_thm("DISJOINT_set_SIMP",
   ``(DISJOINT (set []) s <=> T) /\
@@ -2150,103 +1838,6 @@ val ALL_DISTINCT_MAP_FST_ASHADOW = prove(
   \\ Q.EXISTS_TAC `LENGTH t` \\ fs []
   \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]);
 
-(* DeclAssum for cons *)
-
-val DeclAssumCons_def = Define `
-  DeclAssumCons mn ds conses cons_env <=>
-    !env tys. DeclAssum mn ds env tys ==>
-              (tys = set conses) /\
-              (ASHADOW (SND env.c) = cons_env)`;
-
-local
-  val eval = SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]
-  val lemma = eval ``(SND ((SND(THE (prim_sem_env empty_state.ffi))).c))``
-  val tm = lemma |> concl |> rand
-  val lemma2 = eval ``FST (THE (prim_sem_env empty_state.ffi))``
-  val tm2 = lemma2 |> concl
-    |> find_terms (can pred_setSyntax.dest_insert)
-    |> map (rand o rator)
-    |> (fn xs => listSyntax.mk_list(xs,type_of (hd xs)))
-in
-  val DeclAssumCons_NIL = store_thm("DeclAssumCons_NIL",
-    ``DeclAssumCons mn [] ^tm2 ^tm``,
-    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma,lemma2]
-    \\ fs [pred_setTheory.EXTENSION]
-    \\ rw[initSemEnvTheory.prim_sem_env_eq]
-    \\ TRY (EVAL_TAC \\ NO_TAC) \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
-end
-
-val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
-  ``DeclAssumCons mn ds conses ce ==>
-    !name exp. DeclAssumCons mn (SNOC (Dlet (Pvar name) exp) ds) conses ce``,
-  rw[DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,
-     SNOC_APPEND,Decls_Dlet,PULL_EXISTS]
-  >- (METIS_TAC[evaluate_no_clock,FST])
-  >> EVAL_TAC >> (METIS_TAC[evaluate_no_clock,FST]));
-
-val DeclAssumCons_SNOC_Dletrec = store_thm("DeclAssumCons_SNOC_Dletrec",
-  ``DeclAssumCons mn ds conses ce ==>
-    !funs. DeclAssumCons mn (SNOC (Dletrec funs) ds) conses ce``,
-  rw[DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,
-     SNOC_APPEND,Decls_Dletrec,PULL_EXISTS]
-  >- (METIS_TAC[evaluate_no_clock,FST])
-  >> EVAL_TAC >> (METIS_TAC[evaluate_no_clock,FST]));
-
-val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
-  ``DeclAssumCons mn ds conses ce ==>
-    !tds.
-    (let xs = MAP FST (build_tdefs mn tds) in
-     let ys = MAP FST ce in
-      ALL_DISTINCT xs /\ EVERY (\y. ~(MEM y ys)) xs) ==>
-      DeclAssumCons mn (SNOC (Dtype tds) ds)
-        (MAP (\(tvs,tn,ctors). TypeId
-          (case mn of NONE => Short tn
-                    | SOME m => Long m tn)) tds ++ conses)
-        (build_tdefs mn tds ++ ce)``,
-  rw[DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,
-     SNOC_APPEND,Decls_Dtype,PULL_EXISTS] >>
-  res_tac >>
-  rw[write_tds_def,type_defs_to_new_tdecs_def,GSYM mk_id_def] >>
-  fs[LET_THM] >>
-  Cases_on`env2.c`>>rw[merge_alist_mod_env_def]
-  \\ MATCH_MP_TAC ASHADOW_PREFIX \\ fs [MEM_MAP_ASHADOW]);
-
-val DeclAssumCons_SNOC_Dexn = store_thm("DeclAssumCons_SNOC_Dexn",
-  ``DeclAssumCons mn ds conses ce ==>
-    !n l.
-      ~EXISTS (\c. FST c = n) ce ==>
-      DeclAssumCons mn (SNOC (Dexn n l) ds)
-        (TypeExn (mk_id mn n) :: conses)
-        ((n,LENGTH l,TypeExn (mk_id mn n)) :: ce)``,
-  rw[DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,
-     SNOC_APPEND,Decls_Dexn,PULL_EXISTS] >>
-  res_tac >>
-  rw[write_exn_def,type_defs_to_new_tdecs_def,GSYM mk_id_def,INSERT_UNION_EQ] >>
-  Cases_on`env2.c`>>rw[merge_alist_mod_env_def]
-  \\ MATCH_MP_TAC
-       (ASHADOW_PREFIX |> Q.SPEC `[x]` |> SIMP_RULE std_ss [APPEND])
-  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD]
-  \\ fs [PULL_EXISTS] \\ RES_TAC \\ fs [MEM_MAP_ASHADOW]
-  \\ REPEAT STRIP_TAC
-  \\ METIS_TAC [MEM_MAP_ASHADOW |>
-       SIMP_RULE std_ss [MEM_MAP,EXISTS_PROD],PAIR]);
-
-val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
-  ``DeclAssumCons mn ds conses ce ==>
-    !env tys.
-       DeclAssum mn ds env tys ==>
-         EVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
-  fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
-  \\ fs [lookup_alist_mod_env_def]
-  \\ `ALL_DISTINCT (MAP FST ce)` by ALL_TAC
-  THEN1 SRW_TAC [] [ALL_DISTINCT_MAP_FST_ASHADOW]
-  \\ IMP_RES_TAC EVERY_ALOOKUP_LEMMA
-  \\ fs [EVERY_MEM,FORALL_PROD]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ Cases_on`env.c`
-  \\ SRW_TAC [] [] \\ fs [ALOOKUP_ASHADOW]
-  \\ rw[lookup_alist_mod_env_def]);
-
 (* size lemmas *)
 
 val v6_size = prove(
@@ -2302,65 +1893,6 @@ val no_dup_types_eval = prove(
   ``!ds. no_dup_types ds = ALL_DISTINCT (type_names ds [])``,
   fs [no_dup_types_def,type_names_eq,decs_to_types_def,ALL_DISTINCT_FLAT_REVERSE]);
 
-val DeclEnvTys_def = Define `
-  DeclEnvTys mn ds = @(env,tys). DeclAssum mn ds env tys`;
-
-val DeclEnv_def = Define `
-  DeclEnv mn ds = FST (DeclEnvTys mn ds)`;
-
-val DeclTys_def = Define `
-  DeclTys mn ds = SND (DeclEnvTys mn ds)`;
-
-val DeclEnv = store_thm("DeclEnv",
-  ``DeclAssumExists mn ds ==>
-    DeclAssum mn ds (DeclEnv mn ds) (DeclTys mn ds)``,
-  fs [DeclAssumExists_def,DeclEnvTys_def,DeclEnv_def,DeclTys_def]
-  \\ REPEAT STRIP_TAC
-  \\ `(\(env,tys). DeclAssum mn ds env tys) (env,tys)` by fs []
-  \\ IMP_RES_TAC SELECT_AX \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
-
-val evaluate_top_Tmod_Rval =
-  evaluate_top_rules |> CONJUNCTS |> el 3
-  |> REWRITE_RULE [no_dup_types_eval] |> SPEC_ALL
-  |> Q.INST [`mdecls`|->`{}`,`ck`|->`F`]
-  |> REWRITE_RULE [pred_setTheory.NOT_IN_EMPTY,pred_setTheory.UNION_EMPTY]
-  |> UNDISCH_ALL |> Q.GEN `specs` |> DISCH_ALL
-
-val PULL_EXISTS_IMP = METIS_PROVE [] ``(Q ==> ?x. P x) <=> (?x. Q ==> P x)``
-
-val Tmod_lemma = prove(
-  ``DeclAssumExists (SOME m) ds ==>
-    ALL_DISTINCT (type_names ds []) ==>
-    ?s tds env. !specs.
-      evaluate_top F
-        (SND(THE (prim_sem_env empty_state.ffi)))
-        (FST(THE (prim_sem_env empty_state.ffi)))
-        (Tmod m specs ds)
-        (s,([(m,tds)],[]),Rval ([(m,env)],[])) ∧
-         DeclTys (SOME m) ds = s.defined_types ∧
-      DeclEnv (SOME m) ds =
-        <| m := []
-         ; c := merge_alist_mod_env ([],tds) (SND(THE (prim_sem_env empty_state.ffi))).c
-         ; v := env ++ (SND(THE (prim_sem_env empty_state.ffi))).v|>``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC DeclEnv
-  \\ fs [DeclAssum_def,Decls_def]
-  \\ imp_res_tac evaluate_top_Tmod_Rval
-  \\ Q.LIST_EXISTS_TAC [`s with defined_mods := {m} ∪ s.defined_mods`,`new_tds`,`res_env`]
-  \\ simp[environment_component_equality]
-  \\ simp[GSYM PULL_FORALL]
-  \\ reverse conj_tac >- (
-       rw[initSemEnvTheory.prim_sem_env_eq] )
-  \\ first_x_assum match_mp_tac
-  \\ rw[initSemEnvTheory.prim_sem_env_eq] )
-  |> Q.GENL [`ds`,`m`]
-  |> SIMP_RULE std_ss [PULL_EXISTS_IMP,SKOLEM_THM]
-  |> GEN_ALL |> SIMP_RULE std_ss [PULL_FORALL];
-
-val DeclAssumExists_SOME_IMP_Tmod = new_specification(
-  "DeclAssumExists_SOME_IMP_Tmod",
-  ["Tmod_state","Tmod_tys","Tmod_env"],Tmod_lemma);
-
 val lookup_APPEND = prove(
   ``!xs ys n. ~(MEM n (MAP FST ys)) ==>
               (ALOOKUP (xs ++ ys) n = ALOOKUP xs n)``,
@@ -2371,20 +1903,6 @@ val lookup_APPEND = prove(
   \\ FULL_SIMP_TAC std_ss [FORALL_PROD,APPEND]
   \\ rw []);
 
-val can_lookup_def = Define `
-  can_lookup name (env:env_val) P = ?v. (ALOOKUP env name = SOME v) /\ P v`;
-
-val Eval_Var_Short_merge = store_thm("Eval_Var_Short_merge",
-  ``Eval env (Var (Short n)) P ==>
-    env.v = envv ++ init_env ==>
-    ~MEM n (MAP FST init_env) ==>
-    can_lookup n envv P``,
-  ONCE_REWRITE_TAC [Eval_def,can_lookup_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,lookup_var_id_def]
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC lookup_APPEND
-  \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [EVAL ``MAP FST init_env``,MEM];
-
 val FEVERY_DRESTRICT_FUPDATE = store_thm("FEVERY_DRESTRICT_FUPDATE",
   ``FEVERY P (DRESTRICT (f |+ (x,y)) (COMPL s)) <=>
     (~(x IN s) ==> P (x,y)) /\
@@ -2394,5 +1912,171 @@ val FEVERY_DRESTRICT_FUPDATE = store_thm("FEVERY_DRESTRICT_FUPDATE",
       (fs [Once pred_setTheory.EXTENSION] \\ METIS_TAC []) \\ fs [])
   \\ `COMPL s = COMPL (x INSERT s)` by
      (fs [Once pred_setTheory.EXTENSION] \\ METIS_TAC []) \\ fs [])
+
+val PULL_EXISTS_EXTRA = store_thm("PULL_EXISTS_EXTRA",
+  ``(Q ==> ?x. P x) <=> ?x. Q ==> P x``,
+  metis_tac []);
+
+val evaluate_Fun = store_thm("evaluate_Fun",
+  ``evaluate F env s (Fun n exp) (s,Rval r) <=> r = Closure env n exp``,
+  fs [Once evaluate_cases]);
+
+val evaluate_Var = store_thm("evaluate_Var",
+  ``evaluate F env s (Var (Short n)) (s,Rval r) <=>
+    ?v. lookup_var n env = SOME r``,
+  fs [Once evaluate_cases] \\ EVAL_TAC);
+
+val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
+  ``lookup_var n = lookup_var_id (Short n)``,
+  fs [FUN_EQ_THM] \\ EVAL_TAC \\ fs []);
+
+val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
+
+val Eval_evaluate_IMP = store_thm("Eval_evaluate_IMP",
+  ``Eval env exp P /\
+    evaluate F env empty_state exp (empty_state, Rval v) ==>
+    P v``,
+  fs [Eval_def] \\ rw [] \\ imp_res_tac evaluate_11_Rval \\ fs []);
+
+val pair_CASE_UNCURRY = store_thm("pair_CASE_UNCURRY",
+  ``!x y. pair_CASE x y = UNCURRY y x``,
+  Cases \\ EVAL_TAC \\ fs []);
+
+val IF_T = store_thm("IF_T",``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
+val IF_F = store_thm("IF_F",``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+
+val sat_hyp_lemma = store_thm("sat_hyp_lemma",
+  ``(b1 ==> (x1 = x2)) /\ (x1 ==> y) ==> b1 /\ x2 ==> y``,
+  Cases_on `b1` \\ Cases_on `x1` \\ Cases_on `x2` \\ Cases_on `y` \\ EVAL_TAC);
+
+val IMP_EQ_F = store_thm("IMP_EQ_F",``~b ==> (b = F)``,REWRITE_TAC [])
+val IMP_EQ_T = store_thm("IMP_EQ_T",``b ==> (b = T)``,REWRITE_TAC [])
+
+val IF_TAKEN = store_thm("IF_TAKEN",
+  ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``,
+  SIMP_TAC std_ss []);
+
+val LIST_TYPE_And = store_thm("LIST_TYPE_And",
+  ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
+  SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
+  \\ FULL_SIMP_TAC std_ss [MEM,LIST_TYPE_def]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [And_def])
+
+val EVERY_MEM_CONTAINER = store_thm("EVERY_MEM_CONTAINER",
+  ``!P l. EVERY P l <=> !e. CONTAINER (MEM e l) ==> P (e:'a)``,
+  SIMP_TAC std_ss [EVERY_MEM,CONTAINER_def]);
+
+val PRECONDITION_EQ_CONTAINER = store_thm("PRECONDITION_EQ_CONTAINER",
+  ``(PRECONDITION p = CONTAINER p) /\
+    (CONTAINER ~p = ~CONTAINER p) /\ CONTAINER T``,
+  EVAL_TAC);
+
+val CONTAINER_NOT_ZERO = store_thm("CONTAINER_NOT_ZERO",
+  ``!P. (~(CONTAINER (b = 0)) ==> P b) =
+        !n. (CONTAINER (b = SUC n)) ==> P (SUC n:num)``,
+  REPEAT STRIP_TAC THEN Cases_on `b`
+  THEN EVAL_TAC THEN SRW_TAC [] [ADD1]);
+
+val IMP_PreImp_LEMMA = store_thm("IMP_PreImp_LEMMA",
+  ``!b1 b2 b3. (b1 ==> b3 ==> b2) ==> b3 ==> PreImp b1 b2``,
+  REPEAT Cases THEN REWRITE_TAC [PreImp_def,PRECONDITION_def]);
+
+val PRE_IMP = store_thm("PRE_IMP",
+  ``T /\ PRECONDITION b ==> PRECONDITION b``,
+  EVAL_TAC)
+
+val PreImp_IMP_T = store_thm("PreImp_IMP_T",
+  ``PreImp b1 b2 /\ T ==> PreImp b1 b2``,
+  EVAL_TAC)
+
+val CONJ_IMP = store_thm("CONJ_IMP",
+  ``!b1 b2 b12 b3 b4 b34.
+      (b1 /\ b2 ==> b12) /\ (b3 /\ b4 ==> b34) ==>
+      ((b1 /\ b3) /\ (b2 /\ b4) ==> b12 /\ b34)``,
+  REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+
+val IMP_SPLIT = store_thm("IMP_SPLIT",
+  ``!b12 b3 b4 b34.
+      (b12 = b12) /\ (b3 /\ b4 ==> b34) ==>
+      ((b12 ==> b3) /\ (b12 ==> b4) ==> (b12 ==> b34))``,
+  REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+
+val FORALL_SPLIT = store_thm("FORALL_SPLIT",
+  ``(!x. P1 x /\ P2 x ==> P (x:'a)) ==>
+    ($! P1 ) /\ ($! P2 ) ==> $! P ``,
+  FULL_SIMP_TAC std_ss [FORALL_THM]);
+
+val DEFAULT_IMP = store_thm("DEFAULT_IMP",
+  ``!b1. b1 /\ b1 ==> b1``,
+  SIMP_TAC std_ss []);
+
+val combine_lemma = store_thm("combine_lemma",
+  ``!b1 b2 b3 b4. (b1 /\ b2 ==> b3) /\ (b3 ==> b4) ==> b2 ==> b1 ==> b4``,
+  REPEAT Cases THEN SIMP_TAC std_ss [])
+
+val IMP_PreImp_THM = store_thm("IMP_PreImp_THM",
+  ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
+  Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
+
+val PreImp_IMP = store_thm("PreImp_IMP",
+  ``(PRECONDITION x ==> PreImp x y) ==> PreImp x y``,
+  SIMP_TAC std_ss [PreImp_def]);
+
+val evaluate_Mat = save_thm("evaluate_Mat",
+  ``evaluate c x env (Mat e pats) (xx,Rval res)``
+  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) []))
+
+val evaluate_match_Conv = save_thm("evaluate_match_Conv",
+  ``evaluate_match c env st args
+       ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
+  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
+      SIMP_CONV (srw_ss()) [pmatch_def]))
+
+val evaluate_match_rw = store_thm("evaluate_match_rw",
+  ``evaluate_match c env st args
+      ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
+    ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
+    case pmatch env.c st.refs (Pcon xx pats) args env.v of
+    | No_match =>
+        evaluate_match c env st args pats2 errv (yyy,Rval y)
+    | Match env7 =>
+        evaluate c (env with v := env7) st exp2 (yyy,Rval y)
+    | _ => F``,
+  SIMP_TAC std_ss [evaluate_match_Conv
+    |> SIMP_RULE std_ss []]
+  \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args env.v`
+  \\ FULL_SIMP_TAC (srw_ss()) []);
+
+(* terms used by the Lib file *)
+
+val translator_terms = save_thm("translator_terms",
+  pack_list (pack_pair pack_string pack_term)
+    [("find_recfun",``find_recfun name (funs:('a,'b # 'c) alist)``),
+     ("eq type",``EqualityType (a:'a->v->bool)``),
+     ("lookup_cons",``lookup_cons s e = SOME x``),
+     ("lookup_var_id",``lookup_var_id s e = SOME (x:v)``),
+     ("eq remove",``!b x. Eq b x = (b:'a->v->bool)``),
+     ("map pat",``MAP (f:'a->'b)``),
+     ("filter pat",``FILTER (f:'a->bool)``),
+     ("every pat",``EVERY (f:'a->bool)``),
+     ("exists pat",``EXISTS (f:'a->bool)``),
+     ("n = 0",``(n = (0:num))``),
+     ("0 = n",``(0 = (n:num))``),
+     ("bind",``(Con(SOME(Short"Bind")) [])``),
+     ("eq arrow",``Eq (a:'a->v->bool) x --> (b:'b->v->bool)``),
+     ("arrow eq",``Arrow (Eq a (x:'a)) (b:'b->v->bool)``),
+     ("precond = T",``!b. PRECONDITION b = T``),
+     ("WF",``WF:('a -> 'a -> bool) -> bool``),
+     ("COND",``COND:bool -> 'a -> 'a -> 'a``),
+     ("not eq",``~(x = y:'a)``),
+     ("lookup_cons eq",``lookup_cons n env = x``),
+     ("Eval Var",``Eval env (Var n) (a (y:'a))``),
+     ("PMATCH_ROW",``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``),
+     ("PMATCH_ROW_T",``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``),
+     ("PMATCH",``PMATCH x (l :('a -> 'b option) list)``),
+     ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
+     ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
+     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``)]);
 
 val _ = export_theory();

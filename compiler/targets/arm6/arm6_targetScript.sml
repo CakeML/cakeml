@@ -117,6 +117,12 @@ val arm6_enc_def = Define`
                       THE (EncodeARMImmediate i))))) /\
    (arm6_enc (Inst (Arith (Shift sh r1 r2 n))) =
        enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm6_sh sh, n)))) /\
+   (arm6_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+       enc (Data (TestCompareImmediate (2w, n2w r4, 0w))) ++
+       arm6_encode 0w (Data (TestCompareImmediate (3w, n2w r4, 0w))) ++
+       enc (Data (Register (5w, T, n2w r1, n2w r2, n2w r3, SRType_LSL, 0))) ++
+       arm6_encode 3w (Data (Move (F, F, n2w r4, 0w))) ++
+       arm6_encode 2w (Data (Move (F, F, n2w r4, 1w)))) /\
    (arm6_enc (Inst (Mem Load r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -256,6 +262,26 @@ val arm6_dec_aux_def = Define`
             (cond2, Branch (BranchTarget imm32), _) =>
                JumpCmp (arm6_cmp_dec (opc, cond2)) (w2n r)
                        (Imm (decode_imm12 imm12)) (imm32 + 12w)
+          | (0w, Data (TestCompareImmediate (3w, r2, 0w)), rest2) =>
+               (case decode_word rest2 of
+                   (14w,
+                    Data (Register
+                            (5w, T, r3, r4, r5, SRType_LSL, 0)), rest3) =>
+                     (case decode_word rest3 of
+                         (3w, Data (Move (F, F, r6, 0w)), rest4) =>
+                            (case decode_word rest4 of
+                                (2w, Data (Move (F, F, r7, 1w)), _) =>
+                                   if (opc = 2w) /\ (imm12 = 0w) /\
+                                      (r = r2) /\ (r2 = r6) /\ (r6 = r7)
+                                     then Inst
+                                            (Arith
+                                              (AddCarry
+                                                (w2n r3) (w2n r4) (w2n r5)
+                                                (w2n r2)))
+                                   else ARB
+                              | _ => ARB)
+                       | _ => ARB)
+                 | _ => ARB)
           | _ => ARB)
    | Data (TestCompareRegister (opc, r1, r2, SRType_LSL, 0)) =>
         (case decode_word rest of

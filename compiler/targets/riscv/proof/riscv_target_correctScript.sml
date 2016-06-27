@@ -80,6 +80,25 @@ val lem6 = blastLib.BBLAST_PROVE
     (((63 >< 32) c : word32) ' 11 = c ' 43) /\
     (~(63 >< 32) c : word32 ' 11 = ~c ' 43) ``
 
+val lem7 = CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
+                (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
+
+val lem8 = Q.prove(
+  `((if b then 1w else 0w : word64) = v2w [x] || v2w [y]) = (b = x \/ y)`,
+  rw [] \\ blastLib.BBLAST_TAC)
+
+val lem9 = Q.prove(
+  `!r2 : word64 r3 : word64.
+    (18446744073709551616 <= w2n r2 + (w2n r3 + 1) =
+     18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
+    (18446744073709551616 <= w2n r2 + w2n r3 =
+     18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
+   Cases
+   \\ Cases
+   \\ imp_res_tac wordsTheory.BITS_ZEROL_DIMINDEX
+   \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_add_n2w,
+          wordsTheory.word_ls_n2w])
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -122,24 +141,7 @@ local
    val s1 = HolKernel.syntax_fns1 "riscv"
    val (_, _, dest_Decode, is_Decode) = s1 "Decode"
    val find_Decode = HolKernel.bvk_find_term (is_Decode o snd) dest_Decode
-   fun is_riscv_next tm =
-     Lib.total (fst o Term.dest_const o fst o Term.dest_comb) tm =
-     SOME "riscv_next"
-   fun dest_env tm =
-      case Lib.total boolSyntax.strip_comb tm of
-         SOME (env, [n, ms]) =>
-            if Lib.total (fst o Term.dest_var) env = SOME "env" andalso
-               not (is_riscv_next ms) andalso numSyntax.is_numeral n
-               then (numSyntax.int_of_term n, ms)
-            else raise ERR "dest_env" ""
-       | _ => raise ERR "dest_env" ""
-   fun find_env g =
-      g |> boolSyntax.strip_conj |> List.last
-        |> HolKernel.find_terms (Lib.can dest_env)
-        |> Lib.mk_set
-        |> mlibUseful.sort_map (HolKernel.term_size) Int.compare
-        |> Lib.total List.last
-        |> Option.map ((numSyntax.term_of_int ## Lib.I) o dest_env)
+   val is_riscv_next = #4 (HolKernel.syntax_fns1 "riscv_target" "riscv_next")
    val (_, _, dest_NextRISCV, is_NextRISCV) =
       HolKernel.syntax_fns1 "riscv_step" "NextRISCV"
    val find_NextRISCV =
@@ -204,7 +206,9 @@ in
                      SOME (_, w) => Thm.SPEC w bytes_in_memory_thm2
                    | NONE => bytes_in_memory_thm
          val (tac, the_state) =
-           case find_env g of SOME x => env x | NONE => (all_tac, ms)
+           case asmLib.find_env is_riscv_next g of
+              SOME x => env x
+            | NONE => (all_tac, ms)
          val (step_thm, next_state) = step the_state l
          val next_state_var = new_state_var (g::asl)
       in
@@ -225,44 +229,56 @@ end
 local
   val thm = DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``
 in
-fun state_tac (gs as (asl, _)) =
-  let
-    val l = List.mapPartial (Lib.total (fst o markerSyntax.dest_abbrev)) asl
-    val (l, x) = Lib.front_last l
-  in
-    (
-     NO_STRIP_FULL_SIMP_TAC (srw_ss())
-       [riscv_ok_def, riscv_asm_state, asmPropsTheory.all_pcs, lem2,
-        alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
-     \\ MAP_EVERY (fn s =>
-          qunabbrev_tac [QUOTE s]
-          \\ asm_simp_tac (srw_ss())
-               [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
-          \\ NTAC 10 (POP_ASSUM kall_tac)
-          ) l
-     \\ qunabbrev_tac [QUOTE x]
-     \\ asm_simp_tac (srw_ss())
-          [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
-     \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-     \\ simp []
-     \\ rw [combinTheory.APPLY_UPDATE_THM, thm]
-    ) gs
-  end
+  fun state_tac asm (gs as (asl, _)) =
+    let
+      val l = List.mapPartial (Lib.total (fst o markerSyntax.dest_abbrev)) asl
+      val (l, x) = Lib.front_last l
+    in
+      (
+       NO_STRIP_FULL_SIMP_TAC (srw_ss())
+         [riscv_ok_def, riscv_asm_state, asmPropsTheory.all_pcs, lem2,
+          alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
+       \\ MAP_EVERY (fn s =>
+            qunabbrev_tac [QUOTE s]
+            \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
+                  alignmentTheory.aligned_numeric]
+            \\ NTAC 10 (POP_ASSUM kall_tac)
+            ) l
+       \\ qunabbrev_tac [QUOTE x]
+       \\ asm_simp_tac (srw_ss())
+            [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+       \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
+       \\ simp []
+       \\ (if asmLib.isAddCarry asm then
+             qabbrev_tac `r2 = ms.c_gpr ms.procID (n2w n0)`
+             \\ qabbrev_tac `r3 = ms.c_gpr ms.procID (n2w n1)`
+             \\ REPEAT strip_tac
+             \\ Cases_on `i = n2`
+             \\ asm_simp_tac std_ss [wordsTheory.WORD_LO_word_0, lem8]
+             >- (Cases_on `ms.c_gpr ms.procID (n2w n2) = 0w`
+                 \\ simp [wordsTheory.WORD_LO_word_0, lem7, lem9]
+                 \\ blastLib.BBLAST_TAC)
+             \\ rw [GSYM wordsTheory.word_add_n2w, lem7]
+           else
+             rw [combinTheory.APPLY_UPDATE_THM, thm]
+             \\ (if asmLib.isMem asm then
+                   full_simp_tac
+                      (srw_ss()++wordsLib.WORD_EXTRACT_ss++
+                       wordsLib.WORD_CANCEL_ss) []
+                 else
+                   NO_STRIP_FULL_SIMP_TAC std_ss
+                        [alignmentTheory.aligned_extract]
+                   \\ blastLib.FULL_BBLAST_TAC))
+      ) gs
+    end
 end
-
-val decode_tac =
-   simp enc_rwts
-   \\ REPEAT strip_tac
-   \\ REPEAT (simp dec_rwts \\ decode_tac')
-   \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
-   \\ blastLib.FULL_BBLAST_TAC
 
 local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (hd asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
-   fun next_tac' gs =
+   fun next_tac' asm gs =
       let
          val j = number_of_instructions (fst gs)
          val i = j - 1
@@ -276,22 +292,28 @@ local
          \\ NTAC j next_state_tac
          \\ REPEAT (Q.PAT_ASSUM `ms.MEM8 qq = bn` kall_tac)
          \\ REPEAT (Q.PAT_ASSUM `NextRISCV qq = qqq` kall_tac)
-         \\ state_tac
+         \\ state_tac asm
       end gs
+   val (_, _, dest_riscv_enc, is_riscv_enc) =
+     HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
+   fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
 in
-   val next_tac =
-      qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
+   fun next_tac gs =
+     (qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
       \\ simp enc_rwts
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ imp_res_tac lem3
       \\ NO_STRIP_FULL_SIMP_TAC std_ss []
       \\ strip_tac
-      \\ next_tac'
-   val bnext_tac =
-      next_tac
-      \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
-      \\ blastLib.FULL_BBLAST_TAC
+      \\ next_tac' (get_asm (snd gs))) gs
 end
+
+val decode_tac =
+   simp enc_rwts
+   \\ REPEAT strip_tac
+   \\ REPEAT (simp dec_rwts \\ decode_tac')
+   \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
+   \\ blastLib.FULL_BBLAST_TAC
 
 val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
@@ -351,17 +373,27 @@ val riscv_encoding = Count.apply Q.prove (
             \\ Cases_on `b`
             \\ decode_tac
             )
+         >- (
             (*--------------
                 Shift
               --------------*)
-            \\ print_tac "Shift"
+            print_tac "Shift"
             \\ Cases_on `s`
             \\ decode_tac
+            )
+            (*--------------
+               AddCarry
+              --------------*)
+            \\ print_tac "AddCarry"
+            \\ decode_tac
          )
-      \\ print_tac "Mem"
-      \\ Cases_on `a`
-      \\ Cases_on `m`
-      \\ decode_tac
+         (*--------------
+             Mem
+           --------------*)
+         \\ print_tac "Mem"
+         \\ Cases_on `a`
+         \\ Cases_on `m`
+         \\ decode_tac
       )
       (*--------------
           Jump
@@ -445,14 +477,14 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
            --------------*)
          print_tac "Const"
          \\ Cases_on `c = sw2sw ((11 >< 0) c : word12)`
-         >- bnext_tac
+         >- next_tac
          \\ Cases_on `((63 >< 32) c = 0w: word32) /\ ~c ' 31 \/
                       ((63 >< 32) c = -1w: word32) /\ c ' 31`
-         >- (Cases_on `c ' 11` \\ bnext_tac)
+         >- (Cases_on `c ' 11` \\ next_tac)
          \\ Cases_on `c ' 31`
          \\ Cases_on `c ' 43`
          \\ Cases_on `c ' 11`
-         \\ bnext_tac
+         \\ next_tac
          )
       >- (
          (*--------------
@@ -466,13 +498,20 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
             print_tac "Binop"
             \\ Cases_on `r`
             \\ Cases_on `b`
-            \\ bnext_tac
+            \\ next_tac
             )
+         >- (
             (*--------------
                 Shift
               --------------*)
-            \\ print_tac "Shift"
+            print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+            (*--------------
+                AddCarry
+              --------------*)
+            \\ print_tac "AddCarry"
             \\ next_tac
          )
          (*--------------
@@ -482,15 +521,13 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
          \\ Cases_on `a`
          \\ Cases_on `m`
          \\ next_tac
-         \\ full_simp_tac
-              (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss) []
       ) (* close Inst *)
       (*--------------
           Jump
         --------------*)
    >- (
       print_tac "Jump"
-      \\ bnext_tac
+      \\ next_tac
       )
    >- (
       (*--------------
@@ -520,28 +557,28 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
          Cases_on `~(ms.c_gpr ms.procID (n2w n) < c')`,
          Cases_on `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
       ]
-      \\ bnext_tac
+      \\ next_tac
       )
       (*--------------
           Call
         --------------*)
    >- (
       print_tac "Call"
-      \\ bnext_tac
+      \\ next_tac
       )
    >- (
       (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
-      \\ bnext_tac
+      \\ next_tac
       )
    >- (
       (*--------------
           Loc
         --------------*)
       print_tac "Loc"
-      \\ bnext_tac
+      \\ next_tac
       )
    >- (
       (*--------------

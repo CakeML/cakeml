@@ -376,7 +376,7 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
-    qcase_tac`Boolv T` >>
+    rename1`Boolv T` >>
     qmatch_assum_rename_tac`IS_SOME _.ffi.final_event` >>
     ntac 4 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     ntac 2 (TRY (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[])) >>

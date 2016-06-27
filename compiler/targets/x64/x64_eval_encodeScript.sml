@@ -57,21 +57,28 @@ val shift_rwt =
    [e_rax_imm_def, e_opsize_imm_def, e_opsize_def, rex_prefix_def,
     mk_let_thm `([72w: word8], (1w: word8))`]
 
+val add_carry_rwt =
+  enc_thm 5
+   [mk_let_thm `2w : word4`,
+    mk_let_thm `7w : word4`,
+    mk_let_thm `(rex_prefix (v || 8w),1w: word8)`,
+    not_byte_def, e_opsize_def, e_imm8_def, e_rm_imm8_def, e_opsize_imm_def]
+
 local
   val thms =
     [e_rm_reg_def, e_gen_rm_reg_def, e_ModRM_def, e_opsize_def,
      mk_let_thm `(rex_prefix (v || 8w),1w: word8)`,
      mk_let_thm `(rex_prefix (7w && v),1w: word8)`]
 in
-  val load_rwt = enc_thm 5 thms
-  val load32_rwt = enc_thm 6 thms
-  val load8_rwt = enc_thm 7 thms
-  val store_rwt = enc_thm 8 thms
-  val store32_rwt = enc_thm 9 thms
-  val store8_rwt = enc_thm 10 thms
+  val load_rwt = enc_thm 6 thms
+  val load32_rwt = enc_thm 7 thms
+  val load8_rwt = enc_thm 8 thms
+  val store_rwt = enc_thm 9 thms
+  val store32_rwt = enc_thm 10 thms
+  val store8_rwt = enc_thm 11 thms
 end
 
-val jump_rwt = enc_thm 11 [x64_encode_jcc_def]
+val jump_rwt = enc_thm 12 [x64_encode_jcc_def]
 
 local
   val jump_cmp_case_rule =
@@ -81,20 +88,20 @@ local
   val th = Q.prove(`!cmp. x64_cmp cmp <> Z_ALWAYS`, Cases \\ simp [x64_cmp_def])
   fun rwts i = jump_cmp_case_rule (enc_thm i [x64_encode_jcc_def, th])
 in
-  val jump_cmp_rwt = rwts 12
-  val jump_cmp_imm_rwt = rwts 13
+  val jump_cmp_rwt = rwts 13
+  val jump_cmp_imm_rwt = rwts 14
 end
 
-val call_rwt = enc_thm 14 []
+val call_rwt = enc_thm 15 []
 
-val jump_reg_rwt = enc_thm 15 [e_opc_def, boolTheory.LET_DEF]
+val jump_reg_rwt = enc_thm 16 [e_opc_def, boolTheory.LET_DEF]
 
-val loc_rwt = enc_thm 16 [e_opsize_def, boolTheory.LET_DEF]
+val loc_rwt = enc_thm 17 [e_opsize_def, boolTheory.LET_DEF]
 
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
-    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, load_rwt,
-     load32_rwt, load8_rwt, store_rwt, store32_rwt, store8_rwt, jump_rwt,
-     jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
+    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, add_carry_rwt,
+     load_rwt, load32_rwt, load8_rwt, store_rwt, store32_rwt, store8_rwt,
+     jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
 
 val () = export_theory ()

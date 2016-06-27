@@ -180,7 +180,7 @@ val compile_single_correct = prove(``
   Cases_on`prog`
   >- tac
   >- tac
-  >- (Cases_on`i`>>full_simp_tac(srw_ss())[evaluate_def,inst_def,state_component_equality,assign_def,word_exp_code_frame,word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[set_var_def])
+  >- (Cases_on`i`>>full_simp_tac(srw_ss())[evaluate_def,inst_def,state_component_equality,assign_def,word_exp_code_frame,word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def,get_vars_perm,LET_THM,get_vars_code_frame]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[set_var_def])
   >- tac
   >- tac
   >- tac

@@ -22,27 +22,26 @@ val _ = Datatype `
              | Int int      (* used to index tuples *)
              | Other        (* unknown *)
              | Impossible`  (* value 'returned' by Raise *)
+val val_approx_size_def = definition "val_approx_size_def"
 
 val merge_def = tDefine "merge" `
-  (merge x y =
-     case (x,y) of
-     | (Impossible,y) => y
-     | (x,Impossible) => x
-     | (Tuple xs, Tuple ys) =>
-          if LENGTH xs = LENGTH ys then
-            Tuple (merge_list xs ys)
-          else Other
-     | (Clos _ _, Clos _ _) => if x = y then x else Other
-     | (Int i, Int j) => if i = j then x else Other
-     | _ => Other) /\
-  (merge_list xs ys =
-     case (xs,ys) of
-     | (x::xs,y::ys) => merge x y :: merge_list xs ys
-     | _ => [])`
- (WF_REL_TAC `measure
-    (\x. case x of
-         | INL (x,_) => val_approx_size x
-         | INR (x,_) => val_approx1_size x)`)
+  (merge Impossible y = y) ∧
+  (merge x Impossible = x) ∧
+  (merge (Tuple xs) (Tuple ys) =
+     if LENGTH xs = LENGTH ys then Tuple (MAP2 merge xs ys)
+     else Other) ∧
+  (merge (Clos m1 n1) (Clos m2 n2) = if m1 = m2 ∧ n1 = n2 then Clos m1 n1
+                                     else Other) ∧
+  (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
+  (merge _ _ = Other)
+` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
+   rw[val_approx_size_def] >> simp[] >> rename1 `MEM x xs` >>
+   rename1 `MEM y ys` >>
+   first_x_assum (qspecl_then [`y::TL (TL ys)`, `x`, `y`] mp_tac) >>
+   impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
+   rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
+val merge_def =
+    save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
 val known_op_def = Define `
   (known_op (Global n) as g =
@@ -55,7 +54,7 @@ val known_op_def = Define `
      | (a::xs) =>
        case lookup n g of
        | NONE => (Other,insert n a g)
-       | SOME other => (Other,insert n Other g)) /\
+       | SOME other => (Other,insert n (merge other a) g)) /\
   (known_op (Cons _) as g = (Tuple as,g)) /\
   (known_op (Const i) as g = (Int i,g)) /\
   (known_op El as g =
@@ -107,25 +106,29 @@ val known_def = tDefine "known" `
        ([(Tick e1,a1)],g)) /\
   (known [Handle x1 x2] vs g =
      let (e1,g) = known [x1] vs g in
-     let (e2,g) = known [x2] vs g in
+     let (e2,g) = known [x2] (Other::vs) g in
      let (e1,a1) = HD e1 in
      let (e2,a2) = HD e2 in
        ([(Handle e1 e2,merge a1 a2)],g)) /\
   (known [Call dest xs] vs g =
-     let (e1,l1) = known xs vs g in
+     let (e1,g) = known xs vs g in
        ([(Call dest (MAP FST e1),Other)],g)) /\
   (known [Op op xs] vs g =
      let (e1,g) = known xs vs g in
-     let (a,g) = known_op op (MAP SND e1) g in
+     let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
        ([(Op op (MAP FST e1),a)],g)) /\
   (known [App loc_opt x xs] vs g =
-     let (e1,g) = known [x] vs g in
      let (e2,g) = known xs vs g in
+     let (e1,g) = known [x] vs g in
      let (e1,a1) = HD e1 in
-     let new_loc_opt = (case dest_Clos a1 of
-                        | NONE => NONE
-                        | SOME (loc,arity) => if arity = LENGTH xs
-                                              then SOME loc else NONE) in
+     let new_loc_opt =
+         case loc_opt of
+           | SOME _ => loc_opt
+           | _ => case dest_Clos a1 of
+                    | NONE => NONE
+                    | SOME (loc,arity) => if arity = LENGTH xs
+                                          then SOME loc else NONE
+     in
        ([(App new_loc_opt e1 (MAP FST e2),Other)],g)) /\
   (known [Fn loc_opt ws num_args x1] vs g =
      let (e1,g) = known [x1] (REPLICATE num_args Other ++ vs) g in
@@ -135,8 +138,10 @@ val known_def = tDefine "known" `
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
   (known [Letrec loc_opt _ fns x1] vs g =
-     let loc = (case loc_opt of NONE => 0 | SOME n => n) in
-     let clos = GENLIST (\i. Clos (loc + i) (FST (EL i fns))) (LENGTH fns) in
+     let gfn = case loc_opt of
+                   NONE => K Other
+                 | SOME n => \i. Clos (n + i) (FST (EL i fns)) in
+     let clos = GENLIST gfn (LENGTH fns) in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)
      let new_fns = MAP (\(num_args,x).
@@ -177,9 +182,61 @@ val compile_def = Define `
   in f 4 end
 
   val f = ``Fn (SOME 900) NONE 1 (App NONE (Op (Global 60) []) [Op Add [Var 0; Op (Const 1) []]])``
-  val g = ``Op (SetGlobal 60) [Var 0]``
+  val g = ``closLang$Op (SetGlobal 60) [Var 0]``
   val exp = ``Let [^f] (Let [^g] (App NONE (Var 1) [Op (Const 4) []]))``
   val ev = EVAL ``compile T ^exp``
+
+  TEST 2A
+
+  let
+    val f = fn k => k + 1
+    val g = set_global 60 f
+  in
+    get_global 60 3
+  end
+
+  val f = ``Fn (SOME 900) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
+  val g = ``closLang$Op (SetGlobal 60) [Var 0]``
+  val exp = ``Let [^f] (Let [^g] (App NONE
+                                      (Op (Global 60) [])
+                                      [Op (Const 3) []]))``
+  val ev = EVAL ``compile T ^exp``
+
+
+  TEST 2B (* works nicely *)
+
+  let
+    val f = fn k => k + 1
+    val g = set_global 60 f
+    val h = set_global 62 (get_global 60)
+  in
+    h
+  end
+
+  val h = ``closLang$Op (SetGlobal 62) [Op (Global 60) []]``
+  val exp = ``Let [^f] (Let [^g] (Let [^h] (Var 0)))``
+
+  val ev1 = EVAL ``known [^exp] [] LN``
+
+  TEST 2C
+    (* is ghastly; the g-map will never pick up a good value for global 62 *)
+
+  let
+    val f = fn k => k + 1
+    val h = fn k => set_global 62 (get_global 60)
+    val g = set_global 60 f
+  in
+    h 1
+  end
+
+  val h = ``Fn (SOME 800) NONE 1
+               (closLang$Op (SetGlobal 62) [Op (Global 60) []])``
+  val exp = ``Let [^f] (Let [^h]
+                (Let [^g] (App NONE (Var 1) [Op (Const 1) []])))``
+
+  val ev1 = EVAL ``known [^exp] [] LN``
+  val ev2 = EVAL ``known [^exp] [] ^(#2 (dest_pair (rhs (concl ev1))))``
+
 
   TEST 3
 
@@ -188,6 +245,7 @@ val compile_def = Define `
             val g = fn k => k - 1
             in (f,g) end
   in #1 xy 4 end
+
 
   val f = ``Fn (SOME 800) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
   val g = ``Fn (SOME 900) NONE 1 (Op Sub [Var 0; Op (Const 1) []])``

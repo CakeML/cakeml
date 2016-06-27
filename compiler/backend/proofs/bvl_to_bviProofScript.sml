@@ -726,7 +726,7 @@ val do_app_adjust = Q.prove(
     simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bv_ok_def] >>
     TRY BasicProvers.CASE_TAC >>
-    full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+    full_simp_tac(srw_ss())[FLOOKUP_DEF,bvl_to_bvi_def] >>
     METIS_TAC[INJ_DEF])
   THEN1 (* Equal *) (
     simp[bEvalOp_def] >>
@@ -1608,7 +1608,7 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
   recInduct bvlSemTheory.evaluate_ind >>
   srw_tac[][bvlSemTheory.evaluate_def] >>
   TRY (
-    qcase_tac`Boolv T = HD _` >>
+    rename1`Boolv T = HD _` >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     rpt(IF_CASES_TAC >> full_simp_tac(srw_ss())[]) >>
@@ -1617,7 +1617,7 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
     imp_res_tac bvlPropsTheory.evaluate_code >> full_simp_tac(srw_ss())[] >>
     TRY(qpat_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[] ) >>
   TRY (
-    qcase_tac`bvlSem$do_app` >>
+    rename1`bvlSem$do_app` >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
     imp_res_tac bvlPropsTheory.evaluate_code >> full_simp_tac(srw_ss())[] >>
     imp_res_tac bvlPropsTheory.do_app_with_code >>

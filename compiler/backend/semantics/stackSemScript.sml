@@ -279,6 +279,15 @@ val inst_def = Define `
     | Arith (Shift sh r1 r2 n) =>
         assign r1
           (Shift sh (Var r2) (Nat n)) s
+    | Arith (AddCarry r1 r2 r3 r4) =>
+        (let vs = get_vars [r2;r3;r4] s in
+        case vs of
+        SOME [Word l;Word r;Word c] =>
+          let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
+            SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
+                 (set_var r1 (Word (n2w res)) s))
+
+        | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | NONE => NONE

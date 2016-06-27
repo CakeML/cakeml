@@ -197,7 +197,7 @@ val doapp_extendio_SOMEioresult = store_thm(
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
   simp[ffiTheory.call_FFI_def] >> Cases_on `s0.io` >>
   simp[extendio_def] >> dsimp[optioneq, paireq, ioeventeq, booleq] >>
-  csimp[] >> qcase_tac `LHD l0 = SOME (IO_event _ _)` >>
+  csimp[] >> rename1 `LHD l0 = SOME (IO_event _ _)` >>
   Q.ISPEC_THEN `l0` STRUCT_CASES_TAC llistTheory.llist_CASES >> simp[]);
 *)
 
@@ -209,9 +209,9 @@ val res_rel_ffi = store_thm(
     s2.ffi = s1.ffi``,
   Cases_on `r1` >> simp[]
   >- (simp[res_rel_rw] >> strip_tac >> full_simp_tac(srw_ss())[Once state_rel_rw]) >>
-  qcase_tac `Rerr e` >> Cases_on `e` >> simp[]
+  rename1 `Rerr e` >> Cases_on `e` >> simp[]
   >- (simp[res_rel_rw] >> strip_tac >> full_simp_tac(srw_ss())[Once state_rel_rw]) >>
-  qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw, Once state_rel_rw]);
+  rename1 `Rabort a` >> Cases_on `a` >> simp[res_rel_rw, Once state_rel_rw]);
 
 val _ = temp_overload_on("fails",``λe s. ∃k. FST (evaluate (e,[],s with clock := k)) = Rerr (Rabort Rtype_error)``);
 val _ = temp_overload_on("terminates",``λe s res.
@@ -240,8 +240,8 @@ val exp_rel_semantics = store_thm(
       by metis_tac[pair_CASES] >>
     `res_rel (r1,s1')(r2,s2')` by metis_tac[exp_rel_evaluate] >> full_simp_tac(srw_ss())[]
     >| [Cases_on`r1`,Cases_on`r2`] >>
-    full_simp_tac(srw_ss())[]>> qcase_tac `Rerr e` >>
-    Cases_on`e`>>full_simp_tac(srw_ss())[] >> qcase_tac `Rabort a` >>
+    full_simp_tac(srw_ss())[]>> rename1 `Rerr e` >>
+    Cases_on`e`>>full_simp_tac(srw_ss())[] >> rename1 `Rabort a` >>
     Cases_on `a` >> full_simp_tac(srw_ss())[res_rel_rw,semantics_def] >|[
       metis_tac[FST],
       Cases_on`r1`>>full_simp_tac(srw_ss())[res_rel_rw] >>
@@ -264,8 +264,8 @@ val exp_rel_semantics = store_thm(
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
     strip_tac >> full_simp_tac(srw_ss())[res_rel_rw] >>
     qmatch_assum_rename_tac`res_rel (x,_) _` >>
-    Cases_on`x`>>full_simp_tac(srw_ss())[res_rel_rw] >> qcase_tac`Rerr e` >>
-    Cases_on`e`>>full_simp_tac(srw_ss())[res_rel_rw] >> qcase_tac`Rabort a` >>
+    Cases_on`x`>>full_simp_tac(srw_ss())[res_rel_rw] >> rename1`Rerr e` >>
+    Cases_on`e`>>full_simp_tac(srw_ss())[res_rel_rw] >> rename1`Rabort a` >>
     Cases_on`a`>>full_simp_tac(srw_ss())[] >>
     strip_tac >> full_simp_tac(srw_ss())[res_rel_rw]) >>
   simp[] >>
@@ -582,7 +582,7 @@ val fn_add_arg_lem = Q.prove (
    simp [res_rel_rw] >>
    imp_res_tac evaluate_SING >>
    full_simp_tac(srw_ss())[res_rel_rw] >>
-   TRY (qcase_tac `(Rerr error, r)`)
+   TRY (rename1 `(Rerr error, r)`)
    >- (
      Cases_on `REVERSE (DROP num_args' (DROP (num_args − LENGTH args') (REVERSE vs))) = []`
      >- (
@@ -604,7 +604,7 @@ val fn_add_arg_lem = Q.prove (
   >- (
     Cases_on `error` >>
     full_simp_tac(srw_ss())[res_rel_rw] >>
-    qcase_tac `(Rerr (Rabort abort), r)` >>
+    rename1 `(Rerr (Rabort abort), r)` >>
     Cases_on `abort` >>
     full_simp_tac(srw_ss())[res_rel_rw]))
  >- ( (* Partial application on right, full application on left *)
@@ -791,10 +791,10 @@ val res_rel_val2 = Q.store_thm(
      (∃s1. v = (Rerr (Rabort Rtype_error), s1)) ∨
      (∃l1 s1. v = (Rval l1, s1) ∧ LIST_REL (val_rel (:'ffi) s1.clock) l1 l2 ∧
               s1.clock = s2.clock ∧ state_rel s1.clock s1 s2)`,
-  Cases_on `v` >> qcase_tac `res_rel (res,s1)` >> Cases_on `res` >>
+  Cases_on `v` >> rename1 `res_rel (res,s1)` >> Cases_on `res` >>
   simp[res_rel_rw] >- metis_tac[] >>
-  qcase_tac `Rerr err` >> Cases_on `err` >> simp[res_rel_rw] >>
-  qcase_tac `Rabort abt` >> Cases_on `abt` >> simp[res_rel_rw]);
+  rename1 `Rerr err` >> Cases_on `err` >> simp[res_rel_rw] >>
+  rename1 `Rabort abt` >> Cases_on `abt` >> simp[res_rel_rw]);
 
 val exp_rel_thm = save_thm(
   "exp_rel_thm",
@@ -813,7 +813,7 @@ val res_rel_Rerr_Rval = Q.store_thm(
   "res_rel_Rerr_Rval[simp]",
   `res_rel (Rerr e, s1) (Rval rv, s2) ⇔ e = Rabort Rtype_error`,
   Cases_on `e` >> simp[res_rel_rw] >>
-  qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw]);
+  rename1 `Rabort a` >> Cases_on `a` >> simp[res_rel_rw]);
 
 val res_rel_Rval_Rerr = Q.store_thm(
   "res_rel_Rval_Rerr[simp]",
@@ -835,12 +835,12 @@ val res_rel_cases = Q.store_thm(
      (∃s1 s2. v1 = (Rerr (Rabort Rtimeout_error), s1) ∧
               v2 = (Rerr (Rabort Rtimeout_error), s2) ∧
               state_rel s1.clock s1 s2)`,
-  Cases_on `v1` >> qcase_tac `res_rel (res1, s1)` >>
-  Cases_on `v2` >> qcase_tac `res_rel _ (res2, s2)` >>
+  Cases_on `v1` >> rename1 `res_rel (res1, s1)` >>
+  Cases_on `v2` >> rename1 `res_rel _ (res2, s2)` >>
   Cases_on `res1` >> simp[] >> Cases_on `res2` >> simp[res_rel_rw]
   >- metis_tac[] >>
-  qcase_tac `Rerr e1` >> Cases_on `e1` >> simp[res_rel_rw] >- metis_tac[] >>
-  qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw])
+  rename1 `Rerr e1` >> Cases_on `e1` >> simp[res_rel_rw] >- metis_tac[] >>
+  rename1 `Rabort a` >> Cases_on `a` >> simp[res_rel_rw])
 
 val res_rel_typeerror = Q.store_thm(
   "res_rel_typeerror[simp]",
