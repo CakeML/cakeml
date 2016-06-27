@@ -940,6 +940,7 @@ val calls_correct = Q.store_thm("calls_correct",
     evaluate_app loco f' args' (t0 with clock := t0.clock + ck) = (res',t) ∧
     state_rel g l s t ∧
     result_rel (LIST_REL (v_rel g l)) (v_rel g l) res res')`,
+
   ho_match_mp_tac evaluate_ind
   \\ conj_tac
   >- (
@@ -983,7 +984,21 @@ val calls_correct = Q.store_thm("calls_correct",
   (* Let *)
   \\ conj_tac >- cheat
   (* Raise *)
-  \\ conj_tac >- cheat
+  \\ conj_tac >-
+   (fs [evaluate_def,calls_def] \\ rw []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ fs [evaluate_def]
+    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
+    \\ fs [dec_clock_def] \\ pop_assum kall_tac
+    \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+    \\ first_x_assum drule \\ fs [code_locs_def]
+    \\ rpt (disch_then drule) \\ fs []
+    \\ strip_tac \\ fs []
+    \\ qexists_tac `ck` \\ fs []
+    \\ every_case_tac \\ fs [evalPropsTheory.result_rel_def,PULL_EXISTS]
+    \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])
   (* Handle *)
   \\ conj_tac >- cheat
   (* Op *)
