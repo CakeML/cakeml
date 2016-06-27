@@ -4024,6 +4024,7 @@ val full_state_rel_def = Define`
     ∀k. ∃sa sb sb' sc sd f.
       state_rel k s1 sa ∧ s1.clock = sa.clock ∧         (* intro_multi *)
       clos_numberProof$state_rel sa sb ∧                   (* renumber *)
+      EVERY ((=) NONE) sb.globals ∧ ssgc_free sb ∧
       clos_knownProof$opt_state_rel do_known LN sb sb' ∧      (* known *)
       state_rel k sb' sc ∧ sb'.clock = sc.clock ∧
       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
@@ -4186,7 +4187,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
                      `s02` |-> `ks02`])>>
   simp[]>>
   impl_tac
-  >- cheat>> (* some of the ks0 things might need to move into assums? *)
+  >- (simp[clos_knownProofTheory.state_globals_approx_def,
+           closSemTheory.get_global_def] >> fs[EVERY_MEM] >>
+      metis_tac[MEM_EL, NOT_SOME_NONE]) >>
   strip_tac>>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``opt_res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
