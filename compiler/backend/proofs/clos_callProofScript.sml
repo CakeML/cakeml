@@ -145,6 +145,11 @@ val calls_length = Q.store_thm("calls_length",
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
   \\ every_case_tac \\ fs[] \\ rw[]);
 
+val calls_sing = Q.store_thm("calls_sing",
+  `∀x g0 ys g. calls [x] g0 = (ys,g) ⇒ ?y. ys = [y]`,
+  rw [] \\ imp_res_tac calls_length \\ fs []
+  \\ Cases_on `ys` \\ fs [LENGTH_NIL] );
+
 val FST_code_list = Q.store_thm("FST_code_list[simp]",
   `∀loc fns g. FST (code_list loc fns g) = FST g`,
   ho_match_mp_tac code_list_ind
@@ -968,7 +973,11 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ cheat )
     *)
   (* Var *)
-  \\ conj_tac >- cheat
+  \\ conj_tac >-
+   (fs [evaluate_def,calls_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ qexists_tac `0` \\ fs []
+    \\ fs [LIST_REL_EL_EQN])
   (* If *)
   \\ conj_tac >- cheat
   (* Let *)
@@ -1585,7 +1594,19 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ TRY (Cases_on`e''` \\ fs[])
     \\ metis_tac[v_rel_subg])
   (* Tick *)
-  \\ conj_tac >- cheat
+  \\ conj_tac >-
+   (fs [evaluate_def,calls_def] \\ rw []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ `t0.clock = s.clock` by fs [state_rel_def]
+    \\ fs [evaluate_def]
+    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
+    THEN1 (qexists_tac `0` \\ fs [state_rel_def])
+    \\ fs [dec_clock_def] \\ pop_assum kall_tac
+    \\ first_x_assum drule \\ fs [code_locs_def]
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then `t0 with clock := t0.clock-1` mp_tac)
+    \\ fs [] \\ impl_tac THEN1 fs [state_rel_def]
+    \\ strip_tac \\ asm_exists_tac \\ fs [])
   (* Call *)
   \\ conj_tac >- (
     rw[evaluate_def,calls_def]
