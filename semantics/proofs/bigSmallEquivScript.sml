@@ -1154,9 +1154,36 @@ val big_exp_to_small_exp = Q.prove (
        qexists_tac `Exp (Letrec funs e)` >>
        qexists_tac `[]` >>
        srw_tac[][RTC_REFL, e_step_def])
-
-   >- cheat
-
+   >- (
+     fs []
+     >> Cases_on `SND r`
+     >| [all_tac,
+        cases_on `e'`]
+     >- (
+       fs [small_eval_def]
+       >> simp [Once RTC_CASES2]
+       >> qexists_tac `env`
+       >> qexists_tac `(env',to_small_st (FST r),Val a,[(Ctannot () t,env)])`
+       >> rw []
+       >- metis_tac [APPEND,e_step_add_ctxt]
+       >> simp [e_step_reln_def, e_step_def, continue_def, return_def])
+     >- (
+       fs [small_eval_def]
+       >> simp [Once RTC_CASES2]
+       >> qexists_tac `env''`
+       >> qexists_tac `env''`
+       >> qexists_tac `(env',to_small_st (FST r),Val a,[(Craise (), env''); (Ctannot () t,env)])`
+       >> rw []
+       >- metis_tac [APPEND,e_step_add_ctxt]
+       >> simp [e_step_reln_def, e_step_def, continue_def, return_def])
+     >- (
+       fs [small_eval_def]
+       >> qexists_tac `env'`
+       >> qexists_tac `e'`
+       >> qexists_tac `c'++[(Ctannot () t,env)]`
+       >> rw []
+       >- metis_tac [APPEND,e_step_add_ctxt]
+       >> metis_tac [e_single_error_add_ctxt]))
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
        metis_tac [APPEND,e_step_add_ctxt, small_eval_list_rules])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
@@ -1299,7 +1326,8 @@ val one_step_backward = Q.prove (
       >- (every_case_tac >>
           full_simp_tac(srw_ss())[] >>
           srw_tac[][] >>
-          tac3))
+          tac3)
+      >- tac3)
  >- (full_simp_tac(srw_ss())[continue_def] >>
      cases_on `c` >>
      full_simp_tac(srw_ss())[] >>
