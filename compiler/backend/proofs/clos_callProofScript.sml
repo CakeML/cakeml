@@ -460,6 +460,7 @@ val calls_el_sing = Q.store_thm("calls_el_sing",
     ALL_DISTINCT (MAP FST (SND g0)) ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
+    (* TODO: need a version of this that doesn't require wfg *)
     wfg g0 ∧ every_Fn_SOME xs ∧ set (code_locs xs) ⊆ EVEN
     ⇒
      ∃ga gb.
@@ -784,7 +785,8 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
         LIST_REL (v_rel g l) rest1 rest2 ∧
         recclosure_rel g l g0 l0 loc fns1 fns2 ∧
         i < LENGTH fns1 ∧
-        EL i fns1 = (FST (EL i fns2), e1)
+        EL i fns1 = (FST (EL i fns2), e1) ∧
+        FST (EL i fns2) ≤ LENGTH args2
         (*
         every_Fn_SOME [e1] ∧
         every_Fn_vs_NONE [e1] ∧
@@ -838,7 +840,7 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
     \\ fsrw_tac[ETA_ss][]
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs[] )
   \\ fs[revdroprev,revtakerev]
-  \\ first_assum(part_match_exists_tac (el 3 o rev o strip_conj) o concl)
+  \\ first_assum(part_match_exists_tac (el 4 o rev o strip_conj) o concl)
   \\ qexists_tac`n` \\ fs[]
   \\ conj_tac
   >- (
@@ -1708,6 +1710,39 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[dec_clock_def]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
       \\ qexists_tac`ck` \\ simp[] \\ rfs[] )
+    \\ REWRITE_TAC[calls_list_MAPi]
+    \\ simp[]
+    \\ simp[evaluate_def,evaluate_GENLIST_Var]
+    \\ simp[find_code_def]
+    \\ simp[EVAL``(closSem$dec_clock _ _).code``]
+    \\ qmatch_assum_abbrev_tac`subg gd g1`
+    \\ `code_includes (SND gd) t0.code`
+    by ( metis_tac[code_includes_subg,state_rel_def] )
+    \\ pop_assum mp_tac
+    \\ simp[Abbr`gd`]
+    \\ imp_res_tac calls_length \\ fs[]
+    \\ `ALOOKUP (SND gd) (2 * i + loc + 1) = SOME (EL i (ZIP (MAP FST fns1,es)))`
+    by (
+      simp[Abbr`gd`]
+      \\ simp[ALOOKUP_code_list]
+      \\ DEEP_INTRO_TAC some_intro \\ simp[] )
+    \\ strip_tac
+    \\ drule (GEN_ALL code_includes_ALOOKUP)
+    \\ disch_then drule
+    \\ simp[] \\ strip_tac
+    \\ simp[EL_ZIP,EL_MAP]
+    \\ strip_tac
+    \\ simp[dec_clock_def]
+    \\ qpat_assum`calls _ _ = (es,_)`assume_tac
+    \\ drule (GEN_ALL calls_el_sing)
+    \\ disch_then(qspec_then`i`mp_tac)
+    (*
+    \\ impl_tac
+    >- (
+      fs[wfg_def,domain_FST_insert_each]
+      \\ fs[SUBSET_DEF,SET_EQ_SUBSET,IN_DISJOINT,MEM_GENLIST,
+            PULL_EXISTS,IN_EVEN,EVEN_ADD,EVEN_DOUBLE]
+    *)
     \\ cheat )
   \\ imp_res_tac evaluate_length_imp
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
