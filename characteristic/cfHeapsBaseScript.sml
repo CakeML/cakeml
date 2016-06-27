@@ -256,4 +256,25 @@ val hsimpl_gc = store_thm ("hsimpl_gc",
   fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
 )
 
+(*------------------------------------------------------------------*)
+(* hchange *)
+
+val hchange_lemma' = store_thm ("hchange_lemma'",
+  ``!H1 H1' H H' H2.
+    H1 ==>> H1' ==>
+    H ==>> H1 * H2 /\
+    H1' * H2 ==>> H' ==>
+    H ==>> H'``,
+  cheat
+)
+
+val hchange_lemma = store_thm ("hchange_lemma",
+  ``!H1 H1' H H' H2.
+    H1 ==>> H1' /\
+    H ==>> H1 * H2 /\
+    H1' * H2 ==>> H' ==>
+    H ==>> H'``,
+  cheat
+)
+
 val _ = export_theory()

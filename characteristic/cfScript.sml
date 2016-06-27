@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ml_translatorTheory
 open semanticPrimitivesTheory ConseqConv
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsLib cfStoreTheory
+open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormalizeTheory cfAppTheory
 
 val _ = new_theory "cf"
@@ -390,6 +390,9 @@ val extend_env_rec_build_rec_env = store_thm ("extend_env_rec_build_rec_env",
 (* Definition of the [cf] functions, that generates the characteristic
    formula of a cakeml expression *)
 
+val cf_bottom_def = Define `
+  cf_bottom = \env. local (\H Q. F)`
+
 val app_ref_def = Define `
   app_ref (x: v) H Q =
     !(r: num). H * r ~~> Refv x ==>> Q (Loc r)`
@@ -445,10 +448,10 @@ val app_opb_def = Define `
 
 
 val cf_lit_def = Define `
-  cf_lit l = local (\env H Q. H ==>> Q (Litv l))`
+  cf_lit l = \env. local (\H Q. H ==>> Q (Litv l))`
 
 val cf_con_def = Define `
-  cf_con cn args = local (\env H Q.
+  cf_con cn args = \env. local (\H Q.
     ?argsv cv.
       do_con_check env.c cn (LENGTH args) /\
       (build_conv env.c cn argsv = SOME cv) /\
@@ -456,37 +459,37 @@ val cf_con_def = Define `
       (H ==>> Q cv))`
 
 val cf_var_def = Define `
-  cf_var name = local (\env H Q.
+  cf_var name = \env. local (\H Q.
     !h. H h ==> ?v. lookup_var_id name env = SOME v /\ Q v h)`
 
 val cf_let_def = Define `
-  cf_let n F1 F2 = local (\env H Q.
+  cf_let n F1 F2 = \env. local (\H Q.
     ?Q'. F1 env H Q' /\
          !xv. F2 (env with <| v := opt_bind n xv env.v |>) (Q' xv) Q)`
 
 val cf_opn_def = Define `
-  cf_opn opn x1 x2 = local (\env H Q.
+  cf_opn opn x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
       app_opn opn i1 i2 H Q)`
 
 val cf_opb_def = Define `
-  cf_opb opb x1 x2 = local (\env H Q.
+  cf_opb opb x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
       app_opb opb i1 i2 H Q)`
 
 val cf_app_def = Define `
-  cf_app (p:'ffi ffi_proj) f args = local (\env H Q.
+  cf_app (p:'ffi ffi_proj) f args = \env. local (\H Q.
     ?fv argsv.
       exp2v env f = SOME fv /\
       exp2v_list env args = SOME argsv /\
       app (p:'ffi ffi_proj) fv argsv H Q)`
 
 val cf_fundecl_def = Define `
-  cf_fundecl (p:'ffi ffi_proj) f ns F1 F2 = local (\env H Q.
+  cf_fundecl (p:'ffi ffi_proj) f ns F1 F2 = \env. local (\H Q.
     !fv.
       curried (p:'ffi ffi_proj) (LENGTH ns) fv /\
       (!xvs H' Q'.
@@ -510,7 +513,7 @@ val fundecl_rec_aux_def = Define `
   fundecl_rec_aux _ _ _ _ _ _ _ _ _ _ = F`
 
 val cf_fundecl_rec_def = Define `
-  cf_fundecl_rec (p:'ffi ffi_proj) fs Fs F2 = local (\env H Q.
+  cf_fundecl_rec (p:'ffi ffi_proj) fs Fs F2 = \env. local (\H Q.
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
     !(fvs: v list).
@@ -519,46 +522,46 @@ val cf_fundecl_rec_def = Define `
       fundecl_rec_aux (p:'ffi ffi_proj) f_names fvs f_args fvs Fs F2 env H Q)`
 
 val cf_ref_def = Define `
-  cf_ref x = local (\env H Q.
+  cf_ref x = \env. local (\H Q.
     ?xv.
       exp2v env x = SOME xv /\
       app_ref xv H Q)`
 
 val cf_assign_def = Define `
-  cf_assign r x = local (\env H Q.
+  cf_assign r x = \env. local (\H Q.
     ?rv xv.
       exp2v env r = SOME (Loc rv) /\
       exp2v env x = SOME xv /\
       app_assign rv xv H Q)`
 
 val cf_deref_def = Define `
-  cf_deref r = local (\env H Q.
+  cf_deref r = \env. local (\H Q.
     ?rv.
       exp2v env r = SOME (Loc rv) /\
       app_deref rv H Q)`
 
 val cf_aw8alloc_def = Define `
-  cf_aw8alloc xn xw = local (\env H Q.
+  cf_aw8alloc xn xw = \env. local (\H Q.
     ?n w.
       exp2v env xn = SOME (Litv (IntLit n)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
       app_aw8alloc n w H Q)`
 
 val cf_aw8sub_def = Define `
-  cf_aw8sub xl xi = local (\env H Q.
+  cf_aw8sub xl xi = \env. local (\H Q.
     ?l i.
       exp2v env xl = SOME (Loc l) /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       app_aw8sub l i H Q)`
 
 val cf_aw8length_def = Define `
-  cf_aw8length xl = local (\env H Q.
+  cf_aw8length xl = \env. local (\H Q.
     ?l.
       exp2v env xl = SOME (Loc l) /\
       app_aw8length l H Q)`
 
 val cf_aw8update_def = Define `
-  cf_aw8update xl xi xw = local (\env H Q.
+  cf_aw8update xl xi xw = \env. local (\H Q.
     ?l i w.
       exp2v env xl = SOME (Loc l) /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
@@ -578,7 +581,7 @@ val cf_def = tDefine "cf" `
           | SOME body =>
             cf_fundecl (p:'ffi ffi_proj) (SOME_val opt) (Fun_params e1)
               (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
-          | NONE => local (\env H Q. F))
+          | NONE => cf_bottom)
      else
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
   cf (p:'ffi ffi_proj) (Letrec funs e) =
@@ -590,45 +593,45 @@ val cf_def = tDefine "cf" `
         | Opn opn =>
           (case args of
             | [x1; x2] => cf_opn opn x1 x2
-            | _ => local (\env H Q. F))
+            | _ => cf_bottom)
         | Opb opb =>
           (case args of
             | [x1; x2] => cf_opb opb x1 x2
-            | _ => local (\env H Q. F))
+            | _ => cf_bottom)
         | Opapp =>
           (case dest_opapp (App op args) of
             | SOME (f, xs) => cf_app (p:'ffi ffi_proj) f xs
-            | NONE => local (\env H Q. F))
+            | NONE => cf_bottom)
         | Opref =>
           (case args of
              | [x] => cf_ref x
-             | _ => local (\env H Q. F))
+             | _ => cf_bottom)
         | Opassign =>
           (case args of
              | [r; x] => cf_assign r x
-             | _ => local (\env H Q. F))
+             | _ => cf_bottom)
         | Opderef =>
           (case args of
              | [r] => cf_deref r
-             | _ => local (\env H Q. F))
+             | _ => cf_bottom)
         | Aw8alloc =>
           (case args of
              | [n; w] => cf_aw8alloc n w
-             | _ => local (\env H Q. F))
+             | _ => cf_bottom)
         | Aw8sub =>
           (case args of
              | [l; n] => cf_aw8sub l n
-             | _ => local (\env H Q. F))
+             | _ => cf_bottom)
         | Aw8length =>
           (case args of
              | [l] => cf_aw8length l
-             | _ => local (\env H Q. F))
+             | _ => cf_bottom)
         | Aw8update =>
           (case args of
              | [l; n; w] => cf_aw8update l n w
-             | _ => local (\env H Q. F))
-        | _ => local (\env H Q.F)) /\
-  cf _ _ = local (\env H Q. F)`
+             | _ => cf_bottom)
+        | _ => cf_bottom) /\
+  cf _ _ = cf_bottom`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
      THEN1 (
@@ -649,14 +652,14 @@ val cf_ind = fetch "-" "cf_ind"
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
                cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
-               cf_fundecl_rec_def]
+               cf_fundecl_rec_def, cf_bottom_def]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
     [cf_sound] *)
 
 val cf_local = store_thm ("cf_local",
-  ``!e. is_local (cf (p:'ffi ffi_proj) e)``,
+  ``!e. is_local (cf (p:'ffi ffi_proj) e env)``,
   Q.SPEC_TAC (`p`,`p`) \\
   recInduct cf_ind \\ rpt strip_tac \\
   fs (local_local :: local_is_local :: cf_defs)
@@ -693,8 +696,8 @@ val star_split = Q.prove (
 )
 
 val sound_local = store_thm ("sound_local",
-  ``!e R. sound (p:'ffi ffi_proj) e R ==> sound (p:'ffi ffi_proj) e (local R)``,
-  rpt strip_tac \\ rewrite_tac [sound_def, local_def] \\ rpt strip_tac \\
+  ``!e R. sound (p:'ffi ffi_proj) e R ==> sound (p:'ffi ffi_proj) e (\env. local (R env))``,
+  rpt strip_tac \\ rewrite_tac [sound_def] \\ fs [local_def] \\ rpt strip_tac \\
   res_tac \\ rename1 `(H_i * H_k) h_i` \\ rename1 `R env H_i Q_f` \\
   rename1 `SEP_IMPPOST (Q_f *+ H_k) (Q *+ H_g)` \\
   fs [STAR_def] \\ rename1 `H_i h'_i` \\ rename1 `H_k h'_k` \\
@@ -716,18 +719,20 @@ val sound_false = store_thm ("sound_false",
 )
 
 val sound_local_false = Q.prove (
-  `!e. sound (p:'ffi ffi_proj) e (local (\env H Q. F))`,
-  strip_tac \\ irule sound_local \\ fs [sound_false]
+  `!e. sound (p:'ffi ffi_proj) e (\env. local (\H Q. F))`,
+  strip_tac \\ HO_MATCH_MP_TAC sound_local \\ fs [sound_false]
 )
 
 val cf_base_case_tac =
-  irule sound_local \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
-  res_tac \\ rename1 `SPLIT (st2heap _ st) (h_i, h_k)` \\
+  HO_MATCH_MP_TAC sound_local \\ rewrite_tac [sound_def] \\
+  rpt strip_tac \\ fs [] \\ res_tac \\
+  rename1 `SPLIT (st2heap _ st) (h_i, h_k)` \\
   progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [SEP_IMP_def]
 
 val cf_strip_sound_tac =
-  TRY (irule sound_local) \\ rewrite_tac [sound_def] \\ rpt strip_tac \\ fs []
+  TRY (HO_MATCH_MP_TAC sound_local) \\ rewrite_tac [sound_def] \\
+  rpt strip_tac \\ fs []
 
 val cf_evaluate_step_tac =
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\
@@ -1044,7 +1049,8 @@ val cf_sound = store_thm ("cf_sound",
   )
   THEN1 (
     (* Letrec *)
-    irule sound_local \\ mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound) \\
+    HO_MATCH_MP_TAC sound_local \\
+    mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound) \\
     fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
     first_assum (qspecl_then [`env`, `H`, `Q`] assume_tac) \\
@@ -1266,10 +1272,10 @@ val cf_sound_local = store_thm ("cf_sound_local",
        SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h', g, i) /\
        Q v h'``,
   rpt strip_tac \\
-  `sound (p:'ffi ffi_proj) e (local (cf (p:'ffi ffi_proj) e))` by
+  `sound (p:'ffi ffi_proj) e (\env. (local (cf (p:'ffi ffi_proj) e env)))` by
     (match_mp_tac sound_local \\ fs [cf_sound]) \\
   fs [sound_def, st2heap_def] \\
-  `local (cf (p:'ffi ffi_proj) e) env H Q` by
+  `local (cf (p:'ffi ffi_proj) e env) H Q` by
     (fs [REWRITE_RULE [is_local_def] cf_local |> GSYM]) \\
   res_tac \\ progress SPLIT3_swap23 \\ instantiate
 )
@@ -1289,6 +1295,22 @@ val app_of_cf = store_thm ("app_of_cf",
      cf (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
      app (p:'ffi ffi_proj) (naryClosure env ns body) xvs H Q``,
   fs [app_of_sound_cf, cf_sound]
+)
+
+val app_rec_of_cf = store_thm ("app_rec_of_cf",
+  ``!f params body funs xvs env H Q.
+     params <> [] ==>
+     LENGTH params = LENGTH xvs ==>
+     ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
+     find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
+     cf (p:'ffi ffi_proj) body
+       (extend_env_rec
+          (MAP (\ (f,_,_). f) funs) 
+          (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+          params xvs env)
+        H Q ==>
+     app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q``,
+  fs [app_rec_of_sound_cf, cf_sound]
 )
 
 val _ = export_theory()
