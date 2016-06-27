@@ -6,6 +6,29 @@ val _ = new_theory "cfHeaps"
 fun sing x = [x]
 
 (*------------------------------------------------------------------*)
+(* hchange *)
+
+val hchange_lemma' = store_thm ("hchange_lemma'",
+  ``!H1 H1' H H' H2.
+    H1 ==>> H1' ==>
+    H ==>> H1 * H2 /\
+    H1' * H2 ==>> H' ==>
+    H ==>> H'``,
+  rpt strip_tac \\ irule SEP_IMP_TRANS \\ qexists_tac `H1 * H2` \\ fs [] \\
+  irule SEP_IMP_TRANS \\ qexists_tac `H1' * H2` \\ hsimpl \\ fs []
+)
+
+val hchange_lemma = store_thm ("hchange_lemma",
+  ``!H1 H1' H H' H2.
+    H1 ==>> H1' /\
+    H ==>> H1 * H2 /\
+    H1' * H2 ==>> H' ==>
+    H ==>> H'``,
+  rpt strip_tac \\ irule SEP_IMP_TRANS \\ qexists_tac `H1 * H2` \\ fs [] \\
+  irule SEP_IMP_TRANS \\ qexists_tac `H1' * H2` \\ hsimpl \\ fs []
+)
+
+(*------------------------------------------------------------------*)
 (** Locality *)
 
 (* local = frame rule + consequence rule + garbage collection *)
