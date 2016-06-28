@@ -892,19 +892,37 @@ val v_rel_Unit = store_thm("v_rel_Unit[simp]",
   EVAL_TAC \\ fs []);
 
 val do_eq_thm = store_thm("do_eq_thm",
-  ``do_eq h1 h1a = Eq_val b /\ v_rel g1 l1 h1 h2 /\ v_rel g1 l1 h1a h2a ==>
-    do_eq h2 h2a = Eq_val b``,
-  cheat);
+  ``(!h1 h1a b h2 h2a.
+       do_eq h1 h1a = Eq_val b /\ v_rel g1 l1 h1 h2 /\ v_rel g1 l1 h1a h2a ==>
+       do_eq h2 h2a = Eq_val b) /\
+    (!h1 h1a b h2 h2a.
+       do_eq_list h1 h1a = Eq_val b /\
+       LIST_REL (v_rel g1 l1) h1 h2 /\
+       LIST_REL (v_rel g1 l1) h1a h2a ==>
+       do_eq_list h2 h2a = Eq_val b)``,
+  HO_MATCH_MP_TAC do_eq_ind \\ fs [] \\ rw []
+  THEN1
+   (Cases_on `h1` \\ Cases_on `h1a` \\ fs [v_rel_def,do_eq_def]
+    \\ rw [] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ rfs [] \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ rw [])
+  \\ fs [v_rel_def,do_eq_def |> CONJUNCT2] \\ every_case_tac \\ fs []
+  \\ res_tac \\ fs [])
 
 val v_to_list_thm = store_thm("v_to_list_thm",
-  ``v_to_list h = SOME x /\ v_rel g1 l1 h h' ==>
-    ?x'. v_to_list h' = SOME x' /\ LIST_REL (v_rel g1 l1) x x'``,
-  cheat);
+  ``!h h' x.
+      v_to_list h = SOME x /\ v_rel g1 l1 h h' ==>
+      ?x'. v_to_list h' = SOME x' /\ LIST_REL (v_rel g1 l1) x x'``,
+  recInduct v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rw []
+  \\ fs [v_rel_def,v_to_list_def] \\ rw []
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ res_tac \\ fs [] \\ rw []);
 
 val v_rel_list_to_v = store_thm("v_rel_list_to_v",
-  ``LIST_REL (v_rel g1 l1) l l' ==>
-    v_rel g1 l1 (list_to_v l) (list_to_v l')``,
-  cheat);
+  ``!l1 l2.
+      LIST_REL (v_rel g1 l) l1 l2 ==>
+      v_rel g1 l (list_to_v l1) (list_to_v l2)``,
+  Induct \\ fs [v_rel_def,list_to_v_def,PULL_EXISTS]);
 
 val do_app_thm = prove(
   ``state_rel g1 l1 r t /\
