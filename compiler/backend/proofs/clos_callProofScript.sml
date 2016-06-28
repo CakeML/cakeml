@@ -52,6 +52,11 @@ val IMAGE_SUC_SUBSET_UNION = store_thm("IMAGE_SUC_SUBSET_UNION",
     x SUBSET y UNION z``,
   fs [SUBSET_DEF] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
 
+val ALL_DISTINCT_APPEND_APPEND_IMP = store_thm("ALL_DISTINCT_APPEND_APPEND_IMP",
+  ``ALL_DISTINCT (xs ++ ys ++ zs) ==>
+    ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)``,
+  fs [ALL_DISTINCT_APPEND]);
+
 (* -- *)
 
 (* value relation *)
@@ -1521,14 +1526,23 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `wfg g'` by
      (match_mp_tac calls_wfg \\ asm_exists_tac \\ fs []
       \\ fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
+    \\ `wfg g''` by
+     (match_mp_tac calls_wfg \\ asm_exists_tac \\ fs []
+      \\ fs [code_locs_def,ALL_DISTINCT_APPEND]
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ fs[IN_DISJOINT,SUBSET_DEF]
+      \\ metis_tac[numTheory.INV_SUC])
+    \\ `wfg g` by
+     (match_mp_tac calls_wfg \\ asm_exists_tac \\ fs []
+      \\ fs [code_locs_def,ALL_DISTINCT_APPEND]
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ fs[IN_DISJOINT,SUBSET_DEF]
+      \\ metis_tac[numTheory.INV_SUC])
     \\ `subg g'' g` by
      (match_mp_tac calls_subg \\ fs []
       \\ asm_exists_tac \\ fs []
       \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
-      \\ strip_tac THEN1
-       (match_mp_tac calls_ALL_DISTINCT
-        \\ asm_exists_tac \\ fs [wfg_def]
-        \\ cheat)
+      \\ strip_tac THEN1 (fs [wfg_def])
       \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs[IN_DISJOINT,SUBSET_DEF]
@@ -1543,8 +1557,6 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [GSYM CONJ_ASSOC]
     \\ rpt (disch_then drule) \\ fs []
     \\ impl_tac
-    \\ `ALL_DISTINCT (code_locs [x1] ++ code_locs [x3])` by cheat
-    \\ `ALL_DISTINCT (code_locs [x1] ++ code_locs [x2])` by cheat
     \\ TRY
      (imp_res_tac subg_trans \\ fs []
       \\ imp_res_tac code_includes_subg \\ fs []
@@ -1552,8 +1564,14 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ match_mp_tac SUBSET_TRANS
       \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
       \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
+      \\ `ALL_DISTINCT (code_locs [x1] ++ code_locs [x3])` by
+            (imp_res_tac ALL_DISTINCT_APPEND_APPEND_IMP \\ NO_TAC)
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
-      \\ rpt (disch_then drule \\ fs []) \\ cheat)
+      \\ rpt (disch_then drule \\ fs [])
+      \\ `ALL_DISTINCT (code_locs [x1] ++ code_locs [x2])` by
+            (imp_res_tac ALL_DISTINCT_APPEND_APPEND_IMP \\ NO_TAC)
+      \\ drule (GEN_ALL NOT_IN_domain_FST_g)
+      \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
     \\ strip_tac \\ fs []
     \\ rw [] \\ fs [PULL_EXISTS,evaluate_def]
     THEN1 (qexists_tac `ck` \\ fs [])
@@ -1583,8 +1601,10 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ match_mp_tac SUBSET_TRANS
         \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
         \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
+        \\ `ALL_DISTINCT (code_locs [x2] ++ code_locs [x3])` by
+              (imp_res_tac ALL_DISTINCT_APPEND_APPEND_IMP \\ NO_TAC)
         \\ drule (GEN_ALL NOT_IN_domain_FST_g)
-        \\ rpt (disch_then drule \\ fs []) \\ cheat)
+        \\ rpt (disch_then drule \\ fs []))
       \\ strip_tac
       \\ imp_res_tac evaluate_const \\ fs [] \\ rfs []
       \\ qpat_assum `_ = (Rval _,t)` assume_tac
@@ -1598,7 +1618,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [AND_IMP_INTRO] \\ impl_tac
       THEN1
        (fs [code_locs_def,ALL_DISTINCT_APPEND,wfg_def] \\ rfs []
-        \\ imp_res_tac calls_add_SUC_code_locs \\ cheat
+        \\ imp_res_tac calls_add_SUC_code_locs
         \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
         \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
         \\ fs [SUBSET_DEF]
@@ -1614,7 +1634,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
         \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
         \\ drule (GEN_ALL NOT_IN_domain_FST_g)
-        \\ rpt (disch_then drule \\ fs []) \\ cheat)
+        \\ rpt (disch_then drule \\ fs []))
       \\ strip_tac
       \\ imp_res_tac evaluate_const \\ fs [] \\ rfs []
       \\ qpat_assum `_ = (Rval _,t)` assume_tac
