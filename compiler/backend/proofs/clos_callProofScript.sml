@@ -891,6 +891,21 @@ val v_rel_Unit = store_thm("v_rel_Unit[simp]",
   ``v_rel g1 l1 Unit Unit``,
   EVAL_TAC \\ fs []);
 
+val do_eq_thm = store_thm("do_eq_thm",
+  ``do_eq h1 h1a = Eq_val b /\ v_rel g1 l1 h1 h2 /\ v_rel g1 l1 h1a h2a ==>
+    do_eq h2 h2a = Eq_val b``,
+  cheat);
+
+val v_to_list_thm = store_thm("v_to_list_thm",
+  ``v_to_list h = SOME x /\ v_rel g1 l1 h h' ==>
+    ?x'. v_to_list h' = SOME x' /\ LIST_REL (v_rel g1 l1) x x'``,
+  cheat);
+
+val v_rel_list_to_v = store_thm("v_rel_list_to_v",
+  ``LIST_REL (v_rel g1 l1) l l' ==>
+    v_rel g1 l1 (list_to_v l) (list_to_v l')``,
+  cheat);
+
 val do_app_thm = prove(
   ``state_rel g1 l1 r t /\
     LIST_REL (v_rel g1 l1) a v ==>
@@ -904,10 +919,28 @@ val do_app_thm = prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ]
-  \\ Cases_on `op = Add \/ op = Sub \/ op = Mult \/ op = Div \/ op = Mod` THEN1
+  \\ Cases_on `op = Equal` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ every_case_tac \\ fs []
+    \\ imp_res_tac do_eq_thm \\ fs [] \\ fs [Boolv_def,v_rel_def])
+  \\ Cases_on `?n. op = FromList n` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ every_case_tac \\ fs [v_rel_def]
+    \\ imp_res_tac v_to_list_thm \\ fs [] \\ rw []
+    \\ fs [Boolv_def,v_rel_def,LIST_REL_EL_EQN])
+  \\ Cases_on `op = ToList` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ every_case_tac \\ fs [v_rel_def] \\ rw []
+    \\ match_mp_tac v_rel_list_to_v \\ fs [LIST_REL_EL_EQN])
+  \\ Cases_on `op = Add \/ op = Sub \/ op = Mult \/ op = Div \/ op = Mod \/
+               op = Less \/ op = LessEq \/ op = Greater \/ op = GreaterEq` THEN1
    (fs [] \\ rw []
     \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
-    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw [])
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ fs [Boolv_def] \\ rw [v_rel_def])
   \\ Cases_on `?n. op = Global n` \\ fs [] \\ rw [] THEN1
    (fs [Once do_app_def] \\ every_case_tac
     \\ fs [get_global_def,do_app_def,state_rel_def]
@@ -961,17 +994,73 @@ val do_app_thm = prove(
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
     \\ `FDOM r.refs = FDOM t.refs` by fs [fmap_rel_def] \\ fs []
     \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [])
-  \\ Cases_on `op = GlobalsPtr` \\ fs [] \\ rw [] THEN1
-   (fs [Once do_app_def] \\ every_case_tac)
-  \\ Cases_on `op = SetGlobalsPtr` \\ fs [] \\ rw [] THEN1
+  \\ Cases_on `op = GlobalsPtr \/ op = SetGlobalsPtr` THEN1
    (fs [Once do_app_def] \\ every_case_tac)
   \\ Cases_on `op = RefArray` THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
     \\ `FDOM r.refs = FDOM t.refs` by fs [fmap_rel_def] \\ fs []
     \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [LIST_REL_REPLICATE_same])
-  \\ Cases_on `op` \\ fs []
-  \\ cheat (* Magnus can do *));
+  \\ Cases_on `?n1 n2. op = TagLenEq n1 n2 \/ op = TagEq n1 \/
+                       op = BlockCmp \/ op = IsBlock \/ op = Label n1` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `?n1. op = FFI n1` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [fmap_rel_OPTREL_FLOOKUP]
+    \\ first_assum (qspec_then `n` assume_tac)
+    \\ qpat_assum `!x.bbb` mp_tac
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
+    \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ fs [ref_rel_def])
+  \\ Cases_on `op = Ref` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
+    \\ `FDOM r.refs = FDOM t.refs` by fs [fmap_rel_def] \\ fs []
+    \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [])
+  \\ Cases_on `?i. op = Const i` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `(?w oo. op = WordOp w oo) \/
+               op = WordFromInt \/ op = WordToInt \/
+               (?w s n. op = WordShift w s n)` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw [])
+  \\ Cases_on `(?w oo. op = WordOp w oo) \/
+               op = WordFromInt \/ op = WordToInt \/
+               (?w s n. op = WordShift w s n)` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw [])
+  \\ Cases_on `op = Deref` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ rw [] \\ fs [fmap_rel_OPTREL_FLOOKUP]
+    \\ first_assum (qspec_then `n` assume_tac)
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
+    \\ rw [] \\ fs [ref_rel_def,LIST_REL_EL_EQN] \\ rfs []
+    \\ Cases_on `i` \\ fs [])
+  \\ Cases_on `op = DerefByte` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ rw [] \\ fs [fmap_rel_OPTREL_FLOOKUP]
+    \\ first_assum (qspec_then `n` assume_tac)
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
+    \\ rw [] \\ fs [ref_rel_def,LIST_REL_EL_EQN] \\ rfs [])
+  \\ Cases_on `op = Update \/ op = UpdateByte` THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ rw [] \\ fs [fmap_rel_OPTREL_FLOOKUP]
+    \\ first_assum (qspec_then `n` assume_tac)
+    \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
+    \\ rw [] \\ fs [ref_rel_def,LIST_REL_EL_EQN] \\ rfs []
+    \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ fs [ref_rel_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same \\ fs []
+    \\ fs [ref_rel_def,LIST_REL_EL_EQN])
+  \\ Cases_on `op` \\ fs []);
 
 (* compiler correctness *)
 
