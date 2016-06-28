@@ -1080,6 +1080,21 @@ val do_app_thm = prove(
     \\ fs [ref_rel_def,LIST_REL_EL_EQN])
   \\ Cases_on `op` \\ fs []);
 
+val NOT_IN_domain_FST_g = store_thm("NOT_IN_domain_FST_g",
+  ``ALL_DISTINCT (code_locs xs ++ code_locs ys) ⇒
+    calls ys g' = (e2,g) ⇒
+    wfg g' ⇒
+    MEM x (code_locs xs) ⇒
+    x ∉ domain (FST g') ⇒
+    x ∉ domain (FST g)``,
+  rw [] \\ imp_res_tac calls_domain
+  \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ res_tac \\ rveq \\ fs []
+  \\ drule calls_add_SUC_code_locs \\ fs [SUBSET_DEF]
+  \\ asm_exists_tac \\ fs [] \\ CCONTR_TAC \\ fs []
+  \\ rfs [wfg_def,SUBSET_DEF,EXTENSION] \\ rveq \\ fs []
+  \\ fs [ALL_DISTINCT_APPEND] \\ res_tac);
+
 (* compiler correctness *)
 
 val calls_correct = Q.store_thm("calls_correct",
@@ -1209,17 +1224,9 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs [code_locs_def]
         \\ match_mp_tac SUBSET_TRANS
         \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
-        \\ imp_res_tac calls_domain
         \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
-        \\ CCONTR_TAC \\ fs []
-        \\ res_tac \\ rveq \\ fs []
-        \\ rename1 `MEM y (MAP FST (SND g))`
-        \\ drule calls_add_SUC_code_locs
-        \\ fs [SUBSET_DEF]
-        \\ asm_exists_tac \\ fs []
-        \\ CCONTR_TAC \\ fs []
-        \\ rfs [wfg_def,SUBSET_DEF,EXTENSION] \\ rveq \\ fs []
-        \\ fs [ALL_DISTINCT_APPEND] \\ res_tac)
+        \\ drule (GEN_ALL NOT_IN_domain_FST_g)
+        \\ rpt (disch_then drule \\ fs []))
       \\ strip_tac \\ fs []
       \\ rw [] \\ fs [PULL_EXISTS,evaluate_def]
       \\ qexists_tac `ck` \\ fs [])
