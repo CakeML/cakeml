@@ -1190,6 +1190,9 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs[IN_DISJOINT,SUBSET_DEF]
       \\ metis_tac[numTheory.INV_SUC])
+    \\ `wfg g'` by
+     (match_mp_tac calls_wfg \\ asm_exists_tac \\ fs []
+      \\ fs [code_locs_def,ALL_DISTINCT_APPEND])
     \\ reverse (Cases_on `q`) \\ fs [] \\ rw [] \\ fs []
     THEN1
      (first_x_assum drule \\ fs []
@@ -1207,12 +1210,20 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ match_mp_tac SUBSET_TRANS
         \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
         \\ imp_res_tac calls_domain
-        \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION]
-        \\ cheat (* what am I missing here? *))
+        \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
+        \\ CCONTR_TAC \\ fs []
+        \\ res_tac \\ rveq \\ fs []
+        \\ rename1 `MEM y (MAP FST (SND g))`
+        \\ drule calls_add_SUC_code_locs
+        \\ fs [SUBSET_DEF]
+        \\ asm_exists_tac \\ fs []
+        \\ CCONTR_TAC \\ fs []
+        \\ rfs [wfg_def,SUBSET_DEF,EXTENSION] \\ rveq \\ fs []
+        \\ fs [ALL_DISTINCT_APPEND] \\ res_tac)
       \\ strip_tac \\ fs []
       \\ rw [] \\ fs [PULL_EXISTS,evaluate_def]
       \\ qexists_tac `ck` \\ fs [])
-    \\ cheat (* interesting part of the proof *))
+    \\ cheat (* interesting part of Let proof *))
   (* Raise *)
   \\ conj_tac >-
    (fs [evaluate_def,calls_def] \\ rw []
