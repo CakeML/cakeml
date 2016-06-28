@@ -1419,29 +1419,77 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ rveq \\ fs[evaluate_def]
     \\ fs[code_locs_def]
     \\ metis_tac[state_rel_subg,SUBSET_REFL])
-  \\ conj_tac
-  >- (cheat) (* Magnus can do *)
-  (*
-    rw[evaluate_def,calls_def]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_subg) th))
-    \\ fs[code_locs_def,ALL_DISTINCT_APPEND] \\ strip_tac
-    \\ drule calls_subg
-    \\ impl_tac
-    >- (
-      last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_wfg) th))
-      \\ rw[wfg_def]
+  \\ conj_tac >-
+   (fs [evaluate_def,calls_def] \\ rw []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ `subg g' g` by
+     (match_mp_tac calls_subg \\ fs []
+      \\ asm_exists_tac \\ fs []
+      \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
+      \\ strip_tac THEN1
+       (match_mp_tac calls_ALL_DISTINCT
+        \\ asm_exists_tac \\ fs [wfg_def])
+      \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs[IN_DISJOINT,SUBSET_DEF]
-      \\ spose_not_then strip_assume_tac \\ rw[]
-      \\ fs[SET_EQ_SUBSET,SUBSET_DEF]
-      \\ metis_tac[numTheory.INV_SUC] )
+      \\ metis_tac[numTheory.INV_SUC])
+    \\ `wfg g'` by
+     (match_mp_tac calls_wfg \\ asm_exists_tac \\ fs []
+      \\ fs [code_locs_def,ALL_DISTINCT_APPEND])
+    \\ imp_res_tac calls_sing \\ rw []
+    \\ Cases_on `e2` THEN1 (imp_res_tac calls_length \\ fs [])
+    \\ rename1 `calls (y::xs) g' = (z::zs,g)`
+    \\ reverse (Cases_on `q`) \\ fs [] \\ rw [] \\ fs []
+    \\ first_x_assum drule \\ fs []
+    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ fs [AND_IMP_INTRO] \\ impl_tac
+    \\ TRY (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
+    \\ rpt (disch_then drule) \\ fs [GSYM CONJ_ASSOC]
+    \\ rpt (disch_then drule) \\ fs [AND_IMP_INTRO]
+    \\ impl_tac \\ TRY
+     (imp_res_tac subg_trans \\ fs []
+      \\ imp_res_tac code_includes_subg \\ fs []
+      \\ fs [code_locs_def]
+      \\ match_mp_tac SUBSET_TRANS
+      \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
+      \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
+      \\ drule (GEN_ALL NOT_IN_domain_FST_g)
+      \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
+    \\ strip_tac \\ fs []
+    \\ rw [] \\ fs [PULL_EXISTS,evaluate_def]
+    THEN1 (qexists_tac `ck` \\ fs [])
+    \\ Cases_on `evaluate (y::xs,env,r)` \\ fs []
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+    \\ first_x_assum drule \\ fs []
+    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ fs [AND_IMP_INTRO] \\ impl_tac
+    THEN1
+     (fs [code_locs_def,ALL_DISTINCT_APPEND,wfg_def] \\ rfs []
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
+      \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
+      \\ fs [SUBSET_DEF]
+      \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+    \\ fs [GSYM CONJ_ASSOC]
+    \\ rpt (disch_then drule \\ fs [])
+    \\ impl_tac THEN1
+     (imp_res_tac subg_trans \\ fs []
+      \\ imp_res_tac code_includes_subg \\ fs []
+      \\ fs [code_locs_def]
+      \\ imp_res_tac evaluate_const \\ fs []
+      \\ match_mp_tac SUBSET_TRANS
+      \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
+      \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw [])
     \\ strip_tac
-    \\ imp_res_tac calls_length
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
-    \\ cheat )
-    *)
+    \\ qpat_assum `_ = (Rval _,t)` assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then (qspec_then `ck'` assume_tac)
+    \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ fs [] \\ Cases_on `a` \\ fs [])
   (* Var *)
   \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
