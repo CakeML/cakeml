@@ -50,7 +50,8 @@ val evaluate_add_clock =
 val subg_def = Define`
   subg g0 g1 ⇔
     subspt (FST g0) (FST g1) ∧
-    IS_SUFFIX (SND g1) (SND g0) ∧
+    (* IS_SUFFIX (SND g1) (SND g0) ∧ *)
+    (∀k v. ALOOKUP (SND g0) k = SOME v ⇒ ALOOKUP (SND g1) k = SOME v) ∧
     ALL_DISTINCT (MAP FST (SND g1))`;
 
 val subg_refl = Q.store_thm("subg_refl",
@@ -64,11 +65,13 @@ val subg_trans = Q.store_thm("subg_trans",
 val wfg'_def = Define`
   wfg' g ⇔
     domain (FST g) ⊆ EVEN ∧
+    EVERY (λ(n,p). ∀v. has_var v (SND (free [p])) ⇒ v < n) (MAP SND (SND g)) ∧
     set (MAP FST (SND g)) ⊆ IMAGE SUC (domain (FST g))`;
 
 val wfg_def = Define`
   wfg g ⇔
     domain (FST g) ⊆ EVEN ∧
+    EVERY (λ(n,p). ∀v. has_var v (SND (free [p])) ⇒ v < n) (MAP SND (SND g)) ∧
     set (MAP FST (SND g)) = IMAGE SUC (domain (FST g)) ∧
     ALL_DISTINCT (MAP FST (SND g))`;
 
@@ -333,7 +336,22 @@ val calls_subg = Q.store_thm("calls_subg",
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0)))
     ⇒ subg g0 g`,
-  rw[subg_def] \\ metis_tac[calls_IS_SUFFIX,calls_subspt,calls_ALL_DISTINCT]);
+  simp[subg_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ REWRITE_TAC[CONJ_ASSOC]
+  \\ reverse conj_asm2_tac
+  >- metis_tac[calls_ALL_DISTINCT]
+  \\ conj_tac >- metis_tac[calls_subspt]
+  \\ imp_res_tac calls_IS_SUFFIX
+  \\ fs[IS_SUFFIX_APPEND]
+  \\ simp[ALOOKUP_APPEND]
+  \\ rw[]
+  \\ BasicProvers.CASE_TAC
+  \\ fs[ALL_DISTINCT_APPEND]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[MEM_MAP,PULL_EXISTS]
+  \\ res_tac \\ fs[]
+  \\ metis_tac[FST]);
 
 val calls_domain = Q.store_thm("calls_domain",
   `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
@@ -361,75 +379,17 @@ val wfg'_insert_each = Q.store_thm("wfg'_insert_each",
 
 val wfg'_code_list = Q.store_thm("wfg'_code_list",
   `∀ls g loc.
-      wfg' g ∧ set (GENLIST (λi. loc + 2 * i) (LENGTH ls)) ⊆ domain (FST g)
+      wfg' g ∧ set (GENLIST (λi. loc + 2 * i) (LENGTH ls)) ⊆ domain (FST g) ∧
+        EVERY (λ(n,p). ∀v. has_var v (SND (free[p])) ⇒ v < n) ls
       ⇒ wfg' (code_list loc ls g)`,
   rw[wfg'_def,SUBSET_DEF,MEM_GENLIST,MAP_FST_code_list]
+  >- (
+    simp[SND_code_list_ZIP]
+    \\ simp[MAP_REVERSE,EVERY_REVERSE,MAP_ZIP] )
   >- (
     fs[ADD1,PULL_EXISTS]
     \\ metis_tac[ADD_ASSOC] )
   \\ metis_tac[]);
-
-val calls_wfg' = Q.store_thm("calls_wfg'",
-  `∀xs g0 ys g.
-    calls xs g0 = (ys,g) ∧
-    set (code_locs xs) ⊆ EVEN ∧
-    every_Fn_SOME xs ∧ wfg' g0 ⇒
-    wfg' g`,
-  ho_match_mp_tac calls_ind
-  \\ rw[calls_def] \\ rw[] \\ fs[code_locs_def]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ every_case_tac \\ fs[] \\ rw[]
-  >- (
-    drule wfg'_insert_each \\ fs[IN_EVEN]
-    \\ disch_then(qspec_then`1`mp_tac) \\ simp[]
-    \\ disch_then drule \\ rw[]
-    \\ fs[wfg'_def,ADD1]
-    \\ imp_res_tac calls_subspt
-    \\ fs[subspt_def,domain_lookup]
-    \\ first_x_assum match_mp_tac
-    \\ REWRITE_TAC[ONE]
-    \\ Cases_on`g0`
-    \\ REWRITE_TAC[insert_each_def]
-    \\ simp[lookup_insert] )
-  \\ `0 < LENGTH fns ⇒ EVEN x`
-  by (
-    Cases_on`fns` \\ fs[SUBSET_DEF,IN_EVEN,MEM_GENLIST]
-    \\ first_x_assum match_mp_tac
-    \\ qexists_tac`0` \\ simp[] )
-  \\ drule wfg'_insert_each
-  \\ disch_then drule \\ rw[]
-  \\ fs[]
-  \\ match_mp_tac wfg'_code_list
-  \\ imp_res_tac calls_length
-  \\ fs[SUBSET_DEF]
-  \\ imp_res_tac calls_subspt
-  \\ fs[subspt_def,domain_lookup]
-  \\ rw[] \\ first_x_assum match_mp_tac
-  \\ qmatch_abbrev_tac`lookup k d = SOME _`
-  \\ `k ∈ domain d` suffices_by simp[domain_lookup]
-  \\ simp[Abbr`d`,domain_FST_insert_each]);
-
-val calls_wfg = Q.store_thm("calls_wfg",
-  `∀xs g0 ys g.
-    calls xs g0 = (ys,g) ∧
-    set (code_locs xs) ⊆ EVEN ∧
-    ALL_DISTINCT (code_locs xs) ∧
-    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
-    every_Fn_SOME xs ∧ wfg g0
-    ⇒
-    wfg g`,
-  rw[]
-  \\ `wfg' g0` by fs[wfg_def,SET_EQ_SUBSET,wfg'_def]
-  \\ imp_res_tac calls_wfg'
-  \\ imp_res_tac calls_domain
-  \\ imp_res_tac calls_IS_SUFFIX
-  \\ imp_res_tac calls_add_SUC_code_locs
-  \\ fs[wfg_def,wfg'_def,SET_EQ_SUBSET]
-  \\ imp_res_tac calls_ALL_DISTINCT
-  \\ fs[SUBSET_DEF,IS_SUFFIX_APPEND] \\ rw[]
-  \\ res_tac \\ rw[]
-  \\ res_tac \\ rw[] \\ fs[]
-  \\ rw[] \\ rfs[]);
 
 val closed_Fn = Q.store_thm("closed_Fn",
   `closed (Fn loco vs args e) ⇔
@@ -455,6 +415,226 @@ val closed_Fn = Q.store_thm("closed_Fn",
   \\ Cases_on `x` \\ fs[GSYM lookup_db_to_set]
   \\ res_tac \\ fs[]);
 
+val calls_wfg' = Q.store_thm("calls_wfg'",
+  `∀xs g0 ys g.
+    calls xs g0 = (ys,g) ∧
+    set (code_locs xs) ⊆ EVEN ∧
+    every_Fn_SOME xs ∧ wfg' g0 ⇒
+    wfg' g`,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def] \\ rw[] \\ fs[code_locs_def]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ every_case_tac \\ fs[] \\ rw[]
+  >- (
+    drule wfg'_insert_each \\ fs[IN_EVEN]
+    \\ disch_then(qspec_then`1`mp_tac) \\ simp[]
+    \\ disch_then drule \\ rw[]
+    \\ fs[wfg'_def,ADD1,closed_Fn]
+    \\ imp_res_tac calls_subspt
+    \\ fs[subspt_def,domain_lookup]
+    \\ first_x_assum match_mp_tac
+    \\ REWRITE_TAC[ONE]
+    \\ Cases_on`g0`
+    \\ REWRITE_TAC[insert_each_def]
+    \\ simp[lookup_insert] )
+  \\ `0 < LENGTH fns ⇒ EVEN x`
+  by (
+    Cases_on`fns` \\ fs[SUBSET_DEF,IN_EVEN,MEM_GENLIST]
+    \\ first_x_assum match_mp_tac
+    \\ qexists_tac`0` \\ simp[] )
+  \\ drule wfg'_insert_each
+  \\ disch_then drule \\ rw[]
+  \\ fs[]
+  \\ match_mp_tac wfg'_code_list
+  \\ imp_res_tac calls_length
+  \\ fs[SUBSET_DEF]
+  \\ imp_res_tac calls_subspt
+  \\ fs[subspt_def,domain_lookup]
+  \\ conj_tac
+  >- (
+    rw[] \\ first_x_assum match_mp_tac
+    \\ qmatch_abbrev_tac`lookup k d = SOME _`
+    \\ `k ∈ domain d` suffices_by simp[domain_lookup]
+    \\ simp[Abbr`d`,domain_FST_insert_each])
+  \\ simp[ZIP_MAP,EVERY_MAP]
+  \\ fs[EVERY2_EVERY,LAMBDA_PROD,closed_Fn]);
+
+val calls_wfg = Q.store_thm("calls_wfg",
+  `∀xs g0 ys g.
+    calls xs g0 = (ys,g) ∧
+    set (code_locs xs) ⊆ EVEN ∧
+    ALL_DISTINCT (code_locs xs) ∧
+    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
+    every_Fn_SOME xs ∧ wfg g0
+    ⇒
+    wfg g`,
+  rw[]
+  \\ `wfg' g0` by fs[wfg_def,SET_EQ_SUBSET,wfg'_def]
+  \\ imp_res_tac calls_wfg'
+  \\ imp_res_tac calls_domain
+  \\ imp_res_tac calls_IS_SUFFIX
+  \\ imp_res_tac calls_add_SUC_code_locs
+  \\ fs[wfg_def,wfg'_def,SET_EQ_SUBSET]
+  \\ imp_res_tac calls_ALL_DISTINCT
+  \\ fs[SUBSET_DEF,IS_SUFFIX_APPEND] \\ rw[]
+  \\ res_tac \\ rw[]
+  \\ res_tac \\ rw[] \\ fs[]
+  \\ rw[] \\ rfs[]);
+
+(*
+val calls_wfg = Q.store_thm("calls_wfg",'_wfg
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ∧
+    wfg' g0 ∧
+    set (code_locs xs) ⊆ EVEN ∧
+    every_Fn_SOME xs ∧
+    ALL_DISTINCT (MAP FST (SND g0)) ∧
+    ALL_DISTINCT (code_locs xs) ∧
+    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
+
+    ⇒
+    wfg g`,
+  rw[]
+  \\ imp_res_tac calls_wfg'
+  \\ fs[wfg_def,wfg'_def,SET_EQ_SUBSET]
+  \\ imp_res_tac calls_ALL_DISTINCT \\ rfs[]
+  \\ imp_res_tac calls_add_SUC_code_locs
+  \\ imp_res_tac calls_domain
+  \\ fs[SUBSET_DEF,PULL_EXISTS]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ rw[]
+  >- (
+    wfg'_def
+*)
+
+val FST_insert_each_same = Q.store_thm("FST_insert_each_same",
+  `∀p n g0 g0'.
+    FST g0 = FST g0' ⇒ FST (insert_each p n g0) = FST (insert_each p n g0')`,
+  ho_match_mp_tac insert_each_ind
+  \\ rw[insert_each_def] \\ fs[FORALL_PROD]
+  \\ Cases_on`g0'` \\ fs[insert_each_def]);
+
+val code_list_replace_SND = Q.store_thm("code_list_replace_SND",
+  `∀loc fns g0 g g0' ls.
+   code_list loc fns g0 = g ∧
+   FST g0 = FST g0' ∧
+   SND g = ls ++ SND g0
+   ⇒
+   code_list loc fns g0' = (FST g, ls ++ SND g0')`,
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def] \\ fs[] \\ rw[]
+  \\ Cases_on`g0'` \\ fs[code_list_def]
+  \\ fs[FORALL_PROD]
+  \\ qmatch_asmsub_abbrev_tac`SND (code_list l2 fns g)`
+  \\ qispl_then[`l2`,`fns`,`g`]strip_assume_tac code_list_IS_SUFFIX
+  \\ fs[IS_SUFFIX_APPEND,Abbr`g`] \\ fs[] \\ rw[] \\ fs[]);
+
+val calls_replace_SND = Q.store_thm("calls_replace_SND",
+  `∀xs g0 ys g g0' ls.
+    calls xs g0 = (ys,g) ∧
+    FST g0 = FST g0' ∧
+    SND g = ls ++ SND g0
+    ⇒
+    calls xs g0' = (ys,(FST g,ls ++ SND g0'))`,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[]
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ rveq \\ fs[]
+  \\ TRY (
+    qmatch_goalsub_rename_tac`Letrec`
+    \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`insert_each p n g0`
+    \\ TRY (
+      first_x_assum(qspec_then`insert_each p n g0'`mp_tac)
+      \\ simp[FST_insert_each_same]
+      \\ imp_res_tac calls_IS_SUFFIX \\ fs[IS_SUFFIX_APPEND]
+      \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+      \\ first_x_assum(qspec_then`g0'`mp_tac) \\ simp[]
+      \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+      \\ qmatch_asmsub_abbrev_tac`calls [x1] (a,b)`
+      \\ first_x_assum(qspec_then`a,b`mp_tac)
+      \\ simp[]
+      \\ NO_TAC)
+    \\ last_x_assum(qspec_then`insert_each p n g0'`mp_tac)
+    \\ simp[FST_insert_each_same]
+    \\ imp_res_tac calls_IS_SUFFIX \\ fs[IS_SUFFIX_APPEND]
+    \\ strip_tac \\ fs[] \\ rw[]
+    \\ qmatch_asmsub_abbrev_tac`SND (code_list p ll gg)`
+    \\ qispl_then[`p`,`ll`,`gg`]mp_tac code_list_replace_SND
+    \\ simp[]
+    \\ disch_then(qspec_then`FST gg,l++SND g0'`mp_tac)
+    \\ simp[]
+    \\ qispl_then[`p`,`ll`,`gg`]strip_assume_tac code_list_IS_SUFFIX
+    \\ fs[IS_SUFFIX_APPEND] \\ fs[] \\ rveq \\ fs[] )
+  \\ TRY (
+    qmatch_goalsub_rename_tac`closed (Fn _ _ _ _)`
+    \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+    \\ TRY (
+      qmatch_asmsub_abbrev_tac`insert_each p n g0`
+      \\ first_x_assum(qspec_then`insert_each p n g0'`mp_tac)
+      \\ simp[FST_insert_each_same]
+      \\ imp_res_tac calls_IS_SUFFIX \\ fs[IS_SUFFIX_APPEND]
+      \\ strip_tac \\ fs[]
+      \\ NO_TAC)
+    \\ first_x_assum(qspec_then`g0'`mp_tac) \\ simp[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`insert_each p n g0`
+    \\ first_x_assum(qspec_then`insert_each p n g0'`mp_tac)
+    \\ simp[FST_insert_each_same]
+    \\ imp_res_tac calls_IS_SUFFIX \\ fs[IS_SUFFIX_APPEND]
+    \\ strip_tac \\ fs[] )
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+  \\ first_x_assum(qspec_then`g0'`mp_tac) \\ simp[]
+  \\ imp_res_tac calls_IS_SUFFIX \\ fs[IS_SUFFIX_APPEND]
+  \\ (strip_tac ORELSE spose_not_then strip_assume_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ metis_tac[SND,FST,PAIR,APPEND_ASSOC,CONS_11,IS_SOME_DEF]);
+
+val insert_each'_def = Define`
+  (insert_each' p 0 g = g) ∧
+  (insert_each' p (SUC n) (g1,g2) =
+   insert_each' (p+2) n (insert p () g1, ((p+1,0n,closLang$Op El [])::g2)))`;
+
+val insert_each'_ind = theorem"insert_each'_ind";
+
+val wfg_insert_each' = Q.store_thm("wfg_insert_each'",
+  `∀p n g.
+    wfg g ∧
+    EVEN p ∧
+    DISJOINT (set (GENLIST (λi. p+2*i) n)) (domain (FST g))
+    ⇒ wfg (insert_each' p n g)`,
+  ho_match_mp_tac insert_each'_ind
+  \\ rw[insert_each'_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs[wfg_def,GSYM ADD1]
+  \\ fs[IN_DISJOINT,MEM_GENLIST,IN_EVEN,EVEN_ADD]
+  \\ fs[METIS_PROVE[]``x ∨ y ⇔ ¬x ⇒ y``,PULL_EXISTS]
+  \\ rw[]
+  >- ( simp[clos_freeTheory.free_def] )
+  \\ first_assum (qspec_then`0`mp_tac)
+  \\ first_x_assum (qspec_then`SUC i`mp_tac)
+  \\ simp[ADD1,LEFT_ADD_DISTRIB]);
+
+val FST_insert_each' = Q.store_thm("FST_insert_each'",
+  `∀p n g. FST (insert_each' p n g) = FST (insert_each p n g)`,
+  ho_match_mp_tac insert_each'_ind
+  \\ rw[insert_each'_def,insert_each_def]
+  \\ match_mp_tac FST_insert_each_same
+  \\ rw[]);
+
+val MAP_FST_insert_each' = Q.store_thm("MAP_FST_insert_each'",
+  `∀p n g.
+   MAP FST (SND (insert_each' p n g)) =
+   REVERSE (GENLIST (λi. p + i * 2 + 1) n) ++
+   MAP FST (SND g)`,
+  ho_match_mp_tac insert_each'_ind
+  \\ rw[insert_each'_def,GENLIST_CONS,o_DEF,ADD1,LEFT_ADD_DISTRIB]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM]);
+
+
 (* TODO: this is because TAKE_def is in srw_ss; I think it should not be *)
 val TAKE_shadow_def = zDefine`TAKE_shadow = TAKE`
 
@@ -465,7 +645,6 @@ val calls_el_sing = Q.store_thm("calls_el_sing",
     ALL_DISTINCT (MAP FST (SND g0)) ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
-    (* TODO: need a version of this that doesn't require wfg *)
     wfg g0 ∧ every_Fn_SOME xs ∧ set (code_locs xs) ⊆ EVEN
     ⇒
      ∃ga gb.
@@ -542,6 +721,91 @@ val calls_el_sing = Q.store_thm("calls_el_sing",
   \\ match_mp_tac calls_subg
   \\ asm_exists_tac \\ fs[]
   \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
+
+(*
+val calls_el_sing' = Q.store_thm("calls_el_sing'",
+  `∀xs g0 ys g i.
+    calls xs g0 = (ys,g) ∧
+    i < LENGTH xs ∧
+    ALL_DISTINCT (MAP FST (SND g0)) ∧
+    ALL_DISTINCT (code_locs xs) ∧
+    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
+    wfg' g0 ∧ wfg g ∧ every_Fn_SOME xs ∧ set (code_locs xs) ⊆ EVEN
+    ⇒
+     ∃ga gb.
+       calls [EL i xs] ga = ([EL i ys],gb) ∧
+       subg g0 ga ∧ subg ga gb ∧ subg gb g ∧ wfg' ga ∧ wfg gb ∧
+       DISJOINT (IMAGE SUC (set (code_locs [EL i xs]))) (set (MAP FST (SND ga))) ∧
+       set (MAP FST (SND ga)) ⊆ set (MAP FST (SND g0)) ∪ IMAGE SUC (set (code_locs (TAKE i xs))) (*∧
+       (set (code_locs [EL i xs]) DIFF (domain (FST gb))) ⊆ (set (code_locs xs) DIFF (domain (FST g)))*)`,
+  PURE_REWRITE_TAC[GSYM TAKE_shadow_def]
+  \\ ho_match_mp_tac calls_ind \\ rw[]
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ TRY (
+    rveq \\ asm_exists_tac \\ fs[]
+    \\ rpt conj_tac
+    \\ TRY(
+      match_mp_tac calls_wfg'
+      \\ asm_exists_tac \\ fs[]
+      \\ NO_TAC)
+    \\ metis_tac[calls_ALL_DISTINCT,subg_refl,calls_subg])
+  \\ fs[calls_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+  \\ Cases_on`i` \\ fs[]
+  >- (
+    asm_exists_tac \\ fs[]
+    \\ rpt conj_asm1_tac
+    \\ TRY (match_mp_tac subg_refl \\ fs[] )
+    \\ TRY (fs[SUBSET_DEF,code_locs_def] \\ NO_TAC)
+    \\ TRY (
+      fs[SUBSET_DEF,code_locs_def]
+      \\ qmatch_goalsub_rename_tac`code_locs [x]`
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ drule calls_wfg'
+      \\ impl_tac
+      >- (
+        fs[ALL_DISTINCT_APPEND,IN_DISJOINT,SUBSET_DEF]
+        \\ metis_tac[numTheory.INV_SUC] )
+      \\ strip_tac
+      \\ rfs[wfg'_def]
+      \\ fs[SUBSET_DEF,ALL_DISTINCT_APPEND,PULL_EXISTS]
+      \\ gen_tac
+      \\ metis_tac[numTheory.INV_SUC])
+    \\ (match_mp_tac calls_subg ORELSE match_mp_tac calls_wfg')
+    \\ asm_exists_tac \\ fs[]
+    \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
+    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ first_x_assum drule
+  \\ impl_tac
+  >- (
+    fs[code_locs_def,ALL_DISTINCT_APPEND]
+    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
+    \\ reverse conj_tac
+    >- ( match_mp_tac calls_wfg' \\ asm_exists_tac \\ fs[] )
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[IN_DISJOINT,SUBSET_DEF]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ strip_tac \\ asm_exists_tac \\ fs[]
+  \\ reverse conj_tac
+  >- (
+    fs[code_locs_def,SUBSET_DEF]
+    \\ imp_res_tac calls_add_SUC_code_locs
+    \\ fs[SUBSET_DEF]
+    \\ fs[REWRITE_RULE[GSYM TAKE_shadow_def]TAKE]
+    \\ simp[Once code_locs_cons]
+    \\ metis_tac[numTheory.INV_SUC] )
+  \\ match_mp_tac subg_trans
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl) \\ rw[]
+  \\ match_mp_tac calls_subg
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
+*)
 
 (*
 val calls_subg_mono = Q.store_thm("calls_subg_mono",
@@ -662,6 +926,7 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
     \\ fs[calls_list_def] \\ rveq
     \\ Cases_on`new_g` \\ fs[code_list_def,subg_def,IS_SUFFIX_APPEND]
+    (*
     \\ conj_tac
     >- (
       simp[ALOOKUP_APPEND]
@@ -669,6 +934,7 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
       \\ imp_res_tac ALOOKUP_MEM
       \\ rfs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
       \\ res_tac \\ fs[] )
+    *)
     \\ fsrw_tac[ETA_ss][]
     (*
     \\ `subg g0 g`
@@ -710,7 +976,12 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
   \\ fs[indexedListsTheory.EL_MAPi]
   \\ conj_tac
   >- (
-    fs[subg_def,IS_SUFFIX_APPEND]
+    fs[subg_def]
+    \\ first_x_assum match_mp_tac
+    \\ simp[ALOOKUP_code_list]
+    \\ DEEP_INTRO_TAC some_intro
+    \\ simp[EL_ZIP,EL_MAP] )
+    (*
     \\ simp[ALOOKUP_APPEND]
     \\ reverse BasicProvers.CASE_TAC
     >- (
@@ -728,6 +999,7 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
     \\ simp[ALOOKUP_code_list]
     \\ DEEP_INTRO_TAC some_intro
     \\ simp[EL_ZIP,EL_MAP] )
+    *)
   \\ simp[revtakerev,revdroprev]
   \\ match_mp_tac EVERY2_APPEND_suff
   \\ fsrw_tac[ETA_ss][]
@@ -886,6 +1158,8 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
     \\ fs[SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP,FORALL_PROD]
     \\ metis_tac[MEM_EL] ));
 *)
+
+(* semantic functions respect relation *)
 
 val v_rel_Unit = store_thm("v_rel_Unit[simp]",
   ``v_rel g1 l1 Unit Unit``,
@@ -1289,6 +1563,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs[closed_Fn]
     \\ `subg g0 (insert_each x 1 g0)`
     by ( simp[subg_def,insert_each_subspt] \\ fs[wfg_def])
+    (*
     \\ `subg g0 g`
     by (
       every_case_tac \\ fs[] \\ rw[]
@@ -1310,12 +1585,15 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rfs[SUBSET_DEF]
       \\ fs[ALL_DISTINCT_APPEND]
       \\ metis_tac[numTheory.INV_SUC] )
+    *)
     (*
     \\ qpat_abbrev_tac`l = l0 ∪ _`
     \\ `l0 ⊆ l` by simp[Abbr`l`]
     \\ `state_rel g l s t0` by metis_tac[state_rel_subg]
     *)
+    (*
     \\ `subspt (FST g0) (FST g)` by fs[subg_def]
+    *)
     \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["l0'","g0'"]))
     \\ qexists_tac`l0` \\ qexists_tac`g0` \\ fs[]
     \\ fs[ALL_DISTINCT_APPEND]
@@ -1680,6 +1958,19 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ strip_tac
       \\ `ALOOKUP (SND g) (x+1) = ALOOKUP (SND g1) (x+1)`
       by (
+        fs[subg_def]
+        \\ Cases_on`ALOOKUP (SND g) (x+1)` \\ fs[]
+        >- (
+          imp_res_tac ALOOKUP_FAILS
+          \\ `¬MEM (SUC x) (MAP FST (SND g))`
+          by (
+            simp[MEM_MAP,ADD1,Once FORALL_PROD]
+            \\ metis_tac[] )
+          \\ rfs[wfg_def,GSYM ADD1] )
+        \\ rpt(first_x_assum drule)
+        \\ simp[] )
+      (*
+      by (
         `ALL_DISTINCT (MAP FST (SND g1))` by fs[subg_def]
         \\ `∃ls. SND g1 =  ls ++ SND g` by (metis_tac[subg_def,IS_SUFFIX_APPEND])
         \\ pop_assum SUBST_ALL_TAC
@@ -1693,6 +1984,7 @@ val calls_correct = Q.store_thm("calls_correct",
           \\ simp[MEM_MAP,PULL_EXISTS]
           \\ metis_tac[FST] )
         \\ rfs[wfg_def,GSYM ADD1] )
+      *)
       \\ rfs[]
       \\ drule (GEN_ALL code_includes_ALOOKUP)
       \\ disch_then drule \\ strip_tac
@@ -1798,6 +2090,19 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
     \\ `ALOOKUP (SND g) (x+1) = ALOOKUP (SND g1) (x+1)`
     by (
+      fs[subg_def]
+      \\ Cases_on`ALOOKUP (SND g) (x+1)` \\ fs[]
+      >- (
+        imp_res_tac ALOOKUP_FAILS
+        \\ `¬MEM (SUC x) (MAP FST (SND g))`
+        by (
+          simp[MEM_MAP,ADD1,Once FORALL_PROD]
+          \\ metis_tac[] )
+        \\ rfs[wfg_def,GSYM ADD1] )
+      \\ rpt(first_x_assum drule)
+      \\ simp[] )
+    (*
+    by (
       `ALL_DISTINCT (MAP FST (SND g1))` by fs[subg_def]
       \\ `∃ls. SND g1 =  ls ++ SND g` by (metis_tac[subg_def,IS_SUFFIX_APPEND])
       \\ pop_assum SUBST_ALL_TAC
@@ -1811,6 +2116,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ simp[MEM_MAP,PULL_EXISTS]
         \\ metis_tac[FST] )
       \\ rfs[wfg_def,GSYM ADD1] )
+    *)
     \\ rfs[]
     \\ imp_res_tac code_includes_ALOOKUP \\ fs[]
     \\ IF_CASES_TAC \\ fs[]
@@ -1944,7 +2250,6 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ qmatch_assum_rename_tac`_ = (res',_)`
   \\ Cases_on`res' = Rerr (Rabort Rtype_error)` \\ fs[]
-
   \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
     strip_tac \\ rveq \\ fs[] \\ rw[]
@@ -1954,7 +2259,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qmatch_assum_rename_tac`v_rel g1 l1 f f'`
     \\ qmatch_assum_rename_tac`LIST_REL _ rest1 rest2`
     \\ qmatch_assum_rename_tac`DISJOINT l0 (domain (FST g0))`
-    \\ first_x_assum(qspecl_then[`g1`,`l1`,`l0`]mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
+    \\ first_x_assum(qspecl_then[`g1`,`l1`,`{}`]mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
     \\ (fn g as (asl,w) =>
         let
           val (fa,_) = dest_imp w
@@ -1990,6 +2295,7 @@ val calls_correct = Q.store_thm("calls_correct",
       >- (
         fs[dec_clock_def]
         \\ rfs[wfg_def]
+        (*
         \\ conj_tac
         >- (
           fs[IN_DISJOINT,SUBSET_DEF,PULL_EXISTS,TAKE_MAP,code_locs_map,MEM_FLAT,MEM_MAP]
@@ -2000,6 +2306,7 @@ val calls_correct = Q.store_thm("calls_correct",
           \\ spose_not_then strip_assume_tac \\ rveq
           \\ rfs[EL_TAKE]
           \\ metis_tac[numTheory.INV_SUC,LESS_TRANS,MEM_EL] )
+        *)
         \\ conj_tac
         >- ( match_mp_tac state_rel_with_clock \\ fs[] )
         \\ conj_tac >- metis_tac[subg_trans]
@@ -2034,16 +2341,55 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ strip_tac
     \\ simp[dec_clock_def]
     \\ qpat_assum`calls _ _ = (es,_)`assume_tac
+    \\ drule calls_replace_SND
+    \\ disch_then(qspec_then`insert_each' loc (LENGTH fns1) g0`mp_tac)
+    \\ simp[FST_insert_each']
+    \\ drule calls_IS_SUFFIX
+    \\ simp[IS_SUFFIX_APPEND]
+    \\ strip_tac \\ simp[]
+    \\ strip_tac
     \\ drule (GEN_ALL calls_el_sing)
     \\ disch_then(qspec_then`i`mp_tac)
-    (*
     \\ impl_tac
     >- (
-      fs[wfg_def,domain_FST_insert_each]
-      \\ fs[SUBSET_DEF,SET_EQ_SUBSET,IN_DISJOINT,MEM_GENLIST,
-            PULL_EXISTS,IN_EVEN,EVEN_ADD,EVEN_DOUBLE])
-    *)
-    \\ cheat )
+      fs[MAP_FST_insert_each']
+      \\ fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_GENLIST]
+      \\ conj_tac
+      >- (
+        rfs[wfg_def,MEM_GENLIST,IN_DISJOINT]
+        \\ metis_tac[] )
+      \\ conj_asm1_tac
+      >- (
+        rfs[wfg_def,IN_DISJOINT,MEM_GENLIST,GSYM ADD1]
+        \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``] )
+      \\ match_mp_tac wfg_insert_each'
+      \\ fs[IN_DISJOINT,MEM_GENLIST]
+      \\ rfs[wfg_def]
+      \\ spose_not_then strip_assume_tac
+      \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``,ADD1] )
+    \\ simp[EL_MAP]
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ qmatch_goalsub_abbrev_tac`dec_clock dk s0`
+    \\ qmatch_asmsub_abbrev_tac`(n,e)`
+    \\ disch_then(qspecl_then[`dec_clock dk t0`,`args2`]mp_tac)
+    \\ impl_tac
+    >- (
+      fs[dec_clock_def]
+      \\ rfs[wfg_def]
+      \\ conj_tac
+      >- ( match_mp_tac state_rel_with_clock \\ fs[] )
+      \\ conj_tac >- cheat (* subg over insert_each' *)
+      \\ conj_tac >- ( fs[SUBSET_DEF] )
+      \\ cheat (* code_includes over insert_each' *))
+    \\ REWRITE_TAC[calls_list_MAPi]
+    \\ simp[dec_clock_def]
+    \\ `∀v. has_var v (SND (free [EL i es])) ⇒ v < n`
+    by (
+      fs[markerTheory.Abbrev_def,LIST_REL_EL_EQN]
+      \\ first_x_assum(qspec_then`i`mp_tac)
+      \\ simp[] )
+    \\ cheat (* need to know that evaluate only depends on free vars *))
   \\ imp_res_tac evaluate_length_imp
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ strip_tac \\ rveq \\ fs[] \\ rfs[]
