@@ -15,17 +15,17 @@ val _ = PolyML.print_depth 5;
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes prog =
+fun to_bytes conf prog =
   let
   val _ = println "Compile to livesets"
-  val init = Count.apply eval``to_livesets x64_compiler_config ^(prog)``
+  val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
   val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc init)))
   val wc = ``<|reg_alg:=1;col_oracle:= ^(oracles)|>``
   val _ = println "Repeat compilation with oracle"
   (*This repeats the "to_livesets" step, but that isn't very costly*)
   val compile_thm = Count.apply eval``
-    compile (x64_compiler_config with word_to_word_conf := ^(wc)) ^(prog)``
+    compile (^(conf) with word_to_word_conf := ^(wc)) ^(prog)``
   (* Alternatively: we can use the theories to manipulate init directly
   however, running the simplifier on the result takes quite long as well
   val rw = backendTheory.to_livesets_invariant |> SIMP_RULE std_ss[LET_THM]
@@ -430,19 +430,37 @@ Tdec
 val benchmarks = [fib,btree,queue,qsort]
 val names = ["fib","btree","queue","qsort"]
 
-val benchmarks_compiled = map to_bytes benchmarks
+val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
+val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
+val clos_o3 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
+val clos_o4 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``
+
+val benchmarks_o0 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_o1 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
+val benchmarks_o2 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
+val benchmarks_o3 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
+val benchmarks_o4 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
 
 val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
-val benchmarks_bytes = map extract_bytes benchmarks_compiled
+val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
+val benchmarks_o1_bytes = map extract_bytes benchmarks_o1
+val benchmarks_o2_bytes = map extract_bytes benchmarks_o2
+val benchmarks_o3_bytes = map extract_bytes benchmarks_o3
+val benchmarks_o4_bytes = map extract_bytes benchmarks_o4
 
 fun write_asm [] = ()
   | write_asm ((name,bytes)::xs) =
     (write_cake_S 50 50 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
     write_asm xs)
 
-val _ = write_asm (zip names benchmarks_bytes);
+val _ = write_asm (zip (map (fn s => "o0_"^s)names) benchmarks_o0_bytes);
+val _ = write_asm (zip (map (fn s => "o1_"^s)names) benchmarks_o1_bytes);
+val _ = write_asm (zip (map (fn s => "o2_"^s)names) benchmarks_o2_bytes);
+val _ = write_asm (zip (map (fn s => "o3_"^s)names) benchmarks_o3_bytes);
+val _ = write_asm (zip (map (fn s => "o4_"^s)names) benchmarks_o4_bytes);
 
-val _ = map save_thm (zip names benchmarks_compiled);
+(*val _ = map save_thm (zip names benchmarks_o4_bytes);*)
 
 val _ = export_theory ();

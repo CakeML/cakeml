@@ -172,6 +172,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_mtiTheory.intro_multi_def
     ,clos_mtiTheory.collect_args_def
     ,clos_mtiTheory.collect_apps_def
+    ,clos_mtiTheory.compile_def
       (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
@@ -189,6 +190,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_removeTheory.no_overlap_def_compute
     ,clos_removeTheory.remove_def
     ,clos_removeTheory.const_0_def
+    ,clos_removeTheory.compile_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.merge_def
     ,clos_knownTheory.compile_def

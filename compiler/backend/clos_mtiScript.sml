@@ -239,4 +239,8 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
   >- metis_tac [intro_multi_sing, HD]
   >- metis_tac [intro_multi_sing, HD]);
 
+val compile_def = Define`
+  compile F exps = exps /\
+  compile T exps = intro_multi exps`
+
 val _ = export_theory()

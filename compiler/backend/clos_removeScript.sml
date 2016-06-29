@@ -200,4 +200,8 @@ val remove_alt_ind = store_thm("remove_alt_ind",``
   imp_res_tac MEM_enumerate_IMP>>
   metis_tac[]);
 
+val compile_def = Define`
+  compile F exps = exps /\
+  compile T exps = FST (remove exps)`
+
 val _ = export_theory()

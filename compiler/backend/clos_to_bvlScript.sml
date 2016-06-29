@@ -414,18 +414,20 @@ val compile_exps_SNOC = store_thm("compile_exps_SNOC",
 val _ = Datatype`
   config = <| next_loc : num
             ; start : num
+            ; do_mti : bool
             ; do_known : bool
             ; do_call : bool
+            ; do_remove : bool
             |>`;
 
 val compile_def = Define`
   compile c e =
-  let es = intro_multi [e] in
+  let es = clos_mti$compile c.do_mti [e] in
   let (n,es) = renumber_code_locs_list c.next_loc es in
   let c = c with next_loc := n in
   let e = clos_known$compile c.do_known (HD es) in
   (* TODO: let (e,aux) = clos_call$compile T e in, and compile the aux below *)
-  let (es,_) = remove [e] in
+  let es = clos_remove$compile c.do_remove [e] in
   let es = annotate es in
   let (es,aux) = compile_exps es [] in
   (c,toAList init_code ++ MAP (λe. (c.start,0,e)) es ++ aux)`;
