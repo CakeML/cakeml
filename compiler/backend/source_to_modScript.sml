@@ -77,6 +77,8 @@ val compile_exp_def = tDefine"compile_exp"`
       Letrec (compile_funs menv (FOLDR (λk m. m \\ k) env fun_names) funs)
              (compile_exp menv (FOLDR (λk m. m \\ k) env fun_names) e))
   ∧
+  (compile_exp menv env (Tannot e t) = compile_exp menv env e)
+  ∧
   (compile_exps menv env [] = [])
   ∧
   (compile_exps menv env (e::es) =
