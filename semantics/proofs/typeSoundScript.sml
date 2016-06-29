@@ -225,24 +225,9 @@ val pmatch_type_progress = Q.prove (
      every_case_tac >>
      full_simp_tac(srw_ss())[] >>
      metis_tac [])
- >- cheat
-(*
-
- first_assum match_mp_tac
-(* should be a way to instantiate these automatically *)
->> qexists_tac `t'`
->> qexists_tac `tenv`
->> qexists_tac `tenvS`
->> qexists_tac `tvs`
->> qexists_tac `tvs''`
->> qexists_tac `tenvC`
->> qexists_tac `ctMap`
->> rw []
-(* given the definition of type_p, it seems to me that proving
-type_p tvs tenvC (Ptannot p t') t tenv ==> type_p tvs tenvC p t tenv
-is not possible *)
-
-*)
+ >- (first_x_assum match_mp_tap >>
+     qpat_assum `type_p _ _ _ _ _` (assume_tac o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
+     metis_tac [])
  >- tac
  >- tac
  >- tac
@@ -712,7 +697,9 @@ val pmatch_type_preservation = Q.prove (
      full_simp_tac(srw_ss())[] >>
      srw_tac[][] >>
      metis_tac [consistent_con_env_def, type_v_weakening, weakCT_refl, weakS_refl, weakM_refl])
- >- cheat (* see the other cheat comment *)
+ >- (first_x_assum match_mp_tac >>
+     qpat_assum `type_p _ _ _ _ _` (assume_tac o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
+     metis_tac []) 
  >- full_simp_tac(srw_ss())[Once type_p_cases, bind_var_list_def]
  >- (every_case_tac >>
      full_simp_tac(srw_ss())[] >>
@@ -1219,7 +1206,6 @@ val exp_type_preservation = Q.prove (
          match_mp_tac type_recfun_env >>
          metis_tac [bind_tvar_def])
      >- cheat
-
     )
  >- (full_simp_tac(srw_ss())[continue_def, push_def] >>
      cases_on `c` >>
@@ -1268,6 +1254,7 @@ val exp_type_preservation = Q.prove (
          full_simp_tac(srw_ss())[] >>
          rev_full_simp_tac(srw_ss())[tenv_val_ok_def, num_tvs_def] >>
          metis_tac [bind_tvar_def, EVERY_DEF, type_e_freevars, type_v_freevars, check_freevars_def, EVERY_APPEND, EVERY_REVERSE])
+     >- cheat
      >- metis_tac []
      >- (full_simp_tac(srw_ss())[type_op_cases] >>
          srw_tac[][] >>
