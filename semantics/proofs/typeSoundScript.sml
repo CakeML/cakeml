@@ -1205,11 +1205,13 @@ val exp_type_preservation = Q.prove (
          simp [] >>
          match_mp_tac type_recfun_env >>
          metis_tac [bind_tvar_def])
-     >- (
-       qexists_tac `tenvS`
-       >> rw []
-       
-       cheat
+     >- (qpat_assum `type_e _ _ _` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >> fs [] >>
+         qexists_tac `tenvS` >> rw [] >>
+         qexists_tac `t'` >>
+         qexists_tac `tenv` >>
+         qexists_tac `0` >>
+         rw [Once context_invariant_cases, type_ctxt_cases, Once type_ctxts_cases] >>
+         metis_tac [])
     )
  >- (full_simp_tac(srw_ss())[continue_def, push_def] >>
      cases_on `c` >>
@@ -1258,7 +1260,8 @@ val exp_type_preservation = Q.prove (
          full_simp_tac(srw_ss())[] >>
          rev_full_simp_tac(srw_ss())[tenv_val_ok_def, num_tvs_def] >>
          metis_tac [bind_tvar_def, EVERY_DEF, type_e_freevars, type_v_freevars, check_freevars_def, EVERY_APPEND, EVERY_REVERSE])
-     >- cheat
+     >- (full_simp_tac(srw_ss())[Once type_ctxts_cases, type_ctxt_cases, Once context_invariant_cases] >>
+                      metis_tac [])
      >- metis_tac []
      >- (full_simp_tac(srw_ss())[type_op_cases] >>
          srw_tac[][] >>
@@ -1710,7 +1713,8 @@ val exp_type_preservation = Q.prove (
          simp [SWAP_REVERSE_SYM] >>
          imp_res_tac ctxt_inv_not_poly >>
          imp_res_tac type_ctxts_freevars >>
-         metis_tac [check_freevars_def, EVERY_APPEND, EVERY_DEF, APPEND, APPEND_ASSOC])));
+         metis_tac [check_freevars_def, EVERY_APPEND, EVERY_DEF, APPEND, APPEND_ASSOC])
+      >- metis_tac []));
 
 val store_type_extension_def = Define `
 store_type_extension tenvS1 tenvS2 =
