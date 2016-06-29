@@ -186,6 +186,10 @@ val calls_list_MAPi = Q.store_thm("calls_list_MAPi",
   \\ rw[] \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ simp[FUN_EQ_THM]);
 
+val calls_list_length = Q.store_thm("calls_list_length[simp]",
+  `LENGTH (calls_list p fns) = LENGTH fns`,
+  rw[calls_list_MAPi]);
+
 val domain_FST_insert_each = Q.store_thm("domain_FST_insert_each",
   `∀p n g. domain (FST (insert_each p n g)) = set (GENLIST (λi. 2 * i + p) n) ∪ domain (FST g)`,
   ho_match_mp_tac insert_each_ind
@@ -428,6 +432,13 @@ val closed_Fn = Q.store_thm("closed_Fn",
   \\ Cases_on `x` \\ fs[GSYM lookup_db_to_set]
   \\ res_tac \\ fs[]);
 
+val closed_Fn_fv = Q.store_thm("closed_Fn_fv",
+  `closed (Fn loco vs args e) ⇔
+   ∀v. fv v [e] ⇒ v < args`,
+  rw[closed_Fn]
+  \\ qspec_then`[e]`mp_tac free_thm
+  \\ simp[] \\ pairarg_tac \\ fs[]);
+
 val calls_wfg' = Q.store_thm("calls_wfg'",
   `∀xs g0 ys g.
     calls xs g0 = (ys,g) ∧
@@ -494,31 +505,37 @@ val calls_wfg = Q.store_thm("calls_wfg",
   \\ res_tac \\ rw[] \\ fs[]
   \\ rw[] \\ rfs[]);
 
-(*
-val calls_wfg = Q.store_thm("calls_wfg",'_wfg
-  `∀xs g0 ys g. calls xs g0 = (ys,g) ∧
-    wfg' g0 ∧
-    set (code_locs xs) ⊆ EVEN ∧
-    every_Fn_SOME xs ∧
-    ALL_DISTINCT (MAP FST (SND g0)) ∧
-    ALL_DISTINCT (code_locs xs) ∧
-    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
+val calls_fv1_subset = Q.store_thm("calls_fv1_subset",
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
+    LIST_REL (λx y. (combin$C fv1) y ⊆ (combin$C fv1) x) xs ys`,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ imp_res_tac calls_length
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
+  \\ every_case_tac \\ rw[]
+  \\ fs[SUBSET_DEF,fv1_thm,IN_DEF,fv_GENLIST_Var,fv_append]
+  \\ rw[] \\ rw[]
+  \\ TRY (
+    fs[LIST_REL_EL_EQN,PULL_EXISTS]
+    \\ fs[fv_exists,EXISTS_MEM,MEM_EL,PULL_EXISTS]
+    \\ metis_tac[] )
+  \\ fs[EXISTS_MEM]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[calls_list_MAPi,indexedListsTheory.MEM_MAPi]
+  \\ rveq \\ fs[fv1_thm,fv_GENLIST_Var]
+  \\ rfs[ZIP_MAP,MEM_MAP] \\ rveq
+  \\ fs[LIST_REL_EL_EQN,PULL_EXISTS]
+  \\ fs[fv_exists,EXISTS_MEM,MEM_EL,PULL_EXISTS]
+  \\ rfs[EL_ZIP] \\ fs[EL_MAP]
+  \\ simp[UNCURRY]
+  \\ metis_tac[]);
 
-    ⇒
-    wfg g`,
-  rw[]
-  \\ imp_res_tac calls_wfg'
-  \\ fs[wfg_def,wfg'_def,SET_EQ_SUBSET]
-  \\ imp_res_tac calls_ALL_DISTINCT \\ rfs[]
-  \\ imp_res_tac calls_add_SUC_code_locs
-  \\ imp_res_tac calls_domain
-  \\ fs[SUBSET_DEF,PULL_EXISTS]
-  \\ rw[]
-  \\ first_x_assum drule
-  \\ rw[]
-  >- (
-    wfg'_def
-*)
+val calls_fv_imp = Q.store_thm("calls_fv_imp",
+  `calls xs g0 = (ys,g) ∧ fv v ys ⇒ fv v xs`,
+  rw[] \\ imp_res_tac calls_fv1_subset
+  \\ fs[LIST_REL_EL_EQN,fv_exists,EXISTS_MEM,MEM_EL,SUBSET_DEF,IN_DEF]
+  \\ metis_tac[]);
 
 val FST_insert_each_same = Q.store_thm("FST_insert_each_same",
   `∀p n g0 g0'.
@@ -647,7 +664,6 @@ val MAP_FST_insert_each' = Q.store_thm("MAP_FST_insert_each'",
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ simp[FUN_EQ_THM]);
 
-
 (* TODO: this is because TAKE_def is in srw_ss; I think it should not be *)
 val TAKE_shadow_def = zDefine`TAKE_shadow = TAKE`
 
@@ -734,118 +750,6 @@ val calls_el_sing = Q.store_thm("calls_el_sing",
   \\ match_mp_tac calls_subg
   \\ asm_exists_tac \\ fs[]
   \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
-
-(*
-val calls_el_sing' = Q.store_thm("calls_el_sing'",
-  `∀xs g0 ys g i.
-    calls xs g0 = (ys,g) ∧
-    i < LENGTH xs ∧
-    ALL_DISTINCT (MAP FST (SND g0)) ∧
-    ALL_DISTINCT (code_locs xs) ∧
-    DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
-    wfg' g0 ∧ wfg g ∧ every_Fn_SOME xs ∧ set (code_locs xs) ⊆ EVEN
-    ⇒
-     ∃ga gb.
-       calls [EL i xs] ga = ([EL i ys],gb) ∧
-       subg g0 ga ∧ subg ga gb ∧ subg gb g ∧ wfg' ga ∧ wfg gb ∧
-       DISJOINT (IMAGE SUC (set (code_locs [EL i xs]))) (set (MAP FST (SND ga))) ∧
-       set (MAP FST (SND ga)) ⊆ set (MAP FST (SND g0)) ∪ IMAGE SUC (set (code_locs (TAKE i xs))) (*∧
-       (set (code_locs [EL i xs]) DIFF (domain (FST gb))) ⊆ (set (code_locs xs) DIFF (domain (FST g)))*)`,
-  PURE_REWRITE_TAC[GSYM TAKE_shadow_def]
-  \\ ho_match_mp_tac calls_ind \\ rw[]
-  \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
-  \\ TRY (
-    rveq \\ asm_exists_tac \\ fs[]
-    \\ rpt conj_tac
-    \\ TRY(
-      match_mp_tac calls_wfg'
-      \\ asm_exists_tac \\ fs[]
-      \\ NO_TAC)
-    \\ metis_tac[calls_ALL_DISTINCT,subg_refl,calls_subg])
-  \\ fs[calls_def]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq
-  \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
-  \\ Cases_on`i` \\ fs[]
-  >- (
-    asm_exists_tac \\ fs[]
-    \\ rpt conj_asm1_tac
-    \\ TRY (match_mp_tac subg_refl \\ fs[] )
-    \\ TRY (fs[SUBSET_DEF,code_locs_def] \\ NO_TAC)
-    \\ TRY (
-      fs[SUBSET_DEF,code_locs_def]
-      \\ qmatch_goalsub_rename_tac`code_locs [x]`
-      \\ imp_res_tac calls_add_SUC_code_locs
-      \\ drule calls_wfg'
-      \\ impl_tac
-      >- (
-        fs[ALL_DISTINCT_APPEND,IN_DISJOINT,SUBSET_DEF]
-        \\ metis_tac[numTheory.INV_SUC] )
-      \\ strip_tac
-      \\ rfs[wfg'_def]
-      \\ fs[SUBSET_DEF,ALL_DISTINCT_APPEND,PULL_EXISTS]
-      \\ gen_tac
-      \\ metis_tac[numTheory.INV_SUC])
-    \\ (match_mp_tac calls_subg ORELSE match_mp_tac calls_wfg')
-    \\ asm_exists_tac \\ fs[]
-    \\ fs[code_locs_def,ALL_DISTINCT_APPEND]
-    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
-    \\ imp_res_tac calls_add_SUC_code_locs
-    \\ fs[IN_DISJOINT,SUBSET_DEF]
-    \\ metis_tac[numTheory.INV_SUC] )
-  \\ first_x_assum drule
-  \\ impl_tac
-  >- (
-    fs[code_locs_def,ALL_DISTINCT_APPEND]
-    \\ imp_res_tac calls_ALL_DISTINCT \\ fs[]
-    \\ reverse conj_tac
-    >- ( match_mp_tac calls_wfg' \\ asm_exists_tac \\ fs[] )
-    \\ imp_res_tac calls_add_SUC_code_locs
-    \\ fs[IN_DISJOINT,SUBSET_DEF]
-    \\ metis_tac[numTheory.INV_SUC] )
-  \\ strip_tac \\ asm_exists_tac \\ fs[]
-  \\ reverse conj_tac
-  >- (
-    fs[code_locs_def,SUBSET_DEF]
-    \\ imp_res_tac calls_add_SUC_code_locs
-    \\ fs[SUBSET_DEF]
-    \\ fs[REWRITE_RULE[GSYM TAKE_shadow_def]TAKE]
-    \\ simp[Once code_locs_cons]
-    \\ metis_tac[numTheory.INV_SUC] )
-  \\ match_mp_tac subg_trans
-  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl) \\ rw[]
-  \\ match_mp_tac calls_subg
-  \\ asm_exists_tac \\ fs[]
-  \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
-*)
-
-(*
-val calls_subg_mono = Q.store_thm("calls_subg_mono",
-  `∀xs g0 ys g g0' ys' g'.
-    calls xs g0 = (ys,g) ∧ subg g0 g0' ∧
-    calls xs g0' = (ys',g')
-    ⇒
-    subg g g'`,
-  ho_match_mp_tac calls_ind
-  \\ rw[calls_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[]
-  \\ rpt (
-    first_x_assum match_mp_tac
-    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
-    \\ fs[] )
-  \\ qhdtm_x_assum`COND`mp_tac
-  \\ qmatch_goalsub_abbrev_tac`COND b1`
-  \\ qhdtm_x_assum`COND`mp_tac
-  \\ qmatch_goalsub_abbrev_tac`COND b2`
-  \\ rw[] \\ fs[]
-  \\ rpt (
-    first_x_assum match_mp_tac
-    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
-    \\ fs[] )
-  \\ cheat (* need to show calls only removes free variables *) );
-*)
 
 val _ = delete_const"TAKE_shadow"
 
