@@ -297,17 +297,18 @@ val RootsRefs_related = prove(
   \\ simp [r2r_filter_def]
   \\ metis_tac [RootsRefs_cases]);
 
-val simulation = prove(
-  ``let heap' = to_basic_heap conf heap in
-    let refs' = refs_to_roots (heap_drop conf.refs_start heap') in
-    (basic_gc (to_basic_conf conf)
-      (to_basic_roots conf.gen_start roots ++ refs'
-      ,heap') = (roots',state')) ==>
-    ?roots'' state''.
-      (partial_gc conf (roots, heap) = (roots'',state'')) /\
-      (roots' = to_basic_roots conf.gen_start roots'') /\
-      (state' = to_basic_state conf.gen_start state'')``,
-  cheat);
+(* TODO: need to rewrite parts of basic_gc to work with data_sort thingie  *)
+(* val simulation = prove( *)
+(*   ``let heap' = to_basic_heap conf heap in *)
+(*     let refs' = refs_to_roots (heap_drop conf.refs_start heap') in *)
+(*     (basic_gc (to_basic_conf conf) *)
+(*       (to_basic_roots conf.gen_start roots ++ refs' *)
+(*       ,heap') = (roots',state')) ==> *)
+(*     ?roots'' state''. *)
+(*       (partial_gc conf (roots, heap) = (roots'',state'')) /\ *)
+(*       (roots' = to_basic_roots conf.gen_start roots'') /\ *)
+(*       (state' = to_basic_state conf.gen_start state'')``, *)
+(*   cheat); *)
 
 (*
 - basic_gc_related
