@@ -322,6 +322,50 @@ val fv_def = tDefine "fv" `
   res_tac >>
   srw_tac [ARITH_ss] [exp_size_def]);
 
+val fv_ind = theorem"fv_ind";
+
+val fv_append = Q.store_thm("fv_append[simp]",
+  `∀v l1. fv v (l1 ++ l2) ⇔ fv v l1 ∨ fv v l2`,
+  ho_match_mp_tac fv_ind
+  \\ rpt strip_tac
+  \\ rw[fv_def]
+  \\ fs[]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ Cases_on`l2`\\fs[fv_def]);
+
+val fv_nil = Q.store_thm("fv_nil[simp]",
+  `fv v [] ⇔ F`, rw[fv_def])
+
+val fv1_def = Define`fv1 v e = fv v [e]`;
+val fv1_intro = save_thm("fv1_intro[simp]",GSYM fv1_def)
+val fv1_thm =
+  fv_def |> SIMP_RULE (srw_ss())[]
+  |> curry save_thm "fv1_thm"
+
+val fv_cons = Q.store_thm("fv_cons[simp]",
+  `fv v (x::xs) ⇔ fv1 v x ∨ fv v xs`,
+  metis_tac[CONS_APPEND,fv_append,fv1_def]);
+
+val fv_exists = Q.store_thm("fv_exists",
+  `∀ls. fv v ls ⇔ EXISTS (fv1 v) ls`,
+  Induct \\ fs[] \\ rw[Once fv_cons]);
+
+val fv_MAPi = Q.store_thm(
+  "fv_MAPi",
+  `∀l x f. fv x (MAPi f l) ⇔ ∃n. n < LENGTH l ∧ fv x [f n (EL n l)]`,
+  Induct >> simp[fv_def] >> simp[] >> dsimp[indexedListsTheory.LT_SUC]);
+
+val fv_GENLIST_Var = Q.store_thm("fv_GENLIST_Var",
+  `∀n. fv v (GENLIST Var n) ⇔ v < n`,
+  Induct \\ simp[fv_def,GENLIST,SNOC_APPEND]
+  \\ rw[fv_def]);
+
+val fv_REPLICATE = Q.store_thm(
+  "fv_REPLICATE[simp]",
+  `fv n (REPLICATE m e) ⇔ 0 < m ∧ fv1 n e`,
+  Induct_on `m` >> simp[REPLICATE, fv_def,fv1_thm] >>
+  simp[] >> metis_tac[]);
+
 val v_ind =
   TypeBase.induction_of``:closSem$v``
   |> Q.SPECL[`P`,`EVERY P`]
