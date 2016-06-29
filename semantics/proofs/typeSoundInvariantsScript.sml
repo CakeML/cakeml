@@ -341,7 +341,13 @@ context_invariant dec_tvs ((Clet x ()  e,env) :: c) tvs)
 (context_invariant dec_tvs c tvs /\
 ( ~ (tvs =( 0)) ==> EVERY is_value es))
 ==>
-context_invariant dec_tvs ((Ccon cn vs ()  es,env) :: c) tvs)`;
+context_invariant dec_tvs ((Ccon cn vs ()  es,env) :: c) tvs)
+
+/\ (! dec_tvs c t env.
+(context_invariant dec_tvs c( 0))
+==>
+context_invariant dec_tvs ((Ctannot ()  t,env) :: c) 0)`;
+
 
 val _ = Hol_reln ` (! tvs all_cenv senv tenv t.
 (check_freevars tvs [] t)

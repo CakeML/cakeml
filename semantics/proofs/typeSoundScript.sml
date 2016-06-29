@@ -225,7 +225,7 @@ val pmatch_type_progress = Q.prove (
      every_case_tac >>
      full_simp_tac(srw_ss())[] >>
      metis_tac [])
- >- (first_x_assum match_mp_tap >>
+ >- (first_x_assum match_mp_tac >>
      qpat_assum `type_p _ _ _ _ _` (assume_tac o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      metis_tac [])
  >- tac
@@ -1205,7 +1205,11 @@ val exp_type_preservation = Q.prove (
          simp [] >>
          match_mp_tac type_recfun_env >>
          metis_tac [bind_tvar_def])
-     >- cheat
+     >- (
+       qexists_tac `tenvS`
+       >> rw []
+       
+       cheat
     )
  >- (full_simp_tac(srw_ss())[continue_def, push_def] >>
      cases_on `c` >>
