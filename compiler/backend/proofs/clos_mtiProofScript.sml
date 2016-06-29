@@ -654,6 +654,11 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
      simp[exp_rel_refl])
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 
+val compile_correct = Q.store_thm("compile_correct",
+  `!do_mti es. exp_rel (:'ffi) es (clos_mti$compile do_mti es)`,
+  Cases>>fs[clos_mtiTheory.compile_def]>>
+  metis_tac[intro_multi_correct,exp_rel_refl])
+
 val HD_intro_multi = Q.prove(
   `[HD (intro_multi [e])] = intro_multi [e]`,
   metis_tac[intro_multi_sing,HD])
@@ -703,6 +708,10 @@ val contains_App_SOME_intro_multi = Q.store_thm("contains_App_SOME_intro_multi[s
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     metis_tac[contains_App_SOME_collect_args,SND,PAIR]));
 
+val contains_App_SOME_compile = Q.store_thm("contains_App_SOME_compile[simp]",
+  `∀do_mti es. contains_App_SOME (clos_mti$compile do_mti es) ⇔ contains_App_SOME es`,
+  Cases>>fs[clos_mtiTheory.compile_def]);
+
 val every_Fn_vs_NONE_collect_apps = Q.prove(
   `∀es e x y. collect_apps es e = (x,y) ⇒
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
@@ -741,6 +750,10 @@ val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[sim
   srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
   metis_tac[every_Fn_vs_NONE_collect_args,SND,PAIR]);
 
+val every_Fn_vs_NONE_compile = Q.store_thm("every_Fn_vs_NONE_compile[simp]",
+  `∀do_mti es. every_Fn_vs_NONE (clos_mti$compile do_mti es) = every_Fn_vs_NONE es`,
+  Cases>>fs[clos_mtiTheory.compile_def]);
+
 val EVERY_HD = Q.prove(
   `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
   Cases_on `l` >> simp[]);
@@ -751,6 +764,11 @@ val intro_multi_EQ_NIL = Q.store_thm(
   ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
   simp[clos_mtiTheory.intro_multi_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]))
+
+val compile_EQ_NIL = Q.store_thm(
+  "compile_EQ_NIL[simp]",
+  `∀do_mti es. clos_mti$compile do_mti es = [] ⇔ es = []`,
+  Cases>>fs[clos_mtiTheory.compile_def])
 
 val collect_apps_preserves_set_globals = Q.store_thm(
   "collect_apps_preserves_set_globals",
@@ -855,5 +873,15 @@ val intro_multi_preserves_esgc_free = Q.store_thm(
       `elist_globals [e2'] = elist_globals [e2]`
         by metis_tac[intro_multi_preserves_elist_globals] >>
       fs[] >> metis_tac[collect_args_preserves_set_globals]))
+
+val compile_preserves_elist_globals = Q.store_thm(
+  "compile_preserves_elist_globals",
+  `∀do_mti es. elist_globals (clos_mti$compile do_mti es) = elist_globals es`,
+  Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_elist_globals])
+
+val compile_preserves_esgc_free = Q.store_thm(
+  "compile_preserves_esgc_free",
+  `∀do_mti es. EVERY esgc_free es ⇒ EVERY esgc_free (clos_mti$compile do_mti es)`,
+  Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
 
 val _ = export_theory();

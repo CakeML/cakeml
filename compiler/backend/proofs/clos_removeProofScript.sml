@@ -921,6 +921,14 @@ val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
   full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
   metis_tac[remove_SING,HD,SND,PAIR]);
 
+val every_Fn_vs_NONE_compile = Q.store_thm("every_Fn_vs_NONE_compile",
+  `∀do_remove es es' s.
+   every_Fn_vs_NONE es ⇒
+   clos_remove$compile do_remove es = es' ⇒
+   every_Fn_vs_NONE es'`,
+   Cases>>fs[clos_removeTheory.compile_def]>>
+   metis_tac[PAIR,FST,every_Fn_vs_NONE_remove])
+
 val evaluate_REPconst0s = Q.store_thm(
   "evaluate_REPconst0s",
   `evaluate (REPLICATE N const_0, E, s) = (Rval (REPLICATE N (Number 0)), s)`,
@@ -1018,6 +1026,14 @@ val remove_correct = Q.store_thm("remove_correct",
           by metis_tac[remove_SING, pair_CASES] >> simp[] >>
        metis_tac[MEM_EL]) >>
  metis_tac[compat]);
+
+val compile_correct = Q.store_thm("compile_correct",
+  `∀do_remove es es' s.
+    every_Fn_vs_NONE es ⇒
+    clos_remove$compile do_remove es = es' ⇒
+    exp_rel (:'ffi) es es'`,
+  Cases>>fs[clos_removeTheory.compile_def,exp_rel_refl]>>
+  metis_tac[remove_correct,FST,PAIR])
 
 val k_intro = Q.prove(`(λn. x) = K x`, simp[FUN_EQ_THM])
 
@@ -1132,6 +1148,13 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
       full_simp_tac(srw_ss())[SUBSET_DEF, ALL_DISTINCT_APPEND] >> metis_tac[])
   >- ((* call *) qccase `remove args` >> full_simp_tac(srw_ss())[]))
 
+val compile_distinct_locs = Q.store_thm("compile_distinct_locs",
+  `∀do_remove es.
+    set (code_locs (clos_remove$compile do_remove es)) ⊆ set (code_locs es) ∧
+    (ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs (clos_remove$compile do_remove es)))`,
+  Cases>>fs[clos_removeTheory.compile_def]>>
+  metis_tac[FST,PAIR,remove_distinct_locs])
+
 val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
   `every_Fn_SOME [const_0]`,
   EVAL_TAC)
@@ -1162,5 +1185,13 @@ val every_Fn_SOME_remove = Q.store_thm("every_Fn_SOME_remove",
   srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
   full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY,EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
   metis_tac[remove_SING,HD,SND,PAIR]);
+
+val every_Fn_SOME_compile = Q.store_thm("every_Fn_SOME_compile",
+  `∀do_remove es es'.
+   every_Fn_SOME es ⇒
+   compile do_remove es = es' ⇒
+   every_Fn_SOME es'`,
+  Cases>>fs[clos_removeTheory.compile_def]>>
+  metis_tac[FST,PAIR,every_Fn_SOME_remove])
 
 val _ = export_theory();

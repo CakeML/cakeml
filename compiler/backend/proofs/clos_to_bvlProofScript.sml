@@ -3968,14 +3968,16 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   rator_x_assum`compile_exps`mp_tac >>
   specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
   simp[ALL_DISTINCT_APPEND] >>
-  `∃z. intro_multi [e] = [z]` by (
+  `∃z. clos_mti$compile c.do_mti [e] = [z]` by (
+    Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
     metis_tac[clos_mtiTheory.intro_multi_sing]) >>
   `∃z. es = [z]` by (
     metis_tac
       [clos_numberTheory.renumber_code_locs_length, SING_HD, SND, LENGTH, ONE]) >>
+  `∃z. clos_remove$compile c.do_remove [kcompile c.do_known (HD es)] = [z]` by (
+    Cases_on`c.do_remove`>>fs[clos_removeTheory.compile_def]>>
+    metis_tac [clos_removeTheory.remove_SING,FST,PAIR] ) >>
   `∃z. es' = [z]` by (
-    metis_tac [clos_removeTheory.remove_SING] ) >>
-  `∃z. es'' = [z]` by (
     metis_tac
       [clos_annotateTheory.shift_SING,
        clos_annotateTheory.annotate_def,
@@ -3995,13 +3997,16 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     simp[clos_annotateProofTheory.annotate_code_locs] >>
     full_simp_tac(srw_ss())[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
     first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
-    metis_tac[clos_removeProofTheory.remove_distinct_locs,FST,SND,
+    EVAL_TAC>>
+    qpat_assum`A=[z'']` sym_sub_tac>>
+    match_mp_tac (CONJUNCT2 (SPEC_ALL clos_removeProofTheory.compile_distinct_locs))>>
+    fs[clos_knownProofTheory.compile_code_locs]>>
+    metis_tac[FST,SND,PAIR,
               clos_removeProofTheory.code_loc'_def,
-              clos_knownProofTheory.compile_code_locs,
               clos_numberProofTheory.renumber_code_locs_distinct] ) >>
   simp[toAList_domain] >>
   simp[clos_annotateProofTheory.annotate_code_locs,MAP_REVERSE] >>
-  qspec_then`[compile c.do_known (HD es)]`mp_tac clos_removeProofTheory.remove_distinct_locs >>
+  qspecl_then[`c.do_remove`,`[compile c.do_known (HD es)]`]mp_tac clos_removeProofTheory.compile_distinct_locs >>
   simp[SUBSET_DEF] >> strip_tac >>
   simp[MEM_MAP,PULL_EXISTS] >>
   gen_tac >> strip_tac >- (
@@ -4124,13 +4129,14 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >>
       full_simp_tac(srw_ss())[]) >>
   `∃z. es = [z]` by (
+    Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
     metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
               clos_numberTheory.renumber_code_locs_length,
               LENGTH, ONE] ) >>
   first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
 
   (* intro_multi correct *)
-  qspec_then`[e]`mp_tac clos_mtiProofTheory.intro_multi_correct >>
+  qspecl_then[`c.do_mti`,`[e]`]mp_tac clos_mtiProofTheory.compile_correct >>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
   disch_then(fn th => last_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
@@ -4165,14 +4171,15 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
 
   (* known correct *)
-  `∃ime. intro_multi [e] = [ime]`
-    by metis_tac[clos_mtiTheory.intro_multi_sing] >>
+  `∃ime. clos_mti$compile c.do_mti [e] = [ime]` by
+    (Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
+    metis_tac[clos_mtiTheory.intro_multi_sing]) >>
   `EVERY esgc_free [e]` by simp[] >>
   `EVERY esgc_free [ime]`
-    by metis_tac[clos_mtiProofTheory.intro_multi_preserves_esgc_free] >>
+    by metis_tac[clos_mtiProofTheory.compile_preserves_esgc_free] >>
   `elist_globals [ime] = elist_globals [e]`
-    by metis_tac[clos_mtiProofTheory.intro_multi_preserves_elist_globals] >>
-  rename1`renumber_code_locs_list _ (intro_multi [e]) = (_, [ren_e])` >>
+    by metis_tac[clos_mtiProofTheory.compile_preserves_elist_globals] >>
+  rename1`renumber_code_locs_list _ (clos_mti$compile c.do_mti [e]) = (_, [ren_e])` >>
   `elist_globals [ren_e] = elist_globals [ime]`
     by metis_tac[clos_numberProofTheory.renumber_code_locs_elist_globals] >>
   `EVERY esgc_free [ren_e]`
@@ -4193,7 +4200,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac>>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``opt_res_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  Q.SPECL_THEN [`[kcompile b kexp0]`] mp_tac clos_removeProofTheory.remove_correct>>
+
+  (* remove *)
+  Q.SPECL_THEN [`c.do_remove`,`[kcompile b kexp0]`] mp_tac clos_removeProofTheory.compile_correct>>
   simp[]>>impl_keep_tac>-
     (Cases_on`b`>>fs[clos_knownTheory.compile_def]>>
     pairarg_tac>>fs[]>>
@@ -4233,7 +4242,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     rename1`Rabort a` >>
     Cases_on`a`>>full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw]*) )>>
-  impl_tac >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>
+  impl_tac >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_compile] >>
   disch_then(fn th => first_assum(qspec_then`[]`strip_assume_tac o MATCH_MP th)) >>
   imp_res_tac evaluate_const >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_annotateProof$state_rel`` o fst o strip_comb))) >>
@@ -4252,7 +4261,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     CONJ_TAC>-
       (strip_tac >> full_simp_tac(srw_ss())[] )
     >>
-      match_mp_tac (clos_removeProofTheory.every_Fn_SOME_remove|>REWRITE_RULE[AND_IMP_INTRO]) >> simp[] >>
+      match_mp_tac (clos_removeProofTheory.every_Fn_SOME_compile|>REWRITE_RULE[AND_IMP_INTRO]) >> simp[] >>
+      qexists_tac`c.do_remove`>>
       qexists_tac`[kcompile b kexp0]`>>
       Cases_on`b`>>
       fs[clos_knownTheory.compile_def]>>
@@ -4268,7 +4278,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   srw_tac[][bvlSemTheory.evaluate_def] >>
   srw_tac[][bvlSemTheory.find_code_def] >>
   full_simp_tac(srw_ss())[code_installed_def] >>
-  imp_res_tac clos_removeTheory.remove_SING >>
+  `∃z. clos_remove$compile c.do_remove [kcompile b kexp0] = [z]` by
+    (Cases_on`c.do_remove`>>fs[clos_removeTheory.compile_def]>>
+    metis_tac[FST,PAIR,clos_removeTheory.remove_SING])>>
   qmatch_assum_rename_tac`compile_exps _ _ = (esl,_)` >>
   `∃z. esl = [z]` by (
     metis_tac[clos_annotateTheory.shift_SING,
