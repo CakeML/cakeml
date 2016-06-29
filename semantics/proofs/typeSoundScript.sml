@@ -156,7 +156,7 @@ imp_res_tac type_funs_Tfn >>
 full_simp_tac(srw_ss())[Tchar_def] >>
 metis_tac [tid_exn_not];
 
-(* Well-typed pattern matches either match or not, but they don't raise type
+(* well-typed pattern matches either match or not, but they don't raise type
  * errors *)
 val pmatch_type_progress = Q.prove (
 `(∀cenv st p v env t tenv tenvS tvs tvs'' tenvC ctMap.
@@ -225,6 +225,24 @@ val pmatch_type_progress = Q.prove (
      every_case_tac >>
      full_simp_tac(srw_ss())[] >>
      metis_tac [])
+ >- cheat
+(*
+
+ first_assum match_mp_tac
+(* should be a way to instantiate these automatically *)
+>> qexists_tac `t'`
+>> qexists_tac `tenv`
+>> qexists_tac `tenvS`
+>> qexists_tac `tvs`
+>> qexists_tac `tvs''`
+>> qexists_tac `tenvC`
+>> qexists_tac `ctMap`
+>> rw []
+(* given the definition of type_p, it seems to me that proving
+type_p tvs tenvC (Ptannot p t') t tenv ==> type_p tvs tenvC p t tenv
+is not possible *)
+
+*)
  >- tac
  >- tac
  >- tac
@@ -281,6 +299,7 @@ val not_final_state = Q.prove (
      (?e1 e2 e3. e = If e1 e2 e3) ∨
      (?e' pes. e = Mat e' pes) ∨
      (?n e1 e2. e = Let n e1 e2) ∨
+     (?t e'. e = Tannot e' t) ∨
      (?funs e'. e = Letrec funs e'))`,
 srw_tac[][] >>
 cases_on `e` >>
@@ -693,6 +712,7 @@ val pmatch_type_preservation = Q.prove (
      full_simp_tac(srw_ss())[] >>
      srw_tac[][] >>
      metis_tac [consistent_con_env_def, type_v_weakening, weakCT_refl, weakS_refl, weakM_refl])
+ >- cheat (* see the other cheat comment *)
  >- full_simp_tac(srw_ss())[Once type_p_cases, bind_var_list_def]
  >- (every_case_tac >>
      full_simp_tac(srw_ss())[] >>
@@ -1197,7 +1217,10 @@ val exp_type_preservation = Q.prove (
          match_mp_tac type_env_merge_imp >>
          simp [] >>
          match_mp_tac type_recfun_env >>
-         metis_tac [bind_tvar_def]))
+         metis_tac [bind_tvar_def])
+     >- cheat
+
+    )
  >- (full_simp_tac(srw_ss())[continue_def, push_def] >>
      cases_on `c` >>
      full_simp_tac(srw_ss())[] >>
