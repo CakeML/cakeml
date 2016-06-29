@@ -117,8 +117,11 @@ val () = Datatype `
 (* -- ASM target-specific configuration -- *)
 
 val () = Datatype `
+  architecture = ARMv6 | ARMv8 | MIPS | RISC_V | x86_64`
+
+val () = Datatype `
   asm_config =
-    <| ISA_name         : string
+    <| ISA              : architecture
      ; reg_count        : num
      ; avoid_regs       : num list
      ; link_reg         : num option
@@ -159,8 +162,7 @@ val arith_ok_def = Define `
      reg_ok r1 c /\ reg_ok r2 c /\
      reg_ok r3 c /\ reg_ok r4 c /\
      (* Require register inequality for some architectures *)
-     (((c.ISA_name = "MIPS") \/
-       (c.ISA_name = "RISC-V")) ==> r1 <> r3 /\ r1 <> r4))`
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4))`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
