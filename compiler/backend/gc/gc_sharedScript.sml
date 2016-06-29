@@ -54,6 +54,9 @@ val el_length_def = Define `
   (el_length (ForwardPointer n d l) = l+1) /\
   (el_length (DataElement xs l data) = l+1)`;
 
+val heap_length_def = Define `
+  heap_length heap = SUM (MAP el_length heap)`;
+
 val heap_lookup_def = Define `
   (heap_lookup a [] = NONE) /\
   (heap_lookup a (x::xs) =
@@ -99,9 +102,6 @@ val isDataElement_def = Define `
 
 val isSomeDataElement_def = Define `
   isSomeDataElement x = ?ys l d. x = SOME (DataElement ys l d)`;
-
-val heap_length_def = Define `
-  heap_length heap = SUM (MAP el_length heap)`;
 
 val roots_ok_def = Define `
   roots_ok roots heap =
