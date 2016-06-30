@@ -186,8 +186,6 @@ val heap_gen_ok_def = Define `
 val _ = Datatype `
   data_sort = Protected 'a      (* actually a pointer to an older generation *)
             | Real 'b`;         (* a pointer to current generation/data *)
-val to_basic_conf_def = Define `
-  to_basic_conf conf = <| limit := conf.limit; isRef := conf.isRef |> : ('a,'b) basic_gc_conf`;
 
 val to_basic_heap_address_def = Define `
   (to_basic_heap_address conf (Data a) = Data (Real a)) /\
@@ -203,6 +201,17 @@ val to_gen_heap_address_def = Define `
   (to_gen_heap_address gen_start (Data (Protected a)) = a) /\
   (to_gen_heap_address gen_start (Data (Real b)) = Data b) /\
   (to_gen_heap_address gen_start (Pointer ptr (Real a)) = Pointer (ptr + gen_start) a)`;
+
+val to_basic_isRef_def = Define `
+  (to_basic_isRef isRef (DataElement ptrs n d) =
+    isRef (DataElement (MAP (to_gen_heap_address 0) ptrs) n d)) /\
+  (to_basic_isRef isRef _ = F)`;
+
+val to_basic_conf_def = Define `
+  to_basic_conf (conf:('a,'b) gen_gc_conf) =
+    <| limit := conf.limit
+     ; isRef := to_basic_isRef conf.isRef |>
+     : (('a heap_address, 'a) data_sort, 'b) basic_gc_conf`;
 
 val to_basic_heap_element_def = Define `
   (to_basic_heap_element conf (Unused n) = Unused n) /\
@@ -247,14 +256,10 @@ val r2r_filter_def = Define `
   (r2r_filter (Pointer _ _) = T) /\
   (r2r_filter _ = F)`;
 
-val r2p_def = Define `
-  (r2p (Pointer n (Real a)) = Pointer n a) /\
-  (r2p (Pointer n (Protected a)) = Pointer n a)`;
-
 val refs_to_roots_def = Define `
   (refs_to_roots [] = []) /\
   (refs_to_roots (DataElement ptrs _ _::refs) =
-    (MAP r2p (FILTER r2r_filter ptrs)) ++ refs_to_roots refs) /\
+    (FILTER r2r_filter ptrs) ++ refs_to_roots refs) /\
   (refs_to_roots (_::refs) = refs_to_roots refs)`;
 
 val (RootsRefs_def,RootsRefs_ind,RootsRefs_cases) = Hol_reln `
@@ -279,11 +284,8 @@ val (RootsRefs_def,RootsRefs_ind,RootsRefs_cases) = Hol_reln `
      RootsRefs (ForwardPointer _ _ _::refs) roots)`;
 
 val RootsRefs_related = prove(
-  ``!roots refs.
-      (refs_to_roots refs = roots)
-      RootsRefs refs roots``,
-  simp []
-  \\ Induct
+  ``!refs. RootsRefs refs (refs_to_roots refs)``,
+  Induct
   >- (simp [refs_to_roots_def]
      \\ metis_tac [RootsRefs_cases])
   \\ Cases
@@ -294,22 +296,20 @@ val RootsRefs_related = prove(
   \\ simp []
   >- metis_tac [RootsRefs_cases]
   \\ Cases
-  >- (Cases_on `a`
-     \\ simp [r2r_filter_def,r2p_def]
+  >- (simp [r2r_filter_def]
      \\ metis_tac [RootsRefs_cases])
   \\ simp [r2r_filter_def]
   \\ metis_tac [RootsRefs_cases]);
 
 val simulation = prove(
-  ``let heap' = to_basic_heap conf heap in
-    let refs' = refs_to_roots (heap_drop conf.refs_start heap') in
-    (basic_gc (to_basic_conf conf)
-      (to_basic_roots conf.gen_start roots ++ refs'
-      ,heap') = (roots',state')) ==>
+  ``let bheap = to_basic_heap conf heap in
+    let broots = to_basic_roots conf.gen_start roots ++
+                 refs_to_roots (heap_drop conf.refs_start bheap) in
+    (basic_gc (to_basic_conf conf) (broots,bheap) = (roots',state')) ==>
     ?roots'' state''.
       (partial_gc conf (roots, heap) = (roots'',state'')) /\
       (roots' = to_basic_roots conf.gen_start roots'') /\
-      (state' = to_basic_state conf.gen_start state'')``,
+      (state' = to_basic_state conf state'')``,
   cheat);
 
 (*
