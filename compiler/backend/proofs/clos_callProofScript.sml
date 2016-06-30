@@ -380,29 +380,27 @@ val calls_ALL_DISTINCT = Q.store_thm("calls_ALL_DISTINCT",
     \\ fs[ALL_DISTINCT_APPEND,SUBSET_DEF,ADD1]
     \\ metis_tac[ADD1,numTheory.INV_SUC] )
   THEN1 (
-    fs[MAP_FST_code_list,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,
-       ALL_DISTINCT_GENLIST,MEM_GENLIST,PULL_EXISTS]
-    \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+    first_x_assum match_mp_tac
+    \\ fs[MAP_FST_code_list,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,
+          ALL_DISTINCT_GENLIST,MEM_GENLIST,PULL_EXISTS]
+    \\ imp_res_tac LIST_REL_LENGTH
     \\ imp_res_tac calls_IS_SUFFIX
     \\ imp_res_tac calls_add_SUC_code_locs
     \\ fs[IS_SUFFIX_APPEND,SUBSET_DEF]
     \\ fs[IN_DISJOINT,MEM_GENLIST]
     \\ rfs[GSYM ADD1]
     \\ metis_tac[numTheory.INV_SUC] )
+  \\ first_x_assum match_mp_tac
   \\ fs[MAP_FST_code_list,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,
         ALL_DISTINCT_GENLIST,MEM_GENLIST,PULL_EXISTS]
-  \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+  \\ imp_res_tac LIST_REL_LENGTH
   \\ imp_res_tac calls_IS_SUFFIX
   \\ imp_res_tac calls_add_SUC_code_locs
   \\ fs[IS_SUFFIX_APPEND,SUBSET_DEF]
   \\ fs[IN_DISJOINT,MEM_GENLIST]
-  \\ reverse conj_asm2_tac >- metis_tac[numTheory.INV_SUC,ADD1,ADD_ASSOC]
-  \\ rfs[]
-  \\ spose_not_then strip_assume_tac
-  \\ res_tac \\ fs[ADD1]
-  \\ res_tac
-  \\ first_x_assum(qspec_then`i`mp_tac)
-  \\ simp[]);
+  \\ fs[MAP_FST_code_list,MEM_GENLIST,PULL_EXISTS]
+  \\ rfs[GSYM ADD1]
+  \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``]);
 
 val calls_subg = Q.store_thm("calls_subg",
   `∀xs g0 ys g.
@@ -436,14 +434,12 @@ val calls_domain = Q.store_thm("calls_domain",
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
   \\ fs[SUBSET_DEF] \\ rw[]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ TRY (
-    imp_res_tac calls_subspt
-    \\ imp_res_tac calls_IS_SUFFIX
-    \\ fs[IS_SUFFIX_APPEND] \\ fs[]
-    \\ metis_tac[])
+  \\ imp_res_tac calls_subspt
+  \\ imp_res_tac calls_IS_SUFFIX
   \\ imp_res_tac calls_length
-  \\ fs[domain_FST_insert_each,MAP_FST_code_list,MEM_GENLIST]
-  \\ metis_tac[EVAL``PRE 1``,prim_recTheory.PRE,ADD1,ADD_ASSOC]);
+  \\ fs[IS_SUFFIX_APPEND] \\ fs[]
+  \\ fs[MAP_FST_code_list,MEM_GENLIST,PULL_EXISTS,GSYM ADD1,domain_FST_insert_each]
+  \\ metis_tac[numTheory.INV_SUC,prim_recTheory.PRE,EVAL``PRE 1``]);
 
 val wfg'_insert_each = Q.store_thm("wfg'_insert_each",
   `∀n g loc. wfg' g ∧ (0 < n ⇒ EVEN loc) ⇒ wfg' (insert_each loc n g)`,
