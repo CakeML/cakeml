@@ -7,6 +7,10 @@ val _ = new_theory"clos_callProof";
 
 (* TODO: move *)
 
+val PUSH_EXISTS_IMP = store_thm("PUSH_EXISTS_IMP",
+  ``(?x. P ==> Q x) <=> (P ==> ?x. Q x)``,
+  metis_tac []);
+
 val TAKE_MAP = Q.store_thm("TAKE_MAP",
   `∀ls n f. TAKE n (MAP f ls) = MAP f (TAKE n ls)`,
   Induct \\ rw[]);
@@ -2350,20 +2354,40 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[])
   (* Tick *)
-  \\ conj_tac >- cheat
-   (*
-   (fs [evaluate_def,calls_def] \\ rw []
+  \\ conj_tac >- (
+    fs [evaluate_def,calls_def] \\ rpt strip_tac
+    \\ Cases_on `s.clock = 0` \\ fs [] THEN1
+     (fs [PUSH_EXISTS_IMP,GSYM PULL_EXISTS]
+      \\ pairarg_tac \\ fs [] \\ rw []
+      \\ `t0.clock = s.clock` by fs [state_rel_def]
+      \\ fs [evaluate_def]
+      \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
+      \\ qexists_tac `0` \\ fs [state_rel_def])
     \\ pairarg_tac \\ fs [] \\ rw []
+    \\ fs [dec_clock_def]
+    \\ first_x_assum drule \\ fs [code_locs_def]
+    \\ rpt (disch_then drule) \\ fs []
+    \\ fs [GSYM PULL_FORALL]
+    \\ impl_tac THEN1 fs [wfv_state_def]
+    \\ disch_then (qspecl_then [`env2`,`t0 with clock := t0.clock-1`] mp_tac)
+    \\ strip_tac \\ fs []
+    \\ fs [PUSH_EXISTS_IMP,GSYM PULL_EXISTS] \\ rw [] \\ fs []
+    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs []) \\ fs []
+    \\ qpat_assum `_ ==> _` mp_tac
+    \\ impl_tac THEN1
+     (fs [state_rel_def,env_rel_def]
+      \\ IF_CASES_TAC \\ fs [] \\ fs []
+      \\ ntac 2 strip_tac \\ first_x_assum match_mp_tac
+      \\ Cases_on `e1` \\ fs [] \\ rw []
+      \\ `!x y. fv1 x (Tick y) = fv1 x y` by (EVAL_TAC \\ fs []) \\ fs [])
+    \\ strip_tac
     \\ `t0.clock = s.clock` by fs [state_rel_def]
     \\ fs [evaluate_def]
-    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
-    THEN1 (qexists_tac `0` \\ fs [state_rel_def])
-    \\ fs [dec_clock_def] \\ pop_assum kall_tac
-    \\ first_x_assum drule \\ fs [code_locs_def]
-    \\ rpt (disch_then drule)
-    \\ disch_then (qspec_then `t0 with clock := t0.clock-1` mp_tac)
-    \\ fs [] \\ impl_tac THEN1 fs [state_rel_def]
-    \\ strip_tac \\ asm_exists_tac \\ fs []) *)
+    \\ qexists_tac `ck` \\ fs [dec_clock_def]
+    \\ `ck + s.clock − 1 = ck + (s.clock − 1)` by decide_tac
+    \\ qpat_assum `_ = (_,_)` mp_tac
+    \\ pop_assum (fn th => simp_tac std_ss [th])
+    \\ fs [])
   (* Call *)
   \\ conj_tac >- (
     rw[evaluate_def,calls_def,code_locs_def,ALL_DISTINCT_APPEND]
