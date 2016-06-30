@@ -156,7 +156,7 @@ Tdec
                [Var (Short "mk_list"); Var (Short "n")]]])]);
 Tdec
   (Dlet (Pvar "test")
-     (App Opapp [Var (Short "use_tree"); Lit (IntLit 1000)]))]``
+     (App Opapp [Var (Short "use_tree"); Lit (IntLit 10000)]))]``
 
 val queue = ``
 [Tdec
@@ -267,7 +267,7 @@ Tdec
              Var (Short "empty")]])]);
 Tdec
   (Dlet (Pvar "test")
-     (App Opapp [Var (Short "run_queue"); Lit (IntLit 1000000)]))]``
+     (App Opapp [Var (Short "run_queue"); Lit (IntLit 20000000)]))]``
 
 val qsort = ``
 [Tdec
@@ -397,7 +397,7 @@ Tdec
                [Var (Short "mk_list"); Var (Short "n")]]])]);
 Tdec
   (Dlet (Pvar "test")
-     (App Opapp [Var (Short "use_qsort"); Lit (IntLit 1000)]))]``
+     (App Opapp [Var (Short "use_qsort"); Lit (IntLit 10000)]))]``
 
 val fib = ``
 [Tdec
@@ -425,7 +425,7 @@ Tdec
      )]);
 Tdec
   (Dlet (Pvar "test")
-     (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
+     (App Opapp [Var (Short "use_fib"); Lit (IntLit 36)]))]``
 
 val benchmarks = [fib,btree,queue,qsort]
 val names = ["fib","btree","queue","qsort"]
@@ -452,7 +452,7 @@ val benchmarks_o4_bytes = map extract_bytes benchmarks_o4
 
 fun write_asm [] = ()
   | write_asm ((name,bytes)::xs) =
-    (write_cake_S 50 50 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
+    (write_cake_S 1000 1000 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
     write_asm xs)
 
 val _ = write_asm (zip (map (fn s => "o0_"^s)names) benchmarks_o0_bytes);
