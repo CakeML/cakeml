@@ -183,6 +183,9 @@ val heap_gen_ok_def = Define `
       (* refs only contains references *)
       (!el. MEM el refs ==> conf.isRef el)`;
 
+val _ = Datatype `
+  data_sort = Protected 'a      (* actually a pointer to an older generation *)
+            | Real 'b`;         (* a pointer to current generation/data *)
 val to_basic_conf_def = Define `
   to_basic_conf conf = <| limit := conf.limit; isRef := conf.isRef |> : ('a,'b) basic_gc_conf`;
 

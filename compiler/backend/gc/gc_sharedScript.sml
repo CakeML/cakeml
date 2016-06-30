@@ -13,10 +13,6 @@ val _ = Datatype `
                | ForwardPointer num 'a num
                | DataElement (('a heap_address) list) num 'b`;
 
-(* used in the basic GC *)
-val _ = Datatype `
-  data_sort = Protected 'a      (* actually a pointer to an older generation *)
-            | Real 'b`;         (* a pointer to current generation/data *)
 
 val _ = Datatype `
   gc_state =
