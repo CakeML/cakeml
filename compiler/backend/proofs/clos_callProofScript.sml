@@ -1091,8 +1091,8 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
   \\ simp[]);
 
 val env_rel_DROP = Q.store_thm("env_rel_DROP",
-  `LIST_REL R (TAKE x l1) (TAKE x l2) ∧
-   env_rel R (DROP x l1) (DROP x l2) x es ∧
+  `env_rel R (DROP x l1) (DROP x l2) x es ∧
+   LIST_REL R (TAKE x l1) (TAKE x l2) ∧
    x ≤ LENGTH l1 ∧ x ≤ LENGTH l2
    ⇒
    env_rel R l1 l2 0 es`,
@@ -1107,6 +1107,24 @@ val env_rel_DROP = Q.store_thm("env_rel_DROP",
   \\ first_x_assum drule \\ rveq
   \\ pairarg_tac \\ fs[]
   \\ disch_then(qspec_then`p`mp_tac)
+  \\ simp[] \\ strip_tac
+  \\ rfs[EL_DROP]);
+
+val env_rel_DROP_args = Q.store_thm("env_rel_DROP_args",
+  `env_rel R (DROP n l1) (DROP n l2) a [(n,e)] ∧
+   LIST_REL R (TAKE n l1) (TAKE n l2) ∧
+   n ≤ LENGTH l1 ∧ n ≤ LENGTH l2 ⇒
+   env_rel R l1 l2 a [(0,e)]`,
+  simp[env_rel_def]
+  \\ IF_CASES_TAC \\ fs[]
+  >- metis_tac[TAKE_DROP,EVERY2_APPEND_suff]
+  \\ strip_tac
+  \\ qx_gen_tac`x`
+  \\ Cases_on`x < n`
+  >- ( fs[LIST_REL_EL_EQN,EL_TAKE] )
+  \\ fs[NOT_LESS,LESS_EQ_EXISTS]
+  \\ strip_tac
+  \\ first_x_assum drule
   \\ simp[] \\ strip_tac
   \\ rfs[EL_DROP]);
 
@@ -2326,7 +2344,28 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qmatch_asmsub_abbrev_tac`COND b`
     \\ imp_res_tac calls_length \\ fs[]
     \\ `env_rel (v_rel g1 l1) l args2 0 [(0, SND (EL i fns2))]`
-    by cheat (* use env_rel_DROP, hopefully that is enough? *)
+    by (
+      qhdtm_x_assum`env_rel`mp_tac
+      \\ `n = FST (EL i fns2)`
+      by ( Cases_on`b` \\ fs[calls_list_MAPi,EL_ZIP,EL_MAP] )
+      \\ reverse IF_CASES_TAC \\ fs[]
+      >- (
+        strip_tac
+        \\ match_mp_tac env_rel_DROP_args
+        \\ simp[] \\ fs[] )
+      \\ ONCE_REWRITE_TAC[ADD_COMM]
+      \\ simp[GSYM DROP_DROP]
+      \\ strip_tac \\ drule env_rel_DROP
+      \\ impl_tac
+      >- (
+        simp[]
+        \\ fs[LIST_REL_EL_EQN]
+        \\ rfs[EL_TAKE,EL_DROP] )
+      \\ strip_tac
+      \\ match_mp_tac env_rel_DROP_args
+      \\ simp[] \\ fs[]
+      \\ fs[LIST_REL_EL_EQN]
+      \\ rfs[EL_TAKE])
     \\ reverse(Cases_on`b`) \\ fs[] \\ rveq
     >- (
       drule (GEN_ALL calls_el_sing)
@@ -2458,6 +2497,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `1` assume_tac)
     \\ qexists_tac `SUC ck` \\ simp[ADD1] )
+  \\ imp_res_tac evaluate_length_imp
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ rveq \\ strip_tac
   \\ cheat);
 
 (*
