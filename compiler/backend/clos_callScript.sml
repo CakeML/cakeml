@@ -99,7 +99,7 @@ val calls_def = tDefine "calls" `
        if EVERY2 (\(n,_) p. closed (Fn NONE NONE n p)) fns fns1 then
          let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
          let (e1,g) = calls [x1] new_g in
-           ([Letrec loc_opt ws (calls_list loc fns) (HD e1)],new_g)
+           ([Letrec loc_opt ws (calls_list loc fns) (HD e1)],g)
        else
          let (fns1,g) = calls (MAP SND fns) g in
          let (e1,g) = calls [x1] g in
