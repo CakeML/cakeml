@@ -2452,7 +2452,7 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ qmatch_asmsub_rename_tac`wfv g1 l1`
   \\ qmatch_asmsub_rename_tac`Full_app e args rest`
   \\ `c1 ∧ c2 ∧ EVERY (wfv g1 l1) (args++rest)`
-  >- (
+  by (
     drule (GEN_ALL dest_closure_full_wfv) \\ fs[]
     \\ rpt (disch_then drule) \\ strip_tac
     \\ qmatch_asmsub_rename_tac`err ≠ Rerr _`
@@ -2555,205 +2555,222 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ strip_tac
   \\ simp[evaluate_app_rw]
   \\ qpat_assum`_ = (res,_)`mp_tac
-  \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ imp_res_tac evaluate_length_imp
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ rveq \\ strip_tac
+  \\ rveq \\ fs[] \\ rfs[]
+  \\ fs[PULL_EXISTS] \\ rfs[]
+  \\ fs[recclosure_rel_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ qmatch_assum_rename_tac`v_rel g1 l1 f f'`
+  \\ qmatch_assum_rename_tac`LIST_REL _ rest1 rest2`
+  \\ first_x_assum(qspecl_then[`g1`,`l1`]mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
+  \\ ((fn g as (asl,w) =>
+      let
+        val (fa,_) = dest_imp w
+        val (_,b) = strip_forall fa
+        val (tm,_) = dest_imp b
+        val tms = find_terms (fn x => type_of x = bool andalso free_in x fa) tm
+      in
+        SUBGOAL_THEN (list_mk_conj tms) strip_assume_tac
+      end g)
   >- (
-    strip_tac \\ rveq \\ fs[] \\ rfs[]
-    \\ fs[PULL_EXISTS] \\ rfs[]
-    \\ fs[recclosure_rel_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ qmatch_assum_rename_tac`v_rel g1 l1 f f'`
-    \\ qmatch_assum_rename_tac`LIST_REL _ rest1 rest2`
-    \\ first_x_assum(qspecl_then[`g1`,`l1`]mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
-    \\ (fn g as (asl,w) =>
-        let
-          val (fa,_) = dest_imp w
-          val (_,b) = strip_forall fa
-          val (tm,_) = dest_imp b
-          val tms = find_terms (fn x => type_of x = bool andalso free_in x fa) tm
-        in
-          SUBGOAL_THEN (list_mk_conj tms) strip_assume_tac
-        end g)
+    fs[code_locs_map,recclosure_wf_def]
+    \\ imp_res_tac ALL_DISTINCT_FLAT_EVERY >>
+    fs[Q.SPEC`MAP _ _`every_Fn_SOME_EVERY,
+       Q.SPEC`MAP _ _`every_Fn_vs_NONE_EVERY,
+       EVERY_MAP,EVERY_MEM,NOT_LESS_EQUAL]
+    \\ `MEM (n,e) fns1` by metis_tac[MEM_EL]
+    \\ fs[EVERY_MAP,EVERY_MEM]
+    \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
+    \\ rpt(first_x_assum drule) \\ simp[]
+    \\ fs[wfv_state_def,dec_clock_def] ))
+  \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`COND b`
+  \\ imp_res_tac calls_length \\ fs[]
+  \\ `env_rel (v_rel g1 l1) args args2 0 [(0, SND (EL i fns2))]`
+  by (
+    qhdtm_x_assum`env_rel`mp_tac
+    \\ `n = FST (EL i fns2)`
+    by ( Cases_on`b` \\ fs[calls_list_MAPi,EL_ZIP,EL_MAP] )
+    \\ reverse IF_CASES_TAC \\ fs[]
     >- (
-      fs[code_locs_map,recclosure_wf_def]
-      \\ imp_res_tac ALL_DISTINCT_FLAT_EVERY >>
-      fs[Q.SPEC`MAP _ _`every_Fn_SOME_EVERY,
-         Q.SPEC`MAP _ _`every_Fn_vs_NONE_EVERY,
-         EVERY_MAP,EVERY_MEM,NOT_LESS_EQUAL]
-      \\ `MEM (n,e) fns1` by metis_tac[MEM_EL]
-      \\ fs[EVERY_MAP,EVERY_MEM]
-      \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
-      \\ rpt(first_x_assum drule) \\ simp[]
-      \\ fs[wfv_state_def,dec_clock_def] )
-    \\ simp[]
-    \\ qmatch_asmsub_abbrev_tac`COND b`
-    \\ imp_res_tac calls_length \\ fs[]
-    \\ `env_rel (v_rel g1 l1) args args2 0 [(0, SND (EL i fns2))]`
-    by (
-      qhdtm_x_assum`env_rel`mp_tac
-      \\ `n = FST (EL i fns2)`
-      by ( Cases_on`b` \\ fs[calls_list_MAPi,EL_ZIP,EL_MAP] )
-      \\ reverse IF_CASES_TAC \\ fs[]
-      >- (
-        strip_tac
-        \\ match_mp_tac env_rel_DROP_args
-        \\ simp[] \\ fs[] )
-      \\ ONCE_REWRITE_TAC[ADD_COMM]
-      \\ simp[GSYM DROP_DROP]
-      \\ strip_tac \\ drule env_rel_DROP
-      \\ impl_tac
-      >- (
-        simp[]
-        \\ fs[LIST_REL_EL_EQN]
-        \\ rfs[EL_TAKE,EL_DROP] )
-      \\ strip_tac
+      strip_tac
       \\ match_mp_tac env_rel_DROP_args
-      \\ simp[] \\ fs[]
-      \\ fs[LIST_REL_EL_EQN]
-      \\ rfs[EL_TAKE])
-    \\ reverse(Cases_on`b`) \\ fs[] \\ rveq
-    >- (
-      drule (GEN_ALL calls_el_sing)
-      \\ disch_then (qspec_then`i`mp_tac)
-      \\ impl_tac >- fs[wfg_def,recclosure_wf_def]
-      \\ simp[EL_MAP] \\ strip_tac
-      \\ disch_then drule
-      \\ qmatch_goalsub_abbrev_tac`dec_clock dk s0`
-      \\ disch_then(qspecl_then[`dec_clock dk t0`,`args2`]mp_tac)
-      \\ impl_tac
-      >- (
-        fs[dec_clock_def]
-        \\ conj_tac >- metis_tac[subg_trans]
-        \\ fs[SUBSET_DEF])
-      \\ strip_tac
-      \\ imp_res_tac calls_length \\ fs[]
-      \\ simp[EL_ZIP]
-      \\ fs[dec_clock_def]
-      \\ qpat_assum`_ ⇒ _`mp_tac
-      \\ impl_tac
-      >- (
-        qhdtm_x_assum`env_rel`mp_tac
-        \\ simp[EL_ZIP]
-        \\ metis_tac[state_rel_with_clock,code_includes_subg,state_rel_def] )
-      \\ strip_tac \\ fs[] \\ rveq
-      \\ imp_res_tac state_rel_clock \\ fs[]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
-      \\ qexists_tac`ck` \\ simp[] \\ rfs[] )
-    \\ REWRITE_TAC[calls_list_MAPi]
-    \\ simp[]
-    \\ simp[evaluate_def,evaluate_GENLIST_Var]
-    \\ simp[find_code_def]
-    \\ `n ≤ LENGTH args2`
-    by (
-      qpat_assum`_ ≤ LENGTH args2`mp_tac
-      \\ IF_CASES_TAC \\ fs[] )
-    \\ simp[EVAL``(closSem$dec_clock _ _).code``]
-    \\ qmatch_assum_abbrev_tac`subg gd g1`
-    \\ `code_includes (SND gd) t0.code`
-    by ( metis_tac[code_includes_subg,state_rel_def] )
-    \\ pop_assum mp_tac
-    \\ `ALOOKUP (SND gd) (2 * i + loc + 1) = SOME (EL i (ZIP (MAP FST fns1,es)))`
-    by (
-      simp[Abbr`gd`]
-      \\ simp[ALOOKUP_code_list]
-      \\ DEEP_INTRO_TAC some_intro \\ simp[] )
-    \\ strip_tac
-    \\ drule (GEN_ALL code_includes_ALOOKUP)
-    \\ disch_then drule
-    \\ simp[] \\ strip_tac
-    \\ simp[EL_ZIP,EL_MAP]
-    \\ strip_tac
-    \\ simp[dec_clock_def]
-    \\ qpat_assum`calls _ _ = (es,_)`assume_tac
-    \\ drule calls_replace_SND
-    \\ disch_then(qspec_then`insert_each' loc (LENGTH fns1) g0`mp_tac)
-    \\ simp[FST_insert_each']
-    \\ drule calls_IS_SUFFIX
-    \\ simp[IS_SUFFIX_APPEND]
-    \\ strip_tac \\ simp[]
-    \\ strip_tac
-    \\ drule (GEN_ALL calls_el_sing)
-    \\ disch_then(qspec_then`i`mp_tac)
+      \\ simp[] \\ fs[] )
+    \\ ONCE_REWRITE_TAC[ADD_COMM]
+    \\ simp[GSYM DROP_DROP]
+    \\ strip_tac \\ drule env_rel_DROP
     \\ impl_tac
     >- (
-      fs[MAP_FST_insert_each',recclosure_wf_def]
-      \\ fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_GENLIST]
-      \\ conj_tac
-      >- (
-        rfs[wfg_def,MEM_GENLIST,IN_DISJOINT]
-        \\ metis_tac[] )
-      \\ conj_asm1_tac
-      >- (
-        rfs[wfg_def,IN_DISJOINT,MEM_GENLIST,GSYM ADD1]
-        \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``] )
-      \\ match_mp_tac wfg_insert_each'
-      \\ fs[IN_DISJOINT,MEM_GENLIST]
-      \\ rfs[wfg_def]
-      \\ spose_not_then strip_assume_tac
-      \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``,ADD1] )
-    \\ simp[EL_MAP]
+      simp[]
+      \\ fs[LIST_REL_EL_EQN]
+      \\ rfs[EL_TAKE,EL_DROP] )
     \\ strip_tac
-    \\ first_x_assum drule
+    \\ match_mp_tac env_rel_DROP_args
+    \\ simp[] \\ fs[]
+    \\ fs[LIST_REL_EL_EQN]
+    \\ rfs[EL_TAKE])
+  \\ (reverse(Cases_on`b`) \\ fs[] \\ rveq
+  >- (
+    rveq \\ drule (GEN_ALL calls_el_sing)
+    \\ disch_then (qspec_then`i`mp_tac)
+    \\ impl_tac >- fs[wfg_def,recclosure_wf_def]
+    \\ simp[EL_MAP] \\ strip_tac
+    \\ disch_then drule
     \\ qmatch_goalsub_abbrev_tac`dec_clock dk s0`
-    \\ qmatch_asmsub_abbrev_tac`(n,e)`
-    \\ disch_then(qspecl_then[`dec_clock dk t0`,`TAKE n args2`]mp_tac)
+    \\ disch_then(qspecl_then[`dec_clock dk t0`,`args2`]mp_tac)
     \\ impl_tac
     >- (
       fs[dec_clock_def]
-      \\ conj_tac >- cheat (* subg over insert_each' *)
-      \\ fs[SUBSET_DEF] )
-    \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM]
+      \\ conj_tac >- metis_tac[subg_trans]
+      \\ fs[SUBSET_DEF])
+    \\ strip_tac
+    \\ imp_res_tac calls_length \\ fs[]
+    \\ simp[EL_ZIP]
+    \\ fs[dec_clock_def]
+    \\ qpat_assum`_ ⇒ _`mp_tac
     \\ impl_tac
     >- (
-      \\ rfs[wfg_def,EL_ZIP]
-      \\ conj_tac
-      >- (
-        `∀v. has_var v (SND (free [EL i es])) ⇒ v < n`
-        by (
-          fs[markerTheory.Abbrev_def,LIST_REL_EL_EQN]
-          \\ first_x_assum(qspec_then`i`mp_tac) \\ simp[] )
-        \\ qspec_then`[EL i es]`mp_tac free_thm
-        \\ simp[] \\ pairarg_tac \\  fs[] \\ strip_tac
-        \\ fs[env_rel_def]
-        \\ imp_res_tac LIST_REL_LENGTH
-        \\ IF_CASES_TAC
-        >- ( every_case_tac \\ fs[TAKE_LENGTH_ID_rwt] )
-        \\ ntac 2 strip_tac
-        \\ res_tac
-        \\ simp[EL_TAKE]
-        \\ Cases_on`LENGTH args = LENGTH args2` >- fs[LIST_REL_EL_EQN]
-        \\ fs[]
-        \\ qmatch_asmsub_rename_tac`is_Recclosure v1`
-        \\ reverse(Cases_on`is_Recclosure v1`\\fs[])
-        >- fs[LIST_REL_EL_EQN,EL_TAKE]
-        \\ rfs[LIST_REL_EL_EQN] \\ fs[EL_TAKE]
-        \\ last_x_assum match_mp_tac
-        \\ res_tac \\ simp[] )
-      \\ imp_res_tac state_rel_clock
-      \\ fs[dec_clock_def]
-      \\ conj_tac
-      >- ( match_mp_tac state_rel_with_clock \\ fs[] )
-      \\ cheat (* code_includes over insert_each' *))
-    \\ fs[dec_clock_def]
-    \\ strip_tac
-    \\ qmatch_goalsub_abbrev_tac`_:num < dk'`
-    \\ `dk' = dk`
-    by (
-      unabbrev_all_tac
+      qhdtm_x_assum`env_rel`mp_tac
+      \\ simp[EL_ZIP]
+      \\ metis_tac[state_rel_with_clock,code_includes_subg,state_rel_def] )
+    \\ strip_tac \\ fs[] \\ rveq
+    \\ imp_res_tac state_rel_clock \\ fs[]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
+    \\ rfs[]
+    \\ TRY (
+        first_x_assum drule \\ fs[]
+      \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM,FORALL_AND_THM]
+      \\ rpt(disch_then drule)
+      \\ strip_tac
+      \\ drule evaluate_add_clock \\ fs[]
+      \\ disch_then(qspec_then`ck'`assume_tac)
+      \\ qexists_tac`ck+ck'` \\ simp[] \\ rfs[] )
+    \\ qexists_tac`ck` \\ simp[] \\ rfs[] ))
+  \\ REWRITE_TAC[calls_list_MAPi]
+  \\ simp[]
+  \\ simp[evaluate_def,evaluate_GENLIST_Var]
+  \\ simp[find_code_def]
+  \\ `n ≤ LENGTH args2`
+  by (
+    qpat_assum`_ ≤ LENGTH args2`mp_tac
+    \\ IF_CASES_TAC \\ fs[] )
+  \\ simp[EVAL``(closSem$dec_clock _ _).code``]
+  \\ qmatch_assum_abbrev_tac`subg gd g1`
+  \\ `code_includes (SND gd) t0.code`
+  by ( metis_tac[code_includes_subg,state_rel_def] )
+  \\ pop_assum mp_tac
+  \\ `ALOOKUP (SND gd) (2 * i + loc + 1) = SOME (EL i (ZIP (MAP FST fns1,es)))`
+  by (
+    simp[Abbr`gd`]
+    \\ simp[ALOOKUP_code_list]
+    \\ DEEP_INTRO_TAC some_intro \\ simp[] )
+  \\ strip_tac
+  \\ drule (GEN_ALL code_includes_ALOOKUP)
+  \\ disch_then drule
+  \\ simp[] \\ strip_tac
+  \\ simp[EL_ZIP,EL_MAP]
+  \\ strip_tac
+  \\ simp[dec_clock_def]
+  \\ qpat_assum`calls _ _ = (es,_)`assume_tac
+  \\ drule calls_replace_SND
+  \\ disch_then(qspec_then`insert_each' loc (LENGTH fns1) g0`mp_tac)
+  \\ simp[FST_insert_each']
+  \\ drule calls_IS_SUFFIX
+  \\ simp[IS_SUFFIX_APPEND]
+  \\ strip_tac \\ simp[]
+  \\ strip_tac
+  \\ drule (GEN_ALL calls_el_sing)
+  \\ disch_then(qspec_then`i`mp_tac)
+  \\ (impl_tac
+  >- (
+    fs[MAP_FST_insert_each',recclosure_wf_def]
+    \\ fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_GENLIST]
+    \\ conj_tac
+    >- (
+      rfs[wfg_def,MEM_GENLIST,IN_DISJOINT]
+      \\ metis_tac[] )
+    \\ conj_asm1_tac
+    >- (
+      rfs[wfg_def,IN_DISJOINT,MEM_GENLIST,GSYM ADD1]
+      \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``] )
+    \\ match_mp_tac wfg_insert_each'
+    \\ fs[IN_DISJOINT,MEM_GENLIST]
+    \\ rfs[wfg_def]
+    \\ spose_not_then strip_assume_tac
+    \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``,ADD1] ))
+  \\ simp[EL_MAP]
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ qmatch_goalsub_abbrev_tac`dec_clock dk s0`
+  \\ qmatch_asmsub_abbrev_tac`(n,e)`
+  \\ disch_then(qspecl_then[`dec_clock dk t0`,`TAKE n args2`]mp_tac)
+  \\ (impl_tac
+  >- (
+    fs[dec_clock_def]
+    \\ conj_tac >- cheat (* subg over insert_each' *)
+    \\ fs[SUBSET_DEF] ))
+  \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM]
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ (impl_tac
+  >- (
+    rfs[wfg_def,EL_ZIP]
+    \\ conj_tac
+    >- (
+      `∀v. has_var v (SND (free [EL i es])) ⇒ v < n`
+      by (
+        fs[markerTheory.Abbrev_def,LIST_REL_EL_EQN]
+        \\ first_x_assum(qspec_then`i`mp_tac) \\ simp[] )
+      \\ qspec_then`[EL i es]`mp_tac free_thm
+      \\ simp[] \\ pairarg_tac \\  fs[] \\ strip_tac
+      \\ fs[env_rel_def]
       \\ imp_res_tac LIST_REL_LENGTH
-      \\ simp[] )
-    \\ qunabbrev_tac`dk'` \\ fs[]
+      \\ IF_CASES_TAC
+      >- ( every_case_tac \\ fs[TAKE_LENGTH_ID_rwt] )
+      \\ ntac 2 strip_tac
+      \\ res_tac
+      \\ simp[EL_TAKE]
+      \\ Cases_on`LENGTH args = LENGTH args2` >- fs[LIST_REL_EL_EQN]
+      \\ fs[]
+      \\ qmatch_asmsub_rename_tac`is_Recclosure v1`
+      \\ reverse(Cases_on`is_Recclosure v1`\\fs[])
+      >- fs[LIST_REL_EL_EQN,EL_TAKE]
+      \\ rfs[LIST_REL_EL_EQN] \\ fs[EL_TAKE]
+      \\ last_x_assum match_mp_tac
+      \\ res_tac \\ simp[] )
     \\ imp_res_tac state_rel_clock
-    \\ `∀ck. ¬(SUC ck + t0.clock ≤ dk)` by simp[]
-    \\ qmatch_asmsub_rename_tac`Rerr err`
+    \\ fs[dec_clock_def]
+    \\ conj_tac
+    >- ( match_mp_tac state_rel_with_clock \\ fs[] )
+    \\ cheat (* code_includes over insert_each' *)))
+  \\ fs[dec_clock_def]
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`_:num < dk'`
+  \\ `dk' = dk`
+  by (
+    unabbrev_all_tac
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ simp[] )
+  \\ qunabbrev_tac`dk'` \\ fs[]
+  \\ imp_res_tac state_rel_clock
+  \\ `∀ck. ¬(SUC ck + t0.clock ≤ dk)` by simp[]
+  \\ TRY (
+    qmatch_asmsub_rename_tac`Rerr err`
     \\ Cases_on`err = Rabort Rtimeout_error`
     >- ( fs[] \\ qexists_tac`SUC ck` \\ simp[ADD1] \\ rfs[] )
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `1` assume_tac)
-    \\ qexists_tac `SUC ck` \\ simp[ADD1] \\ rfs[])
-  \\ imp_res_tac evaluate_length_imp
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
-  \\ rveq \\ strip_tac
-  \\ cheat);
+    \\ qexists_tac `SUC ck` \\ simp[ADD1] \\ rfs[] )
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
+  \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM]
+  \\ rpt (disch_then drule)
+  \\ strip_tac
+  \\ drule evaluate_add_clock \\ fs[]
+  \\ disch_then(qspec_then`ck'`assume_tac)
+  \\ qexists_tac`ck+ck'+1` \\ simp[]);
 
 (*
 val tm = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
