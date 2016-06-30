@@ -1266,14 +1266,17 @@ val v_rel_list_to_v = store_thm("v_rel_list_to_v",
   Induct \\ fs [v_rel_def,list_to_v_def,PULL_EXISTS]);
 
 val do_app_thm = prove(
-  ``state_rel g1 l1 r t /\
-    LIST_REL (v_rel g1 l1) a v ==>
-    case do_app op (REVERSE a) r of
+  ``case do_app op (REVERSE a) (r:'ffi closSem$state) of
       Rerr (Rraise _) => F
     | Rerr (Rabort e) => (e = Rtype_error)
     | Rval (w,s) =>
-       ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
-               v_rel g1 l1 w w' /\ state_rel g1 l1 s s'``,
+       (wfv_state g1 l1 r /\ EVERY (wfv g1 l1) a ==>
+        wfv_state g1 l1 s /\ wfv g1 l1 w) /\
+       (LIST_REL (v_rel g1 l1) a v /\ state_rel g1 l1 r t ==>
+        ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
+                v_rel g1 l1 w w' /\ state_rel g1 l1 s s')``,
+  cheat); (* Magnus' proof update in progress *)
+(*
   once_rewrite_tac [GSYM REVERSE_REVERSE]
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
@@ -1420,6 +1423,7 @@ val do_app_thm = prove(
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs []
     \\ fs [ref_rel_def,LIST_REL_EL_EQN])
   \\ Cases_on `op` \\ fs []);
+*)
 
 val NOT_IN_domain_FST_g = store_thm("NOT_IN_domain_FST_g",
   ``ALL_DISTINCT (code_locs xs ++ code_locs ys) ⇒
@@ -1864,15 +1868,46 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ disch_then (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]*)
   (* Op *)
-  \\ conj_tac >- cheat
-   (*
-   (fs [evaluate_def,calls_def] \\ rw []
+  \\ conj_tac >- (
+    fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)` \\ fs []
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
     \\ first_x_assum drule \\ fs [code_locs_def]
     \\ rpt (disch_then drule \\ fs[])
+    \\ fs [GSYM PULL_EXISTS,PUSH_EXISTS_IMP,GSYM PULL_FORALL]
+    \\ strip_tac
+    \\ reverse (Cases_on `q`) \\ fs [] THEN1
+     (rw [] \\ first_assum (qspecl_then [`env2`,`t0`] mp_tac)
+      \\ impl_tac THEN1
+       (fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+        \\ ntac 2 strip_tac
+        \\ first_x_assum match_mp_tac
+        \\ pop_assum mp_tac
+        \\ fs [EXISTS_MAP,fv_exists]
+        \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+        \\ EVAL_TAC \\ fs [fv_exists])
+      \\ strip_tac \\ rw [] \\ qexists_tac `ck` \\ fs [])
+    \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
+    THEN1
+     (rw [] \\ mp_tac do_app_thm \\ fs []
+      \\ every_case_tac \\ fs [])
+    \\ rename1 `do_app op (REVERSE a) r = Rval z`
+    \\ PairCases_on `z` \\ fs [] \\ rveq
+    \\ mp_tac do_app_thm \\ fs [] \\ rpt strip_tac
+    \\ cheat (* Magnus' proof update in progress *)
+(*
+    \\ strip_tac
+    \\ first_assum (qspecl_then [`env2`,`t0`] mp_tac)
+    \\ impl_tac THEN1
+     (fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ ntac 2 strip_tac
+      \\ first_x_assum match_mp_tac
+      \\ pop_assum mp_tac
+      \\ fs [EXISTS_MAP,fv_exists]
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+      \\ EVAL_TAC \\ fs [fv_exists])
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
     \\ reverse (Cases_on `q`) \\ fs [] \\ rw [] \\ fs []
     \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
@@ -1882,7 +1917,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ disch_then (qspec_then `op` mp_tac) \\ fs []
     THEN1 (every_case_tac \\ fs [])
     \\ rename1 `_ = Rval rr` \\ PairCases_on `rr`
-    \\ fs [] \\ rw [] \\ fs [])*)
+    \\ fs [] \\ rw [] \\ fs [] *) )
   (* Fn *)
   \\ conj_tac >- (
     rw[evaluate_def]
