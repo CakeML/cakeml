@@ -2292,8 +2292,6 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ match_mp_tac state_rel_with_clock \\ fs[] )
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ qmatch_assum_rename_tac`_ = (res',_)`
-
-(*
   \\ Cases_on`res' = Rerr (Rabort Rtype_error)` \\ fs[]
   \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
@@ -2327,10 +2325,8 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ simp[]
     \\ qmatch_asmsub_abbrev_tac`COND b`
     \\ imp_res_tac calls_length \\ fs[]
-    \\ `env_rel (v_rel g1 l1) l args2 0 [(0,e)]`
-    by (
-      qhdtm_x_assum`env_rel`mp_tac
-      \\ cheat (* env_rel_DROP like reasoning *))
+    \\ `env_rel (v_rel g1 l1) l args2 0 [(0, SND (EL i fns2))]`
+    by cheat (* use env_rel_DROP, hopefully that is enough? *)
     \\ reverse(Cases_on`b`) \\ fs[] \\ rveq
     >- (
       drule (GEN_ALL calls_el_sing)
@@ -2343,7 +2339,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ impl_tac
       >- (
         fs[dec_clock_def]
-        \\ rfs[wfg_def]
+        \\ rfs[wfg_def,EL_ZIP]
         \\ conj_tac
         >- ( match_mp_tac state_rel_with_clock \\ fs[] )
         \\ conj_tac >- metis_tac[subg_trans]
@@ -2413,20 +2409,33 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qmatch_goalsub_abbrev_tac`dec_clock dk s0`
     \\ qmatch_asmsub_abbrev_tac`(n,e)`
     \\ disch_then(qspecl_then[`dec_clock dk t0`,`TAKE n args2`]mp_tac)
-    (*
     \\ impl_tac
     >- (
       fs[dec_clock_def]
-      \\ rfs[wfg_def]
+      \\ rfs[wfg_def,EL_ZIP]
       \\ conj_tac
       >- (
-        qhdtm_x_assum`env_rel`mp_tac
-        \\ simp[env_rel_def]
-        \\ IF_CASES_TAC \\ fs[]
-        >- (
-          IF_CASES_TAC \\ fs[TAKE_LENGTH_ID_rwt]
-          \\ simp[LIST_REL_EL_EQN]
-          \\ ntac 3 strip_tac
+        `∀v. has_var v (SND (free [EL i es])) ⇒ v < n`
+        by (
+          fs[markerTheory.Abbrev_def,LIST_REL_EL_EQN]
+          \\ first_x_assum(qspec_then`i`mp_tac) \\ simp[] )
+        \\ qspec_then`[EL i es]`mp_tac free_thm
+        \\ simp[] \\ pairarg_tac \\  fs[] \\ strip_tac
+        \\ fs[env_rel_def]
+        \\ imp_res_tac LIST_REL_LENGTH
+        \\ IF_CASES_TAC
+        >- ( every_case_tac \\ fs[TAKE_LENGTH_ID_rwt] )
+        \\ ntac 2 strip_tac
+        \\ res_tac
+        \\ simp[EL_TAKE]
+        \\ Cases_on`LENGTH l = LENGTH args2` >- fs[LIST_REL_EL_EQN]
+        \\ fs[]
+        \\ qmatch_asmsub_rename_tac`is_Recclosure v1`
+        \\ reverse(Cases_on`is_Recclosure v1`\\fs[])
+        >- fs[LIST_REL_EL_EQN,EL_TAKE]
+        \\ rfs[LIST_REL_EL_EQN] \\ fs[EL_TAKE]
+        \\ last_x_assum match_mp_tac
+        \\ res_tac \\ simp[] )
       \\ conj_tac
       >- ( match_mp_tac state_rel_with_clock \\ fs[] )
       \\ conj_tac >- cheat (* subg over insert_each' *)
@@ -2434,19 +2443,21 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ cheat (* code_includes over insert_each' *))
     \\ REWRITE_TAC[calls_list_MAPi]
     \\ simp[dec_clock_def]
-    *)
-
-    \\ `∀v. has_var v (SND (free [EL i es])) ⇒ v < n`
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`_:num < dk'`
+    \\ `dk' = dk`
     by (
-      fs[markerTheory.Abbrev_def,LIST_REL_EL_EQN]
-      \\ first_x_assum(qspec_then`i`mp_tac)
+      unabbrev_all_tac
+      \\ imp_res_tac LIST_REL_LENGTH
       \\ simp[] )
-    \\ cheat (* need to know that evaluate only depends on free vars *))
-  \\ imp_res_tac evaluate_length_imp
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
-  \\ strip_tac \\ rveq \\ fs[] \\ rfs[]
-  \\ fs[PULL_EXISTS]
-  *)
+    \\ qunabbrev_tac`dk'` \\ fs[]
+    \\ `∀ck. ¬(SUC ck + t0.clock ≤ dk)` by simp[]
+    \\ qmatch_asmsub_rename_tac`Rerr err`
+    \\ Cases_on`err = Rabort Rtimeout_error`
+    >- ( fs[] \\ qexists_tac`SUC ck` \\ simp[ADD1] )
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then (qspec_then `1` assume_tac)
+    \\ qexists_tac `SUC ck` \\ simp[ADD1] )
   \\ cheat);
 
 (*
