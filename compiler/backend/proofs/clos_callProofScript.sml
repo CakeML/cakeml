@@ -62,6 +62,11 @@ val is_Recclosure_def = Define`
   is_Recclosure _ = F`;
 val _ = export_rewrites["is_Recclosure_def"];
 
+val every_refv = Define
+  `(every_refv P (ValueArray vs) ⇔ EVERY P vs) ∧
+   (every_refv P _ ⇔ T)`
+val _ = export_rewrites["every_refv_def"];
+
 (* -- *)
 
 (* value relation *)
@@ -94,13 +99,18 @@ val wfg_def = Define`
     set (MAP FST (SND g)) = IMAGE SUC (domain (FST g)) ∧
     ALL_DISTINCT (MAP FST (SND g))`;
 
+val recclosure_wf_def = Define`
+  recclosure_wf loc fns ⇔
+    EVEN loc ∧ every_Fn_SOME (MAP SND fns) ∧
+    every_Fn_vs_NONE (MAP SND fns) ∧
+    set (code_locs (MAP SND fns)) ⊆ EVEN ∧
+    DISJOINT (set (GENLIST (λi. 2 * i + loc) (LENGTH fns))) (set (code_locs (MAP SND fns))) ∧
+    ALL_DISTINCT (code_locs (MAP SND fns))`;
+
 val recclosure_rel_def = Define`
   recclosure_rel g l g0 loc fns1 fns2 ⇔
-     EVEN loc ∧
-     every_Fn_SOME (MAP SND fns1) ∧ every_Fn_vs_NONE (MAP SND fns1) ∧
-     set (code_locs (MAP SND fns1)) ⊆ EVEN ∧
-     DISJOINT (set (GENLIST (λi. 2*i+loc) (LENGTH fns1))) (set (code_locs (MAP SND fns1))) ∧
-     ALL_DISTINCT (code_locs (MAP SND fns1)) ∧ wfg g0 ∧
+     recclosure_wf loc fns1 ∧
+     wfg g0 ∧
      DISJOINT (IMAGE SUC (set (code_locs (MAP SND fns1)))) (set (MAP FST (SND g0))) ∧
      DISJOINT (set (GENLIST (λi. 2*i+loc+1) (LENGTH fns1))) (set (MAP FST (SND g0))) ∧
      let (es,new_g) = calls (MAP SND fns1) (insert_each loc (LENGTH fns1) g0) in
@@ -160,6 +170,23 @@ val v_rel_ind = theorem"v_rel_ind";
 val code_includes_def = Define`
   code_includes al code ⇔
     ∀k v. ALOOKUP al k = SOME v ⇒ FLOOKUP code k = SOME v`;
+
+val wfv_def = tDefine"wfv"`
+  (wfv g l (Closure NONE _ _ _ _) ⇔ F) ∧
+  (wfv g l (Recclosure NONE _ _ _ _) ⇔ F) ∧
+  (wfv g l (Closure (SOME loc) vs env n bod) ⇔
+    EVERY (wfv g l) vs ∧ EVERY (wfv g l) env ∧
+    ∃g0 fns2.
+    recclosure_rel g l g0 loc [(n,bod)] fns2) ∧
+  (wfv g l (Recclosure (SOME loc) vs env fns i) ⇔
+    EVERY (wfv g l) vs ∧ EVERY (wfv g l) env ∧
+    ∃g0 fns2.
+    recclosure_rel g l g0 loc fns fns2) ∧
+  (wfv g l (Block _ vs) ⇔ EVERY (wfv g l) vs) ∧
+  (wfv _ _ _ ⇔ T)`
+  (WF_REL_TAC `measure (v_size o SND o SND)` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]);
+val _ = export_rewrites["wfv_def"];
 
 val state_rel_def = Define`
   state_rel g l (s:'ffi closSem$state) (t:'ffi closSem$state) ⇔
@@ -780,6 +807,38 @@ val _ = delete_const"TAKE_shadow"
 
 (* properties of value relation *)
 
+val v_rel_exists = Q.store_thm("v_rel_exists",
+  `∀v1. wfv g l v1 ⇒ ∃v2. v_rel g l v1 v2`,
+  ho_match_mp_tac v_ind
+  \\ rw[v_rel_def]
+  >- (
+    simp[exists_list_GENLIST]
+    \\ qmatch_assum_rename_tac`EVERY _ ls`
+    \\ qexists_tac`LENGTH ls`
+    \\ fs[EVERY_MEM,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS]
+    \\ simp[GSYM SKOLEM_THM]
+    \\ metis_tac[] )
+  >- (
+    qmatch_asmsub_rename_tac`Closure loco`
+    \\ Cases_on`loco` \\ fs[]
+    \\ `∃x. fns2 = [n,x]`
+    by (
+      fs[recclosure_rel_def]
+      \\ rpt(pairarg_tac \\ fs[])
+      \\ every_case_tac \\ fs[calls_list_MAPi]
+      \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] )
+    \\ fs[] \\ asm_exists_tac
+    \\ fs[EVERY_MEM,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS,env_rel_def]
+    \\ simp[exists_list_GENLIST]
+    \\ metis_tac[SKOLEM_THM] )
+  >- (
+    qmatch_asmsub_rename_tac`Recclosure loco`
+    \\ Cases_on`loco` \\ fs[]
+    \\ asm_exists_tac
+    \\ fs[EVERY_MEM,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS,env_rel_def]
+    \\ simp[exists_list_GENLIST]
+    \\ metis_tac[SKOLEM_THM] ));
+
 val v_rel_subg = Q.store_thm("v_rel_subg",
   `∀g l v1 v2 g' l'.
     v_rel g l v1 v2 ∧ subg g g' ∧ l ⊆ l' ⇒
@@ -1128,14 +1187,6 @@ val env_rel_DROP_args = Q.store_thm("env_rel_DROP_args",
   \\ simp[] \\ strip_tac
   \\ rfs[EL_DROP]);
 
-(*
-val v_rel_exists = Q.store_thm("v_rel_exists",
-  `∀v1. ∃v2. v_rel g l v1 v2`,
-  ho_match_mp_tac v_ind
-  \\ rw[v_rel_def]
-  \\ fs[EVERY_MEM,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS]
-*)
-
 (* semantic functions respect relation *)
 
 val v_rel_Unit = store_thm("v_rel_Unit[simp]",
@@ -1360,6 +1411,11 @@ val calls_correct = Q.store_thm("calls_correct",
     calls xs g0 = (ys,g) ∧
     every_Fn_SOME xs ∧ every_Fn_vs_NONE xs ∧
     set (code_locs xs) ⊆ EVEN ∧
+    (*
+    EVERY (wfv g1 l1) env1 ∧
+    EVERY (OPTION_EVERY (wfv g1 l1)) s0.globals ∧
+    FEVERY (every_refv (wfv g1 l1) o SND) s0.refs ∧
+    *)
     wfg g0 ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
@@ -1372,7 +1428,11 @@ val calls_correct = Q.store_thm("calls_correct",
     ∃ck res' t.
     evaluate (ys,env2,t0 with clock := t0.clock + ck) = (res',t) ∧
     state_rel g1 l1 s t ∧
-    result_rel (LIST_REL (v_rel g1 l1)) (v_rel g1 l1) res res') ∧
+    result_rel (LIST_REL (v_rel g1 l1)) (v_rel g1 l1) res res' (* ∧
+    every_result (EVERY (wfv g1 l1)) (wfv g1 l1) res ∧
+    EVERY (OPTION_EVERY (wfv g1 l1)) s.globals ∧
+    FEVERY (every_refv (wfv g1 l1) o SND) s.refs *)
+    ) ∧
   (∀loco f args (s0:'ffi closSem$state) loc g l t0 res s f' args'.
     evaluate_app loco f args s0 = (res,s) ∧
     res ≠ Rerr (Rabort Rtype_error) ∧
@@ -1851,7 +1911,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ simp[evaluate_def]
     \\ fs[DISJOINT_SYM]
     \\ imp_res_tac calls_add_SUC_code_locs
-    \\ fs[SUBSET_DEF,GSYM ADD1]
+    \\ fs[SUBSET_DEF,GSYM ADD1,recclosure_wf_def]
     \\ rpt conj_tac
     \\ TRY (Cases_on`new_g'` \\ fs[code_list_def,GSYM ADD1] \\ NO_TAC)
     \\ TRY (
@@ -2330,7 +2390,7 @@ val calls_correct = Q.store_thm("calls_correct",
           SUBGOAL_THEN (list_mk_conj tms) strip_assume_tac
         end g)
     >- (
-      fs[code_locs_map]
+      fs[code_locs_map,recclosure_wf_def]
       \\ imp_res_tac ALL_DISTINCT_FLAT_EVERY >>
       fs[Q.SPEC`MAP _ _`every_Fn_SOME_EVERY,
          Q.SPEC`MAP _ _`every_Fn_vs_NONE_EVERY,
@@ -2370,7 +2430,7 @@ val calls_correct = Q.store_thm("calls_correct",
     >- (
       drule (GEN_ALL calls_el_sing)
       \\ disch_then (qspec_then`i`mp_tac)
-      \\ impl_tac >- fs[wfg_def]
+      \\ impl_tac >- fs[wfg_def,recclosure_wf_def]
       \\ simp[EL_MAP] \\ strip_tac
       \\ disch_then drule
       \\ qmatch_goalsub_abbrev_tac`dec_clock dk s0`
@@ -2427,7 +2487,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ disch_then(qspec_then`i`mp_tac)
     \\ impl_tac
     >- (
-      fs[MAP_FST_insert_each']
+      fs[MAP_FST_insert_each',recclosure_wf_def]
       \\ fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_GENLIST]
       \\ conj_tac
       >- (
