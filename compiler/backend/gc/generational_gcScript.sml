@@ -5,40 +5,6 @@ val _ = new_theory "generational_gc";
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
 val _ = Datatype `
-  gen_gc_state =
-    <| h1 : ('a, 'b) heap_element list (* final left heap *)
-     ; h2 : ('a, 'b) heap_element list (* not updated left heap *)
-
-     ; r4 : ('a, 'b) heap_element list (* not updated right heap *)
-     ; r3 : ('a, 'b) heap_element list (* temp. final right heap *)
-     ; r2 : ('a, 'b) heap_element list (* temp. not updated right heap *)
-     ; r1 : ('a, 'b) heap_element list (* final right heap *)
-
-     ; a : num                         (* gen_start + heap_length (h1 ++ h2) *)
-     ; n : num                         (* unused heap space *)
-     (* ; r : num                         (* a + n *) *)
-
-     ; ok : bool                       (* OK *)
-     ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
-     ; heap0 : ('a, 'b) heap_element list (* old heap *)
-     |>`;
-
-val empty_state_def = Define `
-  empty_state =
-    <| h1 := []
-     ; h2 := []
-     ; r4 := []
-     ; r3 := []
-     ; r2 := []
-     ; r1 := []
-     ; a := 0
-     ; n := 0
-     ; ok := T
-     ; heap := []
-     ; heap0 := []
-     |>`;
-
-val _ = Datatype `
   gen_gc_conf =
     <| limit : num              (* size of heap *)
      ; isRef : ('a, 'b) heap_element -> bool
@@ -332,17 +298,17 @@ val RootsRefs_related = prove(
   \\ metis_tac [RootsRefs_cases]);
 
 (* TODO: need to rewrite parts of basic_gc to work with data_sort thingie  *)
-val simulation = prove(
-  ``let heap' = to_basic_heap conf heap in
-    let refs' = refs_to_roots (heap_drop conf.refs_start heap') in
-    (basic_gc (to_basic_conf conf)
-      (to_basic_roots conf.gen_start roots ++ refs'
-      ,heap') = (roots',state')) ==>
-    ?roots'' state''.
-      (partial_gc conf (roots, heap) = (roots'',state'')) /\
-      (roots' = to_basic_roots conf.gen_start roots'') /\
-      (state' = to_basic_state conf.gen_start state'')``,
-  cheat);
+(* val simulation = prove( *)
+(*   ``let heap' = to_basic_heap conf heap in *)
+(*     let refs' = refs_to_roots (heap_drop conf.refs_start heap') in *)
+(*     (basic_gc (to_basic_conf conf) *)
+(*       (to_basic_roots conf.gen_start roots ++ refs' *)
+(*       ,heap') = (roots',state')) ==> *)
+(*     ?roots'' state''. *)
+(*       (partial_gc conf (roots, heap) = (roots'',state'')) /\ *)
+(*       (roots' = to_basic_roots conf.gen_start roots'') /\ *)
+(*       (state' = to_basic_state conf.gen_start state'')``, *)
+(*   cheat); *)
 
 (*
 - basic_gc_related

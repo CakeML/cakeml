@@ -18,6 +18,41 @@ val _ = Datatype `
   data_sort = Protected 'a      (* actually a pointer to an older generation *)
             | Real 'b`;         (* a pointer to current generation/data *)
 
+val _ = Datatype `
+  gc_state =
+    <| h1 : ('a, 'b) heap_element list (* final left heap *)
+     ; h2 : ('a, 'b) heap_element list (* not updated left heap *)
+
+     ; r4 : ('a, 'b) heap_element list (* not updated right heap *)
+     ; r3 : ('a, 'b) heap_element list (* temp. final right heap *)
+     ; r2 : ('a, 'b) heap_element list (* temp. not updated right heap *)
+     ; r1 : ('a, 'b) heap_element list (* final right heap *)
+
+     ; a : num                         (* gen_start + heap_length (h1 ++ h2) *)
+     ; n : num                         (* unused heap space *)
+     (* ; r : num                         (* a + n *) *)
+
+     ; ok : bool                       (* OK *)
+     ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
+     ; heap0 : ('a, 'b) heap_element list (* old heap *)
+     |>`;
+
+val empty_state_def = Define `
+  empty_state =
+    <| h1 := []
+     ; h2 := []
+     ; r4 := []
+     ; r3 := []
+     ; r2 := []
+     ; r1 := []
+     ; a := 0
+     ; n := 0
+     (* ; r := 0 *)
+     ; ok := T
+     ; heap := []
+     ; heap0 := []
+     |>`;
+
 val el_length_def = Define `
   (el_length (Unused l) = l+1) /\
   (el_length (ForwardPointer n d l) = l+1) /\
