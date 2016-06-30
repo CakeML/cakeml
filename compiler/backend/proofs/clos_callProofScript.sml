@@ -522,7 +522,7 @@ val calls_wfg' = Q.store_thm("calls_wfg'",
     \\ qexists_tac`0` \\ simp[] )
   \\ drule wfg'_insert_each
   \\ disch_then drule \\ rw[]
-  \\ fs[]
+  \\ first_x_assum match_mp_tac \\ fs[]
   \\ match_mp_tac wfg'_code_list
   \\ imp_res_tac calls_length
   \\ fs[SUBSET_DEF]
