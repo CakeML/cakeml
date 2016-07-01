@@ -1996,7 +1996,236 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ asm_exists_tac \\ fs[]
     \\ fs[env_rel_def,fv1_thm,fv_GENLIST_Var])
   (* Letrec *)
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (
+    rw[evaluate_def] \\ fs[IS_SOME_EXISTS]
+    \\ fs[calls_def,code_locs_def,ALL_DISTINCT_APPEND,
+          ALL_DISTINCT_GENLIST,EVERY_GENLIST,PULL_EXISTS]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ fsrw_tac[ETA_ss][]
+    \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ rveq \\ fs[]
+    \\ qpat_assum`_ = (_,g)`mp_tac
+    \\ qpat_abbrev_tac`fns2 = calls_list _ _`
+    \\ qmatch_goalsub_rename_tac`Letrec _ _ fns2 b2`
+    \\ qpat_abbrev_tac`fns0 = ZIP _`
+    \\ qmatch_goalsub_rename_tac`Letrec _ _ fns0 b0`
+    \\ qmatch_goalsub_abbrev_tac`COND b`
+    \\ strip_tac
+    \\ `ys = [Letrec (SOME x) NONE (if b then fns2 else fns0) (if b then b2 else b0)]`
+    by ( Cases_on`b` \\ fs[] \\ rveq )
+    \\ rveq
+    \\ simp[evaluate_def]
+    \\ qpat_abbrev_tac`bo = EVERY _ (COND _ _ _)`
+    \\ `bo = T`
+    by (
+      unabbrev_all_tac
+      \\ CASE_TAC
+      \\ fs[EVERY_MEM,calls_list_MAPi,indexedListsTheory.MEM_MAPi,
+            FORALL_PROD,PULL_EXISTS,MEM_ZIP,ZIP_MAP,EL_MAP]
+      \\ metis_tac[MEM_EL,FST,PAIR] )
+    \\ qunabbrev_tac`bo`\\fs[]
+    \\ qmatch_assum_abbrev_tac`calls [exp] g2 = ([b2],_)`
+    \\ qmatch_assum_rename_tac`calls [exp] g2 = ([b2],g4)`
+    \\ qmatch_assum_rename_tac`calls [exp] g3 = ([b0],g5)`
+    \\ `LENGTH fns2 = LENGTH fns0`
+    by ( simp[Abbr`fns2`,Abbr`fns0`] )
+    \\ Cases_on`fns2=[]`
+    >- (
+      fs[LENGTH_NIL_SYM]
+      \\ `fns=[]`
+      by ( Cases_on`fns` \\ fs[calls_list_MAPi] \\ fs[markerTheory.Abbrev_def])
+      \\ fs[calls_def,LENGTH_NIL]
+      \\ rveq \\ fs[] \\ rveq \\ fs[Abbr`fns1`]
+      \\ fs[Abbr`g2`,insert_each_def,code_list_def]
+      \\ rveq
+      \\ first_x_assum drule
+      \\ rpt(disch_then drule) \\ fs[]
+      \\ fs[code_locs_def]
+      \\ simp[env_rel_def,fv1_thm])
+    \\ first_x_assum(qspec_then`if b then g2 else g3`mp_tac)
+    \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["ys'","g'"])))
+    \\ disch_then(qspecl_then[`if b then [b2] else [b0]`,`if b then g4 else g5`]mp_tac)
+    \\ simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM]
+    \\ impl_tac >- rw[]
+    \\ disch_then(qspecl_then[`g1`,`l1`]mp_tac o CONV_RULE(RESORT_FORALL_CONV(List.rev)))
+    \\ simp[RIGHT_FORALL_IMP_THM]
+    \\ qpat_abbrev_tac`fns4 = if b then fns2 else _`
+    \\ qpat_abbrev_tac`P ⇔ _ ⊆ l1`
+    \\ `P` by ( qunabbrev_tac`P` \\ CASE_TAC \\ fs[SUBSET_DEF] )
+    \\ qunabbrev_tac`P` \\ fs[]
+    \\ qpat_abbrev_tac`P ⇔ subg _ g1`
+    \\ `P` by ( qunabbrev_tac`P` \\ CASE_TAC \\ fs[] )
+    \\ qunabbrev_tac`P` \\ fs[]
+    \\ qpat_abbrev_tac`P ⇔ DISJOINT _ _`
+    \\ `P`
+    by (
+      qunabbrev_tac`P`
+      \\ CASE_TAC \\ fs[Abbr`g2`,MAP_FST_code_list]
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ imp_res_tac calls_domain
+      \\ imp_res_tac calls_IS_SUFFIX
+      \\ fs[domain_FST_insert_each,IS_SUFFIX_APPEND]
+      \\ fs[SUBSET_DEF,MEM_GENLIST,PULL_EXISTS,ADD1,IN_DISJOINT]
+      \\ metis_tac[ADD1,numTheory.INV_SUC,ADD_ASSOC,prim_recTheory.PRE] )
+    \\ qunabbrev_tac`P` \\ fs[]
+    \\ qpat_abbrev_tac`P ⇔ wfg _`
+    \\ `P`
+    by (
+      qunabbrev_tac`P`
+      \\ reverse CASE_TAC \\ fs[] \\ rveq
+      >- (
+         match_mp_tac calls_wfg
+      \\ asm_exists_tac \\ fs[] )
+      \\ `wfg' g2`
+      by (
+        simp[Abbr`g2`]
+        \\ match_mp_tac wfg'_code_list
+        \\ imp_res_tac calls_length
+        \\ fs[SUBSET_DEF]
+        \\ imp_res_tac calls_subspt
+        \\ fs[subspt_def,domain_lookup]
+        \\ conj_tac
+        >- (
+          match_mp_tac calls_wfg'
+          \\ asm_exists_tac \\ fs[SUBSET_DEF]
+          \\ match_mp_tac wfg'_insert_each
+          \\ fs[IN_EVEN]
+          \\ conj_tac
+          >- ( fs[wfg'_def,wfg_def] )
+          \\ strip_tac
+          \\ qpat_assum`∀x. MEM x (GENLIST _ _) ⇒ _` match_mp_tac
+          \\ simp[MEM_GENLIST]
+          \\ qexists_tac`0` \\ simp[])
+        \\ simp[ZIP_MAP,EVERY_MAP,MEM_GENLIST,PULL_EXISTS]
+        \\ fs[EVERY2_EVERY,LAMBDA_PROD,closed_Fn,markerTheory.Abbrev_def]
+        \\ rw[] \\ first_x_assum match_mp_tac
+        \\ qmatch_abbrev_tac`lookup k d = SOME _`
+        \\ `k ∈ domain d` suffices_by simp[domain_lookup]
+        \\ simp[Abbr`d`,domain_FST_insert_each]
+        \\ simp[MEM_GENLIST,PULL_EXISTS,Abbr`k`])
+      \\ fs[wfg'_def]
+      \\ simp[wfg_def,SET_EQ_SUBSET]
+      \\ reverse conj_tac
+      >- (
+        simp[Abbr`g2`,MAP_FST_code_list,ALL_DISTINCT_APPEND,
+             ALL_DISTINCT_GENLIST,MEM_GENLIST,PULL_EXISTS]
+        \\ conj_tac
+        >- (
+          match_mp_tac calls_ALL_DISTINCT
+          \\ asm_exists_tac \\ fs[]
+          \\ fs[wfg_def] )
+        \\ imp_res_tac calls_add_SUC_code_locs
+        \\ fs[SUBSET_DEF]
+        \\ rpt strip_tac
+        \\ first_x_assum drule
+        \\ fs[IN_DISJOINT,MEM_GENLIST,PULL_EXISTS,ADD1]
+        \\ metis_tac[ADD1,numTheory.INV_SUC,ADD_ASSOC] )
+      \\ rfs[Abbr`g2`,MAP_FST_code_list]
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ imp_res_tac calls_domain
+      \\ imp_res_tac calls_IS_SUFFIX
+      \\ fs[domain_FST_insert_each,IS_SUFFIX_APPEND]
+      \\ fs[SUBSET_DEF,MEM_GENLIST,PULL_EXISTS,ADD1,IN_DISJOINT]
+      \\ ntac 2 strip_tac
+      \\ first_x_assum drule
+      \\ rfs[wfg_def,GSYM ADD1]
+      \\ metis_tac[ADD1,numTheory.INV_SUC,ADD_ASSOC,prim_recTheory.PRE] )
+    \\ qunabbrev_tac`P` \\ fs[]
+    \\ `∀i. i < LENGTH fns ⇒ recclosure_rel g1 l1 g0 x fns fns4`
+    by (
+      simp[recclosure_rel_def]
+      \\ simp[recclosure_wf_def]
+      \\ fs[closed_Fn]
+      \\ gen_tac \\ strip_tac
+      \\ conj_tac
+      >- (
+        fs[IN_DISJOINT,SUBSET_DEF,MEM_GENLIST,PULL_EXISTS]
+        \\ reverse conj_tac >- metis_tac[]
+        \\ rpt(first_x_assum(qspec_then`0`mp_tac))
+        \\ simp[IN_EVEN])
+      \\ conj_tac
+      >- (
+        fs[IN_DISJOINT,MEM_GENLIST,PULL_EXISTS]
+        \\ metis_tac[ADD1,numTheory.INV_SUC,ADD_ASSOC] )
+      \\ `b ⇒ subg g2 g4`
+      by (
+        strip_tac
+        \\ match_mp_tac calls_subg
+        \\ asm_exists_tac \\ fs[]
+        \\ fs[wfg_def]  )
+      \\ `¬b ⇒ subg g3 g5`
+      by (
+        strip_tac
+        \\ match_mp_tac calls_subg
+        \\ asm_exists_tac \\ fs[]
+        \\ fs[wfg_def] )
+      \\ `wfg g`
+      by (
+        match_mp_tac calls_wfg
+        \\ Cases_on`b`\\fs[]
+        \\ asm_exists_tac \\ fs[] )
+      \\ CASE_TAC \\ fs[] \\ rveq
+      \\ (conj_tac >- metis_tac[subg_trans])
+      \\ qpat_assum`_ ∪ _ DIFF _ ⊆ _`assume_tac
+      \\ fs[SUBSET_DEF] \\ rw[]
+      \\ first_x_assum match_mp_tac \\ fs[]
+      \\ strip_tac
+      \\ imp_res_tac calls_add_SUC_code_locs
+      \\ rfs[wfg_def]
+      \\ rfs[Abbr`g2`]
+      \\ rfs[SUBSET_DEF,PULL_EXISTS]
+      \\ first_x_assum drule \\ simp[]
+      \\ strip_tac
+      \\ first_x_assum drule \\ simp[]
+      \\ fs[MEM_GENLIST,IN_DISJOINT]
+      \\ metis_tac[numTheory.INV_SUC] )
+    \\ impl_tac >- metis_tac[]
+    \\ qpat_abbrev_tac`env3 = _ ++ env2`
+    \\ disch_then(qspecl_then[`t0`,`env3`]mp_tac)
+    \\ strip_tac
+    \\ qexists_tac`ck` \\ simp[]
+    \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM]
+    \\ rpt strip_tac
+    \\ qpat_assum`_ ⇒ _`mp_tac
+    \\ impl_tac
+    >- (
+      fs[]
+      \\ `LENGTH fns4 = LENGTH fns`
+      by (
+        fs[Abbr`fns4`,Abbr`fns0`]
+        \\ CASE_TAC \\ fs[] )
+      \\ fs[env_rel_def,Abbr`env3`]
+      \\ IF_CASES_TAC \\ fs[]
+      >- (
+        match_mp_tac EVERY2_APPEND_suff \\ fs[]
+        \\ simp[LIST_REL_GENLIST]
+        \\ simp[v_rel_def]
+        \\ fsrw_tac[ETA_ss][PULL_EXISTS]
+        \\ ntac 2 strip_tac
+        \\ qexists_tac`g0` \\ fs[]
+        \\ conj_tac >- metis_tac[]
+        \\ simp[env_rel_def] )
+      \\ simp[EXISTS_MAP]
+      \\ qx_gen_tac`a`
+      \\ Cases_on`a < LENGTH fns`
+      \\ simp[EL_APPEND1,EL_APPEND2]
+      >- (
+        simp[v_rel_def]
+        \\ fsrw_tac[ETA_ss][PULL_EXISTS]
+        \\ simp[env_rel_def]
+        \\ fs[fv1_thm]
+        \\ metis_tac[] )
+      \\ fs[fv1_thm]
+      \\ strip_tac
+      \\ first_x_assum(qspec_then`a - LENGTH fns`mp_tac)
+      \\ simp[]
+      \\ impl_tac
+      >- ( CASE_TAC \\ fs[] )
+      \\ simp[] )
+    \\ simp[]
+    \\ impl_tac >- (CASE_TAC \\ fs[])
+    \\ strip_tac
+    \\ CASE_TAC \\ fs[])
   (* App *)
   \\ conj_tac >- (
     rw[evaluate_def,calls_def]
