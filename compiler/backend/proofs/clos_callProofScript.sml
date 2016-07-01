@@ -1556,9 +1556,8 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs[code_locs_def]
     \\ simp[RIGHT_EXISTS_IMP_THM]
     \\ metis_tac[state_rel_subg,SUBSET_REFL])
-  \\ conj_tac >- cheat
-   (*
-   (fs [evaluate_def,calls_def] \\ rw []
+  \\ conj_tac >- (
+    fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ Cases_on `evaluate ([x],env,s)` \\ fs []
     \\ pairarg_tac \\ fs [] \\ rw []
@@ -1579,56 +1578,75 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ imp_res_tac calls_sing \\ rw []
     \\ Cases_on `e2` THEN1 (imp_res_tac calls_length \\ fs [])
     \\ rename1 `calls (y::xs) g' = (z::zs,g)`
-    \\ reverse (Cases_on `q`) \\ fs [] \\ rw [] \\ fs []
-    \\ first_x_assum drule \\ fs []
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
+    \\ first_x_assum drule
+    \\ fs[code_locs_def]
+    \\ rpt (disch_then drule) \\ fs []
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-    \\ fs [AND_IMP_INTRO] \\ impl_tac
-    \\ TRY (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
-    \\ rpt (disch_then drule) \\ fs [GSYM CONJ_ASSOC]
-    \\ rpt (disch_then drule) \\ fs [AND_IMP_INTRO]
-    \\ impl_tac \\ TRY
+    \\ fs [AND_IMP_INTRO,PUSH_EXISTS_IMP,GSYM PULL_EXISTS]
+    \\ impl_tac THEN1
      (imp_res_tac subg_trans \\ fs []
       \\ imp_res_tac code_includes_subg \\ fs []
-      \\ fs [code_locs_def]
+      \\ conj_tac THEN1 (fs [code_locs_def,ALL_DISTINCT_APPEND])
       \\ match_mp_tac SUBSET_TRANS
       \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
       \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
       \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
-    \\ strip_tac \\ fs []
-    \\ rw [] \\ fs [PULL_EXISTS,evaluate_def]
-    THEN1 (qexists_tac `ck` \\ fs [])
+    \\ disch_then (qspecl_then [`env2`,`t0`] mp_tac)
+    \\ strip_tac
+    \\ fs [GSYM PUSH_EXISTS_IMP]
+    \\ fs [PUSH_EXISTS_IMP]
+    \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+      \\ reverse impl_tac THEN1
+       (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
+      \\ imp_res_tac code_includes_subg
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs [])
     \\ Cases_on `evaluate (y::xs,env,r)` \\ fs []
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
     \\ first_x_assum drule \\ fs []
+    \\ `ALL_DISTINCT (code_locs (y::xs))` by
+          (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-    \\ fs [AND_IMP_INTRO] \\ impl_tac
-    THEN1
+    \\ disch_then drule \\ fs []
+    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ fs [AND_IMP_INTRO] \\ impl_tac THEN1
      (fs [code_locs_def,ALL_DISTINCT_APPEND,wfg_def] \\ rfs []
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
       \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
       \\ fs [SUBSET_DEF]
       \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
-    \\ fs [GSYM CONJ_ASSOC]
-    \\ rpt (disch_then drule \\ fs [])
+    \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
+    \\ fs [CONJ_ASSOC] \\ conj_tac THEN1
+     (every_case_tac \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+      \\ Cases_on `a` \\ fs [])
+    \\ strip_tac \\ fs [PULL_FORALL]
+    \\ qpat_assum `_ ==> _` mp_tac
     \\ impl_tac THEN1
-     (imp_res_tac subg_trans \\ fs []
-      \\ imp_res_tac code_includes_subg \\ fs []
-      \\ fs [code_locs_def]
+     (imp_res_tac code_includes_subg
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs [])
+    \\ strip_tac \\ rw []
+    \\ first_x_assum (qspecl_then [`env2`,`t`] mp_tac)
+    \\ fs [AND_IMP_INTRO]
+    \\ impl_tac THEN1
+     (imp_res_tac code_includes_subg
       \\ imp_res_tac evaluate_const \\ fs []
-      \\ match_mp_tac SUBSET_TRANS
-      \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
-      \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw [])
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ ntac 2 strip_tac
+      \\ first_x_assum match_mp_tac \\ fs [])
     \\ strip_tac
     \\ qpat_assum `_ = (Rval _,t)` assume_tac
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ fs [evaluate_def]
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_IMP_LENGTH
     \\ fs [] \\ Cases_on `a` \\ fs [])
-    *)
   (* Var *)
   \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
@@ -1845,22 +1863,35 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `[HD e2] = e2` by (imp_res_tac calls_sing \\ fs [])
     \\ fs []*)
   (* Raise *)
-  \\ conj_tac >- cheat
-   (*
-   (fs [evaluate_def,calls_def] \\ rw []
+  \\ conj_tac >- (
+    fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
     \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
     \\ fs [dec_clock_def] \\ pop_assum kall_tac
     \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+    \\ fs [GSYM PULL_EXISTS,PUSH_EXISTS_IMP,GSYM PULL_FORALL]
     \\ first_x_assum drule \\ fs [code_locs_def]
     \\ rpt (disch_then drule) \\ fs []
+    \\ fs [GSYM PULL_FORALL] \\ strip_tac
+    \\ rw [] THEN1
+     (every_case_tac \\ fs [] \\ rw []
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ Cases_on `a` \\ fs [])
+    THEN1 (every_case_tac \\ fs [] \\ rw [])
+    \\ fs [PULL_FORALL]
+    \\ first_x_assum (qspecl_then [`env2`,`t0`] mp_tac) \\ fs [AND_IMP_INTRO]
+    \\ impl_tac THEN1
+     (imp_res_tac calls_sing \\ fs [env_rel_def]
+      \\ IF_CASES_TAC \\ fs [] \\ ntac 2 strip_tac
+      \\ first_x_assum match_mp_tac
+      \\ pop_assum mp_tac \\ EVAL_TAC)
     \\ strip_tac \\ fs []
     \\ qexists_tac `ck` \\ fs []
     \\ every_case_tac \\ fs [evalPropsTheory.result_rel_def,PULL_EXISTS]
     \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])*)
+    \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])
   (* Handle *)
   \\ conj_tac >- cheat
     (*
