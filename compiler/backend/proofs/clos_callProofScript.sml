@@ -1924,8 +1924,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH
     \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])
   (* Handle *)
-  \\ conj_tac >- cheat
-    (*
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ Cases_on `evaluate ([x1],env,s1)` \\ fs []
@@ -1944,55 +1943,87 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `wfg g'` by
      (match_mp_tac calls_wfg \\ asm_exists_tac \\ fs []
       \\ fs [code_locs_def,ALL_DISTINCT_APPEND])
-    \\ imp_res_tac calls_sing \\ rw []
-    \\ Cases_on `q` \\ fs [] \\ rw [] \\ fs []
-    \\ TRY (`e ≠ Rabort Rtype_error` by (CCONTR_TAC \\ fs [] \\ NO_TAC) \\ fs [])
-    \\ first_x_assum drule \\ fs []
-    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-    \\ fs [AND_IMP_INTRO] \\ impl_tac
-    \\ TRY (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
-    \\ fs [GSYM CONJ_ASSOC]
+    \\ imp_res_tac calls_sing \\ fs [] \\ rveq
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
+    \\ first_x_assum drule
+    \\ fs[code_locs_def]
     \\ rpt (disch_then drule) \\ fs []
-    \\ impl_tac \\ TRY
+    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ fs [AND_IMP_INTRO,PUSH_EXISTS_IMP,GSYM PULL_EXISTS]
+    \\ impl_tac THEN1
      (imp_res_tac subg_trans \\ fs []
       \\ imp_res_tac code_includes_subg \\ fs []
-      \\ fs [code_locs_def]
+      \\ conj_tac THEN1 (fs [code_locs_def,ALL_DISTINCT_APPEND])
       \\ match_mp_tac SUBSET_TRANS
       \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
       \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
       \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
-    \\ strip_tac \\ fs []
-    \\ rw [] \\ fs [PULL_EXISTS,evaluate_def]
-    THEN1 (qexists_tac `ck` \\ fs [])
-    \\ reverse (Cases_on `e`) \\ fs [] \\ rveq \\ fs []
-    THEN1 (qexists_tac `ck` \\ fs [])
-    \\ first_x_assum drule \\ fs []
-    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-    \\ fs [AND_IMP_INTRO] \\ impl_tac
+    \\ disch_then (qspecl_then [`env2`,`t0`] mp_tac)
+    \\ strip_tac
+    \\ fs [GSYM PUSH_EXISTS_IMP]
+    \\ fs [PUSH_EXISTS_IMP]
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     THEN1
+     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+      \\ reverse impl_tac THEN1
+       (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
+      \\ imp_res_tac code_includes_subg
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ ntac 2 strip_tac \\ first_x_assum match_mp_tac \\ fs []
+      \\ pop_assum mp_tac \\ fs [EXISTS_MAP]
+      \\ EVAL_TAC \\ fs [fv_exists]
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+    \\ reverse (Cases_on `e`) \\ rveq \\ fs []
+    THEN1
+     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+      \\ reverse impl_tac THEN1
+       (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
+      \\ imp_res_tac code_includes_subg
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ ntac 2 strip_tac \\ first_x_assum match_mp_tac \\ fs []
+      \\ pop_assum mp_tac \\ fs [EXISTS_MAP]
+      \\ EVAL_TAC \\ fs [fv_exists]
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+    \\ first_x_assum drule \\ fs []
+    \\ `ALL_DISTINCT (code_locs [x2])` by
+          (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
+    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ disch_then drule \\ fs []
+    \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ fs [AND_IMP_INTRO] \\ impl_tac THEN1
      (fs [code_locs_def,ALL_DISTINCT_APPEND,wfg_def] \\ rfs []
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
       \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
       \\ fs [SUBSET_DEF]
       \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
-    \\ fs [GSYM CONJ_ASSOC,AND_IMP_INTRO]
-    \\ rpt (disch_then drule \\ fs [])
+    \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
+    \\ strip_tac \\ fs [PULL_FORALL]
+    \\ qpat_assum `_ ==> _` mp_tac
     \\ impl_tac THEN1
-     (imp_res_tac subg_trans \\ fs []
-      \\ imp_res_tac code_includes_subg \\ fs []
-      \\ fs [code_locs_def]
+     (imp_res_tac code_includes_subg
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ ntac 2 strip_tac \\ first_x_assum match_mp_tac \\ fs []
+      \\ pop_assum mp_tac \\ fs []
+      \\ fs [EXISTS_MAP] \\ EVAL_TAC \\ fs [fv_exists]
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+    \\ strip_tac \\ rw []
+    \\ first_x_assum (qspecl_then [`v'::env2`,`t`] mp_tac)
+    \\ fs [AND_IMP_INTRO]
+    \\ impl_tac THEN1
+     (imp_res_tac code_includes_subg
       \\ imp_res_tac evaluate_const \\ fs []
-      \\ match_mp_tac SUBSET_TRANS
-      \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
-      \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw [])
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ Cases \\ fs [] \\ strip_tac
+      \\ first_x_assum match_mp_tac
+      \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [] \\ fs [ADD1])
     \\ strip_tac
-    \\ imp_res_tac evaluate_const \\ fs [] \\ rfs []
     \\ qpat_assum `_ = (Rerr _,t)` assume_tac
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `ck'` assume_tac)
-    \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]*)
+    \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ fs [evaluate_def])
   (* Op *)
   \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
