@@ -1546,7 +1546,6 @@ val calls_correct = Q.store_thm("calls_correct",
      evaluate_app loco f' args' (t0 with clock := t0.clock + ck) = (res',t) ∧
      state_rel g l s t ∧
      result_rel (LIST_REL (v_rel g l)) (v_rel g l) res res'))`,
-
   ho_match_mp_tac evaluate_ind
   \\ conj_tac
   >- (
@@ -1951,10 +1950,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH
     \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])
   (* Handle *)
-  \\ conj_tac
-
- >- (
-
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ Cases_on `evaluate ([x1],env,s1)` \\ fs []
@@ -2004,20 +2000,17 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ pop_assum mp_tac \\ fs [EXISTS_MAP]
       \\ EVAL_TAC \\ fs [fv_exists]
       \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-    \\ reverse (Cases_on `e`) \\ rveq \\ fs []
-    THEN1 cheat (* Magnus will fix *)
-(*
+    \\ reverse (Cases_on `e`) \\ rveq \\ fs [] \\ rveq \\ fs []
+    THEN1
      (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
       \\ reverse impl_tac THEN1
        (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
       \\ imp_res_tac code_includes_subg
       \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
-
       \\ ntac 2 strip_tac \\ first_x_assum match_mp_tac \\ fs []
       \\ pop_assum mp_tac \\ fs [EXISTS_MAP]
       \\ EVAL_TAC \\ fs [fv_exists]
       \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-*)
     \\ first_x_assum drule \\ fs []
     \\ `ALL_DISTINCT (code_locs [x2])` by
           (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
