@@ -183,6 +183,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_annotateTheory.shifted_env_def
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
+    ,clos_annotateTheory.compile_def
       (* ---- clos_free----  *)
     ,clos_freeTheory.free_def
       (* ---- clos_remove ---- *)
@@ -207,6 +208,7 @@ val add_compiler_compset = computeLib.extend_compset
      clos_to_bvlTheory.closure_tag_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.compile_def
+    ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
     ,clos_to_bvlTheory.block_equality_code_def
     ,clos_to_bvlTheory.equality_code_def
