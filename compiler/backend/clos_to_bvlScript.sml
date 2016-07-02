@@ -350,6 +350,14 @@ val compile_exps_def = tDefine "compile_exps" `
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
+val compile_prog_def = Define `
+  (compile_prog [] = []) /\
+  (compile_prog ((n,args,e)::xs) =
+     let (new_e,aux) = compile_exps [e] [] in
+       (* with this approach the supporting functions (aux) are
+          close the expressions (new_e) that refers to them *)
+       MAP (\e. (n + num_stubs,args,e)) new_e ++ aux ++ compile_prog xs)`
+
 val pair_lem1 = Q.prove (
   `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
   rw [] >>
@@ -422,14 +430,15 @@ val _ = Datatype`
 
 val compile_def = Define`
   compile c e =
-  let es = clos_mti$compile c.do_mti [e] in
-  let (n,es) = renumber_code_locs_list c.next_loc es in
-  let c = c with next_loc := n in
-  let e = clos_known$compile c.do_known (HD es) in
-  (* TODO: let (e,aux) = clos_call$compile T e in, and compile the aux below *)
-  let es = clos_remove$compile c.do_remove [e] in
-  let es = annotate es in
-  let (es,aux) = compile_exps es [] in
-  (c,toAList init_code ++ MAP (λe. (c.start,0,e)) es ++ aux)`;
+    let es = clos_mti$compile c.do_mti [e] in
+    let (n,es) = renumber_code_locs_list c.next_loc es in
+    let c = c with next_loc := n in
+    let e = clos_known$compile c.do_known (HD es) in
+    let (e,aux) = clos_call$compile T e in
+    let prog = (c.start - num_stubs,0,e) :: aux in
+    let prog = clos_remove$compile c.do_remove prog in
+    let prog = clos_annotate$compile prog in
+    let prog = compile_prog prog in
+      (c,toAList init_code ++ prog)`;
 
 val _ = export_theory()

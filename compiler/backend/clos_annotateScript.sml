@@ -95,9 +95,15 @@ val HD_shift = store_thm("HD_shift[simp]",
   ``[HD (shift [x] m l i)] = shift [x] m l i``,
   STRIP_ASSUME_TAC shift_SING \\ fs []);
 
-(* main function *)
+(* main functions *)
 
 val annotate_def = Define `
   annotate xs = shift (FST (free xs)) 0 0 LN`;
+
+val compile_def = Define `
+  compile prog =
+    let exps = MAP (\(_,_,exp). exp) prog in
+    let new_exps = annotate exps in
+      MAP (\((n,args,_),e). (n,args,e)) (ZIP (prog, new_exps))`;
 
 val _ = export_theory();

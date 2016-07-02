@@ -201,7 +201,10 @@ val remove_alt_ind = store_thm("remove_alt_ind",``
   metis_tac[]);
 
 val compile_def = Define`
-  compile F exps = exps /\
-  compile T exps = FST (remove exps)`
+  compile F prog = prog /\
+  compile T prog =
+    let exps = MAP (\(_,_,exp). exp) prog in
+    let new_exps = FST (remove exps) in
+      MAP (\((n,args,_),e). (n,args,e)) (ZIP (prog, new_exps))`
 
 val _ = export_theory()
