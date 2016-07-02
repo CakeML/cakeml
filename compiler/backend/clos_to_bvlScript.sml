@@ -434,7 +434,7 @@ val compile_def = Define`
     let (n,es) = renumber_code_locs_list c.next_loc es in
     let c = c with next_loc := n in
     let e = clos_known$compile c.do_known (HD es) in
-    let (e,aux) = clos_call$compile T e in
+    let (e,aux) = clos_call$compile c.do_call e in
     let prog = (c.start - num_stubs,0,e) :: aux in
     let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in

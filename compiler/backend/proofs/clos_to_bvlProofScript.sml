@@ -3959,14 +3959,35 @@ val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
   REWRITE_TAC[domain_init_code] >>
   srw_tac[][EVAL``num_stubs``] >> simp[]);
 
+(*TODO: This rewrite might make it worse, not sure...*)
+val compile_prog_code_locs = Q.store_thm("compile_prog_code_locs",
+  `∀ls.
+  MAP FST (compile_prog ls) =
+  FLAT (
+    MAP (λn,args,e. (n+num_stubs)::(MAP ($+ num_stubs) (REVERSE (code_locs [e])))) ls)`,
+  Induct>>fs[compile_prog_def,FORALL_PROD]>>rw[]>>
+  pairarg_tac>>fs[MAP_MAP_o]>>
+  pop_assum mp_tac>>
+  specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
+  imp_res_tac compile_exps_LENGTH>>
+  fs[quantHeuristicsTheory.LIST_LENGTH_1])
+
+(* TODO: Move to clos_annotate *)
+val annotate_CONS = prove(``
+  annotate (x::xs) = HD(annotate [x]) :: annotate xs``,
+  simp[clos_annotateTheory.annotate_def,Once clos_freeTheory.free_CONS,Once clos_annotateTheory.shift_CONS]>>
+  `∃z.FST (free [x]) = [z]` by
+    metis_tac[clos_freeTheory.free_LENGTH,FST,PAIR,quantHeuristicsTheory.LIST_LENGTH_1]>>
+  fs[])
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
    compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   srw_tac[][compile_def] >>
   full_simp_tac(srw_ss())[compile_def,LET_THM] >>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
-  rator_x_assum`compile_exps`mp_tac >>
-  specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
+  srw_tac[][]>>
+  simp[compile_prog_code_locs]>>
   simp[ALL_DISTINCT_APPEND] >>
   `∃z. clos_mti$compile c.do_mti [e] = [z]` by (
     Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
@@ -3974,6 +3995,26 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `∃z. es = [z]` by (
     metis_tac
       [clos_numberTheory.renumber_code_locs_length, SING_HD, SND, LENGTH, ONE]) >>
+  CONJ_TAC>-
+    EVAL_TAC>>
+  qmatch_goalsub_abbrev_tac`clos_remove$compile _ ls`>>
+  qmatch_goalsub_abbrev_tac`MAP f (clos_annotate$compile ls')`>>
+  `MAP f (clos_annotate$compile ls') = MAP f ls'` by
+    (simp[Abbr`f`]>>
+    rpt (pop_assum kall_tac)>>
+    Induct_on`ls'`>>fs[clos_annotateTheory.compile_def,FORALL_PROD]>-
+      EVAL_TAC>>
+    rw[]>>
+    simp[Once annotate_CONS]>>
+    `∃z.annotate[p_2] = [z]` by
+      (simp[clos_annotateTheory.annotate_def,Once clos_freeTheory.free_CONS,Once clos_annotateTheory.shift_CONS]>>EVAL_TAC)>>
+    fs[]>>
+    metis_tac[clos_annotateProofTheory.annotate_code_locs,clos_removeProofTheory.code_loc'_def])>>
+  simp[]>>
+  cheat)
+  (*
+  rator_x_assum`compile_exps`mp_tac >>
+  specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
   `∃z. clos_remove$compile c.do_remove [kcompile c.do_known (HD es)] = [z]` by (
     Cases_on`c.do_remove`>>fs[clos_removeTheory.compile_def]>>
     metis_tac [clos_removeTheory.remove_SING,FST,PAIR] ) >>
@@ -4020,10 +4061,9 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   qspecl_then[`c.next_loc`,`z`]mp_tac clos_numberProofTheory.renumber_code_locs_distinct >>
   simp[EXISTS_MEM] >> spose_not_then strip_assume_tac >>
   fs[SIMP_RULE(srw_ss())[]clos_knownProofTheory.compile_code_locs] >>
-  res_tac >> decide_tac);
+  res_tac >> decide_tac*);
 
 (* composed compiler correctness *)
-
 val full_state_rel_def = Define`
   full_state_rel do_known s1 s2 ⇔
     ∀k. ∃sa sb sb' sc sd f.
@@ -4031,7 +4071,8 @@ val full_state_rel_def = Define`
       clos_numberProof$state_rel sa sb ∧                   (* renumber *)
       EVERY ((=) NONE) sb.globals ∧ ssgc_free sb ∧
       clos_knownProof$opt_state_rel do_known LN sb sb' ∧      (* known *)
-      state_rel k sb' sc ∧ sb'.clock = sc.clock ∧
+      (*TODO: call*)
+      state_rel k sb' sc ∧ sb'.clock = sc.clock ∧            (* remove *)
       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
       clos_annotateProof$state_rel sc sd ∧
       (* TODO: (some of) these FEVERYs are redundant given the state_rels *)
