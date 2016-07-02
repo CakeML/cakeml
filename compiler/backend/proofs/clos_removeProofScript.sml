@@ -921,12 +921,29 @@ val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
   full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
   metis_tac[remove_SING,HD,SND,PAIR]);
 
+(* Simplifies away the SNDs and stuff in compile_def*)
+val make_SND_tac =
+  simp[MAP_MAP_o,o_DEF]>>
+  strip_tac>>
+  qmatch_goalsub_abbrev_tac ` MAP f (ZIP (es,ls))`>>
+  `f = SND` by
+    fs[FUN_EQ_THM,Abbr`f`,SND,FORALL_PROD]>>
+  `LENGTH es = LENGTH ls` by
+    (fs[Abbr`ls`]>>
+    metis_tac[remove_LENGTH,LENGTH_MAP,FST,PAIR])>>
+  fs[MAP_ZIP,Abbr`ls`]>>
+  qmatch_goalsub_abbrev_tac `remove(MAP g es)`>>
+  `g = SND o SND` by
+    fs[FUN_EQ_THM,Abbr`g`,SND,FORALL_PROD]>>
+  simp[o_DEF]
+
 val every_Fn_vs_NONE_compile = Q.store_thm("every_Fn_vs_NONE_compile",
   `∀do_remove es es' s.
-   every_Fn_vs_NONE es ⇒
+   every_Fn_vs_NONE (MAP (SND o SND) es) ⇒
    clos_remove$compile do_remove es = es' ⇒
-   every_Fn_vs_NONE es'`,
+   every_Fn_vs_NONE (MAP (SND o SND) es')`,
    Cases>>fs[clos_removeTheory.compile_def]>>
+   make_SND_tac>>
    metis_tac[PAIR,FST,every_Fn_vs_NONE_remove])
 
 val evaluate_REPconst0s = Q.store_thm(
@@ -1029,10 +1046,11 @@ val remove_correct = Q.store_thm("remove_correct",
 
 val compile_correct = Q.store_thm("compile_correct",
   `∀do_remove es es' s.
-    every_Fn_vs_NONE es ⇒
+    every_Fn_vs_NONE (MAP (SND o SND) es) ⇒
     clos_remove$compile do_remove es = es' ⇒
-    exp_rel (:'ffi) es es'`,
+    exp_rel (:'ffi) (MAP (SND o SND) es) (MAP (SND o SND) es')`,
   Cases>>fs[clos_removeTheory.compile_def,exp_rel_refl]>>
+  make_SND_tac>>
   metis_tac[remove_correct,FST,PAIR])
 
 val k_intro = Q.prove(`(λn. x) = K x`, simp[FUN_EQ_THM])
@@ -1150,9 +1168,12 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
 
 val compile_distinct_locs = Q.store_thm("compile_distinct_locs",
   `∀do_remove es.
-    set (code_locs (clos_remove$compile do_remove es)) ⊆ set (code_locs es) ∧
-    (ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs (clos_remove$compile do_remove es)))`,
+    set (code_locs (MAP (SND o SND) (clos_remove$compile do_remove es))) ⊆
+    set (code_locs (MAP (SND o SND) es)) ∧
+    (ALL_DISTINCT (code_locs (MAP (SND o SND) es)) ⇒
+     ALL_DISTINCT (code_locs (MAP (SND o SND) (clos_remove$compile do_remove es))))`,
   Cases>>fs[clos_removeTheory.compile_def]>>
+  make_SND_tac>>
   metis_tac[FST,PAIR,remove_distinct_locs])
 
 val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
@@ -1188,10 +1209,11 @@ val every_Fn_SOME_remove = Q.store_thm("every_Fn_SOME_remove",
 
 val every_Fn_SOME_compile = Q.store_thm("every_Fn_SOME_compile",
   `∀do_remove es es'.
-   every_Fn_SOME es ⇒
-   compile do_remove es = es' ⇒
-   every_Fn_SOME es'`,
+   every_Fn_SOME (MAP (SND o SND) es) ⇒
+   clos_remove$compile do_remove es = es' ⇒
+   every_Fn_SOME (MAP (SND o SND) es')`,
   Cases>>fs[clos_removeTheory.compile_def]>>
+  make_SND_tac>>
   metis_tac[FST,PAIR,every_Fn_SOME_remove])
 
 val _ = export_theory();
