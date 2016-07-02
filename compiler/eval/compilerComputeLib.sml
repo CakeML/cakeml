@@ -178,6 +178,12 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [clos_callTheory.calls_def
+    ,clos_callTheory.closed_def
+    ,clos_callTheory.code_list_def
+    ,clos_callTheory.compile_def
+    ,clos_callTheory.calls_def
+    ,clos_callTheory.calls_list_def
+    ,clos_callTheory.insert_each_def_compute
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
     ,clos_annotateTheory.shifted_env_def
