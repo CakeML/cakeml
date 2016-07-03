@@ -44,6 +44,14 @@ val EVERY_ZIP_GENLIST = prove(
   \\ `LENGTH xs < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
   \\ full_simp_tac(srw_ss())[SNOC_APPEND,EL_LENGTH_APPEND]);
 
+val EVEN_SUB = Q.store_thm("EVEN_SUB",
+  `∀m n. m ≤ n ⇒ (EVEN (n - m) ⇔ (EVEN n <=> EVEN m))`,
+  Induct \\ simp[] \\ Cases \\ simp[EVEN]);
+
+val ODD_SUB = Q.store_thm("ODD_SUB",
+  `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`,
+  rw[ODD_EVEN,EVEN_SUB]);
+
 val map2_snoc = Q.prove (
   `!l1 l2 f x y.
     LENGTH l1 = LENGTH l2 ⇒
@@ -4075,7 +4083,8 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   >-
     (strip_tac>>
     (* This must be in HOL somewhere... *)
-    `ODD (c.start - num_stubs)` by cheat>>
+    `ODD (c.start - num_stubs)`
+      by ( simp[ODD_SUB,ODD_EVEN] \\ EVAL_TAC ) >>
     `¬MEM (c.start-num_stubs) (code_loc' ls)` by
       (fs[SUBSET_DEF]>>
       fs[ODD_EVEN]>>
