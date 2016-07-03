@@ -3253,6 +3253,80 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ disch_then(qspec_then`ck'`assume_tac)
   \\ qexists_tac`ck+ck'+1` \\ simp[]);
 
+val code_locs_GENLIST_Var = prove(``
+  ∀n.code_locs (GENLIST Var n) = []``,
+  cheat)
+
+val code_locs_calls_list = prove(``
+  ∀ls n. code_locs (MAP SND (calls_list n ls)) = []``,
+  Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>EVAL_TAC>>
+  fs[code_locs_GENLIST_Var])
+
+val code_locs_code_list_MEM = prove(``
+  ∀ls n rest x.
+  MEM x (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
+  MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))``,
+  Induct>>fs[code_list_def,FORALL_PROD,Once code_locs_cons,code_locs_append]>>
+  rw[]>>EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  fs[Once code_locs_cons,code_locs_def])
+
+val code_locs_code_list_ALL_DISTINCT = prove(``
+  ∀ls n rest.
+  ALL_DISTINCT (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
+  ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))``,
+  Induct>>fs[code_list_def,FORALL_PROD,Once code_locs_cons,code_locs_append]>>
+  rw[]>>EVAL_TAC>>
+  fs[ALL_DISTINCT_APPEND]>>
+  rw[EQ_IMP_THM]>>
+  fs[Once code_locs_cons,ALL_DISTINCT_APPEND,code_locs_def]>>
+  metis_tac[])
+
+(* All code_locs come from the original code,
+   and therefore, are all even
+*)
+val calls_code_locs_MEM = Q.store_thm("calls_code_locs_MEM",
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
+   ∀x.
+    (MEM x (code_locs ys) ∨
+    MEM x (code_locs (MAP (SND o SND) (SND g)))) ⇒
+    (MEM x (code_locs xs) ∨
+    MEM x (code_locs (MAP (SND o SND) (SND g0))))`,
+  ho_match_mp_tac calls_ind>>rw[]>>
+  fs[calls_def,code_locs_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  rpt var_eq_tac>>fs[code_locs_def,code_locs_append]>>
+  imp_res_tac calls_sing>>fs[]>>
+  TRY(metis_tac[])>>
+  qpat_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
+  rw[]>>rpt(var_eq_tac)>>
+  fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_GENLIST_Var,code_locs_calls_list]>>
+  TRY(metis_tac[])>>
+  fs[code_locs_append,code_locs_code_list_MEM]>>
+  imp_res_tac calls_length>>fs[MAP_ZIP]>>
+  metis_tac[]);
+
+(* the all distinctness of code_locs is preserved *)
+val calls_code_locs_ALL_DISTINCT = Q.store_thm("calls_code_locs_ALL_DISTINCT",
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
+    ALL_DISTINCT (code_locs xs ++ code_locs (MAP (SND o SND) (SND g0))) ⇒
+    ALL_DISTINCT (code_locs ys ++ code_locs (MAP (SND o SND) (SND g)))`,
+  ho_match_mp_tac calls_ind>>
+  rw[calls_def,code_locs_def]>>
+  EVAL_TAC>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>
+  rpt var_eq_tac>>
+  fs[code_locs_append,ALL_DISTINCT_APPEND,code_locs_def]>>
+  imp_res_tac calls_sing>>fs[]>>
+  imp_res_tac calls_code_locs_MEM>>
+  fs[]>>TRY(metis_tac[])>>
+  qpat_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
+  rw[]>>rpt(var_eq_tac)>>
+  fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_GENLIST_Var,code_locs_calls_list,ALL_DISTINCT_APPEND,code_locs_code_list_ALL_DISTINCT,code_locs_code_list_MEM]>>
+  imp_res_tac calls_length>>fs[MAP_ZIP]>>
+  rw[]>>
+  metis_tac[]);
+
 (*
 val tm = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
              (App NONE (Fn (SOME 1) NONE 1 (Fn (SOME 2) NONE 1 (Op (Const 1) []))) [Op (Const 2) []])``

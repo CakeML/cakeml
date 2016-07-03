@@ -9,6 +9,7 @@ local open
   clos_knownProofTheory
   clos_removeProofTheory
   clos_annotateProofTheory
+  clos_callProofTheory
 in end
 
 val _ = new_theory"clos_to_bvlProof";
@@ -3980,8 +3981,26 @@ val annotate_CONS = prove(``
     metis_tac[clos_freeTheory.free_LENGTH,FST,PAIR,quantHeuristicsTheory.LIST_LENGTH_1]>>
   fs[])
 
+(* TODO: Gets rid of the annoying ZIP in clos_remove$compile,
+  should probably be the definition instead, but this might translate worse
+*)
+val remove_compile_alt = prove(``
+  ∀prog.
+  clos_remove$compile T prog =
+  MAP (λ(n,args,exp). (n,args, HD(FST(remove [exp])))) prog``,
+  Induct>>fs[clos_removeTheory.compile_def]>-EVAL_TAC>>
+  simp[FORALL_PROD]>>rw[Once clos_removeTheory.remove_CONS]);
+
+val remove_FST = prove(``
+  ∀ls b.MAP FST (clos_remove$compile b ls) = MAP FST ls``,
+  Induct>>Cases_on`b`>>fs[clos_removeTheory.compile_def,FORALL_PROD]
+  >-
+    EVAL_TAC>>
+  first_x_assum(qspec_then`T` assume_tac)>>fs[clos_removeTheory.compile_def]>>
+  rw[Once clos_removeTheory.remove_CONS])
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
-  `num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
+  `num_stubs ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
    compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   srw_tac[][compile_def] >>
   full_simp_tac(srw_ss())[compile_def,LET_THM] >>
@@ -3997,8 +4016,15 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
       [clos_numberTheory.renumber_code_locs_length, SING_HD, SND, LENGTH, ONE]) >>
   CONJ_TAC>-
     EVAL_TAC>>
+  reverse CONJ_TAC>-
+    (simp[ALL_DISTINCT_MAP_FST_toAList,toAList_domain] >>
+    rpt strip_tac >>
+    drule domain_init_code_lt_num_stubs >>
+    fs[MEM_FLAT,MEM_MAP]>>
+    pairarg_tac>>fs[]>>rfs[MEM_MAP])>>
   qmatch_goalsub_abbrev_tac`clos_remove$compile _ ls`>>
   qmatch_goalsub_abbrev_tac`MAP f (clos_annotate$compile ls')`>>
+  (* annotate *)
   `MAP f (clos_annotate$compile ls') = MAP f ls'` by
     (simp[Abbr`f`]>>
     rpt (pop_assum kall_tac)>>
@@ -4010,58 +4036,84 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
       (simp[clos_annotateTheory.annotate_def,Once clos_freeTheory.free_CONS,Once clos_annotateTheory.shift_CONS]>>EVAL_TAC)>>
     fs[]>>
     metis_tac[clos_annotateProofTheory.annotate_code_locs,clos_removeProofTheory.code_loc'_def])>>
-  simp[]>>
-  cheat)
-  (*
-  rator_x_assum`compile_exps`mp_tac >>
-  specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
-  `∃z. clos_remove$compile c.do_remove [kcompile c.do_known (HD es)] = [z]` by (
-    Cases_on`c.do_remove`>>fs[clos_removeTheory.compile_def]>>
-    metis_tac [clos_removeTheory.remove_SING,FST,PAIR] ) >>
-  `∃z. es' = [z]` by (
-    metis_tac
-      [clos_annotateTheory.shift_SING,
-       clos_annotateTheory.annotate_def,
-       clos_freeTheory.free_SING, FST, PAIR,
-       compile_exps_SING] ) >>
-  simp[] >>
-  conj_tac >- (
-    conj_tac >- simp[ALL_DISTINCT_MAP_FST_toAList] >>
-    simp[toAList_domain] >>
-    rpt strip_tac >>
-    drule domain_init_code_lt_num_stubs >>
-    decide_tac) >>
-  conj_tac >- (
-    match_mp_tac ALL_DISTINCT_MAP_INJ >>
-    conj_tac >- simp[] >>
-    simp[ALL_DISTINCT_REVERSE] >>
-    simp[clos_annotateProofTheory.annotate_code_locs] >>
-    full_simp_tac(srw_ss())[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
-    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
-    EVAL_TAC>>
-    qpat_assum`A=[z'']` sym_sub_tac>>
-    match_mp_tac (CONJUNCT2 (SPEC_ALL clos_removeProofTheory.compile_distinct_locs))>>
-    fs[clos_knownProofTheory.compile_code_locs]>>
-    metis_tac[FST,SND,PAIR,
-              clos_removeProofTheory.code_loc'_def,
-              clos_numberProofTheory.renumber_code_locs_distinct] ) >>
-  simp[toAList_domain] >>
-  simp[clos_annotateProofTheory.annotate_code_locs,MAP_REVERSE] >>
-  qspecl_then[`c.do_remove`,`[compile c.do_known (HD es)]`]mp_tac clos_removeProofTheory.compile_distinct_locs >>
-  simp[SUBSET_DEF] >> strip_tac >>
-  simp[MEM_MAP,PULL_EXISTS] >>
-  gen_tac >> strip_tac >- (
-    spose_not_then strip_assume_tac >>
-    imp_res_tac domain_init_code_lt_num_stubs >>
-    decide_tac ) >>
-  spose_not_then strip_assume_tac >>
-  rveq >> res_tac >>
-  full_simp_tac(srw_ss())[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
-  pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
-  qspecl_then[`c.next_loc`,`z`]mp_tac clos_numberProofTheory.renumber_code_locs_distinct >>
-  simp[EXISTS_MEM] >> spose_not_then strip_assume_tac >>
-  fs[SIMP_RULE(srw_ss())[]clos_knownProofTheory.compile_code_locs] >>
-  res_tac >> decide_tac*);
+  fs[]>>
+  (* rewrite away the nasty ordering of stubs and the +num_stubs *)
+  qsuff_tac`ALL_DISTINCT (MAP FST ls' ++ FLAT (MAP (code_loc' o SND o SND) ls'))`>-
+    (fs[Abbr`f`]>>rpt(pop_assum kall_tac)>>Induct_on`ls'`>- EVAL_TAC>>
+    simp[FORALL_PROD]>>rw[]
+    >-
+      simp[MEM_MAP]
+    >-
+      (fs[MEM_FLAT,MEM_MAP,FORALL_PROD]>>CCONTR_TAC>>fs[]>>
+      rfs[MEM_MAP]>>metis_tac[])
+    >>
+      fs[ALL_DISTINCT_APPEND]>>
+      CONJ_TAC>-
+        fs[ALL_DISTINCT_MAP_INJ]>>
+      fs[MEM_FLAT,MEM_MAP,FORALL_PROD]>>CCONTR_TAC>>fs[]>>
+      rfs[MEM_MAP]>>
+      metis_tac[FST])>>
+  (* Rewrite away FLAT *)
+  `FLAT (MAP (code_loc' o SND o SND) ls') = code_locs (MAP (SND o SND) ls')` by
+    (rpt (pop_assum kall_tac)>>Induct_on`ls'`>- EVAL_TAC>>
+    fs[FORALL_PROD])>>
+  pop_assum SUBST1_TAC>>
+  (* remove *)
+  qho_match_abbrev_tac`P ls'`>>
+  qsuff_tac`P ls`>-
+    (fs[Abbr`P`,Abbr`ls'`]>>
+    simp[ALL_DISTINCT_APPEND,remove_FST,clos_removeProofTheory.compile_distinct_locs]>>rw[]>>
+    specl_args_of_then ``clos_remove$compile`` clos_removeProofTheory.compile_distinct_locs mp_tac>>
+    CCONTR_TAC>>fs[SUBSET_DEF]>>
+    metis_tac[])>>
+  fs[Abbr`ls`,Abbr`P`]>>
+  qabbrev_tac`ls = kcompile c.do_known z'`>>
+  (* call's syntactic preconds go here *)
+  qsuff_tac`ALL_DISTINCT (code_loc' ls) ∧
+            set (code_loc' ls) ⊆ EVEN ∧
+            EVERY ($<= c.next_loc) (code_loc' ls)`
+  >-
+    (strip_tac>>
+    (* This must be in HOL somewhere... *)
+    `ODD (c.start - num_stubs)` by cheat>>
+    `¬MEM (c.start-num_stubs) (code_loc' ls)` by
+      (fs[SUBSET_DEF]>>
+      fs[ODD_EVEN]>>
+      metis_tac[IN_DEF])>>
+    Cases_on`c.do_call`>>fs[clos_callTheory.compile_def]>>
+    rpt var_eq_tac>>rfs[]>>
+    pairarg_tac>>fs[]>>
+    imp_res_tac clos_callProofTheory.calls_sing>>rpt var_eq_tac>>fs[]>>
+    imp_res_tac clos_callProofTheory.calls_code_locs_ALL_DISTINCT>>rfs[]>>
+    imp_res_tac clos_callProofTheory.calls_code_locs_MEM>>
+    imp_res_tac clos_callProofTheory.calls_add_SUC_code_locs>>
+    imp_res_tac clos_callProofTheory.calls_ALL_DISTINCT>>rfs[]>>
+    rw[]
+    >-
+      (CCONTR_TAC>>fs[SUBSET_DEF,EVERY_MEM]>>res_tac>>
+      res_tac>>
+      DECIDE_TAC)
+    >-
+      metis_tac[]
+    >-
+      metis_tac[]
+    >>
+    fs[ALL_DISTINCT_APPEND]>>
+    CCONTR_TAC>>fs[SUBSET_DEF,EVERY_MEM]>>res_tac>>
+    res_tac>>
+    rpt var_eq_tac>>fs[IN_DEF,EVEN]>>
+    rfs[])>>
+  (* known *)
+  `code_loc' ls = code_loc' z'` by
+    fs[Abbr`ls`,clos_knownProofTheory.compile_code_locs,Once clos_removeProofTheory.code_loc'_def]>>
+  unabbrev_all_tac>>fs[]>>
+  (* renumber *)
+  qspecl_then[`c.next_loc`,`z`]assume_tac clos_numberProofTheory.renumber_code_locs_distinct>>
+  fs[clos_numberTheory.renumber_code_locs_def]>>pairarg_tac>>fs[]>>
+  rpt var_eq_tac>>fs[]>>
+  Q.SPECL_THEN [`c.next_loc`,`z`] assume_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)>>
+  rfs[EVERY_MEM,SUBSET_DEF]>>
+  metis_tac[IN_DEF]);
 
 (* composed compiler correctness *)
 val full_state_rel_def = Define`
