@@ -608,20 +608,21 @@ val infer_p_bindings = Q.store_thm ("infer_p_bindings",
     (pats_bindings ps x = MAP FST env ++ x))`,
 ho_match_mp_tac infer_p_ind >>
 rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem] >>
-rw [] >|
-[PairCases_on `v'` >>
-     rw [] >>
-     metis_tac [],
- PairCases_on `v''` >>
-     rw [] >>
-     metis_tac [],
- PairCases_on `v'` >>
-     rw [] >>
-     metis_tac [],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     rw [] >>
-     metis_tac [APPEND_ASSOC]]);
+rw []
+>- (PairCases_on `v'` >>
+    rw [] >>
+    metis_tac [])
+>- (PairCases_on `v''` >>
+    rw [] >>
+    metis_tac [])
+>- (PairCases_on `v'` >>
+    rw [] >>
+    metis_tac [])
+>- metis_tac []
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    rw [] >>
+    metis_tac [APPEND_ASSOC]));
 
 (* ---------- Dealing with the constraint set ---------- *)
 
