@@ -4148,6 +4148,10 @@ val clos_init_def = Define`
   clos_init s ⇔
   s.globals = [] ∧ s.refs = FEMPTY ∧ s.code = FEMPTY`
 
+val clos_init_with_clock = Q.store_thm("clos_init_with_clock[simp]",
+  `clos_init (s with clock := k) ⇔ clos_init s`,
+  EVAL_TAC);
+
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s:'ffi closSem$state) = (r,s') ∧
   clos_init s ∧
@@ -4710,12 +4714,70 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   Cases_on`b`>>fs[clos_knownProofTheory.state_rel_def]>>
   metis_tac[clos_numberProofTheory.state_rel_def,
             clos_annotateProofTheory.state_rel_def]);
+*)
+
+val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
+  `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel c (r,x) (Rerr (Rabort a),y) ⇒
+   r = Rerr (Rabort a)`,
+  srw_tac[][full_result_rel_def] >>
+  Cases_on`rd`>> fs[clos_relationTheory.res_rel_rw]>>
+  fs[clos_callProofTheory.opt_result_rel_def]>>
+  Cases_on`rc` >> fs[] >>
+  fs[clos_knownProofTheory.opt_res_rel_def]>>
+  Cases_on`rb` >> fs[] >> rveq >>
+  Cases_on`r` >> fs[] >>
+  Cases_on`e` >> fs[clos_relationTheory.res_rel_rw] >>
+  rename[`Rerr (Rabort a)`,`err = Rabort a`] >>
+  Cases_on`err` \\ fs[clos_relationTheory.res_rel_rw] >>
+  fs[clos_knownProofTheory.krrel_err_rw] >>
+  qmatch_rename_tac`err = _` >>
+  Cases_on`err` >> fs[clos_relationTheory.res_rel_rw]
+  \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ qmatch_rename_tac`ab = _`
+  \\ Cases_on`ab` >> fs[clos_relationTheory.res_rel_rw]
+  \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ qmatch_rename_tac`_ = ab`
+  \\ Cases_on`ab` >> fs[]
+  \\ rveq \\ fs[] \\ every_case_tac \\ fs[] \\ rveq \\ fs[])
+
+val full_result_rel_timeout = Q.store_thm("full_result_rel_timeout",
+  `full_result_rel c (Rerr(Rabort Rtimeout_error),x) (r,y) ⇒
+   r = Rerr (Rabort Rtimeout_error)`,
+  srw_tac[][full_result_rel_def,clos_knownProofTheory.opt_res_rel_def,clos_callProofTheory.opt_result_rel_def] >>
+  BasicProvers.EVERY_CASE_TAC>>
+  rpt (fs[clos_knownProofTheory.krrel_err_rw] >> rveq));
+
+val full_result_rel_ffi = Q.store_thm("full_result_rel_ffi",
+  `r ≠ Rerr (Rabort Rtype_error) ⇒
+   full_result_rel c (r,s) (r1,s1) ⇒ s.ffi = s1.ffi`,
+  srw_tac[][full_result_rel_def] >>
+  imp_res_tac clos_relationPropsTheory.res_rel_ffi >>
+  fs[clos_annotateProofTheory.state_rel_def,
+     clos_numberProofTheory.state_rel_def,
+     state_rel_def] >> rfs[] >>
+  `sd.ffi = sc.ffi` by
+    (Cases_on`c.do_call`>>fs[clos_callProofTheory.opt_state_rel_def,clos_callProofTheory.state_rel_def])>>
+  `sc.ffi = sb.ffi` by (
+    fs[clos_knownProofTheory.opt_res_rel_def] >>
+    Cases_on`c.do_known` >> fs[] >>
+    match_mp_tac (GEN_ALL clos_knownProofTheory.krrel_ffi) >>
+    asm_exists_tac \\ rw[]
+    \\ spose_not_then strip_assume_tac \\ fs[]) >>
+  fs[] >> match_mp_tac EQ_SYM >> first_x_assum match_mp_tac >>
+  spose_not_then strip_assume_tac \\ fs[] >>
+  `rc = Rerr (Rabort Rtype_error)` by (
+    fs[clos_callProofTheory.opt_result_rel_def] >>
+    Cases_on`c.do_call` >> fs[] ) >>
+  `rb = Rerr (Rabort Rtype_error)` by (
+    fs[clos_knownProofTheory.opt_res_rel_def]>>
+    metis_tac[] ) >>
+  fs[]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧ esgc_free e ∧
    BAG_ALL_DISTINCT (set_globals e) ∧
-   compile c e = (c',p) ∧ num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
-   full_state_rel c e (s:'ffi closSem$state) (initial_state s.ffi (fromAList p) s.clock) ∧
+   compile c e = (c',p) ∧ num_stubs ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.next_loc ∧
+   clos_init (s:'ffi closSem$state) ∧
    semantics [] s [e] ≠ Fail
    ⇒
    semantics s.ffi (fromAList p) c'.start =
@@ -4734,16 +4796,10 @@ val compile_semantics = Q.store_thm("compile_semantics",
       rator_x_assum`closSem$evaluate`kall_tac >>
       last_assum(qspec_then`k'`mp_tac)>>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
-      drule (GEN_ALL compile_evaluate) >>
-      rpt(disch_then drule) >> full_simp_tac(srw_ss())[] >>
+      drule (GEN_ALL compile_evaluate) >> fs[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-      disch_then drule >>
-      drule(GEN_ALL full_state_rel_with_clock) >>
-      disch_then(qspec_then`k'`mp_tac)>>simp[] >> strip_tac >>
-      disch_then drule >> simp[] >>
-      impl_tac >- (
-        metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+      disch_then drule >> fs[] >>
       strip_tac >>
       first_x_assum(qspec_then`ck`mp_tac) >>
       simp[inc_clock_def] >>
@@ -4762,15 +4818,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
       Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
         Cases_on`s''.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
           unabbrev_all_tac >>
-          drule (GEN_ALL compile_evaluate) >>
+          drule (GEN_ALL compile_evaluate) >> fs[] >>
           rpt(disch_then drule) >>
-          simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-          disch_then drule >>
-          drule(GEN_ALL full_state_rel_with_clock) >>
-          disch_then(qspec_then`k`mp_tac)>>simp[] >> strip_tac >>
-          disch_then drule >> simp[] >>
-          impl_tac >- (
-            metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
           strip_tac >>
           drule bvlPropsTheory.evaluate_add_clock >>
           impl_tac >- (
@@ -4787,18 +4836,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
         unabbrev_all_tac >>
         drule (GEN_ALL compile_evaluate) >>
-        rpt(disch_then drule) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
+        REWRITE_TAC[AND_IMP_INTRO] >>
         impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
+        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
         disch_then drule >>
-        drule(GEN_ALL full_state_rel_with_clock) >>
-        disch_then(qspec_then`k'+k`mp_tac)>>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[])) >> strip_tac >>
         disch_then drule >>
-        impl_tac >- (
-          simp[] >>
-          metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
-        strip_tac >>
+        disch_then drule >>
+        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[LET_THM])) >> strip_tac >>
         rator_x_assum`closSem$evaluate`mp_tac >>
         drule (Q.GEN`extra`(SIMP_RULE std_ss [] (CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
@@ -4814,15 +4859,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
       first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
       unabbrev_all_tac >>
       drule (GEN_ALL compile_evaluate) >>
-      rpt(disch_then drule) >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-      disch_then drule >>
-      drule(GEN_ALL full_state_rel_with_clock) >>
-      disch_then(qspec_then`k+k'`mp_tac)>>simp[] >> strip_tac >>
-      disch_then drule >> simp[] >>
-      impl_tac >- (
-        metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+      rpt(disch_then drule) >>
       strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][] >>
       reverse(Cases_on`s''.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
@@ -4840,16 +4879,10 @@ val compile_semantics = Q.store_thm("compile_semantics",
       fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
       imp_res_tac full_result_rel_ffi >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    drule (GEN_ALL compile_evaluate) >>
-    rpt(disch_then drule) >>
+    drule (GEN_ALL compile_evaluate) >> fs[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-    disch_then drule >>
-    drule(GEN_ALL full_state_rel_with_clock) >>
-    disch_then(qspec_then`k`mp_tac)>>simp[] >> strip_tac >>
-    disch_then drule >> simp[] >>
-    impl_tac >- (
-      metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+    rpt(disch_then drule) >>
     strip_tac >>
     qexists_tac`ck + k` >> simp[] >>
     imp_res_tac full_result_rel_ffi >>
@@ -4864,10 +4897,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     pop_assum(assume_tac o SYM) >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
     simp[GSYM PULL_FORALL] >>
-    imp_res_tac full_state_rel_with_clock >>
-    pop_assum(qspec_then`k`strip_assume_tac) >>
     rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
-    conj_tac >- metis_tac[code_installed_fromAList,compile_all_distinct_locs] >>
     spose_not_then strip_assume_tac >>
     qmatch_assum_abbrev_tac`FST q = _` >>
     Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
@@ -4885,11 +4915,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
     strip_tac >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
-    simp[] >>
-    imp_res_tac full_state_rel_with_clock >>
-    pop_assum(qspec_then`k`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
+    simp[] >> fs[] >>
     rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
-    conj_tac >- metis_tac[code_installed_fromAList,compile_all_distinct_locs] >>
     spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
     reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[] >- (
@@ -4946,24 +4973,20 @@ val compile_semantics = Q.store_thm("compile_semantics",
   (compile_evaluate
    |> Q.GEN`s` |> Q.SPEC`s with clock := k`
    |> GEN_ALL |> SIMP_RULE(srw_ss()++QUANT_INST_ss[pair_default_qp])[]
-   |> Q.SPECL[`initial_state (s:'ffi closSem$state).ffi (fromAList p) k`,`s`,`k`,`e`,`c`]
-   |> mp_tac) >>
-  (impl_tac >- (
-    simp[] >>
-    metis_tac[full_state_rel_with_clock,initial_state_with_simp,
-              compile_all_distinct_locs, code_installed_fromAList] )) >>
-  srw_tac[][] >>
+   |> Q.SPECL[`s`,`k`,`e`,`c`] |> mp_tac) >>
+  (impl_tac >- ( simp[] )) >>
+  srw_tac[][] >> fs[] >>
   qmatch_assum_abbrev_tac`full_result_rel c p1 p2` >>
-  Cases_on`p1`>>Cases_on`p2`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
-  ntac 2 (pop_assum(mp_tac o SYM)) >> ntac 2 strip_tac >> full_simp_tac(srw_ss())[] >>
+  Cases_on`p1`>>Cases_on`p2`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >> rveq >>
+  pop_assum(mp_tac o SYM) >> strip_tac >> full_simp_tac(srw_ss())[] >>
   qmatch_assum_rename_tac`full_result_rel c (a1,b1) (a2,b2)` >>
   `b1.ffi = b2.ffi` by (
     metis_tac[FST,full_result_rel_abort,full_result_rel_ffi,
               semanticPrimitivesTheory.result_11,
               semanticPrimitivesTheory.error_result_11,
               semanticPrimitivesTheory.abort_distinct])
-  >- ( qexists_tac`k+ck` >> full_simp_tac(srw_ss())[] ) >>
-  qexists_tac`k` >> full_simp_tac(srw_ss())[] >>
+  >- ( qexists_tac`k+ck` >> fs[] ) >>
+  qexists_tac`k` >> fs[] >>
   qmatch_assum_abbrev_tac`n < (LENGTH (_ ffi))` >>
   `ffi.io_events ≼ b2.ffi.io_events` by (
     qunabbrev_tac`ffi` >>
@@ -4975,5 +4998,5 @@ val compile_semantics = Q.store_thm("compile_semantics",
         |> SIMP_RULE(srw_ss())[bvlPropsTheory.inc_clock_def],
       SND,ADD_SYM]) >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
-*)
+
 val _ = export_theory();
