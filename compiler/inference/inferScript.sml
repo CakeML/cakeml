@@ -211,6 +211,14 @@ val lookup_tenvC_st_ex_def = Define `
      lookup_st_ex (\x. id_to_string (Long mn x)) cn cenv'
   od)`;
 
+(* This definition relies on the fact that for now, there isn't any *)
+(* type variables in type annotations. *)
+val tannot_to_infer_t_def = Define `
+(tannot_to_infer_t (Tapp l c) = Infer_Tapp (tannots_to_infer_t l) c) ∧
+(tannots_to_infer_t [] = []) ∧
+(tannots_to_infer_t (t :: ts) = tannot_to_infer_t t :: tannots_to_infer_t ts)
+`
+
 val infer_p_def = tDefine "infer_p" `
 (infer_p cenv (Pvar n) =
   do t <- fresh_uvar;
@@ -243,6 +251,11 @@ val infer_p_def = tDefine "infer_p" `
   do (t,tenv) <- infer_p cenv p;
     return (Infer_Tapp [t] TC_ref, tenv)
   od) ∧
+(infer_p cenv (Ptannot p t) =
+ do (t',tenv) <- infer_p cenv p;
+    () <- add_constraint t' (tannot_to_infer_t t);
+    return (t', tenv)
+ od) ∧
 (infer_ps cenv [] =
   return ([], [])) ∧
 (infer_ps cenv (p::ps) =
@@ -515,6 +528,11 @@ val infer_e_def = tDefine "infer_e" `
      t <- infer_e (ienv with inf_v:=env') e;
      return t
   od) ∧
+(infer_e ienv (Tannot e t) =
+  do t' <- infer_e ienv e;
+     () <- add_constraint t' (tannot_to_infer_t t);
+     return t'
+   od) ∧
 (infer_es ienv [] =
   return []) ∧
 (infer_es ienv (e::es) =
