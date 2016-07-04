@@ -1115,7 +1115,7 @@ val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
   simp[Once every_Fn_vs_SOME_EVERY]);
 
 val every_Fn_vs_SOME_annotate = Q.store_thm("every_Fn_vs_SOME_annotate[simp]",
-  `every_Fn_vs_SOME (annotate es)`, srw_tac[][annotate_def]);
+  `every_Fn_vs_SOME (annotate n es)`, srw_tac[][annotate_def]);
 
 val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
   `∀a b c d. every_Fn_SOME (shift a b c d) ⇔ every_Fn_SOME a`,
@@ -1147,7 +1147,7 @@ val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free[simp]",
   metis_tac[free_SING,HD,FST,PAIR]);
 
 val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
-  `every_Fn_SOME (annotate es) ⇔ every_Fn_SOME es`, srw_tac[][annotate_def]);
+  `every_Fn_SOME (annotate n es) ⇔ every_Fn_SOME es`, srw_tac[][annotate_def]);
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
@@ -1174,7 +1174,7 @@ val free_code_locs = prove(
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[])
 
 val annotate_code_locs = store_thm("annotate_code_locs",
-  ``!ls. code_locs (annotate ls) = code_locs ls``,
+  ``!n ls. code_locs (annotate n ls) = code_locs ls``,
   srw_tac[][annotate_def,shift_code_locs,free_code_locs])
 
 val _ = export_theory()

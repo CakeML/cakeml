@@ -98,12 +98,10 @@ val HD_shift = store_thm("HD_shift[simp]",
 (* main functions *)
 
 val annotate_def = Define `
-  annotate xs = shift (FST (free xs)) 0 0 LN`;
+  annotate arity xs = shift (FST (free xs)) 0 arity LN`;
 
 val compile_def = Define `
   compile prog =
-    let exps = MAP (\(_,_,exp). exp) prog in
-    let new_exps = annotate exps in
-      MAP (\((n,args,_),e). (n,args,e)) (ZIP (prog, new_exps))`;
+    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog`
 
 val _ = export_theory();

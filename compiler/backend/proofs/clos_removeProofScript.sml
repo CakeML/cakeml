@@ -1048,10 +1048,20 @@ val compile_correct = Q.store_thm("compile_correct",
   `∀do_remove es es' s.
     every_Fn_vs_NONE (MAP (SND o SND) es) ⇒
     clos_remove$compile do_remove es = es' ⇒
-    exp_rel (:'ffi) (MAP (SND o SND) es) (MAP (SND o SND) es')`,
-  Cases>>fs[clos_removeTheory.compile_def,exp_rel_refl]>>
-  make_SND_tac>>
-  metis_tac[remove_correct,FST,PAIR])
+    LIST_REL (λ(n,m,e) (n',m',e'). n = n' ∧ m = m' ∧ exp_rel (:'ffi) [e] [e']) es es'`,
+  reverse Cases>>fs[clos_removeTheory.compile_def]
+  >-
+    (rw[]>>
+    match_mp_tac refl_list_rel_refl>>
+    simp[FORALL_PROD,exp_rel_refl])>>
+  Induct>>rw[]>- EVAL_TAC>>
+  fs[Once every_Fn_vs_NONE_CONS]>>
+  simp[Once remove_CONS]>>
+  PairCases_on`h`>>fs[]>>
+  imp_res_tac remove_correct>>
+  Cases_on`remove [h2]`>>fs[]>>
+  imp_res_tac remove_SING>>
+  fs[]);
 
 val k_intro = Q.prove(`(λn. x) = K x`, simp[FUN_EQ_THM])
 

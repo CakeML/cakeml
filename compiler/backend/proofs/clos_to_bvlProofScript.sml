@@ -3981,14 +3981,6 @@ val compile_prog_code_locs = Q.store_thm("compile_prog_code_locs",
   imp_res_tac compile_exps_LENGTH>>
   fs[quantHeuristicsTheory.LIST_LENGTH_1])
 
-(* TODO: Move to clos_annotate *)
-val annotate_CONS = prove(``
-  annotate (x::xs) = HD(annotate [x]) :: annotate xs``,
-  simp[clos_annotateTheory.annotate_def,Once clos_freeTheory.free_CONS,Once clos_annotateTheory.shift_CONS]>>
-  `∃z.FST (free [x]) = [z]` by
-    metis_tac[clos_freeTheory.free_LENGTH,FST,PAIR,quantHeuristicsTheory.LIST_LENGTH_1]>>
-  fs[])
-
 (* TODO: Gets rid of the annoying ZIP in clos_remove$compile,
   should probably be the definition instead, but this might translate worse
 *)
@@ -4037,14 +4029,13 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `MAP f (clos_annotate$compile ls') = MAP f ls'` by
     (simp[Abbr`f`]>>
     rpt (pop_assum kall_tac)>>
-    Induct_on`ls'`>>fs[clos_annotateTheory.compile_def,FORALL_PROD]>-
-      EVAL_TAC>>
+    Induct_on`ls'`>>fs[clos_annotateTheory.compile_def,FORALL_PROD]>>
     rw[]>>
-    simp[Once annotate_CONS]>>
-    `∃z.annotate[p_2] = [z]` by
-      (simp[clos_annotateTheory.annotate_def,Once clos_freeTheory.free_CONS,Once clos_annotateTheory.shift_CONS]>>EVAL_TAC)>>
-    fs[]>>
-    metis_tac[clos_annotateProofTheory.annotate_code_locs,clos_removeProofTheory.code_loc'_def])>>
+    `∃z.annotate p_1' [p_2] = [z]` by
+      (simp[clos_annotateTheory.annotate_def]>>
+      metis_tac[clos_freeTheory.free_SING,clos_annotateTheory.shift_SING,FST,PAIR])>>
+     fs[]>>
+     metis_tac[clos_annotateProofTheory.annotate_code_locs,clos_removeProofTheory.code_loc'_def])>>
   fs[]>>
   (* rewrite away the nasty ordering of stubs and the +num_stubs *)
   qsuff_tac`ALL_DISTINCT (MAP FST ls' ++ FLAT (MAP (code_loc' o SND o SND) ls'))`>-
@@ -4152,19 +4143,24 @@ val full_result_rel_def = Define`
       state_rel f sf s2 ∧
       result_rel (LIST_REL (v_rel f s2.refs s2.code)) (v_rel f s2.refs s2.code) rf r2`;
 
+(* Initial state *)
+val clos_init_def = Define`
+  clos_init s ⇔
+  s.globals = [] ∧ s.refs = FEMPTY ∧ s.code = FEMPTY`
+
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s:'ffi closSem$state) = (r,s') ∧
-  (* Initial state *)
-  s.globals = [] ∧ s.refs = FEMPTY ∧ s.code = FEMPTY ∧
+  clos_init s ∧
   ¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧ esgc_free e ∧
   BAG_ALL_DISTINCT (set_globals e) ∧
   r ≠ Rerr (Rabort Rtype_error) ∧
+  num_stubs ≤ c.start ∧
   compile c e = (c',p) ⇒
   ∃r1 s'1 ck.
      let init_bvl = initial_state s.ffi (fromAList p) (s.clock+ck) in
      evaluate ([Call 0 (SOME c'.start) []],[], init_bvl) = (r1,s'1) ∧
      full_result_rel c (r,s') (r1,s'1)`,
-  srw_tac[][compile_def,LET_THM] >>
+  srw_tac[][compile_def,LET_THM,clos_init_def] >>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >>
       full_simp_tac(srw_ss())[]) >>
   `∃z. es = [z]` by (
@@ -4271,11 +4267,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP]*)>>
   fs[Abbr`ls`,remove_compile_alt]>>
   qpat_abbrev_tac`e'_remove = if A then B else C`>>
-  qmatch_goalsub_abbrev_tac`e'_remove:: MAP _ aux_remove`>>
+  qpat_abbrev_tac`aux_remove = MAP f aux`>>
   strip_tac>>
   (* Not true, but can be made true by splitting the remove steps *)
-  `exp_rel (:'ffi) [e'] [e_remove] ∧
-  exp_rel (:'ffi) (MAP (SND o SND) aux) (MAP (SND o SND) ls)` by cheat>>
   qpat_assum`exp_rel _ [A] [B]` mp_tac>>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
   (* This is the reason full_state_rel can't be used *)
@@ -4297,8 +4291,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
    |> GEN_ALL
    |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
   simp[GSYM PULL_FORALL] >>
-  impl_keep_tac >- (
-    cheat)>>
+  impl_keep_tac >-
+    (cheat)>>
     (*strip_tac >>
     Cases_on`r`>> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[clos_relationTheory.res_rel_rw] >>
@@ -4317,66 +4311,60 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
    cheat>>
    (*
    metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_compile]*)
-  cheat)
-  (*
   qpat_abbrev_tac`s_remove = s_call with <|clock:=s_call.clock; code:=A|>`>>
-  disch_then(qspec_then`s_remove` mp_tac)>>
+  fs[clos_annotateTheory.compile_def]>>
+  qmatch_asmsub_abbrev_tac`clos_to_bvl$compile_prog (_::aux_annot)`>>
+  `∃z. annotate 0 [e'_remove] = [z]` by
+    (simp[clos_annotateTheory.annotate_def]>>
+    metis_tac[clos_freeTheory.free_SING,clos_annotateTheory.shift_SING,FST,PAIR])>>
+  fs[PULL_FORALL]>>
+  disch_then (qspecl_then [`s_remove with code := alist_to_fmap aux_annot`,`[]`] mp_tac)>>
   impl_tac>-
-    unabbrev_all_tac>>
-    simp[clos_annotateProofTheory.state_rel_def]>>
-
-  disch_then(fn th => first_assum(qspec_then`[]`strip_assume_tac o MATCH_MP th)) >>
-  imp_res_tac evaluate_const >> simp[] >>
+    (fs[Abbr`aux_annot`,Abbr`s_remove`,Abbr`s_call`,clos_annotateProofTheory.state_rel_def]>>
+    rpt (pop_assum kall_tac)>>
+    Induct_on`aux_remove`>>fs[FORALL_PROD]>>rw[]>>
+    simp[clos_annotateTheory.annotate_def]>>
+    metis_tac[clos_freeTheory.free_SING,clos_annotateTheory.shift_SING,FST,PAIR,HD])>>
+  strip_tac>>
+  simp[]>>
+  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``result_rel`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_annotateProof$state_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+  (* clos_to_bvl *)
   qmatch_assum_abbrev_tac`closSem$evaluate tmp = _` >>
   qspec_then`tmp`mp_tac(CONJUNCT1 compile_exps_correct) >>
   simp[Abbr`tmp`] >>
+  fs[compile_prog_def]>>
+  pairarg_tac>>fs[]>>
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``clos_to_bvlProof$state_rel`` o fst o strip_comb))))) >>
-  disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  disch_then(qspec_then`[]`mp_tac) >>
-  simp[env_rel_def] >>
-  impl_tac >- (
-    rpt var_eq_tac >>
-    full_simp_tac(srw_ss())[code_installed_def] >>
-    CONJ_TAC>-
-      (strip_tac >> full_simp_tac(srw_ss())[] )
-    >>
-      match_mp_tac (clos_removeProofTheory.every_Fn_SOME_compile|>REWRITE_RULE[AND_IMP_INTRO]) >> simp[] >>
-      qexists_tac`c.do_remove`>>
-      qexists_tac`[kcompile b kexp0]`>>
-      Cases_on`b`>>
-      fs[clos_knownTheory.compile_def]>>
-      rpt (pairarg_tac>>fs[])>>
-      imp_res_tac clos_knownProofTheory.known_preserves_every_Fn_SOME>>
-      imp_res_tac clos_knownPropsTheory.known_sing_EQ_E>>
-      fs[])>>
-  strip_tac >>
-  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``result_rel`` o fst o strip_comb))) >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``result_rel`` o fst o strip_comb))) >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
+  qpat_abbrev_tac`s_annot = s_remove with code:=A`>>
+  (* Constructed BVL state *)
+  disch_then(qspecl_then [`initial_state s.ffi (fromAList p) (ck +s.clock)`,`[]`,`FEMPTY`] mp_tac)>>
+  impl_tac>-
+    (fs(map Abbr [`s_annot`,`s_remove`,`s_call`])>>rveq>>
+    cheat)>>
+  `∃z. new_e = [z]` by
+    metis_tac[compile_exps_SING]>>
+  fs[]>>
+  strip_tac>>
   srw_tac[][bvlSemTheory.evaluate_def] >>
   srw_tac[][bvlSemTheory.find_code_def] >>
   full_simp_tac(srw_ss())[code_installed_def] >>
-  `∃z. clos_remove$compile c.do_remove [kcompile b kexp0] = [z]` by
-    (Cases_on`c.do_remove`>>fs[clos_removeTheory.compile_def]>>
-    metis_tac[FST,PAIR,clos_removeTheory.remove_SING])>>
-  qmatch_assum_rename_tac`compile_exps _ _ = (esl,_)` >>
-  `∃z. esl = [z]` by (
-    metis_tac[clos_annotateTheory.shift_SING,
-              clos_annotateTheory.annotate_def,
-              clos_freeTheory.free_SING, FST, PAIR,
-              compile_exps_SING] ) >>
-  full_simp_tac(srw_ss())[] >>
-  qexists_tac`ck+1` >>
-  simp[bvlSemTheory.dec_clock_def] >>
-  fs[clos_knownProofTheory.opt_state_rel_def]>>
-  Cases_on`b`>>fs[clos_knownProofTheory.state_rel_def]>>
-  metis_tac[clos_numberProofTheory.state_rel_def,
-            clos_annotateProofTheory.state_rel_def]*);
-
+  simp[lookup_fromAList,ALOOKUP_APPEND]>>
+  `ALOOKUP (toAList init_code) c.start = NONE` by
+    (simp[ALOOKUP_NONE,toAList_domain]>>
+    CCONTR_TAC>>
+    fs[]>>imp_res_tac domain_init_code_lt_num_stubs>>
+    fs[])>>
+  fs[]>>
+  qexists_tac`res'''`>>
+  qexists_tac`t2'''`>>
+  qexists_tac`ck+ck'+1`>>
+  qexists_tac`f2`>>
+  unabbrev_all_tac>>fs[bvlSemTheory.dec_clock_def]>>
+  rfs[]>>
+  fs[])
 
 (*
 val compile_to_known_def = Define`
