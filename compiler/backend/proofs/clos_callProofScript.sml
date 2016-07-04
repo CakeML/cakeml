@@ -45,6 +45,10 @@ val subspt_domain_SUBSET = Q.store_thm("subspt_domain_SUBSET",
   `subspt s1 s2 ⇒ domain s1 ⊆ domain s2`,
   rw[subspt_def,SUBSET_DEF]);
 
+val code_locs_GENLIST_Var = Q.store_thm("code_locs_GENLIST_Var[simp]",
+  `∀n. code_locs (GENLIST Var n) = []`,
+  Induct \\ simp[code_locs_def,GENLIST,code_locs_append]);
+
 val evaluate_add_clock =
   evaluate_add_to_clock
   |> SIMP_RULE (srw_ss()) []
@@ -3253,14 +3257,10 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ disch_then(qspec_then`ck'`assume_tac)
   \\ qexists_tac`ck+ck'+1` \\ simp[]);
 
-val code_locs_GENLIST_Var = prove(``
-  ∀n.code_locs (GENLIST Var n) = []``,
-  cheat)
-
 val code_locs_calls_list = prove(``
   ∀ls n. code_locs (MAP SND (calls_list n ls)) = []``,
   Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>EVAL_TAC>>
-  fs[code_locs_GENLIST_Var])
+  fs[])
 
 val code_locs_code_list_MEM = prove(``
   ∀ls n rest x.
@@ -3300,7 +3300,7 @@ val calls_code_locs_MEM = Q.store_thm("calls_code_locs_MEM",
   TRY(metis_tac[])>>
   qpat_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
   rw[]>>rpt(var_eq_tac)>>
-  fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_GENLIST_Var,code_locs_calls_list]>>
+  fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_calls_list]>>
   TRY(metis_tac[])>>
   fs[code_locs_append,code_locs_code_list_MEM]>>
   imp_res_tac calls_length>>fs[MAP_ZIP]>>
@@ -3322,7 +3322,7 @@ val calls_code_locs_ALL_DISTINCT = Q.store_thm("calls_code_locs_ALL_DISTINCT",
   fs[]>>TRY(metis_tac[])>>
   qpat_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
   rw[]>>rpt(var_eq_tac)>>
-  fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_GENLIST_Var,code_locs_calls_list,ALL_DISTINCT_APPEND,code_locs_code_list_ALL_DISTINCT,code_locs_code_list_MEM]>>
+  fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_calls_list,ALL_DISTINCT_APPEND,code_locs_code_list_ALL_DISTINCT,code_locs_code_list_MEM]>>
   imp_res_tac calls_length>>fs[MAP_ZIP]>>
   rw[]>>
   metis_tac[]);
