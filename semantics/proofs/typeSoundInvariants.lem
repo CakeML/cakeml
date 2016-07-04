@@ -394,7 +394,7 @@ and
 handle : forall tvs all_cenv senv tenv pes t.
 (forall ((p,e) MEM pes). exists tenv'.
    List.allDistinct (pat_bindings p []) &&
-   type_p (num_tvs tenv.v) tenv.c p Texn tenv' &&
+   type_p (num_tvs tenv.v) tenv p Texn tenv' &&
    type_e <|tenv with v = bind_var_list 0 tenv' tenv.v|> e t)
 ==>
 type_ctxt tvs all_cenv senv tenv (Chandle () pes) t t
@@ -431,7 +431,7 @@ mat : forall tvs all_cenv senv tenv t1 t2 pes err_v.
 ((pes = []) --> (check_freevars tvs [] t1 && check_freevars 0 [] t2)) &&
 (forall ((p,e) MEM pes) . exists tenv'.
    List.allDistinct (pat_bindings p []) &&
-   type_p tvs tenv.c p t1 tenv' &&
+   type_p tvs tenv p t1 tenv' &&
    type_e <|tenv with v = bind_var_list 0 tenv' tenv.v|> e t2) &&
 type_v 0 all_cenv senv err_v Texn
 ==>
@@ -470,9 +470,10 @@ type_ctxt tvs all_cenv senv tenv (Ccon Nothing vs () es) t (Tapp (List.reverse t
 and
 
 tannot : forall tvs all_cenv senv tenv t.
-true
+check_freevars 0 [] t &&
+check_type_names tenv.t t
 ==>
-type_ctxt tvs all_cenv senv tenv (Ctannot () t) t t
+type_ctxt tvs all_cenv senv tenv (Ctannot () t) (type_name_subst tenv.t t) (type_name_subst tenv.t t)
 
 
 

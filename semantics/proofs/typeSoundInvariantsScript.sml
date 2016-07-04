@@ -357,7 +357,7 @@ type_ctxt tvs all_cenv senv tenv (Craise () ) Texn t)
 /\ (! tvs all_cenv senv tenv pes t.
 (! ((p,e) :: LIST_TO_SET pes). ? tenv'.
    ALL_DISTINCT (pat_bindings p []) /\
-   type_p (num_tvs tenv.v) tenv.c p Texn tenv' /\
+   type_p (num_tvs tenv.v) tenv p Texn tenv' /\
    type_e (tenv with<| v := bind_var_list( 0) tenv' tenv.v|>) e t)
 ==>
 type_ctxt tvs all_cenv senv tenv (Chandle ()  pes) t t)
@@ -386,7 +386,7 @@ type_ctxt tvs all_cenv senv tenv (Cif ()  e1 e2) (Tapp [] (TC_name (Short "bool"
 (((pes = []) ==> (check_freevars tvs [] t1 /\ check_freevars( 0) [] t2)) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? tenv'.
    ALL_DISTINCT (pat_bindings p []) /\
-   type_p tvs tenv.c p t1 tenv' /\
+   type_p tvs tenv p t1 tenv' /\
    type_e (tenv with<| v := bind_var_list( 0) tenv' tenv.v|>) e t2) /\
 type_v( 0) all_cenv senv err_v Texn)
 ==>
@@ -417,9 +417,10 @@ type_es (tenv with<| v := bind_tvar tvs tenv.v|>) es ts2)
 type_ctxt tvs all_cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVERSE ts2++[t])++ts1) TC_tup))
 
 /\ (! tvs all_cenv senv tenv t.
-T
+(check_freevars( 0) [] t /\
+check_type_names tenv.t t)
 ==>
-type_ctxt tvs all_cenv senv tenv (Ctannot ()  t) t t)`;
+type_ctxt tvs all_cenv senv tenv (Ctannot ()  t) (type_name_subst tenv.t t) (type_name_subst tenv.t t))`;
 
 
 

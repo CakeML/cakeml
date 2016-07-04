@@ -1034,28 +1034,30 @@ srw_tac[][check_freevars_def, bind_tvar_def, bind_var_list_def, Tchar_def, Tword
 metis_tac []);
 
 val type_p_subst = Q.store_thm ("type_p_subst",
-`(!n tenvC p t tenv. type_p n tenvC p t tenv ⇒
+`(!n tenv p t new_bindings. type_p n tenv p t new_bindings ⇒
     !targs' inc tvs targs.
-    tenv_ctor_ok tenvC ∧
+    tenv_tabbrev_ok tenv.t ∧
+    tenv_ctor_ok tenv.c ∧
     (n = inc + LENGTH targs) ∧
     EVERY (check_freevars tvs []) targs ∧
     (targs' = MAP (deBruijn_inc 0 inc) targs)
     ⇒
-    type_p (inc + tvs) tenvC
+    type_p (inc + tvs) tenv
            p
            (deBruijn_subst inc targs' t)
-           (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) tenv)) ∧
- (!n tenvC ps ts tenv. type_ps n tenvC ps ts tenv ⇒
+           (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) new_bindings)) ∧
+ (!n tenv ps ts new_bindings. type_ps n tenv ps ts new_bindings ⇒
     !targs' inc targs tvs.
-    tenv_ctor_ok tenvC ∧
+    tenv_tabbrev_ok tenv.t ∧
+    tenv_ctor_ok tenv.c ∧
     (n = inc + LENGTH targs) ∧
     EVERY (check_freevars tvs []) targs ∧
     (targs' = MAP (deBruijn_inc 0 inc) targs)
     ⇒
-    type_ps (inc +  tvs) tenvC
+    type_ps (inc +  tvs) tenv
            ps
            (MAP (deBruijn_subst inc targs') ts)
-           (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) tenv))`,
+           (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) new_bindings))`,
  ho_match_mp_tac type_p_strongind >>
  srw_tac[][] >>
  ONCE_REWRITE_TAC [type_p_cases] >>
@@ -1069,9 +1071,11 @@ val type_p_subst = Q.store_thm ("type_p_subst",
      >- metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup])
  >- metis_tac []
  >- (conj_asm1_tac
-     >- (match_mp_tac (GSYM nil_deBruijn_subst) >>
+     >- (match_mp_tac nil_deBruijn_subst >>
+         match_mp_tac check_freevars_type_name_subst >>
          `! n:num . n ≥ 0` by decide_tac >>
-         metis_tac [check_freevars_add]) >>
+         rw []
+         >- metis_tac [check_freevars_add]) >>
      metis_tac [])
  >- metis_tac []);
 
@@ -1176,6 +1180,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
 `(!tenv e t. type_e tenv e t ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
+      tenv_tabbrev_ok tenv.t ∧
       tenv_mod_ok tenv.m ∧
       tenv_ctor_ok tenv.c ∧
       tenv_val_ok tenv.v ∧
@@ -1189,6 +1194,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
  (!tenv es ts. type_es tenv es ts ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
+      tenv_tabbrev_ok tenv.t ∧
       tenv_mod_ok tenv.m ∧
       tenv_ctor_ok tenv.c ∧
       tenv_val_ok tenv.v ∧
@@ -1202,6 +1208,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
  (!tenv funs env. type_funs tenv funs env ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
+      tenv_tabbrev_ok tenv.t ∧
       tenv_mod_ok tenv.m ∧
       tenv_ctor_ok tenv.c ∧
       tenv_val_ok tenv.v ∧

@@ -168,7 +168,7 @@ declare termination_argument bind_var_list2 = automatic
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
-val type_p : nat -> tenv_ctor -> pat -> t -> list (varN * t) -> bool
+val type_p : nat -> type_environment -> pat -> t -> list (varN * t) -> bool
 
 (* An expression has a type *)
 val type_e : type_environment -> exp -> t -> bool
@@ -372,95 +372,96 @@ let tid_exn_to_tc t =
     | TypeExn _ -> TC_exn
   end
 
-indreln [type_p : nat -> tenv_ctor -> pat -> t -> list (varN * t) -> bool]
-and [type_ps : nat -> tenv_ctor -> list pat -> list t -> list (varN * t) -> bool]
+indreln [type_p : nat -> type_environment -> pat -> t -> list (varN * t) -> bool]
+and [type_ps : nat -> type_environment -> list pat -> list t -> list (varN * t) -> bool]
 
-pvar : forall tvs tenv_ctor n t.
+pvar : forall tvs tenv n t.
 check_freevars tvs [] t
 ==>
-type_p tvs tenv_ctor (Pvar n) t [(n,t)]
+type_p tvs tenv (Pvar n) t [(n,t)]
 
 and
 
-plit_int : forall tvs tenv_ctor n.
+plit_int : forall tvs tenv n.
 true
 ==>
-type_p tvs tenv_ctor (Plit (IntLit n)) Tint []
+type_p tvs tenv (Plit (IntLit n)) Tint []
 
 and
 
-plit_char : forall tvs tenv_ctor c.
+plit_char : forall tvs tenv c.
 true
 ==>
-type_p tvs tenv_ctor (Plit (Char c)) Tchar []
+type_p tvs tenv (Plit (Char c)) Tchar []
 
 and
 
-plit_string : forall tvs tenv_ctor s.
+plit_string : forall tvs tenv s.
 true
 ==>
-type_p tvs tenv_ctor (Plit (StrLit s)) Tstring []
+type_p tvs tenv (Plit (StrLit s)) Tstring []
 
 and
 
-plit_word8 : forall tvs tenv_ctor w.
+plit_word8 : forall tvs tenv w.
 true
 ==>
-type_p tvs tenv_ctor (Plit (Word8 w)) Tword8 []
+type_p tvs tenv (Plit (Word8 w)) Tword8 []
 
 and
 
-plit_word64 : forall tvs tenv_ctor w.
+plit_word64 : forall tvs tenv w.
 true
 ==>
-type_p tvs tenv_ctor (Plit (Word64 w)) Tword64 []
+type_p tvs tenv (Plit (Word64 w)) Tword64 []
 
 and
 
-pcon_some : forall tvs tenv_ctor cn ps ts tvs' tn ts' bindings.
+pcon_some : forall tvs tenv cn ps ts tvs' tn ts' bindings.
 List.all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
-type_ps tvs tenv_ctor ps (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs' ts'))) ts) bindings &&
-lookup_alist_mod_env cn tenv_ctor = Just (tvs', ts, tn)
+type_ps tvs tenv ps (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs' ts'))) ts) bindings &&
+lookup_alist_mod_env cn tenv.c = Just (tvs', ts, tn)
 ==>
-type_p tvs tenv_ctor (Pcon (Just cn) ps) (Tapp ts' (tid_exn_to_tc tn)) bindings
+type_p tvs tenv (Pcon (Just cn) ps) (Tapp ts' (tid_exn_to_tc tn)) bindings
 
 and
 
-pcon_none : forall tvs tenv_ctor ps ts bindings.
-type_ps tvs tenv_ctor ps ts bindings
+pcon_none : forall tvs tenv ps ts bindings.
+type_ps tvs tenv ps ts bindings
 ==>
-type_p tvs tenv_ctor (Pcon Nothing ps) (Tapp ts TC_tup) bindings
+type_p tvs tenv (Pcon Nothing ps) (Tapp ts TC_tup) bindings
 
 and
 
-pref : forall tvs tenv_ctor p t bindings.
-type_p tvs tenv_ctor p t bindings
+pref : forall tvs tenv p t bindings.
+type_p tvs tenv p t bindings
 ==>
-type_p tvs tenv_ctor (Pref p) (Tref t) bindings
+type_p tvs tenv (Pref p) (Tref t) bindings
 
 and
 
-ptypeannot : forall tvs tenv_ctor p t bindings.
+ptypeannot : forall tvs tenv p t bindings.
 check_freevars 0 [] t &&
-type_p tvs tenv_ctor p t bindings
+check_type_names tenv.t t &&
+type_p tvs tenv p (type_name_subst tenv.t t) bindings
 ==>
-type_p tvs tenv_ctor (Ptannot p t) t bindings
+type_p tvs tenv (Ptannot p t) (type_name_subst tenv.t t) bindings
 
 and
 
-empty : forall tvs tenv_ctor.
+empty : forall tvs tenv.
 true
 ==>
-type_ps tvs tenv_ctor [] [] []
+type_ps tvs tenv [] [] []
 
 and
 
-cons : forall tvs tenv_ctor p ps t ts bindings bindings'.
-type_p tvs tenv_ctor p t bindings &&
-type_ps tvs tenv_ctor ps ts bindings'
+cons : forall tvs tenv p ps t ts bindings bindings'.
+type_p tvs tenv p t bindings &&
+type_ps tvs tenv ps ts bindings'
 ==>
-type_ps tvs tenv_ctor (p::ps) (t::ts) (bindings'++bindings)
+type_ps tvs tenv (p::ps) (t::ts) (bindings'++bindings)
 
 indreln [type_e : type_environment -> exp -> t -> bool]
 and [type_es : type_environment -> list exp -> list t -> bool]
@@ -515,7 +516,7 @@ type_e tenv e t &&
 pes <> [] &&
 (forall ((p,e) MEM pes). exists bindings.
    List.allDistinct (pat_bindings p []) &&
-   type_p (num_tvs tenv.v) tenv.c p Texn bindings &&
+   type_p (num_tvs tenv.v) tenv p Texn bindings &&
    type_e <|tenv with v = bind_var_list 0 bindings tenv.v|> e t)
 ==>
 type_e tenv (Handle e pes) t
@@ -586,7 +587,7 @@ type_e tenv e t1 &&
 pes <> [] &&
 (forall ((p,e) MEM pes) . exists bindings.
    List.allDistinct (pat_bindings p []) &&
-   type_p (num_tvs tenv.v) tenv.c p t1 bindings &&
+   type_p (num_tvs tenv.v) tenv p t1 bindings &&
    type_e <|tenv with v = bind_var_list 0 bindings tenv.v|> e t2)
 ==>
 type_e tenv (Mat e pes) t2
@@ -632,9 +633,10 @@ and
 
 typeannot: forall tenv e t.
 check_freevars 0 [] t &&
-type_e tenv e t
+check_type_names tenv.t t &&
+type_e tenv e (type_name_subst tenv.t t)
 ==>
-type_e tenv (Tannot e t) t
+type_e tenv (Tannot e t) (type_name_subst tenv.t t)
 
 and
 
@@ -675,8 +677,8 @@ let tenv_add_tvs tvs tenv =
 val type_pe_determ : type_environment -> pat -> exp -> bool
 let type_pe_determ tenv p e =
   forall t1 tenv1 t2 tenv2.
-    type_p 0 tenv.c p t1 tenv1 && type_e tenv e t1 &&
-    type_p 0 tenv.c p t2 tenv2 && type_e tenv e t2
+    type_p 0 tenv p t1 tenv1 && type_e tenv e t1 &&
+    type_p 0 tenv p t2 tenv2 && type_e tenv e t2
     -->
     tenv1 = tenv2
 
@@ -702,11 +704,11 @@ indreln [type_d : bool -> maybe modN -> decls -> type_environment -> dec -> decl
 dlet_poly : forall extra_checks tvs mn tenv p e t bindings decls.
 is_value e &&
 List.allDistinct (pat_bindings p []) &&
-type_p tvs tenv.c p t bindings &&
+type_p tvs tenv p t bindings &&
 type_e <|tenv with v = bind_tvar tvs tenv.v|> e t &&
 (extra_checks -->
   forall tvs' bindings' t'.
-    type_p tvs' tenv.c p t' bindings' &&
+    type_p tvs' tenv p t' bindings' &&
     type_e <|tenv with v = bind_tvar tvs' tenv.v|> e t' -->
       weakE (tenv_add_tvs tvs bindings) (tenv_add_tvs tvs' bindings'))
 ==>
@@ -721,7 +723,7 @@ dlet_mono : forall extra_checks mn tenv p e t bindings decls.
    argument tells us to. *)
 (extra_checks --> not (is_value e) && type_pe_determ tenv p e) &&
 List.allDistinct (pat_bindings p []) &&
-type_p 0 tenv.c p t bindings &&
+type_p 0 tenv p t bindings &&
 type_e tenv e t
 ==>
 type_d extra_checks mn decls tenv (Dlet p e) empty_decls (Map.empty, [], tenv_add_tvs 0 bindings)
