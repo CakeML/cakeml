@@ -4313,8 +4313,16 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   simp[Once clos_relationTheory.state_rel_rw]>>
   impl_tac>-
     (unabbrev_all_tac>>simp[]>>
-    (* Important cheat: Lift exp_rel to state_rel*)
-    cheat)>>
+    qpat_abbrev_tac`ls = MAP f aux`>>
+    pop_assum kall_tac>>
+    pop_assum mp_tac>>
+    rpt(pop_assum kall_tac)>>
+    qid_spec_tac`ls`>>
+    Induct_on`aux`>>fs[alist_to_fmap_thm,FORALL_PROD]>>
+    rw[]>>PairCases_on`y`>>fs[]>>
+    match_mp_tac fmap_rel_FUPDATE_same>>rw[]>>
+    fs[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
+    metis_tac[])>>
   disch_then(qspec_then`s_call.clock` assume_tac)>>rfs[]>>
   qmatch_assum_abbrev_tac`res_rel _ q` >>
   Cases_on`q`>>
