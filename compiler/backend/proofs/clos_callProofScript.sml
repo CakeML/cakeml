@@ -196,6 +196,8 @@ val wfv_def = tDefine"wfv"`
    rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]);
 val _ = export_rewrites["wfv_def"];
 
+val wfv_ind = theorem"wfv_ind";
+
 val wfv_state_def = Define`
   wfv_state g l s ⇔
     EVERY (OPTION_EVERY (wfv g l)) s.globals ∧
@@ -1298,6 +1300,18 @@ val subg_insert_each' = store_thm("subg_insert_each'",
   \\ rfs[EL_GENLIST,MEM_MAP,PULL_EXISTS]
   \\ res_tac \\ fs[ADD1]
   \\ metis_tac[ADD_ASSOC,ADD_COMM]);
+
+val wfv_subg = Q.store_thm("wfv_subg",
+  `∀g l v g' l'. wfv g l v ∧ subg g g' ∧ l ⊆ l' ⇒ wfv g' l' v`,
+  ho_match_mp_tac wfv_ind \\ rw[]
+  \\ fsrw_tac[ETA_ss][]
+  \\ fs[EVERY_MEM]
+  \\ fs[recclosure_rel_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ qexists_tac`g0`\\fs[]
+  \\ CASE_TAC \\ fs[SUBSET_DEF]
+  \\ rveq \\ fs[]
+  \\ metis_tac[subg_trans]);
 
 (* semantic functions respect relation *)
 
@@ -3468,6 +3482,86 @@ val calls_code_locs_ALL_DISTINCT = Q.store_thm("calls_code_locs_ALL_DISTINCT",
   imp_res_tac calls_length>>fs[MAP_ZIP]>>
   rw[]>>
   metis_tac[]);
+
+val opt_init_state_rel_def = Define`
+  opt_init_state_rel do_call s t ⇔
+    if do_call then
+      state_rel (LN,[]) {} s t ∧
+      wfv_state (LN,[]) {} s
+    else t = s`;
+
+val opt_state_rel_def = Define`
+  opt_state_rel do_call s t ⇔
+    if do_call then
+      ∃g1 l1. state_rel g1 l1 s t
+    else t = s`;
+
+val opt_result_rel_def = Define`
+  opt_result_rel do_call r1 r2 ⇔
+    if do_call then
+      ∃g1 l1. result_rel (LIST_REL (v_rel g1 l1)) (v_rel g1 l1) r1 r2
+    else r2 = r1`;
+
+val compile_correct = Q.store_thm("compile_correct",
+  `∀b e1 s1 s2 r1 t1 e2 code.
+    evaluate ([e1],[],s1) = (r1,t1) ∧
+    r1 ≠ Rerr (Rabort Rtype_error) ∧
+    every_Fn_SOME [e1] ∧ every_Fn_vs_NONE [e1] ∧
+    ALL_DISTINCT (code_locs [e1]) ∧ set (code_locs [e1]) ⊆ EVEN ∧
+    opt_init_state_rel b s1 s2 ∧
+    compile b e1 = (e2,code) ∧
+    code_includes code s2.code
+    ⇒
+    ∃ck r2 t2 g1 l1.
+    evaluate ([e2],[],s2 with clock := ck + s2.clock) = (r2,t2) ∧
+    opt_result_rel b r1 r2 ∧
+    opt_state_rel b t1 t2`,
+  Cases \\ rw[compile_def,opt_state_rel_def,opt_init_state_rel_def,opt_result_rel_def] \\ rw[]
+  \\ TRY (qexists_tac`0` \\ simp[] \\ NO_TAC)
+  \\ pairarg_tac \\ fs[]
+  \\ drule (CONJUNCT1 calls_correct |> SIMP_RULE (srw_ss())[])
+  \\ simp[] \\ disch_then drule
+  \\ disch_then(qspec_then`[]`mp_tac)
+  \\ simp[env_rel_def]
+  \\ simp[Once wfg_def]
+  \\ qmatch_goalsub_abbrev_tac`l1 ⊆ _`
+  \\ disch_then(qspecl_then[`s2`,`l1`,`g`]mp_tac)
+  \\ `subg (LN,[]) g`
+  by (
+    match_mp_tac calls_subg
+    \\ asm_exists_tac \\ fs[] )
+  \\ impl_tac
+  >- (
+    simp[]
+    \\ `wfg g`
+    by (
+      match_mp_tac calls_wfg
+      \\ asm_exists_tac \\ fs[]
+      \\ fs[wfg_def] )
+    \\ fs[]
+    \\ conj_tac
+    >- (
+      fs[wfv_state_def,EVERY_MEM,FEVERY_ALL_FLOOKUP]
+      \\ conj_tac \\ (gen_tac \\ Cases ORELSE Cases) \\ fs[]
+      \\ rw[] \\ first_x_assum drule \\ fs[EVERY_MEM] \\ rw[]
+      \\ TRY (first_x_assum drule \\ rw[])
+      \\ match_mp_tac wfv_subg \\ asm_exists_tac \\ fs[])
+    \\ conj_tac
+    >- (
+      match_mp_tac subg_refl
+      \\ fs[wfg_def] )
+    \\ simp[Abbr`l1`,IN_DISJOINT]
+    \\ metis_tac[] )
+  \\ strip_tac \\ rfs[]
+  \\ `state_rel g l1 s1 s2`
+  by (
+    match_mp_tac (GEN_ALL state_rel_subg)
+    \\ asm_exists_tac \\ fs[]
+    \\ asm_exists_tac \\ fs[] )
+  \\ fs[]
+  \\ imp_res_tac calls_sing \\ rveq \\ fs[]
+  \\ asm_exists_tac \\ fs[]
+  \\ metis_tac[]);
 
 (*
 val tm = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
