@@ -3563,6 +3563,65 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ asm_exists_tac \\ fs[]
   \\ metis_tac[]);
 
+(* Preservation of some label properties
+  every_Fn_SOME xs ∧ every_Fn_vs_NONE xs
+*)
+val every_Fn_GENLIST_Var = Q.store_thm("every_Fn_GENLIST_Var",
+  `∀n. every_Fn_SOME (GENLIST Var n) ∧
+       every_Fn_vs_NONE (GENLIST Var n)`,
+  Induct \\ simp[GENLIST,Once every_Fn_vs_NONE_EVERY,Once every_Fn_SOME_EVERY,EVERY_SNOC]\\ simp[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY]);
+
+val every_Fn_calls_list = Q.store_thm("every_Fn_calls_list",
+  `∀ls n. every_Fn_SOME (MAP SND (calls_list n ls)) ∧
+         every_Fn_vs_NONE (MAP SND (calls_list n ls))`,
+  Induct>>fs[calls_list_def,FORALL_PROD]>>
+  simp[Once every_Fn_vs_NONE_EVERY,Once every_Fn_SOME_EVERY,EVERY_SNOC,every_Fn_GENLIST_Var]\\simp[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY])
+
+val every_Fn_code_list = Q.store_thm("every_Fn_code_list",
+  `∀ls n rest.
+  (every_Fn_SOME (MAP (SND o SND) (SND (code_list n ls rest))) ⇔
+  every_Fn_SOME (MAP SND ls) ∧
+  every_Fn_SOME (MAP (SND o SND) (SND rest))) ∧
+  (every_Fn_vs_NONE (MAP (SND o SND) (SND (code_list n ls rest))) ⇔
+  every_Fn_vs_NONE (MAP SND ls) ∧
+  every_Fn_vs_NONE (MAP (SND o SND) (SND rest)))`,
+  Induct>>fs[code_list_def,FORALL_PROD]>>
+  rw[EQ_IMP_THM]>>fs[Once every_Fn_SOME_EVERY,Once every_Fn_vs_NONE_EVERY])
+
+val calls_preserves_every_Fn_SOME = Q.store_thm("calls_preserves_every_Fn_SOME",
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
+    every_Fn_SOME xs ∧ every_Fn_SOME (MAP (SND o SND) (SND g0)) ⇒
+    every_Fn_SOME ys ∧ every_Fn_SOME (MAP (SND o SND) (SND g))`,
+  ho_match_mp_tac calls_ind>>
+  (* There is a bad automatic rewrite somewhere *)
+  rpt strip_tac>>
+  fs[calls_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  TRY(qpat_assum`A=(ys,g)` mp_tac>> every_case_tac>>fs[]>>strip_tac)>>
+  rveq>>simp[]>>
+  imp_res_tac calls_sing>>fs[every_Fn_GENLIST_Var,every_Fn_code_list,every_Fn_calls_list]>>
+  simp[Once every_Fn_SOME_EVERY]>>
+  simp[GSYM every_Fn_SOME_EVERY]>>
+  imp_res_tac calls_length>>
+  fs[MAP_ZIP]);
+
+val calls_preserves_every_Fn_vs_NONE = Q.store_thm("calls_preserves_every_Fn_vs_NONE",
+  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒
+    every_Fn_vs_NONE xs ∧ every_Fn_vs_NONE (MAP (SND o SND) (SND g0)) ⇒
+    every_Fn_vs_NONE ys ∧ every_Fn_vs_NONE (MAP (SND o SND) (SND g))`,
+  ho_match_mp_tac calls_ind>>
+  (* There is a bad automatic rewrite somewhere *)
+  rpt strip_tac>>
+  fs[calls_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  TRY(qpat_assum`A=(ys,g)` mp_tac>> every_case_tac>>fs[]>>strip_tac)>>
+  rveq>>simp[]>>
+  imp_res_tac calls_sing>>fs[every_Fn_GENLIST_Var,every_Fn_code_list,every_Fn_calls_list]>>
+  simp[Once every_Fn_vs_NONE_EVERY]>>
+  simp[GSYM every_Fn_vs_NONE_EVERY]>>
+  imp_res_tac calls_length>>
+  fs[MAP_ZIP]);
+
 (*
 val tm = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
              (App NONE (Fn (SOME 1) NONE 1 (Fn (SOME 2) NONE 1 (Op (Const 1) []))) [Op (Const 2) []])``
