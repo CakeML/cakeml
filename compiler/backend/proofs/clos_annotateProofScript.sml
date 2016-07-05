@@ -2,7 +2,7 @@ open preamble
      db_varsTheory
      closSemTheory closPropsTheory
      clos_freeTheory clos_freeProofTheory
-     clos_annotateTheory clos_relationTheory;
+     clos_annotateTheory;
 
 val _ = new_theory"clos_annotateProof";
 
