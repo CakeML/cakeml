@@ -84,7 +84,6 @@ val _ = export_rewrites["every_refv_def"];
 val subg_def = Define`
   subg g0 g1 ⇔
     subspt (FST g0) (FST g1) ∧
-    (* IS_SUFFIX (SND g1) (SND g0) ∧ *)
     (∀k v. ALOOKUP (SND g0) k = SOME v ⇒ ALOOKUP (SND g1) k = SOME v) ∧
     ALL_DISTINCT (MAP FST (SND g1))`;
 
@@ -927,40 +926,7 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
     \\ fs[calls_list_def] \\ rveq
     \\ Cases_on`new_g` \\ fs[code_list_def,subg_def,IS_SUFFIX_APPEND]
-    (*
-    \\ conj_tac
-    >- (
-      simp[ALOOKUP_APPEND]
-      \\ BasicProvers.CASE_TAC
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ rfs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
-      \\ res_tac \\ fs[] )
-    *)
-    \\ fsrw_tac[ETA_ss][]
-    (*
-    \\ `subg g0 g`
-    by (
-      qpat_assum`calls _ (insert_each _ _ _) = _`assume_tac
-      \\ drule calls_subg
-      \\ impl_tac >- rfs[wfg_def]
-      \\ strip_tac
-      \\ `subg g0 (insert_each loc 1 g0)`
-      by ( simp[subg_def,insert_each_subspt] \\ fs[wfg_def] )
-      \\ match_mp_tac subg_trans
-      \\ asm_exists_tac \\ rw[]
-      \\ match_mp_tac subg_trans
-      \\ asm_exists_tac \\ rw[]
-      \\ match_mp_tac subg_trans
-      \\ last_assum (part_match_exists_tac (last o strip_conj) o concl)
-      \\ simp[]
-      \\ fs[subg_def]
-      \\ fs[IS_SUFFIX_APPEND,GSYM ADD1]
-      \\ imp_res_tac calls_add_SUC_code_locs
-      \\ rfs[SUBSET_DEF]
-      \\ fs[ALL_DISTINCT_APPEND] )
-    \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
-    \\ metis_tac[v_rel_subg]
-    *))
+    \\ fsrw_tac[ETA_ss][])
   \\ last_assum(part_match_exists_tac(el 2 o strip_conj) o concl)
   \\ asm_exists_tac \\ simp[]
   \\ qhdtm_x_assum`COND`mp_tac
@@ -975,10 +941,6 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
   \\ fs[calls_list_MAPi]
   \\ rfs[NOT_LESS_EQUAL]
   \\ fs[indexedListsTheory.EL_MAPi]
-  (*
-  \\ conj_tac
-  >- (
-  *)
     \\
     fs[subg_def]
     \\ first_x_assum match_mp_tac
@@ -1014,40 +976,6 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
   \\ simp[v_rel_def,recclosure_rel_def]
   \\ fsrw_tac[ETA_ss][]
   \\ simp[calls_list_MAPi]
-  (*
-  \\ reverse conj_tac
-  >- (
-    `subg g0 g`
-    by (
-      qpat_assum`calls _ (insert_each _ _ _) = _`assume_tac
-      \\ drule calls_subg
-      \\ impl_tac >- rfs[wfg_def]
-      \\ qpat_abbrev_tac`g1 = insert_each _ _ _`
-      \\ `subg g0 g1`
-      by ( simp[Abbr`g1`,subg_def,insert_each_subspt] \\ fs[wfg_def] )
-      \\ strip_tac
-      \\ match_mp_tac subg_trans
-      \\ asm_exists_tac \\ rw[]
-      \\ match_mp_tac subg_trans
-      \\ asm_exists_tac \\ rw[]
-      \\ match_mp_tac subg_trans
-      \\ last_assum (part_match_exists_tac (last o strip_conj) o concl)
-      \\ simp[]
-      \\ fs[subg_def]
-      \\ conj_tac
-      >- ( fs[IS_SUFFIX_APPEND,GSYM ADD1,SND_code_list_ZIP] )
-      \\ simp[MAP_FST_code_list]
-      \\ simp[ALL_DISTINCT_APPEND,ALL_DISTINCT_GENLIST]
-      \\ simp[MEM_GENLIST,PULL_EXISTS]
-      \\ imp_res_tac calls_add_SUC_code_locs
-      \\ rfs[SUBSET_DEF] \\ rw[]
-      \\ strip_tac \\ first_x_assum drule
-      \\ simp[Abbr`g1`] \\ fs[]
-      \\ fs[IN_DISJOINT,MEM_GENLIST,PULL_EXISTS]
-      \\ metis_tac[ADD_ASSOC,ADD1,numTheory.INV_SUC])
-    \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
-    \\ metis_tac[v_rel_subg])
-  *)
   \\ rw[]
   \\ qexists_tac`g0`
   \\ simp[]);
