@@ -98,20 +98,17 @@ val subg_trans = Q.store_thm("subg_trans",
 
 val wfg'_def = Define`
   wfg' g ⇔
-    domain (FST g) ⊆ EVEN ∧
     set (MAP FST (SND g)) ⊆ IMAGE SUC (domain (FST g))`;
 
 val wfg_def = Define`
   wfg g ⇔
-    domain (FST g) ⊆ EVEN ∧
     set (MAP FST (SND g)) = IMAGE SUC (domain (FST g)) ∧
     ALL_DISTINCT (MAP FST (SND g))`;
 
 val recclosure_wf_def = Define`
   recclosure_wf loc fns ⇔
-    EVEN loc ∧ every_Fn_SOME (MAP SND fns) ∧
+    every_Fn_SOME (MAP SND fns) ∧
     every_Fn_vs_NONE (MAP SND fns) ∧
-    set (code_locs (MAP SND fns)) ⊆ EVEN ∧
     DISJOINT (set (GENLIST (λi. 2 * i + loc) (LENGTH fns))) (set (code_locs (MAP SND fns))) ∧
     ALL_DISTINCT (code_locs (MAP SND fns))`;
 
@@ -452,7 +449,7 @@ val calls_domain = Q.store_thm("calls_domain",
   \\ metis_tac[numTheory.INV_SUC,prim_recTheory.PRE,EVAL``PRE 1``]);
 
 val wfg'_insert_each = Q.store_thm("wfg'_insert_each",
-  `∀n g loc. wfg' g ∧ (0 < n ⇒ EVEN loc) ⇒ wfg' (insert_each loc n g)`,
+  `∀n g loc. wfg' g ⇒ wfg' (insert_each loc n g)`,
   Induct \\ Cases \\ rw[insert_each_def]
   \\ first_x_assum match_mp_tac
   \\ fs[wfg'_def,SUBSET_DEF,IN_EVEN]
@@ -502,7 +499,6 @@ val closed_Fn_fv = Q.store_thm("closed_Fn_fv",
 val calls_wfg' = Q.store_thm("calls_wfg'",
   `∀xs g0 ys g.
     calls xs g0 = (ys,g) ∧
-    set (code_locs xs) ⊆ EVEN ∧
     every_Fn_SOME xs ∧ wfg' g0 ⇒
     wfg' g`,
   ho_match_mp_tac calls_ind
@@ -511,8 +507,7 @@ val calls_wfg' = Q.store_thm("calls_wfg'",
   \\ every_case_tac \\ fs[] \\ rw[]
   >- (
     drule wfg'_insert_each \\ fs[IN_EVEN]
-    \\ disch_then(qspec_then`1`mp_tac) \\ simp[]
-    \\ disch_then drule \\ rw[]
+    \\ disch_then(qspec_then`1`mp_tac) \\ simp[] \\ rw[]
     \\ fs[wfg'_def,ADD1,closed_Fn]
     \\ imp_res_tac calls_subspt
     \\ fs[subspt_def,domain_lookup]
@@ -521,13 +516,7 @@ val calls_wfg' = Q.store_thm("calls_wfg'",
     \\ Cases_on`g0`
     \\ REWRITE_TAC[insert_each_def]
     \\ simp[lookup_insert] )
-  \\ `0 < LENGTH fns ⇒ EVEN x`
-  by (
-    Cases_on`fns` \\ fs[SUBSET_DEF,IN_EVEN,MEM_GENLIST]
-    \\ first_x_assum match_mp_tac
-    \\ qexists_tac`0` \\ simp[] )
-  \\ drule wfg'_insert_each
-  \\ disch_then drule \\ rw[]
+  \\ drule wfg'_insert_each \\ rw[]
   \\ first_x_assum match_mp_tac \\ fs[]
   \\ match_mp_tac wfg'_code_list
   \\ imp_res_tac calls_length
@@ -542,7 +531,6 @@ val calls_wfg' = Q.store_thm("calls_wfg'",
 val calls_wfg = Q.store_thm("calls_wfg",
   `∀xs g0 ys g.
     calls xs g0 = (ys,g) ∧
-    set (code_locs xs) ⊆ EVEN ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
     every_Fn_SOME xs ∧ wfg g0
@@ -688,7 +676,6 @@ val insert_each'_ind = theorem"insert_each'_ind";
 val wfg_insert_each' = Q.store_thm("wfg_insert_each'",
   `∀gt p n g.
     wfg g ∧
-    EVEN p ∧
     DISJOINT (set (GENLIST (λi. p+2*i) n)) (domain (FST g))
     ⇒ wfg (insert_each' gt p n g)`,
   ho_match_mp_tac insert_each'_ind
@@ -738,7 +725,7 @@ val calls_el_sing = Q.store_thm("calls_el_sing",
     ALL_DISTINCT (MAP FST (SND g0)) ∧
     ALL_DISTINCT (code_locs xs) ∧
     DISJOINT (IMAGE SUC (set (code_locs xs))) (set (MAP FST (SND g0))) ∧
-    wfg g0 ∧ every_Fn_SOME xs ∧ set (code_locs xs) ⊆ EVEN
+    wfg g0 ∧ every_Fn_SOME xs
     ⇒
      ∃ga gb.
        calls [EL i xs] ga = ([EL i ys],gb) ∧
@@ -1601,7 +1588,7 @@ val calls_correct = Q.store_thm("calls_correct",
     evaluate (xs,env1,s0) = (res,s) ∧
     res ≠ Rerr (Rabort Rtype_error) ∧
     calls xs g0 = (ys,g) ∧
-    every_Fn_SOME xs ∧ every_Fn_vs_NONE xs ∧ set (code_locs xs) ⊆ EVEN ∧
+    every_Fn_SOME xs ∧ every_Fn_vs_NONE xs ∧
     EVERY (wfv g1 l1) env1 ∧ wfv_state g1 l1 s0 ∧
     wfg g0 ∧
     ALL_DISTINCT (code_locs xs) ∧
@@ -1701,7 +1688,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
       \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
       \\ fs [SUBSET_DEF]
-      \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+      \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
     \\ fs [CONJ_ASSOC] \\ conj_tac THEN1
      (every_case_tac \\ fs [] \\ rveq \\ fs []
@@ -1833,7 +1820,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
         \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
         \\ fs [SUBSET_DEF]
-        \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+        \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
       \\ strip_tac \\ fs [PULL_FORALL]
       \\ strip_tac
       \\ qpat_assum `_ ==> _` mp_tac
@@ -1874,7 +1861,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
         \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
         \\ fs [SUBSET_DEF]
-        \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+        \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
       \\ strip_tac \\ fs [PULL_FORALL]
       \\ strip_tac
       \\ qpat_assum `_ ==> _` mp_tac
@@ -1965,7 +1952,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
       \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
       \\ fs [SUBSET_DEF]
-      \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+      \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
     \\ strip_tac \\ fs [PULL_FORALL]
     \\ qpat_assum `_ ==> _` mp_tac
@@ -2106,7 +2093,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [DISJOINT_IMAGE_SUC] \\ fs [IN_DISJOINT]
       \\ CCONTR_TAC \\ fs [] \\ rfs [IMAGE_SUC_SUBSET_UNION]
       \\ fs [SUBSET_DEF]
-      \\ first_x_assum drule \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+      \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
     \\ strip_tac \\ fs [PULL_FORALL]
     \\ qpat_assum `_ ==> _` mp_tac
@@ -2346,12 +2333,7 @@ val calls_correct = Q.store_thm("calls_correct",
           \\ asm_exists_tac \\ fs[SUBSET_DEF]
           \\ match_mp_tac wfg'_insert_each
           \\ fs[IN_EVEN]
-          \\ conj_tac
-          >- ( fs[wfg'_def,wfg_def] )
-          \\ strip_tac
-          \\ qpat_assum`∀x. MEM x (GENLIST _ _) ⇒ _` match_mp_tac
-          \\ simp[MEM_GENLIST]
-          \\ qexists_tac`0` \\ simp[])
+          \\ fs[wfg'_def,wfg_def] )
         \\ simp[ZIP_MAP,EVERY_MAP,MEM_GENLIST,PULL_EXISTS]
         \\ fs[EVERY2_EVERY,LAMBDA_PROD,closed_Fn,markerTheory.Abbrev_def]
         \\ rw[] \\ first_x_assum match_mp_tac
@@ -2396,9 +2378,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ conj_tac
       >- (
         fs[IN_DISJOINT,SUBSET_DEF,MEM_GENLIST,PULL_EXISTS]
-        \\ reverse conj_tac >- metis_tac[]
-        \\ rpt(first_x_assum(qspec_then`0`mp_tac))
-        \\ simp[IN_EVEN])
+        \\ metis_tac[])
       \\ conj_tac
       >- (
         fs[IN_DISJOINT,MEM_GENLIST,PULL_EXISTS]
@@ -3041,7 +3021,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
         \\ rpt(first_x_assum drule) \\ simp[]
         \\ fs[wfv_state_def,dec_clock_def]
-        \\ ntac 4 strip_tac
+        \\ ntac 3 strip_tac
         \\ conj_tac >- (
           match_mp_tac subg_trans \\ asm_exists_tac \\ fs []
           \\ match_mp_tac subg_trans \\ once_rewrite_tac [CONJ_COMM]
@@ -3109,7 +3089,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
       \\ rpt(first_x_assum drule) \\ simp[]
       \\ fs[wfv_state_def,dec_clock_def]
-      \\ ntac 4 strip_tac
+      \\ ntac 3 strip_tac
       \\ conj_tac
       >- (
         match_mp_tac subg_trans
@@ -3507,7 +3487,7 @@ val compile_correct = Q.store_thm("compile_correct",
     evaluate ([e1],[],s1) = (r1,t1) ∧
     r1 ≠ Rerr (Rabort Rtype_error) ∧
     every_Fn_SOME [e1] ∧ every_Fn_vs_NONE [e1] ∧
-    ALL_DISTINCT (code_locs [e1]) ∧ set (code_locs [e1]) ⊆ EVEN ∧
+    ALL_DISTINCT (code_locs [e1]) ∧
     opt_init_state_rel b s1 s2 ∧
     compile b e1 = (e2,code) ∧
     code_includes code s2.code
