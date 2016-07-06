@@ -584,24 +584,27 @@ val exh_to_exists_match = Q.prove (
     metis_tac[is_unconditional_thm] ) >>
   every_case_tac >>
   full_simp_tac(srw_ss())[get_tags_def, conSemTheory.pmatch_def] >> srw_tac[][] >>
+  fs[] >> every_case_tac >> fs[] >>
   imp_res_tac get_tags_thm >>
   Q.PAT_ABBREV_TAC`pp1 = Pcon X l` >>
   Cases_on`v`>>
   TRY(qexists_tac`pp1`>>simp[conSemTheory.pmatch_def,Abbr`pp1`]>>NO_TAC) >>
+  fs[lookup_insert] >>
   srw_tac[boolSimps.DNF_ss][]>>
   simp[Abbr`pp1`,pmatch_Pcon_No_match]>>
   simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
   strip_tac >>
   BasicProvers.VAR_EQ_TAC >>
   full_simp_tac(srw_ss())[sptreeTheory.lookup_map,sptreeTheory.domain_fromList,PULL_EXISTS] >>
-  res_tac >>
-  rev_full_simp_tac(srw_ss())[EVERY_MEM,sptreeTheory.MEM_toList,PULL_EXISTS] >>
-  res_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  first_assum(match_exists_tac o concl) >>
-  simp[conSemTheory.pmatch_def] >>
-  Cases_on`x'''`>>simp[conSemTheory.pmatch_def] >>
-  srw_tac[][] >>
-  metis_tac[is_unconditional_list_thm,EVERY_MEM])
+  rveq >>
+  first_x_assum(qspec_then`LENGTH l'`mp_tac o CONV_RULE(SWAP_FORALL_CONV))
+  \\ fs[EVERY_MEM,MEM_toList,PULL_EXISTS]
+  \\ rw[] \\ res_tac \\ fs[] \\ rw[] \\ fs[domain_fromList]
+  \\ first_x_assum drule \\ rw[]
+  \\ asm_exists_tac
+  \\ rename1`Pcon (SOME (_,p))`
+  \\ Cases_on`p` \\ simp[conSemTheory.pmatch_def] \\ rw[]
+  \\ metis_tac[is_unconditional_list_thm,EVERY_MEM])
 
 fun exists_lift_conj_tac tm =
   CONV_TAC(
