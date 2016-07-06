@@ -427,8 +427,112 @@ Tdec
   (Dlet (Pvar "test")
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 36)]))]``
 
-val benchmarks = [fib,btree,queue,qsort]
-val names = ["fib","btree","queue","qsort"]
+val reverse =``
+[Tdec
+   (Dletrec
+      [("reverse","xs",
+        Letrec
+          [("append","xs",
+            Fun "ys"
+              (Mat (Var (Short "xs"))
+                 [(Pcon (SOME (Short "nil")) [],Var (Short "ys"));
+                  (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
+                   Con (SOME (Short "::"))
+                     [Var (Short "x");
+                      App Opapp
+                        [App Opapp
+                           [Var (Short "append"); Var (Short "xs")];
+                         Var (Short "ys")]])]))]
+          (Letrec
+             [("rev","xs",
+               Mat (Var (Short "xs"))
+                 [(Pcon (SOME (Short "nil")) [],Var (Short "xs"));
+                  (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
+                   App Opapp
+                     [App Opapp
+                        [Var (Short "append");
+                         App Opapp
+                           [Var (Short "rev"); Var (Short "xs")]];
+                      Con (SOME (Short "::"))
+                        [Var (Short "x");
+                         Con (SOME (Short "nil")) []]])])]
+             (App Opapp [Var (Short "rev"); Var (Short "xs")])))]);
+Tdec
+   (Dletrec
+      [("mk_list","n",
+        If (App Equality [Var (Short "n"); Lit (IntLit 0)])
+          (Con (SOME (Short "nil")) [])
+          (Con (SOME (Short "::"))
+             [Var (Short "n");
+              App Opapp
+                [Var (Short "mk_list");
+                 App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]]))]);
+
+Tdec
+   (Dlet (Pvar "test")
+      (App Opapp
+         [Var (Short "reverse");
+          App Opapp [Var (Short "mk_list"); Lit (IntLit 20000)]]))]``
+
+val foldl = ``
+[Tdec
+ (Dletrec
+    [("foldl","f",
+      Fun "e"
+        (Fun "xs"
+           (Mat (Var (Short "xs"))
+              [(Pcon (SOME (Short "nil")) [],Var (Short "e"));
+               (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
+                App Opapp
+                  [App Opapp
+                     [App Opapp
+                        [Var (Short "foldl"); Var (Short "f")];
+                      App Opapp
+                        [App Opapp
+                           [Var (Short "f"); Var (Short "e")];
+                         Var (Short "x")]];
+                   Var (Short "xs")])])))]);
+Tdec
+ (Dletrec
+    [("repeat","x",
+      Fun "n"
+        (If
+           (App Equality [Var (Short "n"); Lit (IntLit 0)])
+           (Con (SOME (Short "nil")) [])
+           (Con (SOME (Short "::"))
+              [Var (Short "x");
+               App Opapp
+                 [App Opapp [Var (Short "repeat"); Var (Short "x")];
+                  App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]
+                  ])))]);
+Tdec
+ (Dlet (Pvar "test")
+    (App Opapp
+       [App Opapp
+          [App Opapp
+             [Var (Short "foldl");
+              Fun "x"
+                (Fun "y"
+                   (App (Opn Plus) [Var (Short "x");
+                       App Opapp
+                         [App Opapp
+                            [App Opapp
+                               [Var (Short "foldl");
+                                Fun "x"
+                                  (Fun "y"
+                                     (App (Opn Plus) [Var (Short "x");
+                                                      Var (Short "y")]))];
+                             Lit (IntLit 0)]; Var (Short "y")]]))];
+           Lit (IntLit 0)];
+        App Opapp
+          [App Opapp
+             [Var (Short "repeat");
+              App Opapp
+                [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
+                 Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
+
+val benchmarks = [foldl,reverse,fib,btree,queue,qsort]
+val names = ["foldl","reverse","fib","btree","queue","qsort"]
 
 val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
@@ -461,6 +565,6 @@ val _ = write_asm (zip (map (fn s => "o2_"^s)names) benchmarks_o2_bytes);
 val _ = write_asm (zip (map (fn s => "o3_"^s)names) benchmarks_o3_bytes);
 val _ = write_asm (zip (map (fn s => "o4_"^s)names) benchmarks_o4_bytes);
 
-(*val _ = map save_thm (zip names benchmarks_o4_bytes);*)
+(*val _ = map save_thm (zip names benchmarks_o4);*)
 
 val _ = export_theory ();
