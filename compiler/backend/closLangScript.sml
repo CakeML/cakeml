@@ -5,7 +5,7 @@ val _ = new_theory "closLang";
 (* compilation from this language removes closures *)
 
 val max_app_def = Define `
-  max_app = 3:num`;
+  max_app = 4:num`;
 
 val _ = Datatype `
   op = Global num    (* load global var with index *)

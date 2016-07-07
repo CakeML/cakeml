@@ -193,7 +193,7 @@ val generate_generic_app_def = Define `
                           GENLIST (\this_arg. Var (this_arg + 2)) (n+1) ++
                           GENLIST (\prev_arg.
                             mk_el (Var (n+3)) (mk_const (prev_arg + 3))) (prev_args + 1))))
-                    max_app)))))`;
+                    (max_app-(n+1)))))))`;
 
 (* The functions to complete the application of a partial closure *)
 val generate_partial_app_closure_fn_def = Define `
