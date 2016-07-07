@@ -4,15 +4,6 @@ open closSemTheory
 
 val _ = new_theory "clos_mtiProof";
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
 val collect_args_correct = Q.prove (
 `!num_args e num_args' e' e''.
   collect_args num_args e = (num_args', e') ∧
@@ -76,7 +67,7 @@ val dest_closure_Recclosure_EQ_NONE = Q.store_thm(
   "dest_closure_Recclosure_EQ_NONE",
   `dest_closure locopt (Recclosure loc argE cloE fns i) args = NONE ⇔
      LENGTH fns ≤ i ∨ FST (EL i fns) ≤ LENGTH argE ∨
-     ¬check_loc locopt (lift ($+ i) loc) (FST (EL i fns))
+     ¬check_loc locopt (lift ($+ (2*i)) loc) (FST (EL i fns))
          (LENGTH args) (LENGTH argE)`,
   simp[dest_closure_def, UNCURRY] >> rw[] >>
   Cases_on `LENGTH fns ≤ i` >> simp[] >>
@@ -200,7 +191,6 @@ val exp_rel_exec_rel_Exp1 = Q.store_thm(
       >- fs[evaluate_def, res_rel_rw] >>
       irule res_rel_evaluate_app >> simp[] >> imp_res_tac evaluate_clock >>
       fs[] >> irule val_rel_mono_list >> qexists_tac `i` >> simp[])
-  >- simp[res_rel_rw]
   >- simp[res_rel_rw])
 
 val recClosure_add_arg0 = Q.prove(
@@ -346,7 +336,6 @@ val recClosure_add_arg0 = Q.prove(
                   irule EVERY2_TAKE >> irule val_rel_mono_list >>
                   qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >>
                   fs[])
-              >- simp[res_rel_rw]
               >- simp[res_rel_rw]) >>
           simp[] >> fs[dest_addarg_Fn_EQ_SOME] >>
           strip_tac >> `m = 0` by simp[] >> rveq >> fs[] >>
@@ -389,7 +378,6 @@ val recClosure_add_arg0 = Q.prove(
           >- (irule res_rel_evaluate_app >> simp[TAKE_EQ_NIL] >>
               irule EVERY2_TAKE >> irule val_rel_mono_list >>
               qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >> fs[]))
-      >- simp[res_rel_rw]
       >- simp[res_rel_rw]) >>
   `LENGTH fns2 = LENGTH fns1 ∧ LENGTH CE2 = LENGTH CE1 ∧
    LENGTH AE2 = LENGTH AE1` by fs[LIST_REL_EL_EQN] >>
@@ -452,7 +440,6 @@ val recClosure_add_arg0 = Q.prove(
       >- (irule res_rel_evaluate_app >> simp[TAKE_EQ_NIL] >>
           irule EVERY2_TAKE >> irule val_rel_mono_list >>
           qexists_tac `k` >> simp[] >> imp_res_tac evaluate_clock >> fs[]))
-  >- simp[res_rel_rw]
   >- simp[res_rel_rw])
 
 val recClosure_add_arg_lem = save_thm(
@@ -502,11 +489,11 @@ val _ = export_rewrites ["mti_letrec1_def"]
 
 val mti_letrec1_size_decrease = Q.store_thm(
   "mti_letrec1_size_decrease",
-  `mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
+  `∀m b n b'.
+     mti_letrec1 (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
   Cases_on `b` >> simp[Cong DISJ_CONG] >>
   rename1 `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
-  simp[Cong DISJ_CONG] >> rw[] >>
-  simp[Cong DISJ_CONG, closLangTheory.exp_size_def]);
+  dsimp[bool_case_eq]);
 
 val mti_letrec1_size_LEQ = Q.store_thm(
   "mti_letrec1_size_LEQ",
@@ -667,6 +654,11 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
      simp[exp_rel_refl])
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 
+val compile_correct = Q.store_thm("compile_correct",
+  `!do_mti es. exp_rel (:'ffi) es (clos_mti$compile do_mti es)`,
+  Cases>>fs[clos_mtiTheory.compile_def]>>
+  metis_tac[intro_multi_correct,exp_rel_refl])
+
 val HD_intro_multi = Q.prove(
   `[HD (intro_multi [e])] = intro_multi [e]`,
   metis_tac[intro_multi_sing,HD])
@@ -716,6 +708,10 @@ val contains_App_SOME_intro_multi = Q.store_thm("contains_App_SOME_intro_multi[s
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     metis_tac[contains_App_SOME_collect_args,SND,PAIR]));
 
+val contains_App_SOME_compile = Q.store_thm("contains_App_SOME_compile[simp]",
+  `∀do_mti es. contains_App_SOME (clos_mti$compile do_mti es) ⇔ contains_App_SOME es`,
+  Cases>>fs[clos_mtiTheory.compile_def]);
+
 val every_Fn_vs_NONE_collect_apps = Q.prove(
   `∀es e x y. collect_apps es e = (x,y) ⇒
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
@@ -753,5 +749,139 @@ val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[sim
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
   srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
   metis_tac[every_Fn_vs_NONE_collect_args,SND,PAIR]);
+
+val every_Fn_vs_NONE_compile = Q.store_thm("every_Fn_vs_NONE_compile[simp]",
+  `∀do_mti es. every_Fn_vs_NONE (clos_mti$compile do_mti es) = every_Fn_vs_NONE es`,
+  Cases>>fs[clos_mtiTheory.compile_def]);
+
+val EVERY_HD = Q.prove(
+  `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
+  Cases_on `l` >> simp[]);
+
+val intro_multi_EQ_NIL = Q.store_thm(
+  "intro_multi_EQ_NIL[simp]",
+  `∀es. intro_multi es = [] ⇔ es = []`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[clos_mtiTheory.intro_multi_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]))
+
+val compile_EQ_NIL = Q.store_thm(
+  "compile_EQ_NIL[simp]",
+  `∀do_mti es. clos_mti$compile do_mti es = [] ⇔ es = []`,
+  Cases>>fs[clos_mtiTheory.compile_def])
+
+val collect_apps_preserves_set_globals = Q.store_thm(
+  "collect_apps_preserves_set_globals",
+  `∀es e es' e'.
+     collect_apps es e = (es',e') ⇒
+     elist_globals es ⊎ set_globals e = elist_globals es' ⊎ set_globals e'`,
+  ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
+  simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rpt strip_tac
+  >- (pop_assum (assume_tac o SYM) >> fs[elist_globals_append] >>
+      metis_tac[bagTheory.COMM_BAG_UNION, bagTheory.ASSOC_BAG_UNION])
+  >- (rveq >> simp[]))
+
+val collect_apps_preserves_esgc_free = Q.store_thm(
+  "collect_apps_preserves_esgc_free",
+  `∀es e es' e'.
+     collect_apps es e = (es',e') ∧ EVERY esgc_free es ∧ esgc_free e ⇒
+     EVERY esgc_free es' ∧ esgc_free e'`,
+  ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
+  simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rw[] >>
+  simp[] >> metis_tac[]);
+
+val collect_args_preserves_set_globals = Q.store_thm(
+  "collect_args_preserves_set_globals",
+  `∀n e n' e'. collect_args n e = (n',e') ⇒ set_globals e' = set_globals e`,
+  ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
+  simp[clos_mtiTheory.collect_args_def, bool_case_eq] >> dsimp[] >>
+  rpt strip_tac >> pop_assum (assume_tac o SYM) >> fs[]);
+
+val collect_args_preserves_esgc_free = Q.store_thm(
+  "collect_args_preserves_esgc_free",
+  `∀n e n' e'. collect_args n e = (n',e') ∧ esgc_free e ⇒ esgc_free e'`,
+  ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
+  simp[clos_mtiTheory.collect_args_def, bool_case_eq] >> dsimp[] >>
+  rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]);
+
+val intro1_pat = ``intro_multi [e]``
+fun intro_sing th =
+  case gen_find_term
+         (fn (bvs,t) => if can (match_term intro1_pat) t andalso
+                           null (intersect bvs (free_vars t))
+                        then SOME t
+                        else NONE)
+                     (concl th)
+   of
+      SOME t => strip_assume_tac
+                  (PART_MATCH (lhs o #2 o dest_exists)
+                              clos_mtiTheory.intro_multi_sing t)
+    | NONE => NO_TAC
+
+val intro_multi_preserves_elist_globals = Q.store_thm(
+  "intro_multi_preserves_elist_globals",
+  `∀es. elist_globals (intro_multi es) = elist_globals es`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[] >> rpt conj_tac >> simp[clos_mtiTheory.intro_multi_def] >>
+  rpt strip_tac >> fs[] >>
+  TRY (rpt (first_assum intro_sing >> fs[] >> pop_assum mp_tac) >> NO_TAC)
+  >- (pairarg_tac >> fs[] >> first_assum intro_sing >> fs[] >>
+      imp_res_tac collect_apps_preserves_set_globals >>
+      metis_tac[bagTheory.COMM_BAG_UNION])
+  >- (pairarg_tac >> fs[] >> first_assum intro_sing >> fs[] >>
+      imp_res_tac collect_args_preserves_set_globals)
+  >- (first_assum intro_sing >> fs[] >> simp[elist_globals_FOLDR] >>
+      irule FOLDR_CONG >> simp[] >>
+      simp[LIST_EQ_REWRITE] >> simp[EL_MAP] >> rpt strip_tac >>
+      rpt (pairarg_tac >> fs[]) >>
+      imp_res_tac collect_args_preserves_set_globals >>
+      rename1 `HD (intro_multi [e3])` >>
+      `∃e3'. intro_multi [e3] = [e3']`
+        by metis_tac[clos_mtiTheory.intro_multi_sing] >> simp[] >>
+      rename1`EL n fns = (nn,e2)` >> `MEM (nn,e2) fns` by metis_tac[MEM_EL] >>
+      res_tac >> rfs[]))
+
+val intro_multi_preserves_esgc_free = Q.store_thm(
+  "intro_multi_preserves_esgc_free",
+  `∀es. EVERY esgc_free es ⇒ EVERY esgc_free (intro_multi es)`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[] >> rpt conj_tac >> simp[clos_mtiTheory.intro_multi_def] >>
+  rpt strip_tac >> fs[] >> simp[EVERY_HD]
+  >- (pairarg_tac >> fs[] >>
+      imp_res_tac collect_apps_preserves_esgc_free >> fs[EVERY_HD])
+  >- (pairarg_tac >> fs[] >> imp_res_tac collect_args_preserves_set_globals >>
+      rename1`HD (intro_multi [e1])` >>
+      `elist_globals [e1] = {||}` by simp[] >>
+      `elist_globals (intro_multi [e1]) = {||}`
+         by metis_tac[intro_multi_preserves_elist_globals] >>
+      first_assum intro_sing >> fs[])
+  >- (first_assum intro_sing >> fs[] >> rename1`intro_multi [e0]` >>
+      qspec_then `[e0]` mp_tac intro_multi_preserves_elist_globals >>
+      simp[])
+  >- (first_assum intro_sing >> fs[] >> rename1`intro_multi [e0]` >>
+      qspec_then `[e0]` mp_tac intro_multi_preserves_elist_globals >>
+      simp[])
+  >- (rpt (pairarg_tac >> fs[]) >> fs[elist_globals_FOLDR] >>
+      qpat_assum `FOLDR _ _ _ = {||}`
+        (fn th => CONV_TAC (RAND_CONV (REWR_CONV (SYM th)))) >>
+      irule FOLDR_CONG >> simp[] >> simp[LIST_EQ_REWRITE] >>
+      rpt strip_tac >> simp[EL_MAP] >> rpt (pairarg_tac >> fs[]) >>
+      rename1`HD (intro_multi [e2])` >>
+      `∃e2'. intro_multi [e2] = [e2']`
+        by metis_tac[clos_mtiTheory.intro_multi_sing] >>
+      simp[] >>
+      `elist_globals [e2'] = elist_globals [e2]`
+        by metis_tac[intro_multi_preserves_elist_globals] >>
+      fs[] >> metis_tac[collect_args_preserves_set_globals]))
+
+val compile_preserves_elist_globals = Q.store_thm(
+  "compile_preserves_elist_globals",
+  `∀do_mti es. elist_globals (clos_mti$compile do_mti es) = elist_globals es`,
+  Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_elist_globals])
+
+val compile_preserves_esgc_free = Q.store_thm(
+  "compile_preserves_esgc_free",
+  `∀do_mti es. EVERY esgc_free es ⇒ EVERY esgc_free (clos_mti$compile do_mti es)`,
+  Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
 
 val _ = export_theory();

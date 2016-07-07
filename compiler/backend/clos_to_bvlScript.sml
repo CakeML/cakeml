@@ -3,6 +3,7 @@ local open conLangTheory pat_to_closTheory in (* for list tags *) end;
 local open
   clos_mtiTheory
   clos_callTheory
+  clos_knownTheory
   clos_removeTheory
   clos_numberTheory
   clos_annotateTheory
@@ -59,11 +60,11 @@ val code_for_recc_case_def = Define `
 
 val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
-  (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
+  (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+2) xs ((i,x) :: aux))`;
 
 val build_aux_LENGTH = store_thm("build_aux_LENGTH",
   ``!l n aux n1 t.
-      (build_aux n l aux = (n1,t)) ==> (n1 = n + LENGTH l)``,
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + 2 * LENGTH l)``,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
 
 val build_aux_MOVE = store_thm("build_aux_MOVE",
@@ -82,20 +83,20 @@ val build_aux_acc = Q.store_thm("build_aux_acc",
 val build_aux_MEM = store_thm("build_aux_MEM",
   ``!c n aux n7 aux7.
        (build_aux n c aux = (n7,aux7)) ==>
-       !k. k < LENGTH c ==> ?d. MEM (n + k,d) aux7``,
+       !k. k < LENGTH c ==> ?d. MEM (n + 2*k,d) aux7``,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`(n,h)::aux`]) \\ fs []
   \\ REPEAT STRIP_TAC
   \\ Cases_on `k` \\ fs []
-  THEN1 (MP_TAC (Q.SPECL [`c`,`n+1`,`(n,h)::aux`] build_aux_acc) \\ fs []
+  THEN1 (MP_TAC (Q.SPECL [`c`,`n+2`,`(n,h)::aux`] build_aux_acc) \\ fs []
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
-  \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC [ADD_COMM, ADD_ASSOC]);
+  \\ RES_TAC \\ fs [ADD1,LEFT_ADD_DISTRIB] \\ METIS_TAC []);
 
 val build_aux_APPEND1 = store_thm("build_aux_APPEND1",
   ``!xs x n aux.
       build_aux n (xs ++ [x]) aux =
         let (n1,aux1) = build_aux n xs aux in
-          (n1+1,(n1,x)::aux1)``,
+          (n1+2,(n1,x)::aux1)``,
   Induct \\ fs [build_aux_def,LET_DEF]);
 
 val recc_Let_def = Define `
@@ -109,7 +110,7 @@ val recc_Lets_def = Define `
   recc_Lets n nargs k rest =
     if k = 0:num then rest else
       let k = k - 1 in
-        Let [recc_Let (n + k) (HD nargs) k] (recc_Lets n (TL nargs) k rest)`;
+        Let [recc_Let (n + 2*k) (HD nargs) k] (recc_Lets n (TL nargs) k rest)`;
 
 val recc_Let0_def = Define `
   recc_Let0 n num_args i =
@@ -119,7 +120,7 @@ val recc_Let0_def = Define `
 val build_recc_lets_def = Define `
   build_recc_lets (nargs:num list) vs n1 fns_l (c3:bvl$exp) =
     Let [Let [Op Ref (REVERSE (MAP (K (mk_const 0)) nargs ++ MAP Var vs))]
-           (recc_Let0 (n1 + (fns_l - 1)) (HD (REVERSE nargs)) (fns_l - 1))]
+           (recc_Let0 (n1 + (2 * (fns_l - 1))) (HD (REVERSE nargs)) (fns_l - 1))]
       (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)`;
 
 val num_stubs_def = Define `
@@ -334,9 +335,9 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c1,aux1) = compile_exps [x1] aux in
      let (c2,aux2) = compile_exps [x2] aux1 in
        ([Handle (HD c1) (HD c2)], aux2)) /\
-  (compile_exps [Call dest xs] aux =
+  (compile_exps [Call ticks dest xs] aux =
      let (c1,aux1) = compile_exps xs aux in
-       ([Call 0 (SOME (dest + num_stubs)) c1],aux1))`
+       ([Call ticks (SOME (dest + num_stubs)) c1],aux1))`
   (WF_REL_TAC `measure (exp3_size o FST)` >>
    srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
    `!l. closLang$exp3_size (MAP SND l) <= exp1_size l`
@@ -348,6 +349,14 @@ val compile_exps_def = tDefine "compile_exps" `
   decide_tac);
 
 val compile_exps_ind = theorem"compile_exps_ind";
+
+val compile_prog_def = Define `
+  (compile_prog [] = []) /\
+  (compile_prog ((n,args,e)::xs) =
+     let (new_e,aux) = compile_exps [e] [] in
+       (* with this approach the supporting functions (aux) are
+          close the expressions (new_e) that refers to them *)
+       MAP (\e. (n + num_stubs,args,e)) new_e ++ aux ++ compile_prog xs)`
 
 val pair_lem1 = Q.prove (
   `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
@@ -413,17 +422,23 @@ val compile_exps_SNOC = store_thm("compile_exps_SNOC",
 val _ = Datatype`
   config = <| next_loc : num
             ; start : num
+            ; do_mti : bool
+            ; do_known : bool
+            ; do_call : bool
+            ; do_remove : bool
             |>`;
 
 val compile_def = Define`
   compile c e =
-  let es = intro_multi [e] in
-  let (n,es) = renumber_code_locs_list c.next_loc es in
-  let c = c with next_loc := n in
-  (* TODO: let (exp,calls) = call_intro es in *)
-  let (es,_) = remove es in
-  let es = annotate es in
-  let (es,aux) = compile_exps es [] in
-  (c,toAList init_code ++ MAP (λe. (c.start,0,e)) es ++ aux)`;
+    let es = clos_mti$compile c.do_mti [e] in
+    let (n,es) = renumber_code_locs_list c.next_loc es in
+    let c = c with next_loc := n in
+    let e = clos_known$compile c.do_known (HD es) in
+    let (e,aux) = clos_call$compile c.do_call e in
+    let prog = (c.start - num_stubs,0,e) :: aux in
+    let prog = clos_remove$compile c.do_remove prog in
+    let prog = clos_annotate$compile prog in
+    let prog = compile_prog prog in
+      (c,toAList init_code ++ prog)`;
 
 val _ = export_theory()

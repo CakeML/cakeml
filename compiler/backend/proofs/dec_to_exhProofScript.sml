@@ -1022,4 +1022,35 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   srw_tac[][result_rel_cases] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[state_rel_def])
 
+open conPropsTheory
+
+val set_globals_eq = Q.store_thm("set_globals_eq",
+  `(∀exh exp. set_globals (dec_to_exh$compile_exp exh exp) = set_globals exp) ∧
+   (∀exh exps.
+     elist_globals(dec_to_exh$compile_exps exh exps) = elist_globals exps) ∧
+   (∀exh pes.
+     elist_globals (MAP SND (dec_to_exh$compile_pes exh pes)) = elist_globals (MAP SND pes)) ∧
+   ∀exh funs.
+     elist_globals(MAP (SND o SND) (dec_to_exh$compile_funs exh funs)) = elist_globals (MAP (SND o SND) funs) `,
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def,add_default_def,elist_globals_append])
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `(∀exh exp. esgc_free exp ⇒ esgc_free (dec_to_exh$compile_exp exh exp)) ∧
+   (∀exh exps.
+     EVERY esgc_free exps ⇒ EVERY esgc_free (dec_to_exh$compile_exps exh exps)) ∧
+    (∀exh pes.
+     EVERY esgc_free (MAP SND pes) ⇒ EVERY esgc_free (MAP SND (dec_to_exh$compile_pes exh pes))) ∧
+   (∀exh funs.
+     EVERY esgc_free (MAP (SND o SND)funs) ⇒ EVERY esgc_free (MAP (SND o SND) (dec_to_exh$compile_funs exh funs)))`,
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def,add_default_def]>>
+  fs[set_globals_eq]);
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀exh e.
+       BAG_ALL_DISTINCT (set_globals e) ⇒
+       BAG_ALL_DISTINCT (set_globals (dec_to_exh$compile_exp exh e))`,
+  fs[set_globals_eq])
+
 val _ = export_theory ();

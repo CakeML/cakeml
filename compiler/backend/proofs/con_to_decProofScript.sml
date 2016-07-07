@@ -413,4 +413,132 @@ val compile_semantics = Q.store_thm("compile_semantics",
   rpt var_eq_tac >>
   fs[dec_result_rel_cases,compile_state_def]);
 
+val set_globals_esgc = prove(``
+  (∀e. set_globals e = {||} ⇒ conProps$esgc_free e) ∧
+  (∀es. elist_globals es = {||} ⇒ EVERY conProps$esgc_free es)``,
+  ho_match_mp_tac set_globals_ind>>rw[])
+
+val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",
+ `∀prog a b c.
+  EVERY (λp. decs_set_globals p = {||}) prog ⇒
+  esgc_free (SND (con_to_dec$compile_prog a b c prog))`,
+  Induct>>
+  fs[compile_prog_def,compile_prompt_def]>>
+  Cases>>rw[]>>
+  pairarg_tac>>fs[]>>
+  reverse CONJ_TAC
+  >-
+    (first_x_assum(qspecl_then[`a`,`b`,`c+num_defs l`] assume_tac)>>
+    rfs[])
+  >>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum mp_tac>>
+    qid_spec_tac`c`>>
+    qid_spec_tac`l`>>
+    Induct>>fs[compile_decs_def]>>
+    Cases>>fs[dec_set_globals_def]
+    >-
+      (fs[set_globals_esgc]>>
+      qpat_abbrev_tac`ls = GENLIST f n`>>rw[]>>
+      rpt(pop_assum kall_tac)>>
+      qid_spec_tac`c`>>
+      Induct_on`ls`>>fs[init_globals_def])
+    >>
+      rw[]>>
+      qpat_assum`elist_globals (MAP (SND o SND) l') = {||}` mp_tac>>
+      rpt(pop_assum kall_tac)>>
+      qid_spec_tac`c`>>
+      Induct_on`l'`>>
+      fs[init_global_funs_def]>>
+      rw[]>>PairCases_on`h`>>
+      fs[init_global_funs_def,esgc_free_def])
+
+val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
+ `∀prog c.
+  EVERY (λp. decs_set_globals p = {||}) prog ⇒
+  let (n,p) =(con_to_dec$compile_prog a b c prog) in
+  let bag = set_globals p in
+  c ≤ n ∧
+  BAG_ALL_DISTINCT bag ∧
+  ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < n`,
+  Induct>>fs[compile_prog_def]>>Cases>>rw[]>>
+  fs[compile_prompt_def]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  qpat_assum`A=p` sym_sub_tac>>fs[]>>
+  first_x_assum(qspecl_then [`c+num_defs l`] assume_tac)>>rfs[]>>
+  fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION]>>
+  `let bag = (set_globals (compile_decs c l)) in
+   BAG_ALL_DISTINCT bag ∧
+   ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < c + num_defs l` by
+     (last_x_assum mp_tac>>
+     rpt (pop_assum kall_tac)>>
+     qid_spec_tac`c`>>
+     Induct_on`l`>>fs[compile_decs_def]>>
+     Cases>>fs[dec_set_globals_def]>> strip_tac>>
+     fs[conLangTheory.num_defs_def,bagTheory.BAG_ALL_DISTINCT_BAG_UNION]
+     >-
+       (qpat_abbrev_tac`ls = GENLIST f n`>>
+       `let bag = (set_globals (init_globals ls c)) in
+       BAG_ALL_DISTINCT bag ∧
+       ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < c + LENGTH ls` by
+         (rpt (pop_assum kall_tac)>>
+         qid_spec_tac`c`>>Induct_on`ls`>>
+         fs[init_globals_def]>>
+         strip_tac>> first_x_assum(qspec_then`c+1` assume_tac)>>
+         fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION,op_gbag_def]>>
+         CONJ_TAC>-
+           (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
+           CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
+         rw[]>>res_tac>>fs[])>>
+      strip_tac>>fs[markerTheory.Abbrev_def]>>
+      rfs[]>>
+      last_x_assum(qspec_then`c+n` assume_tac)>>
+      CONJ_TAC>-
+        (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
+        strip_tac>>
+        match_mp_tac (METIS_PROVE[] ``∀P Q. (P ⇒ Q)  ⇒ (¬P ∨ Q)``)>>
+        rw[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
+      rw[]>>res_tac>>fs[])
+    >-
+      (strip_tac>>
+      `let bag = (set_globals (init_global_funs c l')) in
+      BAG_ALL_DISTINCT bag ∧
+      ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < c + LENGTH l'` by
+         (pop_assum kall_tac>> pop_assum mp_tac>> pop_assum kall_tac>>
+         qid_spec_tac`c`>>Induct_on`l'`>>
+         fs[init_global_funs_def]>>
+         ntac 2 strip_tac>>PairCases_on`h`>>
+         fs[init_global_funs_def]>>
+         first_x_assum(qspec_then`c+1` assume_tac)>>
+         strip_tac>>
+         fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION,op_gbag_def]>>
+         CONJ_TAC>-
+           (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
+           CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
+         rw[]>>res_tac>>fs[])>>
+      fs[]>>rfs[] >>
+      last_x_assum(qspec_then`c+LENGTH l'` assume_tac)>>
+      CONJ_TAC>-
+        (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
+        strip_tac>>
+        match_mp_tac (METIS_PROVE[] ``∀P Q. (P ⇒ Q)  ⇒ (¬P ∨ Q)``)>>
+        rw[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
+      rw[]>>res_tac>>fs[]))>>
+  fs[]>>
+  CONJ_TAC>-
+    (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
+    strip_tac>>
+    match_mp_tac (METIS_PROVE[] ``∀P Q. (P ⇒ Q)  ⇒ (¬P ∨ Q)``)>>
+    rw[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
+  rw[]>>res_tac>>fs[]);
+
+val no_set_globals_imp_bag_all_distinct = Q.store_thm("no_set_globals_imp_bag_all_distinct",
+ `∀prog c.
+  EVERY (λp. decs_set_globals p = {||}) prog ⇒
+  BAG_ALL_DISTINCT (set_globals (SND (con_to_dec$compile_prog a b c prog)))`,
+  rw[]>>imp_res_tac no_set_globals_imp_bag_all_distinct_lem>>
+  first_x_assum(qspecl_then[`c`,`b`,`a`] assume_tac)>>fs[]>>pairarg_tac>>
+  fs[]);
+
 val _ = export_theory ();

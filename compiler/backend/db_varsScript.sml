@@ -30,8 +30,16 @@ val db_to_set_acc_def = Define `
   (db_to_set_acc n (Union v1 v2) s =
      db_to_set_acc n v1 (db_to_set_acc n v2 s))`;
 
+val wf_db_to_set_acc = Q.store_thm("wf_db_to_set_acc",
+  `∀s n a. wf a ⇒ wf (db_to_set_acc n s a)`,
+  Induct \\ EVAL_TAC \\ rw[wf_insert]);
+
 val db_to_set_def = Define `
   db_to_set db = db_to_set_acc 0 db LN`;
+
+val wf_db_to_set = Q.store_thm("wf_db_to_set",
+  `∀db. wf (db_to_set db)`,
+  rw[db_to_set_def,wf_db_to_set_acc,wf_def]);
 
 val vars_to_list_def = Define `
   vars_to_list db = MAP FST (toAList (db_to_set db))`
@@ -51,17 +59,22 @@ val has_var_list_mk_Union = store_thm("has_var_list_mk_Union[simp]",
   ``!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls``,
   Induct \\ fs [list_mk_Union_def,has_var_mk_Union,has_var_def]);
 
-val lookup_db_to_set_acc = prove(
-  ``!d n k s.
-      lookup n (db_to_set_acc k d s) =
-        if has_var (n + k) d then SOME () else lookup n s``,
+val lookup_db_to_set_acc = Q.store_thm("lookup_db_to_set_acc",
+  `!d n k s.
+     lookup n (db_to_set_acc k d s) =
+       if has_var (n + k) d then SOME () else lookup n s`,
   Induct \\ fs [has_var_def,db_to_set_acc_def,AC ADD_COMM ADD_ASSOC]
   \\ SRW_TAC [] [] \\ fs [lookup_insert]
   \\ SRW_TAC [] [] \\ `F` by DECIDE_TAC)
 
-val lookup_db_to_set = prove(
-  ``has_var n d = (lookup n (db_to_set d) = SOME ())``,
+val lookup_db_to_set = Q.store_thm("lookup_db_to_set",
+  `has_var n d = (lookup n (db_to_set d) = SOME ())`,
   fs [lookup_db_to_set_acc,db_to_set_def,lookup_def]);
+
+val lookup_db_to_set_Shift = Q.store_thm("lookup_db_to_set_Shift",
+  `lookup n (db_to_set (Shift k s)) = lookup (n+k) (db_to_set s)`,
+  rw[db_to_set_def,db_to_set_acc_def]
+  \\ rw[lookup_db_to_set_acc,lookup_def]);
 
 val MEM_vars_to_list = store_thm("MEM_vars_to_list",
   ``MEM n (vars_to_list d) = has_var n d``,

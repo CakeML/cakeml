@@ -64,9 +64,9 @@ val shift_def = tDefine "shift" `
      let c1 = shift [x1] m l i in
      let c2 = shift [x2] m (l+1) i in
        ([Handle (HD c1) (HD c2)])) /\
-  (shift [Call dest xs] m l i =
+  (shift [Call ticks dest xs] m l i =
      let c1 = shift xs m l i in
-       ([Call dest c1]))`
+       ([Call ticks dest c1]))`
  (WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
@@ -95,9 +95,13 @@ val HD_shift = store_thm("HD_shift[simp]",
   ``[HD (shift [x] m l i)] = shift [x] m l i``,
   STRIP_ASSUME_TAC shift_SING \\ fs []);
 
-(* main function *)
+(* main functions *)
 
 val annotate_def = Define `
-  annotate xs = shift (FST (free xs)) 0 0 LN`;
+  annotate arity xs = shift (FST (free xs)) 0 arity LN`;
+
+val compile_def = Define `
+  compile prog =
+    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog`
 
 val _ = export_theory();

@@ -63,6 +63,8 @@ val known_op_def = Define `
          if 0 <= i /\ i < &LENGTH xs
          then (EL (Num i) xs,g)
          else (Other,g)
+     | Impossible::xs => (Impossible,g)
+     | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g)) /\
   (known_op op as g = (Other,g))`
 
@@ -110,9 +112,9 @@ val known_def = tDefine "known" `
      let (e1,a1) = HD e1 in
      let (e2,a2) = HD e2 in
        ([(Handle e1 e2,merge a1 a2)],g)) /\
-  (known [Call dest xs] vs g =
+  (known [Call ticks dest xs] vs g =
      let (e1,g) = known xs vs g in
-       ([(Call dest (MAP FST e1),Other)],g)) /\
+       ([(Call ticks dest (MAP FST e1),Other)],g)) /\
   (known [Op op xs] vs g =
      let (e1,g) = known xs vs g in
      let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
@@ -130,17 +132,17 @@ val known_def = tDefine "known" `
                                           then SOME loc else NONE
      in
        ([(App new_loc_opt e1 (MAP FST e2),Other)],g)) /\
-  (known [Fn loc_opt ws num_args x1] vs g =
+  (known [Fn loc_opt ws_opt num_args x1] vs g =
      let (e1,g) = known [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD e1 in
-       ([(Fn loc_opt ws num_args body,
+       ([(Fn loc_opt NONE num_args body,
           case loc_opt of
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
   (known [Letrec loc_opt _ fns x1] vs g =
      let gfn = case loc_opt of
                    NONE => K Other
-                 | SOME n => \i. Clos (n + i) (FST (EL i fns)) in
+                 | SOME n => \i. Clos (n + 2*i) (FST (EL i fns)) in
      let clos = GENLIST gfn (LENGTH fns) in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)

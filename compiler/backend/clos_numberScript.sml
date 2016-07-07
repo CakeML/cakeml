@@ -35,18 +35,18 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
        (n,App loc_opt x1 x2)) /\
   (renumber_code_locs n (Fn loc vs num_args x1) =
      let (n,x1) = renumber_code_locs n x1 in
-       (n+1,Fn (SOME n) vs num_args x1)) /\
+       (n+2,Fn (SOME n) vs num_args x1)) /\
   (renumber_code_locs n (Letrec loc vs fns x1) =
      let (m,fns') = renumber_code_locs_list n (MAP SND fns) in
-     let (n,x1) = renumber_code_locs (m+LENGTH fns') x1 in
+     let (n,x1) = renumber_code_locs (m+2*LENGTH fns') x1 in
      (n,Letrec (SOME m) vs (ZIP (MAP FST fns, fns')) x1)) /\
   (renumber_code_locs n (Handle x1 x2) =
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs n x2 in
      (n,Handle x1 x2)) /\
-  (renumber_code_locs n (Call dest xs) =
+  (renumber_code_locs n (Call ticks dest xs) =
      let (n,xs) = renumber_code_locs_list n xs in
-     (n,Call dest xs))`
+     (n,Call ticks dest xs))`
  (WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>
