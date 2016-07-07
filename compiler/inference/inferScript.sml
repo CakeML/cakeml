@@ -530,7 +530,8 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e ienv (Tannot e t) =
   do t' <- infer_e ienv e;
-     () <- add_constraint t' (tannot_to_infer_t t);
+     () <- guard (check_freevars 0 [] t) "Free variable in type annotation";
+     () <- add_constraint t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
      return t'
    od) ∧
 (infer_es ienv [] =
