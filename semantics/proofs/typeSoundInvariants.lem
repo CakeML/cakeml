@@ -200,6 +200,7 @@ and
 closure : forall tvs ctMap senv env tenv n e t1 t2.
 consistent_con_env ctMap (cof env) tenv.c &&
 tenv_mod_ok tenv.m &&
+tenv_tabbrev_ok tenv.t &&
 consistent_mod_env senv ctMap (mof env) tenv.m &&
 type_env ctMap senv (vof env) tenv.v &&
 check_freevars tvs [] t1 &&
@@ -212,6 +213,7 @@ and
 recclosure : forall tvs ctMap senv env funs n t tenv tenv'.
 consistent_con_env ctMap (cof env) tenv.c &&
 tenv_mod_ok tenv.m &&
+tenv_tabbrev_ok tenv.t &&
 consistent_mod_env senv ctMap (mof env) tenv.m &&
 type_env ctMap senv (vof env) tenv.v &&
 type_funs <|tenv with v = bind_var_list 0 tenv' (bind_tvar tvs tenv.v)|> funs tenv' &&

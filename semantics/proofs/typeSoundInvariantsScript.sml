@@ -209,6 +209,7 @@ type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 /\ (! tvs ctMap senv env tenv n e t1 t2.
 (consistent_con_env ctMap (environment_c env) tenv.c /\
 tenv_mod_ok tenv.m /\
+tenv_tabbrev_ok tenv.t /\
 consistent_mod_env senv ctMap (environment_m env) tenv.m /\
 type_env ctMap senv (environment_v env) tenv.v /\
 check_freevars tvs [] t1 /\
@@ -219,6 +220,7 @@ type_v tvs ctMap senv (Closure env n e) (Tfn t1 t2))
 /\ (! tvs ctMap senv env funs n t tenv tenv'.
 (consistent_con_env ctMap (environment_c env) tenv.c /\
 tenv_mod_ok tenv.m /\
+tenv_tabbrev_ok tenv.t /\
 consistent_mod_env senv ctMap (environment_m env) tenv.m /\
 type_env ctMap senv (environment_v env) tenv.v /\
 type_funs (tenv with<| v := bind_var_list( 0) tenv' (bind_tvar tvs tenv.v)|>) funs tenv' /\
