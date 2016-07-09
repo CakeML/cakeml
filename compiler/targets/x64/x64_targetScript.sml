@@ -13,7 +13,7 @@ val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
 
 val x64_config_def = Define`
    x64_config =
-   <| ISA_name := "x64"
+   <| ISA := x86_64
     ; reg_count := 16
     ; avoid_regs := [4;5]
     ; link_reg := NONE

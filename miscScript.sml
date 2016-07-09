@@ -41,6 +41,25 @@ val revtakerev = Q.store_thm("revtakerev",
   `l = [] ∨ ∃f e. l = SNOC e f` by metis_tac[SNOC_CASES] >> simp[] >>
   simp[DROP_APPEND1]);
 
+val times_add_o = Q.store_thm("times_add_o",
+  `(λn:num. k * n + x) = ($+ x) o ($* k)`,
+  rw[FUN_EQ_THM]);
+
+val SORTED_inv_image_LESS_PLUS = Q.store_thm("SORTED_inv_image_LESS_PLUS",
+  `SORTED (inv_image $< (arithmetic$+ k)) = SORTED $<`,
+  simp[FUN_EQ_THM]
+  \\ Induct
+  \\ Q.ISPEC_THEN`$+ k`(fn th => simp[MATCH_MP SORTED_EQ th])
+      (MATCH_MP transitive_inv_image transitive_LESS)
+  \\ simp[MATCH_MP SORTED_EQ transitive_LESS]);
+
+val SORTED_GENLIST_TIMES = Q.store_thm("SORTED_GENLIST_TIMES",
+  `0 < k ⇒ ∀n. SORTED prim_rec$< (GENLIST ($* k) n)`,
+  strip_tac
+  \\ Induct \\ simp[GENLIST,SNOC_APPEND]
+  \\ match_mp_tac SORTED_APPEND
+  \\ simp[MEM_GENLIST,PULL_EXISTS]);
+
 val read_bytearray_def = Define `
   (read_bytearray a 0 get_byte = SOME []) /\
   (read_bytearray a (SUC n) get_byte =
@@ -1586,5 +1605,29 @@ val word_list_def = Define `
 val word_list_exists_def = Define `
   word_list_exists a n =
     SEP_EXISTS xs. word_list a xs * cond (LENGTH xs = n)`;
+
+val subspt_def = Define`
+  subspt sp1 sp2 ⇔
+    ∀k. k ∈ domain sp1 ⇒ k ∈ domain sp2 ∧ lookup k sp2 = lookup k sp1
+`;
+
+val subspt_refl = Q.store_thm(
+  "subspt_refl[simp]",
+  `subspt sp sp`,
+  simp[subspt_def])
+
+val subspt_trans = Q.store_thm(
+  "subspt_trans",
+  `subspt sp1 sp2 ∧ subspt sp2 sp3 ⇒ subspt sp1 sp3`,
+  metis_tac[subspt_def]);
+
+val lookup_vars_def = Define `
+  (lookup_vars [] env = SOME []) /\
+  (lookup_vars (v::vs) env =
+     if v < LENGTH env then
+       case lookup_vars vs env of
+       | SOME xs => SOME (EL v env :: xs)
+       | NONE => NONE
+     else NONE)`
 
 val _ = export_theory()

@@ -10,47 +10,6 @@ open indexedListsTheory
 
 val _ = new_theory"clos_remove";
 
-val pure_op_def = Define `
-  pure_op op ⇔
-    case op of
-      FFI _ => F
-    | SetGlobal _ => F
-    | AllocGlobal => F
-    | RefByte => F
-    | RefArray => F
-    | UpdateByte => F
-    | Ref => F
-    | Update => F
-    | _ => T
-`;
-
-(* pure e means e can neither raise an exception nor side-effect the state *)
-val pure_def = tDefine "pure" `
-  (pure (Var _) ⇔ T)
-    ∧
-  (pure (If e1 e2 e3) ⇔ pure e1 ∧ pure e2 ∧ pure e3)
-    ∧
-  (pure (Let es e2) ⇔ EVERY pure es ∧ pure e2)
-    ∧
-  (pure (Raise _) ⇔ F)
-    ∧
-  (pure (Handle e1 _) ⇔ pure e1)
-    ∧
-  (pure (Tick _) ⇔ F)
-    ∧
-  (pure (Call _ _) ⇔ F)
-    ∧
-  (pure (App _ _ _) ⇔ F)
-    ∧
-  (pure (Fn _ _ _ _) ⇔ T)
-    ∧
-  (pure (Letrec _ _ fns x) ⇔ EVERY (λ(n,e). pure e) fns ∧ pure x)
-    ∧
-  (pure (Op opn es) ⇔ EVERY pure es ∧ pure_op opn)
-` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
-   (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
-   rpt strip_tac >> res_tac >> simp[])
-
 val no_overlap_def = Define `
   (no_overlap 0 l <=> T) /\
   (no_overlap (SUC n) l <=>
@@ -115,9 +74,9 @@ val remove_def = tDefine "remove" `
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove [x2] in
        ([Handle (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
-  (remove [Call dest xs] =
+  (remove [Call ticks dest xs] =
      let (c1,l1) = remove xs in
-       ([Call dest c1],l1))`
+       ([Call ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[] >>
   rename1 `MEM ee xx` >>
@@ -231,7 +190,7 @@ val remove_alt_ind = store_thm("remove_alt_ind",``
         P [Letrec loc vs_opt fns x1]) ∧
      (∀x1 x2.
         (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
-        P [Handle x1 x2]) ∧ (∀dest xs. P xs ⇒ P [Call dest xs]) ⇒
+        P [Handle x1 x2]) ∧ (∀ticks dest xs. P xs ⇒ P [Call ticks dest xs]) ⇒
      ∀v. P v``,
   ntac 2 strip_tac>>
   ho_match_mp_tac remove_ind>>
@@ -240,5 +199,12 @@ val remove_alt_ind = store_thm("remove_alt_ind",``
   rw[]>>
   imp_res_tac MEM_enumerate_IMP>>
   metis_tac[]);
+
+val compile_def = Define`
+  compile F prog = prog /\
+  compile T prog =
+    let exps = MAP (\(_,_,exp). exp) prog in
+    let new_exps = FST (remove exps) in
+      MAP (\((n,args,_),e). (n,args,e)) (ZIP (prog, new_exps))`
 
 val _ = export_theory()

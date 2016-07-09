@@ -5,7 +5,7 @@ val _ = new_theory "closLang";
 (* compilation from this language removes closures *)
 
 val max_app_def = Define `
-  max_app = 3:num`;
+  max_app = 4:num`;
 
 val _ = Datatype `
   op = Global num    (* load global var with index *)
@@ -56,7 +56,7 @@ val _ = Datatype `
       | Raise exp
       | Handle exp exp
       | Tick exp
-      | Call num (exp list)
+      | Call num (* ticks *) num (* loc *) (exp list) (* args *)
       | App (num option) exp (exp list)
       | Fn (num option) (num list option) num exp
       | Letrec (num option) (num list option) ((num # exp) list) exp
@@ -68,5 +68,46 @@ val exp1_size_lemma = store_thm("exp1_size_lemma",
   ``!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns``,
   Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
+
+val pure_op_def = Define `
+  pure_op op ⇔
+    case op of
+      FFI _ => F
+    | SetGlobal _ => F
+    | AllocGlobal => F
+    | RefByte => F
+    | RefArray => F
+    | UpdateByte => F
+    | Ref => F
+    | Update => F
+    | _ => T
+`;
+
+(* pure e means e can neither raise an exception nor side-effect the state *)
+val pure_def = tDefine "pure" `
+  (pure (Var _) ⇔ T)
+    ∧
+  (pure (If e1 e2 e3) ⇔ pure e1 ∧ pure e2 ∧ pure e3)
+    ∧
+  (pure (Let es e2) ⇔ EVERY pure es ∧ pure e2)
+    ∧
+  (pure (Raise _) ⇔ F)
+    ∧
+  (pure (Handle e1 _) ⇔ pure e1)
+    ∧
+  (pure (Tick _) ⇔ F)
+    ∧
+  (pure (Call _ _ _) ⇔ F)
+    ∧
+  (pure (App _ _ _) ⇔ F)
+    ∧
+  (pure (Fn _ _ _ _) ⇔ T)
+    ∧
+  (pure (Letrec _ _ _ x) ⇔ pure x)
+    ∧
+  (pure (Op opn es) ⇔ EVERY pure es ∧ pure_op opn)
+` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
+   (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
+   rpt strip_tac >> res_tac >> simp[])
 
 val _ = export_theory()

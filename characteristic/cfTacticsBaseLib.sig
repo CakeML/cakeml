@@ -5,6 +5,11 @@ sig
   type conseq_conv = ConseqConv.conseq_conv
   type directed_conseq_conv = ConseqConv.directed_conseq_conv
 
+  val find_map : ('a -> 'b option) -> 'a list -> 'b option
+
+  val NCONV : int -> conv -> conv
+  val UNCHANGED_CONV : conv -> conv
+
   val CUSTOM_THEN_CONSEQ_CONV :
     (exn -> bool) -> (exn -> bool) ->
     conseq_conv -> conseq_conv -> conseq_conv
@@ -28,6 +33,9 @@ sig
   *)
   val ORELSE_CONSEQ_CONV : conseq_conv -> conseq_conv -> conseq_conv
 
+  val EVERY_CONSEQ_CONV : conseq_conv list -> conseq_conv
+  val FIRST_CONSEQ_CONV : conseq_conv list -> conseq_conv
+
   val CUSTOM_THEN_DCC :
     (conseq_conv -> conseq_conv -> conseq_conv) ->
     directed_conseq_conv -> directed_conseq_conv -> directed_conseq_conv
@@ -43,6 +51,10 @@ sig
   val EVERY_DCC : directed_conseq_conv list -> directed_conseq_conv
   val CHANGED_DCC : directed_conseq_conv -> directed_conseq_conv
   val QCHANGED_DCC : directed_conseq_conv -> directed_conseq_conv
+
+  val CONV_DCC : conv -> directed_conseq_conv
+  val STRENGTHEN_CONSEQ_CONV : conseq_conv -> directed_conseq_conv
+  val WEAKEN_CONSEQ_CONV : conseq_conv -> directed_conseq_conv
 
   val TOP_REDEPTH_CONSEQ_CONV : directed_conseq_conv -> directed_conseq_conv
 
@@ -61,6 +73,49 @@ sig
   val IMP_CONCL_CONSEQ_CONV : conseq_conv -> conseq_conv
   val IMP_LIST_CONSEQ_CONV : conseq_conv list -> conseq_conv
 
+  val STRIP_FORALL_CONSEQ_CONV : conseq_conv -> conseq_conv
+  val STRIP_EXISTS_CONSEQ_CONV : conseq_conv -> conseq_conv
+
   val print_cc : conseq_conv
   val print_dcc : directed_conseq_conv
+
+  type subterm_cont =
+     (term -> term) * (conseq_conv -> conseq_conv)
+
+  type cont_conseq_conv = term -> thm * subterm_cont
+
+  val STEP_CONT_CONSEQ_CONV : cont_conseq_conv -> conseq_conv
+  val THEN_CONT_CONSEQ_CONV :
+    cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
+  val EVERY_CONT_CONSEQ_CONV : cont_conseq_conv list -> cont_conseq_conv
+  val LOOP_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
+  val INPLACE_CONT_CONSEQ_CONV : conseq_conv -> cont_conseq_conv
+
+  (* -- *)
+
+  val MATCH_IMP_STRENGTHEN_CONSEQ_CONV : thm -> conseq_conv
+  
+  (** Tactics to deal with goals of the form [?x1..xn. A1 /\ ... /\ Am], where
+      the [Ai]s are not themselves of the form [_ /\ _], and shouldn't start
+      with existential quantifications. The focus is on A1 (the "head"), where
+      most of the work is usually done.
+   *)
+
+  type econj = {evars: term list, head_conj: term, rest: term list}
+
+  val dest_econj : term -> econj
+  val mk_econj : econj -> term
+  val is_econj : term -> bool
+  val normalize_to_econj_conv : conv
+
+  val econj_head_conseq_conv : conseq_conv -> conseq_conv
+
+  val econj_nth_irule_conseq_conv : int -> thm -> conseq_conv
+  val econj_head_irule_conseq_conv : thm -> conseq_conv
+
+  (* Tactics *)
+
+  val normalize_to_econj : tactic
+  val econj_nth_irule : int -> thm -> tactic
+  val econj_head_irule : thm -> tactic
 end

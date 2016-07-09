@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsTheory cfHeapsLib cfStoreTheory cfNormalizeTheory
+open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
 
 val _ = new_theory "cfApp"
 
@@ -23,7 +23,7 @@ val app_basic_def = Define `
         evaluate F env st exp (st', Rval v')`
 
 val app_basic_local = prove (
-  ``!f x. is_local (\env. app_basic p f x)``,
+  ``!f x. is_local (app_basic p f x)``,
   cheat)
 
 
@@ -54,7 +54,7 @@ val app_alt_ind_w = store_thm ("app_alt_ind_w",
 )
 
 val app_local = prove (
-  ``!f xs. is_local (\env. app (p:'ffi ffi_proj) f xs)``,
+  ``!f xs. is_local (app (p:'ffi ffi_proj) f xs)``,
   cheat)
 
 

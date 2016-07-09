@@ -28,7 +28,7 @@ val valid_immediate_def = Define`
 
 val arm8_config_def = Define`
    arm8_config =
-   <| ISA_name := "ARMv8"
+   <| ISA := ARMv8
     ; reg_count := 32
     ; avoid_regs := [31]
     ; link_reg := SOME 30

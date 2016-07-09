@@ -35,8 +35,7 @@ val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
   tac >> full_simp_tac(srw_ss())[] >>
   tac >> full_simp_tac(srw_ss())[] >>
   tac >> full_simp_tac(srw_ss())[] >> simp[] >>
-  Cases_on `renumber_code_locs_list n (MAP SND fns)` >> srw_tac[][] >>
-  Cases_on`renumber_code_locs (q+LENGTH r) e`>>full_simp_tac(srw_ss())[]>>simp[])
+  pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]);
 
 val renumber_code_locs_imp_inc = store_thm("renumber_code_locs_imp_inc",
   ``(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
@@ -83,17 +82,20 @@ val renumber_code_locs_distinct_lemma = prove(
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
   TRY (
-    Cases_on`renumber_code_locs (n+1) e`>>full_simp_tac(srw_ss())[] >>
+    Cases_on`renumber_code_locs (n+2) e`>>full_simp_tac(srw_ss())[] >>
     simp[less_sorted_eq] >>
     imp_res_tac renumber_code_locs_imp_inc >>
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
+  fs[times_add_o,GSYM MAP_GENLIST,
+     MATCH_MP sorted_map transitive_LESS,
+     SORTED_inv_image_LESS_PLUS,
+     SORTED_GENLIST_TIMES] >>
   Cases_on `renumber_code_locs_list n (MAP SND fns)` >>
   full_simp_tac(srw_ss())[] >>
-  Cases_on`renumber_code_locs (q+LENGTH fns) e`>>full_simp_tac(srw_ss())[] >>
+  Cases_on`renumber_code_locs (q+2 * LENGTH fns) e`>>full_simp_tac(srw_ss())[] >>
   rpt(CHANGED_TAC tac >> full_simp_tac(srw_ss())[])>>
-  simp[SORTED_GENLIST_PLUS] >>
-  simp[MEM_GENLIST] >>
+  simp[MEM_GENLIST,MEM_MAP,PULL_EXISTS] >>
   imp_res_tac renumber_code_locs_imp_inc >>
   imp_res_tac renumber_code_locs_list_length >>
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
@@ -777,7 +779,8 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     Cases_on`x`>>full_simp_tac(srw_ss())[code_rel_def] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]
+      >- ( match_mp_tac state_rel_clock \\ rw[] ) >>
       first_x_assum MATCH_MP_TAC >>
       simp[] >>
       full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] ) >>
@@ -786,7 +789,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
    (full_simp_tac(srw_ss())[evaluate_def] >>
-    Cases_on `dest_closure NONE f (v41::v42)` >>
+    Cases_on `dest_closure NONE f (v42::v43)` >>
     full_simp_tac(srw_ss())[] >>
     srw_tac[][]
     >- (imp_res_tac dest_closure_v_rel_none >>
@@ -855,5 +858,52 @@ val renumber_code_locs_every_Fn_vs_NONE = Q.store_thm("renumber_code_locs_every_
   full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY,SimpRHS] >>
   full_simp_tac(srw_ss())[EVERY_MAP,ZIP_MAP] >>
   full_simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
+
+val renumber_code_locs_EVEN = Q.store_thm("renumber_code_locs_EVEN",
+  `(∀n es. EVEN n ⇒ EVEN (FST (renumber_code_locs_list n es)) ∧ EVERY EVEN (code_locs (SND (renumber_code_locs_list n es)))) ∧
+   (∀n e. EVEN n ⇒ EVEN (FST (renumber_code_locs n e)) ∧ EVERY EVEN (code_locs [SND (renumber_code_locs n e)]))`,
+  ho_match_mp_tac renumber_code_locs_ind
+  \\ rw[renumber_code_locs_def,code_locs_def]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ fs[code_locs_def]
+  >- ( rw[Once code_locs_cons] )
+  \\ fs[EVEN_MOD2,ADD_MODULUS]
+  \\ fs[SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]
+  \\ imp_res_tac renumber_code_locs_list_length
+  \\ fs[MAP_ZIP,EVERY_GENLIST] \\ rw[]
+  \\ simp[EVEN_MOD2,SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]);
+
+val renumber_code_locs_elist_globals = Q.store_thm(
+  "renumber_code_locs_elist_globals",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ⇒
+      elist_globals es' = elist_globals es) ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n, e') ⇒
+      set_globals e' = set_globals e)`,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[renumber_code_locs_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  rename1`renumber_code_locs_list locn (MAP SND functions)` >>
+  qspecl_then [`locn`, `MAP SND functions`] mp_tac
+    (CONJUNCT1 renumber_code_locs_length) >>
+  simp[] >> simp[MAP_ZIP]);
+
+val renumber_code_locs_esgc_free = Q.store_thm(
+  "renumber_code_locs_esgc_free",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY esgc_free es ⇒
+      EVERY esgc_free es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ esgc_free e ⇒ esgc_free e')`,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[renumber_code_locs_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
+  >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
+  >- (rename1`renumber_code_locs_list locn (MAP SND functions)` >>
+      qspecl_then [`locn`, `MAP SND functions`] mp_tac
+        (CONJUNCT1 renumber_code_locs_length) >>
+      simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
+      simp[]))
 
 val _ = export_theory()

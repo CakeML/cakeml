@@ -22,7 +22,7 @@ val _ = Datatype `
        | Black tree 'a tree`;
 
 (* causes the normal case-of syntax to be parsed as PMATCH *)
-val _ = set_trace "parse deep cases" 1;
+val _ = patternMatchesSyntax.ENABLE_PMATCH_CASES();
 
 val balance_black_def = Define `
   balance_black a n b =
@@ -32,8 +32,6 @@ val balance_black_def = Define `
     | (a,Red (Red b y c) z d) => Red (Black a n b) y (Black c z d)
     | (a,Red b y (Red c z d)) => Red (Black a n b) y (Black c z d)
     | other => Black a n b`
-
-val _ = set_trace "parse deep cases" 0;
 
 val res = translate balance_black_def;
 

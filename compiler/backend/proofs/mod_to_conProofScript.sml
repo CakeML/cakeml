@@ -2844,4 +2844,37 @@ val compile_prog_exh_unchanged = Q.store_thm("compile_prog_exh_unchanged",
   match_mp_tac compile_prompt_exh_unchanged >>
   Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]);
 
+val compile_exp_no_set_globals = prove(``
+  (∀c e. set_globals (mod_to_con$compile_exp c e) = {||}) ∧
+  (∀c es. elist_globals (mod_to_con$compile_exps c es) = {||}) ∧
+  (∀c pes. elist_globals (MAP SND (mod_to_con$compile_pes c pes)) = {||}) ∧
+  (∀c funs. elist_globals (MAP (SND o SND) (mod_to_con$compile_funs c funs)) = {||})``,
+  ho_match_mp_tac compile_exp_ind>>rw[compile_exp_def]>>
+  Cases_on`op`>>fs[op_gbag_def])
+
+val compile_decs_no_set_globals = prove(``
+  ∀ds c.
+  decs_set_globals (Prompt (SND (compile_decs c ds))) = {||}``,
+  Induct>>fs[compile_decs_def,dec_set_globals_def]>>
+  Cases>>fs[]>>
+  rw[]>>
+  pairarg_tac>>fs[dec_set_globals_def]>>
+  rw[]>>TRY(metis_tac[SND])>>
+  fs[compile_exp_no_set_globals])
+
+val compile_no_set_globals = Q.store_thm("compile_no_set_globals",
+  `∀st p.
+  EVERY (λp. decs_set_globals p = {||}) (SND (compile_prog st p))`,
+  Induct_on`p`>>fs[compile_prog_def]>>rw[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  reverse CONJ_TAC>-
+    (first_x_assum(qspec_then`st'` assume_tac)>>rfs[])>>
+  pop_assum kall_tac>>
+  pop_assum mp_tac>>
+  pop_assum kall_tac>>
+  Cases_on`h`>>fs[compile_prompt_def]>>
+  pairarg_tac>>fs[]>>rw[]>>
+  metis_tac[compile_decs_no_set_globals,SND])
+
 val _ = export_theory ();

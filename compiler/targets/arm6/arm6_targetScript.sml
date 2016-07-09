@@ -20,7 +20,7 @@ val valid_immediate_def = Define`
 
 val arm6_config_def = Define`
    arm6_config =
-   <| ISA_name := "ARMv6"
+   <| ISA := ARMv6
     ; reg_count := 16
     ; avoid_regs := [15]
     ; link_reg := SOME 14

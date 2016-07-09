@@ -14,7 +14,7 @@ val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 
 val mips_config_def = Define`
    mips_config =
-   <| ISA_name := "MIPS"
+   <| ISA := MIPS
     ; reg_count := 32
     ; avoid_regs := [0; 1]
     ; link_reg := SOME 31

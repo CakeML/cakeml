@@ -584,24 +584,27 @@ val exh_to_exists_match = Q.prove (
     metis_tac[is_unconditional_thm] ) >>
   every_case_tac >>
   full_simp_tac(srw_ss())[get_tags_def, conSemTheory.pmatch_def] >> srw_tac[][] >>
+  fs[] >> every_case_tac >> fs[] >>
   imp_res_tac get_tags_thm >>
   Q.PAT_ABBREV_TAC`pp1 = Pcon X l` >>
   Cases_on`v`>>
   TRY(qexists_tac`pp1`>>simp[conSemTheory.pmatch_def,Abbr`pp1`]>>NO_TAC) >>
+  fs[lookup_insert] >>
   srw_tac[boolSimps.DNF_ss][]>>
   simp[Abbr`pp1`,pmatch_Pcon_No_match]>>
   simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
   strip_tac >>
   BasicProvers.VAR_EQ_TAC >>
   full_simp_tac(srw_ss())[sptreeTheory.lookup_map,sptreeTheory.domain_fromList,PULL_EXISTS] >>
-  res_tac >>
-  rev_full_simp_tac(srw_ss())[EVERY_MEM,sptreeTheory.MEM_toList,PULL_EXISTS] >>
-  res_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  first_assum(match_exists_tac o concl) >>
-  simp[conSemTheory.pmatch_def] >>
-  Cases_on`x'''`>>simp[conSemTheory.pmatch_def] >>
-  srw_tac[][] >>
-  metis_tac[is_unconditional_list_thm,EVERY_MEM])
+  rveq >>
+  first_x_assum(qspec_then`LENGTH l'`mp_tac o CONV_RULE(SWAP_FORALL_CONV))
+  \\ fs[EVERY_MEM,MEM_toList,PULL_EXISTS]
+  \\ rw[] \\ res_tac \\ fs[] \\ rw[] \\ fs[domain_fromList]
+  \\ first_x_assum drule \\ rw[]
+  \\ asm_exists_tac
+  \\ rename1`Pcon (SOME (_,p))`
+  \\ Cases_on`p` \\ simp[conSemTheory.pmatch_def] \\ rw[]
+  \\ metis_tac[is_unconditional_list_thm,EVERY_MEM])
 
 fun exists_lift_conj_tac tm =
   CONV_TAC(
@@ -1018,5 +1021,36 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   disch_then(qspec_then`env.exh`mp_tac) >> simp[] >>
   srw_tac[][result_rel_cases] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[state_rel_def])
+
+open conPropsTheory
+
+val set_globals_eq = Q.store_thm("set_globals_eq",
+  `(∀exh exp. set_globals (dec_to_exh$compile_exp exh exp) = set_globals exp) ∧
+   (∀exh exps.
+     elist_globals(dec_to_exh$compile_exps exh exps) = elist_globals exps) ∧
+   (∀exh pes.
+     elist_globals (MAP SND (dec_to_exh$compile_pes exh pes)) = elist_globals (MAP SND pes)) ∧
+   ∀exh funs.
+     elist_globals(MAP (SND o SND) (dec_to_exh$compile_funs exh funs)) = elist_globals (MAP (SND o SND) funs) `,
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def,add_default_def,elist_globals_append])
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `(∀exh exp. esgc_free exp ⇒ esgc_free (dec_to_exh$compile_exp exh exp)) ∧
+   (∀exh exps.
+     EVERY esgc_free exps ⇒ EVERY esgc_free (dec_to_exh$compile_exps exh exps)) ∧
+    (∀exh pes.
+     EVERY esgc_free (MAP SND pes) ⇒ EVERY esgc_free (MAP SND (dec_to_exh$compile_pes exh pes))) ∧
+   (∀exh funs.
+     EVERY esgc_free (MAP (SND o SND)funs) ⇒ EVERY esgc_free (MAP (SND o SND) (dec_to_exh$compile_funs exh funs)))`,
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def,add_default_def]>>
+  fs[set_globals_eq]);
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀exh e.
+       BAG_ALL_DISTINCT (set_globals e) ⇒
+       BAG_ALL_DISTINCT (set_globals (dec_to_exh$compile_exp exh e))`,
+  fs[set_globals_eq])
 
 val _ = export_theory ();

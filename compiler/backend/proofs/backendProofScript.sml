@@ -1219,7 +1219,7 @@ val from_bvp_ignore = prove(
 
 val clos_to_bvp_names = store_thm("clos_to_bvp_names",
   ``
-    clos_to_bvl$num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
+    clos_to_bvl$num_stubs ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
     clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n p2 = (k,p3,n2) ==>
     EVERY (λn. 30 <= n) (MAP FST (bvi_to_bvp$compile_prog p3)) /\
@@ -1242,7 +1242,8 @@ val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
    c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
-   c.clos_conf = (prim_config:'a backend$config).clos_conf ∧
+   c.clos_conf.next_loc = (prim_config:'a backend$config).clos_conf.next_loc ∧
+   c.clos_conf.start = (prim_config:'a backend$config).clos_conf.start ∧
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,ffi_limit) ∧
    conf_ok c mc ∧
@@ -1428,43 +1429,15 @@ val compile_correct = Q.store_thm("compile_correct",
    |> qispl_then[`st3`,`e3`,`c.clos_conf`]mp_tac) >>
   simp[] >>
   impl_tac >- (
-    simp[CONJ_ASSOC] >>
-    conj_tac >- (
-      unabbrev_all_tac >>
-      simp[pat_to_closProofTheory.compile_contains_App_SOME] >>
-      simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE] >>
-      simp[prim_config_eq] >> EVAL_TAC) >>
-    simp[Abbr`st3`,clos_to_bvlProofTheory.full_state_rel_def] >>
-    simp[Once clos_relationTheory.state_rel_rw] >>
-    gen_tac >>
-    qho_match_abbrev_tac`∃sa. P sa` >>
-    srw_tac[QUANT_INST_ss[record_qp false (fn v => (K (type_of v = ``:'ffi closSem$state``))),pair_default_qp]][] >>
-    simp[Abbr`P`] >>
-    simp[clos_numberProofTheory.state_rel_def] >>
-    qho_match_abbrev_tac`∃sa. P sa` >>
-    srw_tac[QUANT_INST_ss[record_qp false (fn v => (K (type_of v = ``:'ffi closSem$state``))),pair_default_qp]][] >>
-    simp[Abbr`P`] >>
-    qho_match_abbrev_tac`∃sa. P sa` >>
-    srw_tac[QUANT_INST_ss[record_qp false (fn v => (K (type_of v = ``:'ffi closSem$state``))),pair_default_qp]][] >>
-    simp[Abbr`P`] >>
-    simp[Once clos_relationTheory.state_rel_rw] >>
-    simp[FEVERY_DEF] >>
-    simp[clos_annotateProofTheory.state_rel_def] >>
-    qho_match_abbrev_tac`∃sa. P sa` >>
-    srw_tac[QUANT_INST_ss[record_qp false (fn v => (K (type_of v = ``:'ffi closSem$state``))),pair_default_qp]][] >>
-    simp[Abbr`P`] >>
-    qexists_tac`FEMPTY`>>simp[] >>
-    simp[clos_to_bvlProofTheory.state_rel_def,FDOM_EQ_EMPTY] >>
-    qexists_tac`FEMPTY`>>simp[] >>
-    `∃c. p'' = toAList init_code ++ c` by (
-      rator_x_assum`clos_to_bvl$compile`mp_tac >>
-      rpt(pop_assum kall_tac) >>
-      srw_tac[][clos_to_bvlTheory.compile_def] >>
-      pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-      fs[] >> rveq >> rw[] ) >>
-    rveq >>
-    simp[lookup_fromAList,ALOOKUP_APPEND,ALOOKUP_toAList] >>
-    strip_assume_tac init_code_ok >> simp[]) >>
+    `esgc_free e3 ∧ BAG_ALL_DISTINCT (set_globals e3)` by
+      (unabbrev_all_tac>>
+      metis_tac[SND,
+      mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_esgc_free,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_esgc_free,exh_to_patProofTheory.compile_esgc_free,pat_to_closProofTheory.compile_esgc_free,
+      mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_bag_all_distinct,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_distinct_setglobals,exh_to_patProofTheory.compile_distinct_setglobals,pat_to_closProofTheory.compile_distinct_setglobals])>>
+    EVAL_TAC>>simp[Abbr`st3`]>>
+    unabbrev_all_tac >>
+    simp[pat_to_closProofTheory.compile_contains_App_SOME] >>
+    simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE])>>
   simp[Abbr`e3`] >>
   fs[Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
@@ -1474,13 +1447,12 @@ val compile_correct = Q.store_thm("compile_correct",
   Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
   qunabbrev_tac`c'''`>>fs[] >>
   impl_tac >- (
-    (clos_to_bvlProofTheory.compile_all_distinct_locs
-     |> ONCE_REWRITE_RULE[CONJ_ASSOC,CONJ_COMM]
-     |> ONCE_REWRITE_RULE[CONJ_COMM]
-     |> drule) >>
-    disch_then match_mp_tac >>
-    simp[prim_config_eq] >>
-    EVAL_TAC ) >>
+    match_mp_tac (GEN_ALL clos_to_bvlProofTheory.compile_all_distinct_locs)>>
+    qexists_tac`e''''`>>
+    qexists_tac`c''`>>
+    qexists_tac`c.clos_conf`>>
+    simp[]>>
+    EVAL_TAC)>>
   disch_then(SUBST_ALL_TAC o SYM) >>
   rator_x_assum`from_bvi`mp_tac >>
   srw_tac[][from_bvi_def] >>
@@ -1507,7 +1479,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ imp_res_tac clos_to_bvp_names
   \\ fs[AND_IMP_INTRO]
   \\ pop_assum mp_tac \\ impl_keep_tac
-  >-  EVAL_TAC
+  >- (rfs[]>>EVAL_TAC)
   \\ fs[]);
 
 val _ = export_theory();

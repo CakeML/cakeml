@@ -196,7 +196,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       IF_CASES_TAC >> fs[LENGTH_eq] >- (
         simp[evaluate_def,do_app_def] >>
         rw[do_opapp_def] >>
-        Cases_on`a`>>fs[]>>
+        Cases_on`a`>>fs[LENGTH_NIL_SYM]>>
         Cases_on`t`>>fs[LENGTH_eq]>>rw[]>>fs[]>>
         Cases_on`REVERSE t' ++ [h'] ++ [h]`>>fs[]>>
         Cases_on`t`>>fs[]>>
@@ -738,5 +738,35 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   simp[EVERY_REVERSE,EVERY_MAP] >>
   fs[EVERY_MEM,REPLICATE_GENLIST,MEM_GENLIST] >>
   rw[] >> rw[]);
+
+val set_globals_eq = Q.store_thm("set_globals_eq",
+  `∀e. set_globals e = set_globals (compile e)`,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse]
+  >-
+    (Induct_on`s`>>fs[op_gbag_def])
+  >>
+    TRY
+    (TRY(qpat_assum`LENGTH es ≠ A` kall_tac)>>
+    TRY(qpat_assum`LENGTH es = A` kall_tac)>>
+    Induct_on`es`>>fs[]>>NO_TAC)
+  >>
+    fs[LENGTH_eq]>>
+    TRY(pop_assum SUBST_ALL_TAC>>fs[bagTheory.COMM_BAG_UNION])>>
+    Induct_on`n`>>fs[REPLICATE,op_gbag_def])
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `∀e. esgc_free e ⇒ esgc_free (compile e)`,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def] >>
+  fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
+  fs[set_globals_eq,LENGTH_eq]
+  >- (Induct_on`es`>>fs[set_globals_eq])
+  >> Induct_on`n`>>rw[REPLICATE]>> metis_tac[esgc_free_def,EVERY_DEF])
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
+       BAG_ALL_DISTINCT (set_globals (compile e))`,
+  fs[set_globals_eq])
 
 val _ = export_theory()

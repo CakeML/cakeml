@@ -1,9 +1,8 @@
-INCLUDES = ../../.. ../../../unverified/reg_alloc $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+INCLUDES = ../.. $(HOLDIR)/examples/set-theory/hol_sets
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -11,7 +10,8 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../preamble
+BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../../miscTheory
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

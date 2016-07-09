@@ -2,11 +2,6 @@ open preamble closLangTheory clos_freeTheory;
 
 val _ = new_theory "clos_call";
 
-val has_side_effect_def = Define ` (* TODO: improve *)
-  (has_side_effect (Var v) = F) /\
-  (has_side_effect (Fn _ _ _ _) = F) /\
-  (has_side_effect _ = T)`
-
 val closed_def = Define `
   closed x = isEmpty (db_to_set (SND (free [x])))`
 
@@ -26,7 +21,7 @@ val code_list_def = Define `
 val calls_list_def = Define `
   (calls_list loc [] = []) /\
   (calls_list loc ((n,_)::xs) =
-     (n,Call (loc+1) (GENLIST Var n))::calls_list (loc+2n) xs)`;
+     (n,Call 0 (loc+1) (GENLIST Var n))::calls_list (loc+2n) xs)`;
 
 val exp3_size_MAP_SND = prove(
   ``!fns. exp3_size (MAP SND fns) <= exp1_size fns``,
@@ -67,22 +62,21 @@ val calls_def = tDefine "calls" `
      let e1 = HD e1 in
      let e2 = HD e2 in
        ([Handle e1 e2],g)) /\
-  (calls [Call dest xs] g =
-     let (e1,l1) = calls xs g in
-       ([Call dest e1],g)) /\
+  (calls [Call ticks dest xs] g =
+     let (xs,g) = calls xs g in
+       ([Call ticks dest xs],g)) /\
   (calls [Op op xs] g =
      let (e1,g) = calls xs g in
        ([Op op e1],g)) /\
   (calls [App loc_opt x xs] g =
+     let (es,g) = calls xs g in
      let (e1,g) = calls [x] g in
      let e1 = HD e1 in
-     let (es,g) = calls xs g in
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
-         (* Call might need to tick more like in BVL *)
-         (let call = Call (loc + 1) es in
-            if has_side_effect x then ([Let [e1;call] (Var 1)],g)
-            else ([call],g))
+         if pure x then ([Call (LENGTH es) (loc+1) es],g) else
+           ([Let (SNOC e1 es)
+              (Call (LENGTH es) (loc+1) (GENLIST Var (LENGTH es)))],g)
        else ([App loc_opt e1 es],g)) /\
   (calls [Fn loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
@@ -94,7 +88,7 @@ val calls_def = tDefine "calls" `
           the calls function can sometimes remove free variables. *)
        if closed (Fn loc_opt ws num_args (HD e1)) then
          ([Fn loc_opt ws num_args
-             (Call (loc+1) (GENLIST Var num_args))],new_g)
+             (Call 0 (loc+1) (GENLIST Var num_args))],new_g)
        else
          let (e1,g) = calls [x1] g in
            ([Fn loc_opt ws num_args (HD e1)],g)) /\
@@ -105,7 +99,7 @@ val calls_def = tDefine "calls" `
        if EVERY2 (\(n,_) p. closed (Fn NONE NONE n p)) fns fns1 then
          let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
          let (e1,g) = calls [x1] new_g in
-           ([Letrec loc_opt ws (calls_list loc fns) (HD e1)],new_g)
+           ([Letrec loc_opt ws (calls_list loc fns) (HD e1)],g)
        else
          let (fns1,g) = calls (MAP SND fns) g in
          let (e1,g) = calls [x1] g in

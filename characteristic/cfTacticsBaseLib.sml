@@ -3,12 +3,65 @@ struct
 
 open HolKernel Parse boolLib bossLib preamble
 open set_sepTheory helperLib ConseqConv
+open quantHeuristicsLib quantHeuristicsTools
+
+fun find_map f [] = NONE
+  | find_map f (x :: xs) =
+    (case f x of
+         NONE => find_map f xs
+       | SOME y => SOME y)
+
+(*----------------------------------------------------------------------------*)
+(* Conv++ *)
+
+fun NCONV 0 conv = REFL
+  | NCONV 1 conv = conv
+  | NCONV n conv = conv THENC (NCONV (n-1) conv)
+
+fun UNCHANGED_CONV conv t =
+  let val thm = conv t
+      val (l,r) = dest_eq (concl thm) in
+    if l = r then raise UNCHANGED else thm
+  end
 
 (*------------------------------------------------------------------*)
 (** ConseqConv++ *)
 
 infixr 3 THEN_DCC
 infixr 3 ORELSE_DCC
+
+fun CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir thm t =
+let
+   val thm_term	= concl	thm;
+in
+   if (aconv thm_term t) then
+      CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir (EQT_INTRO thm) t
+   else if (is_imp_only thm_term) then
+      let
+         val (t1, t2) = dest_imp thm_term;
+         val _ = if (aconv t1 t2) then raise UNCHANGED else ();
+
+         val g' = if (aconv t2 t) then CONSEQ_CONV_STRENGTHEN_direction else
+                  if (aconv t1 t) then CONSEQ_CONV_WEAKEN_direction else
+                  raise UNCHANGED;
+         val g'' = if (dir = CONSEQ_CONV_UNKNOWN_direction) then g' else dir;
+         val _ = if not (g' = g'') then raise UNCHANGED else ();
+      in
+         (g'', thm)
+      end
+   else if (is_eq thm_term) then
+      (dir,
+        if ((lhs thm_term = t) andalso not (rhs thm_term = t)) then
+           if (dir = CONSEQ_CONV_UNKNOWN_direction) then
+              thm
+           else if (dir = CONSEQ_CONV_STRENGTHEN_direction) then
+              snd (EQ_IMP_RULE thm)
+           else
+              fst (EQ_IMP_RULE thm)
+        else raise UNCHANGED)
+   else
+      raise UNCHANGED
+end
 
 fun CUSTOM_THEN_CONSEQ_CONV handler1 handler2 (c1:conv) c2 t =
     let
@@ -47,6 +100,14 @@ val THEN_CONSEQ_CONV =
 fun ORELSE_CONSEQ_CONV (c1:conv) (c2:conv) t =
   c1 t handle HOL_ERR _ => c2 t
 
+fun EVERY_CONSEQ_CONV [] t = raise UNCHANGED
+  | EVERY_CONSEQ_CONV ((c1:conv)::L) t =
+    (THEN_CONSEQ_CONV c1 (EVERY_CONSEQ_CONV L)) t
+
+fun FIRST_CONSEQ_CONV [] t = raise UNCHANGED
+  | FIRST_CONSEQ_CONV (c1::L) t =
+    ORELSE_CONSEQ_CONV c1 (FIRST_CONSEQ_CONV L) t
+
 fun CUSTOM_THEN_DCC THEN_CC DCC1 DCC2 direction =
   THEN_CC (DCC1 direction) (DCC2 direction)
 
@@ -60,10 +121,39 @@ fun EVERY_DCC [] direction t = raise UNCHANGED
   | EVERY_DCC (c1::L) direction t =
     (c1 THEN_DCC (EVERY_DCC L)) direction t
 
+fun CONV_DCC conv dir t =
+let
+   val _ = if (type_of t = bool) then () else raise UNCHANGED;
+   val thm = conv t
+in
+  snd (CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir thm t)
+end
+
+fun STRENGTHEN_CONSEQ_CONV conv dir =
+  if dir = CONSEQ_CONV_WEAKEN_direction then raise UNCHANGED
+  else CONV_DCC conv dir
+
+fun WEAKEN_CONSEQ_CONV conv dir =
+  if dir = CONSEQ_CONV_STRENGTHEN_direction then raise UNCHANGED
+  else CONV_DCC conv dir
+
+fun CHANGED_DCC dcc direction =
+  CHANGED_CONSEQ_CONV (dcc direction)
+
+fun QCHANGED_DCC dcc direction =
+  QCHANGED_CONSEQ_CONV (dcc direction)
+
+fun TOP_REDEPTH_CONSEQ_CONV dcc =
+  let val STRICT_THEN = CUSTOM_THEN_CONSEQ_CONV handle_none handle_UNCHANGED
+      val STRICT_THEN_DCC = CUSTOM_THEN_DCC STRICT_THEN
+  in
+    STRICT_THEN_DCC dcc (REDEPTH_CONSEQ_CONV dcc)
+  end
+
 fun mk_binop_conseq_conv mono_thm =
   let
     fun cc_l_r cc1 cc2 t =
-      let val (l,r) = dest_conj t
+      let val (l,r) = (rand (rator t), rand t)
           val thm_l_r = CONJ (cc1 l) (cc2 r)
           val thm = GEN_ALL mono_thm
       in
@@ -102,6 +192,18 @@ val (IMP_CONSEQ_CONV, IMP_ASSUM_CONSEQ_CONV, IMP_CONCL_CONSEQ_CONV,
     mk_binop_conseq_conv boolTheory.MONO_IMP
 val IMP_LIST_CONSEQ_CONV = IMP_LIST_CONSEQ_CONV false
 
+fun STRIP_FORALL_CONSEQ_CONV (cc: conseq_conv) t =
+  if is_forall t then
+    FORALL_CONSEQ_CONV (STRIP_FORALL_CONSEQ_CONV cc) t
+  else
+    cc t
+
+fun STRIP_EXISTS_CONSEQ_CONV (cc: conseq_conv) t =
+  if is_exists t then
+    EXISTS_CONSEQ_CONV (STRIP_EXISTS_CONSEQ_CONV cc) t
+  else
+    cc t
+
 fun print_cc t = (print_term t; print "\n\n"; REFL_CONSEQ_CONV t)
 fun print_dcc direction t = (
   print_term t;
@@ -109,17 +211,242 @@ fun print_dcc direction t = (
   REFL_CONSEQ_CONV t
 )
 
-fun CHANGED_DCC dcc direction =
-  CHANGED_CONSEQ_CONV (dcc direction)
+type subterm_cont =
+     (term -> term) * (conseq_conv -> conseq_conv)
 
-fun QCHANGED_DCC dcc direction =
-  QCHANGED_CONSEQ_CONV (dcc direction)
+type cont_conseq_conv = term -> thm * subterm_cont
 
-fun TOP_REDEPTH_CONSEQ_CONV dcc =
-  let val STRICT_THEN = CUSTOM_THEN_CONSEQ_CONV handle_none handle_UNCHANGED
-      val STRICT_THEN_DCC = CUSTOM_THEN_DCC STRICT_THEN
+fun STEP_CONT_CONSEQ_CONV ccc t = fst (ccc t)
+
+fun THEN_CONT_CONSEQ_CONV ccc1 ccc2 t =
+  let val (thm1, (subtm1, cont1)) = ccc1 t
+      val t1 = CONSEQ_CONV___GET_SIMPLIFIED_TERM thm1 t
+      val t1_subtm = subtm1 t1
   in
-    STRICT_THEN_DCC dcc (REDEPTH_CONSEQ_CONV dcc)
+    let val (subthm2, (subtm2, cont2)) = ccc2 t1_subtm
+        val subthm2 = snd (CONSEQ_CONV_WRAPPER___CONVERT_RESULT
+                             CONSEQ_CONV_STRENGTHEN_direction
+                             subthm2 t1_subtm)
+                           handle UNCHANGED => subthm2
+        val thm2 = cont1 (fn _ => subthm2) t1
+        val thm = THEN_CONSEQ_CONV___combine thm1 thm2 t
+        val subtm = subtm2 o subtm1
+        val cont = cont1 o cont2
+    in
+       (thm, (subtm, cont))
+    end handle UNCHANGED =>
+      (thm1, (subtm1, cont1))
+  end handle UNCHANGED =>
+    ccc2 t
+
+fun EVERY_CONT_CONSEQ_CONV [] t = raise UNCHANGED
+  | EVERY_CONT_CONSEQ_CONV (ccc::L) t =
+    THEN_CONT_CONSEQ_CONV ccc (EVERY_CONT_CONSEQ_CONV L) t
+
+fun LOOP_CONT_CONSEQ_CONV ccc t =
+  let val ret = ccc t
+  in THEN_CONT_CONSEQ_CONV (fn _ => ret) (LOOP_CONT_CONSEQ_CONV ccc) t end
+
+fun INPLACE_CONT_CONSEQ_CONV cc t = (cc t, (I, I))
+
+(*----------------------------------------------------------------------------*)
+(* A conseq_conv that instantiate evars of the goal to match the conclusion
+   of the rewriting theorem, using unification
+
+   Written by Thomas Tuerk.
+*)
+
+(**************************************)
+(* Some dummy definitions for testing *)
+(**************************************)
+
+(*
+  val P_def = Define `P (x : num) (y : bool) = T`
+  val Q_def = Define `Q (x : num) (y : num) = T`
+
+  val dummy_imp = prove (``
+    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)``,
+  REWRITE_TAC[P_def]);
+*)
+
+
+(**************************************)
+(* Define new consequence conv        *)
+(**************************************)
+
+(*
+  val rewr_thm = dummy_imp;
+  val t = ``?(a:'a) x c y. P (5 + (x + 2)) ((c:num) > y)``
+
+  MATCH_IMP_STRENGTHEN_CONSEQ_CONV rewr_thm t;
+*)
+
+(* Todo: be also able to unify types *)
+fun MATCH_IMP_STRENGTHEN_CONSEQ_CONV (rewr_thm : thm) (t : term) : thm =
+let
+  (* destruct t *)
+  val (t_ex_vars, t_body) = strip_exists t
+
+  (* make sure variables are distinct, this is important for 
+     later unification *)
+  val rewr_thm = CONV_RULE (VARIANT_CONV (t_ex_vars @ free_vars t)) rewr_thm
+
+  (* destruct the rewr_thm *)
+  val (quant_vars, rewr_concl, rewr_pre) = let
+      val (vs, t0) = strip_forall (concl rewr_thm);
+      val (t2, t1) = dest_imp_only t0
+    in 
+      (vs, t1, t2)
+    end;
+
+  (* Try to unify *)
+  val sub = Unify.simp_unify_terms [] rewr_concl t_body;
+
+  (* figure out finally existentially quantified vars *)
+  val new_ex_vars = let 
+    val t_vars' = List.map (Term.subst sub) (quant_vars @ t_ex_vars)
+    val s0 = HOLset.listItems (FVL t_vars' empty_tmset)
+    val s1 = Lib.filter (fn v => Lib.mem v (quant_vars @ t_ex_vars)) s0
+  in s1 end
+
+  val thm0 = let
+    val inst_l = List.map (Term.subst sub) quant_vars
+    val thma = ISPECL inst_l rewr_thm
+    val thmb = LIST_EXISTS_INTRO_IMP new_ex_vars thma
+  in
+    thmb
   end
+
+  val thm1 = let
+    val thm1a = ASSUME (Term.subst sub t_body)
+    val (_, thm1b) = foldr (fn (v, (t, thm)) => 
+       let val t' = mk_exists (v, t) in
+       (t', EXISTS (Term.subst sub t', Term.subst sub v) thm) end)
+        (t_body, thm1a) t_ex_vars
+    val thm1c = foldr (fn (v, thm) =>
+        SIMPLE_CHOOSE v thm) thm1b new_ex_vars
+  in
+    DISCH_ALL thm1c
+  end
+in
+  IMP_TRANS thm0 thm1
+end;
+
+(*----------------------------------------------------------------------------*)
+(* quantHeuristicsTools++ *)
+
+fun LIST_IMP_FORALL_INTRO ([], thm) = thm
+  | LIST_IMP_FORALL_INTRO (v::vs, thm) =
+    IMP_FORALL_INTRO (v, LIST_IMP_FORALL_INTRO (vs, thm))
+
+fun LIST_IMP_EXISTS_INTRO ([], thm) = thm
+  | LIST_IMP_EXISTS_INTRO (v::vs, thm) =
+    IMP_EXISTS_INTRO (v, LIST_IMP_EXISTS_INTRO (vs, thm))
+
+(*----------------------------------------------------------------------------*)
+(* Tactics to deal with goals of the form [?x1..xn. A1 /\ ... /\ Am], with a
+   focus on A1, where most of the work is done.
+ *)
+
+type econj = {evars: term list,
+              head_conj: term,
+              rest: term list}
+
+fun flat_strip_conj tm =
+  let val l = spine_binop (total dest_conj) tm
+      val _ = app (fn t => if is_conj t then fail() else ()) l
+  in l end
+
+fun dest_econj (tm: term): econj =
+  let
+    val (evars, conj) = strip_exists tm
+    val conjs = flat_strip_conj conj
+  in
+    {evars = evars, head_conj = hd conjs, rest = tl conjs}
+  end
+
+fun mk_econj ({evars, head_conj, rest}: econj): term =
+  let val rest_conj = list_mk_conj rest
+      val conjs = mk_conj (head_conj, rest_conj)
+      val t = list_mk_exists (evars, conjs)
+  in t end
+
+val is_econj = can dest_econj
+
+val normalize_to_econj_conv =
+  SIMP_CONV simpLib.empty_ss [PULL_EXISTS] THENC
+  STRIP_BINDER_CONV (SOME existential)
+    (fn tm => let val conjs = strip_conj tm
+                  val tm' = list_mk_conj conjs
+                  val thm = simpLib.SIMP_PROVE bool_ss [AC CONJ_ASSOC CONJ_COMM]
+                                               (mk_eq (tm, tm'))
+              in thm end)
+
+val normalize_to_econj = CONV_TAC normalize_to_econj_conv
+
+fun econj_head_conseq_conv (cc: conseq_conv) t =
+  if is_econj t then
+    STRIP_EXISTS_CONSEQ_CONV (CONJ1_CONSEQ_CONV cc) t
+  else
+    raise (ERR "is_econj" "econj_head_conseq_conv")
+
+
+fun NTH_IMP_AND_CONG i n thm =
+  let
+    val _ = if i >= n orelse i < 0 then fail () else ()
+    val thm_vars = free_vars (concl thm)
+    fun newv name = variant thm_vars (mk_var (name, bool))
+    val (pre, post) = dest_imp (concl thm)
+    val acc = ref (
+          if i = n - 1 then ([], thm) else
+          let val y = newv "y"
+              val thm' = SPECL [y, pre, post]
+                               quantHeuristicsTheory.RIGHT_IMP_AND_INTRO
+              val thm' = MP thm' thm
+          in ([y], thm') end
+        )
+    val _ = for_se 0 (i - 1) (fn j =>
+      let val (xs, thm) = !acc
+          val (pre, post) = dest_imp (concl thm)
+          val x = newv ("x" ^ Int.toString (i - 1 - j))
+          val thm' = SPECL [x, pre, post]
+                           quantHeuristicsTheory.LEFT_IMP_AND_INTRO
+          val thm' = MP thm' thm
+      in acc := (x :: xs, thm') end)
+  in
+    GENL (fst (!acc)) (snd (!acc))
+  end
+
+fun ECONJ_NTH_CONJ_CONG n thm t =
+  let
+    val econj = dest_econj t
+    val (thm_vars, body) = strip_forall (concl thm)
+    val thm_body = SPECL thm_vars thm
+    val thm' = NTH_IMP_AND_CONG n (List.length (#rest econj) + 1) thm_body
+    val thm' = GENL thm_vars thm'
+  in
+    thm'
+  end
+
+(*
+  val A_def = Define `A (x: num) = T`
+
+  val t' = ``?(a:'a) x c y. (P (5 + (x + 2)) ((c:num) > y)) /\ A y``
+  val rewr_thm' = ECONJ_NTH_CONJ_CONG 0 dummy_imp t'
+
+  MATCH_IMP_STRENGTHEN_CONSEQ_CONV rewr_thm' t';
+*)
+
+fun econj_nth_irule_conseq_conv n thm t =
+  MATCH_IMP_STRENGTHEN_CONSEQ_CONV
+    (ECONJ_NTH_CONJ_CONG n thm t)
+    t
+
+fun econj_nth_irule n thm =
+  CONSEQ_CONV_TAC
+    (STRENGTHEN_CONSEQ_CONV (econj_nth_irule_conseq_conv n thm))
+
+val econj_head_irule_conseq_conv = econj_nth_irule_conseq_conv 0
+val econj_head_irule = econj_nth_irule 0
 
 end

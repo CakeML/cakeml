@@ -1,6 +1,21 @@
 open preamble closLangTheory closSemTheory
 
+open bagTheory
+
 val _ = new_theory"closProps"
+
+(* TODO: move *)
+
+val bool_case_eq = Q.store_thm("bool_case_eq",
+  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
+  srw_tac[][] >> metis_tac[]);
+
+val pair_case_eq = Q.store_thm("pair_case_eq",
+`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
+ Cases_on `x` >>
+ srw_tac[][]);
+
+(* -- *)
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s:'ffi closSem$state) with clock := s.clock = s`,
@@ -59,12 +74,12 @@ val code_locs_def = tDefine "code_locs" `
      let loc = case loc_opt of NONE => 0 | SOME n => n in
      let c1 = code_locs (MAP SND fns) in
      let c2 = code_locs [x1] in
-     c1 ++ GENLIST ($+ loc) (LENGTH fns) ++ c2) /\
+     c1 ++ GENLIST (λn. loc + 2*n) (LENGTH fns) ++ c2) /\
   (code_locs [Handle x1 x2] =
      let c1 = code_locs [x1] in
      let c2 = code_locs [x2] in
        c1 ++ c2) /\
-  (code_locs [Call dest xs] =
+  (code_locs [Call ticks dest xs] =
      code_locs xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -120,7 +135,7 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME [Handle x1 x2] ⇔
      contains_App_SOME [x1] ∨
      contains_App_SOME [x2]) /\
-  (contains_App_SOME [Call dest xs] ⇔
+  (contains_App_SOME [Call ticks dest xs] ⇔
      contains_App_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -167,7 +182,7 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
   (every_Fn_SOME [Handle x1 x2] ⇔
      every_Fn_SOME [x1] ∧
      every_Fn_SOME [x2]) ∧
-  (every_Fn_SOME [Call dest xs] ⇔
+  (every_Fn_SOME [Call ticks dest xs] ⇔
      every_Fn_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -215,7 +230,7 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
   (every_Fn_vs_NONE [Handle x1 x2] ⇔
      every_Fn_vs_NONE [x1] ∧
      every_Fn_vs_NONE [x2]) ∧
-  (every_Fn_vs_NONE [Call dest xs] ⇔
+  (every_Fn_vs_NONE [Call ticks dest xs] ⇔
      every_Fn_vs_NONE xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -263,7 +278,7 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
   (every_Fn_vs_SOME [Handle x1 x2] ⇔
      every_Fn_vs_SOME [x1] ∧
      every_Fn_vs_SOME [x2]) ∧
-  (every_Fn_vs_SOME [Call dest xs] ⇔
+  (every_Fn_vs_SOME [Call ticks dest xs] ⇔
      every_Fn_vs_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -299,13 +314,57 @@ val fv_def = tDefine "fv" `
      EXISTS (\(num_args, x). fv (n + num_args + LENGTH fns) [x]) fns \/ fv (n + LENGTH fns) [x1]) /\
   (fv n [Handle x1 x2] <=>
      fv n [x1] \/ fv (n+1) [x2]) /\
-  (fv n [Call dest xs] <=> fv n xs)`
+  (fv n [Call ticks dest xs] <=> fv n xs)`
  (WF_REL_TAC `measure (exp3_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
   Induct_on `fns` >>
   srw_tac [ARITH_ss] [exp_size_def] >>
   res_tac >>
   srw_tac [ARITH_ss] [exp_size_def]);
+
+val fv_ind = theorem"fv_ind";
+
+val fv_append = Q.store_thm("fv_append[simp]",
+  `∀v l1. fv v (l1 ++ l2) ⇔ fv v l1 ∨ fv v l2`,
+  ho_match_mp_tac fv_ind
+  \\ rpt strip_tac
+  \\ rw[fv_def]
+  \\ fs[]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ Cases_on`l2`\\fs[fv_def]);
+
+val fv_nil = Q.store_thm("fv_nil[simp]",
+  `fv v [] ⇔ F`, rw[fv_def])
+
+val fv1_def = Define`fv1 v e = fv v [e]`;
+val fv1_intro = save_thm("fv1_intro[simp]",GSYM fv1_def)
+val fv1_thm =
+  fv_def |> SIMP_RULE (srw_ss())[]
+  |> curry save_thm "fv1_thm"
+
+val fv_cons = Q.store_thm("fv_cons[simp]",
+  `fv v (x::xs) ⇔ fv1 v x ∨ fv v xs`,
+  metis_tac[CONS_APPEND,fv_append,fv1_def]);
+
+val fv_exists = Q.store_thm("fv_exists",
+  `∀ls. fv v ls ⇔ EXISTS (fv1 v) ls`,
+  Induct \\ fs[] \\ rw[Once fv_cons]);
+
+val fv_MAPi = Q.store_thm(
+  "fv_MAPi",
+  `∀l x f. fv x (MAPi f l) ⇔ ∃n. n < LENGTH l ∧ fv x [f n (EL n l)]`,
+  Induct >> simp[fv_def] >> simp[] >> dsimp[indexedListsTheory.LT_SUC]);
+
+val fv_GENLIST_Var = Q.store_thm("fv_GENLIST_Var",
+  `∀n. fv v (GENLIST Var n) ⇔ v < n`,
+  Induct \\ simp[fv_def,GENLIST,SNOC_APPEND]
+  \\ rw[fv_def]);
+
+val fv_REPLICATE = Q.store_thm(
+  "fv_REPLICATE[simp]",
+  `fv n (REPLICATE m e) ⇔ 0 < m ∧ fv1 n e`,
+  Induct_on `m` >> simp[REPLICATE, fv_def,fv1_thm] >>
+  simp[] >> metis_tac[]);
 
 val v_ind =
   TypeBase.induction_of``:closSem$v``
@@ -487,10 +546,6 @@ val lookup_vars_MEM = prove(
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL
   |> curry save_thm "lookup_vars_MEM";
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
 val clock_lemmas = Q.store_thm ("clock_lemmas",
 `!s. (s with clock := s.clock) = s`,
  srw_tac[][state_component_equality]);
@@ -537,14 +592,37 @@ val eqs = LIST_CONJ (map prove_case_eq_thm [
 
 val _ = save_thm ("eqs", eqs);
 
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
+val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
+  `(∀t es E (s:'ffi closSem$state). t = (es,E,s) ∧ EVERY closLang$pure es ⇒
+               case evaluate(es, E, s) of
+                 (Rval vs, s') => s' = s ∧ LENGTH vs = LENGTH es
+               | (Rerr (Rraise a), _) => F
+               | (Rerr (Rabort a), _) => a = Rtype_error) ∧
+   (∀(n: num option) (v:closSem$v)
+     (vl : closSem$v list) (s : 'ffi closSem$state). T)`,
+  ho_match_mp_tac evaluate_ind >> simp[pure_def] >>
+  rpt strip_tac >> simp[evaluate_def]
+  >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
+      rpt (qpat_assum `_ ==> _` mp_tac) >> simp[] >> full_simp_tac(srw_ss())[] >>
+      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
+  >- srw_tac[][]
+  >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
+      rename1 `pure_op opn` >> Cases_on `opn` >>
+      full_simp_tac(srw_ss())[pure_op_def, do_app_def, eqs, bool_case_eq] >>
+      srw_tac[][] >>
+      rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
+      every_case_tac \\ fs[] >>
+      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
+  >- (every_case_tac >> simp[])
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])) |> SIMP_RULE (srw_ss()) []
 
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
+val pure_correct = save_thm(
+  "pure_correct",
+  EVERY_pure_correct |> Q.SPECL [`[e]`, `env`, `s`]
+                     |> SIMP_RULE (srw_ss()) [])
 
 val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
@@ -600,7 +678,7 @@ val _ = export_rewrites ["is_closure_def"]
 
 val clo_to_loc_def = Define `
 (clo_to_loc (Closure l _ _ _ _) = l) ∧
-(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) i) l)`;
+(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) (2 * i)) l)`;
 val _ = export_rewrites ["clo_to_loc_def"]
 
 val clo_to_env_def = Define `
@@ -777,6 +855,19 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
  ONCE_REWRITE_TAC [evaluate_CONS] >>
  every_case_tac >>
  srw_tac[][]);
+
+val evaluate_GENLIST_Var = Q.store_thm("evaluate_GENLIST_Var",
+  `∀n env s.
+   evaluate (GENLIST Var n, env, s) =
+   if n ≤ LENGTH env then
+     (Rval (TAKE n env),s)
+   else
+     (Rerr (Rabort Rtype_error),s)`,
+  Induct \\ simp[evaluate_def,GENLIST,SNOC_APPEND,evaluate_append]
+  \\ rw[]
+  \\ REWRITE_TAC[GSYM SNOC_APPEND]
+  \\ match_mp_tac SNOC_EL_TAKE
+  \\ simp[]);
 
 val evaluate_length_imp = Q.store_thm ("evaluate_length_imp",
 `evaluate (es,env,s1) = (Rval vs, s2) ⇒ LENGTH es = LENGTH vs`,
@@ -1122,6 +1213,7 @@ val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
 val lemma = DECIDE``¬(x < y - z) ⇒ ((a:num) + x - (y - z) = x - (y - z) + a)``
 val lemma2 = DECIDE``x ≠ 0n ⇒ a + (x - 1) = a + x - 1``
+val lemma3 = DECIDE``¬(x:num < t+1) ⇒ a + (x - (t+1)) = a + x - (t+1)``
 
 val tac =
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1130,7 +1222,7 @@ val tac =
   TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
-  metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2]
+  metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2,lemma3]
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀p es env ^s.
@@ -1177,5 +1269,171 @@ val evaluate_timeout_clocks0 = Q.store_thm(
        s'.clock = 0)`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
   dsimp[evaluate_def, eqs, pair_case_eq, bool_case_eq])
+
+val _ = export_rewrites ["closLang.exp_size_def"]
+
+val exp_size_MEM = Q.store_thm(
+  "exp_size_MEM",
+  `(∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
+   (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)`,
+  conj_tac >| [Induct_on `elist`, Induct_on `ealist`] >> dsimp[] >>
+  rpt strip_tac >> res_tac >> simp[]);
+
+val evaluate_eq_nil = Q.store_thm(
+  "evaluate_eq_nil[simp]",
+  `closSem$evaluate(es,env,s0) = (Rval [], s) ⇔ s0 = s ∧ es = []`,
+  Cases_on `es` >> simp[evaluate_def] >>
+  strip_tac >> rename1 `evaluate(h::t, env, s0)` >>
+  Q.ISPECL_THEN [`h::t`, `env`, `s0`] mp_tac (CONJUNCT1 evaluate_LENGTH) >>
+  simp[]);
+
+
+(* finding the SetGlobal operations *)
+val op_gbag_def = Define`
+  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
+  op_gbag _ = {||}
+`;
+
+val exp2_size_rw = Q.store_thm(
+  "exp2_size_rw[simp]",
+  `exp2_size h = 1 + FST h + exp_size (SND h)`,
+  Cases_on `h` >> simp[])
+
+val exp1_size_rw = Q.store_thm(
+  "exp1_size_rw[simp]",
+  `exp1_size fbinds =
+     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds`,
+  Induct_on `fbinds` >> simp[]);
+
+val set_globals_def = tDefine "set_globals" `
+  (set_globals (Var _) = {||}) ∧
+  (set_globals (If e1 e2 e3) =
+    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
+  (set_globals (Let binds e) = set_globals e ⊎ elist_globals binds) ∧
+  (set_globals (Raise e) = set_globals e) ∧
+  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Tick e) = set_globals e) ∧
+  (set_globals (Call _ _ args) = elist_globals args) ∧
+  (set_globals (App _ f args) = set_globals f ⊎ elist_globals args) ∧
+  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
+  (set_globals (Letrec _ _ fbinds bod) =
+    set_globals bod ⊎ elist_globals (MAP SND fbinds)) ∧
+  (set_globals (Op opn args) = op_gbag opn ⊎ elist_globals args) ∧
+  (elist_globals [] = {||}) ∧
+  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
+`
+  (WF_REL_TAC `
+      measure (λa. case a of INL e => exp_size e | INR el => exp3_size el)` >>
+   simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[])
+val _ = export_rewrites ["set_globals_def"]
+
+(* {foo}sgc_free: foo is free of SetGlobal closures, meaning closures that
+   include calls to SetGlobal, for
+     foo = {(e)xpr, (v)alue, (r)esult, and (s)tate}
+*)
+val v_size_lemma = Q.store_thm(
+  "v_size_lemma",
+  `MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl`,
+  Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
+  res_tac >> simp[]);
+
+(* value is setglobal-closure free *)
+val vsgc_free_def = tDefine "vsgc_free" `
+  (vsgc_free (Closure _ VL1 VL2 _ body) ⇔
+     set_globals body = {||} ∧
+     EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
+  (vsgc_free (Recclosure _ VL1 VL2 bods _) ⇔
+     elist_globals (MAP SND bods) = {||} ∧
+     EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
+  (vsgc_free (Block _ VL) ⇔ EVERY vsgc_free VL) ∧
+  (vsgc_free _ ⇔ T)
+` (WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[])
+
+val vsgc_free_def = save_thm(
+  "vsgc_free_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] vsgc_free_def)
+
+val vsgc_free_Unit = Q.store_thm(
+  "vsgc_free_Unit[simp]",
+  `vsgc_free Unit`,
+  simp[Unit_def]);
+
+val vsgc_free_Boolv = Q.store_thm(
+  "vsgc_free_Boolv[simp]",
+  `vsgc_free (Boolv b)`,
+  simp[Boolv_def]);
+
+(* result is setglobal-closure free *)
+val rsgc_free_def = Define`
+  (rsgc_free (Rval vs) ⇔ EVERY vsgc_free vs) ∧
+  (rsgc_free (Rerr (Rabort _)) ⇔ T) ∧
+  (rsgc_free (Rerr (Rraise v)) ⇔ vsgc_free v)
+`;
+val _ = export_rewrites ["rsgc_free_def"]
+
+(* state is setglobal-closure free *)
+val ssgc_free_def = Define`
+  ssgc_free (s:'a closSem$state) ⇔
+    (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
+    (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
+    (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v)
+`;
+
+val ssgc_free_clockupd = Q.store_thm(
+  "ssgc_free_clockupd[simp]",
+  `ssgc_free (s with clock updated_by f) = ssgc_free s`,
+  simp[ssgc_free_def])
+
+val ssgc_free_dec_clock = Q.store_thm(
+  "ssgc_free_dec_clock[simp]",
+  `ssgc_free (dec_clock n s) ⇔ ssgc_free s`,
+  simp[dec_clock_def])
+
+val esgc_free_def = tDefine "esgc_free" `
+  (esgc_free (Var _) ⇔ T) ∧
+  (esgc_free (If e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
+  (esgc_free (Let binds e) ⇔ EVERY esgc_free binds ∧ esgc_free e) ∧
+  (esgc_free (Raise e) ⇔ esgc_free e) ∧
+  (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Tick e) ⇔ esgc_free e) ∧
+  (esgc_free (Call _ _ args) ⇔ EVERY esgc_free args) ∧
+  (esgc_free (App _ e args) ⇔ esgc_free e ∧ EVERY esgc_free args) ∧
+  (esgc_free (Fn _ _ _ b) ⇔ set_globals b = {||}) ∧
+  (esgc_free (Letrec _ _ binds bod) ⇔
+    elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
+  (esgc_free (Op _ args) ⇔ EVERY esgc_free args)
+` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[])
+val esgc_free_def = save_thm("esgc_free_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+
+val elglobals_EQ_EMPTY = Q.store_thm(
+  "elglobals_EQ_EMPTY",
+  `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,
+  Induct_on `l` >> dsimp[]);
+
+val set_globals_empty_esgc_free = Q.store_thm(
+  "set_globals_empty_esgc_free",
+  `set_globals e = {||} ⇒ esgc_free e`,
+  completeInduct_on `exp_size e` >> fs[PULL_FORALL] >> Cases >>
+  simp[] >> strip_tac >> rveq >> fs[AND_IMP_INTRO] >>
+  simp[EVERY_MEM, elglobals_EQ_EMPTY, MEM_MAP] >>
+  rw[] >> rw[] >>
+  first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[])
+
+val elist_globals_append = Q.store_thm("elist_globals_append",
+  `∀a b. elist_globals (a++b) =
+  elist_globals a ⊎ elist_globals b`,
+  Induct>>fs[set_globals_def,ASSOC_BAG_UNION])
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
+
+val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
+  `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
+  Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
 
 val _ = export_theory();

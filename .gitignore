@@ -31,3 +31,7 @@ x86-64/wrapper/cakeml*zip
 
 # x86-64 tests
 x86-64/wrapper/test*
+
+# Benchmarks
+compiler/eval/benchmarks/exec/*
+!compiler/eval/benchmarks/exec/runall.sh

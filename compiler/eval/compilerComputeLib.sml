@@ -16,6 +16,7 @@ open clos_callTheory
 open clos_annotateTheory
 open clos_freeTheory
 open clos_removeTheory
+open clos_knownTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
@@ -56,6 +57,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$dec``
     ,``:modLang$prompt``
     ]
+  (* TODO: move (to basicCompute or HOL) *)
+  ,computeLib.Defs[miscTheory.any_el_def,listTheory.LIST_REL_def]
   ,computeLib.Defs
     [ (* ---- source_to_mod ---- *)
      miscTheory.tlookup_def (* not sure if this is needed *)
@@ -153,9 +156,12 @@ val add_compiler_compset = computeLib.extend_compset
     [ (* ---- closLang ---- *)
      ``:closLang$exp``
     ,``:closLang$op``
+    ,``:clos_known$val_approx``
     ]
   ,computeLib.Defs
     [closLangTheory.max_app_def
+    ,closLangTheory.pure_def
+    ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
     ,pat_to_closTheory.string_tag_def
@@ -166,16 +172,24 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_mtiTheory.intro_multi_def
     ,clos_mtiTheory.collect_args_def
     ,clos_mtiTheory.collect_apps_def
+    ,clos_mtiTheory.compile_def
       (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
   ,computeLib.Defs
     [clos_callTheory.calls_def
+    ,clos_callTheory.closed_def
+    ,clos_callTheory.code_list_def
+    ,clos_callTheory.compile_def
+    ,clos_callTheory.calls_def
+    ,clos_callTheory.calls_list_def
+    ,clos_callTheory.insert_each_def_compute
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
     ,clos_annotateTheory.shifted_env_def
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
+    ,clos_annotateTheory.compile_def
       (* ---- clos_free----  *)
     ,clos_freeTheory.free_def
       (* ---- clos_remove ---- *)
@@ -183,8 +197,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_removeTheory.no_overlap_def_compute
     ,clos_removeTheory.remove_def
     ,clos_removeTheory.const_0_def
-    ,clos_removeTheory.pure_def
-    ,clos_removeTheory.pure_op_def
+    ,clos_removeTheory.compile_def
+      (* ---- clos_known---- *)
+    ,clos_knownTheory.merge_def
+    ,clos_knownTheory.compile_def
+    ,clos_knownTheory.dest_Clos_def
+    ,clos_knownTheory.known_def
+    ,clos_knownTheory.known_op_def
     ]
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
@@ -195,6 +214,7 @@ val add_compiler_compset = computeLib.extend_compset
      clos_to_bvlTheory.closure_tag_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.compile_def
+    ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
     ,clos_to_bvlTheory.block_equality_code_def
     ,clos_to_bvlTheory.equality_code_def

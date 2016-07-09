@@ -160,7 +160,7 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
 val prim_config_def = Define`
   prim_config =
     FST (to_dec <| source_conf := empty_config; mod_conf := empty_config |> (prim_types_program))
-    with clos_conf := <| start := clos_to_bvl$num_stubs; next_loc := clos_to_bvl$num_stubs + 1 |>`;
+    with clos_conf := <| start := clos_to_bvl$num_stubs+1; next_loc := clos_to_bvl$num_stubs + 3 |>`;
 
 val from_lab_def = Define`
   from_lab c p =

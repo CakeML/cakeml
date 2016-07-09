@@ -18,7 +18,7 @@ val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
 
 val riscv_config_def = Define`
    riscv_config =
-   <| ISA_name := "RISC-V"
+   <| ISA := RISC_V
     ; reg_count := 32
     ; avoid_regs := [0; 1]
     ; link_reg := SOME 31

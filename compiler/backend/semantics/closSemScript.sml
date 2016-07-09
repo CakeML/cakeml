@@ -263,15 +263,6 @@ val check_clock_lemma = prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of clos_exp expressions. *)
 
-val lookup_vars_def = Define `
-  (lookup_vars [] env = SOME []) /\
-  (lookup_vars (v::vs) env =
-     if v < LENGTH env then
-       case lookup_vars vs env of
-       | SOME xs => SOME (EL v env :: xs)
-       | NONE => NONE
-     else NONE)`
-
 val check_loc_opt_def = Define `
   (check_loc NONE loc num_params num_args so_far ⇔
     num_args ≤ max_app) /\
@@ -300,8 +291,13 @@ val dest_closure_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~(check_loc loc_opt (OPTION_MAP ((+)i) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
-             ¬(LENGTH arg_env < num_args) then NONE else
+             ~check_loc loc_opt
+                        (OPTION_MAP ((+) (2*i)) loc) num_args
+                        (LENGTH args)
+                        (LENGTH arg_env) ∨
+             ¬(LENGTH arg_env < num_args)
+          then NONE
+          else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
               if ¬(LENGTH args + LENGTH arg_env < num_args) then
                 SOME (Full_app exp
@@ -412,14 +408,14 @@ val evaluate_def = tDefine "evaluate" `
        (Rerr(Rabort Rtype_error), s)) /\
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
-  (evaluate ([Call dest xs],env,s1) =
+  (evaluate ([Call ticks dest xs],env,s1) =
      case evaluate (xs,env,s1) of
      | (Rval vs,s) =>
          (case find_code dest vs s.code of
           | NONE => (Rerr(Rabort Rtype_error),s)
           | SOME (args,exp) =>
-              if (s.clock = 0) \/ (s1.clock = 0) then (Rerr(Rabort Rtimeout_error),s) else
-                  evaluate ([exp],args,dec_clock 1 (check_clock s s1)))
+              if (s.clock < ticks+1) \/ (s1.clock < ticks+1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
+                  evaluate ([exp],args,dec_clock (ticks+1) (check_clock s s1)))
      | res => res) ∧
   (evaluate_app loc_opt f [] s = (Rval [f], s)) ∧
   (evaluate_app loc_opt f args s =

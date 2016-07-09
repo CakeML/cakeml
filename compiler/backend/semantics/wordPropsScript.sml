@@ -2206,8 +2206,7 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (Arith (Shift l r1 r2 n)) =
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-     (((c.ISA_name = "MIPS") \/
-       (c.ISA_name = "RISC-V")) ==> r1 <> r3 /\ r1 <> r4)) ∧
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
