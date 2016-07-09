@@ -824,12 +824,14 @@ val patsexp_def = tDefine"patsexp"`
   (patsexp (Pvar s) = SEXSTR s) ∧
   (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
   (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
-  (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p])`
+  (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p]) ∧
+  (patsexp (Ptannot p t) = listsexp [SX_SYM "Ptannot" ; patsexp p; typesexp t])`
   (WF_REL_TAC`measure pat_size` >>
+   simp [] >>
    Induct_on`ps`>>simp[pat_size_def] >>
    rw[] >> simp[] >> res_tac >>
    first_x_assum(qspec_then`cn`strip_assume_tac)>>
-   decide_tac )
+   decide_tac );
 
 val patsexp_11 = Q.store_thm("patsexp_11[simp]",
   `∀p1 p2. patsexp p1 = patsexp p2 ⇔ p1 = p2`,
@@ -938,7 +940,8 @@ val expsexp_def = tDefine"expsexp"`
   (expsexp (Letrec funs e) = listsexp
     [SX_SYM "Letrec";
      listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x) (SX_CONS (SEXSTR y) (expsexp z))) funs);
-     expsexp e])`
+     expsexp e]) ∧
+  (expsexp (Tannot e t) = listsexp [SX_SYM "Tannot"; expsexp e; typesexp t])`
   (WF_REL_TAC`measure exp_size` >>
    rpt conj_tac >> simp[] >>
    (Induct_on`pes` ORELSE Induct_on`es` ORELSE Induct_on`funs`) >>
@@ -1157,7 +1160,9 @@ val sexptype_def_type_defsexp = Q.store_thm("sexptype_def_type_defsexp[simp]",
   Induct_on`l` >> rw[type_defsexp_def] >> rw[sexptype_def_def] >>
   match_mp_tac sexplist_listsexp_matchable >> simp[] >>
   exists_g_tac >>
-  simp[] >>
+  simp[]);
+
+  (*>>
   qx_gen_tac`p`>>PairCases_on`p` >> simp[] >>
   strip_tac >- (
     rw[] >>
@@ -1173,15 +1178,19 @@ val sexptype_def_type_defsexp = Q.store_thm("sexptype_def_type_defsexp[simp]",
   first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   pop_assum(assume_tac o SYM) >>
   simp[rich_listTheory.EL_MAP])
+  *)
 
 val sexplit_litsexp = Q.store_thm("sexplit_litsexp[simp]",
   `sexplit (litsexp l) = SOME l`,
-  Cases_on`l`>>simp[sexplit_def,litsexp_def] >- (
+  Cases_on`l`>>simp[sexplit_def,litsexp_def])
+
+  (*>- (
     rw[] >> intLib.ARITH_TAC ) >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   ONCE_REWRITE_TAC[wordsTheory.w2n_lt] >>
   rw[])
+  *)
 
 val sexppat_patsexp = Q.store_thm("sexppat_patsexp[simp]",
   `sexppat (patsexp p) = SOME p`,
