@@ -1630,4 +1630,13 @@ val lookup_vars_def = Define `
        | NONE => NONE
      else NONE)`
 
+val LLOOKUP_def = Define `
+  (LLOOKUP [] n = NONE) /\
+  (LLOOKUP (x::xs) n = if n = 0 then SOME x else LLOOKUP xs (n-1:num))`;
+
+val LLOOKUP_EQ_EL = store_thm("LLOOKUP_EQ_EL",
+  ``!xs n y. LLOOKUP xs n = SOME y <=> n < LENGTH xs /\ (y = EL n xs)``,
+  Induct \\ fs [LLOOKUP_def] \\ rw [] THEN1 metis_tac []
+  \\ Cases_on `n` \\ fs [ADD1] \\ eq_tac \\ rw []);
+
 val _ = export_theory()

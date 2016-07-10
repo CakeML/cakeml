@@ -247,12 +247,21 @@ val add_compiler_compset = computeLib.extend_compset
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.inline_def
       (* ---- bvl_const ---- *)
-    ,bvl_constTheory.isConst_def
-    ,bvl_constTheory.compile_exps_def
-    ,bvl_constTheory.compile_op_def
+    ,bvl_constTheory.SmartOp_def
+    ,bvl_constTheory.compile_exp_def
+    ,bvl_constTheory.extract_list_def
+    ,bvl_constTheory.compile_def
+    ,bvl_constTheory.delete_var_def
+    ,bvl_constTheory.dest_Op_Const_def
+    ,bvl_constTheory.extract_def
     ,bvl_constTheory.getConst_def
+    ,bvl_constTheory.isConst_def
+    ,bvl_constTheory.is_simple_def
       (* ---- bvl_handle ---- *)
+    ,bvl_handleTheory.no_raise_def
+    ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.compile_def
+    ,bvl_handleTheory.compile_exp_def
       (* ---- bvl_jump ---- *)
     ,bvl_jumpTheory.JumpList_def
     ,bvl_jumpTheory.Jump_def
@@ -281,6 +290,12 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
+      (* ---- bvi_let ---- *)
+    ,bvi_letTheory.extract_def
+    ,bvi_letTheory.extract_list_def
+    ,bvi_letTheory.delete_var_def
+    ,bvi_letTheory.compile_def
+    ,bvi_letTheory.compile_exp_def
     ]
   ,computeLib.Tys
     [ (* ---- bvp ---- *)

@@ -1,5 +1,5 @@
 open preamble bvlTheory bviTheory;
-local open bvl_inlineTheory bvl_constTheory bvl_handleTheory in end;
+local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory in end;
 
 val _ = new_theory "bvl_to_bvi";
 
@@ -168,7 +168,8 @@ val compile_exps_SING = store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (MAP (\(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux ++
+      (MAP (\(k,args,p).
+          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) aux ++
        [(num_stubs + 2 * name,arg_count,HD c)],n1)`
 
 val compile_list_def = Define `
@@ -184,15 +185,14 @@ val compile_prog_def = Define `
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
-val optimise_def = Define`
+val optimise_def = Define `
   optimise =
   MAP (λ(name,arity,exp).
       (name,arity,
-       HD (bvl_handle$compile arity
-             [bvl_const$compile_exp exp])))
-    (* TODO: let-optimisation, #50 *)`;
+       bvl_handle$compile_exp arity
+         (bvl_const$compile_exp exp)))`;
 
-val compile_def = Define`
+val compile_def = Define `
   compile start n prog =
   (* TODO: inline, #51 *)
     compile_prog start n (optimise prog)`;
