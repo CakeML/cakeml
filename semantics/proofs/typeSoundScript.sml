@@ -1,10 +1,9 @@
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory;
-open smallStepTheory bigStepTheory;
+open libTheory astTheory typeSystemTheory semanticPrimitivesTheory funBigStepTheory;
 open terminationTheory;
 open evalPropsTheory;
-open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
-open typeSoundInvariantsTheory evalPropsTheory;
+open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
+open evalPropsTheory;
 
 val _ = new_theory "typeSound";
 
@@ -264,6 +263,7 @@ val pmatch_type_progress = Q.prove (
      cases_on `ts` >>
      full_simp_tac(srw_ss())[]));
 
+(*
 val final_state_def = Define `
   (final_state (env,st,Val v,[]) = T) ∧
   (final_state (env,st,Val v,[(Craise (), err)]) = T) ∧
@@ -290,6 +290,7 @@ srw_tac[][] >>
 cases_on `e` >>
 cases_on `c` >>
 srw_tac[][final_state_def]);
+*)
 
 val eq_same_type = Q.prove (
 `(!v1 v2 tvs ctMap cns tenvS t.
@@ -361,6 +362,7 @@ val consistent_con_env_thm = Q.prove (
      metis_tac [PAIR_EQ, SOME_11])
  >> metis_tac [pair_CASES, SOME_11, PAIR_EQ, NOT_SOME_NONE]);
 
+ (*
 (* A well-typed expression state is either a value with no continuation, or it
  * can step to another state, or it steps to a BindError. *)
 val exp_type_progress = Q.prove (
@@ -620,6 +622,7 @@ val exp_type_progress = Q.prove (
          imp_res_tac type_es_length >>
          imp_res_tac type_vs_length >>
          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,build_conv_def])));
+         *)
 
 (* A successful pattern match gives a binding environment with the type given by
 * the pattern type checker *)
@@ -861,6 +864,7 @@ srw_tac[][Once type_v_cases] >>
 full_simp_tac(srw_ss())[] >>
 metis_tac [type_v_freevars]);
 
+(*
 val ctxt_inv_not_poly = Q.prove (
 `!dec_tvs c tvs.
   context_invariant dec_tvs c tvs ⇒ ¬poly_context c ⇒ (tvs = 0)`,
@@ -874,6 +878,7 @@ full_simp_tac(srw_ss())[] >>
 cases_on `h0` >>
 full_simp_tac(srw_ss())[] >>
 metis_tac [NOT_EVERY]);
+*)
 
 val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
 `!tvs cenv senv.
@@ -975,6 +980,7 @@ val v_unchanged = Q.prove (
 `!tenv x. tenv with v := tenv.v = tenv`,
  srw_tac[][type_environment_component_equality]);
 
+ (*
 (* If a step can be taken from a well-typed state, the resulting state has the
 * same type *)
 val exp_type_preservation = Q.prove (
@@ -1717,6 +1723,7 @@ val exp_type_preservation = Q.prove (
          imp_res_tac type_ctxts_freevars >>
          metis_tac [check_freevars_def, EVERY_APPEND, EVERY_DEF, APPEND, APPEND_ASSOC])
       >- metis_tac []));
+      *)
 
 val store_type_extension_def = Define `
 store_type_extension tenvS1 tenvS2 =
@@ -1730,6 +1737,28 @@ val store_type_extension_weakS = Q.store_thm ("store_type_extension_weakS",
  full_simp_tac(srw_ss())[SUBMAP_DEF, FLOOKUP_DEF, FUNION_DEF] >>
  metis_tac []);
 
+val store_type_extension_refl = Q.store_thm ("store_type_extension_refl",
+  `!tenvS. store_type_extension tenvS tenvS`,
+ rw [store_type_extension_def] >>
+ qexists_tac `FEMPTY` >>
+ rw []);
+
+val store_type_extension_trans = Q.store_thm ("store_type_extension_trans",
+  `!s1 s2 s3.
+    store_type_extension s1 s2 ∧ store_type_extension s2 s3 ⇒
+    store_type_extension s1 s3`,
+ rw [store_type_extension_def]
+ >> qexists_tac `FUNION tenvS'' tenvS'`
+ >> rw [FUNION_ASSOC, FLOOKUP_FUNION]
+ >> CASE_TAC
+ >> rw []
+ >> fs [FLOOKUP_FUNION]
+ >> first_x_assum (qspec_then `l` mp_tac)
+ >> rw []
+ >> every_case_tac
+ >> fs []);
+
+ (*
 val exp_type_soundness_help = Q.prove (
 `!state1 state2. e_step_reln^* state1 state2 ⇒
   ∀ctMap tenvS st env e c st' env' e' c' t dec_tvs.
@@ -1770,7 +1799,127 @@ val exp_type_soundness_help = Q.prove (
  full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
  full_simp_tac(srw_ss())[] >>
  metis_tac [NOT_SOME_NONE]);
+ *)
 
+val type_pes_def = Define `
+  type_pes tenv pes t1 t2 ⇔
+    (∀(p,e)::set pes.
+      ∃bindings.
+        ALL_DISTINCT (pat_bindings p []) ∧
+        type_p (num_tvs tenv.v) tenv p t1 bindings ∧
+        type_e (tenv with v := bind_var_list (0 :num) bindings tenv.v) e t2)`;
+
+val exp_type_soundness = Q.store_thm ("exp_type_soundness",
+ `(!(s:'ffi state) env es r s' tenv ts tvs tenvS.
+    evaluate s env es = (s', r) ∧
+    tenv_tabbrev_ok tenv.t ∧
+    tenv_mod_ok tenv.m ∧
+    ctMap_has_exns ctMap ∧
+    ctMap_has_lists ctMap ∧
+    ctMap_has_bools ctMap ∧
+    consistent_mod_env tenvS ctMap env.m tenv.m ∧
+    consistent_con_env ctMap env.c tenv.c ∧
+    type_env ctMap tenvS env.v tenv.v ∧
+    type_s ctMap tenvS s.refs ∧
+    (tvs ≠ 0 ⇒ EVERY is_value es) ∧
+    type_es (tenv with v := bind_tvar tvs tenv.v) es ts
+    ⇒
+    ∃tenvS'.
+      type_s ctMap tenvS' s'.refs ∧
+      store_type_extension tenvS tenvS' ∧
+      case r of
+         | Rval vs => type_vs tvs ctMap tenvS' vs ts
+         | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+         | Rerr (Rabort Rtimeout_error) => T
+         | Rerr (Rabort Rtype_error) => F) ∧
+ (!(s:'ffi state) env v pes err_v r s' tenv t1 t2 tvs tenvS.
+    evaluate_match s env v pes err_v = (s', r) ∧
+    tenv_tabbrev_ok tenv.t ∧
+    tenv_mod_ok tenv.m ∧
+    ctMap_has_exns ctMap ∧
+    ctMap_has_lists ctMap ∧
+    ctMap_has_bools ctMap ∧
+    consistent_mod_env tenvS ctMap env.m tenv.m ∧
+    consistent_con_env ctMap env.c tenv.c ∧
+    type_env ctMap tenvS env.v tenv.v ∧
+    type_s ctMap tenvS s.refs ∧
+    (tvs ≠ 0 ⇒ is_value e) ∧
+    type_pes (tenv with v := bind_tvar tvs tenv.v) pes t1 t2
+    ⇒
+    ∃tenvS'.
+      type_s ctMap tenvS' s'.refs ∧
+      store_type_extension tenvS tenvS' ∧
+      case r of
+         | Rval vs => type_vs tvs ctMap tenvS' vs ts
+         | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+         | Rerr (Rabort Rtimeout_error) => T
+         | Rerr (Rabort Rtype_error) => F)`,
+
+ ho_match_mp_tac evaluate_ind
+ >> simp [evaluate_def, type_es_list_rel, type_vs_list_rel]
+ >> rw []
+ >- metis_tac [store_type_extension_refl]
+ >- (
+   split_pair_case_tac
+   >> fs []
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
+   >> rename1 `evaluate _ _ (e2::es) = (s2,r2)`
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> fs [IMP_CONJ_THM]
+   >> rpt (disch_then drule)
+   >> rw []
+   >> rename1 `store_type_extension _ new_tenvS`
+   >> `consistent_mod_env new_tenvS ctMap env.m tenv.m`
+     by metis_tac [store_type_extension_weakS,
+                   weakCT_refl, type_v_weakening, consistent_con_env_def]
+   >> `type_env ctMap new_tenvS env.v tenv.v`
+     by metis_tac [store_type_extension_weakS,
+                   weakCT_refl, type_v_weakening, consistent_con_env_def]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS, GSYM CONJ_ASSOC]
+   >> rpt (disch_then drule)
+   >> rw []
+   >> Cases_on `r2`
+   >> fs []
+   >> rw []
+   >> metis_tac [store_type_extension_trans, store_type_extension_weakS,
+                 weakCT_refl, type_v_weakening, consistent_con_env_def])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases, Once type_v_cases]
+   >> metis_tac [store_type_extension_refl])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
+   >> rw []
+   >> fs [is_value_def]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> disch_then (qspec_then `0` mp_tac)
+   >> simp []
+   >> rfs []
+   >> disch_then drule
+   >> rw []
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >> rw []
+   >> metis_tac [])
+
+
+   (*
 val exp_type_soundness = Q.store_thm ("exp_type_soundness",
 `!ctMap tenvS tenv env st e t tvs.
   tenv_tabbrev_ok tenv.t ∧
@@ -2868,6 +3017,7 @@ val whole_prog_type_soundness = Q.store_thm ("whole_prog_type_soundness",
      rev_full_simp_tac(srw_ss())[] >>
      full_simp_tac(srw_ss())[no_dup_mods_def, no_dup_top_types_def]) >>
  metis_tac []);
+ *)
 
 val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   `(sem_st,sem_env) = THE (prim_sem_env ffi) ⇒
