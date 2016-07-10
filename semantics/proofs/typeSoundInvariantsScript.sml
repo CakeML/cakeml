@@ -452,6 +452,7 @@ type_ctxts tvs tenvC senv [] t t)
 /\ (! tvs ctMap senv c env cs tenv t1 t2 t3.
 (type_env ctMap senv (environment_v env) tenv.v /\
 consistent_con_env ctMap (environment_c env) tenv.c /\
+tenv_tabbrev_ok tenv.t /\
 tenv_mod_ok tenv.m /\
 consistent_mod_env senv ctMap (environment_m env) tenv.m /\
 type_ctxt tvs ctMap senv tenv c t1 t2 /\
@@ -462,6 +463,7 @@ type_ctxts tvs ctMap senv ((c,env)::cs) t1 t3)`;
 val _ = Hol_reln ` (! dec_tvs ctMap senv s env e c t1 t2 tenv tvs tr.
 (context_invariant dec_tvs c tvs /\
 consistent_con_env ctMap (environment_c env) tenv.c /\
+tenv_tabbrev_ok tenv.t /\
 tenv_mod_ok tenv.m /\
 consistent_mod_env senv ctMap (environment_m env) tenv.m /\
 type_ctxts tvs ctMap senv c t1 t2 /\
