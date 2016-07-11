@@ -1835,37 +1835,113 @@ val opapp_lemma = Q.prove (
    >> qexists_tac `(tenv with v := Bind_name n 0 t2 (bind_tvar 0 tenv.v))`
    >> rw []
    >> simp [Once type_v_cases, bind_tvar_def])
- >- cheat);
+ >- (
+   rename1 `type_v _ _ _ (Recclosure env funs n) _`
+   >> qpat_assum `type_v _ _ _ (Recclosure env funs n) _` mp_tac
+   >> simp [Once type_v_cases]
+   >> rw []
+   >> imp_res_tac type_funs_find_recfun
+   >> fs []
+   >> rw []
+   >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def] type_recfun_lookup)
+   >> fs []
+   >> qmatch_assum_abbrev_tac `type_e (_ with v := bindings) _ _`
+   >> qexists_tac `tenv with v := bindings`
+   >> rw []
+   >> imp_res_tac type_recfun_env
+   >> drule type_env2_to_type_env
+   >> rw [Abbr `bindings`]
+   >> simp [Once type_v_cases, build_rec_env_merge, bind_tvar_def]
+   >> metis_tac [type_env_merge]));
 
 val op_lemma = Q.prove (
-`!ctMap tenvS vs op ts t.
+`!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
+ ctMap_has_exns ctMap ∧
+ ctMap_has_bools ctMap ∧
  op ≠ Opapp ∧
+ type_s ctMap tenvS store ∧
  type_op op ts t ∧
- LIST_REL (type_v 0 ctMap tenvS) vs ts
+ LIST_REL (type_v 0 ctMap tenvS) vs (REVERSE ts)
  ⇒
- ?v.
-   type_v 0 ctMap tenvS v t ∧
-   do_op s1 op vs = SOME (s2, r)`,
+ ?tenvS' store' ffi' r.
+   store_type_extension tenvS tenvS' ∧
+   type_s ctMap tenvS' store' ∧
+   do_app (store,ffi) op (REVERSE vs) = SOME ((store', ffi'), r) ∧
+   case r of
+   | Rval v => type_v 0 ctMap tenvS' v t
+   | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+   | Rerr (Rabort _) => F`,
+ cheat);
+
+ (*
  rw [type_op_cases]
  >> fs []
  >> rw []
- >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def] canonical_values_thm)
- >> rw [do_opapp_def]
+ >> TRY (rename1 `Tword wsize` >> Cases_on `wsize`)
+ >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def, Tref_def, Tword64_def] canonical_values_thm)
+ >> rw [do_app_cases, PULL_EXISTS]
  >- (
-   rename1 `type_v _ _ _ (Closure env n e) _`
-   >> qpat_assum `type_v _ _ _ (Closure env n e) _` mp_tac
-   >> simp [Once type_v_cases]
+   Cases_on `(op' = Divide ∨ op' = Modulo) ∧ n' = 0`
+   >- (
+     fs []
+     >> metis_tac [type_v_exn, store_type_extension_refl, prim_exn_def])
+   >- (
+     fs []
+     >> simp [Once type_v_cases]
+     >> metis_tac [store_type_extension_refl]))
+ >- metis_tac [type_v_Boolv, store_type_extension_refl]
+ >- (simp [Once type_v_cases] >> metis_tac [store_type_extension_refl])
+ >- (simp [Once type_v_cases] >> metis_tac [store_type_extension_refl])
+ >- (simp [Once type_v_cases] >> metis_tac [store_type_extension_refl])
+ >- (simp [Once type_v_cases] >> metis_tac [store_type_extension_refl])
+ >- (metis_tac [type_v_Boolv, store_type_extension_refl, eq_result_nchotomy, eq_same_type])
+ >- cheat
+ >- (
+   simp [store_alloc_def, Once type_v_cases, store_type_extension_def, PULL_EXISTS]
+   >> imp_res_tac type_v_freevars
+   >> simp []
+   >> qexists_tac `FEMPTY |+ (LENGTH store, Ref_t t1)`
+   >> simp [FLOOKUP_UPDATE, FLOOKUP_FUNION]
+   >> fs [type_s_def, store_lookup_def]
    >> rw []
-   >> qexists_tac `(tenv with v := Bind_name n 0 t2 (bind_tvar 0 tenv.v))`
-   >> rw []
-   >> simp [Once type_v_cases, bind_tvar_def])
- >- cheat);
+   >- (
+     first_assum (qspec_then `LENGTH store` mp_tac)
+     >> DISCH_TAC
+     >> fs []
+     >> metis_tac [option_nchotomy])
+   >- rw [FLOOKUP_UPDATE, FLOOKUP_FUNION]
+   >- (
+     rw [EL_APPEND_EQN]
+     >- (
+       first_x_assum (qspec_then `l` mp_tac)
+       >> rw []
+       >> first_x_assum drule
+       >> fs [FLOOKUP_UPDATE, FLOOKUP_FUNION]
+       >> rw []
+       >> Cases_on `EL l store`
+       >> rw []
+       >> fs []
+       >> Cases_on `st`
+       >> fs []
+       >> cheat)
+     >- (
+       `l - LENGTH store = 0` by decide_tac
+       >> simp []
+       >> Cases_on `st`
+       >> fs []
+       >- cheat
+       >> `l = LENGTH store` by decide_tac
+       >> fs [FLOOKUP_UPDATE, FLOOKUP_FUNION])))
+ >- cheat
+ >- cheat
+ *)
 
 val exp_type_soundness = Q.store_thm ("exp_type_soundness",
  `(!(s:'ffi state) env es r s' tenv ts tvs tenvS.
     evaluate s env es = (s', r) ∧
     tenv_tabbrev_ok tenv.t ∧
     tenv_mod_ok tenv.m ∧
+    ctMap_ok ctMap ∧
     ctMap_has_exns ctMap ∧
     ctMap_has_lists ctMap ∧
     ctMap_has_bools ctMap ∧
@@ -1906,7 +1982,6 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
          | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
          | Rerr (Rabort Rtimeout_error) => T
          | Rerr (Rabort Rtype_error) => F)`,
-
  ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, type_vs_list_rel]
  >> rw []
@@ -2023,7 +2098,11 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
    >> simp [store_type_extension_refl]
    >> irule type_lookup_type_v
    >- fs [consistent_con_env_def]
-   >- cheat
+   >- (
+     imp_res_tac type_v_freevars
+     >> fs [bind_tvar_def, is_value_def]
+     >> Cases_on `tvs = 0`
+     >> fs [num_tvs_def])
    >> metis_tac [])
  >- (
    pop_assum mp_tac
@@ -2073,13 +2152,28 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
        >> simp [bind_tvar_def, v_unchanged]
        >> rw []
        >> metis_tac [store_type_extension_trans])
-     >- cheat)
-   >- (
-     rename1 `evaluate _ _ _ = (s1, Rerr e)`
-     >> Cases_on `e`
-     >> fs []
-     >> metis_tac []))
-
+     >- (
+       fs [bind_tvar_def, v_unchanged]
+       >> drule op_lemma
+       >> rpt (disch_then drule)
+       >> disch_then (qspec_then `s1.ffi` mp_tac)
+       >> rw []
+       >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
+       >> Cases_on `r1`
+       >> fs []
+       >> rw []
+       >- metis_tac [store_type_extension_trans]
+       >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
+       >> Cases_on `err_v`
+       >> fs []
+       >> rw []
+       >> metis_tac [store_type_extension_trans]))
+     >- (
+       rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
+       >> Cases_on `err_v`
+       >> fs []
+       >> rw []
+       >> metis_tac []))
  >- (
    pop_assum mp_tac
    >> simp [Once type_e_cases]
@@ -2097,83 +2191,140 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
    >> Cases_on `r1`
    >> fs []
    >> rw []
-   >> imp_res_tac canonical_values_thm
-   >> fs [do_log_def]
+   >- (
+     drule (GEN_ALL (List.nth (CONJUNCTS (SPEC_ALL canonical_values_thm), 4)))
+     >> disch_then drule
+     >> rw []
+     >> Cases_on `b`
+     >> fs [do_log_def, Boolv_def]
+     >> Cases_on `lop`
+     >> fs []
+     >> rw []
+     >- (
+       `consistent_mod_env tenvS' ctMap env.m tenv.m`
+         by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+       >> `type_env ctMap tenvS' env.v tenv.v`
+         by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+       >> first_x_assum drule
+       >> rpt (disch_then drule)
+       >> fs [PULL_EXISTS]
+       >> disch_then (qspecl_then [`0`, `Tapp [] (TC_name (Short "bool"))`] mp_tac)
+       >> simp [v_unchanged]
+       >> rw []
+       >> metis_tac [store_type_extension_trans])
+     >- metis_tac []
+     >- metis_tac []
+     >- (
+       `consistent_mod_env tenvS' ctMap env.m tenv.m`
+         by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+       >> `type_env ctMap tenvS' env.v tenv.v`
+         by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+       >> first_x_assum drule
+       >> rpt (disch_then drule)
+       >> fs [PULL_EXISTS]
+       >> disch_then (qspecl_then [`0`, `Tapp [] (TC_name (Short "bool"))`] mp_tac)
+       >> simp [v_unchanged]
+       >> rw []
+       >> metis_tac [store_type_extension_trans]))
+   >- metis_tac [])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
    >> rw []
-
-
-     (*
-val exp_type_soundness = Q.store_thm ("exp_type_soundness",
-`!ctMap tenvS tenv env st e t tvs.
-  tenv_tabbrev_ok tenv.t ∧
-  tenv_mod_ok tenv.m ∧
-  ctMap_has_exns ctMap ∧
-  ctMap_has_lists ctMap ∧
-  ctMap_has_bools ctMap ∧
-  consistent_mod_env tenvS ctMap env.m tenv.m ∧
-  consistent_con_env ctMap env.c tenv.c ∧
-  type_env ctMap tenvS env.v tenv.v ∧
-  type_s ctMap tenvS (FST st) ∧
-  (tvs ≠ 0 ⇒ is_value e) ∧
-  type_e (tenv with v := bind_tvar tvs tenv.v) e t
-  ⇒
-  e_diverges env st e ∨
-  (?st' r. (r ≠ Rerr (Rabort Rtype_error)) ∧
-          small_eval env st e [] (st',r) ∧
-          (?tenvS'.
-            type_s ctMap tenvS' (FST st') ∧
-            store_type_extension tenvS tenvS' ∧
-            (!v. (r = Rval v) ⇒ type_v tvs ctMap tenvS' v t) ∧
-            (!err. (r = Rerr (Rraise err)) ⇒ type_v 0 ctMap tenvS' err Texn)))`,
- srw_tac[][e_diverges_def, METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
- `type_state tvs ctMap tenvS (env,st,Exp e,[]) t`
-         by (srw_tac[][type_state_cases] >>
-             PairCases_on `st` >>
-             srw_tac[][] >>
-             qexists_tac `t` >>
-             qexists_tac `tenv` >>
-             qexists_tac `tvs` >>
-             srw_tac[][] >>
-             full_simp_tac(srw_ss())[] >|
-             [srw_tac[][Once context_invariant_cases],
-              srw_tac[][Once type_ctxts_cases] >>
-                  `num_tvs tenv.v = 0` by metis_tac [type_v_freevars] >>
-                  `num_tvs (bind_tvar tvs tenv.v) = tvs`
-                             by srw_tac[][bind_tvar_rewrites] >>
-                  imp_res_tac type_e_freevars >>
-                  full_simp_tac(srw_ss())[] >>
-                  metis_tac [bind_tvar_rewrites, type_v_freevars]]) >>
- `?tenvS'. type_state tvs ctMap tenvS' (env',s',e',c') t ∧ store_type_extension tenvS tenvS'`
-         by metis_tac [exp_type_soundness_help, consistent_con_env_def] >>
- full_simp_tac(srw_ss())[e_step_reln_def] >>
- `final_state (env',s',e',c')` by metis_tac [exp_type_progress] >>
- Cases_on `e'` >>
- Cases_on `c'` >>
- TRY (Cases_on `e''`) >>
- full_simp_tac(srw_ss())[final_state_def] >>
- qexists_tac `s'`
- >- (full_simp_tac(srw_ss())[small_eval_def] >>
-     full_simp_tac(srw_ss())[type_state_cases] >>
-     full_simp_tac(srw_ss())[Once context_invariant_cases, Once type_ctxts_cases] >>
-     qexists_tac `Rval v` >>
-     srw_tac[][] >>
-     metis_tac [small_eval_def, result_distinct, result_11])
- >- (full_simp_tac(srw_ss())[small_eval_def] >>
-     full_simp_tac(srw_ss())[type_state_cases] >>
-     full_simp_tac(srw_ss())[Once context_invariant_cases, Once type_ctxts_cases] >>
-     srw_tac[][] >>
-     full_simp_tac(srw_ss())[final_state_def] >>
-     cases_on `t'` >>
-     full_simp_tac(srw_ss())[final_state_def, type_ctxt_cases] >>
-     qexists_tac `Rerr (Rraise v)` >>
-     srw_tac[][] >>
-     metis_tac [small_eval_def, result_distinct, result_11, error_result_distinct]));
-
-val store_type_extension_refl = Q.prove (
-`!s. store_type_extension s s`,
- srw_tac[][store_type_extension_def] >>
- qexists_tac `FEMPTY` >>
- srw_tac[][]);
+   >> rfs [is_value_def, bind_tvar_def, v_unchanged]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> disch_then (qspecl_then [`0`, `(Tapp [] (TC_name (Short "bool")))`] mp_tac)
+   >> simp [v_unchanged]
+   >> rw []
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >- (
+     drule (GEN_ALL (List.nth (CONJUNCTS (SPEC_ALL canonical_values_thm), 4)))
+     >> disch_then drule
+     >> rw []
+     >> Cases_on `b`
+     >> fs [do_if_def, Boolv_def]
+     >> rw []
+     >> `consistent_mod_env tenvS' ctMap env.m tenv.m`
+       by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+     >> `type_env ctMap tenvS' env.v tenv.v`
+       by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+     >> first_x_assum drule
+     >> rpt (disch_then drule)
+     >> fs [PULL_EXISTS]
+     >> disch_then (qspecl_then [`0`] mp_tac)
+     >> simp [v_unchanged]
+     >> rw []
+     >> metis_tac [store_type_extension_trans])
+   >- metis_tac [])
+ >- cheat
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
+   >> rw []
+   >> rfs [is_value_def, bind_tvar_def, v_unchanged]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> disch_then (qspecl_then [`0`] mp_tac)
+   >> simp [v_unchanged]
+   >> disch_then drule
+   >> rw []
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >- (
+     rename1 `type_e (tenv with v := opt_bind_name n 0 t1 tenv.v) e2 t2`
+     >> qabbrev_tac `env' = opt_bind n (HD [x]) env.v`
+     >> qabbrev_tac `tenv' = tenv with v := opt_bind_name n 0 t1 tenv.v`
+     >> `tenv_tabbrev_ok tenv'.t`
+       by (rw [tenv_tabbrev_ok_def, Abbr `tenv'`] >> NO_TAC)
+     >> `tenv_mod_ok tenv'.m`
+       by (fs [tenv_mod_ok_def, Abbr `tenv'`] >> NO_TAC)
+     >> `consistent_mod_env tenvS' ctMap env.m tenv'.m`
+       by (
+         simp [Abbr `tenv'`] >>
+         metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS])
+     >> `consistent_con_env ctMap env.c tenv'.c`
+       by (rw [Abbr `tenv'`] >> NO_TAC)
+     >> `type_env ctMap tenvS' env' tenv'.v`
+       by (
+         simp [Abbr `tenv'`, Abbr `env'`]
+         >> Cases_on `n`
+         >> fs [opt_bind_def, opt_bind_name_def, type_env_eqn]
+         >> metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS, type_v_freevars])
+     >> first_x_assum drule
+     >> rpt (disch_then drule)
+     >> simp [PULL_EXISTS]
+     >> disch_then (qspecl_then [`0`] mp_tac)
+     >> simp [v_unchanged]
+     >> disch_then drule
+     >> rw []
+     >> metis_tac [store_type_extension_trans])
+   >- metis_tac [])
+ >- cheat
+ >- cheat
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> rw []
+   >> rfs [is_value_def, v_unchanged, bind_tvar_def]
+   >> fs [PULL_EXISTS]
+   >> first_x_assum irule
+   >> rw [v_unchanged]
+   >> metis_tac [store_type_extension_refl])
+ >- cheat
+ >- cheat
+ >- cheat);
 
 val mem_lem = Q.prove (
 `(!v. ~MEM (x,v) l) ⇔ ~MEM x (MAP FST l)`,
