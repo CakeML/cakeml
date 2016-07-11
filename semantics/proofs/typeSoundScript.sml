@@ -1809,6 +1809,58 @@ val type_pes_def = Define `
         type_p (num_tvs tenv.v) tenv p t1 bindings ∧
         type_e (tenv with v := bind_var_list (0 :num) bindings tenv.v) e t2)`;
 
+val opapp_lemma = Q.prove (
+`!ctMap tenvS vs ts t.
+ type_op Opapp ts t ∧
+ LIST_REL (type_v 0 ctMap tenvS) vs ts
+ ⇒
+ ?env e tenv.
+   tenv_tabbrev_ok tenv.t ∧
+   tenv_mod_ok tenv.m ∧
+   consistent_mod_env tenvS ctMap env.m tenv.m ∧
+   consistent_con_env ctMap env.c tenv.c ∧
+   type_env ctMap tenvS env.v tenv.v ∧
+   type_e tenv e t ∧
+   do_opapp vs = SOME (env,e)`,
+ rw [type_op_cases]
+ >> fs []
+ >> rw []
+ >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def] canonical_values_thm)
+ >> rw [do_opapp_def]
+ >- (
+   rename1 `type_v _ _ _ (Closure env n e) _`
+   >> qpat_assum `type_v _ _ _ (Closure env n e) _` mp_tac
+   >> simp [Once type_v_cases]
+   >> rw []
+   >> qexists_tac `(tenv with v := Bind_name n 0 t2 (bind_tvar 0 tenv.v))`
+   >> rw []
+   >> simp [Once type_v_cases, bind_tvar_def])
+ >- cheat);
+
+val op_lemma = Q.prove (
+`!ctMap tenvS vs op ts t.
+ op ≠ Opapp ∧
+ type_op op ts t ∧
+ LIST_REL (type_v 0 ctMap tenvS) vs ts
+ ⇒
+ ?v.
+   type_v 0 ctMap tenvS v t ∧
+   do_op s1 op vs = SOME (s2, r)`,
+ rw [type_op_cases]
+ >> fs []
+ >> rw []
+ >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def] canonical_values_thm)
+ >> rw [do_opapp_def]
+ >- (
+   rename1 `type_v _ _ _ (Closure env n e) _`
+   >> qpat_assum `type_v _ _ _ (Closure env n e) _` mp_tac
+   >> simp [Once type_v_cases]
+   >> rw []
+   >> qexists_tac `(tenv with v := Bind_name n 0 t2 (bind_tvar 0 tenv.v))`
+   >> rw []
+   >> simp [Once type_v_cases, bind_tvar_def])
+ >- cheat);
+
 val exp_type_soundness = Q.store_thm ("exp_type_soundness",
  `(!(s:'ffi state) env es r s' tenv ts tvs tenvS.
     evaluate s env es = (s', r) ∧
@@ -1917,9 +1969,140 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
    >> rw []
    >> rw []
    >> metis_tac [])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
+   >> rw []
+   >> fs [is_value_def]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> disch_then (qspec_then `0` mp_tac)
+   >> simp []
+   >> rfs []
+   >> disch_then drule
+   >> rw []
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >> rw []
+   >- metis_tac []
+   >> Cases_on `e'`
+   >> fs [type_pes_def]
+   >> rw []
+   >- (
+     cheat)
+   >- metis_tac [])
+ >- (
+   cheat)
+ >- (
+   CCONTR_TAC
+   >> fs []
+   >> pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> rw []
+   >> CCONTR_TAC
+   >> fs []
+   >> rw []
+   >> fs [do_con_check_def]
+   >> imp_res_tac consistent_con_env_thm
+   >> fs []
+   >> imp_res_tac type_es_length
+   >> fs [])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> rw []
+   >> imp_res_tac type_lookup_id
+   >> fs []
+   >> rw []
+   >> qexists_tac `tenvS`
+   >> simp [store_type_extension_refl]
+   >> irule type_lookup_type_v
+   >- fs [consistent_con_env_def]
+   >- cheat
+   >> metis_tac [])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> rw []
+   >> simp [Once type_v_cases]
+   >> imp_res_tac type_v_freevars
+   >> fs [num_tvs_def, bind_tvar_def]
+   >> Cases_on `tvs = 0`
+   >> fs [num_tvs_def]
+   >> metis_tac [store_type_extension_refl])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
+   >> rw []
+   >> fs [is_value_def, type_es_list_rel]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> disch_then (qspecl_then [`REVERSE ts`, `0`] mp_tac)
+   >> rw [LIST_REL_REVERSE_EQ]
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >- (
+     Cases_on `op = Opapp`
+     >> fs []
+     >> rename1 `LIST_REL (type_v 0 _ _) vs _`
+     >- (
+       drule opapp_lemma
+       >> fs [EVERY2_REVERSE1]
+       >> disch_then drule
+       >> rw []
+       >> fs []
+       >> Cases_on `s1.clock = 0`
+       >> fs []
+       >> rw []
+       >- metis_tac []
+       >> first_x_assum drule
+       >> rpt (disch_then drule)
+       >> fs [dec_clock_def, PULL_EXISTS]
+       >> rename1 `type_e tenv' e t`
+       >> disch_then (qspecl_then [`0`, `t`] mp_tac)
+       >> simp [bind_tvar_def, v_unchanged]
+       >> rw []
+       >> metis_tac [store_type_extension_trans])
+     >- cheat)
+   >- (
+     rename1 `evaluate _ _ _ = (s1, Rerr e)`
+     >> Cases_on `e`
+     >> fs []
+     >> metis_tac []))
+
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
+   >> rw []
+   >> rfs [is_value_def, bind_tvar_def, v_unchanged]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [PULL_EXISTS]
+   >> disch_then (qspecl_then [`0`, `(Tapp [] (TC_name (Short "bool")))`] mp_tac)
+   >> simp [v_unchanged]
+   >> rw []
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >> imp_res_tac canonical_values_thm
+   >> fs [do_log_def]
+   >> rw []
 
 
-   (*
+     (*
 val exp_type_soundness = Q.store_thm ("exp_type_soundness",
 `!ctMap tenvS tenv env st e t tvs.
   tenv_tabbrev_ok tenv.t ∧
