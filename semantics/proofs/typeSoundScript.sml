@@ -1854,6 +1854,30 @@ val opapp_lemma = Q.prove (
    >> simp [Once type_v_cases, build_rec_env_merge, bind_tvar_def]
    >> metis_tac [type_env_merge]));
 
+(*
+val store_assign_lemma = Q.prove (
+ `type_s ctMap tenvS store ∧
+  l ∈ FDOM tenvS
+  ⇒
+  ?store'.
+    store_assign l rv store = SOME store' ∧
+    type_s ctMap tenvS store'`,
+ rw [store_assign_def, type_s_def, store_v_same_type_def]
+ >- (
+   first_x_assum (qspec_then `l` mp_tac)
+   >> rw [store_lookup_def]
+   >> fs [FLOOKUP_DEF])
+ >- (
+   first_x_assum (qspec_then `l` mp_tac)
+   >> rw [store_lookup_def]
+   >> fs [FLOOKUP_DEF]
+   >> rfs []
+   >> every_case_tac
+   >> fs []
+   )
+   
+   *)
+
 val op_lemma = Q.prove (
 `!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  ctMap_has_exns ctMap ∧
