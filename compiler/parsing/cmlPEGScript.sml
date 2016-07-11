@@ -361,9 +361,12 @@ val cmlPEG_def = zDefine`
                choicel [seql [pnt nConstructorName; pnt nPbase]
                              (bindNT nPapp);
                         pegf (pnt nPbase) (bindNT nPapp)]);
-              (mkNT nPattern,
+              (mkNT nPcons,
                seql [pnt nPapp;
-                     try (seql [tokeq (SymbolT "::"); pnt nPattern] I)]
+                     try (seql [tokeq (SymbolT "::"); pnt nPcons] I)]
+                    (bindNT nPcons));
+              (mkNT nPattern,
+               seql [pnt nPcons; try (seql [tokeq ColonT; pnt nType] I)]
                     (bindNT nPattern));
               (mkNT nPatternList,
                seql [pnt nPattern;
@@ -588,7 +591,8 @@ val npeg0_rwts =
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
                 ``nTypeList1``, ``nTypeList2``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
+                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``,
+                ``nPcons``, ``nPattern``,
                 ``nPatternList``, ``nPbaseList1``,
                 ``nLetDec``, ``nMultOps``, ``nListOps``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
@@ -669,7 +673,8 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nUQTyOp``, ``nUQConstructorName``, ``nStructName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
+                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``,
+                ``nPcons``, ``nPattern``,
                 ``nPatternList``, ``nPbaseList1``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
