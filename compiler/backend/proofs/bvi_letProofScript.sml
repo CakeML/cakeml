@@ -110,96 +110,177 @@ val compile_APPEND = store_thm("compile_APPEND",
   Induct \\ fs [compile_def]
   \\ once_rewrite_tac [compile_CONS] \\ fs []);
 
+val IMP_COMM = store_thm("IMP_COMM",
+  ``(b1 ==> b2 ==> b3) <=> (b2 ==> b1 ==> b3)``,
+  metis_tac []);
+
+val exp_size_APPEND = store_thm("exp_size_APPEND",
+  ``!xs ys. exp2_size (xs ++ ys) = exp2_size xs + exp2_size ys``,
+  Induct \\ fs [bviTheory.exp_size_def]);
+
+val env_rel_MAP = store_thm("env_rel_MAP",
+  ``!ax env1 env2 d a.
+      env_rel ax d env1 env2 ==>
+      env_rel (MAP ($+ (LENGTH a)) ax) (d + LENGTH a) env1 (a ++ env2)``,
+  Induct \\ fs [env_rel_def]
+  THEN1 (once_rewrite_tac [EQ_SYM_EQ] \\ Induct_on `a` \\ fs [ADD1])
+  \\ Cases_on `env1` \\ Cases_on `env2` \\ fs [env_rel_def]
+  \\ fs [v_rel_def] \\ rw [env_rel_def] \\ Cases_on `a`
+  \\ fs [env_rel_def,v_rel_def,MAP_ID,prove(``(+)0n=I``,fs [FUN_EQ_THM])]
+  \\ `t'' ++ h'::t' = (t'' ++ [h']) ++ t'` by fs []
+  \\ full_simp_tac std_ss []
+  \\ reverse conj_tac THEN1
+   (`SUC (LENGTH t'') = LENGTH (t'' ++ [h'])` by fs []
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ first_x_assum match_mp_tac \\ fs [])
+  \\ fs [LLOOKUP_EQ_EL,ADD_CLAUSES]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_APPEND2]);
+
 val evaluate_env_rel = store_thm("evaluate_env_rel",
   ``!xs env1 (s1:'a bviSem$state) ax env2 res s2 ys d.
       (evaluate (xs,env1,s1) = (res,s2)) /\
       env_rel ax d env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
       (evaluate (compile ax d xs,env2,s1) = (res,s2))``,
-
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [compile_def,evaluate_def,compile_HD_SING]
+  strip_tac \\ completeInduct_on `exp2_size xs`
+  \\ rw [] \\ fs [PULL_FORALL]
+  \\ Cases_on `xs` \\ fs[compile_def,evaluate_def]
+  \\ reverse (Cases_on `t`) \\ fs [] THEN1
+   (fs [compile_def,evaluate_def]
+    \\ qpat_assum `!x._` mp_tac
+    \\ once_rewrite_tac [IMP_COMM] \\ rw [AND_IMP_INTRO]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [GSYM CONJ_ASSOC]
+    \\ first_assum drule \\ pop_assum mp_tac
+    \\ first_x_assum drule \\ fs [] \\ rw []
+    \\ rpt (first_x_assum drule)
+    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ TRY strip_tac
+    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ once_rewrite_tac [GSYM compile_HD_SING] \\ fs []
+    \\ once_rewrite_tac [evaluate_CONS] \\ fs [compile_HD_SING])
+  \\ fs [bviTheory.exp_size_def]
+  \\ qpat_assum `!x._` mp_tac
+  \\ once_rewrite_tac [IMP_COMM]
+  \\ fs [GSYM CONJ_ASSOC]
+  \\ Cases_on `?v. h = Var v` \\ rw [] \\ fs []
   THEN1
-   (`?y0. compile ax d [x] = [y0]` by
-     (`LENGTH (compile ax d [x]) = LENGTH [x]` by fs [compile_length]
-      \\ Cases_on `compile ax d [x]` \\ fs [LENGTH_NIL])
-    \\ `?y1 ys. compile ax d (y::xs) = y1::ys` by
-     (`LENGTH (compile ax d (y::xs)) = LENGTH (y::xs)` by fs [compile_length]
-      \\ Cases_on `compile ax d (y::xs)` \\ fs [LENGTH_NIL])
-    \\ fs [] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-    \\ rpt (first_x_assum drule) \\ fs []
-    \\ rw [] \\ rpt (first_x_assum drule) \\ fs [] \\ rw []
-    \\ fs [evaluate_def])
-  THEN1
-   (Cases_on `n < LENGTH env` \\ fs [] \\ rw []
-    \\ Cases_on `LLOOKUP ax n` \\ fs []
+   (fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ fs [compile_def,evaluate_def]
+    \\ Cases_on `LLOOKUP ax v` \\ fs []
     \\ imp_res_tac env_rel_length
     THEN1 (fs [evaluate_def] \\ metis_tac [env_rel_LLOOKUP_NONE,ADD_COMM])
     \\ drule env_rel_LOOKUP_SOME \\ fs [] \\ fs [v_rel_def]
     \\ disch_then drule \\ fs [] \\ rw []
-    \\ fs [evaluate_def]
-    \\ fs [LLOOKUP_EQ_EL]
+    \\ fs [evaluate_def] \\ fs [LLOOKUP_EQ_EL]
     \\ fs [EL_DROP] \\ rfs [EL_DROP])
+  \\ Cases_on `?x1. h = Raise x1 \/ h = Tick x1`
   THEN1
-   (Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rw [] \\ res_tac \\ fs []
-    \\ every_case_tac \\ fs [])
+   (rw [] \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ fs [compile_def,evaluate_def,compile_HD_SING]
+    \\ first_x_assum drule \\ fs [] \\ disch_then drule
+    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ fs [compile_def,evaluate_def,compile_HD_SING])
+  \\ Cases_on `?x1 x2 x3. h = If x1 x2 x3` \\ rw [] \\ fs []
   THEN1
-   (fs [LET_THM,evaluate_def,LENGTH_NIL]
-    \\ Cases_on `evaluate (xs,env,s)` \\ fs []
-    \\ IF_CASES_TAC \\ fs []
-    THEN1 (fs [evaluate_def] \\ rveq \\ fs [])
-    \\ reverse IF_CASES_TAC \\ fs []
-    THEN1
-     (Cases_on `q` \\ fs [] \\ rw []
-      \\ res_tac \\ fs []
-      \\ imp_res_tac evaluate_delete_var_Rerr
-      \\ fs [evaluate_def,compile_HD_SING]
-      \\ drule evaluate_delete_var_Rval \\ fs [compile_HD_SING]
-      \\ disch_then drule \\ strip_tac
-      \\ fs [evaluate_def,compile_HD_SING])
-    \\ rveq \\ fs []
-    \\ imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
-    \\ rveq \\ fs []
-    \\ reverse (Cases_on `q`) \\ fs[evaluate_def] \\ rveq
-    THEN1
-     (fs [evaluate_SNOC]
-      \\ Cases_on `evaluate (y,env,s)` \\ fs []
-      \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-      \\ cheat)
-    \\ Cases_on `LENGTH y < LENGTH a + LENGTH env` \\ fs []
-    \\ rveq \\ fs [] \\ res_tac
-    \\ drule evaluate_SNOC_Rval \\ strip_tac \\ fs[compile_HD_SING]
-    \\ fs [compile_APPEND,SNOC_APPEND]
-    \\ qpat_assum `_ = (Rval (a2 ++ [a1]),r)` mp_tac
-    \\ once_rewrite_tac [GSYM compile_HD_SING]
-    \\ rewrite_tac [GSYM SNOC_APPEND] \\ strip_tac
-    \\ drule evaluate_SNOC_Rval \\ rewrite_tac [SNOC_11]
-    \\ fs [] \\ strip_tac \\ fs[compile_HD_SING]
-    \\ full_simp_tac std_ss [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
-    \\ fs [EL_APPEND2]
-    \\ cheat (* induction needs to be done differently *))
+   (fs [evaluate_def] \\ every_case_tac \\ fs []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq \\ fs []
+    \\ first_assum drule \\ qpat_assum `_ = _` mp_tac
+    \\ TRY (first_x_assum drule \\ fs [] \\ rw [])
+    \\ TRY (qpat_assum `!x._` drule)
+    \\ TRY (qpat_assum `!x._` drule)
+    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ fs [compile_def,evaluate_def,compile_HD_SING]
+    \\ rw [] \\ pop_assum drule
+    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs []))
+  \\ Cases_on `?ts dest args handler. h = Call ts dest args handler`
+  \\ fs [] \\ rveq THEN1
+   (Cases_on `handler` \\ fs []
+    \\ qpat_assum `!_ _ _ _ _. bb` mp_tac
+    \\ once_rewrite_tac [IMP_COMM] \\ strip_tac THEN1
+     (`exp2_size args < exp_size (Call ts dest args NONE) + 1` by
+           fs [bviTheory.exp_size_def]
+      \\ first_x_assum drule \\ rpt strip_tac
+      \\ fs [evaluate_def,compile_def]
+      \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+      \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [compile_HD_SING]
+      \\ rw [] \\ first_x_assum match_mp_tac
+      \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def])
+    \\ `exp2_size args < exp_size (Call ts dest args (SOME x)) + 1 /\
+        exp2_size [x] < exp_size (Call ts dest args (SOME x)) + 1` by
+          fs [bviTheory.exp_size_def]
+    \\ first_assum drule \\ pop_assum mp_tac
+    \\ first_x_assum drule \\ rpt strip_tac
+    \\ fs [evaluate_def,compile_def]
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+    \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [compile_HD_SING]
+    \\ rw [] \\ first_x_assum match_mp_tac
+    \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def])
+  \\ Cases_on `?xs op. h = Op op xs` \\ fs [] THEN1
+   (rw [] \\ qpat_assum `!_ _ _ _ _. bb` mp_tac
+    \\ once_rewrite_tac [IMP_COMM] \\ strip_tac
+    \\ fs [bviTheory.exp_size_def]
+    \\ `exp2_size xs < exp2_size xs + (op_size op + 2)` by
+          fs [bviTheory.exp_size_def]
+    \\ first_x_assum drule \\ fs [evaluate_def]
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+    \\ res_tac \\ fs [] \\ fs [evaluate_def,compile_def])
+  \\ reverse (Cases_on `?ys y. h = Let ys y` \\ fs [])
+  THEN1 (Cases_on `h` \\ fs [])
+  \\ fs [] \\ rpt (qpat_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]
+  \\ pop_assum mp_tac \\ once_rewrite_tac [IMP_COMM] \\ strip_tac
+  \\ fs [bviTheory.exp_size_def]
+  \\ fs [compile_def,LENGTH_NIL] \\ IF_CASES_TAC \\ fs []
   THEN1
-   (Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rw [] \\ res_tac \\ fs []
-    \\ every_case_tac \\ fs [])
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [compile_HD_SING]
-  \\ rw [] \\ first_x_assum match_mp_tac
-  \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def]);
+   (rveq \\ fs [evaluate_def] \\ fs [AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac \\ fs [bviTheory.exp_size_def]
+    \\ asm_exists_tac \\ fs [])
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
+    \\ rveq \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]
+    \\ fs [evaluate_SNOC,evaluate_def,bviTheory.exp_size_def]
+    \\ fs [SNOC_APPEND,exp_size_APPEND,bviTheory.exp_size_def]
+    \\ Cases_on `evaluate (y',env1,s1)` \\ fs []
+    \\ `exp2_size y' < LENGTH y' + (exp2_size y' + (exp_size x + 4))` by fs []
+    \\ first_assum drule \\ rpt (disch_then drule) \\ fs []
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ Cases_on `q` \\ fs [compile_HD_SING]
+    \\ fs [AND_IMP_INTRO] \\ first_x_assum match_mp_tac
+    \\ fs [bviTheory.exp_size_def]
+    \\ Cases_on `evaluate ([x],env1,r)` \\ fs []
+    \\ Cases_on `q` \\ fs []
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC,EL_APPEND2,EL,HD]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [env_rel_def] \\ match_mp_tac env_rel_MAP \\ fs [])
+  \\ fs [evaluate_def,compile_HD_SING]
+  \\ `exp2_size ys < exp2_size ys + (exp_size y + 2)` by
+        fs [bviTheory.exp_size_def]
+  \\ first_assum drule
+  \\ Cases_on `evaluate (ys,env1,s1)` \\ fs []
+  \\ reverse (Cases_on `q`) \\ fs [] \\ rveq
+  \\ rpt (disch_then drule) \\ strip_tac
+  THEN1 (drule evaluate_delete_var_Rerr \\ fs [])
+  \\ fs [] \\ drule evaluate_delete_var_Rval
+  \\ rpt (disch_then drule) \\ strip_tac \\ fs [] \\ fs [AND_IMP_INTRO]
+  \\ first_x_assum match_mp_tac \\ fs [bviTheory.exp_size_def]
+  \\ asm_exists_tac \\ fs []);
 
 val compile_thm = save_thm("compile_thm",
   evaluate_env_rel
-  |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`] |> GEN_ALL
-  |> SIMP_RULE std_ss [env_rel_def])
+  |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`,`res`,`s2`,`ys`,`0`] |> GEN_ALL
+  |> SIMP_RULE (srw_ss()) [env_rel_def])
 
 val evaluate_compile_exp = store_thm("evaluate_compile_exp",
   ``evaluate ([d],env,s) = (r,t) /\
     r <> Rerr (Rabort Rtype_error) ==>
     evaluate ([bvi_let$compile_exp d],env,s) = (r,t)``,
   fs [compile_exp_def]
-  \\ `LENGTH (compile [] [d]) = LENGTH [d]` by fs [compile_length]
-  \\ Cases_on `compile [] [d]` \\ fs [LENGTH_NIL] \\ rw []
+  \\ `LENGTH (compile [] 0 [d]) = LENGTH [d]` by fs [compile_length]
+  \\ Cases_on `compile [] 0 [d]` \\ fs [LENGTH_NIL] \\ rw []
   \\ imp_res_tac compile_thm \\ rfs []);
 
 val _ = export_theory();
