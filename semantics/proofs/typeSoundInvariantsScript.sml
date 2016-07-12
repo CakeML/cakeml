@@ -79,8 +79,7 @@ val _ = Define `
  (tenv_ok tenv =  
 (tenv_tabbrev_ok tenv.t /\
   tenv_mod_ok tenv.m /\
-  tenv_ctor_ok tenv.c /\
-  tenv_val_ok tenv.v))`;
+  tenv_ctor_ok tenv.c))`;
 
 
 (*val new_dec_tenv_ok : new_dec_tenv -> bool*)
@@ -128,8 +127,7 @@ val _ = Define `
 (*val consistent_con_env : ctMap -> env_ctor -> tenv_ctor -> bool*)
 val _ = Define `
  (consistent_con_env ctMap env_c tenvC =  
-(tenv_ctor_ok tenvC /\
-  ctMap_ok ctMap /\
+(ctMap_ok ctMap /\
   (! cn n t.    
 (lookup_alist_mod_env cn env_c = SOME (n, t))
     ==>    
@@ -196,10 +194,9 @@ type_v tvs cenv senv (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
 type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 
 /\ (! tvs ctMap senv env tenv n e t1 t2.
-(consistent_con_env ctMap (environment_c env) tenv.c /\
-tenv_mod_ok tenv.m /\
-tenv_tabbrev_ok tenv.t /\
+(tenv_ok tenv /\
 consistent_mod_env senv ctMap (environment_m env) tenv.m /\
+consistent_con_env ctMap (environment_c env) tenv.c /\
 type_env ctMap senv (environment_v env) tenv.v /\
 check_freevars tvs [] t1 /\
 type_e (tenv with<| v := Bind_name n( 0) t1 (bind_tvar tvs tenv.v)|>) e t2)
@@ -207,10 +204,9 @@ type_e (tenv with<| v := Bind_name n( 0) t1 (bind_tvar tvs tenv.v)|>) e t2)
 type_v tvs ctMap senv (Closure env n e) (Tfn t1 t2))
 
 /\ (! tvs ctMap senv env funs n t tenv tenv'.
-(consistent_con_env ctMap (environment_c env) tenv.c /\
-tenv_mod_ok tenv.m /\
-tenv_tabbrev_ok tenv.t /\
+(tenv_ok tenv /\
 consistent_mod_env senv ctMap (environment_m env) tenv.m /\
+consistent_con_env ctMap (environment_c env) tenv.c /\
 type_env ctMap senv (environment_v env) tenv.v /\
 type_funs (tenv with<| v := bind_var_list( 0) tenv' (bind_tvar tvs tenv.v)|>) funs tenv' /\
 (ALOOKUP tenv' n = SOME t) /\
@@ -379,6 +375,14 @@ val _ = Define `
 (decls_to_mods d SUBSET ({NONE} UNION IMAGE SOME d.defined_mods)))`;
 
 
+(*val type_all_env : ctMap -> tenvS -> environment v -> type_environment -> bool*)
+val _ = Define `
+ (type_all_env ctMap tenvS env tenv =  
+(consistent_mod_env tenvS ctMap (environment_m env) tenv.m /\
+  consistent_con_env ctMap (environment_c env) tenv.c /\
+  type_env ctMap tenvS (environment_v env) tenv.v))`;
+
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
@@ -390,12 +394,9 @@ val _ = Define `
     ctMap_has_exns ctMap /\
     ctMap_has_lists ctMap /\
     ctMap_has_bools ctMap /\
-    tenv_tabbrev_ok tenv.t /\
+    tenv_ok tenv /\
     tenv_mod_ok tenvM_no_sig /\
-    tenv_mod_ok tenv.m /\
-    consistent_mod_env tenvS ctMap (environment_m env) tenvM_no_sig /\
-    consistent_con_env ctMap (environment_c env) tenvC_no_sig /\
-    type_env ctMap tenvS (environment_v env) tenv.v /\
+    type_all_env ctMap tenvS env tenv /\
     type_s ctMap tenvS st.refs /\
     weakM tenvM_no_sig tenv.m /\
     weakC tenvC_no_sig tenv.c /\

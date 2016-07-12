@@ -60,8 +60,7 @@ val tenv_ok : type_environment -> bool
 let tenv_ok tenv =
   tenv_tabbrev_ok tenv.t &&
   tenv_mod_ok tenv.m &&
-  tenv_ctor_ok tenv.c &&
-  tenv_val_ok tenv.v
+  tenv_ctor_ok tenv.c
 
 val new_dec_tenv_ok : new_dec_tenv -> bool
 let new_dec_tenv_ok (t,c,v) =
@@ -97,7 +96,6 @@ let decls_to_mods d =
  * that the correct types are used. *)
 val consistent_con_env : ctMap -> env_ctor -> tenv_ctor -> bool
 let consistent_con_env ctMap env_c tenvC =
-  tenv_ctor_ok tenvC &&
   ctMap_ok ctMap &&
   (forall cn n t.
     lookup_alist_mod_env cn env_c = Just (n, t)
@@ -187,10 +185,9 @@ type_v tvs cenv senv (Conv Nothing vs) (Tapp ts TC_tup)
 and
 
 closure : forall tvs ctMap senv env tenv n e t1 t2.
-consistent_con_env ctMap (cof env) tenv.c &&
-tenv_mod_ok tenv.m &&
-tenv_tabbrev_ok tenv.t &&
+tenv_ok tenv &&
 consistent_mod_env senv ctMap (mof env) tenv.m &&
+consistent_con_env ctMap (cof env) tenv.c &&
 type_env ctMap senv (vof env) tenv.v &&
 check_freevars tvs [] t1 &&
 type_e <|tenv with v = Bind_name n 0 t1 (bind_tvar tvs tenv.v)|> e t2
@@ -200,10 +197,9 @@ type_v tvs ctMap senv (Closure env n e) (Tfn t1 t2)
 and
 
 recclosure : forall tvs ctMap senv env funs n t tenv tenv'.
-consistent_con_env ctMap (cof env) tenv.c &&
-tenv_mod_ok tenv.m &&
-tenv_tabbrev_ok tenv.t &&
+tenv_ok tenv &&
 consistent_mod_env senv ctMap (mof env) tenv.m &&
+consistent_con_env ctMap (cof env) tenv.c &&
 type_env ctMap senv (vof env) tenv.v &&
 type_funs <|tenv with v = bind_var_list 0 tenv' (bind_tvar tvs tenv.v)|> funs tenv' &&
 lookup n tenv' = Just t &&
@@ -370,6 +366,12 @@ val decls_ok : decls -> bool
 let decls_ok d =
   decls_to_mods d subset ({Nothing} union Set.map Just d.defined_mods)
 
+val type_all_env : ctMap -> tenvS -> environment v -> type_environment -> bool
+let type_all_env ctMap tenvS env tenv =
+  consistent_mod_env tenvS ctMap (mof env) tenv.m &&
+  consistent_con_env ctMap (cof env) tenv.c &&
+  type_env ctMap tenvS (vof env) tenv.v
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
@@ -380,12 +382,9 @@ let type_sound_invariants r (d,tenv,st,env) =
     ctMap_has_exns ctMap &&
     ctMap_has_lists ctMap &&
     ctMap_has_bools ctMap &&
-    tenv_tabbrev_ok tenv.t &&
+    tenv_ok tenv &&
     tenv_mod_ok tenvM_no_sig &&
-    tenv_mod_ok tenv.m &&
-    consistent_mod_env tenvS ctMap (mof env) tenvM_no_sig &&
-    consistent_con_env ctMap (cof env) tenvC_no_sig &&
-    type_env ctMap tenvS (vof env) tenv.v &&
+    type_all_env ctMap tenvS env tenv &&
     type_s ctMap tenvS st.refs &&
     weakM tenvM_no_sig tenv.m &&
     weakC tenvC_no_sig tenv.c &&

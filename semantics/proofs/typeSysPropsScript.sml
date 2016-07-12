@@ -1883,10 +1883,12 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  >- metis_tac [num_tvs_def, type_e_freevars, bind_tvar_def,
                tenv_val_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]
  >- (
+   fs [tenv_ok_def] >>
    imp_res_tac type_e_freevars >>
    full_simp_tac(srw_ss())[tenv_val_ok_def]  >>
    rev_full_simp_tac(srw_ss())[num_tvs_def])
  >- (
+   fs [tenv_ok_def] >>
    imp_res_tac type_e_freevars >>
    full_simp_tac(srw_ss())[tenv_val_ok_def]  >>
    rev_full_simp_tac(srw_ss())[num_tvs_def])
@@ -2070,6 +2072,7 @@ val type_subst = Q.store_thm ("type_subst",
      srw_tac[][] >>
      match_mp_tac type_e_subst_lem >>
      srw_tac[][tenv_val_ok_def, bind_tvar_def] >>
+     fs [tenv_ok_def] >>
      metis_tac [type_v_freevars, ctMap_ok_lookup, consistent_con_env_def])
  >- (qexists_tac `tenv` >>
      qexists_tac `MAP (λ(x,t). (x,deBruijn_subst 0 targs t)) tenv'` >>
@@ -2080,9 +2083,9 @@ val type_subst = Q.store_thm ("type_subst",
                num_tvs_bind_var_list, db_merge_bind_var_list,
                deBruijn_subst_E_bind_var_list] >>
          disch_then match_mp_tac >>
-         srw_tac[][] >-
-         metis_tac [type_v_freevars] >-
-         metis_tac [consistent_con_env_def] >>
+         srw_tac[][] >>
+         fs [tenv_ok_def] >-
+         metis_tac [type_v_freevars] >>
          match_mp_tac tenv_ok_bind_var_list_funs >>
          metis_tac [tenv_ok_bind_var_list_funs, type_v_freevars, bind_tvar_rewrites])
      >- (qpat_assum `type_funs x y z` (fn x => ALL_TAC) >>
@@ -2385,8 +2388,10 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
   DISJOINT (FDOM (flat_to_ctMap (build_ctor_tenv mn tenv.t tdefs))) (FDOM ctMap) ∧
   tenv_tabbrev_ok tenv.t ∧
   check_ctor_tenv mn tenv.t tdefs ∧
+  tenv_ctor_ok tenv.c ∧
   consistent_con_env ctMap cenv tenv.c
   ⇒
+  tenv_ctor_ok (merge_alist_mod_env ([],build_ctor_tenv mn tenv.t tdefs) tenv.c) ∧
   consistent_con_env (flat_to_ctMap (build_ctor_tenv mn tenv.t tdefs) ⊌ ctMap)
                      (merge_alist_mod_env ([],build_tdefs mn tdefs) cenv)
                      (merge_alist_mod_env ([],build_ctor_tenv mn tenv.t tdefs) tenv.c)`,
@@ -2471,6 +2476,7 @@ val extend_consistent_con_exn = Q.store_thm ("extend_consistent_con_exn",
 
 val consistent_con_env_lookup = Q.store_thm ("consistent_con_env_lookup",
 `!ctMap envC tenvC cn tvs ts tn.
+  tenv_ctor_ok tenv.c ∧
   consistent_con_env ctMap envC tenvC ∧
   lookup_alist_mod_env cn tenvC = SOME (tvs,ts,tn)
   ⇒
@@ -2488,9 +2494,11 @@ val consistent_con_env_lookup = Q.store_thm ("consistent_con_env_lookup",
 val consistent_con_env_to_mod = Q.store_thm ("consistent_con_env_to_mod",
 `!ctMap envC flat_envC tenvC flat_tenvC mn.
   MAP FST flat_envC = MAP FST flat_tenvC ∧
+  tenv_ctor_ok (merge_alist_mod_env ([],flat_tenvC) tenvC) ∧
   consistent_con_env ctMap envC tenvC ∧
   consistent_con_env ctMap (merge_alist_mod_env ([],flat_envC) envC) (merge_alist_mod_env ([],flat_tenvC) tenvC)
   ⇒
+  tenv_ctor_ok (merge_alist_mod_env ([(mn,flat_tenvC)],[]) tenvC) ∧
   consistent_con_env ctMap (merge_alist_mod_env ([(mn,flat_envC)],[]) envC) (merge_alist_mod_env ([(mn,flat_tenvC)],[]) tenvC)`,
  srw_tac[][consistent_con_env_def] >>
  PairCases_on `tenvC` >>
@@ -2533,63 +2541,6 @@ val consistent_con_env_to_mod = Q.store_thm ("consistent_con_env_to_mod",
          full_simp_tac(srw_ss())[lookup_alist_mod_env_def] >>
          srw_tac[][] >>
          full_simp_tac(srw_ss())[ALOOKUP_FAILS])));
-
-(* ---------- type_ctxt, type_ctxts ---------- *)
-
-val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
-`!tvs ctMap tenvS cs t1 t2.
-  type_ctxts tvs ctMap tenvS cs t1 t2 ⇒
-  ctMap_ok ctMap ⇒
-  check_freevars tvs [] t1 ∧ check_freevars tvs [] t2`,
- ho_match_mp_tac type_ctxts_ind >>
- srw_tac[][type_ctxt_cases, check_freevars_def, GSYM FUNION_alist_to_fmap] >>
- srw_tac[][check_freevars_def]
- >- (cases_on `pes` >>
-     full_simp_tac(srw_ss())[RES_FORALL] >>
-     qpat_assum `!x. (x = h) ∨ MEM x t ⇒ P x` (ASSUME_TAC o Q.SPEC `h`) >>
-     full_simp_tac(srw_ss())[] >>
-     PairCases_on `h` >>
-     full_simp_tac(srw_ss())[] >>
-     full_simp_tac(srw_ss())[Once context_invariant_cases] >>
-     metis_tac [type_p_freevars])
- >- (imp_res_tac ctMap_ok_lookup >>
-     full_simp_tac(srw_ss())[] >>
-     match_mp_tac check_freevars_subst_single >>
-     srw_tac[][] >>
-     imp_res_tac consistent_con_env_lookup >>
-     res_tac >>
-     full_simp_tac(srw_ss())[] >>
-     metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
-                arithmeticTheory.GREATER_EQ])
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- (cases_on `pes` >>
-     full_simp_tac(srw_ss())[RES_FORALL] >>
-     qpat_assum `!x. (x = h) ∨ MEM x t ⇒ P x` (ASSUME_TAC o Q.SPEC `h`) >>
-     full_simp_tac(srw_ss())[] >>
-     PairCases_on `h` >>
-     full_simp_tac(srw_ss())[] >>
-     full_simp_tac(srw_ss())[Once context_invariant_cases] >>
-     metis_tac [type_p_freevars])
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- (imp_res_tac ctMap_ok_lookup >>
-     full_simp_tac(srw_ss())[] >>
-     match_mp_tac check_freevars_subst_single >>
-     srw_tac[][] >>
-     imp_res_tac consistent_con_env_lookup >>
-     res_tac >>
-     full_simp_tac(srw_ss())[] >>
-     metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
-                arithmeticTheory.GREATER_EQ])
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]);
 
 (* ---------- type_d ---------- *)
 
