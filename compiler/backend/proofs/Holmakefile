@@ -27,17 +27,8 @@ BARE_THYS = ../../../semantics/terminationTheory\
 						../semantics/bviPropsTheory\
 						../semantics/bvpPropsTheory\
 						../semantics/labPropsTheory\
-						../clos_mtiTheory\
-						../clos_freeTheory\
-						../clos_callTheory\
-						../clos_numberTheory\
-						../clos_annotateTheory\
-						../bvl_jumpTheory\
-						../bvl_constTheory\
-						../bvl_handleTheory\
-						../bvp_liveTheory\
-						../bvp_simpTheory\
-						../reg_alloc/proofs/reg_allocProofTheory
+						../reg_alloc/proofs/reg_allocProofTheory\
+						../backendTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

@@ -4,6 +4,8 @@ open preamble
 
 val _ = new_theory "mod_to_conProof";
 
+val _ = bring_to_front_overload "wf" {Name="wf",Thy="sptree"};
+
 (* invariants *)
 
 val _ = type_abbrev("gtagenv",``:conN # tid_or_exn |-> num # num``)

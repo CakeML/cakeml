@@ -3,6 +3,9 @@ open preamble
      stackSemTheory stackPropsTheory
 local open dep_rewrite in end
 
+val _ = bring_to_front_overload"prog_comp"{Name="prog_comp",Thy="stack_names"};
+val _ = bring_to_front_overload"comp"{Name="comp",Thy="stack_names"};
+
 val _ = new_theory"stack_namesProof";
 
 val rename_state_def = Define `
