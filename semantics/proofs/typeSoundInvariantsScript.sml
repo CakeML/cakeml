@@ -286,17 +286,20 @@ consistent_mod_env tenvS tenvC menv tenvM)
 ==>
 consistent_mod_env tenvS tenvC ((mn,env)::menv) (tenvM |+ (mn, tenv)))`;
 
+ val _ = Define `
+ (type_sv cenv senv (Refv v) (Ref_t t) = (type_v( 0) cenv senv v t))
+/\ (type_sv cenv senv (W8array v) W8array_t = T)
+/\ (type_sv cenv senv (Varray vs) (Varray_t t) =    
+(EVERY (\ v .  type_v( 0) cenv senv v t) vs))
+/\ (type_sv _ _ _ _ = F)`;
+
+
 val _ = Define `
  (type_s cenv senv s =  
 (! l.
     ((? st. FLOOKUP senv l = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
     (! st sv. ((FLOOKUP senv l = SOME st) /\ (store_lookup l s = SOME sv)) ==>
-       (case (sv,st) of
-           (Refv v, Ref_t t) => type_v( 0) cenv senv v t
-         | (W8array es, W8array_t) => T
-         | (Varray vs, Varray_t t) => EVERY (\ v .  type_v( 0) cenv senv v t) vs
-         | _ => F
-       ))))`;
+       type_sv cenv senv sv st)))`;
 
 
 val _ = Hol_reln ` (! n.

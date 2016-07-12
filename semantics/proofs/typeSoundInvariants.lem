@@ -299,16 +299,17 @@ consistent_mod_env tenvS tenvC menv tenvM
 ==>
 consistent_mod_env tenvS tenvC ((mn,env)::menv) (Map.insert mn tenv tenvM)
 
+let rec type_sv cenv senv (Refv v) (Ref_t t) = type_v 0 cenv senv v t
+and type_sv cenv senv (W8array v) W8array_t = true
+and type_sv cenv senv (Varray vs) (Varray_t t) =
+    List.all (fun v -> type_v 0 cenv senv v t) vs
+and type_sv _ _ _ _ = false
+
 let type_s cenv senv s =
   forall l.
     ((exists st. Map.lookup l senv = Just st) = (exists v. store_lookup l s = Just v)) &&
     (forall st sv. ((Map.lookup l senv = Just st) && (store_lookup l s = Just sv)) -->
-       match (sv,st) with
-         | (Refv v, Ref_t t) -> type_v 0 cenv senv v t
-         | (W8array es, W8array_t) -> true
-         | (Varray vs, Varray_t t) -> List.all (fun v -> type_v 0 cenv senv v t) vs
-         | _ -> false
-       end)
+       type_sv cenv senv sv st)
 
 indreln
 [context_invariant : nat -> list ctxt -> nat -> bool]
