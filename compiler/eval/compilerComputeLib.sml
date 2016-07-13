@@ -58,11 +58,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$prompt``
     ]
   (* TODO: move (to basicCompute or HOL) *)
-  ,computeLib.Defs[miscTheory.any_el_def,listTheory.LIST_REL_def]
   ,computeLib.Defs
     [ (* ---- source_to_mod ---- *)
-     miscTheory.tlookup_def (* not sure if this is needed *)
-    ,source_to_modTheory.compile_prog_def
+     source_to_modTheory.compile_prog_def
     ,source_to_modTheory.compile_top_def
     ,source_to_modTheory.compile_decs_def
     ,source_to_modTheory.compile_dec_def

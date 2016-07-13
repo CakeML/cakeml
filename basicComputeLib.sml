@@ -49,11 +49,14 @@ val add_basic_compset =
    , miscTheory.anub_def
    , miscTheory.safeTL_def
    , miscTheory.oHD_def
+   , miscTheory.tlookup_def
+   , miscTheory.any_el_def
+   , miscTheory.LLOOKUP_def
+   , listTheory.LIST_REL_def
      (* should be in HOL *)
    , optionTheory.OPTION_MAP2_DEF
    ,alistTheory.alist_to_fmap_def
    ,alistTheory.ALOOKUP_def
    ]
   ]
-
 end
