@@ -96,7 +96,6 @@ let decls_to_mods d =
  * that the correct types are used. *)
 val consistent_con_env : ctMap -> env_ctor -> tenv_ctor -> bool
 let consistent_con_env ctMap env_c tenvC =
-  ctMap_ok ctMap &&
   (forall cn n t.
     lookup_alist_mod_env cn env_c = Just (n, t)
     -->
@@ -335,6 +334,13 @@ let ctMap_has_bools ctMap =
   (Map.lookup ("false", TypeId (Short "bool")) ctMap = Just ([],[])) &&
   (forall cn. cn <> "true" && cn <> "false" --> Map.lookup (cn, TypeId (Short "bool")) ctMap = Nothing)
 
+val good_ctMap : ctMap -> bool
+let good_ctMap ctMap =
+  ctMap_ok ctMap &&
+  ctMap_has_bools ctMap &&
+  ctMap_has_exns ctMap &&
+  ctMap_has_lists ctMap
+
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
 let  weak_decls_only_mods d1 d2 =
@@ -379,9 +385,7 @@ let type_sound_invariants r (d,tenv,st,env) =
   exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
     consistent_decls (dtof st) decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
-    ctMap_has_exns ctMap &&
-    ctMap_has_lists ctMap &&
-    ctMap_has_bools ctMap &&
+    good_ctMap ctMap &&
     tenv_ok tenv &&
     tenv_mod_ok tenvM_no_sig &&
     type_all_env ctMap tenvS env tenv &&

@@ -2389,9 +2389,11 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
   tenv_tabbrev_ok tenv.t ∧
   check_ctor_tenv mn tenv.t tdefs ∧
   tenv_ctor_ok tenv.c ∧
+  ctMap_ok ctMap ∧
   consistent_con_env ctMap cenv tenv.c
   ⇒
   tenv_ctor_ok (merge_alist_mod_env ([],build_ctor_tenv mn tenv.t tdefs) tenv.c) ∧
+  ctMap_ok (flat_to_ctMap (build_ctor_tenv mn tenv.t tdefs) ⊌ ctMap) ∧
   consistent_con_env (flat_to_ctMap (build_ctor_tenv mn tenv.t tdefs) ⊌ ctMap)
                      (merge_alist_mod_env ([],build_tdefs mn tdefs) cenv)
                      (merge_alist_mod_env ([],build_ctor_tenv mn tenv.t tdefs) tenv.c)`,

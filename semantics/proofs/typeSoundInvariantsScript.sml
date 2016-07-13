@@ -127,8 +127,7 @@ val _ = Define `
 (*val consistent_con_env : ctMap -> env_ctor -> tenv_ctor -> bool*)
 val _ = Define `
  (consistent_con_env ctMap env_c tenvC =  
-(ctMap_ok ctMap /\
-  (! cn n t.    
+((! cn n t.    
 (lookup_alist_mod_env cn env_c = SOME (n, t))
     ==>    
 (? tvs ts.      
@@ -336,6 +335,15 @@ val _ = Define `
   (! cn. (~ (cn = "true") /\ ~ (cn = "false")) ==> (FLOOKUP ctMap (cn, TypeId (Short "bool")) = NONE))))`;
 
 
+(*val good_ctMap : ctMap -> bool*)
+val _ = Define `
+ (good_ctMap ctMap =  
+(ctMap_ok ctMap /\
+  ctMap_has_bools ctMap /\
+  ctMap_has_exns ctMap /\
+  ctMap_has_lists ctMap))`;
+
+
 (* The types and exceptions that are missing are all declared in modules. *)
 (*val weak_decls_only_mods : decls -> decls -> bool*)
 val _ = Define `
@@ -391,9 +399,7 @@ val _ = Define `
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
     consistent_decls (state_defined_types st) decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
-    ctMap_has_exns ctMap /\
-    ctMap_has_lists ctMap /\
-    ctMap_has_bools ctMap /\
+    good_ctMap ctMap /\
     tenv_ok tenv /\
     tenv_mod_ok tenvM_no_sig /\
     type_all_env ctMap tenvS env tenv /\

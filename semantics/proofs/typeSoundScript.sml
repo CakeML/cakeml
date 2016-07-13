@@ -597,10 +597,7 @@ val store_lookup_type_sound = Q.store_thm ("store_lookup_type_sound",
 
 val op_type_sound = Q.store_thm ("op_type_sound",
 `!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
- ctMap_ok ctMap ∧
- ctMap_has_exns ctMap ∧
- ctMap_has_lists ctMap ∧
- ctMap_has_bools ctMap ∧
+ good_ctMap ctMap ∧
  op ≠ Opapp ∧
  type_s ctMap tenvS store ∧
  type_op op ts t ∧
@@ -614,7 +611,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    | Rval v => type_v 0 ctMap tenvS' v t
    | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
    | Rerr (Rabort _) => F`,
- rw [type_op_cases]
+ rw [type_op_cases, good_ctMap_def]
  >> fs []
  >> rw []
  >> TRY (Cases_on `wz`)
@@ -1073,10 +1070,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
  `(!(s:'ffi state) env es r s' tenv ts tvs tenvS.
     evaluate s env es = (s', r) ∧
     tenv_ok tenv ∧
-    ctMap_ok ctMap ∧
-    ctMap_has_exns ctMap ∧
-    ctMap_has_lists ctMap ∧
-    ctMap_has_bools ctMap ∧
+    good_ctMap ctMap ∧
     type_all_env ctMap tenvS env tenv ∧
     type_s ctMap tenvS s.refs ∧
     (tvs ≠ 0 ⇒ EVERY is_value es) ∧
@@ -1093,10 +1087,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
  (!(s:'ffi state) env v pes err_v r s' tenv t1 t2 tvs tenvS.
     evaluate_match s env v pes err_v = (s', r) ∧
     tenv_ok tenv ∧
-    ctMap_ok ctMap ∧
-    ctMap_has_exns ctMap ∧
-    ctMap_has_lists ctMap ∧
-    ctMap_has_bools ctMap ∧
+    good_ctMap ctMap ∧
     type_all_env ctMap tenvS env tenv ∧
     type_s ctMap tenvS s.refs ∧
     type_v tvs ctMap tenvS v t1 ∧
@@ -1113,7 +1104,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
          | Rerr (Rabort Rtype_error) => F)`,
  ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, type_vs_list_rel, type_all_env_def,
-          GSYM CONJ_ASSOC]
+          GSYM CONJ_ASSOC, good_ctMap_def]
  >> rw []
  >- metis_tac [store_type_extension_refl]
  >- (
@@ -1331,6 +1322,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> metis_tac [store_type_extension_trans])
      >- (
        fs [bind_tvar_def, v_unchanged]
+       >> `good_ctMap ctMap` by simp [good_ctMap_def]
        >> drule op_type_sound
        >> rpt (disch_then drule)
        >> disch_then (qspec_then `s1.ffi` mp_tac)
