@@ -1,4 +1,4 @@
-open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
+open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory word_simpTheory
 local open word_instTheory in (* word-to-word transformations *) end
 
 val _ = new_theory "word_to_word";
@@ -22,6 +22,7 @@ val _ = Datatype`config =
 
 val compile_single_def = Define`
   compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
+  let prog = word_simp$compile_exp prog in
   let maxv = max_var prog + 1 in
   let inst_prog = inst_select c maxv prog in
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in

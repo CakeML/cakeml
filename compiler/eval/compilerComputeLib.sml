@@ -370,6 +370,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_to_wordTheory.full_compile_single_def
     ,word_to_wordTheory.next_n_oracle_def
     ,word_to_wordTheory.compile_def
+      (* ---- wordLang word_simp ---- *)
+    ,word_simpTheory.compile_exp_def
       (* ---- wordLang remove must terminate ---- *)
     ,word_removeTheory.remove_must_terminate_def
       (* ---- wordLang inst_select and inst flattening ---- *)

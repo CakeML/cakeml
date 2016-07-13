@@ -1,5 +1,6 @@
-open preamble BasicProvers word_to_wordTheory wordSemTheory
-     wordPropsTheory word_allocProofTheory word_instProofTheory word_removeProofTheory;
+open preamble BasicProvers word_to_wordTheory wordSemTheory word_simpProofTheory
+     wordPropsTheory word_allocProofTheory word_instProofTheory
+     word_removeProofTheory;
 
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
@@ -48,13 +49,14 @@ val compile_single_lem = store_thm("compile_single_lem",``
   qexists_tac`perm''`>>
   Cases_on`evaluate(prog,st with permute:=perm'')`>>
   Cases_on`q=SOME Error`>>full_simp_tac(srw_ss())[]>>
-  Q.ISPECL_THEN [`c`,`max_var prog +1`,`prog`,`st with permute:=perm''`,`q`,`r`,`st.locals`] mp_tac inst_select_thm>>
-  (impl_tac>-
-    (simp[locals_rel_def]>>
-    Q.SPEC_THEN `prog` assume_tac max_var_max>>
+  Q.ISPECL_THEN [`c`,`max_var (word_simp$compile_exp prog) +1`,`word_simp$compile_exp prog`,`st with permute:=perm''`,`q`,`r`,`st.locals`] mp_tac inst_select_thm>>
+  (impl_tac >-
+    (drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
+    simp[locals_rel_def]>>
+    Q.SPEC_THEN `word_simp$compile_exp prog` assume_tac max_var_max>>
     match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
-    DECIDE_TAC)>>
+    DECIDE_TAC) >>
   srw_tac[][])>>
   `st with <|locals:=st.locals;permute:=perm''|> = st with permute:=perm''` by full_simp_tac(srw_ss())[state_component_equality]>>
   full_simp_tac(srw_ss())[]

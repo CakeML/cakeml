@@ -262,6 +262,7 @@ val to_livesets_def = Define`
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
+    let prog = word_simp$compile_exp prog in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
