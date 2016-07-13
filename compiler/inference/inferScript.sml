@@ -245,7 +245,7 @@ val infer_p_def = tDefine "infer_p" `
   od) ∧
 (infer_p type_env (Ptannot p t) =
  do (t',tenv) <- infer_p type_env p;
-    () <- guard (check_freevars 0 [] t) "Free variable in type annotation"; 
+    () <- guard (check_freevars 0 [] t ∧ check_type_names type_env.inf_t t) "Bad type annotation";
     () <- add_constraint t' (infer_type_subst [] (type_name_subst type_env.inf_t t));
     return (t', tenv)
  od) ∧
@@ -523,7 +523,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e ienv (Tannot e t) =
   do t' <- infer_e ienv e;
-     () <- guard (check_freevars 0 [] t) "Free variable in type annotation";
+     () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) "Bad type annotation";
      () <- add_constraint t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
      return t'
    od) ∧

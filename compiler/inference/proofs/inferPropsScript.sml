@@ -1248,11 +1248,23 @@ rw [check_freevars_def, check_t_def, infer_type_subst_def] >|
      fs[ADD1],
  metis_tac [EVERY_MAP]]);
 
+(* moved this one arround a bit *)
+val infer_type_subst_empty_check = store_thm("infer_type_subst_empty_check",``
+(∀t.
+  check_freevars 0 [] t ⇒
+  check_t 0 {} (infer_type_subst [] t)) ∧
+∀ts.
+EVERY (check_freevars 0 []) ts ⇒
+EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)``,
+                                             Induct>>fs[check_freevars_def,infer_type_subst_def,check_t_def]>>
+                                                   metis_tac[])
+
 val infer_p_check_s = Q.store_thm ("infer_p_check_s",
 `(!type_env p st t env st' tvs.
     (infer_p type_env p st = (Success (t,env), st')) ∧
     t_wfs st.subst ∧
     check_cenv type_env.inf_c ∧
+    tenv_tabbrev_ok type_env.inf_t ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst) ∧
@@ -1260,6 +1272,7 @@ val infer_p_check_s = Q.store_thm ("infer_p_check_s",
     (infer_ps type_env ps st = (Success (ts,env), st')) ∧
     t_wfs st.subst ∧
     check_cenv type_env.inf_c ∧
+    tenv_tabbrev_ok type_env.inf_t ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst)`,
@@ -1291,7 +1304,16 @@ rw []
     metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
 >- (PairCases_on `v'` >>
     metis_tac [check_s_more2, infer_p_next_uvar_mono])
->- cheat
+>- (irule t_unify_check_s >>
+    qexists_tac `st''.subst` >>
+    qexists_tac `t'` >>
+    qexists_tac `(infer_type_subst [] (type_name_subst type_env'.inf_t t))` >>
+    rw []
+    >- metis_tac [infer_p_wfs]
+    >- metis_tac [t_unify_check_s]
+    >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM]
+    >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
+                  check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM, check_t_more])
 >- (PairCases_on `v'` >>
     PairCases_on `v''` >>
     metis_tac [infer_p_wfs, check_s_more2, infer_p_next_uvar_mono]));
@@ -1786,7 +1808,17 @@ srw_tac[] []
             (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ ienv.inf_v)`
                   by metis_tac [check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
     metis_tac [])
->- cheat
+>- (irule t_unify_check_s >>
+    qexists_tac `st''.subst` >>
+    qexists_tac `t'` >>
+    qexists_tac `(infer_type_subst [] (type_name_subst ienv.inf_t t))` >>
+    rw []
+    >- metis_tac [infer_e_wfs]
+    >- metis_tac [t_unify_check_s]
+    >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_e_check_t, ADD_COMM]
+    >- cheat)
+    (* >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst, *)
+    (*               check_t_more2, arithmeticTheory.ADD_0, infer_e_check_t, ADD_COMM, check_t_more]) *)
 >- metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_e_wfs]
 >- (PairCases_on `v'` >>
     `t_wfs st''.subst ∧
@@ -2451,16 +2483,6 @@ val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
       ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
   Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
   simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
-
-val infer_type_subst_empty_check = store_thm("infer_type_subst_empty_check",``
-  (∀t.
-  check_freevars 0 [] t ⇒
-  check_t 0 {} (infer_type_subst [] t)) ∧
-  ∀ts.
-  EVERY (check_freevars 0 []) ts ⇒
-  EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)``,
-  Induct>>fs[check_freevars_def,infer_type_subst_def,check_t_def]>>
-  metis_tac[])
 
 val check_t_infer_type_subst_dbs = store_thm("check_t_infer_type_subst_dbs",
   ``∀m w t n u ls.
