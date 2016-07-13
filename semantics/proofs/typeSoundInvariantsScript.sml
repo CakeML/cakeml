@@ -182,13 +182,13 @@ type_v tvs cenv senv (Litv (Word64 w)) Tword64)
 /\ (! tvs cenv senv cn vs tvs' tn ts' ts.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
-type_vs tvs cenv senv vs (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts) /\
+EVERY2 (type_v tvs cenv senv) vs (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts) /\
 (FLOOKUP cenv (cn, tn) = SOME (tvs',ts)))
 ==>
 type_v tvs cenv senv (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs cenv senv vs ts.
-(type_vs tvs cenv senv vs ts)
+(EVERY2 (type_v tvs cenv senv) vs ts)
 ==>
 type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 
@@ -236,17 +236,6 @@ type_v tvs cenv senv (Loc n) (Tapp [t] TC_array))
 EVERY (\ v .  type_v tvs cenv senv v t) vs)
 ==>
 type_v tvs cenv senv (Vectorv vs) (Tapp [t] TC_vector))
-
-/\ (! tvs cenv senv.
-T
-==>
-type_vs tvs cenv senv [] [])
-
-/\ (! tvs cenv senv v vs t ts.
-(type_v tvs cenv senv v t /\
-type_vs tvs cenv senv vs ts)
-==>
-type_vs tvs cenv senv (v::vs) (t::ts))
 
 /\ (! cenv senv.
 T

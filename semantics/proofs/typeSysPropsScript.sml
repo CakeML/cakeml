@@ -18,8 +18,8 @@ val check_dup_ctors_cons = evalPropsTheory.check_dup_ctors_cons;
 val merge_alist_mod_env_def = semanticPrimitivesTheory.merge_alist_mod_env_def;
 val lookup_alist_mod_env_def = semanticPrimitivesTheory.lookup_alist_mod_env_def;
 
-val type_env_cases = List.nth (CONJUNCTS type_v_cases, 2);
-val consistent_mod_cases = List.nth (CONJUNCTS type_v_cases, 3);
+val type_env_cases = List.nth (CONJUNCTS type_v_cases, 1);
+val consistent_mod_cases = List.nth (CONJUNCTS type_v_cases, 2);
 
 (* miscellany TODO: reorganise *)
 
@@ -30,7 +30,7 @@ val type_env_list_rel = store_thm("type_env_list_rel",
   srw_tac[][] >>
   cases_on `tenv` >>
   srw_tac[][bind_var_list2_def] >>
-  ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS type_v_cases)))] >>
+  ONCE_REWRITE_TAC [hd (tl (CONJUNCTS type_v_cases))] >>
   srw_tac[][bind_var_list2_def] >>
   PairCases_on `h` >>
   full_simp_tac(srw_ss())[bind_var_list2_def] >>
@@ -1859,17 +1859,9 @@ val consistent_decls_add_mod = Q.store_thm ("consistent_decls_add_mod",
 
 (* ---------- type_v, type_vs, type_env, consistent_mod_env ---------- *)
 
-val type_vs_list_rel = Q.store_thm ("type_vs_list_rel",
-`!vs ts tvs tenvC tenvS. type_vs tvs tenvC tenvS vs ts = LIST_REL (type_v tvs tenvC tenvS) vs ts`,
- induct_on `vs` >>
- srw_tac[][] >>
- srw_tac[][Once type_v_cases]);
-
 val type_v_freevars = Q.store_thm ("type_v_freevars",
 `(!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒
    check_freevars tvs [] t) ∧
- (!tvs tenvC tenvS vs ts. type_vs tvs tenvC tenvS vs ts ⇒
-   EVERY (check_freevars tvs []) ts) ∧
  (!tenvC tenvS env tenv. type_env tenvC tenvS env tenv ⇒
    tenv_val_ok tenv ∧ (num_tvs tenv = 0)) ∧
  (!tenvS tenvC envM tenvM. consistent_mod_env tenvS tenvC envM tenvM ⇒
@@ -1880,8 +1872,12 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  >- rw[Tword64_def,Tword_def,check_freevars_def]
  >- metis_tac [] >>
  res_tac
- >- metis_tac [num_tvs_def, type_e_freevars, bind_tvar_def,
-               tenv_val_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]
+ >- (
+   fs [EVERY2_EVERY, EVERY_MEM]
+   >> rfs [MEM_ZIP]
+   >> rw [MEM_EL]
+   >> first_x_assum (qspec_then `(EL n vs, EL n ts)` mp_tac)
+   >> simp [PULL_EXISTS])
  >- (
    fs [tenv_ok_def] >>
    imp_res_tac type_e_freevars >>
@@ -1907,53 +1903,6 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
                arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
-
-val type_vs_length = Q.store_thm ("type_vs_length",
-`∀tvs tenvC tenvS vs ts.
-  type_vs tvs tenvC tenvS vs ts ⇒ (LENGTH vs = LENGTH ts)`,
-induct_on `vs` >>
-srw_tac[][Once type_v_cases] >>
-srw_tac[][] >>
-metis_tac []);
-
-(* Typing lists of values from the end *)
-val type_vs_end = Q.store_thm ("type_vs_end",
-`∀tvs tenvC vs ts v t tenvS.
-  type_vs tvs tenvC tenvS (vs++[v]) (ts++[t]) =
-  (type_v tvs tenvC tenvS v t ∧
-   type_vs tvs tenvC tenvS vs ts)`,
-induct_on `vs` >>
-srw_tac[][] >>
-cases_on `ts` >>
-full_simp_tac(srw_ss())[] >>
-EQ_TAC >>
-srw_tac[][] >|
-[pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
-     full_simp_tac(srw_ss())[],
- pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
-     full_simp_tac(srw_ss())[],
- metis_tac [type_v_rules],
- imp_res_tac type_vs_length >>
-     full_simp_tac(srw_ss())[],
- imp_res_tac type_vs_length >>
-     full_simp_tac(srw_ss())[],
- imp_res_tac type_vs_length >>
-     full_simp_tac(srw_ss())[],
- imp_res_tac type_vs_length >>
-     full_simp_tac(srw_ss())[],
- imp_res_tac type_vs_length >>
-     full_simp_tac(srw_ss())[],
- imp_res_tac type_vs_length >>
-     full_simp_tac(srw_ss())[],
- pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
-     full_simp_tac(srw_ss())[] >>
-     metis_tac [],
- pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
-     full_simp_tac(srw_ss())[] >>
-     metis_tac [type_v_rules],
- srw_tac[][Once type_v_cases] >>
-     pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
-     full_simp_tac(srw_ss())[]]);
 
 (* Everything in the type environment is also in the execution environment *)
 val type_lookup_lem = Q.prove (
@@ -2026,55 +1975,60 @@ val type_subst = Q.store_thm ("type_subst",
       ⇒
       type_v tvs' ctMap tenvS v
              (deBruijn_subst 0 targs (deBruijn_inc (LENGTH targs) tvs' t))) ∧
- (!tvs ctMap tenvS vs ts. type_vs tvs ctMap tenvS vs ts ⇒
-   ∀targs tvs'.
-     (tvs = LENGTH targs) ∧
-     ctMap_ok ctMap ∧
-     EVERY (check_freevars tvs' []) targs ∧
-     EVERY (check_freevars (LENGTH targs) []) ts
-     ⇒
-     type_vs tvs' ctMap tenvS vs
-             (MAP (deBruijn_subst 0 targs) (MAP (deBruijn_inc (LENGTH targs) tvs') ts))) ∧
  (!ctMap tenvS env tenv. type_env ctMap tenvS env tenv ⇒
     type_env ctMap tenvS env tenv) ∧
  (!ctMap tenvS envM tenvM. consistent_mod_env ctMap tenvS envM tenvM ⇒
     consistent_mod_env ctMap tenvS envM tenvM)`,
- ho_match_mp_tac type_v_strongind >>
- srw_tac[][] >>
- srw_tac[][Once type_v_cases] >>
- pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
- srw_tac[][deBruijn_inc_def, deBruijn_subst_def] >>
- srw_tac[][deBruijn_inc_def, deBruijn_subst_def] >>
- full_simp_tac(srw_ss())[check_freevars_def, Tchar_def] >>
- srw_tac[][deBruijn_inc_def, deBruijn_subst_def] >>
- srw_tac[][nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
-     nil_deBruijn_subst]
- >- rw[Tword_def,deBruijn_subst_def]
- >- rw[Tword_def,Tword64_def,deBruijn_subst_def]
- >- (srw_tac[][EVERY_MAP] >>
-     full_simp_tac(srw_ss())[EVERY_MEM] >>
-     srw_tac[][] >>
-     metis_tac [type_subst_lem1, EVERY_MEM])
- >- (`EVERY (check_freevars 0 tvs') ts` by metis_tac [ctMap_ok_lookup, EVERY_MEM] >>
-     `EVERY (check_freevars (LENGTH targs) tvs') ts`
-           by (`LENGTH targs ≥ 0` by decide_tac >>
-               metis_tac [EVERY_MEM, check_freevars_add]) >>
-     full_simp_tac(srw_ss())[GSYM FUNION_alist_to_fmap] >>
-     `type_vs tvs'' ctMap tenvS vs
-              (MAP (deBruijn_subst 0 targs)
-                 (MAP (deBruijn_inc (LENGTH targs) tvs'')
-                    (MAP (type_subst (alist_to_fmap (ZIP (tvs',ts')))) ts)))`
-            by metis_tac [check_freevars_subst_list] >>
-     pop_assum mp_tac >>
-     srw_tac[][type_subst_deBruijn_subst_list, type_subst_deBruijn_inc_list])
- >- metis_tac []
+ ho_match_mp_tac type_v_strongind
+ >> rw []
+ >> simp [Once type_v_cases, deBruijn_inc_def, deBruijn_subst_def, Tchar_def,
+          Tword_def, Tword64_def]
+ >> fs [check_freevars_def]
+ >- (
+   conj_tac
+   >- (
+     simp [EVERY_MAP]
+     >> fs [EVERY_MEM]
+     >> rw []
+     >> metis_tac [type_subst_lem1, EVERY_MEM])
+   >> fs [EVERY2_EVERY, EVERY_MAP]
+   >> simp [GSYM FUNION_alist_to_fmap]
+   >> `EVERY (check_freevars 0 tvs') ts` by metis_tac [ctMap_ok_lookup, EVERY_MEM]
+   >> `EVERY (check_freevars (LENGTH targs) tvs') ts`
+     by (`LENGTH targs ≥ 0` by decide_tac >> metis_tac [EVERY_MEM, check_freevars_add])
+   >> simp [GSYM type_subst_deBruijn_subst_list]
+   >> simp [GSYM type_subst_deBruijn_inc_list]
+   >> rfs [ZIP_MAP, EVERY_MAP, GSYM FUNION_alist_to_fmap]
+   >> fs [EVERY_MEM]
+   >> rw []
+   >> last_x_assum drule
+   >> rw []
+   >> pop_assum (qspecl_then [`targs`,`tvs''`] mp_tac)
+   >> simp []
+   >> disch_then irule
+   >> irule check_freevars_subst_single
+   >> simp [EVERY_MEM]
+   >> first_x_assum irule
+   >> rfs [MEM_ZIP, EL_MEM])
+ >- (
+   fs [EVERY2_EVERY, EVERY_MAP]
+   >> simp [ZIP_MAP, EVERY_MAP]
+   >> fs [EVERY_MEM]
+   >> rw []
+   >> last_x_assum drule
+   >> pairarg_tac
+   >> rw []
+   >> pop_assum irule
+   >> simp []
+   >> rfs [MEM_ZIP, EL_MEM])
  >- (qexists_tac `tenv` >>
-     srw_tac[][] >>
+     simp [nil_deBruijn_inc, type_subst_lem3] >>
      match_mp_tac type_e_subst_lem >>
      srw_tac[][tenv_val_ok_def, bind_tvar_def] >>
      fs [tenv_ok_def] >>
      metis_tac [type_v_freevars, ctMap_ok_lookup, consistent_con_env_def])
  >- (qexists_tac `tenv` >>
+     simp [nil_deBruijn_inc, type_subst_lem3] >>
      qexists_tac `MAP (λ(x,t). (x,deBruijn_subst 0 targs t)) tenv'` >>
      srw_tac[][]
      >- (first_assum (assume_tac o MATCH_MP (GEN_ALL (hd (tl (tl (CONJUNCTS type_e_subst)))))) >>
@@ -2096,18 +2050,12 @@ val type_subst = Q.store_thm ("type_subst",
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
          metis_tac []))
- >- (full_simp_tac(srw_ss())[EVERY_MEM] >>
-     srw_tac[][] >>
-     res_tac >>
-     full_simp_tac(srw_ss())[] >>
-     imp_res_tac nil_deBruijn_inc >>
-     full_simp_tac(srw_ss())[] >>
-     imp_res_tac nil_deBruijn_subst >>
-     full_simp_tac(srw_ss())[])
- >- (full_simp_tac(srw_ss())[] >>
-     metis_tac [type_v_rules])
- >- (full_simp_tac(srw_ss())[] >>
-     metis_tac [type_v_rules]));
+ >- simp [nil_deBruijn_subst, nil_deBruijn_inc]
+ >- simp [nil_deBruijn_subst, nil_deBruijn_inc]
+ >- (
+   fs [EVERY_MEM]
+   >> simp [nil_deBruijn_subst, nil_deBruijn_inc])
+ >- metis_tac [type_v_rules]);
 
 (* They value of a binding in the execution environment has the type given by
  * the type environment. *)

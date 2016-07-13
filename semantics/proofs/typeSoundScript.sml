@@ -38,7 +38,6 @@ val v_unchanged = Q.prove (
  srw_tac[][type_environment_component_equality]);
 
 val type_v_cases_eqn = SIMP_RULE (srw_ss()) [] (List.nth (CONJUNCTS type_v_cases, 0));
-val type_vs_cases_eqn = SIMP_RULE (srw_ss()) [] (List.nth (CONJUNCTS type_v_cases, 1));
 
 val type_env_eqn = Q.prove (
 `!ctMap tenvS.
@@ -92,17 +91,20 @@ val has_lists_v_to_list = Q.prove (
  srw_tac[][] >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- ntac 3 (full_simp_tac(srw_ss())[Once type_vs_cases_eqn]) >>
+ fs [EVERY2_THM] >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][v_to_list_def,v_to_char_list_def] >>
  full_simp_tac(srw_ss())[type_subst_def] >>
- LAST_X_ASSUM (mp_tac o Q.SPEC `v'`) >>
+ rename1 `type_v _ _ _ v _` >>
+ LAST_X_ASSUM (mp_tac o Q.SPEC `v`) >>
  srw_tac[][v_size_def, basicSizeTheory.option_size_def, basicSizeTheory.pair_size_def,
      id_size_def, list_size_def, tid_or_exn_size_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
  res_tac >> srw_tac[][] >>
  full_simp_tac(srw_ss())[flookup_fupdate_list] >> srw_tac[][] >> full_simp_tac(srw_ss())[GSYM Tchar_def] >>
- qpat_assum`type_v X Y Z v Tchar`mp_tac >>
+ simp [GSYM PULL_EXISTS] >>
+ rw [] >>
+ qpat_assum`type_v _ _ _ v Tchar`mp_tac >>
  simp[Once type_v_cases,Tchar_def] >>
  srw_tac[][] >> srw_tac[][v_to_char_list_def] >>
  TRY (
@@ -131,7 +133,7 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
   (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_vector) ⇒ (?vs. v = Vectorv vs)) ∧
   (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_array) ⇒ (∃n. v = Loc n))`,
  srw_tac[][] >>
- full_simp_tac(srw_ss())[Once type_v_cases, deBruijn_subst_def, type_vs_list_rel] >>
+ full_simp_tac(srw_ss())[Once type_v_cases, deBruijn_subst_def] >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  TRY (Cases_on `tn`) >>
@@ -142,7 +144,6 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >- (
    full_simp_tac(srw_ss())[ctMap_has_bools_def,Boolv_def] >>
-   imp_res_tac type_vs_length >>
    Cases_on`cn = "true"`>>full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[LENGTH_NIL] >>
    rw [] >> fs [] >- metis_tac[] >>
    Cases_on`cn = "false"`>>full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[LENGTH_NIL] >>
@@ -154,7 +155,7 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
  fsrw_tac[][GSYM PULL_EXISTS] >>
  fsrw_tac[boolSimps.DNF_ss][] >>
  first_x_assum match_mp_tac >>
- srw_tac[][Once type_v_cases_eqn, tid_exn_to_tc_def, type_vs_list_rel] >>
+ srw_tac[][Once type_v_cases_eqn, tid_exn_to_tc_def] >>
  metis_tac [Tchar_def]);
 
 val eq_same_type = Q.prove (
@@ -164,8 +165,8 @@ val eq_same_type = Q.prove (
   ⇒
   do_eq v1 v2 ≠ Eq_type_error) ∧
 (!vs1 vs2 tvs ctMap cns tenvS ts.
-  type_vs tvs ctMap tenvS vs1 ts ∧
-  type_vs tvs ctMap tenvS vs2 ts
+  LIST_REL (type_v tvs ctMap tenvS) vs1 ts ∧
+  LIST_REL (type_v tvs ctMap tenvS) vs2 ts
   ⇒
   do_eq_list vs1 vs2 ≠ Eq_type_error)`,
  ho_match_mp_tac do_eq_ind >>
@@ -176,38 +177,35 @@ val eq_same_type = Q.prove (
  full_simp_tac(srw_ss())[Tchar_def] >>
  srw_tac[][] >>
  imp_res_tac type_funs_Tfn >>
- full_simp_tac(srw_ss())[lit_same_type_def,ctor_same_type_def]
+ full_simp_tac(srw_ss())[lit_same_type_def,ctor_same_type_def] >>
+ full_simp_tac(srw_ss())[EVERY2_THM] >>
+ full_simp_tac(srw_ss())[tid_exn_not] >>
+ srw_tac[][]
+ >> TRY ( full_simp_tac(srw_ss())[tid_exn_to_tc_11,same_tid_sym] >> NO_TAC)
  >- (full_simp_tac(srw_ss())[Once type_v_cases_eqn] >>
      full_simp_tac(srw_ss())[Once type_v_cases_eqn] >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[] >>
      metis_tac [])
- >> TRY ( full_simp_tac(srw_ss())[tid_exn_to_tc_11,same_tid_sym] >> NO_TAC)
- >> TRY (rpt (qpat_assum `type_v x0 x1 x2 x3 x4` mp_tac) >>
+ >- (rpt (qpat_assum `type_v x0 x1 x2 x3 x4` mp_tac) >>
      ONCE_REWRITE_TAC [type_v_cases] >>
      srw_tac[][] >>
      ONCE_REWRITE_TAC [type_v_cases] >>
      srw_tac[][] >>
      CCONTR_TAC >>
-     full_simp_tac(srw_ss())[combinTheory.o_DEF, type_vs_list_rel, EVERY_LIST_REL] >>
+     full_simp_tac(srw_ss())[combinTheory.o_DEF, EVERY_LIST_REL] >>
      `(\x y. type_v tvs ctMap tenvS x y) = type_v tvs ctMap tenvS` by metis_tac [] >>
      full_simp_tac(srw_ss())[] >>
-     metis_tac []) >>
- full_simp_tac(srw_ss())[Once type_vs_cases_eqn] >>
- full_simp_tac(srw_ss())[tid_exn_not] >>
- srw_tac[][]
+     metis_tac [])
  >- (cases_on `do_eq v1 v2` >>
      full_simp_tac(srw_ss())[]
      >- (cases_on `b` >>
          full_simp_tac(srw_ss())[] >>
-         qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `ctMap`, `tenvS`, `ts'`]) >>
+         qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `ctMap`, `tenvS`, `ys`]) >>
          srw_tac[][METIS_PROVE [] ``(a ∨ b) = (~a ⇒ b)``] >>
          cases_on `vs1` >>
-         full_simp_tac(srw_ss())[] >-
-         full_simp_tac(srw_ss())[Once type_vs_cases_eqn] >>
-         cases_on `ts'` >>
-         full_simp_tac(srw_ss())[] >>
-         full_simp_tac(srw_ss())[Once type_vs_cases_eqn])
+         rw [] >>
+         full_simp_tac(srw_ss())[])
      >- metis_tac []));
 
 val consistent_con_env_thm = Q.prove (
@@ -385,7 +383,6 @@ val v_to_list_type = Q.prove (
  srw_tac[][] >>
  qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
  srw_tac[][] >>
- ntac 4 (full_simp_tac(srw_ss())[Once type_vs_cases_eqn]) >>
  srw_tac[][Once type_v_cases_eqn] >>
  res_tac >>
  full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
@@ -409,8 +406,7 @@ val char_list_to_v_type = Q.prove (
     conj_tac >- (
       simp[Once type_v_cases] >>
       simp[type_subst_def,flookup_fupdate_list,Tchar_def] ) >>
-    simp[Once type_v_cases,GSYM Tchar_def,type_subst_def,flookup_fupdate_list] >>
-    simp[Once type_v_cases])
+    fs [type_subst_def, flookup_fupdate_list, Tchar_def]);
 
 val v_to_char_list_type = Q.prove (
 `!v vs.
@@ -427,7 +423,6 @@ val v_to_char_list_type = Q.prove (
  srw_tac[][] >>
  qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
  srw_tac[][] >>
- ntac 4 (full_simp_tac(srw_ss())[Once type_vs_cases_eqn]) >>
  srw_tac[][Once type_v_cases_eqn]);
 
 val type_v_Boolv = Q.prove(
@@ -644,7 +639,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
  >- ( (* Equality *)
    metis_tac [type_v_Boolv, store_type_extension_refl, eq_result_nchotomy, eq_same_type])
  >- ( (* ref update *)
-   simp [Once type_v_cases, type_vs_list_rel]
+   simp [Once type_v_cases]
    >> qpat_assum `type_v _ _ _ (Loc _) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
@@ -740,7 +735,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> drule store_assign_type_sound
    >> rpt (disch_then drule)
    >> rw []
-   >> simp [Once type_v_cases, type_vs_list_rel]
+   >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
  >- ( (* Int to Word8 *)
    simp [Once type_v_cases]
@@ -876,7 +871,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> drule store_assign_type_sound
    >> rpt (disch_then drule)
    >> rw []
-   >> simp [Once type_v_cases, type_vs_list_rel]
+   >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
  >- ( (* FFI call *)
    qpat_assum `type_v _ _ _ (Loc _) _` mp_tac
@@ -893,7 +888,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> drule store_assign_type_sound
    >> rpt (disch_then drule)
    >> rw []
-   >> simp [Once type_v_cases, type_vs_list_rel]
+   >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl]));
 
 val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
@@ -922,7 +917,7 @@ val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
  >> res_tac
  >> fs []
  >> rw []
- >> simp [Once type_v_cases, type_vs_list_rel, GSYM EVERY2_REVERSE1]
+ >> simp [Once type_v_cases, GSYM EVERY2_REVERSE1]
  >> simp [GSYM FUNION_alist_to_fmap]
  >> rfs [bind_tvar_def, num_tvs_def]
  >> Cases_on `tvs`
@@ -953,7 +948,7 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
   (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs.
    ctMap_ok ctMap ∧
    consistent_con_env ctMap cenv tenv.c ∧
-   type_vs tvs ctMap tenvS vs ts ∧
+   LIST_REL (type_v tvs ctMap tenvS) vs ts ∧
    type_ps tvs tenv ps ts new_tbindings ∧
    type_s ctMap tenvS st ∧
    type_env ctMap tenvS bindings tbindings
@@ -997,7 +992,7 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    >> simp []
    >> metis_tac [])
  >- (
-   simp [Once type_v_cases, Once type_p_cases, type_vs_list_rel]
+   simp [Once type_v_cases, Once type_p_cases]
    >> CCONTR_TAC
    >> fs []
    >> rw []
@@ -1036,13 +1031,11 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
  >- pat_sound_tac
  >- pat_sound_tac
  >- (
-   fs [type_vs_list_rel]
-   >> rw []
+   rw []
    >> fs [Once type_p_cases]
    >> rw [bind_var_list_def])
  >- (
-   fs [type_vs_list_rel]
-   >> rw []
+   rw []
    >> qpat_assum `type_ps _ _ (_::_) _ _` mp_tac
    >> simp [Once type_p_cases]
    >> rw []
@@ -1080,7 +1073,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
       type_s ctMap tenvS' s'.refs ∧
       store_type_extension tenvS tenvS' ∧
       case r of
-         | Rval vs => type_vs tvs ctMap tenvS' vs ts
+         | Rval vs => LIST_REL (type_v tvs ctMap tenvS') vs ts
          | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
          | Rerr (Rabort Rtimeout_error) => T
          | Rerr (Rabort Rtype_error) => F) ∧
@@ -1103,7 +1096,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
          | Rerr (Rabort Rtimeout_error) => T
          | Rerr (Rabort Rtype_error) => F)`,
  ho_match_mp_tac evaluate_ind
- >> simp [evaluate_def, type_es_list_rel, type_vs_list_rel, type_all_env_def,
+ >> simp [evaluate_def, type_es_list_rel, type_all_env_def,
           GSYM CONJ_ASSOC, good_ctMap_def]
  >> rw []
  >- metis_tac [store_type_extension_refl]
@@ -1236,7 +1229,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >- (
      fs [build_conv_def]
      >> rw []
-     >> simp [Once type_v_cases, type_vs_list_rel, GSYM EVERY2_REVERSE1]
+     >> simp [Once type_v_cases, GSYM EVERY2_REVERSE1]
      >> metis_tac [])
    >- metis_tac [])
  >- (

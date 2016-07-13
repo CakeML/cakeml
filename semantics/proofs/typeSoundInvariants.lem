@@ -125,8 +125,6 @@ val type_s : ctMap -> tenvS -> store v -> bool
 indreln
 [type_v : nat -> ctMap -> tenvS -> v -> t -> bool]
 and
-[type_vs : nat -> ctMap -> tenvS -> list v -> list t -> bool]
-and
 [type_env : ctMap -> tenvS -> env_val -> tenv_val -> bool]
 and
 [consistent_mod_env : tenvS -> ctMap -> env_mod -> Map.map modN (alist varN (nat * t)) -> bool]
@@ -169,7 +167,7 @@ and
 conv_some : forall tvs cenv senv cn vs tvs' tn ts' ts.
 List.all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
-type_vs tvs cenv senv vs (List.map (type_subst (Map.fromList (List.reverse (List_extra.zipSameLength tvs' ts')))) ts) &&
+all2 (type_v tvs cenv senv) vs (List.map (type_subst (Map.fromList (List.reverse (List_extra.zipSameLength tvs' ts')))) ts) &&
 Map.lookup (cn, tn) cenv = Just (tvs',ts)
 ==>
 type_v tvs cenv senv (Conv (Just (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn))
@@ -177,7 +175,7 @@ type_v tvs cenv senv (Conv (Just (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn))
 and
 
 conv_none : forall tvs cenv senv vs ts.
-type_vs tvs cenv senv vs ts
+all2 (type_v tvs cenv senv) vs ts
 ==>
 type_v tvs cenv senv (Conv Nothing vs) (Tapp ts TC_tup)
 
@@ -237,21 +235,6 @@ check_freevars 0 [] t &&
 List.all (fun v -> type_v tvs cenv senv v t) vs
 ==>
 type_v tvs cenv senv (Vectorv vs) (Tapp [t] TC_vector)
-
-and
-
-empty : forall tvs cenv senv.
-true
-==>
-type_vs tvs cenv senv [] []
-
-and
-
-cons : forall tvs cenv senv v vs t ts.
-type_v tvs cenv senv v t &&
-type_vs tvs cenv senv vs ts
-==>
-type_vs tvs cenv senv (v::vs) (t::ts)
 
 and
 

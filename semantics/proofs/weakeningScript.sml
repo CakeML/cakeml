@@ -425,11 +425,6 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
       ctMap_ok ctMap' ∧
       ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT ctMap' ctMap ∧ weakS tenvS' tenvS ⇒
       type_v tvs' ctMap' tenvS' v t) ∧
- (!tvs ctMap tenvS vs ts. type_vs tvs ctMap tenvS vs ts ⇒
-    !tvs' ctMap' tenvS'.
-      ctMap_ok ctMap' ∧
-      ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT ctMap' ctMap ∧ weakS tenvS' tenvS ⇒
-      type_vs tvs' ctMap' tenvS' vs ts) ∧
  (!ctMap tenvS env tenv. type_env ctMap tenvS env tenv ⇒
     !ctMap' tenvS'.
       ctMap_ok ctMap' ∧
@@ -443,10 +438,34 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
  ho_match_mp_tac type_v_strongind >>
  rw [] >>
  rw [Once type_v_cases]
- >- (fs [EVERY_MEM] >>
-     metis_tac [weak_ctMap_lookup, check_freevars_add, gt_0])
- >- (fs [EVERY_MEM] >>
-     metis_tac [weak_ctMap_lookup, check_freevars_add, gt_0])
+ >- (
+   qexists_tac `tvs'`
+   >> qexists_tac `ts`
+   >> rw []
+   >> fs [EVERY_MEM, EVERY2_EVERY]
+   >> rfs [MEM_ZIP]
+   >> rw []
+   >> fs [PULL_EXISTS]
+   >> metis_tac [weak_ctMap_lookup, check_freevars_add, gt_0])
+ >- (
+   qexists_tac `tvs'`
+   >> qexists_tac `ts`
+   >> rw []
+   >> fs [EVERY_MEM, EVERY2_EVERY]
+   >> rfs [MEM_ZIP]
+   >> rw []
+   >> fs [PULL_EXISTS]
+   >> metis_tac [weak_ctMap_lookup, check_freevars_add, gt_0])
+ >- (
+   fs [EVERY_MEM, EVERY2_EVERY]
+   >>rfs [MEM_ZIP]
+   >> rw []
+   >> fs [PULL_EXISTS])
+ >- (
+   fs [EVERY_MEM, EVERY2_EVERY]
+   >>rfs [MEM_ZIP]
+   >> rw []
+   >> fs [PULL_EXISTS])
  >- (fs [] >>
      qexists_tac `tenv` >>
      rw [] >-
