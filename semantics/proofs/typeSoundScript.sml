@@ -1618,15 +1618,15 @@ val type_ds_empty = Q.store_thm ("type_ds_empty[simp]",
   type_ds u mn decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = (FEMPTY,[],[])`,
  rw [Once type_ds_cases]);
 
-val type_ds_sing = Q.store_thm ("type_ds_sing[simp]",
- `!u mn decls tenv d decls' r.
-  type_ds u mn decls tenv [d] decls' r ⇔ type_d u mn decls tenv d decls' r`,
- simp [Once type_ds_cases]);
-
 val append_new_dec_tenv_empty = Q.store_thm ("append_new_dec_tenv_empty[simp]",
  `append_new_dec_tenv (FEMPTY,[],[]) tenv = tenv`,
  PairCases_on `tenv`
  >> rw [append_new_dec_tenv_def]);
+
+val type_ds_sing = Q.store_thm ("type_ds_sing[simp]",
+ `!u mn decls tenv d decls' r.
+  type_ds u mn decls tenv [d] decls' r ⇔ type_d u mn decls tenv d decls' r`,
+ simp [Once type_ds_cases]);
 
 val extend_dec_env_append = Q.store_thm ("extend_dec_env_append",
  `extend_dec_env new_v1 new_ctors1 (extend_dec_env new_v2 new_ctors2 env)
@@ -1651,10 +1651,133 @@ val extend_env_new_decs_append = Q.store_thm ("extend_env_new_decs_append",
    Cases_on `z.t`
    >> simp [merge_mod_env_def, FUNION_ASSOC]));
 
+val union_decls_mods = Q.store_thm ("union_decls_mods",
+ `(union_decls d1 d2).defined_mods = d1.defined_mods ∪ d2.defined_mods`,
+ rw [union_decls_def]);
+
 val weakCT_trans = Q.store_thm ("weakCT_trans",
 `weakCT C1 C2 ∧ weakCT C2 C3 ⇒ weakCT C1 C3`,
  rw [weakCT_def]
  >> metis_tac [SUBMAP_TRANS]);
+
+val no_new_mods = Q.prove (
+`!x uniq mn decls1 tenv d decls1' tenvT' tenvC' tenv'.
+  type_d uniq mn decls1 tenv d decls1' (tenvT',tenvC',tenv') ∧
+  decls1.defined_mods = x
+  ⇒
+  (union_decls decls1' decls1).defined_mods = x`,
+ srw_tac[][] >>
+ imp_res_tac type_d_mod >>
+ full_simp_tac(srw_ss())[union_decls_def]);
+
+val pmatch_acc = Q.store_thm ("pmatch_acc",
+ `(!envc store p v env env' env2.
+    (pmatch envc store p v env = Match env' ⇔ pmatch envc store p v (env++env2) = Match (env'++env2)) ∧
+    (pmatch envc store p v env = No_match ⇔ pmatch envc store p v (env++env2) = No_match) ∧
+    (pmatch envc store p v env = Match_type_error ⇔ pmatch envc store p v (env++env2) = Match_type_error)) ∧
+  (!envc store ps vs env env' env2.
+    (pmatch_list envc store ps vs env = Match env' ⇔ pmatch_list envc store ps vs (env++env2) = Match (env'++env2)) ∧
+    (pmatch_list envc store ps vs env = No_match ⇔ pmatch_list envc store ps vs (env++env2) = No_match) ∧
+    (pmatch_list envc store ps vs env = Match_type_error ⇔ pmatch_list envc store ps vs (env++env2) = Match_type_error))`,
+ ho_match_mp_tac pmatch_ind
+ >> rw [pmatch_def]
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >> CASE_TAC
+ >> rw []
+ >> CASE_TAC
+ >> rw []
+ >> metis_tac [match_result_distinct, match_result_11]);
+
+val pmatch_nil_no_match = Q.store_thm ("pmatch_nil_no_match",
+ `pmatch envc store p v env = No_match ⇔ pmatch envc store p v [] = No_match`,
+ metis_tac [pmatch_acc, APPEND]);
+
+val pmatch_nil_match = Q.store_thm ("pmatch_nil_match",
+ `pmatch envc store p v env = Match env' ⇔
+    ?env2. env' = env2 ++ env ∧ pmatch envc store p v [] = Match env2`,
+ eq_tac
+ >> rw []
+ >- (
+   drule (hd (CONJUNCTS pmatch_extend))
+   >> rw []
+   >> qexists_tac `env''`
+   >> simp []
+   >> metis_tac [APPEND, pmatch_acc])
+ >> metis_tac [APPEND, pmatch_acc])
+
+val type_env_append = Q.store_thm ("type_env_append",
+ `!env1 tenv1 tvs tenv2 env2.
+  type_env ctMap tenvS env1 (bind_var_list tvs tenv1 Empty) ∧
+  type_env ctMap tenvS env2 tenv2
+  ⇒
+  type_env ctMap tenvS (env1++env2) (bind_var_list tvs tenv1 tenv2)`,
+ Induct_on `env1`
+ >> rw []
+ >> Cases_on `tenv1`
+ >> fs [bind_var_list_def]
+ >- (
+   PairCases_on `h`
+   >> fs [bind_var_list_def]
+   >> fs [Once type_v_cases])
+ >- fs [Once type_v_cases]
+ >> PairCases_on `h'`
+ >> fs [bind_var_list_def]
+ >> simp [Once type_v_cases]
+ >> qpat_assum `type_env _ _ (_::_) _` mp_tac
+ >> simp [Once type_v_cases]
+ >> rw []);
+
+val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
+  `evaluate st env es = (st', r) ⇒
+  st'.defined_types = st.defined_types`,
+ cheat);
+
+val let_tac =
+  rw []
+  >> Cases_on `r1`
+  >> fs []
+  >> rw []
+  >- ( (* a value *)
+    fs [good_ctMap_def, type_all_env_def]
+    >> `type_env ctMap tenvS'' env.v tenv.v`
+      by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+    >> drule (hd (CONJUNCTS pat_type_sound))
+    >> `type_env ctMap tenvS'' [] Empty` by simp [Once type_v_cases]
+    >> rpt (disch_then drule)
+    >> rw []
+    >- ( (* No match *)
+      fs [pmatch_nil_no_match]
+      >> rw []
+      >> qexists_tac `ctMap`
+      >> qexists_tac `tenvS''`
+      >> rw [weakCT_refl, Bindv_def, type_v_exn, GSYM PULL_EXISTS]
+      >- metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+      >> drule evaluate_state_unchanged
+      >> rw [])
+    >- ( (* match *)
+      qexists_tac `ctMap`
+      >> qexists_tac `tenvS''`
+      >> drule evaluate_state_unchanged
+      >> simp [weakCT_refl]
+      >> simp [extend_dec_env_def, extend_env_new_decs_def]
+      >> fs [tenv_ok_def]
+      >> rw [bvl2_to_bvl]
+      >> metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS, type_env_append]))
+  >- ( (* An exception *)
+    Cases_on `e'`
+    >> fs []
+    >- (
+      qexists_tac `ctMap`
+      >> qexists_tac `tenvS''`
+      >> drule evaluate_state_unchanged
+      >> fs [weakCT_refl, type_all_env_def, good_ctMap_def]
+      >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
+    >- metis_tac [weakCT_refl]);
 
 val decs_type_sound = Q.store_thm ("decs_type_sound",
  `∀mn (st:'ffi state) env ds st' new_ctors r tdecs1 ctMap tenvS tenv tdecs1' tenvT' tenvC' tenv'.
@@ -1673,11 +1796,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
          (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_env_new_decs (tenvT',tenvC',tenv') tenv)
      | Rerr (Rraise err_v) =>
        type_v 0 ctMap' tenvS' err_v Texn ∧
-       ?tenvC1 tenvC2.
-         tenvC' = tenvC1++tenvC2 ∧
-         MAP FST new_ctors = MAP FST tenvC2 ∧
-         decs_type_sound_invariant mn st' (extend_dec_env [] new_ctors env)
-           (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_env_new_decs (tenvT',tenvC2,[]) tenv)
+       decs_type_sound_invariant mn st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort Rtimeout_error) => T`,
 
@@ -1733,15 +1852,14 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >- (
        Cases_on `e`
        >> fs []
-       >> qexists_tac `tenvC1'`
-       >> qexists_tac `tenvC2' ++ tenvC1`
-       >> simp []
        >> fs [decs_type_sound_invariant_def, extend_env_new_decs_def,
               type_all_env_def, tenv_ok_def, extend_dec_env_def,
               bind_var_list2_def]
+       >> rw []
+       >- metis_tac [consistent_con_env_weakening, good_ctMap_def]
        >> irule (List.nth (CONJUNCTS type_v_weakening, 1))
        >- fs [good_ctMap_def]
-       >> metis_tac [weakCT_trans, store_type_extension_weakS, store_type_extension_trans])
+       >> metis_tac [weakCT_trans, store_type_extension_weakS, store_type_extension_trans]))
    >- (
      rw []
      >> `?tenvT1 tenvC1 tenv1. new_tenv1 = (tenvT1, tenvC1, tenv1)` by metis_tac [pair_CASES]
@@ -1755,15 +1873,60 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
        qexists_tac `ctMap''`
        >> qexists_tac `tenvS''`
        >> rw []
-       >> `?tenvT2 tenvC2 tenv2. new_tenv2 = (tenvT2, tenvC2, tenv2)` by metis_tac [pair_CASES]
-       >> fs [append_new_dec_tenv_def]
-       >> qexists_tac `tenvC2' ++ tenvC1'`
-       >> qexists_tac `tenvC2`
-       >> simp []
        >> fs [decs_type_sound_invariant_def, extend_env_new_decs_def,
               type_all_env_def, tenv_ok_def, extend_dec_env_def,
               bind_var_list2_def]
+       >> rw []
+       >- metis_tac [consistent_decls_weakening, union_decls_assoc, weak_decls_union2, type_ds_mod]
+       >- metis_tac [consistent_ctMap_weakening, union_decls_assoc, weak_decls_union2, type_ds_mod]
+       >- (
+         drule type_ds_mod
+         >> fs [union_decls_mods]))
+     >- metis_tac []))
+ >- (
+   split_pair_case_tac
+   >> fs []
+   >> rename1 `evaluate _ _ _ = (st1, r1)`
+   >> drule (hd (CONJUNCTS exp_type_sound))
+   >> fs [decs_type_sound_invariant_def]
+   >> rpt (disch_then drule)
+   >> simp [type_es_list_rel, PULL_EXISTS]
+   >> fs [type_d_cases]
+   >> TRY ( (* Only for let poly case *)
+     disch_then drule
+     >> simp [bind_tvar_def])
+   >> TRY ( (* Only for let mono case *)
+     disch_then (qspec_then `0` mp_tac)
+     >> simp [bind_tvar_def]
+     >> disch_then drule)
+   >- let_tac
+   >- let_tac)
+ >- (
+   fs [type_d_cases]
+   >> fs [])
 
+ >-
+ >- (
+   fs [type_d_cases]
+   >> metis_tac [type_funs_distinct])
+ >- (
+   fs [type_d_cases]
+   >> rw []
+ >- (
+   fs [type_d_cases]
+   >> rw []
+   >- metis_tac [check_ctor_tenv_dups]
+   >- 
+   >- fs [check_ctor_tenv_def]
+ >- (
+   fs [type_d_cases]
+   >> rw []
+ >- (
+   fs [type_d_cases]
+   >> rw []
+ >- (
+   fs [type_d_cases]
+   >> rw []
 
 
 
@@ -2302,16 +2465,6 @@ val type_ds_no_dup_types = Q.prove (
          metis_tac []))
  >- metis_tac []
  >- metis_tac []);
-
-val no_new_mods = Q.prove (
-`!x uniq mn decls1 tenv d decls1' tenvT' tenvC' tenv'.
-  type_d uniq mn decls1 tenv d decls1' (tenvT',tenvC',tenv') ∧
-  decls1.defined_mods = x
-  ⇒
-  (union_decls decls1' decls1).defined_mods = x`,
- srw_tac[][] >>
- imp_res_tac type_d_mod >>
- full_simp_tac(srw_ss())[union_decls_def]);
 
 val top_type_soundness_lem = Q.prove (
 `!decls1 (tenv : type_environment) (env : v environment) st decls1' tenvT' tenvM' tenvC' tenv' top.
