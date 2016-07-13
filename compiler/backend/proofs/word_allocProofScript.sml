@@ -6,6 +6,7 @@ open dep_rewrite
 val _ = new_theory "word_allocProof";
 
 val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
+val _ = bring_to_front_overload"prog_size"{Name="prog_size",Thy="wordLang"};
 
 (*TODO: Move?*)
 val SUBSET_OF_INSERT = store_thm("SUBSET_OF_INSERT",
