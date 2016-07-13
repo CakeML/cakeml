@@ -47,6 +47,8 @@ val add_basic_compset =
    , miscTheory.UPDATE_LIST_THM
    , miscTheory.list_max_def
    , miscTheory.anub_def
+   , miscTheory.safeTL_def
+   , miscTheory.oHD_def
      (* should be in HOL *)
    , optionTheory.OPTION_MAP2_DEF
    ,alistTheory.alist_to_fmap_def

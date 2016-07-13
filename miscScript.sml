@@ -23,6 +23,12 @@ val SUBSET_IMP = store_thm("SUBSET_IMP",
 
 val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
 
+val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
+val oHD_thm = Q.store_thm("oHD_thm[simp]",
+  `oHD [] = NONE ∧ oHD (h::t) = SOME h`,
+  rw[oHD_def]);
+val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
+
 val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,

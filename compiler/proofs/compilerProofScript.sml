@@ -46,8 +46,7 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
     \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
     \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
     \\ strip_tac
-    \\ simp[cmlParseTheory.destResult_def,Abbr`r`,
-            cmlPtreeConversionTheory.oHD_def (* TODO: should not be defined there! *)]
+    \\ simp[cmlParseTheory.destResult_def,Abbr`r`]
     \\ simp[ETA_AX,OPTION_BIND_SOME] )
   \\ qmatch_goalsub_abbrev_tac`opt = NONE`
   \\ Cases_on`opt`\\fs[markerTheory.Abbrev_def]
@@ -69,8 +68,7 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ qmatch_asmsub_rename_tac`SOME p`
   \\ Cases_on`p`
   \\ drule peg_sound
-  \\ strip_tac \\ rveq
-  \\ simp[cmlPtreeConversionTheory.oHD_def]
+  \\ strip_tac \\ rveq \\ simp[]
   \\ Cases_on`ptree_TopLevelDecs pt`\\simp[]
   \\ strip_tac \\ fs[]
   \\ metis_tac[]);
