@@ -11,6 +11,7 @@ open preamble
 
 val _ = new_theory"stack_allocProof";
 
+val _ = bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
 (* TODO: move *)
 
 val SUBMAP_DRESTRICT = Q.store_thm("SUBMAP_DRESTRICT",
