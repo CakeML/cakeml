@@ -98,28 +98,29 @@ val sub_completion_infer_p = Q.store_thm ("sub_completion_infer_p",
     ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s)`,
 ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
-fs [] >|
-[metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- PairCases_on `v'` >>
-     fs [] >>
-     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
- imp_res_tac sub_completion_add_constraints >>
-     PairCases_on `v''` >>
-     fs [] >>
-     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars,ADD_COMM],
- PairCases_on `v'` >>
-     fs [] >>
-     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     fs [] >>
-     metis_tac [APPEND_ASSOC]]);
+fs []
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- (PairCases_on `v'` >>
+    fs [] >>
+    metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
+>- (imp_res_tac sub_completion_add_constraints >>
+    PairCases_on `v''` >>
+    fs [] >>
+    metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars,ADD_COMM])
+>- (PairCases_on `v'` >>
+    fs [] >>
+    metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
+>- cheat
+>- metis_tac [APPEND, sub_completion_more_vars]
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    fs [] >>
+    metis_tac [APPEND_ASSOC]));
 
 val sub_completion_infer_pes = Q.prove (
 `!ienv pes t1 t2 st1 t st2 n ts2 s.
@@ -223,7 +224,7 @@ type_pes tenv pes t1 t2 =
     (λ(p,e).
        ∃tenv'.
          ALL_DISTINCT (pat_bindings p []) ∧
-         type_p (num_tvs tenv.v) tenv.c p t1 tenv' ∧
+         type_p (num_tvs tenv.v) tenv p t1 tenv' ∧
          type_e (tenv with v := bind_var_list 0 tenv' tenv.v) e t2) x`;
 
 val type_pes_cons = Q.prove (
@@ -231,7 +232,7 @@ val type_pes_cons = Q.prove (
   type_pes tenv ((p,e)::pes) t1 t2 =
   (ALL_DISTINCT (pat_bindings p []) ∧
    (?tenv'.
-       type_p (num_tvs tenv.v) tenv.c p t1 tenv' ∧
+       type_p (num_tvs tenv.v) tenv p t1 tenv' ∧
        type_e (tenv with v := bind_var_list 0 tenv' tenv.v) e t2) ∧
    type_pes tenv pes t1 t2)`,
 rw [type_pes_def, RES_FORALL] >>
