@@ -900,7 +900,9 @@ fun define_ref_inv is_exn_type tys = let
         \\ TRY (primCases_on x2)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
         \\ EVAL_TAC
-        \\ REPEAT STRIP_TAC \\ METIS_TAC []))
+        \\ REPEAT STRIP_TAC
+        \\ rpt var_eq_tac \\ every_case_tac \\ EVAL_TAC
+        \\ METIS_TAC []))
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
     val _ = not (can (find_term (fn t => t = rand tm2)) tm1) orelse fail()

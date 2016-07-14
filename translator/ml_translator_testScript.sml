@@ -39,6 +39,14 @@ val res = translate def
 val def = Define `foo = 4:num`
 val res = translate def
 
+val _ = Datatype`
+  foo = <| next_loc : num
+            ; start : num
+            ; do_mti : bool
+            ; do_known : bool
+            ; do_call : bool |>`
+val res = register_type``:foo``
+
 val _ = (print_asts := true);
 
 val _ = export_theory();
