@@ -98,16 +98,11 @@ val _ = Define `
 (FEVERY (UNCURRY (\ (cn,tn) (tvs,ts) .  EVERY (check_freevars( 0) tvs) ts)) ctMap))`;
 
 
-(* Convert from a lexically scoped constructor environment to the global one *)
-(*val flat_to_ctMap_list : flat_tenv_ctor -> alist (conN * tid_or_exn) (list tvarN * list t)*)
-val _ = Define `
- (flat_to_ctMap_list tenvC =  
-(MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
 
-
-(*val flat_to_ctMap : flat_tenv_ctor -> ctMap*)
+(*val type_decs_to_ctMap : maybe modN -> type_def -> ctMap*)
 val _ = Define `
- (flat_to_ctMap tenvC = (FUPDATE_LIST FEMPTY (REVERSE (flat_to_ctMap_list tenvC))))`;
+ (type_decs_to_ctMap mn tds =  
+(FUPDATE_LIST FEMPTY (FLAT (MAP (\ (tvs,tn,ctors) .  MAP (\ (cn,ts) .  ((cn,TypeId (mk_id mn tn)), (tvs,ts))) ctors) tds))))`;
 
 
 (* Get the modules that are used by the type and exception definitions *)

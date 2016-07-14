@@ -139,6 +139,35 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
  srw_tac[][] >>
  metis_tac [pat_bindings_accum]);
 
+val pmatch_acc = Q.store_thm ("pmatch_acc",
+ `(!envc store p v env env' env2.
+    (pmatch envc store p v env = Match env' ⇔
+     pmatch envc store p v (env++env2) = Match (env'++env2)) ∧
+    (pmatch envc store p v env = No_match ⇔
+     pmatch envc store p v (env++env2) = No_match) ∧
+    (pmatch envc store p v env = Match_type_error ⇔
+     pmatch envc store p v (env++env2) = Match_type_error)) ∧
+  (!envc store ps vs env env' env2.
+    (pmatch_list envc store ps vs env = Match env' ⇔
+     pmatch_list envc store ps vs (env++env2) = Match (env'++env2)) ∧
+    (pmatch_list envc store ps vs env = No_match ⇔
+     pmatch_list envc store ps vs (env++env2) = No_match) ∧
+    (pmatch_list envc store ps vs env = Match_type_error ⇔
+     pmatch_list envc store ps vs (env++env2) = Match_type_error))`,
+ ho_match_mp_tac pmatch_ind
+ >> rw [pmatch_def]
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >> CASE_TAC
+ >> rw []
+ >> CASE_TAC
+ >> rw []
+ >> metis_tac [match_result_distinct, match_result_11]);
+
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
@@ -880,6 +909,15 @@ val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
  srw_tac[][] >>
  imp_res_tac eval_d_no_new_mods >>
  full_simp_tac(srw_ss())[]);
+
+val extend_dec_env_append = Q.store_thm ("extend_dec_env_append",
+ `extend_dec_env new_v1 new_ctors1 (extend_dec_env new_v2 new_ctors2 env)
+  =
+  extend_dec_env (new_v1 ++ new_v2) (new_ctors1 ++ new_ctors2) env`,
+ rw [extend_dec_env_def]
+ >> Cases_on `env.c`
+ >> simp [merge_alist_mod_env_def]);
+
 
 (* REPL bootstrap lemmas *)
 

@@ -244,4 +244,21 @@ val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
   metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
 
+val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
+ `(!(st:'ffi state) env es st' r.
+    evaluate st env es = (st', r)
+    ⇒
+    st'.defined_types = st.defined_types ∧
+    st'.defined_mods = st.defined_mods) ∧
+  (!(st:'ffi state) env v pes err_v st' r.
+    evaluate_match st env v pes err_v = (st', r)
+    ⇒
+    st'.defined_types = st.defined_types ∧
+    st'.defined_mods = st.defined_mods)`,
+ ho_match_mp_tac evaluate_ind
+ >> rw [evaluate_def]
+ >> every_case_tac
+ >> fs []
+ >> rw [dec_clock_def]);
+
 val _ = export_theory()

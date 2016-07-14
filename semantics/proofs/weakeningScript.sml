@@ -400,6 +400,11 @@ val weakCT_refl = Q.store_thm ("weakCT_refl",
 rw [weakCT_def] >>
 metis_tac [SUBMAP_REFL]);
 
+val weakCT_trans = Q.store_thm ("weakCT_trans",
+`weakCT C1 C2 ∧ weakCT C2 C3 ⇒ weakCT C1 C3`,
+ rw [weakCT_def]
+ >> metis_tac [SUBMAP_TRANS]);
+
 val disjoint_env_weakCT = Q.store_thm ("disjoint_env_weakCT",
 `!ctMap ctMap'.
   DISJOINT (FDOM ctMap') (FDOM ctMap) ⇒
@@ -667,6 +672,7 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
  fs [weak_decls_other_mods_def, union_decls_def] >>
  metis_tac []);
 
+ (*
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
  `!uniq mn decls tenv ds decls' new_tenv.
    type_ds uniq mn decls tenv ds decls' new_tenv ⇒
@@ -705,6 +711,7 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
     match_mp_tac tenv_tabbrev_ok_merge >>
     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY]) >>
   metis_tac [weakC_merge]);
+  *)
 
 val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
 `!decls1 decls2 decls3.
@@ -736,6 +743,7 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
  res_tac >>
  fs [SUBSET_DEF]);
 
+ (*
 val lemma = Q.prove(
 `∀uniq mn (tdecs1:decls) tenv ds tdecs1' decls.
   type_ds uniq mn tdecs1 tenv ds tdecs1' decls
@@ -762,5 +770,6 @@ val type_ds_ctMap_disjoint = save_thm ("type_ds_ctMap_disjoint",lemma
   |> SIMP_RULE std_ss [Once PULL_FORALL]
   |> SIMP_RULE std_ss [Once PULL_FORALL]
   |> SIMP_RULE std_ss [Once PULL_FORALL])
+  *)
 
 val _ = export_theory ();

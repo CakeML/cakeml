@@ -74,13 +74,11 @@ val ctMap_ok : ctMap -> bool
 let ctMap_ok ctMap =
   Map.all (fun (cn,tn) (tvs,ts) -> List.all (check_freevars 0 tvs) ts) ctMap
 
-(* Convert from a lexically scoped constructor environment to the global one *)
-val flat_to_ctMap_list : flat_tenv_ctor -> alist (conN * tid_or_exn) (list tvarN * list t)
-let flat_to_ctMap_list tenvC =
-  List.map (fun (cn,(tvs,ts,t)) -> ((cn,t),(tvs,ts))) tenvC
 
-val flat_to_ctMap : flat_tenv_ctor -> ctMap
-let flat_to_ctMap tenvC = Map.fromList (List.reverse (flat_to_ctMap_list tenvC))
+val type_decs_to_ctMap : maybe modN -> type_def -> ctMap
+let type_decs_to_ctMap mn tds =
+  Map.fromList
+    (List.concat (List.map (fun (tvs,tn,ctors) -> List.map (fun (cn,ts) -> ((cn,TypeId (mk_id mn tn)), (tvs,ts))) ctors) tds))
 
 (* Get the modules that are used by the type and exception definitions *)
 val decls_to_mods : decls -> set (maybe modN)
