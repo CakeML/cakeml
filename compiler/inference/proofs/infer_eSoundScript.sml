@@ -115,7 +115,8 @@ fs []
 >- (PairCases_on `v'` >>
     fs [] >>
     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
->- cheat
+>- (imp_res_tac sub_completion_unify2 >>
+    metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
 >- metis_tac [APPEND, sub_completion_more_vars]
 >- (PairCases_on `v'` >>
     PairCases_on `v''` >>
@@ -247,78 +248,92 @@ rw [] >|
  metis_tac []]);
 
 val infer_p_sound = Q.store_thm ("infer_p_sound",
-`(!cenv p st t env st' tvs extra_constraints s.
-    (infer_p cenv p st = (Success (t,env), st')) ∧
+`(!ienv p st t tenv env st' tvs extra_constraints s.
+    (infer_p ienv p st = (Success (t,env), st')) ∧
     t_wfs st.subst ∧
-    check_cenv cenv ∧
+    check_cenv tenv.c ∧
+    ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
-    type_p tvs cenv p (convert_t (t_walkstar s t)) (convert_env s env)) ∧
- (!cenv ps st ts env st' tvs extra_constraints s.
-    (infer_ps cenv ps st = (Success (ts,env), st')) ∧
+    type_p tvs tenv p (convert_t (t_walkstar s t)) (convert_env s env)) ∧
+ (!ienv ps st ts tenv env st' tvs extra_constraints s.
+    (infer_ps ienv ps st = (Success (ts,env), st')) ∧
     t_wfs st.subst ∧
-    check_cenv cenv ∧
+    check_cenv tenv.c ∧
+    ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
-    type_ps tvs cenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env))`,
+    type_ps tvs tenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env))`,
 ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [Once type_p_cases, convert_env_def] >>
 imp_res_tac sub_completion_wfs >>
 fs [] >>
-rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def] >|
-[match_mp_tac check_t_to_check_freevars >>
-     rw [] >>
-     fs [sub_completion_def] >>
-     qpat_assum `!uv. uv ∈ FDOM s ⇒ P uv` match_mp_tac >>
-     fs [count_def, SUBSET_DEF],
- `?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
-     `t_wfs s` by metis_tac [infer_p_wfs] >>
-     rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
-     fs [convert_env_def] >>
-     metis_tac [MAP_MAP_o],
- `?ts env. v'' = (ts,env)` by (PairCases_on `v''` >> metis_tac []) >>
-     `?tvs ts tn. v' = (tvs,ts,tn)` by (PairCases_on `v'` >> metis_tac []) >>
-     rw [] >>
-     `type_ps tvs cenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env)`
-               by metis_tac [sub_completion_add_constraints, sub_completion_more_vars,ADD_COMM] >>
-     rw [] >>
-     `t_wfs s` by metis_tac [sub_completion_wfs, infer_p_wfs, pure_add_constraints_wfs] >>
-     rw [convert_t_def, t_walkstar_eqn1, MAP_MAP_o, combinTheory.o_DEF,
-         EVERY_MAP, LENGTH_COUNT_LIST] >>
-     fs [] >- (
-       qpat_assum`_ + _ = (_:num)`(assume_tac o ONCE_REWRITE_RULE[ADD_COMM] o SYM)
-       \\ fsrw_tac[][]
-       \\ drule sub_completion_check
-       \\ simp[] ) >>
-     `t_wfs st'''.subst` by metis_tac [infer_p_wfs] >>
-     imp_res_tac pure_add_constraints_apply >>
-     pop_assum (fn _ => all_tac) >>
-     pop_assum (fn _ => all_tac) >>
-     pop_assum mp_tac >>
-     rw [MAP_ZIP] >>
-     `t_wfs st'.subst` by metis_tac [pure_add_constraints_wfs] >>
-     imp_res_tac sub_completion_apply_list >>
-     NTAC 6 (pop_assum (fn _ => all_tac)) >>
-     pop_assum mp_tac >>
-     rw [ONCE_REWRITE_RULE[ADD_COMM](CONJUNCT2 subst_infer_subst_swap)] >>
-     `EVERY (check_freevars 0 tvs') ts'` by metis_tac [check_cenv_lookup] >>
-     rw [] >>
-     fs [convert_env_def] >>
-     metis_tac [convert_t_subst, LENGTH_COUNT_LIST, LENGTH_MAP,
-                MAP_MAP_o, combinTheory.o_DEF],
- `?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
-     `t_wfs s` by metis_tac [infer_p_wfs] >>
-     rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
-     fs [convert_env_def] >>
-     metis_tac [],
- `?t env. v' = (t,env)` by (PairCases_on `v'` >> metis_tac []) >>
-     `?ts' env'. v'' = (ts',env')` by (PairCases_on `v''` >> metis_tac []) >>
-     rw [] >>
-     `t_wfs st''.subst` by metis_tac [infer_p_wfs] >>
-     `?ts. sub_completion tvs st''.next_uvar st''.subst ts s` by metis_tac [sub_completion_infer_p] >>
-     fs [convert_env_def] >>
-     metis_tac []]);
+rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def]
+>- (match_mp_tac check_t_to_check_freevars >>
+    rw [] >>
+    fs [sub_completion_def] >>
+    qpat_assum `!uv. uv ∈ FDOM s ⇒ P uv` match_mp_tac >>
+    fs [count_def, SUBSET_DEF])
+>- (`?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
+    `t_wfs s` by metis_tac [infer_p_wfs] >>
+    rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
+    fs [convert_env_def] >>
+    metis_tac [MAP_MAP_o])
+>- (`?ts env. v'' = (ts,env)` by (PairCases_on `v''` >> metis_tac []) >>
+    `?tvs ts tn. v' = (tvs,ts,tn)` by (PairCases_on `v'` >> metis_tac []) >>
+    rw [] >>
+    `type_ps tvs tenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env)`
+              by metis_tac [sub_completion_add_constraints, sub_completion_more_vars,ADD_COMM] >>
+    rw [] >>
+    `t_wfs s` by metis_tac [sub_completion_wfs, infer_p_wfs, pure_add_constraints_wfs] >>
+    rw [convert_t_def, t_walkstar_eqn1, MAP_MAP_o, combinTheory.o_DEF,
+        EVERY_MAP, LENGTH_COUNT_LIST] >>
+    fs [] >- (
+      qpat_assum`_ + _ = (_:num)`(assume_tac o ONCE_REWRITE_RULE[ADD_COMM] o SYM)
+      \\ fsrw_tac[][]
+      \\ drule sub_completion_check
+      \\ simp[] ) >>
+    `t_wfs st'''.subst` by metis_tac [infer_p_wfs] >>
+    imp_res_tac pure_add_constraints_apply >>
+    pop_assum (fn _ => all_tac) >>
+    pop_assum (fn _ => all_tac) >>
+    pop_assum mp_tac >>
+    rw [MAP_ZIP] >>
+    `t_wfs st'.subst` by metis_tac [pure_add_constraints_wfs] >>
+    imp_res_tac sub_completion_apply_list >>
+    NTAC 6 (pop_assum (fn _ => all_tac)) >>
+    pop_assum mp_tac >>
+    rw [ONCE_REWRITE_RULE[ADD_COMM](CONJUNCT2 subst_infer_subst_swap)] >>
+    `EVERY (check_freevars 0 tvs') ts'` by metis_tac [check_cenv_lookup] >>
+    rw [] >>
+    fs [convert_env_def] >>
+    metis_tac [convert_t_subst, LENGTH_COUNT_LIST, LENGTH_MAP,
+               MAP_MAP_o, combinTheory.o_DEF])
+>- (`?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
+    `t_wfs s` by metis_tac [infer_p_wfs] >>
+    rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
+    fs [convert_env_def] >>
+    metis_tac [])
+>- cheat
+
+
+>- (`type_name_subst tenv.t t = convert_t (t_walkstar s t')`
+       by (* This is the previous goal *)
+          cheat >>
+    rw [GSYM convert_env_def] >>
+    first_x_assum irule >> rw [] >>
+    imp_res_tac sub_completion_unify2 >>
+    metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
+>- (`?t env. v' = (t,env)` by (PairCases_on `v'` >> metis_tac []) >>
+    `?ts' env'. v'' = (ts',env')` by (PairCases_on `v''` >> metis_tac []) >>
+    rw [] >>
+    `t_wfs st''.subst` by metis_tac [infer_p_wfs] >>
+    `?ts. sub_completion tvs st''.next_uvar st''.subst ts s` by metis_tac [sub_completion_infer_p] >>
+    fs [convert_env_def] >>
+    metis_tac []));
 
 val letrec_lemma = Q.prove (
 `!funs funs_ts s st.
@@ -861,6 +876,12 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                      fs [GSYM MAP_MAP_o, MAP_ZIP, LENGTH_COUNT_LIST, LENGTH_MAP] >>
                      metis_tac [MAP_MAP_o, combinTheory.o_DEF, sub_completion_apply_list]) >>
      rw [])
+ >- (* Tannot*)
+    cheat
+ >- (* Tannot*)
+    cheat
+ >- (* Tannot*)
+    cheat
  >-
  metis_tac [sub_completion_infer_es]
  >-
@@ -880,7 +901,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      fs [] >>
      `∃ts. sub_completion (num_tvs tenv.v) st''.next_uvar st''.subst ts s`
               by metis_tac [sub_completion_unify2] >>
-     `type_p (num_tvs tenv.v) tenv.c p (convert_t (t_walkstar s t)) (convert_env s env')`
+     `type_p (num_tvs tenv.v) tenv p (convert_t (t_walkstar s t)) (convert_env s env')`
               by metis_tac [infer_p_sound] >>
      `t_wfs (st'' with subst := s').subst`
            by (rw [] >>
