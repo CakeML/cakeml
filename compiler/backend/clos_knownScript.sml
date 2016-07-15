@@ -43,6 +43,28 @@ val merge_def = tDefine "merge" `
 val merge_def =
     save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
+val merge_tup_def = tDefine "merge_tup" `
+  (merge_tup (Impossible,y) = y) ∧
+  (merge_tup (x,Impossible) = x) ∧
+  (merge_tup (Tuple xs,Tuple ys) =
+     if LENGTH xs = LENGTH ys then Tuple (MAP merge_tup (ZIP(xs,ys)))
+     else Other) ∧
+  (merge_tup (Clos m1 n1,Clos m2 n2) = if m1 = m2 ∧ n1 = n2 then Clos m1 n1
+                                     else Other) ∧
+  (merge_tup (Int i,Int j) = if i = j then Int i else Other) ∧
+  (merge_tup (_,_) = Other)
+` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
+   rpt strip_tac>>
+   imp_res_tac MEM_ZIP>>fs[]>>
+   rw[val_approx_size_def] >> Cases_on`ys`>>fs[]>>
+   res_tac>>fs[])
+
+val merge_alt = store_thm("merge_alt",``
+  ∀x y.merge x y = merge_tup (x,y)``,
+  HO_MATCH_MP_TAC (fetch "-" "merge_ind")>>rw[merge_tup_def,MAP2_MAP]>>
+  match_mp_tac LIST_EQ>>rw[EL_ZIP,EL_MAP]>>
+  first_x_assum match_mp_tac>>metis_tac[MEM_EL])
+
 val known_op_def = Define `
   (known_op (Global n) as g =
      case lookup n g of

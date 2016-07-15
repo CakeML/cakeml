@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory
+open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
 ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
@@ -1745,5 +1745,44 @@ val num_from_hex_string_num_to_hex_string = Q.store_thm("num_from_hex_string_num
   ASCIInumbersTheory.num_hex_string
   |> SIMP_RULE std_ss [combinTheory.o_DEF,FUN_EQ_THM]
   |> MATCH_ACCEPT_TAC)
+
+val enumerate_def = Define`
+  (enumerate n [] = []) ∧
+  (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
+
+val LENGTH_enumerate = store_thm("LENGTH_enumerate",``
+  ∀xs k. LENGTH (enumerate k xs) = LENGTH xs``,
+  Induct>>fs[enumerate_def])
+
+val EL_enumerate = store_thm("EL_enumerate",``
+  ∀xs n k.
+  n < LENGTH xs ⇒
+  EL n (enumerate k xs) = (n+k,EL n xs)``,
+  Induct>>fs[enumerate_def]>>rw[]>>
+  Cases_on`n`>>fs[])
+
+val MAP_enumerate_MAPi = store_thm("MAP_enumerate_MAPi",``
+  ∀f xs.
+  MAP f (enumerate 0 xs) = MAPi (λn e. f (n,e)) xs``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
+
+val MAPi_enumerate_MAP = store_thm("MAPi_enumerate_MAP",``
+  ∀f xs.
+  MAPi f xs = MAP (λi,e. f i e) (enumerate 0 xs)``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
+
+val MEM_enumerate = store_thm("MEM_enumerate",``
+  ∀xs i e.
+  i < LENGTH xs ⇒
+  (MEM (i,e) (enumerate 0 xs) ⇔ EL i xs = e)``,
+  fs[MEM_EL]>>rw[]>>eq_tac>>rw[LENGTH_enumerate]>>
+  imp_res_tac EL_enumerate>>fs[]>>
+  qexists_tac`i`>>fs[])
+
+val MEM_enumerate_IMP = store_thm("MEM_enumerate_IMP",``
+  ∀xs i e.
+  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs``,
+  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
+  qexists_tac`n`>>fs[])
 
 val _ = export_theory()

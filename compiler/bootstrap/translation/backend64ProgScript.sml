@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib;
 open preamble;
-open terminationTheory inferProgTheory
+open terminationTheory
 open ml_translatorLib ml_translatorTheory;
+open std_preludeTheory;
 
 val _ = new_theory "backend64Prog"
-
-val _ = translation_extends "inferProg";
+val _ = translation_extends "std_prelude";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -18,6 +18,8 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type (ty1::tys) =
       mk_fun_type ty1 (list_mk_fun_type tys)
   | list_mk_fun_type _ = fail()
+
+val _ = register_type ``:lexer_fun$symbol``;
 
 (* translator setup *)
 
@@ -77,9 +79,17 @@ val to_clos_side = prove(``
 TODO: make this not have to be explicitly translated, probably by renaming it to renumber_code_locs_list_def
 *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
+
+(* known *)
+val _ = translate clos_knownTheory.merge_alt
+val num_abs_intro = prove(``
+  ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x``,
+  rw[]>>intLib.COOPER_TAC);
+
+val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
+
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 val _ = translate (clos_removeTheory.remove_alt)
-
 val remove_side = prove(``
   ∀x. remove_side x ⇔ T``,
   recInduct clos_removeTheory.remove_alt_ind>>
@@ -95,10 +105,12 @@ val _ = translate (conv64_RHS backendTheory.to_bvl_def)
 (* TODO: bunch of preconditions for to_bvl ones... *)
 
 (* TODO: See above *)
-val _ = translate (bvl_constTheory.compile_exps_def)
-val _ = translate (conv64_RHS backendTheory.to_bvi_def)
-val _ = translate (bvi_to_bvpTheory.op_requires_names_eqn)
+val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
+val _ = translate (bvl_to_bviTheory.compile_def)
+val _ = translate (conv64_RHS backendTheory.to_bvi_def)
+
+val _ = translate (bvi_to_bvpTheory.op_requires_names_eqn)
 val _ = translate (COUNT_LIST_compute)
 val _ = translate (bvi_to_bvpTheory.compile_exp_def)
 
