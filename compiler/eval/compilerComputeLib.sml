@@ -371,6 +371,14 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_to_wordTheory.next_n_oracle_def
     ,word_to_wordTheory.compile_def
       (* ---- wordLang word_simp ---- *)
+    ,word_simpTheory.SmartSeq_def
+    ,word_simpTheory.Seq_assoc_def
+    ,word_simpTheory.dest_Seq_def
+    ,word_simpTheory.dest_If_def
+    ,word_simpTheory.dest_If_Eq_Imm_def
+    ,word_simpTheory.dest_Seq_Assign_Const_def
+    ,word_simpTheory.apply_if_opt_def
+    ,word_simpTheory.simp_if_def
     ,word_simpTheory.compile_exp_def
       (* ---- wordLang remove must terminate ---- *)
     ,word_removeTheory.remove_must_terminate_def
