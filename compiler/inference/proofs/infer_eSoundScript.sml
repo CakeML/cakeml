@@ -317,8 +317,28 @@ rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def]
     rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
     fs [convert_env_def] >>
     metis_tac [])
->- cheat
+>- (
+  drule (hd (CONJUNCTS infer_p_wfs))
+  >> disch_then drule
+  >> rw []
+  >> drule t_unify_apply >>
+  >> disch_then drule
+  >> rw []
+  >> drule t_unify_wfs
+  >> disch_then drule
+  >> rw []
+  >> drule sub_completion_apply >>
+  >> rpt (disch_then drule)
+  >> rw []
+  >> `tenv_tabbrev_ok tenv.t` by cheat (* Probably needs to be added to the theorem's assumptions *)
+  >> drule check_freevars_type_name_subst
+  >> rpt (disch_then drule)
+  >> rw []
+  >> drule (hd (CONJUNCTS infer_type_subst_nil))
+  >> rw []
+  (* Should now use t_walkstar_no_vars, and lemmas about convert_t and unconvert_t *)
 
+  >> cheat)
 
 >- (`type_name_subst tenv.t t = convert_t (t_walkstar s t')`
        by (* This is the previous goal *)
