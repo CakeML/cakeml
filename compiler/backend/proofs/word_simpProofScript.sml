@@ -127,25 +127,22 @@ val simp_if_works = store_thm("simp_if_works",
 
 val extract_labels_apply_if_opt = store_thm("extract_labels_apply_if_opt",
   ``apply_if_opt p1 p2 = SOME p ==>
-    extract_labels p = extract_labels p1 ++ extract_labels p2``,
+    PERM (extract_labels p) (extract_labels p1 ++ extract_labels p2)``,
   fs [apply_if_opt_def]
   \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [dest_If_thm,dest_If_Eq_Imm_thm] \\ rveq
   \\ fs [extract_labels_def,extract_labels_SmartSeq]
   \\ Cases_on `p1` \\ fs [dest_Seq_def] \\ rveq \\ fs [extract_labels_def]
-  \\ cheat (* false due to list coming out in the wrong order, annoying *));
+  \\ metis_tac[PERM_APPEND,APPEND_ASSOC,PERM_APPEND_IFF])
 
 val extract_labels_simp_if = store_thm("extract_labels_simp_if",
-  ``!p. extract_labels (simp_if p) = extract_labels p``,
+  ``!p. PERM (extract_labels (simp_if p)) (extract_labels p)``,
   HO_MATCH_MP_TAC simp_if_ind \\ fs [simp_if_def] \\ rw []
-  \\ fs [extract_labels_def] THEN1
-   (every_case_tac \\ fs [extract_labels_def]
-    \\ imp_res_tac extract_labels_apply_if_opt \\ fs [])
-  \\ Cases_on `ret_prog` \\ fs []
-  \\ Cases_on `handler` \\ fs []
-  \\ PairCases_on `x` \\ fs[extract_labels_def]
-  \\ PairCases_on `x'` \\ fs[extract_labels_def]);
+  \\ fs [extract_labels_def]
+  \\ every_case_tac \\ fs [extract_labels_def]
+  \\ imp_res_tac extract_labels_apply_if_opt
+  \\ metis_tac[PERM_APPEND,PERM_TRANS,PERM_APPEND_IFF])
 
 (* putting it all together *)
 
@@ -155,8 +152,8 @@ val compile_exp_thm = store_thm("compile_exp_thm",
   fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc]);
 
 val extract_labels_compile_exp = store_thm("extract_labels_compile_exp[simp]",
-  ``!p. extract_labels (word_simp$compile_exp p) = extract_labels p``,
-  fs [word_simpTheory.compile_exp_def,
-      extract_labels_Seq_assoc,extract_labels_simp_if]);
+  ``!p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)``,
+  fs [word_simpTheory.compile_exp_def]>>
+  metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS])
 
 val _ = export_theory();
