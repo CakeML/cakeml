@@ -75,7 +75,6 @@ val to_clos_side = prove(``
   simp[(fetch "-" "to_clos_side_def")]>>
   metis_tac[compile_4_side]) |> update_precondition
 
-(*
 (* MTI *)
 val _ = translate(clos_mtiTheory.intro_multi_def)
 
@@ -122,14 +121,10 @@ val known_side = prove(``
   ho_match_mp_tac clos_knownTheory.known_ind>>
   `∀z a b c. known [z] a b ≠ ([],c)` by
     (CCONTR_TAC>>fs[]>>
-    (*TODO: known_SING needs to be moved into clos_known instead of proofs*)
-    cheat)>>
+    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
+    fs[])>>
   rw[]>>simp[Once (fetch"-" "known_side_def")]>>
-  TRY(metis_tac[FST,PAIR,known_op_side])>>
-  (* TODO:
-     The last conjunct looks unprovable, probably because of the
-     function being passed as an arg to GENLIST *)
-  cheat) |> update_precondition
+  metis_tac[FST,PAIR,known_op_side]) |> update_precondition
 
 (* call *)
 
@@ -147,7 +142,9 @@ val calls_side = prove(``
   ∀a b. calls_side a b ⇔ T``,
   ho_match_mp_tac clos_callTheory.calls_ind>>
   (*Move from calls proof*)
-  `∀a b c. calls [a] b ≠ ([],c)` by cheat>>
+  `∀a b c. calls [a] b ≠ ([],c)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_callTheory.calls_sing>>fs[])>>
   rw[]>> simp[Once (fetch"-" "calls_side_def"),Once (fetch "-" "closed_side_def"),free_side]>>
   TRY(metis_tac[])>>
   ntac 2 strip_tac>>
@@ -156,7 +153,7 @@ val calls_side = prove(``
     metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]
   >>
     simp[GSYM LAMBDA_PROD]>>rw[]
-    >- cheat (*calls proof*)
+    >- (imp_res_tac clos_callTheory.calls_length>>fs[])
     >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
 
 (* remove *)
@@ -189,7 +186,7 @@ val shift_side = prove(``
   simp[Once (fetch "-" "shift_side_def")]>>
   rw[]>> metis_tac[]) |> update_precondition
 
-val _ = translate (clos_to_bvlTheory.compile_def)
+val _ = translate (conv64_RHS backendTheory.to_bvl_def)
 
 val jumplist_side = prove(``
   ∀a b. jumplist_side a b ⇔ T``,
@@ -217,15 +214,15 @@ val recc_lets_side = prove(``
   simp[Once (fetch"-" "recc_lets_side_def")]>>
   Cases_on`b`>>fs[])
 
-val compile_exps_side = prove(``
-  ∀a b. compile_exps_side a b``,
+val compile_exps_4_side = prove(``
+  ∀a b. compile_exps_4_side a b``,
   ho_match_mp_tac clos_to_bvlTheory.compile_exps_ind>>
   `∀a b c. compile_exps [a] b ≠ ([],c)` by
     (CCONTR_TAC>>fs[]>>
     imp_res_tac clos_to_bvlTheory.compile_exps_SING>>
     fs[])>>
   rw[]>>
-  simp[Once (fetch "-" "compile_exps_side_def")]>>
+  simp[Once (fetch "-" "compile_exps_4_side_def")]>>
   TRY (metis_tac[])>>
   rw[]
   >-
@@ -236,37 +233,53 @@ val compile_exps_side = prove(``
   first_x_assum(qspecl_then[`x1`,`x43`,`x41`] assume_tac)>>
   CCONTR_TAC>>fs[])
 
-val compile_prog_side = prove(``
-  ∀x. compile_prog_side x ⇔ T``,
+val compile_prog_3_side = prove(``
+  ∀x. compile_prog_3_side x ⇔ T``,
   ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
-  simp[Once (fetch "-" "compile_prog_side_def"),compile_exps_side])
+  simp[Once (fetch "-" "compile_prog_3_side_def"),compile_exps_4_side])
 
-val compile_5_side = prove(``
-  ∀a b. compile_5_side a b ⇔ T``,
-  rw[Once (fetch "-" "compile_5_side_def"),
-  Once (fetch "-" "compile_4_side_def"),
-  Once (fetch "-" "compile_3_side_def"),
-  Once (fetch "-" "compile_2_side_def"),
-  Once (fetch "-" "compile_1_side_def"),
-  Once (fetch "-" "compile_1_side_def")]
+val to_bvl_side= prove(``
+  ∀a b. to_bvl_side a b ⇔ T``,
+  rw[Once (fetch "-" "to_bvl_side_def"),
+  Once (fetch "-" "compile_5_1_side_def"),
+  Once (fetch "-" "compile_6_side_def"),
+  Once (fetch "-" "compile_7_side_def"),
+  Once (fetch "-" "compile_8_side_def"),
+  Once (fetch "-" "compile_9_side_def")]
   >-
-    cheat
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_callTheory.calls_sing>>
+    fs[])
   >-
     (EVAL_TAC>>simp[jumplist_side])
   >-
-    simp[compile_prog_side]
+    simp[compile_prog_3_side]
+  >-
+    (EVAL_TAC>>
+    CCONTR_TAC >> fs[]>>
+    Cases_on`free [v1]`>>
+    imp_res_tac clos_freeTheory.free_SING>>fs[]>>
+    imp_res_tac clos_annotateTheory.shift_SING>>fs[])
+  >-
+    (qpat_abbrev_tac`ls = v6'::A`>>
+    Cases_on`remove ls`>>fs[Abbr`ls`]>>
+    imp_res_tac clos_removeTheory.remove_LENGTH>>
+    simp[])
+  >-
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
+    fs[])
   >>
-    (*The rest are all SING or LENGTH cheats*)
-    cheat)
-*)
+    `∃z. compile v6.clos_conf.do_mti [v5] = [z]` by
+      (Cases_on`v6.clos_conf.do_mti`>>fs[clos_mtiTheory.compile_def]>>
+      metis_tac[clos_mtiTheory.intro_multi_sing])>>
+    ntac 2 (pop_assum mp_tac)>>
+    specl_args_of_then ``renumber_code_locs_list`` (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
+    rw[]>>fs[]>>
+    Cases_on`v10`>>fs[]) |> update_precondition
 
-val _ = translate (conv64_RHS backendTheory.to_bvl_def)
-(* TODO: bunch of preconditions for to_bvl ones... *)
-
-(* TODO: See above *)
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
-val _ = translate (bvl_to_bviTheory.compile_def)
 val _ = translate (conv64_RHS backendTheory.to_bvi_def)
 
 val _ = translate (bvi_to_bvpTheory.op_requires_names_eqn)

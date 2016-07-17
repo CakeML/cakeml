@@ -732,6 +732,25 @@ val known_op_correct_approx = Q.store_thm(
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
 
+val LENGTH_clos_gen = prove(``
+  ∀ls x c.
+  LENGTH (clos_gen x c ls) = LENGTH ls``,
+  Induct>>fs[FORALL_PROD,clos_gen_def])
+
+val clos_gen_eq = prove(``
+  ∀n c fns.
+  clos_gen n c fns =
+  GENLIST (λi. Clos (2* (i+c) +n ) (FST (EL i fns))) (LENGTH fns)``,
+  Induct_on`fns`>>fs[FORALL_PROD,clos_gen_def,GENLIST_CONS]>>rw[]>>
+  simp[o_DEF,ADD1])
+
+val letrec_case_eq = prove(``
+  (case loc of
+    NONE => REPLICATE (LENGTH fns) Other
+  | SOME n => clos_gen n 0 fns) =
+  GENLIST (case loc of NONE => K Other | SOME n => λi. Clos (n+ 2*i) (FST (EL i fns))) (LENGTH fns)``,
+  Cases_on`loc`>>fs[clos_gen_eq,REPLICATE_GENLIST])
+
 val say = say0 "known_correct_approx"
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
@@ -977,7 +996,7 @@ val known_correct_approx = Q.store_thm(
       simp[])
   >- (say "letrec" >> rpt (pairarg_tac >> fs[]) >> imp_res_tac known_sing_EQ_E>>
       rveq >> fs[] >> rveq >>
-      fs[evaluate_def, bool_case_eq]
+      fs[evaluate_def, bool_case_eq,clos_gen_eq]
       >- (fixeqs >>
           qmatch_assum_abbrev_tac
             `closSem$evaluate([_], GENLIST (_ (MAP ff _)) _ ++ _, _) = _` >>
@@ -992,13 +1011,14 @@ val known_correct_approx = Q.store_thm(
           imp_res_tac LIST_REL_LENGTH >>
           simp[LIST_REL_EL_EQN, EL_GENLIST, EL_APPEND_EQN, EVERY_MEM,
                MEM_GENLIST, PULL_EXISTS] >>
-          disch_then (resolve_selected (el 3)) >>
-          impl_tac
+          disch_then match_mp_tac
           >- (rpt conj_tac >> simp[]
+              >- (Cases_on`lopt`>>fs[LENGTH_REPLICATE,LENGTH_clos_gen])
               >- (qx_gen_tac `i` >> reverse (Cases_on `i < LENGTH fns`) >>
-                  simp[] >- fs[LIST_REL_EL_EQN] >>
-                  Cases_on `lopt` >> simp[] >>
-                  simp[Abbr`ff`, EL_MAP] >> pairarg_tac >> simp[])
+                  Cases_on`lopt`>> simp[LENGTH_REPLICATE,LENGTH_clos_gen]>>
+                  fs[LIST_REL_EL_EQN] >>
+                  simp[Abbr`ff`,EL_REPLICATE,EL_MAP] >>
+                  pairarg_tac >> simp[])
               >- (fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
                   simp[Abbr`ff`] >> rpt strip_tac >>
                   qmatch_abbrev_tac `
@@ -1008,8 +1028,7 @@ val known_correct_approx = Q.store_thm(
                   Cases_on `known [fbody] ENV g0` >> simp[] >>
                   imp_res_tac known_sing_EQ_E >> fs[] >> rveq >>
                   first_x_assum (mp_tac o MATCH_MP known_preserves_setGlobals)>>
-                  simp[])) >>
-          metis_tac[])))
+                  simp[])))))
 
 val kca_sing_sga =
     known_correct_approx
@@ -1794,7 +1813,7 @@ val known_correct0 = Q.prove(
       simp[exp_rel_def, PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_val_approx])
   >- (say "letrec" >>
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def, bool_case_eq,
-           eqs] >> rpt strip_tac >> rveq >> fs[] >>
+           eqs] >> rpt strip_tac >> rveq >> fs[letrec_case_eq] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       simp[evaluate_def, eqs, bool_case_eq] >> dsimp[] >>
@@ -2306,7 +2325,7 @@ val known_increases_subspt_info = Q.store_thm(
       simp[] >> reverse impl_tac >- metis_tac[subspt_trans] >>
       simp[LIST_REL_REPLICATE_same, EVERY2_APPEND_suff])
   >- (say "letrec" >>
-      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >> rveq >>
+      rpt (pairarg_tac >> fs[]) >> rveq >> fs[letrec_case_eq] >> rveq >>
       imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
       map_every rename1 [`apx1' ◁ apx1`,
                            `known [bod] _ g0 = ([(_,apx1)], g1)`,

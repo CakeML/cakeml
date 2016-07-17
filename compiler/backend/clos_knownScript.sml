@@ -43,6 +43,7 @@ val merge_def = tDefine "merge" `
 val merge_def =
     save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
+(* Avoid MAP2 *)
 val merge_tup_def = tDefine "merge_tup" `
   (merge_tup (Impossible,y) = y) ∧
   (merge_tup (x,Impossible) = x) ∧
@@ -98,6 +99,10 @@ val dest_Clos_def = Define `
   (dest_Clos (Clos n a) = SOME (n,a)) /\
   (dest_Clos _ = NONE)`;
 val _ = export_rewrites["dest_Clos_def"];
+
+val clos_gen_def = Define`
+  (clos_gen n i [] = []) ∧
+  (clos_gen n i ((x,_)::xs) = Clos (n+2*i) x::clos_gen n (i+1) xs)`
 
 val known_def = tDefine "known" `
   (known [] vs (g:val_approx spt) = ([],g)) /\
@@ -162,10 +167,9 @@ val known_def = tDefine "known" `
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
   (known [Letrec loc_opt _ fns x1] vs g =
-     let gfn = case loc_opt of
-                   NONE => K Other
-                 | SOME n => \i. Clos (n + 2*i) (FST (EL i fns)) in
-     let clos = GENLIST gfn (LENGTH fns) in
+     let clos = case loc_opt of
+                   NONE => REPLICATE (LENGTH fns) Other
+                |  SOME n => clos_gen n 0 fns in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)
      let new_fns = MAP (\(num_args,x).
@@ -188,6 +192,30 @@ val compile_def = Define `
     let (_,g) = known [exp] [] LN in
     let (e,_) = known [exp] [] g in
       FST (HD e)`
+
+val known_LENGTH = Q.store_thm(
+  "known_LENGTH",
+  `∀es vs g. LENGTH (FST (known es vs g)) = LENGTH es`,
+  ho_match_mp_tac (fetch "-" "known_ind") >> simp[known_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]))
+
+val known_LENGTH_EQ_E = Q.store_thm(
+  "known_LENGTH_EQ_E",
+  `known es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`,
+  metis_tac[FST, known_LENGTH]);
+
+val known_sing = Q.store_thm(
+  "known_sing",
+  `∀e vs g. ∃e' a g'. known [e] vs g = ([(e',a)], g')`,
+  rpt strip_tac >> Cases_on `known [e] vs g` >>
+  rename1 `known [e] vs g = (res,g')` >>
+  qspecl_then [`[e]`, `vs`, `g`] mp_tac known_LENGTH >> simp[] >>
+  Cases_on `res` >> simp[LENGTH_NIL] >> metis_tac[pair_CASES])
+
+val known_sing_EQ_E = Q.store_thm(
+  "known_sing_EQ_E",
+  `∀e vs g0 all g. known [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
+  metis_tac[PAIR_EQ, known_sing]);
 
 (*
 
