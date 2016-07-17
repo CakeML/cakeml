@@ -5495,25 +5495,30 @@ val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
     qpat_assum`MAP A B = _` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
     fs[EL_MAP,MEM_EL,FORALL_PROD]>>
     rw[]>>pop_assum(qspec_then`n` assume_tac)>>
-    Cases_on`EL n p`>>Cases_on`r`>>rfs[]>>
+    fs[LIST_REL_EL_EQN,EL_MAP]>>res_tac>>
+    pairarg_tac>>fs[]>>
     Cases_on`n < LENGTH p1` >- (
       fs[Abbr`pp`,EL_APPEND1,Abbr`p1`]
       \\ fs[stubs_def,extract_labels_def]
       \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
                Cases_on`^(t"n")`\\fs[]
-               \\ imp_res_tac prim_recTheory.SUC_LESS)))
-      \\ EVAL_TAC \\ rw[]) >>
+               \\ imp_res_tac prim_recTheory.SUC_LESS)))>>
+      qpat_assum`PERM A B` mp_tac >> simp[extract_labels_def,RefByte_code_def,list_Seq_def])>>
     qpat_assum`n < LENGTH _`assume_tac >>
     qpat_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
-    Cases_on`EL (n - LENGTH p1) prog`>>Cases_on`r`>>fs[compile_part_def]>>
-    Q.SPECL_THEN [`bvp_conf`,`q''`,`1n`,`r''`]assume_tac bvp_to_word_lab_pres_lem>>
-    fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>rw[]>>
-    res_tac>>fs[]>>
-    last_x_assum mp_tac>>
-    simp[LIST_EQ_REWRITE]>>
-    disch_then(qspec_then`n` mp_tac)>>
-    fs[EL_MAP,EL_APPEND2]>>
-    rfs[compile_part_def]);
+    Cases_on`EL (n - LENGTH p1) prog`>>Cases_on`r`>>
+    Q.SPECL_THEN [`bvp_conf`,`q`,`1n`,`r'`]assume_tac bvp_to_word_lab_pres_lem>>
+    fs[compile_part_def]>>
+    fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>
+    reverse CONJ_TAC>-
+      metis_tac[ALL_DISTINCT_PERM]>>
+    ntac 3 strip_tac>>
+    first_x_assum(qspec_then`p_1,p_2` mp_tac)>>
+    impl_tac>>simp[]>>
+    imp_res_tac PERM_MEM_EQ>>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum (qspec_then `p_1,p_2` assume_tac)>>fs[MEM_EL,EQ_IMP_THM]>>
+    metis_tac[]);
 
 val _ = export_theory();
