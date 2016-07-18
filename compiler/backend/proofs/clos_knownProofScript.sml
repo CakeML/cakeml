@@ -2,6 +2,7 @@ open preamble
 open closPropsTheory clos_knownTheory closSemTheory
 open clos_knownPropsTheory
 open bagTheory
+open mp_then
 
 val _ = new_theory "clos_knownProof";
 
@@ -32,70 +33,25 @@ val subspt_LN = Q.store_thm(
   `(subspt LN sp ⇔ T) ∧ (subspt sp LN ⇔ domain sp = {})`,
   simp[subspt_def] >> simp[EXTENSION]);
 
-fun nailIHx k = let
-  fun hdt t = (t |> lhs |> strip_comb |> #1)
-              handle HOL_ERR _ => t |> strip_comb |> #1
-  fun sameish t1 t2 = aconv t1 t2 orelse same_const t1 t2
-  fun samehd t1 th2 = sameish (hdt t1) (hdt (concl th2))
-  fun findcs [] a k = raise Fail "strip_conj gave empty list"
-    | findcs [c] a k =
-      first_assum
-        (fn th => k (LIST_CONJ (List.rev (assert (samehd c) th :: a))))
-    | findcs (c::cs) a k =
-      first_assum (fn th => findcs cs (assert (samehd c) th :: a) k)
-in
+fun sel_ihpc f = first_x_assum (first_assum o mp_then (Pos f) mp_tac)
+fun resolve_selected f th = first_assum (mp_then (Pos f) mp_tac th)
+
+(* horrid bodge until qpat_assum is fixed *)
+fun QPAT_ASSUM p (ttac : thm_tactic) : tactic =
+  qpat_assum p (fn cth => ttac cth >> assume_tac cth)
+
+fun patresolve p f th = QPAT_ASSUM p (mp_then (Pos f) mp_tac th)
+
+(* repeated resolution, requiring that all preconditions get removed *)
+fun nailIHx k =
   first_x_assum
-    (fn th0 =>
-        let val body = th0 |> concl |> strip_forall |> #2
-            val hyp = #1 (dest_imp body)
-            val cs = strip_conj hyp
-        in
-          findcs cs [] (k o MATCH_MP th0)
-        end)
-end
+    (REPEAT_GTCL
+       (fn ttcl => fn th => first_assum (mp_then (Pos hd) ttcl th))
+       (k o assert (not o is_imp o #2 o strip_forall o concl)) o
+     assert (is_imp o #2 o strip_forall o concl))
 
-fun avSPEC_ALL avds th =
-  let
-    fun recurse avds acc th =
-      case Lib.total dest_forall (concl th) of
-          SOME (v,bod) =>
-          let
-            val v' = variant avds v
-          in
-            recurse (v'::avds) (v'::acc) (SPEC v' th)
-          end
-        | NONE => (List.rev acc, th)
-  in
-    recurse avds [] th
-  end
-
-fun PART_MATCH' f th t =
-  let
-    val (vs, _) = strip_forall (concl th)
-    val hypfvs_set = hyp_frees th
-    val hypfvs = HOLset.listItems hypfvs_set
-    val tfvs = free_vars t
-    val dontspec = union tfvs hypfvs
-    val (vs, speccedth) = avSPEC_ALL dontspec th
-    val ((tmsig,_),_) = raw_match [] hypfvs_set (f (concl speccedth)) t ([],[])
-    val dontgen = union (map #redex tmsig) dontspec
-  in
-    GENL (set_diff vs dontgen) (INST tmsig speccedth)
-  end
-
-fun asmPART_MATCH' f th t =
-    PART_MATCH' (f o strip_conj o #1 o dest_imp) th t
-
-fun sel_ihpc f =
-    first_assum (fn asm => first_x_assum (fn ih =>
-      mp_tac (asmPART_MATCH' f ih (concl asm))))
-
-fun resolve_selected f th =
-  first_assum (mp_tac o asmPART_MATCH' f th o concl)
-
-fun patresolve p f th =
-  qpat_assum p (fn cth => mp_tac (asmPART_MATCH' f th (concl cth)) >>
-                          assume_tac cth)
+infix >~
+fun (f >~ g) th = f th >> g
 
 val any_el_ALT = Q.store_thm(
   "any_el_ALT",
@@ -775,24 +731,21 @@ val known_correct_approx = Q.store_thm(
       fs[] >>
       `∃exp2' a2 arest. al2 = (exp2',a2)::arest`
         by (Cases_on `al2` >> fs[] >> metis_tac[pair_CASES]) >> rveq >>
-      qpat_assum `known [_] _ _ = _` (fn th =>
-        mp_tac (asmPART_MATCH' hd subspt_known_elist_globals (concl th)) >>
-        assume_tac th) >> simp[] >> disch_then (resolve_selected hd) >>
+      patresolve `known [_] _ _ = _` hd subspt_known_elist_globals >> simp[] >>
+      disch_then (resolve_selected hd) >>
       fs[BAG_ALL_DISTINCT_BAG_UNION] >> strip_tac >>
       fs[evaluate_def, pair_case_eq, result_case_eq] >> rveq
       >- (rename1 `evaluate ([exp1'], env, s0) = (Rval v1, s1)` >>
-          qpat_assum `closSem$evaluate([_],_,_) = _` (fn th =>
-            first_x_assum (fn ith =>
-              mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+          first_x_assum (QPAT_ASSUM `closSem$evaluate([_],_,_) = _` o
+                         mp_then (Pos last) mp_tac) >>
           simp[] >>
           disch_then (resolve_selected last) >> simp[] >>
           impl_keep_tac >- metis_tac[subspt_trans] >> strip_tac >>
           simp[] >> rveq >> fs[] >> sel_ihpc last >> simp[] >>
           metis_tac[ssgc_free_preserved_SING])
       >- (simp[] >>
-          qpat_assum `closSem$evaluate ([_],_,_) = _` (fn th =>
-            first_x_assum (fn ith =>
-              mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+          first_x_assum (QPAT_ASSUM `closSem$evaluate ([_],_,_) = _` o
+                         mp_then (Pos last) mp_tac) >>
           simp[] >>
           disch_then (resolve_selected last) >> simp[] >>
           impl_tac >- metis_tac[subspt_trans] >> rw[] >>
@@ -815,24 +768,24 @@ val known_correct_approx = Q.store_thm(
          by metis_tac[known_sing, PAIR_EQ] >> fs[] >> rveq >> fs[] >> rveq >>
       `subspt g0 g1 ∧ subspt g1 g2 ∧ subspt g2 g3`
          by (`∃al01. known [ge;tb] as g0 = (al01,g2)` by simp[known_def] >>
-             first_assum (fn th =>
-               mp_tac (asmPART_MATCH' hd subspt_known_elist_globals
-                                      (concl th))) >> simp[] >>
-             disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
-             qpat_assum `known [_] _ g0 = (_,g1)` (fn th =>
-               mp_tac (asmPART_MATCH' hd subspt_known_elist_globals
-                                      (concl th)) >> assume_tac th) >>
-             simp[] >> disch_then (resolve_selected hd) >> simp[]) >>
+             first_assum (mp_then (Pos hd) mp_tac subspt_known_elist_globals) >>
+             simp[] >>
+             disch_then (first_assum o mp_then (Pos hd) mp_tac) >>
+             simp[] >> strip_tac >>
+             qpat_assum `known [_] _ g0 = (_,g1)`
+               (mp_then (Pos hd) mp_tac subspt_known_elist_globals) >>
+             simp[] >> disch_then (first_assum o mp_then (Pos hd) mp_tac) >>
+             simp[]) >>
       reverse
         (fs[evaluate_def, pair_case_eq, result_case_eq,
             bool_case_eq]) >> rveq >> fixeqs >> simp[]
-      >- (sel_ihpc last >> simp[] >> metis_tac[subspt_trans])
+      >- (first_x_assum (first_assum o mp_then (Pos last) mp_tac) >> simp[] >>
+          metis_tac[subspt_trans])
       >- (sel_ihpc last >> simp[] >> metis_tac[subspt_trans]) >>
       (* two cases from here on *)
       rename1 `evaluate ([ge'], env, s0) = (Rval gvs, s1)` >>
-      qpat_assum `evaluate ([ge'], _, _) = _` (fn th =>
-        first_x_assum (fn ith =>
-          mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+      first_x_assum
+        (QPAT_ASSUM `evaluate ([ge'], _, _) = _` o mp_then (Pos last) mp_tac) >>
       simp[] >> disch_then (resolve_selected last) >> simp[] >>
       (impl_keep_tac >- metis_tac[subspt_trans]) >>
       strip_tac >> rveq >> fs[] >> rveq >> sel_ihpc last >> simp[] >>
@@ -850,10 +803,8 @@ val known_correct_approx = Q.store_thm(
       simp[] >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       map_every rename1 [`known [bod] _ g1 = (_, g)`,
                            `known _ _ g0 = (_, g1)`] >>
-      qpat_assum `known [_] _ _ = _` (fn th =>
-        mp_tac (asmPART_MATCH' (el 2) subspt_known_elist_globals
-                               (concl th)) >> assume_tac th) >> simp[] >>
-      disch_then (resolve_selected hd) >> simp[] >>
+      patresolve `known [_] _ _ = _` (el 2) subspt_known_elist_globals >>
+      simp[] >> disch_then (resolve_selected hd) >> simp[] >>
       (impl_tac >- fs[BAG_DISJOINT, DISJOINT_SYM]) >> strip_tac >> simp[] >>
       (impl_tac >- metis_tac[subspt_trans]) >> strip_tac >> simp[] >>
       imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
@@ -876,10 +827,8 @@ val known_correct_approx = Q.store_thm(
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       map_every rename1 [`known _ (_ :: _) g1 = (_, g)`,
                            `known _ _ g0 = (_, g1)`] >>
-      qpat_assum `known _ (_ :: _) _ = _` (fn th =>
-        mp_tac (asmPART_MATCH' (el 2) subspt_known_elist_globals
-                               (concl th)) >> assume_tac th) >> simp[] >>
-      disch_then (resolve_selected hd) >> simp[] >>
+      patresolve `known _ (_ :: _) _ = _` (el 2) subspt_known_elist_globals >>
+      simp[] >> disch_then (resolve_selected hd) >> simp[] >>
       fs[BAG_ALL_DISTINCT_BAG_UNION] >> strip_tac >>
       fs[evaluate_def, pair_case_eq, result_case_eq,
          error_case_eq] >> rveq >> fs[] >>
@@ -888,9 +837,8 @@ val known_correct_approx = Q.store_thm(
           simp[] >> reverse impl_keep_tac
           >- metis_tac[val_approx_val_merge_I] >>
           metis_tac[subspt_trans])
-      >- (qpat_assum `closSem$evaluate _ = (Rerr _, _)`
-           (fn th => first_x_assum (fn ith =>
-              mp_tac (asmPART_MATCH' last ith (concl th))) >> assume_tac th) >>
+      >- (first_x_assum (QPAT_ASSUM `closSem$evaluate _ = (Rerr _, _)` o
+                         mp_then (Pos last) mp_tac) >>
           simp[] >> disch_then (resolve_selected last) >> simp[] >>
           impl_keep_tac >- metis_tac[subspt_trans] >>
           strip_tac >> sel_ihpc last >> simp[PULL_EXISTS] >>
@@ -940,9 +888,8 @@ val known_correct_approx = Q.store_thm(
       metis_tac[known_op_correct_approx, LIST_REL_REVERSE_EQ])
   >- (say "app" >> rpt (pairarg_tac >> fs[]) >> rveq >>
       imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq >>
-      qpat_assum `known [_] _ _ = _` (fn th =>
-        mp_tac (asmPART_MATCH' (el 2) subspt_known_elist_globals (concl th)) >>
-        assume_tac th) >> simp[] >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
+      patresolve `known [_] _ _ = _` (el 2) subspt_known_elist_globals >>
+      simp[] >> fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       disch_then (resolve_selected hd) >> simp[] >> impl_tac
       >- fs[BAG_DISJOINT, DISJOINT_SYM] >> strip_tac >>
       fs[evaluate_def, bool_case_eq, pair_case_eq,
@@ -1777,9 +1724,7 @@ val known_correct0 = Q.prove(
           fs[krrel_err_rw] >> disch_then irule >> simp[]
           >- metis_tac[ssgc_free_preserved_SING']
           >- first_assum
-               (fn th =>
-                    mp_tac (asmPART_MATCH' last ssgc_evaluate (concl th)) >>
-                    simp[] >> NO_TAC)
+               (mp_then (Pos last) (mp_tac >~ (simp[] >> NO_TAC)) ssgc_evaluate)
           >- (patresolve `known _ _ g0 = _` hd (GEN_ALL kca_sing_sga) >>
               simp[] >> disch_then (resolve_selected last) >> simp[] >>
               metis_tac[ksrel_ssgc_free,kvrel_EVERY_vsgc_free,ksrel_sga,
@@ -2123,7 +2068,7 @@ val known_preserves_every_Fn_NONE = Q.store_thm(
   >- (simp[Once every_Fn_vs_NONE_EVERY] >> simp[GSYM every_Fn_vs_NONE_EVERY])
   >- (simp[Once every_Fn_vs_NONE_EVERY] >>
       simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rpt strip_tac >>
-      nailIHx mp_tac >> rename1 `known[bod] env g0` >>
+      sel_ihpc hd >> rename1 `known[bod] env g0` >>
       Cases_on `known[bod] env g0` >> simp[] >> imp_res_tac known_sing_EQ_E >>
       rveq >> fs[] >> rveq >> disch_then irule >>
       fs[Once every_Fn_vs_NONE_EVERY] >>
@@ -2140,7 +2085,7 @@ val known_preserves_every_Fn_SOME = Q.store_thm(
   >- (simp[Once every_Fn_SOME_EVERY]>>simp[GSYM every_Fn_SOME_EVERY])
   >- (simp[Once every_Fn_SOME_EVERY] >>
       simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rpt strip_tac >>
-      nailIHx mp_tac >> rename1 `known[bod] env g0` >>
+      sel_ihpc hd >> rename1 `known[bod] env g0` >>
       Cases_on `known[bod] env g0` >> simp[] >> imp_res_tac known_sing_EQ_E >>
       rveq >> fs[] >> rveq >> disch_then irule >>
       fs[Once every_Fn_SOME_EVERY] >>
@@ -2331,7 +2276,8 @@ val known_increases_subspt_info = Q.store_thm(
                            `known [bod] _ g0 = ([(_,apx1)], g1)`,
                            `known [bod] _ g2 = ([(_,apx1')], g)`] >>
       unabbrevify >>
-      first_x_assum (patresolve `known _ _ g2 = _` last) >> simp[] >>
+      first_x_assum (patresolve `subspt g1 _` hd) >> simp[] >>
+      disch_then (first_assum o mp_then (Pos last) mp_tac) >> simp[] >>
       disch_then irule >> irule EVERY2_APPEND_suff >> simp[] >>
       simp[LIST_REL_GENLIST]))
 
