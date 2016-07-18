@@ -916,6 +916,34 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      rw [])
  >- (* Tannot*)
     cheat
+
+    (drule (hd (CONJUNCTS infer_e_wfs)) >>
+     disch_then drule >>
+     rw [] >>
+     drule t_unify_apply >>
+     disch_then drule >>
+     rw [] >>
+     drule t_unify_wfs >>
+     disch_then drule >>
+     rw [] >>
+     drule sub_completion_apply >>
+     rpt (disch_then drule) >>
+     rw [] >>
+     `tenv_tabbrev_ok tenv.t` by cheat >>
+     drule check_freevars_type_name_subst >>
+     rpt (disch_then drule) >>
+     rw [] >>
+
+     `check_freevars 0 [] (type_name_subst ienv.inf_t t)` by cheat >>
+     drule (hd (CONJUNCTS infer_type_subst_nil)) >>
+     rw [] >> fs [] >>
+
+`check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
+by metis_tac [infer_type_subst_empty_check] >>
+
+fs [] >>
+metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id])
+
  >- (* Tannot*)
     cheat
  >- (* Tannot*)
