@@ -456,6 +456,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     menv_alpha ienv.inf_m tenv.m ∧
     check_cenv ienv.inf_c ∧
     ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenv.v) st'.next_uvar st'.subst extra_constraints s ∧
@@ -468,6 +470,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     menv_alpha ienv.inf_m tenv.m ∧
     check_cenv ienv.inf_c ∧
     ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenv.v) st'.next_uvar st'.subst extra_constraints s ∧
@@ -480,6 +484,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     menv_alpha ienv.inf_m tenv.m ∧
     check_cenv ienv.inf_c ∧
     ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenv.v) st'.next_uvar st'.subst extra_constraints s ∧
@@ -492,6 +498,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     menv_alpha ienv.inf_m tenv.m ∧
     check_cenv ienv.inf_c ∧
     ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenv.v) st'.next_uvar st'.subst extra_constraints s ∧
@@ -915,8 +923,6 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                      metis_tac [MAP_MAP_o, combinTheory.o_DEF, sub_completion_apply_list]) >>
      rw [])
  >- (* Tannot*)
-    cheat
-
     (drule (hd (CONJUNCTS infer_e_wfs)) >>
      disch_then drule >>
      rw [] >>
@@ -925,27 +931,47 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      rw [] >>
      drule t_unify_wfs >>
      disch_then drule >>
+     imp_res_tac sub_completion_wfs >>
      rw [] >>
      drule sub_completion_apply >>
      rpt (disch_then drule) >>
      rw [] >>
-     `tenv_tabbrev_ok tenv.t` by cheat >>
      drule check_freevars_type_name_subst >>
      rpt (disch_then drule) >>
      rw [] >>
-
-     `check_freevars 0 [] (type_name_subst ienv.inf_t t)` by cheat >>
      drule (hd (CONJUNCTS infer_type_subst_nil)) >>
      rw [] >> fs [] >>
-
-`check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
-by metis_tac [infer_type_subst_empty_check] >>
-
-fs [] >>
-metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id])
-
+     `check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
+       by metis_tac [infer_type_subst_empty_check] >>
+     metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id])
  >- (* Tannot*)
-    cheat
+    (`type_name_subst tenv.t t = convert_t (t_walkstar s t')`
+       by (* This is the previous goal *)
+       (drule (hd (CONJUNCTS infer_e_wfs)) >>
+        disch_then drule >>
+        rw [] >>
+        drule t_unify_apply >>
+        disch_then drule >>
+        rw [] >>
+        drule t_unify_wfs >>
+        disch_then drule >>
+        imp_res_tac sub_completion_wfs >>
+        rw [] >>
+        drule sub_completion_apply >>
+        rpt (disch_then drule) >>
+        rw [] >>
+        drule check_freevars_type_name_subst >>
+        rpt (disch_then drule) >>
+        rw [] >>
+        drule (hd (CONJUNCTS infer_type_subst_nil)) >>
+        rw [] >> fs [] >>
+        `check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
+          by metis_tac [infer_type_subst_empty_check] >>
+        metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id]) >>
+    rw [GSYM convert_env_def] >>
+    first_x_assum irule >> rw [] >>
+    imp_res_tac sub_completion_unify2 >>
+    metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
  >- (* Tannot*)
     cheat
  >-
