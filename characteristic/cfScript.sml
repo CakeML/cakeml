@@ -1025,6 +1025,34 @@ val app_deref_def = Define `
       (H ==>> F * r ~~> Refv x) /\
       (H ==>> Q x)`
 
+val app_aalloc_def = Define `
+  app_aalloc (n: int) v H Q =
+    !(loc: num).
+      n >= 0 /\
+      (H * loc ~~> Varray (REPLICATE (Num (ABS n)) v) ==>> Q (Loc loc))`
+
+val app_asub_def = Define `
+  app_asub (loc: num) (i: int) H Q =
+    ?vs F.
+      let n = Num (ABS i) in
+      0 <= i /\ n < LENGTH vs /\
+      (H ==>> F * loc ~~> Varray vs) /\
+      (H ==>> Q (EL n vs))`
+
+val app_alength_def = Define `
+  app_alength (loc: num) H Q =
+    ?vs F.
+      (H ==>> F * loc ~~> Varray vs) /\
+      (H ==>> Q (Litv (IntLit (int_of_num (LENGTH vs)))))`
+
+val app_aupdate_def = Define `
+  app_aupdate (loc: num) (i: int) v H Q =
+    ?vs F.
+      let n = Num (ABS i) in
+      0 <= i /\ n < LENGTH vs /\
+      (H ==>> F * loc ~~> Varray vs) /\
+      (F * loc ~~> Varray (LUPDATE v n vs) ==>> Q (Conv NONE []))`
+
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
     !(loc: num).
@@ -1156,6 +1184,34 @@ val cf_deref_def = Define `
       exp2v env r = SOME (Loc rv) /\
       app_deref rv H Q)`
 
+val cf_aalloc_def = Define `
+  cf_aalloc xn xv = \env. local (\H Q.
+    ?n v.
+      exp2v env xn = SOME (Litv (IntLit n)) /\
+      exp2v env xv = SOME v /\
+      app_aalloc n v H Q)`
+
+val cf_asub_def = Define `
+  cf_asub xl xi = \env. local (\H Q.
+    ?l i.
+      exp2v env xl = SOME (Loc l) /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      app_asub l i H Q)`
+
+val cf_alength_def = Define `
+  cf_alength xl = \env. local (\H Q.
+    ?l.
+      exp2v env xl = SOME (Loc l) /\
+      app_alength l H Q)`
+
+val cf_aupdate_def = Define `
+  cf_aupdate xl xi xv = \env. local (\H Q.
+    ?l i v.
+      exp2v env xl = SOME (Loc l) /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      exp2v env xv = SOME v /\
+      app_aupdate l i v H Q)`
+
 val cf_aw8alloc_def = Define `
   cf_aw8alloc xn xw = \env. local (\H Q.
     ?n w.
@@ -1240,6 +1296,22 @@ val cf_def = tDefine "cf" `
           (case args of
              | [r] => cf_deref r
              | _ => cf_bottom)
+        | Aalloc =>
+          (case args of
+            | [n; v] => cf_aalloc n v
+            | _ => cf_bottom)
+        | Asub =>
+          (case args of
+            | [l; n] => cf_asub l n
+            | _ => cf_bottom)
+        | Alength =>
+          (case args of
+            | [l] => cf_alength l
+            | _ => cf_bottom)
+        | Aupdate =>
+          (case args of
+            | [l; n; v] => cf_aupdate l n v
+            | _ => cf_bottom)
         | Aw8alloc =>
           (case args of
              | [n; w] => cf_aw8alloc n w
@@ -1286,7 +1358,8 @@ val cf_def = tDefine "cf" `
 val cf_ind = fetch "-" "cf_ind"
 
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
-               cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
+               cf_opn_def, cf_opb_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
+               cf_aupdate_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
                cf_fundecl_rec_def, cf_bottom_def, cf_mat_def]
 
@@ -1934,6 +2007,68 @@ val cf_sound = store_thm ("cf_sound",
       fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
       every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
       qexists_tac `Mem l (W8array (LUPDATE w (Num (ABS i)) ws)) INSERT u` \\
+      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
+      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+    )
+    THEN1 (
+      (* Aalloc *)
+      `evaluate_list F env st [h'; h] (st, Rval [v; Litv (IntLit n)])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
+      fs [do_app_def, store_alloc_def, st2heap_def, app_aalloc_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
+      (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num (ABS n)) v)) INSERT h_i`] \\
+      assume_tac store2heap_alloc_disjoint \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      impl_tac
+      THEN1 (instantiate \\ SPLIT_TAC)
+      THEN1 (
+        rpt strip_tac \\ every_case_tac \\
+        rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
+        fs [store2heap_append] \\ qexists_tac `{}` \\ SPLIT_TAC
+      )
+    )
+    THEN1 (
+      (* Asub *)
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
+        by (cf_evaluate_list_tac [`st`, `st`]) \\
+      fs [st2heap_def, app_asub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      fs [do_app_def, store_lookup_def] \\
+      `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
+      instantiate \\ every_case_tac \\
+      rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []
+    )
+    THEN1 (
+      (* Alength *)
+      `evaluate_list F env st [h] (st, Rval [Loc l])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\
+      fs [st2heap_def, app_alength_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\
+      fs [do_app_def, store_lookup_def] \\
+      `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
+    )
+    THEN1 (
+      (* Aupdate *)
+      `evaluate_list F env st [h''; h'; h]
+         (st, Rval [v; Litv (IntLit i); Loc l])`
+          by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
+      fs [app_aupdate_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
+      first_x_assum progress \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+      every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
+      qexists_tac `Mem l (Varray (LUPDATE v (Num (ABS i)) vs)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
