@@ -1661,7 +1661,7 @@ val ctMap_ok_lookup = Q.store_thm ("ctMap_ok_lookup",
  full_simp_tac(srw_ss())[]);
 
 val ctMap_ok_type_decs = Q.store_thm ("ctMap_ok_type_decs",
- `!mn tds. check_ctor_tenv mn tabbrev tds ⇒ ctMap_ok (type_decs_to_ctMap mn tds)`,
+ `!mn tds. tenv_tabbrev_ok tabbrev ∧ check_ctor_tenv mn tabbrev tds ⇒ ctMap_ok (type_decs_to_ctMap mn tabbrev tds)`,
  rw [check_ctor_tenv_def, ctMap_ok_def, type_decs_to_ctMap_def, FEVERY_ALL_FLOOKUP, intro_alist_to_fmap]
  >> drule ALOOKUP_MEM
  >> simp [MEM_FLAT, MEM_MAP]
@@ -1681,7 +1681,52 @@ val ctMap_ok_type_decs = Q.store_thm ("ctMap_ok_type_decs",
  >> fs []
  >> rw []
  >> first_x_assum drule
- >> rw []);
+ >> pairarg_tac
+ >> fs []
+ >> rw []
+ >> fs [MEM_MAP]
+ >> metis_tac [check_freevars_type_name_subst]);
+
+val consistent_ctMap_union = Q.store_thm ("consistent_ctMap_union",
+ `!tdecs1 tdecs2 ctMap1 ctMap2.
+  consistent_ctMap tdecs1 ctMap1 ∧
+  consistent_ctMap tdecs2 ctMap2
+  ⇒
+  consistent_ctMap (union_decls tdecs1 tdecs2) (FUNION ctMap1 ctMap2)`,
+ rw [consistent_ctMap_def, RES_FORALL]
+ >> pairarg_tac
+ >> fs []
+ >> CASE_TAC
+ >> fs [union_decls_def]
+ >> first_x_assum drule
+ >> simp []);
+
+val consistent_ctMap_disjoint = Q.store_thm ("consistent_ctMap_disjoint",
+`!mn (tds:type_def) (ctMap:ctMap) tdecs tabbrev.
+  DISJOINT (set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tds)) tdecs.defined_types ∧
+  consistent_ctMap tdecs ctMap
+  ⇒
+  DISJOINT (IMAGE SND (FDOM (type_decs_to_ctMap mn tabbrev tds))) (IMAGE SND (FDOM ctMap))` ,
+ rw [consistent_ctMap_def,
+     type_decs_to_ctMap_def, RES_FORALL, intro_alist_to_fmap, DISJOINT_DEF,
+     EXTENSION, MEM_MAP]
+ >> rw [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``]
+ >> fs [MEM_FLAT, MEM_MAP]
+ >> rw []
+ >> pairarg_tac
+ >> fs [MEM_MAP]
+ >> rw []
+ >> pairarg_tac
+ >> fs []
+ >> CCONTR_TAC
+ >> fs []
+ >> first_x_assum drule
+ >> pairarg_tac
+ >> fs []
+ >> rw []
+ >> fs [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``, PULL_EXISTS]
+ >> first_x_assum drule
+ >> simp []);
 
  (*
 val flat_tenvC_ok_ctMap = Q.store_thm ("flat_tenvC_ok_ctMap",
@@ -1833,32 +1878,18 @@ val consistent_ctMap_extend_exn = Q.store_thm ("consistent_ctMap_extend_exn",
 (* ---------- consistent_decls ---------- *)
 
 
-val consistent_decls_disjoint = Q.store_thm ("consistent_decls_disjoint",
-`!mn (tds:type_def) (ctMap:ctMap) tdecs.
-  DISJOINT (set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tds)) tdecs.defined_types ∧
-  consistent_ctMap tdecs ctMap
+val consistent_decls_union = Q.store_thm ("consistent_decls_union",
+ `!defined_types1 defined_types2 tdecs1 tdecs2.
+  consistent_decls defined_types1 tdecs1 ∧
+  consistent_decls defined_types2 tdecs2
   ⇒
-  DISJOINT (IMAGE SND (FDOM (type_decs_to_ctMap mn tds))) (IMAGE SND (FDOM ctMap))` ,
- rw [consistent_ctMap_def,
-     type_decs_to_ctMap_def, RES_FORALL, intro_alist_to_fmap, DISJOINT_DEF,
-     EXTENSION, MEM_MAP]
- >> rw [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``]
- >> fs [MEM_FLAT, MEM_MAP]
- >> rw []
- >> pairarg_tac
- >> fs [MEM_MAP]
- >> rw []
- >> pairarg_tac
- >> fs []
- >> CCONTR_TAC
+  consistent_decls (defined_types1 ∪ defined_types2) (union_decls tdecs1 tdecs2)`,
+ rw [consistent_decls_def, union_decls_def, RES_FORALL]
+ >> CASE_TAC
  >> fs []
  >> first_x_assum drule
- >> pairarg_tac
- >> fs []
  >> rw []
- >> fs [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``, PULL_EXISTS]
- >> first_x_assum drule
- >> simp []);
+ >> metis_tac []);
 
 (*
 val consistent_decls_disjoint_exn = Q.store_thm ("consistent_decls_disjoint_exn",
@@ -2430,7 +2461,7 @@ val condefs_none_lemma = Q.prove (
 `!condefs c mn tvs t tn.
   ALOOKUP condefs c = NONE
   ⇒
-  ALOOKUP (MAP (λ(cn,ts). ((cn,TypeId (mk_id mn tn)),tvs,ts)) condefs) (c,t) = NONE`,
+  ALOOKUP (MAP (λ(cn,ts). ((cn,TypeId (mk_id mn tn)),tvs,MAP (type_name_subst tenvT) ts)) condefs) (c,t) = NONE`,
  Induct_on `condefs`
  >> rw []
  >> pairarg_tac
@@ -2446,7 +2477,7 @@ val condefs_some_lemma = Q.prove (
  ALOOKUP condefs c = SOME x
  ⇒
  ALOOKUP
-        (MAP (λ(cn,ts'). ((cn,TypeId (mk_id mn tn)),tvs,ts'))
+        (MAP (λ(cn,ts'). ((cn,TypeId (mk_id mn tn)),tvs,MAP (type_name_subst tenvT) ts'))
            condefs) (c,TypeId (mk_id mn tn)) = SOME (tvs,MAP (type_name_subst tenvT) x)`,
  Induct_on `condefs`
  >> rw []
@@ -2454,17 +2485,16 @@ val condefs_some_lemma = Q.prove (
  >> fs []
  >> simp [ALOOKUP_APPEND]
  >> rw []
- >> fs []
- >> cheat);
+ >> fs []);
 
 val consistent_con_env_type_decs_lemma = Q.prove (
  `!mn tds c n t tenvT tvs ts t'.
- ALOOKUP (build_tdefs mn tds) c = SOME (n,t) ∧
- ALOOKUP (build_ctor_tenv mn tenvT tds) c = SOME (tvs,ts,t')
- ⇒
- t' = t ∧
- FLOOKUP (type_decs_to_ctMap mn tds) (c,t) = SOME (tvs,ts) ∧
- LENGTH ts = n`,
+  ALOOKUP (build_tdefs mn tds) c = SOME (n,t) ∧
+  ALOOKUP (build_ctor_tenv mn tenvT tds) c = SOME (tvs,ts,t')
+  ⇒
+  t' = t ∧
+  FLOOKUP (type_decs_to_ctMap mn tenvT tds) (c,t) = SOME (tvs,ts) ∧
+  LENGTH ts = n`,
  simp [build_tdefs_def, build_ctor_tenv_def, type_decs_to_ctMap_def,
        intro_alist_to_fmap, REVERSE_FLAT,GSYM MAP_REVERSE]
  >> rpt gen_tac
@@ -2481,10 +2511,9 @@ val consistent_con_env_type_decs_lemma = Q.prove (
  >> fs []
  >- (
    strip_tac
-   >> PairCases_on `tenvT`
    >> first_x_assum drule
    >> disch_then drule
-   >> rw [ALOOKUP_MAP, condefs_none_lemma])
+   >> rw [condefs_none_lemma])
  >- (
    CASE_TAC
    >> rw []
@@ -2494,7 +2523,7 @@ val consistent_con_env_type_decs_lemma = Q.prove (
 
 val consistent_con_env_type_decs = Q.store_thm ("consistent_con_env_type_decs",
 `!mn (tds:type_def) tenvT.
-  consistent_con_env (type_decs_to_ctMap mn tds)
+  consistent_con_env (type_decs_to_ctMap mn tenvT tds)
     ([], build_tdefs mn tds)
     ([], build_ctor_tenv mn tenvT tds)`,
  rw [consistent_con_env_def, lookup_alist_mod_env_def]
@@ -2936,6 +2965,22 @@ val extend_env_new_decs_append = Q.store_thm ("extend_env_new_decs_append",
    Cases_on `z.t`
    >> simp [merge_mod_env_def, FUNION_ASSOC]));
 
+val extend_env_new_tops_append = Q.store_thm ("extend_env_new_tops_append",
+ `extend_env_new_tops x (extend_env_new_tops y z)
+  =
+  extend_env_new_tops (append_new_top_tenv x y) z`,
+ PairCases_on `x`
+ >> PairCases_on `y`
+ >> rw [extend_env_new_tops_def, append_new_top_tenv_def, FUNION_ASSOC]
+ >- (
+   Cases_on `z.c`
+   >> simp [merge_alist_mod_env_def])
+ >- simp [bvl2_append]
+ >- (
+   Cases_on `z.t`
+   >> simp [merge_mod_env_def, FUNION_ASSOC]));
+
+
 
 (* ---------- type_ds ---------- *)
 
@@ -3157,6 +3202,26 @@ val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
  full_simp_tac(srw_ss())[union_decls_def]);
 
 (* ---------------- type_top, type_prog uniqueness flag ---------- *)
+
+val type_prog_empty = Q.store_thm ("type_prog_empty[simp]",
+ `!u mn decls tenv decls' r.
+  type_prog u decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = ((FEMPTY,FEMPTY),FEMPTY,([],[]),[])`,
+ rw [Once type_prog_cases]);
+
+val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
+ `!u mn decls tenv d decls' r.
+  type_prog u decls tenv [d] decls' r ⇔ type_top u decls tenv d decls' r`,
+ simp [Once type_prog_cases] >>
+ rw [] >>
+ eq_tac >>
+ rw []
+ >- (
+   PairCases_on `new_tenv1`
+   >> rw [append_new_top_tenv_def])
+ >- (
+   simp [EXISTS_PROD, append_new_top_tenv_def]
+   >> PairCases_on `r`
+   >> rw []));
 
 val type_top_tenv_ok = store_thm("type_top_tenv_ok",
   ``∀ch decls tenv top decls' env.

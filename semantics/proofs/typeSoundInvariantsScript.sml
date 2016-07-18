@@ -99,10 +99,12 @@ val _ = Define `
 
 
 
-(*val type_decs_to_ctMap : maybe modN -> type_def -> ctMap*)
+(*val type_decs_to_ctMap : maybe modN -> tenv_tabbrev ->type_def -> ctMap*)
 val _ = Define `
- (type_decs_to_ctMap mn tds =  
-(FUPDATE_LIST FEMPTY (FLAT (MAP (\ (tvs,tn,ctors) .  MAP (\ (cn,ts) .  ((cn,TypeId (mk_id mn tn)), (tvs,ts))) ctors) tds))))`;
+ (type_decs_to_ctMap mn tenvT tds =  
+(FUPDATE_LIST FEMPTY (FLAT
+      (MAP (\ (tvs,tn,ctors) . 
+        MAP (\ (cn,ts) .  ((cn,TypeId (mk_id mn tn)), (tvs, MAP (type_name_subst tenvT) ts))) ctors) tds))))`;
 
 
 (* Get the modules that are used by the type and exception definitions *)

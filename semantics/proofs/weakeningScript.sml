@@ -412,6 +412,11 @@ val disjoint_env_weakCT = Q.store_thm ("disjoint_env_weakCT",
 rw [weakCT_def] >>
 metis_tac [SUBMAP_FUNION, DISJOINT_SYM, SUBMAP_REFL]);
 
+val weakCT2 = Q.store_thm ("weakCT2",
+`!ctMap ctMap'. weakCT (FUNION ctMap' ctMap) ctMap'`,
+rw [weakCT_def] >>
+metis_tac [SUBMAP_FUNION, DISJOINT_SYM, SUBMAP_REFL]);
+
 val consistent_con_env_weakening = Q.prove (
 `!ctMap tenvC envC ctMap'.
   consistent_con_env ctMap envC tenvC ∧
