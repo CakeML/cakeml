@@ -254,6 +254,7 @@ val infer_p_sound = Q.store_thm ("infer_p_sound",
     check_cenv tenv.c ∧
     ienv.inf_c = tenv.c ∧
     ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_p tvs tenv p (convert_t (t_walkstar s t)) (convert_env s env)) ∧
@@ -263,6 +264,7 @@ val infer_p_sound = Q.store_thm ("infer_p_sound",
     check_cenv tenv.c ∧
     ienv.inf_c = tenv.c ∧
     ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_ps tvs tenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env))`,
@@ -317,32 +319,48 @@ rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def]
     rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
     fs [convert_env_def] >>
     metis_tac [])
->- (
-  drule (hd (CONJUNCTS infer_p_wfs))
-  >> disch_then drule
-  >> rw []
-  >> drule t_unify_apply >>
-  >> disch_then drule
-  >> rw []
-  >> drule t_unify_wfs
-  >> disch_then drule
-  >> rw []
-  >> drule sub_completion_apply >>
-  >> rpt (disch_then drule)
-  >> rw []
-  >> `tenv_tabbrev_ok tenv.t` by cheat (* Probably needs to be added to the theorem's assumptions *)
-  >> drule check_freevars_type_name_subst
-  >> rpt (disch_then drule)
-  >> rw []
-  >> drule (hd (CONJUNCTS infer_type_subst_nil))
-  >> rw []
-  (* Should now use t_walkstar_no_vars, and lemmas about convert_t and unconvert_t *)
-
-  >> cheat)
-
+>- (drule (hd (CONJUNCTS infer_p_wfs)) >>
+    disch_then drule >>
+    rw [] >>
+    drule t_unify_apply >>
+    disch_then drule >>
+    rw [] >>
+    drule t_unify_wfs >>
+    disch_then drule >>
+    rw [] >>
+    drule sub_completion_apply >>
+    rpt (disch_then drule) >>
+    rw [] >>
+    drule check_freevars_type_name_subst >>
+    rpt (disch_then drule) >>
+    rw [] >>
+    drule (hd (CONJUNCTS infer_type_subst_nil)) >>
+    rw [] >> fs [] >>
+    `check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
+      by metis_tac [infer_type_subst_empty_check] >>
+    metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id])
 >- (`type_name_subst tenv.t t = convert_t (t_walkstar s t')`
        by (* This is the previous goal *)
-          cheat >>
+          (drule (hd (CONJUNCTS infer_p_wfs)) >>
+           disch_then drule >>
+           rw [] >>
+           drule t_unify_apply >>
+           disch_then drule >>
+           rw [] >>
+           drule t_unify_wfs >>
+           disch_then drule >>
+           rw [] >>
+           drule sub_completion_apply >>
+           rpt (disch_then drule) >>
+           rw [] >>
+           drule check_freevars_type_name_subst >>
+           rpt (disch_then drule) >>
+           rw [] >>
+           drule (hd (CONJUNCTS infer_type_subst_nil)) >>
+           rw [] >> fs [] >>
+           `check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
+             by metis_tac [infer_type_subst_empty_check] >>
+           metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id]) >>
     rw [GSYM convert_env_def] >>
     first_x_assum irule >> rw [] >>
     imp_res_tac sub_completion_unify2 >>
