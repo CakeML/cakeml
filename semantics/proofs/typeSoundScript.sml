@@ -7,6 +7,11 @@ open funBigStepPropsTheory;
 
 val _ = new_theory "typeSound";
 
+val disjoint_image = Q.store_thm ("disjoint_image",
+ `!s1 s2 f. DISJOINT (IMAGE f s1) (IMAGE f s2) ⇒ DISJOINT s1 s2`,
+ rw [DISJOINT_DEF, EXTENSION]
+ >> metis_tac []);
+
 val sing_list = Q.prove (
 `!l. LENGTH l = 1 ⇔ ?x. l = [x]`,
  Cases
@@ -1780,7 +1785,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
    >> disch_then drule
    >> strip_tac
    >> conj_asm1_tac
-   >- metis_tac [disjoint_env_weakCT]
+   >- metis_tac [disjoint_env_weakCT, disjoint_image]
    >> conj_asm1_tac
    >- (
      simp [build_tdefs_def, build_ctor_tenv_def, REVERSE_FLAT, MAP_MAP_o,
@@ -1828,8 +1833,33 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
        >> simp []
        >> simp []
        >> metis_tac [ctMap_ok_type_decs])
-     >> cheat)
+     >> TRY (irule still_has_bools)
+     >> TRY (irule still_has_exns)
+     >> TRY (irule still_has_lists)
+     >> simp []
+     >> metis_tac [disjoint_image])
+   >> conj_tac
+   >- (
+     fs [type_all_env_def, extend_env_new_decs_def]
+     >> conj_tac
+     >-  metis_tac [type_v_weakening, good_ctMap_def, weakS_refl]
+     >> conj_tac
+     >- (
+       irule consistent_con_env_merge
+       >- metis_tac [consistent_con_env_weakening, good_ctMap_def]
+       >> simp [intro_alist_to_fmap]
+       >> qspecl_then [`mn`, `tds`] mp_tac consistent_con_env_type_decs
+       >> `weakCT (type_decs_to_ctMap mn tds ⊌ ctMap) (type_decs_to_ctMap mn tds)`
+         by cheat
+       >- metis_tac [consistent_con_env_weakening, good_ctMap_def])
+     >- (
+       simp [bind_var_list2_def]
+       >> metis_tac [type_v_weakening, good_ctMap_def, weakS_refl]))
+   >> conj_tac
+   >- metis_tac [type_s_weakening, good_ctMap_def]
+   >> cheat)
 
+     
  >- (
    fs [type_d_cases]
    >> rw []

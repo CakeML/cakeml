@@ -1838,8 +1838,8 @@ val consistent_decls_disjoint = Q.store_thm ("consistent_decls_disjoint",
   DISJOINT (set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tds)) tdecs.defined_types ∧
   consistent_ctMap tdecs ctMap
   ⇒
-  DISJOINT (FDOM (type_decs_to_ctMap mn tds)) (FDOM ctMap)` ,
- rw [consistent_ctMap_def, type_defs_to_new_tdecs_def,
+  DISJOINT (IMAGE SND (FDOM (type_decs_to_ctMap mn tds))) (IMAGE SND (FDOM ctMap))` ,
+ rw [consistent_ctMap_def,
      type_decs_to_ctMap_def, RES_FORALL, intro_alist_to_fmap, DISJOINT_DEF,
      EXTENSION, MEM_MAP]
  >> rw [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``]
@@ -1853,7 +1853,9 @@ val consistent_decls_disjoint = Q.store_thm ("consistent_decls_disjoint",
  >> CCONTR_TAC
  >> fs []
  >> first_x_assum drule
- >> simp []
+ >> pairarg_tac
+ >> fs []
+ >> rw []
  >> fs [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``, PULL_EXISTS]
  >> first_x_assum drule
  >> simp []);
@@ -2402,7 +2404,112 @@ val check_dup_ctors_distinct = Q.prove (
 
 (* ---------- consistent_con_env ---------- *)
 
-(*
+val consistent_con_env_merge = Q.store_thm ("consistent_con_env_merge",
+`!ctMap envC1 envC2 tenvC1 tenvC2.
+  consistent_con_env ctMap ([],envC1) ([],tenvC1) ∧
+  consistent_con_env ctMap envC2 tenvC2
+  ⇒
+  consistent_con_env ctMap
+    (merge_alist_mod_env ([],envC1) envC2)
+    (merge_alist_mod_env ([],tenvC1) tenvC2)`,
+ rw [consistent_con_env_def]
+ >> PairCases_on `tenvC2`
+ >> PairCases_on `envC2`
+ >> fs [merge_alist_mod_env_def, lookup_alist_mod_env_def]
+ >> rpt (first_x_assum (qspec_then `cn` mp_tac))
+ >> Cases_on `cn`
+ >> rw []
+ >> fs [ALOOKUP_APPEND, id_to_n_def]
+ >> Cases_on `ALOOKUP envC1 a`
+ >> fs []
+ >> rw []
+ >> Cases_on `ALOOKUP tenvC1 a`
+ >> fs []);
+
+val condefs_none_lemma = Q.prove (
+`!condefs c mn tvs t tn.
+  ALOOKUP condefs c = NONE
+  ⇒
+  ALOOKUP (MAP (λ(cn,ts). ((cn,TypeId (mk_id mn tn)),tvs,ts)) condefs) (c,t) = NONE`,
+ Induct_on `condefs`
+ >> rw []
+ >> pairarg_tac
+ >> fs []
+ >> rw []
+ >> fs []
+ >> fs []
+ >> Cases_on `cn = c`
+ >> fs []);
+
+val condefs_some_lemma = Q.prove (
+`!condefs c mn tvs tn x tenvT.
+ ALOOKUP condefs c = SOME x
+ ⇒
+ ALOOKUP
+        (MAP (λ(cn,ts'). ((cn,TypeId (mk_id mn tn)),tvs,ts'))
+           condefs) (c,TypeId (mk_id mn tn)) = SOME (tvs,MAP (type_name_subst tenvT) x)`,
+ Induct_on `condefs`
+ >> rw []
+ >> pairarg_tac
+ >> fs []
+ >> simp [ALOOKUP_APPEND]
+ >> rw []
+ >> fs []
+ >> cheat);
+
+val consistent_con_env_type_decs_lemma = Q.prove (
+ `!mn tds c n t tenvT tvs ts t'.
+ ALOOKUP (build_tdefs mn tds) c = SOME (n,t) ∧
+ ALOOKUP (build_ctor_tenv mn tenvT tds) c = SOME (tvs,ts,t')
+ ⇒
+ t' = t ∧
+ FLOOKUP (type_decs_to_ctMap mn tds) (c,t) = SOME (tvs,ts) ∧
+ LENGTH ts = n`,
+ simp [build_tdefs_def, build_ctor_tenv_def, type_decs_to_ctMap_def,
+       intro_alist_to_fmap, REVERSE_FLAT,GSYM MAP_REVERSE]
+ >> rpt gen_tac
+ >> qspec_tac (`REVERSE tds`, `tds`)
+ >> ConseqConv.SPEC_ALL_TAC
+ >> Induct_on `tds`
+ >> simp [ALOOKUP_APPEND]
+ >> rpt gen_tac
+ >> pairarg_tac
+ >> simp []
+ >> fs [GSYM MAP_REVERSE, ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF]
+ >> simp [ALOOKUP_MAP]
+ >> Cases_on `ALOOKUP (REVERSE condefs) c`
+ >> fs []
+ >- (
+   strip_tac
+   >> PairCases_on `tenvT`
+   >> first_x_assum drule
+   >> disch_then drule
+   >> rw [ALOOKUP_MAP, condefs_none_lemma])
+ >- (
+   CASE_TAC
+   >> rw []
+   >> rw [LENGTH_MAP]
+   >> rw []
+   >> metis_tac [NOT_SOME_NONE, SOME_11, pair_CASES, condefs_some_lemma]));
+
+val consistent_con_env_type_decs = Q.store_thm ("consistent_con_env_type_decs",
+`!mn (tds:type_def) tenvT.
+  consistent_con_env (type_decs_to_ctMap mn tds)
+    ([], build_tdefs mn tds)
+    ([], build_ctor_tenv mn tenvT tds)`,
+ rw [consistent_con_env_def, lookup_alist_mod_env_def]
+ >> Cases_on `cn`
+ >> fs [id_to_n_def, lookup_ctor_none]
+ >> simp [intro_alist_to_fmap]
+ >> rename1 `ALOOKUP _ c = _`
+ >> `?tvs ts t'. ALOOKUP (build_ctor_tenv mn tenvT tds) c = SOME (tvs, ts, t')`
+   by metis_tac [pair_CASES, option_nchotomy, lookup_ctor_none, NOT_SOME_NONE]
+ >> qexists_tac `tvs`
+ >> qexists_tac `ts`
+ >> simp []
+ >> metis_tac [consistent_con_env_type_decs_lemma]);
+
+ (*
 val extend_consistent_con = Q.store_thm ("extend_consistent_con",
 `!ctMap cenv tenv mn tdefs.
   DISJOINT (FDOM (flat_to_ctMap (build_ctor_tenv mn tenv.t tdefs))) (FDOM ctMap) ∧
