@@ -968,12 +968,10 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         `check_t 0 {} (infer_type_subst [] (type_name_subst tenv.t t))`
           by metis_tac [infer_type_subst_empty_check] >>
         metis_tac [t_walkstar_no_vars, check_freevars_empty_convert_unconvert_id]) >>
-    rw [GSYM convert_env_def] >>
-    first_x_assum irule >> rw [] >>
-    imp_res_tac sub_completion_unify2 >>
-    metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
- >- (* Tannot*)
-    cheat
+     rw [] >>
+     first_x_assum irule >> rw [] >>
+     imp_res_tac sub_completion_unify2 >>
+     metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
  >-
  metis_tac [sub_completion_infer_es]
  >-
@@ -1036,7 +1034,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                       decide_tac) >>
           `check_env (count (st'''' with subst := s'').next_uvar) ienv.inf_v` by metis_tac [check_env_more] >>
           metis_tac []])
- >>
+
+>- (
  `t_wfs st'''.subst ∧ t_wfs (st with next_uvar := st.next_uvar + 1).subst` by metis_tac [infer_e_wfs, infer_st_rewrs] >>
      imp_res_tac sub_completion_infer_funs >>
      `tenv_inv s ((x,0,Infer_Tuvar st.next_uvar)::ienv.inf_v) (Bind_name x 0 (convert_t (t_walkstar s (Infer_Tuvar st.next_uvar))) tenv.v)`
@@ -1079,7 +1078,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
           rw [ALOOKUP_FAILS, MAP2_MAP, MEM_MAP, MEM_ZIP] >>
           PairCases_on `y` >>
           fs [MEM_MAP, MEM_EL] >>
-          metis_tac [FST]]);
+          metis_tac [FST]]));
 end
 
 val _ = export_theory ();
