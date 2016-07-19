@@ -158,8 +158,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:clos_known$val_approx``
     ]
   ,computeLib.Defs
-    [closLangTheory.max_app_def
-    ,closLangTheory.pure_def
+    [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
