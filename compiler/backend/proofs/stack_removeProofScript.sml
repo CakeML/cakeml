@@ -10,6 +10,8 @@ local open dep_rewrite blastLib in end
 
 val _ = new_theory"stack_removeProof";
 
+val _ = bring_to_front_overload"num_stubs"{Thy="stackLang",Name="num_stubs"};
+
 (* TODO: move *)
 
 val aligned_or = store_thm("aligned_or", (* TODO: move *)
@@ -2348,7 +2350,7 @@ val prog_comp_eta = Q.store_thm("prog_comp_eta",
   srw_tac[][FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]);
 
 val IMP_code_rel = Q.prove(
-  `EVERY (\(n,p). good_syntax p k /\ 3 < n) code1 /\
+  `EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code1 /\
    code2 = fromAList (compile max_heap bitmaps k start code1) ==>
    code_rel k (fromAList code1) code2`,
   full_simp_tac(srw_ss())[code_rel_def,lookup_fromAList]
@@ -2356,7 +2358,8 @@ val IMP_code_rel = Q.prove(
   \\ full_simp_tac(srw_ss())[ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
   \\ imp_res_tac ALOOKUP_MEM
   \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
-  \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]);
+  \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]
+  \\ pop_assum mp_tac \\ EVAL_TAC);
 
 val make_init_any_def = Define `
   make_init_any max_heap bitmaps k code s =
@@ -2376,7 +2379,7 @@ val make_init_any_def = Define `
 
 val make_init_semantics = store_thm("make_init_semantics",
   ``init_pre max_heap bitmaps k start s2 /\
-    EVERY (\(n,p). good_syntax p k /\ 3 < n) code /\
+    EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code /\
     s2.code = fromAList (compile max_heap bitmaps k start code) /\
     IS_SOME (make_init_opt max_heap bitmaps k (fromAList code) s2) /\
     make_init_any max_heap bitmaps k (fromAList code) s2 = s1 /\
@@ -2394,7 +2397,7 @@ val make_init_semantics = store_thm("make_init_semantics",
 
 val make_init_semantics_fail = store_thm("make_init_semantics_fail",
   ``init_pre max_heap bitmaps k start s2 /\
-    EVERY (\(n,p). good_syntax p k /\ 3 < n) code /\
+    EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code /\
     s2.code = fromAList (compile max_heap bitmaps k start code) /\
     make_init_opt max_heap bitmaps k (fromAList code) s2 = NONE ==>
     semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events``,

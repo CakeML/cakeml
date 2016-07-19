@@ -540,7 +540,7 @@ val state_rel_def = Define `
          word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,bs2) /\
          isPREFIX bs2 t.bitmaps /\
          (lookup n t.code = SOME stack_prog)) /\
-    (lookup 5 t.code = SOME (raise_stub k)) /\
+    (lookup raise_stub_location t.code = SOME (raise_stub k)) /\
     good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     LENGTH t.bitmaps +1 < dimword (:α) /\
     1 ≤ LENGTH t.bitmaps ∧ HD t.bitmaps = 4w ∧
@@ -5434,7 +5434,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,jump_exc_def,
         stackSemTheory.find_code_def]
-    \\ `lookup 5 t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
+    \\ `lookup raise_stub_location t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
     \\ pop_assum kall_tac
     \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,word_allocTheory.max_var_def]
     \\ fs [state_rel_def,LET_DEF,push_locals_def,stackSemTheory.evaluate_def,LET_THM]
@@ -7033,7 +7033,7 @@ val make_init_def = Define `
      ; termdep := 0 |> `;
 
 val init_state_ok_IMP_state_rel = prove(
-  ``lookup 5 t.code = SOME (raise_stub k) /\
+  ``lookup raise_stub_location t.code = SOME (raise_stub k) /\
     (!n word_prog arg_count.
        (lookup n code = SOME (arg_count,word_prog)) ==>
        post_alloc_conventions k word_prog /\
@@ -7077,7 +7077,7 @@ val compile_word_to_stack_IMP_ALOOKUP = prove(
 
 val compile_semantics = store_thm("compile_semantics",
   ``(t:(α,'ffi)stackSem$state).code = fromAList (SND (compile asm_conf code)) /\
-    init_state_ok (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) t /\ (ALOOKUP code 5 = NONE) /\
+    init_state_ok (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) t /\ (ALOOKUP code raise_stub_location = NONE) /\
     (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\ post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
     semantics (make_init t (fromAList code)) start <> Fail ==>
@@ -7088,7 +7088,7 @@ val compile_semantics = store_thm("compile_semantics",
   \\ qexists_tac `k` \\ fs []
   \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM] \\ rw [] \\ fs []
   THEN1 (pairarg_tac \\ fs [])
-  \\ Cases_on `n=5` \\ fs []
+  \\ Cases_on `n=raise_stub_location` \\ fs []
   \\ TRY
     (imp_res_tac ALOOKUP_MEM>>
     fs[EVERY_MEM,FORALL_PROD]>>
@@ -7156,7 +7156,7 @@ val word_to_stack_compile_lab_pres = store_thm("word_to_stack_compile_lab_pres",
     EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) prog ⇒
   let (c,p) = compile asm_conf prog in
-    MAP FST p = (5::MAP FST prog) ∧
+    MAP FST p = (raise_stub_location::MAP FST prog) ∧
     EVERY (λn,p.
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧

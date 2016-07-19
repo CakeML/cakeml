@@ -1841,7 +1841,7 @@ val halt_assum_lemma = prove(
 val MAP_FST_compile_compile = prove(
   ``MAP FST (compile max_heap bitmaps k InitGlobals_location
               (stack_alloc$compile c code)) =
-    0::1::2::10::MAP FST code``,
+    0::1::2::gc_stub_location::MAP FST code``,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
       stack_allocTheory.compile_def,
       stack_allocTheory.stubs_def,stack_removeTheory.prog_comp_def]
@@ -1978,7 +1978,7 @@ val extract_label_store_list_code = prove(``
   EVAL_TAC>>fs[])
 
 val stack_to_lab_compile_lab_pres = store_thm("stack_to_lab_compile_lab_pres",``
-  EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ 10) (MAP FST prog) ∧
+  EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ gc_stub_location) (MAP FST prog) ∧
   EVERY (λn,p.
     let labs = extract_labels p in
     EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
@@ -1988,7 +1988,8 @@ val stack_to_lab_compile_lab_pres = store_thm("stack_to_lab_compile_lab_pres",``
   rw[labels_ok_def,stack_to_labTheory.compile_def]
   >-
     (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>
-    fs[EVERY_MEM]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])
+    fs[EVERY_MEM]>>CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
+    pop_assum mp_tac >> EVAL_TAC)
   >>
     fs[EVERY_MAP,prog_to_section_def,EVERY_MEM,FORALL_PROD]>>
     rw[]>>pairarg_tac>>fs[extract_labels_def,extract_labels_append]>>

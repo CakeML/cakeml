@@ -5,6 +5,7 @@ open preamble
 local open
   bvl_constProofTheory
   bvl_handleProofTheory
+  bvi_letProofTheory
 in end;
 
 val _ = new_theory"bvl_to_bviProof";
@@ -1792,15 +1793,15 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   let t0 = <| global := SOME 0
             ; ffi := ffi0
             ; clock := k
-            ; code := fromAList (bvi_stubs start kk ++ code);
+            ; code := fromAList (stubs start kk ++ code);
               refs := FEMPTY |+ (0,ValueArray ([Number 1] ++
                              REPLICATE kk (Number 0))) |> in
       evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
-        initial_state ffi0 (fromAList (bvi_stubs start kk ++ code)) (k+1)) =
+        initial_state ffi0 (fromAList (stubs start kk ++ code)) (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
      ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)`,
   srw_tac[][bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
-  srw_tac[][Once bvi_stubs_def] >>
+  srw_tac[][Once stubs_def] >>
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>full_simp_tac(srw_ss())[]>>NO_TAC) >>
   simp[InitGlobals_code_def] >>
   simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def] >>
@@ -1810,7 +1811,7 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   reverse BasicProvers.CASE_TAC >- (
     `F` suffices_by srw_tac[][] >>
     imp_res_tac ALOOKUP_MEM >>
-    full_simp_tac(srw_ss())[bvi_stubs_def] >>
+    full_simp_tac(srw_ss())[stubs_def] >>
     qpat_assum`num_stubs ≤ _`mp_tac >>
     rpt var_eq_tac >> EVAL_TAC ) >>
   BasicProvers.CASE_TAC >- (
@@ -2036,7 +2037,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     conj_tac >- (qexists_tac`kk+1`>>simp[]>>EVAL_TAC) >>
     rpt var_eq_tac >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
-    simp[bvi_stubs_def] >>
+    simp[stubs_def] >>
     IF_CASES_TAC >> simp[] >- (
       `F` suffices_by srw_tac[][] >> pop_assum mp_tac >> EVAL_TAC ) >>
     rpt gen_tac >> strip_tac >>
@@ -2216,7 +2217,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[compile_prog_def,LET_THM] >>
       pairarg_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-      full_simp_tac(srw_ss())[find_code_def,lookup_fromAList,ALOOKUP_APPEND,bvi_stubs_def] >>
+      full_simp_tac(srw_ss())[find_code_def,lookup_fromAList,ALOOKUP_APPEND,stubs_def] >>
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       TRY(rpt(qpat_assum`_ = _`mp_tac) >> EVAL_TAC >> NO_TAC) >>
       full_simp_tac(srw_ss())[InitGlobals_code_def]) >>

@@ -278,13 +278,14 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_single_def
     ,bvl_to_bviTheory.compile_def
     ,bvl_to_bviTheory.compile_op_def
-    ,bvl_to_bviTheory.bvi_stubs_def
+    ,bvl_to_bviTheory.stubs_def
+    ,bvl_to_bviTheory.num_stubs_def
     ,bvl_to_bviTheory.CopyGlobals_code_def
     ,bvl_to_bviTheory.AllocGlobal_code_def
     ,bvl_to_bviTheory.InitGlobals_code_def
-    ,bvl_to_bviTheory.CopyGlobals_location_def
-    ,bvl_to_bviTheory.AllocGlobal_location_def
-    ,bvl_to_bviTheory.InitGlobals_location_def
+    ,bvl_to_bviTheory.CopyGlobals_location_eq
+    ,bvl_to_bviTheory.AllocGlobal_location_eq
+    ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
@@ -301,6 +302,7 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [bvpTheory.mk_ticks_def
+    ,bvpTheory.num_stubs_def
       (* ---- bvi_to_bvp ---- *)
     ,bvi_to_bvpTheory.op_space_reset_def
     ,bvi_to_bvpTheory.op_requires_names_eqn
@@ -324,8 +326,7 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Tys
     [ (* wordLang *)
-     ``:wordLang$store_name``
-    ,``:'a wordLang$num_exp``
+     ``:'a wordLang$num_exp``
     ,``:'a wordLang$exp``
     ,``:'a wordLang$prog``
     ]
@@ -338,6 +339,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,wordLangTheory.every_var_def
     ,wordLangTheory.every_name_def
     ,wordLangTheory.every_var_inst_def
+    ,wordLangTheory.num_stubs_def
+    ,wordLangTheory.raise_stub_location_eq
       (* ---- bvp_to_word ---- *)
     ,bvp_to_wordTheory.adjust_var_def
     ,bvp_to_wordTheory.adjust_set_def
@@ -363,7 +366,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvp_to_wordTheory.compile_part_def
     ,bvp_to_wordTheory.compile_def
     ,bvp_to_wordTheory.stubs_def
-    ,bvp_to_wordTheory.RefByte_location_def
+    ,bvp_to_wordTheory.FromList_location_eq
+    ,bvp_to_wordTheory.RefByte_location_eq
+    ,bvp_to_wordTheory.RefArray_location_eq
     ,bvp_to_wordTheory.RefByte_code_def
       (* ---- wordLang word_to_word ---- *)
     ,word_to_wordTheory.compile_single_def
@@ -435,10 +440,13 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Tys
     [ (* ---- stackLang ---- *)
      ``:'a stackLang$prog``
+    ,``:stackLang$store_name``
     ]
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
     ,stackLangTheory.word_shift_def
+    ,stackLangTheory.num_stubs_def
+    ,stackLangTheory.gc_stub_location_eq
       (* ---- word_to_stack ---- *)
     ,word_to_stackTheory.wReg1_def
     ,word_to_stackTheory.wReg2_def

@@ -1,5 +1,5 @@
 open preamble;
-local open bvlTheory in end;
+local open bvlTheory wordLangTheory in end;
 
 val _ = new_theory "bvp";
 
@@ -45,5 +45,8 @@ val _ = Datatype `
 
 val mk_ticks_def = Define `
   mk_ticks n e = FUNPOW (Seq Tick) n e`;
+
+val num_stubs_def = Define`
+  num_stubs = wordLang$num_stubs + 3`;
 
 val _ = export_theory();

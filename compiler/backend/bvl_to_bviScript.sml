@@ -1,5 +1,5 @@
 open preamble bvlTheory bviTheory;
-local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory in end;
+local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory bvpTheory in end;
 
 val _ = new_theory "bvl_to_bvi";
 
@@ -54,13 +54,18 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (WF_REL_TAC `measure exp1_size`)
 
 val AllocGlobal_location_def = Define`
-  AllocGlobal_location = 100:num`;
+  AllocGlobal_location = bvp$num_stubs`;
 val CopyGlobals_location_def = Define`
-  CopyGlobals_location = 101:num`;
+  CopyGlobals_location = AllocGlobal_location+1`;
 val InitGlobals_location_def = Define`
-  InitGlobals_location = 102:num`;
-val num_stubs_def = Define`
-  num_stubs = 103:num`;
+  InitGlobals_location = CopyGlobals_location+1`;
+
+val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
+  ``AllocGlobal_location`` |> EVAL);
+val CopyGlobals_location_eq = save_thm("CopyGlobals_location_eq",
+  ``CopyGlobals_location`` |> EVAL);
+val InitGlobals_location_eq = save_thm("InitGlobals_location_eq",
+  ``InitGlobals_location`` |> EVAL);
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -86,10 +91,13 @@ val InitGlobals_code_def = Define`
                    [Op (Const 1) []])]]
      (Call 0 (SOME start) [] (SOME (Var 0))))`;
 
-val bvi_stubs_def = Define `
-  bvi_stubs start n = [(AllocGlobal_location, AllocGlobal_code);
-                       (CopyGlobals_location, CopyGlobals_code);
-                       (InitGlobals_location, InitGlobals_code start n)]`;
+val stubs_def = Define `
+  stubs start n = [(AllocGlobal_location, AllocGlobal_code);
+                   (CopyGlobals_location, CopyGlobals_code);
+                   (InitGlobals_location, InitGlobals_code start n)]`;
+
+val num_stubs_def = Define`
+  num_stubs = bvp$num_stubs + 3`;
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -183,7 +191,7 @@ val compile_prog_def = Define `
   compile_prog start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
-      (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) k ++ code, n1)`;
+      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
 val optimise_def = Define `
   optimise =

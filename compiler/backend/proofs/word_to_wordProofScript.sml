@@ -6,6 +6,8 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_wordProof";
 
+val _ = bring_to_front_overload"Call"{Thy="wordLang",Name="Call"};
+
 val is_phy_var_tac =
     full_simp_tac(srw_ss())[reg_allocTheory.is_phy_var_def]>>
     `0<2:num` by DECIDE_TAC>>

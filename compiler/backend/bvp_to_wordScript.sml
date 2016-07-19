@@ -110,8 +110,19 @@ val lookup_word_op_def = Define`
   (lookup_word_op Sub = Carried Sub)`;
 val _ = export_rewrites["lookup_word_op_def"];
 
+val FromList_location_def = Define`
+  FromList_location = wordLang$num_stubs`;
 val RefByte_location_def = Define`
-  RefByte_location = 22n`;
+  RefByte_location = FromList_location+1`;
+val RefArray_location_def = Define`
+  RefArray_location = RefByte_location+1`;
+
+val FromList_location_eq = save_thm("FromList_location_eq",
+  ``FromList_location`` |> EVAL);
+val RefByte_location_eq = save_thm("RefByte_location_eq",
+  ``RefByte_location`` |> EVAL);
+val RefArray_location_eq = save_thm("RefArray_location_eq",
+  ``RefArray_location`` |> EVAL);
 
 val RefByte_code_def = Define`
   (* 0 = return address
@@ -532,10 +543,14 @@ val compile_part_def = Define `
 
 val stubs_def = Define`
   stubs (:α) = [
-    (20n,1n,Skip:α wordLang$prog); (* TODO: FromList *)
+    (FromList_location,1n,Skip:α wordLang$prog); (* TODO: FromList *)
     (RefByte_location,3n,RefByte_code);
-    (24n,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
+    (RefArray_location,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
   ]`;
+
+val check_stubs_length = Q.store_thm("check_stubs_length",
+  `wordLang$num_stubs + LENGTH (stubs (:α)) = bvp$num_stubs`,
+  EVAL_TAC);
 
 val compile_def = Define `
   compile bvp_conf word_conf asm_conf prog =

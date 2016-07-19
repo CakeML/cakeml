@@ -146,7 +146,7 @@ val word_gc_code_def = Define `
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])`
 
 val stubs_def = Define `
-  stubs conf = [(10n,Seq (word_gc_code conf) (Return 0 0))]`
+  stubs conf = [(gc_stub_location,Seq (word_gc_code conf) (Return 0 0))]`
 
 (* compiler *)
 
@@ -184,7 +184,7 @@ val comp_def = Define `
           | SOME (p2,k1,k2) =>
               let (q2,m) = comp n m p2 in
                 (Call (SOME (q1,lr,l1,l2)) dest (SOME (q2,k1,k2)),m))
-    | Alloc k => (Call (SOME (Skip,0,n,m)) (INL 10) NONE,m+1)
+    | Alloc k => (Call (SOME (Skip,0,n,m)) (INL gc_stub_location) NONE,m+1)
     | _ => (p,m) `
 
 val prog_comp_def = Define `
