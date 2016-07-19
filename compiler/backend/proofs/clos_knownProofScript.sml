@@ -28,11 +28,6 @@ val error_case_eq =
                       nchotomy = error_CASES}
 
 (* MOVE candidates *)
-val subspt_LN = Q.store_thm(
-  "subspt_LN[simp]",
-  `(subspt LN sp ⇔ T) ∧ (subspt sp LN ⇔ domain sp = {})`,
-  simp[subspt_def] >> simp[EXTENSION]);
-
 fun sel_ihpc f = first_x_assum (first_assum o mp_then (Pos f) mp_tac)
 fun resolve_selected f th = first_assum (mp_then (Pos f) mp_tac th)
 
