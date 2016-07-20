@@ -244,6 +244,12 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.compile_exps_def
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.inline_def
+    ,bvl_inlineTheory.is_small_aux_def
+    ,bvl_inlineTheory.is_small_def
+    ,bvl_inlineTheory.is_rec_def
+    ,bvl_inlineTheory.must_inline_def
+    ,bvl_inlineTheory.inline_all_def
+    ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.SmartOp_def
     ,bvl_constTheory.compile_exp_def

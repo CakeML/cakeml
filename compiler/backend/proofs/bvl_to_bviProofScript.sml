@@ -2329,12 +2329,17 @@ val compile_semantics = Q.store_thm("compile_semantics",
    ⇒
    semantics ffi0 (fromAList prog') start' =
    semantics ffi0 (fromAList prog) start`,
-  srw_tac[][compile_def] >>
-  `bEvery GoodHandleLet (MAP (SND o SND) (optimise prog))` by (
-    simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY] >>
-    full_simp_tac(srw_ss())[Once bEvery_EVERY,EVERY_MAP] >>
-    full_simp_tac(srw_ss())[EVERY_MEM] >>
-    simp[bvl_handleProofTheory.compile_exp_GoodHandleLet]) >>
-  METIS_TAC[optimise_semantics,MAP_FST_optimise,compile_prog_semantics]);
+  srw_tac[][compile_def]
+  \\ drule (GEN_ALL compile_prog_semantics)
+  \\ fs [MAP_FST_optimise,bvl_inlineProofTheory.MAP_FST_compile_prog]
+  \\ disch_then (qspec_then `ffi0` mp_tac)
+  \\ rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ impl_tac THEN1
+   (simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY]
+    \\ full_simp_tac(srw_ss())[Once bEvery_EVERY,EVERY_MAP]
+    \\ full_simp_tac(srw_ss())[EVERY_MEM]
+    \\ simp[bvl_handleProofTheory.compile_exp_GoodHandleLet])
+  \\ metis_tac [optimise_semantics,
+       bvl_inlineProofTheory.compile_prog_semantics]);
 
 val _ = export_theory();

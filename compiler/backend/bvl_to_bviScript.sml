@@ -202,7 +202,7 @@ val optimise_def = Define `
 
 val compile_def = Define `
   compile start n prog =
-  (* TODO: inline, #51 *)
-    compile_prog start n (optimise prog)`;
+    (* TODO: turn 3 into a configuration parameter below *)
+    compile_prog start n (optimise (bvl_inline$compile_prog 3 prog))`;
 
 val _ = export_theory();
