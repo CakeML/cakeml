@@ -261,4 +261,17 @@ val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
  >> fs []
  >> rw [dec_clock_def]);
 
+val evaluate_decs_state_unchanged = Q.store_thm ("evaluate_decs_state_unchanged",
+ `!mn st env ds st' new_ctors r.
+  evaluate_decs mn st env ds = (st',new_ctors,r)
+  ⇒
+  st.defined_mods = st'.defined_mods`,
+ ho_match_mp_tac evaluate_decs_ind
+ >> rw [evaluate_decs_def]
+ >> every_case_tac
+ >> fs []
+ >> rw []
+ >> metis_tac [evaluate_state_unchanged]);
+
+
 val _ = export_theory()

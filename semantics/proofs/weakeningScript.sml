@@ -677,7 +677,6 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
  fs [weak_decls_other_mods_def, union_decls_def] >>
  metis_tac []);
 
- (*
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
  `!uniq mn decls tenv ds decls' new_tenv.
    type_ds uniq mn decls tenv ds decls' new_tenv ⇒
@@ -696,10 +695,10 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   rw [] >>
   rw [Once type_ds_cases] >>
   imp_res_tac type_d_weakening >>
-  imp_res_tac type_d_ctMap_ok >>
+  imp_res_tac type_d_tenv_ok >>
   `tenv_ctor_ok (merge_alist_mod_env ([],FST (SND new_tenv1)) ttt.c)`
          by (rw [tenv_ctor_ok_merge] >>
-             metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
+             metis_tac [MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
   rename1 `weak_decls decls1 decls2` >>
   `weak_decls (union_decls decls'' decls1) (union_decls decls'' decls2)`
              by (metis_tac [weak_decls_union]) >>
@@ -716,7 +715,6 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
     match_mp_tac tenv_tabbrev_ok_merge >>
     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY]) >>
   metis_tac [weakC_merge]);
-  *)
 
 val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
 `!decls1 decls2 decls3.
