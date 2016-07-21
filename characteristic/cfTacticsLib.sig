@@ -9,4 +9,6 @@ sig
   val xapp_prepare_goal : tactic (* for debugging *)
   val xapp : thm -> tactic
   val xret : tactic
+
+  val reduce_tac : tactic
 end
