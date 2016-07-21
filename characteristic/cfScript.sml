@@ -1104,7 +1104,9 @@ val cf_con_def = Define `
 
 val cf_var_def = Define `
   cf_var name = \env. local (\H Q.
-    !h. H h ==> ?v. lookup_var_id name env = SOME v /\ Q v h)`
+    ?v.
+      lookup_var_id name env = SOME v /\
+      (H ==>> Q v))`
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
