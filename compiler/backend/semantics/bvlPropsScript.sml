@@ -542,12 +542,6 @@ val bVarBound_def = tDefine "bVarBound" `
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
-val GoodHandleLet_def = Define `
-  (GoodHandleLet ((Handle (Let xs b) y):bvl$exp) <=>
-     EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
-  (GoodHandleLet ((Handle _ y):bvl$exp) <=> F) /\
-  (GoodHandleLet _ <=> T)`;
-
 val bEvery_def = tDefine "bEvery" `
   (bEvery P [] <=> T) /\
   (bEvery P ((x:bvl$exp)::y::xs) <=>
@@ -567,7 +561,7 @@ val bEvery_def = tDefine "bEvery" `
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
-val _ = export_rewrites["bEvery_def","GoodHandleLet_def","bVarBound_def"];
+val _ = export_rewrites["bEvery_def","bVarBound_def"];
 
 val bVarBound_EVERY = Q.store_thm("bVarBound_EVERY",
   `∀ls. bVarBound P ls ⇔ EVERY (λe. bVarBound P [e]) ls`,

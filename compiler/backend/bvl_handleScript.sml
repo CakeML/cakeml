@@ -21,6 +21,9 @@ val no_raise_def = tDefine "no_raise" `
   (no_raise [Call t dest xs] <=> F)`
  (WF_REL_TAC `measure exp1_size`);
 
+val SmartLet_def = Define `
+  SmartLet xs x = if LENGTH xs = 0 then x else Let xs x`
+
 val LetLet_def = Define `
   LetLet env_length fvs (body:bvl$exp) =
     let xs = GENLIST I env_length in
@@ -29,7 +32,7 @@ val LetLet_def = Define `
     let long_list = GENLIST (\n. case ALOOKUP ys n of
                                  | NONE => Op (Const 0) []
                                  | SOME k => Var k) env_length in
-      Let (MAP Var zs) (Let long_list body)`
+      Let (MAP Var zs) (SmartLet long_list body)`
 
 val compile_def = tDefine "compile" `
   (compile n [] = ([]:bvl$exp list,Empty,0n)) /\

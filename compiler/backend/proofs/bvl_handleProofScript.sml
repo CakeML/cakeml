@@ -11,6 +11,34 @@ val MAPi_ID = store_thm("MAPi_ID[simp]",
 
 (* -- *)
 
+val evaluate_SmartLet = store_thm("evaluate_SmartLet[simp]",
+  ``bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)``,
+  rw [SmartLet_def] \\ fs [LENGTH_NIL,evaluate_def]);
+
+val handle_ok_def = tDefine "handle_ok" `
+  (handle_ok [] <=> T) /\
+  (handle_ok ((x:bvl$exp)::y::xs) <=>
+     handle_ok [x] /\ handle_ok (y::xs)) /\
+  (handle_ok [Var v] <=> T) /\
+  (handle_ok [If x1 x2 x3] <=>
+     handle_ok [x1] /\ handle_ok [x2] /\ handle_ok [x3]) /\
+  (handle_ok [Let xs x2] <=>
+     ((LENGTH xs = 0) ==> ARB) /\
+     handle_ok xs /\ handle_ok [x2]) /\
+  (handle_ok [Raise x1] <=> handle_ok [x1]) /\
+  (handle_ok [Tick x1] <=> handle_ok [x1]) /\
+  (handle_ok [Op op xs] <=> handle_ok xs) /\
+  (handle_ok [Handle x1 x2] <=>
+     case x1 of
+     | Let xs b =>
+         EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
+         handle_ok [b] /\ handle_ok [x2]
+     | _ => F) /\
+  (handle_ok [Call ticks dest xs] <=> handle_ok xs)`
+  (WF_REL_TAC `measure (exp1_size)`
+   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+
 val no_raise_evaluate = store_thm("no_raise_evaluate",
   ``!xs env s1 res r.
       no_raise xs /\ (evaluate (xs,env,s1) = (res,r)) ==>
@@ -226,6 +254,10 @@ val ALOOKUP_MAPi = store_thm("ALOOKUP_MAPi",
   \\ fs [SNOC_APPEND,MAPi_APPEND,ALOOKUP_APPEND]
   \\ every_case_tac \\ fs []);
 
+val bVarBound_SmartLet = store_thm("bVarBound_SmartLet[simp]",
+  ``bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]``,
+  rw [SmartLet_def] \\ fs [LENGTH_NIL]);
+
 val bVarBound_LetLet = store_thm("bVarBound_LetLet",
   ``bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n l1 y]``,
   fs [LetLet_def] \\ strip_tac
@@ -251,32 +283,42 @@ val bEvery_CONS = store_thm("bEvery_CONS",
   ``bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)``,
   Cases_on `xs` \\ fs []);
 
-val compile_GoodHandleLet = store_thm("compile_GoodHandleLet",
-  ``∀n xs. bEvery GoodHandleLet (FST (compile n xs))``,
-  ho_match_mp_tac compile_ind \\ rw [] \\ fs [compile_def]
+val handle_ok_Var_Const_list = store_thm("handle_ok_Var_Const_list",
+  ``EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs``,
+  Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
+  \\ Cases_on `xs` \\ fs [handle_ok_def]);
+
+val compile_handle_ok = store_thm("compile_handle_ok",
+  ``∀n xs. handle_ok (FST (compile n xs))``,
+  ho_match_mp_tac compile_ind \\ rw []
+  \\ fs [compile_def,handle_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ imp_res_tac compile_sing \\ rw [] \\ res_tac
-  \\ imp_res_tac bEvery_CONS \\ fs []
-  THEN1
-   (fs [GoodHandleLet_def,LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
-    \\ reverse conj_tac THEN1
-     (`[y'] = FST (compile n [x1])` by fs []
-      \\ pop_assum (fn th => rewrite_tac [th])
-      \\ match_mp_tac bVarBound_compile \\ fs [])
-    \\ once_rewrite_tac [bVarBound_MEM]
-    \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
-    \\ every_case_tac \\ fs []
-    \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
-  \\ fs [LetLet_def]
-  \\ once_rewrite_tac [bEvery_MEM]
-  \\ fs [MEM_GENLIST,PULL_EXISTS,MEM_MAP] \\ rw []
-  \\ every_case_tac \\ fs []);
+  THEN1 (Cases_on `dy` \\ fs [handle_ok_def])
+  \\ fs [handle_ok_def]
+  \\ fs [LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
+  \\ imp_res_tac compile_IMP_LENGTH \\ fs []
+  \\ conj_tac THEN1
+   (conj_tac THEN1
+     (once_rewrite_tac [bVarBound_MEM]
+      \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
+      \\ every_case_tac \\ fs []
+      \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
+    \\ fs [handle_ok_def]
+    \\ `[y'] = FST (compile n [x1])` by fs []
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ match_mp_tac bVarBound_compile \\ fs [])
+  \\ rw [SmartLet_def] \\ fs [handle_ok_def]
+  \\ rpt (pop_assum kall_tac)
+  \\ match_mp_tac handle_ok_Var_Const_list
+  \\ fs [EVERY_GENLIST]
+  \\ rw [] \\ every_case_tac \\ fs []);
 
-val compile_exp_GoodHandleLet = store_thm("compile_exp_GoodHandleLet",
-  ``bEvery GoodHandleLet [compile_exp n x]``,
+val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
+  ``handle_ok [compile_exp n x]``,
   fs [bvl_handleTheory.compile_exp_def]
   \\ Cases_on `compile n [x]` \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
-  \\ qspecl_then [`n`,`[x]`] mp_tac compile_GoodHandleLet \\ fs []);
+  \\ qspecl_then [`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
 
 val _ = export_theory();
