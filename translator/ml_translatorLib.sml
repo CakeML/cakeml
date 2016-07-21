@@ -186,7 +186,7 @@ in
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
     in pack_triple pack_vs pack_evals pack_ml_prog_state
-         (!v_thms,!eval_thms,!prog_state) end
+         (!v_thms,!eval_thms,ml_progLib.clean_state (!prog_state)) end
   fun unpack_v_thms th = let
     val unpack_vs = unpack_list (unpack_5tuple unpack_string unpack_term
                                  unpack_thm unpack_thm (unpack_option unpack_string))
