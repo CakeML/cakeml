@@ -3,34 +3,10 @@ open set_sepTheory helperLib ml_translatorTheory
 open semanticPrimitivesTheory ConseqConv
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormalizeTheory cfAppTheory
+open cfTacticsBaseLib
 open patternMatchesTheory
 
 val _ = new_theory "cf"
-
-(* TODO: clean & generalize *)
-fun instantiate g =
-  rpt ((asm_exists_tac \\ fs []) ORELSE
-       (once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []))
-      g
-
-fun progress_then thm_tac thm =
-  drule thm \\ rpt (disch_then drule) \\ disch_then thm_tac
-
-fun progress thm = progress_then strip_assume_tac thm
-
-fun progress_with_then thm_tac thm' thm =
-  mp_tac (MATCH_MP thm thm') \\ rpt (disch_then drule) \\ disch_then thm_tac
-
-fun progress_with thm' thm = progress_with_then strip_assume_tac thm' thm
-
-(* imperfect as it changes the position of the matched assumption in the
-   assumption stack *)
-fun qpat_assum_keep q thm_tac =
-  qpat_assum q (fn asm => thm_tac asm \\ assume_tac asm)
-
-fun sing x = [x]
-
-fun try_finally tac = TRY (tac \\ NO_TAC)
 
 (*------------------------------------------------------------------*)
 (* Machinery for dealing with n-ary applications/functions in cf.

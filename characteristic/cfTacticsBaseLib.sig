@@ -2,6 +2,21 @@ signature cfTacticsBaseLib =
 sig
   include Abbrev
 
+  val progress_then : thm_tactic -> thm -> tactic
+  val progress : thm -> tactic
+
+  val progress_with_then : thm_tactic -> thm -> thm -> tactic
+  val progress_with : thm -> thm -> tactic
+
+  val instantiate : tactic
+
+  val try_finally : tactic -> tactic
+  val qpat_assum_keep : term quotation -> thm_tactic -> tactic
+
+  val sing : 'a -> 'a list
+
+  (*----------------------------------------------------------------*)
+
   type conseq_conv = ConseqConv.conseq_conv
   type directed_conseq_conv = ConseqConv.directed_conseq_conv
 
