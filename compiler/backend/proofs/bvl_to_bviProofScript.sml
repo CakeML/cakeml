@@ -2323,7 +2323,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `compile start n prog = (start', prog', n') ∧
+  `compile start n limit prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
    semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒

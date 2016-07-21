@@ -1239,7 +1239,7 @@ val from_bvp_ignore = prove(
 val clos_to_bvp_names = store_thm("clos_to_bvp_names",
   ``clos_to_bvl$num_stubs ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
     clos_to_bvl$compile c e4 = (c2,p2) /\
-    bvl_to_bvi$compile n1 n p2 = (k,p3,n2) ==>
+    bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
     EVERY (λn. bvp$num_stubs ≤ n) (MAP FST (bvi_to_bvp$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_bvp$compile_prog p3))``,
   fs[Once (GSYM bvi_to_bvpProofTheory.MAP_FST_compile_prog)]>>
@@ -1251,7 +1251,7 @@ val clos_to_bvp_names = store_thm("clos_to_bvp_names",
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>
   imp_res_tac compile_list_distinct_locs>>
-  rfs[bvl_to_bviTheory.num_stubs_def]>>
+  rfs[bvl_to_bviTheory.num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
   fs[EVERY_MEM]>>rw[]
   \\ TRY strip_tac
   \\ res_tac

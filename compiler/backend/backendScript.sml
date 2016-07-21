@@ -21,6 +21,7 @@ val _ = Datatype`config =
   <| source_conf : source_to_mod$config
    ; mod_conf : mod_to_con$config
    ; clos_conf : clos_to_bvl$config
+   ; bvl_conf : bvl_to_bvi$config
    ; bvp_conf : bvp_to_word$config
    ; word_to_word_conf : word_to_word$config
    ; word_conf : 'a word_to_stack$config
@@ -41,7 +42,7 @@ val compile_def = Define`
     let e = pat_to_clos$compile e in
     let (c',p) = clos_to_bvl$compile c.clos_conf e in
     let c = c with clos_conf := c' in
-    let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc p in
+    let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
     let c = c with clos_conf updated_by (λc. c with <| start:=s; next_loc:=n |>) in
     let p = bvi_to_bvp$compile_prog p in
     let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
@@ -101,7 +102,7 @@ val to_bvl_def = Define`
 val to_bvi_def = Define`
   to_bvi c p =
   let (c,p) = to_bvl c p in
-  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc p in
+  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
   let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
   (c,p)`;
 
@@ -192,7 +193,7 @@ val from_bvi_def = Define`
 
 val from_bvl_def = Define`
   from_bvl c p =
-  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc p in
+  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
   let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
   from_bvi c p`;
 

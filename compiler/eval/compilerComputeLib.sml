@@ -45,6 +45,7 @@ val add_compiler_compset = computeLib.extend_compset
      ``:source_to_mod$config``
     ,``:mod_to_con$config``
     ,``:clos_to_bvl$config``
+    ,``:bvl_to_bvi$config``
     ,``:bvp_to_word$config``
     ,``:word_to_word$config``
     ,``:'a word_to_stack$config``

@@ -3,6 +3,10 @@ local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory bvpTh
 
 val _ = new_theory "bvl_to_bvi";
 
+val _ = Datatype`
+  config = <| inline_size_limit : num (* zero disables inlining *)
+            |>`;
+
 val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
@@ -201,8 +205,8 @@ val optimise_def = Define `
          (bvl_const$compile_exp exp)))`;
 
 val compile_def = Define `
-  compile start n prog =
-    (* TODO: turn 3 into a configuration parameter below *)
-    compile_prog start n (optimise (bvl_inline$compile_prog 3 prog))`;
+  compile start n c prog =
+    compile_prog start n
+      (optimise (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

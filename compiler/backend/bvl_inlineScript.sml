@@ -38,7 +38,7 @@ val inline_ind = theorem"inline_ind";
 val is_small_aux_def = tDefine "is_small_aux" `
   (is_small_aux n [] = n) /\
   (is_small_aux n (x::y::xs) =
-     if n = 0 then n else
+     if n = 0n then n else
        let n = is_small_aux n [x] in if n = 0 then n else
          is_small_aux n (y::xs)) /\
   (is_small_aux n [Var v] = n) /\
