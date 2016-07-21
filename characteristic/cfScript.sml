@@ -1227,10 +1227,6 @@ val cf_mat_def = Define `
       branch_cf <> PMATCH_INCOMPLETE /\
       branch_cf env H Q)`
 
-(* todo: replace by THE *)
-val SOME_val_def = Define `
-  SOME_val (SOME x) = x`
-
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
   cf (p:'ffi ffi_proj) (Con opt args) = cf_con opt args /\
@@ -1239,7 +1235,7 @@ val cf_def = tDefine "cf" `
     (if is_bound_Fun opt e1 then
        (case Fun_body e1 of
           | SOME body =>
-            cf_fundecl (p:'ffi ffi_proj) (SOME_val opt) (Fun_params e1)
+            cf_fundecl (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
               (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
           | NONE => cf_bottom)
      else
@@ -1775,7 +1771,7 @@ val cf_sound = store_thm ("cf_sound",
       THEN1 (fs [Fun_params_def, app_of_sound_cf]) \\
       qpat_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
       cf_evaluate_step_tac \\ Cases_on `opt` \\
-      fs [is_bound_Fun_def, SOME_val_def, Fun_params_def] \\ instantiate \\
+      fs [is_bound_Fun_def, THE_DEF, Fun_params_def] \\ instantiate \\
       every_case_tac \\ qpat_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE,
           Fun_params_Fun_body_repack, Once bigStepTheory.evaluate_cases]
