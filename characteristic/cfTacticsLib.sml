@@ -112,7 +112,7 @@ fun naryFun_repack_conv tm =
 val naryClosure_repack_conv =
   (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
 
-fun xcf st name =
+fun xcf name st =
   let
     val f_def = fetch_def name st
     fun Closure_tac _ =

@@ -17,7 +17,7 @@ val example_let0_spec = Q.prove (
   `!nv. app (p:'ffi ffi_proj) ^(fetch_v "example_let0" st0) [nv]
           emp
           (\v. cond (INT 3 v))`,
-  xcf st0 "example_let0" \\ xlet `\v. cond (INT 3 v)` `a`
+  xcf "example_let0" st0 \\ xlet `\v. cond (INT 3 v)` `a`
   THEN1 (xret \\ hsimpl \\ fs [INT_def]) \\
   xret \\ hsimpl \\ fs []
 )
@@ -31,7 +31,7 @@ val example_let1_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let1" st1) [uv]
           emp
           (\v. cond (UNIT_TYPE () v))`,
-  xcf st1 "example_let1" \\ xlet `\v. cond (UNIT_TYPE () v)` `a`
+  xcf "example_let1" st1 \\ xlet `\v. cond (UNIT_TYPE () v)` `a`
   THEN1 (xret \\ hsimpl \\ fs [UNIT_TYPE_def]) \\
   xret \\ hsimpl \\ fs []
 )
@@ -45,7 +45,7 @@ val example_let2_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let2" st2) [uv]
           emp
           (\v. cond (v = uv))`,
-  xcf st2 "example_let2" \\ xlet `\v. cond (v = uv)` `a`
+  xcf "example_let2" st2 \\ xlet `\v. cond (v = uv)` `a`
   THEN1 (xret \\ hsimpl) \\
   xret \\ hsimpl
 )
@@ -58,7 +58,7 @@ val ref_spec = Q.prove (
           emp
           (\rv. rv ~~> xv)`,
 
-  xcf initial_st "ref" \\ fs [cf_ref_def] \\ irule local_elim \\
+  xcf "ref" initial_st \\ fs [cf_ref_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_ref_def] \\ hsimpl
 )
 
@@ -67,7 +67,7 @@ val deref_spec = Q.prove (
           (rv ~~> xv)
           (\yv. cond (xv = yv) * rv ~~> xv)`,
 
-  xcf initial_st "!" \\ fs [cf_deref_def] \\ irule local_elim \\
+  xcf "!" initial_st \\ fs [cf_deref_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_deref_def] \\ hsimpl \\ fs [] \\
   qexists_tac `emp` \\ hsimpl
 )
