@@ -48,6 +48,13 @@ fun dest_cell tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) cell_def
   in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
 
+fun dest_REF tm = let
+  val format = (fst o dest_eq o concl o SPEC_ALL) REF_def
+  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+
+fun is_cell tm = can dest_cell tm
+fun is_REF tm = can dest_REF tm
+
 fun is_sep_imp tm = can dest_sep_imp tm
 
 fun is_sep_imppost tm = let
@@ -195,13 +202,20 @@ fun hsimpl_cancel_cont_conseq_conv t =
       in SEP_IMP_conv convl convr
       end
     fun cell_loc tm =
-      SOME (fst (dest_cell tm)) handle _ => NONE
+      SOME (fst (dest_cell tm)) handle _ =>
+      SOME (fst (dest_REF tm)) handle _ =>
+      NONE
+    fun same_cell_kind tm1 tm2 =
+      (is_cell tm1 andalso is_cell tm2) orelse
+      (is_REF tm1 andalso is_REF tm2)
     fun find_matching_cells () =
       find_map (fn tm1 =>
         Option.mapPartial (fn loc =>
           find_map (fn tm2 =>
             Option.mapPartial (fn loc' =>
-              if loc = loc' then SOME (tm1, tm2) else NONE
+              if loc = loc' andalso same_cell_kind tm1 tm2 then
+                SOME (tm1, tm2)
+              else NONE
             ) (cell_loc tm2)
           ) rs
         ) (cell_loc tm1)
@@ -215,7 +229,10 @@ fun hsimpl_cancel_cont_conseq_conv t =
     val frame_cell_thms = [
       SEP_IMP_cell_frame,
       SEP_IMP_cell_frame_single_l,
-      SEP_IMP_cell_frame_single_r
+      SEP_IMP_cell_frame_single_r,
+      SEP_IMP_REF_frame,
+      SEP_IMP_REF_frame_single_l,
+      SEP_IMP_REF_frame_single_r
     ]
   in
     case is of
