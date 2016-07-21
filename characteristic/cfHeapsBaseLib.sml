@@ -52,8 +52,18 @@ fun dest_REF tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) REF_def
   in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
 
+fun dest_ARRAY tm = let
+  val format = (fst o dest_eq o concl o SPEC_ALL) ARRAY_def
+  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+
+fun dest_W8ARRAY tm = let
+  val format = (fst o dest_eq o concl o SPEC_ALL) W8ARRAY_def
+  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+
 fun is_cell tm = can dest_cell tm
 fun is_REF tm = can dest_REF tm
+fun is_ARRAY tm = can dest_ARRAY tm
+fun is_W8ARRAY tm = can dest_W8ARRAY tm
 
 fun is_sep_imp tm = can dest_sep_imp tm
 
@@ -204,10 +214,14 @@ fun hsimpl_cancel_cont_conseq_conv t =
     fun cell_loc tm =
       SOME (fst (dest_cell tm)) handle _ =>
       SOME (fst (dest_REF tm)) handle _ =>
+      SOME (fst (dest_ARRAY tm)) handle _ =>
+      SOME (fst (dest_W8ARRAY tm)) handle _ =>
       NONE
     fun same_cell_kind tm1 tm2 =
       (is_cell tm1 andalso is_cell tm2) orelse
-      (is_REF tm1 andalso is_REF tm2)
+      (is_REF tm1 andalso is_REF tm2) orelse
+      (is_ARRAY tm1 andalso is_ARRAY tm2) orelse
+      (is_W8ARRAY tm1 andalso is_W8ARRAY tm2)
     fun find_matching_cells () =
       find_map (fn tm1 =>
         Option.mapPartial (fn loc =>
@@ -232,7 +246,13 @@ fun hsimpl_cancel_cont_conseq_conv t =
       SEP_IMP_cell_frame_single_r,
       SEP_IMP_REF_frame,
       SEP_IMP_REF_frame_single_l,
-      SEP_IMP_REF_frame_single_r
+      SEP_IMP_REF_frame_single_r,
+      SEP_IMP_ARRAY_frame,
+      SEP_IMP_ARRAY_frame_single_l,
+      SEP_IMP_ARRAY_frame_single_r,
+      SEP_IMP_W8ARRAY_frame,
+      SEP_IMP_W8ARRAY_frame_single_l,
+      SEP_IMP_W8ARRAY_frame_single_r
     ]
   in
     case is of

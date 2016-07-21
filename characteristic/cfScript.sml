@@ -1003,59 +1003,59 @@ val app_deref_def = Define `
 
 val app_aalloc_def = Define `
   app_aalloc (n: int) v H Q =
-    !(loc: num).
+    !a.
       n >= 0 /\
-      (H * loc ~~>> Varray (REPLICATE (Num (ABS n)) v) ==>> Q (Loc loc))`
+      (H * ARRAY a (REPLICATE (Num (ABS n)) v) ==>> Q a)`
 
 val app_asub_def = Define `
-  app_asub (loc: num) (i: int) H Q =
+  app_asub a (i: int) H Q =
     ?vs F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH vs /\
-      (H ==>> F * loc ~~>> Varray vs) /\
+      (H ==>> F * ARRAY a vs) /\
       (H ==>> Q (EL n vs))`
 
 val app_alength_def = Define `
-  app_alength (loc: num) H Q =
+  app_alength a H Q =
     ?vs F.
-      (H ==>> F * loc ~~>> Varray vs) /\
+      (H ==>> F * ARRAY a vs) /\
       (H ==>> Q (Litv (IntLit (int_of_num (LENGTH vs)))))`
 
 val app_aupdate_def = Define `
-  app_aupdate (loc: num) (i: int) v H Q =
+  app_aupdate a (i: int) v H Q =
     ?vs F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH vs /\
-      (H ==>> F * loc ~~>> Varray vs) /\
-      (F * loc ~~>> Varray (LUPDATE v n vs) ==>> Q (Conv NONE []))`
+      (H ==>> F * ARRAY a vs) /\
+      (F * ARRAY a (LUPDATE v n vs) ==>> Q (Conv NONE []))`
 
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
-    !(loc: num).
+    !a.
       n >= 0 /\
-      (H * loc ~~>> W8array (REPLICATE (Num (ABS n)) w) ==>> Q (Loc loc))`
+      (H * W8ARRAY a (REPLICATE (Num (ABS n)) w) ==>> Q a)`
 
 val app_aw8sub_def = Define `
-  app_aw8sub (loc: num) (i: int) H Q =
+  app_aw8sub a (i: int) H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
-      (H ==>> F * loc ~~>> W8array ws) /\
+      (H ==>> F * W8ARRAY a ws) /\
       (H ==>> Q (Litv (Word8 (EL n ws))))`
 
 val app_aw8length_def = Define `
-  app_aw8length (loc: num) H Q =
+  app_aw8length a H Q =
     ?ws F.
-      (H ==>> F * loc ~~>> W8array ws) /\
+      (H ==>> F * W8ARRAY a ws) /\
       (H ==>> Q (Litv (IntLit (int_of_num (LENGTH ws)))))`
 
 val app_aw8update_def = Define `
-  app_aw8update (loc: num) (i: int) w H Q =
+  app_aw8update a (i: int) w H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
-      (H ==>> F * loc ~~>> W8array ws) /\
-      (F * loc ~~>> W8array (LUPDATE w n ws) ==>> Q (Conv NONE []))`
+      (H ==>> F * W8ARRAY a ws) /\
+      (F * W8ARRAY a (LUPDATE w n ws) ==>> Q (Conv NONE []))`
 
 val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
@@ -1170,25 +1170,25 @@ val cf_aalloc_def = Define `
       app_aalloc n v H Q)`
 
 val cf_asub_def = Define `
-  cf_asub xl xi = \env. local (\H Q.
-    ?l i.
-      exp2v env xl = SOME (Loc l) /\
+  cf_asub xa xi = \env. local (\H Q.
+    ?a i.
+      exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_asub l i H Q)`
+      app_asub a i H Q)`
 
 val cf_alength_def = Define `
-  cf_alength xl = \env. local (\H Q.
-    ?l.
-      exp2v env xl = SOME (Loc l) /\
-      app_alength l H Q)`
+  cf_alength xa = \env. local (\H Q.
+    ?a.
+      exp2v env xa = SOME a /\
+      app_alength a H Q)`
 
 val cf_aupdate_def = Define `
-  cf_aupdate xl xi xv = \env. local (\H Q.
-    ?l i v.
-      exp2v env xl = SOME (Loc l) /\
+  cf_aupdate xa xi xv = \env. local (\H Q.
+    ?a i v.
+      exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xv = SOME v /\
-      app_aupdate l i v H Q)`
+      app_aupdate a i v H Q)`
 
 val cf_aw8alloc_def = Define `
   cf_aw8alloc xn xw = \env. local (\H Q.
@@ -1198,25 +1198,25 @@ val cf_aw8alloc_def = Define `
       app_aw8alloc n w H Q)`
 
 val cf_aw8sub_def = Define `
-  cf_aw8sub xl xi = \env. local (\H Q.
-    ?l i.
-      exp2v env xl = SOME (Loc l) /\
+  cf_aw8sub xa xi = \env. local (\H Q.
+    ?a i.
+      exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_aw8sub l i H Q)`
+      app_aw8sub a i H Q)`
 
 val cf_aw8length_def = Define `
-  cf_aw8length xl = \env. local (\H Q.
-    ?l.
-      exp2v env xl = SOME (Loc l) /\
-      app_aw8length l H Q)`
+  cf_aw8length xa = \env. local (\H Q.
+    ?a.
+      exp2v env xa = SOME a /\
+      app_aw8length a H Q)`
 
 val cf_aw8update_def = Define `
-  cf_aw8update xl xi xw = \env. local (\H Q.
-    ?l i w.
-      exp2v env xl = SOME (Loc l) /\
+  cf_aw8update xa xi xw = \env. local (\H Q.
+    ?a i w.
+      exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_aw8update l i w H Q)`
+      app_aw8update a i w H Q)`
 
 val cf_mat_def = Define `
   cf_mat e pats branches = \env. local (\H Q.
@@ -1932,14 +1932,15 @@ val cf_sound = store_thm ("cf_sound",
       `evaluate_list F env st [h'; h] (st, Rval [Litv (Word8 w); Litv (IntLit n)])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       fs [do_app_def, store_alloc_def, st2heap_def, app_aw8alloc_def] \\
-      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
+      fs [W8ARRAY_def, SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def] \\
+      fs [one_def] \\
+      first_x_assum (qspecl_then [`Loc (LENGTH st.refs)`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
-      THEN1 (instantiate \\ SPLIT_TAC)
+      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
       THEN1 (
         rpt strip_tac \\ every_case_tac \\
         rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
@@ -1948,11 +1949,12 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Aw8sub *)
-      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); a])`
         by (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [st2heap_def, app_aw8sub_def, W8ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       fs [do_app_def, store_lookup_def] \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
@@ -1962,12 +1964,13 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Aw8length *)
-      `evaluate_list F env st [h] (st, Rval [Loc l])` by
+      `evaluate_list F env st [h] (st, Rval [a])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [st2heap_def, app_aw8length_def, W8ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
       fs [do_app_def, store_lookup_def] \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
@@ -1975,10 +1978,11 @@ val cf_sound = store_thm ("cf_sound",
     THEN1 (
       (* Aw8update *)
       `evaluate_list F env st [h''; h'; h]
-         (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
+         (st, Rval [Litv (Word8 w); Litv (IntLit i); a])`
           by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
-      fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
-      first_x_assum progress \\
+      fs [app_aw8update_def, W8ARRAY_def, SEP_EXISTS, cond_def, SEP_IMP_def] \\
+      fs [STAR_def, one_def, cell_def, st2heap_def] \\
+      first_x_assum progress \\ rename1 `a = Loc l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
@@ -1994,14 +1998,15 @@ val cf_sound = store_thm ("cf_sound",
       `evaluate_list F env st [h'; h] (st, Rval [v; Litv (IntLit n)])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       fs [do_app_def, store_alloc_def, st2heap_def, app_aalloc_def] \\
-      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
+      fs [ARRAY_def, SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def] \\
+      fs [one_def] \\
+      first_x_assum (qspecl_then [`Loc (LENGTH st.refs)`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num (ABS n)) v)) INSERT h_i`] \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
-      THEN1 (instantiate \\ SPLIT_TAC)
+      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
       THEN1 (
         rpt strip_tac \\ every_case_tac \\
         rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
@@ -2010,11 +2015,12 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Asub *)
-      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); a])`
         by (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_asub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [st2heap_def, app_asub_def, ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       fs [do_app_def, store_lookup_def] \\
       `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
@@ -2024,12 +2030,13 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Alength *)
-      `evaluate_list F env st [h] (st, Rval [Loc l])` by
+      `evaluate_list F env st [h] (st, Rval [a])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_alength_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [st2heap_def, app_alength_def, ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
       fs [do_app_def, store_lookup_def] \\
       `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
@@ -2037,10 +2044,11 @@ val cf_sound = store_thm ("cf_sound",
     THEN1 (
       (* Aupdate *)
       `evaluate_list F env st [h''; h'; h]
-         (st, Rval [v; Litv (IntLit i); Loc l])`
+         (st, Rval [v; Litv (IntLit i); a])`
           by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
-      fs [app_aupdate_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
-      first_x_assum progress \\
+      fs [app_aupdate_def, ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
+      first_x_assum progress \\ rename1 `a = Loc l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
