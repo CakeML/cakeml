@@ -2828,9 +2828,16 @@ val (pre,(fname,def,lemma,pre_var)) = hd thms3
 
 (* main translation routines *)
 
+val use_long_names = ref false;
+
 fun get_info def = let
   val (lhs,rhs) = dest_eq (concl def)
-  val fname = repeat rator lhs |> dest_const |> fst |> get_unique_name
+  val c = repeat rator lhs
+  val name = c |> dest_const |> fst
+  val name = if !use_long_names then
+               #Thy (dest_thy_const c) ^ "_" ^ name
+             else name
+  val fname = get_unique_name name
   in (fname,lhs,rhs,def) end;
 
 fun comma [] = ""

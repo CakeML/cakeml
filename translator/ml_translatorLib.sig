@@ -45,6 +45,7 @@ sig
 
     (* configuration *)
 
+    val use_long_names       : bool ref
     val print_asts           : bool ref
     val use_full_type_names  : bool ref
     val add_preferred_thy    : string -> unit
