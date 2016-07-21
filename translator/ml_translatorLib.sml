@@ -2829,6 +2829,7 @@ val (pre,(fname,def,lemma,pre_var)) = hd thms3
 (* main translation routines *)
 
 val use_long_names = ref false;
+val pick_name = ref (fn (c:term) => (fail(); ""));
 
 fun get_info def = let
   val (lhs,rhs) = dest_eq (concl def)
@@ -2837,7 +2838,7 @@ fun get_info def = let
   val name = if !use_long_names then
                #Thy (dest_thy_const c) ^ "_" ^ name
              else name
-  val fname = get_unique_name name
+  val fname = get_unique_name ((!pick_name) c handle HOL_ERR _ => name)
   in (fname,lhs,rhs,def) end;
 
 fun comma [] = ""
