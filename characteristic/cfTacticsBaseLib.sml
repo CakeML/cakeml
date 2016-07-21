@@ -51,6 +51,128 @@ fun sing x = [x]
 
 fun try_finally tac = TRY (tac \\ NO_TAC)
 
+fun EVAL_PAT pat tm =
+  if can (match_term pat) tm then
+    EVAL tm
+  else
+    NO_CONV tm
+
+fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (EVAL_PAT pat))
+val qeval_pat_tac = Q_TAC eval_pat_tac
+
+fun compose_n n conv =
+  if n <= 0 then I else conv o (compose_n (n-1) conv)
+
+fun hnf_conv tm =
+    let val (f, xs) = strip_comb tm in
+      if is_abs f then
+        ((compose_n (length xs - 1) RATOR_CONV) BETA_CONV
+         THENC hnf_conv) tm
+      else
+        REFL tm
+    end
+
+val hnf =
+    TRY (CONV_TAC hnf_conv)
+
+(* ? *)
+val cbv = TRY (CONV_TAC (REDEPTH_CONV BETA_CONV))
+
+fun conv_head thm (g as (_, w)) =
+  let val (_, args) = strip_comb w
+      val (_, args') = strip_comb ((lhs o concl) (SPEC_ALL thm))
+      val extra_args_nb = (length args) - (length args')
+      val tac =
+          if extra_args_nb < 0 then FAIL_TAC "conv_head"
+          else CONV_TAC ((compose_n extra_args_nb RATOR_CONV) (REWR_CONV thm))
+  in tac g
+  end
+
+open cmlPEGTheory gramTheory cmlPtreeConversionTheory
+     grammarTheory lexer_funTheory lexer_implTheory
+
+fun parse nt sem s = let
+    val s_t = stringSyntax.lift_string bool s
+    val t = (rhs o concl o EVAL) ``lexer_fun ^s_t``
+    val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
+    val evalth = EVAL ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
+    val r = rhs (concl evalth)
+
+    fun diag(s,t) = let
+        fun pp pps (s,t) =
+          (PP.begin_block pps PP.CONSISTENT 0;
+           PP.add_string pps s;
+           PP.add_break pps (1,2);
+           pp_term pps t;
+           PP.end_block pps)
+    in
+        print (PP.pp_to_string 79 pp (s,t) ^ "\n")
+    end
+    fun die (s,t) = (diag (s,t); raise Fail "Failed")
+in
+  if same_const (rator r) ``Result`` then
+    if optionSyntax.is_some (rand r) then let
+      val pair = rand (rand r)
+      val remaining_input = pair |> rator |> rand
+      val res = pair |> rand |> rator |> rand
+    in
+      if listSyntax.is_nil remaining_input then let
+        (* val _ = diag ("EVAL to: ", res) *)
+        val fringe_th = EVAL ``ptree_fringe ^res``
+        val fringe_t = rhs (concl fringe_th)
+        (* val _ = diag ("fringe = ", fringe_t) *)
+      in
+        if aconv fringe_t ttoks then let
+          val ptree_res =
+              case Lib.total mk_comb(sem,res) of
+                  NONE => optionSyntax.mk_none bool
+                | SOME t =>
+                  let
+                    val rt = rhs (concl (EVAL t))
+                  in
+                    if optionSyntax.is_some rt then
+                      rand rt
+                    else die ("Sem. failure", rt)
+                  end
+          (* val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res) *)
+        in
+          ptree_res
+        end
+        else die ("Fringe not preserved!", ttoks)
+      end
+      else die ("REMANING INPUT:", pair)
+    end
+    else die ("FAILED:", r)
+  else die ("NO RESULT:", r)
+end
+
+fun parse_topdecl str = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs`` str
+
+fun pick_name str =
+  if str = "<" then "lt" else
+  if str = ">" then "gt" else
+  if str = "<=" then "le" else
+  if str = ">=" then "ge" else
+  if str = "=" then "eq" else
+  if str = "~" then "uminus" else
+  if str = "+" then "plus" else
+  if str = "-" then "minus" else
+  if str = "*" then "times" else
+  if str = "!" then "deref" else
+  if str = ":=" then "assign" else str (* name is fine *)
+
+fun fetch_v name st =
+  let val env = ml_progLib.get_env st
+      val name = stringLib.fromMLstring name
+      val evalth = EVAL ``lookup_var_id (Short ^name) ^env``
+  in (optionLib.dest_some o rhs o concl) evalth end
+
+fun fetch_def name st =
+  let val v = fetch_v name st
+      val v_defs = ml_progLib.get_v_defs st
+      val opt_thm = List.find (fn thm => (lhs o concl) thm = v) v_defs
+  in valOf opt_thm end
+
 (*------------------------------------------------------------------*)
 (** ConseqConv++ *)
 

@@ -15,6 +15,25 @@ sig
 
   val sing : 'a -> 'a list
 
+  val EVAL_PAT : term -> conv
+  val eval_pat_tac : term -> tactic
+  val qeval_pat_tac : term quotation -> tactic
+
+  val compose_n : int -> ('a -> 'a) -> 'a -> 'a
+
+  val hnf_conv : conv
+  val hnf : tactic
+  val cbv : tactic
+
+  val conv_head : thm -> tactic
+
+  val parse : term -> term -> string -> term
+  val parse_topdecl : string -> term
+
+  val pick_name : string -> string
+  val fetch_v : string -> ml_progLib.ml_prog_state -> term
+  val fetch_def : string -> ml_progLib.ml_prog_state -> thm
+
   (*----------------------------------------------------------------*)
 
   type conseq_conv = ConseqConv.conseq_conv
