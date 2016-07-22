@@ -35,6 +35,10 @@ fun instantiate g =
 fun progress_then thm_tac thm =
   drule thm \\ rpt (disch_then drule) \\ disch_then thm_tac
 
+fun try_progress_then thm_tac thm =
+  ((drule thm \\ rpt (disch_then drule)) ORELSE mp_tac thm) \\
+  disch_then thm_tac
+
 fun progress thm = progress_then strip_assume_tac thm
 
 fun progress_with_then thm_tac thm' thm =

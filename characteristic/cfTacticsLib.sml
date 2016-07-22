@@ -156,10 +156,11 @@ fun xlet Q x =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-  progress_then (fn K =>
+(*  try_progress_then (fn K =>
     (* temp basic stuff until evars *)
     irule local_frame_gc THENL [xlocal, assume_tac K])
-    H
+    H *) (* todo fixme *)
+  irule local_frame_gc THENL [xlocal, assume_tac H]
 
 fun xapply H =
   xpull_check_not_needed \\

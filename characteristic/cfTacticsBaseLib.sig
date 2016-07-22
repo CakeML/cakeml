@@ -3,6 +3,7 @@ sig
   include Abbrev
 
   val progress_then : thm_tactic -> thm -> tactic
+  val try_progress_then : thm_tactic -> thm -> tactic
   val progress : thm -> tactic
 
   val progress_with_then : thm_tactic -> thm -> thm -> tactic
