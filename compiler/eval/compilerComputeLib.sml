@@ -203,6 +203,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_knownTheory.dest_Clos_def
     ,clos_knownTheory.known_def
     ,clos_knownTheory.known_op_def
+    ,clos_knownTheory.clos_gen_def
     ]
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
@@ -443,6 +444,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_allocTheory.even_list_def
     ,word_allocTheory.option_lookup_def
     ,word_allocTheory.apply_nummap_key_def
+    ,word_allocTheory.remove_dead_def
+    ,word_allocTheory.remove_dead_inst_def
     ]
   ,computeLib.Tys
     [ (* ---- stackLang ---- *)
