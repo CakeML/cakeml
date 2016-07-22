@@ -78,7 +78,7 @@ val assign_spec = Q.prove (
        (rv ~~> xv)
        (\v. cond (UNIT_TYPE () v) * rv ~~> yv)`,
 
-  xcf initial_st ":=" \\ fs [cf_assign_def] \\ irule local_elim \\
+  xcf ":=" initial_st \\ fs [cf_assign_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_assign_def] \\ hsimpl \\ fs [UNIT_TYPE_def] \\
   qexists_tac `emp` \\ hsimpl
 )
