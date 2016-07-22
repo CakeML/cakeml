@@ -1770,4 +1770,12 @@ val MEM_enumerate_IMP = store_thm("MEM_enumerate_IMP",``
   fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
   qexists_tac`n`>>fs[])
 
+val SNOC_REPLICATE = store_thm("SNOC_REPLICATE",
+  ``!n x. SNOC x (REPLICATE n x) = REPLICATE (SUC n) x``,
+  Induct \\ fs [REPLICATE]);
+
+val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
+  ``!n x. REVERSE (REPLICATE n x) = REPLICATE n x``,
+  Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
+
 val _ = export_theory()

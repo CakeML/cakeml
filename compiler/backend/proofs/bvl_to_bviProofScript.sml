@@ -10,18 +10,6 @@ in end;
 
 val _ = new_theory"bvl_to_bviProof";
 
-(* TODO: move *)
-
-val SNOC_REPLICATE = store_thm("SNOC_REPLICATE",
-  ``!n x. SNOC x (REPLICATE n x) = REPLICATE (SUC n) x``,
-  Induct \\ fs [REPLICATE]);
-
-val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
-  ``!n x. REVERSE (REPLICATE n x) = REPLICATE n x``,
-  Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
-
-(* --- *)
-
 val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 (* value relation *)
