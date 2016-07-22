@@ -166,19 +166,77 @@ fun xapply H =
   xpull_check_not_needed \\
   xapply_core H all_tac all_tac
 
+(* [xspec] *)
+
+fun concl_tm tm =
+  let 
+    val thm' = Drule.IRULE_CANON (ASSUME tm)
+    val (_, body) = strip_forall (concl thm')
+  in
+    if is_imp body then
+      (snd o dest_imp) body
+    else
+      body
+  end
+
+fun app_f_tm tm =
+  let val (_, f_tm, _, _, _) = cfAppSyntax.dest_app tm
+  in f_tm end
+
+fun is_spec_for f tm =
+  (concl_tm tm |> app_f_tm) = f
+  handle HOL_ERR _ => false
+
+fun xspec_in_asl f asl =
+  List.find (is_spec_for f) asl
+
+fun xspec_in_db f =
+  case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
+      data :: _ => SOME data
+    | _ => NONE
+
+(* todo: variants *)
+fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
+  case xspec_in_asl f asl of
+      SOME a => 
+      (print "Using a specification from the assumptions\n";
+       ttac (ASSUME a) g)
+    | NONE =>
+      case xspec_in_db f of
+          SOME ((thy, name), (thm, _)) =>
+          (print ("Using specification " ^ name ^
+                  " from theory " ^ thy ^ "\n");
+           ttac thm g)
+        | NONE =>
+          raise ERR "xspec" ("Could not find a specification for " ^
+                             fst (dest_const f))
+
 (* [xapp] *)
+
 val xapp_prepare_goal =
   xpull_check_not_needed \\
   head_unfold cf_app_def \\
   irule local_elim \\ hnf \\
   reduce_tac
 
+fun app_f_tac tmtac (g as (_, w)) =
+  tmtac (app_f_tm w) g
+
+fun xapp_common spec do_xapp =
+  xapp_prepare_goal \\
+  app_f_tac (fn f =>
+    case spec of
+        SOME thm => do_xapp thm
+      | NONE => xspec f do_xapp)
+
 fun xapp_xapply_no_simpl K =
   FIRST [irule K, xapply_core K all_tac all_tac]
 
-fun xapp spec =
-  xapp_prepare_goal \\
-  xapp_xapply_no_simpl spec
+fun xapp_core spec =
+  xapp_common spec xapp_xapply_no_simpl
+
+val xapp = xapp_core NONE
+fun xapp_spec spec = xapp_core (SOME spec)
 
 (* [xret] *)
 

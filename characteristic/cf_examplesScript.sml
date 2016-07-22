@@ -53,30 +53,30 @@ val example_let2_spec = Q.prove (
 (*------------------------------------------------------------------*)
 (* Specs for functions of the initial environment *)
 
-val ref_spec = Q.prove (
-  `!xv. app (p:'ffi ffi_proj) ^(fetch_v "ref" initial_st) [xv]
+val ref_spec = store_thm ("ref_spec",
+  ``!xv. app (p:'ffi ffi_proj) ^(fetch_v "ref" initial_st) [xv]
           emp
-          (\rv. rv ~~> xv)`,
+          (\rv. rv ~~> xv)``,
 
   xcf "ref" initial_st \\ fs [cf_ref_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_ref_def] \\ hsimpl
 )
 
-val deref_spec = Q.prove (
-  `!xv. app (p:'ffi ffi_proj) ^(fetch_v "!" initial_st) [rv]
+val deref_spec = store_thm ("deref_spec",
+  ``!xv. app (p:'ffi ffi_proj) ^(fetch_v "!" initial_st) [rv]
           (rv ~~> xv)
-          (\yv. cond (xv = yv) * rv ~~> xv)`,
+          (\yv. cond (xv = yv) * rv ~~> xv)``,
 
   xcf "!" initial_st \\ fs [cf_deref_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_deref_def] \\ hsimpl \\ fs [] \\
   qexists_tac `emp` \\ hsimpl
 )
 
-val assign_spec = Q.prove (
-  `!rv xv yv.
+val assign_spec = store_thm ("assign_spec",
+  ``!rv xv yv.
      app (p:'ffi ffi_proj) ^(fetch_v ":=" initial_st) [rv; yv]
        (rv ~~> xv)
-       (\v. cond (UNIT_TYPE () v) * rv ~~> yv)`,
+       (\v. cond (UNIT_TYPE () v) * rv ~~> yv)``,
 
   xcf ":=" initial_st \\ fs [cf_assign_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_assign_def] \\ hsimpl \\ fs [UNIT_TYPE_def] \\
