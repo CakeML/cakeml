@@ -83,3 +83,23 @@ val assign_spec = store_thm ("assign_spec",
   qexists_tac `emp` \\ hsimpl
 )
 
+val plus_spec = store_thm ("plus_spec",
+  ``!a b av bv.
+     app (p:'ffi ffi_proj) ^(fetch_v "+" initial_st) [av; bv]
+       (cond (INT a av) * cond (INT b bv))
+       (\v. cond (INT (a + b) v))``,
+
+  xcf "+" initial_st \\ xpull \\ fs [cf_opn_def] \\ irule local_elim \\
+  reduce_tac \\ fs [app_opn_def] \\ hsimpl \\ fs [INT_def, opn_lookup_def]
+)
+
+val minus_spec = store_thm ("minus_spec",
+  ``!a b av bv.
+     app (p:'ffi ffi_proj) ^(fetch_v "-" initial_st) [av; bv]
+       (cond (INT a av) * cond (INT b bv))
+       (\v. cond (INT (a - b) v))``,
+
+  xcf "-" initial_st \\ xpull \\ fs [cf_opn_def] \\ irule local_elim \\
+  reduce_tac \\ fs [app_opn_def] \\ hsimpl \\ fs [INT_def, opn_lookup_def]
+)
+
