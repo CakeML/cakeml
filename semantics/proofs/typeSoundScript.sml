@@ -4,6 +4,7 @@ open terminationTheory;
 open evalPropsTheory;
 open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
 open funBigStepPropsTheory;
+open semanticsTheory;
 
 val _ = new_theory "typeSound";
 
@@ -2416,6 +2417,28 @@ val prog_type_sound = Q.store_thm ("prog_type_sound",
    >> fs [no_dup_top_types_def, DISJOINT_DEF, EXTENSION, SUBSET_DEF]
    >> rw []
    >> metis_tac [weak_decls_def]));
+
+val semantics_type_sound = Q.store_thm ("semantics_type_sound",
+ `∀(st:'ffi state) env tops st' new_ctors r checks tdecs1 ctMap tenvS tenv tdecs1' new_tenv.
+   semantics_prog st env tops r ∧
+   type_prog checks tdecs1 tenv tops tdecs1' new_tenv ∧
+   type_sound_invariant st env tdecs1 ctMap tenvS tenv ⇒
+   r ≠ Fail`,
+ rw []
+ >> CCONTR_TAC
+ >> fs [semantics_prog_def]
+ >> Cases_on `evaluate_prog_with_clock st env k tops`
+ >> fs []
+ >> rw []
+ >> fs [evaluate_prog_with_clock_def]
+ >> pairarg_tac
+ >> fs []
+ >> rw []
+ >> drule prog_type_sound
+ >> disch_then drule
+ >> simp []
+ >> fs [type_sound_invariant_def]
+ >> metis_tac []);
 
 val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   `(sem_st,sem_env) = THE (prim_sem_env ffi) ⇒

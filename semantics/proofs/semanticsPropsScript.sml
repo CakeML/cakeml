@@ -112,9 +112,11 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     >- metis_tac[unique_lprefix_lub] >>
     tac1))
 
+    (*
 val state_invariant_def = Define`
   state_invariant st ⇔
   type_sound_invariants (NONE:(v,v)result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env)`;
+  *)
 
 val clock_lemmas = Q.prove(
   `((x with clock := c).clock = c) ∧
@@ -147,6 +149,7 @@ val prog_diverges_semantics_prog = Q.store_thm("prog_diverges_semantics_prog",
             semanticPrimitivesTheory.error_result_11,
             semanticPrimitivesTheory.abort_distinct])
 
+            (*
 val semantics_deterministic = Q.store_thm("semantics_deterministic",
   `state_invariant st ⇒
    semantics st prelude inp = Execute bs
@@ -177,6 +180,7 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
               semanticPrimitivesTheory.abort_distinct]) >>
   simp[FUN_EQ_THM] >>
   metis_tac[semantics_prog_total,semantics_prog_deterministic])
+  *)
 
 val extend_with_resource_limit_def = Define`
   extend_with_resource_limit behaviours =
