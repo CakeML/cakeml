@@ -325,13 +325,13 @@ val TAKE_list_LUPDATE = store_thm("TAKE_list_LUPDATE[simp]",
   ``!ys xs n i. TAKE n (list_LUPDATE ys i xs) = list_LUPDATE ys i (TAKE n xs)``,
   Induct \\ fs [list_LUPDATE_def]);
 
-val el_opt_list_LUPDATE_IGNORE = prove(
+val LLOOKUP_list_LUPDATE_IGNORE = prove(
   ``!xs i n ys.
       i + LENGTH xs <= n ==>
-      el_opt n (list_LUPDATE xs i ys) = el_opt n ys``,
+      LLOOKUP (list_LUPDATE xs i ys) n = LLOOKUP ys n``,
   Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
   \\ `(i+1) + LENGTH xs <= n` by decide_tac \\ res_tac
-  \\ `i <> n` by decide_tac \\ fs [el_opt_LUPDATE]);
+  \\ `i <> n` by decide_tac \\ fs [LLOOKUP_LUPDATE]);
 
 val DROP_list_LUPDATE = prove(
   ``!ys n m xs.
@@ -557,7 +557,7 @@ val state_rel_def = Define `
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
         if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
-        else (el_opt (f-1 -(n DIV 2 - k)) current_frame = SOME v) /\
+        else (LLOOKUP current_frame (f-1 -(n DIV 2 - k)) = SOME v) /\
              n DIV 2 < k + f')`
 
 (* correctness proof *)
@@ -957,7 +957,7 @@ val evaluate_wLive = Q.prove(
   THEN1
    (res_tac \\ srw_tac[] [] \\ fsrw_tac[] []
     \\ qpat_assum `xx = SOME v` (fn th => once_rewrite_tac [GSYM th])
-    \\ match_mp_tac (el_opt_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
+    \\ match_mp_tac (LLOOKUP_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
            |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fsrw_tac[] [] \\ Cases_on `f' = 0` \\ fsrw_tac[] [] \\ decide_tac)
   THEN1
@@ -1102,7 +1102,7 @@ val evaluate_wLive = Q.prove(
     \\ first_x_assum drule
     \\ last_x_assum drule
     \\ IF_CASES_TAC >- simp[]
-    \\ simp[el_opt_THM,EVEN_EXISTS]
+    \\ simp[LLOOKUP_THM,EVEN_EXISTS]
     \\ strip_tac >> rveq
     \\ fsrw_tac[][MULT_COMM,MULT_DIV]
     \\ fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1]
@@ -1112,7 +1112,7 @@ val evaluate_wLive = Q.prove(
   \\ first_x_assum drule
   \\ last_x_assum drule
   \\ IF_CASES_TAC >- simp[]
-  \\ simp[el_opt_THM,EVEN_EXISTS]
+  \\ simp[LLOOKUP_THM,EVEN_EXISTS]
   \\ strip_tac >> rveq
   \\ fsrw_tac[][MULT_COMM,MULT_DIV]
   \\ fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1]
@@ -1665,7 +1665,7 @@ val alloc_IMP_alloc = prove(
     `MEM (n DIV 2,v') (MAP_FST adjust_names l)` by
       (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
       metis_tac[])>>
-    simp[el_opt_THM]>>
+    simp[LLOOKUP_THM]>>
     qpat_abbrev_tac`ls = TAKE A B`>>
     imp_res_tac filter_bitmap_MEM>>
     imp_res_tac MEM_index_list_EL>>
@@ -2259,7 +2259,7 @@ val state_rel_get_var_imp2 = Q.store_thm("state_rel_get_var_imp2",
   \\ simp[EVEN_MULT]
   \\ ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]
-  \\ simp[el_opt_THM]
+  \\ simp[LLOOKUP_THM]
   \\ strip_tac
   \\ rator_x_assum`EL`mp_tac
   \\ simp[EL_TAKE]
@@ -2314,19 +2314,19 @@ val state_rel_set_var2 = Q.store_thm("state_rel_set_var2",
     \\ ONCE_REWRITE_TAC[MULT_COMM]
     \\ simp[MULT_DIV]
     \\ strip_tac >> rveq
-    \\ simp[el_opt_THM]
+    \\ simp[LLOOKUP_THM]
     \\ simp[EL_LUPDATE])
   \\ strip_tac
   \\ first_x_assum drule
   \\ strip_tac
   \\ IF_CASES_TAC >> fs[]
-  \\ simp[el_opt_THM]
+  \\ simp[LLOOKUP_THM]
   \\ simp[EL_LUPDATE]
   \\ fs[EVEN_EXISTS]
   \\ rveq
   \\ ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]
-  \\ fs [el_opt_THM]
+  \\ fs [LLOOKUP_THM]
   \\ rveq
   \\ ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]
@@ -3337,7 +3337,7 @@ val call_dest_lemma = prove(
       res_tac>>
       qpat_assum`if A then B else C` mp_tac>>
       IF_CASES_TAC>>fs[]>>
-      simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE,el_opt_THM]>>
+      simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE,LLOOKUP_THM]>>
       `k < LAST args DIV 2 +1` by DECIDE_TAC>>
       rw[]>>
       `f + k - (LAST args DIV 2 +1) <f` by simp[]>>
@@ -4024,7 +4024,7 @@ val word_exp_thm2 = Q.store_thm("word_exp_thm2",
     \\ fs[DIV2_def,TWOxDIV2]
     \\ first_x_assum drule
     \\ simp[TWOxDIV2]
-    \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
+    \\ simp[LLOOKUP_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
   >-
     (strip_tac>>
@@ -4068,7 +4068,7 @@ val word_exp_thm3 = Q.store_thm("word_exp_thm3",
     \\ fs[DIV2_def,TWOxDIV2]
     \\ first_x_assum drule
     \\ simp[TWOxDIV2]
-    \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
+    \\ simp[LLOOKUP_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
   >-
     (strip_tac>>
@@ -4112,7 +4112,7 @@ val word_exp_thm4 = Q.store_thm("word_exp_thm4",
     \\ fs[DIV2_def,TWOxDIV2]
     \\ first_x_assum drule
     \\ simp[TWOxDIV2]
-    \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
+    \\ simp[LLOOKUP_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
   >-
     (strip_tac>>
@@ -4157,7 +4157,7 @@ val word_exp_thm5 = Q.store_thm("word_exp_thm5",
     \\ fs[DIV2_def,TWOxDIV2]
     \\ first_x_assum drule
     \\ simp[TWOxDIV2]
-    \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
+    \\ simp[LLOOKUP_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
   >-
     (strip_tac>>
@@ -4199,7 +4199,7 @@ val word_exp_thm6 = Q.store_thm("word_exp_thm6",
   \\ fs[DIV2_def,TWOxDIV2]
   \\ first_x_assum drule
   \\ simp[TWOxDIV2]
-  \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
+  \\ simp[LLOOKUP_THM,EL_TAKE,EL_DROP]
   \\ simp[ADD_COMM] );
 
 val set_var_with_memory = Q.store_thm("set_var_with_memory",
@@ -5405,8 +5405,8 @@ val comp_correct = Q.store_thm("comp_correct",
      (fs [state_rel_def,get_var_def,LET_DEF]
       \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
       \\ fs [stackSemTheory.get_var_def]
-      \\ imp_res_tac el_opt_TAKE_IMP
-      \\ fs [el_opt_DROP] \\ fs [el_opt_THM] \\ rw[]
+      \\ imp_res_tac LLOOKUP_TAKE_IMP
+      \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
       \\ rfs[EL_TAKE])
     \\ fs [LET_DEF]
     \\ `(set_var k (Loc l1 l2) t).use_stack /\
@@ -5688,7 +5688,7 @@ val comp_correct = Q.store_thm("comp_correct",
               metis_tac[])>>
             IF_CASES_TAC>-
               metis_tac[]>>
-            fsrw_tac[][el_opt_THM]>>
+            fsrw_tac[][LLOOKUP_THM]>>
             Cases_on `m=0` \\ fsrw_tac[] []
             THEN1
              (fsrw_tac[] [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fsrw_tac[] []
@@ -5979,13 +5979,13 @@ val comp_correct = Q.store_thm("comp_correct",
           simp[FLOOKUP_UPDATE]>>
           fsrw_tac[][stackSemTheory.get_var_def]>>
           metis_tac[])>>
-        simp[el_opt_THM]>>
+        simp[LLOOKUP_THM]>>
         Cases_on `m=0` \\ fsrw_tac[] []
         THEN1
           (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
           decide_tac)>>
         simp[Abbr`m'`]>>
-        fsrw_tac[][el_opt_THM,lookup_fromList2,lookup_fromList]>>
+        fsrw_tac[][LLOOKUP_THM,lookup_fromList2,lookup_fromList]>>
         (*Slow...*)
         ntac 60 (last_x_assum kall_tac)>>
         simp[EL_TAKE,EL_DROP]>>
@@ -6091,7 +6091,7 @@ val comp_correct = Q.store_thm("comp_correct",
           res_tac>>simp[]>>
           fsrw_tac[][domain_lookup]>>
           last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
-          simp[el_opt_THM]>>
+          simp[LLOOKUP_THM]>>
           strip_tac>>
           fsrw_tac[][stack_rel_def]>>qpat_assum`A=SOME stack'''''` mp_tac>>
           qpat_abbrev_tac`ls = DROP A B`>>
@@ -6106,7 +6106,7 @@ val comp_correct = Q.store_thm("comp_correct",
           `MEM (n DIV 2,v) (MAP_FST adjust_names l)` by
             (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
             metis_tac[])>>
-          simp[el_opt_THM]>>
+          simp[LLOOKUP_THM]>>
           imp_res_tac filter_bitmap_MEM>>
           imp_res_tac MEM_index_list_EL>>
           pop_assum mp_tac>>
@@ -6371,7 +6371,7 @@ val comp_correct = Q.store_thm("comp_correct",
         metis_tac[])>>
       ntac 3 (qpat_assum`!a b.P` kall_tac)>>
       fsrw_tac[][]>>
-      simp[el_opt_THM]>>
+      simp[LLOOKUP_THM]>>
       Cases_on `m=0` \\ fsrw_tac[] []
       THEN1
        (fsrw_tac[] [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fsrw_tac[] []
@@ -6379,7 +6379,7 @@ val comp_correct = Q.store_thm("comp_correct",
         \\ decide_tac) >>
      (*Extremely slow*)
      simp[Abbr`m'`]>>
-     fsrw_tac[][el_opt_THM,lookup_fromList2,lookup_fromList]>>
+     fsrw_tac[][LLOOKUP_THM,lookup_fromList2,lookup_fromList]>>
      ntac 80 (last_x_assum kall_tac)>>
      simp[EL_TAKE,EL_DROP]>>
      first_x_assum(qspecl_then[`n`,`v`] kall_tac)>>
@@ -6500,7 +6500,7 @@ val comp_correct = Q.store_thm("comp_correct",
         res_tac>>simp[]>>
         fsrw_tac[][domain_lookup]>>
         last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
-        simp[el_opt_THM]>>
+        simp[LLOOKUP_THM]>>
         strip_tac>>
         fsrw_tac[][stack_rel_def]>>qpat_assum`A=SOME stack''''` mp_tac>>
         qpat_abbrev_tac`ls = DROP A B`>>
@@ -6515,7 +6515,7 @@ val comp_correct = Q.store_thm("comp_correct",
         `MEM (n DIV 2,v) (MAP_FST adjust_names l)` by
           (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
           metis_tac[])>>
-        simp[el_opt_THM]>>
+        simp[LLOOKUP_THM]>>
         imp_res_tac filter_bitmap_MEM>>
         imp_res_tac MEM_index_list_EL>>
         pop_assum mp_tac>>
@@ -6616,7 +6616,7 @@ val comp_correct = Q.store_thm("comp_correct",
         res_tac>>simp[]>>
         fsrw_tac[][domain_lookup]>>
         last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
-        simp[el_opt_THM]>>
+        simp[LLOOKUP_THM]>>
         strip_tac>>
         fsrw_tac[][stack_rel_def]>>
         qpat_assum`A=SOME stack''''''` mp_tac>>
@@ -6633,7 +6633,7 @@ val comp_correct = Q.store_thm("comp_correct",
         `MEM (n DIV 2,v) (MAP_FST adjust_names lss)` by
           (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
           metis_tac[])>>
-        simp[el_opt_THM]>>
+        simp[LLOOKUP_THM]>>
         imp_res_tac filter_bitmap_MEM>>
         ntac 2 (pop_assum kall_tac)>>
         pop_assum (qspec_then`(n DIV 2 ,v)` mp_tac)>>

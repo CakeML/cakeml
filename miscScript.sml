@@ -110,37 +110,42 @@ val map_fromAList = Q.store_thm("map_fromAList",
   Cases >> simp[fromAList_def] >>
   simp[wf_fromAList,map_insert])
 
-val el_opt_def = Define `
-  (el_opt n [] = NONE) /\
-  (el_opt n (x::xs) = if n = 0n then SOME x else el_opt (n-1) xs)`
+val LLOOKUP_def = Define `
+  (LLOOKUP [] n = NONE) /\
+  (LLOOKUP (x::xs) n = if n = 0 then SOME x else LLOOKUP xs (n-1:num))`;
 
-val el_opt_THM = store_thm("el_opt_THM",
-  ``!xs n. el_opt n xs = if n < LENGTH xs then SOME (EL n xs) else NONE``,
-  Induct \\ full_simp_tac(srw_ss())[el_opt_def] \\ srw_tac[][] THEN1 decide_tac
+val LLOOKUP_EQ_EL = store_thm("LLOOKUP_EQ_EL",
+  ``!xs n y. LLOOKUP xs n = SOME y <=> n < LENGTH xs /\ (y = EL n xs)``,
+  Induct \\ fs [LLOOKUP_def] \\ rw [] THEN1 metis_tac []
+  \\ Cases_on `n` \\ fs [ADD1] \\ eq_tac \\ rw []);
+
+val LLOOKUP_THM = store_thm("LLOOKUP_THM",
+  ``!xs n. LLOOKUP xs n = if n < LENGTH xs then SOME (EL n xs) else NONE``,
+  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def] \\ srw_tac[][] THEN1 decide_tac
   \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
-val el_opt_DROP = store_thm("el_opt_DROP",
-  ``(el_opt n (DROP f xs) = el_opt (f + n) xs)``,
+val LLOOKUP_DROP = store_thm("LLOOKUP_DROP",
+  ``(LLOOKUP (DROP f xs) n = LLOOKUP xs (f + n))``,
   Cases_on `DROP f xs = []` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[DROP_NIL]
-  \\ full_simp_tac(srw_ss())[el_opt_THM] THEN1 decide_tac
+  \\ full_simp_tac(srw_ss())[LLOOKUP_THM] THEN1 decide_tac
   \\ `f + n < LENGTH xs <=> n < LENGTH xs - f` by decide_tac \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ ONCE_REWRITE_TAC [ADD_COMM]
   \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
 
-val el_opt_TAKE_IMP = store_thm("el_opt_TAKE_IMP",
-  ``(el_opt n (TAKE f xs) = SOME x) ==>
-    (el_opt n xs = SOME x)``,
-  simp[el_opt_THM,LENGTH_TAKE_EQ] >>
+val LLOOKUP_TAKE_IMP = store_thm("LLOOKUP_TAKE_IMP",
+  ``(LLOOKUP (TAKE f xs) n = SOME x) ==>
+    (LLOOKUP xs n = SOME x)``,
+  simp[LLOOKUP_THM,LENGTH_TAKE_EQ] >>
   srw_tac[ARITH_ss][]
   \\ match_mp_tac (GSYM EL_TAKE)
   \\ fsrw_tac[ARITH_ss][]);
 
-val el_opt_LUPDATE = store_thm("el_opt_LUPDATE",
-  ``!xs i n x. el_opt n (LUPDATE x i xs) =
-               if i <> n then el_opt n xs else
+val LLOOKUP_LUPDATE = store_thm("LLOOKUP_LUPDATE",
+  ``!xs i n x. LLOOKUP (LUPDATE x i xs) n =
+               if i <> n then LLOOKUP xs n else
                if i < LENGTH xs then SOME x else NONE``,
-  Induct \\ full_simp_tac(srw_ss())[el_opt_def,LUPDATE_def]
-  \\ Cases_on `i` \\ full_simp_tac(srw_ss())[el_opt_def,LUPDATE_def]
+  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
+  \\ Cases_on `i` \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
   \\ rpt strip_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
 val GENLIST_eq_MAP = Q.store_thm("GENLIST_eq_MAP",
@@ -1621,15 +1626,6 @@ val lookup_vars_def = Define `
        | SOME xs => SOME (EL v env :: xs)
        | NONE => NONE
      else NONE)`
-
-val LLOOKUP_def = Define `
-  (LLOOKUP [] n = NONE) /\
-  (LLOOKUP (x::xs) n = if n = 0 then SOME x else LLOOKUP xs (n-1:num))`;
-
-val LLOOKUP_EQ_EL = store_thm("LLOOKUP_EQ_EL",
-  ``!xs n y. LLOOKUP xs n = SOME y <=> n < LENGTH xs /\ (y = EL n xs)``,
-  Induct \\ fs [LLOOKUP_def] \\ rw [] THEN1 metis_tac []
-  \\ Cases_on `n` \\ fs [ADD1] \\ eq_tac \\ rw []);
 
 val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
   `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`,
