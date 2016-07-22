@@ -128,9 +128,17 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c3,aux3,n3) = compile_exps n2 [x3] in
        ([If (HD c1) (HD c2) (HD c3)],aux1++aux2++aux3,n3)) /\
   (compile_exps n [Let xs x2] =
-     let (c1,aux1,n1) = compile_exps n xs in
-     let (c2,aux2,n2) = compile_exps n1 [x2] in
-       ([Let c1 (HD c2)], aux1++aux2, n2)) /\
+     if LENGTH xs = 0 (* i.e. a marker *) then
+       let (args,x0) = destLet x2 in
+       let (c1,aux1,n1) = compile_exps n args in
+       let (c2,aux2,n2) = compile_exps n1 [x0] in
+       let n3 = n2 + 1 in
+         ([Call 0 (SOME (num_stubs + 2 * n2 + 1)) c1 NONE],
+          aux1++aux2++[(n2,LENGTH args,HD c2)], n3)
+     else
+       let (c1,aux1,n1) = compile_exps n xs in
+       let (c2,aux2,n2) = compile_exps n1 [x2] in
+         ([Let c1 (HD c2)], aux1++aux2, n2)) /\
   (compile_exps n [Raise x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
        ([Raise (HD c1)], aux1, n1)) /\
@@ -157,7 +165,8 @@ val compile_exps_def = tDefine "compile_exps" `
                | SOME n => SOME (num_stubs + 2 * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-  \\ Cases_on `x1` \\ fs [destLet_def]
+  \\ TRY (Cases_on `x1`) \\ fs [destLet_def]
+  \\ TRY (Cases_on `x2`) \\ fs [destLet_def]
   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
 val compile_exps_ind = theorem"compile_exps_ind";

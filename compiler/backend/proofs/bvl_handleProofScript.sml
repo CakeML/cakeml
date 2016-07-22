@@ -15,6 +15,10 @@ val evaluate_SmartLet = store_thm("evaluate_SmartLet[simp]",
   ``bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)``,
   rw [SmartLet_def] \\ fs [LENGTH_NIL,evaluate_def]);
 
+val let_ok_def = Define `
+  (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
+  (let_ok _ = F)`;
+
 val handle_ok_def = tDefine "handle_ok" `
   (handle_ok [] <=> T) /\
   (handle_ok ((x:bvl$exp)::y::xs) <=>
@@ -23,7 +27,7 @@ val handle_ok_def = tDefine "handle_ok" `
   (handle_ok [If x1 x2 x3] <=>
      handle_ok [x1] /\ handle_ok [x2] /\ handle_ok [x3]) /\
   (handle_ok [Let xs x2] <=>
-     ((LENGTH xs = 0) ==> ARB) /\
+     ((LENGTH xs = 0) ==> let_ok x2) /\
      handle_ok xs /\ handle_ok [x2]) /\
   (handle_ok [Raise x1] <=> handle_ok [x1]) /\
   (handle_ok [Tick x1] <=> handle_ok [x1]) /\
