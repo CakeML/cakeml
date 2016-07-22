@@ -46,4 +46,3 @@ explorer
 compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
-translator/simulator
