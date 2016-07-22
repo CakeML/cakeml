@@ -1,8 +1,8 @@
-open preamble bvpTheory;
+open preamble dataLangTheory;
 
-val _ = new_theory "bvp_simp";
+val _ = new_theory "data_simp";
 
-(* Simple clean up of BVP:
+(* Simple clean up of dataLang:
 
    The simp optimisation removes Skips and deletes some dead code
    created by Raise and Return, e.g.

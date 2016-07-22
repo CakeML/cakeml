@@ -3,11 +3,11 @@ open preamble
      stackLangTheory
      stackSemTheory
      stackPropsTheory
-     bvp_to_wordPropsTheory
-     bvp_to_wordProofTheory
+     data_to_wordPropsTheory
+     data_to_wordProofTheory
      local open blastLib in end
 
-     (* TODO: the bvp_to_word* are possibly only for lemmas that should be moved anyway *)
+     (* TODO: the data_to_word* are possibly only for lemmas that should be moved anyway *)
 
 val _ = new_theory"stack_allocProof";
 
@@ -784,10 +784,10 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
        (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
   \\ full_simp_tac(srw_ss())[] \\ impl_tac THEN1
     (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
-     \\ fs [bvp_to_wordPropsTheory.decode_length_def])
+     \\ fs [data_to_wordPropsTheory.decode_length_def])
   \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
   \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[] \\ tac
-  \\ fs [LET_THM,bvp_to_wordPropsTheory.decode_length_def]
+  \\ fs [LET_THM,data_to_wordPropsTheory.decode_length_def]
   \\ fs [] \\ tac \\ rpt var_eq_tac
   \\ full_simp_tac(srw_ss())[] \\ tac
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
@@ -942,7 +942,7 @@ val word_gc_move_loop_code_thm = prove(
     \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
     \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())
-         [bvp_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
+         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
     \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
          DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
@@ -973,7 +973,7 @@ val word_gc_move_loop_code_thm = prove(
   \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
   \\ rev_full_simp_tac(srw_ss())
-         [bvp_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
+         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
   \\ qabbrev_tac `s5 = s with
         <|regs :=
             s.regs |+ (7,Word v) |+
@@ -1524,7 +1524,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
     \\ fs [FAPPLY_FUPDATE_THM]
     \\ qpat_abbrev_tac `(s4:('a,'b)stackSem$state) = _`)
   \\ qpat_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
-  \\ drule bvp_to_wordPropsTheory.LESS_EQ_LENGTH
+  \\ drule data_to_wordPropsTheory.LESS_EQ_LENGTH
   \\ strip_tac \\ fs []
   \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
        metis_tac [DROP_LENGTH_APPEND] \\ fs []
@@ -1617,7 +1617,7 @@ val alloc_length_stack = Q.store_thm("alloc_length_stack",
   fs [alloc_def,gc_def,set_store_def] \\ rw [] \\ fs []
   \\ every_case_tac \\ fs []
   \\ rw [] \\ drule word_gc_fun_LENGTH \\ rw [] \\ fs [NOT_LESS]
-  \\ drule bvp_to_wordPropsTheory.LESS_EQ_LENGTH \\ strip_tac \\ fs []
+  \\ drule data_to_wordPropsTheory.LESS_EQ_LENGTH \\ strip_tac \\ fs []
   \\ pop_assum (fn th => fs [GSYM th]) \\ fs [DROP_LENGTH_APPEND]
   \\ metis_tac [dec_stack_length]);
 

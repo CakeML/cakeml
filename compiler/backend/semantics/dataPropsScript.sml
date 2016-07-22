@@ -1,10 +1,10 @@
-open preamble bvpTheory bvpSemTheory semanticsPropsTheory;
+open preamble dataLangTheory dataSemTheory semanticsPropsTheory;
 local open bviPropsTheory in end;
 
-val _ = new_theory"bvpProps";
+val _ = new_theory"dataProps";
 
-val bvi_to_bvp_id = Q.store_thm("bvi_to_bvp_id[simp]",
-  `bvi_to_bvp (bvp_to_bvi x) x = x`,
+val bvi_to_data_id = Q.store_thm("bvi_to_data_id[simp]",
+  `bvi_to_data (data_to_bvi x) x = x`,
   EVAL_TAC \\ rw[state_component_equality]);
 
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
@@ -80,12 +80,12 @@ val consume_space_with_locals = Q.prove(
 
 val do_app_with_stack = Q.prove(
   `do_app op vs (s with stack := z) = map_result (λ(x,y). (x,y with stack := z)) I (do_app op vs s)`,
-  srw_tac[][do_app_def,do_space_def,bvi_to_bvp_def,bvp_to_bvi_def] >>
+  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_stack] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
 
 val do_app_with_locals = Q.prove(
   `do_app op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app op vs s)`,
-  srw_tac[][do_app_def,do_space_def,bvi_to_bvp_def,bvp_to_bvi_def] >>
+  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_locals] >> srw_tac[][] >> full_simp_tac(srw_ss())[]);
 
 val do_app_err = Q.store_thm("do_app_err",
@@ -98,11 +98,11 @@ val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒
     z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧ z.clock = x.clock`,
   simp[do_app_def,do_space_def] >>
-  every_case_tac >> simp[bvi_to_bvp_def] >> strip_tac >>
+  every_case_tac >> simp[bvi_to_data_def] >> strip_tac >>
   rpt var_eq_tac >> simp[] >>
   full_simp_tac(srw_ss())[bviSemTheory.do_app_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-  full_simp_tac(srw_ss())[bviSemTheory.bvl_to_bvi_def,bvp_to_bvi_def,bviSemTheory.bvi_to_bvl_def] >>
+  full_simp_tac(srw_ss())[bviSemTheory.bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.bvi_to_bvl_def] >>
   imp_res_tac bvlSemTheory.do_app_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac bviPropsTheory.do_app_aux_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[consume_space_def] >> TRY var_eq_tac >> simp[])
@@ -111,9 +111,9 @@ val do_app_locals = store_thm("do_app_locals",
   ``(do_app op x s = Rval (q,r)) ==>
     (do_app op x (s with locals := extra) =
        Rval (q,r with locals := extra))``,
-  full_simp_tac(srw_ss())[do_app_def,do_space_def,consume_space_def,bvp_to_bvi_def]
+  full_simp_tac(srw_ss())[do_app_def,do_space_def,consume_space_def,data_to_bvi_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-  \\ full_simp_tac(srw_ss())[bvi_to_bvp_def,state_component_equality]);
+  \\ full_simp_tac(srw_ss())[bvi_to_data_def,state_component_equality]);
 
 val do_space_alt = store_thm("do_space_alt",
   ``do_space op l s =
@@ -235,9 +235,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
             EVAL_TAC >>
             Cases_on`handler`>>EVAL_TAC >>
             simp[] )) >>
-         qpat_abbrev_tac`st:'ffi bvpSem$state = X Y` >>
+         qpat_abbrev_tac`st:'ffi dataSem$state = X Y` >>
          `st = ss` by (
-           simp[Abbr`ss`,Abbr`st`,bvpSemTheory.state_component_equality] >>
+           simp[Abbr`ss`,Abbr`st`,dataSemTheory.state_component_equality] >>
            EVAL_TAC >>
            Cases_on`handler`>>EVAL_TAC >>
            simp[] ) >>
@@ -257,7 +257,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
       \\ IMP_RES_TAC LASTN_TL \\ full_simp_tac(srw_ss())[]
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
+      \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
     \\ Cases_on `x''` \\ full_simp_tac(srw_ss())[]
     \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r,call_env q (push_env x8 T (dec_clock s))) =
           (SOME (Rerr (Rraise b)),s9)`
@@ -284,7 +284,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
+      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
     THEN1 (* SOME Rval *)
      (STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
@@ -306,7 +306,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
+      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
     \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Rraise *)
      (FIRST_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
@@ -321,7 +321,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ SIMP_TAC std_ss [Once call_env_def]
       \\ SIMP_TAC std_ss [Once jump_exc_def]
       \\ SIMP_TAC (srw_ss()) [LASTN_LEMMA] \\ REPEAT STRIP_TAC
-      \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
+      \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
       \\ Q.PAT_ASSUM `jump_exc (set_var q'' b s9) = SOME s2'` MP_TAC
       \\ SIMP_TAC std_ss [Once set_var_def]
       \\ SIMP_TAC (srw_ss()) [Once jump_exc_def]
@@ -347,8 +347,8 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ `s9 with <|locals := insert q'' b s9.locals; stack := xs;
              handler := s9.handler|> =
           s9 with <|locals := insert q'' b s9.locals; stack := xs|>` by ALL_TAC
-      THEN1 (full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
+      THEN1 (full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
     \\ Cases_on`a` \\ full_simp_tac(srw_ss())[]
     THEN (* Rtimeout_error *)
      (REPEAT STRIP_TAC
@@ -365,7 +365,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])))
+      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])))
 
 val evaluate_stack = store_thm("evaluate_stack",
   ``!c s.
@@ -455,39 +455,39 @@ val locals_ok_get_vars = store_thm("locals_ok_get_vars",
   \\ Cases_on `get_vars x s` \\ full_simp_tac(srw_ss())[]
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]);
 
-val bvp_to_bvi_ignore = Q.store_thm("bvp_to_bvi_ignore",
-  `(bvp_to_bvi (s with space := t) = bvp_to_bvi s) ∧
-   (bvp_to_bvi (s with locals := l) = bvp_to_bvi s) ∧
-   (bvp_to_bvi (s with <| locals := l; space := t |>) = bvp_to_bvi s)`,
+val data_to_bvi_ignore = Q.store_thm("data_to_bvi_ignore",
+  `(data_to_bvi (s with space := t) = data_to_bvi s) ∧
+   (data_to_bvi (s with locals := l) = data_to_bvi s) ∧
+   (data_to_bvi (s with <| locals := l; space := t |>) = data_to_bvi s)`,
   EVAL_TAC);
 
-val bvp_to_bvi_refs = Q.store_thm("bvp_to_bvi_refs",
-  `bvp_to_bvi (s with refs := r) = bvp_to_bvi s with refs := r ∧
-   (bvp_to_bvi s).refs = s.refs`,
+val data_to_bvi_refs = Q.store_thm("data_to_bvi_refs",
+  `data_to_bvi (s with refs := r) = data_to_bvi s with refs := r ∧
+   (data_to_bvi s).refs = s.refs`,
   EVAL_TAC);
 
-val bvp_to_bvi_ffi = Q.store_thm("bvp_to_bvi_ffi",
-  `(bvp_to_bvi s).ffi = s.ffi`,
+val data_to_bvi_ffi = Q.store_thm("data_to_bvi_ffi",
+  `(data_to_bvi s).ffi = s.ffi`,
   EVAL_TAC);
 
-val bvi_to_bvp_refs = Q.store_thm("bvi_to_bvp_refs",
-  `((bvi_to_bvp s t with refs := z) = bvi_to_bvp (s with refs := z) t) /\
-   ((bvi_to_bvp s t).refs = s.refs)`,
+val bvi_to_data_refs = Q.store_thm("bvi_to_data_refs",
+  `((bvi_to_data s t with refs := z) = bvi_to_data (s with refs := z) t) /\
+   ((bvi_to_data s t).refs = s.refs)`,
   EVAL_TAC);
 
-val bvp_to_bvi_to_bvp_with_ffi = Q.store_thm("bvp_to_bvi_to_bvp_with_ffi",
-  `bvi_to_bvp (bvp_to_bvi s with ffi := f) s = s with ffi := f`,
+val data_to_bvi_to_data_with_ffi = Q.store_thm("data_to_bvi_to_data_with_ffi",
+  `bvi_to_data (data_to_bvi s with ffi := f) s = s with ffi := f`,
   EVAL_TAC \\ rw[state_component_equality]);
 
-val bvp_to_bvi_to_bvp_with_refs = Q.store_thm("bvp_to_bvi_to_bvp_with_refs",
-  `bvi_to_bvp (bvp_to_bvi s with refs := f) s = s with refs := f`,
+val data_to_bvi_to_data_with_refs = Q.store_thm("data_to_bvi_to_data_with_refs",
+  `bvi_to_data (data_to_bvi s with refs := f) s = s with refs := f`,
   EVAL_TAC \\ rw[state_component_equality]);
 
-val bvi_to_bvp_space_locals = Q.store_thm("bvi_to_bvp_space_locals",
-  `((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
-   ((bvi_to_bvp s t).locals = t.locals) /\
-   ((bvi_to_bvp s t with space := y) = bvi_to_bvp s (t with space := y)) /\
-   ((bvi_to_bvp s t).space = t.space)`,
+val bvi_to_data_space_locals = Q.store_thm("bvi_to_data_space_locals",
+  `((bvi_to_data s t with locals := x) = bvi_to_data s (t with locals := x)) /\
+   ((bvi_to_data s t).locals = t.locals) /\
+   ((bvi_to_data s t with space := y) = bvi_to_data s (t with space := y)) /\
+   ((bvi_to_data s t).space = t.space)`,
   EVAL_TAC);
 
 val evaluate_locals = store_thm("evaluate_locals",
@@ -514,10 +514,10 @@ val evaluate_locals = store_thm("evaluate_locals",
       \\ reverse(Cases_on `do_app op x s`) \\ full_simp_tac(srw_ss())[] >- (
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
            Cases_on`a`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-           full_simp_tac(srw_ss())[do_app_def,do_space_def,bvp_to_bvi_ignore,
-              bvi_to_bvp_space_locals,
-              bvp_spaceTheory.op_space_req_def,
-              bvi_to_bvpTheory.op_space_reset_def] >>
+           full_simp_tac(srw_ss())[do_app_def,do_space_def,data_to_bvi_ignore,
+              bvi_to_data_space_locals,
+              data_spaceTheory.op_space_req_def,
+              bvi_to_dataTheory.op_space_reset_def] >>
            BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[])
       \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[set_var_def]
@@ -641,8 +641,8 @@ val jump_exc_IMP = store_thm("jump_exc_IMP",
   \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]);
 
 val do_app_Rerr = store_thm("do_app_Rerr",
-  ``bvpSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error``,
-  full_simp_tac(srw_ss())[bvpSemTheory.do_app_def,bviSemTheory.do_app_def] \\ every_case_tac \\ srw_tac[][]
+  ``dataSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error``,
+  full_simp_tac(srw_ss())[dataSemTheory.do_app_def,bviSemTheory.do_app_def] \\ every_case_tac \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def] \\ every_case_tac \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[LET_DEF]);
 
@@ -652,7 +652,7 @@ val do_app_change_clock = Q.store_thm("do_app_change_clock",
   srw_tac[][do_app_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac bviPropsTheory.do_app_change_clock >>
-  full_simp_tac(srw_ss())[bvp_to_bvi_def,bvi_to_bvp_def,state_component_equality] >>
+  full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def,state_component_equality] >>
   rpt var_eq_tac >> simp[] >>
   full_simp_tac(srw_ss())[consume_space_def] >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
@@ -664,7 +664,7 @@ val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
   srw_tac[][do_app_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac bviPropsTheory.do_app_change_clock_err >>
-  full_simp_tac(srw_ss())[bvp_to_bvi_def,bvi_to_bvp_def,state_component_equality] >>
+  full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def,state_component_equality] >>
   rpt var_eq_tac >> simp[] >>
   full_simp_tac(srw_ss())[consume_space_def] >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
@@ -679,7 +679,7 @@ val cut_state_eq_none = Q.store_thm("cut_state_eq_none",
   srw_tac[][cut_state_def] >> every_case_tac >> full_simp_tac(srw_ss())[EQ_IMP_THM]);
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
-  `(s:'ffi bvpSem$state) with clock := s.clock = s`,
+  `(s:'ffi dataSem$state) with clock := s.clock = s`,
   srw_tac[][state_component_equality]);
 
 val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
@@ -746,9 +746,9 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
    (IS_SOME z.ffi.final_event ⇒ b.ffi = z.ffi)`,
   srw_tac[][do_app_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  srw_tac[][bvi_to_bvp_def] >>
+  srw_tac[][bvi_to_data_def] >>
   imp_res_tac bviPropsTheory.do_app_io_events_mono >>
-  full_simp_tac(srw_ss())[bvp_to_bvi_def] >>
+  full_simp_tac(srw_ss())[data_to_bvi_def] >>
   full_simp_tac(srw_ss())[consume_space_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
 
 val call_env_const = Q.store_thm("call_env_const[simp]",

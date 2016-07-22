@@ -7,8 +7,8 @@ open preamble
      pat_to_closTheory
      clos_to_bvlTheory
      bvl_to_bviTheory
-     bvi_to_bvpTheory
-     bvp_to_wordTheory
+     bvi_to_dataTheory
+     data_to_wordTheory
      word_to_stackTheory
      stack_to_labTheory
      lab_to_targetTheory
@@ -22,7 +22,7 @@ val _ = Datatype`config =
    ; mod_conf : mod_to_con$config
    ; clos_conf : clos_to_bvl$config
    ; bvl_conf : bvl_to_bvi$config
-   ; bvp_conf : bvp_to_word$config
+   ; data_conf : data_to_word$config
    ; word_to_word_conf : word_to_word$config
    ; word_conf : 'a word_to_stack$config
    ; stack_conf : stack_to_lab$config
@@ -44,14 +44,14 @@ val compile_def = Define`
     let c = c with clos_conf := c' in
     let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
     let c = c with clos_conf updated_by (λc. c with <| start:=s; next_loc:=n |>) in
-    let p = bvi_to_bvp$compile_prog p in
-    let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+    let p = bvi_to_data$compile_prog p in
+    let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
     let c = c with stack_conf updated_by
-             (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
-    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+             (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf) in
+    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
       lab_to_target$compile c.lab_conf (p:'a prog)`;
 
 val to_mod_def = Define`
@@ -106,16 +106,16 @@ val to_bvi_def = Define`
   let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
   (c,p)`;
 
-val to_bvp_def = Define`
-  to_bvp c p =
+val to_data_def = Define`
+  to_data c p =
   let (c,p) = to_bvi c p in
-  let p = bvi_to_bvp$compile_prog p in
+  let p = bvi_to_data$compile_prog p in
   (c,p)`;
 
 val to_word_def = Define`
   to_word c p =
-  let (c,p) = to_bvp c p in
-  let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+  let (c,p) = to_data c p in
+  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p)`;
 
@@ -130,8 +130,8 @@ val to_lab_def = Define`
   to_lab c p =
   let (c,p) = to_stack c p in
   let c = c with stack_conf updated_by
-           (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
-  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+           (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf) in
+  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
   (c,p:'a prog)`;
 
 val to_target_def = Define`
@@ -146,7 +146,7 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
      to_lab_def,
      to_stack_def,
      to_word_def,
-     to_bvp_def,
+     to_data_def,
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
@@ -170,8 +170,8 @@ val from_lab_def = Define`
 val from_stack_def = Define`
   from_stack c p =
   let c = c with stack_conf updated_by
-           (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.bvp_conf) in
-  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+           (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf) in
+  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
   from_lab c (p:'a prog)`;
 
 val from_word_def = Define`
@@ -180,16 +180,16 @@ val from_word_def = Define`
   let c = c with word_conf := c' in
   from_stack c p`;
 
-val from_bvp_def = Define`
-  from_bvp c p =
-  let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+val from_data_def = Define`
+  from_data c p =
+  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`;
 
 val from_bvi_def = Define`
   from_bvi c p =
-  let p = bvi_to_bvp$compile_prog p in
-  from_bvp c p`;
+  let p = bvi_to_data$compile_prog p in
+  from_data c p`;
 
 val from_bvl_def = Define`
   from_bvl c p =
@@ -243,7 +243,7 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
      from_lab_def,
      from_stack_def,
      from_word_def,
-     from_bvp_def,
+     from_data_def,
      from_bvi_def,
      from_bvl_def,
      from_clos_def,
@@ -257,9 +257,9 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
 
 val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
-  let (c',p) = to_bvp c p in
-  let (bvp_conf,word_conf,asm_conf) = (c.bvp_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
-  let p = stubs(:α) ++ MAP (compile_part bvp_conf) p in
+  let (c',p) = to_data c p in
+  let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let p = stubs(:α) ++ MAP (compile_part data_conf) p in
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
@@ -294,7 +294,7 @@ val from_livesets_def = Define`
 val compile_oracle = store_thm("compile_oracle",``
   from_livesets (to_livesets c p) = compile c p``,
   srw_tac[][FUN_EQ_THM,
-     to_bvp_def,
+     to_data_def,
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
@@ -305,7 +305,7 @@ val compile_oracle = store_thm("compile_oracle",``
      to_mod_def,to_livesets_def] >>
   fs[compile_def]>>
   pairarg_tac>>
-  fs[bvp_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
+  fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
   unabbrev_all_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -320,12 +320,12 @@ val compile_oracle = store_thm("compile_oracle",``
   fs[next_n_oracle_def]>>
   rveq>>fs[]>>
   match_mp_tac LIST_EQ>>
-  qmatch_goalsub_abbrev_tac`bvp_to_word$stubs _ ++ p2`
-  \\ qmatch_goalsub_abbrev_tac`MAP f (bvp_to_word$stubs _)`
+  qmatch_goalsub_abbrev_tac`data_to_word$stubs _ ++ p2`
+  \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs _)`
   \\ REWRITE_TAC[GSYM MAP_APPEND]
   \\ qpat_abbrev_tac`pp = _ ++ p2`
   \\ simp[MAP_MAP_o]
-  \\ qpat_abbrev_tac`len = _ + LENGTH (bvp_to_word$stubs _)`
+  \\ qpat_abbrev_tac`len = _ + LENGTH (data_to_word$stubs _)`
   \\ `len = LENGTH pp` by simp[Abbr`pp`,Abbr`p2`]
   \\ qunabbrev_tac`len` \\ fs[] >>
   rw[]>>fs[EL_MAP,EL_ZIP,full_compile_single_def,compile_single_def,Abbr`f`]>>
@@ -339,7 +339,7 @@ val to_livesets_invariant = store_thm("to_livesets_invariant",``
   let (rcm,c,p) = to_livesets c p in
     (rcm,c with word_to_word_conf:=wc,p)``,
   srw_tac[][FUN_EQ_THM,
-     to_bvp_def,
+     to_data_def,
      to_bvi_def,
      to_bvl_def,
      to_clos_def,

@@ -282,25 +282,25 @@ val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumera
 
 val _ = translate (conv64_RHS backendTheory.to_bvi_def)
 
-val _ = translate (bvi_to_bvpTheory.op_requires_names_eqn)
+val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
 val _ = translate (COUNT_LIST_compute)
-val _ = translate (bvi_to_bvpTheory.compile_exp_def)
+val _ = translate (bvi_to_dataTheory.compile_exp_def)
 
-val _ = translate (conv64_RHS backendTheory.to_bvp_def)
+val _ = translate (conv64_RHS backendTheory.to_data_def)
 
 (* TODO: more preconditions, possibly do them earlier to avoid a mess *)
 
 (*
-Some bvp-to-word preliminaries
-val _ = translate (bvp_to_wordTheory.adjust_set_def)
+Some data-to-word preliminaries
+val _ = translate (data_to_wordTheory.adjust_set_def)
 
 val _ = translate (conv64_RHS word_2comp_def)
-val _ = translate (conv64_RHS bvp_to_wordTheory.GiveUp_def)
-(* val _ = translate (conv64_RHS bvp_to_wordTheory.make_header_def) *)
+val _ = translate (conv64_RHS data_to_wordTheory.GiveUp_def)
+(* val _ = translate (conv64_RHS data_to_wordTheory.make_header_def) *)
 val _ = translate (conv64_RHS word_extract_def|>INST_TYPE[beta|->``:64``])
 
 val _ = translate (conv64_RHS word_slice_def)
-val def = (conv64_RHS bvp_to_wordTheory.tag_mask_def)
+val def = (conv64_RHS data_to_wordTheory.tag_mask_def)
 *)
 
 val _ = export_theory();

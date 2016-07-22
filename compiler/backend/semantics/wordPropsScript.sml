@@ -2332,7 +2332,7 @@ val post_alloc_conventions_def = Define`
 (* This is the current order of passes and the required syntactic conventions
 that they need to establish or preserve
 
-BVP-to-word (every_inst (\i.F))
+data-to-word (every_inst (\i.F))
 Inst select (flat_exp_conventions, full_inst_ok_less) -- DONE
 SSA (flat_exp_conventions, full_inst_ok_less, pre_alloc_conventions, wf_cutsets ) -- DONE
 3-to-2 reg (flat_exp_conventions, full_inst_ok_less, pre_alloc_conventions, wf_cutsets, every_inst two_reg_inst) -- DONE

@@ -27,7 +27,7 @@ val Seq_assoc_def = Define `
 
 val Seq_assoc_ind = fetch "-" "Seq_assoc_ind";
 
-(* optimise certain consequtive If statements that arise from bvp-to-word
+(* optimise certain consequtive If statements that arise from data-to-word
 
    If something (q1 ; n := X) (q2 ; n := Y) ;
    If (n == Z) p1 p2

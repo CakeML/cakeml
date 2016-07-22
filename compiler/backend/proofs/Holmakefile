@@ -25,7 +25,7 @@ BARE_THYS = ../../../semantics/terminationTheory\
 						../semantics/closPropsTheory\
 						../semantics/bvlPropsTheory\
 						../semantics/bviPropsTheory\
-						../semantics/bvpPropsTheory\
+						../semantics/dataPropsTheory\
 						../semantics/labPropsTheory\
 						../reg_alloc/proofs/reg_allocProofTheory\
 						../backendTheory

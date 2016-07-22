@@ -8,12 +8,12 @@ open preamble initSemEnvTheory semanticsPropsTheory
      pat_to_closProofTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
-     bvi_to_bvpProofTheory
-     bvp_to_wordProofTheory
+     bvi_to_dataProofTheory
+     data_to_wordProofTheory
      word_to_stackProofTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
-local open compilerComputeLib bvpPropsTheory in end
+local open compilerComputeLib dataPropsTheory in end
 open word_to_stackTheory
 
 val _ = new_theory"backendProof";
@@ -30,7 +30,7 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
 (* -- *)
 
 
-(* --- composing bvp-to-target --- *)
+(* --- composing data-to-target --- *)
 
 (* TODO: this section is full of stuff that needs to be moved *)
 
@@ -69,8 +69,8 @@ val full_make_init_ffi = prove(
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
 
-val from_bvp = let
-  val lemma1 = bvp_to_wordProofTheory.compile_semantics
+val from_data = let
+  val lemma1 = data_to_wordProofTheory.compile_semantics
     |> REWRITE_RULE [CONJ_ASSOC]
     |> MATCH_MP (GSYM implements_intro_ext)
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
@@ -80,11 +80,11 @@ val from_bvp = let
      |> SIMP_RULE (srw_ss()) [full_make_init_ffi,
           word_to_stackProofTheory.make_init_def] end
 
-val from_bvp_fail = let
-  val th = bvpPropsTheory.Resource_limit_hit_implements_semantics
+val from_data_fail = let
+  val th = dataPropsTheory.Resource_limit_hit_implements_semantics
   val th = MATCH_MP implements_trans th
   val th = MATCH_MP th from_stack_fail
-  val target = from_bvp |> concl
+  val target = from_data |> concl
   val curr = concl th
   val i = fst (match_term curr target)
   in INST i th end
@@ -100,12 +100,12 @@ fun define_abbrev name tm = let
   val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
   in Define `^n ^vars = ^tm` end
 
-val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",let
-  val th = from_bvp |> DISCH_ALL
+val machine_sem_implements_data_sem = save_thm("machine_sem_implements_data_sem",let
+  val th = from_data |> DISCH_ALL
            |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,full_make_init_code]
            |> Q.INST [`code1`|->`SND (compile asm_conf code3)`]
            |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
-  val th_fail = from_bvp_fail |> DISCH_ALL
+  val th_fail = from_data_fail |> DISCH_ALL
            |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,full_make_init_code]
            |> Q.INST [`code1`|->`codeN`]
            |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
@@ -126,7 +126,7 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
            |> UNDISCH_ALL
            |> Q.INST [`c`|->`c1`,`start`|->`InitGlobals_location`]
-           |> DISCH ``from_bvp (c:'a backend$config) prog = SOME (bytes,ffi_limit)``
+           |> DISCH ``from_data (c:'a backend$config) prog = SOME (bytes,ffi_limit)``
            |> DISCH_ALL
            |> INST_TYPE [``:'state``|->``:'a``]
            |> MATCH_MP lemma2
@@ -136,13 +136,13 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
     (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
   val lemma = METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``
   val th = GENL vs th |> SIMP_RULE std_ss [lemma]
-  val def = define_abbrev "bvp_to_word_precond"
+  val def = define_abbrev "data_to_word_precond"
                (th |> concl |> dest_imp |> fst)
   val th = th |> REWRITE_RULE [GSYM def]
               |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
   in th end);
 
-val bvp_to_word_precond_def = fetch "-" "bvp_to_word_precond_def" |> SPEC_ALL
+val data_to_word_precond_def = fetch "-" "data_to_word_precond_def" |> SPEC_ALL
 
 val full_make_init_gc_fun = prove(
   ``(full_make_init
@@ -223,9 +223,9 @@ val sl_gs_def = stack_to_labProofTheory.good_syntax_def
 val convs = [sr_gs_def,sa_gs_def,sl_gs_def,wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def,wordPropsTheory.inst_arg_convention_def]
 
 val code_and_locs = [
-  bvp_to_wordTheory.RefByte_code_def,bvp_to_wordTheory.RefByte_location_def,
-  (*bvp_to_wordTheory.FromList_code_def,*)bvp_to_wordTheory.FromList_location_def,
-  (*bvp_to_wordTheory.RefArray_code_def,*)bvp_to_wordTheory.RefArray_location_def,
+  data_to_wordTheory.RefByte_code_def,data_to_wordTheory.RefByte_location_def,
+  (*data_to_wordTheory.FromList_code_def,*)data_to_wordTheory.FromList_location_def,
+  (*data_to_wordTheory.RefArray_code_def,*)data_to_wordTheory.RefArray_location_def,
   stackLangTheory.gc_stub_location_def,
   wordLangTheory.raise_stub_location_def
   ]
@@ -372,17 +372,17 @@ val word_to_stack_sl_gs = prove(``
     match_mp_tac stack_move_sl_gs>>fs convs))
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def]));
 
-val bvp_to_word_compile_imp = prove(
+val data_to_word_compile_imp = prove(
   ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
-    EVERY (λn. bvp$num_stubs ≤ n) (MAP FST prog) ∧
+    EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
-        (stubs(:'a) ++ MAP (compile_part c.bvp_conf) prog) = (col,p) ==>
-    code_rel c.bvp_conf (fromAList prog)
-      (fromAList (stubs(:α) ++ MAP ((compile_part c.bvp_conf) :
-         num # num # bvp$prog -> num # num # 'a wordLang$prog) prog)) /\
+        (stubs(:'a) ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
+    code_rel c.data_conf (fromAList prog)
+      (fromAList (stubs(:α) ++ MAP ((compile_part c.data_conf) :
+         num # num # dataLang$prog -> num # num # 'a wordLang$prog) prog)) /\
     code_rel_ext
-      (fromAList (stubs(:α) ++ MAP ((compile_part c.bvp_conf) :
-         num # num # bvp$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
+      (fromAList (stubs(:α) ++ MAP ((compile_part c.data_conf) :
+         num # num # dataLang$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
     EVERY
     (λ(n,m,prog).
        flat_exp_conventions prog ∧
@@ -403,13 +403,13 @@ val bvp_to_word_compile_imp = prove(
      >- (
        rw[]
        \\ imp_res_tac ALOOKUP_MEM
-       \\ fs[bvp_to_wordTheory.stubs_def,EVERY_MAP,EVERY_MEM]
+       \\ fs[data_to_wordTheory.stubs_def,EVERY_MAP,EVERY_MEM]
        \\ res_tac \\ fs[] \\ fs code_and_locs
-       \\ fs[bvpTheory.num_stubs_def] \\ rw[] \\ fs[]) >>
+       \\ fs[dataLangTheory.num_stubs_def] \\ rw[] \\ fs[]) >>
     ntac 4 (last_x_assum kall_tac)>>
     qid_spec_tac`n` >>
     Induct_on`prog`>>rw[]>>PairCases_on`h`>>
-    fs[bvp_to_wordTheory.compile_part_def]>>
+    fs[data_to_wordTheory.compile_part_def]>>
     IF_CASES_TAC>>fs[])>>
   CONJ_TAC>-
     (fs[lookup_fromAList,word_to_wordTheory.compile_def]>>
@@ -426,7 +426,7 @@ val bvp_to_word_compile_imp = prove(
     Induct>>fs[]>>rw[]>>
     Cases_on`n_oracles`>>fs[]>>
     PairCases_on`h`>>fs[]>>
-    fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,bvp_to_wordTheory.compile_part_def]>>
+    fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,data_to_wordTheory.compile_part_def]>>
     IF_CASES_TAC \\ fs[] \\ rw[] >>
     metis_tac[]) >>
     (*
@@ -438,7 +438,7 @@ val bvp_to_word_compile_imp = prove(
       \\ qpat_abbrev_tac`ls = DROP _ _`
       \\ Cases_on `ls` \\ fs[DROP_NIL,markerTheory.Abbrev_def] )
     \\ PairCases_on`h`
-    \\ fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,bvp_to_wordTheory.compile_part_def]
+    \\ fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,data_to_wordTheory.compile_part_def]
     \\ REWRITE_TAC[GSYM APPEND_ASSOC]
     \\ qpat_abbrev_tac`tt = [_]++_`
     \\ `LENGTH tt = LENGTH prog + 1` by fs[Abbr`tt`]
@@ -452,7 +452,7 @@ val bvp_to_word_compile_imp = prove(
         fs[MEM_MAP,EXISTS_PROD,word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]
         \\ rfs[MEM_ZIP]
         \\ `MEM h0 (MAP FST (stubs (:α)))` by (simp[MEM_MAP,EXISTS_PROD,MEM_EL] \\ metis_tac[])
-        \\ fs[bvp_to_wordTheory.stubs_def] )
+        \\ fs[data_to_wordTheory.stubs_def] )
       \\ first_x_assum(qspec_then`sto++t`mp_tac) \\ simp[]
       \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
       \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] )
@@ -466,7 +466,7 @@ val bvp_to_word_compile_imp = prove(
     *)
   CONJ_ASM1_TAC>-
     (assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)++(MAP (compile_part c.bvp_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)++(MAP (compile_part c.data_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
   qpat_assum`EVERY _ (MAP FST _)`kall_tac >>
   qmatch_assum_rename_tac`_ pprog = _` >>
   rw[]>>fs[word_to_stackTheory.compile_def]>>pairarg_tac>>fs[]>>rveq>>
@@ -508,9 +508,9 @@ val stack_alloc_syntax = prove(
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog1) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND prog1) ==>
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND (compile c.bvp_conf prog1)) /\
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND (compile c.data_conf prog1)) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
-       (MAP SND (compile c.bvp_conf prog1))``,
+       (MAP SND (compile c.data_conf prog1))``,
   fs[stack_allocTheory.compile_def]>>
   EVAL_TAC>>fs[]>>
   qid_spec_tac`prog1`>>Induct>>
@@ -545,12 +545,12 @@ val make_init_opt_imp_bitmaps_limit = prove(
   \\ fs [stack_removeProofTheory.init_prop_def,
          stack_removeProofTheory.init_reduce_def]);
 
-val bvp_to_word_names = prove(
+val data_to_word_names = prove(
   ``word_to_word$compile c1 c2 (stubs(:α) ++ MAP (compile_part c3) prog) = (col,p) ==>
     MAP FST p = (MAP FST (stubs(:α)))++MAP FST prog``,
   rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
   pop_assum (qspecl_then [`c1`,`stubs(:α)++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
-  fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,bvp_to_wordTheory.compile_part_def]);
+  fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,data_to_wordTheory.compile_part_def]);
 
 val word_to_stack_names = prove(
   ``word_to_stack$compile c1 p = (c2,prog1) ==>
@@ -904,7 +904,7 @@ val byte_aligned_mult = prove(
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
-        bvp_to_wordPropsTheory.aligned_add_pow]);
+        data_to_wordPropsTheory.aligned_add_pow]);
 
 val DIV_LESS_DIV = prove(
   ``n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k``,
@@ -930,8 +930,8 @@ val LESS_MULT_LEMMA = prove(
 
 local
 val lemma = prove(
-  ``(from_bvp c prog = SOME (bytes,ffi_limit) /\
-     EVERY (\n. bvp$num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+  ``(from_data c prog = SOME (bytes,ffi_limit) /\
+     EVERY (\n. dataLang$num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
      t.regs (find_name c.stack_conf.reg_names 2) <=+
@@ -940,7 +940,7 @@ val lemma = prove(
                         w <+ t.regs (find_name c.stack_conf.reg_names 4) }) /\
      good_init_state mc_conf (t:'a asm_state)
        m ms ffi ffi_limit bytes io_regs save_regs dm) /\
-    (bvp_to_wordProof$conf_ok (:α) c.bvp_conf /\
+    (data_to_wordProof$conf_ok (:α) c.data_conf /\
     c.lab_conf.encoder = mc_conf.target.encode /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
@@ -964,8 +964,8 @@ val lemma = prove(
     10 ≤ ra_regs +2 /\
     (LENGTH mc_conf.target.config.avoid_regs + 5) <
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
-    bvp_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
-  strip_tac \\ fs [bvp_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
+    data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
+  strip_tac \\ fs [data_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
@@ -974,7 +974,7 @@ val lemma = prove(
                 ([], [full_init_pre_IMP_init_store_ok,
                       full_init_pre_IMP_init_state_ok], []))
   \\ simp_tac (std_ss++CONJ_ss) [full_make_init_bitmaps] \\ fs [GSYM CONJ_ASSOC]
-  \\ fs [from_bvp_def] \\ pairarg_tac \\ fs []
+  \\ fs [from_data_def] \\ pairarg_tac \\ fs []
   \\ fs [from_word_def] \\ pairarg_tac \\ fs []
   \\ fs [from_stack_def]
   \\ fs [from_lab_def]
@@ -983,11 +983,11 @@ val lemma = prove(
   (*Parts of this proof can be re-used...*)
   \\ `labels_ok tp` by
     (fs[Abbr`tp`]>>match_mp_tac stack_to_lab_compile_lab_pres>>
-    assume_tac (bvp_to_word_compile_lab_pres|>GEN_ALL |>Q.SPECL[`c.word_to_word_conf`,`prog`,`c.bvp_conf`,`mc_conf.target.config`])>>
+    assume_tac (data_to_word_compile_lab_pres|>GEN_ALL |>Q.SPECL[`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`])>>
     rfs[]>>
     assume_tac(word_to_stack_compile_lab_pres|>INST_TYPE[beta|->alpha]|>GEN_ALL|> Q.SPECL[`p`,`mc_conf.target.config`])>>
     rfs[]>>
-    rw[]>>fs[EVERY_MEM,bvp_to_wordTheory.stubs_def]>>rw[]>>
+    rw[]>>fs[EVERY_MEM,data_to_wordTheory.stubs_def]>>rw[]>>
     res_tac>>fs[]>>
     EVAL_TAC>>
     CCONTR_TAC>>
@@ -997,19 +997,19 @@ val lemma = prove(
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []
   \\ rename1 `_ = (c2,prog1)`
-  \\ qabbrev_tac `prog2 = compile c.bvp_conf prog1`
+  \\ qabbrev_tac `prog2 = compile c.data_conf prog1`
   \\ qpat_assum `_ = SOME _` mp_tac
   \\ qpat_abbrev_tac `prog3 = compile _ c2.bitmaps _ _ prog2`
   \\ qabbrev_tac `prog4 = compile c.stack_conf.reg_names prog3`
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
                 ([], [compile_eq_imp], [])) \\ fs []
-  \\ GEN_EXISTS_TAC "c1" `c.bvp_conf` \\ fs []
-  \\ fs [bvp_to_wordTheory.compile_def]
+  \\ GEN_EXISTS_TAC "c1" `c.data_conf` \\ fs []
+  \\ fs [data_to_wordTheory.compile_def]
   \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
-  \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.bvp_conf` \\ fs []
-  \\ drule bvp_to_word_compile_imp \\ strip_tac
-  \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α) ++ MAP (compile_part c.bvp_conf) prog)` \\ fs []
+  \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.data_conf` \\ fs []
+  \\ drule data_to_word_compile_imp \\ strip_tac
+  \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α) ++ MAP (compile_part c.data_conf) prog)` \\ fs []
   \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
   \\ GEN_EXISTS_TAC "bitmaps" `c2.bitmaps` \\ fs []
   \\ GEN_EXISTS_TAC "codeN" `prog1` \\ fs []
@@ -1048,7 +1048,7 @@ val lemma = prove(
     \\ qabbrev_tac `n1 = l DIV k`
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
-  \\ `?regs. init_pre (2 * max_heap_limit (:α) c.bvp_conf) c2.bitmaps
+  \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
@@ -1125,14 +1125,14 @@ val lemma = prove(
            stack_namesTheory.prog_comp_def,
            stack_to_labTheory.prog_to_section_def]
     \\ pairarg_tac \\ fs [] \\ fs [Once labSemTheory.loc_to_pc_def]) \\ fs []
-  \\ imp_res_tac bvp_to_word_names
+  \\ imp_res_tac data_to_word_names
   \\ imp_res_tac word_to_stack_names \\ fs [ALOOKUP_NONE]
   \\ `MAP FST prog2 = gc_stub_location::MAP FST prog1` by metis_tac [stack_alloc_names] \\ fs []
   \\ simp[ALL_DISTINCT_APPEND]
   \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
-  \\ fs ([bvp_to_wordTheory.stubs_def]@code_and_locs)
+  \\ fs ([data_to_wordTheory.stubs_def]@code_and_locs)
   \\ rpt (conj_tac THEN1 (EVAL_TAC))
-  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM,bvp_to_wordTheory.stubs_def] \\ strip_tac \\ res_tac \\ fs [] \\ EVAL_TAC))
+  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM,data_to_wordTheory.stubs_def] \\ strip_tac \\ res_tac \\ fs [] \\ EVAL_TAC))
   \\ rpt (conj_tac
     >- (
       EVAL_TAC \\ fs[EVERY_MEM] \\ strip_tac \\ res_tac \\ fs[]
@@ -1187,12 +1187,12 @@ in
          can prove that each backend's config is correct without
          requiring to build all the proofs. *)
 val conf_ok_def = Define `conf_ok c mc_conf = ^tm`
-val imp_bvp_to_word_precond = lemma |> REWRITE_RULE [GSYM conf_ok_def]
+val imp_data_to_word_precond = lemma |> REWRITE_RULE [GSYM conf_ok_def]
 end
 
-val clean_bvp_to_target_thm = let
+val clean_data_to_target_thm = let
   val th =
-    IMP_TRANS imp_bvp_to_word_precond machine_sem_implements_bvp_sem
+    IMP_TRANS imp_data_to_word_precond machine_sem_implements_data_sem
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
     |> Q.GENL [`t`,`m`,`dm`,`io_regs`]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
@@ -1230,19 +1230,19 @@ val COND_eq_SOME = Q.store_thm("COND_eq_SOME",
   `((if t then SOME a else b) = SOME x) ⇔ ((t ∧ (a = x)) ∨ (¬t ∧ b = SOME x))`,
   rw[]);
 
-val from_bvp_ignore = prove(
-  ``from_bvp (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
-    from_bvp c prog``,
-  fs [from_bvp_def,from_word_def,from_stack_def,from_lab_def]
+val from_data_ignore = prove(
+  ``from_data (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
+    from_data c prog``,
+  fs [from_data_def,from_word_def,from_stack_def,from_lab_def]
   \\ rpt (pairarg_tac \\ fs []));
 
-val clos_to_bvp_names = store_thm("clos_to_bvp_names",
+val clos_to_data_names = store_thm("clos_to_data_names",
   ``clos_to_bvl$num_stubs ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
     clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
-    EVERY (λn. bvp$num_stubs ≤ n) (MAP FST (bvi_to_bvp$compile_prog p3)) /\
-    ALL_DISTINCT (MAP FST (bvi_to_bvp$compile_prog p3))``,
-  fs[Once (GSYM bvi_to_bvpProofTheory.MAP_FST_compile_prog)]>>
+    EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
+    ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))``,
+  fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
   fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
   strip_tac>>
   pairarg_tac>>fs[]>>rveq>>fs[]>>
@@ -1478,7 +1478,7 @@ val compile_correct = Q.store_thm("compile_correct",
   srw_tac[][from_bvi_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) s3 }` >>
-  (bvi_to_bvpProofTheory.compile_prog_semantics
+  (bvi_to_dataProofTheory.compile_prog_semantics
    |> GEN_ALL
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start"]))
    |> qispl_then[`p3`,`s3`,`ffi`]mp_tac) >>
@@ -1487,16 +1487,16 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ pairarg_tac \\ fs [])
-  \\ rename1 `from_bvp c4 p4 = _`
+  \\ rename1 `from_data c4 p4 = _`
   \\ `installed (bytes,c4,ffi,ffi_limit,mc,ms)` by
        (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
-  \\ drule (GEN_ALL clean_bvp_to_target_thm)
+  \\ drule (GEN_ALL clean_data_to_target_thm)
   \\ disch_then drule
   \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ metis_tac [])
   \\ simp[implements_def,AND_IMP_INTRO]
   \\ disch_then match_mp_tac \\ fs []
   \\ qunabbrev_tac `p4` \\ fs []
-  \\ imp_res_tac clos_to_bvp_names
+  \\ imp_res_tac clos_to_data_names
   \\ fs[AND_IMP_INTRO]
   \\ pop_assum mp_tac \\ impl_keep_tac
   >- (rfs[]>>EVAL_TAC)

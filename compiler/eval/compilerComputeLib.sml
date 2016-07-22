@@ -19,8 +19,8 @@ open clos_removeTheory
 open clos_knownTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory
-open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
-open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory word_removeTheory
+open dataLangTheory bvi_to_dataTheory data_simpTheory data_liveTheory data_spaceTheory
+open wordLangTheory data_to_wordTheory word_instTheory word_allocTheory word_removeTheory
 open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
 open backendTheory
@@ -29,7 +29,7 @@ open semanticsComputeLib reg_allocComputeLib
 (*Order of thms shown below:
 First, all the small compilation steps between ILs + IL to IL transforms
 
-src -> mod -> con -> dec -> exh -> pat -> clos -> bvl -> bvp -> word
+src -> mod -> con -> dec -> exh -> pat -> clos -> bvl -> data -> word
 -> stack -> lab -> target
 
 Then all the _to_target scripts linking things up
@@ -46,7 +46,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:mod_to_con$config``
     ,``:clos_to_bvl$config``
     ,``:bvl_to_bvi$config``
-    ,``:bvp_to_word$config``
+    ,``:data_to_word$config``
     ,``:word_to_word$config``
     ,``:'a word_to_stack$config``
     ,``:stack_to_lab$config``
@@ -304,32 +304,32 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvi_letTheory.compile_exp_def
     ]
   ,computeLib.Tys
-    [ (* ---- bvp ---- *)
-     ``:bvp$prog``
+    [ (* ---- data ---- *)
+     ``:dataLang$prog``
     ]
   ,computeLib.Defs
-    [bvpTheory.mk_ticks_def
-    ,bvpTheory.num_stubs_def
-      (* ---- bvi_to_bvp ---- *)
-    ,bvi_to_bvpTheory.op_space_reset_def
-    ,bvi_to_bvpTheory.op_requires_names_eqn
-    ,bvi_to_bvpTheory.optimise_def
-    ,bvi_to_bvpTheory.compile_prog_def
-    ,bvi_to_bvpTheory.compile_part_def
-    ,bvi_to_bvpTheory.compile_exp_def
-    ,bvi_to_bvpTheory.compile_def
-    ,bvi_to_bvpTheory.iAssign_def
-      (* ---- bvp_simp ---- *)
-    ,bvp_simpTheory.pSeq_def
-    ,bvp_simpTheory.simp_def
-      (* ---- bvp_space ---- *)
-    ,bvp_spaceTheory.pMakeSpace_def
-    ,bvp_spaceTheory.space_def
-    ,bvp_spaceTheory.op_space_req_def
-    ,bvp_spaceTheory.compile_def
-      (* ---- bvp_live ---- *)
-    ,bvp_liveTheory.is_pure_def
-    ,bvp_liveTheory.compile_def
+    [dataLangTheory.mk_ticks_def
+    ,dataLangTheory.num_stubs_def
+      (* ---- bvi_to_data ---- *)
+    ,bvi_to_dataTheory.op_space_reset_def
+    ,bvi_to_dataTheory.op_requires_names_eqn
+    ,bvi_to_dataTheory.optimise_def
+    ,bvi_to_dataTheory.compile_prog_def
+    ,bvi_to_dataTheory.compile_part_def
+    ,bvi_to_dataTheory.compile_exp_def
+    ,bvi_to_dataTheory.compile_def
+    ,bvi_to_dataTheory.iAssign_def
+      (* ---- data_simp ---- *)
+    ,data_simpTheory.pSeq_def
+    ,data_simpTheory.simp_def
+      (* ---- data_space ---- *)
+    ,data_spaceTheory.pMakeSpace_def
+    ,data_spaceTheory.space_def
+    ,data_spaceTheory.op_space_req_def
+    ,data_spaceTheory.compile_def
+      (* ---- data_live ---- *)
+    ,data_liveTheory.is_pure_def
+    ,data_liveTheory.compile_def
     ]
   ,computeLib.Tys
     [ (* wordLang *)
@@ -348,35 +348,35 @@ val add_compiler_compset = computeLib.extend_compset
     ,wordLangTheory.every_var_inst_def
     ,wordLangTheory.num_stubs_def
     ,wordLangTheory.raise_stub_location_eq
-      (* ---- bvp_to_word ---- *)
-    ,bvp_to_wordTheory.adjust_var_def
-    ,bvp_to_wordTheory.adjust_set_def
-    ,bvp_to_wordTheory.Unit_def
-    ,bvp_to_wordTheory.GiveUp_def
-    ,bvp_to_wordTheory.make_header_def
-    ,bvp_to_wordTheory.tag_mask_def
-    ,bvp_to_wordTheory.encode_header_def
-    ,bvp_to_wordTheory.list_Seq_def
-    ,bvp_to_wordTheory.shift_def
-    ,bvp_to_wordTheory.StoreEach_def
-    ,bvp_to_wordTheory.shift_length_def
-    ,bvp_to_wordTheory.max_heap_limit_def
-    ,bvp_to_wordTheory.real_addr_def
-    ,bvp_to_wordTheory.real_offset_def
-    ,bvp_to_wordTheory.real_byte_offset_def
-    ,bvp_to_wordTheory.lookup_word_op_def
-    ,bvp_to_wordTheory.all_ones_def
-    ,bvp_to_wordTheory.maxout_bits_def
-    ,bvp_to_wordTheory.ptr_bits_def
-    ,bvp_to_wordTheory.assign_def
-    ,bvp_to_wordTheory.comp_def
-    ,bvp_to_wordTheory.compile_part_def
-    ,bvp_to_wordTheory.compile_def
-    ,bvp_to_wordTheory.stubs_def
-    ,bvp_to_wordTheory.FromList_location_eq
-    ,bvp_to_wordTheory.RefByte_location_eq
-    ,bvp_to_wordTheory.RefArray_location_eq
-    ,bvp_to_wordTheory.RefByte_code_def
+      (* ---- data_to_word ---- *)
+    ,data_to_wordTheory.adjust_var_def
+    ,data_to_wordTheory.adjust_set_def
+    ,data_to_wordTheory.Unit_def
+    ,data_to_wordTheory.GiveUp_def
+    ,data_to_wordTheory.make_header_def
+    ,data_to_wordTheory.tag_mask_def
+    ,data_to_wordTheory.encode_header_def
+    ,data_to_wordTheory.list_Seq_def
+    ,data_to_wordTheory.shift_def
+    ,data_to_wordTheory.StoreEach_def
+    ,data_to_wordTheory.shift_length_def
+    ,data_to_wordTheory.max_heap_limit_def
+    ,data_to_wordTheory.real_addr_def
+    ,data_to_wordTheory.real_offset_def
+    ,data_to_wordTheory.real_byte_offset_def
+    ,data_to_wordTheory.lookup_word_op_def
+    ,data_to_wordTheory.all_ones_def
+    ,data_to_wordTheory.maxout_bits_def
+    ,data_to_wordTheory.ptr_bits_def
+    ,data_to_wordTheory.assign_def
+    ,data_to_wordTheory.comp_def
+    ,data_to_wordTheory.compile_part_def
+    ,data_to_wordTheory.compile_def
+    ,data_to_wordTheory.stubs_def
+    ,data_to_wordTheory.FromList_location_eq
+    ,data_to_wordTheory.RefByte_location_eq
+    ,data_to_wordTheory.RefArray_location_eq
+    ,data_to_wordTheory.RefByte_code_def
       (* ---- wordLang word_to_word ---- *)
     ,word_to_wordTheory.compile_single_def
     ,word_to_wordTheory.full_compile_single_def
@@ -621,7 +621,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,backendTheory.from_clos_def
     ,backendTheory.from_bvl_def
     ,backendTheory.from_bvi_def
-    ,backendTheory.from_bvp_def
+    ,backendTheory.from_data_def
     ,backendTheory.from_word_def
     ,backendTheory.from_stack_def
     ,backendTheory.from_lab_def
@@ -630,7 +630,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,backendTheory.to_lab_def
     ,backendTheory.to_stack_def
     ,backendTheory.to_word_def
-    ,backendTheory.to_bvp_def
+    ,backendTheory.to_data_def
     ,backendTheory.to_bvi_def
     ,backendTheory.to_bvl_def
     ,backendTheory.to_clos_def

@@ -1,5 +1,5 @@
 open preamble bvlTheory bviTheory;
-local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory bvpTheory in end;
+local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataLangTheory in end;
 
 val _ = new_theory "bvl_to_bvi";
 
@@ -58,7 +58,7 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (WF_REL_TAC `measure exp1_size`)
 
 val AllocGlobal_location_def = Define`
-  AllocGlobal_location = bvp$num_stubs`;
+  AllocGlobal_location = dataLang$num_stubs`;
 val CopyGlobals_location_def = Define`
   CopyGlobals_location = AllocGlobal_location+1`;
 val InitGlobals_location_def = Define`
@@ -101,7 +101,7 @@ val stubs_def = Define `
                    (InitGlobals_location, InitGlobals_code start n)]`;
 
 val num_stubs_def = Define`
-  num_stubs = bvp$num_stubs + 3`;
+  num_stubs = dataLang$num_stubs + 3`;
 
 val compile_op_def = Define `
   compile_op op c1 =

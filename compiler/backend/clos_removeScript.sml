@@ -6,7 +6,7 @@ open indexedListsTheory
    Letrecs) with dummmy assignments. The assignments aren't removed
    here because removing them would require shifting the De Bruijn
    indexes. The dummy assignments will be removed at the latest by
-   BVP's dead-code elimination pass. *)
+   dataLang's dead-code elimination pass. *)
 
 val _ = new_theory"clos_remove";
 

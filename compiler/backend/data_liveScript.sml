@@ -1,10 +1,10 @@
-open preamble bvpTheory;
+open preamble dataLangTheory;
 
-val _ = new_theory "bvp_live";
+val _ = new_theory "data_live";
 
 (* This script defines an optimisation that minimises the live var
-   annotations that are attached to MakeSpace, Assign and Call in BVP
-   programs. It also deletes dead code. *)
+   annotations that are attached to MakeSpace, Assign and Call in
+   dataLang programs. It also deletes dead code. *)
 
 val is_pure_def = Define `
   (is_pure SetGlobalsPtr = F) /\

@@ -1,4 +1,4 @@
-open preamble stackLangTheory bvp_to_wordTheory;
+open preamble stackLangTheory data_to_wordTheory;
 
 val _ = new_theory "stack_alloc";
 

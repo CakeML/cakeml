@@ -1,10 +1,10 @@
-open preamble bvp_spaceTheory bvpSemTheory bvpPropsTheory;
+open preamble data_spaceTheory dataSemTheory dataPropsTheory;
 
-val _ = new_theory"bvp_spaceProof";
+val _ = new_theory"data_spaceProof";
 
-val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="bvpSem"};
-val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="bvpSem"};
-val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvpSem"};
+val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
+val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
+val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
 
 val IMP_sptree_eq = prove(
   ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
@@ -54,8 +54,8 @@ val evaluate_compile = Q.prove(
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
            Cases_on`a`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
            full_simp_tac(srw_ss())[do_app_def,do_space_def,op_space_req_def,
-              bvp_to_bvi_ignore,bvi_to_bvp_space_locals,
-              bvi_to_bvpTheory.op_space_reset_def] >>
+              data_to_bvi_ignore,bvi_to_data_space_locals,
+              bvi_to_dataTheory.op_space_reset_def] >>
            rpt var_eq_tac >>
            simp[call_env_def,state_component_equality] >>
            simp[locals_ok_def,lookup_fromList])
@@ -203,7 +203,7 @@ val evaluate_compile = Q.prove(
       \\ POP_ASSUM MP_TAC
       \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[Once cut_env_def] \\ REPEAT STRIP_TAC
       \\ `domain (list_insert l' (delete n y1)) SUBSET domain l` by
-       (full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality] \\ SRW_TAC [] []
+       (full_simp_tac(srw_ss())[dataSemTheory.state_component_equality] \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_IMP
         \\ IMP_RES_TAC get_vars_IMP_domain \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[domain_list_insert,SUBSET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC)
@@ -214,27 +214,27 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[do_app_def,do_space_alt]
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
-      \\ `¬op_space_reset o'` by fs[bvi_to_bvpTheory.op_requires_names_def] \\ fs[]
+      \\ `¬op_space_reset o'` by fs[bvi_to_dataTheory.op_requires_names_def] \\ fs[]
       \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
       \\ full_simp_tac(srw_ss())[]
-      \\ `(bvp_to_bvi (s with space := s.space - op_space_req o' (LENGTH l'))) =
-           bvp_to_bvi s` by (full_simp_tac(srw_ss())[bvp_to_bvi_def] \\ NO_TAC)
+      \\ `(data_to_bvi (s with space := s.space - op_space_req o' (LENGTH l'))) =
+           data_to_bvi s` by (full_simp_tac(srw_ss())[data_to_bvi_def] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[]
       \\ `~(op_space_req o' (LENGTH l') + y0 < op_space_req o' (LENGTH l'))`
             by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-      \\ full_simp_tac(srw_ss())[bvp_to_bvi_ignore]
-      \\ Cases_on `do_app o' x (bvp_to_bvi s)` \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[data_to_bvi_ignore]
+      \\ Cases_on `do_app o' x (data_to_bvi s)` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-      \\ full_simp_tac(srw_ss())[bvi_to_bvp_space_locals]
+      \\ full_simp_tac(srw_ss())[bvi_to_data_space_locals]
       \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
       \\ disch_then drule
-      \\ simp[bvi_to_bvp_def]
+      \\ simp[bvi_to_data_def]
       \\ qpat_abbrev_tac`l2 = insert _ _ _`
       \\ disch_then(qspec_then`l2`mp_tac)
       \\ impl_tac >-
-          (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvi_to_bvp_space_locals]
-           \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality,bvi_to_bvp_space_locals]
+          (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvi_to_data_space_locals]
+           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,bvi_to_data_space_locals]
            \\ SRW_TAC [] []
            \\ full_simp_tac(srw_ss())[locals_ok_def,lookup_insert,lookup_inter_alt]
            \\ full_simp_tac(srw_ss())[domain_delete,domain_list_insert])
@@ -256,12 +256,12 @@ val evaluate_compile = Q.prove(
       \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
       \\ Q.PAT_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ full_simp_tac(srw_ss())[]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality] \\ SRW_TAC [] []
+       (full_simp_tac(srw_ss())[dataSemTheory.state_component_equality] \\ SRW_TAC [] []
         \\ full_simp_tac(srw_ss())[locals_ok_def,set_var_def,lookup_insert])
       \\ full_simp_tac(srw_ss())[evaluate_def]
       \\ Cases_on `cut_env y1 (insert n x w)` \\ full_simp_tac(srw_ss())[LET_DEF]
       \\ REPEAT STRIP_TAC
-      \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality,
+      \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,
              add_space_def,set_var_def] \\ SRW_TAC [] []
       \\ `cut_env (insert n0 () (delete n y1)) l =
              SOME (insert n0 x (delete n x'))` by ALL_TAC THEN1
@@ -279,9 +279,9 @@ val evaluate_compile = Q.prove(
       \\ qmatch_assum_abbrev_tac`evaluate (y2,s4) = _`
       \\ `s with <|locals := ll; space := y0|> =
           s4 with locals := ll` by ALL_TAC
-      THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
+      THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
       \\ `locals_ok s4.locals ll` by ALL_TAC THEN1
-       (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality,locals_ok_def]
+       (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,locals_ok_def]
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_delete,cut_env_def]
         \\ Q.PAT_ASSUM `xxx = x'` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_alt,lookup_delete]
@@ -297,7 +297,7 @@ val evaluate_compile = Q.prove(
       \\ MP_TAC (Q.SPECL [`y2`,`s4`] evaluate_locals)
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality] \\ SRW_TAC [] []
+      \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality] \\ SRW_TAC [] []
       \\ METIS_TAC [locals_ok_def])
     THEN1 (* Skip *)
      (full_simp_tac(srw_ss())[pMakeSpace_def,space_def]
@@ -320,13 +320,13 @@ val evaluate_compile = Q.prove(
      (Cases_on `handler` \\ full_simp_tac(srw_ss())[]
       \\ `call_env q (dec_clock (s with locals := l)) =
           call_env q (dec_clock s)` by
-         full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality,
+         full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,
              dec_clock_def,call_env_def] \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       THEN1 (full_simp_tac(srw_ss())[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
              dec_clock_def] \\ METIS_TAC [])
       \\ Q.EXISTS_TAC `s2.locals` \\ full_simp_tac(srw_ss())[locals_ok_refl]
-      \\ SRW_TAC [] [bvpSemTheory.state_component_equality])
+      \\ SRW_TAC [] [dataSemTheory.state_component_equality])
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `cut_env r' s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
@@ -335,7 +335,7 @@ val evaluate_compile = Q.prove(
         call_env q (push_env x' (IS_SOME handler)
           (dec_clock s))` by ALL_TAC THEN1
      (Cases_on `handler`
-      \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality,
+      \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,
              dec_clock_def,call_env_def,push_env_def])
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     THEN1 (full_simp_tac(srw_ss())[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
