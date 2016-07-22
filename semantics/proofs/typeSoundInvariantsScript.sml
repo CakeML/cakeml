@@ -375,41 +375,5 @@ val _ = Define `
   consistent_con_env ctMap (environment_c env) tenv.c /\
   type_env ctMap tenvS (environment_v env) tenv.v))`;
 
-
-(* For using the type soundess theorem, we have to know there are good
- * constructor and module type environments that don't have bits hidden by a
- * signature. *)
-val _ = Define `
- (type_sound_invariants r (d,tenv,st,env) =  
-(? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
-    consistent_decls (state_defined_types st) decls_no_sig /\
-    consistent_ctMap decls_no_sig ctMap /\
-    good_ctMap ctMap /\
-    tenv_ok tenv /\
-    tenv_mod_ok tenvM_no_sig /\
-    type_all_env ctMap tenvS env tenv /\
-    type_s ctMap tenvS st.refs /\
-    weakM tenvM_no_sig tenv.m /\
-    weakC tenvC_no_sig tenv.c /\
-    decls_ok decls_no_sig /\
-    weak_decls decls_no_sig d /\
-    weak_decls_only_mods decls_no_sig d /\
-    (! err. (r = SOME (Rerr (Rraise err))) ==> type_v( 0) ctMap tenvS err Texn) /\    
-(d.defined_mods = (state_defined_mods st))))`;
-
-
-val _ = Define `
- (update_type_sound_inv ((decls1:decls),(tenv:type_environment),(st: 'ffi state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
-((case r of
-       Rval (new_mods, new_vals) =>
-         (union_decls decls1' decls1,
-          <| t := (merge_mod_env tenvT' tenv.t);
-             m := (FUNION tenvM' tenv.m);
-             c := (merge_alist_mod_env tenvC' tenv.c);
-             v := (bind_var_list2 tenv' tenv.v) |>,
-          st',extend_top_env new_mods new_vals new_ctors env)
-     | Rerr _ => (union_decls decls1' decls1,tenv,st',env)
-  )))`;
-
 val _ = export_theory()
 
