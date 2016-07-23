@@ -2,7 +2,7 @@ open preamble;
 open monadsyntax;
 open semanticPrimitivesTheory bigStepTheory;
 open terminationTheory;
-open evalPropsTheory determTheory bigClockTheory;
+open determTheory bigClockTheory;
 
 val _ = new_theory "interp";
 

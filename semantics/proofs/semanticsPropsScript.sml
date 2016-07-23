@@ -5,6 +5,7 @@ open preamble
 
 val _ = new_theory"semanticsProps"
 
+(*
 val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events) UNIV)`,
   qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>
@@ -227,5 +228,6 @@ val implements_trans = store_thm("implements_trans",
   \\ imp_res_tac isPREFIX_IMP_LPREFIX
   \\ imp_res_tac LPREFIX_TRANS
   \\ metis_tac [])
+  *)
 
 val _ = export_theory()

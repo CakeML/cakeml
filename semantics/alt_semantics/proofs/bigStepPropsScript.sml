@@ -1,3 +1,8 @@
+open preamble;
+open semanticPrimitivesTheory;
+open bigStepTheory;
+
+val _ = new_theory "bigStepProps";
 
 (* TODO see if this is actually needed
 val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_prog_MAP_Tdec",
@@ -45,7 +50,7 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     Cases_on`a`>>Cases_on`e`>>full_simp_tac(srw_ss())[]>>srw_tac[][])
   >- (
     Cases_on`a`>>full_simp_tac(srw_ss())[]))
-    *)
+  *)
 
 val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
   ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
@@ -119,7 +124,6 @@ val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
  srw_tac[][] >>
  imp_res_tac eval_d_no_new_mods >>
  full_simp_tac(srw_ss())[]);
-
 
 (* REPL bootstrap lemmas *)
 
@@ -234,4 +238,4 @@ val evaluate_Tmod_tys = store_thm("evaluate_Tmod_tys",
   METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
   *)
 
-
+val _ = export_theory ();
