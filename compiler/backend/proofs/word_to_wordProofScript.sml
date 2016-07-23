@@ -14,6 +14,8 @@ val is_phy_var_tac =
     `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
+val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
+
 (*Chains up compile_single theorems*)
 val compile_single_lem = store_thm("compile_single_lem",``
   ∀prog n st.
@@ -31,11 +33,12 @@ val compile_single_lem = store_thm("compile_single_lem",``
     | _ => T``,
   full_simp_tac(srw_ss())[compile_single_def,LET_DEF]>>srw_tac[][]>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
+  qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
   TRY(
-    qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
-    qpat_abbrev_tac`p3 = three_to_two_reg p2`)>>
-  TRY(qpat_abbrev_tac`p3= full_ssa_cc_trans n p1`)>>
-  Q.ISPECL_THEN [`a`,`p3`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
+    qpat_abbrev_tac`p3 = FST (remove_dead p2 LN)`>>
+    qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
+  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2 LN)`)>>
+  Q.ISPECL_THEN [`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
       srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
@@ -43,9 +46,10 @@ val compile_single_lem = store_thm("compile_single_lem",``
         is_phy_var_tac
       >>
         unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
-        ho_match_mp_tac three_to_two_reg_wf_cutsets>>
+        TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
+        match_mp_tac (el 5 rmd_thms)>>
         fs[full_ssa_cc_trans_wf_cutsets]))>>
-  rw[LET_THM]>>
+  rw[]>>
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
   qexists_tac`perm''`>>
@@ -60,22 +64,26 @@ val compile_single_lem = store_thm("compile_single_lem",``
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
     DECIDE_TAC) >>
   srw_tac[][])>>
-  `st with <|locals:=st.locals;permute:=perm''|> = st with permute:=perm''` by full_simp_tac(srw_ss())[state_component_equality]>>
-  full_simp_tac(srw_ss())[]
+  `∀perm. st with <|locals:=st.locals;permute:=perm|> = st with permute:=perm` by full_simp_tac(srw_ss())[state_component_equality]>>
+  full_simp_tac(srw_ss())[]>>
+  qpat_assum`(λ(x,y). _) _`mp_tac >>
+  pairarg_tac>>fs[]>>
+  strip_tac>>
+  Cases_on`remove_dead p2 LN`>>fs[]>>
+  Q.ISPECL_THEN [`p2`,`LN:num_set`,`q'`,`r'`,`st with permute := perm'`,`st.locals`,`res'`,`rcst`] mp_tac evaluate_remove_dead>>
+  impl_tac>>fs[strong_locals_rel_def]>>
+  strip_tac
   >-
-    (qpat_assum`(λ(x,y). _) _`mp_tac >>
-     pairarg_tac>>fs[]>> strip_tac >>
-    Q.ISPECL_THEN[`p2`,`st with permute:=perm'`,`res'`,`rcst`] mp_tac three_to_two_reg_correct>>
+    (Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res'`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
     impl_tac>-
       (rev_full_simp_tac(srw_ss())[]>>
-      metis_tac[full_ssa_cc_trans_distinct_tar_reg])>>
+      unabbrev_all_tac>>rpt var_eq_tac >> fs[]>>
+      metis_tac[full_ssa_cc_trans_distinct_tar_reg,el 4 rmd_thms,FST,PAIR])>>
     srw_tac[][]>>
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
     Cases_on`q`>>full_simp_tac(srw_ss())[])
   >>
-    pairarg_tac>>full_simp_tac(srw_ss())[]>>
-    pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def]
-    >- metis_tac[]>>
+    pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]);
 
 val get_vars_code_frame = prove(``
@@ -588,7 +596,8 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     fs[EL_MAP,EL_ZIP]>>
     fs[compile_single_def]>>
     fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
-    IF_CASES_TAC>>fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,GSYM inst_select_lab_pres])>>
+    IF_CASES_TAC>>
+    fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms)])>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
   CONJ_TAC>-
@@ -596,12 +605,14 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     match_mp_tac word_alloc_flat_exp_conventions>>
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
+    match_mp_tac (el 1 rmd_thms)>>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
   match_mp_tac (el 3 rmt_thms)>>
   match_mp_tac pre_post_conventions_word_alloc>>
   IF_CASES_TAC>>
   TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
+  match_mp_tac (el 3 rmd_thms)>>
   fs[full_ssa_cc_trans_pre_alloc_conventions])
   (* Rest of the proof for the other two conventions
     (match_mp_tac (el 2 rmt_thms)>>

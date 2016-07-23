@@ -2258,7 +2258,77 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
         match_mp_tac strong_locals_rel_insert_notin>>
         fs[domain_lookup])
   >- (* inst *)
-    cheat
+    (Cases_on`i`>>fs[inst_def]
+    >-
+      (fs[remove_dead_inst_def,get_live_inst_def]>>
+      rpt var_eq_tac>>fs[evaluate_def,state_component_equality])
+    >-
+      (fs[assign_def]>>EVERY_CASE_TAC>>fs[]>>
+      rpt var_eq_tac>>fs[evaluate_def,set_var_def,remove_dead_inst_def]>>
+      fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
+      fs[inst_def,assign_def]>>
+      imp_res_tac strong_locals_rel_I_word_exp>>
+      fs[get_live_exp_def]>>
+      res_tac>>
+      fs[set_var_def,state_component_equality,strong_locals_rel_def,lookup_insert,get_live_inst_def]>>
+      rw[])
+    >-
+      (Cases_on`a`>>fs[assign_def]>>
+      TRY
+        (EVERY_CASE_TAC>>fs[]>>
+        rpt var_eq_tac>>fs[evaluate_def,set_var_def,remove_dead_inst_def]>>
+        fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
+        fs[inst_def,assign_def]>>
+        imp_res_tac strong_locals_rel_I_word_exp>>
+        fs[get_live_exp_def,get_live_inst_def,domain_union,INSERT_UNION_EQ]>>
+        FULL_SIMP_TAC std_ss [Once (GSYM domain_delete)]>>
+        res_tac>>
+        fs[set_var_def,state_component_equality,strong_locals_rel_def,lookup_insert]>>rw[]>>NO_TAC)
+      >-
+        (fs[]>>EVERY_CASE_TAC>>
+        fs[remove_dead_inst_def,set_var_def]>>
+        rpt var_eq_tac>>fs[evaluate_def]>>
+        fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
+        fs[inst_def,get_live_inst_def]>>
+        `get_vars [n0;n1;n2] (st with locals := t) =
+        get_vars [n0;n1;n2] st` by
+           (qpat_assum`A= SOME B` mp_tac>>
+           ntac 3 (fs[Once get_vars_def])>>
+           EVERY_CASE_TAC>>fs[get_vars_def]>>
+           FULL_SIMP_TAC std_ss [Once (GSYM domain_delete)]>>
+           imp_res_tac strong_locals_rel_I_get_var>>
+           ntac 2
+           (first_x_assum(qspecl_then[`t`,`domain (delete n live)`] mp_tac)>>
+           impl_tac>-
+             (fs[strong_locals_rel_def]>>
+             metis_tac[]))>>
+           rw[])>>
+        fs[set_var_def,state_component_equality,strong_locals_rel_def,lookup_insert]>>
+        rw[]))
+    >-
+      (Cases_on`a`>>Cases_on`m`>>fs[assign_def]>>
+      EVERY_CASE_TAC>>fs[]>>
+      rpt var_eq_tac>>fs[evaluate_def,set_var_def,remove_dead_inst_def]>>
+      fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
+      fs[inst_def,assign_def,mem_load_def,mem_store_def]>>
+      imp_res_tac strong_locals_rel_I_word_exp>>
+      fs[get_live_exp_def,get_live_inst_def,domain_union,INSERT_UNION_EQ]>>
+      FULL_SIMP_TAC std_ss [Once (GSYM domain_delete)]>>
+      (*first 2 cases*)
+      TRY(res_tac>>
+        fs[set_var_def,state_component_equality,strong_locals_rel_def,lookup_insert]>>rw[]>>NO_TAC)
+      (*next 2 cases*)
+      >>
+        (pop_assum(qspecl_then[`t`,`live`] mp_tac)>>impl_tac
+        >-
+          (fs[strong_locals_rel_def]>>metis_tac[])>>
+        simp[]>>
+        imp_res_tac strong_locals_rel_I_get_var>>
+        pop_assum kall_tac>>
+        pop_assum(qspecl_then[`t`,`domain live`] mp_tac)>>impl_tac
+        >-
+          (fs[strong_locals_rel_def]>>metis_tac[])>>
+        fs[state_component_equality,strong_locals_rel_def])))
   >- (* assign *)
     rm_tac
   >- (* get *)
@@ -2288,7 +2358,15 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
     qpat_assum`A=(res,rst)` mp_tac>>
     ntac 4 (TOP_CASE_TAC>>fs[])>>
     rpt var_eq_tac>>fs[evaluate_def]>>
-    EVERY_CASE_TAC>>fs[]>>cheat)
+    Cases_on`ri`>>fs[get_var_imm_def]>>
+    imp_res_tac strong_locals_rel_I_get_var>>
+    TRY(first_x_assum(qspecl_then[`t`,`domain (union e2_live e3_live)`] mp_tac)>>
+    impl_tac>-
+      (fs[strong_locals_rel_def]>>
+      metis_tac[]))>>
+    fs[]>>
+    rw[]>>
+    first_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union])
   >- (*call*)
     (qpat_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>fs[])>>
@@ -6375,6 +6453,25 @@ val word_alloc_lab_pres = store_thm("word_alloc_lab_pres",``
   extract_labels prog = extract_labels (word_alloc alg k prog col_opt)``,
   fs[word_alloc_def,oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[]>>
   TRY(pairarg_tac)>>fs[]>>metis_tac[apply_colour_lab_pres])
+
+(* every remove_dead syntactic theorem proved together *)
+val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def]
+
+val remove_dead_conventions = store_thm("remove_dead_conventions",
+  ``∀p live c k.
+  let comp = FST (remove_dead p live) in
+  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
+  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
+  (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
+  (every_inst distinct_tar_reg p ⇒ every_inst distinct_tar_reg comp) ∧
+  (wf_cutsets p ⇒ wf_cutsets comp) ∧
+  (extract_labels p = extract_labels comp)``,
+  ho_match_mp_tac remove_dead_ind>>rw[]>>
+  fs[remove_dead_def]>>
+  TRY(IF_CASES_TAC)>>fs convs>>
+  rpt(pairarg_tac>>fs[])>>
+  fs convs>>
+  EVERY_CASE_TAC>>fs[])
 
 (* MISC *)
 val list_max_IMP = prove(``
