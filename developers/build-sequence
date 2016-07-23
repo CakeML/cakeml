@@ -29,6 +29,9 @@ compiler/targets/mips/proofs
 compiler/targets/riscv/proofs
 compiler/proofs
 
+# compiler bootstrap
+compiler/bootstrap/translation
+
 # candle
 candle/set-theory
 candle/syntax-lib
