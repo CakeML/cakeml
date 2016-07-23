@@ -1005,57 +1005,53 @@ val app_aalloc_def = Define `
   app_aalloc (n: int) v H Q =
     !a.
       n >= 0 /\
-      (H * ARRAY a (REPLICATE (Num (ABS n)) v) ==>> Q a)`
+      (H * ARRAY a (REPLICATE (Num n) v) ==>> Q a)`
 
 val app_asub_def = Define `
   app_asub a (i: int) H Q =
     ?vs F.
-      let n = Num (ABS i) in
-      0 <= i /\ n < LENGTH vs /\
+      0 <= i /\ (Num i) < LENGTH vs /\
       (H ==>> F * ARRAY a vs) /\
-      (H ==>> Q (EL n vs))`
+      (H ==>> Q (EL (Num i) vs))`
 
 val app_alength_def = Define `
   app_alength a H Q =
     ?vs F.
       (H ==>> F * ARRAY a vs) /\
-      (H ==>> Q (Litv (IntLit (int_of_num (LENGTH vs)))))`
+      (H ==>> Q (Litv (IntLit (& LENGTH vs))))`
 
 val app_aupdate_def = Define `
   app_aupdate a (i: int) v H Q =
     ?vs F.
-      let n = Num (ABS i) in
-      0 <= i /\ n < LENGTH vs /\
+      0 <= i /\ (Num i) < LENGTH vs /\
       (H ==>> F * ARRAY a vs) /\
-      (F * ARRAY a (LUPDATE v n vs) ==>> Q (Conv NONE []))`
+      (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Conv NONE []))`
 
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
     !a.
       n >= 0 /\
-      (H * W8ARRAY a (REPLICATE (Num (ABS n)) w) ==>> Q a)`
+      (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q a)`
 
 val app_aw8sub_def = Define `
   app_aw8sub a (i: int) H Q =
     ?ws F.
-      let n = Num (ABS i) in
-      0 <= i /\ n < LENGTH ws /\
+      0 <= i /\ (Num i) < LENGTH ws /\
       (H ==>> F * W8ARRAY a ws) /\
-      (H ==>> Q (Litv (Word8 (EL n ws))))`
+      (H ==>> Q (Litv (Word8 (EL (Num i) ws))))`
 
 val app_aw8length_def = Define `
   app_aw8length a H Q =
     ?ws F.
       (H ==>> F * W8ARRAY a ws) /\
-      (H ==>> Q (Litv (IntLit (int_of_num (LENGTH ws)))))`
+      (H ==>> Q (Litv (IntLit (& LENGTH ws))))`
 
 val app_aw8update_def = Define `
   app_aw8update a (i: int) w H Q =
     ?ws F.
-      let n = Num (ABS i) in
-      0 <= i /\ n < LENGTH ws /\
+      0 <= i /\ (Num i) < LENGTH ws /\
       (H ==>> F * W8ARRAY a ws) /\
-      (F * W8ARRAY a (LUPDATE w n ws) ==>> Q (Conv NONE []))`
+      (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Conv NONE []))`
 
 val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
@@ -1936,7 +1932,7 @@ val cf_sound = store_thm ("cf_sound",
       fs [one_def] \\
       first_x_assum (qspecl_then [`Loc (LENGTH st.refs)`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
-        [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
+        [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) w)) INSERT h_i`] \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
@@ -1944,7 +1940,8 @@ val cf_sound = store_thm ("cf_sound",
       THEN1 (
         rpt strip_tac \\ every_case_tac \\
         rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
-        fs [store2heap_append] \\ qexists_tac `{}` \\ SPLIT_TAC
+        fs [integerTheory.INT_ABS, store2heap_append] \\
+        qexists_tac `{}` \\ SPLIT_TAC
       )
     )
     THEN1 (
@@ -1959,7 +1956,7 @@ val cf_sound = store_thm ("cf_sound",
       fs [do_app_def, store_lookup_def] \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
-      instantiate \\ every_case_tac \\
+      instantiate \\ fs [integerTheory.INT_ABS] \\ every_case_tac \\
       rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []
     )
     THEN1 (
@@ -1987,8 +1984,9 @@ val cf_sound = store_thm ("cf_sound",
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+      fs [integerTheory.INT_ABS] \\
       every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
-      qexists_tac `Mem l (W8array (LUPDATE w (Num (ABS i)) ws)) INSERT u` \\
+      qexists_tac `Mem l (W8array (LUPDATE w (Num i) ws)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
@@ -2002,8 +2000,8 @@ val cf_sound = store_thm ("cf_sound",
       fs [one_def] \\
       first_x_assum (qspecl_then [`Loc (LENGTH st.refs)`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
-        [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num (ABS n)) v)) INSERT h_i`] \\
-      assume_tac store2heap_alloc_disjoint \\
+        [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num n) v)) INSERT h_i`] \\
+      fs [integerTheory.INT_ABS] \\ assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
       THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
@@ -2025,7 +2023,7 @@ val cf_sound = store_thm ("cf_sound",
       fs [do_app_def, store_lookup_def] \\
       `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
-      instantiate \\ every_case_tac \\
+      instantiate \\ fs [integerTheory.INT_ABS] \\ every_case_tac \\
       rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []
     )
     THEN1 (
@@ -2053,8 +2051,9 @@ val cf_sound = store_thm ("cf_sound",
       `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+      fs [integerTheory.INT_ABS] \\
       every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
-      qexists_tac `Mem l (Varray (LUPDATE v (Num (ABS i)) vs)) INSERT u` \\
+      qexists_tac `Mem l (Varray (LUPDATE v (Num i) vs)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
