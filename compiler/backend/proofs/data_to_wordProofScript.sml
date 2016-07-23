@@ -8,6 +8,28 @@ val _ = new_theory "data_to_wordProof";
 
 (* TODO: move *)
 
+val word_lsl_index = Q.store_thm("word_lsl_index",
+  `i < dimindex(:'a) ⇒
+    (((w:'a word) << n) ' i ⇔ n ≤ i ∧ w ' (i-n))`,
+  rw[word_lsl_def,fcpTheory.FCP_BETA]);
+
+val word_lsr_index = Q.store_thm("word_lsr_index",
+  `i < dimindex(:'a) ⇒
+   (((w:'a word) >>> n) ' i ⇔ i + n < dimindex(:'a) ∧ w ' (i+n))`,
+  rw[word_lsr_def,fcpTheory.FCP_BETA]);
+
+val lsr_lsl = Q.store_thm("lsr_lsl",
+  `∀w n. aligned n w ⇒ (w >>> n << n = w)`,
+  rw[]
+  \\ rw[GSYM WORD_EQ]
+  \\ fs[word_bit_def]
+  \\ rw[word_lsl_index,word_lsr_index]
+  \\ Cases_on`n ≤ x` \\ fs[]
+  \\ fs[aligned_extract]
+  \\ fs[word_extract_def,w2w_def,word_bits_def]
+  \\ last_x_assum(mp_tac o Q.AP_TERM`combin$C $' x`)
+  \\ simp[fcpTheory.FCP_BETA,word_0]);
+
 val word_index_test = store_thm("word_index_test",
   ``n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))``,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
@@ -3986,7 +4008,6 @@ val assign_thm = Q.prove(
     \\ `w1 = w2`
     by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
     \\ simp[] )
-  (*
   \\ Cases_on `∃sh n. op = WordShift W8 sh n` \\ fs[] THEN1 (
     imp_res_tac get_vars_IMP_LENGTH
     \\ fs[do_app]
@@ -4011,9 +4032,94 @@ val assign_thm = Q.prove(
     \\ BasicProvers.CASE_TAC \\ eval_tac
     >- (
       IF_CASES_TAC
-      >- (fs[good_dimindex_def] \\ rfs[])
-  )
-  *)
+      >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
+      \\ simp[lookup_insert]
+      \\ conj_tac >- rw[]
+      \\ pop_assum kall_tac
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ qmatch_goalsub_abbrev_tac`Word w`
+      \\ `small_int (:'a) i`
+      by (
+        simp[Abbr`i`,small_int_def,WORD_MUL_LSL]
+        \\ qmatch_goalsub_rename_tac`z * n2w _`
+        \\ Cases_on`z` \\ fs[word_mul_n2w]
+        \\ fs[good_dimindex_def,dimword_def]
+        \\ qmatch_abbrev_tac`a MOD b < d`
+        \\ `b < d` by simp[Abbr`b`,Abbr`d`]
+        \\ qspecl_then[`a`,`b`]mp_tac MOD_LESS
+        \\ (impl_tac >- simp[Abbr`b`])
+        \\ decide_tac )
+      \\ `w = Smallnum i`
+      by (
+        simp[Abbr`w`,Abbr`i`]
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+        \\ cheat )
+      \\ simp[Abbr`w`]
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ simp[]
+      \\ drule memory_rel_tl
+      \\ simp_tac std_ss [GSYM APPEND_ASSOC])
+    >- (
+      IF_CASES_TAC
+      >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
+      \\ simp[lookup_insert]
+      \\ conj_tac >- rw[]
+      \\ pop_assum kall_tac
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ qmatch_goalsub_abbrev_tac`Word w`
+      \\ `small_int (:'a) i`
+      by (
+        simp[Abbr`i`,small_int_def]
+        \\ qmatch_goalsub_rename_tac`z >>> _`
+        \\ Cases_on`z` \\ fs[w2n_lsr]
+        \\ fs[good_dimindex_def,dimword_def]
+        \\ qmatch_abbrev_tac`a DIV b < d`
+        \\ `a < d` by simp[Abbr`a`,Abbr`d`]
+        \\ qspecl_then[`b`,`a`]mp_tac (SIMP_RULE std_ss [PULL_FORALL]DIV_LESS_EQ)
+        \\ (impl_tac >- simp[Abbr`b`])
+        \\ decide_tac )
+      \\ `w = Smallnum i`
+      by (
+        simp[Abbr`w`,Abbr`i`]
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+        \\ simp[GSYM word_mul_n2w]
+        \\ REWRITE_TAC[Once ADD_COMM]
+        \\ REWRITE_TAC[GSYM LSR_ADD]
+        \\ qmatch_goalsub_rename_tac`w2n w`
+        \\ qmatch_goalsub_abbrev_tac`4w * ww`
+        \\ `4w * ww = ww << 2` by simp[WORD_MUL_LSL]
+        \\ pop_assum SUBST_ALL_TAC
+        \\ qspecl_then[`ww`,`2`]mp_tac lsl_lsr
+        \\ Q.ISPEC_THEN`w`assume_tac w2n_lt
+        \\ impl_tac
+        >- ( simp[Abbr`ww`] \\ fs[good_dimindex_def,dimword_def] )
+        \\ disch_then SUBST_ALL_TAC
+        \\ simp[WORD_MUL_LSL]
+        \\ AP_TERM_TAC
+        \\ simp[Abbr`ww`]
+        \\ simp[w2n_lsr]
+        \\ `w2n w < dimword(:'a)`
+        by ( fs[good_dimindex_def,dimword_def] )
+        \\ simp[GSYM n2w_DIV]
+        \\ AP_THM_TAC \\ AP_TERM_TAC
+        \\ rw[MIN_DEF] \\ fs[]
+        \\ simp[LESS_DIV_EQ_ZERO]
+        \\ qmatch_goalsub_rename_tac`2n ** k`
+        \\ `2n ** 8 <= 2 ** k`
+        by ( simp[logrootTheory.LE_EXP_ISO] )
+        \\ `256n ≤ 2 ** k` by metis_tac[EVAL``2n ** 8``]
+        \\ `w2n w < 2 ** k` by decide_tac
+        \\ simp[LESS_DIV_EQ_ZERO] )
+      \\ simp[Abbr`w`]
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ simp[]
+      \\ drule memory_rel_tl
+      \\ simp_tac std_ss [GSYM APPEND_ASSOC])
+    \\ cheat)
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac

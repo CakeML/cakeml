@@ -452,29 +452,28 @@ val assign_def = Define `
                             (Nat (shift_length c − shift (:'a)));
                           Const 1w])], l))
        | _ => (Skip,l))
-    (* TODO: semantics of WordShift needs to limit n to the word size
     | WordShift W8 sh n => (case args of
       | [v1] =>
         (Assign (adjust_var dest)
            (case sh of
             | Lsl =>
               Shift Lsr
-                (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10 + n)))
+                (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10 + (MIN n 8))))
                 (Nat (dimindex(:'a) - 10))
             | Lsr =>
               Shift Lsl
-                (Shift Lsr (Var (adjust_var v1)) (Nat (n+2)))
+                (Shift Lsr (Var (adjust_var v1)) (Nat ((MIN n 8)+2)))
                 (Nat 2)
             | Asr =>
               Shift Lsl
                 (Shift Lsr
                    (Shift Asr
                       (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10)))
-                      (Nat n))
+                      (Nat (MIN n 8)))
                    (Nat (dimindex(:'a) - 8)))
                 (Nat 2))
         ,l)
-      | _ => (GiveUp,l)) *)
+      | _ => (GiveUp,l))
     (* TODO: WordShift W64 *)
     (* TODO:
     | WordFromInt => (case args of
