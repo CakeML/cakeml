@@ -2310,6 +2310,7 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
       (simp[state_component_equality,strong_locals_rel_def]>>
       rw[]>>fs[])
     >>
+      fs[dec_clock_def] >>
       qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;clock:=E|>`>>
       qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;clock:=E|>`>>
       `A=A'` by
