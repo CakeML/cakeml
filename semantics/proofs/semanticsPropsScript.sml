@@ -6,7 +6,6 @@ open preamble
 
 val _ = new_theory"semanticsProps"
 
-(*
 val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events) UNIV)`,
   qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>
@@ -37,7 +36,6 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
     Cases_on`a`>>simp[]) >>
   match_mp_tac build_lprefix_lub_thm >>
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain);
-  *)
 
 val with_clock_ffi = Q.prove(
   `(s with clock := x).ffi = s.ffi`,EVAL_TAC)
