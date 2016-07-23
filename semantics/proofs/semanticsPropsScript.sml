@@ -1,4 +1,5 @@
 open preamble
+     evaluateTheory
      evaluatePropsTheory
      semanticsTheory lprefix_lubTheory
      typeSoundTheory;
@@ -36,42 +37,10 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
     Cases_on`a`>>simp[]) >>
   match_mp_tac build_lprefix_lub_thm >>
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain);
-
-val prog_clocked_zero_determ = Q.prove(
-  `evaluate_prog T x (y with clock := a) z (s with clock := 0,r) ∧
-   evaluate_prog T x (y with clock := b) z (t with clock := 0,u) ∧
-   SND r ≠ Rerr (Rabort Rtimeout_error) ∧
-   SND u ≠ Rerr (Rabort Rtimeout_error) ⇒
-   r = u ∧ (s with clock := y.clock) = (t with clock := y.clock)`,
-  strip_tac >>
-  qspecl_then[`x`,`y`,`z`,`s with clock := y.clock`,`r`](mp_tac o #2 o EQ_IMP_RULE)(prog_clocked_unclocked_equiv) >>
-  impl_tac >- (simp[] >> metis_tac[]) >>
-  qspecl_then[`x`,`y`,`z`,`t with clock := y.clock`,`u`](mp_tac o #2 o EQ_IMP_RULE)(prog_clocked_unclocked_equiv) >>
-  impl_tac >- (simp[] >> metis_tac[]) >>
-  metis_tac[prog_determ,PAIR_EQ])
-
-val prog_clocked_timeout_smaller = Q.prove(
-  `evaluate_prog T x (y with clock := a) z (p,q,r) ∧
-   evaluate_prog T x (y with clock := b) z (t,u,Rerr (Rabort Rtimeout_error)) ∧
-   r ≠ Rerr (Rabort	Rtimeout_error)
-   ⇒
-   b < a`,
-  rpt strip_tac >>
-  CCONTR_TAC >> full_simp_tac(srw_ss())[NOT_LESS] >>
-  full_simp_tac(srw_ss())[LESS_EQ_EXISTS] >>
-  imp_res_tac prog_add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  metis_tac[prog_determ,PAIR_EQ])
+  *)
 
 val with_clock_ffi = Q.prove(
   `(s with clock := x).ffi = s.ffi`,EVAL_TAC)
-
-val tac0 =
-    full_simp_tac(srw_ss())[evaluate_prog_with_clock_def,LET_THM] >>
-    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    imp_res_tac functional_evaluate_prog >>
-    full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def]
 
 val tac1 =
     metis_tac[semanticPrimitivesTheory.result_11,
@@ -79,6 +48,7 @@ val tac1 =
               semanticPrimitivesTheory.abort_distinct,
               PAIR_EQ,IS_SOME_EXISTS,NOT_SOME_NONE,SND,PAIR]
 
+              (*
 val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
   `∀s e p b b'.
     semantics_prog s e p b ∧ b ≠ Fail ∧
@@ -89,7 +59,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     Cases_on`b'`>>full_simp_tac(srw_ss())[semantics_prog_def]
     >- tac1
     >- (
-      tac0 >>
+      fs [evaluate_prog_with_clock_def, evaluate_prog_def]
       qmatch_assum_abbrev_tac`if X then Y else Z` >>
       reverse(Cases_on`X`)>>full_simp_tac(srw_ss())[Abbr`Y`,Abbr`Z`] >- (
         rpt var_eq_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -111,6 +81,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     Cases_on`b'`>>full_simp_tac(srw_ss())[semantics_prog_def]
     >- metis_tac[unique_lprefix_lub] >>
     tac1))
+    *)
 
     (*
 val state_invariant_def = Define`
@@ -124,6 +95,7 @@ val clock_lemmas = Q.prove(
    (x with clock := x.clock = x)`,
   srw_tac[][semanticPrimitivesTheory.state_component_equality])
 
+  (*
 val prog_diverges_semantics_prog = Q.store_thm("prog_diverges_semantics_prog",
   `prog_diverges st.sem_env st.sem_st prog ∧
    no_dup_mods prog st.sem_st.defined_mods ∧
@@ -148,6 +120,7 @@ val prog_diverges_semantics_prog = Q.store_thm("prog_diverges_semantics_prog",
             semanticPrimitivesTheory.result_11,
             semanticPrimitivesTheory.error_result_11,
             semanticPrimitivesTheory.abort_distinct])
+            *)
 
             (*
 val semantics_deterministic = Q.store_thm("semantics_deterministic",
@@ -228,6 +201,5 @@ val implements_trans = store_thm("implements_trans",
   \\ imp_res_tac isPREFIX_IMP_LPREFIX
   \\ imp_res_tac LPREFIX_TRANS
   \\ metis_tac [])
-  *)
 
 val _ = export_theory()

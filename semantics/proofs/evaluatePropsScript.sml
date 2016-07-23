@@ -114,6 +114,44 @@ val evaluate_length = Q.store_thm("evaluate_length",
   srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][])
 
+val evaluate_nil = Q.store_thm("evaluate_nil[simp]",
+  `∀(s:'ffi state) env. evaluate s env [] = (s,Rval [])`,
+ rw [evaluate_def]);
+
+val evaluate_sing = Q.store_thm("evaluate_sing",
+  `∀(s:'ffi state) env e s' vs. evaluate s env [e] = (s',Rval vs) ⇒ ∃v. vs = [v]`,
+ rw []
+ >> imp_res_tac evaluate_length
+ >> Cases_on `vs`
+ >> fs []
+ >> Cases_on `t`
+ >> fs []);
+
+val evaluate_cons = Q.store_thm ("evaluate_cons",
+ `∀(s:'ffi state) env e es.
+   evaluate s env (e::es) =
+     case evaluate s env [e] of
+     | (s', Rval vs) =>
+      (case evaluate s' env es of
+       | (s'', Rval vs') => (s'', Rval (vs++vs'))
+       | err => err)
+     | err => err`,
+ Cases_on `es`
+ >> rw [evaluate_def]
+ >- every_case_tac
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate _ _ _ = (st',r)`
+ >> Cases_on `r`
+ >> simp []
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate _ _ (e'::es) = (st'',r)`
+ >> Cases_on `r`
+ >> simp []
+ >> drule evaluate_sing
+ >> rw []);
+
 val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
   `evaluate_match s e v p er = (s',r) ⇒
    ∃r'. r = list_result r'`,
@@ -134,7 +172,9 @@ val evaluate_match_add_to_clock = Q.store_thm("evaluate_match_add_to_clock",
   imp_res_tac add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[list_result_eq_Rerr] >> rev_full_simp_tac(srw_ss())[] >>
   simp[functional_evaluate_match]);
+  *)
 
+(*
 val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
   `evaluate_decs m s e p = (s',c,r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
@@ -147,7 +187,9 @@ val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
   Cases_on`r'` >>
   imp_res_tac functional_evaluate_decs >>
   metis_tac[decs_determ,PAIR_EQ])
+  *)
 
+  (*
 val evaluate_tops_add_to_clock = Q.store_thm("evaluate_tops_add_to_clock",
   `evaluate_tops s e p = (s',c,r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
@@ -194,7 +236,9 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   imp_res_tac evaluate_match_add_to_clock >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   metis_tac[IS_PREFIX_TRANS,FST,PAIR,evaluate_io_events_mono])
+  *)
 
+  (*
 val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_to_clock_io_events_mono",
   `∀m s e d.
     (FST(evaluate_decs m s e d)).ffi.io_events ≼
@@ -211,7 +255,9 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
     last_x_assum(qspec_then`extra`mp_tac) >> simp[] >>
     metis_tac[IS_PREFIX_TRANS]) >>
   metis_tac[evaluate_add_to_clock_io_events_mono,FST])
+  *)
 
+  (*
 val evaluate_tops_add_to_clock_io_events_mono = Q.store_thm("evaluate_tops_add_to_clock_io_events_mono",
   `∀s e p extra.
    (FST(evaluate_tops s e p)).ffi.io_events ≼
@@ -228,6 +274,7 @@ val evaluate_tops_add_to_clock_io_events_mono = Q.store_thm("evaluate_tops_add_t
     last_x_assum(qspec_then`extra`mp_tac) >> simp[] >>
     metis_tac[IS_PREFIX_TRANS]) >>
   metis_tac[evaluate_decs_add_to_clock_io_events_mono,FST])
+  *)
 
 val with_clock_clock = Q.prove(
   `(s with clock := k).clock = k`,
@@ -236,6 +283,7 @@ val with_clock_with_clock = Q.prove(
   `((s with clock := k1) with clock := k2) = s with clock := k2`,
   EVAL_TAC)
 
+  (*
 val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
   `∀k1 k2 s e p.
     k1 ≤ k2 ⇒
@@ -249,8 +297,8 @@ val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
   `∃s1 c r. evaluate_tops ss e p = (s1,c,r)` by metis_tac[PAIR] >>
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
   metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
-
   *)
+
 val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
  `(!(st:'ffi state) env es st' r.
     evaluate st env es = (st', r)

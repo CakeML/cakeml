@@ -46,9 +46,11 @@ in
     raise UNCHANGED
 end;
 
+(*
 val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
 `?se. basis_sem_env ffi = SOME se`,
  cheat);
+ *)
 
 (*
 val lemma = Q.prove (
