@@ -1,8 +1,7 @@
 open preamble
-     funBigStepEquivTheory funBigStepPropsTheory
-     determTheory bigClockTheory
+     evaluatePropsTheory
      semanticsTheory lprefix_lubTheory
-     typeSoundTheory untypedSafetyTheory
+     typeSoundTheory;
 
 val _ = new_theory"semanticsProps"
 

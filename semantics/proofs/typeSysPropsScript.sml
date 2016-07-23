@@ -3,7 +3,7 @@
 open preamble
 open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 open astPropsTheory;
-local open evalPropsTheory in end
+local open semanticPrimitivesPropsTheory in end
 
 val _ = new_theory "typeSysProps";
 
@@ -12,8 +12,8 @@ val build_tdefs_def = semanticPrimitivesTheory.build_tdefs_def;
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 val same_tid_def = semanticPrimitivesTheory.same_tid_def;
 val lookup_var_id_def = semanticPrimitivesTheory.lookup_var_id_def;
-val build_tdefs_cons = evalPropsTheory.build_tdefs_cons;
-val check_dup_ctors_cons = evalPropsTheory.check_dup_ctors_cons;
+val build_tdefs_cons = semanticPrimitivesPropsTheory.build_tdefs_cons;
+val check_dup_ctors_cons = semanticPrimitivesPropsTheory.check_dup_ctors_cons;
 val merge_alist_mod_env_def = semanticPrimitivesTheory.merge_alist_mod_env_def;
 val lookup_alist_mod_env_def = semanticPrimitivesTheory.lookup_alist_mod_env_def;
 
@@ -3119,7 +3119,7 @@ val type_no_dup_mods = Q.store_thm ("type_no_dup_mods",
 
 val _ = Parse.overload_on("tmenv_dom",``λmenv. {Long m x | (m,x) | ∃e.  FLOOKUP menv m = SOME e ∧ MEM x (MAP FST e)}``);
 
-open boolSimps evalPropsTheory
+open boolSimps semanticPrimitivesPropsTheory
 
 val tenv_names_def = Define`
   (tenv_names Empty = {}) ∧
@@ -3152,7 +3152,7 @@ val type_p_closed = prove(
   ho_match_mp_tac type_p_ind >>
   simp[astTheory.pat_bindings_def] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
-  srw_tac[][Once evalPropsTheory.pat_bindings_accum]);
+  srw_tac[][Once pat_bindings_accum]);
 
 val type_funs_dom = Q.prove (
   `!tenv funs tenv'.

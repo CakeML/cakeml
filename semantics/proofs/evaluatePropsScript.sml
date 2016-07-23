@@ -1,13 +1,14 @@
-open preamble funBigStepTheory funBigStepEquivTheory bigClockTheory determTheory;
+open preamble evaluateTheory;
 open terminationTheory
+open semanticPrimitivesPropsTheory;
 
-val _ = new_theory"funBigStepProps"
+val _ = new_theory"evaluateProps"
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    ffi.io_events ≼ ffi'.io_events ∧
    (IS_SOME ffi.final_event ⇒ ffi' = ffi)`,
-  srw_tac[][evalPropsTheory.do_app_cases] >>
+  srw_tac[][do_app_cases] >>
   full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
 
@@ -72,8 +73,9 @@ val evaluate_tops_io_events_mono_imp = Q.store_thm("evaluate_tops_io_events_mono
      evaluate_tops s e p = (s',r) ⇒
      s.ffi.io_events ≼ s'.ffi.io_events ∧
      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  metis_tac[PAIR,FST,evaluate_tops_io_events_mono])
+  metis_tac[PAIR,FST,evaluate_tops_io_events_mono]);
 
+  (*
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `evaluate s e p = (s',r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
@@ -85,7 +87,8 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   Cases_on`evaluate (s with clock := s.clock + extra) e p` >>
   Cases_on`r'` >>
   imp_res_tac functional_evaluate_list >>
-  metis_tac[big_exp_determ,PAIR_EQ])
+  metis_tac[PAIR_EQ])
+  *)
 
 val list_result_eq_Rval = Q.store_thm("list_result_eq_Rval[simp]",
   `list_result r = Rval r' ⇔ ∃v. r' = [v] ∧ r = Rval v`,
@@ -119,6 +122,7 @@ val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
     Cases_on`a` >> full_simp_tac(srw_ss())[LENGTH_NIL],all_tac] >>
   metis_tac[list_result_def]);
 
+  (*
 val evaluate_match_add_to_clock = Q.store_thm("evaluate_match_add_to_clock",
   `evaluate_match s e v p er = (s',r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
@@ -156,11 +160,13 @@ val evaluate_tops_add_to_clock = Q.store_thm("evaluate_tops_add_to_clock",
   Cases_on`r'` >>
   imp_res_tac functional_evaluate_tops >>
   metis_tac[prog_determ,PAIR_EQ])
+  *)
 
 val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
 val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
 
+(*
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀(s:'ffi state) e d extra.
      (FST(evaluate s e d)).ffi.io_events ≼
@@ -244,6 +250,7 @@ val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
   metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
 
+  *)
 val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
  `(!(st:'ffi state) env es st' r.
     evaluate st env es = (st', r)
@@ -272,6 +279,5 @@ val evaluate_decs_state_unchanged = Q.store_thm ("evaluate_decs_state_unchanged"
  >> fs []
  >> rw []
  >> metis_tac [evaluate_state_unchanged]);
-
 
 val _ = export_theory()

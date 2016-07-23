@@ -1,9 +1,9 @@
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory funBigStepTheory;
+open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
 open terminationTheory;
-open evalPropsTheory;
+open semanticPrimitivesPropsTheory;
+open evaluatePropsTheory;
 open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
-open funBigStepPropsTheory;
 open semanticsTheory;
 
 val _ = new_theory "typeSound";

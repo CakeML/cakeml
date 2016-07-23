@@ -1,6 +1,6 @@
 open preamble intSimps;
 open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
-open funBigStepTheory;
+open evaluateTheory;
 
 val _ = new_theory "termination";
 
@@ -278,6 +278,6 @@ end
 
 val _ = register "evaluate" evaluate_def evaluate_ind
 
-val _ = export_rewrites["funBigStep.list_result_def"];
+val _ = export_rewrites["evaluate.list_result_def"];
 
 val _ = export_theory ();
