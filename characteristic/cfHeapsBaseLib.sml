@@ -244,15 +244,19 @@ fun hsimpl_cancel_cont_conseq_conv t =
       SEP_IMP_cell_frame,
       SEP_IMP_cell_frame_single_l,
       SEP_IMP_cell_frame_single_r,
+      SEP_IMP_cell_frame_single,
       SEP_IMP_REF_frame,
       SEP_IMP_REF_frame_single_l,
       SEP_IMP_REF_frame_single_r,
+      SEP_IMP_REF_frame_single,
       SEP_IMP_ARRAY_frame,
       SEP_IMP_ARRAY_frame_single_l,
       SEP_IMP_ARRAY_frame_single_r,
+      SEP_IMP_ARRAY_frame_single,
       SEP_IMP_W8ARRAY_frame,
       SEP_IMP_W8ARRAY_frame_single_l,
-      SEP_IMP_W8ARRAY_frame_single_r
+      SEP_IMP_W8ARRAY_frame_single_r,
+      SEP_IMP_W8ARRAY_frame_single
     ]
   in
     case is of

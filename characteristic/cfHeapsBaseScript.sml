@@ -184,6 +184,14 @@ val SEP_IMP_cell_frame_single_r = store_thm ("SEP_IMP_cell_frame_single_r",
   rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
+val SEP_IMP_cell_frame_single = store_thm ("SEP_IMP_cell_frame_single",
+  ``!H l v v'.
+     (v = v') /\ (emp ==>> emp) ==>
+     (l ~~>> v ==>> l ~~>> v')``,
+  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
+  rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
 val SEP_IMP_REF_frame = store_thm ("SEP_IMP_REF_frame",
   ``!H H' r v v'.
      (v = v') /\ (H ==>> H') ==>
@@ -206,6 +214,15 @@ val SEP_IMP_REF_frame_single_r = store_thm ("SEP_IMP_REF_frame_single_r",
   ``!H r v v'.
      (v = v') /\ (H ==>> emp) ==>
      (H * r ~~> v ==>> r ~~> v')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_REF_frame_single = store_thm ("SEP_IMP_REF_frame_single",
+  ``!H r v v'.
+     (v = v') /\ (emp ==>> emp) ==>
+     (r ~~> v ==>> r ~~> v')``,
   rpt strip_tac \\
   fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
   fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
@@ -239,6 +256,15 @@ val SEP_IMP_ARRAY_frame_single_r = store_thm ("SEP_IMP_ARRAY_frame_single_r",
   fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
+val SEP_IMP_ARRAY_frame_single = store_thm ("SEP_IMP_ARRAY_frame_single",
+  ``!H a vl vl'.
+     (vl = vl') /\ (emp ==>> emp) ==>
+     (ARRAY a vl ==>> ARRAY a vl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
 val SEP_IMP_W8ARRAY_frame = store_thm ("SEP_IMP_W8ARRAY_frame",
   ``!H H' a wl wl'.
      (wl = wl') /\ (H ==>> H') ==>
@@ -264,6 +290,16 @@ val SEP_IMP_W8ARRAY_frame_single_r = store_thm (
   ``!H a wl wl'.
      (wl = wl') /\ (H ==>> emp) ==>
      (H * W8ARRAY a wl ==>> W8ARRAY a wl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_W8ARRAY_frame_single = store_thm (
+  "SEP_IMP_W8ARRAY_frame_single",
+  ``!H a wl wl'.
+     (wl = wl') /\ (emp ==>> emp) ==>
+     (W8ARRAY a wl ==>> W8ARRAY a wl')``,
   rpt strip_tac \\
   fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
   fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
