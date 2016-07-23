@@ -1,6 +1,5 @@
 open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory evalPropsTheory bigClockTheory packLib;
+open astTheory libTheory semanticPrimitivesTheory packLib;
 open mlstringTheory integerTheory;
 open terminationTheory ml_progTheory;
 
@@ -8,15 +7,15 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val evaluate_ind = bigStepTheory.evaluate_ind;
+val evaluate_ind = terminationTheory.evaluate_ind;
 
-val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="bigStep"};
+val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="evaluate"};
 
 (* Definitions *)
 
 val empty_state_def = Define`
-  empty_state = <|
-    clock := 0;
+  empty_state k = <|
+    clock := k;
     refs := empty_store;
     (* force the ffi state to unit
        the translator does not currently support ffi *)
@@ -26,14 +25,14 @@ val empty_state_def = Define`
 
 val Eval_def = Define `
   Eval env exp P =
-    ?res. evaluate F env empty_state exp (empty_state,Rval res) /\
-          P (res:v)`;
+    ?res k. evaluate (empty_state k) env [exp] = (empty_state 0,Rval [res]) /\
+          P res`;
 
 val evaluate_closure_def = Define `
   evaluate_closure input cl output =
-    ?env exp. (do_opapp [cl;input] = SOME (env,exp)) /\
-              evaluate F env empty_state exp
-                            (empty_state,Rval (output))`;
+    ?env exp k.
+      (do_opapp [cl;input] = SOME (env,exp)) /\
+      evaluate (empty_state k) env [exp] = (empty_state 0,Rval [output])`;
 
 val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
   AppReturns P cl Q =
@@ -89,25 +88,38 @@ val PreImp_def = Define `
 (* Theorems *)
 
 val evaluate_11_Rval = store_thm("evaluate_11_Rval",
-  ``evaluate b env s exp (s1,Rval res1) ==>
-    evaluate b env s exp (s2,Rval res2) ==> (res1 = res2)``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC big_exp_determ
+  ``evaluate s env [exp] = (s1,Rval res1) ==>
+    evaluate s env [exp] = (s2,Rval res2) ==> (res1 = res2)``,
+  REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val Eval_Arrow = store_thm("Eval_Arrow",
   ``Eval env x1 ((a --> b) f) ==>
     Eval env x2 (a x) ==>
     Eval env (App Opapp [x1;x2]) (b (f x))``,
+  rw [Eval_def, Arrow_def, evaluate_def, AppReturns_def, evaluate_closure_def,
+      do_opapp_def]
+  >> qexists_tac `u`
+  >> first_x_assum (qspecl_then [`x`, `res'`] mp_tac)
+  >> rw []
+  >> qexists_tac `k' + k + k''`
+  >> rw []
+  >> Cases_on `res'`
+  >> fs []);
+
+
+  (*
   SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC std_ss [AppReturns_def] \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [evaluate_closure_def]
   \\ Q.EXISTS_TAC `u` \\ FULL_SIMP_TAC std_ss []
-  \\ Q.LIST_EXISTS_TAC [`[res';res]`,`env'`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_opapp_def]
   \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) [do_opapp_def]
+  >> rw [evaluate_def]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
-  \\ METIS_TAC []);
+  \\ METIS_TAC []
+  *)
 
 val Eval_Fun = store_thm("Eval_Fun",
   ``(!v x. a x v ==> Eval (write name v env) body (b ((f:'a->'b) x))) ==>

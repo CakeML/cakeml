@@ -192,21 +192,28 @@ val Prog_CONS = store_thm("Prog_CONS",
         Prog env1 s1 [d] env2 s2 /\
         Prog env2 s2 ds2 env3 s3``,
   fs [Prog_def]
-  >> simp [Once evaluate_tops_cons]
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ fs [PULL_EXISTS]
-  \\ rw [] \\ eq_tac \\ rw []
-  THEN1
-   (once_rewrite_tac [CONJ_ASSOC]
-    \\ once_rewrite_tac [CONJ_SYM]
-    \\ rewrite_tac [GSYM CONJ_ASSOC]
-    \\ asm_exists_tac \\ fs []
-    \\ fs [extend_top_env_def,combine_mod_result_def,merge_alist_mod_env_ASSOC])
-  \\ Cases_on `r` \\ fs [combine_mod_result_def]
-  \\ BasicProvers.FULL_CASE_TAC \\ fs []
-  \\ asm_exists_tac \\ fs []
-  \\ asm_exists_tac \\ fs []
-  \\ fs [extend_top_env_def,combine_mod_result_def,merge_alist_mod_env_ASSOC])
+  >> rw [Once evaluate_tops_cons, PULL_EXISTS]
+  >> eq_tac
+  >> rw []
+  >- (
+    split_pair_case_tac
+    >> fs []
+    >> rename1 `evaluate_tops s1 env1 [d] = (s',ctors,r)`
+    >> Cases_on `r`
+    >> fs []
+    >> rename1 `evaluate_tops s1 env1 [d] = (s',ctors,Rval v)`
+    >> PairCases_on `v`
+    >> fs []
+    >> split_pair_case_tac
+    >> fs [combine_mod_result_def]
+    >> Cases_on `r`
+    >> fs []
+    >> split_pair_case_tac
+    >> fs []
+    >> rw [extend_top_env_def, merge_alist_mod_env_assoc])
+  >- (
+    split_pair_case_tac
+    >> fs [combine_mod_result_def, extend_top_env_def, merge_alist_mod_env_assoc]));
 
 val Prog_APPEND = store_thm("Prog_APPEND",
   ``!s1 s3 env1 ds1 ds2 env3.
@@ -220,13 +227,10 @@ val Prog_APPEND = store_thm("Prog_APPEND",
 val Prog_Tdec = store_thm("Prog_Tdec",
   ``Prog env1 s1 [Tdec d] env2 s2 <=>
     Decls NONE env1 s1 [d] env2 s2``,
-  fs [Prog_def,Decls_def,Once evaluate_prog_cases]
-  \\ fs [Prog_def,Decls_def,Once evaluate_prog_cases]
-  \\ fs [combine_mod_result_def,Once evaluate_top_cases,PULL_EXISTS]
-  \\ fs [Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def]
-  \\ fs [Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def,
-         extend_top_env_def,environment_component_equality]
-  \\ rw [] \\ eq_tac \\ rw [] \\ asm_exists_tac \\ fs []);
+  fs [Prog_def, Decls_def, evaluate_tops_def]
+  >> every_case_tac
+  >> rw [extend_top_env_def, environment_component_equality]
+  >> metis_tac []);
 
 val mod_env_update_def = Define `
   mod_env_update mn (e1,e2) (b1,b2) =
@@ -240,19 +244,16 @@ val Prog_Tmod = store_thm("Prog_Tmod",
       s2 = s with defined_mods := {mn} ∪ s.defined_mods /\
       env2 = env1 with <| m := (mn,BUTLASTN (LENGTH env1.v) env.v)::env1.m ;
                           c := mod_env_update mn env1.c env.c |>``,
-  fs [Prog_def,Decls_def,Once evaluate_prog_cases,PULL_EXISTS,
-      combine_mod_result_def,Once evaluate_top_cases]
-  \\ fs [Prog_def,Decls_def,Once evaluate_prog_cases,PULL_EXISTS,
-         combine_mod_result_def,Once evaluate_top_cases]
-  \\ fs [extend_top_env_def,environment_component_equality]
-  \\ rw [] \\ eq_tac \\ rw [] \\ fs [BUTLASTN_LENGTH_APPEND]
-  \\ ASM_REWRITE_TAC [] \\ TRY asm_exists_tac \\ ASM_REWRITE_TAC []
-  \\ TRY (qexists_tac `<| m := env1.m ;
-       c := merge_alist_mod_env ([],new_tds''') env1.c;
-       v := new_env'' ++ env1.v |>`)
-  \\ fs [BUTLASTN_LENGTH_APPEND] \\ Cases_on `env1.c`
-  \\ fs [merge_alist_mod_env_def,mod_env_update_def,BUTLASTN_LENGTH_APPEND])
-
+  fs [Prog_def,Decls_def,evaluate_tops_def,PULL_EXISTS, combine_mod_result_def]
+  >> every_case_tac
+  >> fs [environment_component_equality, extend_top_env_def, mod_env_update_def]
+  >> eq_tac
+  >> rw []
+  >> fs [BUTLASTN_LENGTH_APPEND, mod_env_update_def]
+  >> Cases_on `env1.c`
+  >> fs [merge_alist_mod_env_def, mod_env_update_def, BUTLASTN_LENGTH_APPEND]
+  >> qexists_tac `<| m := env1.m; c := (q'',q' ++ r); v := a ++ env1.v |>`
+  >> simp [mod_env_update_def, BUTLASTN_LENGTH_APPEND]);
 
 (* The translator and CF tools use the following definition of ML_code
    to build verified ML programs. *)
@@ -403,7 +404,7 @@ val ML_code_SOME_Dletrec = store_thm("ML_code_SOME_Dletrec",
 val ML_code_NONE_Dlet_var = store_thm("ML_code_NONE_Dlet_var",
   ``ML_code env1 s1 prog NONE env2 s2 ==>
     !e x s3.
-      evaluate F env2 s2 e (s3,Rval x) ==>
+      evaluate s2 env2 [e] = (s3,Rval [x]) ==>
       !n.
         ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) e)) prog)
           NONE (write n x env2) s3``,
@@ -414,7 +415,7 @@ val ML_code_NONE_Dlet_var = store_thm("ML_code_NONE_Dlet_var",
 val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
   ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !e x s3.
-      evaluate F env2 s2 e (s3,Rval x) ==>
+      evaluate s2 env2 [e] = (s3,Rval [x]) ==>
       !n.
         ML_code env1 s1 prog (SOME (mn,SNOC (Dlet (Pvar n) e) ds,env))
           (write n x env2) s3``,
@@ -429,7 +430,7 @@ val ML_code_NONE_Dlet_Fun = store_thm("ML_code_NONE_Dlet_Fun",
       ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) (Fun v e))) prog)
         NONE (write n (Closure env2 v e) env2) s2``,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet]
-  \\ rw [] \\ asm_exists_tac \\ fs [Once evaluate_cases]);
+  \\ rw [] \\ asm_exists_tac \\ fs [evaluate_def]);
 
 val ML_code_SOME_Dlet_Fun = store_thm("ML_code_SOME_Dlet_Fun",
   ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
@@ -439,7 +440,7 @@ val ML_code_SOME_Dlet_Fun = store_thm("ML_code_SOME_Dlet_Fun",
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dlet]
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [no_dup_types_def,  decs_to_types_def]
-  \\ rw [] \\ asm_exists_tac \\ fs [Once evaluate_cases]);
+  \\ rw [] \\ asm_exists_tac \\ fs [evaluate_def]);
 
 (* misc used by automation *)
 
