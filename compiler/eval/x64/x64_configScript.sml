@@ -11,6 +11,7 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 (* Note: prim_config condition in backend needs to be relaxed *)
 val clos_conf = rconc (EVAL ``prim_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``)
 val data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
+val bvl_conf = ``<|inline_size_limit := 3|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
 val stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
@@ -21,6 +22,7 @@ val x64_compiler_config_def = Define`
              <|source_conf:=^(source_conf);
                mod_conf:=^(mod_conf);
                clos_conf:=^(clos_conf);
+               bvl_conf:=^(bvl_conf);
                data_conf:=^(data_conf);
                word_to_word_conf:=^(word_to_word_conf);
                (*word_conf:=^(word_conf);*)

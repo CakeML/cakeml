@@ -1,5 +1,4 @@
 open HolKernel boolLib bossLib lcsymtacs;
-
 open x64_compileLib x64_exportLib
 
 val _ = new_theory "benchmark"
