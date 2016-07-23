@@ -27,8 +27,10 @@ val handle_ok_def = tDefine "handle_ok" `
   (handle_ok [If x1 x2 x3] <=>
      handle_ok [x1] /\ handle_ok [x2] /\ handle_ok [x3]) /\
   (handle_ok [Let xs x2] <=>
-     ((LENGTH xs = 0) ==> let_ok x2) /\
-     handle_ok xs /\ handle_ok [x2]) /\
+     if LENGTH xs = 0 then
+       let_ok x2 /\ (!ys y. x2 = Let ys y ==> handle_ok [y])
+     else
+       handle_ok xs /\ handle_ok [x2]) /\
   (handle_ok [Raise x1] <=> handle_ok [x1]) /\
   (handle_ok [Tick x1] <=> handle_ok [x1]) /\
   (handle_ok [Op op xs] <=> handle_ok xs) /\
@@ -156,9 +158,22 @@ val env_rel_refl = store_thm("env_rel_refl",
   ``env_rel l env env``,
   fs [LIST_RELi_EL_EQN,env_rel_def]);
 
+val OptionalLetLet_IMP = prove(
+  ``(ys,l,s') = OptionalLetLet y (LENGTH env) lx s1 limit /\
+    (∀env2 extra.
+      env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
+    env_rel l env env1 ==>
+    evaluate (ys,env1 ++ extra,s) = res``,
+  rw [OptionalLetLet_def,evaluate_def]
+  \\ drule evaluate_LetLet \\ fs []);
+
+val OptionalLetLet_limit = store_thm("OptionalLetLet_limit",
+  ``(ys,l,s') = OptionalLetLet e (LENGTH env) lx s1 limit ==> l = lx``,
+  rw [OptionalLetLet_def]);
+
 val compile_correct = store_thm("compile_correct",
   ``!xs env s1 ys env1 res s2 extra l s.
-      compile (LENGTH env) xs = (ys,l,s) /\ env_rel l env env1 /\
+      compile limit (LENGTH env) xs = (ys,l,s) /\ env_rel l env env1 /\
       (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) ==>
       (evaluate (ys,env1 ++ extra,s1) = (res,s2))``,
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
@@ -167,6 +182,12 @@ val compile_correct = store_thm("compile_correct",
   \\ fs [LET_THM] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [env_rel_mk_Union]
   \\ imp_res_tac compile_sing \\ rveq
   \\ imp_res_tac env_rel_length
+  \\ TRY
+   (imp_res_tac OptionalLetLet_limit \\ rveq \\ fs []
+    \\ drule (GEN_ALL OptionalLetLet_IMP)
+    \\ disch_then match_mp_tac
+    \\ fs [] \\ rpt strip_tac
+    \\ fs [evaluate_def])
   THEN1 (* Cons *)
    (Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ fs []
     \\ Cases_on `evaluate (y::xs,env,r)` \\ Cases_on `q` \\ fs []
@@ -178,18 +199,27 @@ val compile_correct = store_thm("compile_correct",
     \\ fs [evaluate_def,rich_listTheory.EL_APPEND1]
     \\ fs [env_rel_def,LIST_RELi_EL_EQN])
   THEN1 (* If *)
-   (Cases_on `evaluate ([x1],env,s)` \\ Cases_on `q` \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
+   (fs [env_rel_mk_Union]
+    \\ first_x_assum drule
+    \\ Cases_on `evaluate ([x1],env,s)` \\ Cases_on `q` \\ fs []
+    \\ disch_then (qspec_then `[]` mp_tac) \\ fs [] \\ rw []
     \\ Cases_on `Boolv T = HD a` \\ fs [] \\ res_tac \\ fs [evaluate_def]
     \\ Cases_on `Boolv F = HD a` \\ fs [] \\ res_tac \\ fs [evaluate_def])
   THEN1 (* Let *)
    (Cases_on `LENGTH xs = 0` \\ fs [LENGTH_NIL] \\ rveq
     \\ fs [evaluate_def,env_rel_mk_Union]
+    \\ imp_res_tac OptionalLetLet_limit \\ rveq \\ fs []
+    \\ drule (GEN_ALL OptionalLetLet_IMP)
+    \\ disch_then match_mp_tac
+    \\ fs [env_rel_mk_Union]
+    \\ rpt strip_tac
+    \\ fs [evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-    \\ `env_rel l2 (a ++ env) (a ++ env1)` by
+    \\ res_tac \\ fs []
+    \\ `env_rel l2 (a ++ env) (a ++ env2)` by
      (fs [env_rel_def,LIST_RELi_EL_EQN] \\ rw []
-      \\ Cases_on `i < LENGTH a` \\ fs [EL_APPEND1,NOT_LESS,EL_APPEND2])
+      \\ Cases_on `i < LENGTH a` \\ fs [EL_APPEND1,NOT_LESS,EL_APPEND2] \\ NO_TAC)
     \\ res_tac \\ fs [])
   THEN1 (* Raise *)
    (Cases_on `evaluate ([x1],env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
@@ -198,7 +228,7 @@ val compile_correct = store_thm("compile_correct",
    (Cases_on `evaluate ([x1],env,s1)` \\ fs []
     \\ `q <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs []) \\ fs []
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] \\ fs []
-    \\ rename1 `compile (LENGTH env) [x1] = ([yy],l1,s3)`
+    \\ rename1 `compile limit (LENGTH env) [x1] = ([yy],l1,s3)`
     \\ Cases_on `no_raise [yy]` \\ fs [] \\ rveq \\ res_tac THEN1
      (pop_assum (assume_tac o SPEC_ALL)
       \\ imp_res_tac no_raise_evaluate
@@ -216,7 +246,7 @@ val compile_correct = store_thm("compile_correct",
    (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def])
   THEN1 (* Call *)
    (Cases_on `evaluate (xs,env,s1)` \\ Cases_on `q` \\ fs [] \\ rw[]
-    \\ every_case_tac \\ fs [evaluate_def]))
+    \\ res_tac \\ fs []))
   |> Q.SPECL [`xs`,`env`,`s1`,`ys`,`env`,`res`,`s2`,`[]`]
   |> SIMP_RULE std_ss [APPEND_NIL,env_rel_refl];
 
@@ -227,12 +257,12 @@ val compile_correct = store_thm("compile_correct",
     k = LENGTH env ==>
     (evaluate ([compile_exp k x],env,s1) = (res,s2))``,
   fs [compile_exp_def]
-  \\ Cases_on `compile (LENGTH env) [x]` \\ PairCases_on `r`
+  \\ Cases_on `compile 250 (LENGTH env) [x]` \\ PairCases_on `r`
   \\ rw [] \\ imp_res_tac compile_sing \\ rw []
   \\ imp_res_tac compile_correct);
 
 val compile_IMP_LENGTH = store_thm("compile_IMP_LENGTH",
-  ``compile n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs``,
+  ``compile l n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs``,
   rw [] \\ mp_tac (SPEC_ALL compile_length) \\ asm_simp_tac std_ss []);
 
 val bVarBound_CONS = store_thm("bVarBound_CONS",
@@ -273,15 +303,24 @@ val bVarBound_LetLet = store_thm("bVarBound_LetLet",
   \\ qabbrev_tac `xs = FILTER (λn. has_var n l1) (GENLIST I n)`
   \\ imp_res_tac ALOOKUP_MAPi \\ fs []);
 
+val bVarBound_OptionalLetLet = store_thm("bVarBound_OptionalLetLet",
+  ``bVarBound m [e] /\ n <= m ==> bVarBound m (FST (OptionalLetLet e n l s limit))``,
+  rw [OptionalLetLet_def,bVarBound_LetLet]);
+
 val bVarBound_compile = Q.store_thm("bVarBound_compile",
-  `∀n xs m. n ≤ m ⇒ bVarBound m (FST (compile n xs))`,
+  `∀l n xs m. n ≤ m ⇒ bVarBound m (FST (compile l n xs))`,
   ho_match_mp_tac compile_ind \\ rw [] \\ fs [compile_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ imp_res_tac compile_sing \\ rw [] \\ res_tac
   \\ imp_res_tac bVarBound_CONS \\ fs []
   \\ TRY (first_x_assum match_mp_tac) \\ fs []
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
-  \\ imp_res_tac bVarBound_LetLet \\ fs []);
+  \\ imp_res_tac bVarBound_LetLet \\ fs []
+  \\ match_mp_tac bVarBound_OptionalLetLet \\ fs []);
+
+val compile_IMP_bVarBound = store_thm("compile_IMP_bVarBound",
+  ``compile l n xs = (ys,l2,s2) ==> bVarBound n ys``,
+  rw [] \\ mp_tac (Q.INST [`m`|->`n`] (SPEC_ALL bVarBound_compile)) \\ fs []);
 
 val bEvery_CONS = store_thm("bEvery_CONS",
   ``bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)``,
@@ -292,8 +331,29 @@ val handle_ok_Var_Const_list = store_thm("handle_ok_Var_Const_list",
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]);
 
+val handle_ok_SmartLet = store_thm("handle_ok_SmartLet",
+  ``handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]``,
+  rw [SmartLet_def,handle_ok_def] \\ fs [LENGTH_NIL,handle_ok_def]);
+
+val handle_ok_OptionalLetLet = store_thm("handle_ok_OptionalLetLet",
+  ``handle_ok [e] /\ bVarBound n [e] ==>
+    handle_ok (FST (OptionalLetLet e n lx s l))``,
+  rw [OptionalLetLet_def] \\ fs [handle_ok_def]
+  \\ reverse conj_tac THEN1
+   (fs [LetLet_def,handle_ok_SmartLet]
+    \\ match_mp_tac handle_ok_Var_Const_list
+    \\ rw [EVERY_MEM,MEM_GENLIST] \\ every_case_tac \\ fs [])
+  \\ fs [let_ok_def,LetLet_def]
+  \\ fs [LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
+  \\ conj_tac THEN1
+     (once_rewrite_tac [bVarBound_MEM]
+      \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
+      \\ every_case_tac \\ fs []
+      \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
+  \\ match_mp_tac bVarBound_LESS_EQ \\ asm_exists_tac \\ fs []);
+
 val compile_handle_ok = store_thm("compile_handle_ok",
-  ``∀n xs. handle_ok (FST (compile n xs))``,
+  ``∀l n xs. handle_ok (FST (compile l n xs))``,
   ho_match_mp_tac compile_ind \\ rw []
   \\ fs [compile_def,handle_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -302,6 +362,9 @@ val compile_handle_ok = store_thm("compile_handle_ok",
   \\ fs [handle_ok_def]
   \\ fs [LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
+  \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
+  \\ fs [handle_ok_def]
+  \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
   \\ conj_tac THEN1
    (conj_tac THEN1
      (once_rewrite_tac [bVarBound_MEM]
@@ -309,7 +372,7 @@ val compile_handle_ok = store_thm("compile_handle_ok",
       \\ every_case_tac \\ fs []
       \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
     \\ fs [handle_ok_def]
-    \\ `[y'] = FST (compile n [x1])` by fs []
+    \\ `[y'] = FST (compile l n [x1])` by fs []
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ match_mp_tac bVarBound_compile \\ fs [])
   \\ rw [SmartLet_def] \\ fs [handle_ok_def]
@@ -321,8 +384,8 @@ val compile_handle_ok = store_thm("compile_handle_ok",
 val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
   ``handle_ok [compile_exp n x]``,
   fs [bvl_handleTheory.compile_exp_def]
-  \\ Cases_on `compile n [x]` \\ fs [] \\ PairCases_on `r`
+  \\ Cases_on `compile 250 n [x]` \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
-  \\ qspecl_then [`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
+  \\ qspecl_then [`250`,`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
 
 val _ = export_theory();
