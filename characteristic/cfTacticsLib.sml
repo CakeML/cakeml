@@ -49,18 +49,6 @@ val reduce_tac =
     ALL_TAC reducible_pats \\
   fs []
 
-fun fetch_v name st =
-  let val env = ml_progLib.get_env st
-      val name = stringLib.fromMLstring name
-      val evalth = EVAL ``lookup_var_id (Short ^name) ^env``
-  in (optionLib.dest_some o rhs o concl) evalth end
-
-fun fetch_def name st =
-  let val v = fetch_v name st
-      val v_defs = ml_progLib.get_v_defs st
-      val opt_thm = List.find (fn thm => (lhs o concl) thm = v) v_defs
-  in valOf opt_thm end
-
 (* [xpull] *)
 
 (* xx have a proper cfSyntax? *)

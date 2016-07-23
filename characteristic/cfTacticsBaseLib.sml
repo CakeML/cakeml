@@ -167,8 +167,9 @@ fun pick_name str =
 
 fun fetch_v name st =
   let val env = ml_progLib.get_env st
-      val name = stringLib.fromMLstring name
-      val evalth = EVAL ``lookup_var_id (Short ^name) ^env``
+      val ident_expr = parse ``nEbase`` ``ptree_Expr nEbase`` name
+      val ident = astSyntax.dest_Var ident_expr
+      val evalth = EVAL ``lookup_var_id ^ident ^env``
   in (optionLib.dest_some o rhs o concl) evalth end
 
 fun fetch_def name st =
