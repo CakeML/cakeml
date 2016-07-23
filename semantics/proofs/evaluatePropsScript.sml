@@ -151,6 +151,56 @@ val evaluate_cons = Q.store_thm ("evaluate_cons",
  >> simp []
  >> drule evaluate_sing
  >> rw []);
+val evaluate_length = Q.store_thm("evaluate_length",
+  `(∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
+   (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1)`,
+  ho_match_mp_tac evaluate_ind >>
+  srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][])
+
+val evaluate_decs_nil = Q.store_thm("evaluate_decs_nil[simp]",
+  `∀mn (s:'ffi state) env. evaluate_decs mn s env [] = (s,[],Rval [])`,
+ rw [evaluate_decs_def]);
+
+val evaluate_decs_cons = Q.store_thm ("evaluate_decs_cons",
+ `∀mn (s:'ffi state) env d ds.
+   evaluate_decs mn s env (d::ds) =
+     case evaluate_decs mn s env [d] of
+     | (s', ctors, Rval new_vals) =>
+      (case evaluate_decs mn s' (extend_dec_env new_vals ctors env) ds of
+       | (s'', ctors', r) => (s'', ctors'++ctors, combine_dec_result new_vals r)
+       | err => err)
+     | err => err`,
+ Cases_on `ds`
+ >> rw [evaluate_decs_def]
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate_decs _ _ _ _ = (s',ctors,r)`
+ >> Cases_on `r`
+ >> simp [semanticPrimitivesTheory.combine_dec_result_def]);
+
+val evaluate_tops_nil = Q.store_thm("evaluate_tops_nil[simp]",
+  `∀(s:'ffi state) env. evaluate_tops s env [] = (s,([],[]),Rval ([],[]))`,
+ rw [evaluate_tops_def]);
+
+val evaluate_tops_cons = Q.store_thm ("evaluate_tops_cons",
+ `∀(s:'ffi state) env top tops.
+   evaluate_tops s env (top::tops) =
+     case evaluate_tops s env [top] of
+     | (s', ctors, Rval (new_mods, new_vals)) =>
+      (case evaluate_tops s' (extend_top_env new_mods new_vals ctors env) tops of
+       | (s'', ctors', r) => (s'', merge_alist_mod_env ctors' ctors, combine_mod_result new_mods new_vals r)
+       | err => err)
+     | err => err`,
+ Cases_on `tops`
+ >> rw [evaluate_tops_def]
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate_tops _ _ _ = (s',ctors,r)`
+ >> Cases_on `r`
+ >> simp [semanticPrimitivesTheory.combine_mod_result_def]
+ >> split_pair_case_tac
+ >> simp []);
 
 val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
   `evaluate_match s e v p er = (s',r) ⇒

@@ -17,7 +17,7 @@ PRE_BARE_THYS1 = astTheory \
 		initialProgramTheory \
 		semanticPrimitivesTheory
 
-PRE_BARE_THYS3 = determTheory bigClockTheory initSemEnvTheory
+PRE_BARE_THYS3 = evaluatePropsTheory initSemEnvTheory
 
 BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
 BARE_THYS3 =  $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS3))

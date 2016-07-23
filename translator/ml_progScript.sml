@@ -1,5 +1,6 @@
 open preamble
-open astTheory libTheory semanticPrimitivesTheory funBigStepTheory;
+open astTheory libTheory semanticPrimitivesTheory evaluateTheory;
+open evaluatePropsTheory semanticPrimitivesPropsTheory;
 open mlstringTheory integerTheory;
 open terminationTheory;
 
@@ -81,8 +82,8 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   >> full_case_tac
   >> fs []
   >> rw []
-  >> metis_tac [evaluate_SING]
-  >> cheat (* evaluate_SING *));
+  >> drule evaluate_sing
+  >> rw []);
 
 val FOLDR_LEMMA = prove(
   ``!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
@@ -114,31 +115,34 @@ val Decls_CONS = store_thm("Decls_CONS",
       ?env2 s2.
          Decls mn env1 s1 [d] env2 s2 /\
          Decls mn env2 s2 ds2 env3 s3``,
-  rw [Decls_def, evaluate_decs_def]
-  >> cheat (* evaluate_decs_CONS *)
-  (*
-  rw[Decls_def,PULL_EXISTS] >>
-  rw[Once evaluate_decs_cases,PULL_EXISTS] >>
-  rw[Once evaluate_decs_cases,SimpRHS,PULL_EXISTS] >>
-  rw[EQ_IMP_THM] >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> simp[] >- (
-    rw[Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def] >>
-    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_decs`` o fst o strip_comb))) >>
-    Cases_on`r`>>fs[combine_dec_result_def] >>
-    first_assum(match_exists_tac o concl) >>
-    simp[extend_dec_env_def,merge_alist_mod_env_assoc] >>
-    Cases_on`env1.c`>>simp[merge_alist_mod_env_def] ) >>
-  ntac 2 (rator_x_assum`evaluate_decs`mp_tac) >>
-  rw[Once evaluate_decs_cases] >> fs[] >>
-  qpat_abbrev_tac`env2' = extend_dec_env X Y Z` >>
-  `env2 = env2'` by (
-    simp[environment_component_equality,Abbr`env2'`,extend_dec_env_def] >>
-    fs[combine_dec_result_def] ) >>
-  rw[Abbr`env2'`] >>
-  first_assum(match_exists_tac o concl) >>
-  fs[combine_dec_result_def,merge_alist_mod_env_assoc] >>
-  Cases_on`env1.c`>>simp[merge_alist_mod_env_def]*));
+  rw [Decls_def, Once evaluate_decs_cons]
+  >> split_pair_case_tac
+  >> simp []
+  >> rename1 `evaluate_decs _ _ _ _ = (s', ctors, r)`
+  >> Cases_on `r`
+  >> simp []
+  >> split_pair_case_tac
+  >> simp []
+  >> rename1 `evaluate_decs _ _ _ _ = (s'', ctors', r)`
+  >> rw[EQ_IMP_THM]
+  >- (
+    qexists_tac `<| m := env1.m; c := merge_alist_mod_env ([],ctors) env1.c;
+                    v := a ++ env1.v |>`
+    >> rw [merge_alist_mod_env_empty_assoc, extend_dec_env_def]
+    >> Cases_on `r`
+    >> fs [combine_dec_result_def, extend_dec_env_def]
+    >> rw [])
+  >- (
+    Cases_on `r`
+    >> simp [combine_dec_result_def, merge_alist_mod_env_empty_assoc]
+    >> rw []
+    >> fs []
+    >> fs [merge_alist_mod_env_empty_assoc]
+    >> rfs [extend_dec_env_def]
+    >> `env2 = <| m := env2.m; c := env2.c; v := env2.v |>`
+      by rw [environment_component_equality]
+    >> fs [merge_alist_mod_env_empty_assoc]
+    >> metis_tac [PAIR_EQ, result_11, result_distinct]));
 
 val Decls_APPEND = store_thm("Decls_APPEND",
   ``!s1 s3 mn env1 ds1 ds2 env3.
@@ -165,17 +169,15 @@ val Decls_SNOC = store_thm("Decls_SNOC",
 val Prog_def = Define `
   Prog env1 s1 prog env2 s2 <=>
     ?new_tds new_mods new_env.
-      (evaluate_prog s1 env1 prog =
+      (evaluate_tops s1 env1 prog =
          (s2,new_tds,Rval (new_mods,new_env))) /\
-      (env2 = extend_top_env new_mods new_env new_tds env1)`
+      (env2 = extend_top_env new_mods new_env new_tds env1)`;
 
 val Prog_NIL = store_thm("Prog_NIL",
   ``!s1 s3 env1 ds1 ds2 env3.
       Prog env1 s1 [] env3 s3 <=> (env3 = env1) /\ (s3 = s1)``,
-  rw [Prog_def, evaluate_prog_def]
-  \\ fs [environment_component_equality] 
-  \\ eq_tac
-  \\ rw []);
+  rw [Prog_def, evaluate_tops_def, extend_top_env_def, environment_component_equality]
+  >> metis_tac []);
 
 val merge_alist_mod_env_ASSOC = prove(
   ``merge_alist_mod_env x (merge_alist_mod_env y z) =
@@ -190,10 +192,8 @@ val Prog_CONS = store_thm("Prog_CONS",
         Prog env1 s1 [d] env2 s2 /\
         Prog env2 s2 ds2 env3 s3``,
   fs [Prog_def]
-  \\ simp [Once evaluate_prog_cases]
+  >> simp [Once evaluate_tops_cons]
   \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ simp [Once evaluate_prog_cases]
-  \\ simp [Once evaluate_prog_cases]
   \\ fs [PULL_EXISTS]
   \\ rw [] \\ eq_tac \\ rw []
   THEN1
