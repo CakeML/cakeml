@@ -68,12 +68,13 @@ val lemma = Q.prove (
    split_pair_case_tac
    >> fs []));
 
+
 fun do1_tac t =
-  (REWRITE_TAC [Once evaluate_decs_def] >>
-   CONV_TAC (LAND_CONV (LAND_CONV (CASE_CONV evaluate_conv))) >>
+  (REWRITE_TAC [Once evaluate_tops_def] >>
+   CONV_TAC (RAND_CONV (LHS_CONV (CASE_CONV evaluate_conv))) >>
    simp [extend_top_env_def, extend_dec_env_def, combine_dec_result_def,
          merge_alist_mod_env_def,pmatch_def, pat_bindings_def,
-         combine_mod_result_def,lemma]) t;
+         combine_mod_result_def, lemma]) t;
 
 val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
 `?se. basis_sem_env ffi = SOME se`,
@@ -85,11 +86,15 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
  >> pop_assum mp_tac
  >> simp [basis_program_def, evaluate_prog_def, no_dup_mods_def,
           prog_to_mods_def, no_dup_top_types_def, prog_to_top_types_def,
-          decs_to_types_def, mk_binop_def, mk_unop_def, evaluate_tops_def]
+          decs_to_types_def, mk_binop_def, mk_unop_def]
  >> rw []
  >- (
    qpat_assum `evaluate_tops _ _ _ = _` mp_tac
    >> simp [mk_ffi_def]
+   >> Cases_on `v7`
+   >> simp []
+   >- (Cases_on `a`
+       >> simp [])
    (do1_tac >> TRY (Q.PAT_ABBREV_TAC`cl = (X0,Closure X Y Z)`))
 
  >- (
