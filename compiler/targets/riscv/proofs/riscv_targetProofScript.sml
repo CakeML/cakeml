@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 open asmLib riscv_stepLib riscv_targetTheory;
 
-val () = new_theory "riscv_target_correct"
+val () = new_theory "riscv_targetProof"
 
 val () = wordsLib.guess_lengths()
 

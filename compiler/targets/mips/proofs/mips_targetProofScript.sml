@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 open asmLib mips_stepLib mips_targetTheory;
 
-val () = new_theory "mips_target_correct"
+val () = new_theory "mips_targetProof"
 
 val () = wordsLib.guess_lengths()
 

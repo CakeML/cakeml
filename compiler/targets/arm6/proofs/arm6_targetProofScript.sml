@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 open asmLib arm6_targetTheory arm_stepLib;
 
-val () = new_theory "arm6_target_correct"
+val () = new_theory "arm6_targetProof"
 
 val () = wordsLib.guess_lengths ()
 
