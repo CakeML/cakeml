@@ -4269,7 +4269,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac>>
   fs[]>>rfs[]>>
   `res' ≠ Rerr (Rabort Rtype_error)` by
-    (CCONTR_TAC>>fs[]>>metis_tac[evalPropsTheory.result_rel_Rerr1])>>
+    (CCONTR_TAC>>fs[]>>metis_tac[semanticPrimitivesPropsTheory.result_rel_Rerr1])>>
   `∃ime. clos_mti$compile c.do_mti [e] = [ime]` by
     (Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
     metis_tac[clos_mtiTheory.intro_multi_sing]) >>

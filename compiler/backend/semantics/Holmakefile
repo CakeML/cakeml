@@ -14,8 +14,8 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
 BARE_THYS = ../../../semantics/terminationTheory\
-						../../../semantics/proofs/evalPropsTheory\
-						../../../semantics/proofs/funBigStepPropsTheory\
+						../../../semantics/proofs/evaluatePropsTheory\
+						../../../semantics/proofs/semanticsPropsTheory\
 						../../targets/targetPropsTheory\
 						../source_to_modTheory\
 						../mod_to_conTheory\

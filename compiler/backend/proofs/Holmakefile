@@ -15,7 +15,7 @@ all: $(HOLHEAP)
 
 BARE_THYS = ../../../semantics/terminationTheory\
 						../../../semantics/proofs/semanticsPropsTheory\
-						../../../semantics/proofs/evalPropsTheory\
+						../../../semantics/proofs/semanticPrimitivesPropsTheory\
 						../../targets/targetPropsTheory\
 						../semantics/modPropsTheory\
 						../semantics/conPropsTheory\

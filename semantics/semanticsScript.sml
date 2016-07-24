@@ -31,12 +31,14 @@ val semantics_prog_def = Define `
 (semantics_prog st env prog (Terminate outcome io_list) ⇔
   (* there is a clock for which evaluation terminates, either internally or via
      FFI, and the accumulated io events match the given io_list *)
-  ?k ffi r.
+  (?k ffi r.
     evaluate_prog_with_clock st env k prog = (ffi,r) ∧
     (if ffi.final_event = NONE then
-       (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+       (r ≠ Rerr (Rabort Rtimeout_error)) ∧ outcome = Success
      else outcome = FFI_outcome (THE ffi.final_event)) ∧
     (io_list = ffi.io_events)) ∧
+  (!k ffi.
+    evaluate_prog_with_clock st env k prog ≠ (ffi, Rerr (Rabort Rtype_error)))) ∧
 (semantics_prog st env prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.
