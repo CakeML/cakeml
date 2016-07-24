@@ -549,17 +549,28 @@ val ptree_Pattern_def = Define`
             SOME(mkPatApp cn p)
           od
         | _ => NONE
-    else if nm = mkNT nPattern then
+    else if nm = mkNT nPcons then
       case args of
           [papt] => ptree_Pattern nPapp papt
-        | [papt; cons_t; pattpt] =>
+        | [papt; cons_t; pcons_pt] =>
           do
             assert (cons_t = Lf (TK (SymbolT "::")));
             pa <- ptree_Pattern nPapp papt;
-            patt <- ptree_Pattern nPattern pattpt;
+            patt <- ptree_Pattern nPcons pcons_pt;
             SOME(Pcon (SOME (Short "::")) [pa; patt])
           od
         | _ => NONE
+    else if nm = mkNT nPattern then
+      case args of
+          [pcons] => ptree_Pattern nPcons pcons
+        | [pcons_pt; colon_t; type_pt] =>
+          do
+            assert (colon_t = Lf (TOK ColonT));
+            pc <- ptree_Pattern nPcons pcons_pt;
+            ty <- ptree_Type nType type_pt;
+            return (Ptannot pc ty)
+          od
+        | _ => fail
     else if nm = mkNT nPtuple then
       case args of
           [lp; rp] => if lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT) then
@@ -833,11 +844,11 @@ val ptree_Expr_def = Define`
         | _ => NONE
       else if nt = mkNT nEtyped then
         case subs of
-          [t1;colon;t2] => do
+          [e_pt; colon; ty_pt] => do
             assert(colon = Lf (TOK ColonT));
-            t1 <- ptree_Expr nEbefore t1;
-            t2 <- ptree_Type nType t2;
-            SOME t1 (* TODO: FIXME *)
+            e <- ptree_Expr nEbefore e_pt;
+            ty <- ptree_Type nType ty_pt;
+            return (Tannot e ty)
           od
         | [t] => ptree_Expr nEbefore t
         | _ => NONE

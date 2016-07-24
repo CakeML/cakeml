@@ -177,7 +177,8 @@ val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
 val Pattern_OK0 = store_thm(
   "Pattern_OK0",
   ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
-    (N ∈ {nPattern; nPtuple; nPapp; nPbase} ∧ ptree_head pt = NT (mkNT N) ⇒
+    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons} ∧
+    ptree_head pt = NT (mkNT N) ⇒
      ∃p. ptree_Pattern N pt = SOME p) ∧
     (ptree_head pt = NN nPatternList ⇒
      ∃pl. ptree_Plist pt = SOME pl ∧ pl <> [])``,
@@ -191,6 +192,7 @@ val Pattern_OK0 = store_thm(
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   rpt (Q.UNDISCH_THEN `bool$T` (K ALL_TAC)) >>
   TRY (std >> NO_TAC)
+  >- (erule strip_assume_tac (n Type_OK) >> simp[])
   >- (asm_match `pl <> []` >> Cases_on `pl` >> fs[] >>
       asm_match `ptree_Plist pt = SOME (ph::ptl)` >>
       Cases_on `ptl` >> simp[])
