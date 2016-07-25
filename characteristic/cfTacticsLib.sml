@@ -224,11 +224,17 @@ fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
 
 (* [xapp] *)
 
-val xapp_prepare_goal =
-  xpull_check_not_needed \\
+val unfold_cf_app =
   head_unfold cf_app_def \\
   irule local_elim \\ hnf \\
   reduce_tac
+
+val xapp_prepare_goal =
+  xpull_check_not_needed \\
+  first_match_tac [
+    ([mg.c `cf_app _ _ _ _ _ _`], K unfold_cf_app),
+    ([mg.c `app _ _ _ _ _`], K all_tac)
+  ]
 
 fun app_f_tac tmtac (g as (_, w)) =
   tmtac (app_f_tm w) g
