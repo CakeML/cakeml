@@ -5,6 +5,8 @@ open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfHeapsLib
 open cfAppTheory cfTheory
 open cfTacticsTheory cfTacticsBaseLib cfTacticsLib
 
+val _ = new_theory "cf_initialProgram"
+
 val initial_prog = EVAL ``basis_program`` |> concl |> rand
 val initial_st = ml_progLib.add_prog initial_prog pick_name ml_progLib.init_state
 
@@ -203,3 +205,5 @@ val array_update = store_thm ("array_update",
 )
 
 (* todo: vector, char, string *)
+
+val _ = export_theory ()
