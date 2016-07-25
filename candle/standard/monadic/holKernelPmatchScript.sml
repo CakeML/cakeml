@@ -65,7 +65,7 @@ val tac =
   FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
     PMATCH_INCOMPLETE_def]
 
-val () = set_trace"parse deep cases"1
+val () = ENABLE_PMATCH_CASES();
 
 val codomain_PMATCH = prove(
   ``^(rhs(concl(SPEC_ALL holSyntaxTheory.codomain_raw))) =

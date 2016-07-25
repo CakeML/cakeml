@@ -4084,7 +4084,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     Cases_on`c.do_call`>>fs[clos_callTheory.compile_def]>>
     rpt var_eq_tac>>rfs[]>>
     pairarg_tac>>fs[]>>
-    imp_res_tac clos_callProofTheory.calls_sing>>rpt var_eq_tac>>fs[]>>
+    imp_res_tac clos_callTheory.calls_sing>>rpt var_eq_tac>>fs[]>>
     imp_res_tac clos_callProofTheory.calls_code_locs_ALL_DISTINCT>>rfs[]>>
     imp_res_tac clos_callProofTheory.calls_code_locs_MEM>>
     imp_res_tac clos_callProofTheory.calls_add_SUC_code_locs>>
@@ -4330,7 +4330,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     >>
     Cases_on`c.do_known`>>fs[clos_knownTheory.compile_def]>>
     ntac 2 (pairarg_tac>>fs[])>>
-    Q.ISPECL_THEN [`ren_e`,`[]:val_approx list`,`g'`] assume_tac clos_knownPropsTheory.known_sing>>
+    Q.ISPECL_THEN [`ren_e`,`[]:val_approx list`,`g'`] assume_tac clos_knownTheory.known_sing>>
     Q.ISPECL_THEN [`[ren_e]`,`[]:val_approx list`,`g'`] assume_tac clos_knownProofTheory.known_code_locs>>
     rfs[]>>
     imp_res_tac clos_knownProofTheory.known_preserves_every_Fn_SOME>>
@@ -4353,7 +4353,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     (Cases_on`c.do_call`>>fs[clos_callTheory.compile_def]>>
     rveq>>fs[Once every_Fn_vs_NONE_EVERY]>>
     pairarg_tac>>fs[]>>
-    imp_res_tac clos_callProofTheory.calls_sing>>
+    imp_res_tac clos_callTheory.calls_sing>>
     fs[]>>
     imp_res_tac clos_callProofTheory.calls_preserves_every_Fn_vs_NONE>>
     imp_res_tac clos_callProofTheory.calls_preserves_every_Fn_SOME>>

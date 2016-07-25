@@ -53,8 +53,8 @@ val app_alt_ind_w = store_thm ("app_alt_ind_w",
   rpt strip_tac \\ fs [app_alt_ind]
 )
 
-val app_local = prove (
-  ``!f xs. is_local (app (p:'ffi ffi_proj) f xs)``,
+val app_local = store_thm ("app_local",
+  ``!f xs. xs <> [] ==> is_local (app (p:'ffi ffi_proj) f xs)``,
   cheat)
 
 

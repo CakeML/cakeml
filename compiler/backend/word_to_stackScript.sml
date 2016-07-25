@@ -195,7 +195,7 @@ val comp_def = Define `
   (comp (Return v1 v2) bs kf =
      let (xs,x) = wReg1 v1 kf in
        (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
-  (comp (Raise v) bs kf = (Call NONE (INL 5) NONE,bs)) /\
+  (comp (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
   (comp (Tick) bs kf = (Tick,bs)) /\
   (comp (MustTerminate _ p1) gs kf = comp p1 gs kf) /\
   (comp (Seq p1 p2) bs kf =
@@ -277,6 +277,6 @@ val compile_def = Define `
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
     let (progs,bitmaps) = compile_word_to_stack k progs [4w] in
-      (<| bitmaps := bitmaps |>, (5:num,raise_stub k) :: progs)`
+      (<| bitmaps := bitmaps |>, (raise_stub_location,raise_stub k) :: progs)`
 
 val _ = export_theory();

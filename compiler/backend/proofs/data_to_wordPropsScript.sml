@@ -1,9 +1,9 @@
-open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
-     int_bitwiseTheory wordSemTheory bvp_to_wordTheory set_sepTheory
+open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
+     int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory
 local open blastLib in end;
 
-val _ = new_theory "bvp_to_wordProps";
+val _ = new_theory "data_to_wordProps";
 
 (* TODO: move? *)
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_assum `T` kall_tac)

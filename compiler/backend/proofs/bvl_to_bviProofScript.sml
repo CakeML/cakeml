@@ -5,21 +5,12 @@ open preamble
 local open
   bvl_constProofTheory
   bvl_handleProofTheory
+  bvi_letProofTheory
 in end;
 
 val _ = new_theory"bvl_to_bviProof";
 
-(* TODO: move *)
-
-val SNOC_REPLICATE = store_thm("SNOC_REPLICATE",
-  ``!n x. SNOC x (REPLICATE n x) = REPLICATE (SUC n) x``,
-  Induct \\ fs [REPLICATE]);
-
-val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
-  ``!n x. REVERSE (REPLICATE n x) = REPLICATE n x``,
-  Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
-
-(* --- *)
+val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 (* value relation *)
 
@@ -46,7 +37,8 @@ val adjust_bv_Boolv = store_thm("adjust_bv_Boolv[simp]",
 val aux_code_installed_def = Define `
   (aux_code_installed [] t <=> T) /\
   (aux_code_installed ((name,arg_count,body)::rest) t <=>
-     (sptree$lookup (num_stubs + 2 * name + 1) t = SOME (arg_count,body)) /\
+     (sptree$lookup (num_stubs + 2 * name + 1) t =
+        SOME (arg_count,bvi_let$compile_exp body)) /\
      aux_code_installed rest t)`
 
 val aux_code_installed_APPEND = prove(
@@ -81,7 +73,7 @@ val state_rel_def = Define `
        ?n. let (c1,aux1,n1) = compile_exps n [exp] in
              (lookup (num_stubs + 2 * name) t.code = SOME (arity,HD c1)) /\
              aux_code_installed aux1 t.code /\
-             bEvery GoodHandleLet [exp])`;
+             handle_ok [exp])`;
 
 val bv_ok_def = tDefine "bv_ok" `
   (bv_ok refs (RefPtr r) <=> r IN FDOM refs) /\
@@ -476,23 +468,33 @@ val compile_int_thm = prove(
 
 val iEval_bVarBound = Q.prove(
   `!(n:num) xs n vs (t:'ffi bvlSem$state) (s:'ffi bviSem$state) env.
-     bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
+     bVarBound (LENGTH vs) xs /\ handle_ok xs ==>
      (evaluate (FST (compile_exps n xs),vs ++ env,s) =
       evaluate (FST (compile_exps n xs),vs,s))`,
   recInduct bVarBound_ind \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[iEval_def,bVarBound_def,compile_exps_def] \\ SRW_TAC [] []
-  \\ full_simp_tac(srw_ss())[bEvery_def,GoodHandleLet_def] \\ SRW_TAC [] []
+  \\ full_simp_tac(srw_ss())[bEvery_def,handle_ok_def] \\ SRW_TAC [] []
   THEN1 (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_exps_SING \\ SRW_TAC [] []
     \\ ONCE_REWRITE_TAC [bviPropsTheory.evaluate_CONS] \\ full_simp_tac(srw_ss())[])
   THEN1 (full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND1])
-  THEN1 (`F` by DECIDE_TAC)
+  THEN1 (fs [])
   THEN1 (IMP_RES_TAC compile_exps_SING \\ SRW_TAC [] []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[iEval_def])
+  THEN1
+   (fs [evaluate_def] \\ rveq \\ fs []
+    \\ Cases_on `x2` \\ fs [destLet_def]
+    \\ fs [destLet_def,markerTheory.Abbrev_def,
+         bvl_handleProofTheory.let_ok_def] \\ rveq
+    \\ IMP_RES_TAC compile_exps_Var_list \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[bVarBound_def]
+    \\ (evaluate_MAP_Var2 |> MP_TAC) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
   THEN1 (IMP_RES_TAC compile_exps_SING \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[iEval_def]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`]) \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
@@ -517,21 +519,17 @@ val iEval_bVarBound = Q.prove(
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ IMP_RES_TAC compile_exps_SING \\ SRW_TAC [] []
-  \\ full_simp_tac(srw_ss())[markerTheory.Abbrev_def] \\ SRW_TAC [] []
-  \\ Cases_on `x1` \\ full_simp_tac(srw_ss())[GoodHandleLet_def,destLet_def]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[compile_exps_def]
-  \\ REV_FULL_SIMP_TAC std_ss [LET_DEF]
-  \\ full_simp_tac(srw_ss())[iEval_def]
-  \\ Q.PAT_ASSUM `!xx yy. bb = bbb` (ASSUME_TAC o Q.SPECL [`s`,`env`])
+  \\ Cases_on `x1` \\ fs [] \\ rveq
+  \\ Cases_on `e` \\ fs [] \\ rveq
+  \\ fs [destLet_def,markerTheory.Abbrev_def] \\ rveq
   \\ IMP_RES_TAC compile_exps_Var_list \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
   \\ full_simp_tac(srw_ss())[bVarBound_def]
   \\ (evaluate_MAP_Var2 |> MP_TAC) \\ full_simp_tac(srw_ss())[]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `find_code (SOME (num_stubs + 2 * n3 + 1)) ts s.code` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `evaluate ([r],q,dec_clock 1 s)` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `e'` \\ full_simp_tac(srw_ss())[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs []
+  \\ BasicProvers.TOP_CASE_TAC \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ rpt (BasicProvers.TOP_CASE_TAC \\ fs [])
   \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[ADD1]);
 
@@ -751,6 +749,81 @@ val do_app_adjust = Q.prove(
     \\ every_case_tac >> full_simp_tac(srw_ss())[bvl_to_bvi_id] >> srw_tac[][]
     \\ EVAL_TAC )) |> INST_TYPE[alpha|->``:'ffi``];
 
+val eval_ind_alt = store_thm("eval_ind_alt",
+  ``∀P.
+     (∀env s. P ([],env,s)) ∧
+     (∀x y xs env s.
+        (∀v3 s1 v1.
+           evaluate ([x],env,s) = (v3,s1) ∧ v3 = Rval v1 ⇒
+           P (y::xs,env,s1)) ∧ P ([x],env,s) ⇒
+        P (x::y::xs,env,s)) ∧ (∀n env s. P ([Var n],env,s)) ∧
+     (∀x1 x2 x3 env s.
+        (∀v2 s1 vs.
+           evaluate ([x1],env,s) = (v2,s1) ∧ v2 = Rval vs ∧
+           Boolv T ≠ HD vs ∧ Boolv F = HD vs ⇒
+           P ([x3],env,s1)) ∧
+        (∀v2 s1 vs.
+           evaluate ([x1],env,s) = (v2,s1) ∧ v2 = Rval vs ∧
+           Boolv T = HD vs ⇒
+           P ([x2],env,s1)) ∧ P ([x1],env,s) ⇒
+        P ([If x1 x2 x3],env,s)) ∧
+     (∀xs x2 env s.
+        (∀ys v2 s1 vs.
+           exp1_size ys <= exp_size x2 /\ evaluate (xs,env,s) = (v2,s1) ⇒
+           P (ys,vs,s1)) ∧
+        (∀ys env. exp1_size ys <= exp_size x2 ⇒ P (ys,env,s)) ∧
+        (∀v2 s1 vs.
+           evaluate (xs,env,s) = (v2,s1) ∧ v2 = Rval vs ⇒
+           P ([x2],vs ++ env,s1)) ∧
+        P (xs,env,s) ⇒
+        P ([Let xs x2],env,s)) ∧
+     (∀x1 env s. P ([x1],env,s) ⇒ P ([Raise x1],env,s)) ∧
+     (∀x1 x2 env s1.
+        (∀v3 s v8 v.
+           evaluate ([x1],env,s1) = (v3,s) ∧ v3 = Rerr v8 ∧
+           v8 = Rraise v ⇒
+           P ([x2],v::env,s)) ∧
+        (∀xs env. exp1_size xs <= exp_size x1 ⇒ P (xs,env,s1)) ⇒
+        P ([Handle x1 x2],env,s1)) ∧
+     (∀op xs env s. P (xs,env,s) ⇒ P ([Op op xs],env,s)) ∧
+     (∀x env s.
+        (s.clock ≠ 0 ⇒ P ([x],env,dec_clock 1 s)) ⇒
+        P ([Tick x],env,s)) ∧
+     (∀ticks dest xs env s1.
+        (∀v2 s vs v args exp.
+           evaluate (xs,env,s1) = (v2,s) ∧ v2 = Rval vs ∧
+           find_code dest vs s.code = SOME v ∧ v = (args,exp) ∧
+           ¬(s.clock < ticks + 1) ⇒
+           P ([exp],args,dec_clock (ticks + 1) s)) ∧ P (xs,env,s1) ⇒
+        P ([Call ticks dest xs],env,s1)) ⇒
+     ∀v v1 v2. P (v,v1,v2:'ffi bvlSem$state)``,
+  rpt strip_tac
+  \\ HO_MATCH_MP_TAC (MP_CANON WF_INDUCTION_THM)
+  \\ WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
+                              (\(xs,env,s). (s.clock,xs)))`
+  \\ rw [] \\ Cases_on `p_1` \\ fs []
+  \\ reverse (Cases_on `t`) \\ fs [] THEN1
+   (pop_assum (fn th => first_x_assum match_mp_tac \\ assume_tac th)
+    \\ rw [] \\ first_x_assum match_mp_tac \\ fs []
+    \\ imp_res_tac bvlSemTheory.evaluate_clock
+    \\ fs [LESS_OR_EQ,bvlTheory.exp_size_def])
+  \\ Cases_on `h` \\ fs []
+  \\ pop_assum (fn th => first_x_assum match_mp_tac \\ assume_tac th)
+  \\ rw [] \\ first_x_assum match_mp_tac \\ fs []
+  \\ imp_res_tac bvlSemTheory.evaluate_clock
+  \\ fs [LESS_OR_EQ,bvlTheory.exp_size_def]
+  \\ fs [bvlSemTheory.dec_clock_def]);
+
+val EVERY_isVar_evaluate_Rval_MEM = store_thm("EVERY_isVar_evaluate_Rval_MEM",
+  ``!l env a s r.
+      EVERY isVar l /\ bvlSem$evaluate (l,env,s) = (Rval a,r) ==>
+      EVERY (\x. MEM x env) a /\ s = r``,
+  Induct \\ fs [bvlSemTheory.evaluate_def]
+  \\ Cases_on `h` \\ fs[isVar_def]
+  \\ Cases_on `l` \\ fs [bvlSemTheory.evaluate_def] \\ rw []
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rveq
+  \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []);
+
 val compile_exps_correct = Q.prove(
   `!xs env (s1:'ffi bvlSem$state) n res s2 t1 n2 ys aux b1.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
@@ -758,7 +831,7 @@ val compile_exps_correct = Q.prove(
      state_rel b1 s1 t1 /\
      state_ok s1 /\ EVERY (bv_ok s1.refs) env /\
      aux_code_installed aux t1.code /\
-     bEvery GoodHandleLet xs /\ IS_SOME t1.global
+     handle_ok xs /\ IS_SOME t1.global
      ==>
      ?t2 b2 c.
         (evaluate (ys,MAP (adjust_bv b2) env,inc_clock c t1) =
@@ -767,8 +840,8 @@ val compile_exps_correct = Q.prove(
         (MAP (adjust_bv b1) env = MAP (adjust_bv b2) env) /\
         (!a. a IN FDOM s1.refs ==> (b1 a = b2 a))`,
   SIMP_TAC std_ss []
-  \\ recInduct bvlSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
-  \\ full_simp_tac(srw_ss())[bEval_def,compile_exps_def,iEval_def,bEvery_def,GoodHandleLet_def]
+  \\ recInduct eval_ind_alt \\ REPEAT STRIP_TAC
+  \\ full_simp_tac(srw_ss())[bEval_def,compile_exps_def,iEval_def,bEvery_def,handle_ok_def]
   THEN1 (* NIL *)
    (SRW_TAC [] [iEval_def]
     \\ Q.LIST_EXISTS_TAC [`b1`,`0`] \\ full_simp_tac(srw_ss())[inc_clock_ZERO])
@@ -881,45 +954,114 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[adjust_bv_def]
       \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]))
   THEN1 (* Let *)
-   (`?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
-    \\ `?c2 aux2 n2. compile_exps n1 [x2] = (c2,aux2,n2)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
-    \\ `?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC aux_code_installed_APPEND \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
-    \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ full_simp_tac(srw_ss())[]
-    \\ TRY (
-      impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
-      \\ REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
-      \\ `?d. c2 = [d]` by (Cases_on `c2` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
-      \\ SIMP_TAC std_ss [Once iEval_def] \\ full_simp_tac(srw_ss())[]
-      \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ full_simp_tac(srw_ss())[]
-      \\ srw_tac[][] \\ NO_TAC)
-    \\ REPEAT STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate ([x2],a ++ env,s5) = (res6,s6)`
-    \\ Q.PAT_ASSUM `!nn mm. bbb` (MP_TAC o Q.SPEC `n1`) \\ full_simp_tac(srw_ss())[]
-    \\ REPEAT STRIP_TAC
-    \\ IMP_RES_TAC compile_exps_LENGTH
-    \\ `?d. c2 = [d]` by (Cases_on `c2` \\ full_simp_tac(srw_ss())[LENGTH_NIL]) \\ full_simp_tac(srw_ss())[]
-    \\ `aux_code_installed aux2 t2.code` by
-     (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
-      \\ IMP_RES_TAC evaluate_code_const \\ full_simp_tac(srw_ss())[inc_clock_def])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
-    \\ impl_tac >- metis_tac[evaluate_global_mono,inc_clock_global]
-    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
-    \\ Q.MATCH_ASSUM_RENAME_TAC
-        `evaluate ([d],MAP (adjust_bv b3) a ++
-                    MAP (adjust_bv b3) env,inc_clock c4 t2) =
-           (map_result (MAP (adjust_bv b3)) (adjust_bv b3) res6,t3)`
-    \\ IMP_RES_TAC evaluate_inv_clock
-    \\ full_simp_tac(srw_ss())[inc_clock_ADD]
-    \\ ONCE_REWRITE_TAC [iEval_def] \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[MAP_APPEND_MAP_EQ]
-    \\ REV_FULL_SIMP_TAC std_ss []
-    \\ Q.LIST_EXISTS_TAC [`t3`,`b3`,`c4 + c`] \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF])
+   (reverse (Cases_on `LENGTH xs = 0`) THEN1
+     (`?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
+      \\ `?c2 aux2 n2. compile_exps n1 [x2] = (c2,aux2,n2)` by METIS_TAC [PAIR]
+      \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []
+      \\ full_simp_tac(srw_ss())[PULL_FORALL]
+      \\ `?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
+      \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC aux_code_installed_APPEND \\ SRW_TAC [] []
+      \\ full_simp_tac(srw_ss())[] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
+      \\ full_simp_tac(srw_ss())[]
+      \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
+      \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ full_simp_tac(srw_ss())[]
+      \\ TRY (
+        impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[])
+        \\ REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
+        \\ `?d. c2 = [d]` by (Cases_on `c2` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
+        \\ SIMP_TAC std_ss [Once iEval_def] \\ full_simp_tac(srw_ss())[]
+        \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ full_simp_tac(srw_ss())[]
+        \\ srw_tac[][] \\ NO_TAC)
+      \\ REPEAT STRIP_TAC
+      \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate ([x2],a ++ env,s5) = (res6,s6)`
+      \\ Q.PAT_ASSUM `!nn mm. bbb` (MP_TAC o Q.SPEC `n1`)
+      \\ full_simp_tac(srw_ss())[]
+      \\ REPEAT STRIP_TAC
+      \\ IMP_RES_TAC compile_exps_LENGTH
+      \\ `?d. c2 = [d]` by (Cases_on `c2`
+           \\ full_simp_tac(srw_ss())[LENGTH_NIL]) \\ full_simp_tac(srw_ss())[]
+      \\ `aux_code_installed aux2 t2.code` by
+       (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
+        \\ IMP_RES_TAC evaluate_code_const \\ full_simp_tac(srw_ss())[inc_clock_def])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
+      \\ impl_tac >- metis_tac[evaluate_global_mono,inc_clock_global]
+      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
+      \\ Q.MATCH_ASSUM_RENAME_TAC
+          `evaluate ([d],MAP (adjust_bv b3) a ++
+                      MAP (adjust_bv b3) env,inc_clock c4 t2) =
+             (map_result (MAP (adjust_bv b3)) (adjust_bv b3) res6,t3)`
+      \\ IMP_RES_TAC evaluate_inv_clock
+      \\ full_simp_tac(srw_ss())[inc_clock_ADD]
+      \\ ONCE_REWRITE_TAC [iEval_def] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[MAP_APPEND_MAP_EQ]
+      \\ REV_FULL_SIMP_TAC std_ss []
+      \\ Q.LIST_EXISTS_TAC [`t3`,`b3`,`c4 + c`] \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF])
+    \\ fs [LENGTH_NIL] \\ rveq \\ fs [bvlSemTheory.evaluate_def]
+    \\ Cases_on `x2` \\ fs [bvl_handleProofTheory.let_ok_def,destLet_def]
+    \\ ntac 2 (pairarg_tac \\ fs []) \\ rveq \\ fs []
+    \\ fs [bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]
+    \\ Cases_on `evaluate (l,env,s)` \\ fs []
+    \\ `exp1_size l ≤ exp_size (Let l e)` by fs [bvlTheory.exp_size_def]
+    \\ first_assum drule \\ disch_then drule
+    \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
+    \\ rpt (disch_then drule) \\ fs []
+    \\ impl_tac THEN1
+     (ntac 3 (IMP_RES_TAC aux_code_installed_APPEND \\ fs[])
+      \\ match_mp_tac bvl_handleProofTheory.handle_ok_Var_Const_list \\ fs []
+      \\ fs [EVERY_MEM] \\ rpt strip_tac
+      \\ first_x_assum drule \\ Cases_on `x` \\ fs [isVar_def])
+    \\ strip_tac \\ fs []
+    \\ reverse (Cases_on `q`)
+    \\ fs [evalPropsTheory.map_result_def] \\ rveq \\ fs []
+    THEN1 (Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs [find_code_def])
+    \\ ntac 3 (IMP_RES_TAC aux_code_installed_APPEND \\ fs[])
+    \\ fs [aux_code_installed_def]
+    \\ imp_res_tac evaluate_code_const \\ fs []
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+    \\ imp_res_tac compile_exps_LENGTH \\ fs []
+    \\ `exp1_size [e] ≤ exp_size (Let l e)` by fs [bvlTheory.exp_size_def]
+    \\ ntac 3 (qpat_assum `!x y. _` kall_tac)
+    \\ `r = s` by
+     (imp_res_tac (evaluate_Var_list |> INST_TYPE [``:'a``|->``:'ffi``])
+      \\ pop_assum (qspecl_then [`s`,`env`] mp_tac) \\ fs [] \\ NO_TAC) \\ rveq
+    \\ first_x_assum drule
+    \\ `evaluate ([e],a,r) = (res,s2)` by
+     (qpat_assum `_ = (res,s2)` (fn th => once_rewrite_tac [GSYM th])
+      \\ match_mp_tac (GSYM bEval_bVarBound) \\ fs [] \\ NO_TAC)
+    \\ rpt (disch_then drule \\ fs [])
+    \\ impl_tac THEN1
+     (rpt strip_tac \\ fs[handle_ok_def]
+      \\ imp_res_tac evaluate_global_mono
+      \\ fs [inc_clock_def]
+      \\ imp_res_tac EVERY_isVar_evaluate_Rval_MEM
+      \\ fs [EVERY_MEM] \\ metis_tac [])
+    \\ strip_tac
+    \\ qpat_assum `evaluate (c2,_) = _` mp_tac
+    \\ drule bviPropsTheory.evaluate_add_clock
+    \\ impl_tac THEN1 fs []
+    \\ disch_then (qspec_then `c'+1` mp_tac) \\ strip_tac
+    \\ `inc_clock (c'+1) (inc_clock c t1) = inc_clock (c+c'+1) t1` by
+          (fs [inc_clock_def] \\ NO_TAC)
+    \\ fs [] \\ strip_tac
+    \\ Q.LIST_EXISTS_TAC [`t2'`,`b2'`,`c+c'+1`]
+    \\ `MAP (adjust_bv b2') env = MAP (adjust_bv b2) env` by
+     (full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
+      \\ Q.EXISTS_TAC `r` \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+      \\ REV_FULL_SIMP_TAC std_ss []
+      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC \\ NO_TAC)
+    \\ fs [find_code_def]
+    \\ `?d2. c2 = [d2]` by (Cases_on `c2` \\ fs [LENGTH_NIL]) \\ rveq \\ fs []
+    \\ drule bvi_letProofTheory.evaluate_compile_exp
+    \\ impl_tac THEN1 (Cases_on `res` \\ fs [evalPropsTheory.map_result_def])
+    \\ strip_tac \\ fs []
+    \\ `dec_clock 1 (inc_clock (c' + 1) t2) = inc_clock c' t2` by
+           (EVAL_TAC \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ Cases_on `res` \\ fs [evalPropsTheory.map_result_def]
+    \\ Cases_on `e'` \\ fs [evalPropsTheory.map_error_result_def])
   THEN1 (* Raise *)
    (`?c1 aux1 n1. compile_exps n [x1] = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
@@ -938,25 +1080,40 @@ val compile_exps_correct = Q.prove(
     \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ IMP_RES_TAC bvlPropsTheory.evaluate_SING \\ SRW_TAC [] [])
   THEN1 (* Handle *)
-   (Cases_on `x1` \\ full_simp_tac(srw_ss())[GoodHandleLet_def,destLet_def] \\ full_simp_tac(srw_ss())[LET_DEF]
+   (Cases_on `x1` \\ full_simp_tac(srw_ss())[handle_ok_def,destLet_def]
+    \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ full_simp_tac(srw_ss())[compile_exps_Var_list]
     \\ `?c2 aux2 n2. compile_exps n [e] = (c2,aux2,n2)` by METIS_TAC [PAIR]
     \\ `?c3 aux3 n3. compile_exps n2' [x2] = (c3,aux3,n3)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bEval_def]
-    \\ Q.ISPECL_THEN[`s1`,`l`]mp_tac (Q.GEN`s`evaluate_Var_list) \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[bEval_def]
+    \\ Q.ISPECL_THEN[`s1`,`l`]mp_tac (Q.GEN`s`evaluate_Var_list)
+    \\ full_simp_tac(srw_ss())[]
     \\ STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ `evaluate ([e],vs ++ env,s1) = evaluate ([e],vs,s1)` by ALL_TAC
-    THEN1 (MATCH_MP_TAC bEval_bVarBound \\ full_simp_tac(srw_ss())[])
+    THEN1 (MATCH_MP_TAC bEval_bVarBound \\ fs[])
     \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC)
     \\ Cases_on `evaluate ([e],vs,s1)` \\ full_simp_tac(srw_ss())[]
     \\ `?d2. c2 = [d2]` by
-           (IMP_RES_TAC compile_exps_LENGTH \\ Cases_on `c2` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
+           (IMP_RES_TAC compile_exps_LENGTH \\ Cases_on `c2`
+            \\ full_simp_tac(srw_ss())[LENGTH_NIL])
     \\ `?d3. c3 = [d3]` by
-           (IMP_RES_TAC compile_exps_LENGTH \\ Cases_on `c3` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
+           (IMP_RES_TAC compile_exps_LENGTH \\ Cases_on `c3`
+            \\ full_simp_tac(srw_ss())[LENGTH_NIL])
     \\ full_simp_tac(srw_ss())[] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
+    \\ `handle_ok l` by
+     (match_mp_tac bvl_handleProofTheory.handle_ok_Var_Const_list \\ fs []
+      \\ fs [EVERY_MEM] \\ rpt strip_tac
+      \\ first_x_assum drule \\ Cases_on `x` \\ fs [isVar_def])
+    \\ `exp1_size [e] <= exp_size (Let l e)` by
+           (fs [bvlTheory.exp_size_def] \\ NO_TAC)
+    \\ first_x_assum drule \\ fs [] \\ strip_tac
+    \\ `EVERY (bv_ok s1.refs) vs` by
+     (imp_res_tac evaluate_IMP_bv_ok
+      \\ IMP_RES_TAC evaluate_ok \\ rfs [] \\ NO_TAC)
     \\ (Cases_on `q`) \\ full_simp_tac(srw_ss())[]
     THEN1 (* Result case *)
-     (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
+     (SRW_TAC [] [] \\ FIRST_X_ASSUM (qspecl_then [`vs`,`n`] mp_tac)
       \\ full_simp_tac(srw_ss())[compile_exps_def,compile_exps_Var_list,LET_DEF]
       \\ STRIP_TAC \\ POP_ASSUM (Q.SPECL_THEN [`t1`,`b1`]mp_tac)
       \\ full_simp_tac(srw_ss())[]
@@ -972,13 +1129,21 @@ val compile_exps_correct = Q.prove(
        (Q.SPECL_THEN[`n`,`[e]`,`n`,`MAP (adjust_bv b2) vs`,`t`]mp_tac iEval_bVarBound
         \\ full_simp_tac(srw_ss())[bEvery_def]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
-      \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC)
+      \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC) \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ full_simp_tac(srw_ss())[]
       \\ `dec_clock 1 (inc_clock (c + 1) t1) = inc_clock c t1` by
-        (EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality] \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[])
+        (EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]
+         \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[] \\ fs []
+      \\ drule bvi_letProofTheory.evaluate_compile_exp \\ fs[] \\ rw []
+      \\ full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
+      \\ Q.EXISTS_TAC `s1` \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+      \\ REV_FULL_SIMP_TAC std_ss []
+      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC)
     \\ (Cases_on`e'`) \\ full_simp_tac(srw_ss())[]
     THEN1 (* Raise case *)
-     (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
+     (SRW_TAC [] [] \\ FIRST_X_ASSUM (qspecl_then [`vs`,`n`] mp_tac)
       \\ full_simp_tac(srw_ss())[compile_exps_def,compile_exps_Var_list,LET_DEF]
       \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`])
       \\ full_simp_tac(srw_ss())[]
@@ -996,11 +1161,13 @@ val compile_exps_correct = Q.prove(
            |> Q.GENL [`env`,`s`] |> MP_TAC) \\ full_simp_tac(srw_ss())[bEvery_def]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC)
-      \\ Q.PAT_ASSUM `!nn mm nn1. bbb` (MP_TAC o Q.SPEC `n2'`) \\ full_simp_tac(srw_ss())[]
-      \\ REPEAT STRIP_TAC
+      \\ Q.PAT_ASSUM `!nn mm nn1. bbb` (MP_TAC o Q.SPEC `n2'`)
+      \\ full_simp_tac(srw_ss())[]
+      \\ REPEAT STRIP_TAC \\ fs []
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ full_simp_tac(srw_ss())[]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
+       (IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+        \\ REV_FULL_SIMP_TAC std_ss []
         \\ IMP_RES_TAC aux_code_installed_APPEND \\ full_simp_tac(srw_ss())[]
         \\ IMP_RES_TAC aux_code_installed_APPEND \\ full_simp_tac(srw_ss())[]
         \\ IMP_RES_TAC evaluate_code_const
@@ -1013,17 +1180,28 @@ val compile_exps_correct = Q.prove(
       \\ REPEAT STRIP_TAC
       \\ Q.LIST_EXISTS_TAC [`t2'`,`b2'`,`c' + c + 1`] \\ full_simp_tac(srw_ss())[]
       \\ `dec_clock 1 (inc_clock (c' + c + 1) t1) = inc_clock (c' + c) t1` by
-        (EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality] \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
+        (EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]
+         \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
       \\ IMP_RES_TAC evaluate_inv_clock \\ full_simp_tac(srw_ss())[inc_clock_ADD]
       \\ `MAP (adjust_bv b2) vs = MAP (adjust_bv b2') vs` by ALL_TAC THEN1
        (full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
         \\ Q.EXISTS_TAC `r` \\ full_simp_tac(srw_ss())[]
-        \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
+        \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+        \\ REV_FULL_SIMP_TAC std_ss []
         \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC)
-      \\ full_simp_tac(srw_ss())[] \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF])
+      \\ full_simp_tac(srw_ss())[] \\ IMP_RES_TAC evaluate_refs_SUBSET
+      \\ full_simp_tac(srw_ss())[SUBSET_DEF]
+      \\ qpat_assum `!n. _ = _` (qspec_then `c'` assume_tac) \\ fs []
+      \\ drule bvi_letProofTheory.evaluate_compile_exp \\ fs[]
+      \\ full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
+      \\ Q.EXISTS_TAC `s1` \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+      \\ REV_FULL_SIMP_TAC std_ss []
+      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC)
     THEN1 (* abort case *)
-     (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
+     (SRW_TAC [] [] \\ FIRST_X_ASSUM (qspecl_then [`vs`,`n`] mp_tac)
       \\ full_simp_tac(srw_ss())[compile_exps_def,compile_exps_Var_list,LET_DEF]
       \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`])
       \\ full_simp_tac(srw_ss())[]
@@ -1040,10 +1218,18 @@ val compile_exps_correct = Q.prove(
            `vs`|->`MAP (adjust_bv b2) vs`]
            |> Q.GENL [`env`,`s`] |> MP_TAC) \\ full_simp_tac(srw_ss())[bEvery_def]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
-      \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC)
+      \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC) \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ full_simp_tac(srw_ss())[]
       \\ `dec_clock 1 (inc_clock (c + 1) t1) = inc_clock c t1` by
-        (EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality] \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[]))
+        (EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]
+         \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
+      \\ drule bvi_letProofTheory.evaluate_compile_exp \\ fs[]
+      \\ full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
+      \\ Q.EXISTS_TAC `s1` \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
+      \\ REV_FULL_SIMP_TAC std_ss []
+      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC))
   THEN1 (* Op *)
    (`?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
@@ -1522,7 +1708,7 @@ val compile_exps_correct = Q.prove(
                  (MAP (adjust_bv b2) a) t2.code =
                  SOME (MAP (adjust_bv b2) args,HD c7)) /\
                aux_code_installed aux7 t2.code /\
-               bEvery GoodHandleLet [body]` by ALL_TAC THEN1
+               handle_ok [body]` by ALL_TAC THEN1
      (reverse (Cases_on `dest`) \\ full_simp_tac(srw_ss())[state_rel_def,find_code_def]
       THEN1 (Cases_on `lookup x s5.code` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
         \\ SRW_TAC [] []
@@ -1589,7 +1775,8 @@ val MAP_FST_optimise = Q.store_thm("MAP_FST_optimise[simp]",
 
 val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
   `lookup n ls = SOME (a,b) ⇒
-   ALOOKUP (optimise (toAList ls)) n = SOME (a,HD(compile a [compile_exp b]))`,
+   ALOOKUP (optimise (toAList ls)) n =
+     SOME (a,bvl_handle$compile_exp a (bvl_const$compile_exp b))`,
   srw_tac[][] >>
   Cases_on`ALOOKUP (optimise (toAList ls)) n` >- (
     imp_res_tac ALOOKUP_FAILS >>
@@ -1597,7 +1784,16 @@ val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
     full_simp_tac(srw_ss())[toAList_domain] >>
     METIS_TAC[domain_lookup] ) >>
   imp_res_tac ALOOKUP_MEM >>
-  full_simp_tac(srw_ss())[optimise_def,MEM_MAP,PULL_EXISTS,EXISTS_PROD,MEM_toAList] >> full_simp_tac(srw_ss())[]);
+  fs [optimise_def,MEM_MAP,PULL_EXISTS,EXISTS_PROD,MEM_toAList] >>
+  full_simp_tac(srw_ss())[]);
+
+val evaluate_IMP_optimise = store_thm("evaluate_IMP_optimise",
+  ``evaluate ([r],zenv,zs) = (res,s') /\ res <> Rerr (Rabort Rtype_error) /\
+    LENGTH zenv = q ==>
+    evaluate ([bvl_handle$compile_exp q
+                (bvl_const$compile_exp r)],zenv,zs) = (res,s')``,
+  rw [] \\ match_mp_tac bvl_handleProofTheory.compile_correct \\ fs []
+  \\ drule (GEN_ALL bvl_constProofTheory.evaluate_compile_exp) \\ fs []);
 
 val optimise_evaluate = Q.store_thm("optimise_evaluate",
   `∀xs env s res s'.
@@ -1633,18 +1829,17 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
   every_case_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[lookup_fromAList] >>
   imp_res_tac ALOOKUP_optimise_lookup >> full_simp_tac(srw_ss())[] >>
-  rpt var_eq_tac >>
-  qmatch_assum_abbrev_tac`bvlSem$evaluate (zxs,zenv,zs) = (_,_ with code := _)` >>
-  qspecl_then[`zxs`,`zenv`,`zs`]mp_tac bvl_constProofTheory.compile_exps_thm >>
-  simp[Abbr`zxs`,bvl_constTheory.compile_exps_def] >> strip_tac >>
-  unabbrev_all_tac >>
-  simp[bvl_handleTheory.compile_HD_SING] >>
-  drule bvl_handleProofTheory.compile_correct >>
-  simp[LENGTH_FRONT,PRE_SUB1]);
+  rpt var_eq_tac
+  \\ qmatch_assum_abbrev_tac`bvlSem$evaluate (zxs,zenv,zs) = (_,_ with code := _)`
+  \\ match_mp_tac evaluate_IMP_optimise
+  \\ unabbrev_all_tac \\ fs []
+  \\ `?x1 x2. a = SNOC x1 x2` by metis_tac [SNOC_CASES]
+  \\ rw []\\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]);
 
 val fromAList_optimise = Q.prove(
   `fromAList (optimise p) =
-   map (λ(a,e). (a, HD (compile a [compile_exp e]))) (fromAList p)`,
+   map (λ(a,e). (a, bvl_handle$compile_exp a
+                   (bvl_const$compile_exp e))) (fromAList p)`,
   simp[map_fromAList,optimise_def] >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM,UNCURRY]);
@@ -1766,15 +1961,15 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   let t0 = <| global := SOME 0
             ; ffi := ffi0
             ; clock := k
-            ; code := fromAList (bvi_stubs start kk ++ code);
+            ; code := fromAList (stubs start kk ++ code);
               refs := FEMPTY |+ (0,ValueArray ([Number 1] ++
                              REPLICATE kk (Number 0))) |> in
       evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
-        initial_state ffi0 (fromAList (bvi_stubs start kk ++ code)) (k+1)) =
+        initial_state ffi0 (fromAList (stubs start kk ++ code)) (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
      ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)`,
   srw_tac[][bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
-  srw_tac[][Once bvi_stubs_def] >>
+  srw_tac[][Once stubs_def] >>
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>full_simp_tac(srw_ss())[]>>NO_TAC) >>
   simp[InitGlobals_code_def] >>
   simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def] >>
@@ -1784,7 +1979,7 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   reverse BasicProvers.CASE_TAC >- (
     `F` suffices_by srw_tac[][] >>
     imp_res_tac ALOOKUP_MEM >>
-    full_simp_tac(srw_ss())[bvi_stubs_def] >>
+    full_simp_tac(srw_ss())[stubs_def] >>
     qpat_assum`num_stubs ≤ _`mp_tac >>
     rpt var_eq_tac >> EVAL_TAC ) >>
   BasicProvers.CASE_TAC >- (
@@ -1831,7 +2026,9 @@ val compile_exps_aux_sorted = Q.store_thm("compile_exps_aux_sorted",
 
 val aux_code_installed_sublist = Q.store_thm("aux_code_installed_sublist",
   `∀aux ls.
-    IS_SUBLIST ls (MAP (λ(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux) ∧ ALL_DISTINCT (MAP FST ls) ⇒
+    IS_SUBLIST ls (MAP (λ(k,args,p).
+      (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) aux) ∧
+    ALL_DISTINCT (MAP FST ls) ⇒
     aux_code_installed aux (fromAList ls)`,
   Induct >> simp[aux_code_installed_def] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
@@ -1937,7 +2134,7 @@ val compile_list_imp = Q.prove(
      ∃n0 c aux n1.
      compile_exps n0 [exp] = ([c],aux,n1) ∧
      ALOOKUP code (2 * name + num_stubs) = SOME (arity,c) ∧
-     IS_SUBLIST code (MAP (λ(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux)`,
+     IS_SUBLIST code (MAP (λ(k,args,p). (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) aux)`,
   Induct_on`prog` >> simp[] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
   simp[compile_list_def] >>
@@ -1985,7 +2182,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
              initial_state ffi0 (fromAList prog) k) = (r,s) ∧
    0 < k ∧
    ALL_DISTINCT (MAP FST prog) ∧
-   bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
+   handle_ok (MAP (SND o SND) prog) ∧
    r ≠ Rerr (Rabort Rtype_error)
    ⇒
    ∃ck b2 s2.
@@ -2008,7 +2205,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     conj_tac >- (qexists_tac`kk+1`>>simp[]>>EVAL_TAC) >>
     rpt var_eq_tac >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
-    simp[bvi_stubs_def] >>
+    simp[stubs_def] >>
     IF_CASES_TAC >> simp[] >- (
       `F` suffices_by srw_tac[][] >> pop_assum mp_tac >> EVAL_TAC ) >>
     rpt gen_tac >> strip_tac >>
@@ -2020,11 +2217,11 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     qmatch_assum_rename_tac`compile_exps nn _ = _` >>
     qexists_tac`nn` >> simp[] >>
     reverse conj_tac >- (
-      imp_res_tac ALOOKUP_MEM >>
-      rator_x_assum`bEvery`mp_tac >>
-      simp[Once bEvery_EVERY] >>
-      simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
-      METIS_TAC[] ) >>
+      qpat_assum `handle_ok (MAP (SND ∘ SND) prog)` mp_tac
+      \\ qpat_assum `ALOOKUP prog name = SOME (arity,exp)` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ Induct_on `prog` \\ fs [] \\ Cases \\ fs [] \\ rw [] \\ fs []
+      \\ Cases_on `MAP (SND ∘ SND) prog` \\ fs [handle_ok_def]) >>
     match_mp_tac aux_code_installed_sublist >>
     conj_tac >- (
       full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
@@ -2049,7 +2246,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `compile_prog start n prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
-   bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
+   handle_ok (MAP (SND o SND) prog) ∧
    semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') start' =
@@ -2188,7 +2385,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[compile_prog_def,LET_THM] >>
       pairarg_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-      full_simp_tac(srw_ss())[find_code_def,lookup_fromAList,ALOOKUP_APPEND,bvi_stubs_def] >>
+      full_simp_tac(srw_ss())[find_code_def,lookup_fromAList,ALOOKUP_APPEND,stubs_def] >>
       every_case_tac >> full_simp_tac(srw_ss())[] >>
       TRY(rpt(qpat_assum`_ = _`mp_tac) >> EVAL_TAC >> NO_TAC) >>
       full_simp_tac(srw_ss())[InitGlobals_code_def]) >>
@@ -2294,18 +2491,26 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `compile start n prog = (start', prog', n') ∧
+  `compile start n limit prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
    semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') start' =
    semantics ffi0 (fromAList prog) start`,
-  srw_tac[][compile_def] >>
-  `bEvery GoodHandleLet (MAP (SND o SND) (optimise prog))` by (
-    simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY] >>
-    full_simp_tac(srw_ss())[Once bEvery_EVERY,EVERY_MAP] >> full_simp_tac(srw_ss())[EVERY_MEM] >>
-    simp[bvl_handleTheory.compile_HD_SING] >>
-    simp[bvl_handleProofTheory.compile_GoodHandleLet] ) >>
-  METIS_TAC[optimise_semantics,MAP_FST_optimise,compile_prog_semantics]);
+  srw_tac[][compile_def]
+  \\ drule (GEN_ALL compile_prog_semantics)
+  \\ fs [MAP_FST_optimise,bvl_inlineProofTheory.MAP_FST_compile_prog]
+  \\ disch_then (qspec_then `ffi0` mp_tac)
+  \\ rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ impl_tac THEN1
+   (simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY]
+    \\ qspec_tac (`compile_prog limit.inline_size_limit prog`,`xs`)
+    \\ Induct \\ fs [handle_ok_def]
+    \\ Cases_on
+        `MAP (λx. compile_exp (FST (SND x)) (compile_exp (SND (SND x)))) xs`
+    \\ fs [handle_ok_def]
+    \\ simp[bvl_handleProofTheory.compile_exp_handle_ok])
+  \\ metis_tac [optimise_semantics,
+       bvl_inlineProofTheory.compile_prog_semantics]);
 
 val _ = export_theory();

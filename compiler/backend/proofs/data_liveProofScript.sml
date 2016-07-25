@@ -1,16 +1,16 @@
-open preamble bvp_liveTheory bvpSemTheory bvpPropsTheory;
+open preamble data_liveTheory dataSemTheory dataPropsTheory;
 
-val _ = new_theory"bvp_liveProof";
+val _ = new_theory"data_liveProof";
 
-val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="bvpSem"};
-val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="bvpSem"};
+val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
+val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 
 val SPLIT_PAIR = prove(
   ``!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)``,
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val state_rel_def = Define `
-  state_rel (s1:'ffi bvpSem$state) (t1:'ffi bvpSem$state) (live:num_set) <=>
+  state_rel (s1:'ffi dataSem$state) (t1:'ffi dataSem$state) (live:num_set) <=>
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
@@ -43,12 +43,12 @@ val state_rel_IMP_do_app = prove(
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def]
   \\ every_case_tac >> fs[]
-  \\ `(!n. (bvp_to_bvi (s1 with space := n)) =
-           (bvp_to_bvi (t1 with space := n))) /\
-      (bvp_to_bvi (s1) = (bvp_to_bvi (t1)))` by
-       (fs [bvp_to_bvi_def] \\ NO_TAC)
-  \\ fs [bvi_to_bvp_def]
-  \\ ASM_SIMP_TAC (srw_ss()) [bvpSemTheory.state_component_equality]
+  \\ `(!n. (data_to_bvi (s1 with space := n)) =
+           (data_to_bvi (t1 with space := n))) /\
+      (data_to_bvi (s1) = (data_to_bvi (t1)))` by
+       (fs [data_to_bvi_def] \\ NO_TAC)
+  \\ fs [bvi_to_data_def]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]);
 
 val state_rel_IMP_do_app_err = prove(
@@ -58,12 +58,12 @@ val state_rel_IMP_do_app_err = prove(
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def]
   \\ every_case_tac >> fs[]
-  \\ `(!n. (bvp_to_bvi (s1 with space := n)) =
-           (bvp_to_bvi (t1 with space := n))) /\
-      (bvp_to_bvi (s1) = (bvp_to_bvi (t1)))` by
-       (fs [bvp_to_bvi_def] \\ NO_TAC)
-  \\ fs [bvi_to_bvp_def]
-  \\ ASM_SIMP_TAC (srw_ss()) [bvpSemTheory.state_component_equality]);
+  \\ `(!n. (data_to_bvi (s1 with space := n)) =
+           (data_to_bvi (t1 with space := n))) /\
+      (data_to_bvi (s1) = (data_to_bvi (t1)))` by
+       (fs [data_to_bvi_def] \\ NO_TAC)
+  \\ fs [bvi_to_data_def]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]);
 
 val state_rel_IMP_get_vars = prove(
   ``!args s1 t1 t xs.
@@ -88,7 +88,7 @@ val is_pure_do_app_Rerr_IMP = prove(
 val is_pure_do_app_Rval_IMP = prove(
   ``is_pure op /\ do_app op x s = Rval (q,r) ==> r = s``,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
-  \\ EVAL_TAC \\ every_case_tac \\ fs [bvp_spaceTheory.op_space_req_def]
+  \\ EVAL_TAC \\ every_case_tac \\ fs [data_spaceTheory.op_space_req_def]
   \\ fs [state_component_equality,is_pure_def]);
 
 val evaluate_compile = Q.prove(

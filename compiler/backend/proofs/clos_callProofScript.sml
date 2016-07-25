@@ -218,18 +218,6 @@ val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
 
 (* syntactic properties of compiler *)
 
-val calls_length = Q.store_thm("calls_length",
-  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs`,
-  ho_match_mp_tac calls_ind
-  \\ rw[calls_def] \\ rw[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-val calls_sing = Q.store_thm("calls_sing",
-  `∀x g0 ys g. calls [x] g0 = (ys,g) ⇒ ?y. ys = [y]`,
-  rw [] \\ imp_res_tac calls_length \\ fs []
-  \\ Cases_on `ys` \\ fs [LENGTH_NIL] );
-
 val FST_code_list = Q.store_thm("FST_code_list[simp]",
   `∀loc fns g. FST (code_list loc fns g) = FST g`,
   ho_match_mp_tac code_list_ind

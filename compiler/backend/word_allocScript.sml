@@ -471,12 +471,14 @@ val get_live_def = Define`
       case ret of NONE => args_set
                 | SOME (_,cutset,_) => union cutset args_set)`
 
-(*Dead instruction removal -- Not verified 
+(* Dead instruction removal *)
 val remove_dead_inst_def = Define`
   (remove_dead_inst Skip (live:num_set) = T) ∧
   (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
   (remove_dead_inst (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
   (*Catchall -- for other instructions*)
@@ -510,11 +512,6 @@ val remove_dead_def = Define`
   (remove_dead (Seq s1 s2) live =
     let (s2,s2live) = remove_dead s2 live in
     let (s1,s1live) = remove_dead s1 s2live in
-    if s2 = Skip then
-      (s1,s1live)
-    else if s1 = Skip then
-      (s2,s1live)
-    else
       (Seq s1 s2,s1live)) ∧
   (remove_dead (MustTerminate n s1) live =
     let (s1,s1live) = remove_dead s1 live in
@@ -537,9 +534,8 @@ val remove_dead_def = Define`
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
         SOME(v',FST (remove_dead prog live),l1,l2)) in
-    (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h,args_set)) ∧
+    (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h,live_set)) ∧
   (remove_dead prog live = (prog,get_live prog live))`
-*)
 
 (*Single step immediate writes by a prog*)
 val get_writes_def = Define`

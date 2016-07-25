@@ -65,6 +65,21 @@ val cond_eq_def = Define `
 val cell_def = Define `
   cell l v = one (Mem l v)`
 
+(* A reference cell, as a convenience wrapper over cell and Refv *)
+val REF_def = Define `
+  REF rv xv =
+    SEP_EXISTS loc. cond (rv = Loc loc) * cell loc (Refv xv)`
+
+(* An array cell, as a wrapper over cell and Varray *)
+val ARRAY_def = Define `
+  ARRAY av vl =
+    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (Varray vl)`
+
+(* A bytearray cell, as a wrapper over cell and W8array *)
+val W8ARRAY_def = Define `
+  W8ARRAY av wl =
+    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
+
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
 
@@ -87,7 +102,10 @@ val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 (*                   paren_style = OnlyIfNecessary, *)
 (*                   pp_elements = [TOK "<=", TM, TOK ">"]} *)
 
-val _ = overload_on ("~~>", Term `cell`)
+val _ = overload_on ("~~>>", Term `cell`)
+val _ = add_infix ("~~>>", 690, HOLgrammars.NONASSOC)
+
+val _ = overload_on ("~~>", Term `REF`)
 val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
 
 (*------------------------------------------------------------------*)
@@ -100,6 +118,11 @@ val SPLIT3_of_SPLIT_emp3 = store_thm ("SPLIT3_of_SPLIT_emp3",
 
 val SPLIT3_swap23 = store_thm ("SPLIT3_swap23",
   ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT3 h (h1, h3, h2)``,
+  SPLIT_TAC
+)
+
+val SPLIT_emp1 = store_thm ("SPLIT_emp1",
+  ``!h h'. SPLIT h ({}, h') = (h' = h)``,
   SPLIT_TAC
 )
 
@@ -141,14 +164,14 @@ val SEP_IMP_frame_single_r = store_thm ("SEP_IMP_frame_single_r",
 val SEP_IMP_cell_frame = store_thm ("SEP_IMP_cell_frame",
   ``!H H' l v v'.
      (v = v') /\ (H ==>> H') ==>
-     (H * l ~~> v ==>> H' * l ~~> v')``,
+     (H * l ~~>> v ==>> H' * l ~~>> v')``,
   rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, STAR_def] \\ SPLIT_TAC
 )
 
 val SEP_IMP_cell_frame_single_l = store_thm ("SEP_IMP_cell_frame_single_l",
   ``!H' l v v'.
      (v = v') /\ (emp ==>> H') ==>
-     (l ~~> v ==>> H' * l ~~> v')``,
+     (l ~~>> v ==>> H' * l ~~>> v')``,
   rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
   simp [Once CONJ_COMM] \\ asm_exists_tac \\ SPLIT_TAC
 )
@@ -156,9 +179,94 @@ val SEP_IMP_cell_frame_single_l = store_thm ("SEP_IMP_cell_frame_single_l",
 val SEP_IMP_cell_frame_single_r = store_thm ("SEP_IMP_cell_frame_single_r",
   ``!H l v v'.
      (v = v') /\ (H ==>> emp) ==>
-     (H * l ~~> v ==>> l ~~> v')``,
+     (H * l ~~>> v ==>> l ~~>> v')``,
   rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
   rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_REF_frame = store_thm ("SEP_IMP_REF_frame",
+  ``!H H' r v v'.
+     (v = v') /\ (H ==>> H') ==>
+     (H * r ~~> v ==>> H' * r ~~> v')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, REF_def, cond_def, cell_def, one_def, STAR_def] \\ SPLIT_TAC
+)
+
+val SEP_IMP_REF_frame_single_l = store_thm ("SEP_IMP_REF_frame_single_l",
+  ``!H' r v v'.
+     (v = v') /\ (emp ==>> H') ==>
+     (r ~~> v ==>> H' * r ~~> v')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def] \\
+  fs [one_def, emp_def, STAR_def] \\ rpt strip_tac \\ rw [] \\
+  asm_exists_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_REF_frame_single_r = store_thm ("SEP_IMP_REF_frame_single_r",
+  ``!H r v v'.
+     (v = v') /\ (H ==>> emp) ==>
+     (H * r ~~> v ==>> r ~~> v')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_ARRAY_frame = store_thm ("SEP_IMP_ARRAY_frame",
+  ``!H H' a vl vl'.
+     (vl = vl') /\ (H ==>> H') ==>
+     (H * ARRAY a vl ==>> H' * ARRAY a vl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, ARRAY_def, cond_def, cell_def, one_def, STAR_def] \\
+  SPLIT_TAC
+)
+
+val SEP_IMP_ARRAY_frame_single_l = store_thm ("SEP_IMP_ARRAY_frame_single_l",
+  ``!H' a vl vl'.
+     (vl = vl') /\ (emp ==>> H') ==>
+     (ARRAY a vl ==>> H' * ARRAY a vl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def] \\
+  fs [one_def, emp_def, STAR_def] \\ rpt strip_tac \\ rw [] \\
+  asm_exists_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_ARRAY_frame_single_r = store_thm ("SEP_IMP_ARRAY_frame_single_r",
+  ``!H a vl vl'.
+     (vl = vl') /\ (H ==>> emp) ==>
+     (H * ARRAY a vl ==>> ARRAY a vl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_W8ARRAY_frame = store_thm ("SEP_IMP_W8ARRAY_frame",
+  ``!H H' a wl wl'.
+     (wl = wl') /\ (H ==>> H') ==>
+     (H * W8ARRAY a wl ==>> H' * W8ARRAY a wl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, W8ARRAY_def, cond_def, cell_def, one_def, STAR_def] \\
+  SPLIT_TAC
+)
+
+val SEP_IMP_W8ARRAY_frame_single_l = store_thm (
+  "SEP_IMP_W8ARRAY_frame_single_l",
+  ``!H' a wl wl'.
+     (wl = wl') /\ (emp ==>> H') ==>
+     (W8ARRAY a wl ==>> H' * W8ARRAY a wl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def] \\
+  fs [one_def, emp_def, STAR_def] \\ rpt strip_tac \\ rw [] \\
+  asm_exists_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_W8ARRAY_frame_single_r = store_thm (
+  "SEP_IMP_W8ARRAY_frame_single_r",
+  ``!H a wl wl'.
+     (wl = wl') /\ (H ==>> emp) ==>
+     (H * W8ARRAY a wl ==>> W8ARRAY a wl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
 (*------------------------------------------------------------------*)
@@ -180,15 +288,6 @@ val GC_STAR_GC = store_thm ("GC_STAR_GC",
   THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
   metis_tac []
 )
-
-(*------------------------------------------------------------------*)
-(** Specification predicates for values *)
-
-(* todo *)
-
-val Ref_def = Define `
-  Ref (v: v) (r: v) : hprop =
-    SEP_EXISTS l. cond (r = Loc l) * l ~~> Refv v`
 
 (*------------------------------------------------------------------*)
 (** Extraction from H1 in H1 ==>> H2 *)

@@ -20,10 +20,6 @@ val _ = new_theory "lib"
 
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 
-val _ = Define `
- (el_check n ls = (if n < LENGTH ls then SOME (EL n ls) else NONE))`;
-
-
 (*val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a*)
  val _ = Define `
  (num_fold f a n = (if n = 0 then a else num_fold f (f a) (n -  1)))`;

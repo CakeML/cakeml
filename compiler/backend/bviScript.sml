@@ -4,7 +4,7 @@ val _ = new_theory "bvi";
 
 (* BVI = bytecode-value intermediate language *)
 
-(* BVI is a stepping stone on the way from BVL to BVP. BVI is almost
+(* BVI is a stepping stone on the way from BVL to dataLang. BVI is almost
    identical to BVL. The main differences are:
 
     - The Handle (exception) construct from BVL has been merged into
@@ -15,7 +15,7 @@ val _ = new_theory "bvi";
       stack frame. To keep things simple and uniform, we merge all
       stack-frame creation into the Call construct. Note that BVL and
       BVI have no concept of stack frames. However, the next language,
-      BVP, does have stack frames. BVI is a nice high-level language
+      dataLang, does have stack frames. BVI is a nice high-level language
       where the Handle construct can cleanly be eliminated.
 
     - Each creation of a number constant must only produce constants

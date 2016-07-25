@@ -1,7 +1,11 @@
 open preamble bvlTheory bviTheory;
-local open bvl_inlineTheory bvl_constTheory bvl_handleTheory in end;
+local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataLangTheory in end;
 
 val _ = new_theory "bvl_to_bvi";
+
+val _ = Datatype`
+  config = <| inline_size_limit : num (* zero disables inlining *)
+            |>`;
 
 val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
@@ -54,13 +58,18 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (WF_REL_TAC `measure exp1_size`)
 
 val AllocGlobal_location_def = Define`
-  AllocGlobal_location = 100:num`;
+  AllocGlobal_location = dataLang$num_stubs`;
 val CopyGlobals_location_def = Define`
-  CopyGlobals_location = 101:num`;
+  CopyGlobals_location = AllocGlobal_location+1`;
 val InitGlobals_location_def = Define`
-  InitGlobals_location = 102:num`;
-val num_stubs_def = Define`
-  num_stubs = 103:num`;
+  InitGlobals_location = CopyGlobals_location+1`;
+
+val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
+  ``AllocGlobal_location`` |> EVAL);
+val CopyGlobals_location_eq = save_thm("CopyGlobals_location_eq",
+  ``CopyGlobals_location`` |> EVAL);
+val InitGlobals_location_eq = save_thm("InitGlobals_location_eq",
+  ``InitGlobals_location`` |> EVAL);
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -86,10 +95,13 @@ val InitGlobals_code_def = Define`
                    [Op (Const 1) []])]]
      (Call 0 (SOME start) [] (SOME (Var 0))))`;
 
-val bvi_stubs_def = Define `
-  bvi_stubs start n = [(AllocGlobal_location, AllocGlobal_code);
-                       (CopyGlobals_location, CopyGlobals_code);
-                       (InitGlobals_location, InitGlobals_code start n)]`;
+val stubs_def = Define `
+  stubs start n = [(AllocGlobal_location, AllocGlobal_code);
+                   (CopyGlobals_location, CopyGlobals_code);
+                   (InitGlobals_location, InitGlobals_code start n)]`;
+
+val num_stubs_def = Define`
+  num_stubs = dataLang$num_stubs + 3`;
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -116,9 +128,17 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c3,aux3,n3) = compile_exps n2 [x3] in
        ([If (HD c1) (HD c2) (HD c3)],aux1++aux2++aux3,n3)) /\
   (compile_exps n [Let xs x2] =
-     let (c1,aux1,n1) = compile_exps n xs in
-     let (c2,aux2,n2) = compile_exps n1 [x2] in
-       ([Let c1 (HD c2)], aux1++aux2, n2)) /\
+     if LENGTH xs = 0 (* i.e. a marker *) then
+       let (args,x0) = destLet x2 in
+       let (c1,aux1,n1) = compile_exps n args in
+       let (c2,aux2,n2) = compile_exps n1 [x0] in
+       let n3 = n2 + 1 in
+         ([Call 0 (SOME (num_stubs + 2 * n2 + 1)) c1 NONE],
+          aux1++aux2++[(n2,LENGTH args,HD c2)], n3)
+     else
+       let (c1,aux1,n1) = compile_exps n xs in
+       let (c2,aux2,n2) = compile_exps n1 [x2] in
+         ([Let c1 (HD c2)], aux1++aux2, n2)) /\
   (compile_exps n [Raise x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
        ([Raise (HD c1)], aux1, n1)) /\
@@ -145,7 +165,8 @@ val compile_exps_def = tDefine "compile_exps" `
                | SOME n => SOME (num_stubs + 2 * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-  \\ Cases_on `x1` \\ fs [destLet_def]
+  \\ TRY (Cases_on `x1`) \\ fs [destLet_def]
+  \\ TRY (Cases_on `x2`) \\ fs [destLet_def]
   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
 val compile_exps_ind = theorem"compile_exps_ind";
@@ -168,7 +189,8 @@ val compile_exps_SING = store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (MAP (\(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux ++
+      (MAP (\(k,args,p).
+          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) aux ++
        [(num_stubs + 2 * name,arg_count,HD c)],n1)`
 
 val compile_list_def = Define `
@@ -182,19 +204,18 @@ val compile_prog_def = Define `
   compile_prog start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
-      (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) k ++ code, n1)`;
+      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
-val optimise_def = Define`
+val optimise_def = Define `
   optimise =
   MAP (λ(name,arity,exp).
       (name,arity,
-       HD (bvl_handle$compile arity
-             [bvl_const$compile_exp exp])))
-    (* TODO: let-optimisation, #50 *)`;
+       bvl_handle$compile_exp arity
+         (bvl_const$compile_exp exp)))`;
 
-val compile_def = Define`
-  compile start n prog =
-  (* TODO: inline, #51 *)
-    compile_prog start n (optimise prog)`;
+val compile_def = Define `
+  compile start n c prog =
+    compile_prog start n
+      (optimise (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

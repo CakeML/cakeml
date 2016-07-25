@@ -1,15 +1,10 @@
-open preamble asmTheory;
+open preamble asmTheory stackLangTheory;
 
 val _ = new_theory "wordLang";
 
 (* word lang = structured program with words, stack and memory *)
 
 val _ = Parse.type_abbrev("shift",``:asm$shift``);
-
-val _ = Datatype `
-  store_name =
-    NextFree | EndOfHeap | HeapLength | ProgStart | BitmapBase |
-    CurrHeap | OtherHeap | AllocSize | Globals | Handler `
 
 val _ = Datatype `
   num_exp = Nat num
@@ -56,6 +51,13 @@ val _ = Datatype `
        | Tick
        | LocValue num num num    (* assign v1 := Loc v2 v3 *)
        | FFI num num num num_set (*FFI index, array_ptr, array_len, cut-set*) `;
+
+val num_stubs_def = Define`
+  num_stubs = stackLang$num_stubs + 1 (* raise *)`;
+val raise_stub_location_def = Define`
+  raise_stub_location = wordLang$num_stubs - 1`;
+val raise_stub_location_eq = save_thm("raise_stub_location_eq",
+  EVAL``raise_stub_location``);
 
 (* wordLang uses syntactic invariants compared to stackLang that uses semantic flags
    Some of these are also used to EVAL (e.g. for the oracle)

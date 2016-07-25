@@ -9,7 +9,7 @@ open finite_mapTheory pred_setTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory alistTheory;
 
-open ml_translatorLib ml_translatorTheory mini_preludeTheory;
+open ml_translatorLib ml_translatorTheory mini_preludeLib;
 
 fun std_prelude () = let
 

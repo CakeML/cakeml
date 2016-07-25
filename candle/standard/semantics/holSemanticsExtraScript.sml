@@ -56,6 +56,22 @@ val typesem_tyvars = store_thm("typesem_tyvars",
   rw[] >> rpt AP_TERM_TAC >> rw[MAP_EQ_f] >>
   metis_tac[])
 
+val typesem_consts = store_thm("typesem_consts",
+  ``∀δ τ ty δ'.
+    (∀name args. (Tyapp name args) subtype ty ⇒
+      δ' name = δ name ∨
+      ∃vars. args = MAP Tyvar vars ∧
+             δ' name (MAP τ vars) = δ name (MAP τ vars))
+    ⇒ typesem δ' τ ty = typesem δ τ ty``,
+  ho_match_mp_tac typesem_ind >>
+  conj_tac >- simp[typesem_def] >>
+  rw[] >> simp[typesem_def] >>
+  fs[subtype_Tyapp] >>
+  first_assum(qspecl_then[`name`,`args`]mp_tac) >>
+  impl_tac >- rw[] >> strip_tac >- (
+    rw[] >> AP_TERM_TAC >> simp[MAP_EQ_f] >> metis_tac[] ) >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,typesem_def,ETA_AX])
+
 (* termsem *)
 
 val termsem_typesem = store_thm("termsem_typesem",
@@ -113,6 +129,35 @@ val termsem_typesem = store_thm("termsem_typesem",
   simp[Abbr`vv`] >> disch_then match_mp_tac >>
   Cases_on`v`>> fs[is_valuation_def,is_term_valuation_def] >>
   rw[combinTheory.APPLY_UPDATE_THM] >> rw[])
+
+val termsem_typesem_matchable = store_thm("termsem_typesem_matchable",
+  ``is_set_theory ^mem ⇒
+     ∀sig i tm v δ τ tmenv ty.
+       δ = tyaof i ∧ τ = tyvof v ∧ is_valuation (tysof sig) δ v ∧
+       is_interpretation sig i ∧ is_std_type_assignment δ ∧
+       term_ok sig tm ∧ tmenv = tmsof sig ∧
+       ty = typesem δ τ (typeof tm) ⇒
+       termsem tmenv i v tm <: ty``,
+  PROVE_TAC[termsem_typesem])
+
+val termsem_consts = store_thm("termsem_consts",
+  ``∀tmsig i v tm i'.
+      welltyped tm ∧
+      (∀name ty. VFREE_IN (Const name ty) tm ⇒
+                 instance tmsig i' name ty (tyvof v) =
+                 instance tmsig i name ty (tyvof v)) ∧
+      (∀t. t subterm tm ⇒
+         typesem (tyaof i') (tyvof v) (typeof t) =
+         typesem (tyaof i ) (tyvof v) (typeof t))
+      ⇒
+      termsem tmsig i' v tm = termsem tmsig i v tm``,
+  Induct_on`tm` >> simp[termsem_def] >> rw[]
+  >- (
+    fs[subterm_Comb] >>
+    metis_tac[]) >>
+  simp[termsem_def] >>
+  fsrw_tac[boolSimps.DNF_ss][subterm_Abs] >>
+  rpt AP_TERM_TAC >> simp[FUN_EQ_THM])
 
 val Equalsem =
   is_std_interpretation_def
@@ -626,6 +671,13 @@ val extend_valuation_exists = store_thm("extend_valuation_exists",
     if type_ok tysig ty then tmvof v (x,ty)
     else @m. m <: typesem δ (tyvof v) ty` >>
   rw[] >> metis_tac[typesem_inhabited])
+
+val is_type_valuation_UPDATE_LIST = store_thm("is_type_valuation_UPDATE_LIST",
+  ``∀t ls. is_type_valuation t ∧ EVERY (inhabited o SND) ls ⇒
+           is_type_valuation (t =++ ls)``,
+  rw[is_type_valuation_def,APPLY_UPDATE_LIST_ALOOKUP] >>
+  BasicProvers.CASE_TAC >> rw[] >> imp_res_tac ALOOKUP_MEM >>
+  fs[EVERY_MEM,FORALL_PROD] >> metis_tac[])
 
 (* identity instance *)
 

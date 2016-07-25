@@ -1,9 +1,9 @@
-open preamble bviTheory bvpTheory
-     bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
+open preamble bviTheory dataLangTheory
+     data_simpTheory data_liveTheory data_spaceTheory;
 
-val _ = new_theory "bvi_to_bvp";
+val _ = new_theory "bvi_to_data";
 
-(* compilation from BVI to BVP *)
+(* compilation from BVI to dataLang *)
 
 val op_space_reset_def = Define `
   (op_space_reset Add = T) /\
@@ -115,10 +115,10 @@ val compile_SING_IMP = store_thm("compile_SING_IMP",
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
 
-(* combine bvp optimisations *)
+(* combine dataLang optimisations *)
 
 val optimise_def = Define `
-  optimise prog = bvp_space$compile (simp (FST (bvp_live$compile prog LN)) Skip)`;
+  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)`;
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)

@@ -1,8 +1,8 @@
-open preamble bvp_simpTheory bvpSemTheory;
+open preamble data_simpTheory dataSemTheory;
 
-val _ = new_theory"bvp_simpProof";
+val _ = new_theory"data_simpProof";
 
-val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvpSem"};
+val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
 
 val evaluate_Seq_Skip = prove(
   ``!c s. evaluate (Seq c Skip,s) = evaluate (c,s)``,

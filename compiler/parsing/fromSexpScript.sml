@@ -22,121 +22,11 @@ val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 (* TODO: move*)
 
-val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
-  `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`,
-  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ strip_tac \\ var_eq_tac
-  \\ EVAL_TAC);
-
-val EVERY_isHexDigit_num_to_hex_string = Q.store_thm("EVERY_isHexDigit_num_to_hex_string",
-  `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`,
-  rw[ASCIInumbersTheory.num_to_hex_string_def,ASCIInumbersTheory.n2s_def]
-  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
-  \\ simp[EVERY_MEM]
-  \\ gen_tac\\ strip_tac
-  \\ match_mp_tac isHexDigit_HEX
-  \\ qspecl_then[`16`,`n`]mp_tac numposrepTheory.n2l_BOUND
-  \\ rw[EVERY_MEM]
-  \\ res_tac
-  \\ decide_tac);
-
-val isHexDigit_isPrint = Q.store_thm("isHexDigit_isPrint",
-  `∀x. isHexDigit x ⇒ isPrint x`,
-  EVAL_TAC \\ rw[]);
-
-val num_to_hex_string_length_1 = Q.store_thm("num_to_hex_string_length_1",
-  `∀x. x < 16 ⇒ (LENGTH (num_to_hex_string x) = 1)`,
-  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ strip_tac \\ var_eq_tac
-  \\ EVAL_TAC);
-
-val num_to_hex_string_length_2 = Q.store_thm("num_to_hex_string_length_2",
-  `∀x. 16 ≤ x ∧ x < 256 ⇒ (LENGTH (num_to_hex_string x) = 2)`,
-  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV (RAND_CONV EVAL))
-  \\ strip_tac \\ var_eq_tac \\ pop_assum mp_tac
-  \\ EVAL_TAC);
-
-val num_from_hex_string_length_2 = Q.store_thm("num_from_hex_string_length_2",
-  `num_from_hex_string [d1;d2] < 256`,
-  rw[ASCIInumbersTheory.num_from_hex_string_def,
-     ASCIInumbersTheory.s2n_def,
-     numposrepTheory.l2n_def]
-  \\ qspecl_then[`UNHEX d1`,`16`]mp_tac MOD_LESS
-  \\ impl_tac >- rw[]
-  \\ qspecl_then[`UNHEX d2`,`16`]mp_tac MOD_LESS
-  \\ impl_tac >- rw[]
-  \\ decide_tac);
-
-val num_from_hex_string_leading_0 = Q.store_thm("num_from_hex_string_leading_0",
-  `∀ls. ls ≠ [] ⇒ (num_from_hex_string (#"0" :: ls) = num_from_hex_string ls)`,
-  simp[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def]
-  \\ ho_match_mp_tac SNOC_INDUCT \\ simp[]
-  \\ simp[REVERSE_SNOC]
-  \\ simp[numposrepTheory.l2n_def]
-  \\ rw[]
-  \\ Cases_on`ls` \\ fs[numposrepTheory.l2n_def]
-  \\ EVAL_TAC);
-
-val num_from_hex_string_length_2_less_16 = Q.store_thm("num_from_hex_string_length_2_less_16",
-  `∀h1 h2. isHexDigit h1 ⇒ num_from_hex_string [h1;h2] < 16 ⇒ h1 = #"0"`,
-  rw[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def,
-     numposrepTheory.l2n_def]
-  \\ Cases_on`UNHEX h1 MOD 16` \\ fs[]
-  \\ fs[MOD_EQ_0_DIVISOR]
-  \\ fs[stringTheory.isHexDigit_def]
-  \\ Cases_on`h1` \\ fs[]
-  >- (
-    `MEM (n - 48) (COUNT_LIST (58 - 48))` by simp[MEM_COUNT_LIST]
-    \\ pop_assum mp_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ strip_tac
-    \\ rfs[SUB_RIGHT_EQ]
-    \\ fs[ASCIInumbersTheory.UNHEX_def])
-  >- (
-    `MEM (n - 97) (COUNT_LIST (103 - 97))` by simp[MEM_COUNT_LIST]
-    \\ pop_assum mp_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ strip_tac
-    \\ rfs[SUB_RIGHT_EQ]
-    \\ fs[ASCIInumbersTheory.UNHEX_def]
-    \\ `n = 97` by decide_tac
-    \\ fs[ASCIInumbersTheory.UNHEX_def] )
-  \\ `MEM (n - 65) (COUNT_LIST (71 - 65))` by simp[MEM_COUNT_LIST]
-  \\ pop_assum mp_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ strip_tac
-  \\ rfs[SUB_RIGHT_EQ]
-  \\ fs[ASCIInumbersTheory.UNHEX_def]
-  \\ `n = 65` by decide_tac
-  \\ fs[ASCIInumbersTheory.UNHEX_def] )
-
-val num_from_hex_string_num_to_hex_string = Q.store_thm("num_from_hex_string_num_to_hex_string[simp]",
-  `num_from_hex_string (num_to_hex_string n) = n`,
-  ASCIInumbersTheory.num_hex_string
-  |> SIMP_RULE std_ss [combinTheory.o_DEF,FUN_EQ_THM]
-  |> MATCH_ACCEPT_TAC)
-
 val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
   `(∀x y. f x = f y ⇒ x = y)
    ⇒ ∀o1 o2.
      OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
   strip_tac \\ Cases \\ Cases \\ simp[]);
-
-val OPTION_CHOICE_NONE = Q.store_thm("OPTION_CHOICE_NONE[simp]",
-  `OPTION_CHOICE x NONE = x`,
-  Cases_on`x`>>simp[]);
-
-val OPTION_BIND_OPTION_GUARD = Q.store_thm("OPTION_BIND_OPTION_GUARD",
-  `OPTION_BIND (OPTION_GUARD b) f = if b then f () else NONE`, rw[])
-
-val OPTION_IGNORE_BIND_OPTION_GUARD = Q.store_thm("OPTION_IGNORE_BIND_OPTION_GUARD",
-  `OPTION_IGNORE_BIND (OPTION_GUARD b) f = if b then f else NONE`, rw[])
 
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
@@ -145,7 +35,7 @@ val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   \\ Cases_on`y`\\fs[]);
 
 val FOLDR_SX_CONS_INJ = Q.store_thm("FOLDR_SX_CONS_INJ",
-  `∀l1 l2. FOLDR SX_CONS nil l1 = FOLDR SX_CONS nil l2 ⇒ l1 = l2`,
+  `∀l1 l2. FOLDR SX_CONS nil l1 = FOLDR SX_CONS nil l2 ⇔ l1 = l2`,
   Induct \\ simp[]
   >- ( Induct \\ simp[] )
   \\ gen_tac \\ Induct \\ simp[]);
@@ -183,6 +73,13 @@ val strip_sxcons_SOME_NIL = Q.store_thm("strip_sxcons_SOME_NIL[simp]",
   `strip_sxcons s = SOME [] ⇔ s = nil`,
   rw[Once strip_sxcons_def] >>
   every_case_tac >> simp[])
+
+val strip_sxcons_EQ_CONS = Q.store_thm(
+  "strip_sxcons_EQ_CONS[simp]",
+  `strip_sxcons s = SOME (h::t) ⇔
+     ∃s0. s = SX_CONS h s0 ∧ strip_sxcons s0 = SOME t`,
+  simp[Once strip_sxcons_def] >> every_case_tac >> simp[] >>
+  metis_tac[]);
 
 val type_ind =
   (TypeBase.induction_of``:t``)
@@ -250,16 +147,37 @@ val decode_encode_control = Q.store_thm("decode_encode_control[simp]",
   \\ imp_res_tac num_to_hex_string_length_2
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rfs[]
   \\ rw[] \\ fs[] \\ rw[]
-  \\ simp[OPTION_IGNORE_BIND_OPTION_GUARD]
+  \\ simp[]
   \\ qspec_then`ORD h`strip_assume_tac EVERY_isHexDigit_num_to_hex_string
   \\ rfs[]
+  \\ TRY (EVAL_TAC \\ NO_TAC)
   \\ TRY (pop_assum mp_tac \\ EVAL_TAC \\ NO_TAC)
+  \\ TRY (RULE_ASSUM_TAC (fn th => if th |> concl |> free_vars |> null then
+                                     CONV_RULE EVAL th
+                                   else th) \\ fs[] \\ NO_TAC)
   \\ simp[num_from_hex_string_leading_0]
   \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
-  \\ simp[stringTheory.CHR_ORD]
-  \\ rpt conj_tac
-  \\ TRY (EVAL_TAC \\ NO_TAC));
+  \\ simp[stringTheory.CHR_ORD])
 
+val isHexDigit_alt = prove(
+  ``isHexDigit c ⇔ c ∈ set "0123456789abcdefABCDEF"``,
+  rw[stringTheory.isHexDigit_def, EQ_IMP_THM] >> CONV_TAC EVAL >> simp[]);
+
+val UNHEX_lt16 = prove(
+  ``isHexDigit c ⇒ UNHEX c < 16``,
+  dsimp[isHexDigit_alt, ASCIInumbersTheory.UNHEX_def]);
+
+val isAlpha_isUpper_isLower = Q.store_thm(
+  "isAlpha_isUpper_isLower",
+  `isAlpha c ⇒ (isUpper c ⇎ isLower c)`,
+  simp[isAlpha_def, isUpper_def, isLower_def]);
+
+val isLower_isAlpha = Q.store_thm(
+  "isLower_isAlpha",
+  `isLower c ⇒ isAlpha c`,
+  simp[isLower_def, isAlpha_def]);
+
+open ASCIInumbersTheory numposrepTheory
 val encode_decode_control = Q.store_thm("encode_decode_control",
   `∀ls r. decode_control ls = SOME r ⇒ ls = encode_control r`,
   ho_match_mp_tac (theorem"decode_control_ind")
@@ -268,7 +186,7 @@ val encode_decode_control = Q.store_thm("encode_decode_control",
   \\ pop_assum mp_tac
   \\ reverse(rw[Once decode_control_def])
   >- (
-    fs[OPTION_IGNORE_BIND_OPTION_GUARD]
+    fs[]
     \\ rw[encode_control_def] )
   \\ last_x_assum mp_tac
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -277,38 +195,42 @@ val encode_decode_control = Q.store_thm("encode_decode_control",
     rw[] \\ fs[]
     \\ rw[encode_control_def] )
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ simp[OPTION_IGNORE_BIND_OPTION_GUARD]
   \\ rw[] \\ fs[] \\ rw[] \\ fs[] \\ rw[]
   \\ simp[encode_control_def]
   \\ IF_CASES_TAC
   >- ( fs[stringTheory.isPrint_def] )
   \\ simp[num_from_hex_string_length_2]
-  \\ fs[stringTheory.isHexDigit_def]
-  \\ rpt (match1_tac(mg.aub`ORD c_`,(fn(a,t)=>Cases_on`^(t"c")`\\fs[])))
-  \\ match_tac([mg.au`l_:num ≤ n_`,
-                mg.au`n_:num ≤ h_`],
-               (fn(a,t)=>
-                 `MEM ((^(t"n")) - (^(t"l"))) (COUNT_LIST (SUC (^(t"h")) - (^(t"l"))))`
-                 by simp[MEM_COUNT_LIST]
-                 \\ pop_assum mp_tac
-                 \\ CONV_TAC(LAND_CONV EVAL)))
-  \\ strip_tac \\ fs[SUB_RIGHT_EQ]
-  \\ TRY(match_tac([mg.au`l_:num ≤ n_`,
-                    mg.au`n_:num ≤ l_`],
-               (fn(a,t)=>`^(t"l") = ^(t"n")` by decide_tac)))
-  \\ fs[stringTheory.isPrint_def,stringTheory.isAlpha_def,stringTheory.isLower_def,stringTheory.isUpper_def]
-  \\ match_tac([mg.au`l_:num ≤ n_`,
-                mg.au`n_:num ≤ h_`],
-               (fn(a,t)=>
-                 `MEM ((^(t"n")) - (^(t"l"))) (COUNT_LIST (SUC (^(t"h")) - (^(t"l"))))`
-                 by simp[MEM_COUNT_LIST]
-                 \\ pop_assum mp_tac
-                 \\ CONV_TAC(LAND_CONV EVAL)))
-  \\ strip_tac \\ fs[SUB_RIGHT_EQ]
-  \\ TRY(match_tac([mg.au`l_:num ≤ n_`,
-                    mg.au`n_:num ≤ l_`],
-               (fn(a,t)=>`^(t"l") = ^(t"n")` by decide_tac)))
-  \\ fs[]);
+  \\ simp[num_from_hex_string_def,num_to_hex_string_def]
+  \\ simp[n2s_s2n, UNHEX_lt16, GREATER_DEF] >>
+  qmatch_abbrev_tac `s = _` >>
+  qabbrev_tac `N = s2n 16 UNHEX s` >>
+  Cases_on `N = 0` >> simp[]
+  >- (simp[Abbr`s`, Abbr`N`] >> fs[s2n_def, l2n_def] >>
+      rename1`c1 = #"0" ∧ c2 = #"0"` >>
+      `UNHEX c1 < 16 ∧ UNHEX c2 < 16` by simp[UNHEX_lt16] >>
+      `UNHEX c1 = 0 ∧ UNHEX c2 = 0` by intLib.ARITH_TAC >>
+      conj_tac >| [
+        Q.UNDISCH_THEN `isHexDigit c1` mp_tac,
+        Q.UNDISCH_THEN `isHexDigit c2` mp_tac
+      ] >>
+      simp[isHexDigit_alt] >> strip_tac >> fs[UNHEX_def]) >>
+  Cases_on `N < 16` >> simp[]
+  >- (`LOG 16 N = 0` by simp[logrootTheory.LOG_EQ_0] >>
+      simp[Abbr`s`, LASTN_def, HEX_UNHEX, toUpper_def] >>
+      simp[Abbr`N`] >> fs[s2n_def, l2n_def] >>
+      rename1`16 * UNHEX c1 MOD 16 + UNHEX c2 MOD 16 < 16` >>
+      `UNHEX c1 MOD 16 = 0` by simp[] >>
+      `UNHEX c1 < 16` by simp[UNHEX_lt16] >>
+      `UNHEX c1 = 0` by intLib.ARITH_TAC >>
+      conj_tac
+      >- (Q.UNDISCH_THEN `isHexDigit c1` mp_tac >> simp[isHexDigit_alt] >>
+          strip_tac >> fs[UNHEX_def]) >>
+      metis_tac[isLower_isAlpha, isAlpha_isUpper_isLower]) >>
+  `N < 256`
+    by metis_tac[num_from_hex_string_length_2, num_from_hex_string_def] >>
+  `LOG 16 N = 1` by simp[logrootTheory.LOG_UNIQUE] >>
+  simp[Abbr`s`, Abbr`N`, LASTN_def, HEX_UNHEX, toUpper_def] >>
+  metis_tac[isLower_isAlpha, isAlpha_isUpper_isLower])
 
 val SEXSTR_def = Define`
   SEXSTR s = SX_STR (encode_control s)`;
@@ -1037,7 +959,7 @@ val topsexp_11 = Q.store_thm("topsexp_11[simp]",
   `∀ t1 t2. topsexp t1 = topsexp t2 ⇔ t1 = t2`,
   Induct >> gen_tac >> cases_on `t2`
   \\ rw[topsexp_def,EQ_IMP_THM]
-  \\ imp_res_tac(MP_CANON OPTION_MAP_INJ) \\ fs[]
+  \\ imp_res_tac(MP_CANON OPTION_MAP_INJ)
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
   \\ first_x_assum match_mp_tac \\ rw[]
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
@@ -1100,8 +1022,7 @@ val dstrip_sexp_SEXSTR = Q.store_thm("dstrip_sexp_SEXSTR[simp]",
 
 val strip_sxcons_listsexp = Q.store_thm("strip_sxcons_listsexp[simp]",
   `strip_sxcons (listsexp ls) = SOME ls`,
-  Induct_on`ls`>>rw[listsexp_def,Once strip_sxcons_def] >>
-  fs[listsexp_def])
+  Induct_on`ls`>>rw[listsexp_def] >> simp[GSYM listsexp_def]);
 
 val dstrip_sexp_listsexp = Q.store_thm("dstrip_sexp_listsexp[simp]",
   `(dstrip_sexp (listsexp ls) =
@@ -1252,21 +1173,15 @@ val sexptop_topsexp = Q.store_thm("sexptop_topsexp",
   Cases_on`t` >> simp[topsexp_def,sexptop_def]);
 
 val sexpopt_SOME = Q.store_thm("sexpopt_SOME",
-  `sexpopt f s = SOME opt ⇒ ∃x. s = optsexp x ∧ (case x of NONE => opt = NONE | SOME s => IS_SOME opt ∧ opt = f s)`,
+  `sexpopt f s = SOME opt ⇒
+   ∃x. s = optsexp x ∧
+       (case x of NONE => opt = NONE | SOME s => IS_SOME opt ∧ opt = f s)`,
   rw[sexpopt_def]
   \\ Cases_on`odestSXSYM s` \\ fs[dstrip_sexp_SOME] \\ rw[]
-  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD] \\ rw[]
-  \\ every_case_tac \\ fs[dstrip_sexp_SOME]
+  \\ fs[odestSXSYM_def] \\ simp[EXISTS_OPTION, optsexp_def, listsexp_def]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[] \\ fs[] \\ rw[]
-  \\ fs[odestSXSYM_def]
-  \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ TRY (
-    qexists_tac`NONE` \\ EVAL_TAC
-    \\ Cases_on`s` \\ fs[odestSXSYM_def]
-    \\ NO_TAC)
-  \\ qexists_tac`SOME e1`
-  \\ EVAL_TAC \\ simp[]);
+  \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s` >>
+  fs[odestSXSYM_def, dstrip_sexp_def]);
 
 val listsexp_MAP_EQ_f = Q.store_thm("listsexp_MAP_EQ_f",
   `(∀x. MEM x ls ⇒ f1 x = f2 x) ⇒
@@ -1294,6 +1209,19 @@ val sexppair_SOME = Q.store_thm("sexppair_SOME",
   rw[sexppair_def]
   \\ every_case_tac \\ fs[]);
 
+val OPTION_CHOICE_EQ_SOME = Q.store_thm(
+  "OPTION_CHOICE_EQ_SOME",
+  `OPTION_CHOICE m1 m2 = SOME x ⇔
+    m1 = SOME x ∨ m1 = NONE ∧ m2 = SOME x`,
+  Cases_on `m1` >> simp[]);
+
+val dstrip_sexp_EQ_SOME = Q.store_thm(
+  "dstrip_sexp_EQ_SOME",
+  `dstrip_sexp s = SOME (nm, args) ⇔
+   ∃t. s = SX_CONS (SX_SYM nm) t ∧ strip_sxcons t = SOME args`,
+  Cases_on`s` >> simp[dstrip_sexp_def] >> every_case_tac >>
+  simp[] >> metis_tac[]);
+
 val litsexp_sexplit = Q.store_thm("litsexp_sexplit",
   `∀s l. sexplit s = SOME l ⇒ litsexp l = s`,
   rw[sexplit_def]
@@ -1303,14 +1231,10 @@ val litsexp_sexplit = Q.store_thm("litsexp_sexplit",
     \\ Cases_on`s` \\ fs[odestSXNUM_def] )
   \\ reverse(Cases_on`odestSEXSTR s`) \\ fs[]
   >- ( rw[litsexp_def])
-  \\ pairarg_tac \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ every_case_tac \\ fs[] \\ rw[litsexp_def]
-  \\ fs[dstrip_sexp_SOME]
-  \\ rw[listsexp_def]
+  \\ pairarg_tac
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
-  \\ fs[]
-  \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ fs[OPTION_CHOICE_EQ_SOME, dstrip_sexp_EQ_SOME] >>
+  rw[litsexp_def, listsexp_def]
   \\ Cases_on`e1` \\ fs[odestSXNUM_def]);
 
 val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
@@ -1318,23 +1242,22 @@ val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
   rw[sexpid_def]
   \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[]
-  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ fs[OPTION_CHOICE_EQ_SOME]
   \\ rw[idsexp_def,listsexp_def]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
   \\ fs[]
   \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[]
-  \\ fs[Once strip_sxcons_def]
   \\ every_case_tac \\ fs[]);
 
-val (strip_sxcons_mtac:matcher*mg_tactic) =
-  (mg.a"h"`strip_sxcons _ = SOME _`,
-    (fn(a,t)=>
-     strip_assume_tac(ONCE_REWRITE_RULE[strip_sxcons_def](a"h"))
-     \\ kill_asm(a"h")
-     \\ every_case_tac \\ fs[]
-     \\ rveq))
+val strip_sxcons_NIL = Q.store_thm(
+  "strip_sxcons_NIL[simp]",
+  `strip_sxcons ⦇ ⦈ = SOME []`,
+  simp[Once strip_sxcons_def]);
+
+val strip_sxcons_SXCONS = Q.store_thm(
+  "strip_sxcons_SXCONS[simp]",
+  `strip_sxcons (SX_CONS s1 s2) = lift (CONS s1) (strip_sxcons s2)`,
+  simp[Once strip_sxcons_def]);
 
 val tctorsexp_sexptctor = Q.store_thm("tctorsexp_sexptctor",
   `sexptctor s = SOME t ⇒ tctorsexp t = s`,
@@ -1343,17 +1266,14 @@ val tctorsexp_sexptctor = Q.store_thm("tctorsexp_sexptctor",
   \\ Cases_on`o1` \\ fs[markerTheory.Abbrev_def]
   >- (
     rfs[]
-    \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-    \\ every_case_tac \\ fs[] \\ rw[tctorsexp_def]
-    \\ Cases_on`s` \\ fs[odestSXSYM_def])
+    \\ fs[OPTION_CHOICE_EQ_SOME] \\ rveq
+    \\ rw[tctorsexp_def]
+    \\ Cases_on`s` \\ fs[odestSXSYM_def, dstrip_sexp_def])
   \\ fs[dstrip_sexp_SOME]
-  \\ rveq \\ fs[]
-  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ fs[odestSXSYM_def]
+  \\ rveq \\ fs[odestSXSYM_def]
   \\ rveq
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
   \\ rveq \\ fs[]
-  \\ match1_tac strip_sxcons_mtac
   \\ simp[tctorsexp_def,listsexp_def]
   \\ imp_res_tac idsexp_sexpid_odestSEXSTR
   \\ rw[]);
@@ -1366,23 +1286,21 @@ val typesexp_sexptype = Q.store_thm("typesexp_sexptype",
   \\ rw[Once sexptype_def]
   \\ fs[dstrip_sexp_SOME,PULL_EXISTS]
   \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ rw[typesexp_def]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
-  \\ rw[] \\ fs[] \\ rw[listsexp_def] \\ fs[GSYM listsexp_def]
-  \\ rpt(match1_tac strip_sxcons_mtac)
-  \\ TRY(Cases_on`e1`\\fs[odestSXNUM_def]\\NO_TAC)
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ rename1`guard (nm = "Tvar" ∧ _) _`
+  \\ reverse (Cases_on `nm ∈ {"Tvar"; "Tvar_db"; "Tapp"}`) >- fs[]
+  \\ pop_assum mp_tac >> simp[]
+  \\ strip_tac \\ fs[typesexp_def, listsexp_def]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3, PULL_EXISTS]
+  \\ rw[] \\ fs[]
+  \\ TRY(rename1`odestSXNUM e` \\ Cases_on`e`\\fs[odestSXNUM_def])
+  \\ fs[GSYM listsexp_def]
   \\ imp_res_tac tctorsexp_sexptctor \\ simp[]
   \\ imp_res_tac sexplist_SOME \\ rw[]
   \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rw[]
+  \\ rfs[EL_MAP]
+  \\ rpt strip_tac \\ res_tac
   \\ first_x_assum(MATCH_MP_TAC o MP_CANON)
-  \\ simp[Once strip_sxcons_def]
-  \\ simp[Once strip_sxcons_def]
-  \\ simp[Once strip_sxcons_def]
-  \\ simp[EL_MAP]
   \\ simp[sxMEM_def]
   \\ metis_tac[MEM_EL]);
 
@@ -1392,28 +1310,21 @@ val patsexp_sexppat = Q.store_thm("patsexp_sexppat",
   \\ rw[]
   \\ pop_assum mp_tac
   \\ rw[Once sexppat_def]
-  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ reverse(Cases_on`odestSEXSTR s`) \\ fs[]
-  >- ( rw[patsexp_def] )
+  \\ fs[OPTION_CHOICE_EQ_SOME, patsexp_def]
   \\ pairarg_tac \\ fs[]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ rw[patsexp_def]
+  \\ fs[dstrip_sexp_SOME, OPTION_CHOICE_EQ_SOME] >>
+  rw[patsexp_def, listsexp_def]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
   \\ rw[] \\ fs[]
-  \\ fs[dstrip_sexp_SOME]
-  \\ rw[listsexp_def]
-  \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ imp_res_tac litsexp_sexplit
-  \\ imp_res_tac sexpopt_SOME
+  >- metis_tac[litsexp_sexplit]
   \\ imp_res_tac typesexp_sexptype
-  \\ rveq \\ fs[]
-  >- (
-    Cases_on`x`\\fs[optsexp_def,sexpopt_def,odestSXSYM_def,listsexp_def,dstrip_sexp_SOME]
-    \\ rveq \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-    \\ imp_res_tac idsexp_sexpid_odestSEXSTR )
-  \\ fs[Once strip_sxcons_def]
+  \\ fs[odestSEXSTR_def] \\ rveq
+  \\ imp_res_tac sexpopt_SOME \\ rw[]
   \\ every_case_tac \\ fs[] \\ rw[]
+  \\ fs[optsexp_def, listsexp_def, sexpopt_def, odestSXSYM_def,
+        dstrip_sexp_def]
+  \\ rpt (pairarg_tac >> fs[])
+  \\ simp[idsexp_sexpid_odestSEXSTR]
   \\ imp_res_tac sexplist_SOME \\ rw[]
   \\ rw[listsexp_def] \\ AP_TERM_TAC
   \\ fs[LIST_EQ_REWRITE,EL_MAP]
@@ -1438,54 +1349,71 @@ val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
 
 val expsexp_sexpexp = Q.store_thm("expsexp_sexpexp",
   `∀s e. sexpexp s = SOME e ⇒ expsexp e = s`,
-  ho_match_mp_tac (theorem"sexpexp_ind")
+  ho_match_mp_tac (theorem"sexpexp_ind") >>
+  simp[OPTION_GUARD_EQ_THM, quantHeuristicsTheory.LIST_LENGTH_3, PULL_EXISTS,
+       dstrip_sexp_SOME]
   \\ rpt gen_tac \\ strip_tac \\ gen_tac
-  \\ rw[Once sexpexp_def]
-  \\ pairarg_tac \\ rveq
-  \\ pop_assum mp_tac \\ simp[]
-  \\ full_simp_tac std_ss [PULL_EXISTS]
-  \\ simp[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ rpt (
-    IF_CASES_TAC >|[
-      pop_assum strip_assume_tac \\ rveq
-      \\ rpt (pop_assum mp_tac)
-      \\ CONV_TAC(DEPTH_CONV stringLib.string_EQ_CONV)
-      \\ rw[] \\ fs[],
-      ALL_TAC])
-  \\ rw[expsexp_def]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3,dstrip_sexp_SOME]
-  \\ rveq \\ fs[listsexp_def] \\ fs[GSYM listsexp_def]
-  \\ rpt(match1_tac strip_sxcons_mtac)
-  \\ imp_res_tac litsexp_sexplit
-  \\ imp_res_tac idsexp_sexpid_odestSEXSTR
-  \\ imp_res_tac opsexp_sexpop
-  \\ imp_res_tac sexplist_SOME
-  \\ imp_res_tac sexpopt_SOME
-  \\ imp_res_tac typesexp_sexptype
+  \\ simp[Once sexpexp_def, EXISTS_PROD, dstrip_sexp_EQ_SOME, PULL_EXISTS]
+  \\ rpt gen_tac
+  \\ rename1 `guard (nm = "Raise" ∧ _) _`
+  \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
+                              "App"; "Log"; "If"; "Mat"; "Let"; "Letrec"}`)
+  \\ pop_assum mp_tac
+  \\ simp[]
   \\ rw[]
-  \\ TRY (
-    fs[LIST_EQ_REWRITE,EL_MAP]
-    \\ rw[] \\ rfs[EL_MAP]
-    \\ res_tac
-    \\ imp_res_tac sexppair_SOME
-    \\ imp_res_tac patsexp_sexppat
-    \\ TRY pairarg_tac \\ fs[]
-    \\ imp_res_tac sexppair_SOME
-    \\ imp_res_tac patsexp_sexppat
-    \\ TRY pairarg_tac \\ fs[]
-    \\ first_x_assum (match_mp_tac o MP_CANON)
-    \\ simp[sxMEM_def]
-    \\ metis_tac[MEM_EL] )
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ fs[IS_SOME_EXISTS]
-  \\ imp_res_tac idsexp_sexpid_odestSEXSTR
-  \\ fs[OPTION_APPLY_MAP2,OPTION_APPLY_MAP3]
-  \\ fs[] \\ rveq
-  \\ rw[expsexp_def,listsexp_def]
-  \\ imp_res_tac sexpopt_SOME
-  \\ every_case_tac \\ fs[IS_SOME_EXISTS]
-  \\ rw[] \\ fs[odestSEXSTR_def]
-  \\ imp_res_tac lopsexp_sexplop);
+  \\ simp[expsexp_def]
+  \\ rw[]
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
+  \\ fs[] \\ rw[]
+  \\ fs[listsexp_def] \\ fs[GSYM listsexp_def] \\ rpt conj_tac
+  \\ imp_res_tac typesexp_sexptype
+  >- (imp_res_tac sexplist_SOME \\ rw[]
+      \\ fs[LIST_EQ_REWRITE, EL_MAP]
+      \\ rfs[EL_MAP] \\ gen_tac \\ pairarg_tac \\ strip_tac \\ simp[]
+      \\ res_tac
+      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ conj_tac
+      >- (imp_res_tac patsexp_sexppat \\ rfs[])
+      \\ fs[sxMEM_def]
+      \\ metis_tac[MEM_EL])
+  >- imp_res_tac litsexp_sexplit
+  >- (imp_res_tac sexpopt_SOME \\ rw[] \\ every_case_tac \\ fs[]
+      \\ fs[sexpopt_def, optsexp_def, listsexp_def, odestSXSYM_def,
+            IS_SOME_EXISTS, dstrip_sexp_def] \\ rfs[]
+      \\ fs[strip_sxcons_def]
+      \\ rw[]
+      \\ imp_res_tac idsexp_sexpid_odestSEXSTR)
+  >- (imp_res_tac sexplist_SOME >> rw[] >>
+      fs[LIST_EQ_REWRITE, EL_MAP] >> rfs[EL_MAP, sxMEM_def] >>
+      metis_tac[MEM_EL])
+  >- (imp_res_tac idsexp_sexpid_odestSEXSTR >> metis_tac[])
+  >- (imp_res_tac opsexp_sexpop)
+  >- (imp_res_tac sexplist_SOME >> rw[] >>
+      fs[LIST_EQ_REWRITE, EL_MAP] >> rfs[EL_MAP, sxMEM_def] >>
+      metis_tac[MEM_EL])
+  >- (rfs[] >> fs[Once strip_sxcons_def] >> every_case_tac >> fs[] >>
+      rw[] >> fs[OPTION_APPLY_MAP3] >> rw[] >>
+      simp[expsexp_def, listsexp_def] >> imp_res_tac lopsexp_sexplop)
+  >- (rfs[] >> fs[Once strip_sxcons_def] >> every_case_tac >> fs[] >>
+      rw[] >> fs[OPTION_APPLY_MAP3] >> rw[] >>
+      simp[expsexp_def, listsexp_def])
+  >- (imp_res_tac sexplist_SOME \\ rw[]
+      \\ fs[LIST_EQ_REWRITE, EL_MAP]
+      \\ rfs[EL_MAP] \\ gen_tac \\ pairarg_tac \\ strip_tac \\ simp[]
+      \\ res_tac
+      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ conj_tac
+      >- (imp_res_tac patsexp_sexppat \\ rfs[])
+      \\ fs[sxMEM_def] \\ metis_tac[MEM_EL])
+  >- (rfs[] >> fs[Once strip_sxcons_def] >> every_case_tac >> fs[] >> rw[] >>
+      fs[OPTION_APPLY_MAP3] >> rw[] >> simp[expsexp_def, listsexp_def] >>
+      imp_res_tac sexpopt_SOME >> every_case_tac >> fs[] >> rw[] >>
+      fs[IS_SOME_EXISTS])
+  >- (imp_res_tac sexplist_SOME \\ rw[]
+      \\ fs[LIST_EQ_REWRITE, EL_MAP]
+      \\ rfs[EL_MAP] \\ gen_tac \\ pairarg_tac >> strip_tac >> simp[]
+      \\ res_tac
+      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ rw[]
+      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ rw[]
+      \\ fs[sxMEM_def] \\ metis_tac[MEM_EL]))
 
 val type_defsexp_sexptype_def = Q.store_thm("type_defsexp_sexptype_def",
   `sexptype_def s = SOME x ⇒ type_defsexp x = s`,
@@ -1516,13 +1444,12 @@ val decsexp_sexpdec = Q.store_thm("decsexp_sexpdec",
   \\ pairarg_tac \\ fs[]
   \\ fs[dstrip_sexp_SOME]
   \\ rpt var_eq_tac
-  \\ fs[OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ every_case_tac \\ fs[decsexp_def]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
-  \\ rw[] \\ fs[]
-  \\ rpt(match1_tac strip_sxcons_mtac)
-  \\ fs[OPTION_APPLY_MAP3]
-  \\ rw[decsexp_def]
+  \\ rename1 `guard (nm = _ ∧ _) _`
+  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Dexn"}`
+  \\ fs[]
+  \\ fs[decsexp_def, quantHeuristicsTheory.LIST_LENGTH_3, listsexp_def]
+  \\ rveq \\ fs[OPTION_APPLY_MAP3]
+  \\ rveq \\ rw[decsexp_def]
   \\ rveq \\ fs[listsexp_def] \\ fs[GSYM listsexp_def]
   \\ imp_res_tac patsexp_sexppat
   \\ imp_res_tac expsexp_sexpexp
@@ -1547,10 +1474,8 @@ val specsexp_sexpspec = Q.store_thm("specsexp_sexpspec",
   \\ fs[dstrip_sexp_SOME]
   \\ rw[] \\ fs[]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ fs[OPTION_APPLY_MAP3,OPTION_IGNORE_BIND_OPTION_GUARD]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ fs[OPTION_APPLY_MAP3,quantHeuristicsTheory.LIST_LENGTH_3]
   \\ rw[] \\ fs[]
-  \\ rpt (match1_tac strip_sxcons_mtac)
   \\ rw[specsexp_def,listsexp_def]
   \\ rw[GSYM listsexp_def]
   \\ imp_res_tac typesexp_sexptype
@@ -1562,39 +1487,17 @@ val specsexp_sexpspec = Q.store_thm("specsexp_sexpspec",
 
 val topsexp_sexptop = Q.store_thm("topsexp_sexptop",
   `sexptop s = SOME t ⇒ topsexp t = s`,
-  Cases_on`t` >> simp[topsexp_def,sexptop_def,dstrip_sexp_SOME,PULL_EXISTS] >> rw[] >>
-  fs[OPTION_BIND_OPTION_GUARD,OPTION_IGNORE_BIND_OPTION_GUARD] >>
-  Cases_on`args`>>fs[listTheory.LENGTH_NIL] >>
-  simp[Once listsexp_def] >>
-  fs[Once strip_sxcons_def] >>
-  every_case_tac >> fs[] >> rw[decsexp_sexpdec] >>
-  Cases_on`t`>>fs[] >>
-  fs[Once strip_sxcons_def] >>
-  every_case_tac >> fs[] >>
-  Cases_on`t'`>>fs[]>>
-  fs[Once strip_sxcons_def] >>
-  every_case_tac >> fs[] >>
-  Cases_on`t`>>fsrw_tac[ARITH_ss][] >>
-  rpt var_eq_tac >>
+  Cases_on`t` >> simp[topsexp_def,sexptop_def,dstrip_sexp_SOME,PULL_EXISTS] >>
+  rw[] >>
+  fs[listsexp_def, quantHeuristicsTheory.LIST_LENGTH_3] >> rveq >> fs[] >>
+  rw[decsexp_sexpdec] >> simp[GSYM listsexp_def] >| [
+    imp_res_tac sexpopt_SOME >> every_case_tac >> rw[] >> fs[IS_SOME_EXISTS],
+    ALL_TAC
+  ] >>
   imp_res_tac sexplist_SOME >>
-  rveq
-  \\ imp_res_tac sexpopt_SOME
-  \\ rveq
-  \\ reverse conj_tac
-  >- (
-    AP_TERM_TAC
-    \\ fs[LIST_EQ_REWRITE]
-    \\ rw[] \\ rfs[EL_MAP]
-    \\ metis_tac[decsexp_sexpdec] )
-  \\ every_case_tac \\ fs[]
-  \\ rw[]
-  \\ fs[IS_SOME_EXISTS]
-  \\ imp_res_tac sexplist_SOME
-  \\ rw[]
-  \\ fs[LIST_EQ_REWRITE]
-  \\ rw[] \\ rfs[EL_MAP]
-  \\ fs[EL_MAP]
-  \\ metis_tac[specsexp_sexpspec]);
+  rveq >> simp[] >>
+  fs[LIST_EQ_REWRITE, EL_MAP] >> rfs[EL_MAP] >> rpt strip_tac >> res_tac >>
+  metis_tac[specsexp_sexpspec, decsexp_sexpdec]);
 
 (* valid sexps *)
 

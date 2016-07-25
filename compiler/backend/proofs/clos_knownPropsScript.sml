@@ -20,30 +20,6 @@ val merge_Other = Q.store_thm(
   `merge Other a = Other ∧ merge a Other = Other`,
   Cases_on `a` >> simp[]);
 
-val known_LENGTH = Q.store_thm(
-  "known_LENGTH",
-  `∀es vs g. LENGTH (FST (known es vs g)) = LENGTH es`,
-  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]))
-
-val known_LENGTH_EQ_E = Q.store_thm(
-  "known_LENGTH_EQ_E",
-  `known es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`,
-  metis_tac[FST, known_LENGTH]);
-
-val known_sing = Q.store_thm(
-  "known_sing",
-  `∀e vs g. ∃e' a g'. known [e] vs g = ([(e',a)], g')`,
-  rpt strip_tac >> Cases_on `known [e] vs g` >>
-  rename1 `known [e] vs g = (res,g')` >>
-  qspecl_then [`[e]`, `vs`, `g`] mp_tac known_LENGTH >> simp[] >>
-  Cases_on `res` >> simp[LENGTH_NIL] >> metis_tac[pair_CASES])
-
-val known_sing_EQ_E = Q.store_thm(
-  "known_sing_EQ_E",
-  `∀e vs g0 all g. known [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
-  metis_tac[PAIR_EQ, known_sing]);
-
 val merge_Impossible = Q.store_thm(
   "merge_Impossible[simp]",
   `merge a Impossible = a`,

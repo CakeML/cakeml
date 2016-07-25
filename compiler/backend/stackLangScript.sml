@@ -1,6 +1,11 @@
-open preamble wordLangTheory;
+open preamble asmTheory;
 
 val _ = new_theory "stackLang";
+
+val _ = Datatype `
+  store_name =
+    NextFree | EndOfHeap | HeapLength | ProgStart | BitmapBase |
+    CurrHeap | OtherHeap | AllocSize | Globals | Handler `
 
 val _ = Datatype `
   prog = Skip
@@ -60,5 +65,12 @@ val list_Seq_def = Define `
   (list_Seq [] = Skip) /\
   (list_Seq [x] = x) /\
   (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
+
+val num_stubs_def = Define`
+  num_stubs = 4n`;
+val gc_stub_location_def = Define`
+  gc_stub_location = num_stubs-1`;
+val gc_stub_location_eq = save_thm("gc_stub_location_eq",
+  gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
 
 val _ = export_theory();

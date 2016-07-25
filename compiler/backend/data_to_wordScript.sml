@@ -1,7 +1,7 @@
-open preamble wordLangTheory bvpTheory word_to_wordTheory;
+open preamble wordLangTheory dataLangTheory word_to_wordTheory;
 local open bvl_to_bviTheory in end
 
-val _ = new_theory "bvp_to_word";
+val _ = new_theory "data_to_word";
 
 val _ = Datatype `
   config = <| tag_bits : num (* in each pointer *)
@@ -33,7 +33,7 @@ val tag_mask_def = Define `
       (l-1 '' 2) (~0w:'a word)`
 
 val encode_header_def = Define `
-  encode_header (conf:bvp_to_word$config) tag len =
+  encode_header (conf:data_to_word$config) tag len =
     if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
        tag < dimword (:'a) DIV 16 /\
        len < 2 ** (dimindex (:'a) - 4) /\
@@ -76,7 +76,7 @@ val ptr_bits_def = Define `
      maxout_bits len conf.len_bits 1)`
 
 val real_addr_def = Define `
-  (real_addr (conf:bvp_to_word$config) r): 'a wordLang$exp =
+  (real_addr (conf:data_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
    (* if k <= conf.pad_bits + 1 then
         Op Add [Lookup CurrHeap;
@@ -87,7 +87,7 @@ val real_addr_def = Define `
                   (Nat (shift_length conf))) (Nat k)]`
 
 val real_offset_def = Define `
-  (real_offset (conf:bvp_to_word$config) r): 'a wordLang$exp =
+  (real_offset (conf:data_to_word$config) r): 'a wordLang$exp =
      Op Add [Const bytes_in_word;
              if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)]`
 
@@ -110,8 +110,19 @@ val lookup_word_op_def = Define`
   (lookup_word_op Sub = Carried Sub)`;
 val _ = export_rewrites["lookup_word_op_def"];
 
+val FromList_location_def = Define`
+  FromList_location = wordLang$num_stubs`;
 val RefByte_location_def = Define`
-  RefByte_location = 22n`;
+  RefByte_location = FromList_location+1`;
+val RefArray_location_def = Define`
+  RefArray_location = RefByte_location+1`;
+
+val FromList_location_eq = save_thm("FromList_location_eq",
+  ``FromList_location`` |> EVAL);
+val RefByte_location_eq = save_thm("RefByte_location_eq",
+  ``RefByte_location`` |> EVAL);
+val RefArray_location_eq = save_thm("RefArray_location_eq",
+  ``RefArray_location`` |> EVAL);
 
 val RefByte_code_def = Define`
   (* 0 = return address
@@ -127,7 +138,7 @@ val RefByte_code_def = Define`
     Call NONE (SOME RefByte_location) [2;4;6] NONE])`;
 
 val assign_def = Define `
-  assign (c:bvp_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
+  assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
     case op of
     | Const i =>
@@ -441,29 +452,28 @@ val assign_def = Define `
                             (Nat (shift_length c − shift (:'a)));
                           Const 1w])], l))
        | _ => (Skip,l))
-    (* TODO: semantics of WordShift needs to limit n to the word size
     | WordShift W8 sh n => (case args of
       | [v1] =>
         (Assign (adjust_var dest)
            (case sh of
             | Lsl =>
               Shift Lsr
-                (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10 + n)))
+                (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10 + (MIN n 8))))
                 (Nat (dimindex(:'a) - 10))
             | Lsr =>
               Shift Lsl
-                (Shift Lsr (Var (adjust_var v1)) (Nat (n+2)))
+                (Shift Lsr (Var (adjust_var v1)) (Nat ((MIN n 8)+2)))
                 (Nat 2)
             | Asr =>
               Shift Lsl
                 (Shift Lsr
                    (Shift Asr
                       (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10)))
-                      (Nat n))
+                      (Nat (MIN n 8)))
                    (Nat (dimindex(:'a) - 8)))
                 (Nat 2))
         ,l)
-      | _ => (GiveUp,l)) *)
+      | _ => (GiveUp,l))
     (* TODO: WordShift W64 *)
     (* TODO:
     | WordFromInt => (case args of
@@ -491,7 +501,7 @@ val assign_def = Define `
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
-  comp c (secn:num) (l:num) (p:bvp$prog) =
+  comp c (secn:num) (l:num) (p:dataLang$prog) =
     case p of
     | Skip => (Skip:'a wordLang$prog,l)
     | Tick => (Tick,l)
@@ -532,14 +542,18 @@ val compile_part_def = Define `
 
 val stubs_def = Define`
   stubs (:α) = [
-    (20n,1n,Skip:α wordLang$prog); (* TODO: FromList *)
+    (FromList_location,1n,Skip:α wordLang$prog); (* TODO: FromList *)
     (RefByte_location,3n,RefByte_code);
-    (24n,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
+    (RefArray_location,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
   ]`;
 
+val check_stubs_length = Q.store_thm("check_stubs_length",
+  `wordLang$num_stubs + LENGTH (stubs (:α)) = dataLang$num_stubs`,
+  EVAL_TAC);
+
 val compile_def = Define `
-  compile bvp_conf word_conf asm_conf prog =
-    let p = stubs (:α) ++ MAP (compile_part bvp_conf) prog in
+  compile data_conf word_conf asm_conf prog =
+    let p = stubs (:α) ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
 val _ = export_theory();

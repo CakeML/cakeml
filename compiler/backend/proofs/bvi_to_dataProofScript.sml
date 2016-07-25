@@ -1,25 +1,25 @@
 open preamble
-     bvi_to_bvpTheory
+     bvi_to_dataTheory
      bviSemTheory bviPropsTheory
-     bvpSemTheory bvpPropsTheory
-     bvp_simpProofTheory
-     bvp_liveProofTheory
-     bvp_spaceProofTheory;
+     dataSemTheory dataPropsTheory
+     data_simpProofTheory
+     data_liveProofTheory
+     data_spaceProofTheory;
 
-val _ = new_theory"bvi_to_bvpProof";
+val _ = new_theory"bvi_to_dataProof";
 
 (* value relation *)
 
 val code_rel_def = Define `
-  code_rel bvi_code bvp_code <=>
-    wf bvi_code /\ wf bvp_code /\
-    (domain bvi_code = domain bvp_code) /\
+  code_rel bvi_code data_code <=>
+    wf bvi_code /\ wf data_code /\
+    (domain bvi_code = domain data_code) /\
     !n exp arg_count.
       (lookup n bvi_code = SOME (arg_count,exp)) ==>
-      (lookup n bvp_code = SOME (arg_count,compile_exp arg_count exp))`;
+      (lookup n data_code = SOME (arg_count,compile_exp arg_count exp))`;
 
 val state_rel_def = Define `
-  state_rel (s:'ffi bviSem$state) (t:'ffi bvpSem$state) <=>
+  state_rel (s:'ffi bviSem$state) (t:'ffi dataSem$state) <=>
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
     (s.refs = t.refs) /\
@@ -50,9 +50,9 @@ val find_code_lemma = prove(
   \\ `?t1 t2. a = SNOC t1 t2` by METIS_TAC [SNOC_CASES]
   \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1]);
 
-val do_app_bvp_to_bvi = prove(
+val do_app_data_to_bvi = prove(
   ``(do_app op a s1 = Rval (x0,s2)) /\ state_rel s1 t1 ==>
-    (do_app op a (bvp_to_bvi t1) =
+    (do_app op a (data_to_bvi t1) =
       Rval (x0,s2 with code := map (K ARB) t1.code))``,
   full_simp_tac(srw_ss())[state_rel_def]
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ full_simp_tac(srw_ss())[]
@@ -61,22 +61,22 @@ val do_app_bvp_to_bvi = prove(
   \\ reverse (Cases_on `x`) \\ full_simp_tac(srw_ss())[] THEN1
    (Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[bvp_to_bvi_def,bviSemTheory.state_component_equality]
+    \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality]
     \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[bvp_to_bvi_def,bviSemTheory.state_component_equality]
+    \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality]
     \\ every_case_tac
-    \\ full_simp_tac(srw_ss())[bvp_to_bvi_def,bviSemTheory.state_component_equality])
-  \\ `do_app_aux op a (bvp_to_bvi t1) = SOME NONE` by
+    \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality])
+  \\ `do_app_aux op a (data_to_bvi t1) = SOME NONE` by
    (Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[])
-  \\ `bvi_to_bvl (bvp_to_bvi t1) = bvi_to_bvl s1` by ALL_TAC THEN1
-   (full_simp_tac(srw_ss())[bvi_to_bvl_def,bvp_to_bvi_def,code_rel_def,
+  \\ `bvi_to_bvl (data_to_bvi t1) = bvi_to_bvl s1` by ALL_TAC THEN1
+   (full_simp_tac(srw_ss())[bvi_to_bvl_def,data_to_bvi_def,code_rel_def,
         spt_eq_thm,lookup_map_K,domain_map,
         bvlSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `do_app op a (bvi_to_bvl s1)` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bvl_to_bvi_def,bvp_to_bvi_def,bviSemTheory.state_component_equality]);
+  \\ full_simp_tac(srw_ss())[bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.state_component_equality]);
 
 (* compiler correctness *)
 
@@ -85,7 +85,7 @@ val optimise_correct = Q.store_thm("optimise_correct",
          FST (evaluate (c,s)) <> NONE ==>
          (evaluate (optimise c,s) = evaluate (c,s))`,
   full_simp_tac(srw_ss())[optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
-  \\ METIS_TAC [simp_correct,bvp_liveProofTheory.compile_correct,bvp_spaceProofTheory.compile_correct,FST]);
+  \\ METIS_TAC [simp_correct,data_liveProofTheory.compile_correct,data_spaceProofTheory.compile_correct,FST]);
 
 val compile_RANGE_lemma = prove(
   ``!n env tail live xs.
@@ -145,7 +145,7 @@ val compile_correct = Q.prove(
                   | _ => F)`,
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bviSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [compile_def,bvpSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ FULL_SIMP_TAC std_ss [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
   THEN1 (* NIL *)
     (SRW_TAC [] [var_corr_def]
      \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [NOT_LESS]
@@ -424,19 +424,19 @@ val compile_correct = Q.prove(
       \\ Cases_on `pres` \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[var_corr_def,call_env_def,state_rel_def])
     \\ simp[]
-    \\ IMP_RES_TAC do_app_bvp_to_bvi \\ full_simp_tac(srw_ss())[]
+    \\ IMP_RES_TAC do_app_data_to_bvi \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `op_requires_names op`
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
            cut_state_def,cut_env_def,op_requires_names_def]
-    \\ full_simp_tac(srw_ss())[bvpSemTheory.do_app_def,do_space_def]
+    \\ full_simp_tac(srw_ss())[dataSemTheory.do_app_def,do_space_def]
     \\ simp[]
     \\ full_simp_tac(srw_ss())[get_var_def,set_var_def]
-    \\ full_simp_tac(srw_ss())[call_env_def,bvi_to_bvp_def]
+    \\ full_simp_tac(srw_ss())[call_env_def,bvi_to_data_def]
     \\ full_simp_tac(srw_ss())[state_rel_def]
     \\ IMP_RES_TAC do_app_code \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
     \\ TRY(qmatch_assum_rename_tac`op = FFI _`
-           \\ fs[op_space_reset_def,bvp_spaceTheory.op_space_req_def,bvp_to_bvi_ignore])
+           \\ fs[op_space_reset_def,data_spaceTheory.op_space_req_def,data_to_bvi_ignore])
     THEN1
      (REPEAT STRIP_TAC
       THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
@@ -481,10 +481,10 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[evaluate_def,op_requires_names_def]
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
           cut_state_def,cut_env_def]
-    \\ full_simp_tac(srw_ss())[bvpSemTheory.do_app_def,do_space_def,LET_DEF]
-    \\ IMP_RES_TAC do_app_bvp_to_bvi \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[dataSemTheory.do_app_def,do_space_def,LET_DEF]
+    \\ IMP_RES_TAC do_app_data_to_bvi \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[get_var_def,set_var_def]
-    \\ full_simp_tac(srw_ss())[call_env_def,bvi_to_bvp_def]
+    \\ full_simp_tac(srw_ss())[call_env_def,bvi_to_data_def]
     \\ full_simp_tac(srw_ss())[state_rel_def] \\ IMP_RES_TAC do_app_code
     \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
@@ -560,7 +560,7 @@ val compile_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`n`,`corr`,`tail`,`live`])
     \\ FULL_SIMP_TAC std_ss []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,bvpSemTheory.dec_clock_def,
+    \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dataSemTheory.dec_clock_def,
          get_var_def,state_rel_def,bviSemTheory.dec_clock_def,jump_exc_NONE])
   THEN1 (* Call *)
    (Cases_on `handler` THEN1 (* Call without handler *)
@@ -611,7 +611,7 @@ val compile_correct = Q.prove(
                `GENLIST I (LENGTH args)`,`T`,`[]`]mp_tac)
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dataSemTheory.dec_clock_def,
           bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
           LIST_REL_lookup_fromList,lookup_fromList_outside,jump_exc_NONE,call_env_def,
           funpow_dec_clock_clock])
@@ -628,7 +628,7 @@ val compile_correct = Q.prove(
         \\ Cases_on `pres` \\ full_simp_tac(srw_ss())[] \\ FULL_SIMP_TAC std_ss []
         \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,
-           bviSemTheory.dec_clock_def,bvpSemTheory.dec_clock_def]
+           bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [FUNPOW_dec_clock_code])
       \\ full_simp_tac(srw_ss())[cut_env_def]
       \\ `evaluate ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
@@ -642,7 +642,7 @@ val compile_correct = Q.prove(
            `GENLIST I (LENGTH args)`,`T`,`[]`]mp_tac)
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dataSemTheory.dec_clock_def,
           bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
           LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,
           call_env_def,FUNPOW_dec_clock_code]
@@ -672,7 +672,7 @@ val compile_correct = Q.prove(
        (Cases_on`e`>>full_simp_tac(srw_ss())[]>>
         IMP_RES_TAC jump_exc_IMP
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-           bvpSemTheory.dec_clock_def,bviSemTheory.dec_clock_def]
+           dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def]
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
         \\ full_simp_tac(srw_ss())[FUNPOW_dec_clock_code]
         \\ Cases_on `t2.handler = LENGTH t2.stack` THEN1
@@ -686,7 +686,7 @@ val compile_correct = Q.prove(
          <| stack := t2.stack; locals := env2 |>)` by ALL_TAC THEN1
        (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-             pop_env_def,bvpSemTheory.dec_clock_def,bviSemTheory.dec_clock_def,
+             pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def,
              FUNPOW_dec_clock_code])
       \\ full_simp_tac(srw_ss())[set_var_def,state_rel_def]
       \\ IMP_RES_TAC compile_LESS_EQ
@@ -726,7 +726,7 @@ val compile_correct = Q.prove(
         \\ `k <> n1` by ALL_TAC \\ full_simp_tac(srw_ss())[] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
         \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
       \\ REPEAT (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert,
-                call_env_def,push_env_def,bvpSemTheory.dec_clock_def,
+                call_env_def,push_env_def,dataSemTheory.dec_clock_def,
                 bviSemTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
                  \\ BasicProvers.EVERY_CASE_TAC))
@@ -781,7 +781,7 @@ val compile_correct = Q.prove(
              `GENLIST I (LENGTH args)`,`T`,`[]`] mp_tac)
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dataSemTheory.dec_clock_def,
             bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
             LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,call_env_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
@@ -798,9 +798,9 @@ val compile_correct = Q.prove(
               [`set_var n1 v' t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (full_simp_tac(srw_ss())[var_corr_def,state_rel_def,set_var_def,lookup_insert,get_var_def]
-          \\ full_simp_tac(srw_ss())[jump_exc_def,call_env_def,push_env_def,bvpSemTheory.dec_clock_def]
+          \\ full_simp_tac(srw_ss())[jump_exc_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-          \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
+          \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
           \\ Q.PAT_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
           \\ Q.UNABBREV_TAC `env2` \\ full_simp_tac(srw_ss())[lookup_inter_alt]
           \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set]
@@ -821,16 +821,16 @@ val compile_correct = Q.prove(
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM ADD1, FUNPOW_SUC]
         \\ reverse (Cases_on `q`) \\ full_simp_tac(srw_ss())[] THEN1
          (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
-            push_env_def,bvpSemTheory.dec_clock_def]
+            push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ NTAC 2 (POP_ASSUM MP_TAC)
           \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ full_simp_tac(srw_ss())[])
         \\ Cases_on `res` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
         \\ `(t2'.stack = t2.stack) /\ (t2'.handler = t2.handler)` by ALL_TAC THEN1
          (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
-            push_env_def,bvpSemTheory.dec_clock_def]
+            push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-          \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
+          \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
         \\ Cases_on `tail` \\ full_simp_tac(srw_ss())[evaluate_def]
         THEN1
          (IMP_RES_TAC compile_LENGTH
@@ -851,9 +851,9 @@ val compile_correct = Q.prove(
             \\ `n <= n1` by DECIDE_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[])
           \\ UNABBREV_ALL_TAC
           \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
-            push_env_def,bvpSemTheory.dec_clock_def]
+            push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-          \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
+          \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
           \\ Q.PAT_ASSUM `xxx = t2'.locals` (ASSUME_TAC o GSYM)
           \\ full_simp_tac(srw_ss())[lookup_inter_alt]
           \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set] \\ METIS_TAC [])
@@ -861,7 +861,7 @@ val compile_correct = Q.prove(
         \\ full_simp_tac(srw_ss())[jump_exc_def]
         \\ Cases_on `LASTN (t1.handler + 1) t1.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,bvpSemTheory.dec_clock_def]
+        \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,dataSemTheory.dec_clock_def]
         \\ Cases_on `LASTN (r'.handler + 1) r'.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
       \\ `(res4,r4) = (res,s2)` by ALL_TAC
@@ -873,7 +873,7 @@ val compile_correct = Q.prove(
            `GENLIST I (LENGTH args)`,`T`,`[]`]mp_tac)
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dataSemTheory.dec_clock_def,
           bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
           LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,call_env_def]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
@@ -902,7 +902,7 @@ val compile_correct = Q.prove(
           ; handler := t2.handler |>)` by ALL_TAC THEN1
        (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-           pop_env_def,bvpSemTheory.dec_clock_def,bviSemTheory.dec_clock_def])
+           pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def])
       \\ Cases_on `tail` \\ full_simp_tac(srw_ss())[evaluate_def]
       THEN1 (full_simp_tac(srw_ss())[get_var_def,call_env_def])
       \\ IMP_RES_TAC compile_LESS_EQ
@@ -951,7 +951,7 @@ val compile_correct = Q.prove(
         \\ Cases_on `LASTN (t2.handler + 1) t2.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
       \\ REPEAT (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert,
-                call_env_def,push_env_def,bvpSemTheory.dec_clock_def,
+                call_env_def,push_env_def,dataSemTheory.dec_clock_def,
                 bviSemTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
                  \\ BasicProvers.EVERY_CASE_TAC)));
@@ -973,7 +973,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
 
 val state_rel_dec_clock = Q.prove(
   `state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)`,
-  srw_tac[][state_rel_def,bviSemTheory.dec_clock_def,bvpSemTheory.dec_clock_def])
+  srw_tac[][state_rel_def,bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def])
 
 val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
   `evaluate ([Call 0 (SOME start) [] NONE],[],s1) = (res,s2) ∧
@@ -983,7 +983,7 @@ val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
    ∃r t2.
    evaluate ((Call NONE (SOME start) [] NONE),t1) = (SOME r,t2) ∧
    state_rel s2 t2 ∧ res_list r = res`,
-  srw_tac[][bviSemTheory.evaluate_def,bvpSemTheory.evaluate_def,get_vars_def,find_code_def] >>
+  srw_tac[][bviSemTheory.evaluate_def,dataSemTheory.evaluate_def,get_vars_def,find_code_def] >>
   Cases_on`lookup start s1.code`>>full_simp_tac(srw_ss())[]>>
   qmatch_assum_rename_tac`lookup start s1.code = SOME p` >>
   PairCases_on`p` >>
@@ -1003,14 +1003,14 @@ val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
   disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(equal``state_rel`` o fst o strip_comb)))))) >>
   simp[] >>
   impl_tac >- (
-    simp[lookup_def,bvpSemTheory.dec_clock_def] >>
+    simp[lookup_def,dataSemTheory.dec_clock_def] >>
     full_simp_tac(srw_ss())[jump_exc_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     rpt var_eq_tac >> full_simp_tac(srw_ss())[] ) >>
   strip_tac >>
   simp[call_env_def,fromList_def] >>
   `dec_clock t1 with locals := LN = dec_clock t1` by (
-    EVAL_TAC >> simp[bvpSemTheory.state_component_equality] ) >>
+    EVAL_TAC >> simp[dataSemTheory.state_component_equality] ) >>
   pop_assum SUBST1_TAC >> simp[] >>
   every_case_tac >> full_simp_tac(srw_ss())[]);
 
@@ -1047,7 +1047,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     qx_gen_tac`res`>>srw_tac[][]>>
-    simp[bvpSemTheory.semantics_def] >>
+    simp[dataSemTheory.semantics_def] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       rator_x_assum`bviSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
@@ -1061,9 +1061,9 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     conj_tac >- (
       gen_tac >> strip_tac >> rveq >> simp[] >>
       qmatch_assum_abbrev_tac`bviSem$evaluate (exps,[],ss) = _` >>
-      qmatch_assum_abbrev_tac`bvpSem$evaluate (bxps,bs) = _` >>
+      qmatch_assum_abbrev_tac`dataSem$evaluate (bxps,bs) = _` >>
       qspecl_then[`exps`,`[]`,`ss`]mp_tac bviPropsTheory.evaluate_add_to_clock_io_events_mono >>
-      qspecl_then[`bxps`,`bs`]mp_tac bvpPropsTheory.evaluate_add_clock_io_events_mono >>
+      qspecl_then[`bxps`,`bs`]mp_tac dataPropsTheory.evaluate_add_clock_io_events_mono >>
       simp[bviPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
@@ -1073,12 +1073,12 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           drule compile_prog_evaluate >>
           impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
           strip_tac >>
-          drule bvpPropsTheory.evaluate_add_clock >>
+          drule dataPropsTheory.evaluate_add_clock >>
           impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`bvpSem$evaluate`mp_tac >>
-          drule bvpPropsTheory.evaluate_add_clock >>
+          rator_x_assum`dataSem$evaluate`mp_tac >>
+          drule dataPropsTheory.evaluate_add_clock >>
           impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
@@ -1109,8 +1109,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       fsrw_tac[ARITH_ss][] >>
       reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
-      rator_x_assum`bvpSem$evaluate`mp_tac >>
-      drule bvpPropsTheory.evaluate_add_clock >>
+      rator_x_assum`dataSem$evaluate`mp_tac >>
+      drule dataPropsTheory.evaluate_add_clock >>
       impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>
       ntac 2 strip_tac >> rveq >>
@@ -1124,7 +1124,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     full_simp_tac(srw_ss())[state_rel_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] ) >>
   strip_tac >>
-  simp[bvpSemTheory.semantics_def] >>
+  simp[dataSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     last_x_assum(qspec_then`k`mp_tac) >>
     (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>

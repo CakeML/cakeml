@@ -258,6 +258,16 @@ fun unpack_ml_prog_state th =
   ML_code (unpack_4tuple (unpack_list unpack_thm) (unpack_list unpack_thm)
     (unpack_list unpack_thm) unpack_thm th)
 
+fun clean_state (ML_code (ss,envs,vs,th)) = let
+  fun FIRST_CONJUNCT th = CONJUNCTS th |> hd handle HOL_ERR _ => th
+  fun delete_def def = let
+    val name = def |> SPEC_ALL |> FIRST_CONJUNCT |> SPEC_ALL |> concl
+                   |> dest_eq |> fst |> repeat rator |> dest_const |> fst
+    in Theory.delete_binding (name ^ "_def") end
+  fun dd [] = []
+    | dd [def] = [def]
+    | dd (def::d::defs) = (delete_def d; dd (def::defs))
+  in (ML_code (dd ss,dd envs,tl (dd (TRUTH::vs)),th)) end
 
 (*
 

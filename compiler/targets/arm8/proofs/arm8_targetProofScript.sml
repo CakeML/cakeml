@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 open asmLib arm8_stepLib arm8_targetTheory;
 
-val () = new_theory "arm8_target_correct"
+val () = new_theory "arm8_targetProof"
 
 val () = wordsLib.guess_lengths ()
 

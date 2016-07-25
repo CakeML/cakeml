@@ -1,4 +1,4 @@
-open preamble wordLangTheory sortingTheory;
+open preamble wordLangTheory stackLangTheory sortingTheory;
 
 val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";

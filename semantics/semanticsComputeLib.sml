@@ -146,8 +146,6 @@ val add_lexparse_compset = computeLib.extend_compset
       ,ptree_UQTyop_def
       ,ptree_TypeAbbrevDec_def
       ,ptree_OptTypEqn_def
-      ,safeTL_def
-      ,oHD_def
       ,mk_binop_def
       ,ptree_PbaseList1_def
       ,mkFun_def

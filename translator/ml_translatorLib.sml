@@ -186,7 +186,7 @@ in
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
     in pack_triple pack_vs pack_evals pack_ml_prog_state
-         (!v_thms,!eval_thms,!prog_state) end
+         (!v_thms,!eval_thms,ml_progLib.clean_state (!prog_state)) end
   fun unpack_v_thms th = let
     val unpack_vs = unpack_list (unpack_5tuple unpack_string unpack_term
                                  unpack_thm unpack_thm (unpack_option unpack_string))
@@ -900,7 +900,9 @@ fun define_ref_inv is_exn_type tys = let
         \\ TRY (primCases_on x2)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
         \\ EVAL_TAC
-        \\ REPEAT STRIP_TAC \\ METIS_TAC []))
+        \\ REPEAT STRIP_TAC
+        \\ rpt var_eq_tac \\ every_case_tac \\ EVAL_TAC
+        \\ METIS_TAC []))
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
     val _ = not (can (find_term (fn t => t = rand tm2)) tm1) orelse fail()
@@ -1825,7 +1827,9 @@ fun single_line_def def = let
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
     \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ SRW_TAC [] [LET_THM] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def]
+    \\ SRW_TAC [] [LET_THM]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
     |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
     |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
@@ -2824,9 +2828,17 @@ val (pre,(fname,def,lemma,pre_var)) = hd thms3
 
 (* main translation routines *)
 
+val use_long_names = ref false;
+val pick_name = ref (fn (c:term) => (fail(); ""));
+
 fun get_info def = let
   val (lhs,rhs) = dest_eq (concl def)
-  val fname = repeat rator lhs |> dest_const |> fst |> get_unique_name
+  val c = repeat rator lhs
+  val name = c |> dest_const |> fst
+  val name = if !use_long_names then
+               #Thy (dest_thy_const c) ^ "_" ^ name
+             else name
+  val fname = get_unique_name ((!pick_name) c handle HOL_ERR _ => name)
   in (fname,lhs,rhs,def) end;
 
 fun comma [] = ""

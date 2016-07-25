@@ -1,12 +1,34 @@
-open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
-     int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
-     bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
+open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
+     int_bitwiseTheory data_to_wordPropsTheory finite_mapTheory
+     data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory;
 
-val _ = new_theory "bvp_to_wordProof";
+val _ = new_theory "data_to_wordProof";
 
 (* TODO: move *)
+
+val word_lsl_index = Q.store_thm("word_lsl_index",
+  `i < dimindex(:'a) ⇒
+    (((w:'a word) << n) ' i ⇔ n ≤ i ∧ w ' (i-n))`,
+  rw[word_lsl_def,fcpTheory.FCP_BETA]);
+
+val word_lsr_index = Q.store_thm("word_lsr_index",
+  `i < dimindex(:'a) ⇒
+   (((w:'a word) >>> n) ' i ⇔ i + n < dimindex(:'a) ∧ w ' (i+n))`,
+  rw[word_lsr_def,fcpTheory.FCP_BETA]);
+
+val lsr_lsl = Q.store_thm("lsr_lsl",
+  `∀w n. aligned n w ⇒ (w >>> n << n = w)`,
+  rw[]
+  \\ rw[GSYM WORD_EQ]
+  \\ fs[word_bit_def]
+  \\ rw[word_lsl_index,word_lsr_index]
+  \\ Cases_on`n ≤ x` \\ fs[]
+  \\ fs[aligned_extract]
+  \\ fs[word_extract_def,w2w_def,word_bits_def]
+  \\ last_x_assum(mp_tac o Q.AP_TERM`combin$C $' x`)
+  \\ simp[fcpTheory.FCP_BETA,word_0]);
 
 val word_index_test = store_thm("word_index_test",
   ``n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))``,
@@ -292,7 +314,7 @@ val word_ml_inv_get_vars_IMP = store_thm("word_ml_inv_get_vars_IMP",
   Induct \\ full_simp_tac(srw_ss())[get_vars_def,wordSemTheory.get_vars_def] \\ rpt strip_tac
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac word_ml_inv_get_var_IMP
-  \\ Q.MATCH_ASSUM_RENAME_TAC `bvpSem$get_var h s.locals = SOME x7`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `dataSem$get_var h s.locals = SOME x7`
   \\ Q.MATCH_ASSUM_RENAME_TAC `_ (adjust_var h) _ = SOME x8`
   \\ `word_ml_inv (heap,be,a,sp) limit c refs
         (join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
@@ -415,7 +437,7 @@ val word_full_gc_def = Define `
     in (rs,i1,pa1,m1,c2)`
 
 val word_gc_fun_assum_def = Define `
-  word_gc_fun_assum (conf:bvp_to_word$config) (s:store_name |-> 'a word_loc) <=>
+  word_gc_fun_assum (conf:data_to_word$config) (s:store_name |-> 'a word_loc) <=>
     {Globals; CurrHeap; OtherHeap; HeapLength} SUBSET FDOM s /\
     isWord (s ' OtherHeap) /\
     isWord (s ' CurrHeap) /\
@@ -426,7 +448,7 @@ val word_gc_fun_assum_def = Define `
     shift_length conf < dimindex (:'a)`
 
 val word_gc_fun_def = Define `
-  (word_gc_fun (conf:bvp_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
+  (word_gc_fun (conf:data_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
      let c = word_gc_fun_assum conf s in
      let new = theWord (s ' OtherHeap) in
      let old = theWord (s ' CurrHeap) in
@@ -1107,7 +1129,7 @@ val contains_loc_def = Define `
   contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
 
 val state_rel_thm = Define `
-  state_rel c l1 l2 (s:'ffi bvpSem$state) (t:('a,'ffi) wordSem$state) v1 locs <=>
+  state_rel c l1 l2 (s:'ffi dataSem$state) (t:('a,'ffi) wordSem$state) v1 locs <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
     (t.ffi = s.ffi) /\
     (t.clock = s.clock) /\
@@ -1178,7 +1200,7 @@ val state_rel_init = store_thm("state_rel_init",
     init_store_ok c t.store t.memory t.mdomain ==>
     state_rel c l1 l2 (initial_state ffi code t.clock) (t:('a,'ffi) state) [] []``,
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
-  \\ fs [state_rel_thm,bvpSemTheory.initial_state_def,
+  \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
     join_env_def,lookup_def,the_global_def,
     libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
   \\ `FILTER (λ(n,v). n ≠ 0 ∧ EVEN n)
@@ -1225,7 +1247,7 @@ val state_rel_get_var_IMP = prove(
   ``state_rel c l1 l2 s t v1 locs ==>
     (get_var n s.locals = SOME x) ==>
     ?w. get_var (adjust_var n) t = SOME w``,
-  full_simp_tac(srw_ss())[bvpSemTheory.get_var_def,wordSemTheory.get_var_def]
+  full_simp_tac(srw_ss())[dataSemTheory.get_var_def,wordSemTheory.get_var_def]
   \\ full_simp_tac(srw_ss())[state_rel_def] \\ rpt strip_tac
   \\ `IS_SOME (lookup n s.locals)` by full_simp_tac(srw_ss())[] \\ res_tac
   \\ Cases_on `lookup (adjust_var n) t.locals` \\ full_simp_tac(srw_ss())[]);
@@ -1235,7 +1257,7 @@ val state_rel_get_vars_IMP = prove(
       state_rel c l1 l2 s t [] locs ==>
       (get_vars n s.locals = SOME xs) ==>
       ?ws. get_vars (MAP adjust_var n) t = SOME ws /\ (LENGTH xs = LENGTH ws)``,
-  Induct \\ full_simp_tac(srw_ss())[bvpSemTheory.get_vars_def,wordSemTheory.get_vars_def]
+  Induct \\ full_simp_tac(srw_ss())[dataSemTheory.get_vars_def,wordSemTheory.get_vars_def]
   \\ rpt strip_tac
   \\ Cases_on `get_var h s.locals` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `get_vars n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -1276,9 +1298,9 @@ val mk_loc_def = Define `
 
 val cut_env_IMP_cut_env = prove(
   ``state_rel c l1 l2 s t [] locs /\
-    bvpSem$cut_env r s.locals = SOME x ==>
+    dataSem$cut_env r s.locals = SOME x ==>
     ?y. wordSem$cut_env (adjust_set r) t.locals = SOME y``,
-  full_simp_tac(srw_ss())[bvpSemTheory.cut_env_def,wordSemTheory.cut_env_def]
+  full_simp_tac(srw_ss())[dataSemTheory.cut_env_def,wordSemTheory.cut_env_def]
   \\ full_simp_tac(srw_ss())[adjust_set_def,domain_fromAList,SUBSET_DEF,MEM_MAP,
          PULL_EXISTS,sptreeTheory.domain_lookup,lookup_fromAList] \\ srw_tac[][]
   \\ Cases_on `x' = 0` \\ full_simp_tac(srw_ss())[] THEN1 full_simp_tac(srw_ss())[state_rel_def]
@@ -1419,8 +1441,8 @@ val state_rel_jump_exc = prove(
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
 val get_vars_IMP_LENGTH = prove(
-  ``!x t s. bvpSem$get_vars x s = SOME t ==> LENGTH x = LENGTH t``,
-  Induct \\ full_simp_tac(srw_ss())[bvpSemTheory.get_vars_def] \\ srw_tac[][]
+  ``!x t s. dataSem$get_vars x s = SOME t ==> LENGTH x = LENGTH t``,
+  Induct \\ full_simp_tac(srw_ss())[dataSemTheory.get_vars_def] \\ srw_tac[][]
   \\ every_case_tac \\ res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val lookup_adjust_var_fromList2 = prove(
@@ -1463,12 +1485,12 @@ val state_rel_call_env = prove(
   \\ simp [MATCH_MP ADD_DIV_RWT (DECIDE ``0<2:num``)]
   \\ full_simp_tac(srw_ss())[GSYM ADD1,EL]);
 
-val bvp_get_vars_SNOC_IMP = prove(
-  ``!x2 x. bvpSem$get_vars (SNOC x1 x2) s = SOME x ==>
+val data_get_vars_SNOC_IMP = prove(
+  ``!x2 x. dataSem$get_vars (SNOC x1 x2) s = SOME x ==>
            ?y1 y2. x = SNOC y1 y2 /\
-                   bvpSem$get_var x1 s = SOME y1 /\
-                   bvpSem$get_vars x2 s = SOME y2``,
-  Induct \\ full_simp_tac(srw_ss())[bvpSemTheory.get_vars_def]
+                   dataSem$get_var x1 s = SOME y1 /\
+                   dataSem$get_vars x2 s = SOME y2``,
+  Induct \\ full_simp_tac(srw_ss())[dataSemTheory.get_vars_def]
   \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]) |> SPEC_ALL;
 
 val word_get_vars_SNOC_IMP = prove(
@@ -1499,7 +1521,7 @@ val state_rel_CodePtr = prove(
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES]
   \\ full_simp_tac bool_ss [MAP_SNOC]
-  \\ imp_res_tac bvp_get_vars_SNOC_IMP
+  \\ imp_res_tac data_get_vars_SNOC_IMP
   \\ imp_res_tac word_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ full_simp_tac bool_ss [LAST_SNOC] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def]
@@ -1508,7 +1530,7 @@ val state_rel_CodePtr = prove(
   \\ imp_res_tac word_ml_inv_CodePtr);
 
 val find_code_thm = prove(
-  ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
+  ``!(s:'ffi dataSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
       get_vars args s.locals = SOME x /\
       get_vars (0::MAP adjust_var args) t = SOME (Loc l1 l2::ws) /\
@@ -1534,7 +1556,7 @@ val find_code_thm = prove(
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
-  \\ imp_res_tac bvp_get_vars_SNOC_IMP \\ srw_tac[][]
+  \\ imp_res_tac data_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ imp_res_tac word_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ full_simp_tac bool_ss [GSYM SNOC |> CONJUNCT2]
   \\ full_simp_tac bool_ss [FRONT_SNOC]
@@ -1577,7 +1599,7 @@ val cut_env_adjust_set_lookup_0 = prove(
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[lookup_fromAList,lookup_inter]);
 
 val cut_env_IMP_MEM = prove(
-  ``bvpSem$cut_env s r = SOME x ==>
+  ``dataSem$cut_env s r = SOME x ==>
     (IS_SOME (lookup n x) <=> IS_SOME (lookup n s))``,
   full_simp_tac(srw_ss())[cut_env_def,SUBSET_DEF,domain_lookup]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[lookup_inter] \\ every_case_tac \\ full_simp_tac(srw_ss())[]
@@ -1590,9 +1612,9 @@ val cut_env_IMP_lookup = prove(
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[lookup_inter] \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
 val cut_env_IMP_lookup_EQ = prove(
-  ``bvpSem$cut_env r y = SOME x /\ n IN domain r ==>
+  ``dataSem$cut_env r y = SOME x /\ n IN domain r ==>
     lookup n x = lookup n y``,
-  full_simp_tac(srw_ss())[bvpSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+  full_simp_tac(srw_ss())[dataSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[lookup_inter] \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
 val cut_env_res_IS_SOME_IMP = prove(
@@ -1620,7 +1642,7 @@ val state_rel_call_env_push_env = prove(
       state_rel c l1 l2 s (t:('a,'ffi)wordSem$state) [] locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
-      bvpSem$cut_env r s.locals = SOME x /\
+      dataSem$cut_env r s.locals = SOME x /\
       wordSem$cut_env (adjust_set r) t.locals = SOME y ==>
       state_rel c q l (call_env xs (push_env x (IS_SOME opt) (dec_clock s)))
        (call_env (Loc q l::ws) (push_env y opt (dec_clock t))) []
@@ -1684,16 +1706,16 @@ val state_rel_call_env_push_env = prove(
   \\ full_simp_tac(srw_ss())[unit_some_eq_IS_SOME,IS_SOME_ALOOKUP_EQ,MEM_MAP,EXISTS_PROD]
   \\ srw_tac[][adjust_var_11,adjust_var_DIV_2]
   \\ imp_res_tac MEM_toAList \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bvpSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+  \\ full_simp_tac(srw_ss())[dataSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
   \\ res_tac \\ full_simp_tac(srw_ss())[MEM_toAList]);
 
 val find_code_thm_ret = prove(
-  ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
+  ``!(s:'ffi dataSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code = SOME (ys,prog) /\
-      bvpSem$cut_env r s.locals = SOME x /\
+      dataSem$cut_env r s.locals = SOME x /\
       wordSem$cut_env (adjust_set r) t.locals = SOME y ==>
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
@@ -1716,7 +1738,7 @@ val find_code_thm_ret = prove(
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
-  \\ imp_res_tac bvp_get_vars_SNOC_IMP \\ srw_tac[][]
+  \\ imp_res_tac data_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ imp_res_tac word_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ full_simp_tac bool_ss [GSYM SNOC |> CONJUNCT2]
   \\ full_simp_tac bool_ss [FRONT_SNOC]
@@ -1725,12 +1747,12 @@ val find_code_thm_ret = prove(
   \\ full_simp_tac(srw_ss())[] \\ metis_tac []) |> SPEC_ALL;
 
 val find_code_thm_handler = prove(
-  ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
+  ``!(s:'ffi dataSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code = SOME (ys,prog) /\
-      bvpSem$cut_env r s.locals = SOME x /\
+      dataSem$cut_env r s.locals = SOME x /\
       wordSem$cut_env (adjust_set r) t.locals = SOME y ==>
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
@@ -1754,7 +1776,7 @@ val find_code_thm_handler = prove(
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
-  \\ imp_res_tac bvp_get_vars_SNOC_IMP \\ srw_tac[][]
+  \\ imp_res_tac data_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ imp_res_tac word_get_vars_SNOC_IMP \\ srw_tac[][]
   \\ full_simp_tac bool_ss [GSYM SNOC |> CONJUNCT2]
   \\ full_simp_tac bool_ss [FRONT_SNOC]
@@ -1907,9 +1929,9 @@ val state_rel_lookup_globals = Q.store_thm("state_rel_lookup_globals",
 
 val state_rel_cut_env = store_thm("state_rel_cut_env",
   ``state_rel c l1 l2 s t [] locs /\
-    bvpSem$cut_env names s.locals = SOME x ==>
+    dataSem$cut_env names s.locals = SOME x ==>
     state_rel c l1 l2 (s with locals := x) t [] locs``,
-  full_simp_tac(srw_ss())[state_rel_def,bvpSemTheory.cut_env_def] \\ srw_tac[][]
+  full_simp_tac(srw_ss())[state_rel_def,dataSemTheory.cut_env_def] \\ srw_tac[][]
   THEN1 (full_simp_tac(srw_ss())[lookup_inter] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -1938,7 +1960,7 @@ val state_rel_get_var_RefPtr = Q.store_thm("state_rel_get_var_RefPtr",
    ∃f u. get_var (adjust_var n) t = SOME (Word (get_addr c (FAPPLY f p) u))`,
   rw[]
   \\ imp_res_tac state_rel_get_var_IMP
-  \\ fs[state_rel_def,wordSemTheory.get_var_def,bvpSemTheory.get_var_def]
+  \\ fs[state_rel_def,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
   \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
   \\ drule (GEN_ALL word_ml_inv_lookup)
   \\ disch_then drule
@@ -1970,7 +1992,7 @@ val state_rel_get_var_Block = Q.store_thm("state_rel_get_var_Block",
    ∃w. get_var (adjust_var n) t = SOME (Word w)`,
   rw[]
   \\ imp_res_tac state_rel_get_var_IMP
-  \\ fs[state_rel_def,wordSemTheory.get_var_def,bvpSemTheory.get_var_def]
+  \\ fs[state_rel_def,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
   \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
   \\ drule (GEN_ALL word_ml_inv_lookup)
   \\ disch_then drule
@@ -2057,7 +2079,7 @@ val eval_push_env_T_Raise_IMP_stack_length = prove(
        (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack = LENGTH s.stack``,
   qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`]
-    mp_tac bvpPropsTheory.evaluate_stack_swap
+    mp_tac dataPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dec_clock_def,LASTN_ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
@@ -2080,9 +2102,9 @@ val eval_exc_stack_shorter = prove(
       (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack < LENGTH s.stack``,
   srw_tac[][] \\ qspecl_then [`c`,`call_env ys (push_env x F (dec_clock s))`]
-             mp_tac bvpPropsTheory.evaluate_stack_swap
+             mp_tac dataPropsTheory.evaluate_stack_swap
   \\ full_simp_tac(srw_ss())[] \\ once_rewrite_tac [EQ_SYM_EQ] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bvpSemTheory.jump_exc_def,call_env_def,push_env_def,dec_clock_def]
+  \\ full_simp_tac(srw_ss())[dataSemTheory.jump_exc_def,call_env_def,push_env_def,dec_clock_def]
   \\ qpat_assum `xx = SOME s2` mp_tac
   \\ rpt (pop_assum (K all_tac))
   \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[ADD1]
@@ -2147,10 +2169,10 @@ val state_rel_inc_clock = prove(
   full_simp_tac(srw_ss())[state_rel_def]);
 
 val dec_clock_inc_clock = prove(
-  ``(bvpSem$dec_clock (s with clock := s.clock + 1) = s) /\
+  ``(dataSem$dec_clock (s with clock := s.clock + 1) = s) /\
     (wordSem$dec_clock (t with clock := t.clock + 1) = t)``,
-  full_simp_tac(srw_ss())[bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
-  \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
+  full_simp_tac(srw_ss())[dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
+  \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
   \\ full_simp_tac(srw_ss())[wordSemTheory.state_component_equality])
 
 val word_gc_move_IMP_isWord = prove(
@@ -2532,7 +2554,7 @@ val state_rel_gc = prove(
 val gc_lemma = prove(
   ``let t0 = call_env [Loc l1 l2] (push_env y
         (NONE:(num # 'a wordLang$prog # num # num) option) t) in
-      bvpSem$cut_env names (s:'ffi bvpSem$state).locals = SOME x /\
+      dataSem$cut_env names (s:'ffi dataSem$state).locals = SOME x /\
       state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
       FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
       wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
@@ -2566,7 +2588,7 @@ val gc_lemma = prove(
   \\ pop_assum (qspec_then `s with <| locals := x ; space := 0 |>` mp_tac)
   \\ impl_tac THEN1
    (full_simp_tac(srw_ss())[pop_env_def,push_env_def,call_env_def,
-      bvpSemTheory.state_component_equality])
+      dataSemTheory.state_component_equality])
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -2636,14 +2658,14 @@ val set_var_inc_clock = store_thm("set_var_inc_clock",
   ``set_var n x (inc_clock ck t) = inc_clock ck (set_var n x t)``,
   full_simp_tac(srw_ss())[wordSemTheory.set_var_def,inc_clock_def]);
 
-val do_app = LIST_CONJ [bvpSemTheory.do_app_def,do_space_def,
-  bvp_spaceTheory.op_space_req_def,
-  bvi_to_bvpTheory.op_space_reset_def, bviSemTheory.do_app_def,
+val do_app = LIST_CONJ [dataSemTheory.do_app_def,do_space_def,
+  data_spaceTheory.op_space_req_def,
+  bvi_to_dataTheory.op_space_reset_def, bviSemTheory.do_app_def,
   bviSemTheory.do_app_aux_def, bvlSemTheory.do_app_def]
 
 val alloc_lemma = store_thm("alloc_lemma",
   ``state_rel c l1 l2 s (t:('a,'ffi)wordSem$state) [] locs /\
-    bvpSem$cut_env names s.locals = SOME x /\
+    dataSem$cut_env names s.locals = SOME x /\
     alloc (alloc_size k) (adjust_set names)
         (t with locals := insert 1 (Word (alloc_size k)) t.locals) =
       ((q:'a result option),r) ==>
@@ -2680,7 +2702,7 @@ val alloc_lemma = store_thm("alloc_lemma",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac has_space_state_rel \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac bvpPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
   \\ UNABBREV_ALL_TAC
   \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def,state_rel_def])
@@ -2699,7 +2721,7 @@ val evaluate_GiveUp = store_thm("evaluate_GiveUp",
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
   \\ pop_assum (fn th => fs [th])
   \\ drule (alloc_lemma |> Q.INST [`names`|->`LN`,`k`|->`dimword(:'a)`] |> GEN_ALL)
-  \\ fs [bvpSemTheory.cut_env_def,set_var_def]
+  \\ fs [dataSemTheory.cut_env_def,set_var_def]
   \\ Cases_on `q = SOME NotEnoughSpace` \\ fs []
   \\ CCONTR_TAC \\ fs []
   \\ rpt var_eq_tac
@@ -2713,14 +2735,14 @@ val evaluate_GiveUp = store_thm("evaluate_GiveUp",
 val state_rel_cut_IMP = store_thm("state_rel_cut_IMP",
   ``state_rel c l1 l2 s t [] locs /\ cut_state_opt names_opt s = SOME x ==>
     state_rel c l1 l2 x t [] locs``,
-  Cases_on `names_opt` \\ fs [bvpSemTheory.cut_state_opt_def]
+  Cases_on `names_opt` \\ fs [dataSemTheory.cut_state_opt_def]
   THEN1 (rw [] \\ fs [])
-  \\ fs [bvpSemTheory.cut_state_def]
+  \\ fs [dataSemTheory.cut_state_def]
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_env);
 
 val get_vars_SING = store_thm("get_vars_SING",
-  ``bvpSem$get_vars args s = SOME [w] ==> ?y. args = [y]``,
+  ``dataSem$get_vars args s = SOME [w] ==> ?y. args = [y]``,
   Cases_on `args` \\ fs [get_vars_def]
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `t` \\ fs [get_vars_def]
@@ -2731,8 +2753,8 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val eval_tac = fs [wordSemTheory.evaluate_def,
   wordSemTheory.word_exp_def, wordSemTheory.set_var_def, set_var_def,
-  bvi_to_bvp_def, wordSemTheory.the_words_def,
-  bviSemTheory.bvl_to_bvi_def, bvp_to_bvi_def,
+  bvi_to_data_def, wordSemTheory.the_words_def,
+  bviSemTheory.bvl_to_bvi_def, data_to_bvi_def,
   bviSemTheory.bvi_to_bvl_def,wordSemTheory.mem_load_def,
   wordLangTheory.word_op_def, wordSemTheory.word_sh_def,
   wordLangTheory.num_exp_def]
@@ -2758,7 +2780,7 @@ val memory_rel_get_vars_IMP = prove(
   ``memory_rel c be s.refs sp st m dm
      (join_env s.locals
         (toAList (inter t.locals (adjust_set s.locals))) ++ envs) ∧
-    get_vars n (s:'ffi bvpSem$state).locals = SOME x ∧
+    get_vars n (s:'ffi dataSem$state).locals = SOME x ∧
     get_vars (MAP adjust_var n) (t:('a,'ffi) wordSem$state) = SOME w ⇒
     memory_rel c be s.refs sp st m dm
       (ZIP (x,w) ++
@@ -3240,7 +3262,7 @@ val assign_thm = Q.prove(
     THEN1
      (rpt_drule memory_rel_Word64_IMP \\ strip_tac \\ clean_tac
       \\ pop_assum kall_tac
-      \\ fs[bvpSemTheory.get_vars_def,wordSemTheory.get_vars_def]
+      \\ fs[dataSemTheory.get_vars_def,wordSemTheory.get_vars_def]
       \\ every_case_tac \\ fs[] \\ clean_tac
       \\ fs[assign_def] \\ eval_tac
       \\ simp[wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def,get_addr_and_1_not_0]
@@ -3986,7 +4008,6 @@ val assign_thm = Q.prove(
     \\ `w1 = w2`
     by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
     \\ simp[] )
-  (*
   \\ Cases_on `∃sh n. op = WordShift W8 sh n` \\ fs[] THEN1 (
     imp_res_tac get_vars_IMP_LENGTH
     \\ fs[do_app]
@@ -4011,9 +4032,94 @@ val assign_thm = Q.prove(
     \\ BasicProvers.CASE_TAC \\ eval_tac
     >- (
       IF_CASES_TAC
-      >- (fs[good_dimindex_def] \\ rfs[])
-  )
-  *)
+      >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
+      \\ simp[lookup_insert]
+      \\ conj_tac >- rw[]
+      \\ pop_assum kall_tac
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ qmatch_goalsub_abbrev_tac`Word w`
+      \\ `small_int (:'a) i`
+      by (
+        simp[Abbr`i`,small_int_def,WORD_MUL_LSL]
+        \\ qmatch_goalsub_rename_tac`z * n2w _`
+        \\ Cases_on`z` \\ fs[word_mul_n2w]
+        \\ fs[good_dimindex_def,dimword_def]
+        \\ qmatch_abbrev_tac`a MOD b < d`
+        \\ `b < d` by simp[Abbr`b`,Abbr`d`]
+        \\ qspecl_then[`a`,`b`]mp_tac MOD_LESS
+        \\ (impl_tac >- simp[Abbr`b`])
+        \\ decide_tac )
+      \\ `w = Smallnum i`
+      by (
+        simp[Abbr`w`,Abbr`i`]
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+        \\ cheat )
+      \\ simp[Abbr`w`]
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ simp[]
+      \\ drule memory_rel_tl
+      \\ simp_tac std_ss [GSYM APPEND_ASSOC])
+    >- (
+      IF_CASES_TAC
+      >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
+      \\ simp[lookup_insert]
+      \\ conj_tac >- rw[]
+      \\ pop_assum kall_tac
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ qmatch_goalsub_abbrev_tac`Word w`
+      \\ `small_int (:'a) i`
+      by (
+        simp[Abbr`i`,small_int_def]
+        \\ qmatch_goalsub_rename_tac`z >>> _`
+        \\ Cases_on`z` \\ fs[w2n_lsr]
+        \\ fs[good_dimindex_def,dimword_def]
+        \\ qmatch_abbrev_tac`a DIV b < d`
+        \\ `a < d` by simp[Abbr`a`,Abbr`d`]
+        \\ qspecl_then[`b`,`a`]mp_tac (SIMP_RULE std_ss [PULL_FORALL]DIV_LESS_EQ)
+        \\ (impl_tac >- simp[Abbr`b`])
+        \\ decide_tac )
+      \\ `w = Smallnum i`
+      by (
+        simp[Abbr`w`,Abbr`i`]
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+        \\ simp[GSYM word_mul_n2w]
+        \\ REWRITE_TAC[Once ADD_COMM]
+        \\ REWRITE_TAC[GSYM LSR_ADD]
+        \\ qmatch_goalsub_rename_tac`w2n w`
+        \\ qmatch_goalsub_abbrev_tac`4w * ww`
+        \\ `4w * ww = ww << 2` by simp[WORD_MUL_LSL]
+        \\ pop_assum SUBST_ALL_TAC
+        \\ qspecl_then[`ww`,`2`]mp_tac lsl_lsr
+        \\ Q.ISPEC_THEN`w`assume_tac w2n_lt
+        \\ impl_tac
+        >- ( simp[Abbr`ww`] \\ fs[good_dimindex_def,dimword_def] )
+        \\ disch_then SUBST_ALL_TAC
+        \\ simp[WORD_MUL_LSL]
+        \\ AP_TERM_TAC
+        \\ simp[Abbr`ww`]
+        \\ simp[w2n_lsr]
+        \\ `w2n w < dimword(:'a)`
+        by ( fs[good_dimindex_def,dimword_def] )
+        \\ simp[GSYM n2w_DIV]
+        \\ AP_THM_TAC \\ AP_TERM_TAC
+        \\ rw[MIN_DEF] \\ fs[]
+        \\ simp[LESS_DIV_EQ_ZERO]
+        \\ qmatch_goalsub_rename_tac`2n ** k`
+        \\ `2n ** 8 <= 2 ** k`
+        by ( simp[logrootTheory.LE_EXP_ISO] )
+        \\ `256n ≤ 2 ** k` by metis_tac[EVAL``2n ** 8``]
+        \\ `w2n w < 2 ** k` by decide_tac
+        \\ simp[LESS_DIV_EQ_ZERO] )
+      \\ simp[Abbr`w`]
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ simp[]
+      \\ drule memory_rel_tl
+      \\ simp_tac std_ss [GSYM APPEND_ASSOC])
+    \\ cheat)
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
@@ -4119,9 +4225,9 @@ val assign_thm = Q.prove(
     \\ imp_res_tac get_vars_3_IMP
     \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
           bviPropsTheory.bvl_to_bvi_id,
-          bvi_to_bvp_refs, bvp_to_bvi_refs]
-    \\ fs[GSYM bvi_to_bvp_refs]
-    \\ fs[bvp_to_bvi_def]
+          bvi_to_data_refs, data_to_bvi_refs]
+    \\ fs[GSYM bvi_to_data_refs]
+    \\ fs[data_to_bvi_def]
     \\ fs[state_rel_thm,set_var_def]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule (memory_rel_get_vars_IMP )
@@ -4211,7 +4317,7 @@ val assign_thm = Q.prove(
     \\ strip_tac
     \\ fs[get_vars_def]
     \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ fs[bvp_to_bvi_def]
+    \\ fs[data_to_bvi_def]
     \\ rpt_drule memory_rel_ByteArray_IMP
     \\ strip_tac \\ clean_tac
     \\ first_x_assum(qspec_then`ARB`kall_tac)
@@ -4281,9 +4387,9 @@ val assign_thm = Q.prove(
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
     \\ imp_res_tac get_vars_2_IMP
     \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
-          CONJUNCT2 bvp_to_bvi_refs,
+          CONJUNCT2 data_to_bvi_refs,
           bviPropsTheory.bvl_to_bvi_id,
-          bvp_to_bvi_to_bvp_with_refs]
+          data_to_bvi_to_data_with_refs]
     \\ fs[state_rel_thm,set_var_def]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule (memory_rel_get_vars_IMP)
@@ -4311,8 +4417,8 @@ val assign_thm = Q.prove(
     \\ qmatch_goalsub_abbrev_tac`insert 1 (Word lenw)`
     \\ Cases_on`names_opt`
     >- (
-      fs[bvi_to_bvpTheory.op_requires_names_def,
-         bvi_to_bvpTheory.op_space_reset_def] )
+      fs[bvi_to_dataTheory.op_requires_names_def,
+         bvi_to_dataTheory.op_space_reset_def] )
     \\ fs[]
     \\ cheat)
   \\ Cases_on `op = El` \\ fs [] \\ fs [] \\ clean_tac THEN1
@@ -4361,7 +4467,7 @@ val assign_thm = Q.prove(
     \\ every_case_tac \\ fs []
     \\ rpt var_eq_tac
     \\ fs [assign_def]
-    \\ fs [bvp_to_bvi_def]
+    \\ fs [data_to_bvi_def]
     \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
     \\ fs [state_rel_def]
     \\ fs [the_global_def,libTheory.the_def]
@@ -4379,7 +4485,7 @@ val assign_thm = Q.prove(
     \\ rpt var_eq_tac
     \\ fs [assign_def]
     \\ imp_res_tac get_vars_SING \\ fs []
-    \\ `args <> []` by (strip_tac \\ fs [bvpSemTheory.get_vars_def])
+    \\ `args <> []` by (strip_tac \\ fs [dataSemTheory.get_vars_def])
     \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,Unit_def]
     \\ imp_res_tac state_rel_get_vars_IMP
     \\ Cases_on `ws` \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
@@ -4387,8 +4493,8 @@ val assign_thm = Q.prove(
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
     \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
     \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-           adjust_var_11,libTheory.the_def,set_var_def,bvi_to_bvp_def,
-           wordSemTheory.set_store_def,bvp_to_bvi_def]
+           adjust_var_11,libTheory.the_def,set_var_def,bvi_to_data_def,
+           wordSemTheory.set_store_def,data_to_bvi_def]
     \\ rpt_drule heap_in_memory_store_IMP_UPDATE
     \\ disch_then (qspec_then `h` assume_tac)
     \\ rw [] \\ fs []
@@ -4533,14 +4639,14 @@ val assign_thm = Q.prove(
     fs[do_app] \\ clean_tac
     \\ imp_res_tac get_vars_IMP_LENGTH
     \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ fs[CONJUNCT2 bvi_to_bvp_refs,
-          SYM(CONJUNCT1 bvi_to_bvp_refs),
-          bvp_to_bvi_refs,
+    \\ fs[CONJUNCT2 bvi_to_data_refs,
+          SYM(CONJUNCT1 bvi_to_data_refs),
+          data_to_bvi_refs,
           bviPropsTheory.bvl_to_bvi_with_refs,
           bviPropsTheory.bvl_to_bvi_id,
-          bvp_to_bvi_ffi,
+          data_to_bvi_ffi,
           bviPropsTheory.bvi_to_bvl_to_bvi_with_ffi,
-          bvp_to_bvi_to_bvp_with_ffi]
+          data_to_bvi_to_data_with_ffi]
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
     \\ imp_res_tac state_rel_get_vars_IMP
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
@@ -4578,7 +4684,7 @@ val assign_thm = Q.prove(
       \\ clean_tac
       \\ simp[wordSemTheory.cut_env_def]
       \\ rw[SUBSET_DEF,domain_lookup]
-      \\ fs[bvpSemTheory.cut_env_def]
+      \\ fs[dataSemTheory.cut_env_def]
       \\ clean_tac \\ fs[]
       \\ Cases_on`x=0` >- metis_tac[]
       \\ qmatch_assum_abbrev_tac`lookup x ss = SOME _`
@@ -4617,7 +4723,7 @@ val assign_thm = Q.prove(
     \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
     \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
     \\ conj_tac >- ( simp[adjust_set_def,lookup_fromAList] )
-    \\ fs[bvi_to_bvpTheory.op_requires_names_def]
+    \\ fs[bvi_to_dataTheory.op_requires_names_def]
     \\ Cases_on`names_opt`\\fs[]
     \\ conj_tac
     >- (
@@ -4628,7 +4734,7 @@ val assign_thm = Q.prove(
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
       \\ drule (#1(EQ_IMP_RULE cut_state_eq_some))
       \\ strip_tac \\ clean_tac
-      \\ fs[bvpSemTheory.cut_env_def] \\ clean_tac
+      \\ fs[dataSemTheory.cut_env_def] \\ clean_tac
       \\ fs[lookup_inter_alt,domain_lookup])
     \\ fs[inter_insert_ODD_adjust_set_alt]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -4739,9 +4845,9 @@ val assign_thm = Q.prove(
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
-val bvp_compile_correct = store_thm("bvp_compile_correct",
-  ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
-      (bvpSem$evaluate (prog,s) = (res,s1)) /\
+val data_compile_correct = store_thm("data_compile_correct",
+  ``!prog (s:'ffi dataSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
+      (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs ==>
       ?t1 res1.
@@ -4763,12 +4869,12 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
                 !i. state_rel c l5 l6 (set_var i v s1)
                        (set_var (adjust_var i) w t1) [] ll)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
-  recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
+  recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ srw_tac[][])
   THEN1 (* Move *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var src s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[wordSemTheory.get_vars_def,wordSemTheory.set_vars_def,alist_insert_def]
@@ -4780,7 +4886,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ imp_res_tac word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_insert \\ full_simp_tac(srw_ss())[])
   THEN1 (* Assign *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
                                      b1 /\ b2 /\ x1 = y \/
                                      (b1 ==> ~b2) /\ x2 = y``)
@@ -4800,15 +4906,15 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ Cases_on `names_opt` \\ full_simp_tac(srw_ss())[cut_state_opt_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[cut_state_def,cut_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   THEN1 (* Tick *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ rpt (pop_assum mp_tac)
     \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def] \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
+    \\ full_simp_tac(srw_ss())[state_rel_def,dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
     \\ full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ full_simp_tac(srw_ss())[])
   THEN1 (* MakeSpace *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,
         wordSemTheory.evaluate_def,
         GSYM alloc_size_def,LET_DEF,wordSemTheory.word_exp_def,
         wordLangTheory.word_op_def,wordSemTheory.get_var_imm_def]
@@ -4824,7 +4930,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
       \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
              asmSemTheory.word_cmp_def])
-    \\ Cases_on `bvpSem$cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `dataSem$cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[add_space_def,wordSemTheory.word_exp_def,
          wordSemTheory.get_var_def,wordSemTheory.set_var_def]
@@ -4836,20 +4942,20 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ rpt (disch_then drule)
     \\ rw [] \\ fs [])
   THEN1 (* Raise *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ imp_res_tac state_rel_jump_exc \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][mk_loc_def])
   THEN1 (* Return *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ `get_var 0 t = SOME (Loc l1 l2)` by
           full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.get_var_def]
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.call_env_def,lookup_def,
-           bvpSemTheory.call_env_def,fromList_def,EVAL ``join_env LN []``,
+           dataSemTheory.call_env_def,fromList_def,EVAL ``join_env LN []``,
            EVAL ``toAList (inter (fromList2 []) (insert 0 () LN))``]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
@@ -4858,10 +4964,10 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ match_mp_tac word_ml_inv_rearrange
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   THEN1 (* Seq *)
-   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
+   (once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `comp c n l c1` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `comp c n r c2` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ full_simp_tac(srw_ss())[bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
          (Cases_on `q'' = NONE` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
@@ -4874,7 +4980,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
            \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e` \\ full_simp_tac(srw_ss())[])
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
-      \\ imp_res_tac bvpPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
+      \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ metis_tac []) \\ srw_tac[][]
     \\ qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
@@ -4885,11 +4991,11 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ imp_res_tac eval_NONE_IMP_jump_exc_NONE_EQ
     \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac [])
   THEN1 (* If *)
-   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
+   (once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ fs [LET_DEF]
     \\ pairarg_tac \\ fs [] \\ rename1 `comp c n4 l c1 = (q4,l4)`
     \\ pairarg_tac \\ fs [] \\ rename1 `comp c _ _ _ = (q5,l5)`
-    \\ full_simp_tac(srw_ss())[bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP
     \\ full_simp_tac(srw_ss())[wordSemTheory.get_var_imm_def,
@@ -4907,9 +5013,9 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
       \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]))
   THEN1 (* Call *)
    (`t.clock = s.clock` by fs [state_rel_def]
-    \\ once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
+    \\ once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `ret`
-    \\ full_simp_tac(srw_ss())[bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+    \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def,
            wordSemTheory.add_ret_loc_def,get_vars_inc_clock]
     THEN1 (* ret = NONE *)
      (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]
@@ -4949,7 +5055,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
         imp_res_tac get_vars_IMP_LENGTH>>
         metis_tac[LENGTH_NIL])
       \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
-      \\ Cases_on `bvpSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def]
       \\ full_simp_tac(srw_ss())[]
@@ -4968,7 +5074,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
        (`s1.ffi = r'.ffi` by all_tac \\ full_simp_tac(srw_ss())[]
         \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ full_simp_tac(srw_ss())[set_var_def]
-        \\ imp_res_tac bvpPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
+        \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
         \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[])
       \\ reverse (Cases_on `x'` \\ full_simp_tac(srw_ss())[])
       THEN1 (Cases_on `e` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -4995,7 +5101,7 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
         imp_res_tac get_vars_IMP_LENGTH>>
         metis_tac[LENGTH_NIL])
     \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
-    \\ Cases_on `bvpSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rpt_drule find_code_thm_handler \\ fs []
     \\ disch_then (qspecl_then [`x0`,`n`,`prog1`,`n`,`l`] strip_assume_tac) \\ fs []
@@ -5012,9 +5118,9 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
           (IS_SOME t1.ffi.final_event ⇒ r'.ffi = s1.ffi)` by all_tac
       \\ TRY (imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac bvpPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
+      \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
       \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac bvpPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ metis_tac [])
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] THEN1
      (Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -5049,8 +5155,8 @@ val bvp_compile_correct = store_thm("bvp_compile_correct",
     \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
 
 val compile_correct_lemma = store_thm("compile_correct_lemma",
-  ``!(s:'ffi bvpSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
-      (bvpSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
+  ``!(s:'ffi dataSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+      (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] [] ==>
       ?t1 res1.
@@ -5066,7 +5172,7 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
         | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   rpt strip_tac
-  \\ drule bvp_compile_correct \\ full_simp_tac(srw_ss())[]
+  \\ drule data_compile_correct \\ full_simp_tac(srw_ss())[]
   \\ disch_then drule \\ full_simp_tac(srw_ss())[comp_def]
   \\ strip_tac
   \\ qexists_tac `t1`
@@ -5085,8 +5191,8 @@ val state_rel_ext_def = Define `
       u = t with <|code := l;termdep:=0|>`
 
 val compile_correct = store_thm("compile_correct",
-  ``!x (s:'ffi bvpSem$state) l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
-      (bvpSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
+  ``!x (s:'ffi dataSem$state) l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+      (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
@@ -5135,7 +5241,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) start }`,
   simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
-  simp[bvpSemTheory.semantics_def] >>
+  simp[dataSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
@@ -5144,7 +5250,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     simp[wordSemTheory.semantics_def] >>
     IF_CASES_TAC >- (
       full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-      rator_x_assum`bvpSem$evaluate`kall_tac >>
+      rator_x_assum`dataSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       strip_tac >>
@@ -5169,7 +5275,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
       srw_tac[][extend_with_resource_limit_def] >> full_simp_tac(srw_ss())[] >>
       Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
         Cases_on`r'`>>full_simp_tac(srw_ss())[] >> rveq >>
-        drule(bvpPropsTheory.evaluate_add_clock)>>simp[]>>
+        drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
         disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
         drule(compile_correct)>>simp[]>>
         drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
@@ -5200,7 +5306,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
           (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) (k + k')) = (r,s') ∧
         s'.ffi = s.ffi` by (
           srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-          metis_tac[bvpPropsTheory.evaluate_add_clock_io_events_mono,SND,
+          metis_tac[dataPropsTheory.evaluate_add_clock_io_events_mono,SND,
                     initial_state_with_simp,IS_SOME_EXISTS,initial_state_simp]) >>
       drule compile_correct >> simp[] >>
       simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
@@ -5312,9 +5418,9 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
       qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
       simp[LESS_EQ_EXISTS] >>
       metis_tac[
-        bvpPropsTheory.evaluate_add_clock_io_events_mono,
-        bvpPropsTheory.initial_state_with_simp,
-        bvpPropsTheory.initial_state_simp]) >>
+        dataPropsTheory.evaluate_add_clock_io_events_mono,
+        dataPropsTheory.initial_state_with_simp,
+        dataPropsTheory.initial_state_simp]) >>
     drule build_lprefix_lub_thm >>
     simp[lprefix_lub_def] >> strip_tac >>
     match_mp_tac (GEN_ALL LPREFIX_TRANS) >>
@@ -5343,9 +5449,9 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
       wordPropsTheory.evaluate_add_clock_io_events_mono,
       EVAL``((t:('a,'ffi) wordSem$state) with clock := k).clock``,
       EVAL``((t:('a,'ffi) wordSem$state) with clock := k) with clock := k2``,
-      bvpPropsTheory.evaluate_add_clock_io_events_mono,
-      bvpPropsTheory.initial_state_with_simp,
-      bvpPropsTheory.initial_state_simp]) >>
+      dataPropsTheory.evaluate_add_clock_io_events_mono,
+      dataPropsTheory.initial_state_with_simp,
+      dataPropsTheory.initial_state_simp]) >>
   simp[equiv_lprefix_chain_thm] >>
   unabbrev_all_tac >> simp[PULL_EXISTS] >>
   pop_assum kall_tac >>
@@ -5439,7 +5545,7 @@ val compile_semantics = save_thm("compile_semantics",let
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
 (*TODO: Connect to the wordLang transformations*)
-val bvp_to_word_lab_pres_lem = prove(``
+val data_to_word_lab_pres_lem = prove(``
   ∀c n l p.
   l ≠ 0 ⇒
   let (cp,l') = comp c n l p in
@@ -5473,17 +5579,17 @@ val bvp_to_word_lab_pres_lem = prove(``
 
 open match_goal
 
-val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
-  let (c,p) = compile bvp_conf word_conf asm_conf prog in
+val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
+  let (c,p) = compile data_conf word_conf asm_conf prog in
     MAP FST p = MAP FST (stubs(:α)) ++ MAP FST prog ∧
     EVERY (λn,m,(p:α wordLang$prog).
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
       ALL_DISTINCT labs) p``,
   fs[compile_def]>>
-  qpat_abbrev_tac`bvpp = _ ++ MAP (A B) prog`>>
-  assume_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`bvpp`,`asm_conf`])>>
-  pairarg_tac>>fs[Abbr`bvpp`]>>
+  qpat_abbrev_tac`datap = _ ++ MAP (A B) prog`>>
+  assume_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
+  pairarg_tac>>fs[Abbr`datap`]>>
   fs[EVERY_MEM]>>rw[]
   >-
     (match_mp_tac LIST_EQ>>rw[EL_MAP]>>
@@ -5495,25 +5601,30 @@ val bvp_to_word_compile_lab_pres = store_thm("bvp_to_word_compile_lab_pres",``
     qpat_assum`MAP A B = _` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
     fs[EL_MAP,MEM_EL,FORALL_PROD]>>
     rw[]>>pop_assum(qspec_then`n` assume_tac)>>
-    Cases_on`EL n p`>>Cases_on`r`>>rfs[]>>
+    fs[LIST_REL_EL_EQN,EL_MAP]>>res_tac>>
+    pairarg_tac>>fs[]>>
     Cases_on`n < LENGTH p1` >- (
       fs[Abbr`pp`,EL_APPEND1,Abbr`p1`]
       \\ fs[stubs_def,extract_labels_def]
       \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
                Cases_on`^(t"n")`\\fs[]
-               \\ imp_res_tac prim_recTheory.SUC_LESS)))
-      \\ EVAL_TAC \\ rw[]) >>
+               \\ imp_res_tac prim_recTheory.SUC_LESS)))>>
+      qpat_assum`PERM A B` mp_tac >> simp[extract_labels_def,RefByte_code_def,list_Seq_def])>>
     qpat_assum`n < LENGTH _`assume_tac >>
     qpat_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
-    Cases_on`EL (n - LENGTH p1) prog`>>Cases_on`r`>>fs[compile_part_def]>>
-    Q.SPECL_THEN [`bvp_conf`,`q''`,`1n`,`r''`]assume_tac bvp_to_word_lab_pres_lem>>
-    fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>rw[]>>
-    res_tac>>fs[]>>
-    last_x_assum mp_tac>>
-    simp[LIST_EQ_REWRITE]>>
-    disch_then(qspec_then`n` mp_tac)>>
-    fs[EL_MAP,EL_APPEND2]>>
-    rfs[compile_part_def]);
+    Cases_on`EL (n - LENGTH p1) prog`>>Cases_on`r`>>
+    Q.SPECL_THEN [`data_conf`,`q`,`1n`,`r'`]assume_tac data_to_word_lab_pres_lem>>
+    fs[compile_part_def]>>
+    fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>
+    reverse CONJ_TAC>-
+      metis_tac[ALL_DISTINCT_PERM]>>
+    ntac 3 strip_tac>>
+    first_x_assum(qspec_then`p_1,p_2` mp_tac)>>
+    impl_tac>>simp[]>>
+    imp_res_tac PERM_MEM_EQ>>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum (qspec_then `p_1,p_2` assume_tac)>>fs[MEM_EL,EQ_IMP_THM]>>
+    metis_tac[]);
 
 val _ = export_theory();

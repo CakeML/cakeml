@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib;
 open preamble;
-open terminationTheory inferProgTheory
+open terminationTheory
 open ml_translatorLib ml_translatorTheory;
+open std_preludeTheory;
 
 val _ = new_theory "backend64Prog"
-
-val _ = translation_extends "inferProg";
+val _ = translation_extends "std_prelude";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -18,6 +18,8 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type (ty1::tys) =
       mk_fun_type ty1 (list_mk_fun_type tys)
   | list_mk_fun_type _ = fail()
+
+val _ = register_type ``:lexer_fun$symbol``;
 
 (* translator setup *)
 
@@ -73,11 +75,90 @@ val to_clos_side = prove(``
   simp[(fetch "-" "to_clos_side_def")]>>
   metis_tac[compile_4_side]) |> update_precondition
 
-(*
+(* MTI *)
+val _ = translate(clos_mtiTheory.intro_multi_def)
+
+val intro_multi_side = prove(``
+  ∀a. intro_multi_side a ⇔ T``,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind>>
+  `∀z. intro_multi [z] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    Q.SPEC_THEN `z` mp_tac clos_mtiTheory.intro_multi_sing >>fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "intro_multi_side_def")]>>
+  metis_tac[])|>update_precondition
+
+(* number
 TODO: make this not have to be explicitly translated, probably by renaming it to renumber_code_locs_list_def
 *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
+
+val renumber_code_locs_list_side = prove(``
+  (∀a b. renumber_code_locs_list_side a b ⇔ T) ∧
+  (∀a b. renumber_code_locs_side a b ⇔ T)``,
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind>>rw[]>>
+  simp[Once (fetch"-" "renumber_code_locs_list_side_def")]>>
+  metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
+
+(* known *)
+val _ = translate clos_knownTheory.merge_alt
+
+val num_abs_intro = prove(``
+  ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x``,
+  rw[]>>intLib.COOPER_TAC);
+
+val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
+
+val _ = translate (clos_knownTheory.known_def)
+
+val known_op_side = prove(``
+  ∀a b c. known_op_side a b c ⇔ T``,
+  simp[Once (fetch"-" "known_op_side_def")]>>rw[]>>
+  intLib.COOPER_TAC)
+
+val known_side = prove(``
+  ∀a b c. known_side a b c ⇔ T``,
+  ho_match_mp_tac clos_knownTheory.known_ind>>
+  `∀z a b c. known [z] a b ≠ ([],c)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
+    fs[])>>
+  rw[]>>simp[Once (fetch"-" "known_side_def")]>>
+  metis_tac[FST,PAIR,known_op_side]) |> update_precondition
+
+(* call *)
+
+val _ = translate (clos_callTheory.calls_def)
+
+val free_side = prove(``
+  ∀a. free_side a ⇔ T``,
+  ho_match_mp_tac clos_freeTheory.free_ind>>rw[]>>
+  simp[Once (fetch "-" "free_side_def")]>>rw[]>>
+  CCONTR_TAC>>fs[]>>
+  imp_res_tac clos_freeTheory.free_SING>>fs[]>>
+  metis_tac[]) |> update_precondition
+
+val calls_side = prove(``
+  ∀a b. calls_side a b ⇔ T``,
+  ho_match_mp_tac clos_callTheory.calls_ind>>
+  (*Move from calls proof*)
+  `∀a b c. calls [a] b ≠ ([],c)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_callTheory.calls_sing>>fs[])>>
+  rw[]>> simp[Once (fetch"-" "calls_side_def"),Once (fetch "-" "closed_side_def"),free_side]>>
+  TRY(metis_tac[])>>
+  ntac 2 strip_tac>>
+  simp[LAMBDA_PROD]>> rw[fetch "-" "closed_side_def",free_side]
+  >-
+    metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]
+  >>
+    simp[GSYM LAMBDA_PROD]>>rw[]
+    >- (imp_res_tac clos_callTheory.calls_length>>fs[])
+    >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
+
+(* remove *)
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
+
 val _ = translate (clos_removeTheory.remove_alt)
 
 val remove_side = prove(``
@@ -91,32 +172,135 @@ val remove_side = prove(``
   CCONTR_TAC>>fs[]>>
   imp_res_tac clos_removeTheory.remove_SING>>fs[])|>update_precondition
 
+(* shift *)
+val _ = translate (clos_annotateTheory.shift_def)
+
+val shift_side = prove(``
+  ∀a b c d. shift_side a b c d ⇔ T``,
+  ho_match_mp_tac clos_annotateTheory.shift_ind>>
+  `∀a b c d. shift [a] b c d ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_annotateTheory.shift_SING>>
+    fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "shift_side_def")]>>
+  rw[]>> metis_tac[]) |> update_precondition
+
 val _ = translate (conv64_RHS backendTheory.to_bvl_def)
-(* TODO: bunch of preconditions for to_bvl ones... *)
 
-(* TODO: See above *)
-val _ = translate (bvl_constTheory.compile_exps_def)
+val jumplist_side = prove(``
+  ∀a b. jumplist_side a b ⇔ T``,
+  completeInduct_on`LENGTH (b:bvl$exp list)`>>
+  rw[Once (fetch "-" "jumplist_side_def")]
+  >-
+    (Cases_on`b`>>fs[])
+  >>
+  fs[PULL_FORALL]>>
+  first_assum match_mp_tac>>
+  fs[]
+  >-
+    (Cases_on`x1`>>fs[ADD_DIV_RWT,ADD1])
+  >>
+    `SUC x1 DIV 2 < SUC x1` by
+      fs[]>>
+    simp[]);
+
+val recc_lets_side = prove(``
+  ∀a b c d.
+  c = LENGTH b ⇒
+  recc_lets_side a b c d``,
+  ho_match_mp_tac clos_to_bvlTheory.recc_Lets_ind>>
+  rw[]>>
+  simp[Once (fetch"-" "recc_lets_side_def")]>>
+  Cases_on`b`>>fs[])
+
+val compile_exps_4_side = prove(``
+  ∀a b. compile_exps_4_side a b``,
+  ho_match_mp_tac clos_to_bvlTheory.compile_exps_ind>>
+  `∀a b c. compile_exps [a] b ≠ ([],c)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_to_bvlTheory.compile_exps_SING>>
+    fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "compile_exps_4_side_def")]>>
+  TRY (metis_tac[])>>
+  rw[]
+  >-
+    (fs[fetch"-" "build_recc_lets_side_def"]>>
+    match_mp_tac recc_lets_side>>
+    simp[LENGTH_TL])
+  >>
+  first_x_assum(qspecl_then[`x1`,`x43`,`x41`] assume_tac)>>
+  CCONTR_TAC>>fs[])
+
+val compile_prog_3_side = prove(``
+  ∀x. compile_prog_3_side x ⇔ T``,
+  ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
+  simp[Once (fetch "-" "compile_prog_3_side_def"),compile_exps_4_side])
+
+val to_bvl_side= prove(``
+  ∀a b. to_bvl_side a b ⇔ T``,
+  rw[Once (fetch "-" "to_bvl_side_def"),
+  Once (fetch "-" "compile_5_1_side_def"),
+  Once (fetch "-" "compile_6_side_def"),
+  Once (fetch "-" "compile_7_side_def"),
+  Once (fetch "-" "compile_8_side_def"),
+  Once (fetch "-" "compile_9_side_def")]
+  >-
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_callTheory.calls_sing>>
+    fs[])
+  >-
+    (EVAL_TAC>>simp[jumplist_side])
+  >-
+    simp[compile_prog_3_side]
+  >-
+    (EVAL_TAC>>
+    CCONTR_TAC >> fs[]>>
+    Cases_on`free [v1]`>>
+    imp_res_tac clos_freeTheory.free_SING>>fs[]>>
+    imp_res_tac clos_annotateTheory.shift_SING>>fs[])
+  >-
+    (qpat_abbrev_tac`ls = v6'::A`>>
+    Cases_on`remove ls`>>fs[Abbr`ls`]>>
+    imp_res_tac clos_removeTheory.remove_LENGTH>>
+    simp[])
+  >-
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
+    fs[])
+  >>
+    `∃z. compile v6.clos_conf.do_mti [v5] = [z]` by
+      (Cases_on`v6.clos_conf.do_mti`>>fs[clos_mtiTheory.compile_def]>>
+      metis_tac[clos_mtiTheory.intro_multi_sing])>>
+    ntac 2 (pop_assum mp_tac)>>
+    specl_args_of_then ``renumber_code_locs_list`` (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
+    rw[]>>fs[]>>
+    Cases_on`v10`>>fs[]) |> update_precondition
+
+val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
+
 val _ = translate (conv64_RHS backendTheory.to_bvi_def)
-val _ = translate (bvi_to_bvpTheory.op_requires_names_eqn)
 
+val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
 val _ = translate (COUNT_LIST_compute)
-val _ = translate (bvi_to_bvpTheory.compile_exp_def)
+val _ = translate (bvi_to_dataTheory.compile_exp_def)
 
-val _ = translate (conv64_RHS backendTheory.to_bvp_def)
+val _ = translate (conv64_RHS backendTheory.to_data_def)
 
 (* TODO: more preconditions, possibly do them earlier to avoid a mess *)
 
 (*
-Some bvp-to-word preliminaries
-val _ = translate (bvp_to_wordTheory.adjust_set_def)
+Some data-to-word preliminaries
+val _ = translate (data_to_wordTheory.adjust_set_def)
 
 val _ = translate (conv64_RHS word_2comp_def)
-val _ = translate (conv64_RHS bvp_to_wordTheory.GiveUp_def)
-(* val _ = translate (conv64_RHS bvp_to_wordTheory.make_header_def) *)
+val _ = translate (conv64_RHS data_to_wordTheory.GiveUp_def)
+(* val _ = translate (conv64_RHS data_to_wordTheory.make_header_def) *)
 val _ = translate (conv64_RHS word_extract_def|>INST_TYPE[beta|->``:64``])
 
 val _ = translate (conv64_RHS word_slice_def)
-val def = (conv64_RHS bvp_to_wordTheory.tag_mask_def)
+val def = (conv64_RHS data_to_wordTheory.tag_mask_def)
 *)
 
 val _ = export_theory();

@@ -3,14 +3,15 @@ open preamble
      stackLangTheory
      stackSemTheory
      stackPropsTheory
-     bvp_to_wordPropsTheory
-     bvp_to_wordProofTheory
+     data_to_wordPropsTheory
+     data_to_wordProofTheory
      local open blastLib in end
 
-     (* TODO: the bvp_to_word* are possibly only for lemmas that should be moved anyway *)
+     (* TODO: the data_to_word* are possibly only for lemmas that should be moved anyway *)
 
 val _ = new_theory"stack_allocProof";
 
+val _ = bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
 (* TODO: move *)
 
 val SUBMAP_DRESTRICT = Q.store_thm("SUBMAP_DRESTRICT",
@@ -18,6 +19,21 @@ val SUBMAP_DRESTRICT = Q.store_thm("SUBMAP_DRESTRICT",
    ⇒
    DRESTRICT f1 s1 ⊑ DRESTRICT f2 s2`,
   rw[SUBMAP_DEF,FDOM_DRESTRICT,SUBSET_DEF,DRESTRICT_DEF]);
+
+val DROP_IMP_LESS_LENGTH = prove(
+  ``!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs``,
+  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
+  \\ res_tac \\ decide_tac);
+
+val DROP_EQ_CONS_IMP_DROP_SUC = prove(
+  ``!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys``,
+  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
+  \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
+  \\ `n - 1 + 1 = n` by decide_tac \\ full_simp_tac(srw_ss())[]);
+
+val DROP_IMP_EL = store_thm("DROP_IMP_EL",
+  ``!xs n h t. DROP n xs = h::t ==> (EL n xs = h)``,
+  Induct \\ fs [DROP_def] \\ Cases_on `n` \\ fs []);
 
 (* -- *)
 
@@ -82,7 +98,7 @@ val prog_comp_lemma = prove(
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
 val lookup_IMP_lookup_compile = prove(
-  ``lookup dest s.code = SOME x /\ dest ≠ 10 ==>
+  ``lookup dest s.code = SOME x /\ dest ≠ gc_stub_location ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
             SOME (FST (comp m1 n1 x))``,
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
@@ -398,17 +414,6 @@ val get_bits_intro = prove(
   ``word_msb (h:'a word) ==>
     GENLIST (\i. h ' i) (dimindex (:'a) - 1) = get_bits h``,
   full_simp_tac(srw_ss())[get_bits_def,word_msb_IMP_bit_length]);
-
-val DROP_IMP_LESS_LENGTH = prove(
-  ``!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs``,
-  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
-  \\ res_tac \\ decide_tac);
-
-val DROP_EQ_CONS_IMP_DROP_SUC = prove(
-  ``!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys``,
-  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
-  \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
-  \\ `n - 1 + 1 = n` by decide_tac \\ full_simp_tac(srw_ss())[]);
 
 val filter_bitmap_APPEND = prove(
   ``!xs stack ys.
@@ -779,10 +784,10 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
        (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
   \\ full_simp_tac(srw_ss())[] \\ impl_tac THEN1
     (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
-     \\ fs [bvp_to_wordPropsTheory.decode_length_def])
+     \\ fs [data_to_wordPropsTheory.decode_length_def])
   \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
   \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[] \\ tac
-  \\ fs [LET_THM,bvp_to_wordPropsTheory.decode_length_def]
+  \\ fs [LET_THM,data_to_wordPropsTheory.decode_length_def]
   \\ fs [] \\ tac \\ rpt var_eq_tac
   \\ full_simp_tac(srw_ss())[] \\ tac
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
@@ -937,7 +942,7 @@ val word_gc_move_loop_code_thm = prove(
     \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
     \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())
-         [bvp_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
+         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
     \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
          DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
@@ -968,7 +973,7 @@ val word_gc_move_loop_code_thm = prove(
   \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
   \\ rev_full_simp_tac(srw_ss())
-         [bvp_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
+         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
   \\ qabbrev_tac `s5 = s with
         <|regs :=
             s.regs |+ (7,Word v) |+
@@ -1155,10 +1160,6 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
-
-val DROP_IMP_EL = store_thm("DROP_IMP_EL",
-  ``!xs n h t. DROP n xs = h::t ==> (EL n xs = h)``,
-  Induct \\ fs [DROP_def] \\ Cases_on `n` \\ fs []);
 
 val word_msb_IFF_lsr_EQ_0 = store_thm("word_msb_IFF_lsr_EQ_0",
   ``word_msb h <=> (h >>> (dimindex (:'a) - 1) <> 0w:'a word)``,
@@ -1523,7 +1524,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
     \\ fs [FAPPLY_FUPDATE_THM]
     \\ qpat_abbrev_tac `(s4:('a,'b)stackSem$state) = _`)
   \\ qpat_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
-  \\ drule bvp_to_wordPropsTheory.LESS_EQ_LENGTH
+  \\ drule data_to_wordPropsTheory.LESS_EQ_LENGTH
   \\ strip_tac \\ fs []
   \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
        metis_tac [DROP_LENGTH_APPEND] \\ fs []
@@ -1582,7 +1583,7 @@ val alloc_correct = prove(
     FLOOKUP l 1 = SOME (Word w) ==>
     ?ck l2.
        evaluate
-          (Call (SOME (Skip,0,n',m)) (INL 10) NONE,
+          (Call (SOME (Skip,0,n',m)) (INL gc_stub_location) NONE,
            s with
            <| use_store := T; use_stack := T; use_alloc := F;
               use_alloc := F; clock := s.clock + ck; regs := l; gc_fun := anything;
@@ -1592,7 +1593,7 @@ val alloc_correct = prove(
            <| use_store := T; use_stack := T; use_alloc := F;
               use_alloc := F; code := fromAList (compile c (toAList s.code));
               regs := l2; gc_fun := anything|>) /\ t.regs SUBMAP l2``,
-  `find_code (INL 10) (l \\ 0) (fromAList (compile c (toAList s.code))) =
+  `find_code (INL gc_stub_location) (l \\ 0) (fromAList (compile c (toAList s.code))) =
       SOME (Seq (word_gc_code c) (Return 0 0))` by
      simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
   \\ tac \\ fs [] \\ strip_tac
@@ -1616,7 +1617,7 @@ val alloc_length_stack = Q.store_thm("alloc_length_stack",
   fs [alloc_def,gc_def,set_store_def] \\ rw [] \\ fs []
   \\ every_case_tac \\ fs []
   \\ rw [] \\ drule word_gc_fun_LENGTH \\ rw [] \\ fs [NOT_LESS]
-  \\ drule bvp_to_wordPropsTheory.LESS_EQ_LENGTH \\ strip_tac \\ fs []
+  \\ drule data_to_wordPropsTheory.LESS_EQ_LENGTH \\ strip_tac \\ fs []
   \\ pop_assum (fn th => fs [GSYM th]) \\ fs [DROP_LENGTH_APPEND]
   \\ metis_tac [dec_stack_length]);
 
@@ -1632,7 +1633,7 @@ val find_code_regs_SUBMAP = Q.store_thm("find_code_regs_SUBMAP",
 val comp_correct = Q.store_thm("comp_correct",
   `!p (s:('a,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
-     (!k prog. lookup k s.code = SOME prog ==> k ≠ 10 /\ good_syntax prog) /\
+     (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location /\ good_syntax prog) /\
      s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
      s.regs SUBMAP regs ==>
@@ -2071,7 +2072,7 @@ val with_same_regs_lemma = Q.prove(
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `(!k prog. lookup k s.code = SOME prog ==> k <> 10 /\ good_syntax prog) /\
+  `(!k prog. lookup k s.code = SOME prog ==> k <> gc_stub_location /\ good_syntax prog) /\
    s.gc_fun = (word_gc_fun c:α gc_fun_type) /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
    semantics start s <> Fail
@@ -2275,7 +2276,7 @@ val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
   srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]);
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `(!k prog. ALOOKUP code k = SOME prog ==> k <> 10 /\ good_syntax prog) /\
+  `(!k prog. ALOOKUP code k = SOME prog ==> k <> gc_stub_location /\ good_syntax prog) /\
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    LENGTH s.bitmaps < dimword (:α) - 1 ∧
    LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧

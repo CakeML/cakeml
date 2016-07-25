@@ -260,11 +260,24 @@ val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
   ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
   Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
 
-val ALL_DISTINCT_MAP_explode = store_thm("ALL_DISTINCT_MAP_explode",
-  ``∀ls. ALL_DISTINCT (MAP explode ls) ⇔ ALL_DISTINCT ls``,
-  gen_tac >> EQ_TAC >- MATCH_ACCEPT_TAC ALL_DISTINCT_MAP >>
-  STRIP_TAC >> MATCH_MP_TAC ALL_DISTINCT_MAP_INJ >>
-  simp[mlstringTheory.explode_11])
-val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
+val set_MAP_implode_STRING_SORT_MAP_explode = store_thm("set_MAP_implode_STRING_SORT_MAP_explode",
+  ``set (MAP implode (STRING_SORT (MAP explode ls))) = set ls``,
+  rw[EXTENSION,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode])
+
+val mlstring_sort_def = Define`
+  mlstring_sort ls = MAP implode (STRING_SORT (MAP explode ls))`
+
+val mlstring_sort_eq = store_thm("mlstring_sort_eq",
+  ``∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
+    ((mlstring_sort l1 = mlstring_sort l2) ⇔ PERM l1 l2)``,
+  rw[mlstring_sort_def] >>
+  qspecl_then[`l1`,`l2`]mp_tac(MATCH_MP PERM_MAP_BIJ mlstringTheory.explode_BIJ) >>
+  disch_then SUBST1_TAC >>
+  imp_res_tac ALL_DISTINCT_MAP_explode >>
+  imp_res_tac STRING_SORT_EQ >>
+  first_x_assum(CHANGED_TAC o (SUBST1_TAC o SYM)) >>
+  match_mp_tac INJ_MAP_EQ_IFF >>
+  mp_tac mlstringTheory.implode_BIJ >>
+  simp[BIJ_DEF,INJ_DEF,MEM_MAP,PULL_EXISTS])
 
 val _ = export_theory()

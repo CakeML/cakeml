@@ -6,7 +6,7 @@ open indexedListsTheory
    Letrecs) with dummmy assignments. The assignments aren't removed
    here because removing them would require shifting the De Bruijn
    indexes. The dummy assignments will be removed at the latest by
-   BVP's dead-code elimination pass. *)
+   dataLang's dead-code elimination pass. *)
 
 val _ = new_theory"clos_remove";
 
@@ -119,45 +119,6 @@ val remove_CONS = store_thm("remove_CONS",
   \\ Cases_on `remove [x]` \\ fs []
   \\ Cases_on `remove (h::t)` \\ fs [SING_HD]
   \\ IMP_RES_TAC remove_SING \\ fs []);
-
-val enumerate_def = Define`
-  (enumerate n [] = []) ∧
-  (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
-
-val LENGTH_enumerate = prove(``
-  ∀xs k. LENGTH (enumerate k xs) = LENGTH xs``,
-  Induct>>fs[enumerate_def])
-
-val EL_enumerate = prove(``
-  ∀xs n k.
-  n < LENGTH xs ⇒
-  EL n (enumerate k xs) = (n+k,EL n xs)``,
-  Induct>>fs[enumerate_def]>>rw[]>>
-  Cases_on`n`>>fs[])
-
-val MAP_enumerate_MAPi = prove(``
-  ∀f xs.
-  MAP f (enumerate 0 xs) = MAPi (λn e. f (n,e)) xs``,
-  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
-
-val MAPi_enumerate_MAP = prove(``
-  ∀f xs.
-  MAPi f xs = MAP (λi,e. f i e) (enumerate 0 xs)``,
-  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
-
-val MEM_enumerate = prove(``
-  ∀xs i e.
-  i < LENGTH xs ⇒
-  (MEM (i,e) (enumerate 0 xs) ⇔ EL i xs = e)``,
-  fs[MEM_EL]>>rw[]>>eq_tac>>rw[LENGTH_enumerate]>>
-  imp_res_tac EL_enumerate>>fs[]>>
-  qexists_tac`i`>>fs[])
-
-val MEM_enumerate_IMP = prove(``
-  ∀xs i e.
-  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs``,
-  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
-  qexists_tac`n`>>fs[])
 
 val remove_alt = save_thm ("remove_alt",remove_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 

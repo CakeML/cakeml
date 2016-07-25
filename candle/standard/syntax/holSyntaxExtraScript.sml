@@ -16,6 +16,16 @@ val type1_size_append = store_thm("type1_size_append",
   ``∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2``,
   Induct >> simp[type_size_def])
 
+val extends_ind = store_thm("extends_ind",
+  ``∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
+    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2``,
+  gen_tac >> strip_tac >>
+  simp[extends_def] >>
+  CONV_TAC SWAP_FORALL_CONV >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[])
+
 (* deconstructing variables *)
 
 val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
@@ -188,6 +198,74 @@ val RACONV_TYPE = store_thm("RACONV_TYPE",
 val ACONV_TYPE = store_thm("ACONV_TYPE",
   ``∀s t. ACONV s t ⇒ welltyped s ∧ welltyped t ⇒ (typeof s = typeof t)``,
   rw[ACONV_def] >> imp_res_tac RACONV_TYPE >> fs[])
+
+(* subtypes *)
+
+val (subtype1_rules,subtype1_ind,subtype1_cases) = Hol_reln`
+  MEM a args ⇒ subtype1 a (Tyapp name args)`
+val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
+val _ = Parse.overload_on("subtype",``RTC subtype1``)
+val subtype_Tyvar = save_thm("subtype_Tyvar",
+  ``ty subtype (Tyvar x)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subtype1_cases])
+val _ = export_rewrites["subtype_Tyvar"]
+val subtype_Tyapp = save_thm("subtype_Tyapp",
+  ``ty subtype (Tyapp name args)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subtype1_cases])
+
+val subtype_type_ok = store_thm("subtype_type_ok",
+  ``∀tysig ty1 ty2. type_ok tysig ty2 ∧ ty1 subtype ty2 ⇒ type_ok tysig ty1``,
+  gen_tac >>
+  (relationTheory.RTC_lifts_invariants
+    |> Q.GEN`R` |> Q.ISPEC`inv subtype1`
+    |> SIMP_RULE std_ss [relationTheory.inv_MOVES_OUT,relationTheory.inv_DEF]
+    |> Q.GEN`P` |> Q.ISPEC`type_ok tysig`
+    |> match_mp_tac) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  CONV_TAC SWAP_FORALL_CONV >> gen_tac >>
+  ho_match_mp_tac subtype1_ind >>
+  simp[type_ok_def,EVERY_MEM])
+
+(* subterms *)
+
+val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
+  subterm1 t1 (Comb t1 t2) ∧
+  subterm1 t2 (Comb t1 t2) ∧
+  subterm1 tm (Abs v tm) ∧
+  subterm1 v (Abs v tm)`
+
+val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
+val _ = Parse.overload_on("subterm",``RTC subterm1``)
+val subterm_Var = save_thm("subterm_Var",
+  ``tm subterm (Var x ty)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val subterm_Const = save_thm("subterm_Const",
+  ``tm subterm (Const x ty)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val _ = export_rewrites["subterm_Var","subterm_Const"]
+val subterm_Comb = save_thm("subterm_Comb",
+  ``tm subterm (Comb t1 t2)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val subterm_Abs = save_thm("subterm_Abs",
+  ``tm subterm (Abs v t)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+
+val subterm_welltyped = save_thm("subterm_welltyped",
+  let val th =
+    prove(``∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t``,
+      ho_match_mp_tac has_type_strongind >>
+      simp[subterm_Comb,subterm_Abs] >> rw[] >>
+      rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[])
+  in METIS_PROVE[th,welltyped_def]
+    ``∀t tm. welltyped tm ∧ t subterm tm ⇒ welltyped t``
+  end)
 
 (* term ordering *)
 
@@ -742,6 +820,11 @@ val VFREE_IN_ACONV = store_thm("VFREE_IN_ACONV",
   ``∀s t x ty. ACONV s t ⇒ (VFREE_IN (Var x ty) s ⇔ VFREE_IN (Var x ty) t)``,
   rw[ACONV_def] >> imp_res_tac VFREE_IN_RACONV >> fs[])
 
+val VFREE_IN_subterm = store_thm("VFREE_IN_subterm",
+  ``∀t1 t2. VFREE_IN t1 t2 ⇒ t1 subterm t2``,
+  Induct_on`t2` >> simp[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
 (* hypset_ok *)
 
 val hypset_ok_nil = store_thm("hypset_ok_nil[simp]",
@@ -1232,6 +1315,27 @@ val INST_WELLTYPED = store_thm("INST_WELLTYPED",
   ``∀tm tyin.  welltyped tm ⇒ welltyped (INST tyin tm)``,
   metis_tac[INST_HAS_TYPE,WELLTYPED_LEMMA,WELLTYPED])
 
+val INST_CORE_NIL = store_thm("INST_CORE_NIL",
+  ``∀env tyin tm. welltyped tm ∧ tyin = [] ∧
+      (∀x ty. VFREE_IN (Var x ty) tm ⇒ REV_ASSOCD (Var x (TYPE_SUBST tyin ty)) env (Var x ty) = Var x ty) ⇒
+      INST_CORE env tyin tm = Result tm``,
+  ho_match_mp_tac INST_CORE_ind >>
+  simp[INST_CORE_def] >>
+  rw[] >> fs[] >>
+  Q.PAT_ABBREV_TAC`i1 = INST_CORE X [] tm` >>
+  `i1 = Result tm` by (
+    qunabbrev_tac`i1` >>
+    first_x_assum match_mp_tac >>
+    simp[holSyntaxLibTheory.REV_ASSOCD] >>
+    rw[] >> metis_tac[] ) >>
+  simp[])
+
+val INST_nil = store_thm("INST_nil",
+  ``welltyped tm ⇒ (INST [] tm = tm)``,
+  rw[INST_def,INST_CORE_def] >>
+  qspecl_then[`[]`,`[]`,`tm`]mp_tac INST_CORE_NIL >>
+  simp[holSyntaxLibTheory.REV_ASSOCD])
+
 (* tyvars and tvars *)
 
 val tyvars_ALL_DISTINCT = store_thm("tyvars_ALL_DISTINCT",
@@ -1260,6 +1364,26 @@ val tyvars_typeof_subset_tvars = store_thm("tyvars_typeof_subset_tvars",
   simp[tvars_def] >>
   simp[SUBSET_DEF,MEM_LIST_UNION,tyvars_def] >>
   metis_tac[])
+
+val tyvars_Tyapp_MAP_Tyvar = store_thm("tyvars_Tyapp_MAP_Tyvar",
+  ``∀x ls. ALL_DISTINCT ls ⇒ (tyvars (Tyapp x (MAP Tyvar ls)) = LIST_UNION [] ls)``,
+  simp[tyvars_def] >>
+  Induct >> fs[tyvars_def,LIST_UNION_def] >>
+  rw[LIST_INSERT_def])
+
+val STRING_SORT_SET_TO_LIST_set_tvars = store_thm("STRING_SORT_SET_TO_LIST_set_tvars",
+  ``∀tm. STRING_SORT (MAP explode (SET_TO_LIST (set (tvars tm)))) =
+         STRING_SORT (MAP explode (tvars tm))``,
+  gen_tac >> assume_tac(SPEC_ALL tvars_ALL_DISTINCT) >>
+  simp[STRING_SORT_EQ] >>
+  match_mp_tac sortingTheory.PERM_MAP >>
+  pop_assum mp_tac >>
+  REWRITE_TAC[sortingTheory.ALL_DISTINCT_PERM_LIST_TO_SET_TO_LIST] >>
+  simp[sortingTheory.PERM_SYM])
+
+val mlstring_sort_SET_TO_LIST_set_tvars = store_thm("mlstring_sort_SET_TO_LIST_set_tvars",
+  ``mlstring_sort (SET_TO_LIST (set (tvars tm))) = mlstring_sort (tvars tm)``,
+  rw[mlstring_sort_def,STRING_SORT_SET_TO_LIST_set_tvars])
 
 (* Equations *)
 
@@ -2310,15 +2434,12 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
     conj_tac >- (
       match_mp_tac rename_bvars_ACONV >>
       fs[IN_DISJOINT,MEM_MAP,implode_def] >>
-      conj_tac >- (
-        match_mp_tac ALL_DISTINCT_MAP_INJ >> simp[] ) >>
       Cases >> simp[] >>
       metis_tac[explode_implode,implode_def] ) >>
     qspecl_then[`MAP implode names`,`[]`,`tm`]mp_tac bv_names_rename_bvars >>
     simp[TAKE_LENGTH_ID_rwt] >>
     fs[IN_DISJOINT,MEM_MAP,implode_def] >>
-    strip_tac >> conj_tac >- (
-      match_mp_tac ALL_DISTINCT_MAP_INJ >> simp[] ) >>
+    strip_tac >>
     Cases >> simp[] >>
     metis_tac[explode_implode,implode_def] ))
 
@@ -2805,8 +2926,7 @@ val sym = store_thm("sym",
   imp_res_tac term_ok_welltyped >> fs[] >>
   metis_tac[equation_def,sym_equation])
 
-(* TODO: isn't trans already proved sound since it is in the kernel?
-         could replace that proof with this one *)
+(* TODO: Use this to close issue #97 *)
 val trans_equation = store_thm("trans_equation",
   ``∀thy h1 h2 t1 t2a t2b t3.
       (thy,h2) |- t2b === t3 ⇒
@@ -2881,6 +3001,56 @@ val extends_trans = store_thm("extends_trans",
   ``∀c1 c2 c3. c1 extends c2 ∧ c2 extends c3 ⇒ c1 extends c3``,
   rw[extends_def] >> metis_tac[RTC_TRANSITIVE,transitive_def])
 
+(* extensions have all distinct names *)
+
+val updates_ALL_DISTINCT = store_thm("updates_ALL_DISTINCT",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      (ALL_DISTINCT (MAP FST (type_list ctxt)) ⇒
+       ALL_DISTINCT (MAP FST (type_list (upd::ctxt)))) ∧
+      (ALL_DISTINCT (MAP FST (const_list ctxt)) ⇒
+       ALL_DISTINCT (MAP FST (const_list (upd::ctxt))))``,
+  ho_match_mp_tac updates_ind >> simp[] >>
+  rw[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+
+val extends_ALL_DISTINCT = store_thm("extends_ALL_DISTINCT",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
+      (ALL_DISTINCT (MAP FST (type_list ctxt1)) ⇒
+       ALL_DISTINCT (MAP FST (type_list ctxt2))) ∧
+      (ALL_DISTINCT (MAP FST (const_list ctxt1)) ⇒
+       ALL_DISTINCT (MAP FST (const_list ctxt2)))``,
+  simp[IMP_CONJ_THM,FORALL_AND_THM] >> conj_tac >>
+  ho_match_mp_tac extends_ind >>
+  METIS_TAC[updates_ALL_DISTINCT])
+
+val init_ALL_DISTINCT = store_thm("init_ALL_DISTINCT",
+  ``ALL_DISTINCT (MAP FST (const_list init_ctxt)) ∧
+    ALL_DISTINCT (MAP FST (type_list init_ctxt))``,
+  EVAL_TAC)
+
+val updates_DISJOINT = store_thm("updates_DISJOINT",
+  ``∀upd ctxt.
+    upd updates ctxt ⇒
+    DISJOINT (FDOM (alist_to_fmap (consts_of_upd upd))) (FDOM (tmsof ctxt)) ∧
+    DISJOINT (FDOM (alist_to_fmap (types_of_upd upd))) (FDOM (tysof ctxt))``,
+  ho_match_mp_tac updates_ind >>
+  simp[IN_DISJOINT] >> rw[] >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+  PROVE_TAC[])
+
+val updates_upd_ALL_DISTINCT = store_thm("updates_upd_ALL_DISTINCT",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      ALL_DISTINCT (MAP FST (consts_of_upd upd)) ∧
+      ALL_DISTINCT (MAP FST (types_of_upd upd))``,
+  ho_match_mp_tac updates_ind >> rw[] >>
+  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+
+val updates_upd_DISJOINT = store_thm("updates_upd_DISJOINT",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      DISJOINT (set (MAP FST (types_of_upd upd))) (set (MAP FST (type_list ctxt))) ∧
+      DISJOINT (set (MAP FST (consts_of_upd upd))) (set (MAP FST (const_list ctxt)))``,
+  ho_match_mp_tac updates_ind >> rw[IN_DISJOINT,MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS,LET_THM] >>
+  metis_tac[])
+
 (* signature extensions preserve ok *)
 
 val type_ok_extend = store_thm("type_ok_extend",
@@ -2902,6 +3072,15 @@ val term_ok_extend = store_thm("term_ok_extend",
   imp_res_tac type_ok_extend >>
   imp_res_tac FLOOKUP_SUBMAP >>
   metis_tac[])
+
+val term_ok_updates = store_thm("term_ok_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      term_ok (sigof (thyof ctxt)) tm ⇒
+      term_ok (sigof (thyof (upd::ctxt))) tm``,
+  rw[] >> match_mp_tac term_ok_extend >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+  simp[] >> conj_tac >> match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
+  metis_tac[updates_DISJOINT,finite_mapTheory.SUBMAP_REFL,pred_setTheory.DISJOINT_SYM])
 
 val is_std_sig_extend = store_thm("is_std_sig_extend",
   ``∀tyenv tmenv tyenv' tmenv'.
@@ -3018,16 +3197,6 @@ val updates_theory_ok = store_thm("updates_theory_ok",
     fs[is_std_sig_def] ) >>
   metis_tac[term_ok_extend])
 
-val extends_ind = store_thm("extends_ind",
-  ``∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
-    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2``,
-  gen_tac >> strip_tac >>
-  simp[extends_def] >>
-  CONV_TAC SWAP_FORALL_CONV >>
-  ho_match_mp_tac RTC_INDUCT >>
-  rw[] >> first_x_assum match_mp_tac >>
-  rw[])
-
 val extends_theory_ok = store_thm("extends_theory_ok",
   ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ theory_ok (thyof ctxt1) ⇒ theory_ok (thyof ctxt2)``,
   ho_match_mp_tac extends_ind >> metis_tac[updates_theory_ok])
@@ -3074,41 +3243,72 @@ val ConstDef_updates = store_thm("ConstDef_updates",
   imp_res_tac term_ok_type_ok >>
   simp[EQUATION_HAS_TYPE_BOOL,term_ok_equation,term_ok_def])
 
-(* extensions have all distinct names *)
+(* lookups in extended contexts *)
 
-val updates_ALL_DISTINCT = store_thm("updates_ALL_DISTINCT",
+val FLOOKUP_tmsof_updates = store_thm("FLOOKUP_tmsof_updates",
   ``∀upd ctxt. upd updates ctxt ⇒
-      (ALL_DISTINCT (MAP FST (type_list ctxt)) ⇒
-       ALL_DISTINCT (MAP FST (type_list (upd::ctxt)))) ∧
-      (ALL_DISTINCT (MAP FST (const_list ctxt)) ⇒
-       ALL_DISTINCT (MAP FST (const_list (upd::ctxt))))``,
-  ho_match_mp_tac updates_ind >> simp[] >>
-  rw[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+    FLOOKUP (tmsof (thyof ctxt)) name = SOME ty ⇒
+    FLOOKUP (tmsof (thyof (upd::ctxt))) name = SOME ty``,
+  rw[finite_mapTheory.FLOOKUP_FUNION] >>
+  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
+  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+  PROVE_TAC[alistTheory.ALOOKUP_MEM])
 
-val extends_ALL_DISTINCT = store_thm("extends_ALL_DISTINCT",
-  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
-      (ALL_DISTINCT (MAP FST (type_list ctxt1)) ⇒
-       ALL_DISTINCT (MAP FST (type_list ctxt2))) ∧
-      (ALL_DISTINCT (MAP FST (const_list ctxt1)) ⇒
-       ALL_DISTINCT (MAP FST (const_list ctxt2)))``,
-  simp[IMP_CONJ_THM,FORALL_AND_THM] >> conj_tac >>
-  ho_match_mp_tac extends_ind >>
-  METIS_TAC[updates_ALL_DISTINCT])
+val FLOOKUP_tysof_updates = store_thm("FLOOKUP_tysof_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+    FLOOKUP (tysof (thyof ctxt)) name = SOME a ⇒
+    FLOOKUP (tysof (thyof (upd::ctxt))) name = SOME a``,
+  rw[finite_mapTheory.FLOOKUP_FUNION] >>
+  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
+  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+  PROVE_TAC[alistTheory.ALOOKUP_MEM])
 
-val init_ALL_DISTINCT = store_thm("init_ALL_DISTINCT",
-  ``ALL_DISTINCT (MAP FST (const_list init_ctxt)) ∧
-    ALL_DISTINCT (MAP FST (type_list init_ctxt))``,
-  EVAL_TAC)
+val FLOOKUP_tysof_extends = Q.store_thm("FLOOKUP_tysof_extends",
+  `∀ctxt2 ctxt1. ctxt1 extends ctxt2 ⇒
+   (FLOOKUP (tysof (sigof ctxt2)) k = SOME v) ⇒
+   (FLOOKUP (tysof (sigof ctxt1)) k = SOME v)`,
+  ho_match_mp_tac extends_ind
+  \\ REWRITE_TAC[GSYM o_DEF]
+  \\ rw[ALOOKUP_APPEND]
+  \\ CASE_TAC
+  \\ fs[updates_cases]
+  \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]);
 
-val updates_DISJOINT = store_thm("updates_DISJOINT",
-  ``∀upd ctxt.
-    upd updates ctxt ⇒
-    DISJOINT (FDOM (alist_to_fmap (consts_of_upd upd))) (FDOM (tmsof ctxt)) ∧
-    DISJOINT (FDOM (alist_to_fmap (types_of_upd upd))) (FDOM (tysof ctxt))``,
-  ho_match_mp_tac updates_ind >>
-  simp[IN_DISJOINT] >> rw[] >>
-  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-  PROVE_TAC[])
+val FLOOKUP_tmsof_extends = Q.store_thm("FLOOKUP_tmsof_extends",
+  `∀ctxt2 ctxt1. ctxt1 extends ctxt2 ⇒
+   (FLOOKUP (tmsof (sigof ctxt2)) k = SOME v) ⇒
+   (FLOOKUP (tmsof (sigof ctxt1)) k = SOME v)`,
+  ho_match_mp_tac extends_ind
+  \\ REWRITE_TAC[GSYM o_DEF]
+  \\ rw[ALOOKUP_APPEND]
+  \\ CASE_TAC
+  \\ fs[updates_cases]
+  \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ TRY(qpat_assum`_ = SOME _`mp_tac \\ rw[])
+  \\ metis_tac[]);
+
+val extends_sub = store_thm("extends_sub",
+  ``∀ctxt2 ctxt1. ctxt2 extends ctxt1 ⇒
+      tmsof ctxt1 ⊑ tmsof ctxt2 ∧
+      tysof ctxt1 ⊑ tysof ctxt2 ∧
+      axsof ctxt1 ⊆ axsof ctxt2``,
+  simp[extends_def] >>
+  ho_match_mp_tac relationTheory.RTC_INDUCT >>
+  simp[PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  rpt conj_tac >>
+  TRY (
+    match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
+    disj2_tac >> simp[] >>
+    imp_res_tac updates_DISJOINT >> fs[] >>
+    fs[finite_mapTheory.SUBMAP_DEF,pred_setTheory.IN_DISJOINT] >>
+    metis_tac[] ) >>
+  metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.SUBSET_TRANS])
 
 (* proofs still work in extended contexts *)
 
@@ -3269,6 +3469,54 @@ val type_ok_types_in = store_thm("type_ok_types_in",
 val VFREE_IN_types_in = store_thm("VFREE_IN_types_in",
   ``∀t2 t1. VFREE_IN t1 t2 ⇒ typeof t1 ∈ types_in t2``,
   ho_match_mp_tac term_induction >> rw[] >> rw[])
+
+val Var_subterm_types_in = prove(
+  ``∀t x ty. Var x ty subterm t ⇒ ty ∈ types_in t``,
+  ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
+val Const_subterm_types_in = prove(
+  ``∀t x ty. Const x ty subterm t ⇒ ty ∈ types_in t``,
+  ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
+val subterm_typeof_types_in = store_thm("subterm_typeof_types_in",
+  ``∀t1 t2 name args. (Tyapp name args) subtype (typeof t1) ∧ t1 subterm t2 ∧ welltyped t2 ∧ name ≠ (strlit"fun") ⇒
+      ∃ty2. Tyapp name args subtype ty2 ∧ ty2 ∈ types_in t2``,
+  ho_match_mp_tac term_induction >>
+  conj_tac >- ( rw[] >> metis_tac[Var_subterm_types_in] ) >>
+  conj_tac >- ( rw[] >> metis_tac[Const_subterm_types_in] ) >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac subterm_welltyped >> fs[] >> fs[] >>
+    last_x_assum match_mp_tac >> simp[] >>
+    conj_tac >- (
+      simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      simp[subtype_Tyapp] >>
+      metis_tac[relationTheory.RTC_REFL] ) >>
+    simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[subterm_Comb] ) >>
+  rw[] >>
+  fs[subtype_Tyapp] >- (
+    last_x_assum(match_mp_tac) >> simp[] >>
+    conj_tac >- (
+      simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+      first_assum(match_exists_tac o concl) >> simp[] ) >>
+    simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[subterm_Abs] ) >>
+  first_x_assum(match_mp_tac) >> simp[] >>
+  conj_tac >- (
+    simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+    first_assum(match_exists_tac o concl) >> simp[] ) >>
+  simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  simp[subterm_Abs] )
 
 (* a type matching algorithm, based on the implementation in HOL4 *)
 

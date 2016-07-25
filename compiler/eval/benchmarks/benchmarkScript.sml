@@ -1,5 +1,4 @@
 open HolKernel boolLib bossLib lcsymtacs;
-
 open x64_compileLib x64_exportLib
 
 val _ = new_theory "benchmark"
@@ -661,8 +660,20 @@ Tdec
 
 val benchmarks = [foldl,reverse,fib,btree,queue,qsort]
 val names = ["foldl","reverse","fib","btree","queue","qsort"]
+val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
-val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+fun write_asm [] = ()
+  | write_asm ((name,bytes)::xs) =
+    (write_cake_S 1000 1000 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
+    write_asm xs)
+
+val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
+val benchmarks_bytes = map extract_bytes benchmarks_compiled
+val _ = write_asm (zip (map (fn s => "full_"^s)names) benchmarks_bytes);
+
+val _ = map save_thm (zip names benchmarks_compiled);
+
+(*val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
 val clos_o3 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
@@ -674,7 +685,6 @@ val benchmarks_o2 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o
 val benchmarks_o3 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
 val benchmarks_o4 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
 
-val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
 val benchmarks_o1_bytes = map extract_bytes benchmarks_o1
@@ -682,17 +692,11 @@ val benchmarks_o2_bytes = map extract_bytes benchmarks_o2
 val benchmarks_o3_bytes = map extract_bytes benchmarks_o3
 val benchmarks_o4_bytes = map extract_bytes benchmarks_o4
 
-fun write_asm [] = ()
-  | write_asm ((name,bytes)::xs) =
-    (write_cake_S 1000 1000 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
-    write_asm xs)
-
 val _ = write_asm (zip (map (fn s => "o0_"^s)names) benchmarks_o0_bytes);
 val _ = write_asm (zip (map (fn s => "o1_"^s)names) benchmarks_o1_bytes);
 val _ = write_asm (zip (map (fn s => "o2_"^s)names) benchmarks_o2_bytes);
 val _ = write_asm (zip (map (fn s => "o3_"^s)names) benchmarks_o3_bytes);
 val _ = write_asm (zip (map (fn s => "o4_"^s)names) benchmarks_o4_bytes);
-
-(*val _ = map save_thm (zip names benchmarks_o4);*)
+*)
 
 val _ = export_theory ();

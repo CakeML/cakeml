@@ -111,9 +111,6 @@ val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 val _ = overload_on ("lift", ``option$OPTION_MAP``)
 
-val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
-val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
-
 val ifM_def = Define`
   ifM bM tM eM =
     do

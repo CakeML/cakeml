@@ -1,7 +1,7 @@
-open preamble bvpTheory bvi_to_bvpTheory;
+open preamble dataLangTheory bvi_to_dataTheory;
 local open bvlSemTheory bvlPropsTheory bviSemTheory in end;
 
-val _ = new_theory"bvpSem";
+val _ = new_theory"dataSem";
 
 val _ = Datatype `
   stack = Env (bvlSem$v num_map)
@@ -15,27 +15,27 @@ val _ = Datatype `
      ; handler : num
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; code    : (num # bvp$prog) num_map
+     ; code    : (num # dataLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; space   : num |> `
 
 val dec_clock_def = Define `
-  dec_clock (s:'ffi bvpSem$state) = s with clock := s.clock - 1`;
+  dec_clock (s:'ffi dataSem$state) = s with clock := s.clock - 1`;
 
 val LESS_EQ_dec_clock = prove(
   ``r.clock <= (dec_clock s).clock ==> r.clock <= s.clock``,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
-val bvp_to_bvi_def = Define `
-  (bvp_to_bvi:'ffi bvpSem$state->'ffi bviSem$state) s =
+val data_to_bvi_def = Define `
+  (data_to_bvi:'ffi dataSem$state->'ffi bviSem$state) s =
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; ffi := s.ffi
      ; global := s.global |>`;
 
-val bvi_to_bvp_def = Define `
-  (bvi_to_bvp:'ffi bviSem$state->'ffi bvpSem$state->'ffi bvpSem$state) s t =
+val bvi_to_data_def = Define `
+  (bvi_to_data:'ffi bviSem$state->'ffi dataSem$state->'ffi dataSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi
@@ -55,12 +55,12 @@ val do_space_def = Define `
          else consume_space (op_space_req op l) s`;
 
 val do_app_def = Define `
-  do_app op vs (s:'ffi bvpSem$state) =
+  do_app op vs (s:'ffi dataSem$state) =
     case do_space op (LENGTH vs) s of
     | NONE => Rerr(Rabort Rtype_error)
-    | SOME s1 => (case bviSem$do_app op vs (bvp_to_bvi s1) of
+    | SOME s1 => (case bviSem$do_app op vs (data_to_bvi s1) of
                   | Rerr e => Rerr e
-                  | Rval (v,t) => Rval (v, bvi_to_bvp t s1))`
+                  | Rval (v,t) => Rval (v, bvi_to_data t s1))`
 
 val get_var_def = Define `
   get_var v = lookup v`;
@@ -78,7 +78,7 @@ val set_var_def = Define `
   set_var v x s = (s with locals := (insert v x s.locals))`;
 
 val check_clock_def = Define `
-  check_clock (s1:'ffi bvpSem$state) (s2:'ffi bvpSem$state) =
+  check_clock (s1:'ffi dataSem$state) (s2:'ffi dataSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -151,7 +151,7 @@ val push_env_clock = prove(
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip,s) = (NONE,s:'ffi bvpSem$state)) /\
+  (evaluate (Skip,s) = (NONE,s:'ffi dataSem$state)) /\
   (evaluate (Move dest src,s) =
      case get_var src s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -246,11 +246,11 @@ val evaluate_ind = theorem"evaluate_ind";
 (* We prove that the clock never increases. *)
 
 val do_app_clock = store_thm("do_app_clock",
-  ``(bvpSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock``,
+  ``(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock``,
   SIMP_TAC std_ss [do_app_def,do_space_def,consume_space_def]
   \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ IMP_RES_TAC bviSemTheory.do_app_const \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bvp_to_bvi_def,bvi_to_bvp_def] \\ SRW_TAC [] []);
+  \\ full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def] \\ SRW_TAC [] []);
 
 val evaluate_clock = store_thm("evaluate_clock",
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
@@ -276,8 +276,8 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-                   [``check_clock s1 s2 = s1:'ffi bvpSem$state``,
-                    ``(s.clock < k \/ b2) <=> (s:'ffi bvpSem$state).clock < k:num``]
+                   [``check_clock s1 s2 = s1:'ffi dataSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:'ffi dataSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,

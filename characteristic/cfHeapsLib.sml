@@ -102,7 +102,7 @@ val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv
 (* demo:
 
    g `is_local CF ==>
-      CF (H1 * emp * (H2 * SEP_EXISTS y. cond (P y)) * x ~~> Refv xv * H3)
+      CF (H1 * emp * (H2 * SEP_EXISTS y. cond (P y)) * x ~~>> Refv xv * H3)
          Q`
    e strip_tac;
    e (hclean_one \\ strip_tac);

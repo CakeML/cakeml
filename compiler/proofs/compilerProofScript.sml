@@ -46,8 +46,7 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
     \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
     \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
     \\ strip_tac
-    \\ simp[cmlParseTheory.destResult_def,Abbr`r`,
-            cmlPtreeConversionTheory.oHD_def (* TODO: should not be defined there! *)]
+    \\ simp[cmlParseTheory.destResult_def,Abbr`r`]
     \\ simp[ETA_AX,OPTION_BIND_SOME] )
   \\ qmatch_goalsub_abbrev_tac`opt = NONE`
   \\ Cases_on`opt`\\fs[markerTheory.Abbrev_def]
@@ -69,8 +68,7 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ qmatch_asmsub_rename_tac`SOME p`
   \\ Cases_on`p`
   \\ drule peg_sound
-  \\ strip_tac \\ rveq
-  \\ simp[cmlPtreeConversionTheory.oHD_def]
+  \\ strip_tac \\ rveq \\ simp[]
   \\ Cases_on`ptree_TopLevelDecs pt`\\simp[]
   \\ strip_tac \\ fs[]
   \\ metis_tac[]);
@@ -128,7 +126,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
           installed (bytes,cc.backend_config,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
-              (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
+              (* see theorem about to_data to avoid extend_with_resource_limit *)`,
   rpt strip_tac
   \\ simp[compilerTheory.compile_def]
   \\ simp[parse_prog_correct]
@@ -200,7 +198,7 @@ val compile_correct = Q.store_thm("compile_correct",
           code_installed (bytes,cc,ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
-              (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
+              (* see theorem about to_data to avoid extend_with_resource_limit *)`,
   rw[initSemEnvTheory.semantics_init_def,code_installed_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
   \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[initSemEnvTheory.prim_sem_env_eq]

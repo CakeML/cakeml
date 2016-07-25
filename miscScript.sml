@@ -1,5 +1,6 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory
+open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
+ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -21,6 +22,12 @@ val SUBSET_IMP = store_thm("SUBSET_IMP",
   fs[pred_setTheory.SUBSET_DEF]);
 
 val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
+
+val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
+val oHD_thm = Q.store_thm("oHD_thm[simp]",
+  `oHD [] = NONE ∧ oHD (h::t) = SOME h`,
+  rw[oHD_def]);
+val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
 
 val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
@@ -103,37 +110,42 @@ val map_fromAList = Q.store_thm("map_fromAList",
   Cases >> simp[fromAList_def] >>
   simp[wf_fromAList,map_insert])
 
-val el_opt_def = Define `
-  (el_opt n [] = NONE) /\
-  (el_opt n (x::xs) = if n = 0n then SOME x else el_opt (n-1) xs)`
+val LLOOKUP_def = Define `
+  (LLOOKUP [] n = NONE) /\
+  (LLOOKUP (x::xs) n = if n = 0 then SOME x else LLOOKUP xs (n-1:num))`;
 
-val el_opt_THM = store_thm("el_opt_THM",
-  ``!xs n. el_opt n xs = if n < LENGTH xs then SOME (EL n xs) else NONE``,
-  Induct \\ full_simp_tac(srw_ss())[el_opt_def] \\ srw_tac[][] THEN1 decide_tac
+val LLOOKUP_EQ_EL = store_thm("LLOOKUP_EQ_EL",
+  ``!xs n y. LLOOKUP xs n = SOME y <=> n < LENGTH xs /\ (y = EL n xs)``,
+  Induct \\ fs [LLOOKUP_def] \\ rw [] THEN1 metis_tac []
+  \\ Cases_on `n` \\ fs [ADD1] \\ eq_tac \\ rw []);
+
+val LLOOKUP_THM = store_thm("LLOOKUP_THM",
+  ``!xs n. LLOOKUP xs n = if n < LENGTH xs then SOME (EL n xs) else NONE``,
+  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def] \\ srw_tac[][] THEN1 decide_tac
   \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
-val el_opt_DROP = store_thm("el_opt_DROP",
-  ``(el_opt n (DROP f xs) = el_opt (f + n) xs)``,
+val LLOOKUP_DROP = store_thm("LLOOKUP_DROP",
+  ``(LLOOKUP (DROP f xs) n = LLOOKUP xs (f + n))``,
   Cases_on `DROP f xs = []` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[DROP_NIL]
-  \\ full_simp_tac(srw_ss())[el_opt_THM] THEN1 decide_tac
+  \\ full_simp_tac(srw_ss())[LLOOKUP_THM] THEN1 decide_tac
   \\ `f + n < LENGTH xs <=> n < LENGTH xs - f` by decide_tac \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ ONCE_REWRITE_TAC [ADD_COMM]
   \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
 
-val el_opt_TAKE_IMP = store_thm("el_opt_TAKE_IMP",
-  ``(el_opt n (TAKE f xs) = SOME x) ==>
-    (el_opt n xs = SOME x)``,
-  simp[el_opt_THM,LENGTH_TAKE_EQ] >>
+val LLOOKUP_TAKE_IMP = store_thm("LLOOKUP_TAKE_IMP",
+  ``(LLOOKUP (TAKE f xs) n = SOME x) ==>
+    (LLOOKUP xs n = SOME x)``,
+  simp[LLOOKUP_THM,LENGTH_TAKE_EQ] >>
   srw_tac[ARITH_ss][]
   \\ match_mp_tac (GSYM EL_TAKE)
   \\ fsrw_tac[ARITH_ss][]);
 
-val el_opt_LUPDATE = store_thm("el_opt_LUPDATE",
-  ``!xs i n x. el_opt n (LUPDATE x i xs) =
-               if i <> n then el_opt n xs else
+val LLOOKUP_LUPDATE = store_thm("LLOOKUP_LUPDATE",
+  ``!xs i n x. LLOOKUP (LUPDATE x i xs) n =
+               if i <> n then LLOOKUP xs n else
                if i < LENGTH xs then SOME x else NONE``,
-  Induct \\ full_simp_tac(srw_ss())[el_opt_def,LUPDATE_def]
-  \\ Cases_on `i` \\ full_simp_tac(srw_ss())[el_opt_def,LUPDATE_def]
+  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
+  \\ Cases_on `i` \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
   \\ rpt strip_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
 val GENLIST_eq_MAP = Q.store_thm("GENLIST_eq_MAP",
@@ -1606,21 +1618,6 @@ val word_list_exists_def = Define `
   word_list_exists a n =
     SEP_EXISTS xs. word_list a xs * cond (LENGTH xs = n)`;
 
-val subspt_def = Define`
-  subspt sp1 sp2 ⇔
-    ∀k. k ∈ domain sp1 ⇒ k ∈ domain sp2 ∧ lookup k sp2 = lookup k sp1
-`;
-
-val subspt_refl = Q.store_thm(
-  "subspt_refl[simp]",
-  `subspt sp sp`,
-  simp[subspt_def])
-
-val subspt_trans = Q.store_thm(
-  "subspt_trans",
-  `subspt sp1 sp2 ∧ subspt sp2 sp3 ⇒ subspt sp1 sp3`,
-  metis_tac[subspt_def]);
-
 val lookup_vars_def = Define `
   (lookup_vars [] env = SOME []) /\
   (lookup_vars (v::vs) env =
@@ -1629,5 +1626,218 @@ val lookup_vars_def = Define `
        | SOME xs => SOME (EL v env :: xs)
        | NONE => NONE
      else NONE)`
+
+val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
+  `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ strip_tac \\ var_eq_tac
+  \\ EVAL_TAC);
+
+val EVERY_isHexDigit_num_to_hex_string = Q.store_thm("EVERY_isHexDigit_num_to_hex_string",
+  `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`,
+  rw[ASCIInumbersTheory.num_to_hex_string_def,ASCIInumbersTheory.n2s_def]
+  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
+  \\ simp[EVERY_MEM]
+  \\ gen_tac\\ strip_tac
+  \\ match_mp_tac isHexDigit_HEX
+  \\ qspecl_then[`16`,`n`]mp_tac numposrepTheory.n2l_BOUND
+  \\ rw[EVERY_MEM]
+  \\ res_tac
+  \\ decide_tac);
+
+val isHexDigit_isPrint = Q.store_thm("isHexDigit_isPrint",
+  `∀x. isHexDigit x ⇒ isPrint x`,
+  EVAL_TAC \\ rw[]);
+
+val num_to_hex_string_length_1 = Q.store_thm("num_to_hex_string_length_1",
+  `∀x. x < 16 ⇒ (LENGTH (num_to_hex_string x) = 1)`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ strip_tac \\ var_eq_tac
+  \\ EVAL_TAC);
+
+val num_to_hex_string_length_2 = Q.store_thm("num_to_hex_string_length_2",
+  `∀x. 16 ≤ x ∧ x < 256 ⇒ (LENGTH (num_to_hex_string x) = 2)`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV (RAND_CONV EVAL))
+  \\ strip_tac \\ var_eq_tac \\ pop_assum mp_tac
+  \\ EVAL_TAC);
+
+val num_from_hex_string_length_2 = Q.store_thm("num_from_hex_string_length_2",
+  `num_from_hex_string [d1;d2] < 256`,
+  rw[ASCIInumbersTheory.num_from_hex_string_def,
+     ASCIInumbersTheory.s2n_def,
+     numposrepTheory.l2n_def]
+  \\ qspecl_then[`UNHEX d1`,`16`]mp_tac MOD_LESS
+  \\ impl_tac >- rw[]
+  \\ qspecl_then[`UNHEX d2`,`16`]mp_tac MOD_LESS
+  \\ impl_tac >- rw[]
+  \\ decide_tac);
+
+val num_from_hex_string_leading_0 = Q.store_thm("num_from_hex_string_leading_0",
+  `∀ls. ls ≠ [] ⇒ (num_from_hex_string (#"0" :: ls) = num_from_hex_string ls)`,
+  simp[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def]
+  \\ ho_match_mp_tac SNOC_INDUCT \\ simp[]
+  \\ simp[REVERSE_SNOC]
+  \\ simp[numposrepTheory.l2n_def]
+  \\ rw[]
+  \\ Cases_on`ls` \\ fs[numposrepTheory.l2n_def]
+  \\ EVAL_TAC);
+
+val num_from_hex_string_length_2_less_16 = Q.store_thm("num_from_hex_string_length_2_less_16",
+  `∀h1 h2. isHexDigit h1 ⇒ num_from_hex_string [h1;h2] < 16 ⇒ h1 = #"0"`,
+  rw[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def,
+     numposrepTheory.l2n_def]
+  \\ Cases_on`UNHEX h1 MOD 16` \\ fs[]
+  \\ fs[MOD_EQ_0_DIVISOR]
+  \\ fs[stringTheory.isHexDigit_def]
+  \\ Cases_on`h1` \\ fs[]
+  >- (
+    `MEM (n - 48) (COUNT_LIST (58 - 48))` by simp[MEM_COUNT_LIST]
+    \\ pop_assum mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ strip_tac
+    \\ rfs[SUB_RIGHT_EQ]
+    \\ fs[ASCIInumbersTheory.UNHEX_def])
+  >- (
+    `MEM (n - 97) (COUNT_LIST (103 - 97))` by simp[MEM_COUNT_LIST]
+    \\ pop_assum mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ strip_tac
+    \\ rfs[SUB_RIGHT_EQ]
+    \\ fs[ASCIInumbersTheory.UNHEX_def]
+    \\ `n = 97` by decide_tac
+    \\ fs[ASCIInumbersTheory.UNHEX_def] )
+  \\ `MEM (n - 65) (COUNT_LIST (71 - 65))` by simp[MEM_COUNT_LIST]
+  \\ pop_assum mp_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ strip_tac
+  \\ rfs[SUB_RIGHT_EQ]
+  \\ fs[ASCIInumbersTheory.UNHEX_def]
+  \\ `n = 65` by decide_tac
+  \\ fs[ASCIInumbersTheory.UNHEX_def] )
+
+val num_from_hex_string_num_to_hex_string = Q.store_thm("num_from_hex_string_num_to_hex_string[simp]",
+  `num_from_hex_string (num_to_hex_string n) = n`,
+  ASCIInumbersTheory.num_hex_string
+  |> SIMP_RULE std_ss [combinTheory.o_DEF,FUN_EQ_THM]
+  |> MATCH_ACCEPT_TAC)
+
+val enumerate_def = Define`
+  (enumerate n [] = []) ∧
+  (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
+
+val LENGTH_enumerate = store_thm("LENGTH_enumerate",``
+  ∀xs k. LENGTH (enumerate k xs) = LENGTH xs``,
+  Induct>>fs[enumerate_def])
+
+val EL_enumerate = store_thm("EL_enumerate",``
+  ∀xs n k.
+  n < LENGTH xs ⇒
+  EL n (enumerate k xs) = (n+k,EL n xs)``,
+  Induct>>fs[enumerate_def]>>rw[]>>
+  Cases_on`n`>>fs[])
+
+val MAP_enumerate_MAPi = store_thm("MAP_enumerate_MAPi",``
+  ∀f xs.
+  MAP f (enumerate 0 xs) = MAPi (λn e. f (n,e)) xs``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
+
+val MAPi_enumerate_MAP = store_thm("MAPi_enumerate_MAP",``
+  ∀f xs.
+  MAPi f xs = MAP (λi,e. f i e) (enumerate 0 xs)``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[LENGTH_MAP,EL_MAP,EL_MAPi,LENGTH_enumerate,EL_enumerate])
+
+val MEM_enumerate = store_thm("MEM_enumerate",``
+  ∀xs i e.
+  i < LENGTH xs ⇒
+  (MEM (i,e) (enumerate 0 xs) ⇔ EL i xs = e)``,
+  fs[MEM_EL]>>rw[]>>eq_tac>>rw[LENGTH_enumerate]>>
+  imp_res_tac EL_enumerate>>fs[]>>
+  qexists_tac`i`>>fs[])
+
+val MEM_enumerate_IMP = store_thm("MEM_enumerate_IMP",``
+  ∀xs i e.
+  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs``,
+  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
+  qexists_tac`n`>>fs[])
+
+val SNOC_REPLICATE = store_thm("SNOC_REPLICATE",
+  ``!n x. SNOC x (REPLICATE n x) = REPLICATE (SUC n) x``,
+  Induct \\ fs [REPLICATE]);
+
+val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
+  ``!n x. REVERSE (REPLICATE n x) = REPLICATE n x``,
+  Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
+
+(* n.b. used in hol-reflection *)
+
+val FDOM_FLOOKUP = Q.store_thm("FDOM_FLOOKUP",
+  `x ∈ FDOM f ⇔ ∃v. FLOOKUP f x = SOME v`,
+  rw[FLOOKUP_DEF])
+
+val FLAT_MAP_SING = Q.store_thm("FLAT_MAP_SING",
+  `∀ls. FLAT (MAP (λx. [f x]) ls) = MAP f ls`,
+  Induct \\ simp[]);
+
+val FLAT_MAP_NIL = Q.store_thm("FLAT_MAP_NIL",
+  `FLAT (MAP (λx. []) ls) = []`,
+  rw[FLAT_EQ_NIL,EVERY_MAP]);
+
+val UPDATE_LIST_NOT_MEM = store_thm("UPDATE_LIST_NOT_MEM",
+  ``∀ls f x. ¬MEM x(MAP FST ls) ⇒ (f =++ ls) x = f x``,
+  Induct >> simp[UPDATE_LIST_THM,combinTheory.APPLY_UPDATE_THM])
+
+val MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same = store_thm("MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same",
+  ``∀ks vs f. LENGTH ks = LENGTH vs ∧ ALL_DISTINCT ks ⇒ (MAP (f =++ ZIP (ks,vs)) ks = vs)``,
+  Induct >> simp[LENGTH_NIL_SYM] >>
+  gen_tac >> Cases >> simp[UPDATE_LIST_THM] >>
+  simp[UPDATE_LIST_NOT_MEM,MAP_ZIP,combinTheory.APPLY_UPDATE_THM])
+
+val MULT_LE_EXP = store_thm("MULT_LE_EXP",
+  ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
+  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
+  Cases >> simp[] >> strip_tac >>
+  first_x_assum(qspec_then`SUC n`mp_tac) >>
+  simp[arithmeticTheory.MULT] >>
+  Cases_on`b=0` >- (
+    simp[arithmeticTheory.EXP] ) >>
+  `SUC b ≤ b + b * n` suffices_by simp[] >>
+  simp[arithmeticTheory.ADD1] >>
+  Cases_on`b * n` >> simp[] >>
+  fs[arithmeticTheory.MULT_EQ_0] >> fs[])
+
+val domain_rrestrict_subset = store_thm("domain_rrestrict_subset",
+  ``domain (rrestrict r s) ⊆ domain r ∩ s``,
+  rw[set_relationTheory.domain_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
+val range_rrestrict_subset = store_thm("range_rrestrict_subset",
+  ``range (rrestrict r s) ⊆ range r ∩ s``,
+  rw[set_relationTheory.range_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
+val PERM_MAP_BIJ = store_thm("PERM_MAP_BIJ",
+  ``∀f l1 l2.
+    BIJ f UNIV UNIV ⇒
+    (PERM l1 l2 ⇔ PERM (MAP f l1) (MAP f l2))``,
+  rw[BIJ_IFF_INV] >>
+  EQ_TAC >- rw[sortingTheory.PERM_MAP] >>
+  `∀l. MEM l [l1;l2] ⇒ l = MAP g (MAP f l)` by (
+    rw[MAP_MAP_o,combinTheory.o_DEF] ) >>
+  fs[] >>
+  metis_tac[sortingTheory.PERM_MAP])
+
+val INJ_MAP_EQ_IFF = store_thm("INJ_MAP_EQ_IFF",
+  ``∀f l1 l2.
+    INJ f (set l1 ∪ set l2) UNIV ⇒
+    (MAP f l1 = MAP f l2 ⇔ l1 = l2)``,
+  rw[] >> EQ_TAC >- metis_tac[INJ_MAP_EQ] >> rw[])
 
 val _ = export_theory()

@@ -3,21 +3,10 @@ open set_sepTheory helperLib ml_translatorTheory
 open semanticPrimitivesTheory ConseqConv
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormalizeTheory cfAppTheory
+open cfTacticsBaseLib
+open patternMatchesTheory
 
 val _ = new_theory "cf"
-
-(* TODO: clean & generalize *)
-fun instantiate g =
-  rpt ((asm_exists_tac \\ fs []) ORELSE
-       (once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []))
-      g
-
-fun rpt_drule_then thm_tac thm =
-  drule thm \\ rpt (disch_then drule) \\ disch_then thm_tac
-
-fun progress thm = rpt_drule_then strip_assume_tac thm
-
-fun sing x = [x]
 
 (*------------------------------------------------------------------*)
 (* Machinery for dealing with n-ary applications/functions in cf.
@@ -276,7 +265,7 @@ val app_one_naryRecclosure = store_thm ("app_one_naryRecclosure",
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
   fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
-  rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+  progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
   fs [naryFun_def] \\
   qpat_assum `evaluate _ _ _ _ _`
     (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
@@ -302,7 +291,7 @@ val curried_naryRecclosure = store_thm ("curried_naryRecclosure",
     rename1 `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
     rename1 `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
     fs [emp_def, cond_def] \\
-    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+    progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
     Q.LIST_EXISTS_TAC [
       `naryClosure (env with v := (n, x)::build_rec_env funs env env.v)
                    (n'::ns) body`,
@@ -328,19 +317,29 @@ val letrec_pull_params_repack = store_thm ("letrec_pull_params_repack",
 (** Extending environments *)
 
 (* [extend_env] *)
-val extend_env_def = Define `
-  extend_env [] [] env = env /\
-  extend_env (n::ns) (xv::xvs) env =
-    extend_env ns xvs (env with v := (n,xv)::env.v)`
+val extend_env_v_def = Define `
+  extend_env_v [] [] env_v = env_v /\
+  extend_env_v (n::ns) (xv::xvs) env_v =
+    extend_env_v ns xvs ((n,xv)::env_v)`
 
-val extend_env_rcons = store_thm ("extend_env_rcons",
-  ``!ns xvs n xv env.
+val extend_env_def = Define `
+  extend_env ns xvs env = (env with v := extend_env_v ns xvs env.v)`
+
+val extend_env_v_rcons = store_thm ("extend_env_v_rcons",
+  ``!ns xvs n xv env_v.
      LENGTH ns = LENGTH xvs ==>
-     extend_env (ns ++ [n]) (xvs ++ [xv]) env =
-     let env' = extend_env ns xvs env in
-     (env' with v := (n,xv) :: env'.v)``,
+     extend_env_v (ns ++ [n]) (xvs ++ [xv]) env_v =
+     (n,xv) :: extend_env_v ns xvs env_v``,
   Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
-  fs [LENGTH_NIL, LENGTH_CONS, extend_env_def]
+  fs [LENGTH_NIL, LENGTH_CONS, extend_env_v_def]
+)
+
+val extend_env_v_zip = store_thm ("extend_env_v_zip",
+  ``!ns xvs env_v.
+    LENGTH ns = LENGTH xvs ==>
+    extend_env_v ns xvs env_v = ZIP (REVERSE ns, REVERSE xvs) ++ env_v``,
+  Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
+  fs [LENGTH_NIL, LENGTH_CONS, extend_env_v_def, GSYM ZIP_APPEND]
 )
 
 (* [build_rec_env_aux] *)
@@ -372,18 +371,611 @@ val build_rec_env_zip = store_thm ("build_rec_env_zip",
 )
 
 (* [extend_env_rec] *)
+val extend_env_v_rec_def = Define `
+  extend_env_v_rec rec_ns rec_xvs ns xvs env_v =
+    extend_env_v ns xvs (ZIP (rec_ns, rec_xvs) ++ env_v)`
+
 val extend_env_rec_def = Define `
   extend_env_rec rec_ns rec_xvs ns xvs env =
-    extend_env ns xvs (env with v := ZIP (rec_ns, rec_xvs) ++ env.v)`
+    env with v := extend_env_v_rec rec_ns rec_xvs ns xvs env.v`
 
 val extend_env_rec_build_rec_env = store_thm ("extend_env_rec_build_rec_env",
-  ``!funs env.
-     extend_env_rec
+  ``!funs env env_v.
+     extend_env_v_rec
        (MAP (\ (f,_,_). f) funs)
        (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
-       [] [] env =
-     (env with v := build_rec_env funs env env.v)``,
-  rpt strip_tac \\ fs [extend_env_rec_def, extend_env_def, build_rec_env_zip]
+       [] [] env_v =
+     build_rec_env funs env env_v``,
+  rpt strip_tac \\ fs [extend_env_v_rec_def, extend_env_v_def, build_rec_env_zip]
+)
+
+(*------------------------------------------------------------------*)
+(** Pattern matching.
+
+    CakeML pattern-matching is translated to pattern-matching in HOL
+    using the src/pattern_matching library, by Tuerk et al.
+
+    Restrictions:
+    - the CakeML pattern-matching must "typecheck" (does not raise
+      Match_type_error)
+    - patterns that use [Pref] are not currently supported
+*)
+
+val pat_bindings_def = astTheory.pat_bindings_def
+val pmatch_def = terminationTheory.pmatch_def
+val pmatch_ind = terminationTheory.pmatch_ind
+
+(* [v_of_pat]: from a pattern and a list of instantiations for the pattern
+   variables, produce a semantic value
+*)
+
+val v_of_matching_pat_aux_measure_def = Define `
+  v_of_matching_pat_aux_measure x =
+    sum_CASE x
+      (\(_,p,_). pat_size p)
+      (\(_,ps,_). list_size pat_size ps)`
+
+val v_of_pat_def = tDefine "v_of_pat" `
+  v_of_pat envC (Pvar x) insts =
+    (case insts of
+         xv::rest => SOME (xv, rest)
+       | _ => NONE) /\
+  v_of_pat envC (Plit l) insts = SOME (Litv l, insts) /\
+  v_of_pat envC (Pcon c args) insts =
+    (case v_of_pat_list envC args insts of
+         SOME (argsv, insts_rest) =>
+         (case c of
+              NONE => SOME (Conv NONE argsv, insts_rest)
+            | SOME id =>
+              case lookup_alist_mod_env id envC of
+                  NONE => NONE
+                | SOME (len, t) =>
+                  if len = LENGTH argsv then
+                    SOME (Conv (SOME (id_to_n id,t)) argsv, insts_rest)
+                  else NONE)
+      | NONE => NONE) /\
+  v_of_pat _ (Pref pat) _ =
+    NONE (* unsupported *) /\
+  v_of_pat _ _ _ = NONE /\
+
+  v_of_pat_list _ [] insts = SOME ([], insts) /\
+  v_of_pat_list envC (p::argspat) insts =
+    (case v_of_pat envC p insts of
+         SOME (v, insts_rest) =>
+         (case v_of_pat_list envC argspat insts_rest of
+              SOME (vs, insts_rest') => SOME (v::vs, insts_rest')
+            | NONE => NONE)
+       | NONE => NONE) /\
+  v_of_pat_list _ _ _ = NONE`
+
+  (WF_REL_TAC `measure v_of_matching_pat_aux_measure` \\
+   fs [v_of_matching_pat_aux_measure_def, list_size_def,
+       astTheory.pat_size_def] \\
+   gen_tac \\ Induct \\ fs [list_size_def, astTheory.pat_size_def])
+
+val v_of_pat_ind = fetch "-" "v_of_pat_ind"
+
+val v_of_pat_list_length = store_thm ("v_of_pat_list_length",
+  ``!envC pats insts vs rest.
+      v_of_pat_list envC pats insts = SOME (vs, rest) ==>
+      LENGTH pats = LENGTH vs``,
+  Induct_on `pats` \\ fs [v_of_pat_def] \\ rpt strip_tac \\
+  every_case_tac \\ fs [] \\ rw [] \\ first_assum irule \\ instantiate
+)
+
+val v_of_pat_insts_length = store_thm ("v_of_pat_insts_length",
+  ``(!envC pat insts v insts_rest.
+       v_of_pat envC pat insts = SOME (v, insts_rest) ==>
+       (LENGTH insts = LENGTH (pat_bindings pat []) + LENGTH insts_rest)) /\
+    (!envC pats insts vs insts_rest.
+       v_of_pat_list envC pats insts = SOME (vs, insts_rest) ==>
+       (LENGTH insts = LENGTH (pats_bindings pats []) + LENGTH insts_rest))``,
+
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
+  fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL] \\ rw []
+  THEN1 (every_case_tac \\ fs [LENGTH_NIL])
+  THEN1 (every_case_tac \\ fs [])
+  THEN1 (
+    every_case_tac \\ fs [] \\ rw [] \\
+    once_rewrite_tac [evalPropsTheory.pat_bindings_accum] \\ fs []
+  )
+)
+
+val v_of_pat_extend_insts = store_thm ("v_of_pat_extend_insts",
+  ``(!envC pat insts v rest insts'.
+       v_of_pat envC pat insts = SOME (v, rest) ==>
+       v_of_pat envC pat (insts ++ insts') = SOME (v, rest ++ insts')) /\
+    (!envC pats insts vs rest insts'.
+       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
+       v_of_pat_list envC pats (insts ++ insts') = SOME (vs, rest ++ insts'))``,
+
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
+  try_finally (fs [v_of_pat_def])
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
+  THEN1 (
+    rename1 `Pcon c _` \\ Cases_on `c`
+    THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [])
+    THEN1 (
+      fs [v_of_pat_def] \\ every_case_tac \\ rw [] \\
+      TRY (qpat_assum `LENGTH _ = LENGTH _` (K all_tac)) \\ fs [] \\
+      rw []
+    )
+  )
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
+)
+
+val v_of_pat_NONE_extend_insts = store_thm ("v_of_pat_NONE_extend_insts",
+  ``(!envC pat insts insts'.
+       v_of_pat envC pat insts = NONE ==>
+       LENGTH insts >= LENGTH (pat_bindings pat []) ==>
+       v_of_pat envC pat (insts ++ insts') = NONE) /\
+    (!envC pats insts insts'.
+       v_of_pat_list envC pats insts = NONE ==>
+       LENGTH insts >= LENGTH (pats_bindings pats []) ==>
+       v_of_pat_list envC pats (insts ++ insts') = NONE)``,
+
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
+  try_finally (fs [v_of_pat_def, pat_bindings_def])
+  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
+  THEN1 (
+    rename1 `Pcon c _` \\ Cases_on `c`
+    THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
+    THEN1 (
+      fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+      metis_tac [v_of_pat_list_length]
+    )
+  )
+  THEN1 (
+    fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\
+    fs [Once (snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum))]
+    THEN1 (
+      `LENGTH insts >= LENGTH (pat_bindings pat [])` by (fs []) \\ fs []
+    )
+    THEN1 (
+      rw [] \\ progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
+      rename1 `LENGTH insts = _ + LENGTH rest2` \\
+      `LENGTH rest2 >= LENGTH (pats_bindings pats [])` by (fs []) \\ fs [] \\
+      progress (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
+      pop_assum (qspec_then `insts'` assume_tac) \\ fs [] \\ rw [] \\ fs []
+    )
+  )
+)
+
+val v_of_pat_remove_rest_insts = store_thm ("v_of_pat_remove_rest_insts",
+  ``(!pat envC insts v rest.
+       v_of_pat envC pat insts = SOME (v, rest) ==>
+       ?insts'.
+         insts = insts' ++ rest /\
+         LENGTH insts' = LENGTH (pat_bindings pat []) /\
+         v_of_pat envC pat insts' = SOME (v, [])) /\
+    (!pats envC insts vs rest.
+       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
+       ?insts'.
+         insts = insts' ++ rest /\
+         LENGTH insts' = LENGTH (pats_bindings pats []) /\
+         v_of_pat_list envC pats insts' = SOME (vs, []))``,
+
+  HO_MATCH_MP_TAC astTheory.pat_induction \\ rpt strip_tac \\
+  try_finally (fs [v_of_pat_def, pat_bindings_def])
+  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
+  THEN1 (
+    rename1 `Pcon c _` \\ Cases_on `c` \\
+    fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+    first_assum progress \\ rw []
+  )
+  THEN1 (fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL])
+  THEN1 (
+    fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+    qpat_assum_keep `v_of_pat _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum_keep `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
+    rw []
+    THEN1 (
+      once_rewrite_tac [snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum)] \\
+      fs []
+    )
+    THEN1 (
+      rename1 `LENGTH insts_pats = LENGTH (pats_bindings pats [])` \\
+      rename1 `LENGTH insts_pat = LENGTH (pat_bindings pat [])` \\
+      rename1 `v_of_pat_list _ _ (_ ++ rest)` \\
+      fs [APPEND_ASSOC] \\ every_case_tac \\ fs []
+      THEN1 (
+        progress_then (qspec_then `rest` assume_tac)
+          (fst (CONJ_PAIR v_of_pat_NONE_extend_insts)) \\
+        `LENGTH (insts_pat ++ insts_pats) >= LENGTH (pat_bindings pat [])`
+          by (fs []) \\ fs []
+      ) \\
+      rename1 `v_of_pat_list _ _ rest' = _` \\
+      qpat_assum `v_of_pat _ _ (_ ++ _) = _` (first_assum o progress_with) \\
+      `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs []
+    )
+  )
+)
+
+val v_of_pat_insts_unique = store_thm ("v_of_pat_insts_unique",
+  ``(!envC pat insts rest v.
+       v_of_pat envC pat insts = SOME (v, rest) ==>
+       (!insts'. v_of_pat envC pat insts' = SOME (v, rest) <=> (insts' = insts))) /\
+    (!envC pats insts rest vs.
+       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
+       (!insts'. v_of_pat_list envC pats insts' = SOME (vs, rest) <=> (insts' = insts)))``,
+
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
+  try_finally (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
+  THEN1 (
+    fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+    TRY (first_assum (qspec_then `insts'` assume_tac)) \\
+    TRY (strip_tac \\ rw [] \\ fs []) \\
+    TRY (qpat_assum `LENGTH _ = LENGTH _` (K all_tac)) (* otherwise fs[] loops? *) \\
+    TRY (eq_tac \\ strip_tac \\ rw [] \\ fs []) \\ rw []
+  )
+  THEN1 (
+    fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+    TRY (strip_tac \\ rw [] \\ fs []) \\ rw [] \\ fs [] \\
+    eq_tac \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  )
+)
+
+(* [v_of_pat_norest]: Wrapper that checks that there are no remaining
+   instantiations
+*)
+
+val v_of_pat_norest_def = Define `
+  v_of_pat_norest envC pat insts =
+    case v_of_pat envC pat insts of
+        SOME (v, []) => SOME v
+      | _ => NONE`
+
+val v_of_pat_norest_insts_length = store_thm ("v_of_pat_norest_insts_length",
+  ``!envC pat insts v.
+      v_of_pat_norest envC pat insts = SOME v ==>
+      LENGTH insts = LENGTH (pat_bindings pat [])``,
+  rpt strip_tac \\ fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
+  rw [] \\ progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\ fs []
+)
+
+val v_of_pat_norest_insts_unique = store_thm ("v_of_pat_norest_insts_unique",
+  ``!envC pat insts v.
+      v_of_pat_norest envC pat insts = SOME v ==>
+      (!insts'. v_of_pat_norest envC pat insts' = SOME v <=> (insts' = insts))``,
+  rpt strip_tac \\ fs [v_of_pat_norest_def] \\
+  every_case_tac \\ fs [] \\ rw [] \\ 
+  try_finally (strip_tac \\ rw [] \\ fs []) \\
+  eq_tac \\ rw [] \\ fs [] \\
+  progress (fst (CONJ_PAIR (v_of_pat_insts_unique))) \\ fs []
+)
+
+
+(* Predicates that discriminate the patterns we want to deal
+   with. [validate_pat] packs them all up.
+*)
+
+val pat_typechecks_def = Define `
+  pat_typechecks envC s pat v env =
+    (pmatch envC s pat v env <> Match_type_error)`
+
+val pat_without_Pref_def = tDefine "pat_without_Pref" `
+  pat_without_Pref (Pvar _) = T /\
+  pat_without_Pref (Plit _) = T /\
+  pat_without_Pref (Pcon _ args) =
+    EVERY pat_without_Pref args /\
+  pat_without_Pref (Pref _) = F`
+
+  (WF_REL_TAC `measure pat_size` \\
+   Cases \\ Induct \\ fs [basicSizeTheory.option_size_def] \\
+   fs [list_size_def, astTheory.pat_size_def] \\ rpt strip_tac \\ fs [] \\
+   first_assum progress \\ fs [])
+
+val validate_pat_def = Define `
+  validate_pat envC s pat v env =
+    (pat_typechecks envC s pat v env /\
+     pat_without_Pref pat /\
+     ALL_DISTINCT (pat_bindings pat []))`
+
+
+(* [PMATCH_ROW_of_pat]: the instance of [PMATCH_ROW] that corresponds to a
+   CakeML pattern
+*)
+
+val PMATCH_ROW_of_pat_def = Define `
+  PMATCH_ROW_of_pat pat branch_cf env =
+    PMATCH_ROW
+      (\insts. v_of_pat_norest env.c pat insts)
+      (\_. T)
+      (\insts.
+         \env. branch_cf (extend_env (REVERSE (pat_bindings pat [])) insts env))`
+
+
+(* Lemmas that relate [v_of_pat] and [pmatch], the pattern-matching function
+   from the semantics.
+*)
+
+val pmatch_list_match_length = store_thm ("pmatch_list_match_length",
+  ``!envC s pats args env env'.
+     pmatch_list envC s pats args env = Match env' ==>
+     LENGTH pats = LENGTH args``,
+  Induct_on `pats` \\ Cases_on `args` \\ fs [pmatch_def] \\
+  rpt strip_tac \\ every_case_tac \\ fs [] \\ first_assum irule \\ instantiate
+)
+
+val v_of_pat_pmatch = store_thm ("v_of_pat_pmatch",
+  ``(!envC s pat v env_v insts.
+      v_of_pat envC pat insts = SOME (v, []) ==>
+      pmatch envC s pat v env_v = Match
+        (ZIP (pat_bindings pat [], REVERSE insts) ++ env_v)) /\
+    (!envC s pats vs env_v insts.
+      v_of_pat_list envC pats insts = SOME (vs, []) ==>
+      pmatch_list envC s pats vs env_v = Match
+        (ZIP (pats_bindings pats [], REVERSE insts) ++ env_v))``,
+
+  HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
+  try_finally (
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
+    every_case_tac \\ fs [] \\
+    every_case_tac \\ fs []
+  )
+  THEN1 (
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
+    every_case_tac \\ fs [] \\ rw []
+    THEN1 (progress v_of_pat_list_length \\ fs []) \\
+    `!(n:tvarN) t. same_ctor (n, t) (n, t)` by (
+      Cases_on `n` \\ Cases_on `t` \\ fs [same_ctor_def]
+    ) \\ fs []
+  )
+  THEN1 (
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
+    every_case_tac \\ fs [] \\ rw [] \\
+    progress v_of_pat_list_length \\ fs []
+  )
+  THEN1 (
+    fs [pmatch_def, pat_bindings_def, v_of_pat_def] \\
+    every_case_tac \\ fs [] \\ rw [] \\
+    try_finally (
+      progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
+      rename1 `insts' ++ rest` \\ first_assum (qspec_then `insts'` (fs o sing))
+    ) \\
+    once_rewrite_tac [snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum)] \\
+    fs [] \\ progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
+    fs [REVERSE_APPEND] \\ progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\
+    fs [GSYM ZIP_APPEND] \\ once_rewrite_tac [GSYM APPEND_ASSOC] \\
+    rpt (first_x_assum progress) \\ rw []
+  )
+)
+
+val v_of_pat_norest_pmatch = store_thm ("v_of_pat_norest_pmatch",
+  ``!envC s pat v env_v insts.
+     v_of_pat_norest envC pat insts = SOME v ==>
+     pmatch envC s pat v env_v = Match
+       (ZIP (pat_bindings pat [], REVERSE insts) ++ env_v)``,
+  rpt strip_tac \\ fs [v_of_pat_norest_def] \\
+  every_case_tac \\ fs [v_of_pat_pmatch]
+)
+
+val pmatch_v_of_pat = store_thm ("pmatch_v_of_pat",
+  ``(!envC s pat v env_v env_v'.
+      pmatch envC s pat v env_v = Match env_v' ==>
+      pat_without_Pref pat ==>
+      ?insts.
+        env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
+        v_of_pat envC pat insts = SOME (v, [])) /\
+    (!envC s pats vs env_v env_v'.
+      pmatch_list envC s pats vs env_v = Match env_v' ==>
+      EVERY (\pat. pat_without_Pref pat) pats ==>
+      ?insts.
+        env_v' = ZIP (pats_bindings pats [], REVERSE insts) ++ env_v /\
+        v_of_pat_list envC pats insts = SOME (vs, []))``,
+
+  HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
+  try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
+  THEN1 (
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
+    qpat_assum `_ = _` (fs o sing o GSYM) \\
+    rename1 `[(x,xv)]` \\ qexists_tac `[xv]` \\ fs []
+  )
+  THEN1 (
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
+    every_case_tac \\ fs []
+  )
+  THEN1 (
+    fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
+    fs [pat_bindings_def] \\ qexists_tac `insts` \\ fs [] \\
+    rename1 `same_ctor (id_to_n id1, t1) (n2, t2)` \\
+    `t1 = t2 /\ id_to_n id1 = n2` by
+      (irule evalPropsTheory.same_ctor_and_same_tid \\ fs []) \\ rw [] \\
+    rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length
+  )
+  THEN1 (
+    fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
+    fs [pat_bindings_def] \\ qexists_tac `insts` \\ fs [] \\
+    rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs []
+  )
+  THEN1 (fs [pat_without_Pref_def])
+  THEN1 (
+    fs [pmatch_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+    first_assum progress \\ rw [] \\ fs [pat_bindings_def] \\
+    once_rewrite_tac [evalPropsTheory.pat_bindings_accum] \\ fs [] \\
+    rename1 `ZIP (pat_bindings pat [], REVERSE insts)` \\
+    rename1 `ZIP (pats_bindings pats [], REVERSE insts')` \\
+    qexists_tac `insts ++ insts'` \\
+    progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
+    progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\ fs [ZIP_APPEND] \\
+    progress_then (qspec_then `insts'` assume_tac)
+      (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
+    progress_then (qspec_then `insts'` assume_tac)
+      (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
+    fs [v_of_pat_def]
+  )
+)
+
+val pmatch_v_of_pat_norest = store_thm ("pmatch_v_of_pat_norest",
+  ``!envC s pat v env_v env_v'.
+      pmatch envC s pat v env_v = Match env_v' ==>
+      pat_without_Pref pat ==>
+      ?insts.
+        env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
+        v_of_pat_norest envC pat insts = SOME v``,
+  rpt strip_tac \\ progress (fst (CONJ_PAIR pmatch_v_of_pat)) \\ fs [] \\
+  qexists_tac `insts` \\ fs [v_of_pat_norest_def]
+)
+
+val v_of_pat_Con_cons = Q.prove (
+  `!envC env_v s pat v env_v' pats vs insts insts'.
+     pmatch envC s pat v env_v = Match env_v' ==>
+     pat_without_Pref pat ==>
+     v_of_pat envC (Pcon NONE pats) insts' = SOME (Conv NONE vs, []) ==>
+     ?insts.
+       env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
+       v_of_pat envC (Pcon NONE (pat::pats)) (insts ++ insts') = SOME (Conv NONE (v::vs), [])`,
+
+  rpt strip_tac \\ progress (fst (CONJ_PAIR pmatch_v_of_pat)) \\ rw [] \\
+  rename1 `ZIP (pat_bindings pat [], REVERSE insts)` \\ qexists_tac `insts` \\
+  progress_then (qspec_then `insts'` assume_tac)
+    (fst (CONJ_PAIR v_of_pat_extend_insts)) \\ fs [] \\
+  qpat_assum `v_of_pat _ (Pcon _ pats) _ = _`
+    (assume_tac o SIMP_RULE std_ss [v_of_pat_def]) \\ every_case_tac \\ rw [] \\
+  fs [build_conv_def] \\ rw [] \\
+  progress_then (qspec_then `insts'` assume_tac)
+    (snd (CONJ_PAIR v_of_pat_extend_insts)) \\ fs [] \\
+  rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw []
+)
+
+
+(* Lemmas relating our [PMATCH_ROW]s with the semantic pattern-matching [pmatch]
+*)
+
+val PMATCH_ROW_pmatch = store_thm ("PMATCH_ROW_pmatch",
+  ``!pat bcf s env v cf H Q.
+     PMATCH_ROW_of_pat pat bcf env (SOME v) = SOME cf ==>
+     cf env H Q ==>
+     ?env_v'.
+       pmatch env.c s pat v env.v = Match env_v' /\
+       bcf (env with v := env_v') H Q``,
+
+  rpt strip_tac \\
+  fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
+  rw [] \\ fs [] \\
+  progress v_of_pat_norest_insts_length \\
+  progress_then (qspecl_then [`s`, `env.v`] assume_tac) v_of_pat_norest_pmatch \\
+  instantiate \\ progress v_of_pat_norest_insts_unique \\ fs [SELECT_UNIQUE] \\
+  fs [extend_env_def, extend_env_v_zip] 
+)
+
+val PMATCH_ROW_of_pat_matching_Con_NONE = Q.prove (
+  `!env pcname pcnum pctid vcname vcn vctid pats args bcf.
+   lookup_alist_mod_env pcname env.c = SOME (pcnum, pctid) ==>
+   vcname = (vcn, vctid) ==>
+   pctid = vctid /\ id_to_n pcname = vcn ==>
+   LENGTH pats = pcnum ==>
+   PMATCH_ROW_of_pat (Pcon (SOME pcname) pats) bcf env (SOME (Conv (SOME vcname) args)) = NONE ==>
+   PMATCH_ROW_of_pat (Pcon NONE pats) bcf env (SOME (Conv NONE args)) = NONE`,
+
+  rpt strip_tac \\
+  fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
+  qx_gen_tac `inst` \\ pop_assum (qspec_then `inst` assume_tac) \\ rw [] \\
+  fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
+  fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+  progress v_of_pat_list_length
+)
+
+val PMATCH_ROW_of_pat_con_cons_NONE = Q.prove (
+  `!env s pat v env_v' pats args bcf.
+     pmatch env.c s pat v env.v = Match env_v' ==>
+     pat_without_Pref pat ==>
+     PMATCH_ROW_of_pat (Pcon NONE (pat::pats)) bcf env
+       (SOME (Conv NONE (v::args))) = NONE ==>
+     PMATCH_ROW_of_pat (Pcon NONE pats) bcf (env with v := env_v')
+       (SOME (Conv NONE args)) = NONE`,
+
+  rpt strip_tac \\
+  fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
+  qx_gen_tac `insts` \\ rewrite_tac [v_of_pat_norest_def] \\
+  every_case_tac \\ fs [] \\ strip_tac \\ first_x_assum irule \\ rw [] \\
+  progress v_of_pat_Con_cons \\ rw [] \\
+  rename1 `v_of_pat _ (Pcon _ (_::_)) (insts_pat ++ insts_pats)` \\
+  qexists_tac `insts_pat ++ insts_pats` \\ 
+  fs [v_of_pat_norest_def] \\ every_case_tac \\ fs []
+)
+
+val PMATCH_ROW_pmatch_nomatch = store_thm ("PMATCH_ROW_pmatch_nomatch",
+  ``(!pat env s v (branch_cf: v environment -> 'a).
+      pat_without_Pref pat ==>
+      pmatch env.c s pat v env.v <> Match_type_error ==>
+      PMATCH_ROW_of_pat pat branch_cf env (SOME v) = NONE ==>
+      pmatch env.c s pat v env.v = No_match) /\
+    (!pats env s vs (branch_cf: v environment -> 'a) cname pcname.
+      EVERY (\pat. pat_without_Pref pat) pats ==>
+      pmatch env.c s (Pcon NONE pats) (Conv NONE vs) env.v <> Match_type_error ==>
+      PMATCH_ROW_of_pat (Pcon NONE pats) branch_cf env (SOME (Conv NONE vs)) = NONE ==>
+      pmatch_list env.c s pats vs env.v = No_match)``,
+
+  HO_MATCH_MP_TAC astTheory.pat_induction \\
+  rpt strip_tac
+  THEN1 (
+    fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
+    first_assum (qspec_then `[v]` assume_tac) \\
+    fs [v_of_pat_norest_def, v_of_pat_def]
+  )
+  THEN1 (
+    fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
+    first_x_assum (qspec_then `[]` assume_tac) \\
+    fs [v_of_pat_norest_def, v_of_pat_def] \\ rename1 `Litv l <> v` \\
+    Cases_on `v` \\ fs [pmatch_def] \\ every_case_tac \\ fs []
+  )
+  THEN1 (
+    qpat_assum `pmatch _ _ _ _ _ <> _` mp_tac \\
+    Cases_on `v` \\ try_finally (fs [pmatch_def] \\ every_case_tac) \\
+    rename1 `Conv name_opt args` \\ rename1 `Pcon pname_opt _` \\
+    Cases_on `name_opt` \\ Cases_on `pname_opt` \\ try_finally (fs [pmatch_def])
+    THEN1 (
+      fs [pmatch_def] \\ every_case_tac \\ fs [] \\ strip_tac \\
+      first_assum irule \\ fs [pat_without_Pref_def] \\ instantiate
+    )
+    THEN1 (
+      rename1 `Conv (SOME cname) _` \\ Cases_on `cname` \\
+      fs [pat_without_Pref_def] \\
+      (* At this point:
+         - either the constructors are differents (and in this case, pmatch ... = No_match,
+           which proves the goal)... *)
+      fs [pmatch_def] \\ every_case_tac \\ strip_tac \\
+      (* - or the constructors are the same, and:
+           - pmatch_list ... = No_match, which proves the goal
+           - pmatch_list ... = Match, then we know LENGTH pats = LENGTH args, and
+             modulo additional lemmas we can use the induction hypothesis to prove
+             pmatch_list ... = No_match, proving the goal that became F *)
+      Cases_on `pmatch_list env.c s pats args env.v` \\ fs [] \\ rw [] \\
+      progress pmatch_list_match_length \\
+      `pmatch_list env.c s pats args env.v = No_match` by (
+        first_assum irule
+        THEN1 (every_case_tac \\ fs [])
+        THEN1 (
+          qexists_tac `branch_cf` \\
+          irule PMATCH_ROW_of_pat_matching_Con_NONE \\ instantiate \\
+          rename1 `same_ctor (id_to_n id1, tid1) (n2, tid2)` \\
+          qsuff_tac `tid1 = tid2 /\ id_to_n id1 = n2`
+            THEN1 (fs [CONJ_COMM, EQ_SYM]) \\
+          irule evalPropsTheory.same_ctor_and_same_tid \\ fs []
+        )
+      ) \\ fs []
+    )
+  )
+  THEN1 (
+    fs [pat_without_Pref_def]
+  )
+  THEN1 (
+    Cases_on `vs` \\ fs [pmatch_def] \\
+    fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
+    first_x_assum (qspec_then `[]` assume_tac) \\
+    fs [v_of_pat_norest_def, v_of_pat_def, build_conv_def]
+  )
+  THEN1 (
+    Cases_on `vs` \\ fs [pmatch_def] \\ every_case_tac \\ fs [] \\
+    progress (fst (CONJ_PAIR evalPropsTheory.pmatch_extend)) \\ rw [] \\
+    rename1 `pmatch_list _ _ _ args (matched_env ++ env.v)` \\
+    qsuff_tac `pmatch_list (env with v := matched_env ++ env.v).c s pats args
+                           (env with v := matched_env ++ env.v).v = No_match`
+      THEN1 (fs []) \\
+    first_assum irule \\ fs [] \\ qexists_tac `branch_cf` \\
+    irule PMATCH_ROW_of_pat_con_cons_NONE \\ instantiate
+  )
 )
 
 (*------------------------------------------------------------------*)
@@ -395,47 +987,75 @@ val cf_bottom_def = Define `
 
 val app_ref_def = Define `
   app_ref (x: v) H Q =
-    !(r: num). H * r ~~> Refv x ==>> Q (Loc r)`
+    !r. H * r ~~> x ==>> Q r`
 
 val app_assign_def = Define `
-  app_assign (r: num) (x: v) H Q =
+  app_assign r (x: v) H Q =
     ?x' F.
-      (H ==>> F * r ~~> Refv x') /\
-      (F * r ~~> Refv x ==>> Q (Conv NONE []))`
+      (H ==>> F * r ~~> x') /\
+      (F * r ~~> x ==>> Q (Conv NONE []))`
 
 val app_deref_def = Define `
-  app_deref (r: num) H Q =
+  app_deref r H Q =
     ?x F.
-      (H ==>> F * r ~~> Refv x) /\
+      (H ==>> F * r ~~> x) /\
       (H ==>> Q x)`
+
+val app_aalloc_def = Define `
+  app_aalloc (n: int) v H Q =
+    !a.
+      n >= 0 /\
+      (H * ARRAY a (REPLICATE (Num (ABS n)) v) ==>> Q a)`
+
+val app_asub_def = Define `
+  app_asub a (i: int) H Q =
+    ?vs F.
+      let n = Num (ABS i) in
+      0 <= i /\ n < LENGTH vs /\
+      (H ==>> F * ARRAY a vs) /\
+      (H ==>> Q (EL n vs))`
+
+val app_alength_def = Define `
+  app_alength a H Q =
+    ?vs F.
+      (H ==>> F * ARRAY a vs) /\
+      (H ==>> Q (Litv (IntLit (int_of_num (LENGTH vs)))))`
+
+val app_aupdate_def = Define `
+  app_aupdate a (i: int) v H Q =
+    ?vs F.
+      let n = Num (ABS i) in
+      0 <= i /\ n < LENGTH vs /\
+      (H ==>> F * ARRAY a vs) /\
+      (F * ARRAY a (LUPDATE v n vs) ==>> Q (Conv NONE []))`
 
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
-    !(loc: num).
+    !a.
       n >= 0 /\
-      (H * loc ~~> W8array (REPLICATE (Num (ABS n)) w) ==>> Q (Loc loc))`
+      (H * W8ARRAY a (REPLICATE (Num (ABS n)) w) ==>> Q a)`
 
 val app_aw8sub_def = Define `
-  app_aw8sub (loc: num) (i: int) H Q =
+  app_aw8sub a (i: int) H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
-      (H ==>> F * loc ~~> W8array ws) /\
+      (H ==>> F * W8ARRAY a ws) /\
       (H ==>> Q (Litv (Word8 (EL n ws))))`
 
 val app_aw8length_def = Define `
-  app_aw8length (loc: num) H Q =
+  app_aw8length a H Q =
     ?ws F.
-      (H ==>> F * loc ~~> W8array ws) /\
+      (H ==>> F * W8ARRAY a ws) /\
       (H ==>> Q (Litv (IntLit (int_of_num (LENGTH ws)))))`
 
 val app_aw8update_def = Define `
-  app_aw8update (loc: num) (i: int) w H Q =
+  app_aw8update a (i: int) w H Q =
     ?ws F.
       let n = Num (ABS i) in
       0 <= i /\ n < LENGTH ws /\
-      (H ==>> F * loc ~~> W8array ws) /\
-      (F * loc ~~> W8array (LUPDATE w n ws) ==>> Q (Conv NONE []))`
+      (H ==>> F * W8ARRAY a ws) /\
+      (F * W8ARRAY a (LUPDATE w n ws) ==>> Q (Conv NONE []))`
 
 val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
@@ -460,7 +1080,9 @@ val cf_con_def = Define `
 
 val cf_var_def = Define `
   cf_var name = \env. local (\H Q.
-    !h. H h ==> ?v. lookup_var_id name env = SOME v /\ Q v h)`
+    ?v.
+      lookup_var_id name env = SOME v /\
+      (H ==>> Q v))`
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
@@ -530,15 +1152,43 @@ val cf_ref_def = Define `
 val cf_assign_def = Define `
   cf_assign r x = \env. local (\H Q.
     ?rv xv.
-      exp2v env r = SOME (Loc rv) /\
+      exp2v env r = SOME rv /\
       exp2v env x = SOME xv /\
       app_assign rv xv H Q)`
 
 val cf_deref_def = Define `
   cf_deref r = \env. local (\H Q.
     ?rv.
-      exp2v env r = SOME (Loc rv) /\
+      exp2v env r = SOME rv /\
       app_deref rv H Q)`
+
+val cf_aalloc_def = Define `
+  cf_aalloc xn xv = \env. local (\H Q.
+    ?n v.
+      exp2v env xn = SOME (Litv (IntLit n)) /\
+      exp2v env xv = SOME v /\
+      app_aalloc n v H Q)`
+
+val cf_asub_def = Define `
+  cf_asub xa xi = \env. local (\H Q.
+    ?a i.
+      exp2v env xa = SOME a /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      app_asub a i H Q)`
+
+val cf_alength_def = Define `
+  cf_alength xa = \env. local (\H Q.
+    ?a.
+      exp2v env xa = SOME a /\
+      app_alength a H Q)`
+
+val cf_aupdate_def = Define `
+  cf_aupdate xa xi xv = \env. local (\H Q.
+    ?a i v.
+      exp2v env xa = SOME a /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      exp2v env xv = SOME v /\
+      app_aupdate a i v H Q)`
 
 val cf_aw8alloc_def = Define `
   cf_aw8alloc xn xw = \env. local (\H Q.
@@ -548,28 +1198,34 @@ val cf_aw8alloc_def = Define `
       app_aw8alloc n w H Q)`
 
 val cf_aw8sub_def = Define `
-  cf_aw8sub xl xi = \env. local (\H Q.
-    ?l i.
-      exp2v env xl = SOME (Loc l) /\
+  cf_aw8sub xa xi = \env. local (\H Q.
+    ?a i.
+      exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_aw8sub l i H Q)`
+      app_aw8sub a i H Q)`
 
 val cf_aw8length_def = Define `
-  cf_aw8length xl = \env. local (\H Q.
-    ?l.
-      exp2v env xl = SOME (Loc l) /\
-      app_aw8length l H Q)`
+  cf_aw8length xa = \env. local (\H Q.
+    ?a.
+      exp2v env xa = SOME a /\
+      app_aw8length a H Q)`
 
 val cf_aw8update_def = Define `
-  cf_aw8update xl xi xw = \env. local (\H Q.
-    ?l i w.
-      exp2v env xl = SOME (Loc l) /\
+  cf_aw8update xa xi xw = \env. local (\H Q.
+    ?a i w.
+      exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_aw8update l i w H Q)`
+      app_aw8update a i w H Q)`
 
-val SOME_val_def = Define `
-  SOME_val (SOME x) = x`
+val cf_mat_def = Define `
+  cf_mat e pats branches = \env. local (\H Q.
+    ?v branch_cf.
+      exp2v env e = SOME v /\
+      (!s. EVERY (\pat. validate_pat env.c s pat v env.v) pats) /\
+      PMATCH (SOME v) branches = branch_cf /\
+      branch_cf <> PMATCH_INCOMPLETE /\
+      branch_cf env H Q)`
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -579,7 +1235,7 @@ val cf_def = tDefine "cf" `
     (if is_bound_Fun opt e1 then
        (case Fun_body e1 of
           | SOME body =>
-            cf_fundecl (p:'ffi ffi_proj) (SOME_val opt) (Fun_params e1)
+            cf_fundecl (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
               (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
           | NONE => cf_bottom)
      else
@@ -614,6 +1270,22 @@ val cf_def = tDefine "cf" `
           (case args of
              | [r] => cf_deref r
              | _ => cf_bottom)
+        | Aalloc =>
+          (case args of
+            | [n; v] => cf_aalloc n v
+            | _ => cf_bottom)
+        | Asub =>
+          (case args of
+            | [l; n] => cf_asub l n
+            | _ => cf_bottom)
+        | Alength =>
+          (case args of
+            | [l] => cf_alength l
+            | _ => cf_bottom)
+        | Aupdate =>
+          (case args of
+            | [l; n; v] => cf_aupdate l n v
+            | _ => cf_bottom)
         | Aw8alloc =>
           (case args of
              | [n; w] => cf_aw8alloc n w
@@ -631,6 +1303,12 @@ val cf_def = tDefine "cf" `
              | [l; n; w] => cf_aw8update l n w
              | _ => cf_bottom)
         | _ => cf_bottom) /\
+  cf (p:'ffi ffi_proj) (Mat e branches) =
+    (\env.
+       cf_mat e
+         (MAP FST branches)
+         (MAP (\b. PMATCH_ROW_of_pat (FST b) (cf p (SND b)) env) branches)
+         env) /\
   cf _ _ = cf_bottom`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
@@ -645,14 +1323,19 @@ val cf_def = tDefine "cf" `
        every_case_tac \\ fs [astTheory.exp_size_def] \\
        drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
      )
+     THEN1 (
+       Induct_on `branches` \\ fs [MEM] \\ rpt strip_tac \\ rw [] \\
+       fs [astTheory.exp_size_def]
+     )
   )
 
 val cf_ind = fetch "-" "cf_ind"
 
 val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
-               cf_opn_def, cf_opb_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
+               cf_opn_def, cf_opb_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
+               cf_aupdate_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
-               cf_fundecl_rec_def, cf_bottom_def]
+               cf_fundecl_rec_def, cf_bottom_def, cf_mat_def]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -766,15 +1449,15 @@ val app_of_sound_cf = Q.prove (
 
   Induct \\ rpt strip_tac \\ fs [naryClosure_def, LENGTH_CONS] \\ rw [] \\
   rename1 `extend_env (n::ns) (xv::xvs) _` \\ Cases_on `ns` \\
-  rfs [LENGTH_NIL, LENGTH_CONS, extend_env_def, naryFun_def, app_def]
-  THEN1 (irule app_basic_of_sound_cf \\ fs [do_opapp_def])
+  fs [LENGTH_NIL, LENGTH_CONS] \\ rw [] \\
+  rfs [extend_env_def, Once extend_env_v_def, naryFun_def, app_def]
+  THEN1 (irule app_basic_of_sound_cf \\ fs [extend_env_v_def, do_opapp_def])
   THEN1 (
-    rw [] \\ fs [] \\ rename1 `extend_env (n'::ns) (xv'::xvs) _` \\
+    rename1 `extend_env_v (n'::ns) (xv'::xvs) _` \\
     fs [app_basic_def] \\ rpt strip_tac \\ fs [do_opapp_def] \\
-    fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS] \\
+    fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
     fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases] \\
-    fs [SPLIT_emp2] \\ first_assum progress \\ instantiate \\
-    qexists_tac `{}` \\ SPLIT_TAC
+    first_assum progress \\ instantiate \\ qexists_tac `{}` \\ SPLIT_TAC
   )
 )
 
@@ -817,17 +1500,18 @@ val app_rec_of_sound_cf_aux = Q.prove (
   Cases_on `params` \\ rpt strip_tac \\ rw [] \\
   fs [LENGTH_CONS] \\ rfs [] \\ qpat_assum `xvs = _` (K all_tac) \\
   rename1 `extend_env_rec _ _ (n::params) (xv::xvs) _` \\
-  Cases_on `params` \\ rfs [LENGTH_NIL, LENGTH_CONS, extend_env_rec_def] \\
-  fs [extend_env_def, app_def]
+  Cases_on `params` \\ rfs [LENGTH_NIL, LENGTH_CONS] \\
+  fs [extend_env_rec_def, extend_env_v_rec_def] \\
+  fs [extend_env_def, extend_env_v_def, app_def]
   THEN1 (
     irule app_basic_of_sound_cf \\
-    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\
+    progress_then (fs o sing) do_opapp_naryRecclosure \\
     fs [naryFun_def, letrec_pull_params_names, build_rec_env_zip]
   )
   THEN1 (
-    rw [] \\ rename1 `extend_env (n'::params) (xv'::xvs) _` \\
+    rw [] \\ rename1 `extend_env_v (n'::params) (xv'::xvs) _` \\
     fs [app_basic_def] \\ rpt strip_tac \\
-    rpt_drule_then (fs o sing) do_opapp_naryRecclosure \\
+    progress_then (fs o sing) do_opapp_naryRecclosure \\
     fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
     rename1 `SPLIT _ (h, i)` \\
     `SPLIT3 (st2heap (p:'ffi ffi_proj) st) (h, {}, i)` by SPLIT_TAC \\ instantiate \\
@@ -837,7 +1521,7 @@ val app_rec_of_sound_cf_aux = Q.prove (
         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
             (letrec_pull_params funs)) ++ env.v))
       (n'::params) body` \\ strip_tac
-    THEN1 (irule app_of_sound_cf \\ fs [])
+    THEN1 (irule app_of_sound_cf \\ fs [extend_env_def])
     THEN1 (
       fs [naryFun_def, naryClosure_def, Once bigStepTheory.evaluate_cases] \\
       fs [letrec_pull_params_cancel, letrec_pull_params_names] \\
@@ -901,6 +1585,7 @@ val cf_letrec_sound_aux = Q.prove (
     fs [fundecl_rec_aux_def] \\
     qpat_assum `_ = rest` (mp_tac o GSYM) \\ rw [] \\
     cf_strip_sound_full_tac \\ qpat_assum `sound _ e _` mp_tac \\
+    fs [extend_env_rec_def] \\
     fs [letrec_pull_params_names, extend_env_rec_build_rec_env] \\
     rewrite_tac [sound_def] \\ disch_then progress \\ instantiate
   )
@@ -1001,6 +1686,61 @@ val cf_letrec_sound = Q.prove (
   fs [letrec_pull_params_names, letrec_pull_params_def]
 )
 
+val PMATCH_EVAL_PMATCH_ROW_of_pat =
+  let
+    val pmatch_row_tm =
+        concl PMATCH_EVAL |> rand |> lhs |> rand |> rator |> rand
+    val pmatch_row_of_pat_tm =
+        PMATCH_ROW_of_pat_def |> SPEC_ALL |> concl |> rhs
+    val (tmsubst, tysubst) = match_term pmatch_row_tm pmatch_row_of_pat_tm
+    val thm = PMATCH_EVAL |> INST_TYPE tysubst |> INST tmsubst
+  in
+    SPEC_ALL (REWRITE_RULE [GSYM PMATCH_ROW_of_pat_def] thm)
+  end
+
+val PMATCH_evaluate_match = store_thm ("PMATCH_evaluate_match",
+  ``!v env H Q pats exps cfs branch_cf p exp st h_i h_k bind_exn_v.
+      LENGTH pats = LENGTH exps ==>
+      LENGTH exps = LENGTH cfs ==>
+      (!s. EVERY (\pat. validate_pat env.c s pat v env.v) pats) ==>
+      PMATCH (SOME v) (MAP2 (\pat cf. PMATCH_ROW_of_pat pat cf env) pats cfs) = branch_cf ==>
+      branch_cf <> PMATCH_INCOMPLETE ==>
+      branch_cf env H Q ==>
+      EVERY2 (\exp cf. sound p exp cf) exps cfs ==>
+      SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
+      ?v' st' h_f h_g.
+        bigStep$evaluate_match F env st v (ZIP (pats, exps)) bind_exn_v (st', Rval v') /\
+        Q v' h_f /\ SPLIT3 (st2heap p st') (h_f, h_k, h_g)``,
+  Induct_on `pats` \\ fs [] \\ rpt strip_tac
+  THEN1 (
+    rpt (qpat_assum `0 = LENGTH _` (assume_tac o GSYM) \\ fs [LENGTH_NIL]) \\ rw [] \\
+    fs [PMATCH_def]
+  ) \\
+
+  fs [LENGTH_CONS] \\ rename1 `exps = exp::exps'` \\ rw [] \\
+  fs [LENGTH_CONS] \\ rename1 `cfs = exp_cf::cfs'` \\ rw [] \\ fs [] \\
+  rename1 `PMATCH_ROW_of_pat pat _ _` \\
+  fs [PMATCH_def, option_case_compute] \\ full_case_tac
+  THEN1 (
+    first_assum (qspec_then `st.refs` strip_assume_tac) \\
+    fs [validate_pat_def, IS_SOME_EXISTS] \\ fs [THE_DEF] \\
+    fs [Once bigStepTheory.evaluate_cases] \\
+    progress_then (qspec_then `st.refs` strip_assume_tac) PMATCH_ROW_pmatch \\
+    fs [] \\ qpat_assum `sound _ _ exp_cf` (progress o REWRITE_RULE [sound_def]) \\
+    instantiate
+  )
+  THEN1 (
+    fs [NOT_IS_SOME_EQ_NONE] \\
+    first_assum (qspec_then `st.refs` assume_tac) \\
+    fs [validate_pat_def, pat_typechecks_def] \\
+    mp_tac (fst (CONJ_PAIR PMATCH_ROW_pmatch_nomatch)
+            |> INST_TYPE [alpha |-> ``:hprop -> (v -> hprop) -> bool``]) \\ (* ? *)
+    disch_then progress \\
+    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+    first_assum irule \\ fs [] \\ instantiate
+  )
+)
+
 val cf_sound = store_thm ("cf_sound",
   ``!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)``,
   recInduct cf_ind \\ rpt strip_tac \\
@@ -1031,7 +1771,7 @@ val cf_sound = store_thm ("cf_sound",
       THEN1 (fs [Fun_params_def, app_of_sound_cf]) \\
       qpat_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
       cf_evaluate_step_tac \\ Cases_on `opt` \\
-      fs [is_bound_Fun_def, SOME_val_def, Fun_params_def] \\ instantiate \\
+      fs [is_bound_Fun_def, THE_DEF, Fun_params_def] \\ instantiate \\
       every_case_tac \\ qpat_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE,
           Fun_params_Fun_body_repack, Once bigStepTheory.evaluate_cases]
@@ -1129,21 +1869,23 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Opassign *)
-      fs [app_assign_def, SEP_IMP_def,STAR_def,cell_def,one_def] \\
-      `evaluate_list F env st [h'; h] (st, Rval [xv; Loc rv])` by
+      fs [app_assign_def, REF_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def,STAR_def,cell_def,one_def] \\
+      `evaluate_list F env st [h'; h] (st, Rval [xv; rv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       first_assum progress \\
       rename1 `SPLIT h_i (h_i', _)` \\ rename1 `FF h_i'` \\
       fs [do_app_def, store_assign_def] \\
-      `Mem rv (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
-      `Mem rv (Refv x') IN (store2heap st.refs)` by
+      rename1 `rv = Loc r` \\ rw [] \\
+      `Mem r (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
+      `Mem r (Refv x') IN (store2heap st.refs)` by
           fs [st2heap_def,Mem_NOT_IN_ffi2heap] \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      `store_v_same_type (EL rv st.refs) (Refv xv)` by
+      `store_v_same_type (EL r st.refs) (Refv xv)` by
         (fs [store_v_same_type_def]) \\ fs [] \\
-      `SPLIT3 (store2heap (LUPDATE (Refv xv) rv st.refs) ∪ ffi2heap p st.ffi)
-         (Mem rv (Refv xv) INSERT h_i', h_k, {})` by
-       (rpt_drule_then (fs o sing) store2heap_LUPDATE \\
+      `SPLIT3 (store2heap (LUPDATE (Refv xv) r st.refs) ∪ ffi2heap p st.ffi)
+         (Mem r (Refv xv) INSERT h_i', h_k, {})` by
+       (progress_then (fs o sing) store2heap_LUPDATE \\
         drule store2heap_IN_unique_key \\
         fs [st2heap_def,SPLIT3_def,SPLIT_def] \\ rw [] \\
         assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\ SPLIT_TAC)
@@ -1156,16 +1898,16 @@ val cf_sound = store_thm ("cf_sound",
       \\ SPLIT_TAC)
     THEN1 (
       (* Opref *)
-      fs [do_app_def, store_alloc_def] \\
-      fs [st2heap_def, app_ref_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [do_app_def, store_alloc_def, app_ref_def, REF_def, SEP_EXISTS] \\
+      fs [st2heap_def, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       `evaluate_list F env st [h] (st, Rval [xv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
-        [`LENGTH st.refs`, `Mem (LENGTH st.refs)(Refv xv) INSERT h_i`] \\
+        [`Loc (LENGTH st.refs)`, `Mem (LENGTH st.refs) (Refv xv) INSERT h_i`] \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
-      THEN1 (qexists_tac `h_i` \\ SPLIT_TAC)
+      THEN1 (qexists_tac `h_i` \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
       THEN1 (
         strip_tac \\ instantiate \\ fs [store2heap_append] \\
         qexists_tac `{}` \\ SPLIT_TAC
@@ -1173,14 +1915,16 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Opderef *)
-      `evaluate_list F env st [h] (st, Rval [Loc rv])` by
+      `evaluate_list F env st [h] (st, Rval [rv])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_deref_def, SEP_IMP_def,STAR_def,one_def,cell_def] \\
+      fs [st2heap_def, app_deref_def, REF_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       rpt (first_x_assum progress) \\
       fs [do_app_def, store_lookup_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      `Mem rv (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
+      rename1 `rv = Loc r` \\ rw [] \\
+      `Mem r (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
     )
     THEN1 (
@@ -1188,14 +1932,15 @@ val cf_sound = store_thm ("cf_sound",
       `evaluate_list F env st [h'; h] (st, Rval [Litv (Word8 w); Litv (IntLit n)])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
       fs [do_app_def, store_alloc_def, st2heap_def, app_aw8alloc_def] \\
-      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum (qspecl_then [`LENGTH st.refs`] strip_assume_tac) \\
+      fs [W8ARRAY_def, SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def] \\
+      fs [one_def] \\
+      first_x_assum (qspecl_then [`Loc (LENGTH st.refs)`] strip_assume_tac) \\
       (fn l => first_x_assum (qspecl_then l mp_tac))
         [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num (ABS n)) w)) INSERT h_i`] \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       impl_tac
-      THEN1 (instantiate \\ SPLIT_TAC)
+      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
       THEN1 (
         rpt strip_tac \\ every_case_tac \\
         rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
@@ -1204,11 +1949,12 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Aw8sub *)
-      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); Loc l])`
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); a])`
         by (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_aw8sub_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [st2heap_def, app_aw8sub_def, W8ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       fs [do_app_def, store_lookup_def] \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
@@ -1218,12 +1964,13 @@ val cf_sound = store_thm ("cf_sound",
     )
     THEN1 (
       (* Aw8length *)
-      `evaluate_list F env st [h] (st, Rval [Loc l])` by
+      `evaluate_list F env st [h] (st, Rval [a])` by
         (cf_evaluate_list_tac [`st`, `st`]) \\
-      fs [st2heap_def, app_aw8length_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      fs [st2heap_def, app_aw8length_def, W8ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
       fs [do_app_def, store_lookup_def] \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
@@ -1231,10 +1978,11 @@ val cf_sound = store_thm ("cf_sound",
     THEN1 (
       (* Aw8update *)
       `evaluate_list F env st [h''; h'; h]
-         (st, Rval [Litv (Word8 w); Litv (IntLit i); Loc l])`
+         (st, Rval [Litv (Word8 w); Litv (IntLit i); a])`
           by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
-      fs [app_aw8update_def, SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
-      first_x_assum progress \\
+      fs [app_aw8update_def, W8ARRAY_def, SEP_EXISTS, cond_def, SEP_IMP_def] \\
+      fs [STAR_def, one_def, cell_def, st2heap_def] \\
+      first_x_assum progress \\ rename1 `a = Loc l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
@@ -1243,7 +1991,93 @@ val cf_sound = store_thm ("cf_sound",
       qexists_tac `Mem l (W8array (LUPDATE w (Num (ABS i)) ws)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
-      THEN1 (rpt_drule_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+    )
+    THEN1 (
+      (* Aalloc *)
+      `evaluate_list F env st [h'; h] (st, Rval [v; Litv (IntLit n)])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
+      fs [do_app_def, store_alloc_def, st2heap_def, app_aalloc_def] \\
+      fs [ARRAY_def, SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def] \\
+      fs [one_def] \\
+      first_x_assum (qspecl_then [`Loc (LENGTH st.refs)`] strip_assume_tac) \\
+      (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num (ABS n)) v)) INSERT h_i`] \\
+      assume_tac store2heap_alloc_disjoint \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      impl_tac
+      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
+      THEN1 (
+        rpt strip_tac \\ every_case_tac \\
+        rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\ instantiate \\
+        fs [store2heap_append] \\ qexists_tac `{}` \\ SPLIT_TAC
+      )
+    )
+    THEN1 (
+      (* Asub *)
+      `evaluate_list F env st [h'; h] (st, Rval [Litv (IntLit i); a])`
+        by (cf_evaluate_list_tac [`st`, `st`]) \\
+      fs [st2heap_def, app_asub_def, ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      fs [do_app_def, store_lookup_def] \\
+      `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
+      instantiate \\ every_case_tac \\
+      rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) []
+    )
+    THEN1 (
+      (* Alength *)
+      `evaluate_list F env st [h] (st, Rval [a])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\
+      fs [st2heap_def, app_alength_def, ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
+      fs [do_app_def, store_lookup_def] \\
+      `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs []
+    )
+    THEN1 (
+      (* Aupdate *)
+      `evaluate_list F env st [h''; h'; h]
+         (st, Rval [v; Litv (IntLit i); a])`
+          by (cf_evaluate_list_tac [`st`, `st`, `st`]) \\ instantiate \\
+      fs [app_aupdate_def, ARRAY_def, SEP_EXISTS, cond_def] \\
+      fs [SEP_IMP_def, STAR_def, one_def, cell_def, st2heap_def] \\
+      first_x_assum progress \\ rename1 `a = Loc l` \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      `Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+      every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
+      qexists_tac `Mem l (Varray (LUPDATE v (Num (ABS i)) vs)) INSERT u` \\
+      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
+      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+    )
+  )
+  THEN1 (
+    (* Mat *)
+    cf_strip_sound_full_tac \\
+    `evaluate F env st e (st, Rval v)` by (fs [exp2v_evaluate]) \\
+    instantiate \\
+    `branches = ZIP (MAP FST branches, MAP SND branches)`
+      by (fs [GSYM UNZIP_MAP, ZIP_UNZIP]) \\ pop_assum (fs o sing o Once) \\
+    fs [GSYM CONJ_ASSOC] \\ irule PMATCH_evaluate_match \\ fs [MAP_ZIP] \\
+    GEN_EXISTS_TAC "cfs" `MAP (\b. cf p (SND b)) branches` \\
+    fs [MAP2_ZIP] \\ instantiate \\ rpt strip_tac \\
+    try_finally (
+      Induct_on `branches` \\ fs [] \\ rpt strip_tac \\
+      fs [PMATCH_EVAL_PMATCH_ROW_of_pat] \\ every_case_tac \\ fs []
+    )
+    THEN1 (
+      fs [LIST_REL_EVERY_ZIP] \\ fs [EVERY_MEM, MEM_ZIP] \\ rpt strip_tac \\
+      rename1 `_ exp_cf_pair` \\ Cases_on `exp_cf_pair` \\
+      fs [EL_MAP] \\ first_assum irule \\ instantiate \\ fs [EL_MAP]
     )
   )
 )

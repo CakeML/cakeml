@@ -262,7 +262,7 @@ val jump_exc_def = Define `
       | _ => NONE
     else NONE`;
 
-(* TODO: reuse this from bvpSem? *)
+(* TODO: reuse this from dataSem? *)
 val cut_env_def = Define `
   cut_env (name_set:num_set) env =
     if domain name_set SUBSET domain env

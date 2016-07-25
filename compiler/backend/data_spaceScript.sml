@@ -1,8 +1,8 @@
-open preamble bvpTheory;
+open preamble dataLangTheory;
 
-val _ = new_theory "bvp_space";
+val _ = new_theory "data_space";
 
-(* BVP optimisation that lumps together MakeSpace operations. *)
+(* dataLang optimisation that lumps together MakeSpace operations. *)
 
 val op_space_req_def = Define `
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\

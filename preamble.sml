@@ -6,7 +6,8 @@ open HolKernel bossLib boolLib boolSimps pairLib markerLib lcsymtacs
      optionTheory sumTheory combinTheory listTheory rich_listTheory
      alistTheory llistTheory lprefix_lubTheory arithmeticTheory
      finite_mapTheory sptreeTheory pred_setTheory set_relationTheory
-     relationTheory sortingTheory stringTheory wordsTheory miscTheory
+     relationTheory sortingTheory stringTheory wordsTheory
+     mlstringTheory miscTheory
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on

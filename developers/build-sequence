@@ -15,11 +15,6 @@ compiler/backend/gc
 compiler/backend
 compiler/targets/asm
 compiler/targets
-compiler/targets/x64/proof
-compiler/targets/arm6/proof
-compiler/targets/arm8/proof
-compiler/targets/mips/proof
-compiler/targets/riscv/proof
 
 # compiler verification
 compiler/parsing/proofs
@@ -27,7 +22,15 @@ compiler/inference/proofs
 compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
+compiler/targets/x64/proofs
+compiler/targets/arm6/proofs
+compiler/targets/arm8/proofs
+compiler/targets/mips/proofs
+compiler/targets/riscv/proofs
 compiler/proofs
+
+# compiler bootstrap
+compiler/bootstrap/translation
 
 # candle
 candle/set-theory
@@ -46,4 +49,3 @@ explorer
 compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
-translator/simulator
