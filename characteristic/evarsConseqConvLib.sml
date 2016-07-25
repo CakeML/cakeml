@@ -165,17 +165,6 @@ end
   ecc_conseq_conv (match_mp_ecc dummy_imp2) t;
 *)
 
-fun conj1_ecc (ecc: evars_conseq_conv) {term, evars} =
-  let val (tm1, _) = dest_conj term
-      val ({instantiation, new_evars}, thm) = ecc {term = tm1, evars = evars}
-      val thm' =
-          cfTacticsBaseLib.CONJ1_CONSEQ_CONV
-            (K thm) (subst instantiation term)
-  in ({instantiation = instantiation,
-       new_evars = new_evars},
-      thm')
-  end
-
 fun lift_conseq_conv_ecc (cc: conseq_conv) {term, evars} =
   ({instantiation = [], new_evars = []}, cc term)
 
@@ -231,5 +220,54 @@ fun then_ecc
 
   conseq_conv_ecc (then_ecc (match_mp_ecc imp1) (match_mp_ecc imp2)) t;
 *)
+
+
+fun conj1_ecc (ecc: evars_conseq_conv) {term, evars} =
+  let val (tm1, tm2) = dest_conj term
+      val tm2_fvs = free_vars tm2
+      val ctx = free_varsl [tm1, tm2]
+      val ({instantiation, new_evars}, thm) = ecc {term = tm1, evars = evars}
+      val (inst_fresh, new_evars) = foldl (fn (ev, (inst, new_evs)) =>
+          if mem ev tm2_fvs then let
+            val ev' = variant ctx ev
+          in ({redex = ev, residue = ev'} :: inst, ev' :: new_evs) end
+          else (inst, ev :: new_evs)
+        ) ([], []) new_evars
+      val instantiation' = map (fn {redex, residue} =>
+          {redex = redex, residue = subst inst_fresh residue}
+        ) instantiation
+      val thm' = INST inst_fresh thm
+      val full_thm =
+          cfTacticsBaseLib.CONJ1_CONSEQ_CONV
+            (K thm') (subst instantiation' term)
+  in ({instantiation = instantiation',
+       new_evars = new_evars},
+      full_thm)
+  end
+
+fun conj2_ecc (ecc: evars_conseq_conv) {term, evars} =
+  let val (tm1, tm2) = dest_conj term
+      val tm1_fvs = free_vars tm1
+      val ctx = free_varsl [tm1, tm2]
+      val ({instantiation, new_evars}, thm) = ecc {term = tm2, evars = evars}
+      val (inst_fresh, new_evars) = foldl (fn (ev, (inst, new_evs)) =>
+          if mem ev tm1_fvs then let
+            val ev' = variant ctx ev
+          in ({redex = ev, residue = ev'} :: inst, ev' :: new_evs) end
+          else (inst, ev :: new_evs)
+        ) ([], []) new_evars
+      val instantiation' = map (fn {redex, residue} =>
+          {redex = redex, residue = subst inst_fresh residue}
+        ) instantiation
+      val thm' = INST inst_fresh thm
+      val full_thm =
+          cfTacticsBaseLib.CONJ2_CONSEQ_CONV
+            (K thm') (subst instantiation' term)
+  in ({instantiation = instantiation',
+       new_evars = new_evars},
+      full_thm)
+  end
+
+fun conj_ecc ecc1 ecc2 = then_ecc (conj1_ecc ecc1) (conj2_ecc ecc2)
 
 end

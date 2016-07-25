@@ -23,6 +23,8 @@ val then_ecc : evars_conseq_conv -> evars_conseq_conv -> evars_conseq_conv
 val lift_conseq_conv_ecc : ConseqConv.conseq_conv -> evars_conseq_conv
 
 val conj1_ecc : evars_conseq_conv -> evars_conseq_conv
+val conj2_ecc : evars_conseq_conv -> evars_conseq_conv
+val conj_ecc : evars_conseq_conv -> evars_conseq_conv -> evars_conseq_conv
 
 (* applies on terms of the form ?x1..xn. P, where the evars_conseq_conv appliens
    on P *)
