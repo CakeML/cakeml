@@ -124,7 +124,7 @@ val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
   type_ps tvs cenv ps ts tenv ⇒ MAP FST tenv = pats_bindings ps [])`,
  ho_match_mp_tac type_p_ind >>
  rw [pat_bindings_def] >>
- metis_tac [evalPropsTheory.pat_bindings_accum]);
+ metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]);
 
 val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
 `!ienv p e st st' t t' tenv' s.

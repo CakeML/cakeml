@@ -2,7 +2,7 @@ open preamble;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
-local open evalPropsTheory typeSoundInvariantsTheory in
+local open semanticPrimitivesPropsTheory typeSoundInvariantsTheory in
 val check_dup_ctors_cons = check_dup_ctors_cons;
 val tenv_tabbrev_ok_def = tenv_tabbrev_ok_def;
 val flat_tenv_tabbrev_ok_def = flat_tenv_tabbrev_ok_def;

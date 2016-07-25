@@ -1302,6 +1302,6 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
      fs[convert_env2_def,convert_menv_def,o_f_FUNION,tenv_bvl_def] >>
      fs[GSYM bind_var_list2_append]>>
      metis_tac [FUNION_ASSOC, APPEND_ASSOC, merge_mod_env_assoc,
-                evalPropsTheory.merge_alist_mod_env_assoc]))
+                semanticPrimitivesPropsTheory.merge_alist_mod_env_assoc]))
 
 val _ = export_theory ();
