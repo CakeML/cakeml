@@ -165,6 +165,8 @@ end
   ecc_conseq_conv (match_mp_ecc dummy_imp2) t;
 *)
 
+fun irule_ecc thm = match_mp_ecc (IRULE_CANON thm)
+
 fun lift_conseq_conv_ecc (cc: conseq_conv) {term, evars} =
   ({instantiation = [], new_evars = []}, cc term)
 

@@ -166,7 +166,7 @@ fun xapply_core H cont1 cont2 =
       xlocal,
       CONSEQ_CONV_TAC (K (
         ecc_conseq_conv (
-          conj1_ecc (match_mp_ecc H)
+          conj1_ecc (irule_ecc H)
         )
       )) \\
       CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
