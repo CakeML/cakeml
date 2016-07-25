@@ -3,6 +3,7 @@ sig
   include Abbrev
 
   val xpull : tactic
+  val xlocal : tactic
   val xcf : string -> ml_progLib.ml_prog_state -> tactic
   val xlet : term quotation -> term quotation -> tactic
   val xapply : thm -> tactic
