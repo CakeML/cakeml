@@ -1774,4 +1774,70 @@ val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
   ``!n x. REVERSE (REPLICATE n x) = REPLICATE n x``,
   Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
 
+(* n.b. used in hol-reflection *)
+
+val FDOM_FLOOKUP = Q.store_thm("FDOM_FLOOKUP",
+  `x ∈ FDOM f ⇔ ∃v. FLOOKUP f x = SOME v`,
+  rw[FLOOKUP_DEF])
+
+val FLAT_MAP_SING = Q.store_thm("FLAT_MAP_SING",
+  `∀ls. FLAT (MAP (λx. [f x]) ls) = MAP f ls`,
+  Induct \\ simp[]);
+
+val FLAT_MAP_NIL = Q.store_thm("FLAT_MAP_NIL",
+  `FLAT (MAP (λx. []) ls) = []`,
+  rw[FLAT_EQ_NIL,EVERY_MAP]);
+
+val UPDATE_LIST_NOT_MEM = store_thm("UPDATE_LIST_NOT_MEM",
+  ``∀ls f x. ¬MEM x(MAP FST ls) ⇒ (f =++ ls) x = f x``,
+  Induct >> simp[UPDATE_LIST_THM,combinTheory.APPLY_UPDATE_THM])
+
+val MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same = store_thm("MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same",
+  ``∀ks vs f. LENGTH ks = LENGTH vs ∧ ALL_DISTINCT ks ⇒ (MAP (f =++ ZIP (ks,vs)) ks = vs)``,
+  Induct >> simp[LENGTH_NIL_SYM] >>
+  gen_tac >> Cases >> simp[UPDATE_LIST_THM] >>
+  simp[UPDATE_LIST_NOT_MEM,MAP_ZIP,combinTheory.APPLY_UPDATE_THM])
+
+val MULT_LE_EXP = store_thm("MULT_LE_EXP",
+  ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
+  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
+  Cases >> simp[] >> strip_tac >>
+  first_x_assum(qspec_then`SUC n`mp_tac) >>
+  simp[arithmeticTheory.MULT] >>
+  Cases_on`b=0` >- (
+    simp[arithmeticTheory.EXP] ) >>
+  `SUC b ≤ b + b * n` suffices_by simp[] >>
+  simp[arithmeticTheory.ADD1] >>
+  Cases_on`b * n` >> simp[] >>
+  fs[arithmeticTheory.MULT_EQ_0] >> fs[])
+
+val domain_rrestrict_subset = store_thm("domain_rrestrict_subset",
+  ``domain (rrestrict r s) ⊆ domain r ∩ s``,
+  rw[set_relationTheory.domain_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
+val range_rrestrict_subset = store_thm("range_rrestrict_subset",
+  ``range (rrestrict r s) ⊆ range r ∩ s``,
+  rw[set_relationTheory.range_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
+val PERM_MAP_BIJ = store_thm("PERM_MAP_BIJ",
+  ``∀f l1 l2.
+    BIJ f UNIV UNIV ⇒
+    (PERM l1 l2 ⇔ PERM (MAP f l1) (MAP f l2))``,
+  rw[BIJ_IFF_INV] >>
+  EQ_TAC >- rw[sortingTheory.PERM_MAP] >>
+  `∀l. MEM l [l1;l2] ⇒ l = MAP g (MAP f l)` by (
+    rw[MAP_MAP_o,combinTheory.o_DEF] ) >>
+  fs[] >>
+  metis_tac[sortingTheory.PERM_MAP])
+
+val INJ_MAP_EQ_IFF = store_thm("INJ_MAP_EQ_IFF",
+  ``∀f l1 l2.
+    INJ f (set l1 ∪ set l2) UNIV ⇒
+    (MAP f l1 = MAP f l2 ⇔ l1 = l2)``,
+  rw[] >> EQ_TAC >- metis_tac[INJ_MAP_EQ] >> rw[])
+
 val _ = export_theory()

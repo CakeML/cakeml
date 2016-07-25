@@ -308,6 +308,11 @@ val abstract_in_funspace = store_thm("abstract_in_funspace",
   simp[funspace_def,relspace_def,abstract_def,mem_power,mem_product,mem_sub] >>
   simp[EXISTS_UNIQUE_THM,pair_inj])
 
+val abstract_in_funspace_matchable = store_thm("abstract_in_funspace_matchable",
+  ``is_set_theory ^mem ⇒
+    ∀f s t fs. (∀x. x <: s ⇒ f x <: t) ∧ fs = Funspace s t ⇒ Abstract s t f <: fs``,
+  PROVE_TAC[abstract_in_funspace])
+
 val abstract_eq = store_thm("abstract_eq",
   ``is_set_theory ^mem ⇒
     ∀s t1 t2 f g.

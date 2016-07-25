@@ -8,6 +8,125 @@ val is_std_interpretation_is_type = store_thm("is_std_interpretation_is_type",
   ``is_std_interpretation i ⇒ is_std_type_assignment (FST i)``,
   Cases_on`i` >> simp[is_std_interpretation_def])
 
+(* subtypes and subterms *)
+
+val (subtype1_rules,subtype1_ind,subtype1_cases) = Hol_reln`
+  MEM a args ⇒ subtype1 a (Tyapp name args)`
+val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
+val _ = Parse.overload_on("subtype",``RTC subtype1``)
+val subtype_Tyvar = save_thm("subtype_Tyvar",
+  ``ty subtype (Tyvar x)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subtype1_cases])
+val _ = export_rewrites["subtype_Tyvar"]
+val subtype_Tyapp = save_thm("subtype_Tyapp",
+  ``ty subtype (Tyapp name args)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subtype1_cases])
+
+val subtype_type_ok = store_thm("subtype_type_ok",
+  ``∀tysig ty1 ty2. type_ok tysig ty2 ∧ ty1 subtype ty2 ⇒ type_ok tysig ty1``,
+  gen_tac >>
+  (relationTheory.RTC_lifts_invariants
+    |> Q.GEN`R` |> Q.ISPEC`inv subtype1`
+    |> SIMP_RULE std_ss [relationTheory.inv_MOVES_OUT,relationTheory.inv_DEF]
+    |> Q.GEN`P` |> Q.ISPEC`type_ok tysig`
+    |> match_mp_tac) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  CONV_TAC SWAP_FORALL_CONV >> gen_tac >>
+  ho_match_mp_tac subtype1_ind >>
+  simp[type_ok_def,EVERY_MEM])
+
+val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
+  subterm1 t1 (Comb t1 t2) ∧
+  subterm1 t2 (Comb t1 t2) ∧
+  subterm1 tm (Abs v tm) ∧
+  subterm1 v (Abs v tm)`
+
+val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
+val _ = Parse.overload_on("subterm",``RTC subterm1``)
+val subterm_Var = save_thm("subterm_Var",
+  ``tm subterm (Var x ty)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val subterm_Const = save_thm("subterm_Const",
+  ``tm subterm (Const x ty)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val _ = export_rewrites["subterm_Var","subterm_Const"]
+val subterm_Comb = save_thm("subterm_Comb",
+  ``tm subterm (Comb t1 t2)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val subterm_Abs = save_thm("subterm_Abs",
+  ``tm subterm (Abs v t)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+
+val VFREE_IN_subterm = store_thm("VFREE_IN_subterm",
+  ``∀t1 t2. VFREE_IN t1 t2 ⇒ t1 subterm t2``,
+  Induct_on`t2` >> simp[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
+val subterm_welltyped = save_thm("subterm_welltyped",
+  let val th =
+    prove(``∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t``,
+      ho_match_mp_tac has_type_strongind >>
+      simp[subterm_Comb,subterm_Abs] >> rw[] >>
+      rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[])
+  in METIS_PROVE[th,welltyped_def]
+    ``∀t tm. welltyped tm ∧ t subterm tm ⇒ welltyped t``
+  end)
+
+val Var_subterm_types_in = prove(
+  ``∀t x ty. Var x ty subterm t ⇒ ty ∈ types_in t``,
+  ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
+val Const_subterm_types_in = prove(
+  ``∀t x ty. Const x ty subterm t ⇒ ty ∈ types_in t``,
+  ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
+val subterm_typeof_types_in = store_thm("subterm_typeof_types_in",
+  ``∀t1 t2 name args. (Tyapp name args) subtype (typeof t1) ∧ t1 subterm t2 ∧ welltyped t2 ∧ name ≠ (strlit"fun") ⇒
+      ∃ty2. Tyapp name args subtype ty2 ∧ ty2 ∈ types_in t2``,
+  ho_match_mp_tac term_induction >>
+  conj_tac >- ( rw[] >> metis_tac[Var_subterm_types_in] ) >>
+  conj_tac >- ( rw[] >> metis_tac[Const_subterm_types_in] ) >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac subterm_welltyped >> fs[] >> fs[] >>
+    last_x_assum match_mp_tac >> simp[] >>
+    conj_tac >- (
+      simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      simp[subtype_Tyapp] >>
+      metis_tac[relationTheory.RTC_REFL] ) >>
+    simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[subterm_Comb] ) >>
+  rw[] >>
+  fs[subtype_Tyapp] >- (
+    last_x_assum(match_mp_tac) >> simp[] >>
+    conj_tac >- (
+      simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+      first_assum(match_exists_tac o concl) >> simp[] ) >>
+    simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[subterm_Abs] ) >>
+  first_x_assum(match_mp_tac) >> simp[] >>
+  conj_tac >- (
+    simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+    first_assum(match_exists_tac o concl) >> simp[] ) >>
+  simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  simp[subterm_Abs] )
+
 (* typesem *)
 
 val typesem_inhabited = store_thm("typesem_inhabited",
@@ -55,6 +174,22 @@ val typesem_tyvars = store_thm("typesem_tyvars",
   simp[tyvars_def,MEM_FOLDR_LIST_UNION,typesem_def] >>
   rw[] >> rpt AP_TERM_TAC >> rw[MAP_EQ_f] >>
   metis_tac[])
+
+val typesem_consts = store_thm("typesem_consts",
+  ``∀δ τ ty δ'.
+    (∀name args. (Tyapp name args) subtype ty ⇒
+      δ' name = δ name ∨
+      ∃vars. args = MAP Tyvar vars ∧
+             δ' name (MAP τ vars) = δ name (MAP τ vars))
+    ⇒ typesem δ' τ ty = typesem δ τ ty``,
+  ho_match_mp_tac typesem_ind >>
+  conj_tac >- simp[typesem_def] >>
+  rw[] >> simp[typesem_def] >>
+  fs[subtype_Tyapp] >>
+  first_assum(qspecl_then[`name`,`args`]mp_tac) >>
+  impl_tac >- rw[] >> strip_tac >- (
+    rw[] >> AP_TERM_TAC >> simp[MAP_EQ_f] >> metis_tac[] ) >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,typesem_def,ETA_AX])
 
 (* termsem *)
 
@@ -113,6 +248,35 @@ val termsem_typesem = store_thm("termsem_typesem",
   simp[Abbr`vv`] >> disch_then match_mp_tac >>
   Cases_on`v`>> fs[is_valuation_def,is_term_valuation_def] >>
   rw[combinTheory.APPLY_UPDATE_THM] >> rw[])
+
+val termsem_typesem_matchable = store_thm("termsem_typesem_matchable",
+  ``is_set_theory ^mem ⇒
+     ∀sig i tm v δ τ tmenv ty.
+       δ = tyaof i ∧ τ = tyvof v ∧ is_valuation (tysof sig) δ v ∧
+       is_interpretation sig i ∧ is_std_type_assignment δ ∧
+       term_ok sig tm ∧ tmenv = tmsof sig ∧
+       ty = typesem δ τ (typeof tm) ⇒
+       termsem tmenv i v tm <: ty``,
+  PROVE_TAC[termsem_typesem])
+
+val termsem_consts = store_thm("termsem_consts",
+  ``∀tmsig i v tm i'.
+      welltyped tm ∧
+      (∀name ty. VFREE_IN (Const name ty) tm ⇒
+                 instance tmsig i' name ty (tyvof v) =
+                 instance tmsig i name ty (tyvof v)) ∧
+      (∀t. t subterm tm ⇒
+         typesem (tyaof i') (tyvof v) (typeof t) =
+         typesem (tyaof i ) (tyvof v) (typeof t))
+      ⇒
+      termsem tmsig i' v tm = termsem tmsig i v tm``,
+  Induct_on`tm` >> simp[termsem_def] >> rw[]
+  >- (
+    fs[subterm_Comb] >>
+    metis_tac[]) >>
+  simp[termsem_def] >>
+  fsrw_tac[boolSimps.DNF_ss][subterm_Abs] >>
+  rpt AP_TERM_TAC >> simp[FUN_EQ_THM])
 
 val Equalsem =
   is_std_interpretation_def
@@ -626,6 +790,13 @@ val extend_valuation_exists = store_thm("extend_valuation_exists",
     if type_ok tysig ty then tmvof v (x,ty)
     else @m. m <: typesem δ (tyvof v) ty` >>
   rw[] >> metis_tac[typesem_inhabited])
+
+val is_type_valuation_UPDATE_LIST = store_thm("is_type_valuation_UPDATE_LIST",
+  ``∀t ls. is_type_valuation t ∧ EVERY (inhabited o SND) ls ⇒
+           is_type_valuation (t =++ ls)``,
+  rw[is_type_valuation_def,APPLY_UPDATE_LIST_ALOOKUP] >>
+  BasicProvers.CASE_TAC >> rw[] >> imp_res_tac ALOOKUP_MEM >>
+  fs[EVERY_MEM,FORALL_PROD] >> metis_tac[])
 
 (* identity instance *)
 

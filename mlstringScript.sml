@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs stringTheory relationTheory totoTheory pred_setTheory
+open HolKernel boolLib bossLib lcsymtacs stringTheory relationTheory totoTheory pred_setTheory listTheory
 val _ = ParseExtras.temp_tight_equality()
 val _ = new_theory"mlstring"
 
@@ -100,5 +100,19 @@ val TotOrd_mlstring_cmp = store_thm("TotOrd_mlstring_cmp",
   simp[mlstring_cmp_def] >>
   match_mp_tac TotOrd_TO_of_Strong >>
   simp[StrongLinearOrder_mlstring_lt])
+
+val ALL_DISTINCT_MAP_implode = store_thm("ALL_DISTINCT_MAP_implode",
+  ``ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)``,
+  strip_tac >>
+  match_mp_tac ALL_DISTINCT_MAP_INJ >>
+  rw[implode_def])
+val _ = export_rewrites["ALL_DISTINCT_MAP_implode"]
+
+val ALL_DISTINCT_MAP_explode = store_thm("ALL_DISTINCT_MAP_explode",
+  ``∀ls. ALL_DISTINCT (MAP explode ls) ⇔ ALL_DISTINCT ls``,
+  gen_tac >> EQ_TAC >- MATCH_ACCEPT_TAC ALL_DISTINCT_MAP >>
+  STRIP_TAC >> MATCH_MP_TAC ALL_DISTINCT_MAP_INJ >>
+  simp[explode_11])
+val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
 
 val _ = export_theory()
