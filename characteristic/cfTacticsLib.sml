@@ -82,6 +82,19 @@ fun xpull_core (g as (_, w)) =
 val xpull =
   xpull_core \\ rpt strip_tac THEN1 (TRY xlocal)
 
+(* [xsimpl] *)
+
+val emp_sep_imp_refl = ISPEC ``emp:hprop`` SEP_IMP_REFL
+
+val xsimpl =
+    hsimpl \\
+    QUANT_INSTANTIATE_TAC [
+      instantiation_qp [emp_sep_imp_refl]
+    ] \\ fs [emp_sep_imp_refl] \\
+    QUANT_INSTANTIATE_TAC [
+      instantiation_qp [cfHeapsBaseTheory.hsimpl_gc]
+    ] \\ fs [cfHeapsBaseTheory.hsimpl_gc]
+
 (* [xcf] *)
 
 fun naryFun_repack_conv tm =

@@ -2,6 +2,7 @@ signature cfTacticsLib =
 sig
   include Abbrev
 
+  val xsimpl : tactic
   val xpull : tactic
   val xlocal : tactic
   val xcf : string -> ml_progLib.ml_prog_state -> tactic

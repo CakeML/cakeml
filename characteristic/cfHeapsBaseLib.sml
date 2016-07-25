@@ -28,16 +28,6 @@ val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
 val SEP_CLAUSES = LIST_CONJ [SEP_CLAUSES, STARPOST_def, cond_eq_def]
 
 (*------------------------------------------------------------------*)
-(** Custom Quantifiers Heuristics parameters *)
-
-val sep_qp = combine_qps [
-      instantiation_qp [
-        INST_TYPE [alpha |-> Type `:heap`] SEP_IMP_REFL,
-        hsimpl_gc
-      ]
-    ]
-
-(*------------------------------------------------------------------*)
 (** Auxiliary functions *)
 
 fun dest_sep_imp tm = let
