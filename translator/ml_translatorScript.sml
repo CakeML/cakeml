@@ -93,7 +93,7 @@ val evaluate_11_Rval = store_thm("evaluate_11_Rval",
   REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
-val clock_add_lemma = Q.prove (
+val clock_add_lemma = Q.store_thm ("clock_add_lemma",
 `!x k env k' res extra.
   evaluate (empty_state k) env [x] = (empty_state k', Rval [res])
   ⇒
@@ -491,7 +491,7 @@ val FUN_FORALL_INTRO = store_thm("FUN_FORALL_INTRO",
   ``(!x. p x f v) ==> (FUN_FORALL x. p x) f v``,
   fs [FUN_FORALL]);
 
-val clock_different_lemma = Q.prove (
+val clock_different_lemma = Q.store_thm ("clock_different_lemma",
  `!k1 k2 env e res1 res2.
    evaluate (empty_state k1) env [e] = (empty_state 0, Rval [res1]) ∧
    evaluate (empty_state k2) env [e] = (empty_state 0, Rval [res2])
@@ -1880,7 +1880,7 @@ val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
 
 val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
-val clock_different_lemma2 = Q.prove (
+val clock_different_lemma2 = Q.store_thm ("clock_different_lemma2",
  `!k1 k2 env e res1 res2.
    evaluate (empty_state k1) env [e] = (empty_state k1', Rval [res1]) ∧
    evaluate (empty_state k2) env [e] = (empty_state k2', Rval [res2])
