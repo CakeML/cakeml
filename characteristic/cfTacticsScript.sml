@@ -27,4 +27,38 @@ val xret_no_gc_lemma = store_thm ("xret_no_gc_lemma",
   fs [local_elim]
 )
 
+(*------------------------------------------------------------------*)
+(* Automatic rewrites *)
+
+
+val INT_Litv = store_thm ("INT_Litv[simp]",
+  ``INT i (Litv (IntLit k)) = (i = k)``,
+  fs [INT_def] \\ eq_tac \\ fs []
+)
+
+val CHAR_Litv = store_thm ("CHAR_Litv[simp]",
+  ``CHAR c (Litv (Char c')) = (c = c')``,
+  fs [CHAR_def] \\ eq_tac \\ fs []
+)
+
+val STRING_Litv = store_thm ("STRING_Litv[simp]",
+  ``STRING_TYPE s (Litv (StrLit s')) = (s' = explode s)``,
+  fs [STRING_TYPE_def] \\ eq_tac \\ fs []
+)
+
+val WORD8_Litv = store_thm ("WORD8_Litv[simp]",
+  ``WORD w (Litv (Word8 w')) = (w = w')``,
+  fs [WORD_def, w2w_def] \\ eq_tac \\ fs []
+)
+
+val WORD64_Litv = store_thm ("WORD64_Litv[simp]",
+  ``WORD w (Litv (Word64 w')) = (w = w')``,
+  fs [WORD_def, w2w_def] \\ eq_tac \\ fs []
+)
+
+val UNIT_Conv = store_thm ("UNIT_Conv[simp]",
+  ``UNIT_TYPE () (Conv NONE []) = T``,
+  fs [UNIT_TYPE_def]
+)
+
 val _ = export_theory()
