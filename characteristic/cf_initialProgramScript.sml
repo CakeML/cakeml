@@ -10,6 +10,10 @@ val _ = new_theory "cf_initialProgram"
 val basis_prog = EVAL ``basis_program`` |> concl |> rand
 val basis_st = ml_progLib.add_prog basis_prog pick_name ml_progLib.init_state
 
+val basis_prog_state = save_thm ("basis_prog_state",
+  ml_progLib.pack_ml_prog_state basis_st
+)
+
 fun prove_opn_opb_spec op_name =
   xcf op_name basis_st \\ xpull \\
   fs [cf_opn_def, cf_opb_def] \\ irule local_elim \\

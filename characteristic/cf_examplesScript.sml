@@ -5,8 +5,9 @@ open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfHeapsLib
 open cfAppTheory cfTheory
 open cfTacticsTheory cfTacticsBaseLib cfTacticsLib
 
-val basis_prog = EVAL ``basis_program`` |> concl |> rand
-val basis_st = ml_progLib.add_prog basis_prog pick_name ml_progLib.init_state
+val basis_st =
+  ml_progLib.unpack_ml_prog_state 
+    cf_initialProgramTheory.basis_prog_state
 
 val example_let0 = parse_topdecl
   "fun example_let0 n = let val a = 3; in a end"
