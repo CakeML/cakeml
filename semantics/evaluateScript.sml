@@ -81,7 +81,7 @@ val _ = Define `
   else (st, Rerr (Rabort Rtype_error))))
 /\
 (evaluate st env [Var n] =  
-((case elookup env.v n of
+((case eLookup env.v n of
     SOME v => (st, Rval [v])
   | NONE => (st, Rerr (Rabort Rtype_error))
   )))
@@ -138,7 +138,7 @@ val _ = Define `
 /\
 (evaluate st env [Let xo e1 e2] =  
 ((case evaluate st env [e1] of
-    (st', Rval v) => evaluate (check_clock st' st) ( env with<| v := eoptbind xo (HD v) env.v |>) [e2]
+    (st', Rval v) => evaluate (check_clock st' st) ( env with<| v := eOptBind xo (HD v) env.v |>) [e2]
   | res => res
   )))
 /\
@@ -156,7 +156,7 @@ val _ = Define `
 (evaluate_match st env v ((p,e)::pes) err_v  =  
 (if ALL_DISTINCT (pat_bindings p []) then
     (case pmatch env.c st.refs p v [] of
-      Match env_v' => evaluate st ( env with<| v := emerge (alist_to_env env_v') env.v |>) [e]
+      Match env_v' => evaluate st ( env with<| v := eMerge (alist_to_env env_v') env.v |>) [e]
     | No_match => evaluate_match st env v pes err_v
     | Match_type_error => (st, Rerr (Rabort Rtype_error))
     )
@@ -168,7 +168,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   forall 'ffi. list modN -> state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
  val _ = Define `
 
-(evaluate_decs mn st env [] = (st, Rval <| v := eempty; c := eempty |>))
+(evaluate_decs mn st env [] = (st, Rval <| v := eEmpty; c := eEmpty |>))
 /\
 (evaluate_decs mn st env (d1::d2::ds) =  
 ((case evaluate_decs mn st env [d1] of
@@ -185,7 +185,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       (st', Rval v) =>
         (st',
          (case pmatch env.c st'.refs p (HD v) [] of
-           Match new_vals => Rval <| v := (alist_to_env new_vals); c := eempty |>
+           Match new_vals => Rval <| v := (alist_to_env new_vals); c := eEmpty |>
          | No_match => Rerr (Rraise Bindv)
          | Match_type_error => Rerr (Rabort Rtype_error)
          ))
@@ -197,7 +197,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (evaluate_decs mn st env [Dletrec funs] =
   (st,   
 (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
-     Rval <| v := (build_rec_env funs env eempty); c := eempty |>
+     Rval <| v := (build_rec_env funs env eEmpty); c := eEmpty |>
    else
      Rerr (Rabort Rtype_error))))
 /\
@@ -208,26 +208,26 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
        ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds)
     then
       (( st with<| defined_types := new_tdecs UNION st.defined_types |>),
-       Rval <| v := eempty; c := (build_tdefs mn tds) |>)
+       Rval <| v := eEmpty; c := (build_tdefs mn tds) |>)
     else
       (st, Rerr (Rabort Rtype_error))))
 /\
 (evaluate_decs mn st env [Dtabbrev tvs tn t] =
-  (st, Rval <| v := eempty; c := eempty |>))
+  (st, Rval <| v := eEmpty; c := eEmpty |>))
 /\
 (evaluate_decs mn st env [Dexn cn ts] =  
 (if TypeExn (mk_id mn cn) IN st.defined_types then
     (st, Rerr (Rabort Rtype_error))
   else
     (( st with<| defined_types := {TypeExn (mk_id mn cn)} UNION st.defined_types |>),
-     Rval <| v := eempty; c := (alist_to_env [(cn, (LENGTH ts, TypeExn (mk_id mn cn)))]) |>)))`;
+     Rval <| v := eEmpty; c := (eSing cn (LENGTH ts, TypeExn (mk_id mn cn))) |>)))`;
 
 
 (*val evaluate_tops :
   forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v*)
  val _ = Define `
 
-(evaluate_tops st env [] = (st, Rval <| v := eempty; c := eempty |>))
+(evaluate_tops st env [] = (st, Rval <| v := eEmpty; c := eEmpty |>))
 /\
 (evaluate_tops st env (top1::top2::tops) =  
 ((case evaluate_tops st env [top1] of
@@ -247,7 +247,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       (st', r) =>
         (( st' with<| defined_mods := {mn} UNION st'.defined_mods |>),
          (case r of
-           Rval env' => Rval <| v := (elift mn env'.v); c := (elift mn env'.c) |>
+           Rval env' => Rval <| v := (eLift mn env'.v); c := (eLift mn env'.c) |>
          | Rerr err => Rerr err
          ))
     )

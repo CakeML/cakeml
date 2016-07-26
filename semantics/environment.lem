@@ -6,32 +6,43 @@ type alist 'k 'v = list ('k * 'v)
 type environment 'n 'v =
   Bind of alist 'n 'v * alist modN (environment 'n 'v)
 
-val elookup : forall 'v 'n. Eq 'n => environment 'n 'v -> id 'n -> maybe 'v
-let rec elookup (Bind v m) (Short n) = List.lookup n v
-    and elookup (Bind v m) (Long mn id) =
+val eLookup : forall 'v 'n. Eq 'n => environment 'n 'v -> id 'n -> maybe 'v
+let rec eLookup (Bind v m) (Short n) = List.lookup n v
+    and eLookup (Bind v m) (Long mn id) =
       match List.lookup mn m with
       | Nothing -> Nothing
-      | Just env -> elookup env id
+      | Just env -> eLookup env id
       end
 
-val eempty : forall 'v 'n. environment 'n 'v
-let eempty = Bind [] []
+val eEmpty : forall 'v 'n. environment 'n 'v
+let eEmpty = Bind [] []
 
-val emerge : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v
-let emerge (Bind v1 m1) (Bind v2 m2) = Bind (v1 ++ v2) (m1 ++ m2)
+val eMerge : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v
+let eMerge (Bind v1 m1) (Bind v2 m2) = Bind (v1 ++ v2) (m1 ++ m2)
 
-val elift : forall 'v 'n. modN -> environment 'n 'v -> environment 'n 'v
-let elift mn env = Bind [] [(mn, env)]
+val eLift : forall 'v 'n. modN -> environment 'n 'v -> environment 'n 'v
+let eLift mn env = Bind [] [(mn, env)]
 
 val alist_to_env : forall 'v 'n. alist 'n 'v -> environment 'n 'v
 let alist_to_env a = Bind a []
 
-val ebind : forall 'v 'n. 'n -> 'v -> environment 'n 'v -> environment 'n 'v
-let ebind k x (Bind v m) = Bind ((k,x)::v) m
+val eBind : forall 'v 'n. 'n -> 'v -> environment 'n 'v -> environment 'n 'v
+let eBind k x (Bind v m) = Bind ((k,x)::v) m
 
-val eoptbind : forall 'v 'n. maybe 'n -> 'v -> environment 'n 'v -> environment 'n 'v
-let eoptbind n x env =
+val eOptBind : forall 'v 'n. maybe 'n -> 'v -> environment 'n 'v -> environment 'n 'v
+let eOptBind n x env =
   match n with
   | Nothing -> env
-  | Just n' -> ebind n' x env
+  | Just n' -> eBind n' x env
   end
+
+val eSing : forall 'v 'n. 'n -> 'v -> environment 'n 'v
+let eSing n x = Bind ([(n,x)]) []
+
+val eSubEnv : forall 'v 'n. Eq 'n, Eq 'v => (id 'n * 'v -> id 'n * 'v -> bool) -> environment 'n 'v -> environment 'n 'v -> bool
+let eSubEnv r env1 env2 =
+  forall id v1.
+    eLookup env1 id = Just v1
+    -->
+    exists v2. eLookup env2 id = Just v2 && r (id,v1) (id,v2)
+

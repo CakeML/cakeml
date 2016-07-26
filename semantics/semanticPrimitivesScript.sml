@@ -156,7 +156,7 @@ val _ = Define `
 ((case n_opt of
       NONE => T
     | SOME n =>
-        (case elookup cenv n of
+        (case eLookup cenv n of
             NONE => F
           | SOME (l',ns) => l = l'
         )
@@ -170,7 +170,7 @@ val _ = Define `
       NONE =>
         SOME (Conv NONE vs)
     | SOME id =>
-        (case elookup envC id of
+        (case eLookup envC id of
             NONE => NONE
           | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs)
         )
@@ -242,7 +242,7 @@ val _ = Define `
     Match_type_error))
 /\
 (pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =  
-((case elookup envC n of
+((case eLookup envC n of
       SOME (l, t) =>
         if same_tid t t' /\ (LENGTH ps = l) then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -290,7 +290,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (build_rec_env funs cl_env add_to_env =  
 (FOLDR
-    (\ (f,x,e) env' .  ebind f (Recclosure cl_env funs f) env')
+    (\ (f,x,e) env' .  eBind f (Recclosure cl_env funs f) env')
     add_to_env
     funs))`;
 
@@ -375,11 +375,11 @@ val _ = Define `
  (do_opapp vs =  
 ((case vs of
     [Closure env n e; v] =>
-      SOME (( env with<| v := ebind n v env.v |>), e)
+      SOME (( env with<| v := eBind n v env.v |>), e)
   | [Recclosure env funs n; v] =>
       if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
         (case find_recfun n funs of
-            SOME (n,e) => SOME (( env with<| v := ebind n v (build_rec_env funs env env.v) |>), e)
+            SOME (n,e) => SOME (( env with<| v := eBind n v (build_rec_env funs env env.v) |>), e)
           | NONE => NONE
         )
       else
@@ -754,14 +754,14 @@ val _ = Define `
  (combine_dec_result env r =  
 ((case r of
       Rerr e => Rerr e
-    | Rval env' => Rval <| v := (emerge env'.v env.v); c := (emerge env'.c env.c) |>
+    | Rval env' => Rval <| v := (eMerge env'.v env.v); c := (eMerge env'.c env.c) |>
   )))`;
 
 
 (*val extend_dec_env : sem_env v -> sem_env v -> sem_env v*)
 val _ = Define `
  (extend_dec_env new_env env =  
-(<| c := (emerge new_env.c env.c); v := (emerge new_env.v env.v) |>))`;
+(<| c := (eMerge new_env.c env.c); v := (eMerge new_env.v env.v) |>))`;
 
 
 (*val decs_to_types : list dec -> list typeN*)

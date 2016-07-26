@@ -133,7 +133,7 @@ val _ = Define `
  (prim_sem_env ffi =  
 (add_to_sem_env
     (<| clock :=( 0); ffi := ffi; refs := []; defined_mods := {}; defined_types := {} |>,
-     <| v := eempty; c := eempty |>)
+     <| v := eEmpty; c := eEmpty |>)
         prim_types_program))`;
 
 
@@ -148,7 +148,7 @@ val _ = Hol_datatype `
 (*  'ffi *) top_state =
          <| (* Type system state *)
             tdecs : decls;
-            tenv : type_environment;
+            tenv : type_env;
             (* Semantics state *)
             sem_st : 'ffi state;
             sem_env : v sem_env |>`;

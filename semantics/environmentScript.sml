@@ -18,30 +18,30 @@ val _ = Hol_datatype `
   Bind of ('n, 'v) alist => (modN, (environment)) alist`;
 
 
-(*val elookup : forall 'v 'n. Eq 'n => environment 'n 'v -> id 'n -> maybe 'v*)
- val elookup_defn = Hol_defn "elookup" `
- (elookup (Bind v m) (Short n) = (ALOOKUP v n))
-    /\ (elookup (Bind v m) (Long mn id) =      
+(*val eLookup : forall 'v 'n. Eq 'n => environment 'n 'v -> id 'n -> maybe 'v*)
+ val eLookup_defn = Hol_defn "eLookup" `
+ (eLookup (Bind v m) (Short n) = (ALOOKUP v n))
+    /\ (eLookup (Bind v m) (Long mn id) =      
 ((case ALOOKUP m mn of
         NONE => NONE
-      | SOME env => elookup env id
+      | SOME env => eLookup env id
       )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elookup_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn eLookup_defn;
 
-(*val eempty : forall 'v 'n. environment 'n 'v*)
+(*val eEmpty : forall 'v 'n. environment 'n 'v*)
 val _ = Define `
- (eempty = (Bind [] []))`;
+ (eEmpty = (Bind [] []))`;
 
 
-(*val emerge : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v*)
+(*val eMerge : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v*)
 val _ = Define `
- (emerge (Bind v1 m1) (Bind v2 m2) = (Bind (v1 ++ v2) (m1 ++ m2)))`;
+ (eMerge (Bind v1 m1) (Bind v2 m2) = (Bind (v1 ++ v2) (m1 ++ m2)))`;
 
 
-(*val elift : forall 'v 'n. modN -> environment 'n 'v -> environment 'n 'v*)
+(*val eLift : forall 'v 'n. modN -> environment 'n 'v -> environment 'n 'v*)
 val _ = Define `
- (elift mn env = (Bind [] [(mn, env)]))`;
+ (eLift mn env = (Bind [] [(mn, env)]))`;
 
 
 (*val alist_to_env : forall 'v 'n. alist 'n 'v -> environment 'n 'v*)
@@ -49,18 +49,33 @@ val _ = Define `
  (alist_to_env a = (Bind a []))`;
 
 
-(*val ebind : forall 'v 'n. 'n -> 'v -> environment 'n 'v -> environment 'n 'v*)
+(*val eBind : forall 'v 'n. 'n -> 'v -> environment 'n 'v -> environment 'n 'v*)
 val _ = Define `
- (ebind k x (Bind v m) = (Bind ((k,x)::v) m))`;
+ (eBind k x (Bind v m) = (Bind ((k,x)::v) m))`;
 
 
-(*val eoptbind : forall 'v 'n. maybe 'n -> 'v -> environment 'n 'v -> environment 'n 'v*)
+(*val eOptBind : forall 'v 'n. maybe 'n -> 'v -> environment 'n 'v -> environment 'n 'v*)
 val _ = Define `
- (eoptbind n x env =  
+ (eOptBind n x env =  
 ((case n of
     NONE => env
-  | SOME n' => ebind n' x env
+  | SOME n' => eBind n' x env
   )))`;
+
+
+(*val eSing : forall 'v 'n. 'n -> 'v -> environment 'n 'v*)
+val _ = Define `
+ (eSing n x = (Bind ([(n,x)]) []))`;
+
+
+(*val eSubEnv : forall 'v 'n. Eq 'n, Eq 'v => (id 'n * 'v -> id 'n * 'v -> bool) -> environment 'n 'v -> environment 'n 'v -> bool*)
+val _ = Define `
+ (eSubEnv r env1 env2 =  
+(! id v1.    
+(eLookup env1 id = SOME v1)
+    ==>    
+(? v2. (eLookup env2 id = SOME v2) /\ r (id,v1) (id,v2))))`;
+
 
 val _ = export_theory()
 

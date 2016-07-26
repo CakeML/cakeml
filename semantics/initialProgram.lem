@@ -110,7 +110,7 @@ val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi *
 let prim_sem_env ffi =
   add_to_sem_env
     (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
-     <| v = eempty; c = eempty |>)
+     <| v = eEmpty; c = eEmpty |>)
         prim_types_program
 
 val basis_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
@@ -121,7 +121,7 @@ open import TypeSystem
 type top_state 'ffi =
          <| (* Type system state *)
             tdecs : decls;
-            tenv : type_environment;
+            tenv : type_env;
             (* Semantics state *)
             sem_st : state 'ffi;
             sem_env : sem_env v |>

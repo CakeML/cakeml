@@ -115,7 +115,7 @@ let do_con_check cenv n_opt l =
   match n_opt with
     | Nothing -> true
     | Just n ->
-        match elookup cenv n with
+        match eLookup cenv n with
           | Nothing -> false
           | Just (l',ns) -> l = l'
         end
@@ -127,7 +127,7 @@ let build_conv envC cn vs =
     | Nothing ->
         Just (Conv Nothing vs)
     | Just id ->
-        match elookup envC id with
+        match eLookup envC id with
           | Nothing -> Nothing
           | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
         end
@@ -187,7 +187,7 @@ pmatch envC s (Plit l) (Litv l') env =
     Match_type_error
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
-  match elookup envC n with
+  match eLookup envC n with
     | Just (l, t) ->
         if same_tid t t' && List.length ps = l then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -232,7 +232,7 @@ pmatch_list envC s _ _ env = Match_type_error
 val build_rec_env : list (varN * varN * exp) -> sem_env v -> env_val -> env_val
 let build_rec_env funs cl_env add_to_env =
   foldr
-    (fun (f,x,e) env' -> ebind f (Recclosure cl_env funs f) env')
+    (fun (f,x,e) env' -> eBind f (Recclosure cl_env funs f) env')
     add_to_env
     funs
 
@@ -308,11 +308,11 @@ val do_opapp : list v -> maybe (sem_env v * exp)
 let do_opapp vs =
   match vs with
   | [Closure env n e; v] ->
-      Just (<| env with v = ebind n v env.v |>, e)
+      Just (<| env with v = eBind n v env.v |>, e)
   | [Recclosure env funs n; v] ->
       if allDistinct (List.map (fun (f,x,e) -> f) funs) then
         match find_recfun n funs with
-          | Just (n,e) -> Just (<| env with v = ebind n v (build_rec_env funs env env.v) |>, e)
+          | Just (n,e) -> Just (<| env with v = eBind n v (build_rec_env funs env env.v) |>, e)
           | Nothing -> Nothing
         end
       else
@@ -646,12 +646,12 @@ val combine_dec_result : forall 'a. sem_env v -> result (sem_env v) 'a -> result
 let combine_dec_result env r =
   match r with
     | Rerr e -> Rerr e
-    | Rval env' -> Rval <| v = emerge env'.v env.v; c = emerge env'.c env.c |>
+    | Rval env' -> Rval <| v = eMerge env'.v env.v; c = eMerge env'.c env.c |>
   end
 
 val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
-  <| c = emerge new_env.c env.c; v = emerge new_env.v env.v |>
+  <| c = eMerge new_env.c env.c; v = eMerge new_env.v env.v |>
 
 val decs_to_types : list dec -> list typeN
 let decs_to_types ds =
