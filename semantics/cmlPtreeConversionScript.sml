@@ -161,7 +161,7 @@ val ptree_Tyop_def = Define`
           [pt] =>
           do
             (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-            SOME(Long str s)
+            SOME(Long str (Short s))
           od ++
           do
             nm <- ptree_UQTyop pt;
@@ -349,7 +349,7 @@ val ptree_ConstructorName_def = Define`
               od ++
               do
                 (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                SOME (Long str s)
+                SOME (Long str (Short s))
               od
             | _ => NONE
 `
@@ -486,7 +486,7 @@ val ptree_FQV_def = Define`
           [pt] => OPTION_MAP Short (ptree_V pt) ++
                   do
                     (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                    SOME(Long str s)
+                    SOME(Long str (Short s))
                   od
         | _ => NONE
 `
@@ -683,8 +683,8 @@ val ptree_OpID_def = Define`
           do
               (str,s) <- destLongidT tk ;
               ifM (isConstructor (SOME str) s)
-                  (return (Con (SOME (Long str s)) []))
-                  (return (Var (Long str s)))
+                  (return (Con (SOME (Long str (Short s))) []))
+                  (return (Var (Long str (Short s))))
           od ++
           (if tk = StarT then
              ifM (isSymbolicConstructor NONE "*")
