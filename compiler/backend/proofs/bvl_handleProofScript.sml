@@ -255,9 +255,9 @@ val _ = save_thm("compile_correct",compile_correct);
 val compile_correct = store_thm("compile_correct",
   ``(evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     k = LENGTH env ==>
-    (evaluate ([compile_exp k x],env,s1) = (res,s2))``,
+    (evaluate ([compile_exp l k x],env,s1) = (res,s2))``,
   fs [compile_exp_def]
-  \\ Cases_on `compile 250 (LENGTH env) [x]` \\ PairCases_on `r`
+  \\ Cases_on `compile l (LENGTH env) [x]` \\ PairCases_on `r`
   \\ rw [] \\ imp_res_tac compile_sing \\ rw []
   \\ imp_res_tac compile_correct);
 
@@ -382,10 +382,10 @@ val compile_handle_ok = store_thm("compile_handle_ok",
   \\ rw [] \\ every_case_tac \\ fs []);
 
 val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
-  ``handle_ok [compile_exp n x]``,
+  ``handle_ok [compile_exp l n x]``,
   fs [bvl_handleTheory.compile_exp_def]
-  \\ Cases_on `compile 250 n [x]` \\ fs [] \\ PairCases_on `r`
+  \\ Cases_on `compile l n [x]` \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
-  \\ qspecl_then [`250`,`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
+  \\ qspecl_then [`l`,`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
 
 val _ = export_theory();

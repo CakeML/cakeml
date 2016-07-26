@@ -5,6 +5,7 @@ val _ = new_theory "bvl_to_bvi";
 
 val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
+            ; exp_cut : num (* huge number effectively disables exp splitting *)
             |>`;
 
 val destLet_def = Define `
@@ -207,15 +208,16 @@ val compile_prog_def = Define `
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
 val optimise_def = Define `
-  optimise =
+  optimise cut_size =
   MAP (λ(name,arity,exp).
       (name,arity,
-       bvl_handle$compile_exp arity
+       bvl_handle$compile_exp cut_size arity
          (bvl_const$compile_exp exp)))`;
 
 val compile_def = Define `
   compile start n c prog =
     compile_prog start n
-      (optimise (bvl_inline$compile_prog c.inline_size_limit prog))`;
+      (optimise c.exp_cut
+         (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

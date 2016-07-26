@@ -87,7 +87,7 @@ val compile_def = tDefine "compile" `
 val compile_ind = theorem"compile_ind";
 
 val compile_exp_def = Define `
-  compile_exp arity e = HD (FST (compile 250 arity [e]))`;
+  compile_exp cut_size arity e = HD (FST (compile cut_size arity [e]))`;
 
 val compile_length = Q.store_thm("compile_length[simp]",
   `!l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs`,
