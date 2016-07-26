@@ -84,16 +84,28 @@ val xpull =
 
 (* [xsimpl] *)
 
-val emp_sep_imp_refl = ISPEC ``emp:hprop`` SEP_IMP_REFL
+fun sep_imp_refl_oracle v t = let
+  val ts = strip_conj t
+  fun find_inst t = let
+    val (h, q) = cfHeapsBaseLib.dest_sep_imp t in
+    if v = h then SOME (q, []) else
+    if v = q then SOME (h, []) else
+    NONE
+  end
+  fun find_inst' t = find_inst t handle HOL_ERR _ => NONE
+in
+  find_map find_inst' ts
+end
+
+val sep_imp_instantiate =
+  QUANT_INSTANTIATE_CONSEQ_TAC [
+    oracle_qp sep_imp_refl_oracle
+  ] \\
+  fs [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =
-    hsimpl \\
-    QUANT_INSTANTIATE_TAC [
-      instantiation_qp [emp_sep_imp_refl]
-    ] \\ fs [emp_sep_imp_refl] \\
-    QUANT_INSTANTIATE_TAC [
-      instantiation_qp [cfHeapsBaseTheory.hsimpl_gc]
-    ] \\ fs [cfHeapsBaseTheory.hsimpl_gc]
+  rpt (hsimpl \\ sep_imp_instantiate)
+  ORELSE sep_imp_instantiate
 
 (* [xcf] *)
 
