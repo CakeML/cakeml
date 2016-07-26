@@ -154,6 +154,13 @@ fun xlet Q x =
     (qx_gen_tac x \\ cbv)
     (TRY xpull)
 
+(* temp *)
+fun xlet_seq Q =
+  xlet_core
+    (qexists_tac Q \\ gen_tac)
+    cbv
+    (TRY xpull)
+
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =

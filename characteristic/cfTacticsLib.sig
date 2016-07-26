@@ -7,6 +7,7 @@ sig
   val xlocal : tactic
   val xcf : string -> ml_progLib.ml_prog_state -> tactic
   val xlet : term quotation -> term quotation -> tactic
+  val xlet_seq : term quotation -> tactic
   val xapply : thm -> tactic
   val xapp : tactic
   val xapp_spec : thm -> tactic
