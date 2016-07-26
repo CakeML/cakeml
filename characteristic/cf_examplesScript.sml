@@ -50,3 +50,28 @@ val example_let2_spec = Q.prove (
   THEN1 (xret \\ hsimpl) \\
   xret \\ hsimpl
 )
+
+val example_let = parse_topdecl
+  "fun example_let n = let val a = n + 1; val b = n - 1; in a+b end"
+
+val st = ml_progLib.add_prog example_let pick_name basis_st
+
+val example_let_spec = Q.prove (
+  `!n nv.
+     INT n nv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_let" st) [nv]
+       emp (\v. cond (INT (2 * n) v))`,
+
+  xcf "example_let" st \\
+  xlet `\v. cond (INT (n+1) v)` `a`
+  THEN1 (
+    (* xapp_spec plus_spec_alt2 \\ xsimpl *)
+    (* xapp_spec plus_spec_alt \\ fs [] *)
+    xapp \\ xsimpl \\ metis_tac []
+  ) \\
+  xlet `\v. cond (INT (n-1) v)` `b`
+  THEN1 (
+    xapp \\ xsimpl \\ metis_tac []
+  ) \\
+  xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
+)
