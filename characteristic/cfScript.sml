@@ -1214,6 +1214,14 @@ val cf_aw8update_def = Define `
       exp2v env xw = SOME (Litv (Word8 w)) /\
       app_aw8update a i w H Q)`
 
+val cf_if_def = Define `
+  cf_if cond cf1 cf2 = \env. local (\H Q.
+    ?condv b.
+      exp2v env cond = SOME condv /\
+      BOOL b condv /\
+      (b = T ==> cf1 env H Q) /\
+      (b = F ==> cf2 env H Q))`
+
 val cf_mat_def = Define `
   cf_mat e pats branches = \env. local (\H Q.
     ?v branch_cf.
@@ -1299,6 +1307,8 @@ val cf_def = tDefine "cf" `
              | [l; n; w] => cf_aw8update l n w
              | _ => cf_bottom)
         | _ => cf_bottom) /\
+  cf (p:'ffi ffi_proj) (If cond e1 e2) =
+    cf_if cond (cf p e1) (cf p e2) /\
   cf (p:'ffi ffi_proj) (Mat e branches) =
     (\env.
        cf_mat e
@@ -1331,7 +1341,7 @@ val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_le
                cf_opn_def, cf_opb_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
                cf_aupdate_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
-               cf_fundecl_rec_def, cf_bottom_def, cf_mat_def]
+               cf_fundecl_rec_def, cf_bottom_def, cf_if_def, cf_mat_def]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -2058,6 +2068,14 @@ val cf_sound = store_thm ("cf_sound",
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
     )
+  )
+  THEN1 (
+    (* If *)
+    cf_strip_sound_full_tac \\
+    progress_then (qspec_then `st` assume_tac)
+      (INST_TYPE [alpha |-> ``:'ffi``] exp2v_evaluate) \\
+    instantiate \\ fs [do_if_def] \\ every_case_tac \\ fs [BOOL_def] \\
+    rw [] \\ fs [sound_def] \\ first_assum progress \\ instantiate
   )
   THEN1 (
     (* Mat *)
