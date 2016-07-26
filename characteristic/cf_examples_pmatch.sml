@@ -110,3 +110,132 @@ val lnull_spec = Q.prove (
   \\ simp[PMATCH_ROW_v_of_pat_norest_2]
   \\ cheat
 )
+
+val (_,goal) = top_goal();
+
+  val tms = find_terms patternMatchesSyntax.is_PMATCH_ROW goal
+  val tm = hd tms
+
+    val (p,g1,f) = patternMatchesSyntax.dest_PMATCH_ROW tm
+
+    fun v_var n = mk_var("v" ^ int_to_string (n-1), ``:v``)
+    fun v_vars n = let
+      fun f 0 aux = aux
+        | f n aux = f (n-1) (v_var n :: aux)
+      in f n [] end
+    fun v_var_list n = listSyntax.mk_list(v_vars n,``:v``)
+    fun v_var_tuple n = let
+      fun f [] = ``():unit``
+        | f [x] = x
+        | f (x::xs) = pairSyntax.mk_pair(x,f xs)
+      in f (v_vars n) end
+    fun guess_length p = let
+      fun works_for n p = let
+        val goal = mk_eq(mk_comb(p,v_var_list n),``NONE: v option``)
+        val lemma = auto_prove "guess_length" (goal,
+          fs [v_of_pat_norest_def,v_of_pat_def] \\ every_case_tac \\ fs [])
+        in false end handle HOL_ERR _ => true;
+      fun f n = if works_for n p then n else
+                if n < 1000 then f (n+1) else failwith "unable to guess length"
+      in f 0 end
+    val n = guess_length p
+    val vs = v_var_list n
+    val vs_tuple = v_var_tuple n
+    val t = mk_pabs(vs_tuple,vs)
+    val k = ``\insts. (EL 0 insts, (EL 1 insts):v)``
+    val new_p = combinSyntax.mk_o(p,t)
+    val new_g = combinSyntax.mk_o(g1,t)
+    val new_f = combinSyntax.mk_o(f,t)
+    val new_tm = patternMatchesSyntax.mk_PMATCH_ROW(new_p,new_g,new_f)
+    val th =
+      IMP_PMATCH_ROW_EQ
+        |> ISPEC p
+        |> ISPEC g1
+        |> ISPEC f
+        |> ISPEC t
+        |> ISPEC k
+    val goal = th |> concl |> dest_imp |> fst
+
+  set_goal([],goal)
+
+    rw [] THEN1 fs [FUN_EQ_THM]
+    THEN1 cheat (* true *)
+
+      pop_assum mp_tac
+      \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
+      \\ fs [o_DEF]
+      \\ fs [v_of_pat_norest_def,v_of_pat_def]
+
+    THEN1 (fs [INJ_DEF,FORALL_PROD])
+    THEN1 cheat
+
+
+(*
+
+  set_goal([],goal)
+
+  MATCH_MP_TAC IMP_PMATCH_ROW_EQ
+
+    fs [o_DEF]
+    \\ fs [patternMatchesTheory.PMATCH_ROW_def,FUN_EQ_THM,
+           patternMatchesTheory.PMATCH_ROW_COND_def]
+
+
+val OPTION_MAP_o = store_thm("OPTION_MAP_o",
+  ``OPTION_MAP (f o g) = OPTION_MAP f o OPTION_MAP g``,
+  cheat);
+
+val INJ_IMP_EQ = store_thm("INJ_IMP_EQ",
+  ``INJ f UNIV UNIV ==> (f x = f y <=> x = y)``,
+  fs [INJ_DEF] \\ metis_tac []);
+
+val IS_SOME_NOT_NONE = prove(
+  ``x <> NONE <=> IS_SOME x``,
+  Cases_on `x` \\ fs []);
+
+val IMP_PMATCH_ROW_EQ = store_thm("IMP_PMATCH_ROW_EQ",
+  ``!p1 g1 f1 h k.
+      (g1 = K T) /\ INJ p1 UNIV UNIV /\
+      (* ((∀v. IS_SOME (p1 (h v))) ==> !v. IS_SOME (p1 v)) /\ *)
+      INJ h UNIV UNIV /\
+      (!v. IS_SOME (p1 v) ==> ?y. h y = v) /\
+      (!v. IS_SOME (p1 v) ==> h (k v) = v) ==>
+      PMATCH_ROW p1 g1 f1 = PMATCH_ROW (p1 o h) (g1 o h) (f1 o h)``,
+
+  fs [patternMatchesTheory.PMATCH_ROW_def,FUN_EQ_THM,
+         patternMatchesTheory.PMATCH_ROW_COND_def]
+  \\ rw [OPTION_MAP_o] \\ AP_TERM_TAC
+  \\ fs [some_def] \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ IF_CASES_TAC THEN1
+   (reverse IF_CASES_TAC THEN1 (metis_tac [])
+    \\ fs [] \\ rw [] \\ rfs [INJ_IMP_EQ]
+    \\ rw [] \\ rfs [INJ_IMP_EQ])
+  \\ Cases_on `x` \\ fs [IS_SOME_NOT_NONE]
+  \\ rpt strip_tac \\ res_tac \\ rw [] \\ fs [] \\ rfs []
+
+
+  THEN1
+   (pop_assum (fn th => fs [GSYM th] \\ assume_tac th)
+    \\ rfs [INJ_IMP_EQ]
+    \\ `IS_SOME (p1 v)` by fs [] \\ res_tac
+    \\ rw [] \\ rfs [INJ_IMP_EQ])
+
+);
+
+  \\ pop_assum (qspec_then `k v` mp_tac) \\ strip_tac
+  \\ first_assum drule
+
+  \\ fs [INJ_IMP_EQ]
+  \\ rw [] \\ metis_tac []
+
+  \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ rfs [INJ_IMP_EQ]
+
+
+    if ?insts. v = Conv insts /\ ... then
+      !insts. v = Conv insts ==> ...
+    else
+      ...
+
+*)
