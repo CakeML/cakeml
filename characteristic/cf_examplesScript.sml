@@ -63,3 +63,43 @@ val example_let_spec = Q.prove (
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 )
 
+
+val alloc_ref2 = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
+  "fun alloc_ref2 a b = let val r1 = ref a; val r2 = ref b in (r1, r2) end;"
+
+val st = ml_progLib.add_prog alloc_ref2 pick_name basis_st
+
+val alloc_ref2_spec = Q.prove (
+  `!av bv a b r1v r2v r1 r2.
+     INT a av /\ INT b bv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "alloc_ref2" st) [av; bv]
+       emp
+       (\p. SEP_EXISTS r1 r2.
+              cond (PAIR_TYPE (=) (=) (r1, r2) p) *
+              REF r1 av * REF r2 bv)`,
+  xcf "alloc_ref2" st \\
+  xlet `\v. REF v av` `r1` THEN1 xapp \\
+  xlet `\v. REF v bv * REF r1 av` `r2` THEN1 (xapp \\ xsimpl) \\
+  xret \\ fs [PAIR_TYPE_def] \\ xsimpl
+)
+
+val swap = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
+  "fun swap r1 r2 = let val x1 = !r1 val x2 = !r2 in r1 := x2; r2 := x1 end"
+
+val st2 = ml_progLib.add_prog swap pick_name st
+
+val swap_spec = Q.prove (
+  `!xv yv r1v r2v.
+     app (p:'ffi ffi_proj) ^(fetch_v "swap" st2) [r1v; r2v]
+       (REF r1v xv * REF r2v yv)
+       (\v. cond (UNIT_TYPE () v) * REF r1v yv * REF r2v xv)`,
+  xcf "swap" st2 \\
+  xlet `\v. cond (v = xv) * r1v ~~> xv * r2v ~~> yv` `xv'`
+    THEN1 (xapp \\ xsimpl) \\
+  xlet `\v. cond (v = yv) * r1v ~~> xv * r2v ~~> yv` `yv'`
+    THEN1 (xapp \\ xsimpl) \\
+  xlet `\v. r1v ~~> yv * r2v ~~> yv` `u`
+    THEN1 (xapp \\ xsimpl) \\
+  xapp \\ xsimpl
+)
+
