@@ -103,3 +103,19 @@ val swap_spec = Q.prove (
   xapp \\ xsimpl
 )
 
+val example_if = parse_topdecl
+  "fun example_if n = let val b = n > 0 in if b then 1 else 2 end"
+
+val st = ml_progLib.add_prog example_if pick_name basis_st
+
+val example_if_spec = Q.prove (
+  `!n nv.
+     INT n nv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_if" st) [nv]
+       emp (\v. cond (if n > 0 then INT 1 v else INT 2 v))`,
+
+  xcf "example_if" st \\ xlet `\v. cond (BOOL (n > 0) v)` `bv`
+  THEN1 (xapp \\ fs []) \\
+  xif \\ xret \\ xsimpl
+)
+  
