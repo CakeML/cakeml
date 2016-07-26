@@ -307,5 +307,15 @@ val xret = xret_pre xret_irule_lemma (TRY xpull)
 
 (* todo: xrets *)
 
+(* [xif] *)
+
+val xif_base =
+  xpull_check_not_needed \\
+  fs [cf_if_def] \\
+  irule local_elim \\ hnf \\
+  reduce_tac \\
+  TRY (asm_exists_tac \\ fs [] \\ conj_tac \\ DISCH_TAC)
+
+val xif = xif_base
 
 end
