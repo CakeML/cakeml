@@ -13,6 +13,25 @@ val _ = new_theory "typeSystem"
 (*open import Ast*)
 (*open import SemanticPrimitives*)
 
+val _ = type_abbrev((* ( 'k, 'v) *) "alist_mod_env" , ``: (modN, ( ('k, 'v)alist)) alist # ('k, 'v) alist``);
+
+val _ = Define `
+ (merge_alist_mod_env (menv1,env1) (menv2,env2) =
+  ((menv1 ++ menv2), (env1 ++ env2)))`;
+
+
+val _ = Define `
+ (lookup_alist_mod_env id (mcenv,cenv) =  
+((case id of
+      Short x => ALOOKUP cenv x
+    | Long x (Short y) =>
+        (case ALOOKUP mcenv x of
+            NONE => NONE
+          | SOME cenv => ALOOKUP cenv y
+        )
+  )))`;
+
+
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
  * indices are permitted. *)
@@ -99,7 +118,7 @@ val _ = Define `
  (lookup_mod_env id (mcenv,cenv) =  
 ((case id of
       Short x => FLOOKUP cenv x
-    | Long x y =>
+    | Long x (Short y) =>
         (case FLOOKUP mcenv x of
             NONE => NONE
           | SOME cenv => FLOOKUP cenv y
@@ -165,7 +184,7 @@ val _ = Define `
  (t_lookup_var_id id tenv =  
 ((case id of
       Short x => lookup_tenv_val x( 0) tenv.v
-    | Long x y =>
+    | Long x (Short y) =>
         (case FLOOKUP tenv.m x of
             NONE => NONE
           | SOME flat_tenv_val => ALOOKUP flat_tenv_val y
@@ -219,7 +238,7 @@ val _ = Define `
 
 val _ = Hol_datatype `
  decls =
-  <| defined_mods : modN set;
+  <| defined_mods : ( modN list) set;
      defined_types : ( typeN id) set;
      defined_exns : ( conN id) set |>`;
 
@@ -285,12 +304,12 @@ val _ = Define `
  * - the types of the new constructors
  * - the type schemes of the new bindings *)
 
-(*val type_d : bool -> maybe modN -> decls -> type_environment -> dec -> decls -> new_dec_tenv -> bool*)
+(*val type_d : bool -> list modN -> decls -> type_environment -> dec -> decls -> new_dec_tenv -> bool*)
 
-(*val type_ds : bool -> maybe modN -> decls -> type_environment -> list dec -> decls -> new_dec_tenv -> bool*)
+(*val type_ds : bool -> list modN -> decls -> type_environment -> list dec -> decls -> new_dec_tenv -> bool*)
 (*val weakE : flat_tenv_val -> flat_tenv_val -> bool*)
-(*val check_signature : maybe modN -> tenv_tabbrev -> decls -> new_dec_tenv -> maybe specs -> decls -> new_dec_tenv -> bool*)
-(*val type_specs : maybe modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool*)
+(*val check_signature : list modN -> tenv_tabbrev -> decls -> new_dec_tenv -> maybe specs -> decls -> new_dec_tenv -> bool*)
+(*val type_specs : list modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool*)
 (*val type_prog : bool -> decls -> type_environment -> list top -> decls -> new_top_tenv -> bool*)
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
@@ -383,7 +402,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 (*val check_ctor_tenv :
-   maybe modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
+   list modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
  (check_ctor_tenv mn tenv_tabbrev tds =  
 (check_dup_ctors tds /\
@@ -398,7 +417,7 @@ val _ = Define `
   (case (p ) of ( (_,tn,_) ) => tn )) tds)))`;
 
 
-(*val build_ctor_tenv : maybe modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenv_ctor*)
+(*val build_ctor_tenv : list modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenv_ctor*)
 val _ = Define `
  (build_ctor_tenv mn tenv_tabbrev tds =  
 (REVERSE
@@ -411,7 +430,7 @@ val _ = Define `
 
 (* Check that an exception definition defines no already defined (or duplicate)
  * constructors, and that the arguments have no free type variables. *)
-(*val check_exn_tenv : maybe modN -> conN -> list t -> bool*)
+(*val check_exn_tenv : list modN -> conN -> list t -> bool*)
 val _ = Define `
  (check_exn_tenv mn cn ts =  
 (EVERY (check_freevars( 0) []) ts))`;
@@ -832,7 +851,7 @@ val _ = Define `
 (decls_spec.defined_exns SUBSET decls_impl.defined_exns)))`;
 
 
-(*val flat_weakT : maybe modN -> flat_tenv_tabbrev -> flat_tenv_tabbrev -> bool*)
+(*val flat_weakT : list modN -> flat_tenv_tabbrev -> flat_tenv_tabbrev -> bool*)
 val _ = Define `
  (flat_weakT mn tenv_tabbrev_impl tenv_tabbrev_spec =  
 (! tn.
@@ -851,7 +870,7 @@ val _ = Define `
     )))`;
 
 
-(*val weak_new_dec_tenv : maybe modN -> new_dec_tenv -> new_dec_tenv -> bool*)
+(*val weak_new_dec_tenv : list modN -> new_dec_tenv -> new_dec_tenv -> bool*)
 val _ = Define `
  (weak_new_dec_tenv mn (t,c,v) (t',c',v') =  
 (flat_weakT mn t t' /\
@@ -885,15 +904,15 @@ val _ = Define `
 
 
 val _ = Hol_reln ` (! extra_checks tenv d new_tenv decls decls'.
-(type_d extra_checks NONE decls tenv d decls' new_tenv)
+(type_d extra_checks [] decls tenv d decls' new_tenv)
 ==>
 type_top extra_checks decls tenv (Tdec d) decls' (lift_new_dec_tenv new_tenv))
 
 /\ (! extra_checks tenv mn spec ds new_tenv1 new_tenv2 decls decls' decls'' new_decls.
-(~ (mn IN decls.defined_mods) /\
-type_ds extra_checks (SOME mn) decls tenv ds decls' new_tenv1 /\
-check_signature (SOME mn) tenv.t decls' new_tenv1 spec decls'' new_tenv2 /\
-(new_decls = <| defined_mods := {mn}; defined_types := {}; defined_exns := {} |>))
+(~ ([mn] IN decls.defined_mods) /\
+type_ds extra_checks [mn] decls tenv ds decls' new_tenv1 /\
+check_signature [mn] tenv.t decls' new_tenv1 spec decls'' new_tenv2 /\
+(new_decls = <| defined_mods := {[mn]}; defined_types := {}; defined_exns := {} |>))
 ==>
 type_top extra_checks decls tenv (Tmod mn spec ds) (union_decls new_decls decls'') (mod_lift_new_dec_tenv mn new_tenv2))`;
 

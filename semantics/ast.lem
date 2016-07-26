@@ -21,7 +21,7 @@ type modN = string
 (* Identifiers *)
 type id 'a =
   | Short of 'a
-  | Long of modN * 'a
+  | Long of modN * id 'a
 
 (* Variable names *)
 type varN = string
@@ -35,19 +35,13 @@ type typeN = string
 (* Type variable names *)
 type tvarN = string
 
-val mk_id : forall 'a. maybe modN -> 'a -> id 'a
-let mk_id mn_opt n =
-  match mn_opt with
-    | Nothing -> Short n
-    | Just mn -> Long mn n
-  end
+val mk_id : forall 'a. list modN -> 'a -> id 'a
+let rec mk_id [] n = Short n
+    and mk_id (mn::mns) n = Long mn (mk_id mns n)
 
 val id_to_n : forall 'a. id 'a -> 'a
-let id_to_n id =
-  match id with
-    | Short n -> n
-    | Long _ n -> n
-  end
+let rec id_to_n (Short n) = n
+    and id_to_n (Long _ id) = id_to_n id
 
 type word_size = W8 | W64
 

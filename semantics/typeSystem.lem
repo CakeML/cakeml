@@ -3,6 +3,21 @@ open import Lib
 open import Ast
 open import SemanticPrimitives
 
+type alist_mod_env 'k 'v = alist modN (alist 'k 'v) * alist 'k 'v
+
+let merge_alist_mod_env (menv1,env1) (menv2,env2) =
+  (menv1 ++ menv2, env1 ++ env2)
+
+let lookup_alist_mod_env id (mcenv,cenv) =
+  match id with
+    | Short x -> lookup x cenv
+    | Long x (Short y) ->
+        match lookup x mcenv with
+          | Nothing -> Nothing
+          | Just cenv -> lookup y cenv
+        end
+  end
+
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
  * indices are permitted. *)
@@ -74,7 +89,7 @@ let merge_mod_env (menv1,env1) (menv2,env2) =
 let lookup_mod_env id (mcenv,cenv) =
   match id with
     | Short x -> Map.lookup x cenv
-    | Long x y ->
+    | Long x (Short y) ->
         match Map.lookup x mcenv with
           | Nothing -> Nothing
           | Just cenv -> Map.lookup y cenv
@@ -130,7 +145,7 @@ val t_lookup_var_id : id varN -> type_environment -> maybe (nat * t)
 let t_lookup_var_id id tenv =
   match id with
     | Short x -> lookup_tenv_val x 0 tenv.v
-    | Long x y ->
+    | Long x (Short y) ->
         match Map.lookup x tenv.m with
           | Nothing -> Nothing
           | Just flat_tenv_val -> lookup y flat_tenv_val
@@ -182,7 +197,7 @@ val type_es : type_environment -> list exp -> list t -> bool
 val type_funs : type_environment -> list (varN * varN * exp) -> list (varN * t) -> bool
 
 type decls =
-  <| defined_mods : set modN;
+  <| defined_mods : set (list modN);
      defined_types : set (id typeN);
      defined_exns : set (id conN) |>
 
@@ -235,12 +250,12 @@ let extend_env_new_tops (t,m,c,v) tenv =
  * - the types of the new constructors
  * - the type schemes of the new bindings *)
 
-val type_d : bool -> maybe modN -> decls -> type_environment -> dec -> decls -> new_dec_tenv -> bool
+val type_d : bool -> list modN -> decls -> type_environment -> dec -> decls -> new_dec_tenv -> bool
 
-val type_ds : bool -> maybe modN -> decls -> type_environment -> list dec -> decls -> new_dec_tenv -> bool
+val type_ds : bool -> list modN -> decls -> type_environment -> list dec -> decls -> new_dec_tenv -> bool
 val weakE : flat_tenv_val -> flat_tenv_val -> bool
-val check_signature : maybe modN -> tenv_tabbrev -> decls -> new_dec_tenv -> maybe specs -> decls -> new_dec_tenv -> bool
-val type_specs : maybe modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool
+val check_signature : list modN -> tenv_tabbrev -> decls -> new_dec_tenv -> maybe specs -> decls -> new_dec_tenv -> bool
+val type_specs : list modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool
 val type_prog : bool -> decls -> type_environment -> list top -> decls -> new_top_tenv -> bool
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
@@ -325,7 +340,7 @@ type_name_subst tenv_tabbrev (Tvar_db n) = Tvar_db n
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 val check_ctor_tenv :
-   maybe modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool
+   list modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool
 let check_ctor_tenv mn tenv_tabbrev tds =
   check_dup_ctors tds &&
   List.all
@@ -337,7 +352,7 @@ let check_ctor_tenv mn tenv_tabbrev tds =
     tds &&
   List.allDistinct (List.map (fun (_,tn,_) -> tn) tds)
 
-val build_ctor_tenv : maybe modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenv_ctor
+val build_ctor_tenv : list modN -> tenv_tabbrev -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenv_ctor
 let build_ctor_tenv mn tenv_tabbrev tds =
   List.reverse
     (List.concat
@@ -348,7 +363,7 @@ let build_ctor_tenv mn tenv_tabbrev tds =
 
 (* Check that an exception definition defines no already defined (or duplicate)
  * constructors, and that the arguments have no free type variables. *)
-val check_exn_tenv : maybe modN -> conN -> list t -> bool
+val check_exn_tenv : list modN -> conN -> list t -> bool
 let check_exn_tenv mn cn ts =
   List.all (check_freevars 0 []) ts
 
@@ -699,7 +714,7 @@ let weakE tenv_impl tenv_spec =
     end
 
 
-indreln [type_d : bool -> maybe modN -> decls -> type_environment -> dec -> decls -> new_dec_tenv -> bool]
+indreln [type_d : bool -> list modN -> decls -> type_environment -> dec -> decls -> new_dec_tenv -> bool]
 
 dlet_poly : forall extra_checks tvs mn tenv p e t bindings decls.
 is_value e &&
@@ -769,7 +784,7 @@ new_decls = <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn c
 ==>
 type_d extra_checks mn decls tenv (Dexn cn ts) new_decls (Map.empty, [(cn, ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn)))], [])
 
-indreln [ type_ds : bool -> maybe modN -> decls -> type_environment -> list dec -> decls -> new_dec_tenv -> bool]
+indreln [ type_ds : bool -> list modN -> decls -> type_environment -> list dec -> decls -> new_dec_tenv -> bool]
 
 empty : forall extra_checks mn tenv decls.
 true
@@ -784,7 +799,7 @@ type_ds extra_checks mn (union_decls decls' decls) (extend_env_new_decs new_tenv
 ==>
 type_ds extra_checks mn decls tenv (d::ds) (union_decls decls'' decls') (append_new_dec_tenv new_tenv2 new_tenv1)
 
-indreln [type_specs : maybe modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool]
+indreln [type_specs : list modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool]
 
 empty : forall mn tenv_tabbrev.
 true
@@ -865,7 +880,7 @@ let weak_decls decls_impl decls_spec =
   decls_spec.defined_types subset decls_impl.defined_types &&
   decls_spec.defined_exns subset decls_impl.defined_exns
 
-val flat_weakT : maybe modN -> flat_tenv_tabbrev -> flat_tenv_tabbrev -> bool
+val flat_weakT : list modN -> flat_tenv_tabbrev -> flat_tenv_tabbrev -> bool
 let flat_weakT mn tenv_tabbrev_impl tenv_tabbrev_spec =
   forall tn.
     match Map.lookup tn tenv_tabbrev_spec with
@@ -882,13 +897,13 @@ let flat_weakT mn tenv_tabbrev_impl tenv_tabbrev_spec =
       | Nothing -> true
     end
 
-val weak_new_dec_tenv : maybe modN -> new_dec_tenv -> new_dec_tenv -> bool
+val weak_new_dec_tenv : list modN -> new_dec_tenv -> new_dec_tenv -> bool
 let weak_new_dec_tenv mn (t,c,v) (t',c',v') =
   flat_weakT mn t t' &&
   flat_weakC c c' &&
   weakE v v'
 
-indreln [check_signature : maybe modN -> tenv_tabbrev -> decls -> new_dec_tenv -> maybe specs -> decls -> new_dec_tenv -> bool]
+indreln [check_signature : list modN -> tenv_tabbrev -> decls -> new_dec_tenv -> maybe specs -> decls -> new_dec_tenv -> bool]
 
 none : forall mn tenv_tabbrev decls new_tenv.
 true
@@ -916,17 +931,17 @@ let mod_lift_new_dec_tenv mn (t,c,v) =
 indreln [type_top : bool -> decls -> type_environment -> top -> decls -> new_top_tenv -> bool]
 
 tdec : forall extra_checks tenv d new_tenv decls decls'.
-type_d extra_checks Nothing decls tenv d decls' new_tenv
+type_d extra_checks [] decls tenv d decls' new_tenv
 ==>
 type_top extra_checks decls tenv (Tdec d) decls' (lift_new_dec_tenv new_tenv)
 
 and
 
 tmod : forall extra_checks tenv mn spec ds new_tenv1 new_tenv2 decls decls' decls'' new_decls.
-not (mn IN decls.defined_mods) &&
-type_ds extra_checks (Just mn) decls tenv ds decls' new_tenv1 &&
-check_signature (Just mn) tenv.t decls' new_tenv1 spec decls'' new_tenv2 &&
-new_decls = <| defined_mods = {mn}; defined_types = {}; defined_exns = {} |>
+not ([mn] IN decls.defined_mods) &&
+type_ds extra_checks [mn] decls tenv ds decls' new_tenv1 &&
+check_signature [mn] tenv.t decls' new_tenv1 spec decls'' new_tenv2 &&
+new_decls = <| defined_mods = {[mn]}; defined_types = {}; defined_exns = {} |>
 ==>
 type_top extra_checks decls tenv (Tmod mn spec ds) (union_decls new_decls decls'') (mod_lift_new_dec_tenv mn new_tenv2)
 

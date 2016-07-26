@@ -42,7 +42,7 @@ val _ = type_abbrev( "modN" , ``: string``);
 val _ = Hol_datatype `
  id =
     Short of 'a
-  | Long of modN => 'a`;
+  | Long of modN => id`;
 
 
 (* Variable names *)
@@ -57,23 +57,19 @@ val _ = type_abbrev( "typeN" , ``: string``);
 (* Type variable names *)
 val _ = type_abbrev( "tvarN" , ``: string``);
 
-(*val mk_id : forall 'a. maybe modN -> 'a -> id 'a*)
-val _ = Define `
- (mk_id mn_opt n =  
-((case mn_opt of
-      NONE => Short n
-    | SOME mn => Long mn n
-  )))`;
+(*val mk_id : forall 'a. list modN -> 'a -> id 'a*)
+ val mk_id_defn = Hol_defn "mk_id" `
+ (mk_id [] n = (Short n))
+    /\ (mk_id (mn::mns) n = (Long mn (mk_id mns n)))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn mk_id_defn;
 
 (*val id_to_n : forall 'a. id 'a -> 'a*)
-val _ = Define `
- (id_to_n id =  
-((case id of
-      Short n => n
-    | Long _ n => n
-  )))`;
+ val id_to_n_defn = Hol_defn "id_to_n" `
+ (id_to_n (Short n) = n)
+    /\ (id_to_n (Long _ id) = (id_to_n id))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn id_to_n_defn;
 
 val _ = Hol_datatype `
  word_size = W8 | W64`;
