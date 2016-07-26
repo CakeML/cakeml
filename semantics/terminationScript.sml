@@ -10,7 +10,7 @@ val exps_size_def = Define `exps_size = exp6_size`;
 val pes_size_def = Define `pes_size = exp3_size`;
 val funs_size_def = Define `funs_size = exp1_size`;
 
-val vs_size_def = Define `vs_size = v6_size`;
+val vs_size_def = Define `vs_size = v7_size`;
 val envE_size_def = Define `envE_size = v2_size`;
 val envM_size_def = Define `envM_size = v4_size`;
 
@@ -30,9 +30,9 @@ val exps_size_thm = size_thm "exps_size_thm" ``exps_size`` ``exp_size``;
 val pes_size_thm = size_thm "pes_size_thm" ``pes_size`` ``exp5_size``;
 val funs_size_thm = size_thm "funs_size_thm" ``funs_size`` ``exp2_size``;
 val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
-val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
-val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``;
-val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``;
+(* val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``; *)
+(* val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``; *)
+(* val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``; *)
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -50,7 +50,7 @@ val SUM_MAP_exp4_size_thm = store_thm(
                                       SUM (MAP exp_size (MAP SND ls)) +
                                       LENGTH ls``,
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def])
+Cases >> srw_tac[ARITH_ss][exp_size_def]);
 
 val SUM_MAP_exp5_size_thm = store_thm(
 "SUM_MAP_exp5_size_thm",
@@ -58,7 +58,7 @@ val SUM_MAP_exp5_size_thm = store_thm(
                                 SUM (MAP exp_size (MAP SND ls)) +
                                 LENGTH ls``,
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def])
+Cases >> srw_tac[ARITH_ss][exp_size_def]);
 
 (*
 val SUM_MAP_v2_size_thm = store_thm(

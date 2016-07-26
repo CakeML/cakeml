@@ -23,7 +23,7 @@ can_type_prog state prog ⇔
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
-    let (st',envC,r) =
+    let (st',r) =
       evaluate_prog (st with clock := k) env prog
     in (st'.ffi,r)`;
 
