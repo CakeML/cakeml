@@ -1,14 +1,15 @@
 open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory helperLib ml_translatorTheory
-open semanticPrimitivesTheory ConseqConv
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfHeapsLib
-open cfAppTheory cfTheory
-open cfTacticsTheory cfTacticsBaseLib cfTacticsLib
+open semanticPrimitivesTheory cfHeapsTheory
+open ml_translatorTheory cfTheory cfTacticsBaseLib cfTacticsLib
 
 val _ = new_theory "cf_initialProgram"
 
 val basis_prog = EVAL ``basis_program`` |> concl |> rand
-val basis_st = ml_progLib.add_prog basis_prog pick_name ml_progLib.init_state
+val basis_st =
+    ml_progLib.add_prog
+      basis_prog
+      cfTacticsBaseLib.pick_name
+      ml_progLib.init_state
 
 val basis_prog_state = save_thm ("basis_prog_state",
   ml_progLib.pack_ml_prog_state basis_st
