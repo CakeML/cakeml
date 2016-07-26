@@ -1,9 +1,5 @@
 open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory helperLib ml_translatorTheory
-open semanticPrimitivesTheory ConseqConv
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfHeapsLib
-open cfAppTheory cfTheory
-open cfTacticsTheory cfTacticsBaseLib cfTacticsLib
+open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 
 val basis_st =
   ml_progLib.unpack_ml_prog_state 
@@ -16,11 +12,10 @@ val st0 = ml_progLib.add_prog example_let0 pick_name basis_st
 
 val example_let0_spec = Q.prove (
   `!nv. app (p:'ffi ffi_proj) ^(fetch_v "example_let0" st0) [nv]
-          emp
-          (\v. cond (INT 3 v))`,
+          emp (\v. cond (INT 3 v))`,
   xcf "example_let0" st0 \\ xlet `\v. cond (INT 3 v)` `a`
-  THEN1 (xret \\ hsimpl \\ fs [INT_def]) \\
-  xret \\ hsimpl \\ fs []
+  THEN1 (xret \\ xsimpl) \\
+  xret \\ xsimpl
 )
 
 val example_let1 = parse_topdecl
@@ -30,11 +25,10 @@ val st1 = ml_progLib.add_prog example_let1 pick_name basis_st
 
 val example_let1_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let1" st1) [uv]
-          emp
-          (\v. cond (UNIT_TYPE () v))`,
+          emp (\v. cond (UNIT_TYPE () v))`,
   xcf "example_let1" st1 \\ xlet `\v. cond (UNIT_TYPE () v)` `a`
-  THEN1 (xret \\ hsimpl \\ fs [UNIT_TYPE_def]) \\
-  xret \\ hsimpl \\ fs []
+  THEN1 (xret \\ xsimpl) \\
+  xret \\ xsimpl
 )
 
 val example_let2 = parse_topdecl
@@ -44,11 +38,10 @@ val st2 = ml_progLib.add_prog example_let2 pick_name basis_st
 
 val example_let2_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let2" st2) [uv]
-          emp
-          (\v. cond (v = uv))`,
+          emp (\v. cond (v = uv))`,
   xcf "example_let2" st2 \\ xlet `\v. cond (v = uv)` `a`
-  THEN1 (xret \\ hsimpl) \\
-  xret \\ hsimpl
+  THEN1 (xret \\ xsimpl) \\
+  xret \\ xsimpl
 )
 
 val example_let = parse_topdecl
