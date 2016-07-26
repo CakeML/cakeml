@@ -142,8 +142,10 @@ let
     val inst_l = List.map (Term.subst sub) quant_vars
   in ISPECL inst_l rewr_thm end
   (* val _ = pr "thma" thm' *)
+
+  val inst = filter (fn {redex, ...} => mem redex evars) sub
 in
-  ({instantiation = sub, new_evars = new_evars}, thm')
+  ({instantiation = inst, new_evars = new_evars}, thm')
 end
 
 (** Testing:
