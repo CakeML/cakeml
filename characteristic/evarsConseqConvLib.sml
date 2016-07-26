@@ -60,7 +60,7 @@ let
 
   val thm0 = let
     val thma = LIST_EXISTS_INTRO_IMP new_evars thm
-  in CONV_RULE (LAND_CONV LIST_EXISTS_SIMP_CONV) thma end
+  in CONV_RULE (LAND_CONV (TRY_CONV LIST_EXISTS_SIMP_CONV)) thma end
   (* val _ = pr "thm0" thm0 *)
 
   val thm1 = let
