@@ -4055,7 +4055,44 @@ val assign_thm = Q.prove(
       by (
         simp[Abbr`w`,Abbr`i`]
         \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
-        \\ cheat )
+        \\ qmatch_goalsub_rename_tac`w2n w`
+        \\ qmatch_goalsub_rename_tac`w << n`
+        \\ Cases_on`n=0`
+        >- (
+          simp[]
+          \\ match_mp_tac lsl_lsr
+          \\ simp[GSYM word_mul_n2w,dimword_def]
+          \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
+          \\ fs[good_dimindex_def] )
+        \\ simp[GSYM word_mul_n2w]
+        \\ qspecl_then[`n2w(w2n w)`,`2`]mp_tac WORD_MUL_LSL
+        \\ simp[] \\ disch_then (SUBST_ALL_TAC o SYM)
+        \\ simp[]
+        \\ `10 < dimindex(:'a)` by fs[good_dimindex_def]
+        \\ simp[]
+        \\ qspecl_then[`n2w(w2n (w<<n))`,`2`]mp_tac WORD_MUL_LSL
+        \\ simp[] \\ disch_then (SUBST_ALL_TAC o SYM)
+        \\ simp[GSYM w2w_def]
+        \\ simp[w2w_LSL]
+        \\ IF_CASES_TAC
+        \\ simp[MIN_DEF]
+        \\ simp[word_lsr_n2w]
+        \\ simp[WORD_w2w_EXTRACT]
+        \\ simp[WORD_EXTRACT_BITS_COMP]
+        \\ `MIN (7 - n) 7 = 7 - n` by simp[MIN_DEF]
+        \\ pop_assum SUBST_ALL_TAC
+        \\ qmatch_abbrev_tac`_ ((7 >< 0) w << m) = _`
+        \\ qispl_then[`7n`,`0n`,`m`,`w`](mp_tac o INST_TYPE[beta|->alpha]) WORD_EXTRACT_LSL2
+        \\ impl_tac >- ( simp[Abbr`m`] )
+        \\ disch_then SUBST_ALL_TAC
+        \\ simp[Abbr`m`]
+        \\ simp[WORD_BITS_LSL]
+        \\ simp[SUB_LEFT_SUB,SUB_RIGHT_SUB]
+        \\ qmatch_goalsub_abbrev_tac`_ -- z`
+        \\ `z = 0` by simp[Abbr`z`]
+        \\ simp[Abbr`z`]
+        \\ simp[WORD_BITS_EXTRACT]
+        \\ simp[WORD_EXTRACT_COMP_THM,MIN_DEF] )
       \\ simp[Abbr`w`]
       \\ match_mp_tac IMP_memory_rel_Number
       \\ simp[]
@@ -4119,7 +4156,45 @@ val assign_thm = Q.prove(
       \\ simp[]
       \\ drule memory_rel_tl
       \\ simp_tac std_ss [GSYM APPEND_ASSOC])
-    \\ cheat)
+    >- (
+      IF_CASES_TAC
+      >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
+      \\ simp[lookup_insert]
+      \\ IF_CASES_TAC
+      >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
+      \\ simp[lookup_insert]
+      \\ conj_tac >- rw[]
+      \\ ntac 2 (pop_assum kall_tac)
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ qmatch_goalsub_abbrev_tac`Number i`
+      \\ qmatch_goalsub_abbrev_tac`Word w`
+      \\ `small_int (:'a) i`
+      by (
+        simp[Abbr`i`,small_int_def]
+        \\ qmatch_goalsub_rename_tac`z >> _`
+        \\ simp[word_asr]
+        \\ reverse IF_CASES_TAC
+        >- (
+          Cases_on`z` \\ fs[w2n_lsr]
+          \\ fs[good_dimindex_def,dimword_def]
+          \\ qmatch_abbrev_tac`a DIV b < d`
+          \\ `a < d` by simp[Abbr`a`,Abbr`d`]
+          \\ qspecl_then[`b`,`a`]mp_tac (SIMP_RULE std_ss [PULL_FORALL]DIV_LESS_EQ)
+          \\ (impl_tac >- simp[Abbr`b`])
+          \\ decide_tac )
+        \\ cheat )
+      \\ `w = Smallnum i`
+      by (
+        simp[Abbr`w`,Abbr`i`]
+        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+        \\ simp[GSYM word_mul_n2w]
+        \\ cheat )
+      \\ simp[Abbr`w`]
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ simp[]
+      \\ drule memory_rel_tl
+      \\ simp_tac std_ss [GSYM APPEND_ASSOC]))
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
