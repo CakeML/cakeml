@@ -64,14 +64,9 @@ val example_let_spec = Q.prove (
 
   xcf "example_let" st \\
   xlet `\v. cond (INT (n+1) v)` `a`
-  THEN1 (
-    (* xapp_spec plus_spec_alt2 \\ xsimpl *)
-    (* xapp_spec plus_spec_alt \\ fs [] *)
-    xapp \\ xsimpl \\ metis_tac []
-  ) \\
+  THEN1 (xapp \\ fs []) \\
   xlet `\v. cond (INT (n-1) v)` `b`
-  THEN1 (
-    xapp \\ xsimpl \\ metis_tac []
-  ) \\
+  THEN1 (xapp \\ fs []) \\
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 )
+
