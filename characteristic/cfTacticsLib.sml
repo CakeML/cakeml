@@ -130,7 +130,7 @@ fun xcf name st =
         reduce_tac \\ fs [cf_def] \\ reduce_tac
       ]
   in
-    rpt gen_tac \\ fs [f_def] \\
+    rpt strip_tac \\ fs [f_def] \\
     first_match_tac [
       ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
       ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
