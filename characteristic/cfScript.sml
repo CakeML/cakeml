@@ -9,6 +9,12 @@ open patternMatchesTheory
 val _ = new_theory "cf"
 
 (*------------------------------------------------------------------*)
+(* Characteristic formula for not-implemented or impossible cases *)
+
+val cf_bottom_def = Define `
+  cf_bottom = \env. local (\H Q. F)`
+
+(*------------------------------------------------------------------*)
 (* Machinery for dealing with n-ary applications/functions in cf.
 
    Applications and ((mutually)recursive)functions are unary in
@@ -838,6 +844,10 @@ val PMATCH_ROW_of_pat_def = Define `
       (\insts.
          \env. branch_cf (extend_env (REVERSE (pat_bindings pat [])) insts env))`
 
+val PMATCH_ROW_last_def = Define `
+  PMATCH_ROW_last v_opt =
+    PMATCH_ROW (\(_:unit). v_opt) (\_. T) (\_. cf_bottom) v_opt`
+
 (* Lemmas relating our [PMATCH_ROW]s with the semantic pattern-matching [pmatch]
 *)
 
@@ -980,9 +990,6 @@ val PMATCH_ROW_pmatch_nomatch = store_thm ("PMATCH_ROW_pmatch_nomatch",
 (*------------------------------------------------------------------*)
 (* Definition of the [cf] functions, that generates the characteristic
    formula of a cakeml expression *)
-
-val cf_bottom_def = Define `
-  cf_bottom = \env. local (\H Q. F)`
 
 val app_ref_def = Define `
   app_ref (x: v) H Q =
@@ -1223,12 +1230,10 @@ val cf_if_def = Define `
 
 val cf_mat_def = Define `
   cf_mat e pats branches = \env. local (\H Q.
-    ?v branch_cf.
+    ?v.
       exp2v env e = SOME v /\
       (!s. EVERY (\pat. validate_pat env.c s pat v env.v) pats) /\
-      PMATCH (SOME v) branches = branch_cf /\
-      branch_cf <> PMATCH_INCOMPLETE /\
-      branch_cf env H Q)`
+      PMATCH (SOME v) (branches ++ [PMATCH_ROW_last]) env H Q)`
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -1708,9 +1713,9 @@ val PMATCH_evaluate_match = store_thm ("PMATCH_evaluate_match",
       LENGTH pats = LENGTH exps ==>
       LENGTH exps = LENGTH cfs ==>
       (!s. EVERY (\pat. validate_pat env.c s pat v env.v) pats) ==>
-      PMATCH (SOME v) (MAP2 (\pat cf. PMATCH_ROW_of_pat pat cf env) pats cfs) = branch_cf ==>
-      branch_cf <> PMATCH_INCOMPLETE ==>
-      branch_cf env H Q ==>
+      PMATCH (SOME v)
+        (MAP2 (\pat cf. PMATCH_ROW_of_pat pat cf env) pats cfs ++
+           [PMATCH_ROW_last]) env H Q ==>
       EVERY2 (\exp cf. sound p exp cf) exps cfs ==>
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
       ?v' st' h_f h_g.
@@ -1719,7 +1724,8 @@ val PMATCH_evaluate_match = store_thm ("PMATCH_evaluate_match",
   Induct_on `pats` \\ fs [] \\ rpt strip_tac
   THEN1 (
     rpt (qpat_assum `0 = LENGTH _` (assume_tac o GSYM) \\ fs [LENGTH_NIL]) \\ rw [] \\
-    fs [PMATCH_def]
+    fs [PMATCH_def, PMATCH_ROW_last_def, PMATCH_ROW_def, PMATCH_ROW_COND_def] \\
+    fs [some_def, cf_bottom_def, local_def] \\ metis_tac []
   ) \\
 
   fs [LENGTH_CONS] \\ rename1 `exps = exp::exps'` \\ rw [] \\
@@ -2085,15 +2091,15 @@ val cf_sound = store_thm ("cf_sound",
       by (fs [GSYM UNZIP_MAP, ZIP_UNZIP]) \\ pop_assum (fs o sing o Once) \\
     fs [GSYM CONJ_ASSOC] \\ irule PMATCH_evaluate_match \\ fs [MAP_ZIP] \\
     GEN_EXISTS_TAC "cfs" `MAP (\b. cf p (SND b)) branches` \\
-    fs [MAP2_ZIP] \\ instantiate \\ rpt strip_tac \\
-    try_finally (
-      Induct_on `branches` \\ fs [] \\ rpt strip_tac \\
-      fs [PMATCH_EVAL_PMATCH_ROW_of_pat] \\ every_case_tac \\ fs []
-    )
+    fs [MAP2_ZIP] \\ instantiate \\ rpt strip_tac
     THEN1 (
       fs [LIST_REL_EVERY_ZIP] \\ fs [EVERY_MEM, MEM_ZIP] \\ rpt strip_tac \\
       rename1 `_ exp_cf_pair` \\ Cases_on `exp_cf_pair` \\
       fs [EL_MAP] \\ first_assum irule \\ instantiate \\ fs [EL_MAP]
+    )
+    THEN1 (
+      Induct_on `branches` \\ fs [] \\ rpt strip_tac \\
+      fs [PMATCH_EVAL_PMATCH_ROW_of_pat] \\ every_case_tac \\ fs []
     )
   )
 )
