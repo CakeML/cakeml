@@ -13,6 +13,7 @@ let rec eLookup (Bind v m) (Short n) = List.lookup n v
       | Nothing -> Nothing
       | Just env -> eLookup env id
       end
+declare termination_argument eLookup = automatic
 
 val eEmpty : forall 'v 'n. environment 'n 'v
 let eEmpty = Bind [] []

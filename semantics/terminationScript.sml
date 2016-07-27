@@ -1,5 +1,5 @@
 open preamble intSimps;
-open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
+open libTheory astTheory open environmentTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
 
 val _ = new_theory "termination";
@@ -93,6 +93,17 @@ fun register name def ind =
   in
     ()
   end;
+
+val (eAll_def, eAll_ind) =
+  tprove_no_defn ((eAll_def, eAll_ind),
+  wf_rel_tac `measure (\(_, env). environment_size (\x. 1) (\x. 1) env)`
+  >> Induct_on `m`
+  >> rw [environment_size_def]
+  >> rw [environment_size_def]
+  >> first_x_assum drule
+  >> disch_then (qspec_then `v` assume_tac)
+  >> decide_tac);
+val _ = register "eAll" eAll_def eAll_ind;
 
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),

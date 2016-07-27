@@ -19,7 +19,7 @@ val _ = Hol_datatype `
 
 
 (*val eLookup : forall 'v 'n. Eq 'n => environment 'n 'v -> id 'n -> maybe 'v*)
- val eLookup_defn = Hol_defn "eLookup" `
+ val _ = Define `
  (eLookup (Bind v m) (Short n) = (ALOOKUP v n))
     /\ (eLookup (Bind v m) (Long mn id) =      
 ((case ALOOKUP m mn of
@@ -27,7 +27,6 @@ val _ = Hol_datatype `
       | SOME env => eLookup env id
       )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn eLookup_defn;
 
 (*val eEmpty : forall 'v 'n. environment 'n 'v*)
 val _ = Define `
