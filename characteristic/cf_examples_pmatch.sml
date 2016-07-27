@@ -1,6 +1,6 @@
-open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory helperLib ml_translatorTheory
-open semanticPrimitivesTheory
+open preamble
+     set_sepTheory helperLib
+     ml_translatorTheory semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfHeapsLib
 open cfTheory cfTacticsBaseLib cfTacticsLib
 
