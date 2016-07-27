@@ -15,6 +15,15 @@ val st = ml_progLib.add_prog lnull pick_name initial_st
 (* TODO: should move to astSyntax *)
 fun mk_pat_bindings pat = ``ast$pat_bindings ^pat []``;
 fun mk_v_of_pat_norest pat ls = ``v_of_pat_norest envC ^pat ^ls``
+fun dest_v_of_pat_norest t = let
+  val (c, args) = strip_comb t
+  val _ = if c = prim_mk_const { Thy = "cf", Name = "v_of_pat_norest" } then ()
+          else failwith "dest_v_of_pat_norest"
+in
+  case args of
+      [envC, pat, insts] => (envC, pat, insts)
+    | _ => failwith "dest_v_of_pat_norest"
+end
 
 fun PMATCH_ROW_v_of_norest_n_goal n =
   let
@@ -64,18 +73,46 @@ local
   val () = semanticsComputeLib.add_semantics_compset cs
   val eval = computeLib.CBV_CONV cs
 in
-fun compute_pat_bindings_tac (g as (asl,w)) =
-  let
-    fun finder tm =
-      let
-        val (name,pat) = markerSyntax.dest_abbrev tm
-        val _ = assert(equal"pat")name
-      in pat end
-    val pat = tryfind finder asl
-  in
-    assume_tac(eval(mk_pat_bindings pat))
-  end g
+fun compute_pat_bindings pat =
+  eval (mk_pat_bindings pat)
 end
+
+fun PMATCH_ROW_v_of_pat_norest_conv t = let
+  val (p, g, r) = patternMatchesSyntax.dest_PMATCH_ROW (rator t)
+  val (_, p_body) = dest_abs p
+  val (_, pat, _) = dest_v_of_pat_norest p_body
+  val pat_bindings_thm = compute_pat_bindings pat
+  val pat_bindings_nb =
+    (rhs o concl) pat_bindings_thm
+    |> listSyntax.dest_list |> #1
+    |> List.length
+  val th = PMATCH_ROW_v_of_pat_norest_n_thm pat_bindings_nb
+  val th' = MATCH_MP th pat_bindings_thm
+in
+  HO_REWR_CONV (GEN_ALL th') t
+end
+
+fun PMATCH_repack_conv param tm = let
+  val (base_case, rec_case) = CONJ_PAIR (GSYM patternMatchesTheory.PMATCH_def)
+  val (base_case, rec_case) = (ISPEC param base_case, ISPEC param rec_case)
+  val rec_case_pat = ``option_CASE _ _ I``
+  val conv =
+      if can (match_term rec_case_pat) tm then
+        (RATOR_CONV (RAND_CONV (PMATCH_repack_conv param))) THENC
+        (REWR_CONV rec_case)
+      else
+        REWR_CONV base_case
+in conv tm end
+
+fun PMATCH_v_of_pat_norest_conv tm = let
+  val _ = print_term tm
+  val (t, _) = patternMatchesSyntax.dest_PMATCH tm
+  val conv =
+      (SIMP_CONV std_ss [patternMatchesTheory.PMATCH_def,
+                         cfTheory.PMATCH_ROW_last_def]) THENC
+      (DEPTH_CONV PMATCH_ROW_v_of_pat_norest_conv) THENC
+      (PMATCH_repack_conv t)
+in conv tm end
 
 val lnull_spec = Q.prove (
   `!lv a l.
@@ -100,14 +137,8 @@ val lnull_spec = Q.prove (
          (PMATCH_ROW (\insts. P insts) (\_. T) (\insts. Q insts) becomes
           PMATCH_ROW (\(vx, vxs). P [vx; vxs]) (\_. T) (\(vx, vxs). Q [vx; vxs]))
   *)
-  \\ simp[patternMatchesTheory.PMATCH_def]
-  \\ qpat_abbrev_tac`pat = Pcon _ []`
-  \\ compute_pat_bindings_tac \\ rfs[]
-  \\ simp[PMATCH_ROW_v_of_pat_norest_0]
-  \\ qunabbrev_tac`pat`
-  \\ qpat_abbrev_tac`pat = Pcon _ [_; _]`
-  \\ compute_pat_bindings_tac \\ rfs[]
-  \\ simp[PMATCH_ROW_v_of_pat_norest_2]
+  \\ CONV_TAC (RATOR_CONV (RATOR_CONV (RATOR_CONV PMATCH_v_of_pat_norest_conv)))
+  \\ cfTacticsBaseLib.qeval_pat_tac `v_of_pat_norest _ _ _`
   \\ cheat
 )
 
