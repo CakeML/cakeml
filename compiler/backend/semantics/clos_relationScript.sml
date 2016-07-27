@@ -75,7 +75,7 @@ val val_rel_def = tDefine "val_rel" `
         vs ≠ [] ∧
         LIST_REL (val_rel (:'ffi) i') vs vs'
         ⇒
-        case (dest_closure locopt cl vs, dest_closure locopt cl' vs') of
+        case (dest_closure s.max_app locopt cl vs, dest_closure s'.max_app locopt cl' vs') of
            | (NONE, _) => T
            | (_, NONE) => F
            | (SOME (Partial_app v), SOME (Partial_app v')) =>
@@ -135,6 +135,7 @@ val val_rel_def = tDefine "val_rel" `
                else
                  T)
            s.code s'.code ∧
+  s.max_app = s'.max_app ∧
   s.ffi = s'.ffi)`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<)
              \x. case x of
@@ -288,7 +289,7 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
         vs ≠ [] ∧
         LIST_REL (val_rel (:'ffi) i') vs vs'
         ⇒
-        case (dest_closure locopt v vs, dest_closure locopt v' vs') of
+        case (dest_closure s.max_app locopt v vs, dest_closure s'.max_app locopt v' vs') of
            | (NONE, _) => T
            | (_, NONE) => F
            | (SOME (Partial_app v), SOME (Partial_app v')) =>
@@ -377,6 +378,10 @@ val state_rel_clock = Q.store_thm ("state_rel_clock[simp]",
  ONCE_REWRITE_TAC [state_rel_rw] >>
  srw_tac[][]);
 
+val state_rel_max_app = Q.store_thm("state_rel_max_app",
+  `state_rel c s1 s2 ⇒ s2.max_app = s1.max_app`,
+  ONCE_REWRITE_TAC[state_rel_rw] \\ rw[]);
+
 val find_code_related = Q.store_thm ("find_code_related",
 `!c tt n vs (s:'ffi closSem$state) args e vs' s'.
   state_rel c s s' ∧
@@ -415,9 +420,9 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
   is_closure v ∧
   is_closure v' ∧
   LENGTH vs = LENGTH vs' ∧
-  dest_closure loc v vs = SOME x
+  dest_closure max_app loc v vs = SOME x
   ⇒
-  ?x'. dest_closure loc v' vs' = SOME x'`,
+  ?x'. dest_closure max_app loc v' vs' = SOME x'`,
  srw_tac[][] >>
  Cases_on `loc`
  >- (Cases_on `v` >>
@@ -470,9 +475,9 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
 
 val dest_closure_full_split = Q.prove (
 `!v1 vs e env rest.
-  dest_closure NONE v1 vs = SOME (Full_app e env rest)
+  dest_closure max_app NONE v1 vs = SOME (Full_app e env rest)
   ⇒
-  dest_closure NONE v1 (DROP (LENGTH rest) vs) = SOME (Full_app e env []) ∧
+  dest_closure max_app NONE v1 (DROP (LENGTH rest) vs) = SOME (Full_app e env []) ∧
   rest = TAKE (LENGTH rest) vs`,
  rpt gen_tac >>
  simp [dest_closure_def] >>
@@ -563,15 +568,15 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  srw_tac[][] >>
  `vs' ≠ []` by (Cases_on `vs'` >> full_simp_tac(srw_ss())[]) >>
  srw_tac[][evaluate_app_rw] >>
- Cases_on `dest_closure loc v vs` >>
+ Cases_on `dest_closure s.max_app loc v vs` >>
  simp [res_rel_rw] >>
- rename1 `dest_closure loc v vs = SOME c` >>
+ rename1 `dest_closure _ loc v vs = SOME c` >>
  `is_closure v ∧ is_closure v' ∧ check_closures v v'`
           by (Cases_on `v` >>
               Cases_on `v'` >>
               full_simp_tac(srw_ss())[val_rel_rw, dest_closure_def, is_closure_def]) >>
  imp_res_tac LIST_REL_LENGTH >>
- `?c'. dest_closure loc v' vs' = SOME c'` by metis_tac [dest_closure_opt] >>
+ `?c'. dest_closure s.max_app loc v' vs' = SOME c'` by metis_tac [dest_closure_opt] >>
  simp [] >>
  `LENGTH vs ≠ 0` by (Cases_on `vs` >> full_simp_tac(srw_ss())[]) >>
  Cases_on `s'.clock = 0` >>
@@ -579,6 +584,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  >- (Cases_on `c` >>
      Cases_on `c'` >>
      full_simp_tac(srw_ss())[] >>
+     imp_res_tac state_rel_max_app >>
      imp_res_tac dest_closure_full_length >>
      srw_tac[][res_rel_rw, dec_clock_def] >>
      full_simp_tac(srw_ss())[] >>
@@ -589,6 +595,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      >- (`LENGTH vs' + LENGTH (clo_to_partial_args v') < clo_to_num_params v' + LENGTH l0'`
                 by decide_tac >>
          rev_full_simp_tac(srw_ss())[])) >>
+ imp_res_tac state_rel_max_app >>
  Cases_on `c` >> Cases_on `c'` >> full_simp_tac(srw_ss())[]
  >- ((* Partial, Partial *)
      `loc = NONE` by metis_tac [dest_closure_none_loc] >>
@@ -609,8 +616,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          disch_then (qspec_then `s'.clock - 1` mp_tac) >>
          simp [res_rel_rw]))
  >- ((* Partial, Full *)
-     rename1 `dest_closure loc v vs = SOME (Partial_app cl)` >>
-     rename1 `dest_closure loc v' vs' = SOME (Full_app b' env' rest')` >>
+     rename1 `dest_closure _ loc v vs = SOME (Partial_app cl)` >>
+     rename1 `dest_closure _ loc v' vs' = SOME (Full_app b' env' rest')` >>
      rename1 `st.clock < LENGTH vs' - LENGTH rest'` >>
      Cases_on `st.clock < LENGTH vs' - LENGTH rest'`
      >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
@@ -632,7 +639,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >> rveq >>
      simp[dec_clock_def] >>
-     qspecl_then [`LENGTH rest'`, `v`, `vs`, `cl`]
+     qspecl_then [`s.max_app`,`LENGTH rest'`, `v`, `vs`, `cl`]
        mp_tac dest_closure_partial_split' >> simp[] >>
      disch_then (qx_choosel_then [`cl0`, `used`, `rest`] strip_assume_tac) >>
      `is_closure cl0` by metis_tac[dest_closure_partial_is_closure] >>
@@ -672,7 +679,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
         simp[] >> strip_tac >> full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[]) >>
      qunabbrev_tac `LHS` >>
      `rest ≠ []` by metis_tac [LENGTH] >>
-     `dest_closure NONE cl0 rest =
+     `dest_closure s0.max_app NONE cl0 rest =
         SOME (Partial_app (clo_add_partial_args rest cl0))`
        by metis_tac[dest_closure_partial_is_closure, stage_partial_app] >>
      simp[evaluate_app_rw] >> simp[dec_clock_def] >>
@@ -681,8 +688,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      simp[] >> srw_tac[][] >>
      Q.PAT_ASSUM `X = s1'.clock` (mp_tac o SYM) >> simp[])
  >- ((* Full, Partial *)
-     rename1 `dest_closure loc v vs = SOME (Full_app b env rest)` >>
-     rename1 `dest_closure loc v' vs' = SOME (Partial_app cl')` >>
+     rename1 `dest_closure _ loc v vs = SOME (Full_app b env rest)` >>
+     rename1 `dest_closure _ loc v' vs' = SOME (Partial_app cl')` >>
      rename1 `st.clock < LENGTH vs' - LENGTH rest` >>
      Cases_on `st.clock < LENGTH vs' - LENGTH rest`
      >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
@@ -704,7 +711,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >> rveq >>
      simp[dec_clock_def] >>
-     qspecl_then [`LENGTH rest`, `v'`, `vs'`, `cl'`]
+     qspecl_then [`s.max_app`,`LENGTH rest`, `v'`, `vs'`, `cl'`]
        mp_tac dest_closure_partial_split' >> simp[] >>
      disch_then (qx_choosel_then [`cl0'`, `used'`, `rest'`] strip_assume_tac) >>
      `is_closure cl0'` by metis_tac[dest_closure_partial_is_closure] >>
@@ -744,17 +751,17 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
         simp[] >> strip_tac >> full_simp_tac(srw_ss())[]) >>
      qunabbrev_tac `RHS` >>
      `rest' ≠ []` by metis_tac [LENGTH] >>
-     `dest_closure NONE cl0' rest' =
+     `dest_closure s0.max_app NONE cl0' rest' =
         SOME (Partial_app (clo_add_partial_args rest' cl0'))`
        by metis_tac[dest_closure_partial_is_closure, stage_partial_app] >>
      simp[evaluate_app_rw] >> simp[dec_clock_def])
  >- ((* Full, Full *)
-     rename1 `dest_closure loc v vs = SOME (Full_app b1 env1 rest1)` >>
-     rename1 `dest_closure loc v' vs' = SOME (Full_app b2 env2 rest2)` >>
+     rename1 `dest_closure _ loc v vs = SOME (Full_app b1 env1 rest1)` >>
+     rename1 `dest_closure _ loc v' vs' = SOME (Full_app b2 env2 rest2)` >>
      `(∃used1. vs = rest1 ++ used1 ∧
-               dest_closure loc v used1 = SOME (Full_app b1 env1 [])) ∧
+               dest_closure s.max_app loc v used1 = SOME (Full_app b1 env1 [])) ∧
       (∃used2. vs' = rest2 ++ used2 ∧
-               dest_closure loc v' used2 = SOME (Full_app b2 env2 []))`
+               dest_closure s.max_app loc v' used2 = SOME (Full_app b2 env2 []))`
        by metis_tac[dest_closure_full_split'] >>
      `LENGTH rest1 < LENGTH vs ∧ LENGTH rest2 < LENGTH vs'`
        by (imp_res_tac dest_closure_full_length >> simp[]) >>
@@ -826,8 +833,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> full_simp_tac(srw_ss())[] >>
          simp[] >>
          `upfx2 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
-         `∃cl2. dest_closure NONE v' usfx2 = SOME (Partial_app cl2) ∧
-                dest_closure NONE cl2 upfx2 = SOME (Full_app b2 env2 [])`
+         `∃cl2. dest_closure s.max_app NONE v' usfx2 = SOME (Partial_app cl2) ∧
+                dest_closure s.max_app NONE cl2 upfx2 = SOME (Full_app b2 env2 [])`
            by metis_tac[dest_closure_NONE_Full_to_Partial] >>
          rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
          `LIST_REL (val_rel (:'ffi) s'.clock) rest1 (rest2 ++ upfx2) ∧
@@ -867,13 +874,13 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          simp[Abbr`RHS`] >> full_simp_tac(srw_ss())[] >>
          simp[Once evaluate_app_rw, SimpRHS] >>
          Q.UNDISCH_THEN
-           `dest_closure NONE cl2 upfx2 = SOME (Full_app b2 env2 [])`
+           `dest_closure s.max_app NONE cl2 upfx2 = SOME (Full_app b2 env2 [])`
            (fn th => mp_tac (MATCH_MP (dest_closure_full_addargs
                                          |> GEN_ALL
                                          |> REWRITE_RULE [GSYM AND_IMP_INTRO])
                                       th)) >>
          disch_then (qspec_then `rest2` mp_tac) >>
-         `LENGTH rest2 + LENGTH upfx2 ≤ max_app`
+         `LENGTH rest2 + LENGTH upfx2 ≤ s.max_app`
            by (imp_res_tac dest_closure_full_maxapp >> full_simp_tac(srw_ss())[] >> simp[]) >>
          simp[dec_clock_def] >>
          `LENGTH rest1 + LENGTH used1 - LENGTH rest2 =
@@ -899,8 +906,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> full_simp_tac(srw_ss())[] >>
          simp[] >>
          `upfx1 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
-         `∃cl1. dest_closure NONE v usfx1 = SOME (Partial_app cl1) ∧
-                dest_closure NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
+         `∃cl1. dest_closure s.max_app NONE v usfx1 = SOME (Partial_app cl1) ∧
+                dest_closure s.max_app NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
            by metis_tac[dest_closure_NONE_Full_to_Partial] >>
          rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
          `LIST_REL (val_rel (:'ffi) s'.clock) (rest1 ++ upfx1) rest2 ∧
@@ -940,13 +947,13 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          simp[Abbr`LHS`] >> full_simp_tac(srw_ss())[] >>
          simp[Once evaluate_app_rw, SimpRHS] >>
          Q.UNDISCH_THEN
-           `dest_closure NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
+           `dest_closure s1.max_app NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
            (fn th => mp_tac (MATCH_MP (dest_closure_full_addargs
                                          |> GEN_ALL
                                          |> REWRITE_RULE [GSYM AND_IMP_INTRO])
                                       th)) >>
          disch_then (qspec_then `rest1` mp_tac) >>
-         `LENGTH rest1 + LENGTH upfx1 ≤ max_app`
+         `LENGTH rest1 + LENGTH upfx1 ≤ s1.max_app`
            by (imp_res_tac dest_closure_full_maxapp >> full_simp_tac(srw_ss())[] >> simp[]) >>
          simp[dec_clock_def] >>
          `s'.clock < LENGTH upfx1 + LENGTH used2 ⇔ s2.clock < LENGTH upfx1`
@@ -1650,6 +1657,7 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
  Cases_on `locopt` >>
  simp [dest_closure_def, check_loc_def] >>
  srw_tac[][] >>
+ imp_res_tac state_rel_max_app >>
  TRY decide_tac >>
  srw_tac[][exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
  full_simp_tac(srw_ss())[NOT_LESS] >>
@@ -1773,6 +1781,7 @@ val compat_closure_some = Q.prove (
    full_simp_tac(srw_ss())[]) >>
  simp [dest_closure_def, check_loc_def] >>
  srw_tac[][] >>
+ imp_res_tac state_rel_max_app >> fs[] >>
  srw_tac[][exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
  full_simp_tac(srw_ss())[NOT_LESS] >>
  srw_tac[][res_rel_rw]
@@ -1859,6 +1868,7 @@ val compat_fn = Q.store_thm ("compat_fn",
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
  srw_tac[][res_rel_rw] >>
+ imp_res_tac state_rel_max_app >>
  Cases_on `vars` >>
  full_simp_tac(srw_ss())[]
  >- (
@@ -1931,6 +1941,7 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
         pop_assum mp_tac >>
         Cases_on `EL idx funs2` >> simp[Abbr`FR`]) >>
   strip_tac >>
+  imp_res_tac state_rel_max_app >>
   simp[dest_closure_def, revdroprev, revtakerev, exec_rel_rw,
        evaluate_ev_def] >>
   qx_gen_tac `k`
@@ -1995,6 +2006,7 @@ val compat_letrec = Q.store_thm ("compat_letrec",
  rpt strip_tac >>
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
+ imp_res_tac state_rel_max_app >>
  reverse (srw_tac[][res_rel_rw])
  >- (
    full_simp_tac std_ss [LIST_REL_EL_EQN, EVERY_EL] >>
@@ -2205,6 +2217,8 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   simp_tac (srw_ss()) [val_rel_rw, optCASE_NONE_F, optCASE_NONE_T] >>
   conj_tac >- metis_tac[check_closures_trans] >>
   qx_genl_tac [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] >> strip_tac >>
+  imp_res_tac state_rel_max_app >>
+  pop_assum(assume_tac o SYM) >>
   rpt (first_x_assum (qspecl_then [`j`, `s1`, `s2`]
                         (fn th => mp_tac th >>
                                   simp[SimpL ``$==>``] >>
@@ -2214,6 +2228,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
                   asm_simp_tac (srw_ss() ++ ETA_ss) [SimpL ``$==>``] >>
                   strip_tac))) >>
   qx_gen_tac `dcres` >>
+  rev_full_simp_tac std_ss [] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        mp_tac th) >> strip_tac >>
   qpat_assum `val_rel _ i _ V0` mp_tac >>
@@ -2222,6 +2237,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   simp[SimpL ``$==>``, optCASE_NONE_F] >>
   disch_then (qx_choose_then `dcres2` mp_tac) >>
   `vs2 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
+  rev_full_simp_tac std_ss [] >>
   Cases_on `dcres` >> Cases_on `dcres2` >> simp[SimpL ``$==>``] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        strip_assume_tac th) >>
@@ -2236,12 +2252,12 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
                         th (concl termth)))) >>
   simp[SimpL ``$==>``] >> simp_tac(srw_ss()) [] >> simp[] >>
   disch_then (mp_tac o
-              CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s", "s'", "vs'"]))) >>
-  disch_then (qspecl_then [`s2`, `s2`, `vs2`] mp_tac) >>
+              CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s'", "vs'"]))) >>
+  disch_then (qspecl_then [ `s2`, `vs2`] mp_tac) >>
   simp[val_rel_refl, state_rel_refl] >>
   disch_then (qspec_then `j` mp_tac) >>
-  simp[] >> Cases_on `dest_closure clocopt V vs2` >> simp[] >>
-  rename1 `dest_closure clocopt V vs2 = SOME cl` >> Cases_on `cl` >>
+  simp[] >> Cases_on `dest_closure s2.max_app clocopt V vs2` >> simp[] >>
+  rename1 `dest_closure s2.max_app clocopt V vs2 = SOME cl` >> Cases_on `cl` >>
   simp[])
  (* RecClosure *)
  >- (
@@ -2260,6 +2276,8 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   simp_tac (srw_ss()) [val_rel_rw, optCASE_NONE_F, optCASE_NONE_T] >>
   conj_tac >- metis_tac[check_closures_trans] >>
   qx_genl_tac [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] >> strip_tac >>
+  imp_res_tac state_rel_max_app >>
+  pop_assum (assume_tac o SYM) >>
   rpt (first_x_assum (qspecl_then [`j`, `s1`, `s2`]
                         (fn th => mp_tac th >>
                                   simp[SimpL ``$==>``] >>
@@ -2269,6 +2287,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
                   asm_simp_tac (srw_ss() ++ ETA_ss) [SimpL ``$==>``] >>
                   strip_tac))) >>
   qx_gen_tac `dcres` >>
+  rev_full_simp_tac std_ss [] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        mp_tac th) >> strip_tac >>
   qpat_assum `val_rel _ i _ C2` mp_tac >>
@@ -2290,10 +2309,10 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
     mp_tac (PART_MATCH' (fn t => t |> dest_imp |> #2 |> dest_imp |> #1)
                         th (concl termth)))) >>
   simp[SimpL ``$==>``] >> simp_tac(srw_ss()) [] >> simp[] >>
-  disch_then (qspecl_then [`j`, `vs2`, `s2`, `s2`] mp_tac) >>
+  disch_then (qspecl_then [`j`, `vs2`, `s2`] mp_tac) >>
   simp[val_rel_refl, state_rel_refl] >>
-  Cases_on `dest_closure clocopt C3 vs2` >> simp[] >>
-  rename1 `dest_closure clocopt C3 vs2 = SOME cl` >> Cases_on `cl` >>
+  Cases_on `dest_closure s2.max_app clocopt C3 vs2` >> simp[] >>
+  rename1 `dest_closure s2.max_app clocopt C3 vs2 = SOME cl` >> Cases_on `cl` >>
   simp[])
  >- ((* exec_rel *)
   rename1 `exec_rel i (e0,s0) es` >>

@@ -461,6 +461,7 @@ val check_clock_IMP = prove(
 val do_app_const = store_thm("do_app_const",
   ``(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
+    (s2.max_app = s1.max_app) /\
     (s2.code = s1.code)``,
   SIMP_TAC std_ss [do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC

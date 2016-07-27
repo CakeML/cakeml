@@ -1,6 +1,7 @@
 open preamble closLangTheory closSemTheory
-
 open bagTheory
+
+(* TODO: add bagTheory to preamble *)
 
 val _ = new_theory"closProps"
 
@@ -474,10 +475,12 @@ val evaluate_const_ind =
   evaluate_ind
   |> Q.SPEC `\(xs,env,s).
        (case evaluate (xs,env,s) of (_,s1) =>
-          (s1.code = s.code))`
+          (s1.code = s.code) ∧
+          (s1.max_app = s.max_app))`
   |> Q.SPEC `\x1 x2 x3 x4.
        (case evaluate_app x1 x2 x3 x4 of (_,s1) =>
-          (s1.code = x4.code))`
+          (s1.code = x4.code) ∧
+          (s1.max_app = x4.max_app))`
 
 val evaluate_const_lemma = prove(
   evaluate_const_ind |> concl |> rand,
@@ -491,14 +494,16 @@ val evaluate_const_lemma = prove(
 
 val evaluate_const = store_thm("evaluate_const",
   ``(evaluate (xs,env,s) = (res,s1)) ==>
-      (s1.code = s.code)``,
+      (s1.code = s.code) ∧
+      (s1.max_app = s.max_app)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_app_const = store_thm("evaluate_app_const",
   ``(evaluate_app x1 x2 x3 x4 = (res,s1)) ==>
-      (s1.code = x4.code)``,
+      (s1.code = x4.code) ∧
+      (s1.max_app = x4.max_app)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
@@ -1021,6 +1026,7 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
    first_x_assum (qspec_then `l0` mp_tac) >>
    srw_tac[][] >>
    pop_assum (qspecl_then [`h`, `args1`, `r`] mp_tac) >>
+   imp_res_tac evaluate_const >> fs[dec_clock_def] >>
    simp []));
 
 val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
