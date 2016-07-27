@@ -4,7 +4,6 @@ open semanticPrimitivesTheory ConseqConv
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormalizeTheory cfAppTheory
 open cfTacticsBaseLib
-open patternMatchesTheory
 
 val _ = new_theory "cf"
 
@@ -597,30 +596,6 @@ val v_of_pat_remove_rest_insts = store_thm ("v_of_pat_remove_rest_insts",
   )
 )
 
-val v_of_pat_insts_unique = store_thm ("v_of_pat_insts_unique",
-  ``(!envC pat insts rest v.
-       v_of_pat envC pat insts = SOME (v, rest) ==>
-       (!insts'. v_of_pat envC pat insts' = SOME (v, rest) <=> (insts' = insts))) /\
-    (!envC pats insts rest vs.
-       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
-       (!insts'. v_of_pat_list envC pats insts' = SOME (vs, rest) <=> (insts' = insts)))``,
-
-  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
-  try_finally (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
-  THEN1 (
-    fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    TRY (first_assum (qspec_then `insts'` assume_tac)) \\
-    TRY (strip_tac \\ rw [] \\ fs []) \\
-    TRY (qpat_assum `LENGTH _ = LENGTH _` (K all_tac)) (* otherwise fs[] loops? *) \\
-    TRY (eq_tac \\ strip_tac \\ rw [] \\ fs []) \\ rw []
-  )
-  THEN1 (
-    fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    TRY (strip_tac \\ rw [] \\ fs []) \\ rw [] \\ fs [] \\
-    eq_tac \\ rw [] \\ fs [] \\ rw [] \\ fs []
-  )
-)
-
 (* [v_of_pat_norest]: Wrapper that checks that there are no remaining
    instantiations
 *)
@@ -638,18 +613,6 @@ val v_of_pat_norest_insts_length = store_thm ("v_of_pat_norest_insts_length",
   rpt strip_tac \\ fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
   rw [] \\ progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\ fs []
 )
-
-val v_of_pat_norest_insts_unique = store_thm ("v_of_pat_norest_insts_unique",
-  ``!envC pat insts v.
-      v_of_pat_norest envC pat insts = SOME v ==>
-      (!insts'. v_of_pat_norest envC pat insts' = SOME v <=> (insts' = insts))``,
-  rpt strip_tac \\ fs [v_of_pat_norest_def] \\
-  every_case_tac \\ fs [] \\ rw [] \\ 
-  try_finally (strip_tac \\ rw [] \\ fs []) \\
-  eq_tac \\ rw [] \\ fs [] \\
-  progress (fst (CONJ_PAIR (v_of_pat_insts_unique))) \\ fs []
-)
-
 
 (* Predicates that discriminate the patterns we want to deal
    with. [validate_pat] packs them all up.
@@ -680,14 +643,6 @@ val validate_pat_def = Define `
 (* Lemmas that relate [v_of_pat] and [pmatch], the pattern-matching function
    from the semantics.
 *)
-
-val pmatch_list_match_length = store_thm ("pmatch_list_match_length",
-  ``!envC s pats args env env'.
-     pmatch_list envC s pats args env = Match env' ==>
-     LENGTH pats = LENGTH args``,
-  Induct_on `pats` \\ Cases_on `args` \\ fs [pmatch_def] \\
-  rpt strip_tac \\ every_case_tac \\ fs [] \\ first_assum irule \\ instantiate
-)
 
 val v_of_pat_pmatch = store_thm ("v_of_pat_pmatch",
   ``(!envC s pat v env_v insts.
@@ -809,183 +764,15 @@ val pmatch_v_of_pat_norest = store_thm ("pmatch_v_of_pat_norest",
   qexists_tac `insts` \\ fs [v_of_pat_norest_def]
 )
 
-val v_of_pat_Con_cons = Q.prove (
-  `!envC env_v s pat v env_v' pats vs insts insts'.
-     pmatch envC s pat v env_v = Match env_v' ==>
-     pat_without_Pref pat ==>
-     v_of_pat envC (Pcon NONE pats) insts' = SOME (Conv NONE vs, []) ==>
-     ?insts.
-       env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
-       v_of_pat envC (Pcon NONE (pat::pats)) (insts ++ insts') = SOME (Conv NONE (v::vs), [])`,
+(* The nested ifs corresponding to a list of patterns *)
 
-  rpt strip_tac \\ progress (fst (CONJ_PAIR pmatch_v_of_pat)) \\ rw [] \\
-  rename1 `ZIP (pat_bindings pat [], REVERSE insts)` \\ qexists_tac `insts` \\
-  progress_then (qspec_then `insts'` assume_tac)
-    (fst (CONJ_PAIR v_of_pat_extend_insts)) \\ fs [] \\
-  qpat_assum `v_of_pat _ (Pcon _ pats) _ = _`
-    (assume_tac o SIMP_RULE std_ss [v_of_pat_def]) \\ every_case_tac \\ rw [] \\
-  fs [build_conv_def] \\ rw [] \\
-  progress_then (qspec_then `insts'` assume_tac)
-    (snd (CONJ_PAIR v_of_pat_extend_insts)) \\ fs [] \\
-  rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw []
-)
-
-
-
-(* [PMATCH_ROW_of_pat]: the instance of [PMATCH_ROW] that corresponds to a
-   CakeML pattern
-*)
-
-val PMATCH_ROW_of_pat_def = Define `
-  PMATCH_ROW_of_pat pat branch_cf env =
-    PMATCH_ROW
-      (\insts. v_of_pat_norest env.c pat insts)
-      (\_. T)
-      (\insts.
-         \env. branch_cf (extend_env (REVERSE (pat_bindings pat [])) insts env))`
-
-val PMATCH_ROW_last_def = Define `
-  PMATCH_ROW_last =
-    PMATCH_ROW (\v_opt. v_opt) (\_. T) (\_. cf_bottom)`
-
-(* Lemmas relating our [PMATCH_ROW]s with the semantic pattern-matching [pmatch]
-*)
-
-val PMATCH_ROW_pmatch = store_thm ("PMATCH_ROW_pmatch",
-  ``!pat bcf s env v cf H Q.
-     PMATCH_ROW_of_pat pat bcf env (SOME v) = SOME cf ==>
-     cf env H Q ==>
-     ?env_v'.
-       pmatch env.c s pat v env.v = Match env_v' /\
-       bcf (env with v := env_v') H Q``,
-
-  rpt strip_tac \\
-  fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
-  rw [] \\ fs [] \\
-  progress v_of_pat_norest_insts_length \\
-  progress_then (qspecl_then [`s`, `env.v`] assume_tac) v_of_pat_norest_pmatch \\
-  instantiate \\ progress v_of_pat_norest_insts_unique \\ fs [SELECT_UNIQUE] \\
-  fs [extend_env_def, extend_env_v_zip] 
-)
-
-val PMATCH_ROW_of_pat_matching_Con_NONE = Q.prove (
-  `!env pcname pcnum pctid vcname vcn vctid pats args bcf.
-   lookup_alist_mod_env pcname env.c = SOME (pcnum, pctid) ==>
-   vcname = (vcn, vctid) ==>
-   pctid = vctid /\ id_to_n pcname = vcn ==>
-   LENGTH pats = pcnum ==>
-   PMATCH_ROW_of_pat (Pcon (SOME pcname) pats) bcf env (SOME (Conv (SOME vcname) args)) = NONE ==>
-   PMATCH_ROW_of_pat (Pcon NONE pats) bcf env (SOME (Conv NONE args)) = NONE`,
-
-  rpt strip_tac \\
-  fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
-  qx_gen_tac `inst` \\ pop_assum (qspec_then `inst` assume_tac) \\ rw [] \\
-  fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
-  fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-  progress v_of_pat_list_length
-)
-
-val PMATCH_ROW_of_pat_con_cons_NONE = Q.prove (
-  `!env s pat v env_v' pats args bcf.
-     pmatch env.c s pat v env.v = Match env_v' ==>
-     pat_without_Pref pat ==>
-     PMATCH_ROW_of_pat (Pcon NONE (pat::pats)) bcf env
-       (SOME (Conv NONE (v::args))) = NONE ==>
-     PMATCH_ROW_of_pat (Pcon NONE pats) bcf (env with v := env_v')
-       (SOME (Conv NONE args)) = NONE`,
-
-  rpt strip_tac \\
-  fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
-  qx_gen_tac `insts` \\ rewrite_tac [v_of_pat_norest_def] \\
-  every_case_tac \\ fs [] \\ strip_tac \\ first_x_assum irule \\ rw [] \\
-  progress v_of_pat_Con_cons \\ rw [] \\
-  rename1 `v_of_pat _ (Pcon _ (_::_)) (insts_pat ++ insts_pats)` \\
-  qexists_tac `insts_pat ++ insts_pats` \\ 
-  fs [v_of_pat_norest_def] \\ every_case_tac \\ fs []
-)
-
-val PMATCH_ROW_pmatch_nomatch = store_thm ("PMATCH_ROW_pmatch_nomatch",
-  ``(!pat env s v (branch_cf: v environment -> 'a).
-      pat_without_Pref pat ==>
-      pmatch env.c s pat v env.v <> Match_type_error ==>
-      PMATCH_ROW_of_pat pat branch_cf env (SOME v) = NONE ==>
-      pmatch env.c s pat v env.v = No_match) /\
-    (!pats env s vs (branch_cf: v environment -> 'a) cname pcname.
-      EVERY (\pat. pat_without_Pref pat) pats ==>
-      pmatch env.c s (Pcon NONE pats) (Conv NONE vs) env.v <> Match_type_error ==>
-      PMATCH_ROW_of_pat (Pcon NONE pats) branch_cf env (SOME (Conv NONE vs)) = NONE ==>
-      pmatch_list env.c s pats vs env.v = No_match)``,
-
-  HO_MATCH_MP_TAC astTheory.pat_induction \\
-  rpt strip_tac
-  THEN1 (
-    fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
-    first_assum (qspec_then `[v]` assume_tac) \\
-    fs [v_of_pat_norest_def, v_of_pat_def]
-  )
-  THEN1 (
-    fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
-    first_x_assum (qspec_then `[]` assume_tac) \\
-    fs [v_of_pat_norest_def, v_of_pat_def] \\ rename1 `Litv l <> v` \\
-    Cases_on `v` \\ fs [pmatch_def] \\ every_case_tac \\ fs []
-  )
-  THEN1 (
-    qpat_assum `pmatch _ _ _ _ _ <> _` mp_tac \\
-    Cases_on `v` \\ try_finally (fs [pmatch_def] \\ every_case_tac) \\
-    rename1 `Conv name_opt args` \\ rename1 `Pcon pname_opt _` \\
-    Cases_on `name_opt` \\ Cases_on `pname_opt` \\ try_finally (fs [pmatch_def])
-    THEN1 (
-      fs [pmatch_def] \\ every_case_tac \\ fs [] \\ strip_tac \\
-      first_assum irule \\ fs [pat_without_Pref_def] \\ instantiate
-    )
-    THEN1 (
-      rename1 `Conv (SOME cname) _` \\ Cases_on `cname` \\
-      fs [pat_without_Pref_def] \\
-      (* At this point:
-         - either the constructors are differents (and in this case, pmatch ... = No_match,
-           which proves the goal)... *)
-      fs [pmatch_def] \\ every_case_tac \\ strip_tac \\
-      (* - or the constructors are the same, and:
-           - pmatch_list ... = No_match, which proves the goal
-           - pmatch_list ... = Match, then we know LENGTH pats = LENGTH args, and
-             modulo additional lemmas we can use the induction hypothesis to prove
-             pmatch_list ... = No_match, proving the goal that became F *)
-      Cases_on `pmatch_list env.c s pats args env.v` \\ fs [] \\ rw [] \\
-      progress pmatch_list_match_length \\
-      `pmatch_list env.c s pats args env.v = No_match` by (
-        first_assum irule
-        THEN1 (every_case_tac \\ fs [])
-        THEN1 (
-          qexists_tac `branch_cf` \\
-          irule PMATCH_ROW_of_pat_matching_Con_NONE \\ instantiate \\
-          rename1 `same_ctor (id_to_n id1, tid1) (n2, tid2)` \\
-          qsuff_tac `tid1 = tid2 /\ id_to_n id1 = n2`
-            THEN1 (fs [CONJ_COMM, EQ_SYM]) \\
-          irule evalPropsTheory.same_ctor_and_same_tid \\ fs []
-        )
-      ) \\ fs []
-    )
-  )
-  THEN1 (
-    fs [pat_without_Pref_def]
-  )
-  THEN1 (
-    Cases_on `vs` \\ fs [pmatch_def] \\
-    fs [PMATCH_ROW_of_pat_def, PMATCH_ROW_def, PMATCH_ROW_COND_def, some_def] \\
-    first_x_assum (qspec_then `[]` assume_tac) \\
-    fs [v_of_pat_norest_def, v_of_pat_def, build_conv_def]
-  )
-  THEN1 (
-    Cases_on `vs` \\ fs [pmatch_def] \\ every_case_tac \\ fs [] \\
-    progress (fst (CONJ_PAIR evalPropsTheory.pmatch_extend)) \\ rw [] \\
-    rename1 `pmatch_list _ _ _ args (matched_env ++ env.v)` \\
-    qsuff_tac `pmatch_list (env with v := matched_env ++ env.v).c s pats args
-                           (env with v := matched_env ++ env.v).v = No_match`
-      THEN1 (fs []) \\
-    first_assum irule \\ fs [] \\ qexists_tac `branch_cf` \\
-    irule PMATCH_ROW_of_pat_con_cons_NONE \\ instantiate
-  )
-)
+val build_cases_def = Define `
+  build_cases v [] env H Q = cf_bottom env H Q /\
+  build_cases v ((pat, row_cf)::rows) env H Q =
+    (if (?insts. v_of_pat_norest env.c pat insts = SOME v) then
+       (!insts. v_of_pat_norest env.c pat insts = SOME v ==>
+          row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
+     else build_cases v rows env H Q)`
 
 (*------------------------------------------------------------------*)
 (* Definition of the [cf] functions, that generates the characteristic
@@ -1229,11 +1016,11 @@ val cf_if_def = Define `
       (b = F ==> cf2 env H Q))`
 
 val cf_mat_def = Define `
-  cf_mat e pats branches = \env. local (\H Q.
+  cf_mat e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      (!s. EVERY (\pat. validate_pat env.c s pat v env.v) pats) /\
-      PMATCH (SOME v) (branches ++ [PMATCH_ROW_last]) env H Q)`
+      (!s. EVERY (\p. validate_pat env.c s (FST p) v env.v) rows) /\
+      build_cases v rows env H Q)`
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -1313,12 +1100,8 @@ val cf_def = tDefine "cf" `
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (If cond e1 e2) =
     cf_if cond (cf p e1) (cf p e2) /\
-  cf (p:'ffi ffi_proj) (Mat e branches) =
-    (\env.
-       cf_mat e
-         (MAP FST branches)
-         (MAP (\b. PMATCH_ROW_of_pat (FST b) (cf p (SND b)) env) branches)
-         env) /\
+  cf (p:'ffi ffi_proj) (Mat e branches) = 
+    cf_mat e (MAP (\b. (FST b, cf p (SND b))) branches) /\
   cf _ _ = cf_bottom`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
@@ -1696,59 +1479,39 @@ val cf_letrec_sound = Q.prove (
   fs [letrec_pull_params_names, letrec_pull_params_def]
 )
 
-val PMATCH_EVAL_PMATCH_ROW_of_pat =
-  let
-    val pmatch_row_tm =
-        concl PMATCH_EVAL |> rand |> lhs |> rand |> rator |> rand
-    val pmatch_row_of_pat_tm =
-        PMATCH_ROW_of_pat_def |> SPEC_ALL |> concl |> rhs
-    val (tmsubst, tysubst) = match_term pmatch_row_tm pmatch_row_of_pat_tm
-    val thm = PMATCH_EVAL |> INST_TYPE tysubst |> INST tmsubst
-  in
-    SPEC_ALL (REWRITE_RULE [GSYM PMATCH_ROW_of_pat_def] thm)
-  end
+val build_cases_evaluate_match = Q.prove (
+  `!v env H Q rows p st h_i h_k bind_exn_v.
+    EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
+    (!s. EVERY (\r. validate_pat env.c s (FST r) v env.v) rows) ==>
+    build_cases v (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
+    SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
+    ?v' st' h_f h_g.
+      bigStep$evaluate_match F env st v rows bind_exn_v (st', Rval v') /\
+      Q v' h_f /\ SPLIT3 (st2heap p st') (h_f, h_k, h_g)`,
 
-val PMATCH_evaluate_match = store_thm ("PMATCH_evaluate_match",
-  ``!v env H Q pats exps cfs branch_cf p exp st h_i h_k bind_exn_v.
-      LENGTH pats = LENGTH exps ==>
-      LENGTH exps = LENGTH cfs ==>
-      (!s. EVERY (\pat. validate_pat env.c s pat v env.v) pats) ==>
-      PMATCH (SOME v)
-        (MAP2 (\pat cf. PMATCH_ROW_of_pat pat cf env) pats cfs ++
-           [PMATCH_ROW_last]) env H Q ==>
-      EVERY2 (\exp cf. sound p exp cf) exps cfs ==>
-      SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-      ?v' st' h_f h_g.
-        bigStep$evaluate_match F env st v (ZIP (pats, exps)) bind_exn_v (st', Rval v') /\
-        Q v' h_f /\ SPLIT3 (st2heap p st') (h_f, h_k, h_g)``,
-  Induct_on `pats` \\ fs [] \\ rpt strip_tac
+  Induct_on `rows` \\ rpt strip_tac \\ fs [build_cases_def]
+  THEN1 (fs [cf_bottom_def, local_def] \\ metis_tac []) \\
+  rename1 `v_of_pat_norest _ (FST row) _` \\ Cases_on `row` \\ fs [] \\
+  rename1 `v_of_pat_norest _ pat _` \\ rename1 `sound _ row_cf _` \\
+  first_assum (qspec_then `st.refs` strip_assume_tac) \\
+  qpat_assum `validate_pat _ _ _ _ _`
+    (strip_assume_tac o REWRITE_RULE [validate_pat_def]) \\
+  once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
+  full_case_tac \\ fs []
   THEN1 (
-    rpt (qpat_assum `0 = LENGTH _` (assume_tac o GSYM) \\ fs [LENGTH_NIL]) \\ rw [] \\
-    fs [PMATCH_def, PMATCH_ROW_last_def, PMATCH_ROW_def, PMATCH_ROW_COND_def] \\
-    fs [some_def, cf_bottom_def, local_def] \\ metis_tac []
-  ) \\
-
-  fs [LENGTH_CONS] \\ rename1 `exps = exp::exps'` \\ rw [] \\
-  fs [LENGTH_CONS] \\ rename1 `cfs = exp_cf::cfs'` \\ rw [] \\ fs [] \\
-  rename1 `PMATCH_ROW_of_pat pat _ _` \\
-  fs [PMATCH_def, option_case_compute] \\ full_case_tac
-  THEN1 (
-    first_assum (qspec_then `st.refs` strip_assume_tac) \\
-    fs [validate_pat_def, IS_SOME_EXISTS] \\ fs [THE_DEF] \\
-    fs [Once bigStepTheory.evaluate_cases] \\
-    progress_then (qspec_then `st.refs` strip_assume_tac) PMATCH_ROW_pmatch \\
-    fs [] \\ qpat_assum `sound _ _ exp_cf` (progress o REWRITE_RULE [sound_def]) \\
-    instantiate
+    first_x_assum progress \\ progress v_of_pat_norest_pmatch \\ fs [] \\
+    qpat_assum `sound _ _ _` (assume_tac o REWRITE_RULE [sound_def]) \\
+    first_assum progress \\ progress v_of_pat_norest_insts_length \\
+    fs [extend_env_def, extend_env_v_zip] \\ instantiate
   )
   THEN1 (
-    fs [NOT_IS_SOME_EQ_NONE] \\
-    first_assum (qspec_then `st.refs` assume_tac) \\
-    fs [validate_pat_def, pat_typechecks_def] \\
-    mp_tac (fst (CONJ_PAIR PMATCH_ROW_pmatch_nomatch)
-            |> INST_TYPE [alpha |-> ``:hprop -> (v -> hprop) -> bool``]) \\ (* ? *)
-    disch_then progress \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    first_assum irule \\ fs [] \\ instantiate
+    Cases_on `pmatch env.c st.refs pat v env.v` \\ fs []
+    THEN1 ((* No_match *) first_assum irule \\ fs [] \\ instantiate)
+    THEN1 ((* Match_type_error *) fs [pat_typechecks_def])
+    THEN1 (
+      (* Match *)
+      progress pmatch_v_of_pat_norest \\ rw [] \\ metis_tac []
+    )
   )
 )
 
@@ -2086,21 +1849,8 @@ val cf_sound = store_thm ("cf_sound",
     (* Mat *)
     cf_strip_sound_full_tac \\
     `evaluate F env st e (st, Rval v)` by (fs [exp2v_evaluate]) \\
-    instantiate \\
-    `branches = ZIP (MAP FST branches, MAP SND branches)`
-      by (fs [GSYM UNZIP_MAP, ZIP_UNZIP]) \\ pop_assum (fs o sing o Once) \\
-    fs [GSYM CONJ_ASSOC] \\ irule PMATCH_evaluate_match \\ fs [MAP_ZIP] \\
-    GEN_EXISTS_TAC "cfs" `MAP (\b. cf p (SND b)) branches` \\
-    fs [MAP2_ZIP] \\ instantiate \\ rpt strip_tac
-    THEN1 (
-      fs [LIST_REL_EVERY_ZIP] \\ fs [EVERY_MEM, MEM_ZIP] \\ rpt strip_tac \\
-      rename1 `_ exp_cf_pair` \\ Cases_on `exp_cf_pair` \\
-      fs [EL_MAP] \\ first_assum irule \\ instantiate \\ fs [EL_MAP]
-    )
-    THEN1 (
-      Induct_on `branches` \\ fs [] \\ rpt strip_tac \\
-      fs [PMATCH_EVAL_PMATCH_ROW_of_pat] \\ every_case_tac \\ fs []
-    )
+    instantiate \\ fs [GSYM CONJ_ASSOC] \\ irule build_cases_evaluate_match \\
+    fs [EVERY_MAP, EVERY_MEM] \\ instantiate
   )
 )
 
