@@ -102,6 +102,8 @@ val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 (*                   paren_style = OnlyIfNecessary, *)
 (*                   pp_elements = [TOK "<=", TM, TOK ">"]} *)
 
+val _ = overload_on ("&", Term `cond`)
+
 val _ = overload_on ("~~>>", Term `cell`)
 val _ = add_infix ("~~>>", 690, HOLgrammars.NONASSOC)
 

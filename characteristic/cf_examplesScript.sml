@@ -12,7 +12,7 @@ val st0 = ml_progLib.add_prog example_let0 pick_name basis_st
 
 val example_let0_spec = Q.prove (
   `!nv. app (p:'ffi ffi_proj) ^(fetch_v "example_let0" st0) [nv]
-          emp (\v. cond (INT 3 v))`,
+          emp (\v. & INT 3 v)`,
   xcf "example_let0" st0 \\ xlet `\v. cond (INT 3 v)` `a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
@@ -25,7 +25,7 @@ val st1 = ml_progLib.add_prog example_let1 pick_name basis_st
 
 val example_let1_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let1" st1) [uv]
-          emp (\v. cond (UNIT_TYPE () v))`,
+          emp (\v. & UNIT_TYPE () v)`,
   xcf "example_let1" st1 \\ xlet `\v. cond (UNIT_TYPE () v)` `a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
@@ -38,7 +38,7 @@ val st2 = ml_progLib.add_prog example_let2 pick_name basis_st
 
 val example_let2_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let2" st2) [uv]
-          emp (\v. cond (v = uv))`,
+          emp (\v. & (v = uv))`,
   xcf "example_let2" st2 \\ xlet `\v. cond (v = uv)` `a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
@@ -53,12 +53,12 @@ val example_let_spec = Q.prove (
   `!n nv.
      INT n nv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "example_let" st) [nv]
-       emp (\v. cond (INT (2 * n) v))`,
+       emp (\v. & INT (2 * n) v)`,
 
   xcf "example_let" st \\
-  xlet `\v. cond (INT (n+1) v)` `a`
+  xlet `\v. & INT (n+1) v` `a`
   THEN1 (xapp \\ fs []) \\
-  xlet `\v. cond (INT (n-1) v)` `b`
+  xlet `\v. & INT (n-1) v` `b`
   THEN1 (xapp \\ fs []) \\
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 )
@@ -75,7 +75,7 @@ val alloc_ref2_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "alloc_ref2" st) [av; bv]
        emp
        (\p. SEP_EXISTS r1 r2.
-              cond (PAIR_TYPE (=) (=) (r1, r2) p) *
+              & PAIR_TYPE (=) (=) (r1, r2) p *
               REF r1 av * REF r2 bv)`,
   xcf "alloc_ref2" st \\
   xlet `\v. REF v av` `r1` THEN1 xapp \\
@@ -92,11 +92,11 @@ val swap_spec = Q.prove (
   `!xv yv r1v r2v.
      app (p:'ffi ffi_proj) ^(fetch_v "swap" st2) [r1v; r2v]
        (REF r1v xv * REF r2v yv)
-       (\v. cond (UNIT_TYPE () v) * REF r1v yv * REF r2v xv)`,
+       (\v. & UNIT_TYPE () v * REF r1v yv * REF r2v xv)`,
   xcf "swap" st2 \\
-  xlet `\v. cond (v = xv) * r1v ~~> xv * r2v ~~> yv` `xv'`
+  xlet `\v. & (v = xv) * r1v ~~> xv * r2v ~~> yv` `xv'`
     THEN1 (xapp \\ xsimpl) \\
-  xlet `\v. cond (v = yv) * r1v ~~> xv * r2v ~~> yv` `yv'`
+  xlet `\v. & (v = yv) * r1v ~~> xv * r2v ~~> yv` `yv'`
     THEN1 (xapp \\ xsimpl) \\
   xlet `\v. r1v ~~> yv * r2v ~~> yv` `u`
     THEN1 (xapp \\ xsimpl) \\
@@ -112,9 +112,9 @@ val example_if_spec = Q.prove (
   `!n nv.
      INT n nv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "example_if" st) [nv]
-       emp (\v. cond (if n > 0 then INT 1 v else INT 2 v))`,
+       emp (\v. &(if n > 0 then INT 1 v else INT 2 v))`,
 
-  xcf "example_if" st \\ xlet `\v. cond (BOOL (n > 0) v)` `bv`
+  xcf "example_if" st \\ xlet `\v. & BOOL (n > 0) v` `bv`
   THEN1 (xapp \\ fs []) \\
   xif \\ xret \\ xsimpl
 )
