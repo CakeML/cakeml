@@ -12,37 +12,33 @@ val lnull = parse_topdecl
 
 val st = ml_progLib.add_prog lnull pick_name initial_st
 
-local
+(* TODO: should move to astSyntax *)
+fun mk_pat_bindings pat = ``ast$pat_bindings ^pat []``;
+fun mk_v_of_pat_norest pat ls = ``v_of_pat_norest envC ^pat ^ls``
 
-  (* TODO: should move to astSyntax *)
-  fun mk_pat_bindings pat = ``ast$pat_bindings ^pat []``;
-  fun mk_v_of_pat_norest pat ls = ``v_of_pat_norest envC ^pat ^ls``
-
-  fun PMATCH_ROW_v_of_norest_n_goal n =
-    let
-      val pat = mk_var("pat",astSyntax.pat_ty)
-      val vs = List.tabulate(n, fn n => mk_var("v"^(Int.toString n), stringSyntax.string_ty))
-      val ls = listSyntax.mk_list (vs, stringSyntax.string_ty)
-      val pbh = mk_eq(mk_pat_bindings pat,ls)
-      val insts = mk_var("insts",listSyntax.mk_list_type semanticPrimitivesSyntax.v_ty)
-      val Q = mk_var("Q",type_of insts --> alpha)
-      val p1 = mk_abs(insts,mk_v_of_pat_norest pat insts)
-      val g1 = mk_abs(mk_var("_",type_of insts),T)
-      val r1 = mk_abs(insts,mk_comb(Q,insts))
-      val inp = optionSyntax.mk_some(mk_var("lv",semanticPrimitivesSyntax.v_ty))
-      val row1 = mk_comb(patternMatchesSyntax.mk_PMATCH_ROW(p1,g1,r1),inp)
-      val vvs = map (fn v => mk_var(#1(dest_var v), semanticPrimitivesSyntax.v_ty)) vs
-      val vls = listSyntax.mk_list (vvs, semanticPrimitivesSyntax.v_ty)
-      val tup = if n = 0 then mk_var("uv",oneSyntax.one_ty) else pairSyntax.list_mk_pair vvs
-      val p2 = mk_pabs(tup,mk_v_of_pat_norest pat vls)
-      val g2 = mk_pabs(tup,T)
-      val r2 = mk_pabs(tup,mk_comb(Q,vls))
-      val row2 = mk_comb(patternMatchesSyntax.mk_PMATCH_ROW(p2,g2,r2),inp)
-    in
-      mk_imp(pbh,mk_eq(row1,row2))
-    end
-
-in
+fun PMATCH_ROW_v_of_norest_n_goal n =
+  let
+    val pat = mk_var("pat",astSyntax.pat_ty)
+    val vs = List.tabulate(n, fn n => mk_var("v"^(Int.toString n), stringSyntax.string_ty))
+    val ls = listSyntax.mk_list (vs, stringSyntax.string_ty)
+    val pbh = mk_eq(mk_pat_bindings pat,ls)
+    val insts = mk_var("insts",listSyntax.mk_list_type semanticPrimitivesSyntax.v_ty)
+    val Q = mk_var("Q",type_of insts --> alpha)
+    val p1 = mk_abs(insts,mk_v_of_pat_norest pat insts)
+    val g1 = mk_abs(mk_var("_",type_of insts),T)
+    val r1 = mk_abs(insts,mk_comb(Q,insts))
+    val inp = optionSyntax.mk_some(mk_var("lv",semanticPrimitivesSyntax.v_ty))
+    val row1 = mk_comb(patternMatchesSyntax.mk_PMATCH_ROW(p1,g1,r1),inp)
+    val vvs = map (fn v => mk_var(#1(dest_var v), semanticPrimitivesSyntax.v_ty)) vs
+    val vls = listSyntax.mk_list (vvs, semanticPrimitivesSyntax.v_ty)
+    val tup = if n = 0 then mk_var("uv",oneSyntax.one_ty) else pairSyntax.list_mk_pair vvs
+    val p2 = mk_pabs(tup,mk_v_of_pat_norest pat vls)
+    val g2 = mk_pabs(tup,T)
+    val r2 = mk_pabs(tup,mk_comb(Q,vls))
+    val row2 = mk_comb(patternMatchesSyntax.mk_PMATCH_ROW(p2,g2,r2),inp)
+  in
+    mk_imp(pbh,mk_eq(row1,row2))
+  end
 
 fun PMATCH_ROW_v_of_pat_norest_n_thm n =
   prove(PMATCH_ROW_v_of_norest_n_goal n,
@@ -59,8 +55,6 @@ fun PMATCH_ROW_v_of_pat_norest_n_thm n =
     \\ fs[FORALL_PROD]
     \\ metis_tac[]);
 
-end
-
 val PMATCH_ROW_v_of_pat_norest_0 = PMATCH_ROW_v_of_pat_norest_n_thm 0
 val PMATCH_ROW_v_of_pat_norest_2 = PMATCH_ROW_v_of_pat_norest_n_thm 2
 
@@ -69,6 +63,7 @@ local
   val () = basicComputeLib.add_basic_compset cs
   val () = semanticsComputeLib.add_semantics_compset cs
   val eval = computeLib.CBV_CONV cs
+in
 fun compute_pat_bindings_tac (g as (asl,w)) =
   let
     fun finder tm =
