@@ -158,10 +158,11 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
 
+(* FIXME:The `max_app` variable for prim_config should probably come from the config *)
 val prim_config_def = Define`
-  prim_config =
+  prim_config max_app =
     FST (to_dec <| source_conf := empty_config; mod_conf := empty_config |> (prim_types_program))
-    with clos_conf := <| start := clos_to_bvl$num_stubs+1; next_loc := clos_to_bvl$num_stubs + 3 |>`;
+    with clos_conf := <| start := (clos_to_bvl$num_stubs max_app) + 1; next_loc := (clos_to_bvl$num_stubs max_app) + 3 |>`;
 
 val from_lab_def = Define`
   from_lab c p =
