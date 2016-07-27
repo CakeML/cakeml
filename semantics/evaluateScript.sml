@@ -172,9 +172,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (evaluate_decs mn st env (d1::d2::ds) =  
 ((case evaluate_decs mn st env [d1] of
-    (st', Rval env') =>
-    (case evaluate_decs mn st (extend_dec_env env' env) (d2::ds) of
-      (st'',r) => (st'', combine_dec_result env' r)
+    (st1, Rval env1) =>
+    (case evaluate_decs mn st1 (extend_dec_env env1 env) (d2::ds) of
+      (st2,r) => (st2, combine_dec_result env1 r)
     )
   | res => res
   )))
@@ -231,9 +231,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (evaluate_tops st env (top1::top2::tops) =  
 ((case evaluate_tops st env [top1] of
-    (st', Rval env') =>
-      (case evaluate_tops st' (extend_dec_env env' env) (top2::tops) of
-        (st'', r) => (st'', combine_dec_result env' r)
+    (st1, Rval env1) =>
+      (case evaluate_tops st1 (extend_dec_env env1 env) (top2::tops) of
+        (st2, r) => (st2, combine_dec_result env1 r)
       )
   | res => res
   )))
