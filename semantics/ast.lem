@@ -43,6 +43,11 @@ val id_to_n : forall 'a. id 'a -> 'a
 let rec id_to_n (Short n) = n
     and id_to_n (Long _ id) = id_to_n id
 
+val id_to_mods : forall 'a. id 'a -> list modN
+let rec id_to_mods (Short _) = []
+    and id_to_mods (Long mn id) = mn :: id_to_mods id
+
+
 type word_size = W8 | W64
 
 type op =

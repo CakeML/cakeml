@@ -766,25 +766,25 @@ val _ = Define `
 (decls_spec.defined_exns SUBSET decls_impl.defined_exns)))`;
 
 
-(*val weak_tenvT : (id typeN * (list tvarN * t)) -> (id typeN * (list tvarN * t)) -> bool*)
+(*val weak_tenvT : (id typeN) -> (list tvarN * t) -> (list tvarN * t) -> bool*)
 val _ = Define `
- (weak_tenvT (n1, (tvs_spec, t_spec)) (n2, (tvs_impl, t_impl)) =
+ (weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
   ((
   (* For simplicity, we reject matches that differ only by renaming of bound type variables *)tvs_spec = tvs_impl) /\
   ((t_spec = t_impl) \/   
 (
-   (* The specified type is opaque *)t_spec = Tapp (MAP Tvar tvs_spec) (TC_name n1)))))`;
+   (* The specified type is opaque *)t_spec = Tapp (MAP Tvar tvs_spec) (TC_name n)))))`;
 
 
 val _ = Define `
- (tscheme_inst2 (_, ts1) (_, ts2) = (tscheme_inst ts1 ts2))`;
+ (tscheme_inst2 _ ts1 ts2 = (tscheme_inst ts1 ts2))`;
 
 
 (*val weak_tenv : list modN -> type_env -> type_env -> bool*)
 val _ = Define `
  (weak_tenv mn tenv_impl tenv_spec =  
 (eSubEnv tscheme_inst2 tenv_spec.v tenv_impl.v /\
-  eSubEnv (=) tenv_spec.c tenv_impl.c /\
+  eSubEnv (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c /\
   eSubEnv weak_tenvT tenv_spec.t tenv_impl.t))`;
 
 

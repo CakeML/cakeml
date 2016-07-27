@@ -39,10 +39,27 @@ let eOptBind n x env =
 val eSing : forall 'v 'n. 'n -> 'v -> environment 'n 'v
 let eSing n x = Bind ([(n,x)]) []
 
-val eSubEnv : forall 'v 'n. Eq 'n, Eq 'v => (id 'n * 'v -> id 'n * 'v -> bool) -> environment 'n 'v -> environment 'n 'v -> bool
+val eSubEnv : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
+  (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool
 let eSubEnv r env1 env2 =
   forall id v1.
     eLookup env1 id = Just v1
     -->
-    exists v2. eLookup env2 id = Just v2 && r (id,v1) (id,v2)
+    exists v2. eLookup env2 id = Just v2 && r id v1 v2
 
+val eAll : forall 'v 'n. ('v -> bool) -> environment 'n 'v -> bool
+let rec eAll f (Bind v m) =
+  List.all (fun x -> f (snd x)) v &&
+  List.all (fun x -> eAll f (snd x)) m
+
+val eAll2 : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
+   (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool
+let eAll2 r env1 env2 =
+  eSubEnv r env1 env2 &&
+  (forall n.
+    eLookup env1 n = Nothing
+    -->
+    eLookup env1 n = Nothing)
+
+val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)
+let eDom env = { n | forall v n | eLookup env n = Just v }

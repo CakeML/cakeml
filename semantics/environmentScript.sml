@@ -68,14 +68,38 @@ val _ = Define `
  (eSing n x = (Bind ([(n,x)]) []))`;
 
 
-(*val eSubEnv : forall 'v 'n. Eq 'n, Eq 'v => (id 'n * 'v -> id 'n * 'v -> bool) -> environment 'n 'v -> environment 'n 'v -> bool*)
+(*val eSubEnv : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
+  (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool*)
 val _ = Define `
  (eSubEnv r env1 env2 =  
 (! id v1.    
 (eLookup env1 id = SOME v1)
     ==>    
-(? v2. (eLookup env2 id = SOME v2) /\ r (id,v1) (id,v2))))`;
+(? v2. (eLookup env2 id = SOME v2) /\ r id v1 v2)))`;
 
+
+(*val eAll : forall 'v 'n. ('v -> bool) -> environment 'n 'v -> bool*)
+ val eAll_defn = Hol_defn "eAll" `
+ (eAll f (Bind v m) =  
+(EVERY (\ x .  f (SND x)) v /\
+  EVERY (\ x .  eAll f (SND x)) m))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn eAll_defn;
+
+(*val eAll2 : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
+   (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool*)
+val _ = Define `
+ (eAll2 r env1 env2 =  
+(eSubEnv r env1 env2 /\
+  (! n.    
+(eLookup env1 n = NONE)
+    ==>    
+(eLookup env1 n = NONE))))`;
+
+
+(*val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)*)
+val _ = Define `
+ (eDom env = ({ n |  v, n | eLookup env n = SOME v }))`;
 
 val _ = export_theory()
 

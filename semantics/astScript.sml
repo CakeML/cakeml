@@ -71,6 +71,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn id_to_n_defn;
 
+(*val id_to_mods : forall 'a. id 'a -> list modN*)
+ val id_to_mods_defn = Hol_defn "id_to_mods" `
+ (id_to_mods (Short _) = ([]))
+    /\ (id_to_mods (Long mn id) = (mn :: id_to_mods id))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn id_to_mods_defn;
+
+
 val _ = Hol_datatype `
  word_size = W8 | W64`;
 
