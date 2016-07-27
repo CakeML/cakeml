@@ -671,20 +671,6 @@ val validate_pat_def = Define `
      pat_without_Pref pat /\
      ALL_DISTINCT (pat_bindings pat []))`
 
-
-(* [PMATCH_ROW_of_pat]: the instance of [PMATCH_ROW] that corresponds to a
-   CakeML pattern
-*)
-
-val PMATCH_ROW_of_pat_def = Define `
-  PMATCH_ROW_of_pat pat branch_cf env =
-    PMATCH_ROW
-      (\insts. v_of_pat_norest env.c pat insts)
-      (\_. T)
-      (\insts.
-         \env. branch_cf (extend_env (REVERSE (pat_bindings pat [])) insts env))`
-
-
 (* Lemmas that relate [v_of_pat] and [pmatch], the pattern-matching function
    from the semantics.
 *)
@@ -838,6 +824,19 @@ val v_of_pat_Con_cons = Q.prove (
   rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw []
 )
 
+
+
+(* [PMATCH_ROW_of_pat]: the instance of [PMATCH_ROW] that corresponds to a
+   CakeML pattern
+*)
+
+val PMATCH_ROW_of_pat_def = Define `
+  PMATCH_ROW_of_pat pat branch_cf env =
+    PMATCH_ROW
+      (\insts. v_of_pat_norest env.c pat insts)
+      (\_. T)
+      (\insts.
+         \env. branch_cf (extend_env (REVERSE (pat_bindings pat [])) insts env))`
 
 (* Lemmas relating our [PMATCH_ROW]s with the semantic pattern-matching [pmatch]
 *)
