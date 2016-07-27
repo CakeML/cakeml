@@ -64,3 +64,8 @@ let eAll2 r env1 env2 =
 
 val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)
 let eDom env = { n | forall v n | eLookup env n = Just v }
+
+val eMap : forall 'v 'w 'n. ('v -> 'w) -> environment 'n 'v -> environment 'n 'w
+let rec eMap f (Bind v m) =
+  Bind (List.map (fun (n,x) -> (n, f x)) v)
+       (List.map (fun (mn,e) -> (mn, eMap f e)) m)

@@ -100,5 +100,13 @@ val _ = Define `
 val _ = Define `
  (eDom env = ({ n |  v, n | eLookup env n = SOME v }))`;
 
+
+(*val eMap : forall 'v 'w 'n. ('v -> 'w) -> environment 'n 'v -> environment 'n 'w*)
+ val eMap_defn = Hol_defn "eMap" `
+ (eMap f (Bind v m) =  
+(Bind (MAP (\ (n,x) .  (n, f x)) v)
+       (MAP (\ (mn,e) .  (mn, eMap f e)) m)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn eMap_defn;
 val _ = export_theory()
 
