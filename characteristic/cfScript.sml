@@ -845,8 +845,8 @@ val PMATCH_ROW_of_pat_def = Define `
          \env. branch_cf (extend_env (REVERSE (pat_bindings pat [])) insts env))`
 
 val PMATCH_ROW_last_def = Define `
-  PMATCH_ROW_last v_opt =
-    PMATCH_ROW (\(_:unit). v_opt) (\_. T) (\_. cf_bottom) v_opt`
+  PMATCH_ROW_last =
+    PMATCH_ROW (\v_opt. v_opt) (\_. T) (\_. cf_bottom)`
 
 (* Lemmas relating our [PMATCH_ROW]s with the semantic pattern-matching [pmatch]
 *)
