@@ -108,15 +108,18 @@ let extend_dec_tenv tenv' tenv =
      c = eMerge tenv'.c tenv.c;
      t = eMerge tenv'.t tenv.t |>
 
+val lookup_varE : id varN -> tenv_val_exp -> maybe (nat * t)
+let lookup_varE id tenvE =
+  match id with
+  | Short x -> tveLookup x 0 tenvE
+  | _ -> Nothing
+  end
+
 val lookup_var : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)
 let lookup_var id tenvE tenv =
-  match id with
-  | Short x ->
-    match tveLookup x 0 tenvE with
-    | Nothing -> eLookup tenv.v id
-    | Just x -> Just x
-    end
-  | _ -> eLookup tenv.v id
+  match lookup_varE id tenvE with
+  | Just x -> Just x
+  | Nothing -> eLookup tenv.v id
   end
 
 val num_tvs : tenv_val_exp -> nat

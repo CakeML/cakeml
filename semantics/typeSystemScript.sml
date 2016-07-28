@@ -141,16 +141,21 @@ val _ = Define `
      t := (eMerge tenv'.t tenv.t) |>))`;
 
 
+(*val lookup_varE : id varN -> tenv_val_exp -> maybe (nat * t)*)
+val _ = Define `
+ (lookup_varE id tenvE =  
+((case id of
+    Short x => tveLookup x( 0) tenvE
+  | _ => NONE
+  )))`;
+
+
 (*val lookup_var : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)*)
 val _ = Define `
  (lookup_var id tenvE tenv =  
-((case id of
-    Short x =>
-    (case tveLookup x( 0) tenvE of
-      NONE => eLookup tenv.v id
-    | SOME x => SOME x
-    )
-  | _ => eLookup tenv.v id
+((case lookup_varE id tenvE of
+    SOME x => SOME x
+  | NONE => eLookup tenv.v id
   )))`;
 
 

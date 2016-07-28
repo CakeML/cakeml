@@ -100,7 +100,7 @@ val eAll_eMerge = Q.store_thm ("eAll_eMerge[simp]",
 (* -------------- eAll ---------------- *)
 
 val eLookup_eAll = Q.store_thm ("eLookup_eAll",
-  `!f env x v. eAll f env ∧ eLookup env x = SOME v ⇒ f v`,
+  `!P env x v. eAll P env ∧ eLookup env x = SOME v ⇒ P v`,
  ho_match_mp_tac eAll_ind
  >> rw []
  >> Cases_on `x`
@@ -108,5 +108,20 @@ val eLookup_eAll = Q.store_thm ("eLookup_eAll",
  >> TRY full_case_tac
  >> fs []
  >> metis_tac [SND, ALOOKUP_MEM]);
+
+(* -------------- eSubEnv ---------------- *)
+
+val eSubEnv_conj = Q.store_thm ("eSubEnv_conj",
+  `!P Q e1 e2. eSubEnv (\id x y. P id x y ∧ Q id x y) e1 e2 ⇔ eSubEnv P e1 e2 ∧ eSubEnv Q e1 e2`,
+ rw [eSubEnv_def]
+ >> eq_tac
+ >> rw []
+ >> metis_tac [SOME_11]);
+
+(* -------------- eAll2 ---------------- *)
+
+val eAll2_conj = Q.store_thm ("eAll2_conj",
+  `!P Q e1 e2. eAll2 (\id x y. P id x y ∧ Q id x y) e1 e2 ⇔ eAll2 P e1 e2 ∧ eAll2 Q e1 e2`,
+ rw [eAll2_def, eSubEnv_conj]);
 
 val _ = export_theory ();
