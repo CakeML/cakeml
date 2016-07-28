@@ -135,6 +135,8 @@ in
   fun add_v_thms (name,th,pre_def) = let
     val tm = th |> concl |> rator |> rand
     val module_name = get_curr_module_name ()
+    val _ = if concl pre_def =T then () else
+            (print ("\nWARNING: " ^name^" has a precondition.\n\n"))
     in (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms)) end;
   fun add_user_proved_v_thm th = let
     val th = UNDISCH_ALL th

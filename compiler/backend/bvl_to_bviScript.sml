@@ -208,11 +208,11 @@ val compile_prog_def = Define `
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
 val optimise_def = Define `
-  optimise cut_size =
+  optimise cut_size ls =
   MAP (λ(name,arity,exp).
       (name,arity,
        bvl_handle$compile_exp cut_size arity
-         (bvl_const$compile_exp exp)))`;
+         (bvl_const$compile_exp exp))) ls`;
 
 val compile_def = Define `
   compile start n c prog =
