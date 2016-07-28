@@ -60,7 +60,7 @@ val cf_defs =
    cf_app_def, cf_fundecl_def, cf_fundecl_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-   cf_if_def, cf_mat_def]
+   cf_if_def, cf_match_def]
 
 val xlocal =
   FIRST [

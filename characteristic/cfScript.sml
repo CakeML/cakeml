@@ -1016,8 +1016,8 @@ val cf_if_def = Define `
       (b = T ==> cf1 env H Q) /\
       (b = F ==> cf2 env H Q))`
 
-val cf_mat_def = Define `
-  cf_mat e rows = \env. local (\H Q.
+val cf_match_def = Define `
+  cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
       build_cases v rows env H Q)`
@@ -1101,7 +1101,7 @@ val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (If cond e1 e2) =
     cf_if cond (cf p e1) (cf p e2) /\
   cf (p:'ffi ffi_proj) (Mat e branches) = 
-    cf_mat e (MAP (\b. (FST b, cf p (SND b))) branches) /\
+    cf_match e (MAP (\b. (FST b, cf p (SND b))) branches) /\
   cf _ _ = cf_bottom`
 
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
@@ -1128,7 +1128,7 @@ val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_le
                cf_opn_def, cf_opb_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
                cf_aupdate_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
-               cf_fundecl_rec_def, cf_bottom_def, cf_if_def, cf_mat_def]
+               cf_fundecl_rec_def, cf_bottom_def, cf_if_def, cf_match_def]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
