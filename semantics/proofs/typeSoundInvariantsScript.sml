@@ -31,12 +31,12 @@ val tenv_ok_def = Define `
     tenv_ctor_ok tenv.c ∧
     tenv_abbrev_ok tenv.t`;
 
-val tenv_val_ok_exp_def = Define `
-  (tenv_val_ok_exp Empty ⇔ T) ∧
-  (tenv_val_ok_exp (Bind_tvar n tenv) ⇔ tenv_val_ok_exp tenv) ∧
-  (tenv_val_ok_exp (Bind_name x tvs t tenv) ⇔
+val tenv_val_exp_ok_def = Define `
+  (tenv_val_exp_ok Empty ⇔ T) ∧
+  (tenv_val_exp_ok (Bind_tvar n tenv) ⇔ tenv_val_exp_ok tenv) ∧
+  (tenv_val_exp_ok (Bind_name x tvs t tenv) ⇔
     check_freevars (tvs + num_tvs tenv) [] t ∧
-    tenv_val_ok_exp tenv)`;
+    tenv_val_exp_ok tenv)`;
 
 (* Global constructor type environments keyed by constructor name and type *)
 val _ = type_abbrev( "ctMap", ``:((conN # tid_or_exn), ( tvarN list # t list)) fmap``);

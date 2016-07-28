@@ -13,6 +13,11 @@ val with_same_v = Q.store_thm("with_same_v[simp]",
   `(env:'v sem_env) with v := env.v = env`,
   srw_tac[][sem_env_component_equality]);
 
+val unchanged_env = Q.store_thm ("unchanged_env[simp]",
+ `!(env : 'a sem_env).
+  <| v := env.v; c := env.c |> = env`,
+ rw [sem_env_component_equality]);
+
 val with_same_clock = Q.store_thm("with_same_clock",
   `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
   rw[semanticPrimitivesTheory.state_component_equality])

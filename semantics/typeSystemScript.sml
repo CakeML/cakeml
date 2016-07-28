@@ -107,18 +107,18 @@ val _ = Define `
   )))`;
 
 
-(*val lookup_tenv_val_exp : varN -> nat -> tenv_val_exp -> maybe (nat * t)*)
+(*val tveLookup : varN -> nat -> tenv_val_exp -> maybe (nat * t)*)
  val _ = Define `
 
-(lookup_tenv_val_exp n inc Empty = NONE)
+(tveLookup n inc Empty = NONE)
 /\
-(lookup_tenv_val_exp n inc (Bind_tvar tvs tenvE) = (lookup_tenv_val_exp n (inc + tvs) tenvE))
+(tveLookup n inc (Bind_tvar tvs tenvE) = (tveLookup n (inc + tvs) tenvE))
 /\
-(lookup_tenv_val_exp n inc (Bind_name n' tvs t tenvE) =  
+(tveLookup n inc (Bind_name n' tvs t tenvE) =  
 (if n' = n then
     SOME (tvs, deBruijn_inc tvs inc t)
   else
-    lookup_tenv_val_exp n inc tenvE))`;
+    tveLookup n inc tenvE))`;
 
 
 val _ = type_abbrev( "tenv_abbrev" , ``: (typeN, ( tvarN list # t)) environment``);
@@ -141,12 +141,12 @@ val _ = Define `
      t := (eMerge tenv'.t tenv.t) |>))`;
 
 
-(*val t_lookup_var_id : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)*)
+(*val lookup_var : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)*)
 val _ = Define `
- (t_lookup_var_id id tenvE tenv =  
+ (lookup_var id tenvE tenv =  
 ((case id of
     Short x =>
-    (case lookup_tenv_val_exp x( 0) tenvE of
+    (case tveLookup x( 0) tenvE of
       NONE => eLookup tenv.v id
     | SOME x => SOME x
     )
@@ -497,7 +497,7 @@ type_e tenv tenvE (Con NONE es) (Tapp ts TC_tup))
 /\ (! tenv tenvE n t targs tvs.
 ((tvs = LENGTH targs) /\
 EVERY (check_freevars (num_tvs tenvE) []) targs /\
-(t_lookup_var_id n tenvE tenv = SOME (tvs,t)))
+(lookup_var n tenvE tenv = SOME (tvs,t)))
 ==>
 type_e tenv tenvE (Var n) (deBruijn_subst( 0) targs t))
 

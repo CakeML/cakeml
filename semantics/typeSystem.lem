@@ -79,18 +79,18 @@ let opt_bind_name n tvs t tenvE =
     | Just n' -> Bind_name n' tvs t tenvE
   end
 
-val lookup_tenv_val_exp : varN -> nat -> tenv_val_exp -> maybe (nat * t)
+val tveLookup : varN -> nat -> tenv_val_exp -> maybe (nat * t)
 let rec
-lookup_tenv_val_exp n inc Empty = Nothing
+tveLookup n inc Empty = Nothing
 and
-lookup_tenv_val_exp n inc (Bind_tvar tvs tenvE) = lookup_tenv_val_exp n (inc + tvs) tenvE
+tveLookup n inc (Bind_tvar tvs tenvE) = tveLookup n (inc + tvs) tenvE
 and
-lookup_tenv_val_exp n inc (Bind_name n' tvs t tenvE) =
+tveLookup n inc (Bind_name n' tvs t tenvE) =
   if n' = n then
     Just (tvs, deBruijn_inc tvs inc t)
   else
-    lookup_tenv_val_exp n inc tenvE
-declare termination_argument lookup_tenv_val_exp = automatic
+    tveLookup n inc tenvE
+declare termination_argument tveLookup = automatic
 
 type tenv_abbrev = environment typeN (list tvarN * t)
 type tenv_ctor = environment conN (list tvarN * list t * tid_or_exn)
@@ -108,11 +108,11 @@ let extend_dec_tenv tenv' tenv =
      c = eMerge tenv'.c tenv.c;
      t = eMerge tenv'.t tenv.t |>
 
-val t_lookup_var_id : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)
-let t_lookup_var_id id tenvE tenv =
+val lookup_var : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)
+let lookup_var id tenvE tenv =
   match id with
   | Short x ->
-    match lookup_tenv_val_exp x 0 tenvE with
+    match tveLookup x 0 tenvE with
     | Nothing -> eLookup tenv.v id
     | Just x -> Just x
     end
@@ -484,7 +484,7 @@ and
 var : forall tenv tenvE n t targs tvs.
 tvs = List.length targs &&
 List.all (check_freevars (num_tvs tenvE) []) targs &&
-t_lookup_var_id n tenvE tenv = Just (tvs,t)
+lookup_var n tenvE tenv = Just (tvs,t)
 ==>
 type_e tenv tenvE (Var n) (deBruijn_subst 0 targs t)
 

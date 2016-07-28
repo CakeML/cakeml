@@ -89,4 +89,24 @@ val eMerge_assoc = Q.store_thm ("eMerge_assoc[simp]",
  rpt Cases
  >> rw [eMerge_def]);
 
+val eAll_eMerge = Q.store_thm ("eAll_eMerge[simp]",
+  `!f e1 e2. eAll f (eMerge e1 e2) ⇔ eAll f e1 ∧ eAll f e2`,
+ ho_match_mp_tac eAll_ind
+ >> rw []
+ >> Cases_on `e2`
+ >> rw [eMerge_def, eAll_def]
+ >> metis_tac [SND]);
+
+(* -------------- eAll ---------------- *)
+
+val eLookup_eAll = Q.store_thm ("eLookup_eAll",
+  `!f env x v. eAll f env ∧ eLookup env x = SOME v ⇒ f v`,
+ ho_match_mp_tac eAll_ind
+ >> rw []
+ >> Cases_on `x`
+ >> fs [eLookup_def, eAll_def, EVERY_MEM]
+ >> TRY full_case_tac
+ >> fs []
+ >> metis_tac [SND, ALOOKUP_MEM]);
+
 val _ = export_theory ();
