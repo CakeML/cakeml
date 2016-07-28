@@ -769,10 +769,11 @@ val pmatch_v_of_pat_norest = store_thm ("pmatch_v_of_pat_norest",
 val build_cases_def = Define `
   build_cases v [] env H Q = cf_bottom env H Q /\
   build_cases v ((pat, row_cf)::rows) env H Q =
-    (if (?insts. v_of_pat_norest env.c pat insts = SOME v) then
-       (!insts. v_of_pat_norest env.c pat insts = SOME v ==>
-          row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
-     else build_cases v rows env H Q)`
+    ((if (?insts. v_of_pat_norest env.c pat insts = SOME v) then
+        (!insts. v_of_pat_norest env.c pat insts = SOME v ==>
+           row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
+      else build_cases v rows env H Q) /\
+     (!s. validate_pat env.c s pat v env.v))`
 
 (*------------------------------------------------------------------*)
 (* Definition of the [cf] functions, that generates the characteristic
@@ -1019,7 +1020,6 @@ val cf_mat_def = Define `
   cf_mat e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      (!s. EVERY (\p. validate_pat env.c s (FST p) v env.v) rows) /\
       build_cases v rows env H Q)`
 
 val cf_def = tDefine "cf" `
@@ -1482,7 +1482,6 @@ val cf_letrec_sound = Q.prove (
 val build_cases_evaluate_match = Q.prove (
   `!v env H Q rows p st h_i h_k bind_exn_v.
     EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
-    (!s. EVERY (\r. validate_pat env.c s (FST r) v env.v) rows) ==>
     build_cases v (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
     SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
     ?v' st' h_f h_g.
