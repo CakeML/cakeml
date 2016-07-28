@@ -43,7 +43,9 @@ fun def_of_const tm = let
             failwith ("Unable to find definition of " ^ name)
   val def = def |> RW (!extra_preprocessing)
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
-                |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
+                (* TODO: This ss messes up defs containing if-then-else
+                with constant branches
+                |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]*)
                 |> REWRITE_RULE [NOT_NIL_AND_LEMMA]
   in def end
 
@@ -273,5 +275,29 @@ val clos_to_bvl_compile_side = prove(``
     specl_args_of_then ``renumber_code_locs_list`` (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
     rw[]>>fs[]>>
     Cases_on`v10`>>fs[]) |> update_precondition
+
+val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
+
+val _ = translate(bvl_handleTheory.compile_def)
+
+val bvl_handle_compile_side = prove(``
+  ∀x y z. bvl_handle_compile_side x y z ⇔ T``,
+  ho_match_mp_tac bvl_handleTheory.compile_ind>>
+  `∀a b c d e. bvl_handle$compile a b [c] ≠ ([],d,e)` by
+  (CCONTR_TAC>>fs[]>>
+  imp_res_tac bvl_handleTheory.compile_sing>>
+  fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_handle_compile_side_def")]>>
+  TRY (metis_tac[])>>
+  rw[]>>fs[]>>
+  metis_tac[])|>update_precondition
+
+val _ = translate(bvl_to_bviTheory.compile_def)
+
+val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
+val _ = translate (COUNT_LIST_compute)
+val _ = translate (bvi_to_dataTheory.compile_exp_def)
+val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
 val _ = export_theory();
