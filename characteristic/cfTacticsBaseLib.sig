@@ -19,6 +19,9 @@ sig
   val EVAL_PAT : term -> conv
   val eval_pat_tac : term -> tactic
   val qeval_pat_tac : term quotation -> tactic
+  val compute_pat : computeLib.compset -> term -> conv
+  val compute_pat_tac : computeLib.compset -> term -> tactic
+  val qcompute_pat_tac : computeLib.compset -> term quotation -> tactic
 
   val compose_n : int -> ('a -> 'a) -> 'a -> 'a
 

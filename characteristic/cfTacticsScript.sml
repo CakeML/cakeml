@@ -61,4 +61,28 @@ val UNIT_Conv = store_thm ("UNIT_Conv[simp]",
   fs [UNIT_TYPE_def]
 )
 
+(*------------------------------------------------------------------*)
+(* Used for cleaning up after unfolding [build_cases] (in cf_match) *)
+
+val exists_v_of_pat_norest_length = store_thm (
+  "exists_v_of_pat_norest_length",
+  ``!envC pat insts v.
+     (?insts. v_of_pat_norest envC pat insts = SOME v) <=>
+     (?insts. LENGTH insts = LENGTH (pat_bindings pat []) /\
+              v_of_pat_norest envC pat insts = SOME v)``,
+  rpt strip_tac \\ eq_tac \\ fs [] \\ rpt strip_tac \\ instantiate \\
+  progress v_of_pat_norest_insts_length
+)
+
+val forall_v_of_pat_norest_length = store_thm (
+  "forall_v_of_pat_norest_length",
+  ``!envC pat insts v P.
+     (!insts. v_of_pat_norest envC pat insts = SOME v ==> P insts) <=>
+     (!insts. LENGTH insts = LENGTH (pat_bindings pat []) ==>
+              v_of_pat_norest envC pat insts = SOME v ==>
+              P insts)``,
+  rpt strip_tac \\ eq_tac \\ fs [] \\ rpt strip_tac \\
+  progress v_of_pat_norest_insts_length \\ first_assum progress
+)
+
 val _ = export_theory()

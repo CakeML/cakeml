@@ -318,4 +318,61 @@ val xif_base =
 
 val xif = xif_base
 
+(* [xmatch] *)
+
+val cs = listLib.list_compset ()
+val () = basicComputeLib.add_basic_compset cs
+val () = semanticsComputeLib.add_semantics_compset cs
+
+fun clean_cases_conv tm = let
+  val cond_conv =
+      HO_REWR_CONV exists_v_of_pat_norest_length THENC
+      STRIP_QUANT_CONV (LAND_CONV (RHS_CONV (computeLib.CBV_CONV cs))) THENC
+      SIMP_CONV std_ss [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
+      STRIP_QUANT_CONV
+        (LHS_CONV EVAL THENC SIMP_CONV std_ss [option_CLAUSES])
+  val then_conv =
+      HO_REWR_CONV forall_v_of_pat_norest_length THENC
+      STRIP_QUANT_CONV (LAND_CONV (RHS_CONV (computeLib.CBV_CONV cs))) THENC
+      SIMP_CONV std_ss [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
+      STRIP_QUANT_CONV
+        (LAND_CONV (LHS_CONV EVAL) THENC
+         SIMP_CONV std_ss [option_CLAUSES])
+  val else_conv =
+      TRY_CONV (LAND_CONV clean_cases_conv)
+in
+  (RATOR_CONV (RATOR_CONV (RAND_CONV cond_conv)) THENC
+   RATOR_CONV (RAND_CONV then_conv) THENC
+   RAND_CONV else_conv) tm
+end
+
+val unfold_build_cases =
+  fs [build_cases_def] \\
+  CONV_TAC (LAND_CONV clean_cases_conv) \\
+  fs []
+
+fun validate_pat_conv tm = let
+  val conv =
+      REWR_CONV validate_pat_def THENC
+      RAND_CONV (computeLib.CBV_CONV cs) THENC
+      LAND_CONV (REWR_CONV pat_typechecks_def) THENC
+      EVAL
+  val conv' = (QUANT_CONV conv) THENC SIMP_CONV std_ss []
+  val th = conv' tm
+in if (rhs o concl) th = boolSyntax.T then th else fail () end
+
+val validate_pat_all_conv =
+  REPEATC (
+    RAND_CONV validate_pat_conv THENC RW.RW_CONV [boolTheory.AND_CLAUSES]
+  )
+
+val xmatch_base =
+  xpull_check_not_needed \\
+  fs [cf_match_def] \\ irule local_elim \\ hnf \\
+  reduce_tac \\
+  unfold_build_cases \\
+  CONV_TAC validate_pat_all_conv
+
+val xmatch = xmatch_base
+
 end

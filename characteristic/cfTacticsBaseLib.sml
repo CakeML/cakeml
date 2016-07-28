@@ -64,6 +64,15 @@ fun EVAL_PAT pat tm =
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (EVAL_PAT pat))
 val qeval_pat_tac = Q_TAC eval_pat_tac
 
+fun compute_pat cs pat tm =
+  if can (match_term pat) tm then
+    computeLib.CBV_CONV cs tm
+  else
+    NO_CONV tm
+
+fun compute_pat_tac cs pat = CONV_TAC (DEPTH_CONV (compute_pat cs pat))
+fun qcompute_pat_tac cs = Q_TAC (compute_pat_tac cs)
+
 fun compose_n n conv =
   if n <= 0 then I else conv o (compose_n (n-1) conv)
 

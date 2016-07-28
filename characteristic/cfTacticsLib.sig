@@ -13,6 +13,7 @@ sig
   val xapp_spec : thm -> tactic
   val xret : tactic
   val xif : tactic
+  val xmatch : tactic
 
   (* low level / debugging *)
   val xapp_prepare_goal : tactic
