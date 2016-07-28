@@ -132,6 +132,7 @@ val state_rel_def = Define `
   state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
     (s.clock = t.clock) /\
     (s.ffi = t.ffi) /\
+    (s.max_app = t.max_app) /\
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
     (FDOM s.refs = FDOM t.refs) /\
     (!n r1.
@@ -142,6 +143,10 @@ val state_rel_def = Define `
       ?c2.
         (shift (FST (free [c])) 0 arity LN = [c2]) /\
         (FLOOKUP t.code name = SOME (arity,c2)))`
+
+val state_rel_max_app = Q.store_thm("state_rel_max_app",
+  `state_rel s t ⇒ s.max_app = t.max_app`,
+  rw[state_rel_def]);
 
 (* semantic functions respect relation *)
 
@@ -735,7 +740,7 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `?y1 l1. free [exp] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
-    \\ Cases_on `num_args <= max_app` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `num_args <= s1.max_app` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `num_args <> 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[shift_def,LET_DEF,evaluate_def,clos_env_def,
            PULL_EXISTS,v_rel_simp]
@@ -753,6 +758,9 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
       \\ DECIDE_TAC)
+    \\ reverse IF_CASES_TAC >- (
+      imp_res_tac state_rel_max_app \\ fs[])
+    \\ simp_tac (srw_ss())[]
     \\ Q.EXISTS_TAC `shifted_env 0 live` \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]
     \\ MP_TAC (Q.SPEC `[exp]` free_thm)
@@ -770,7 +778,7 @@ val shift_correct = Q.prove(
    (full_simp_tac(srw_ss())[free_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
-    \\ `EVERY (\(num_args,e). num_args <= max_app /\
+    \\ `EVERY (\(num_args,e). num_args <= s1.max_app /\
                               num_args <> 0) fns` by
       (CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
     \\ Cases_on `build_recc F loc env names fns` \\ full_simp_tac(srw_ss())[]
@@ -785,7 +793,8 @@ val shift_correct = Q.prove(
     \\ `ev` by
      (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
       \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ full_simp_tac(srw_ss())[EVERY_MAP]
-      \\ full_simp_tac(srw_ss())[EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC)
+      \\ full_simp_tac(srw_ss())[EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC
+      \\ imp_res_tac state_rel_max_app \\ fs[])
     \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l)
           (vars_to_list (list_mk_Union (MAP SND rec_res)))`
@@ -934,10 +943,10 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[evaluate_def] \\ SRW_TAC [] [])
   THEN1 (* evaluate_app CONS *)
    (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `dest_closure loc_opt f (v42::v43)` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `dest_closure s1.max_app loc_opt f (v42::v43)` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Partial_app *)
-     (reverse (`?z. (dest_closure loc_opt f' (y::ys) = SOME (Partial_app z)) /\
+     (reverse (`?z. (dest_closure s1'.max_app loc_opt f' (y::ys) = SOME (Partial_app z)) /\
            v_rel v z` by ALL_TAC) THEN1
        (full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
         \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
@@ -954,12 +963,14 @@ val shift_correct = Q.prove(
        (full_simp_tac(srw_ss())[PULL_EXISTS] \\ Q.EXISTS_TAC `i` \\ full_simp_tac(srw_ss())[]
         \\ REPEAT STRIP_TAC
         \\ TRY (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
-        \\ rev_full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+        \\ imp_res_tac state_rel_max_app
+        \\ rev_full_simp_tac(srw_ss())[] \\ fs[])
       \\ Cases_on `EL n cs'` \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
               (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
       \\ `n < LENGTH l1` by full_simp_tac(srw_ss())[]
       \\ IMP_RES_TAC EVERY2_EL \\ rev_full_simp_tac(srw_ss())[]
+      \\ imp_res_tac state_rel_max_app \\ fs[]
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
     (* Full_app *)
     \\ Cases_on `f` \\ full_simp_tac(srw_ss())[dest_closure_def]
@@ -971,6 +982,7 @@ val shift_correct = Q.prove(
      (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
       \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
       \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+      \\ `s1'.max_app = s1.max_app` by fs[state_rel_def]
       \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
@@ -1031,6 +1043,7 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
     \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+    \\ `s1'.max_app = s1.max_app` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
     THEN1 (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[state_rel_def])
     \\ qpat_assum`_ = (res,_)`mp_tac
     \\ Q.PAT_ABBREV_TAC `env3 =
