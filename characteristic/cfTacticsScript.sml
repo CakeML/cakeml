@@ -61,6 +61,16 @@ val UNIT_Conv = store_thm ("UNIT_Conv[simp]",
   fs [UNIT_TYPE_def]
 )
 
+val BOOL_T_Conv = store_thm ("BOOL_T_Conv[simp]",
+  ``BOOL T (Conv (SOME ("true", TypeId (Short "bool"))) []) = T``,
+  fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
+)
+
+val BOOL_F_Conv = store_thm ("BOOL_F_Conv[simp]",
+  ``BOOL F (Conv (SOME ("false", TypeId (Short "bool"))) []) = T``,
+  fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
+)
+
 (*------------------------------------------------------------------*)
 (* Used for cleaning up after unfolding [build_cases] (in cf_match) *)
 
