@@ -293,11 +293,111 @@ val bvl_handle_compile_side = prove(``
   rw[]>>fs[]>>
   metis_tac[])|>update_precondition
 
+val _ = translate (bvl_inlineTheory.inline_def)
+
+val bvl_inline_inline_side = prove(``
+  ∀x y. bvl_inline_inline_side x y ⇔ T``,
+  ho_match_mp_tac bvl_inlineTheory.inline_ind>>
+  `∀a b. bvl_inline$inline a [b] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvl_inlineTheory.LENGTH_inline])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_inline_inline_side_def")])|>update_precondition
+
+val _ = translate (bvl_constTheory.compile_def)
+
+val bvl_const_compile_side = prove(``
+  ∀x y. bvl_const_compile_side x y ⇔ T``,
+  ho_match_mp_tac bvl_constTheory.compile_ind>>
+  `∀a b. bvl_const$compile a [b] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvl_constTheory.compile_length])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_const_compile_side_def")])|>update_precondition
+
+val _ = translate(bvl_to_bviTheory.compile_int_def)
+
+val bvl_to_bvi_compile_int_side = prove(``
+  ∀x. bvl_to_bvi_compile_int_side x ⇔ T``,
+  completeInduct_on`Num(ABS x)`>>
+  simp[Once (fetch "-" "bvl_to_bvi_compile_int_side_def")]>>
+  rw[]>>fs[PULL_FORALL]>>
+  first_assum MATCH_MP_TAC>>
+  intLib.COOPER_TAC) |> update_precondition
+
 val _ = translate(bvl_to_bviTheory.compile_def)
+
+val bvl_inline_inline_all_side = prove(``
+  ∀a b c d. bvl_inline_inline_all_side a b c d ⇔ T``,
+  ho_match_mp_tac bvl_inlineTheory.inline_all_ind>>
+  rw[]>>simp[Once (fetch "-" "bvl_inline_inline_all_side_def")]>>
+  CCONTR_TAC>>fs[]>>
+  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+  simp[bvl_inlineTheory.LENGTH_inline])
+
+val bvi_let_compile_side = prove(``
+  ∀x y z. bvi_let_compile_side x y z ⇔ T``,
+  ho_match_mp_tac bvi_letTheory.compile_ind>>rw[]>>
+  `∀a b c . bvi_let$compile a b [c] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvi_letTheory.compile_length])>>
+  rw[]>>simp[Once (fetch "-" "bvi_let_compile_side_def")]>>
+  Cases_on`z`>>fs[]>>
+  strip_tac>>fs[ADD1])
+
+val bvl_to_bvi_compile_exps_side = prove(``
+  ∀x y. bvl_to_bvi_compile_exps_side x y ⇔ T``,
+  ho_match_mp_tac bvl_to_bviTheory.compile_exps_ind>>
+  `∀a b c d. bvl_to_bvi$compile_exps a [b] ≠ ([],c,d)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac bvl_to_bviTheory.compile_exps_LENGTH>>
+    fs[])>>
+  rw[]>>simp[Once (fetch "-" "bvl_to_bvi_compile_exps_side_def")]>>
+  metis_tac[])
+
+val bvl_to_bvi_compile_list_side = prove(``
+  ∀x y. bvl_to_bvi_compile_list_side x y ⇔ T``,
+  Induct_on`y`>>rw[]>>
+  simp[Once (fetch "-" "bvl_to_bvi_compile_list_side_def")]>>
+  EVAL_TAC>>rw[]>>simp[bvi_let_compile_side,bvl_to_bvi_compile_exps_side]>>
+  CCONTR_TAC>>fs[]>>imp_res_tac bvl_to_bviTheory.compile_exps_LENGTH>>
+  fs[])
+
+val bvl_to_bvi_compile_side = prove(``
+  ∀w x y z. bvl_to_bvi_compile_side w x y z ⇔ T``,
+  EVAL_TAC>>
+  rpt strip_tac
+  >-
+    fs[bvl_to_bvi_compile_list_side]
+  >-
+    (pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvl_handleTheory.compile_length])
+  >>
+    simp[bvl_inline_inline_all_side]) |> update_precondition
 
 val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
 val _ = translate (COUNT_LIST_compute)
-val _ = translate (bvi_to_dataTheory.compile_exp_def)
-val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
+(*
+val _ = translate (bvi_to_dataTheory.compile_def)
+
+val bvi_to_data_compile_side = prove(``
+  ∀a b c d e. bvi_to_data_compile_side a b c d e ⇔ T``,
+  ho_match_mp_tac bvi_to_dataTheory.compile_ind>>
+  `∀a b c d e f g. bvi_to_data$compile a b c d [e] ≠ (f,[],g)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac bvi_to_dataTheory.compile_SING_IMP>>
+    fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvi_to_data_compile_side_def")]>>
+  fs[FALSE_def]>>
+  TRY(metis_tac[])>>
+  (* TODO: the last condition is not trvially provable ... we need to know that all Vars are < arg_count *)
+  cheat)|>update_precondition
+
+val _ = translate (bvi_to_dataTheory.compile_prog_def)
+*)
 val _ = export_theory();
