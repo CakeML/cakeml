@@ -1212,7 +1212,7 @@ val cnv = computeLib.compset_conv (wordsLib.words_compset())
    computeLib.Defs
      [prim_config_def, initialProgramTheory.prim_types_program_def]]
 
-val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config``);
+val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config max_app``);
 
 val id_CASE_eq_SOME = Q.prove(
   `id_CASE x f (λa b. NONE) = SOME z ⇔ ∃y. x = Short y ∧ f y = SOME z`,
@@ -1237,7 +1237,7 @@ val from_data_ignore = prove(
   \\ rpt (pairarg_tac \\ fs []));
 
 val clos_to_data_names = store_thm("clos_to_data_names",
-  ``clos_to_bvl$num_stubs ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
+  ``clos_to_bvl$num_stubs c.max_app ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
     clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
     EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
@@ -1260,10 +1260,11 @@ val clos_to_data_names = store_thm("clos_to_data_names",
 
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
-   (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
-   c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
-   c.clos_conf.next_loc = (prim_config:'a backend$config).clos_conf.next_loc ∧
-   c.clos_conf.start = (prim_config:'a backend$config).clos_conf.start ∧
+   (c:'a backend$config).source_conf = ((prim_config c.clos_conf.max_app):'a backend$config).source_conf ∧
+   c.mod_conf = ((prim_config c.clos_conf.max_app):'a backend$config).mod_conf ∧
+   c.clos_conf.next_loc = ((prim_config c.clos_conf.max_app):'a backend$config).clos_conf.next_loc ∧
+   c.clos_conf.start = ((prim_config c.clos_conf.max_app):'a backend$config).clos_conf.start ∧
+   0 < c.clos_conf.max_app ∧
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,ffi_limit) ∧
    conf_ok c mc ∧
@@ -1283,11 +1284,11 @@ val compile_correct = Q.store_thm("compile_correct",
      s2.refs = [] ∧
      s2.defined_types = s.defined_types ∧
      s2.defined_mods = s.defined_mods ∧
-     envC_tagged env2.c prim_config.mod_conf.tag_env gtagenv ∧
-     exhaustive_env_correct prim_config.mod_conf.exh_ctors_env gtagenv ∧
+     envC_tagged env2.c (prim_config c.clos_conf.max_app).mod_conf.tag_env gtagenv ∧
+     exhaustive_env_correct (prim_config c.clos_conf.max_app).mod_conf.exh_ctors_env gtagenv ∧
      gtagenv_wf gtagenv ∧
-     next_inv (IMAGE (SND o SND) (FRANGE (SND( prim_config.mod_conf.tag_env))))
-       prim_config.mod_conf.next_exception gtagenv` by (
+     next_inv (IMAGE (SND o SND) (FRANGE (SND( (prim_config c.clos_conf.max_app).mod_conf.tag_env))))
+       (prim_config c.clos_conf.max_app).mod_conf.next_exception gtagenv` by (
     simp[source_to_modProofTheory.precondition_def] >>
     simp[Abbr`env`,Abbr`s`] >>
     srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
@@ -1434,9 +1435,10 @@ val compile_correct = Q.store_thm("compile_correct",
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
   (pat_to_closProofTheory.compile_semantics
-   |> Q.GENL[`es`,`st`,`env`]
+   |> Q.GENL[`max_app`,`es`,`st`,`env`]
    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
   simp[Abbr`env3`,Abbr`es3`] >>
+  first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
   fs[pat_to_closProofTheory.compile_state_def,Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   rator_x_assum`from_clos`mp_tac >>
@@ -1457,7 +1459,8 @@ val compile_correct = Q.store_thm("compile_correct",
     EVAL_TAC>>simp[Abbr`st3`]>>
     unabbrev_all_tac >>
     simp[pat_to_closProofTheory.compile_contains_App_SOME] >>
-    simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE])>>
+    simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE] >>
+    simp[EVEN_ADD,EVEN_EXP_IFF])>>
   simp[Abbr`e3`] >>
   fs[Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
@@ -1472,7 +1475,8 @@ val compile_correct = Q.store_thm("compile_correct",
     qexists_tac`c''`>>
     qexists_tac`c.clos_conf`>>
     simp[]>>
-    EVAL_TAC)>>
+    EVAL_TAC >>
+    simp[EVEN_ADD,EVEN_EXP_IFF])>>
   disch_then(SUBST_ALL_TAC o SYM) >>
   rator_x_assum`from_bvi`mp_tac >>
   srw_tac[][from_bvi_def] >>
@@ -1499,7 +1503,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ imp_res_tac clos_to_data_names
   \\ fs[AND_IMP_INTRO]
   \\ pop_assum mp_tac \\ impl_keep_tac
-  >- (rfs[]>>EVAL_TAC)
+  >- (rfs[]>>EVAL_TAC >> simp[EVEN_ADD,EVEN_EXP_IFF])
   \\ fs[]);
 
 val _ = export_theory();
