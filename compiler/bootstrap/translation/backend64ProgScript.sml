@@ -1,4 +1,3 @@
-open HolKernel Parse boolLib bossLib;
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -79,11 +78,11 @@ val to_clos_side = prove(``
 val _ = translate(clos_mtiTheory.intro_multi_def)
 
 val intro_multi_side = prove(``
-  ∀a. intro_multi_side a ⇔ T``,
+  ∀max_app a. intro_multi_side max_app a ⇔ T``,
   ho_match_mp_tac clos_mtiTheory.intro_multi_ind>>
-  `∀z. intro_multi [z] ≠ []` by
-    (CCONTR_TAC>>fs[]>>
-    Q.SPEC_THEN `z` mp_tac clos_mtiTheory.intro_multi_sing >>fs[])>>
+  `∀max_app z. intro_multi max_app [z] ≠ []` by
+    (rw[] >> CCONTR_TAC>>fs[]>>
+     Q.SPECL_THEN [`z`,`max_app`] mp_tac clos_mtiTheory.intro_multi_sing >>fs[])>>
   rw[]>>
   simp[Once (fetch "-" "intro_multi_side_def")]>>
   metis_tac[])|>update_precondition
