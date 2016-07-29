@@ -17,13 +17,13 @@ val _ = type_abbrev( "tenv_store" , ``:(num, store_t) fmap``);
 
 (* Check that the type names map to valid types *)
 val tenv_abbrev_ok_def_ = Define `
-  tenv_abbrev_ok tenvT ⇔ eAll (\(tvs,t) .  check_freevars 0 tvs t) tenvT`;
+  tenv_abbrev_ok tenvT ⇔ eAll (\id (tvs,t). check_freevars 0 tvs t) tenvT`;
 
 val tenv_ctor_ok_def = Define `
-  tenv_ctor_ok tenvC ⇔ eAll (\(tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
+  tenv_ctor_ok tenvC ⇔ eAll (\id (tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
 
 val tenv_val_ok_def = Define `
-  tenv_val_ok tenvV ⇔ eAll (\(tvs,t). check_freevars tvs [] t) tenvV`;
+  tenv_val_ok tenvV ⇔ eAll (\id (tvs,t). check_freevars tvs [] t) tenvV`;
 
 val tenv_ok_def = Define `
   tenv_ok tenv ⇔

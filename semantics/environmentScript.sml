@@ -33,9 +33,9 @@ val _ = Define `
  (eEmpty = (Bind [] []))`;
 
 
-(*val eMerge : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v*)
+(*val eAppend : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v*)
 val _ = Define `
- (eMerge (Bind v1 m1) (Bind v2 m2) = (Bind (v1 ++ v2) (m1 ++ m2)))`;
+ (eAppend (Bind v1 m1) (Bind v2 m2) = (Bind (v1 ++ v2) (m1 ++ m2)))`;
 
 
 (*val eLift : forall 'v 'n. modN -> environment 'n 'v -> environment 'n 'v*)
@@ -77,13 +77,14 @@ val _ = Define `
 (? v2. (eLookup env2 id = SOME v2) /\ r id v1 v2)))`;
 
 
-(*val eAll : forall 'v 'n. ('v -> bool) -> environment 'n 'v -> bool*)
- val eAll_defn = Hol_defn "eAll" `
- (eAll f (Bind v m) =  
-(EVERY (\ x .  f (SND x)) v /\
-  EVERY (\ x .  eAll f (SND x)) m))`;
+(*val eAll : forall 'v 'n. Eq 'n, Eq 'v => (id 'n -> 'v -> bool) -> environment 'n 'v -> bool*)
+ val _ = Define `
+ (eAll f env =
+  (! id v.     
+(eLookup env id = SOME v)
+     ==>
+     f id v))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn eAll_defn;
 
 (*val eAll2 : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
    (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool*)

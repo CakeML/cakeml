@@ -18,8 +18,8 @@ declare termination_argument eLookup = automatic
 val eEmpty : forall 'v 'n. environment 'n 'v
 let eEmpty = Bind [] []
 
-val eMerge : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v
-let eMerge (Bind v1 m1) (Bind v2 m2) = Bind (v1 ++ v2) (m1 ++ m2)
+val eAppend : forall 'v 'n. environment 'n 'v -> environment 'n 'v -> environment 'n 'v
+let eAppend (Bind v1 m1) (Bind v2 m2) = Bind (v1 ++ v2) (m1 ++ m2)
 
 val eLift : forall 'v 'n. modN -> environment 'n 'v -> environment 'n 'v
 let eLift mn env = Bind [] [(mn, env)]
@@ -48,10 +48,12 @@ let eSubEnv r env1 env2 =
     -->
     exists v2. eLookup env2 id = Just v2 && r id v1 v2
 
-val eAll : forall 'v 'n. ('v -> bool) -> environment 'n 'v -> bool
-let rec eAll f (Bind v m) =
-  List.all (fun x -> f (snd x)) v &&
-  List.all (fun x -> eAll f (snd x)) m
+val eAll : forall 'v 'n. Eq 'n, Eq 'v => (id 'n -> 'v -> bool) -> environment 'n 'v -> bool
+let rec eAll f env =
+  (forall id v.
+     eLookup env id = Just v
+     -->
+     f id v)
 
 val eAll2 : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
    (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool

@@ -136,9 +136,9 @@ val _ = Hol_datatype `
 (*val extend_dec_tenv : type_env -> type_env -> type_env*)
 val _ = Define `
  (extend_dec_tenv tenv' tenv =  
-(<| v := (eMerge tenv'.v tenv.v);
-     c := (eMerge tenv'.c tenv.c);
-     t := (eMerge tenv'.t tenv.t) |>))`;
+(<| v := (eAppend tenv'.v tenv.v);
+     c := (eAppend tenv'.c tenv.c);
+     t := (eAppend tenv'.t tenv.t) |>))`;
 
 
 (*val lookup_varE : id varN -> tenv_val_exp -> maybe (nat * t)*)
@@ -656,14 +656,14 @@ type_d extra_checks mn decls tenv (Dletrec funs)
   empty_decls <| v := (alist_to_env (tenv_add_tvs tvs bindings)); c := eEmpty; t := eEmpty |>)
 
 /\ (! extra_checks mn tenv tdefs decls defined_types' decls' tenvT.
-(check_ctor_tenv (eMerge tenvT tenv.t) tdefs /\
+(check_ctor_tenv (eAppend tenvT tenv.t) tdefs /\
 (defined_types' = LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) tdefs)) /\
 DISJOINT defined_types' decls.defined_types /\
 (tenvT = alist_to_env (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs)) /\
 (decls' = <| defined_mods := {}; defined_types := defined_types'; defined_exns := {} |>))
 ==>
 type_d extra_checks mn decls tenv (Dtype tdefs)
-  decls' <| v := eEmpty; c := (build_ctor_tenv mn (eMerge tenvT tenv.t) tdefs); t := tenvT |>)
+  decls' <| v := eEmpty; c := (build_ctor_tenv mn (eAppend tenvT tenv.t) tdefs); t := tenvT |>)
 
 /\ (! extra_checks mn decls tenv tvs tn t.
 (check_freevars( 0) tvs t /\
@@ -719,8 +719,8 @@ type_specs mn tenvT (Sval x t :: specs)
 
 /\ (! mn tenvT tenv td specs decls' decls tenvT'.
 ((tenvT' = alist_to_env (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) td)) /\
-check_ctor_tenv (eMerge tenvT' tenvT) td /\
-type_specs mn (eMerge tenvT' tenvT) specs decls tenv /\
+check_ctor_tenv (eAppend tenvT' tenvT) td /\
+type_specs mn (eAppend tenvT' tenvT) specs decls tenv /\
 (decls' = <| defined_mods := {};
             defined_types := (LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) td));
             defined_exns := {} |>))
@@ -729,7 +729,7 @@ type_specs mn tenvT (Stype td :: specs)
   (union_decls decls decls')
   (extend_dec_tenv tenv
    <| v := eEmpty;
-      c := (build_ctor_tenv mn (eMerge tenvT' tenvT) td);
+      c := (build_ctor_tenv mn (eAppend tenvT' tenvT) td);
       t := tenvT' |>))
 
 /\ (! mn tenvT tenvT' tvs tn t specs decls tenv.
@@ -737,7 +737,7 @@ type_specs mn tenvT (Stype td :: specs)
 check_freevars( 0) tvs t /\
 check_type_names tenvT t /\
 (tenvT' = eSing tn (tvs,type_name_subst tenvT t)) /\
-type_specs mn (eMerge tenvT' tenvT) specs decls tenv)
+type_specs mn (eAppend tenvT' tenvT) specs decls tenv)
 ==>
 type_specs mn tenvT (Stabbrev tvs tn t :: specs)
   decls (extend_dec_tenv tenv <| v := eEmpty; c := eEmpty; t := tenvT' |>))
@@ -757,7 +757,7 @@ type_specs mn tenvT (Sexn cn ts :: specs)
 /\ (! mn tenvT tenv tn specs tvs decls tenvT'.
 (ALL_DISTINCT tvs /\
 (tenvT' = eSing tn (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))) /\
-type_specs mn (eMerge tenvT' tenvT) specs decls tenv)
+type_specs mn (eAppend tenvT' tenvT) specs decls tenv)
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs)
   (union_decls decls <| defined_mods := {}; defined_types := {mk_id mn tn}; defined_exns := {} |>)

@@ -16,10 +16,8 @@ open semanticPrimitivesTheory evaluateTheory
       ,prog_to_mods_def
       ,no_dup_top_types_def
       ,prog_to_top_types_def
-      ,extend_top_env_def
       ,extend_dec_env_def
       ,type_defs_to_new_tdecs_def
-      ,combine_mod_result_def
       ]
     ]
 

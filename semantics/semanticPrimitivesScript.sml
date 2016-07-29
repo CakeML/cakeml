@@ -754,14 +754,14 @@ val _ = Define `
  (combine_dec_result env r =  
 ((case r of
       Rerr e => Rerr e
-    | Rval env' => Rval <| v := (eMerge env'.v env.v); c := (eMerge env'.c env.c) |>
+    | Rval env' => Rval <| v := (eAppend env'.v env.v); c := (eAppend env'.c env.c) |>
   )))`;
 
 
 (*val extend_dec_env : sem_env v -> sem_env v -> sem_env v*)
 val _ = Define `
  (extend_dec_env new_env env =  
-(<| c := (eMerge new_env.c env.c); v := (eMerge new_env.v env.v) |>))`;
+(<| c := (eAppend new_env.c env.c); v := (eAppend new_env.v env.v) |>))`;
 
 
 (*val decs_to_types : list dec -> list typeN*)

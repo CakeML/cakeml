@@ -6,12 +6,9 @@ val _ = new_theory "environmentProps";
 
 (* ----------- Monotonicity for Hol_reln ------------ *)
 
-val eAll_mono_lemma = Q.prove (
-  `!f1 e. (!x. f1 x ⇒ f2 x) ⇒ eAll f1 e ⇒ eAll f2 e`,
-  ho_match_mp_tac eAll_ind
-  >> rw [eAll_def, EVERY_MEM]);
-
-val eAll_mono = save_thm ("eAll_mono", SPEC_ALL eAll_mono_lemma);
+val eAll_mono = Q.store_thm ("eAll_mono",
+  `(!id x. P id x ⇒ Q id x) ⇒ eAll P e ⇒ eAll Q e`,
+  rw [eAll_def]);
 
 val eSubEnv_mono = Q.store_thm ("eSubEnv_mono",
   `(!x y z. R1 x y z ⇒ R2 x y z) ⇒ (eSubEnv R1 e1 e2 ⇒ eSubEnv R2 e1 e2)`,
@@ -37,10 +34,10 @@ val eLookup_eEmpty = Q.store_thm ("eLookup_eEmpty[simp]",
  Cases
  >> rw [eLookup_def, eEmpty_def]);
 
-val eMerge_eEmpty = Q.store_thm ("eMerge_eEmpty[simp]",
-  `!env. eMerge env eEmpty = env ∧ eMerge eEmpty env = env`,
+val eAppend_eEmpty = Q.store_thm ("eAppend_eEmpty[simp]",
+  `!env. eAppend env eEmpty = env ∧ eAppend eEmpty env = env`,
  Cases
- >> rw [eMerge_def, eEmpty_def]);
+ >> rw [eAppend_def, eEmpty_def]);
 
 val alist_to_env_nil = Q.store_thm ("alist_to_env_nil[simp]",
   `alist_to_env [] = eEmpty`,
@@ -68,46 +65,52 @@ val eMap_eEmpty = Q.store_thm ("eMap_eEmpty[simp]",
   `!f. eMap f eEmpty = eEmpty`,
  rw [eMap_def, eEmpty_def]);
 
-(* ------------- Other automatic theorems --------- *)
+(* ------------- Other simple automatic theorems --------- *)
 
 val alist_to_env_cons = Q.store_thm ("alist_to_env_cons[simp]",
   `!k v l. alist_to_env ((k,v)::l) = eBind k v (alist_to_env l)`,
  rw [alist_to_env_def, eBind_def]);
 
-val eMerge_eBind = Q.store_thm ("eMerge_eBind[simp]",
-  `!k v e1 e2. eMerge (eBind k v e1) e2 = eBind k v (eMerge e1 e2)`,
+val eAppend_eBind = Q.store_thm ("eAppend_eBind[simp]",
+  `!k v e1 e2. eAppend (eBind k v e1) e2 = eBind k v (eAppend e1 e2)`,
  Cases_on `e1`
  >> Cases_on `e2`
- >> rw [eMerge_def, eBind_def]);
+ >> rw [eAppend_def, eBind_def]);
 
-val eMerge_alist_to_env = Q.store_thm ("eMerge_alist_to_env[simp]",
-  `!al1 al2. eMerge (alist_to_env al1) (alist_to_env al2) = alist_to_env (al1 ++ al2)`,
- rw [alist_to_env_def, eMerge_def]);
+val eAppend_alist_to_env = Q.store_thm ("eAppend_alist_to_env[simp]",
+  `!al1 al2. eAppend (alist_to_env al1) (alist_to_env al2) = alist_to_env (al1 ++ al2)`,
+ rw [alist_to_env_def, eAppend_def]);
 
-val eMerge_assoc = Q.store_thm ("eMerge_assoc[simp]",
-  `!e1 e2 e3. eMerge e1 (eMerge e2 e3) = eMerge (eMerge e1 e2) e3`,
+val eAppend_assoc = Q.store_thm ("eAppend_assoc[simp]",
+  `!e1 e2 e3. eAppend e1 (eAppend e2 e3) = eAppend (eAppend e1 e2) e3`,
  rpt Cases
- >> rw [eMerge_def]);
-
-val eAll_eMerge = Q.store_thm ("eAll_eMerge[simp]",
-  `!f e1 e2. eAll f (eMerge e1 e2) ⇔ eAll f e1 ∧ eAll f e2`,
- ho_match_mp_tac eAll_ind
- >> rw []
- >> Cases_on `e2`
- >> rw [eMerge_def, eAll_def]
- >> metis_tac [SND]);
+ >> rw [eAppend_def]);
 
 (* -------------- eAll ---------------- *)
 
 val eLookup_eAll = Q.store_thm ("eLookup_eAll",
-  `!P env x v. eAll P env ∧ eLookup env x = SOME v ⇒ P v`,
- ho_match_mp_tac eAll_ind
+  `!env x P v. eAll P env ∧ eLookup env x = SOME v ⇒ P x v`,
+ rw [eAll_def]);
+
+val eAll_eAppend = Q.store_thm ("eAll_eAppend",
+  `!f e1 e2. eAll f e1 ∧ eAll f e2 ⇒ eAll f (eAppend e1 e2)`,
+ simp [eAll_def, PULL_FORALL]
+ >> rpt gen_tac
+ >> qspec_tac (`v`, `v`)
+ >> qspec_tac (`e2`, `e2`)
+ >> qspec_tac (`id`, `id`)
+ >> qspec_tac (`e1`, `e1`)
+ >> ho_match_mp_tac eLookup_ind
  >> rw []
- >> Cases_on `x`
- >> fs [eLookup_def, eAll_def, EVERY_MEM]
- >> TRY full_case_tac
- >> fs []
- >> metis_tac [SND, ALOOKUP_MEM]);
+ >> Cases_on `e2`
+ >> fs [eAppend_def, eLookup_def, ALOOKUP_APPEND]
+ >> every_case_tac
+ >> fs [GSYM PULL_FORALL]
+ >- metis_tac [eLookup_def]
+ >- metis_tac [eLookup_def]
+ >> rw []
+ >> rpt (first_x_assum (qspec_then `Long mn id` mp_tac))
+ >> simp [eLookup_def]);
 
 (* -------------- eSubEnv ---------------- *)
 

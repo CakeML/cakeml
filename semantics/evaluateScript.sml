@@ -156,7 +156,7 @@ val _ = Define `
 (evaluate_match st env v ((p,e)::pes) err_v  =  
 (if ALL_DISTINCT (pat_bindings p []) then
     (case pmatch env.c st.refs p v [] of
-      Match env_v' => evaluate st ( env with<| v := eMerge (alist_to_env env_v') env.v |>) [e]
+      Match env_v' => evaluate st ( env with<| v := eAppend (alist_to_env env_v') env.v |>) [e]
     | No_match => evaluate_match st env v pes err_v
     | Match_type_error => (st, Rerr (Rabort Rtype_error))
     )

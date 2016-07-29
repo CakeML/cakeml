@@ -94,17 +94,6 @@ fun register name def ind =
     ()
   end;
 
-val (eAll_def, eAll_ind) =
-  tprove_no_defn ((eAll_def, eAll_ind),
-  wf_rel_tac `measure (\(_, env). environment_size (\x. 1) (\x. 1) env)`
-  >> Induct_on `m`
-  >> rw [environment_size_def]
-  >> rw [environment_size_def]
-  >> first_x_assum drule
-  >> disch_then (qspec_then `v` assume_tac)
-  >> decide_tac);
-val _ = register "eAll" eAll_def eAll_ind;
-
 val (eMap_def, eMap_ind) =
   tprove_no_defn ((eMap_def, eMap_ind),
   wf_rel_tac `measure (\(_, env). environment_size (\x. 1) (\x. 1) env)`

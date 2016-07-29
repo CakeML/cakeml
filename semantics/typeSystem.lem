@@ -104,9 +104,9 @@ type type_env =
 
 val extend_dec_tenv : type_env -> type_env -> type_env
 let extend_dec_tenv tenv' tenv =
-  <| v = eMerge tenv'.v tenv.v;
-     c = eMerge tenv'.c tenv.c;
-     t = eMerge tenv'.t tenv.t |>
+  <| v = eAppend tenv'.v tenv.v;
+     c = eAppend tenv'.c tenv.c;
+     t = eAppend tenv'.t tenv.t |>
 
 val lookup_varE : id varN -> tenv_val_exp -> maybe (nat * t)
 let lookup_varE id tenvE =
@@ -679,14 +679,14 @@ type_d extra_checks mn decls tenv (Dletrec funs)
 and
 
 dtype : forall extra_checks mn tenv tdefs decls defined_types' decls' tenvT.
-check_ctor_tenv (eMerge tenvT tenv.t) tdefs &&
+check_ctor_tenv (eAppend tenvT tenv.t) tdefs &&
 defined_types' = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
 disjoint defined_types' decls.defined_types &&
 tenvT = alist_to_env (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs) &&
 decls' = <| defined_mods = {}; defined_types = defined_types'; defined_exns = {} |>
 ==>
 type_d extra_checks mn decls tenv (Dtype tdefs)
-  decls' <| v = eEmpty; c = build_ctor_tenv mn (eMerge tenvT tenv.t) tdefs; t = tenvT |>
+  decls' <| v = eEmpty; c = build_ctor_tenv mn (eAppend tenvT tenv.t) tdefs; t = tenvT |>
 
 and
 
@@ -756,8 +756,8 @@ and
 
 stype : forall mn tenvT tenv td specs decls' decls tenvT'.
 tenvT' = alist_to_env (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) td) &&
-check_ctor_tenv (eMerge tenvT' tenvT) td &&
-type_specs mn (eMerge tenvT' tenvT) specs decls tenv &&
+check_ctor_tenv (eAppend tenvT' tenvT) td &&
+type_specs mn (eAppend tenvT' tenvT) specs decls tenv &&
 decls' = <| defined_mods = {};
             defined_types = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) td);
             defined_exns = {} |>
@@ -766,7 +766,7 @@ type_specs mn tenvT (Stype td :: specs)
   (union_decls decls decls')
   (extend_dec_tenv tenv
    <| v = eEmpty;
-      c = build_ctor_tenv mn (eMerge tenvT' tenvT) td;
+      c = build_ctor_tenv mn (eAppend tenvT' tenvT) td;
       t = tenvT' |>)
 
 and
@@ -776,7 +776,7 @@ List.allDistinct tvs &&
 check_freevars 0 tvs t &&
 check_type_names tenvT t &&
 tenvT' = eSing tn (tvs,type_name_subst tenvT t) &&
-type_specs mn (eMerge tenvT' tenvT) specs decls tenv
+type_specs mn (eAppend tenvT' tenvT) specs decls tenv
 ==>
 type_specs mn tenvT (Stabbrev tvs tn t :: specs)
   decls (extend_dec_tenv tenv <| v = eEmpty; c = eEmpty; t = tenvT' |>)
@@ -800,7 +800,7 @@ and
 stype_opq : forall mn tenvT tenv tn specs tvs decls tenvT'.
 List.allDistinct tvs &&
 tenvT' = eSing tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))) &&
-type_specs mn (eMerge tenvT' tenvT) specs decls tenv
+type_specs mn (eAppend tenvT' tenvT) specs decls tenv
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs)
   (union_decls decls <| defined_mods = {}; defined_types = {mk_id mn tn}; defined_exns = {} |>)
