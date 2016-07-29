@@ -322,7 +322,7 @@ val xlog = xlog_base
 
 val xif_base =
   xpull_check_not_needed \\
-  fs [cf_if_def] \\
+  head_unfold cf_if_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
   TRY (asm_exists_tac \\ fs [] \\ conj_tac \\ DISCH_TAC)
@@ -350,7 +350,8 @@ fun clean_cases_conv tm = let
         (LAND_CONV (LHS_CONV EVAL) THENC
          SIMP_CONV std_ss [option_CLAUSES])
   val else_conv =
-      TRY_CONV (LAND_CONV clean_cases_conv)
+      TRY_CONV (LAND_CONV clean_cases_conv ORELSEC
+                SIMP_CONV std_ss [cf_bottom_def])
 in
   (RATOR_CONV (RATOR_CONV (RAND_CONV cond_conv)) THENC
    RATOR_CONV (RAND_CONV then_conv) THENC
@@ -379,7 +380,7 @@ val validate_pat_all_conv =
 
 val xmatch_base =
   xpull_check_not_needed \\
-  fs [cf_match_def] \\ irule local_elim \\ hnf \\
+  head_unfold cf_match_def \\ irule local_elim \\ hnf \\
   reduce_tac \\
   unfold_build_cases \\
   CONV_TAC validate_pat_all_conv
