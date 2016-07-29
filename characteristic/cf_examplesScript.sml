@@ -119,6 +119,21 @@ val example_if_spec = Q.prove (
   xif \\ xret \\ xsimpl
 )
   
+val is_nil = parse_topdecl
+  "fun is_nil l = case l of [] => true | x::xs => false" 
+
+val st = ml_progLib.add_prog is_nil pick_name basis_st
+
+val is_nil_spec = Q.prove (
+  `!lv a l.
+     LIST_TYPE a l lv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "is_nil" st) [lv]
+       emp (\bv. & BOOL (l = []) bv)`,
+
+  xcf "is_nil" st \\ Cases_on `l` \\ fs [LIST_TYPE_def] \\
+  xmatch \\ xret \\ xsimpl
+)
+
 (* unfortunately, "true" is not a value... *)
 val example_and = parse_topdecl
   "fun example_and u = let val b = true in b andalso false end"
