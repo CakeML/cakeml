@@ -119,3 +119,18 @@ val example_if_spec = Q.prove (
   xif \\ xret \\ xsimpl
 )
   
+(* unfortunately, "true" is not a value... *)
+val example_and = parse_topdecl
+  "fun example_and u = let val b = true in b andalso false end"
+
+val st = ml_progLib.add_prog example_and pick_name basis_st
+
+val example_and_spec = Q.prove (
+  `!uv.
+     UNIT_TYPE () uv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_and" st) [uv]
+       emp (\bv. & BOOL F bv)`,
+  xcf "example_and" st \\ xlet `\v. & BOOL T v` `b`
+  THEN1 (xret \\ xsimpl) \\
+  xlog \\ xret \\ xsimpl
+)

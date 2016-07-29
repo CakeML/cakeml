@@ -12,6 +12,7 @@ sig
   val xapp : tactic
   val xapp_spec : thm -> tactic
   val xret : tactic
+  val xlog : tactic
   val xif : tactic
   val xmatch : tactic
 

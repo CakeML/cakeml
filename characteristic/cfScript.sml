@@ -1008,6 +1008,17 @@ val cf_aw8update_def = Define `
       exp2v env xw = SOME (Litv (Word8 w)) /\
       app_aw8update a i w H Q)`
 
+val cf_log_def = Define `
+  cf_log lop e1 cf2 = \env. local (\H Q.
+    ?v b.
+      exp2v env e1 = SOME v /\
+      BOOL b v /\
+      (case (lop, b) of
+           (And, T) => cf2 env H Q
+         | (Or, F) => cf2 env H Q
+         | (Or, T) => (H ==>> Q v)
+         | (And, F) => (H ==>> Q v)))`
+
 val cf_if_def = Define `
   cf_if cond cf1 cf2 = \env. local (\H Q.
     ?condv b.
@@ -1098,6 +1109,8 @@ val cf_def = tDefine "cf" `
              | [l; n; w] => cf_aw8update l n w
              | _ => cf_bottom)
         | _ => cf_bottom) /\
+  cf (p:'ffi ffi_proj) (Log lop e1 e2) =
+    cf_log lop e1 (cf p e2) /\
   cf (p:'ffi ffi_proj) (If cond e1 e2) =
     cf_if cond (cf p e1) (cf p e2) /\
   cf (p:'ffi ffi_proj) (Mat e branches) = 
@@ -1128,7 +1141,7 @@ val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_le
                cf_opn_def, cf_opb_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
                cf_aupdate_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
                cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
-               cf_fundecl_rec_def, cf_bottom_def, cf_if_def, cf_match_def]
+               cf_fundecl_rec_def, cf_bottom_def, cf_log_def, cf_if_def, cf_match_def]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -1834,6 +1847,22 @@ val cf_sound = store_thm ("cf_sound",
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+    )
+  )
+  THEN1 (
+    (* Log *)
+    cf_strip_sound_full_tac \\
+    QUANT_TAC [("v''", `v`, []), ("s2", `st`, [])] \\
+    progress_then (qspec_then `st` assume_tac)
+      (INST_TYPE [alpha |-> ``:'ffi``] exp2v_evaluate) \\ fs [] \\
+    Cases_on `lop` \\ Cases_on `b` \\
+    fs [BOOL_def, Boolv_def, do_log_def] \\ rw [] \\
+    try_finally (
+      fs [sound_def] \\ first_assum progress \\ instantiate
+    ) \\
+    try_finally (
+      fs [SEP_IMP_def] \\ first_assum progress \\
+      instantiate \\ qexists_tac `{}` \\ SPLIT_TAC
     )
   )
   THEN1 (
