@@ -88,6 +88,10 @@ val eAppend_assoc = Q.store_thm ("eAppend_assoc[simp]",
 
 (* -------------- eAll ---------------- *)
 
+val eAll_T = Q.store_thm ("eALL_T[simp]",
+  `!e. eAll (\n x. T) e`,
+ rw [eAll_def]);
+
 val eLookup_eAll = Q.store_thm ("eLookup_eAll",
   `!env x P v. eAll P env ∧ eLookup env x = SOME v ⇒ P x v`,
  rw [eAll_def]);
@@ -120,6 +124,11 @@ val eSubEnv_conj = Q.store_thm ("eSubEnv_conj",
  >> eq_tac
  >> rw []
  >> metis_tac [SOME_11]);
+
+val eSubEnv_refl = Q.store_thm ("eSubEnv_refl",
+  `!P R. (!n x. P n x ⇒ R n x x) ⇒ !e. eAll P e ⇒ eSubEnv R e e`,
+ rw [eSubEnv_def]
+ >> metis_tac [eLookup_eAll]);
 
 (* -------------- eAll2 ---------------- *)
 
