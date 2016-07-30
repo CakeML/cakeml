@@ -1,6 +1,7 @@
 open preamble closLangTheory closSemTheory
-
 open bagTheory
+
+(* TODO: add bagTheory to preamble *)
 
 val _ = new_theory"closProps"
 
@@ -105,39 +106,39 @@ val code_locs_map = store_thm("code_locs_map",
   \\ ONCE_REWRITE_TAC [code_locs_cons] \\ full_simp_tac(srw_ss())[code_locs_def]);
 
 val contains_App_SOME_def = tDefine "contains_App_SOME" `
-  (contains_App_SOME [] ⇔ F) /\
-  (contains_App_SOME (x::y::xs) ⇔
-     contains_App_SOME [x] ∨
-     contains_App_SOME (y::xs)) /\
-  (contains_App_SOME [Var v] ⇔ F) /\
-  (contains_App_SOME [If x1 x2 x3] ⇔
-     contains_App_SOME [x1] ∨
-     contains_App_SOME [x2] ∨
-     contains_App_SOME [x3]) /\
-  (contains_App_SOME [Let xs x2] ⇔
-     contains_App_SOME [x2] ∨
-     contains_App_SOME xs) /\
-  (contains_App_SOME [Raise x1] ⇔
-     contains_App_SOME [x1]) /\
-  (contains_App_SOME [Tick x1] ⇔
-     contains_App_SOME [x1]) /\
-  (contains_App_SOME [Op op xs] ⇔
-     contains_App_SOME xs) /\
-  (contains_App_SOME [App loc_opt x1 x2] ⇔
+  (contains_App_SOME max_app [] ⇔ F) /\
+  (contains_App_SOME max_app (x::y::xs) ⇔
+     contains_App_SOME max_app [x] ∨
+     contains_App_SOME max_app (y::xs)) /\
+  (contains_App_SOME max_app [Var v] ⇔ F) /\
+  (contains_App_SOME max_app [If x1 x2 x3] ⇔
+     contains_App_SOME max_app [x1] ∨
+     contains_App_SOME max_app [x2] ∨
+     contains_App_SOME max_app [x3]) /\
+  (contains_App_SOME max_app [Let xs x2] ⇔
+     contains_App_SOME max_app [x2] ∨
+     contains_App_SOME max_app xs) /\
+  (contains_App_SOME max_app [Raise x1] ⇔
+     contains_App_SOME max_app [x1]) /\
+  (contains_App_SOME max_app [Tick x1] ⇔
+     contains_App_SOME max_app [x1]) /\
+  (contains_App_SOME max_app [Op op xs] ⇔
+     contains_App_SOME max_app xs) /\
+  (contains_App_SOME max_app [App loc_opt x1 x2] ⇔
      IS_SOME loc_opt ∨ max_app < LENGTH x2 ∨
-     contains_App_SOME [x1] ∨
-     contains_App_SOME x2) /\
-  (contains_App_SOME [Fn loc vs num_args x1] ⇔
-     contains_App_SOME [x1]) /\
-  (contains_App_SOME [Letrec loc vs fns x1] ⇔
-     contains_App_SOME (MAP SND fns) ∨
-     contains_App_SOME [x1]) /\
-  (contains_App_SOME [Handle x1 x2] ⇔
-     contains_App_SOME [x1] ∨
-     contains_App_SOME [x2]) /\
-  (contains_App_SOME [Call ticks dest xs] ⇔
-     contains_App_SOME xs)`
-  (WF_REL_TAC `measure (exp3_size)`
+     contains_App_SOME max_app [x1] ∨
+     contains_App_SOME max_app x2) /\
+  (contains_App_SOME max_app [Fn loc vs num_args x1] ⇔
+     contains_App_SOME max_app [x1]) /\
+  (contains_App_SOME max_app [Letrec loc vs fns x1] ⇔
+     contains_App_SOME max_app (MAP SND fns) ∨
+     contains_App_SOME max_app [x1]) /\
+  (contains_App_SOME max_app [Handle x1 x2] ⇔
+     contains_App_SOME max_app [x1] ∨
+     contains_App_SOME max_app [x2]) /\
+  (contains_App_SOME max_app [Call ticks dest xs] ⇔
+     contains_App_SOME max_app xs)`
+  (WF_REL_TAC `measure (exp3_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
@@ -146,7 +147,7 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
    decide_tac);
 
 val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
-  ``∀ls. contains_App_SOME ls ⇔ EXISTS (λx. contains_App_SOME [x]) ls``,
+  ``∀ls max_app. contains_App_SOME max_app ls ⇔ EXISTS (λx. contains_App_SOME max_app [x]) ls``,
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def])
 
@@ -474,10 +475,12 @@ val evaluate_const_ind =
   evaluate_ind
   |> Q.SPEC `\(xs,env,s).
        (case evaluate (xs,env,s) of (_,s1) =>
-          (s1.code = s.code))`
+          (s1.code = s.code) ∧
+          (s1.max_app = s.max_app))`
   |> Q.SPEC `\x1 x2 x3 x4.
        (case evaluate_app x1 x2 x3 x4 of (_,s1) =>
-          (s1.code = x4.code))`
+          (s1.code = x4.code) ∧
+          (s1.max_app = x4.max_app))`
 
 val evaluate_const_lemma = prove(
   evaluate_const_ind |> concl |> rand,
@@ -491,14 +494,16 @@ val evaluate_const_lemma = prove(
 
 val evaluate_const = store_thm("evaluate_const",
   ``(evaluate (xs,env,s) = (res,s1)) ==>
-      (s1.code = s.code)``,
+      (s1.code = s.code) ∧
+      (s1.max_app = s.max_app)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_app_const = store_thm("evaluate_app_const",
   ``(evaluate_app x1 x2 x3 x4 = (res,s1)) ==>
-      (s1.code = x4.code)``,
+      (s1.code = x4.code) ∧
+      (s1.max_app = x4.max_app)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
@@ -554,7 +559,7 @@ val evaluate_app_rw = Q.store_thm ("evaluate_app_rw",
 `(!args loc_opt f s.
   args ≠ [] ⇒
   evaluate_app loc_opt f args s =
-    case dest_closure loc_opt f args of
+    case dest_closure s.max_app loc_opt f args of
        | NONE => (Rerr(Rabort Rtype_error),s)
        | SOME (Partial_app v) =>
            if s.clock < LENGTH args then
@@ -653,9 +658,9 @@ val do_app_cases_type_error = save_thm ("do_app_cases_type_error",
    ALL_CONV));
 
 val dest_closure_none_loc = Q.store_thm ("dest_closure_none_loc",
-`!l cl vs v e env rest.
-  (dest_closure l cl vs = SOME (Partial_app v) ⇒ l = NONE) ∧
-  (dest_closure l cl vs = SOME (Full_app e env rest) ∧ rest ≠ [] ⇒ l = NONE)`,
+`!max_app l cl vs v e env rest.
+  (dest_closure max_app l cl vs = SOME (Partial_app v) ⇒ l = NONE) ∧
+  (dest_closure max_app l cl vs = SOME (Full_app e env rest) ∧ rest ≠ [] ⇒ l = NONE)`,
  rpt gen_tac >>
  simp [dest_closure_def] >>
  Cases_on `cl` >>
@@ -710,8 +715,8 @@ val rec_clo_ok_def = Define `
 val _ = export_rewrites ["rec_clo_ok_def"]
 
 val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
-`!l v vs e args rest.
-  dest_closure l v vs = SOME (Full_app e args rest)
+`!max_app l v vs e args rest.
+  dest_closure max_app l v vs = SOME (Full_app e args rest)
   ⇒
   LENGTH (clo_to_partial_args v) < clo_to_num_params v ∧
   LENGTH vs + LENGTH (clo_to_partial_args v) = clo_to_num_params v + LENGTH rest ∧
@@ -771,7 +776,7 @@ check_closures cl cl' ⇔
 
 val dest_closure_partial_is_closure = Q.store_thm(
   "dest_closure_partial_is_closure",
-  `dest_closure l v vs = SOME (Partial_app v') ⇒
+  `dest_closure max_app l v vs = SOME (Partial_app v') ⇒
    is_closure v'`,
   dsimp[dest_closure_def, eqs, bool_case_eq, is_closure_def, UNCURRY]);
 
@@ -786,10 +791,10 @@ val evaluate_app_clock0 = Q.store_thm(
    evaluate_app lopt r args s0 ≠ (Rval vs, s)`,
   strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
   simp[evaluate_def] >>
-  Cases_on `dest_closure lopt r (a1::args0)` >> simp[] >>
-  rename1 `dest_closure lopt r (a1::args0) = SOME c` >>
+  Cases_on `dest_closure s0.max_app lopt r (a1::args0)` >> simp[] >>
+  rename1 `dest_closure s0.max_app lopt r (a1::args0) = SOME c` >>
   Cases_on `c` >> simp[] >>
-  rename1 `dest_closure lopt r (a1::args0) = SOME (Full_app b env rest)` >>
+  rename1 `dest_closure max_app lopt r (a1::args0) = SOME (Full_app b env rest)` >>
   srw_tac[][] >>
   `SUC (LENGTH args0) ≤ LENGTH rest` by simp[] >>
   imp_res_tac dest_closure_full_length >> lfs[])
@@ -815,15 +820,15 @@ val evaluate_app_clock_drop = Q.store_thm(
 
 val dest_closure_is_closure = Q.store_thm(
   "dest_closure_is_closure",
-  `dest_closure lopt f vs = SOME r ⇒ is_closure f`,
+  `dest_closure max_app lopt f vs = SOME r ⇒ is_closure f`,
   Cases_on `f` >> simp[is_closure_def, dest_closure_def]);
 
 val stage_partial_app = Q.store_thm(
   "stage_partial_app",
   `is_closure c ∧
-   dest_closure NONE v (rest ++ used) =
+   dest_closure max_app NONE v (rest ++ used) =
      SOME (Partial_app (clo_add_partial_args rest c)) ⇒
-   dest_closure NONE c rest =
+   dest_closure max_app NONE c rest =
      SOME (Partial_app (clo_add_partial_args rest c))`,
   Cases_on `v` >> simp[dest_closure_def, eqs, bool_case_eq, UNCURRY] >>
   Cases_on `c` >>
@@ -831,9 +836,9 @@ val stage_partial_app = Q.store_thm(
 
 val dest_closure_full_addargs = Q.store_thm(
   "dest_closure_full_addargs",
-  `dest_closure NONE c vs = SOME (Full_app b env r) ∧
+  `dest_closure max_app NONE c vs = SOME (Full_app b env r) ∧
    LENGTH more + LENGTH vs ≤ max_app ⇒
-   dest_closure NONE c (more ++ vs) = SOME (Full_app b env (more ++ r))`,
+   dest_closure max_app NONE c (more ++ vs) = SOME (Full_app b env (more ++ r))`,
   Cases_on `c` >> csimp[dest_closure_def, bool_case_eq, revdroprev, UNCURRY] >>
   simp[DROP_APPEND1, revdroprev, TAKE_APPEND1, TAKE_APPEND2] >>
   simp[check_loc_def]);
@@ -882,9 +887,9 @@ val evaluate_app_length_imp = Q.store_thm ("evaluate_app_length_imp",
  srw_tac[][]);
 
 val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
-`!l f args1 args2.
-  dest_closure NONE f args2 = NONE ⇒
-  dest_closure NONE f (args1 ++ args2) = NONE`,
+`!max_app l f args1 args2.
+  dest_closure max_app NONE f args2 = NONE ⇒
+  dest_closure max_app NONE f (args1 ++ args2) = NONE`,
  srw_tac[][dest_closure_def] >>
  Cases_on `f` >>
  full_simp_tac(srw_ss())[check_loc_def] >>
@@ -895,10 +900,10 @@ val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
  simp []);
 
 val dest_closure_none_append2 = Q.store_thm ("dest_closure_none_append2",
-`!l f args1 args2.
+`!max_app l f args1 args2.
   LENGTH args1 + LENGTH args2 ≤ max_app ∧
-  dest_closure NONE f (args1 ++ args2) = NONE ⇒
-  dest_closure NONE f args2 = NONE`,
+  dest_closure max_app NONE f (args1 ++ args2) = NONE ⇒
+  dest_closure max_app NONE f args2 = NONE`,
  srw_tac[][dest_closure_def] >>
  Cases_on `f` >>
  full_simp_tac(srw_ss())[check_loc_def] >>
@@ -909,7 +914,7 @@ val dest_closure_none_append2 = Q.store_thm ("dest_closure_none_append2",
  simp []);
 
 val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
-`dest_closure NONE f args = SOME (Full_app e l rest) ⇒ LENGTH rest < LENGTH args`,
+`dest_closure max_app NONE f args = SOME (Full_app e l rest) ⇒ LENGTH rest < LENGTH args`,
  simp [dest_closure_def] >>
  Cases_on `f` >>
  simp [check_loc_def]
@@ -918,12 +923,12 @@ val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
  >- (srw_tac[][] >> simp []));
 
 val dest_closure_partial_twice = Q.store_thm ("dest_closure_partial_twice",
-`∀f args1 args2 cl res.
+`∀max_app f args1 args2 cl res.
   LENGTH args1 + LENGTH args2 ≤ max_app ∧
-  dest_closure NONE f (args1 ++ args2) = res ∧
-  dest_closure NONE f args2 = SOME (Partial_app cl)
+  dest_closure max_app NONE f (args1 ++ args2) = res ∧
+  dest_closure max_app NONE f args2 = SOME (Partial_app cl)
   ⇒
-  dest_closure NONE cl args1 = res`,
+  dest_closure max_app NONE cl args1 = res`,
  simp [dest_closure_def] >>
  Cases_on `f` >>
  simp [check_loc_def]
@@ -966,7 +971,7 @@ val dest_closure_partial_twice = Q.store_thm ("dest_closure_partial_twice",
 
 val evaluate_app_append = Q.store_thm ("evaluate_app_append",
 `!args2 f args1 s.
-  LENGTH (args1 ++ args2) ≤ max_app ⇒
+  LENGTH (args1 ++ args2) ≤ s.max_app ⇒
   evaluate_app NONE f (args1 ++ args2) s =
     case evaluate_app NONE f args2 s of
     | (Rval vs1, s1) => evaluate_app NONE (HD vs1) args1 s1
@@ -979,7 +984,8 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
  Cases_on `args2 = []`
  >- full_simp_tac(srw_ss())[evaluate_def, APPEND_eq_NIL] >>
  srw_tac[][evaluate_app_rw] >>
- `dest_closure NONE f args2 = NONE ∨ ?x. dest_closure NONE f args2 = SOME x` by metis_tac [option_nchotomy] >>
+ `dest_closure s.max_app NONE f args2 = NONE ∨
+   ?x. dest_closure s.max_app NONE f args2 = SOME x` by metis_tac [option_nchotomy] >>
  full_simp_tac(srw_ss())[]
  >- (
    imp_res_tac dest_closure_none_append >>
@@ -987,8 +993,8 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
  Cases_on `x` >>
  full_simp_tac(srw_ss())[]
  >- ( (* args2 partial app *)
-   `dest_closure NONE f (args1++args2) = NONE ∨
-    ?x. dest_closure NONE f (args1++args2) = SOME x` by metis_tac [option_nchotomy] >>
+   `dest_closure s.max_app NONE f (args1++args2) = NONE ∨
+    ?x. dest_closure s.max_app NONE f (args1++args2) = SOME x` by metis_tac [option_nchotomy] >>
    simp []
    >- (imp_res_tac dest_closure_none_append2 >> full_simp_tac(srw_ss())[]) >>
    imp_res_tac dest_closure_partial_twice >>
@@ -1020,6 +1026,7 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
    first_x_assum (qspec_then `l0` mp_tac) >>
    srw_tac[][] >>
    pop_assum (qspecl_then [`h`, `args1`, `r`] mp_tac) >>
+   imp_res_tac evaluate_const >> fs[dec_clock_def] >>
    simp []));
 
 val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
@@ -1027,15 +1034,15 @@ val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
 
 val dest_closure_full_maxapp = Q.store_thm(
   "dest_closure_full_maxapp",
-  `dest_closure NONE c vs = SOME (Full_app b env r) ∧ r ≠ [] ⇒
+  `dest_closure max_app NONE c vs = SOME (Full_app b env r) ∧ r ≠ [] ⇒
    LENGTH vs ≤ max_app`,
   Cases_on `c` >> simp[dest_closure_def, check_loc_def, UNCURRY]);
 
 val dest_closure_full_split' = Q.store_thm(
   "dest_closure_full_split'",
-  `dest_closure loc v vs = SOME (Full_app e env rest) ⇒
+  `dest_closure max_app loc v vs = SOME (Full_app e env rest) ⇒
    ∃used.
-    vs = rest ++ used ∧ dest_closure loc v used = SOME (Full_app e env [])`,
+    vs = rest ++ used ∧ dest_closure max_app loc v used = SOME (Full_app e env [])`,
   simp[dest_closure_def] >> Cases_on `v` >>
   simp[bool_case_eq, revnil, DROP_NIL, DECIDE ``0n >= x ⇔ x = 0``, UNCURRY,
        NOT_LESS, DECIDE ``x:num >= y ⇔ y ≤ x``, DECIDE ``¬(x:num ≤ y) ⇔ y < x``]
@@ -1063,12 +1070,12 @@ val dest_closure_full_split' = Q.store_thm(
 
 val dest_closure_partial_split = Q.store_thm (
   "dest_closure_partial_split",
-`!v1 vs v2 n.
-  dest_closure NONE v1 vs = SOME (Partial_app v2) ∧
+`!max_app v1 vs v2 n.
+  dest_closure max_app NONE v1 vs = SOME (Partial_app v2) ∧
   n ≤ LENGTH vs
   ⇒
   ?v3.
-    dest_closure NONE v1 (DROP n vs) = SOME (Partial_app v3) ∧
+    dest_closure max_app NONE v1 (DROP n vs) = SOME (Partial_app v3) ∧
     v2 = clo_add_partial_args (TAKE n vs) v3`,
  srw_tac[][dest_closure_def] >>
  Cases_on `v1` >>
@@ -1090,11 +1097,11 @@ val dest_closure_partial_split = Q.store_thm (
 
 val dest_closure_partial_split' = Q.store_thm(
   "dest_closure_partial_split'",
-  `∀n v vs cl.
-      dest_closure NONE v vs = SOME (Partial_app cl) ∧ n ≤ LENGTH vs ⇒
+  `∀max_app n v vs cl.
+      dest_closure max_app NONE v vs = SOME (Partial_app cl) ∧ n ≤ LENGTH vs ⇒
       ∃cl0 used rest.
          vs = rest ++ used ∧ LENGTH rest = n ∧
-         dest_closure NONE v used = SOME (Partial_app cl0) ∧
+         dest_closure max_app NONE v used = SOME (Partial_app cl0) ∧
          cl = clo_add_partial_args rest cl0`,
   rpt strip_tac >>
   IMP_RES_THEN
@@ -1104,9 +1111,9 @@ val dest_closure_partial_split' = Q.store_thm(
 
 val dest_closure_NONE_Full_to_Partial = Q.store_thm(
   "dest_closure_NONE_Full_to_Partial",
-  `dest_closure NONE v (l1 ++ l2) = SOME (Full_app b env []) ∧ l1 ≠ [] ⇒
-   ∃cl. dest_closure NONE v l2 = SOME (Partial_app cl) ∧
-        dest_closure NONE cl l1 = SOME (Full_app b env [])`,
+  `dest_closure max_app  NONE v (l1 ++ l2) = SOME (Full_app b env []) ∧ l1 ≠ [] ⇒
+   ∃cl. dest_closure max_app NONE v l2 = SOME (Partial_app cl) ∧
+        dest_closure max_app NONE cl l1 = SOME (Full_app b env [])`,
   Cases_on `v` >>
   dsimp[dest_closure_def, bool_case_eq, revnil, DROP_NIL, GREATER_EQ,
         check_loc_def, UNCURRY] >> srw_tac[][] >>

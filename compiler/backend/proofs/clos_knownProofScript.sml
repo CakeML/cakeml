@@ -1105,13 +1105,17 @@ val kvrel_LIST_REL_val_approx = Q.store_thm(
 
 val state_rel_def = Define`
   state_rel g (s1:'a closSem$state) (s2:'a closSem$state) ⇔
-     s2.clock = s1.clock ∧ s2.ffi = s1.ffi ∧
+     s2.clock = s1.clock ∧ s2.ffi = s1.ffi ∧ s2.max_app = s1.max_app ∧
      LIST_REL (OPTREL (kvrel g)) s1.globals s2.globals ∧
      fmap_rel (ref_rel (kvrel g)) s1.refs s2.refs ∧
      s1.code = FEMPTY ∧ s2.code = FEMPTY
 `;
 val _ = temp_overload_on ("ksrel", ``clos_knownProof$state_rel``)
 val ksrel_def = state_rel_def
+
+val state_rel_max_app = Q.store_thm("state_rel_max_app",
+  `state_rel g s1 s2 ⇒ s1.max_app = s2.max_app`,
+  rw[state_rel_def]);
 
 (* ksrel necessary *)
 val ksrel_sga = Q.store_thm(
@@ -1357,9 +1361,9 @@ val ksrel_find_code = Q.store_thm(
 
 val kvrel_dest_closure_SOME_Partial = Q.store_thm(
   "kvrel_dest_closure_SOME_Partial",
-  `dest_closure lopt1 f1 vs1 = SOME (Partial_app v1) ∧ kvrel g f1 f2 ∧
+  `dest_closure max_app lopt1 f1 vs1 = SOME (Partial_app v1) ∧ kvrel g f1 f2 ∧
    LIST_REL (kvrel g) vs1 vs2 ∧ loptrel f2 n lopt1 lopt2 ∧ LENGTH vs2 = n ⇒
-   ∃v2. dest_closure lopt2 f2 vs2 = SOME (Partial_app v2) ∧
+   ∃v2. dest_closure max_app lopt2 f2 vs2 = SOME (Partial_app v2) ∧
         kvrel g v1 v2`,
   simp[dest_closure_def, eqs, v_case_eq] >> rpt strip_tac >> rveq >> fs[] >>
   rpt strip_tac >> fs[eqs, bool_case_eq] >> rveq >> fs[loptrel_def] >> rveq
@@ -1384,11 +1388,11 @@ val kvrel_dest_closure_SOME_Partial = Q.store_thm(
 
 val kvrel_dest_closure_SOME_Full = Q.store_thm(
   "kvrel_dest_closure_SOME_Full",
-  `dest_closure lopt1 f1 vs1 = SOME (Full_app e1 env1 args1) ∧
+  `dest_closure max_app lopt1 f1 vs1 = SOME (Full_app e1 env1 args1) ∧
    kvrel g f1 f2 ∧
    LIST_REL (kvrel g) vs1 vs2 ∧ loptrel f2 n lopt1 lopt2 ∧ LENGTH vs2 = n ⇒
    ∃eapx e2 env2 args2.
-      dest_closure lopt2 f2 vs2 = SOME (Full_app e2 env2 args2) ∧
+      dest_closure max_app lopt2 f2 vs2 = SOME (Full_app e2 env2 args2) ∧
       LIST_REL val_approx_val eapx env2 ∧
       LIST_REL (kvrel g) env1 env2 ∧ LIST_REL (kvrel g) args1 args2 ∧
       kerel eapx g e1 e2`,
@@ -1476,7 +1480,7 @@ val vsgc_free_Full_app_set_globals = Q.store_thm(
   "vsgc_free_Full_app_set_globals",
   `∀fval lopt args fe env args'.
      vsgc_free fval ∧ EVERY vsgc_free args ∧
-     dest_closure lopt fval args = SOME (Full_app fe env args')
+     dest_closure max_app lopt fval args = SOME (Full_app fe env args')
    ⇒
      set_globals fe = {||} ∧ EVERY vsgc_free env ∧ EVERY vsgc_free args'`,
   simp[dest_closure_def, v_case_eq, bool_case_eq] >> rpt strip_tac >> fs[]
@@ -1510,7 +1514,7 @@ val krrel_better_subspt = Q.store_thm(
 
 val dest_closure_SOME_Full_app_args_nil = Q.store_thm(
   "dest_closure_SOME_Full_app_args_nil",
-  `dest_closure (SOME loc) f args = SOME (Full_app exp1 env args1) ⇒
+  `dest_closure max_app (SOME loc) f args = SOME (Full_app exp1 env args1) ⇒
    args1 = []`,
   simp[dest_closure_def, eqs, bool_case_eq, revtakerev] >> strip_tac >> rveq
   >- (fs[check_loc_def] >> simp[DROP_LENGTH_NIL_rwt]) >>
@@ -1544,7 +1548,7 @@ val loptrel_arg1_NONE = save_thm(
 
 val kvrel_dest_closure_every_Fn_vs_NONE = Q.store_thm(
   "kvrel_dest_closure_every_Fn_vs_NONE",
-  `kvrel g f1 f2 ∧ dest_closure locopt f1 args0 = SOME (Full_app e env args) ⇒
+  `kvrel g f1 f2 ∧ dest_closure max_app locopt f1 args0 = SOME (Full_app e env args) ⇒
    every_Fn_vs_NONE [e]`,
   simp[dest_closure_def, eqs, bool_case_eq] >> strip_tac >> rveq >> fs[] >>
   rveq >> simp[Once every_Fn_vs_NONE_EVERY] >> pairarg_tac >>
@@ -1748,6 +1752,7 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, pair_case_eq, result_case_eq,
            known_def, bool_case_eq, eqs] >> rpt strip_tac >> rveq >> fs[] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      imp_res_tac state_rel_max_app >> fs[] >>
       dsimp[evaluate_def, eqs] >> imp_res_tac known_sing_EQ_E >> rveq >> fs[] >>
       rveq >>
       simp[exp_rel_def, PULL_EXISTS] >> metis_tac[kvrel_LIST_REL_val_approx])
@@ -1756,6 +1761,7 @@ val known_correct0 = Q.prove(
            eqs] >> rpt strip_tac >> rveq >> fs[letrec_case_eq] >>
       rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       fs[BAG_ALL_DISTINCT_BAG_UNION] >>
+      imp_res_tac state_rel_max_app >> fs[] >>
       simp[evaluate_def, eqs, bool_case_eq] >> dsimp[] >>
       simp[EVERY_MAP, EXISTS_MAP]
       >- (disj1_tac >> simp[EVERY_MEM, FORALL_PROD] >>
@@ -1763,7 +1769,7 @@ val known_correct0 = Q.prove(
           sel_ihpc last >> simp[EVERY_GENLIST] >>
           rpt (disch_then (resolve_selected last) >> simp[]) >>
           rename1 `BAG_ALL_DISTINCT (elist_globals (MAP SND fns1))` >>
-          `∀n e. MEM (n,e) fns1 ⇒ n ≤ max_app ∧ n ≠ 0`
+          `∀n e. MEM (n,e) fns1 ⇒ n ≤ s02.max_app ∧ n ≠ 0`
             by fs[EVERY_MEM, FORALL_PROD] >> simp[] >> strip_tac >>
           simp[GSYM PULL_EXISTS] >> simp[Once EQ_SYM_EQ] >>
           imp_res_tac LIST_REL_LENGTH >> fs[] >>
@@ -1957,10 +1963,11 @@ val known_correct0 = Q.prove(
           rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
           simp[] >> rename1 `ksrel g s01 s02` >>
           `s02.clock = s01.clock` by fs[ksrel_def] >>
+          `s02.max_app = s01.max_app` by fs[ksrel_def] >>
           imp_res_tac LIST_REL_LENGTH >> fs[] >> simp[PULL_EXISTS] >>
           dsimp[] >> fs[PULL_EXISTS] >>
           map_every rename1 [
-            `dest_closure lopt1 f1 (iarg1 :: iargs) =
+            `dest_closure _ lopt1 f1 (iarg1 :: iargs) =
                SOME (Full_app exp1 env1 args1)`,
             `evaluate([exp1],env1,dec_clock _ s01) = (Rval [v1], s11)`,
             `kerel envapx gg exp1 exp2`] >> fs[exp_rel_def] >>
@@ -2017,7 +2024,7 @@ val known_correct0 = Q.prove(
           imp_res_tac LIST_REL_LENGTH >> fs[] >> simp[PULL_EXISTS] >>
           dsimp[] >>
           map_every rename1 [
-            `dest_closure lopt1 f1 (iarg1 :: iargs) =
+            `dest_closure _ lopt1 f1 (iarg1 :: iargs) =
                SOME (Full_app exp1 env1 args1)`,
             `evaluate([exp1],env1,dec_clock _ s01) = (Rerr err1, s1)`,
             `kerel envapx gg exp1 exp2`] >> fs[exp_rel_def] >>
@@ -2042,6 +2049,7 @@ val known_correct0 = Q.prove(
           `every_Fn_vs_NONE [exp1]`
             by metis_tac[kvrel_dest_closure_every_Fn_vs_NONE] >>
           impl_tac >- (simp[] >> fs[ksrel_def, dec_clock_def]) >> rw[] >>
+          imp_res_tac state_rel_max_app >>
           simp[] >> fs[krrel_err_rw] >>
           rename1 `evaluate([exp2],_,_) = (res2,_)` >>
           Cases_on `res2`

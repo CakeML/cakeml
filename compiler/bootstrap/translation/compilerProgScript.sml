@@ -1,4 +1,3 @@
-open HolKernel Parse boolLib bossLib;
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -76,11 +75,11 @@ val pat_to_clos_compile_side = prove(``
 val _ = translate(clos_mtiTheory.intro_multi_def)
 
 val clos_mti_intro_multi_side = prove(``
-  ∀a. clos_mti_intro_multi_side a ⇔ T``,
+  ∀max_app a. clos_mti_intro_multi_side max_app a ⇔ T``,
   ho_match_mp_tac clos_mtiTheory.intro_multi_ind>>
-  `∀z. intro_multi [z] ≠ []` by
-    (CCONTR_TAC>>fs[]>>
-    Q.SPEC_THEN `z` mp_tac clos_mtiTheory.intro_multi_sing >>fs[])>>
+  `∀max_app z. intro_multi max_app [z] ≠ []` by
+    (rw[] >> CCONTR_TAC>>fs[]>>
+     Q.SPECL_THEN [`z`,`max_app`] mp_tac clos_mtiTheory.intro_multi_sing >>fs[])>>
   rw[]>>
   simp[Once (fetch "-" "clos_mti_intro_multi_side_def")]>>
   metis_tac[])|>update_precondition
@@ -212,9 +211,9 @@ val clos_to_bvl_recc_lets_side = prove(``
   Cases_on`b`>>fs[])
 
 val clos_to_bvl_compile_exps_side = prove(``
-  ∀a b. clos_to_bvl_compile_exps_side a b``,
+  ∀max_app a b. clos_to_bvl_compile_exps_side max_app a b``,
   ho_match_mp_tac clos_to_bvlTheory.compile_exps_ind>>
-  `∀a b c. compile_exps [a] b ≠ ([],c)` by
+  `∀max_app a b c. compile_exps max_app [a] b ≠ ([],c)` by
     (CCONTR_TAC>>fs[]>>
     imp_res_tac clos_to_bvlTheory.compile_exps_SING>>
     fs[])>>
@@ -227,11 +226,11 @@ val clos_to_bvl_compile_exps_side = prove(``
     match_mp_tac clos_to_bvl_recc_lets_side>>
     simp[LENGTH_TL])
   >>
-  first_x_assum(qspecl_then[`x1`,`x43`,`x41`] assume_tac)>>
+  first_x_assum(qspecl_then[`max_app`,`x1`,`x43`,`x41`] assume_tac)>>
   CCONTR_TAC>>fs[])
 
 val clos_to_bvl_compile_prog_side = prove(``
-  ∀x. clos_to_bvl_compile_prog_side x ⇔ T``,
+  ∀max_app x. clos_to_bvl_compile_prog_side max_app x ⇔ T``,
   ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
   simp[Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),clos_to_bvl_compile_exps_side])
 
@@ -268,7 +267,7 @@ val clos_to_bvl_compile_side = prove(``
     imp_res_tac clos_knownTheory.known_sing_EQ_E>>
     fs[])
   >>
-    `∃z. compile x.do_mti [y] = [z]` by
+    `∃z. compile x.do_mti x.max_app [y] = [z]` by
       (Cases_on`x.do_mti`>>fs[clos_mtiTheory.compile_def]>>
       metis_tac[clos_mtiTheory.intro_multi_sing])>>
     ntac 2 (pop_assum mp_tac)>>
