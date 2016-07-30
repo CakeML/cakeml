@@ -7,27 +7,27 @@ open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory cfAppTheory
 open cfHeapsLib cfTheory cfTacticsBaseLib cfTacticsTheory
 open match_goal
 
-(* todo: add a ref allowing the custom printer to be disabled *)
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
     open Portable term_pp_types smpp
     val str = #add_string ppfns
   in str s end
 
-val _ = add_user_printer ("extend_env_ellipsis", ``extend_env _ _ _``,
-                          constant_printer "(…)")
+val ellipsis_pp = constant_printer "(…)"
 
-val _ = add_user_printer ("extend_env_rec_ellipsis",
-                          ``extend_env_rec _ _ _ _ _``,
-                          constant_printer "(…)")
+val printers = [
+  ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
+  ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
+  ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
+  ("extend_env_rec_with_ellipsis", ``extend_env_rec _ _ _ _ _ with v := _``,
+   ellipsis_pp)
+]
 
-val _ = add_user_printer ("extend_env_with_ellipsis",
-                          ``extend_env _ _ _ with v := _``,
-                          constant_printer "(…)")
+fun hide_environments b =
+  if b then app add_user_printer printers
+  else app (ignore o remove_user_printer) (map #1 printers)
 
-val _ = add_user_printer ("extend_env_rec_with_ellipsis",
-                          ``extend_env_rec _ _ _ _ _ with v := _``,
-                          constant_printer "(…)")
+val _ = hide_environments true
 
 (*------------------------------------------------------------------*)
 

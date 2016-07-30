@@ -79,4 +79,6 @@ sig
   val xapply : thm -> tactic
   val xapp_prepare_goal : tactic
   val reduce_tac : tactic
+
+  val hide_environments : bool -> unit
 end
