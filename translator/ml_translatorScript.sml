@@ -304,14 +304,15 @@ val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   \\ imp_res_tac Eq_lemma \\ fs []
   \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]);
 
-val types_match_list_length = prove(
+val types_match_list_length = store_thm("types_match_list_length",
   ``!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2``,
   Induct \\ Cases_on`vs2` \\ rw[types_match_def])
 
-val type_match_implies_do_eq_succeeds = prove(``
-  (!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
-  (!vs1 vs2.
-     types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))``,
+val type_match_implies_do_eq_succeeds = store_thm(
+  "type_match_implies_do_eq_succeeds",
+  ``(!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
+    (!vs1 vs2.
+       types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))``,
   ho_match_mp_tac do_eq_ind
   \\ rw [do_eq_def, types_match_def]
   \\ imp_res_tac types_match_list_length
