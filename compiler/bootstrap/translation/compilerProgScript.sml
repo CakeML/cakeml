@@ -380,7 +380,9 @@ val bvl_to_bvi_compile_side = prove(``
 val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
 val _ = translate (COUNT_LIST_compute)
 
-(*
+(* TODO: For some reason, the following def on sptrees fails to translate in a standalone manner (when the rest of this file's translation isn't loaded). Needs investigation. *)
+val _ = translate (list_to_num_set_def)
+
 val _ = translate (bvi_to_dataTheory.compile_def)
 
 val bvi_to_data_compile_side = prove(``
@@ -393,10 +395,8 @@ val bvi_to_data_compile_side = prove(``
   rw[]>>
   simp[Once (fetch "-" "bvi_to_data_compile_side_def")]>>
   fs[FALSE_def]>>
-  TRY(metis_tac[])>>
-  (* TODO: the last condition is not trvially provable ... we need to know that all Vars are < arg_count *)
-  cheat)|>update_precondition
+  metis_tac[])|>update_precondition
 
 val _ = translate (bvi_to_dataTheory.compile_prog_def)
-*)
+
 val _ = export_theory();

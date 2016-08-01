@@ -6,10 +6,12 @@ val _ = new_theory"x64_config";
 
 val rconc = rhs o concl
 
-val source_conf = rconc(EVAL``prim_config.source_conf``)
-val mod_conf = rconc(EVAL``prim_config.mod_conf``)
+val prim_config_max_app = ``prim_config 4``
+
+val source_conf = rconc(EVAL``^(prim_config_max_app).source_conf``)
+val mod_conf = rconc(EVAL``^(prim_config_max_app).mod_conf``)
 (* Note: prim_config condition in backend needs to be relaxed *)
-val clos_conf = rconc (EVAL ``prim_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T;max_app=4|>``)
+val clos_conf = rconc (EVAL ``(^(prim_config_max_app).clos_conf) with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T;max_app:=4|>``)
 val data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
 val bvl_conf = ``<|inline_size_limit := 3; exp_cut:=200|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
