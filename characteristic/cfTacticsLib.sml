@@ -280,7 +280,7 @@ fun xfun qname =
   xpull_check_not_needed \\
   first_match_tac [
     ([mg.c `cf_fundecl _ _ _ _ _ _ _ _`], K xfun_norec_core),
-    ([mg.c `cf_fundecl_rec _ _ _ _ _ _ _`], K xfun_rec_core)
+    ([mg.c `cf_fundecl_rec _ _ _ _ _ _`], K xfun_rec_core)
   ] \\
   qx_gen_tac qname \\
   rpt strip_tac

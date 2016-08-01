@@ -949,7 +949,9 @@ val fundecl_rec_aux_def = Define `
   fundecl_rec_aux _ _ _ _ _ _ _ _ _ _ = F`
 
 val cf_fundecl_rec_def = Define `
-  cf_fundecl_rec (p:'ffi ffi_proj) fs Fs F2 = \env. local (\H Q.
+  cf_fundecl_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
+    let fs = MAP (\ (f, _). f) fs_Fs in
+    let Fs = MAP (\ (_, F). F) fs_Fs in
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
     !(fvs: v list).
@@ -1095,8 +1097,8 @@ val cf_def = tDefine "cf" `
      else
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
   cf (p:'ffi ffi_proj) (Letrec funs e) =
-    (cf_fundecl_rec (p:'ffi ffi_proj) (letrec_pull_params funs)
-       (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) (letrec_pull_params funs))
+    (cf_fundecl_rec (p:'ffi ffi_proj)
+       (MAP (\x. (x, cf p (SND (SND x)))) (letrec_pull_params funs))
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
@@ -1670,9 +1672,9 @@ val cf_sound = store_thm ("cf_sound",
   )
   THEN1 (
     (* Letrec *)
-    HO_MATCH_MP_TAC sound_local \\
+    HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
     mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound) \\
-    fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
+    fs [LAMBDA_PROD, letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     rewrite_tac [sound_def] \\ rpt strip_tac \\ fs [] \\
     first_assum (qspecl_then [`env`, `H`, `Q`] assume_tac) \\
     (fn x => first_assum (qspec_then x assume_tac))
