@@ -204,11 +204,15 @@ fun xlet_core cont0 cont1 cont2 =
   CONJ_TAC THENL [all_tac, cont1 \\ cont2]
 
 (* temporary basic wrapper until evars *)
-fun xlet Q x =
+fun xlet Q = let
+  val name = (fst o dest_var o fst o dest_abs o Term) Q
+  val qname = [QUOTE name]
+in
   xlet_core
     (qexists_tac Q)
-    (qx_gen_tac x \\ cbv)
+    (qx_gen_tac qname \\ cbv)
     (TRY xpull)
+end
 
 (* temp *)
 fun xlet_seq Q =

@@ -22,30 +22,40 @@ sig
   *)
   val xsimpl : tactic
 
-  (* [xlet] applies on characteristic formulae for let, of the form
-     [cf_let ...].
+  (* [xlet] applies on characteristic formulae for let and sequences,
+     of the form [cf_let ...].
 
      It must be provided the post-condition for the expression bound
-     to the value, and a name for the corresponding value.
+     to the value; the introduced name will be deduced from the
+     variable of the lambda.
 
-     Example: [xlet `\v. & INT 3 v` `i`]
+     Example: [xlet `\i. & INT 3 i`]
   *)
-  val xlet : term quotation -> term quotation -> tactic
+  val xlet : term quotation -> tactic
 
-  (* [xlet_seq] applies on characteristic formulae for let that result
-     from a sequence. Only the post-condition needs to be provided.
-  *)
-  val xlet_seq : term quotation -> tactic
+  (* [xfun] applies on characteristic formulae for function
+     declaration, of the form [cf_fundecl ...] or
+     [cf_fundecl_rec ...].
 
-  (* [xfun] applies on characteristic formulae for function declaration, of the
-     form [cf_fundecl ...] or [cf_fundecl_rec ...].
-
-     It must be provided with a name for the closure corresponding to the
-     function. It then adds to the context the most general specification for
-     the new function, that will be used by later calls to [xapp].
+     It must be provided with a name for the closure corresponding to
+     the function. It then adds to the context the most general
+     specification for the new function, that will be used by later
+     calls to [xapp].
   *)
   val xfun : term quotation -> tactic
 
+  (* [xfun_spec] is a variant of [xfun] which allows providing
+     explicitly a specification for the introduced function. This
+     produces a subgoal for proving the asserted spec, knowing the
+     most-general specification, as [xfun] would produce.
+
+     This is mostly useful for recursive functions, where the general
+     specification is generally not useful as-is.
+
+     The first argument is a name for the introduced closure, and the
+     second argument is the provided specification (of the form
+     [app p f args H Q]).
+  *)
   val xfun_spec : term quotation -> term quotation -> tactic
 
   (* [xapp] and [xapp_spec] apply on characteristic fomulae for

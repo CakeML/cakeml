@@ -13,7 +13,7 @@ val st0 = ml_progLib.add_prog example_let0 pick_name basis_st
 val example_let0_spec = Q.prove (
   `!nv. app (p:'ffi ffi_proj) ^(fetch_v "example_let0" st0) [nv]
           emp (\v. & INT 3 v)`,
-  xcf "example_let0" st0 \\ xlet `\v. cond (INT 3 v)` `a`
+  xcf "example_let0" st0 \\ xlet `\a. & INT 3 a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
 )
@@ -26,7 +26,7 @@ val st1 = ml_progLib.add_prog example_let1 pick_name basis_st
 val example_let1_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let1" st1) [uv]
           emp (\v. & UNIT_TYPE () v)`,
-  xcf "example_let1" st1 \\ xlet `\v. cond (UNIT_TYPE () v)` `a`
+  xcf "example_let1" st1 \\ xlet `\a. & UNIT_TYPE () a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
 )
@@ -39,7 +39,7 @@ val st2 = ml_progLib.add_prog example_let2 pick_name basis_st
 val example_let2_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let2" st2) [uv]
           emp (\v. & (v = uv))`,
-  xcf "example_let2" st2 \\ xlet `\v. cond (v = uv)` `a`
+  xcf "example_let2" st2 \\ xlet `\v. & (v = uv)`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
 )
@@ -56,9 +56,9 @@ val example_let_spec = Q.prove (
        emp (\v. & INT (2 * n) v)`,
 
   xcf "example_let" st \\
-  xlet `\v. & INT (n+1) v` `a`
+  xlet `\a. & INT (n+1) a`
   THEN1 (xapp \\ fs []) \\
-  xlet `\v. & INT (n-1) v` `b`
+  xlet `\b. & INT (n-1) b`
   THEN1 (xapp \\ fs []) \\
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 )
@@ -78,8 +78,8 @@ val alloc_ref2_spec = Q.prove (
               & PAIR_TYPE (=) (=) (r1, r2) p *
               REF r1 av * REF r2 bv)`,
   xcf "alloc_ref2" st \\
-  xlet `\v. REF v av` `r1` THEN1 xapp \\
-  xlet `\v. REF v bv * REF r1 av` `r2` THEN1 (xapp \\ xsimpl) \\
+  xlet `\r1. REF r1 av` THEN1 xapp \\
+  xlet `\r2. REF r2 bv * REF r1 av` THEN1 (xapp \\ xsimpl) \\
   xret \\ fs [PAIR_TYPE_def] \\ xsimpl
 )
 
@@ -94,11 +94,11 @@ val swap_spec = Q.prove (
        (REF r1v xv * REF r2v yv)
        (\v. & UNIT_TYPE () v * REF r1v yv * REF r2v xv)`,
   xcf "swap" st2 \\
-  xlet `\v. & (v = xv) * r1v ~~> xv * r2v ~~> yv` `xv'`
+  xlet `\xv'. & (xv' = xv) * r1v ~~> xv * r2v ~~> yv`
     THEN1 (xapp \\ xsimpl) \\
-  xlet `\v. & (v = yv) * r1v ~~> xv * r2v ~~> yv` `yv'`
+  xlet `\yv'. & (yv' = yv) * r1v ~~> xv * r2v ~~> yv`
     THEN1 (xapp \\ xsimpl) \\
-  xlet `\v. r1v ~~> yv * r2v ~~> yv` `u`
+  xlet `\u. r1v ~~> yv * r2v ~~> yv`
     THEN1 (xapp \\ xsimpl) \\
   xapp \\ xsimpl
 )
@@ -114,7 +114,7 @@ val example_if_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "example_if" st) [nv]
        emp (\v. &(if n > 0 then INT 1 v else INT 2 v))`,
 
-  xcf "example_if" st \\ xlet `\v. & BOOL (n > 0) v` `bv`
+  xcf "example_if" st \\ xlet `\bv. & BOOL (n > 0) bv`
   THEN1 (xapp \\ fs []) \\
   xif \\ xret \\ xsimpl
 )
@@ -160,7 +160,7 @@ val example_and_spec = Q.prove (
      UNIT_TYPE () uv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "example_and" st) [uv]
        emp (\bv. & BOOL F bv)`,
-  xcf "example_and" st \\ xlet `\v. & BOOL T v` `b`
+  xcf "example_and" st \\ xlet `\b. & BOOL T b`
   THEN1 (xret \\ xsimpl) \\
   xlog \\ xret \\ xsimpl
 )
@@ -204,7 +204,7 @@ val list_length_spec = store_thm ("list_length_spec",
   THEN1 (
     xcf "length" st \\ fs [LIST_TYPE_def] \\
     rename1 `a x xv` \\ rename1 `LIST_TYPE a xs xvs` \\
-    xmatch \\ xlet `\v. & NUM (LENGTH xs) v` `xs_len`
+    xmatch \\ xlet `\xs_len. & NUM (LENGTH xs) xs_len`
     THEN1 (xapp \\ metis_tac []) \\
     xapp \\ xsimpl \\ fs [NUM_def] \\ asm_exists_tac \\ fs [] \\
     (* meh? *) fs [INT_def] \\ intLib.ARITH_TAC
@@ -217,9 +217,9 @@ val bytearray_fromlist_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "fromList" st) [lv]
        emp (\av. W8ARRAY av l)`,
   xcf "fromList" st \\
-  xlet `\v. & NUM (LENGTH l) v` `len_v` THEN1 (xapp \\ metis_tac []) \\
-  xlet `\v. & WORD (i2w 0: word8) v` `w8z` THEN1 (xapp \\ fs []) \\
-  xlet `\v. W8ARRAY v (REPLICATE (LENGTH l) (i2w 0))` `av`
+  xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
+  xlet `\w8z. & WORD (i2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) (i2w 0))`
     THEN1 (xapp \\ fs []) \\
   xfun_spec `f`
     `!ls lvs i iv l_pre rest.
@@ -234,14 +234,14 @@ val bytearray_fromlist_spec = Q.prove (
     THEN1 (xapp \\ xmatch \\ xret \\ xsimpl)
     THEN1 (
       fs [] \\ last_assum xapp_spec \\ xmatch \\
-      xlet `\v. & NUM (LENGTH l_pre + 1) v * W8ARRAY av (l_pre ++ rest)` `ippv`
+      xlet `\ippv. & NUM (LENGTH l_pre + 1) ippv * W8ARRAY av (l_pre ++ rest)`
       THEN1 (
         xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate \\
         (* meh *) fs [INT_def] \\ intLib.ARITH_TAC
       ) \\
       rename1 `lvs = Conv _ [hv; tv]` \\ rename1 `WORD h hv` \\
       fs [LENGTH_CONS] \\ rename1 `rest = rest_h :: rest_t` \\
-      xlet_seq `\_. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
+      xlet `\_. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
         xapp \\ xsimpl \\ fs [UNIT_TYPE_def, GSYM CONJ_ASSOC] \\
         instantiate \\ fs [lupdate_append]
       ) \\
