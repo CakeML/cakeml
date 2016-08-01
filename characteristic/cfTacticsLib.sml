@@ -212,8 +212,8 @@ fun xlet Q x =
 (* temp *)
 fun xlet_seq Q =
   xlet_core
-    (qexists_tac Q \\ gen_tac)
-    cbv
+    (qexists_tac Q)
+    (gen_tac \\ cbv)
     (TRY xpull)
 
 (* [xfun] *)
