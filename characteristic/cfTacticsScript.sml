@@ -71,6 +71,12 @@ val BOOL_F_Conv = store_thm ("BOOL_F_Conv[simp]",
   fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 )
 
+val BOOL_Boolv = store_thm ("BOOL_Boolv[simp]",
+  ``BOOL b (Boolv bv) = (b = bv)``,
+  fs [BOOL_def, semanticPrimitivesTheory.Boolv_def] \\
+  every_case_tac \\ fs []
+)
+
 (*------------------------------------------------------------------*)
 (* Used for cleaning up after unfolding [build_cases] (in cf_match) *)
 
