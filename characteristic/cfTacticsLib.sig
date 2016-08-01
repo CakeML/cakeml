@@ -37,6 +37,15 @@ sig
   *)
   val xlet_seq : term quotation -> tactic
 
+  (* [xfun] applies on characteristic formulae for function declaration, of the
+     form [cf_fundecl ...] or [cf_fundecl_rec ...].
+
+     It must be provided with a name for the closure corresponding to the
+     function. It then adds to the context the most general specification for
+     the new function, that will be used by later calls to [xapp].
+  *)
+  val xfun : term quotation -> tactic
+
   (* [xapp] and [xapp_spec] apply on characteristic fomulae for
      function application, of the form [cf_app ...].
 

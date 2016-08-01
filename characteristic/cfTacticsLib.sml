@@ -40,6 +40,7 @@ val () = cfComputeLib.add_cf_normalize_compset cs
 val eval = computeLib.CBV_CONV cs
 val eval_tac = CONV_TAC eval
 val eval_pat = compute_pat cs
+fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 local
   (* from bossLib.sml *)
@@ -74,7 +75,8 @@ val reducible_pats = [
   ``exp2v_list _ _``,
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
-  ``lookup_var_id _ _``
+  ``lookup_var_id _ _``,
+  ``Fun_body _``
 ]
 
 val reduce_conv =
@@ -213,6 +215,75 @@ fun xlet_seq Q =
     (qexists_tac Q \\ gen_tac)
     cbv
     (TRY xpull)
+
+(* [xfun] *)
+
+val reduce_spec_conv =
+  STRIP_QUANT_CONV (LAND_CONV eval) THENC
+  simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS]
+
+val reduce_curried_conv = RATOR_CONV (RAND_CONV eval)
+
+val fundecl_reduce_conv =
+  QUANT_CONV (
+    LAND_CONV (
+      LAND_CONV reduce_curried_conv THENC
+      RAND_CONV reduce_spec_conv
+    )
+  )
+
+fun fundecl_rec_aux_unfold_conv tm = let
+  val base_case = fst (CONJ_PAIR fundecl_rec_aux_def)
+  val ind_case = fst (CONJ_PAIR (snd (CONJ_PAIR fundecl_rec_aux_def)))
+  val base_conv = REWR_CONV base_case
+  val ind_conv =
+    REWR_CONV ind_case THENC
+    LAND_CONV (
+      LAND_CONV reduce_curried_conv THENC
+      RAND_CONV reduce_spec_conv
+    ) THENC
+    RAND_CONV (
+      fundecl_rec_aux_unfold_conv
+    )
+in (base_conv ORELSEC ind_conv) tm end
+
+val fundecl_rec_reduce_conv = let
+  val reduce_length =
+      eval THENC
+      simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS]
+in
+  simp_conv [] THENC
+  QUANT_CONV (
+    LAND_CONV reduce_length THENC
+    RAND_CONV (
+      LAND_CONV eval THENC
+      RAND_CONV (
+        DEPTH_CONV (eval_pat ``letrec_pull_params _``)
+      )
+    )
+  ) THENC
+  simp_conv [PULL_EXISTS] THENC
+  QUANT_CONV fundecl_rec_aux_unfold_conv
+end
+
+val xfun_norec_core =
+  head_unfold cf_fundecl_def \\
+  irule local_elim \\ hnf \\
+  CONV_TAC fundecl_reduce_conv
+
+val xfun_rec_core =
+  head_unfold cf_fundecl_rec_def \\
+  irule local_elim \\ hnf \\
+  CONV_TAC fundecl_rec_reduce_conv
+
+fun xfun qname =
+  xpull_check_not_needed \\
+  first_match_tac [
+    ([mg.c `cf_fundecl _ _ _ _ _ _ _ _`], K xfun_norec_core),
+    ([mg.c `cf_fundecl_rec _ _ _ _ _ _ _`], K xfun_rec_core)
+  ] \\
+  qx_gen_tac qname \\
+  rpt strip_tac
 
 (* [xapply] *)
 
