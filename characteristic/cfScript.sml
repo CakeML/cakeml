@@ -847,6 +847,18 @@ val app_aw8update_def = Define `
       (H ==>> F * W8ARRAY a ws) /\
       (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Conv NONE []))`
 
+val app_wordFromInt_W8_def = Define `
+  app_wordFromInt_W8 (i: int) H Q =
+    H ==>> Q (Litv (Word8 (i2w i)))`
+
+val app_wordFromInt_W64_def = Define `
+  app_wordFromInt_W64 (i: int) H Q =
+    H ==>> Q (Litv (Word64 (i2w i)))`
+
+val app_wordToInt_def = Define `
+  app_wordToInt w H Q =
+    H ==>> Q (Litv (IntLit (& w2n w)))`
+
 val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
     ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
@@ -1020,6 +1032,30 @@ val cf_aw8update_def = Define `
       exp2v env xw = SOME (Litv (Word8 w)) /\
       app_aw8update a i w H Q)`
 
+val cf_wordFromInt_W8_def = Define `
+  cf_wordFromInt_W8 xi = \env. local (\H Q.
+    ?i.
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      app_wordFromInt_W8 i H Q)`
+
+val cf_wordFromInt_W64_def = Define `
+  cf_wordFromInt_W64 xi = \env. local (\H Q.
+    ?i.
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      app_wordFromInt_W64 i H Q)`
+
+val cf_wordToInt_W8_def = Define `
+  cf_wordToInt_W8 xw = \env. local (\H Q.
+    ?w.
+      exp2v env xw = SOME (Litv (Word8 w)) /\
+      app_wordToInt w H Q)`
+
+val cf_wordToInt_W64_def = Define `
+  cf_wordToInt_W64 xw = \env. local (\H Q.
+    ?w.
+      exp2v env xw = SOME (Litv (Word64 w)) /\
+      app_wordToInt w H Q)`
+
 val cf_log_def = Define `
   cf_log lop e1 cf2 = \env. local (\H Q.
     ?v b.
@@ -1124,6 +1160,22 @@ val cf_def = tDefine "cf" `
           (case args of
              | [l; n; w] => cf_aw8update l n w
              | _ => cf_bottom)
+        | WordFromInt W8 =>
+          (case args of
+             | [i] => cf_wordFromInt_W8 i
+             | _ => cf_bottom)
+        | WordFromInt W64 =>
+          (case args of
+             | [i] => cf_wordFromInt_W64 i
+             | _ => cf_bottom)
+        | WordToInt W8 =>
+          (case args of
+             | [w] => cf_wordToInt_W8 w
+             | _ => cf_bottom)
+        | WordToInt W64 =>
+          (case args of
+             | [w] => cf_wordToInt_W64 w
+             | _ => cf_bottom)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
     cf_log lop e1 (cf p e2) /\
@@ -1153,13 +1205,38 @@ val cf_def = tDefine "cf" `
 
 val cf_ind = fetch "-" "cf_ind"
 
-val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def,
-               cf_let_def, cf_opn_def, cf_opb_def, cf_equality_def,
-               cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
-               cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
-               cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def,
-               cf_deref_def, cf_fundecl_rec_def, cf_bottom_def, cf_log_def,
-               cf_if_def, cf_match_def]
+val cf_defs = [
+  cf_def,
+  cf_lit_def,
+  cf_con_def,
+  cf_var_def,
+  cf_fundecl_def,
+  cf_let_def,
+  cf_opn_def,
+  cf_opb_def,
+  cf_equality_def,
+  cf_aalloc_def,
+  cf_asub_def,
+  cf_alength_def,
+  cf_aupdate_def,
+  cf_aw8alloc_def,
+  cf_aw8sub_def,
+  cf_aw8length_def,
+  cf_aw8update_def,
+  cf_wordFromInt_W8_def,
+  cf_wordFromInt_W64_def,
+  cf_wordToInt_W8_def,
+  cf_wordToInt_W64_def,
+  cf_app_def,
+  cf_ref_def,
+  cf_assign_def,
+  cf_deref_def,
+  cf_fundecl_rec_def,
+  cf_bottom_def,
+  cf_log_def,
+  cf_if_def,
+  cf_match_def
+]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -1807,6 +1884,23 @@ val cf_sound = store_thm ("cf_sound",
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+    ) \\
+    try_finally (
+      (* WordFromInt W8, WordFromInt W64 *)
+      `evaluate_list F env st [h] (st, Rval [Litv (IntLit i)])` by
+        (cf_evaluate_list_tac [`st`]) \\ instantiate \\
+      fs [do_app_def, app_wordFromInt_W8_def, app_wordFromInt_W64_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    ) \\
+    try_finally (
+      (* WordToInt W8, WordToInt W64 *)
+      `evaluate_list F env st [h] (st, Rval [Litv (Word8 w)])` by
+        (cf_evaluate_list_tac [`st`]) ORELSE
+      `evaluate_list F env st [h] (st, Rval [Litv (Word64 w)])` by
+        (cf_evaluate_list_tac [`st`]) \\ instantiate \\
+      fs [do_app_def, app_wordToInt_def, SEP_IMP_def, st2heap_def] \\
+      res_tac \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
     )
     THEN1 (
       (* Aalloc *)
