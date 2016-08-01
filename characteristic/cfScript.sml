@@ -856,6 +856,11 @@ val app_opb_def = Define `
   app_opb opb i1 i2 H Q =
     H ==>> Q (Boolv (opb_lookup opb i1 i2))`
 
+val app_equality_def = Define `
+  app_equality v1 v2 H Q =
+    (no_closures v1 /\ no_closures v2 /\
+     types_match v1 v2 /\
+     H ==>> Q (Boolv (v1 = v2)))`
 
 val cf_lit_def = Define `
   cf_lit l = \env. local (\H Q. H ==>> Q (Litv l))`
@@ -892,6 +897,13 @@ val cf_opb_def = Define `
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
       app_opb opb i1 i2 H Q)`
+
+val cf_equality_def = Define `
+  cf_equality x1 x2 = \env. local (\H Q.
+    ?v1 v2.
+      exp2v env x1 = SOME v1 /\
+      exp2v env x2 = SOME v2 /\
+      app_equality v1 v2 H Q)`
 
 val cf_app_def = Define `
   cf_app (p:'ffi ffi_proj) f args = \env. local (\H Q.
@@ -1060,6 +1072,10 @@ val cf_def = tDefine "cf" `
           (case args of
             | [x1; x2] => cf_opb opb x1 x2
             | _ => cf_bottom)
+        | Equality =>
+          (case args of
+            | [x1; x2] => cf_equality x1 x2
+            | _ => cf_bottom)
         | Opapp =>
           (case dest_opapp (App op args) of
             | SOME (f, xs) => cf_app (p:'ffi ffi_proj) f xs
@@ -1137,11 +1153,13 @@ val cf_def = tDefine "cf" `
 
 val cf_ind = fetch "-" "cf_ind"
 
-val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def, cf_let_def,
-               cf_opn_def, cf_opb_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
-               cf_aupdate_def, cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
-               cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def, cf_deref_def,
-               cf_fundecl_rec_def, cf_bottom_def, cf_log_def, cf_if_def, cf_match_def]
+val cf_defs = [cf_def, cf_lit_def, cf_con_def, cf_var_def, cf_fundecl_def,
+               cf_let_def, cf_opn_def, cf_opb_def, cf_equality_def,
+               cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
+               cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def,
+               cf_aw8update_def, cf_app_def, cf_ref_def, cf_assign_def,
+               cf_deref_def, cf_fundecl_rec_def, cf_bottom_def, cf_log_def,
+               cf_if_def, cf_match_def]
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -1599,6 +1617,15 @@ val cf_sound = store_thm ("cf_sound",
       Cases_on `op` \\ fs [do_app_def] \\
       qexists_tac `st` \\ rpt strip_tac \\ fs [SEP_IMP_def] \\
       cf_evaluate_list_tac [`st`, `st`]
+    )
+    THEN1 (
+      (* Equality *)
+      fs [do_app_def, app_equality_def] \\
+      `evaluate_list F env st [h'; h] (st, Rval [v2; v1])` by
+        (cf_evaluate_list_tac [`st`, `st`]) \\ instantiate \\
+      progress (fst (CONJ_PAIR type_match_implies_do_eq_succeeds)) \\ fs [] \\
+      fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
+      qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
     THEN1 (
       (* Opapp *)
