@@ -109,7 +109,7 @@ val sep_imp_instantiate =
   QUANT_INSTANTIATE_CONSEQ_TAC [
     oracle_qp sep_imp_refl_oracle
   ] \\
-  fs [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
+  simp [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =
   rpt (hsimpl \\ sep_imp_instantiate)
@@ -141,20 +141,20 @@ fun xcf name st =
       irule app_of_cf THENL [
         EVAL_TAC,
         EVAL_TAC,
-        fs [cf_def]
+        simp [cf_def]
       ]
     fun Recclosure_tac _ =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THENL [
         EVAL_TAC,
-        reduce_tac \\ fs [cf_def] \\ reduce_tac
+        reduce_tac \\ simp [cf_def] \\ reduce_tac
       ]
   in
-    rpt strip_tac \\ fs [f_def] \\
+    rpt strip_tac \\ simp [f_def] \\
     first_match_tac [
       ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
       ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
-    ] \\ fs []
+    ] \\ simp []
   end
 
 (* [xlet] *)
@@ -163,7 +163,7 @@ fun xlet_core cont0 cont1 cont2 =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  fs [libTheory.opt_bind_def] \\
+  simp [libTheory.opt_bind_def] \\
   cont0 \\
   CONJ_TAC THENL [all_tac, cont1 \\ cont2]
 
@@ -322,7 +322,7 @@ val xlog_base =
   head_unfold cf_log_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
-  TRY (asm_exists_tac \\ fs [])
+  TRY (asm_exists_tac \\ simp [])
 
 val xlog = xlog_base
 
@@ -367,9 +367,9 @@ in
 end
 
 val unfold_build_cases =
-  fs [build_cases_def] \\
+  simp [build_cases_def] \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
-  fs []
+  simp []
 
 fun validate_pat_conv tm = let
   val conv =
