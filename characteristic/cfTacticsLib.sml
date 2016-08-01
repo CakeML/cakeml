@@ -30,6 +30,35 @@ val _ = hide_environments true
 
 (*------------------------------------------------------------------*)
 
+val cs = computeLib.the_compset
+val () = listLib.list_rws cs
+val () = basicComputeLib.add_basic_compset cs
+val () = semanticsComputeLib.add_semantics_compset cs
+val () = cfComputeLib.add_cf_aux_compset cs
+val () = cfComputeLib.add_cf_normalize_compset cs
+
+val eval = computeLib.CBV_CONV cs
+val eval_tac = CONV_TAC eval
+val eval_pat = compute_pat cs
+
+local
+  (* from bossLib.sml *)
+  open simpLib
+
+  fun stateful f ssfl thm =
+    let
+      val	ss = List.foldl	(simpLib.++ o Lib.swap)	(srw_ss()) ssfl
+    in
+      f ss thm
+    end
+
+  val let_arith_list = [boolSimps.LET_ss, numSimps.ARITH_ss]
+in
+  val simp_conv = stateful SIMP_CONV let_arith_list
+end
+
+(*------------------------------------------------------------------*)
+
 fun head_unfold_conv thm =
   TRY_CONV hnf_conv THENC
   rewr_head_conv thm THENC
@@ -50,10 +79,10 @@ val reducible_pats = [
 
 val reduce_conv =
     DEPTH_CONV (
-      List.foldl (fn (pat, conv) => (EVAL_PAT pat) ORELSEC conv)
+      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
                  ALL_CONV reducible_pats
     ) THENC
-    (SIMP_CONV std_ss [])
+    (simp_conv [])
 
 val reduce_tac = CONV_TAC reduce_conv
 
@@ -139,14 +168,14 @@ fun xcf name st =
     fun Closure_tac _ =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THENL [
-        EVAL_TAC,
-        EVAL_TAC,
+        eval_tac,
+        eval_tac,
         simp [cf_def]
       ]
     fun Recclosure_tac _ =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THENL [
-        EVAL_TAC,
+        eval_tac,
         reduce_tac \\ simp [cf_def] \\ reduce_tac
       ]
   in
@@ -333,33 +362,29 @@ val xif_base =
   head_unfold cf_if_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
-  TRY (asm_exists_tac \\ fs [] \\ conj_tac \\ DISCH_TAC)
+  TRY (asm_exists_tac \\ simp [] \\ conj_tac \\ DISCH_TAC)
 
 val xif = xif_base
 
 (* [xmatch] *)
 
-val cs = listLib.list_compset ()
-val () = basicComputeLib.add_basic_compset cs
-val () = semanticsComputeLib.add_semantics_compset cs
-
 fun clean_cases_conv tm = let
   val cond_conv =
       HO_REWR_CONV exists_v_of_pat_norest_length THENC
-      STRIP_QUANT_CONV (LAND_CONV (RHS_CONV (computeLib.CBV_CONV cs))) THENC
-      SIMP_CONV std_ss [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
+      STRIP_QUANT_CONV (LAND_CONV (RHS_CONV eval)) THENC
+      simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
       STRIP_QUANT_CONV
-        (LHS_CONV EVAL THENC SIMP_CONV std_ss [option_CLAUSES])
+        (LHS_CONV eval THENC simp_conv [option_CLAUSES])
   val then_conv =
       HO_REWR_CONV forall_v_of_pat_norest_length THENC
-      STRIP_QUANT_CONV (LAND_CONV (RHS_CONV (computeLib.CBV_CONV cs))) THENC
-      SIMP_CONV std_ss [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
+      STRIP_QUANT_CONV (LAND_CONV (RHS_CONV eval)) THENC
+      simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
       STRIP_QUANT_CONV
-        (LAND_CONV (LHS_CONV EVAL) THENC
-         SIMP_CONV std_ss [option_CLAUSES])
+        (LAND_CONV (LHS_CONV eval) THENC
+         simp_conv [option_CLAUSES])
   val else_conv =
       TRY_CONV (LAND_CONV clean_cases_conv ORELSEC
-                SIMP_CONV std_ss [cf_bottom_def])
+                simp_conv [cf_bottom_def])
 in
   (RATOR_CONV (RATOR_CONV (RAND_CONV cond_conv)) THENC
    RATOR_CONV (RAND_CONV then_conv) THENC
@@ -374,10 +399,10 @@ val unfold_build_cases =
 fun validate_pat_conv tm = let
   val conv =
       REWR_CONV validate_pat_def THENC
-      RAND_CONV (computeLib.CBV_CONV cs) THENC
+      RAND_CONV eval THENC
       LAND_CONV (REWR_CONV pat_typechecks_def) THENC
-      EVAL
-  val conv' = (QUANT_CONV conv) THENC SIMP_CONV std_ss []
+      eval
+  val conv' = (QUANT_CONV conv) THENC simp_conv []
   val th = conv' tm
 in if (rhs o concl) th = boolSyntax.T then th else fail () end
 
