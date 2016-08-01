@@ -48,12 +48,6 @@ fun nailIHx k =
 infix >~
 fun (f >~ g) th = f th >> g
 
-val any_el_ALT = Q.store_thm(
-  "any_el_ALT",
-  `∀l n d. any_el n l d = if n < LENGTH l then EL n l else d`,
-  Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
-  fs[]);
-
 (* unused *)
 val evaluate_list_members_individually = Q.store_thm(
   "evaluate_list_members_individually",

@@ -89,19 +89,20 @@ val optimise_correct = Q.store_thm("optimise_correct",
 
 val compile_RANGE_lemma = prove(
   ``!n env tail live xs.
-      EVERY (\v. n <= v /\ v < (SND (SND (compile n env tail live xs))))
+      EVERY (\v. v < (SND (SND (compile n env tail live xs))))
         (FST (SND (compile n env tail live xs)))``,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ IMP_RES_TAC compile_SING_IMP
   \\ full_simp_tac(srw_ss())[EVERY_MEM]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ rw[]
+  \\ RES_TAC
   \\ IMP_RES_TAC compile_LESS_EQ
   \\ TRY (Cases_on `tail`) \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC);
 
 val compile_RANGE = prove(
-  ``(compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v. n <= v /\ v < k) vs``,
+  ``(compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs``,
   REPEAT STRIP_TAC \\ MP_TAC (compile_RANGE_lemma |> SPEC_ALL) \\ full_simp_tac(srw_ss())[]);
 
 val _ = temp_overload_on("res_list",``map_result (λv. [v]) I``);
@@ -131,7 +132,7 @@ val compile_correct = Q.prove(
                (jump_exc (t2 with <| stack := t1.stack;
                                      handler := t1.handler |>) = SOME t2)))
         | NONE => ~tail /\ n <= next_var /\
-                  EVERY (\v. n <= v /\ v < next_var) vs /\
+                  EVERY (\v. v < next_var) vs /\
                   (!k. next_var <= k ==> (lookup k t2.locals = NONE)) /\
                   var_corr env corr t2.locals /\
                   (!k x. (lookup k t2.locals = SOME x) ==> k < next_var) /\
@@ -177,11 +178,11 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC compile_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC THEN1 DECIDE_TAC
     \\ FULL_SIMP_TAC std_ss [EVERY_MEM]
-    THEN1 (REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
     \\ FULL_SIMP_TAC std_ss [get_var_def])
   THEN1 (* Var *)
    (Cases_on `tail` \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `n < LENGTH env`
+    \\ fs[any_el_ALT]
     \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def]
     \\ FULL_SIMP_TAC std_ss [var_corr_def]
     \\ FULL_SIMP_TAC std_ss [var_corr_def,LIST_REL_def]
@@ -190,19 +191,9 @@ val compile_correct = Q.prove(
     \\ Q.MATCH_ASSUM_RENAME_TAC `k < LENGTH env`
     \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,call_env_def]
     \\ REPEAT STRIP_TAC
-    \\ SRW_TAC [] [] THEN1 DECIDE_TAC
-    THEN1 (FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
-    THEN1 (Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
-           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `EL l corr`)
-           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`)
-           \\ FULL_SIMP_TAC std_ss [])
-    THEN1 (CCONTR_TAC \\ FULL_SIMP_TAC std_ss [NOT_LESS]
-           \\ `n' < k' /\ n' <> k'` by DECIDE_TAC
-           \\ FULL_SIMP_TAC (srw_ss()) []
-           \\ `n' <= k'` by DECIDE_TAC
-           \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k'`)
-    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[jump_exc_NONE])
+    \\ DISJ1_TAC \\ CCONTR_TAC
+    \\ `n' ≤ k'` by fs[]>>
+    RES_TAC>>fs[])
   THEN1 (* If *)
    (`?c1 v1 n1. compile n corr F live [x1] = (c1,v1,n1)` by METIS_TAC [PAIR]
     \\ `?c2 v2 n2. compile n1 corr tail live [x2] = (c2,v2,n2)` by METIS_TAC [PAIR]
@@ -279,7 +270,6 @@ val compile_correct = Q.prove(
            var_corr_def,get_var_def,lookup_insert]
       \\ REPEAT STRIP_TAC
       THEN1 DECIDE_TAC
-      THEN1 DECIDE_TAC
       THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
              \\ FIRST_X_ASSUM MATCH_MP_TAC \\  DECIDE_TAC)
       THEN1
@@ -314,7 +304,6 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
            var_corr_def,get_var_def,lookup_insert]
       \\ REPEAT STRIP_TAC
-      THEN1 DECIDE_TAC
       THEN1 DECIDE_TAC
       THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
              \\ FIRST_X_ASSUM MATCH_MP_TAC \\  DECIDE_TAC)
@@ -359,7 +348,6 @@ val compile_correct = Q.prove(
     \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
     \\ FULL_SIMP_TAC std_ss [EVERY_MEM]
-    THEN1 (REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
     \\ FULL_SIMP_TAC std_ss [var_corr_def]
     \\ IMP_RES_TAC LIST_REL_APPEND_IMP
     \\ IMP_RES_TAC LIST_REL_LENGTH
@@ -826,6 +814,8 @@ val compile_correct = Q.prove(
           \\ NTAC 2 (POP_ASSUM MP_TAC)
           \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ full_simp_tac(srw_ss())[])
         \\ Cases_on `res` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+        \\ imp_res_tac compile_SING_IMP
+        \\ fs[var_corr_def,set_var_def]
         \\ `(t2'.stack = t2.stack) /\ (t2'.handler = t2.handler)` by ALL_TAC THEN1
          (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
             push_env_def,dataSemTheory.dec_clock_def]
@@ -835,16 +825,30 @@ val compile_correct = Q.prove(
         THEN1
          (IMP_RES_TAC compile_LENGTH
           \\ `?v1. v = [v1]` by (Cases_on `v` \\ full_simp_tac(srw_ss())[LENGTH_NIL])
-          \\ full_simp_tac(srw_ss())[var_corr_def,set_var_def,call_env_def]
+          \\ full_simp_tac(srw_ss())[var_corr_def,set_var_def,call_env_def,get_var_def]
           \\ full_simp_tac(srw_ss())[state_rel_def])
+        \\ fs[get_var_def,lookup_insert]
         \\ REPEAT STRIP_TAC
-        THEN1 DECIDE_TAC
         THEN1
-         (IMP_RES_TAC compile_RANGE \\ full_simp_tac(srw_ss())[EVERY_MEM]
-          \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
-        THEN1 (full_simp_tac(srw_ss())[var_corr_def])
+          fs[state_rel_def]
         THEN1
-         (FIRST_X_ASSUM MATCH_MP_TAC \\ reverse STRIP_TAC THEN1 METIS_TAC []
+          (fs[LIST_REL_EL_EQN]>>
+          ntac 2 strip_tac>>
+          `EL n' corr ≠ n2` by
+            (last_x_assum(qspec_then `n'` assume_tac)>>
+            last_x_assum(qspec_then`n2` assume_tac)>>rfs[]>>
+            CCONTR_TAC>>fs[])>>
+          fs[])
+        THEN1
+          (Cases_on`k=n2`>>fs[]>>
+          res_tac>>fs[])
+        THEN1
+          (`k ≠ n2` by
+           (CCONTR_TAC>>fs[]>>
+           `n ≤ n2` by fs[]>>
+           res_tac>> fs[])>>
+          simp[]>>
+          FIRST_X_ASSUM MATCH_MP_TAC \\ reverse STRIP_TAC THEN1 METIS_TAC []
           \\ full_simp_tac(srw_ss())[set_var_def,lookup_insert]
           \\ `k <> n1` by ALL_TAC \\ full_simp_tac(srw_ss())[] THEN1
            (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
@@ -911,10 +915,10 @@ val compile_correct = Q.prove(
       \\ IMP_RES_TAC compile_LESS_EQ
       \\ REPEAT STRIP_TAC
       THEN1 DECIDE_TAC
-      THEN1 DECIDE_TAC
       THEN1
        (UNABBREV_ALL_TAC
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_alt]
+        \\ `k ≠ n2` by DECIDE_TAC
         \\ `k <> t'` by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
         \\ REPEAT STRIP_TAC
         \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -927,34 +931,33 @@ val compile_correct = Q.prove(
         \\ RES_TAC
         \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_alt]
         \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set]
+        \\ `EL l corr ≠ n2` by
+          (CCONTR_TAC>>fs[LIST_REL_EL_EQN]>>
+          last_x_assum(qspec_then `l` assume_tac)>>
+          last_x_assum(qspec_then `n2` assume_tac)>>rfs[])
         \\ `MEM (EL l corr) corr` by METIS_TAC [MEM_EL] \\ full_simp_tac(srw_ss())[]
-        \\ SRW_TAC [] []
-        \\ `n <= EL l corr` by DECIDE_TAC
-        \\ RES_TAC \\ full_simp_tac(srw_ss())[])
+        \\ SRW_TAC [] [])
       THEN1
        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
+        \\ Cases_on`k=n2`>>fs[]
         \\ Cases_on `k = t'` \\ FULL_SIMP_TAC std_ss []
         \\ CCONTR_TAC \\ `n2 <= k` by DECIDE_TAC
         \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= k` by DECIDE_TAC \\ RES_TAC
-        \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_alt])
+        \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_alt]
+        \\ fs[])
       THEN1
-       (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
-        \\ `k <> t'` by ALL_TAC
-        THEN1 (REPEAT STRIP_TAC \\ `n1 <= k` by DECIDE_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[])
-        \\ full_simp_tac(srw_ss())[] \\ Cases_on `n1 <= t'` \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
         \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_alt]
         \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set]
+        \\ `k ≠ n2` by
+          (`n ≤ n2` by fs[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])
         \\ METIS_TAC [])
       THEN1
        (full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[jump_exc_def] \\ rev_full_simp_tac(srw_ss())[]
         \\ Cases_on `LASTN (t2.handler + 1) t2.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
-      \\ REPEAT (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert,
-                call_env_def,push_env_def,dataSemTheory.dec_clock_def,
-                bviSemTheory.dec_clock_def]
-                 \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
-                 \\ BasicProvers.EVERY_CASE_TAC)));
+      \\ fs[var_corr_def,get_var_def]));
 
 val compile_exp_lemma = compile_correct
   |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`,`[]`]

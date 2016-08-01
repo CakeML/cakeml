@@ -1992,4 +1992,10 @@ val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
    SND o (f ## g) = g o SND`,
   simp[FUN_EQ_THM]);
 
+val any_el_ALT = Q.store_thm(
+  "any_el_ALT",
+  `∀l n d. any_el n l d = if n < LENGTH l then EL n l else d`,
+  Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
+  fs[]);
+
 val _ = export_theory()
