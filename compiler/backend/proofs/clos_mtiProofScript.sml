@@ -10,11 +10,6 @@ val option_CASE_NONE_T = Q.store_thm(
   `option_CASE x T f ⇔ x = NONE ∨ ∃y. x = SOME y ∧ f y`,
   Cases_on `x` >> simp[]);
 
-val TAKE_EQ_NIL = Q.store_thm(
-  "TAKE_EQ_NIL",
-  `∀l n. TAKE n l = [] ⇔ n = 0 ∨ l = []`,
-  Induct >> simp[] >> rw[]);
-
 val DISJ_CONG = Q.prove(
   `(~q ⇒ (p = p')) ⇒ (~p' ⇒ (q = q')) ⇒ (p ∨ q ⇔ p' ∨ q')`,
   DECIDE_TAC);

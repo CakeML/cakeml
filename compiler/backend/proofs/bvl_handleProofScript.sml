@@ -3,7 +3,7 @@ open indexedListsTheory;
 
 val _ = new_theory"bvl_handleProof";
 
-(* TODO: move *)
+(* TODO: move, and open indexedListsTheory in preamble *)
 
 val MAPi_ID = store_thm("MAPi_ID[simp]",
   ``MAPi (\x y. y) = I``,

@@ -15,29 +15,6 @@ Main lemmas:
 
 val _ = new_theory "wordProps";
 
-(*TODO: Move to misc*)
-val lookup_fromList2 = store_thm("lookup_fromList2",
-  ``!l n. lookup n (fromList2 l) =
-          if EVEN n then lookup (n DIV 2) (fromList l) else NONE``,
-  recInduct SNOC_INDUCT \\ srw_tac[][]
-  THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[lookup_def])
-  THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[lookup_def])
-  \\ full_simp_tac(srw_ss())[fromList2_def,FOLDL_SNOC]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[GSYM fromList2_def,FOLDL_SNOC]
-  \\ full_simp_tac(srw_ss())[lookup_insert,lookup_fromList,DIV_LT_X]
-  \\ `!k. FST (FOLDL (λ(i,t) a. (i + 2,insert i a t)) (k,LN) l) =
-        k + LENGTH l * 2` by
-   (qspec_tac (`LN`,`t`) \\ qspec_tac (`l`,`l`) \\ Induct \\ full_simp_tac(srw_ss())[FOLDL]
-    \\ full_simp_tac(srw_ss())[MULT_CLAUSES, AC ADD_COMM ADD_ASSOC])
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[GSYM DIV_LT_X,EL_SNOC]
-  \\ full_simp_tac(srw_ss())[MULT_DIV,SNOC_APPEND,EL_LENGTH_APPEND,EVEN_MOD2,MOD_EQ_0]
-  \\ TRY decide_tac
-  \\ full_simp_tac(srw_ss())[DIV_LT_X]
-  \\ `n = LENGTH l * 2 + 1` by decide_tac
-  \\ full_simp_tac(srw_ss())[MOD_TIMES]);
-
 (* Clock lemmas *)
 
 val set_store_const = Q.store_thm("set_store_const[simp]",

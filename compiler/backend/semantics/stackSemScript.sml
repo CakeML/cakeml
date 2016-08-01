@@ -2,7 +2,12 @@ open preamble stackLangTheory wordSemTheory labSemTheory;
 
 val _ = new_theory"stackSem";
 
-(* TODO: move *)
+val _ = Datatype `
+  result = Result ('w word_loc)
+         | Exception ('w word_loc)
+         | Halt ('w word_loc)
+         | TimeOut
+         | Error `
 
 val bit_length_def = Define `
   bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1`;
@@ -28,7 +33,7 @@ val map_bitmap_def = Define `
      | SOME (xs,ys,zs) => SOME (t::xs,ys,zs)) /\
   (map_bitmap _ _ _ = NONE)`
 
-val filter_bitmap_LENGTH = prove(
+val filter_bitmap_LENGTH = store_thm("filter_bitmap_LENGTH",
   ``!bs xs x y. (filter_bitmap bs xs = SOME (x,y)) ==> LENGTH y <= LENGTH xs``,
   Induct \\ fs [filter_bitmap_def] \\ Cases_on `xs` \\ TRY (Cases_on `h`)
   \\ fs [filter_bitmap_def] \\ Cases \\ fs [filter_bitmap_def]
@@ -36,7 +41,7 @@ val filter_bitmap_LENGTH = prove(
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
   \\ res_tac \\ decide_tac);
 
-val map_bitmap_LENGTH = prove(
+val map_bitmap_LENGTH = store_thm("map_bitmap_LENGTH",
   ``!t1 t2 t3 x y z. (map_bitmap t1 t2 t3 = SOME (x,y,z)) ==>
                    LENGTH y ≤ LENGTH t2 ∧
                    LENGTH z <= LENGTH t3``,
@@ -46,15 +51,6 @@ val map_bitmap_LENGTH = prove(
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
   \\ res_tac \\ fs[] \\ decide_tac);
-
-(* -- *)
-
-val _ = Datatype `
-  result = Result ('w word_loc)
-         | Exception ('w word_loc)
-         | Halt ('w word_loc)
-         | TimeOut
-         | Error `
 
 val read_bitmap_def = Define `
   (read_bitmap [] = NONE) /\

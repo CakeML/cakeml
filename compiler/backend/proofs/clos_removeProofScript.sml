@@ -1,5 +1,7 @@
-open preamble closPropsTheory clos_relationTheory clos_removeTheory;
-open closSemTheory closLangTheory clos_relationPropsTheory indexedListsTheory
+open preamble indexedListsTheory
+     closLangTheory closSemTheory closPropsTheory
+     clos_relationTheory clos_relationPropsTheory
+     clos_removeTheory
 
 val _ = new_theory"clos_removeProof";
 
@@ -15,62 +17,9 @@ val FOLDL_acc = Q.prove(
   pop_assum (fn th => simp[SimpLHS, Once th] >> simp[SimpRHS, Once th]) >>
   simp[UNCURRY]);
 
-val FST_UNZIP_MAPi = Q.store_thm(
-  "FST_UNZIP_MAPi",
-  `∀l f. FST (UNZIP (MAPi f l)) = MAPi ((o) ((o) FST) f) l`,
-  Induct >> simp[]);
-
-val SND_UNZIP_MAPi = Q.store_thm(
-  "SND_UNZIP_MAPi",
-  `∀l f. SND (UNZIP (MAPi f l)) = MAPi ((o) ((o) SND) f) l`,
-  Induct >> simp[]);
-
-val FOLDR_UNZIP = Q.store_thm(
-  "FOLDR_UNZIP",
-  `FOLDR (λ(x,l) (ts,frees). (x::ts, mk_Union l frees)) ([], A) l =
-   let (ts, fvs) = UNZIP l in
-     (ts, list_mk_Union (fvs ++ [A]))`,
-  Induct_on `l` >> simp[db_varsTheory.list_mk_Union_def] >>
-  rename1 `UNZIP ll` >> Cases_on `UNZIP ll` >> full_simp_tac(srw_ss())[FORALL_PROD]);
-
-val ALL_DISTINCT_FLAT = Q.store_thm(
-  "ALL_DISTINCT_FLAT",
-  `∀l. ALL_DISTINCT (FLAT l) ⇔
-        (∀l0. MEM l0 l ⇒ ALL_DISTINCT l0) ∧
-        (∀i j. i < j ∧ j < LENGTH l ⇒
-               ∀e. MEM e (EL i l) ⇒ ¬MEM e (EL j l))`,
-  Induct >> dsimp[ALL_DISTINCT_APPEND, LT_SUC, MEM_FLAT] >>
-  metis_tac[MEM_EL]);
-
 val FPAIR = Q.prove(
   `(λ(a,b). (f a, g b)) = f ## g`,
   simp[FUN_EQ_THM, FORALL_PROD]);
-
-val GSPEC_o = Q.store_thm(
-  "GSPEC_o",
-  `GSPEC f o g = { x | ∃y. (g x, T) = f y }`,
-  simp[FUN_EQ_THM, GSPECIFICATION]);
-
-val ELplus1 = Q.store_thm(
-  "ELplus1",
-  `EL (n + 1) l = EL n (TL l)`,
-  simp[GSYM ADD1, EL]);
-
-val TAKE_EQ_NIL = store_thm(
-  "TAKE_EQ_NIL[simp]",
-  ``TAKE n l = [] <=> n = 0 ∨ l = []``,
-  Q.ID_SPEC_TAC `l` THEN Induct_on `n` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
-  Cases THEN ASM_SIMP_TAC (srw_ss()) []);
-
-val LIST_RELi_APPEND_I = Q.store_thm(
-  "LIST_RELi_APPEND_I",
-  `LIST_RELi R l1 l2 ∧ LIST_RELi (R o ((+) (LENGTH l1))) m1 m2 ⇒
-   LIST_RELi R (l1 ++ m1) (l2 ++ m2)`,
-  simp[LIST_RELi_EL_EQN] >> rpt strip_tac >>
-  rename1 `i < LENGTH l2 + LENGTH m2` >> Cases_on `i < LENGTH l2`
-  >- simp[EL_APPEND1]
-  >- (simp[EL_APPEND2] >> first_x_assum (qspec_then `i - LENGTH l2` mp_tac) >>
-      simp[]))
 
 val code_locs_MAPi = Q.store_thm(
   "code_locs_MAPi",
@@ -124,7 +73,7 @@ val remove_fv = Q.store_thm("remove_fv",
       rename1 `FST (remove[E3])` >> Cases_on `remove[E3]` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
       imp_res_tac remove_SING >> full_simp_tac(srw_ss())[])
   >- (rename1 `FST (remove[E1])` >> Cases_on `remove[E1]` >> full_simp_tac(srw_ss())[] >>
-      simp[FOLDR_UNZIP, FPAIR, FST_UNZIP_MAPi, combinTheory.o_ABS_R,
+      simp[db_varsTheory.FOLDR_mk_Union_UNZIP, FPAIR, FST_UNZIP_MAPi, combinTheory.o_ABS_R,
            SND_UNZIP_MAPi] >>
       simp_tac (srw_ss() ++ COND_elim_ss)[] >>
       imp_res_tac remove_SING >> srw_tac[][] >> dsimp[fv_MAPi, EXISTS_MEM, MEM_MAPi] >>
@@ -184,6 +133,10 @@ val keepval_rel_o_SUC = Q.store_thm(
   `keepval_rel tyit c w kis o SUC =
       keepval_rel tyit c w (kis o SUC)`,
   simp[keepval_rel_def, FUN_EQ_THM, SPECIFICATION]);
+
+val ELplus1 = Q.prove(
+  `EL (n + 1) l = EL n (TL l)`,
+  simp[GSYM ADD1, EL]);
 
 val evaluate_MAPrm1 = Q.prove(
   `(∀e i es' vs. MEM e es ∧ mustkeep i e keeps ∧ remove [e] = (es', vs) ⇒
@@ -916,7 +869,7 @@ val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
   simp[GSYM every_Fn_vs_NONE_EVERY] >>
-  full_simp_tac(srw_ss())[FOLDR_UNZIP,FPAIR,LET_THM,UNCURRY,FST_UNZIP_MAPi,
+  full_simp_tac(srw_ss())[db_varsTheory.FOLDR_mk_Union_UNZIP,FPAIR,LET_THM,UNCURRY,FST_UNZIP_MAPi,
      SND_UNZIP_MAPi,o_ABS_R] >> rpt var_eq_tac >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_MEM,MEM_MAPi,PULL_EXISTS] >> srw_tac[][] >>
@@ -975,7 +928,7 @@ val remove_correct = Q.store_thm("remove_correct",
   imp_res_tac remove_SING >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   TRY (rename1`Let` >>
-       lfs[FOLDR_UNZIP, FPAIR, PAIR_MAP, FST_UNZIP_MAPi,
+       lfs[db_varsTheory.FOLDR_mk_Union_UNZIP, FPAIR, PAIR_MAP, FST_UNZIP_MAPi,
            SND_UNZIP_MAPi, combinTheory.o_ABS_R] >> srw_tac[][] >>
        simp_tac (srw_ss() ++ COND_elim_ss) [] >>
        simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
@@ -1112,7 +1065,7 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
       srw_tac[][code_locs_def, LET_THM, ALL_DISTINCT_APPEND] >>
       full_simp_tac(srw_ss())[SUBSET_DEF] >> metis_tac[])
   >- ((* let *) qccase `remove[body]` >> full_simp_tac(srw_ss())[] >>
-      simp[FOLDR_UNZIP, ALL_DISTINCT_APPEND, FPAIR, FST_UNZIP_MAPi,
+      simp[db_varsTheory.FOLDR_mk_Union_UNZIP, ALL_DISTINCT_APPEND, FPAIR, FST_UNZIP_MAPi,
            combinTheory.o_ABS_R] >>
       simp[code_locs_MAPi, MEM_FLAT, MEM_MAPi, PULL_EXISTS, SUBSET_DEF] >>
       imp_res_tac remove_SING >> var_eq_tac >> full_simp_tac(srw_ss())[code_locs_FST_remove_sing] >>
@@ -1215,7 +1168,7 @@ val every_Fn_SOME_remove = Q.store_thm("every_Fn_SOME_remove",
   ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
   simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
   simp[GSYM every_Fn_SOME_EVERY] >>
-  full_simp_tac(srw_ss())[FOLDR_UNZIP,FPAIR,LET_THM,UNCURRY,FST_UNZIP_MAPi,
+  full_simp_tac(srw_ss())[db_varsTheory.FOLDR_mk_Union_UNZIP,FPAIR,LET_THM,UNCURRY,FST_UNZIP_MAPi,
      SND_UNZIP_MAPi,o_ABS_R] >> rpt var_eq_tac >>
   ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
   simp[EVERY_MEM,MEM_MAPi,PULL_EXISTS] >> srw_tac[][] >>

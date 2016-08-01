@@ -1,22 +1,6 @@
 open preamble closLangTheory closSemTheory
-open bagTheory
-
-(* TODO: add bagTheory to preamble *)
 
 val _ = new_theory"closProps"
-
-(* TODO: move *)
-
-val bool_case_eq = Q.store_thm("bool_case_eq",
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  srw_tac[][] >> metis_tac[]);
-
-val pair_case_eq = Q.store_thm("pair_case_eq",
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
-
-(* -- *)
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s:'ffi closSem$state) with clock := s.clock = s`,

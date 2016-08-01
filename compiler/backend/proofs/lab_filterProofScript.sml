@@ -1,5 +1,4 @@
 open preamble labSemTheory labPropsTheory lab_filterTheory;
-open BasicProvers
 
 val _ = new_theory "lab_filterProof";
 
