@@ -46,6 +46,8 @@ sig
   *)
   val xfun : term quotation -> tactic
 
+  val xfun_spec : term quotation -> term quotation -> tactic
+
   (* [xapp] and [xapp_spec] apply on characteristic fomulae for
      function application, of the form [cf_app ...].
 

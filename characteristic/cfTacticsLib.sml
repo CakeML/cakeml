@@ -56,6 +56,7 @@ local
   val let_arith_list = [boolSimps.LET_ss, numSimps.ARITH_ss]
 in
   val simp_conv = stateful SIMP_CONV let_arith_list
+  val simp_rule = stateful SIMP_RULE let_arith_list
 end
 
 (*------------------------------------------------------------------*)
@@ -276,14 +277,33 @@ val xfun_rec_core =
   irule local_elim \\ hnf \\
   CONV_TAC fun_rec_reduce_conv
 
-fun xfun qname =
+val xfun_core =
   xpull_check_not_needed \\
   first_match_tac [
     ([mg.c `cf_fun _ _ _ _ _ _ _ _`], K xfun_norec_core),
     ([mg.c `cf_fun_rec _ _ _ _ _ _`], K xfun_rec_core)
-  ] \\
+  ]
+
+val simp_spec = (CONV_RULE reduce_conv) o (simp_rule [cf_def])
+
+fun xfun qname =
+  xfun_core \\
   qx_gen_tac qname \\
-  rpt strip_tac
+  disch_then (fn th => assume_tac (simp_spec th))
+
+fun xfun_spec qname qspec =
+  xfun_core \\
+  qx_gen_tac qname \\
+  disch_then (fn th =>
+    let val (curried_th, spec_th) = CONJ_PAIR th
+        val spec_th = simp_spec spec_th
+    in assume_tac curried_th \\
+       Tactical.REVERSE (qsuff_tac qspec) THENL [
+         assume_tac spec_th,
+         strip_tac
+       ]
+    end
+  ) ORELSE FAIL_TAC "invalid spec"
 
 (* [xapply] *)
 
