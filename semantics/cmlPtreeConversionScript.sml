@@ -679,7 +679,9 @@ val ptree_OpID_def = Define`
              ifM (isSymbolicConstructor NONE "*")
                  (return (Con (SOME (Short "*")) []))
                  (return (Var (Short "*")))
-           else NONE)
+           else if tk = EqualsT then return (Var (Short "="))
+           else
+             NONE)
         | _ => NONE
 `;
 

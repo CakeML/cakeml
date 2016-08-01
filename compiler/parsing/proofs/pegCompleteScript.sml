@@ -2061,7 +2061,7 @@ val completeness = store_thm(
   >- (print_tac "nOpID" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       dsimp[pairTheory.EXISTS_PROD, peg_eval_tok_NONE] >> rpt strip_tac >>
-      rveq >> fs[MAP_EQ_CONS])
+      rveq >> fs[MAP_EQ_CONS] >> simp[peg_eval_seq_NONE, peg_eval_tok_NONE])
   >- (print_tac "nNonETopLevelDecs" >> strip_tac >>
       fs[MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_APPEND]
       >- (rename1 `ptree_head TLDpt = NN nTopLevelDec` >>

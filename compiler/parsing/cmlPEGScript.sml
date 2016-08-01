@@ -214,7 +214,8 @@ val cmlPEG_def = zDefine`
                                    s <- destAlphaT t;
                                    assert (s ≠ "")
                                  od = SOME ()) (bindNT nOpID o mktokLf);
-                        pegf (tokeq StarT) (bindNT nOpID)]);
+                        pegf (tokeq StarT) (bindNT nOpID);
+                        pegf (tokeq EqualsT) (bindNT nOpID)]);
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         tok isString (bindNT nEbase o mktokLf);

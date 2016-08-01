@@ -99,6 +99,9 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
+          (SOME ``Var (Short "=")``)
+
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
           "val x = 10"
           (SOME ``Tdec (Dlet (Pvar "x") (Lit (IntLit 10)))``)
