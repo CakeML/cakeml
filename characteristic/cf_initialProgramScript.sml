@@ -147,7 +147,7 @@ fun prove_array_spec op_name =
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
-val w8array_alloc = store_thm ("w8array_alloc",
+val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
   ``!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" basis_st) [nv; wv]
@@ -155,7 +155,7 @@ val w8array_alloc = store_thm ("w8array_alloc",
   prove_array_spec "Word8Array.array"
 )
 
-val w8array_sub = store_thm ("w8array_sub",
+val w8array_sub_spec = store_thm ("w8array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" basis_st) [av; nv]
@@ -163,14 +163,14 @@ val w8array_sub = store_thm ("w8array_sub",
   prove_array_spec "Word8Array.sub"
 )
 
-val w8array_length = store_thm ("w8array_length",
+val w8array_length_spec = store_thm ("w8array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" basis_st) [av]
        (W8ARRAY av a) (\v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.length"
 )
 
-val w8array_update = store_thm ("w8array_update",
+val w8array_update_spec = store_thm ("w8array_update_spec",
   ``!a av n nv w wv.
      NUM n nv /\ n < LENGTH a /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" basis_st)
@@ -180,7 +180,7 @@ val w8array_update = store_thm ("w8array_update",
   prove_array_spec "Word8Array.update"
 )
 
-val array_alloc = store_thm ("array_alloc",
+val array_alloc_spec = store_thm ("array_alloc_spec",
   ``!n nv v.
      NUM n nv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Array.array" basis_st) [nv; v]
@@ -188,7 +188,7 @@ val array_alloc = store_thm ("array_alloc",
   prove_array_spec "Array.array"
 )
 
-val array_sub = store_thm ("array_sub",
+val array_sub_spec = store_thm ("array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Array.sub" basis_st) [av; nv]
@@ -196,7 +196,7 @@ val array_sub = store_thm ("array_sub",
   prove_array_spec "Array.sub"
 )
 
-val array_length = store_thm ("array_length",
+val array_length_spec = store_thm ("array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Array.length" basis_st) [av]
        (ARRAY av a)
@@ -204,7 +204,7 @@ val array_length = store_thm ("array_length",
   prove_array_spec "Array.length"
 )
 
-val array_update = store_thm ("array_update",
+val array_update_spec = store_thm ("array_update_spec",
   ``!a av n nv v.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Array.update" basis_st)
