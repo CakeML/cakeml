@@ -145,7 +145,7 @@ fun xcf name st =
     first_match_tac [
       ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
       ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
-    ]
+    ] \\ fs []
   end
 
 (* [xlet] *)
