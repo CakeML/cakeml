@@ -924,8 +924,8 @@ val cf_app_def = Define `
       exp2v_list env args = SOME argsv /\
       app (p:'ffi ffi_proj) fv argsv H Q)`
 
-val cf_fundecl_def = Define `
-  cf_fundecl (p:'ffi ffi_proj) f ns F1 F2 = \env. local (\H Q.
+val cf_fun_def = Define `
+  cf_fun (p:'ffi ffi_proj) f ns F1 F2 = \env. local (\H Q.
     !fv.
       curried (p:'ffi ffi_proj) (LENGTH ns) fv /\
       (!xvs H' Q'.
@@ -935,21 +935,21 @@ val cf_fundecl_def = Define `
       ==>
       F2 (env with v := (f, fv)::env.v) H Q)`
 
-val fundecl_rec_aux_def = Define `
-  fundecl_rec_aux (p:'ffi ffi_proj) fs fvs [] [] [] F2 env H Q =
+val fun_rec_aux_def = Define `
+  fun_rec_aux (p:'ffi ffi_proj) fs fvs [] [] [] F2 env H Q =
     (F2 (extend_env_rec fs fvs [] [] env) H Q) /\
-  fundecl_rec_aux (p:'ffi ffi_proj) fs fvs (ns::ns_acc) (fv::fv_acc) (Fbody::Fs) F2 env H Q =
+  fun_rec_aux (p:'ffi ffi_proj) fs fvs (ns::ns_acc) (fv::fv_acc) (Fbody::Fs) F2 env H Q =
     (curried (p:'ffi ffi_proj) (LENGTH ns) fv /\
      (!xvs H' Q'.
         LENGTH xvs = LENGTH ns ==>
         Fbody (extend_env_rec fs fvs ns xvs env) H' Q' ==>
         app (p:'ffi ffi_proj) fv xvs H' Q')
      ==>
-     (fundecl_rec_aux (p:'ffi ffi_proj) fs fvs ns_acc fv_acc Fs F2 env H Q)) /\
-  fundecl_rec_aux _ _ _ _ _ _ _ _ _ _ = F`
+     (fun_rec_aux (p:'ffi ffi_proj) fs fvs ns_acc fv_acc Fs F2 env H Q)) /\
+  fun_rec_aux _ _ _ _ _ _ _ _ _ _ = F`
 
-val cf_fundecl_rec_def = Define `
-  cf_fundecl_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
+val cf_fun_rec_def = Define `
+  cf_fun_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
     let fs = MAP (\ (f, _). f) fs_Fs in
     let Fs = MAP (\ (_, F). F) fs_Fs in
     let f_names = MAP (\ (f,_,_). f) fs in
@@ -957,7 +957,7 @@ val cf_fundecl_rec_def = Define `
     !(fvs: v list).
       LENGTH fvs = LENGTH fs ==>
       ALL_DISTINCT f_names /\
-      fundecl_rec_aux (p:'ffi ffi_proj) f_names fvs f_args fvs Fs F2 env H Q)`
+      fun_rec_aux (p:'ffi ffi_proj) f_names fvs f_args fvs Fs F2 env H Q)`
 
 val cf_ref_def = Define `
   cf_ref x = \env. local (\H Q.
@@ -1091,13 +1091,13 @@ val cf_def = tDefine "cf" `
     (if is_bound_Fun opt e1 then
        (case Fun_body e1 of
           | SOME body =>
-            cf_fundecl (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
+            cf_fun (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
               (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
           | NONE => cf_bottom)
      else
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
   cf (p:'ffi ffi_proj) (Letrec funs e) =
-    (cf_fundecl_rec (p:'ffi ffi_proj)
+    (cf_fun_rec (p:'ffi ffi_proj)
        (MAP (\x. (x, cf p (SND (SND x)))) (letrec_pull_params funs))
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
@@ -1212,7 +1212,7 @@ val cf_defs = [
   cf_lit_def,
   cf_con_def,
   cf_var_def,
-  cf_fundecl_def,
+  cf_fun_def,
   cf_let_def,
   cf_opn_def,
   cf_opb_def,
@@ -1233,7 +1233,7 @@ val cf_defs = [
   cf_ref_def,
   cf_assign_def,
   cf_deref_def,
-  cf_fundecl_rec_def,
+  cf_fun_rec_def,
   cf_bottom_def,
   cf_log_def,
   cf_if_def,
@@ -1475,7 +1475,7 @@ val cf_letrec_sound_aux = Q.prove (
          (\env H Q.
             let fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns in
             ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) /\
-            fundecl_rec_aux (p:'ffi ffi_proj)
+            fun_rec_aux (p:'ffi ffi_proj)
               (MAP (\ (f,_,_). f) naryfuns) fvs
               (MAP (\ (_,ns,_). ns) naryfns)
               (DROP (LENGTH naryrest) fvs)
@@ -1485,7 +1485,7 @@ val cf_letrec_sound_aux = Q.prove (
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
   THEN1 (
     rpt strip_tac \\ fs [letrec_pull_params_def, DROP_LENGTH_TOO_LONG] \\
-    fs [fundecl_rec_aux_def] \\
+    fs [fun_rec_aux_def] \\
     qpat_assum `_ = rest` (mp_tac o GSYM) \\ rw [] \\
     cf_strip_sound_full_tac \\ qpat_assum `sound _ e _` mp_tac \\
     fs [extend_env_rec_def] \\
@@ -1510,10 +1510,10 @@ val cf_letrec_sound_aux = Q.prove (
         (case opt of NONE => c | SOME x => c' x))`,
       rpt strip_tac \\ every_case_tac \\ fs [])] \\
     qmatch_goalsub_abbrev_tac `cf _ inner_body::_ _` \\
-    qmatch_goalsub_abbrev_tac `fundecl_rec_aux _ _ _ (params::_)` \\
+    qmatch_goalsub_abbrev_tac `fun_rec_aux _ _ _ (params::_)` \\
     (* unfold "sound _ (Letrec _ _)" in the goal *)
     cf_strip_sound_full_tac \\
-    qpat_assum `fundecl_rec_aux _ _ _ _ _ _ _ _ _ _` mp_tac \\
+    qpat_assum `fun_rec_aux _ _ _ _ _ _ _ _ _ _` mp_tac \\
     (* Rewrite (DROP _ _) to a (_::DROP _ _) *)
     qpat_abbrev_tac `tail = DROP _ _` \\
     `tail = (naryRecclosure env (letrec_pull_params funs) f) ::
@@ -1535,8 +1535,8 @@ val cf_letrec_sound_aux = Q.prove (
       fs [EL_MAP] \\ qpat_assum `_ = funs` (assume_tac o GSYM) \\
       fs [el_append3, ADD1]
     ) \\ fs [] \\
-    (* We can now unfold fundecl_rec_aux *)
-    fs [fundecl_rec_aux_def] \\ rewrite_tac [ONE] \\
+    (* We can now unfold fun_rec_aux *)
+    fs [fun_rec_aux_def] \\ rewrite_tac [ONE] \\
     fs [LENGTH_CONS, LENGTH_NIL, PULL_EXISTS] \\
     fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     impl_tac
@@ -1579,7 +1579,7 @@ val cf_letrec_sound = Q.prove (
           (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
           funs in
         ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
-        fundecl_rec_aux (p:'ffi ffi_proj)
+        fun_rec_aux (p:'ffi ffi_proj)
           (MAP (\ (f,_,_). f) funs) fvs
           (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
           (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) (letrec_pull_params funs))
