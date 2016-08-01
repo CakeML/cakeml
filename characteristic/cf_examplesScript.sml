@@ -164,3 +164,93 @@ val example_and_spec = Q.prove (
   THEN1 (xret \\ xsimpl) \\
   xlog \\ xret \\ xsimpl
 )
+
+val list_length = parse_topdecl
+  "fun length l = \
+ \    case l of \
+ \      [] => 0 \
+ \    | x::xs => \
+ \      let val xs_len = length xs \
+ \      in xs_len + 1 end"
+
+val bytearray_fromlist = parse_topdecl
+  "fun fromList ls = \
+ \    let val len = length ls \
+ \        val w8z = Word8.fromInt 0 \
+ \        val a = Word8Array.array len w8z \
+ \        fun f ls i = \
+ \          case ls of \
+ \            [] => a \
+ \          | h::t => \
+ \            let val ipp = i + 1 in \
+ \              (Word8Array.update a i h; f t ipp) \
+ \            end \
+ \    in f ls 0 end"
+
+val st = basis_st
+  |> ml_progLib.add_prog list_length pick_name
+  |> ml_progLib.add_prog bytearray_fromlist pick_name
+
+val list_length_spec = store_thm ("list_length_spec",
+  ``!a l lv.
+     LIST_TYPE a l lv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
+       emp (\v. & NUM (LENGTH l) v)``,
+  Induct_on `l`
+  THEN1 (
+    xcf "length" st \\ fs [LIST_TYPE_def] \\ 
+    xmatch \\ xret \\ xsimpl
+  )
+  THEN1 (
+    xcf "length" st \\ fs [LIST_TYPE_def] \\
+    rename1 `a x xv` \\ rename1 `LIST_TYPE a xs xvs` \\
+    xmatch \\ xlet `\v. & NUM (LENGTH xs) v` `xs_len`
+    THEN1 (xapp \\ metis_tac []) \\
+    xapp \\ xsimpl \\ fs [NUM_def] \\ asm_exists_tac \\ fs [] \\
+    (* meh? *) fs [INT_def] \\ intLib.ARITH_TAC
+  )
+)
+
+val bytearray_fromlist_spec = Q.prove (
+  `!l lv.
+     LIST_TYPE WORD l lv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "fromList" st) [lv]
+       emp (\av. W8ARRAY av l)`,
+  xcf "fromList" st \\
+  xlet `\v. & NUM (LENGTH l) v` `len_v` THEN1 (xapp \\ metis_tac []) \\
+  xlet `\v. & WORD (i2w 0: word8) v` `w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\v. W8ARRAY v (REPLICATE (LENGTH l) (i2w 0))` `av`
+    THEN1 (xapp \\ fs []) \\
+  xfun_spec `f`
+    `!ls lvs i iv l_pre rest.
+       NUM i iv /\ LIST_TYPE WORD ls lvs /\
+       LENGTH rest = LENGTH ls /\ i = LENGTH l_pre
+        ==>
+       app p f [lvs; iv]
+         (W8ARRAY av (l_pre ++ rest))
+         (\ret. & (ret = av) * W8ARRAY av (l_pre ++ ls))`
+  THEN1 (
+    Induct_on `ls` \\ fs [LIST_TYPE_def, LENGTH_NIL] \\ rpt strip_tac
+    THEN1 (xapp \\ xmatch \\ xret \\ xsimpl)
+    THEN1 (
+      fs [] \\ last_assum xapp_spec \\ xmatch \\
+      xlet `\v. & NUM (LENGTH l_pre + 1) v * W8ARRAY av (l_pre ++ rest)` `ippv`
+      THEN1 (
+        xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate \\
+        (* meh *) fs [INT_def] \\ intLib.ARITH_TAC
+      ) \\
+      rename1 `lvs = Conv _ [hv; tv]` \\ rename1 `WORD h hv` \\
+      fs [LENGTH_CONS] \\ rename1 `rest = rest_h :: rest_t` \\
+      xlet_seq `\_. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
+        xapp \\ xsimpl \\ fs [UNIT_TYPE_def, GSYM CONJ_ASSOC] \\
+        instantiate \\ fs [lupdate_append]
+      ) \\
+      once_rewrite_tac [
+        Q.prove(`l_pre ++ h::ls = (l_pre ++ [h]) ++ ls`, fs [])
+      ] \\ xapp \\ fs []
+    )
+  ) \\
+  xapp \\ fs [] \\ xsimpl \\
+  Q.LIST_EXISTS_TAC [`REPLICATE (LENGTH l) (i2w 0)`, `l`, `[]`] \\
+  fs [LENGTH_REPLICATE]
+)
