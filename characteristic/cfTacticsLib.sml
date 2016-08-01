@@ -30,23 +30,32 @@ val _ = hide_environments true
 
 (*------------------------------------------------------------------*)
 
-fun head_unfold thm = hnf \\ conv_head thm \\ hnf
+fun head_unfold_conv thm =
+  TRY_CONV hnf_conv THENC
+  rewr_head_conv thm THENC
+  TRY_CONV hnf_conv
+
+fun head_unfold thm = CONV_TAC (head_unfold_conv thm)
 
 val reducible_pats = [
-  `find_recfun _ _`,
-  `is_bound_Fun _ _`,
-  `dest_opapp _`,
-  `exp2v _ _`,
-  `exp2v_list _ _`,
-  `do_con_check _ _ _`,
-  `build_conv _ _ _`,
-  `lookup_var_id _ _`
+  ``find_recfun _ _``,
+  ``is_bound_Fun _ _``,
+  ``dest_opapp _``,
+  ``exp2v _ _``,
+  ``exp2v_list _ _``,
+  ``do_con_check _ _ _``,
+  ``build_conv _ _ _``,
+  ``lookup_var_id _ _``
 ]
 
-val reduce_tac =
-  List.foldl (fn (pat, tac) => TRY (qeval_pat_tac pat) \\ tac)
-    ALL_TAC reducible_pats \\
-  fs []
+val reduce_conv =
+    DEPTH_CONV (
+      List.foldl (fn (pat, conv) => (EVAL_PAT pat) ORELSEC conv)
+                 ALL_CONV reducible_pats
+    ) THENC
+    (SIMP_CONV std_ss [])
+
+val reduce_tac = CONV_TAC reduce_conv
 
 (* [xpull] *)
 

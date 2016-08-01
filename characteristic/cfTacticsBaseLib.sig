@@ -29,7 +29,7 @@ sig
   val hnf : tactic
   val cbv : tactic
 
-  val conv_head : thm -> tactic
+  val rewr_head_conv : thm -> conv
 
   val parse : term -> term -> string -> term
   val parse_topdecl : string -> term

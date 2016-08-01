@@ -91,15 +91,14 @@ val hnf =
 (* ? *)
 val cbv = TRY (CONV_TAC (REDEPTH_CONV BETA_CONV))
 
-fun conv_head thm (g as (_, w)) =
-  let val (_, args) = strip_comb w
+fun rewr_head_conv thm tm =
+  let val (_, args) = strip_comb tm
       val (_, args') = strip_comb ((lhs o concl) (SPEC_ALL thm))
       val extra_args_nb = (length args) - (length args')
-      val tac =
-          if extra_args_nb < 0 then FAIL_TAC "conv_head"
-          else CONV_TAC ((compose_n extra_args_nb RATOR_CONV) (REWR_CONV thm))
-  in tac g
-  end
+      val conv =
+          if extra_args_nb < 0 then failwith "rewr_head_conv"
+          else (compose_n extra_args_nb RATOR_CONV) (REWR_CONV thm)
+  in conv tm end
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory lexer_implTheory
