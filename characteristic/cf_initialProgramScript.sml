@@ -93,7 +93,16 @@ val ge_spec = store_thm ("ge_spec",
   prove_opn_opb_spec "op >="
 )
 
-(* todo: eq *)
+val eq_spec = store_thm ("eq_spec",
+  ``!a x1 v1 x2 v2.
+     a x1 v1 /\ a x2 v2 /\ EqualityType a ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "op =" basis_st) [v1; v2]
+       emp (\v. & BOOL (x1 = x2) v)``,
+  xcf "op =" basis_st \\ fs [cf_equality_def] \\ irule local_elim \\
+  reduce_tac \\ fs [app_equality_def, EqualityType_def] \\
+  rpt strip_tac \\ TRY (first_assum irule \\ fs [] \\ metis_tac []) \\
+  xsimpl
+)
 
 val uminus_spec = store_thm ("uminus_spec",
   ``!a av.

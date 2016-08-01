@@ -134,6 +134,21 @@ val is_nil_spec = Q.prove (
   xmatch \\ xret \\ xsimpl
 )
 
+val example_eq = parse_topdecl
+  "fun example_eq x = (x = 3)"
+
+val st = ml_progLib.add_prog example_eq pick_name basis_st
+
+val example_eq_spec = Q.prove (
+  `!x xv.
+     INT x xv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_eq" st) [xv]
+       emp (\bv. & BOOL (x = 3) bv)`,
+  xcf "example_eq" st \\ xapp \\
+  (* instantiate *) qexists_tac `INT` \\ fs [] \\
+  fs [EqualityType_NUM_BOOL]
+)
+
 (* unfortunately, "true" is not a value... *)
 val example_and = parse_topdecl
   "fun example_and u = let val b = true in b andalso false end"
