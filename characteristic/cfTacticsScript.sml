@@ -36,6 +36,11 @@ val INT_Litv = store_thm ("INT_Litv[simp]",
   fs [INT_def] \\ eq_tac \\ fs []
 )
 
+val NUM_Litv = store_thm ("NUM_Litv[simp]",
+  ``NUM n (Litv (IntLit k)) = (k = &n)``,
+  fs [NUM_def] \\ eq_tac \\ fs []
+)
+
 val CHAR_Litv = store_thm ("CHAR_Litv[simp]",
   ``CHAR c (Litv (Char c')) = (c = c')``,
   fs [CHAR_def] \\ eq_tac \\ fs []
