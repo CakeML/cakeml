@@ -221,17 +221,15 @@ fun xapply_core H cont1 cont2 =
     (* temp basic stuff until evars *)
     irule local_frame_gc THENL [xlocal, assume_tac K])
     H *) (* todo fixme *)
-  let open evarsConseqConvLib in
-    irule local_frame_gc THENL [
-      xlocal,
-      CONSEQ_CONV_TAC (K (
-        ecc_conseq_conv (
-          conj1_ecc (irule_ecc H)
-        )
-      )) \\
-      CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
-    ]
-  end
+  irule local_frame_gc THENL [
+    xlocal,
+    CONSEQ_CONV_TAC (K (
+      ecc_conseq_conv (
+        conj1_ecc (irule_ecc H)
+      )
+    )) \\
+    CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
+  ]
 
 fun xapply H =
   xpull_check_not_needed \\
