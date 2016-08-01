@@ -62,7 +62,7 @@ let eAll2 r env1 env2 =
   (forall n.
     eLookup env1 n = Nothing
     -->
-    eLookup env1 n = Nothing)
+    eLookup env2 n = Nothing)
 
 val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)
 let eDom env = { n | forall v n | eLookup env n = Just v }

@@ -192,7 +192,7 @@ val check_freevars_subst_inc = Q.store_thm ("check_freevars_subst_inc",
 `∀tvs tvs2 t.
   check_freevars tvs tvs2 t ⇒
   ∀tvs' targs tvs1.
-  (tvs = LENGTH targs + tvs') ∧
+  tvs = LENGTH targs + tvs' ∧
   EVERY (check_freevars (tvs1 + tvs') tvs2) targs
   ⇒
   check_freevars (tvs1 + tvs') tvs2
@@ -205,6 +205,24 @@ srw_tac[][deBruijn_subst_def, check_freevars_def] >>
 full_simp_tac(srw_ss())[MEM_EL] >-
 metis_tac [] >-
 metis_tac [] >>
+decide_tac);
+
+val check_freevars_subst = Q.store_thm ("check_freevars_subst",
+`∀tvs tvs2 t.
+  check_freevars tvs tvs2 t ⇒
+  ∀tvs' targs tvs1.
+  tvs = LENGTH targs + tvs' ∧
+  EVERY (check_freevars (tvs1 + tvs') tvs2) targs
+  ⇒
+  check_freevars (tvs1 + tvs') tvs2 (deBruijn_subst 0 targs t)`,
+ho_match_mp_tac check_freevars_ind >>
+srw_tac[][check_freevars_def, deBruijn_inc_def, deBruijn_subst_def, EVERY_MAP] >>
+full_simp_tac(srw_ss())[EVERY_MEM] >>
+cases_on `n < LENGTH targs` >>
+srw_tac[][deBruijn_subst_def, check_freevars_def] >>
+full_simp_tac(srw_ss())[MEM_EL] >-
+metis_tac [] >-
+decide_tac >>
 decide_tac);
 
 val type_subst_deBruijn_subst_single = Q.prove (
@@ -635,6 +653,38 @@ val tveLookup_db_merge_some = Q.store_thm ("tveLookup_db_merge_some",
  Induct_on `tenvE1`
  >> rw [db_merge_def, tveLookup_def]);
 
+ (*
+
+val type_lookup_id = Q.store_thm ("type_lookup_id",
+`∀tenvS tenvC tenv.
+  type_env tenvC tenvS env.v tenv.v ∧
+  consistent_mod_env tenvS tenvC env.m tenv.m
+  ⇒
+  ((t_lookup_var_id n (tenv with v := bind_tvar tvs tenv.v) = SOME (tvs', t)) ⇒
+     (∃v. (lookup_var_id n env = SOME v)))`,
+ induct_on `env.m` >>
+ srw_tac[][t_lookup_var_id_def, lookup_var_id_def] >>
+ qpat_assum`X = env.m`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+ cases_on `n` >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][lookup_var_id_def, t_lookup_var_id_def] >>
+ imp_res_tac type_lookup >>
+ srw_tac[][] >>
+ qpat_assum `consistent_mod_env tenvS x0 x1 x2` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[t_lookup_var_id_def, lookup_var_id_def, FLOOKUP_UPDATE] >- (
+   match_mp_tac type_lookup >>
+   every_case_tac >>
+   full_simp_tac(srw_ss())[lookup_tenv_val_def, bind_tvar_def, bvl2_lookup] >>
+   metis_tac [SAME_KEY_UPDATES_DIFFER]) >>
+ first_x_assum(qspec_then`env with m := v`mp_tac) >> simp[] >>
+ disch_then (match_mp_tac o MP_CANON) >>
+ qexists_tac `tenvS` >>
+ qexists_tac `tenvC` >>
+ qexists_tac `tenv with m := tenvM` >>
+ simp []);
+ *)
 
 (*
 (* ---------- tenv_mod stuff ---------- *)
@@ -1647,7 +1697,7 @@ val type_subst_lem1 =
  SIMP_RULE (srw_ss()++ARITH_ss) [] o
  Q.SPECL [`[]`, `t`, `0`, `targs`, `tvs`] o
  SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM])
-check_freevars_subst_inc
+check_freevars_subst
 
 val type_subst = Q.store_thm ("type_subst",
   `!tvs ctMap tenvS v t.
@@ -1657,7 +1707,7 @@ val type_subst = Q.store_thm ("type_subst",
      EVERY (check_freevars tvs' []) targs ∧
      check_freevars (LENGTH targs) [] t
      ⇒
-     type_v tvs' ctMap tenvS v (deBruijn_subst 0 targs (deBruijn_inc (LENGTH targs) tvs' t))`,
+     type_v tvs' ctMap tenvS v (deBruijn_subst 0 targs t)`,
  ho_match_mp_tac type_v_strongind
  >> rw []
  >> simp [Once type_v_cases, deBruijn_inc_def, deBruijn_subst_def, Tchar_def,

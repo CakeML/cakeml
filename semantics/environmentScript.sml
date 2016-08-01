@@ -94,7 +94,7 @@ val _ = Define `
   (! n.    
 (eLookup env1 n = NONE)
     ==>    
-(eLookup env1 n = NONE))))`;
+(eLookup env2 n = NONE))))`;
 
 
 (*val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)*)
