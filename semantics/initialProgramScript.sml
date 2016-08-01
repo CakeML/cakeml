@@ -72,7 +72,9 @@ val _ = Define `
    Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
    Tdec (Dtabbrev [] "char" (Tapp [] TC_char));
    Tmod "Word8" NONE
-     [Dtabbrev [] "word" (Tapp [] TC_word8)];
+     [Dtabbrev [] "word" (Tapp [] TC_word8);
+      mk_unop "fromInt" (WordFromInt W8);
+      mk_unop "toInt" (WordToInt W8)];
    Tmod "Word8Array" NONE
      [Dtabbrev [] "array" (Tapp [] TC_word8array);
       Dtabbrev [] "elem" (Tapp [] TC_word8);

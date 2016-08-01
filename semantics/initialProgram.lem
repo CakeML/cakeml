@@ -53,7 +53,9 @@ let basis_program =
    Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
    Tdec (Dtabbrev [] "char" (Tapp [] TC_char));
    Tmod "Word8" Nothing
-     [Dtabbrev [] "word" (Tapp [] TC_word8)];
+     [Dtabbrev [] "word" (Tapp [] TC_word8);
+      mk_unop "fromInt" (WordFromInt W8);
+      mk_unop "toInt" (WordToInt W8)];
    Tmod "Word8Array" Nothing
      [Dtabbrev [] "array" (Tapp [] TC_word8array);
       Dtabbrev [] "elem" (Tapp [] TC_word8);
