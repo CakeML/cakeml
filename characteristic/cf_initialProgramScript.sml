@@ -180,6 +180,26 @@ val w8array_update_spec = store_thm ("w8array_update_spec",
   prove_array_spec "Word8Array.update"
 )
 
+val word8_fromInt_spec = store_thm ("word8_fromInt_spec",
+  ``!i iv.
+      INT i iv ==>
+      app (p:'ffi ffi_proj) ^(fetch_v "Word8.fromInt" basis_st) [iv]
+        emp (\wv. & WORD ((i2w i): word8) wv)``,
+  xcf "Word8.fromInt" basis_st \\ fs [cf_wordFromInt_W8_def] \\
+  irule local_elim \\ reduce_tac \\ fs [INT_def, app_wordFromInt_W8_def] \\
+  xsimpl
+)
+
+val word8_toInt_spec = store_thm ("word8_toInt_spec",
+  ``!(w: word8) wv.
+      WORD w wv ==>
+      app (p:'ffi ffi_proj) ^(fetch_v "Word8.toInt" basis_st) [wv]
+        emp (\iv. & INT (& w2n w) iv)``,
+  xcf "Word8.toInt" basis_st \\ fs [cf_wordToInt_W8_def] \\
+  irule local_elim \\ reduce_tac \\ fs [WORD_def, app_wordToInt_def] \\
+  xsimpl \\ fs [w2w_def]
+)
+
 val array_alloc_spec = store_thm ("array_alloc_spec",
   ``!n nv v.
      NUM n nv ==>
