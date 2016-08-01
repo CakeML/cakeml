@@ -510,6 +510,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
    >> fs [PULL_EXISTS])
  >- (fs [] >>
      qexists_tac `tenv` >>
+     qexists_tac `tenvE` >>
      rw []
      >- metis_tac [type_tenv_ctor_weakening]
      >- metis_tac [type_tenv_val_weakening_lemma]
@@ -526,10 +527,12 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
  >- (fs [] >>
      qexists_tac `tenv` >>
+     qexists_tac `tenvE` >>
      rw [] >>
      metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma])
  >- (fs [] >>
      qexists_tac `tenv` >>
+     qexists_tac `tenvE` >>
      qexists_tac `bindings` >>
      rw []
      >- metis_tac [type_tenv_ctor_weakening]
@@ -542,6 +545,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
  >- (fs [] >>
      qexists_tac `tenv` >>
+     qexists_tac `tenvE` >>
      qexists_tac `bindings` >>
      rw [] >>
      metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma])

@@ -59,7 +59,6 @@ val decls_to_mods_def = Define `
  decls_to_mods d ⇔
    IMAGE id_to_mods d.defined_types ∪ IMAGE id_to_mods d.defined_exns`;
 
-
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
@@ -68,6 +67,11 @@ val type_ctor_def = Define `
     (t1 = t2) ∧
     FLOOKUP ctMap (id_to_n cn,t1) = SOME (tvs, ts) ∧
     LENGTH ts = n`;
+
+val add_tenvE_def = Define `
+  (add_tenvE Empty tenvV = tenvV) ∧
+  (add_tenvE (Bind_tvar _ tenvE) tenvV = add_tenvE tenvE tenvV) ∧
+  (add_tenvE (Bind_name x tvs t tenvE) tenvV = eBind x (tvs,t) (add_tenvE tenvE tenvV))`;
 
 val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
   (!tvs ctMap tenvS n.
@@ -92,19 +96,23 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     LIST_REL (type_v tvs ctMap tenvS) vs ts
     ⇒
     type_v tvs ctMap tenvS (Conv NONE vs) (Tapp ts TC_tup)) ∧
-  (!tvs ctMap tenvS env tenv n e t1 t2.
+  (!tvs ctMap tenvS env tenv tenvE n e t1 t2.
     tenv_ok tenv ∧
+    tenv_val_exp_ok tenvE ∧
+    num_tvs tenvE = 0 ∧
     eAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) tenv.v ∧
+    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
     check_freevars tvs [] t1 ∧
-    type_e tenv (Bind_name n( 0) t1 (bind_tvar tvs Empty)) e t2
+    type_e tenv (Bind_name n 0 t1 (bind_tvar tvs tenvE)) e t2
     ⇒
     type_v tvs ctMap tenvS (Closure env n e) (Tfn t1 t2)) ∧
-  (!tvs ctMap tenvS env funs n t tenv bindings.
+  (!tvs ctMap tenvS env funs n t tenv tenvE bindings.
     tenv_ok tenv ∧
+    tenv_val_exp_ok tenvE ∧
+    num_tvs tenvE = 0 ∧
     eAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) tenv.v ∧
-    type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings ∧
+    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
+    type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings ∧
     ALOOKUP bindings n = SOME t ∧
     ALL_DISTINCT (MAP FST funs) ∧
     MEM n (MAP FST funs)

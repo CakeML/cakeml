@@ -394,16 +394,23 @@ val type_v_Boolv = Q.prove(
   full_simp_tac(srw_ss())[ctMap_has_bools_def] >>
   srw_tac[][Once type_v_cases]);
 
-  (*
+val remove_lambda_prod = Q.prove (
+`(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
+ rw [FUN_EQ_THM]
+ >> pairarg_tac
+ >> rw []);
+
 val opapp_type_sound = Q.store_thm ("opapp_type_sound",
 `!ctMap tenvS vs ts t.
  type_op Opapp ts t ∧
  LIST_REL (type_v 0 ctMap tenvS) vs ts
  ⇒
- ?env e tenv.
+ ?env e tenv tenvE.
    tenv_ok tenv ∧
-   type_all_env ctMap tenvS env tenv ∧
-   type_e tenv e t ∧
+   tenv_val_exp_ok tenvE ∧
+   num_tvs tenvE = 0 ∧
+   type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+   type_e tenv tenvE e t ∧
    do_opapp vs = SOME (env,e)`,
  rw [type_op_cases]
  >> fs []
@@ -415,10 +422,13 @@ val opapp_type_sound = Q.store_thm ("opapp_type_sound",
    >> qpat_assum `type_v _ _ _ (Closure env n e) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
-   >> qexists_tac `(tenv with v := Bind_name n 0 t2 (bind_tvar 0 tenv.v))`
+   >> qexists_tac `tenv`
+   >> qexists_tac `Bind_name n 0 t2 (bind_tvar 0 tenvE)`
    >> rw []
-   >> fs [tenv_ok_def, type_all_env_def]
-   >> simp [Once type_v_cases, bind_tvar_def])
+   >> fs [tenv_ok_def, type_all_env_def, tenv_val_exp_ok_def, bind_tvar_def]
+   >> simp [add_tenvE_def]
+   >> irule eAll2_eBind
+   >> simp [])
  >- (
    rename1 `type_v _ _ _ (Recclosure env funs n) _`
    >> qpat_assum `type_v _ _ _ (Recclosure env funs n) _` mp_tac
@@ -429,16 +439,24 @@ val opapp_type_sound = Q.store_thm ("opapp_type_sound",
    >> rw []
    >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def] type_recfun_lookup)
    >> fs []
-   >> qmatch_assum_abbrev_tac `type_e (_ with v := bindings) _ _`
-   >> qexists_tac `tenv with v := bindings`
-   >> rw []
-   >> imp_res_tac type_recfun_env
-   >> drule type_env2_to_type_env
-   >> rw [Abbr `bindings`]
-   >> fs [tenv_ok_def, type_all_env_def]
-   >> simp [Once type_v_cases, build_rec_env_merge, bind_tvar_def]
-   >> metis_tac [type_env_merge]));
-   *)
+   >> qmatch_assum_abbrev_tac `type_e _ b _ _`
+   >> qexists_tac `tenv`
+   >> qexists_tac `b`
+   >> fs [type_all_env_def]
+   >> unabbrev_all_tac
+   >> rw [tenv_val_exp_ok_def, add_tenvE_def]
+   >- metis_tac [type_v_freevars]
+   >- (
+     irule tenv_val_exp_ok_bvl_funs
+     >> simp []
+     >> metis_tac [])
+   >- (
+     irule eAll2_eBind
+     >> simp [build_rec_env_merge]
+     >> cheat)
+   >- (
+     simp [remove_lambda_prod]
+     >> metis_tac [])));
 
 val store_type_extension_def = Define `
 store_type_extension tenvS1 tenvS2 =
@@ -1016,50 +1034,16 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
  >- pat_sound_tac);
  *)
 
-val add_tenvE_def = Define `
-  (add_tenvE Empty tenvV = tenvV) ∧
-  (add_tenvE (Bind_tvar _ tenvE) tenvV = add_tenvE tenvE tenvV) ∧
-  (add_tenvE (Bind_name x tvs t tenvE) tenvV = eBind x (tvs,t) (add_tenvE tenvE tenvV))`;
-
-val eLookup_add_tenvE1 = Q.prove (
-  `!tenvE tenvV n tvs t tvs2.
-    check_freevars tvs2 [] t ∧
-    tveLookup n tvs tenvE = SOME (tvs2,t) ⇒
-    eLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)`,
-  Induct_on `tenvE`
-  >> rw [tveLookup_def, add_tenvE_def]
-  >> fs []
-  >> metis_tac [nil_deBruijn_inc]);
-
-val eLookup_add_tenvE2 = Q.prove (
-  `!tenvE tenvV n tvs t tvs2.
-    tveLookup n tvs tenvE = NONE ∧
-    eLookup tenvV (Short n) = SOME (tvs2,t) ⇒
-    eLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)`,
-  Induct_on `tenvE`
-  >> rw [tveLookup_def, add_tenvE_def]
-  >> fs []
-  >> metis_tac []);
-
-val eLookup_add_tenvE3 = Q.prove (
-  `!tenvE tenvV n t tvs2 mn.
-    eLookup tenvV (Long mn n) = SOME (tvs2,t) ⇒
-    eLookup (add_tenvE tenvE tenvV) (Long mn n) = SOME (tvs2,t)`,
-  Induct_on `tenvE`
-  >> rw [tveLookup_def, add_tenvE_def]
-  >> fs []
-  >> metis_tac []);
-
 val lookup_var_sound = Q.store_thm ("lookup_var_sound",
-`!n tvs tenvE targs t ctMap tenvS env tenv.
-  lookup_var n (bind_tvar tvs tenvE) tenv = SOME (LENGTH targs, t) ∧
-  ctMap_ok ctMap ∧
-  tenv_val_exp_ok tenvE ∧
-  num_tvs tenvE = 0 ∧
-  EVERY (check_freevars tvs []) targs ∧
-  type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v)
-  ⇒
-  ?v. eLookup env.v n = SOME v ∧ type_v tvs ctMap tenvS v (deBruijn_subst 0 targs t)`,
+  `!n tvs tenvE targs t ctMap tenvS env tenv.
+    lookup_var n (bind_tvar tvs tenvE) tenv = SOME (LENGTH targs, t) ∧
+    ctMap_ok ctMap ∧
+    tenv_val_exp_ok tenvE ∧
+    num_tvs tenvE = 0 ∧
+    EVERY (check_freevars tvs []) targs ∧
+    type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v)
+    ⇒
+    ?v. eLookup env.v n = SOME v ∧ type_v tvs ctMap tenvS v (deBruijn_subst 0 targs t)`,
  rw [lookup_var_def, type_all_env_def]
  >> `eLookup (add_tenvE tenvE tenv.v) n = SOME (LENGTH targs, t)`
    suffices_by (
@@ -1079,7 +1063,7 @@ val lookup_var_sound = Q.store_thm ("lookup_var_sound",
    irule eLookup_add_tenvE1
    >- metis_tac []
    >> fs [tenv_val_exp_ok_def]
-   >> cheat)
+   >> metis_tac [tveLookup_freevars])
  >- metis_tac [eLookup_add_tenvE3]);
 
 val type_pes_def = Define `
@@ -1290,18 +1274,13 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> fs [is_value_def]
    >> rw []
    >> metis_tac [store_type_extension_refl])
-
  >- (
    pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> simp [Once type_v_cases]
-   >> imp_res_tac type_v_freevars
-   >> fs [num_tvs_def, bind_tvar_def]
-   >> Cases_on `tvs = 0`
-   >> fs [num_tvs_def]
+   >> fs [is_value_def, num_tvs_def, bind_tvar_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl])
-
  >- (
    pop_assum mp_tac
    >> simp [Once type_e_cases]
@@ -1336,8 +1315,8 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> first_x_assum drule
        >> rpt (disch_then drule)
        >> fs [dec_clock_def, PULL_EXISTS]
-       >> rename1 `type_e tenv' e t`
-       >> disch_then (qspecl_then [`0`, `t`] mp_tac)
+       >> rename1 `type_e tenv' tenvE' e t`
+       >> disch_then (qspecl_then [`0`, `tenvS'`, `t`] mp_tac)
        >> simp [bind_tvar_def]
        >> rw []
        >> metis_tac [store_type_extension_trans])
@@ -1358,13 +1337,12 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> fs []
        >> rw []
        >> metis_tac [store_type_extension_trans]))
-     >- (
-       rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
-       >> Cases_on `err_v`
-       >> fs []
-       >> rw []
-       >> metis_tac []))
-
+   >- (
+     rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
+     >> Cases_on `err_v`
+     >> fs []
+     >> rw []
+     >> metis_tac []))
  >- (
    pop_assum mp_tac
    >> simp [Once type_e_cases]
@@ -1406,7 +1384,6 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
      >- (
        `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
          by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
-
        >> first_x_assum drule
        >> rpt (disch_then drule)
        >> fs [PULL_EXISTS]
@@ -1472,10 +1449,8 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >- (
      fs [type_pes_def]
      >> rw []
-     >> `consistent_mod_env tenvS' ctMap env.m tenv.m`
-       by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
-     >> `type_env ctMap tenvS' env.v tenv.v`
-       by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+     >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+       by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
      >> fs [type_v_exn, Bindv_def]
@@ -1511,25 +1486,26 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
      rename1 `type_e tenv (opt_bind_name n 0 t1 tenvE) e2 t2`
      >> qabbrev_tac `env' = eOptBind n (HD [x]) env.v`
      >> qabbrev_tac `tenv' = opt_bind_name n 0 t1 tenvE`
-     >> `tenv_ok tenv'`
-       by (fs [tenv_ok_def, tenv_abbrev_ok_def, Abbr `tenv'`] >> NO_TAC)
-     >> `consistent_mod_env tenvS' ctMap env.m tenv'.m`
-       by (
-         simp [Abbr `tenv'`] >>
-         metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS])
-     >> `consistent_con_env ctMap env.c tenv'.c`
-       by (rw [Abbr `tenv'`] >> NO_TAC)
-     >> `type_env ctMap tenvS' env' tenv'.v`
-       by (
-         simp [Abbr `tenv'`, Abbr `env'`]
-         >> Cases_on `n`
-         >> fs [opt_bind_def, opt_bind_name_def, type_env_eqn]
-         >> metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS, type_v_freevars])
+     >> drule type_v_freevars
+     >> rw []
+     >> `tenv_val_exp_ok tenv'`
+       by (Cases_on `n` >> fs [opt_bind_name_def, tenv_val_exp_ok_def, Abbr `tenv'`] >> NO_TAC)
+     >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+       by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
      >> simp [PULL_EXISTS]
      >> disch_then (qspecl_then [`0`] mp_tac)
+     >> `num_tvs tenv' = 0`
+       by (Cases_on `n` >> fs [opt_bind_name_def, Abbr `tenv'`] >> NO_TAC)
      >> simp []
+     >> `type_all_env ctMap tenvS' (env with v := env') (tenv with v := add_tenvE tenv' tenv.v)`
+       by (
+         fs [type_all_env_def, Abbr `env'`, Abbr `tenv'`]
+         >> Cases_on `n`
+         >> fs [opt_bind_name_def, environmentTheory.eOptBind_def, add_tenvE_def]
+         >> irule eAll2_eBind
+         >> simp [])
      >> disch_then drule
      >> rw []
      >> metis_tac [store_type_extension_trans])
@@ -1542,10 +1518,17 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> fs [PULL_EXISTS, is_value_def]
    >> first_x_assum irule
    >> fs []
-   >> qexists_tac `tenv with v := bind_var_list 0 bindings (bind_tvar tvs tenv.v)`
+   >> qexists_tac `tenv`
+   >> qexists_tac `bind_var_list 0 bindings (bind_tvar tvs tenvE)`
    >> simp []
    >> rfs [build_rec_env_merge, bind_tvar_def, tenv_ok_def]
-   >> metis_tac [type_env_merge_lem1, type_recfun_env, bind_tvar_def, tenv_ok_def])
+   >> rw []
+   >- (
+     irule tenv_val_exp_ok_bvl_funs
+     >> simp []
+     >> metis_tac [])
+   >> fs [type_all_env_def]
+   >> cheat)
  >- (
    CCONTR_TAC
    >> fs []
@@ -1564,6 +1547,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> rw []
    >> metis_tac [store_type_extension_refl])
  >- metis_tac [store_type_extension_refl]
+
  >- (
    fs [type_pes_def, RES_FORALL]
    >> first_assum (qspec_then `(p,e)` mp_tac)
@@ -1592,6 +1576,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
      >> Cases_on `r`
      >> fs []
      >> metis_tac [type_v_weakening, weakCT_refl, weakS_refl]))
+
  >- (
    CCONTR_TAC
    >> fs [type_pes_def, RES_FORALL]

@@ -508,6 +508,18 @@ val tveLookup_inc_none = Q.store_thm ("tveLookup_inc_none",
  Induct_on `e`
  >> rw [tveLookup_def]);
 
+val tveLookup_freevars = Q.store_thm ("tveLookup_freevars",
+  `!n tvs tenvE tvs' t.
+    tenv_val_exp_ok tenvE ∧
+    num_tvs tenvE = 0 ∧
+    tveLookup n tvs tenvE = SOME (tvs',t)
+    ⇒
+    check_freevars tvs' [] t`,
+ Induct_on `tenvE`
+ >> rw [tveLookup_def, tenv_val_exp_ok_def]
+ >> fs []
+ >> metis_tac [nil_deBruijn_inc]);
+
 val bind_var_list_append = Q.store_thm ("bind_var_list_append",
 `!n te1 te2 te3.
   bind_var_list n (te1++te2) te3 = bind_var_list n te1 (bind_var_list n te2 te3)`,
@@ -653,38 +665,6 @@ val tveLookup_db_merge_some = Q.store_thm ("tveLookup_db_merge_some",
  Induct_on `tenvE1`
  >> rw [db_merge_def, tveLookup_def]);
 
- (*
-
-val type_lookup_id = Q.store_thm ("type_lookup_id",
-`∀tenvS tenvC tenv.
-  type_env tenvC tenvS env.v tenv.v ∧
-  consistent_mod_env tenvS tenvC env.m tenv.m
-  ⇒
-  ((t_lookup_var_id n (tenv with v := bind_tvar tvs tenv.v) = SOME (tvs', t)) ⇒
-     (∃v. (lookup_var_id n env = SOME v)))`,
- induct_on `env.m` >>
- srw_tac[][t_lookup_var_id_def, lookup_var_id_def] >>
- qpat_assum`X = env.m`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
- cases_on `n` >>
- full_simp_tac(srw_ss())[] >>
- srw_tac[][lookup_var_id_def, t_lookup_var_id_def] >>
- imp_res_tac type_lookup >>
- srw_tac[][] >>
- qpat_assum `consistent_mod_env tenvS x0 x1 x2` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
- full_simp_tac(srw_ss())[] >>
- srw_tac[][] >>
- full_simp_tac(srw_ss())[t_lookup_var_id_def, lookup_var_id_def, FLOOKUP_UPDATE] >- (
-   match_mp_tac type_lookup >>
-   every_case_tac >>
-   full_simp_tac(srw_ss())[lookup_tenv_val_def, bind_tvar_def, bvl2_lookup] >>
-   metis_tac [SAME_KEY_UPDATES_DIFFER]) >>
- first_x_assum(qspec_then`env with m := v`mp_tac) >> simp[] >>
- disch_then (match_mp_tac o MP_CANON) >>
- qexists_tac `tenvS` >>
- qexists_tac `tenvC` >>
- qexists_tac `tenv with m := tenvM` >>
- simp []);
- *)
 
 (*
 (* ---------- tenv_mod stuff ---------- *)
@@ -1646,6 +1626,49 @@ val consistent_decls_add_mod = Q.store_thm ("consistent_decls_add_mod",
 
 (* ---------- type_v  ---------- *)
 
+val eLookup_add_tenvE1 = Q.store_thm ("eLookup_add_tenvE1",
+  `!tenvE tenvV n tvs t tvs2.
+    check_freevars tvs2 [] t ∧
+    tveLookup n tvs tenvE = SOME (tvs2,t) ⇒
+    eLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)`,
+  Induct_on `tenvE`
+  >> rw [tveLookup_def, add_tenvE_def]
+  >> fs []
+  >> metis_tac [nil_deBruijn_inc]);
+
+val eLookup_add_tenvE2 = Q.store_thm ("eLookup_add_tenvE2",
+  `!tenvE tenvV n tvs t tvs2.
+    tveLookup n tvs tenvE = NONE ∧
+    eLookup tenvV (Short n) = SOME (tvs2,t) ⇒
+    eLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)`,
+  Induct_on `tenvE`
+  >> rw [tveLookup_def, add_tenvE_def]
+  >> fs []
+  >> metis_tac []);
+
+val eLookup_add_tenvE3 = Q.store_thm ("eLookup_add_tenvE3",
+  `!tenvE tenvV n t tvs2 mn.
+    eLookup tenvV (Long mn n) = SOME (tvs2,t) ⇒
+    eLookup (add_tenvE tenvE tenvV) (Long mn n) = SOME (tvs2,t)`,
+  Induct_on `tenvE`
+  >> rw [tveLookup_def, add_tenvE_def]
+  >> fs []
+  >> metis_tac []);
+
+val tenv_val_ok_add_tenvE = Q.store_thm ("tenv_val_ok_add_tenvE",
+  `!tenvE tenvV.
+    num_tvs tenvE = 0 ∧
+    tenv_val_exp_ok tenvE ∧
+    tenv_val_ok tenvV
+    ⇒
+    tenv_val_ok (add_tenvE tenvE tenvV)`,
+ Induct_on `tenvE`
+ >> rw [add_tenvE_def, tenv_val_exp_ok_def]
+ >> fs [tenv_val_ok_def]
+ >> irule eAll_eBind
+ >> rw []
+ >> rfs []);
+
 val type_v_freevars = Q.store_thm ("type_v_freevars",
 `!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t`,
  ho_match_mp_tac type_v_strongind >>
@@ -1751,18 +1774,20 @@ val type_subst = Q.store_thm ("type_subst",
    >> rfs [MEM_ZIP, EL_MEM])
  >- (
    qexists_tac `tenv`
+   >> qexists_tac `tenvE`
    >> simp [nil_deBruijn_inc, deBruijn_subst_freevars]
    >> rw []
    >- fs [eAll2_conj, remove_lambda_prod]
    >> match_mp_tac type_e_subst_lem
    >> fs [tenv_val_exp_ok_def, tenv_ok_def])
  >- (qexists_tac `tenv` >>
+     qexists_tac `tenvE` >>
      simp [nil_deBruijn_inc , deBruijn_subst_freevars] >>
      qexists_tac `MAP (λ(x,t). (x,deBruijn_subst 0 targs t)) bindings` >>
      srw_tac[][]
      >- fs [eAll2_conj, remove_lambda_prod]
      >- (first_assum (assume_tac o MATCH_MP (GEN_ALL (hd (tl (tl (CONJUNCTS type_e_subst)))))) >>
-         pop_assum (qspecl_then [`Empty`, `bind_var_list 0 bindings Empty`] mp_tac) >>
+         pop_assum (qspecl_then [`tenvE`, `bind_var_list 0 bindings Empty`] mp_tac) >>
          simp [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def, deBruijn_inc0,
                num_tvs_bind_var_list, db_merge_bvl,
                deBruijn_subst_E_bvl] >>
