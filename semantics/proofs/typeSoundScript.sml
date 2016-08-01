@@ -453,7 +453,8 @@ val opapp_type_sound = Q.store_thm ("opapp_type_sound",
    >- (
      irule eAll2_eBind
      >> simp [build_rec_env_merge]
-     >> cheat)
+     >> simp [Once (GSYM add_tenvE_eAppend)]
+
    >- (
      simp [remove_lambda_prod]
      >> metis_tac [])));

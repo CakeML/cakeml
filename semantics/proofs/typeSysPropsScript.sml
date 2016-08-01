@@ -1669,6 +1669,11 @@ val tenv_val_ok_add_tenvE = Q.store_thm ("tenv_val_ok_add_tenvE",
  >> rw []
  >> rfs []);
 
+val add_tenvE_eAppend = Q.store_thm ("add_tenvE_eAppend",
+  `!tenvE tenvV. eAppend (add_tenvE tenvE eEmpty) tenvV = add_tenvE tenvE tenvV`,
+ Induct_on `tenvE`
+ >> rw [add_tenvE_def]);
+
 val type_v_freevars = Q.store_thm ("type_v_freevars",
 `!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t`,
  ho_match_mp_tac type_v_strongind >>

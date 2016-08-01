@@ -65,6 +65,18 @@ val eMap_eEmpty = Q.store_thm ("eMap_eEmpty[simp]",
   `!f. eMap f eEmpty = eEmpty`,
  rw [eMap_def, eEmpty_def]);
 
+val eLookup_eAppend_none = Q.store_thm ("eLookup_eAppend_none",
+  `∀e1 id e2.
+    eLookup e1 id = NONE ∧ eLookup e2 id = NONE
+    ⇒
+    eLookup (eAppend e1 e2) id = NONE`,
+ ho_match_mp_tac eLookup_ind
+ >> rw []
+ >> Cases_on `e2`
+ >> fs [eAppend_def, eLookup_def, ALOOKUP_APPEND]
+ >> every_case_tac
+ >> fs []);
+
 (* ------------- Other simple automatic theorems --------- *)
 
 val alist_to_env_cons = Q.store_thm ("alist_to_env_cons[simp]",
