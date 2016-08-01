@@ -1,11 +1,10 @@
 structure cfTacticsLib :> cfTacticsLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory helperLib ConseqConv ml_translatorTheory
-open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory cfAppTheory
-open cfHeapsLib cfTheory cfTacticsBaseLib cfTacticsTheory
-open match_goal
+open HolKernel Parse bossLib preamble
+open ConseqConv match_goal
+open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
+open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
