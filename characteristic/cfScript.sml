@@ -205,7 +205,7 @@ val app_one_naryClosure = store_thm ("app_one_naryClosure",
   progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
   rename1 `SPLIT3 (st2heap _ st'') (h_f'', h_g'', h_g' UNION h_k)` \\
   `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
-  \\ instantiate
+  \\ simp [PULL_EXISTS] \\ instantiate
 )
 
 val curried_naryClosure = store_thm ("curried_naryClosure",
@@ -277,7 +277,7 @@ val app_one_naryRecclosure = store_thm ("app_one_naryRecclosure",
   fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   rename1 `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
   `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
-  instantiate
+  simp [PULL_EXISTS] \\ instantiate
 )
 
 val curried_naryRecclosure = store_thm ("curried_naryRecclosure",
@@ -1417,7 +1417,8 @@ val app_rec_of_sound_cf_aux = Q.prove (
     progress_then (fs o sing) do_opapp_naryRecclosure \\
     fs [SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
     rename1 `SPLIT _ (h, i)` \\
-    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) (h, {}, i)` by SPLIT_TAC \\ instantiate \\
+    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) (h, {}, i)` by SPLIT_TAC \\
+    instantiate \\
     (* fixme *)
     qexists_tac `naryClosure
       (env with v := (n,xv)::(ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
@@ -1595,8 +1596,9 @@ val build_cases_evaluate_match = Q.prove (
     build_cases v (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
     SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
     ?v' st' h_f h_g.
+      SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
       bigStep$evaluate_match F env st v rows bind_exn_v (st', Rval v') /\
-      Q v' h_f /\ SPLIT3 (st2heap p st') (h_f, h_k, h_g)`,
+      Q v' h_f`,
 
   Induct_on `rows` \\ rpt strip_tac \\ fs [build_cases_def]
   THEN1 (fs [cf_bottom_def, local_def] \\ metis_tac []) \\
@@ -1884,8 +1886,8 @@ val cf_sound = store_thm ("cf_sound",
       every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
       qexists_tac `Mem l (W8array (LUPDATE w (Num i) ws)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
     ) \\
     try_finally (
       (* WordFromInt W8, WordFromInt W64 *)
@@ -1968,8 +1970,8 @@ val cf_sound = store_thm ("cf_sound",
       every_case_tac \\ rw_tac (arith_ss ++ intSimps.INT_ARITH_ss) [] \\
       qexists_tac `Mem l (Varray (LUPDATE v (Num i) vs)) INSERT u` \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
     )
   )
   THEN1 (
@@ -1993,14 +1995,14 @@ val cf_sound = store_thm ("cf_sound",
     cf_strip_sound_full_tac \\
     progress_then (qspec_then `st` assume_tac)
       (INST_TYPE [alpha |-> ``:'ffi``] exp2v_evaluate) \\
-    instantiate \\ fs [do_if_def] \\ every_case_tac \\ fs [BOOL_def] \\
+    instantiate1 \\ fs [do_if_def] \\ every_case_tac \\ fs [BOOL_def] \\
     rw [] \\ fs [sound_def] \\ first_assum progress \\ instantiate
   )
   THEN1 (
     (* Mat *)
     cf_strip_sound_full_tac \\
     `evaluate F env st e (st, Rval v)` by (fs [exp2v_evaluate]) \\
-    instantiate \\ fs [GSYM CONJ_ASSOC] \\ irule build_cases_evaluate_match \\
+    instantiate \\ irule build_cases_evaluate_match \\
     fs [EVERY_MAP, EVERY_MEM] \\ instantiate
   )
 )

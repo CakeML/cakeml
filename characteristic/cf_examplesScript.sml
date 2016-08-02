@@ -242,8 +242,8 @@ val bytearray_fromlist_spec = Q.prove (
       rename1 `lvs = Conv _ [hv; tv]` \\ rename1 `WORD h hv` \\
       fs [LENGTH_CONS] \\ rename1 `rest = rest_h :: rest_t` \\
       xlet `\_. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
-        xapp \\ xsimpl \\ fs [UNIT_TYPE_def, GSYM CONJ_ASSOC] \\
-        instantiate \\ fs [lupdate_append]
+        xapp \\ xsimpl \\ fs [UNIT_TYPE_def] \\ instantiate \\
+        fs [lupdate_append]
       ) \\
       once_rewrite_tac [
         Q.prove(`l_pre ++ h::ls = (l_pre ++ [h]) ++ ls`, fs [])

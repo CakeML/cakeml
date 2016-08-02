@@ -26,11 +26,39 @@ fun UNCHANGED_CONV conv t =
 
 (*------------------------------------------------------------------*)
 
-(* TODO: clean & generalize *)
-fun instantiate g =
-  rpt ((asm_exists_tac \\ fs []) ORELSE
-       (once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []))
-      g
+fun gen_try_one_instantiate_tac () = let
+  val already_tried_tms = ref []
+  fun to_try_next body = let
+    val conjs = strip_conj body
+  in
+    case List.find (fn tm => not (mem tm (!already_tried_tms))) conjs of
+        NONE => fail ()
+      | SOME tm => tm
+  end
+
+  fun tac (g as (_, w)) = let
+    val try_tm = to_try_next (snd (strip_exists w))
+    fun register_tm_tac g =
+      (already_tried_tms := try_tm :: !already_tried_tms;
+       ALL_TAC g)
+  in
+    (TRY (first_assum ((part_match_exists_tac to_try_next) o concl))
+     \\ register_tm_tac) g
+  end
+in tac end
+
+fun rpt_until_change tac g = let
+  val (gl, p) = tac g
+in
+  if set_eq gl [g] then rpt_until_change tac g
+  else (gl, p)
+end
+
+fun instantiate1 g = let
+  val tac = gen_try_one_instantiate_tac ()
+in (rpt_until_change tac \\ simp []) g end
+
+val instantiate = CHANGED_TAC (rpt instantiate1)
 
 fun progress_then thm_tac thm =
   drule thm \\ rpt (disch_then drule) \\ disch_then thm_tac

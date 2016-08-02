@@ -10,6 +10,7 @@ sig
   val progress_with : thm -> thm -> tactic
 
   val instantiate : tactic
+  val instantiate1 : tactic
 
   val try_finally : tactic -> tactic
   val qpat_assum_keep : term quotation -> thm_tactic -> tactic
