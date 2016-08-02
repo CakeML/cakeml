@@ -70,8 +70,13 @@ sig
 
   (* [xret] applies on characteristic formulae of the form
      [cf_lit ...], [cf_con ...], [cf_var ...].
+
+     [xlit], [xcon] and [xvar] are aliases of [xret].
    *)
   val xret : tactic
+  val xlit : tactic
+  val xcon : tactic
+  val xvar : tactic
 
   (* [xlog] applies on characteristic formulae for logical operations
      (produced by [andalso] or [orelse] at source level), which are of

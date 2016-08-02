@@ -418,26 +418,29 @@ val xret_no_gc_core =
     FIRST [irule xret_lemma_unify,
            (* todo evars *) irule xret_no_gc_lemma]
 
-val xlit =
+val xlit_core =
   head_unfold cf_lit_def \\ cbv
 
-val xcon =
+val xcon_core =
   head_unfold cf_con_def \\ reduce_tac
 
-val xvar =
+val xvar_core =
   head_unfold cf_var_def \\ reduce_tac
 
 fun xret_pre cont1 cont2 =
   xpull_check_not_needed \\
   first_match_tac [
-    ([mg.c `cf_lit _ _ _ _`], K xlit),
-    ([mg.c `cf_con _ _ _ _ _`], K xcon),
-    ([mg.c `cf_var _ _ _ _`], K xvar)
+    ([mg.c `cf_lit _ _ _ _`], K xlit_core),
+    ([mg.c `cf_con _ _ _ _ _`], K xcon_core),
+    ([mg.c `cf_var _ _ _ _`], K xvar_core)
   ] \\
   cont1
   (* todo: also do stuff with lets *)
 
 val xret = xret_pre xret_irule_lemma (TRY xpull)
+val xlit = xret
+val xcon = xret
+val xvar = xret
 
 (* todo: xrets *)
 
