@@ -273,7 +273,7 @@ val clos_to_bvl_compile_side = prove(``
     ntac 2 (pop_assum mp_tac)>>
     specl_args_of_then ``renumber_code_locs_list`` (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
     rw[]>>fs[]>>
-    Cases_on`v10`>>fs[]) |> update_precondition
+    fs[LENGTH_EQ_NUM_compute]) |> update_precondition
 
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
