@@ -8,8 +8,9 @@
    - cfTacticsBaseLib and cfTacticsLib contain the automation to deal
      with characteristic formulae, so we open them aswell.
 *)
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
+local open ml_progLib cf_initialProgramTheory in end
 
 (* We use translator/ml_progLib for managing the state resulting from
    the evaluation of several toplevel declarations.
@@ -21,7 +22,7 @@ open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
    functions it defines.
 *)
 val basis_st =
-  ml_progLib.unpack_ml_prog_state 
+  ml_progLib.unpack_ml_prog_state
     cf_initialProgramTheory.basis_prog_state
 
 (* Then, write the code for the programs we want to specify.
@@ -184,6 +185,9 @@ val list_length_spec = store_thm ("list_length_spec",
        something better
     *)
     fs [INT_def] \\ intLib.ARITH_TAC
+    (* RK suggests one alternative:
+    fs [ADD1,integerTheory.INT_ADD]
+    *)
   )
 )
 
@@ -268,8 +272,7 @@ val bytearray_fromlist_spec = Q.prove (
     )
   ) \\
   xapp \\ fs [] \\ xsimpl \\
-  Q.LIST_EXISTS_TAC [`REPLICATE (LENGTH l) (i2w 0)`, `l`, `[]`] \\
-  fs [LENGTH_REPLICATE]
+  fs[LENGTH_NIL_SYM,LENGTH_REPLICATE]
   (* Done! *)
 )
 
