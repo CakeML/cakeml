@@ -101,13 +101,10 @@ fun compute_pat cs pat tm =
 fun compute_pat_tac cs pat = CONV_TAC (DEPTH_CONV (compute_pat cs pat))
 fun qcompute_pat_tac cs = Q_TAC (compute_pat_tac cs)
 
-fun compose_n n conv =
-  if n <= 0 then I else conv o (compose_n (n-1) conv)
-
 fun hnf_conv tm =
     let val (f, xs) = strip_comb tm in
       if is_abs f then
-        ((compose_n (length xs - 1) RATOR_CONV) BETA_CONV
+        ((funpow (length xs - 1) RATOR_CONV) BETA_CONV
          THENC hnf_conv) tm
       else
         REFL tm
@@ -125,7 +122,7 @@ fun rewr_head_conv thm tm =
       val extra_args_nb = (length args) - (length args')
       val conv =
           if extra_args_nb < 0 then failwith "rewr_head_conv"
-          else (compose_n extra_args_nb RATOR_CONV) (REWR_CONV thm)
+          else (funpow extra_args_nb RATOR_CONV) (REWR_CONV thm)
   in conv tm end
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
@@ -477,7 +474,7 @@ let
   (* destruct t *)
   val (t_ex_vars, t_body) = strip_exists t
 
-  (* make sure variables are distinct, this is important for 
+  (* make sure variables are distinct, this is important for
      later unification *)
   val rewr_thm = CONV_RULE (VARIANT_CONV (t_ex_vars @ free_vars t)) rewr_thm
 
@@ -485,7 +482,7 @@ let
   val (quant_vars, rewr_concl, rewr_pre) = let
       val (vs, t0) = strip_forall (concl rewr_thm);
       val (t2, t1) = dest_imp_only t0
-    in 
+    in
       (vs, t1, t2)
     end;
 
@@ -493,7 +490,7 @@ let
   val sub = Unify.simp_unify_terms [] rewr_concl t_body;
 
   (* figure out finally existentially quantified vars *)
-  val new_ex_vars = let 
+  val new_ex_vars = let
     val t_vars' = List.map (Term.subst sub) (quant_vars @ t_ex_vars)
     val s0 = HOLset.listItems (FVL t_vars' empty_tmset)
     val s1 = Lib.filter (fn v => Lib.mem v (quant_vars @ t_ex_vars)) s0
@@ -509,7 +506,7 @@ let
 
   val thm1 = let
     val thm1a = ASSUME (Term.subst sub t_body)
-    val (_, thm1b) = foldr (fn (v, (t, thm)) => 
+    val (_, thm1b) = foldr (fn (v, (t, thm)) =>
        let val t' = mk_exists (v, t) in
        (t', EXISTS (Term.subst sub t', Term.subst sub v) thm) end)
         (t_body, thm1a) t_ex_vars

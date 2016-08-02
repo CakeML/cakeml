@@ -24,8 +24,6 @@ sig
   val compute_pat_tac : computeLib.compset -> term -> tactic
   val qcompute_pat_tac : computeLib.compset -> term quotation -> tactic
 
-  val compose_n : int -> ('a -> 'a) -> 'a -> 'a
-
   val hnf_conv : conv
   val hnf : tactic
   val cbv : tactic
@@ -133,7 +131,7 @@ sig
   (* -- *)
 
   val MATCH_IMP_STRENGTHEN_CONSEQ_CONV : thm -> conseq_conv
-  
+
   (** Tactics to deal with goals of the form [?x1..xn. A1 /\ ... /\ Am], where
       the [Ai]s are not themselves of the form [_ /\ _], and shouldn't start
       with existential quantifications. The focus is on A1 (the "head"), where
