@@ -4040,14 +4040,8 @@ val remove_FST = prove(``
   first_x_assum(qspec_then`T` assume_tac)>>fs[clos_removeTheory.compile_def]>>
   rw[Once clos_removeTheory.remove_CONS])
 
-val ODD_num_stubs = Q.store_thm("ODD_num_stubs",
-  `ODD (num_stubs max_app)`,
-  rw[num_stubs_def,ODD_ADD,ODD_EXP_IFF]
-  \\ metis_tac[]);
-
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
-  `num_stubs c.max_app ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
-   compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
+  `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   srw_tac[][compile_def] >>
   full_simp_tac(srw_ss())[compile_def,LET_THM] >>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
@@ -4116,16 +4110,12 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   (* call's syntactic preconds go here *)
   qsuff_tac`ALL_DISTINCT (code_loc' ls) ∧
             set (code_loc' ls) ⊆ EVEN ∧
-            EVERY ($<= c.next_loc) (code_loc' ls)`
+            EVERY ($<= (num_stubs c.max_app + 1)) (code_loc' ls)`
   >-
     (strip_tac>>
-    (* This must be in HOL somewhere... *)
-    `ODD (c.start - (num_stubs c.max_app))`
-      by ( simp[ODD_SUB,ODD_num_stubs,ODD_EVEN] ) >>
-    `¬MEM (c.start-(num_stubs c.max_app)) (code_loc' ls)` by
+    `¬MEM 1 (code_loc' ls)` by
       (fs[SUBSET_DEF]>>
-      fs[ODD_EVEN]>>
-      metis_tac[IN_DEF])>>
+       metis_tac[EVAL``ODD 1``,ODD_EVEN,IN_DEF])>>
     Cases_on`c.do_call`>>fs[clos_callTheory.compile_def]>>
     rpt var_eq_tac>>rfs[]>>
     pairarg_tac>>fs[]>>
@@ -4154,11 +4144,12 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     fs[Abbr`ls`,clos_knownProofTheory.compile_code_locs,Once clos_removeProofTheory.code_loc'_def]>>
   unabbrev_all_tac>>fs[]>>
   (* renumber *)
-  qspecl_then[`c.next_loc`,`z`]assume_tac clos_numberProofTheory.renumber_code_locs_distinct>>
+  qspecl_then[`num_stubs c.max_app + 1`,`z`]assume_tac clos_numberProofTheory.renumber_code_locs_distinct>>
   fs[clos_numberTheory.renumber_code_locs_def]>>pairarg_tac>>fs[]>>
   rpt var_eq_tac>>fs[]>>
-  Q.SPECL_THEN [`c.next_loc`,`z`] assume_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)>>
+  Q.SPECL_THEN [`num_stubs c.max_app + 1`,`z`] assume_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)>>
   rfs[EVERY_MEM,SUBSET_DEF]>>
+  `EVEN (num_stubs c.max_app + 1)` by (simp[num_stubs_def,EVEN_ADD,EVEN_EXP_IFF] \\ metis_tac[]) >>
   metis_tac[IN_DEF]);
 
 val full_result_rel_def = Define`
@@ -4229,15 +4220,13 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   BAG_ALL_DISTINCT (set_globals e) ∧
   r ≠ Rerr (Rabort Rtype_error) ∧
   0 < c.max_app ∧
-  num_stubs c.max_app ≤ c.start ∧ EVEN c.next_loc ∧ c.start < c.next_loc ∧
-  EVEN c.start ∧
   compile c e = (c',p) ⇒
   ∃r1 s'1 ck.
      let init_bvl = initial_state s.ffi (fromAList p) (s.clock+ck) in
      evaluate ([Call 0 (SOME c'.start) []],[], init_bvl) = (r1,s'1) ∧
      full_result_rel c (r,s') (r1,s'1)`,
   srw_tac[][compile_def,LET_THM,clos_init_def] >>
-  drule compile_all_distinct_locs>>simp[compile_def]>> strip_tac>>
+  mp_tac compile_all_distinct_locs>>simp[compile_def]>> strip_tac>>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >>
       full_simp_tac(srw_ss())[]) >>
   `∃z. es = [z]` by (
@@ -4269,7 +4258,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
    |> CONJUNCT1 |> SIMP_RULE std_ss []
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   simp[] >>
-  disch_then(qspecl_then[`s`,`c.next_loc`] mp_tac)>>simp[]>>
+  disch_then(qspecl_then[`s`,`num_stubs c.max_app + 1`] mp_tac)>>simp[]>>
   impl_tac>-
     simp[clos_numberProofTheory.state_rel_def]>>
   strip_tac >>
@@ -4529,7 +4518,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   srw_tac[][bvlSemTheory.find_code_def] >>
   full_simp_tac(srw_ss())[code_installed_def] >>
   simp[lookup_fromAList,ALOOKUP_APPEND]>>
-  `ALOOKUP (toAList (init_code c.max_app)) c.start = NONE` by
+  `ALOOKUP (toAList (init_code c.max_app)) (num_stubs c.max_app + 1) = NONE` by
     (simp[ALOOKUP_NONE,toAList_domain]>>
     CCONTR_TAC>>
     fs[]>>imp_res_tac domain_init_code_lt_num_stubs>>
@@ -4605,8 +4594,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
    BAG_ALL_DISTINCT (set_globals e) ∧
    compile c e = (c',p) ∧
    0 < c.max_app ∧
-   num_stubs c.max_app ≤ c.start ∧ EVEN c.next_loc ∧ c.start < c.next_loc ∧
-   EVEN c.start ∧
    clos_init c.max_app (s:'ffi closSem$state) ∧
    semantics [] s [e] ≠ Fail
    ⇒

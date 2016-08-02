@@ -1212,7 +1212,7 @@ val cnv = computeLib.compset_conv (wordsLib.words_compset())
    computeLib.Defs
      [prim_config_def, initialProgramTheory.prim_types_program_def]]
 
-val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config max_app``);
+val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config``);
 
 val id_CASE_eq_SOME = Q.prove(
   `id_CASE x f (λa b. NONE) = SOME z ⇔ ∃y. x = Short y ∧ f y = SOME z`,
@@ -1237,8 +1237,7 @@ val from_data_ignore = prove(
   \\ rpt (pairarg_tac \\ fs []));
 
 val clos_to_data_names = store_thm("clos_to_data_names",
-  ``clos_to_bvl$num_stubs c.max_app ≤ c.start ∧ c.start < c.next_loc ∧ EVEN c.start ∧ EVEN c.next_loc ∧
-    clos_to_bvl$compile c e4 = (c2,p2) /\
+  ``clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
     EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))``,
@@ -1260,14 +1259,11 @@ val clos_to_data_names = store_thm("clos_to_data_names",
 
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
-   (c:'a backend$config).source_conf = ((prim_config c.clos_conf.max_app):'a backend$config).source_conf ∧
-   c.mod_conf = ((prim_config c.clos_conf.max_app):'a backend$config).mod_conf ∧
-   c.clos_conf.next_loc = ((prim_config c.clos_conf.max_app):'a backend$config).clos_conf.next_loc ∧
-   c.clos_conf.start = ((prim_config c.clos_conf.max_app):'a backend$config).clos_conf.start ∧
-   0 < c.clos_conf.max_app ∧
+   (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
+   c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
+   0 < c.clos_conf.max_app ∧ conf_ok c mc ∧
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,ffi_limit) ∧
-   conf_ok c mc ∧
    installed (bytes,c,ffi,ffi_limit,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
@@ -1284,11 +1280,11 @@ val compile_correct = Q.store_thm("compile_correct",
      s2.refs = [] ∧
      s2.defined_types = s.defined_types ∧
      s2.defined_mods = s.defined_mods ∧
-     envC_tagged env2.c (prim_config c.clos_conf.max_app).mod_conf.tag_env gtagenv ∧
-     exhaustive_env_correct (prim_config c.clos_conf.max_app).mod_conf.exh_ctors_env gtagenv ∧
+     envC_tagged env2.c prim_config.mod_conf.tag_env gtagenv ∧
+     exhaustive_env_correct prim_config.mod_conf.exh_ctors_env gtagenv ∧
      gtagenv_wf gtagenv ∧
-     next_inv (IMAGE (SND o SND) (FRANGE (SND( (prim_config c.clos_conf.max_app).mod_conf.tag_env))))
-       (prim_config c.clos_conf.max_app).mod_conf.next_exception gtagenv` by (
+     next_inv (IMAGE (SND o SND) (FRANGE (SND(prim_config.mod_conf.tag_env))))
+       prim_config.mod_conf.next_exception gtagenv` by (
     simp[source_to_modProofTheory.precondition_def] >>
     simp[Abbr`env`,Abbr`s`] >>
     srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
@@ -1501,9 +1497,6 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ disch_then match_mp_tac \\ fs []
   \\ qunabbrev_tac `p4` \\ fs []
   \\ imp_res_tac clos_to_data_names
-  \\ fs[AND_IMP_INTRO]
-  \\ pop_assum mp_tac \\ impl_keep_tac
-  >- (rfs[]>>EVAL_TAC >> simp[EVEN_ADD,EVEN_EXP_IFF])
-  \\ fs[]);
+  \\ fs[AND_IMP_INTRO]);
 
 val _ = export_theory();

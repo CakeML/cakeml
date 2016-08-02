@@ -429,14 +429,25 @@ val _ = Datatype`
             ; max_app : num
             |>`;
 
+val default_config_def = Define`
+  default_config = <|
+    next_loc := 0;
+    start := 1;
+    do_mti := T;
+    do_known := T;
+    do_call := T;
+    do_remove := T;
+    max_app := 4 |>`;
+
 val compile_def = Define`
   compile c e =
     let es = clos_mti$compile c.do_mti c.max_app [e] in
-    let (n,es) = renumber_code_locs_list c.next_loc es in
+    let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 1) es in
     let c = c with next_loc := n in
     let e = clos_known$compile c.do_known (HD es) in
     let (e,aux) = clos_call$compile c.do_call e in
-    let prog = (c.start - (num_stubs c.max_app),0,e) :: aux in
+    let prog = (1,0,e) :: aux in
+    let c = c with start := num_stubs c.max_app + 1 in
     let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in
     let prog = compile_prog c.max_app prog in
