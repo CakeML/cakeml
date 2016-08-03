@@ -1,10 +1,10 @@
 structure cfHeapsLib :> cfHeapsLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open set_sepTheory helperLib ConseqConv
-open cfHeapsBaseTheory cfTacticsBaseLib cfHeapsBaseLib
-open cfHeapsTheory
+open cfHeapsBaseTheory cfHeapsTheory
+open cfTacticsBaseLib cfHeapsBaseLib
 
 infix 3 THEN_DCC
 infix 3 ORELSE_DCC

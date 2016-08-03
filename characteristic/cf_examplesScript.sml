@@ -1,5 +1,6 @@
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
+local open ml_progLib cf_initialProgramTheory in end
 
 val basis_st =
   ml_progLib.unpack_ml_prog_state 

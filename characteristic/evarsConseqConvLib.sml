@@ -1,7 +1,7 @@
 structure evarsConseqConvLib :> evarsConseqConvLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open ConseqConv ConseqConvTheory quantHeuristicsTools
 
 type evars = term list

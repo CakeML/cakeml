@@ -1,7 +1,7 @@
 structure cfTacticsBaseLib :> cfTacticsBaseLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open set_sepTheory helperLib ConseqConv
 open quantHeuristicsLib quantHeuristicsTools
 

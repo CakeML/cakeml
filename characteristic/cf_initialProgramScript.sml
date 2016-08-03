@@ -1,6 +1,6 @@
-open HolKernel Parse boolLib bossLib preamble
-open semanticPrimitivesTheory cfHeapsTheory
-open ml_translatorTheory cfTheory cfTacticsBaseLib cfTacticsLib
+open preamble
+open ml_translatorTheory semanticPrimitivesTheory
+open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
 
 val _ = new_theory "cf_initialProgram"
 

@@ -1,7 +1,7 @@
 structure cfTacticsLib :> cfTacticsLib =
 struct
 
-open HolKernel Parse bossLib preamble
+open preamble
 open ConseqConv match_goal
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
