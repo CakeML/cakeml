@@ -291,10 +291,8 @@ fun xfun_spec qname qspec =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-(*  try_progress_then (fn K =>
-    (* temp basic stuff until evars *)
-    irule local_frame_gc THENL [xlocal, assume_tac K])
-    H *) (* todo fixme *)
+  (* todo: ask Arthur *)
+  (* try_progress_then (fn H => *)
   irule local_frame_gc THENL [
     xlocal,
     CONSEQ_CONV_TAC (K (
@@ -304,6 +302,7 @@ fun xapply_core H cont1 cont2 =
     )) \\
     CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
   ]
+  (* ) H *)
 
 fun xapply H =
   xpull_check_not_needed \\

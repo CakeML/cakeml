@@ -66,6 +66,7 @@ fun progress_then thm_tac thm =
 fun try_progress_then thm_tac thm =
   ((drule thm \\ rpt (disch_then drule)) ORELSE mp_tac thm) \\
   disch_then thm_tac
+  handle HOL_ERR _ => thm_tac thm
 
 fun progress thm = progress_then strip_assume_tac thm
 
