@@ -212,6 +212,7 @@ val add_compiler_compset = computeLib.extend_compset
     [ (* ---- clos_to_bvl ---- *)
      clos_to_bvlTheory.closure_tag_def
     ,clos_to_bvlTheory.recc_Let0_def
+    ,clos_to_bvlTheory.default_config_def
     ,clos_to_bvlTheory.compile_def
     ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
@@ -298,6 +299,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
+    ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
     ,bvi_letTheory.extract_list_def

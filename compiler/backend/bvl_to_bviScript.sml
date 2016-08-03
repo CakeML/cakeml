@@ -3,11 +3,6 @@ local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataL
 
 val _ = new_theory "bvl_to_bvi";
 
-val _ = Datatype`
-  config = <| inline_size_limit : num (* zero disables inlining *)
-            ; exp_cut : num (* huge number effectively disables exp splitting *)
-            |>`;
-
 val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
@@ -213,6 +208,17 @@ val optimise_def = Define `
       (name,arity,
        bvl_handle$compile_exp cut_size arity
          (bvl_const$compile_exp exp))) ls`;
+
+val _ = Datatype`
+  config = <| inline_size_limit : num (* zero disables inlining *)
+            ; exp_cut : num (* huge number effectively disables exp splitting *)
+            |>`;
+
+val default_config_def = Define`
+  default_config = <|
+    inline_size_limit := 3;
+    exp_cut := 200
+  |>`;
 
 val compile_def = Define `
   compile start n c prog =

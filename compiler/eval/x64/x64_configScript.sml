@@ -9,8 +9,8 @@ val rconc = rhs o concl
 val source_conf = rconc(EVAL``^(prim_config).source_conf``)
 val mod_conf = rconc(EVAL``^(prim_config).mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
+val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
-val bvl_conf = ``<|inline_size_limit := 3; exp_cut:=200|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
 val stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
