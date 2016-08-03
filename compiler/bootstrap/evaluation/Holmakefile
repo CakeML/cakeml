@@ -1,0 +1,22 @@
+INCLUDES = ../translation ../../eval
+CLINE_OPTIONS = --qof
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../translation/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
+BARE_THYS = ../translation/parserProgTheory\
+						../translation/inferProgTheory\
+						../../eval/compilerComputeLib
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
