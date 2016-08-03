@@ -124,28 +124,18 @@ val xpull =
 
 (* [xsimpl] *)
 
-fun sep_imp_refl_oracle v t = let
-  val ts = strip_conj t
-  fun find_inst t = let
-    val (h, q) = cfHeapsBaseLib.dest_sep_imp t in
-    if v = h then SOME (q, []) else
-    if v = q then SOME (h, []) else
-    NONE
-  end
-  fun find_inst' t = find_inst t handle HOL_ERR _ => NONE
-in
-  find_map find_inst' ts
-end
-
-val sep_imp_instantiate =
-  QUANT_INSTANTIATE_CONSEQ_TAC [
-    oracle_qp sep_imp_refl_oracle
-  ] \\
+val sep_imp_instantiate_tac =
+  TRY (
+    CONSEQ_CONV_TAC
+      (STRENGTHEN_CONSEQ_CONV
+         (ecc_conseq_conv sep_imp_instantiate_ecc))
+  ) \\
   simp [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =
-  rpt (hsimpl \\ sep_imp_instantiate)
-  ORELSE sep_imp_instantiate
+  simp [PULL_EXISTS] \\
+  CHANGED_TAC (rpt (hsimpl \\ sep_imp_instantiate_tac))
+  ORELSE sep_imp_instantiate_tac
 
 (* [xcf] *)
 

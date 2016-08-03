@@ -169,6 +169,13 @@ end
 
 fun irule_ecc thm = match_mp_ecc (IRULE_CANON thm)
 
+fun instantiate_ecc inst_f etm = let
+  val inst = inst_f etm
+  val th = REFL_CONSEQ_CONV (subst (#instantiation inst) (#term etm))
+in
+  (inst, th)
+end
+
 fun lift_conseq_conv_ecc (cc: conseq_conv) {term, evars} =
   ({instantiation = [], new_evars = []}, cc term)
 
@@ -181,11 +188,11 @@ fun term_subst_then
      {redex = redex, residue = Term.subst subst2 residue}
    ) subst1)
       
+infix then_ecc;
+infix orelse_ecc;
+
 (* todo: handle eccs raising UNCHANGED *)
-fun then_ecc
-      (ecc1: evars_conseq_conv)
-      (ecc2: evars_conseq_conv)
-      {term, evars} =
+fun (ecc1 then_ecc ecc2) {term, evars} =
   let
     val (inst1, thm1) = ecc1 {term = term, evars = evars}
     val subst1 = #instantiation inst1
@@ -222,9 +229,13 @@ fun then_ecc
 
   val t = ``?(a:'a) x (c:num) y. P (5 + (x + 2)) (c > y)``
 
-  conseq_conv_ecc (then_ecc (match_mp_ecc imp1) (match_mp_ecc imp2)) t;
+  conseq_conv_ecc ((match_mp_ecc imp1) then_ecc (match_mp_ecc imp2)) t;
 *)
 
+fun (ecc1 orelse_ecc ecc2) g = ecc1 g handle HOL_ERR _ => ecc2 g
+fun repeat_ecc ecc g =
+  ((ecc then_ecc repeat_ecc ecc) orelse_ecc
+   (lift_conseq_conv_ecc REFL_CONSEQ_CONV)) g
 
 fun conj1_ecc (ecc: evars_conseq_conv) {term, evars} =
   let val (tm1, tm2) = dest_conj term
@@ -272,6 +283,6 @@ fun conj2_ecc (ecc: evars_conseq_conv) {term, evars} =
       full_thm)
   end
 
-fun conj_ecc ecc1 ecc2 = then_ecc (conj1_ecc ecc1) (conj2_ecc ecc2)
+fun conj_ecc ecc1 ecc2 = (conj1_ecc ecc1) then_ecc (conj2_ecc ecc2)
 
 end

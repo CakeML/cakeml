@@ -3,6 +3,7 @@ struct
 
 open preamble
 open set_sepTheory helperLib ConseqConv
+open evarsConseqConvLib
 open cfHeapsBaseTheory cfTacticsBaseLib
 
 infix 3 THEN_DCC
@@ -397,5 +398,30 @@ val hsimpl =
   g `emp ==>> emp`;
   e hsimpl
 *)
+
+(** sep_imp_instantiate: instantiate existentially quantified
+    variables after subterms of the form ``H1 ==>> H2`` where one of
+    {H1, H2} is existentially quantified, and not the other.
+*)
+
+fun sep_imp_instantiate {term, evars} = let
+  val ts = strip_conj term
+  fun find_inst t = let
+    val (H1, H2) = dest_sep_imp t in
+    if mem H1 evars andalso not (mem H2 evars) then
+      {instantiation = [H1 |-> H2], new_evars = []}
+    else if mem H2 evars andalso not (mem H1 evars) then
+      {instantiation = [H2 |-> H1], new_evars = []}
+    else fail ()
+  end
+  fun find_inst' t = SOME (find_inst t) handle HOL_ERR _ => NONE
+in
+  case find_map find_inst' ts of
+      SOME inst => inst
+    | NONE => fail ()
+end
+
+val sep_imp_instantiate_ecc =
+    repeat_ecc (instantiate_ecc sep_imp_instantiate)
 
 end

@@ -19,8 +19,12 @@ type evars_conseq_conv = term_with_evars -> evars_instantiation * thm
 
 val match_mp_ecc : thm -> evars_conseq_conv
 val irule_ecc : thm -> evars_conseq_conv
+val instantiate_ecc :
+  (term_with_evars -> evars_instantiation) -> evars_conseq_conv
 
-val then_ecc : evars_conseq_conv -> evars_conseq_conv -> evars_conseq_conv
+val then_ecc : evars_conseq_conv * evars_conseq_conv -> evars_conseq_conv
+val orelse_ecc : evars_conseq_conv * evars_conseq_conv -> evars_conseq_conv
+val repeat_ecc : evars_conseq_conv -> evars_conseq_conv
 val lift_conseq_conv_ecc : ConseqConv.conseq_conv -> evars_conseq_conv
 
 val conj1_ecc : evars_conseq_conv -> evars_conseq_conv

@@ -55,7 +55,13 @@ sig
   val hsimpl_top : tactic
   val hsimpl_conseq_conv : directed_conseq_conv
 
+  (*----------------------------------------------------------------*)
+  (** Instantiating existentially quantified variables after calling
+      [hsimpl] *)
 
+  val sep_imp_instantiate_ecc : evarsConseqConvLib.evars_conseq_conv
+
+  (*----------------------------------------------------------------*)
   (** Auxiliary directed_conseq_convs, that are used to implement
       [hsimpl_conseq_conv] and [hsimpl]. *)
 

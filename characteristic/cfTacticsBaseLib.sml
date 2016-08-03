@@ -3,7 +3,7 @@ struct
 
 open preamble
 open set_sepTheory helperLib ConseqConv
-open quantHeuristicsLib quantHeuristicsTools
+open quantHeuristicsTools
 
 fun find_map f [] = NONE
   | find_map f (x :: xs) =
