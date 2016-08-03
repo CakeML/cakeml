@@ -426,6 +426,9 @@ fun THEN_CONT_CONSEQ_CONV ccc1 ccc2 t =
   end handle UNCHANGED =>
     ccc2 t
 
+fun ORELSE_CONT_CONSEQ_CONV ccc1 ccc2 t =
+  ccc1 t handle HOL_ERR _ => ccc2 t
+
 fun EVERY_CONT_CONSEQ_CONV [] t = raise UNCHANGED
   | EVERY_CONT_CONSEQ_CONV (ccc::L) t =
     THEN_CONT_CONSEQ_CONV ccc (EVERY_CONT_CONSEQ_CONV L) t
@@ -435,6 +438,12 @@ fun LOOP_CONT_CONSEQ_CONV ccc t =
   in THEN_CONT_CONSEQ_CONV (fn _ => ret) (LOOP_CONT_CONSEQ_CONV ccc) t end
 
 fun INPLACE_CONT_CONSEQ_CONV cc t = (cc t, (I, I))
+
+val REFL_CONT_CONSEQ_CONV =
+  INPLACE_CONT_CONSEQ_CONV REFL_CONSEQ_CONV
+
+fun TRY_CONT_CONSEQ_CONV ccc =
+  ORELSE_CONT_CONSEQ_CONV ccc REFL_CONT_CONSEQ_CONV
 
 (*----------------------------------------------------------------------------*)
 (* A conseq_conv that instantiate evars of the goal to match the conclusion

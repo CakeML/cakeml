@@ -124,9 +124,13 @@ sig
   val STEP_CONT_CONSEQ_CONV : cont_conseq_conv -> conseq_conv
   val THEN_CONT_CONSEQ_CONV :
     cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
+  val ORELSE_CONT_CONSEQ_CONV :
+    cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
+  val TRY_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
   val EVERY_CONT_CONSEQ_CONV : cont_conseq_conv list -> cont_conseq_conv
   val LOOP_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
   val INPLACE_CONT_CONSEQ_CONV : conseq_conv -> cont_conseq_conv
+  val REFL_CONT_CONSEQ_CONV : cont_conseq_conv
 
   (* -- *)
 
