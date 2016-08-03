@@ -125,11 +125,7 @@ val xpull =
 (* [xsimpl] *)
 
 val sep_imp_instantiate_tac =
-  TRY (
-    CONSEQ_CONV_TAC
-      (STRENGTHEN_CONSEQ_CONV
-         (ecc_conseq_conv sep_imp_instantiate_ecc))
-  ) \\
+  TRY hinst \\
   simp [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =

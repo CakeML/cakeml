@@ -440,6 +440,8 @@ val hsimpl =
     {H1, H2} is existentially quantified, and not the other.
 *)
 
+infix then_ecc
+
 fun sep_imp_instantiate {term, evars} = let
   val ts = strip_conj term
   fun find_inst t = let
@@ -457,7 +459,13 @@ in
     | NONE => fail ()
 end
 
-val sep_imp_instantiate_ecc =
-    repeat_ecc (instantiate_ecc sep_imp_instantiate)
+val hinst_ecc =
+  repeat_ecc (instantiate_ecc sep_imp_instantiate) then_ecc
+  lift_conseq_conv_ecc (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])
+
+val hinst =
+  CONSEQ_CONV_TAC
+    (STRENGTHEN_CONSEQ_CONV
+      (ecc_conseq_conv hinst_ecc))
 
 end
