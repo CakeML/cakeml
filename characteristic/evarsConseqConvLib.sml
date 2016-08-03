@@ -58,6 +58,14 @@ let
   (*   print "\n" *)
   (* ) *)
 
+  val t_body' = subst sub t_body
+  val thm =
+      let
+        val (l, r) = (dest_eq o concl) thm
+        val (L, R) = EQ_IMP_RULE thm
+      in if t_body' = l then R else L end
+      handle HOL_ERR _ => thm
+
   val thm0 = let
     val thma = LIST_EXISTS_INTRO_IMP new_evars thm
   in CONV_RULE (LAND_CONV (TRY_CONV LIST_EXISTS_SIMP_CONV)) thma end
