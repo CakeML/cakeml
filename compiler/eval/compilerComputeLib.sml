@@ -547,8 +547,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_namesTheory.compile_def
     ,stack_namesTheory.x64_names_def
       (* ---- stack_to_lab ---- *)
-    ,stack_to_labTheory.append_aux_def
-    ,stack_to_labTheory.append_def
     ,stack_to_labTheory.no_ret_def
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def

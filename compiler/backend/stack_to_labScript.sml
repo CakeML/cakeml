@@ -4,16 +4,6 @@ local open stack_allocTheory stack_removeTheory stack_namesTheory
 
 val _ = new_theory "stack_to_lab";
 
-val _ = Datatype `
-  app_list = List ('a list) | Append app_list app_list`
-
-val append_aux_def = Define `
-  (append_aux (List xs) aux = xs ++ aux) /\
-  (append_aux (Append l1 l2) aux = append_aux l1 (append_aux l2 aux))`;
-
-val append_def = Define `
-  append l = append_aux l []`;
-
 val no_ret_def = Define `
   no_ret (p:'a stackLang$prog) =
     case p of

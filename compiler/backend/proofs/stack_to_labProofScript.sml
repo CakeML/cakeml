@@ -89,16 +89,6 @@ val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
 
 (* -- *)
 
-val append_aux_thm = store_thm("append_aux_thm",
-  ``!l xs. append_aux l xs = append_aux l [] ++ xs``,
-  Induct \\ metis_tac [APPEND,APPEND_ASSOC,append_aux_def]);
-
-val append_thm = store_thm("append_thm[simp]",
-  ``append (Append l1 l2) = append l1 ++ append l2 /\
-    append (List xs) = xs``,
-  fs [append_def,append_aux_def]
-  \\ once_rewrite_tac [append_aux_thm] \\ fs []);
-
 val code_installed_def = Define`
   (code_installed n [] code = T) ∧
   (code_installed n (x::xs) code ⇔

@@ -148,6 +148,26 @@ val LLOOKUP_LUPDATE = store_thm("LLOOKUP_LUPDATE",
   \\ Cases_on `i` \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
   \\ rpt strip_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
+val _ = Datatype `
+  app_list = List ('a list) | Append app_list app_list`
+
+val append_aux_def = Define `
+  (append_aux (List xs) aux = xs ++ aux) /\
+  (append_aux (Append l1 l2) aux = append_aux l1 (append_aux l2 aux))`;
+
+val append_def = Define `
+  append l = append_aux l []`;
+
+val append_aux_thm = store_thm("append_aux_thm",
+  ``!l xs. append_aux l xs = append_aux l [] ++ xs``,
+  Induct \\ metis_tac [APPEND,APPEND_ASSOC,append_aux_def]);
+
+val append_thm = store_thm("append_thm[simp]",
+  ``append (Append l1 l2) = append l1 ++ append l2 /\
+    append (List xs) = xs``,
+  fs [append_def,append_aux_def]
+  \\ once_rewrite_tac [append_aux_thm] \\ fs []);
+
 val GENLIST_eq_MAP = Q.store_thm("GENLIST_eq_MAP",
   `GENLIST f n = MAP g ls ⇔
    LENGTH ls = n ∧ ∀m. m < n ⇒ f m = g (EL m ls)`,
