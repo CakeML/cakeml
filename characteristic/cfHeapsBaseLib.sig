@@ -121,6 +121,11 @@ sig
   val hpullr_cont_conseq_conv : cont_conseq_conv
   val hpullr_one_cont_conseq_conv : cont_conseq_conv
 
+  (** [hcancel]: [hsimpl] without [hpull] *)
+  val hcancel : tactic
+  val hcancel_conseq_conv : directed_conseq_conv
+  val hcancel_cont_conseq_conv : cont_conseq_conv
+
   (** hpullable *)
   val hpullable_rec : term -> unit
   val hpullable : term -> unit
