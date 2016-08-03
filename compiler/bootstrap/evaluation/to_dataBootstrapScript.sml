@@ -1,5 +1,5 @@
 open preamble
-     inferProgTheory
+     compilerProgTheory
      ml_translatorLib ml_progLib
      backendTheory
      compilerComputeLib
@@ -23,13 +23,11 @@ val _ = new_theory"to_dataBootstrap";
   phases need to know they have the whole program.
 
   For now, while the rest of the compiler is still being translated, we settle
-  for prog = declarations for the parser and inferencer.
-  (For reference, the compiler calls them as follows:
-     parse_prog (lexer_fun input)
-     infertype_prog c.inferencer_config (prelude ++ prog))
+  for prog = declarations up to that of to_data itself
+  which is not target specific
 *)
 
-val _ = translation_extends"inferProg";
+val _ = translation_extends"compilerProg";
 
 val _ = Globals.max_print_depth := 20;
 
@@ -66,7 +64,7 @@ val init_conf_def = zDefine`
 
 val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, init_prog_def]] cs;
 
-val _ = Lib.say "eval to_mod";
+val _ = Lib.say "eval to_mod: ";
 val to_mod_thm0 = time eval ``to_mod init_conf init_prog``;
 val (c,p) = to_mod_thm0 |> rconc |> dest_pair
 val mod_conf_def = zDefine`mod_conf = ^c`;
@@ -93,7 +91,7 @@ val mod_conf_bvl_conf =
   ``mod_conf.bvl_conf``
   |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
 
-val _ = Lib.say "eval to_con";
+val _ = Lib.say "eval to_con: ";
 val to_con_thm0 =
   ``to_con init_conf init_prog``
   |> (REWR_CONV to_con_def THENC
@@ -130,7 +128,7 @@ val con_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV con_conf_def) THENC eval
       THENC REWR_CONV mod_conf_bvl_conf)
 
-val _ = Lib.say "eval to_dec";
+val _ = Lib.say "eval to_dec: ";
 val to_dec_thm0 =
   ``to_dec init_conf init_prog``
   |> (REWR_CONV to_dec_def THENC
@@ -163,7 +161,7 @@ val dec_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV dec_conf_def) THENC eval
       THENC REWR_CONV con_conf_bvl_conf)
 
-val _ = Lib.say "eval to_exh";
+val _ = Lib.say "eval to_exh: ";
 val to_exh_thm0 =
   ``to_exh init_conf init_prog``
   |> (REWR_CONV to_exh_def THENC
@@ -179,7 +177,7 @@ val to_exh_thm = save_thm("to_exh_thm",
     RAND_CONV(REWR_CONV(SYM exh_prog_def)))));
 val () = computeLib.extend_compset [computeLib.Defs [exh_prog_def]] cs;
 
-val _ = Lib.say "eval to_pat";
+val _ = Lib.say "eval to_pat: ";
 val to_pat_thm0 =
   ``to_pat init_conf init_prog``
   |> (REWR_CONV to_pat_def THENC
@@ -195,7 +193,7 @@ val to_pat_thm = save_thm("to_pat_thm",
     RAND_CONV(REWR_CONV(SYM pat_prog_def)))));
 val () = computeLib.extend_compset [computeLib.Defs [pat_prog_def]] cs;
 
-val _ = Lib.say "eval to_clos";
+val _ = Lib.say "eval to_clos: ";
 val to_clos_thm0 =
   ``to_clos init_conf init_prog``
   |> (REWR_CONV to_clos_def THENC
@@ -211,7 +209,7 @@ val to_clos_thm = save_thm("to_clos_thm",
     RAND_CONV(REWR_CONV(SYM clos_prog_def)))));
 val () = computeLib.extend_compset [computeLib.Defs [clos_prog_def]] cs;
 
-val _ = Lib.say "eval to_bvl";
+val _ = Lib.say "eval to_bvl: ";
 val to_bvl_thm0 =
   ``to_bvl init_conf init_prog``
   |> (REWR_CONV to_bvl_def THENC
@@ -242,7 +240,7 @@ val bvl_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV bvl_conf_def) THENC eval
       THENC REWR_CONV dec_conf_bvl_conf)
 
-val _ = Lib.say "eval to_bvi";
+val _ = Lib.say "eval to_bvi: ";
 val to_bvi_thm0 =
   ``to_bvi init_conf init_prog``
   |> (REWR_CONV to_bvi_def THENC
@@ -262,9 +260,7 @@ val to_bvi_thm = save_thm("to_bvi_thm",
               REWR_CONV(SYM bvi_prog_def)))));
 val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
 
-val to_bvi_thm = mk_thm([],``to_bvi init_conf init_prog = (bvi_conf,bvi_prog)``)
-
-val _ = Lib.say "eval to_data";
+val _ = Lib.say "eval to_data: ";
 val to_data_thm0 =
   ``to_data init_conf init_prog``
   |> (REWR_CONV to_data_def THENC
@@ -279,5 +275,7 @@ val to_data_thm = save_thm("to_data_thm",
   to_data_thm0 |> CONV_RULE(RAND_CONV(
     RAND_CONV(REWR_CONV(SYM data_prog_def)))));
 val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
+
+val _ = reset_translation();
 
 val _ = export_theory();
