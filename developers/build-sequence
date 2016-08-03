@@ -33,6 +33,9 @@ compiler/proofs
 compiler/bootstrap/translation
 compiler/bootstrap/evaluation
 
+# characteristic formulae
+characteristic
+
 # candle
 candle/set-theory
 candle/syntax-lib
