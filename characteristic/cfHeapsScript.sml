@@ -6,7 +6,7 @@ val _ = new_theory "cfHeaps"
 fun sing x = [x]
 
 (*------------------------------------------------------------------*)
-(* hchange *)
+(* hchange: using a [H1 ==>> H2] theorem modulo frame rule *)
 
 val hchange_lemma' = store_thm ("hchange_lemma'",
   ``!H1 H1' H H' H2.
@@ -110,7 +110,7 @@ val local_frame = store_thm ("local_frame",
   Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac
   THEN1 (fs [SEP_IMP_def])
   THEN1 (
-    rew_heap \\ qx_gen_tac `x` \\ (* todo: hchange *)
+    rew_heap \\ qx_gen_tac `x` \\
     first_assum (fn t => irule (MATCH_MP hchange_lemma' (Q.SPEC `x` t))) \\
     QUANT_TAC [("x'", `x`, [])] \\ hsimpl \\ qexists_tac `emp` \\ hsimpl
   )

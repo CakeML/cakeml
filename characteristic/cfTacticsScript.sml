@@ -11,7 +11,8 @@ val xret_lemma = store_thm ("xret_lemma",
     (H ==>> Q v * GC) ==>
     local (\H' Q'. H' ==>> Q' v) H Q``,
   rpt strip_tac \\ irule (Q.SPEC `GC` local_gc_pre_on) \\
-  fs [local_is_local] \\ cheat (* need hchange/evars *)
+  fs [local_is_local] \\ first_assum hchanges \\ hinst \\
+  irule local_elim \\ fs [] \\ hsimpl
 )
 
 (* todo: does it even happen? *)
