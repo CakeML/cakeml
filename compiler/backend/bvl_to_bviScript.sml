@@ -111,13 +111,15 @@ val compile_op_def = Define `
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | _ => Op op c1`
 
+val _ = temp_overload_on("++",``Append``);
+
 val compile_exps_def = tDefine "compile_exps" `
-  (compile_exps n [] = ([],[],n)) /\
+  (compile_exps n [] = ([],List [],n)) /\
   (compile_exps n ((x:bvl$exp)::y::xs) =
      let (c1,aux1,n1) = compile_exps n [x] in
      let (c2,aux2,n2) = compile_exps n1 (y::xs) in
        (c1 ++ c2, aux1 ++ aux2, n2)) /\
-  (compile_exps n [Var v] = ([(Var v):bvi$exp], [], n)) /\
+  (compile_exps n [Var v] = ([(Var v):bvi$exp], List[], n)) /\
   (compile_exps n [If x1 x2 x3] =
      let (c1,aux1,n1) = compile_exps n [x1] in
      let (c2,aux2,n2) = compile_exps n1 [x2] in
@@ -130,7 +132,7 @@ val compile_exps_def = tDefine "compile_exps" `
        let (c2,aux2,n2) = compile_exps n1 [x0] in
        let n3 = n2 + 1 in
          ([Call 0 (SOME (num_stubs + 2 * n2 + 1)) c1 NONE],
-          aux1++aux2++[(n2,LENGTH args,HD c2)], n3)
+          aux1++aux2++List[(n2,LENGTH args,HD c2)], n3)
      else
        let (c1,aux1,n1) = compile_exps n xs in
        let (c2,aux2,n2) = compile_exps n1 [x2] in
@@ -149,7 +151,7 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c1,aux1,n1) = compile_exps n args in
      let (c2,aux2,n2) = compile_exps n1 [x0] in
      let (c3,aux3,n3) = compile_exps n2 [x2] in
-     let aux4 = [(n3,LENGTH args,HD c2)] in
+     let aux4 = List[(n3,LENGTH args,HD c2)] in
      let n4 = n3 + 1 in
        ([Call 0 (SOME (num_stubs + 2 * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
@@ -186,7 +188,7 @@ val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
       (MAP (\(k,args,p).
-          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) aux ++
+          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) (append aux) ++
        [(num_stubs + 2 * name,arg_count,HD c)],n1)`
 
 val compile_list_def = Define `
