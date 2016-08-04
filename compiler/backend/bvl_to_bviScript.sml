@@ -111,15 +111,15 @@ val compile_op_def = Define `
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | _ => Op op c1`
 
-val _ = temp_overload_on("++",``Append``);
+val _ = temp_overload_on("++",``SmartAppend``);
 
 val compile_exps_def = tDefine "compile_exps" `
-  (compile_exps n [] = ([],List [],n)) /\
+  (compile_exps n [] = ([],Nil,n)) /\
   (compile_exps n ((x:bvl$exp)::y::xs) =
      let (c1,aux1,n1) = compile_exps n [x] in
      let (c2,aux2,n2) = compile_exps n1 (y::xs) in
        (c1 ++ c2, aux1 ++ aux2, n2)) /\
-  (compile_exps n [Var v] = ([(Var v):bvi$exp], List[], n)) /\
+  (compile_exps n [Var v] = ([(Var v):bvi$exp], Nil, n)) /\
   (compile_exps n [If x1 x2 x3] =
      let (c1,aux1,n1) = compile_exps n [x1] in
      let (c2,aux2,n2) = compile_exps n1 [x2] in

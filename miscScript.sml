@@ -149,9 +149,10 @@ val LLOOKUP_LUPDATE = store_thm("LLOOKUP_LUPDATE",
   \\ rpt strip_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
 val _ = Datatype `
-  app_list = List ('a list) | Append app_list app_list`
+  app_list = List ('a list) | Append app_list app_list | Nil`
 
 val append_aux_def = Define `
+  (append_aux Nil aux = aux) /\
   (append_aux (List xs) aux = xs ++ aux) /\
   (append_aux (Append l1 l2) aux = append_aux l1 (append_aux l2 aux))`;
 
@@ -164,9 +165,28 @@ val append_aux_thm = store_thm("append_aux_thm",
 
 val append_thm = store_thm("append_thm[simp]",
   ``append (Append l1 l2) = append l1 ++ append l2 /\
-    append (List xs) = xs``,
+    append (List xs) = xs /\
+    append Nil = []``,
   fs [append_def,append_aux_def]
   \\ once_rewrite_tac [append_aux_thm] \\ fs []);
+
+val SmartAppend_def = Define`
+  (SmartAppend Nil l2 = l2) ∧
+  (SmartAppend l1 Nil = l1) ∧
+  (SmartAppend l1 l2 = Append l1 l2)`;
+val _ = export_rewrites["SmartAppend_def"];
+
+val SmartAppend_thm = Q.store_thm("SmartAppend_thm",
+  `∀l1 l2.
+    SmartAppend l1 l2 =
+      if l1 = Nil then l2 else
+      if l2 = Nil then l1 else Append l1 l2`,
+  Cases \\ Cases \\ rw[]);
+
+val append_SmartAppend = Q.store_thm("append_SmartAppend[simp]",
+  `append (SmartAppend l1 l2) = append l1 ++ append l2`,
+  rw[append_def,SmartAppend_thm,append_aux_def]
+  \\ rw[Once append_aux_thm]);
 
 val GENLIST_eq_MAP = Q.store_thm("GENLIST_eq_MAP",
   `GENLIST f n = MAP g ls ⇔
