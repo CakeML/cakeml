@@ -12,6 +12,8 @@ sig
     val ml_prog_update : (ml_progLib.ml_prog_state ->
                           ml_progLib.ml_prog_state) -> unit
 
+    val get_ml_prog_state : unit -> ml_progLib.ml_prog_state
+
     (* wrapper functions *)
 
     val mlDefine   : term quotation -> thm
@@ -47,6 +49,7 @@ sig
 
     val pick_name            : (term -> string) ref
     val use_long_names       : bool ref
+    val next_ml_names        : (string list) ref
     val print_asts           : bool ref
     val use_full_type_names  : bool ref
     val add_preferred_thy    : string -> unit
@@ -55,7 +58,7 @@ sig
     (* internals, for ml_hol_kernel *)
 
     val match_rec_pattern        : term -> term * string * term
-    val install_rec_pattern      : term -> string -> term
+    val install_rec_pattern      : term -> string -> string -> unit
     val uninstall_rec_patterns   : unit -> unit
     val preprocess_def           : thm -> bool * thm list * thm option
     val get_unique_name          : string -> string
