@@ -487,7 +487,7 @@ val iEval_bVarBound = Q.prove(
     \\ full_simp_tac(srw_ss())[iEval_def])
   THEN1
    (fs [evaluate_def] \\ rveq \\ fs []
-    \\ Cases_on `x2` \\ fs [destLet_def]
+    \\ Cases_on `x2` \\ fs [destLet_def,NULL_EQ]
     \\ fs [destLet_def,markerTheory.Abbrev_def,
          bvl_handleProofTheory.let_ok_def] \\ rveq
     \\ IMP_RES_TAC compile_exps_Var_list \\ full_simp_tac(srw_ss())[]
@@ -500,7 +500,7 @@ val iEval_bVarBound = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC
     \\ Cases_on `evaluate (c1,vs,s)` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `q` \\ full_simp_tac(srw_ss())[NULL_EQ,LENGTH_NIL]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`a ++ vs`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC bviPropsTheory.evaluate_IMP_LENGTH \\ IMP_RES_TAC compile_exps_LENGTH
     \\ REPEAT STRIP_TAC \\ POP_ASSUM MATCH_MP_TAC
@@ -954,7 +954,7 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[adjust_bv_def]
       \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]))
   THEN1 (* Let *)
-   (reverse (Cases_on `LENGTH xs = 0`) THEN1
+   (reverse (Cases_on `NULL xs`) THEN1
      (`?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
       \\ `?c2 aux2 n2. compile_exps n1 [x2] = (c2,aux2,n2)` by METIS_TAC [PAIR]
       \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []
@@ -963,7 +963,7 @@ val compile_exps_correct = Q.prove(
       \\ IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[]
       \\ IMP_RES_TAC aux_code_installed_APPEND \\ SRW_TAC [] []
       \\ full_simp_tac(srw_ss())[] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
-      \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[LENGTH_NIL,NULL_EQ]
       \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ full_simp_tac(srw_ss())[]
       \\ TRY (
@@ -998,7 +998,7 @@ val compile_exps_correct = Q.prove(
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ Q.LIST_EXISTS_TAC [`t3`,`b3`,`c4 + c`] \\ full_simp_tac(srw_ss())[]
       \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF])
-    \\ fs [LENGTH_NIL] \\ rveq \\ fs [bvlSemTheory.evaluate_def]
+    \\ fs [LENGTH_NIL,NULL_EQ] \\ rveq \\ fs [bvlSemTheory.evaluate_def]
     \\ Cases_on `x2` \\ fs [bvl_handleProofTheory.let_ok_def,destLet_def]
     \\ ntac 2 (pairarg_tac \\ fs []) \\ rveq \\ fs []
     \\ fs [bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]

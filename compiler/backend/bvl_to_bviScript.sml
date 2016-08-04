@@ -124,7 +124,7 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c3,aux3,n3) = compile_exps n2 [x3] in
        ([If (HD c1) (HD c2) (HD c3)],aux1++aux2++aux3,n3)) /\
   (compile_exps n [Let xs x2] =
-     if LENGTH xs = 0 (* i.e. a marker *) then
+     if NULL xs (* i.e. a marker *) then
        let (args,x0) = destLet x2 in
        let (c1,aux1,n1) = compile_exps n args in
        let (c2,aux2,n2) = compile_exps n1 [x0] in
