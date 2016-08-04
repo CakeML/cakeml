@@ -63,6 +63,7 @@ val _ = Define `
    Tdec (mk_binop "<=" (Opb Leq));
    Tdec (mk_binop ">=" (Opb Geq));
    Tdec (mk_binop "=" Equality);
+   Tdec (Dlet (Pvar "not") (Fun "x" (If (Var (Short"x")) (Con (SOME (Short "false")) []) (Con (SOME (Short "true")) []))));
    Tdec (mk_binop ":=" Opassign);
    Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) [Lit (IntLit(( 0 : int))); Var(Short"x")])));
    Tdec (mk_unop "!" Opderef);
