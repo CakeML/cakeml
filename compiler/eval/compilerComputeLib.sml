@@ -244,6 +244,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.bool_to_tag_def
     ,clos_to_bvlTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.compile_exps_def
+    ,clos_to_bvlTheory.code_merge_def
+    ,clos_to_bvlTheory.code_split_def
+    ,clos_to_bvlTheory.code_sort_def
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.inline_def
     ,bvl_inlineTheory.is_small_aux_def
