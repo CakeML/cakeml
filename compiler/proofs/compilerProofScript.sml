@@ -14,7 +14,7 @@ val config_ok_def = Define`
     prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
     cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
-    cc.backend_config.clos_conf = (prim_config:α backend$config).clos_conf ∧
+    0 < cc.backend_config.clos_conf.max_app ∧
     backendProof$conf_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
@@ -25,7 +25,7 @@ val initial_condition_def = Define`
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
     cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
-    cc.backend_config.clos_conf = (prim_config:α backend$config).clos_conf ∧
+    0 < cc.backend_config.clos_conf.max_app ∧
     backendProof$conf_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
@@ -149,14 +149,12 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
       |> GEN_ALL
       |> drule)
   \\ simp[]
-  \\ ONCE_REWRITE_TAC[CONJ_COMM]
-  \\ simp[GSYM AND_IMP_INTRO] (* TODO: why is this necessary? *)
   \\ disch_then drule
   \\ disch_then(qspec_then`st.sem_st.ffi`mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars["ffi"])))
   \\ qpat_assum`_ = THE _`(assume_tac o SYM)
   \\ simp[]
   \\ disch_then (match_mp_tac o MP_CANON)
-  \\ conj_tac >- fs []
+  \\ simp[RIGHT_EXISTS_AND_THM]
   \\ fs[can_type_prog_def]
   \\ Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)`
   >- metis_tac[semanticsPropsTheory.prog_diverges_semantics_prog]

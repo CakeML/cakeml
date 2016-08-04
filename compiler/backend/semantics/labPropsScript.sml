@@ -3,8 +3,6 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
-(* TODO: move *)
-
 val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
   `reg_imm r (s with clock := z) = reg_imm r s`,
   Cases_on`r`>>EVAL_TAC);
@@ -21,22 +19,9 @@ val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
   Cases_on`a`>>EVAL_TAC>>
   every_case_tac >> fs[]);
 
-val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
-  `((asmSem$upd_pc x s).align = s.align) ∧
-   ((asmSem$upd_pc x s).mem_domain = s.mem_domain) ∧
-   ((asmSem$upd_pc x s).failed = s.failed) ∧
-   ((asmSem$upd_pc x s).be = s.be) ∧
-   ((asmSem$upd_pc x s).mem = s.mem) ∧
-   ((asmSem$upd_pc x s).regs = s.regs) ∧
-   ((asmSem$upd_pc x s).lr = s.lr) ∧
-   ((asmSem$upd_pc x s).pc = x)`,
-  EVAL_TAC);
-
 val read_reg_inc_pc = Q.store_thm("read_reg_inc_pc[simp]",
   `read_reg r (inc_pc s) = read_reg r s`,
   EVAL_TAC);
-
-(* -- *)
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s with clock := s.clock) = s`,
@@ -573,10 +558,6 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ fs[align_dm_def]);
-
-val UNCURRY_eq_pair = Q.store_thm("UNCURRY_eq_pair",
-  `UNCURRY f v = z ⇔ ∃a b. v = (a,b) ∧ f a b = z`,
-  Cases_on`v`\\ rw[UNCURRY]);
 
 val implements_align_dm = Q.store_thm("implements_align_dm",
   `good_dimindex(:α) ⇒

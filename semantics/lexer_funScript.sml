@@ -33,7 +33,7 @@ val read_while_def = Define `
      if P c then read_while P cs (c :: s)
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
-val read_while_thm = prove(
+val read_while_thm = store_thm("read_while_thm",
   ``!cs s cs' s'.
        (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
   Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
@@ -60,7 +60,7 @@ val read_string_def = tDefine "read_string" `
   (WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
    THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC)
 
-val read_string_thm = prove(
+val read_string_thm = store_thm("read_string_thm",
   ``!s t x1 x2. (read_string s t = (x1,x2)) ==>
                 (LENGTH x2 <= LENGTH s + LENGTH t)``,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
@@ -85,7 +85,7 @@ val skip_comment_def = Define `
      if [x;y] = "*)" then (if d = 0 then SOME xs else skip_comment xs (d-1))
      else skip_comment (y::xs) d)`
 
-val skip_comment_thm = prove(
+val skip_comment_thm = store_thm("skip_comment_thm",
   ``!xs d str. (skip_comment xs d = SOME str) ==> LENGTH str <= LENGTH xs``,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC

@@ -3,18 +3,18 @@ open preamble closLangTheory;
 val _ = new_theory "clos_mti";
 
 val collect_args_def = Define `
-  (collect_args num_args (Fn NONE NONE num_args' e) =
+  (collect_args max_app num_args (Fn NONE NONE num_args' e) =
     if num_args + num_args' ≤ max_app then
-      collect_args (num_args + num_args') e
+      collect_args max_app (num_args + num_args') e
     else
       (num_args, Fn NONE NONE num_args' e)) ∧
-  (collect_args num_args e = (num_args, e))`;
+  (collect_args max_app num_args e = (num_args, e))`;
 
 val collect_args_ind = theorem "collect_args_ind";
 
 val collect_args_size = Q.prove (
-  `!num_args e num_args' e'.
-    (num_args', e') = collect_args num_args e ⇒
+  `!max_app num_args e num_args' e'.
+    (num_args', e') = collect_args max_app num_args e ⇒
     num_args' + exp_size e' ≤ num_args + exp_size e`,
    ho_match_mp_tac collect_args_ind >>
    srw_tac[][collect_args_def, exp_size_def] >>
@@ -23,8 +23,8 @@ val collect_args_size = Q.prove (
    decide_tac);
 
 val collect_args_more = Q.prove (
-  `!num_args e num_args' e'.
-    (num_args', e') = collect_args num_args e
+  `!max_app num_args e num_args' e'.
+    (num_args', e') = collect_args max_app num_args e
     ⇒
     num_args ≤ num_args'`,
   ho_match_mp_tac collect_args_ind >>
@@ -34,22 +34,22 @@ val collect_args_more = Q.prove (
   decide_tac);
 
 val collect_args_zero = Q.store_thm("collect_args_zero",
-  `!num_args e e'.
-    collect_args num_args e = (0, e')
+  `!max_app num_args e e'.
+    collect_args max_app num_args e = (0, e')
     ⇒
     num_args = 0`,
   ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def] >>
   srw_tac[][collect_args_def] >>
-  full_simp_tac(srw_ss())[max_app_def]);
+  full_simp_tac(srw_ss())[]);
 
 val collect_apps_def = Define `
-  (collect_apps args (App NONE e es) =
+  (collect_apps max_app args (App NONE e es) =
     if LENGTH args + LENGTH es ≤ max_app then
-      collect_apps (args ++ es) e
+      collect_apps max_app (args ++ es) e
     else
       (args, App NONE e es)) ∧
-  (collect_apps args e = (args, e))`;
+  (collect_apps max_app args e = (args, e))`;
 
 val collect_apps_ind = theorem "collect_apps_ind";
 
@@ -59,8 +59,8 @@ val exp3_size_append = Q.prove (
  simp [exp_size_def]);
 
 val collect_apps_size = Q.prove (
-  `!args e args' e'.
-    (args', e') = collect_apps args e ⇒
+  `!max_app args e args' e'.
+    (args', e') = collect_apps max_app args e ⇒
     exp3_size args' + exp_size e' ≤ exp3_size args + exp_size e`,
    ho_match_mp_tac collect_apps_ind >>
    simp [collect_apps_def, exp_size_def, basicSizeTheory.option_size_def] >>
@@ -71,8 +71,8 @@ val collect_apps_size = Q.prove (
    decide_tac);
 
 val collect_apps_more = Q.prove (
-  `!args e args' e'.
-    (args', e') = collect_apps args e
+  `!max_app args e args' e'.
+    (args', e') = collect_apps max_app args e
     ⇒
     LENGTH args ≤ LENGTH args'`,
   ho_match_mp_tac collect_apps_ind >>
@@ -82,45 +82,47 @@ val collect_apps_more = Q.prove (
   decide_tac);
 
 val intro_multi_def = tDefine "intro_multi"`
-  (intro_multi [] = []) ∧
-  (intro_multi (e1::e2::es) =
-    HD (intro_multi [e1]) :: HD (intro_multi [e2]) :: intro_multi es) ∧
-  (intro_multi [Var n] = [Var n]) ∧
-  (intro_multi [If e1 e2 e3] =
-    [If (HD (intro_multi [e1])) (HD (intro_multi [e2])) (HD (intro_multi [e3]))]) ∧
-  (intro_multi [Let es e] =
-    [Let (intro_multi es) (HD (intro_multi [e]))]) ∧
-  (intro_multi [Raise e] =
-    [Raise (HD (intro_multi [e]))]) ∧
-  (intro_multi [Handle e1 e2] =
-    [Handle (HD (intro_multi [e1])) (HD (intro_multi [e2]))]) ∧
-  (intro_multi [Tick e] =
-    [Tick (HD (intro_multi [e]))]) ∧
-  (intro_multi [Call ticks n es] =
-    [Call ticks n (intro_multi es)]) ∧
-  (intro_multi [App NONE e es] =
-    let (es', e') = collect_apps es e in
-      [App NONE (HD (intro_multi [e'])) (intro_multi es')]) ∧
-  (intro_multi [App (SOME l) e es] =
-    [App (SOME l) (HD (intro_multi [e])) (intro_multi es)]) ∧
-  (intro_multi [Fn NONE NONE num_args e] =
-    let (num_args', e') = collect_args num_args e in
-      [Fn NONE NONE num_args' (HD (intro_multi [e']))]) ∧
-  (intro_multi [Fn loc fvs num_args e] =
-      [Fn loc fvs num_args (HD (intro_multi [e]))]) ∧
-  (intro_multi [Letrec NONE NONE funs e] =
+  (intro_multi max_app [] = []) ∧
+  (intro_multi max_app (e1::e2::es) =
+    HD (intro_multi max_app [e1]) :: HD (intro_multi max_app [e2]) :: intro_multi max_app es) ∧
+  (intro_multi max_app [Var n] = [Var n]) ∧
+  (intro_multi max_app [If e1 e2 e3] =
+   [If (HD (intro_multi max_app [e1]))
+       (HD (intro_multi max_app [e2]))
+       (HD (intro_multi max_app [e3]))]) ∧
+  (intro_multi max_app [Let es e] =
+    [Let (intro_multi max_app es) (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Raise e] =
+    [Raise (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Handle e1 e2] =
+    [Handle (HD (intro_multi max_app [e1])) (HD (intro_multi max_app [e2]))]) ∧
+  (intro_multi max_app [Tick e] =
+    [Tick (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Call ticks n es] =
+    [Call ticks n (intro_multi max_app es)]) ∧
+  (intro_multi max_app [App NONE e es] =
+    let (es', e') = collect_apps max_app es e in
+      [App NONE (HD (intro_multi max_app [e'])) (intro_multi max_app es')]) ∧
+  (intro_multi max_app [App (SOME l) e es] =
+    [App (SOME l) (HD (intro_multi max_app [e])) (intro_multi max_app es)]) ∧
+  (intro_multi max_app [Fn NONE NONE num_args e] =
+    let (num_args', e') = collect_args max_app num_args e in
+      [Fn NONE NONE num_args' (HD (intro_multi max_app [e']))]) ∧
+  (intro_multi max_app [Fn loc fvs num_args e] =
+      [Fn loc fvs num_args (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Letrec NONE NONE funs e] =
     [Letrec NONE NONE (MAP (\(num_args, e).
-                            let (num_args', e') = collect_args num_args e in
-                              (num_args', HD (intro_multi [e'])))
+                            let (num_args', e') = collect_args max_app num_args e in
+                              (num_args', HD (intro_multi max_app [e'])))
                           funs)
-            (HD (intro_multi [e]))]) ∧
-  (intro_multi [Letrec (SOME loc) fvs funs e] =
-     [Letrec (SOME loc) fvs funs (HD (intro_multi [e]))]) ∧
-  (intro_multi [Letrec NONE (SOME fvs) funs e] =
-     [Letrec NONE (SOME fvs) funs (HD (intro_multi [e]))]) ∧
-  (intro_multi [Op op es] =
-    [Op op (intro_multi es)])`
-  (WF_REL_TAC `measure exp3_size` >>
+            (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Letrec (SOME loc) fvs funs e] =
+     [Letrec (SOME loc) fvs funs (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Letrec NONE (SOME fvs) funs e] =
+     [Letrec NONE (SOME fvs) funs (HD (intro_multi max_app [e]))]) ∧
+  (intro_multi max_app [Op op es] =
+    [Op op (intro_multi max_app es)])`
+  (WF_REL_TAC `measure (exp3_size o SND)` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    imp_res_tac collect_args_size >>
    imp_res_tac collect_apps_size >>
@@ -136,16 +138,16 @@ val intro_multi_def = tDefine "intro_multi"`
 val intro_multi_ind = theorem "intro_multi_ind";
 
 val intro_multi_length = Q.store_thm("intro_multi_length",
-  `!es. LENGTH (intro_multi es) = LENGTH es`,
+  `!max_app es. LENGTH (intro_multi max_app es) = LENGTH es`,
   recInduct intro_multi_ind >>
   srw_tac[][intro_multi_def] >>
-  Cases_on `intro_multi [e1]` >>
+  Cases_on `intro_multi max_app [e1]` >>
   full_simp_tac(srw_ss())[] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[]);
 
 val intro_multi_sing = Q.store_thm ("intro_multi_sing",
-  `!e. ?e'. intro_multi [e] = [e']`,
+  `!e max_app. ?e'. intro_multi max_app [e] = [e']`,
   Induct_on `e` >>
   srw_tac[][intro_multi_def] >>
   TRY (rename1 `App loc e es` >> Cases_on `loc`) >>
@@ -153,16 +155,16 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   TRY (rename1 `Letrec locopt _ _ _` >> Cases_on `locopt`) >>
   TRY (rename1 `Letrec _ fvopt _ _` >> Cases_on `fvopt`) >>
   srw_tac[][intro_multi_def] >>
-  TRY (Cases_on `collect_args num_args e`) >>
-  TRY (Cases_on `collect_apps es e`) >>
+  TRY (Cases_on `collect_args max_app num_args e`) >>
+  TRY (Cases_on `collect_apps max_app es e`) >>
   full_simp_tac(srw_ss())[]);
 
 val collect_args_idem = Q.store_thm (
   "collect_args_idem",
-  `!num_args e num_args' e'.
-    collect_args num_args e = (num_args', e')
+  `!max_app num_args e num_args' e'.
+    collect_args max_app num_args e = (num_args', e')
     ⇒
-    collect_args num_args' (HD (intro_multi [e'])) = (num_args', (HD (intro_multi [e'])))`,
+    collect_args max_app num_args' (HD (intro_multi max_app [e'])) = (num_args', (HD (intro_multi max_app [e'])))`,
   ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def, intro_multi_def] >>
   srw_tac[][collect_args_def, intro_multi_def] >>
@@ -181,10 +183,10 @@ val collect_args_idem = Q.store_thm (
 
 val collect_apps_idem = Q.store_thm (
   "collect_apps_idem",
-  `!args e args' e'.
-    collect_apps args e = (args', e')
+  `!max_app args e args' e'.
+    collect_apps max_app args e = (args', e')
     ⇒
-    collect_apps (intro_multi args') (HD (intro_multi [e'])) = (intro_multi args', (HD (intro_multi [e'])))`,
+    collect_apps max_app (intro_multi max_app args') (HD (intro_multi max_app [e'])) = (intro_multi max_app args', (HD (intro_multi max_app [e'])))`,
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def, intro_multi_def] >>
   srw_tac[][collect_apps_def, intro_multi_def] >>
@@ -207,7 +209,7 @@ val collect_apps_idem = Q.store_thm (
  ]);
 
 val intro_multi_idem = Q.store_thm("intro_multi_idem",
-  `!e. intro_multi (intro_multi e) = intro_multi e`,
+  `!max_app e. intro_multi max_app (intro_multi max_app e) = intro_multi max_app e`,
   ho_match_mp_tac intro_multi_ind >>
   srw_tac[][intro_multi_def] >>
   srw_tac[][intro_multi_def]
@@ -230,7 +232,7 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
       srw_tac[][MAP_EQ_f] >>
       PairCases_on `x` >>
       simp [] >>
-      Cases_on `collect_args x0 x1` >>
+      Cases_on `collect_args max_app x0 x1` >>
       simp [] >>
       res_tac >>
       rev_full_simp_tac(srw_ss())[] >>
@@ -240,7 +242,7 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
   >- metis_tac [intro_multi_sing, HD]);
 
 val compile_def = Define`
-  compile F exps = exps /\
-  compile T exps = intro_multi exps`
+  compile F max_app exps = exps /\
+  compile T max_app exps = intro_multi max_app exps`
 
 val _ = export_theory()

@@ -4,10 +4,11 @@ open cmlParseTheory cmlPEGTheory;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open std_preludeTheory;
+open lexerProgTheory;
 
 val _ = new_theory "parserProg"
 
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "lexerProg";
 
 (* translator setup *)
 
@@ -22,8 +23,6 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type (ty1::tys) =
       mk_fun_type ty1 (list_mk_fun_type tys)
   | list_mk_fun_type _ = fail()
-
-val _ = register_type ``:lexer_fun$symbol``;
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";

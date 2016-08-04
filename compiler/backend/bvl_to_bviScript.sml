@@ -3,10 +3,6 @@ local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataL
 
 val _ = new_theory "bvl_to_bvi";
 
-val _ = Datatype`
-  config = <| inline_size_limit : num (* zero disables inlining *)
-            |>`;
-
 val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
@@ -115,26 +111,28 @@ val compile_op_def = Define `
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | _ => Op op c1`
 
+val _ = temp_overload_on("++",``SmartAppend``);
+
 val compile_exps_def = tDefine "compile_exps" `
-  (compile_exps n [] = ([],[],n)) /\
+  (compile_exps n [] = ([],Nil,n)) /\
   (compile_exps n ((x:bvl$exp)::y::xs) =
      let (c1,aux1,n1) = compile_exps n [x] in
      let (c2,aux2,n2) = compile_exps n1 (y::xs) in
        (c1 ++ c2, aux1 ++ aux2, n2)) /\
-  (compile_exps n [Var v] = ([(Var v):bvi$exp], [], n)) /\
+  (compile_exps n [Var v] = ([(Var v):bvi$exp], Nil, n)) /\
   (compile_exps n [If x1 x2 x3] =
      let (c1,aux1,n1) = compile_exps n [x1] in
      let (c2,aux2,n2) = compile_exps n1 [x2] in
      let (c3,aux3,n3) = compile_exps n2 [x3] in
        ([If (HD c1) (HD c2) (HD c3)],aux1++aux2++aux3,n3)) /\
   (compile_exps n [Let xs x2] =
-     if LENGTH xs = 0 (* i.e. a marker *) then
+     if NULL xs (* i.e. a marker *) then
        let (args,x0) = destLet x2 in
        let (c1,aux1,n1) = compile_exps n args in
        let (c2,aux2,n2) = compile_exps n1 [x0] in
        let n3 = n2 + 1 in
          ([Call 0 (SOME (num_stubs + 2 * n2 + 1)) c1 NONE],
-          aux1++aux2++[(n2,LENGTH args,HD c2)], n3)
+          aux1++aux2++List[(n2,LENGTH args,HD c2)], n3)
      else
        let (c1,aux1,n1) = compile_exps n xs in
        let (c2,aux2,n2) = compile_exps n1 [x2] in
@@ -153,7 +151,7 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c1,aux1,n1) = compile_exps n args in
      let (c2,aux2,n2) = compile_exps n1 [x0] in
      let (c3,aux3,n3) = compile_exps n2 [x2] in
-     let aux4 = [(n3,LENGTH args,HD c2)] in
+     let aux4 = List[(n3,LENGTH args,HD c2)] in
      let n4 = n3 + 1 in
        ([Call 0 (SOME (num_stubs + 2 * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
@@ -190,7 +188,7 @@ val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
       (MAP (\(k,args,p).
-          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) aux ++
+          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) (append aux) ++
        [(num_stubs + 2 * name,arg_count,HD c)],n1)`
 
 val compile_list_def = Define `
@@ -207,15 +205,27 @@ val compile_prog_def = Define `
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ code, n1)`;
 
 val optimise_def = Define `
-  optimise =
+  optimise cut_size ls =
   MAP (λ(name,arity,exp).
       (name,arity,
-       bvl_handle$compile_exp arity
-         (bvl_const$compile_exp exp)))`;
+       bvl_handle$compile_exp cut_size arity
+         (bvl_const$compile_exp exp))) ls`;
+
+val _ = Datatype`
+  config = <| inline_size_limit : num (* zero disables inlining *)
+            ; exp_cut : num (* huge number effectively disables exp splitting *)
+            |>`;
+
+val default_config_def = Define`
+  default_config = <|
+    inline_size_limit := 3;
+    exp_cut := 200
+  |>`;
 
 val compile_def = Define `
   compile start n c prog =
     compile_prog start n
-      (optimise (bvl_inline$compile_prog c.inline_size_limit prog))`;
+      (optimise c.exp_cut
+         (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

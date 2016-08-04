@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../translator ../../inference ../../parsing ../../backend ../..
+INCLUDES = ../../.. ../../../translator ../../inference ../../parsing ../../backend ../.. ../../targets/x64 $(HOLDIR)/examples/l3-machine-code/x64/model
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

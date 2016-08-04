@@ -32,24 +32,26 @@ val compile_sv_def = Define `
 val _ = export_rewrites["compile_sv_def"];
 
 val compile_state_def = Define`
-  compile_state (s:'ffi patSem$state) =
+  compile_state max_app (s:'ffi patSem$state) =
     <| globals := MAP (OPTION_MAP compile_v) s.globals;
        refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s.refs))) (LENGTH s.refs));
        ffi := s.ffi;
        clock := s.clock;
-       code := FEMPTY
+       code := FEMPTY;
+       max_app := max_app
     |>`;
 
 val compile_state_const = Q.store_thm("compile_state_const[simp]",
-  `(compile_state s).clock = s.clock`,
+  `(compile_state max_app s).clock = s.clock ∧
+   (compile_state max_app s).max_app = max_app`,
   EVAL_TAC);
 
 val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
-  `compile_state (dec_clock y) = dec_clock 1 (compile_state y)`,
+  `compile_state max_app (dec_clock y) = dec_clock 1 (compile_state max_app y)`,
   EVAL_TAC >> simp[])
 
 val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
-  `compile_state (s with clock := k) = compile_state s with clock := k`,
+  `compile_state max_app (s with clock := k) = compile_state max_app s with clock := k`,
   EVAL_TAC >> simp[])
 
 (* semantic functions respect translation *)
@@ -142,9 +144,11 @@ val LENGTH_eq = Q.prove(
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL])
 
 val compile_evaluate = Q.store_thm("compile_evaluate",
-  `(∀env ^s es res. evaluate env s es = res ∧ SND res ≠ Rerr (Rabort Rtype_error) ⇒
-      evaluate (MAP compile es,MAP compile_v env,compile_state s) =
-        (map_result (MAP compile_v) compile_v (SND res), compile_state (FST res)))`,
+  `0 < max_app ⇒
+   (∀env ^s es res. evaluate env s es = res ∧ SND res ≠ Rerr (Rabort Rtype_error) ⇒
+      evaluate (MAP compile es,MAP compile_v env,compile_state max_app s) =
+        (map_result (MAP compile_v) compile_v (SND res), compile_state max_app (FST res)))`,
+  strip_tac >>
   ho_match_mp_tac patSemTheory.evaluate_ind >>
   strip_tac >- (rw[evaluate_pat_def,evaluate_def]>>rw[]) >>
   strip_tac >- (
@@ -179,7 +183,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     rw[] >> fs[] >>
     spose_not_then strip_assume_tac >> rw[] >> fs[]) >>
   strip_tac >- (
-    rw[evaluate_pat_def,evaluate_def,max_app_def] >> rw[ETA_AX] ) >>
+    rw[evaluate_pat_def,evaluate_def] >> rw[ETA_AX] ) >>
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def] >>
     Cases_on`op=Op(Op Opapp)`>>fs[] >- (
@@ -220,10 +224,10 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       rpt var_eq_tac >>
       IF_CASES_TAC >> fs[] >- (
         simp[evaluate_def] >> fs[do_opapp_def] >>
-        Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,LET_THM] >>
+        Cases_on`c`>>fs[dest_closure_def,check_loc_def,LET_THM] >>
         simp[state_component_equality,EL_MAP]) >>
       simp[evaluate_def] >> fs[do_opapp_def] >>
-      Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,EL_MAP,LET_THM,ETA_AX] >>simp[] >>
+      Cases_on`c`>>fs[dest_closure_def,check_loc_def,EL_MAP,LET_THM,ETA_AX] >>simp[] >>
       rpt var_eq_tac >> fs[build_rec_env_pat_def] >>
       split_pair_case_tac >> fs[] >>
       fs[MAP_GENLIST,o_DEF,ETA_AX] >>
@@ -592,7 +596,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def] >>
-    rw[] >> fs[EXISTS_MAP,max_app_def] >>
+    rw[] >> fs[EXISTS_MAP] >>
     fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
     fsrw_tac[ETA_ss][] ) >>
@@ -604,9 +608,11 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     simp[MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ));
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `semantics env st es ≠ Fail ⇒
-   semantics (MAP compile_v env) (compile_state st) (MAP compile es) =
+  `0 < max_app ⇒
+   semantics env st es ≠ Fail ⇒
+   semantics (MAP compile_v env) (compile_state max_app st) (MAP compile es) =
    semantics env st es`,
+  strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -618,7 +624,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
-      drule compile_evaluate >>
+      drule (UNDISCH compile_evaluate) >>
       impl_tac >- ( rw[] >> strip_tac >> fs[] ) >>
       strip_tac >> fs[] ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -634,7 +640,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       Cases_on`s.ffi.final_event`>>fs[]>-(
         Cases_on`s'.ffi.final_event`>>fs[]>-(
           unabbrev_all_tac >>
-          drule compile_evaluate >>
+          drule (UNDISCH compile_evaluate) >>
           impl_tac >- fs[] >>
           strip_tac >>
           drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
@@ -649,7 +655,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
           simp[compile_state_def]) >>
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
         unabbrev_all_tac >>
-        drule compile_evaluate >>
+        drule (UNDISCH compile_evaluate) >>
         impl_tac >- (
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
@@ -662,7 +668,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         rveq >> fsrw_tac[ARITH_ss][compile_state_def] >> rfs[]) >>
       first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
       unabbrev_all_tac >>
-      drule compile_evaluate >>
+      drule (UNDISCH compile_evaluate) >>
       simp[] >>
       impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>
@@ -678,7 +684,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       rpt strip_tac >> spose_not_then strip_assume_tac >>
       rveq >> fsrw_tac[ARITH_ss][] >>
       fs[compile_state_def,state_component_equality] >> rfs[]) >>
-    drule compile_evaluate >> simp[] >>
+    drule (UNDISCH compile_evaluate) >> simp[] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
       fs[] >> rpt strip_tac >> fs[] ) >>
@@ -693,7 +699,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     qmatch_assum_abbrev_tac`SND p ≠ _` >>
     Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
     pop_assum(assume_tac o SYM) >>
-    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_evaluate)) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH compile_evaluate))) >>
     rw[compile_state_with_clock] >>
     strip_tac >> fs[]) >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -702,7 +708,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     last_x_assum(qspec_then`k`mp_tac) >>
     (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
     strip_tac >>
-    drule compile_evaluate >> simp[] >>
+    drule (UNDISCH compile_evaluate) >> simp[] >>
     spose_not_then strip_assume_tac >>
     rveq >> fs[] >>
     last_x_assum(qspec_then`k`mp_tac) >>
@@ -713,13 +719,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  specl_args_of_then``patSem$evaluate``compile_evaluate mp_tac >>
+  specl_args_of_then``patSem$evaluate``(UNDISCH compile_evaluate) mp_tac >>
   simp[compile_state_def])
 
 (* more correctness properties *)
 
 val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
-  ``∀e. ¬contains_App_SOME[compile e]``,
+  ``0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]``,
+  strip_tac >>
   ho_match_mp_tac compile_ind >>
   simp[compile_def,contains_App_SOME_def] >>
   rw[] >> srw_tac[ETA_ss][] >>
@@ -728,7 +735,7 @@ val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
   rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
   fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
-  rw[contains_App_SOME_def,max_app_def]);
+  rw[contains_App_SOME_def]);
 
 val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   `∀e. every_Fn_vs_NONE[compile e]`,

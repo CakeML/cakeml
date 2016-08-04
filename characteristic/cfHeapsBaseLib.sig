@@ -3,6 +3,7 @@ sig
   include Abbrev
   type conseq_conv = ConseqConv.conseq_conv
   type directed_conseq_conv = ConseqConv.directed_conseq_conv
+  type cont_conseq_conv = cfTacticsBaseLib.cont_conseq_conv
 
   (*----------------------------------------------------------------*)
 
@@ -14,9 +15,7 @@ sig
   val is_cond : term -> bool
   val is_sep_exists : term -> bool
 
-  val SEP_IMPPOST_conseq_conv : conseq_conv -> conseq_conv
-  val SEP_IMPPOST_DCC : directed_conseq_conv -> directed_conseq_conv
-  val WITH_SEP_IMPPOST_DCC : directed_conseq_conv -> directed_conseq_conv
+  val UNFOLD_SEP_IMPPOST_ccc : cont_conseq_conv
 
   val SEP_IMP_conv : conv -> conv -> conv
   val rearrange_star_conv : term -> term list -> conv
@@ -54,8 +53,16 @@ sig
   val hsimpl : tactic
   val hsimpl_top : tactic
   val hsimpl_conseq_conv : directed_conseq_conv
+  val hsimpl_cont_conseq_conv : cont_conseq_conv
 
+  (*----------------------------------------------------------------*)
+  (** Instantiating existentially quantified variables after calling
+      [hsimpl] *)
 
+  val hinst : tactic
+  val hinst_ecc : evarsConseqConvLib.evars_conseq_conv
+
+  (*----------------------------------------------------------------*)
   (** Auxiliary directed_conseq_convs, that are used to implement
       [hsimpl_conseq_conv] and [hsimpl]. *)
 
@@ -75,6 +82,8 @@ sig
   val hpull_one : tactic
   val hpull_one_conseq_conv : directed_conseq_conv
   val hpull_conseq_conv : directed_conseq_conv
+  val hpull_one_cont_conseq_conv : cont_conseq_conv
+  val hpull_cont_conseq_conv : cont_conseq_conv
 
   (* [hsimpl_cancel_conseq_conv]: on a goal of the form [H1 ==>> H2],
      [hsimpl_cancel_conseq_conv] tries to remove subheaps present both in H1 and
@@ -93,6 +102,8 @@ sig
   val hsimpl_cancel_one : tactic
   val hsimpl_cancel_conseq_conv : directed_conseq_conv
   val hsimpl_cancel_one_conseq_conv : directed_conseq_conv
+  val hsimpl_cancel_cont_conseq_conv : cont_conseq_conv
+  val hsimpl_cancel_one_cont_conseq_conv : cont_conseq_conv
 
   (* [hpullr]: extract pure facts and existential quantifications from the
      right heap (H2).
@@ -108,6 +119,13 @@ sig
   val hpullr_one : tactic
   val hpullr_conseq_conv : directed_conseq_conv
   val hpullr_one_conseq_conv : directed_conseq_conv
+  val hpullr_cont_conseq_conv : cont_conseq_conv
+  val hpullr_one_cont_conseq_conv : cont_conseq_conv
+
+  (** [hcancel]: [hsimpl] without [hpull] *)
+  val hcancel : tactic
+  val hcancel_conseq_conv : directed_conseq_conv
+  val hcancel_cont_conseq_conv : cont_conseq_conv
 
   (** hpullable *)
   val hpullable_rec : term -> unit

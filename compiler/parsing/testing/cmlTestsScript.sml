@@ -122,6 +122,8 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x : int) + 3"
                                  (Tapp [] (TC_name (Short "int"))))
                          (Lit (IntLit 3))``)
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
+          (SOME ``Var (Short "=")``)
 
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
           "val x = 10"

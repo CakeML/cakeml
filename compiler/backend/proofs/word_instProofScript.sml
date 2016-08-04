@@ -1,4 +1,4 @@
-open preamble BasicProvers
+open preamble
      wordLangTheory wordPropsTheory word_instTheory wordSemTheory
      asmTheory
 

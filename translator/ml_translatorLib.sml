@@ -135,6 +135,8 @@ in
   fun add_v_thms (name,th,pre_def) = let
     val tm = th |> concl |> rator |> rand
     val module_name = get_curr_module_name ()
+    val _ = if concl pre_def =T then () else
+            (print ("\nWARNING: " ^name^" has a precondition.\n\n"))
     in (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms)) end;
   fun add_user_proved_v_thm th = let
     val th = UNDISCH_ALL th
@@ -2029,7 +2031,7 @@ fun mutual_to_single_line_def def = let
   val target = map snd gs |> list_mk_conj
   in if concl def = target then (def |> CONJUNCTS,SOME ind) else let
   val goals = map fst gs
-  val lemma = SPECL goals ind
+  val lemma = ISPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
   val _ = not (can (find_term is_arb) goal) orelse failwith "requires precondition"
   val lemma1 = prove(goal,
@@ -2227,7 +2229,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val vname_str = stringLib.fromMLstring vname
   val fname_str = stringLib.fromMLstring fname
   val FORALL_CONV = RAND_CONV o ABS_CONV
-  val lemma = SPECL [recc,fname_str] Eval_Recclosure_ALT
+  val lemma = ISPECL [recc,fname_str] Eval_Recclosure_ALT
               |> CONV_RULE ((FORALL_CONV o FORALL_CONV o
                              RATOR_CONV o RAND_CONV) EVAL)
   val pat = lemma |> concl |> find_term (can (match_term (get_term "find_recfun")))
@@ -3072,7 +3074,7 @@ val (fname,def,th,v) = hd thms
     val goal = mk_imp(hs,gs)
     val ind_thm = (the ind)
                   |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
-                  |> SPECL (goals |> map fst)
+                  |> ISPECL (goals |> map fst)
                   |> CONV_RULE (DEPTH_CONV BETA_CONV)
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
       | POP_MP_TACs (ws,gg) =

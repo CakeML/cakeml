@@ -47,6 +47,6 @@ val mk_ticks_def = Define `
   mk_ticks n e = FUNPOW (Seq Tick) n e`;
 
 val num_stubs_def = Define`
-  num_stubs = wordLang$num_stubs + 3`;
+  num_stubs = wordLang$num_stubs + 5`;
 
 val _ = export_theory();

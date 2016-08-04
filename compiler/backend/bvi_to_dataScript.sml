@@ -42,9 +42,10 @@ val compile_def = tDefine "compile" `
      let (c2,vs,n2) = compile n1 env F (HD v1::live) (y::xs) in
        (Seq c1 c2, HD v1 :: vs, n2)) /\
   (compile n env tail live [(Var v):bvi$exp] =
+     let var = any_el v env 0n in
      if tail
-     then (Return (EL v env), [n], n+1)
-     else (Move n (EL v env), [n], n+1)) /\
+     then (Return var, [n], n+1)
+     else (Skip, [var], MAX n (var+1))) /\
   (compile n env tail live [If x1 x2 x3] =
      let (c1,v1,n1) = compile n env F live [x1] in
      let (c2,v2,n2) = compile n1 env tail live [x2] in
@@ -76,9 +77,9 @@ val compile_def = tDefine "compile" `
   (compile n env tail live [Call ticks dest xs (SOME handler)] =
      let (c1,vs,n1) = compile n env F live xs in
      let (c2,v,n2) = compile (n1+1) (n1::env) F live [handler] in
-     let ret = SOME (HD v, list_to_num_set (live ++ env)) in
-     let c3 = (if tail then Return (HD v) else Skip) in
-       (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,c2))) c3)), v, n2))`
+     let ret = SOME (n2, list_to_num_set (live ++ env)) in
+     let c3 = (if tail then Return n2 else Skip) in
+       (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 (HD v))))) c3)), [n2], n2+1))`
  (WF_REL_TAC `measure (exp2_size o SND o SND o SND o SND)`);
 
 val compile_ind = theorem"compile_ind";
