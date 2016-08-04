@@ -12,6 +12,8 @@ open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib cf_initialProgramTheory in end
 
+val _ = new_theory "cf_tutorial";
+
 (* We use translator/ml_progLib for managing the state resulting from
    the evaluation of several toplevel declarations.
 
@@ -281,3 +283,5 @@ val bytearray_fromlist_spec = Q.prove (
      with characteristic formulae;
    - through examples, looking in cf_examplesScript.sml
 *)
+
+val _ = export_theory();

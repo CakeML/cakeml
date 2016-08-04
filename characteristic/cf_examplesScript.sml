@@ -2,8 +2,10 @@ open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib cf_initialProgramTheory in end
 
+val _ = new_theory "cf_examples";
+
 val basis_st =
-  ml_progLib.unpack_ml_prog_state 
+  ml_progLib.unpack_ml_prog_state
     cf_initialProgramTheory.basis_prog_state
 
 val example_let0 = parse_topdecl
@@ -119,9 +121,9 @@ val example_if_spec = Q.prove (
   THEN1 (xapp \\ fs []) \\
   xif \\ xret \\ xsimpl
 )
-  
+
 val is_nil = parse_topdecl
-  "fun is_nil l = case l of [] => true | x::xs => false" 
+  "fun is_nil l = case l of [] => true | x::xs => false"
 
 val st = ml_progLib.add_prog is_nil pick_name basis_st
 
@@ -199,7 +201,7 @@ val list_length_spec = store_thm ("list_length_spec",
        emp (\v. & NUM (LENGTH l) v)``,
   Induct_on `l`
   THEN1 (
-    xcf "length" st \\ fs [LIST_TYPE_def] \\ 
+    xcf "length" st \\ fs [LIST_TYPE_def] \\
     xmatch \\ xret \\ xsimpl
   )
   THEN1 (
@@ -255,3 +257,5 @@ val bytearray_fromlist_spec = Q.prove (
   Q.LIST_EXISTS_TAC [`REPLICATE (LENGTH l) (i2w 0)`, `l`, `[]`] \\
   fs [LENGTH_REPLICATE]
 )
+
+val _ = export_theory();

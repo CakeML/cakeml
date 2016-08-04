@@ -111,4 +111,40 @@ tactics. *)
 val spec_def = Define `
   spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)`
 
+open cfTacticsBaseLib
+
+val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
+  ``(a --> b) f v ==>
+    !x v1.
+      a x v1 ==>
+      app_basic (p:'ffi ffi_proj) v v1 emp ((&) o b (f x))``,
+  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
+      ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
+      ml_translatorTheory.evaluate_closure_def,PULL_EXISTS]
+  \\ rw [] \\ res_tac \\ instantiate
+  \\ drule ml_translatorTheory.evaluate_empty_state_IMP
+  \\ disch_then (qspec_then `st` assume_tac)
+  \\ instantiate \\ fs [cond_def]
+  \\ qexists_tac `{}` \\ SPLIT_TAC);
+
+val app_basic_weaken = store_thm("app_basic_weaken",
+  ``(!x v. P x v ==> Q x v) ==>
+    (app_basic p v v1 x P ==>
+     app_basic p v v1 x Q)``,
+  fs [app_basic_def] \\ metis_tac []);
+
+val example_arrow_imp = store_thm("example_arrow_imp",
+  ``(NUM --> LIST_TYPE a --> LIST_TYPE a) DROP drop_v ==>
+    NUM x1 v1 /\ LIST_TYPE a x2 v2 ==>
+    app (p:'ffi ffi_proj) drop_v [v1; v2] emp (\v. & (LIST_TYPE a (DROP x1 x2) v))``,
+  rewrite_tac [app_def] \\ rpt (
+    rpt strip_tac
+    \\ drule Arrow_IMP_app_basic
+    \\ disch_then drule
+    \\ match_mp_tac app_basic_weaken
+    \\ fs [cond_def]
+    \\ rpt strip_tac
+    \\ fs [cond_def,SEP_EXISTS_THM]
+    \\ qexists_tac `emp` \\ fs [SEP_CLAUSES]));
+
 val _ = export_theory ()
