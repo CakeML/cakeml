@@ -15,7 +15,7 @@ val _ = type_abbrev("loc", ``:num``) (* should be: temp_type_abbrev *)
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
-            | FFI_part num ffi (word8 list -> ffi -> (word8 list # ffi) option)`
+            | FFI_part num ffi (word8 list -> ffi -> (word8 list # ffi) option) (num list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
@@ -78,6 +78,13 @@ val ARRAY_def = Define `
 val W8ARRAY_def = Define `
   W8ARRAY av wl =
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
+
+val IO_aux_def = Define `
+  (IO_aux [] s u ns = emp) /\
+  (IO_aux (x::xs) s u ns = one (FFI_part x s (u x) ns) * IO_aux xs s u ns)`;
+
+val IO_def = Define `
+  IO s u ns = IO_aux ns s u ns`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)

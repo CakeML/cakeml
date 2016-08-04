@@ -1058,6 +1058,19 @@ val cf_wordToInt_W64_def = Define `
       exp2v env xw = SOME (Litv (Word64 w)) /\
       app_wordToInt w H Q)`
 
+val app_ffi_def = Define `
+  app_ffi ffi_index a H Q =
+    ?ws F vs s s' u ns.
+      u ffi_index ws s = SOME (vs,s') /\ MEM ffi_index ns /\
+      (H ==>> F * W8ARRAY a ws * IO s u ns) /\
+      (F * W8ARRAY a vs * IO s' u ns) ==>> Q (Conv NONE [])`
+
+val cf_ffi_def = Define `
+  cf_ffi ffi_index r = \env. local (\H Q.
+    ?rv.
+      exp2v env r = SOME rv /\
+      app_ffi ffi_index rv H Q)`
+
 val cf_log_def = Define `
   cf_log lop e1 cf2 = \env. local (\H Q.
     ?v b.
@@ -1178,15 +1191,19 @@ val cf_def = tDefine "cf" `
           (case args of
              | [w] => cf_wordToInt_W64 w
              | _ => cf_bottom)
+        | FFI ffi_index =>
+          (case args of
+             | [w] => cf_ffi ffi_index w
+             | _ => cf_bottom)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
     cf_log lop e1 (cf p e2) /\
   cf (p:'ffi ffi_proj) (If cond e1 e2) =
     cf_if cond (cf p e1) (cf p e2) /\
-  cf (p:'ffi ffi_proj) (Mat e branches) = 
+  cf (p:'ffi ffi_proj) (Mat e branches) =
     cf_match e (MAP (\b. (FST b, cf p (SND b))) branches) /\
-  cf _ _ = cf_bottom`
-
+  cf _ _ = cf_bottom
+`
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
      THEN1 (
        Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
@@ -1237,7 +1254,8 @@ val cf_defs = [
   cf_bottom_def,
   cf_log_def,
   cf_if_def,
-  cf_match_def
+  cf_match_def,
+  cf_ffi_def
 ]
 
 (*------------------------------------------------------------------*)
@@ -1626,8 +1644,30 @@ val build_cases_evaluate_match = Q.prove (
   )
 )
 
+val IO_aux_IMP_IN = store_thm("IO_aux_IMP_IN",
+  ``!frame xs ns s u v.
+      (frame * IO_aux xs s u ns) v ==>
+      !x. MEM x xs ==> FFI_part x s (u x) ns IN v``,
+  Induct_on `xs` \\ fs [IO_aux_def] \\ rw []
+  \\ try_finally (fs [STAR_ASSOC] \\ res_tac)
+  \\ fs [STAR_def,one_def] \\ SPLIT_TAC);
+
+val IO_IMP_IN = save_thm("IO_IMP_IN",
+  IO_aux_IMP_IN
+  |> Q.SPECL [`emp`,`ns`,`ns`]
+  |> SIMP_RULE std_ss [SEP_CLAUSES,GSYM IO_def]);
+
+val IO_thm = store_thm("IO_thm",
+  ``IO s u ns v <=> v = { FFI_part x s (u x) ns |x| MEM x ns }``,
+  cheat);
+
+val SPLIT_SING_2 = store_thm("SPLIT_SING_2",
+  ``SPLIT s (x,{y}) <=> (s = y INSERT x) /\ ~(y IN x)``,
+  SPLIT_TAC);
+
 val cf_sound = store_thm ("cf_sound",
   ``!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)``,
+
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
@@ -1683,8 +1723,65 @@ val cf_sound = store_thm ("cf_sound",
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
+
+
   THEN1 (
     (* App *)
+
+    Cases_on `?ffi_index. op = FFI ffi_index` THEN1
+     (fs [] \\ rveq \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
+      (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
+      cf_strip_sound_tac \\
+      cf_evaluate_step_tac \\
+      `evaluate_list F env st [h] (st, Rval [rv])` by
+        (cf_evaluate_list_tac [`st`]) \\ instantiate \\
+      fs [do_app_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
+      fs [STAR_def,cell_def,one_def,cond_def] \\
+      first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
+      fs [SPLIT_SING_2] \\ rveq \\
+      rename1 `F' u2` \\
+      `store_lookup y st.refs = SOME (W8array ws) /\
+       Mem y (W8array ws) IN st2heap p st` by
+        (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
+         \\ fs [st2heap_def,Mem_NOT_IN_ffi2heap]
+         \\ imp_res_tac store2heap_IN_EL
+         \\ imp_res_tac store2heap_IN_LENGTH
+         \\ fs [store_lookup_def] \\ NO_TAC) \\
+      fs [ffiTheory.call_FFI_def] \\
+      progress IO_IMP_IN \\
+      `FFI_part ffi_index s (u ffi_index) ns IN st2heap p st` by SPLIT_TAC \\
+      fs [st2heap_def,FFI_part_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
+      `st.ffi.final_event = NONE` by
+        (PairCases_on `p` \\ fs [ffi2heap_def]
+         \\ every_case_tac \\ fs [] \\ NO_TAC) \\
+      fs [] \\ ntac 2 (pop_assum mp_tac) \\
+      PairCases_on `p` \\ simp [Once ffi2heap_def] \\
+      rpt strip_tac \\ fs [] \\
+      first_assum drule \\ simp [FLOOKUP_DEF] \\
+      rpt strip_tac \\ rveq \\
+      first_assum progress \\ fs [store_assign_def] \\
+      imp_res_tac store2heap_IN_EL \\
+      imp_res_tac store2heap_IN_LENGTH \\ fs [store_v_same_type_def] \\
+      progress store2heap_LUPDATE \\ fs [] \\
+      qexists_tac `
+         ({ FFI_part x s' (u x) ns |x| MEM x ns } UNION
+          (Mem y (W8array vs) INSERT u2))` \\
+      qexists_tac `{}` \\ reverse conj_tac THEN1
+       (first_assum match_mp_tac \\ fs [IO_thm,PULL_EXISTS,SPLIT_SING_2] \\
+        instantiate \\ rveq \\
+        conj_tac THEN1
+         (simp [SPLIT_def,AC UNION_COMM UNION_ASSOC] \\ rveq \\
+          cheat (* true *)) \\
+        cheat (* true *)) \\
+      match_mp_tac SPLIT3_of_SPLIT_emp3 \\
+      fs [SPLIT_def] \\
+      qpat_abbrev_tac `f1 = ffi2heap (p0,p1) _` \\
+      `f1 = (ffi2heap (p0,p1) st.ffi DIFF v) UNION
+               {FFI_part x s' (u x) ns | x | MEM x ns}` by all_tac THEN1
+        (unabbrev_all_tac \\ fs [ffi2heap_def,IO_thm] \\
+         fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw [] \\ cheat)
+      \\ cheat) \\
+
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
     cf_strip_sound_tac \\
@@ -2064,7 +2161,7 @@ val app_rec_of_cf = store_thm ("app_rec_of_cf",
      find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
      cf (p:'ffi ffi_proj) body
        (extend_env_rec
-          (MAP (\ (f,_,_). f) funs) 
+          (MAP (\ (f,_,_). f) funs)
           (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
           params xvs env)
         H Q ==>
