@@ -11,7 +11,7 @@ val _ = Datatype `
       | Cons ffi ffi
       | Stream (num llist)`
 
-val _ = type_abbrev("loc", ``:num``) (* should be: temp_type_abbrev *)
+val _ = temp_type_abbrev("loc", ``:num``)
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
