@@ -1,4 +1,4 @@
-open preamble BasicProvers word_to_wordTheory wordSemTheory word_simpProofTheory
+open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory
      word_removeProofTheory;
 
@@ -136,31 +136,6 @@ val find_code_thm = prove(``
     Cases_on`x''`>>full_simp_tac(srw_ss())[compile_single_def,LET_THM]>>
     metis_tac[])
 
-(*Adapted from a proof in wordProps*)
-val domain_fromList2 = prove(``
-  ∀q.
-  domain(fromList2 q) = set(even_list (LENGTH q))``,
-  recInduct SNOC_INDUCT >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[fromList2_def,word_allocTheory.even_list_def]>>
-  simp[FOLDL_SNOC]>>
-  CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)>>
-  full_simp_tac(srw_ss())[GSYM fromList2_def,FOLDL_SNOC]>>
-  `!k. FST (FOLDL (λ(i,t) a. (i + 2,insert i a t)) (k,LN) l) =
-        k + LENGTH l * 2` by
-   (qspec_tac (`LN`,`t`) \\ qspec_tac (`l`,`l`) \\ Induct \\ full_simp_tac(srw_ss())[FOLDL]
-    \\ full_simp_tac(srw_ss())[MULT_CLAUSES, AC ADD_COMM ADD_ASSOC])>>
-  srw_tac[][]>>
-  full_simp_tac(srw_ss())[MEM_GENLIST,EXTENSION]>>srw_tac[][]>>
-  EQ_TAC>>srw_tac[][]
-  >-
-    (qexists_tac`LENGTH l`>>simp[])
-  >-
-    (qexists_tac`x'`>>simp[])
-  >>
-    Cases_on`x' = LENGTH l`>>simp[]>>
-    `x' < LENGTH l` by DECIDE_TAC>>
-    metis_tac[])
-
 val push_env_code_frame = prove(``
   (push_env a b c).code = c.code``,
   Cases_on`b`>>TRY(PairCases_on`x`)>>full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def])
@@ -236,7 +211,7 @@ val compile_single_correct = prove(``
       Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
       impl_tac>-
         (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def]>>
-        simp[domain_fromList2])>>
+        simp[domain_fromList2,word_allocTheory.even_list_def])>>
       qpat_abbrev_tac`A = compile_single t k a c B`>>
       PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
       pop_assum mp_tac>>
@@ -282,7 +257,7 @@ val compile_single_correct = prove(``
     Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
     impl_tac>-
       (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def]>>
-      simp[domain_fromList2])>>
+      simp[domain_fromList2,word_allocTheory.even_list_def])>>
     qpat_abbrev_tac`A = compile_single t k a c B`>>
     PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
     pop_assum mp_tac >>

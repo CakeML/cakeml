@@ -12,79 +12,17 @@ val _ = new_theory "lab_to_targetProof";
 
 (* TODO: move *)
 
-val EXP2_EVEN = Q.store_thm("EXP2_EVEN",
-  `∀n. EVEN (2 ** n) ⇔ n ≠ 0`,
-  Induct >> simp[EXP,EVEN_DOUBLE]);
-
-val LENGTH_FLAT_REPLICATE = Q.store_thm("LENGTH_FLAT_REPLICATE",
-  `∀n. LENGTH (FLAT (REPLICATE n ls)) = n * LENGTH ls`,
-  Induct >> simp[REPLICATE,MULT]);
-
-val SUM_MAP_LENGTH_REPLICATE = Q.store_thm("SUM_MAP_LENGTH_REPLICATE",
-  `∀n ls. SUM (MAP LENGTH (REPLICATE n ls)) = n * LENGTH ls`,
-  Induct >> simp[REPLICATE,MULT]);
-
 val call_FFI_LENGTH = prove(
   ``(call_FFI st index x = (new_st,new_bytes)) ==>
     (LENGTH x = LENGTH new_bytes)``,
   full_simp_tac(srw_ss())[call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[listTheory.LENGTH_MAP]);
 
-val SUM_REPLICATE = store_thm("SUM_REPLICATE",
-  ``!n k. SUM (REPLICATE n k) = n * k``,
-  Induct \\ full_simp_tac(srw_ss())[REPLICATE,MULT_CLAUSES,AC ADD_COMM ADD_ASSOC]);
-
-val asm_failed_ignore_new_pc = store_thm("asm_failed_ignore_new_pc",
-  ``!i v w s. (asm i w s).failed <=> (asm i v s).failed``,
-  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
-
-val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
-  ``!i v w s. (asm i w s).mem = (asm i v s).mem``,
-  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
-
-val SND_read_mem_word_consts = prove(
-  ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
-            ((SND (read_mem_word a n s)).lr = s.lr) /\
-            ((SND (read_mem_word a n s)).align = s.align) /\
-            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
-  Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[assert_def])
-
-val write_mem_word_consts = prove(
-  ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
-              ((write_mem_word a n w s).lr = s.lr) /\
-              ((write_mem_word a n w s).align = s.align) /\
-              ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
-  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
-
-val asm_consts = store_thm("asm_consts[simp]",
-  ``!i w s. ((asm i w s).be = s.be) /\
-            ((asm i w s).lr = s.lr) /\
-            ((asm i w s).align = s.align) /\
-            ((asm i w s).mem_domain = s.mem_domain)``,
-  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
-  \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
-  \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
-  \\ TRY (Cases_on `m`)
-  \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[arith_upd_def,mem_op_def]
-  \\ TRY (Cases_on `b`)
-  \\ TRY (Cases_on `r`)
-  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[SND_read_mem_word_consts,write_mem_word_consts])
-
 val EXP_IMP_ZERO_LT = Q.prove(
   `(2n ** y = x) ⇒ 0 < x`,
   metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]);
 
 (* -- *)
-
-val FLAT_REPLICATE_NIL = store_thm("FLAT_REPLICATE_NIL",
-  ``!n. FLAT (REPLICATE n []) = []``,
-  Induct \\ fs [REPLICATE]);
 
 val enc_with_nop_thm = prove(
   ``enc_with_nop enc (b:'a asm) bytes =

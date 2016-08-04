@@ -107,7 +107,8 @@ val cmlG_def = mk_grammar_def ginfo
  OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
-       |  "*" ;
+       |  "*" | "=" ;
+
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
         |  <CharT> | <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
         | "[" Elist1 "]" | "op" OpID ;

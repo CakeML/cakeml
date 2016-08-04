@@ -214,7 +214,8 @@ val cmlPEG_def = zDefine`
                                    s <- destAlphaT t;
                                    assert (s ≠ "")
                                  od = SOME ()) (bindNT nOpID o mktokLf);
-                        pegf (tokeq StarT) (bindNT nOpID)]);
+                        pegf (tokeq StarT) (bindNT nOpID);
+                        pegf (tokeq EqualsT) (bindNT nOpID)]);
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         tok isString (bindNT nEbase o mktokLf);
@@ -761,9 +762,15 @@ end
 val NTS_in_PEG_exprs = let
   val exprs_th' = REWRITE_RULE [pnt_def] PEG_exprs
   val exprs_t = rhs (concl exprs_th')
+  val nt = mk_thy_const{Thy = "peg", Name = "nt",
+                        Ty = ``:MMLnonT inf -> (mlptree list -> mlptree list) ->
+                                (token,MMLnonT,mlptree list) pegsym``}
+  val I_t = mk_thy_const{Thy = "combin", Name = "I",
+                         Ty = ``:mlptree list -> mlptree list``}
   fun p t = let
     val _ = print ("PEGexpr: "^term_to_string t^"\n")
-    val th0 = prove(``nt ^t I ∈ ^exprs_t``, simp[pnt_def])
+    val th0 = prove(pred_setSyntax.mk_in(list_mk_comb(nt,[t,I_t]), exprs_t),
+                    simp[pnt_def])
               handle e => (print("Failed on "^term_to_string t^"\n");
                            raise e)
   in

@@ -152,4 +152,57 @@ val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
   Induct \\ fs [bytes_in_memory_def,ADD1,word_add_n2w]
   \\ REWRITE_TAC [GSYM WORD_ADD_ASSOC,word_add_n2w,CONJ_ASSOC])
 
+val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
+  `((asmSem$upd_pc x s).align = s.align) ∧
+   ((asmSem$upd_pc x s).mem_domain = s.mem_domain) ∧
+   ((asmSem$upd_pc x s).failed = s.failed) ∧
+   ((asmSem$upd_pc x s).be = s.be) ∧
+   ((asmSem$upd_pc x s).mem = s.mem) ∧
+   ((asmSem$upd_pc x s).regs = s.regs) ∧
+   ((asmSem$upd_pc x s).lr = s.lr) ∧
+   ((asmSem$upd_pc x s).pc = x)`,
+  EVAL_TAC);
+
+val asm_failed_ignore_new_pc = store_thm("asm_failed_ignore_new_pc",
+  ``!i v w s. (asm i w s).failed <=> (asm i v s).failed``,
+  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+
+val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
+  ``!i v w s. (asm i w s).mem = (asm i v s).mem``,
+  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+
+val SND_read_mem_word_consts = prove(
+  ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+            ((SND (read_mem_word a n s)).lr = s.lr) /\
+            ((SND (read_mem_word a n s)).align = s.align) /\
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
+  Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ full_simp_tac(srw_ss())[assert_def])
+
+val write_mem_word_consts = prove(
+  ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
+              ((write_mem_word a n w s).lr = s.lr) /\
+              ((write_mem_word a n w s).align = s.align) /\
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
+  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+
+val asm_consts = store_thm("asm_consts[simp]",
+  ``!i w s. ((asm i w s).be = s.be) /\
+            ((asm i w s).lr = s.lr) /\
+            ((asm i w s).align = s.align) /\
+            ((asm i w s).mem_domain = s.mem_domain)``,
+  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
+  \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ TRY (Cases_on `m`)
+  \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[arith_upd_def,mem_op_def]
+  \\ TRY (Cases_on `b`)
+  \\ TRY (Cases_on `r`)
+  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ full_simp_tac(srw_ss())[SND_read_mem_word_consts,write_mem_word_consts])
+
 val () = export_theory ()

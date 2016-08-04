@@ -10,6 +10,7 @@ sig
   val progress_with : thm -> thm -> tactic
 
   val instantiate : tactic
+  val instantiate1 : tactic
 
   val try_finally : tactic -> tactic
   val qpat_assum_keep : term quotation -> thm_tactic -> tactic
@@ -19,14 +20,15 @@ sig
   val EVAL_PAT : term -> conv
   val eval_pat_tac : term -> tactic
   val qeval_pat_tac : term quotation -> tactic
-
-  val compose_n : int -> ('a -> 'a) -> 'a -> 'a
+  val compute_pat : computeLib.compset -> term -> conv
+  val compute_pat_tac : computeLib.compset -> term -> tactic
+  val qcompute_pat_tac : computeLib.compset -> term quotation -> tactic
 
   val hnf_conv : conv
   val hnf : tactic
   val cbv : tactic
 
-  val conv_head : thm -> tactic
+  val rewr_head_conv : thm -> conv
 
   val parse : term -> term -> string -> term
   val parse_topdecl : string -> term
@@ -122,14 +124,18 @@ sig
   val STEP_CONT_CONSEQ_CONV : cont_conseq_conv -> conseq_conv
   val THEN_CONT_CONSEQ_CONV :
     cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
+  val ORELSE_CONT_CONSEQ_CONV :
+    cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
+  val TRY_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
   val EVERY_CONT_CONSEQ_CONV : cont_conseq_conv list -> cont_conseq_conv
   val LOOP_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
   val INPLACE_CONT_CONSEQ_CONV : conseq_conv -> cont_conseq_conv
+  val REFL_CONT_CONSEQ_CONV : cont_conseq_conv
 
   (* -- *)
 
   val MATCH_IMP_STRENGTHEN_CONSEQ_CONV : thm -> conseq_conv
-  
+
   (** Tactics to deal with goals of the form [?x1..xn. A1 /\ ... /\ Am], where
       the [Ai]s are not themselves of the form [_ /\ _], and shouldn't start
       with existential quantifications. The focus is on A1 (the "head"), where

@@ -1,6 +1,6 @@
-open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory helperLib ml_translatorTheory
-open semanticPrimitivesTheory
+open preamble
+     set_sepTheory helperLib
+     ml_translatorTheory semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfHeapsLib
 open cfTheory cfTacticsBaseLib cfTacticsLib
 
@@ -18,22 +18,8 @@ val lnull_spec = Q.prove (
        (cond (LIST_TYPE a l lv))
        (\bv. cond (BOOL (l = []) bv))`,
 
-  xcf "lnull" st \\
-  fs [cf_mat_def] \\ irule local_elim \\ reduce_tac \\
-  strip_tac THEN1 cheat (* nvm that for the moment *) \\
-  fs [PMATCH_ROW_of_pat_def] \\
-  (* - first row:
-         + pat = Pcon (SOME (Short "nil") [])
-         + pat_bindings pat [] = []
-         therefore, insts can be replaced by ()
-         (PMATCH_ROW (\insts. P insts) (\_. T) (\insts. Q insts) becomes
-          PMATCH_ROW (\(uv: unit). P []) (\_. T) (\(uv: unit). Q []))
-     - second row:
-         + pat = Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"]
-         + pat_bindings pat [] = ["xs"; "x"]
-         therefore, insts can be replaced by (vx, vxs)
-         (PMATCH_ROW (\insts. P insts) (\_. T) (\insts. Q insts) becomes
-          PMATCH_ROW (\(vx, vxs). P [vx; vxs]) (\_. T) (\(vx, vxs). Q [vx; vxs]))
-  *)
-  cheat
+  xcf "lnull" st \\ xpull \\
+  Cases_on `l` \\ fs [LIST_TYPE_def] \\
+  xmatch \\ xret \\ xsimpl \\ EVAL_TAC
 )
+

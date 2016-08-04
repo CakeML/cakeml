@@ -1,10 +1,10 @@
 structure cfHeapsLib :> cfHeapsLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open set_sepTheory helperLib ConseqConv
-open cfHeapsBaseTheory cfTacticsBaseLib cfHeapsBaseLib
-open cfHeapsTheory
+open cfHeapsBaseTheory cfHeapsTheory
+open evarsConseqConvLib cfTacticsBaseLib cfHeapsBaseLib
 
 infix 3 THEN_DCC
 infix 3 ORELSE_DCC
@@ -115,4 +115,54 @@ val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv
    g `CF (H * emp) Q : bool`
    e hclean
 *)
+
+(** hchange *)
+
+infix then_ecc
+
+fun hchange_apply_cc lemma_th cont_ecc1 cont_ecc2 =
+  (* tm is a [H ==>> H'] *)
+  CONSEQ_TOP_REWRITE_CONV ([], [hchange_lemma], []) THEN_DCC
+  STRENGTHEN_CONSEQ_CONV (
+    ecc_conseq_conv (
+      (conj_ecc
+         (irule_ecc lemma_th)
+         (conj_ecc cont_ecc1 cont_ecc2)) then_ecc
+      hinst_ecc
+    )
+  )
+
+(* todo: variant calling progress on the lemma, like the todo in xapp *)
+
+val hcancel_cont_ecc =
+  lift_conseq_conv_ecc (hcancel_conseq_conv CONSEQ_CONV_STRENGTHEN_direction)
+
+val hsimpl_cont_ecc =
+  lift_conseq_conv_ecc (hsimpl_conseq_conv CONSEQ_CONV_STRENGTHEN_direction)
+
+val id_cont_ecc =
+  lift_conseq_conv_ecc REFL_CONSEQ_CONV
+
+fun hchange_core_cc lemma_th cont_ecc1 cont_ecc2 =
+  STEP_CONT_CONSEQ_CONV (
+    EVERY_CONT_CONSEQ_CONV [
+      hpull_cont_conseq_conv,
+      INPLACE_CONT_CONSEQ_CONV
+        (hchange_apply_cc lemma_th cont_ecc1 cont_ecc2
+         CONSEQ_CONV_STRENGTHEN_direction)
+    ]
+  )
+  |> STRENGTHEN_CONSEQ_CONV
+
+fun hchange_conseq_conv th =
+  hchange_core_cc th hcancel_cont_ecc id_cont_ecc
+
+fun hchanges_conseq_conv th =
+  hchange_core_cc th hcancel_cont_ecc hsimpl_cont_ecc
+
+fun hchange_top th = CONSEQ_CONV_TAC (hchange_conseq_conv th)
+fun hchanges_top th = CONSEQ_CONV_TAC (hchanges_conseq_conv th)
+fun hchange th = DEPTH_CONSEQ_CONV_TAC (hchange_conseq_conv th)
+fun hchanges th = DEPTH_CONSEQ_CONV_TAC (hchanges_conseq_conv th)
+
 end

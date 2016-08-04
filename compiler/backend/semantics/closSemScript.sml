@@ -25,6 +25,7 @@ val _ = Datatype `
      ; ffi     : 'ffi ffi_state
      ; clock   : num
      ; code    : num |-> (num # closLang$exp)
+     ; max_app : num
     |> `
 
 (* helper functions *)
@@ -264,9 +265,9 @@ val check_clock_lemma = prove(
    defined to evaluate a list of clos_exp expressions. *)
 
 val check_loc_opt_def = Define `
-  (check_loc NONE loc num_params num_args so_far ⇔
+  (check_loc (max_app:num) NONE loc num_params num_args so_far ⇔
     num_args ≤ max_app) /\
-  (check_loc (SOME p) loc num_params num_args so_far ⇔
+  (check_loc max_app (SOME p) loc num_params num_args so_far ⇔
     num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)`;
 
 val _ = Datatype `
@@ -275,10 +276,10 @@ val _ = Datatype `
     | Full_app closLang$exp (closSem$v list) (closSem$v list)`;
 
 val dest_closure_def = Define `
-  dest_closure loc_opt f args =
+  dest_closure max_app loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
-        if check_loc loc_opt loc num_args (LENGTH args) (LENGTH arg_env) ∧ LENGTH arg_env < num_args then
+        if check_loc max_app loc_opt loc num_args (LENGTH args) (LENGTH arg_env) ∧ LENGTH arg_env < num_args then
           if ¬(LENGTH args + LENGTH arg_env < num_args) then
             SOME (Full_app exp
                            (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
@@ -291,7 +292,8 @@ val dest_closure_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~check_loc loc_opt
+             ~check_loc max_app
+                        loc_opt
                         (OPTION_MAP ((+) (2*i)) loc) num_args
                         (LENGTH args)
                         (LENGTH arg_env) ∨
@@ -309,8 +311,8 @@ val dest_closure_def = Define `
     | _ => NONE`;
 
 val dest_closure_length = Q.prove (
-  `!loc_opt f args exp args1 args2 so_far.
-    dest_closure loc_opt f args = SOME (Full_app exp args1 args2)
+  `!max_app loc_opt f args exp args1 args2 so_far.
+    dest_closure max_app loc_opt f args = SOME (Full_app exp args1 args2)
     ⇒
     LENGTH args2 < LENGTH args`,
   rw [dest_closure_def] >>
@@ -372,7 +374,7 @@ val evaluate_def = tDefine "evaluate" `
                           | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Fn loc vsopt num_args exp],env,s) =
-     if num_args ≤ max_app ∧ num_args ≠ 0 then
+     if num_args ≤ s.max_app ∧ num_args ≠ 0 then
        case vsopt of
          | NONE => (Rval [Closure loc [] env num_args exp], s)
          | SOME vs =>
@@ -382,7 +384,7 @@ val evaluate_def = tDefine "evaluate" `
      else
        (Rerr(Rabort Rtype_error), s)) /\
   (evaluate ([Letrec loc namesopt fns exp],env,s) =
-     if EVERY (\(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) fns then
+     if EVERY (\(num_args,e). num_args ≤ s.max_app ∧ num_args ≠ 0) fns then
        let
          build_rc e = GENLIST (Recclosure loc [] e fns) (LENGTH fns) in
        let
@@ -419,7 +421,7 @@ val evaluate_def = tDefine "evaluate" `
      | res => res) ∧
   (evaluate_app loc_opt f [] s = (Rval [f], s)) ∧
   (evaluate_app loc_opt f args s =
-     case dest_closure loc_opt f args of
+     case dest_closure s.max_app loc_opt f args of
      | NONE => (Rerr(Rabort Rtype_error),s)
      | SOME (Partial_app v) =>
          if s.clock < LENGTH args
@@ -459,6 +461,7 @@ val check_clock_IMP = prove(
 val do_app_const = store_thm("do_app_const",
   ``(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
+    (s2.max_app = s1.max_app) /\
     (s2.code = s1.code)``,
   SIMP_TAC std_ss [do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC

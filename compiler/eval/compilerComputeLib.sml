@@ -158,8 +158,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:clos_known$val_approx``
     ]
   ,computeLib.Defs
-    [closLangTheory.max_app_def
-    ,closLangTheory.pure_def
+    [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
@@ -213,6 +212,7 @@ val add_compiler_compset = computeLib.extend_compset
     [ (* ---- clos_to_bvl ---- *)
      clos_to_bvlTheory.closure_tag_def
     ,clos_to_bvlTheory.recc_Let0_def
+    ,clos_to_bvlTheory.default_config_def
     ,clos_to_bvlTheory.compile_def
     ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
@@ -267,6 +267,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_handleTheory.no_raise_def
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
+    ,bvl_handleTheory.OptionalLetLet_def
     ,bvl_handleTheory.compile_def
     ,bvl_handleTheory.compile_exp_def
       (* ---- bvl_jump ---- *)
@@ -298,6 +299,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
+    ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
     ,bvi_letTheory.extract_list_def
@@ -363,22 +365,28 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.StoreEach_def
     ,data_to_wordTheory.shift_length_def
     ,data_to_wordTheory.max_heap_limit_def
+    ,data_to_wordTheory.all_ones_def
+    ,data_to_wordTheory.maxout_bits_def
+    ,data_to_wordTheory.ptr_bits_def
     ,data_to_wordTheory.real_addr_def
     ,data_to_wordTheory.real_offset_def
     ,data_to_wordTheory.real_byte_offset_def
     ,data_to_wordTheory.lookup_word_op_def
-    ,data_to_wordTheory.all_ones_def
-    ,data_to_wordTheory.maxout_bits_def
-    ,data_to_wordTheory.ptr_bits_def
+    ,data_to_wordTheory.FromList_location_eq
+    ,data_to_wordTheory.FromList1_location_eq
+    ,data_to_wordTheory.RefByte_location_eq
+    ,data_to_wordTheory.RefArray_location_eq
+    ,data_to_wordTheory.Replicate_location_eq
+    ,data_to_wordTheory.RefByte_code_def
+    ,data_to_wordTheory.FromList_code_def
+    ,data_to_wordTheory.FromList1_code_def
+    ,data_to_wordTheory.RefArray_code_def
+    ,data_to_wordTheory.Replicate_code_def
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.comp_def
     ,data_to_wordTheory.compile_part_def
-    ,data_to_wordTheory.compile_def
     ,data_to_wordTheory.stubs_def
-    ,data_to_wordTheory.FromList_location_eq
-    ,data_to_wordTheory.RefByte_location_eq
-    ,data_to_wordTheory.RefArray_location_eq
-    ,data_to_wordTheory.RefByte_code_def
+    ,data_to_wordTheory.compile_def
       (* ---- wordLang word_to_word ---- *)
     ,word_to_wordTheory.compile_single_def
     ,word_to_wordTheory.full_compile_single_def
@@ -545,8 +553,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_namesTheory.compile_def
     ,stack_namesTheory.x64_names_def
       (* ---- stack_to_lab ---- *)
-    ,stack_to_labTheory.append_aux_def
-    ,stack_to_labTheory.append_def
     ,stack_to_labTheory.no_ret_def
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def

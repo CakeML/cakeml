@@ -1,8 +1,9 @@
 structure cfHeapsBaseLib :> cfHeapsBaseLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open set_sepTheory helperLib ConseqConv
+open evarsConseqConvLib
 open cfHeapsBaseTheory cfTacticsBaseLib
 
 infix 3 THEN_DCC
@@ -26,16 +27,6 @@ val rew_heap = full_simp_tac bool_ss rew_heap_thms
 val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
 
 val SEP_CLAUSES = LIST_CONJ [SEP_CLAUSES, STARPOST_def, cond_eq_def]
-
-(*------------------------------------------------------------------*)
-(** Custom Quantifiers Heuristics parameters *)
-
-val sep_qp = combine_qps [
-      instantiation_qp [
-        INST_TYPE [alpha |-> Type `:heap`] SEP_IMP_REFL,
-        hsimpl_gc
-      ]
-    ]
 
 (*------------------------------------------------------------------*)
 (** Auxiliary functions *)
@@ -79,19 +70,13 @@ fun is_sep_exists tm = let
   val se = (fst o dest_eq o concl o SPEC_ALL) SEP_EXISTS
   in can (match_term ``^se P``) tm end
 
-fun SEP_IMPPOST_conseq_conv cconv =
-  THEN_CONSEQ_CONV
-    (REWR_CONV SEP_IMPPOST_def)
-    (QUANT_CONSEQ_CONV cconv)
-
-fun SEP_IMPPOST_DCC dcc =
-  (CONSEQ_TOP_REWRITE_CONV ([SEP_IMPPOST_def], [], [])) THEN_DCC
-  (STRENGTHEN_CONSEQ_CONV
-     (QUANT_CONSEQ_CONV (dcc CONSEQ_CONV_STRENGTHEN_direction))) THEN_DCC
-  (STRENGTHEN_CONSEQ_CONV LIST_FORALL_SIMP_CONV)
-
-fun WITH_SEP_IMPPOST_DCC dcc =
-  dcc ORELSE_DCC (SEP_IMPPOST_DCC dcc)
+fun UNFOLD_SEP_IMPPOST_ccc tm = let
+  val _ = if not (is_sep_imppost tm) then fail () else ()
+  val th =
+      CONSEQ_TOP_REWRITE_CONV ([], [SEP_IMPPOST_def], [])
+        CONSEQ_CONV_STRENGTHEN_direction tm
+  val cont = (snd o dest_forall, FORALL_CONSEQ_CONV)
+in (th, cont) end
 
 fun SEP_IMP_conv convl convr t =
   let val (l, r) = dest_sep_imp t
@@ -128,7 +113,7 @@ fun hpullable tm =
 
 (** hpull *)
 
-fun hpull_cont_conseq_conv t =
+fun hpull_cont_conseq_conv_core t =
   let
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
@@ -167,14 +152,23 @@ val hpull_setup_conv =
   (* cleanup the left heap a bit (remove ``emp``, pull SEP_EXISTS,...) *)
   SEP_IMP_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
 
+val hpull_one_cont_conseq_conv =
+  THEN_CONT_CONSEQ_CONV
+    (INPLACE_CONT_CONSEQ_CONV hpull_setup_conv)
+    hpull_cont_conseq_conv_core
+
 val hpull_one_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
-  STRENGTHEN_CONSEQ_CONV (STEP_CONT_CONSEQ_CONV hpull_cont_conseq_conv)
+  STRENGTHEN_CONSEQ_CONV
+    (STEP_CONT_CONSEQ_CONV hpull_one_cont_conseq_conv)
+
+val hpull_cont_conseq_conv =
+  THEN_CONT_CONSEQ_CONV
+    (INPLACE_CONT_CONSEQ_CONV hpull_setup_conv)
+    (LOOP_CONT_CONSEQ_CONV hpull_cont_conseq_conv_core)
 
 val hpull_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
   STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV (LOOP_CONT_CONSEQ_CONV hpull_cont_conseq_conv))
+    (STEP_CONT_CONSEQ_CONV hpull_cont_conseq_conv)
 
 val hpull_one = CONSEQ_CONV_TAC hpull_one_conseq_conv
 val hpull = CONSEQ_CONV_TAC hpull_conseq_conv
@@ -197,7 +191,7 @@ val hpull = CONSEQ_CONV_TAC hpull_conseq_conv
 
 (** hsimpl_cancel *)
 
-fun hsimpl_cancel_cont_conseq_conv t =
+fun hsimpl_cancel_one_cont_conseq_conv t =
   let
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
@@ -244,15 +238,19 @@ fun hsimpl_cancel_cont_conseq_conv t =
       SEP_IMP_cell_frame,
       SEP_IMP_cell_frame_single_l,
       SEP_IMP_cell_frame_single_r,
+      SEP_IMP_cell_frame_single,
       SEP_IMP_REF_frame,
       SEP_IMP_REF_frame_single_l,
       SEP_IMP_REF_frame_single_r,
+      SEP_IMP_REF_frame_single,
       SEP_IMP_ARRAY_frame,
       SEP_IMP_ARRAY_frame_single_l,
       SEP_IMP_ARRAY_frame_single_r,
+      SEP_IMP_ARRAY_frame_single,
       SEP_IMP_W8ARRAY_frame,
       SEP_IMP_W8ARRAY_frame_single_l,
-      SEP_IMP_W8ARRAY_frame_single_r
+      SEP_IMP_W8ARRAY_frame_single_r,
+      SEP_IMP_W8ARRAY_frame_single
     ]
   in
     case is of
@@ -276,12 +274,14 @@ fun hsimpl_cancel_cont_conseq_conv t =
 
 val hsimpl_cancel_one_conseq_conv =
   STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hsimpl_cancel_cont_conseq_conv)
+    (STEP_CONT_CONSEQ_CONV hsimpl_cancel_one_cont_conseq_conv)
+
+val hsimpl_cancel_cont_conseq_conv =
+  LOOP_CONT_CONSEQ_CONV hsimpl_cancel_one_cont_conseq_conv
 
 val hsimpl_cancel_conseq_conv =
   STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV
-      (LOOP_CONT_CONSEQ_CONV hsimpl_cancel_cont_conseq_conv))
+    (STEP_CONT_CONSEQ_CONV hsimpl_cancel_cont_conseq_conv)
 
 val hsimpl_cancel_one = CONSEQ_CONV_TAC hsimpl_cancel_one_conseq_conv
 val hsimpl_cancel = CONSEQ_CONV_TAC hsimpl_cancel_conseq_conv
@@ -300,7 +300,7 @@ val hsimpl_cancel = CONSEQ_CONV_TAC hsimpl_cancel_conseq_conv
 
 (** hpullr *)
 
-fun hpullr_cont_conseq_conv t =
+fun hpullr_cont_conseq_conv_core t =
   let
     val (l, r) = dest_sep_imp t
     val rs = list_dest dest_star r
@@ -339,15 +339,23 @@ fun hpullr_cont_conseq_conv t =
 val hpullr_setup_conv =
   SEP_IMP_conv REFL (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
 
+val hpullr_one_cont_conseq_conv =
+  THEN_CONT_CONSEQ_CONV
+    (INPLACE_CONT_CONSEQ_CONV hpullr_setup_conv)
+    hpullr_cont_conseq_conv_core
+
 val hpullr_one_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
-  STRENGTHEN_CONSEQ_CONV (STEP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv)
+  STRENGTHEN_CONSEQ_CONV
+    (STEP_CONT_CONSEQ_CONV hpullr_one_cont_conseq_conv)
+
+val hpullr_cont_conseq_conv =
+  THEN_CONT_CONSEQ_CONV
+    (INPLACE_CONT_CONSEQ_CONV hpullr_setup_conv)
+    (LOOP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv_core)
 
 val hpullr_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
   STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV
-      (LOOP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv))
+    (STEP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv)
   
 val hpullr_one = CONSEQ_CONV_TAC hpullr_one_conseq_conv
 val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
@@ -362,11 +370,10 @@ val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
   e hpullr;
 *)
 
-(** hsimpl *)
+(** hcancel: hsimpl_cancel + hpullr *)
 
-val hsimpl_cont_conseq_conv =
+val hcancel_cont_conseq_conv_core =
   EVERY_CONT_CONSEQ_CONV [
-    LOOP_CONT_CONSEQ_CONV hpull_cont_conseq_conv,
     LOOP_CONT_CONSEQ_CONV (
       THEN_CONT_CONSEQ_CONV
         (LOOP_CONT_CONSEQ_CONV hsimpl_cancel_cont_conseq_conv)
@@ -376,16 +383,41 @@ val hsimpl_cont_conseq_conv =
       (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])
   ]
 
-val hsimpl_setup_conv =
+val hcancel_setup_conv = 
   SEP_IMP_conv
     (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
     (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
 
+val hcancel_cont_conseq_conv =
+  EVERY_CONT_CONSEQ_CONV [
+    TRY_CONT_CONSEQ_CONV UNFOLD_SEP_IMPPOST_ccc,
+    INPLACE_CONT_CONSEQ_CONV hcancel_setup_conv,
+    hcancel_cont_conseq_conv_core
+  ]
+
+val hcancel_conseq_conv =
+  STRENGTHEN_CONSEQ_CONV
+    (STEP_CONT_CONSEQ_CONV hcancel_cont_conseq_conv) THEN_DCC
+  STRENGTHEN_CONSEQ_CONV
+    (TRY_CONV LIST_FORALL_SIMP_CONV)
+
+val hcancel =
+  CONSEQ_CONV_TAC hcancel_conseq_conv
+
+(** hsimpl *)
+
+val hsimpl_cont_conseq_conv =
+  EVERY_CONT_CONSEQ_CONV [
+    TRY_CONT_CONSEQ_CONV UNFOLD_SEP_IMPPOST_ccc,
+    hpull_cont_conseq_conv,
+    hcancel_cont_conseq_conv
+  ]
+
 val hsimpl_conseq_conv =
-  WITH_SEP_IMPPOST_DCC (
-    STRENGTHEN_CONSEQ_CONV hsimpl_setup_conv THEN_DCC
-    STRENGTHEN_CONSEQ_CONV (STEP_CONT_CONSEQ_CONV hsimpl_cont_conseq_conv)
-  )
+  STRENGTHEN_CONSEQ_CONV
+    (STEP_CONT_CONSEQ_CONV hsimpl_cont_conseq_conv) THEN_DCC
+  STRENGTHEN_CONSEQ_CONV
+    (TRY_CONV LIST_FORALL_SIMP_CONV)
 
 val hsimpl_top =
   CONSEQ_CONV_TAC hsimpl_conseq_conv
@@ -402,5 +434,38 @@ val hsimpl =
   g `emp ==>> emp`;
   e hsimpl
 *)
+
+(** sep_imp_instantiate: instantiate existentially quantified
+    variables after subterms of the form ``H1 ==>> H2`` where one of
+    {H1, H2} is existentially quantified, and not the other.
+*)
+
+infix then_ecc
+
+fun sep_imp_instantiate {term, evars} = let
+  val ts = strip_conj term
+  fun find_inst t = let
+    val (H1, H2) = dest_sep_imp t in
+    if mem H1 evars andalso not (mem H2 evars) then
+      {instantiation = [H1 |-> H2], new_evars = []}
+    else if mem H2 evars andalso not (mem H1 evars) then
+      {instantiation = [H2 |-> H1], new_evars = []}
+    else fail ()
+  end
+  fun find_inst' t = SOME (find_inst t) handle HOL_ERR _ => NONE
+in
+  case find_map find_inst' ts of
+      SOME inst => inst
+    | NONE => fail ()
+end
+
+val hinst_ecc =
+  repeat_ecc (instantiate_ecc sep_imp_instantiate) then_ecc
+  lift_conseq_conv_ecc (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])
+
+val hinst =
+  CONSEQ_CONV_TAC
+    (STRENGTHEN_CONSEQ_CONV
+      (ecc_conseq_conv hinst_ecc))
 
 end

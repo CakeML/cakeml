@@ -112,17 +112,25 @@ val _ = export_rewrites["lookup_word_op_def"];
 
 val FromList_location_def = Define`
   FromList_location = wordLang$num_stubs`;
+val FromList1_location_def = Define`
+  FromList1_location = FromList_location+1`;
 val RefByte_location_def = Define`
-  RefByte_location = FromList_location+1`;
+  RefByte_location = FromList1_location+1`;
 val RefArray_location_def = Define`
   RefArray_location = RefByte_location+1`;
+val Replicate_location_def = Define `
+  Replicate_location = RefArray_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
+val FromList1_location_eq = save_thm("FromList1_location_eq",
+  ``FromList1_location`` |> EVAL);
 val RefByte_location_eq = save_thm("RefByte_location_eq",
   ``RefByte_location`` |> EVAL);
 val RefArray_location_eq = save_thm("RefArray_location_eq",
   ``RefArray_location`` |> EVAL);
+val Replicate_location_eq = save_thm("Replicate_location_eq",
+  ``Replicate_location`` |> EVAL);
 
 val RefByte_code_def = Define`
   (* 0 = return address
@@ -136,6 +144,18 @@ val RefByte_code_def = Define`
     Assign 4 (Op Add [Var 4; Const 1w]);
     Assign 2 (Op Sub [Var 2; Const 1w]);
     Call NONE (SOME RefByte_location) [2;4;6] NONE])`;
+
+val FromList_code_def = Define `
+  FromList_code = Skip:α wordLang$prog`; (* TODO: FromList *)
+
+val FromList1_code_def = Define `
+  FromList1_code = Skip:α wordLang$prog`; (* TODO: FromList *)
+
+val RefArray_code_def = Define `
+  RefArray_code = Skip:α wordLang$prog`; (* TODO: RefArray *)
+
+val Replicate_code_def = Define `
+  Replicate_code = Skip:α wordLang$prog`; (* TODO: RefArray *)
 
 val assign_def = Define `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -542,9 +562,11 @@ val compile_part_def = Define `
 
 val stubs_def = Define`
   stubs (:α) = [
-    (FromList_location,1n,Skip:α wordLang$prog); (* TODO: FromList *)
+    (FromList_location,4n,FromList_code:α wordLang$prog);
+    (FromList1_location,4n,FromList1_code:α wordLang$prog);
     (RefByte_location,3n,RefByte_code);
-    (RefArray_location,1n,Skip:α wordLang$prog)  (* TODO: RefArray *)
+    (RefArray_location,3n,RefArray_code);
+    (Replicate_location,5n,Replicate_code)
   ]`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",

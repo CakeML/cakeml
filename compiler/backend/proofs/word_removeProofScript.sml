@@ -1,4 +1,4 @@
-open preamble BasicProvers word_removeTheory wordSemTheory wordPropsTheory;
+open preamble word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";
 

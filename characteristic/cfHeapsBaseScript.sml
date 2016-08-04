@@ -1,5 +1,4 @@
-open HolKernel Parse boolLib bossLib preamble
-open set_sepTheory llistTheory stringTheory
+open preamble set_sepTheory
 
 val _ = new_theory "cfHeapsBase"
 
@@ -16,7 +15,7 @@ val _ = type_abbrev("loc", ``:num``) (* should be: temp_type_abbrev *)
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
-            | FFI_part num ffi (word8 list -> ffi -> (word8 list # ffi) option)`
+            | FFI_part num ffi (word8 list -> ffi -> (word8 list # ffi) option) (num list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
@@ -80,6 +79,13 @@ val W8ARRAY_def = Define `
   W8ARRAY av wl =
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
 
+val IO_aux_def = Define `
+  (IO_aux [] s u ns = emp) /\
+  (IO_aux (x::xs) s u ns = one (FFI_part x s (u x) ns) * IO_aux xs s u ns)`;
+
+val IO_def = Define `
+  IO s u ns = IO_aux ns s u ns`;
+
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
 
@@ -101,6 +107,8 @@ val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 (*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
 (*                   paren_style = OnlyIfNecessary, *)
 (*                   pp_elements = [TOK "<=", TM, TOK ">"]} *)
+
+val _ = overload_on ("&", Term `cond`)
 
 val _ = overload_on ("~~>>", Term `cell`)
 val _ = add_infix ("~~>>", 690, HOLgrammars.NONASSOC)
@@ -184,6 +192,14 @@ val SEP_IMP_cell_frame_single_r = store_thm ("SEP_IMP_cell_frame_single_r",
   rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
+val SEP_IMP_cell_frame_single = store_thm ("SEP_IMP_cell_frame_single",
+  ``!H l v v'.
+     (v = v') /\ (emp ==>> emp) ==>
+     (l ~~>> v ==>> l ~~>> v')``,
+  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
+  rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
 val SEP_IMP_REF_frame = store_thm ("SEP_IMP_REF_frame",
   ``!H H' r v v'.
      (v = v') /\ (H ==>> H') ==>
@@ -206,6 +222,15 @@ val SEP_IMP_REF_frame_single_r = store_thm ("SEP_IMP_REF_frame_single_r",
   ``!H r v v'.
      (v = v') /\ (H ==>> emp) ==>
      (H * r ~~> v ==>> r ~~> v')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_REF_frame_single = store_thm ("SEP_IMP_REF_frame_single",
+  ``!H r v v'.
+     (v = v') /\ (emp ==>> emp) ==>
+     (r ~~> v ==>> r ~~> v')``,
   rpt strip_tac \\
   fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
   fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
@@ -239,6 +264,15 @@ val SEP_IMP_ARRAY_frame_single_r = store_thm ("SEP_IMP_ARRAY_frame_single_r",
   fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
 )
 
+val SEP_IMP_ARRAY_frame_single = store_thm ("SEP_IMP_ARRAY_frame_single",
+  ``!H a vl vl'.
+     (vl = vl') /\ (emp ==>> emp) ==>
+     (ARRAY a vl ==>> ARRAY a vl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
 val SEP_IMP_W8ARRAY_frame = store_thm ("SEP_IMP_W8ARRAY_frame",
   ``!H H' a wl wl'.
      (wl = wl') /\ (H ==>> H') ==>
@@ -264,6 +298,16 @@ val SEP_IMP_W8ARRAY_frame_single_r = store_thm (
   ``!H a wl wl'.
      (wl = wl') /\ (H ==>> emp) ==>
      (H * W8ARRAY a wl ==>> W8ARRAY a wl')``,
+  rpt strip_tac \\
+  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
+  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
+)
+
+val SEP_IMP_W8ARRAY_frame_single = store_thm (
+  "SEP_IMP_W8ARRAY_frame_single",
+  ``!H a wl wl'.
+     (wl = wl') /\ (emp ==>> emp) ==>
+     (W8ARRAY a wl ==>> W8ARRAY a wl')``,
   rpt strip_tac \\
   fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
   fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC

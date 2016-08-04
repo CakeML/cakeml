@@ -22,6 +22,14 @@ val list_mk_Union_def = Define `
   (list_mk_Union [] = Empty) /\
   (list_mk_Union (x::xs) = mk_Union x (list_mk_Union xs))`;
 
+val FOLDR_mk_Union_UNZIP = Q.store_thm(
+  "FOLDR_mk_Union_UNZIP",
+  `FOLDR (λ(x,l) (ts,frees). (x::ts, mk_Union l frees)) ([], A) l =
+   let (ts, fvs) = UNZIP l in
+     (ts, list_mk_Union (fvs ++ [A]))`,
+  Induct_on `l` >> simp[list_mk_Union_def] >>
+  rename1 `UNZIP ll` >> Cases_on `UNZIP ll` >> full_simp_tac(srw_ss())[FORALL_PROD]);
+
 val db_to_set_acc_def = Define `
   (db_to_set_acc (n:num) (Empty:db_var_set) s = s) /\
   (db_to_set_acc n (Var v) s =

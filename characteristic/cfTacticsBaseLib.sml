@@ -1,9 +1,9 @@
 structure cfTacticsBaseLib :> cfTacticsBaseLib =
 struct
 
-open HolKernel Parse boolLib bossLib preamble
+open preamble
 open set_sepTheory helperLib ConseqConv
-open quantHeuristicsLib quantHeuristicsTools
+open quantHeuristicsTools
 
 fun find_map f [] = NONE
   | find_map f (x :: xs) =
@@ -26,11 +26,39 @@ fun UNCHANGED_CONV conv t =
 
 (*------------------------------------------------------------------*)
 
-(* TODO: clean & generalize *)
-fun instantiate g =
-  rpt ((asm_exists_tac \\ fs []) ORELSE
-       (once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []))
-      g
+fun gen_try_one_instantiate_tac () = let
+  val already_tried_tms = ref []
+  fun to_try_next body = let
+    val conjs = strip_conj body
+  in
+    case List.find (fn tm => not (mem tm (!already_tried_tms))) conjs of
+        NONE => fail ()
+      | SOME tm => tm
+  end
+
+  fun tac (g as (_, w)) = let
+    val try_tm = to_try_next (snd (strip_exists w))
+    fun register_tm_tac g =
+      (already_tried_tms := try_tm :: !already_tried_tms;
+       ALL_TAC g)
+  in
+    (TRY (first_assum ((part_match_exists_tac to_try_next) o concl))
+     \\ register_tm_tac) g
+  end
+in tac end
+
+fun rpt_until_change tac g = let
+  val (gl, p) = tac g
+in
+  if set_eq gl [g] then rpt_until_change tac g
+  else (gl, p)
+end
+
+fun instantiate1 g = let
+  val tac = gen_try_one_instantiate_tac ()
+in (rpt_until_change tac \\ simp []) g end
+
+val instantiate = CHANGED_TAC (rpt instantiate1)
 
 fun progress_then thm_tac thm =
   drule thm \\ rpt (disch_then drule) \\ disch_then thm_tac
@@ -64,13 +92,19 @@ fun EVAL_PAT pat tm =
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (EVAL_PAT pat))
 val qeval_pat_tac = Q_TAC eval_pat_tac
 
-fun compose_n n conv =
-  if n <= 0 then I else conv o (compose_n (n-1) conv)
+fun compute_pat cs pat tm =
+  if can (match_term pat) tm then
+    computeLib.CBV_CONV cs tm
+  else
+    NO_CONV tm
+
+fun compute_pat_tac cs pat = CONV_TAC (DEPTH_CONV (compute_pat cs pat))
+fun qcompute_pat_tac cs = Q_TAC (compute_pat_tac cs)
 
 fun hnf_conv tm =
     let val (f, xs) = strip_comb tm in
       if is_abs f then
-        ((compose_n (length xs - 1) RATOR_CONV) BETA_CONV
+        ((funpow (length xs - 1) RATOR_CONV) BETA_CONV
          THENC hnf_conv) tm
       else
         REFL tm
@@ -82,15 +116,14 @@ val hnf =
 (* ? *)
 val cbv = TRY (CONV_TAC (REDEPTH_CONV BETA_CONV))
 
-fun conv_head thm (g as (_, w)) =
-  let val (_, args) = strip_comb w
+fun rewr_head_conv thm tm =
+  let val (_, args) = strip_comb tm
       val (_, args') = strip_comb ((lhs o concl) (SPEC_ALL thm))
       val extra_args_nb = (length args) - (length args')
-      val tac =
-          if extra_args_nb < 0 then FAIL_TAC "conv_head"
-          else CONV_TAC ((compose_n extra_args_nb RATOR_CONV) (REWR_CONV thm))
-  in tac g
-  end
+      val conv =
+          if extra_args_nb < 0 then failwith "rewr_head_conv"
+          else (funpow extra_args_nb RATOR_CONV) (REWR_CONV thm)
+  in conv tm end
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory lexer_implTheory
@@ -167,8 +200,9 @@ fun pick_name str =
 
 fun fetch_v name st =
   let val env = ml_progLib.get_env st
-      val name = stringLib.fromMLstring name
-      val evalth = EVAL ``lookup_var_id (Short ^name) ^env``
+      val ident_expr = parse ``nEbase`` ``ptree_Expr nEbase`` name
+      val ident = astSyntax.dest_Var ident_expr
+      val evalth = EVAL ``lookup_var_id ^ident ^env``
   in (optionLib.dest_some o rhs o concl) evalth end
 
 fun fetch_def name st =
@@ -392,6 +426,9 @@ fun THEN_CONT_CONSEQ_CONV ccc1 ccc2 t =
   end handle UNCHANGED =>
     ccc2 t
 
+fun ORELSE_CONT_CONSEQ_CONV ccc1 ccc2 t =
+  ccc1 t handle HOL_ERR _ => ccc2 t
+
 fun EVERY_CONT_CONSEQ_CONV [] t = raise UNCHANGED
   | EVERY_CONT_CONSEQ_CONV (ccc::L) t =
     THEN_CONT_CONSEQ_CONV ccc (EVERY_CONT_CONSEQ_CONV L) t
@@ -401,6 +438,12 @@ fun LOOP_CONT_CONSEQ_CONV ccc t =
   in THEN_CONT_CONSEQ_CONV (fn _ => ret) (LOOP_CONT_CONSEQ_CONV ccc) t end
 
 fun INPLACE_CONT_CONSEQ_CONV cc t = (cc t, (I, I))
+
+val REFL_CONT_CONSEQ_CONV =
+  INPLACE_CONT_CONSEQ_CONV REFL_CONSEQ_CONV
+
+fun TRY_CONT_CONSEQ_CONV ccc =
+  ORELSE_CONT_CONSEQ_CONV ccc REFL_CONT_CONSEQ_CONV
 
 (*----------------------------------------------------------------------------*)
 (* A conseq_conv that instantiate evars of the goal to match the conclusion
@@ -440,7 +483,7 @@ let
   (* destruct t *)
   val (t_ex_vars, t_body) = strip_exists t
 
-  (* make sure variables are distinct, this is important for 
+  (* make sure variables are distinct, this is important for
      later unification *)
   val rewr_thm = CONV_RULE (VARIANT_CONV (t_ex_vars @ free_vars t)) rewr_thm
 
@@ -448,7 +491,7 @@ let
   val (quant_vars, rewr_concl, rewr_pre) = let
       val (vs, t0) = strip_forall (concl rewr_thm);
       val (t2, t1) = dest_imp_only t0
-    in 
+    in
       (vs, t1, t2)
     end;
 
@@ -456,7 +499,7 @@ let
   val sub = Unify.simp_unify_terms [] rewr_concl t_body;
 
   (* figure out finally existentially quantified vars *)
-  val new_ex_vars = let 
+  val new_ex_vars = let
     val t_vars' = List.map (Term.subst sub) (quant_vars @ t_ex_vars)
     val s0 = HOLset.listItems (FVL t_vars' empty_tmset)
     val s1 = Lib.filter (fn v => Lib.mem v (quant_vars @ t_ex_vars)) s0
@@ -472,7 +515,7 @@ let
 
   val thm1 = let
     val thm1a = ASSUME (Term.subst sub t_body)
-    val (_, thm1b) = foldr (fn (v, (t, thm)) => 
+    val (_, thm1b) = foldr (fn (v, (t, thm)) =>
        let val t' = mk_exists (v, t) in
        (t', EXISTS (Term.subst sub t', Term.subst sub v) thm) end)
         (t_body, thm1a) t_ex_vars

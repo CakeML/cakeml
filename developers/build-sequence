@@ -31,6 +31,10 @@ compiler/proofs
 
 # compiler bootstrap
 compiler/bootstrap/translation
+compiler/bootstrap/evaluation
+
+# characteristic formulae
+characteristic
 
 # candle
 candle/set-theory

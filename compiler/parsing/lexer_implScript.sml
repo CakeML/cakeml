@@ -152,6 +152,113 @@ val get_token_eqn = Q.store_thm ("get_token_eqn",
 
 val _ = computeLib.add_persistent_funs(["get_token_eqn"]);
 
+val unhex_alt_def = Define`
+  unhex_alt x = (if isDigit x then UNHEX x else 0n)`
+
+val num_from_dec_string_alt_def = Define `num_from_dec_string_alt = s2n 10 unhex_alt`;
+
+val next_sym_alt_def = tDefine "next_sym_alt"`
+  (next_sym_alt "" = NONE) /\
+  (next_sym_alt (c::str) =
+     if isSpace c then (* skip blank space *)
+       next_sym_alt str
+     else if isDigit c then (* read number *)
+       let (n,rest) = read_while isDigit str [] in
+         SOME (NumberS (&(num_from_dec_string_alt (c::n))), rest)
+     else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
+       let (n,rest) = read_while isDigit str [] in
+         SOME (NumberS (0- &(num_from_dec_string_alt n)), rest)
+     else if c = #"'" then (* read type variable *)
+       let (n,rest) = read_while isAlphaNumPrime str [c] in
+         SOME (OtherS n, rest)
+     else if c = #"\"" then (* read string *)
+       let (t,rest) = read_string str "" in
+         SOME (t, rest)
+     else if isPREFIX "*)" (c::str) then
+       SOME (ErrorS, TL str)
+     else if isPREFIX "#\"" (c::str) then
+       let (t,rest) = read_string (TL str) "" in
+         SOME (mkCharS t, rest)
+     else if isPREFIX "(*" (c::str) then
+       case skip_comment (TL str) 0 of
+       | NONE => SOME (ErrorS, "")
+       | SOME rest => next_sym_alt rest
+     else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
+       SOME (OtherS [c], str)
+     else if isSymbol c then
+       let (n,rest) = read_while isSymbol str [c] in
+         SOME (OtherS n, rest)
+     else if isAlpha c then (* read identifier *)
+       let (n,rest) = read_while isAlphaNumPrime str [c] in
+         case rest of
+              #"."::rest' =>
+                  (case rest' of
+                      c'::rest' =>
+                        if isAlpha c' then
+                          let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
+                            SOME (LongS (n ++ "." ++ n'), rest'')
+                        else if isSymbol c' then
+                          let (n', rest'') = read_while isSymbol rest' [c'] in
+                            SOME (LongS (n ++ "." ++ n'), rest'')
+                             else
+                               SOME (ErrorS, rest')
+                    | "" => SOME (ErrorS, []))
+            | _ => SOME (OtherS n, rest)
+     else if c = #"_" then SOME (OtherS "_", str)
+     else (* input not recognised *)
+       SOME (ErrorS, str))`
+ (WF_REL_TAC `measure LENGTH` THEN REPEAT STRIP_TAC
+   THEN IMP_RES_TAC (GSYM read_while_thm)
+   THEN IMP_RES_TAC (GSYM read_string_thm)
+   THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
+   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC)
+
+val EVERY_isDigit_imp = prove(``
+  EVERY isDigit x ⇒
+  MAP UNHEX x = MAP unhex_alt x``,
+  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def])
+
+val toNum_rw = prove(``
+  ∀x. EVERY isDigit x ⇒
+  toNum x = num_from_dec_string_alt x``,
+  rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_dec_string_def,num_from_dec_string_alt_def]>>
+  AP_TERM_TAC>>
+  match_mp_tac EVERY_isDigit_imp>>
+  metis_tac[rich_listTheory.EVERY_REVERSE])
+
+val EVERY_IMPLODE = prove(``
+  ∀ls P.
+  EVERY P (IMPLODE ls) ⇔ EVERY P ls``,
+  Induct>>fs[])
+
+val read_while_P_lem = prove(``
+  ∀ls rest P x y.
+  EVERY P rest ∧
+  read_while P ls rest = (x,y) ⇒
+  EVERY P x``,
+  Induct>>fs[read_while_def]>>rw[]>>
+  fs[EVERY_IMPLODE,rich_listTheory.EVERY_REVERSE]>>
+  first_assum match_mp_tac>>fs[]>>
+  qexists_tac`STRING h rest`>>fs[])
+
+val read_while_P = prove(``
+  ∀ls P x y.
+  read_while P ls "" = (x,y) ⇒
+  EVERY P x``,
+  rw[]>>ho_match_mp_tac read_while_P_lem>>
+  MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[])
+
+val next_sym_eq = store_thm("next_sym_eq",
+  ``∀x. next_sym x = next_sym_alt x``,
+  ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
+  TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
+  TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
+  pairarg_tac>>fs[]>>
+  match_mp_tac toNum_rw>>
+  fs[]>>
+  ho_match_mp_tac read_while_P>>
+  metis_tac[]);
+
 (* lex_until_toplevel_semicolon *)
 
 val lex_aux_def = tDefine "lex_aux" `
