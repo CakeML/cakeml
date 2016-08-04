@@ -4040,14 +4040,77 @@ val remove_FST = prove(``
   first_x_assum(qspec_then`T` assume_tac)>>fs[clos_removeTheory.compile_def]>>
   rw[Once clos_removeTheory.remove_CONS])
 
+val IMP_PERM_code_merge = store_thm("IMP_PERM_code_merge",
+  ``!xs ys zs. PERM (xs ++ ys) zs ==> PERM (code_merge xs ys) zs``,
+  HO_MATCH_MP_TAC code_merge_ind \\ rw []
+  \\ once_rewrite_tac [code_merge_def]
+  \\ fs [] \\ Cases_on `xs` \\ fs []
+  \\ TRY (Cases_on `ys` \\ fs [])
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
+         \\ res_tac \\ metis_tac [])
+  \\ `PERM (h'::h::(t ++ t')) zs` by
+   (match_mp_tac PERM_TRANS
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs []
+    \\ simp [sortingTheory.PERM_CONS_EQ_APPEND]
+    \\ qexists_tac `h::t` \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ simp [Once sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ rw [] \\ res_tac
+  \\ simp [Once sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ metis_tac []);
+
+val code_split_IMP_PERM = store_thm("code_split_IMP_PERM",
+  ``!xs1 xs2 xs3 ts1 ts2.
+      code_split xs1 xs2 xs3 = (ts1,ts2) ==>
+      PERM (ts1 ++ ts2) (xs2 ++ xs3 ++ xs1)``,
+  Induct \\ fs [code_split_def] \\ rw [] \\ res_tac
+  \\ match_mp_tac PERM_TRANS \\ asm_exists_tac \\ fs []
+  \\ fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ qexists_tac `xs2 ++ xs3` \\ fs [sortingTheory.PERM_APPEND_IFF]
+  \\ fs [PERM_APPEND]);
+
+val PERM_code_sort = store_thm("PERM_code_sort",
+  ``!xs. PERM (code_sort xs) xs``,
+  HO_MATCH_MP_TAC code_sort_ind \\ rw [code_sort_def]
+  \\ pairarg_tac \\ fs []
+  \\ match_mp_tac IMP_PERM_code_merge
+  \\ imp_res_tac code_split_IMP_PERM \\ fs []
+  \\ match_mp_tac PERM_TRANS
+  \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
+  \\ match_mp_tac sortingTheory.PERM_CONG \\ fs []);
+
+val ALL_DISTINCT_code_sort = store_thm("ALL_DISTINCT_code_sort",
+  ``ALL_DISTINCT (MAP FST (code_sort xs)) <=> ALL_DISTINCT (MAP FST xs)``,
+  match_mp_tac sortingTheory.ALL_DISTINCT_PERM
+  \\ match_mp_tac sortingTheory.PERM_MAP \\ fs [PERM_code_sort]);
+
+val PERM_IMP_fromAList_EQ_fromAList = store_thm("PERM_IMP_fromAList_EQ_fromAList",
+  ``!xs ys.
+      PERM xs ys ==> ALL_DISTINCT (MAP FST xs) ==>
+      fromAList xs = fromAList ys``,
+  Induct \\ fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ rw [] \\ res_tac
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList]
+  \\ PairCases_on `h` \\ fs [ALOOKUP_APPEND]
+  \\ rw [] \\ fs [GSYM alistTheory.ALOOKUP_NONE]
+  \\ every_case_tac \\ fs []);
+
+val fromAList_code_sort = store_thm("fromAList_code_sort",
+  ``ALL_DISTINCT (MAP FST xs) ==>
+    fromAList (code_sort xs) = fromAList xs``,
+  rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
+  \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
-  cheat)
-(*
   srw_tac[][compile_def] >>
   full_simp_tac(srw_ss())[compile_def,LET_THM] >>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
-  srw_tac[][]>>
+  srw_tac[][ALL_DISTINCT_code_sort]>>
   simp[compile_prog_code_locs]>>
   simp[ALL_DISTINCT_APPEND] >>
   `∃z. clos_mti$compile c.do_mti c.max_app [e] = [z]` by (
@@ -4152,7 +4215,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   Q.SPECL_THEN [`num_stubs c.max_app + 1`,`z`] assume_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)>>
   rfs[EVERY_MEM,SUBSET_DEF]>>
   `EVEN (num_stubs c.max_app + 1)` by (simp[num_stubs_def,EVEN_ADD,EVEN_EXP_IFF] \\ metis_tac[]) >>
-  metis_tac[IN_DEF]) *);
+  metis_tac[IN_DEF]);
 
 val full_result_rel_def = Define`
   full_result_rel c (r1,s1) (r2,s2) ⇔
@@ -4227,9 +4290,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
      let init_bvl = initial_state s.ffi (fromAList p) (s.clock+ck) in
      evaluate ([Call 0 (SOME c'.start) []],[], init_bvl) = (r1,s'1) ∧
      full_result_rel c (r,s') (r1,s'1)`,
-  cheat);
 
-(*
   srw_tac[][compile_def,LET_THM,clos_init_def] >>
   mp_tac compile_all_distinct_locs>>simp[compile_def]>> strip_tac>>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >>
@@ -4239,6 +4300,12 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
               clos_numberTheory.renumber_code_locs_length,
               LENGTH, ONE] ) >>
+  qabbrev_tac `p1 = p` \\ pop_assum kall_tac
+  \\ `?p. toAList (init_code c.max_app) ++ compile_prog c.max_app
+            (compile (compile c.do_remove ((1,0,e')::aux))) = p` by fs[] \\ fs []
+  \\ qpat_assum `code_sort p = p1` (fn th => fs [GSYM th])
+  \\ fs [ALL_DISTINCT_code_sort,fromAList_code_sort] \\
+
   (* intro_multi correct *)
   qspecl_then[`c.max_app`,`c.do_mti`,`[e]`]mp_tac (GEN_ALL clos_mtiProofTheory.compile_correct) >>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
@@ -4271,6 +4338,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     (move_conj_left(same_const``clos_numberProof$state_rel`` o fst o
                     strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+
   (* Stuff to carry along *)
   rator_x_assum`renumber_code_locs_list`mp_tac >>
   specl_args_of_then``renumber_code_locs_list``
@@ -4462,7 +4530,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   qpat_abbrev_tac`s_annot = s_remove with code:=A`>>
   (* Constructed BVL state *)
   disch_then(qspecl_then [`initial_state s.ffi (fromAList p) (ck +s.clock)`,`[]`,`FEMPTY`] mp_tac)>>
-  impl_tac>-
+  impl_tac >-
     (fs(map Abbr [`s_annot`,`s_remove`,`s_call`])>>
     rveq>>
     simp[env_rel_def,CONJ_ASSOC]>>
@@ -4535,8 +4603,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   qexists_tac`f2`>>
   unabbrev_all_tac>>fs[bvlSemTheory.dec_clock_def]>>
   rfs[]>>
-  fs[])
-*)
+  fs[]);
 
 val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel c (r,x) (Rerr (Rabort a),y) ⇒
