@@ -7,41 +7,45 @@ open semanticPrimitivesTheory
 open ml_translatorLib ml_translatorTheory;
 
 
-(* qsort translation *)
+(* --- qsort translation --- *)
 
 val res = translate listTheory.APPEND;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
 
-(* using the certificte theorem *)
 
-(*
+(* --- all of the important lemmas about qsort --- *)
 
-val (qsort_eval,_) = get_cert "qsort"
+(* the value of the qsort closure (qsort_v) behaves like qsort *)
+val qsort_v_thm = save_thm("qsort_v_thm",res);
+
+val Prog_thm =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def];
+
+(* the qsort program successfully evaluates to an env, called auto_env3 *)
+val evaluate_prog_thm = save_thm("evaluate_prog_thm",
+  Prog_thm |> REWRITE_RULE [ml_progTheory.Prog_def]);
+
+(* looking up "qsort" in this env finds the qsort value (qsort_v) *)
+val lookup_qsort = save_thm("lookup_qsort",
+  EVAL ``lookup_var_id (Short "qsort") ^(concl Prog_thm |> rator |> rand)``);
+
+
+(* --- a more concrete example, not much use --- *)
 
 val Eval_Var_lemma = prove(
   ``(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
-  REPEAT STRIP_TAC
-  THEN FULL_SIMP_TAC (srw_ss()) [Eval_def,lookup_var_id_def,
-         Once bigStepTheory.evaluate_cases,lookup_var_def]);
-
-val Eval_QSORT_EXPANDED = save_thm("Eval_QSORT_EXPANDED",let
-  val th = MATCH_MP Eval_Arrow qsort_eval
-  val th1 = ASSUME ``Eval env (Var (Short "R")) ((a --> a --> BOOL) R)``
-  val th = MATCH_MP th th1
-  val th = MATCH_MP Eval_Arrow th
-  val th1 = ASSUME ``Eval env (Var (Short "xs")) ((LIST_TYPE a) xs)``
-  val th = MATCH_MP th th1
-  val th = REWRITE_RULE [Eval_def] th
-  val th = DISCH_ALL th
-  val th = SIMP_RULE std_ss [Eval_Var_lemma] th
-  val th = SIMP_RULE std_ss [PULL_EXISTS,PULL_FORALL] th
-  in th end)
+  fs [Eval_def,lookup_var_id_def,lookup_var_def,
+      Once bigStepTheory.evaluate_cases]);
 
 val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
   ``!env tys a ord R l xs.
-      DeclAssum NONE ml_translator_demo_decls env tys /\
+      lookup_var_id (Short "qsort") env = SOME qsort_v /\
       LIST_TYPE a l xs /\ (lookup_var "xs" env = SOME xs) /\
       (a --> a --> BOOL) ord R /\ (lookup_var "R" env = SOME R) /\
       transitive ord /\ total ord
@@ -51,10 +55,9 @@ val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
             (App Opapp [App Opapp [Var (Short "qsort"); Var (Short "R")]; Var (Short "xs")])
             (empty_state,Rval xs') /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'``,
-  REPEAT STRIP_TAC THEN IMP_RES_TAC Eval_Var_lemma
-  THEN IMP_RES_TAC Eval_QSORT_EXPANDED
-  THEN METIS_TAC [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]);
+  rw [] \\ imp_res_tac Eval_Var_lemma
+  \\ imp_res_tac (DISCH_ALL (hol2deep ``QSORT R xs``)) \\ fs [Eval_def]
+  \\ metis_tac [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]);
 
-*)
 
 val _ = export_theory();
