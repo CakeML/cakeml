@@ -120,6 +120,22 @@ val num2zreg_side = prove(``
 
 val simpf = simp o map (fetch "-")
 
+val total_num2Zreg_def = Define`
+  total_num2Zreg n = if n < 16 then num2Zreg n else RAX`
+
+val _ = translate total_num2Zreg_def
+
+val total_num2zreg_side = prove(``
+  ∀x. total_num2zreg_side x ⇔ T``,
+  simpf ["total_num2zreg_side_def"]>>
+  FULL_SIMP_TAC std_ss [fetch "-" "num2zreg_side_def"]>>
+  ntac 2 strip_tac>>
+  (* Faster than DECIDE_TAC *)
+  Cases_on`x`>>FULL_SIMP_TAC std_ss [ADD1]>>
+  ntac 7 (Cases_on`n`>>FULL_SIMP_TAC std_ss [ADD1]>>
+  Cases_on`n'`>>FULL_SIMP_TAC std_ss [ADD1])>>
+  Cases_on`n`>>fs[])
+
 val x64_enc_side = prove(``
   ∀x. x64_enc_side x ⇔ T``,
   simp[fetch "-" "x64_enc_side_def"]>>rw[]>>
