@@ -148,7 +148,6 @@ val x64_enc_side = prove(``
   NO_TAC)>>
   (* Rest of these occur in the Mem op case, and look unprovable if e_imm_8_32 returns (8,[]) *)
   simpf["encode_side_def","e_rm_reg_side_def","e_gen_rm_reg_side_def","e_modrm_side_def"]>>
-  rw[]>>metis_tac[]
   cheat)
 
 val _ = export_theory();
