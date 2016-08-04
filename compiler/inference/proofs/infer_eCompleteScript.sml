@@ -1246,7 +1246,34 @@ val infer_p_complete = store_thm("infer_p_complete",
     imp_res_tac infer_p_wfs>>
     imp_res_tac sub_completion_wfs>>
     fs[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS,convert_t_def])
-  >- cheat
+  >-
+    (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    rfs[]>>
+    qmatch_goalsub_abbrev_tac`t_unify _ _ A`>>
+    qabbrev_tac`ls = [(t',A)]`>>
+    imp_res_tac infer_p_wfs>>
+    `pure_add_constraints s' ls s'` by
+      (match_mp_tac pure_add_constraints_ignore>>
+      fs[Abbr`A`,Abbr`ls`]>>
+      CONJ_ASM1_TAC
+      >-
+        metis_tac[sub_completion_wfs]
+      >>
+      fs[sub_completion_def]>>
+      imp_res_tac infer_p_check_t>>
+      imp_res_tac(CONJUNCT1 check_t_less)>>
+      rfs[]>>
+      imp_res_tac check_t_to_check_freevars>>
+      metis_tac[infer_type_subst_nil,check_t_empty_unconvert_convert_id,t_walkstar_idempotent])>>
+    `pure_add_constraints st'.subst (constraints'++ls) s'` by
+      metis_tac[pure_add_constraints_append,sub_completion_def]>>
+    imp_res_tac pure_add_constraints_swap>>
+    fs[pure_add_constraints_append,Abbr`ls`,pure_add_constraints_def,sub_completion_def]>>
+    map_every qexists_tac [`si'`,`constraints'`]>>fs[]>>
+    drule (GEN_ALL t_compat_bi_ground)>>
+    disch_then(qspec_then`si'` assume_tac)>>rfs[]>>
+    fs[simp_tenv_invC_def]>>
+    metis_tac[t_compat_trans,t_unify_wfs,pure_add_constraints_success])
   >-
     (last_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
