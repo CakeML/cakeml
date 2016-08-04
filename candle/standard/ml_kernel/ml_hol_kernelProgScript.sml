@@ -685,7 +685,7 @@ fun m_translate def = let
   val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
   val no_params = (length rev_params = 0)
   (* derive deep embedding *)
-  val pre_var = install_rec_pattern lhs fname
+  val _ = install_rec_pattern lhs fname fname
   val th = m2deep rhs
   val _ = uninstall_rec_patterns ()
   (* replace rhs with lhs in th *)
