@@ -365,22 +365,28 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.StoreEach_def
     ,data_to_wordTheory.shift_length_def
     ,data_to_wordTheory.max_heap_limit_def
+    ,data_to_wordTheory.all_ones_def
+    ,data_to_wordTheory.maxout_bits_def
+    ,data_to_wordTheory.ptr_bits_def
     ,data_to_wordTheory.real_addr_def
     ,data_to_wordTheory.real_offset_def
     ,data_to_wordTheory.real_byte_offset_def
     ,data_to_wordTheory.lookup_word_op_def
-    ,data_to_wordTheory.all_ones_def
-    ,data_to_wordTheory.maxout_bits_def
-    ,data_to_wordTheory.ptr_bits_def
+    ,data_to_wordTheory.FromList_location_eq
+    ,data_to_wordTheory.FromList1_location_eq
+    ,data_to_wordTheory.RefByte_location_eq
+    ,data_to_wordTheory.RefArray_location_eq
+    ,data_to_wordTheory.Replicate_location_eq
+    ,data_to_wordTheory.RefByte_code_def
+    ,data_to_wordTheory.FromList_code_def
+    ,data_to_wordTheory.FromList1_code_def
+    ,data_to_wordTheory.RefArray_code_def
+    ,data_to_wordTheory.Replicate_code_def
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.comp_def
     ,data_to_wordTheory.compile_part_def
-    ,data_to_wordTheory.compile_def
     ,data_to_wordTheory.stubs_def
-    ,data_to_wordTheory.FromList_location_eq
-    ,data_to_wordTheory.RefByte_location_eq
-    ,data_to_wordTheory.RefArray_location_eq
-    ,data_to_wordTheory.RefByte_code_def
+    ,data_to_wordTheory.compile_def
       (* ---- wordLang word_to_word ---- *)
     ,word_to_wordTheory.compile_single_def
     ,word_to_wordTheory.full_compile_single_def
