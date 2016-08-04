@@ -1,14 +1,13 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
-open x64_targetTheory;
-open x64Theory;
+open x64_preludeProgTheory;
+open x64_targetTheory x64Theory;
 
 val _ = new_theory "x64Prog"
 
 (* temporary *)
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "x64_preludeProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -64,12 +63,76 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 *)
 val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
+
 val _ = translate x64_config_def
 
-(* Currently fails on word_bit 3, but there are a lot of other word ops to manually do as well, e.g. >< , @@, &&
+val word_bit_thm = Q.prove(
+  `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
+  simp [GSYM wordsTheory.word_1_lsl]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+  \\ eq_tac
+  \\ rw []
+  >- (qexists_tac `n` \\ simp [DECIDE ``0 < a /\ n <= a - 1n ==> n < a``])
+  \\ `i = n` by decide_tac
+  \\ fs [])
 
-val _ = translate encode_def
-
+(* word_bit can be inlined into encode, or translated into a function
+val foo = translate ((INST_TYPE[alpha|->``:4``]o SPEC_ALL )th)
+val foo = translate ((INST_TYPE[alpha|->``:8``]o SPEC_ALL )th)
 *)
+
+(* word_concat *)
+val wc_simp = CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w,LET_THM]
+(* word_extract *)
+val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
+(* w2w has to be translated for every single use *)
+val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:8``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:4``,beta|->``:8``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:4``,beta|->``:3``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:2``,beta|->``:8``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:3``,beta|->``:4``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:33``] w2w_def)
+
+val _ = translate (e_imm32_def |> we_simp)
+
+val _ = translate (e_imm8_def |> we_simp)
+
+val _ = translate (e_ModRM_def |> wc_simp |> we_simp |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+
+val _ = translate (rex_prefix_def |> wc_simp |> we_simp)
+
+val _ = translate (e_imm16_def |> we_simp)
+val _ = translate (e_imm64_def |> we_simp)
+
+val _ = translate (encode_def|>SIMP_RULE std_ss [word_bit_thm] |> wc_simp |> we_simp)
+
+val encode_side = prove(``
+  ∀x. encode_side x ⇔ T``,
+  simp[fetch "-" "encode_side_def"]>>rw[]>>
+  cheat)
+
+val _ = translate (x64_enc_def |> we_simp)
+
+(* unprovable for num2zreg in its current form *)
+val num2zreg_side = prove(``
+  ∀x. num2zreg_side x ⇔ T``,
+  cheat)
+
+val simpf = simp o map (fetch "-")
+
+val x64_enc_side = prove(``
+  ∀x. x64_enc_side x ⇔ T``,
+  simp[fetch "-" "x64_enc_side_def"]>>rw[]>>
+  simp[num2zreg_side]>> (* Temporarily get rid of cases about num2Zreg*)
+  TRY(
+  rw[]>>simpf["encode_side_def"]>>
+  rw[]>>
+  simpf["e_rm_reg_side_def","e_gen_rm_reg_side_def","e_modrm_side_def"]>>
+  simpf["e_rm_imm_side_def","e_modrm_side_def","e_rm_imm8_side_def","e_opc_side_def"]>>
+  NO_TAC)>>
+  (* Rest of these occur in the Mem op case, and look unprovable if e_imm_8_32 returns (8,[]) *)
+  simpf["encode_side_def","e_rm_reg_side_def","e_gen_rm_reg_side_def","e_modrm_side_def"]>>
+  rw[]>>metis_tac[]
+  cheat)
 
 val _ = export_theory();
