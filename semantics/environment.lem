@@ -30,6 +30,9 @@ let alist_to_env a = Bind a []
 val eBind : forall 'v 'n. 'n -> 'v -> environment 'n 'v -> environment 'n 'v
 let eBind k x (Bind v m) = Bind ((k,x)::v) m
 
+val eBindList : forall 'v 'n. list ('n * 'v) -> environment 'n 'v -> environment 'n 'v
+let eBindList l e = List.foldr (fun (x,v) e -> eBind x v e) e l
+
 val eOptBind : forall 'v 'n. maybe 'n -> 'v -> environment 'n 'v -> environment 'n 'v
 let eOptBind n x env =
   match n with

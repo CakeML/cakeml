@@ -53,6 +53,11 @@ val _ = Define `
  (eBind k x (Bind v m) = (Bind ((k,x)::v) m))`;
 
 
+(*val eBindList : forall 'v 'n. list ('n * 'v) -> environment 'n 'v -> environment 'n 'v*)
+val _ = Define `
+ (eBindList l e = (FOLDR (\ (x,v) e .  eBind x v e) e l))`;
+
+
 (*val eOptBind : forall 'v 'n. maybe 'n -> 'v -> environment 'n 'v -> environment 'n 'v*)
 val _ = Define `
  (eOptBind n x env =  

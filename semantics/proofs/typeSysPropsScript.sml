@@ -485,6 +485,11 @@ val bind_tvar_rewrites = Q.store_thm ("bind_tvar_rewrites[simp]",
  srw_tac[][bind_tvar_def, deBruijn_subst_tenvE_def, db_merge_def, num_tvs_def,
     tveLookup_def, tenv_val_exp_ok_def]);
 
+val bind_tvar0 = Q.store_thm ("bind_tvar0[simp]",
+`!x. bind_tvar 0 x = x`,
+  Cases_on `x`
+  >> rw [bind_tvar_def]);
+
 val tveLookup_subst_none = Q.store_thm ("tveLookup_subst_none",
 `!n inc e.
  tveLookup n inc (deBruijn_subst_tenvE targs e) = NONE ⇔
@@ -1673,6 +1678,18 @@ val add_tenvE_eAppend = Q.store_thm ("add_tenvE_eAppend",
   `!tenvE tenvV. eAppend (add_tenvE tenvE eEmpty) tenvV = add_tenvE tenvE tenvV`,
  Induct_on `tenvE`
  >> rw [add_tenvE_def]);
+
+val add_tenvE_bvl = Q.store_thm ("add_tenvE_bvl",
+  `!n bindings tenvE tenvV.
+    add_tenvE (bind_var_list n bindings tenvE) tenvV =
+    eBindList (MAP (\(x,t). (x, (n, t))) bindings) (add_tenvE tenvE tenvV)`,
+ Induct_on `bindings`
+ >> rw [bind_var_list_def, eBindList_def]
+ >> pairarg_tac
+ >> rw []
+ >> pairarg_tac
+ >> fs []
+ >> rw [bind_var_list_def, add_tenvE_def, eBindList_def]);
 
 val type_v_freevars = Q.store_thm ("type_v_freevars",
 `!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t`,

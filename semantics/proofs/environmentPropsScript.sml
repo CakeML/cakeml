@@ -132,6 +132,17 @@ val eLookup_eAppend1 = Q.store_thm ("eLookup_eAppend1[simp]",
  >> every_case_tac
  >> fs []);
 
+val eAppend_to_eBindList = Q.store_thm ("eAppend_to_eBindList",
+  `!l. eAppend (alist_to_env l) e = eBindList l e`,
+ Induct_on `l`
+ >> fs [eBindList_def, alist_to_env_def]
+ >> rw []
+ >> pairarg_tac
+ >> simp []
+ >> Cases_on `e`
+ >> fs [eAppend_def]
+ >> metis_tac [eAppend_def, eBind_def]);
+
 (* -------------- eAll ---------------- *)
 
 val eAll_T = Q.store_thm ("eALL_T[simp]",
@@ -228,5 +239,21 @@ val eAll2_eBind = Q.store_thm ("eAll2_eBind",
  >- metis_tac [eSubEnv_eBind]
  >> Cases_on `n = Short x`
  >> fs []);
+
+val eAll2_eBindList = Q.store_thm ("eAll2_eBindList",
+  `!R l1 l2 e1 e2.
+     LIST_REL (\(x,y) (x',y'). x = x' ∧ R (Short x) y y') l1 l2 ∧ eAll2 R e1 e2
+     ⇒
+     eAll2 R (eBindList l1 e1) (eBindList l2 e2)`,
+ Induct_on `l1`
+ >> rw [eBindList_def]
+ >> rw [eBindList_def]
+ >> pairarg_tac
+ >> rw []
+ >> pairarg_tac
+ >> rw []
+ >> fs [eBindList_def]
+ >> irule eAll2_eBind
+ >> rw []);
 
 val _ = export_theory ();

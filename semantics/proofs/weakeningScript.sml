@@ -523,7 +523,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      >> first_assum (match_exists_tac o concl)
      >> simp []
      >> irule weak_tenvE_bind
-     >> irule weak_tenvE_bind_tvar2
+     >> irule (SIMP_RULE (srw_ss()) [] weak_tenvE_bind_tvar2)
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
  >- (fs [] >>
      qexists_tac `tenv` >>
@@ -541,7 +541,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      first_assum(match_exists_tac o concl) >> simp[weak_def] >>
      fs [weak_tenv_refl, tenv_ok_def]
      >> irule weak_tenvE_bind_var_list
-     >> irule weak_tenvE_bind_tvar2
+     >> irule (SIMP_RULE (srw_ss()) [] weak_tenvE_bind_tvar2)
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
  >- (fs [] >>
      qexists_tac `tenv` >>
