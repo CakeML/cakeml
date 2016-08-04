@@ -31,6 +31,13 @@ val mk_id_11 = Q.store_thm("mk_id_11[simp]",
 
 val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,srw_tac[][Boolv_def]);
 
+val extend_dec_env_assoc = Q.store_thm ("extend_dec_env_assoc[simp]",
+  `!env1 env2 env3.
+    extend_dec_env env1 (extend_dec_env env2 env3)
+    =
+    extend_dec_env (extend_dec_env env1 env2) env3`,
+ rw [extend_dec_env_def]);
+
 val Tword_simp = Q.store_thm("Tword_simp[simp]",
   `(∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
    (∀z1 z2. (TC_word z1 = TC_word z2) ⇔ (z1 = z2)) ∧

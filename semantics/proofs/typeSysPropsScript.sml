@@ -26,6 +26,35 @@ val unchanged_tenv = Q.store_thm ("unchanged_tenv[simp]",
   <| v := tenv.v; c := tenv.c; t := tenv.t |> = tenv`,
  rw [type_env_component_equality]);
 
+val union_decls_assoc = Q.store_thm ("union_decls_assoc[simp]",
+`!decls1 decls2 decls3.
+  union_decls decls1 (union_decls decls2 decls3)
+  =
+  union_decls (union_decls decls1 decls2) decls3`,
+ srw_tac[][] >>
+ srw_tac[][union_decls_def] >>
+ metis_tac [UNION_ASSOC]);
+
+val union_decls_sym = Q.store_thm ("union_decls_sym",
+`!decls1 decls2. union_decls decls1 decls2 = union_decls decls2 decls1`,
+ rw [union_decls_def] >>
+ rw [UNION_COMM]);
+
+val union_decls_mods = Q.store_thm ("union_decls_mods[simp]",
+ `(union_decls d1 d2).defined_mods = d1.defined_mods ∪ d2.defined_mods`,
+ rw [union_decls_def]);
+
+val union_decls_empty = Q.store_thm ("union_decls_empty[simp]",
+  `!d. union_decls empty_decls d = d ∧ union_decls d empty_decls = d`,
+ rw [union_decls_def, decls_component_equality, empty_decls_def]);
+
+val extend_dec_tenv_assoc = Q.store_thm ("extend_dec_tenv_assoc[simp]",
+  `!tenv1 tenv2 tenv3.
+    extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3)
+    =
+    extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3`,
+ rw [extend_dec_tenv_def]);
+
 (* ---------- check_freevars ---------- *)
 
 val check_freevars_add = Q.store_thm ("check_freevars_add",
@@ -2218,6 +2247,7 @@ val decls_ok_union2 = Q.store_thm ("decls_ok_union2",
  rw [decls_ok_def, union_decls_def, SUBSET_DEF, decls_to_mods_def, GSPECIFICATION]
  >> full_simp_tac (srw_ss()++DNF_ss) []
  >> metis_tac []);
+ *)
 
 (* ---------- type_d ---------- *)
 
@@ -2229,6 +2259,7 @@ val type_d_check_uniq = Q.store_thm ("type_d_check_uniq",
  srw_tac[][type_d_cases] >>
  metis_tac []);
 
+ (*
 val type_d_tenv_val_ok = Q.store_thm ("type_d_tenv_val_ok",
 `!uniq tvs tdecs tenv d tdecs' new_tenv.
   type_d uniq tvs tdecs tenv d tdecs' new_tenv ∧
@@ -2342,30 +2373,10 @@ val merge_mod_env_empty = Q.store_thm ("merge_mod_env_empty[simp]",
  `!m. merge_mod_env (FEMPTY,FEMPTY) m = m`,
  Cases_on `m`
  >> rw [merge_mod_env_def]);
+ *)
 
-val union_decls_empty = Q.store_thm ("union_decls_empty[simp]",
-`!decls. union_decls empty_decls decls = decls`,
- srw_tac[][] >>
- srw_tac[][union_decls_def, empty_decls_def, decls_component_equality]);
 
-val union_decls_assoc = Q.store_thm ("union_decls_assoc",
-`!decls1 decls2 decls3.
-  union_decls decls1 (union_decls decls2 decls3)
-  =
-  union_decls (union_decls decls1 decls2) decls3`,
- srw_tac[][] >>
- srw_tac[][union_decls_def] >>
- metis_tac [UNION_ASSOC]);
-
-val union_decls_sym = Q.store_thm ("union_decls_sym",
-`!decls1 decls2. union_decls decls1 decls2 = union_decls decls2 decls1`,
- rw [union_decls_def] >>
- rw [UNION_COMM]);
-
-val union_decls_mods = Q.store_thm ("union_decls_mods",
- `(union_decls d1 d2).defined_mods = d1.defined_mods ∪ d2.defined_mods`,
- rw [union_decls_def]);
-
+ (*
 val append_new_dec_tenv_empty = Q.store_thm ("append_new_dec_tenv_empty[simp]",
  `append_new_dec_tenv (FEMPTY,[],[]) tenv = tenv`,
  PairCases_on `tenv`
@@ -2400,18 +2411,24 @@ val extend_env_new_tops_append = Q.store_thm ("extend_env_new_tops_append",
  >- (
    Cases_on `z.t`
    >> simp [merge_mod_env_def, FUNION_ASSOC]));
+   *)
 
 (* ---------- type_ds ---------- *)
 
 val type_ds_empty = Q.store_thm ("type_ds_empty[simp]",
  `!u mn decls tenv decls' r.
-  type_ds u mn decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = (FEMPTY,[],[])`,
+  type_ds u mn decls tenv [] decls' r ⇔
+  decls' = empty_decls ∧ r = <| v := eEmpty; c:= eEmpty; t := eEmpty |>`,
  rw [Once type_ds_cases]);
 
 val type_ds_sing = Q.store_thm ("type_ds_sing[simp]",
  `!u mn decls tenv d decls' r.
   type_ds u mn decls tenv [d] decls' r ⇔ type_d u mn decls tenv d decls' r`,
- simp [Once type_ds_cases]);
+ simp [Once type_ds_cases]
+ >> rw [extend_dec_tenv_def, type_env_component_equality]
+ >> eq_tac
+ >> rw []
+ >> metis_tac [type_env_component_equality]);
 
 val type_ds_check_uniq = Q.store_thm ("type_ds_check_uniq",
 `!uniq tvs tdecs tenv d tdecs' new_tenv.
@@ -2423,6 +2440,7 @@ val type_ds_check_uniq = Q.store_thm ("type_ds_check_uniq",
  srw_tac[][Once type_ds_cases] >>
  metis_tac [type_d_check_uniq]);
 
+ (*
 val type_ds_tenv_val_ok = Q.store_thm ("type_ds_tenv_val_ok",
 `!x tvs tdecs tenv ds tdecs' new_tenv.
   type_ds x tvs tdecs tenv ds tdecs' new_tenv ⇒

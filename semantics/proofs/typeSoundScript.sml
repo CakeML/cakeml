@@ -1549,8 +1549,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> pop_assum (qspec_then `(p,e)` mp_tac)
    >> simp []));
 
-(* FIXED TO HERE
-
+   (*
 val let_tac =
   rw []
   >> Cases_on `r1`
@@ -1590,71 +1589,64 @@ val let_tac =
       >> fs [weakCT_refl, type_all_env_def, good_ctMap_def]
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [weakCT_refl]);
+    *)
 
 val decs_type_sound_invariant_def = Define `
 decs_type_sound_invariant mn st env tdecs1 ctMap tenvS tenv ⇔
   tenv_ok tenv ∧
   good_ctMap ctMap ∧
   type_all_env ctMap tenvS env tenv ∧
-  type_s ctMap tenvS st.refs ∧
+  type_s ctMap st.refs tenvS ∧
   consistent_decls st.defined_types tdecs1 ∧
   consistent_ctMap tdecs1 ctMap ∧
-  mn ∉ IMAGE SOME tdecs1.defined_mods`;
+  mn ∉ tdecs1.defined_mods`;
 
 val decs_type_sound = Q.store_thm ("decs_type_sound",
- `∀mn (st:'ffi state) env ds st' new_ctors r tdecs1 ctMap tenvS tenv tdecs1' tenvT' tenvC' tenv'.
-   evaluate_decs mn st env ds = (st',new_ctors,r) ∧
-   type_ds F mn tdecs1 tenv ds tdecs1' (tenvT',tenvC',tenv') ∧
+ `∀mn (st:'ffi state) env ds st' r tdecs1 ctMap tenvS tenv tdecs1' tenv'.
+   evaluate_decs mn st env ds = (st',r) ∧
+   type_ds F mn tdecs1 tenv ds tdecs1' tenv' ∧
    decs_type_sound_invariant mn st env tdecs1 ctMap tenvS tenv
    ⇒
    ∃ctMap' tenvS'.
      weakCT ctMap' ctMap ∧
      store_type_extension tenvS tenvS' ∧
      case r of
-     | Rval new_bindings =>
-       type_env ctMap' tenvS' new_bindings (bind_var_list2 tenv' Empty) ∧
-       MAP FST new_ctors = MAP FST tenvC' ∧
-       decs_type_sound_invariant mn st' (extend_dec_env new_bindings new_ctors env)
-         (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_env_new_decs (tenvT',tenvC',tenv') tenv)
+     | Rval env' =>
+       type_all_env ctMap' tenvS' env' tenv' ∧
+       decs_type_sound_invariant mn st' (extend_dec_env env' env)
+         (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_dec_tenv tenv' tenv)
      | Rerr (Rraise err_v) =>
        type_v 0 ctMap' tenvS' err_v Texn ∧
        decs_type_sound_invariant mn st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort Rtimeout_error) => T`,
+
  ho_match_mp_tac evaluate_decs_ind
  >> rw [evaluate_decs_def]
  >> rw []
  >> TRY (qpat_assum `type_ds _ _ _ _ _ _ _` mp_tac >> simp [Once type_ds_cases])
  >> rw []
  >- (
-   simp [bind_var_list2_def,
-         extend_dec_env_def, extend_env_new_decs_def]
-   >> simp [Once type_v_cases]
+   simp [extend_dec_env_def, extend_dec_tenv_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl, weakCT_refl])
  >- (
    split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate_decs _ _ _ _ = (st1, new_ctors1, r1)`
+   >> rename1 `evaluate_decs _ _ _ _ = (st1, r1)`
    >> Cases_on `r1`
    >> fs []
    >- (
      split_pair_case_tac
      >> fs []
      >> rw []
-     >> rename1 `evaluate_decs _ _ (extend_dec_env new_bindings1 _ _) _ = (st2, new_ctors2, r2)`
-     >> `?tenvT1 tenvC1 tenv1. new_tenv1 = (tenvT1, tenvC1, tenv1)` by metis_tac [pair_CASES]
-     >> fs []
+     >> rename1 `evaluate_decs _ _ (extend_dec_env env1 _) _ = (st2, r2)`
      >> first_x_assum drule
      >> disch_then drule
      >> rw []
-     >> `?tenvT2 tenvC2 tenv2. new_tenv2 = (tenvT2, tenvC2, tenv2)` by metis_tac [pair_CASES]
-     >> fs []
      >> first_x_assum drule
      >> disch_then drule
      >> rw []
      >> simp [combine_dec_result_def]
-     >> fs [extend_dec_env_append, union_decls_assoc, extend_env_new_decs_append]
-     >> fs [append_new_dec_tenv_def]
      >> qexists_tac `ctMap'`
      >> qexists_tac `tenvS'`
      >> rw []
@@ -1663,27 +1655,16 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> Cases_on `r2`
      >> fs []
      >- (
-       irule type_env_merge_bvl2
-       >> simp []
-       >> irule (List.nth (CONJUNCTS type_v_weakening, 1))
-       >- fs [decs_type_sound_invariant_def, good_ctMap_def]
-       >> qexists_tac `ctMap''`
-       >> qexists_tac `tenvS''`
-       >> simp [store_type_extension_weakS])
+       fs [decs_type_sound_invariant_def, good_ctMap_def, extend_dec_env_def]
+       >> cheat)
      >- (
        Cases_on `e`
        >> fs []
-       >> fs [decs_type_sound_invariant_def, extend_env_new_decs_def,
-              type_all_env_def, extend_dec_env_def,
-              bind_var_list2_def]
-       >> rw []
-       >- metis_tac [consistent_con_env_weakening, good_ctMap_def]
-       >> irule (List.nth (CONJUNCTS type_v_weakening, 1))
-       >- fs [good_ctMap_def]
-       >> metis_tac [weakCT_trans, store_type_extension_weakS, store_type_extension_trans]))
+       >> fs [decs_type_sound_invariant_def]
+       >- metis_tac [type_all_env_weakening, weakCT_trans,
+                     store_type_extension_weakS, store_type_extension_trans]))
    >- (
      rw []
-     >> `?tenvT1 tenvC1 tenv1. new_tenv1 = (tenvT1, tenvC1, tenv1)` by metis_tac [pair_CASES]
      >> fs []
      >> first_x_assum drule
      >> disch_then drule
@@ -1694,8 +1675,8 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
        qexists_tac `ctMap''`
        >> qexists_tac `tenvS''`
        >> rw []
-       >> fs [decs_type_sound_invariant_def, extend_env_new_decs_def,
-              type_all_env_def, extend_dec_env_def, bind_var_list2_def]
+       >> fs [decs_type_sound_invariant_def, extend_dec_tenv_def,
+              type_all_env_def, extend_dec_env_def]
        >> rw []
        >- metis_tac [consistent_decls_weakening, union_decls_assoc, weak_decls_union2, type_ds_mod]
        >- metis_tac [consistent_ctMap_weakening, union_decls_assoc, weak_decls_union2, type_ds_mod]
