@@ -12,7 +12,7 @@ open preamble
      word_to_stackTheory
      stack_to_labTheory
      lab_to_targetTheory
-local open initialProgramTheory in end
+local open primTypesTheory in end
 open word_to_wordTheory
 
 val _ = new_theory"backend";

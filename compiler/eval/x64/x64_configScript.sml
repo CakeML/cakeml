@@ -6,8 +6,8 @@ val _ = new_theory"x64_config";
 
 val rconc = rhs o concl
 
-val source_conf = rconc(EVAL``^(prim_config).source_conf``)
-val mod_conf = rconc(EVAL``^(prim_config).mod_conf``)
+val source_conf = rconc(EVAL``prim_config.source_conf``)
+val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``

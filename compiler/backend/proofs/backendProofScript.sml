@@ -1,4 +1,4 @@
-open preamble initSemEnvTheory semanticsPropsTheory
+open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
      source_to_modProofTheory
      mod_to_conProofTheory
@@ -1212,7 +1212,7 @@ val clean_data_to_target_thm = let
 val cnv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders [compilerComputeLib.add_compiler_compset],
    computeLib.Defs
-     [prim_config_def, initialProgramTheory.prim_types_program_def]]
+     [prim_config_def, primTypesTheory.prim_types_program_def]]
 
 val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config``);
 
@@ -1271,7 +1271,7 @@ val compile_correct = Q.store_thm("compile_correct",
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
-  fs[initSemEnvTheory.prim_sem_env_eq] >>
+  fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
   qpat_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
   `∃s2 env2 gtagenv.
