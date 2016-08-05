@@ -1,0 +1,35 @@
+open import Pervasives
+open import Ast
+open import SemanticPrimitives
+open import Ffi
+open import BigStep
+open import Lib
+
+val prim_types_program : prog
+let prim_types_program =
+  [Tdec (Dexn "Bind" []);
+   Tdec (Dexn "Chr" []);
+   Tdec (Dexn "Div" []);
+   Tdec (Dexn "Subscript" []);
+   Tdec (Dtype [([], "bool", [("true", []); ("false", [])])]);
+   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]);])]);
+   Tdec (Dtype [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]);])]);]
+
+val add_to_sem_env : forall 'ffi. Eq 'ffi => (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)
+let add_to_sem_env (st, env) prog =
+  let res = { res | evaluate_whole_prog false env st prog res } in
+    if res = {} then
+      Nothing
+    else
+      match Set_extra.choose res with
+      | (st', new_ctors, Rval (new_mods, new_vals)) ->
+        Just (st', extend_top_env new_mods new_vals new_ctors env)
+      | _ -> Nothing
+      end
+
+val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)
+let prim_sem_env ffi =
+  add_to_sem_env
+    (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
+     <| m = []; c = ([],[]); v = [] |>)
+        prim_types_program

@@ -2852,7 +2852,7 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   `(sem_st,sem_env) = THE (prim_sem_env ffi) ⇒
    type_sound_invariants (NONE:(unit,v) semanticPrimitives$result option) (prim_tdecs,prim_tenv,sem_st,sem_env)`,
   rw[type_sound_invariants_def,
-     initSemEnvTheory.prim_sem_env_eq,initSemEnvTheory.prim_tdecs_def,initSemEnvTheory.prim_tenv_def]
+     primSemEnvTheory.prim_sem_env_eq,primSemEnvTheory.prim_tdecs_def,primSemEnvTheory.prim_tenv_def]
   \\ EVAL_TAC \\ simp[]
   \\ simp[RES_FORALL]
   \\ srw_tac[DNF_ss][]
@@ -2876,7 +2876,7 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   \\ simp[Once type_v_cases]
   \\ qexists_tac`FEMPTY` \\ simp[]
   \\ qexists_tac`prim_tdecs`
-  \\ simp[initSemEnvTheory.prim_tdecs_def]
+  \\ simp[primSemEnvTheory.prim_tdecs_def]
   \\ qexists_tac`([],[
        ("false",[],[],TypeId(Short"bool"));
        ("true",[],[],TypeId(Short"bool"));

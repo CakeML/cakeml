@@ -75,7 +75,7 @@ val do_log_IMP_3 = prove(
     !e3. (do_log op v e3 = SOME (Val x))``,
   fs [do_log_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
-val s = ``s:'ffi state``
+val s = ``s:'ffi semanticPrimitives$state``
 
 val BOTTOM_UP_OPT_LEMMA = prove(
   ``(!ck env ^s exp res. evaluate F env s exp res ==> isRval (SND res) ==> evaluate F env s (f exp) res) ==>

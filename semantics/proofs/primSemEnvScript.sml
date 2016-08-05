@@ -1,11 +1,8 @@
 open preamble;
-open libTheory astTheory bigStepTheory semanticPrimitivesTheory initialProgramTheory;
-open evalPropsTheory determTheory bigClockTheory interpTheory;
-open interpComputeLib;
+open primTypesTheory bigClockTheory determTheory interpComputeLib;
 open terminationTheory;
-open boolSimps;
 
-val _ = new_theory "initSemEnv";
+val _ = new_theory "primSemEnv";
 
 val interp_add_to_sem_env_def = Define `
 interp_add_to_sem_env (st,env) prog =
@@ -50,61 +47,6 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
         val pth = SPEC_ALL prim_sem_env_def
         val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
         in TRANS (TRANS pth th1) th end));
-
-(* Too big to evaluate in a reasonable timely was due to exponential explosion in closure envs
-val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
-  ``basis_sem_env``
-  |> SIMP_CONV(srw_ss())[basis_sem_env_def,add_to_sem_env_def,basis_program_def, mk_binop_def, mk_unop_def, prim_sem_env_eq]
-  |> CONV_RULE interp_conv);
-  *)
-
-
-(* recursively decend into the test position of case expressions and apply to conversion to the inner-most *)
-fun CASE_CONV conv tm =
-let
-  fun CASE_CONV0 tm =
-    if TypeBase.is_case tm then
-      let
-        val (case_const, (test::rest)) = strip_comb tm
-      in
-        List.foldl (fn (a,th) => AP_THM th a) (AP_TERM case_const (CASE_CONV0 test)) rest
-      end
-    else
-      conv tm
-in
-  if TypeBase.is_case tm then
-    CASE_CONV0 tm
-  else
-    raise UNCHANGED
-end;
-
-fun do1_tac t =
-  (REWRITE_TAC [Once run_eval_prog_def, run_eval_top_def, Once run_eval_decs_def, run_eval_dec_def] >>
-   CONV_TAC (RAND_CONV (LAND_CONV (CASE_CONV interp_conv))) >>
-   simp [extend_top_env_def, extend_dec_env_def, combine_dec_result_def, merge_alist_mod_env_def,pmatch_def, pat_bindings_def]) t;
-
-val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
-`?se. basis_sem_env ffi = SOME se`,
- simp [basis_sem_env_def] >>
- cases_on `?se. interp_add_to_sem_env (THE (prim_sem_env ffi)) basis_program = SOME se`
- >- metis_tac [interp_add_to_sem_env_thm, PAIR] >>
- pop_assum mp_tac >>
- match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
- fs[prim_sem_env_eq] >> rw[] >>
- simp[interp_add_to_sem_env_def] >>
- rpt BasicProvers.CASE_TAC >>
- pop_assum mp_tac >>
- simp[basis_program_def, run_eval_whole_prog_def] >>
- rw []
- >- (ntac 2 (pop_assum kall_tac) >>
-     simp ([mk_ffi_def, mk_binop_def, mk_unop_def, Once run_eval_prog_def, run_eval_top_def, run_eval_dec_def,
-            merge_alist_mod_env_def,pmatch_def, pat_bindings_def]) >>
-     rpt (do1_tac >> TRY (Q.PAT_ABBREV_TAC`cl = (X0,Closure X Y Z)`)))
- >- (fs [] >>
-     pop_assum mp_tac >>
-     match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
-     rw [mk_binop_def, mk_unop_def] >>
-     CONV_TAC interp_conv));
 
 val prim_tdecs_def = Define
   `prim_tdecs =

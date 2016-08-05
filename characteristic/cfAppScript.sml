@@ -4,6 +4,8 @@ open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
 
 val _ = new_theory "cfApp"
 
+val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+
 (*------------------------------------------------------------------*)
 (** App: [app] is used to give a specification for the application of
     a value to one or multiple value arguments. It is in particular

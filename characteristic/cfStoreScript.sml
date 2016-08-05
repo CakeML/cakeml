@@ -32,7 +32,7 @@ val ffi2heap_def = Define `
 
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
-  st2heap (f:'ffi ffi_proj) (st: 'ffi state) =
+  st2heap (f:'ffi ffi_proj) (st: 'ffi semanticPrimitives$state) =
     store2heap st.refs UNION ffi2heap f st.ffi`
 
 (* Lemmas *)

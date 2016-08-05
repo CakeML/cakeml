@@ -11,6 +11,7 @@ infix \\ val op \\ = op THEN;
 val evaluate_ind = bigStepTheory.evaluate_ind;
 
 val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="bigStep"};
+val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (* Definitions *)
 
@@ -1579,8 +1580,6 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
    ∀(s:'ffi state). evaluate F env s exp (s,Rval x)`,
   strip_tac \\ imp_res_tac evaluate_empty_store_IMP_any_store \\ fs []
   \\ pop_assum match_mp_tac \\ EVAL_TAC);
-
-val t = ``t:'ffi state``
 
 val evaluate_empty_store_IMP_any_store = prove(
  ``(!ck env ^s e r1.

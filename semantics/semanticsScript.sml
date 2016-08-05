@@ -1,6 +1,6 @@
-open HolKernel boolLib bossLib Parse;
-open lexer_funTheory cmlPtreeConversionTheory initialProgramTheory; (* TODO: should be included in termination *)
-open terminationTheory lprefix_lubTheory;
+open preamble;
+open lexer_funTheory cmlPtreeConversionTheory; (* TODO: should be included in termination *)
+open terminationTheory;
 
 val _ = new_theory "semantics";
 
@@ -11,6 +11,14 @@ parse toks =
   of
      NONE => NONE
    | SOME p => ptree_TopLevelDecs p`;
+
+val _ = Datatype`
+  state = <| (* Type system state *)
+            tdecs : decls;
+            tenv : type_environment;
+            (* Semantics state *)
+            sem_st : 'ffi semanticPrimitives$state;
+            sem_env : v environment |>`;
 
 val _ = hide "state";
 

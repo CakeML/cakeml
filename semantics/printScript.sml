@@ -1,5 +1,5 @@
 open preamble
-open terminationTheory initialProgramTheory
+open terminationTheory
 val _ = new_theory"print"
 
 val type_to_string_def = tDefine "type_to_string" `

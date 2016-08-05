@@ -79,7 +79,7 @@ val evaluate_list_rcons = store_thm ("evaluate_list_rcons",
 )
 
 val exp2v_list_REVERSE = store_thm ("exp2v_list_REVERSE",
-  ``!l (st: 'ffi state) lv env. exp2v_list env l = SOME lv ==>
+  ``!l (st: 'ffi semanticPrimitives$state) lv env. exp2v_list env l = SOME lv ==>
     evaluate_list F env st (REVERSE l) (st, Rval (REVERSE lv))``,
   Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
   fs [exp2v_list_def]
