@@ -64,12 +64,15 @@ val _ = trans ["~"] (Define `uminus i = 0-(i:int)`);
 
 (* other basics that parser targets -- CF verified *)
 
-val _ = trans ["="] (Define `eq x1 x2 = (x1 = (x2:'a))`);
+val eq_def = Define `eq x1 x2 = (x1 = (x2:'a))`;
+val not_def = Define `not x = if x then F else T`;
+val noteq_def = Define `noteq x1 x2 = (not (eq x1 x2))`;
+val _ = trans ["="] eq_def;
+val _ = trans ["not"] not_def;
+val _ = trans ["<>"] (noteq_def |> REWRITE_RULE[eq_def,not_def]);
 
 val _ = append_prog
-  ``[Tdec (Dlet (Pvar "not") (Fun "x" (If (Var (Short"x"))
-          (Con (SOME (Short "false")) []) (Con (SOME (Short "true")) []))));
-     Tdec (mk_binop ":=" Opassign);
+  ``[Tdec (mk_binop ":=" Opassign);
      Tdec (mk_unop "!" Opderef);
      Tdec (mk_unop "ref" Opref)]``
 
