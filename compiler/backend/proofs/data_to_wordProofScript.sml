@@ -3020,10 +3020,6 @@ val get_vars_termdep = store_thm("get_vars_termdep[simp]",
   ``!xs. get_vars xs (t with termdep := t.termdep - 1) = get_vars xs t``,
   Induct \\ EVAL_TAC \\ rw [] \\ every_case_tac \\ fs []);
 
-val RefArray_code_def = Define `
-  (RefArray_code:'a wordLang$prog) =
-     list_Seq []`
-
 val lookup_RefByte_location = prove(
   ``state_rel c l1 l2 x t [] locs ==>
     lookup RefByte_location t.code = SOME (3,RefArray_code)``,
@@ -5845,7 +5841,9 @@ val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
       \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
                Cases_on`^(t"n")`\\fs[]
                \\ imp_res_tac prim_recTheory.SUC_LESS)))>>
-      qpat_assum`PERM A B` mp_tac >> simp[extract_labels_def,RefByte_code_def,list_Seq_def])>>
+      qpat_assum`PERM A B` mp_tac >>
+      simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
+           RefArray_code_def,Replicate_code_def,list_Seq_def])>>
     qpat_assum`n < LENGTH _`assume_tac >>
     qpat_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
