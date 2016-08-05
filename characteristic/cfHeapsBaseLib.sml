@@ -65,10 +65,18 @@ fun is_sep_imppost tm = let
 fun is_cond tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) cond_def
   in can (match_term format) tm end
-  
+
 fun is_sep_exists tm = let
   val se = (fst o dest_eq o concl o SPEC_ALL) SEP_EXISTS
   in can (match_term ``^se P``) tm end
+
+fun mk_cond t =
+  SPEC t (INST_TYPE [alpha |-> ``:heap_part``] cond_def)
+  |> concl |> lhs
+
+val emp_tm =
+  inst [alpha |-> ``:heap_part``]
+    (emp_def |> concl |> lhs)
 
 fun UNFOLD_SEP_IMPPOST_ccc tm = let
   val _ = if not (is_sep_imppost tm) then fail () else ()
@@ -356,7 +364,7 @@ val hpullr_cont_conseq_conv =
 val hpullr_conseq_conv =
   STRENGTHEN_CONSEQ_CONV
     (STEP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv)
-  
+
 val hpullr_one = CONSEQ_CONV_TAC hpullr_one_conseq_conv
 val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
 
@@ -383,7 +391,7 @@ val hcancel_cont_conseq_conv_core =
       (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])
   ]
 
-val hcancel_setup_conv = 
+val hcancel_setup_conv =
   SEP_IMP_conv
     (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
     (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))

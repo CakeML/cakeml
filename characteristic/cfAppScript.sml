@@ -1,6 +1,7 @@
 open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
 open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
+open cfTacticsBaseLib
 
 val _ = new_theory "cfApp"
 
@@ -113,7 +114,8 @@ tactics. *)
 val spec_def = Define `
   spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)`
 
-open cfTacticsBaseLib
+(*------------------------------------------------------------------*)
+(* Relating [app] to [_ --> _] from the translator *)
 
 val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
   ``(a --> b) f v ==>
@@ -134,19 +136,5 @@ val app_basic_weaken = store_thm("app_basic_weaken",
     (app_basic p v v1 x P ==>
      app_basic p v v1 x Q)``,
   fs [app_basic_def] \\ metis_tac []);
-
-val example_arrow_imp = store_thm("example_arrow_imp",
-  ``(NUM --> LIST_TYPE a --> LIST_TYPE a) DROP drop_v ==>
-    NUM x1 v1 /\ LIST_TYPE a x2 v2 ==>
-    app (p:'ffi ffi_proj) drop_v [v1; v2] emp (\v. & (LIST_TYPE a (DROP x1 x2) v))``,
-  rewrite_tac [app_def] \\ rpt (
-    rpt strip_tac
-    \\ drule Arrow_IMP_app_basic
-    \\ disch_then drule
-    \\ match_mp_tac app_basic_weaken
-    \\ fs [cond_def]
-    \\ rpt strip_tac
-    \\ fs [cond_def,SEP_EXISTS_THM]
-    \\ qexists_tac `emp` \\ fs [SEP_CLAUSES]));
 
 val _ = export_theory ()

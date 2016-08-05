@@ -1,4 +1,6 @@
-structure cfAppSyntax = struct
+structure cfAppSyntax :> cfAppSyntax = struct
+open Abbrev
+
 local
   open HolKernel boolLib bossLib cfAppTheory
 

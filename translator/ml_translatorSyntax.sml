@@ -56,6 +56,30 @@ fun mk_Arrow(t1,t2) = let
   val v2 = mk_var("v1",v_ty)
   in mk_Arrow4(t1,t2,v1,v2) |> rator |> rator end
 
+fun dest_Arrow t = let
+  val (Arrow,mk_Arrow4,dest_Arrow4,is_Arrow) =
+    HolKernel.syntax_fns4 "ml_translator" "Arrow";
+  val t1 = t |> rator |> rand
+  val t2 = t |> rand
+  val a = t1 |> type_of |> dest_type |> snd |> hd
+  val b = t2 |> type_of |> dest_type |> snd |> hd
+  val v1 = mk_var ("v1", mk_type ("fun",[a,b]))
+  val v2 = mk_var ("v2", v_ty)
+  val (t1', t2', _, _) = dest_Arrow4 (list_mk_comb (t, [v1, v2]))
+  in (t1', t2') end
+
+fun is_Arrow t = can dest_Arrow t
+
+fun strip_Arrow t = let
+  val (t1, t2) = dest_Arrow t
+in
+  if is_Arrow t2 then
+    let val (t2_args, t2_ret) = strip_Arrow t2
+    in (t1::t2_args, t2_ret) end
+  else
+    ([t1], t2)
+end
+
 val (write,mk_write,dest_write,is_write) = HolKernel.syntax_fns3 "ml_prog" "write";
 
 end

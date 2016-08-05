@@ -5,6 +5,7 @@ open preamble
 open ConseqConv match_goal
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
+open cfAppLib
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -311,7 +312,7 @@ fun xapply H =
 (* [xspec] *)
 
 fun concl_tm tm =
-  let 
+  let
     val thm' = Drule.IRULE_CANON (ASSUME tm)
     val (_, body) = strip_forall (concl thm')
   in
@@ -329,6 +330,11 @@ fun is_spec_for f tm =
   (concl_tm tm |> app_f_tm) = f
   handle HOL_ERR _ => false
 
+fun is_arrow_spec_for f tm =
+  ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
+  (rand tm) = f
+  handle HOL_ERR _ => false
+
 fun xspec_in_asl f asl =
   List.find (is_spec_for f) asl
 
@@ -337,10 +343,15 @@ fun xspec_in_db f =
       data :: _ => SOME data
     | _ => NONE
 
+fun xspec_from_translator f =
+  case DB.matchp (fn thm => is_arrow_spec_for f (concl thm)) [] of
+      data :: _ => SOME data
+    | _ => NONE
+
 (* todo: variants *)
 fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
   case xspec_in_asl f asl of
-      SOME a => 
+      SOME a =>
       (print "Using a specification from the assumptions\n";
        ttac (ASSUME a) g)
     | NONE =>
@@ -350,8 +361,14 @@ fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
                   " from theory " ^ thy ^ "\n");
            ttac thm g)
         | NONE =>
-          raise ERR "xspec" ("Could not find a specification for " ^
-                             fst (dest_const f))
+          case xspec_from_translator f of
+              SOME ((thy, name), (thm, _)) =>
+              (print ("Using translator specification " ^
+                      name ^ " from theory " ^ thy ^ "\n");
+               ttac (app_of_Arrow_rule thm) g)
+           | NONE =>
+             raise ERR "xspec" ("Could not find a specification for " ^
+                                fst (dest_const f))
 
 (* [xapp] *)
 
