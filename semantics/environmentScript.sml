@@ -28,6 +28,16 @@ val _ = Hol_datatype `
       )))`;
 
 
+(*val eLookupMod : forall 'n 'v. Eq 'n => environment 'n 'v -> list modN -> maybe (environment 'n 'v)*)
+ val _ = Define `
+ (eLookupMod e [] = (SOME e))
+    /\ (eLookupMod (Bind v m) (mn::path) =      
+((case ALOOKUP m mn of
+        NONE => NONE
+      | SOME env => eLookupMod env path
+      )))`;
+
+
 (*val eEmpty : forall 'v 'n. environment 'n 'v*)
 val _ = Define `
  (eEmpty = (Bind [] []))`;
@@ -76,10 +86,13 @@ val _ = Define `
   (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool*)
 val _ = Define `
  (eSubEnv r env1 env2 =  
-(! id v1.    
+((! id v1.    
 (eLookup env1 id = SOME v1)
     ==>    
-(? v2. (eLookup env2 id = SOME v2) /\ r id v1 v2)))`;
+(? v2. (eLookup env2 id = SOME v2) /\ r id v1 v2))
+  /\
+  (! path.    
+(eLookupMod env2 path = NONE) ==> (eLookupMod env1 path = NONE))))`;
 
 
 (*val eAll : forall 'v 'n. Eq 'n, Eq 'v => (id 'n -> 'v -> bool) -> environment 'n 'v -> bool*)
@@ -96,10 +109,7 @@ val _ = Define `
 val _ = Define `
  (eAll2 r env1 env2 =  
 (eSubEnv r env1 env2 /\
-  (! n.    
-(eLookup env1 n = NONE)
-    ==>    
-(eLookup env2 n = NONE))))`;
+  eSubEnv (\ x y z .  r x z y) env2 env1))`;
 
 
 (*val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)*)

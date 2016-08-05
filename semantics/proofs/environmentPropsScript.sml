@@ -1,4 +1,5 @@
 open preamble;
+open astTheory;
 open environmentTheory;
 open terminationTheory;
 
@@ -6,11 +7,11 @@ val _ = new_theory "environmentProps";
 
 (* ----------- Monotonicity for Hol_reln ------------ *)
 
-val eAll_mono = Q.store_thm ("eAll_mono",
+val eAll_mono = Q.store_thm ("eAll_mono[mono]",
   `(!id x. P id x ⇒ Q id x) ⇒ eAll P e ⇒ eAll Q e`,
   rw [eAll_def]);
 
-val eSubEnv_mono = Q.store_thm ("eSubEnv_mono",
+val eSubEnv_mono = Q.store_thm ("eSubEnv_mono[mono]",
   `(!x y z. R1 x y z ⇒ R2 x y z) ⇒ (eSubEnv R1 e1 e2 ⇒ eSubEnv R2 e1 e2)`,
  Cases_on `e1`
  >> Cases_on `e2`
@@ -18,14 +19,14 @@ val eSubEnv_mono = Q.store_thm ("eSubEnv_mono",
  >> rw []
  >> metis_tac []);
 
-val eAll2_mono = Q.store_thm ("eAll2_mono",
+val eAll2_mono = Q.store_thm ("eAll2_mono[mono]",
   `(!x y z. R1 x y z ⇒ R2 x y z) ⇒ eAll2 R1 e1 e2 ⇒ eAll2 R2 e1 e2`,
  rw [eAll2_def]
- >> metis_tac [eSubEnv_mono]);
-
-val _ = export_mono "eAll_mono";
-val _ = export_mono "eSubEnv_mono";
-val _ = export_mono "eAll2_mono";
+ >> irule eSubEnv_mono
+ >> rw []
+ >- metis_tac []
+ >> qexists_tac `\x y z. R1 x z y`
+ >> rw []);
 
 (* ---------- Automatic simps involving empty envs -------------- *)
 
@@ -45,7 +46,10 @@ val alist_to_env_nil = Q.store_thm ("alist_to_env_nil[simp]",
 
 val eSubEnv_eEmpty = Q.store_thm ("eSubEnv_eEmpty[simp]",
   `!r env. eSubEnv r eEmpty env`,
- rw [eSubEnv_def]);
+ rw [eSubEnv_def]
+ >> Induct_on `path`
+ >> Cases_on `env`
+ >> fs [eLookupMod_def, eEmpty_def]);
 
 val eAll_eEmpty = Q.store_thm ("eAll_eEmpty[simp]",
   `!f. eAll f eEmpty`,
@@ -108,29 +112,50 @@ val eLookup_eAppend_none = Q.store_thm ("eLookup_eAppend_none",
  >> every_case_tac
  >> fs []);
 
+val eLookup_eAppend_none = Q.store_thm ("eLookup_eAppend_none",
+  `∀e1 id e2.
+    eLookup (eAppend e1 e2) id = NONE
+    ⇔
+    (eLookup e1 id = NONE ∧
+     (eLookup e2 id = NONE ∨
+      ?p1 p2 e3. p1 ≠ [] ∧ id_to_mods id = p1++p2 ∧ eLookupMod e1 p1 = SOME e3))`,
+ ho_match_mp_tac eLookup_ind
+ >> rw []
+ >> Cases_on `e2`
+ >> fs [eAppend_def, eLookup_def, ALOOKUP_APPEND]
+ >> every_case_tac
+ >> fs [id_to_mods_def, eLookupMod_def]
+ >> eq_tac
+ >> rw []
+ >- (
+   Cases_on `p1`
+   >> fs [eLookupMod_def]
+   >> rfs [])
+ >> rw [METIS_PROVE [] ``x ∨ y ⇔ ~x ⇒ y``]
+ >> qexists_tac `[mn]`
+ >> simp [eLookupMod_def]);
+
 val eLookup_eAppend_some = Q.store_thm ("eLookup_eAppend_some",
   `∀e1 id e2 v.
     eLookup (eAppend e1 e2) id = SOME v
-    ⇒
-    eLookup e1 id = SOME v ∨ (eLookup e1 id = NONE ∧ eLookup e2 id = SOME v)`,
+    ⇔
+    eLookup e1 id = SOME v ∨
+    (eLookup e1 id = NONE ∧ eLookup e2 id = SOME v ∧
+     !p1 p2. p1 ≠ [] ∧ id_to_mods id = p1++p2 ⇒ eLookupMod e1 p1 = NONE)`,
  ho_match_mp_tac eLookup_ind
  >> rw []
  >> Cases_on `e2`
  >> fs [eAppend_def, eLookup_def, ALOOKUP_APPEND]
  >> every_case_tac
- >> fs []);
-
-val eLookup_eAppend1 = Q.store_thm ("eLookup_eAppend1[simp]",
-  `∀e1 id e2 v.
-    eLookup e1 id = SOME v
-    ⇒
-    eLookup (eAppend e1 e2) id = SOME v`,
- ho_match_mp_tac eLookup_ind
+ >> fs [id_to_mods_def]
+ >> eq_tac
  >> rw []
- >> Cases_on `e2`
- >> fs [eAppend_def, eLookup_def, ALOOKUP_APPEND]
- >> every_case_tac
- >> fs []);
+ >> fs []
+ >- (
+   Cases_on `p1`
+   >> fs [eLookupMod_def])
+ >> first_x_assum (qspec_then `[mn]` mp_tac)
+ >> simp [eLookupMod_def]);
 
 val eAppend_to_eBindList = Q.store_thm ("eAppend_to_eBindList",
   `!l. eAppend (alist_to_env l) e = eBindList l e`,
@@ -142,6 +167,31 @@ val eAppend_to_eBindList = Q.store_thm ("eAppend_to_eBindList",
  >> Cases_on `e`
  >> fs [eAppend_def]
  >> metis_tac [eAppend_def, eBind_def]);
+
+val eLookupMod_eAppend_none = Q.store_thm ("eLookupMod_eAppend_none",
+  `!e1 e2 path.
+    eLookupMod (eAppend e1 e2) path = NONE
+    ⇔
+    (eLookupMod e1 path = NONE ∧
+     (eLookupMod e2 path = NONE ∨
+      ?p1 p2 e3. p1 ≠ [] ∧ path = p1++p2 ∧ eLookupMod e1 p1 = SOME e3))`,
+ Induct_on `path`
+ >> rw []
+ >> Cases_on `e2`
+ >> Cases_on `e1`
+ >> fs [eAppend_def, eLookupMod_def, ALOOKUP_APPEND]
+ >> every_case_tac
+ >> fs []
+ >> eq_tac
+ >> rw []
+ >- (
+   Cases_on `p1`
+   >> fs [eLookupMod_def]
+   >> rfs [])
+ >> rw [METIS_PROVE [] ``x ∨ y ⇔ ~x ⇒ y``]
+ >> qexists_tac `[h]`
+ >> simp [eLookupMod_def]);
+
 
 (* -------------- eAll ---------------- *)
 
@@ -197,8 +247,15 @@ val eSubEnv_eBind = Q.store_thm ("eSubEnv_eBind",
   `!R x v1 v2 e1 e2.
      R (Short x) v1 v2 ∧ eSubEnv R e1 e2 ⇒ eSubEnv R (eBind x v1 e1) (eBind x v2 e2)`,
  rw [eBind_def, eSubEnv_def]
- >> Cases_on `id = Short x`
- >> fs []);
+ >- (
+   Cases_on `id = Short x`
+   >> fs [])
+ >> first_x_assum (qspec_then `path` mp_tac)
+ >> Cases_on `path`
+ >> fs [eBind_def, eLookupMod_def]
+ >> Cases_on `e1`
+ >> Cases_on `e2`
+ >> fs [eBind_def, eLookupMod_def]);
 
 (* -------------- eAll2 ---------------- *)
 
@@ -236,9 +293,8 @@ val eAll2_eBind = Q.store_thm ("eAll2_eBind",
   `!R x v1 v2 e1 e2.
      R (Short x) v1 v2 ∧ eAll2 R e1 e2 ⇒ eAll2 R (eBind x v1 e1) (eBind x v2 e2)`,
  rw [eAll2_def]
- >- metis_tac [eSubEnv_eBind]
- >> Cases_on `n = Short x`
- >> fs []);
+ >> irule eSubEnv_eBind
+ >> rw []);
 
 val eAll2_eBindList = Q.store_thm ("eAll2_eBindList",
   `!R l1 l2 e1 e2.
@@ -255,5 +311,11 @@ val eAll2_eBindList = Q.store_thm ("eAll2_eBindList",
  >> fs [eBindList_def]
  >> irule eAll2_eBind
  >> rw []);
+
+val eAll2_eAppend = Q.store_thm ("eAll2_eAppend",
+  `!R e1 e1' e2 e2'.
+    eAll2 R e1 e2 ∧ eAll2 R e1' e2' ⇒ eAll2 R (eAppend e1 e1') (eAppend e2 e2')`,
+ rw [eAll2_def, eSubEnv_def, eLookup_eAppend_some, eLookupMod_eAppend_none]
+ >> metis_tac [NOT_SOME_NONE, SOME_11, option_nchotomy]);
 
 val _ = export_theory ();

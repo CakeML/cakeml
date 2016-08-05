@@ -15,6 +15,15 @@ let rec eLookup (Bind v m) (Short n) = List.lookup n v
       end
 declare termination_argument eLookup = automatic
 
+val eLookupMod : forall 'n 'v. Eq 'n => environment 'n 'v -> list modN -> maybe (environment 'n 'v)
+let rec eLookupMod e [] = Just e
+    and eLookupMod (Bind v m) (mn::path) =
+      match List.lookup mn m with
+      | Nothing -> Nothing
+      | Just env -> eLookupMod env path
+      end
+declare termination_argument eLookupMod = automatic
+
 val eEmpty : forall 'v 'n. environment 'n 'v
 let eEmpty = Bind [] []
 
@@ -46,10 +55,13 @@ let eSing n x = Bind ([(n,x)]) []
 val eSubEnv : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
   (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool
 let eSubEnv r env1 env2 =
-  forall id v1.
+  (forall id v1.
     eLookup env1 id = Just v1
     -->
-    exists v2. eLookup env2 id = Just v2 && r id v1 v2
+    exists v2. eLookup env2 id = Just v2 && r id v1 v2)
+  &&
+  (forall path.
+    eLookupMod env2 path = Nothing --> eLookupMod env1 path = Nothing)
 
 val eAll : forall 'v 'n. Eq 'n, Eq 'v => (id 'n -> 'v -> bool) -> environment 'n 'v -> bool
 let rec eAll f env =
@@ -62,10 +74,7 @@ val eAll2 : forall 'v1 'v2 'n. Eq 'n, Eq 'v1, Eq 'v2 =>
    (id 'n -> 'v1 -> 'v2 -> bool) -> environment 'n 'v1 -> environment 'n 'v2 -> bool
 let eAll2 r env1 env2 =
   eSubEnv r env1 env2 &&
-  (forall n.
-    eLookup env1 n = Nothing
-    -->
-    eLookup env2 n = Nothing)
+  eSubEnv (fun x y z -> r x z y) env2 env1
 
 val eDom : forall 'v 'n. Eq 'n, Eq 'v => environment 'n 'v -> set (id 'n)
 let eDom env = { n | forall v n | eLookup env n = Just v }
