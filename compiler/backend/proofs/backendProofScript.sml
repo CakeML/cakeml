@@ -224,8 +224,10 @@ val convs = [sr_gs_def,sa_gs_def,sl_gs_def,wordPropsTheory.post_alloc_convention
 
 val code_and_locs = [
   data_to_wordTheory.RefByte_code_def,data_to_wordTheory.RefByte_location_def,
-  (*data_to_wordTheory.FromList_code_def,*)data_to_wordTheory.FromList_location_def,
-  (*data_to_wordTheory.RefArray_code_def,*)data_to_wordTheory.RefArray_location_def,
+  data_to_wordTheory.FromList_code_def,data_to_wordTheory.FromList_location_def,
+  data_to_wordTheory.FromList1_code_def,data_to_wordTheory.FromList1_location_def,
+  data_to_wordTheory.Replicate_code_def,data_to_wordTheory.Replicate_location_def,
+  data_to_wordTheory.RefArray_code_def,data_to_wordTheory.RefArray_location_def,
   stackLangTheory.gc_stub_location_def,
   wordLangTheory.raise_stub_location_def
   ]
