@@ -18,16 +18,16 @@ val store2heap_aux_def = Define `
 val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
 
 val ffi2heap_def = Define `
-  ffi2heap ((proj,upd):'ffi ffi_proj) st =
-    if IS_SOME st.final_event then {} else
+  ffi2heap ((proj,upd,names):'ffi ffi_proj) st =
+    if IS_SOME st.final_event \/ ~(ALL_DISTINCT (FLAT names)) then {} else
       { FFI_part n s u ns |
-        MEM n ns /\
-        (!m. MEM m ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) /\
-        !x bytes w new_bytes.
-          u bytes (proj x ' n) = SOME (new_bytes,w) ==>
+        MEM n ns /\ MEM ns names /\ u = upd /\
+        (!m. MEM m ns ==> FLOOKUP (proj st.ffi_state) m = SOME s) /\
+        !x bytes w new_bytes m.
+          u m bytes (proj x ' m) = SOME (new_bytes,w) /\ MEM m ns ==>
           LENGTH new_bytes = LENGTH bytes /\
           ?y.
-            st.oracle n x bytes = Oracle_return y new_bytes /\
+            st.oracle m x bytes = Oracle_return y new_bytes /\
             proj x |++ (MAP (\n. (n,w)) ns) = proj y }`
 
 (* st2heap: 'ffi state -> heap *)
@@ -112,7 +112,7 @@ val store2heap_IN_unique_key = store_thm ("store2heap_IN_unique_key",
 
 val Mem_NOT_IN_ffi2heap = store_thm("Mem_NOT_IN_ffi2heap",
   ``~(Mem rv x IN ffi2heap (p:'ffi ffi_proj) f)``,
-  Cases_on `p` \\ fs [ffi2heap_def] \\ rw []);
+  PairCases_on `p` \\ fs [ffi2heap_def] \\ rw []);
 
 val FFI_part_NOT_IN_store2heap_aux = store_thm("FFI_part_NOT_IN_store2heap_aux",
   ``∀n s. FFI_part x1 x2 x3 x4 ∉ store2heap_aux n s``,
