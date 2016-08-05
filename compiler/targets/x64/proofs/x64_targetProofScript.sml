@@ -5,7 +5,7 @@ val () = new_theory "x64_targetProof"
 
 val () = wordsLib.guess_lengths()
 
-val () = Parse.temp_overload_on ("reg", ``\r. Zr (num2Zreg r)``)
+val () = Parse.temp_overload_on ("reg", ``\r. Zr (total_num2Zreg r)``)
 
 (* some lemmas ---------------------------------------------------------- *)
 
@@ -122,10 +122,12 @@ val binop_lem7 =
           (sw2sw (w2w c: word32) = c)``
 
 val binop_lem8 = Q.prove(
-   `!i. is_rax (reg i) = (RAX = num2Zreg i)`,
+   `!i. is_rax (reg i) = (RAX = total_num2Zreg i)`,
    strip_tac
+   \\ simp [x64_targetTheory.total_num2Zreg_def]
    \\ wordsLib.Cases_on_word_value `num2Zreg i`
-   \\ rw [x64Theory.is_rax_def])
+   \\ rw [x64Theory.is_rax_def]
+   )
 
 val binop_lem9b = Q.prove(
    `!n. n < 64 ==>
@@ -356,7 +358,7 @@ val cmp_lem6 = Q.prove(
 
 val cmp_lem7 = Q.prove(
    `!n. n < 16 ==> (is_rax (reg n) = (n = 0))`,
-   rw [x64Theory.is_rax_def]
+   rw [x64Theory.is_rax_def, x64_targetTheory.total_num2Zreg_def]
    \\ fs [wordsTheory.NUMERAL_LESS_THM, x64Theory.num2Zreg_thm]
    )
 
@@ -422,7 +424,7 @@ val dec_neq0 = blastLib.BBLAST_PROVE ``!x: word4. (x || 8w) <> 0w``
 
 val is_rax_Zreg2num = Q.prove(
    `!n. n < 16 /\ is_rax (reg n) ==> (0 = n)`,
-   rw [x64Theory.is_rax_def]
+   rw [x64Theory.is_rax_def, x64_targetTheory.total_num2Zreg_def]
    \\ fs [wordsTheory.NUMERAL_LESS_THM]
    \\ rfs []
    )
@@ -445,7 +447,7 @@ val encode_rwts =
        rex_prefix_def, e_opc_def, e_rm_imm8_def, e_opsize_imm_def,
        not_byte_def, e_rax_imm_def, e_rm_imm_def, e_imm_8_32_def, e_imm_def,
        e_imm8_def, e_imm16_def, e_imm32_def, e_imm64_def, Zsize_width_def,
-       Zbinop_name2num_thm, asmSemTheory.is_test_def
+       Zbinop_name2num_thm, asmSemTheory.is_test_def, total_num2Zreg_def
        ]
    end
 
