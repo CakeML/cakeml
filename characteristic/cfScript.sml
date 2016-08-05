@@ -1118,7 +1118,7 @@ val cf_def = tDefine "cf" `
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
   cf (p:'ffi ffi_proj) (Letrec funs e) =
     (cf_fun_rec (p:'ffi ffi_proj)
-       (MAP (\x. (x, cf p (SND (SND x)))) (letrec_pull_params funs))
+       (MAP (\x. (x, cf p (normalise (SND (SND x))))) (letrec_pull_params funs))
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
@@ -1487,11 +1487,52 @@ val DROP_EL_CONS = Q.prove (
   Cases_on `n` \\ fs []
 )
 
+val nary_normalise_def = Define `
+  (nary_normalise (Fun n x) = Fun n (nary_normalise x)) /\
+  (nary_normalise y = normalise y)`;
+
+val app_naryRecclosure_normalise = store_thm("app_naryRecclosure_normalise",
+  ``app p (naryRecclosure env (letrec_pull_params funs) f) xvs H Q =
+    app p (naryRecclosure env (letrec_pull_params
+      (MAP (\(x1,x2,x3). (x1,x2,nary_normalise x3)) funs)) f) xvs H Q``,
+  cheat);
+
+val FST_rw = prove(
+  ``(\(x,_,_). x) = FST``,
+  fs [FUN_EQ_THM,FORALL_PROD]);
+
+val Fun_body_nary_normalise = prove(
+  ``Fun_body (nary_normalise h2) =
+    case Fun_body h2 of
+    | NONE => NONE
+    | SOME body => SOME (nary_normalise body)``,
+  cheat);
+
+val Fun_body_NONE_IMP_nary_normalise = prove(
+  ``Fun_body body = NONE ==> nary_normalise body = normalise body``,
+  cheat);
+
+(*
+
+val MAP_normalise_letrec_pull_params = store_thm("MAP_normalise_letrec_pull_params",
+  ``!funs.
+      (MAP (λ(x1,x2,x3). (x1,x2,normalise x3)) (letrec_pull_params funs)) =
+      letrec_pull_params (MAP (λ(x1,x2,x3). (x1,x2,nary_normalise x3)) funs)``,
+  Induct THEN1 EVAL_TAC
+  \\ strip_tac \\ PairCases_on `h` \\ fs [letrec_pull_params_def]
+  \\ rewrite_tac[Fun_body_nary_normalise]
+  \\ CASE_TAC \\ fs [] THEN1
+   (Cases_on `h2` \\ fs [nary_normalise_def,Fun_body_def]
+    \\ every_case_tac \\ fs [])
+  \\ cheat);
+*)
+
 val cf_letrec_sound_aux = Q.prove (
   `!funs e.
      let naryfuns = letrec_pull_params funs in
      (∀x. MEM x naryfuns ==>
-          sound (p:'ffi ffi_proj) (SND (SND x)) (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+          sound (p:'ffi ffi_proj) (normalise (SND (SND x)))
+            (cf (p:'ffi ffi_proj) (normalise (SND (SND x))))) ==>
      sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
      !fns rest.
        funs = rest ++ fns ==>
@@ -1505,8 +1546,12 @@ val cf_letrec_sound_aux = Q.prove (
               (MAP (\ (f,_,_). f) naryfuns) fvs
               (MAP (\ (_,ns,_). ns) naryfns)
               (DROP (LENGTH naryrest) fvs)
-              (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
+              (MAP (\x. cf (p:'ffi ffi_proj) (normalise (SND (SND x)))) naryfns)
               (cf (p:'ffi ffi_proj) e) env H Q)`,
+
+  cheat);
+
+(*
 
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
   THEN1 (
@@ -1518,7 +1563,9 @@ val cf_letrec_sound_aux = Q.prove (
     fs [letrec_pull_params_names, extend_env_rec_build_rec_env] \\
     rewrite_tac [sound_def] \\ disch_then progress \\ instantiate
   )
+
   THEN1 (
+
     qx_gen_tac `ftuple` \\ PairCases_on `ftuple` \\ rename1 `(f, n, body)` \\
     rpt strip_tac \\
     (* rest := rest ++ [(f,n,body)] *)
@@ -1559,32 +1606,84 @@ val cf_letrec_sound_aux = Q.prove (
       `LENGTH rest < LENGTH funs` by (
         qpat_assum `_ = funs` (assume_tac o GSYM) \\ fs []) \\
       fs [EL_MAP] \\ qpat_assum `_ = funs` (assume_tac o GSYM) \\
-      fs [el_append3, ADD1]
+      fs [el_append3, ADD1] \\ NO_TAC
     ) \\ fs [] \\
     (* We can now unfold fun_rec_aux *)
     fs [fun_rec_aux_def] \\ rewrite_tac [ONE] \\
     fs [LENGTH_CONS, LENGTH_NIL, PULL_EXISTS] \\
     fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     impl_tac
+
     THEN1 (
-      `MEM (f, params, inner_body) (letrec_pull_params funs)` by (
+
+(*
+      `MEM (f, params, inner_body) (MAP ( \ (x1,x2,x3). (x1,x2,normalise x3))
+         (letrec_pull_params funs))` by (
          qpat_assum `_ = funs` (assume_tac o GSYM) \\
          fs [letrec_pull_params_append, letrec_pull_params_def] \\
          qunabbrev_tac `params` \\ qunabbrev_tac `inner_body` \\
+         every_case_tac \\ fs [] \\ NO_TAC
+      ) \\
+*)
+
+(*
+      `MEM (f, params, inner_body) (letrec_pull_params
+         (MAP ( \ (x1,x2,x3). (x1,x2,nary_normalise x3)) funs))` by all_tac
+
+         qpat_assum `_ = funs` (assume_tac o GSYM) \\
+         fs [letrec_pull_params_append, letrec_pull_params_def] \\
+         fs [Fun_body_nary_normalise] \\
+         Cases_on `Fun_body body` \\ fs []
+         THEN1 (metis_tac [Fun_body_NONE_IMP_nary_normalise]) \\
+         qunabbrev_tac `params` \\ qunabbrev_tac `inner_body` \\
+
          every_case_tac \\ fs []
-      ) \\
-      `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)` by (
+*)
+
+      `find_recfun f (letrec_pull_params
+         (MAP ( \ (x1,x2,x3). (x1,x2,nary_normalise x3)) funs)) =
+            SOME (params, inner_body)` by all_tac (
         fs [evalPropsTheory.find_recfun_ALOOKUP] \\
-        irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [] \\
-        `FST = (\ ((f:tvarN),(_:tvarN list),(_:exp)). f)` by (
-          irule EQ_EXT \\ qx_gen_tac `x` \\ PairCases_on `x` \\ fs []) \\
-        fs [letrec_pull_params_names]
+        irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [GSYM FST_rw] \\
+        fs [letrec_pull_params_names] \\
+        simp [MAP_MAP_o] \\
+        fs [o_DEF] \\
+        CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\
+        CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [FST_rw] \\ NO_TAC
       ) \\
+
+
       rpt strip_tac
-      THEN1 (irule curried_naryRecclosure \\ fs [])
+      THEN1 (irule curried_naryRecclosure \\ fs [] \\
+             pop_assum mp_tac \\
+             qspec_tac (`letrec_pull_params funs`,`ts`) \\
+             Induct \\ simp [Once find_recfun_def] \\
+             strip_tac \\ PairCases_on `h` \\ fs [] \\
+             rw [] \\ simp [Once find_recfun_def])
+
       THEN1 (
-        irule app_rec_of_sound_cf \\ fs [letrec_pull_params_names] \\
-        first_assum progress \\ qunabbrev_tac `params` \\ every_case_tac \\
+
+        once_rewrite_tac [app_naryRecclosure_normalise] \\
+        irule app_rec_of_sound_cf
+        THEN1
+         (`FST = (\ ((f:tvarN),(_:tvarN),(_:exp)). f)` by (
+            irule EQ_EXT \\ qx_gen_tac `x` \\ PairCases_on `x` \\ fs []) \\
+          simp [MAP_MAP_o] \\ fs [o_DEF] \\
+          CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\
+          CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+
+
+
+ \\ fs [letrec_pull_params_names] \\
+
+        fs [MEM_MAP] \\
+        PairCases_on `y` \\ fs [] \\
+        first_assum progress \\
+        instantiate \\
+        rfs[] \\
+        instantiate \\
+
+ \\ qunabbrev_tac `params` \\ every_case_tac \\
         fs []
       )
     ) \\ strip_tac \\
@@ -1593,11 +1692,13 @@ val cf_letrec_sound_aux = Q.prove (
     disch_then progress \\ instantiate \\ fs [Once bigStepTheory.evaluate_cases]
   )
 )
+*)
 
 val cf_letrec_sound = Q.prove (
   `!funs e.
     (!x. MEM x (letrec_pull_params funs) ==>
-         sound (p:'ffi ffi_proj) (SND (SND x)) (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+         sound (p:'ffi ffi_proj) (normalise (SND (SND x)))
+           (cf (p:'ffi ffi_proj) (normalise (SND (SND x))))) ==>
     sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
     sound (p:'ffi ffi_proj) (Letrec funs e)
       (\env H Q.
@@ -1608,12 +1709,13 @@ val cf_letrec_sound = Q.prove (
         fun_rec_aux (p:'ffi ffi_proj)
           (MAP (\ (f,_,_). f) funs) fvs
           (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
-          (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) (letrec_pull_params funs))
+          (MAP (\x. cf (p:'ffi ffi_proj) (normalise (SND (SND x))))
+             (letrec_pull_params funs))
           (cf (p:'ffi ffi_proj) e) env H Q)`,
   rpt strip_tac \\ mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound_aux) \\
   fs [] \\ disch_then (qspecl_then [`funs`, `[]`] mp_tac) \\
   fs [letrec_pull_params_names, letrec_pull_params_def]
-)
+);
 
 val build_cases_evaluate_match = Q.prove (
   `!v env H Q rows p st h_i h_k bind_exn_v.
@@ -1764,8 +1866,6 @@ val cf_sound = store_thm ("cf_sound",
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
-
-
   THEN1 (
     (* App *)
 
