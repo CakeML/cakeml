@@ -1096,6 +1096,13 @@ val cf_match_def = Define `
       exp2v env e = SOME v /\
       build_cases v rows env H Q)`
 
+val normalise_def = Define `
+  normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
+
+val evaluate_normalise = store_thm("evaluate_normalise",
+  ``evaluate F env s (normalise exp) res = evaluate F env s exp res``,
+  fs [normalise_def]);
+
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
   cf (p:'ffi ffi_proj) (Con opt args) = cf_con opt args /\
@@ -1105,7 +1112,7 @@ val cf_def = tDefine "cf" `
        (case Fun_body e1 of
           | SOME body =>
             cf_fun (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
-              (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
+              (cf (p:'ffi ffi_proj) (normalise body)) (cf (p:'ffi ffi_proj) e2)
           | NONE => cf_bottom)
      else
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
@@ -1204,7 +1211,7 @@ val cf_def = tDefine "cf" `
     cf_match e (MAP (\b. (FST b, cf p (SND b))) branches) /\
   cf _ _ = cf_bottom
 `
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  (WF_REL_TAC `measure (exp_size o SND)` \\ rw [normalise_def]
      THEN1 (
        Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
        drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
@@ -1665,9 +1672,38 @@ val SPLIT_SING_2 = store_thm("SPLIT_SING_2",
   ``SPLIT s (x,{y}) <=> (s = y INSERT x) /\ ~(y IN x)``,
   SPLIT_TAC);
 
+val sound_normalise = store_thm("sound_normalise",
+  ``sound p (normalise e) R <=> sound p e R``,
+  fs [sound_def,evaluate_normalise]);
+
+val evaluate_Fun =
+  ``evaluate b env s (Fun n e) res``
+  |> SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases]
+
+val app_naryClosure_normalise = store_thm("app_naryClosure_normalise",
+  ``!ns env H Q.
+      LENGTH xvs = LENGTH ns ==>
+      app (p:'ffi ffi_proj) (naryClosure env ns inner_body) xvs H Q =
+      app p (naryClosure env ns (normalise inner_body)) xvs H Q``,
+  Induct_on `xvs` \\ Cases_on `ns` \\ fs [app_def]
+  \\ Cases_on `xvs` \\ Cases_on `t` \\ fs []
+  THEN1 (fs [app_def,app_basic_def,do_opapp_def,evaluate_normalise,
+          naryClosure_def,Fun_params_def,naryFun_def])
+  \\ rw [] \\ pop_assum (mp_tac o GSYM)
+  \\ fs [LENGTH_CONS,PULL_EXISTS]
+  \\ rw [] \\ first_x_assum drule \\ fs [app_def]
+  \\ Cases_on `t'` \\ rw [] \\ fs [LENGTH_NIL] \\ rveq
+  THEN1
+   (fs [app_def,LENGTH_NIL]
+    \\ rw [] \\ simp [app_basic_def,do_opapp_def,naryClosure_def,naryFun_def,
+                evaluate_Fun,evaluate_normalise])
+  \\ fs [LENGTH_CONS] \\ rveq
+  \\ rw [] \\ simp [app_basic_def,do_opapp_def,naryClosure_def,naryFun_def,
+                evaluate_Fun,evaluate_normalise]
+  \\ fs [naryClosure_def,naryFun_def]);
+
 val cf_sound = store_thm ("cf_sound",
   ``!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)``,
-
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
@@ -1693,7 +1729,12 @@ val cf_sound = store_thm ("cf_sound",
         `naryClosure env (Fun_params (Fun n body)) inner_body` \\
       impl_tac \\ strip_tac
       THEN1 (irule curried_naryClosure \\ fs [Fun_params_def])
-      THEN1 (fs [Fun_params_def, app_of_sound_cf]) \\
+      THEN1
+       (rw []
+        \\ drule (GEN_ALL app_naryClosure_normalise)
+        \\ disch_then (fn th => once_rewrite_tac [th])
+        \\ irule app_of_sound_cf
+        \\ fs [Fun_params_def, app_of_sound_cf]) \\
       qpat_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
       cf_evaluate_step_tac \\ Cases_on `opt` \\
       fs [is_bound_Fun_def, THE_DEF, Fun_params_def] \\ instantiate \\
