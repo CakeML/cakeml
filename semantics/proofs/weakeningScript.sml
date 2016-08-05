@@ -736,6 +736,7 @@ val weak_decls_union = Q.store_thm ("weak_decls_union",
  rw [] >>
  fs [weak_decls_def, union_decls_def, SUBSET_DEF] >>
  metis_tac []);
+ *)
 
 val weak_decls_union2 = Q.store_thm ("weak_decls_union2",
 `!decls1 decls2 decls3.
@@ -745,6 +746,7 @@ val weak_decls_union2 = Q.store_thm ("weak_decls_union2",
  rw [] >>
  fs [weak_decls_def, union_decls_def, SUBSET_DEF]);
 
+ (*
 val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
 `!mn decls1 decls2 decls3.
   weak_decls_other_mods mn decls1 decls2
@@ -816,6 +818,7 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   >> rw [tenv_ok_def]
   >> fs [extend_env_new_decs_def]
   >> metis_tac [weakC_merge, weak_decls_union, weak_decls_other_mods_union]);
+  *)
 
 val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
 `!decls1 decls2 decls3.
@@ -847,6 +850,7 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
  res_tac >>
  fs [SUBSET_DEF]);
 
+ (*
  (*
 val lemma = Q.prove(
 `∀uniq mn (tdecs1:decls) tenv ds tdecs1' decls.

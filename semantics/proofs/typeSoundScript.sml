@@ -1656,7 +1656,11 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> fs []
      >- (
        fs [decs_type_sound_invariant_def, good_ctMap_def, extend_dec_env_def]
-       >> cheat)
+       >> fs [extend_dec_tenv_def, extend_dec_env_def]
+       >> `type_all_env ctMap' tenvS' env1 tenv1`
+         by metis_tac [type_all_env_weakening, store_type_extension_weakS]
+       >> fs [type_all_env_def]
+       >> metis_tac [eAll2_eAppend])
      >- (
        Cases_on `e`
        >> fs []

@@ -55,6 +55,11 @@ val extend_dec_tenv_assoc = Q.store_thm ("extend_dec_tenv_assoc[simp]",
     extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3`,
  rw [extend_dec_tenv_def]);
 
+val id_to_mods_mk_id = Q.store_thm ("id_to_mods_mk_id[simp]",
+  `!mn x. id_to_mods (mk_id mn x) = mn`,
+ Induct_on `mn`
+ >> rw [id_to_mods_def, mk_id_def]);
+
 (* ---------- check_freevars ---------- *)
 
 val check_freevars_add = Q.store_thm ("check_freevars_add",
@@ -2330,6 +2335,7 @@ val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
    irule tenv_tabbrev_ok_merge
    >> simp [tenv_tabbrev_ok_def, FEVERY_FEMPTY])
  >> rw [tenv_ctor_ok_merge, tenv_ctor_ok_def]);
+ *)
 
 val type_d_mod = Q.store_thm ("type_d_mod",
 `!uniq mn tdecs tenv d tdecs' new_tenv.
@@ -2347,6 +2353,7 @@ val type_d_mod = Q.store_thm ("type_d_mod",
  TRY (PairCases_on `y`) >>
  full_simp_tac(srw_ss())[]);
 
+ (*
 val no_new_mods = Q.store_thm ("no_new_mods",
 `!x uniq mn decls1 tenv d decls1' tenvT' tenvC' tenv'.
   type_d uniq mn decls1 tenv d decls1' (tenvT',tenvC',tenv') ∧
@@ -2454,6 +2461,7 @@ val type_ds_tenv_val_ok = Q.store_thm ("type_ds_tenv_val_ok",
      PairCases_on `new_tenv` >>
      full_simp_tac(srw_ss())[bvl2_append, num_tvs_bvl2, extend_env_new_decs_def, append_new_dec_tenv_def] >>
      metis_tac [tenv_val_ok_bvl2]));
+     *)
 
 val type_ds_mod = Q.store_thm ("type_ds_mod",
 `!uniq mn tdecs tenv ds tdecs' new_tenv.
@@ -2475,6 +2483,7 @@ val type_ds_mod = Q.store_thm ("type_ds_mod",
  rw_tac (bool_ss) [] >>
  metis_tac []);
 
+ (*
 val type_ds_tenv_ok_helper = Q.store_thm ("type_ds_tenv_ok_helper",
  `∀u mn tdecs tenv ds tdecs' new_tenv.
    type_ds u mn tdecs tenv ds tdecs' new_tenv ⇒
