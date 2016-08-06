@@ -6,9 +6,32 @@ val _ = new_theory "basisProgram"
 
 (* setup *)
 
-fun trans names def = let
-  val _ = (next_ml_names := names)
-  in translate def end
+fun get_module_prefix () = let
+  val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())
+               |> concl |> rator |> rator |> rand
+  in if optionSyntax.is_none mod_tm then "" else
+       stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
+  end
+
+fun trans ml_name q = let
+  val rhs = Term q
+  val prefix = get_module_prefix ()
+  val tm = mk_eq(mk_var(prefix ^ pick_name ml_name,type_of rhs),rhs)
+  val def = Define `^tm`
+  val _ = (next_ml_names := [ml_name])
+  val v_thm = translate (def |> SIMP_RULE std_ss [FUN_EQ_THM])
+  val v_thm = v_thm |> REWRITE_RULE [def]
+                    |> CONV_RULE (DEPTH_CONV ETA_CONV)
+  val v_name = v_thm |> concl |> rand |> dest_const |> fst
+  (* evaluate precondition *)
+  val pat = PRECONDITION_def |> SPEC_ALL |> GSYM |> concl |> rand
+  fun PRECOND_CONV c tm =
+    if can (match_term pat) tm then RAND_CONV c tm else NO_CONV tm
+  val v_thm = v_thm |> DISCH_ALL
+                    |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
+                    |> UNDISCH_ALL
+  val _ = save_thm(v_name ^ "_thm",v_thm)
+  in v_thm end
 
 fun append_prog tm = let
   val tm = QCONV EVAL tm |> concl |> rand
@@ -50,26 +73,23 @@ val _ = append_prog
 
 (* the parser targets the following for int arith ops -- translated *)
 
-val _ = trans ["+"] (Define `plus i1 i2 = i1 + i2:int`);
-val _ = trans ["-"] (Define `minus i1 i2 = i1 - i2:int`);
-val _ = trans ["*"] (Define `times i1 i2 = i1 * i2:int`);
-val _ = trans ["div"] (Define `div i1 i2 = i1 / i2:int`);
-val _ = trans ["mod"] (Define `mod i1 i2 = i1 % i2:int`);
-val _ = trans ["<"] (Define `lt i1 i2 = (i1 < (i2:int))`);
-val _ = trans [">"] (Define `gt i1 i2 = (i1 > (i2:int))`);
-val _ = trans ["<="] (Define `le i1 i2 = (i1 <= (i2:int))`);
-val _ = trans [">="] (Define `ge i1 i2 = (i1 >= (i2:int))`);
-val _ = trans ["~"] (Define `uminus i = 0-(i:int)`);
+val _ = trans "+" `(+):int->int->int`
+val _ = trans "-" `(-):int->int->int`
+val _ = trans "*" `int_mul`
+val _ = trans "div" `(/):int->int->int`
+val _ = trans "mod" `(%):int->int->int`
+val _ = trans "<" `(<):int->int->bool`
+val _ = trans ">" `(>):int->int->bool`
+val _ = trans "<=" `(<=):int->int->bool`
+val _ = trans ">=" `(>=):int->int->bool`
+val _ = trans "~" `\i. - (i:int)`
 
 
 (* other basics that parser targets -- CF verified *)
 
-val eq_def = Define `eq x1 x2 = (x1 = (x2:'a))`;
-val not_def = Define `not x = if x then F else T`;
-val noteq_def = Define `noteq x1 x2 = (not (eq x1 x2))`;
-val _ = trans ["="] eq_def;
-val _ = trans ["not"] not_def;
-val _ = trans ["<>"] (noteq_def |> REWRITE_RULE[eq_def,not_def]);
+val _ = trans "=" `\x1 x2. x1 = x2:'a`
+val _ = trans "not" `\x. ~x:bool`
+val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
 
 val _ = append_prog
   ``[Tdec (mk_binop ":=" Opassign);
@@ -104,8 +124,8 @@ val assign_spec = store_thm ("assign_spec",
 val _ = ml_prog_update (open_module "Word8");
 
 val _ = append_dec ``Dtabbrev [] "word" (Tapp [] TC_word8)``;
-val _ = trans [] (Define `FromInt i = (n2w i):word8`);
-val _ = trans [] (Define `toInt w = w2n (w:word8)`);
+val _ = trans "fromInt" `n2w:num->word8`
+val _ = trans "toInt" `w2n:word8->num`
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -170,9 +190,9 @@ val w8array_update_spec = store_thm ("w8array_update_spec",
 val _ = ml_prog_update (open_module "Vector");
 
 val _ = append_dec ``Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)``;
-val _ = trans [] (Define `fromList l = Vector l`);
-val _ = trans ["length"] (Define `vec_length l = length l`);
-val _ = trans ["sub"] (Define `vec_sub l = sub l`);
+val _ = trans "fromList" `Vector`
+val _ = trans "length" `length`
+val _ = trans "sub" `sub`
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -228,12 +248,12 @@ val array_update_spec = store_thm ("array_update_spec",
 val _ = ml_prog_update (open_module "Char");
 
 val _ = append_dec ``Dtabbrev [] "char" (Tapp [] TC_char)``;
-val _ = trans [] (Define `ord c = ORD c`);
-val _ = trans [] (Define `chr c = CHR c`);
-val _ = trans ["<"] (Define `lt c1 c2 = (c1 < (c2:char))`);
-val _ = trans [">"] (Define `gt c1 c2 = (c1 > (c2:char))`);
-val _ = trans ["<="] (Define `le c1 c2 = (c1 <= (c2:char))`);
-val _ = trans [">="] (Define `ge c1 c2 = (c1 >= (c2:char))`);
+val _ = trans "ord" `ORD`
+val _ = trans "chr" `CHR`
+val _ = trans "<" `string$char_lt`
+val _ = trans ">" `string$char_gt`
+val _ = trans "<=" `string$char_le`
+val _ = trans ">=" `string$char_ge`
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -243,9 +263,9 @@ val _ = ml_prog_update (close_module NONE);
 val _ = ml_prog_update (open_module "String");
 
 val _ = append_dec ``Dtabbrev [] "string" (Tapp [] TC_string)``;
-val _ = trans ["explode"] (Define `str_explode s = explode s`);
-val _ = trans ["implode"] (Define `str_implode s = implode s`);
-val _ = trans ["size"] (Define `str_size s = strlen (s:mlstring)`);
+val _ = trans "explode" `explode`
+val _ = trans "implode" `implode`
+val _ = trans "size" `strlen`
 
 val _ = ml_prog_update (close_module NONE);
 

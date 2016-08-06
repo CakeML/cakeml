@@ -192,6 +192,7 @@ fun pick_name str =
   if str = "<=" then "le" else
   if str = ">=" then "ge" else
   if str = "=" then "eq" else
+  if str = "<>" then "neq" else
   if str = "~" then "uminus" else
   if str = "+" then "plus" else
   if str = "-" then "minus" else
