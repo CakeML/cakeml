@@ -1,12 +1,12 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open compiler64_preludeProgTheory;
 
 val _ = new_theory "compiler64Prog"
 
 (* temporary *)
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "compiler64_preludeProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -44,7 +44,7 @@ fun def_of_const tm = let
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
 
-  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``] else []
+  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``,beta|->``:64``] else []
 
   val def = def |> INST_TYPE insts
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
@@ -56,113 +56,94 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val _ = use_long_names:=true;
+
 val spec64 = INST_TYPE[alpha|->``:64``]
 
 val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-(* Attempts at translating bvp_to_word things *)
-open data_to_wordTheory
-
-val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
-
-val wcomp_simp = SIMP_RULE std_ss [word_2comp_def]
-
-val _ = translate adjust_set_def
-
-val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv64_RHS)
-
-val shift_left_def = Define`
-  shift_left (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) then 0w
-  else if n > 32 then shift_left (a << 32) (n - 32)
-  else if n > 16 then shift_left (a << 16) (n - 16)
-  else if n > 8 then shift_left (a << 8) (n - 8)
-  else shift_left (a << 1) (n - 1)`
-
-val shift_left_rwt = Q.prove(
-  `!a n. a << n = shift_left a n`,
-  completeInduct_on `n`
-  \\ rw [Once shift_left_def]
-  \\ qpat_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [])
-
-val shift_right_def = Define`
-  shift_right (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) then 0w
-  else if n > 32 then shift_right (a >>> 32) (n - 32)
-  else if n > 16 then shift_right (a >>> 16) (n - 16)
-  else if n > 8 then shift_right (a >>> 8) (n - 8)
-  else shift_right (a >>> 1) (n - 1)`
-
-val shift_right_rwt = Q.prove(
-  `!a n. a >>> n = shift_right a n`,
-  completeInduct_on `n`
-  \\ rw [Once shift_right_def]
-  \\ qpat_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [])
-
-val _ = translate (shift_left_def |> conv64)
-val _ = translate (shift_right_def |> spec64 |> CONV_RULE fcpLib.INDEX_CONV)
-
-val _ = translate (tag_mask_def |> conv64_RHS |> we_simp |> conv64_RHS |> SIMP_RULE std_ss [shift_left_rwt] |> SIMP_RULE std_ss [Once (GSYM shift_left_rwt),word_2comp_def] |> conv64)
-
-val _ = translate (encode_header_def |> conv64_RHS)
-
-(* Manually inlined: shift_def, bytes_in_word *)
-val inline_simp = SIMP_RULE std_ss [shift_def,bytes_in_word_def]
-
-(* TODO: the wordLang datatype translations run into some weird errors with their no_closures proofs, better investigate that *)
-val _ = translate (StoreEach_def |> inline_simp |> conv64)
-
-val _ = translate (all_ones_def |> conv64_RHS |> we_simp |> SIMP_RULE std_ss [shift_left_rwt,shift_right_rwt] |> wcomp_simp |> conv64 |> wcomp_simp |> conv64)
-
-val _ = translate (maxout_bits_def |> SIMP_RULE std_ss [word_lsl_n2w] |> conv64)
-
-val _ = translate (ptr_bits_def  |> conv64)
-
-val _ = translate (real_addr_def |> inline_simp |> conv64_RHS |> SIMP_RULE std_ss [LET_THM])
-
-val _ = translate (real_offset_def |> inline_simp |> conv64)
-val _ = translate (real_byte_offset_def |> inline_simp |> conv64)
-val _ = translate (GiveUp_def |> wcomp_simp |> conv64)
-
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
-
-val assign_rw = prove(``
-  (i < 0 ⇒ n2w (Num (4 * (0 -i))) = n2w (Num (ABS (4*(0-i))))) ∧
-  (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))``,
-  rw[]
-  >-
-    (`0 ≤ 4* -i` by intLib.COOPER_TAC>>
-    fs[GSYM integerTheory.INT_ABS_EQ_ID])
-  >>
-    `0 ≤ 4*i` by intLib.COOPER_TAC>>
-    fs[GSYM integerTheory.INT_ABS_EQ_ID])
-
-(* TODO: word_mul should maybe target a real op ? *)
-
-val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def])
-
-val assign_side = prove(``
-  ∀a b c d e f g. assign_side a b c d e f g ⇔ T``,
-  simp[fetch "-" "assign_side_def"]>>
-  (* Needs to check len args > 0 in SetGlobalsPtr case*)
-  cheat) |> update_precondition
-
 (*
-metis_tac fails, probably because the induction thm doesn't match up somewhere...
+When word_to_word$compile is done:
 
-val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64)
+val _ = translate (compile_def |> SIMP_RULE std_ss [stubs_def] |> conv64_RHS)
 *)
 
-open word_simpTheory
+open word_simpTheory word_allocTheory word_instTheory
 
-(* TODO: This method of forcing defs to be instantiated at :64 isn't very neat. find_def_for_const should instead use some way of finding (and automatically instantiating) type variables that are FCPs *)
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val _ = translate (spec64 compile_exp_def)
+
+val _ = translate (spec64 max_var_def)
+
+(* TODO: Remove from x64Prog *)
+val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
+val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
+
+val _ = translate (wordLangTheory.num_exp_def |> conv64)
+val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (op_consts_def|>conv64|> SIMP_RULE std_ss [word_2comp_def] |> conv64)
+
+val rws = prove(``
+  ($+ = λx y. x + y) ∧
+  ($&& = λx y. x && y) ∧
+  ($|| = λx y. x || y) ∧
+  ($?? = λx y. x ?? y)``,
+  fs[FUN_EQ_THM])
+
+val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws]|> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (convert_sub_def |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
+
+val _ = translate (spec64 pull_exp_def)
+
+val word_inst_pull_exp_side = prove(``
+  ∀x. word_inst_pull_exp_side x ⇔ T``,
+  ho_match_mp_tac pull_exp_ind>>rw[]>>
+  simp[Once (fetch "-" "word_inst_pull_exp_side_def"),
+      fetch "-" "word_inst_optimize_consts_side_def",
+      wordLangTheory.word_op_def]>>
+  metis_tac[]) |> update_precondition
+
+val _ = translate (spec64 inst_select_def)
+
+(* Argh, SSA has a few defs that have both beta AND alpha although only the alpha is necessary *)
+val _ = translate (spec64 list_next_var_rename_move_def)
+
+val word_alloc_list_next_var_rename_move_side = prove(``
+  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T``,
+  simp[fetch "-" "word_alloc_list_next_var_rename_move_side_def"]>>
+  Induct_on`z`>>fs[list_next_var_rename_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
+
+val _ = translate (spec64 full_ssa_cc_trans_def)
+
+val word_alloc_full_ssa_cc_trans_side = prove(``
+  ∀x y. word_alloc_full_ssa_cc_trans_side x y``,
+  simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
+  rw[]>>pop_assum kall_tac>>
+  map_every qid_spec_tac [`v6`,`v7`,`y`]>>
+  ho_match_mp_tac ssa_cc_trans_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "word_alloc_ssa_cc_trans_side_def")]>>
+  map_every qid_spec_tac [`ssa`,`na`]>>
+  Induct_on`ls`>>fs[list_next_var_rename_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
+
+(* TODO: this fails, I think because the exp induction is messed up...
+
+val _ = translate (spec64 get_live_exp_def)
+
+val _ = translate (spec64 remove_dead_def|> SIMP_RULE std_ss [get_live_def])
+*)
+
+val _ = translate (spec64 three_to_two_reg_def)
+
+(* TODO: move the allocator translation, then translate word_alloc *)
 
 val _ = export_theory();

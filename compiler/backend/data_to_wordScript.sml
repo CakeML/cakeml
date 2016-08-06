@@ -168,7 +168,10 @@ val assign_def = Define `
         then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
-    | SetGlobalsPtr => (Seq (Set Globals (Var (adjust_var (HD args))))
+    | SetGlobalsPtr =>
+      if args = []
+      then (Skip,l)
+      else (Seq (Set Globals (Var (adjust_var (HD args))))
                             (Assign (adjust_var dest) Unit),l)
     | ToList => (Skip,l)
     | Global _ => (Skip,l)
