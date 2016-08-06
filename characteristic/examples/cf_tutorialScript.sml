@@ -203,8 +203,8 @@ val bytearray_fromlist_spec = Q.prove (
        emp (\av. W8ARRAY av l)`,
   xcf "fromList" st \\
   xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
-  xlet `\w8z. & WORD (i2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
-  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) (i2w 0))`
+  xlet `\w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
     THEN1 (xapp \\ fs []) \\
 
   (* [cf_fun] and [cf_fun_rec] goals are handled by [xfun] and

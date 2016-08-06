@@ -221,8 +221,8 @@ val bytearray_fromlist_spec = Q.prove (
        emp (\av. W8ARRAY av l)`,
   xcf "fromList" st \\
   xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
-  xlet `\w8z. & WORD (i2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
-  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) (i2w 0))`
+  xlet `\w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
     THEN1 (xapp \\ fs []) \\
   xfun_spec `f`
     `!ls lvs i iv l_pre rest.
@@ -254,8 +254,7 @@ val bytearray_fromlist_spec = Q.prove (
     )
   ) \\
   xapp \\ fs [] \\ xsimpl \\
-  Q.LIST_EXISTS_TAC [`REPLICATE (LENGTH l) (i2w 0)`, `l`, `[]`] \\
-  fs [LENGTH_REPLICATE]
+  fs [LENGTH_NIL_SYM, LENGTH_REPLICATE]
 )
 
 val _ = export_theory();
