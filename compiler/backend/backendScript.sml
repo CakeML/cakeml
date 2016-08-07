@@ -29,6 +29,8 @@ val _ = Datatype`config =
    ; lab_conf : 'a lab_to_target$config
    |>`;
 
+val config_component_equality = theorem"config_component_equality";
+
 val compile_def = Define`
   compile c p =
     let (c',p) = source_to_mod$compile c.source_conf p in
@@ -350,5 +352,22 @@ val to_livesets_invariant = store_thm("to_livesets_invariant",``
      to_mod_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[]))
+
+val to_data_change_config = Q.store_thm("to_data_change_config",
+  `to_data c1 prog = (c1',prog') ⇒
+   c2.source_conf = c1.source_conf ∧
+   c2.mod_conf = c1.mod_conf ∧
+   c2.clos_conf = c1.clos_conf ∧
+   c2.bvl_conf = c1.bvl_conf
+   ⇒
+   to_data c2 prog =
+     (c2 with <| source_conf := c1'.source_conf;
+                 mod_conf := c1'.mod_conf;
+                 clos_conf := c1'.clos_conf;
+                 bvl_conf := c1'.bvl_conf |>,
+      prog')`,
+  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_exh_def,to_dec_def,to_con_def,to_mod_def]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
+  \\ simp[config_component_equality]);
 
 val _ = export_theory();
