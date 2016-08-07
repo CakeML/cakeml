@@ -270,7 +270,101 @@ val _ = trans "size" `strlen`
 val _ = ml_prog_update (close_module NONE);
 
 
-(* TODO: add a few modules for basic I/O once CF supports FFI *)
+(* CharIO -- CF verified *)
+
+(*
+
+  val print = bytarray [0w];
+  val print = fn c =>
+    val _ = print[0] := (n2w (ord c))
+    in FFI 0 print end
+
+*)
+
+val _ = ml_prog_update (open_module "CharIO");
+
+fun derive_eval_thm v_name e = let
+  val th = get_ml_prog_state () |> get_thm
+  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
+           handle HOL_ERR _ =>
+           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
+  val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
+  val lemma = goal
+    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
+            PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
+  val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),fs [lemma])
+                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
+  val v_tm = v_thm |> concl |> rand |> rand |> rand
+  val v_def = define_abbrev true v_name v_tm
+  in v_thm |> REWRITE_RULE [GSYM v_def] end
+
+val e = ``(App Aw8alloc [Lit (IntLit 1); Lit (Word8 0w)])``
+
+val _ = ml_prog_update (add_Dlet (derive_eval_thm "print_loc" e) "print" [])
+
+val Apps_def = tDefine "Apps" `
+  (Apps [x;y] = App Opapp [x;y]) /\
+  (Apps [] = ARB) /\
+  (Apps xs = App Opapp [Apps (FRONT xs); LAST xs])`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_FRONT]);
+
+val e =
+  ``Let (SOME "c") (App Opapp [Var (Long "Char" "ord"); Var (Short "c")])
+     (Let (SOME "c") (App Opapp [Var (Long "Word8" "fromInt"); Var (Short "c")])
+       (Let (SOME "c") (Apps [Var (Long "Word8Array" "update"); Var (Short "print");  Lit (IntLit 0); Var (Short "c")])
+         (Let (SOME "_") (App (FFI 0) [Var (Short "print")])
+           (Var (Short "c")))))``
+  |> EVAL |> concl |> rand
+
+val _ = ml_prog_update (add_Dlet_Fun ``"print"`` ``"c"`` e "print_v")
+
+val _ = ml_prog_update (close_module NONE);
+
+val stdout_fun_def = Define `
+  stdout_fun = (\_ bytes s. case (bytes,s) of
+                    | ([w],Str output) => SOME ([w],Str (output ++ [CHR (w2n w)]))
+                    | _ => NONE)`
+
+val STDOUT_def = Define `
+  STDOUT output = IO (Str output) stdout_fun [0]`
+
+val CHAR_IO_def = Define `
+  CHAR_IO = SEP_EXISTS w. W8ARRAY print_loc [w]`;
+
+val print_spec = store_thm ("print_spec",
+  ``!a av n nv v.
+     CHAR c cv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.print" (basis_st()))
+       [cv]
+       (CHAR_IO * STDOUT output)
+       (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
+  xcf "CharIO.print" (basis_st()) \\ reduce_tac
+  \\ fs [CHAR_IO_def] \\ xpull
+  \\ xlet `\xv. W8ARRAY print_loc [w] * STDOUT output * & (NUM (ORD c) xv)`
+  THEN1 (xapp \\ xsimpl \\ metis_tac [])
+  \\ xlet `\wv. W8ARRAY print_loc [w] * STDOUT output *
+                & (WORD (n2w (ORD c):word8) wv)`
+  THEN1 (xapp \\ xsimpl \\ metis_tac [])
+  \\ xlet `\zv. STDOUT output * W8ARRAY print_loc [n2w (ORD c)] * & (UNIT_TYPE () zv)`
+  THEN1
+   (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``print_loc``]
+    \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
+  \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY print_loc [n2w (ORD c)]`
+  THEN1
+   (fs [cf_ffi_def]
+    \\ match_mp_tac local_elim \\ fs [EVAL ``print_loc``]
+    \\ reduce_tac \\ fs [app_ffi_def]
+    \\ fs [STDOUT_def]
+    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate
+    \\ qexists_tac `[n2w (ORD c)]` \\ xsimpl
+    \\ qexists_tac `emp` \\ xsimpl
+    \\ qexists_tac `Str output` \\ fs []
+    \\ qexists_tac `Str (output ++ [c])` \\ fs []
+    \\ qexists_tac `stdout_fun` \\ xsimpl
+    \\ EVAL_TAC \\ fs [ORD_BOUND,CHR_ORD])
+  \\ fs [cf_var_def] (* TODO: see why xret and xvar don't work here *)
+  \\ match_mp_tac local_elim
+  \\ reduce_tac \\ xsimpl);
 
 
 (* definition of basis program *)
