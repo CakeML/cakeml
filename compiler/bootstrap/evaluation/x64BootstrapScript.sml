@@ -111,75 +111,87 @@ val word_prog = thm0 |> rconc |> listSyntax.dest_list |> #1
 
 val num_progs = length word_prog
 
-open Thread
+local
+  open Thread
 
-fun chunks_of n ls =
-  let
-    val (ch,rst) = split_after n ls
-  in
-    if null rst then [ch]
-    else ch::(chunks_of n rst)
-  end handle HOL_ERR _ => [ls]
+  fun chunks_of n ls =
+    let
+      val (ch,rst) = split_after n ls
+    in
+      if null rst then [ch]
+      else ch::(chunks_of n rst)
+    end handle HOL_ERR _ => [ls]
+
+in
+  fun parMAP str_fn chunk_size eval_fn ls =
+    let
+      val chs = chunks_of chunk_size ls
+
+      fun do_eval n [] acc = acc
+        | do_eval n (p::ps) acc =
+          let
+            val () = Lib.say(str_fn n)
+            val th = eval_fn p
+          in do_eval (n-1) ps (th::acc) end
+
+      val mutex = Mutex.mutex()
+      val cvar = ConditionVar.conditionVar()
+      val threads_left = ref (length chs)
+
+      fun do_chunk ch n r () =
+        let
+          val () = r := do_eval n ch []
+          val () = Mutex.lock mutex
+          val () = threads_left := !threads_left-1
+          val () = Mutex.unlock mutex
+          val () = ConditionVar.signal cvar
+        in () end
+
+      fun foldthis (ch,(n,refs)) =
+        let
+          val r = ref []
+          val _ = Thread.fork (do_chunk ch n r, [])
+        in (n-chunk_size,r::refs) end
+
+      val true = Mutex.trylock mutex
+
+      val (_,refs) = List.foldl foldthis (num_progs,[]) chs
+
+      fun wait () =
+        if !threads_left = 0 then Mutex.unlock mutex
+        else (ConditionVar.wait(cvar,mutex); wait())
+
+      val () = wait ()
+
+      val ths = List.concat (List.map (op!) refs)
+
+      fun mk_conv() =
+        let
+          val next_thm = ref ths
+          fun el_conv _ =
+            case !next_thm of th :: rest =>
+              let val () = next_thm := rest in th end
+        in
+          listLib.MAP_CONV el_conv
+        end
+    in
+      mk_conv
+    end
+end
 
 val chunk_size = 400
+fun str_fn n = String.concat["eval word_to_word (",Int.toString n,"remain): "]
+fun eval_fn p =
+  mk_comb(word_to_word_fn,p)
+  |> (RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC
+      time eval)
 
-val chs = chunks_of chunk_size word_prog
-
-fun do_word_to_word n [] acc = acc
-  | do_word_to_word n (p::ps) acc =
-    let
-      val tm = mk_comb(word_to_word_fn,p)
-      val () = Lib.say("eval word_to_word ("^Int.toString(n)^" remain): ")
-      val th = tm
-        |> (RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC
-            time eval)
-    in do_word_to_word (n-1) ps (th::acc) end
-
-val mutex = Mutex.mutex();
-
-val cvar = ConditionVar.conditionVar();
-
-val num_chunks = length chs
-
-val threads_left = ref num_chunks
-
-fun do_chunk ch n r () =
-  let
-    val () = r := do_word_to_word n ch []
-    val () = Mutex.lock mutex
-    val () = threads_left := !threads_left-1
-    val () = Mutex.unlock mutex
-    val () = ConditionVar.signal cvar
-  in () end
-
-fun foldthis (ch,(n,refs)) =
-  let
-    val r = ref []
-    val _ = Thread.fork (do_chunk ch n r, [])
-  in (n-chunk_size,r::refs) end
-
-val true = Mutex.trylock mutex
-
-val (_,refs) = List.foldl foldthis (num_progs,[]) chs
-
-fun wait () =
-  if !threads_left = 0 then Mutex.unlock mutex
-  else (ConditionVar.wait(cvar,mutex); wait())
-
-val () = wait ()
-
-val ths = List.concat (List.map (op!) refs)
-
-val next_thm = ref ths
-fun el_conv _ =
-  case !next_thm of th :: rest =>
-    let val () = next_thm := rest in th end
+val map_conv = parMAP str_fn chunk_size eval_fn word_prog ()
 
 val thm1 =
   tm1
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
-      RAND_CONV(REWR_CONV thm0) THENC
-      listLib.MAP_CONV el_conv)
+      RAND_CONV(REWR_CONV thm0) THENC map_conv)
 
 val word_prog0_def = zDefine`
   word_prog0 = ^(thm1 |> rconc)`;
@@ -192,8 +204,6 @@ val to_livesets_thm1 =
        RAND_CONV(REWR_CONV thm1') THENC
        BETA_CONV THENC
        REWR_CONV LET_THM))
-
-(* evaluate this MAP similarly to above *)
 
 val tm2 = to_livesets_thm1 |> rconc |> rand
 
@@ -208,59 +218,18 @@ val clash_fn = clash_fn_eq|>concl|>lhs
 
 val word_prog0 = thm1 |> rconc |> listSyntax.dest_list |> #1
 
-val chs = chunks_of chunk_size word_prog0
+fun str_fn n = String.concat["eval clash (",Int.toString n," remain): "]
+fun eval_fn p =
+  mk_comb(clash_fn,p)
+  |> (RATOR_CONV(REWR_CONV clash_fn_eq) THENC
+      time eval)
 
-fun do_clash n [] acc = acc
-  | do_clash n (p::ps) acc =
-    let
-      val tm = mk_comb(clash_fn,p)
-      val () = Lib.say("eval clash ("^Int.toString(n)^" remain): ")
-      val th = tm
-        |> (RATOR_CONV(REWR_CONV clash_fn_eq) THENC
-            time eval)
-    in do_clash (n-1) ps (th::acc) end
-
-val num_chunks = length chs
-
-val () = threads_left := num_chunks
-
-fun do_chunk ch n r () =
-  let
-    val () = r := do_clash n ch []
-    val () = Mutex.lock mutex
-    val () = threads_left := !threads_left-1
-    val () = Mutex.unlock mutex
-    val () = ConditionVar.signal cvar
-  in () end
-
-fun foldthis (ch,(n,refs)) =
-  let
-    val r = ref []
-    val _ = Thread.fork (do_chunk ch n r, [])
-  in (n-chunk_size,r::refs) end
-
-val true = Mutex.trylock mutex
-
-val (_,refs) = List.foldl foldthis (num_progs,[]) chs
-
-fun wait () =
-  if !threads_left = 0 then Mutex.unlock mutex
-  else (ConditionVar.wait(cvar,mutex); wait())
-
-val () = wait ()
-
-val ths = List.concat (List.map (op!) refs)
-
-val next_thm = ref ths
-fun el_conv _ =
-  case !next_thm of th :: rest =>
-    let val () = next_thm := rest in th end
+val map_conv = parMAP str_fn chunk_size eval_fn word_prog0 ()
 
 val thm2 =
   tm2
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM clash_fn_eq))) THENC
-      RAND_CONV(REWR_CONV word_prog0_def) THENC
-      listLib.MAP_CONV el_conv)
+      RAND_CONV(REWR_CONV word_prog0_def) THENC map_conv)
 
 val to_livesets_thm =
   to_livesets_thm1
