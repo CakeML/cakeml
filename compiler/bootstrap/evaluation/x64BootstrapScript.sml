@@ -99,7 +99,7 @@ val to_livesets_thm1 =
 val tm1 = to_livesets_thm0 |> rconc |> rand
 
 val (args,body) = tm1 |> rator |> rand |> dest_pabs
-val word_to_word_fn_def = Define`word_to_word_fn ^args = ^body`;
+val word_to_word_fn_def = zDefine`word_to_word_fn ^args = ^body`;
 val word_to_word_fn_eq =
   word_to_word_fn_def
   |> SPEC_ALL
@@ -194,5 +194,174 @@ val to_livesets_thm1 =
        REWR_CONV LET_THM))
 
 (* evaluate this MAP similarly to above *)
+
+val tm2 = to_livesets_thm1 |> rconc |> rand
+
+val (args,body) = tm2 |> rator |> rand |> dest_pabs
+val clash_fn_def = zDefine`clash_fn ^args = ^body`;
+val clash_fn_eq =
+  clash_fn_def
+  |> SPEC_ALL
+  |> PairRules.PABS args
+  |> CONV_RULE(LAND_CONV PairRules.PETA_CONV)
+val clash_fn = clash_fn_eq|>concl|>lhs
+
+val word_prog0 = thm1 |> rconc |> listSyntax.dest_list |> #1
+
+val chs = chunks_of chunk_size word_prog0
+
+fun do_clash n [] acc = acc
+  | do_clash n (p::ps) acc =
+    let
+      val tm = mk_comb(clash_fn,p)
+      val () = Lib.say("eval clash ("^Int.toString(n)^" remain): ")
+      val th = tm
+        |> (RATOR_CONV(REWR_CONV clash_fn_eq) THENC
+            time eval)
+    in do_clash (n-1) ps (th::acc) end
+
+val num_chunks = length chs
+
+val () = threads_left := num_chunks
+
+fun do_chunk ch n r () =
+  let
+    val () = r := do_clash n ch []
+    val () = Mutex.lock mutex
+    val () = threads_left := !threads_left-1
+    val () = Mutex.unlock mutex
+    val () = ConditionVar.signal cvar
+  in () end
+
+fun foldthis (ch,(n,refs)) =
+  let
+    val r = ref []
+    val _ = Thread.fork (do_chunk ch n r, [])
+  in (n-chunk_size,r::refs) end
+
+val true = Mutex.trylock mutex
+
+val (_,refs) = List.foldl foldthis (num_progs,[]) chs
+
+fun wait () =
+  if !threads_left = 0 then Mutex.unlock mutex
+  else (ConditionVar.wait(cvar,mutex); wait())
+
+val () = wait ()
+
+val ths = List.concat (List.map (op!) refs)
+
+val next_thm = ref ths
+fun el_conv _ =
+  case !next_thm of th :: rest =>
+    let val () = next_thm := rest in th end
+
+val thm2 =
+  tm2
+  |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM clash_fn_eq))) THENC
+      RAND_CONV(REWR_CONV word_prog0_def) THENC
+      listLib.MAP_CONV el_conv)
+
+val to_livesets_thm =
+  to_livesets_thm1
+  |> CONV_RULE (RAND_CONV (
+       RAND_CONV(REWR_CONV thm2) THENC
+       BETA_CONV THENC
+       PATH_CONV"lrlr"eval))
+
+val oracles =
+  to_livesets_thm
+  |> rconc |> pairSyntax.dest_pair |> #1
+  |> time reg_allocComputeLib.get_oracle
+
+val x64_oracle_def = zDefine`
+  x64_oracle = ^oracles`;
+
+val wc =
+  ``x64_compiler_config.word_to_word_conf
+    with col_oracle := x64_oracle``
+
+(*
+val to_livesets_invariant' = Q.prove(
+  `to_livesets c p =
+   let (rcm,c1,p) = to_livesets (c with word_to_word_conf := wc) p in
+     (rcm,c1 with word_to_word_conf := c.word_to_word_conf,p)`,
+  qmatch_goalsub_abbrev_tac`LET _ (to_livesets cc p)`
+  \\ qspecl_then[`cc`,`c.word_to_word_conf`]mp_tac(Q.GENL[`wc`,`c`]to_livesets_invariant)
+  \\ simp[Abbr`cc`]
+  \\ disch_then(SUBST1_TAC o SYM)
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[config_component_equality]);
+*)
+
+val args = to_livesets_thm |> concl |> lhs |> strip_comb |> #2
+
+val word_prog1_def = zDefine`
+  word_prog1 = ^(thm2 |> rconc)`;
+
+val to_livesets_thm' =
+  to_livesets_thm
+  |> CONV_RULE(RAND_CONV(
+       PATH_CONV"lrr"(REWR_CONV(SYM word_prog1_def))))
+
+val to_livesets_oracle_thm =
+  to_livesets_invariant
+  |> Q.GEN`wc` |> SPEC wc
+  |> Q.GENL[`p`,`c`] |> ISPECL args
+  |> CONV_RULE(RAND_CONV(
+       REWR_CONV LET_THM THENC
+       RAND_CONV(REWR_CONV to_livesets_thm') THENC
+       PAIRED_BETA_CONV))
+
+val args = to_livesets_oracle_thm |> concl |> lhs |> strip_comb |> #2
+
+val LENGTH_word_prog0 =
+  listSyntax.mk_length(lhs(concl(word_prog0_def)))
+  |> (RAND_CONV(REWR_CONV word_prog0_def) THENC
+      listLib.LENGTH_CONV)
+
+val LENGTH_word_prog1 =
+  listSyntax.mk_length(lhs(concl(word_prog1_def)))
+  |> (RAND_CONV(REWR_CONV word_prog1_def) THENC
+      listLib.LENGTH_CONV)
+
+(* TODO: move *)
+val ZIP_GENLIST1 = Q.store_thm("ZIP_GENLIST1",
+  `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`,
+  Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]);
+(* -- *)
+
+val ZIP_GENLIST_lemma =
+  MATCH_MP LENGTH_ZIP
+    (TRANS LENGTH_word_prog1 (SYM LENGTH_word_prog0))
+  |> CONJUNCT1
+  |> C TRANS LENGTH_word_prog1
+  |> MATCH_MP ZIP_GENLIST1
+  |> ISPEC (lhs(concl(x64_oracle_def)))
+
+val compile_thm0 =
+  compile_oracle |> SYM
+  |> Q.GENL[`p`,`c`] |> ISPECL args
+  |> CONV_RULE(RAND_CONV(
+       RAND_CONV(REWR_CONV to_livesets_oracle_thm) THENC
+       REWR_CONV from_livesets_def THENC
+       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
+       RAND_CONV(
+         RAND_CONV eval THENC
+         RATOR_CONV(RAND_CONV(REWR_CONV LENGTH_word_prog0)) THENC
+         REWR_CONV word_to_wordTheory.next_n_oracle_def) THENC
+       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
+       RAND_CONV eval THENC
+       REWR_CONV LET_THM THENC BETA_CONV THENC
+       REWR_CONV LET_THM THENC BETA_CONV THENC
+       RAND_CONV(
+         RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
+         REWR_CONV MAP_GENLIST THENC
+         RATOR_CONV(RAND_CONV(
+           REWR_CONV o_DEF THENC
+           ABS_CONV(RAND_CONV BETA_CONV))) THENC
+         ALL_CONV (* rewrite the EL_ZIP *)) THENC
+       REWR_CONV LET_THM THENC BETA_CONV THENC
+       REWR_CONV LET_THM THENC BETA_CONV))
 
 val _ = export_theory();
