@@ -18,7 +18,7 @@ val config_ok_def = Define`
     backendProof$conf_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
-  initial_condition (st:'ffi top_state) (cc:α compiler$config) mc ⇔
+  initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     type_sound_invariants (NONE:(unit,v) semanticPrimitives$result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
@@ -113,7 +113,7 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ strip_tac \\ fs[]);
 
 val compile_correct_gen = Q.store_thm("compile_correct_gen",
-  `∀(st:'ffi top_state) (cc:α compiler$config) prelude input mc.
+  `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc.
     initial_condition st cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
