@@ -197,9 +197,9 @@ val compile_correct = Q.store_thm("compile_correct",
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,
-  rw[initSemEnvTheory.semantics_init_def,code_installed_def]
+  rw[primSemEnvTheory.semantics_init_def,code_installed_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
-  \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[initSemEnvTheory.prim_sem_env_eq]
+  \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[primSemEnvTheory.prim_sem_env_eq]
   \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen
   \\ fs[Abbr`st`]
   \\ disch_then match_mp_tac
