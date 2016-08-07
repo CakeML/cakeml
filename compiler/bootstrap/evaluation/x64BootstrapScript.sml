@@ -1,11 +1,13 @@
 open preamble
+     backendTheory
      to_dataBootstrapTheory
      x64_configTheory
      x64_targetTheory
+     asmLib
 
 val _ = new_theory "x64Bootstrap";
 
-val _ = Globals.max_print_depth := 20;
+val _ = Globals.max_print_depth := 10;
 
 val rconc = rhs o concl;
 
@@ -23,16 +25,19 @@ val same_config = prove(to_data_thm0 |> concl |> rator |> rand,
 val to_data_thm1 =
   MATCH_MP to_data_thm0 same_config
 
-val cs = wordsLib.words_compset();
-val () = basicComputeLib.add_basic_compset cs;
-val () = compilerComputeLib.add_compiler_compset cs;
+val cs = wordsLib.words_compset()
+val () =
+  computeLib.extend_compset [
+    computeLib.Extenders [
+      basicComputeLib.add_basic_compset,
+      compilerComputeLib.add_compiler_compset,
+      asmLib.add_asm_compset ],
+    computeLib.Defs [
+      x64_compiler_config_def,
+      x64_config_def,
+      data_prog_def]
+  ] cs
 val eval = computeLib.CBV_CONV cs;
-
-val () = computeLib.extend_compset
-  [computeLib.Defs
-    [x64_compiler_config_def,
-     x64_config_def,
-     data_prog_def]] cs;
 
 val to_livesets_thm0 =
   ``to_livesets x64_compiler_config init_prog``
@@ -80,7 +85,7 @@ val word_prog0_def = Define`
 val thm1 = thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
 *)
 
-(* 1.5 hours and counting ...
+(* could do it all at once?
 
 Lib.say "eval to_livesets1: "
 
@@ -104,7 +109,9 @@ val word_to_word_fn = word_to_word_fn_eq|>concl|>lhs
 
 val word_prog = thm0 |> rconc |> listSyntax.dest_list |> #1
 
-val total = length word_prog
+val num_progs = length word_prog
+
+(* TODO: use Poly/ML's threads to do this concurrently *)
 
 fun do_word_to_word n [] acc = (n,acc)
   | do_word_to_word n (p::ps) acc =
@@ -116,18 +123,61 @@ fun do_word_to_word n [] acc = (n,acc)
             time eval)
     in do_word_to_word (n-1) ps (th::acc) end
 
-val (ls,prog) = split_after 5 word_prog
-val (remain,ths1) = do_word_to_word total ls []
+val (ls,prog) = split_after 50 word_prog
+val (remain,ths1) = do_word_to_word num_progs ls []
 
-(*
-val (ls,prog) = split_after 5 prog
+val (ls,prog) = split_after 50 prog
 val (remain,ths2) = do_word_to_word remain ls ths1
+
+val (ls,prog) = split_after 100 prog
+val (remain,ths3) = do_word_to_word remain ls ths2
+
+val (ls,prog) = split_after 100 prog
+val (remain,ths4) = do_word_to_word remain ls ths3
+
+val (ls,prog) = split_after 200 prog
+val (remain,ths5) = do_word_to_word remain ls ths4
+
+val (ls,prog) = split_after 200 prog
+val (remain,ths) = do_word_to_word remain ls ths5
+
+val (ls,prog) = split_after 200 prog
+val (remain,ths) = do_word_to_word remain ls ths
+
+val (ls,prog) = split_after 200 prog
+val (remain,ths) = do_word_to_word remain ls ths
+
+val (ls,prog) = split_after 200 prog
+val (remain,ths) = do_word_to_word remain ls ths
+
+val (ls,prog) = split_after 400 prog
+val (remain,ths) = do_word_to_word remain ls ths
+
+val (remain,ths) = do_word_to_word remain prog ths
+
+val next_thm = ref ths
+fun el_conv _ =
+  case !next_thm of th :: rest =>
+    let val () = next_thm := rest in th end
 
 val thm1 =
   tm1
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
-      RAND_CONV(REWR_CONV thm0)) THENC
-      listLib.MAP_CONV (use the accumulated ths))
-*)
+      RAND_CONV(REWR_CONV thm0) THENC
+      listLib.MAP_CONV el_conv)
+
+val word_prog0_def = zDefine`
+  word_prog0 = ^(thm1 |> rconc)`;
+
+val thm1' = thm1 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
+
+val to_livesets_thm1 =
+  to_livesets_thm0
+  |> CONV_RULE (RAND_CONV (
+       RAND_CONV(REWR_CONV thm1') THENC
+       BETA_CONV THENC
+       REWR_CONV LET_THM))
+
+(* evaluate this MAP similarly to above *)
 
 val _ = export_theory();
