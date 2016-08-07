@@ -111,9 +111,21 @@ val word_prog = thm0 |> rconc |> listSyntax.dest_list |> #1
 
 val num_progs = length word_prog
 
-(* TODO: use Poly/ML's threads to do this concurrently *)
+open Thread
 
-fun do_word_to_word n [] acc = (n,acc)
+fun chunks_of n ls =
+  let
+    val (ch,rst) = split_after n ls
+  in
+    if null rst then [ch]
+    else ch::(chunks_of n rst)
+  end handle HOL_ERR _ => [ls]
+
+val chunk_size = 400
+
+val chs = chunks_of chunk_size word_prog
+
+fun do_word_to_word n [] acc = acc
   | do_word_to_word n (p::ps) acc =
     let
       val tm = mk_comb(word_to_word_fn,p)
@@ -123,37 +135,40 @@ fun do_word_to_word n [] acc = (n,acc)
             time eval)
     in do_word_to_word (n-1) ps (th::acc) end
 
-val (ls,prog) = split_after 50 word_prog
-val (remain,ths1) = do_word_to_word num_progs ls []
+val mutex = Mutex.mutex();
 
-val (ls,prog) = split_after 50 prog
-val (remain,ths2) = do_word_to_word remain ls ths1
+val cvar = ConditionVar.conditionVar();
 
-val (ls,prog) = split_after 100 prog
-val (remain,ths3) = do_word_to_word remain ls ths2
+val num_chunks = length chs
 
-val (ls,prog) = split_after 100 prog
-val (remain,ths4) = do_word_to_word remain ls ths3
+val threads_left = ref num_chunks
 
-val (ls,prog) = split_after 200 prog
-val (remain,ths5) = do_word_to_word remain ls ths4
+fun do_chunk ch n r () =
+  let
+    val () = r := do_word_to_word n ch []
+    val () = Mutex.lock mutex
+    val () = threads_left := !threads_left-1
+    val () = Mutex.unlock mutex
+    val () = ConditionVar.signal cvar
+  in () end
 
-val (ls,prog) = split_after 200 prog
-val (remain,ths) = do_word_to_word remain ls ths5
+fun foldthis (ch,(n,refs)) =
+  let
+    val r = ref []
+    val _ = Thread.fork (do_chunk ch n r, [])
+  in (n-chunk_size,r::refs) end
 
-val (ls,prog) = split_after 200 prog
-val (remain,ths) = do_word_to_word remain ls ths
+val true = Mutex.trylock mutex
 
-val (ls,prog) = split_after 200 prog
-val (remain,ths) = do_word_to_word remain ls ths
+val (_,refs) = List.foldl foldthis (num_progs,[]) chs
 
-val (ls,prog) = split_after 200 prog
-val (remain,ths) = do_word_to_word remain ls ths
+fun wait () =
+  if !threads_left = 0 then Mutex.unlock mutex
+  else (ConditionVar.wait(cvar,mutex); wait())
 
-val (ls,prog) = split_after 400 prog
-val (remain,ths) = do_word_to_word remain ls ths
+val () = wait ()
 
-val (remain,ths) = do_word_to_word remain prog ths
+val ths = List.concat (List.map (op!) refs)
 
 val next_thm = ref ths
 fun el_conv _ =
