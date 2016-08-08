@@ -17,18 +17,26 @@ val store2heap_aux_def = Define `
 (* store2heap: v store -> heap *)
 val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
 
+val parts_ok_def = Define `
+  parts_ok st ((proj,parts):'ffi ffi_proj) <=>
+    ALL_DISTINCT (FLAT (MAP FST parts)) /\
+    !x bytes w new_bytes m ns u.
+      MEM (ns,u) parts /\ MEM m ns /\
+      u m bytes (proj x ' m) = SOME (new_bytes,w) ==>
+      LENGTH new_bytes = LENGTH bytes /\
+      ?y.
+        st.oracle m x bytes = Oracle_return y new_bytes /\
+        proj x |++ (MAP (\n. (n,w)) ns) = proj y`
+
 val ffi2heap_def = Define `
-  ffi2heap ((proj,upd,names):'ffi ffi_proj) st =
-    if IS_SOME st.final_event \/ ~(ALL_DISTINCT (FLAT names)) then {} else
-      { FFI_part n s u ns |
-        MEM n ns /\ MEM ns names /\ u = upd /\
-        (!m. MEM m ns ==> FLOOKUP (proj st.ffi_state) m = SOME s) /\
-        !x bytes w new_bytes m.
-          u m bytes (proj x ' m) = SOME (new_bytes,w) /\ MEM m ns ==>
-          LENGTH new_bytes = LENGTH bytes /\
-          ?y.
-            st.oracle m x bytes = Oracle_return y new_bytes /\
-            proj x |++ (MAP (\n. (n,w)) ns) = proj y }`
+
+val ffi2heap_def = prove(``
+  ffi2heap ((proj,parts):'ffi ffi_proj) st =
+    if IS_SOME st.final_event \/ ~parts_ok st (proj,parts) then {} else
+      { FFI_part s u ns |
+        MEM (ns,u) parts /\ ns <> [] /\
+        (!n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) }``,
+  cheat);
 
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
@@ -115,11 +123,11 @@ val Mem_NOT_IN_ffi2heap = store_thm("Mem_NOT_IN_ffi2heap",
   PairCases_on `p` \\ fs [ffi2heap_def] \\ rw []);
 
 val FFI_part_NOT_IN_store2heap_aux = store_thm("FFI_part_NOT_IN_store2heap_aux",
-  ``∀n s. FFI_part x1 x2 x3 x4 ∉ store2heap_aux n s``,
+  ``∀n s. FFI_part x1 x2 x3 ∉ store2heap_aux n s``,
   Induct_on `s` \\ fs [store2heap_aux_def]);
 
 val FFI_part_NOT_IN_store2heap = store_thm("FFI_part_NOT_IN_store2heap",
-  ``!s. ~(FFI_part x1 x2 x3 x4 ∈ store2heap s)``,
+  ``!s. ~(FFI_part x1 x2 x3 ∈ store2heap s)``,
   fs [store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
 
 val store2heap_LUPDATE = store_thm ("store2heap_LUPDATE",

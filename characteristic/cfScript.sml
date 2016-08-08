@@ -1791,32 +1791,21 @@ val SUBSET_IN = prove(
   ``!s t x. s SUBSET t /\ x IN s ==> x IN t``,
   fs [SUBSET_DEF] \\ metis_tac []);
 
-val NOT_Mem_FFI_SET = store_thm("NOT_Mem_FFI_SET",
-  ``Mem x1 x2 ∉ FFI_SET s u ns``,
-  fs [FFI_SET_def]);
-
 val SPLIT_FFI_SET_IMP_DISJOINT = store_thm("SPLIT_FFI_SET_IMP_DISJOINT",
-  ``SPLIT (st2heap p st) (c,FFI_SET s u ns) ==>
-    !s1. DISJOINT c (FFI_SET s1 u ns)``,
+  ``SPLIT (st2heap p st) (c,{FFI_part s u ns}) ==>
+    !s1. ~(FFI_part s1 u ns IN c)``,
   fs [SPLIT_def] \\ rw [] \\ fs [EXTENSION,st2heap_def,DISJOINT_DEF]
   \\ CCONTR_TAC \\ fs []
-  \\ pop_assum (fn th => mp_tac th THEN assume_tac th)
-  \\ simp_tac std_ss [FFI_SET_def] \\ fs []
-  \\ CCONTR_TAC \\ fs [] \\ rveq
-  \\ rename1 `MEM z ns`
-  \\ `~(FFI_part z s1 u ns ∈ FFI_SET s u ns)` by metis_tac []
-  \\ `FFI_part z s u ns ∈ FFI_SET s u ns` by
-        (fs [FFI_SET_def] \\ fs [] \\ NO_TAC)
-  \\ `FFI_part z s1 u ns IN ffi2heap p st.ffi /\
-      FFI_part z s u ns IN ffi2heap p st.ffi` by
+  \\ `FFI_part s1 u ns IN ffi2heap p st.ffi /\
+      FFI_part s u ns IN ffi2heap p st.ffi` by
           metis_tac [FFI_part_NOT_IN_store2heap]
   \\ PairCases_on `p`
-  \\ pop_assum mp_tac
-  \\ pop_assum mp_tac
   \\ fs [ffi2heap_def]
-  \\ IF_CASES_TAC \\ fs []
+  \\ pop_assum mp_tac \\ IF_CASES_TAC \\ fs []
   \\ CCONTR_TAC \\ fs []
-  \\ metis_tac [SOME_11]);
+  \\ Cases_on `s = s1` \\ fs []
+  \\ Cases_on `ns` \\ fs []
+  \\ metis_tac []);
 
 val SPLIT_IMP_Mem_NOT_IN = store_thm("SPLIT_IMP_Mem_NOT_IN",
   ``SPLIT (st2heap p st) ({Mem y xs},c) ==>
@@ -1838,6 +1827,16 @@ val ALL_DISTINCT_FLAT_MEM_IMP = store_thm("ALL_DISTINCT_FLAT_MEM_IMP",
          MEM m ns' /\ MEM m ns ==> ns = ns'``,
   Induct \\ fs [ALL_DISTINCT_APPEND] \\ rw [] \\ fs []
   \\ res_tac \\ fs [MEM_FLAT] \\ metis_tac []);
+
+val ALL_DISTINCT_FLAT_FST_IMP = store_thm("ALL_DISTINCT_FLAT_FST_IMP",
+  ``!p2. ALL_DISTINCT (FLAT (MAP FST p2)) /\
+         MEM (ns,u') p2 /\ MEM (ns,u) p2 /\ ns <> [] ==> u = u'``,
+  Induct \\ fs [ALL_DISTINCT_APPEND] \\ rw [] \\ fs []
+  \\ fs [MEM_FLAT,MEM_MAP,FORALL_PROD]
+  \\ Cases_on `ns` \\ fs []
+  \\ first_x_assum (qspec_then `h` mp_tac) \\ fs []
+  \\ disch_then (qspec_then `h::t` mp_tac) \\ fs []
+  \\ rw [] \\ fs []);
 
 val cf_sound = store_thm ("cf_sound",
   ``!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)``,
@@ -1923,102 +1922,107 @@ val cf_sound = store_thm ("cf_sound",
          \\ imp_res_tac store2heap_IN_LENGTH
          \\ fs [store_lookup_def] \\ NO_TAC) \\
       fs [ffiTheory.call_FFI_def] \\
-      fs [IO_def] \\ rveq \\
-      `FFI_part ffi_index s u ns IN st2heap p st` by
-       (PairCases_on `p` \\
-        `FFI_SET s u ns SUBSET st2heap (p0,p1,p2) st` by SPLIT_TAC \\
-        match_mp_tac SUBSET_IN \\ instantiate \\
-        fs [FFI_SET_def] \\ NO_TAC) \\
+      fs [IO_def,one_def] \\ rveq \\
       fs [st2heap_def,FFI_part_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
-      `st.ffi.final_event = NONE /\ ALL_DISTINCT (FLAT (SND (SND p)))` by
-        (PairCases_on `p` \\ fs [ffi2heap_def]
-         \\ every_case_tac \\ fs [] \\ NO_TAC) \\
-      fs [] \\ ntac 3 (pop_assum mp_tac) \\
-      PairCases_on `p` \\ fs [] \\ simp [Once ffi2heap_def] \\
-      rpt strip_tac \\ fs [] \\
-      first_assum drule \\ simp [FLOOKUP_DEF] \\
+      fs [SPLIT_SING_2] \\ rveq \\
+      `FFI_part s u ns IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
+      fs [FFI_part_NOT_IN_store2heap] \\
+      pop_assum mp_tac \\
+      PairCases_on `p` \\
+      simp [Once ffi2heap_def] \\
+      IF_CASES_TAC \\ fs [] \\ strip_tac \\
+      first_assum drule \\ simp_tac std_ss [FLOOKUP_DEF] \\
       rpt strip_tac \\ rveq \\
+      qpat_assum `parts_ok st.ffi (p0,p1)`
+            (fn th => mp_tac th \\ assume_tac th) \\
+      simp_tac std_ss [parts_ok_def] \\ strip_tac \\
+      qpat_assum `!x. _ ==> _` kall_tac \\
       first_x_assum progress \\ fs [store_assign_def] \\
       imp_res_tac store2heap_IN_EL \\
-      imp_res_tac store2heap_IN_LENGTH \\
+      imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
       fs [store_v_same_type_def,PULL_EXISTS] \\ rveq \\
       progress store2heap_LUPDATE \\ fs [] \\
       fs [FLOOKUP_DEF] \\ rveq \\
       first_assum progress \\ fs [] \\
       qexists_tac `
-         (FFI_SET s' p1 ns UNION
+         (FFI_part s' u ns INSERT
           (Mem y (W8array vs) INSERT u2))` \\
       qexists_tac `{}` \\
-      `SPLIT (store2heap st.refs UNION ffi2heap (p0,p1,p2) st.ffi)
+      `SPLIT (store2heap st.refs UNION ffi2heap (p0,p1) st.ffi)
        (Mem y (W8array ws) INSERT u2 UNION h_k,
-        FFI_SET (p0 st.ffi.ffi_state ' ffi_index) p1 ns) /\
-       SPLIT (store2heap st.refs UNION ffi2heap (p0,p1,p2) st.ffi)
+        {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns}) /\
+        SPLIT (store2heap st.refs UNION ffi2heap (p0,p1) st.ffi)
         (Mem y (W8array ws) INSERT {},
          u2 UNION h_k UNION
-         FFI_SET (p0 st.ffi.ffi_state ' ffi_index) p1 ns)` by SPLIT_TAC \\
+         {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns})` by SPLIT_TAC \\
       fs [GSYM st2heap_def] \\
       drule SPLIT_FFI_SET_IMP_DISJOINT \\
       drule SPLIT_IMP_Mem_NOT_IN \\
-      pop_assum kall_tac \\ pop_assum kall_tac \\ ntac 2 strip_tac \\
+      ntac 2 strip_tac \\
       reverse conj_tac THEN1
-       (first_assum match_mp_tac \\ fs [PULL_EXISTS,SPLIT_SING_2] \\
-        instantiate \\ rveq \\
-        simp [SPLIT_def,AC UNION_COMM UNION_ASSOC] \\ rveq \\
-        fs [NOT_Mem_FFI_SET] \\ res_tac \\
-        SPLIT_TAC) \\
+       (first_assum match_mp_tac \\ fs [PULL_EXISTS,SPLIT_SING_2]) \\
       match_mp_tac SPLIT3_of_SPLIT_emp3 \\
-      qpat_abbrev_tac `f1 = ffi2heap (p0,p1,p2) _` \\
-      `f1 = (ffi2heap (p0,p1,p2) st.ffi DIFF
-             FFI_SET (p0 st.ffi.ffi_state ' ffi_index) p1 ns)
-            UNION FFI_SET s' p1 ns` by all_tac THEN1
+      qpat_abbrev_tac `f1 = ffi2heap (p0,p1) _` \\
+      `f1 = (ffi2heap (p0,p1) st.ffi DELETE
+             FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns)
+            UNION {FFI_part s' u ns}` by all_tac THEN1
         (unabbrev_all_tac \\ fs [ffi2heap_def] \\
-         fs [EXTENSION] \\ reverse (rw [] \\ EQ_TAC \\ rw [] \\ rw [])
-         \\ TRY (res_tac \\ fs [] \\ NO_TAC)
+         IF_CASES_TAC THEN1
+          (`F` by all_tac \\ pop_assum mp_tac \\ fs [] \\
+           fs [parts_ok_def] \\ metis_tac []) \\
+         fs [EXTENSION] \\ reverse (rw [] \\ EQ_TAC \\ rw [])
          THEN1
-          (fs [FFI_SET_def] \\ rveq \\ fs [] \\ rw []
-           \\ res_tac \\ fs [] \\ metis_tac [FLOOKUP_FUPDATE_LIST])
+          (qpat_assum `_ = p0 y'` (fn th => fs [GSYM th]) \\
+           fs [FLOOKUP_FUPDATE_LIST])
          THEN1
           (qpat_assum `_ = p0 y'` (fn th => fs [GSYM th])
-           \\ Cases_on `MEM m ns` \\ fs [FLOOKUP_FUPDATE_LIST]
-           \\ `FLOOKUP (p0 st.ffi.ffi_state) m = SOME s /\
-               FLOOKUP (p0 st.ffi.ffi_state) n = SOME s` by
-                 (res_tac \\ fs [] \\ NO_TAC)
-           \\ fs [FLOOKUP_DEF] \\ rveq \\ fs []
-           \\ qpat_assum `~(_ IN _)` mp_tac
-           \\ Cases_on `ns = ns'` \\ rveq \\ fs [FFI_SET_def]
-           \\ progress ALL_DISTINCT_FLAT_MEM_IMP)
-         \\ Cases_on `FFI_part n s p1 ns' ∈ FFI_SET s' p1 ns` \\ fs []
-         \\ fs [AC CONJ_COMM CONJ_ASSOC] \\ rewrite_tac [CONJ_ASSOC]
-         \\ reverse conj_tac THEN1 metis_tac []
-         \\ `ns <> ns'` by all_tac THEN1
-          (CCONTR_TAC \\ fs [] \\ rveq
-           \\ pop_assum mp_tac \\ fs []
-           \\ simp [FFI_SET_def]
-           \\ `FLOOKUP (p0 y') n = SOME s` by metis_tac []
+           \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+           \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                  (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+           \\ metis_tac [ALL_DISTINCT_FLAT_MEM_IMP])
+         THEN1
+          (`ns <> ns'` by metis_tac [ALL_DISTINCT_FLAT_FST_IMP]
            \\ qpat_assum `_ = p0 y'` (fn th => fs [GSYM th])
-           \\ rfs [FLOOKUP_FUPDATE_LIST])
-         \\ simp [FFI_SET_def] \\ rw []
-         \\ Cases_on `~MEM m ns`
-         THEN1 metis_tac [FLOOKUP_FUPDATE_LIST] \\ fs []
-         \\ progress ALL_DISTINCT_FLAT_MEM_IMP) \\
+           \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+           \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                  (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+           \\ metis_tac [ALL_DISTINCT_FLAT_MEM_IMP])
+         THEN1
+          (qpat_assum `_ = p0 y'` (fn th => fs [GSYM th])
+           \\ rpt strip_tac
+           \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+           \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                  (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+           \\ progress (ALL_DISTINCT_FLAT_MEM_IMP |> Q.INST [`m`|->`n`])
+           \\ rveq \\ fs [] \\ res_tac \\ fs [FLOOKUP_DEF])
+         \\ Cases_on `ns = ns'` \\ fs [] THEN1
+          (rveq  \\ first_x_assum drule
+           \\ qpat_assum `_ = p0 y'` (fn th => fs [GSYM th])
+           \\ fs [FLOOKUP_FUPDATE_LIST] \\ rw [] \\ disj2_tac
+           \\ metis_tac [ALL_DISTINCT_FLAT_FST_IMP])
+         \\ rw [] \\ first_assum drule
+         \\ qpat_assum `_ = p0 y'` (fn th => simp_tac std_ss [GSYM th])
+         \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+         \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+         \\ metis_tac [ALL_DISTINCT_FLAT_MEM_IMP]) \\
       pop_assum (fn th => simp [th]) \\
       pop_assum kall_tac \\
       fs [st2heap_def] \\
       simp [SPLIT_def] \\ reverse (rw [])
-      THEN1 SPLIT_TAC
       THEN1 SPLIT_TAC \\
       fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw [] \\ fs []
       THEN1 SPLIT_TAC
       THEN1 SPLIT_TAC
       THEN1
        (CCONTR_TAC \\ fs [] \\
-        `x IN FFI_SET (p0 st.ffi.ffi_state ' ffi_index) p1 ns` by SPLIT_TAC \\
-        fs [FFI_SET_def] \\ fs [FFI_part_NOT_IN_store2heap])
-      THEN1
-       (CCONTR_TAC \\ fs [] \\
-        `x = Mem y (W8array ws) \/
-         x IN FFI_SET (p0 st.ffi.ffi_state ' ffi_index) p1 ns` by SPLIT_TAC \\
-        fs [Mem_NOT_IN_ffi2heap])) \\
+        `x = FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns` by SPLIT_TAC \\
+        Cases_on `x` \\ fs [] \\
+        fs [FFI_part_NOT_IN_store2heap])
+      \\ CCONTR_TAC \\ fs []
+      \\ `x IN u2 ∪ h_k ∪ {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns} UNION {Mem y (W8array ws)}` by SPLIT_TAC
+      \\ pop_assum mp_tac
+      \\ fs [] \\ fs [ffi2heap_def] \\ rfs[]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
     cf_strip_sound_tac \\

@@ -14,17 +14,18 @@ val _ = Datatype `
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
+val _ = temp_type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list # ffi) option``);
+
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
-            | FFI_part num ffi (num -> word8 list -> ffi -> (word8 list # ffi) option) (num list)`
+            | FFI_part ffi ffi_next (num list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
 
 val _ = type_abbrev("ffi_proj",
   ``: ('ffi -> (num |-> ffi)) #
-      (num -> word8 list -> ffi -> (word8 list # ffi) option) #
-      (num list list)``)
+      ((num list # ffi_next) list)``)
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
@@ -81,11 +82,8 @@ val W8ARRAY_def = Define `
   W8ARRAY av wl =
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
 
-val FFI_SET_def = Define `
-  FFI_SET s u ns = { FFI_part x s u ns |x| MEM x ns }`;
-
 val IO_def = Define `
-  IO s u ns = (\t. t = FFI_SET s u ns)`;
+  IO s u ns = one (FFI_part s u ns)`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
