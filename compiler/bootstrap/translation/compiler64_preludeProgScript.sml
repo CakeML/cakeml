@@ -1,12 +1,12 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open reg_allocProgTheory;
 
 val _ = new_theory "compiler64_preludeProg"
 
 (* temporary *)
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "reg_allocProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -46,7 +46,8 @@ fun def_of_const tm = let
 
   val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``] else []
 
-  val def = def |> INST_TYPE insts
+  val def = def |> RW (!extra_preprocessing)
+                |> INST_TYPE insts
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 (* TODO: This ss messes up defs containing if-then-else
                 with constant branches

@@ -1,16 +1,13 @@
 open preamble
-open ml_translatorLib mini_preludeTheory listLib;
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
-open astPP ml_translatorTheory
-open lcsymtacs
+open ml_translatorLib ml_translatorTheory;
+open std_preludeTheory;
 
-val _ = new_theory "reg_alloc_translate";
+val _ = new_theory "reg_allocProg";
 
-val _ = std_preludeLib.std_prelude ();
+val _ = translation_extends "std_prelude";
 
 val _ = add_preferred_thy "reg_alloc";
-
-val _ = set_trace "Goalstack.print_goal_at_top" 0; (*/"*)
 
 val NOT_NIL_AND_LEMMA = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
@@ -55,7 +52,7 @@ val rpt_do_step_alt = prove(``
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  impl_tac>- 
+  impl_tac>-
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
@@ -76,7 +73,7 @@ val rpt_do_step2_alt = prove(``
   Cases_on`do_step2 s`>>
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step2_clock_lemma>>
-  impl_tac>- 
+  impl_tac>-
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
@@ -84,8 +81,31 @@ val rpt_do_step2_alt = prove(``
 
 val _ = translate rpt_do_step2_alt
 
+val briggs_coalesce_alt_lem = prove(
+``∀s.
+  MWHILE briggs_has_work do_briggs_step s =
+  ((),WHILE (FST o briggs_has_work) (SND o do_briggs_step) s)``,
+  completeInduct_on`s.clock`>>rw[]>>
+  fs[Once whileTheory.WHILE]>>
+  Q.ISPECL_THEN [`briggs_has_work`,`do_briggs_step`] assume_tac MWHILE_DEF>>
+  pop_assum (SUBST1_TAC)>>
+  fsm[briggs_has_work_def,get_clock_def,get_avail_moves_def,get_avail_moves_pri_def]>>
+  IF_CASES_TAC>>fsm[PULL_FORALL]>>
+  Cases_on`do_briggs_step s`>>
+  first_x_assum(qspec_then`r` mp_tac)>>
+  fsm[do_briggs_step_clock_lemma]>>
+  strip_tac>>
+  simp[Once whileTheory.WHILE,SimpRHS])
+
+val briggs_coalesce_alt = prove(``
+  briggs_coalesce = \s. ((),SND (set_unavail_moves [] (SND (set_move_rel LN (WHILE (FST o briggs_has_work) (SND o do_briggs_step) s)))))``,
+  fs[FUN_EQ_THM,briggs_coalesce_def,IGNORE_BIND_DEF,BIND_DEF,UNCURRY,set_unavail_moves_def,set_move_rel_def]>>
+  fs[briggs_coalesce_alt_lem])
+
+val _ = translate briggs_coalesce_alt
+
 (*Use the clock trick*)
-val rpt_do_step_side_def = prove(``
+val rpt_do_step_side = prove(``
   ∀s. rpt_do_step_side s ⇔ T``,
   fsm[fetch "-" "rpt_do_step_side_def"]>>
   completeInduct_on`s.clock`>>
@@ -99,7 +119,7 @@ val rpt_do_step_side_def = prove(``
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  impl_tac>- 
+  impl_tac>-
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
@@ -110,7 +130,7 @@ val rpt_do_step_side_def = prove(``
   IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
 
 (*Use the clock trick*)
-val rpt_do_step2_side_def = prove(``
+val rpt_do_step2_side = prove(``
   ∀s. rpt_do_step2_side s ⇔ T``,
   fsm[fetch "-" "rpt_do_step2_side_def"]>>
   completeInduct_on`s.clock`>>
@@ -124,13 +144,38 @@ val rpt_do_step2_side_def = prove(``
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step2_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  impl_tac>- 
+  impl_tac>-
     (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
   pop_assum(qspec_then`r` mp_tac)>>rfs[]>>
   IF_CASES_TAC>>fs[]>>
   `¬((FUNPOW (SND o do_step2) (SUC n) s).clock > 0)` by
+    fs[FUNPOW]>>
+  IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
+
+val briggs_coalesce_side = prove(``
+  ∀s. briggs_coalesce_side s ⇔ T``,
+  fsm[fetch "-" "briggs_coalesce_side_def"]>>
+  completeInduct_on`s.clock`>>
+  rw[]>>
+  fsm[whileTheory.OWHILE_def]>>
+  reverse (Cases_on`FST(briggs_has_work s)`)>>
+  fsm[briggs_has_work_def,get_clock_def,get_avail_moves_def,get_avail_moves_pri_def]>>
+  TRY
+    (IF_CASES_TAC>>fsm[]>>pop_assum (qspec_then `0` assume_tac)>>
+    fsm[FUNPOW]>>rfs[]>>DECIDE_TAC)>>
+  Cases_on`do_briggs_step s`>>
+  first_x_assum(qspec_then`r.clock` mp_tac)>>
+  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_briggs_step_clock_lemma>>
+  (impl_tac>-
+    (rfs[]>>DECIDE_TAC))>>
+  fsm[]>>ntac 2 strip_tac>>
+  pop_assum(qspec_then`r` mp_tac)>>rfs[]>>
+  IF_CASES_TAC>>fs[]>>
+  `¬((FUNPOW (SND o do_briggs_step) (SUC n) s).clock > 0) ∨
+  (FUNPOW (SND o do_briggs_step) (SUC n) s).avail_moves = [] ∧
+  (FUNPOW (SND o do_briggs_step) (SUC n) s).avail_moves_pri = []` by
     fs[FUNPOW]>>
   IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
 
@@ -150,50 +195,7 @@ val sec_ra_state_side_def = prove(``
   fs[MEM_FILTER,MEM_MAP,quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE])
   |>update_precondition
 
-(*Specialized interface to allocator for unverified translation*)
-val irc_alloc_def = Define`
-  irc_alloc clash_tree k moves =
-  let G =  FST(clash_tree_to_spg clash_tree [] LN) in
-  let moves = MAP maybe_flip moves in
-  let s = init_ra_state G k moves in
-  let ((),s) = rpt_do_step s in
-  let pref = aux_move_pref s.coalesced (resort_moves(moves_to_sp moves LN)) in
-  let (col,ls) = alloc_colouring s.graph k pref s.stack in
-  let (G,spills,coalesce_map) = full_coalesce s.graph k moves ls in
-  let s = sec_ra_state G k spills coalesce_map in
-  let ((),s) = rpt_do_step2 s in
-  let col = spill_colouring G k coalesce_map s.stack col in
-  let col = spill_colouring G k LN ls col in
-    col`
-
-(*Prove that irc alloc is an instance of the actual algorithm*)
-val irc_alloc_reg_alloc_3 = prove(``
-  ∀G k moves ct.
-  irc_alloc ct k moves = reg_alloc 3 (FST (clash_tree_to_spg ct [] LN)) k moves``,
-  fs[irc_alloc_def,reg_alloc_def])
-
-val _ = translate irc_alloc_def;
-
-(*Dump to file*)
-(*
-val _ = enable_astPP();
-val _ = set_trace "pp_avoids_symbol_merges" 0;
-
-val _ = let
-val file = TextIO.openOut "reg_alloc_poly.sml"
-fun print s = TextIO.output(file,s)
-val _ = finalise_translation()
-val decls = get_decls()
-in
-  print (term_to_string decls)
-end
-
-val _ = disable_astPP();
-*)
-
-(*val _ = Feedback.set_trace "TheoryPP.include_docs" 0;*)
-
-val _ = ml_translatorLib.print_asts:=true;
+val _ = translate reg_alloc_def;
 
 val _ = export_theory();
 

@@ -1,7 +1,7 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open compiler64_preludeProgTheory;
+open reg_allocProgTheory compiler64_preludeProgTheory;
 
 val _ = new_theory "compiler64Prog"
 
@@ -46,7 +46,8 @@ fun def_of_const tm = let
 
   val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``,beta|->``:64``] else []
 
-  val def = def |> INST_TYPE insts
+  val def = def |> RW (!extra_preprocessing)
+                |> INST_TYPE insts
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 (* TODO: This ss messes up defs containing if-then-else
                 with constant branches
@@ -135,15 +136,43 @@ val word_alloc_full_ssa_cc_trans_side = prove(``
   rpt(pairarg_tac>>fs[])>>
   res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
 
-(* TODO: this fails, I think because the exp induction is messed up...
+val _ = translate (spec64 remove_dead_def)
 
-val _ = translate (spec64 get_live_exp_def)
+val _ = translate (spec64 word_alloc_def)
 
-val _ = translate (spec64 remove_dead_def|> SIMP_RULE std_ss [get_live_def])
-*)
+val word_alloc_apply_colour_side = prove(``
+  ∀x y. word_alloc_apply_colour_side x y ⇔ T``,
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
+
+val word_alloc_word_alloc_side = prove(``
+  ∀w x y z. word_alloc_word_alloc_side w x y z ⇔ T``,
+  simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
+  Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
+  word_alloc_apply_colour_side]) |> update_precondition
 
 val _ = translate (spec64 three_to_two_reg_def)
 
-(* TODO: move the allocator translation, then translate word_alloc *)
+val _ = translate (spec64 word_removeTheory.remove_must_terminate_def)
+
+val _ = translate (spec64 word_to_wordTheory.compile_def)
+
+val word_to_word_compile_side = prove(``
+  ∀x y z. word_to_word_compile_side x y z ⇔ T``,
+  simp[fetch"-""word_to_word_compile_side_def"]>>
+  Induct_on`z`>>fs[word_to_wordTheory.next_n_oracle_def]) |> update_precondition
+
+val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
+
+(*
+val _ = matches:= ``foo:'a stackLang$prog``:: !matches
+
+val _ = translate PAIR_MAP
+
+This fails at reducing to single line???:
+val _ = translate (spec64 word_to_stackTheory.wMove_def)
+
+val _ = translate (spec64 word_to_stackTheory.comp_def)
+*)
 
 val _ = export_theory();

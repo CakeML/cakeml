@@ -1534,6 +1534,16 @@ val do_step2_clock_lemma = store_thm("do_step2_clock_lemma",``
   fsm[]>>
   DECIDE_TAC)
 
+val do_briggs_step_clock_lemma = store_thm("do_briggs_step_clock_lemma",``
+  ∀s G s'.
+    s.clock ≠ 0 ∧
+    do_briggs_step s = ((),s') ⇒
+    s'.clock < s.clock``,
+  rw[]>>fsm[do_briggs_step_def,dec_clock_def,UNCURRY]>>
+  Cases_on`coalesce (s with clock:=s.clock-1)`>>Cases_on`q`>>full_simp_tac(srw_ss())[push_stack_def]>>
+  imp_res_tac coalesce_graph_2>>
+  rpt var_eq_tac>>fs[])
+
 (*Note:Briggs clock is not pulled out since it isn't used (yet)*)
 val do_briggs_step_graph_lemma = prove(``
   ∀s G s'.
