@@ -338,7 +338,7 @@ val print_spec = store_thm ("print_spec",
        [cv]
        (CHAR_IO * STDOUT output)
        (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
-  xcf "CharIO.print" (basis_st()) \\ reduce_tac
+  xcf "CharIO.print" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
   \\ xlet `\xv. W8ARRAY print_loc [w] * STDOUT output * & (NUM (ORD c) xv)`
   THEN1 (xapp \\ xsimpl \\ metis_tac [])
@@ -351,10 +351,8 @@ val print_spec = store_thm ("print_spec",
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
   \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY print_loc [n2w (ORD c)]`
   THEN1
-   (fs [cf_ffi_def]
-    \\ match_mp_tac local_elim \\ fs [EVAL ``print_loc``]
-    \\ reduce_tac \\ fs [app_ffi_def]
-    \\ fs [STDOUT_def]
+   (xffi
+    \\ fs [EVAL ``print_loc``, STDOUT_def]
     \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate
     \\ qexists_tac `[n2w (ORD c)]` \\ xsimpl
     \\ qexists_tac `emp` \\ xsimpl
@@ -362,10 +360,7 @@ val print_spec = store_thm ("print_spec",
     \\ qexists_tac `Str (output ++ [c])` \\ fs []
     \\ qexists_tac `stdout_fun` \\ xsimpl
     \\ EVAL_TAC \\ fs [ORD_BOUND,CHR_ORD])
-  \\ fs [cf_var_def] (* TODO: see why xret and xvar don't work here *)
-  \\ match_mp_tac local_elim
-  \\ reduce_tac \\ xsimpl);
-
+  \\ xret \\ xsimpl);
 
 (* definition of basis program *)
 

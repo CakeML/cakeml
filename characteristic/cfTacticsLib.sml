@@ -5,7 +5,7 @@ open preamble
 open ConseqConv match_goal
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib
+open cfAppLib cfSyntax semanticPrimitivesSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -178,7 +178,7 @@ fun xcf name st =
     first_match_tac [
       ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
       ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
-    ] \\ simp []
+    ] \\ reduce_tac
   end
 
 (* [xlet] *)
@@ -192,14 +192,17 @@ fun xlet_core cont0 cont1 cont2 =
   CONJ_TAC THENL [all_tac, cont1 \\ cont2]
 
 (* temporary basic wrapper until evars *)
-fun xlet Q = let
+fun xlet Q (g as (asl, w)) = let
+  val ctx = free_varsl (w :: asl)
   val name = (fst o dest_var o fst o dest_abs o Term) Q
-  val qname = [QUOTE name]
+  val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
+  val qname = [QUOTE name']
 in
   xlet_core
     (qexists_tac Q)
     (qx_gen_tac qname \\ cbv)
     (TRY xpull)
+    g
 end
 
 (* [xfun] *)
@@ -423,14 +426,13 @@ val xcon_core =
 val xvar_core =
   head_unfold cf_var_def \\ reduce_tac
 
-fun xret_pre cont1 cont2 =
-  xpull_check_not_needed \\
-  first_match_tac [
-    ([mg.c `cf_lit _ _ _ _`], K xlit_core),
-    ([mg.c `cf_con _ _ _ _ _`], K xcon_core),
-    ([mg.c `cf_var _ _ _ _`], K xvar_core)
-  ] \\
-  cont1
+fun xret_pre cont1 cont2 (g as (_, w)) =
+  (xpull_check_not_needed \\
+   (if is_cf_lit w then xlit_core
+    else if is_cf_con w then xcon_core
+    else if is_cf_var w then xvar_core
+    else fail ()) \\
+   cont1) g
   (* todo: also do stuff with lets *)
 
 val xret = xret_pre xret_irule_lemma (TRY xpull)
@@ -515,5 +517,13 @@ val xmatch_base =
   CONV_TAC validate_pat_all_conv
 
 val xmatch = xmatch_base
+
+(* [xffi] *)
+
+val xffi =
+  xpull_check_not_needed \\
+  head_unfold cf_ffi_def \\
+  irule local_elim \\ hnf \\
+  simp [app_ffi_def] \\ reduce_tac
 
 end
