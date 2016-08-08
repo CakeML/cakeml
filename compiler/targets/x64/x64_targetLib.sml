@@ -38,7 +38,7 @@ in
           e_opsize_imm_def, not_byte_def, e_rax_imm_def, e_rm_imm_def,
           e_imm_8_32_def, e_imm_def, e_imm8_def, e_imm16_def, e_imm32_def,
           e_imm64_def, Zsize_width_def, is_rax_def, x64_encode_rwts,
-          asmSemTheory.is_test_def],
+          asmSemTheory.is_test_def, total_num2Zreg_def],
        computeLib.Extenders
          [add_x64_datatypes, optionLib.OPTION_rws, pairLib.add_pair_compset]])
 end
