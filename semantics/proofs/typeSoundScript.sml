@@ -9,6 +9,14 @@ open semanticsTheory;
 
 val _ = new_theory "typeSound";
 
+val list_rel_flat = Q.store_thm ("list_rel_flat",
+  `!R l1 l2. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)`,
+ Induct_on `l1`
+ >> rw [FLAT]
+ >> rw [FLAT]
+ >> irule EVERY2_APPEND_suff
+ >> rw []);
+
 val fst_triple = Q.prove (
 `(\(x,y,z). x) = FST`,
  rw [FUN_EQ_THM]
@@ -1555,37 +1563,48 @@ val let_tac =
   >> fs []
   >> rw []
   >- ( (* a value *)
-    fs [good_ctMap_def, type_all_env_def]
-    >> `type_env ctMap tenvS'' env.v tenv.v`
-      by metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
-    >> drule (hd (CONJUNCTS pat_type_sound))
-    >> `type_env ctMap tenvS'' [] Empty` by simp [Once type_v_cases]
+    `type_all_env ctMap tenvS'' env tenv`
+      by metis_tac [good_ctMap_def, type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
+    >> fs [good_ctMap_def, type_all_env_def]
+    >> drule (CONJUNCT1 pat_type_sound)
     >> rpt (disch_then drule)
+    >> disch_then (qspecl_then [`[]`, `[]`] mp_tac)
     >> rw []
     >- ( (* No match *)
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
-      >> rw [weakCT_refl, Bindv_def, type_v_exn, GSYM PULL_EXISTS]
-      >- metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS]
+      >> rw [weakCT_refl, Bindv_def, type_v_exn]
       >> drule (hd (CONJUNCTS evaluate_state_unchanged))
-      >> rw [])
+      >> rw [empty_decls_def])
     >- ( (* match *)
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
-      >> drule (hd (CONJUNCTS evaluate_state_unchanged))
+      >> drule (CONJUNCT1 evaluate_state_unchanged)
       >> simp [weakCT_refl]
-      >> simp [extend_dec_env_def, extend_env_new_decs_def]
+      >> simp [extend_dec_env_def, extend_dec_tenv_def]
       >> fs []
-      >> rw [bvl2_to_bvl]
-      >> metis_tac [type_v_weakening, weakCT_refl, store_type_extension_weakS, type_env_append]))
+      >> strip_tac
+      >> conj_asm1_tac
+      >- (
+        irule eAll2_alist_to_env
+        >> fs [tenv_add_tvs_def, EVERY2_MAP, LAMBDA_PROD])
+      >> rw [empty_decls_def]
+      >> irule eAll2_eAppend
+      >> simp []))
   >- ( (* An exception *)
     Cases_on `e'`
     >> fs []
     >- (
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
-      >> drule (hd (CONJUNCTS evaluate_state_unchanged))
+      >> drule (CONJUNCT1 evaluate_state_unchanged)
       >> fs [weakCT_refl, type_all_env_def, good_ctMap_def]
+      >> rw [empty_decls_def]
+      >> irule eAll2_mono
+      >> qexists_tac `(λi v (tvs,t). type_v tvs ctMap tenvS v t)`
+      >> rw []
+      >> pairarg_tac
+      >> fs []
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [weakCT_refl]);
 
@@ -1624,10 +1643,10 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
  >> rw []
  >> TRY (qpat_assum `type_ds _ _ _ _ _ _ _` mp_tac >> simp [Once type_ds_cases])
  >> rw []
- >- (
+ >- ( (* case [] *)
    simp [extend_dec_env_def, extend_dec_tenv_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl, weakCT_refl])
- >- (
+ >- ( (* case d1::d2::ds *)
    split_pair_case_tac
    >> fs []
    >> rename1 `evaluate_decs _ _ _ _ = (st1, r1)`
@@ -1686,8 +1705,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
          drule type_ds_mod
          >> fs [union_decls_mods]))
      >- metis_tac []))
-
- >- (
+ >- ( (* case let *)
    split_pair_case_tac
    >> fs []
    >> rename1 `evaluate _ _ _ = (st1, r1)`
@@ -1710,11 +1728,10 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> disch_then drule)
    >- let_tac
    >- let_tac)
-
- >- (
+ >- ( (* case let, duplicate bindings *)
    fs [type_d_cases]
    >> fs [])
- >- (
+ >- ( (* case letrec *)
    drule type_d_tenv_ok
    >> fs [type_d_cases]
    >> rw []
@@ -1738,11 +1755,10 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
    >> fs [type_all_env_def, fst_triple]
    >> irule eAll2_alist_to_env
    >> rfs [EVERY2_MAP, tenv_add_tvs_def])
- >- (
+ >- ( (* case letrec duplicate bindings *)
    fs [type_d_cases]
    >> metis_tac [type_funs_distinct])
-
- >- (
+ >- ( (* case type definition *)
    drule type_d_tenv_ok
    >> fs [type_d_cases]
    >> rw [extend_dec_env_def]
@@ -1759,19 +1775,25 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
    >- metis_tac [disjoint_env_weakCT, disjoint_image]
    >> conj_asm1_tac
    >- (
-     simp [build_tdefs_def, build_ctor_tenv_def, REVERSE_FLAT, MAP_MAP_o,
-           MAP_FLAT, MAP_REVERSE, combinTheory.o_DEF]
-     >> irule (METIS_PROVE [] ``x = y ==> f x = f y``)
-     >> irule (METIS_PROVE [] ``x = y ==> f x = f y``)
-     >> irule (METIS_PROVE [] ``x = y ==> f x z = f y z``)
-     >> simp [FUN_EQ_THM]
-     >> strip_tac
+     drule check_ctor_tenv_type_decs_to_ctMap
+     >> rw []
+     >> fs [type_all_env_def, build_tdefs_def, build_ctor_tenv_def]
+     >> irule eAll2_alist_to_env
+     >> simp [LIST_REL_REVERSE_EQ]
+     >> irule list_rel_flat
+     >> simp [EVERY2_MAP]
+     >> simp [LIST_REL_EL_EQN]
+     >> ntac 2 strip_tac
      >> pairarg_tac
-     >> simp [MAP_MAP_o, combinTheory.o_DEF]
-     >> irule (METIS_PROVE [] ``x = y ==> f x z = f y z``)
-     >> simp [FUN_EQ_THM]
-     >> strip_tac
-     >> pairarg_tac
+     >> fs []
+     >> ntac 2 strip_tac
+     >> simp [EL_MAP]
+     >> rpt (pairarg_tac >> fs [])
+     >> rw [type_ctor_def, FLOOKUP_FUNION, id_to_n_def]
+     >> fs [MEM_EL, PULL_EXISTS, GSYM CONJ_ASSOC]
+     >> first_x_assum drule
+     >> simp []
+     >> disch_then drule
      >> simp [])
    >> conj_asm1_tac
    >- (
@@ -1783,7 +1805,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
        >> simp []
        >> fs []
        >> irule ctMap_ok_type_decs
-       >- fs [tenv_ok_def, extend_env_new_decs_def, Abbr`new_tabbrev`]
+       >- fs [tenv_ok_def, Abbr`new_tabbrev`, extend_dec_tenv_def]
        >> metis_tac [ctMap_ok_type_decs])
      >> TRY (irule still_has_bools)
      >> TRY (irule still_has_exns)
@@ -1792,21 +1814,11 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> metis_tac [disjoint_image])
    >> conj_tac
    >- (
-     fs [type_all_env_def, extend_env_new_decs_def]
-     >> conj_tac
-     >-  metis_tac [type_v_weakening, good_ctMap_def, weakS_refl]
-     >> conj_tac
-     >- (
-       irule consistent_con_env_merge
-       >- metis_tac [consistent_con_env_weakening, good_ctMap_def]
-       >> simp [intro_alist_to_fmap]
-       >> qspecl_then [`mn`, `tds`] mp_tac consistent_con_env_type_decs
-       >> `weakCT (type_decs_to_ctMap mn new_tabbrev tds ⊌ ctMap) (type_decs_to_ctMap mn new_tabbrev tds)`
-         by metis_tac [weakCT2]
-       >- metis_tac [consistent_con_env_weakening, good_ctMap_def])
-     >- (
-       simp [bind_var_list2_def]
-       >> metis_tac [type_v_weakening, good_ctMap_def, weakS_refl]))
+     `type_all_env (type_decs_to_ctMap mn new_tabbrev tds ⊌ ctMap) tenvS env tenv`
+       by metis_tac [type_all_env_weakening, weakS_refl]
+     >> fs [type_all_env_def, extend_dec_tenv_def]
+     >> irule eAll2_eAppend
+     >> simp [])
    >> conj_tac
    >- metis_tac [type_s_weakening, good_ctMap_def]
    >> conj_tac
@@ -1839,10 +1851,10 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> rw []
      >> qexists_tac `(tvs,tn,ctors)`
      >> rw []))
- >- (
+ >- ( (* case type def not distinct *)
    fs [type_d_cases]
    >> rw []
-   >- metis_tac [check_ctor_tenv_dups]
+   >- metis_tac [check_ctor_tenv_def]
    >- (
      fs [decs_type_sound_invariant_def, consistent_decls_def, RES_FORALL,
          DISJOINT_DEF, EXTENSION]
@@ -1856,23 +1868,22 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> fs []
      >> rw []
      >- metis_tac []
-     >> fs [METIS_PROVE [] ``x ∨ ¬y ⇔ y ⇒ x``]
-     >> first_x_assum drule
+     >> Cases_on `mn`
+     >> fs [mk_id_def]
+     >> Cases_on `t`
+     >> fs [mk_id_def]
      >> rw []
-     >> qmatch_abbrev_tac `mn1 = SOME mn2`
-     >> Cases_on `mn1`
-     >> fs [mk_id_def])
+     >> fs [])
    >- fs [check_ctor_tenv_def, LAMBDA_PROD])
- >- (
+ >- ( (* case type abbrev *)
    drule type_d_tenv_ok
    >> fs [type_d_cases]
-   >> rw [extend_dec_env_def, extend_env_new_decs_def]
+   >> rw [extend_dec_env_def, extend_dec_tenv_def]
    >> qexists_tac `ctMap`
    >> qexists_tac `tenvS`
-   >> rw [weakCT_refl, store_type_extension_refl, type_env_list_rel]
-   >> fs [decs_type_sound_invariant_def, type_all_env_def,
-          bind_var_list2_def])
- >- (
+   >> rw [weakCT_refl, store_type_extension_refl]
+   >> fs [decs_type_sound_invariant_def, type_all_env_def])
+ >- ( (* case bad exception *)
    fs [type_d_cases]
    >> rw []
    >> fs [decs_type_sound_invariant_def, consistent_decls_def, RES_FORALL]
@@ -1881,11 +1892,13 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
    >> CCONTR_TAC
    >> fs []
    >> Cases_on `mn`
+   >> fs [mk_id_def]
+   >> Cases_on `t`
    >> fs [mk_id_def])
- >- (
+ >- ( (* case exception *)
    drule type_d_tenv_ok
    >> fs [type_d_cases]
-   >> rw [type_env_list_rel]
+   >> rw []
    >> fs [decs_type_sound_invariant_def]
    >> qexists_tac `FUNION (FEMPTY |+ ((cn, TypeExn (mk_id mn cn)),([],MAP (type_name_subst tenv.t) ts))) ctMap`
    >> qexists_tac `tenvS`
@@ -1899,6 +1912,8 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> fs [consistent_ctMap_def, RES_FORALL]
      >> first_x_assum drule
      >> simp [])
+   >> conj_asm1_tac
+   >- cheat
    >> conj_asm1_tac
    >- (
      fs [good_ctMap_def]
@@ -1924,7 +1939,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> rw [])
    >> conj_tac
    >- (
-     fs [type_all_env_def, extend_env_new_decs_def, extend_dec_env_def]
+     fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
      >> conj_tac
      >-  metis_tac [type_v_weakening, good_ctMap_def, weakS_refl]
      >> conj_tac

@@ -12,7 +12,6 @@ val check_dup_ctors_def = semanticPrimitivesTheory.check_dup_ctors_def;
 val build_tdefs_def = semanticPrimitivesTheory.build_tdefs_def;
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 val same_tid_def = semanticPrimitivesTheory.same_tid_def;
-val build_tdefs_cons = semanticPrimitivesPropsTheory.build_tdefs_cons;
 val check_dup_ctors_cons = semanticPrimitivesPropsTheory.check_dup_ctors_cons;
 
 (* ----------- Basic stuff ----------- *)
@@ -1641,6 +1640,70 @@ val still_has_bools = Q.store_thm ("still_has_bools",
  full_simp_tac(srw_ss())[FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
  metis_tac [SND]);
 
+val all_distinct_map_fst_lemma = Q.prove (
+`!l v. ALL_DISTINCT (MAP (\(x,y). x) l) ⇒ ALL_DISTINCT (MAP (\(x,y). (x, v)) l)`,
+ Induct_on `l`
+ >> rw [MEM_MAP]
+ >> pairarg_tac
+ >> rw []
+ >> pairarg_tac
+ >> rw []
+ >> fs [MEM_MAP, LAMBDA_PROD, FORALL_PROD]
+ >> metis_tac []);
+
+val check_ctor_tenv_type_decs_to_ctMap_lemma = Q.prove (
+  `!tenvT tds mn tvs tn c cn ts.
+    check_ctor_tenv tenvT (REVERSE tds) ∧
+    MEM (tvs,tn,c) (REVERSE tds) ∧
+    MEM (cn,ts) c
+    ⇒
+    FLOOKUP (type_decs_to_ctMap mn tenvT (REVERSE tds)) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)`,
+ Induct_on `tds`
+ >> rw [check_ctor_tenv_def]
+ >> fs [MEM_MAP]
+ >- (
+   simp [type_decs_to_ctMap_def, flookup_fupdate_list, REVERSE_APPEND, ALOOKUP_APPEND]
+   >> `ALL_DISTINCT (MAP FST (MAP (λ(cn,ts). ((cn,TypeId (mk_id mn tn)),tvs, MAP (type_name_subst tenvT) ts)) c))`
+     by (
+       rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+       >> fs [check_dup_ctors_thm, ALL_DISTINCT_APPEND]
+       >> metis_tac [all_distinct_map_fst_lemma])
+   >> simp [alookup_distinct_reverse]
+   >> `ALOOKUP (MAP (λ(cn,ts).  ((cn,TypeId (mk_id mn tn)),tvs, MAP (type_name_subst tenvT) ts)) c)
+               (cn,TypeId (mk_id mn tn)) = SOME (tvs,MAP (type_name_subst tenvT) ts)`
+     suffices_by rw []
+   >> irule ALOOKUP_ALL_DISTINCT_MEM
+   >> simp [MEM_MAP]
+   >> qexists_tac `(cn,ts)`
+   >> simp [])
+ >- (
+   fs [check_ctor_tenv_def, GSYM CONJ_ASSOC, ALL_DISTINCT_APPEND]
+   >> `check_dup_ctors (REVERSE tds)` by fs [check_dup_ctors_thm, ALL_DISTINCT_APPEND]
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> simp [type_decs_to_ctMap_def, flookup_fupdate_list, ALOOKUP_APPEND, REVERSE_APPEND]
+   >> pairarg_tac
+   >> rw []
+   >> fs []
+   >> `ALOOKUP (REVERSE (MAP (λ(cn,ts). ((cn,TypeId (mk_id mn tn')),tvs', MAP (type_name_subst tenvT) ts)) ctors))
+               (cn,TypeId (mk_id mn tn)) = NONE`
+     suffices_by rw []
+   >> fs [MEM_MAP]
+   >> first_x_assum (qspec_then `(tvs,tn,c)` mp_tac)
+   >> rw [ALOOKUP_NONE, MEM_MAP]
+   >> rw [METIS_PROVE [] ``x ∨ y ⇔ ~x ⇒ y``]
+   >> pairarg_tac
+   >> fs []));
+
+val check_ctor_tenv_type_decs_to_ctMap = Q.store_thm ("check_ctor_tenv_type_decs_to_ctMap",
+  `!tenvT tds mn tvs tn c cn ts.
+    check_ctor_tenv tenvT tds ∧
+    MEM (tvs,tn,c) tds ∧
+    MEM (cn,ts) c
+    ⇒
+    FLOOKUP (type_decs_to_ctMap mn tenvT tds) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)`,
+ metis_tac [REVERSE_REVERSE, check_ctor_tenv_type_decs_to_ctMap_lemma]);
+
 (* ---------- consistent_decls ---------- *)
 
 val consistent_decls_union = Q.store_thm ("consistent_decls_union",
@@ -2118,12 +2181,13 @@ val condefs_some_lemma = Q.prove (
 
 val consistent_con_env_type_decs_lemma = Q.prove (
  `!mn tds c n t tenvT tvs ts t'.
-  ALOOKUP (build_tdefs mn tds) c = SOME (n,t) ∧
-  ALOOKUP (build_ctor_tenv mn tenvT tds) c = SOME (tvs,ts,t')
+  eLookup (build_tdefs mn tds) c = SOME (n,t) ∧
+  eLookup (build_ctor_tenv mn tenvT tds) c = SOME (tvs,ts,t')
   ⇒
   t' = t ∧
   FLOOKUP (type_decs_to_ctMap mn tenvT tds) (c,t) = SOME (tvs,ts) ∧
   LENGTH ts = n`,
+
  simp [build_tdefs_def, build_ctor_tenv_def, type_decs_to_ctMap_def,
        intro_alist_to_fmap, REVERSE_FLAT,GSYM MAP_REVERSE]
  >> rpt gen_tac
