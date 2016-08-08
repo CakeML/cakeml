@@ -2513,7 +2513,11 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
    fs[Abbr`nst`]>>
    metis_tac[t_compat_trans,SUBMAP_t_compat])
  >- (* Tannot *)
-   cheat
+   last_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac) >> rfs[] >>
+   qexists_tac `st'` >> qexists_tac `s'` >> qexists_tac `constraints'` >> rw [] >>
+   irule pure_add_constraints_ignore >> rw []
+   >- metis_tac[infer_e_wfs]
+   >- cheat
  >-
    (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >-
