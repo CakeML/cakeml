@@ -170,12 +170,12 @@ val strong_locals_rel_get_vars = prove(``
   >-metis_tac[]>>
   full_simp_tac(srw_ss())[])
 
-val domain_FOLDR_union_subset = prove(``
+val domain_big_union_subset = prove(``
   !ls a.
   MEM a ls ⇒
   domain (get_live_exp a) ⊆
-  domain (FOLDR (λx y.union (get_live_exp x) y) LN ls)``,
-  Induct>>srw_tac[][]>>full_simp_tac(srw_ss())[domain_union,SUBSET_UNION,SUBSET_DEF]>>
+  domain (big_union (MAP get_live_exp ls))``,
+  Induct>>rw[]>>fs[big_union_def,domain_union,SUBSET_UNION,SUBSET_DEF]>>
   metis_tac[])
 
 val size_tac= (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC);
@@ -519,7 +519,7 @@ val apply_colour_exp_lemma = prove(
     (qpat_assum`A=SOME res` mp_tac>>TOP_CASE_TAC>>rw[]>>
     `MAP (\a.word_exp st a) wexps =
      MAP (\a.word_exp cst a) (MAP (\a. apply_colour_exp f a) wexps)` by
-       (imp_res_tac the_words_EVERY_IS_SOME>>
+      (imp_res_tac the_words_EVERY_IS_SOME>>
       fs[MAP_MAP_o,MAP_EQ_f]>>
       fs[EVERY_MAP,EVERY_MEM]>>
       rw[]>>
@@ -527,7 +527,8 @@ val apply_colour_exp_lemma = prove(
       rw[IS_SOME_EXISTS]>>
       simp[Once EQ_SYM_EQ]>>
       first_assum match_mp_tac>>
-      fs[]>>imp_res_tac domain_FOLDR_union_subset>>
+      fs[]>>
+      imp_res_tac domain_big_union_subset>>
       metis_tac[SUBSET_DEF])>>
     fs[])
   >>
@@ -653,7 +654,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       qpat_abbrev_tac `exp = (Op b [Var n0;B])`>>setup_tac>>
       (impl_tac
       >-
-        (full_simp_tac(srw_ss())[get_live_exp_def,domain_union]>>
+        (full_simp_tac(srw_ss())[get_live_exp_def,domain_union,big_union_def]>>
         `{n0} ⊆ (n0 INSERT domain live DELETE n)` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         TRY(`{n0} ∪ {n'} ⊆ (n0 INSERT n' INSERT domain live DELETE n)` by
           full_simp_tac(srw_ss())[SUBSET_DEF])>>
@@ -677,7 +678,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (qpat_abbrev_tac`exp = (Shift s (Var n0) B)`>>
       setup_tac>>
       impl_tac>-
-        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
         `{n0} ⊆ n0 INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_exp_def,word_state_eq_rel_def,set_var_def]>>
@@ -717,7 +718,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
       impl_tac>-
-        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
         `{n'} ⊆ n' INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
@@ -738,7 +739,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
       impl_tac>-
-        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
         `{n'} ⊆ n' INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
@@ -760,7 +761,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
       setup_tac>>
       impl_tac>-
-        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
         `{n'} ⊆ n' INSERT n INSERT domain live` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
@@ -775,7 +776,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
       setup_tac>>
       impl_tac>-
-        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
         `{n'} ⊆ n' INSERT n INSERT domain live` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
@@ -846,7 +847,8 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     imp_res_tac strong_locals_rel_get_vars>>
     pop_assum kall_tac>>
     pop_assum mp_tac>>impl_tac>-
-      (srw_tac[][domain_numset_list_insert]>>
+      (Cases_on`o'`>>TRY(PairCases_on`x'`)>>fs[get_live_def]>>
+      srw_tac[][domain_numset_list_insert]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[domain_numset_list_insert,domain_union])>>
     pop_assum kall_tac>>srw_tac[][]>>
     Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>
@@ -866,7 +868,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       full_simp_tac(srw_ss())[])
     >>
     (*Returning calls*)
-    PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
+    PairCases_on`x'`>>full_simp_tac(srw_ss())[get_live_def]>>
     Cases_on`domain x'1 = {}`>>full_simp_tac(srw_ss())[]>>
     Cases_on`cut_env x'1 st.locals`>>full_simp_tac(srw_ss())[]>>
     imp_res_tac cut_env_lemma>>
@@ -1406,7 +1408,7 @@ val every_var_exp_get_live_exp = prove(
   full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>res_tac>>
   match_mp_tac every_var_exp_mono>>
   HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
-  metis_tac[SUBSET_DEF,domain_FOLDR_union_subset])
+  metis_tac[SUBSET_DEF,domain_big_union_subset])
 
 (*Every variable is in some clash set*)
 val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
@@ -1696,10 +1698,12 @@ val get_reads_exp_get_live_exp = prove(``
   rw[EXTENSION]>>
   fs[MEM_FLAT,MEM_MAP]>>rw[EQ_IMP_THM]>>
   res_tac>>fs[]>>
-  imp_res_tac domain_FOLDR_union_subset>>
+  imp_res_tac domain_big_union_subset>>
   fs[SUBSET_DEF]>>
   Induct_on`ls`>>rw[]>>
-  fs[domain_union]
+  fs[domain_union,big_union_def]
+  >-
+    metis_tac[]
   >-
     (qexists_tac`get_reads_exp h`>>simp[]>>
     metis_tac[])>>
@@ -1762,6 +1766,7 @@ val wf_get_live_exp = prove(``
   ∀exp. wf(get_live_exp exp)``,
   ho_match_mp_tac get_live_exp_ind>>fs[get_live_exp_def,wf_insert,wf_def]>>
   rw[]>>
+  fs[big_union_def]>>
   Induct_on`ls`>>rw[wf_def,wf_union])
 
 val start_tac =
@@ -1779,7 +1784,6 @@ val subset_tac =
   HINT_EXISTS_TAC>>fs[domain_numset_list_insert_eq_union,SUBSET_DEF]>>
   simp[domain_union]
 
-(* TODO: Fixed up to here *)
 val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
   ∀prog f live flive livein flivein.
   wf_cutsets prog ∧
@@ -1971,7 +1975,7 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
       rveq>>fs[]>>
       metis_tac[numset_list_insert_swap,wf_def])
     >>
-    PairCases_on`x`>>Cases_on`h`>>fs[check_clash_tree_def,colouring_ok_def]
+    PairCases_on`x`>>Cases_on`h`>>fs[check_clash_tree_def,colouring_ok_def,get_live_def]
     >-
       (EVERY_CASE_TAC>>
       fs[wf_cutsets_def]>>
@@ -2268,7 +2272,7 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
       fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
       fs[inst_def,assign_def]>>
       imp_res_tac strong_locals_rel_I_word_exp>>
-      fs[get_live_exp_def]>>
+      fs[get_live_exp_def,big_union_def]>>
       res_tac>>
       fs[set_var_def,state_component_equality,strong_locals_rel_def,lookup_insert,get_live_inst_def]>>
       rw[])
@@ -2280,7 +2284,7 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
         fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
         fs[inst_def,assign_def]>>
         imp_res_tac strong_locals_rel_I_word_exp>>
-        fs[get_live_exp_def,get_live_inst_def,domain_union,INSERT_UNION_EQ]>>
+        fs[big_union_def,get_live_exp_def,get_live_inst_def,domain_union,INSERT_UNION_EQ]>>
         FULL_SIMP_TAC std_ss [Once (GSYM domain_delete)]>>
         res_tac>>
         fs[set_var_def,state_component_equality,strong_locals_rel_def,lookup_insert]>>rw[]>>NO_TAC)
@@ -2312,7 +2316,7 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
       fs[strong_locals_rel_insert_notin,state_component_equality,domain_lookup]>>
       fs[inst_def,assign_def,mem_load_def,mem_store_def]>>
       imp_res_tac strong_locals_rel_I_word_exp>>
-      fs[get_live_exp_def,get_live_inst_def,domain_union,INSERT_UNION_EQ]>>
+      fs[big_union_def,get_live_exp_def,get_live_inst_def,domain_union,INSERT_UNION_EQ]>>
       FULL_SIMP_TAC std_ss [Once (GSYM domain_delete)]>>
       (*first 2 cases*)
       TRY(res_tac>>

@@ -406,18 +406,20 @@ val get_live_inst_def = Define`
   (*Catchall -- for future instructions to be added*)
   (get_live_inst x live = live)`
 
-val get_live_exp_def = tDefine "get_live_exp" `
+val big_union_def = Define`
+  big_union ls = FOLDR (λx y. union x y) LN ls`
+
+val get_live_exp_def = tDefine"get_live_exp"`
   (get_live_exp (Var num) = insert num () LN ) ∧
   (get_live_exp (Load exp) = get_live_exp exp) ∧
   (get_live_exp (Op wop ls) =
-    (*Keep adding into live the new variables that are read*)
-    FOLDR (λx y:num_set. union (get_live_exp x) y) LN ls) ∧
+    big_union (MAP get_live_exp ls)) ∧
   (get_live_exp (Shift sh exp nexp) = get_live_exp exp) ∧
   (get_live_exp expr = LN)`
-  (WF_REL_TAC `measure (exp_size ARB)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC)
+  (WF_REL_TAC `measure (exp_size ARB)`>>
+  rw[]>>
+  imp_res_tac MEM_IMP_exp_size>>
+  FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`) >> DECIDE_TAC)
 
 val numset_list_insert_def = Define`
   (numset_list_insert [] t = t) ∧
@@ -466,10 +468,9 @@ val get_live_def = Define`
     never return into the same instance
     Otherwise, both args + cutsets live
   *)
-  (get_live (Call ret dest args h) live =
-    let args_set = numset_list_insert args LN in
-      case ret of NONE => args_set
-                | SOME (_,cutset,_) => union cutset args_set)`
+  (get_live (Call NONE dest args h) live = numset_list_insert args LN) ∧
+  (get_live (Call (SOME(_,cutset,_)) dest args h) live =
+    union cutset (numset_list_insert args LN))`
 
 (* Dead instruction removal *)
 val remove_dead_inst_def = Define`
