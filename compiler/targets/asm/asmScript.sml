@@ -91,7 +91,7 @@ val () = Datatype `
 val () = Datatype `
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
-        | AddCarry num num num num`
+        | AddCarry reg reg reg reg`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
