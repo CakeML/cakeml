@@ -51,10 +51,16 @@ fun dest_W8ARRAY tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) W8ARRAY_def
   in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
 
+fun dest_IO tm = let
+  val format = (fst o dest_eq o concl o SPEC_ALL) IO_def
+  in if can (match_term format) tm then (cdr (car (car tm)), cdr (car tm), cdr tm)
+     else fail() end
+
 fun is_cell tm = can dest_cell tm
 fun is_REF tm = can dest_REF tm
 fun is_ARRAY tm = can dest_ARRAY tm
 fun is_W8ARRAY tm = can dest_W8ARRAY tm
+fun is_IO tm = can dest_IO tm
 
 fun is_sep_imp tm = can dest_sep_imp tm
 
@@ -218,12 +224,14 @@ fun hsimpl_cancel_one_cont_conseq_conv t =
       SOME (fst (dest_REF tm)) handle _ =>
       SOME (fst (dest_ARRAY tm)) handle _ =>
       SOME (fst (dest_W8ARRAY tm)) handle _ =>
+      SOME (#3 (dest_IO tm)) handle _ =>
       NONE
     fun same_cell_kind tm1 tm2 =
       (is_cell tm1 andalso is_cell tm2) orelse
       (is_REF tm1 andalso is_REF tm2) orelse
       (is_ARRAY tm1 andalso is_ARRAY tm2) orelse
-      (is_W8ARRAY tm1 andalso is_W8ARRAY tm2)
+      (is_W8ARRAY tm1 andalso is_W8ARRAY tm2) orelse
+      (is_IO tm1 andalso is_IO tm2)
     fun find_matching_cells () =
       find_map (fn tm1 =>
         Option.mapPartial (fn loc =>
@@ -258,7 +266,11 @@ fun hsimpl_cancel_one_cont_conseq_conv t =
       SEP_IMP_W8ARRAY_frame,
       SEP_IMP_W8ARRAY_frame_single_l,
       SEP_IMP_W8ARRAY_frame_single_r,
-      SEP_IMP_W8ARRAY_frame_single
+      SEP_IMP_W8ARRAY_frame_single,
+      SEP_IMP_IO_frame,
+      SEP_IMP_IO_frame_single_l,
+      SEP_IMP_IO_frame_single_r,
+      SEP_IMP_IO_frame_single
     ]
   in
     case is of

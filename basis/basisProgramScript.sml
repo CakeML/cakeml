@@ -353,13 +353,8 @@ val print_spec = store_thm ("print_spec",
   THEN1
    (xffi
     \\ fs [EVAL ``print_loc``, STDOUT_def]
-    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate
-    \\ qexists_tac `[n2w (ORD c)]` \\ xsimpl
-    \\ qexists_tac `emp` \\ xsimpl
-    \\ qexists_tac `Str output` \\ fs []
-    \\ qexists_tac `Str (output ++ [c])` \\ fs []
-    \\ qexists_tac `stdout_fun` \\ xsimpl
-    \\ EVAL_TAC \\ fs [ORD_BOUND,CHR_ORD])
+    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl
+    \\ EVAL_TAC \\ fs [ORD_BOUND, CHR_ORD])
   \\ xret \\ xsimpl);
 
 (* definition of basis program *)

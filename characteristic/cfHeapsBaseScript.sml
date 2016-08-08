@@ -282,6 +282,34 @@ val SEP_IMP_W8ARRAY_frame_single = store_thm (
   fs [SEP_IMP_REFL]
 );
 
+val SEP_IMP_IO_frame = store_thm ("SEP_IMP_IO_frame",
+  ``!H H' idx st u st' u'.
+     (st = st' /\ u = u') /\ (H ==>> H') ==>
+     (H * IO st u idx ==>> H' * IO st' u' idx)``,
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
+
+val SEP_IMP_IO_frame_single_l = store_thm ("SEP_IMP_IO_frame_single_l",
+  ``!H' idx st u st' u'.
+     (st = st' /\ u = u') /\ (emp ==>> H') ==>
+     (IO st u idx ==>> H' * IO st' u' idx)``,
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
+
+val SEP_IMP_IO_frame_singel_r = store_thm ("SEP_IMP_IO_frame_single_r",
+  ``!H idx st u st' u'.
+     (st = st' /\ u = u') /\ (H ==>> emp) ==>
+     (H * IO st u idx ==>> IO st' u' idx)``,
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
+
+val SEP_IMP_IO_frame_single = store_thm ("SEP_IMP_IO_frame_single",
+  ``!idx st u st' u'.
+     (st = st' /\ u = u') /\ (emp ==>> emp) ==>
+     (IO st u idx ==>> IO st' u' idx)``,
+  fs [SEP_IMP_REFL]
+);
+
 (*------------------------------------------------------------------*)
 (** Normalization of STAR *)
 
