@@ -805,6 +805,11 @@ type_specs mn tenvT specs decls_spec tenv_spec)
 ==>
 check_signature mn tenvT decls_impl tenv_impl (SOME specs) decls_spec tenv_spec)`;
 
+val _ = Define `
+ (tenvLift mn tenv =  
+(<| v := (eLift mn tenv.v); c := (eLift mn tenv.c); t := (eLift mn tenv.t)  |>))`;
+
+
 val _ = Hol_reln ` (! extra_checks tenv d tenv' decls decls'.
 (type_d extra_checks [] decls tenv d decls' tenv')
 ==>
@@ -817,9 +822,7 @@ check_signature [mn] tenv.t decls_impl tenv_impl spec decls_spec tenv_spec)
 ==>
 type_top extra_checks decls tenv (Tmod mn spec ds)
   (union_decls <| defined_mods := {[mn]}; defined_types := {}; defined_exns := {} |> decls_spec)
-  <| v := (eLift mn tenv_spec.v);
-     c := (eLift mn tenv_spec.c);
-     t := (eLift mn tenv_spec.t)  |>)`;
+  (tenvLift mn tenv_spec))`;
 
 val _ = Hol_reln ` (! extra_checks tenv decls.
 T

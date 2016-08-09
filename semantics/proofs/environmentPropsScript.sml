@@ -339,6 +339,32 @@ val eSubEnv_eAppend2 = Q.store_thm ("eSubEnv_eAppend2",
  >> rw [eSubEnv_def, eLookup_eAppend_some, eLookupMod_eAppend_none]
  >> metis_tac [NOT_SOME_NONE, SOME_11, option_nchotomy]);
 
+val eSubEnv_eAppend_lift = Q.store_thm ("eSubEnv_eAppend_lift",
+  `!R mn e1 e1' e2 e2'.
+    eSubEnv (\id. R (Long mn id)) e1 e1' ∧
+    eSubEnv R e2 e2'
+    ⇒
+    eSubEnv R (eAppend (eLift mn e1) e2) (eAppend (eLift mn e1') e2')`,
+ rw [eSubEnv_def, eLookup_eAppend_some, eLookupMod_eAppend_none,
+     eLookupMod_eLift, eLookup_eLift]
+ >> rw [eSubEnv_def, eLookup_eAppend_some, eLookupMod_eAppend_none,
+     eLookupMod_eLift, eLookup_eLift]
+ >> every_case_tac
+ >> fs []
+ >> rw []
+ >> res_tac
+ >> fs [id_to_mods_def]
+ >> rw []
+ >> every_case_tac
+ >> fs []
+ >- (
+   first_x_assum (qspecl_then [`[mn]`, `id_to_mods i`] mp_tac)
+   >> simp [eLookupMod_def])
+ >- (
+   disj2_tac
+   >> qexists_tac `[h]`
+   >> simp [eLookupMod_def]));
+
 (* -------------- eAll2 ---------------- *)
 
 val eAll2_conj = Q.store_thm ("eAll2_conj",

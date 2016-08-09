@@ -203,6 +203,9 @@ evaluate_decs mn st env [Dexn cn ts] =
      Rval <| v = eEmpty; c = eSing cn (length ts, TypeExn (mk_id mn cn)) |>)
 declare termination_argument evaluate_decs = automatic
 
+let envLift mn env =
+  <| v = eLift mn env.v; c = eLift mn env.c |>
+
 val evaluate_tops :
   forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v
 let rec

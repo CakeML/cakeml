@@ -223,6 +223,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
      Rval <| v := eEmpty; c := (eSing cn (LENGTH ts, TypeExn (mk_id mn cn))) |>)))`;
 
 
+val _ = Define `
+ (envLift mn env =  
+(<| v := (eLift mn env.v); c := (eLift mn env.c) |>))`;
+
+
 (*val evaluate_tops :
   forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v*)
  val _ = Define `
