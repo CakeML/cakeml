@@ -987,14 +987,15 @@ val partial_colouring_satisfactory_extend_2 = prove(``
   full_simp_tac(srw_ss())[undir_graph_def]>>
   unabbrev_all_tac>>
   TRY(finish_tac>>NO_TAC)>>
-  TRY(Cases_on`v=y`>>
-  Cases_on`lookup y G`>>full_simp_tac(srw_ss())[]>>
-  TRY(qpat_x_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[lookup_insert]>>
-  Cases_on`v'=x`>>full_simp_tac(srw_ss())[lookup_def])>>finish_tac)>>
-  Cases_on`lookup x G`>>
-  qpat_x_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[lookup_insert]>>
+  TRY(rename[`COND (v = y)`,`lookup y G`] >> Cases_on`v=y`>>
+      Cases_on`lookup y G`>>full_simp_tac(srw_ss())[]>>
+      TRY (qpat_x_assum `insert _ _ _ = _` (SUBST_ALL_TAC o SYM) >>
+           full_simp_tac(srw_ss())[lookup_insert]>>
+           rename1`COND (v'=x)` >>
+           Cases_on`v'=x`>>
+           full_simp_tac(srw_ss())[lookup_def])>> finish_tac) >>
+  rveq >>
+  full_simp_tac(srw_ss())[lookup_insert]>>rename1`COND (v' = y)`>>
   Cases_on`v'=y`>>full_simp_tac(srw_ss())[lookup_def]>>
   finish_tac)
 
