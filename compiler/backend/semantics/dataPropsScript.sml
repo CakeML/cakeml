@@ -338,7 +338,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       THEN1 full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,jump_exc_def,
            LASTN_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
-      \\ Q.PAT_X_ASSUM `LENGTH s.stack = LENGTH xs` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `LENGTH _.stack = LENGTH xs` (ASSUME_TAC o GSYM)
       \\ full_simp_tac(srw_ss())[LASTN_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
