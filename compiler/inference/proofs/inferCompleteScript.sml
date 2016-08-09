@@ -461,7 +461,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
      simp[LENGTH_NIL,infer_deBruijn_subst_id] >>
      fs[sub_completion_def]>>
      imp_res_tac pure_add_constraints_success>>
-     qpat_x_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
+     qpat_x_assum `unconvert_t _ = _` (assume_tac o Q.AP_TERM `convert_t`) >>
      imp_res_tac t_walkstar_SUBMAP>>
      first_x_assum(qspec_then `t''''` SUBST_ALL_TAC)>>
      metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])
