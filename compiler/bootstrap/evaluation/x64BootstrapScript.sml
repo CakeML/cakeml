@@ -85,6 +85,19 @@ fun MAP3_CONV conv tm =
     itlist3 itfn els1 els2 els3 nth
   end
 
+val filter_skip_MAP = Q.store_thm("filter_skip_MAP",
+  `∀ls. filter_skip ls = MAP (λx. case x of Section n xs => Section n (FILTER not_skip xs)) ls`,
+  Induct \\ simp[lab_filterTheory.filter_skip_def]
+  \\ Cases \\ simp[lab_filterTheory.filter_skip_def]);
+
+(*
+val find_ffi_index_def = Define`
+  find_ffi_index x =
+  ^(lab_to_targetTheory.find_ffi_index_limit_def
+    |> CONJUNCTS |> el 3 |> SPEC_ALL
+    |> concl |> rhs |> rand)`;
+*)
+
 (* -- *)
 
 val _ = Globals.max_print_depth := 10;
@@ -191,7 +204,6 @@ val word_prog = thm0 |> rconc |> listSyntax.dest_list |> #1
 
 val num_progs = length word_prog
 
-(* TODO: replace with thread pool or work queue to avoid idle cores? *)
 local
   open Thread
   fun chunks_of n ls =
@@ -202,98 +214,91 @@ local
       else ch::(chunks_of n rst)
     end handle HOL_ERR _ => [ls]
 in
-  fun parths str_fn chunk_size eval_fn ls =
+  fun parlist num_threads chunk_size eval_fn ls =
     let
-      val num_progs = length ls
+      val num_items = List.length ls
       val chs = chunks_of chunk_size ls
+      val num_chunks = List.length chs
 
-      fun do_eval n [] acc = acc
-        | do_eval n (p::ps) acc =
-          let
-            val () = Lib.say(str_fn n)
-            val th = eval_fn p
-          in do_eval (n-1) ps (th::acc) end
+      fun eval_chunk i n [] acc = acc
+        | eval_chunk i n (x::xs) acc =
+          eval_chunk i (n+1) xs (eval_fn i n x::acc)
 
       val mutex = Mutex.mutex()
+      val refs = List.tabulate(num_chunks,(fn _ => ref NONE))
+      val threads_left = ref num_threads
+      val threads_left_mutex = Mutex.mutex()
       val cvar = ConditionVar.conditionVar()
-      val threads_left = ref (length chs)
 
-      fun do_chunk ch n r () =
-        let
-          val () = r := do_eval n ch []
-          val () = Mutex.lock mutex
-          val () = threads_left := !threads_left-1
-          val () = Mutex.unlock mutex
-          val () = ConditionVar.signal cvar
-        in () end
+      fun find_work i [] [] =
+            let
+              val () = Mutex.lock threads_left_mutex
+              val () = threads_left := !threads_left-1
+              val () = Mutex.unlock threads_left_mutex
+            in ConditionVar.signal cvar end
+        | find_work i (r::rs) (c::cs) =
+            case (Mutex.lock mutex; !r) of
+              SOME _ => (Mutex.unlock mutex; find_work (i+1) rs cs)
+            | NONE =>
+              let
+                val () = r := SOME []
+                val () = Mutex.unlock mutex
+                val vs = eval_chunk i 0 c []
+                val () = r := SOME vs
+              in
+                find_work (i+1) rs cs
+              end
 
-      fun foldthis (ch,(n,refs)) =
-        let
-          val r = ref []
-          val _ = Thread.fork (do_chunk ch n r, [Thread.EnableBroadcastInterrupt true])
-        in (n-chunk_size,r::refs) end
+      fun fork_this () = find_work 0 refs chs
 
-      val true = Mutex.trylock mutex
+      val true = Mutex.trylock threads_left_mutex
 
-      val (_,refs) = List.foldl foldthis (num_progs,[]) chs
+      val () = for_se 1 num_threads
+        (fn _ => ignore (Thread.fork (fork_this, [Thread.EnableBroadcastInterrupt true])))
 
       fun wait () =
-        if !threads_left = 0 then Mutex.unlock mutex
-        else (ConditionVar.wait(cvar,mutex); wait())
+        if !threads_left = 0 then Mutex.unlock threads_left_mutex
+        else (ConditionVar.wait(cvar,threads_left_mutex); wait())
 
-      val () = wait ()
+      val () = wait()
     in
-      List.concat (List.map (op!) refs)
+      List.concat (List.map (Option.valOf o op!) (List.rev refs))
     end
-  fun parMAP str_fn chunk_size eval_fn ls =
-    let
-      val ths = parths str_fn chunk_size eval_fn ls
-      fun mk_conv() =
-        let
-          val next_thm = ref ths
-          fun el_conv _ =
-            case !next_thm of th :: rest =>
-              let val () = next_thm := rest in th end
-        in
-          listLib.MAP_CONV el_conv
-        end
-    in
-      mk_conv
-    end
-  fun parGENLIST str_fn chunk_size eval_fn len =
-    let
-      val ls = List.tabulate (len, I)
-      val ths = parths str_fn chunk_size eval_fn ls
-      fun mk_conv() =
-        let
-          val next_thm = ref ths
-          fun el_conv _ =
-            case !next_thm of th :: rest =>
-              let val () = next_thm := rest in th end
-        in
-          listLib.GENLIST_CONV el_conv
-        end
-      in
-        mk_conv
-      end
 end
 
-val chunk_size = 400
-fun str_fn n = String.concat["eval word_to_word (",Int.toString n,"remain): "]
-fun eval_fn p =
-  mk_comb(word_to_word_fn,p)
-  |> (RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC
-      time eval)
+fun map_ths_conv ths =
+  let
+    val next_thm = ref ths
+    fun el_conv _ =
+      case !next_thm of th :: rest =>
+        let val () = next_thm := rest in th end
+  in
+    listLib.MAP_CONV el_conv
+  end
 
-val map_conv = parMAP str_fn chunk_size eval_fn word_prog
+val chunk_size = 50
+val num_threads = 8
+fun say_str s i n =
+  Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
+fun eval_fn i n p =
+  let
+    val () = say_str "word_to_word" i n
+    val tm = mk_comb(word_to_word_fn,p)
+    val conv = RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC time eval
+  in
+    conv tm
+  end
+
+val ths = parlist num_threads chunk_size eval_fn word_prog
 
 val thm1 =
   tm1
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
-      RAND_CONV(REWR_CONV thm0) THENC map_conv())
+      RAND_CONV(REWR_CONV thm0) THENC map_ths_conv ths)
 
-val word_prog0_def = zDefine`
-  word_prog0 = ^(thm1 |> rconc)`;
+fun mk_def s tm = new_definition(s,mk_eq(mk_var(s,type_of tm),tm))
+
+val word_prog0_def = mk_def "word_prog0" (thm1 |> rconc)
 
 val thm1' = thm1 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
 
@@ -317,18 +322,21 @@ val clash_fn = clash_fn_eq|>concl|>lhs
 
 val word_prog0 = thm1 |> rconc |> listSyntax.dest_list |> #1
 
-fun str_fn n = String.concat["eval clash (",Int.toString n," remain): "]
-fun eval_fn p =
-  mk_comb(clash_fn,p)
-  |> (RATOR_CONV(REWR_CONV clash_fn_eq) THENC
-      time eval)
+fun eval_fn i n p =
+  let
+    val () = say_str "clash" i n
+    val tm = mk_comb(clash_fn,p)
+    val conv = RATOR_CONV(REWR_CONV clash_fn_eq) THENC time eval
+  in
+    conv tm
+  end
 
-val map_conv = parMAP str_fn chunk_size eval_fn word_prog0
+val ths = parlist num_threads chunk_size eval_fn word_prog0
 
 val thm2 =
   tm2
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM clash_fn_eq))) THENC
-      RAND_CONV(REWR_CONV word_prog0_def) THENC map_conv())
+      RAND_CONV(REWR_CONV word_prog0_def) THENC map_ths_conv ths)
 
 val to_livesets_thm =
   to_livesets_thm1
@@ -342,8 +350,7 @@ val oracles =
   |> rconc |> pairSyntax.dest_pair |> #1
   |> time reg_allocComputeLib.get_oracle
 
-val x64_oracle_def = zDefine`
-  x64_oracle = ^oracles`;
+val x64_oracle_def = mk_def"x64_oracle" oracles;
 
 val wc =
   ``x64_compiler_config.word_to_word_conf
@@ -364,8 +371,7 @@ val to_livesets_invariant' = Q.prove(
 
 val args = to_livesets_thm |> concl |> lhs |> strip_comb |> #2
 
-val word_prog1_def = zDefine`
-  word_prog1 = ^(thm2 |> rconc)`;
+val word_prog1_def = mk_def"word_prog1"(thm2 |> rconc);
 
 val to_livesets_thm' =
   to_livesets_thm
@@ -410,8 +416,7 @@ val GENLIST_EL_ZIP_lemma = Q.prove(
   |> C MATCH_MP (CONJ LENGTH_word_prog1 LENGTH_word_prog0)
 *)
 
-val x64_oracle_list_def = zDefine`
-  x64_oracle_list = ^(x64_oracle_def |> rconc |> rand)`;
+val x64_oracle_list_def = mk_def"x64_oracle_list" (x64_oracle_def |> rconc |> rand);
 
 val x64_oracle_thm = Q.prove(
   `n < LENGTH x64_oracle_list ⇒
@@ -472,9 +477,13 @@ val tm3 = compile_thm0 |> rconc |> rand
 
 val check_fn = tm3 |> funpow 3 rator |> rand
 
-fun str_fn n = String.concat["eval check (",Int.toString n," remain): "]
-fun eval_fn (a,b,c) =
-  list_mk_comb(check_fn,[a,b,c]) |> time eval
+fun eval_fn i n (a,b,c) =
+  let
+    val () = say_str "chunk" i n
+    val tm = list_mk_comb(check_fn,[a,b,c])
+  in
+    time eval tm
+  end
 
 val x64_oracle_list_els =
   x64_oracle_list_def |> rconc |> listSyntax.dest_list |> #1
@@ -493,21 +502,19 @@ avg (map term_size x64_oracle_list_els)
 avg (map term_size word_prog1_els)
 avg (map term_size word_prog0_els)
 avg (map (term_size o rconc) map3els)
+
+fun avg ls = sum ls div (length ls)
+avg (map term_size encoded_prog_els)
 *)
 
-val map3els = parths str_fn chunk_size eval_fn lss
+val map3els = parlist num_threads chunk_size eval_fn lss
 
-val check_fn_def = zDefine`
-  check_fn = ^check_fn`
+val check_fn_def = mk_def"check_fn"check_fn;
 
 fun make_abbrevs str n [] acc = acc
   | make_abbrevs str n (t::ts) acc =
-    let
-      val nm = str^(Int.toString n)
-      val def = new_definition(nm,mk_eq(mk_var(nm,type_of t),t))
-    in
-      make_abbrevs str (n-1) ts (def::acc)
-    end
+    make_abbrevs str (n-1) ts
+      (mk_def (str^(Int.toString n)) t :: acc)
 
 val word_prog1_defs = make_abbrevs "word_prog1_el_" num_progs word_prog1_els []
 
@@ -529,11 +536,13 @@ val map3els' =
 local
   val next_thm = ref map3els'
   val remain = ref num_progs
+  fun str n =
+    String.concat[Int.toString n,if n mod 10 = 0 then "\n" else " "]
   fun el_conv _ =
     case !next_thm of th :: rest =>
       let
         val () = next_thm := rest
-        val () = Lib.say(String.concat[Int.toString(!remain)," "])
+        val () = Lib.say(str (!remain))
         val () = remain := !remain-1
       in th end
 in
@@ -550,15 +559,14 @@ val compile_thm1 =
          RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV x64_oracle_list_def))) THENC
          time map3_conv)))
 
-val word_prog2_def = zDefine`
-  word_prog2 = ^(compile_thm1 |> rconc |> rand)`;
+val word_prog2_def = mk_def"word_prog2" (compile_thm1 |> rconc |> rand);
 
 val compile_thm1' = compile_thm1
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM word_prog2_def))))
 
 val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
 
-(* about 15 minutes - could be parallelised? *)
+(* about 15 minutes - cannot parallelise easily due to bitmaps accumulator *)
 val () = Lib.say "eval word_to_stack: "
 val from_word_thm =
   compile_thm1'
@@ -570,8 +578,7 @@ val from_word_thm =
        REWR_CONV LET_THM THENC
        BETA_CONV))
 
-val stack_prog_def = zDefine`
-  stack_prog = ^(from_word_thm |> rconc |> rand)`;
+val stack_prog_def = mk_def"stack_prog" (from_word_thm |> rconc |> rand);
 
 val from_word_thm' = from_word_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM stack_prog_def))))
@@ -602,13 +609,18 @@ val prog_comp_tm =
   |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
   |> inst[alpha |-> fcpSyntax.mk_int_numeric_type 64]
 
-fun str_fn n = String.concat["eval stack_alloc (",Int.toString n," remain): "]
-fun eval_fn p = mk_comb(prog_comp_tm,p) |> time eval
+fun eval_fn i n p =
+  let
+    val () = say_str "stack_alloc" i n
+    val tm = mk_comb(prog_comp_tm,p)
+  in
+    time eval tm
+  end
 
 val stack_prog_els =
   stack_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val map_conv = parMAP str_fn chunk_size eval_fn stack_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_prog_els
 
 val stack_alloc_thm =
   tm4 |>
@@ -617,11 +629,11 @@ val stack_alloc_thm =
      REWR_CONV stack_allocTheory.compile_def THENC
      FORK_CONV(eval,
        RAND_CONV(REWR_CONV stack_prog_def) THENC
-       map_conv()) THENC
+       map_ths_conv ths) THENC
      listLib.APPEND_CONV))
 
-val stack_alloc_prog_def = zDefine`
-  stack_alloc_prog = ^(stack_alloc_thm |> rconc |> rand)`;
+val stack_alloc_prog_def =
+  mk_def"stack_alloc_prog" (stack_alloc_thm |> rconc |> rand);
 
 val stack_to_lab_thm1 =
   stack_to_lab_thm0
@@ -646,14 +658,18 @@ val tm6 = stack_remove_thm0 |> rconc |> rand |> rand
 
 val prog_comp_n_tm = tm6 |> rator |> rand
 
-fun str_fn n = String.concat["eval stack_remove (",Int.toString n," remain): "]
-
-fun eval_fn p = mk_comb(prog_comp_n_tm,p) |> time eval
+fun eval_fn i n p =
+  let
+    val () = say_str "stack_remove" i n
+    val tm = mk_comb(prog_comp_n_tm,p)
+  in
+    time eval tm
+  end
 
 val stack_alloc_prog_els =
   stack_alloc_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val map_conv = parMAP str_fn chunk_size eval_fn stack_alloc_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_alloc_prog_els
 
 val stack_remove_thm =
   stack_remove_thm0
@@ -661,11 +677,11 @@ val stack_remove_thm =
      RAND_CONV(
        RAND_CONV (
          RAND_CONV(REWR_CONV stack_alloc_prog_def) THENC
-         map_conv()) THENC
+         map_ths_conv ths) THENC
        listLib.APPEND_CONV)))
 
-val stack_remove_prog_def = zDefine`
-  stack_remove_prog = ^(stack_remove_thm |> rconc |> rand)`;
+val stack_remove_prog_def =
+  mk_def"stack_remove_prog" (stack_remove_thm |> rconc |> rand);
 
 val stack_to_lab_thm2 =
   stack_to_lab_thm1
@@ -682,21 +698,26 @@ val tm7 = stack_to_lab_thm2 |> rconc |> rand |> rand
 
 val prog_comp_nm_tm = tm7 |> rator |> rand
 
-fun str_fn n = String.concat["eval stack_names (",Int.toString n," remain): "]
-fun eval_fn p = mk_comb(prog_comp_nm_tm,p) |> time eval
+fun eval_fn i n p =
+  let
+    val () = say_str "stack_names" i n
+    val tm = mk_comb(prog_comp_nm_tm,p)
+  in
+    time eval tm
+  end
 
 val stack_remove_prog_els =
   stack_remove_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val map_conv = parMAP str_fn chunk_size eval_fn stack_remove_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_remove_prog_els
 
 val stack_names_thm0 =
   tm7
   |> (RAND_CONV(REWR_CONV stack_remove_prog_def) THENC
-      map_conv ())
+      map_ths_conv ths)
 
-val stack_names_prog_def = zDefine`
-  stack_names_prog = ^(stack_names_thm0 |> rconc)`;
+val stack_names_prog_def =
+  mk_def"stack_names_prog" (stack_names_thm0 |> rconc);
 
 val stack_names_thm = stack_names_thm0
   |> CONV_RULE(RAND_CONV(REWR_CONV(SYM stack_names_prog_def)))
@@ -710,22 +731,26 @@ val tm8 = stack_to_lab_thm3 |> rconc |> rand
 
 val prog_to_section_tm = tm8 |> rator |> rand
 
-fun str_fn n = String.concat["eval stack_to_lab (",Int.toString n," remain): "]
-fun eval_fn p = mk_comb(prog_to_section_tm,p) |> time eval
+fun eval_fn i n p =
+  let
+    val () = say_str "stack_to_lab" i n
+    val tm = mk_comb(prog_to_section_tm,p)
+  in
+    time eval tm
+  end
 
 val stack_names_prog_els =
   stack_names_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val map_conv = parMAP str_fn chunk_size eval_fn stack_names_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_names_prog_els
 
 val stack_to_lab_thm =
   stack_to_lab_thm3
   |> CONV_RULE(RAND_CONV(RAND_CONV(
        RAND_CONV(REWR_CONV stack_names_prog_def) THENC
-       map_conv())))
+       map_ths_conv ths)))
 
-val lab_prog_def = zDefine`
-  lab_prog = ^(stack_to_lab_thm |> rconc |> rand)`;
+val lab_prog_def = mk_def"lab_prog" (stack_to_lab_thm |> rconc |> rand);
 
 val lab_to_target_thm0 =
   stack_to_lab_thm
@@ -736,22 +761,37 @@ val lab_to_target_thm0 =
 
 val tm9 = lab_to_target_thm0 |> rconc
 
-(* about 2 minutes, but could have been parallelised if filter_skip were
-   written as MAP *)
+val lab_prog_els =
+  lab_prog_def |> rconc |> listSyntax.dest_list |> #1
+
+val filter_skip_lab_prog =
+  ISPEC(lhs(concl(lab_prog_def)))filter_skip_MAP
+
+val filter_skip_fn =
+  filter_skip_lab_prog |> rconc |> rator |> rand
+
+fun eval_fn i n p =
+  let
+    val () = say_str "filter_skip" i n
+    val tm = mk_comb(filter_skip_fn,p)
+  in time eval tm end
+
+val ths = parlist num_threads chunk_size eval_fn lab_prog_els
 
 val filter_skip_thm =
   tm9 |> (
     REWR_CONV lab_to_targetTheory.compile_def THENC
-    RAND_CONV(RAND_CONV(REWR_CONV lab_prog_def) THENC time eval))
+    RAND_CONV(
+      REWR_CONV filter_skip_lab_prog THENC
+      RAND_CONV(REWR_CONV lab_prog_def) THENC
+      map_ths_conv ths))
 
-val skip_prog_def = zDefine`
-  skip_prog = ^(filter_skip_thm |> rconc |> rand)`;
+val skip_prog_def = mk_def"skip_prog" (filter_skip_thm |> rconc |> rand);
 
 val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
 
-(* similar *)
-
+(* about 3 mins, could parallelise? *)
 val ffi_limit_thm =
   ``find_ffi_index_limit skip_prog``
   |> (RAND_CONV(REWR_CONV skip_prog_def) THENC time eval)
@@ -785,76 +825,82 @@ val enc_sec_tm = tm11 |> rator |> rand
 
 val skip_prog_els = skip_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-fun str_fn n = String.concat["eval enc_sec (",Int.toString n," remain): "]
-fun eval_fn p = mk_comb(enc_sec_tm,p) |> time eval
+fun eval_fn i n p =
+  let
+    val () = say_str "enc_sec" i n
+    val tm = mk_comb(enc_sec_tm,p)
+  in time eval tm end
 
-(* slow, >20 mins *)
+(* slow, >30 mins *)
 
-val map_conv = parMAP str_fn chunk_size eval_fn skip_prog_els
+val ths = parlist num_threads chunk_size eval_fn skip_prog_els
 
 val remove_labels_thm1 =
   remove_labels_thm0
   |> CONV_RULE(RAND_CONV(
        RAND_CONV(
          RAND_CONV(REWR_CONV skip_prog_def) THENC
-         map_conv())))
+         map_ths_conv ths)))
 
-val encoded_prog_def = zDefine`
-  encoded_prog = ^(remove_labels_thm1 |> rconc |> rand)`;
+val encoded_prog_def = mk_def"encoded_prog" (remove_labels_thm1 |> rconc |> rand);
 
-(*
-val alloc_fn_def = zDefine`alloc_fn ^args = ^body`
-val alloc_fn_eq =
-  alloc_fn_def
-  |> SPEC_ALL
-  |> PairRules.PABS args
-  |> CONV_RULE(LAND_CONV PairRules.PETA_CONV)
-val alloc_fn = alloc_fn_eq|>concl|>lhs
+val remove_labels_thm1' =
+  remove_labels_thm1 |>
+  CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM encoded_prog_def))))
 
-val outer_alloc_fn_intro = tm3 |> rator |> rand
-  |> ABS_CONV(RATOR_CONV(REWR_CONV(SYM alloc_fn_eq)))
+val lab_to_target_thm2 =
+  lab_to_target_thm1
+  |> CONV_RULE(RAND_CONV(
+       PATH_CONV"llr"(
+         REWR_CONV remove_labels_thm1' THENC
+         REWR_CONV lab_to_targetTheory.remove_labels_loop_def THENC
+         REWR_CONV LET_THM)))
 
-val outer_alloc_fn = outer_alloc_fn_intro |> rconc
+val tm12 =
+  lab_to_target_thm2 |> rconc
+  |> funpow 2 rator
+  |> funpow 2 rand
 
-val word_prog1 = word_prog1_def |> concl |> lhs
+val () = Lib.say "eval: compute_labels_alt: "
 
-fun str_fn n = String.concat["eval el1 (",Int.toString n," remain): "]
-
-val el_ths1 = parths str_fn chunk_size eval_fn (List.tabulate (num_progs,I))
+(* very slow!
+  might be because x64_enc isn't evaluating properly?
+  or just because encoded_prog_def contains huge terms...
+val compute_labels_thm =
+  tm12 |> (
+    RAND_CONV(REWR_CONV encoded_prog_def) THENC
+    time eval)
 *)
 
-local
-  val (EL_HD,EL_SUC) = CONJ_PAIR EL_restricted
-  val sucpre = SUC_PRE |> CONV_RULE(RAND_CONV SYM_CONV) |> SYM |> Q.GEN`m`
-in
-  fun my_el_conv tm =
-    let
-      val (n,ls) = listSyntax.dest_el tm
-      val eqsuc =
-        sucpre |> SPEC n |> CONV_RULE(RAND_CONV numLib.REDUCE_CONV)
-        |> EQT_ELIM
-        |> CONV_RULE(RAND_CONV(RAND_CONV numLib.REDUCE_CONV))
-    in
-      (RATOR_CONV(RAND_CONV(REWR_CONV eqsuc)) THENC
-       REWR_CONV EL_SUC THENC
-       my_el_conv) tm
-    end handle HOL_ERR _ =>
-      (RATOR_CONV(REWR_CONV EL_HD) THENC REWR_CONV HD) tm
-end
+val encoded_prog_els =
+  encoded_prog_def |> rconc |> listSyntax.dest_list |> #1
+
+val num_enc = length encoded_prog_els
+val encoded_prog_defs = make_abbrevs "encoded_prog_el" num_enc encoded_prog_els []
+
+val encoded_prog_thm =
+  encoded_prog_def |> CONV_RULE(RAND_CONV(intro_abbrev (List.rev encoded_prog_defs)))
+
+(* TODO: evaluate sec_lengths in parallel *)
+
+(* TODO: evaluate compute_labels_alt with custom conv to unfold encoded_prog_els one-by-one *)
+
+val (cln,clc) = CONJ_PAIR lab_to_targetTheory.compute_labels_alt_def
 
 (*
-fun str_fn n = String.concat["eval alloc (",Int.toString n," remain): "]
-fun eval_fn i =
-    mk_comb(outer_alloc_fn, numSyntax.term_of_int i)
-    |> (BETA_CONV THENC
-        RAND_CONV (
-          FORK_CONV(
-            RATOR_CONV(REWR_CONV x64_oracle_def),
-            FORK_CONV(
-              RAND_CONV(REWR_CONV word_prog1_def) THENC
-              listLib.EL_CONV,
-              RAND_CONV(REWR_CONV word_prog0_def) THENC
-              listLib.EL_CONV))))
+val compute_labels_thm =
+  tm12 |> (
+    RAND_CONV(
+      REWR_CONV encoded_prog_thm THENC
+      RATOR_CONV(RAND_CONV(REWR_CONV(el 1800 encoded_prog_defs))))
+    THENC
+    REWR_CONV clc)
+*)
+
+(*
+test encoder compset:
+encoded_prog_def |> rconc |> listSyntax.dest_list |> #1 |> el 2
+|> rand |> rator |> rand |> rator |> rand |> x64_compileLib.eval
 *)
 
 val _ = export_theory();
