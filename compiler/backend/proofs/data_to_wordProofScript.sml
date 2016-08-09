@@ -2154,6 +2154,11 @@ val lookup_1_adjust_set = prove(
   full_simp_tac(srw_ss())[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
   \\ full_simp_tac(srw_ss())[adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
+val lookup_3_adjust_set = prove(
+  ``lookup 3 (adjust_set l) = NONE``,
+  full_simp_tac(srw_ss())[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ full_simp_tac(srw_ss())[adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+
 val state_rel_insert_1 = prove(
   ``state_rel c l1 l2 s (t with locals := insert 1 x t.locals) v locs =
     state_rel c l1 l2 s t v locs``,
@@ -2161,6 +2166,14 @@ val state_rel_insert_1 = prove(
   \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_NEQ_1]
   \\ full_simp_tac(srw_ss())[inter_insert,domain_lookup,lookup_1_adjust_set]
   \\ metis_tac []);
+
+val state_rel_insert_3 = prove(
+  ``state_rel c l1 l2 s (t with locals := insert 3 x t.locals) v locs =
+    state_rel c l1 l2 s t v locs``,
+  full_simp_tac(srw_ss())[state_rel_def] \\ eq_tac \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_NEQ_1]
+  \\ asm_exists_tac \\ fs []
+  \\ full_simp_tac(srw_ss())[inter_insert,domain_lookup,lookup_3_adjust_set]);
 
 val state_rel_inc_clock = prove(
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs ==>
@@ -3007,7 +3020,7 @@ val assign_RefArray = prove(
       | [v1;v2] =>
         (MustTerminate (dimword (:α))
            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
-              (SOME RefByte_location) [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l)
+              (SOME RefArray_location) [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l)
       | _ => (Skip,l)``,
   cheat (* WIP *) );
 
@@ -3022,8 +3035,85 @@ val get_vars_termdep = store_thm("get_vars_termdep[simp]",
 
 val lookup_RefByte_location = prove(
   ``state_rel c l1 l2 x t [] locs ==>
-    lookup RefByte_location t.code = SOME (3,RefArray_code)``,
+    lookup RefArray_location t.code = SOME (3,RefArray_code)``,
   cheat (* fix state_rel to include this, probably in code_rel *));
+
+val AllocVar_def = Define `
+  AllocVar (names:num_set) =
+    Seq (Assign 3 (Op Sub [Lookup EndOfHeap; Lookup NextFree]))
+      (If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip)`;
+
+val RefArray_code_def = prove(
+  ``RefArray_code =
+      list_Seq [Assign 1 (Shift Lsr (Var 2) (Nat 2));
+                AllocVar (fromList [();()]);
+                ARB]``,
+  cheat);
+
+val word_exp_rw = LIST_CONJ
+  [wordSemTheory.word_exp_def,
+   wordLangTheory.word_op_def,
+   wordSemTheory.word_sh_def,
+   wordSemTheory.get_var_imm_def,
+   wordLangTheory.num_exp_def,
+   wordSemTheory.the_words_def]
+
+val get_vars_SOME_IFF_data = prove(
+  ``(get_vars [] t = SOME [] <=> T) /\
+    (get_vars (x::xs) t = SOME (y::ys) <=>
+     dataSem$get_var x t = SOME y /\
+     get_vars xs t = SOME ys)``,
+  fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
+
+val get_vars_SOME_IFF = prove(
+  ``(get_vars [] t = SOME [] <=> T) /\
+    (get_vars (x::xs) t = SOME (y::ys) <=>
+     get_var x t = SOME y /\
+     wordSem$get_vars xs t = SOME ys)``,
+  fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
+
+(*
+  alloc_lemma
+*)
+
+val get_var_set_var_thm = store_thm("get_var_set_var_thm",
+  ``wordSem$get_var n (set_var m x y) = if n = m then SOME x else get_var n y``,
+  fs[wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert]);
+
+val lookup_IMP_insert_EQ = store_thm("lookup_IMP_insert_EQ",
+  ``!t x y. lookup x t = SOME y ==> insert x y t = t``,
+  Induct \\ fs [lookup_def,Once insert_def] \\ rw []);
+
+val AllocVar_thm = store_thm("AllocVar_thm",
+  ``state_rel c l1 l2 s t [] locs ∧ dataSem$cut_env names s.locals = SOME x ∧
+    get_var 1 t = SOME (Word (alloc_size k)) /\
+    evaluate (AllocVar names,t) = (q,r) ⇒
+    (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi) ∧
+    (q ≠ SOME NotEnoughSpace ⇒
+      state_rel c l1 l2 (s with <|locals := x; space := k|>) r [] locs ∧
+      q = NONE)``,
+  fs [wordSemTheory.evaluate_def,AllocVar_def] \\ strip_tac
+  \\ `?end next.
+        FLOOKUP t.store EndOfHeap = SOME (Word end) /\
+        FLOOKUP t.store NextFree = SOME (Word next)` by
+          full_simp_tac(srw_ss())[state_rel_def,heap_in_memory_store_def]
+  \\ fs [word_exp_rw,get_var_set_var_thm] \\ rfs []
+  \\ reverse FULL_CASE_TAC THEN1
+   (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[wordSemTheory.set_var_def,state_rel_insert_3]
+    \\ match_mp_tac state_rel_cut_env \\ reverse (srw_tac[][]) \\ fs []
+    \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
+    \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
+           asmSemTheory.word_cmp_def])
+  \\ match_mp_tac (GEN_ALL alloc_lemma)
+  \\ qexists_tac `(set_var 3 (Word (end + -1w * next)) t)`
+  \\ fs [wordSemTheory.set_var_def,state_rel_insert_3]
+  \\ asm_exists_tac \\ fs []
+  \\ qpat_assum `_ = (q,r)` (fn th => fs [GSYM th])
+  \\ AP_TERM_TAC
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ match_mp_tac lookup_IMP_insert_EQ
+  \\ fs [lookup_insert,wordSemTheory.get_var_def])
 
 val RefArray_thm = store_thm("RefArray_thm",
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
@@ -3038,7 +3128,55 @@ val RefArray_thm = store_thm("RefArray_thm",
       else
         ?rv. q = SOME (Result ret rv) /\
              state_rel c l1 l2 s2 r [(v,rv)] locs``,
-  cheat);
+  fs [RefArray_code_def]
+  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
+         bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
+         bviSemTheory.do_app_aux_def]
+  \\ Cases_on `vals` \\ fs []
+  \\ Cases_on `t'` \\ fs []
+  \\ Cases_on `h` \\ fs []
+  \\ Cases_on `t''` \\ fs []
+  \\ IF_CASES_TAC \\ fs [] \\ rw []
+  \\ rename1 `get_vars [0; 1] s.locals = SOME [Number i; el]`
+  \\ qpat_abbrev_tac `s3 = bvi_to_data _ _`
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
+  \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
+  \\ fs [wordSemTheory.get_var_def]
+  \\ `?w1. a1 = Word w1` by
+   (fs [state_rel_def,get_vars_SOME_IFF_data]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
+    \\ rpt_drule word_ml_inv_get_var_IMP
+    \\ fs [get_var_def,wordSemTheory.get_var_def,adjust_var_def]
+    \\ qpat_assum `lookup 0 s.locals = SOME (Number i)` assume_tac
+    \\ rpt (disch_then drule) \\ fs []
+    \\ fs [word_ml_inv_def] \\ rw []
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+    \\ rw [] \\ fs [word_addr_def] \\ NO_TAC)
+  \\ rveq \\ fs []
+  \\ `2 < dimindex (:α)` by
+       (fs [state_rel_def,EVAL ``good_dimindex (:α)``] \\ NO_TAC) \\ fs []
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ `state_rel c l1 l2 s (set_var 1 (Word (w1 ⋙ 2)) t) [] locs` by
+        fs [wordSemTheory.set_var_def,state_rel_insert_1]
+  \\ rpt_drule AllocVar_thm
+  \\ `?x. dataSem$cut_env (fromList [();()]) s.locals = SOME x` by
+    (fs [EVAL ``fromList [(); ()]``,cut_env_def,domain_lookup,
+         get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
+  \\ disch_then drule
+  \\ fs [get_var_set_var_thm]
+  \\ `?k1. w1 ⋙ 2 = alloc_size k1` by cheat
+  \\ disch_then drule
+  \\ Cases_on `evaluate
+         (AllocVar (fromList [(); ()]),set_var 1 (Word (w1 ⋙ 2)) t)` \\ fs []
+  \\ strip_tac \\ fs []
+  \\ reverse IF_CASES_TAC \\ fs [] THEN1 fs [state_rel_def]
+
+
+
+  \\ cheat);
 
 val MAP_FST_EQ_IMP_IS_SOME_ALOOKUP = store_thm("MAP_FST_EQ_IMP_IS_SOME_ALOOKUP",
   ``!xs ys.
