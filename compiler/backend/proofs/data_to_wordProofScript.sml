@@ -5214,7 +5214,7 @@ val data_compile_correct = store_thm("data_compile_correct",
     THEN1 (full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ metis_tac []) \\ srw_tac[][]
-    \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
+    \\ qpat_x_assum `state_rel c l1 l2 _ _ [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
