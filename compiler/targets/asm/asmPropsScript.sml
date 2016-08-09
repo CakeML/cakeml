@@ -2,49 +2,12 @@ open preamble asmSemTheory
 
 val () = new_theory "asmProps"
 
-(* -- semantics is deterministic if encoding is deterministic enough -- *)
+(* -- semantics is deterministic -- *)
 
-val asm_deterministic_def = Define `
-  asm_deterministic enc c =
-  !i s1 s2 s3. asm_step enc c s1 i s2 /\ asm_step enc c s1 i s3 ==> (s2 = s3)`
-
-val bytes_in_memory_IMP = Q.prove(
-  `!xs ys a m dm.
-      bytes_in_memory a xs m dm /\ bytes_in_memory a ys m dm ==>
-      isPREFIX xs ys \/ isPREFIX ys xs`,
-  Induct
-  THEN Cases_on `ys`
-  THEN SRW_TAC [] []
-  THEN METIS_TAC [bytes_in_memory_def])
-
-val decoder_asm_deterministic = Q.store_thm("decoder_asm_deterministic",
-  `!enc c. (?dec. !i x. asm_ok i c ==> (dec (enc i ++ x) = i)) ==>
-           asm_deterministic enc c`,
-  METIS_TAC [asm_deterministic_def, asm_step_def, listTheory.APPEND_NIL,
-             bytes_in_memory_IMP, rich_listTheory.IS_PREFIX_APPEND]
-  )
-
-(* old (slow) method of proving asm_deterministic -----------------------------
-
-val enc_deterministic_def = Define `
-  enc_deterministic enc c =
-    !i j s1.
-      asm_ok i c /\ asm_ok j c /\ isPREFIX (enc i) (enc j) ==>
-        (asm i (s1.pc + n2w (LENGTH (enc i))) s1 =
-         asm j (s1.pc + n2w (LENGTH (enc j))) s1)`
-
-val enc_deterministic = Q.store_thm("enc_deterministic",
-  `!enc c. enc_deterministic enc c ==> asm_deterministic enc c`,
-  SRW_TAC [] [asm_step_def, asm_deterministic_def]
-  THEN METIS_TAC [enc_deterministic_def, bytes_in_memory_IMP])
-
-val simple_enc_deterministic = Q.store_thm("simple_enc_deterministic",
-  `!enc c.
-     (!i j. asm_ok i c /\ asm_ok j c /\ i <> j ==>
-            ~isPREFIX (enc i) (enc j)) ==> asm_deterministic enc c`,
-  METIS_TAC [enc_deterministic_def, enc_deterministic])
-
----------------------------------------------------------------------------- *)
+val asm_deterministic = Q.store_thm("asm_deterministic",
+  `!enc c i s1 s2 s3.
+    asm_step enc c s1 i s2 /\ asm_step enc c s1 i s3 ==> (s2 = s3)`,
+  rw [asm_step_def])
 
 val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
   `!l1 l2 pc mem mem_domain.
@@ -78,9 +41,7 @@ val enc_ok_def = Define `
        offset_monotonic enc c w1 w2
           (JumpCmp cmp r ri w1) (JumpCmp cmp r ri w2)) /\
     (!w1 w2. offset_monotonic enc c w1 w2 (Call w1) (Call w2)) /\
-    (!w1 w2 r. offset_monotonic enc c w1 w2 (Loc r w1) (Loc r w2)) /\
-    (* no overlap between instructions with different behaviour *)
-    asm_deterministic enc c`
+    (!w1 w2 r. offset_monotonic enc c w1 w2 (Loc r w1) (Loc r w2))`
 
 (* -- correctness property to be proved for each backend -- *)
 

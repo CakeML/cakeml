@@ -432,14 +432,6 @@ val riscv_encoding = Count.apply Q.prove (
    \\ decode_tac
    )
 
-val riscv_asm_deterministic = Q.store_thm("riscv_asm_deterministic",
-   `asm_deterministic riscv_enc riscv_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic, riscv_encoding]
-   )
-
-val riscv_asm_deterministic_config =
-   SIMP_RULE (srw_ss()) [riscv_config_def] riscv_asm_deterministic
-
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [riscv_config_def] riscv_encoding ::
    enc_ok_rwts
@@ -602,18 +594,11 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
         --------------*)
       enc_ok_tac
       )
-   >- (
-      (*--------------
+   \\ (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
-      \\ enc_ok_tac
-      )
-      (*--------------
-          asm_deterministic
-        --------------*)
-   \\ print_tac "asm_deterministic"
-   \\ rewrite_tac [riscv_asm_deterministic_config]
+   \\ enc_ok_tac
    )
 
 val () = export_theory ()
