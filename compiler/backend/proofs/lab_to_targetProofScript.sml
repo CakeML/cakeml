@@ -2883,7 +2883,7 @@ val remove_labels_loop_thm = Q.prove(
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
   \\ rw []
-  \\ qpat_x_assum `_ = compute_labels_alt 0 sec_list` sym_sub_tac
+  \\ qpat_x_assum `_ = compute_labels_alt 0 _` sym_sub_tac
   THEN1 (
     match_mp_tac all_enc_ok_lab_lookup_even>>
     first_assum (match_exists_tac o concl)>>fs[]>>
