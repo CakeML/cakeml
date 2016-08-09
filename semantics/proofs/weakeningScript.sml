@@ -667,48 +667,36 @@ val weak_decls_other_mods_refl = Q.store_thm ("weak_decls_other_mods_refl",
  rw [] >>
  rw [weak_decls_other_mods_def]);
 
-val with_v_lemma = Q.prove(
-  `((x with v := y).v = y) ∧
-   ((x with v := y).c = x.c) ∧
-   ((x with v := y).t = x.t)`,
-  rw[]);
-
+val type_d_weakening = Q.store_thm ("type_d_weakening",
+`!mn decls tenv d decls' decls'' tenvM'' tenvC'' tenv'' tenv'.
+  type_d F mn decls tenv d decls' tenv' ∧
+  weak tenv'' tenv ∧
+  weak_decls decls'' decls ∧
+  weak_decls_other_mods mn decls'' decls
+  ⇒
+  type_d F mn decls'' tenv'' d decls' tenv'`,
+ rw [type_d_cases]
+ >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
+ >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
+ >- metis_tac[LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
+ >- (
+  fs [weak_def, DISJOINT_DEF, weak_decls_other_mods_def, EXTENSION]
+  >> rw [MEM_MAP]
+  >> CCONTR_TAC
+  >> fs []
+  >> rw []
+  >> pairarg_tac
+  >> fs []
+  >> first_x_assum drule
+  >> rw []
+  >> fs [weak_decls_def, SUBSET_DEF, MEM_MAP, FORALL_PROD]
+  >> metis_tac [])
+ >- fs [weak_def]
+ >- (
+   fs [weak_def, DISJOINT_DEF, weak_decls_other_mods_def, EXTENSION]
+   >> metis_tac []));
 
   (* FIXED_TO_HERE
-
-val type_d_weakening = Q.store_thm ("type_d_weakening",
-`!mn decls tenv d decls' new_tenv decls'' tenvM'' tenvC'' ttt.
-  type_d F mn decls tenv d decls' new_tenv ∧
-  weakM ttt.m tenv.m ∧
-  weakC ttt.c tenv.c ∧
-  ttt.v = tenv.v ∧ ttt.t = tenv.t ∧
-  weak_decls decls'' decls ∧
-  weak_decls_other_mods mn decls'' decls ∧
-  tenv_ctor_ok ttt.c
-  ⇒
-  type_d F mn decls'' ttt d decls' new_tenv`,
- rw [type_d_cases]
- >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
- >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
- >- metis_tac[LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
- >- (`?mdecls'' tdecls'' edecls''. decls'' = (mdecls'',tdecls'',edecls'')` by metis_tac [pair_CASES] >>
-     rw []
-     >- (fs [DISJOINT_DEF, weak_decls_other_mods_def, EXTENSION] >>
-         rw [] >>
-         CCONTR_TAC >>
-         fs [] >>
-         res_tac >>
-         fs [MEM_MAP] >>
-         PairCases_on `y` >>
-         fs [FORALL_PROD] >>
-         rw [] >>
-         metis_tac []))
- >- (`?mdecls'' tdecls'' edecls''. decls'' = (mdecls'',tdecls'',edecls'')` by metis_tac [pair_CASES] >>
-     rw []
-     >- (fs [weak_decls_other_mods_def] >>
-         rw [] >>
-         metis_tac [])));
-
 val consistent_con_env_weakening = Q.store_thm ("consistent_con_env_weakening",
 `!ctMap envC tenvC ctMap'.
   consistent_con_env ctMap envC tenvC ∧
@@ -728,6 +716,8 @@ val consistent_con_env_weakening = Q.store_thm ("consistent_con_env_weakening",
      rw [] >>
      metis_tac [FLOOKUP_SUBMAP]));
 
+ *)
+
 val weak_decls_union = Q.store_thm ("weak_decls_union",
 `!decls1 decls2 decls3.
   weak_decls decls1 decls2
@@ -736,7 +726,6 @@ val weak_decls_union = Q.store_thm ("weak_decls_union",
  rw [] >>
  fs [weak_decls_def, union_decls_def, SUBSET_DEF] >>
  metis_tac []);
- *)
 
 val weak_decls_union2 = Q.store_thm ("weak_decls_union2",
 `!decls1 decls2 decls3.
@@ -756,14 +745,17 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
  fs [weak_decls_other_mods_def, union_decls_def] >>
  metis_tac []);
 
-val weak_decls_other_mods_only_mods_NONE = Q.store_thm ("weak_decls_other_mods_only_mods_NONE",
+ *)
+
+val weak_decls_other_mods_only_mods_NIL = Q.store_thm ("weak_decls_other_mods_only_mods_NIL",
 `weak_decls_only_mods tdecs_no_sig tdecs1 ∧
  weak_decls tdecs_no_sig tdecs1
  ⇒
- weak_decls_other_mods NONE tdecs_no_sig tdecs1`,
+ weak_decls_other_mods [] tdecs_no_sig tdecs1`,
  fs [weak_decls_only_mods_def, weak_decls_other_mods_def, weak_decls_def, mk_id_def]
  >> metis_tac []);
 
+ (*
 val weak_decls_other_mods_only_mods_SOME = Q.store_thm ("weak_decls_other_mods_only_mods_SOME",
 `decls_ok tdecs_no_sig ∧
  mn ∉ tdecs1.defined_mods ∧
@@ -784,7 +776,21 @@ val type_ds_weak_decls_only_mods = Q.store_thm ("type_ds_weak_decls_only_mods",
  >> drule type_ds_mod
  >> srw_tac [DNF_ss] [decls_to_mods_def, SUBSET_DEF, GSPECIFICATION]
  >> metis_tac []);
+ *)
 
+val weak_tenv_extend_dec_tenv = Q.store_thm ("weak_tenv_extend_dec_tenv",
+  `!tenv1 tenv2 tenv3.
+    tenv_val_ok tenv1.v ∧
+    weak_tenv tenv2 tenv3 ⇒
+    weak_tenv (extend_dec_tenv tenv1 tenv2) (extend_dec_tenv tenv1 tenv3)`,
+ rw []
+ >> drule weak_tenv_refl
+ >> fs [weak_tenv_def, extend_dec_tenv_def]
+ >> rw []
+ >> irule eSubEnv_eAppend2
+ >> simp []);
+
+ (*
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
  `!uniq mn decls tenv ds decls' new_tenv.
    type_ds uniq mn decls tenv ds decls' new_tenv ⇒

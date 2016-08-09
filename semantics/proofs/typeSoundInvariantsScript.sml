@@ -213,7 +213,7 @@ val consistent_ctMap_def = Define `
        | TypeExn cn => cn ∈ d.defined_exns)`;
 
 val decls_ok_def = Define `
-  decls_ok d ⇔ decls_to_mods d ⊆ d.defined_mods`;
+  decls_ok d ⇔ [] ∉ d.defined_mods ∧ decls_to_mods d ⊆ {[]} ∪ d.defined_mods`;
 
 val type_all_env_def = Define `
   type_all_env ctMap tenvS env tenv ⇔

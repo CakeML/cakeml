@@ -98,6 +98,12 @@ val eLookup_eBind = Q.store_thm ("eLookup_eBind[simp]",
  >> TRY (Cases_on `n`)
  >> rw [eLookup_def, eBind_def]);
 
+val eLookup_eSing = Q.store_thm ("eLookup_eSing[simp]",
+  `!n v id. eLookup (eSing n v) id = if id = Short n then SOME v else NONE`,
+ rw [eSing_def, eLookup_def]
+ >> Cases_on` id`
+ >> fs [eLookup_def]);
+
 val eAll_eSing = Q.store_thm ("eAll_eSing[simp]",
   `!R n v. eAll R (eSing n v) ⇔ R (Short n) v`,
  rw [eAll_def, eSing_def]
@@ -105,6 +111,16 @@ val eAll_eSing = Q.store_thm ("eAll_eSing[simp]",
  >> rw [eLookup_def]
  >> Cases_on `id`
  >> fs [eLookup_def]);
+
+val eAll2_eSing = Q.store_thm ("eAll2_eSing[simp]",
+  `!R n1 v1 n2 v2. eAll2 R (eSing n1 v1) (eSing n2 v2) ⇔ n1 = n2 ∧ R (Short n1) v1 v2`,
+ rw [eAll2_def, eSubEnv_def]
+ >> eq_tac
+ >- metis_tac []
+ >> rw []
+ >> rw []
+ >> Cases_on `path`
+ >> fs [eSing_def, eLookupMod_def]);
 
 (* --------------- eAppend ------------- *)
 
@@ -278,6 +294,12 @@ val eSubEnv_eBind = Q.store_thm ("eSubEnv_eBind",
  >> Cases_on `e1`
  >> Cases_on `e2`
  >> fs [eBind_def, eLookupMod_def]);
+
+val eSubEnv_eAppend2 = Q.store_thm ("eSubEnv_eAppend2",
+  `!R e1 e2 e2'. eSubEnv R e1 e1 ∧ eSubEnv R e2 e2' ⇒ eSubEnv R (eAppend e1 e2) (eAppend e1 e2')`,
+ rw [eSubEnv_def, eLookup_eAppend_some, eLookupMod_eAppend_none]
+ >> rw [eSubEnv_def, eLookup_eAppend_some, eLookupMod_eAppend_none]
+ >> metis_tac [NOT_SOME_NONE, SOME_11, option_nchotomy]);
 
 (* -------------- eAll2 ---------------- *)
 

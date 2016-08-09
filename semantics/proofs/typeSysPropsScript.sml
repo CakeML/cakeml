@@ -2297,6 +2297,7 @@ val consistent_con_env_to_mod = Q.store_thm ("consistent_con_env_to_mod",
          srw_tac[][] >>
          full_simp_tac(srw_ss())[ALOOKUP_FAILS])));
 
+         *)
 (* --------- decls_ok ------------ *)
 
 val decls_ok_union = Q.store_thm ("decls_ok_union",
@@ -2309,6 +2310,7 @@ val decls_ok_union = Q.store_thm ("decls_ok_union",
  >> full_simp_tac (srw_ss()++DNF_ss) []
  >> metis_tac []);
 
+ (*
 val decls_ok_union2 = Q.store_thm ("decls_ok_union2",
  `decls_to_mods d1 ⊆ { NONE } ∧
   decls_ok d2
@@ -2724,6 +2726,8 @@ val type_specs_tenv_ctor_ok = Q.store_thm ("type_specs_tenv_ctor_ok",
    >> simp [tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def,
             check_freevars_def, FEVERY_FUPDATE, EVERY_MAP, EVERY_MEM]));
 
+            *)
+
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
 `!mn tenvT specs decls' new_tenv.
   type_specs mn tenvT specs decls' new_tenv ⇒
@@ -2733,6 +2737,7 @@ val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
  imp_res_tac type_d_mod >>
  full_simp_tac(srw_ss())[union_decls_def]);
 
+ (*
 val check_signature_tenv_ok = Q.store_thm ("check_signature_tenv_ok",
  `!mn tenv decls tenvT tenvC tenvV specs decls' tenvT' tenvC' tenvV' ds tdecs1 tenvT''.
    check_signature (SOME mn) tenvT'' decls (tenvT,tenvC,tenvV) specs decls' (tenvT',tenvC',tenvV') ∧
@@ -2781,11 +2786,13 @@ val check_signature_tenv_ok = Q.store_thm ("check_signature_tenv_ok",
      simp [tenv_ctor_ok_merge]
      >> simp [tenv_ctor_ok_def, flat_tenv_ctor_ok_def])));
 
+     *)
+
 (* ---------------- type_top, type_prog ---------- *)
 
 val type_prog_empty = Q.store_thm ("type_prog_empty[simp]",
  `!u mn decls tenv decls' r.
-  type_prog u decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = ((FEMPTY,FEMPTY),FEMPTY,([],[]),[])`,
+  type_prog u decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = <| v := eEmpty; c := eEmpty; t := eEmpty |>`,
  rw [Once type_prog_cases]);
 
 val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
@@ -2794,15 +2801,9 @@ val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
  simp [Once type_prog_cases] >>
  rw [] >>
  eq_tac >>
- rw []
- >- (
-   PairCases_on `new_tenv1`
-   >> rw [append_new_top_tenv_def])
- >- (
-   simp [EXISTS_PROD, append_new_top_tenv_def]
-   >> PairCases_on `r`
-   >> rw []));
+ rw [extend_dec_tenv_def]);
 
+   (*
 val type_top_check_uniq = Q.store_thm ("type_top_check_uniq",
 `!uniq tdecs tenv top tdecs' new_tenv.
   type_top uniq tdecs tenv top tdecs' new_tenv
@@ -2821,12 +2822,15 @@ val type_prog_check_uniq = Q.store_thm ("type_prog_check_uniq",
  srw_tac[][Once type_prog_cases] >>
  metis_tac [type_top_check_uniq]);
 
+ *)
+
 val type_top_decls_ok = Q.store_thm ("type_top_decls_ok",
 `!uniq tdecs tenv top tdecs' new_tenv.
   type_top uniq tdecs tenv top tdecs' new_tenv
   ⇒
   decls_ok tdecs'`,
- rw [decls_ok_def, type_top_cases]
+ rw [type_top_cases]
+ >> simp [decls_ok_def]
  >- (
    drule type_d_mod
    >> simp_tac (srw_ss()++DNF_ss) [SUBSET_DEF, decls_to_mods_def, SUBSET_DEF, GSPECIFICATION])
@@ -2838,8 +2842,7 @@ val type_top_decls_ok = Q.store_thm ("type_top_decls_ok",
    >> TRY (drule type_specs_no_mod)
    >> simp_tac (srw_ss()++DNF_ss) [SUBSET_DEF, decls_to_mods_def, SUBSET_DEF, GSPECIFICATION]
    >> rw []
-   >> fs [weak_decls_def, SUBSET_DEF]
-   >> metis_tac []));
+   >> fs [weak_decls_def, SUBSET_DEF]));
 
 val type_prog_decls_ok = Q.store_thm ("type_prog_decls_ok",
 `!uniq tdecs tenv prog tdecs' new_tenv.
@@ -2854,6 +2857,7 @@ val type_prog_decls_ok = Q.store_thm ("type_prog_decls_ok",
  >> simp []
  >> metis_tac [type_top_decls_ok]);
 
+ (*
 val type_no_dup_top_types_lem = Q.prove (
 `!uniq decls1 tenv prog decls1' res.
   type_prog uniq decls1 tenv prog decls1' res
