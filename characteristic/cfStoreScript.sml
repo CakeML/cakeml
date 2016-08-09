@@ -29,14 +29,11 @@ val parts_ok_def = Define `
         proj x |++ (MAP (\n. (n,w)) ns) = proj y`
 
 val ffi2heap_def = Define `
-
-val ffi2heap_def = prove(``
   ffi2heap ((proj,parts):'ffi ffi_proj) st =
     if IS_SOME st.final_event \/ ~parts_ok st (proj,parts) then {} else
       { FFI_part s u ns |
         MEM (ns,u) parts /\ ns <> [] /\
-        (!n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) }``,
-  cheat);
+        (!n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) }`;
 
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
