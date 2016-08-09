@@ -8,10 +8,6 @@ val _ = new_theory "data_to_wordProof";
 
 (* TODO: move *)
 
-val ZIP_REPLICATE = store_thm("ZIP_REPLICATE",
-  ``!n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)``,
-  Induct \\ fs [REPLICATE]);
-
 val word_lsl_index = Q.store_thm("word_lsl_index",
   `i < dimindex(:'a) ⇒
     (((w:'a word) << n) ' i ⇔ n ≤ i ∧ w ' (i-n))`,
@@ -3014,20 +3010,6 @@ val IMP_read_bytearray_GENLIST = Q.store_thm("IMP_read_bytearray_GENLIST",
   \\ first_x_assum(qspec_then`0`mp_tac)
   \\ simp[]);
 
-val get_names_def = Define `
-  (get_names NONE = LN) /\
-  (get_names (SOME x) = x)`;
-
-val assign_RefArray = prove(
-  ``assign c secn l dest RefArray args names =
-      case args of
-      | [v1;v2] =>
-        (MustTerminate (dimword (:α))
-           (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
-              (SOME RefArray_location) [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l)
-      | _ => (Skip,l)``,
-  cheat (* WIP *) );
-
 val domain_adjust_set_NOT_EMPTY = store_thm("domain_adjust_set_NOT_EMPTY[simp]",
   ``domain (adjust_set s) <> EMPTY``,
   fs [EXTENSION,domain_lookup,adjust_set_def] \\ EVAL_TAC
@@ -3039,7 +3021,7 @@ val get_vars_termdep = store_thm("get_vars_termdep[simp]",
 
 val lookup_RefByte_location = prove(
   ``state_rel c l1 l2 x t [] locs ==>
-    lookup RefArray_location t.code = SOME (3,RefArray_code)``,
+    lookup RefArray_location t.code = SOME (3,RefArray_code c)``,
   cheat (* fix state_rel to include this, probably in code_rel *));
 
 val AllocVar_def = Define `
@@ -3047,8 +3029,8 @@ val AllocVar_def = Define `
     Seq (Assign 3 (Op Sub [Lookup EndOfHeap; Lookup NextFree]))
       (If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip)`;
 
-val RefArray_code_def = prove(
-  ``RefArray_code =
+val RefArray_code_def_alt = prove(
+  ``RefArray_code c =
       let limit = ARB in
         list_Seq [Move 0 [(1,2)];
                   AllocVar limit (fromList [();()]);
@@ -3152,15 +3134,6 @@ val memory_rel_lookup = store_thm("memory_rel_lookup",
   \\ rpt_drule (Q.INST [`ys`|->`[]`] word_ml_inv_lookup
         |> SIMP_RULE std_ss [APPEND]));
 
-val Replicate_code = prove(
-  ``Replicate_code =
-      If Equal 6 (Imm 0w) (Return 0 8)
-        (list_Seq [Assign 2 (Op Add [Var 2; Const (bytes_in_word)]);
-                   Store (Var 2) 4;
-                   Assign 6 (Op Sub [Var 6; Const 4w]);
-                   Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])``,
-  cheat);
-
 val Replicate_code_thm = store_thm("Replicate_code_thm",
   ``!n a r m1 a1 a2 a3 a4 a5.
       lookup Replicate_location r.code = SOME (5,Replicate_code) /\
@@ -3179,7 +3152,7 @@ val Replicate_code_thm = store_thm("Replicate_code_thm",
   Induct \\ rw [] \\ simp [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.bad_dest_args_def,
         wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def]
-  \\ rw [] \\ simp [Replicate_code]
+  \\ rw [] \\ simp [Replicate_code_def]
   \\ simp [wordSemTheory.evaluate_def,wordSemTheory.call_env_def,
          wordSemTheory.get_var_def,word_exp_rw,fromList2_def,
          asmSemTheory.word_cmp_def,wordSemTheory.dec_clock_def]
@@ -3204,14 +3177,14 @@ val RefArray_thm = store_thm("RefArray_thm",
     t.clock = dimword (:'a) - 1 /\
     do_app RefArray vals s = Rval (v,s2) ==>
     ?q r new_c.
-      evaluate (RefArray_code,t) = (q,r) /\
+      evaluate (RefArray_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs``,
-  fs [RefArray_code_def]
+  fs [RefArray_code_def_alt]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
          bviSemTheory.do_app_aux_def]
@@ -3379,7 +3352,7 @@ val assign_thm = Q.prove(
   \\ `t.termdep <> 0` by cheat
   \\ Cases_on `op = RefArray` \\ fs [] THEN1
    (imp_res_tac state_rel_cut_IMP
-    \\ fs [assign_RefArray] \\ rveq
+    \\ fs [assign_def] \\ rveq
     \\ fs [bvi_to_dataTheory.op_requires_names_def,
            bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
     \\ Cases_on `names_opt` \\ fs []
@@ -3442,7 +3415,7 @@ val assign_thm = Q.prove(
          Once dataSemTheory.bvi_to_data_def]
     \\ strip_tac \\ fs [] \\ clean_tac
     \\ `domain t2.locals = domain y` by
-     (qspecl_then [`RefArray_code`,`t4`] mp_tac
+     (qspecl_then [`RefArray_code c`,`t4`] mp_tac
            (wordPropsTheory.evaluate_stack_swap
               |> INST_TYPE [``:'b``|->``:'ffi``])
       \\ fs [] \\ fs [wordSemTheory.pop_env_def]
@@ -6131,7 +6104,7 @@ open match_goal
 
 val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
   let (c,p) = compile data_conf word_conf asm_conf prog in
-    MAP FST p = MAP FST (stubs(:α)) ++ MAP FST prog ∧
+    MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
     EVERY (λn,m,(p:α wordLang$prog).
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧

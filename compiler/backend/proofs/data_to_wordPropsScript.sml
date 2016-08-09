@@ -8,6 +8,11 @@ val _ = new_theory "data_to_wordProps";
 (* TODO: move? *)
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
+
+val ZIP_REPLICATE = store_thm("ZIP_REPLICATE",
+  ``!n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)``,
+  Induct \\ fs [REPLICATE]);
+
 (* -- *)
 
 val get_lowerbits_def = Define `

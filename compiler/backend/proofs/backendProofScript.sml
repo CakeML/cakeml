@@ -378,12 +378,12 @@ val data_to_word_compile_imp = prove(
   ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
     EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
-        (stubs(:'a) ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
+        (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
     code_rel c.data_conf (fromAList prog)
-      (fromAList (stubs(:α) ++ MAP ((compile_part c.data_conf) :
+      (fromAList (stubs(:α) c.data_conf ++ MAP ((compile_part c.data_conf) :
          num # num # dataLang$prog -> num # num # 'a wordLang$prog) prog)) /\
     code_rel_ext
-      (fromAList (stubs(:α) ++ MAP ((compile_part c.data_conf) :
+      (fromAList (stubs(:α) c.data_conf ++ MAP ((compile_part c.data_conf) :
          num # num # dataLang$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
     EVERY
     (λ(n,m,prog).
@@ -468,7 +468,7 @@ val data_to_word_compile_imp = prove(
     *)
   CONJ_ASM1_TAC>-
     (assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)++(MAP (compile_part c.data_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)c.data_conf++(MAP (compile_part c.data_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
   qpat_assum`EVERY _ (MAP FST _)`kall_tac >>
   qmatch_assum_rename_tac`_ pprog = _` >>
   rw[]>>fs[word_to_stackTheory.compile_def]>>pairarg_tac>>fs[]>>rveq>>
@@ -548,10 +548,10 @@ val make_init_opt_imp_bitmaps_limit = prove(
          stack_removeProofTheory.init_reduce_def]);
 
 val data_to_word_names = prove(
-  ``word_to_word$compile c1 c2 (stubs(:α) ++ MAP (compile_part c3) prog) = (col,p) ==>
-    MAP FST p = (MAP FST (stubs(:α)))++MAP FST prog``,
+  ``word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog``,
   rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-  pop_assum (qspecl_then [`c1`,`stubs(:α)++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
+  pop_assum (qspecl_then [`c1`,`stubs(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
   fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,data_to_wordTheory.compile_part_def]);
 
 val word_to_stack_names = prove(
@@ -1011,7 +1011,7 @@ val lemma = prove(
   \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
   \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.data_conf` \\ fs []
   \\ drule data_to_word_compile_imp \\ strip_tac
-  \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α) ++ MAP (compile_part c.data_conf) prog)` \\ fs []
+  \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α)c.data_conf ++ MAP (compile_part c.data_conf) prog)` \\ fs []
   \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
   \\ GEN_EXISTS_TAC "bitmaps" `c2.bitmaps` \\ fs []
   \\ GEN_EXISTS_TAC "codeN" `prog1` \\ fs []

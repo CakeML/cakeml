@@ -137,7 +137,7 @@ val RefByte_code_def = Define`
      2 = remaining number of bytes to set
      4 = pointer to next byte to set
      6 = byte value *)
-  RefByte_code =
+  RefByte_code c =
   If Equal 2 (Imm 0w) (Return 0 4)
   (list_Seq [
     Inst (Mem Store8 6 (Addr 4 0w));
@@ -146,16 +146,30 @@ val RefByte_code_def = Define`
     Call NONE (SOME RefByte_location) [2;4;6] NONE])`;
 
 val FromList_code_def = Define `
-  FromList_code = Skip:α wordLang$prog`; (* TODO: FromList *)
+  FromList_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
 
 val FromList1_code_def = Define `
-  FromList1_code = Skip:α wordLang$prog`; (* TODO: FromList *)
+  FromList1_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
 
 val RefArray_code_def = Define `
-  RefArray_code = Skip:α wordLang$prog`; (* TODO: RefArray *)
+  RefArray_code c = Skip:α wordLang$prog`; (* TODO: RefArray *)
 
 val Replicate_code_def = Define `
-  Replicate_code = Skip:α wordLang$prog`; (* TODO: RefArray *)
+  Replicate_code =
+    (* 0 = return address
+       2 = address to write to
+       4 = what to write at each location
+       6 = how many left to write
+       8 = value to be returned *)
+    If Equal 6 (Imm 0w) (Return 0 8)
+      (list_Seq [Assign 2 (Op Add [Var 2; Const (bytes_in_word)]);
+                 Store (Var 2) 4;
+                 Assign 6 (Op Sub [Var 6; Const 4w]);
+                 Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])`;
+
+val get_names_def = Define `
+  (get_names NONE = LN) /\
+  (get_names (SOME x) = x)`;
 
 val assign_def = Define `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -274,7 +288,14 @@ val assign_def = Define `
                     Const 1w])], l+1)
       | _ => (Skip,l))
     (* TODO: RefByte *)
-    (* TODO: RefArray *)
+    | RefArray =>
+      (case args of
+       | [v1;v2] =>
+         (MustTerminate (dimword (:α))
+            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+               (SOME RefArray_location)
+                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+       | _ => (Skip,l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
     | Equal => (case args of
                | [v1;v2] =>
@@ -564,21 +585,21 @@ val compile_part_def = Define `
   compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
 
 val stubs_def = Define`
-  stubs (:α) = [
-    (FromList_location,4n,FromList_code:α wordLang$prog);
-    (FromList1_location,4n,FromList1_code:α wordLang$prog);
-    (RefByte_location,3n,RefByte_code);
-    (RefArray_location,3n,RefArray_code);
+  stubs (:α) data_conf = [
+    (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
+    (FromList1_location,4n,FromList1_code data_conf);
+    (RefByte_location,3n,RefByte_code data_conf);
+    (RefArray_location,3n,RefArray_code data_conf);
     (Replicate_location,5n,Replicate_code)
   ]`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
-  `wordLang$num_stubs + LENGTH (stubs (:α)) = dataLang$num_stubs`,
+  `wordLang$num_stubs + LENGTH (stubs (:α) c) = dataLang$num_stubs`,
   EVAL_TAC);
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =
-    let p = stubs (:α) ++ MAP (compile_part data_conf) prog in
+    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
 val _ = export_theory();
