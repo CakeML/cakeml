@@ -1012,7 +1012,7 @@ val big_exp_to_small_exp = Q.prove (
        srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,Abbr`ctx`,continue_def,application_thm] >>
        srw_tac[boolSimps.DNF_ss][push_def] >> disj2_tac >>
        Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
-       qpat_x_assum`e_step_reln^* (env,X,Exp h,[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> full_simp_tac(srw_ss())[] >>
+       qpat_x_assum`e_step_reln^* (env,_,Exp _,[]) _`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> full_simp_tac(srw_ss())[] >>
        first_assum(match_exists_tac o concl) >> srw_tac[][] >>
        srw_tac[][e_step_def,continue_def,Abbr`ctx`,application_thm,to_small_st_def] ) >>
      imp_res_tac small_eval_app_err >> full_simp_tac(srw_ss())[] >>

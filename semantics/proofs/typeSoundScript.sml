@@ -242,7 +242,7 @@ val pmatch_type_progress = Q.prove (
  >- tac
  >- tac
  >- tac
- >- (qpat_x_assum `type_ps tvs tenvC (p::ps) ts tenv`
+ >- (qpat_x_assum `type_ps _ _ (_::_) _ _`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      qpat_x_assum `type_vs tvs ctMap tenvS (v::vs) ts`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
@@ -1002,7 +1002,7 @@ val exp_type_preservation = Q.prove (
          metis_tac [])
      >- (full_simp_tac(srw_ss())[return_def] >>
          srw_tac[][] >>
-         qpat_x_assum `type_e tenv (Lit l) t1` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+         qpat_x_assum `type_e _ (Lit _) _` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
          srw_tac[][Once type_v_cases_eqn] >>
@@ -1011,7 +1011,7 @@ val exp_type_preservation = Q.prove (
          full_simp_tac(srw_ss())[return_def] >>
          srw_tac[][]
          >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE] >>
-         qpat_x_assum `type_e tenv (Con s'' epat) t1`
+         qpat_x_assum `type_e _ (Con _ _) _`
                   (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          srw_tac[][] >>
          full_simp_tac(srw_ss())[] >>
@@ -1089,7 +1089,7 @@ val exp_type_preservation = Q.prove (
          srw_tac[][] >>
          qexists_tac `t1` >>
          srw_tac[][] >>
-         qpat_x_assum `type_e tenv (Var i) t1`
+         qpat_x_assum `type_e _ (Var _) _`
                   (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
@@ -1103,7 +1103,7 @@ val exp_type_preservation = Q.prove (
          metis_tac [type_lookup_type_v])
      >- (full_simp_tac(srw_ss())[return_def] >>
          srw_tac[][] >>
-         qpat_x_assum `type_e tenv (Fun s'' e'') t1`
+         qpat_x_assum `type_e _ (Fun _ _) _`
                   (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          srw_tac[][] >>
          srw_tac[][bind_tvar_def, Once type_v_cases_eqn] >>
@@ -1182,7 +1182,7 @@ val exp_type_preservation = Q.prove (
      >- (every_case_tac >>
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
-         qpat_x_assum `type_e tenv epat t1` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+         qpat_x_assum `type_e _ _ _` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          full_simp_tac(srw_ss())[] >>
          srw_tac[][build_rec_env_merge] >>
          qexists_tac `tenvS` >>
