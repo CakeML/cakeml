@@ -474,7 +474,7 @@ val Eval_FUN_FORALL = store_thm("Eval_FUN_FORALL",
   \\ FULL_SIMP_TAC std_ss [AppReturns_def,FUN_FORALL]
   \\ `?res. evaluate F env empty_state exp (empty_state,Rval res)` by METIS_TAC []
   \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o Q.SPEC `y`)
+  \\ REPEAT STRIP_TAC \\ Q.PAT_X_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o Q.SPEC `y`)
   \\ IMP_RES_TAC evaluate_11_Rval \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val Eval_FUN_FORALL_EQ = store_thm("Eval_FUN_FORALL_EQ",
@@ -1510,7 +1510,7 @@ val pmatch_empty_store = store_thm("pmatch_empty_store",
   THEN1 (METIS_TAC [])
   \\ Cases_on `pmatch cenv [] p v env`
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Q.PAT_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
+  \\ Q.PAT_X_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val s0 = ``s:unit state``

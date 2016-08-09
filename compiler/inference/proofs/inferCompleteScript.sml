@@ -445,7 +445,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
        fs[] >> rw[] >>
        fs[sub_completion_def]>>
        imp_res_tac pure_add_constraints_success>>
-       qpat_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
+       qpat_x_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
        imp_res_tac t_walkstar_SUBMAP>>
        first_x_assum(qspec_then `p2` SUBST_ALL_TAC)>>
        metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])>>
@@ -461,7 +461,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
      simp[LENGTH_NIL,infer_deBruijn_subst_id] >>
      fs[sub_completion_def]>>
      imp_res_tac pure_add_constraints_success>>
-     qpat_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
+     qpat_x_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
      imp_res_tac t_walkstar_SUBMAP>>
      first_x_assum(qspec_then `t''''` SUBST_ALL_TAC)>>
      metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])
@@ -502,7 +502,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
    strip_tac >>
    rw[]
    >-
-     (qpat_assum `pure_add_constraints st.subst A st'.subst` mp_tac>>
+     (qpat_x_assum `pure_add_constraints st.subst A st'.subst` mp_tac>>
      qpat_abbrev_tac `ls:(infer_t,infer_t)alist = ZIP (A,B)`>>
      strip_tac>>
      qabbrev_tac`tenv_new = bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t)) funs (MAP
@@ -609,7 +609,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     rpt gen_tac >> strip_tac >>
     Q.ISPEC_THEN`MAP FST funs`(mp_tac o fst o EQ_IMP_RULE) EL_ALL_DISTINCT_EL_EQ >>
     impl_tac >- simp[] >>
-    qpat_assum`MAP  FST X = Y`kall_tac >>
+    qpat_x_assum`MAP  FST X = Y`kall_tac >>
     simp[EL_MAP] >>
     metis_tac[FST,PAIR,PAIR_EQ])
    >- (
@@ -747,7 +747,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
        (fs[MEM_EL,EL_COUNT_LIST,LENGTH_COUNT_LIST]>>
        `p0 = EL n''' (MAP FST bindings)` by
          (fs[EL_MAP]>>metis_tac[FST])>>
-       qpat_assum` A = EL n B` mp_tac>>
+       qpat_x_assum` A = EL n B` mp_tac>>
        `n < LENGTH funs` by metis_tac[LENGTH_ZIP,LENGTH_COUNT_LIST]>>
        simp[EL_ZIP,EL_COUNT_LIST,LENGTH_COUNT_LIST,LENGTH_ZIP,PAIR]>>
        strip_tac>>
@@ -765,7 +765,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
          metis_tac[SND])>>
        fs[])>>
      fs[EL_MAP,MEM_COUNT_LIST]>>
-     qpat_assum`MAP A B = MAP C D` mp_tac>>
+     qpat_x_assum`MAP A B = MAP C D` mp_tac>>
      fs[LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>
      disch_then (qspec_then`p3` assume_tac)>>rfs[EL_MAP]>>
      fs[EL_MAP,LENGTH_COUNT_LIST]>>
@@ -842,7 +842,7 @@ val infer_ds_complete = prove(``
   fs[PULL_EXISTS,extend_env_new_decs_def]>>
   fs[GSYM convert_append_decls,GSYM bind_var_list2_append]>>
   qmatch_assum_abbrev_tac`type_ds _ _ _ tenv'' ds _ _` >>
-  qpat_assum`type_ds _ _ _ _ _ _ _ ` mp_tac>>
+  qpat_x_assum`type_ds _ _ _ _ _ _ _ ` mp_tac>>
   `tenv'' = tenv'' with v := bind_var_list2 (p_2 ++ tenv_v) Empty` by simp[Abbr`tenv''`] >>
   pop_assum SUBST1_TAC>>fs[]>>
   fs[GSYM AND_IMP_INTRO]>>
@@ -990,7 +990,7 @@ val check_specs_complete = store_thm("check_specs_complete",
     qpat_abbrev_tac`env' = A::env`>>
     first_x_assum(qspecl_then[`idecls`,`itenvT`,`icenv`,`env'`,`st'`] assume_tac)>>
     fs[]>>
-    qpat_assum`A=venv` (SUBST_ALL_TAC o SYM)>>fs[Abbr`env'`]>>
+    qpat_x_assum`A=venv` (SUBST_ALL_TAC o SYM)>>fs[Abbr`env'`]>>
     match_mp_tac tenv_alpha_bind_var_list2 >>
     simp[] >>
     simp[bind_var_list2_def] >>
@@ -1101,7 +1101,7 @@ val check_specs_complete = store_thm("check_specs_complete",
     metis_tac[])>>
   conj_tac >- (
     rw[check_specs_def,success_eqns] >>
-    qpat_assum `A⇒ B` mp_tac>>
+    qpat_x_assum `A⇒ B` mp_tac>>
     impl_tac>-
       (match_mp_tac tenv_tabbrev_ok_merge>>fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def,FEVERY_FEMPTY,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FUPDATE]>>
       metis_tac[check_freevars_type_name_subst])>>
@@ -1121,7 +1121,7 @@ val check_specs_complete = store_thm("check_specs_complete",
   simp[check_specs_def,success_eqns] >> rw[] >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   fs[union_decls_def]>>
-  qpat_assum`A ⇒ B` mp_tac>>impl_tac>-
+  qpat_x_assum`A ⇒ B` mp_tac>>impl_tac>-
     (match_mp_tac tenv_tabbrev_ok_merge>>fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def,FEVERY_FEMPTY,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FUPDATE,check_freevars_def,EVERY_MAP,EVERY_MEM])>>
   strip_tac>>
   PairCases_on`new_tenv`>>fs[]>>
@@ -1266,7 +1266,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   res_tac>>fs[]>>rfs[]>>
   rpt var_eq_tac>>
   (*change e2 into something nicer*)
-  qpat_assum`A=convert_t e2` (mp_tac o Q.AP_TERM`unconvert_t`)>>
+  qpat_x_assum`A=convert_t e2` (mp_tac o Q.AP_TERM`unconvert_t`)>>
   `unconvert_t (convert_t e2) = e2` by
     metis_tac[check_t_empty_unconvert_convert_id]>>
   pop_assum (SUBST1_TAC)>>
@@ -1278,7 +1278,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   imp_res_tac deBruijn_subst_unconvert>>
   pop_assum(qspec_then`subst'` mp_tac)>>pop_assum kall_tac>>
   strip_tac>>fs[]>>
-  qpat_assum`A=unconvert_t x1` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`A=unconvert_t x1` (SUBST_ALL_TAC o SYM)>>
   imp_res_tac check_freevars_to_check_t>>
   simp[infer_deBruijn_subst_twice]>>
   (*Now we have 1 big infer_deBruijn_subst*)
@@ -1359,7 +1359,7 @@ val infer_top_complete = Q.store_thm("infer_top_complete",
       (fs[mod_lift_new_dec_tenv_def,check_signature_def,success_eqns,EXTENSION,tenv_alpha_empty,check_env_def,convert_decls_def,menv_alpha_def]>>
       CONJ_TAC
       >-
-        (qpat_assum`A=decls''` (SUBST_ALL_TAC o SYM)>>
+        (qpat_x_assum`A=decls''` (SUBST_ALL_TAC o SYM)>>
         fs[union_decls_def]>>
         metis_tac[INSERT_SING_UNION])
       >>
@@ -1431,7 +1431,7 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
   rpt (disch_then (fn th => first_assum (mp_tac o (any_match_mp th))))>>
   strip_tac>>
   qmatch_assum_abbrev_tac`type_prog _ _ tenv'' ds _ _` >>
-  qpat_assum`type_prog _ _ _ _ _ _ ` mp_tac>>
+  qpat_x_assum`type_prog _ _ _ _ _ _ ` mp_tac>>
   `tenv'' = tenv'' with v := bind_var_list2 (p_2'' ++ tenv_v) Empty` by simp[Abbr`tenv''`] >>
   pop_assum SUBST1_TAC>>fs[]>>
   fs[GSYM AND_IMP_INTRO]>>

@@ -312,7 +312,7 @@ val heaps_similar_lemma = prove(
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
   \\ full_simp_tac std_ss [EVERY2_APPEND,LIST_REL_def]
   \\ EVAL_TAC \\ full_simp_tac std_ss [isForwardPointer_def]
-  \\ qpat_assum `DataElement ys l d = y` (mp_tac o GSYM)
+  \\ qpat_x_assum `DataElement ys l d = y` (mp_tac o GSYM)
   \\ full_simp_tac (srw_ss()) [el_length_def]);
 
 val heap_addresses_SNOC = prove(
@@ -437,7 +437,7 @@ val gc_move_thm = prove(
     \\ full_simp_tac std_ss [])
   \\ `FLOOKUP ff i = SOME j` by all_tac
   THEN1 full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-  \\ qpat_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
+  \\ qpat_x_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ full_simp_tac (srw_ss()) []
   \\ imp_res_tac heap_lookup_EXTEND
@@ -567,11 +567,11 @@ val gc_move_loop_thm = prove(
   \\ full_simp_tac (srw_ss()) []
   \\ `!ptr u. MEM (Pointer ptr u) (ys:'a heap_address list) ==>
               isSomeDataOrForward (heap_lookup ptr heap)` by all_tac THEN1
-   (rpt strip_tac \\ qpat_assum `!x1 x2 x3. bbb` (K all_tac)
+   (rpt strip_tac \\ qpat_x_assum `!x1 x2 x3. bbb` (K all_tac)
     \\ full_simp_tac std_ss [gc_inv_def]
     \\ `?i. FLOOKUP (heap_map 0 heap) i = SOME (heap_length h1)` by all_tac THEN1
      (full_simp_tac std_ss [FLOOKUP_DEF,BIJ_DEF,SURJ_DEF,heap_map1_def]
-      \\ qpat_assum `!xx.bbb` (K all_tac) \\ qpat_assum `!xx.bbb` match_mp_tac
+      \\ qpat_x_assum `!xx.bbb` (K all_tac) \\ qpat_x_assum `!xx.bbb` match_mp_tac
       \\ full_simp_tac (srw_ss()) [heap_addresses_APPEND,heap_addresses_def])
     \\ res_tac \\ `~(heap_length h1 < heap_length h1)` by decide_tac
     \\ imp_res_tac NOT_LESS_IMP_heap_lookup
@@ -584,7 +584,7 @@ val gc_move_loop_thm = prove(
   \\ full_simp_tac std_ss [] \\ strip_tac \\ full_simp_tac std_ss [LET_DEF]
   \\ imp_res_tac gc_move_list_APPEND_lemma
   \\ full_simp_tac (srw_ss()) [] \\ full_simp_tac std_ss [AND_IMP_INTRO]
-  \\ qpat_assum `!limit h1 h2. bbb` (mp_tac o Q.SPECL [`limit`,
+  \\ qpat_x_assum `!limit h1 h2. bbb` (mp_tac o Q.SPECL [`limit`,
        `h1 ++ [DataElement (ADDR_MAP (heap_map1 (heap3:('a,'b) heap_element list)) ys) l d]`,`t ++ xs1`,
        `a3`,`n3`,`heap3`,`c3`]) \\ full_simp_tac std_ss []
   \\ match_mp_tac IMP_IMP \\ reverse strip_tac
@@ -599,7 +599,7 @@ val gc_move_loop_thm = prove(
   \\ strip_tac THEN1
    (full_simp_tac std_ss [heap_addresses_APPEND,heap_addresses_def,el_length_def])
   \\ rpt strip_tac
-  \\ qpat_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
+  \\ qpat_x_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
   \\ full_simp_tac std_ss [] \\ strip_tac \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `j < heap_length h1` THEN1
    (imp_res_tac LESS_IMP_heap_lookup \\ full_simp_tac (srw_ss()) []
@@ -761,7 +761,7 @@ val full_gc_ok = store_thm("full_gc_ok",
   \\ `(FLOOKUP (heap_map 0 heap3) y = SOME (heap_map1 heap3 y))` by all_tac
   THEN1 full_simp_tac std_ss [FLOOKUP_DEF,heap_map1_def]
   \\ pop_assum mp_tac \\ full_simp_tac std_ss [] \\ strip_tac
-  \\ qpat_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`y`,`ptr`])
+  \\ qpat_x_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`y`,`ptr`])
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ match_mp_tac isSome_heap_looukp_IMP_APPEND \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [isSomeDataElement_def]);
@@ -867,7 +867,7 @@ val lemma = prove(th |> concl |> dest_imp |> fst,
         gc_move_list (l,DataElement l n'' b::h2,a,n,heap,c,limit) =
           (x1,x2,x3,x4,x5,x6)` by metis_tac [PAIR]
   \\ asm_rewrite_tac [] \\ simp_tac std_ss [LET_DEF]
-  \\ qpat_assum `!xs.bbb` mp_tac
+  \\ qpat_x_assum `!xs.bbb` mp_tac
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV (srw_ss()) []))
   \\ asm_rewrite_tac [] \\ simp_tac std_ss [LET_DEF] \\ rpt strip_tac
   \\ res_tac \\ full_simp_tac std_ss [] \\ imp_res_tac gc_move_list_ok)

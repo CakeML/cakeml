@@ -67,7 +67,7 @@ val ConstDef_tac =
     simp_tac bool_ss [GSYM alistTheory.alist_to_fmap_def,alistTheory.ALOOKUP_EQ_FLOOKUP] >>
     NO_TAC) >>
   conj_tac >- (
-    qpat_assum`DISJOINT X Y`mp_tac >>
+    qpat_x_assum`DISJOINT X Y`mp_tac >>
     rpt (pop_assum kall_tac) >>
     rw[IN_DISJOINT] >> metis_tac[] ) >>
   conj_tac >- (

@@ -252,7 +252,7 @@ val LIST_REL_GENLIST_I = store_thm("LIST_REL_GENLIST_I",
     \\ `n = LENGTH xs` by DECIDE_TAC
     \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD])
   THEN1 (`n < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
-    \\ POP_ASSUM MP_TAC \\ Q.PAT_ASSUM `!x.bb` (K ALL_TAC)
+    \\ POP_ASSUM MP_TAC \\ Q.PAT_X_ASSUM `!x.bb` (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1])
   \\ POP_ASSUM (MP_TAC o Q.SPEC `LENGTH xs`)
   \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD]);

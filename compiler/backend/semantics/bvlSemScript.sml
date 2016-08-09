@@ -335,7 +335,7 @@ val evaluate_ind = save_thm("evaluate_ind",let
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
     \\ reverse (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    THEN1 (Q.PAT_ASSUM `!ticks dest xs env s1. bb ==> bbb` MATCH_MP_TAC
+    THEN1 (Q.PAT_X_ASSUM `!ticks dest xs env s1. bb ==> bbb` MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC evaluate_clock
            \\ `¬(s1.clock < ticks + 1)` by DECIDE_TAC
@@ -345,7 +345,7 @@ val evaluate_ind = save_thm("evaluate_ind",let
            \\ FULL_SIMP_TAC std_ss [])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC))
     \\ IMP_RES_TAC evaluate_clock
     \\ FULL_SIMP_TAC std_ss [check_clock_thm])
   in ind end);
@@ -361,14 +361,14 @@ val evaluate_def = save_thm("evaluate_def",let
     \\ IMP_RES_TAC evaluate_check_clock
     \\ IMP_RES_TAC evaluate_clock
     \\ IMP_RES_TAC LESS_EQ_TRANS
-    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x. bbb` (K ALL_TAC))
     \\ IMP_RES_TAC do_app_const
     \\ SRW_TAC [] []
     \\ fs [check_clock_thm]
     \\ rfs [check_clock_thm]
     \\ fs [check_clock_thm, dec_clock_def]
     \\ IMP_RES_TAC LESS_EQ_TRANS
-    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x. bbb` (K ALL_TAC))
     \\ fs [check_clock_thm]
     \\ imp_res_tac LESS_EQ_LESS_TRANS)
   in def end);

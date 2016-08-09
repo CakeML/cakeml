@@ -77,8 +77,8 @@ fun progress_with thm' thm = progress_with_then strip_assume_tac thm' thm
 
 (* imperfect as it changes the position of the matched assumption in the
    assumption stack *)
-fun qpat_assum_keep q thm_tac =
-  qpat_assum q (fn asm => thm_tac asm \\ assume_tac asm)
+fun qpat_x_assum_keep q thm_tac =
+  qpat_x_assum q (fn asm => thm_tac asm \\ assume_tac asm)
 
 fun sing x = [x]
 

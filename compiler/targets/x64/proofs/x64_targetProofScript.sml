@@ -570,7 +570,7 @@ in
                     val etm = ``env ^t ^tm : x64_state``
                  in
                     (`!a. a IN s1.mem_domain ==> ((^etm).MEM a = ms.MEM a)`
-                     by (qpat_assum `!i:num s:x64_state. P`
+                     by (qpat_x_assum `!i:num s:x64_state. P`
                            (qspecl_then [`^t`, `^tm`]
                               (strip_assume_tac o SIMP_RULE (srw_ss())
                               [set_sepTheory.fun2set_eq]))
@@ -584,10 +584,10 @@ in
          \\ assume_tac (step `^the_state` l)
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
-         \\ Tactical.PAT_ASSUM x_tm kall_tac
+         \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state x64_next)
          \\ simp []
-         \\ TRY (Q.PAT_ASSUM `NextStateX64 qq = qqq` kall_tac)
+         \\ TRY (Q.PAT_X_ASSUM `NextStateX64 qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 end
@@ -629,11 +629,11 @@ in
       EXISTS_TAC n
       \\ simp [asmPropsTheory.asserts_eval, x64_proj_def]
       \\ NTAC 2 STRIP_TAC
-      \\ qpat_assum `~(aa).failed` mp_tac
-      \\ qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
+      \\ qpat_x_assum `~(aa).failed` mp_tac
+      \\ qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ pop_assum mp_tac
-      \\ qpat_assum `asm_ok aa x64_config` mp_tac
+      \\ qpat_x_assum `asm_ok aa x64_config` mp_tac
       \\ simp enc_rwts
       \\ REPEAT DISCH_TAC
       \\ qunabbrev_tac `instr`
@@ -685,7 +685,7 @@ local
       \\ bytes_in_memory_tac
       \\ fsrw_tac [] []
       \\ rfs [Abbr `r2`, mem_lem5, binop_lem7]
-      \\ REPEAT (qpat_assum `NextStateX64 q = z` (K all_tac))
+      \\ REPEAT (qpat_x_assum `NextStateX64 q = z` (K all_tac))
       \\ rfs [x64Theory.RexReg_def, x64_asm_state_def, asmPropsTheory.all_pcs,
               REWRITE_RULE [mem_lem14] x64_stepTheory.write_mem64_def,
               REWRITE_RULE [mem_lem15] x64_stepTheory.write_mem32_def,
@@ -922,7 +922,7 @@ val x64_encoding = Count.apply Q.prove (
          \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                     (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
          by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
-         \\ qpat_assum `~(a /\ b)` (K all_tac)
+         \\ qpat_x_assum `~(a /\ b)` (K all_tac)
          \\ load_store_tac
          )
       >- (
@@ -958,7 +958,7 @@ val x64_encoding = Count.apply Q.prove (
       \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                  (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
       by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
-      \\ qpat_assum `~(a /\ b)` (K all_tac)
+      \\ qpat_x_assum `~(a /\ b)` (K all_tac)
       \\ load_store_tac
       )
       (*--------------
@@ -1174,7 +1174,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
             \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                        (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
-            \\ qpat_assum `~(a /\ b)` (K all_tac)
+            \\ qpat_x_assum `~(a /\ b)` (K all_tac)
             \\ load_tac
             )
          >- (
@@ -1216,7 +1216,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
          \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                     (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
          by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
-         \\ qpat_assum `~(a /\ b)` (K all_tac)
+         \\ qpat_x_assum `~(a /\ b)` (K all_tac)
          \\ store_tac
       ) (* close Inst *)
       (*--------------

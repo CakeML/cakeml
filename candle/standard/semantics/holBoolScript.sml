@@ -122,7 +122,7 @@ fun init_tac q =
     unabbrev_all_tac >>
     simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] >>
     simp[term_ok_def] >>
-    qpat_assum`is_std_sig X`mp_tac >>
+    qpat_x_assum`is_std_sig X`mp_tac >>
     EVAL_TAC >> simp_tac bool_ss [GSYM alistTheory.alist_to_fmap_def,alistTheory.ALOOKUP_EQ_FLOOKUP,is_instance_refl]) >>
   simp[SIMP_RULE std_ss [] termsem_equation,Abbr`eq`,boolean_eq_true] >>
   simp[termsem_def,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
@@ -184,10 +184,10 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     match_mp_tac bool_has_bool_sig >>
     pop_assum mp_tac >> EVAL_TAC ) >>
   `FLOOKUP (tysof sig) (strlit "bool") = SOME 0` by (
-    qpat_assum`is_std_sig sig` mp_tac >>
+    qpat_x_assum`is_std_sig sig` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   `FLOOKUP (tysof sig) (strlit "fun") = SOME 2` by (
-    qpat_assum`is_std_sig sig` mp_tac >>
+    qpat_x_assum`is_std_sig sig` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   simp ints >>
   conj_asm1_tac >- (
@@ -239,7 +239,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     rw[boolean_def] >>
     qmatch_assum_abbrev_tac`f1 = f2` >>
     `f1 ' (Boolrel $/\) = False` by (
-      qpat_assum`f1 = f2`kall_tac >>
+      qpat_x_assum`f1 = f2`kall_tac >>
       simp[Abbr`f1`,Boolrel_def] >>
       match_mp_tac apply_abstract_matchable >> simp[] >>
       conj_tac >- apply_abstract_tac >>
@@ -372,7 +372,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,
          mlstringTheory.implode_def] >>
     fs[interprets_def] >>
-    qpat_assum`∀t. is_type_valuation t ⇒ Z`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
+    qpat_x_assum`∀t. is_type_valuation t ⇒ Z`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
@@ -428,7 +428,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
     fs[interprets_def] >>
-    qpat_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
+    qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
@@ -466,7 +466,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
     fs[interprets_def] >>
-    qpat_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
+    qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>

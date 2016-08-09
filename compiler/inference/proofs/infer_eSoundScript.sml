@@ -204,7 +204,7 @@ EVERY (λn. check_freevars m [] (convert_t (t_walkstar s (Infer_Tuvar (uvar + n)
 induct_on `tvs` >>
 rw [sub_completion_def, COUNT_LIST_SNOC, EVERY_SNOC] >>
 fs [sub_completion_def] >|
-[qpat_assum `!m' s. P m' s` match_mp_tac >>
+[qpat_x_assum `!m' s. P m' s` match_mp_tac >>
      rw [] >>
      qexists_tac `s'` >>
      qexists_tac `extra_constraints` >>
@@ -269,7 +269,7 @@ rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def] >|
 [match_mp_tac check_t_to_check_freevars >>
      rw [] >>
      fs [sub_completion_def] >>
-     qpat_assum `!uv. uv ∈ FDOM s ⇒ P uv` match_mp_tac >>
+     qpat_x_assum `!uv. uv ∈ FDOM s ⇒ P uv` match_mp_tac >>
      fs [count_def, SUBSET_DEF],
  `?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
      `t_wfs s` by metis_tac [infer_p_wfs] >>
@@ -286,7 +286,7 @@ rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def] >|
      rw [convert_t_def, t_walkstar_eqn1, MAP_MAP_o, combinTheory.o_DEF,
          EVERY_MAP, LENGTH_COUNT_LIST] >>
      fs [] >- (
-       qpat_assum`_ + _ = (_:num)`(assume_tac o ONCE_REWRITE_RULE[ADD_COMM] o SYM)
+       qpat_x_assum`_ + _ = (_:num)`(assume_tac o ONCE_REWRITE_RULE[ADD_COMM] o SYM)
        \\ fsrw_tac[][]
        \\ drule sub_completion_check
        \\ simp[] ) >>
@@ -333,7 +333,7 @@ fsrw_tac[] [COUNT_LIST_def] >>
 srw_tac[] [] >|
 [PairCases_on `h` >>
      rw [],
- qpat_assum `!x. P x` match_mp_tac >>
+ qpat_x_assum `!x. P x` match_mp_tac >>
      qexists_tac `st with next_uvar := st.next_uvar + 1` >>
      fsrw_tac[] [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]]);
 
@@ -533,7 +533,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         imp_res_tac inc_wfs>>
         pop_assum kall_tac>>pop_assum (qspec_then`tvs` assume_tac)>>
         imp_res_tac t_walkstar_no_vars>>fs[]>>
-        qpat_assum`A=convert_t t` (SUBST_ALL_TAC o SYM)>>
+        qpat_x_assum`A=convert_t t` (SUBST_ALL_TAC o SYM)>>
         fs[]>>
         qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
         assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
@@ -585,7 +585,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         imp_res_tac inc_wfs>>
         pop_assum kall_tac>>pop_assum (qspec_then`tvs` assume_tac)>>
         imp_res_tac t_walkstar_no_vars>>fs[]>>
-        qpat_assum`A=convert_t t` (SUBST_ALL_TAC o SYM)>>
+        qpat_x_assum`A=convert_t t` (SUBST_ALL_TAC o SYM)>>
         fs[]>>
         qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
         assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
@@ -890,7 +890,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                [rw [check_env_def, EVERY_MAP, remove_pair_lem] >>
                     fs [EVERY_MEM] >>
                     rw [] >>
-                    qpat_assum `!e. MEM e _ ⇒ P e` (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+                    qpat_x_assum `!e. MEM e _ ⇒ P e` (fn th => first_assum (mp_tac o MATCH_MP th)) >>
                     PairCases_on `x` >>
                     rw [],
                 metis_tac [infer_p_next_uvar_mono, check_env_more]]) >>

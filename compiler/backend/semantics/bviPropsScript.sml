@@ -372,10 +372,10 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     rpt(IF_CASES_TAC >> full_simp_tac(srw_ss())[]) >>
-    TRY(qpat_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[]>>
+    TRY(qpat_x_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[]>>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    (qpat_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[] ) >>
+    (qpat_x_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[] ) >>
   TRY (
     rename1`bviSem$do_app` >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -549,12 +549,12 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     ntac 4 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     ntac 2 (TRY (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    TRY(qpat_assum`Boolv _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[])) >>
+    TRY(qpat_x_assum`Boolv _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[])) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[dec_clock_1_inc_clock,dec_clock_1_inc_clock2] >>
   imp_res_tac evaluate_add_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  TRY(qpat_assum`Boolv _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[]) >>
+  TRY(qpat_x_assum`Boolv _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[]) >>
   rev_full_simp_tac(srw_ss())[do_app_inc_clock] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   imp_res_tac do_app_io_events_mono >>
   TRY(fsrw_tac[ARITH_ss][] >>NO_TAC) >>

@@ -64,7 +64,7 @@ val word_exp_op_permute_lem = prove(``
   Cases_on`word_exp s x`>>fs[]>>
   Cases_on`x'`>>fs[]>>
   TRY(Cases_on`x''`>>fs[])>>
-  rpt(qpat_assum`C=D:'a word_loc option` mp_tac)>>
+  rpt(qpat_x_assum`C=D:'a word_loc option` mp_tac)>>
   Cases_on`the_words A`>>
   Cases_on`the_words B`>>
   fs[word_op_def]>>
@@ -105,7 +105,7 @@ val word_exp_op_mono = prove(``
   srw_tac[][word_exp_def,LET_THM]>>
   fs[the_words_def]>>Cases_on`word_exp s x`>>fs[]>>
   Cases_on`x'`>>fs[]>>
-  rpt(qpat_assum`A=B` mp_tac)>>ntac 2 (TOP_CASE_TAC>>fs[])>>
+  rpt(qpat_x_assum`A=B` mp_tac)>>ntac 2 (TOP_CASE_TAC>>fs[])>>
   Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def])
 
 val the_words_append = prove(``
@@ -133,7 +133,7 @@ val word_exp_op_op = prove(``
   fs[the_words_append]>>
   qpat_abbrev_tac`C = MAP f l`>>
   Cases_on`the_words C'`>>fs[the_words_def]>>
-  rpt(qpat_assum`A=B` mp_tac)>>
+  rpt(qpat_x_assum`A=B` mp_tac)>>
   ntac 2 (TOP_CASE_TAC)>>fs[]>>
   Cases_on`op`>> fs[word_op_def,FOLDR_APPEND]>>
   rw[Abbr`C'`]>>
@@ -253,7 +253,7 @@ val pull_exp_ok = prove(``
     rw[]>>
     fs[DISJ_IMP_THM,FORALL_AND_THM]>>
     res_tac>>fs[]>>
-    qpat_assum`A=SOME x'` mp_tac>>
+    qpat_x_assum`A=SOME x'` mp_tac>>
     qpat_abbrev_tac`ws = MAP f ls`>>
     qpat_abbrev_tac`ws = MAP f ls`>>
     strip_tac>>
@@ -329,7 +329,7 @@ val flatten_exp_ok = prove(``
     fs[op_consts_def,word_exp_def,LET_THM,word_op_def,the_words_def]>>
     Cases_on`word_exp s exp`>>fs[]>>Cases_on`x'`>>fs[]>>
     (*4 cases*)
-    TRY(qpat_assum`A=SOME x` mp_tac>>rename1`word_exp s exp'`>>
+    TRY(qpat_x_assum`A=SOME x` mp_tac>>rename1`word_exp s exp'`>>
     Cases_on`word_exp s exp'`>>fs[]>>Cases_on`x'`>>fs[]>>
     FULL_CASE_TAC>>fs[]>>
     first_x_assum(qspec_then`s` assume_tac)>>rfs[]>>
@@ -414,7 +414,7 @@ val inst_select_exp_thm = prove(``
         disch_then (qspec_then`e`mp_tac)>>
         impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
         full_simp_tac(srw_ss())[binary_branch_exp_def,every_var_exp_def,the_words_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[IS_SOME_EXISTS]>>rev_full_simp_tac(srw_ss())[]>>
-        qpat_assum`A=SOME w` mp_tac>>simp[Once word_exp_def]>>FULL_CASE_TAC>>
+        qpat_x_assum`A=SOME w` mp_tac>>simp[Once word_exp_def]>>FULL_CASE_TAC>>
         FULL_CASE_TAC>>fs[]>>
         srw_tac[][]>>res_tac>>
         pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
@@ -523,7 +523,7 @@ val inst_select_exp_thm = prove(``
       (Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def,word_exp_def,the_words_def,word_op_def]>>
       Cases_on`l`>>fs[the_words_def]>>
       TRY(Cases_on`t`>>full_simp_tac(srw_ss())[]>>Cases_on`t'`>>full_simp_tac(srw_ss())[])>>
-      qpat_assum`A=SOME w` mp_tac>>
+      qpat_x_assum`A=SOME w` mp_tac>>
       Cases_on`word_exp s h`>>fs[]>>
       Cases_on`x`>>fs[]>>
       Cases_on`t`>>fs[the_words_def]>>
@@ -651,7 +651,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
         rw[]>>
         `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
       >>
-        qpat_assum`expr =A` sym_sub_tac>>
+        qpat_x_assum`expr =A` sym_sub_tac>>
         imp_res_tac pull_exp_ok>>
         imp_res_tac flatten_exp_ok>>
         imp_res_tac inst_select_exp_thm>>
@@ -724,7 +724,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
     simp[state_component_equality])
   >-
     (TOP_CASE_TAC>>TRY(IF_CASES_TAC)>>fs[evaluate_def]>>
-    qpat_assum`A=(res,rst)` mp_tac>>
+    qpat_x_assum`A=(res,rst)` mp_tac>>
     fs[get_var_imm_def]
     >-
       (ntac 4(TOP_CASE_TAC>>fs[])>>
@@ -763,7 +763,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
         full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def]
       >>
       full_simp_tac(srw_ss())[]>>
-      qpat_assum`A=(res,rst with locals:=loc')` mp_tac>>
+      qpat_x_assum`A=(res,rst with locals:=loc')` mp_tac>>
       qpat_abbrev_tac`st = call_env B C`>>
       qpat_abbrev_tac`st' = call_env B C`>>
       `st' = st''` by

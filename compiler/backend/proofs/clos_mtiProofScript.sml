@@ -183,7 +183,7 @@ val exp_rel_exec_rel_Exp1 = Q.store_thm(
   simp[exec_rel_rw, evaluate_ev_def] >> qx_gen_tac `k` >> strip_tac >>
   reverse (rw[])
   >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n≤x``, val_rel_mono]) >>
-  qpat_assum `exp_rel (:'a) _ _ _` mp_tac >> simp[exp_rel_thm] >>
+  qpat_x_assum `exp_rel (:'a) _ _ _` mp_tac >> simp[exp_rel_thm] >>
   disch_then
     (qspecl_then [`i`, `E1`, `E2`, `s1`, `s2`, `k - (n - 1)`] mp_tac) >>
   simp[]>>
@@ -231,7 +231,7 @@ val recClosure_add_arg0 = Q.prove(
       `LENGTH fns2 = LENGTH fns1 ∧ LENGTH AE2 = LENGTH AE1 ∧
        LENGTH CE2 = LENGTH CE1` by fs[LIST_REL_EL_EQN] >>
       `fina1 ≤ fina2`
-        by (qpat_assum `LIST_REL _ fns1 fns2` mp_tac >> simp[LIST_REL_EL_EQN] >>
+        by (qpat_x_assum `LIST_REL _ fns1 fns2` mp_tac >> simp[LIST_REL_EL_EQN] >>
             disch_then (qspec_then `fidx` mp_tac) >> simp[] >>
             `dest_addarg_Fn max_app fina1 fib1 = NONE ∨
                 ∃m b. dest_addarg_Fn max_app fina1 fib1 = SOME(m,b)`
@@ -358,7 +358,7 @@ val recClosure_add_arg0 = Q.prove(
       Cases_on `kk + (LENGTH AE1 + 1) < fina1 + m` >> simp[]
       >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n≤x``,val_rel_mono]) >>
       simp[TAKE_TAKE, DROP_TAKE_APPEND_DROP] >>
-      qpat_assum `exp_rel (:'ffi) _ _ _` mp_tac >>
+      qpat_x_assum `exp_rel (:'ffi) _ _ _` mp_tac >>
       simp[exp_rel_thm, dec_clock_def] >>
       qabbrev_tac `N = LENGTH AE1 + LENGTH vs1 - (fina1 + m)` >>
       qabbrev_tac `
@@ -389,7 +389,7 @@ val recClosure_add_arg0 = Q.prove(
   simp[val_rel_rw, check_closures_def, clo_can_apply_def] >>
   `LENGTH vs2 = LENGTH pfx1 + LENGTH sfx1` by fs[LIST_REL_EL_EQN] >> simp[] >>
   `fina2 = fina1 + m ∧ exp_rel (:'ffi) max_app [fib01] [fib2]`
-     by (qpat_assum `LIST_REL _ fns1 fns2` mp_tac >>
+     by (qpat_x_assum `LIST_REL _ fns1 fns2` mp_tac >>
          simp[LIST_REL_EL_EQN] >>
          disch_then (qspec_then `fidx` mp_tac) >> simp[]) >> simp[] >>
   qx_genl_tac [`k`, `vv1`, `vv2`, `s1`, `s2`, `locopt`] >>
@@ -416,7 +416,7 @@ val recClosure_add_arg0 = Q.prove(
   simp[exec_rel_rw, evaluate_ev_def] >> qx_gen_tac `kk` >> strip_tac >>
   rveq >> simp[] >> reverse (Cases_on `m ≤ kk + (LENGTH pfx1 + 1)`) >>
   simp[res_rel_rw] >- metis_tac[DECIDE ``0n≤x``, val_rel_mono] >>
-  qpat_assum `exp_rel (:'ffi) _ _ _` mp_tac >>
+  qpat_x_assum `exp_rel (:'ffi) _ _ _` mp_tac >>
   simp[exp_rel_thm, dec_clock_def] >>
   qabbrev_tac `N = LENGTH pfx1 + LENGTH vv1 - m` >>
   qabbrev_tac `
@@ -473,7 +473,7 @@ val recClosure_add_arg = Q.store_thm(
     by (fs[EVERY_MEM, MEM_EL, LIST_REL_EL_EQN, FORALL_PROD, PULL_EXISTS] >>
         rfs[] >> rpt gen_tac >> strip_tac >>
         rename1 `(n2,b2) = EL fidx fns2` >>
-        qpat_assum `(n2,b2) = _` (assume_tac o SYM) >>
+        qpat_x_assum `(n2,b2) = _` (assume_tac o SYM) >>
         `∃n1 b1. EL fidx fns1 = (n1,b1)` by metis_tac[pair_CASES] >>
         `n1 ≠ 0 ∧ n1 ≤ max_app` by metis_tac[] >>
         last_x_assum (qspec_then `fidx` mp_tac) >> simp[] >>
@@ -481,7 +481,7 @@ val recClosure_add_arg = Q.store_thm(
             ∃m1 b01. dest_addarg_Fn max_app n1 b1 = SOME(m1,b01)`
           by metis_tac[pair_CASES, option_CASES] >> simp[] >>
         fs[dest_addarg_Fn_EQ_SOME]) >>
-  simp[] >> qpat_assum `exp_rel (:'ffi) _ _ _` mp_tac >>
+  simp[] >> qpat_x_assum `exp_rel (:'ffi) _ _ _` mp_tac >>
   simp[exp_rel_thm] >> disch_then irule >> qexists_tac `i` >> simp[] >>
   irule EVERY2_APPEND_suff >> simp[] >>
   `LENGTH fns2 = LENGTH fns1` by (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
@@ -869,7 +869,7 @@ val intro_multi_preserves_esgc_free = Q.store_thm(
       qspecl_then [`max_app`,`[e0]`] mp_tac intro_multi_preserves_elist_globals >>
       simp[])
   >- (rpt (pairarg_tac >> fs[]) >> fs[elist_globals_FOLDR] >>
-      qpat_assum `FOLDR _ _ _ = {||}`
+      qpat_x_assum `FOLDR _ _ _ = {||}`
         (fn th => CONV_TAC (RAND_CONV (REWR_CONV (SYM th)))) >>
       irule FOLDR_CONG >> simp[] >> simp[LIST_EQ_REWRITE] >>
       rpt strip_tac >> simp[EL_MAP] >> rpt (pairarg_tac >> fs[]) >>

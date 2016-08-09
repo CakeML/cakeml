@@ -92,7 +92,7 @@ val local_frame_gc = store_thm ("local_frame_gc",
       Q1 *+ H2 ==+> Q *+ GC ==>
       F H Q``,
   fs [is_local_def] \\ rpt strip_tac \\
-  qpat_assum `_ = local _` (once_rewrite_tac o sing) \\
+  qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   rewrite_tac [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac \\ fs [SEP_IMP_def]
 )
@@ -105,7 +105,7 @@ val local_frame = store_thm ("local_frame",
       Q1 *+ H2 ==+> Q ==>
       F H Q``,
   fs [is_local_def] \\ rpt strip_tac \\
-  qpat_assum `_ = local _` (once_rewrite_tac o sing) \\
+  qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   rewrite_tac [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac
   THEN1 (fs [SEP_IMP_def])
@@ -123,7 +123,7 @@ val local_gc_pre_on = store_thm ("local_gc_pre_on",
      F H' Q ==>
      F H Q``,
   rpt strip_tac \\ fs [is_local_def] \\
-  qpat_assum `_ = local _` (once_rewrite_tac o sing) \\
+  qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H'`, `HG`, `Q`] \\ rpt strip_tac
   THEN1 (once_rewrite_tac [STAR_COMM] \\ fs [SEP_IMP_def])
@@ -139,7 +139,7 @@ val local_intro_prop = store_thm ("local_intro_prop",
       (P ==> F H Q) ==>
       F (H * cond P) Q``,
   rpt strip_tac \\ fs [is_local_def] \\
-  qpat_assum `_ = local _` (once_rewrite_tac o sing) \\
+  qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\ rew_heap \\ rpt strip_tac \\
   TRY (fs [STAR_def, cond_def] \\ SPLIT_TAC) \\ hsimpl
@@ -153,7 +153,7 @@ val local_extract_exists = store_thm ("local_extract_exists",
       (!x. F (J x) Q) ==>
       F ($SEP_EXISTS J) Q``,
   rpt strip_tac \\ fs [is_local_def] \\
-  qpat_assum `_ = local _` (once_rewrite_tac o sing) \\
+  qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\ fs [SEP_EXISTS] \\ rename1 `J x _` \\
   Q.LIST_EXISTS_TAC [`J x`, `emp`, `Q`] \\ rpt strip_tac \\ rew_heap \\
   hsimpl

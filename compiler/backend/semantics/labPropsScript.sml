@@ -144,7 +144,7 @@ val LESS8 = DECIDE ``n < 8 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
 
 val DIV_EQ_DIV_IMP = prove(
   ``0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d``,
-  rpt strip_tac \\ Q.PAT_ASSUM `n <> n'` mp_tac \\ fs []
+  rpt strip_tac \\ Q.PAT_X_ASSUM `n <> n'` mp_tac \\ fs []
   \\ MP_TAC (Q.SPEC `d` DIVISION) \\ fs []
   \\ rpt strip_tac \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs []);
@@ -376,7 +376,7 @@ val mem_load_align_dm = Q.store_thm("mem_load_align_dm",
   \\ rfs[dimword_def]
   \\ spose_not_then strip_assume_tac
   \\ fs[DIV_MOD_MOD_DIV]
-  \\ qpat_assum`_ ≠ _`mp_tac \\ simp[]
+  \\ qpat_x_assum`_ ≠ _`mp_tac \\ simp[]
   \\ ONCE_REWRITE_TAC[MULT_COMM]
   >- (
     CONV_TAC(RAND_CONV(REWR_CONV(Q.SPECL[`4`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[])))
@@ -431,7 +431,7 @@ val mem_store_align_dm = Q.store_thm("mem_store_align_dm",
   \\ rfs[dimword_def]
   \\ spose_not_then strip_assume_tac
   \\ fs[DIV_MOD_MOD_DIV]
-  \\ qpat_assum`_ ≠ _`mp_tac \\ simp[]
+  \\ qpat_x_assum`_ ≠ _`mp_tac \\ simp[]
   \\ ONCE_REWRITE_TAC[MULT_COMM]
   >- (
     CONV_TAC(RAND_CONV(REWR_CONV(Q.SPECL[`4`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[])))

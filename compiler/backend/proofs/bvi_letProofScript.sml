@@ -148,7 +148,7 @@ val evaluate_env_rel = store_thm("evaluate_env_rel",
   \\ Cases_on `xs` \\ fs[compile_def,evaluate_def]
   \\ reverse (Cases_on `t`) \\ fs [] THEN1
    (fs [compile_def,evaluate_def]
-    \\ qpat_assum `!x._` mp_tac
+    \\ qpat_x_assum `!x._` mp_tac
     \\ once_rewrite_tac [IMP_COMM] \\ rw [AND_IMP_INTRO]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs [GSYM CONJ_ASSOC]
     \\ first_assum drule \\ pop_assum mp_tac
@@ -160,7 +160,7 @@ val evaluate_env_rel = store_thm("evaluate_env_rel",
     \\ once_rewrite_tac [GSYM compile_HD_SING] \\ fs []
     \\ once_rewrite_tac [evaluate_CONS] \\ fs [compile_HD_SING])
   \\ fs [bviTheory.exp_size_def]
-  \\ qpat_assum `!x._` mp_tac
+  \\ qpat_x_assum `!x._` mp_tac
   \\ once_rewrite_tac [IMP_COMM]
   \\ fs [GSYM CONJ_ASSOC]
   \\ Cases_on `?v. h = Var v` \\ rw [] \\ fs []
@@ -185,10 +185,10 @@ val evaluate_env_rel = store_thm("evaluate_env_rel",
   THEN1
    (fs [evaluate_def] \\ every_case_tac \\ fs []
     \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq \\ fs []
-    \\ first_assum drule \\ qpat_assum `_ = _` mp_tac
+    \\ first_assum drule \\ qpat_x_assum `_ = _` mp_tac
     \\ TRY (first_x_assum drule \\ fs [] \\ rw [])
-    \\ TRY (qpat_assum `!x._` drule)
-    \\ TRY (qpat_assum `!x._` drule)
+    \\ TRY (qpat_x_assum `!x._` drule)
+    \\ TRY (qpat_x_assum `!x._` drule)
     \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
     \\ fs [compile_def,evaluate_def,compile_HD_SING]
     \\ rw [] \\ pop_assum drule
@@ -196,7 +196,7 @@ val evaluate_env_rel = store_thm("evaluate_env_rel",
   \\ Cases_on `?ts dest args handler. h = Call ts dest args handler`
   \\ fs [] \\ rveq THEN1
    (Cases_on `handler` \\ fs []
-    \\ qpat_assum `!_ _ _ _ _. bb` mp_tac
+    \\ qpat_x_assum `!_ _ _ _ _. bb` mp_tac
     \\ once_rewrite_tac [IMP_COMM] \\ strip_tac THEN1
      (`exp2_size args < exp_size (Call ts dest args NONE) + 1` by
            fs [bviTheory.exp_size_def]
@@ -217,7 +217,7 @@ val evaluate_env_rel = store_thm("evaluate_env_rel",
     \\ rw [] \\ first_x_assum match_mp_tac
     \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def])
   \\ Cases_on `?xs op. h = Op op xs` \\ fs [] THEN1
-   (rw [] \\ qpat_assum `!_ _ _ _ _. bb` mp_tac
+   (rw [] \\ qpat_x_assum `!_ _ _ _ _. bb` mp_tac
     \\ once_rewrite_tac [IMP_COMM] \\ strip_tac
     \\ fs [bviTheory.exp_size_def]
     \\ `exp2_size xs < exp2_size xs + (op_size op + 2)` by
@@ -227,7 +227,7 @@ val evaluate_env_rel = store_thm("evaluate_env_rel",
     \\ res_tac \\ fs [] \\ fs [evaluate_def,compile_def])
   \\ reverse (Cases_on `?ys y. h = Let ys y` \\ fs [])
   THEN1 (Cases_on `h` \\ fs [])
-  \\ fs [] \\ rpt (qpat_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]
+  \\ fs [] \\ rpt (qpat_x_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]
   \\ pop_assum mp_tac \\ once_rewrite_tac [IMP_COMM] \\ strip_tac
   \\ fs [bviTheory.exp_size_def]
   \\ fs [compile_def,LENGTH_NIL] \\ IF_CASES_TAC \\ fs []

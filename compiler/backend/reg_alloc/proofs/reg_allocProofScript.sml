@@ -80,7 +80,7 @@ val list_g_insert_correct = prove(``
   Induct>>srw_tac[][list_g_insert_def,undir_g_insert_def]>>
   unabbrev_all_tac>>full_simp_tac(srw_ss())[]>-
     (full_simp_tac(srw_ss())[lookup_g_def]>>every_case_tac>>full_simp_tac(srw_ss())[lookup_insert]>>
-    every_case_tac>>full_simp_tac(srw_ss())[]>>qpat_assum`LN = x'` (SUBST_ALL_TAC o SYM)>>
+    every_case_tac>>full_simp_tac(srw_ss())[]>>qpat_x_assum`LN = x'` (SUBST_ALL_TAC o SYM)>>
     full_simp_tac(srw_ss())[lookup_def])>>
   metis_tac[lookup_dir_g_insert_correct])
 
@@ -517,7 +517,7 @@ val alloc_colouring_aux_domain_3 = prove(``
                      ,`col'`,`spill''`] mp_tac)>>
         impl_tac>>full_simp_tac(srw_ss())[])
       >>
-        qpat_assum `A = (col',spill'')` mp_tac>>
+        qpat_x_assum `A = (col',spill'')` mp_tac>>
         qpat_abbrev_tac `coln = insert h A col`>>
         `x ∉ domain coln` by
           full_simp_tac(srw_ss())[Abbr`coln`]>>
@@ -546,7 +546,7 @@ val assign_colour_reverse = prove(``
   (MEM x spill' ⇒ MEM x spill))``,
   srw_tac[][assign_colour_def]>>every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
-  qpat_assum `A = col'` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum `A = col'` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[domain_insert]>>metis_tac[list_mem])
 
 (*Not in the final state means it must have come from before*)
@@ -575,7 +575,7 @@ val alloc_colouring_aux_domain_5 = prove(``
   full_simp_tac(srw_ss())[assign_colour_def]>>
   every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
-  qpat_assum`A=r` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[domain_lookup])
 
 val id_colour_always_sat = prove(``
@@ -628,7 +628,7 @@ val alloc_colouring_success = prove(``
       full_simp_tac(srw_ss())[PARTITION_DEF]>>
       srw_tac[][]>>
       `MEM x vertices` by
-        (qpat_assum `A=(phy_var,others)` (assume_tac o SYM)>>
+        (qpat_x_assum `A=(phy_var,others)` (assume_tac o SYM)>>
         imp_res_tac PART_MEM>>
         full_simp_tac(srw_ss())[])>>
       unabbrev_all_tac>>
@@ -810,7 +810,7 @@ val assign_colour2_satisfactory = prove(``
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
   is_phy_var_tac>>
   metis_tac[unbound_colours_props])>>
-  qpat_assum `¬A` mp_tac >>
+  qpat_x_assum `¬A` mp_tac >>
   qpat_abbrev_tac`lss = option_filter (MAP (λx. lookup x col) A)` >>
   qsuff_tac `MEM v lss`>-metis_tac[]>>
   unabbrev_all_tac>>
@@ -989,11 +989,11 @@ val partial_colouring_satisfactory_extend_2 = prove(``
   TRY(finish_tac>>NO_TAC)>>
   TRY(Cases_on`v=y`>>
   Cases_on`lookup y G`>>full_simp_tac(srw_ss())[]>>
-  TRY(qpat_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
+  TRY(qpat_x_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[lookup_insert]>>
   Cases_on`v'=x`>>full_simp_tac(srw_ss())[lookup_def])>>finish_tac)>>
   Cases_on`lookup x G`>>
-  qpat_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[lookup_insert]>>
   Cases_on`v'=y`>>full_simp_tac(srw_ss())[lookup_def]>>
   finish_tac)
@@ -1107,7 +1107,7 @@ val full_coalesce_aux_extends = prove(``
       full_simp_tac(srw_ss())[Abbr`lss`,MEM_FILTER]>>metis_tac[])
   >>
   full_simp_tac(srw_ss())[LET_THM,UNCURRY]>>strip_tac>>
-  qpat_assum `A ⇒ B` mp_tac>>
+  qpat_x_assum `A ⇒ B` mp_tac>>
   impl_tac>-
     (`h1 ∈ domain G` by full_simp_tac(srw_ss())[FORALL_PROD]>>
     full_simp_tac(srw_ss())[EXTENSION,list_g_insert_domain])>>
@@ -1167,7 +1167,7 @@ val foreach_graph2 = prove(``
 val rest_tac =
   Q.ISPECL_THEN [`MAP FST (toAList x)`,`sopt`] assume_tac foreach_graph>>
   fsm[]>>
-  qpat_assum `A = ((),s'')` SUBST_ALL_TAC>>
+  qpat_x_assum `A = ((),s'')` SUBST_ALL_TAC>>
   fsm[]>>
   TRY(qpat_abbrev_tac`lsrs = PARTITION P s.spill_worklist`)>>
   TRY(qpat_abbrev_tac`lsrs = PARTITION P s''.spill_worklist`)>>
@@ -1181,7 +1181,7 @@ val rest_tac =
   TRY(Q.ISPECL_THEN [`q'`,`sopt`] assume_tac foreach_graph2)>>
   TRY(Q.ISPECL_THEN [`q'`,`s''`] assume_tac foreach_graph2)>>
   fsm[]>>
-  qpat_assum `A = ((),s''')` SUBST_ALL_TAC>>
+  qpat_x_assum `A = ((),s''')` SUBST_ALL_TAC>>
   srw_tac[][Abbr`sopt`]>>full_simp_tac(srw_ss())[ra_state_nchotomy]
 
 (*Simplify neverchanges the graph*)
@@ -1383,7 +1383,7 @@ val respill_lem = prove(``
      ,add_spill_worklist_def,set_freeze_worklist_def]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
   Cases_on`MEM v s.freeze_worklist`>>full_simp_tac(srw_ss())[]>>
-  qpat_assum`A=r` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[])
 
 val coalesce_graph = prove(``
@@ -1414,7 +1414,7 @@ val coalesce_graph = prove(``
   `s''.graph = s.graph ∧ s''.clock = s.clock` by full_simp_tac(srw_ss())[Abbr`s''`]>>
   `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by full_simp_tac(srw_ss())[]>>
   imp_res_tac split_avail_filter>>
-  qpat_assum`A = s.graph` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`A = s.graph` (SUBST_ALL_TAC o SYM)>>
   imp_res_tac do_coalesce_lem>>
   imp_res_tac respill_lem>>
   imp_res_tac unspill_lem>>
@@ -1466,7 +1466,7 @@ val do_step_graph_lemma = store_thm("do_step_graph_lemma",``
     Cases_on`freeze r'`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     Cases_on`spill r''`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     fsm[push_stack_def]>>
-    TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
+    TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
     metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2])
 
 val do_step_clock_lemma = store_thm("do_step_clock_lemma",``
@@ -1484,7 +1484,7 @@ val do_step_clock_lemma = store_thm("do_step_clock_lemma",``
     Cases_on`freeze r'`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     Cases_on`spill r''`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     fsm[push_stack_def]>>
-    TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
+    TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
     metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2])
 
 val rpt_do_step_graph_lemma = store_thm("rpt_do_step_graph_lemma",``
@@ -1561,7 +1561,7 @@ val do_briggs_step_graph_lemma = prove(``
   `sopt.clock < s.clock` by (full_simp_tac(srw_ss())[Abbr`sopt`]>>DECIDE_TAC)>>
   Cases_on`coalesce sopt`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
   fsm[push_stack_def]>>
-  TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
+  TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
   metis_tac[coalesce_graph,coalesce_graph_2])
 
 val briggs_coalesce_lemma = prove(``
@@ -1580,7 +1580,7 @@ val briggs_coalesce_lemma = prove(``
   fsm[briggs_has_work_def,get_clock_def,get_avail_moves_pri_def,get_avail_moves_def]>>
   pop_assum mp_tac>>Cases_on`s.clock>0`>>
   srw_tac[][]>>fsm[set_unavail_moves_def,set_move_rel_def]>>
-  TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM)>>full_simp_tac(srw_ss())[is_subgraph_edges_def]>>NO_TAC)>>
+  TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM)>>full_simp_tac(srw_ss())[is_subgraph_edges_def]>>NO_TAC)>>
   Cases_on`do_briggs_step s`>>
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_briggs_step_graph_lemma>>
@@ -2179,7 +2179,7 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
     (rw[]>>pairarg_tac>>fs[]>>pairarg_tac>>fs[]>>
     imp_res_tac extend_clique_props>>
     rfs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
-    rpt (qpat_assum`!a b c.P` kall_tac)>>
+    rpt (qpat_x_assum`!a b c.P` kall_tac)>>
     fs[is_subgraph_def,EXTENSION,SUBSET_DEF,sp_g_is_clique_def])
   >-
     (rw[]>>
@@ -2191,7 +2191,7 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
     rfs[]>>
     imp_res_tac clash_tree_to_spg_props>>
     ntac 4 (pop_assum kall_tac)>>
-    rpt(qpat_assum `A ⇒ B` kall_tac)>>
+    rpt(qpat_x_assum `A ⇒ B` kall_tac)>>
     pairarg_tac>>fs[]>>
     last_x_assum(qspecl_then[`live`,`G''`,`G'''`,`t2_live`] assume_tac)>>
     rfs[]>>
@@ -2200,12 +2200,12 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
       metis_tac[is_subgraph_def,SUBSET_TRANS]>>
     fs[]>>
     imp_res_tac clash_tree_to_spg_props>>
-    rpt (qpat_assum `!a b c. P` kall_tac)>>
-    rpt (qpat_assum `Q ⇒P` kall_tac)>>
+    rpt (qpat_x_assum `!a b c. P` kall_tac)>>
+    rpt (qpat_x_assum `Q ⇒P` kall_tac)>>
     Cases_on`o'`>>fs[]
     >-
       (imp_res_tac extend_clique_props>>
-      rpt (qpat_assum `!a b c. P` kall_tac)>>
+      rpt (qpat_x_assum `!a b c. P` kall_tac)>>
       fs[is_subgraph_def,SUBSET_DEF,sp_g_is_clique_def]>>
       metis_tac[])
     >>
@@ -2217,8 +2217,8 @@ val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
     first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
     rfs[]>>
     imp_res_tac clash_tree_to_spg_props>>
-    rpt (qpat_assum `Q ⇒P` kall_tac)>>
-    rpt (qpat_assum `!a b c. P⇒Q⇒R` kall_tac)>>
+    rpt (qpat_x_assum `Q ⇒P` kall_tac)>>
+    rpt (qpat_x_assum `!a b c. P⇒Q⇒R` kall_tac)>>
     first_x_assum(qspecl_then[`live''`,`G''`,`G'`,`live'`] assume_tac)>>
     rfs[sp_g_is_clique_def]>>
     fs[is_subgraph_def,SUBSET_DEF]>>

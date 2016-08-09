@@ -191,7 +191,7 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
     ntac 3 (pop_assum kall_tac) >>
     fs[EvalPatRel_def] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >>
-    qpat_assum`p1 xv ⇒ X`kall_tac >>
+    qpat_x_assum`p1 xv ⇒ X`kall_tac >>
     fs[EvalPatBind_def,PMATCH_ROW_COND_def,PULL_EXISTS] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >> strip_tac >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -199,7 +199,7 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
     imp_res_tac Pmatch_imp_pmatch >>
     imp_res_tac Pmatch_SOME_const >>
     fs[pmatch_def] >>
-    qpat_assum`X = Match Y` mp_tac >> BasicProvers.CASE_TAC >>
+    qpat_x_assum`X = Match Y` mp_tac >> BasicProvers.CASE_TAC >>
     fs[GSYM AND_IMP_INTRO] >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
     rfs[] >>
@@ -214,7 +214,7 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
     rw[] >>
     `env2 = env with v := env2.v` by rw[environment_component_equality] >>
     METIS_TAC[]) >>
-  qpat_assum`evaluate F X Y (Mat A B) R`mp_tac >>
+  qpat_x_assum`evaluate F X Y (Mat A B) R`mp_tac >>
   simp[Once evaluate_cases] >> strip_tac >>
   imp_res_tac (CONJUNCT1 big_exp_determ) >> fs[] >> rw[] >>
   srw_tac[DNF_ss][] >> disj2_tac >>

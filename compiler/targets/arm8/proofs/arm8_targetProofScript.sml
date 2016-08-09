@@ -616,7 +616,7 @@ fun next_state_tacN (w, x) fltr (asl, g) =
    let
       val (t, tm) = Option.valOf (asmLib.find_env optionSyntax.is_the g)
       val tac =
-         qpat_assum `!i:num s:arm8_state. P`
+         qpat_x_assum `!i:num s:arm8_state. P`
             (qspecl_then [`^t`, `^tm`]
                (strip_assume_tac o SIMP_RULE (srw_ss())
                   [set_sepTheory.fun2set_eq]))
@@ -634,7 +634,7 @@ local
    val th = REWRITE_RULE [arm8_ok_def] arm8_asm_state
 in
    fun state_tac thms =
-      REPEAT (qpat_assum `NextStateARM8 q = z` (K all_tac))
+      REPEAT (qpat_x_assum `NextStateARM8 q = z` (K all_tac))
       \\ fs ([th, asmPropsTheory.all_pcs] @ thms)
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
 end

@@ -151,7 +151,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[]
   \\ disch_then drule
   \\ disch_then(qspec_then`st.sem_st.ffi`mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars["ffi"])))
-  \\ qpat_assum`_ = THE _`(assume_tac o SYM)
+  \\ qpat_x_assum`_ = THE _`(assume_tac o SYM)
   \\ simp[]
   \\ disch_then (match_mp_tac o MP_CANON)
   \\ simp[RIGHT_EXISTS_AND_THM]
@@ -167,7 +167,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[semantics_prog_def,evaluate_prog_with_clock_def]
   \\ gen_tac \\ pairarg_tac \\ fs[]
   \\ imp_res_tac functional_evaluate_prog
-  \\ qpat_assum`_ ⇒ _`mp_tac
+  \\ qpat_x_assum`_ ⇒ _`mp_tac
   \\ simp[PULL_EXISTS]
   \\ rfs[bigStepTheory.evaluate_whole_prog_def]
   \\ Cases_on`r' = Rerr (Rabort Rtimeout_error)` \\ fs[]
@@ -204,7 +204,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ fs[Abbr`st`]
   \\ disch_then match_mp_tac
   \\ fs[initial_condition_def,config_ok_def]
-  \\ qpat_assum`prim_tdecs = _`(SUBST1_TAC o SYM)
+  \\ qpat_x_assum`prim_tdecs = _`(SUBST1_TAC o SYM)
   \\ Cases_on`THE (prim_sem_env ffi)`
   \\ match_mp_tac prim_type_sound_invariants
   \\ simp[]);

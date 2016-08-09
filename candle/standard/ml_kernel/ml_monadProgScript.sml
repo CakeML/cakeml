@@ -40,8 +40,8 @@ val type_ind = store_thm("type_ind",
   REPEAT STRIP_TAC \\ completeInduct_on `type_size x`
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
   \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_ASSUM `!x1 x2. bb` MATCH_MP_TAC
-  \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` MATCH_MP_TAC
+  \\ Q.PAT_X_ASSUM `!x1 x2. bb` MATCH_MP_TAC
+  \\ REPEAT STRIP_TAC \\ Q.PAT_X_ASSUM `!x.bbb` MATCH_MP_TAC
   \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
 
 val TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
@@ -191,7 +191,7 @@ val EvalM_bind = store_thm("EvalM_bind",
     \\ Q.MATCH_ASSUM_RENAME_TAC `x refs = (HolRes res1,r)`
     \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate F env s e1 (s2,Rval (state1))`
     \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
-    \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPECL [`res1`,`state1`,`s2`,`r`])
+    \\ Q.PAT_X_ASSUM `!xx.bbb` (MP_TAC o Q.SPECL [`res1`,`state1`,`s2`,`r`])
     \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`s2'`,`res`,`refs2'`]
     \\ FULL_SIMP_TAC std_ss [] \\ reverse STRIP_TAC
@@ -255,8 +255,8 @@ val EvalM_ArrowM = store_thm("EvalM_ArrowM",
   SIMP_TAC std_ss [EvalM_def,ArrowM_def,ArrowP_def,PURE_def] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ Q.PAT_ASSUM `!s. bbb` MP_TAC
-  \\ Q.PAT_ASSUM `!s. bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+  \\ Q.PAT_X_ASSUM `!s. bbb` MP_TAC
+  \\ Q.PAT_X_ASSUM `!s. bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ STRIP_TAC
   \\ `!x. evaluate F env s x1 x = (x = (s,Rval v))` by
        METIS_TAC [determTheory.big_exp_determ]
@@ -437,7 +437,7 @@ val M_FUN_FORALL_PUSH1 = prove(
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ POP_ASSUM (fn th => STRIP_ASSUME_TAC (Q.SPEC `ARB` th) THEN ASSUME_TAC th)
   \\ FULL_SIMP_TAC std_ss [] \\ POP_ASSUM MP_TAC
-  \\ Q.PAT_ASSUM `s2 = s3` ASSUME_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Q.PAT_X_ASSUM `s2 = s3` ASSUME_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ `!x. evaluate F env s3 exp x = (x = (s3,Rval v))`
        by METIS_TAC [determTheory.big_exp_determ]
   \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS]
@@ -507,7 +507,7 @@ val EvalM_otherwise = store_thm("EvalM_otherwise",
         EvalM env (Handle exp1 [(Pvar n,exp2)]) (HOL_MONAD a (x1 otherwise x2))``,
   SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ Q.PAT_ASSUM `!s refs. bb ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+  \\ Q.PAT_X_ASSUM `!s refs. bb ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
   \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ Cases_on `res` THEN1
    (Q.LIST_EXISTS_TAC [`s2`,`Rval a'`,`refs2`]
@@ -515,7 +515,7 @@ val EvalM_otherwise = store_thm("EvalM_otherwise",
     \\ FULL_SIMP_TAC std_ss [HOL_MONAD_def]
     \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [otherwise_def])
-  \\ Q.PAT_ASSUM `HOL_MONAD xx yy t1 t2` MP_TAC
+  \\ Q.PAT_X_ASSUM `HOL_MONAD xx yy t1 t2` MP_TAC
   \\ SIMP_TAC std_ss [Once HOL_MONAD_def] \\ STRIP_TAC
   \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [otherwise_def]
@@ -541,7 +541,7 @@ val EvalM_handle_clash = store_thm("EvalM_handle_clash",
           (HOL_MONAD a (handle_clash x1 x2))``,
   SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ Q.PAT_ASSUM `!s refs. HOL_STORE s.refs refs ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+  \\ Q.PAT_X_ASSUM `!s refs. HOL_STORE s.refs refs ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
   \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ Cases_on `res` THEN1
    (Q.LIST_EXISTS_TAC [`s2`,`Rval a'`,`refs2`]
@@ -549,7 +549,7 @@ val EvalM_handle_clash = store_thm("EvalM_handle_clash",
     \\ FULL_SIMP_TAC std_ss [HOL_MONAD_def]
     \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def])
-  \\ Q.PAT_ASSUM `HOL_MONAD xx yy t1 t2` MP_TAC
+  \\ Q.PAT_X_ASSUM `HOL_MONAD xx yy t1 t2` MP_TAC
   \\ SIMP_TAC std_ss [Once HOL_MONAD_def] \\ STRIP_TAC
   \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
@@ -668,7 +668,7 @@ val EvalM_PMATCH = store_thm("EvalM_PMATCH",
     ntac 3 (pop_assum kall_tac) >>
     fs[EvalPatRel_def] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >>
-    qpat_assum`p1 xv ⇒ X`kall_tac >>
+    qpat_x_assum`p1 xv ⇒ X`kall_tac >>
     fs[EvalPatBind_def,PMATCH_ROW_COND_def,PULL_EXISTS] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >> strip_tac >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -676,7 +676,7 @@ val EvalM_PMATCH = store_thm("EvalM_PMATCH",
     imp_res_tac Pmatch_imp_pmatch >>
     imp_res_tac Pmatch_SOME_const >>
     fs[pmatch_def] >>
-    qpat_assum`X = Match Y` mp_tac >> BasicProvers.CASE_TAC >>
+    qpat_x_assum`X = Match Y` mp_tac >> BasicProvers.CASE_TAC >>
     fs[GSYM AND_IMP_INTRO] >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
     rfs[] >>
@@ -692,7 +692,7 @@ val EvalM_PMATCH = store_thm("EvalM_PMATCH",
     fs[pmatch_def]) >>
   FIRST_X_ASSUM (MP_TAC o Q.SPECL [`s:unit state`,`refs`]) >> fs [] >>
   REPEAT STRIP_TAC >>
-  qpat_assum`evaluate F X Y (Mat A B) R`mp_tac >>
+  qpat_x_assum`evaluate F X Y (Mat A B) R`mp_tac >>
   simp[Once evaluate_cases] >> strip_tac >>
   imp_res_tac (determTheory.big_exp_determ) >> fs[] >> rw[] >>
   `!reslut. evaluate_match F env s res' ys

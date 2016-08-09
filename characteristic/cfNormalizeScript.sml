@@ -47,7 +47,7 @@ val exp2v_list_evaluate = store_thm ("exp2v_list_evaluate",
     rpt strip_tac \\ fs [exp2v_list_def] \\
     Cases_on `exp2v env h` \\ fs [] \\
     Cases_on `exp2v_list env l` \\ fs [] \\
-    qpat_assum `_::_ = _` (assume_tac o GSYM) \\
+    qpat_x_assum `_::_ = _` (assume_tac o GSYM) \\
     once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
     qexists_tac `st` \\ fs [exp2v_evaluate]
   )
@@ -62,14 +62,14 @@ val evaluate_list_rcons = store_thm ("evaluate_list_rcons",
   Induct_on `l`
   THEN1 (
     rpt strip_tac \\ fs [] \\
-    qpat_assum `evaluate_list _ _ _ _ _` mp_tac \\
+    qpat_x_assum `evaluate_list _ _ _ _ _` mp_tac \\
     once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
     rpt strip_tac \\ qexists_tac `st''` \\ fs [] \\
     prove_tac [bigStepTheory.evaluate_rules]
   )
   THEN1 (
     rpt strip_tac \\ fs [] \\
-    qpat_assum `evaluate_list _ _ _ _ _` mp_tac \\
+    qpat_x_assum `evaluate_list _ _ _ _ _` mp_tac \\
     once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
     rpt strip_tac \\
     Q.LIST_EXISTS_TAC [`v'`, `vs ++ [v]`] \\ fs [] \\

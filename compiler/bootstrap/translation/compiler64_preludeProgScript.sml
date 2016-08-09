@@ -89,7 +89,7 @@ val shift_left_rwt = Q.prove(
   `!a n. a << n = shift_left a n`,
   completeInduct_on `n`
   \\ rw [Once shift_left_def]
-  \\ qpat_assum `!n. P` (assume_tac o GSYM)
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
   \\ fs [])
 
 val shift_right_def = Define`
@@ -105,7 +105,7 @@ val shift_right_rwt = Q.prove(
   `!a n. a >>> n = shift_right a n`,
   completeInduct_on `n`
   \\ rw [Once shift_right_def]
-  \\ qpat_assum `!n. P` (assume_tac o GSYM)
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
   \\ fs [])
 
 val _ = translate (shift_left_def |> conv64)

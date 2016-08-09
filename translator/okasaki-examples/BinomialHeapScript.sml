@@ -129,7 +129,7 @@ cases_on `t` >>
 cases_on `h'` >>
 rw [link_def] >>
 fs [] >>
-Q.PAT_ASSUM `!get_key leq t. P get_key leq t` match_mp_tac >>
+Q.PAT_X_ASSUM `!get_key leq t. P get_key leq t` match_mp_tac >>
 rw [is_heap_ordered_def] >>
 fs [is_heap_ordered_def, BAG_EVERY, heap_to_bag_def] >>
 metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]);

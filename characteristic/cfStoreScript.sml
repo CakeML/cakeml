@@ -145,14 +145,14 @@ val store2heap_LUPDATE = store_thm ("store2heap_LUPDATE",
   \\ fs [FFI_part_NOT_IN_store2heap_aux]
   THEN1 (
     rename1 `m <> 0n` \\ Cases_on `m` \\ fs [] \\
-    qpat_assum `_ IN _` mp_tac \\
+    qpat_x_assum `_ IN _` mp_tac \\
     rewrite_tac [ONE, GSYM store2heap_aux_suc] \\ rpt strip_tac \\
     first_assum drule \\
     disch_then (qspecl_then [`x`, `Mem n' s'`] assume_tac) \\ fs [])
   THEN1 (
     Cases_on `n'` \\ fs []
     THEN1 (eq_tac \\ rw [] \\ imp_res_tac store2heap_aux_IN_bound \\ fs []) \\
-    qpat_assum `_ IN _` mp_tac \\
+    qpat_x_assum `_ IN _` mp_tac \\
     rewrite_tac [ONE, GSYM store2heap_aux_suc] \\ rpt strip_tac \\
     first_assum drule \\
     disch_then (qspecl_then [`x`, `Mem n'' s'`] assume_tac) \\ fs []))

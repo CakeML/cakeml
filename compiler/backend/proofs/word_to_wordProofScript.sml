@@ -66,7 +66,7 @@ val compile_single_lem = store_thm("compile_single_lem",``
   srw_tac[][])>>
   `∀perm. st with <|locals:=st.locals;permute:=perm|> = st with permute:=perm` by full_simp_tac(srw_ss())[state_component_equality]>>
   full_simp_tac(srw_ss())[]>>
-  qpat_assum`(λ(x,y). _) _`mp_tac >>
+  qpat_x_assum`(λ(x,y). _) _`mp_tac >>
   pairarg_tac>>fs[]>>
   strip_tac>>
   Cases_on`remove_dead p2 LN`>>fs[]>>
@@ -129,7 +129,7 @@ val find_code_thm = prove(``
     Cases_on`x'`>> full_simp_tac(srw_ss())[compile_single_def,LET_THM]>>
     qsuff_tac`q = LENGTH args`>-
      metis_tac[]>>
-    qpat_assum`A=args` sym_sub_tac>>
+    qpat_x_assum`A=args` sym_sub_tac>>
     Cases_on`add_ret_loc o' x`>>full_simp_tac(srw_ss())[LENGTH_FRONT,ADD1])
   >>
     Cases_on`lookup x' st.code`>>full_simp_tac(srw_ss())[]>>res_tac>>
@@ -229,7 +229,7 @@ val compile_single_correct = prove(``
       pairarg_tac>>full_simp_tac(srw_ss())[]>>
       ntac 2 strip_tac >>
       rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-      qpat_assum`(λ(x,y). _) _`mp_tac >>
+      qpat_x_assum`(λ(x,y). _) _`mp_tac >>
       pairarg_tac>>full_simp_tac(srw_ss())[]>>
       strip_tac >> rveq >>
       Q.ISPECL_THEN [`r`,`call_env q (dec_clock st) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>full_simp_tac(srw_ss())[LET_THM]>>
@@ -293,7 +293,7 @@ val compile_single_correct = prove(``
         Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
       >>
-      qpat_assum`(λ(x,y). _) _`mp_tac >>
+      qpat_x_assum`(λ(x,y). _) _`mp_tac >>
       pairarg_tac>>full_simp_tac(srw_ss())[]>>
       strip_tac >>
       last_x_assum(qspecl_then[`(set_var x''0 w0 x'') with permute:=rcst.permute`,`x''2`,`l`]kall_tac)>>
@@ -305,7 +305,7 @@ val compile_single_correct = prove(``
           (imp_res_tac evaluate_clock>>
           full_simp_tac(srw_ss())[call_env_def,dec_clock_def]>>
           DECIDE_TAC)>>
-        qpat_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
+        qpat_x_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
         EVERY_CASE_TAC>>srw_tac[][state_component_equality]>>
         simp[])>>
       impl_tac>-
@@ -319,7 +319,7 @@ val compile_single_correct = prove(``
         (simp[set_var_def]>>
         qsuff_tac`x''.code = st.code`>>full_simp_tac(srw_ss())[]>>
         `x''.code =rst.code` by
-          (qpat_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
+          (qpat_x_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
           EVERY_CASE_TAC>>srw_tac[][state_component_equality]>>simp[])>>
         pairarg_tac>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
         full_simp_tac(srw_ss())[]>>
@@ -330,19 +330,19 @@ val compile_single_correct = prove(``
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
       (full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,ETA_AX,pop_env_perm,set_var_perm]>>
-      qpat_assum`((λ(res',rcst). P) A)` mp_tac>>
-      qpat_assum`((λ(res',rcst). P) A)` mp_tac>>
+      qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
+      qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
       pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
       `pop_env (rcst with code:=l) = SOME (x'' with <|code:=l;permute:=rcst.permute|>)` by
         (full_simp_tac(srw_ss())[pop_env_def,word_state_eq_rel_def]>>
         EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-        qpat_assum`A=x''` sym_sub_tac>>
+        qpat_x_assum`A=x''` sym_sub_tac>>
         full_simp_tac(srw_ss())[state_component_equality])>>
       simp[]>>
       srw_tac[][]>>pairarg_tac>>full_simp_tac(srw_ss())[]>>
       pairarg_tac>>full_simp_tac(srw_ss())[set_var_def]>>
       `x''.code = rst.code` by
-       (qpat_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
+       (qpat_x_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
         EVERY_CASE_TAC>>srw_tac[][state_component_equality]>>simp[])>>
       metis_tac[word_state_eq_rel_def]))
     >-
@@ -355,11 +355,11 @@ val compile_single_correct = prove(``
         Q.ISPECL_THEN [`r`,`A`,`rcst.permute`] mp_tac permute_swap_lemma>>
         simp[LET_THM,Abbr`A`]>>
         impl_tac>-
-          (qpat_assum`B=res'` sym_sub_tac>>full_simp_tac(srw_ss())[])>>
+          (qpat_x_assum`B=res'` sym_sub_tac>>full_simp_tac(srw_ss())[])>>
         srw_tac[][]>>
         qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX]>>
-        qpat_assum`(λ(x,y). _) _`mp_tac >>
+        qpat_x_assum`(λ(x,y). _) _`mp_tac >>
         pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
         srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality])
       >>
@@ -373,7 +373,7 @@ val compile_single_correct = prove(``
         (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
       >>
-      qpat_assum`((λ(res',rcst). P) A)` mp_tac>>
+      qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
       pairarg_tac>>full_simp_tac(srw_ss())[]>>strip_tac>>
       last_x_assum(qspecl_then[`(set_var x''0' w0 rst) with permute:=rcst.permute`,`x''1'`,`l`]kall_tac)>>
       last_x_assum(qspecl_then[`(set_var x''0' w0 rst) with permute:=rcst.permute`,`x''1'`,`l`]mp_tac)>>
@@ -410,7 +410,7 @@ val compile_single_correct = prove(``
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX]>>
-      qpat_assum`(λ(a,b). _) _`mp_tac >>
+      qpat_x_assum`(λ(a,b). _) _`mp_tac >>
       pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
       srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>NO_TAC)
     >>
@@ -509,7 +509,7 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
         (imp_res_tac ALOOKUP_MEM>>
         full_simp_tac(srw_ss())[MEM_MAP]>>pairarg_tac>>
         full_simp_tac(srw_ss())[]>>
-        qpat_assum`(v,p) = A` mp_tac>>
+        qpat_x_assum`(v,p) = A` mp_tac>>
         SELECT_ELIM_TAC>>srw_tac[][]>>
         full_simp_tac(srw_ss())[MEM_toAList,full_compile_single_def,LET_THM]>>
         pairarg_tac>>full_simp_tac(srw_ss())[])

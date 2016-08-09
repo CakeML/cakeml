@@ -625,7 +625,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
       disch_then(fn th => first_x_assum(qspec_then`q'`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
       NO_TAC) >>
-    qpat_assum`X = (res,Y)`mp_tac >>
+    qpat_x_assum`X = (res,Y)`mp_tac >>
     srw_tac[][] >> full_simp_tac(srw_ss())[v_rel_simp])
   THEN1 (* Let *)
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY] >>

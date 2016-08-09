@@ -185,7 +185,7 @@ val Pattern_OK0 = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
-  rpt (Q.PAT_ASSUM `Y = ptree_head X` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `Y = ptree_head X` (assume_tac o SYM)) >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
   simp[Once ptree_Pattern_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -238,7 +238,7 @@ val PbaseList1_OK = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
-  rpt (Q.PAT_ASSUM `Y = ptree_head X` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `Y = ptree_head X` (assume_tac o SYM)) >>
   fs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
   dsimp[Once ptree_PbaseList1_def]
   >- (erule strip_assume_tac (Pattern_OK0 |> Q.INST [`N` |-> `nPbase`] |> n) >>
@@ -278,7 +278,7 @@ val E_OK0 = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
-  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
   simp[Once ptree_Expr_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -421,7 +421,7 @@ val Decls_OK = store_thm(
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
-  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
   simp[ptree_Decls_def]
   >- (asm_match `ptree_head pt' = NN nDecl` >>
@@ -456,7 +456,7 @@ val SpecLineList_OK = store_thm(
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
-  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
   simp[ptree_SpeclineList_def]
   >- (erule strip_assume_tac (n SpecLine_OK) >> simp[] >>
@@ -488,7 +488,7 @@ val Structure_OK = store_thm(
     ∃s. ptree_Structure pt = SOME s``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_Structure_def] >>
-  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   map_every (erule strip_assume_tac o n) [Decls_OK, StructName_OK] >> simp[] >>
   asm_match `ptree_head pt' = NN nOptionalSignatureAscription` >>
   Cases_on `pt'` >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
@@ -516,7 +516,7 @@ val TopLevelDecs_OK = store_thm(
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >> fs[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
-  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
+  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   rveq >> dsimp[ptree_TopLevelDecs_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
   TRY (Cases_on`toks`>>fs[]>>metis_tac[])

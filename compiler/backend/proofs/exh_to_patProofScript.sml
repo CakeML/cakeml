@@ -544,7 +544,7 @@ val compile_row_correct = Q.prove(
   strip_tac >- (
     srw_tac[][pmatch_exh_def,compile_row_def] >> full_simp_tac(srw_ss())[] >>
     Cases_on`v`>>full_simp_tac(srw_ss())[pmatch_exh_def] >>
-    qpat_assum`X = Match menv`mp_tac >> srw_tac[][] >>
+    qpat_x_assum`X = Match menv`mp_tac >> srw_tac[][] >>
     qmatch_assum_rename_tac`pmatch_list s.refs ps vs [] = Match menv` >>
     full_simp_tac(srw_ss())[LENGTH_NIL,pmatch_exh_def,LENGTH_NIL_SYM] >>
     Q.PAT_ABBREV_TAC`w = Conv X Y` >>
@@ -559,7 +559,7 @@ val compile_row_correct = Q.prove(
   strip_tac >- (
     srw_tac[][compile_row_def] >>
     Cases_on`v`>>full_simp_tac(srw_ss())[pmatch_exh_def] >>
-    qpat_assum`X = Match menv`mp_tac >> BasicProvers.CASE_TAC >>
+    qpat_x_assum`X = Match menv`mp_tac >> BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     srw_tac[][] >> full_simp_tac(srw_ss())[UNCURRY,LET_THM] >> srw_tac[][] >>
     qmatch_assum_rename_tac`pmatch s.refs p v [] = Match menv` >>
@@ -615,7 +615,7 @@ val compile_row_correct = Q.prove(
   disch_then(qspec_then`menv4 ++ menv4k`mp_tac) >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   impl_tac >- (
-    qpat_assum`pmatch s.refs p v menvk = X`mp_tac >>
+    qpat_x_assum`pmatch s.refs p v menvk = X`mp_tac >>
     simp[Once (CONJUNCT1 exhPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >> srw_tac[][] >> simp[] >>
@@ -623,7 +623,7 @@ val compile_row_correct = Q.prove(
   qexists_tac`menv3 ++ menv4` >> simp[] >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   conj_tac >- (
-    qpat_assum`pmatch_list s.refs ps ww env2 = X`mp_tac >>
+    qpat_x_assum`pmatch_list s.refs ps ww env2 = X`mp_tac >>
     simp[Once (CONJUNCT2 exhPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >>
@@ -1591,26 +1591,26 @@ val exp_rel_unbind = store_thm("exp_rel_unbind",
     full_simp_tac(srw_ss())[MEM_ZIP,PULL_EXISTS] >>
     rev_full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS] >>
     metis_tac[]) >>
-  qpat_assum`bindn n U k1 k2`mp_tac >>
+  qpat_x_assum`bindn n U k1 k2`mp_tac >>
   simp[bindn_thm] >> srw_tac[][])
 
 val exp_rel_sLet = store_thm("exp_rel_sLet",
   ``exp_rel z1 z2 V (Let e1 e2) (Let f1 f2) ⇒
     exp_rel z1 z2 V (sLet e1 e2) (sLet f1 f2)``,
   srw_tac[][sLet_def] >>
-  qpat_assum`exp_rel z1 z2 V X Y`mp_tac >>
+  qpat_x_assum`exp_rel z1 z2 V X Y`mp_tac >>
   simp[Once exp_rel_cases] >> strip_tac >>
   TRY (
-    qpat_assum`exp_rel Z1 Z2 VV (Var_local A) B`mp_tac >>
+    qpat_x_assum`exp_rel Z1 Z2 VV (Var_local A) B`mp_tac >>
     simp[Once exp_rel_cases] >> srw_tac[][bind_thm] ) >>
   TRY (
-    qpat_assum`exp_rel Z1 Z2 VV B (Var_local A)`mp_tac >>
+    qpat_x_assum`exp_rel Z1 Z2 VV B (Var_local A)`mp_tac >>
     simp[Once exp_rel_cases] >> srw_tac[][bind_thm] ) >>
   imp_res_tac exp_rel_pure >> full_simp_tac(srw_ss())[] >>
   TRY (
     imp_res_tac exp_rel_sym >>
     imp_res_tac exp_rel_imp_ground >>
-    qpat_assum`P ⇒ Q`mp_tac >>
+    qpat_x_assum`P ⇒ Q`mp_tac >>
     impl_tac >- (
       simp[bind_thm,relationTheory.inv_DEF] ) >>
     srw_tac[][] >> NO_TAC) >>
@@ -1762,7 +1762,7 @@ val compile_row_acc = store_thm("compile_row_acc",
   simp_tac (srw_ss()) [LET_THM] >>
   ntac 5 strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
-  qpat_assum`∀X. Y`mp_tac >>
+  qpat_x_assum`∀X. Y`mp_tac >>
   ntac 2 (pop_assum mp_tac) >>
   simp_tac (std_ss++listSimps.LIST_ss) [] >>
   ntac 2 strip_tac >>
@@ -1771,7 +1771,7 @@ val compile_row_acc = store_thm("compile_row_acc",
   simp_tac (std_ss++listSimps.LIST_ss) [] >>
   ntac 3 strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
-  qpat_assum`∀X. Y`mp_tac >>
+  qpat_x_assum`∀X. Y`mp_tac >>
   ntac 3 (pop_assum mp_tac) >>
   simp_tac (std_ss++listSimps.LIST_ss) [] >>
   ntac 3 strip_tac >>
@@ -2059,7 +2059,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
       simp[Once evaluate_cons] ) >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     Cases_on`r = Rerr (Rabort Rtype_error)`>>full_simp_tac(srw_ss())[] >> disch_then kall_tac >>
-    qpat_assum`exhSem$evaluate _ _ (_::_::_) = _`kall_tac >>
+    qpat_x_assum`exhSem$evaluate _ _ (_::_::_) = _`kall_tac >>
     simp[Once evaluate_cons] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     var_eq_tac >>
@@ -2341,7 +2341,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
          simp[Abbr`env3`,Abbr`env4`,Abbr`exp3`] >>
          match_mp_tac(CONJUNCT1 compile_exp_shift) >>
          simp[Abbr`bvss`,Abbr`bvs0`] >> conj_tac >- (
-           qpat_assum`X = MAP Y menv`mp_tac >>
+           qpat_x_assum`X = MAP Y menv`mp_tac >>
            disch_then(mp_tac o Q.AP_TERM`set`) >>
            simp[pred_setTheory.EXTENSION,MEM_FILTER,MEM_ZIP,PULL_EXISTS,MEM_MAP,EXISTS_PROD] >>
            simp[MEM_EL,PULL_EXISTS,FORALL_PROD] >>metis_tac[] ) >>
@@ -2349,9 +2349,9 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
          rpt gen_tac >> strip_tac >>
          imp_res_tac find_index_LESS_LENGTH >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> simp[] >>
          full_simp_tac(srw_ss())[find_index_APPEND] >>
-         qpat_assum`X = SOME k2`mp_tac >>
+         qpat_x_assum`X = SOME k2`mp_tac >>
          BasicProvers.CASE_TAC >- (
-           qpat_assum`X = SOME k1`mp_tac >>
+           qpat_x_assum`X = SOME k1`mp_tac >>
            BasicProvers.CASE_TAC >- (
              simp[Once find_index_shift_0] >> strip_tac >>
              simp[Once find_index_shift_0] >> strip_tac >>
@@ -2359,7 +2359,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
              simp[rich_listTheory.EL_APPEND2] ) >>
            full_simp_tac(srw_ss())[GSYM find_index_NOT_MEM] >>
            imp_res_tac find_index_is_MEM >>
-           qpat_assum`X = MAP Y Z`(mp_tac o Q.AP_TERM`set`) >>
+           qpat_x_assum`X = MAP Y Z`(mp_tac o Q.AP_TERM`set`) >>
            full_simp_tac(srw_ss())[pred_setTheory.EXTENSION,MEM_FILTER,MEM_MAP,UNCURRY] >>
            simp[EQ_IMP_THM,FORALL_AND_THM] >> strip_tac >>
            full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2367,11 +2367,11 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
            rev_full_simp_tac(srw_ss())[MEM_ZIP,PULL_EXISTS] >>
            rev_full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS] >>
            metis_tac[] ) >>
-         qpat_assum`X = SOME k1`mp_tac >>
+         qpat_x_assum`X = SOME k1`mp_tac >>
          BasicProvers.CASE_TAC >- (
            full_simp_tac(srw_ss())[GSYM find_index_NOT_MEM] >>
            imp_res_tac find_index_is_MEM >>
-           qpat_assum`X = MAP Y Z`(mp_tac o Q.AP_TERM`set`) >>
+           qpat_x_assum`X = MAP Y Z`(mp_tac o Q.AP_TERM`set`) >>
            full_simp_tac(srw_ss())[pred_setTheory.EXTENSION,MEM_FILTER,MEM_MAP,UNCURRY] >>
            simp[EQ_IMP_THM,FORALL_AND_THM] >> strip_tac >>
            full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2379,7 +2379,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
            rev_full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS] >>
            qmatch_assum_rename_tac`z < SUC _` >>
            last_x_assum(qspec_then`z`mp_tac) >>
-           qpat_assum`SOME x = Y`(assume_tac o SYM) >>
+           qpat_x_assum`SOME x = Y`(assume_tac o SYM) >>
            simp[] >> srw_tac[][] >>
            metis_tac[] ) >>
          srw_tac[][] >>
@@ -2554,7 +2554,7 @@ val compile_row_set_globals = prove(``
   (∀bvs n k ps a b f exp. compile_cols bvs n k ps = (a,b,f) ⇒ set_globals (f exp) = set_globals exp)``,
   ho_match_mp_tac compile_row_ind>>rw[compile_row_def]>>fs[]>>
   rpt (pairarg_tac>>fs[sLet_def])>>
-  qpat_assum `A=f` sym_sub_tac>>rw[op_gbag_def]>>
+  qpat_x_assum `A=f` sym_sub_tac>>rw[op_gbag_def]>>
   pop_assum  (assume_tac o Q.AP_TERM`patProps$set_globals`)>>
   rfs[])
 
@@ -2608,7 +2608,7 @@ val compile_row_esgc_free = prove(``
   esgc_free (f exp))``,
   ho_match_mp_tac compile_row_ind>>rw[compile_row_def]>>fs[]>>
   rpt (pairarg_tac>>fs[sLet_def])>>
-  qpat_assum `A=f` sym_sub_tac>>rw[op_gbag_def])
+  qpat_x_assum `A=f` sym_sub_tac>>rw[op_gbag_def])
 
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `(∀bvs exp. esgc_free exp ⇒ esgc_free (compile_exp bvs exp)) ∧

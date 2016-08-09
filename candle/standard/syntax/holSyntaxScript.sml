@@ -208,7 +208,7 @@ val VFREE_IN_FINITE = store_thm("VFREE_IN_FINITE",
   Induct >> simp[VFREE_IN_def] >- (
     qmatch_abbrev_tac`FINITE z` >>
     qmatch_assum_abbrev_tac`FINITE x` >>
-    qpat_assum`FINITE x`mp_tac >>
+    qpat_x_assum`FINITE x`mp_tac >>
     qmatch_assum_abbrev_tac`FINITE y` >>
     qsuff_tac`z = x ∪ y`>-metis_tac[FINITE_UNION] >>
     simp[Abbr`x`,Abbr`y`,Abbr`z`,EXTENSION] >> metis_tac[]) >>
