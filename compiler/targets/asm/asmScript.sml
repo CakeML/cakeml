@@ -122,12 +122,13 @@ val () = Datatype `
 val () = Datatype `
   asm_config =
     <| ISA              : architecture
-     ; reg_count        : num
      ; avoid_regs       : num list
-     ; link_reg         : num option
-     ; has_mem_32       : bool
-     ; two_reg_arith    : bool
      ; big_endian       : bool
+     ; code_alignment   : num
+     ; has_mem_32       : bool
+     ; link_reg         : num option
+     ; reg_count        : num
+     ; two_reg_arith    : bool
      ; valid_imm        : (binop + cmp) -> 'a word -> bool
      ; addr_offset_min  : 'a word
      ; addr_offset_max  : 'a word
@@ -137,7 +138,6 @@ val () = Datatype `
      ; cjump_offset_max : 'a word
      ; loc_offset_min   : 'a word
      ; loc_offset_max   : 'a word
-     ; code_alignment   : num
      |>`
 
 val reg_ok_def = Define `
