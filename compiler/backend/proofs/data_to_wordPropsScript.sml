@@ -2692,6 +2692,20 @@ val memory_rel_Ref = store_thm("memory_rel_Ref",
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]);
 
+val memory_rel_REPLICATE = store_thm("memory_rel_REPLICATE",
+  ``memory_rel c be refs sp st m dm ((v,w)::vars) ==>
+    memory_rel c be refs sp st m dm (REPLICATE n (v,w) ++ vars)``,
+  match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs []
+  \\ Induct_on `n` \\ fs [REPLICATE] \\ rw [] \\ fs [])
+
+val memory_rel_RefArray = save_thm("memory_rel_RefArray",
+  memory_rel_Ref
+  |> Q.INST [`vals`|->`REPLICATE n v`,`ws`|->`REPLICATE n w`]
+  |> SIMP_RULE std_ss [ZIP_REPLICATE,LENGTH_REPLICATE]
+  |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+  |> (fn th => MATCH_MP th (UNDISCH memory_rel_REPLICATE))
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+
 val get_addr_0 = store_thm("get_addr_0",
   ``get_addr c n u ' 0``,
   Cases_on `u` \\ fs [get_addr_def,get_lowerbits_def,
