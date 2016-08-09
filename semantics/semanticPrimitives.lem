@@ -105,7 +105,7 @@ type state 'ffi =
    ; refs  : store v
    ; ffi : ffi_state 'ffi
    ; defined_types : set tid_or_exn
-   ; defined_mods : set modN
+   ; defined_mods : set (list modN)
    |>
 
 (* Other primitives *)
@@ -665,15 +665,15 @@ val no_dup_types : list dec -> bool
 let no_dup_types ds =
   List.allDistinct (decs_to_types ds)
 
-val prog_to_mods : list top -> list modN
+val prog_to_mods : list top -> list (list modN)
 let prog_to_mods tops =
   List.concat (List.map (fun top ->
         match top with
-          | Tmod mn _ _ -> [mn]
+          | Tmod mn _ _ -> [[mn]]
           | _ -> [] end)
      tops)
 
-val no_dup_mods : list top -> set modN -> bool
+val no_dup_mods : list top -> set (list modN) -> bool
 let no_dup_mods tops defined_mods =
   List.allDistinct (prog_to_mods tops) &&
   disjoint (Set.fromList (prog_to_mods tops)) defined_mods

@@ -220,11 +220,11 @@ and
 evaluate_tops st env [Tdec d] = evaluate_decs [] st env [d]
 and
 evaluate_tops st env [Tmod mn specs ds] =
-  if not (mn IN st.defined_mods) && no_dup_types ds
+  if not ([mn] IN st.defined_mods) && no_dup_types ds
   then
     match evaluate_decs [mn] st env ds with
     | (st', r) ->
-        (<| st' with defined_mods = {mn} union st'.defined_mods |>,
+        (<| st' with defined_mods = {[mn]} union st'.defined_mods |>,
          match r with
          | Rval env' -> Rval <| v = eLift mn env'.v; c = eLift mn env'.c |>
          | Rerr err -> Rerr err

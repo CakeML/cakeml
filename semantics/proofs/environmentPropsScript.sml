@@ -122,6 +122,36 @@ val eAll2_eSing = Q.store_thm ("eAll2_eSing[simp]",
  >> Cases_on `path`
  >> fs [eSing_def, eLookupMod_def]);
 
+(* -------------- eLift --------------- *)
+
+val eLookup_eLift = Q.store_thm ("eLookup_eLift",
+  `!mn e id.
+    eLookup (eLift mn e) id =
+    case id of
+    | Long mn' id' =>
+      if mn = mn' then
+        eLookup e id'
+      else
+        NONE
+    | Short _ => NONE`,
+ rw [eLift_def]
+ >> CASE_TAC
+ >> rw [eLookup_def]);
+
+val eLookupMod_eLift = Q.store_thm ("eLookupMod_eLift",
+  `!mn e path.
+    eLookupMod (eLift mn e) path =
+    case path of
+    | [] => SOME (eLift mn e)
+    | (mn'::path') =>
+      if mn = mn' then
+        eLookupMod e path'
+      else
+        NONE`,
+ rw [eLift_def]
+ >> CASE_TAC
+ >> rw [eLookupMod_def]);
+
 (* --------------- eAppend ------------- *)
 
 val eLookup_eAppend_none = Q.store_thm ("eLookup_eAppend_none",
@@ -267,6 +297,14 @@ val eAll_alist_to_env = Q.store_thm ("eAll_alist_to_env",
  >> drule ALOOKUP_MEM
  >> metis_tac []);
 
+val eAll_eLift = Q.store_thm ("eAll_eLift[simp]",
+  `!R mn e. eAll R (eLift mn e) ⇔ eAll (\id. R (Long mn id)) e`,
+ rw [eAll_def, eLookup_eLift]
+ >> eq_tac
+ >> rw []
+ >> every_case_tac
+ >> fs []);
+
 (* -------------- eSubEnv ---------------- *)
 
 val eSubEnv_conj = Q.store_thm ("eSubEnv_conj",
@@ -373,5 +411,27 @@ val eAll2_alist_to_env = Q.store_thm ("eAll2_alist_to_env",
  >> rw []
  >> irule eAll2_eBind
  >> simp []);
+
+val eAll2_eLift = Q.store_thm ("eAll2_eLift[simp]",
+  `!R mn e1 e2. eAll2 R (eLift mn e1) (eLift mn e2) ⇔ eAll2 (\id. R (Long mn id)) e1 e2`,
+ rw [eAll2_def, eSubEnv_def]
+ >> eq_tac
+ >> rw []
+ >- (
+   last_x_assum (qspec_then `Long mn id` mp_tac)
+   >> simp [eLookup_eLift, eLookupMod_eLift])
+ >- (
+   last_x_assum (qspec_then `mn::path` mp_tac)
+   >> simp [eLookup_eLift, eLookupMod_eLift])
+ >- (
+   first_x_assum (qspec_then `Long mn id` mp_tac)
+   >> simp [eLookup_eLift, eLookupMod_eLift])
+ >- (
+   first_x_assum (qspec_then `mn::path` mp_tac)
+   >> simp [eLookup_eLift, eLookupMod_eLift])
+ >> pop_assum mp_tac
+ >> simp [eLookup_eLift, eLookupMod_eLift]
+ >> every_case_tac
+ >> fs []);
 
 val _ = export_theory ();

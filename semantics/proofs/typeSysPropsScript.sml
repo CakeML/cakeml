@@ -13,6 +13,8 @@ val build_tdefs_def = semanticPrimitivesTheory.build_tdefs_def;
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 val same_tid_def = semanticPrimitivesTheory.same_tid_def;
 val check_dup_ctors_cons = semanticPrimitivesPropsTheory.check_dup_ctors_cons;
+val no_dup_types_def = semanticPrimitivesTheory.no_dup_types_def;
+val decs_to_types_def = semanticPrimitivesTheory.decs_to_types_def;
 
 (* ----------- Basic stuff ----------- *)
 
@@ -2586,21 +2588,102 @@ val type_ds_tenv_ok_helper = Q.store_thm ("type_ds_tenv_ok_helper",
  >> fs []
  >> metis_tac [extend_dec_tenv_ok]);
 
-   (*
+val type_ds_no_dup_types_helper = Q.prove (
+`!uniq mn decls tenv ds decls' tenv'.
+  type_ds uniq mn decls tenv ds decls' tenv'
+  ⇒
+  DISJOINT decls.defined_types decls'.defined_types ∧
+  decls'.defined_types =
+  set (FLAT (MAP (λd.
+                case d of
+                  Dlet v6 v7 => []
+                | Dletrec v8 => []
+                | Dtabbrev x y z => []
+                | Dtype tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
+                | Dexn v10 v11 => []) ds))`,
+ induct_on `ds` >>
+ srw_tac[][empty_decls_def] >>
+ pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases,EXISTS_PROD]) >>
+ full_simp_tac(srw_ss())[empty_decls_def,EXISTS_PROD,extend_dec_tenv_def] >>
+ TRY(PairCases_on`decls''''`)>>
+ TRY(PairCases_on`decls'''`)>>
+ srw_tac[][] >>
+ every_case_tac >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[type_d_cases] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[empty_decls_def, union_decls_def] >>
+ srw_tac[][] >>
+ res_tac >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[DISJOINT_DEF, EXTENSION] >>
+ metis_tac []);
+
+val type_ds_no_dup_types = Q.store_thm ("type_ds_no_dup_types",
+`!uniq mn decls tenv ds decls' tenv'.
+  type_ds uniq mn decls tenv ds decls' tenv'
+  ⇒
+  no_dup_types ds`,
+ induct_on `ds` >>
+ srw_tac[][no_dup_types_def, decs_to_types_def] >>
+ pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
+ full_simp_tac(srw_ss())[EXISTS_PROD,extend_dec_tenv_def] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[no_dup_types_def, type_d_cases, decs_to_types_def] >>
+ srw_tac[][ALL_DISTINCT_APPEND]
+ >- metis_tac []
+ >- metis_tac []
+ >- metis_tac []
+ >- full_simp_tac(srw_ss())[check_ctor_tenv_def, LAMBDA_PROD]
+ >- metis_tac []
+ >- (full_simp_tac(srw_ss())[union_decls_def] >>
+     imp_res_tac type_ds_no_dup_types_helper >>
+     full_simp_tac(srw_ss())[DISJOINT_DEF, EXTENSION, METIS_PROVE [] ``P ∨ Q ⇔ ¬P ⇒ Q``] >>
+     pop_assum kall_tac >>
+     pop_assum (qspec_then `mk_id mn e` mp_tac) >>
+     `MEM (mk_id mn e) (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs)`
+               by (full_simp_tac(srw_ss())[MEM_MAP] >>
+                   qexists_tac `y` >>
+                   srw_tac[][] >>
+                   PairCases_on `y` >>
+                   srw_tac[][]) >>
+     simp [] >>
+     rpt (pop_assum (fn _ => all_tac)) >>
+     srw_tac[][MEM_FLAT, MEM_MAP] >>
+     CCONTR_TAC >>
+     full_simp_tac(srw_ss())[] >>
+     srw_tac[][] >>
+     every_case_tac >>
+     full_simp_tac(srw_ss())[MEM_MAP] >>
+     srw_tac[][] >>
+     FIRST_X_ASSUM (qspecl_then [`MAP (mk_id mn o FST o SND) l`] mp_tac) >>
+     srw_tac[][]
+     >- (qexists_tac `Dtype l` >>
+         srw_tac[][LAMBDA_PROD, combinTheory.o_DEF])
+     >- (srw_tac[][combinTheory.o_DEF, MEM_MAP, EXISTS_PROD] >>
+         srw_tac[][LAMBDA_PROD] >>
+         PairCases_on `y` >>
+         full_simp_tac(srw_ss())[] >>
+         metis_tac []))
+ >- metis_tac []
+ >- metis_tac []);
+
 val type_ds_decls_ok = Q.store_thm ("type_ds_decls_ok",
- `!mn decls tenv specs decls' tenv'.
-  type_ds F (SOME mn) tdecs_no_sig tenv ds decls' tenv'
+ `!mn tenv decls' tenv' ds tdecs_no_sig.
+  type_ds F mn tdecs_no_sig tenv ds decls' tenv' ∧
+  mn ≠ []
   ⇒
   decls_ok (union_decls <|defined_mods := {mn}; defined_types := ∅; defined_exns := ∅ |> decls')`,
  rw [decls_ok_def, union_decls_def]
  >> imp_res_tac type_ds_mod
  >> full_simp_tac (srw_ss()++DNF_ss) [decls_to_mods_def, SUBSET_DEF, GSPECIFICATION]
  >> rw []
- >> fs [weak_decls_def, SUBSET_DEF]
- >> metis_tac []);
+ >> fs [weak_decls_def, SUBSET_DEF]);
 
 (* ---------- type_specs ---------- *)
 
+(*
 val type_specs_tenv_val_ok = Q.store_thm ("type_specs_tenv_val_ok",
 `!tvs tenvT specs decls' new_tenv.
   type_specs tvs tenvT specs decls' new_tenv ⇒
@@ -2737,56 +2820,22 @@ val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
  imp_res_tac type_d_mod >>
  full_simp_tac(srw_ss())[union_decls_def]);
 
- (*
 val check_signature_tenv_ok = Q.store_thm ("check_signature_tenv_ok",
- `!mn tenv decls tenvT tenvC tenvV specs decls' tenvT' tenvC' tenvV' ds tdecs1 tenvT''.
-   check_signature (SOME mn) tenvT'' decls (tenvT,tenvC,tenvV) specs decls' (tenvT',tenvC',tenvV') ∧
-   type_ds F (SOME mn) tdecs1 tenv ds decls (tenvT,tenvC,tenvV) ∧
+ `!mn tenv decls tenv' specs decls' tenv'' ds tdecs1 tenvT''.
+   check_signature [mn] tenvT'' decls tenv' specs decls' tenv'' ∧
+   type_ds F [mn] tdecs1 tenv ds decls tenv' ∧
    tenv_ok tenv ∧
-   num_tvs tenv.v = 0 ∧
    tenvT'' = tenv.t
    ⇒
-   tenv_ok (extend_env_new_tops (mod_lift_new_dec_tenv mn (tenvT',tenvC',tenvV')) tenv)`,
+   tenv_ok (extend_dec_tenv <| v := eLift mn tenv''.v; c := eLift mn tenv''.c; t := eLift mn tenv''.t |> tenv)`,
  rw [check_signature_cases]
  >- (
    drule type_ds_tenv_ok_helper
-   >> rw [tenv_ok_def, mod_lift_new_dec_tenv_def, extend_env_new_tops_def]
-   >- (
-     irule tenv_tabbrev_ok_merge
-     >> simp [tenv_tabbrev_ok_def, flat_tenv_tabbrev_ok_def, FEVERY_FUPDATE,
-              FEVERY_FEMPTY]
-     >> fs [tenv_ok_def])
-   >- (
-     fs [tenv_ok_def]
-     >> drule tenv_mod_ok_pres
-     >> rw []
-     >> drule type_ds_tenv_val_ok
-     >> rw [GSYM FUPDATE_EQ_FUNION])
-   >- (
-     simp [tenv_ctor_ok_merge]
-     >> fs [tenv_ok_def]
-     >> simp [tenv_ctor_ok_def, flat_tenv_ctor_ok_def]))
- >- (
-   drule type_specs_tenv_ok
-   >> drule type_specs_tenv_ctor_ok
-   >> fs [tenv_ok_def, mod_lift_new_dec_tenv_def, extend_env_new_tops_def]
    >> rw []
-   >- (
-     irule tenv_tabbrev_ok_merge
-     >> simp [tenv_tabbrev_ok_def, flat_tenv_tabbrev_ok_def, FEVERY_FUPDATE,
-              FEVERY_FEMPTY])
-   >- (
-     rw [GSYM FUPDATE_EQ_FUNION]
-     >> drule tenv_mod_ok_pres
-     >> rw []
-     >> first_x_assum irule
-     >> drule type_specs_tenv_val_ok
-     >> rw [])
-   >- (
-     simp [tenv_ctor_ok_merge]
-     >> simp [tenv_ctor_ok_def, flat_tenv_ctor_ok_def])));
-
-     *)
+   >> irule extend_dec_tenv_ok
+   >> simp []
+   >> fs [tenv_ok_def, tenv_ctor_ok_def, tenv_val_ok_def, tenv_abbrev_ok_def])
+ >- cheat);
 
 (* ---------------- type_top, type_prog ---------- *)
 
@@ -2803,7 +2852,6 @@ val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
  eq_tac >>
  rw [extend_dec_tenv_def]);
 
-   (*
 val type_top_check_uniq = Q.store_thm ("type_top_check_uniq",
 `!uniq tdecs tenv top tdecs' new_tenv.
   type_top uniq tdecs tenv top tdecs' new_tenv
@@ -2821,8 +2869,6 @@ val type_prog_check_uniq = Q.store_thm ("type_prog_check_uniq",
  srw_tac[][] >>
  srw_tac[][Once type_prog_cases] >>
  metis_tac [type_top_check_uniq]);
-
- *)
 
 val type_top_decls_ok = Q.store_thm ("type_top_decls_ok",
 `!uniq tdecs tenv top tdecs' new_tenv.
@@ -2857,13 +2903,12 @@ val type_prog_decls_ok = Q.store_thm ("type_prog_decls_ok",
  >> simp []
  >> metis_tac [type_top_decls_ok]);
 
- (*
 val type_no_dup_top_types_lem = Q.prove (
 `!uniq decls1 tenv prog decls1' res.
   type_prog uniq decls1 tenv prog decls1' res
   ⇒
   ALL_DISTINCT (prog_to_top_types prog) ∧
-  DISJOINT decls1.defined_types (IMAGE (mk_id NONE) (set (prog_to_top_types prog)))`,
+  DISJOINT decls1.defined_types (IMAGE (mk_id []) (set (prog_to_top_types prog)))`,
  ho_match_mp_tac type_prog_ind >>
  srw_tac[][semanticPrimitivesTheory.prog_to_top_types_def] >>
  every_case_tac >>
@@ -2874,7 +2919,7 @@ val type_no_dup_top_types_lem = Q.prove (
      srw_tac[][] >>
      full_simp_tac(srw_ss())[check_ctor_tenv_def] >>
      full_simp_tac(srw_ss())[LAMBDA_PROD])
- >- (`mk_id NONE e ∈ decls'.defined_types`
+ >- (`mk_id [] e ∈ decls1'.defined_types`
             by (full_simp_tac(srw_ss())[type_d_cases, semanticPrimitivesTheory.decs_to_types_def] >>
                 srw_tac[][] >>
                 full_simp_tac(srw_ss())[mk_id_def] >>
@@ -2901,8 +2946,8 @@ val type_no_dup_top_types_lem = Q.prove (
      metis_tac []));
 
 val type_no_dup_top_types_lem2 = Q.prove (
-`!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
-  type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv')
+`!uniq decls1 tenv prog decls1' tenv'.
+  type_prog uniq decls1 tenv prog decls1' tenv'
   ⇒
   no_dup_top_types prog (IMAGE TypeId decls1.defined_types)`,
  srw_tac[][semanticPrimitivesTheory.no_dup_top_types_def]
@@ -2916,8 +2961,8 @@ val type_no_dup_top_types_lem2 = Q.prove (
  metis_tac []);
 
 val type_no_dup_top_types = Q.store_thm("type_no_dup_top_types",
-`!decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv' uniq decls2 decls_no_sig.
-  type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv') ∧
+`!decls1 tenv prog decls1' tenv' uniq decls2 decls_no_sig.
+  type_prog uniq decls1 tenv prog decls1' tenv' ∧
   consistent_decls decls2 decls_no_sig ∧
   weak_decls_only_mods decls_no_sig decls1
   ⇒
@@ -2956,13 +3001,14 @@ val type_no_dup_mods_lem = Q.prove (
      metis_tac []));
 
 val type_no_dup_mods = Q.store_thm ("type_no_dup_mods",
-`!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
-  type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv')
+`!uniq decls1 tenv prog decls1' tenv'.
+  type_prog uniq decls1 tenv prog decls1' tenv'
   ⇒
   no_dup_mods prog decls1.defined_mods`,
  srw_tac[][semanticPrimitivesTheory.no_dup_mods_def] >>
  metis_tac [type_no_dup_mods_lem, DISJOINT_SYM]);
 
+ (*
 
 (* closed *)
 

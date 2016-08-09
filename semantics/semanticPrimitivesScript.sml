@@ -144,7 +144,7 @@ val _ = Hol_datatype `
    ; refs  : v store
    ; ffi : 'ffi ffi_state
    ; defined_types : tid_or_exn set
-   ; defined_mods : modN set
+   ; defined_mods : ( modN list) set
    |>`;
 
 
@@ -780,17 +780,17 @@ val _ = Define `
 (ALL_DISTINCT (decs_to_types ds)))`;
 
 
-(*val prog_to_mods : list top -> list modN*)
+(*val prog_to_mods : list top -> list (list modN)*)
 val _ = Define `
  (prog_to_mods tops =  
 (FLAT (MAP (\ top . 
         (case top of
-            Tmod mn _ _ => [mn]
+            Tmod mn _ _ => [[mn]]
           | _ => [] ))
      tops)))`;
 
 
-(*val no_dup_mods : list top -> set modN -> bool*)
+(*val no_dup_mods : list top -> set (list modN) -> bool*)
 val _ = Define `
  (no_dup_mods tops defined_mods =  
 (ALL_DISTINCT (prog_to_mods tops) /\

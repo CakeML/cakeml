@@ -241,11 +241,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (evaluate_tops st env [Tdec d] = (evaluate_decs [] st env [d]))
 /\
 (evaluate_tops st env [Tmod mn specs ds] =  
-(if ~ (mn IN st.defined_mods) /\ no_dup_types ds
+(if ~ ([mn] IN st.defined_mods) /\ no_dup_types ds
   then
     (case evaluate_decs [mn] st env ds of
       (st', r) =>
-        (( st' with<| defined_mods := {mn} UNION st'.defined_mods |>),
+        (( st' with<| defined_mods := {[mn]} UNION st'.defined_mods |>),
          (case r of
            Rval env' => Rval <| v := (eLift mn env'.v); c := (eLift mn env'.c) |>
          | Rerr err => Rerr err
