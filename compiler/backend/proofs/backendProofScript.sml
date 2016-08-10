@@ -1139,7 +1139,7 @@ val lemma = prove(
     >- (
       EVAL_TAC \\ fs[EVERY_MEM] \\ strip_tac \\ res_tac \\ fs[]
       \\ pop_assum mp_tac \\ EVAL_TAC ))
-  \\ (conj_tac >- ( EVAL_TAC \\ fs[EVERY_MEM] \\ rw[] \\ strip_tac \\ res_tac \\ fs[] \\ pop_assum mp_tac \\ EVAL_TAC))
+  \\ TRY (conj_tac >- ( EVAL_TAC \\ fs[EVERY_MEM] \\ rw[] \\ strip_tac \\ res_tac \\ fs[] \\ pop_assum mp_tac \\ EVAL_TAC))
   \\ TRY (conj_tac >- (
     ntac 3 strip_tac \\ rename1 `ALOOKUP prog1 k = SOME _`
     \\ imp_res_tac ALOOKUP_MEM
@@ -1149,7 +1149,7 @@ val lemma = prove(
     \\ res_tac \\ fs []
     \\ strip_tac \\ rw[]
     \\ pop_assum mp_tac \\ EVAL_TAC))
-  \\ (conj_tac THEN1
+  \\ rpt (conj_tac THEN1
    (imp_res_tac (INST_TYPE[beta|->alpha]stack_alloc_syntax)
     \\ pop_assum(qspec_then`c`assume_tac) \\ rfs[]
     \\ fs [EVERY_MEM,FORALL_PROD]
