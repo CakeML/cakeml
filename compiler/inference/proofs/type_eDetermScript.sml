@@ -20,22 +20,24 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
     menv_alpha ienv.inf_m tenv.m ∧
     tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_tabbrev_ok tenv.t ∧
     num_tvs tenv.v = tvs ∧
     check_env {} ienv.inf_v ∧
     tenv_invC FEMPTY ienv.inf_v tenv.v ∧
-    type_p tvs tenv.c p t1 tenv1 ∧
+    type_p tvs tenv p t1 tenv1 ∧
     type_e tenv e t1
     ⇒
-    ?t t' tenv' st st' s constrs s'.
+    ?t t' new_bindings st st' s constrs s'.
       infer_e ienv e init_infer_state = (Success t, st) ∧
-      infer_p tenv.c p st = (Success (t', tenv'), st') ∧
+      infer_p ienv p st = (Success (t', new_bindings), st') ∧
       t_unify st'.subst t t' = SOME s ∧
       sub_completion (num_tvs tenv.v) st'.next_uvar s constrs s' ∧
       FDOM s' = count st'.next_uvar ∧
       t1 = convert_t (t_walkstar s' t') ∧
       t1 = convert_t (t_walkstar s' t) ∧
       t_wfs s ∧
-      simp_tenv_invC s' (num_tvs tenv.v) tenv' tenv1`,
+      simp_tenv_invC s' (num_tvs tenv.v) new_bindings tenv1`,
   rw [] >>
   (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
   (infer_p_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
@@ -46,9 +48,9 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
   `t_wfs st'.subst`
           by (imp_res_tac (CONJUNCT1 infer_e_wfs) >>
               fs [init_infer_state_def]) >>
-  first_x_assum (qspecl_then [`s'`, `st'`, `constraints'`] mp_tac) >>
+  first_x_assum (qspecl_then [`s'`, `ienv`, `st'`, `constraints'`] mp_tac) >>
   rw [] >>
-  MAP_EVERY qexists_tac [`t''`, `tenv'`, `st''`] >>
+  MAP_EVERY qexists_tac [`t''`, `new_bindings`, `st''`] >>
   rw [] >>
   `t_wfs st''.subst` by metis_tac [infer_p_wfs] >>
   `check_t (num_tvs tenv.v) {} (t_walkstar s' t') ∧ check_t (num_tvs tenv.v) {} (t_walkstar s'' t'')`
@@ -118,10 +120,10 @@ val unconvert_11 = Q.prove (
  metis_tac [EL_MEM]);
 
 val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
-`(∀tvs cenv p t tenv.
-  type_p tvs cenv p t tenv ⇒ MAP FST tenv = pat_bindings p []) ∧
- (∀tvs cenv ps ts tenv.
-  type_ps tvs cenv ps ts tenv ⇒ MAP FST tenv = pats_bindings ps [])`,
+`(∀tvs tenv p t new_bindings.
+  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
+ (∀tvs tenv ps ts new_bindings.
+  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])`,
  ho_match_mp_tac type_p_ind >>
  rw [pat_bindings_def] >>
  metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]);
@@ -133,11 +135,13 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
   menv_alpha ienv.inf_m tenv.m ∧
   tenv_ctor_ok tenv.c ∧
   ienv.inf_c = tenv.c ∧
+  ienv.inf_t = tenv.t ∧
+  tenv_tabbrev_ok tenv.t ∧
   check_env {} ienv.inf_v ∧
   num_tvs tenv.v = 0 ∧
   tenv_invC FEMPTY ienv.inf_v tenv.v ∧
   infer_e ienv e init_infer_state = (Success t, st) ∧
-  infer_p tenv.c p st = (Success (t', tenv'), st') ∧
+  infer_p ienv p st = (Success (t', tenv'), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'
   ⇒
@@ -219,21 +223,23 @@ val t_walkstar_diff = prove(``
   metis_tac[]);
 
 val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
-`!ienv p e st st' t t' tenv' s.
-  ALL_DISTINCT (MAP FST tenv') ∧
+`!ienv p e st st' t t' new_bindings s.
+  ALL_DISTINCT (MAP FST new_bindings) ∧
   check_menv ienv.inf_m ∧
   menv_alpha ienv.inf_m tenv.m ∧
   tenv_ctor_ok tenv.c ∧
   ienv.inf_c = tenv.c ∧
+  ienv.inf_t = tenv.t ∧
+  tenv_tabbrev_ok tenv.t ∧
   check_env {} ienv.inf_v ∧
   num_tvs tenv.v = 0 ∧
   tenv_inv FEMPTY ienv.inf_v tenv.v ∧
   infer_e ienv e init_infer_state = (Success t, st) ∧
-  infer_p tenv.c p st = (Success (t', tenv'), st') ∧
+  infer_p ienv p st = (Success (t', new_bindings), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ tenv p e
   ⇒
-  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'`,
+  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings`,
  rw [type_pe_determ_def, check_cenv_tenvC_ok] >>
  `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
@@ -338,9 +344,9 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  imp_res_tac infer_p_check_t>>
  assume_tac (infer_p_sound |> CONJUNCT1)>>
  first_assum (qspecl_then
-   [`tenv.c`,`p`,`st`,`t'`,`tenv'`,`st'`,`0`,`(t,t')::inst1`,`s1`]assume_tac)>>
+   [`ienv`,`p`,`st`,`t'`,`tenv`,`new_bindings`,`st'`,`0`,`(t,t')::inst1`,`s1`]assume_tac)>>
  first_x_assum (qspecl_then
-   [`tenv.c`,`p`,`st`,`t'`,`tenv'`,`st'`,`0`,`(t,t')::inst2`,`s2`]assume_tac)>>
+   [`ienv`,`p`,`st`,`t'`,`tenv`,`new_bindings`,`st'`,`0`,`(t,t')::inst2`,`s2`]assume_tac)>>
  rfs[sub_completion_def]>>
  res_tac>>pop_assum kall_tac>>
  (*Because t,t' is part of the unifications that yielded s1 and s2*)
@@ -364,11 +370,11 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  qexists_tac`n` >>
  pop_assum(assume_tac o SYM) >> simp[] >>
  fs[EVERY_MEM] >>
- first_x_assum(qspec_then`EL n tenv'`mp_tac) >>
+ first_x_assum(qspec_then`EL n new_bindings`mp_tac) >>
  impl_tac >- metis_tac[MEM_EL] >> simp[] >> strip_tac >>
  qmatch_assum_rename_tac`check_t 0 (count st'.next_uvar) tt` >>
  `t_vars tt ⊆ count (st'.next_uvar)` by imp_res_tac check_t_t_vars >>
- imp_res_tac infer_p_check_s>> ntac 7 (pop_assum kall_tac)>>
+ drule (CONJUNCT1 infer_p_check_s) >> disch_then imp_res_tac >>
  `check_s 0 (count st'.next_uvar) s` by
    (match_mp_tac t_unify_check_s>>
    Q.LIST_EXISTS_TAC [`st'.subst`,`t`,`t'`]>>fs[]>>
@@ -427,6 +433,8 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   menv_alpha ienv.inf_m tenv.m ∧
   tenv_ctor_ok tenv.c ∧
   ienv.inf_c = tenv.c ∧
+  ienv.inf_t = tenv.t ∧
+  tenv_tabbrev_ok tenv.t ∧
   check_env {} ienv.inf_v ∧
   tenv_invC FEMPTY ienv.inf_v (bind_var_list2 tenv' Empty) ∧
   type_funs (tenv with v := bind_var_list 0 tenv'' (bind_tvar tvs (bind_var_list2 tenv' Empty))) funs tenv''
