@@ -300,7 +300,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
               >- (match_mp_tac tenv_invC_extend_tvar_empty_subst>>
                   fs[tenv_invC_convert_env2,num_tvs_bvl2,num_tvs_def]>>
                   metis_tac[tenv_alpha_def])
-              >- cheat)
+              >- metis_tac [type_p_tenvV_indep])
           >>
           rw[]>>
           imp_res_tac ALOOKUP_MEM>>
@@ -434,31 +434,33 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
          >>
          fs[EVERY_MAP,MAP_MAP_o,EVERY_MEM,UNCURRY]>>
          match_mp_tac t_walkstar_check>>fs[]>>
-         CONJ_TAC>- cheat
-           (* (`check_s 0 (count init_infer_state.next_uvar) init_infer_state.subst ∧ t_wfs init_infer_state.subst` by *)
-           (*   fs[init_infer_state_def,check_s_def,t_wfs_def]>> *)
-           (* fs[init_infer_state_def]>> *)
-           (* imp_res_tac infer_e_check_s>> *)
-           (* ntac 108 (pop_assum kall_tac)>> *)
-           (* rfs[]>> *)
-           (* pop_assum(qspec_then`0` assume_tac)>>rfs[]>> *)
-           (* imp_res_tac (infer_p_check_s|>CONJUNCT1)>> *)
-           (* `check_s 0 (count st''''.next_uvar) s` by *)
-           (*   (match_mp_tac t_unify_check_s>> *)
-           (*   `t_wfs st''''.subst` by *)
-           (*     metis_tac[infer_e_wfs,infer_p_wfs]>> *)
-           (*    first_assum (match_exists_tac o concl)>> *)
-           (*    HINT_EXISTS_TAC>>fs[]>> *)
-           (*    qexists_tac`t`>>fs[]>> *)
-           (*    match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>> *)
-           (*    qexists_tac `count st'''.next_uvar`>> *)
-           (*    fs[EXTENSION,SUBSET_DEF] >> *)
-           (*    rw[]>> *)
-           (*    imp_res_tac infer_p_next_uvar_mono>> *)
-           (*    DECIDE_TAC)>> *)
-           (* match_mp_tac check_s_more5>> *)
-           (* HINT_EXISTS_TAC>> *)
-           (* fs[SUBSET_DEF]) *)
+         CONJ_TAC>-
+           (`check_s 0 (count init_infer_state.next_uvar) init_infer_state.subst ∧ t_wfs init_infer_state.subst` by
+             fs[init_infer_state_def,check_s_def,t_wfs_def]>>
+           fs[init_infer_state_def]>>
+           drule (CONJUNCT1 infer_e_check_s) >>
+           rfs[]>>
+           disch_then(qspec_then`0` assume_tac)>>rfs[]>>
+           drule (infer_p_check_s|>CONJUNCT1)>>
+           simp [] >>
+           disch_then drule >>
+           rw [] >>
+           `check_s 0 (count st''''.next_uvar) s` by
+             (match_mp_tac t_unify_check_s>>
+             `t_wfs st''''.subst` by
+               metis_tac[infer_e_wfs,infer_p_wfs]>>
+              first_assum (match_exists_tac o concl)>>
+              HINT_EXISTS_TAC>>fs[]>>
+              qexists_tac`t`>>fs[]>>
+              match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
+              qexists_tac `count st'''.next_uvar`>>
+              fs[EXTENSION,SUBSET_DEF] >>
+              rw[]>>
+              imp_res_tac infer_p_next_uvar_mono>>
+              DECIDE_TAC)>>
+           match_mp_tac check_s_more5>>
+           HINT_EXISTS_TAC>>
+           fs[SUBSET_DEF])
            >>
            first_x_assum(qspec_then`(q',t')` assume_tac)>>rfs[]>>
            imp_res_tac check_t_more5>>
