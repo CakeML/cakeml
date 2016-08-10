@@ -8,87 +8,22 @@ open preamble
 
 val _ = new_theory "x64Bootstrap";
 
-(* TODO: move *)
-val ZIP_GENLIST1 = Q.store_thm("ZIP_GENLIST1",
-  `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`,
-  Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]);
+(* TODO: move? *)
 
-val MAP2i_def = Define`
-  (MAP2i f [] [] = []) /\
-  (MAP2i f (h1::t1) (h2::t2) = f 0 h1 h2::MAP2i (f o SUC) t1 t2)`;
-val _ = export_rewrites["MAP2i_def"];
+val Section_num_def = Define`
+  Section_num (Section k _) = k`;
+val Section_lines_def = Define`
+  Section_lines (Section _ lines) = lines`;
+val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
-val MAP2i_ind = theorem"MAP2i_ind";
+val _ = hide"pos"
 
-val LENGTH_MAP2i = Q.store_thm("LENGTH_MAP2i[simp]",
-  `∀f l1 l2. LENGTH l1 = LENGTH l2 ⇒ LENGTH (MAP2i f l1 l2) = LENGTH l2`,
-  ho_match_mp_tac MAP2i_ind \\ rw[]);
-
-val EL_MAP2i = Q.store_thm("EL_MAP2i",
-  `∀f l1 l2 n. n < LENGTH l1 ∧ n < LENGTH l2 ⇒
-    EL n (MAP2i f l1 l2) = f n (EL n l1) (EL n l2)`,
-  ho_match_mp_tac MAP2i_ind \\ rw[]
-  \\ Cases_on`n` \\ fs[]);
-
-val MAP3_def = Define`
-  (MAP3 f [] [] [] = []) /\
-  (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
-val _ = export_rewrites["MAP3_def"];
-
-val MAP3_ind = theorem"MAP3_ind";
-
-val LENGTH_MAP3 = Q.store_thm("LENGTH_MAP3[simp]",
-  `∀f l1 l2 l3. LENGTH l1 = LENGTH l3 /\ LENGTH l2 = LENGTH l3 ⇒ LENGTH (MAP3 f l1 l2 l3) = LENGTH l3`,
-  ho_match_mp_tac MAP3_ind \\ rw[]);
-
-val EL_MAP3 = Q.store_thm("EL_MAP3",
-  `∀f l1 l2 l3 n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ n < LENGTH l3 ⇒
-    EL n (MAP3 f l1 l2 l3) = f (EL n l1) (EL n l2) (EL n l3)`,
-  ho_match_mp_tac MAP3_ind \\ rw[]
-  \\ Cases_on`n` \\ fs[]);
-
-fun itlist3 f L1 L2 L3 base_value =
-  let
-    fun itl ([], [], []) = base_value
-      | itl (a :: rst1, b :: rst2, c :: rst3) = f a b c (itl (rst1, rst2, rst3))
-      | itl _ = raise mk_HOL_ERR "Lib" "itlist3" "lists of different length"
-    in
-      itl (L1, L2, L3)
-    end
-
-fun zip3 ([],[],[]) = []
-  | zip3 ((h1::t1),(h2::t2),(h3::t3)) = ((h1,h2,h3)::zip3(t1,t2,t3))
-
-val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "x64Bootstrap" "MAP3"
-
-val (m3n,m3c) = CONJ_PAIR MAP3_def
-val m3c = CONV_RULE(RESORT_FORALL_CONV(sort_vars["f","h1","h2","h3","t1","t2","t3"])) m3c
-fun MAP3_CONV conv tm =
-  let
-    val (fnn,l1,l2,l3) = dest_map3 tm
-    val (els1,_) = listSyntax.dest_list l1
-    val (els2,_) = listSyntax.dest_list l2
-    val (els3,_) = listSyntax.dest_list l3
-    val nth = ISPEC fnn m3n
-    val cth = ISPEC fnn m3c
-    val cns = rator(rator(rand(snd(strip_forall(concl cth)))))
-    fun APcons t1 t2 = MK_COMB(AP_TERM cns t2,t1)
-    fun itfn e1 e2 e3 th =
-      let
-        val ts = tl(#2(strip_comb(rand(rator(concl th)))))
-        val es = [e1,e2,e3]
-        val th1 = SPECL ts (SPECL es cth)
-      in
-        TRANS th1 (APcons th (conv (list_mk_comb(fnn,es))))
-      end
-  in
-    itlist3 itfn els1 els2 els3 nth
-  end
-
-val filter_skip_MAP = Q.store_thm("filter_skip_MAP",
-  `∀ls. filter_skip ls = MAP (λx. case x of Section n xs => Section n (FILTER not_skip xs)) ls`,
-  Induct \\ simp[lab_filterTheory.filter_skip_def]
-  \\ Cases \\ simp[lab_filterTheory.filter_skip_def]);
+val compute_labels_alt_Section = Q.store_thm("compute_labels_alt_Section",
+  `compute_labels_alt pos (sec::rest) =
+   (let new_pos = sec_length (Section_lines sec) 0 in
+    let labs = compute_labels_alt (pos + new_pos) rest in
+    lab_insert (Section_num sec) 0 pos (section_labels pos (Section_lines sec) labs))`,
+  Cases_on`sec` \\ rw[lab_to_targetTheory.compute_labels_alt_def]);
 
 (*
 val find_ffi_index_def = Define`
@@ -203,78 +138,6 @@ val word_to_word_fn = word_to_word_fn_eq|>concl|>lhs
 val word_prog = thm0 |> rconc |> listSyntax.dest_list |> #1
 
 val num_progs = length word_prog
-
-local
-  open Thread
-  fun chunks_of n ls =
-    let
-      val (ch,rst) = split_after n ls
-    in
-      if null rst then [ch]
-      else ch::(chunks_of n rst)
-    end handle HOL_ERR _ => [ls]
-in
-  fun parlist num_threads chunk_size eval_fn ls =
-    let
-      val num_items = List.length ls
-      val chs = chunks_of chunk_size ls
-      val num_chunks = List.length chs
-
-      fun eval_chunk i n [] acc = acc
-        | eval_chunk i n (x::xs) acc =
-          eval_chunk i (n+1) xs (eval_fn i n x::acc)
-
-      val mutex = Mutex.mutex()
-      val refs = List.tabulate(num_chunks,(fn _ => ref NONE))
-      val threads_left = ref num_threads
-      val threads_left_mutex = Mutex.mutex()
-      val cvar = ConditionVar.conditionVar()
-
-      fun find_work i [] [] =
-            let
-              val () = Mutex.lock threads_left_mutex
-              val () = threads_left := !threads_left-1
-              val () = Mutex.unlock threads_left_mutex
-            in ConditionVar.signal cvar end
-        | find_work i (r::rs) (c::cs) =
-            case (Mutex.lock mutex; !r) of
-              SOME _ => (Mutex.unlock mutex; find_work (i+1) rs cs)
-            | NONE =>
-              let
-                val () = r := SOME []
-                val () = Mutex.unlock mutex
-                val vs = eval_chunk i 0 c []
-                val () = r := SOME vs
-              in
-                find_work (i+1) rs cs
-              end
-
-      fun fork_this () = find_work 0 refs chs
-
-      val true = Mutex.trylock threads_left_mutex
-
-      val () = for_se 1 num_threads
-        (fn _ => ignore (Thread.fork (fork_this, [Thread.EnableBroadcastInterrupt true])))
-
-      fun wait () =
-        if !threads_left = 0 then Mutex.unlock threads_left_mutex
-        else (ConditionVar.wait(cvar,threads_left_mutex); wait())
-
-      val () = wait()
-    in
-      List.concat (List.map (Option.valOf o op!) (List.rev refs))
-    end
-end
-
-fun map_ths_conv ths =
-  let
-    val next_thm = ref ths
-    fun el_conv _ =
-      case !next_thm of th :: rest =>
-        let val () = next_thm := rest in th end
-  in
-    listLib.MAP_CONV el_conv
-  end
 
 val chunk_size = 50
 val num_threads = 8
@@ -765,7 +628,7 @@ val lab_prog_els =
   lab_prog_def |> rconc |> listSyntax.dest_list |> #1
 
 val filter_skip_lab_prog =
-  ISPEC(lhs(concl(lab_prog_def)))filter_skip_MAP
+  ISPEC(lhs(concl(lab_prog_def)))lab_filterTheory.filter_skip_MAP
 
 val filter_skip_fn =
   filter_skip_lab_prog |> rconc |> rator |> rand

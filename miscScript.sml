@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
+open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
 ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
@@ -202,6 +202,44 @@ val GENLIST_ID = store_thm("GENLIST_ID",
   \\ pop_assum (fn th => simp_tac std_ss [Once (GSYM th)])
   \\ full_simp_tac(srw_ss())[GENLIST_FUN_EQ] \\ srw_tac[][]
   \\ match_mp_tac (GSYM rich_listTheory.EL_APPEND1) \\ full_simp_tac(srw_ss())[]);
+
+val ZIP_GENLIST1 = Q.store_thm("ZIP_GENLIST1",
+  `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`,
+  Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]);
+
+val MAP2i_def = Define`
+  (MAP2i f [] [] = []) /\
+  (MAP2i f (h1::t1) (h2::t2) = f 0 h1 h2::MAP2i (f o SUC) t1 t2)`;
+val _ = export_rewrites["MAP2i_def"];
+
+val MAP2i_ind = theorem"MAP2i_ind";
+
+val LENGTH_MAP2i = Q.store_thm("LENGTH_MAP2i[simp]",
+  `∀f l1 l2. LENGTH l1 = LENGTH l2 ⇒ LENGTH (MAP2i f l1 l2) = LENGTH l2`,
+  ho_match_mp_tac MAP2i_ind \\ rw[]);
+
+val EL_MAP2i = Q.store_thm("EL_MAP2i",
+  `∀f l1 l2 n. n < LENGTH l1 ∧ n < LENGTH l2 ⇒
+    EL n (MAP2i f l1 l2) = f n (EL n l1) (EL n l2)`,
+  ho_match_mp_tac MAP2i_ind \\ rw[]
+  \\ Cases_on`n` \\ fs[]);
+
+val MAP3_def = Define`
+  (MAP3 f [] [] [] = []) /\
+  (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
+val _ = export_rewrites["MAP3_def"];
+
+val MAP3_ind = theorem"MAP3_ind";
+
+val LENGTH_MAP3 = Q.store_thm("LENGTH_MAP3[simp]",
+  `∀f l1 l2 l3. LENGTH l1 = LENGTH l3 /\ LENGTH l2 = LENGTH l3 ⇒ LENGTH (MAP3 f l1 l2 l3) = LENGTH l3`,
+  ho_match_mp_tac MAP3_ind \\ rw[]);
+
+val EL_MAP3 = Q.store_thm("EL_MAP3",
+  `∀f l1 l2 l3 n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ n < LENGTH l3 ⇒
+    EL n (MAP3 f l1 l2 l3) = f (EL n l1) (EL n l2) (EL n l3)`,
+  ho_match_mp_tac MAP3_ind \\ rw[]
+  \\ Cases_on`n` \\ fs[]);
 
 val LENGTH_TAKE_EQ_MIN = store_thm("LENGTH_TAKE_EQ_MIN",
   ``!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)``,
