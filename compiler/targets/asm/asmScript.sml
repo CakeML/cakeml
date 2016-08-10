@@ -63,11 +63,7 @@ val () = new_theory "asm"
  * Determinism
 
    The assembly language must be deterministic. The current definition
-   of the semantics is relational and, as a result, can allow for a
-   non-deterministic behaviour. It is up to the target provider to
-   prove that the supplied encode function provides deterministic
-   behaviour in the assembly language, i.e. instruction encodings only
-   overlap if the assembly semantics also matches precisely.
+   of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
 

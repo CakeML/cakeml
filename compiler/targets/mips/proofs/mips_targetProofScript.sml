@@ -448,14 +448,6 @@ val mips_encoding = Count.apply Q.prove (
    \\ decode_tac
    )
 
-val mips_asm_deterministic = Q.store_thm("mips_asm_deterministic",
-   `asm_deterministic mips_enc mips_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic, mips_encoding]
-   )
-
-val mips_asm_deterministic_config =
-   SIMP_RULE (srw_ss()) [mips_config_def] mips_asm_deterministic
-
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [mips_config_def] mips_encoding ::
    enc_ok_rwts
@@ -622,19 +614,12 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
         --------------*)
       enc_ok_tac
       )
-   >- (
-      (*--------------
+   \\ (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
-      \\ Cases_on `r = 31`
-      \\ enc_ok_tac
-      )
-      (*--------------
-          asm_deterministic
-        --------------*)
-   \\ print_tac "asm_deterministic"
-   \\ rewrite_tac [mips_asm_deterministic_config]
+   \\ Cases_on `r = 31`
+   \\ enc_ok_tac
    )
 
 val () = export_theory ()

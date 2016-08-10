@@ -903,14 +903,6 @@ val arm6_encoding = Count.apply Q.prove (
    \\ decode_tac
    )
 
-val arm6_asm_deterministic = Q.store_thm("arm6_asm_deterministic",
-   `asm_deterministic arm6_enc arm6_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic, arm6_encoding]
-   )
-
-val arm6_asm_deterministic_config =
-   SIMP_RULE (srw_ss()) [arm6_config_def] arm6_asm_deterministic
-
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding ::
    enc_ok_rwts
@@ -1078,32 +1070,13 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       print_tac "enc_ok: Call"
       \\ lfs enc_rwts
       )
-   >- (
-      (*--------------
+   \\ (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
-      \\ lrw enc_rwts
-      \\ rw []
-      \\ blastLib.FULL_BBLAST_TAC
-      )
-      (*--------------
-          asm_deterministic
-        --------------*)
-   \\ print_tac "asm_deterministic"
-   \\ rewrite_tac [arm6_asm_deterministic_config]
+   \\ lrw enc_rwts
+   \\ rw []
+   \\ blastLib.FULL_BBLAST_TAC
    )
-
-(*
-
-val x64_enc_deterministic = proofManagerLib.top_thm ()
-
-val x64_enc_deterministic = Theory.new_axiom ("x64_enc_deterministic",
-   ``enc_deterministic x64_enc x64_config``)
-
-   proofManagerLib.r
-   set_trace "Goalstack.howmany_printed_subgoals" 60
-
-*)
 
 val () = export_theory ()
