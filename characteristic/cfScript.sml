@@ -1967,7 +1967,7 @@ val cf_sound = store_thm ("cf_sound",
              FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns)
             UNION {FFI_part s' u ns}` by all_tac THEN1
         (unabbrev_all_tac \\ fs [ffi2heap_def] \\
-         IF_CASES_TAC THEN1
+         reverse IF_CASES_TAC THEN1
           (`F` by all_tac \\ pop_assum mp_tac \\ fs [] \\
            fs [parts_ok_def] \\ metis_tac []) \\
          fs [EXTENSION] \\ reverse (rw [] \\ EQ_TAC \\ rw [])
