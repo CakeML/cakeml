@@ -283,6 +283,16 @@ val eAll_eBind = Q.store_thm ("eAll_eBind",
  >> Cases_on `id = Short x`
  >> fs []);
 
+val eAll_eOptBind = Q.store_thm ("eAll_eOptBind",
+  `!P x v e. (x = NONE ∨ ?n. x = SOME n ∧ P (Short n) v) ∧ eAll P e ⇒ eAll P (eOptBind x v e)`,
+ rw [eAll_def, eOptBind_def]
+ >> every_case_tac
+ >> fs []
+ >> Cases_on `id`
+ >> fs [eLookup_def, eBind_def]
+ >> Cases_on `a = x`
+ >> fs []);
+
 val eAll_alist_to_env = Q.store_thm ("eAll_alist_to_env",
   `!R l. EVERY (λ(n,v). R (Short n) v) l ⇒ eAll R (alist_to_env l)`,
  Induct_on `l`

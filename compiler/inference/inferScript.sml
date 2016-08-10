@@ -855,22 +855,9 @@ val check_t_def = tDefine "check_t" `
  res_tac >>
  decide_tac);
 
-val check_env_def = Define `
-check_env uvars env =
-  EVERY (\(x, (tvs,t)). check_t tvs uvars t) env`;
-
-val check_menv_def = Define `
-check_menv menv =
-  FEVERY (\(mn,env). EVERY (\(x, (tvs,t)). check_t tvs {} t) env) menv`;
-
-val check_flat_cenv_def = Define `
-check_flat_cenv cenv =
-  EVERY (\(cn,(tvs,ts,t)). EVERY (check_freevars 0 tvs) ts) cenv`;
-
-val check_cenv_def = Define `
-check_cenv (mcenv, cenv) ⇔
-  EVERY (\(cn,cenv'). check_flat_cenv cenv') mcenv ∧
-  check_flat_cenv cenv`;
+val ienv_val_ok_def = Define `
+ienv_val_ok uvars env =
+  eAll (\x (tvs,t). check_t tvs uvars t) env`;
 
 val check_s_def = Define `
 check_s tvs uvs s =

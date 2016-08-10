@@ -8,8 +8,6 @@ local open semanticPrimitivesPropsTheory in end
 
 val _ = new_theory "typeSysProps";
 
-val check_dup_ctors_def = semanticPrimitivesTheory.check_dup_ctors_def;
-val build_tdefs_def = semanticPrimitivesTheory.build_tdefs_def;
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 val same_tid_def = semanticPrimitivesTheory.same_tid_def;
 val check_dup_ctors_cons = semanticPrimitivesPropsTheory.check_dup_ctors_cons;
