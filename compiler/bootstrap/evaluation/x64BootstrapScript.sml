@@ -25,6 +25,12 @@ val compute_labels_alt_Section = Q.store_thm("compute_labels_alt_Section",
     lab_insert (Section_num sec) 0 pos (section_labels pos (Section_lines sec) labs))`,
   Cases_on`sec` \\ rw[lab_to_targetTheory.compute_labels_alt_def]);
 
+val pad_code_MAP = Q.store_thm("pad_code_MAP",
+  `pad_code nop = MAP (λx. Section (Section_num x) (pad_section nop 0 (Section_lines x) []))`,
+  simp[FUN_EQ_THM] \\ Induct
+  \\ simp[lab_to_targetTheory.pad_code_def]
+  \\ Cases \\ simp[lab_to_targetTheory.pad_code_def]);
+
 (*
 val find_ffi_index_def = Define`
   find_ffi_index x =
@@ -727,15 +733,6 @@ val tm12 =
 
 val () = Lib.say "eval: compute_labels_alt: "
 
-(* very slow!
-  might be because x64_enc isn't evaluating properly?
-  or just because encoded_prog_def contains huge terms...
-val compute_labels_thm =
-  tm12 |> (
-    RAND_CONV(REWR_CONV encoded_prog_def) THENC
-    time eval)
-*)
-
 val encoded_prog_els =
   encoded_prog_def |> rconc |> listSyntax.dest_list |> #1
 
@@ -969,13 +966,13 @@ val sec_lengths2 = parlist num_threads chunk_size eval_fn upd_lab_defs
 val (cln,clc) =
   lab_to_targetTheory.compute_labels_alt_def |> spec64 |> CONJ_PAIR
 
-fun eval_fn n tm =
+fun eval_fn str n tm =
   let
-    val () = Lib.say(String.concat["compute_labels2 ",Int.toString n,": "])
+    val () = Lib.say(String.concat[str," ",Int.toString n,": "])
   in time eval tm end
 
-fun compute_labels_alt_conv _ [] [] tm = REWR_CONV cln tm
-  | compute_labels_alt_conv n (dth::dths) (sth::sths) tm =
+fun compute_labels_alt_conv _ _ [] [] tm = REWR_CONV cln tm
+  | compute_labels_alt_conv str n (dth::dths) (sth::sths) tm =
     tm |>
     (REWR_CONV clc THENC
      REWR_CONV LET_THM THENC
@@ -984,8 +981,8 @@ fun compute_labels_alt_conv _ [] [] tm = REWR_CONV cln tm
      RAND_CONV(RATOR_CONV(RAND_CONV numLib.REDUCE_CONV)) THENC
      PATH_CONV"lrarlr"(REWR_CONV dth) THENC
      REWR_CONV LET_THM THENC
-     RAND_CONV (compute_labels_alt_conv (n+1) dths sths) THENC
-     BETA_CONV THENC eval_fn n)
+     RAND_CONV (compute_labels_alt_conv str (n+1) dths sths) THENC
+     BETA_CONV THENC eval_fn str n)
 
 (*
 val tm = tm15
@@ -994,7 +991,7 @@ val (sth::_) = List.rev sec_lengths2
 *)
 
 val compute_labels_thm2 =
-  tm15 |> compute_labels_alt_conv 0 upd_lab_defs (List.rev sec_lengths2)
+  tm15 |> compute_labels_alt_conv "compute_labels2" 0 upd_lab_defs (List.rev sec_lengths2)
 
 val computed_labs2_def = mk_def"computed_labs2"(compute_labels_thm2 |> rconc)
 val compute_labels_thm2' =
@@ -1048,6 +1045,186 @@ val tm16 =
 
 val enc_secs_again_thm2 =
   tm16 |> enc_secs_again_conv 0 upd_lab_defs
+
+val lab_to_target_thm7 =
+  lab_to_target_thm6 |> CONV_RULE(RAND_CONV(
+    PATH_CONV"llr"(
+      RAND_CONV(REWR_CONV enc_secs_again_thm2) THENC
+      REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
+      REWR_CONV LET_THM THENC
+      RAND_CONV(RATOR_CONV(REWR_CONV pad_code_MAP)))))
+
+val tm17 =
+  lab_to_target_thm7 |> rconc |> funpow 2 rator |> funpow 2 rand
+
+val () = PolyML.fullGC();
+
+(*
+val () = PolyML.SaveState.saveState"heap17"
+
+val () = PolyML.SaveState.loadState"heap17"
+*)
+
+val pad_section_tm =
+  tm17 |> rator |> rand
+
+val enc_again2_defs =
+  for 0 (num_enc-1) (fn i => definition(mk_def_name("enc_again2_"^(Int.toString i))))
+
+(*
+val (dth::_) = enc_again2_defs
+val p = tm17 |> rand |> rator |> rand
+*)
+
+fun eval_fn i n (dth, p) =
+  let
+    val () = say_str "pad_section" i n
+    val tm = mk_comb(pad_section_tm,p)
+    val conv =
+      BETA_CONV THENC
+      RATOR_CONV(RAND_CONV(REWR_CONV Section_num_def)) THENC
+      RAND_CONV(
+        RATOR_CONV(RAND_CONV(
+          REWR_CONV Section_lines_def THENC
+          REWR_CONV dth)) THENC
+        time eval)
+  in conv tm end
+
+val enc_again2_els =
+  tm17 |> rand |> listSyntax.dest_list |> #1
+
+val pad_code_thms =
+  parlist num_threads chunk_size eval_fn
+    (zip enc_again2_defs enc_again2_els)
+
+val pad_code_defs =
+  make_abbrevs "pad_code_" num_enc (pad_code_thms |> map (rand o rconc)) []
+
+val pad_code_thms' =
+    map2 (CONV_RULE o RAND_CONV o RAND_CONV o REWR_CONV o SYM)
+      (List.rev pad_code_defs) pad_code_thms
+
+val pad_code_thm =
+  tm17 |> (map_ths_conv pad_code_thms')
+
+val padded_code_def = mk_def"padded_code"(rconc pad_code_thm)
+
+val pad_code_thm' =
+  pad_code_thm |> CONV_RULE(RAND_CONV(REWR_CONV(SYM padded_code_def)))
+
+val lab_to_target_thm8 =
+  lab_to_target_thm7
+  |> CONV_RULE(RAND_CONV(
+       PATH_CONV"llr"(
+         RAND_CONV(REWR_CONV pad_code_thm') THENC
+         BETA_CONV THENC
+         REWR_CONV LET_THM THENC BETA_CONV THENC
+         RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV T_AND))))))
+
+val tm18 =
+  lab_to_target_thm8 |> rconc
+  |> funpow 2 rator |> rand
+  |> funpow 2 rator |> rand
+
+fun eval_fn i n dth =
+  let
+    val () = say_str "sec_length3" i n
+    val ltm = dth |> concl |> lhs
+    val tm = list_mk_comb(sec_length_tm,ltm::targs)
+  in (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
+      time eval) tm end
+
+val sec_lengths3 = parlist num_threads chunk_size eval_fn pad_code_defs
+
+val compute_labels_thm3 =
+  tm18 |> rand |> lhs |> RAND_CONV (REWR_CONV padded_code_def) |> rconc
+  |> compute_labels_alt_conv "compute_labels3" 0 pad_code_defs (List.rev sec_lengths3)
+
+val compute_labels_thm3' =
+  compute_labels_thm3
+  |> CONV_RULE(RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV(SYM padded_code_def)))))
+
+val labs_eq =
+  tm18 |> rand
+  |> (LAND_CONV(REWR_CONV compute_labels_thm3') THENC
+      RAND_CONV(REWR_CONV computed_labs2_def) THENC
+      eval)
+
+val (aen,aec) = lab_to_targetTheory.all_enc_ok_def |> spec64 |> CONJ_PAIR
+val (aesn,aesc) = aec |> CONJ_PAIR
+
+(*
+val tm =
+  tm18 |> rator |> rand
+  |> (RAND_CONV(REWR_CONV padded_code_def))
+  |> rconc
+val (dth::_) = pad_code_defs
+*)
+
+fun eval_fn str n m tm =
+  let
+    val () = Lib.say(String.concat[str," ",Int.toString n,".",Int.toString m,": "])
+  in time eval tm end
+
+fun all_enc_ok_conv _ _ [] tm = REWR_CONV aen tm
+  | all_enc_ok_conv n m (SOME dth::dths) tm =
+      tm |>
+      (RAND_CONV(
+         RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV dth))) ) THENC
+       aesc_conv n m dths)
+  | all_enc_ok_conv n m (NONE::dths) tm =
+      tm |> (
+        (REWR_CONV aesn THENC
+         LAND_CONV(numLib.REDUCE_CONV) THENC
+         REWR_CONV T_AND THENC
+         all_enc_ok_conv (n+1) 0 dths)
+        ORELSEC aesc_conv n m dths)
+and aesc_conv n m dths =
+       (REWR_CONV aesc THENC
+         RATOR_CONV(RAND_CONV(
+           PATH_CONV"llr"(REWR_CONV computed_labs2_def) THENC
+           eval_fn "line_ok" n m)) THENC
+         REWR_CONV T_AND THENC
+         PATH_CONV"lr"(
+           RAND_CONV(eval_fn "line_length" n m) THENC
+           numLib.REDUCE_CONV) THENC
+         all_enc_ok_conv n (m+1) (NONE::dths))
+
+(* extremely slow: lots of lines to check
+
+val encs_ok =
+  tm18 |> rator |> rand
+  |> (RAND_CONV(REWR_CONV padded_code_def) THENC
+      all_enc_ok_conv 0 0 (map SOME pad_code_defs))
+*)
+
+(*
+this is not true so doesn't work
+
+val padded_code_els =
+  padded_code_def |> rconc |> listSyntax.dest_list |> #1
+val upd_lab_els =
+  compute_labels_thm2'
+  |> concl |> lhs |> rand |> listSyntax.dest_list |> #1
+
+(*
+val t1 = el 1 upd_lab_els
+val t2 = el 1 padded_code_els
+val dth = el 1 upd_lab_defs
+*)
+
+fun eval_fn i n (t1,dth,t2) =
+  let
+    val () = say_str "pad_eq" i n
+    val tm = mk_eq(t1,t2)
+    val conv =
+      RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV dth))) THENC
+      time eval
+  in conv tm |> EQT_ELIM end
+
+compute_labels_thm2'
+upd_lab_defs
+*)
 
 
 val _ = export_theory();
