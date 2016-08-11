@@ -137,7 +137,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
  fs [empty_decls_def,check_env_def,convert_decls_def,empty_inf_decls_def]
  (* Let generalisation case *)
- >- cheat (*
+ >-
    (
    rw[PULL_EXISTS] >>
    (infer_pe_complete
@@ -145,7 +145,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     |> REWRITE_RULE[GSYM AND_IMP_INTRO] |> GEN_ALL
     |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
    simp [bind_tvar_rewrites, num_tvs_bvl2, num_tvs_def] >>
-   simp[AND_IMP_INTRO] >>
+   simp[AND_IMP_INTRO, GSYM type_p_tenvV_indep] >>
    disch_then(drule o
      CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(equal"type_p" o #1 o dest_const o #1 o strip_comb))))) >>
    disch_then(qspecl_then[`ienv`]mp_tac) >>
@@ -175,7 +175,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
    fs[init_infer_state_def] >>
-   qspecl_then[`0`,`s`,`MAP SND tenv'`]mp_tac generalise_complete >> simp[] >>
+   qspecl_then[`0`,`s`,`MAP SND new_bindings`]mp_tac generalise_complete >> simp[] >>
    disch_then(qspec_then`st'.next_uvar`mp_tac) >>
    impl_tac >- (
      conj_tac >- (
@@ -255,7 +255,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
        CONJ_TAC>-
          metis_tac[pure_add_constraints_append]>>
        fs[SUBSET_DEF]>>simp[])>>
-     `type_p a tenv.c p (convert_t (t_walkstar last_sub t'')) (convert_env last_sub tenv')` by
+     `type_p a tenv p (convert_t (t_walkstar last_sub t'')) (convert_env last_sub new_bindings)` by
        (match_mp_tac(infer_p_sound|>CONJUNCT1)>>
        first_assum (match_exists_tac o concl)>>
        imp_res_tac infer_e_wfs>>
@@ -306,7 +306,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
      metis_tac[pure_add_constraints_wfs])
    >>
      rw[]>>
-     pop_assum (qspecl_then[`MAP (t_walkstar s) (MAP SND tenv')`,`[]`,`FEMPTY`,`a`,`b`,`MAP (t_walkstar last_sub) (MAP SND tenv')`] mp_tac)>>
+     pop_assum (qspecl_then[`MAP (t_walkstar s) (MAP SND new_bindings)`,`[]`,`FEMPTY`,`a`,`b`,`MAP (t_walkstar last_sub) (MAP SND new_bindings)`] mp_tac)>>
      impl_keep_tac
      >-
        (fs[]>>
@@ -391,7 +391,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
          metis_tac[])
        >>
        rw[]>>
-       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]) *)
+       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
  (* Non generalised let *)
  >- (simp[PULL_EXISTS] >>
      (infer_pe_complete
@@ -856,7 +856,9 @@ val infer_ds_complete = prove(``
     >- cheat (*
       (fs[bind_var_list2_append]>>
       match_mp_tac tenv_val_ok_bvl2>>
-      fs[typeSoundInvariantsTheory.tenv_val_ok_def,tenv_val_ok_bind_var_list2]>>
+      fs[typeSoundInvariantsTheory.tenv_val_ok_def]>>
+      irule tenv_val_ok_bind_var_list2>>
+      fs[typeSoundInvariantsTheory.tenv_val_ok_def]>>
       imp_res_tac type_d_tenv_ok>>fs[num_tvs_bvl2,num_tvs_def]) *)
     >- cheat (*
       (fs[tenv_ctor_ok_merge]>>
