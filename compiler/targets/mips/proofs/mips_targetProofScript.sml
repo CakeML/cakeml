@@ -227,7 +227,7 @@ in
                        val etm = ``env ^t ^tm : mips_state``
                     in
                        (`!a. a IN s1.mem_domain ==> ((^etm).MEM a = ms.MEM a)`
-                        by (qpat_assum `!i:num s:mips_state. P`
+                        by (qpat_x_assum `!i:num s:mips_state. P`
                               (qspecl_then [`^t`, `^tm`]
                                  (strip_assume_tac o SIMP_RULE (srw_ss())
                                  [set_sepTheory.fun2set_eq]))
@@ -242,12 +242,12 @@ in
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [lem1, lem6, lem7, lem10,
                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
-         \\ Tactical.PAT_ASSUM x_tm kall_tac
+         \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state mips_next_def)
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
                [lem1, lem4, combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
-         \\ TRY (Q.PAT_ASSUM `NextStateMIPS qq = qqq` kall_tac)
+         \\ TRY (Q.PAT_X_ASSUM `NextStateMIPS qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 end
@@ -299,8 +299,8 @@ local
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
-         \\ REPEAT (Q.PAT_ASSUM `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (Q.PAT_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
+         \\ REPEAT (Q.PAT_X_ASSUM `ms.MEM qq = bn` kall_tac)
+         \\ REPEAT (Q.PAT_X_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ state_tac asm
       end gs
    val (_, _, dest_mips_enc, is_mips_enc) =
@@ -309,7 +309,7 @@ local
 in
    fun next_tac gs =
      (
-      qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
+      qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
       \\ simp enc_rwts
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ imp_res_tac lem5

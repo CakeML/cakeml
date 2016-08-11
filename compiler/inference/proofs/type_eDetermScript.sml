@@ -257,9 +257,9 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
      qexists_tac`s |++ (MAP (λn. (n, ^q)) l)` >>
      conj_asm1_tac >- (
        qunabbrev_tac q1 >>
-       qpat_assum`t_wfs s`mp_tac >>
-       qpat_assum`set l = X`mp_tac >>
-       qpat_assum`ALL_DISTINCT l`mp_tac >>
+       qpat_x_assum`t_wfs s`mp_tac >>
+       qpat_x_assum`set l = X`mp_tac >>
+       qpat_x_assum`ALL_DISTINCT l`mp_tac >>
        qspec_tac(`st'.next_uvar`,`n`) >>
        map_every qid_spec_tac[`s`,`l`] >>
        Induct >>
@@ -358,9 +358,9 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  fs[convert_env_def]>>
  spose_not_then strip_assume_tac >>
  fs[EXISTS_MEM,EXISTS_PROD] >>
- qpat_assum`MAP X Y = Z`mp_tac >> simp[] >>
+ qpat_x_assum`MAP X Y = Z`mp_tac >> simp[] >>
  simp[LIST_EQ_REWRITE,EL_MAP,UNCURRY] >>
- qpat_assum`MEM X Y`mp_tac >> simp[MEM_EL] >> strip_tac >>
+ qpat_x_assum`MEM X Y`mp_tac >> simp[MEM_EL] >> strip_tac >>
  qexists_tac`n` >>
  pop_assum(assume_tac o SYM) >> simp[] >>
  fs[EVERY_MEM] >>
@@ -552,7 +552,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
         simp[Abbr`tys`,EL_COUNT_LIST] >>
         rfs[EL_COUNT_LIST,LENGTH_COUNT_LIST] >>
         `FST (EL n funs) = FST (EL n tenv'')` by (
-          qpat_assum`MAP FST x = MAP FST y`mp_tac >>
+          qpat_x_assum`MAP FST x = MAP FST y`mp_tac >>
           simp[Once LIST_EQ_REWRITE,EL_MAP] ) >>
         `MEM (FST (EL n tenv''), SND (EL n tenv'')) tenv''` by (
           simp[MEM_EL] >> metis_tac[] ) >>
@@ -624,7 +624,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     FULL_SIMP_TAC(srw_ss())[num_tvs_bind_var_list,bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def]>>
    rw[]>>
    fs[MAP_EQ_f]>>
-   qpat_assum`A=FDOM si` (SUBST_ALL_TAC o SYM)>>
+   qpat_x_assum`A=FDOM si` (SUBST_ALL_TAC o SYM)>>
    match_mp_tac pure_add_constraints_check_s>>
    qexists_tac`st'.subst`>>qexists_tac`ls`>>
    `check_env (count st.next_uvar) itenv2` by (

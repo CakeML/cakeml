@@ -719,13 +719,13 @@ val orda_lx_trans = prove(
   TRY ( Cases_on`t2`>>fs[Once orda_thm] >> NO_TAC)
   >- (
     qunabbrev_tac`d` >>
-    qpat_assum`∀x. Y`kall_tac >>
+    qpat_x_assum`∀x. Y`kall_tac >>
     Cases_on`t2`>>fs[Once orda_thm] >>
     fs[Once orda_thm] >>
     metis_tac[ordav_lx_trans] )
   >- (
     qunabbrev_tac`d` >>
-    qpat_assum`∀x. Y`kall_tac >>
+    qpat_x_assum`∀x. Y`kall_tac >>
     Cases_on`t2`>>fs[Once orda_thm] >>
     fs[Once orda_thm] >>
     mp_tac TotOrd_term_cmp >> simp[TotOrd] >> strip_tac >>
@@ -735,8 +735,8 @@ val orda_lx_trans = prove(
     qmatch_assum_rename_tac`orda env1 (Comb t1 t2) (Comb t3 t4) ≠ GREATER` >>
     qmatch_assum_rename_tac`orda env2 (Comb t3 t4) (Comb t5 t6) ≠ GREATER` >>
     fs[Q.SPECL[`env`,`Comb a b`,`Comb c d`]orda_thm,LET_THM] >>
-    rpt(qpat_assum`X ≠ GREATER` mp_tac) >>
-    qpat_assum`d`mp_tac >>
+    rpt(qpat_x_assum`X ≠ GREATER` mp_tac) >>
+    qpat_x_assum`d`mp_tac >>
     simp[Abbr`d`] >> rw[] >> fs[] >> rw[] >>
     fsrw_tac[DNF_ss][] >>
     let
@@ -753,11 +753,11 @@ val orda_lx_trans = prove(
       TRY tac >>
       TRY (
         (qsuff_tac`F`>-rw[])>>
-        qpat_assum`orda (ZIP P) X Y = Z` mp_tac >> simp[] >>
+        qpat_x_assum`orda (ZIP P) X Y = Z` mp_tac >> simp[] >>
         (fn g as (asl,w) => (qsuff_tac`^(lhs (rand w)) = LESS`>-rw[])g)>>
         tac ) >>
       (qsuff_tac`F`>-rw[])>>
-      qpat_assum`orda (ZIP P) X Y ≠ Z` mp_tac >> simp[] >>
+      qpat_x_assum`orda (ZIP P) X Y ≠ Z` mp_tac >> simp[] >>
       fs[GSYM RACONV_eq_orda] >>
       imp_res_tac RACONV_TRANS >> fs[] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
@@ -770,8 +770,8 @@ val orda_lx_trans = prove(
   fs[Q.SPECL[`env`,`Abs a b`,`Abs c d`]orda_thm,LET_THM] >>
   mp_tac TotOrd_type_cmp >>
   simp[TotOrd] >> strip_tac >> fs[] >>
-  rpt(qpat_assum`X ≠ GREATER` mp_tac) >>
-  qpat_assum`d`mp_tac >>
+  rpt(qpat_x_assum`X ≠ GREATER` mp_tac) >>
+  qpat_x_assum`d`mp_tac >>
   simp[Abbr`d`] >> rw[] >> fs[] >> rw[] >>
   TRY (
     fsrw_tac[DNF_ss][] >>
@@ -1094,7 +1094,7 @@ val VSUBST_HAS_TYPE = store_thm("VSUBST_HAS_TYPE",
     map_every qx_gen_tac[`x`,`ty`,`tty`] >>
     Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
     srw_tac[DNF_ss][] >> rw[] >> fs[] >>
-    qpat_assum`X has_type tty`mp_tac >>
+    qpat_x_assum`X has_type tty`mp_tac >>
     simp[Once has_type_cases]>>rw[]>>rw[])
   >- (
     simp[Once has_type_cases] >> rw[] >>
@@ -1701,7 +1701,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     simp[REV_ASSOCD] >>
     Cases >> simp[REV_ASSOCD] >>
     strip_tac >>
-    qpat_assum`p ⇒ qq`mp_tac >>
+    qpat_x_assum`p ⇒ qq`mp_tac >>
     impl_tac >- metis_tac[] >> strip_tac >>
     rw[] >> fs[] >>
     Cases_on`r`>>fs[] )
@@ -2305,7 +2305,7 @@ val rename_bvars_has_type = store_thm("rename_bvars_has_type",
   ho_match_mp_tac(theorem"rename_bvars_ind") >>
   srw_tac[][rename_bvars_def] >> rw[] >> fs[]
   >- fs[Once has_type_cases] >>
-  qpat_assum`X has_type Y`mp_tac >>
+  qpat_x_assum`X has_type Y`mp_tac >>
   simp[Once has_type_cases] >> strip_tac >>
   simp[Once has_type_cases] >> metis_tac[] )
 
@@ -2356,7 +2356,7 @@ val FINITE_VFREE_IN = store_thm("FINITE_VFREE_IN",
   ``∀tm. FINITE {x | ∃ty. VFREE_IN (Var x ty) tm}``,
   Induct >> simp[] >- (
     qmatch_assum_abbrev_tac`FINITE s1` >>
-    qpat_assum`FINITE s1`mp_tac >>
+    qpat_x_assum`FINITE s1`mp_tac >>
     qmatch_assum_abbrev_tac`FINITE s2` >>
     strip_tac >>
     qmatch_abbrev_tac`FINITE s3` >>
@@ -2380,7 +2380,7 @@ val FINITE_VFREE_IN_2 = store_thm("FINITE_VFREE_IN_2",
     metis_tac[] )
   >- (
     qmatch_assum_abbrev_tac`FINITE s1` >>
-    qpat_assum`FINITE s1`mp_tac >>
+    qpat_x_assum`FINITE s1`mp_tac >>
     qmatch_assum_abbrev_tac`FINITE s2` >>
     strip_tac >>
     qmatch_abbrev_tac`FINITE s3` >>
@@ -2582,7 +2582,7 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
   \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
       VFREE_IN (Var name ty1) a` by ALL_TAC THEN1
-   (Q.PAT_ASSUM `welltyped a` MP_TAC
+   (Q.PAT_X_ASSUM `welltyped a` MP_TAC
     \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]
     THEN1 (REPEAT STRIP_TAC
@@ -2811,7 +2811,7 @@ val proves_ACONV_lemma = prove(
     qspecl_then[`h1`,`h`,`h0`,`hr`]mp_tac term_union_replace >>
     impl_tac >- (
       simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-      rpt(qpat_assum`EVERY P (X::Y)`kall_tac) >>
+      rpt(qpat_x_assum`EVERY P (X::Y)`kall_tac) >>
       rw[] >>
       fs[hypset_ok_el_less] >- (
         first_x_assum(qspecl_then[`n`,`LENGTH h1`]mp_tac) >>
@@ -2827,12 +2827,12 @@ val proves_ACONV_lemma = prove(
       conj_tac >- (
         imp_res_tac proves_term_ok >> fs[] >>
         metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
-      qpat_assum`EVERY P1 X`kall_tac >>
+      qpat_x_assum`EVERY P1 X`kall_tac >>
       qmatch_assum_abbrev_tac`EVERY P (h0::hr)` >>
-      qpat_assum`EXISTS X (h0::hr)`kall_tac >>
+      qpat_x_assum`EXISTS X (h0::hr)`kall_tac >>
       fs[EVERY_MEM] >> rw[] >>
       `P x` by res_tac >> pop_assum mp_tac >>
-      qpat_assum`P h0`kall_tac >>
+      qpat_x_assum`P h0`kall_tac >>
       simp_tac std_ss [Abbr`P`] >>
       strip_tac >>
       fs[hypset_ok_el_less,MEM_EL,PULL_EXISTS] >>
@@ -2848,7 +2848,7 @@ val proves_ACONV_lemma = prove(
     fs[EVERY_MEM,EXISTS_MEM] >>
     conj_tac >- (
       rw[] >>
-      qpat_assum`hypset_ok (h1 ++ h::h')`mp_tac >>
+      qpat_x_assum`hypset_ok (h1 ++ h::h')`mp_tac >>
       simp[hypset_ok_el_less,MEM_EL,PULL_EXISTS] >>
       fs[MEM_EL,PULL_EXISTS] >>
       disch_then(qspecl_then[`n`,`LENGTH h1`]mp_tac) >>
@@ -2865,8 +2865,8 @@ val proves_ACONV_lemma = prove(
     conj_tac >- (
       imp_res_tac proves_term_ok >> fs[] >>
       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
-    qpat_assum`EVERY P1 X`kall_tac >>
-    qpat_assum`EVERY P1 X`kall_tac >>
+    qpat_x_assum`EVERY P1 X`kall_tac >>
+    qpat_x_assum`EVERY P1 X`kall_tac >>
     fs[EVERY_MEM,EXISTS_MEM] >>
     metis_tac[ACONV_SYM] ) >>
   metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
@@ -2880,8 +2880,8 @@ val proves_ACONV = store_thm("proves_ACONV",
       ⇒ (thy,h') |- c'``,
   rw[] >>
   qsuff_tac`(thy,h') |- c` >- metis_tac[proves_concl_ACONV] >>
-  qpat_assum`welltyped c'`kall_tac >>
-  qpat_assum`ACONV c c'`kall_tac >>
+  qpat_x_assum`welltyped c'`kall_tac >>
+  qpat_x_assum`ACONV c c'`kall_tac >>
   metis_tac[proves_ACONV_lemma,APPEND])
 
 (* more derived rules *)
@@ -2912,7 +2912,7 @@ val sym_equation = store_thm("sym_equation",
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   fs[term_ok_equation] >>
   simp[GSYM equation_def,term_union_thm] >>
-  qpat_assum`typeof p = typeof q`(assume_tac o SYM) >>
+  qpat_x_assum`typeof p = typeof q`(assume_tac o SYM) >>
   simp[GSYM equation_def] >>
   fs[EQUATION_HAS_TYPE_BOOL] >>
   metis_tac[eqMp_equation,term_union_thm,ACONV_REFL])
@@ -2946,7 +2946,7 @@ val trans_equation = store_thm("trans_equation",
   impl_tac >- metis_tac[sym_equation] >>
   fs[EQUATION_HAS_TYPE_BOOL] >>
   imp_res_tac ACONV_TYPE >> rfs[] >>
-  qpat_assum`typeof t3 = X`(assume_tac o SYM) >>
+  qpat_x_assum`typeof t3 = X`(assume_tac o SYM) >>
   simp[GSYM equation_def] >>
   disch_then(mp_tac o MATCH_MP eqMp_equation) >>
   disch_then(qspecl_then[`h2`,`t3 === t2b`]mp_tac) >>
@@ -3174,7 +3174,7 @@ val updates_theory_ok = store_thm("updates_theory_ok",
   Q.PAT_ABBREV_TAC`eq1 = l1 === r1` >>
   Q.PAT_ABBREV_TAC`eq2 = l2 === r` >>
   Q.PAT_ABBREV_TAC`eq3 = l3 === r3` >>
-  qpat_assum`X has_type Y`mp_tac >>
+  qpat_x_assum`X has_type Y`mp_tac >>
   simp[Once has_type_cases] >> strip_tac >> rfs[] >>
   `type_ok tys' rep_type` by (
     match_mp_tac type_ok_extend >>
@@ -3289,7 +3289,7 @@ val FLOOKUP_tmsof_extends = Q.store_thm("FLOOKUP_tmsof_extends",
   \\ rw[] \\ fs[]
   \\ imp_res_tac ALOOKUP_MEM
   \\ fs[MEM_MAP,EXISTS_PROD]
-  \\ TRY(qpat_assum`_ = SOME _`mp_tac \\ rw[])
+  \\ TRY(qpat_x_assum`_ = SOME _`mp_tac \\ rw[])
   \\ metis_tac[]);
 
 val extends_sub = store_thm("extends_sub",
@@ -3670,7 +3670,7 @@ val type_ok_arities_match = store_thm("type_ok_arities_match",
   fs[EVERY_MEM] >>
   `∀ty1 ty2. MEM ty1 l ∧ MEM ty2 l' ⇒ arities_match [ty1] [ty2]` by metis_tac[] >>
   pop_assum mp_tac >>
-  qpat_assum`LENGTH X = Y`mp_tac >>
+  qpat_x_assum`LENGTH X = Y`mp_tac >>
   rpt (pop_assum kall_tac) >>
   map_every qid_spec_tac[`l'`,`l`] >>
   Induct >> simp[LENGTH_NIL] >>

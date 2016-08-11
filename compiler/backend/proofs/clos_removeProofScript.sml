@@ -54,7 +54,7 @@ val res_rel_trans = Q.store_thm(
    res_rel w (evaluate t1) (evaluate t3)`,
   simp[SimpL ``$/\``, SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
   simp[res_rel_rw] >> rpt var_eq_tac >>
-  qpat_assum `res_rel _ _ (evaluate t3)` mp_tac >>
+  qpat_x_assum `res_rel _ _ (evaluate t3)` mp_tac >>
   simp[res_rel_cases] >> dsimp[res_rel_rw] >>
   metis_tac [val_rel_trans, LIST_REL_trans, evaluate_timeout_clocks0]);
 
@@ -343,7 +343,7 @@ val Recclosure_addargs = Q.store_thm(
       simp[] >>
       `∃N fb. EL pos fns = (N,fb)` by metis_tac[pair_CASES] >> full_simp_tac(srw_ss())[] >>
       rename1 `LIST_REL (val_rel (:'ffi) j) vs11 vs21` >> strip_tac >>
-      qpat_assum `val_rel (:'ffi) _ _ _` mp_tac >>
+      qpat_x_assum `val_rel (:'ffi) _ _ _` mp_tac >>
       simp[val_rel_rw, is_closure_def, check_closures_def,
            clo_can_apply_def, clo_to_partial_args_def,
            clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def] >>
@@ -847,7 +847,7 @@ val unused_vars_correct2 = Q.prove(
   rpt strip_tac >> irule res_rel_trans >>
   qexists_tac `(es2,env1,s2 with clock := j)` >> reverse conj_tac
   >- (irule unused_vars_correct >> metis_tac[state_rel_refl,state_rel_max_app]) >>
-  qpat_assum `exp_rel _ _ _ _` mp_tac >> simp[exp_rel_thm] >>
+  qpat_x_assum `exp_rel _ _ _ _` mp_tac >> simp[exp_rel_thm] >>
   disch_then irule >> metis_tac[val_rel_refl])
 
 val every_Fn_vs_NONE_const_0 = Q.store_thm("every_Fn_vs_NONE_const_0[simp]",
@@ -966,7 +966,7 @@ val remove_correct = Q.store_thm("remove_correct",
        imp_res_tac state_rel_max_app >>
        imp_res_tac evaluate_const >> fs[] >>
        simp[] >> disch_then irule >>
-       qpat_assum `LIST_RELi _ vs1 vs2` mp_tac >>
+       qpat_x_assum `LIST_RELi _ vs1 vs2` mp_tac >>
        simp[LIST_RELi_EL_EQN, keepval_rel_def, mustkeep_def] >>
        rpt strip_tac >- imp_res_tac LIST_REL_LENGTH >>
        Cases_on `k < LENGTH vs2` >> simp[EL_APPEND2, EL_APPEND1]

@@ -828,7 +828,7 @@ fun define_ref_inv is_exn_type tys = let
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
      \\ REPEAT STRIP_TAC
      \\ IMP_RES_TAC v_size_lemmas \\ TRY DECIDE_TAC
-     \\ TRY (PAT_ASSUM MEM_pat (fn th =>
+     \\ TRY (PAT_X_ASSUM MEM_pat (fn th =>
               ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
      \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC
      \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC \\ DECIDE_TAC)
@@ -884,20 +884,20 @@ fun define_ref_inv is_exn_type tys = let
       REPEAT STRIP_TAC
       \\ FULL_SIMP_TAC std_ss [EqualityType_def]
       \\ STRIP_TAC THEN1
-       (REPEAT (PAT_ASSUM pat1 (K ALL_TAC))
+       (REPEAT (PAT_X_ASSUM pat1 (K ALL_TAC))
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ REPEAT STRIP_TAC \\ RES_TAC)
       \\ STRIP_TAC
       THEN1
-       (REPEAT (PAT_ASSUM pat2 (K ALL_TAC))
+       (REPEAT (PAT_X_ASSUM pat2 (K ALL_TAC))
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ primCases_on x2
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ REPEAT STRIP_TAC \\ METIS_TAC [])
       THEN1
-       (REPEAT (PAT_ASSUM pat2 (K ALL_TAC))
+       (REPEAT (PAT_X_ASSUM pat2 (K ALL_TAC))
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ TRY (primCases_on x2)
@@ -1166,7 +1166,7 @@ fun derive_thms_for_type is_exn_type ty = let
                can (match_term tag_pat_0) tm orelse
                can (match_term tag_pat_n) tm)
           \\ POP_ASSUM (fn th => FULL_SIMP_TAC (srw_ss()) [th])
-          \\ PAT_ASSUM tag_pat_0 (MP_TAC o
+          \\ PAT_X_ASSUM tag_pat_0 (MP_TAC o
                (CONV_RULE ((RAND_CONV o RAND_CONV)
                  (ALPHA_CONV (mk_var("v",v_ty))))) o
                REWRITE_RULE [TAG_def,Eval_def])
@@ -1174,7 +1174,7 @@ fun derive_thms_for_type is_exn_type ty = let
                         SPEC_ALL o REWRITE_RULE [TAG_def])
           \\ STRIP_TAC \\ STRIP_TAC
           \\ POP_ASSUM (STRIP_ASSUME_TAC o REWRITE_RULE [inv_def] o UNDISCH)
-          \\ PAT_ASSUM tag_pat (STRIP_ASSUME_TAC o UNDISCH_ALL o
+          \\ PAT_X_ASSUM tag_pat (STRIP_ASSUME_TAC o UNDISCH_ALL o
                 REWRITE_RULE [GSYM AND_IMP_INTRO] o remove_primes o
                 SPEC_ALL o REWRITE_RULE [TAG_def,Eval_def])
           \\ CONV_TAC (REWR_CONV Eval_def) \\ EXISTS_TAC (mk_var("res",v_ty))

@@ -694,7 +694,7 @@ val pmatch = Q.prove (
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[]
       >- (`lookup_tag_env (SOME n) tagenv = SOME (tag, t')`
-                   by (qpat_assum`∀x. Y`kall_tac >>
+                   by (qpat_x_assum`∀x. Y`kall_tac >>
                        full_simp_tac(srw_ss())[cenv_inv_def,envC_tagged_def] >>
                        first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
                        metis_tac [length_vs_rel, SOME_11, same_ctor_and_same_tid, PAIR_EQ]) >>
@@ -1043,7 +1043,7 @@ val do_opapp = Q.prove (
   every_case_tac >>
   full_simp_tac(srw_ss())[conSemTheory.do_opapp_def, vs_rel_list_rel] >>
   srw_tac[][]
-  >- (qpat_assum `v_rel a0 (Closure b0 c0 d0) e0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_rel_cases]) >>
+  >- (qpat_x_assum `v_rel a0 (Closure b0 c0 d0) e0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_rel_cases]) >>
       srw_tac[][] >>
       srw_tac[][] >>
       qexists_tac `tagenv'` >>
@@ -1051,7 +1051,7 @@ val do_opapp = Q.prove (
       full_simp_tac(srw_ss())[env_all_rel_cases] >>
       srw_tac[][v_rel_eqns, get_tagenv_def] >>
       full_simp_tac(srw_ss())[cenv_inv_def])
-  >- (qpat_assum `v_rel a0 (Recclosure b0 c0 d0) e0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_rel_cases]) >>
+  >- (qpat_x_assum `v_rel a0 (Recclosure b0 c0 d0) e0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_rel_cases]) >>
       srw_tac[][] >>
       srw_tac[][] >>
       every_case_tac >>

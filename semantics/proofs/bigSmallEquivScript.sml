@@ -204,7 +204,7 @@ srw_tac[][] >|
      do_con_check_def] >>
      full_simp_tac(srw_ss())[REVERSE_APPEND] >>
      metis_tac [],
- qpat_assum `e_step_reln^* spat1 spat2`
+ qpat_x_assum `e_step_reln^* spat1 spat2`
              (ASSUME_TAC o
               SIMP_RULE (srw_ss()) [Once RTC_CASES1,e_step_reln_def,
                                     e_step_def, push_def]) >>
@@ -821,8 +821,8 @@ val big_exp_to_small_exp = Q.prove (
      qmatch_assum_abbrev_tac`e_step_reln^* b c` >>
      qmatch_assum_abbrev_tac`e_step_reln^* a b` >>
      `e_step_reln^* a c` by metis_tac[transitive_RTC, transitive_def] >>
-     qpat_assum`X b c`kall_tac >>
-     qpat_assum`X a b`kall_tac >>
+     qpat_x_assum`X b c`kall_tac >>
+     qpat_x_assum`X a b`kall_tac >>
      qunabbrev_tac`b` >>
      ONCE_REWRITE_TAC[CONJ_COMM] >>
      first_assum(match_exists_tac o concl) >> simp[] >>
@@ -850,7 +850,7 @@ val big_exp_to_small_exp = Q.prove (
        full_simp_tac(srw_ss())[Once small_eval_list_cases] >> srw_tac[][] >>
        full_simp_tac(srw_ss())[Once small_eval_list_cases] >> srw_tac[][] >>
        qmatch_assum_abbrev_tac`e_step_reln^* a b` >>
-       qpat_assum`e_step_reln^* a b`mp_tac >>
+       qpat_x_assum`e_step_reln^* a b`mp_tac >>
        first_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
        disch_then(qspec_then`[Capp Opapp [v] () [],env]`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
        qmatch_assum_abbrev_tac`e_step_reln^* c d` >>
@@ -1007,12 +1007,12 @@ val big_exp_to_small_exp = Q.prove (
        srw_tac[boolSimps.DNF_ss][push_def] >> disj2_tac >>
        srw_tac[boolSimps.DNF_ss][Once RTC_CASES_RTC_TWICE] >>
        Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
-       qpat_assum`e_step_reln^* (env,X,Exp e,[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> full_simp_tac(srw_ss())[] >>
+       qpat_x_assum`e_step_reln^* (env,X,Exp e,[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> full_simp_tac(srw_ss())[] >>
        first_assum(match_exists_tac o concl) >> srw_tac[][] >>
        srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,Abbr`ctx`,continue_def,application_thm] >>
        srw_tac[boolSimps.DNF_ss][push_def] >> disj2_tac >>
        Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
-       qpat_assum`e_step_reln^* (env,X,Exp h,[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> full_simp_tac(srw_ss())[] >>
+       qpat_x_assum`e_step_reln^* (env,_,Exp _,[]) _`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> full_simp_tac(srw_ss())[] >>
        first_assum(match_exists_tac o concl) >> srw_tac[][] >>
        srw_tac[][e_step_def,continue_def,Abbr`ctx`,application_thm,to_small_st_def] ) >>
      imp_res_tac small_eval_app_err >> full_simp_tac(srw_ss())[] >>

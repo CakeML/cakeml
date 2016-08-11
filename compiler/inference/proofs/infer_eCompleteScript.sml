@@ -195,7 +195,7 @@ val check_t_t_walkstar = prove
   rw[]
   >-
     (Cases_on`tvs' ∈ FDOM s`>>fs[check_t_def]>>
-    qpat_assum `check_t A B C` mp_tac>>
+    qpat_x_assum `check_t A B C` mp_tac>>
     fs[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
     `FLOOKUP s tvs' = NONE` by fs[flookup_thm]>>simp[check_t_def])
   >-
@@ -378,7 +378,7 @@ val t_unify_ignore = prove(
   fs[t_unify_eqn]>-
   (full_case_tac>>
   imp_res_tac t_walk_submap_walkstar>>fs[]>>
-  qpat_assum `t_walkstar s t = X` mp_tac>>
+  qpat_x_assum `t_walkstar s t = X` mp_tac>>
   fs[t_walkstar_eqn]>>every_case_tac>>fs[]>>
   metis_tac[])>>
   Cases_on`ts`>>Cases_on`ts'`>>
@@ -675,7 +675,7 @@ val extend_multi_props = store_thm("extend_multi_props",
 (*Useful tactics, mainly for constrain_op*)
 
 val unconversion_tac =
-  rpt (qpat_assum `convert_t A = B` (assume_tac o (Q.AP_TERM `unconvert_t`)))>>
+  rpt (qpat_x_assum `convert_t A = B` (assume_tac o (Q.AP_TERM `unconvert_t`)))>>
   imp_res_tac check_t_empty_unconvert_convert_id>>
   fs[unconvert_t_def];
 
@@ -758,7 +758,7 @@ fun extend_uvar_tac t=
   rw[];
 
 val replace_uvar_tac =
-  rpt (qpat_assum `t_walkstar s A = B` (fn th =>
+  rpt (qpat_x_assum `t_walkstar s A = B` (fn th =>
   (((Q.SUBGOAL_THEN `t_walkstar s' h = ^(th|>concl|>rhs)` assume_tac))>-
   (metis_tac[check_t_def,submap_t_walkstar_replace,th]))) )
 
@@ -1167,7 +1167,7 @@ val infer_p_complete = store_thm("infer_p_complete",
       imp_res_tac submap_t_walkstar_replace>>
       ntac 7 (pop_assum kall_tac)>>
       pop_assum (SUBST1_TAC o SYM)>>
-      qpat_assum `C = t_walkstar A B` (SUBST1_TAC o SYM)>>
+      qpat_x_assum `C = t_walkstar A B` (SUBST1_TAC o SYM)>>
       Q.SPECL_THEN [`EL n ts`,`tvs'`,`s''`,`st'.next_uvar`] mp_tac
          (fst (CONJ_PAIR subst_infer_subst_swap))>>
       impl_tac>-metis_tac[pure_add_constraints_success]>>
@@ -1615,7 +1615,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
    first_x_assum(qspec_then `t'` mp_tac)>>
    impl_tac>>fs[]>> strip_tac>>
    `t_walkstar fin_s t' = Infer_Tapp [] TC_exn` by
-     (qpat_assum `A = convert_t B` (assume_tac o SYM o (Q.AP_TERM`unconvert_t`))>>
+     (qpat_x_assum `A = convert_t B` (assume_tac o SYM o (Q.AP_TERM`unconvert_t`))>>
      fs[unconvert_t_def]>>
      metis_tac[pure_add_constraints_success,submap_t_walkstar_replace
               ,check_t_empty_unconvert_convert_id])>>
@@ -1725,7 +1725,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       imp_res_tac submap_t_walkstar_replace>>
       ntac 7 (pop_assum kall_tac)>>
       pop_assum (SUBST1_TAC o SYM)>>
-      qpat_assum `C = t_walkstar A B` (SUBST1_TAC o SYM)>>
+      qpat_x_assum `C = t_walkstar A B` (SUBST1_TAC o SYM)>>
       Q.SPECL_THEN [`EL n ts`,`tvs`,`s''`,`st'.next_uvar`] mp_tac
          (fst (CONJ_PAIR subst_infer_subst_swap))>>
       impl_tac>-metis_tac[pure_add_constraints_success]>>
@@ -1791,7 +1791,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        fs[LENGTH_NIL,deBruijn_subst_id,COUNT_LIST_def
          ,infer_deBruijn_subst_id,FUPDATE_LIST]>>
        fs[EVERY_MEM]>>
-       qpat_assum `unconvert_t t = bla`
+       qpat_x_assum `unconvert_t t = bla`
          (assume_tac o Q.AP_TERM `convert_t`)>>
        metis_tac[check_freevars_empty_convert_unconvert_id])
      >>
@@ -1840,7 +1840,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         metis_tac[check_t_to_check_freevars]>>
       disch_then (SUBST_ALL_TAC o SYM)>>
       AP_TERM_TAC>>
-      qpat_assum `A = unconvert_t B` (assume_tac o (Q.AP_TERM `convert_t`))>>
+      qpat_x_assum `A = unconvert_t B` (assume_tac o (Q.AP_TERM `convert_t`))>>
       metis_tac[convert_infer_deBruijn_subst,check_freevars_empty_convert_unconvert_id])
    >> (*Long*)
      (fs[menv_alpha_def,FLOOKUP_o_f]>>
@@ -1863,7 +1863,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        fs[EVERY_MEM,t_walkstar_FEMPTY]>>
        imp_res_tac check_freevars_to_check_t>>
        fs[t_walkstar_no_vars]>>
-       qpat_assum `A=t'` (SUBST_ALL_TAC o SYM)>>
+       qpat_x_assum `A=t'` (SUBST_ALL_TAC o SYM)>>
        metis_tac[t_walkstar_no_vars,pure_add_constraints_wfs,check_freevars_empty_convert_unconvert_id])
      >>
        Q.SPECL_THEN [`st`,`constraints`,`s`,`MAP (deBruijn_subst 0 targs) (MAP convert_t subst)`,`num_tvs tenv.v`] mp_tac extend_multi_props>>
@@ -1912,7 +1912,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         metis_tac[check_t_to_check_freevars]>>
       disch_then (SUBST_ALL_TAC o SYM)>>
       AP_TERM_TAC>>
-      qpat_assum `A = unconvert_t B` (assume_tac o (Q.AP_TERM `convert_t`))>>
+      qpat_x_assum `A = unconvert_t B` (assume_tac o (Q.AP_TERM `convert_t`))>>
       metis_tac[convert_infer_deBruijn_subst,check_freevars_empty_convert_unconvert_id]))
  >- (*Fun*)
    (imp_res_tac check_freevars_to_check_t>>
@@ -2006,8 +2006,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      (fs[Abbr`ls`,sub_completion_def,t_compat_def]>>
      imp_res_tac infer_e_check_t>>CONJ_TAC
      >-
-       (qpat_assum `Tapp [] TC_bool =A` (SUBST_ALL_TAC o SYM)>>
-       qpat_assum`convert_t A =B` (assume_tac o (Q.AP_TERM `unconvert_t`))>>
+       (qpat_x_assum `Tapp [] TC_bool =A` (SUBST_ALL_TAC o SYM)>>
+       qpat_x_assum`convert_t A =B` (assume_tac o (Q.AP_TERM `unconvert_t`))>>
        first_x_assum(qspec_then `t'` (SUBST1_TAC o SYM))>>
        fs[]>>rfs[]>>
        imp_res_tac sub_completion_completes>>
@@ -2016,7 +2016,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      >>
        simp[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS]>>
        imp_res_tac sub_completion_completes>>
-       qpat_assum `Tapp [] TC_bool = A`
+       qpat_x_assum `Tapp [] TC_bool = A`
          (assume_tac o (Q.AP_TERM `unconvert_t`))>>
        imp_res_tac check_t_empty_unconvert_convert_id>>
        fs[unconvert_t_def]>>metis_tac[])>>
@@ -2046,7 +2046,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      imp_res_tac infer_e_check_t>>
      rfs[]>>
      imp_res_tac sub_completion_completes>>
-     qpat_assum `A = convert_t B`
+     qpat_x_assum `A = convert_t B`
        (assume_tac o (Q.AP_TERM `unconvert_t`))>>
      fs[unconvert_t_def]>>
      metis_tac[t_walkstar_no_vars,check_t_empty_unconvert_convert_id])>>
@@ -2281,7 +2281,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
                metis_tac[t_walkstar_no_vars,check_t_empty_unconvert_convert_id])
              >>
              fs[]>>
-             qpat_assum `convert_t A = B` (assume_tac o Q.AP_TERM `unconvert_t`)>>
+             qpat_x_assum `convert_t A = B` (assume_tac o Q.AP_TERM `unconvert_t`)>>
              metis_tac[check_t_empty_unconvert_convert_id])
          >>
          res_tac>>fs[]>>CONJ_TAC>-metis_tac[]>>
@@ -2393,7 +2393,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
          imp_res_tac ALOOKUP_MEM>>
           `MEM x (MAP FST env)` by
             (fs[EXISTS_PROD,MEM_MAP]>>metis_tac[])>>
-          qpat_assum `A = MAP FST env` (SUBST_ALL_TAC o SYM)>>
+          qpat_x_assum `A = MAP FST env` (SUBST_ALL_TAC o SYM)>>
           fs[MEM_MAP,MEM_EL]>>
           first_x_assum(qspec_then `n'` assume_tac)>>rfs[]>>
           Cases_on`EL n' funs`>>Cases_on`r`>>fs[]>>
@@ -2415,7 +2415,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
           `n = n'` by
             (`q = EL n (MAP FST env)` by
               (fs[EL_MAP]>>
-              qpat_assum`A = EL n env` (SUBST1_TAC o SYM)>>
+              qpat_x_assum`A = EL n env` (SUBST1_TAC o SYM)>>
               fs[])>>
             imp_res_tac type_funs_MAP_FST >>
             pop_assum (SUBST_ALL_TAC o SYM)>>
@@ -2426,7 +2426,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
             pop_assum (assume_tac o (fst o EQ_IMP_RULE)) >>rfs[]>>
             metis_tac[])>>
          fs[]>>
-         qpat_assum `A = EL n' env` (SUBST1_TAC o SYM)>>
+         qpat_x_assum `A = EL n' env` (SUBST1_TAC o SYM)>>
          fs[check_t_def])>>
    qunabbrev_tac `fun_tys`>>
    rw[]>>
@@ -2438,7 +2438,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      (fs[t_compat_def,EVERY_MEM,LENGTH_COUNT_LIST,MEM_ZIP]>>rw[]>>
      fs[LENGTH_COUNT_LIST,EL_MAP,EL_COUNT_LIST]>>
      `LENGTH funs = LENGTH env` by
-       (qpat_assum `MAP FST funs = B` (assume_tac o Q.AP_TERM`LENGTH`)>>
+       (qpat_x_assum `MAP FST funs = B` (assume_tac o Q.AP_TERM`LENGTH`)>>
        fs[LENGTH_MAP])>>
     imp_res_tac infer_e_check_t>>
     first_x_assum(qspec_then `Infer_Tuvar (n+st.next_uvar)` (SUBST_ALL_TAC o SYM))>>

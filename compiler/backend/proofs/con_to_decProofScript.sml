@@ -97,7 +97,7 @@ val init_globals_thm = Q.prove (
      (s',Rval [Conv NONE []])`,
   Induct >>
   rw[init_globals_def,decSemTheory.evaluate_def] >- rw[state_component_equality] >>
-  qpat_assum`_ = MAP SOME _`mp_tac >>
+  qpat_x_assum`_ = MAP SOME _`mp_tac >>
   Cases_on`gs`>>rw[]>>
   rw[decSemTheory.do_app_def,EL_APPEND2,LUPDATE_LENGTH,GENLIST_CONS,EL_APPEND1,LUPDATE_APPEND1]
   >> TRY(fsrw_tac[ARITH_ss][] >> NO_TAC) >>
@@ -409,7 +409,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   qmatch_assum_abbrev_tac`dec_result_rel (SND(SND q1)) (SND q2)` >>
   PairCases_on`q1`>>PairCases_on`q2` >>
   fs[markerTheory.Abbrev_def] >>
-  ntac 2 (qpat_assum`(_,_) = _`(assume_tac o SYM)) >> fs[] >>
+  ntac 2 (qpat_x_assum`(_,_) = _`(assume_tac o SYM)) >> fs[] >>
   rpt var_eq_tac >>
   fs[dec_result_rel_cases,compile_state_def]);
 
@@ -445,7 +445,7 @@ val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",
       Induct_on`ls`>>fs[init_globals_def])
     >>
       rw[]>>
-      qpat_assum`elist_globals (MAP (SND o SND) l') = {||}` mp_tac>>
+      qpat_x_assum`elist_globals (MAP (SND o SND) l') = {||}` mp_tac>>
       rpt(pop_assum kall_tac)>>
       qid_spec_tac`c`>>
       Induct_on`l'`>>
@@ -465,7 +465,7 @@ val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
   fs[compile_prompt_def]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
-  qpat_assum`A=p` sym_sub_tac>>fs[]>>
+  qpat_x_assum`A=p` sym_sub_tac>>fs[]>>
   first_x_assum(qspecl_then [`c+num_defs l`] assume_tac)>>rfs[]>>
   fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION]>>
   `let bag = (set_globals (compile_decs c l)) in

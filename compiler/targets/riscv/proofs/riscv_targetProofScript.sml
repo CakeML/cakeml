@@ -218,7 +218,7 @@ in
          \\ qabbrev_tac `^next_state_var = ^next_state`
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [lem1, lem4, lem5, alignmentTheory.aligned_numeric]
-         \\ Tactical.PAT_ASSUM x_tm kall_tac
+         \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state riscv_next_def)
          \\ byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) [lem1]
@@ -290,8 +290,8 @@ local
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
-         \\ REPEAT (Q.PAT_ASSUM `ms.MEM8 qq = bn` kall_tac)
-         \\ REPEAT (Q.PAT_ASSUM `NextRISCV qq = qqq` kall_tac)
+         \\ REPEAT (Q.PAT_X_ASSUM `ms.MEM8 qq = bn` kall_tac)
+         \\ REPEAT (Q.PAT_X_ASSUM `NextRISCV qq = qqq` kall_tac)
          \\ state_tac asm
       end gs
    val (_, _, dest_riscv_enc, is_riscv_enc) =
@@ -299,7 +299,7 @@ local
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
 in
    fun next_tac gs =
-     (qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
+     (qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
       \\ simp enc_rwts
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ imp_res_tac lem3

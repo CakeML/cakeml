@@ -204,7 +204,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
       every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
       fsrw_tac[ARITH_ss][] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-    qpat_assum`_ = (_,_)`mp_tac >>
+    qpat_x_assum`_ = (_,_)`mp_tac >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
@@ -231,7 +231,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ qpat_assum`_ = (_,_)`mp_tac
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ pairarg_tac \\ fs[]
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
@@ -395,8 +395,8 @@ val map_bitmap_length = store_thm("map_bitmap_length",``
   Induct>>rw[]>>
   Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
   fs[map_bitmap_def]>>
-  TRY(qpat_assum`A=x` (SUBST_ALL_TAC o SYM))>>
-  TRY(qpat_assum`A=y` (SUBST_ALL_TAC o SYM))>>
+  TRY(qpat_x_assum`A=x` (SUBST_ALL_TAC o SYM))>>
+  TRY(qpat_x_assum`A=y` (SUBST_ALL_TAC o SYM))>>
   fs[LENGTH_NIL]>>
   pop_assum mp_tac>>every_case_tac>>rw[]>>res_tac>>
   fs[]>>DECIDE_TAC);

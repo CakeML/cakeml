@@ -109,7 +109,7 @@ in
                                                   (Conv.DEPTH_CONV
                                                      listLib.LENGTH_CONV)))))))
             in
-               qpat_assum `asmSem$bytes_in_memory ^pc ^l ^mem ^mem_domain`
+               qpat_x_assum `asmSem$bytes_in_memory ^pc ^l ^mem ^mem_domain`
                   (fn thm =>
                       let
                          val (th1, th2) =

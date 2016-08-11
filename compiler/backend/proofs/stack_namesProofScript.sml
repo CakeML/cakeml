@@ -176,7 +176,7 @@ val comp_correct = Q.prove(
    (simp [Once comp_def] \\ fs [evaluate_def,get_var_def]
     \\ reverse every_case_tac
     \\ fs [LET_THM]
-    \\ qpat_assum`(λ(x,y). _) _ = _`mp_tac
+    \\ qpat_x_assum`(λ(x,y). _) _ = _`mp_tac
     \\ pairarg_tac \\ fs []
     \\ Cases_on `res = NONE` \\ fs []
     \\ Cases_on `s1.clock = 0` \\ fs []
@@ -200,7 +200,7 @@ val comp_correct = Q.prove(
     simp[lookup_fromAList] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >- (
       imp_res_tac ALOOKUP_FAILS >>
-      qpat_assum`_ = (r,_)`mp_tac >>
+      qpat_x_assum`_ = (r,_)`mp_tac >>
       BasicProvers.TOP_CASE_TAC >> fs[] >>
       `dest ∈ domain s.code` by metis_tac[domain_lookup] >>
       `¬MEM dest (MAP FST (compile f (toAList s.code)))` by (
@@ -215,7 +215,7 @@ val comp_correct = Q.prove(
     `dest ∈ domain s.code` by metis_tac[toAList_domain] >>
     fs[domain_lookup] >> fs[] >>
     IF_CASES_TAC >> fs[] >- (rveq >> EVAL_TAC >> simp[state_component_equality] ) >>
-    qpat_assum`_ = (r,_)`mp_tac >>
+    qpat_x_assum`_ = (r,_)`mp_tac >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     fs[compile_def,MEM_MAP,EXISTS_PROD,prog_comp_def] >>
     fs[MEM_toAList] >> rveq >>
@@ -231,7 +231,7 @@ val comp_correct = Q.prove(
         BasicProvers.TOP_CASE_TAC >> simp[] >>
         BasicProvers.TOP_CASE_TAC >> simp[] >>
         BasicProvers.TOP_CASE_TAC >> simp[] ) >>
-      qpat_assum`_ = (r,_)`mp_tac >>
+      qpat_x_assum`_ = (r,_)`mp_tac >>
       BasicProvers.TOP_CASE_TAC >> fs[] >>
       reverse(Cases_on`handler`)>>fs[]>-(
         split_pair_case_tac >> simp[] ) >>
@@ -253,7 +253,7 @@ val comp_correct = Q.prove(
       |> Q.GEN`s` |> Q.SPEC`s with regs := s.regs \\ lr`
       |> SIMP_RULE (std_ss)[Once rename_state_def] |> SIMP_RULE (srw_ss())[]
       |> SIMP_RULE std_ss [EVAL``(rename_state f (s with regs := x)).code = (rename_state f s).code``|>EQT_ELIM]] >>
-    qpat_assum`_ = (r,_)`mp_tac >>
+    qpat_x_assum`_ = (r,_)`mp_tac >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     simp[Once rename_state_def] >>
     IF_CASES_TAC >> fs[] >- (

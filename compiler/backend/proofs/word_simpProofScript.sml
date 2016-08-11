@@ -95,10 +95,10 @@ val evaluate_apply_if_opt = store_thm("evaluate_apply_if_opt",
   \\ fs [get_var_imm_def]
   \\ imp_res_tac dest_Seq_Assign_Const_IMP \\ fs []
   \\ rename1 `dest_Seq_Assign_Const v1 t1 = SOME (t1a,w1)`
-  \\ qpat_assum `dest_Seq_Assign_Const v1 t1 = SOME (t1a,w1)` mp_tac
+  \\ qpat_x_assum `dest_Seq_Assign_Const v1 t1 = SOME (t1a,w1)` mp_tac
   \\ rename1 `dest_Seq_Assign_Const v2 t2 = SOME (t2a,w2)`
-  \\ qpat_assum `dest_Seq_Assign_Const v2 t2 = SOME (t2a,w2)` mp_tac
-  \\ rw [] \\ rpt (qpat_assum `!x._` kall_tac)
+  \\ qpat_x_assum `dest_Seq_Assign_Const v2 t2 = SOME (t2a,w2)` mp_tac
+  \\ rw [] \\ rpt (qpat_x_assum `!x._` kall_tac)
   \\ fs [evaluate_def]
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs [] \\ IF_CASES_TAC \\ fs []
   \\ pairarg_tac \\ fs [] \\ fs []

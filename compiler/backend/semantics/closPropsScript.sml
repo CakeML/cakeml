@@ -592,7 +592,7 @@ val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
   ho_match_mp_tac evaluate_ind >> simp[pure_def] >>
   rpt strip_tac >> simp[evaluate_def]
   >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
-      rpt (qpat_assum `_ ==> _` mp_tac) >> simp[] >> full_simp_tac(srw_ss())[] >>
+      rpt (qpat_x_assum `_ ==> _` mp_tac) >> simp[] >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
   >- srw_tac[][]
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
@@ -1151,7 +1151,7 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
     srw_tac[][] >> full_simp_tac(srw_ss())[] >- (
       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] )
     >- (
-      qpat_assum`_ = (r,_)`mp_tac >>
+      qpat_x_assum`_ = (r,_)`mp_tac >>
       BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] )
     >> ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] )) >>
   TRY (

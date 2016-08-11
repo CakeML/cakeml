@@ -87,15 +87,15 @@ val BOTTOM_UP_OPT_LEMMA = prove(
   \\ FULL_SIMP_TAC std_ss [BOTTOM_UP_OPT_def,isRval_def,AND_IMP_INTRO, rich_listTheory.MAP_REVERSE]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ ASM_SIMP_TAC std_ss []
   \\ TRY (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases] THEN NO_TAC)
-  \\ TRY (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th THEN ASSUME_TAC th)
+  \\ TRY (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th THEN ASSUME_TAC th)
           THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] THEN NO_TAC)
   THEN1 (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC [])
   THEN1 (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC [])
-  THEN1 (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th)
+  THEN1 (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th)
     \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ METIS_TAC [])
   THEN1 (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC [])
-  THEN1 (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th)
+  THEN1 (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th)
     \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ REPEAT DISJ1_TAC \\ METIS_TAC [])
   THEN1
@@ -110,7 +110,7 @@ val BOTTOM_UP_OPT_LEMMA = prove(
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ DISJ2_TAC \\ DISJ1_TAC
     \\ METIS_TAC [])
-  THEN1 (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th)
+  THEN1 (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th)
     \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ REPEAT DISJ1_TAC \\ METIS_TAC [])
   THEN1
@@ -122,18 +122,18 @@ val BOTTOM_UP_OPT_LEMMA = prove(
     \\ DISJ2_TAC \\ DISJ1_TAC
     \\ METIS_TAC [])
   THEN1
-   (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th) \\ fs []
+   (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th) \\ fs []
     \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ Cases_on `x3` \\ fs [] \\ IMP_RES_TAC do_log_IMP \\ SRW_TAC [] []
     \\ Cases_on `r` \\ fs [isRval_def] \\ METIS_TAC [do_log_IMP_2])
   THEN1 (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC [])
   THEN1
-   (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th) \\ fs []
+   (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th) \\ fs []
     \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ METIS_TAC [do_log_IMP_3])
   THEN1 (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC [])
   THEN1 (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC [])
-  \\ TRY (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th))
+  \\ TRY (Q.PAT_X_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th \\ ASSUME_TAC th))
   THEN1
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ fs [do_if_def]
     \\ Cases_on `v = Boolv T` \\ Cases_on `v = Boolv F` \\ fs [Boolv_11]
@@ -179,7 +179,7 @@ val abs2let_thm = prove(
   \\ NTAC 3 (FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ first_assum(preamble.match_exists_tac o concl)
   \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_ASSUM `evaluate F env s (Fun s' e) ((s2',Rval v1))` MP_TAC
+  \\ Q.PAT_X_ASSUM `evaluate F env s (Fun s' e) ((s2',Rval v1))` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def, SWAP_REVERSE_SYM]

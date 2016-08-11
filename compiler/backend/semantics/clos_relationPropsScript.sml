@@ -466,7 +466,7 @@ val app_combine = Q.store_thm ("app_combine",
    full_simp_tac(srw_ss())[res_rel_rw]) >>
  srw_tac[][] >>
  full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
- rpt (qpat_assum `_ = evaluate _` (mp_tac o GSYM)) >>
+ rpt (qpat_x_assum `_ = evaluate _` (mp_tac o GSYM)) >>
  srw_tac[][] >>
  `LENGTH vs2' + LENGTH vs1' ≤ w` by (
    imp_res_tac evaluate_length_imp >>
