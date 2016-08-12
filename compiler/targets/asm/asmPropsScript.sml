@@ -5,8 +5,7 @@ val () = new_theory "asmProps"
 (* -- semantics is deterministic -- *)
 
 val asm_deterministic = Q.store_thm("asm_deterministic",
-  `!enc c i s1 s2 s3.
-    asm_step enc c s1 i s2 /\ asm_step enc c s1 i s3 ==> (s2 = s3)`,
+  `!c i s1 s2 s3. asm_step c s1 i s2 /\ asm_step c s1 i s3 ==> (s2 = s3)`,
   rw [asm_step_def])
 
 val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
@@ -30,25 +29,24 @@ val offset_monotonic_def = Define `
   (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
 
 val enc_ok_def = Define `
-  enc_ok (enc: 'a asm -> word8 list) c =
+  enc_ok (c : 'a asm_config) =
     (* code alignment and length *)
-    (2 EXP c.code_alignment = LENGTH (enc (Inst Skip))) /\
-    (!w. asm_ok w c ==> (LENGTH (enc w) MOD 2 EXP c.code_alignment = 0) /\
-                        (LENGTH (enc w) <> 0)) /\
+    (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
+    (!w. asm_ok w c ==> (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
+                        (LENGTH (c.encode w) <> 0)) /\
     (* label instantiation predictably affects length of code *)
-    (!w1 w2. offset_monotonic enc c w1 w2 (Jump w1) (Jump w2)) /\
+    (!w1 w2. offset_monotonic c.encode c w1 w2 (Jump w1) (Jump w2)) /\
     (!cmp r ri w1 w2.
-       offset_monotonic enc c w1 w2
+       offset_monotonic c.encode c w1 w2
           (JumpCmp cmp r ri w1) (JumpCmp cmp r ri w2)) /\
-    (!w1 w2. offset_monotonic enc c w1 w2 (Call w1) (Call w2)) /\
-    (!w1 w2 r. offset_monotonic enc c w1 w2 (Loc r w1) (Loc r w2))`
+    (!w1 w2. offset_monotonic c.encode c w1 w2 (Call w1) (Call w2)) /\
+    (!w1 w2 r. offset_monotonic c.encode c w1 w2 (Loc r w1) (Loc r w2))`
 
 (* -- correctness property to be proved for each backend -- *)
 
 val () = Datatype `
   target =
-    <| encode : 'a asm -> word8 list
-     ; get_pc : 'b -> 'a word
+    <| get_pc : 'b -> 'a word
      ; get_reg : 'b -> num -> 'a word
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
@@ -72,7 +70,7 @@ val asserts_def = zDefine `
 
 val backend_correct_def = Define `
   backend_correct t <=>
-    enc_ok t.encode t.config /\
+    enc_ok t.config /\
     (!ms1 ms2 s.
         (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
         (t.state_rel s ms1 = t.state_rel s ms2) /\
@@ -83,13 +81,13 @@ val backend_correct_def = Define `
             (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
                  (t.get_reg ms i = s.regs i))) /\
     !s1 i s2 ms.
-      asm_step t.encode t.config s1 i s2 /\ t.state_rel s1 ms ==>
+      asm_step t.config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
-             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
-             asserts n (\k s. env (n - k) (t.next s)) ms
-               (\ms'. t.state_ok ms' /\
-                      t.get_pc ms' IN all_pcs (LENGTH (t.encode i)) s1.pc)
-               (\ms'. t.state_rel s2 ms')`
+            interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
+            asserts n (\k s. env (n - k) (t.next s)) ms
+              (\ms'. t.state_ok ms' /\
+                     t.get_pc ms' IN all_pcs (LENGTH (t.config.encode i)) s1.pc)
+              (\ms'. t.state_rel s2 ms')`
 
 (* lemma for proofs *)
 

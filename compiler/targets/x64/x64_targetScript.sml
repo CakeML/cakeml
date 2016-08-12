@@ -5,33 +5,6 @@ val () = new_theory "x64_target"
 
 val () = wordsLib.guess_lengths()
 
-(* --- Configuration for x86-64 --- *)
-
-val eval = rhs o concl o EVAL
-val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
-val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
-
-val x64_config_def = Define`
-   x64_config =
-   <| ISA := x86_64
-    ; reg_count := 16
-    ; avoid_regs := [4;5]
-    ; link_reg := NONE
-    ; has_mem_32 := T
-    ; two_reg_arith := T
-    ; big_endian := F
-    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
-    ; addr_offset_min := ^min32
-    ; addr_offset_max := ^max32
-    ; jump_offset_min := ^min32 + 13w
-    ; jump_offset_max := ^max32 + 5w
-    ; cjump_offset_min := ^min32 + 13w
-    ; cjump_offset_max := ^max32 + 5w
-    ; loc_offset_min := ^min32 + 7w
-    ; loc_offset_max := ^max32 + 7w
-    ; code_alignment := 0
-    |>`
-
 (* --- The next-state function --- *)
 
 val x64_next_def = Define `x64_next = THE o NextStateX64`
@@ -245,13 +218,40 @@ val x64_dec_def = Define`
          Loc (Zreg2num r) (i + 7w)
     | _ => ARB`
 
+(* --- Configuration for x86-64 --- *)
+
+val eval = rhs o concl o EVAL
+val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
+val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
+
+val x64_config_def = Define`
+   x64_config =
+   <| ISA := x86_64
+    ; encode := x64_enc
+    ; reg_count := 16
+    ; avoid_regs := [4;5]
+    ; link_reg := NONE
+    ; has_mem_32 := T
+    ; two_reg_arith := T
+    ; big_endian := F
+    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
+    ; addr_offset_min := ^min32
+    ; addr_offset_max := ^max32
+    ; jump_offset_min := ^min32 + 13w
+    ; jump_offset_max := ^max32 + 5w
+    ; cjump_offset_min := ^min32 + 13w
+    ; cjump_offset_max := ^max32 + 5w
+    ; loc_offset_min := ^min32 + 7w
+    ; loc_offset_max := ^max32 + 7w
+    ; code_alignment := 0
+    |>`
+
 val x64_proj_def = Define`
    x64_proj d s = (s.RIP, s.REG, fun2set (s.MEM, d), s.EFLAGS, s.exception)`
 
 val x64_target_def = Define`
    x64_target =
-   <| encode := x64_enc
-    ; get_pc := x64_state_RIP
+   <| get_pc := x64_state_RIP
     ; get_reg := (\s. s.REG o num2Zreg)
     ; get_byte := x64_state_MEM
     ; state_ok := (\s. s.exception = NoException)

@@ -943,7 +943,6 @@ val lemma = prove(
      good_init_state mc_conf (t:'a asm_state)
        m ms ffi ffi_limit bytes io_regs save_regs dm) /\
     (data_to_wordProof$conf_ok (:α) c.data_conf /\
-    c.lab_conf.encoder = mc_conf.target.encode /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
     find_name c.stack_conf.reg_names PERMUTES UNIV /\

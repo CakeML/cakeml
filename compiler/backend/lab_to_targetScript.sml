@@ -296,11 +296,11 @@ val sec_names_def = Define`
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
-  remove_labels_loop clock c enc sec_list =
+  remove_labels_loop clock c sec_list =
     (* compute labels *)
     let labs = compute_labels_alt 0 sec_list in
     (* update encodings and lengths (but not label lengths) *)
-    let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
+    let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
       (* done ==> labs are still fine *)
       if done then
         (* adjust label lengths *)
@@ -308,9 +308,9 @@ val remove_labels_loop_def = Define `
         (* compute labels again *)
         let labs = compute_labels_alt 0 sec_list in
         (* update encodings *)
-        let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
+        let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
         (* move label padding into instructions *)
-        let sec_list = pad_code (enc (Inst Skip)) sec_list in
+        let sec_list = pad_code (c.encode (Inst Skip)) sec_list in
         (* compute the labels again, redundant TODO: remove *)
         let labs2 = compute_labels_alt 0 sec_list in
         (* it ought to be impossible for done to be false here *)
@@ -320,17 +320,17 @@ val remove_labels_loop_def = Define `
       else
         (* repeat *)
         if clock = 0:num then NONE else
-          remove_labels_loop (clock-1) c enc sec_list`
+          remove_labels_loop (clock-1) c sec_list`
 
 val remove_labels_def = Define `
-  remove_labels init_clock c enc sec_list =
+  remove_labels init_clock c sec_list =
     (* Here init_clock puts an upper limit on the number of times the
        lengths can be adjusted. In many cases, clock = 0 should be
        enough. If this were to hit the clock limit for large values of
        init_clock, then something is badly wrong. Worth testing with
        the clock limit set to low values to see how many iterations
        are used. *)
-    remove_labels_loop init_clock c enc (enc_sec_list enc sec_list)`;
+    remove_labels_loop init_clock c (enc_sec_list c.encode sec_list)`;
 
 (* code extraction *)
 
@@ -348,8 +348,7 @@ val prog_to_bytes_def = Define `
 (* compile labels *)
 
 val _ = Datatype`
-  config = <| encoder : 'a asm -> word8 list
-            ; labels : num num_map num_map
+  config = <| labels : num num_map num_map
             ; asm_conf : 'a asm_config
             ; init_clock : num
             |>`;
@@ -365,7 +364,7 @@ val find_ffi_index_limit_def = Define `
 val compile_lab_def = Define `
   compile_lab c sec_list =
     let limit = find_ffi_index_limit sec_list in
-      case remove_labels c.init_clock c.asm_conf c.encoder sec_list of
+      case remove_labels c.init_clock c.asm_conf sec_list of
       | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,limit)
       | NONE => NONE`;
 

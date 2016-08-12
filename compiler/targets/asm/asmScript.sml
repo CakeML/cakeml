@@ -118,6 +118,7 @@ val () = Datatype `
 val () = Datatype `
   asm_config =
     <| ISA              : architecture
+     ; encode           : 'a asm -> word8 list
      ; avoid_regs       : num list
      ; big_endian       : bool
      ; code_alignment   : num
