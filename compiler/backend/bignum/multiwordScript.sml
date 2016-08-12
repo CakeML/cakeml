@@ -3367,4 +3367,153 @@ val mw_addv_CONS_NIL_T = prove(
 val mw_addv_NIL = save_thm("mw_addv_NIL",LIST_CONJ
   [EVAL ``mw_addv [] [] T``,mw_addv_NIL_F,GEN_ALL mw_addv_CONS_NIL_T]);
 
+
+(* verify implementation for single_div (to be used on arch without div) *)
+
+val num_div_loop_def = Define `
+  num_div_loop (k:num,n:num,m:num,i:num) =
+    if k = 0 then (m,i) else
+      let n = n DIV 2 in
+      let m = m * 2 in
+        if i < n then
+          num_div_loop (k-1,n,m,i)
+        else
+          num_div_loop (k-1,n,m+1,i-n)`
+
+val num_div_loop_lemma = prove(
+  ``!k i n m.
+      i < n * 2 ** k /\ 0 < n ==>
+      (num_div_loop (k,n * 2 ** k,m,i) = (m * 2 ** k + i DIV n,i MOD n))``,
+  Induct
+  \\ simp [Once num_div_loop_def,arithmeticTheory.LESS_DIV_EQ_ZERO]
+  \\ rw [] \\ fs [EXP,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ fs [RIGHT_ADD_DISTRIB,MOD_SUB,DIV_SUB]
+  \\ qsuff_tac `2 ** k <= i DIV n` THEN1 decide_tac
+  \\ fs [X_LE_DIV]);
+
+val num_div_loop_thm = save_thm("num_div_loop_thm",
+  num_div_loop_lemma
+  |> Q.SPECL [`k`,`i`,`n`,`0`] |> SIMP_RULE std_ss []);
+
+val single_div_loop_def = Define `
+  single_div_loop (k:'a word,ns:'a word list,m:'a word,is:'a word list) =
+    if k = 0w then (m,is) else
+      let ns = mw_shift ns in
+      let m = m << 1 in
+        if mw_cmp is ns = SOME T then
+          single_div_loop (k-1w,ns,m,is)
+        else
+          let m = m + 1w in
+          let (is,_) = mw_sub is ns T in
+            single_div_loop (k-1w,ns,m,is)`
+
+val single_div_full_def = Define `
+  single_div_full m2 (m1:'a word) n =
+    let (m,is) = single_div_loop (n2w (dimindex (:'a)),[0w;n],0w,[m1;m2]) in
+      (m, HD is)`;
+
+fun drule th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
+val impl_tac = match_mp_tac IMP_IMP \\ conj_tac
+
+val single_div_loop_thm = prove(
+  ``!k ns m is t qs.
+      (single_div_loop (n2w k,ns,m,is) = (t,qs:'a word list)) /\
+      k < dimword (:'a) /\
+      k <= dimindex (:'a) /\ (w2n m < 2 ** (dimindex (:'a) - k)) /\
+      (LENGTH ns = 2) /\ (LENGTH is = 2) ==>
+      (num_div_loop (k,mw2n ns,w2n m,mw2n is) = (w2n t, mw2n qs)) /\
+      (LENGTH qs = 2)``,
+  Induct THEN1 (fs [Once num_div_loop_def,Once single_div_loop_def])
+  \\ NTAC 6 strip_tac
+  \\ qpat_x_assum `single_div_loop _ = _` mp_tac
+  \\ once_rewrite_tac [single_div_loop_def,num_div_loop_def]
+  \\ fs [mw_shift_thm,LENGTH_mw_shift,mw_cmp_thm]
+  \\ Cases_on `mw2n is < mw2n ns DIV 2` \\ fs []
+  THEN1
+   (fs [ADD1,GSYM word_add_n2w] \\ strip_tac
+    \\ first_x_assum drule
+    \\ fs [LENGTH_mw_shift,mw_shift_thm]
+    \\ impl_tac
+    THEN1
+      (Cases_on `m` \\ fs [WORD_MUL_LSL,word_mul_n2w]
+       \\ `2 * n < dimword (:'a)` by
+        (fs [LESS_EQ_EXISTS] \\ rfs [dimword_def,EXP_ADD]
+         \\ Cases_on `2 ** k` \\ fs []
+         \\ Cases_on `n'` \\ fs [MULT_CLAUSES])
+       \\ fs [LESS_EQ_EXISTS] \\ rfs []
+       \\ fs [EXP,GSYM ADD1])
+    \\ `w2n (m << 1) = 2 * w2n m` by all_tac \\ fs []
+    \\ Cases_on `m` \\ fs [WORD_MUL_LSL,word_mul_n2w]
+    \\ fs [LESS_EQ_EXISTS] \\ rfs [dimword_def]
+    \\ fs [EXP,GSYM ADD1,ADD_CLAUSES,EXP_ADD]
+    \\ Cases_on `2 ** k` \\ fs []
+    \\ Cases_on `n'` \\ fs [MULT_CLAUSES])
+  \\ fs [] \\ Cases_on `(mw_sub is (mw_shift ns) T)` \\ fs []
+  \\ fs [ADD1,GSYM word_add_n2w]
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ fs [LENGTH_mw_shift,mw_shift_thm]
+  \\ impl_tac THEN1
+   (imp_res_tac LENGTH_mw_sub \\ fs [LENGTH_mw_shift]
+    \\ Cases_on `m` \\ fs [WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
+    \\ fs [LESS_EQ_EXISTS] \\ rfs [dimword_def,EXP_ADD]
+    \\ `2 * n + 1 < 2 * (2 ** k * 2 ** p) /\
+        2 * n + 1 < 2 * 2 ** p` by all_tac \\ fs []
+    \\ Cases_on `2 ** k` \\ fs []
+    \\ Cases_on `n'` \\ fs [MULT_CLAUSES])
+  \\ `w2n (m << 1 + 1w) = 2 * w2n m + 1` by all_tac \\ fs []
+  THEN1
+   (Cases_on `m` \\ fs [WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
+    \\ fs [LESS_EQ_EXISTS] \\ rfs [dimword_def,EXP_ADD]
+    \\ Cases_on `2 ** k` \\ fs []
+    \\ Cases_on `n'` \\ fs [MULT_CLAUSES])
+  \\ `mw2n q = mw2n is - mw2n ns DIV 2` by all_tac \\ fs []
+  \\ `q = FST (mw_sub is (mw_shift ns) T)` by fs []
+  \\ pop_assum (fn th => fs [th])
+  \\ fs [GSYM mw_shift_thm]
+  \\ match_mp_tac mw_sub_thm
+  \\ fs [LENGTH_mw_shift]);
+
+val mw2n_0 = store_thm("mw2n_0",
+  ``(mw2n [] = 0) /\
+    (mw2n (0w::xs:'a word list) = dimword (:'a) * mw2n xs)``,
+  fs [mw2n_def]);
+
+val HD_eq_n2w_mw2n = store_thm("HD_eq_n2w_mw2n",
+  ``LENGTH xs <> 0 /\ mw2n xs < dimword (:'a) ==>
+    (HD xs = n2w (mw2n (xs:'a word list)))``,
+  Cases_on `xs` \\ fs [mw2n_def]
+  \\ Cases_on `mw2n t` \\ fs []
+  \\ fs [MULT_CLAUSES]);
+
+val LESS_2_EXP = store_thm("LESS_2_EXP[simp]",
+  ``!n. n < 2 ** n``,
+  Induct \\ fs [EXP]);
+
+val single_div_full_thm = store_thm("single_div_full_thm",
+  ``mw2n [x2;x1] < mw2n [0w;y] ==>
+    (single_div_full x1 x2 y = single_div x1 x2 y)``,
+  fs [single_div_full_def]
+  \\ Cases_on `single_div_loop (n2w (dimindex (:'a)),[0w; y],0w,[x2; x1])`
+  \\ fs [] \\ strip_tac
+  \\ drule single_div_loop_thm \\ impl_tac
+  THEN1 (fs [] \\ fs [dimword_def,LESS_2_EXP])
+  \\ rw [] \\ fs [mw2n_0]
+  \\ `y <> 0w` by (Cases_on `y` \\ fs [mw2n_def] \\ CCONTR_TAC \\ fs [])
+  \\ `0 < mw2n [0w; y]` by fs [mw2n_0]
+  \\ fs [dimword_def]
+  \\ imp_res_tac num_div_loop_thm
+  \\ pop_assum kall_tac
+  \\ `0 < mw2n [y]` by (fs [mw2n_0,mw2n_def] \\ Cases_on `y` \\ fs [])
+  \\ fs [] \\ fs [single_div_def]
+  \\ Cases_on `x2` \\ Cases_on `x1` \\ Cases_on `y` \\ fs [mw2n_def]
+  \\ rw [] \\ match_mp_tac HD_eq_n2w_mw2n \\ fs []
+  \\ rpt (qpat_assum `_ = mw2n _` (fn th => fs [GSYM th]))
+  \\ fs [DIV_LT_X] \\ fs [dimword_def]
+  \\ match_mp_tac LESS_TRANS
+  \\ rename1 `k < 2 ** dimindex (:'a)`
+  \\ qexists_tac `k` \\ fs []);
+
 val _ = export_theory();
