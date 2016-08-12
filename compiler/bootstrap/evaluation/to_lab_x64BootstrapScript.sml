@@ -625,7 +625,9 @@ val lab_prog_def = mk_def"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
 
 val temp_defs =
   set_diff (List.map #1 (definitions"-"))
-    ["x64_oracle_def","lab_prog_def"]
+    ["x64_oracle_def","lab_prog_def",
+     (* TODO: only required while these are still defined in this theory *)
+     "Section_num_def","Section_lines_def" ]
 
 val () = List.app delete_binding temp_defs
 

@@ -8,6 +8,16 @@ open preamble
 
 val _ = new_theory "x64Bootstrap";
 
+(* TODO: move *)
+
+val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
+  `∀ls. prog_to_bytes ls = FLAT
+          (MAP (FLAT o MAP line_bytes o Section_lines) ls)`,
+  ho_match_mp_tac lab_to_targetTheory.prog_to_bytes_ind
+  \\ rw[lab_to_targetTheory.prog_to_bytes_def]);
+
+(* -- *)
+
 val _ = Globals.max_print_depth := 10;
 
 val rconc = rhs o concl;
@@ -572,6 +582,7 @@ val labs_eq =
       RAND_CONV(REWR_CONV computed_labs2_def) THENC
       eval)
 
+(*
 val (aen,aec) = lab_to_targetTheory.all_enc_ok_def |> spec64 |> CONJ_PAIR
 val (aesn,aesc) = aec |> CONJ_PAIR
 
@@ -620,38 +631,122 @@ val encs_ok =
       all_enc_ok_conv 0 0 (map SOME pad_code_defs))
 
 *)
+*)
 
 (* since this should be a redundant check anyway, we cheat it *)
 val encs_ok =
   tm18 |> rator |> rand
   |> (fn tm => prove(tm,cheat))
 
-(*
-this is not true so doesn't work
+val lab_to_target_thm =
+  lab_to_target_thm8
+  |> CONV_RULE(RAND_CONV(
+       PATH_CONV"llr"(
+         PATH_CONV"llr"(
+           FORK_CONV(REWR_CONV (EQT_INTRO encs_ok), REWR_CONV labs_eq) THENC
+           REWR_CONV T_AND) THENC
+         REWR_CONV COND_T) THENC
+       REWR_CONV(option_case_def |> CONJUNCT2) THENC
+       BETA_CONV THENC
+       REWR_CONV pair_case_def THENC
+       RATOR_CONV BETA_CONV THENC
+       BETA_CONV THENC
+       RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV prog_to_bytes_MAP)))))
+
+val tm19 =
+  lab_to_target_thm |> rconc |> rand |> rator |> rand |> rand
+
+val line_bytes_tm =
+  tm19 |> rator |> rand
 
 val padded_code_els =
   padded_code_def |> rconc |> listSyntax.dest_list |> #1
-val upd_lab_els =
-  compute_labels_thm2'
-  |> concl |> lhs |> rand |> listSyntax.dest_list |> #1
+
+val pad_code_defs =
+  for 1 num_enc (fn i => definition(mk_def_name("pad_code_"^(Int.toString i))))
 
 (*
-val t1 = el 1 upd_lab_els
-val t2 = el 1 padded_code_els
-val dth = el 1 upd_lab_defs
+  val p = el 1 padded_code_els
+  val dth = el 1 pad_code_defs
 *)
 
-fun eval_fn i n (t1,dth,t2) =
+fun eval_fn i n (p,dth) =
   let
-    val () = say_str "pad_eq" i n
-    val tm = mk_eq(t1,t2)
+    val () = say_str"prog_to_bytes" i n
+    val tm = mk_comb(line_bytes_tm,p)
     val conv =
-      RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV dth))) THENC
-      time eval
-  in conv tm |> EQT_ELIM end
+      (REWR_CONV o_THM THENC
+       RAND_CONV(REWR_CONV o_THM) THENC
+       RAND_CONV(RAND_CONV(REWR_CONV Section_lines_def)) THENC
+       RAND_CONV(RAND_CONV(REWR_CONV dth)) THENC
+       time eval)
+    in conv tm end
 
-compute_labels_thm2'
-upd_lab_defs
-*)
+val line_bytes =
+  parlist num_threads chunk_size eval_fn (zip padded_code_els pad_code_defs)
+
+val map_line_bytes =
+  tm19 |>
+    (RAND_CONV(REWR_CONV padded_code_def) THENC
+     map_ths_conv line_bytes)
+
+val bytes_defs =
+  make_abbrevs "bytes_" num_enc (map_line_bytes |> rconc |> listSyntax.dest_list |> #1) []
+
+val map_line_bytes' =
+  map_line_bytes |> CONV_RULE(RAND_CONV(intro_abbrev (List.rev bytes_defs)))
+
+val FOLDR_CONV = listLib.FOLDR_CONV (* TODO this is broken *)
+
+local
+fun str n =
+  String.concat[Int.toString n,if n mod 10 = 0 then "\n" else " "]
+in
+fun app_conv _ [] tm = raise UNCHANGED
+  | app_conv n (dth::dths) tm =
+    let
+      val th = FORK_CONV(REWR_CONV dth, app_conv (n+1) dths) tm
+      val def = mk_def ("all_bytes_"^(Int.toString n)) (rand(rconc th))
+      val () = Lib.say (str n)
+    in
+      CONV_RULE(RAND_CONV
+        (RAND_CONV(REWR_CONV(SYM def)) THENC listLib.APPEND_CONV))
+      th
+    end
+end
+
+(* 17 minutes. is there a faster way? *)
+
+val flat_bytes =
+  listSyntax.mk_flat(rconc map_line_bytes')
+  |> (REWR_CONV FLAT_FOLDR
+      THENC FOLDR_CONV (QCONV ALL_CONV) THENC
+      time (app_conv 0 (List.rev bytes_defs)))
+
+fun expand_defs_conv [] tm = raise UNCHANGED
+  | expand_defs_conv (dth::dths) tm =
+    ((RAND_CONV(expand_defs_conv (dth::dths))) ORELSEC
+     (REWR_CONV dth THENC expand_defs_conv dths))
+    tm
+
+val all_bytes_defs =
+  for 0 (num_enc-1) (fn i => definition(mk_def_name("all_bytes_"^(Int.toString i))))
+
+(* also quite slow *)
+
+val flat_bytes' =
+  flat_bytes |> CONV_RULE(RAND_CONV(expand_defs_conv all_bytes_defs))
+
+val bootstrap_thm = save_thm("bootstrap_thm",
+  lab_to_target_thm
+  |> CONV_RULE(RAND_CONV(
+       PATH_CONV"rlr"(
+         RAND_CONV(
+           REWR_CONV map_line_bytes') THENC
+         REWR_CONV flat_bytes'))));
+
+val temp_defs = (List.map #1 (definitions"-"))
+val () = List.app delete_binding temp_defs;
+val () = ml_translatorLib.reset_translation();
 
 val _ = export_theory();
