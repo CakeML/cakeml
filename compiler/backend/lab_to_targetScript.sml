@@ -181,14 +181,6 @@ val all_asm_ok_def = Define `
 
 *)
 
-val enc_with_nop_def = Define `
-  enc_with_nop enc (b:'a asm) bytes =
-    let init = enc b in
-    let step = enc (asm$Inst Skip) in
-      if LENGTH step = 0 then bytes = init else
-        let n = (LENGTH bytes - LENGTH init) DIV LENGTH step in
-          bytes = init ++ FLAT (REPLICATE n step)`
-
 val lab_lookup_def = Define `
   lab_lookup k1 k2 labs =
     case lookup k1 labs of
@@ -200,40 +192,35 @@ val line_length_def = Define `
   (line_length (Asm b bytes l) = LENGTH bytes) /\
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
-val line_ok_def = Define `
-  (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
+val line_ok_light_def = Define `
+  (line_ok_light (c:'a asm_config) labs pos (Label _ _ l) <=>
      EVEN pos /\ (l = 0)) /\
-  (line_ok c enc labs pos (Asm b bytes l) <=>
-     enc_with_nop enc b bytes /\
+  (line_ok_light c labs pos (Asm b bytes l) <=>
      (LENGTH bytes = l) /\ asm_ok b c) /\
-  (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm Halt w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm ClearCache w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm ClearCache w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm (CallFFI index) w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm (CallFFI index) w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm (Call v24) w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm (Call v24) w bytes l) <=>
      F (* Call not yet supported *)) /\
-  (line_ok c enc labs pos (LabAsm a w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm a w bytes l) <=>
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
-       enc_with_nop enc (lab_inst w1 a) bytes /\
        (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
        (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
 
 val all_enc_ok_def = Define `
-  (all_enc_ok c enc labs pos [] = T) /\
-  (all_enc_ok c enc labs pos ((Section k [])::xs) <=>
-     EVEN pos /\ all_enc_ok c enc labs pos xs) /\
-  (all_enc_ok c enc labs pos ((Section k (y::ys))::xs) <=>
-     line_ok c enc labs pos y /\
-     all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
+  (all_enc_ok_light c labs pos [] = T) /\
+  (all_enc_ok_light c labs pos ((Section k [])::xs) <=>
+     EVEN pos /\ all_enc_ok_light c labs pos xs) /\
+  (all_enc_ok_light c labs pos ((Section k (y::ys))::xs) <=>
+     line_ok_light c labs pos y /\
+     all_enc_ok_light c labs (pos + line_length y) ((Section k ys)::xs))`
 
 (* pad with nop byte, and nop instruction *)
 
@@ -294,15 +281,6 @@ val is_Label_def = Define `
   (is_Label _ = F)`;
 val _ = export_rewrites["is_Label_def"];
 
-val pos_val_def = Define `
-  (pos_val i pos [] = (pos:num)) /\
-  (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
-  (pos_val i pos ((Section k (y::ys))::xs) =
-     if is_Label y
-     then pos_val i (pos + line_length y) ((Section k ys)::xs)
-     else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
-
 val check_lab_def = Define `
   check_lab sec_list (l1,l2,pos) <=>
     EVEN pos`
@@ -336,7 +314,7 @@ val remove_labels_loop_def = Define `
         (* compute the labels again, redundant TODO: remove *)
         let labs2 = compute_labels_alt 0 sec_list in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs
+          if done /\ all_enc_ok_light c labs 0 sec_list /\ labs2 = labs
           then SOME (sec_list,labs)
           else NONE
       else
