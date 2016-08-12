@@ -450,17 +450,207 @@ val main_applied = let
      |> SIMP_RULE std_ss [GSYM PULL_EXISTS,GSYM th]
   in th end
 
+val raw_evaluate_prog = let
+  val th = get_ml_prog_state () |> get_thm
+  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
+  val th = th |> SPEC_ALL |> UNDISCH |> Q.SPEC `"_"` |> DISCH_ALL |> GEN_ALL
+  val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
+             (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[th])) main_applied
+  val tm = th |> concl |> find_term (listSyntax.is_snoc)
+  val entire_program_def = Define `entire_program = ^tm`
+  val th = th |> SIMP_RULE std_ss [GSYM entire_program_def,PULL_EXISTS,
+                   ml_progTheory.ML_code_def,ml_progTheory.Prog_def]
+  val lemma = prove(``x = y ==> T``,fs [])
+  val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
+             (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[lemma])) th
+  in th end
 
-(* definition of basis program *)
+(* next we instantiate the ffi and projection to remove the separation logic *)
 
-val basis_st = get_ml_prog_state ();
+val io_ffi_oracle_def = Define `
+  (io_ffi_oracle:(string # string) oracle) =
+    \index (inp,out) bytes.
+       if index = 0 then
+         case bytes of
+         | [b] => Oracle_return (inp,out ++ [CHR (w2n b)]) [b]
+         | _ => Oracle_fail
+       else if index = 1 then
+         case bytes of
+         | [b] => Oracle_return (inp,out) [if inp = "" then 0w else 1w]
+         | _ => Oracle_fail
+       else if index = 2 then
+         case bytes of
+         | [b] => if inp = "" then Oracle_fail else
+                    Oracle_return (TL inp,out) [n2w (ORD (HD inp))]
+         | _ => Oracle_fail
+       else Oracle_fail`
 
-val basis_prog_state = save_thm("basis_prog_state",
-  ml_progLib.pack_ml_prog_state basis_st);
+val io_ffi_def = Define `
+  io_ffi (inp:string) =
+    <| oracle := io_ffi_oracle
+     ; ffi_state := (inp,"")
+     ; final_event := NONE
+     ; io_events := [] |>`;
 
-val basis_prog = basis_st |> remove_snocs
-  |> get_thm |> concl |> rator |> rator |> rator |> rand
+val io_proj1_def = Define `
+  io_proj1 = (\(inp,out). FEMPTY |++ [(0,Str out);(1,Str inp);(2n,Str inp)])`;
 
-val basis_def = Define `basis = ^basis_prog`;
+val io_proj2_def = Define `
+  io_proj2 = [([0n],stdout_fun);([1;2],stdin_fun)]`;
+
+val extract_output_def = Define `
+  (extract_output [] = SOME []) /\
+  (extract_output ((IO_event index bytes)::xs) =
+     case extract_output xs of
+     | NONE => NONE
+     | SOME rest =>
+         if index <> 0 then SOME rest else
+         if LENGTH bytes <> 1 then NONE else
+           SOME (CHR (w2n (SND (HD bytes))) :: rest))`
+
+val call_FFI_rel_def = Define `
+  call_FFI_rel s1 s2 <=> ?n bytes t. call_FFI s1 n bytes = (s2,t)`;
+
+val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
+  ``evaluate_prog F env st prog (st',tds,res) ==>
+    RTC call_FFI_rel st.ffi st'.ffi``,
+  cheat (* has this been proved elsewhere? *) );
+
+val extract_output_APPEND = store_thm("extract_output_APPEND",
+  ``!xs ys.
+      extract_output (xs ++ ys) =
+      case extract_output ys of
+      | NONE => NONE
+      | SOME rest => case extract_output xs of
+                     | NONE => NONE
+                     | SOME front => SOME (front ++ rest)``,
+  Induct \\ fs [APPEND,extract_output_def] \\ rw []
+  THEN1 (every_case_tac \\ fs [])
+  \\ Cases_on `h` \\ fs [extract_output_def]
+  \\ rpt (CASE_TAC \\ fs []));
+
+val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
+  ``!st st'.
+      call_FFI_rel^* st st' ==>
+      st.oracle = io_ffi_oracle /\
+      extract_output st.io_events = SOME (SND (st.ffi_state)) ==>
+      extract_output st'.io_events = SOME (SND (st'.ffi_state))``,
+  HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
+  \\ fs [call_FFI_rel_def]
+  \\ fs [ffiTheory.call_FFI_def]
+  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ Cases_on `f` \\ fs []
+  \\ reverse (Cases_on `n = 0`) \\ fs []
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ fs [extract_output_APPEND,extract_output_def] \\ rfs []
+  THEN1
+   (fs [io_ffi_oracle_def]
+    \\ fs [] \\ Cases_on `st.ffi_state` \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
+  \\ every_case_tac \\ fs []
+  THEN1
+   (fs [io_ffi_oracle_def]
+    \\ fs [] \\ Cases_on `st.ffi_state` \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
+  \\ Cases_on `bytes` \\ fs [] \\ Cases_on `l` \\ fs []
+  \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs []
+  \\ fs [io_ffi_oracle_def]
+  \\ Cases_on `st.ffi_state` \\ fs [] \\ rw []);
+
+val evaluate_prog = let
+  val th = raw_evaluate_prog |> Q.GEN `ffi` |> ISPEC ``io_ffi input``
+             |> Q.INST [`p`|->`(io_proj1,io_proj2)`]
+             |> REWRITE_RULE [cfStoreTheory.st2heap_def]
+             |> SIMP_RULE std_ss [Once cfStoreTheory.ffi2heap_def]
+  val lemma1 = EVAL (find_term (can (match_term ``store2heap _``)) (concl th))
+  val tm = find_term (can (match_term ``_.ffi``)) (concl th)
+  val (x,y) = dest_comb (tm |> rand)
+  val pat = mk_comb(rator tm,mk_comb(x,mk_var("ffi",type_of y)))
+  val lemma2 = EVAL pat
+  val th = th |> REWRITE_RULE [lemma1,lemma2]
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(goal,
+   fs [cfStoreTheory.st2heap_def]
+   \\ reverse IF_CASES_TAC THEN1
+    (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     \\ fs [cfStoreTheory.parts_ok_def]
+     \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
+     \\ fs [io_proj2_def] \\ rw [] \\ fs [MEM] \\ rw []
+     \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def,FUPDATE_LIST]
+     \\ Cases_on `x` \\ fs [FAPPLY_FUPDATE_THM]
+     \\ every_case_tac \\ fs [] \\ rw []
+     \\ fs [io_ffi_def,io_ffi_oracle_def,FAPPLY_FUPDATE_THM]
+     \\ fs [GSYM fmap_EQ,FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+     \\ rw [] \\ fs [])
+   \\ fs [CHAR_IO_def,STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
+          set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+          EVAL ``write_loc``,cfHeapsBaseTheory.W8ARRAY_def,
+          cfHeapsBaseTheory.cell_def]
+   \\ rewrite_tac [GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.cond_STAR]
+   \\ fs [set_sepTheory.one_STAR]
+   \\ simp [set_sepTheory.one_def]
+   \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
+   \\ fs [EXTENSION] \\ rpt strip_tac \\ EQ_TAC \\ rw [] \\ rw []
+   \\ TRY (EVAL_TAC \\ NO_TAC)
+   \\ fs [io_proj2_def] \\ rw [] \\ fs []
+   \\ fs [io_proj1_def,io_ffi_def,FLOOKUP_DEF,FUPDATE_LIST,FAPPLY_FUPDATE_THM])
+  val th = MP th lemma
+  val lhs = th |> concl |> repeat (snd o dest_exists)
+  val rhs = ``evaluate_prog F init_env (init_state (io_ffi input))
+                entire_program (st',new_tds,Rval (new_mods,new_env)) /\
+              st'.ffi.final_event = NONE /\
+              st'.ffi.ffi_state = ("",compile input) /\
+              extract_output st'.ffi.io_events = SOME (compile input)``
+  val goal = mk_imp(lhs,rhs)
+  val lemma = prove(goal,
+    rw []
+    \\ `(STDIN "" * STDOUT (compile input) * CHAR_IO) h'` by
+           fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
+    \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
+           GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
+    \\ `FFI_part (Str "") stdin_fun [1; 2] IN
+          (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi) /\
+        FFI_part (Str (compile input)) stdout_fun [0] IN
+          (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi)` by
+           cfHeapsBaseLib.SPLIT_TAC
+    \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap]
+    \\ NTAC 2 (pop_assum mp_tac)
+    \\ rfs [cfStoreTheory.ffi2heap_def]
+    \\ IF_CASES_TAC \\ fs [io_proj1_def,FLOOKUP_DEF]
+    \\ fs [cfStoreTheory.parts_ok_def]
+    \\ Cases_on `st'.ffi.ffi_state` \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ rw [] \\ drule evaluate_prog_RTC_call_FFI_rel
+    \\ strip_tac
+    \\ `compile input = SND (st'.ffi.ffi_state)` by fs []
+    \\ pop_assum (fn th => rewrite_tac[th])
+    \\ match_mp_tac (RTC_call_FFI_rel_IMP_io_events |> MP_CANON |> SPEC_ALL
+          |> Q.INST [`ys`|->`[]`]
+          |> SIMP_RULE std_ss[APPEND] |> GEN_ALL)
+    \\ asm_exists_tac \\ fs []
+    \\ fs [EVAL ``(init_state (io_ffi input))``] \\ EVAL_TAC)
+  val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
+             (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[GEN_ALL lemma])) (DISCH T th)
+           |> REWRITE_RULE []
+  in th end
+
+val evaluate_prog_rel_IMP_evaluate_prog_fun = prove(
+  ``bigStep$evaluate_prog F env st prog (st',new_tds,Rval r) ==>
+    ?k. funBigStep$evaluate_prog (st with clock := k) env prog =
+          (st',new_tds,Rval r)``,
+  cheat (* This ought to be trivial, but I can't find the relevant
+           implications between FBS and relational evaluate_prog *));
+
+val semantics_prog_entire_program = store_thm("semantics_prog_entire_program",
+  ``?io_list.
+      semantics_prog (init_state (io_ffi input)) init_env entire_program
+        (Terminate Success io_list) /\
+      extract_output io_list = SOME (compile input)``,
+  fs[semanticsTheory.semantics_prog_def,PULL_EXISTS]
+  \\ strip_assume_tac evaluate_prog
+  \\ fs[semanticsTheory.evaluate_prog_with_clock_def]
+  \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
+  \\ strip_tac \\ qexists_tac `k` \\ fs []);
 
 val _ = export_theory ()
