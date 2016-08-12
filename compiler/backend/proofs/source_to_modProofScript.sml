@@ -889,8 +889,12 @@ val pmatch = Q.prove (
   srw_tac[][terminationTheory.pmatch_def, modSemTheory.pmatch_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, modSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
+  >> TRY (full_simp_tac(srw_ss())[Once v_rel_cases] >>
+          srw_tac[][modSemTheory.pmatch_def, match_result_rel_def] >>
+          FAIL_TAC "")
   >- (every_case_tac >>
-      full_simp_tac(srw_ss())[match_result_rel_def])
+      full_simp_tac(srw_ss())[match_result_rel_def] >>
+      metis_tac [length_vs_rel])
   >- (every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       metis_tac [length_vs_rel])
@@ -911,8 +915,9 @@ val pmatch = Q.prove (
           full_simp_tac(srw_ss())[sv_rel_cases] >>
           res_tac >>
           full_simp_tac(srw_ss())[]))
-  >> TRY (
-      CASE_TAC >>
+  >- cheat
+  (* first_x_assum (qspecl_then [`env'`,`env''`,`genv`,`env_i1`,`s_i1`,`v_i1`] assume_tac) *)
+  >- (CASE_TAC >>
       every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       srw_tac[][] >>
@@ -922,9 +927,7 @@ val pmatch = Q.prove (
       srw_tac[][] >>
       CCONTR_TAC >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
-      metis_tac [match_result_rel_def, match_result_distinct]) >>
-  full_simp_tac(srw_ss())[Once v_rel_cases] >>
-  srw_tac[][modSemTheory.pmatch_def, match_result_rel_def]);
+      metis_tac [match_result_rel_def, match_result_distinct])) ;
 
 (* compiler correctness *)
 

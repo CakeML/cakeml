@@ -856,9 +856,7 @@ val infer_ds_complete = prove(``
     >- cheat (*
       (fs[bind_var_list2_append]>>
       match_mp_tac tenv_val_ok_bvl2>>
-      fs[typeSoundInvariantsTheory.tenv_val_ok_def]>>
-      irule tenv_val_ok_bind_var_list2>>
-      fs[typeSoundInvariantsTheory.tenv_val_ok_def]>>
+      fs[typeSoundInvariantsTheory.tenv_val_ok_def,tenv_val_ok_bind_var_list2]>>
       imp_res_tac type_d_tenv_ok>>fs[num_tvs_bvl2,num_tvs_def]) *)
     >- cheat (*
       (fs[tenv_ctor_ok_merge]>>
