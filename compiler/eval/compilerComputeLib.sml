@@ -578,6 +578,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
+    ,lab_to_targetTheory.sec_length_def
+    ,lab_to_targetTheory.full_sec_length_def
     ,lab_to_targetTheory.lab_inst_def
     ,lab_to_targetTheory.enc_line_def
     ,lab_to_targetTheory.enc_sec_def
@@ -592,19 +594,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.get_label_def
     ,lab_to_targetTheory.get_jump_offset_def
     ,lab_to_targetTheory.enc_lines_again_def
-    ,lab_to_targetTheory.sec_length_def
-    ,lab_to_targetTheory.full_sec_length_def
     ,lab_to_targetTheory.enc_secs_again_def
     ,lab_to_targetTheory.lines_upd_lab_len_def
     ,lab_to_targetTheory.upd_lab_len_def
-(*
-    ,lab_to_targetTheory.sec_asm_ok_def
-    ,lab_to_targetTheory.all_asm_ok_def
-*)
-    ,lab_to_targetTheory.enc_with_nop_def
     ,lab_to_targetTheory.lab_lookup_def
     ,lab_to_targetTheory.line_length_def
-    ,lab_to_targetTheory.line_ok_def
+    ,lab_to_targetTheory.line_ok_light_def
+    ,lab_to_targetTheory.all_enc_ok_light_def
     ,lab_to_targetTheory.pad_bytes_def
     ,lab_to_targetTheory.add_nop_def
     ,lab_to_targetTheory.append_nop_def
@@ -612,9 +608,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.pad_code_def
     ,lab_to_targetTheory.loc_to_pc_comp_def
     ,lab_to_targetTheory.is_Label_def
-    ,lab_to_targetTheory.pos_val_def
     ,lab_to_targetTheory.check_lab_def
     ,lab_to_targetTheory.all_labels_def
+    ,lab_to_targetTheory.sec_names_def
     ,lab_to_targetTheory.remove_labels_loop_def
     ,lab_to_targetTheory.remove_labels_def
     ,lab_to_targetTheory.line_bytes_def
@@ -622,8 +618,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.find_ffi_index_limit_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
-    ,lab_to_targetTheory.sec_names_def
-    ,lab_to_targetTheory.all_enc_ok_def
       (* ---- Everything in backend theory ---- *)
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def
