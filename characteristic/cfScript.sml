@@ -571,8 +571,8 @@ val v_of_pat_remove_rest_insts = store_thm ("v_of_pat_remove_rest_insts",
   THEN1 (fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL])
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    qpat_x_assum_keep `v_of_pat _ _ _ = _` (first_assum o progress_with) \\
-    qpat_x_assum_keep `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum `v_of_pat _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
     rw []
     THEN1 (
       once_rewrite_tac [snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum)] \\
@@ -1874,7 +1874,7 @@ val cf_sound = store_thm ("cf_sound",
       qpat_x_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
       cf_evaluate_step_tac \\ Cases_on `opt` \\
       fs [is_bound_Fun_def, THE_DEF, Fun_params_def] \\ instantiate \\
-      every_case_tac \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
+      every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE,
           Fun_params_Fun_body_repack, Once bigStepTheory.evaluate_cases]
     )

@@ -75,11 +75,6 @@ fun progress_with_then thm_tac thm' thm =
 
 fun progress_with thm' thm = progress_with_then strip_assume_tac thm' thm
 
-(* imperfect as it changes the position of the matched assumption in the
-   assumption stack *)
-fun qpat_x_assum_keep q thm_tac =
-  qpat_x_assum q (fn asm => thm_tac asm \\ assume_tac asm)
-
 fun sing x = [x]
 
 fun try_finally tac = TRY (tac \\ NO_TAC)
