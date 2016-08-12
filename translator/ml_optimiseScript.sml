@@ -1,13 +1,9 @@
-open HolKernel Parse boolLib bossLib;
-val _ = new_theory "ml_optimise";
-local open intLib in end;
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open terminationTheory;
-open evalPropsTheory bigClockTheory determTheory;
-open arithmeticTheory listTheory combinTheory pairTheory;
-open integerTheory ml_translatorTheory lcsymtacs;
+open preamble
+     astTheory libTheory semanticPrimitivesTheory bigStepTheory
+     bigClockTheory evalPropsTheory determTheory;
+open terminationTheory ml_translatorTheory
 
-infix \\ val op \\ = op THEN;
+val _ = new_theory "ml_optimise";
 
 (*
 
@@ -177,9 +173,9 @@ val abs2let_thm = prove(
   \\ BasicProvers.EVERY_CASE_TAC
   \\ SRW_TAC [] []
   \\ NTAC 3 (FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases)))])
-  \\ first_assum(preamble.match_exists_tac o concl)
+  \\ asm_exists_tac
   \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_X_ASSUM `evaluate F env s (Fun s' e) ((s2',Rval v1))` MP_TAC
+  \\ Q.PAT_X_ASSUM `evaluate F env _ (Fun s' e) _` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def, SWAP_REVERSE_SYM]
