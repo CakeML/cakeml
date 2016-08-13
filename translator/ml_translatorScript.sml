@@ -510,7 +510,7 @@ val clock_different_lemma = Q.store_thm ("clock_different_lemma",
    >> rw []
    >> fs [empty_state_def])
  >- (
-   qpat_assum `evaluate _ _ _ = _` mp_tac
+   qpat_x_assum `evaluate _ _ _ = _` mp_tac
    >> drule clock_add_lemma
    >> disch_then (qspec_then `extra` assume_tac)
    >> fs [empty_state_def]));
@@ -1897,7 +1897,7 @@ val clock_different_lemma2 = Q.store_thm ("clock_different_lemma2",
    >> rw []
    >> fs [empty_state_def])
  >- (
-   qpat_assum `evaluate _ _ _ = _` mp_tac
+   qpat_x_assum `evaluate _ _ _ = _` mp_tac
    >> drule clock_add_lemma
    >> disch_then (qspec_then `extra` assume_tac)
    >> fs [empty_state_def]));

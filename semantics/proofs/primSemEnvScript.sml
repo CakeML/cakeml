@@ -1,5 +1,5 @@
 open preamble;
-open libTheory astTheory evaluateTheory semanticPrimitivesTheory initialProgramTheory;
+open libTheory astTheory evaluateTheory semanticPrimitivesTheory;
 open semanticsTheory;
 open semanticPrimitivesPropsTheory;
 open evaluateComputeLib;
