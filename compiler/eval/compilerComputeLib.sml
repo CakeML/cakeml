@@ -380,6 +380,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.RefByte_location_eq
     ,data_to_wordTheory.RefArray_location_eq
     ,data_to_wordTheory.Replicate_location_eq
+    ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.RefByte_code_def
     ,data_to_wordTheory.FromList_code_def
     ,data_to_wordTheory.FromList1_code_def

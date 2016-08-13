@@ -398,8 +398,12 @@ val data_to_word_compile_imp = prove(
        (MAP SND prog1))``,
   fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
   CONJ_TAC>-
-    (fs[lookup_fromAList]>>
-     simp[ALOOKUP_APPEND]
+    (fs[lookup_fromAList]
+     \\ simp[ALOOKUP_APPEND]
+     \\ conj_tac THEN1
+      (fs [EVERY_MEM,FORALL_PROD,data_to_wordTheory.stubs_def]
+       \\ rw [] \\ fs []
+       \\ rpt (qpat_x_assum `_ = (_:num)` mp_tac) \\ EVAL_TAC)
      \\ gen_tac
      \\ reverse BasicProvers.TOP_CASE_TAC
      >- (

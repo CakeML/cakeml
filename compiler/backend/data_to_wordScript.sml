@@ -132,6 +132,15 @@ val RefArray_location_eq = save_thm("RefArray_location_eq",
 val Replicate_location_eq = save_thm("Replicate_location_eq",
   ``Replicate_location`` |> EVAL);
 
+val AllocVar_def = Define `
+  AllocVar (limit:num) (names:num_set) =
+    list_Seq [Assign 1 (Shift Lsr (Var 1) (Nat 2));
+              If Lower 1 (Imm (n2w limit))
+                (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (Nat (shift (:'a)))))
+                (Assign 1 (Const (-1w:'a word)));
+              Assign 3 (Op Sub [Lookup EndOfHeap; Lookup NextFree]);
+              If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip]`;
+
 val RefByte_code_def = Define`
   (* 0 = return address
      2 = remaining number of bytes to set
@@ -152,7 +161,27 @@ val FromList1_code_def = Define `
   FromList1_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
 
 val RefArray_code_def = Define `
-  RefArray_code c = Skip:α wordLang$prog`; (* TODO: RefArray *)
+  RefArray_code c =
+      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+        list_Seq
+          [Move 0 [(1,2)];
+           AllocVar limit (fromList [();()]);
+           Assign 1 (Op Sub [Lookup EndOfHeap;
+           Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
+                   (Nat (shift (:'a)))]);
+           Set EndOfHeap (Var 1);
+           (* 3 := return value *)
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+               (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
+           (* compute header *)
+           Assign 5 (Op Or [Shift Lsl (Var 2)
+                              (Nat (dimindex (:'a) − c.len_size - 2));
+                            Const (make_header c 2w 0)]);
+           (* store header *)
+           Store (Var 1) 5;
+           Call NONE (SOME Replicate_location)
+              (* ret_loc, addr, v, n, ret_val *)
+              [0;1;4;2;3] NONE]`
 
 val Replicate_code_def = Define `
   Replicate_code =
