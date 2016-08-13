@@ -184,10 +184,10 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     match_mp_tac bool_has_bool_sig >>
     pop_assum mp_tac >> EVAL_TAC ) >>
   `FLOOKUP (tysof sig) (strlit "bool") = SOME 0` by (
-    qpat_x_assum`is_std_sig sig` mp_tac >>
+    qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   `FLOOKUP (tysof sig) (strlit "fun") = SOME 2` by (
-    qpat_x_assum`is_std_sig sig` mp_tac >>
+    qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   simp ints >>
   conj_asm1_tac >- (

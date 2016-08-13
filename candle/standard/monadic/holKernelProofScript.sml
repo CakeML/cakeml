@@ -5,8 +5,6 @@ val _ = new_theory "holKernelProof";
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
 
-infix \\ val op \\ = op THEN;
-
 val rev_assocd_thm = prove(
   ``rev_assocd = REV_ASSOCD``,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
@@ -2022,7 +2020,7 @@ val new_specification_thm = store_thm("new_specification_thm",
   simp[oneTheory.one] >>
   strip_tac >>
   simp[add_def_def,ex_bind_def,get_the_context_def,set_the_context_def] >>
-  qpat_x_assum`map f l r = X`kall_tac >>
+  qpat_x_assum`map f l _ = _`kall_tac >>
   qunabbrev_tac`f` >>
   Q.PAT_ABBREV_TAC`theta:(term#term)list = MAP X (MAP FST a)` >>
   Q.PAT_ABBREV_TAC`d = ConstSpec X h` >>

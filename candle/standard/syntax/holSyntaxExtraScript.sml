@@ -2912,7 +2912,7 @@ val sym_equation = store_thm("sym_equation",
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   fs[term_ok_equation] >>
   simp[GSYM equation_def,term_union_thm] >>
-  qpat_x_assum`typeof p = typeof q`(assume_tac o SYM) >>
+  qpat_x_assum`typeof _ = typeof _`(assume_tac o SYM) >>
   simp[GSYM equation_def] >>
   fs[EQUATION_HAS_TYPE_BOOL] >>
   metis_tac[eqMp_equation,term_union_thm,ACONV_REFL])
