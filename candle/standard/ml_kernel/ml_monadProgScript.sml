@@ -4,7 +4,7 @@ open terminationTheory ml_progLib ml_progTheory
 
 val _ = new_theory "ml_monadProg";
 
-infix \\ val op \\ = op THEN;
+val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 fun auto_prove proof_name (goal,tac) = let
   val (rest,validation) = tac ([],goal) handle Empty => fail()
