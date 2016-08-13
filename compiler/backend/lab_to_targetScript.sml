@@ -243,20 +243,19 @@ val append_nop_def = Define `
   append_nop nop xs = REVERSE (add_nop nop (REVERSE xs))`
 
 val pad_section_def = Define `
-  (pad_section nop n [] aux = REVERSE aux) /\
-  (pad_section nop n ((Label l1 l2 len)::xs) aux =
-     pad_section nop (n+len) xs ((Label l1 l2 0)::
+  (pad_section nop [] aux = REVERSE aux) /\
+  (pad_section nop ((Label l1 l2 len)::xs) aux =
+     pad_section nop xs ((Label l1 l2 0)::
      if len = 0 then aux else add_nop (HD nop) aux)) /\
-  (pad_section nop n ((Asm x bytes len)::xs) aux =
-     pad_section nop (n+len) xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
-  (pad_section nop n ((LabAsm y w bytes len)::xs) aux =
-     pad_section nop (n+len) xs (LabAsm y w (pad_bytes bytes len nop)
-len::aux))`
+  (pad_section nop ((Asm x bytes len)::xs) aux =
+     pad_section nop xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
+  (pad_section nop ((LabAsm y w bytes len)::xs) aux =
+     pad_section nop xs (LabAsm y w (pad_bytes bytes len nop) len::aux))`
 
 val pad_code_def = Define `
 (pad_code nop [] = []) /\
 (pad_code nop ((Section n xs)::ys) =
-  Section n (pad_section nop 0 xs []) :: pad_code nop ys)`
+  Section n (pad_section nop xs []) :: pad_code nop ys)`
 
 (* some final checks on the result *)
 

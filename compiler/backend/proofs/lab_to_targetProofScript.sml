@@ -2114,9 +2114,9 @@ val line_similar_add_nop = prove(``
   Cases_on`y`>>Cases_on`h`>>fs[add_nop_def,line_similar_def])
 
 val line_similar_pad_section = Q.store_thm("line_similar_pad_section",
-  `∀nop n l2 aux l1.
+  `∀nop l2 aux l1.
      LIST_REL line_similar l1 (REVERSE aux ++ l2) ⇒
-     LIST_REL line_similar l1 (pad_section nop n l2 aux)`,
+     LIST_REL line_similar l1 (pad_section nop l2 aux)`,
    ho_match_mp_tac pad_section_ind >>
    srw_tac[][pad_section_def] >>
    first_x_assum match_mp_tac>>
@@ -2210,9 +2210,9 @@ val add_nop_label_zero = prove(``
   Cases_on`h`>>fs[add_nop_def]);
 
 val EVERY_label_zero_pad_section = Q.store_thm("EVERY_label_zero_pad_section[simp]",
-  `∀nop k xs aux.
+  `∀nop xs aux.
      EVERY label_zero aux ⇒
-     EVERY label_zero (pad_section nop k xs aux)`,
+     EVERY label_zero (pad_section nop xs aux)`,
   ho_match_mp_tac pad_section_ind
   >> srw_tac[][pad_section_def]
   >> srw_tac[][EVERY_REVERSE]>>
@@ -3036,31 +3036,31 @@ val sec_length_ok_def = Define`
   sec_length_ok (Section _ ls) = EVERY line_length_ok ls`;
 
 val line_length_pad_section1 = Q.store_thm("line_length_pad_section1",
-  `∀nop pos ls acc.
+  `∀nop ls acc.
    0 < LENGTH nop ∧
    EVERY line_length_ok ls ∧
    ¬EVERY is_Label acc
    ⇒
-   SUM (MAP line_length (pad_section nop pos ls acc)) =
+   SUM (MAP line_length (pad_section nop ls acc)) =
    SUM (MAP line_length ls) + SUM (MAP line_length acc)`,
   ho_match_mp_tac pad_section_ind
   \\ rw[pad_section_def,MAP_REVERSE,SUM_REVERSE,line_length_ok_def]
   \\ fs[line_length_def,LENGTH_pad_bytes,line_length_add_nop1]);
 
 val line_length_pad_section = Q.store_thm("line_length_pad_section",
-  `∀nop pos ls acc.
+  `∀nop ls acc.
     0 < LENGTH nop ∧
     EVERY line_length_ok ls ∧
     EVERY is_Label acc
     ⇒
-    SUM (MAP line_length (pad_section nop pos ls acc)) =
+    SUM (MAP line_length (pad_section nop ls acc)) =
     (SUM (MAP line_length ls)) + (SUM (MAP line_length acc))`,
   ho_match_mp_tac pad_section_ind
   \\ rw[pad_section_def,MAP_REVERSE,SUM_REVERSE]
   \\ fs[line_length_ok_def,line_length_def,line_bytes_def] \\ rw[line_length_add_nop]
   \\ TRY (
-    qmatch_goalsub_abbrev_tac`pad_section nop pos' ls acc'`
-    \\ qspecl_then[`nop`,`pos'`,`ls`,`acc'`]mp_tac line_length_pad_section1
+    qmatch_goalsub_abbrev_tac`pad_section pos' ls acc'`
+    \\ qspecl_then[`pos'`,`ls`,`acc'`]mp_tac line_length_pad_section1
     \\ impl_tac >- simp[Abbr`acc'`]
     \\ rw[Abbr`acc'`,line_length_def,LENGTH_pad_bytes] ));
 
@@ -3071,10 +3071,10 @@ val add_nop_append = Q.store_thm("add_nop_append",
   \\ rw[add_nop_def] \\ rw[] \\ fs[add_nop_def]);
 
 val pad_section_acc1 = Q.store_thm("pad_section_acc1",
-  `∀nop pos code aux aux2.
+  `∀nop code aux aux2.
     ¬EVERY is_Label aux ⇒
-    pad_section nop pos code (aux++aux2) =
-      REVERSE aux2 ++ pad_section nop pos code aux`,
+    pad_section nop code (aux++aux2) =
+      REVERSE aux2 ++ pad_section nop code aux`,
   ho_match_mp_tac pad_section_ind
   \\ rw[pad_section_def] \\ rw[] \\ fs[]
   \\ fs[add_nop_append]
@@ -3096,10 +3096,10 @@ val pad_aux_def = Define`
   (pad_aux nop _ acc = acc)`;
 
 val pad_section_cons = Q.store_thm("pad_section_cons",
-  `∀nop pos lls acc l ls.
+  `∀nop lls acc l ls.
    lls = l::ls ⇒
-   pad_section nop pos (l::ls) acc =
-   pad_line nop l :: pad_section nop (pos + line_len l) ls (pad_aux nop l acc)`,
+   pad_section nop (l::ls) acc =
+   pad_line nop l :: pad_section nop ls (pad_aux nop l acc)`,
   ho_match_mp_tac pad_section_ind
   \\ rw[pad_section_def]
   \\ Cases_on`lls` \\ fs[pad_section_def]
@@ -3109,29 +3109,16 @@ val pad_section_cons = Q.store_thm("pad_section_cons",
 val all_enc_with_nop_pad_section = Q.store_thm("all_enc_with_nop_pad_section",
   `∀enc labs lines k rest pos line acc.
    all_enc_with_nop enc labs (pos + line_length line)
-     (Section k (pad_section (enc (Inst Skip)) pos rest acc)::lines)
+     (Section k (pad_section (enc (Inst Skip)) rest acc)::lines)
    ⇒
    all_enc_with_nop enc labs pos
-     (Section k (pad_section (enc (Inst Skip)) pos (line::rest) acc)::lines)`,
+     (Section k (pad_section (enc (Inst Skip)) (line::rest) acc)::lines)`,
   ntac 4 gen_tac
   \\ Induct
   \\ rw[pad_section_def]
   >- (
     Cases_on`line` \\ fs[pad_section_def]
 *)
-
-(* TODO: remove n from the definition *)
-val pad_section_ignore_n = Q.store_thm("pad_section_ignore_n",
-  `∀nop n ls aux n'.
-    pad_section nop n ls aux =
-    pad_section nop n' ls aux`,
-  ho_match_mp_tac pad_section_ind
-  \\ rw[pad_section_def]);
-
-val pad_section_0 = Q.prove(
-  `pad_section nop n ls aux = pad_section nop 0 ls aux`,
-  metis_tac[pad_section_ignore_n])
-(* -- *)
 
 val lines_enc_with_nop_append = Q.store_thm("lines_enc_with_nop_append",
   `∀enc labs pos l1 l2.
@@ -3147,9 +3134,9 @@ val lines_enc_with_nop_pad_section = Q.store_thm("lines_enc_with_nop_pad_section
    lines_encd enc labs (pos + SUM (MAP line_length aux)) l ∧
    EVERY line_length_ok l
    ⇒
-   lines_enc_with_nop enc labs pos (pad_section (enc (Inst Skip)) 0 l aux)`,
+   lines_enc_with_nop enc labs pos (pad_section (enc (Inst Skip)) l aux)`,
   Induct_on`l` \\ simp[lines_enc_with_nop_def,pad_section_def,lines_encd_def]
-  \\ Cases \\ rw[pad_section_def,line_length_def,pad_section_0]
+  \\ Cases \\ rw[pad_section_def,line_length_def]
   \\ first_x_assum match_mp_tac
   \\ fs[line_length_def,lines_enc_with_nop_append,line_length_ok_def]
   \\ fs[lines_enc_with_nop_def,line_length_add_nop1,line_enc_with_nop_def,line_encd_def,LENGTH_pad_bytes]
