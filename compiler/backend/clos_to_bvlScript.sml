@@ -439,6 +439,45 @@ val default_config_def = Define`
     do_remove := T;
     max_app := 4 |>`;
 
+val code_split_def = Define `
+  (code_split [] xs ys = (xs,ys)) /\
+  (code_split (z::zs) xs ys = code_split zs (z::ys) xs)`;
+
+val code_merge_def = tDefine "code_merge" `
+  code_merge xs ys =
+    case (xs,ys) of
+    | ([],[]) => []
+    | ([],_) => ys
+    | (_,[]) => xs
+    | (x1::xs1,y1::ys1) =>
+        if FST x1 < (FST y1):num then
+          x1::code_merge xs1 ys
+        else
+          y1::code_merge xs ys1`
+  (WF_REL_TAC `measure (\(xs,ys). LENGTH xs + LENGTH ys)` \\ rw []);
+
+val code_split_NULL = store_thm("code_split_NULL",
+  ``!ts1 ts2 ts3 xs ys.
+      (xs,ys) = code_split ts1 ts2 ts3 /\ ts2 <> [] /\ ts3 <> [] ==>
+      xs <> [] /\ ys <> []``,
+  Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []);
+
+val code_split_LENGTH = store_thm("code_split_LENGTH",
+  ``!ts1 ts2 ts3 xs ys.
+      (xs,ys) = code_split ts1 ts2 ts3 ==>
+      LENGTH xs + LENGTH ys = LENGTH ts1 + LENGTH ts2 + LENGTH ts3``,
+  Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []);
+
+val code_sort_def = tDefine "code_sort" `
+  (code_sort [] = []) /\
+  (code_sort [x] = [x]) /\
+  (code_sort (x::y::xs) =
+     let (xs,ys) = code_split xs [x] [y] in
+       code_merge (code_sort xs) (code_sort ys))`
+ (WF_REL_TAC `measure LENGTH` \\ rw []
+  \\ imp_res_tac code_split_LENGTH
+  \\ drule code_split_NULL \\ fs [GSYM LENGTH_NIL]);
+
 val compile_def = Define`
   compile c e =
     let es = clos_mti$compile c.do_mti c.max_app [e] in
@@ -451,6 +490,7 @@ val compile_def = Define`
     let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in
     let prog = compile_prog c.max_app prog in
-      (c,toAList (init_code c.max_app) ++ prog)`;
+    let prog = toAList (init_code c.max_app) ++ prog in
+      (c,code_sort prog)`;
 
 val _ = export_theory()

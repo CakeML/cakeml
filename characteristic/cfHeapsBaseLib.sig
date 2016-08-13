@@ -15,6 +15,9 @@ sig
   val is_cond : term -> bool
   val is_sep_exists : term -> bool
 
+  val mk_cond : term -> term
+  val emp_tm : term
+
   val UNFOLD_SEP_IMPPOST_ccc : cont_conseq_conv
 
   val SEP_IMP_conv : conv -> conv -> conv
@@ -74,7 +77,7 @@ sig
 
      On term ``(SEP_EXISTS x. A x * B) ==>> C``, the returned conseq_conv
      allows to convert it to ``!x. (A x * B) ==>> C``.
-     
+
      [hpull_conseq_conv] fails if the goal is not of the form ``_ ==>> _``. If
      the goal is of this form but there is nothing to pull, UNCHANGED is raised.
    *)
@@ -90,7 +93,7 @@ sig
      H2. Moreover, if [one (loc, v)] is in H1 and [one (loc, v')] is in H2,
      [hsimpl_cancel] will remove both, and produce an assumption [v = v'].
 
-     For example, [hsimpl_cancel_conseq_conv] generates a conversion from 
+     For example, [hsimpl_cancel_conseq_conv] generates a conversion from
      ``(A * B * one (l, v)) ==>> (B * one (l, v'))`` to
      ``v = v' ==> (A ==>> emp)``.
 

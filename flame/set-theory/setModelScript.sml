@@ -164,7 +164,7 @@ val l_model_exists = store_thm("l_model_exists",
       `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
       fs[arithmeticTheory.NOT_LESS_EQUAL] >>
       fs[numposrepTheory.BIT_num_from_bin_list] >>
-      qpat_assum`EL aa ll = 1`mp_tac >>
+      qpat_x_assum`EL aa ll = 1`mp_tac >>
       fs[Abbr`ll`] >>
       rw[] ) >>
     strip_tac >>
@@ -209,7 +209,7 @@ val l_model_exists = store_thm("l_model_exists",
       strip_tac >>
       `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
       fs[arithmeticTheory.NOT_LESS_EQUAL] >>
-      qpat_assum`BIT X Y`mp_tac >>
+      qpat_x_assum`BIT X Y`mp_tac >>
       simp[numposrepTheory.BIT_num_from_bin_list] >>
       fs[Abbr`ll`,Abbr`P`] >> rw[] >>
       qexists_tac`INR b` >>
@@ -247,7 +247,7 @@ val l_model_exists = store_thm("l_model_exists",
       `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
       fs[arithmeticTheory.NOT_LESS_EQUAL] >>
       simp[Abbr`P`] >>
-      qpat_assum`BIT X Y`mp_tac >>
+      qpat_x_assum`BIT X Y`mp_tac >>
       simp[numposrepTheory.BIT_num_from_bin_list] >>
       fs[Abbr`ll`] >>
       BasicProvers.CASE_TAC >> simp[] >>

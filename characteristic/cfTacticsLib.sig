@@ -100,6 +100,12 @@ sig
   *)
   val xmatch : tactic
 
+  (* [xffi] applies on characteristic formulae for ffi operations, of the form
+  [cf_ffi ...].
+
+  *)
+  val xffi : tactic
+
   (* low level / debugging *)
   val xlocal : tactic
   val xapply : thm -> tactic

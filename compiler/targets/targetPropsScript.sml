@@ -53,14 +53,14 @@ val evaluate_EQ_evaluate_lemma = prove(
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[arithmeticTheory.ADD_CLAUSES]
   \\ SIMP_TAC std_ss [Once evaluate_def] \\ full_simp_tac(srw_ss())[ADD1] \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ Q.PAT_ASSUM `!i. bbb`
+  \\ Q.PAT_X_ASSUM `!i. bbb`
        (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPEC
          `\i. c.next_interfer 0` th))
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[interference_ok_def])
   \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC bool_ss [GSYM ADD1,asserts_def] \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ `c.target.state_ok (c.target.next ms1)` by METIS_TAC [interference_ok_def] \\ full_simp_tac(srw_ss())[]
-  \\ Q.PAT_ASSUM `!ms1 c. bbb ==> ?x. bb`
+  \\ Q.PAT_X_ASSUM `!ms1 c. bbb ==> ?x. bb`
         (MP_TAC o Q.SPECL [`(c.next_interfer 0 (c.target.next ms1))`,
                     `(c with next_interfer := shift_seq 1 c.next_interfer)`])
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
@@ -78,7 +78,7 @@ val evaluate_EQ_evaluate_lemma = prove(
   \\ full_simp_tac(srw_ss())[GSYM shift_interfer_def,shift_interfer_intro] \\ full_simp_tac(srw_ss())[GSYM ADD1]);
 
 val enc_ok_not_empty = prove(
-  ``enc_ok enc c /\ asm_ok w c ==> (enc w <> [])``,
+  ``enc_ok c /\ asm_ok w c ==> (c.encode w <> [])``,
   METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]);
 
 val asserts_WEAKEN = prove(
@@ -99,8 +99,8 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
       backend_correct c.target /\
       (c.prog_addresses = s1.mem_domain) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
-      asm_step c.target.encode c.target.config s1 i s2 /\
-      (s2 = asm i (s1.pc + n2w (LENGTH (c.target.encode i))) s1) /\
+      asm_step c.target.config s1 i s2 /\
+      (s2 = asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) /\
       c.target.state_rel (s1:'a asm_state) (ms1:'state) ==>
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
@@ -111,9 +111,11 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
   \\ MATCH_MP_TAC (GEN_ALL evaluate_EQ_evaluate_lemma) \\ full_simp_tac(srw_ss())[]
   \\ Q.EXISTS_TAC `s1.mem_domain` \\ full_simp_tac(srw_ss())[]
   \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
-  THEN1 (full_simp_tac(srw_ss())[asm_step_def] \\ IMP_RES_TAC enc_ok_not_empty
-         \\ Cases_on `c.target.encode i` \\ full_simp_tac(srw_ss())[bytes_in_memory_def])
-  \\ full_simp_tac(srw_ss())[LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
+  THEN1 (full_simp_tac(srw_ss())[asm_step_def]
+         \\ IMP_RES_TAC enc_ok_not_empty
+         \\ Cases_on `c.target.config.encode i`
+         \\ full_simp_tac(srw_ss())[bytes_in_memory_def])
+  \\ full_simp_tac(srw_ss())[LET_DEF] \\ Q.PAT_X_ASSUM `!k. bb` (K ALL_TAC)
   \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPECL [`\k. env (n - k)`]) \\ full_simp_tac(srw_ss())[]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`]) \\ full_simp_tac(srw_ss())[]
   \\ MATCH_MP_TAC IMP_IMP

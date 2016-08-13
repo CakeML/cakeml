@@ -130,12 +130,12 @@ val bytes_in_memory_def = Define `
      (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
 
 val asm_step_def = Define `
-  asm_step enc c s1 i s2 =
-    bytes_in_memory s1.pc (enc i) s1.mem s1.mem_domain /\
+  asm_step c s1 i s2 =
+    bytes_in_memory s1.pc (c.encode i) s1.mem s1.mem_domain /\
     (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
     (s1.be = c.big_endian) /\
     (s1.align = c.code_alignment) /\
-    (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
+    (asm i (s1.pc + n2w (LENGTH (c.encode i))) s1 = s2) /\
     ~s2.failed /\ asm_ok i c`
 
 val () = export_theory ()

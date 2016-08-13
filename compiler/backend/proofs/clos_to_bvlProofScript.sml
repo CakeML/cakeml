@@ -1335,7 +1335,7 @@ val do_eq = prove(
       srw_tac[][closSemTheory.do_eq_def] >>
       Cases_on `do_eq x y` >>
       full_simp_tac(srw_ss())[] >>
-      qpat_assum `X = do_eq y'' y'''` (mp_tac o GSYM) >>
+      qpat_x_assum `X = do_eq y'' y'''` (mp_tac o GSYM) >>
       srw_tac[][])
   >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
   >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]);
@@ -2255,7 +2255,7 @@ val v_rel_run = Q.prove (
         evaluate ([exp'], DROP (LENGTH args' - (n + 1)) args' ++ [func'], inc_clock ck' (t1 with <|refs := refs; code := code|>)) =
         evaluate ([body'], newenv', (t1 with <| refs := refs; code := code |>))`,
   srw_tac[][] >>
-  qpat_assum `v_rel _ x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [v_rel_cases] >> assume_tac x) >>
+  qpat_x_assum `v_rel _ x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [v_rel_cases] >> assume_tac x) >>
   srw_tac[][] >>
   imp_res_tac EVERY2_LENGTH >>
   imp_res_tac cl_rel_get_loc
@@ -2304,7 +2304,7 @@ val v_rel_run = Q.prove (
                 `num_args'' = num_args ∧ LENGTH old_args = LENGTH ys`
                          by (Cases_on `cl` >>
                              full_simp_tac(srw_ss())[add_args_def] >>
-                             qpat_assum `X = func` (assume_tac o GSYM) >>
+                             qpat_x_assum `X = func` (assume_tac o GSYM) >>
                              full_simp_tac(srw_ss())[get_old_args_def, get_num_args_def] >>
                              srw_tac[][] >>
                              simp []) >>
@@ -2769,21 +2769,21 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac THEN1
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE]
         \\ REPEAT STRIP_TAC THEN1
-         (Q.PAT_ASSUM `LIST_REL ppp qqq rrr` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL ppp qqq rrr` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
           \\ MATCH_MP_TAC OPTREL_v_rel_NEW_F \\ full_simp_tac(srw_ss())[])
         THEN1
-         (Q.PAT_ASSUM `INJ ($' f2) (FDOM f2) (FRANGE f2)` MP_TAC
-          \\ REPEAT (Q.PAT_ASSUM `INJ xx yy zz` (K ALL_TAC))
+         (Q.PAT_X_ASSUM `INJ ($' f2) (FDOM f2) (FRANGE f2)` MP_TAC
+          \\ REPEAT (Q.PAT_X_ASSUM `INJ xx yy zz` (K ALL_TAC))
           \\ full_simp_tac(srw_ss())[INJ_DEF,FAPPLY_FUPDATE_THM,FRANGE_DEF]
           \\ REPEAT STRIP_TAC \\ METIS_TAC [])
         \\ Cases_on `n = pp` \\ full_simp_tac(srw_ss())[] THEN1
          (SRW_TAC [] [] >>
           imp_res_tac EVERY2_REVERSE
           \\ imp_res_tac evaluate_const
-          \\ Q.PAT_ASSUM `LIST_REL _ (REVERSE a) (REVERSE ys)` MP_TAC
+          \\ Q.PAT_X_ASSUM `LIST_REL _ (REVERSE a) (REVERSE ys)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
@@ -2791,7 +2791,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ RES_TAC \\ full_simp_tac(srw_ss())[]
         \\ `qq <> m` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ SRW_TAC [] [])
         \\ Cases_on`x`>>full_simp_tac(srw_ss())[]
-        \\ Q.PAT_ASSUM `LIST_REL (v_rel _ f2 t2.refs t2.code) xs' ys'` MP_TAC
+        \\ Q.PAT_X_ASSUM `LIST_REL (v_rel _ f2 t2.refs t2.code) xs' ys'` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
@@ -2827,7 +2827,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
-         (Q.PAT_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -2843,18 +2843,18 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
           \\ REPEAT STRIP_TAC THEN1
            (MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
             \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-          \\ Q.PAT_ASSUM `LIST_REL (v_rel _ f2 t2.refs t2.code) l ys'` MP_TAC
+          \\ Q.PAT_X_ASSUM `LIST_REL (v_rel _ f2 t2.refs t2.code) l ys'` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         \\ RES_TAC \\ full_simp_tac(srw_ss())[]
         \\ `m' <> m''` by
-         (Q.PAT_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
+         (Q.PAT_X_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]
           \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ Cases_on`x` >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-        \\ Q.PAT_ASSUM `LIST_REL pp xs' ws''` MP_TAC
+        \\ Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -2946,7 +2946,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       Cases_on`a`>>full_simp_tac(srw_ss())[]>> rpt var_eq_tac >>
       full_simp_tac(srw_ss())[v_rel_SIMP,LET_THM] >> rpt var_eq_tac >>
       simp[PULL_EXISTS] >>
-      qpat_assum`_ = Rval _`mp_tac >>
+      qpat_x_assum`_ = Rval _`mp_tac >>
       IF_CASES_TAC >> fsrw_tac[][] >> fsrw_tac[][] >> srw_tac[][] >>
       qpat_abbrev_tac`pp = $LEAST P` >>
       qpat_abbrev_tac`qq = $LEAST P` >>
@@ -3028,7 +3028,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
               METIS_TAC [state_rel_def]
       \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
       \\ simp[PULL_EXISTS]
-      \\ qpat_assum`_ = Rval _`mp_tac
+      \\ qpat_x_assum`_ = Rval _`mp_tac
       \\ srw_tac[][] >> fsrw_tac[][]
       \\ IMP_RES_TAC EVERY2_LENGTH \\ fsrw_tac[][]
       \\ Q.EXISTS_TAC `f2` \\ fsrw_tac[][]
@@ -3036,7 +3036,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
-         (Q.PAT_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3048,11 +3048,11 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ SRW_TAC [] [] \\ Cases_on `n' = n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
         \\ RES_TAC \\ full_simp_tac(srw_ss())[]
         \\ `m' <> m''` by
-         (Q.PAT_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
+         (Q.PAT_X_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]
           \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ Cases_on`x` >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-        \\ Q.PAT_ASSUM `LIST_REL pp xs' ws''` MP_TAC
+        \\ Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3083,7 +3083,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
-         (Q.PAT_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3095,11 +3095,11 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ SRW_TAC [] [] \\ Cases_on `n' = k` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
         \\ RES_TAC \\ full_simp_tac(srw_ss())[]
         \\ `m' <> m''` by
-         (Q.PAT_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
+         (Q.PAT_X_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]
           \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ Cases_on`x` >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-        \\ Q.PAT_ASSUM `LIST_REL pp xs' ws''` MP_TAC
+        \\ Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3297,14 +3297,14 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     THEN1
      (reverse (REPEAT STRIP_TAC) THEN1
        (full_simp_tac(srw_ss())[state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
-         (Q.PAT_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ METIS_TAC [OPTREL_v_rel_NEW_REF])
         \\ STRIP_TAC THEN1 full_simp_tac(srw_ss())[SUBSET_DEF]
         \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[FLOOKUP_UPDATE]
         \\ `m <> rr` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]) \\ full_simp_tac(srw_ss())[]
         \\ Cases_on`x'''`>>full_simp_tac(srw_ss())[]
-        \\ Q.PAT_ASSUM `LIST_REL ppp xs ys'` MP_TAC
+        \\ Q.PAT_X_ASSUM `LIST_REL ppp xs ys'` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ IMP_RES_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[])
       \\ TRY (simp[] \\ NO_TAC)
@@ -3329,7 +3329,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ simp [EL_MAP]
       \\ srw_tac[][]
       THEN1
-       (Q.PAT_ASSUM `LIST_REL (v_rel _ f1 t1.refs t1.code) x' ys` MP_TAC
+       (Q.PAT_X_ASSUM `LIST_REL (v_rel _ f1 t1.refs t1.code) x' ys` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ METIS_TAC [v_rel_NEW_REF])
       THEN1
@@ -3510,7 +3510,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     metis_tac [SUBMAP_REFL])
   THEN1
    ((* cEvalApp real app *)
-    qpat_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
+    qpat_x_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
     \\ simp [cEval_def]
     \\ qpat_abbrev_tac `args = _::_`
     \\ DISCH_TAC
@@ -4040,12 +4040,77 @@ val remove_FST = prove(``
   first_x_assum(qspec_then`T` assume_tac)>>fs[clos_removeTheory.compile_def]>>
   rw[Once clos_removeTheory.remove_CONS])
 
+val IMP_PERM_code_merge = store_thm("IMP_PERM_code_merge",
+  ``!xs ys zs. PERM (xs ++ ys) zs ==> PERM (code_merge xs ys) zs``,
+  HO_MATCH_MP_TAC code_merge_ind \\ rw []
+  \\ once_rewrite_tac [code_merge_def]
+  \\ fs [] \\ Cases_on `xs` \\ fs []
+  \\ TRY (Cases_on `ys` \\ fs [])
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
+         \\ res_tac \\ metis_tac [])
+  \\ `PERM (h'::h::(t ++ t')) zs` by
+   (match_mp_tac PERM_TRANS
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs []
+    \\ simp [sortingTheory.PERM_CONS_EQ_APPEND]
+    \\ qexists_tac `h::t` \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ simp [Once sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ rw [] \\ res_tac
+  \\ simp [Once sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ metis_tac []);
+
+val code_split_IMP_PERM = store_thm("code_split_IMP_PERM",
+  ``!xs1 xs2 xs3 ts1 ts2.
+      code_split xs1 xs2 xs3 = (ts1,ts2) ==>
+      PERM (ts1 ++ ts2) (xs2 ++ xs3 ++ xs1)``,
+  Induct \\ fs [code_split_def] \\ rw [] \\ res_tac
+  \\ match_mp_tac PERM_TRANS \\ asm_exists_tac \\ fs []
+  \\ fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ qexists_tac `xs2 ++ xs3` \\ fs [sortingTheory.PERM_APPEND_IFF]
+  \\ fs [PERM_APPEND]);
+
+val PERM_code_sort = store_thm("PERM_code_sort",
+  ``!xs. PERM (code_sort xs) xs``,
+  HO_MATCH_MP_TAC code_sort_ind \\ rw [code_sort_def]
+  \\ pairarg_tac \\ fs []
+  \\ match_mp_tac IMP_PERM_code_merge
+  \\ imp_res_tac code_split_IMP_PERM \\ fs []
+  \\ match_mp_tac PERM_TRANS
+  \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
+  \\ match_mp_tac sortingTheory.PERM_CONG \\ fs []);
+
+val ALL_DISTINCT_code_sort = store_thm("ALL_DISTINCT_code_sort",
+  ``ALL_DISTINCT (MAP FST (code_sort xs)) <=> ALL_DISTINCT (MAP FST xs)``,
+  match_mp_tac sortingTheory.ALL_DISTINCT_PERM
+  \\ match_mp_tac sortingTheory.PERM_MAP \\ fs [PERM_code_sort]);
+
+val PERM_IMP_fromAList_EQ_fromAList = store_thm("PERM_IMP_fromAList_EQ_fromAList",
+  ``!xs ys.
+      PERM xs ys ==> ALL_DISTINCT (MAP FST xs) ==>
+      fromAList xs = fromAList ys``,
+  Induct \\ fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ rw [] \\ res_tac
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList]
+  \\ PairCases_on `h` \\ fs [ALOOKUP_APPEND]
+  \\ rw [] \\ fs [GSYM alistTheory.ALOOKUP_NONE]
+  \\ every_case_tac \\ fs []);
+
+val fromAList_code_sort = store_thm("fromAList_code_sort",
+  ``ALL_DISTINCT (MAP FST xs) ==>
+    fromAList (code_sort xs) = fromAList xs``,
+  rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
+  \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   srw_tac[][compile_def] >>
   full_simp_tac(srw_ss())[compile_def,LET_THM] >>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
-  srw_tac[][]>>
+  srw_tac[][ALL_DISTINCT_code_sort]>>
   simp[compile_prog_code_locs]>>
   simp[ALL_DISTINCT_APPEND] >>
   `∃z. clos_mti$compile c.do_mti c.max_app [e] = [z]` by (
@@ -4225,6 +4290,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
      let init_bvl = initial_state s.ffi (fromAList p) (s.clock+ck) in
      evaluate ([Call 0 (SOME c'.start) []],[], init_bvl) = (r1,s'1) ∧
      full_result_rel c (r,s') (r1,s'1)`,
+
   srw_tac[][compile_def,LET_THM,clos_init_def] >>
   mp_tac compile_all_distinct_locs>>simp[compile_def]>> strip_tac>>
   rpt(first_assum(split_uncurry_arg_tac o lhs o concl) >>
@@ -4234,6 +4300,12 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
               clos_numberTheory.renumber_code_locs_length,
               LENGTH, ONE] ) >>
+  qabbrev_tac `p1 = p` \\ pop_assum kall_tac
+  \\ `?p. toAList (init_code c.max_app) ++ compile_prog c.max_app
+            (compile (compile c.do_remove ((1,0,e')::aux))) = p` by fs[] \\ fs []
+  \\ qpat_x_assum `code_sort p = p1` (fn th => fs [GSYM th])
+  \\ fs [ALL_DISTINCT_code_sort,fromAList_code_sort] \\
+
   (* intro_multi correct *)
   qspecl_then[`c.max_app`,`c.do_mti`,`[e]`]mp_tac (GEN_ALL clos_mtiProofTheory.compile_correct) >>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
@@ -4266,6 +4338,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     (move_conj_left(same_const``clos_numberProof$state_rel`` o fst o
                     strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+
   (* Stuff to carry along *)
   rator_x_assum`renumber_code_locs_list`mp_tac >>
   specl_args_of_then``renumber_code_locs_list``
@@ -4351,7 +4424,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_callProof$opt_result_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  qpat_assum`A = (r2,t2')` mp_tac>>
+  qpat_x_assum`A = (r2,t2')` mp_tac>>
   qpat_abbrev_tac`s_call = s with <|clock:=A;code:=B|>`>> strip_tac>>
   `r2 ≠ Rerr (Rabort Rtype_error)` by
     (Cases_on`c.do_call`>>fs[clos_callProofTheory.opt_result_rel_def]>>
@@ -4379,7 +4452,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   qpat_abbrev_tac`e'_remove = if A then B else C`>>
   qpat_abbrev_tac`aux_remove = MAP f aux`>>
   strip_tac>>
-  qpat_assum`exp_rel _ _ [A] [B]` mp_tac>>
+  qpat_x_assum`exp_rel _ _ [A] [B]` mp_tac>>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
   (* This is the reason full_state_rel can't be used *)
   disch_then(qspecl_then [`s_call.clock`,`[]`,`[]`,`s_call`,`s_call with code := alist_to_fmap aux_remove`] mp_tac)>>
@@ -4420,7 +4493,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       simp[]>>
       imp_res_tac clos_removeProofTheory.every_Fn_vs_NONE_remove>>
       metis_tac[])>>
-    qpat_assum`EVERY P ls` mp_tac>>
+    qpat_x_assum`EVERY P ls` mp_tac>>
     rpt(pop_assum kall_tac)>>
     Induct_on`aux`>>fs[FEVERY_FEMPTY,FORALL_PROD]>>rw[]>>fs[]>>
     match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM)>>simp[]>>
@@ -4457,7 +4530,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   qpat_abbrev_tac`s_annot = s_remove with code:=A`>>
   (* Constructed BVL state *)
   disch_then(qspecl_then [`initial_state s.ffi (fromAList p) (ck +s.clock)`,`[]`,`FEMPTY`] mp_tac)>>
-  impl_tac>-
+  impl_tac >-
     (fs(map Abbr [`s_annot`,`s_remove`,`s_call`])>>
     rveq>>
     simp[env_rel_def,CONJ_ASSOC]>>
@@ -4487,14 +4560,14 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       metis_tac[IS_SUBLIST_APPEND2,APPEND_ASSOC,IS_SUBLIST_APPEND1,IS_SUBLIST_REFL])>>
     simp[METIS_PROVE [] ``(((A ∧ B) ∧ C) ∧ D) ∧ E ⇔ A ∧ (B ∧ D) ∧ (C ∧ E)``]>> strip_tac >- (CCONTR_TAC>>fs[])>>
     strip_tac
-    >- (qpat_assum`A=[z]` sym_sub_tac>>
+    >- (qpat_x_assum`A=[z]` sym_sub_tac>>
       simp[Abbr`e'_remove`]>>
       IF_CASES_TAC>>simp[]>>
       metis_tac[HD,FST,clos_removeTheory.remove_SING,clos_removeProofTheory.every_Fn_SOME_remove,PAIR])
     >>
       `every_Fn_SOME (MAP (SND o SND) aux_remove)` by
         (fs[Abbr`aux_remove`]>>
-        qpat_assum`every_Fn_SOME ls` mp_tac>>
+        qpat_x_assum`every_Fn_SOME ls` mp_tac>>
         rpt(pop_assum kall_tac)>>
         Induct_on`aux`>>fs[FORALL_PROD]>>
         simp[Once every_Fn_SOME_EVERY]>>rw[]>>
@@ -4509,7 +4582,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[]>>match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM)>>
       `∃z. annotate p_1' [p_2] = [z]` by
         metis_tac[clos_annotateTheory.shift_SING,clos_annotateTheory.annotate_def,clos_freeTheory.free_SING, FST, PAIR,compile_exps_SING]>>
-      simp[]>>qpat_assum`A=[z]` sym_sub_tac>>simp[])>>
+      simp[]>>qpat_x_assum`A=[z]` sym_sub_tac>>simp[])>>
   `∃z. new_e = [z]` by
     metis_tac[compile_exps_SING]>>
   fs[]>>
@@ -4530,7 +4603,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   qexists_tac`f2`>>
   unabbrev_all_tac>>fs[bvlSemTheory.dec_clock_def]>>
   rfs[]>>
-  fs[])
+  fs[]);
 
 val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel c (r,x) (Rerr (Rabort a),y) ⇒
@@ -4599,7 +4672,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
    ⇒
    semantics s.ffi (fromAList p) c'.start =
    semantics [] s [e]`,
-  rpt strip_tac >> qpat_assum `closSem$semantics _ _ _ ≠ Fail` mp_tac >>
+  rpt strip_tac >> qpat_x_assum `closSem$semantics _ _ _ ≠ Fail` mp_tac >>
   simp[closSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>

@@ -244,6 +244,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.bool_to_tag_def
     ,clos_to_bvlTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.compile_exps_def
+    ,clos_to_bvlTheory.code_merge_def
+    ,clos_to_bvlTheory.code_split_def
+    ,clos_to_bvlTheory.code_sort_def
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.inline_def
     ,bvl_inlineTheory.is_small_aux_def
@@ -382,6 +385,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.FromList1_code_def
     ,data_to_wordTheory.RefArray_code_def
     ,data_to_wordTheory.Replicate_code_def
+    ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.comp_def
     ,data_to_wordTheory.compile_part_def
@@ -417,6 +421,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_instTheory.rm_const_def
     ,word_instTheory.is_const_def
       (* ---- wordLang ssa form and interface to reg allocator ---- *)
+    ,word_allocTheory.big_union_def
     ,word_allocTheory.word_alloc_def
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
@@ -573,6 +578,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
+    ,lab_to_targetTheory.sec_length_def
+    ,lab_to_targetTheory.full_sec_length_def
     ,lab_to_targetTheory.lab_inst_def
     ,lab_to_targetTheory.enc_line_def
     ,lab_to_targetTheory.enc_sec_def
@@ -587,19 +594,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.get_label_def
     ,lab_to_targetTheory.get_jump_offset_def
     ,lab_to_targetTheory.enc_lines_again_def
-    ,lab_to_targetTheory.sec_length_def
-    ,lab_to_targetTheory.full_sec_length_def
     ,lab_to_targetTheory.enc_secs_again_def
     ,lab_to_targetTheory.lines_upd_lab_len_def
     ,lab_to_targetTheory.upd_lab_len_def
-(*
-    ,lab_to_targetTheory.sec_asm_ok_def
-    ,lab_to_targetTheory.all_asm_ok_def
-*)
-    ,lab_to_targetTheory.enc_with_nop_def
     ,lab_to_targetTheory.lab_lookup_def
     ,lab_to_targetTheory.line_length_def
-    ,lab_to_targetTheory.line_ok_def
+    ,lab_to_targetTheory.line_ok_light_def
+    ,lab_to_targetTheory.all_enc_ok_light_def
     ,lab_to_targetTheory.pad_bytes_def
     ,lab_to_targetTheory.add_nop_def
     ,lab_to_targetTheory.append_nop_def
@@ -607,9 +608,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.pad_code_def
     ,lab_to_targetTheory.loc_to_pc_comp_def
     ,lab_to_targetTheory.is_Label_def
-    ,lab_to_targetTheory.pos_val_def
     ,lab_to_targetTheory.check_lab_def
     ,lab_to_targetTheory.all_labels_def
+    ,lab_to_targetTheory.sec_names_def
     ,lab_to_targetTheory.remove_labels_loop_def
     ,lab_to_targetTheory.remove_labels_def
     ,lab_to_targetTheory.line_bytes_def
@@ -617,8 +618,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.find_ffi_index_limit_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
-    ,lab_to_targetTheory.sec_names_def
-    ,lab_to_targetTheory.all_enc_ok_def
       (* ---- Everything in backend theory ---- *)
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def

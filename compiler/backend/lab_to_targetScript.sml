@@ -181,14 +181,6 @@ val all_asm_ok_def = Define `
 
 *)
 
-val enc_with_nop_def = Define `
-  enc_with_nop enc (b:'a asm) bytes =
-    let init = enc b in
-    let step = enc (asm$Inst Skip) in
-      if LENGTH step = 0 then bytes = init else
-        let n = (LENGTH bytes - LENGTH init) DIV LENGTH step in
-          bytes = init ++ FLAT (REPLICATE n step)`
-
 val lab_lookup_def = Define `
   lab_lookup k1 k2 labs =
     case lookup k1 labs of
@@ -200,40 +192,35 @@ val line_length_def = Define `
   (line_length (Asm b bytes l) = LENGTH bytes) /\
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
-val line_ok_def = Define `
-  (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
+val line_ok_light_def = Define `
+  (line_ok_light (c:'a asm_config) labs pos (Label _ _ l) <=>
      EVEN pos /\ (l = 0)) /\
-  (line_ok c enc labs pos (Asm b bytes l) <=>
-     enc_with_nop enc b bytes /\
+  (line_ok_light c labs pos (Asm b bytes l) <=>
      (LENGTH bytes = l) /\ asm_ok b c) /\
-  (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm Halt w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm ClearCache w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm ClearCache w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm (CallFFI index) w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm (CallFFI index) w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm (Call v24) w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm (Call v24) w bytes l) <=>
      F (* Call not yet supported *)) /\
-  (line_ok c enc labs pos (LabAsm a w bytes l) <=>
+  (line_ok_light c labs pos (LabAsm a w bytes l) <=>
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
-       enc_with_nop enc (lab_inst w1 a) bytes /\
        (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
        (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
 
 val all_enc_ok_def = Define `
-  (all_enc_ok c enc labs pos [] = T) /\
-  (all_enc_ok c enc labs pos ((Section k [])::xs) <=>
-     EVEN pos /\ all_enc_ok c enc labs pos xs) /\
-  (all_enc_ok c enc labs pos ((Section k (y::ys))::xs) <=>
-     line_ok c enc labs pos y /\
-     all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
+  (all_enc_ok_light c labs pos [] = T) /\
+  (all_enc_ok_light c labs pos ((Section k [])::xs) <=>
+     EVEN pos /\ all_enc_ok_light c labs pos xs) /\
+  (all_enc_ok_light c labs pos ((Section k (y::ys))::xs) <=>
+     line_ok_light c labs pos y /\
+     all_enc_ok_light c labs (pos + line_length y) ((Section k ys)::xs))`
 
 (* pad with nop byte, and nop instruction *)
 
@@ -256,20 +243,19 @@ val append_nop_def = Define `
   append_nop nop xs = REVERSE (add_nop nop (REVERSE xs))`
 
 val pad_section_def = Define `
-  (pad_section nop n [] aux = REVERSE aux) /\
-  (pad_section nop n ((Label l1 l2 len)::xs) aux =
-     pad_section nop (n+len) xs ((Label l1 l2 0)::
+  (pad_section nop [] aux = REVERSE aux) /\
+  (pad_section nop ((Label l1 l2 len)::xs) aux =
+     pad_section nop xs ((Label l1 l2 0)::
      if len = 0 then aux else add_nop (HD nop) aux)) /\
-  (pad_section nop n ((Asm x bytes len)::xs) aux =
-     pad_section nop (n+len) xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
-  (pad_section nop n ((LabAsm y w bytes len)::xs) aux =
-     pad_section nop (n+len) xs (LabAsm y w (pad_bytes bytes len nop)
-len::aux))`
+  (pad_section nop ((Asm x bytes len)::xs) aux =
+     pad_section nop xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
+  (pad_section nop ((LabAsm y w bytes len)::xs) aux =
+     pad_section nop xs (LabAsm y w (pad_bytes bytes len nop) len::aux))`
 
 val pad_code_def = Define `
 (pad_code nop [] = []) /\
 (pad_code nop ((Section n xs)::ys) =
-  Section n (pad_section nop 0 xs []) :: pad_code nop ys)`
+  Section n (pad_section nop xs []) :: pad_code nop ys)`
 
 (* some final checks on the result *)
 
@@ -294,15 +280,6 @@ val is_Label_def = Define `
   (is_Label _ = F)`;
 val _ = export_rewrites["is_Label_def"];
 
-val pos_val_def = Define `
-  (pos_val i pos [] = (pos:num)) /\
-  (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
-  (pos_val i pos ((Section k (y::ys))::xs) =
-     if is_Label y
-     then pos_val i (pos + line_length y) ((Section k ys)::xs)
-     else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
-
 val check_lab_def = Define `
   check_lab sec_list (l1,l2,pos) <=>
     EVEN pos`
@@ -318,11 +295,11 @@ val sec_names_def = Define`
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
-  remove_labels_loop clock c enc sec_list =
+  remove_labels_loop clock c sec_list =
     (* compute labels *)
     let labs = compute_labels_alt 0 sec_list in
     (* update encodings and lengths (but not label lengths) *)
-    let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
+    let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
       (* done ==> labs are still fine *)
       if done then
         (* adjust label lengths *)
@@ -330,29 +307,29 @@ val remove_labels_loop_def = Define `
         (* compute labels again *)
         let labs = compute_labels_alt 0 sec_list in
         (* update encodings *)
-        let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
+        let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
         (* move label padding into instructions *)
-        let sec_list = pad_code (enc (Inst Skip)) sec_list in
+        let sec_list = pad_code (c.encode (Inst Skip)) sec_list in
         (* compute the labels again, redundant TODO: remove *)
         let labs2 = compute_labels_alt 0 sec_list in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs
+          if done /\ all_enc_ok_light c labs 0 sec_list /\ labs2 = labs
           then SOME (sec_list,labs)
           else NONE
       else
         (* repeat *)
         if clock = 0:num then NONE else
-          remove_labels_loop (clock-1) c enc sec_list`
+          remove_labels_loop (clock-1) c sec_list`
 
 val remove_labels_def = Define `
-  remove_labels init_clock c enc sec_list =
+  remove_labels init_clock c sec_list =
     (* Here init_clock puts an upper limit on the number of times the
        lengths can be adjusted. In many cases, clock = 0 should be
        enough. If this were to hit the clock limit for large values of
        init_clock, then something is badly wrong. Worth testing with
        the clock limit set to low values to see how many iterations
        are used. *)
-    remove_labels_loop init_clock c enc (enc_sec_list enc sec_list)`;
+    remove_labels_loop init_clock c (enc_sec_list c.encode sec_list)`;
 
 (* code extraction *)
 
@@ -370,8 +347,7 @@ val prog_to_bytes_def = Define `
 (* compile labels *)
 
 val _ = Datatype`
-  config = <| encoder : 'a asm -> word8 list
-            ; labels : num num_map num_map
+  config = <| labels : num num_map num_map
             ; asm_conf : 'a asm_config
             ; init_clock : num
             |>`;
@@ -387,7 +363,7 @@ val find_ffi_index_limit_def = Define `
 val compile_lab_def = Define `
   compile_lab c sec_list =
     let limit = find_ffi_index_limit sec_list in
-      case remove_labels c.init_clock c.asm_conf c.encoder sec_list of
+      case remove_labels c.init_clock c.asm_conf sec_list of
       | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,limit)
       | NONE => NONE`;
 

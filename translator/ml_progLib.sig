@@ -38,6 +38,10 @@ sig
                      string list (* names of v consts *) ->
                      ml_prog_state -> ml_prog_state
 
+  val add_dec      : term (* dec *) ->
+                     (string -> string) (* pick name for v abbrev const *) ->
+                     ml_prog_state -> ml_prog_state
+
   val add_prog     : term (* prog i.e. list of top *) ->
                      (string -> string) (* pick name for v abbrev const *) ->
                      ml_prog_state -> ml_prog_state

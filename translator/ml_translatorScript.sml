@@ -10,6 +10,7 @@ infix \\ val op \\ = op THEN;
 val evaluate_ind = terminationTheory.evaluate_ind;
 
 val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="evaluate"};
+val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (* Definitions *)
 
@@ -521,7 +522,7 @@ val Eval_FUN_FORALL = store_thm("Eval_FUN_FORALL",
   \\ FULL_SIMP_TAC std_ss [AppReturns_def,FUN_FORALL]
   \\ `?res k. evaluate (empty_state k) env [exp] = (empty_state 0,Rval [res])` by METIS_TAC []
   \\ Q.EXISTS_TAC `res` \\ qexists_tac `k` >> FULL_SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o Q.SPEC `y`)
+  \\ REPEAT STRIP_TAC \\ Q.PAT_X_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o Q.SPEC `y`)
   >> metis_tac [clock_different_lemma]);
 
 val Eval_FUN_FORALL_EQ = store_thm("Eval_FUN_FORALL_EQ",
@@ -1445,7 +1446,7 @@ val pmatch_empty_store = store_thm("pmatch_empty_store",
   THEN1 (METIS_TAC [])
   \\ Cases_on `pmatch cenv [] p v env`
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Q.PAT_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
+  \\ Q.PAT_X_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val s0 = ``s:unit state``
@@ -1517,8 +1518,6 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
    ∀(s:'ffi state). evaluate F env s exp (s,Rval x)`,
   strip_tac \\ imp_res_tac evaluate_empty_store_IMP_any_store \\ fs []
   \\ pop_assum match_mp_tac \\ EVAL_TAC);
-
-val t = ``t:'ffi state``
 
 val evaluate_empty_store_IMP_any_store = prove(
  ``(!ck env ^s e r1.

@@ -154,7 +154,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >> strip_tac >>
-    qpat_assum`X = res`mp_tac >>
+    qpat_x_assum`X = res`mp_tac >>
     simp[Once evaluate_cons] >>
     split_pair_case_tac >> fs[] >>
     simp[Once evaluate_CONS] >> strip_tac >>
@@ -754,8 +754,8 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
     (Induct_on`s`>>fs[op_gbag_def])
   >>
     TRY
-    (TRY(qpat_assum`LENGTH es ≠ A` kall_tac)>>
-    TRY(qpat_assum`LENGTH es = A` kall_tac)>>
+    (TRY(qpat_x_assum`LENGTH es ≠ A` kall_tac)>>
+    TRY(qpat_x_assum`LENGTH es = A` kall_tac)>>
     Induct_on`es`>>fs[]>>NO_TAC)
   >>
     fs[LENGTH_eq]>>

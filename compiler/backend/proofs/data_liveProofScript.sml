@@ -148,7 +148,7 @@ val evaluate_compile = Q.prove(
         (t1 with locals := t4) LN` by (fs [state_rel_def] \\ NO_TAC)
      \\ `get_vars args t4 = SOME vs` by
       (UNABBREV_ALL_TAC
-       \\ Q.PAT_ASSUM `xx = SOME vs` (fn th => ONCE_REWRITE_TAC [GSYM th])
+       \\ Q.PAT_X_ASSUM `xx = SOME vs` (fn th => ONCE_REWRITE_TAC [GSYM th])
        \\ MATCH_MP_TAC EVERY_get_vars
        \\ fs [EVERY_MEM,lookup_inter_alt,domain_inter,domain_list_insert]
        \\ SRW_TAC [] [] \\ fs [state_rel_def]
@@ -178,7 +178,7 @@ val evaluate_compile = Q.prove(
   THEN1 (* Raise *)
    (fs [evaluate_def,compile_def] \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [state_rel_def]
-    \\ Q.PAT_ASSUM `lookup n s.locals = lookup n t1.locals`
+    \\ Q.PAT_X_ASSUM `lookup n s.locals = lookup n t1.locals`
          (ASSUME_TAC o GSYM) \\ fs [get_var_def]
     \\ SRW_TAC [] [call_env_def]
     \\ Cases_on `jump_exc s` \\ fs [] \\ SRW_TAC [] []
@@ -186,7 +186,7 @@ val evaluate_compile = Q.prove(
   THEN1 (* Return *)
    (fs [evaluate_def,compile_def] \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [state_rel_def]
-    \\ Q.PAT_ASSUM `lookup n s.locals = lookup n t1.locals`
+    \\ Q.PAT_X_ASSUM `lookup n s.locals = lookup n t1.locals`
          (ASSUME_TAC o GSYM) \\ fs [get_var_def]
     \\ SRW_TAC [] [call_env_def])
   THEN1 (* Seq *)
@@ -202,11 +202,11 @@ val evaluate_compile = Q.prove(
     \\ REPEAT STRIP_TAC
     \\ reverse (Cases_on `res1 = NONE`) \\ fs []
     THEN1 (SRW_TAC [] [] \\ Cases_on `res` \\ fs [])
-    \\ Q.PAT_ASSUM `!x y. bb` (MP_TAC o GSYM o Q.SPECL [`l2`,`t2`]) \\ fs []
+    \\ Q.PAT_X_ASSUM `!x y. bb` (MP_TAC o GSYM o Q.SPECL [`l2`,`t2`]) \\ fs []
     \\ REV_FULL_SIMP_TAC std_ss []
     \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC \\ fs []
-    \\ Q.PAT_ASSUM `!x.bbb` (ASSUME_TAC o GSYM)
-    \\ IMP_RES_TAC evaluate_NONE_jump_exc \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+    \\ Q.PAT_X_ASSUM `!x.bbb` (ASSUME_TAC o GSYM)
+    \\ IMP_RES_TAC evaluate_NONE_jump_exc \\ Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC)
     \\ RES_TAC
     \\ IMP_RES_TAC evaluate_NONE_jump_exc_ALT \\ POP_ASSUM (K ALL_TAC)
     \\ POP_ASSUM (K ALL_TAC) \\ fs []
@@ -224,13 +224,13 @@ val evaluate_compile = Q.prove(
          (fs [state_rel_def,domain_union,domain_insert,get_var_def]
           \\ METIS_TAC [])
     \\ Cases_on `x = Boolv T` \\ fs [] THEN1
-     (Q.PAT_ASSUM `xxx = evaluate (c1,s)` (ASSUME_TAC o GSYM) \\ fs []
+     (Q.PAT_X_ASSUM `xxx = evaluate (c1,s)` (ASSUME_TAC o GSYM) \\ fs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
       \\ fs [state_rel_def,domain_union])
     \\ Cases_on `x = Boolv F` \\ fs [] THEN1
-     (Q.PAT_ASSUM `xxx = evaluate (c2,s)` (ASSUME_TAC o GSYM) \\ fs []
+     (Q.PAT_X_ASSUM `xxx = evaluate (c2,s)` (ASSUME_TAC o GSYM) \\ fs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
@@ -248,7 +248,7 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `find_code dest x t1.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `handler` \\ fs []
-    \\ Q.PAT_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
+    \\ Q.PAT_X_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
     \\ Cases_on `t1.clock = 0`
     THEN1 (fs [call_env_def,state_rel_def] \\ rw [] \\ rfs[])
     \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs []
@@ -267,10 +267,10 @@ val evaluate_compile = Q.prove(
     THEN Cases_on`e` >> fs[] THEN1
      (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1.stack`])
-      \\ Q.PAT_ASSUM `!x.bbb` (MP_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM)
       \\ Q.MATCH_ASSUM_RENAME_TAC
            `jump_exc (call_env q (dec_clock s)) = SOME s3`
-      \\ Q.PAT_ASSUM `jump_exc (call_env q (dec_clock s)) = SOME s3`
+      \\ Q.PAT_X_ASSUM `jump_exc (call_env q (dec_clock s)) = SOME s3`
             (MP_TAC o GSYM)
       \\ SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def,Once jump_exc_def]
       \\ NTAC 2 BasicProvers.CASE_TAC \\ STRIP_TAC
@@ -335,9 +335,9 @@ val evaluate_compile = Q.prove(
     THEN Cases_on`e` >> fs[] THEN1
      (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
-      \\ Q.PAT_ASSUM `!x.bbb` (MP_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM)
       \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3`
-      \\ Q.PAT_ASSUM `jump_exc t4 = SOME s3` (MP_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `jump_exc t4 = SOME s3` (MP_TAC o GSYM)
       \\ UNABBREV_ALL_TAC
       \\ SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            dec_clock_def,Once jump_exc_def]
@@ -442,7 +442,7 @@ val evaluate_compile = Q.prove(
       push_env_def,dec_clock_def,jump_exc_def]
     \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs [LASTN_LEMMA]
     \\ SRW_TAC [] [] \\ fs []
-    \\ Q.PAT_ASSUM `inter s.locals names = r'.locals` (ASSUME_TAC o GSYM)
+    \\ Q.PAT_X_ASSUM `inter s.locals names = r'.locals` (ASSUME_TAC o GSYM)
     \\ fs [] \\ fs [lookup_inter_alt,domain_inter,domain_union,
          domain_delete,domain_list_insert] \\ SRW_TAC [] [])
   \\ fs [state_rel_def,set_var_def,lookup_insert,call_env_def,

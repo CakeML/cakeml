@@ -307,7 +307,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
   simp[conexts_of_upd_def] >>
   qexists_tac`(((strlit "ind") =+ (K inf)) (tyaof i1), tmaof i1)` >>
   `¬(MEM (strlit "ind") (MAP FST (type_list ctxt1)))` by (
-    qpat_assum`X = Y::Z`mp_tac >>
+    qpat_x_assum`X = Y::Z`mp_tac >>
     simp[mk_infinity_ctxt_def] >>
     rw[] >> rw[] ) >>
   `inhabited inf` by (
@@ -358,7 +358,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       fs[MEM_MAP,EXISTS_PROD] >>
       metis_tac[] ) >>
     `p = Exh (And (One_One h) (Not (Onto h)))` by (
-      qpat_assum`X = Y::Z`mp_tac >>
+      qpat_x_assum`X = Y::Z`mp_tac >>
       simp[mk_infinity_ctxt_def] ) >>
     simp[satisfies_def] >>
     gen_tac >> strip_tac >>
@@ -515,7 +515,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[typeof_equation,EQUATION_HAS_TYPE_BOOL,welltyped_equation] >>
     simp[typesem_def] >> fs[] >>
     conj_tac >- apply_abstract_tac >>
-    qpat_assum`is_infinite Y X`mp_tac >>
+    qpat_x_assum`is_infinite Y X`mp_tac >>
     simp[is_infinite_def] >>
     simp[INFINITE_INJ_NOT_SURJ] >>
     strip_tac >>
@@ -574,14 +574,14 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       `Abstract d d f ' z1 = f z1` by (
         match_mp_tac (UNDISCH apply_abstract) >>
         simp[] >>
-        qpat_assum`INJ f X Y`mp_tac >>
+        qpat_x_assum`INJ f X Y`mp_tac >>
         simp[INJ_DEF] ) >>
       `Abstract d d f ' z2 = f z2` by (
         match_mp_tac (UNDISCH apply_abstract) >>
         simp[] >>
-        qpat_assum`INJ f X Y`mp_tac >>
+        qpat_x_assum`INJ f X Y`mp_tac >>
         simp[INJ_DEF] ) >>
-      qpat_assum`INJ f X Y`mp_tac >>
+      qpat_x_assum`INJ f X Y`mp_tac >>
       simp[INJ_DEF] >>
       PROVE_TAC[] ) >>
     match_mp_tac apply_abstract_matchable >>
@@ -601,10 +601,10 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[Once boolean_def] >>
     BasicProvers.CASE_TAC >>
     simp[true_neq_false] >> pop_assum mp_tac >> simp[] >>
-    qpat_assum`¬(SURJ f X Y)`mp_tac >>
+    qpat_x_assum`¬(SURJ f X Y)`mp_tac >>
     simp[SURJ_DEF] >>
     strip_tac >- (
-      qpat_assum`INJ f X Y`mp_tac >>
+      qpat_x_assum`INJ f X Y`mp_tac >>
       simp[INJ_DEF] >>
       PROVE_TAC[] ) >>
     qmatch_assum_rename_tac`w <: inf` >>
@@ -657,7 +657,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     `Abstract (τ(strlit "B")) (τ(strlit "B")) f ' z = f z` by (
       match_mp_tac (UNDISCH apply_abstract) >>
       simp[] >>
-      qpat_assum`INJ f X Y`mp_tac >>
+      qpat_x_assum`INJ f X Y`mp_tac >>
       simp[INJ_DEF] ) >>
     metis_tac[]) >>
   simp[combinTheory.APPLY_UPDATE_THM])

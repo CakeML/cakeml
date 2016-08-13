@@ -56,7 +56,10 @@ sig
   val dest_LIST_TYPE : term -> term * term * term
   val is_LIST_TYPE   : term -> bool
 
-  val mk_Arrow   : term * term -> term
+  val mk_Arrow    : term * term -> term
+  val dest_Arrow  : term -> term * term
+  val is_Arrow    : term -> bool
+  val strip_Arrow : term -> term list * term
 
   val dest_write : term -> term * term * term
   val is_write   : term -> bool

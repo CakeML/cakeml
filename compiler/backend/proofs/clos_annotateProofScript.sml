@@ -186,7 +186,7 @@ val do_eq = prove(
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[v_rel_simp]
   \\ RES_TAC \\ SRW_TAC [] []
   \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ Q.PAT_ASSUM `xx = do_eq y y'` (ASSUME_TAC o GSYM)
+  \\ Q.PAT_X_ASSUM `xx = do_eq y y'` (ASSUME_TAC o GSYM)
   \\ full_simp_tac(srw_ss())[]) |> CONJUNCT1 ;
 
 val do_app_IMP_case = prove(
@@ -261,7 +261,7 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
-    \\ TRY (Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
+    \\ TRY (Q.PAT_X_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
             \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM MP_TAC
             \\ full_simp_tac(srw_ss())[]
             \\ REPEAT STRIP_TAC
@@ -530,8 +530,8 @@ val env_ok_shifted_env = prove(
   \\ POP_ASSUM MP_TAC
   \\ simp [MEM_EL] \\ STRIP_TAC
   \\ POP_ASSUM (ASSUME_TAC o GSYM)
-  \\ Q.PAT_ASSUM `MEM k live` (K ALL_TAC)
-  \\ Q.PAT_ASSUM `Abbrev vvv` (K ALL_TAC)
+  \\ Q.PAT_X_ASSUM `MEM k live` (K ALL_TAC)
+  \\ Q.PAT_X_ASSUM `Abbrev vvv` (K ALL_TAC)
   \\ `(EL n (MAP (get_var m l i) y) = get_var m l i k) /\
       n < LENGTH (MAP (get_var m l i) y)` by full_simp_tac(srw_ss())[EL_MAP]
   \\ Q.ABBREV_TAC `ys = (MAP (get_var m l i) y)`
@@ -539,7 +539,7 @@ val env_ok_shifted_env = prove(
   \\ `v_rel (EL k env) (EL (get_var m l i k) env2)` by
    (full_simp_tac(srw_ss())[env_ok_def] THEN1 (`F` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[get_var_def]
     \\ `~(k < l)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[tlookup_def])
-  \\ Q.PAT_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
+  \\ Q.PAT_X_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[env_ok_def] \\ DISJ2_TAC
   \\ TRY (`k < l + m` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[lookup_EL_shifted_env]
@@ -672,7 +672,7 @@ val shift_correct = Q.prove(
     \\ MATCH_MP_TAC env_ok_EXTEND \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[fv_def,fv1_thm]
     \\ REPEAT STRIP_TAC
-    \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+    \\ Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
     \\ `x - LENGTH v' + LENGTH v' = x` by DECIDE_TAC \\ full_simp_tac(srw_ss())[])
   THEN1 (* Raise *)
@@ -712,7 +712,7 @@ val shift_correct = Q.prove(
     \\ RES_TAC \\ REPEAT STRIP_TAC
     \\ full_simp_tac(srw_ss())[fv_def,fv1_thm]
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
-    \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+    \\ Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[ADD1])
   THEN1 (* Op *)
    (full_simp_tac(srw_ss())[free_def]
@@ -987,7 +987,7 @@ val shift_correct = Q.prove(
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ TRY (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC) \\ rev_full_simp_tac(srw_ss())[]
-      \\ qpat_assum`_ = (res,_)`mp_tac
+      \\ qpat_x_assum`_ = (res,_)`mp_tac
       \\ Q.PAT_ABBREV_TAC `env3 =
          REVERSE (TAKE (n - LENGTH vals') (REVERSE _ ++ [_])) ++
             l' ++ l0'`
@@ -1045,7 +1045,7 @@ val shift_correct = Q.prove(
     \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
     \\ `s1'.max_app = s1.max_app` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
     THEN1 (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[state_rel_def])
-    \\ qpat_assum`_ = (res,_)`mp_tac
+    \\ qpat_x_assum`_ = (res,_)`mp_tac
     \\ Q.PAT_ABBREV_TAC `env3 =
          REVERSE (TAKE (q - LENGTH vals') (REVERSE _ ++ [_])) ++
             l' ++ GENLIST (Recclosure o' [] l0' l1) (LENGTH cs') ++ l0'`
@@ -1119,7 +1119,7 @@ val annotate_correct = save_thm("annotate_correct",
 val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
   `∀a b c d. every_Fn_vs_SOME (shift a b c d)`,
   ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
-  rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
+  rpt(qpat_x_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
   imp_res_tac shift_SING >>
   full_simp_tac(srw_ss())[Once every_Fn_vs_SOME_EVERY] >>
   srw_tac[][] >>
@@ -1133,7 +1133,7 @@ val every_Fn_vs_SOME_annotate = Q.store_thm("every_Fn_vs_SOME_annotate[simp]",
 val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
   `∀a b c d. every_Fn_SOME (shift a b c d) ⇔ every_Fn_SOME a`,
   ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
-  rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
+  rpt(qpat_x_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
   imp_res_tac shift_SING >>
   full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY] >>
   srw_tac[][] >>

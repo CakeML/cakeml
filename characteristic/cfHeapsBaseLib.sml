@@ -51,10 +51,16 @@ fun dest_W8ARRAY tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) W8ARRAY_def
   in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
 
+fun dest_IO tm = let
+  val format = (fst o dest_eq o concl o SPEC_ALL) IO_def
+  in if can (match_term format) tm then (cdr (car (car tm)), cdr (car tm), cdr tm)
+     else fail() end
+
 fun is_cell tm = can dest_cell tm
 fun is_REF tm = can dest_REF tm
 fun is_ARRAY tm = can dest_ARRAY tm
 fun is_W8ARRAY tm = can dest_W8ARRAY tm
+fun is_IO tm = can dest_IO tm
 
 fun is_sep_imp tm = can dest_sep_imp tm
 
@@ -65,10 +71,18 @@ fun is_sep_imppost tm = let
 fun is_cond tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) cond_def
   in can (match_term format) tm end
-  
+
 fun is_sep_exists tm = let
   val se = (fst o dest_eq o concl o SPEC_ALL) SEP_EXISTS
   in can (match_term ``^se P``) tm end
+
+fun mk_cond t =
+  SPEC t (INST_TYPE [alpha |-> ``:heap_part``] cond_def)
+  |> concl |> lhs
+
+val emp_tm =
+  inst [alpha |-> ``:heap_part``]
+    (emp_def |> concl |> lhs)
 
 fun UNFOLD_SEP_IMPPOST_ccc tm = let
   val _ = if not (is_sep_imppost tm) then fail () else ()
@@ -210,12 +224,14 @@ fun hsimpl_cancel_one_cont_conseq_conv t =
       SOME (fst (dest_REF tm)) handle _ =>
       SOME (fst (dest_ARRAY tm)) handle _ =>
       SOME (fst (dest_W8ARRAY tm)) handle _ =>
+      SOME (#3 (dest_IO tm)) handle _ =>
       NONE
     fun same_cell_kind tm1 tm2 =
       (is_cell tm1 andalso is_cell tm2) orelse
       (is_REF tm1 andalso is_REF tm2) orelse
       (is_ARRAY tm1 andalso is_ARRAY tm2) orelse
-      (is_W8ARRAY tm1 andalso is_W8ARRAY tm2)
+      (is_W8ARRAY tm1 andalso is_W8ARRAY tm2) orelse
+      (is_IO tm1 andalso is_IO tm2)
     fun find_matching_cells () =
       find_map (fn tm1 =>
         Option.mapPartial (fn loc =>
@@ -250,7 +266,11 @@ fun hsimpl_cancel_one_cont_conseq_conv t =
       SEP_IMP_W8ARRAY_frame,
       SEP_IMP_W8ARRAY_frame_single_l,
       SEP_IMP_W8ARRAY_frame_single_r,
-      SEP_IMP_W8ARRAY_frame_single
+      SEP_IMP_W8ARRAY_frame_single,
+      SEP_IMP_IO_frame,
+      SEP_IMP_IO_frame_single_l,
+      SEP_IMP_IO_frame_single_r,
+      SEP_IMP_IO_frame_single
     ]
   in
     case is of
@@ -356,7 +376,7 @@ val hpullr_cont_conseq_conv =
 val hpullr_conseq_conv =
   STRENGTHEN_CONSEQ_CONV
     (STEP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv)
-  
+
 val hpullr_one = CONSEQ_CONV_TAC hpullr_one_conseq_conv
 val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
 
@@ -383,7 +403,7 @@ val hcancel_cont_conseq_conv_core =
       (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])
   ]
 
-val hcancel_setup_conv = 
+val hcancel_setup_conv =
   SEP_IMP_conv
     (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
     (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))

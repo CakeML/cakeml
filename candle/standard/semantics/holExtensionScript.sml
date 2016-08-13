@@ -201,7 +201,7 @@ val new_specification_correct = store_thm("new_specification_correct",
     fs[MEM_MAP,Abbr`ilist`,EXISTS_PROD] >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[termsem_def] >>
     rpt BasicProvers.VAR_EQ_TAC >>
-    rpt (qpat_assum `termsem X Y Z tm = A`kall_tac) >>
+    rpt (qpat_x_assum `termsem X Y Z tm = A`kall_tac) >>
     qmatch_abbrev_tac`instance tmenv ii name ty τ <: x` >>
     qspecl_then[`tmenv`,`ii`,`name`,`ty`]mp_tac instance_def >>
     simp[Abbr`tmenv`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
@@ -636,7 +636,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[Abbr`ii`,combinTheory.APPLY_UPDATE_THM,MAP_MAP_o,combinTheory.o_DEF] >>
     CHANGED_TAC(simp[REV_ASSOCD,typesem_def]) >>
     simp[GSYM combinTheory.o_DEF,GSYM MAP_MAP_o] >>
-    rpt(qpat_assum`eqsh X Y`mp_tac) >>
+    rpt(qpat_x_assum`eqsh X Y`mp_tac) >>
     simp[eqsh_def] >> ntac 2 (disch_then kall_tac) >>
     simp[Abbr`mrep`,Abbr`argv`,combinTheory.o_DEF,typesem_def,Abbr`abs_type`,Abbr`mty`] >>
     PairCases_on`v` >>
@@ -724,7 +724,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[Abbr`x`] >>
     match_mp_tac termsem_frees >>
     fs[CLOSED_def] ) >>
-  rpt(qpat_assum`eqsh X Y`mp_tac) >>
+  rpt(qpat_x_assum`eqsh X Y`mp_tac) >>
   simp[eqsh_def] >> ntac 2 (disch_then kall_tac) >>
   simp[Abbr`mrep`,Abbr`argv`,combinTheory.o_DEF,typesem_def,Abbr`abs_type`,Abbr`mty`] >>
   PairCases_on`v` >>

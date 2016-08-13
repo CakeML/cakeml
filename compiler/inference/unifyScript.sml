@@ -94,9 +94,9 @@ fs [t_wfs_def] >>
 imp_res_tac (DISCH_ALL vwalk_ind) >>
 pop_assum ho_match_mp_tac >>
 rw [] >>
-qpat_assum `∀v. (∀u. (FLOOKUP s' v = SOME (Infer_Tuvar u)) ⇒ P u) ⇒ P v` ho_match_mp_tac >>
+qpat_x_assum `∀v. (∀u. (FLOOKUP s' v = SOME (Infer_Tuvar u)) ⇒ P u) ⇒ P v` ho_match_mp_tac >>
 rw [] >>
-qpat_assum `∀u. Q u ⇒ P u` ho_match_mp_tac >>
+qpat_x_assum `∀u. Q u ⇒ P u` ho_match_mp_tac >>
 rw [FLOOKUP_o_f, encode_infer_t_def]);
 
 val t_vwalk_ind = save_thm("t_vwalk_ind", (UNDISCH o Q.SPEC `s`) t_vwalk_ind')
@@ -151,9 +151,9 @@ val t_oc_ind' = Q.prove (
 NTAC 3 STRIP_TAC >>
 ho_match_mp_tac oc_ind >>
 rw [] >|
-[qpat_assum `∀t v. v ∈ t_vars t ∧ v ∉ FDOM s ⇒ oc' t v` ho_match_mp_tac >>
+[qpat_x_assum `∀t v. v ∈ t_vars t ∧ v ∉ FDOM s ⇒ oc' t v` ho_match_mp_tac >>
      fs [t_vars_def, FMAP_MAP2_THM],
- qpat_assum `∀t v u t'. u ∈ t_vars t ∧ (t_vwalk s u = t') ∧ oc' t' v ⇒ oc' t v` ho_match_mp_tac >>
+ qpat_x_assum `∀t v u t'. u ∈ t_vars t ∧ (t_vwalk s u = t') ∧ oc' t' v ⇒ oc' t v` ho_match_mp_tac >>
      rw [t_vars_def] >>
      qexists_tac `u` >>
      rw [] >>
@@ -356,8 +356,8 @@ TRY (
             ((t1d = Const c1) ∧ (t2d = Const c2)))
     ⇒ (c1 = c2)` by (
     rpt gen_tac >> strip_tac >>
-    qpat_assum `unify X Y Z = SOME A` mp_tac >>
-    qpat_assum `unify X Y Z = SOME A` mp_tac >>
+    qpat_x_assum `unify X Y Z = SOME A` mp_tac >>
+    qpat_x_assum `unify X Y Z = SOME A` mp_tac >>
     asm_simp_tac std_ss [Once unify_def] >>
     strip_tac >>
     asm_simp_tac std_ss [Once unify_def] >>
@@ -368,15 +368,15 @@ TRY (
   simp[] >>
   strip_tac >> strip_tac >> fs[] (*>- (
     rfs[] >> rw[] >>
-    rpt (qpat_assum `Pair X Y = Z` (assume_tac o SYM)) >>
+    rpt (qpat_x_assum `Pair X Y = Z` (assume_tac o SYM)) >>
     first_x_assum (qspecl_then[`s'`,`ARB`,`ARB`]kall_tac) >>
     first_x_assum (qspecl_then[`s'`,`Infer_Tfn ta' td'`,`Infer_Tfn ta td`]mp_tac) >>
     simp[option_map_def,encode_infer_t_def] >>
     simp[Once unify_def] >>
     metis_tac[o_f_o_f] )*) >>
   rfs[] >> rw[] >>
-  rpt (qpat_assum `Pair X Y = Z` (assume_tac o SYM)) >>
-  qpat_assum`unify es X Y = Z`mp_tac >>
+  rpt (qpat_x_assum `Pair X Y = Z` (assume_tac o SYM)) >>
+  qpat_x_assum`unify es X Y = Z`mp_tac >>
   simp[Once unify_def] >>
   simp[Once unify_def] >>
   rw[] >>
@@ -582,7 +582,7 @@ val t_unify_ind = store_thm("t_unify_ind",
   strip_assume_tac unify_ind >>
   qmatch_assum_abbrev_tac`P ⇒ Q` >> qunabbrev_tac`Q` >>
   `P` by (
-    qpat_assum`P ⇒ Q`kall_tac >>
+    qpat_x_assum`P ⇒ Q`kall_tac >>
     qunabbrev_tac`P` >>
     CONV_TAC (DEPTH_CONV BETA_CONV) >>
     rpt gen_tac >>
@@ -770,7 +770,7 @@ rw [] >>
 cases_on `ts1` >>
 cases_on `ts2` >>
 fs [] >>
-qpat_assum `!s ts1 ts2. Q s ts1 ts2 ⇒ P1 s ts1 ts2` match_mp_tac >>
+qpat_x_assum `!s ts1 ts2. Q s ts1 ts2 ⇒ P1 s ts1 ts2` match_mp_tac >>
 rw [] >>
 metis_tac [t_unify_unifier]);
 
@@ -1097,7 +1097,7 @@ val t_unify_mgu = store_thm ("t_unify_mgu",
 		 mp_tac encode_unify>>
   impl_tac>>fs[])>>
   conj_asm1_tac>- fs[t_wfs_def]>>
-  qpat_assum `decode_infer_t A = B` mp_tac>>
+  qpat_x_assum `decode_infer_t A = B` mp_tac>>
   fs[encode_walkstar,decode_left_inverse])
 
 val t_walkstar_tuvar_props = store_thm("t_walkstar_tuvar_props",

@@ -700,10 +700,10 @@ val my_term_size_vsubst_aux = prove(
   THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
          Once (fetch "-" "vsubst_aux_def"),LET_DEF]
   THEN reverse (SRW_TAC [] [my_term_size_def])
-  THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
+  THEN1 (Q.PAT_X_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
          THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER])
   THEN Cases_on `is_var t` THEN FULL_SIMP_TAC std_ss [my_term_size_variant]
-  THEN Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
+  THEN Q.PAT_X_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER,is_var_variant])
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]

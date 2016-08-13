@@ -5,6 +5,7 @@ open preamble
 open ConseqConv match_goal
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
+open cfAppLib cfSyntax semanticPrimitivesSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -77,7 +78,8 @@ val reducible_pats = [
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
   ``lookup_var_id _ _``,
-  ``Fun_body _``
+  ``Fun_body _``,
+  ``normalise _``
 ]
 
 val reduce_conv =
@@ -176,7 +178,7 @@ fun xcf name st =
     first_match_tac [
       ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
       ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
-    ] \\ simp []
+    ] \\ reduce_tac
   end
 
 (* [xlet] *)
@@ -190,14 +192,17 @@ fun xlet_core cont0 cont1 cont2 =
   CONJ_TAC THENL [all_tac, cont1 \\ cont2]
 
 (* temporary basic wrapper until evars *)
-fun xlet Q = let
+fun xlet Q (g as (asl, w)) = let
+  val ctx = free_varsl (w :: asl)
   val name = (fst o dest_var o fst o dest_abs o Term) Q
-  val qname = [QUOTE name]
+  val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
+  val qname = [QUOTE name']
 in
   xlet_core
     (qexists_tac Q)
     (qx_gen_tac qname \\ cbv)
     (TRY xpull)
+    g
 end
 
 (* [xfun] *)
@@ -291,10 +296,8 @@ fun xfun_spec qname qspec =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-(*  try_progress_then (fn K =>
-    (* temp basic stuff until evars *)
-    irule local_frame_gc THENL [xlocal, assume_tac K])
-    H *) (* todo fixme *)
+  (* todo: ask Arthur *)
+  (* try_progress_then (fn H => *)
   irule local_frame_gc THENL [
     xlocal,
     CONSEQ_CONV_TAC (K (
@@ -304,6 +307,7 @@ fun xapply_core H cont1 cont2 =
     )) \\
     CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
   ]
+  (* ) H *)
 
 fun xapply H =
   xpull_check_not_needed \\
@@ -312,7 +316,7 @@ fun xapply H =
 (* [xspec] *)
 
 fun concl_tm tm =
-  let 
+  let
     val thm' = Drule.IRULE_CANON (ASSUME tm)
     val (_, body) = strip_forall (concl thm')
   in
@@ -330,6 +334,11 @@ fun is_spec_for f tm =
   (concl_tm tm |> app_f_tm) = f
   handle HOL_ERR _ => false
 
+fun is_arrow_spec_for f tm =
+  ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
+  (rand tm) = f
+  handle HOL_ERR _ => false
+
 fun xspec_in_asl f asl =
   List.find (is_spec_for f) asl
 
@@ -338,10 +347,15 @@ fun xspec_in_db f =
       data :: _ => SOME data
     | _ => NONE
 
+fun xspec_from_translator f =
+  case DB.matchp (fn thm => is_arrow_spec_for f (concl thm)) [] of
+      data :: _ => SOME data
+    | _ => NONE
+
 (* todo: variants *)
 fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
   case xspec_in_asl f asl of
-      SOME a => 
+      SOME a =>
       (print "Using a specification from the assumptions\n";
        ttac (ASSUME a) g)
     | NONE =>
@@ -351,8 +365,14 @@ fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
                   " from theory " ^ thy ^ "\n");
            ttac thm g)
         | NONE =>
-          raise ERR "xspec" ("Could not find a specification for " ^
-                             fst (dest_const f))
+          case xspec_from_translator f of
+              SOME ((thy, name), (thm, _)) =>
+              (print ("Using translator specification " ^
+                      name ^ " from theory " ^ thy ^ "\n");
+               ttac (app_of_Arrow_rule thm) g)
+           | NONE =>
+             raise ERR "xspec" ("Could not find a specification for " ^
+                                fst (dest_const f))
 
 (* [xapp] *)
 
@@ -406,14 +426,13 @@ val xcon_core =
 val xvar_core =
   head_unfold cf_var_def \\ reduce_tac
 
-fun xret_pre cont1 cont2 =
-  xpull_check_not_needed \\
-  first_match_tac [
-    ([mg.c `cf_lit _ _ _ _`], K xlit_core),
-    ([mg.c `cf_con _ _ _ _ _`], K xcon_core),
-    ([mg.c `cf_var _ _ _ _`], K xvar_core)
-  ] \\
-  cont1
+fun xret_pre cont1 cont2 (g as (_, w)) =
+  (xpull_check_not_needed \\
+   (if is_cf_lit w then xlit_core
+    else if is_cf_con w then xcon_core
+    else if is_cf_var w then xvar_core
+    else fail ()) \\
+   cont1) g
   (* todo: also do stuff with lets *)
 
 val xret = xret_pre xret_irule_lemma (TRY xpull)
@@ -498,5 +517,13 @@ val xmatch_base =
   CONV_TAC validate_pat_all_conv
 
 val xmatch = xmatch_base
+
+(* [xffi] *)
+
+val xffi =
+  xpull_check_not_needed \\
+  head_unfold cf_ffi_def \\
+  irule local_elim \\ hnf \\
+  simp [app_ffi_def] \\ reduce_tac
 
 end

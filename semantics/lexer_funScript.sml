@@ -71,7 +71,7 @@ val read_string_thm = store_thm("read_string_thm",
   THEN SRW_TAC [] [LENGTH] THEN RES_TAC THEN TRY DECIDE_TAC
   THEN SRW_TAC [] [LENGTH] THEN Cases_on `t'`
   THEN FULL_SIMP_TAC (srw_ss()) [] THEN CCONTR_TAC
-  THEN Q.PAT_ASSUM `(x1,x2) = xxx` MP_TAC
+  THEN Q.PAT_X_ASSUM `(x1,x2) = xxx` MP_TAC
   THEN SIMP_TAC std_ss [] THEN SRW_TAC [] []
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss []
   THEN RES_TAC THEN TRY DECIDE_TAC THEN CCONTR_TAC
@@ -184,7 +184,7 @@ val next_sym_LESS = store_thm("next_sym_LESS",
     THEN Cases_on `pat` THEN FULL_SIMP_TAC std_ss [markerTheory.Abbrev_def])
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC (GSYM skip_comment_thm)
   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]
-  THEN TRY (Q.PAT_ASSUM `xx = rest` (ASSUME_TAC o GSYM))
+  THEN TRY (Q.PAT_X_ASSUM `xx = rest` (ASSUME_TAC o GSYM))
   THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]
   THEN Cases_on `rest'`
   THEN FULL_SIMP_TAC (srw_ss()) []

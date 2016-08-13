@@ -5,33 +5,6 @@ val () = new_theory "x64_target"
 
 val () = wordsLib.guess_lengths()
 
-(* --- Configuration for x86-64 --- *)
-
-val eval = rhs o concl o EVAL
-val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
-val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
-
-val x64_config_def = Define`
-   x64_config =
-   <| ISA := x86_64
-    ; reg_count := 16
-    ; avoid_regs := [4;5]
-    ; link_reg := NONE
-    ; has_mem_32 := T
-    ; two_reg_arith := T
-    ; big_endian := F
-    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
-    ; addr_offset_min := ^min32
-    ; addr_offset_max := ^max32
-    ; jump_offset_min := ^min32 + 13w
-    ; jump_offset_max := ^max32 + 5w
-    ; cjump_offset_min := ^min32 + 13w
-    ; cjump_offset_max := ^max32 + 5w
-    ; loc_offset_min := ^min32 + 7w
-    ; loc_offset_max := ^max32 + 7w
-    ; code_alignment := 0
-    |>`
-
 (* --- The next-state function --- *)
 
 val x64_next_def = Define `x64_next = THE o NextStateX64`
@@ -47,15 +20,20 @@ val x64_asm_state_def = Define`
 
 (* --- Encode ASM instructions to x86-64 bytes. --- *)
 
-val () = Parse.temp_overload_on ("reg", ``\r. Zr (num2Zreg r)``)
+val total_num2Zreg_def = Define`
+  total_num2Zreg n = if n < 16 then num2Zreg n else RAX`
+
+val () = Parse.temp_overload_on ("reg", ``\r. Zr (total_num2Zreg r)``)
 
 val () = Parse.temp_overload_on
    ("ld",
-    ``\r1 r2 a. Zr_rm (num2Zreg r1, Zm (NONE, ZregBase (num2Zreg r2), a))``)
+    ``\r1 r2 a.
+       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``)
 
 val () = Parse.temp_overload_on
    ("st",
-    ``\r1 r2 a. Zrm_r (Zm (NONE, ZregBase (num2Zreg r2), a), num2Zreg r1)``)
+    ``\r1 r2 a.
+       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``)
 
 val x64_bop_def = Define`
    (x64_bop Add = Zadd) /\
@@ -94,7 +72,7 @@ val x64_enc_def = Define`
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64 in
       x64$encode (Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i)))) /\
    (x64_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
-      let a = (Z64, Zrm_r (reg r1, num2Zreg r3)) in
+      let a = (Z64, Zrm_r (reg r1, total_num2Zreg r3)) in
         x64$encode
           (if (bop = Or) /\ (r2 = r3) then Zmov (Z_ALWAYS, a)
            else Zbinop (x64_bop bop, a))) /\
@@ -105,7 +83,7 @@ val x64_enc_def = Define`
    (x64_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        x64$encode (Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w))) ++
        x64$encode Zcmc ++
-       x64$encode (Zbinop (Zadc, Z64, Zrm_r (reg r1, num2Zreg r3))) ++
+       x64$encode (Zbinop (Zadc, Z64, Zrm_r (reg r1, total_num2Zreg r3))) ++
        x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r4, 0w))) ++
        x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
    (x64_enc (Inst (Mem Load r1 (Addr r2 a))) =
@@ -123,7 +101,7 @@ val x64_enc_def = Define`
    (x64_enc (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
    (x64_enc (JumpCmp cmp r1 (Reg r2) a) =
        x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
-                           Zrm_r (reg r1, num2Zreg r2))) ++
+                           Zrm_r (reg r1, total_num2Zreg r2))) ++
        x64_encode_jcc (x64_cmp cmp) (a - 9w)) /\
    (x64_enc (JumpCmp cmp r (Imm i) a) =
        let width =
@@ -141,7 +119,7 @@ val x64_enc_def = Define`
    (x64_enc (JumpReg r) = x64$encode (Zjmp (reg r))) /\
    (x64_enc (Loc r i) =
       x64$encode
-        (Zlea (Z64, Zr_rm (num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))))`
+        (Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))))`
 
 val x64_bop_dec_def = Define`
    (x64_bop_dec Zadd = INL Add) /\
@@ -240,13 +218,40 @@ val x64_dec_def = Define`
          Loc (Zreg2num r) (i + 7w)
     | _ => ARB`
 
+(* --- Configuration for x86-64 --- *)
+
+val eval = rhs o concl o EVAL
+val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
+val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
+
+val x64_config_def = Define`
+   x64_config =
+   <| ISA := x86_64
+    ; encode := x64_enc
+    ; reg_count := 16
+    ; avoid_regs := [4;5]
+    ; link_reg := NONE
+    ; has_mem_32 := T
+    ; two_reg_arith := T
+    ; big_endian := F
+    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
+    ; addr_offset_min := ^min32
+    ; addr_offset_max := ^max32
+    ; jump_offset_min := ^min32 + 13w
+    ; jump_offset_max := ^max32 + 5w
+    ; cjump_offset_min := ^min32 + 13w
+    ; cjump_offset_max := ^max32 + 5w
+    ; loc_offset_min := ^min32 + 7w
+    ; loc_offset_max := ^max32 + 7w
+    ; code_alignment := 0
+    |>`
+
 val x64_proj_def = Define`
    x64_proj d s = (s.RIP, s.REG, fun2set (s.MEM, d), s.EFLAGS, s.exception)`
 
 val x64_target_def = Define`
    x64_target =
-   <| encode := x64_enc
-    ; get_pc := x64_state_RIP
+   <| get_pc := x64_state_RIP
     ; get_reg := (\s. s.REG o num2Zreg)
     ; get_byte := x64_state_MEM
     ; state_ok := (\s. s.exception = NoException)

@@ -528,7 +528,7 @@ local
                  in
                     (`(!a. a IN s1.mem_domain ==> ((^etm).MEM a = ms.MEM a)) /\
                       !i. (^etm).REG ^i_tm = ^r ^i_tm`
-                     by (qpat_assum `!i:num s:arm_state. P`
+                     by (qpat_x_assum `!i:num s:arm_state. P`
                            (fn th =>
                               strip_assume_tac
                                  (SIMP_RULE (srw_ss())
@@ -551,13 +551,13 @@ local
                alignmentTheory.aligned_numeric,
                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ fail_if_vacuous_tac
-         \\ Tactical.PAT_ASSUM x_tm kall_tac
+         \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state arm6_next)
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
                [alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
                 Once boolTheory.LET_THM]
-         \\ TRY (Q.PAT_ASSUM `NextStateARM qq = qqq` kall_tac)
+         \\ TRY (Q.PAT_X_ASSUM `NextStateARM qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 in
@@ -627,7 +627,7 @@ local
               val r = utilsLib.rhsc (SIMP_CONV (srw_ss()) [] ``^s.REG``)
            in
               (``!i. (env ^t ^s).REG ^i_tm = ^r ^i_tm``,
-               qpat_assum `!i:num s:arm_state. P`
+               qpat_x_assum `!i:num s:arm_state. P`
                   (fn th =>
                      strip_assume_tac
                         (SIMP_RULE (srw_ss()) [] (Q.SPECL [`^t`, `^s`] th))
@@ -687,9 +687,9 @@ local
              else all_tac
              )
          \\ NTAC j next_state_tac
-         \\ REPEAT (Q.PAT_ASSUM `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (qpat_assum `a IN s1.mem_domain` kall_tac)
-         \\ REPEAT (Q.PAT_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
+         \\ REPEAT (Q.PAT_X_ASSUM `ms.MEM qq = bn` kall_tac)
+         \\ REPEAT (qpat_x_assum `a IN s1.mem_domain` kall_tac)
+         \\ REPEAT (Q.PAT_X_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
          \\ state_tac
       end gs
@@ -699,7 +699,7 @@ local
 in
    fun next_tac gs =
       (
-       qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
+       qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
        \\ simp enc_rwts
        \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
@@ -903,14 +903,6 @@ val arm6_encoding = Count.apply Q.prove (
    \\ decode_tac
    )
 
-val arm6_asm_deterministic = Q.store_thm("arm6_asm_deterministic",
-   `asm_deterministic arm6_enc arm6_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic, arm6_encoding]
-   )
-
-val arm6_asm_deterministic_config =
-   SIMP_RULE (srw_ss()) [arm6_config_def] arm6_asm_deterministic
-
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding ::
    enc_ok_rwts
@@ -1078,32 +1070,13 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       print_tac "enc_ok: Call"
       \\ lfs enc_rwts
       )
-   >- (
-      (*--------------
+   \\ (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
-      \\ lrw enc_rwts
-      \\ rw []
-      \\ blastLib.FULL_BBLAST_TAC
-      )
-      (*--------------
-          asm_deterministic
-        --------------*)
-   \\ print_tac "asm_deterministic"
-   \\ rewrite_tac [arm6_asm_deterministic_config]
+   \\ lrw enc_rwts
+   \\ rw []
+   \\ blastLib.FULL_BBLAST_TAC
    )
-
-(*
-
-val x64_enc_deterministic = proofManagerLib.top_thm ()
-
-val x64_enc_deterministic = Theory.new_axiom ("x64_enc_deterministic",
-   ``enc_deterministic x64_enc x64_config``)
-
-   proofManagerLib.r
-   set_trace "Goalstack.howmany_printed_subgoals" 60
-
-*)
 
 val () = export_theory ()

@@ -249,7 +249,7 @@ val weakE_lookup = Q.prove (
     EVERY (check_freevars tvs []) subst ∧
     (deBruijn_subst 0 subst t' = t)`,
  rw [weakE_def] >>
- qpat_assum `!cn. P cn` (MP_TAC o Q.SPEC `n`) >>
+ qpat_x_assum `!cn. P cn` (MP_TAC o Q.SPEC `n`) >>
  rw [] >>
  every_case_tac >>
  fs [] >>

@@ -100,7 +100,7 @@ imp_res_tac (DISCH_ALL t_vwalk_ind) >>
 `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
 rw [] >>
 Q.SPEC_TAC (`n`, `n`) >>
-qpat_assum `!p. (!v. q v ⇒ p v) ⇒ !v. p v` ho_match_mp_tac >>
+qpat_x_assum `!p. (!v. q v ⇒ p v) ⇒ !v. p v` ho_match_mp_tac >>
 rw [] >>
 imp_res_tac t_vwalk_eqn >>
 once_asm_rewrite_tac [] >>
@@ -261,9 +261,9 @@ SIMP_TAC (srw_ss()) [t_vars_eqn, generalise_def, infer_subst_def] >|
                    cases_on `r` >>
                    fs []) >>
      fs [LET_THM] >>
-     qpat_assum `!m'. P m'`
+     qpat_x_assum `!m'. P m'`
            (mp_tac o Q.SPECL [`m`, `tvs'+n`, `s''`, `tvs''`, `s'''`, `ts''`]) >>
-     qpat_assum `!m'. P m'`
+     qpat_x_assum `!m'. P m'`
            (mp_tac o Q.SPECL [`m`, `n`, `s`, `tvs'`, `s''`, `t'`]) >>
      rw [INTER_UNION] >|
      [metis_tac [SUBMAP_TRANS],
@@ -1046,7 +1046,7 @@ val t_unify_check_s_help = Q.prove (
            check_s tvs uvs s')`,
 ho_match_mp_tac t_unify_strongind >>
 rw [] >|
-[qpat_assum `t_unify s t1 t2 = SOME s'` mp_tac >>
+[qpat_x_assum `t_unify s t1 t2 = SOME s'` mp_tac >>
      rw [t_unify_eqn] >>
      cases_on `t1` >>
      cases_on `t2` >>
@@ -1240,7 +1240,7 @@ rw [check_freevars_def, check_t_def, infer_type_subst_def] >|
      Q.SPEC_TAC (`uvs`, `uvs`) >>
      induct_on `tvs` >>
      rw [COUNT_LIST_def, check_t_def] >>
-     qpat_assum `!uvs. P uvs` (mp_tac o Q.SPEC `SUC uvs`) >>
+     qpat_x_assum `!uvs. P uvs` (mp_tac o Q.SPEC `SUC uvs`) >>
      rw [MAP_MAP_o, combinTheory.o_DEF] >>
      qmatch_asmsub_abbrev_tac`MAP f1 _` >>
      qmatch_goalsub_abbrev_tac`MAP f2 _` >>
@@ -1347,9 +1347,9 @@ fs [check_t_def] >>
 eq_tac >>
 srw_tac [ARITH_ss] [] >>
 fs [MAP_MAP_o, combinTheory.o_DEF] >|
-[qpat_assum `!x. P x` (mp_tac o Q.SPECL [`uvs`, `uvs' + 1`]) >>
+[qpat_x_assum `!x. P x` (mp_tac o Q.SPECL [`uvs`, `uvs' + 1`]) >>
      rw [] >> fs[ ADD1],
- qpat_assum `!x. P x` (mp_tac o Q.SPECL [`uvs`, `uvs' + 1`]) >>
+ qpat_x_assum `!x. P x` (mp_tac o Q.SPECL [`uvs`, `uvs' + 1`]) >>
      rw [] >> fs[ADD1]])
 
 val check_t_infer_db_subst = Q.prove (
@@ -1702,7 +1702,7 @@ srw_tac[] []
     rw [] >>
     fs [EVERY_MEM] >>
     metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
->- (qpat_assum `!t1. P t1` match_mp_tac >>
+>- (qpat_x_assum `!t1. P t1` match_mp_tac >>
     rw [] >>
     MAP_EVERY qexists_tac [`Infer_Tuvar st.next_uvar`, `st with next_uvar := st.next_uvar + 1`, `t2`] >>
     rw [check_s_more, check_env_bind, check_t_def] >>
@@ -1778,7 +1778,7 @@ srw_tac[] []
               by metis_tac [check_t_more4, infer_e_check_t, infer_st_rewrs, DECIDE ``x ≤ x + 1:num``] >>
     `check_t 0 (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) (Infer_Tuvar st''.next_uvar)`
                  by rw [check_t_def] >>
-    qpat_assum `!t1 t2 st st' tvs. P t1 t2 st st' tvs` match_mp_tac >>
+    qpat_x_assum `!t1 t2 st st' tvs. P t1 t2 st st' tvs` match_mp_tac >>
     metis_tac [infer_st_rewrs, check_s_more])
 >- (`check_env (count st''.next_uvar) (opt_bind x (0,t1) ienv.inf_v)`
          by (rw [opt_bind_def] >>
@@ -2923,7 +2923,7 @@ val tenv_inv_extend0 = Q.store_thm ("tenv_inv_extend0",
   IF_CASES_TAC>-
     (imp_res_tac t_walkstar_no_vars>>fs[]>>
     imp_res_tac check_t_to_check_freevars>>
-    qpat_assum`0=tvs` (SUBST_ALL_TAC o SYM)>>
+    qpat_x_assum`0=tvs` (SUBST_ALL_TAC o SYM)>>
     fs[deBruijn_inc0]>>
     qexists_tac`[]`>>fs[deBruijn_subst_def]>>
     imp_res_tac deBruijn_subst_id>>
@@ -3175,7 +3175,7 @@ val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
     >-
       fs[EVERY_MAP,COUNT_LIST_GENLIST,EVERY_GENLIST,check_t_def]
     >>
-    qpat_assum `A=t` (SUBST_ALL_TAC o SYM)>>
+    qpat_x_assum `A=t` (SUBST_ALL_TAC o SYM)>>
     imp_res_tac check_t_empty_unconvert_convert_id>>
     fs[]>>
     match_mp_tac (infer_deBruijn_subst_id2 |> CONJUNCT1)>>
@@ -3244,7 +3244,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
   fsrw_tac[][check_t_def]
   >-
     (fsrw_tac[][generalise_def]>>
-    qpat_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
+    qpat_x_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     fsrw_tac[][]>>
     first_assum match_mp_tac>>
     ntac 2 HINT_EXISTS_TAC >>
@@ -3256,7 +3256,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     full_case_tac>>fsrw_tac[][]
     >-
       (qexists_tac`[t_walkstar s (Infer_Tuvar n)]`>>
-      qpat_assum`A=b` sym_sub_tac>>
+      qpat_x_assum`A=b` sym_sub_tac>>
       srw_tac[][]
       >-
         (simp[FAPPLY_FUPDATE_THM]>>
@@ -3276,7 +3276,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     qexists_tac`[]`>>fs[])
   >>
     fsrw_tac[][generalise_def]>>
-    qpat_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
+    qpat_x_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     imp_res_tac generalise_subst>>
     first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
     rfs[]>>
@@ -3361,7 +3361,7 @@ val tenv_inv_bind_var_list2 = prove(``
     (`ALOOKUP tenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
     fs[])
   >>
-    qpat_assum`x'=A` SUBST_ALL_TAC>>
+    qpat_x_assum`x'=A` SUBST_ALL_TAC>>
     res_tac>>
     fs[])
 
@@ -3383,7 +3383,7 @@ val tenv_invC_bind_var_list2 = prove(``
     (`ALOOKUP itenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
     fs[])
   >>
-    qpat_assum`x'=A` SUBST_ALL_TAC>>
+    qpat_x_assum`x'=A` SUBST_ALL_TAC>>
     res_tac>>
     fs[])
 

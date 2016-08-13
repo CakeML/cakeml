@@ -178,7 +178,7 @@ fun get_mod_prefix (ML_code (ss,envs,vs,th)) = let
        (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring) ^ "_"
   end
 
-fun add_dec pick_name dec_tm s =
+fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
     val (x1,x2) = dest_Dexn dec_tm
     in add_Dexn x1 x2 s end
@@ -208,7 +208,7 @@ fun add_dec pick_name dec_tm s =
 
 fun add_top pick_name top_tm s =
   if is_Tdec top_tm then
-    add_dec pick_name (dest_Tdec top_tm) s
+    add_dec (dest_Tdec top_tm) pick_name s
     handle HOL_ERR e =>
     failwith ("add_top: failed to add " ^ term_to_string top_tm ^ "\n " ^
                              #message e)
@@ -220,7 +220,7 @@ fun add_top pick_name top_tm s =
             failwith ("add_top: failed to open module " ^ name_str)
     fun each [] s = s
       | each (d::ds) s = let
-           val s = add_dec pick_name d s handle HOL_ERR e =>
+           val s = add_dec d pick_name s handle HOL_ERR e =>
                    failwith ("add_top: in module " ^ name_str ^
                              "failed to add " ^ term_to_string d ^ "\n " ^
                              #message e)

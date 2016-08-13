@@ -63,11 +63,7 @@ val () = new_theory "asm"
  * Determinism
 
    The assembly language must be deterministic. The current definition
-   of the semantics is relational and, as a result, can allow for a
-   non-deterministic behaviour. It is up to the target provider to
-   prove that the supplied encode function provides deterministic
-   behaviour in the assembly language, i.e. instruction encodings only
-   overlap if the assembly semantics also matches precisely.
+   of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
 
@@ -91,7 +87,7 @@ val () = Datatype `
 val () = Datatype `
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
-        | AddCarry num num num num`
+        | AddCarry reg reg reg reg`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
@@ -122,12 +118,14 @@ val () = Datatype `
 val () = Datatype `
   asm_config =
     <| ISA              : architecture
-     ; reg_count        : num
+     ; encode           : 'a asm -> word8 list
      ; avoid_regs       : num list
-     ; link_reg         : num option
-     ; has_mem_32       : bool
-     ; two_reg_arith    : bool
      ; big_endian       : bool
+     ; code_alignment   : num
+     ; has_mem_32       : bool
+     ; link_reg         : num option
+     ; reg_count        : num
+     ; two_reg_arith    : bool
      ; valid_imm        : (binop + cmp) -> 'a word -> bool
      ; addr_offset_min  : 'a word
      ; addr_offset_max  : 'a word
@@ -137,7 +135,6 @@ val () = Datatype `
      ; cjump_offset_max : 'a word
      ; loc_offset_min   : 'a word
      ; loc_offset_max   : 'a word
-     ; code_alignment   : num
      |>`
 
 val reg_ok_def = Define `

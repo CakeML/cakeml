@@ -617,7 +617,7 @@ val match_seq_find_lemma = Q.prove
     THEN TRY (IMP_RES_TAC split_thm2 THEN FULL_SIMP_TAC list_ss [] THEN NO_TAC)
     (* 2 cases left, almost identical; do both cases with same tactic *)
     THEN
-    (Q.PAT_ASSUM `$! M `(MP_TAC o Q.SPECL [`t1`, `r`, `l`, `w`, `z`])
+    (Q.PAT_X_ASSUM `$! M `(MP_TAC o Q.SPECL [`t1`, `r`, `l`, `w`, `z`])
     THEN RW_TAC list_ss [split_def, match_seq_def, m_def]
     THEN `match_seq ms` by METIS_TAC [match_seq_down_closed, APPEND]
     THEN FULL_SIMP_TAC list_ss [split_def, match_seq_def, m_def]

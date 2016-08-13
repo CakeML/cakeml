@@ -1,4 +1,4 @@
-INCLUDES = ../translation ../../eval
+INCLUDES = ../translation ../../eval ../../eval/x64 ../../targets/asm ../../targets/x64
 CLINE_OPTIONS = --qof
 
 ifdef POLY
@@ -11,9 +11,9 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../translation/parserProgTheory\
-						../translation/inferProgTheory\
-						../../eval/compilerComputeLib
+BARE_THYS = ../translation/compilerProgTheory\
+						../../eval/compilerComputeLib\
+						../../eval/x64/x64_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

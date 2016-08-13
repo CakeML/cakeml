@@ -45,11 +45,7 @@ val add_ast_compset = computeLib.extend_compset
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
-    ,initialProgramTheory.prim_types_program_def
-    ,initialProgramTheory.basis_program_def
-    ,initialProgramTheory.mk_binop_def
-    ,initialProgramTheory.mk_unop_def
-    ,initialProgramTheory.mk_ffi_def
+    ,primTypesTheory.prim_types_program_def
     ],
    computeLib.Tys
     [``:MMLnonT``

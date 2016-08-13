@@ -848,7 +848,7 @@ val v_rel_subg = Q.store_thm("v_rel_subg",
       \\ imp_res_tac LIST_REL_LENGTH
       \\ simp[MEM_ZIP,PULL_EXISTS]
       \\ metis_tac[MEM_EL] )
-    \\ qpat_assum`LIST_REL (v_rel g l) l1 l2` kall_tac
+    \\ qpat_x_assum`LIST_REL (v_rel g l) l1 l2` kall_tac
     \\ map_every qunabbrev_tac[`l2`,`l1`])
   \\ fs[]
   \\ qexists_tac`g0`
@@ -1034,7 +1034,7 @@ val dest_closure_v_rel = Q.store_thm("dest_closure_v_rel",
     \\ every_case_tac \\ fs[calls_list_MAPi]
     \\ imp_res_tac calls_length \\ fs[]
     \\ rw[] \\ rfs[indexedListsTheory.EL_MAPi] \\ fs[]
-    \\ qpat_assum`¬(LENGTH _ ≤ _)`assume_tac
+    \\ qpat_x_assum`¬(LENGTH _ ≤ _)`assume_tac
     \\ fs[EL_ZIP,EL_MAP])
   \\ fs[]
   \\ reverse IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
@@ -1324,7 +1324,7 @@ val do_app_thm = prove(
             \\ first_x_assum drule \\ fs [] \\ NO_TAC)
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_EL_EQN]
     \\ res_tac \\ rw []
-    \\ qpat_assum `!x.bbb` mp_tac
+    \\ qpat_x_assum `!x.bbb` mp_tac
     \\ rfs [] \\ full_case_tac \\ fs [OPTREL_def])
   \\ Cases_on `?n. op = SetGlobal n` \\ fs [] \\ rw [] THEN1
    (fs [Once do_app_def] \\ every_case_tac
@@ -1335,7 +1335,7 @@ val do_app_thm = prove(
     \\ imp_res_tac EVERY2_LENGTH \\ fs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_EL_EQN]
     \\ res_tac \\ rw []
-    \\ qpat_assum `!x.bbb` mp_tac
+    \\ qpat_x_assum `!x.bbb` mp_tac
     \\ rfs [] \\ full_case_tac
     \\ fs [OPTREL_def,EL_LUPDATE] \\ rw [] \\ rw [])
   \\ Cases_on `op = AllocGlobal` \\ fs [] \\ rw [] THEN1
@@ -1386,7 +1386,7 @@ val do_app_thm = prove(
     \\ fs [EVERY_MEM,EXISTS_MEM,FEVERY_DEF]
     \\ res_tac \\ fs []
     \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-    \\ qpat_assum `~_` mp_tac \\ fs [] \\ rw []
+    \\ qpat_x_assum `~_` mp_tac \\ fs [] \\ rw []
     \\ TRY (match_mp_tac fmap_rel_FUPDATE_same) \\ fs [])
   \\ Cases_on `op = GlobalsPtr \/ op = SetGlobalsPtr` THEN1
    (fs [Once do_app_def] \\ every_case_tac)
@@ -1397,7 +1397,7 @@ val do_app_thm = prove(
     \\ TRY (`FDOM r.refs = FDOM t.refs` by (fs [fmap_rel_def] \\ NO_TAC))
     \\ fs [MEM_REPLICATE_EQ,EVERY_REPLICATE,EXISTS_MEM]
     \\ fs [v_rel_def] \\ rw []
-    \\ qpat_assum `~ _` mp_tac \\ fs []
+    \\ qpat_x_assum `~ _` mp_tac \\ fs []
     \\ TRY (match_mp_tac fmap_rel_FUPDATE_same)
     \\ fs [LIST_REL_REPLICATE_same]
     \\ fs [FEVERY_DEF,FAPPLY_FUPDATE_THM] \\ rw []
@@ -1416,7 +1416,7 @@ val do_app_thm = prove(
     \\ TRY (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     \\ fs [wfv_Boolv] \\ CCONTR_TAC \\ fs []
     \\ first_assum (qspec_then `n` assume_tac)
-    \\ qpat_assum `!x.bbb` mp_tac
+    \\ qpat_x_assum `!x.bbb` mp_tac
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
     \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ fs [ref_rel_def]
@@ -1590,7 +1590,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [PUSH_EXISTS_IMP]
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
     THEN1
-     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+     (strip_tac \\ fs [] \\ qpat_x_assum `_ ==> _` mp_tac
       \\ reverse impl_tac THEN1
        (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
       \\ imp_res_tac code_includes_subg
@@ -1616,7 +1616,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
       \\ Cases_on `a` \\ fs [])
     \\ strip_tac \\ fs [PULL_FORALL]
-    \\ qpat_assum `_ ==> _` mp_tac
+    \\ qpat_x_assum `_ ==> _` mp_tac
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
       \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs [])
@@ -1630,7 +1630,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ ntac 2 strip_tac
       \\ first_x_assum match_mp_tac \\ fs [])
     \\ strip_tac
-    \\ qpat_assum `_ = (Rval _,t)` assume_tac
+    \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
@@ -1716,7 +1716,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [PUSH_EXISTS_IMP]
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
     THEN1
-     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+     (strip_tac \\ fs [] \\ qpat_x_assum `_ ==> _` mp_tac
       \\ reverse impl_tac THEN1
        (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
       \\ imp_res_tac code_includes_subg
@@ -1744,7 +1744,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
       \\ strip_tac \\ fs [PULL_FORALL]
       \\ strip_tac
-      \\ qpat_assum `_ ==> _` mp_tac
+      \\ qpat_x_assum `_ ==> _` mp_tac
       \\ impl_tac THEN1
        (imp_res_tac subg_trans \\ imp_res_tac code_includes_subg
         \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
@@ -1761,7 +1761,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ first_x_assum match_mp_tac \\ fs []
         \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [])
       \\ strip_tac
-      \\ qpat_assum `_ = (Rval _,t)` assume_tac
+      \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
       \\ drule evaluate_add_clock \\ fs []
       \\ disch_then (qspec_then `ck'` assume_tac)
       \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
@@ -1785,7 +1785,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
       \\ strip_tac \\ fs [PULL_FORALL]
       \\ strip_tac
-      \\ qpat_assum `_ ==> _` mp_tac
+      \\ qpat_x_assum `_ ==> _` mp_tac
       \\ impl_tac THEN1
        (imp_res_tac subg_trans \\ imp_res_tac code_includes_subg
         \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
@@ -1802,7 +1802,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ first_x_assum match_mp_tac \\ fs []
         \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [])
       \\ strip_tac
-      \\ qpat_assum `_ = (Rval _,t)` assume_tac
+      \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
       \\ drule evaluate_add_clock \\ fs []
       \\ disch_then (qspec_then `ck'` assume_tac)
       \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
@@ -1852,7 +1852,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [PUSH_EXISTS_IMP]
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
     THEN1
-     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+     (strip_tac \\ fs [] \\ qpat_x_assum `_ ==> _` mp_tac
       \\ reverse impl_tac THEN1
        (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
       \\ imp_res_tac code_includes_subg
@@ -1876,7 +1876,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
     \\ strip_tac \\ fs [PULL_FORALL]
-    \\ qpat_assum `_ ==> _` mp_tac
+    \\ qpat_x_assum `_ ==> _` mp_tac
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
       \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
@@ -1902,7 +1902,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ first_x_assum match_mp_tac \\ fs [] \\ EVAL_TAC
       \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [])
     \\ strip_tac
-    \\ qpat_assum `_ = (Rval _,t)` assume_tac
+    \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
@@ -1982,7 +1982,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [PUSH_EXISTS_IMP]
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     THEN1
-     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+     (strip_tac \\ fs [] \\ qpat_x_assum `_ ==> _` mp_tac
       \\ reverse impl_tac THEN1
        (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
       \\ imp_res_tac code_includes_subg
@@ -1993,7 +1993,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
     \\ reverse (Cases_on `e`) \\ rveq \\ fs [] \\ rveq \\ fs []
     THEN1
-     (strip_tac \\ fs [] \\ qpat_assum `_ ==> _` mp_tac
+     (strip_tac \\ fs [] \\ qpat_x_assum `_ ==> _` mp_tac
       \\ reverse impl_tac THEN1
        (strip_tac \\ fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
       \\ imp_res_tac code_includes_subg
@@ -2017,7 +2017,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL] \\ strip_tac \\ fs [GSYM PULL_FORALL]
     \\ strip_tac \\ fs [PULL_FORALL]
-    \\ qpat_assum `_ ==> _` mp_tac
+    \\ qpat_x_assum `_ ==> _` mp_tac
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
       \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
@@ -2036,7 +2036,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ first_x_assum match_mp_tac
       \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [] \\ fs [ADD1])
     \\ strip_tac
-    \\ qpat_assum `_ = (Rerr _,t)` assume_tac
+    \\ qpat_x_assum `_ = (Rerr _,t)` assume_tac
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
@@ -2111,7 +2111,7 @@ val calls_correct = Q.store_thm("calls_correct",
     by (
       qunabbrev_tac`b` \\ reverse every_case_tac \\ fs[] \\ rw[]
       >- ( match_mp_tac calls_wfg \\ asm_exists_tac \\ fs[] )
-      \\ qpat_assum`calls _ (insert_each _ _ _) = _`assume_tac
+      \\ qpat_x_assum`calls _ (insert_each _ _ _) = _`assume_tac
       \\ drule calls_wfg'
       \\ impl_tac
       >- ( fs[wfg'_def,domain_FST_insert_each,wfg_def,IN_EVEN] )
@@ -2169,7 +2169,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fsrw_tac[ETA_ss][]
     \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
     \\ rveq \\ fs[]
-    \\ qpat_assum`_ = (_,g)`mp_tac
+    \\ qpat_x_assum`_ = (_,g)`mp_tac
     \\ qpat_abbrev_tac`fns2 = calls_list _ _`
     \\ qmatch_goalsub_rename_tac`Letrec _ _ fns2 b2`
     \\ qpat_abbrev_tac`fns0 = ZIP _`
@@ -2324,7 +2324,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ asm_exists_tac \\ fs[] )
       \\ CASE_TAC \\ fs[] \\ rveq
       \\ (conj_tac >- metis_tac[subg_trans])
-      \\ qpat_assum`_ ∪ _ DIFF _ ⊆ _`assume_tac
+      \\ qpat_x_assum`_ ∪ _ DIFF _ ⊆ _`assume_tac
       \\ fs[SUBSET_DEF] \\ rw[]
       \\ first_x_assum match_mp_tac \\ fs[]
       \\ strip_tac
@@ -2345,7 +2345,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM]
     \\ rpt strip_tac
     \\ imp_res_tac state_rel_max_app
-    \\ qpat_assum`_ ⇒ _`mp_tac
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
     \\ impl_tac
     >- (
       fs[]
@@ -2391,7 +2391,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ pairarg_tac \\ fs[]
     \\ pairarg_tac \\ fs[]
     \\ fs[code_locs_def]
-    \\ qpat_assum`_ = (res,_)`mp_tac
+    \\ qpat_x_assum`_ = (res,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ last_assum(fn th => mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]calls_subg) th))
     \\ simp[]
@@ -2416,7 +2416,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `env_rel (v_rel g1 l1) env env2 0 (MAP (λx. (0,x)) ys) ⇒
         env_rel (v_rel g1 l1) env env2 0 (MAP (λx. (0,x)) es)`
     by (
-      qpat_assum`_ = (ys,_)`mp_tac
+      qpat_x_assum`_ = (ys,_)`mp_tac
       \\ qmatch_goalsub_abbrev_tac`COND b1`
       \\ reverse(Cases_on`b1`) \\ fs[]
       >- (
@@ -2489,7 +2489,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ disch_then(qspecl_then[`l1`,`g1`]mp_tac)
     \\ strip_tac
     \\ rveq
-    \\ qpat_assum`_ = (ys,_)`mp_tac
+    \\ qpat_x_assum`_ = (ys,_)`mp_tac
     \\ qmatch_goalsub_abbrev_tac`COND b`
     \\ reverse IF_CASES_TAC \\ fs[]
     >- (
@@ -2499,7 +2499,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ simp[]
       \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
       \\ rveq \\ fs[]
-      \\ qpat_assum`_ ⇒ _`mp_tac
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
       \\ impl_tac
       >- (
         imp_res_tac evaluate_const \\ fs[]
@@ -2511,10 +2511,10 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ simp[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM]
         \\ strip_tac \\ fs[] \\ rfs[]
         \\ `code_includes (SND g') t0.code` by metis_tac[code_includes_subg] \\ fs[]
-        \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+        \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
         \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
         \\ qexists_tac`ck+ck'` \\ fs[]
-        \\ qpat_assum`_ ⇒ _`mp_tac
+        \\ qpat_x_assum`_ ⇒ _`mp_tac
         \\ impl_tac
         >- (
           imp_res_tac evaluate_const \\ fs[]
@@ -2530,7 +2530,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ simp[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM,FORALL_AND_THM]
       \\ strip_tac \\ fs[] \\ strip_tac \\ fs[] \\ rfs[]
       \\ `code_includes (SND g') t0.code` by metis_tac[code_includes_subg] \\ fs[]
-      \\ qpat_assum`_ ⇒ _`mp_tac
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
       \\ impl_tac
       >- (
         imp_res_tac evaluate_const \\ fs[]
@@ -2541,12 +2541,12 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rpt(disch_then drule)
       \\ strip_tac
       \\ qmatch_assum_rename_tac`LIST_REL (v_rel _ _) ev1 ev2`
-      \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'+ck''`mp_tac) \\ simp[] \\ strip_tac
-      \\ qpat_assum`evaluate([_],env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate([_],env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck''`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'+ck''` \\ fs[])
-    \\ qpat_assum`Abbrev(IS_SOME _ ∧ _)`mp_tac
+    \\ qpat_x_assum`Abbrev(IS_SOME _ ∧ _)`mp_tac
     \\ simp[markerTheory.Abbrev_def,IS_SOME_EXISTS]
     \\ strip_tac \\ rveq \\ fs[]
     \\ `x ∈ domain (FST g)` by simp[domain_lookup]
@@ -2566,15 +2566,15 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ ntac 2 strip_tac \\ rveq
       \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
       \\ rfs[] \\ rveq
-      \\ qpat_assum`_ ⇒ _`mp_tac
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
       \\ impl_tac >- fs[SUBSET_DEF]
       \\ strip_tac \\ fs[]
       \\ first_x_assum drule
       \\ simp[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM,FORALL_AND_THM]
       \\ strip_tac \\ fs[]
       \\ strip_tac \\ fs[]
-      \\ qpat_assum`_ ⇒ _`kall_tac
-      \\ qpat_assum`_ ⇒ _`mp_tac
+      \\ qpat_x_assum`_ ⇒ _`kall_tac
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
       \\ impl_keep_tac
       >- ( fs[] \\ metis_tac[code_includes_subg] )
       \\ strip_tac \\ fs[]
@@ -2582,7 +2582,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ Cases_on`ev1 = []`
       \\ imp_res_tac evaluate_length_imp \\ rfs[]
       \\ fs[evaluate_app_rw]
-      \\ qpat_assum`_ = (res,_)`mp_tac
+      \\ qpat_x_assum`_ = (res,_)`mp_tac
       \\ BasicProvers.TOP_CASE_TAC \\ fs[]
       \\ strip_tac
       \\ drule (GEN_ALL dest_closure_v_rel_lookup)
@@ -2607,19 +2607,19 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ rpt(first_x_assum drule)
         \\ simp[] )
       \\ rfs[]
-      \\ qpat_assum`code_includes (SND g) _`assume_tac
+      \\ qpat_x_assum`code_includes (SND g) _`assume_tac
       \\ drule (GEN_ALL code_includes_ALOOKUP)
       \\ disch_then drule \\ strip_tac
       \\ `t.code = t0.code` by (imp_res_tac evaluate_const \\ fs[])
       \\ first_x_assum drule
       \\ disch_then drule
-      \\ qpat_assum`state_rel g1 l1 r t`assume_tac
+      \\ qpat_x_assum`state_rel g1 l1 r t`assume_tac
       \\ disch_then drule
       \\ strip_tac
       \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
       \\ Cases_on`ev2 = []` \\ fs[]
       \\ fs[evaluate_app_rw]
-      \\ qpat_assum`_ = (_,_)`mp_tac
+      \\ qpat_x_assum`_ = (_,_)`mp_tac
       \\ imp_res_tac state_rel_clock \\ fs[]
       \\ imp_res_tac state_rel_max_app \\ fs[]
       \\ IF_CASES_TAC \\ fs[]
@@ -2644,15 +2644,15 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[NOT_LESS_EQUAL]
       \\ strip_tac
       \\ fs[dec_clock_def,TAKE_APPEND1]
-      \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck''`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck''` \\ simp[]
-      \\ qpat_assum`_ _  _ = (_,_)`mp_tac
+      \\ qpat_x_assum`_ _  _ = (_,_)`mp_tac
       \\ BasicProvers.TOP_CASE_TAC \\ fs[]
       \\ BasicProvers.TOP_CASE_TAC \\ fs[]
       \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
       \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ qpat_assum`_ ⇒ _`mp_tac
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
     \\ impl_tac
     >- (
       imp_res_tac evaluate_const \\ fs[]
@@ -2670,13 +2670,13 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ `code_includes (SND g') t0.code` by metis_tac[code_includes_subg]
       \\ fs[] \\ rfs[]
       \\ imp_res_tac evaluate_const \\ fs[]
-      \\ qpat_assum`_ ⇒ _`mp_tac
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
       \\ impl_tac
       >- (
         fsrw_tac[ETA_ss][env_rel_def,fv1_thm,EXISTS_MAP]
         \\ metis_tac[] )
       \\ strip_tac \\ fs[]
-      \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[])
     \\ strip_tac \\ fs[]
@@ -2692,7 +2692,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `code_includes (SND g') t0.code` by metis_tac[code_includes_subg]
     \\ fs[]
     \\ imp_res_tac evaluate_const \\ fs[]
-    \\ qpat_assum`_ ⇒ _`mp_tac
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
     \\ impl_keep_tac
     >- (
       fsrw_tac[ETA_ss][env_rel_def,fv1_thm]
@@ -2706,7 +2706,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qmatch_assum_rename_tac`LIST_REL (v_rel g1 l1) ev1 ev2`
     \\ Cases_on`ev1 = []` \\ fs[]
     \\ fs[evaluate_app_rw]
-    \\ qpat_assum`_ = (res,_)`mp_tac
+    \\ qpat_x_assum`_ = (res,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ drule (GEN_ALL dest_closure_v_rel_lookup)
     \\ disch_then drule
@@ -2715,7 +2715,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ strip_tac \\ fs[]
     \\ Cases_on`ev2 = []` \\ fs[]
     \\ fs[evaluate_app_rw]
-    \\ qpat_assum`_ _ _ _ = (_,_)`mp_tac
+    \\ qpat_x_assum`_ _ _ _ = (_,_)`mp_tac
     \\ imp_res_tac state_rel_clock \\ fs[]
     \\ imp_res_tac state_rel_max_app \\ fs[]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
@@ -2738,7 +2738,7 @@ val calls_correct = Q.store_thm("calls_correct",
     >- (
       strip_tac \\ rveq
       \\ strip_tac \\ rveq
-      \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[find_code_def])
     \\ simp[Once dec_clock_def]
@@ -2751,7 +2751,7 @@ val calls_correct = Q.store_thm("calls_correct",
       fs[] \\ strip_tac \\ rveq \\ fs[]
       \\ `t'.clock = LENGTH ev2 - ck''` by decide_tac
       \\ fs[] \\ strip_tac
-      \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[])
     \\ fs[NOT_LESS,NOT_LESS_EQUAL]
@@ -2760,20 +2760,20 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ IF_CASES_TAC \\ fs[]
     >- (
       strip_tac \\ rveq \\ fs[]
-      \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[]
       \\ match_mp_tac state_rel_with_clock
       \\ metis_tac[state_rel_subg] )
     \\ fs[NOT_LESS]
     \\ strip_tac
-    \\ qpat_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+    \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
     \\ disch_then(qspec_then`ck''+ck'`mp_tac) \\ simp[] \\ strip_tac
     \\ qexists_tac`ck+ck'+ck''` \\ simp[]
-    \\ qpat_assum`evaluate([_],env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
+    \\ qpat_x_assum`evaluate([_],env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
     \\ disch_then(qspec_then`ck''`mp_tac) \\ simp[] \\ strip_tac
     \\ simp[TAKE_APPEND1]
-    \\ qpat_assum`_ _ _ = (_,t'')`mp_tac
+    \\ qpat_x_assum`_ _ _ = (_,t'')`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -2798,7 +2798,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ strip_tac \\ fs []
     \\ fs [PUSH_EXISTS_IMP,GSYM PULL_EXISTS] \\ rw [] \\ fs []
     \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs []) \\ fs []
-    \\ qpat_assum `_ ==> _` mp_tac
+    \\ qpat_x_assum `_ ==> _` mp_tac
     \\ impl_tac THEN1
      (fs [state_rel_def,env_rel_def]
       \\ IF_CASES_TAC \\ fs [] \\ fs []
@@ -2810,14 +2810,14 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [evaluate_def]
     \\ qexists_tac `ck` \\ fs [dec_clock_def]
     \\ `ck + s.clock − 1 = ck + (s.clock − 1)` by decide_tac
-    \\ qpat_assum `_ = (_,_)` mp_tac
+    \\ qpat_x_assum `_ = (_,_)` mp_tac
     \\ pop_assum (fn th => simp_tac std_ss [th])
     \\ fs [])
   (* Call *)
   \\ conj_tac >- (
     rw[evaluate_def,calls_def,code_locs_def,ALL_DISTINCT_APPEND]
     \\ pairarg_tac \\ fs[]
-    \\ qpat_assum`_ = (res,s)`mp_tac
+    \\ qpat_x_assum`_ = (res,s)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rveq \\ fs[]
     \\ `r.code = FEMPTY`
@@ -2875,7 +2875,7 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ fs[PULL_EXISTS]
   \\ rpt gen_tac \\ strip_tac
   \\ simp[RIGHT_EXISTS_AND_THM,RIGHT_EXISTS_IMP_THM]
-  \\ qpat_assum`_ = (res,_)`mp_tac
+  \\ qpat_x_assum`_ = (res,_)`mp_tac
   \\ IF_CASES_TAC
   >- (
     simp[] \\ strip_tac \\ rveq \\ fs[]
@@ -2959,7 +2959,7 @@ val calls_correct = Q.store_thm("calls_correct",
           \\ conj_tac
           >- (
             fs[wfg_def]
-            \\ qpat_assum`_ = IMAGE SUC (domain (FST g0))`(assume_tac o SYM)
+            \\ qpat_x_assum`_ = IMAGE SUC (domain (FST g0))`(assume_tac o SYM)
             \\ fs[]
             \\ fs[IN_DISJOINT,MEM_GENLIST,MEM_MAP] )
           \\ conj_tac
@@ -2969,12 +2969,12 @@ val calls_correct = Q.store_thm("calls_correct",
               match_mp_tac calls_ALL_DISTINCT
               \\ asm_exists_tac \\ fs[]
               \\ fs[wfg_def,ALL_DISTINCT_APPEND,code_locs_map]
-              \\ qpat_assum`_ = IMAGE SUC (domain (FST g0))`(assume_tac o SYM)
+              \\ qpat_x_assum`_ = IMAGE SUC (domain (FST g0))`(assume_tac o SYM)
               \\ fs[] \\ fs[IN_DISJOINT,MEM_MAP,MEM_FLAT,PULL_EXISTS] )
             \\ rfs[ALL_DISTINCT_APPEND,wfg_def]
             \\ simp[IN_DISJOINT]
             \\ metis_tac[] )
-          \\ qpat_assum`subg _ g1` mp_tac
+          \\ qpat_x_assum`subg _ g1` mp_tac
           \\ rw[subg_def,SND_code_list_ZIP]
           \\ first_x_assum match_mp_tac
           \\ simp[ALOOKUP_APPEND]
@@ -3036,7 +3036,7 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ rpt (disch_then drule)
   \\ strip_tac
   \\ simp[evaluate_app_rw]
-  \\ qpat_assum`_ = (res,_)`mp_tac
+  \\ qpat_x_assum`_ = (res,_)`mp_tac
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ imp_res_tac evaluate_length_imp
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
@@ -3112,7 +3112,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ imp_res_tac calls_length \\ fs[]
     \\ simp[EL_ZIP]
     \\ fs[dec_clock_def]
-    \\ qpat_assum`_ ⇒ _`mp_tac
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
     \\ impl_tac
     >- (
       qhdtm_x_assum`env_rel`mp_tac
@@ -3139,7 +3139,7 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ simp[find_code_def]
   \\ `n ≤ LENGTH args2`
   by (
-    qpat_assum`_ ≤ LENGTH args2`mp_tac
+    qpat_x_assum`_ ≤ LENGTH args2`mp_tac
     \\ IF_CASES_TAC \\ fs[] )
   \\ simp[EVAL``(closSem$dec_clock _ _).code``]
   \\ qmatch_assum_abbrev_tac`subg gd g1`
@@ -3158,7 +3158,7 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ simp[EL_ZIP,EL_MAP]
   \\ strip_tac
   \\ simp[dec_clock_def]
-  \\ qpat_assum`calls _ _ = (es,_)`assume_tac
+  \\ qpat_x_assum`calls _ _ = (es,_)`assume_tac
   \\ drule calls_replace_SND
   \\ disch_then(qspec_then`insert_each' (SND g1) loc (LENGTH fns1) g0`mp_tac)
   \\ simp[FST_insert_each']
@@ -3204,7 +3204,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ conj_tac
       >- (
         fs[wfg_def]
-        \\ qpat_assum`_ = IMAGE SUC (domain (FST g0))`(assume_tac o SYM)
+        \\ qpat_x_assum`_ = IMAGE SUC (domain (FST g0))`(assume_tac o SYM)
         \\ fs[]
         \\ fs[IN_DISJOINT,MEM_GENLIST,MEM_MAP] )
       \\ conj_tac
@@ -3217,7 +3217,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ rfs[ALL_DISTINCT_APPEND,wfg_def]
         \\ simp[IN_DISJOINT]
         \\ metis_tac[] )
-      \\ qpat_assum`subg _ g1` mp_tac
+      \\ qpat_x_assum`subg _ g1` mp_tac
       \\ rw[subg_def,SND_code_list_ZIP]
       \\ first_x_assum match_mp_tac
       \\ simp[ALOOKUP_APPEND]
@@ -3262,7 +3262,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs[dec_clock_def]
     \\ conj_tac
     >- ( match_mp_tac state_rel_with_clock \\ fs[] )
-    \\ qpat_assum `code_includes _ _` mp_tac
+    \\ qpat_x_assum `code_includes _ _` mp_tac
     \\ match_mp_tac code_includes_subg
     \\ match_mp_tac subg_trans
     \\ asm_exists_tac \\ fs []
@@ -3281,7 +3281,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rfs[ALL_DISTINCT_APPEND,wfg_def]
       \\ simp[IN_DISJOINT]
       \\ metis_tac[] )
-    \\ qpat_assum`subg _ g1` mp_tac
+    \\ qpat_x_assum`subg _ g1` mp_tac
     \\ rw[subg_def,SND_code_list_ZIP]
     \\ first_x_assum match_mp_tac
     \\ simp[ALOOKUP_APPEND]
@@ -3363,7 +3363,7 @@ val calls_code_locs_MEM = Q.store_thm("calls_code_locs_MEM",
   rpt var_eq_tac>>fs[code_locs_def,code_locs_append]>>
   imp_res_tac calls_sing>>fs[]>>
   TRY(metis_tac[])>>
-  qpat_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
+  qpat_x_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
   rw[]>>rpt(var_eq_tac)>>
   fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_calls_list]>>
   TRY(metis_tac[])>>
@@ -3385,7 +3385,7 @@ val calls_code_locs_ALL_DISTINCT = Q.store_thm("calls_code_locs_ALL_DISTINCT",
   imp_res_tac calls_sing>>fs[]>>
   imp_res_tac calls_code_locs_MEM>>
   fs[]>>TRY(metis_tac[])>>
-  qpat_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
+  qpat_x_assum`A=(ys,g)` mp_tac>> rpt(IF_CASES_TAC>>fs[])>>
   rw[]>>rpt(var_eq_tac)>>
   fs[code_locs_def,code_locs_append,Once code_locs_cons,code_locs_calls_list,ALL_DISTINCT_APPEND,code_locs_code_list_ALL_DISTINCT,code_locs_code_list_MEM]>>
   imp_res_tac calls_length>>fs[MAP_ZIP]>>
@@ -3506,7 +3506,7 @@ val calls_preserves_every_Fn_SOME = Q.store_thm("calls_preserves_every_Fn_SOME",
   rpt strip_tac>>
   fs[calls_def]>>
   rpt (pairarg_tac>>fs[])>>
-  TRY(qpat_assum`A=(ys,g)` mp_tac>> every_case_tac>>fs[]>>strip_tac)>>
+  TRY(qpat_x_assum`A=(ys,g)` mp_tac>> every_case_tac>>fs[]>>strip_tac)>>
   rveq>>simp[]>>
   imp_res_tac calls_sing>>fs[every_Fn_GENLIST_Var,every_Fn_code_list,every_Fn_calls_list]>>
   simp[Once every_Fn_SOME_EVERY]>>
@@ -3523,7 +3523,7 @@ val calls_preserves_every_Fn_vs_NONE = Q.store_thm("calls_preserves_every_Fn_vs_
   rpt strip_tac>>
   fs[calls_def]>>
   rpt (pairarg_tac>>fs[])>>
-  TRY(qpat_assum`A=(ys,g)` mp_tac>> every_case_tac>>fs[]>>strip_tac)>>
+  TRY(qpat_x_assum`A=(ys,g)` mp_tac>> every_case_tac>>fs[]>>strip_tac)>>
   rveq>>simp[]>>
   imp_res_tac calls_sing>>fs[every_Fn_GENLIST_Var,every_Fn_code_list,every_Fn_calls_list]>>
   simp[Once every_Fn_vs_NONE_EVERY]>>

@@ -66,12 +66,12 @@ val has_lists_v_to_list = Q.prove (
  full_simp_tac(srw_ss())[flookup_fupdate_list] >> srw_tac[][] >> full_simp_tac(srw_ss())[GSYM Tchar_def] >>
  simp [GSYM PULL_EXISTS] >>
  rw [] >>
- qpat_assum`type_v _ _ _ v Tchar`mp_tac >>
+ qpat_x_assum`type_v _ _ _ v Tchar`mp_tac >>
  simp[Once type_v_cases,Tchar_def] >>
  srw_tac[][] >> srw_tac[][v_to_char_list_def] >>
  TRY (
    full_simp_tac(srw_ss())[tid_exn_to_tc_def] >>
-   qpat_assum`TC_char = X`mp_tac >>
+   qpat_x_assum`TC_char = X`mp_tac >>
    BasicProvers.CASE_TAC ) >>
  imp_res_tac type_funs_Tfn >> full_simp_tac(srw_ss())[]);
 
@@ -149,7 +149,7 @@ val eq_same_type = Q.prove (
      srw_tac[][] >>
      full_simp_tac(srw_ss())[] >>
      metis_tac [])
- >- (rpt (qpat_assum `type_v x0 x1 x2 x3 x4` mp_tac) >>
+ >- (rpt (qpat_x_assum `type_v x0 x1 x2 x3 x4` mp_tac) >>
      ONCE_REWRITE_TAC [type_v_cases] >>
      srw_tac[][] >>
      ONCE_REWRITE_TAC [type_v_cases] >>
@@ -163,7 +163,7 @@ val eq_same_type = Q.prove (
      full_simp_tac(srw_ss())[]
      >- (cases_on `b` >>
          full_simp_tac(srw_ss())[] >>
-         qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `ctMap`, `tenvS`, `ys`]) >>
+         qpat_x_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `ctMap`, `tenvS`, `ys`]) >>
          srw_tac[][METIS_PROVE [] ``(a ∨ b) = (~a ⇒ b)``] >>
          cases_on `vs1` >>
          rw [] >>
@@ -242,7 +242,7 @@ val type_env_merge_lem2 = Q.prove (
  cases_on `tenv'` >>
  full_simp_tac(srw_ss())[bind_var_list_def] >>
  srw_tac[][type_env2_def] >>
- qpat_assum `type_env x0 x1 x2 x3` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+ qpat_x_assum `type_env x0 x1 x2 x3` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  PairCases_on `h` >>
  PairCases_on `h'` >>
  srw_tac[][type_env2_def] >>
@@ -343,7 +343,7 @@ val v_to_list_type = Q.prove (
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+ qpat_x_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
  srw_tac[][] >>
  srw_tac[][Once type_v_cases_eqn] >>
  res_tac >>
@@ -383,7 +383,7 @@ val v_to_char_list_type = Q.prove (
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+ qpat_x_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
  srw_tac[][] >>
  srw_tac[][Once type_v_cases_eqn]);
 
@@ -412,7 +412,7 @@ val opapp_type_sound = Q.store_thm ("opapp_type_sound",
  >> rw [do_opapp_def]
  >- (
    rename1 `type_v _ _ _ (Closure env n e) _`
-   >> qpat_assum `type_v _ _ _ (Closure env n e) _` mp_tac
+   >> qpat_x_assum `type_v _ _ _ (Closure env n e) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
    >> qexists_tac `(tenv with v := Bind_name n 0 t2 (bind_tvar 0 tenv.v))`
@@ -421,7 +421,7 @@ val opapp_type_sound = Q.store_thm ("opapp_type_sound",
    >> simp [Once type_v_cases, bind_tvar_def])
  >- (
    rename1 `type_v _ _ _ (Recclosure env funs n) _`
-   >> qpat_assum `type_v _ _ _ (Recclosure env funs n) _` mp_tac
+   >> qpat_x_assum `type_v _ _ _ (Recclosure env funs n) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
    >> imp_res_tac type_funs_find_recfun
@@ -2467,7 +2467,7 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   \\ simp[Once type_v_cases]
   \\ simp[Once type_v_cases]
   \\ qexists_tac`prim_tdecs`
-  \\ simp[initSemEnvTheory.prim_tdecs_def]
+  \\ simp[primSemEnvTheory.prim_tdecs_def]
   \\ qexists_tac`([],[
        ("false",[],[],TypeId(Short"bool"));
        ("true",[],[],TypeId(Short"bool"));

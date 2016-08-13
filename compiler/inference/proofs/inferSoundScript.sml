@@ -304,7 +304,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           >>
           rw[]>>
           imp_res_tac ALOOKUP_MEM>>
-          qpat_assum `A=tenv_add_tvs B C` sym_sub_tac >>
+          qpat_x_assum `A=tenv_add_tvs B C` sym_sub_tac >>
           fs[convert_env2_def,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF]>>
           fs[MEM_MAP,PULL_EXISTS]>>
           fs[simp_tenv_invC_def,tenv_add_tvs_def,MEM_MAP,EXISTS_PROD]>>
@@ -385,7 +385,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        qexists_tac`MAP convert_t subst'`>>fs[]>>
        `check_t (num_tvs tenv_v') {} (infer_subst s' (t_walkstar s t'))`
          by
-         (qpat_assum `A = infer_subst B C` sym_sub_tac>>
+         (qpat_x_assum `A = infer_subst B C` sym_sub_tac>>
         (check_t_less |> CONJUNCT1 |> Q.GENL[`s`,`uvars`,`n`]
       |> Q.SPECL[`num_tvs tenv_v'`,`count (st'''':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
       |> mp_tac)>>simp[]>>
@@ -408,7 +408,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        imp_res_tac deBruijn_subst_convert>>
        pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
        `r = convert_t (t_walkstar s'' t')` by
-         (qpat_assum`unconvert_t r = A`(assume_tac o Q.AP_TERM `convert_t`)>>
+         (qpat_x_assum`unconvert_t r = A`(assume_tac o Q.AP_TERM `convert_t`)>>
          metis_tac[check_freevars_empty_convert_unconvert_id])>>
        fs[]>>AP_TERM_TAC>>
        Q.ISPECL_THEN [`s''`,`s'`,`subst'`,`tvs'`,`count st''''.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
@@ -548,7 +548,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
                      pure_add_constraints_wfs, sub_completion_apply])
       >>
       (*Proof of generalization*)
-      ntac 4 (qpat_assum`∀ts s2. P ts s2`kall_tac) >>
+      ntac 4 (qpat_x_assum`∀ts s2. P ts s2`kall_tac) >>
           rw[weakE_def] >>
           Cases_on`ALOOKUP (tenv_add_tvs tvs' bindings') x`>>fs[]>>
           Cases_on`x'`>>fs[]>>
@@ -623,7 +623,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        qexists_tac`MAP convert_t subst'`>>fs[]>>
        `check_t (num_tvs tenv_v'') {} (infer_subst s (t_walkstar st'.subst (Infer_Tuvar n)))`
          by
-         (qpat_assum `A = infer_subst B C` sym_sub_tac>>
+         (qpat_x_assum `A = infer_subst B C` sym_sub_tac>>
         (check_t_less |> CONJUNCT1 |> Q.GENL[`s`,`uvars`,`n`]
       |> Q.SPECL[`num_tvs tenv_v''`,`count (st':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
       |> mp_tac)>>simp[]>>
@@ -650,8 +650,8 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        `r = convert_t (t_walkstar s' (Infer_Tuvar n))` by
          (
          `r = EL n (MAP SND bindings')` by (
-           qpat_assum`MEM X bindings'`mp_tac >>
-           qpat_assum`X = EL n Y`mp_tac >>
+           qpat_x_assum`MEM X bindings'`mp_tac >>
+           qpat_x_assum`X = EL n Y`mp_tac >>
            rator_x_assum`ALL_DISTINCT`mp_tac >>
            imp_res_tac type_funs_MAP_FST >>
            pop_assum kall_tac >> pop_assum mp_tac >>
@@ -672,7 +672,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
          `t_walkstar st'.subst (EL n funs_ts) =
           t_walkstar st'.subst (Infer_Tuvar n)` by
            (fs[MAP_ZIP]>>
-           qpat_assum`MAP (t_walkstar E) B = MAP C D` mp_tac>>
+           qpat_x_assum`MAP (t_walkstar E) B = MAP C D` mp_tac>>
            simp[LIST_EQ_REWRITE,EL_MAP])>>
           metis_tac[])>>
        fs[]>>AP_TERM_TAC>>
@@ -939,7 +939,7 @@ Induct_on`anub tenvC2 acc` >>
 rw[] >- (
   last_x_assum(strip_assume_tac o SYM) >>
   rw[flat_weakC_def] ) >>
-qpat_assum`X = Y`(assume_tac o SYM) >>
+qpat_x_assum`X = Y`(assume_tac o SYM) >>
 imp_res_tac anub_tl_anub >> rw[] >>
 fs [check_flat_weakC_def, flat_weakC_def, success_eqns] >>
 rw [] >>

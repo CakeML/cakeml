@@ -272,11 +272,11 @@ val ML_code_def = Define `
 local
   val init_env_tm =
     ``SND (THE (prim_sem_env (ARB:unit ffi_state)))``
-    |> SIMP_CONV std_ss [initSemEnvTheory.prim_sem_env_eq]
+    |> SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq]
     |> concl |> rand
   val init_state_tm =
     ``FST(THE (prim_sem_env (ffi:'ffi ffi_state)))``
-    |> SIMP_CONV std_ss [initSemEnvTheory.prim_sem_env_eq]
+    |> SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq]
     |> concl |> rand
 in
   val init_env_def = Define `

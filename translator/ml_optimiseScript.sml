@@ -76,7 +76,7 @@ val do_log_IMP_3 = prove(
     !e3. (do_log op v e3 = SOME (Val x))``,
   fs [do_log_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
-val s = ``s:'ffi state``
+val s = ``s:'ffi semanticPrimitives$state``
 
 val map_sing_lemma = Q.prove (
 `[f x] = MAP f [x]`,

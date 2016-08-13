@@ -4,7 +4,7 @@ open semanticPrimitivesTheory bigStepTheory interpTheory
 
   val add_interp_compset = computeLib.extend_compset
     [computeLib.Extenders [semanticsComputeLib.add_ast_compset]
-    ,computeLib.Tys [``:'ffi state``]
+    ,computeLib.Tys [``:'ffi semanticPrimitives$state``]
     ,computeLib.Defs
       [run_eval_def
       ,run_eval_dec_def

@@ -1,8 +1,11 @@
 open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
 open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
+open cfTacticsBaseLib
 
 val _ = new_theory "cfApp"
+
+val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (*------------------------------------------------------------------*)
 (** App: [app] is used to give a specification for the application of
@@ -110,5 +113,28 @@ that [P] is a valid specification for [f]. Useful for conciseness and
 tactics. *)
 val spec_def = Define `
   spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)`
+
+(*------------------------------------------------------------------*)
+(* Relating [app] to [_ --> _] from the translator *)
+
+val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
+  ``(a --> b) f v ==>
+    !x v1.
+      a x v1 ==>
+      app_basic (p:'ffi ffi_proj) v v1 emp ((&) o b (f x))``,
+  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
+      ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
+      ml_translatorTheory.evaluate_closure_def,PULL_EXISTS]
+  \\ rw [] \\ res_tac \\ instantiate
+  \\ drule ml_translatorTheory.evaluate_empty_state_IMP
+  \\ disch_then (qspec_then `st` assume_tac)
+  \\ instantiate \\ fs [cond_def]
+  \\ qexists_tac `{}` \\ SPLIT_TAC);
+
+val app_basic_weaken = store_thm("app_basic_weaken",
+  ``(!x v. P x v ==> Q x v) ==>
+    (app_basic p v v1 x P ==>
+     app_basic p v v1 x Q)``,
+  fs [app_basic_def] \\ metis_tac []);
 
 val _ = export_theory ()
