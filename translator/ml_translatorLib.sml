@@ -902,6 +902,8 @@ fun define_ref_inv is_exn_type tys = let
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ TRY (primCases_on x2)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
+        \\ (* Tries to get rid of obvious equality type *)
+        TRY (simp[ctor_same_type_def] \\ metis_tac[EqualityType_NUM_BOOL])
         \\ EVAL_TAC
         \\ REPEAT STRIP_TAC
         \\ rpt var_eq_tac \\ every_case_tac \\ EVAL_TAC

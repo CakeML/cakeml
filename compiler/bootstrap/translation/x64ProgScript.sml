@@ -59,7 +59,7 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
-val _ = translate x64_config_def
+val _ = register_type``:64 asm_config``
 
 val word_bit_thm = Q.prove(
   `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
@@ -119,5 +119,7 @@ val total_num2zreg_side = prove(``
 val x64_enc_side = prove(``
   ∀x. x64_enc_side x ⇔ T``,
   simp[fetch "-" "x64_enc_side_def",total_num2zreg_side]) |> update_precondition
+
+val _ = translate x64_config_def
 
 val _ = export_theory();
