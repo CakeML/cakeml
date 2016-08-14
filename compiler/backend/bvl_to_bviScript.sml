@@ -59,6 +59,8 @@ val CopyGlobals_location_def = Define`
   CopyGlobals_location = AllocGlobal_location+1`;
 val InitGlobals_location_def = Define`
   InitGlobals_location = CopyGlobals_location+1`;
+val ListLength_location_def = Define`
+  ListLength_location = InitGlobals_location+1`;
 
 val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
   ``AllocGlobal_location`` |> EVAL);
@@ -66,6 +68,8 @@ val CopyGlobals_location_eq = save_thm("CopyGlobals_location_eq",
   ``CopyGlobals_location`` |> EVAL);
 val InitGlobals_location_eq = save_thm("InitGlobals_location_eq",
   ``InitGlobals_location`` |> EVAL);
+val ListLength_location_eq = save_thm("ListLength_location_eq",
+  ``ListLength_location`` |> EVAL);
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -74,7 +78,7 @@ val AllocGlobal_code_def = Define`
        (Let [Op Update [Op Add [Var 0; Op(Const 1)[]]; Op (Const 0) []; Var 1]]
          (Let [Op Length [Var 2]]
            (If (Op Less [Var 0; Var 2]) (Var 1)
-               (Let [Op RefArray [Op (Const 0) []; Op Mult [Var 0; Op (Const 2) []]]]
+               (Let [Op RefArray [Op (Const 0) []; Op Add [Var 0; Var 0]]]
                  (Let [Op SetGlobalsPtr [Var 0]]
                    (Call 0 (SOME CopyGlobals_location) [Var 1; Var 5; Op Sub [Op (Const 1) []; Var 4]] NONE))))))))`;
 
@@ -84,20 +88,32 @@ val CopyGlobals_code_def = Define`
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
+val InitGlobals_max_def = Define`
+  InitGlobals_max = 10000n`;
+
 val InitGlobals_code_def = Define`
   InitGlobals_code start n = (0:num,
-    Let [Op SetGlobalsPtr
-          [Op Ref ((REPLICATE n (Op (Const 0) [])) ++
-                   [Op (Const 1) []])]]
-     (Call 0 (SOME start) [] (SOME (Var 0))))`;
+    let n = MIN (MAX n 1) InitGlobals_max in
+      Let [Op RefArray [Op (Const 0) []; Op (Const (&n)) []]]
+        (Let [Op Update [Op (Const (&n)) []; Op (Const 0) []; Var 0]]
+          (Let [Op SetGlobalsPtr [Var 1]]
+             (Call 0 (SOME start) [] (SOME (Var 0))))))`;
+
+val ListLength_code_def = Define `
+  ListLength_code = (2n, (* ptr to array, accumulated length *)
+    If (Op (TagLenEq nil_tag 0) [Var 0])
+      (Var 1) (Call 0 (SOME ListLength_location)
+                [Op El [Op (Const 1) []; Var 0];
+                 Op Add [Var 1; Op (Const 1) []]] NONE))`
 
 val stubs_def = Define `
   stubs start n = [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
-                   (InitGlobals_location, InitGlobals_code start n)]`;
+                   (InitGlobals_location, InitGlobals_code start n);
+                   (ListLength_location, ListLength_code)]`;
 
 val num_stubs_def = Define`
-  num_stubs = dataLang$num_stubs + 3`;
+  num_stubs = dataLang$num_stubs + 4`;
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -109,6 +125,10 @@ val compile_op_def = Define `
     | AllocGlobal =>
         (case c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
+    | (FromList n) => Let (if NULL c1 then [Op (Const 0) []] else c1)
+                        (Op (FromList n)
+                        [Var 0; Call 0 (SOME ListLength_location)
+                                   [Var 0; Op (Const 0) []] NONE])
     | _ => Op op c1`
 
 val _ = temp_overload_on("++",``SmartAppend``);
