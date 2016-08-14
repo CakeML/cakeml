@@ -2,7 +2,11 @@
 
 cd $(dirname "$0")/..
 
-tmpfile=/tmp/vml-build-email.txt
+if test -n "$1" -a "$1" = "--bamboo"; then
+  tmpfile="${bamboo.build.working.directory}/vml-build-email.txt"
+else
+  tmpfile=/tmp/vml-build-email.txt
+fi
 
 to='builds@cakeml.org'
 
