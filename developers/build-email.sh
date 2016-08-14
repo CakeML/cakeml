@@ -2,7 +2,7 @@
 
 cd $(dirname "$0")/..
 
-tmpdir={$1:-/tmp}
+tmpdir=${1:-"/tmp"}
 tmpfile="$tmpdir/vml-build-email.txt"
 
 to='builds@cakeml.org'
