@@ -935,7 +935,7 @@ val lassoc_reassociated = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >> simp[MAP_EQ_SING] >>
   qx_gen_tac `subs` >> strip_tac >> simp[MAP_EQ_CONS] >>
   reverse (rpt strip_tac) >> rveq >> fs[]
-  >- (qpat_assum `!x. PP x` kall_tac >>
+  >- (qpat_x_assum `!x. PP x` kall_tac >>
       asm_match `ptree_fringe c0pt = MAP TOK pf` >>
       map_every qexists_tac [`c0pt`, `spt`, `Nd P [cpt]`] >>
       simp[left_insert_def]) >>
@@ -1062,7 +1062,7 @@ val nE'_bar_nE = store_thm(
         HD i' ≠ BarT``,
   gen_tac >> completeInduct_on `LENGTH i0` >> rpt strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >> rw[] >>
-  rpt (qpat_assum `peg_eval X Y Z` mp_tac) >>
+  rpt (qpat_x_assum `peg_eval X Y Z` mp_tac) >>
   simp[peg_eval_NT_SOME] >>
   simp_tac std_ss [cmlpeg_rules_applied] >>
   simp_tac std_ss [Once peg_eval_choicel_CONS] >> strip_tac
@@ -1076,7 +1076,7 @@ val nE'_bar_nE = store_thm(
       simp[elim_disjineq] >> rpt strip_tac >> rw[] >>
       fs[eOR_wrongtok]) >>
   first_x_assum (assume_tac o MATCH_MP peg_seql_NONE_det) >>
-  qpat_assum `peg_eval cmlPEG X Y` mp_tac >>
+  qpat_x_assum `peg_eval cmlPEG X Y` mp_tac >>
   simp_tac std_ss [Once peg_eval_choicel_CONS, pegf_def, peg_eval_seq_SOME,
                    peg_eval_empty, peg_eval_seq_NONE, pnt_def] >>
   strip_tac
@@ -1425,7 +1425,7 @@ val dtype_complete = store_thm(
       simp[left_insert2_def, left_insert2_FOLDL] >>
       simp[Once peg_eval_cases] >>
       qexists_tac `ii` >> simp[] >>
-      qpat_assum `peg_eval X Y Z` mp_tac >>
+      qpat_x_assum `peg_eval X Y Z` mp_tac >>
       simp[SimpL ``(==>)``, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Tbase) >>
       simp[] >> strip_tac >> fs[cmlG_FDOM, cmlG_applied] >>

@@ -12,7 +12,7 @@ open preamble
      word_to_stackTheory
      stack_to_labTheory
      lab_to_targetTheory
-local open initialProgramTheory in end
+local open primTypesTheory in end
 open word_to_wordTheory
 
 val _ = new_theory"backend";
@@ -28,6 +28,8 @@ val _ = Datatype`config =
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
    |>`;
+
+val config_component_equality = theorem"config_component_equality";
 
 val compile_def = Define`
   compile c p =
@@ -258,7 +260,7 @@ val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
   let (c',p) = to_data c p in
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
-  let p = stubs(:α) ++ MAP (compile_part data_conf) p in
+  let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
@@ -320,12 +322,12 @@ val compile_oracle = store_thm("compile_oracle",``
   fs[next_n_oracle_def]>>
   rveq>>fs[]>>
   match_mp_tac LIST_EQ>>
-  qmatch_goalsub_abbrev_tac`data_to_word$stubs _ ++ p2`
-  \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs _)`
+  qmatch_goalsub_abbrev_tac`data_to_word$stubs _ _ ++ p2`
+  \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs _ _)`
   \\ REWRITE_TAC[GSYM MAP_APPEND]
   \\ qpat_abbrev_tac`pp = _ ++ p2`
   \\ simp[MAP_MAP_o]
-  \\ qpat_abbrev_tac`len = _ + LENGTH (data_to_word$stubs _)`
+  \\ qpat_abbrev_tac`len = _ + LENGTH (data_to_word$stubs _ _)`
   \\ `len = LENGTH pp` by simp[Abbr`pp`,Abbr`p2`]
   \\ qunabbrev_tac`len` \\ fs[] >>
   rw[]>>fs[EL_MAP,EL_ZIP,full_compile_single_def,compile_single_def,Abbr`f`]>>
@@ -350,5 +352,22 @@ val to_livesets_invariant = store_thm("to_livesets_invariant",``
      to_mod_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[]))
+
+val to_data_change_config = Q.store_thm("to_data_change_config",
+  `to_data c1 prog = (c1',prog') ⇒
+   c2.source_conf = c1.source_conf ∧
+   c2.mod_conf = c1.mod_conf ∧
+   c2.clos_conf = c1.clos_conf ∧
+   c2.bvl_conf = c1.bvl_conf
+   ⇒
+   to_data c2 prog =
+     (c2 with <| source_conf := c1'.source_conf;
+                 mod_conf := c1'.mod_conf;
+                 clos_conf := c1'.clos_conf;
+                 bvl_conf := c1'.bvl_conf |>,
+      prog')`,
+  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_exh_def,to_dec_def,to_con_def,to_mod_def]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
+  \\ simp[config_component_equality]);
 
 val _ = export_theory();

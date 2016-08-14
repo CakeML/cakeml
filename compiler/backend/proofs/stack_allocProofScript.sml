@@ -397,7 +397,7 @@ val shift_to_zero_word_msb = store_thm("shift_to_zero_word_msb",
   ``(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n``,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] []
   \\ CCONTR_TAC
-  \\ qpat_assum `!xx.bb` mp_tac
+  \\ qpat_x_assum `!xx.bb` mp_tac
   \\ fs [GSYM NOT_LESS]
   \\ qexists_tac `dimindex (:α) - 1 - n`
   \\ simp [])
@@ -518,7 +518,7 @@ val word_gc_move_bitmaps_unroll = prove(
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ qpat_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
+  \\ qpat_x_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
   \\ drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
   \\ `LENGTH x0 = LENGTH wl'` by (imp_res_tac word_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[])
   \\ disch_then drule
@@ -843,7 +843,7 @@ val word_gc_move_list_code_thm = store_thm("word_gc_move_list_code_thm",
     \\ full_simp_tac(srw_ss())[nine_less])
   \\ once_rewrite_tac [word_gc_move_list_def] \\ simp [LET_THM]
   \\ rpt strip_tac \\ simp [LET_THM]
-  \\ qpat_assum `_ = (a1,i1,pa1,m1,T)` mp_tac
+  \\ qpat_x_assum `_ = (a1,i1,pa1,m1,T)` mp_tac
   \\ `n2w (SUC n) + -1w = n2w n` by fs [ADD1,GSYM word_add_n2w]
   \\ pairarg_tac \\ simp []
   \\ pairarg_tac \\ simp []
@@ -919,7 +919,7 @@ val word_gc_move_loop_code_thm = prove(
                                               (7,r7);
                                               (8,Word pa2)] |>)``,
   strip_tac \\ completeInduct_on `k` \\ rpt strip_tac
-  \\ qpat_assum `word_gc_move_loop _ _ _ = _` mp_tac
+  \\ qpat_x_assum `word_gc_move_loop _ _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gc_move_loop_def]
   \\ IF_CASES_TAC THEN1
    (fs [] \\ rw [] \\ fs [] \\ rpt var_eq_tac
@@ -987,8 +987,8 @@ val word_gc_move_loop_code_thm = prove(
   \\ pop_assum mp_tac
   \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
   \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
-  \\ qpat_assum `Abbrev _` assume_tac
-  \\ fs [] \\ qpat_assum `_ = _` kall_tac
+  \\ qpat_x_assum `Abbrev _` assume_tac
+  \\ fs [] \\ qpat_x_assum `_ = _` kall_tac
   \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
@@ -1061,7 +1061,7 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
                                               (7,r7);
                       (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)``,
   recInduct bit_length_ind \\ rpt strip_tac \\ fs []
-  \\ qpat_assum `word_gc_move_bitmap _ _ = _` mp_tac
+  \\ qpat_x_assum `word_gc_move_bitmap _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gc_move_bitmap_unroll]
   \\ Cases_on `w = 0w` \\ fs [] THEN1
    (strip_tac \\ rpt var_eq_tac
@@ -1232,7 +1232,7 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
                                               (9,r9)] |>)``,
   ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
-  \\ qpat_assum `word_gc_move_bitmaps _ _ = _`
+  \\ qpat_x_assum `word_gc_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
   \\ drule (GEN_ALL word_gc_move_bitmaps_unroll) \\ fs []
   \\ CASE_TAC \\ fs []
@@ -1353,7 +1353,7 @@ val word_gc_move_roots_bitmaps_code_thm =
   completeInduct_on `LENGTH stack`
   \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rpt var_eq_tac \\ fs []
-  \\ qpat_assum `word_gc_move_roots_bitmaps _ _ = _`
+  \\ qpat_x_assum `word_gc_move_roots_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
   \\ drule (GEN_ALL word_gc_move_roots_bitmaps) \\ fs []
   \\ Cases_on `stack` \\ fs []
@@ -1523,7 +1523,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
     \\ unabbrev_all_tac \\ fs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM]
     \\ qpat_abbrev_tac `(s4:('a,'b)stackSem$state) = _`)
-  \\ qpat_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
+  \\ qpat_x_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
   \\ drule data_to_wordPropsTheory.LESS_EQ_LENGTH
   \\ strip_tac \\ fs []
   \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
@@ -1556,7 +1556,7 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
   \\ strip_tac \\ pop_assum mp_tac
   \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck''` mp_tac)
-  \\ qpat_assum `evaluate _ = _` kall_tac
+  \\ qpat_x_assum `evaluate _ = _` kall_tac
   \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck''` mp_tac)
   \\ rpt strip_tac \\ fs []
@@ -1568,8 +1568,8 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
   \\ fs [empty_env_def,state_component_equality]
   \\ rpt var_eq_tac \\ fs []
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-  \\ rpt (qpat_assum `evaluate _ = _` kall_tac)
-  \\ qpat_assum `_ = t.store` (fn th => fs [GSYM th])
+  \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
+  \\ qpat_x_assum `_ = t.store` (fn th => fs [GSYM th])
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
   \\ fs [fmap_EXT,EXTENSION]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
@@ -1715,7 +1715,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs[state_component_equality]
     \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
     \\ TRY (
-      qpat_assum`¬_`mp_tac \\ simp[]
+      qpat_x_assum`¬_`mp_tac \\ simp[]
       \\ match_mp_tac SUBMAP_mono_FUPDATE
       \\ rw[GSYM SUBMAP_DOMSUB_gen]
       \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
@@ -1739,14 +1739,14 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ full_simp_tac(srw_ss())[state_component_equality]
-    \\ qpat_assum`_ = t.regs`(assume_tac o SYM) \\ fs[]
+    \\ qpat_x_assum`_ = t.regs`(assume_tac o SYM) \\ fs[]
     \\ match_mp_tac SUBMAP_mono_FUPDATE
     \\ rw[GSYM SUBMAP_DOMSUB_gen]
     \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
   \\ conj_tac (* Set *) >- (
     fs[Once comp_def,evaluate_def,get_var_def,set_store_def]
     \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
-    \\ qpat_assum`_ = (_,_)`mp_tac
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rw[]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
     \\ full_simp_tac(srw_ss())[state_component_equality] )
@@ -1796,7 +1796,7 @@ val comp_correct = Q.store_thm("comp_correct",
     rpt strip_tac
     \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
-    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ qpat_x_assum`_ = (r,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -1818,7 +1818,7 @@ val comp_correct = Q.store_thm("comp_correct",
     rpt strip_tac
     \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
-    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ qpat_x_assum`_ = (r,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -1837,7 +1837,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ BasicProvers.TOP_CASE_TAC \\ fs[]
       \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] )
     \\ qmatch_assum_rename_tac`_ _ _ _ = SOME (Word w1)`
-    \\ qpat_assum`_ = _ (Word w1)`mp_tac
+    \\ qpat_x_assum`_ = _ (Word w1)`mp_tac
     \\ qmatch_assum_rename_tac`_ _ _ _ = SOME (Word w2)`
     \\ strip_tac
     \\ `w1 = w2`
@@ -1881,7 +1881,7 @@ val comp_correct = Q.store_thm("comp_correct",
   \\ conj_tac (* JumpLower *) >- (
     rpt strip_tac
     \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def] \\ simp [Once comp_def]
-    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ qpat_x_assum`_ = (r,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -2101,7 +2101,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       impl_tac >- metis_tac[] >>
       simp[comp_def] >>
       strip_tac >>
-      qpat_assum`_ ≠ SOME TimeOut`mp_tac >>
+      qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
       (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
       strip_tac >>
       drule (Q.GEN`extra`evaluate_add_clock) >>
@@ -2189,14 +2189,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
     simp[good_syntax_def,comp_def] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
-    qpat_assum`_ ≠ SOME TimeOut`mp_tac >>
+    qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
     (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> srw_tac[][] >>
     drule (GEN_ALL evaluate_add_clock) >>
     disch_then(qspec_then`ck`mp_tac)>>simp[] ) >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
   conj_tac >- (
     srw_tac[][] >>
-    qpat_assum`∀k t. _`(qspec_then`k`mp_tac) >>
+    qpat_x_assum`∀k t. _`(qspec_then`k`mp_tac) >>
     (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
     simp[] >>
     last_x_assum mp_tac >>
@@ -2323,7 +2323,7 @@ val stack_alloc_lab_pres = store_thm("stack_alloc_lab_pres",``
   >-
     (BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
     rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
-    qpat_assum`A<=nl` mp_tac>>
+    qpat_x_assum`A<=nl` mp_tac>>
     simp[Once next_lab_def]>>
     strip_tac>>
     fs[ALL_DISTINCT_APPEND]
@@ -2344,7 +2344,7 @@ val stack_alloc_lab_pres = store_thm("stack_alloc_lab_pres",``
   >>
   TRY
   (rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
-  qpat_assum`A<=nl` mp_tac>>
+  qpat_x_assum`A<=nl` mp_tac>>
   simp[Once next_lab_def])>>
   (strip_tac>>
   fs[ALL_DISTINCT_APPEND]>>rw[]

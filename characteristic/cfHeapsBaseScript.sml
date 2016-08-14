@@ -1,4 +1,5 @@
 open preamble set_sepTheory
+open cfTacticsBaseLib
 
 val _ = new_theory "cfHeapsBase"
 
@@ -11,18 +12,20 @@ val _ = Datatype `
       | Cons ffi ffi
       | Stream (num llist)`
 
-val _ = type_abbrev("loc", ``:num``) (* should be: temp_type_abbrev *)
+val _ = temp_type_abbrev("loc", ``:num``)
+
+val _ = temp_type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list # ffi) option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
-            | FFI_part num ffi (word8 list -> ffi -> (word8 list # ffi) option) (num list)`
+            | FFI_part ffi ffi_next (num list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
 
 val _ = type_abbrev("ffi_proj",
   ``: ('ffi -> (num |-> ffi)) #
-      ((num |-> ffi) -> 'ffi -> 'ffi)``)
+      ((num list # ffi_next) list)``)
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
@@ -79,12 +82,8 @@ val W8ARRAY_def = Define `
   W8ARRAY av wl =
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
 
-val IO_aux_def = Define `
-  (IO_aux [] s u ns = emp) /\
-  (IO_aux (x::xs) s u ns = one (FFI_part x s (u x) ns) * IO_aux xs s u ns)`;
-
 val IO_def = Define `
-  IO s u ns = IO_aux ns s u ns`;
+  IO s u ns = one (FFI_part s u ns)`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
@@ -156,162 +155,158 @@ val SEP_IMP_frame_single_l = store_thm ("SEP_IMP_frame_single_l",
   ``!H' R.
      (emp ==>> H') ==>
      (R ==>> H' * R)``,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
-  qx_gen_tac `s` \\ strip_tac \\ Q.LIST_EXISTS_TAC [`{}`, `s`] \\
-  SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_frame_single_r = store_thm ("SEP_IMP_frame_single_r",
   ``!H R.
      (H ==>> emp) ==>
      (H * R ==>> R)``,
-  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, emp_def] \\
-  qx_gen_tac `s` \\ strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_cell_frame = store_thm ("SEP_IMP_cell_frame",
   ``!H H' l v v'.
      (v = v') /\ (H ==>> H') ==>
      (H * l ~~>> v ==>> H' * l ~~>> v')``,
-  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, STAR_def] \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_cell_frame_single_l = store_thm ("SEP_IMP_cell_frame_single_l",
   ``!H' l v v'.
      (v = v') /\ (emp ==>> H') ==>
      (l ~~>> v ==>> H' * l ~~>> v')``,
-  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
-  simp [Once CONJ_COMM] \\ asm_exists_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_cell_frame_single_r = store_thm ("SEP_IMP_cell_frame_single_r",
   ``!H l v v'.
      (v = v') /\ (H ==>> emp) ==>
      (H * l ~~>> v ==>> l ~~>> v')``,
-  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
-  rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_cell_frame_single = store_thm ("SEP_IMP_cell_frame_single",
   ``!H l v v'.
      (v = v') /\ (emp ==>> emp) ==>
      (l ~~>> v ==>> l ~~>> v')``,
-  rpt strip_tac \\ fs [SEP_IMP_def, cell_def, one_def, emp_def, STAR_def] \\
-  rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  fs [SEP_IMP_REFL]
+);
 
 val SEP_IMP_REF_frame = store_thm ("SEP_IMP_REF_frame",
   ``!H H' r v v'.
      (v = v') /\ (H ==>> H') ==>
      (H * r ~~> v ==>> H' * r ~~> v')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, REF_def, cond_def, cell_def, one_def, STAR_def] \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_REF_frame_single_l = store_thm ("SEP_IMP_REF_frame_single_l",
   ``!H' r v v'.
      (v = v') /\ (emp ==>> H') ==>
      (r ~~> v ==>> H' * r ~~> v')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def] \\
-  fs [one_def, emp_def, STAR_def] \\ rpt strip_tac \\ rw [] \\
-  asm_exists_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_REF_frame_single_r = store_thm ("SEP_IMP_REF_frame_single_r",
   ``!H r v v'.
      (v = v') /\ (H ==>> emp) ==>
      (H * r ~~> v ==>> r ~~> v')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
-  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_REF_frame_single = store_thm ("SEP_IMP_REF_frame_single",
   ``!H r v v'.
      (v = v') /\ (emp ==>> emp) ==>
      (r ~~> v ==>> r ~~> v')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, REF_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
-  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  fs [SEP_IMP_REFL]
+);
 
 val SEP_IMP_ARRAY_frame = store_thm ("SEP_IMP_ARRAY_frame",
   ``!H H' a vl vl'.
      (vl = vl') /\ (H ==>> H') ==>
      (H * ARRAY a vl ==>> H' * ARRAY a vl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, ARRAY_def, cond_def, cell_def, one_def, STAR_def] \\
-  SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_ARRAY_frame_single_l = store_thm ("SEP_IMP_ARRAY_frame_single_l",
   ``!H' a vl vl'.
      (vl = vl') /\ (emp ==>> H') ==>
      (ARRAY a vl ==>> H' * ARRAY a vl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def] \\
-  fs [one_def, emp_def, STAR_def] \\ rpt strip_tac \\ rw [] \\
-  asm_exists_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_ARRAY_frame_single_r = store_thm ("SEP_IMP_ARRAY_frame_single_r",
   ``!H a vl vl'.
      (vl = vl') /\ (H ==>> emp) ==>
      (H * ARRAY a vl ==>> ARRAY a vl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
-  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_ARRAY_frame_single = store_thm ("SEP_IMP_ARRAY_frame_single",
   ``!H a vl vl'.
      (vl = vl') /\ (emp ==>> emp) ==>
      (ARRAY a vl ==>> ARRAY a vl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
-  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  fs [SEP_IMP_REFL]
+);
 
 val SEP_IMP_W8ARRAY_frame = store_thm ("SEP_IMP_W8ARRAY_frame",
   ``!H H' a wl wl'.
      (wl = wl') /\ (H ==>> H') ==>
      (H * W8ARRAY a wl ==>> H' * W8ARRAY a wl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, W8ARRAY_def, cond_def, cell_def, one_def, STAR_def] \\
-  SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_W8ARRAY_frame_single_l = store_thm (
   "SEP_IMP_W8ARRAY_frame_single_l",
   ``!H' a wl wl'.
      (wl = wl') /\ (emp ==>> H') ==>
      (W8ARRAY a wl ==>> H' * W8ARRAY a wl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def] \\
-  fs [one_def, emp_def, STAR_def] \\ rpt strip_tac \\ rw [] \\
-  asm_exists_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_W8ARRAY_frame_single_r = store_thm (
   "SEP_IMP_W8ARRAY_frame_single_r",
   ``!H a wl wl'.
      (wl = wl') /\ (H ==>> emp) ==>
      (H * W8ARRAY a wl ==>> W8ARRAY a wl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
-  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
 
 val SEP_IMP_W8ARRAY_frame_single = store_thm (
   "SEP_IMP_W8ARRAY_frame_single",
   ``!H a wl wl'.
      (wl = wl') /\ (emp ==>> emp) ==>
      (W8ARRAY a wl ==>> W8ARRAY a wl')``,
-  rpt strip_tac \\
-  fs [SEP_IMP_def, W8ARRAY_def, cond_def, SEP_EXISTS, cell_def, one_def] \\
-  fs [emp_def, STAR_def] \\ rpt strip_tac \\ res_tac \\ SPLIT_TAC
-)
+  fs [SEP_IMP_REFL]
+);
+
+val SEP_IMP_IO_frame = store_thm ("SEP_IMP_IO_frame",
+  ``!H H' idx st u st' u'.
+     (st = st' /\ u = u') /\ (H ==>> H') ==>
+     (H * IO st u idx ==>> H' * IO st' u' idx)``,
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
+
+val SEP_IMP_IO_frame_single_l = store_thm ("SEP_IMP_IO_frame_single_l",
+  ``!H' idx st u st' u'.
+     (st = st' /\ u = u') /\ (emp ==>> H') ==>
+     (IO st u idx ==>> H' * IO st' u' idx)``,
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
+
+val SEP_IMP_IO_frame_singel_r = store_thm ("SEP_IMP_IO_frame_single_r",
+  ``!H idx st u st' u'.
+     (st = st' /\ u = u') /\ (H ==>> emp) ==>
+     (H * IO st u idx ==>> IO st' u' idx)``,
+  rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
+);
+
+val SEP_IMP_IO_frame_single = store_thm ("SEP_IMP_IO_frame_single",
+  ``!idx st u st' u'.
+     (st = st' /\ u = u') /\ (emp ==>> emp) ==>
+     (IO st u idx ==>> IO st' u' idx)``,
+  fs [SEP_IMP_REFL]
+);
 
 (*------------------------------------------------------------------*)
 (** Normalization of STAR *)

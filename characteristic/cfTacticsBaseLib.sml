@@ -66,6 +66,7 @@ fun progress_then thm_tac thm =
 fun try_progress_then thm_tac thm =
   ((drule thm \\ rpt (disch_then drule)) ORELSE mp_tac thm) \\
   disch_then thm_tac
+  handle HOL_ERR _ => thm_tac thm
 
 fun progress thm = progress_then strip_assume_tac thm
 
@@ -73,11 +74,6 @@ fun progress_with_then thm_tac thm' thm =
   mp_tac (MATCH_MP thm thm') \\ rpt (disch_then drule) \\ disch_then thm_tac
 
 fun progress_with thm' thm = progress_with_then strip_assume_tac thm' thm
-
-(* imperfect as it changes the position of the matched assumption in the
-   assumption stack *)
-fun qpat_assum_keep q thm_tac =
-  qpat_assum q (fn asm => thm_tac asm \\ assume_tac asm)
 
 fun sing x = [x]
 
@@ -191,6 +187,7 @@ fun pick_name str =
   if str = "<=" then "le" else
   if str = ">=" then "ge" else
   if str = "=" then "eq" else
+  if str = "<>" then "neq" else
   if str = "~" then "uminus" else
   if str = "+" then "plus" else
   if str = "-" then "minus" else

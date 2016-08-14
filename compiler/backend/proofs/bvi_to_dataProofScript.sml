@@ -221,13 +221,13 @@ val compile_correct = Q.prove(
          \\ Cases_on `lookup n' t1.locals` \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
       \\ Cases_on `w = Boolv T` \\ FULL_SIMP_TAC (srw_ss()) []
       THEN1
-       (Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+       (Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC std_ss []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`corr`,`T`,`live`])
         \\ FULL_SIMP_TAC std_ss [])
       \\ Cases_on `w = Boolv F` \\ FULL_SIMP_TAC (srw_ss()) []
       THEN1
-       (Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+       (Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC std_ss []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n2`,`corr`,`T`,`live`])
         \\ FULL_SIMP_TAC std_ss []
@@ -255,7 +255,7 @@ val compile_correct = Q.prove(
        \\ Cases_on `lookup n' t1.locals` \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
     \\ Cases_on `w = Boolv T` \\ FULL_SIMP_TAC (srw_ss()) []
     THEN1
-     (Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+     (Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`corr`,`F`,`live`])
       \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
@@ -288,7 +288,7 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC std_ss [jump_exc_NONE])
     \\ Cases_on `w = Boolv F` \\ FULL_SIMP_TAC (srw_ss()) []
     THEN1
-     (Q.PAT_ASSUM `(res,s3) = bb` (ASSUME_TAC o GSYM)
+     (Q.PAT_X_ASSUM `(res,s3) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n2`,`corr`,`F`,`live`])
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
@@ -332,7 +332,7 @@ val compile_correct = Q.prove(
     \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> strip_tac
     \\ Cases_on `pres`
     \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+    \\ Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss []
     \\ `var_corr (a ++ env) (vs ++ corr) t2.locals` by
      (FULL_SIMP_TAC (srw_ss()) [var_corr_def]
@@ -393,7 +393,7 @@ val compile_correct = Q.prove(
      (UNABBREV_ALL_TAC
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,state_rel_def,
              lookup_inter_EQ,lookup_list_to_num_set]
-      \\ Q.PAT_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
+      \\ Q.PAT_X_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
       \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
       \\ full_simp_tac(srw_ss())[EVERY2_REVERSE] \\ NO_TAC)
     \\ IMP_RES_TAC get_vars_thm
@@ -543,7 +543,7 @@ val compile_correct = Q.prove(
     \\ `s.clock <> 0` by ALL_TAC
     THEN1 (FULL_SIMP_TAC std_ss [state_rel_def])
     \\ FULL_SIMP_TAC std_ss []
-    \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+    \\ Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [LENGTH]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`n`,`corr`,`tail`,`live`])
     \\ FULL_SIMP_TAC std_ss []
@@ -586,7 +586,7 @@ val compile_correct = Q.prove(
       \\ `(FUNPOW dec_clock ticks t2).clock ≠ 0` by simp [funpow_dec_clock_clock]
       \\ full_simp_tac(srw_ss())[]
       \\ FULL_SIMP_TAC std_ss [compile_exp_def]
-      \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `tail` THEN1
        (`evaluate ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
@@ -672,7 +672,7 @@ val compile_correct = Q.prove(
         \\ FULL_SIMP_TAC (srw_ss()) [])
       \\ `pop_env t2' = SOME (t2' with
          <| stack := t2.stack; locals := env2 |>)` by ALL_TAC THEN1
-       (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
+       (Q.PAT_X_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
              pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def,
              FUNPOW_dec_clock_code])
@@ -754,7 +754,7 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC std_ss [compile_exp_def]
       \\ `~(r.clock < ticks) /\ ~(r.clock ≤ ticks)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
-      \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[cut_env_def]
       \\ Cases_on `evaluate ([exp],args,dec_clock (ticks + 1) r)`
@@ -789,7 +789,7 @@ val compile_correct = Q.prove(
           \\ full_simp_tac(srw_ss())[jump_exc_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
-          \\ Q.PAT_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
+          \\ Q.PAT_X_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
           \\ Q.UNABBREV_TAC `env2` \\ full_simp_tac(srw_ss())[lookup_inter_alt]
           \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set]
           \\ REPEAT STRIP_TAC THEN1
@@ -812,7 +812,7 @@ val compile_correct = Q.prove(
             push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ NTAC 2 (POP_ASSUM MP_TAC)
-          \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ full_simp_tac(srw_ss())[])
+          \\ Q.PAT_X_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ full_simp_tac(srw_ss())[])
         \\ Cases_on `res` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
         \\ imp_res_tac compile_SING_IMP
         \\ fs[var_corr_def,set_var_def]
@@ -858,7 +858,7 @@ val compile_correct = Q.prove(
             push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
-          \\ Q.PAT_ASSUM `xxx = t2'.locals` (ASSUME_TAC o GSYM)
+          \\ Q.PAT_X_ASSUM `xxx = t2'.locals` (ASSUME_TAC o GSYM)
           \\ full_simp_tac(srw_ss())[lookup_inter_alt]
           \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set] \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[set_var_def]
@@ -904,7 +904,7 @@ val compile_correct = Q.prove(
       \\ `pop_env t2' = SOME (t2' with
          <| stack := t2.stack; locals := env2
           ; handler := t2.handler |>)` by ALL_TAC THEN1
-       (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
+       (Q.PAT_X_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def])
       \\ Cases_on `tail` \\ full_simp_tac(srw_ss())[evaluate_def]

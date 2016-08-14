@@ -7,8 +7,14 @@ semantics/proofs
 explorer/pp/astPP
 translator
 
-# compiler
+# characteristic formulae
 compiler/parsing
+characteristic
+
+# basis program
+basis
+
+# compiler
 compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
@@ -32,9 +38,6 @@ compiler/proofs
 # compiler bootstrap
 compiler/bootstrap/translation
 compiler/bootstrap/evaluation
-
-# characteristic formulae
-characteristic
 
 # candle
 candle/set-theory

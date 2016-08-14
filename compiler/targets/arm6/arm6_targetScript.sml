@@ -5,40 +5,6 @@ val () = new_theory "arm6_target"
 
 val () = wordsLib.guess_lengths ()
 
-(* --- Configuration for ARMv6 --- *)
-
-val eval = rhs o concl o EVAL
-val min12 = eval ``-(w2w (UINT_MAXw: word12)) : word32``
-val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
-val min16 = eval ``-(w2w (UINT_MAXw: word16)) + 8w : word32``
-val max16 = eval ``w2w (UINT_MAXw: word16) + 8w : word32``
-val min26 = eval ``sw2sw (INT_MINw: 26 word) + 12w : word32``
-val max26 = eval ``sw2sw (INT_MAXw: 26 word) + 8w : word32``
-
-val valid_immediate_def = Define`
-   valid_immediate = IS_SOME o EncodeARMImmediate`
-
-val arm6_config_def = Define`
-   arm6_config =
-   <| ISA := ARMv6
-    ; reg_count := 16
-    ; avoid_regs := [15]
-    ; link_reg := SOME 14
-    ; has_mem_32 := F
-    ; two_reg_arith := F
-    ; big_endian := F
-    ; valid_imm := \c i. valid_immediate i
-    ; addr_offset_min := ^min12
-    ; addr_offset_max := ^max12
-    ; jump_offset_min := ^min26
-    ; jump_offset_max := ^max26
-    ; cjump_offset_min := ^min26
-    ; cjump_offset_max := ^max26
-    ; loc_offset_min := ^min16
-    ; loc_offset_max := ^max16
-    ; code_alignment := 2
-    |>`
-
 (* --- The next-state function --- *)
 
 val arm6_next_def = Define `arm6_next = THE o NextStateARM`
@@ -293,6 +259,41 @@ val arm6_dec_aux_def = Define`
 
 val arm6_dec_def = Define `arm6_dec = arm6_dec_aux o SND o decode_word`
 
+(* --- Configuration for ARMv6 --- *)
+
+val eval = rhs o concl o EVAL
+val min12 = eval ``-(w2w (UINT_MAXw: word12)) : word32``
+val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
+val min16 = eval ``-(w2w (UINT_MAXw: word16)) + 8w : word32``
+val max16 = eval ``w2w (UINT_MAXw: word16) + 8w : word32``
+val min26 = eval ``sw2sw (INT_MINw: 26 word) + 12w : word32``
+val max26 = eval ``sw2sw (INT_MAXw: 26 word) + 8w : word32``
+
+val valid_immediate_def = Define`
+   valid_immediate = IS_SOME o EncodeARMImmediate`
+
+val arm6_config_def = Define`
+   arm6_config =
+   <| ISA := ARMv6
+    ; encode := arm6_enc
+    ; reg_count := 16
+    ; avoid_regs := [15]
+    ; link_reg := SOME 14
+    ; has_mem_32 := F
+    ; two_reg_arith := F
+    ; big_endian := F
+    ; valid_imm := \c i. valid_immediate i
+    ; addr_offset_min := ^min12
+    ; addr_offset_max := ^max12
+    ; jump_offset_min := ^min26
+    ; jump_offset_max := ^max26
+    ; cjump_offset_min := ^min26
+    ; cjump_offset_max := ^max26
+    ; loc_offset_min := ^min16
+    ; loc_offset_max := ^max16
+    ; code_alignment := 2
+    |>`
+
 val arm6_proj_def = Define`
    arm6_proj d s =
    (s.CPSR, s.Architecture, s.Extensions, s.exception,
@@ -300,8 +301,7 @@ val arm6_proj_def = Define`
 
 val arm6_target_def = Define`
    arm6_target =
-   <| encode := arm6_enc
-    ; get_pc := (\s. s.REG RName_PC)
+   <| get_pc := (\s. s.REG RName_PC)
     ; get_reg := (\s. s.REG o R_mode s.CPSR.M o n2w)
     ; get_byte := arm_state_MEM
     ; state_ok := arm6_ok

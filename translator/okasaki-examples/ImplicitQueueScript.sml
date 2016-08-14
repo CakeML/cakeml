@@ -109,7 +109,7 @@ val queue_ok_snoc = prove(
   Induct THEN Cases_on `d`
   THEN FULL_SIMP_TAC (srw_ss()) [snoc_def,queue_ok_def,ddepth_def,two_def,
     only_digits_def,EVERY_DEF,empty_def] THEN REPEAT STRIP_TAC
-  THEN Q.PAT_ASSUM `!x.bbb` MATCH_MP_TAC
+  THEN Q.PAT_X_ASSUM `!x.bbb` MATCH_MP_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [depth_def]);
 
 val snoc_thm = prove(
@@ -154,7 +154,7 @@ val tail_lemma = prove(
            queue_ok_def,empty_def,ddepth_def,EVERY_DEF,two_def,only_digits_def]
     THEN REPEAT STRIP_TAC THEN IMP_RES_TAC depth_IMP
     THEN Cases_on `xs` THEN FULL_SIMP_TAC std_ss []
-    THEN Q.PAT_ASSUM `exps x ++ h::t' = exps t` (ASSUME_TAC o GSYM)
+    THEN Q.PAT_X_ASSUM `exps x ++ h::t' = exps t` (ASSUME_TAC o GSYM)
     THEN FULL_SIMP_TAC (srw_ss()) []
     THEN DECIDE_TAC)
   THEN REVERSE (Cases_on `d0`)
@@ -194,12 +194,12 @@ val tail_lemma = prove(
         ddepth_def,only_digits_def,EVERY_DEF,depth_def,two_def,flatten_def]
       THEN Q.EXISTS_TAC `[]` THEN FULL_SIMP_TAC (srw_ss()) [])
     THEN FULL_SIMP_TAC std_ss [exps_def,flatten_def]
-    THEN Q.PAT_ASSUM `head xx = yy` MP_TAC
-    THEN Q.PAT_ASSUM `queue_ok (n + 1) xx` MP_TAC THEN Cases_on `d0`
+    THEN Q.PAT_X_ASSUM `head xx = yy` MP_TAC
+    THEN Q.PAT_X_ASSUM `queue_ok (n + 1) xx` MP_TAC THEN Cases_on `d0`
     THEN SIMP_TAC std_ss [head_def,is_empty_def,queue_ok_def,digits_def,exps_def,
       ddepth_def,only_digits_def,EVERY_DEF,depth_def,two_def,flatten_def,digits_def]
     THEN SIMP_TAC (srw_ss()) [digits_def,exps_def])
-  THEN Q.PAT_ASSUM `!x.bbb` (MP_TAC o GSYM o Q.SPECL [`n+1`,`head q`,`ts`])
+  THEN Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM o Q.SPECL [`n+1`,`head q`,`ts`])
   THEN FULL_SIMP_TAC std_ss []
   THEN MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 ==> b2) ==> (b ==> b1) ==> b2``)
   THEN FULL_SIMP_TAC std_ss [exps_def,depth_def]);

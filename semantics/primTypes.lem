@@ -1,0 +1,32 @@
+open import Pervasives
+open import Ast
+open import SemanticPrimitives
+open import Ffi
+open import Evaluate
+open import Lib
+open import Environment
+
+val prim_types_program : prog
+let prim_types_program =
+  [Tdec (Dexn "Bind" []);
+   Tdec (Dexn "Chr" []);
+   Tdec (Dexn "Div" []);
+   Tdec (Dexn "Subscript" []);
+   Tdec (Dtype [([], "bool", [("true", []); ("false", [])])]);
+   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]);])]);
+   Tdec (Dtype [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]);])]);]
+
+val add_to_sem_env :
+  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> prog -> maybe (state 'ffi * sem_env v)
+let add_to_sem_env (st, env) prog =
+  match evaluate_prog st env prog with
+  | (st', Rval env') -> Just (st', extend_dec_env env' env)
+  | _ -> Nothing
+  end
+
+val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
+let prim_sem_env ffi =
+  add_to_sem_env
+    (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
+     <| v = eEmpty; c = eEmpty |>)
+        prim_types_program

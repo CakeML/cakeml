@@ -1027,7 +1027,7 @@ val step_MAP_INJ = Q.store_thm("step_MAP_INJ",
     \\ CCONTR_TAC \\ reverse(fs[])
     >- (
       fs[inj_on_state_def,LET_THM]
-      \\ qpat_assum`_ ≠ _`mp_tac
+      \\ qpat_x_assum`_ ≠ _`mp_tac
       \\ simp[]
       \\ first_x_assum match_mp_tac
       \\ simp[]

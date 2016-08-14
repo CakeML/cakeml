@@ -2,49 +2,11 @@ open preamble asmSemTheory
 
 val () = new_theory "asmProps"
 
-(* -- semantics is deterministic if encoding is deterministic enough -- *)
+(* -- semantics is deterministic -- *)
 
-val asm_deterministic_def = Define `
-  asm_deterministic enc c =
-  !i s1 s2 s3. asm_step enc c s1 i s2 /\ asm_step enc c s1 i s3 ==> (s2 = s3)`
-
-val bytes_in_memory_IMP = Q.prove(
-  `!xs ys a m dm.
-      bytes_in_memory a xs m dm /\ bytes_in_memory a ys m dm ==>
-      isPREFIX xs ys \/ isPREFIX ys xs`,
-  Induct
-  THEN Cases_on `ys`
-  THEN SRW_TAC [] []
-  THEN METIS_TAC [bytes_in_memory_def])
-
-val decoder_asm_deterministic = Q.store_thm("decoder_asm_deterministic",
-  `!enc c. (?dec. !i x. asm_ok i c ==> (dec (enc i ++ x) = i)) ==>
-           asm_deterministic enc c`,
-  METIS_TAC [asm_deterministic_def, asm_step_def, listTheory.APPEND_NIL,
-             bytes_in_memory_IMP, rich_listTheory.IS_PREFIX_APPEND]
-  )
-
-(* old (slow) method of proving asm_deterministic -----------------------------
-
-val enc_deterministic_def = Define `
-  enc_deterministic enc c =
-    !i j s1.
-      asm_ok i c /\ asm_ok j c /\ isPREFIX (enc i) (enc j) ==>
-        (asm i (s1.pc + n2w (LENGTH (enc i))) s1 =
-         asm j (s1.pc + n2w (LENGTH (enc j))) s1)`
-
-val enc_deterministic = Q.store_thm("enc_deterministic",
-  `!enc c. enc_deterministic enc c ==> asm_deterministic enc c`,
-  SRW_TAC [] [asm_step_def, asm_deterministic_def]
-  THEN METIS_TAC [enc_deterministic_def, bytes_in_memory_IMP])
-
-val simple_enc_deterministic = Q.store_thm("simple_enc_deterministic",
-  `!enc c.
-     (!i j. asm_ok i c /\ asm_ok j c /\ i <> j ==>
-            ~isPREFIX (enc i) (enc j)) ==> asm_deterministic enc c`,
-  METIS_TAC [enc_deterministic_def, enc_deterministic])
-
----------------------------------------------------------------------------- *)
+val asm_deterministic = Q.store_thm("asm_deterministic",
+  `!c i s1 s2 s3. asm_step c s1 i s2 /\ asm_step c s1 i s3 ==> (s2 = s3)`,
+  rw [asm_step_def])
 
 val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
   `!l1 l2 pc mem mem_domain.
@@ -67,27 +29,24 @@ val offset_monotonic_def = Define `
   (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
 
 val enc_ok_def = Define `
-  enc_ok (enc: 'a asm -> word8 list) c =
+  enc_ok (c : 'a asm_config) =
     (* code alignment and length *)
-    (2 EXP c.code_alignment = LENGTH (enc (Inst Skip))) /\
-    (!w. asm_ok w c ==> (LENGTH (enc w) MOD 2 EXP c.code_alignment = 0) /\
-                        (LENGTH (enc w) <> 0)) /\
+    (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
+    (!w. asm_ok w c ==> (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
+                        (LENGTH (c.encode w) <> 0)) /\
     (* label instantiation predictably affects length of code *)
-    (!w1 w2. offset_monotonic enc c w1 w2 (Jump w1) (Jump w2)) /\
+    (!w1 w2. offset_monotonic c.encode c w1 w2 (Jump w1) (Jump w2)) /\
     (!cmp r ri w1 w2.
-       offset_monotonic enc c w1 w2
+       offset_monotonic c.encode c w1 w2
           (JumpCmp cmp r ri w1) (JumpCmp cmp r ri w2)) /\
-    (!w1 w2. offset_monotonic enc c w1 w2 (Call w1) (Call w2)) /\
-    (!w1 w2 r. offset_monotonic enc c w1 w2 (Loc r w1) (Loc r w2)) /\
-    (* no overlap between instructions with different behaviour *)
-    asm_deterministic enc c`
+    (!w1 w2. offset_monotonic c.encode c w1 w2 (Call w1) (Call w2)) /\
+    (!w1 w2 r. offset_monotonic c.encode c w1 w2 (Loc r w1) (Loc r w2))`
 
 (* -- correctness property to be proved for each backend -- *)
 
 val () = Datatype `
   target =
-    <| encode : 'a asm -> word8 list
-     ; get_pc : 'b -> 'a word
+    <| get_pc : 'b -> 'a word
      ; get_reg : 'b -> num -> 'a word
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
@@ -111,7 +70,7 @@ val asserts_def = zDefine `
 
 val backend_correct_def = Define `
   backend_correct t <=>
-    enc_ok t.encode t.config /\
+    enc_ok t.config /\
     (!ms1 ms2 s.
         (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
         (t.state_rel s ms1 = t.state_rel s ms2) /\
@@ -122,13 +81,13 @@ val backend_correct_def = Define `
             (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
                  (t.get_reg ms i = s.regs i))) /\
     !s1 i s2 ms.
-      asm_step t.encode t.config s1 i s2 /\ t.state_rel s1 ms ==>
+      asm_step t.config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
-             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
-             asserts n (\k s. env (n - k) (t.next s)) ms
-               (\ms'. t.state_ok ms' /\
-                      t.get_pc ms' IN all_pcs (LENGTH (t.encode i)) s1.pc)
-               (\ms'. t.state_rel s2 ms')`
+            interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
+            asserts n (\k s. env (n - k) (t.next s)) ms
+              (\ms'. t.state_ok ms' /\
+                     t.get_pc ms' IN all_pcs (LENGTH (t.config.encode i)) s1.pc)
+              (\ms'. t.state_rel s2 ms')`
 
 (* lemma for proofs *)
 

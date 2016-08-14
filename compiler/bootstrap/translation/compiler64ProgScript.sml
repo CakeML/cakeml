@@ -1,12 +1,12 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open reg_allocProgTheory compiler64_preludeProgTheory;
 
 val _ = new_theory "compiler64Prog"
 
 (* temporary *)
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "compiler64_preludeProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -29,7 +29,7 @@ val NOT_NIL_AND_LEMMA = prove(
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
-val insts = ref ([]:{redex:hol_type,residue:hol_type}list);
+val matches = ref ([]: term list);
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -43,7 +43,11 @@ fun def_of_const tm = let
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
-  val def = def |> INST_TYPE (!insts)
+
+  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``,beta|->``:64``] else []
+
+  val def = def |> RW (!extra_preprocessing)
+                |> INST_TYPE insts
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 (* TODO: This ss messes up defs containing if-then-else
                 with constant branches
@@ -53,34 +57,122 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val _ = use_long_names:=true;
+
 val spec64 = INST_TYPE[alpha|->``:64``]
+
+val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-(* Attempts at translating bvp_to_word things *)
-open data_to_wordTheory
+(*
+When word_to_word$compile is done:
 
-val _ = translate adjust_set_def
-
-(* TODO: Variable length shift: n2w len << l and ||
-val _ = translate make_header_def
+val _ = translate (compile_def |> SIMP_RULE std_ss [stubs_def] |> conv64_RHS)
 *)
+
+open word_simpTheory word_allocTheory word_instTheory
+
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
+
+val _ = translate (spec64 compile_exp_def)
+
+val _ = translate (spec64 max_var_def)
+
+(* TODO: Remove from x64Prog *)
+val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
+val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
+
+val _ = translate (wordLangTheory.num_exp_def |> conv64)
+val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (op_consts_def|>conv64|> SIMP_RULE std_ss [word_2comp_def] |> conv64)
+
+val rws = prove(``
+  ($+ = λx y. x + y) ∧
+  ($&& = λx y. x && y) ∧
+  ($|| = λx y. x || y) ∧
+  ($?? = λx y. x ?? y)``,
+  fs[FUN_EQ_THM])
+
+val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws]|> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (convert_sub_def |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
+
+val _ = translate (spec64 pull_exp_def)
+
+val word_inst_pull_exp_side = prove(``
+  ∀x. word_inst_pull_exp_side x ⇔ T``,
+  ho_match_mp_tac pull_exp_ind>>rw[]>>
+  simp[Once (fetch "-" "word_inst_pull_exp_side_def"),
+      fetch "-" "word_inst_optimize_consts_side_def",
+      wordLangTheory.word_op_def]>>
+  metis_tac[]) |> update_precondition
+
+val _ = translate (spec64 inst_select_def)
+
+(* Argh, SSA has a few defs that have both beta AND alpha although only the alpha is necessary *)
+val _ = translate (spec64 list_next_var_rename_move_def)
+
+val word_alloc_list_next_var_rename_move_side = prove(``
+  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T``,
+  simp[fetch "-" "word_alloc_list_next_var_rename_move_side_def"]>>
+  Induct_on`z`>>fs[list_next_var_rename_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
+
+val _ = translate (spec64 full_ssa_cc_trans_def)
+
+val word_alloc_full_ssa_cc_trans_side = prove(``
+  ∀x y. word_alloc_full_ssa_cc_trans_side x y``,
+  simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
+  rw[]>>pop_assum kall_tac>>
+  map_every qid_spec_tac [`v6`,`v7`,`y`]>>
+  ho_match_mp_tac ssa_cc_trans_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "word_alloc_ssa_cc_trans_side_def")]>>
+  map_every qid_spec_tac [`ssa`,`na`]>>
+  Induct_on`ls`>>fs[list_next_var_rename_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
+
+val _ = translate (spec64 remove_dead_def)
+
+val _ = translate (spec64 word_alloc_def)
+
+val word_alloc_apply_colour_side = prove(``
+  ∀x y. word_alloc_apply_colour_side x y ⇔ T``,
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
+
+val word_alloc_word_alloc_side = prove(``
+  ∀w x y z. word_alloc_word_alloc_side w x y z ⇔ T``,
+  simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
+  Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
+  word_alloc_apply_colour_side]) |> update_precondition
+
+val _ = translate (spec64 three_to_two_reg_def)
+
+val _ = translate (spec64 word_removeTheory.remove_must_terminate_def)
+
+val _ = translate (spec64 word_to_wordTheory.compile_def)
+
+val word_to_word_compile_side = prove(``
+  ∀x y z. word_to_word_compile_side x y z ⇔ T``,
+  simp[fetch"-""word_to_word_compile_side_def"]>>
+  Induct_on`z`>>fs[word_to_wordTheory.next_n_oracle_def]) |> update_precondition
+
+val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
 (*
-TODO: Not sure how to translate things that take the 'a as an arg...
-val _ = translate (conv64_RHS shift_def)
+val _ = matches:= ``foo:'a stackLang$prog``:: !matches
+
+val _ = translate PAIR_MAP
+
+This fails at reducing to single line???:
+val _ = translate (spec64 word_to_stackTheory.wMove_def)
+
+val _ = translate (spec64 word_to_stackTheory.comp_def)
 *)
-
-(* TODO: ¬, --
-val _ = translate all_ones_def
-*)
-
-open word_simpTheory
-
-(* TODO: This method of forcing defs to be instantiated at :64 isn't very neat. find_def_for_const should instead use some way of finding (and automatically instantiating) type variables that are FCPs *)
-
-val _ = insts:= [alpha |-> ``:64``]
-val _ = translate (spec64 Seq_assoc_def)
-val _ = translate (spec64 compile_exp_def)
 
 val _ = export_theory();

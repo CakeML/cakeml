@@ -63,6 +63,138 @@ in
 end
 (* -- *)
 
+(* TODO: move to Lib (or Portable)? *)
+fun itlist3 f L1 L2 L3 base_value =
+  let
+    fun itl ([], [], []) = base_value
+      | itl (a :: rst1, b :: rst2, c :: rst3) = f a b c (itl (rst1, rst2, rst3))
+      | itl _ = raise mk_HOL_ERR "Lib" "itlist3" "lists of different length"
+    in
+      itl (L1, L2, L3)
+    end
+
+fun zip3 ([],[],[]) = []
+  | zip3 ((h1::t1),(h2::t2),(h3::t3)) = ((h1,h2,h3)::zip3(t1,t2,t3))
+(* -- *)
+
+(* TODO: move to listLib (and move MAP3 to listTheory) *)
+val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
+
+local
+  val (m3n,m3c) = CONJ_PAIR MAP3_def
+  val m3c = CONV_RULE(RESORT_FORALL_CONV(sort_vars["f","h1","h2","h3","t1","t2","t3"])) m3c
+in
+  fun MAP3_CONV conv tm =
+    let
+      val (fnn,l1,l2,l3) = dest_map3 tm
+      val (els1,_) = listSyntax.dest_list l1
+      val (els2,_) = listSyntax.dest_list l2
+      val (els3,_) = listSyntax.dest_list l3
+      val nth = ISPEC fnn m3n
+      val cth = ISPEC fnn m3c
+      val cns = rator(rator(rand(snd(strip_forall(concl cth)))))
+      fun APcons t1 t2 = MK_COMB(AP_TERM cns t2,t1)
+      fun itfn e1 e2 e3 th =
+        let
+          val ts = tl(#2(strip_comb(rand(rator(concl th)))))
+          val es = [e1,e2,e3]
+          val th1 = SPECL ts (SPECL es cth)
+        in
+          TRANS th1 (APcons th (conv (list_mk_comb(fnn,es))))
+        end
+    in
+      itlist3 itfn els1 els2 els3 nth
+    end
+end
+(* -- *)
+
+(* parlist num_threads chunk_size eval_fn ls :
+   evaluate (eval_fn i n x) on each element x of list ls
+     - using num_threads threads
+     - each working on chunks of ls of size up to chunk_size
+     - where i = chunk index, and n = index within chunk, for x
+     - returns the list of results in reverse order
+   Uses Poly/ML's Thread structure, so not portable.
+   Replace with a portable parallel map (does it exist)?
+*)
+local
+  open Thread
+  fun chunks_of n ls =
+    let
+      val (ch,rst) = split_after n ls
+    in
+      if null rst then [ch]
+      else ch::(chunks_of n rst)
+    end handle HOL_ERR _ => [ls]
+in
+  fun parlist num_threads chunk_size eval_fn ls =
+    let
+      val num_items = List.length ls
+      val chs = chunks_of chunk_size ls
+      val num_chunks = List.length chs
+
+      fun eval_chunk i n [] acc = acc
+        | eval_chunk i n (x::xs) acc =
+          eval_chunk i (n+1) xs (eval_fn i n x::acc)
+
+      val mutex = Mutex.mutex()
+      val refs = List.tabulate(num_chunks,(fn _ => ref NONE))
+      val threads_left = ref num_threads
+      val threads_left_mutex = Mutex.mutex()
+      val cvar = ConditionVar.conditionVar()
+
+      fun find_work i [] [] =
+            let
+              val () = Mutex.lock threads_left_mutex
+              val () = threads_left := !threads_left-1
+              val () = Mutex.unlock threads_left_mutex
+            in ConditionVar.signal cvar end
+        | find_work i (r::rs) (c::cs) =
+            case (Mutex.lock mutex; !r) of
+              SOME _ => (Mutex.unlock mutex; find_work (i+1) rs cs)
+            | NONE =>
+              let
+                val () = r := SOME []
+                val () = Mutex.unlock mutex
+                val vs = eval_chunk i 0 c []
+                val () = r := SOME vs
+              in
+                find_work (i+1) rs cs
+              end
+
+      fun fork_this () = find_work 0 refs chs
+
+      val true = Mutex.trylock threads_left_mutex
+
+      val () = for_se 1 num_threads
+        (fn _ => ignore (Thread.fork (fork_this, [Thread.EnableBroadcastInterrupt true])))
+
+      fun wait () =
+        if !threads_left = 0 then Mutex.unlock threads_left_mutex
+        else (ConditionVar.wait(cvar,threads_left_mutex); wait())
+
+      val () = wait()
+    in
+      List.concat (List.map (Option.valOf o op!) (List.rev refs))
+    end
+end
+
+(* map_ths_conv
+    [|- f xn = vn, ..., |- f x1 = v1]
+    ``MAP f [x1; ...; xn]``
+   produces
+     |- MAP f [x1; ...; xn] = [v1; ...; vn]
+*)
+fun map_ths_conv ths =
+  let
+    val next_thm = ref ths
+    fun el_conv _ =
+      case !next_thm of th :: rest =>
+        let val () = next_thm := rest in th end
+  in
+    listLib.MAP_CONV el_conv
+  end
+
 val preamble_ERR = mk_HOL_ERR"preamble"
 
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)

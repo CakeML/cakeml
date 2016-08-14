@@ -214,7 +214,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     Cases_on`find_code dest (add_ret_loc (SOME x) x') s.code`>>full_simp_tac(srw_ss())[]>>
     PairCases_on`x''`>>PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`cut_env x1 s.locals`>>full_simp_tac(srw_ss())[]>>
-    qpat_assum`A=(r,s')` mp_tac>>
+    qpat_x_assum`A=(r,s')` mp_tac>>
     rpt(IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
     full_case_tac>>full_simp_tac(srw_ss())[]>>Cases_on`q`>>TRY(Cases_on `x''`)>>
     fsrw_tac[ARITH_ss][dec_clock_def]>>
@@ -232,7 +232,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
     PairCases_on`x'''`>>full_simp_tac(srw_ss())[]>>
     Cases_on`cut_env x'''1 s.locals`>>full_simp_tac(srw_ss())[]>>
-    qpat_assum`A=(r,s')` mp_tac>>
+    qpat_x_assum`A=(r,s')` mp_tac>>
     rpt(IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
     Cases_on`evaluate (x''1,call_env x''0 (push_env x'' (SOME x) (dec_clock s)))`>>Cases_on`q`>>TRY(Cases_on`x'''`)>>
     fsrw_tac[ARITH_ss][dec_clock_def]>>
@@ -288,7 +288,7 @@ val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
   >- (full_simp_tac(srw_ss())[state_component_equality]>>DECIDE_TAC)
   >- (srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality,LET_THM])
   >-
-    (qpat_assum`A=(res,rst)` mp_tac>>simp[]>>pairarg_tac>>full_simp_tac(srw_ss())[]>>
+    (qpat_x_assum`A=(res,rst)` mp_tac>>simp[]>>pairarg_tac>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]
     >-
       (strip_tac>>full_simp_tac(srw_ss())[]>>
@@ -302,7 +302,7 @@ val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
   >- tac
   >- (tac>>full_simp_tac(srw_ss())[cut_env_def,LET_THM]>>pairarg_tac>>full_simp_tac(srw_ss())[state_component_equality]>>rveq>>full_simp_tac(srw_ss())[])
   >>
-    qpat_assum`A=(res,rst)` mp_tac>>
+    qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 5 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
     >-
       (ntac 3 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality])>>
@@ -458,7 +458,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
       imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
       fsrw_tac[ARITH_ss][dec_clock_def] >>
-      qpat_assum`z ≠ SOME TimeOut ⇒ _`mp_tac >>
+      qpat_x_assum`z ≠ SOME TimeOut ⇒ _`mp_tac >>
       qmatch_assum_rename_tac`z ≠ SOME TimeOut ⇒ _` >>
       Cases_on`z=SOME TimeOut`>>full_simp_tac(srw_ss())[]>-(
         strip_tac >>
@@ -694,7 +694,7 @@ val gc_s_val_eq = store_thm("gc_s_val_eq",
   srw_tac[][gc_def]>>full_simp_tac(srw_ss())[LET_THM]>>
   SIMP_TAC std_ss [markerTheory.Abbrev_def]>>
   IMP_RES_TAC s_val_eq_enc_stack>>full_simp_tac(srw_ss())[]>>
-  qpat_assum `x = SOME y` mp_tac>>
+  qpat_x_assum `x = SOME y` mp_tac>>
   ntac 4 CASE_TAC>>
   IMP_RES_TAC s_val_eq_dec_stack>> full_simp_tac(srw_ss())[]>>
   strip_tac>>full_simp_tac(srw_ss())[]>>
@@ -714,7 +714,7 @@ val gc_s_val_eq_word_state = store_thm("gc_s_val_eq_word_state",
   srw_tac[][gc_def]>>full_simp_tac(srw_ss())[LET_THM]>>
   SIMP_TAC std_ss [markerTheory.Abbrev_def]>>
   IMP_RES_TAC s_val_eq_enc_stack>>full_simp_tac(srw_ss())[]>>
-  qpat_assum `x = SOME y` mp_tac>>
+  qpat_x_assum `x = SOME y` mp_tac>>
   ntac 4 CASE_TAC>>
   IMP_RES_TAC s_val_eq_dec_stack>> full_simp_tac(srw_ss())[]>>
   strip_tac>>full_simp_tac(srw_ss())[]>>
@@ -745,7 +745,7 @@ val gc_s_val_eq_gen = store_thm ("gc_s_val_eq_gen",
   IMP_RES_TAC s_val_eq_enc_stack>>
   every_case_tac>>rev_full_simp_tac(srw_ss())[]>>
   IMP_RES_TAC s_val_eq_dec_stack>>full_simp_tac(srw_ss())[]>>
-  qpat_assum`A=s'` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM)>>
   IMP_RES_TAC dec_stack_stack_key_eq>>full_simp_tac(srw_ss())[]>>
   metis_tac[s_val_eq_sym])
 
@@ -946,8 +946,8 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     IMP_RES_TAC push_env_pop_env_s_key_eq>>
     `s_key_eq s.stack y.stack` by full_simp_tac(srw_ss())[set_store_def]>>
     full_simp_tac(srw_ss())[SOME_11]>>TRY(CONJ_TAC>>srw_tac[][]>-
-      (qpat_assum`gc a = SOME b` mp_tac>>
-      qpat_assum`pop_env a = b` mp_tac>>
+      (qpat_x_assum`gc a = SOME b` mp_tac>>
+      qpat_x_assum`pop_env a = b` mp_tac>>
       full_simp_tac(srw_ss())[pop_env_def,gc_def,push_env_def,set_store_def
         ,LET_THM,env_to_list_def]>>
       every_case_tac>>full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def]>>
@@ -1085,7 +1085,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     full_simp_tac(srw_ss())[state_component_equality,s_key_eq_refl])
   >-(*Raise*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[get_var_def,jump_exc_def]>>
-    qpat_assum `(a = SOME x)` mp_tac>>
+    qpat_x_assum `(a = SOME x)` mp_tac>>
     every_case_tac>>full_simp_tac(srw_ss())[state_component_equality]>>
     strip_tac>> Q.EXISTS_TAC `l`>>
     full_simp_tac(srw_ss())[EQ_SYM_EQ,s_key_eq_refl]>>
@@ -1093,7 +1093,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     IMP_RES_TAC s_val_eq_length>>full_simp_tac(srw_ss())[EQ_SYM_EQ,state_component_equality]>>
     full_simp_tac(srw_ss())[s_key_eq_refl]>>
     `s.handler + 1<= LENGTH s.stack` by metis_tac[arithmeticTheory.LESS_OR,arithmeticTheory.ADD1]>>
-    rpt (qpat_assum `a = LASTN b c` (ASSUME_TAC o SYM))>>
+    rpt (qpat_x_assum `a = LASTN b c` (ASSUME_TAC o SYM))>>
     IMP_RES_TAC s_val_eq_LASTN>>
     first_x_assum(qspec_then `s.handler+1` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     IMP_RES_TAC s_val_eq_tail>>
@@ -1320,7 +1320,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
        (full_simp_tac(srw_ss())[call_env_def,push_env_def,env_to_list_def,dec_clock_def,LET_THM]>>
        CONJ_ASM1_TAC>-
        (IMP_RES_TAC prim_recTheory.LESS_LEMMA1>>
-       qpat_assum `LASTN a as=b` mp_tac>>simp[]>>
+       qpat_x_assum `LASTN a as=b` mp_tac>>simp[]>>
        qpat_abbrev_tac `frame = StackFrame a b`>>
        `LENGTH s.stack+1 = LENGTH (frame::s.stack) ` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
        pop_assum SUBST1_TAC>> full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
@@ -1631,7 +1631,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     full_simp_tac(srw_ss())[state_component_equality])
   >- (*MustTerminate*)
     (full_simp_tac(srw_ss())[LET_THM]>>
-    qpat_assum`A=(res,rst)` mp_tac>>
+    qpat_x_assum`A=(res,rst)` mp_tac>>
     TOP_CASE_TAC>>simp[]>>
     pairarg_tac>>simp[]>>
     TOP_CASE_TAC>>simp[]>>srw_tac[][]>>
@@ -1650,7 +1650,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
       first_x_assum(qspecl_then[`perm`]assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
       Cases_on`x`>>full_simp_tac(srw_ss())[]>>
       qexists_tac`perm'`>>full_simp_tac(srw_ss())[]>>
-      qpat_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
+      qpat_x_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
   >-
     (full_simp_tac(srw_ss())[get_var_perm]>>every_case_tac>>
     full_simp_tac(srw_ss())[call_env_def,state_component_equality])
@@ -1682,7 +1682,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
       first_x_assum(qspec_then`perm`assume_tac)>>full_simp_tac(srw_ss())[]>>
       qexists_tac`perm'`>>
       full_simp_tac(srw_ss())[state_component_equality,call_env_def]>>
-      qpat_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
+      qpat_x_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
     >>
       ntac 5 TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -1695,7 +1695,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
       Cases_on`q'''''`>>full_simp_tac(srw_ss())[]>>
       Cases_on`x''`>>full_simp_tac(srw_ss())[]
       >-
-        (qpat_assum`A=(res,rst)` mp_tac>>
+        (qpat_x_assum`A=(res,rst)` mp_tac>>
         IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
         full_case_tac>>full_simp_tac(srw_ss())[]>>
         IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
@@ -1715,10 +1715,10 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         (full_case_tac>>full_simp_tac(srw_ss())[]
         >-
           (perm_assum_tac>>
-          qpat_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
+          qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
         >>
         PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
-        qpat_assum`A=(res,rst)`mp_tac>>
+        qpat_x_assum`A=(res,rst)`mp_tac>>
         ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
         srw_tac[][]>>
         Cases_on`res = SOME Error`>>full_simp_tac(srw_ss())[]>>
@@ -1733,7 +1733,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         perm_assum_tac>>
         Cases_on`handler`>>TRY(PairCases_on`x''`)>>
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
-        qpat_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[]));
+        qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[]));
 
 (*Monotonicity*)
 val every_var_inst_mono = store_thm("every_var_inst_mono",``
@@ -1864,9 +1864,9 @@ val locals_rel_word_exp = store_thm("locals_rel_word_exp",``
     (every_case_tac>>
     res_tac>>full_simp_tac(srw_ss())[])
   >-
-    (qpat_assum`A= SOME w` mp_tac>>full_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
+    (qpat_x_assum`A= SOME w` mp_tac>>full_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
   >-
-    (qpat_assum`A= SOME w` mp_tac>>
+    (qpat_x_assum`A= SOME w` mp_tac>>
     qpat_abbrev_tac`ls = MAP A B`>>
     qpat_abbrev_tac`ls' = MAP A B`>>
     TOP_CASE_TAC>>rw[]>>
@@ -1887,7 +1887,7 @@ val locals_rel_get_vars  = store_thm("locals_rel_get_vars",``
   locals_rel temp st.locals loc ⇒
   get_vars ls (st with locals:= loc) = SOME vs``,
   Induct>>full_simp_tac(srw_ss())[get_vars_def]>>srw_tac[][]>>
-  qpat_assum`A=SOME vs` mp_tac>>ntac 2 full_case_tac>>srw_tac[][]>>
+  qpat_x_assum`A=SOME vs` mp_tac>>ntac 2 full_case_tac>>srw_tac[][]>>
   res_tac>>full_simp_tac(srw_ss())[get_var_def,locals_rel_def]>>
   res_tac>>
   full_simp_tac(srw_ss())[])
@@ -1939,7 +1939,7 @@ val locals_rel_cut_env = prove(``
 (*Extra temporaries not mentioned in program
   do not affect evaluation*)
 
-val srestac = qpat_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[]
+val srestac = qpat_x_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[]
 
 val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   ∀prog st res rst loc temp.
@@ -1959,7 +1959,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   >-
     (srestac>>metis_tac[])
   >-
-    (qpat_assum `A = (res,rst)` mp_tac>> ntac 2 full_case_tac>>
+    (qpat_x_assum `A = (res,rst)` mp_tac>> ntac 2 full_case_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac locals_rel_get_vars>>
     full_simp_tac(srw_ss())[set_vars_def]>>imp_res_tac locals_rel_alist_insert>>
@@ -1976,7 +1976,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       srestac>>metis_tac[])
     >-
       (reverse (Cases_on`a`)>>fs[assign_def,LET_THM]>>
-      qpat_assum`A=(res,rst)` mp_tac
+      qpat_x_assum`A=(res,rst)` mp_tac
       >-
         (qpat_abbrev_tac`ls = [n0;n1;n2]`>>
         FULL_CASE_TAC>>fs[]>>
@@ -1995,12 +1995,12 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       metis_tac[locals_rel_set_var])
     >>
       Cases_on`a`>>Cases_on`m`>>full_simp_tac(srw_ss())[assign_def]>>
-      qpat_assum`A=(res,rst)` mp_tac>>
+      qpat_x_assum`A=(res,rst)` mp_tac>>
       qpat_abbrev_tac`A = word_exp B C`>>
       Cases_on`A`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
       TRY (ntac 2 full_case_tac>>full_simp_tac(srw_ss())[])>>
       srw_tac[][]>>
-      TRY(qpat_assum `SOME A = B` (assume_tac o SYM))>>
+      TRY(qpat_x_assum `SOME A = B` (assume_tac o SYM))>>
       imp_res_tac locals_rel_word_exp>>
       imp_res_tac locals_rel_get_var>>
       full_simp_tac(srw_ss())[every_var_exp_def,every_var_inst_def]>>
@@ -2012,7 +2012,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   >-
     (every_case_tac>>imp_res_tac locals_rel_word_exp>>full_simp_tac(srw_ss())[every_var_def]>>
     rev_full_simp_tac(srw_ss())[state_component_equality,set_var_def]>>
-    qpat_assum`A=rst.locals` sym_sub_tac>>
+    qpat_x_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
   >-
     (every_case_tac>>full_simp_tac(srw_ss())[set_var_def,state_component_equality,set_var_def]>>
@@ -2028,7 +2028,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     metis_tac[])
   >-
     (full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
-    qpat_assum`A=(res,rst)` mp_tac>>
+    qpat_x_assum`A=(res,rst)` mp_tac>>
     IF_CASES_TAC>>simp[]>>
     pairarg_tac>>simp[]>>
     IF_CASES_TAC>>simp[]>>
@@ -2061,7 +2061,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
         (full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def]>>
         CASE_TAC>>full_simp_tac(srw_ss())[])
       >>
-      full_simp_tac(srw_ss())[]>>qpat_assum`A=(res,rst)` mp_tac>>
+      full_simp_tac(srw_ss())[]>>qpat_x_assum`A=(res,rst)` mp_tac>>
       qpat_abbrev_tac`st = call_env B C`>>
       qpat_abbrev_tac`st' = call_env B C`>>
       `st' = st''` by
@@ -2081,7 +2081,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     first_x_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[locals_rel_def])
   >-
     (full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
-    qpat_assum`A=(res,rst)`mp_tac >> ntac 4 (full_case_tac>>full_simp_tac(srw_ss())[])>>
+    qpat_x_assum`A=(res,rst)`mp_tac >> ntac 4 (full_case_tac>>full_simp_tac(srw_ss())[])>>
     IF_CASES_TAC>>srw_tac[][]>>
     imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_get_var_imm>>
     full_simp_tac(srw_ss())[every_var_def]>>rev_full_simp_tac(srw_ss())[]
@@ -2096,18 +2096,18 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   >-
     (*alloc*)
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rev_full_simp_tac(srw_ss())[every_var_def]>>
-    full_simp_tac(srw_ss())[alloc_def]>>qpat_assum`A=(res,rst)` mp_tac>>
+    full_simp_tac(srw_ss())[alloc_def]>>qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (full_case_tac>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
     imp_res_tac locals_rel_cut_env>>
     full_simp_tac(srw_ss())[]>>
-    qpat_assum` A = SOME x'` mp_tac>>
+    qpat_x_assum` A = SOME x'` mp_tac>>
     full_simp_tac(srw_ss())[push_env_def,set_store_def,LET_THM,env_to_list_def,gc_def]>>
     full_case_tac>>TRY(PairCases_on`x''`)>>TRY(PairCases_on`x''''`)>>
     full_simp_tac(srw_ss())[]>>full_case_tac>>full_simp_tac(srw_ss())[pop_env_def]>>srw_tac[][]>>
     full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     CASE_TAC>>full_simp_tac(srw_ss())[call_env_def]>>
     CASE_TAC>>full_simp_tac(srw_ss())[call_env_def]>>
-    qpat_assum`A=x''` sym_sub_tac>>full_simp_tac(srw_ss())[])
+    qpat_x_assum`A=x''` sym_sub_tac>>full_simp_tac(srw_ss())[])
   >-
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rev_full_simp_tac(srw_ss())[every_var_def]>>
     full_simp_tac(srw_ss())[jump_exc_def,state_component_equality,locals_rel_def]>>
@@ -2120,10 +2120,10 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     srestac>>full_simp_tac(srw_ss())[]>>metis_tac[])
   >-
     (fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
-    qpat_assum`A=rst.locals` sym_sub_tac>>
+    qpat_x_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
   >>
-    (qpat_assum `A = (res,rst)` mp_tac>> ntac 5 full_case_tac>>
+    (qpat_x_assum `A = (res,rst)` mp_tac>> ntac 5 full_case_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
     full_simp_tac(srw_ss())[]>>

@@ -1,0 +1,25 @@
+INCLUDES = .. ../../basis ../../translator
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../../basis/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
+PRE_BARE_THYS1 = basisProgramTheory
+PRE_BARE_THYS3 = cfTacticsBaseLib cfTacticsLib
+
+BARE_THYS1 =  $(patsubst %,../../basis/%,$(PRE_BARE_THYS1))
+BARE_THYS3 =  $(patsubst %,../%,$(PRE_BARE_THYS3))
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS3)) $(PARENTHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3)
+endif

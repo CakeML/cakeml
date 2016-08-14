@@ -13,7 +13,6 @@ sig
   val instantiate1 : tactic
 
   val try_finally : tactic -> tactic
-  val qpat_assum_keep : term quotation -> thm_tactic -> tactic
 
   val sing : 'a -> 'a list
 

@@ -340,7 +340,7 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
      metis_tac [MEM_EL])
  >- full_simp_tac(srw_ss())[state_rel_rw]
  >- full_simp_tac(srw_ss())[state_rel_rw]
- >- (qpat_assum `state_rel _ _ _ _` mp_tac >>
+ >- (qpat_x_assum `state_rel _ _ _ _` mp_tac >>
      ONCE_REWRITE_TAC [state_rel_rw] >>
      srw_tac[][]
      >- (full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
@@ -395,7 +395,7 @@ val find_code_related = Q.store_thm ("find_code_related",
  srw_tac[][find_code_def] >>
  `c-(tt+1) ≤ c` by decide_tac >>
  `state_rel (c-(tt+1)) w s s'` by metis_tac [val_rel_mono] >>
- qpat_assum `state_rel c w s s'` mp_tac >>
+ qpat_x_assum `state_rel c w s s'` mp_tac >>
  simp [Once state_rel_rw, fmap_rel_OPTREL_FLOOKUP] >>
  srw_tac[][] >>
  first_assum (qspec_then `n` mp_tac) >>
@@ -686,7 +686,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      rename1 `s0'.clock < LENGTH rr + LENGTH uu` >>
      `s0'.clock < LENGTH rr + LENGTH uu ⇔ s1'.clock < LENGTH rr` by simp[] >>
      simp[] >> srw_tac[][] >>
-     Q.PAT_ASSUM `X = s1'.clock` (mp_tac o SYM) >> simp[])
+     Q.PAT_X_ASSUM `X = s1'.clock` (mp_tac o SYM) >> simp[])
  >- ((* Full, Partial *)
      rename1 `dest_closure _ loc v vs = SOME (Full_app b env rest)` >>
      rename1 `dest_closure _ loc v' vs' = SOME (Partial_app cl')` >>
@@ -2246,11 +2246,11 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
                   strip_tac))) >>
   qx_gen_tac `dcres` >>
   rveq >>
-  qpat_assum`_ = s1.max_app`(assume_tac o SYM)
+  qpat_x_assum`_ = s1.max_app`(assume_tac o SYM)
   \\ full_simp_tac std_ss [] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        mp_tac th) >> strip_tac >>
-  qpat_assum `val_rel _ i _ _ V0` mp_tac >>
+  qpat_x_assum `val_rel _ i _ _ V0` mp_tac >>
   simp[SimpL ``$==>``, val_rel_rw] >>
   disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
   simp[SimpL ``$==>``, optCASE_NONE_F] >>
@@ -2309,7 +2309,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   rev_full_simp_tac std_ss [] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        mp_tac th) >> strip_tac >>
-  qpat_assum `val_rel _ i _ _ C2` mp_tac >>
+  qpat_x_assum `val_rel _ i _ _ C2` mp_tac >>
   full_simp_tac std_ss [] >>
   simp[SimpL ``$==>``, val_rel_rw] >>
   disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
@@ -2352,7 +2352,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   `∃r1 s1'. evaluate_ev j e1 s1 = (r1,s1')`
     by (Cases_on `evaluate_ev j e1 s1` >> simp[]) >> full_simp_tac(srw_ss())[] >>
 
-  qpat_assum `exec_rel i w (e1,s1) _` mp_tac >>
+  qpat_x_assum `exec_rel i w (e1,s1) _` mp_tac >>
   simp[exec_rel_rw] >> disch_then (qspec_then `j` mp_tac) >> simp[] >>
   strip_tac >>
 

@@ -630,20 +630,84 @@ val Eseq_encode_def = Define`
    od)
 `
 
+val dest_Conk_def = Define`
+  (dest_Conk (Con x y) k v = k x y) /\
+  (dest_Conk _ k v = v)
+`;
+
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
-   case a1 of
-       Con (SOME (Short "ref")) [] => App Opapp [Var (Short "ref"); a2]
-     | Con s [] =>
-       (case a2 of
-            Con NONE [] => Con s [a2]
-              (* applying a constructor to unit has to be viewed as
-                 applying it to one argument (unit), rather than as
-                 applying it to none *)
-          | Con NONE tuple => Con s tuple
-          | _ => Con s [a2])
-     | _ => App Opapp [a1; a2]
-`
+    dest_Conk a1
+      (λnm_opt args.
+               if ~NULL args then App Opapp [a1;a2]
+               else if nm_opt = SOME (Short "ref") then
+                 App Opapp [Var (Short "ref"); a2]
+               else
+                 dest_Conk a2
+                           (λnm_opt2 args2.
+                                     if nm_opt2 = NONE ∧ ~ NULL args2 then
+                                       Con nm_opt args2
+                                     else
+                                       Con nm_opt [a2])
+                           (Con nm_opt [a2]))
+      (App Opapp [a1;a2])
+`;
+
+(* this re-expression of the above blows up disgustingly when the case
+   expressions are expanded but is perhaps easier to understand. *)
+val mkAst_App_thm = Q.store_thm(
+  "mkAst_App_thm",
+  `mkAst_App a1 a2 =
+     case a1 of
+         Con (SOME (Short "ref")) [] => App Opapp [Var (Short "ref"); a2]
+       | Con s [] =>
+         (case a2 of
+              Con NONE [] => Con s [a2]
+                (* applying a constructor to unit has to be viewed as
+                   applying it to one argument (unit), rather than as
+                   applying it to none *)
+            | Con NONE tuple => Con s tuple
+            | _ => Con s [a2])
+       | _ => App Opapp [a1; a2]`,
+  Cases_on `a1` >> simp[mkAst_App_def, dest_Conk_def] >>
+  rename1 `Con nm_opt args` >> Cases_on `args` >> simp[] >>
+  Cases_on `nm_opt` >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >>
+      rename1 `Con NONE [Con opt2 args2]` >> Cases_on `opt2` >> simp[] >>
+      Cases_on `args2` >> simp[]) >>
+  rename1`ident = Short "ref"` >> reverse (Cases_on `ident`) >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rename1`[Con opt2 args2]` >>
+      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
+  rename1 `str = "ref"` >> Cases_on `str` >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rename1`[Con opt2 args2]` >>
+      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
+  rename1`SOME(Short (STRING c str'))` >> Cases_on `str'` >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rename1`[Con opt2 args2]` >>
+      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
+  rename1`SOME(Short (STRING c1 (STRING c2 str')))` >> Cases_on `str'` >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rename1`[Con opt2 args2]` >>
+      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
+  rename1`SOME(Short (STRING c1 (STRING c2 (STRING c3 str'))))` >>
+  reverse (Cases_on `str'`) >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rw[] >>
+      rename1`Con _ args2` >> Cases_on `args2` >> fs[] >>
+      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
+      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
+  reverse (Cases_on`c1 = #"r"`) >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rw[] >>
+      rename1`Con _ args2` >> Cases_on `args2` >> fs[] >>
+      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
+      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
+  reverse (Cases_on`c2 = #"e"`) >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rw[] >>
+      rename1`Con _ args2` >> Cases_on `args2` >> fs[] >>
+      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
+      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
+  reverse (Cases_on`c3 = #"f"`) >> simp[]
+  >- (Cases_on `a2` >> simp[dest_Conk_def] >> rw[] >>
+      rename1`Con _ args2` >> Cases_on `args2` >> fs[] >>
+      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
+      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]))
 
 val isSymbolicConstructor_def = Define`
   isSymbolicConstructor (structopt : modN option) s =

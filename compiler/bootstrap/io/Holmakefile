@@ -1,9 +1,9 @@
-INCLUDES = .. ../proofs ../../../../translator
+INCLUDES = ../../.. ../../../translator ../../../characteristic
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../heap
+PARENT_HOLHEAP = ../../../characteristic/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -11,8 +11,9 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../../translator/ml_translatorLib \
-						../../../../translator/std_preludeLib \
+BARE_THYS = ../../../translator/ml_translatorLib \
+	    ../../../translator/std_preludeLib \
+            ../../../characteristic/cfTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

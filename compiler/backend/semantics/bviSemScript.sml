@@ -187,7 +187,7 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ `check_clock r s1 = r` by SRW_TAC [] [check_clock_def]
   \\ fs [] \\ POP_ASSUM (K ALL_TAC)
   \\ SRW_TAC [] [] \\ RES_TAC
-  \\ Q.PAT_ASSUM `!x.bbb` MP_TAC
+  \\ Q.PAT_X_ASSUM `!x.bbb` MP_TAC
   \\ `r''.clock <= s1.clock` by DECIDE_TAC
   \\ POP_ASSUM (fn th => SIMP_TAC std_ss [th])
   \\ REPEAT STRIP_TAC
@@ -226,7 +226,7 @@ val evaluate_ind = save_thm("evaluate_ind",let
            \\ decide_tac)
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC))
     \\ IMP_RES_TAC evaluate_clock
     \\ FULL_SIMP_TAC std_ss [check_clock_thm])
   in ind end);
@@ -243,14 +243,14 @@ val evaluate_def = save_thm("evaluate_def",let
     \\ IMP_RES_TAC evaluate_clock
     \\ IMP_RES_TAC LESS_EQ_TRANS
     \\ IMP_RES_TAC LESS_EQ_dec_clock
-    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x. bbb` (K ALL_TAC))
     \\ IMP_RES_TAC do_app_const
     \\ SRW_TAC [] []
     \\ fs [check_clock_thm]
     \\ rfs [check_clock_thm]
     \\ fs [check_clock_thm, dec_clock_def]
     \\ IMP_RES_TAC LESS_EQ_TRANS
-    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x. bbb` (K ALL_TAC))
     \\ fs [check_clock_thm]
     \\ imp_res_tac LESS_EQ_LESS_TRANS)
   in def end);

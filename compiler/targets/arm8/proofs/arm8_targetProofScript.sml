@@ -616,7 +616,7 @@ fun next_state_tacN (w, x) fltr (asl, g) =
    let
       val (t, tm) = Option.valOf (asmLib.find_env optionSyntax.is_the g)
       val tac =
-         qpat_assum `!i:num s:arm8_state. P`
+         qpat_x_assum `!i:num s:arm8_state. P`
             (qspecl_then [`^t`, `^tm`]
                (strip_assume_tac o SIMP_RULE (srw_ss())
                   [set_sepTheory.fun2set_eq]))
@@ -634,7 +634,7 @@ local
    val th = REWRITE_RULE [arm8_ok_def] arm8_asm_state
 in
    fun state_tac thms =
-      REPEAT (qpat_assum `NextStateARM8 q = z` (K all_tac))
+      REPEAT (qpat_x_assum `NextStateARM8 q = z` (K all_tac))
       \\ fs ([th, asmPropsTheory.all_pcs] @ thms)
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
 end
@@ -820,14 +820,6 @@ val arm8_encoding = Count.apply Q.prove (
    \\ print_tac "Loc"
    \\ decode_tac
    )
-
-val arm8_asm_deterministic = Q.store_thm("arm8_asm_deterministic",
-   `asm_deterministic arm8_enc arm8_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic, arm8_encoding]
-   )
-
-val arm8_asm_deterministic_config =
-   SIMP_RULE (srw_ss()) [arm8_config_def] arm8_asm_deterministic
 
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm8_config_def] arm8_encoding ::
@@ -1108,18 +1100,11 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       print_tac "enc_ok: Call"
       \\ lfs enc_rwts
       )
-   >- (
-      (*--------------
+   \\ (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
-      \\ lfs enc_rwts
-      )
-      (*--------------
-          asm_deterministic
-        --------------*)
-   \\ print_tac "asm_deterministic"
-   \\ rewrite_tac [arm8_asm_deterministic_config]
+   \\ lfs enc_rwts
    )
 
 val () = export_theory ()

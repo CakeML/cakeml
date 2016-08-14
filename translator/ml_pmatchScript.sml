@@ -200,7 +200,7 @@ val clock_different_lemma3 = Q.store_thm ("clock_different_lemma3",
    >> disch_then (qspec_then `extra` assume_tac)
    >> fs [empty_state_def, state_component_equality])
  >- (
-   qpat_assum `evaluate _ _ _ = _` mp_tac
+   qpat_x_assum `evaluate _ _ _ = _` mp_tac
    >> drule clock_add_lemma
    >> disch_then (qspec_then `extra` assume_tac)
    >> fs [empty_state_def, state_component_equality]));
@@ -225,7 +225,7 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
     ntac 3 (pop_assum kall_tac) >>
     fs[EvalPatRel_def] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >>
-    qpat_assum`p1 xv ⇒ X`kall_tac >>
+    qpat_x_assum`p1 xv ⇒ X`kall_tac >>
     fs[EvalPatBind_def,PMATCH_ROW_COND_def,PULL_EXISTS] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >> strip_tac >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>

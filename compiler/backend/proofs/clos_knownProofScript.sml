@@ -31,11 +31,7 @@ val error_case_eq =
 fun sel_ihpc f = first_x_assum (first_assum o mp_then (Pos f) mp_tac)
 fun resolve_selected f th = first_assum (mp_then (Pos f) mp_tac th)
 
-(* horrid bodge until qpat_assum is fixed *)
-fun QPAT_ASSUM p (ttac : thm_tactic) : tactic =
-  qpat_assum p (fn cth => ttac cth >> assume_tac cth)
-
-fun patresolve p f th = QPAT_ASSUM p (mp_then (Pos f) mp_tac th)
+fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 
 (* repeated resolution, requiring that all preconditions get removed *)
 fun nailIHx k =
@@ -725,7 +721,7 @@ val known_correct_approx = Q.store_thm(
       fs[BAG_ALL_DISTINCT_BAG_UNION] >> strip_tac >>
       fs[evaluate_def, pair_case_eq, result_case_eq] >> rveq
       >- (rename1 `evaluate ([exp1'], env, s0) = (Rval v1, s1)` >>
-          first_x_assum (QPAT_ASSUM `closSem$evaluate([_],_,_) = _` o
+          first_x_assum (Q.PAT_ASSUM `closSem$evaluate([_],_,_) = _` o
                          mp_then (Pos last) mp_tac) >>
           simp[] >>
           disch_then (resolve_selected last) >> simp[] >>
@@ -733,7 +729,7 @@ val known_correct_approx = Q.store_thm(
           simp[] >> rveq >> fs[] >> sel_ihpc last >> simp[] >>
           metis_tac[ssgc_free_preserved_SING])
       >- (simp[] >>
-          first_x_assum (QPAT_ASSUM `closSem$evaluate ([_],_,_) = _` o
+          first_x_assum (Q.PAT_ASSUM `closSem$evaluate ([_],_,_) = _` o
                          mp_then (Pos last) mp_tac) >>
           simp[] >>
           disch_then (resolve_selected last) >> simp[] >>
@@ -761,7 +757,7 @@ val known_correct_approx = Q.store_thm(
              simp[] >>
              disch_then (first_assum o mp_then (Pos hd) mp_tac) >>
              simp[] >> strip_tac >>
-             qpat_assum `known [_] _ g0 = (_,g1)`
+             qpat_x_assum `known [_] _ g0 = (_,g1)`
                (mp_then (Pos hd) mp_tac subspt_known_elist_globals) >>
              simp[] >> disch_then (first_assum o mp_then (Pos hd) mp_tac) >>
              simp[]) >>
@@ -774,7 +770,7 @@ val known_correct_approx = Q.store_thm(
       (* two cases from here on *)
       rename1 `evaluate ([ge'], env, s0) = (Rval gvs, s1)` >>
       first_x_assum
-        (QPAT_ASSUM `evaluate ([ge'], _, _) = _` o mp_then (Pos last) mp_tac) >>
+        (Q.PAT_ASSUM `evaluate ([ge'], _, _) = _` o mp_then (Pos last) mp_tac) >>
       simp[] >> disch_then (resolve_selected last) >> simp[] >>
       (impl_keep_tac >- metis_tac[subspt_trans]) >>
       strip_tac >> rveq >> fs[] >> rveq >> sel_ihpc last >> simp[] >>
@@ -826,7 +822,7 @@ val known_correct_approx = Q.store_thm(
           simp[] >> reverse impl_keep_tac
           >- metis_tac[val_approx_val_merge_I] >>
           metis_tac[subspt_trans])
-      >- (first_x_assum (QPAT_ASSUM `closSem$evaluate _ = (Rerr _, _)` o
+      >- (first_x_assum (Q.PAT_ASSUM `closSem$evaluate _ = (Rerr _, _)` o
                          mp_then (Pos last) mp_tac) >>
           simp[] >> disch_then (resolve_selected last) >> simp[] >>
           impl_keep_tac >- metis_tac[subspt_trans] >>
@@ -905,7 +901,7 @@ val known_correct_approx = Q.store_thm(
           impl_tac
           >- (IMP_RES_THEN mp_tac known_preserves_esgc_free >> simp[]) >>
           strip_tac >>
-          qpat_assum `evaluate_app _ _ _ _ = _`
+          qpat_x_assum `evaluate_app _ _ _ _ = _`
              (fn th =>
                  (mp_tac o PART_MATCH (last o strip_conj o #1 o dest_imp)
                                       (CONJUNCT2 ssgc_evaluate0) o concl) th >>
@@ -1119,8 +1115,7 @@ val ksrel_sga = Q.store_thm(
   csimp[] >> rpt strip_tac >> eq_tac >> rpt strip_tac >>
   rename1 `EL kk (ss:α closSem$state).globals = SOME vv` >>
   rename1 `lookup kk gg` >>
-  qpat_assum `kk < LENGTH ss.globals`
-    (fn th => first_x_assum (mp_tac o C MATCH_MP th) >> assume_tac th) >>
+  nailIHx mp_tac >>
   simp[optionTheory.OPTREL_def] >>
   metis_tac [kvrel_val_approx])
 
@@ -1369,12 +1364,12 @@ val kvrel_dest_closure_SOME_Partial = Q.store_thm(
       rename1 `LIST_REL val_approx_val envapx env2` >> simp[PULL_EXISTS] >>
       qexists_tac `envapx` >>
       fs[LIST_REL_EL_EQN] >> rename1 `EL ii` >>
-      qpat_assum `∀n. _ ⇒ UNCURRY f x y` mp_tac >>
+      qpat_x_assum `∀n. _ ⇒ UNCURRY f x y` mp_tac >>
       disch_then (qspec_then `ii` mp_tac) >> simp[] >> rw[] >> simp[])
   >- (rpt (pairarg_tac >> fs[]) >> fs[bool_case_eq] >>
       Cases_on `lopt2` >> fs[] >> rename1 `option_CASE lll` >>
       Cases_on `lll` >> fs[] >> rveq >>
-      qpat_assum `LIST_REL (UNCURRY _) _ _` mp_tac >>
+      qpat_x_assum `LIST_REL (UNCURRY _) _ _` mp_tac >>
       CONV_TAC (LAND_CONV (REWRITE_CONV [LIST_REL_EL_EQN])) >>
       rename1 `EL ii` >>
       disch_then (CONJUNCTS_THEN2 assume_tac (qspec_then `ii` mp_tac)) >>
@@ -1405,7 +1400,7 @@ val kvrel_dest_closure_SOME_Full = Q.store_thm(
       fs[check_loc_def])
   >- (rpt (pairarg_tac >> fs[]) >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
       fs[bool_case_eq] >> rveq >>
-      qpat_assum `LIST_REL (UNCURRY _) _ _`
+      qpat_x_assum `LIST_REL (UNCURRY _) _ _`
         (fn th => (mp_tac o SIMP_RULE (srw_ss()) [LIST_REL_EL_EQN]) th >>
                   assume_tac th) >>
       rename1 `EL ii` >> simp[] >>
@@ -1448,7 +1443,7 @@ val kvrel_subspt = Q.store_thm(
       TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
            simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
            qexists_tac `kvrel g` >> simp[] >> metis_tac[MEM_EL]) >>
-      qpat_assum `LIST_REL (UNCURRY _) _ _` mp_tac >> simp[LIST_REL_EL_EQN] >>
+      qpat_x_assum `LIST_REL (UNCURRY _) _ _` mp_tac >> simp[LIST_REL_EL_EQN] >>
       rpt strip_tac >> fs[] >> rfs[] >> rpt (pairarg_tac >> fs[]) >>
       rename1 `nn < LENGTH _` >> first_x_assum (qspec_then `nn` mp_tac) >>
       simp[] >> simp[exp_rel_def] >> metis_tac[subspt_trans]))
@@ -1644,7 +1639,7 @@ val known_correct0 = Q.prove(
           fs[] >> rveq >> sel_ihpc last >> simp[] >> disch_then irule >>
           simp[]
           >- metis_tac[ssgc_free_preserved_SING']
-          >- (patresolve `known [exp1] _ _ = _` hd (GEN_ALL kca_sing_sga) >>
+          >- (patresolve `known [gd] _ _ = _` hd (GEN_ALL kca_sing_sga) >>
               simp[] >> disch_then (resolve_selected last) >> simp[] >>
               metis_tac[ksrel_sga, kvrel_LIST_REL_val_approx,
                         kvrel_EVERY_vsgc_free, ksrel_ssgc_free,
@@ -1994,7 +1989,7 @@ val known_correct0 = Q.prove(
           >- (fs[loptrel_arg1_SOME] >> rveq >>
               imp_res_tac dest_closure_SOME_Full_app_args_nil >> fs[] >>
               rveq >> simp[]) >>
-          qpat_assum `loptrel _ _ _ _` mp_tac >>
+          qpat_x_assum `loptrel _ _ _ _` mp_tac >>
           simp[loptrel_arg1_NONE] >> reverse strip_tac >> rveq
           >- (imp_res_tac dest_closure_SOME_Full_app_args_nil >> fs[] >>
               rveq >> simp[])

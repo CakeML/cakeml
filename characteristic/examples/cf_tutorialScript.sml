@@ -10,20 +10,22 @@
 *)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
-local open ml_progLib cf_initialProgramTheory in end
+local open ml_progLib basisProgramTheory in end
+
+val _ = new_theory "cf_tutorial";
 
 (* We use translator/ml_progLib for managing the state resulting from
    the evaluation of several toplevel declarations.
 
    Let's first fetch the state (of type ml_progLib.ml_prog_state)
    corresponding to the base definitions (the ones in
-   semantics/initialProgramScript.sml). It is defined in
-   cf_initialProgramTheory, and comes with specifications for the
+   basis/basisProgramScript.sml). It is defined in
+   basisProgramTheory, and comes with specifications for the
    functions it defines.
 *)
 val basis_st =
   ml_progLib.unpack_ml_prog_state
-    cf_initialProgramTheory.basis_prog_state
+    basisProgramTheory.basis_prog_state
 
 (* Then, write the code for the programs we want to specify.
 
@@ -201,8 +203,8 @@ val bytearray_fromlist_spec = Q.prove (
        emp (\av. W8ARRAY av l)`,
   xcf "fromList" st \\
   xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
-  xlet `\w8z. & WORD (i2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
-  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) (i2w 0))`
+  xlet `\w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
     THEN1 (xapp \\ fs []) \\
 
   (* [cf_fun] and [cf_fun_rec] goals are handled by [xfun] and
@@ -281,3 +283,5 @@ val bytearray_fromlist_spec = Q.prove (
      with characteristic formulae;
    - through examples, looking in cf_examplesScript.sml
 *)
+
+val _ = export_theory();

@@ -1,10 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open inferProgTheory;
 
 val _ = new_theory "compilerProg"
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "inferProg";
 
 (* This is the compiler "preamble" that translates the compile functions down to BVP *)
 

@@ -5,38 +5,6 @@ val () = new_theory "riscv_target"
 
 val () = wordsLib.guess_lengths()
 
-(* --- Configuration for RISC-V --- *)
-
-val eval = rhs o concl o EVAL
-val min12 = eval ``sw2sw (INT_MINw: word12) : word64``
-val max12 = eval ``sw2sw (INT_MAXw: word12) : word64``
-val min13 = eval ``sw2sw (INT_MINw: 13 word) : word64``
-val max13 = eval ``sw2sw (INT_MAXw: 13 word) : word64``
-val min21 = eval ``sw2sw (INT_MINw: 21 word) : word64``
-val max21 = eval ``sw2sw (INT_MAXw: 21 word) : word64``
-val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
-
-val riscv_config_def = Define`
-   riscv_config =
-   <| ISA := RISC_V
-    ; reg_count := 32
-    ; avoid_regs := [0; 1]
-    ; link_reg := SOME 31
-    ; has_mem_32 := T
-    ; two_reg_arith := F
-    ; big_endian := F
-    ; valid_imm := (\b i. b <> INL Sub /\ ^min12 <= i /\ i <= ^max12)
-    ; addr_offset_min := ^min12
-    ; addr_offset_max := ^max12
-    ; jump_offset_min := ^min21
-    ; jump_offset_max := ^max21
-    ; cjump_offset_min := ^min13 + 4w
-    ; cjump_offset_max := ^max13
-    ; loc_offset_min := ^min32
-    ; loc_offset_max := 0x7FFFF7FFw
-    ; code_alignment := 2
-    |>`
-
 val riscv_next_def = Define `riscv_next s = THE (NextRISCV s)`
 
 (* --- Relate ASM and RISC-V states --- *)
@@ -346,6 +314,39 @@ val riscv_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
           | _ => ARB)
     | _ => ARB`
 
+(* --- Configuration for RISC-V --- *)
+
+val eval = rhs o concl o EVAL
+val min12 = eval ``sw2sw (INT_MINw: word12) : word64``
+val max12 = eval ``sw2sw (INT_MAXw: word12) : word64``
+val min13 = eval ``sw2sw (INT_MINw: 13 word) : word64``
+val max13 = eval ``sw2sw (INT_MAXw: 13 word) : word64``
+val min21 = eval ``sw2sw (INT_MINw: 21 word) : word64``
+val max21 = eval ``sw2sw (INT_MAXw: 21 word) : word64``
+val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
+
+val riscv_config_def = Define`
+   riscv_config =
+   <| ISA := RISC_V
+    ; encode := riscv_enc
+    ; reg_count := 32
+    ; avoid_regs := [0; 1]
+    ; link_reg := SOME 31
+    ; has_mem_32 := T
+    ; two_reg_arith := F
+    ; big_endian := F
+    ; valid_imm := (\b i. b <> INL Sub /\ ^min12 <= i /\ i <= ^max12)
+    ; addr_offset_min := ^min12
+    ; addr_offset_max := ^max12
+    ; jump_offset_min := ^min21
+    ; jump_offset_max := ^max21
+    ; cjump_offset_min := ^min13 + 4w
+    ; cjump_offset_max := ^max13
+    ; loc_offset_min := ^min32
+    ; loc_offset_max := 0x7FFFF7FFw
+    ; code_alignment := 2
+    |>`
+
 val riscv_proj_def = Define`
    riscv_proj d s =
    ((s.c_MCSR s.procID).mstatus.VM,
@@ -358,8 +359,7 @@ val riscv_proj_def = Define`
 
 val riscv_target_def = Define`
    riscv_target =
-   <| encode := riscv_enc
-    ; get_pc := (\s. s.c_PC s.procID)
+   <| get_pc := (\s. s.c_PC s.procID)
     ; get_reg := (\s. s.c_gpr s.procID o n2w)
     ; get_byte := riscv_state_MEM8
     ; state_ok := riscv_ok

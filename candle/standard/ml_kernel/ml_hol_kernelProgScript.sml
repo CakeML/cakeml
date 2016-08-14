@@ -124,7 +124,7 @@ fun derive_case_of ty = let
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
   fun case_tac n =
-        Q.PAT_ASSUM `b0 ==> Eval env exp something`
+        Q.PAT_X_ASSUM `b0 ==> Eval env exp something`
            (MP_TAC o REWRITE_RULE [TAG_def,inv_def,Eval_def])
         \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
         \\ NTAC 3 (POP_ASSUM MP_TAC)
@@ -133,14 +133,14 @@ fun derive_case_of ty = let
         \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
-        \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o SPEC_ALL))
-        \\ REPEAT (Q.PAT_ASSUM `bb ==> bbb` (fn th =>
+        \\ REPEAT (Q.PAT_X_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o SPEC_ALL))
+        \\ REPEAT (Q.PAT_X_ASSUM `bb ==> bbb` (fn th =>
              if mem ("b" ^ int_to_string n)
                 (free_vars (concl th) |> map (fst o dest_var))
              then ASSUME_TAC (UNDISCH_ALL (RW [GSYM AND_IMP_INTRO] th))
              else ALL_TAC))
         \\ FULL_SIMP_TAC std_ss [EvalM_def,PULL_FORALL] \\ REPEAT STRIP_TAC
-        \\ Q.PAT_ASSUM `!xx. bb` (MP_TAC o SPEC_ALL)
+        \\ Q.PAT_X_ASSUM `!xx. bb` (MP_TAC o SPEC_ALL)
         \\ ASM_SIMP_TAC std_ss [] \\ STRIP_TAC
         \\ Q.LIST_EXISTS_TAC [`s2`,`res'`,`refs2`]
         \\ FULL_SIMP_TAC std_ss [] \\ ASM_SIMP_TAC (srw_ss()) []
@@ -685,7 +685,7 @@ fun m_translate def = let
   val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
   val no_params = (length rev_params = 0)
   (* derive deep embedding *)
-  val pre_var = install_rec_pattern lhs fname
+  val _ = install_rec_pattern lhs fname fname
   val th = m2deep rhs
   val _ = uninstall_rec_patterns ()
   (* replace rhs with lhs in th *)

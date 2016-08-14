@@ -1,10 +1,12 @@
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
-local open ml_progLib cf_initialProgramTheory in end
+local open ml_progLib basisProgramTheory in end
+
+val _ = new_theory "cf_examples";
 
 val basis_st =
-  ml_progLib.unpack_ml_prog_state 
-    cf_initialProgramTheory.basis_prog_state
+  ml_progLib.unpack_ml_prog_state
+    basisProgramTheory.basis_prog_state
 
 val example_let0 = parse_topdecl
   "fun example_let0 n = let val a = 3; in a end"
@@ -119,9 +121,9 @@ val example_if_spec = Q.prove (
   THEN1 (xapp \\ fs []) \\
   xif \\ xret \\ xsimpl
 )
-  
+
 val is_nil = parse_topdecl
-  "fun is_nil l = case l of [] => true | x::xs => false" 
+  "fun is_nil l = case l of [] => true | x::xs => false"
 
 val st = ml_progLib.add_prog is_nil pick_name basis_st
 
@@ -199,7 +201,7 @@ val list_length_spec = store_thm ("list_length_spec",
        emp (\v. & NUM (LENGTH l) v)``,
   Induct_on `l`
   THEN1 (
-    xcf "length" st \\ fs [LIST_TYPE_def] \\ 
+    xcf "length" st \\ fs [LIST_TYPE_def] \\
     xmatch \\ xret \\ xsimpl
   )
   THEN1 (
@@ -219,8 +221,8 @@ val bytearray_fromlist_spec = Q.prove (
        emp (\av. W8ARRAY av l)`,
   xcf "fromList" st \\
   xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
-  xlet `\w8z. & WORD (i2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
-  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) (i2w 0))`
+  xlet `\w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
     THEN1 (xapp \\ fs []) \\
   xfun_spec `f`
     `!ls lvs i iv l_pre rest.
@@ -252,6 +254,7 @@ val bytearray_fromlist_spec = Q.prove (
     )
   ) \\
   xapp \\ fs [] \\ xsimpl \\
-  Q.LIST_EXISTS_TAC [`REPLICATE (LENGTH l) (i2w 0)`, `l`, `[]`] \\
-  fs [LENGTH_REPLICATE]
+  fs [LENGTH_NIL_SYM, LENGTH_REPLICATE]
 )
+
+val _ = export_theory();

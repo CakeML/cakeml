@@ -121,7 +121,6 @@ val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv
 infix then_ecc
 
 fun hchange_apply_cc lemma_th cont_ecc1 cont_ecc2 =
-  (* tm is a [H ==>> H'] *)
   CONSEQ_TOP_REWRITE_CONV ([], [hchange_lemma], []) THEN_DCC
   STRENGTHEN_CONSEQ_CONV (
     ecc_conseq_conv (
@@ -132,7 +131,7 @@ fun hchange_apply_cc lemma_th cont_ecc1 cont_ecc2 =
     )
   )
 
-(* todo: variant calling progress on the lemma, like the todo in xapp *)
+(* todo: cf todo in xapply *)
 
 val hcancel_cont_ecc =
   lift_conseq_conv_ecc (hcancel_conseq_conv CONSEQ_CONV_STRENGTHEN_direction)

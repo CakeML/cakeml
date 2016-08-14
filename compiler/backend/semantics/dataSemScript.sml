@@ -301,7 +301,7 @@ val evaluate_ind = save_thm("evaluate_ind",let
            \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
+    \\ REPEAT (Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC))
     \\ IMP_RES_TAC evaluate_clock
     \\ IMP_RES_TAC (GSYM evaluate_clock)
     \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock])

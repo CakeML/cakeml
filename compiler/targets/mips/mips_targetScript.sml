@@ -5,38 +5,6 @@ val () = new_theory "mips_target"
 
 val () = wordsLib.guess_lengths()
 
-(* --- Configuration for MIPS --- *)
-
-val eval = rhs o concl o EVAL
-val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
-val max16 = eval ``sw2sw (INT_MAXw: word16) : word64``
-val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
-
-val mips_config_def = Define`
-   mips_config =
-   <| ISA := MIPS
-    ; reg_count := 32
-    ; avoid_regs := [0; 1]
-    ; link_reg := SOME 31
-    ; has_mem_32 := T
-    ; two_reg_arith := F
-    ; big_endian := T
-    ; valid_imm :=
-       (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
-                0w <= i /\ i <= ^umax16
-              else
-                b <> INL Sub /\ ^min16 <= i /\ i <= ^max16)
-    ; addr_offset_min := ^min16
-    ; addr_offset_max := ^max16
-    ; jump_offset_min := ^min16
-    ; jump_offset_max := ^max16
-    ; cjump_offset_min := ^min16
-    ; cjump_offset_max := ^max16
-    ; loc_offset_min := ^min16 + 12w
-    ; loc_offset_max := ^max16 + 8w
-    ; code_alignment := 2
-    |>`
-
 (* --- The next-state function --- *)
 
 (* --------------------------------------------------------------------------
@@ -407,6 +375,39 @@ val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
         when_nop rest (JumpReg (w2n r))
     | _ => ARB`
 
+(* --- Configuration for MIPS --- *)
+
+val eval = rhs o concl o EVAL
+val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
+val max16 = eval ``sw2sw (INT_MAXw: word16) : word64``
+val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
+
+val mips_config_def = Define`
+   mips_config =
+   <| ISA := MIPS
+    ; encode := mips_enc
+    ; reg_count := 32
+    ; avoid_regs := [0; 1]
+    ; link_reg := SOME 31
+    ; has_mem_32 := T
+    ; two_reg_arith := F
+    ; big_endian := T
+    ; valid_imm :=
+       (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
+                0w <= i /\ i <= ^umax16
+              else
+                b <> INL Sub /\ ^min16 <= i /\ i <= ^max16)
+    ; addr_offset_min := ^min16
+    ; addr_offset_max := ^max16
+    ; jump_offset_min := ^min16
+    ; jump_offset_max := ^max16
+    ; cjump_offset_min := ^min16
+    ; cjump_offset_max := ^max16
+    ; loc_offset_min := ^min16 + 12w
+    ; loc_offset_max := ^max16 + 8w
+    ; code_alignment := 2
+    |>`
+
 val mips_proj_def = Define`
    mips_proj d s =
    (s.CP0.Config, s.CP0.Status.RE, s.exceptionSignalled,
@@ -414,8 +415,7 @@ val mips_proj_def = Define`
 
 val mips_target_def = Define`
    mips_target =
-   <| encode := mips_enc
-    ; get_pc := mips_state_PC
+   <| get_pc := mips_state_PC
     ; get_reg := (\s. mips_state_gpr s o n2w)
     ; get_byte := mips_state_MEM
     ; state_ok := mips_ok

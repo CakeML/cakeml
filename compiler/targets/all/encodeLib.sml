@@ -144,7 +144,7 @@ fun encoding q =
     { asm = fn SOME is64 => print (if is64 then asm64 else asm32)
              | NONE =>
                  if asm32 = asm64 then print asm32
-                 else print ("32 asm: " ^ asm32 ^ "\n    64 asm: " ^ asm64),
+                 else print ("32 asm: " ^ asm32 ^ "\n64 asm: " ^ asm64),
       arm6 = fn () =>
               if ok tm32 arm6_config
                 then let

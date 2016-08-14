@@ -137,7 +137,7 @@ val code_rel_insert = store_thm("code_rel_insert",
   \\ TRY (drule evaluate_code_insert \\ fs [] \\ NO_TAC)
   \\ drule evaluate_code_insert \\ fs []
   \\ disch_then drule \\ fs [] \\ rw []
-  \\ qpat_assum `exp_rel (:'ffi) _ e1 e2` (fn th => mp_tac th \\ assume_tac th)
+  \\ qpat_x_assum `exp_rel (:'ffi) _ e1 e2` (fn th => mp_tac th \\ assume_tac th)
   \\ simp_tac std_ss [exp_rel_def]
   \\ disch_then drule \\ fs []);
 
@@ -190,7 +190,7 @@ val evaluate_inline = Q.store_thm("evaluate_inline",
 val exp_rel_inline = store_thm("exp_rel_inline",
   ``subspt cs c ==> exp_rel (:'ffi) c e (HD (inline cs [e]))``,
   fs [exp_rel_def] \\ rw []
-  \\ qpat_assum `_ = (_,_)` (fn th => assume_tac th THEN
+  \\ qpat_x_assum `_ = (_,_)` (fn th => assume_tac th THEN
         once_rewrite_tac [GSYM th])
   \\ match_mp_tac evaluate_inline \\ fs []);
 
@@ -217,7 +217,7 @@ val inline_all_acc = store_thm("inline_all_acc",
   Induct \\ fs [inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ once_rewrite_tac [inline_all_def] \\ simp_tac std_ss [LET_THM]
   \\ rpt strip_tac \\ IF_CASES_TAC
-  \\ qpat_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
+  \\ qpat_x_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
 
 val fromAList_SWAP = prove(
   ``!xs x ys.
@@ -310,7 +310,7 @@ val code_rel_IMP_semantics_EQ = store_thm("code_rel_IMP_semantics_EQ",
     \\ strip_tac \\ fs [code_rel_def]
     \\ first_x_assum drule \\ strip_tac \\ fs [LENGTH_NIL]
     \\ IF_CASES_TAC \\ fs []
-    \\ qpat_assum `!x. _ <> _` (qspec_then `k` mp_tac) \\ fs [] \\ rw []
+    \\ qpat_x_assum `!x. _ <> _` (qspec_then `k` mp_tac) \\ fs [] \\ rw []
     \\ Cases_on `evaluate ([x1],[],dec_clock 1 (initial_state ffi c1 k))`
     \\ fs [] \\ first_x_assum drule
     \\ disch_then (qspec_then `dec_clock 1 (initial_state ffi c1 k)` mp_tac)
@@ -325,7 +325,7 @@ val code_rel_IMP_semantics_EQ = store_thm("code_rel_IMP_semantics_EQ",
       \\ fs [dec_clock_def,initial_state_def,bvlSemTheory.state_component_equality])
     \\ fs [])
   \\ simp []
-  \\ qpat_assum `code_rel (:'ffi) _ _` kall_tac
+  \\ qpat_x_assum `code_rel (:'ffi) _ _` kall_tac
   \\ DEEP_INTRO_TAC some_intro >> simp[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   full_simp_tac(srw_ss())[UNCURRY,LET_THM] >>

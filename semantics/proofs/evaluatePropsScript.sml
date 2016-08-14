@@ -419,7 +419,7 @@ val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
    >> every_case_tac
    >> fs []
    >> `?extra. k2 = k1 + extra` by intLib.ARITH_TAC
-   >> qpat_assum `evaluate_tops _ _ _ = _` mp_tac
+   >> qpat_x_assum `evaluate_tops _ _ _ = _` mp_tac
    >> drule evaluate_tops_add_to_clock
    >> rw [])
  >- (
@@ -435,7 +435,7 @@ val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
    >> simp [])
  >- (
    fs [evaluate_prog_def]
-   >> qpat_assum `(if _ then _ else _) = _` mp_tac
+   >> qpat_x_assum `(if _ then _ else _) = _` mp_tac
    >> CASE_TAC
    >> rw []
    >> rw []
@@ -446,7 +446,7 @@ val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
        >> simp []
        >> disch_then (qspec_then `extra` mp_tac)
        >> rw [],
-     qpat_assum `evaluate_tops _ _ _ = _` mp_tac
+     qpat_x_assum `evaluate_tops _ _ _ = _` mp_tac
        >> drule evaluate_tops_add_to_clock
        >> simp []
        >> disch_then (qspec_then `extra` mp_tac)

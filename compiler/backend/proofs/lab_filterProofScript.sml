@@ -286,7 +286,7 @@ val loc_to_pc_eq_NONE = prove(``
   IF_CASES_TAC>>
   full_simp_tac(srw_ss())[]>>
   TRY
-    (qpat_assum`A=NONE` mp_tac>>
+    (qpat_x_assum`A=NONE` mp_tac>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     simp[Once loc_to_pc_def]>>
@@ -318,12 +318,12 @@ val loc_to_pc_eq_SOME = prove(``
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]
     >-
       (full_simp_tac(srw_ss())[not_skip_def]>>
-      qpat_assum`A=pc` sym_sub_tac>>
+      qpat_x_assum`A=pc` sym_sub_tac>>
       full_simp_tac(srw_ss())[Once adjust_pc_def])
     >>
       (IF_CASES_TAC>>full_simp_tac(srw_ss())[]
       >-
-        (Cases_on`not_skip h`>>qpat_assum`A=SOME pc` mp_tac>>
+        (Cases_on`not_skip h`>>qpat_x_assum`A=SOME pc` mp_tac>>
         TRY(`not_skip h` by (full_simp_tac(srw_ss())[]>>NO_TAC)>>
           simp[Once loc_to_pc_def,SimpLHS])>>
         srw_tac[][]>>
@@ -336,7 +336,7 @@ val loc_to_pc_eq_SOME = prove(``
         simp[Once adjust_pc_def]>>IF_CASES_TAC>>
         full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[Once adjust_pc_def]))
       >>
-      Cases_on`not_skip h`>>qpat_assum`A=SOME pc` mp_tac
+      Cases_on`not_skip h`>>qpat_x_assum`A=SOME pc` mp_tac
       >-
         (simp[]>>simp[Once loc_to_pc_def,SimpLHS]>>
         srw_tac[][]>>
@@ -347,7 +347,7 @@ val loc_to_pc_eq_SOME = prove(``
         srw_tac[][]>>
         simp[Once loc_to_pc_def]>>
         `pc ≠ 0` by
-          (qpat_assum`A=SOME pc` mp_tac>>
+          (qpat_x_assum`A=SOME pc` mp_tac>>
           EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
           srw_tac[][]>>
           DECIDE_TAC)>>
@@ -492,7 +492,7 @@ val inc_pc_tac =
   metis_tac[adjust_pc_all_skips])>>
   srw_tac[][Abbr`B`]>>
   qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
-  qpat_assum`Z=(res,t2)` sym_sub_tac>>
+  qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
   first_x_assum(qspec_then`k'` assume_tac)>>
   `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
   metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC];
@@ -504,7 +504,7 @@ val filter_correct = prove(
         (evaluate (t1 with clock := s1.clock + k) = (res,t2)) /\
         (s2.ffi = t2.ffi)``,
   ho_match_mp_tac evaluate_ind>>srw_tac[][]>>
-  qpat_assum`evaluate s1 = A` mp_tac>>
+  qpat_x_assum`evaluate s1 = A` mp_tac>>
   simp[Once evaluate_def]>>
   IF_CASES_TAC>-
     (simp[Once evaluate_def]>>
@@ -626,7 +626,7 @@ val filter_correct = prove(
          metis_tac[adjust_pc_all_skips])>>
        srw_tac[][Abbr`B`]>>
        qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
-       qpat_assum`Z=(res,t2)` sym_sub_tac>>
+       qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
        first_x_assum(qspec_then`k'` assume_tac)>>
        `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
        metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])

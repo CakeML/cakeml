@@ -5,48 +5,6 @@ val () = new_theory "arm8_target"
 
 val () = wordsLib.guess_lengths ()
 
-(* --- Configuration for ARMv8 --- *)
-
-val eval = rhs o concl o EVAL
-val off_min = eval ``sw2sw (INT_MINw: word9) : word64``
-val off_max = eval ``sw2sw (INT_MAXw: word9) : word64``
-val loc_min = eval ``sw2sw (INT_MINw: word20) : word64``
-val loc_max = eval ``sw2sw (INT_MAXw: word20) : word64``
-val cjump_min = eval ``sw2sw (INT_MINw: 21 word) + 4w : word64``
-val cjump_max = eval ``sw2sw (INT_MAXw: 21 word) + 4w : word64``
-val jump_min = eval ``sw2sw (INT_MINw: word28) : word64``
-val jump_max = eval ``sw2sw (INT_MAXw: word28) : word64``
-
-val valid_immediate_def = Define`
-   valid_immediate (c:binop+cmp) (i: word64) =
-   if c IN {INL Add; INL Sub;
-            INR Less; INR Lower; INR Equal;
-            INR NotLess; INR NotLower; INR NotEqual} then
-      (~0xFFFw && i = 0w) \/ (~0xFFF000w && i = 0w)
-   else
-      IS_SOME (EncodeBitMask i)`
-
-val arm8_config_def = Define`
-   arm8_config =
-   <| ISA := ARMv8
-    ; reg_count := 32
-    ; avoid_regs := [31]
-    ; link_reg := SOME 30
-    ; has_mem_32 := T
-    ; two_reg_arith := F
-    ; big_endian := F
-    ; valid_imm := valid_immediate
-    ; addr_offset_min := ^off_min
-    ; addr_offset_max := ^off_max
-    ; jump_offset_min := ^jump_min
-    ; jump_offset_max := ^jump_max
-    ; cjump_offset_min := ^cjump_min
-    ; cjump_offset_max := ^cjump_max
-    ; loc_offset_min := ^loc_min
-    ; loc_offset_max := ^loc_max
-    ; code_alignment := 2
-    |>`
-
 (* --- The next-state function --- *)
 
 val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
@@ -362,6 +320,49 @@ val arm8_dec_aux_def = Define`
    | Address (F, i, r) => Loc (w2n r) i
    | _ => ARB`
 
+(* --- Configuration for ARMv8 --- *)
+
+val eval = rhs o concl o EVAL
+val off_min = eval ``sw2sw (INT_MINw: word9) : word64``
+val off_max = eval ``sw2sw (INT_MAXw: word9) : word64``
+val loc_min = eval ``sw2sw (INT_MINw: word20) : word64``
+val loc_max = eval ``sw2sw (INT_MAXw: word20) : word64``
+val cjump_min = eval ``sw2sw (INT_MINw: 21 word) + 4w : word64``
+val cjump_max = eval ``sw2sw (INT_MAXw: 21 word) + 4w : word64``
+val jump_min = eval ``sw2sw (INT_MINw: word28) : word64``
+val jump_max = eval ``sw2sw (INT_MAXw: word28) : word64``
+
+val valid_immediate_def = Define`
+   valid_immediate (c:binop+cmp) (i: word64) =
+   if c IN {INL Add; INL Sub;
+            INR Less; INR Lower; INR Equal;
+            INR NotLess; INR NotLower; INR NotEqual} then
+      (~0xFFFw && i = 0w) \/ (~0xFFF000w && i = 0w)
+   else
+      IS_SOME (EncodeBitMask i)`
+
+val arm8_config_def = Define`
+   arm8_config =
+   <| ISA := ARMv8
+    ; encode := arm8_enc
+    ; reg_count := 32
+    ; avoid_regs := [31]
+    ; link_reg := SOME 30
+    ; has_mem_32 := T
+    ; two_reg_arith := F
+    ; big_endian := F
+    ; valid_imm := valid_immediate
+    ; addr_offset_min := ^off_min
+    ; addr_offset_max := ^off_max
+    ; jump_offset_min := ^jump_min
+    ; jump_offset_max := ^jump_max
+    ; cjump_offset_min := ^cjump_min
+    ; cjump_offset_max := ^cjump_max
+    ; loc_offset_min := ^loc_min
+    ; loc_offset_max := ^loc_max
+    ; code_alignment := 2
+    |>`
+
 val arm8_dec_def = Define `arm8_dec = arm8_dec_aux o decode_word`
 
 val arm8_proj_def = Define`
@@ -371,8 +372,7 @@ val arm8_proj_def = Define`
 
 val arm8_target_def = Define`
    arm8_target =
-   <| encode := arm8_enc
-    ; get_pc := arm8_state_PC
+   <| get_pc := arm8_state_PC
     ; get_reg := (\s. arm8_state_REG s o n2w)
     ; get_byte := arm8_state_MEM
     ; state_ok := arm8_ok

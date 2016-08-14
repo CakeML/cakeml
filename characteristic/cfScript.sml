@@ -197,9 +197,9 @@ val app_one_naryClosure = store_thm ("app_one_naryClosure",
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
   fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
-  qpat_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
-  fs [] \\ qpat_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
-  qpat_assum `evaluate _ _ _ _ _`
+  qpat_x_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
+  fs [] \\ qpat_x_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
+  qpat_x_assum `evaluate _ _ _ _ _`
     (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\
   fs [do_opapp_def] \\
   progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
@@ -272,7 +272,7 @@ val app_one_naryRecclosure = store_thm ("app_one_naryRecclosure",
   fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
   progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
   fs [naryFun_def] \\
-  qpat_assum `evaluate _ _ _ _ _`
+  qpat_x_assum `evaluate _ _ _ _ _`
     (assume_tac o ONCE_REWRITE_RULE [bigStepTheory.evaluate_cases]) \\ rw [] \\
   fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   rename1 `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
@@ -502,7 +502,7 @@ val v_of_pat_extend_insts = store_thm ("v_of_pat_extend_insts",
     THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [])
     THEN1 (
       fs [v_of_pat_def] \\ every_case_tac \\ rw [] \\
-      TRY (qpat_assum `LENGTH _ = LENGTH _` (K all_tac)) \\ fs [] \\
+      TRY (qpat_x_assum `LENGTH _ = LENGTH _` (K all_tac)) \\ fs [] \\
       rw []
     )
   )
@@ -571,8 +571,8 @@ val v_of_pat_remove_rest_insts = store_thm ("v_of_pat_remove_rest_insts",
   THEN1 (fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL])
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    qpat_assum_keep `v_of_pat _ _ _ = _` (first_assum o progress_with) \\
-    qpat_assum_keep `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum `v_of_pat _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
     rw []
     THEN1 (
       once_rewrite_tac [snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum)] \\
@@ -590,7 +590,7 @@ val v_of_pat_remove_rest_insts = store_thm ("v_of_pat_remove_rest_insts",
           by (fs []) \\ fs []
       ) \\
       rename1 `v_of_pat_list _ _ rest' = _` \\
-      qpat_assum `v_of_pat _ _ (_ ++ _) = _` (first_assum o progress_with) \\
+      qpat_x_assum `v_of_pat _ _ (_ ++ _) = _` (first_assum o progress_with) \\
       `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs []
     )
   )
@@ -715,7 +715,7 @@ val pmatch_v_of_pat = store_thm ("pmatch_v_of_pat",
   try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
-    qpat_assum `_ = _` (fs o sing o GSYM) \\
+    qpat_x_assum `_ = _` (fs o sing o GSYM) \\
     rename1 `[(x,xv)]` \\ qexists_tac `[xv]` \\ fs []
   )
   THEN1 (
@@ -1096,6 +1096,13 @@ val cf_match_def = Define `
       exp2v env e = SOME v /\
       build_cases v rows env H Q)`
 
+val normalise_def = Define `
+  normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
+
+val evaluate_normalise = store_thm("evaluate_normalise",
+  ``evaluate F env s (normalise exp) res = evaluate F env s exp res``,
+  fs [normalise_def]);
+
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
   cf (p:'ffi ffi_proj) (Con opt args) = cf_con opt args /\
@@ -1105,13 +1112,13 @@ val cf_def = tDefine "cf" `
        (case Fun_body e1 of
           | SOME body =>
             cf_fun (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
-              (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
+              (cf (p:'ffi ffi_proj) (normalise body)) (cf (p:'ffi ffi_proj) e2)
           | NONE => cf_bottom)
      else
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
   cf (p:'ffi ffi_proj) (Letrec funs e) =
     (cf_fun_rec (p:'ffi ffi_proj)
-       (MAP (\x. (x, cf p (SND (SND x)))) (letrec_pull_params funs))
+       (MAP (\x. (x, cf p (normalise (SND (SND x))))) (letrec_pull_params funs))
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
@@ -1204,7 +1211,7 @@ val cf_def = tDefine "cf" `
     cf_match e (MAP (\b. (FST b, cf p (SND b))) branches) /\
   cf _ _ = cf_bottom
 `
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  (WF_REL_TAC `measure (exp_size o SND)` \\ rw [normalise_def]
      THEN1 (
        Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
        drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
@@ -1306,7 +1313,7 @@ val sound_local = store_thm ("sound_local",
   rename1 `SEP_IMPPOST (Q_f *+ H_k) (Q *+ H_g)` \\
   fs [STAR_def] \\ rename1 `H_i h'_i` \\ rename1 `H_k h'_k` \\
   `SPLIT (st2heap (p:'ffi ffi_proj) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC \\
-  qpat_assum `sound _ _ _` (progress o REWRITE_RULE [sound_def]) \\
+  qpat_x_assum `sound _ _ _` (progress o REWRITE_RULE [sound_def]) \\
   rename1 `SPLIT3 _ (h'_f, _, h'_g)` \\
   fs [SEP_IMPPOST_def, STARPOST_def, SEP_IMP_def, STAR_def] \\
   first_x_assum (qspecl_then [`v`, `h'_f UNION h'_k`] assume_tac) \\
@@ -1419,7 +1426,7 @@ val app_rec_of_sound_cf_aux = Q.prove (
      app (p:'ffi ffi_proj) (naryRecclosure env naryfuns f) xvs H Q`,
 
   Cases_on `params` \\ rpt strip_tac \\ rw [] \\
-  fs [LENGTH_CONS] \\ rfs [] \\ qpat_assum `xvs = _` (K all_tac) \\
+  fs [LENGTH_CONS] \\ rfs [] \\ qpat_x_assum `xvs = _` (K all_tac) \\
   rename1 `extend_env_rec _ _ (n::params) (xv::xvs) _` \\
   Cases_on `params` \\ rfs [LENGTH_NIL, LENGTH_CONS] \\
   fs [extend_env_rec_def, extend_env_v_rec_def] \\
@@ -1480,11 +1487,52 @@ val DROP_EL_CONS = Q.prove (
   Cases_on `n` \\ fs []
 )
 
+val nary_normalise_def = Define `
+  (nary_normalise (Fun n x) = Fun n (nary_normalise x)) /\
+  (nary_normalise y = normalise y)`;
+
+val app_naryRecclosure_normalise = store_thm("app_naryRecclosure_normalise",
+  ``app p (naryRecclosure env (letrec_pull_params funs) f) xvs H Q =
+    app p (naryRecclosure env (letrec_pull_params
+      (MAP (\(x1,x2,x3). (x1,x2,nary_normalise x3)) funs)) f) xvs H Q``,
+  cheat);
+
+val FST_rw = prove(
+  ``(\(x,_,_). x) = FST``,
+  fs [FUN_EQ_THM,FORALL_PROD]);
+
+val Fun_body_nary_normalise = prove(
+  ``Fun_body (nary_normalise h2) =
+    case Fun_body h2 of
+    | NONE => NONE
+    | SOME body => SOME (nary_normalise body)``,
+  cheat);
+
+val Fun_body_NONE_IMP_nary_normalise = prove(
+  ``Fun_body body = NONE ==> nary_normalise body = normalise body``,
+  cheat);
+
+(*
+
+val MAP_normalise_letrec_pull_params = store_thm("MAP_normalise_letrec_pull_params",
+  ``!funs.
+      (MAP (λ(x1,x2,x3). (x1,x2,normalise x3)) (letrec_pull_params funs)) =
+      letrec_pull_params (MAP (λ(x1,x2,x3). (x1,x2,nary_normalise x3)) funs)``,
+  Induct THEN1 EVAL_TAC
+  \\ strip_tac \\ PairCases_on `h` \\ fs [letrec_pull_params_def]
+  \\ rewrite_tac[Fun_body_nary_normalise]
+  \\ CASE_TAC \\ fs [] THEN1
+   (Cases_on `h2` \\ fs [nary_normalise_def,Fun_body_def]
+    \\ every_case_tac \\ fs [])
+  \\ cheat);
+*)
+
 val cf_letrec_sound_aux = Q.prove (
   `!funs e.
      let naryfuns = letrec_pull_params funs in
      (∀x. MEM x naryfuns ==>
-          sound (p:'ffi ffi_proj) (SND (SND x)) (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+          sound (p:'ffi ffi_proj) (normalise (SND (SND x)))
+            (cf (p:'ffi ffi_proj) (normalise (SND (SND x))))) ==>
      sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
      !fns rest.
        funs = rest ++ fns ==>
@@ -1498,26 +1546,32 @@ val cf_letrec_sound_aux = Q.prove (
               (MAP (\ (f,_,_). f) naryfuns) fvs
               (MAP (\ (_,ns,_). ns) naryfns)
               (DROP (LENGTH naryrest) fvs)
-              (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
+              (MAP (\x. cf (p:'ffi ffi_proj) (normalise (SND (SND x)))) naryfns)
               (cf (p:'ffi ffi_proj) e) env H Q)`,
+
+  cheat);
+
+(*
 
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
   THEN1 (
     rpt strip_tac \\ fs [letrec_pull_params_def, DROP_LENGTH_TOO_LONG] \\
     fs [fun_rec_aux_def] \\
-    qpat_assum `_ = rest` (mp_tac o GSYM) \\ rw [] \\
-    cf_strip_sound_full_tac \\ qpat_assum `sound _ e _` mp_tac \\
+    qpat_x_assum `_ = rest` (mp_tac o GSYM) \\ rw [] \\
+    cf_strip_sound_full_tac \\ qpat_x_assum `sound _ e _` mp_tac \\
     fs [extend_env_rec_def] \\
     fs [letrec_pull_params_names, extend_env_rec_build_rec_env] \\
     rewrite_tac [sound_def] \\ disch_then progress \\ instantiate
   )
+
   THEN1 (
+
     qx_gen_tac `ftuple` \\ PairCases_on `ftuple` \\ rename1 `(f, n, body)` \\
     rpt strip_tac \\
     (* rest := rest ++ [(f,n,body)] *)
     (fn x => first_x_assum (qspec_then x mp_tac))
       `rest ++ [(f, n, body)]` \\ impl_tac THEN1 (fs []) \\ strip_tac \\
-    qpat_assum `funs = _` (assume_tac o GSYM) \\ rpt (CONV_TAC let_CONV) \\
+    qpat_x_assum `funs = _` (assume_tac o GSYM) \\ rpt (CONV_TAC let_CONV) \\
     rewrite_tac [sound_def] \\ BETA_TAC \\ rpt gen_tac \\
     qmatch_abbrev_tac `(LET _ fvs) ==> _` \\ fs [] \\
     (* unfold letrec_pull_params (_::_); extract the body/params *)
@@ -1532,7 +1586,7 @@ val cf_letrec_sound_aux = Q.prove (
     qmatch_goalsub_abbrev_tac `fun_rec_aux _ _ _ (params::_)` \\
     (* unfold "sound _ (Letrec _ _)" in the goal *)
     cf_strip_sound_full_tac \\
-    qpat_assum `fun_rec_aux _ _ _ _ _ _ _ _ _ _` mp_tac \\
+    qpat_x_assum `fun_rec_aux _ _ _ _ _ _ _ _ _ _` mp_tac \\
     (* Rewrite (DROP _ _) to a (_::DROP _ _) *)
     qpat_abbrev_tac `tail = DROP _ _` \\
     `tail = (naryRecclosure env (letrec_pull_params funs) f) ::
@@ -1543,54 +1597,108 @@ val cf_letrec_sound_aux = Q.prove (
                         `LENGTH (rest: (tvarN, tvarN # exp) alist)`]
               DROP_EL_CONS) \\
       impl_tac THEN1 (
-        qunabbrev_tac `fvs` \\ qpat_assum `_ = funs` (assume_tac o GSYM) \\
+        qunabbrev_tac `fvs` \\ qpat_x_assum `_ = funs` (assume_tac o GSYM) \\
         fs [letrec_pull_params_LENGTH]
       ) \\
       fs [] \\ strip_tac \\ qunabbrev_tac `fvs` \\
       fs [letrec_pull_params_names] \\
       qpat_abbrev_tac `naryfuns = letrec_pull_params funs` \\
       `LENGTH rest < LENGTH funs` by (
-        qpat_assum `_ = funs` (assume_tac o GSYM) \\ fs []) \\
-      fs [EL_MAP] \\ qpat_assum `_ = funs` (assume_tac o GSYM) \\
-      fs [el_append3, ADD1]
+        qpat_x_assum `_ = funs` (assume_tac o GSYM) \\ fs []) \\
+      fs [EL_MAP] \\ qpat_x_assum `_ = funs` (assume_tac o GSYM) \\
+      fs [el_append3, ADD1] \\ NO_TAC
     ) \\ fs [] \\
     (* We can now unfold fun_rec_aux *)
     fs [fun_rec_aux_def] \\ rewrite_tac [ONE] \\
     fs [LENGTH_CONS, LENGTH_NIL, PULL_EXISTS] \\
     fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     impl_tac
+
     THEN1 (
-      `MEM (f, params, inner_body) (letrec_pull_params funs)` by (
-         qpat_assum `_ = funs` (assume_tac o GSYM) \\
+
+(*
+      `MEM (f, params, inner_body) (MAP ( \ (x1,x2,x3). (x1,x2,normalise x3))
+         (letrec_pull_params funs))` by (
+         qpat_x_assum `_ = funs` (assume_tac o GSYM) \\
          fs [letrec_pull_params_append, letrec_pull_params_def] \\
          qunabbrev_tac `params` \\ qunabbrev_tac `inner_body` \\
+         every_case_tac \\ fs [] \\ NO_TAC
+      ) \\
+*)
+
+(*
+      `MEM (f, params, inner_body) (letrec_pull_params
+         (MAP ( \ (x1,x2,x3). (x1,x2,nary_normalise x3)) funs))` by all_tac
+
+         qpat_x_assum `_ = funs` (assume_tac o GSYM) \\
+         fs [letrec_pull_params_append, letrec_pull_params_def] \\
+         fs [Fun_body_nary_normalise] \\
+         Cases_on `Fun_body body` \\ fs []
+         THEN1 (metis_tac [Fun_body_NONE_IMP_nary_normalise]) \\
+         qunabbrev_tac `params` \\ qunabbrev_tac `inner_body` \\
+
          every_case_tac \\ fs []
-      ) \\
-      `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)` by (
+*)
+
+      `find_recfun f (letrec_pull_params
+         (MAP ( \ (x1,x2,x3). (x1,x2,nary_normalise x3)) funs)) =
+            SOME (params, inner_body)` by all_tac (
         fs [evalPropsTheory.find_recfun_ALOOKUP] \\
-        irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [] \\
-        `FST = (\ ((f:tvarN),(_:tvarN list),(_:exp)). f)` by (
-          irule EQ_EXT \\ qx_gen_tac `x` \\ PairCases_on `x` \\ fs []) \\
-        fs [letrec_pull_params_names]
+        irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [GSYM FST_rw] \\
+        fs [letrec_pull_params_names] \\
+        simp [MAP_MAP_o] \\
+        fs [o_DEF] \\
+        CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\
+        CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [FST_rw] \\ NO_TAC
       ) \\
+
+
       rpt strip_tac
-      THEN1 (irule curried_naryRecclosure \\ fs [])
+      THEN1 (irule curried_naryRecclosure \\ fs [] \\
+             pop_assum mp_tac \\
+             qspec_tac (`letrec_pull_params funs`,`ts`) \\
+             Induct \\ simp [Once find_recfun_def] \\
+             strip_tac \\ PairCases_on `h` \\ fs [] \\
+             rw [] \\ simp [Once find_recfun_def])
+
       THEN1 (
-        irule app_rec_of_sound_cf \\ fs [letrec_pull_params_names] \\
-        first_assum progress \\ qunabbrev_tac `params` \\ every_case_tac \\
+
+        once_rewrite_tac [app_naryRecclosure_normalise] \\
+        irule app_rec_of_sound_cf
+        THEN1
+         (`FST = (\ ((f:tvarN),(_:tvarN),(_:exp)). f)` by (
+            irule EQ_EXT \\ qx_gen_tac `x` \\ PairCases_on `x` \\ fs []) \\
+          simp [MAP_MAP_o] \\ fs [o_DEF] \\
+          CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\
+          CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+
+
+
+ \\ fs [letrec_pull_params_names] \\
+
+        fs [MEM_MAP] \\
+        PairCases_on `y` \\ fs [] \\
+        first_assum progress \\
+        instantiate \\
+        rfs[] \\
+        instantiate \\
+
+ \\ qunabbrev_tac `params` \\ every_case_tac \\
         fs []
       )
     ) \\ strip_tac \\
-    qpat_assum `sound _ (Letrec _ _) _` (mp_tac o REWRITE_RULE [sound_def]) \\
+    qpat_x_assum `sound _ (Letrec _ _) _` (mp_tac o REWRITE_RULE [sound_def]) \\
     fs [] \\ disch_then (qspecl_then [`env`, `H`, `Q`] mp_tac) \\ fs [] \\
     disch_then progress \\ instantiate \\ fs [Once bigStepTheory.evaluate_cases]
   )
 )
+*)
 
 val cf_letrec_sound = Q.prove (
   `!funs e.
     (!x. MEM x (letrec_pull_params funs) ==>
-         sound (p:'ffi ffi_proj) (SND (SND x)) (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+         sound (p:'ffi ffi_proj) (normalise (SND (SND x)))
+           (cf (p:'ffi ffi_proj) (normalise (SND (SND x))))) ==>
     sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
     sound (p:'ffi ffi_proj) (Letrec funs e)
       (\env H Q.
@@ -1601,12 +1709,13 @@ val cf_letrec_sound = Q.prove (
         fun_rec_aux (p:'ffi ffi_proj)
           (MAP (\ (f,_,_). f) funs) fvs
           (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
-          (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) (letrec_pull_params funs))
+          (MAP (\x. cf (p:'ffi ffi_proj) (normalise (SND (SND x))))
+             (letrec_pull_params funs))
           (cf (p:'ffi ffi_proj) e) env H Q)`,
   rpt strip_tac \\ mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound_aux) \\
   fs [] \\ disch_then (qspecl_then [`funs`, `[]`] mp_tac) \\
   fs [letrec_pull_params_names, letrec_pull_params_def]
-)
+);
 
 val build_cases_evaluate_match = Q.prove (
   `!v env H Q rows p st h_i h_k bind_exn_v.
@@ -1623,13 +1732,13 @@ val build_cases_evaluate_match = Q.prove (
   rename1 `v_of_pat_norest _ (FST row) _` \\ Cases_on `row` \\ fs [] \\
   rename1 `v_of_pat_norest _ pat _` \\ rename1 `sound _ row_cf _` \\
   first_assum (qspec_then `st.refs` strip_assume_tac) \\
-  qpat_assum `validate_pat _ _ _ _ _`
+  qpat_x_assum `validate_pat _ _ _ _ _`
     (strip_assume_tac o REWRITE_RULE [validate_pat_def]) \\
   once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
   full_case_tac \\ fs []
   THEN1 (
     first_x_assum progress \\ progress v_of_pat_norest_pmatch \\ fs [] \\
-    qpat_assum `sound _ _ _` (assume_tac o REWRITE_RULE [sound_def]) \\
+    qpat_x_assum `sound _ _ _` (assume_tac o REWRITE_RULE [sound_def]) \\
     first_assum progress \\ progress v_of_pat_norest_insts_length \\
     fs [extend_env_def, extend_env_v_zip] \\ instantiate
   )
@@ -1644,30 +1753,93 @@ val build_cases_evaluate_match = Q.prove (
   )
 )
 
-val IO_aux_IMP_IN = store_thm("IO_aux_IMP_IN",
-  ``!frame xs ns s u v.
-      (frame * IO_aux xs s u ns) v ==>
-      !x. MEM x xs ==> FFI_part x s (u x) ns IN v``,
-  Induct_on `xs` \\ fs [IO_aux_def] \\ rw []
-  \\ try_finally (fs [STAR_ASSOC] \\ res_tac)
-  \\ fs [STAR_def,one_def] \\ SPLIT_TAC);
-
-val IO_IMP_IN = save_thm("IO_IMP_IN",
-  IO_aux_IMP_IN
-  |> Q.SPECL [`emp`,`ns`,`ns`]
-  |> SIMP_RULE std_ss [SEP_CLAUSES,GSYM IO_def]);
-
-val IO_thm = store_thm("IO_thm",
-  ``IO s u ns v <=> v = { FFI_part x s (u x) ns |x| MEM x ns }``,
-  cheat);
-
 val SPLIT_SING_2 = store_thm("SPLIT_SING_2",
   ``SPLIT s (x,{y}) <=> (s = y INSERT x) /\ ~(y IN x)``,
   SPLIT_TAC);
 
+val sound_normalise = store_thm("sound_normalise",
+  ``sound p (normalise e) R <=> sound p e R``,
+  fs [sound_def,evaluate_normalise]);
+
+val evaluate_Fun =
+  ``evaluate b env s (Fun n e) res``
+  |> SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases]
+
+val app_naryClosure_normalise = store_thm("app_naryClosure_normalise",
+  ``!ns env H Q.
+      LENGTH xvs = LENGTH ns ==>
+      app (p:'ffi ffi_proj) (naryClosure env ns inner_body) xvs H Q =
+      app p (naryClosure env ns (normalise inner_body)) xvs H Q``,
+  Induct_on `xvs` \\ Cases_on `ns` \\ fs [app_def]
+  \\ Cases_on `xvs` \\ Cases_on `t` \\ fs []
+  THEN1 (fs [app_def,app_basic_def,do_opapp_def,evaluate_normalise,
+          naryClosure_def,Fun_params_def,naryFun_def])
+  \\ rw [] \\ pop_assum (mp_tac o GSYM)
+  \\ fs [LENGTH_CONS,PULL_EXISTS]
+  \\ rw [] \\ first_x_assum drule \\ fs [app_def]
+  \\ Cases_on `t'` \\ rw [] \\ fs [LENGTH_NIL] \\ rveq
+  THEN1
+   (fs [app_def,LENGTH_NIL]
+    \\ rw [] \\ simp [app_basic_def,do_opapp_def,naryClosure_def,naryFun_def,
+                evaluate_Fun,evaluate_normalise])
+  \\ fs [LENGTH_CONS] \\ rveq
+  \\ rw [] \\ simp [app_basic_def,do_opapp_def,naryClosure_def,naryFun_def,
+                evaluate_Fun,evaluate_normalise]
+  \\ fs [naryClosure_def,naryFun_def]);
+
+val SUBSET_IN = prove(
+  ``!s t x. s SUBSET t /\ x IN s ==> x IN t``,
+  fs [SUBSET_DEF] \\ metis_tac []);
+
+val SPLIT_FFI_SET_IMP_DISJOINT = store_thm("SPLIT_FFI_SET_IMP_DISJOINT",
+  ``SPLIT (st2heap p st) (c,{FFI_part s u ns}) ==>
+    !s1. ~(FFI_part s1 u ns IN c)``,
+  fs [SPLIT_def] \\ rw [] \\ fs [EXTENSION,st2heap_def,DISJOINT_DEF]
+  \\ CCONTR_TAC \\ fs []
+  \\ `FFI_part s1 u ns IN ffi2heap p st.ffi /\
+      FFI_part s u ns IN ffi2heap p st.ffi` by
+          metis_tac [FFI_part_NOT_IN_store2heap]
+  \\ PairCases_on `p`
+  \\ fs [ffi2heap_def]
+  \\ pop_assum mp_tac \\ IF_CASES_TAC \\ fs []
+  \\ CCONTR_TAC \\ fs []
+  \\ Cases_on `s = s1` \\ fs []
+  \\ Cases_on `ns` \\ fs []
+  \\ metis_tac []);
+
+val SPLIT_IMP_Mem_NOT_IN = store_thm("SPLIT_IMP_Mem_NOT_IN",
+  ``SPLIT (st2heap p st) ({Mem y xs},c) ==>
+    !ys. ~(Mem y ys IN c)``,
+  fs [SPLIT_def] \\ rw [] \\ fs [EXTENSION,st2heap_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ `Mem y ys ∈ store2heap st.refs` by metis_tac [Mem_NOT_IN_ffi2heap]
+  \\ `Mem y xs ∈ store2heap st.refs` by metis_tac [Mem_NOT_IN_ffi2heap]
+  \\ imp_res_tac store2heap_IN_unique_key \\ fs []);
+
+val FLOOKUP_FUPDATE_LIST = store_thm("FLOOKUP_FUPDATE_LIST",
+  ``!ns f. FLOOKUP (f |++ MAP (λn. (n,s)) ns) m =
+           if MEM m ns then SOME s else FLOOKUP f m``,
+  Induct \\ fs [FUPDATE_LIST] \\ rw [] \\ fs []
+  \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]);
+
+val ALL_DISTINCT_FLAT_MEM_IMP = store_thm("ALL_DISTINCT_FLAT_MEM_IMP",
+  ``!p2. ALL_DISTINCT (FLAT p2) /\ MEM ns' p2 /\ MEM ns p2 /\
+         MEM m ns' /\ MEM m ns ==> ns = ns'``,
+  Induct \\ fs [ALL_DISTINCT_APPEND] \\ rw [] \\ fs []
+  \\ res_tac \\ fs [MEM_FLAT] \\ metis_tac []);
+
+val ALL_DISTINCT_FLAT_FST_IMP = store_thm("ALL_DISTINCT_FLAT_FST_IMP",
+  ``!p2. ALL_DISTINCT (FLAT (MAP FST p2)) /\
+         MEM (ns,u') p2 /\ MEM (ns,u) p2 /\ ns <> [] ==> u = u'``,
+  Induct \\ fs [ALL_DISTINCT_APPEND] \\ rw [] \\ fs []
+  \\ fs [MEM_FLAT,MEM_MAP,FORALL_PROD]
+  \\ Cases_on `ns` \\ fs []
+  \\ first_x_assum (qspec_then `h` mp_tac) \\ fs []
+  \\ disch_then (qspec_then `h::t` mp_tac) \\ fs []
+  \\ rw [] \\ fs []);
+
 val cf_sound = store_thm ("cf_sound",
   ``!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)``,
-
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
@@ -1693,21 +1865,26 @@ val cf_sound = store_thm ("cf_sound",
         `naryClosure env (Fun_params (Fun n body)) inner_body` \\
       impl_tac \\ strip_tac
       THEN1 (irule curried_naryClosure \\ fs [Fun_params_def])
-      THEN1 (fs [Fun_params_def, app_of_sound_cf]) \\
-      qpat_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
+      THEN1
+       (rw []
+        \\ drule (GEN_ALL app_naryClosure_normalise)
+        \\ disch_then (fn th => once_rewrite_tac [th])
+        \\ irule app_of_sound_cf
+        \\ fs [Fun_params_def, app_of_sound_cf]) \\
+      qpat_x_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
       cf_evaluate_step_tac \\ Cases_on `opt` \\
       fs [is_bound_Fun_def, THE_DEF, Fun_params_def] \\ instantiate \\
-      every_case_tac \\ qpat_assum `_ = inner_body` (assume_tac o GSYM) \\
+      every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE,
           Fun_params_Fun_body_repack, Once bigStepTheory.evaluate_cases]
     )
     THEN1 (
       (* other cases of let-binding *)
       cf_strip_sound_full_tac \\
-      qpat_assum `sound _ e1 _` (progress o REWRITE_RULE [sound_def]) \\
+      qpat_x_assum `sound _ e1 _` (progress o REWRITE_RULE [sound_def]) \\
       first_assum (qspec_then `v` assume_tac) \\
       `SPLIT (st2heap (p:'ffi ffi_proj) st') (h_f, h_k UNION h_g)` by SPLIT_TAC \\
-      qpat_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
+      qpat_x_assum `sound _ e2 _` (progress o REWRITE_RULE [sound_def]) \\
       `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f',h_k, h_g UNION h_g')` by SPLIT_TAC \\
       instantiate
     )
@@ -1723,11 +1900,8 @@ val cf_sound = store_thm ("cf_sound",
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
-
-
   THEN1 (
     (* App *)
-
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1
      (fs [] \\ rveq \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
       (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
@@ -1748,40 +1922,107 @@ val cf_sound = store_thm ("cf_sound",
          \\ imp_res_tac store2heap_IN_LENGTH
          \\ fs [store_lookup_def] \\ NO_TAC) \\
       fs [ffiTheory.call_FFI_def] \\
-      progress IO_IMP_IN \\
-      `FFI_part ffi_index s (u ffi_index) ns IN st2heap p st` by SPLIT_TAC \\
+      fs [IO_def,one_def] \\ rveq \\
       fs [st2heap_def,FFI_part_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
-      `st.ffi.final_event = NONE` by
-        (PairCases_on `p` \\ fs [ffi2heap_def]
-         \\ every_case_tac \\ fs [] \\ NO_TAC) \\
-      fs [] \\ ntac 2 (pop_assum mp_tac) \\
-      PairCases_on `p` \\ simp [Once ffi2heap_def] \\
-      rpt strip_tac \\ fs [] \\
-      first_assum drule \\ simp [FLOOKUP_DEF] \\
+      fs [SPLIT_SING_2] \\ rveq \\
+      `FFI_part s u ns IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
+      fs [FFI_part_NOT_IN_store2heap] \\
+      pop_assum mp_tac \\
+      PairCases_on `p` \\
+      simp [Once ffi2heap_def] \\
+      IF_CASES_TAC \\ fs [] \\ strip_tac \\
+      first_assum drule \\ simp_tac std_ss [FLOOKUP_DEF] \\
       rpt strip_tac \\ rveq \\
-      first_assum progress \\ fs [store_assign_def] \\
+      qpat_x_assum `parts_ok st.ffi (p0,p1)`
+            (fn th => mp_tac th \\ assume_tac th) \\
+      simp_tac std_ss [parts_ok_def] \\ strip_tac \\
+      qpat_x_assum `!x. _ ==> _` kall_tac \\
+      first_x_assum progress \\ fs [store_assign_def] \\
       imp_res_tac store2heap_IN_EL \\
-      imp_res_tac store2heap_IN_LENGTH \\ fs [store_v_same_type_def] \\
+      imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
+      fs [store_v_same_type_def,PULL_EXISTS] \\ rveq \\
       progress store2heap_LUPDATE \\ fs [] \\
+      fs [FLOOKUP_DEF] \\ rveq \\
+      first_assum progress \\ fs [] \\
       qexists_tac `
-         ({ FFI_part x s' (u x) ns |x| MEM x ns } UNION
+         (FFI_part s' u ns INSERT
           (Mem y (W8array vs) INSERT u2))` \\
-      qexists_tac `{}` \\ reverse conj_tac THEN1
-       (first_assum match_mp_tac \\ fs [IO_thm,PULL_EXISTS,SPLIT_SING_2] \\
-        instantiate \\ rveq \\
-        conj_tac THEN1
-         (simp [SPLIT_def,AC UNION_COMM UNION_ASSOC] \\ rveq \\
-          cheat (* true *)) \\
-        cheat (* true *)) \\
+      qexists_tac `{}` \\
+      `SPLIT (store2heap st.refs UNION ffi2heap (p0,p1) st.ffi)
+       (Mem y (W8array ws) INSERT u2 UNION h_k,
+        {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns}) /\
+        SPLIT (store2heap st.refs UNION ffi2heap (p0,p1) st.ffi)
+        (Mem y (W8array ws) INSERT {},
+         u2 UNION h_k UNION
+         {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns})` by SPLIT_TAC \\
+      fs [GSYM st2heap_def] \\
+      drule SPLIT_FFI_SET_IMP_DISJOINT \\
+      drule SPLIT_IMP_Mem_NOT_IN \\
+      ntac 2 strip_tac \\
+      reverse conj_tac THEN1
+       (first_assum match_mp_tac \\ fs [PULL_EXISTS,SPLIT_SING_2]) \\
       match_mp_tac SPLIT3_of_SPLIT_emp3 \\
-      fs [SPLIT_def] \\
       qpat_abbrev_tac `f1 = ffi2heap (p0,p1) _` \\
-      `f1 = (ffi2heap (p0,p1) st.ffi DIFF v) UNION
-               {FFI_part x s' (u x) ns | x | MEM x ns}` by all_tac THEN1
-        (unabbrev_all_tac \\ fs [ffi2heap_def,IO_thm] \\
-         fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw [] \\ cheat)
-      \\ cheat) \\
-
+      `f1 = (ffi2heap (p0,p1) st.ffi DELETE
+             FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns)
+            UNION {FFI_part s' u ns}` by all_tac THEN1
+        (unabbrev_all_tac \\ fs [ffi2heap_def] \\
+         reverse IF_CASES_TAC THEN1
+          (`F` by all_tac \\ pop_assum mp_tac \\ fs [] \\
+           fs [parts_ok_def] \\ metis_tac []) \\
+         fs [EXTENSION] \\ reverse (rw [] \\ EQ_TAC \\ rw [])
+         THEN1
+          (qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th]) \\
+           fs [FLOOKUP_FUPDATE_LIST])
+         THEN1
+          (qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th])
+           \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+           \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                  (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+           \\ metis_tac [ALL_DISTINCT_FLAT_MEM_IMP])
+         THEN1
+          (`ns <> ns'` by metis_tac [ALL_DISTINCT_FLAT_FST_IMP]
+           \\ qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th])
+           \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+           \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                  (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+           \\ metis_tac [ALL_DISTINCT_FLAT_MEM_IMP])
+         THEN1
+          (qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th])
+           \\ rpt strip_tac
+           \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+           \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                  (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+           \\ progress (ALL_DISTINCT_FLAT_MEM_IMP |> Q.INST [`m`|->`n`])
+           \\ rveq \\ fs [] \\ res_tac \\ fs [FLOOKUP_DEF])
+         \\ Cases_on `ns = ns'` \\ fs [] THEN1
+          (rveq  \\ first_x_assum drule
+           \\ qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th])
+           \\ fs [FLOOKUP_FUPDATE_LIST] \\ rw [] \\ disj2_tac
+           \\ metis_tac [ALL_DISTINCT_FLAT_FST_IMP])
+         \\ rw [] \\ first_assum drule
+         \\ qpat_x_assum `_ = p0 y'` (fn th => simp_tac std_ss [GSYM th])
+         \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
+         \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
+                (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+         \\ metis_tac [ALL_DISTINCT_FLAT_MEM_IMP]) \\
+      pop_assum (fn th => simp [th]) \\
+      pop_assum kall_tac \\
+      fs [st2heap_def] \\
+      simp [SPLIT_def] \\ reverse (rw [])
+      THEN1 SPLIT_TAC \\
+      fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw [] \\ fs []
+      THEN1 SPLIT_TAC
+      THEN1 SPLIT_TAC
+      THEN1
+       (CCONTR_TAC \\ fs [] \\
+        `x = FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns` by SPLIT_TAC \\
+        Cases_on `x` \\ fs [] \\
+        fs [FFI_part_NOT_IN_store2heap])
+      \\ CCONTR_TAC \\ fs []
+      \\ `x IN u2 ∪ h_k ∪ {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns} UNION {Mem y (W8array ws)}` by SPLIT_TAC
+      \\ pop_assum mp_tac
+      \\ fs [] \\ fs [ffi2heap_def] \\ rfs[]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
     cf_strip_sound_tac \\
@@ -1812,13 +2053,13 @@ val cf_sound = store_thm ("cf_sound",
       CONV_TAC (RESORT_FORALL_CONV (fn l =>
         (op @) (partition (fn v => fst (dest_var v) = "xs") l))) \\
       gen_tac \\ completeInduct_on `LENGTH xs` \\ rpt strip_tac \\
-      fs [] \\ qpat_assum `dest_opapp _ = _` mp_tac \\
+      fs [] \\ qpat_x_assum `dest_opapp _ = _` mp_tac \\
       rewrite_tac [dest_opapp_def] \\ every_case_tac \\ fs [] \\
-      rpt strip_tac \\ qpat_assum `_ = xs` (assume_tac o GSYM) \\ fs []
+      rpt strip_tac \\ qpat_x_assum `_ = xs` (assume_tac o GSYM) \\ fs []
       (* 1 argument *)
       THEN1 (
         rename1 `xs = [x]` \\ fs [exp2v_list_def] \\ full_case_tac \\ fs [] \\
-        qpat_assum `_ = argsv` (assume_tac o GSYM) \\ rename1 `argsv = [xv]` \\
+        qpat_x_assum `_ = argsv` (assume_tac o GSYM) \\ rename1 `argsv = [xv]` \\
         cf_evaluate_step_tac \\ GEN_EXISTS_TAC "vs" `[xv; fv]` \\
         fs [app_def, app_basic_def] \\ res_tac \\
         rename1 `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\

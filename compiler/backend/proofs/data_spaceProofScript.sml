@@ -182,7 +182,7 @@ val evaluate_compile = Q.prove(
         \\ full_simp_tac(srw_ss())[locals_ok_refl] \\ REPEAT STRIP_TAC
         \\ Cases_on `cut_env y1 (set_var n q' r').locals` \\ full_simp_tac(srw_ss())[LET_DEF]
         \\ Q.EXISTS_TAC `w'` \\ full_simp_tac(srw_ss())[]
-        \\ Q.PAT_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
+        \\ Q.PAT_X_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
         \\ AP_TERM_TAC \\ AP_TERM_TAC
         \\ full_simp_tac(srw_ss())[state_component_equality,add_space_def])
       \\ Cases_on `op_requires_names o'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -197,7 +197,7 @@ val evaluate_compile = Q.prove(
        (IMP_RES_TAC do_app_err \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
       \\ Cases_on `a`
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-      \\ NTAC 2 (Q.PAT_ASSUM `!xx.bbb` (K ALL_TAC))
+      \\ NTAC 2 (Q.PAT_X_ASSUM `!xx.bbb` (K ALL_TAC))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `cut_env y1 w` \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,set_var_def]
       \\ POP_ASSUM MP_TAC
@@ -254,7 +254,7 @@ val evaluate_compile = Q.prove(
       \\ REPEAT STRIP_TAC \\ Cases_on `get_var n0 s.locals` \\ full_simp_tac(srw_ss())[]
       \\ SRW_TAC [] []
       \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
-      \\ Q.PAT_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ full_simp_tac(srw_ss())[]
+      \\ Q.PAT_X_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ full_simp_tac(srw_ss())[]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (full_simp_tac(srw_ss())[dataSemTheory.state_component_equality] \\ SRW_TAC [] []
         \\ full_simp_tac(srw_ss())[locals_ok_def,set_var_def,lookup_insert])
@@ -283,11 +283,11 @@ val evaluate_compile = Q.prove(
       \\ `locals_ok s4.locals ll` by ALL_TAC THEN1
        (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,locals_ok_def]
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_delete,cut_env_def]
-        \\ Q.PAT_ASSUM `xxx = x'` (fn th => full_simp_tac(srw_ss())[GSYM th])
+        \\ Q.PAT_X_ASSUM `xxx = x'` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_alt,lookup_delete]
         \\ REPEAT STRIP_TAC \\ Cases_on `v=n` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `v=n0` \\ full_simp_tac(srw_ss())[]
-        \\ Q.PAT_ASSUM `inter xx tt = yy` MP_TAC
+        \\ Q.PAT_X_ASSUM `inter xx tt = yy` MP_TAC
         \\ ONCE_REWRITE_TAC [mk_wf_inter]
         \\ SIMP_TAC std_ss [delete_mk_wf,insert_mk_wf]
         \\ SIMP_TAC std_ss [mk_wf_eq]
