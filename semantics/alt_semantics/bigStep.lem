@@ -1,5 +1,6 @@
 open import Pervasives_extra
 open import Lib
+open import Environment
 open import Ast
 open import SemanticPrimitives
 open import Ffi
@@ -14,9 +15,9 @@ open import SmallStep
    functions applications have happened, and raises an exception when the counter
    runs out. *)
 
-indreln [evaluate : forall 'ffi. bool -> environment v -> state 'ffi -> exp -> state 'ffi * result v v -> bool]
-and [evaluate_list : forall 'ffi. bool -> environment v -> state 'ffi -> list exp -> state 'ffi * result (list v) v -> bool]
-and [evaluate_match : forall 'ffi. bool -> environment v -> state 'ffi -> v -> list (pat * exp) -> v -> state 'ffi * result v v -> bool]
+indreln [evaluate : forall 'ffi. bool -> sem_env v -> state 'ffi -> exp -> state 'ffi * result v v -> bool]
+and [evaluate_list : forall 'ffi. bool -> sem_env v -> state 'ffi -> list exp -> state 'ffi * result (list v) v -> bool]
+and [evaluate_match : forall 'ffi. bool -> sem_env v -> state 'ffi -> v -> list (pat * exp) -> v -> state 'ffi * result v v -> bool]
 
 lit : forall ck env l s.
 true
@@ -86,14 +87,14 @@ evaluate ck env s (Con cn es) (s', Rerr err)
 and
 
 var1 : forall ck env n v s.
-lookup_var_id n env = Just v
+eLookup env.v n = Just v
 ==>
 evaluate ck env s (Var n) (s, Rval v)
 
 and
 
 var2 : forall ck env n s.
-(lookup_var_id n env = Nothing)
+eLookup env.v n = Nothing
 ==>
 evaluate ck env s (Var n) (s, Rerr (Rabort Rtype_error))
 
@@ -232,7 +233,7 @@ and
 
 let1 : forall ck env n e1 e2 v bv s1 s2.
 evaluate ck env s1 e1 (s2, Rval v) &&
-evaluate ck <| env with v = opt_bind n v env.v |> s2 e2 bv
+evaluate ck <| env with v = eOptBind n v env.v |> s2 e2 bv
 ==>
 evaluate ck env s1 (Let n e1 e2) bv
 
@@ -307,8 +308,8 @@ and
 
 mat_cons1 : forall ck env env' v p pes e bv err_v s.
 List.allDistinct (pat_bindings p []) &&
-pmatch env.c s.refs p v env.v = Match env' &&
-evaluate ck <| env with v = env' |> s e bv
+pmatch env.c s.refs p v [] = Match env' &&
+evaluate ck <| env with v = eAppend (alist_to_env env') env.v |> s e bv
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v bv
 
@@ -316,7 +317,7 @@ and
 
 mat_cons2 : forall ck env v p e pes bv s err_v.
 List.allDistinct (pat_bindings p []) &&
-pmatch env.c s.refs p v env.v = No_match &&
+pmatch env.c s.refs p v [] = No_match &&
 evaluate_match ck env s v pes err_v bv
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v bv
@@ -324,7 +325,7 @@ evaluate_match ck env s v ((p,e)::pes) err_v bv
 and
 
 mat_cons3 : forall ck env v p e pes s err_v.
-pmatch env.c s.refs p v env.v = Match_type_error
+pmatch env.c s.refs p v [] = Match_type_error
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error))
 
@@ -337,15 +338,15 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error))
 
 (* The set tid_or_exn part of the state tracks all of the types and exceptions
  * that have been declared *)
-indreln [evaluate_dec : forall 'ffi. bool -> maybe modN -> environment v -> state 'ffi -> dec ->
-                state 'ffi * result (flat_env_ctor * env_val) v -> bool]
+indreln [evaluate_dec : forall 'ffi. bool -> list modN -> sem_env v -> state 'ffi -> dec ->
+                state 'ffi * result (sem_env v) v -> bool]
 
 dlet1 : forall ck mn env p e v env' s1 s2.
 evaluate ck env s1 e (s2, Rval v) &&
 List.allDistinct (pat_bindings p []) &&
 pmatch env.c s2.refs p v [] = Match env'
 ==>
-evaluate_dec ck mn env s1 (Dlet p e) (s2, Rval ([], env'))
+evaluate_dec ck mn env s1 (Dlet p e) (s2, Rval <| v = alist_to_env env'; c = eEmpty |>)
 
 and
 
@@ -385,7 +386,7 @@ and
 dletrec1 : forall ck mn env funs s.
 List.allDistinct (List.map (fun (x,y,z) -> x) funs)
 ==>
-evaluate_dec ck mn env s (Dletrec funs) (s, Rval ([], build_rec_env funs env []))
+evaluate_dec ck mn env s (Dletrec funs) (s, Rval <| v = build_rec_env funs env eEmpty; c = eEmpty |>)
 
 and
 
@@ -402,7 +403,7 @@ new_tdecs = type_defs_to_new_tdecs mn tds &&
 disjoint new_tdecs s.defined_types &&
 List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds)
 ==>
-evaluate_dec ck mn env s (Dtype tds) (<| s with defined_types = new_tdecs union s.defined_types |>, Rval (build_tdefs mn tds, []))
+evaluate_dec ck mn env s (Dtype tds) (<| s with defined_types = new_tdecs union s.defined_types |>, Rval <| v = eEmpty; c = build_tdefs mn tds |>)
 
 and
 
@@ -418,14 +419,14 @@ and
 dtabbrev : forall ck mn env tvs tn t s.
 true
 ==>
-evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval ([], []))
+evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval <| v = eEmpty; c = eEmpty |>)
 
 and
 
 dexn1 : forall ck mn env cn ts s.
 not (TypeExn (mk_id mn cn) IN s.defined_types)
 ==>
-evaluate_dec ck mn env s (Dexn cn ts) (<| s with defined_types = {TypeExn (mk_id mn cn)} union s.defined_types |>, Rval ([(cn, (List.length ts, TypeExn (mk_id mn cn)))], []))
+evaluate_dec ck mn env s (Dexn cn ts) (<| s with defined_types = {TypeExn (mk_id mn cn)} union s.defined_types |>, Rval  <| v = eEmpty; c = eSing cn (length ts, TypeExn (mk_id mn cn)) |>)
 
 and
 
@@ -434,110 +435,108 @@ TypeExn (mk_id mn cn) IN s.defined_types
 ==>
 evaluate_dec ck mn env s (Dexn cn ts) (s, Rerr (Rabort Rtype_error))
 
-indreln [evaluate_decs : forall 'ffi. bool -> maybe modN -> environment v -> state 'ffi -> list dec ->
-            state 'ffi * flat_env_ctor * result env_val v -> bool]
+indreln [evaluate_decs : forall 'ffi. bool -> list modN -> sem_env v -> state 'ffi -> list dec ->
+            state 'ffi * result (sem_env v) v -> bool]
 
 empty : forall ck mn env s.
 true
 ==>
-evaluate_decs ck mn env s [] (s, [], Rval [])
+evaluate_decs ck mn env s [] (s, Rval <| v = eEmpty; c = eEmpty |>)
 
 and
 
 cons1 : forall ck mn s1 s2 env d ds e.
 evaluate_dec ck mn env s1 d (s2, Rerr e)
 ==>
-evaluate_decs ck mn env s1 (d::ds) (s2, [], Rerr e)
+evaluate_decs ck mn env s1 (d::ds) (s2, Rerr e)
 
 and
 
-cons2 : forall ck mn s1 s2 s3 env d ds new_tds' new_tds new_env r.
-evaluate_dec ck mn env s1 d (s2, Rval (new_tds,new_env)) &&
-evaluate_decs ck mn (extend_dec_env new_env new_tds env) s2 ds (s3, new_tds', r)
+cons2 : forall ck mn s1 s2 s3 env d ds new_env r.
+evaluate_dec ck mn env s1 d (s2, Rval new_env) &&
+evaluate_decs ck mn (extend_dec_env new_env env) s2 ds (s3, r)
 ==>
-evaluate_decs ck mn env s1 (d::ds) (s3, new_tds' ++ new_tds, combine_dec_result new_env r)
+evaluate_decs ck mn env s1 (d::ds) (s3, combine_dec_result new_env r)
 
+indreln [evaluate_top : forall 'ffi. bool -> sem_env v -> state 'ffi -> top ->
+              state 'ffi * result (sem_env v) v -> bool]
 
-indreln [evaluate_top : forall 'ffi. bool -> environment v -> state 'ffi -> top ->
-              state 'ffi * env_ctor * result (env_mod * env_val) v -> bool]
-
-tdec1 : forall ck s1 s2 env d new_tds new_env.
-evaluate_dec ck Nothing env s1 d (s2, Rval (new_tds, new_env))
+tdec1 : forall ck s1 s2 env d new_env.
+evaluate_dec ck [] env s1 d (s2, Rval new_env)
 ==>
-evaluate_top ck env s1 (Tdec d) (s2, ([],new_tds), Rval ([], new_env))
-
+evaluate_top ck env s1 (Tdec d) (s2, Rval new_env)
 and
 
 tdec2 : forall ck s1 s2 env d err.
-evaluate_dec ck Nothing env s1 d (s2, Rerr err)
+evaluate_dec ck [] env s1 d (s2, Rerr err)
 ==>
-evaluate_top ck env s1 (Tdec d) (s2, ([],[]), Rerr err)
+evaluate_top ck env s1 (Tdec d) (s2, Rerr err)
 
 and
 
-tmod1 : forall ck s1 s2 env ds mn specs new_tds new_env.
-not (mn IN s1.defined_mods) &&
+tmod1 : forall ck s1 s2 env ds mn specs new_env.
+not ([mn] IN s1.defined_mods) &&
 no_dup_types ds &&
-evaluate_decs ck (Just mn) env s1 ds (s2, new_tds, Rval new_env)
+evaluate_decs ck [mn] env s1 ds (s2, Rval new_env)
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (<| s2 with defined_mods = {mn} union s2.defined_mods |>, ([(mn,new_tds)], []), Rval ([(mn,new_env)], []))
+evaluate_top ck env s1 (Tmod mn specs ds) (<| s2 with defined_mods = {[mn]} union s2.defined_mods |>, Rval <| v = eLift mn new_env.v; c = eLift mn new_env.c |>)
 
 and
 
-tmod2 : forall ck s1 s2 env ds mn specs new_tds err.
-not (mn IN s1.defined_mods) &&
+tmod2 : forall ck s1 s2 env ds mn specs err.
+not ([mn] IN s1.defined_mods) &&
 no_dup_types ds &&
-evaluate_decs ck (Just mn) env s1 ds (s2, new_tds, Rerr err)
+evaluate_decs ck [mn] env s1 ds (s2, Rerr err)
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (<| s2 with defined_mods = {mn} union s2.defined_mods |>, ([(mn,new_tds)], []), Rerr err)
+evaluate_top ck env s1 (Tmod mn specs ds) (<| s2 with defined_mods = {[mn]} union s2.defined_mods |>, Rerr err)
 
 and
 
 tmod3 : forall ck s1 env ds mn specs.
 not (no_dup_types ds)
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (s1, ([],[]), Rerr (Rabort Rtype_error))
+evaluate_top ck env s1 (Tmod mn specs ds) (s1, Rerr (Rabort Rtype_error))
 
 and
 
 tmod4 : forall ck env s mn specs ds.
-mn IN s.defined_mods
+[mn] IN s.defined_mods
 ==>
-evaluate_top ck env s (Tmod mn specs ds) (s, ([],[]), Rerr (Rabort Rtype_error))
+evaluate_top ck env s (Tmod mn specs ds) (s, Rerr (Rabort Rtype_error))
 
-indreln [evaluate_prog : forall 'ffi. bool -> environment v -> state 'ffi -> prog ->
-             state 'ffi * env_ctor * result (env_mod * env_val) v -> bool]
+indreln [evaluate_prog : forall 'ffi. bool -> sem_env v -> state 'ffi -> prog ->
+             state 'ffi * result (sem_env v) v -> bool]
 
 empty : forall ck env s.
 true
 ==>
-evaluate_prog ck env s [] (s, ([],[]), Rval ([], []))
+evaluate_prog ck env s [] (s, Rval <| v = eEmpty; c = eEmpty |>)
 
 and
 
-cons1 : forall ck s1 s2 s3 env top tops new_mods new_tds new_tds' new_env r.
-evaluate_top ck env s1 top (s2, new_tds, Rval (new_mods,new_env)) &&
-evaluate_prog ck (extend_top_env new_mods new_env new_tds env) s2 tops (s3,new_tds',r)
+cons1 : forall ck s1 s2 s3 env top tops new_env r.
+evaluate_top ck env s1 top (s2, Rval new_env) &&
+evaluate_prog ck (extend_dec_env new_env env) s2 tops (s3,r)
 ==>
-evaluate_prog ck env s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r)
+evaluate_prog ck env s1 (top::tops) (s3, combine_dec_result new_env r)
 
 and
 
-cons2 : forall ck s1 s2 env top tops err new_tds.
-evaluate_top ck env s1 top (s2, new_tds, Rerr err)
+cons2 : forall ck s1 s2 env top tops err.
+evaluate_top ck env s1 top (s2, Rerr err)
 ==>
-evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err)
+evaluate_prog ck env s1 (top::tops) (s2, Rerr err)
 
 
-val evaluate_whole_prog : forall 'ffi. Eq 'ffi => bool -> environment v -> state 'ffi -> prog ->
-          state 'ffi * env_ctor * result (env_mod * env_val) v -> bool
-let evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =
+val evaluate_whole_prog : forall 'ffi. Eq 'ffi => bool -> sem_env v -> state 'ffi -> prog ->
+          state 'ffi * result (sem_env v) v -> bool
+let evaluate_whole_prog ck env s1 tops (s2, res) =
   if no_dup_mods tops s1.defined_mods && no_dup_top_types tops s1.defined_types then
-    evaluate_prog ck env s1 tops (s2, new_tds, res)
+    evaluate_prog ck env s1 tops (s2, res)
   else
-    s1 = s2 && new_tds = ([],[]) && res = Rerr (Rabort Rtype_error)
+    s1 = s2 && res = Rerr (Rabort Rtype_error)
 
-val dec_diverges : forall 'ffi. environment v -> state 'ffi -> dec -> bool
+val dec_diverges : forall 'ffi. sem_env v -> state 'ffi -> dec -> bool
 let dec_diverges env st d =
   match d with
     | Dlet p e -> List.allDistinct (pat_bindings p []) && e_diverges env (st.refs, st.ffi) e
@@ -547,7 +546,7 @@ let dec_diverges env st d =
     | Dexn cn ts -> false
   end
 
-indreln [decs_diverges : forall 'ffi. maybe modN -> environment v -> state 'ffi -> decs -> bool]
+indreln [decs_diverges : forall 'ffi. list modN -> sem_env v -> state 'ffi -> decs -> bool]
 
 cons1 : forall mn st env d ds.
 dec_diverges env st d
@@ -556,13 +555,13 @@ decs_diverges mn env st (d::ds)
 
 and
 
-cons2 : forall mn s1 s2 env d ds new_tds new_env.
-evaluate_dec false mn env s1 d (s2, Rval (new_tds, new_env)) &&
-decs_diverges mn (extend_dec_env new_env new_tds env) s2 ds
+cons2 : forall mn s1 s2 env d ds new_env.
+evaluate_dec false mn env s1 d (s2, Rval new_env) &&
+decs_diverges mn (extend_dec_env new_env env) s2 ds
 ==>
 decs_diverges mn env s1 (d::ds)
 
-indreln [top_diverges : forall 'ffi. environment v -> state 'ffi -> top -> bool]
+indreln [top_diverges : forall 'ffi. sem_env v -> state 'ffi -> top -> bool]
 
 tdec : forall st env d.
 dec_diverges env st d
@@ -572,13 +571,13 @@ top_diverges env st (Tdec d)
 and
 
 tmod : forall env s1 ds mn specs.
-not (mn IN s1.defined_mods) &&
+not ([mn] IN s1.defined_mods) &&
 no_dup_types ds &&
-decs_diverges (Just mn) env s1 ds
+decs_diverges [mn] env s1 ds
 ==>
 top_diverges env s1 (Tmod mn specs ds)
 
-indreln [prog_diverges : forall 'ffi. environment v -> state 'ffi -> prog -> bool]
+indreln [prog_diverges : forall 'ffi. sem_env v -> state 'ffi -> prog -> bool]
 
 cons1 : forall st env top tops.
 top_diverges env st top
@@ -587,8 +586,8 @@ prog_diverges env st (top::tops)
 
 and
 
-cons2 : forall s1 s2 env top tops new_mods new_tds new_env.
-evaluate_top false env s1 top (s2, new_tds, Rval (new_mods, new_env)) &&
-prog_diverges (extend_top_env new_mods new_env new_tds env) s2 tops
+cons2 : forall s1 s2 env top tops new_env.
+evaluate_top false env s1 top (s2, Rval new_env) &&
+prog_diverges (extend_dec_env new_env env) s2 tops
 ==>
 prog_diverges env s1 (top::tops)

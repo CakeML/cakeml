@@ -1,6 +1,7 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
+open import Environment
 open import SemanticPrimitives
 open import Ffi
 
@@ -24,7 +25,7 @@ type ctxt_frame =
    * The v list should be in reverse order. *)
   | Ccon of maybe (id conN) * list v * unit * list exp
   | Ctannot of unit * t
-type ctxt = ctxt_frame * environment v
+type ctxt = ctxt_frame * sem_env v
 
 (* State for CEK-style expression evaluation
  * - constructor data
@@ -34,7 +35,7 @@ type ctxt = ctxt_frame * environment v
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-type small_state 'ffi = environment v * store_ffi 'ffi v * exp_or_val * list ctxt
+type small_state 'ffi = sem_env v * store_ffi 'ffi v * exp_or_val * list ctxt
 
 type e_step_result 'ffi =
   | Estep of small_state 'ffi
@@ -46,13 +47,13 @@ type e_step_result 'ffi =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi
+val push : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi
 let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 
-val return : forall 'ffi. environment v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi
+val return : forall 'ffi. sem_env v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi
 let return env s v c = Estep (env, s, Val v, c)
 
-val application : forall 'ffi. op -> environment v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi
+val application : forall 'ffi. op -> sem_env v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi
 let application op env s vs c =
   match op with
     | Opapp ->
@@ -105,15 +106,15 @@ let continue s v cs =
         Estep (env, s, Val err_v, ((Craise (), env) ::c))
     | (Cmat () ((p,e)::pes) err_v, env) :: c ->
         if List.allDistinct (pat_bindings p []) then
-          match pmatch env.c (fst s) p v env.v with
+          match pmatch env.c (fst s) p v [] with
             | Match_type_error -> Eabort Rtype_error
             | No_match -> Estep (env, s, Val v, ((Cmat () pes err_v,env)::c))
-            | Match env' -> Estep (<|env with v = env'|>, s, Exp e, c)
+            | Match env' -> Estep (<| env with v = eAppend (alist_to_env env') env.v |>, s, Exp e, c)
           end
         else
           Eabort Rtype_error
     | (Clet n () e, env) :: c ->
-        Estep (<| env with v = opt_bind n v env.v |>, s, Exp e, c)
+        Estep (<| env with v = eOptBind n v env.v |>, s, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check env.c n (List.length vs + 1) then
            match build_conv env.c n (v::vs) with
@@ -163,7 +164,7 @@ let e_step (env, s, ev, c) =
               else
                 Eabort Rtype_error
           | Var n ->
-              match lookup_var_id n env with
+              match eLookup env.v n with
                 | Nothing -> Eabort Rtype_error
                 | Just v ->
                     return env s v c
@@ -191,7 +192,7 @@ let e_step (env, s, ev, c) =
 (* Define a semantic function using the steps *)
 
 val e_step_reln : forall 'ffi. small_state 'ffi -> small_state 'ffi -> bool
-val small_eval : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool
+val small_eval : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -208,7 +209,7 @@ small_eval env s e c (s', Rerr (Rabort a)) =
     (rtc (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') &&
     (e_step (env',s',e',c') = Eabort a)
 
-val e_diverges : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> bool
+val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool
 let e_diverges env s e =
   forall env' s' e' c'.
     (rtc (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')

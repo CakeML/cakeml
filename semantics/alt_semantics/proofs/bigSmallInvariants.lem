@@ -1,5 +1,6 @@
 open import Pervasives
 open import Lib
+open import Environment
 open import Ast
 open import SemanticPrimitives
 open import SmallStep
@@ -8,7 +9,7 @@ open import BigStep
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
 indreln
-[evaluate_ctxt : forall 'ffi. environment v -> state 'ffi -> ctxt_frame -> v -> state 'ffi * result v v -> bool]
+[evaluate_ctxt : forall 'ffi. sem_env v -> state 'ffi -> ctxt_frame -> v -> state 'ffi * result v v -> bool]
 
 raise : forall env s v.
 true
@@ -96,7 +97,7 @@ evaluate_ctxt env s (Cif () e2 e3) v bv
 and
 
 if2 : forall env e2 e3 v s.
-(do_if v e2 e3 = Nothing)
+do_if v e2 e3 = Nothing
 ==>
 evaluate_ctxt env s (Cif () e2 e3) v (s, Rerr (Rabort Rtype_error))
 
@@ -110,7 +111,7 @@ evaluate_ctxt env s (Cmat () pes err_v) v bv
 and
 
 lt : forall env n e2 v bv s.
-evaluate false <| env with v = opt_bind n v env.v |> s e2 bv
+evaluate false <| env with v = eOptBind n v env.v |> s e2 bv
 ==>
 evaluate_ctxt env s (Clet n () e2) v bv
 

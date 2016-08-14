@@ -50,7 +50,6 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     Cases_on`a`>>Cases_on`e`>>full_simp_tac(srw_ss())[]>>srw_tac[][])
   >- (
     Cases_on`a`>>full_simp_tac(srw_ss())[]))
-  *)
 
 val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
   ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
@@ -79,6 +78,7 @@ val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
   srw_tac[][] >>
   METIS_TAC[pair_CASES])
 
+  *)
 val st = ``st:'ffi state``
 
 val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_types_mods",

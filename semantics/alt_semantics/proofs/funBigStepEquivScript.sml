@@ -60,8 +60,8 @@ val evaluate_decs_eq_run_eval_decs = Q.store_thm("evaluate_decs_eq_run_eval_decs
   every_case_tac >> fs[functional_evaluate_list]);
 
 val functional_evaluate_decs = Q.store_thm("functional_evaluate_decs",
-  `evaluate_decs mn s env decs = (s',cenv,r) ⇒
-   evaluate_decs T mn env s decs (s',cenv,r)`,
+  `evaluate_decs mn s env decs = (s',r) ⇒
+   evaluate_decs T mn env s decs (s',r)`,
   rw[evaluate_decs_eq_run_eval_decs,run_eval_decs_spec])
 
 val evaluate_tops_eq_run_eval_prog = Q.store_thm("evaluate_tops_eq_run_eval_prog",
@@ -69,16 +69,19 @@ val evaluate_tops_eq_run_eval_prog = Q.store_thm("evaluate_tops_eq_run_eval_prog
     evaluate_tops s env tops = run_eval_prog env s tops`,
   recInduct evaluate_tops_ind >>
   rw[evaluate_tops_def,run_eval_prog_def,run_eval_top_def] >>
-  every_case_tac >> fs[combine_mod_result_def,evaluate_decs_eq_run_eval_decs] >>
-  fs[run_eval_decs_def,combine_dec_result_def]);
+  every_case_tac >> fs[combine_dec_result_def,evaluate_decs_eq_run_eval_decs] >>
+  fs[run_eval_decs_def,combine_dec_result_def]
+  >> rw []
+  >> split_pair_case_tac
+  >> fs []);
 
 val functional_evaluate_tops = Q.store_thm("functional_evaluate_tops",
-  `evaluate_tops s env tops = (s',cenv,r) ⇒ evaluate_prog T env s tops (s',cenv,r)`,
+  `evaluate_tops s env tops = (s',r) ⇒ evaluate_prog T env s tops (s',r)`,
   rw[evaluate_tops_eq_run_eval_prog,run_eval_prog_spec])
 
 val functional_evaluate_prog = Q.store_thm("functional_evaluate_prog",
-  `evaluate_prog s env prog = (s',cenv,r) ⇒
-   evaluate_whole_prog T env s prog (s',cenv,r)`,
+  `evaluate_prog s env prog = (s',r) ⇒
+   evaluate_whole_prog T env s prog (s',r)`,
   rw[evaluate_prog_def,bigStepTheory.evaluate_whole_prog_def] >>
   imp_res_tac functional_evaluate_tops);
 
