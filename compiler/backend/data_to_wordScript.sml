@@ -141,18 +141,46 @@ val AllocVar_def = Define `
               Assign 3 (Op Sub [Lookup EndOfHeap; Lookup NextFree]);
               If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip]`;
 
+val MakeBytes_def = Define `
+  MakeBytes n =
+    list_Seq [Assign n (Shift Lsr (Var n) (Nat 2));
+              Assign n (Op Or [Var n; Shift Lsl (Var n) (Nat 8)]);
+              Assign n (Op Or [Var n; Shift Lsl (Var n) (Nat 16)]);
+              if dimindex (:'a) = 32 then Skip else
+                Assign n (Op Or [Var n; Shift Lsl (Var n) (Nat 32)])]
+                   :'a wordLang$prog`
+
+val SmallLsr_def = Define `
+  SmallLsr e n = if n = 0 then e else Shift Lsr e (Nat n)`;
+
 val RefByte_code_def = Define`
-  (* 0 = return address
-     2 = remaining number of bytes to set
-     4 = pointer to next byte to set
-     6 = byte value *)
   RefByte_code c =
-  If Equal 2 (Imm 0w) (Return 0 4)
-  (list_Seq [
-    Inst (Mem Store8 6 (Addr 4 0w));
-    Assign 4 (Op Add [Var 4; Const 1w]);
-    Assign 2 (Op Sub [Var 2; Const 1w]);
-    Call NONE (SOME RefByte_location) [2;4;6] NONE])`;
+      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+      let h = Op Add [Shift Lsr (Var 2) (Nat 2); Const (bytes_in_word - 1w)] in
+      let x = SmallLsr h (dimindex (:'a) - 63) in
+      let y = Shift Lsl h (Nat (dimindex (:'a) - shift (:'a) - c.len_size)) in
+        list_Seq
+          [Assign 1 x;
+           AllocVar limit (fromList [();()]);
+           (* compute length *)
+           Assign 5 (Shift Lsr h (Nat (shift (:'a))));
+           Assign 6 (Shift Lsl (Var 5) (Nat 2));
+           (* adjust end of heap *)
+           Assign 1 (Op Sub [Lookup EndOfHeap;
+                       Shift Lsl (Op Add [Var 5; Const 1w]) (Nat (shift (:'a)))]);
+           Set EndOfHeap (Var 1);
+           (* 3 := return value *)
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+               (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
+           (* compute header *)
+           Assign 5 (Op Or [y; Const 31w]);
+           (* compute repeated byte *)
+           MakeBytes 4;
+           (* store header *)
+           Store (Var 1) 5;
+           Call NONE (SOME Replicate_location)
+              (* ret_loc, addr, v, n, ret_val *)
+              [0;1;4;6;3] NONE]`;
 
 val FromList_code_def = Define `
   FromList_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
@@ -287,36 +315,14 @@ val assign_def = Define `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
-    | RefByte => (case args of
-      | [v1;v2] =>
-        let names = case names of SOME names => names | NONE => LN in
-        let names2 = insert 1 () (adjust_set names) in
-        let names1 =
-          (insert 3 () (insert 5 () (insert (adjust_var v2) () names2))) in
-        (list_Seq [
-          (* length in bytes *)
-          Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
-          (* fake length for header *)
-          Assign 5 (Shift Lsl (Op Add [Var 3; Const (1w << shift(:'a) - 1w)])
-                              (Nat (dimindex(:'a) - shift(:'a) - c.len_size)));
-          (* length in words *)
-          Assign 1 (Shift Lsr (Var 5) (Nat (dimindex(:'a) - c.len_size)));
-          Alloc 1 names1;
-          Assign 1 (Op Sub [Lookup EndOfHeap; Shift Lsl (Var 1) (Nat (shift(:'a)))]);
-          Set EndOfHeap (Var 1);
-          (* header *)
-          Assign 5 (Op Or [Var 5; Const 31w]);
-          Store (Var 1) 5;
-          Assign 5 (Op Add [Var 1; Const bytes_in_word]);
-          Assign 7 (Shift Lsr (Var (adjust_var v2)) (Nat 2));
-          MustTerminate (dimword(:'a))
-            (Call (SOME (5,names2,Skip,secn,l)) (SOME RefByte_location) [3;5;7] NONE);
-          Assign (adjust_var dest)
-            (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                      (Nat (shift_length c - shift(:'a)));
-                    Const 1w])], l+1)
-      | _ => (Skip,l))
-    (* TODO: RefByte *)
+    | RefByte =>
+      (case args of
+       | [v1;v2] =>
+         (MustTerminate (dimword (:α))
+            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+               (SOME RefByte_location)
+                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+       | _ => (Skip,l))
     | RefArray =>
       (case args of
        | [v1;v2] =>
