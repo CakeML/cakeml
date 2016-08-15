@@ -456,7 +456,8 @@ val print_tac = asmLib.print_tac "correct"
 
 val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
    `backend_correct mips_target`,
-   simp [asmPropsTheory.backend_correct_def, mips_target_def]
+   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
+         mips_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,

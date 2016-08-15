@@ -105,7 +105,8 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
                   c.target.state_rel s2 ms2 /\ l <> 0``,
-  full_simp_tac(srw_ss())[backend_correct_def] \\ REPEAT STRIP_TAC \\ RES_TAC
+  full_simp_tac(srw_ss())[backend_correct_def, target_ok_def]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ full_simp_tac(srw_ss())[] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ full_simp_tac(srw_ss())[]
   \\ MATCH_MP_TAC (GEN_ALL evaluate_EQ_evaluate_lemma) \\ full_simp_tac(srw_ss())[]

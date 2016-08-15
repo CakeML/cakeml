@@ -829,7 +829,8 @@ val print_tac = asmLib.print_tac "correct"
 
 val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
    `backend_correct arm8_target`,
-   simp [asmPropsTheory.backend_correct_def, arm8_target_def]
+   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
+         arm8_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,

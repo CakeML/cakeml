@@ -692,7 +692,8 @@ val line_length_MOD_0 = prove(
     line_ok mc_conf.target.config labs p h ==>
     (line_length h MOD 2 ** mc_conf.target.config.code_alignment = 0)``,
   Cases_on `h` \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[line_ok_def,line_length_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[backend_correct_def,enc_ok_def]
+  \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def,enc_ok_def]
   \\ full_simp_tac(srw_ss())[LET_DEF,enc_with_nop_thm] \\ srw_tac[][LENGTH_FLAT,LENGTH_REPLICATE]
   \\ qpat_x_assum `2 ** nn = xx:num` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE] \\ srw_tac[][]

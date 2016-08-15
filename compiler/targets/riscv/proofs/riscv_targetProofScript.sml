@@ -440,7 +440,8 @@ val print_tac = asmLib.print_tac "correct"
 
 val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
    `backend_correct riscv_target`,
-   simp [asmPropsTheory.backend_correct_def, riscv_target_def]
+   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
+         riscv_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,

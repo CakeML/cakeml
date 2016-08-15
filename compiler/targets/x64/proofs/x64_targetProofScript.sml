@@ -849,7 +849,8 @@ val print_tac = asmLib.print_tac "correct"
 
 val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,
-   simp [asmPropsTheory.backend_correct_def, x64_target_def]
+   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
+         x64_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def, asmPropsTheory.interference_ok_def]
