@@ -3098,6 +3098,15 @@ val (fname,ml_fname,def,th,v) = hd thms
       handle HOL_ERR _ =>
       auto_prove "ind" (goal,
         STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ fs[] (*For arithmetic-based goals*)
+        \\ METIS_TAC[])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (goal,
+        STRIP_TAC
         \\ SIMP_TAC std_ss [FORALL_PROD]
         \\ (MATCH_MP_TAC ind_thm ORELSE
             MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
