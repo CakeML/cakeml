@@ -283,7 +283,6 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [ (* ---- bvl_to_bvi ---- *)
-
      bvl_to_bviTheory.destLet_def
     ,bvl_to_bviTheory.alloc_glob_count_def
     ,bvl_to_bviTheory.num_stubs_def

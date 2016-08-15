@@ -95,7 +95,7 @@ val InitGlobals_code_def = Define`
   InitGlobals_code start n = (0:num,
     let n = MIN (MAX n 1) InitGlobals_max in
       Let [Op RefArray [Op (Const 0) []; Op (Const (&n)) []]]
-        (Let [Op Update [Op (Const (&n)) []; Op (Const 0) []; Var 0]]
+        (Let [Op Update [Op (Const 1) []; Op (Const 0) []; Var 0]]
           (Let [Op SetGlobalsPtr [Var 1]]
              (Call 0 (SOME start) [] (SOME (Var 0))))))`;
 

@@ -13,6 +13,7 @@ val _ = new_theory"bvl_to_bviProof";
 
 val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
+
 (* value relation *)
 
 val adjust_bv_def = tDefine "adjust_bv" `
@@ -2054,7 +2055,7 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
             ; clock := k
             ; code := fromAList (stubs start kk ++ code);
               refs := FEMPTY |+
-                (0,ValueArray ([Number (& (MIN (MAX kk 1) InitGlobals_max))] ++
+                (0,ValueArray ([Number 1] ++
                   REPLICATE ((MIN (MAX kk 1) InitGlobals_max) - 1) (Number 0))) |> in
       evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
         initial_state ffi0 (fromAList (stubs start kk ++ code)) (k+1)) =
@@ -2280,9 +2281,10 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     (fn tmp =>
       disch_then(fn th => subterm (mp_tac o C SPEC th o #2 o boolSyntax.dest_let) (concl tmp)))
     bvi_stubs_evaluate >>
-  simp[Once state_rel_def,FLOOKUP_UPDATE] >>
+  simp [Once state_rel_def,FLOOKUP_UPDATE] >>
   impl_tac >- (
-    conj_tac >- (cheat (* where does the 1 come from? *) ) >>
+    conj_tac >- (qexists_tac `MIN (MAX kk 1) InitGlobals_max`
+                 \\ fs [] \\ EVAL_TAC) >>
     rpt var_eq_tac >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
     simp[stubs_def] >>
