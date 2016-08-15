@@ -89,9 +89,9 @@ val backend_correct_def = Define `
       asm_step t.config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
+            let pcs = all_pcs (LENGTH (t.config.encode i)) s1.pc in
             asserts n (\k s. env (n - k) (t.next s)) ms
-              (\ms'. t.state_ok ms' /\
-                     t.get_pc ms' IN all_pcs (LENGTH (t.config.encode i)) s1.pc)
+              (\ms'. t.state_ok ms' /\ t.get_pc ms' IN pcs)
               (\ms'. t.state_rel s2 ms')`
 
 (* lemma for proofs *)
