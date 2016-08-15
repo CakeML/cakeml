@@ -113,4 +113,41 @@ val arm_names_def = Define `
 val arm_names_def = save_thm("arm_names_def",
   CONV_RULE (RAND_CONV EVAL) arm_names_def);
 
+val arm8_names_def = Define `
+  arm8_names =
+    (* source can use 31 regs (0-30),
+       target's r31 must be avoided (hardcoded to 0, sometimes sp),
+       source 0 must represent r30 (link register) *)
+    (insert 0 30 o
+     insert 1 0 o
+     insert 2 1 o
+     insert 30 2) LN:num num_map`
+
+val arm8_names_def = save_thm("arm8_names_def",
+  CONV_RULE (RAND_CONV EVAL) arm8_names_def);
+
+val mips_names_def = Define `
+  mips_names =
+    (* source can use 30 regs (2-31),
+       target's r0 must be avoided (hardcoded to 0),
+       target's r1 must be avoided (used by encoder in asm),
+       source 0 must represent r31 (link register)
+       argument regs 4-7 *)
+    (insert 0 31 o
+     insert 1 4 o
+     insert 2 5 o
+     insert 3 6 o
+     insert 4 7 o
+     insert 5 2 o
+     insert 6 3 o
+     insert 7 30 o
+     (* the rest just ensures that the mapping is well-formed *)
+     insert 30 1 o
+     insert 31 0) LN:num num_map`
+
+val mips_names_def = save_thm("mips_names_def",
+  CONV_RULE (RAND_CONV EVAL) mips_names_def);
+
+val riscv_names_def = Define `riscv_names = mips_names`;
+
 val _ = export_theory();
