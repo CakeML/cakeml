@@ -915,7 +915,9 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
          arm6_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def]
+      \\ simp [arm6_config_def]
+      \\ Cases_on `i`,
       srw_tac [] [arm6_asm_state_def, arm6_config_def, set_sepTheory.fun2set_eq]
       \\  `i < 15` by decide_tac
       \\ simp [],

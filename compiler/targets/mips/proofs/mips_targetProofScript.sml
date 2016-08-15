@@ -460,7 +460,9 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
          mips_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def]
+      \\ simp [mips_config_def]
+      \\ Cases_on `i`,
       srw_tac [] [mips_asm_state_def, mips_config_def, set_sepTheory.fun2set_eq]
       \\  `1 < i` by decide_tac
       \\ simp [],

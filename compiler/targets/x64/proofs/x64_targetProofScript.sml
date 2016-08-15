@@ -854,6 +854,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def, asmPropsTheory.interference_ok_def]
+      \\ simp [x64_config_def]
       \\ Cases_on `i`,
       srw_tac [] [x64_asm_state_def, x64_config_def, fun2set_eq],
       srw_tac [] [x64_proj_def, x64_asm_state_def],

@@ -833,7 +833,9 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          arm8_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def]
+      \\ simp [arm8_config_def]
+      \\ Cases_on `i`,
       srw_tac [] [arm8_asm_state_def, arm8_config_def, set_sepTheory.fun2set_eq]
       \\  `i < 31` by decide_tac
       \\ simp [],

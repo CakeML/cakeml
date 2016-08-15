@@ -444,7 +444,9 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
          riscv_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def]
+      \\ simp [riscv_config_def]
+      \\ Cases_on `i`,
       srw_tac []
         [riscv_asm_state_def, riscv_config_def, set_sepTheory.fun2set_eq]
       \\  `1 < i` by decide_tac
