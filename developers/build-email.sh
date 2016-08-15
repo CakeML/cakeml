@@ -13,6 +13,7 @@ case $? in
   124)
     cat $tmpfile | mail -s "TIMEOUT" $to
     echo "build timed out"
+    exit 124
     ;;
   0)
     cat $tmpfile | mail -s "OK" $to
@@ -23,5 +24,6 @@ case $? in
     cd $(echo $subject | cut -f2 -d' ')
     cat $tmpfile timing.log <(tail -n80 regression.log) | col -bx | mail -s "$subject" $to
     echo "build failed"
+    exit 1
     ;;
 esac
