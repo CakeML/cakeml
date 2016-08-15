@@ -1722,7 +1722,7 @@ val compile_correct = Q.prove(
     \\ `mc_conf.target.get_pc ms2 = p - n2w ((3 + index) * ffi_offset)` by
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[backend_correct_def]
+      \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
       \\ Q.PAT_X_ASSUM `!ms s. mc_conf.target.state_rel s ms ==> bbb` imp_res_tac
       \\ full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
       \\ full_simp_tac(srw_ss())[asm_def,asmSemTheory.jump_to_offset_def,
@@ -1744,7 +1744,7 @@ val compile_correct = Q.prove(
             (mc_conf.target.get_byte ms2 a = t1.mem a)` by
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[backend_correct_def]
+      \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
       \\ Q.PAT_X_ASSUM `!ms s. mc_conf.target.state_rel s ms ==> bbb` imp_res_tac
       \\ full_simp_tac(srw_ss())[backend_correct_def |> REWRITE_RULE [GSYM reg_ok_def]]
       \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,
@@ -1866,7 +1866,7 @@ val compile_correct = Q.prove(
     \\ once_rewrite_tac [evaluate_def] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[shift_interfer_def]
     \\ `mc_conf.target.get_pc ms2 = mc_conf.halt_pc` by
-     (full_simp_tac(srw_ss())[backend_correct_def] \\ res_tac
+     (full_simp_tac(srw_ss())[backend_correct_def,target_ok_def] \\ res_tac
       \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[jump_to_offset_def,asmSemTheory.upd_pc_def]
       \\ full_simp_tac(srw_ss())[state_rel_def]
@@ -1883,7 +1883,7 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ srw_tac[][]
     \\ `s1 = s2` by (Cases_on `t1.regs s1.ptr_reg = 0w`
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]) \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[backend_correct_def]
+    \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
     \\ res_tac \\ full_simp_tac(srw_ss())[]
     \\ pop_assum (qspec_then `s1.ptr_reg` mp_tac)
     \\ pop_assum (qspec_then `s1.ptr_reg` mp_tac)
@@ -3982,7 +3982,7 @@ val semantics_compile_lemma = store_thm("semantics_compile_lemma",
   \\ qexists_tac `x1`
   \\ qexists_tac `x0`
   \\ qexists_tac `c.init_clock`
-  \\ full_simp_tac(srw_ss())[backend_correct_def]
+  \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
   \\ full_simp_tac(srw_ss())[find_ffi_index_limit_filter_skip]
   \\ fs [make_init_filter_skip])
   |> REWRITE_RULE [CONJ_ASSOC]
