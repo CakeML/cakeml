@@ -296,10 +296,10 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.CopyGlobals_code_def
     ,bvl_to_bviTheory.AllocGlobal_code_def
     ,bvl_to_bviTheory.InitGlobals_code_def
-    ,bvl_to_bviTheory.ListLength_max_def
     ,bvl_to_bviTheory.ListLength_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
     ,bvl_to_bviTheory.AllocGlobal_location_eq
+    ,bvl_to_bviTheory.InitGlobals_max_def
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
     ,bvl_to_bviTheory.compile_int_def
