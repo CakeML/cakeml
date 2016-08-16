@@ -381,6 +381,84 @@ val eSubEnv_eAppend_lift = Q.store_thm ("eSubEnv_eAppend_lift",
    >> qexists_tac `[h]`
    >> simp [eLookupMod_def]));
 
+val alist_rel_restr_def = Define `
+  (alist_rel_restr R l1 l2 [] ⇔ T) ∧
+  (alist_rel_restr R l1 l2 (k1::keys) ⇔
+    case ALOOKUP l1 k1 of
+    | NONE => F
+    | SOME v1 =>
+      case ALOOKUP l2 k1 of
+      | NONE => F
+      | SOME v2 => R k1 v1 v2 ∧ alist_rel_restr R l1 l2 keys)`;
+
+val alist_rel_restr_thm = Q.store_thm ("alist_rel_restr_thm",
+  `!R e1 e2 keys.
+    alist_rel_restr R e1 e2 keys ⇔
+      !k. MEM k keys ⇒ ?v1 v2. ALOOKUP e1 k = SOME v1 ∧ ALOOKUP e2 k = SOME v2 ∧ R k v1 v2`,
+ Induct_on `keys`
+ >> rw [alist_rel_restr_def]
+ >> every_case_tac
+ >> fs []
+ >> metis_tac [NOT_SOME_NONE, SOME_11, option_nchotomy]);
+
+val alistSub_def = Define `
+  alistSub R e1 e2 ⇔ alist_rel_restr R e1 e2 (MAP FST e1)`;
+
+val alistSub_cong = Q.store_thm ("alistSub_cong",
+  `!l1 l2 l1' l2' R R'.
+    l1 = l1' ∧ l2 = l2' ∧ (!n x y. ALOOKUP l1' n = SOME x ∧ ALOOKUP l2' n = SOME y ⇒ R n x y = R' n x y) ⇒
+    (alistSub R l1 l2 ⇔ alistSub R' l1' l2')`,
+  rw [alistSub_def]
+  >> qspec_tac (`MAP FST l1`, `keys`)
+  >> Induct
+  >> rw [alist_rel_restr_def]
+  >> every_case_tac
+  >> metis_tac []);
+
+val _ = DefnBase.export_cong "alistSub_cong";
+
+val eSubEnv_compute_def = tDefine "envSub_compute" `
+  eSubEnv_compute path R (Bind e1V e1M) (Bind e2V e2M) ⇔
+    alistSub (\k v1 v2. R (mk_id path k) v1 v2) e1V e2V ∧
+    alistSub (\k v1 v2. eSubEnv_compute (k::path) R v1 v2) e1M e2M`
+ (wf_rel_tac `measure (\(p,r,env,_). environment_size (\x.0) (\x.0) env)`
+ >> rw []
+ >> Induct_on `e1M`
+ >> rw [environment_size_def]
+ >> PairCases_on `h`
+ >> fs [ALOOKUP_def]
+ >> every_case_tac
+ >> fs []
+ >> rw [environment_size_def]);
+
+ (*
+val eSubEnv_compute_thm = Q.store_thm ("envSub_compute_thm",
+  `!p R e1 e2.
+    eSubEnv (\id v1 v2. R (mk_id (p++id_to_mods id) (id_to_n id)) v1 v2) e1 e2 ⇔
+    eSubEnv_compute p R e1 e2`,
+
+ ho_match_mp_tac (theorem "eSubEnv_compute_ind")
+ >> rw [eSubEnv_def, eSubEnv_compute_def, alistSub_def, alist_rel_restr_thm, eLookup_def]
+ >> eq_tac
+ >> rw []
+ >- (
+   last_x_assum (qspec_then `mk_id [] k` mp_tac)
+   >> rw [mk_id_def, eLookup_def, id_to_mods_def, id_to_n_def]
+   >> metis_tac [option_nchotomy, ALOOKUP_NONE])
+ 
+ >- (
+   last_x_assum (qspec_then `k::p` mp_tac)
+   >> rw [eLookupMod_def]
+   >> `?v1. ALOOKUP e1M k = SOME v1` by metis_tac [option_nchotomy, ALOOKUP_NONE]
+   >> fs []
+ >- (
+   Cases_on `id`
+   >> fs [eLookup_def, id_to_n_def, id_to_mods_def]
+
+ >> fs [eLookup_def]
+ *)
+
+
 (* -------------- eAll2 ---------------- *)
 
 val eAll2_conj = Q.store_thm ("eAll2_conj",
