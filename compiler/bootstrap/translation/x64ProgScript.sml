@@ -4,10 +4,10 @@ open ml_translatorLib ml_translatorTheory;
 open compiler64ProgTheory
 open x64_targetTheory x64Theory;
 
-val _ = new_theory "compiler64Prog"
+val _ = new_theory "x64Prog"
 
 (* temporary *)
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "compiler64Prog";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
