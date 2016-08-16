@@ -183,10 +183,10 @@ val RefByte_code_def = Define`
               [0;1;4;6;3] NONE]`;
 
 val FromList_code_def = Define `
-  FromList_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
+  FromList_code c = GiveUp:α wordLang$prog`; (* TODO: FromList *)
 
 val FromList1_code_def = Define `
-  FromList1_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
+  FromList1_code c = GiveUp:α wordLang$prog`; (* TODO: FromList *)
 
 val RefArray_code_def = Define `
   RefArray_code c =
@@ -330,6 +330,16 @@ val assign_def = Define `
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefArray_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+       | _ => (Skip,l))
+    | FromList tag =>
+      (if encode_header c tag 0 = (NONE:'a word option) then (GiveUp,l) else
+       case args of
+       | [v1;v2] =>
+         (MustTerminate (dimword (:α)) (list_Seq [
+            Assign 1 (Const (n2w (4 * tag)));
+            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+               (SOME FromList_location)
+                  [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
     | Equal => (case args of

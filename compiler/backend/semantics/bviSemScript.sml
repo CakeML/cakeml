@@ -60,8 +60,8 @@ val do_app_aux_def = Define `
              | SOME vs => if len = Number (& (LENGTH vs))
                           then SOME (SOME (Block n vs, s))
                           else SOME NONE
-             | _ => SOME NONE)
-         | _ => SOME NONE)
+             | _ => NONE)
+         | _ => NONE)
     | (Global n, _) => NONE
     | (SetGlobal n, _) => NONE
     | (AllocGlobal, _) => NONE
