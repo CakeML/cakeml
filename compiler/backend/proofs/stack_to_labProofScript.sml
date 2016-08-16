@@ -2006,4 +2006,9 @@ val stack_to_lab_compile_lab_pres = store_thm("stack_to_lab_compile_lab_pres",``
       CCONTR_TAC>>fs[]>>res_tac>>fs[]>>
       imp_res_tac extract_labels_next_lab>>fs[]);
 
+val EVERY_sec_ends_with_label_MAP_prog_to_section = Q.store_thm("EVERY_sec_ends_with_label_MAP_prog_to_section[simp]",
+  `∀prog. EVERY sec_ends_with_label (MAP prog_to_section prog)`,
+  Induct \\ simp[] \\ Cases \\ simp[prog_to_section_def]
+  \\ pairarg_tac \\ fs[sec_ends_with_label_def]);
+
 val _ = export_theory();

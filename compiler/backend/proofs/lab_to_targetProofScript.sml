@@ -3442,10 +3442,6 @@ val lines_upd_lab_len_label_prefix_zero = Q.store_thm("lines_upd_lab_len_label_p
   \\ match_mp_tac label_prefix_zero_append_suff2
   \\ simp[EXISTS_REVERSE]);
 
-val sec_ends_with_label_def = Define`
-  sec_ends_with_label (Section _ ls) ⇔
-    ¬NULL ls ∧ is_Label (LAST ls)`;
-
 val EVEN_sec_length_lines_upd_lab_len = Q.store_thm("EVEN_sec_length_lines_upd_lab_len",
   `∀pos lines acc.
     (if NULL lines then
@@ -3638,10 +3634,47 @@ val enc_secs_again_label_prefix_zero = Q.store_thm("enc_secs_again_label_prefix_
   \\ simp[] \\ pairarg_tac \\ rw[]
   \\ metis_tac[]);
 
+val enc_lines_again_simp_ends_with_label = Q.store_thm("enc_lines_again_simp_ends_with_label",
+  `∀labs pos enc ls res ok.
+    enc_lines_again_simp labs pos enc ls = (res,ok) ∧
+    ¬NULL ls ∧ is_Label (LAST ls) ⇒
+    ¬NULL res ∧ is_Label (LAST res)`,
+  recInduct enc_lines_again_simp_ind
+  \\ rw[enc_lines_again_simp_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ fs[]
+  \\ rveq \\ fs[LAST_CONS_cond]
+  \\ rw[] \\ fs[NULL_EQ] \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[]
+  \\ fs[enc_lines_again_simp_def]);
+
+val enc_secs_again_ends_with_label = Q.store_thm("enc_secs_again_ends_with_label",
+  `∀pos labs enc lines res ok.
+    enc_secs_again pos labs enc lines = (res,ok) ∧
+    EVERY sec_ends_with_label lines ⇒
+    EVERY sec_ends_with_label res`,
+  recInduct enc_secs_again_ind
+  \\ rw[enc_secs_again_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ fs[sec_ends_with_label_def]
+  \\ match_mp_tac enc_lines_again_simp_ends_with_label
+  \\ qspecl_then[`labs`,`pos`,`enc`,`lines`,`[]`,`T`]mp_tac enc_lines_again_simp_EQ
+  \\ simp[] \\ pairarg_tac \\ rw[]
+  \\ metis_tac[]);
+
+val enc_sec_list_ends_with_label = Q.store_thm("enc_sec_list_ends_with_label",
+  `∀enc code.
+   EVERY sec_ends_with_label code ⇒
+   EVERY sec_ends_with_label (enc_sec_list enc code)`,
+  Induct_on`code` \\ fs[enc_sec_list_def]
+  \\ Cases \\ fs[enc_sec_def,sec_ends_with_label_def]
+  \\ Induct_on`l` \\ fs[LAST_CONS_cond]
+  \\ Cases \\ gen_tac \\ IF_CASES_TAC \\ fs[enc_line_def,NULL_EQ]);
+
 val remove_labels_loop_thm = Q.prove(
   `∀n c code code2 labs.
     remove_labels_loop n c code = SOME (code2,labs) ∧
     good_syntax mc_conf code LN ∧
+    EVERY sec_ends_with_label code ∧
     all_encd0 mc_conf.target.config.encode code ∧
     c = mc_conf.target.config ∧
     enc_ok mc_conf.target.config
@@ -3663,6 +3696,9 @@ val remove_labels_loop_thm = Q.prove(
     >> last_x_assum mp_tac
     >> impl_tac >- (
       srw_tac[][good_syntax_def]
+      >- (
+        match_mp_tac enc_secs_again_ends_with_label
+        \\ metis_tac[] )
       \\ match_mp_tac enc_secs_again_encd0
       \\ metis_tac[] )
     >> simp[] >> strip_tac >> fs []
@@ -3694,7 +3730,8 @@ val remove_labels_loop_thm = Q.prove(
       simp[Abbr`code2`]
       \\ match_mp_tac upd_lab_len_label_prefix_zero
       \\ simp[]
-      \\ cheat (* need to push this property up *) )
+      \\ match_mp_tac enc_secs_again_ends_with_label
+      \\ asm_exists_tac \\ fs[])
     \\ metis_tac[enc_secs_again_label_prefix_zero])
   \\ conj_asm1_tac
   THEN1 (imp_res_tac enc_secs_again_IMP_similar \\
@@ -3749,6 +3786,7 @@ val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
 
 val remove_labels_thm = Q.store_thm("remove_labels_thm",
   `good_syntax mc_conf code LN /\
+   EVERY sec_ends_with_label code /\
    enc_ok mc_conf.target.config /\
    remove_labels clock mc_conf.target.config code = SOME (code2,labs) ==>
    all_enc_ok mc_conf.target.config labs 0 code2 /\
@@ -3763,7 +3801,10 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
   >> drule (GEN_ALL remove_labels_loop_thm)
   >> disch_then(qspec_then`mc_conf`mp_tac)
   >> impl_tac
-  >- ( simp[good_syntax_def,enc_sec_list_encd0] )
+  >- (
+    simp[good_syntax_def,enc_sec_list_encd0]
+    \\ match_mp_tac enc_sec_list_ends_with_label
+    \\ fs[])
   >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]
   >> rw [] >> res_tac);
 
@@ -3871,6 +3912,7 @@ val aligned_1_intro = prove(
 
 val IMP_state_rel_make_init = prove(
   ``good_syntax mc_conf code LN /\
+    EVERY sec_ends_with_label code /\
     enc_ok mc_conf.target.config /\
     remove_labels clock mc_conf.target.config code =
       SOME (code2,labs) /\
@@ -3930,6 +3972,7 @@ val semantics_compile_lemma = store_thm("semantics_compile_lemma",
   ``ffi.final_event = NONE /\
     backend_correct mc_conf.target /\
     good_syntax mc_conf code LN /\
+    EVERY sec_ends_with_label code /\
     c.asm_conf = mc_conf.target.config /\
     compile c code = SOME (bytes,ffi_limit) /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
@@ -3949,7 +3992,7 @@ val semantics_compile_lemma = store_thm("semantics_compile_lemma",
   \\ qexists_tac `c.init_clock`
   \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
   \\ full_simp_tac(srw_ss())[find_ffi_index_limit_filter_skip]
-  \\ fs [make_init_filter_skip])
+  \\ fs [make_init_filter_skip,sec_ends_with_label_filter_skip])
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
