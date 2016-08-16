@@ -1,6 +1,7 @@
 open preamble
 open astTheory libTheory semanticPrimitivesTheory evaluateTheory;
 open evaluatePropsTheory semanticPrimitivesPropsTheory;
+open environmentPropsTheory;
 open mlstringTheory integerTheory;
 open terminationTheory;
 
@@ -11,14 +12,12 @@ val _ = new_theory "ml_prog";
 
 val Decls_def = Define `
   Decls mn env s1 ds env2 s2 =
-    ?new_tds res_env.
-      evaluate_decs mn s1 env ds = (s2,new_tds, Rval res_env) /\
-      env2.m = env.m ∧
-      env2.c = merge_alist_mod_env ([],new_tds) env.c ∧
-      env2.v = res_env ++ env.v`;
+    ?res_env.
+      evaluate_decs mn s1 env ds = (s2,Rval res_env) /\
+      env2 = extend_dec_env res_env env`;
 
 val write_def = Define `
-  write name v env = env with v := (name,v)::env.v`;
+  write name v (env : v sem_env) = env with v := eBind name v env.v`;
 
 val write_rec_def = Define `
   write_rec funs env2 =
@@ -26,12 +25,11 @@ val write_rec_def = Define `
 
 val write_tds_def = Define `
   write_tds mn tds env =
-    env with c := merge_alist_mod_env ([],build_tdefs mn tds) env.c`;
+    env with c := eAppend (build_tdefs mn tds) env.c`;
 
 val write_exn_def = Define `
   write_exn mn n l env =
-    env with c := merge_alist_mod_env
-                    ([],[(n,LENGTH l,TypeExn (mk_id mn n))]) env.c`;
+    env with c := eBind n (LENGTH l,TypeExn (mk_id mn n)) env.c`;
 
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn env s tds env2 s2.
@@ -42,7 +40,7 @@ val Decls_Dtype = store_thm("Decls_Dtype",
       s2 = s with defined_types := type_defs_to_new_tdecs mn tds UNION s.defined_types /\
       (env2 = write_tds mn tds env)``,
   rw [Decls_def, evaluate_decs_def]
-  \\ rw[write_tds_def,environment_component_equality]
+  \\ rw[write_tds_def,sem_env_component_equality, extend_dec_env_def]
   \\ METIS_TAC[]);
 
 val Decls_Dexn = store_thm("Decls_Dexn",
@@ -52,15 +50,15 @@ val Decls_Dexn = store_thm("Decls_Dexn",
       s2 = s with defined_types := {TypeExn (mk_id mn n)} UNION s.defined_types /\
       env2 = write_exn mn n l env``,
   rw [Decls_def, evaluate_decs_def]
-  \\ fs[PULL_EXISTS,write_exn_def,write_tds_def,environment_component_equality]
-  \\ fs [AC CONJ_COMM CONJ_ASSOC,APPEND]
+  \\ fs[PULL_EXISTS,write_exn_def,write_tds_def,sem_env_component_equality]
+  \\ fs [AC CONJ_COMM CONJ_ASSOC,APPEND, extend_dec_env_def]
   >> metis_tac []);
 
 val Decls_Dtabbrev = store_thm("Decls_Dtabbrev",
   ``!mn env s n l env2 s2.
       Decls mn env s [Dtabbrev x y z] env2 s2 <=> s2 = s /\ env2 = env``,
   rw [Decls_def, evaluate_decs_def]
-  \\ rw [environment_component_equality] \\ eq_tac \\ fs []);
+  \\ rw [sem_env_component_equality] \\ eq_tac \\ fs [extend_dec_env_def]);
 
 val Decls_Dlet = store_thm("Decls_Dlet",
   ``!mn env s1 v e s2 env2.
@@ -70,13 +68,13 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   rw [Decls_def, evaluate_decs_def]
   \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM, pmatch_def]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ simp[environment_component_equality]
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,APPEND,
+  \\ simp[sem_env_component_equality]
+  \\ FULL_SIMP_TAC std_ss [write_def,APPEND,
        finite_mapTheory.FUNION_FEMPTY_1,finite_mapTheory.FUNION_FEMPTY_2]
   \\ simp[]
   >> eq_tac
   >> rw []
-  >> rw []
+  >> rw [extend_dec_env_def]
   >> full_case_tac
   >> fs []
   >> full_case_tac
@@ -86,8 +84,8 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   >> rw []);
 
 val FOLDR_LEMMA = prove(
-  ``!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-            FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs``,
+  ``!xs ys. eAppend (FOLDR (\(x1,x2,x3) x4. eBind x1 (f x1 x2 x3) x4) eEmpty xs) ys =
+            FOLDR (\(x1,x2,x3) x4. eBind x1 (f x1 x2 x3) x4) ys xs``,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
 
 val Decls_Dletrec = store_thm("Decls_Dletrec",
@@ -97,17 +95,17 @@ val Decls_Dletrec = store_thm("Decls_Dletrec",
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
       (env2 = write_rec funs env)``,
   rw [Decls_def, evaluate_decs_def]
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,
-       APPEND,write_rec_def,APPEND,
-       build_rec_env_def,FOLDR_LEMMA]
-  \\ fs [environment_component_equality]
+  \\ FULL_SIMP_TAC std_ss [write_def,
+       APPEND,write_rec_def,APPEND, extend_dec_env_def,
+       build_rec_env_def]
+  \\ fs [sem_env_component_equality, FOLDR_LEMMA]
   \\ METIS_TAC []);
 
 val Decls_NIL = store_thm("Decls_NIL",
   ``!s1 s3 mn env1 ds1 ds2 env3.
       Decls mn env1 s1 [] env3 s3 <=> (env3 = env1) /\ (s3 = s1)``,
-  rw [Decls_def, evaluate_decs_def]
-  \\ METIS_TAC [environment_component_equality]);
+  rw [Decls_def, evaluate_decs_def, extend_dec_env_def]
+  \\ METIS_TAC [sem_env_component_equality]);
 
 val Decls_CONS = store_thm("Decls_CONS",
   ``!s1 s3 mn env1 ds1 ds2 env3.
@@ -115,33 +113,31 @@ val Decls_CONS = store_thm("Decls_CONS",
       ?env2 s2.
          Decls mn env1 s1 [d] env2 s2 /\
          Decls mn env2 s2 ds2 env3 s3``,
-  rw [Decls_def, Once evaluate_decs_cons]
+  rw [Decls_def, Once evaluate_decs_cons, extend_dec_env_def]
   >> split_pair_case_tac
   >> simp []
-  >> rename1 `evaluate_decs _ _ _ _ = (s', ctors, r)`
+  >> rename1 `evaluate_decs _ _ _ _ = (s', r)`
   >> Cases_on `r`
   >> simp []
   >> split_pair_case_tac
   >> simp []
-  >> rename1 `evaluate_decs _ _ _ _ = (s'', ctors', r)`
+  >> rename1 `evaluate_decs _ _ _ _ = (s'', r)`
   >> rw[EQ_IMP_THM]
   >- (
-    qexists_tac `<| m := env1.m; c := merge_alist_mod_env ([],ctors) env1.c;
-                    v := a ++ env1.v |>`
-    >> rw [merge_alist_mod_env_empty_assoc, extend_dec_env_def]
+    rw [extend_dec_env_def]
     >> Cases_on `r`
     >> fs [combine_dec_result_def, extend_dec_env_def]
     >> rw [])
   >- (
-    Cases_on `r`
-    >> simp [combine_dec_result_def, merge_alist_mod_env_empty_assoc]
+    Cases_on `a`
+    >> simp [combine_dec_result_def]
     >> rw []
     >> fs []
-    >> fs [merge_alist_mod_env_empty_assoc]
+    >> fs []
     >> rfs [extend_dec_env_def]
     >> `env2 = <| m := env2.m; c := env2.c; v := env2.v |>`
-      by rw [environment_component_equality]
-    >> fs [merge_alist_mod_env_empty_assoc]
+      by rw [sem_env_component_equality]
+    >> fs []
     >> metis_tac [PAIR_EQ, result_11, result_distinct]));
 
 val Decls_APPEND = store_thm("Decls_APPEND",
@@ -168,22 +164,20 @@ val Decls_SNOC = store_thm("Decls_SNOC",
 
 val Prog_def = Define `
   Prog env1 s1 prog env2 s2 <=>
-    ?new_tds new_mods new_env.
+    ?new_env.
       (evaluate_tops s1 env1 prog =
-         (s2,new_tds,Rval (new_mods,new_env))) /\
-      (env2 = extend_top_env new_mods new_env new_tds env1)`;
+         (s2,Rval new_env)) /\
+      (env2 = extend_dec_env new_env env1)`;
 
 val Prog_NIL = store_thm("Prog_NIL",
   ``!s1 s3 env1 ds1 ds2 env3.
       Prog env1 s1 [] env3 s3 <=> (env3 = env1) /\ (s3 = s1)``,
-  rw [Prog_def, evaluate_tops_def, extend_top_env_def, environment_component_equality]
-  >> metis_tac []);
-
-val merge_alist_mod_env_ASSOC = prove(
-  ``merge_alist_mod_env x (merge_alist_mod_env y z) =
-    merge_alist_mod_env (merge_alist_mod_env x y) z``,
-  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z`
-  \\ fs [merge_alist_mod_env_def,APPEND_ASSOC]);
+  rw [Prog_def, evaluate_tops_def, extend_dec_env_def, sem_env_component_equality]
+  >> eq_tac >> rw []
+  >- metis_tac [eAppend_eEmpty]
+  >- metis_tac [eAppend_eEmpty]
+  >> qexists_tac `<| v := eEmpty; c := eEmpty |>`
+  >> rw []);
 
 val Prog_CONS = store_thm("Prog_CONS",
   ``!s1 s3 env1 d ds2 env3.
@@ -198,22 +192,19 @@ val Prog_CONS = store_thm("Prog_CONS",
   >- (
     split_pair_case_tac
     >> fs []
-    >> rename1 `evaluate_tops s1 env1 [d] = (s',ctors,r)`
+    >> rename1 `evaluate_tops s1 env1 [d] = (s',r)`
     >> Cases_on `r`
     >> fs []
-    >> rename1 `evaluate_tops s1 env1 [d] = (s',ctors,Rval v)`
-    >> PairCases_on `v`
+    >> rename1 `evaluate_tops s1 env1 [d] = (s',Rval v)`
     >> fs []
     >> split_pair_case_tac
-    >> fs [combine_mod_result_def]
+    >> fs [combine_dec_result_def]
     >> Cases_on `r`
     >> fs []
-    >> split_pair_case_tac
-    >> fs []
-    >> rw [extend_top_env_def, merge_alist_mod_env_assoc])
+    >> rw [extend_dec_env_def])
   >- (
     split_pair_case_tac
-    >> fs [combine_mod_result_def, extend_top_env_def, merge_alist_mod_env_assoc]));
+    >> fs [extend_dec_env_def, combine_dec_result_def]));
 
 val Prog_APPEND = store_thm("Prog_APPEND",
   ``!s1 s3 env1 ds1 ds2 env3.
@@ -226,10 +217,10 @@ val Prog_APPEND = store_thm("Prog_APPEND",
 
 val Prog_Tdec = store_thm("Prog_Tdec",
   ``Prog env1 s1 [Tdec d] env2 s2 <=>
-    Decls NONE env1 s1 [d] env2 s2``,
+    Decls [] env1 s1 [d] env2 s2``,
   fs [Prog_def, Decls_def, evaluate_tops_def]
   >> every_case_tac
-  >> rw [extend_top_env_def, environment_component_equality]
+  >> rw [extend_dec_env_def, sem_env_component_equality]
   >> metis_tac []);
 
 val mod_env_update_def = Define `
@@ -240,13 +231,13 @@ val Prog_Tmod = store_thm("Prog_Tmod",
   ``Prog env1 s1 [Tmod mn specs ds] env2 s2 <=>
     mn ∉ s1.defined_mods /\ no_dup_types ds /\
     ?s env.
-      Decls (SOME mn) env1 s1 ds env s /\
-      s2 = s with defined_mods := {mn} ∪ s.defined_mods /\
+      Decls [mn] env1 s1 ds env s /\
+      s2 = s with defined_mods := {[mn]} ∪ s.defined_mods /\
       env2 = env1 with <| m := (mn,BUTLASTN (LENGTH env1.v) env.v)::env1.m ;
                           c := mod_env_update mn env1.c env.c |>``,
   fs [Prog_def,Decls_def,evaluate_tops_def,PULL_EXISTS, combine_mod_result_def]
   >> every_case_tac
-  >> fs [environment_component_equality, extend_top_env_def, mod_env_update_def]
+  >> fs [sem_env_component_equality, extend_top_env_def, mod_env_update_def]
   >> eq_tac
   >> rw []
   >> fs [BUTLASTN_LENGTH_APPEND, mod_env_update_def]
@@ -265,7 +256,7 @@ val ML_code_def = Define `
      ?s.
        mn ∉ s.defined_mods /\ no_dup_types ds /\
        Prog env1 s1 prog env s /\
-       Decls (SOME mn) env s ds env2 s2)`
+       Decls mn env s ds env2 s2)`
 
 (* an empty program *)
 
@@ -302,7 +293,7 @@ val ML_code_close_module = store_thm("ML_code_close_module",
     !sigs.
       ML_code env1 s1 (SNOC (Tmod mn sigs ds) prog) NONE
         (env with <| m := (mn,BUTLASTN (LENGTH env.v) env2.v)::env.m ;
-                      c := mod_env_update mn env.c env2.c |>)
+                     c := mod_env_update mn env.c env2.c |>)
         (s2 with defined_mods := mn INSERT s2.defined_mods)``,
   fs [ML_code_def] \\ rw [] \\ fs [SNOC_APPEND,Prog_APPEND]
   \\ asm_exists_tac \\ fs [Prog_Tmod]

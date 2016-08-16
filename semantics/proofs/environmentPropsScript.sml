@@ -98,6 +98,12 @@ val eLookup_eBind = Q.store_thm ("eLookup_eBind[simp]",
  >> TRY (Cases_on `n`)
  >> rw [eLookup_def, eBind_def]);
 
+val eAppend_eSing = Q.store_thm ("eAppend_eSing[simp]",
+  `!n x e. eAppend (eSing n x) e = eBind n x e`,
+ rw [eSing_def]
+ >> Cases_on `e`
+ >> simp [eBind_def, eAppend_def]);
+
 val eLookup_eSing = Q.store_thm ("eLookup_eSing[simp]",
   `!n v id. eLookup (eSing n v) id = if id = Short n then SOME v else NONE`,
  rw [eSing_def, eLookup_def]

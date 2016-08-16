@@ -2249,7 +2249,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
    `tenv_abbrev_ok (eAppend (eSing tn (tvs,type_name_subst tenvT t)) tenvT)`
      by (
        fs [tenv_abbrev_ok_def]
-       >> irule eAll_eAppend
+       >> irule eAll_eBind
        >> simp []
        >> irule check_freevars_type_name_subst
        >> simp [tenv_abbrev_ok_def])
@@ -2277,7 +2277,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
    >- (
      first_x_assum irule
      >> simp [tenv_abbrev_ok_def]
-     >> irule eAll_eAppend
+     >> irule eAll_eBind
      >> simp [check_freevars_def, EVERY_MAP, EVERY_MEM]
      >> fs [tenv_abbrev_ok_def])
    >> simp [tenv_ok_def]));

@@ -1944,7 +1944,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> `type_all_env ctMap' tenvS env tenv`
        by metis_tac [type_all_env_weakening, weakS_refl]
      >> fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
-     >> irule eAll2_eAppend
+     >> irule eAll2_eBind
      >> simp [])
    >> conj_tac
    >- metis_tac [type_s_weakening, good_ctMap_def]
