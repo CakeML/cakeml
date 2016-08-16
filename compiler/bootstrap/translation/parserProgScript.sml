@@ -3,7 +3,6 @@ open preamble;
 open cmlParseTheory cmlPEGTheory;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
 open lexerProgTheory;
 
 val _ = new_theory "parserProg"

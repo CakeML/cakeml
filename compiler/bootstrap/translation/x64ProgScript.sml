@@ -1,10 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open compiler64ProgTheory
 open x64_targetTheory x64Theory;
 
-val _ = new_theory "x64Prog"
+val _ = new_theory "compiler64Prog"
 
 (* temporary *)
 val _ = translation_extends "std_prelude";

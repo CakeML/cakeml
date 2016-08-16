@@ -1,11 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open reg_allocProgTheory compiler64_preludeProgTheory;
+open compiler64_preludeProgTheory;
 
 val _ = new_theory "compiler64Prog"
 
-(* temporary *)
 val _ = translation_extends "compiler64_preludeProg";
 
 val RW = REWRITE_RULE
@@ -166,9 +165,15 @@ val _ = translate(loc_offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
-(* Unprovable side condition on HD nop for pad_section
 val _ = translate (spec64 pad_section_def)
-*)
+
+val lab_to_target_pad_section_side = prove(``
+  ∀a b c. lab_to_target_pad_section_side a b c ⇔ T``,
+  ho_match_mp_tac pad_section_ind>>rw[]>>
+  simp[Once (fetch "-" "lab_to_target_pad_section_side_def")]>>
+  (*Unprovable*)
+  cheat) |> update_precondition
 
 val _ = translate (spec64 compile_def)
+
 val _ = export_theory();
