@@ -13,11 +13,6 @@ val sec_length_def = Define `
   (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
 
-val full_sec_length_def = Define `
-  full_sec_length xs =
-    let k = sec_length xs 0 in
-      if ODD k then k+1 else k`;
-
 (* basic assemble function *)
 
 val lab_inst_def = Define `
@@ -60,13 +55,6 @@ val asm_line_labs_def = Define `
 val sec_labs_def = Define `
   sec_labs pos lines =
     asm_line_labs pos lines (insert 0 pos LN)`;
-
-val compute_labels_def = Define `
-  (compute_labels pos [] aux = aux) /\
-  (compute_labels pos ((Section k lines)::rest) aux =
-     let (labs,new_pos) = sec_labs pos lines in
-     let new_pos = pos + full_sec_length lines in
-       compute_labels new_pos rest (union aux (insert k labs LN)))`
 
 val lab_insert_def = Define `
   lab_insert l1 l2 pos labs =
@@ -239,9 +227,6 @@ val add_nop_def = Define `
   (add_nop nop ((LabAsm y w bytes len)::xs) =
     LabAsm y w (bytes ++ [nop]) (len+1) :: xs)`;
 
-val append_nop_def = Define `
-  append_nop nop xs = REVERSE (add_nop nop (REVERSE xs))`
-
 val pad_section_def = Define `
   (pad_section nop [] aux = REVERSE aux) /\
   (pad_section nop ((Label l1 l2 len)::xs) aux =
@@ -371,13 +356,5 @@ val compile_lab_def = Define `
 
 val compile_def = Define `
   compile lc sec_list = compile_lab lc (filter_skip sec_list)`;
-
-(*
-
-TODO:
- - Ensure that stack_to_lab makes every section end in a label.
-   This would remove the need for append_nop and full_sec_length.
-
-*)
 
 val _ = export_theory();

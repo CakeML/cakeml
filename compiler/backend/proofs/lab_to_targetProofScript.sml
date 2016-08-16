@@ -2143,16 +2143,6 @@ val line_similar_pad_section = Q.store_thm("line_similar_pad_section",
    >>
      TRY(Cases_on`x`)>>TRY(Cases_on`x'`)>>fs[line_similar_def]);
 
-val line_similar_append_nop = prove(``
-  LIST_REL line_similar ls ls' ⇒
-  LIST_REL line_similar ls (append_nop nop ls')``,
-  rw[append_nop_def]>>
-  `ls = REVERSE (REVERSE ls)` by fs[]>>
-  pop_assum SUBST1_TAC>>
-  fs[LIST_REL_REVERSE_EQ]>>
-  match_mp_tac line_similar_add_nop>>
-  fs[LIST_REL_REVERSE_EQ])
-
 val code_similar_pad_code = Q.store_thm("code_similar_pad_code",
   `∀code1 code2.
    code_similar code1 code2 ⇒
@@ -2221,8 +2211,8 @@ val EVERY_label_zero_pad_section = Q.store_thm("EVERY_label_zero_pad_section[sim
 
 val EVERY_label_zero_add_nop = prove(
   ``!xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs``,
-  Induct \\ fs [append_nop_def,add_nop_def,EVERY_REVERSE]
-  \\ Cases \\ fs [append_nop_def,add_nop_def,EVERY_REVERSE]);
+  Induct \\ fs [add_nop_def,EVERY_REVERSE]
+  \\ Cases \\ fs [add_nop_def,EVERY_REVERSE]);
 
 val EVERY_sec_label_zero_pad_code = Q.store_thm("EVERY_sec_label_zero_pad_code[simp]",
   `∀nop ls. EVERY sec_label_zero (pad_code nop ls)`,
@@ -2230,7 +2220,7 @@ val EVERY_sec_label_zero_pad_code = Q.store_thm("EVERY_sec_label_zero_pad_code[s
   \\ srw_tac[][pad_code_def] \\ fs []
   \\ srw_tac[][sec_label_zero_def]
   \\ unabbrev_all_tac \\ fs []
-  \\ fs [append_nop_def,EVERY_REVERSE,EVERY_label_zero_add_nop]);
+  \\ fs [EVERY_REVERSE,EVERY_label_zero_add_nop]);
 
 val sec_length_add = Q.store_thm("sec_length_add",
   `∀ls n m. sec_length ls (n+m) = sec_length ls n + m`,
@@ -2393,6 +2383,7 @@ val enc_lines_again_simp_EQ = prove(``
   rpt(pairarg_tac>>fs[])>>
   rw[EQ_IMP_THM]>>fs[])
 
+(*
 val enc_lines_again_simp_lemma = prove(``
   ∀labs pos enc lines lines' acc n.
   enc_lines_again_simp labs pos enc lines = (lines',T) ⇒
@@ -2415,6 +2406,7 @@ val enc_lines_again_T_IMP = prove(``
   pop_assum SUBST_ALL_TAC>>
   imp_res_tac enc_lines_again_simp_lemma>>
   fs[sec_labs_def,full_sec_length_def])
+*)
 
 (*
 val enc_secs_again_T_IMP = prove(``
@@ -2442,6 +2434,7 @@ val lab_lookup_insert = store_thm("lab_lookup_insert",
   \\ Cases_on `l1 = k1` \\ fs [lookup_insert] \\ rw []
   \\ every_case_tac \\ fs [] \\ fs [lookup_def]);
 
+(*
 val compute_labels_simp_def = Define`
   (compute_labels_simp pos [] = LN) ∧
   (compute_labels_simp pos (Section k lines::rest) =
@@ -2465,6 +2458,7 @@ val compute_labels_simp_EQ = prove(``
   fs[wf_union,wf_insert,wf_def]>>
   fs[lookup_union,lookup_insert,lookup_def]>>
   rw[]>>EVERY_CASE_TAC>>fs[])
+*)
 
 (*Extract only the bytes part of all_enc_ok*)
 val bytes_len_match_def = Define`
