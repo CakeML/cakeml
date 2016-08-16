@@ -181,25 +181,23 @@ val line_length_def = Define `
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
 val line_ok_light_def = Define `
-  (line_ok_light (c:'a asm_config) labs pos (Label _ _ l) <=>
-     EVEN pos /\ (l = 0)) /\
-  (line_ok_light c labs pos (Asm b bytes l) <=>
-     (LENGTH bytes = l) /\ asm_ok b c) /\
+  (line_ok_light (c:'a asm_config) labs pos (Label _ _ l) <=> EVEN pos) /\
+  (line_ok_light c labs pos (Asm b bytes l) <=> asm_ok b c) /\
   (line_ok_light c labs pos (LabAsm Halt w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
-       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+        asm_ok (Jump w1) c) /\
   (line_ok_light c labs pos (LabAsm ClearCache w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
-       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+        asm_ok (Jump w1) c) /\
   (line_ok_light c labs pos (LabAsm (CallFFI index) w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
-       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+        asm_ok (Jump w1) c) /\
   (line_ok_light c labs pos (LabAsm (Call v24) w bytes l) <=>
      F (* Call not yet supported *)) /\
   (line_ok_light c labs pos (LabAsm a w bytes l) <=>
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
-       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
+        asm_ok (lab_inst w1 a) c /\
        (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
 
 val all_enc_ok_def = Define `
