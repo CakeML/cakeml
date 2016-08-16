@@ -31,6 +31,24 @@ val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
   \\ simp[TAKE_APPEND2] \\ rw[] \\ fs[]
   \\ simp[MULT_SUC]);
 
+val TODO_MOVE_binop_upd_consts = Q.store_thm("TODO_MOVE_binop_upd_consts[simp]",
+  `(asmSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
+   (asmSem$binop_upd a b c d x).align = x.align ∧
+   (asmSem$binop_upd a b c d x).failed = x.failed ∧
+   (asmSem$binop_upd a b c d x).mem = x.mem ∧
+   (asmSem$binop_upd a b c d x).lr = x.lr ∧
+   (asmSem$binop_upd a b c d x).be = x.be`,
+  Cases_on`b`>>EVAL_TAC);
+
+val TODO_MOVE_arith_upd_consts = Q.store_thm("TODO_MOVE_arith_upd_consts[simp]",
+  `(asmSem$arith_upd a x).mem_domain = x.mem_domain ∧
+   (asmSem$arith_upd a x).align = x.align ∧
+   (asmSem$arith_upd a x).failed = x.failed ∧
+   (asmSem$arith_upd a x).mem = x.mem ∧
+   (asmSem$arith_upd a x).lr = x.lr ∧
+   (asmSem$arith_upd a x).be = x.be`,
+  Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
+
 (* -- *)
 
 val pos_val_def = Define `
@@ -889,28 +907,6 @@ val state_rel_clock = prove(
   \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ metis_tac []);
-
-(* TODO: move *)
-
-val TODO_MOVE_binop_upd_consts = Q.store_thm("TODO_MOVE_binop_upd_consts[simp]",
-  `(asmSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
-   (asmSem$binop_upd a b c d x).align = x.align ∧
-   (asmSem$binop_upd a b c d x).failed = x.failed ∧
-   (asmSem$binop_upd a b c d x).mem = x.mem ∧
-   (asmSem$binop_upd a b c d x).lr = x.lr ∧
-   (asmSem$binop_upd a b c d x).be = x.be`,
-  Cases_on`b`>>EVAL_TAC);
-
-val TODO_MOVE_arith_upd_consts = Q.store_thm("TODO_MOVE_arith_upd_consts[simp]",
-  `(asmSem$arith_upd a x).mem_domain = x.mem_domain ∧
-   (asmSem$arith_upd a x).align = x.align ∧
-   (asmSem$arith_upd a x).failed = x.failed ∧
-   (asmSem$arith_upd a x).mem = x.mem ∧
-   (asmSem$arith_upd a x).lr = x.lr ∧
-   (asmSem$arith_upd a x).be = x.be`,
-  Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
-
-(* -- *)
 
 val arith_upd_lemma = Q.prove(
   `(∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧ ¬(arith_upd a s1).failed ⇒
@@ -3246,6 +3242,15 @@ val sec_label_one_def = Define`
   sec_label_one (Section _ ls) = EVERY label_one ls`;
 val _ = export_rewrites["sec_label_one_def"];
 
+val line_aligned_def = Define`
+  line_aligned m l ⇔
+    line_len l MOD m = 0 ∧
+    line_length l MOD m = 0`;
+
+val sec_aligned_def = Define`
+  sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls`;
+val _ = export_rewrites["sec_aligned_def"];
+
 val line_length_pad_section1 = Q.store_thm("line_length_pad_section1",
   `∀nop ls acc.
    0 < LENGTH nop ∧
@@ -3525,22 +3530,36 @@ val lines_enc_with_nop_length_ok = Q.store_thm("lines_enc_with_nop_length_ok",
   \\ TRY(first_x_assum match_mp_tac \\ metis_tac[])
   \\ Cases_on`a` \\ fs[line_enc_with_nop_def]);
 
-(*
+val add_nop_labels = Q.store_thm("add_nop_labels",
+  `∀nop ls. EVERY is_Label ls ⇒ add_nop nop ls = ls`,
+  recInduct add_nop_ind \\ rw[add_nop_def]);
+
 val lines_enc_with_nop_add_nop = Q.store_thm("lines_enc_with_nop_add_nop",
   `∀enc labs pos ls.
-    lines_enc_with_nop enc labs pos ls ⇒
-    lines_enc_with_nop enc labs pos (REVERSE (add_nop (HD (enc (Inst Skip))) (REVERSE ls)))`,
+    LENGTH (enc (Inst Skip)) = 1 ∧
+    lines_enc_with_nop enc labs pos (REVERSE ls) ⇒
+    lines_enc_with_nop enc labs pos
+      (REVERSE (add_nop (HD (enc (Inst Skip))) ls))`,
   Induct_on`ls`
   \\ rw[lines_enc_with_nop_def,add_nop_def]
   \\ simp[add_nop_append,REVERSE_APPEND,lines_enc_with_nop_append,lines_enc_with_nop_def]
-  \\ Cases_on`h`\\fs[add_nop_def,line_enc_with_nop_def]
+  \\ Cases_on`h`\\fs[add_nop_def,line_enc_with_nop_def,EVERY_REVERSE]
   \\ rw[] \\ fs[lines_enc_with_nop_append,REVERSE_APPEND,lines_enc_with_nop_def,line_enc_with_nop_def]
   \\ fs[line_length_def]
-*)
+  >- (
+    fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
+    \\ qmatch_goalsub_rename_tac`REPLICATE z`
+    \\ qexists_tac`SUC z`
+    \\ simp[REPLICATE_GENLIST,GENLIST] )
+  \\ Cases_on`a` \\ fs[line_enc_with_nop_def]
+  \\ fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
+  \\ qmatch_goalsub_rename_tac`REPLICATE z`
+  \\ qexists_tac`SUC z`
+  \\ simp[REPLICATE_GENLIST,GENLIST] )
 
 val lines_enc_with_nop_pad_section1 = Q.store_thm("lines_enc_with_nop_pad_section1",
   `∀nop code aux pos.
-    nop = enc (Inst Skip) ∧ 0 < LENGTH nop ∧
+    nop = enc (Inst Skip) ∧ LENGTH nop = 1 ∧
     lines_encd enc labs (pos + (SUM (MAP line_len aux))) code ∧
     lines_enc_with_nop enc labs pos (REVERSE aux) ∧
     ¬EVERY is_Label aux ∧
@@ -3556,7 +3575,8 @@ val lines_enc_with_nop_pad_section1 = Q.store_thm("lines_enc_with_nop_pad_sectio
   \\ fs[line_len_add_nop1,LENGTH_pad_bytes]
   >- (
     `len=1` by simp[] \\ fs[]
-    \\ cheat )
+    \\ match_mp_tac lines_enc_with_nop_add_nop
+    \\ fs[])
   >- (
     rveq
     \\ MATCH_ACCEPT_TAC enc_with_nop_pad_bytes_length )
@@ -3568,12 +3588,92 @@ val lines_enc_with_nop_pad_section1 = Q.store_thm("lines_enc_with_nop_pad_sectio
     \\ Cases_on`y` \\ fs[line_encd_def,line_enc_with_nop_def]
     \\ rveq \\ fs[MAP_REVERSE,SUM_REVERSE,LENGTH_pad_bytes]
     \\ qmatch_abbrev_tac`enc_with_nop enc x (pad_bytes (enc x) len nop)`
-    \\ match_mp_tac enc_with_nop_pad_bytes \\ fs[]
-    \\ cheat ));
+    \\ match_mp_tac enc_with_nop_pad_bytes \\ fs[]));
+
+val lines_enc_with_nop_pad_section = Q.store_thm("lines_enc_with_nop_pad_section",
+  `∀nop code aux pos.
+    nop = enc (Inst Skip) ∧ LENGTH nop = 1 ∧
+    lines_encd enc labs (pos + SUM (MAP line_len aux)) code ∧
+    lines_enc_with_nop enc labs pos (REVERSE aux) ∧
+    EVERY is_Label aux ∧ EVERY label_one code ∧ label_prefix_zero code ⇒
+    lines_enc_with_nop enc labs pos (pad_section nop code aux)`,
+  recInduct pad_section_ind
+  \\ rw[pad_section_def,lines_enc_with_nop_append]
+  \\ rfs[EVERY_is_Label_add_nop,label_prefix_zero_cons]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ fs[lines_encd_def,line_encd_def,lines_enc_with_nop_def,line_enc_with_nop_def] )
+  \\ match_mp_tac lines_enc_with_nop_pad_section1
+  \\ simp[lines_enc_with_nop_append]
+  \\ TRY (qmatch_goalsub_rename_tac`LabAsm y` \\ Cases_on`y`)
+  \\ fs[lines_encd_def,lines_enc_with_nop_def,line_enc_with_nop_def,LENGTH_pad_bytes,line_encd_def]
+  \\ rveq \\ TRY (MATCH_ACCEPT_TAC enc_with_nop_pad_bytes_length)
+  \\ imp_res_tac lines_enc_with_nop_length_ok
+  \\ imp_res_tac sec_length_sum_line_length
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ rw[sec_length_sum_line_len]
+  \\ fs[MAP_REVERSE,SUM_REVERSE]
+  \\ match_mp_tac enc_with_nop_pad_bytes \\ fs[]);
+
+val lines_enc_with_nop_pad_section01 = Q.store_thm("lines_enc_with_nop_pad_section01",
+  `∀nop code aux pos.
+    nop = enc (Inst Skip) ∧ 0 < LENGTH nop ∧
+    EVERY (line_aligned (LENGTH nop)) code ∧
+    lines_encd enc labs (pos + SUM (MAP line_len aux)) code ∧
+    lines_enc_with_nop enc labs pos (REVERSE aux) ∧
+    ¬EVERY is_Label aux ∧ EVERY label_zero code ⇒
+    lines_enc_with_nop enc labs pos (pad_section nop code aux)`,
+  recInduct pad_section_ind
+  \\ rw[pad_section_def,lines_enc_with_nop_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs[lines_enc_with_nop_append,lines_enc_with_nop_def,line_enc_with_nop_def]
+  \\ fs[lines_encd_def,line_encd_def,LENGTH_pad_bytes]
+  \\ rveq
+  \\ TRY (MATCH_ACCEPT_TAC enc_with_nop_pad_bytes_length)
+  \\ fs[line_aligned_def,line_length_def]
+  \\ Cases_on`y`
+  \\ fs[lines_encd_def,line_encd_def,LENGTH_pad_bytes,line_enc_with_nop_def]
+  \\ rveq
+  \\ imp_res_tac lines_enc_with_nop_length_ok
+  \\ imp_res_tac sec_length_sum_line_length
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ rw[sec_length_sum_line_len]
+  \\ fs[MAP_REVERSE,SUM_REVERSE]
+  \\ match_mp_tac enc_with_nop_pad_bytes \\ fs[]);
+
+val lines_enc_with_nop_pad_section0 = Q.store_thm("lines_enc_with_nop_pad_section0",
+  `∀nop code aux pos.
+    nop = enc (Inst Skip) ∧ 0 < LENGTH nop ∧
+    EVERY (line_aligned (LENGTH nop)) code ∧
+    lines_encd enc labs (pos + SUM (MAP line_len aux)) code ∧
+    lines_enc_with_nop enc labs pos (REVERSE aux) ∧
+    EVERY is_Label aux ∧ EVERY label_zero code ⇒
+    lines_enc_with_nop enc labs pos (pad_section nop code aux)`,
+  recInduct pad_section_ind
+  \\ rw[pad_section_def,lines_enc_with_nop_def]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ fs[lines_enc_with_nop_append,lines_enc_with_nop_def,line_enc_with_nop_def,lines_encd_def])
+  \\ match_mp_tac lines_enc_with_nop_pad_section01
+  \\ fs[lines_enc_with_nop_append,lines_encd_def,
+        lines_enc_with_nop_def,line_enc_with_nop_def,line_encd_def]
+  \\ rveq \\ fs[LENGTH_pad_bytes]
+  \\ TRY (MATCH_ACCEPT_TAC enc_with_nop_pad_bytes_length)
+  \\ fs[line_aligned_def,line_length_def]
+  \\ Cases_on`y`
+  \\ fs[line_enc_with_nop_def,line_encd_def,LENGTH_pad_bytes]
+  \\ rveq
+  \\ imp_res_tac lines_enc_with_nop_length_ok
+  \\ imp_res_tac sec_length_sum_line_length
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ rw[sec_length_sum_line_len]
+  \\ fs[MAP_REVERSE,SUM_REVERSE]
+  \\ match_mp_tac enc_with_nop_pad_bytes \\ fs[]);
 
 val all_enc_with_nop_pad_code = Q.store_thm("all_enc_with_nop_pad_code",
   `∀nop code pos.
    0 < LENGTH nop ∧ nop = enc (Inst Skip) ∧
+   (LENGTH nop ≠ 1 ⇒ EVERY (sec_aligned (LENGTH nop)) code ∧ EVERY sec_label_zero code) ∧
    EVERY sec_label_one code ∧
    EVERY sec_length_leq code ∧
    EVERY sec_label_prefix_zero code ∧
@@ -3586,7 +3686,12 @@ val all_enc_with_nop_pad_code = Q.store_thm("all_enc_with_nop_pad_code",
     first_x_assum match_mp_tac
     \\ qspecl_then[`enc (Inst Skip)`,`xs`,`[]`]mp_tac line_length_pad_section
     \\ simp[] )
-  \\ cheat);
+  \\ Cases_on`LENGTH (enc (Inst Skip)) = 1`
+  >- (
+    match_mp_tac lines_enc_with_nop_pad_section
+    \\ fs[lines_enc_with_nop_def] )
+  \\ match_mp_tac lines_enc_with_nop_pad_section0
+  \\ fs[sec_label_zero_def,lines_enc_with_nop_def]);
 
 val enc_lines_again_simp_label_one = Q.store_thm("enc_lines_again_simp_label_one",
   `∀labs pos enc ls res ok.
@@ -3723,6 +3828,13 @@ val remove_labels_loop_thm = Q.prove(
       fs[enc_ok_def]
       \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
       \\ simp[] )
+    \\ conj_tac
+    >- (
+      strip_tac
+      \\ qmatch_assum_abbrev_tac`enc_ok c`
+      \\ `c.code_alignment ≠ 0`
+      by ( strip_tac \\ fs[enc_ok_def] )
+      \\ cheat)
     \\ conj_tac >- metis_tac[enc_secs_again_label_one]
     \\ conj_tac >- metis_tac[all_encd_length_leq]
     \\ `EVERY sec_label_prefix_zero code2`
