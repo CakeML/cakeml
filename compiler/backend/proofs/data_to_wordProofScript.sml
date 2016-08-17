@@ -6788,7 +6788,7 @@ val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
            MakeBytes_def,SmallLsr_def] >> rpt IF_CASES_TAC >>
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-           MakeBytes_def,SmallLsr_def])>>
+           MakeBytes_def,SmallLsr_def] >> cheat)>>
     qpat_x_assum`n < LENGTH _`assume_tac >>
     qpat_x_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>

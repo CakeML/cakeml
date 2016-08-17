@@ -27,7 +27,7 @@ in
      (ERR "arm8_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
-       [arm8_enc, arm8_encode_def, bop_enc_def, bop_dec_def, cmp_cond_def,
+       [arm8_enc, arm8_encode_def, bop_enc_def, cmp_cond_def,
         arm8_enc_mov_imm_def, CountTrailing_def, EncodeBitMaskAux_def,
         EncodeBitMask_def, Encode_def, e_data_def, e_branch_def,
         e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
@@ -70,24 +70,9 @@ val add_arm8_encode_compset = computeLib.extend_compset
       (``arm8_target$valid_immediate``, 2, valid_immediate_conv)],
    computeLib.Defs [arm8_targetTheory.arm8_config_def]]
 
-val add_arm8_decode_compset = computeLib.extend_compset
-   [computeLib.Defs
-      [Decode_def, DecodeShift_def, DecodeLogicalOp_def, DecodeBitMasks_def,
-       HighestSetBit_def, Ones_def, Replicate_def, LoadStoreImmediateN_def,
-       LoadStoreImmediate_def, arm8_dec_def, arm8_dec_aux_def,
-       decode_word_def, fetch_word_def, cond_cmp_def, boolify32_n2w,
-       bop_dec_def],
-    es,
-    computeLib.Tys
-      (List.map arm_type
-        ["arm8_state", "AccType", "instruction", "Data", "Branch",
-         "LoadStore", "MoveWideOp", "LogicalOp", "MemOp", "BranchType",
-         "SystemHintOp", "ShiftType"]),
-    computeLib.Convs [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]]
-
 val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
-      add_arm8_encode_compset, add_arm8_decode_compset]]
+      add_arm8_encode_compset]]
 
 end

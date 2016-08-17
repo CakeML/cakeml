@@ -36,13 +36,6 @@ val add_riscv_encode_compset = computeLib.extend_compset
    computeLib.Defs [riscv_targetTheory.riscv_config_def],
    computeLib.Tys [``:('a, 'b) sum``]]
 
-val add_riscv_decode_compset = computeLib.extend_compset
-  [computeLib.Defs
-     [Decode_def, riscv_dec_def, fetch_decode_def, riscv_dec_const32_def,
-      asImm12_def, asImm20_def, asSImm12_def, boolify32_n2w],
-   computeLib.Tys riscv_tys,
-   computeLib.Convs [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]]
-
 val riscv_encode_decode_conv =
   computeLib.compset_conv (wordsLib.words_compset())
     [computeLib.Extenders
@@ -51,7 +44,6 @@ val riscv_encode_decode_conv =
         intReduce.add_int_compset,
         utilsLib.add_base_datatypes,
         asmLib.add_asm_compset,
-        add_riscv_encode_compset,
-        add_riscv_decode_compset]]
+        add_riscv_encode_compset]]
 
 end

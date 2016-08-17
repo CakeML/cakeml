@@ -32,8 +32,8 @@ val enc_ok_def = Define `
   enc_ok (c : 'a asm_config) =
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
-    (!w. asm_ok w c ==> (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
-                        (LENGTH (c.encode w) <> 0)) /\
+    (!w. (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
+          LENGTH (c.encode w) <> 0) /\
     (* label instantiation predictably affects length of code *)
     (!w1 w2. offset_monotonic c.encode c w1 w2 (Jump w1) (Jump w2)) /\
     (!cmp r ri w1 w2.

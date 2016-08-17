@@ -145,9 +145,6 @@ val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, mips_config_def] @
   encode_rwts @ asmLib.asm_ok_rwts
 
-val dec_rwts =
-   [mips_dec_def, fetch_decode_def, all_same_def, when_nop_def]
-
 (* some custom tactics ---------------------------------------------------- *)
 
 local
@@ -156,27 +153,14 @@ local
       List.tabulate (n, fn i => bool1 (tm, numLib.term_of_int (n - 1 - i)))
    val bytes = List.concat o List.map (boolify 8)
    val v2w_n2w_rule = CONV_RULE (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-   fun dec tm =
-      let
-         val l = listSyntax.mk_list (boolify 32 tm, Type.bool)
-         val w = bitstringSyntax.mk_v2w (l, fcpSyntax.mk_int_numeric_type 32)
-         val th1 = blastLib.BBLAST_PROVE (boolSyntax.mk_eq (w, tm))
-      in
-         l |> mips_stepLib.mips_decode
-           |> Drule.DISCH_ALL
-           |> v2w_n2w_rule
-           |> REWRITE_RULE [th1, lem1]
-      end
-   val s1 = HolKernel.syntax_fns1 "mips"
-   val (_, _, dest_Decode, is_Decode) = s1 "Decode"
-   val (_, mk_mips_state_BranchDelay, _, _) = s1 "mips_state_BranchDelay"
+   val (_, mk_mips_state_BranchDelay, _, _) =
+      HolKernel.syntax_fns1 "mips" "mips_state_BranchDelay"
    val (_, _, dest_NextStateMIPS, is_NextStateMIPS) =
       HolKernel.syntax_fns1 "mips_step" "NextStateMIPS"
    val is_mips_next = #4 (HolKernel.syntax_fns1 "mips_target" "mips_next")
    val get_BranchDelay =
       (utilsLib.rhsc o Conv.QCONV (SIMP_CONV (srw_ss()) []) o
        mk_mips_state_BranchDelay)
-   val find_Decode = HolKernel.bvk_find_term (is_Decode o snd) dest_Decode
    val find_NextStateMIPS =
       dest_NextStateMIPS o List.hd o HolKernel.find_terms is_NextStateMIPS
    val ev = mips_stepLib.mips_eval true
@@ -197,16 +181,6 @@ local
          (Thm.INST [s |-> the_state] o Drule.DISCH_ALL o f) thms
       end
 in
-   fun decode_tac' (asl, g) =
-      (case find_Decode g of
-          SOME tm =>
-           let
-              val dec_thm = dec tm
-           (* val () = (print_thm dec_thm; print "\n") *)
-           in
-              simp [dec_thm]
-           end
-        | NONE => NO_TAC) (asl, g)
    fun next_state_tac (asl, g) =
      (let
          val x as (pc, l, _, _) =
@@ -318,30 +292,24 @@ in
       \\ next_tac' (get_asm (snd gs))) gs
 end
 
-val decode_tac =
-   simp enc_rwts
-   \\ REPEAT strip_tac
-   \\ simp dec_rwts
-   \\ REPEAT decode_tac'
-   \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
-   \\ blastLib.FULL_BBLAST_TAC
-
 val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
+val enc_tac =
+  simp (mips_encode_fail_def :: enc_rwts)
+  \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
+             \\ CASE_TAC
+             \\ simp [])
+
 (* -------------------------------------------------------------------------
-   mips_asm_deterministic
-   mips_backend_correct
+   mips backend_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "encode"
 
-val mips_encoding = Count.apply Q.prove (
-   `!i. asm_ok i mips_config ==>
-        let l = mips_enc i in
-        let n = LENGTH l in
-           (!x. mips_dec (l ++ x) = i) /\ (n MOD 4 = 0) /\ n <> 0`,
+val mips_encoding = Q.prove (
+   `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
    Cases
    >- (
       (*--------------
@@ -353,7 +321,7 @@ val mips_encoding = Count.apply Q.prove (
              Skip
            --------------*)
          print_tac "Skip"
-         \\ decode_tac
+         \\ enc_tac
          )
       >- (
          (*--------------
@@ -362,16 +330,16 @@ val mips_encoding = Count.apply Q.prove (
          print_tac "Const"
          \\ Cases_on `((63 >< 32) c = 0w: word32) /\
                       ((31 >< 16) c = 0w: word16)`
-         >- decode_tac
+         >- enc_tac
          \\ Cases_on `((63 >< 32) c = -1w: word32) /\
                       ((31 >< 16) c = -1w: word16) /\
                       ((15 >< 0) c : word16) ' 15`
-         >- decode_tac
+         >- enc_tac
          \\ Cases_on `((63 >< 32) c = 0w: word32) /\
                       ~((31 >< 16) c : word16) ' 15 \/
                       ((63 >< 32) c = -1w: word32) /\
                       ((31 >< 16) c : word16) ' 15`
-         \\ decode_tac
+         \\ enc_tac
          )
       >- (
          (*--------------
@@ -385,10 +353,7 @@ val mips_encoding = Count.apply Q.prove (
             print_tac "Binop"
             \\ Cases_on `r`
             \\ Cases_on `b`
-            \\ decode_tac
-            \\ Cases_on `n0 = 31`
-            \\ rw []
-            \\ blastLib.FULL_BBLAST_TAC
+            \\ enc_tac
             )
          >- (
             (*--------------
@@ -397,25 +362,25 @@ val mips_encoding = Count.apply Q.prove (
             print_tac "Shift"
             \\ Cases_on `s`
             \\ Cases_on `n1 < 32`
-            \\ decode_tac
+            \\ enc_tac
             )
             (*--------------
                 AddCarry
               --------------*)
             \\ print_tac "AddCarry"
-            \\ decode_tac
+            \\ enc_tac
          )
       \\ print_tac "Mem"
       \\ Cases_on `a`
       \\ Cases_on `m`
-      \\ decode_tac
+      \\ enc_tac
       )
       (*--------------
           Jump
         --------------*)
    >- (
       print_tac "Jump"
-      \\ decode_tac
+      \\ enc_tac
       )
    >- (
       (*--------------
@@ -424,33 +389,32 @@ val mips_encoding = Count.apply Q.prove (
       print_tac "JumpCmp"
       \\ Cases_on `r`
       \\ Cases_on `c`
-      \\ decode_tac
+      \\ enc_tac
       )
       (*--------------
           Call
         --------------*)
    >- (
       print_tac "Call"
-      \\ decode_tac
+      \\ enc_tac
       )
    >- (
       (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
-      \\ decode_tac
+      \\ enc_tac
       )
       (*--------------
           Loc
         --------------*)
    \\ print_tac "Loc"
    \\ Cases_on `n = 31`
-   \\ decode_tac
+   \\ enc_tac
    )
 
 val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [mips_config_def] mips_encoding ::
-   enc_ok_rwts
+   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] mips_encoding :: enc_ok_rwts
 
 val print_tac = asmLib.print_tac "correct"
 

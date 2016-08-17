@@ -64,6 +64,12 @@ val compile_def = Define `
 
 (* some defaults *)
 
+val names_ok_def = Define `
+  names_ok names reg_count avoid_regs =
+    let xs = GENLIST (find_name names) (reg_count - LENGTH avoid_regs) in
+      ALL_DISTINCT xs /\
+      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs`
+
 val x64_names_def = Define `
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
@@ -73,17 +79,22 @@ val x64_names_def = Define `
        argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
        the third(3) in rdx(r3), the fourth(4) in rcx(2), the fifth(5)
        in r8 and the sixth in r9.
+       Callee-saved regs: r12-r15, rbx
      *)
-    (insert 1 7 o
-     insert 2 6 o
+    (insert 1 7 o  (* arg 1 *)
+     insert 2 6 o  (* arg 2 *)
   (* insert 3 3 o *)
      insert 4 2 o
      insert 5 8 o
      insert 6 9 o
+     insert 11 12 o
+     insert 12 13 o
+     insert 13 14 o
+     insert 14 11 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 1 o
-     insert 8 14 o
-     insert 9 15) LN:num num_map`
+     insert 8 15 o
+     insert 9 11) LN:num num_map`
 
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
