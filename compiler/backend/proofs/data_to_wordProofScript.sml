@@ -3809,6 +3809,7 @@ val assign_thm = Q.prove(
    (op_requires_names op ==> names_opt <> NONE) /\
    cut_state_opt names_opt s = SOME x /\
    get_vars args x.locals = SOME vals /\
+   t.termdep > 0 /\
    do_app op vals x = Rval (v,s2) ==>
    ?q r.
      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
@@ -3816,7 +3817,7 @@ val assign_thm = Q.prove(
      (q <> SOME NotEnoughSpace ==>
      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)`,
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ `t.termdep <> 0` by cheat
+  \\ `t.termdep <> 0` by fs[]
   \\ Cases_on `?tag. op = FromList tag` \\ fs [] THEN1
    (imp_res_tac state_rel_cut_IMP
     \\ fs [assign_def] \\ rveq
@@ -6022,7 +6023,9 @@ val data_compile_correct = store_thm("data_compile_correct",
   ``!prog (s:'ffi dataSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
-      state_rel c l1 l2 s t [] locs ==>
+      state_rel c l1 l2 s t [] locs /\
+      t.termdep > 0
+      ==>
       ?t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
@@ -6144,8 +6147,10 @@ val data_compile_correct = store_thm("data_compile_correct",
     \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
          (Cases_on `q'' = NONE` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
+    \\ fs[GSYM AND_IMP_INTRO]
     \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
            first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+    \\ fs[]
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `q'' = NONE`) \\ full_simp_tac(srw_ss())[]
@@ -6157,6 +6162,7 @@ val data_compile_correct = store_thm("data_compile_correct",
       \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ metis_tac []) \\ srw_tac[][]
     \\ qpat_x_assum `state_rel c l1 l2 _ _ [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+    \\ imp_res_tac wordSemTheory.evaluate_clock \\ fs[]
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[mk_loc_def] \\ full_simp_tac(srw_ss())[]
@@ -6174,6 +6180,7 @@ val data_compile_correct = store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[wordSemTheory.get_var_imm_def,
           asmSemTheory.word_cmp_def]
     \\ imp_res_tac get_var_T_OR_F
+    \\ fs[GSYM AND_IMP_INTRO]
     \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[] THEN1
      (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
@@ -6205,7 +6212,11 @@ val data_compile_correct = store_thm("data_compile_correct",
       \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs[]
       \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
       \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ res_tac
-      \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac \\ impl_tac
+      >-
+        fs[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]
+      \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
       \\ `t.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def]
       \\ Cases_on `res1` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ fs[]
       \\ every_case_tac \\ full_simp_tac(srw_ss())[mk_loc_def]
@@ -6240,7 +6251,10 @@ val data_compile_correct = store_thm("data_compile_correct",
       \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
       \\ res_tac (* inst ind hyp *)
-      \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac)
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac \\ impl_tac >-
+        fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
+      \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac)
       \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
       THEN1
@@ -6284,7 +6298,10 @@ val data_compile_correct = store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
     \\ res_tac (* inst ind hyp *)
-    \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac \\ impl_tac >-
+        fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
+    \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
       \\ `r'.ffi.io_events ≼ s1.ffi.io_events ∧
@@ -6314,7 +6331,11 @@ val data_compile_correct = store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[LASTN_ADD1] \\ srw_tac[][]
     \\ first_x_assum (qspec_then `x0` assume_tac)
     \\ res_tac (* inst ind hyp *)
-    \\ pop_assum (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac \\ impl_tac >-
+      (imp_res_tac wordSemTheory.evaluate_clock>>
+      fs[wordSemTheory.set_var_def,wordSemTheory.call_env_def,wordSemTheory.push_env_def,wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def])
+    \\ disch_then (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
     \\ `jump_exc (set_var (adjust_var x0) w t1) = jump_exc t1` by
           fs[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
     \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
@@ -6331,6 +6352,7 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
   ``!(s:'ffi dataSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
+      t.termdep > 0 /\
       state_rel c l1 l2 s t [] [] ==>
       ?t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,t) = (res1,t1)) /\
@@ -6346,7 +6368,7 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   rpt strip_tac
   \\ drule data_compile_correct \\ full_simp_tac(srw_ss())[]
-  \\ disch_then drule \\ full_simp_tac(srw_ss())[comp_def]
+  \\ ntac 2 (disch_then drule) \\ full_simp_tac(srw_ss())[comp_def]
   \\ strip_tac
   \\ qexists_tac `t1`
   \\ qexists_tac `res1`
@@ -6358,6 +6380,7 @@ val state_rel_ext_def = Define `
   state_rel_ext c l1 l2 s u <=>
     ?t l.
       state_rel c l1 l2 s t [] [] /\
+      t.termdep > 0  /\
       (!n v. lookup n t.code = SOME v ==>
              ∃t' k' a' c' col.
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
@@ -6389,10 +6412,12 @@ val compile_correct = store_thm("compile_correct",
   \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
    (full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
     \\ Cases_on `s.stack` \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
-  \\ disch_then drule \\ strip_tac
+  \\ `(t with permute := perm').termdep > 0` by fs[]
+  \\ ntac 2 (disch_then drule) \\ strip_tac
   \\ qexists_tac `clk` \\ full_simp_tac(srw_ss())[]
   \\ qpat_x_assum `let prog = Call NONE (SOME start) [0] NONE in _` mp_tac
-  \\ full_simp_tac(srw_ss())[LET_THM] \\ strip_tac THEN1 (full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[LET_THM] \\ strip_tac
+  THEN1 (full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[inc_clock_def]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -6710,14 +6735,17 @@ val compile_semantics = save_thm("compile_semantics",let
     |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
     |> SIMP_RULE std_ss [METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``]
     |> DISCH ``(t':('a,'ffi) wordSem$state).code = code``
-    |> SIMP_RULE std_ss [] |> UNDISCH
+    |> SIMP_RULE std_ss [] |> UNDISCH |> UNDISCH
   val def = define_abbrev "code_rel_ext" (th1 |> concl |> dest_imp |> fst)
   in th1 |> REWRITE_RULE [GSYM def,code_termdep_equiv]
          |> SIMP_RULE std_ss [PULL_EXISTS,PULL_FORALL] |> SPEC_ALL
-         |> DISCH_ALL |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
+         |> DISCH_ALL |> GEN_ALL |> SIMP_RULE (srw_ss()) []
+         |> Q.SPEC `1` |> SIMP_RULE std_ss []
+         |> SPEC_ALL
+         |> SIMP_RULE std_ss []
+         |> UNDISCH
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
-(*TODO: Connect to the wordLang transformations*)
 val data_to_word_lab_pres_lem = prove(``
   ∀c n l p.
   l ≠ 0 ⇒
@@ -6785,10 +6813,10 @@ val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
       qpat_x_assum`PERM A B` mp_tac >>
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-           MakeBytes_def,SmallLsr_def] >> rpt IF_CASES_TAC >>
+           MakeBytes_def,SmallLsr_def,GiveUp_def] >> rpt IF_CASES_TAC >>
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-           MakeBytes_def,SmallLsr_def] >> cheat)>>
+           MakeBytes_def,SmallLsr_def])>>
     qpat_x_assum`n < LENGTH _`assume_tac >>
     qpat_x_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
