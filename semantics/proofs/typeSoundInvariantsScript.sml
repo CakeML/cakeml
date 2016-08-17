@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib;
-open astTheory environmentTheory semanticPrimitivesTheory typeSystemTheory;
-open terminationTheory environmentPropsTheory;
+open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
+open terminationTheory namespacePropsTheory;
 
 val _ = new_theory "typeSoundInvariants"
 
@@ -17,13 +17,13 @@ val _ = type_abbrev( "tenv_store" , ``:(num, store_t) fmap``);
 
 (* Check that the type names map to valid types *)
 val tenv_abbrev_ok_def_ = Define `
-  tenv_abbrev_ok tenvT ⇔ eAll (\id (tvs,t). check_freevars 0 tvs t) tenvT`;
+  tenv_abbrev_ok tenvT ⇔ nsAll (\id (tvs,t). check_freevars 0 tvs t) tenvT`;
 
 val tenv_ctor_ok_def = Define `
-  tenv_ctor_ok tenvC ⇔ eAll (\id (tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
+  tenv_ctor_ok tenvC ⇔ nsAll (\id (tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
 
 val tenv_val_ok_def = Define `
-  tenv_val_ok tenvV ⇔ eAll (\id (tvs,t). check_freevars tvs [] t) tenvV`;
+  tenv_val_ok tenvV ⇔ nsAll (\id (tvs,t). check_freevars tvs [] t) tenvV`;
 
 val tenv_ok_def = Define `
   tenv_ok tenv ⇔
@@ -71,7 +71,7 @@ val type_ctor_def = Define `
 val add_tenvE_def = Define `
   (add_tenvE Empty tenvV = tenvV) ∧
   (add_tenvE (Bind_tvar _ tenvE) tenvV = add_tenvE tenvE tenvV) ∧
-  (add_tenvE (Bind_name x tvs t tenvE) tenvV = eBind x (tvs,t) (add_tenvE tenvE tenvV))`;
+  (add_tenvE (Bind_name x tvs t tenvE) tenvV = nsBind x (tvs,t) (add_tenvE tenvE tenvV))`;
 
 val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
   (!tvs ctMap tenvS n.
@@ -100,8 +100,8 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
-    eAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
+    nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
+    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
     check_freevars tvs [] t1 ∧
     type_e tenv (Bind_name n 0 t1 (bind_tvar tvs tenvE)) e t2
     ⇒
@@ -110,8 +110,8 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
-    eAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
+    nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
+    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
     type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings ∧
     ALOOKUP bindings n = SOME t ∧
     ALL_DISTINCT (MAP FST funs) ∧
@@ -217,7 +217,7 @@ val decls_ok_def = Define `
 
 val type_all_env_def = Define `
   type_all_env ctMap tenvS env tenv ⇔
-    eAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    eAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) tenv.v`;
+    nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
+    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) tenv.v`;
 
 val _ = export_theory();

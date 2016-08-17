@@ -1,7 +1,7 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
-open import Environment
+open import Namespace
 open import SemanticPrimitives
 
 (* Check that the free type variables are in the given list. Every deBruijn
@@ -92,9 +92,9 @@ tveLookup n inc (Bind_name n' tvs t tenvE) =
     tveLookup n inc tenvE
 declare termination_argument tveLookup = automatic
 
-type tenv_abbrev = environment typeN (list tvarN * t)
-type tenv_ctor = environment conN (list tvarN * list t * tid_or_exn)
-type tenv_val = environment varN (nat * t)
+type tenv_abbrev = namespace modN typeN (list tvarN * t)
+type tenv_ctor = namespace modN conN (list tvarN * list t * tid_or_exn)
+type tenv_val = namespace modN varN (nat * t)
 
 type type_env =
   <| v : tenv_val
@@ -104,22 +104,22 @@ type type_env =
 
 val extend_dec_tenv : type_env -> type_env -> type_env
 let extend_dec_tenv tenv' tenv =
-  <| v = eAppend tenv'.v tenv.v;
-     c = eAppend tenv'.c tenv.c;
-     t = eAppend tenv'.t tenv.t |>
+  <| v = nsAppend tenv'.v tenv.v;
+     c = nsAppend tenv'.c tenv.c;
+     t = nsAppend tenv'.t tenv.t |>
 
-val lookup_varE : id varN -> tenv_val_exp -> maybe (nat * t)
+val lookup_varE : id modN varN -> tenv_val_exp -> maybe (nat * t)
 let lookup_varE id tenvE =
   match id with
   | Short x -> tveLookup x 0 tenvE
   | _ -> Nothing
   end
 
-val lookup_var : id varN -> tenv_val_exp -> type_env -> maybe (nat * t)
+val lookup_var : id modN varN -> tenv_val_exp -> type_env -> maybe (nat * t)
 let lookup_var id tenvE tenv =
   match lookup_varE id tenvE with
   | Just x -> Just x
-  | Nothing -> eLookup tenv.v id
+  | Nothing -> nsLookup tenv.v id
   end
 
 val num_tvs : tenv_val_exp -> nat
@@ -159,8 +159,8 @@ val type_funs : type_env -> tenv_val_exp -> list (varN * varN * exp) -> list (va
 
 type decls =
   <| defined_mods : set (list modN);
-     defined_types : set (id typeN);
-     defined_exns : set (id conN) |>
+     defined_types : set (id modN typeN);
+     defined_exns : set (id modN conN) |>
 
 val empty_decls : decls
 let empty_decls = <|defined_mods = {}; defined_types = {}; defined_exns = {}|>
@@ -235,7 +235,7 @@ and
 check_type_names tenvT (Tapp ts tn) =
   match tn with
      TC_name tn ->
-       match eLookup tenvT tn with
+       match nsLookup tenvT tn with
          | Just (tvs, t) -> List.length tvs = List.length ts
          | Nothing -> false
        end
@@ -255,7 +255,7 @@ type_name_subst tenvT (Tapp ts tc) =
   let args = List.map (type_name_subst tenvT) ts in
     match tc with
       | TC_name tn ->
-          match eLookup tenvT tn with
+          match nsLookup tenvT tn with
             | Just (tvs, t) -> type_subst (alistToFmap (List_extra.zipSameLength tvs args)) t
             | Nothing -> Tapp args tc
           end
@@ -282,7 +282,7 @@ let check_ctor_tenv tenvT tds =
 
 val build_ctor_tenv : list modN -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> tenv_ctor
 let build_ctor_tenv mn tenvT tds =
-  alist_to_env
+  alist_to_ns
     (List.reverse
       (List.concat
         (List.map
@@ -365,7 +365,7 @@ pcon_some : forall tvs tenv cn ps ts tvs' tn ts' bindings.
 List.all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
 type_ps tvs tenv ps (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs' ts'))) ts) bindings &&
-eLookup tenv.c cn = Just (tvs', ts, tn)
+nsLookup tenv.c cn = Just (tvs', ts, tn)
 ==>
 type_p tvs tenv (Pcon (Just cn) ps) (Tapp ts' (tid_exn_to_tc tn)) bindings
 
@@ -471,7 +471,7 @@ con_some : forall tenv tenvE cn es tvs tn ts' ts.
 List.all (check_freevars (num_tvs tenvE) []) ts' &&
 List.length tvs = List.length ts' &&
 type_es tenv tenvE es (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs ts'))) ts) &&
-eLookup tenv.c cn = Just (tvs, ts, tn)
+nsLookup tenv.c cn = Just (tvs, ts, tn)
 ==>
 type_e tenv tenvE (Con (Just cn) es) (Tapp ts' (tid_exn_to_tc tn))
 
@@ -647,7 +647,7 @@ type_e tenv (bind_tvar tvs Empty) e t &&
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
 type_d extra_checks mn decls tenv (Dlet p e)
-  empty_decls <| v = alist_to_env (tenv_add_tvs tvs bindings); c = eEmpty; t = eEmpty |>
+  empty_decls <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
@@ -662,7 +662,7 @@ type_p 0 tenv p t bindings &&
 type_e tenv Empty e t
 ==>
 type_d extra_checks mn decls tenv (Dlet p e)
-  empty_decls <| v = alist_to_env (tenv_add_tvs 0 bindings); c = eEmpty; t = eEmpty |>
+  empty_decls <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
@@ -674,19 +674,19 @@ type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings &&
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
 type_d extra_checks mn decls tenv (Dletrec funs)
-  empty_decls <| v = alist_to_env (tenv_add_tvs tvs bindings); c = eEmpty; t = eEmpty |>
+  empty_decls <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
 dtype : forall extra_checks mn tenv tdefs decls defined_types' decls' tenvT.
-check_ctor_tenv (eAppend tenvT tenv.t) tdefs &&
+check_ctor_tenv (nsAppend tenvT tenv.t) tdefs &&
 defined_types' = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
 disjoint defined_types' decls.defined_types &&
-tenvT = alist_to_env (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs) &&
+tenvT = alist_to_ns (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs) &&
 decls' = <| defined_mods = {}; defined_types = defined_types'; defined_exns = {} |>
 ==>
 type_d extra_checks mn decls tenv (Dtype tdefs)
-  decls' <| v = eEmpty; c = build_ctor_tenv mn (eAppend tenvT tenv.t) tdefs; t = tenvT |>
+  decls' <| v = nsEmpty; c = build_ctor_tenv mn (nsAppend tenvT tenv.t) tdefs; t = tenvT |>
 
 and
 
@@ -696,8 +696,8 @@ check_type_names tenv.t t &&
 List.allDistinct tvs
 ==>
 type_d extra_checks mn decls tenv (Dtabbrev tvs tn t)
-  empty_decls <| v = eEmpty; c = eEmpty;
-                 t = eSing tn (tvs,type_name_subst tenv.t t) |>
+  empty_decls <| v = nsEmpty; c = nsEmpty;
+                 t = nsSing tn (tvs,type_name_subst tenv.t t) |>
 
 and
 
@@ -708,9 +708,9 @@ List.all (check_type_names tenv.t) ts &&
 decls' = <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>
 ==>
 type_d extra_checks mn decls tenv (Dexn cn ts)
-  decls' <| v = eEmpty;
-            c = eSing cn ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn));
-            t = eEmpty |>
+  decls' <| v = nsEmpty;
+            c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn));
+            t = nsEmpty |>
 
 indreln [ type_ds : bool -> list modN -> decls -> type_env -> list dec -> decls -> type_env -> bool]
 
@@ -718,7 +718,7 @@ empty : forall extra_checks mn tenv decls.
 true
 ==>
 type_ds extra_checks mn decls tenv []
-  empty_decls <| v = eEmpty; c = eEmpty; t = eEmpty |>
+  empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
 
 and
 
@@ -735,7 +735,7 @@ empty : forall mn tenvT.
 true
 ==>
 type_specs mn tenvT []
-  empty_decls <| v = eEmpty; c = eEmpty; t = eEmpty |>
+  empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
 
 and
 
@@ -748,16 +748,16 @@ subst = alistToFmap (List_extra.zipSameLength fvs (List.map Tvar_db (genlist (fu
 type_specs mn tenvT (Sval x t :: specs)
   decls
   (extend_dec_tenv tenv
-    <| v = eSing x (List.length fvs, type_subst subst (type_name_subst tenvT t));
-       c = eEmpty;
-       t = eEmpty |>)
+    <| v = nsSing x (List.length fvs, type_subst subst (type_name_subst tenvT t));
+       c = nsEmpty;
+       t = nsEmpty |>)
 
 and
 
 stype : forall mn tenvT tenv td specs decls' decls tenvT'.
-tenvT' = alist_to_env (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) td) &&
-check_ctor_tenv (eAppend tenvT' tenvT) td &&
-type_specs mn (eAppend tenvT' tenvT) specs decls tenv &&
+tenvT' = alist_to_ns (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) td) &&
+check_ctor_tenv (nsAppend tenvT' tenvT) td &&
+type_specs mn (nsAppend tenvT' tenvT) specs decls tenv &&
 decls' = <| defined_mods = {};
             defined_types = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) td);
             defined_exns = {} |>
@@ -765,8 +765,8 @@ decls' = <| defined_mods = {};
 type_specs mn tenvT (Stype td :: specs)
   (union_decls decls decls')
   (extend_dec_tenv tenv
-   <| v = eEmpty;
-      c = build_ctor_tenv mn (eAppend tenvT' tenvT) td;
+   <| v = nsEmpty;
+      c = build_ctor_tenv mn (nsAppend tenvT' tenvT) td;
       t = tenvT' |>)
 
 and
@@ -775,11 +775,11 @@ stabbrev : forall mn tenvT tenvT' tvs tn t specs decls tenv.
 List.allDistinct tvs &&
 check_freevars 0 tvs t &&
 check_type_names tenvT t &&
-tenvT' = eSing tn (tvs,type_name_subst tenvT t) &&
-type_specs mn (eAppend tenvT' tenvT) specs decls tenv
+tenvT' = nsSing tn (tvs,type_name_subst tenvT t) &&
+type_specs mn (nsAppend tenvT' tenvT) specs decls tenv
 ==>
 type_specs mn tenvT (Stabbrev tvs tn t :: specs)
-  decls (extend_dec_tenv tenv <| v = eEmpty; c = eEmpty; t = tenvT' |>)
+  decls (extend_dec_tenv tenv <| v = nsEmpty; c = nsEmpty; t = tenvT' |>)
 
 and
 
@@ -791,20 +791,20 @@ List.all (check_type_names tenvT) ts
 type_specs mn tenvT (Sexn cn ts :: specs)
   (union_decls decls <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>)
   (extend_dec_tenv tenv
-   <| v = eEmpty;
-      c = eSing cn ([], List.map (type_name_subst tenvT) ts, TypeExn (mk_id mn cn));
-      t = eEmpty |>)
+   <| v = nsEmpty;
+      c = nsSing cn ([], List.map (type_name_subst tenvT) ts, TypeExn (mk_id mn cn));
+      t = nsEmpty |>)
 
 and
 
 stype_opq : forall mn tenvT tenv tn specs tvs decls tenvT'.
 List.allDistinct tvs &&
-tenvT' = eSing tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))) &&
-type_specs mn (eAppend tenvT' tenvT) specs decls tenv
+tenvT' = nsSing tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))) &&
+type_specs mn (nsAppend tenvT' tenvT) specs decls tenv
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs)
   (union_decls decls <| defined_mods = {}; defined_types = {mk_id mn tn}; defined_exns = {} |>)
-  (extend_dec_tenv tenv <| v = eEmpty; c = eEmpty; t = tenvT' |>)
+  (extend_dec_tenv tenv <| v = nsEmpty; c = nsEmpty; t = tenvT' |>)
 
 val weak_decls : decls -> decls -> bool
 let weak_decls decls_impl decls_spec =
@@ -812,7 +812,7 @@ let weak_decls decls_impl decls_spec =
   decls_spec.defined_types subset decls_impl.defined_types &&
   decls_spec.defined_exns subset decls_impl.defined_exns
 
-val weak_tenvT : (id typeN) -> (list tvarN * t) -> (list tvarN * t) -> bool
+val weak_tenvT : id modN typeN -> (list tvarN * t) -> (list tvarN * t) -> bool
 let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
   (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
   tvs_spec = tvs_impl &&
@@ -824,9 +824,9 @@ let tscheme_inst2 _ ts1 ts2 = tscheme_inst ts1 ts2
 
 val weak_tenv : type_env -> type_env -> bool
 let weak_tenv tenv_impl tenv_spec =
-  eSubEnv tscheme_inst2 tenv_spec.v tenv_impl.v &&
-  eSubEnv (fun _ x y -> x = y) tenv_spec.c tenv_impl.c &&
-  eSubEnv weak_tenvT tenv_spec.t tenv_impl.t
+  nsSub tscheme_inst2 tenv_spec.v tenv_impl.v &&
+  nsSub (fun _ x y -> x = y) tenv_spec.c tenv_impl.c &&
+  nsSub weak_tenvT tenv_spec.t tenv_impl.t
 
 indreln [check_signature : list modN -> tenv_abbrev -> decls -> type_env -> maybe specs -> decls -> type_env -> bool]
 
@@ -845,7 +845,7 @@ type_specs mn tenvT specs decls_spec tenv_spec
 check_signature mn tenvT decls_impl tenv_impl (Just specs) decls_spec tenv_spec
 
 let tenvLift mn tenv =
-  <| v = eLift mn tenv.v; c = eLift mn tenv.c; t = eLift mn tenv.t; |>
+  <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t; |>
 
 indreln [type_top : bool -> decls -> type_env -> top -> decls -> type_env -> bool]
 
@@ -870,7 +870,7 @@ indreln [type_prog : bool -> decls -> type_env -> list top -> decls -> type_env 
 empty : forall extra_checks tenv decls.
 true
 ==>
-type_prog extra_checks decls tenv [] empty_decls <| v = eEmpty; c = eEmpty; t = eEmpty |>
+type_prog extra_checks decls tenv [] empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
 
 and
 

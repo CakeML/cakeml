@@ -1,7 +1,7 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
-open import Environment
+open import Namespace
 open import SemanticPrimitives
 open import Ffi
 
@@ -64,7 +64,7 @@ evaluate st env [Con cn es] =
   else (st, Rerr (Rabort Rtype_error))
 and
 evaluate st env [Var n] =
-  match eLookup env.v n with
+  match nsLookup env.v n with
   | Just v -> (st, Rval [v])
   | Nothing -> (st, Rerr (Rabort Rtype_error))
   end
@@ -121,7 +121,7 @@ evaluate st env [Mat e pes] =
 and
 evaluate st env [Let xo e1 e2] =
   match evaluate st env [e1] with
-  | (st', Rval v) -> evaluate (check_clock st' st) <| env with v = eOptBind xo (head v) env.v |> [e2]
+  | (st', Rval v) -> evaluate (check_clock st' st) <| env with v = nsOptBind xo (head v) env.v |> [e2]
   | res -> res
   end
 and
@@ -139,7 +139,7 @@ and
 evaluate_match st env v ((p,e)::pes) err_v  =
   if allDistinct (pat_bindings p []) then
     match pmatch env.c st.refs p v [] with
-    | Match env_v' -> evaluate st <| env with v = eAppend (alist_to_env env_v') env.v |> [e]
+    | Match env_v' -> evaluate st <| env with v = nsAppend (alist_to_ns env_v') env.v |> [e]
     | No_match -> evaluate_match st env v pes err_v
     | Match_type_error -> (st, Rerr (Rabort Rtype_error))
     end
@@ -148,7 +148,7 @@ evaluate_match st env v ((p,e)::pes) err_v  =
 val evaluate_decs :
   forall 'ffi. list modN -> state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec
-evaluate_decs mn st env [] = (st, Rval <| v = eEmpty; c = eEmpty |>)
+evaluate_decs mn st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs mn st env (d1::d2::ds) =
   match evaluate_decs mn st env [d1] with
@@ -165,7 +165,7 @@ evaluate_decs mn st env [Dlet p e] =
     | (st', Rval v) ->
         (st',
          match pmatch env.c st'.refs p (head v) [] with
-         | Match new_vals -> Rval <| v = alist_to_env new_vals; c = eEmpty |>
+         | Match new_vals -> Rval <| v = alist_to_ns new_vals; c = nsEmpty |>
          | No_match -> Rerr (Rraise Bindv)
          | Match_type_error -> Rerr (Rabort Rtype_error)
          end)
@@ -177,7 +177,7 @@ and
 evaluate_decs mn st env [Dletrec funs] =
   (st,
    if allDistinct (map (fun (x,y,z) -> x) funs) then
-     Rval <| v = build_rec_env funs env eEmpty; c = eEmpty |>
+     Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>
    else
      Rerr (Rabort Rtype_error))
 and
@@ -188,28 +188,28 @@ evaluate_decs mn st env [Dtype tds] =
        allDistinct (map (fun (tvs,tn,ctors) -> tn) tds)
     then
       (<| st with defined_types = new_tdecs union st.defined_types |>,
-       Rval <| v = eEmpty; c = build_tdefs mn tds |>)
+       Rval <| v = nsEmpty; c = build_tdefs mn tds |>)
     else
       (st, Rerr (Rabort Rtype_error))
 and
 evaluate_decs mn st env [Dtabbrev tvs tn t] =
-  (st, Rval <| v = eEmpty; c = eEmpty |>)
+  (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs mn st env [Dexn cn ts] =
   if TypeExn (mk_id mn cn) IN st.defined_types then
     (st, Rerr (Rabort Rtype_error))
   else
     (<| st with defined_types = {TypeExn (mk_id mn cn)} union st.defined_types |>,
-     Rval <| v = eEmpty; c = eSing cn (length ts, TypeExn (mk_id mn cn)) |>)
+     Rval <| v = nsEmpty; c = nsSing cn (length ts, TypeExn (mk_id mn cn)) |>)
 declare termination_argument evaluate_decs = automatic
 
 let envLift mn env =
-  <| v = eLift mn env.v; c = eLift mn env.c |>
+  <| v = nsLift mn env.v; c = nsLift mn env.c |>
 
 val evaluate_tops :
   forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v
 let rec
-evaluate_tops st env [] = (st, Rval <| v = eEmpty; c = eEmpty |>)
+evaluate_tops st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_tops st env (top1::top2::tops) =
   match evaluate_tops st env [top1] with
@@ -229,7 +229,7 @@ evaluate_tops st env [Tmod mn specs ds] =
     | (st', r) ->
         (<| st' with defined_mods = {[mn]} union st'.defined_mods |>,
          match r with
-         | Rval env' -> Rval <| v = eLift mn env'.v; c = eLift mn env'.c |>
+         | Rval env' -> Rval <| v = nsLift mn env'.v; c = nsLift mn env'.c |>
          | Rerr err -> Rerr err
          end)
     end

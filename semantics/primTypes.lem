@@ -2,9 +2,9 @@ open import Pervasives
 open import Ast
 open import SemanticPrimitives
 open import Ffi
-open import Evaluate
+open import Namespace
 open import Lib
-open import Environment
+open import Evaluate
 
 val prim_types_program : prog
 let prim_types_program =
@@ -28,5 +28,5 @@ val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi *
 let prim_sem_env ffi =
   add_to_sem_env
     (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
-     <| v = eEmpty; c = eEmpty |>)
+     <| v = nsEmpty; c = nsEmpty |>)
         prim_types_program

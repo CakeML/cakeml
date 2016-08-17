@@ -13,7 +13,7 @@ val add_ast_compset = computeLib.extend_compset
     ,libTheory.opt_bind_def
     ,terminationTheory.is_value_def
     ,astTheory.pat_bindings_def
-    ,astTheory.mk_id_def
+    ,namespaceTheory.mk_id_def
     ,typeSystemTheory.check_ctor_tenv_def
     ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
@@ -55,7 +55,7 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$lit``
     ,``:opb``
     ,``:opn``
-    ,``:'a ast$id``
+    ,``:('a,'b) namespace$id``
     ,``:eq_result``
     ,``:ast$tctor``
     ,``:'a sem_env``

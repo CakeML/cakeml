@@ -1,5 +1,5 @@
 open preamble intSimps;
-open libTheory astTheory open environmentTheory semanticPrimitivesTheory typeSystemTheory;
+open libTheory astTheory open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
 
 val _ = new_theory "termination";
@@ -94,16 +94,16 @@ fun register name def ind =
     ()
   end;
 
-val (eMap_def, eMap_ind) =
-  tprove_no_defn ((eMap_def, eMap_ind),
-  wf_rel_tac `measure (\(_, env). environment_size (\x. 1) (\x. 1) env)`
+val (nsMap_def, nsMap_ind) =
+  tprove_no_defn ((nsMap_def, nsMap_ind),
+  wf_rel_tac `measure (\(_, env). namespace_size (\x. 1) (\x. 1) (\x. 1) env)`
   >> Induct_on `m`
-  >> rw [environment_size_def]
-  >> rw [environment_size_def]
+  >> rw [namespace_size_def]
+  >> rw [namespace_size_def]
   >> first_x_assum drule
   >> disch_then (qspec_then `v` assume_tac)
   >> decide_tac);
-val _ = register "eMap" eMap_def eMap_ind;
+val _ = register "nsMap" nsMap_def nsMap_ind;
 
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),

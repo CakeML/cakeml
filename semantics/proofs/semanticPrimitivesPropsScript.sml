@@ -2,9 +2,9 @@
  * semantic primitives. *)
 
 open preamble;
-open libTheory astTheory environmentTheory semanticPrimitivesTheory;
+open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
 open terminationTheory;
-open environmentPropsTheory;
+open namespacePropsTheory;
 open boolSimps;
 
 val _ = new_theory "semanticPrimitivesProps";
@@ -364,8 +364,8 @@ val do_opapp_cases = store_thm("do_opapp_cases",
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
-    FOLDR (λ(f,x,e) env'. eBind f (Recclosure env funs' f) env') env' funs =
-    eAppend (alist_to_env (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'`,
+    FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
+    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'`,
  Induct >>
  srw_tac[][] >>
  PairCases_on `h` >>
@@ -375,7 +375,7 @@ val build_rec_env_help_lem = Q.prove (
 val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
 `∀funs funs' env env'.
   build_rec_env funs env env' =
-  eAppend (alist_to_env (MAP (λ(f,n,e). (f, Recclosure env funs f)) funs)) env'`,
+  nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs f)) funs)) env'`,
 srw_tac[][build_rec_env_def, build_rec_env_help_lem]);
 
 val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
@@ -424,9 +424,9 @@ val same_tid_tid = Q.store_thm("same_tid_tid",
 val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
 `(!tvs tn ctors tds mn.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
-    eAppend (build_tdefs mn tds)
-           (alist_to_env (REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)))) ∧
- (!mn. build_tdefs mn [] = eEmpty)`,
+    nsAppend (build_tdefs mn tds)
+           (alist_to_ns (REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)))) ∧
+ (!mn. build_tdefs mn [] = nsEmpty)`,
  srw_tac[][build_tdefs_def, REVERSE_APPEND]);
 
  (*

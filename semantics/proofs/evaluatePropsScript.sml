@@ -1,5 +1,5 @@
 open preamble evaluateTheory;
-open environmentTheory environmentPropsTheory;
+open namespaceTheory namespacePropsTheory;
 open terminationTheory
 open semanticPrimitivesTheory;
 open semanticPrimitivesPropsTheory;
@@ -240,16 +240,9 @@ val evaluate_cons = Q.store_thm ("evaluate_cons",
  >> drule evaluate_sing
  >> rw []);
 
-val evaluate_length = Q.store_thm("evaluate_length",
-  `(∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
-   (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1)`,
-  ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][]);
-
 val evaluate_decs_nil = Q.store_thm("evaluate_decs_nil[simp]",
   `∀mn (s:'ffi state) env.
-    evaluate_decs mn s env [] = (s,Rval <| v := eEmpty; c := eEmpty |>)`,
+    evaluate_decs mn s env [] = (s,Rval <| v := nsEmpty; c := nsEmpty |>)`,
  rw [evaluate_decs_def]);
 
 val evaluate_decs_cons = Q.store_thm ("evaluate_decs_cons",
@@ -270,7 +263,7 @@ val evaluate_decs_cons = Q.store_thm ("evaluate_decs_cons",
  >> simp [combine_dec_result_def, sem_env_component_equality]);
 
 val evaluate_tops_nil = Q.store_thm("evaluate_tops_nil[simp]",
-  `∀(s:'ffi state) env. evaluate_tops s env [] = (s,Rval <| v := eEmpty; c := eEmpty |>)`,
+  `∀(s:'ffi state) env. evaluate_tops s env [] = (s,Rval <| v := nsEmpty; c := nsEmpty |>)`,
  rw [evaluate_tops_def]);
 
 val evaluate_tops_cons = Q.store_thm ("evaluate_tops_cons",

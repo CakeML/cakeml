@@ -1,5 +1,6 @@
 open import Pervasives
 open import Lib
+open import Namespace
 
 (* Literal constants *)
 type lit =
@@ -84,7 +85,7 @@ type lop =
  *)
 type tctor =
   (* User defined types *)
-  | TC_name of id typeN
+  | TC_name of id modN typeN
   (* Built-in types *)
   | TC_int
   | TC_char
@@ -128,7 +129,7 @@ type pat =
   | Plit of lit
   (* Constructor applications.
      A Nothing constructor indicates a tuple pattern. *)
-  | Pcon of maybe (id conN) * list pat
+  | Pcon of maybe (id modN conN) * list pat
   | Pref of pat
   | Ptannot of pat * t
 
@@ -139,8 +140,8 @@ type exp =
   | Lit of lit
   (* Constructor application.
      A Nothing constructor indicates a tuple pattern. *)
-  | Con of maybe (id conN) * list exp
-  | Var of id varN
+  | Con of maybe (id modN conN) * list exp
+  | Var of id modN varN
   | Fun of varN * exp
   (* Application of a primitive operator to arguments.
      Includes function application. *)

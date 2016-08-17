@@ -4,22 +4,22 @@ import List_extra
 import String
 import String_extra
 open import Ast
-open import Environment
+open import Namespace
 open import Ffi
 
 (* The type that a constructor builds is either a named datatype or an exception.
  * For exceptions, we also keep the module that the exception was declared in. *)
 type tid_or_exn =
-  | TypeId of id typeN
-  | TypeExn of id conN
+  | TypeId of id modN typeN
+  | TypeExn of id modN conN
 
 val type_defs_to_new_tdecs : list modN -> type_def -> set tid_or_exn
 let type_defs_to_new_tdecs mn tdefs =
   Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
 
 type sem_env 'v =
-  <| v : environment varN 'v
-   ; c : environment conN (nat * tid_or_exn)
+  <| v : namespace modN varN 'v
+   ; c : namespace modN conN (nat * tid_or_exn)
    |>
 
 (* Value forms *)
@@ -38,8 +38,8 @@ type v =
   | Loc of nat
   | Vectorv of list v
 
-type env_ctor = environment conN (nat * tid_or_exn)
-type env_val = environment varN v
+type env_ctor = namespace modN conN (nat * tid_or_exn)
+type env_val = namespace modN varN v
 
 let Bindv = Conv (Just("Bind",TypeExn(Short"Bind"))) []
 
@@ -110,24 +110,24 @@ type state 'ffi =
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-val do_con_check : env_ctor -> maybe (id conN) -> nat -> bool
+val do_con_check : env_ctor -> maybe (id modN conN) -> nat -> bool
 let do_con_check cenv n_opt l =
   match n_opt with
     | Nothing -> true
     | Just n ->
-        match eLookup cenv n with
+        match nsLookup cenv n with
           | Nothing -> false
           | Just (l',ns) -> l = l'
         end
   end
 
-val build_conv : env_ctor -> maybe (id conN) -> list v -> maybe v
+val build_conv : env_ctor -> maybe (id modN conN) -> list v -> maybe v
 let build_conv envC cn vs =
   match cn with
     | Nothing ->
         Just (Conv Nothing vs)
     | Just id ->
-        match eLookup envC id with
+        match nsLookup envC id with
           | Nothing -> Nothing
           | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
         end
@@ -187,7 +187,7 @@ pmatch envC s (Plit l) (Litv l') env =
     Match_type_error
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
-  match eLookup envC n with
+  match nsLookup envC n with
     | Just (l, t) ->
         if same_tid t t' && List.length ps = l then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -232,7 +232,7 @@ pmatch_list envC s _ _ env = Match_type_error
 val build_rec_env : list (varN * varN * exp) -> sem_env v -> env_val -> env_val
 let build_rec_env funs cl_env add_to_env =
   foldr
-    (fun (f,x,e) env' -> eBind f (Recclosure cl_env funs f) env')
+    (fun (f,x,e) env' -> nsBind f (Recclosure cl_env funs f) env')
     add_to_env
     funs
 
@@ -308,11 +308,11 @@ val do_opapp : list v -> maybe (sem_env v * exp)
 let do_opapp vs =
   match vs with
   | [Closure env n e; v] ->
-      Just (<| env with v = eBind n v env.v |>, e)
+      Just (<| env with v = nsBind n v env.v |>, e)
   | [Recclosure env funs n; v] ->
       if allDistinct (List.map (fun (f,x,e) -> f) funs) then
         match find_recfun n funs with
-          | Just (n,e) -> Just (<| env with v = eBind n v (build_rec_env funs env env.v) |>, e)
+          | Just (n,e) -> Just (<| env with v = nsBind n v (build_rec_env funs env env.v) |>, e)
           | Nothing -> Nothing
         end
       else
@@ -626,7 +626,7 @@ let do_if v e1 e2 =
 (* Build a constructor environment for the type definition tds *)
 val build_tdefs : list modN -> list (list tvarN * typeN * list (conN * list t)) -> env_ctor
 let build_tdefs mn tds =
-  alist_to_env
+  alist_to_ns
     (List.reverse
       (List.concat
         (List.map
@@ -646,12 +646,12 @@ val combine_dec_result : forall 'a. sem_env v -> result (sem_env v) 'a -> result
 let combine_dec_result env r =
   match r with
     | Rerr e -> Rerr e
-    | Rval env' -> Rval <| v = eAppend env'.v env.v; c = eAppend env'.c env.c |>
+    | Rval env' -> Rval <| v = nsAppend env'.v env.v; c = nsAppend env'.c env.c |>
   end
 
 val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
-  <| c = eAppend new_env.c env.c; v = eAppend new_env.v env.v |>
+  <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v |>
 
 val decs_to_types : list dec -> list typeN
 let decs_to_types ds =

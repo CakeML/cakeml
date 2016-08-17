@@ -1,6 +1,6 @@
 open import Pervasives_extra
 open import Lib
-open import Environment
+open import Namespace
 open import Ast
 open import SemanticPrimitives
 open import Ffi
@@ -87,14 +87,14 @@ evaluate ck env s (Con cn es) (s', Rerr err)
 and
 
 var1 : forall ck env n v s.
-eLookup env.v n = Just v
+nsLookup env.v n = Just v
 ==>
 evaluate ck env s (Var n) (s, Rval v)
 
 and
 
 var2 : forall ck env n s.
-eLookup env.v n = Nothing
+nsLookup env.v n = Nothing
 ==>
 evaluate ck env s (Var n) (s, Rerr (Rabort Rtype_error))
 
@@ -233,7 +233,7 @@ and
 
 let1 : forall ck env n e1 e2 v bv s1 s2.
 evaluate ck env s1 e1 (s2, Rval v) &&
-evaluate ck <| env with v = eOptBind n v env.v |> s2 e2 bv
+evaluate ck <| env with v = nsOptBind n v env.v |> s2 e2 bv
 ==>
 evaluate ck env s1 (Let n e1 e2) bv
 
@@ -309,7 +309,7 @@ and
 mat_cons1 : forall ck env env' v p pes e bv err_v s.
 List.allDistinct (pat_bindings p []) &&
 pmatch env.c s.refs p v [] = Match env' &&
-evaluate ck <| env with v = eAppend (alist_to_env env') env.v |> s e bv
+evaluate ck <| env with v = nsAppend (alist_to_ns env') env.v |> s e bv
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v bv
 
@@ -346,7 +346,7 @@ evaluate ck env s1 e (s2, Rval v) &&
 List.allDistinct (pat_bindings p []) &&
 pmatch env.c s2.refs p v [] = Match env'
 ==>
-evaluate_dec ck mn env s1 (Dlet p e) (s2, Rval <| v = alist_to_env env'; c = eEmpty |>)
+evaluate_dec ck mn env s1 (Dlet p e) (s2, Rval <| v = alist_to_ns env'; c = nsEmpty |>)
 
 and
 
@@ -386,7 +386,7 @@ and
 dletrec1 : forall ck mn env funs s.
 List.allDistinct (List.map (fun (x,y,z) -> x) funs)
 ==>
-evaluate_dec ck mn env s (Dletrec funs) (s, Rval <| v = build_rec_env funs env eEmpty; c = eEmpty |>)
+evaluate_dec ck mn env s (Dletrec funs) (s, Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>)
 
 and
 
@@ -403,7 +403,7 @@ new_tdecs = type_defs_to_new_tdecs mn tds &&
 disjoint new_tdecs s.defined_types &&
 List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds)
 ==>
-evaluate_dec ck mn env s (Dtype tds) (<| s with defined_types = new_tdecs union s.defined_types |>, Rval <| v = eEmpty; c = build_tdefs mn tds |>)
+evaluate_dec ck mn env s (Dtype tds) (<| s with defined_types = new_tdecs union s.defined_types |>, Rval <| v = nsEmpty; c = build_tdefs mn tds |>)
 
 and
 
@@ -419,14 +419,14 @@ and
 dtabbrev : forall ck mn env tvs tn t s.
 true
 ==>
-evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval <| v = eEmpty; c = eEmpty |>)
+evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval <| v = nsEmpty; c = nsEmpty |>)
 
 and
 
 dexn1 : forall ck mn env cn ts s.
 not (TypeExn (mk_id mn cn) IN s.defined_types)
 ==>
-evaluate_dec ck mn env s (Dexn cn ts) (<| s with defined_types = {TypeExn (mk_id mn cn)} union s.defined_types |>, Rval  <| v = eEmpty; c = eSing cn (length ts, TypeExn (mk_id mn cn)) |>)
+evaluate_dec ck mn env s (Dexn cn ts) (<| s with defined_types = {TypeExn (mk_id mn cn)} union s.defined_types |>, Rval  <| v = nsEmpty; c = nsSing cn (length ts, TypeExn (mk_id mn cn)) |>)
 
 and
 
@@ -441,7 +441,7 @@ indreln [evaluate_decs : forall 'ffi. bool -> list modN -> sem_env v -> state 'f
 empty : forall ck mn env s.
 true
 ==>
-evaluate_decs ck mn env s [] (s, Rval <| v = eEmpty; c = eEmpty |>)
+evaluate_decs ck mn env s [] (s, Rval <| v = nsEmpty; c = nsEmpty |>)
 
 and
 
@@ -479,7 +479,7 @@ not ([mn] IN s1.defined_mods) &&
 no_dup_types ds &&
 evaluate_decs ck [mn] env s1 ds (s2, Rval new_env)
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (<| s2 with defined_mods = {[mn]} union s2.defined_mods |>, Rval <| v = eLift mn new_env.v; c = eLift mn new_env.c |>)
+evaluate_top ck env s1 (Tmod mn specs ds) (<| s2 with defined_mods = {[mn]} union s2.defined_mods |>, Rval <| v = nsLift mn new_env.v; c = nsLift mn new_env.c |>)
 
 and
 
@@ -510,7 +510,7 @@ indreln [evaluate_prog : forall 'ffi. bool -> sem_env v -> state 'ffi -> prog ->
 empty : forall ck env s.
 true
 ==>
-evaluate_prog ck env s [] (s, Rval <| v = eEmpty; c = eEmpty |>)
+evaluate_prog ck env s [] (s, Rval <| v = nsEmpty; c = nsEmpty |>)
 
 and
 

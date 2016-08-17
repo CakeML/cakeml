@@ -1,7 +1,7 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
-open import Environment
+open import Namespace
 open import SemanticPrimitives
 open import Ffi
 
@@ -23,7 +23,7 @@ type ctxt_frame =
   | Clet of maybe varN * unit * exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of maybe (id conN) * list v * unit * list exp
+  | Ccon of maybe (id modN conN) * list v * unit * list exp
   | Ctannot of unit * t
 type ctxt = ctxt_frame * sem_env v
 
@@ -109,12 +109,12 @@ let continue s v cs =
           match pmatch env.c (fst s) p v [] with
             | Match_type_error -> Eabort Rtype_error
             | No_match -> Estep (env, s, Val v, ((Cmat () pes err_v,env)::c))
-            | Match env' -> Estep (<| env with v = eAppend (alist_to_env env') env.v |>, s, Exp e, c)
+            | Match env' -> Estep (<| env with v = nsAppend (alist_to_ns env') env.v |>, s, Exp e, c)
           end
         else
           Eabort Rtype_error
     | (Clet n () e, env) :: c ->
-        Estep (<| env with v = eOptBind n v env.v |>, s, Exp e, c)
+        Estep (<| env with v = nsOptBind n v env.v |>, s, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check env.c n (List.length vs + 1) then
            match build_conv env.c n (v::vs) with
@@ -164,7 +164,7 @@ let e_step (env, s, ev, c) =
               else
                 Eabort Rtype_error
           | Var n ->
-              match eLookup env.v n with
+              match nsLookup env.v n with
                 | Nothing -> Eabort Rtype_error
                 | Just v ->
                     return env s v c

@@ -358,7 +358,7 @@ val big_clocked_total_lem = Q.prove (
                 by metis_tac [eval_list_total] >>
       metis_tac [do_con_check_build_conv, result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
   >- ((* Var *)
-      cases_on `eLookup env.v i ` >>
+      cases_on `nsLookup env.v i ` >>
           rw [])
   >- ((* App *)
       `!op es. exp_size (App op (REVERSE es)) = exp_size (App op es)`

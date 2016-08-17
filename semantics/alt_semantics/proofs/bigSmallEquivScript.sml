@@ -448,7 +448,7 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!env s p e pes r v err_v.
   ALL_DISTINCT (pat_bindings p []) ∧
   pmatch env.c (FST s) p v [] = Match env' ∧
-  small_eval (env with v := eAppend (alist_to_env env') env.v) s e [] r
+  small_eval (env with v := nsAppend (alist_to_ns env') env.v) s e [] r
   ⇒
   small_eval_match env s v ((p,e)::pes) err_v r) ∧
 (!env s e p pes r v err_v.
@@ -1140,7 +1140,7 @@ val big_exp_to_small_exp = Q.prove (
                       (env',to_small_st s',Val v,[(Clet n () e',env)])`
                by metis_tac [e_step_add_ctxt, APPEND] >>
        `e_step_reln (env',to_small_st s',Val v,[(Clet n () e',env)])
-                    (env with v := eOptBind n v env.v,to_small_st s',Exp e',[])`
+                    (env with v := nsOptBind n v env.v,to_small_st s',Exp e',[])`
                by srw_tac[][e_step_def, e_step_reln_def, continue_def, push_def] >>
        Q.ISPEC_THEN`r`assume_tac result_cases >>
        full_simp_tac(srw_ss())[small_eval_def, sem_env_component_equality] >>

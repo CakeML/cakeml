@@ -19,7 +19,7 @@ val _ = hide "nt"
 (* handling constructor arities gets very complicated when "open" is
    implemented *)
 val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
-                               ctr_arities : string id |-> num |>`
+                               ctr_arities : (string, string) id |-> num |>`
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
 

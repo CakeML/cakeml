@@ -97,7 +97,7 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
               metis_tac [])
           >- (fs [] >>
               rw [GSYM small_big_exp_equiv, to_small_st_def] >>
-              qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, Rval <|v := alist_to_env a; c := eEmpty|>)` >>
+              qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, Rval <|v := alist_to_ns a; c := nsEmpty|>)` >>
               rw [] >>
               metis_tac [])))
   >- metis_tac []

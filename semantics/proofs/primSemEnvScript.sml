@@ -10,7 +10,7 @@ val _ = new_theory "primSemEnv";
 
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
 ``add_to_sem_env (<| clock := 0; ffi := ffi; refs := []; defined_types := {}; defined_mods := {} |>,
-                  <| c := eEmpty; v := eEmpty |>)
+                  <| c := nsEmpty; v := nsEmpty |>)
                  prim_types_program``
   |> SIMP_CONV(srw_ss())[add_to_sem_env_def, prim_types_program_def]
   |> CONV_RULE evaluate_conv
@@ -33,7 +33,7 @@ val prim_tdecs_def = Define
         ;Short"bool"}|>`;
 
 val prim_tenv_def = Define`
-  prim_tenv = <|c := eEmpty; v := eEmpty; t := eEmpty|>`;
+  prim_tenv = <|c := nsEmpty; v := nsEmpty; t := nsEmpty|>`;
 
 (* TODO: rename semantics and call semantics_init semantics instead? *)
 val semantics_init_def = Define`

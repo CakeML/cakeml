@@ -35,7 +35,7 @@ val run_eval_spec_lem = Q.prove (
      rw []
      >- metis_tac []
      >- metis_tac []
-     >- (`?s' r. evaluate T (env with v := eAppend (alist_to_env a) env.v) st e (s',r)` by metis_tac [big_clocked_total, pair_CASES] >>
+     >- (`?s' r. evaluate T (env with v := nsAppend (alist_to_ns a) env.v) st e (s',r)` by metis_tac [big_clocked_total, pair_CASES] >>
          metis_tac [])));
 
 val run_eval_spec =
@@ -132,7 +132,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
            return (Conv NONE (REVERSE vs))
         od
     | SOME n =>
-       (case eLookup env.c n of
+       (case nsLookup env.c n of
           | NONE => raise (Rabort Rtype_error)
           | SOME (l,t) =>
               if l = LENGTH es then
@@ -144,7 +144,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
  (!env n.
   run_eval env (Var n)
   =
-  case eLookup env.v n of
+  case nsLookup env.v n of
        NONE => raise (Rabort Rtype_error)
      | SOME v => return v) ∧
  (!env n e.
@@ -198,7 +198,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval env (Let x e1 e2)
    =
    do v1 <- run_eval env e1;
-      run_eval (env with v := eOptBind x v1 env.v) e2
+      run_eval (env with v := nsOptBind x v1 env.v) e2
    od) ∧
  (!env funs e.
    run_eval env (Letrec funs e)
@@ -234,7 +234,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
         case pmatch env.c st.refs p v [] of
              Match_type_error => raise (Rabort Rtype_error)
            | No_match => run_eval_match env v pes err_v
-           | Match env' => run_eval (env with v := eAppend (alist_to_env env') env.v) e
+           | Match env' => run_eval (env with v := nsAppend (alist_to_ns env') env.v) e
       else
         raise (Rabort Rtype_error)
    od)`,
@@ -312,7 +312,7 @@ val run_eval_dec_def = Define `
     case run_eval env e st of
        | (st', Rval v) =>
            (case pmatch env.c st'.refs p v [] of
-              | Match env' => (st', Rval <| v := alist_to_env env'; c := eEmpty |>)
+              | Match env' => (st', Rval <| v := alist_to_ns env'; c := nsEmpty |>)
               | No_match => (st', Rerr (Rraise Bindv))
               | Match_type_error => (st', Rerr (Rabort Rtype_error)))
        | (st', Rerr e) => (st', Rerr e)
@@ -320,25 +320,25 @@ val run_eval_dec_def = Define `
     (st, Rerr (Rabort Rtype_error))) ∧
 (run_eval_dec mn env ^st (Dletrec funs) =
   if ALL_DISTINCT (MAP FST funs) then
-    (st, Rval <| v := build_rec_env funs env eEmpty; c := eEmpty |>)
+    (st, Rval <| v := build_rec_env funs env nsEmpty; c := nsEmpty |>)
   else
     (st, Rerr (Rabort Rtype_error))) ∧
 (run_eval_dec mn env ^st (Dtype tds) =
   let new_tdecs = set (MAP (\(tvs,tn,ctors). TypeId (mk_id mn tn)) tds) in
     if check_dup_ctors tds ∧ DISJOINT new_tdecs st.defined_types ∧ ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) then
-      (st with defined_types := new_tdecs ∪ st.defined_types, Rval <| v := eEmpty; c := build_tdefs mn tds |>)
+      (st with defined_types := new_tdecs ∪ st.defined_types, Rval <| v := nsEmpty; c := build_tdefs mn tds |>)
     else
       (st, Rerr (Rabort Rtype_error))) ∧
 (run_eval_dec mn env ^st (Dtabbrev tvs tn t) =
-  (st, Rval <| v := eEmpty; c := eEmpty |>)) ∧
+  (st, Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_dec mn env ^st (Dexn cn ts) =
   if TypeExn (mk_id mn cn) ∉ st.defined_types  then
-    (st with defined_types := {TypeExn (mk_id mn cn)} ∪ st.defined_types, Rval <| v := eEmpty; c := eSing cn (LENGTH ts, TypeExn (mk_id mn cn)) |>)
+    (st with defined_types := {TypeExn (mk_id mn cn)} ∪ st.defined_types, Rval <| v := nsEmpty; c := nsSing cn (LENGTH ts, TypeExn (mk_id mn cn)) |>)
   else
     (st, Rerr (Rabort Rtype_error)))`;
 
 val run_eval_decs_def = Define `
-(run_eval_decs mn env st [] = (st,  Rval <| v := eEmpty; c := eEmpty |>)) ∧
+(run_eval_decs mn env st [] = (st,  Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_decs mn env st (d::ds) =
   case run_eval_dec mn env st d of
       (st', Rval env') =>
@@ -356,14 +356,14 @@ val run_eval_top_def = Define `
   if [mn] ∉ st.defined_mods ∧ no_dup_types ds then
     case run_eval_decs [mn] env st ds of
          (st', Rval env') =>
-           (st' with defined_mods := {[mn]} ∪ st'.defined_mods, Rval <| v := eLift mn env'.v; c := eLift mn env'.c |>)
+           (st' with defined_mods := {[mn]} ∪ st'.defined_mods, Rval <| v := nsLift mn env'.v; c := nsLift mn env'.c |>)
        | (st', Rerr err) =>
            (st' with defined_mods := {[mn]} ∪ st'.defined_mods, Rerr err)
   else
     (st, Rerr (Rabort Rtype_error)))`;
 
 val run_eval_prog_def = Define `
-(run_eval_prog env st [] = (st, Rval <| v := eEmpty; c := eEmpty |>)) ∧
+(run_eval_prog env st [] = (st, Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_prog env st (top::prog) =
   case run_eval_top env st top of
        (st', Rval env') =>

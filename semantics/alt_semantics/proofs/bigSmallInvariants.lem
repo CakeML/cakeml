@@ -1,6 +1,6 @@
 open import Pervasives
 open import Lib
-open import Environment
+open import Namespace
 open import Ast
 open import SemanticPrimitives
 open import SmallStep
@@ -111,7 +111,7 @@ evaluate_ctxt env s (Cmat () pes err_v) v bv
 and
 
 lt : forall env n e2 v bv s.
-evaluate false <| env with v = eOptBind n v env.v |> s e2 bv
+evaluate false <| env with v = nsOptBind n v env.v |> s e2 bv
 ==>
 evaluate_ctxt env s (Clet n () e2) v bv
 
