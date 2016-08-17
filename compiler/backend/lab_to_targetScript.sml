@@ -221,15 +221,15 @@ val add_nop_def = Define `
   (add_nop nop ((Label l1 l2 len)::xs) =
     (Label l1 l2 len)::add_nop nop xs) /\
   (add_nop nop ((Asm x bytes len)::xs) =
-    Asm x (bytes ++ [nop]) (len+1) :: xs) /\
+    Asm x (bytes ++ nop) (len+1) :: xs) /\
   (add_nop nop ((LabAsm y w bytes len)::xs) =
-    LabAsm y w (bytes ++ [nop]) (len+1) :: xs)`;
+    LabAsm y w (bytes ++ nop) (len+1) :: xs)`;
 
 val pad_section_def = Define `
   (pad_section nop [] aux = REVERSE aux) /\
   (pad_section nop ((Label l1 l2 len)::xs) aux =
      pad_section nop xs ((Label l1 l2 0)::
-     if len = 0 then aux else add_nop (HD nop) aux)) /\
+     if len = 0 then aux else add_nop nop aux)) /\
   (pad_section nop ((Asm x bytes len)::xs) aux =
      pad_section nop xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
   (pad_section nop ((LabAsm y w bytes len)::xs) aux =

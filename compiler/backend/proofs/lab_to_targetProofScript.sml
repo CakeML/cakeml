@@ -2139,7 +2139,7 @@ val line_similar_pad_section = Q.store_thm("line_similar_pad_section",
    drule LIST_REL_APPEND_IMP >>
    rw[]
    >-
-     (`LIST_REL line_similar aux (add_nop (HD nop) aux)` by
+     (`LIST_REL line_similar aux (add_nop nop aux)` by
        (match_mp_tac line_similar_add_nop>>
        match_mp_tac EVERY2_refl>>
        fs[line_similar_refl])>>
@@ -3054,7 +3054,7 @@ val line_length_add_nop1 = Q.store_thm("line_length_add_nop1",
   `∀nop ls.
    ¬EVERY is_Label ls ⇒
    SUM (MAP line_length (add_nop nop ls)) =
-   SUM (MAP line_length ls) + 1`,
+   SUM (MAP line_length ls) + LENGTH nop`,
   ho_match_mp_tac add_nop_ind
   \\ rw[add_nop_def,line_length_def]);
 
@@ -3253,7 +3253,7 @@ val _ = export_rewrites["sec_aligned_def"];
 
 val line_length_pad_section1 = Q.store_thm("line_length_pad_section1",
   `∀nop ls acc.
-   0 < LENGTH nop ∧
+   LENGTH nop = 1 ∧
    EVERY label_one ls ∧
    EVERY line_length_leq ls ∧
    ¬EVERY is_Label acc ∧
@@ -3319,7 +3319,7 @@ val label_prefix_zero_cons = Q.store_thm("label_prefix_zero_cons",
 
 val line_length_pad_section = Q.store_thm("line_length_pad_section",
   `∀nop ls acc.
-   0 < LENGTH nop ∧
+   LENGTH nop = 1 ∧
    EVERY label_one ls ∧
    EVERY line_length_leq ls ∧
    SUM (MAP line_length acc) = SUM (MAP line_len acc) ∧
@@ -3539,7 +3539,7 @@ val lines_enc_with_nop_add_nop = Q.store_thm("lines_enc_with_nop_add_nop",
     LENGTH (enc (Inst Skip)) = 1 ∧
     lines_enc_with_nop enc labs pos (REVERSE ls) ⇒
     lines_enc_with_nop enc labs pos
-      (REVERSE (add_nop (HD (enc (Inst Skip))) ls))`,
+      (REVERSE (add_nop (enc (Inst Skip)) ls))`,
   Induct_on`ls`
   \\ rw[lines_enc_with_nop_def,add_nop_def]
   \\ simp[add_nop_append,REVERSE_APPEND,lines_enc_with_nop_append,lines_enc_with_nop_def]
@@ -3670,6 +3670,20 @@ val lines_enc_with_nop_pad_section0 = Q.store_thm("lines_enc_with_nop_pad_sectio
   \\ fs[MAP_REVERSE,SUM_REVERSE]
   \\ match_mp_tac enc_with_nop_pad_bytes \\ fs[]);
 
+val label_zero_line_length_pad_section = Q.store_thm("label_zero_line_length_pad_section",
+  `∀nop ls acc.
+   0 < LENGTH nop ∧
+   EVERY label_zero ls ∧
+   MAP line_length acc = MAP line_len acc ∧
+   EVERY line_length_leq ls
+   ⇒
+   MAP line_length (pad_section nop ls acc) =
+   MAP line_len (REVERSE acc ++ ls)`,
+  recInduct pad_section_ind
+  \\ rw[pad_section_def,line_length_def,MAP_REVERSE]
+  \\ fs[pad_section_def]
+  \\ fs[LENGTH_pad_bytes]);
+
 val all_enc_with_nop_pad_code = Q.store_thm("all_enc_with_nop_pad_code",
   `∀nop code pos.
    0 < LENGTH nop ∧ nop = enc (Inst Skip) ∧
@@ -3684,8 +3698,12 @@ val all_enc_with_nop_pad_code = Q.store_thm("all_enc_with_nop_pad_code",
   \\ fs[]
   >- (
     first_x_assum match_mp_tac
-    \\ qspecl_then[`enc (Inst Skip)`,`xs`,`[]`]mp_tac line_length_pad_section
-    \\ simp[] )
+    \\ fs[sec_label_zero_def]
+    \\ Cases_on`LENGTH (enc (Inst Skip)) = 1`
+    >- (
+      qspecl_then[`enc (Inst Skip)`,`xs`,`[]`]mp_tac line_length_pad_section
+      \\ simp[] )
+    \\ fs[label_zero_line_length_pad_section])
   \\ Cases_on`LENGTH (enc (Inst Skip)) = 1`
   >- (
     match_mp_tac lines_enc_with_nop_pad_section
