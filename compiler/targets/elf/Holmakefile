@@ -1,1 +1,1 @@
-INCLUDES=elf_lem_lib
+INCLUDES=../../../lem_lib_stub/
