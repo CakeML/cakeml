@@ -10,7 +10,7 @@ val () = new_theory "x64_eval_encode"
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
-  val l = Drule.CONJUNCTS x64_enc_def
+  val l = Drule.CONJUNCTS x64_enc0_def
   val thm =  Q.SPEC `f` boolTheory.LET_THM
 in
   val enc_rwts = [encode_def, e_rm_reg_def, e_gen_rm_reg_def, e_ModRM_def]
@@ -47,7 +47,7 @@ in
           mk_let_thm `(rex_prefix (v || 8w),1w: word8)`,
           mk_let_thm `n2w (Zreg2num (num2Zreg r1)) : word4`,
           e_opsize_def, th] @ enc_rwts)
-        (List.nth (Drule.CONJUNCTS x64_enc_def, 2))
+        (List.nth (Drule.CONJUNCTS x64_enc0_def, 2))
 end
 
 val binop_imm_rwt = enc_thm 3 [not_byte_def, e_opsize_def]
@@ -102,6 +102,7 @@ val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
     [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, add_carry_rwt,
      load_rwt, load32_rwt, load8_rwt, store_rwt, store32_rwt, store8_rwt,
-     jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
+     jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
+     x64_enc_def])
 
 val () = export_theory ()

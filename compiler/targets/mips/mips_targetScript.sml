@@ -89,6 +89,9 @@ val mips_cmp_def = Define`
 
 val nop = ``Shift (SLL (0w, 0w, 0w))``
 
+val mips_encode_fail_def = Define`
+  mips_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
+
 val mips_enc_def = Define`
    (mips_enc (Inst Skip) = mips_encode ^nop) /\
    (mips_enc (Inst (Const r (i: word64))) =
@@ -112,7 +115,7 @@ val mips_enc_def = Define`
                   ArithI (ORI (n2w r, n2w r, bottom))]) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
        mips_encode (ArithR (mips_bop_r bop (n2w r2, n2w r3, n2w r1)))) /\
-   (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) = []) /\
+   (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
        mips_encode (ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i)))) /\
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
@@ -162,218 +165,6 @@ val mips_enc_def = Define`
             Branch (BLTZAL (0w, 0w));                    (* LR := pc + 12    *)
             ArithI (DADDIU (31w, n2w r, w2w (i - 12w))); (* r := LR - 12 + i *)
             ArithI (ORI (1w, 31w, 0w))]))`               (* LR := $1         *)
-
-val fetch_decode_def = Define`
-   fetch_decode (b0 :: b1 :: b2 :: b3 :: (rest: word8 list)) =
-   (Decode (b0 @@ b1 @@ b2 @@ b3), rest)`
-
-val all_same_def = Define`
-   (all_same (h::t) = EVERY ((=) h) t)`
-
-val when_nop_def = Define`
-   when_nop l (r: 64 asm) = case fetch_decode l of (^nop, _) => r`
-
-val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
-   mips_dec l =
-   case fetch_decode l of
-      (ArithR (SLT (r1, r2, 1w)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Less (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLess (w2n r1) (Reg (w2n r2))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithR (SLTU (r1, r2, 1w)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Lower (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLower (w2n r1) (Reg (w2n r2))
-                          (sw2sw ((a + 2w) << 2)))
-          | (ArithR (DADDU (r3, r4, r5)), rest1) =>
-               (case fetch_decode rest1 of
-                   (ArithR (SLTU (r6, r7, r8)), rest2) =>
-                      (case fetch_decode rest2 of
-                          (ArithR (DADDU (r9, 1w, r10)), rest3) =>
-                             (case fetch_decode rest3 of
-                                 (ArithR (SLTU (r11, 1w, 1w)), rest4) =>
-                                    (case fetch_decode rest4 of
-                                        (ArithR (OR (r12, 1w, r13)), _) =>
-                                           if (r1 = 0w) /\
-                                              (r2 = r8) /\ (r8 = r12) /\
-                                              (r12 = r13) /\
-                                              (r4 = r7) /\
-                                              (r5 = r6) /\ (r6 = r9) /\
-                                              (r9 = r10) /\ (r10 = r11) then
-                                              Inst (Arith
-                                                (AddCarry (w2n r5) (w2n r3)
-                                                   (w2n r4) (w2n r2)))
-                                           else ARB
-                                      | _ => ARB)
-                               | _ => ARB)
-                        | _ => ARB)
-                 | _ => ARB)
-          | _ => ARB)
-    | (ArithR (AND (r1, r2, 1w)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Test (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotTest (w2n r1) (Reg (w2n r2))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (DADDIU (0w, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BEQ (r, 1w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Equal (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BNE (r, 1w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotEqual (w2n r) (Imm (sw2sw i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (ORI (0w, r, i)), _) =>
-        Inst (Const (w2n r) (w2w i : word64))
-    | (ArithI (ADDIU (0w, r, i)), _) =>
-        Inst (Const (w2n r) (sw2sw i : word64))
-    | (ArithI (SLTI (r, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Less (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLess (w2n r) (Imm (sw2sw i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (SLTIU (r, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Lower (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLower (w2n r) (Imm (sw2sw i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (ANDI (r1, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Test (w2n r1) (Imm (w2w i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotTest (w2n r1) (Imm (w2w i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (ORI (31w, 1w, 0w)), rest0) =>
-        (case fetch_decode rest0 of
-            (Branch (BLTZAL (0w, 0w)), rest1) =>
-              (case fetch_decode rest1 of
-                  (ArithI (DADDIU (31w, rr, i)), rest2) =>
-                    (case fetch_decode rest2 of
-                        (ArithI (ORI (1w, 31w, 0w)), _) =>
-                           Loc (w2n rr) (sw2sw i + 12w)
-                      | _ => ARB)
-                | _ => ARB)
-          | _ => ARB)
-    | (ArithI (LUI (r0, i0)), rest0) =>
-        (case fetch_decode rest0 of
-            (ArithI (XORI (r1, r2, i1)), _) =>
-                if all_same [r0; r1; r2] then
-                   Inst (Const (w2n r0) (sw2sw ((i0 @@ i1) : word32)))
-                else
-                   ARB
-          | (ArithI (ORI (r1, r2, i1)), rest1) =>
-              (case fetch_decode rest1 of
-                  (Shift (DSLL (r3, r4, 16w)), rest2) =>
-                    (case fetch_decode rest2 of
-                        (ArithI (ORI (r5, r6, i2)), rest3) =>
-                             (case fetch_decode rest3 of
-                                 (Shift (DSLL (r7, r8, 16w)), rest4) =>
-                                   (case fetch_decode rest4 of
-                                       (ArithI (ORI (r9, r10, i3)), _) =>
-                                          if all_same [r0; r1; r2; r3; r4; r5;
-                                                       r6; r7; r8; r9; r10]
-                                             then Inst (Const (w2n r0)
-                                                         (i0 @@ i1 @@ i2 @@ i3))
-                                          else ARB
-                                     | _ => ARB)
-                               | _ => ARB)
-                      | _ => ARB)
-                | _ => ARB)
-          | _ => ARB)
-    | (ArithR (DADDU (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Add (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (DSUBU (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Sub (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (AND (r1, r2, r3)), _) =>
-        Inst (Arith (Binop And (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (OR (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Or (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (XOR (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Xor (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithI (DADDIU (r1, r2, i)), _) =>
-        Inst (Arith (Binop Add (w2n r2) (w2n r1) (Imm (sw2sw i))))
-    | (ArithI (ANDI (r1, r2, i)), _) =>
-        Inst (Arith (Binop And (w2n r2) (w2n r1) (Imm (w2w i))))
-    | (ArithI (ORI (r1, r2, i)), _) =>
-        Inst (Arith (Binop Or (w2n r2) (w2n r1) (Imm (w2w i))))
-    | (ArithI (XORI (r1, r2, i)), _) =>
-        Inst (Arith (Binop Xor (w2n r2) (w2n r1) (Imm (w2w i))))
-    | (Shift (SLL (0w, 0w, 0w)), _) =>
-        Inst Skip
-    | (Shift (DSLL (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsl (w2n r2) (w2n r1) (w2n n)))
-    | (Shift (DSRL (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsr (w2n r2) (w2n r1) (w2n n)))
-    | (Shift (DSRA (r1, r2, n)), _) =>
-        Inst (Arith (Shift Asr (w2n r2) (w2n r1) (w2n n)))
-    | (Shift (DSLL32 (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsl (w2n r2) (w2n r1) (w2n n + 32)))
-    | (Shift (DSRL32 (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsr (w2n r2) (w2n r1) (w2n n + 32)))
-    | (Shift (DSRA32 (r1, r2, n)), _) =>
-        Inst (Arith (Shift Asr (w2n r2) (w2n r1) (w2n n + 32)))
-    | (Load (LD (r2, r1, a)), _) =>
-        Inst (Mem Load (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Load (LWU (r2, r1, a)), _) =>
-        Inst (Mem Load32 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Load (LBU (r2, r1, a)), _) =>
-        Inst (Mem Load8 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Store (SD (r2, r1, a)), _) =>
-        Inst (Mem Store (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Store (SW (r2, r1, a)), _) =>
-        Inst (Mem Store32 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Store (SB (r2, r1, a)), _) =>
-        Inst (Mem Store8 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Branch (BEQ (r1, r2, a)), rest) =>
-        when_nop rest
-           (let aa = sw2sw ((a + 1w) << 2) in
-               if (r1 = 0w) /\ (r1 = r2) then
-                  Jump aa
-               else
-                  JumpCmp Equal (w2n r1) (Reg (w2n r2)) aa)
-    | (Branch (BNE (r1, r2, a)), rest) =>
-        when_nop rest
-           (JumpCmp NotEqual (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 1w) << 2)))
-    | (Branch (BGEZAL (0w, a)), rest) =>
-        when_nop rest (Call (sw2sw ((a + 1w) << 2)))
-    | (Branch (BLTZAL (0w, 0w)), rest) =>
-        (case fetch_decode rest of
-             (ArithI (DADDIU (31w, 31w, i)), rest2) =>
-            Loc 31 (sw2sw i + 8w)
-          | _ => ARB)
-    | (Branch (JR r), rest) =>
-        when_nop rest (JumpReg (w2n r))
-    | _ => ARB`
 
 (* --- Configuration for MIPS --- *)
 

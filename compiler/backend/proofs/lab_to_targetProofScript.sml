@@ -2286,7 +2286,8 @@ val line_ok_alignment = Q.store_thm("line_ok_alignment",
   ho_match_mp_tac line_ok_ind
   \\ srw_tac[][line_ok_def,line_length_def,LET_THM]
   \\ full_simp_tac(srw_ss())[enc_ok_def]
-  \\ first_x_assum drule
+  \\ rename1 `asm_ok b c`
+  \\ qpat_x_assum `!w. xxx /\ yyy` (qspec_then `b` mp_tac)
   \\ full_simp_tac(srw_ss())[enc_with_nop_thm]
   \\ rveq >> full_simp_tac(srw_ss())[]
   \\ srw_tac[][]

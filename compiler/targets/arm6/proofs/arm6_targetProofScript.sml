@@ -419,9 +419,6 @@ val enc_ok_rwts =
    [asmPropsTheory.enc_ok_def, arm6_config_def] @
    encode_rwts @ asmLib.asm_ok_rwts
 
-val dec_rwts =
-   [arm6_dec_def, decode_word_def, SetPassCondition, fetch_word_def]
-
 (* some custom tactics ---------------------------------------------------- *)
 
 val bytes_in_memory_thm = Q.prove(
@@ -481,28 +478,7 @@ local
       in
          (Q.INST [`s` |-> state] o Drule.DISCH_ALL o step6) (x, v)
       end
-   val dec6 = arm_stepLib.arm_decode (arm_configLib.mk_config_terms "v6")
-   val arm_state_rule =
-      REWRITE_RULE (utilsLib.datatype_rewrites true "arm" ["arm_state", "PSR"])
-   fun dec x (tm,st) =
-      let
-         val l = listSyntax.mk_list (boolify 32 tm, Type.bool)
-         val w = bitstringSyntax.mk_v2w (l, fcpSyntax.mk_int_numeric_type 32)
-         val th1 = blastLib.BBLAST_PROVE (boolSyntax.mk_eq (w, tm))
-      in
-         (x, l) |> dec6 |> hd
-                |> Drule.DISCH_ALL
-                |> Thm.INST [``s: arm_state`` |-> st]
-                |> arm_state_rule
-                |> REWRITE_RULE [th1]
-      end
    val (_, _, dest_DecodeARM, is_DecodeARM) = arm_op2 "DecodeARM"
-   val find_DecodeARM =
-      HolKernel.bvk_find_term (is_DecodeARM o snd) dest_DecodeARM
-   val is_target_op = #4 o HolKernel.syntax_fns1 "arm6_target"
-   val is_decode_word = is_target_op "decode_word"
-   val is_arm6_dec = is_target_op "arm6_dec"
-   fun is_decode t = is_arm6_dec t orelse is_decode_word t orelse is_DecodeARM t
    val is_arm6_next = #4 (HolKernel.syntax_fns1 "arm6_target" "arm6_next")
    val arm6_next =
      Drule.GEN_ALL (Thm.AP_THM arm6_targetTheory.arm6_next_def ``s:arm_state``)
@@ -561,33 +537,6 @@ local
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 in
-   fun has_decode_tac (x as (_, g)) =
-      if Lib.can (HolKernel.find_term is_decode) g then
-         ALL_TAC x
-      else NO_TAC x
-   fun decode1_tac (asl, g) =
-      (case find_DecodeARM g of
-         (*
-           val SOME tms = find_DecodeARM (snd (top_goal()))
-         *)
-          SOME tms =>
-           let
-              val dec_thm =
-                dec [true] tms handle HOL_ERR _ => dec [true, false] tms
-              val dec_thm =
-                if utilsLib.vacuous dec_thm then dec [false, true] tms
-                else dec_thm
-           in
-              asm_simp_tac (srw_ss())
-                [dec_thm, lem2, lem3, arm6_dec_aux_def, decode_imm12_def,
-                 ARMExpandImm_C_rwt, armTheory.DecodeImmShift_def]
-              \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-              \\ lfs [lem2, lem3, lem4, decode_some_encode_immediate,
-                      decode_imm_thm, decode_imm12_thm,
-                      arm6_bop_dec_def, arm6_cmp_dec_def, arm6_sh_dec_def,
-                      arm_stepTheory.Aligned]
-           end
-        | NONE => NO_TAC) (asl, g)
    val next_state_tac =
      next_state_tac0 [true]
      ORELSE next_state_tac0 [true, false]
@@ -688,7 +637,7 @@ local
              )
          \\ NTAC j next_state_tac
          \\ REPEAT (Q.PAT_X_ASSUM `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (qpat_x_assum `a IN s1.mem_domain` kall_tac)
+         \\ REPEAT (qpat_x_assum `qqq IN s1.mem_domain` kall_tac)
          \\ REPEAT (Q.PAT_X_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
          \\ state_tac
@@ -758,51 +707,20 @@ in
            alignmentTheory.aligned_add_sub, aligned_add]
 end
 
-local
-   val is_SetPassCondition = #4 (arm_op2 "SetPassCondition")
-   val cnv =
-      Conv.RATOR_CONV
-         (Conv.RAND_CONV
-            (QCONV (SIMP_CONV (srw_ss()++wordsLib.WORD_EXTRACT_ss) [])))
-      THENC SIMP_CONV (srw_ss()) [SetPassCondition]
-   fun SetPassCondition_CONV tm =
-      if is_SetPassCondition tm
-         then cnv tm
-      else raise ERR "SetPassCondition_CONV" ""
-   val SetPassCondition_tac =
-      CONV_TAC (Conv.ONCE_DEPTH_CONV SetPassCondition_CONV)
-      \\ simp_tac std_ss []
-in
-  val decode_tac =
-     simp enc_rwts
-     \\ REPEAT strip_tac
-     \\ REPEAT
-         (has_decode_tac
-          \\ simp dec_rwts
-          \\ SetPassCondition_tac
-          \\ decode1_tac
-          \\ simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss)
-               [lem18, lem19, arm6_cmp_dec_def]
-         )
-     \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) [alignmentTheory.aligned_extract]
-     \\ rw []
-     \\ blastLib.FULL_BBLAST_TAC
-end
-
-val enc_ok_tac = full_simp_tac (srw_ss()++boolSimps.LET_ss) enc_ok_rwts
+val enc_tac =
+  simp (arm6_encode_fail_def :: enc_rwts)
+  \\ REPEAT (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`
+             \\ Cases_on `b`
+             \\ simp [])
 
 (* -------------------------------------------------------------------------
-   arm6_asm_deterministic
-   arm6_backend_correct
+   arm6 backend_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "encode"
 
-val arm6_encoding = Count.apply Q.prove (
-   `!i. asm_ok i arm6_config ==>
-        let l = arm6_enc i in
-        let n = LENGTH l in
-           (!x. arm6_dec (l ++ x) = i) /\ (n MOD 4 = 0) /\ n <> 0`,
+val arm6_encoding = Q.prove (
+   `!i. let n = LENGTH (arm6_enc i) in (n MOD 4 = 0) /\ n <> 0`,
    Cases
    >- (
       (*--------------
@@ -814,7 +732,7 @@ val arm6_encoding = Count.apply Q.prove (
              Skip
            --------------*)
          print_tac "Skip"
-         \\ decode_tac
+         \\ enc_tac
          )
       >- (
          (*--------------
@@ -822,10 +740,10 @@ val arm6_encoding = Count.apply Q.prove (
            --------------*)
          print_tac "Const"
          \\ REVERSE (Cases_on `EncodeARMImmediate c`)
-         >- decode_tac
+         >- enc_tac
          \\ REVERSE (Cases_on `EncodeARMImmediate ~c`)
-         >- (imp_res_tac decode_some_encode_neg_immediate \\ decode_tac)
-         \\ decode_tac
+         >- (imp_res_tac decode_some_encode_neg_immediate \\ enc_tac)
+         \\ enc_tac
          )
       >- (
          (*--------------
@@ -839,7 +757,7 @@ val arm6_encoding = Count.apply Q.prove (
             print_tac "Binop"
             \\ Cases_on `r`
             \\ Cases_on `b`
-            \\ decode_tac
+            \\ enc_tac
             )
          >- (
             (*--------------
@@ -847,26 +765,26 @@ val arm6_encoding = Count.apply Q.prove (
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
-            \\ decode_tac
+            \\ enc_tac
             )
             (*--------------
                 AddCarry
               --------------*)
             \\ print_tac "AddCarry"
-            \\ decode_tac
+            \\ enc_tac
          )
       \\ print_tac "Mem"
       \\ Cases_on `a`
       \\ Cases_on `m`
       \\ Cases_on `0w <= c`
-      \\ decode_tac
+      \\ enc_tac
       )
       (*--------------
           Jump
         --------------*)
    >- (
       print_tac "Jump"
-      \\ decode_tac
+      \\ enc_tac
       )
    >- (
       (*--------------
@@ -875,21 +793,21 @@ val arm6_encoding = Count.apply Q.prove (
       print_tac "JumpCmp"
       \\ Cases_on `r`
       \\ Cases_on `c`
-      \\ decode_tac
+      \\ enc_tac
       )
       (*--------------
           Call
         --------------*)
    >- (
       print_tac "Call"
-      \\ decode_tac
+      \\ enc_tac
       )
    >- (
       (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
-      \\ decode_tac
+      \\ enc_tac
       )
       (*--------------
           Loc
@@ -900,12 +818,11 @@ val arm6_encoding = Count.apply Q.prove (
         Cases_on `c + 0xFFFFFFF8w <+ 256w`,
         Cases_on `-1w * c + 0x8w <+ 256w`
    ]
-   \\ decode_tac
+   \\ enc_tac
    )
 
 val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding ::
-   enc_ok_rwts
+  SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm6_encoding :: enc_ok_rwts
 
 val print_tac = asmLib.print_tac "correct"
 

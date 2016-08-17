@@ -67,43 +67,43 @@ val x64_encode_jcc_def = Define`
         [0x0Fw; 0x80w || n2w (Zcond2num cond)] ++ e_imm32 a`;
 
 val x64_enc_def = Define`
-   (x64_enc (Inst Skip) = x64$encode Znop) /\
-   (x64_enc (Inst (Const r i)) =
+   (x64_enc0 (Inst Skip) = x64$encode Znop) /\
+   (x64_enc0 (Inst (Const r i)) =
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64 in
       x64$encode (Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i)))) /\
-   (x64_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
+   (x64_enc0 (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       let a = (Z64, Zrm_r (reg r1, total_num2Zreg r3)) in
         x64$encode
           (if (bop = Or) /\ (r2 = r3) then Zmov (Z_ALWAYS, a)
            else Zbinop (x64_bop bop, a))) /\
-   (x64_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
+   (x64_enc0 (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
        x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
-   (x64_enc (Inst (Arith (Shift sh r1 r2 n))) =
+   (x64_enc0 (Inst (Arith (Shift sh r1 r2 n))) =
        x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r1, n2w n)))) /\
-   (x64_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+   (x64_enc0 (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        x64$encode (Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w))) ++
        x64$encode Zcmc ++
        x64$encode (Zbinop (Zadc, Z64, Zrm_r (reg r1, total_num2Zreg r3))) ++
        x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r4, 0w))) ++
        x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
-   (x64_enc (Inst (Mem Load r1 (Addr r2 a))) =
+   (x64_enc0 (Inst (Mem Load r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, ld r1 r2 a))) /\
-   (x64_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
+   (x64_enc0 (Inst (Mem Load32 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z32, ld r1 r2 a))) /\
-   (x64_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
+   (x64_enc0 (Inst (Mem Load8 r1 (Addr r2 a))) =
        x64$encode (Zmovzx (Z8 T, ld r1 r2 a, Z64))) /\
-   (x64_enc (Inst (Mem Store r1 (Addr r2 a))) =
+   (x64_enc0 (Inst (Mem Store r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, st r1 r2 a))) /\
-   (x64_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
+   (x64_enc0 (Inst (Mem Store32 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z32, st r1 r2 a))) /\
-   (x64_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
+   (x64_enc0 (Inst (Mem Store8 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a))) /\
-   (x64_enc (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
-   (x64_enc (JumpCmp cmp r1 (Reg r2) a) =
+   (x64_enc0 (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
+   (x64_enc0 (JumpCmp cmp r1 (Reg r2) a) =
        x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
                            Zrm_r (reg r1, total_num2Zreg r2))) ++
        x64_encode_jcc (x64_cmp cmp) (a - 9w)) /\
-   (x64_enc (JumpCmp cmp r (Imm i) a) =
+   (x64_enc0 (JumpCmp cmp r (Imm i) a) =
        let width =
           if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
              10w
@@ -115,108 +115,16 @@ val x64_enc_def = Define`
           x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
                               Zrm_i (reg r, i))) ++
           x64_encode_jcc (x64_cmp cmp) (a - width)) /\
-   (x64_enc (Call _) = []) /\
-   (x64_enc (JumpReg r) = x64$encode (Zjmp (reg r))) /\
-   (x64_enc (Loc r i) =
+   (x64_enc0 (Call _) = []) /\
+   (x64_enc0 (JumpReg r) = x64$encode (Zjmp (reg r))) /\
+   (x64_enc0 (Loc r i) =
       x64$encode
         (Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))))`
 
-val x64_bop_dec_def = Define`
-   (x64_bop_dec Zadd = INL Add) /\
-   (x64_bop_dec Zsub = INL Sub) /\
-   (x64_bop_dec Zand = INL And) /\
-   (x64_bop_dec Zor  = INL Or) /\
-   (x64_bop_dec Zxor = INL Xor) /\
-   (x64_bop_dec Zshl = INR Lsl) /\
-   (x64_bop_dec Zshr = INR Lsr) /\
-   (x64_bop_dec Zsar = INR Asr)`
+val x64_dec_fail_def = zDefine `x64_dec_fail = [0w: word8]`
 
-val x64_cmp_dec_def = Define`
-   (x64_cmp_dec (Ztest, Z_E) = Test) /\
-   (x64_cmp_dec (Zcmp,  Z_L) = Less) /\
-   (x64_cmp_dec (Zcmp,  Z_B) = Lower) /\
-   (x64_cmp_dec (Zcmp,  Z_E) = Equal) /\
-   (x64_cmp_dec (Ztest, Z_NE) = NotTest) /\
-   (x64_cmp_dec (Zcmp,  Z_NL) = NotLess) /\
-   (x64_cmp_dec (Zcmp,  Z_NB) = NotLower) /\
-   (x64_cmp_dec (Zcmp,  Z_NE) = NotEqual)`
-
-val fetch_decode_def = Define`
-   fetch_decode l =
-   case x64_decode (TAKE 20 l) of
-      Zfull_inst (_, i, SOME r) => (i, r ++ DROP 20 l)
-    | _ => ARB`
-
-val x64_dec_def = Define`
-   x64_dec l =
-   case fetch_decode l of
-      (Znop, _) => Inst Skip
-    | (Zmov (Z_ALWAYS, _, Zrm_i (Zr r, i)), _) => Inst (Const (Zreg2num r) i)
-    | (Zmov (Z_ALWAYS, Z64, Zrm_r (Zr r1, r2)), _) =>
-         let r2 = Zreg2num r2 in
-            Inst (Arith (Binop Or (Zreg2num r1) r2 (Reg r2)))
-    | (Zmov (Z_ALWAYS, sz, Zr_rm (r1, Zm (NONE, ZregBase r2, a))), _) =>
-         Inst (Mem (if sz = Z64 then Load else Load32) (Zreg2num r1)
-                   (Addr (Zreg2num r2) a))
-    | (Zmovzx (Z8 T, Zr_rm (r1, Zm (NONE, ZregBase r2, a)), Z64), _) =>
-         Inst (Mem Load8 (Zreg2num r1) (Addr (Zreg2num r2) a))
-    | (Zmov (Z_ALWAYS, sz, Zrm_r (Zm (NONE, ZregBase r2, a), r1)), _) =>
-         Inst (Mem (case sz of Z64 => Store | Z32 => Store32 | _ => Store8)
-                   (Zreg2num r1) (Addr (Zreg2num r2) a))
-    | (Zbinop (bop, Z64, Zrm_r (Zr r1, r2)), rest) =>
-         let r1 = Zreg2num r1 and r2 = Zreg2num r2 in
-            if (bop = Ztest) \/ (bop = Zcmp) then
-               (case fetch_decode rest of
-                   (Zjcc (c, a), _) =>
-                       JumpCmp (x64_cmp_dec (bop, c)) r1 (Reg r2) (a + 9w)
-                 | _ => ARB)
-            else
-               (case x64_bop_dec bop of
-                   INL b => Inst (Arith (Binop b r1 r1 (Reg r2)))
-                 | _ => ARB)
-    | (Zbinop (bop, Z64, Zrm_i (Zr r1, n)), rest) =>
-         let r1 = Zreg2num r1 in
-            if (bop = Ztest) \/ (bop = Zcmp) then
-               (case fetch_decode rest of
-                   (Zjcc (c, a), _) =>
-                      let cmp = x64_cmp_dec (bop, c) in
-                      let w = if ~is_test cmp /\
-                                 0xFFFFFFFFFFFFFF80w <= n /\ n <= 0x7Fw then
-                                 10w
-                              else if r1 = 0 then 12w else 13w
-                      in
-                         JumpCmp cmp r1 (Imm n) (a + w)
-                 | (Zcmc, rest2) =>
-                    (case fetch_decode rest2 of
-                        (Zbinop (Zadc, Z64, Zrm_r (Zr r2, r3)), rest3) =>
-                           (case fetch_decode rest3 of
-                               (Zmov (Z_ALWAYS, Z32, Zrm_i (Zr r4, 0w)),
-                                rest4) =>
-                                  (case fetch_decode rest4 of
-                                      (Zbinop
-                                        (Zadc, Z64, Zrm_i (Zr r5, 0w)), _) =>
-                                          let r2 = Zreg2num r2
-                                          and r3 = Zreg2num r3
-                                          in
-                                          if (bop = Zcmp) /\ (n = 1w) /\
-                                             (r5 = r4) /\ (Zreg2num r4 = r1)
-                                             then Inst
-                                                    (Arith
-                                                      (AddCarry r2 r2 r3 r1))
-                                          else ARB
-                                    | _ => ARB)
-                             | _ => ARB)
-                      | _ => ARB)
-                 | _ => ARB)
-            else
-               (case x64_bop_dec bop of
-                   INL b => Inst (Arith (Binop b r1 r1 (Imm n)))
-                 | INR b => Inst (Arith (Shift b r1 r1 (w2n n))))
-    | (Zjcc (Z_ALWAYS, a), _) => Jump (a + 5w)
-    | (Zjmp (Zr r), _) => JumpReg (Zreg2num r)
-    | (Zlea (Z64, Zr_rm (r, Zm (NONE, (ZripBase, i)))), _) =>
-         Loc (Zreg2num r) (i + 7w)
-    | _ => ARB`
+val x64_enc_def = Define`
+  x64_enc i = case x64_enc0 i of [] => x64_dec_fail | l => l`
 
 (* --- Configuration for x86-64 --- *)
 
