@@ -658,6 +658,11 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
+val io_test = full_compileProgTheory.entire_program_def |> concl |> rand
+
+val benchmarks = [io_test] (* fails due to "different length lists"
+                              in "zip" from Lib *)
+
 val benchmarks = [foldl,reverse,fib,btree,queue,qsort]
 val names = ["foldl","reverse","fib","btree","queue","qsort"]
 val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
