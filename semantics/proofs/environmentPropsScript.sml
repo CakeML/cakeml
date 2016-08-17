@@ -5,6 +5,14 @@ open terminationTheory;
 
 val _ = new_theory "environmentProps";
 
+val mk_id_11 = Q.store_thm("mk_id_11[simp]",
+  `!a b c d. mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
+ Induct_on `a`
+ >> Cases_on `c`
+ >> rw [mk_id_def]
+ >> metis_tac []);
+
+
 (* ----------- Monotonicity for Hol_reln ------------ *)
 
 val eAll_mono = Q.store_thm ("eAll_mono[mono]",
@@ -417,9 +425,9 @@ val alistSub_cong = Q.store_thm ("alistSub_cong",
 
 val _ = DefnBase.export_cong "alistSub_cong";
 
-val eSubEnv_compute_def = tDefine "envSub_compute" `
+val eSubEnv_compute_def = tDefine "eSubEnv_compute" `
   eSubEnv_compute path R (Bind e1V e1M) (Bind e2V e2M) ⇔
-    alistSub (\k v1 v2. R (mk_id path k) v1 v2) e1V e2V ∧
+    alistSub (\k v1 v2. R (mk_id (REVERSE path) k) v1 v2) e1V e2V ∧
     alistSub (\k v1 v2. eSubEnv_compute (k::path) R v1 v2) e1M e2M`
  (wf_rel_tac `measure (\(p,r,env,_). environment_size (\x.0) (\x.0) env)`
  >> rw []
@@ -431,29 +439,126 @@ val eSubEnv_compute_def = tDefine "envSub_compute" `
  >> fs []
  >> rw [environment_size_def]);
 
- (*
+val eLookup_FOLDR_eLift = Q.store_thm ("eLookup_FOLDR_eLift",
+  `!e p k. eLookup (FOLDR eLift e p) (mk_id p k) = eLookup e (Short k)`,
+ Induct_on `p`
+ >> rw [mk_id_def, eLookup_def, eLift_def]);
+
+val mk_id_thm = Q.store_thm ("mk_id_thm",
+  `!id. mk_id (id_to_mods id) (id_to_n id) = id`,
+ Induct_on `id`
+ >> rw [id_to_mods_def, id_to_n_def, mk_id_def]);
+
+val eLookup_FOLDR_eLift_some = Q.store_thm ("eLookup_FOLDR_eLift_some",
+  `!e p id v.
+    eLookup (FOLDR eLift e p) id = SOME v ⇔
+    (p = [] ∧ eLookup e id = SOME v) ∨
+    (p ≠ [] ∧ ?p2 n. id = mk_id (p++p2) n ∧ eLookup e (mk_id p2 n) = SOME v)`,
+ Induct_on `p`
+ >> rw [eLift_def]
+ >> Cases_on `id`
+ >> rw [eLookup_def, mk_id_def]
+ >> Cases_on `p`
+ >> rw []
+ >> eq_tac
+ >> rw []
+ >> rw []
+ >> qexists_tac `id_to_mods i`
+ >> qexists_tac `id_to_n i`
+ >> rw [mk_id_thm]);
+
+val eLookupMod_FOLDR_eLift_none = Q.store_thm ("eLookupMod_FOLDR_eLift_none",
+  `!e p1 p2. eLookupMod (FOLDR eLift e p1) p2 = NONE ⇔
+    (IS_PREFIX p1 p2 ∨ IS_PREFIX p2 p1) ⇒
+    ?p3. p2 = p1++p3 ∧ eLookupMod e p3 = NONE`,
+ Induct_on `p1`
+ >> rw [eLift_def]
+ >> Cases_on `p2`
+ >> rw [eLookupMod_def, mk_id_def]);
+
 val eSubEnv_compute_thm = Q.store_thm ("envSub_compute_thm",
   `!p R e1 e2.
-    eSubEnv (\id v1 v2. R (mk_id (p++id_to_mods id) (id_to_n id)) v1 v2) e1 e2 ⇔
+    eSubEnv R (FOLDR eLift e1 (REVERSE p)) (FOLDR eLift e2 (REVERSE p)) ⇔
     eSubEnv_compute p R e1 e2`,
-
  ho_match_mp_tac (theorem "eSubEnv_compute_ind")
  >> rw [eSubEnv_def, eSubEnv_compute_def, alistSub_def, alist_rel_restr_thm, eLookup_def]
  >> eq_tac
  >> rw []
  >- (
-   last_x_assum (qspec_then `mk_id [] k` mp_tac)
-   >> rw [mk_id_def, eLookup_def, id_to_mods_def, id_to_n_def]
-   >> metis_tac [option_nchotomy, ALOOKUP_NONE])
- 
+   `?v1. ALOOKUP e1V k = SOME v1` by metis_tac [option_nchotomy, ALOOKUP_NONE]
+   >> last_x_assum (qspec_then `mk_id (REVERSE p) k` mp_tac)
+   >> simp [eLookup_FOLDR_eLift, eLookup_def])
  >- (
-   last_x_assum (qspec_then `k::p` mp_tac)
-   >> rw [eLookupMod_def]
-   >> `?v1. ALOOKUP e1M k = SOME v1` by metis_tac [option_nchotomy, ALOOKUP_NONE]
+   `?v1. ALOOKUP e1M k = SOME v1` by metis_tac [option_nchotomy, ALOOKUP_NONE]
+   >> last_assum (qspec_then `REVERSE (k::p)` assume_tac)
+   >> fs [eLookupMod_FOLDR_eLift, eLookupMod_def]
+   >> every_case_tac
    >> fs []
+   >> first_x_assum drule
+   >> disch_then drule
+   >> disch_then (strip_assume_tac o GSYM)
+   >> simp []
+   >> pop_assum kall_tac
+   >> rw []
+   >- (
+     fs [eLookup_FOLDR_eLift_some]
+     >> first_x_assum (qspec_then `mk_id (REVERSE p++[k]++p2) n` mp_tac)
+     >> Cases_on `p=[]`
+     >> simp [eLookup_def, mk_id_def])
+   >- (
+     fs [eLookupMod_FOLDR_eLift_none]
+     >> rw []
+     >> fs []
+     >> rw []
+     >- (
+       `p3 = []` by cheat
+       >> fs [eLookupMod_def])
+     >> last_x_assum (qspec_then `REVERSE p++[k]++p3` mp_tac)
+     >> rw []
+     >> fs [eLookupMod_def]
+     >> every_case_tac
+     >> fs []
+     >> rw []
+     >> metis_tac [IS_PREFIX_APPEND3, APPEND_ASSOC]))
+ >> cheat);
+
+(*
  >- (
    Cases_on `id`
    >> fs [eLookup_def, id_to_n_def, id_to_mods_def]
+   >- (
+     drule ALOOKUP_MEM
+     >> rw []
+     >> fs [MEM_MAP, PULL_EXISTS]
+     >> first_x_assum drule
+     >> simp [])
+   >> every_case_tac
+   >> fs []
+   >> drule ALOOKUP_MEM
+   >> strip_tac
+   >> fs [MEM_MAP, PULL_EXISTS]
+   >> first_x_assum drule
+   >> fs []
+   >> first_x_assum drule
+   >> disch_then drule
+   >> disch_then (strip_assume_tac o GSYM)
+   >> simp []
+   >> rw []
+   >> first_x_assum drule
+   >> rw []
+   >> full_simp_tac std_ss [GSYM APPEND_ASSOC, APPEND])
+
+ >- (
+   Cases_on `path`
+   >> fs [eLookupMod_def]
+   >> every_case_tac
+   >> fs []
+   >> drule ALOOKUP_MEM
+   >> rw []
+   >- (
+     fs [MEM_MAP, PULL_EXISTS]
+     >> first_x_assum drule
+     >> \r
 
  >> fs [eLookup_def]
  *)

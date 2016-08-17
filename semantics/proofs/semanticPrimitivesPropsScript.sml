@@ -22,13 +22,6 @@ val with_same_clock = Q.store_thm("with_same_clock",
   `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
   rw[semanticPrimitivesTheory.state_component_equality])
 
-val mk_id_11 = Q.store_thm("mk_id_11[simp]",
-  `!a b c d. mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
- Induct_on `a`
- >> Cases_on `c`
- >> rw [mk_id_def]
- >> metis_tac []);
-
 val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,srw_tac[][Boolv_def]);
 
 val extend_dec_env_assoc = Q.store_thm ("extend_dec_env_assoc[simp]",
