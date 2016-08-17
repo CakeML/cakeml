@@ -148,7 +148,7 @@ val _ = Define `
         )
     )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn natural_of_decimal_string_helper_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn natural_of_decimal_string_helper_defn;
 
 (*val natural_of_decimal_string : string -> natural*)
 val _ = Define `
@@ -162,7 +162,7 @@ val _ = Define `
   (if n <( 16:num) then IMPLODE [hex_char_of_nibble n]
     else  STRCAT(hex_string_of_natural (n DIV( 16:num))) (IMPLODE [hex_char_of_nibble (n MOD( 16:num))])))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn hex_string_of_natural_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn hex_string_of_natural_defn;
 
 (*val natural_of_bool : bool -> natural*)
 val _ = Define `
@@ -203,7 +203,7 @@ val _ = Define `
         y::(merge_by comp (x::xs) ys)
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn merge_by_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn merge_by_defn;
 
 (*val sort_by : forall 'a. ('a -> 'a -> ordering) -> list 'a -> list 'a*)
  val sort_by_defn = Hol_defn "sort_by" `
@@ -217,7 +217,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
         merge_by comp (sort_by comp ls) (sort_by comp rs)
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn sort_by_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn sort_by_defn;
 
 (** [mapMaybei f xs] maps a function expecting an index (the position in the list
   * [xs] that it is currently viewing) and producing a [maybe] type across a list.
@@ -236,7 +236,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       )
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn mapMaybei'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn mapMaybei'_defn;
 
 (*val mapMaybei : forall 'a 'b. (natural -> 'a -> maybe 'b) -> list 'a -> list 'b*)
     
@@ -278,7 +278,7 @@ val _ = Define `
             )
     )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn partitionii'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn partitionii'_defn;
 
 (*val filteri : forall 'a. list natural -> list 'a -> list 'a*)
 val _ = Define `
@@ -337,7 +337,7 @@ val _ = Define `
   | (x :: morex, y :: morey, z :: morez) => let more_xyz = (zip3 morex morey morez) in (x, y, z) :: more_xyz
 )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn zip3_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn zip3_defn;
 
 (** [null_byte] is the null character a a byte. *)
 (*val null_byte : byte*)
@@ -378,7 +378,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 		| x::y::xs => intercalate' sep xs (sep::(y::(sep::(x::accum))))
 	)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn intercalate'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn intercalate'_defn;
 	
 (*val intercalate : forall 'a. 'a -> list 'a -> list 'a*)
 val _ = Define `
@@ -462,7 +462,7 @@ val _ = Define `
         takeRevAcc (m -( 1:num)) xs (x::rev_acc)
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn takeRevAcc_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn takeRevAcc_defn;
 
 (** [take cnt xs] takes the first [cnt] elements of list [xs].  Returns a truncation
   * if [cnt] is greater than the length of [xs].
@@ -488,7 +488,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
         drop (m -( 1:num)) xs
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn drop_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn drop_defn;
   
 (** [string_prefix i s] returns the first [i] characters of [s].
   * Fails if the index is negative, or beyond the end of the string.
@@ -518,7 +518,7 @@ val _ = Define `
         string_index_of' e ss (( 1:num) + idx)
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn string_index_of'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn string_index_of'_defn;
   
 (*val string_index_of : char -> string -> maybe natural*)
 val _ = Define `
@@ -537,7 +537,7 @@ val _ = Define `
           index (m -( 1:num)) xs
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn index_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn index_defn;
 
 (*val find_index_helper : forall 'a. natural -> ('a -> bool) -> list 'a -> maybe natural*)
  val find_index_helper_defn = Hol_defn "find_index_helper" `
@@ -551,7 +551,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 				find_index_helper (count1 +( 1:num)) p ys
 	)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn find_index_helper_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn find_index_helper_defn;
 
 (*val find_index : forall 'a. ('a -> bool) -> list 'a -> maybe natural*)
 val _ = Define `
@@ -568,7 +568,7 @@ val _ = Define `
 		| m => replicate_revacc (e :: revacc) (m -( 1:num)) e
 	)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn replicate_revacc_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn replicate_revacc_defn;
 
 (*val replicate : forall 'a. natural -> 'a -> list 'a*)
  val _ = Define `
@@ -610,7 +610,7 @@ val _ = Define `
             list_reverse_concat_map_helper f (FOLDL lcons acc (f item)) items
     )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn list_reverse_concat_map_helper_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn list_reverse_concat_map_helper_defn;
 
 (*val list_reverse_concat_map : forall 'a 'b. ('a -> list 'b) -> list 'a -> list 'b*)
 val _ = Define `
@@ -630,7 +630,7 @@ val _ = Define `
         )
     )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn list_take_with_accum_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn list_take_with_accum_defn;
 
 (*val unsafe_string_take : natural -> string -> string*)
 val _ = Define `

@@ -120,7 +120,7 @@ val _ = Define `
     | m => repeat' (count1 -( 1:num)) c (c::acc)
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn repeat'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn repeat'_defn;
 
 (*val repeat : natural -> byte -> list byte*)
 val _ = Define `
@@ -167,7 +167,7 @@ val _ = Define `
       )
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn concat0_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn concat0_defn;
 
 (** [zero_pad_to_length len bs0] pads (on the right) consecutive zeros until the
   * resulting byte sequence is [len] long.  Returns [bs0] if [bs0] is already of
@@ -226,7 +226,7 @@ val _ = Define `
     | (_, _) => F
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn equal_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn equal_defn;
 
 (** [dropbytes cnt bs0] drops [cnt] bytes from byte sequence [bs0].  Fails if
   * [cnt] is greater than the length of [bs0].
@@ -242,7 +242,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       | x::xs => dropbytes (count1 -( 1:num)) (Sequence xs)
     )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn dropbytes_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn dropbytes_defn;
 
 (*val takebytes_r_with_length: nat -> natural -> byte_sequence -> error byte_sequence*)
  val _ = Define `

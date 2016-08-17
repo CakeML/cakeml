@@ -595,7 +595,7 @@ val _ = Define `
     read_elf32_symbol_table endian bs0 >>= (\ tail . 
     return (head::tail)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn read_elf32_symbol_table_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn read_elf32_symbol_table_defn;
     
 (** [read_elf64_symbol_table endian bs0] reads a symbol table from byte sequence
   * [bs0] assuming endianness [endian].  Assumes [bs0]'s length modulo the size
@@ -611,7 +611,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     read_elf64_symbol_table endian bs0 >>= (\ tail . 
     return (head::tail)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn read_elf64_symbol_table_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn read_elf64_symbol_table_defn;
 
 (** Association map of symbol name, symbol type, symbol size, symbol address
   * and symbol binding.

@@ -496,7 +496,7 @@ val _ = Define `
     | _  => find_first_not_in_range (start +( 1:num)) ranges
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn find_first_not_in_range_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn find_first_not_in_range_defn;
 
 (** [find_first_in_range e rngs] for every pair (start, end) in [rngs], finds
   * the first element, beginning counting from [e], that lies between
@@ -510,7 +510,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     | _  => start
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn find_first_in_range_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn find_first_in_range_defn;
 
 (** [compute_differences start max ranges] is a utility function used for calculating
   * "dead" spots in an ELF file not covered by any of the interpreted structure
@@ -536,7 +536,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
             compute_differences last max ranges >>= (\ tail . 
             return ((first, last)::tail))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compute_differences_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn compute_differences_defn;
 
 (** [obtain_elf32_bits_and_bobs hdr pht segs sht sects bs0] identifies and records
   * the "dead" spots of an ELF file not covered by any meaningful structure of the

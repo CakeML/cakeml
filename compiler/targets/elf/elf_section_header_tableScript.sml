@@ -799,7 +799,7 @@ val _ = Define `
     read_elf32_section_header_table' endian bs1 >>= (\ tail . 
     return (entry::tail)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn read_elf32_section_header_table'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn read_elf32_section_header_table'_defn;
     
 (** [read_elf64_section_header_table' ed bs0] parses an ELF64 section header table
   * from byte sequence [bs0] assuming endianness [ed].  Assumes [bs0] is of the
@@ -817,7 +817,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     read_elf64_section_header_table' endian bs1 >>= (\ tail . 
     return (entry::tail)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn read_elf64_section_header_table'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn read_elf64_section_header_table'_defn;
 
 (** [read_elf32_section_header_table sz ed bs0] parses an ELF32 section header
   * table from a [sz] sized prefix of byte sequence [bs0] assuming endianness
@@ -1194,7 +1194,7 @@ val _ = Define `
           return (str :: tl)))
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn get_elf32_section_to_segment_mapping_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn get_elf32_section_to_segment_mapping_defn;
   
 (** [get_elf64_section_to_segment_mapping hdr sht pht isin stbl] computes the
   * section to segment mapping for an ELF file using information in the section
@@ -1222,7 +1222,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
           return (str :: tl)))
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn get_elf64_section_to_segment_mapping_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn get_elf64_section_to_segment_mapping_defn;
   
 (** Section groups *)
 

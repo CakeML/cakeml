@@ -88,7 +88,7 @@ val _ = Define `
   else
     repeatM'' (count1 -( 1:num)) action (acc >>= (\ tail .  action >>= (\ head .  return (head::tail))))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn repeatM''_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn repeatM''_defn;
 
 (*val repeatM : forall 'a. natural -> error 'a -> error (list 'a)*)
 val _ = Define `
@@ -109,7 +109,7 @@ val _ = Define `
     repeatM' (count1 -( 1:num)) seed action >>= (\ (tail, seed) . 
     return ((head::tail), seed)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn repeatM'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn repeatM'_defn;
 	
 (** [mapM f xs] maps [f] across [xs], failing if [f] fails on any element of [xs].
   *)
@@ -121,7 +121,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 		| x::xs => mapM' f xs (acc >>= (\ tl .  f x >>= (\ hd .  return (hd::tl))))
 	)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn mapM'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn mapM'_defn;
 
 (*val mapM : forall 'a 'b. ('a -> error 'b) -> list 'a -> error (list 'b)*)
 val _ = Define `
@@ -139,7 +139,7 @@ val _ = Define `
     | x::xs => f e x >>= (\ res .  foldM f res xs)
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn foldM_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn foldM_defn;
 
 (** [string_of_error err] produces a string representation of [err].
   *)

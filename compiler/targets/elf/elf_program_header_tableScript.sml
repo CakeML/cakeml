@@ -559,7 +559,7 @@ val _ = Define `
     read_elf32_program_header_table' endian bs1 >>= (\ tail . 
     return (entry::tail)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn read_elf32_program_header_table'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn read_elf32_program_header_table'_defn;
 
 (** [read_elf64_program_header_table' endian bs0] reads an ELF64 program header table from
   * byte_sequence [bs0] assuming endianness [endian].  The byte_sequence [bs0] is assumed
@@ -575,7 +575,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     read_elf64_program_header_table' endian bs1 >>= (\ tail . 
     return (entry::tail)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn read_elf64_program_header_table'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, true) Defn.save_defn read_elf64_program_header_table'_defn;
 
 (** [read_elf32_program_header_table table_size endian bs0] reads an ELF32 program header
   * table from byte_sequence [bs0] assuming endianness [endian] based on the size (in bytes) passed in via [table_size].

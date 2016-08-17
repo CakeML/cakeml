@@ -1,7 +1,7 @@
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib wordsLib;
 
 open byte_sequenceTheory;
-open elf_headerTheory elf_program_header_tableTheory elf_types_native_uintTheory;
+open elf_fileTheory elf_headerTheory elf_program_header_tableTheory elf_types_native_uintTheory;
 
 val _ = new_theory "x64_elf_header_gen";
 
