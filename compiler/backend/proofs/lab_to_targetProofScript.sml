@@ -18,6 +18,11 @@ val call_FFI_LENGTH = prove(
   full_simp_tac(srw_ss())[call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[listTheory.LENGTH_MAP]);
 
+val MOD_2EXP_0_EVEN = Q.store_thm("MOD_2EXP_0_EVEN",
+  `∀x y. 0 < x ∧ MOD_2EXP x y = 0 ⇒ EVEN y`,
+  rw[EVEN_MOD2,bitTheory.MOD_2EXP_def,MOD_EQ_0_DIVISOR]
+  \\ Cases_on`x` \\ fs[EXP]);
+
 val EXP_IMP_ZERO_LT = Q.prove(
   `(2n ** y = x) ⇒ 0 < x`,
   metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]);
@@ -2940,7 +2945,8 @@ val line_encd0_def = Define`
   (line_encd0 enc (Asm b bytes len) ⇔
     enc b = bytes ∧ len = LENGTH bytes) ∧
   (line_encd0 enc (LabAsm l w bytes len) ⇔
-     enc (lab_inst w l) = bytes ∧ LENGTH bytes ≤ len) ∧
+     enc (lab_inst w l) = bytes ∧ LENGTH bytes ≤ len ∧
+     (∃w'. len = LENGTH (enc (lab_inst w' l)))) ∧
   (line_encd0 enc _ ⇔ T)`;
 
 val sec_encd0_def = Define`
@@ -3176,7 +3182,7 @@ val enc_lines_again_encd0 = Q.store_thm("enc_lines_again_encd0",
   \\ rw[EVERY_REVERSE] \\ fs[]
   \\ fs[line_encd0_def]
   \\ first_x_assum match_mp_tac
-  \\ metis_tac[]);
+  \\ rw[MAX_DEF] \\ metis_tac[]);
 
 val enc_secs_again_encd0 = Q.store_thm("enc_secs_again_encd0",
   `∀pos labs enc ls res ok.
@@ -3735,6 +3741,56 @@ val enc_secs_again_label_one = Q.store_thm("enc_secs_again_label_one",
   \\ simp[] \\ pairarg_tac \\ rw[]
   \\ metis_tac[]);
 
+val enc_lines_again_simp_label_zero = Q.store_thm("enc_lines_again_simp_label_zero",
+  `∀labs pos enc ls res ok.
+    enc_lines_again_simp labs pos enc ls = (res,ok) ∧
+    EVERY label_zero ls ⇒
+    EVERY label_zero res`,
+  recInduct enc_lines_again_simp_ind
+  \\ rw[enc_lines_again_simp_def] \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]);
+
+val enc_secs_again_label_zero = Q.store_thm("enc_secs_again_label_zero",
+  `∀pos labs enc lines res ok.
+    enc_secs_again pos labs enc lines = (res,ok) ∧
+    EVERY sec_label_zero lines ⇒
+    EVERY sec_label_zero res`,
+  recInduct enc_secs_again_ind
+  \\ rw[enc_secs_again_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[sec_label_zero_def]
+  \\ match_mp_tac enc_lines_again_simp_label_zero
+  \\ qspecl_then[`labs`,`pos`,`enc`,`lines`,`[]`,`T`]mp_tac enc_lines_again_simp_EQ
+  \\ simp[] \\ pairarg_tac \\ rw[]
+  \\ metis_tac[]);
+
+val enc_lines_again_simp_aligned = Q.store_thm("enc_lines_again_simp_aligned",
+  `∀labs pos enc ls res ok.
+    (∀a. LENGTH (enc a) MOD len = 0) ∧
+    enc_lines_again_simp labs pos enc ls = (res,ok) ∧
+    EVERY (line_aligned len) ls ⇒
+    EVERY (line_aligned len) res`,
+  recInduct enc_lines_again_simp_ind
+  \\ rw[enc_lines_again_simp_def] \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ fs[line_aligned_def,line_length_def,MAX_DEF]
+  \\ IF_CASES_TAC \\ fs[]);
+
+val enc_secs_again_aligned = Q.store_thm("enc_secs_again_aligned",
+  `∀pos labs enc lines res ok.
+    (∀a. LENGTH (enc a) MOD len = 0) ∧
+    enc_secs_again pos labs enc lines = (res,ok) ∧
+    EVERY (sec_aligned len) lines ⇒
+    EVERY (sec_aligned len) res`,
+  recInduct enc_secs_again_ind
+  \\ rw[enc_secs_again_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[]
+  \\ match_mp_tac enc_lines_again_simp_aligned
+  \\ qspecl_then[`labs`,`pos`,`enc`,`lines`,`[]`,`T`]mp_tac enc_lines_again_simp_EQ
+  \\ simp[] \\ pairarg_tac \\ rw[]
+  \\ metis_tac[]);
+
 val enc_lines_again_simp_label_prefix_zero = Q.store_thm("enc_lines_again_simp_label_prefix_zero",
   `∀labs pos enc ls res ok.
     enc_lines_again_simp labs pos enc ls = (res,ok) ∧
@@ -3793,6 +3849,53 @@ val enc_sec_list_ends_with_label = Q.store_thm("enc_sec_list_ends_with_label",
   \\ Cases \\ fs[enc_sec_def,sec_ends_with_label_def]
   \\ Induct_on`l` \\ fs[LAST_CONS_cond]
   \\ Cases \\ gen_tac \\ IF_CASES_TAC \\ fs[enc_line_def,NULL_EQ]);
+
+val lines_upd_lab_len_encd0_label_zero = Q.store_thm("lines_upd_lab_len_encd0_label_zero",
+  `∀pos lines aux.
+    enc_ok c ∧ enc = c.encode ∧ c.code_alignment ≠ 0 ∧
+    EVERY (line_encd0 enc) lines ∧ EVEN pos ∧
+    EVERY label_zero aux ⇒
+    EVERY label_zero (lines_upd_lab_len pos lines aux)`,
+  recInduct lines_upd_lab_len_ind
+  \\ rw[lines_upd_lab_len_def,EVERY_REVERSE]
+  \\ first_x_assum match_mp_tac
+  \\ fs[EVEN_ADD,line_encd0_def]
+  \\ fs[enc_ok_def]
+  \\ rfs[GSYM bitTheory.MOD_2EXP_def]
+  \\ metis_tac[MOD_2EXP_0_EVEN,NOT_ZERO_LT_ZERO]);
+
+val upd_lab_len_encd0_label_zero = Q.store_thm("upd_lab_len_encd0_label_zero",
+  `∀pos code.
+    enc_ok c ∧ enc = c.encode ∧ c.code_alignment ≠ 0 ∧
+    all_encd0 enc code ∧ EVEN pos ∧ EVERY sec_ends_with_label code ⇒
+    EVERY sec_label_zero (upd_lab_len pos code)`,
+  recInduct upd_lab_len_ind
+  \\ rw[upd_lab_len_def,sec_label_zero_def] \\ fs[EVEN_ADD]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ simp[sec_length_sum_line_len]
+    \\ match_mp_tac EVEN_sec_length_lines_upd_lab_len
+    \\ fs[EVEN_ADD,sec_ends_with_label_def] )
+  \\ match_mp_tac (GEN_ALL lines_upd_lab_len_encd0_label_zero)
+  \\ fs[] \\ asm_exists_tac \\ fs[]);
+
+val all_encd0_aligned = Q.store_thm("all_encd0_aligned",
+  `∀c enc code.
+   enc_ok c ∧ enc = c.encode ∧
+   all_encd0 enc code ∧
+   EVERY sec_label_zero code ⇒
+   EVERY (sec_aligned (LENGTH (enc (Inst Skip)))) code`,
+  ntac 2 gen_tac
+  \\ Induct \\ simp[]
+  \\ Cases \\ simp[sec_label_zero_def]
+  \\ strip_tac \\ fs[]
+  \\ Induct_on`l` \\ fs[]
+  \\ Cases
+  \\ fs[line_encd0_def,line_aligned_def,line_length_def,enc_ok_def]
+  \\ strip_tac \\ rfs[] \\ rveq \\ fs[] \\ rw[]
+  \\ match_mp_tac ZERO_MOD
+  \\ simp[]
+  \\ metis_tac[bitTheory.ZERO_LT_TWOEXP]);
 
 val remove_labels_loop_thm = Q.prove(
   `∀n c code code2 labs.
@@ -3853,7 +3956,24 @@ val remove_labels_loop_thm = Q.prove(
       \\ qmatch_assum_abbrev_tac`enc_ok c`
       \\ `c.code_alignment ≠ 0`
       by ( strip_tac \\ fs[enc_ok_def] )
-      \\ cheat)
+      \\ `EVERY sec_ends_with_label code1`
+      by metis_tac[enc_secs_again_ends_with_label]
+      \\ `EVERY sec_label_zero code2`
+      by (
+        simp[Abbr`code2`]
+        \\ match_mp_tac (GEN_ALL upd_lab_len_encd0_label_zero)
+        \\ asm_exists_tac \\ fs[] )
+      \\ reverse conj_tac
+      >- metis_tac[enc_secs_again_label_zero]
+      \\ match_mp_tac enc_secs_again_aligned
+      \\ fs[enc_ok_def] \\ rfs[]
+      \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["enc"]))
+      \\ qexists_tac`enc` \\ simp[]
+      \\ asm_exists_tac \\ simp[]
+      \\ simp[Abbr`nop`]
+      \\ match_mp_tac all_encd0_aligned
+      \\ fs[enc_ok_def]
+      \\ metis_tac[])
     \\ conj_tac >- metis_tac[enc_secs_again_label_one]
     \\ conj_tac >- metis_tac[all_encd_length_leq]
     \\ `EVERY sec_label_prefix_zero code2`
