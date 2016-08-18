@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib wordsLib;
 open byte_sequenceTheory;
 open elf_fileTheory elf_headerTheory elf_program_header_tableTheory elf_types_native_uintTheory;
 
-val _ = new_theory "x64_elf_header_gen";
+val _ = new_theory "x64_elf_gen";
 
 (* Utility for converting a natural number into an unsigned_char. *)
 val _ = Define `
@@ -145,3 +145,28 @@ val _ = Define `
 	]`;
 
 val _ = export_theory();
+
+val test =
+  EVAL ``
+    let bs0 = Sequence
+            [127w; 69w; 76w; 70w; 2w; 1w; 1w; 3w; 0w; 0w; 0w; 0w; 0w;
+             0w; 0w; 0w; 0w; 2w; 0w; 62w; 0w; 0w; 0w; 1w; 0w; 0w; 0w;
+             0w; 0w; 0w; 0w; 176w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 64w; 0w;
+             0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 64w; 0w;
+             56w; 0w; 2w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 1w; 0w;
+             0w; 0w; 5w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 176w; 0w; 0w; 0w;
+             0w; 0w; 0w; 0w; 176w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 176w; 0w;
+             0w; 0w; 0w; 0w; 0w; 0w; 2w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 2w;
+             0w; 0w; 0w; 0w; 0w; 32w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w;
+             0w; 6w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 178w; 0w; 0w; 0w; 0w;
+             0w; 0w; 0w; 178w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 178w; 0w; 0w;
+             0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 1w; 0w;
+             0w; 0w; 0w; 0w; 32w; 0w; 0w; 100w; 55w; 0w]
+    in
+      read_elf64_header bs0 >>= (λ(hdr,bs1).
+        obtain_elf64_program_header_table hdr bs0 >>= (λpht.
+           obtain_elf64_section_header_table hdr bs0 >>= (λsht.
+              obtain_elf64_section_header_string_table hdr sht bs0 >>= (λshstrtab.
+                 obtain_elf64_interpreted_segments pht bs0 >>= (λsegs.
+                    obtain_elf64_interpreted_sections shstrtab sht bs0)))))
+  ``;

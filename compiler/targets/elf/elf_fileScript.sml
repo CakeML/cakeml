@@ -318,15 +318,18 @@ val _ = Define `
   * Fails if transcription fails.
   *)
 (*val obtain_elf32_section_header_string_table : elf32_header ->
-  elf32_section_header_table -> byte_sequence -> error string_table*)
+  elf32_section_header_table -> byte_sequence -> error (maybe string_table)*)
 val _ = Define `
  (obtain_elf32_section_header_string_table hdr sht bs0=  
- ((case index (w2n hdr.elf32_shstrndx) sht of 
-    NONE => fail0 "no section header string table"
-    | SOME x => return x
-  ) >>= (\ sh . 
-  byte_sequence$offset_and_cut (w2n sh.elf32_sh_offset) (w2n sh.elf32_sh_size) bs0 >>= (\ sexact . 
-  return (string_table_of_byte_sequence sexact)))))`;
+ (if (w2n hdr.elf32_shstrndx) = shn_undef then
+    return NONE
+  else
+    (case index (w2n hdr.elf32_shstrndx) sht of 
+      NONE => fail0 "no section header string table"
+      | SOME x => return x
+    ) >>= (\ sh . 
+    byte_sequence$offset_and_cut (w2n sh.elf32_sh_offset) (w2n sh.elf32_sh_size) bs0 >>= (\ sexact . 
+    return (SOME (string_table_of_byte_sequence sexact))))))`;
 
       
 (** [obtain_elf64_section_header_string_table hdr sht bs0] reads a file's section
@@ -335,15 +338,18 @@ val _ = Define `
   * Fails if transcription fails.
   *)
 (*val obtain_elf64_section_header_string_table : elf64_header ->
-  elf64_section_header_table -> byte_sequence -> error string_table*)
+  elf64_section_header_table -> byte_sequence -> error (maybe string_table)*)
 val _ = Define `
  (obtain_elf64_section_header_string_table hdr sht bs0=  
- ((case index (w2n hdr.elf64_shstrndx) sht of 
-    NONE => fail0 "no section header string table"
-    | SOME x => return x
-  ) >>= (\ sh . 
-  byte_sequence$offset_and_cut (w2n sh.elf64_sh_offset) (w2n sh.elf64_sh_size) bs0 >>= (\ sexact . 
-  return (string_table_of_byte_sequence sexact)))))`;
+ (if (w2n hdr.elf64_shstrndx) = shn_undef then
+    return NONE
+  else
+    (case index (w2n hdr.elf64_shstrndx) sht of 
+      NONE => fail0 "no section header string table"
+      | SOME x => return x
+    ) >>= (\ sh . 
+    byte_sequence$offset_and_cut (w2n sh.elf64_sh_offset) (w2n sh.elf64_sh_size) bs0 >>= (\ sexact . 
+    return (SOME (string_table_of_byte_sequence sexact))))))`;
 
 
 (** [obtain_elf32_interpreted_segments pht bs0] generates the interpreted segments
@@ -417,7 +423,7 @@ val _ = Define `
   * read from byte sequence [bs0].  Makes working with sections easier.
   * May fail if transcription of any section fails.
   *)
-(*val obtain_elf32_interpreted_sections : string_table -> elf32_section_header_table
+(*val obtain_elf32_interpreted_sections : maybe string_table -> elf32_section_header_table
   -> byte_sequence -> error elf32_interpreted_sections*)
 val _ = Define `
  (obtain_elf32_interpreted_sections shstrtab sht bs0=  
@@ -433,7 +439,16 @@ val _ = Define `
     let info   = (w2n sh.elf32_sh_info) in
     let align  = (w2n sh.elf32_sh_addralign) in
     let entry_size = (w2n sh.elf32_sh_entsize) in
-    let name_string = ((case (get_string_at name shstrtab) of Success n => n | Fail _ => "" )) in
+    let name_string =      
+((case shstrtab of
+        NONE => ""
+      | SOME shstrtab =>
+          (case (get_string_at name shstrtab) of
+              Success n => n
+            | Fail _ => ""
+          )
+      ))
+    in
       (if filesz =( 0:num) then
         return byte_sequence$empty
       else
@@ -453,7 +468,7 @@ val _ = Define `
   * read from byte sequence [bs0].  Makes working with sections easier.
   * May fail if transcription of any section fails.
   *)
-(*val obtain_elf64_interpreted_sections : string_table -> elf64_section_header_table
+(*val obtain_elf64_interpreted_sections : maybe string_table -> elf64_section_header_table
   -> byte_sequence -> error elf64_interpreted_sections*)
 val _ = Define `
  (obtain_elf64_interpreted_sections shstrtab sht bs0=  
@@ -469,7 +484,16 @@ val _ = Define `
     let info   = (w2n  sh.elf64_sh_info) in
     let align  = (w2n sh.elf64_sh_addralign) in
     let entry_size = (w2n sh.elf64_sh_entsize) in
-    let name_string = ((case (get_string_at name shstrtab) of Success n => n | Fail _ => "" )) in 
+    let name_string =      
+((case shstrtab of
+        NONE => ""
+      | SOME shstrtab =>
+          (case (get_string_at name shstrtab) of
+              Success n => n
+            | Fail _ => ""
+          )
+      ))
+    in
       (if filesz =( 0:num) then
         return byte_sequence$empty
       else
