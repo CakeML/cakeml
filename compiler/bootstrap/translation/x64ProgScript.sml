@@ -101,13 +101,11 @@ val _ = translate (e_imm64_def |> we_simp)
 
 val _ = translate (encode_def|>SIMP_RULE std_ss [word_bit_thm] |> wc_simp |> we_simp)
 
-val _ = translate (x64_enc_def |> we_simp)
-
-val simpf = simp o map (fetch "-")
+val _ = translate (x64_enc0_def |> we_simp)
 
 val total_num2zreg_side = prove(``
   ∀x. total_num2zreg_side x ⇔ T``,
-  simpf ["total_num2zreg_side_def"]>>
+  simp[fetch "-" "total_num2zreg_side_def"]>>
   FULL_SIMP_TAC std_ss [fetch "-" "num2zreg_side_def"]>>
   ntac 2 strip_tac>>
   (* Faster than DECIDE_TAC *)
@@ -116,9 +114,11 @@ val total_num2zreg_side = prove(``
   Cases_on`n'`>>FULL_SIMP_TAC std_ss [ADD1])>>
   Cases_on`n`>>fs[])
 
-val x64_enc_side = prove(``
-  ∀x. x64_enc_side x ⇔ T``,
-  simp[fetch "-" "x64_enc_side_def",total_num2zreg_side]) |> update_precondition
+val x64_enc0_side = prove(``
+  ∀x. x64_enc0_side x ⇔ T``,
+  simp[fetch "-" "x64_enc0_side_def",total_num2zreg_side]) |> update_precondition
+
+val _ = translate x64_enc_def
 
 val _ = translate x64_config_def
 
