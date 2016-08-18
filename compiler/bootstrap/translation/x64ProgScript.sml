@@ -1,13 +1,13 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open compiler64ProgTheory
+open to_target64ProgTheory
 open x64_targetTheory x64Theory;
 
 val _ = new_theory "x64Prog"
 
-(* temporary *)
-val _ = translation_extends "compiler64Prog";
+(* this should be compiler64Prog, once it exists *)
+val _ = translation_extends "to_target64Prog";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
