@@ -1,5 +1,5 @@
 open preamble;
-open libTheory environmentPropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
 (*
@@ -443,7 +443,7 @@ val lookup_st_ex_success = Q.prove (
 `!x l st v st'.
   (lookup_st_ex x l st = (Success v, st'))
   =
-  ((eLookup l x = SOME v) ∧ (st = st'))`,
+  ((nsLookup l x = SOME v) ∧ (st = st'))`,
  rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
  >> every_case_tac);
 
@@ -1255,11 +1255,11 @@ val infer_p_check_s = Q.store_thm ("infer_p_check_s",
 
 val check_env_more = Q.store_thm ("check_env_more",
 `!uvs e.
-  eAll (λx (tvs,t). check_t tvs (count uvs) t) e
+  nsAll (λx (tvs,t). check_t tvs (count uvs) t) e
   ⇒
-  !uvs'. uvs ≤ uvs' ⇒ eAll (λx (tvs,t). check_t tvs (count uvs') t) e`,
+  !uvs'. uvs ≤ uvs' ⇒ nsAll (λx (tvs,t). check_t tvs (count uvs') t) e`,
  rw []
- >> irule eAll_mono
+ >> irule nsAll_mono
  >> qexists_tac `(λx (tvs,t). check_t tvs (count uvs) t)`
  >> rw []
  >> pairarg_tac
@@ -1270,11 +1270,11 @@ val check_env_letrec_lem = Q.store_thm ("check_env_letrec_lem",
 `∀uvs funs uvs'.
   ((funs = []) ∨ (uvs' + LENGTH funs ≤ uvs))
   ⇒
-  eAll (λx (tvs,t). check_t tvs (count uvs) t)
-    (alist_to_env (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (n+uvs')) (COUNT_LIST (LENGTH funs)))))`,
+  nsAll (λx (tvs,t). check_t tvs (count uvs) t)
+    (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (n+uvs')) (COUNT_LIST (LENGTH funs)))))`,
  rw [COUNT_LIST_def]
  >> rw [COUNT_LIST_def]
- >> irule eAll_alist_to_env
+ >> irule nsAll_alist_to_ns
  >> Induct_on `funs`
  >> rw [COUNT_LIST_def]
  >> rpt (pairarg_tac >> fs [])
@@ -1346,7 +1346,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
  fsrw_tac[] [EVERY_MAP, check_t_def, check_t_infer_db_subst]
  >- metis_tac [check_t_more4]
  >- (fs [ienv_val_ok_def] >>
-     imp_res_tac eLookup_eAll >>
+     imp_res_tac nsLookup_nsAll >>
      pairarg_tac >>
      fs [] >>
      pairarg_tac >>
@@ -1360,7 +1360,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
      res_tac >>
      fs [check_t_def, ienv_val_ok_def] >>
      first_x_assum irule >>
-     irule eAll_eBind >>
+     irule nsAll_nsBind >>
      simp [check_t_def] >>
      metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
  >- (every_case_tac >>
@@ -1382,7 +1382,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
      rw [opt_bind_def] >>
      every_case_tac >>
      fs [ienv_val_ok_def] >>
-     irule eAll_eOptBind
+     irule nsAll_nsOptBind
      >> simp [option_nchotomy]
      >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
  >- (
@@ -1392,7 +1392,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
    >> fs [ienv_val_ok_def]
    >> rw []
    >> first_x_assum irule
-   >> irule eAll_eAppend
+   >> irule nsAll_nsAppend
    >> simp []
    >- (
      irule check_env_letrec_lem
@@ -1412,7 +1412,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
      >- metis_tac [check_env_more, check_t_more4, DECIDE ``x ≤ x + 1:num``]
      >> `check_t 0 (count st'''.next_uvar) t` suffices_by metis_tac [check_t_more4]
      >> first_x_assum irule
-     >> irule eAll_eBind
+     >> irule nsAll_nsBind
      >> simp [check_t_def]
      >> metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``]));
 
@@ -1695,7 +1695,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> disch_then irule
    >- (
      fs [ienv_ok_def, ienv_val_ok_def]
-     >> irule eAll_eBind
+     >> irule nsAll_nsBind
      >> simp [check_t_def]
      >> irule check_env_more
      >> HINT_EXISTS_TAC
@@ -1799,7 +1799,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> disch_then (qspec_then `st''.next_uvar` mp_tac)
    >> rw []
    >> fs [ienv_ok_def, ienv_val_ok_def]
-   >> irule eAll_eOptBind
+   >> irule nsAll_nsOptBind
    >> rw []
    >> metis_tac [infer_e_check_t, ienv_val_ok_def, infer_e_next_uvar_mono,
                  option_nchotomy, infer_e_wfs])
@@ -1807,17 +1807,17 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    first_x_assum drule
    >> first_x_assum drule
    >> rw []
-   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := eAppend bindings ienv.inf_v) _ _ = _`
-   >> `ienv_ok (count (LENGTH funs + st.next_uvar)) (ienv with inf_v := eAppend bindings ienv.inf_v)`
+   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
+   >> `ienv_ok (count (LENGTH funs + st.next_uvar)) (ienv with inf_v := nsAppend bindings ienv.inf_v)`
      by (
        fs [ienv_ok_def, Abbr `bindings`, ienv_val_ok_def]
-       >> irule eAll_eAppend
+       >> irule nsAll_nsAppend
        >> rw []
        >- (
          irule check_env_letrec_lem
          >> disj2_tac
          >> decide_tac)
-       >> irule eAll_mono
+       >> irule nsAll_mono
        >> HINT_EXISTS_TAC
        >> rw []
        >> pairarg_tac
@@ -1899,13 +1899,13 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> `check_t tvs (count st1.next_uvar) t1 ∧ check_t tvs (count st1.next_uvar) t1'`
      by metis_tac [check_t_more2, check_t_more4, DECIDE ``!y. y + 0n = y``]
    >> rw []
-   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := eAppend bindings2 ienv.inf_v) _ _ = (Success t2', st2)`
-   >> `ienv_val_ok (count st1.next_uvar) (eAppend bindings2 ienv.inf_v)`
+   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := nsAppend bindings2 ienv.inf_v) _ _ = (Success t2', st2)`
+   >> `ienv_val_ok (count st1.next_uvar) (nsAppend bindings2 ienv.inf_v)`
      by (
        fs [ienv_ok_def, ienv_val_ok_def, Abbr `bindings2`]
-       >> irule eAll_eAppend
+       >> irule nsAll_nsAppend
        >- (
-         irule eAll_alist_to_env
+         irule nsAll_alist_to_ns
          >> fs [EVERY_MAP, EVERY_MEM]
          >> rw []
          >> rpt (pairarg_tac >> fs [])
@@ -1913,7 +1913,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
          >> first_x_assum drule
          >> rw [])
        >- (
-         irule eAll_mono
+         irule nsAll_mono
          >> HINT_EXISTS_TAC
          >> rw []
          >> rpt (pairarg_tac >> fs [])
@@ -1951,9 +1951,9 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> `ienv_ok (count (st.next_uvar+1)) (ienv with inf_v := bindings)`
      by (
        fs [ienv_ok_def, Abbr `bindings`, ienv_val_ok_def]
-       >> irule eAll_eBind
+       >> irule nsAll_nsBind
        >> simp [check_t_def]
-       >> irule eAll_mono
+       >> irule nsAll_mono
        >> HINT_EXISTS_TAC
        >> rw []
        >> pairarg_tac
@@ -2300,7 +2300,7 @@ val let_tac =
    >> rpt (disch_then drule)
    >> fs [every_shim]
    >> rw [ienv_val_ok_def]
-   >> irule eAll_alist_to_env
+   >> irule nsAll_alist_to_ns
    >> simp [EVERY_MEM, MEM_ZIP]
    >> rw []
    >> rw [EL_MAP]
@@ -2311,6 +2311,16 @@ val let_tac =
 
 val eta2_thm = Q.prove (
 `(\x. f a b x) = f a b`, metis_tac []);
+
+val check_env_letrec_lem2 = Q.prove (
+  `∀funs.
+    nsAll (λx (tvs,t). check_t tvs (count (LENGTH funs)) t)
+      (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar))
+                      funs
+                      (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs)))))`,
+ rw []
+ >> Q.SPECL_THEN [`LENGTH funs`, `funs`, `0n`] mp_tac check_env_letrec_lem
+ >> simp []);
 
 val infer_d_check = Q.store_thm ("infer_d_check",
 `!mn decls1 ienv d st1 st2 decls' ienv'.
@@ -2330,18 +2340,16 @@ val infer_d_check = Q.store_thm ("infer_d_check",
  >- let_tac
  >- (
    qmatch_assum_abbrev_tac
-     `infer_funs (ienv with inf_v := eAppend bindings ienv.inf_v) _ _ = _`
+     `infer_funs (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
    >> rename1 `infer_funs _ funs _ = (Success funs_ts, st1)`
    >> rename1 `pure_add_constraints _ _ st2.subst`
-   >> `ienv_ok (count (LENGTH funs)) (ienv with inf_v := eAppend bindings ienv.inf_v)`
+   >> `ienv_ok (count (LENGTH funs)) (ienv with inf_v := nsAppend bindings ienv.inf_v)`
      by (
        fs [ienv_ok_def, Abbr `bindings`, ienv_val_ok_def]
-       >> irule eAll_eAppend
+       >> irule nsAll_nsAppend
        >> simp []
-       >- (
-         Q.ISPECL_THEN [`LENGTH funs`, `funs`, `0n`] mp_tac check_env_letrec_lem
-         >> simp [])
-       >> irule eAll_mono
+       >- metis_tac [check_env_letrec_lem2]
+       >> irule nsAll_mono
        >> HINT_EXISTS_TAC
        >> rw []
        >> pairarg_tac
@@ -2371,7 +2379,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
    >> simp [eta2_thm]
    >> rpt (disch_then drule)
    >> rw [ienv_val_ok_def]
-   >> irule eAll_alist_to_env
+   >> irule nsAll_alist_to_ns
    >> rw [EVERY_MEM, MEM_ZIP]
    >> pairarg_tac
    >> rw []
@@ -2395,10 +2403,10 @@ val infer_d_check = Q.store_thm ("infer_d_check",
    >- (
      irule check_ctor_tenv_ok
      >> fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def, ienv_ok_def]
-     >> irule eAll_eAppend
+     >> irule nsAll_nsAppend
      >> simp [])
    >> fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-   >> irule eAll_alist_to_env
+   >> irule nsAll_alist_to_ns
    >> rw [EVERY_MAP, EVERY_MEM]
    >> rpt (pairarg_tac >> fs [])
    >> fs []
@@ -2418,7 +2426,7 @@ val ienv_ok_extend_dec_ienv = Q.store_thm ("ienv_ok_extend_dec_ienv",
   `!e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)`,
  rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
      typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
- >> metis_tac [eAll_eAppend]);
+ >> metis_tac [nsAll_nsAppend]);
 
 val infer_ds_check = Q.store_thm ("infer_ds_check",
   `!mn decls ienv ds st1 st2 decls' ienv'.
@@ -2550,12 +2558,12 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      Cases_on`fvs = []`>-
        (fs[nub_def,COUNT_LIST_def]>>
        fs [ienv_ok_def, ienv_val_ok_def]
-       >> irule eAll_eBind
+       >> irule nsAll_nsBind
        >> simp []
        >> metis_tac[infer_type_subst_empty_check])
      >>
      fs [ienv_ok_def, ienv_val_ok_def] >>
-     irule eAll_eBind >>
+     irule nsAll_nsBind >>
      simp [] >>
      match_mp_tac check_t_infer_type_subst_dbs>>
      qexists_tac`0`>>
@@ -2565,8 +2573,8 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      strip_tac >>
      FIRST_X_ASSUM match_mp_tac >>
      rw [] >>
-     qmatch_assum_abbrev_tac `check_ctor_tenv (eAppend new_tenvT orig_tenvT) _`
-     >> qexists_tac `eAppend new_tenvT orig_tenvT`
+     qmatch_assum_abbrev_tac `check_ctor_tenv (nsAppend new_tenvT orig_tenvT) _`
+     >> qexists_tac `nsAppend new_tenvT orig_tenvT`
      >> qexists_tac `MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs`
      >> qexists_tac `new_tenvT`
      >> qexists_tac `st`
@@ -2574,52 +2582,58 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      >> `tenv_abbrev_ok new_tenvT`
        by (
          simp [Abbr `new_tenvT`, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-         >> irule eAll_alist_to_env
+         >> irule nsAll_alist_to_ns
          >> rw [EVERY_MEM, MEM_MAP]
          >> rpt (pairarg_tac >> fs [])
          >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
      >> conj_asm1_tac
      >- (
        fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-       >> irule eAll_eAppend
+       >> irule nsAll_nsAppend
        >> simp [])
      >> fs [ienv_ok_def]
      >> conj_tac
      >- (
-       drule check_ctor_tenv_ok
+       fs [typeSoundInvariantsTheory.tenv_ctor_ok_def]
+       >> irule nsAll_nsAppend
+       >> simp []
+       >> irule (SIMP_RULE (srw_ss()) [typeSoundInvariantsTheory.tenv_ctor_ok_def] check_ctor_tenv_ok)
        >> simp [])
-     >- metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, eAll_eAppend])
+     >- metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, nsAll_nsAppend])
  >- (
    rw []
    >> first_x_assum match_mp_tac
    >> fs [ienv_ok_def]
-   >> `tenv_abbrev_ok (eSing tn (tvs, type_name_subst orig_tenvT t))`
+   >> `tenv_abbrev_ok (nsSing tn (tvs, type_name_subst orig_tenvT t):tenv_abbrev)`
      by (
        rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
        >> irule check_freevars_type_name_subst
        >> simp [])
-   >> metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, eAll_eAppend])
+   >> metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, nsAll_nsAppend, nsAppend_nsSing])
  >- (
    rw []
    >> first_x_assum irule
    >> simp []
    >- metis_tac []
    >> fs [ienv_ok_def, check_exn_tenv_def, typeSoundInvariantsTheory.tenv_ctor_ok_def]
-   >> irule eAll_eBind
+   >> irule nsAll_nsBind
    >> fs [EVERY_MAP, EVERY_MEM]
    >> rw []
    >> fs [MEM_MAP]
    >> metis_tac [check_freevars_type_name_subst])
  >- (
    rw []
-   >> first_x_assum drule
-   >> disch_then match_mp_tac
-   >> `tenv_abbrev_ok (eSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))`
+   >> first_x_assum irule
+   >> `tenv_abbrev_ok ((nsSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))):tenv_abbrev)`
      by rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def, check_freevars_def, EVERY_MAP, EVERY_MEM]
+   >> qmatch_assum_abbrev_tac `tenv_abbrev_ok new_tenvT`
+   >> qexists_tac `decls'`
+   >> qexists_tac `new_tenvT`
+   >> qexists_tac `st`
    >> fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-   >> rw []
-   >> irule eAll_eAppend
-   >> rw []));
+   >> rw [Abbr `new_tenvT`]
+   >> irule nsAll_nsBind
+   >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]));
 
 val ienv_ok_lift = Q.store_thm ("ienv_ok_lift",
   `!mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (ienvLift mn ienv)`,
@@ -2670,9 +2684,11 @@ val convert_t_def = tDefine "convert_t" `
  res_tac >>
  decide_tac);
 
+ (*
 val convert_menv_def = Define `
 convert_menv menv =
   MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) o_f menv`;
+*)
 
 val convert_env_def = Define `
 convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env`;
@@ -2831,7 +2847,7 @@ Everything in the inferencer env is also in the type system env
 2) Else,
   the type system type scheme generalizes the inferencer's type scheme
 *)
-
+(*
 val tenv_inv_def = Define `
 tenv_inv s env tenv =
   (!x tvs t.
@@ -3043,7 +3059,7 @@ val tenv_inv_convert_env2 = Q.store_thm ("tenv_inv_convert_env2",
   fs[tenv_inv_def]>>
   res_tac>>
   Cases_on`check_t tvs {} t` >> fs[convert_env2_def])
-
+  *)
 
 val unconvert_t_def = tDefine "unconvert_t" `
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
@@ -3080,6 +3096,7 @@ val check_freevars_to_check_t = store_thm("check_freevars_to_check_t",
   fs[unconvert_t_def,check_freevars_def,check_t_def]>>
   fs[EVERY_MAP,EVERY_MEM])
 
+(*
 val tenv_invC_def = Define `
   tenv_invC s tenv tenvE =
   (∀x tvs t.
@@ -3106,6 +3123,7 @@ val tenv_alpha_def = Define`
   tenv_alpha tenv tenvE =
     (tenv_inv FEMPTY tenv tenvE ∧
     tenv_invC FEMPTY tenv tenvE)`
+    *)
 
 val infer_deBruijn_subst_id2 = store_thm("infer_deBruijn_subst_id2",
   ``(∀t.
@@ -3122,6 +3140,7 @@ val infer_deBruijn_subst_id2 = store_thm("infer_deBruijn_subst_id2",
     fs[infer_deBruijn_subst_def,EVERY_MEM]>>
     metis_tac[])
 
+    (*
 val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
 `!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
   Induct >>
@@ -3151,6 +3170,8 @@ val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
   >>
   fs[tenv_invC_def,convert_env2_def])
 
+  *)
+
 val infer_deBruijn_subst_id = store_thm("infer_deBruijn_subst_id",
 ``(!t. infer_deBruijn_subst [] t = t) ∧
   (!ts. MAP (infer_deBruijn_subst []) ts = ts)``,
@@ -3173,8 +3194,10 @@ val infer_type_subst_nil = store_thm("infer_type_subst_nil",
   rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
   fsrw_tac[boolSimps.ETA_ss][])
 
+  (*
 val menv_alpha_def = Define`
   menv_alpha = fmap_rel (λitenv tenv. tenv_alpha itenv (bind_var_list2 tenv Empty))`
+  *)
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 
@@ -3298,6 +3321,7 @@ val infer_deBruijn_subst_infer_subst_walkstar = store_thm("infer_deBruijn_subst_
   >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
   >> REFL_TAC))
 
+  (*
 val tenv_alpha_empty = store_thm("tenv_alpha_empty",``
   tenv_alpha [] (bind_var_list2 [] Empty)``,
   fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_val_def])
@@ -3411,5 +3435,5 @@ val env_rel_def = Define`
   ienv.inf_t = tenv.t ∧
   check_env ∅ ienv.inf_v ∧
   tenv_alpha ienv.inf_v tenv.v`
-
+  *)
 val _ = export_theory ();

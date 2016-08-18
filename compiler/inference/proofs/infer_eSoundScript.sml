@@ -249,22 +249,22 @@ rw [] >|
 
 val infer_p_sound = Q.store_thm ("infer_p_sound",
 `(!ienv p st t tenv env st' tvs extra_constraints s.
-    (infer_p ienv p st = (Success (t,env), st')) ∧
+    infer_p ienv p st = (Success (t,env), st') ∧
     t_wfs st.subst ∧
-    check_cenv tenv.c ∧
+    tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
     ienv.inf_t = tenv.t ∧
-    tenv_tabbrev_ok tenv.t ∧
+    tenv_abbrev_ok tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_p tvs tenv p (convert_t (t_walkstar s t)) (convert_env s env)) ∧
  (!ienv ps st ts tenv env st' tvs extra_constraints s.
-    (infer_ps ienv ps st = (Success (ts,env), st')) ∧
+    infer_ps ienv ps st = (Success (ts,env), st') ∧
     t_wfs st.subst ∧
-    check_cenv tenv.c ∧
+    tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
     ienv.inf_t = tenv.t ∧
-    tenv_tabbrev_ok tenv.t ∧
+    tenv_abbrev_ok tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_ps tvs tenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env))`,
@@ -309,7 +309,7 @@ rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def]
     NTAC 6 (pop_assum (fn _ => all_tac)) >>
     pop_assum mp_tac >>
     rw [ONCE_REWRITE_RULE[ADD_COMM](CONJUNCT2 subst_infer_subst_swap)] >>
-    `EVERY (check_freevars 0 tvs') ts'` by metis_tac [check_cenv_lookup] >>
+    `EVERY (check_freevars 0 tvs') ts'` by metis_tac [tenv_ctor_ok_lookup] >>
     rw [] >>
     fs [convert_env_def] >>
     metis_tac [convert_t_subst, LENGTH_COUNT_LIST, LENGTH_MAP,

@@ -1,7 +1,7 @@
 open preamble
 open astTheory libTheory semanticPrimitivesTheory evaluateTheory;
 open evaluatePropsTheory semanticPrimitivesPropsTheory;
-open environmentPropsTheory;
+open namespacePropsTheory;
 open mlstringTheory integerTheory;
 open terminationTheory;
 
@@ -17,7 +17,7 @@ val Decls_def = Define `
       env2 = extend_dec_env res_env env`;
 
 val write_def = Define `
-  write name v (env : v sem_env) = env with v := eBind name v env.v`;
+  write name v (env : v sem_env) = env with v := nsBind name v env.v`;
 
 val write_rec_def = Define `
   write_rec funs env2 =
@@ -25,11 +25,11 @@ val write_rec_def = Define `
 
 val write_tds_def = Define `
   write_tds mn tds env =
-    env with c := eAppend (build_tdefs mn tds) env.c`;
+    env with c := nsAppend (build_tdefs mn tds) env.c`;
 
 val write_exn_def = Define `
   write_exn mn n l env =
-    env with c := eBind n (LENGTH l,TypeExn (mk_id mn n)) env.c`;
+    env with c := nsBind n (LENGTH l,TypeExn (mk_id mn n)) env.c`;
 
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn env s tds env2 s2.
@@ -84,8 +84,8 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   >> rw []);
 
 val FOLDR_LEMMA = prove(
-  ``!xs ys. eAppend (FOLDR (\(x1,x2,x3) x4. eBind x1 (f x1 x2 x3) x4) eEmpty xs) ys =
-            FOLDR (\(x1,x2,x3) x4. eBind x1 (f x1 x2 x3) x4) ys xs``,
+  ``!xs ys. nsAppend (FOLDR (\(x1,x2,x3) x4. nsBind x1 (f x1 x2 x3) x4) nsEmpty xs) ys =
+            FOLDR (\(x1,x2,x3) x4. nsBind x1 (f x1 x2 x3) x4) ys xs``,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
 
 val Decls_Dletrec = store_thm("Decls_Dletrec",
@@ -174,9 +174,9 @@ val Prog_NIL = store_thm("Prog_NIL",
       Prog env1 s1 [] env3 s3 <=> (env3 = env1) /\ (s3 = s1)``,
   rw [Prog_def, evaluate_tops_def, extend_dec_env_def, sem_env_component_equality]
   >> eq_tac >> rw []
-  >- metis_tac [eAppend_eEmpty]
-  >- metis_tac [eAppend_eEmpty]
-  >> qexists_tac `<| v := eEmpty; c := eEmpty |>`
+  >- metis_tac [nsAppend_nsEmpty]
+  >- metis_tac [nsAppend_nsEmpty]
+  >> qexists_tac `<| v := nsEmpty; c := nsEmpty |>`
   >> rw []);
 
 val Prog_CONS = store_thm("Prog_CONS",
