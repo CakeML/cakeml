@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open compiler64_preludeProgTheory;
+open to_word64ProgTheory;
 
-val _ = new_theory "compiler64Prog"
+val _ = new_theory "to_target64Prog"
 
-val _ = translation_extends "compiler64_preludeProg";
+val _ = translation_extends "to_word64Prog";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -164,15 +164,6 @@ val _ = translate(cjump_offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.align
 val _ = translate(loc_offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
-
-val _ = translate (spec64 pad_section_def)
-
-val lab_to_target_pad_section_side = prove(``
-  ∀a b c. lab_to_target_pad_section_side a b c ⇔ T``,
-  ho_match_mp_tac pad_section_ind>>rw[]>>
-  simp[Once (fetch "-" "lab_to_target_pad_section_side_def")]>>
-  (*Unprovable*)
-  cheat) |> update_precondition
 
 val _ = translate (spec64 compile_def)
 

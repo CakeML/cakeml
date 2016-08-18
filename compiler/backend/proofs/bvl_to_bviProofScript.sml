@@ -596,6 +596,7 @@ val do_app_adjust = Q.prove(
   `state_rel b2 s5 t2 /\
    (!i. op <> Const i) /\ (op <> Ref) /\ (op ≠ RefByte) ∧ (op ≠ RefArray) ∧
    (∀n. op ≠ Global n) ∧ (∀n. op ≠ SetGlobal n) ∧ (op ≠ AllocGlobal) ∧
+   (∀n. op ≠ FromList n) ∧
    (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
    ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
           Rval (adjust_bv b2 q,t3)) /\
@@ -680,13 +681,6 @@ val do_app_adjust = Q.prove(
       `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
       metis_tac[INJ_DEF]) >>
     METIS_TAC[])
-  THEN1 (* FromList *) (
-    Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs []
-    \\ fs [bvlSemTheory.do_app_def] >>
-    simp[bEvalOp_def,v_to_list_adjust] >>
-    Cases_on`v_to_list h`>>simp[] >> strip_tac >>
-    rpt var_eq_tac >> simp[bvl_to_bvi_id,adjust_bv_def] >>
-    srw_tac[ETA_ss][])
   THEN1 (* TagLenEq *) (
     every_case_tac >> full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def] >>
     srw_tac[][] >> srw_tac[][bvl_to_bvi_id])

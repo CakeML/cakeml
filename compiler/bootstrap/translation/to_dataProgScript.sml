@@ -3,10 +3,10 @@ open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open reg_allocProgTheory;
 
-val _ = new_theory "compilerProg"
+val _ = new_theory "to_dataProg"
 val _ = translation_extends "reg_allocProg";
 
-(* This is the compiler "preamble" that translates the compile functions down to BVP *)
+(* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
