@@ -1020,14 +1020,6 @@ val lookup_var_sound = Q.store_thm ("lookup_var_sound",
    >> metis_tac [tveLookup_freevars])
  >- metis_tac [nsLookup_add_tenvE3]);
 
-val type_pes_def = Define `
-  type_pes tvs tenv tenvE pes t1 t2 ⇔
-    (∀(p,e)::set pes.
-      ∃bindings.
-        ALL_DISTINCT (pat_bindings p []) ∧
-        type_p tvs tenv p t1 bindings ∧
-        type_e tenv (bind_var_list tvs bindings tenvE) e t2)`;
-
 val exp_type_sound = Q.store_thm ("exp_type_sound",
  `(!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
     evaluate s env es = (s', r) ∧
@@ -1058,7 +1050,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
     type_s ctMap s.refs tenvS ∧
     type_v tvs ctMap tenvS v t1 ∧
     type_v 0 ctMap tenvS err_v (Tapp [] TC_exn) ∧
-    type_pes tvs tenv tenvE pes t1 t2
+    type_pes tvs tvs tenv tenvE pes t1 t2
     ⇒
     ∃tenvS'.
       type_s ctMap s'.refs tenvS' ∧

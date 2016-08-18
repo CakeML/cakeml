@@ -7,12 +7,7 @@ open typeSysPropsTheory;
 local open typeSoundInvariantsTheory in
 end
 
-val o_f_id = Q.prove (
-`!m. (\x.x) o_f m = m`,
-rw [fmap_EXT]);
-
 val _ = new_theory "infer_eSound";
-
 
 
 (* ---------- sub_completion ---------- *)
@@ -218,34 +213,6 @@ fs [sub_completion_def] >|
      metis_tac [check_t_to_check_freevars,ADD_COMM]]);
 
 (* ---------- Soundness ---------- *)
-
-val type_pes_def = Define `
-type_pes tenv pes t1 t2 =
-  ∀x::set pes.
-    (λ(p,e).
-       ∃tenv'.
-         ALL_DISTINCT (pat_bindings p []) ∧
-         type_p (num_tvs tenv.v) tenv p t1 tenv' ∧
-         type_e (tenv with v := bind_var_list 0 tenv' tenv.v) e t2) x`;
-
-val type_pes_cons = Q.prove (
-`!tenv p e pes t1 t2.
-  type_pes tenv ((p,e)::pes) t1 t2 =
-  (ALL_DISTINCT (pat_bindings p []) ∧
-   (?tenv'.
-       type_p (num_tvs tenv.v) tenv p t1 tenv' ∧
-       type_e (tenv with v := bind_var_list 0 tenv' tenv.v) e t2) ∧
-   type_pes tenv pes t1 t2)`,
-rw [type_pes_def, RES_FORALL] >>
-eq_tac >>
-rw [] >>
-rw [] >|
-[pop_assum (mp_tac o Q.SPEC `(p,e)`) >>
-     rw [],
- pop_assum (mp_tac o Q.SPEC `(p,e)`) >>
-     rw [] >>
-     metis_tac [],
- metis_tac []]);
 
 val infer_p_sound = Q.store_thm ("infer_p_sound",
 `(!ienv p st t tenv env st' tvs extra_constraints s.

@@ -70,6 +70,35 @@ val tenv_ok_empty = Q.store_thm ("tenv_ok_empty[simp]",
   `tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>`,
  rw [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]);
 
+val type_pes_def = Define `
+  type_pes tvs tvs' tenv tenvE pes t1 t2 ⇔
+    (∀(p,e)::set pes.
+      ∃bindings.
+        ALL_DISTINCT (pat_bindings p []) ∧
+        type_p tvs tenv p t1 bindings ∧
+        type_e tenv (bind_var_list tvs' bindings tenvE) e t2)`;
+
+val type_pes_cons = Q.store_thm ("type_pes_cons",
+  `!tvs tvs' tenv tenvE p e pes t1 t2.
+    type_pes tvs tvs' tenv tenvE ((p,e)::pes) t1 t2 ⇔
+    (ALL_DISTINCT (pat_bindings p []) ∧
+     (?bindings.
+         type_p tvs tenv p t1 bindings ∧
+         type_e tenv (bind_var_list tvs' bindings tenvE) e t2) ∧
+     type_pes tvs tvs' tenv tenvE pes t1 t2)`,
+ rw [type_pes_def, RES_FORALL] >>
+ eq_tac >>
+ rw [] >>
+ rw []
+ >- (
+   pop_assum (qspec_then `(p,e)` mp_tac)
+   >> rw [])
+ >- (
+   pop_assum (qspec_then `(p,e)` mp_tac)
+   >> rw []
+   >> metis_tac [])
+ >> metis_tac []);
+
 (* ---------- check_freevars ---------- *)
 
 val check_freevars_add = Q.store_thm ("check_freevars_add",
