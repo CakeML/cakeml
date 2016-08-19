@@ -2,7 +2,7 @@
 
 ## build Poly/ML
 cd
-git clone https://github.com/polyml/polyml
+git clone https://github.com/polyml/polyml -b fixes-5.6
 cd polyml
 ## optionally switch to a released version, e.g., fixes-5.6
 # git checkout fixes-5.6
