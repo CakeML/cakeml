@@ -283,7 +283,7 @@ local
 in
    fun next_tac gs =
      (
-      qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
+      qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
       \\ simp enc_rwts
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ imp_res_tac lem5

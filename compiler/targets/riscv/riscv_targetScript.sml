@@ -87,6 +87,8 @@ val riscv_enc_def = Define`
         riscv_encode (ArithR (OR (n2w r, n2w r, 1w)))) /\
    (riscv_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
      riscv_encode (ArithR (riscv_bop_r bop (n2w r1, n2w r2, n2w r3)))) /\
+   (riscv_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
+     riscv_encode (ArithI (ADDI (n2w r1, n2w r2, -(w2w i))))) /\
    (riscv_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
      riscv_encode (ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i)))) /\
    (riscv_enc (Inst (Arith (Shift sh r1 r2 n))) =
@@ -163,7 +165,8 @@ val riscv_config_def = Define`
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := (\b i. b <> INL Sub /\ ^min12 <= i /\ i <= ^max12)
+    ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
+                          i <= ^max12)
     ; addr_offset_min := ^min12
     ; addr_offset_max := ^max12
     ; jump_offset_min := ^min21

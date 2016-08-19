@@ -25,7 +25,7 @@ val compute_labels_alt_Section = Q.store_thm("compute_labels_alt_Section",
   Cases_on`sec` \\ rw[lab_to_targetTheory.compute_labels_alt_def]);
 
 val pad_code_MAP = Q.store_thm("pad_code_MAP",
-  `pad_code nop = MAP (λx. Section (Section_num x) (pad_section nop 0 (Section_lines x) []))`,
+  `pad_code nop = MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))`,
   simp[FUN_EQ_THM] \\ Induct
   \\ simp[lab_to_targetTheory.pad_code_def]
   \\ Cases \\ simp[lab_to_targetTheory.pad_code_def]);
@@ -54,7 +54,7 @@ val () =
     computeLib.Defs [
       x64_compiler_config_def,
       x64_config_def,
-      data_prog_def]
+      data_prog_x64_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
 
@@ -76,7 +76,7 @@ fun say_str s i n =
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
 
 val to_data_thm0 =
-  MATCH_MP backendTheory.to_data_change_config to_data_thm
+  MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
   |> Q.GEN`c2` |> Q.ISPEC`x64_compiler_config`
 
 val same_config = prove(to_data_thm0 |> concl |> rator |> rand,
@@ -90,7 +90,7 @@ val to_data_thm1 =
   MATCH_MP to_data_thm0 same_config
 
 val to_livesets_thm0 =
-  ``to_livesets x64_compiler_config init_prog``
+  ``to_livesets x64_compiler_config prog_x64``
   |> (REWR_CONV to_livesets_def THENC
       RAND_CONV (REWR_CONV to_data_thm1) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC

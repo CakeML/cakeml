@@ -526,6 +526,6 @@ val arm_benchmarks_bytes = map extract_bytes arm_benchmarks_compiled
 
 val mips_benchmarks_compiled = map (to_bytes mips_compileLib.eval ``mips_compiler_config``) benchmarks
 
-val benchmarks_bytes = map extract_bytes mips_benchmarks_compiled
+val mips_benchmarks_bytes = map extract_bytes mips_benchmarks_compiled
 
 val _ = export_theory ();

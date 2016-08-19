@@ -127,6 +127,8 @@ val add_reg_alloc_compset = extend_compset
     parmoveTheory.fstep_def
     ]]
 
+val ERR = mk_HOL_ERR"reg_allocComputeLib";
+
 (* unit sptree to ML unit sptree_spt*)
 fun dest_unit_sptree tm =
  case Lib.total boolSyntax.dest_strip_comb tm of

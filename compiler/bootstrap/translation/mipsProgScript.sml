@@ -1,13 +1,13 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_target64ProgTheory
-open x64_targetTheory x64Theory;
+open std_preludeTheory
+open mips_targetTheory mipsTheory;
 
-val _ = new_theory "x64Prog"
+val _ = new_theory "mipsProg"
 
 (* this should be compiler64Prog, once it exists *)
-val _ = translation_extends "to_target64Prog";
+val _ = translation_extends "std_prelude";
 
 val RW = REWRITE_RULE
 
@@ -48,6 +48,7 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 
 val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
+val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 
 val _ = register_type``:64 asm_config``
 
@@ -61,58 +62,40 @@ val word_bit_thm = Q.prove(
   \\ `i = n` by decide_tac
   \\ fs [])
 
-(* word_bit can be inlined into encode (current choice), or translated into a function
-val foo = translate ((INST_TYPE[alpha|->``:4``]o SPEC_ALL )th)
-*)
-
 (* word_concat *)
 val wc_simp = CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w,LET_THM]
 (* word_extract *)
 val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
-
+val wcomp_simp = SIMP_RULE std_ss [word_2comp_def]
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 (* w2w has to be translated for every single use *)
-val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:4``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:4``,beta|->``:3``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:2``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:3``,beta|->``:4``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:33``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:5``,beta|->``:32``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:16``,beta|->``:32``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:3``,beta|->``:32``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:26``,beta|->``:32``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:6``,beta|->``:32``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:32``,beta|->``:8``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:32``,beta|->``:64``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:16``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:32``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:32``,beta|->``:16``] w2w_def)
 
-val _ = translate (e_imm32_def |> we_simp |> econv)
+(* This inlines and simplifies all the form*s, might be a bad idea... *)
+val _ = translate (Encode_def |> SIMP_RULE std_ss [form1_def,form2_def,form3_def,form4_def,form5_def,form6_def] |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> gconv)
 
-val _ = translate (e_imm8_def |> we_simp |> econv)
+val _ = translate (mips_encode_def |> we_simp |> econv)
 
-val _ = translate (e_ModRM_def |> wc_simp |> we_simp |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,SHIFT_ZERO] |> gconv)
+val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
 
-val _ = translate (rex_prefix_def |> wc_simp |> we_simp |> econv)
+val _ = translate (mips_enc_def |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> SIMP_RULE std_ss[spec_word_bit,word_mul_def]|> econv)
 
-val _ = translate (e_imm16_def |> we_simp |> econv)
-val _ = translate (e_imm64_def |> we_simp |> econv)
+val mips_enc_side = prove(``
+  ∀x. mips_enc_side x ⇔ T``,
+  simp[fetch "-" "mips_enc_side_def"]>>rw[]>>
+  EVAL_TAC) |> update_precondition
 
-val _ = translate (encode_def|>SIMP_RULE std_ss [word_bit_thm] |> wc_simp |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> gconv)
-
-val _ = translate (x64_enc0_def |> we_simp |> gconv)
-
-val total_num2zreg_side = prove(``
-  ∀x. total_num2zreg_side x ⇔ T``,
-  simp[fetch "-" "total_num2zreg_side_def"]>>
-  FULL_SIMP_TAC std_ss [fetch "-" "num2zreg_side_def"]>>
-  ntac 2 strip_tac>>
-  (* Faster than DECIDE_TAC *)
-  Cases_on`x`>>FULL_SIMP_TAC std_ss [ADD1]>>
-  ntac 7 (Cases_on`n`>>FULL_SIMP_TAC std_ss [ADD1]>>
-  Cases_on`n'`>>FULL_SIMP_TAC std_ss [ADD1])>>
-  Cases_on`n`>>fs[])
-
-val x64_enc0_side = prove(``
-  ∀x. x64_enc0_side x ⇔ T``,
-  simp[fetch "-" "x64_enc0_side_def",total_num2zreg_side]) |> update_precondition
-
-val _ = translate x64_enc_def
-
-val _ = translate (x64_config_def |> gconv)
+val _ = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val _ = export_theory();
