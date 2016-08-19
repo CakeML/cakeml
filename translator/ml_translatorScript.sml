@@ -158,12 +158,17 @@ val Eval_Let = store_thm("Eval_Let",
 val lookup_var_def = Define `
   lookup_var name env = ALOOKUP env.v name`;
 
-val lookup_cons_def = zDefine `
-  lookup_cons name (env:v environment) =
-    lookup_alist_mod_env (Short name) env.c`;
+val lookup_cons_def = Define `
+  lookup_cons name (env:v environment) = SND_ALOOKUP env.c name`;
 
 val lookup_mod_def = Define `
   lookup_mod name env = ALOOKUP env.m name`;
+
+val lookup_cons_thm = store_thm("lookup_cons_thm",
+  ``lookup_cons name (env:v environment) =
+      lookup_alist_mod_env (Short name) env.c``,
+  Cases_on `env.c`
+  \\ fs [lookup_cons_def,lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
 
 val lookup_var_id_thm = store_thm("lookup_var_id_thm",
   ``(lookup_var_id (Short v) env = lookup_var v env) /\
@@ -175,8 +180,12 @@ val lookup_var_id_thm = store_thm("lookup_var_id_thm",
 
 val lookup_var_write = store_thm("lookup_var_write",
   ``(lookup_var v (write w x env) = if v = w then SOME x else lookup_var v env) /\
+    (lookup_var_id (Short v) (write w x env) =
+        if v = w then SOME x else lookup_var_id (Short v) env) /\
+    (lookup_var_id (Long mn v) (write w x env) =
+        lookup_var_id (Long mn v) env) /\
     (lookup_cons name (write w x env) = lookup_cons name env)``,
-  fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_def] \\ rw []);
+  fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_thm] \\ rw []);
 
 val lookup_var_write_mod = store_thm("lookup_var_write_mod",
   ``(lookup_var v (write_mod mn e1 env) = lookup_var v env) /\
@@ -184,7 +193,7 @@ val lookup_var_write_mod = store_thm("lookup_var_write_mod",
      if m = mn then SOME e1.v else lookup_mod m env) /\
     (lookup_cons name (write_mod mn e1 env) = lookup_cons name env)``,
   fs [lookup_var_id_def,lookup_var_def,write_mod_def,
-      lookup_cons_def,lookup_mod_def] \\ rw []
+      lookup_cons_thm,lookup_mod_def] \\ rw []
   \\ Cases_on `env.c` \\ fs [] \\ fs [lookup_alist_mod_env_def]);
 
 val lookup_var_write_cons = store_thm("lookup_var_write_mod",
@@ -193,7 +202,7 @@ val lookup_var_write_cons = store_thm("lookup_var_write_mod",
     (lookup_cons name (write_cons n d env) =
      if name = n then SOME d else lookup_cons name env)``,
   fs [lookup_var_id_def,lookup_var_def,write_cons_def,
-      lookup_cons_def,lookup_mod_def] \\ rw []
+      lookup_cons_thm,lookup_mod_def] \\ rw []
   \\ Cases_on `env.c` \\ fs []
   \\ fs [lookup_alist_mod_env_def,merge_alist_mod_env_def]);
 
@@ -202,7 +211,7 @@ val lookup_var_empty_env = store_thm("lookup_var_empty_env",
     (lookup_var_id (Short v) empty_env = NONE) /\
     (lookup_var_id (Long m v) empty_env = NONE) /\
     (lookup_cons name empty_env = NONE)``,
-  fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_def] \\ rw []
+  fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
   \\ fs [lookup_alist_mod_env_def]);
 
 val lookup_var_merge_env = store_thm("lookup_var_merge_env",
@@ -218,7 +227,7 @@ val lookup_var_merge_env = store_thm("lookup_var_merge_env",
        case lookup_mod v1 e1 of
        | NONE => lookup_mod v1 e2
        | res => res)``,
-  fs [lookup_var_def,lookup_cons_def,merge_env_def,ALOOKUP_APPEND,lookup_mod_def]
+  fs [lookup_var_def,lookup_cons_thm,merge_env_def,ALOOKUP_APPEND,lookup_mod_def]
   \\ Cases_on `e1.c` \\ Cases_on `e2.c`
   \\ fs [lookup_alist_mod_env_def,ALOOKUP_APPEND]);
 
@@ -1791,7 +1800,7 @@ val lookup_cons_write = store_thm("lookup_cons_write",
       (lookup_cons name (write n x env) = lookup_cons name env) /\
       (lookup_cons name (write_rec funs env1 env) = lookup_cons name env)``,
   Induct \\ REPEAT STRIP_TAC
-  \\ fs [write_rec_thm,write_def,lookup_cons_def]);
+  \\ fs [write_rec_thm,write_def,lookup_cons_thm]);
 
 val lookup_var_id_write = store_thm("lookup_var_id_write",
   ``(lookup_var_id (Short name) (write n v env) =
