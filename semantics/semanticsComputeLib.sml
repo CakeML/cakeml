@@ -50,6 +50,7 @@ val add_ast_compset = computeLib.extend_compset
    computeLib.Tys
     [``:MMLnonT``
     ,``:ast$top``
+    ,``:ast$spec``
     ,``:ast$dec``
     ,``:ast$pat``
     ,``:ast$exp``
@@ -59,9 +60,13 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$lit``
     ,``:opb``
     ,``:opn``
+    ,``:opw``
+    ,``:ast$shift``
     ,``:'a ast$id``
+    ,``:ast$word_size``
     ,``:eq_result``
     ,``:ast$tctor``
+    ,``:ast$t``
     ,``:'a environment``
     ]]
 

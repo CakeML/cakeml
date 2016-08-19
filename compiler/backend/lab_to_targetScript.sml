@@ -181,7 +181,7 @@ val line_length_def = Define `
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
 val line_ok_light_def = Define `
-  (line_ok_light (c:'a asm_config) labs pos (Label _ _ l) <=> EVEN pos) /\
+  (line_ok_light (c:'a asm_config) labs pos (Label _ _ l) <=> T) /\
   (line_ok_light c labs pos (Asm b bytes l) <=> asm_ok b c) /\
   (line_ok_light c labs pos (LabAsm Halt w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
@@ -200,10 +200,10 @@ val line_ok_light_def = Define `
         asm_ok (lab_inst w1 a) c /\
        (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
 
-val all_enc_ok_def = Define `
+val all_enc_ok_light_def = Define `
   (all_enc_ok_light c labs pos [] = T) /\
   (all_enc_ok_light c labs pos ((Section k [])::xs) <=>
-     EVEN pos /\ all_enc_ok_light c labs pos xs) /\
+     all_enc_ok_light c labs pos xs) /\
   (all_enc_ok_light c labs pos ((Section k (y::ys))::xs) <=>
      line_ok_light c labs pos y /\
      all_enc_ok_light c labs (pos + line_length y) ((Section k ys)::xs))`

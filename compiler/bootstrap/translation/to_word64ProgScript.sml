@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open compilerProgTheory;
+open to_dataProgTheory;
 
-val _ = new_theory "compiler64_preludeProg"
+val _ = new_theory "to_word64Prog"
 
-val _ = translation_extends "compilerProg";
+val _ = translation_extends "to_dataProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE

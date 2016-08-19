@@ -272,7 +272,7 @@ local
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
 in
    fun next_tac gs =
-     (qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
+     (qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
       \\ simp enc_rwts
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ imp_res_tac lem3
@@ -286,7 +286,7 @@ val enc_ok_tac =
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
 val enc_tac =
-  simp enc_rwts
+  simp (riscv_encode_fail_def :: enc_rwts)
   \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
              \\ CASE_TAC
              \\ simp [])
@@ -349,6 +349,20 @@ val riscv_encoding = Q.prove (
             \\ Cases_on `s`
             \\ enc_tac
             )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ enc_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
+            \\ enc_tac
+            )
             (*--------------
                AddCarry
               --------------*)
@@ -405,7 +419,7 @@ val enc_ok_rwts =
 
 val print_tac = asmLib.print_tac "correct"
 
-val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
+val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
    `backend_correct riscv_target`,
    simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
          riscv_target_def]
@@ -468,6 +482,20 @@ val riscv_backend_correct = Count.apply Q.store_thm ("riscv_backend_correct",
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
             \\ next_tac
             )
             (*--------------

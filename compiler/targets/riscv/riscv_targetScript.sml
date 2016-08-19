@@ -66,6 +66,9 @@ val riscv_const32_def = Define`
     riscv_encode (ArithI (LUI (r, (31 >< 12) i))) ++
     riscv_encode (ArithI (ADDI (r, r, (11 >< 0) i)))`
 
+val riscv_encode_fail_def = Define`
+  riscv_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
+
 val riscv_enc_def = Define`
    (riscv_enc (Inst Skip) = riscv_encode (ArithI (ADDI (0w, 0w, 0w)))) /\
    (riscv_enc (Inst (Const r (i: word64))) =
@@ -87,10 +90,14 @@ val riscv_enc_def = Define`
         riscv_encode (ArithR (OR (n2w r, n2w r, 1w)))) /\
    (riscv_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
      riscv_encode (ArithR (riscv_bop_r bop (n2w r1, n2w r2, n2w r3)))) /\
+   (riscv_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
+     riscv_encode (ArithI (ADDI (n2w r1, n2w r2, -(w2w i))))) /\
    (riscv_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
      riscv_encode (ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i)))) /\
    (riscv_enc (Inst (Arith (Shift sh r1 r2 n))) =
      riscv_encode (Shift (riscv_sh sh (n2w r1, n2w r2, n2w n)))) /\
+   (riscv_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = riscv_encode_fail) /\
+   (riscv_enc (Inst (Arith (LongDiv _ _ _ _ _))) = riscv_encode_fail) /\
    (riscv_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
      riscv_encode (ArithR (SLTU (1w, 0w, n2w r4))) ++
      riscv_encode (ArithR (ADD (n2w r1, n2w r2, n2w r3))) ++
@@ -163,7 +170,8 @@ val riscv_config_def = Define`
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := (\b i. b <> INL Sub /\ ^min12 <= i /\ i <= ^max12)
+    ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
+                          i <= ^max12)
     ; addr_offset_min := ^min12
     ; addr_offset_max := ^max12
     ; jump_offset_min := ^min21

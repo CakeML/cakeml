@@ -12,7 +12,7 @@ val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 (* TODO: may need to change *)
 val data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
-val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
+val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
 val stack_conf = ``<|reg_names:=arm_names;max_heap:=1000000|>``
 val lab_conf = ``<|labels:=LN;asm_conf:=arm6_config;init_clock:=5|>``

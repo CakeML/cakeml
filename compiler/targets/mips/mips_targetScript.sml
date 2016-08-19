@@ -115,12 +115,15 @@ val mips_enc_def = Define`
                   ArithI (ORI (n2w r, n2w r, bottom))]) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
        mips_encode (ArithR (mips_bop_r bop (n2w r2, n2w r3, n2w r1)))) /\
-   (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) = mips_encode_fail) /\
+   (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
+       mips_encode (ArithI (DADDIU (n2w r2, n2w r1, -(w2w i))))) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
        mips_encode (ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i)))) /\
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
+   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = mips_encode_fail) /\
+   (mips_enc (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        encs [ArithR (SLTU (0w, n2w r4, 1w));
              ArithR (DADDU (n2w r2, n2w r3, n2w r1));
@@ -186,8 +189,8 @@ val mips_config_def = Define`
     ; valid_imm :=
        (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
                 0w <= i /\ i <= ^umax16
-              else
-                b <> INL Sub /\ ^min16 <= i /\ i <= ^max16)
+              else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
+                   i <= ^max16)
     ; addr_offset_min := ^min16
     ; addr_offset_max := ^max16
     ; jump_offset_min := ^min16
