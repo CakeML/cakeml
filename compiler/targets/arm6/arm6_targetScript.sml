@@ -86,6 +86,8 @@ val arm6_enc_def = Define`
                       THE (EncodeARMImmediate i))))) /\
    (arm6_enc (Inst (Arith (Shift sh r1 r2 n))) =
        enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm6_sh sh, n)))) /\
+   (arm6_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = arm6_encode_fail) /\
+   (arm6_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm6_encode_fail) /\
    (arm6_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        enc (Data (TestCompareImmediate (2w, n2w r4, 0w))) ++
        arm6_encode 0w (Data (TestCompareImmediate (3w, n2w r4, 0w))) ++
