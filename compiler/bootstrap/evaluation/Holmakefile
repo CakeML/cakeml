@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../translation/compilerProgTheory\
+BARE_THYS = ../translation/x64ProgTheory\
 						../../eval/compilerComputeLib\
 						../../eval/x64/x64_configTheory
 
