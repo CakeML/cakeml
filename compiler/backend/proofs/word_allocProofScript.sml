@@ -1,7 +1,6 @@
-open preamble BasicProvers
+open preamble
      reg_allocTheory reg_allocProofTheory
-     wordLangTheory wordPropsTheory word_allocTheory wordSemTheory
-open dep_rewrite
+     wordLangTheory wordSemTheory wordPropsTheory word_allocTheory
 
 val _ = new_theory "word_allocProof";
 
