@@ -1835,6 +1835,8 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
         fs[INJ_IMP_IMAGE_DIFF_single])
       >>
       fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
+    >- start_tac
+    >- start_tac
     >-
       (start_tac>-
         (CONJ_TAC>-
