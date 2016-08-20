@@ -951,6 +951,7 @@ val arith_upd_lemma = Q.prove(
     \\ first_assum(qspec_then`n0`mp_tac)
     \\ first_assum(qspec_then`n1`mp_tac)
     \\ first_assum(qspec_then`n2`mp_tac)
+    \\ first_assum(qspec_then`n3`mp_tac)
     \\ first_x_assum(qspec_then`r`mp_tac)
     \\ every_case_tac \\ fs[]
     \\ EVAL_TAC \\ rw[] \\ EVAL_TAC \\ fs[]
@@ -1174,12 +1175,18 @@ val Inst_lemma = Q.prove(
     \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][word_loc_val_def])
   THEN1
    (strip_tac >>
-    conj_tac >- (
+    conj_asm1_tac >- (
       Cases_on`a`>> full_simp_tac(srw_ss())[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
       every_case_tac >> full_simp_tac(srw_ss())[labSemTheory.assert_def] >> srw_tac[][] >>
       full_simp_tac(srw_ss())[reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
       full_simp_tac(srw_ss())[upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
-      TRY (Cases_on`b`)>>EVAL_TAC >> full_simp_tac(srw_ss())[state_rel_def]) >>
+      TRY (Cases_on`b`)>>EVAL_TAC >> full_simp_tac(srw_ss())[state_rel_def] >>
+      unabbrev_all_tac \\ fs[]
+      \\ first_assum(qspec_then`n1`mp_tac)
+      \\ first_assum(qspec_then`n2`mp_tac)
+      \\ first_x_assum(qspec_then`n3`mp_tac)
+      \\ simp[word_loc_val_def] \\ ntac 3 strip_tac
+      \\ rveq \\ fs[asmSemTheory.read_reg_def]) >>
     srw_tac[][] >>
     simp[inc_pc_dec_clock] >>
     simp[dec_clock_def] >>
