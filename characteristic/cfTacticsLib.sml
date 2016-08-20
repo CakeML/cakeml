@@ -35,8 +35,11 @@ val cs = computeLib.the_compset
 val () = listLib.list_rws cs
 val () = basicComputeLib.add_basic_compset cs
 val () = semanticsComputeLib.add_semantics_compset cs
+val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
 val () = cfComputeLib.add_cf_normalize_compset cs
+
+val _ = (max_print_depth := 15)
 
 val eval = computeLib.CBV_CONV cs
 val eval_tac = CONV_TAC eval

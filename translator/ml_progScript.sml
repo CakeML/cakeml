@@ -86,6 +86,10 @@ val merge_env_simp = store_thm("merge_env_simp[compute]",
   \\ Cases_on `e2.c` \\ pop_assum kall_tac \\ fs []
   \\ fs [SND_ALOOKUP_EQ_ALOOKUP,ALOOKUP_APPEND]);
 
+val SND_ALOOKUP_INTRO = store_thm("SND_ALOOKUP_INTRO[compute]",
+  ``lookup_alist_mod_env (Short v) x = SND_ALOOKUP x v``,
+  Cases_on `x` \\ fs [lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
+
 
 (* some shorthands that are allowed to EVAL are below *)
 
