@@ -49,6 +49,7 @@ val prog_x64_def = zDefine`
 
 val cs = wordsLib.words_compset();
 val () = basicComputeLib.add_basic_compset cs;
+val () = semanticsComputeLib.add_ast_compset cs;
 val () = compilerComputeLib.add_compiler_compset cs;
 val eval = computeLib.CBV_CONV cs;
 

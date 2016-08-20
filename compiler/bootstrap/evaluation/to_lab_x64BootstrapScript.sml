@@ -49,6 +49,7 @@ val () =
   computeLib.extend_compset [
     computeLib.Extenders [
       basicComputeLib.add_basic_compset,
+      semanticsComputeLib.add_ast_compset,
       compilerComputeLib.add_compiler_compset,
       asmLib.add_asm_compset ],
     computeLib.Defs [
@@ -122,7 +123,7 @@ val tm1 =
   |> rator |> rator |> rand
 *)
 
-(* about 5 minutes *)
+(* about 8 minutes *)
 
 val () = Lib.say "eval data_to_word: ";
 val tm0 = to_livesets_thm0 |> rconc |> rand |> rand
@@ -170,13 +171,12 @@ fun eval_fn i n p =
     conv tm
   end
 
-val ths = parlist num_threads chunk_size eval_fn word_prog
+val ths = parlist num_threads chunk_size eval_fn word_prog;
 
 val thm1 =
   tm1
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
       RAND_CONV(REWR_CONV thm0) THENC map_ths_conv ths)
-
 
 val word_prog0_def = mk_def "word_prog0" (thm1 |> rconc)
 
@@ -211,7 +211,7 @@ fun eval_fn i n p =
     conv tm
   end
 
-val ths = parlist num_threads chunk_size eval_fn word_prog0
+val ths = parlist num_threads chunk_size eval_fn word_prog0;
 
 val thm2 =
   tm2
@@ -286,15 +286,6 @@ val ZIP_GENLIST_lemma =
   |> C TRANS LENGTH_word_prog1
   |> MATCH_MP ZIP_GENLIST1
   |> ISPEC (lhs(concl(x64_oracle_def)))
-
-(*
-val GENLIST_EL_ZIP_lemma = Q.prove(
-  `LENGTH l1 = n ∧ LENGTH l2 = n ⇒
-   GENLIST (λx. f (y x, EL x (ZIP (l1,l2)))) n =
-   GENLIST (λx. f (y x, (EL x l1, EL x l2))) n`,
-  rw[GENLIST_FUN_EQ,EL_ZIP])
-  |> C MATCH_MP (CONJ LENGTH_word_prog1 LENGTH_word_prog0)
-*)
 
 val x64_oracle_list_def = mk_def"x64_oracle_list" (x64_oracle_def |> rconc |> rand);
 
@@ -383,6 +374,17 @@ avg (map term_size word_prog1_els)
 avg (map term_size word_prog0_els)
 avg (map (term_size o rconc) map3els)
 
+val data_progs =
+  data_prog_x64_def |> rconc |> listSyntax.dest_list |> #1
+val num_progs = data_progs |> length
+
+avg (map term_size data_progs)
+List.exists (can (find_term is_abs)) data_progs
+
+avg (map term_size word_prog)
+val atm = first (can (find_term is_abs)) word_prog
+atm |> funpow 10 rand
+
 fun avg ls = sum ls div (length ls)
 avg (map term_size encoded_prog_els)
 *)
@@ -437,7 +439,7 @@ val compile_thm1' = compile_thm1
 
 val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
 
-(* about 15 minutes - cannot parallelise easily due to bitmaps accumulator *)
+(* slow; cannot parallelise easily due to bitmaps accumulator *)
 val () = Lib.say "eval word_to_stack: "
 val from_word_thm =
   compile_thm1'
@@ -491,7 +493,7 @@ fun eval_fn i n p =
 val stack_prog_els =
   stack_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_prog_els;
 
 val stack_alloc_thm =
   tm4 |>
@@ -540,7 +542,7 @@ fun eval_fn i n p =
 val stack_alloc_prog_els =
   stack_alloc_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_alloc_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_alloc_prog_els;
 
 val stack_remove_thm =
   stack_remove_thm0
@@ -580,7 +582,7 @@ fun eval_fn i n p =
 val stack_remove_prog_els =
   stack_remove_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_remove_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_remove_prog_els;
 
 val stack_names_thm0 =
   tm7
@@ -613,7 +615,7 @@ fun eval_fn i n p =
 val stack_names_prog_els =
   stack_names_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_names_prog_els
+val ths = parlist num_threads chunk_size eval_fn stack_names_prog_els;
 
 val stack_to_lab_thm4 =
   stack_to_lab_thm3
