@@ -56,24 +56,6 @@ val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
   \\ simp[TAKE_APPEND2] \\ rw[] \\ fs[]
   \\ simp[MULT_SUC]);
 
-val TODO_MOVE_binop_upd_consts = Q.store_thm("TODO_MOVE_binop_upd_consts[simp]",
-  `(asmSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
-   (asmSem$binop_upd a b c d x).align = x.align ∧
-   (asmSem$binop_upd a b c d x).failed = x.failed ∧
-   (asmSem$binop_upd a b c d x).mem = x.mem ∧
-   (asmSem$binop_upd a b c d x).lr = x.lr ∧
-   (asmSem$binop_upd a b c d x).be = x.be`,
-  Cases_on`b`>>EVAL_TAC);
-
-val TODO_MOVE_arith_upd_consts = Q.store_thm("TODO_MOVE_arith_upd_consts[simp]",
-  `(asmSem$arith_upd a x).mem_domain = x.mem_domain ∧
-   (asmSem$arith_upd a x).align = x.align ∧
-   (asmSem$arith_upd a x).failed = x.failed ∧
-   (asmSem$arith_upd a x).mem = x.mem ∧
-   (asmSem$arith_upd a x).lr = x.lr ∧
-   (asmSem$arith_upd a x).be = x.be`,
-  Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
-
 (* -- *)
 
 val pos_val_def = Define `
