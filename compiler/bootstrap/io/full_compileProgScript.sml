@@ -460,9 +460,6 @@ val raw_evaluate_prog = let
   val entire_program_def = Define `entire_program = ^tm`
   val th = th |> SIMP_RULE std_ss [GSYM entire_program_def,PULL_EXISTS,
                    ml_progTheory.ML_code_def,ml_progTheory.Prog_def]
-  val lemma = prove(``x = y ==> T``,fs [])
-  val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
-             (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[lemma])) th
   in th end
 
 (* next we instantiate the ffi and projection to remove the separation logic *)
@@ -598,8 +595,8 @@ val evaluate_prog = let
    \\ fs [io_proj1_def,io_ffi_def,FLOOKUP_DEF,FUPDATE_LIST,FAPPLY_FUPDATE_THM])
   val th = MP th lemma
   val lhs = th |> concl |> repeat (snd o dest_exists)
-  val rhs = ``evaluate_prog F init_env (init_state (io_ffi input))
-                entire_program (st',new_tds,Rval (new_mods,new_env)) /\
+  val eval_tm = lhs |> helperLib.list_dest dest_conj |> last
+  val rhs = ``^eval_tm /\
               st'.ffi.final_event = NONE /\
               st'.ffi.ffi_state = ("",compile input) /\
               extract_output st'.ffi.io_events = SOME (compile input)``
@@ -607,7 +604,7 @@ val evaluate_prog = let
   val lemma = prove(goal,
     rw []
     \\ `(STDIN "" * STDOUT (compile input) * CHAR_IO) h'` by
-           fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
+           (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
     \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
            GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
     \\ `FFI_part (Str "") stdin_fun [1; 2] IN
