@@ -3083,29 +3083,44 @@ val env_rel_e_sound_letrec_merge0 = Q.store_thm ("env_rel_e_sound_letrec_merge0"
   >> ONCE_REWRITE_TAC [DECIDE ``n + (x + 1) = x + (n + 1n)``]
   >> metis_tac []);
 
-(*
+val env_rel_complete_def = Define `
+  env_rel_complete s ienv tenv tenvE ⇔
+    ienv.inf_t = tenv.t ∧
+    ienv.inf_c = tenv.c ∧
+    !x tvs t.
+      lookup_var x tenvE tenv = SOME (tvs, t)
+      ⇒
+      ?tvs' t'.
+        nsLookup ienv.inf_v x = SOME (tvs', t') ∧
+        check_t (tvs' + num_tvs tenvE) {} t' ∧
+        tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')`;
 
 val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
 `!s ienv tenv tenvE.
-  t_wfs s ∧ ienv_ok {} ienv ∧ env_rel_e_sound FEMPTY ienv tenv tenvE
+  t_wfs s ∧ ienv_ok {} ienv ∧ env_rel_sound FEMPTY ienv tenv tenvE
   ⇒
-  env_rel_e_sound s ienv tenv tenvE`,
- rw [env_rel_e_sound_def]
+  env_rel_sound s ienv tenv tenvE`,
+
+ rw [env_rel_sound_def]
  >> first_x_assum drule
  >> rw []
  >> rename1 `lookup_var _ _ _ = SOME (tvs', t')`
  >> qexists_tac `tvs'`
  >> qexists_tac `t'`
  >> simp []
- >> every_case_tac
+ >> PairCases_on `ts`
+ >> fs [tscheme_approx_def]
+ >> rw []
  >> fs [t_walkstar_FEMPTY]
+
+ >> every_case_tac
+ >>
  >> rw []
  >- metis_tac [t_walkstar_FEMPTY]
  >> fs [ienv_ok_def, ienv_val_ok_def]
  >> imp_res_tac nsLookup_nsAll
  >> fs []);
 
-          *)
 (*
 val env_rel_e_sound_extend = Q.store_thm ("env_rel_e_sound_extend",
 `!s x tvs t env t' tenv.
@@ -3554,20 +3569,14 @@ val convert_env2_anub = store_thm("convert_env2_anub",
 val tenv_bvl_def = Define`
   tenv_bvl venv ⇔  ∃tenv_v. venv = bind_var_list2 tenv_v Empty`
 
+  *)
+
 (*Environment relation at infer_d and above*)
 val env_rel_def = Define`
  env_rel tenv ienv ⇔
-  tenv_bvl tenv.v ∧
-  tenv_val_ok tenv.v ∧
-  tenv_mod_ok tenv.m ∧
-  check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  check_cenv tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  tenv_tabbrev_ok tenv.t ∧
-  ienv.inf_t = tenv.t ∧
-  check_env ∅ ienv.inf_v ∧
-  tenv_alpha ienv.inf_v tenv.v`
-  *)
+  ienv_ok {} ienv ∧
+  tenv_ok tenv ∧
+  env_rel_sound FEMPTY ienv tenv Empty ∧
+  env_rel_complete FEMPTY ienv tenv Empty`;
 
 val _ = export_theory ();
