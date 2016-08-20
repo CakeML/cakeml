@@ -156,6 +156,24 @@ val nsAll2_nsSing = Q.store_thm ("nsAll2_nsSing[simp]",
  >> Cases_on `path`
  >> fs [nsSing_def, nsLookupMod_def]);
 
+(* -------------- alist_to_ns --------------- *)
+
+val nsLookup_alist_to_ns_some = Q.store_thm ("nsLookup_alist_to_ns_some",
+  `!l id v. nsLookup (alist_to_ns l) id = SOME v ⇔ ?x'. id = Short x' ∧ ALOOKUP l x' = SOME v`,
+ Induct_on `l`
+ >> fs [alist_to_ns_def, nsLookup_def]
+ >> rw []
+ >> Cases_on `id`
+ >> fs [nsLookup_def]);
+
+val nsLookup_alist_to_ns_none = Q.store_thm ("nsLookup_alist_to_ns_none",
+  `!l id. nsLookup (alist_to_ns l) id = NONE ⇔ !x'. id = Short x' ⇒ ALOOKUP l x' = NONE`,
+ Induct_on `l`
+ >> fs [alist_to_ns_def, nsLookup_def]
+ >> rw []
+ >> Cases_on `id`
+ >> fs [nsLookup_def]);
+
 (* -------------- nsLift --------------- *)
 
 val nsLookup_nsLift = Q.store_thm ("nsLookup_nsLift",

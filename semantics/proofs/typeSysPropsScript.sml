@@ -594,6 +594,18 @@ val tveLookup_freevars = Q.store_thm ("tveLookup_freevars",
  >> fs []
  >> metis_tac [nil_deBruijn_inc]);
 
+val tveLookup_bvl = Q.store_thm ("tveLookup_bvl",
+  `!x tvs tvs' bindings tenvE.
+    tveLookup x tvs (bind_var_list tvs' bindings tenvE)
+    =
+    case ALOOKUP bindings x of
+    | SOME t => SOME (tvs',deBruijn_inc tvs' tvs t)
+    | NONE => tveLookup x tvs tenvE`,
+ Induct_on `bindings`
+ >> rw [bind_var_list_def]
+ >> PairCases_on `h`
+ >> rw [bind_var_list_def, tveLookup_def]);
+
 val bind_var_list_append = Q.store_thm ("bind_var_list_append",
 `!n te1 te2 te3.
   bind_var_list n (te1++te2) te3 = bind_var_list n te1 (bind_var_list n te2 te3)`,

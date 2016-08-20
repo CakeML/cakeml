@@ -2961,10 +2961,10 @@ val tscheme_approx0 = Q.store_thm ("tscheme_approx0",
 
 val env_rel_sound_extend0 = Q.store_thm ("env_rel_sound_extend0",
   `!s x t ienv tenv tenvE.
+    env_rel_sound s ienv tenv tenvE ∧
     t_wfs s ∧
     check_t (num_tvs tenvE) (FDOM s) t ∧
-    (∀uv. uv ∈ FDOM s ⇒ check_t (num_tvs tenvE) ∅ (t_walkstar s (Infer_Tuvar uv))) ∧
-    env_rel_sound s ienv tenv tenvE
+    (∀uv. uv ∈ FDOM s ⇒ check_t (num_tvs tenvE) ∅ (t_walkstar s (Infer_Tuvar uv)))
     ⇒
     env_rel_sound s (ienv with inf_v := nsBind x (0,t) ienv.inf_v)
       tenv (Bind_name x 0 (convert_t (t_walkstar s t)) tenvE)`,
@@ -2988,6 +2988,100 @@ val env_rel_sound_extend0 = Q.store_thm ("env_rel_sound_extend0",
    >> rw []
    >> every_case_tac
    >> fs [lookup_var_def, lookup_varE_def]));
+
+val env_rel_sound_merge0 = Q.store_thm ("env_rel_sound_merge0",
+  `!s ienv bindings tenv tenvE.
+    t_wfs s ∧
+    (∀uv. uv ∈ FDOM s ⇒ check_t (num_tvs tenvE) ∅ (t_walkstar s (Infer_Tuvar uv))) ∧
+    EVERY (λ(x,t). check_t 0 (FDOM s) t) bindings ∧
+    env_rel_sound s ienv tenv tenvE
+    ⇒
+    env_rel_sound s
+       (ienv with inf_v := nsAppend (alist_to_ns (MAP (λ(n,t). (n,0,t)) bindings)) ienv.inf_v)
+       tenv
+       (bind_var_list 0 (convert_env s bindings) tenvE)`,
+ rw [env_rel_sound_def]
+ >> fs [nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, nsLookup_alist_to_ns_none]
+ >- (
+   rw [lookup_var_def, lookup_varE_def, tveLookup_bvl, convert_env_def, deBruijn_inc0]
+   >> fs [ALOOKUP_MAP]
+   >> rw []
+   >- (
+     irule check_t_to_check_freevars
+     >> irule (CONJUNCT1 check_t_walkstar)
+     >> rw []
+     >> fs [EVERY_MEM]
+     >> imp_res_tac ALOOKUP_MEM
+     >> first_x_assum drule
+     >> fs []
+     >> metis_tac [check_t_more2, DECIDE ``x + 0n = x``])
+   >- (
+     rw [tscheme_approx_def]
+     >> qexists_tac `subst`
+     >> fs [LENGTH_NIL]
+     >> rw []
+     >> simp [infer_deBruijn_subst_id]
+     >> fs []
+     >> `check_t (num_tvs tenvE) {} (t_walkstar s t)`
+       by (
+         irule (CONJUNCT1 check_t_walkstar)
+         >> simp []
+         >> imp_res_tac ALOOKUP_MEM
+         >> fs [EVERY_MEM]
+         >> first_x_assum drule
+         >> rw []
+         >> metis_tac [check_t_more2, DECIDE ``z + 0n = z``])
+     >> drule check_t_empty_unconvert_convert_id
+     >> rw []
+     >> fs [t_walkstar_idempotent]))
+ >- (
+   first_x_assum drule
+   >> rw [lookup_var_def, lookup_varE_def]
+   >> CASE_TAC
+   >> fs [tveLookup_bvl]
+   >> every_case_tac
+   >> fs [deBruijn_inc0, ALOOKUP_MAP, convert_env_def]
+   >> fs []));
+
+val env_rel_e_sound_letrec_merge0 = Q.store_thm ("env_rel_e_sound_letrec_merge0",
+`!funs ienv tenv tenvE s uvs.
+  t_wfs s ∧
+  (∀uv. uv ∈ FDOM s ⇒ check_t (num_tvs tenvE) ∅ (t_walkstar s (Infer_Tuvar uv))) ∧
+  count (uvs + LENGTH funs) ⊆ FDOM s ∧
+  env_rel_sound s ienv tenv tenvE
+  ⇒
+  env_rel_sound s
+    (ienv with inf_v :=
+      nsAppend
+        (alist_to_ns
+          (MAP2 (λ(f,x,e) uvar. (f,0,uvar))
+            funs
+            (MAP (λn. Infer_Tuvar (uvs + n)) (COUNT_LIST (LENGTH funs)))))
+        ienv.inf_v)
+    tenv
+    (bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t))
+                       funs
+                       (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (uvs + n))))
+                         (COUNT_LIST (LENGTH funs)))) tenvE)`,
+  induct_on `funs` >>
+  srw_tac[] [COUNT_LIST_def, bind_var_list_def] >>
+  PairCases_on `h` >>
+  srw_tac[] [bind_var_list_def] >>
+  last_x_assum drule >>
+  disch_then drule >>
+  full_simp_tac (bool_ss) [DECIDE ``x+SUC y=SUC x + y``] >>
+  disch_then drule >>
+  disch_then drule >>
+  rw [] >>
+  drule env_rel_sound_extend0 >>
+  simp [MAP_MAP_o, combinTheory.o_DEF] >>
+  disch_then (qspecl_then [`h0`, `Infer_Tuvar uvs`] mp_tac) >>
+  simp [check_t_def] >>
+  fs [SUBSET_DEF] >>
+  simp_tac (srw_ss()++ARITH_ss) [ADD1]
+  >> rw []
+  >> ONCE_REWRITE_TAC [DECIDE ``n + (x + 1) = x + (n + 1n)``]
+  >> metis_tac []);
 
 (*
 
@@ -3028,7 +3122,7 @@ fs[t_walkstar_no_vars]
 metis_tac []);
 *)
 
-(* SEEM TO BE UNUSED 
+(*
 val env_rel_e_sound_extend_tvar_empty_subst = Q.store_thm ("env_rel_e_sound_extend_tvar_empty_subst",
 `!env tvs tenv.
   check_env {} env ∧ env_rel_e_sound FEMPTY env tenv ⇒ env_rel_e_sound FEMPTY env (bind_tvar tvs tenv)`,
@@ -3055,26 +3149,6 @@ val env_rel_e_sound_extend_tvar_empty_subst = Q.store_thm ("env_rel_e_sound_exte
   >>
     fs[check_env_def]>>rfs[nil_deBruijn_inc,num_tvs_def]>>
     metis_tac[])
-
-val env_rel_e_sound_letrec_merge = Q.store_thm ("env_rel_e_sound_letrec_merge",
-`!funs tenv' env tenv st s.
-  t_wfs s ∧
-  env_rel_e_sound s env tenv
-  ⇒
-  env_rel_e_sound s (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ env)
-             (bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t)) funs (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)))) tenv)`,
-  induct_on `funs` >>
-  srw_tac[] [COUNT_LIST_def, bind_var_list_def] >>
-  PairCases_on `h` >>
-  srw_tac[] [bind_var_list_def] >>
-  match_mp_tac env_rel_e_sound_extend0 >>
-  fsrw_tac[] [] >>
-  srw_tac[] [check_t_def] >>
-  res_tac >>
-  pop_assum (mp_tac o Q.SPEC `st with next_uvar := st.next_uvar + 1`) >>
-  strip_tac >>
-  fsrw_tac[] [] >>
-  metis_tac [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]);
 
 val env_rel_e_sound_merge = Q.store_thm ("env_rel_e_sound_merge",
 `!s x uv env env' tenv.
