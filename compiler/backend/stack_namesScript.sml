@@ -25,6 +25,10 @@ val inst_find_name_def = Define `
         Arith (Shift sop (find_name f d) (find_name f r) i)
     | Arith (AddCarry r1 r2 r3 r4) =>
         Arith (AddCarry (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (LongMul r1 r2 r3 r4) =>
+        Arith (LongMul (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (LongDiv r1 r2 r3 r4 r5) =>
+        Arith (LongDiv (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4) (find_name f r5))
     | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)`
 
 val dest_find_name_def = Define`
