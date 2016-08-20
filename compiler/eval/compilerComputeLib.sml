@@ -317,7 +317,7 @@ val add_compiler_compset = computeLib.extend_compset
     [ (* ---- data ---- *)
      ``:dataLang$prog``
       (* ---- data_to_word ---- *)
-     ``:data_to_word$word_op_type``
+    ,``:data_to_word$word_op_type``
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
