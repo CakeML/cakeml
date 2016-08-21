@@ -416,6 +416,21 @@ val constrain_op_sound = Q.prove (
  fs [infer_st_rewrs,Tchar_def] >>
  binop_tac);
 
+val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar",
+  `!ts t s.
+    t_wfs s ⇒
+    t_walkstar s (infer_deBruijn_subst (MAP (t_walkstar s) ts) t)
+    =
+    t_walkstar s (infer_deBruijn_subst ts t)`,
+ ho_match_mp_tac infer_deBruijn_subst_ind
+ >> rw [infer_deBruijn_subst_def, EL_MAP]
+ >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
+ >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+ >> `MEM (EL n ts') ts'` by (rw [MEM_EL] >> metis_tac [])
+ >> first_x_assum drule
+ >> disch_then drule
+ >> simp [EL_MAP]);
+
 val infer_e_sound = Q.store_thm ("infer_e_sound",
 `(!ienv e st st' tenv tenvE t extra_constraints s.
     infer_e ienv e st = (Success t, st') ∧
@@ -523,17 +538,20 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> rename1 `nsLookup _ _ = SOME v`
    >> `?tvs t. v = (tvs, t)` by metis_tac [pair_CASES]
    >> fs [tscheme_approx_def]
-   >> qpat_x_assum `!subst. LENGTH subst = tvs ∧ Q ⇒ P`
-     (qspec_then `MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs)` mp_tac)
+   >> first_x_assum
+     (qspec_then `MAP (t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` mp_tac)
    >> simp [LENGTH_COUNT_LIST, EVERY_MAP, every_count_list, check_t_def]
    >> impl_keep_tac
    >- fs [sub_completion_def, SUBSET_DEF]
    >> rw []
    >> rw []
+   >> `t_wfs s` by metis_tac [sub_completion_wfs]
    >> qexists_tac `MAP (convert_t o t_walkstar s) subst'`
    >> simp [EVERY_MAP]
    >> conj_tac
-   >- metis_tac [sub_completion_wfs, db_subst_infer_subst_swap3]
+   >- (
+     fs [infer_deBruijn_subst_walkstar]
+     >> metis_tac [db_subst_infer_subst_swap3])
    >- (
      fs [EVERY_MEM, sub_completion_def]
      >> rw []

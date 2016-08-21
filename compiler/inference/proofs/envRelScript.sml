@@ -200,7 +200,7 @@ val tscheme_approx_def = Define `
   tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
     !subst.
       LENGTH subst = tvs ∧
-      EVERY (check_t max_tvs (FDOM s)) subst
+      EVERY (check_t max_tvs {}) subst
       ⇒
       ?subst'.
         LENGTH subst' = tvs' ∧
@@ -248,10 +248,10 @@ val db_subst_infer_subst_swap3 = Q.store_thm ("db_subst_infer_subst_swap3",
  >> fs [EVERY_MEM]
  >> metis_tac []);
 
- (*
 val tscheme_approx_weakening = Q.store_thm ("tscheme_approx_weakening",
   `!tvs s1 s2 ts1 ts2.
     tscheme_approx tvs s1 ts1 ts2 ∧
+    t_wfs s2 ∧
     s1 SUBMAP s2
     ⇒
     tscheme_approx tvs s2 ts1 ts2`,
@@ -259,7 +259,13 @@ val tscheme_approx_weakening = Q.store_thm ("tscheme_approx_weakening",
  >> Cases_on `ts1`
  >> Cases_on `ts2`
  >> fs [tscheme_approx_def]
- *)
+ >> rw []
+ >> first_x_assum (qspec_then `subst` mp_tac)
+ >> rw []
+ >> qexists_tac `subst'`
+ >> rw []
+ >- metis_tac [SUBMAP_DEF, check_t_more5, SUBSET_DEF]
+ >> metis_tac [t_walkstar_idempotent, t_walkstar_SUBMAP]);
 
 val tscheme_approx0 = Q.store_thm ("tscheme_approx0",
   `!tvs s t. t_wfs s ⇒ tscheme_approx tvs s (0, t) (0, t_walkstar s t)`,
@@ -401,13 +407,11 @@ val env_rel_complete_def = Define `
         check_t (tvs' + num_tvs tenvE) {} t' ∧
         tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')`;
 
-        (*
 val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
 `!s ienv tenv tenvE.
   t_wfs s ∧ ienv_ok {} ienv ∧ env_rel_sound FEMPTY ienv tenv tenvE
   ⇒
   env_rel_sound s ienv tenv tenvE`,
-
  rw [env_rel_sound_def]
  >> first_x_assum drule
  >> rw []
@@ -415,19 +419,10 @@ val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
  >> qexists_tac `tvs'`
  >> qexists_tac `t'`
  >> simp []
- >> PairCases_on `ts`
- >> fs [tscheme_approx_def]
- >> rw []
- >> fs [t_walkstar_FEMPTY]
-
- >> every_case_tac
- >>
- >> rw []
- >- metis_tac [t_walkstar_FEMPTY]
- >> fs [ienv_ok_def, ienv_val_ok_def]
- >> imp_res_tac nsLookup_nsAll
- >> fs []);
- *)
+ >> irule tscheme_approx_weakening
+ >> simp []
+ >> qexists_tac `FEMPTY`
+ >> simp [SUBMAP_FEMPTY]);
 
 (*
 val env_rel_e_sound_extend = Q.store_thm ("env_rel_e_sound_extend",
