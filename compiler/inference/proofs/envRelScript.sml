@@ -184,23 +184,61 @@ val infer_type_subst_nil = store_thm("infer_type_subst_nil",
   rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
   fsrw_tac[boolSimps.ETA_ss][]);
 
-(* ---------- env_rel_e_sound, the invariant relating inference and type system * environments ---------- *)
+(* ---------- relating inference and type system environments ---------- *)
 
-(*Soundness invariant
-Everything in the inferencer env is also in the type system env
 
-1) If we are inside an expresesion, then their tvs is just 0 and the
-   type system type is just the walk of the inferencer type
-
-2) Else,
-  the type system type scheme generalizes the inferencer's type scheme
-*)
+(* We want tscheme_approx max_tvs s (tvs, t) (tvs', t') to hold iff (tvs', t') is
+ * more general than (tvs, t) under substitution s constraining unification
+ * variables.
+ *
+ * In general, there are 4 classes of variables that can appear in ts and ts':
+ * - de Bruijn variables less than tvs, and hence bound by the type scheme,
+ * - de Bruijn variables ≥ tvs that are bound in the enclosing context which
+ *     binds max_tvs variables, appearing in t as tvs to tvs + max_tvs,
+ * - unification variables constrained by s, and
+ * - other unification variables.
+ *
+ * We assume that s only mentions de Bruijn variables bound in the context, but
+ * unlike in t, they appear as 0 to max_tvs (since the substitution is not under
+ * the typescheme binder).
+ *
+ * We'd like to instantiate the bound de Bruijn variables in t' so that it
+ * matches t. To do so, we must apply s to both t and t', since they may contain
+ * different bound unification variables that are constrained to be the same by
+ * s. However, since s may contain de Bruijn type variables, we have to either
+ * shift it by tvs/tvs' to avoid capture, or first instantiate both type schemes.
+ * Since we have to instantiate one anyway, we choose the latter option.
+ *
+ * The main question is how to instantiate t. Crucially, we don't want to
+ * over-specialise t, so that a less general t' can be matched to t. One
+ * approach would be to instantiate t with fresh variables of some sort;
+ * however, that does not work well with our general setup which requires all
+ * type variables to be explicitly bound somewhere. Instead, we require that t'
+ * be able to match the result of any instantiation of t. In fact, we can
+ * restrict to variable free substitutions, because for each type parameter to
+ * t, there are at least two different types (e.g., int and bool) that can be
+ * used to instantiate it, and t' can only match in both cases if it is at least
+ * as general at t. Compared to allowing bound type variables and unification
+ * variables in the instantiation of t's type parameters, this choice makes
+ * tscheme_approx monotone is max_tvs and s (under the SUBMAP relation).
+ *
+ * Once we instantiate t, we just need tobe able to instantiate t' and then
+ * apply the substitution. We directly require that the instantiation of t' not contain
+ * free de Bruijn or unification variables to make things work smoothly, the
+ * relevant parts of the instantiation won't contain any as neither t, nor its
+ * instantion do. In the definition below, the restriction to (FDOM s) is
+ * slightly more restrictive, since t could contain unification variables not
+ * constrained by s. However, in our use of this definition so far, s is always
+ * a sub_completion, and hence FDOM s contains every allocated unification
+ * variable.
+ *
+ * *)
 
 val tscheme_approx_def = Define `
   tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
     !subst.
       LENGTH subst = tvs ∧
-      EVERY (check_t max_tvs {}) subst
+      EVERY (check_t 0 {}) subst
       ⇒
       ?subst'.
         LENGTH subst' = tvs' ∧

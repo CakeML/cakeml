@@ -4,6 +4,7 @@ open astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
 open infer_eSoundTheory;
+open envRelTheory;
 
 (*
 open type_eDetermTheory;
@@ -171,14 +172,14 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> drule (CONJUNCT1 infer_e_check_s)
    >> simp []
    >> rename1 `generalise_list _ _ _ _ = (tvs, s2, ts)`
-   >> disch_then (qspec_then `tvs` mp_tac)
+   >> disch_then (qspec_then `0` mp_tac)
    >> impl_tac
    >- simp [check_s_def, init_infer_state_def]
    >> rw []
    >> drule (CONJUNCT1 infer_p_check_t)
    >> rw []
    >> drule (CONJUNCT1 infer_p_check_s)
-   >> disch_then (qspec_then `tvs` mp_tac)
+   >> disch_then (qspec_then `0` mp_tac)
    >> impl_tac
    >- fs [ienv_ok_def]
    >> rw []
@@ -187,7 +188,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> disch_then drule
    >> simp []
    >> impl_tac
-   >- cheat
+   >- metis_tac [infer_p_next_uvar_mono, check_t_more4]
    >> rw []
    >> `?ec1 last_sub.
           ts = MAP (t_walkstar last_sub) (MAP SND env) ∧
@@ -204,10 +205,27 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> drule (CONJUNCT1 sub_completion_infer_p)
    >> disch_then drule
    >> rw []
+   >> `env_rel_sound FEMPTY ienv tenv (bind_tvar tvs Empty)`
+     by (
+       fs [env_rel_sound_def]
+       >> rw []
+       >> first_x_assum drule
+       >> rw []
+       >> fs [lookup_var_def, lookup_varE_def]
+       >> every_case_tac
+       >> fs []
+       >> simp []
+
+   >> drule env_rel_e_sound_empty_to
+   >> disch_then drule
+   >> disch_then drule
+   >> rw []
    >> drule (CONJUNCT1 infer_e_sound)
    >> simp []
    >> disch_then drule
    >> simp [num_tvs_def]
+
+
    >> disch_then drule
 
      fs [METIS_PROVE [] ``!x. (x = 0:num ∨ is_value e) = (x<>0 ⇒ is_value e)``] >>
