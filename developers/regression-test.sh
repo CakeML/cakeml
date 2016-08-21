@@ -13,7 +13,7 @@ then
 fi
 
 cd $(dirname "$0")
-source ./misc.sh
+source misc.sh
 cd ..
 
 case $(uname -a) in
