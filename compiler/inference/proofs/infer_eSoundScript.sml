@@ -1,7 +1,7 @@
 open preamble;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory;
-open inferPropsTheory;
+open inferPropsTheory envRelTheory;
 open typeSysPropsTheory;
 open namespacePropsTheory;
 
