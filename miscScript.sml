@@ -522,10 +522,6 @@ val list_max_def = Define `
      let m = list_max xs in
        if m < x then x else m)`
 
-val index_of_def = Define `
-  (index_of i [] = (0:num)) /\
-  (index_of i (x::xs) = if i = x then 0 else 1 + index_of i xs)`;
-
 val list_inter_def = Define `
   list_inter xs ys = FILTER (\y. MEM y xs) ys`;
 
@@ -1191,18 +1187,6 @@ val find_index_in_FILTER_ZIP_EQ = store_thm("find_index_in_FILTER_ZIP_EQ",
   Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
   disch_then(qspec_then`PRE j1`mp_tac) >>
   simp[rich_listTheory.EL_CONS] )
-
-val index_of_find_index = store_thm("index_of_find_index",
-  ``!xs n k. index_of n xs =
-             case find_index n xs k of
-             | NONE => (LENGTH xs)
-             | SOME d => d - k``,
-  Induct \\ fs [find_index_def,index_of_def]
-  \\ rpt strip_tac \\ IF_CASES_TAC \\ fs []
-  \\ first_x_assum (qspecl_then [`n`,`k+1`] mp_tac)
-  \\ fs [] \\ strip_tac \\ CASE_TAC \\ fs []
-  \\ drule find_index_shift
-  \\ strip_tac \\ decide_tac);
 
 val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
   ``∀l1 l2 l3. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) l2
