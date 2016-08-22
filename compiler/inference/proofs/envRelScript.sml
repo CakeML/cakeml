@@ -246,6 +246,106 @@ val tscheme_approx_def = Define `
         t_walkstar s (infer_deBruijn_subst subst t) =
         t_walkstar s (infer_deBruijn_subst subst' t')`;
 
+val tscheme_approx_lem = Q.prove (
+ `let tscheme_prop max_tvs s tvs t tvs' t' =
+  (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇒
+   !subst.
+     LENGTH subst = tvs ∧
+     EVERY (check_t max_tvs {}) subst
+     ⇒
+     ?subst'.
+       LENGTH subst' = tvs' ∧
+       EVERY (check_t max_tvs (FDOM s)) subst' ∧
+       t_walkstar s (infer_deBruijn_subst subst t) =
+       t_walkstar s (infer_deBruijn_subst subst' t'))
+  in
+  (!t' max_tvs s tvs tvs' t.
+    t_wfs s
+    ⇒
+    tscheme_prop max_tvs s tvs t tvs' t') ∧
+  (!tsl' max_tvs s tvsl tvsl' tsl.
+    LENGTH tsl = LENGTH tvsl ∧
+    LENGTH tvsl' = LENGTH tsl' ∧
+    LENGTH tsl = LENGTH tsl' ∧
+    t_wfs s
+    ⇒
+    LIST_REL (\(tvs,t) (tvs',t'). tscheme_prop max_tvs s tvs t tvs' t')
+      (ZIP (tvsl,tsl)) (ZIP (tvsl', tsl')))`,
+ simp [LET_THM]
+ >> Induct
+ >> fs [t_walkstar_eqn1, infer_deBruijn_subst_def, tscheme_approx_def]
+ >> rw []
+ >- (
+   qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
+   >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
+   >> rw [EL_REPLICATE, t_walkstar_eqn1]
+   >- cheat
+   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> rw []
+   >> pop_assum mp_tac
+   >> full_case_tac
+   >> fs []
+   >> simp [t_walkstar_eqn1]
+   >> disch_then (mp_tac o GSYM)
+   >> rw []
+   >> Cases_on `t`
+   >> fs [infer_deBruijn_subst_def, t_walkstar_eqn1, LENGTH_REPLICATE, EL_REPLICATE]
+   >> rw []
+   >> rfs [t_walkstar_eqn1]
+   >> fs []
+   >> rfs [t_walkstar_eqn1])
+ >- cheat
+ >- (
+   qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
+   >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
+   >> rw [EL_REPLICATE, t_walkstar_eqn1]
+   >- cheat
+   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> rw []
+   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_string)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> rw []
+   >> pop_assum (mp_tac o GSYM)
+   >> rw []
+   >> fs []
+   >> Cases_on `t`
+   >> fs [infer_deBruijn_subst_def, t_walkstar_eqn1, LENGTH_REPLICATE, EL_REPLICATE]
+   >> rw []
+   >> rfs [t_walkstar_eqn1]
+   >> fs []
+   >> rfs [t_walkstar_eqn1]
+   >> cheat)
+ >- (
+   fs [LENGTH_NIL]
+   >> Cases_on `tvsl`
+   >> fs [])
+ >- (
+   Cases_on `tvsl'`
+   >> Cases_on `tsl`
+   >> Cases_on `tvsl`
+   >> fs []));
+
+val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
+  `∀t' max_tvs s tvs tvs' t.
+    t_wfs s ⇒
+    (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
+     ∀subst.
+      LENGTH subst = tvs ∧
+      EVERY (check_t max_tvs ∅) subst
+      ⇒
+      ∃subst'.
+        LENGTH subst' = tvs' ∧
+        EVERY (check_t max_tvs (FDOM s)) subst' ∧
+        t_walkstar s (infer_deBruijn_subst subst t) = t_walkstar s (infer_deBruijn_subst subst' t'))`,
+ rw []
+ >> eq_tac
+ >> rw []
+ >- metis_tac [tscheme_approx_lem, LET_THM]
+ >> fs [tscheme_approx_def]
+ >> metis_tac [check_t_more2, DECIDE ``x+0n = x``]);
+
 val env_rel_sound_def = Define `
   env_rel_sound s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧

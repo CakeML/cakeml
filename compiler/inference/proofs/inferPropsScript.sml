@@ -1051,18 +1051,27 @@ ho_match_mp_tac infer_t_induction >>
 rw [check_t_def, t_walkstar_eqn1, EVERY_MAP] >>
 metis_tac []);
 
-val t_walkstar_no_vars = Q.store_thm ("t_walkstar_no_vars",
-`!tvs (tvs':num set) t s.
+val t_walkstar_no_vars = Q.prove (
+`!tvs uvs t s.
   t_wfs s ∧
-  check_t tvs {} t
+  uvs = {} ∧
+  check_t tvs uvs t
   ⇒
-  (t_walkstar s t = t)`,
+  t_walkstar s t = t`,
 ho_match_mp_tac check_t_ind >>
 srw_tac [ARITH_ss] [check_t_def, apply_subst_t_eqn] >>
 fs [t_walkstar_eqn1] >>
 induct_on `ts` >>
 rw [] >>
 metis_tac []);
+
+val t_walkstar_no_vars = Q.store_thm ("t_walkstar_no_vars",
+`!tvs t s.
+  t_wfs s ∧
+  check_t tvs {} t
+  ⇒
+  t_walkstar s t = t`,
+metis_tac [t_walkstar_no_vars]);
 
 val t_unify_check_s = Q.store_thm ("t_unify_check_s",
 `!s1 tvs uvs t1 t2 s2.
