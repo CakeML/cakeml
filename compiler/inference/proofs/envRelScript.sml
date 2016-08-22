@@ -440,9 +440,12 @@ val env_rel_complete_def = Define `
     !x tvs t.
       lookup_var x tenvE tenv = SOME (tvs, t)
       ⇒
+      (* t cannot have tyvars inside *)
+      (∃n. check_freevars n [] t) ∧
       ?tvs' t'.
         nsLookup ienv.inf_v x = SOME (tvs', t') ∧
-        check_t (tvs' + num_tvs tenvE) {} t' ∧
+        (* A stronger version is guaranteed by ienv_ok
+        check_t (tvs' + num_tvs tenvE) {} t' ∧*)
         tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')`;
 
 val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
