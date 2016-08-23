@@ -4256,6 +4256,121 @@ val pad_code_ends_with_label = Q.store_thm("pad_code_ends_with_label",
   \\ Cases_on`x`
   \\ Cases_on`y` \\ fs[line_similar_def]);
 
+val enc_lines_again_section_labels = Q.store_thm("enc_lines_again_section_labels",
+  `∀labs pos enc lines res acc.
+    enc_lines_again_simp labs pos enc lines = (res,T) ⇒
+    section_labels pos lines acc = section_labels pos res acc`,
+  recInduct enc_lines_again_simp_ind
+  \\ rw[enc_lines_again_simp_def,section_labels_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[section_labels_def]);
+
+val enc_secs_again_compute_labels = Q.store_thm("enc_secs_again_compute_labels",
+  `∀pos labs enc secs res.
+   enc_secs_again pos labs enc secs = (res,T)
+   ⇒
+   compute_labels_alt pos res =
+   compute_labels_alt pos secs`,
+  recInduct enc_secs_again_ind
+  \\ rw[enc_secs_again_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[compute_labels_alt_def]
+  \\ AP_TERM_TAC
+  \\ qspecl_then[`labs`,`pos`,`enc`,`lines`,`[]`,`T`]mp_tac enc_lines_again_simp_EQ
+  \\ simp[] \\ pairarg_tac \\ fs[] \\ strip_tac \\ rveq
+  \\ imp_res_tac enc_lines_again_simp_len
+  \\ fs[sec_length_sum_line_len]
+  \\ imp_res_tac enc_lines_again_section_labels
+  \\ simp[]);
+
+val section_labels_append = Q.store_thm("section_labels_append",
+  `∀pos l1 labs l2.
+    section_labels pos (l1 ++ l2) labs =
+    section_labels pos l1 (section_labels (pos + (SUM (MAP line_len l1))) l2 labs)`,
+  recInduct section_labels_ind
+  \\ rw[section_labels_def]);
+
+(*
+  val code = ``[Label 1 1 0; Label 1 2 0; Asm x3 [b3] 1; Label 1 3 1; Label 1 4 0]``
+  EVAL ``section_labels 0 ^code LN``
+  EVAL ``(pad_section nop ^code [])``
+  EVAL ``section_labels 0 (pad_section nop ^code []) LN``
+
+  [Label 1 1 0; Label 1 2 0; Asm x3 [b3] 1; Label 1 3 1; Label 1 4 0]
+  []
+
+  [Label 1 2 0; Asm x3 [b3] 1; Label 1 3 1; Label 1 4 0]
+  [Label 1 1 0]
+
+  [Asm x3 [b3] 1; Label 1 3 1; Label 1 4 0]
+  [Label 1 2 0; Label 1 1 0]
+
+  [Label 1 3 1; Label 1 4 0]
+  [Asm x3 [b3] 1; Label 1 2 0; Label 1 1 0]
+
+  [Label 1 4 0]
+  [Label 1 3 0; Asm x3 [b3;nop] 2; Label 1 2 0; Label 1 1 0]
+*)
+
+val pad_section_labels = Q.store_thm("pad_section_labels",
+  `∀nop lines aux pos labs.
+    lab_len_pos_ok (pos + SUM (MAP line_len aux)) lines ∧
+    lab_len_pos_ok pos (REVERSE aux) ∧ EVERY label_zero aux ∧
+    (¬NULL lines ∧ is_Label (HD lines) ∧ line_len (HD lines) = 1 ⇒
+     ¬NULL aux ∧ ¬is_Label (HD aux))
+    ⇒
+    section_labels pos (pad_section nop lines aux) labs =
+    section_labels pos (REVERSE aux ++ lines) labs`,
+  recInduct pad_section_ind
+  \\ rw[section_labels_def,pad_section_def,section_labels_append,
+        lab_len_pos_ok_append,lab_len_pos_ok_def,line_lab_len_pos_ok_def,
+        label_prefix_zero_cons]
+  \\ fs[MAP_REVERSE,SUM_REVERSE,line_len_add_nop1,SUM_APPEND]
+  \\ rw[] \\ fs[]
+  \\ TRY (
+    first_x_assum match_mp_tac \\ fs[]
+    \\ spose_not_then strip_assume_tac
+    \\ Cases_on`xs` \\ fs[lab_len_pos_ok_def]
+    \\ Cases_on`h` \\ fs[line_lab_len_pos_ok_def] )
+  \\ Cases_on`aux` \\ fs[]
+  \\ Cases_on`h` \\ fs[section_labels_append,MAP_REVERSE,SUM_REVERSE,add_nop_def,section_labels_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs[lab_len_pos_ok_append,lab_len_pos_ok_def,line_lab_len_pos_ok_def,EVEN_ADD]
+  \\ (conj_tac >- metis_tac[])
+  \\ spose_not_then strip_assume_tac
+  \\ Cases_on`xs` \\ fs[lab_len_pos_ok_def]
+  \\ Cases_on`h` \\ fs[line_lab_len_pos_ok_def]
+  \\ fs[EVEN_ADD]
+  \\ metis_tac[]);
+
+val pad_code_compute_labels = Q.store_thm("pad_code_compute_labels",
+  `∀pos code.
+    EVERY sec_label_one code ∧
+    (LENGTH nop ≠ 1 ⇒ EVERY sec_label_zero code) ∧
+    EVERY sec_label_prefix_zero code ∧
+    all_lab_len_pos_ok pos code
+    ⇒
+    compute_labels_alt pos (pad_code nop code) =
+    compute_labels_alt pos code`,
+  recInduct compute_labels_alt_ind
+  \\ rw[compute_labels_alt_def,pad_code_def,all_lab_len_pos_ok_def]
+  \\ fs[sec_length_sum_line_len,sec_label_zero_def]
+  \\ AP_TERM_TAC
+  \\ `SUM (MAP line_len (pad_section nop lines [])) =
+      SUM (MAP line_len lines)`
+  by (
+    Cases_on`LENGTH nop = 1` \\ fs[]
+    >- simp[line_len_pad_section]
+    \\ simp[line_len_pad_section0] )
+  \\ fs[]
+  \\ qpat_abbrev_tac`labs = compute_labels_alt _ _`
+  \\ qspecl_then[`nop`,`lines`,`[]`,`pos`,`labs`]mp_tac pad_section_labels
+  \\ fs[lab_len_pos_ok_def]
+  \\ disch_then match_mp_tac
+  \\ spose_not_then strip_assume_tac
+  \\ Cases_on`lines` \\ fs[]
+  \\ Cases_on`h` \\ fs[label_prefix_zero_cons]);
+
 val remove_labels_loop_thm = Q.prove(
   `∀n c code code2 labs.
     remove_labels_loop n c code = SOME (code2,labs) ∧
@@ -4292,54 +4407,56 @@ val remove_labels_loop_thm = Q.prove(
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
+  \\ qmatch_abbrev_tac`all_enc_ok c labs 0 (pad_code nop sec_list) ∧ _`
+  \\ qmatch_assum_abbrev_tac`enc_secs_again 0 labs0 enc code = (code1,T)`
+  \\ qpat_x_assum`Abbrev(code1 = _)`kall_tac
+  \\ `all_encd0 enc code1` by imp_res_tac enc_secs_again_encd0
+  \\ qmatch_assum_abbrev_tac`enc_secs_again 0 labs enc code2 = (sec_list,T)`
+  \\ `EVERY sec_label_one code2` by metis_tac[upd_lab_len_label_one]
+  \\ `all_encd0 enc code2` by metis_tac[upd_lab_len_encd0,enc_secs_again_encd0]
+  \\ `all_encd enc labs 0 sec_list` by metis_tac[enc_secs_again_encd]
+  \\ `LENGTH nop ≠ 1 ⇒
+      EVERY (sec_aligned (LENGTH nop)) sec_list ∧
+      EVERY sec_label_zero sec_list`
+  by (
+    strip_tac
+    \\ qmatch_assum_abbrev_tac`enc_ok c`
+    \\ `c.code_alignment ≠ 0`
+    by ( strip_tac \\ fs[enc_ok_def] )
+    \\ `EVERY sec_ends_with_label code1`
+    by metis_tac[enc_secs_again_ends_with_label]
+    \\ `EVERY sec_label_zero code2`
+    by (
+      simp[Abbr`code2`]
+      \\ match_mp_tac (GEN_ALL upd_lab_len_encd0_label_zero)
+      \\ asm_exists_tac \\ fs[] )
+    \\ reverse conj_tac
+    >- metis_tac[enc_secs_again_label_zero]
+    \\ match_mp_tac enc_secs_again_aligned
+    \\ fs[enc_ok_def] \\ rfs[]
+    \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["enc"]))
+    \\ qexists_tac`enc` \\ simp[]
+    \\ asm_exists_tac \\ simp[]
+    \\ simp[Abbr`nop`]
+    \\ match_mp_tac all_encd0_aligned
+    \\ fs[enc_ok_def]
+    \\ metis_tac[])
+  \\ `EVERY sec_label_one sec_list` by metis_tac[enc_secs_again_label_one]
+  \\ `all_length_leq sec_list` by metis_tac[all_encd_length_leq]
+  \\ `EVERY sec_label_prefix_zero code2`
+  by (
+    simp[Abbr`code2`]
+    \\ match_mp_tac upd_lab_len_label_prefix_zero
+    \\ simp[]
+    \\ match_mp_tac enc_secs_again_ends_with_label
+    \\ asm_exists_tac \\ fs[])
+  \\ `EVERY sec_label_prefix_zero sec_list`
+  by metis_tac[enc_secs_again_label_prefix_zero]
+  \\ `all_lab_len_pos_ok 0 sec_list`
+  by metis_tac[enc_secs_again_pos_ok,upd_lab_len_pos_ok]
   \\ conj_asm1_tac
   >- (
     match_mp_tac all_enc_ok_light_imp_all_enc_ok \\ fs[]
-    \\ qmatch_abbrev_tac`all_enc_with_nop enc labs 0 (pad_code nop sec_list) ∧ _`
-    \\ qmatch_assum_abbrev_tac`enc_secs_again 0 labs0 enc code = (code1,T)`
-    \\ qpat_x_assum`Abbrev(code1 = _)`kall_tac
-    \\ `all_encd0 enc code1` by imp_res_tac enc_secs_again_encd0
-    \\ qmatch_assum_abbrev_tac`enc_secs_again 0 labs enc code2 = (sec_list,T)`
-    \\ `EVERY sec_label_one code2` by metis_tac[upd_lab_len_label_one]
-    \\ `all_encd0 enc code2` by metis_tac[upd_lab_len_encd0,enc_secs_again_encd0]
-    \\ `all_encd enc labs 0 sec_list` by metis_tac[enc_secs_again_encd]
-    \\ `LENGTH nop ≠ 1 ⇒
-        EVERY (sec_aligned (LENGTH nop)) sec_list ∧
-        EVERY sec_label_zero sec_list`
-    by (
-      strip_tac
-      \\ qmatch_assum_abbrev_tac`enc_ok c`
-      \\ `c.code_alignment ≠ 0`
-      by ( strip_tac \\ fs[enc_ok_def] )
-      \\ `EVERY sec_ends_with_label code1`
-      by metis_tac[enc_secs_again_ends_with_label]
-      \\ `EVERY sec_label_zero code2`
-      by (
-        simp[Abbr`code2`]
-        \\ match_mp_tac (GEN_ALL upd_lab_len_encd0_label_zero)
-        \\ asm_exists_tac \\ fs[] )
-      \\ reverse conj_tac
-      >- metis_tac[enc_secs_again_label_zero]
-      \\ match_mp_tac enc_secs_again_aligned
-      \\ fs[enc_ok_def] \\ rfs[]
-      \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["enc"]))
-      \\ qexists_tac`enc` \\ simp[]
-      \\ asm_exists_tac \\ simp[]
-      \\ simp[Abbr`nop`]
-      \\ match_mp_tac all_encd0_aligned
-      \\ fs[enc_ok_def]
-      \\ metis_tac[])
-    \\ `EVERY sec_label_one sec_list` by metis_tac[enc_secs_again_label_one]
-    \\ `all_length_leq sec_list` by metis_tac[all_encd_length_leq]
-    \\ `EVERY sec_label_prefix_zero code2`
-    by (
-      simp[Abbr`code2`]
-      \\ match_mp_tac upd_lab_len_label_prefix_zero
-      \\ simp[]
-      \\ match_mp_tac enc_secs_again_ends_with_label
-      \\ asm_exists_tac \\ fs[])
-    \\ `EVERY sec_label_prefix_zero sec_list`
-    by metis_tac[enc_secs_again_label_prefix_zero]
     \\ conj_asm1_tac
     >- (
       match_mp_tac all_enc_with_nop_pad_code
@@ -4350,8 +4467,6 @@ val remove_labels_loop_thm = Q.prove(
     \\ reverse conj_asm2_tac
     >- metis_tac[enc_secs_again_ends_with_label,upd_lab_len_ends_with_label,
                  pad_code_ends_with_label,all_enc_with_nop_label_zero]
-    \\ `all_lab_len_pos_ok 0 sec_list`
-    by metis_tac[enc_secs_again_pos_ok,upd_lab_len_pos_ok]
     \\ match_mp_tac label_zero_pos_ok_even_labels \\ fs[]
     \\ match_mp_tac all_lab_len_pos_ok_pad_code \\ fs[])
   \\ conj_asm1_tac
@@ -4363,12 +4478,16 @@ val remove_labels_loop_thm = Q.prove(
     \\ match_mp_tac has_odd_inst_alignment
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
-  \\ rw []
-  \\ qpat_x_assum `_ = compute_labels_alt 0 _` sym_sub_tac
+  \\ drule pad_code_compute_labels
+  \\ disch_then(qspec_then`0`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ drule enc_secs_again_compute_labels \\ fs[]
+  \\ rw [Abbr`labs`]
   THEN1 (
     match_mp_tac all_enc_ok_lab_lookup_even>>
     first_assum (match_exists_tac o concl)>>fs[]>>
     metis_tac[])
+  \\ qhdtm_assum`compute_labels_alt`sym_sub_tac
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
   \\ fs[GSYM PULL_EXISTS]
   \\ CONJ_TAC>- metis_tac[]
@@ -4377,7 +4496,7 @@ val remove_labels_loop_thm = Q.prove(
   \\ match_mp_tac code_similar_sym
   \\ match_mp_tac code_similar_pad_code
   \\ imp_res_tac enc_secs_again_IMP_similar
-  \\ fs [code_similar_upd_lab_len]
+  \\ fs [code_similar_upd_lab_len,Abbr`code2`]
   \\ metis_tac [code_similar_trans]);
 
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
