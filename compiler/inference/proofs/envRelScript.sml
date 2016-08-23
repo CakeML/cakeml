@@ -222,16 +222,9 @@ val infer_type_subst_nil = store_thm("infer_type_subst_nil",
  * variables in the instantiation of t's type parameters, this choice makes
  * tscheme_approx monotone is max_tvs and s (under the SUBMAP relation).
  *
- * Once we instantiate t, we just need tobe able to instantiate t' and then
- * apply the substitution. We directly require that the instantiation of t' not contain
- * free de Bruijn or unification variables to make things work smoothly, the
- * relevant parts of the instantiation won't contain any as neither t, nor its
- * instantion do. In the definition below, the restriction to (FDOM s) is
- * slightly more restrictive, since t could contain unification variables not
- * constrained by s. However, in our use of this definition so far, s is always
- * a sub_completion, and hence FDOM s contains every allocated unification
- * variable.
- *
+ * Once we instantiate t, we just need to be able to instantiate t' and then
+ * apply the substitution. We directly require that the instantiation of t' not
+ * contain free de Bruijn or unification variables to make things work smoothly.
  * *)
 
 val tscheme_approx_def = Define `
@@ -246,6 +239,8 @@ val tscheme_approx_def = Define `
         t_walkstar s (infer_deBruijn_subst subst t) =
         t_walkstar s (infer_deBruijn_subst subst' t')`;
 
+(* I think the following should hold without the check_s hypotheses, but it
+ * doesn't seem provable with the proof approach below. *)
 val tscheme_approx_lem = Q.prove (
  `let tscheme_prop max_tvs s tvs t tvs' t' =
   (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇒
@@ -260,14 +255,14 @@ val tscheme_approx_lem = Q.prove (
        t_walkstar s (infer_deBruijn_subst subst' t'))
   in
   (!t' max_tvs s tvs tvs' t.
-    t_wfs s
+    t_wfs s ∧ check_s max_tvs (FDOM s) s
     ⇒
     tscheme_prop max_tvs s tvs t tvs' t') ∧
   (!tsl' max_tvs s tvsl tvsl' tsl.
     LENGTH tsl = LENGTH tvsl ∧
     LENGTH tvsl' = LENGTH tsl' ∧
     LENGTH tsl = LENGTH tsl' ∧
-    t_wfs s
+    t_wfs s ∧ check_s max_tvs (FDOM s) s
     ⇒
     LIST_REL (\(tvs,t) (tvs',t'). tscheme_prop max_tvs s tvs t tvs' t')
       (ZIP (tvsl,tsl)) (ZIP (tvsl', tsl')))`,
@@ -276,25 +271,51 @@ val tscheme_approx_lem = Q.prove (
  >> fs [t_walkstar_eqn1, infer_deBruijn_subst_def, tscheme_approx_def]
  >> rw []
  >- (
-   qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
+   Cases_on `¬(n < tvs')`
+   >- (
+     qexists_tac `REPLICATE tvs' (Infer_Tapp [] TC_int)`
+     >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
+     >> rw [EL_REPLICATE, t_walkstar_eqn1, check_t_def]
+     >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+     >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+     >> strip_tac
+     >> pop_assum (mp_tac o GSYM)
+     >> simp [t_walkstar_eqn1]
+     >> Cases_on `t`
+     >> fs [infer_deBruijn_subst_def, t_walkstar_eqn1, LENGTH_REPLICATE, EL_REPLICATE]
+     >> rw []
+     >> rfs [t_walkstar_eqn1]
+     >> fs []
+     >> rfs [t_walkstar_eqn1])
+   >> fs []
+   >> qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
    >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
-   >> rw [EL_REPLICATE, t_walkstar_eqn1]
-   >- cheat
+   >> rw [EL_REPLICATE, t_walkstar_eqn1, t_walkstar_idempotent]
+   >> irule check_t_infer_deBruijn_subst
+   >- metis_tac [check_t_more5, SUBSET_DEF, NOT_IN_EMPTY]
    >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
    >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> rw []
+   >> strip_tac
+   >> pop_assum (mp_tac o GSYM)
+   >> simp []
+   >> rfs [EVERY_EL]
+   >> strip_tac
+   >> first_x_assum drule
+   >> strip_tac
+   >> `check_t max_tvs (FDOM s) (t_walkstar s (EL n subst'))`
+     by (
+       irule t_walkstar_check
+       >> simp []
+       >> `FDOM s ⊆ UNIV` by rw [SUBSET_DEF]
+       >> metis_tac [check_s_more3])
    >> pop_assum mp_tac
-   >> full_case_tac
-   >> fs []
-   >> simp [t_walkstar_eqn1]
-   >> disch_then (mp_tac o GSYM)
+   >> simp []
    >> rw []
-   >> Cases_on `t`
-   >> fs [infer_deBruijn_subst_def, t_walkstar_eqn1, LENGTH_REPLICATE, EL_REPLICATE]
+   >> drule t_walkstar_uncheck
+   >> simp []
    >> rw []
-   >> rfs [t_walkstar_eqn1]
-   >> fs []
-   >> rfs [t_walkstar_eqn1])
+   >> drule infer_deBruijn_subst_uncheck
+   >> rw [LENGTH_REPLICATE])
  >- cheat
  >- (
    qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
@@ -329,7 +350,7 @@ val tscheme_approx_lem = Q.prove (
 
 val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
   `∀t' max_tvs s tvs tvs' t.
-    t_wfs s ⇒
+    t_wfs s ∧ check_s max_tvs (FDOM s) s ⇒
     (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
      ∀subst.
       LENGTH subst = tvs ∧

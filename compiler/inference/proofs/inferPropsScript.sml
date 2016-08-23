@@ -966,6 +966,33 @@ val t_walkstar_check = Q.store_thm ("t_walkstar_check",
     check_t tvs uvs (t_walkstar s t)`,
 metis_tac [t_walkstar_check']);
 
+val t_walkstar_uncheck_lem = Q.prove (
+  `!s. t_wfs s ⇒
+    ∀t max_tvs uvs.
+    check_t max_tvs uvs (t_walkstar s t) ⇒
+    check_t max_tvs (uvs ∪ FDOM s) t`,
+ ntac 2 strip_tac
+ >> drule t_walkstar_ind
+ >> disch_then ho_match_mp_tac
+ >> rw []
+ >> Cases_on `t`
+ >> rfs [check_t_def, t_walkstar_eqn, t_walk_eqn, EVERY_MAP, EVERY_MEM]
+ >> pop_assum mp_tac
+ >> drule t_vwalk_eqn
+ >> strip_tac
+ >> ONCE_ASM_REWRITE_TAC []
+ >> pop_assum kall_tac
+ >> every_case_tac
+ >> simp [check_t_def]
+ >> fs [check_s_def, FLOOKUP_DEF]);
+
+val t_walkstar_uncheck = Q.store_thm ("t_walkstar_uncheck",
+  `!s t max_tvs uvs.
+    check_t max_tvs uvs (t_walkstar s t) ∧
+    t_wfs s ⇒
+    check_t max_tvs (uvs ∪ FDOM s) t`,
+ metis_tac [t_walkstar_uncheck_lem]);
+
 val t_unify_check_s_help = Q.prove (
 `(!s t1 t2. t_wfs s ⇒
     !tvs uvs s'. check_s tvs uvs s ∧
@@ -2736,6 +2763,29 @@ val infer_deBruijn_subst_id2 = store_thm("infer_deBruijn_subst_id2",
     fs[infer_deBruijn_subst_def,EVERY_MEM]>>
     metis_tac[]);
 
+val check_t_infer_deBruijn_subst = Q.store_thm ("check_t_infer_deBruijn_subst",
+  `!subst t tvs uvs.
+    check_t (tvs + LENGTH subst) uvs t ∧
+    EVERY (check_t tvs uvs) subst
+    ⇒
+    check_t tvs uvs (infer_deBruijn_subst subst t)`,
+ ho_match_mp_tac infer_deBruijn_subst_ind
+ >> rw [infer_deBruijn_subst_def, check_t_def, EVERY_MEM, MEM_EL]
+ >- metis_tac []
+ >> simp [EL_MAP]
+ >> metis_tac []);
+
+val infer_deBruijn_subst_uncheck = Q.store_thm ("infer_deBruijn_subst_uncheck",
+  `!s t max_tvs uvs.
+    check_t max_tvs uvs (infer_deBruijn_subst s t)
+    ⇒
+    check_t (max_tvs + LENGTH s) uvs t`,
+ ho_match_mp_tac infer_deBruijn_subst_ind
+ >> rw [check_t_def, infer_deBruijn_subst_def]
+ >> fs [EVERY_MAP, EVERY_EL]
+ >> rw []
+ >> first_x_assum drule
+ >> fs [MEM_EL, PULL_EXISTS]);
 
 val generalise_subst_exist = store_thm("generalise_subst_exist",``
   (t_wfs s ∧
