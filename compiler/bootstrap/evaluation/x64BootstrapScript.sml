@@ -591,6 +591,13 @@ fun eval_fn str n m tm =
     val () = Lib.say(String.concat[str," ",Int.toString n,".",Int.toString m,": "])
   in time eval tm end
 
+val (line_ok_light_Label,rest) = CONJ_PAIR lab_to_targetTheory.line_ok_light_def
+val (line_ok_light_Asm,rest) = CONJ_PAIR rest
+val (line_ok_light_LabAsm1,rest) = CONJ_PAIR rest
+val (line_ok_light_LabAsm2,rest) = CONJ_PAIR rest
+val (line_ok_light_LabAsm3,rest) = CONJ_PAIR rest
+val (line_ok_light_LabAsm4,rest) = CONJ_PAIR rest
+
 fun all_enc_ok_conv _ _ [] tm = REWR_CONV aen tm
   | all_enc_ok_conv n m (SOME dth::dths) tm =
       tm |>
@@ -600,18 +607,22 @@ fun all_enc_ok_conv _ _ [] tm = REWR_CONV aen tm
   | all_enc_ok_conv n m (NONE::dths) tm =
       tm |> (
         (REWR_CONV aesn THENC
-         LAND_CONV(numLib.REDUCE_CONV) THENC
-         REWR_CONV T_AND THENC
          all_enc_ok_conv (n+1) 0 dths)
         ORELSEC aesc_conv n m dths)
 and aesc_conv n m dths =
        (REWR_CONV aesc THENC
          RATOR_CONV(RAND_CONV(
-           PATH_CONV"llr"(REWR_CONV computed_labs2_def) THENC
-           eval_fn "line_ok" n m)) THENC
+           (REWR_CONV line_ok_light_Label) ORELSEC
+           (REWR_CONV line_ok_light_Asm THENC eval_fn "asm_ok" n m) ORELSEC
+           (REWR_CONV line_ok_light_LabAsm1 THENC eval_fn "lasm_ok" n m) ORELSEC
+           (REWR_CONV line_ok_light_LabAsm2 THENC eval_fn "lasm_ok" n m) ORELSEC
+           (REWR_CONV line_ok_light_LabAsm3 THENC eval_fn "lasm_ok" n m) ORELSEC
+           (REWR_CONV line_ok_light_LabAsm4 THENC eval_fn "lasm_ok" n m) ORELSEC
+           (PATH_CONV"llr"(REWR_CONV computed_labs2_def) THENC
+            eval_fn "labasm_ok" n m))) THENC
          REWR_CONV T_AND THENC
          PATH_CONV"lr"(
-           RAND_CONV(eval_fn "line_length" n m) THENC
+           RAND_CONV eval THENC
            numLib.REDUCE_CONV) THENC
          all_enc_ok_conv n (m+1) (NONE::dths))
 
