@@ -112,8 +112,7 @@ val line_ok_def = Define `
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
        enc_with_nop c.encode (lab_inst w1 a) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
-       (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
+       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c)`
 
 val line_ok_ind = theorem"line_ok_ind";
 
@@ -503,9 +502,9 @@ val IMP_bytes_in_memory = prove(
       (pos_val (pc+1) 0 code2 = pos_val pc 0 code2 + LENGTH (line_bytes j)) /\
       line_similar i j``,
   rpt strip_tac
-  \\ mp_tac prog_to_bytes_lemma \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac
-  \\ full_simp_tac(srw_ss())[bytes_in_mem_APPEND]
-  \\ Q.EXISTS_TAC `j` \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+  \\ mp_tac prog_to_bytes_lemma \\ fs[] \\ rpt strip_tac
+  \\ fs[bytes_in_mem_APPEND]
+  \\ Q.EXISTS_TAC `j` \\ fs[] \\ decide_tac);
 
 val IMP_bytes_in_memory_JumpReg = prove(
   ``code_similar s1.code code2 /\
@@ -515,15 +514,15 @@ val IMP_bytes_in_memory_JumpReg = prove(
     bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
       (mc_conf.target.config.encode (JumpReg r1)) t1.mem t1.mem_domain /\
     asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,enc_with_nop_thm] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,enc_with_nop_thm] \\ srw_tac[][] \\ fs[]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_Jump = prove(
@@ -538,16 +537,16 @@ val IMP_bytes_in_memory_Jump = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
       asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_JumpCmp = prove(
@@ -562,16 +561,16 @@ val IMP_bytes_in_memory_JumpCmp = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
       asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_JumpCmp_1 = prove(
@@ -587,18 +586,18 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
         bytes t1.mem t1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
       asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,LET_DEF] \\ srw_tac[][]
-  \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[enc_with_nop_thm,PULL_EXISTS,line_length_def]
-  \\ qexists_tac `n'` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
+  \\ Q.EXISTS_TAC `l'` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
+  \\ qexists_tac `n'` \\ fs[]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ srw_tac[][]);
 
 val IMP_bytes_in_memory_Call = prove(
@@ -627,20 +626,19 @@ val IMP_bytes_in_memory_LocValue = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).target.config /\
-      lab_lookup l1 l2 labs <> NONE``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,LET_DEF] \\ srw_tac[][]
-  \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[enc_with_nop_thm,PULL_EXISTS,line_length_def]
-  \\ qexists_tac `n'` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
+  \\ Q.EXISTS_TAC `l'` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
+  \\ qexists_tac `n'` \\ fs[]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ srw_tac[][]);
 
 val IMP_bytes_in_memory_Inst = prove(
@@ -656,18 +654,18 @@ val IMP_bytes_in_memory_Inst = prove(
         bytes t1.mem t1.mem_domain s1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
       asm_ok (Inst i) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,LET_DEF] \\ srw_tac[][]
-  \\ Q.EXISTS_TAC `l` \\ full_simp_tac(srw_ss())[enc_with_nop_thm,PULL_EXISTS,line_length_def]
-  \\ qexists_tac `n` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
+  \\ Q.EXISTS_TAC `l` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
+  \\ qexists_tac `n` \\ fs[]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ srw_tac[][]);
 
 val IMP_bytes_in_memory_CallFFI = prove(
@@ -681,16 +679,16 @@ val IMP_bytes_in_memory_CallFFI = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
       asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_Halt = prove(
@@ -704,16 +702,16 @@ val IMP_bytes_in_memory_Halt = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
       asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
-  full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
+  fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ full_simp_tac(srw_ss())[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
+  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val ADD_MODULUS_LEMMA = prove(
@@ -1666,7 +1664,7 @@ val compile_correct = Q.prove(
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
            \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
-    \\ rpt strip_tac \\ pop_assum mp_tac \\ pop_assum mp_tac
+    \\ rpt strip_tac \\ pop_assum mp_tac
     \\ qpat_abbrev_tac `jj = asm$Loc reg lll` \\ rpt strip_tac
     \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]mp_tac
          asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
@@ -1695,7 +1693,8 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][word_loc_val_def]
       \\ res_tac \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac lab_lookup_IMP \\ srw_tac[][])
+      \\ imp_res_tac lab_lookup_IMP \\ srw_tac[][]
+      \\ cheat (* semantics needs tweaking *))
     \\ rpt strip_tac
     \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN`s1.clock - 1 + k`mp_tac)
@@ -3049,7 +3048,7 @@ val line_ok_light_imp_line_ok = Q.store_thm("line_ok_light_imp_line_ok",
   `∀c labs pos line.
      line_enc_with_nop c.encode labs pos line ∧
      line_offset_ok labs pos line ∧
-     line_ok_light c labs line ∧ (is_Label line ⇒ EVEN pos) ⇒
+     line_ok_light c line ∧ (is_Label line ⇒ EVEN pos) ⇒
      line_ok c labs pos line`,
   ho_match_mp_tac line_ok_ind
   \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,
@@ -3155,7 +3154,7 @@ val line_enc_with_nop_label_zero = Q.store_thm("line_enc_with_nop_label_zero",
 val all_enc_ok_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_light_imp_all_enc_ok",
   `∀c labs pos code.
     all_enc_with_nop c.encode labs pos code ∧
-    all_enc_ok_light c labs code ∧
+    all_enc_ok_light c code ∧
     even_labels_strong pos code ∧
     offset_ok labs pos code
     ⇒

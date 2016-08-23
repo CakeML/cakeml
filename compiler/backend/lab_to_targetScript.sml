@@ -181,27 +181,26 @@ val line_length_def = Define `
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
 val line_ok_light_def = Define `
-  (line_ok_light (c:'a asm_config) labs (Label _ _ l) <=> T) /\
-  (line_ok_light c labs (Asm b bytes l) <=> asm_ok b c) /\
-  (line_ok_light c labs (LabAsm Halt w bytes l) <=>
+  (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
+  (line_ok_light c (Asm b bytes l) <=> asm_ok b c) /\
+  (line_ok_light c (LabAsm Halt w bytes l) <=>
      asm_ok (Jump w) c) /\
-  (line_ok_light c labs (LabAsm ClearCache w bytes l) <=>
+  (line_ok_light c (LabAsm ClearCache w bytes l) <=>
      asm_ok (Jump w) c) /\
-  (line_ok_light c labs (LabAsm (CallFFI index) w bytes l) <=>
+  (line_ok_light c (LabAsm (CallFFI index) w bytes l) <=>
      asm_ok (Jump w) c) /\
-  (line_ok_light c labs (LabAsm (Call v24) w bytes l) <=>
+  (line_ok_light c (LabAsm (Call v24) w bytes l) <=>
      F (* Call not yet supported *)) /\
-  (line_ok_light c labs (LabAsm a w bytes l) <=>
-     asm_ok (lab_inst w a) c /\
-     (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
+  (line_ok_light c (LabAsm a w bytes l) <=>
+     asm_ok (lab_inst w a) c)`
 
 val sec_ok_light_def = Define`
-  sec_ok_light c labs (Section k ls) ⇔
-    EVERY (line_ok_light c labs) ls`;
+  sec_ok_light c (Section k ls) ⇔
+    EVERY (line_ok_light c) ls`;
 val _ = export_rewrites["sec_ok_light_def"];
 
-val _ = overload_on("all_enc_ok_light",``λc labs ls.
-  EVERY (sec_ok_light c labs) ls``);
+val _ = overload_on("all_enc_ok_light",``λc ls.
+  EVERY (sec_ok_light c) ls``);
 
 (* pad with nop byte, and nop instruction *)
 
@@ -289,7 +288,7 @@ val remove_labels_loop_def = Define `
         (* move label padding into instructions *)
         let sec_list = pad_code (c.encode (Inst Skip)) sec_list in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok_light c labs sec_list
+          if done /\ all_enc_ok_light c sec_list
           then SOME (sec_list,labs)
           else NONE
       else
