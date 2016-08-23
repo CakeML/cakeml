@@ -96,7 +96,7 @@ val skip_prog_def = mk_def"skip_prog" (filter_skip_thm |> rconc |> rand);
 val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
 
-(* about 3 mins, could parallelise? *)
+(* could parallelise? *)
 val ffi_limit_thm =
   ``find_ffi_index_limit skip_prog``
   |> (RAND_CONV(REWR_CONV skip_prog_def) THENC time eval)
@@ -119,8 +119,7 @@ val remove_labels_thm0 =
      RAND_CONV eval THENC
      REWR_CONV LET_THM THENC BETA_CONV THENC
      PATH_CONV"lrlr"eval) THENC
-   PATH_CONV"lllr"eval THENC
-   PATH_CONV"lr"eval)
+   PATH_CONV"llr"eval)
 
 val tm11 = remove_labels_thm0 |> rconc |> rand
 
@@ -134,7 +133,7 @@ fun eval_fn i n p =
     val tm = mk_comb(enc_sec_tm,p)
   in time eval tm end
 
-(* slow, >30 mins *)
+(* evaluate encoder (can be slow?) *)
 
 val ths = parlist num_threads chunk_size eval_fn skip_prog_els
 
@@ -205,12 +204,6 @@ fun eval_fn i n th =
 val sec_lengths = parlist num_threads chunk_size eval_fn encoded_prog_defs
 
 val () = PolyML.fullGC();
-
-(*
-val () = PolyML.SaveState.saveState"heap12"
-
-val () = PolyML.SaveState.loadState"heap12"
-*)
 
 (*
 val tm = tm12 |> RAND_CONV(REWR_CONV encoded_prog_thm) |> rconc
@@ -582,8 +575,7 @@ val labs_eq =
       RAND_CONV(REWR_CONV computed_labs2_def) THENC
       eval)
 
-(*
-val (aen,aec) = lab_to_targetTheory.all_enc_ok_def |> spec64 |> CONJ_PAIR
+val (aen,aec) = lab_to_targetTheory.all_enc_ok_light_def |> spec64 |> CONJ_PAIR
 val (aesn,aesc) = aec |> CONJ_PAIR
 
 (*
@@ -623,20 +615,12 @@ and aesc_conv n m dths =
            numLib.REDUCE_CONV) THENC
          all_enc_ok_conv n (m+1) (NONE::dths))
 
-(* extremely slow: lots of lines to check
+(* extremely slow: lots of lines to check *)
 
 val encs_ok =
   tm18 |> rator |> rand
   |> (RAND_CONV(REWR_CONV padded_code_def) THENC
       all_enc_ok_conv 0 0 (map SOME pad_code_defs))
-
-*)
-*)
-
-(* since this should be a redundant check anyway, we cheat it *)
-val encs_ok =
-  tm18 |> rator |> rand
-  |> (fn tm => prove(tm,cheat))
 
 val lab_to_target_thm =
   lab_to_target_thm8
