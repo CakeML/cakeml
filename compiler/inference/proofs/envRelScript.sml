@@ -254,103 +254,65 @@ val tscheme_approx_lem = Q.prove (
        t_walkstar s (infer_deBruijn_subst subst t) =
        t_walkstar s (infer_deBruijn_subst subst' t'))
   in
-  (!t' max_tvs s tvs tvs' t.
-    t_wfs s ∧ check_s max_tvs (FDOM s) s
+  (!t max_tvs s tvs tvs' t'.
+    t_wfs s
     ⇒
     tscheme_prop max_tvs s tvs t tvs' t') ∧
-  (!tsl' max_tvs s tvsl tvsl' tsl.
+  (!tsl max_tvs s tvsl tvsl' tsl'.
     LENGTH tsl = LENGTH tvsl ∧
     LENGTH tvsl' = LENGTH tsl' ∧
     LENGTH tsl = LENGTH tsl' ∧
-    t_wfs s ∧ check_s max_tvs (FDOM s) s
+    t_wfs s
     ⇒
     LIST_REL (\(tvs,t) (tvs',t'). tscheme_prop max_tvs s tvs t tvs' t')
       (ZIP (tvsl,tsl)) (ZIP (tvsl', tsl')))`,
+
  simp [LET_THM]
  >> Induct
  >> fs [t_walkstar_eqn1, infer_deBruijn_subst_def, tscheme_approx_def]
  >> rw []
  >- (
-   Cases_on `¬(n < tvs')`
-   >- (
-     qexists_tac `REPLICATE tvs' (Infer_Tapp [] TC_int)`
-     >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
-     >> rw [EL_REPLICATE, t_walkstar_eqn1, check_t_def]
-     >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-     >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-     >> strip_tac
-     >> pop_assum (mp_tac o GSYM)
-     >> simp [t_walkstar_eqn1]
-     >> Cases_on `t`
-     >> fs [infer_deBruijn_subst_def, t_walkstar_eqn1, LENGTH_REPLICATE, EL_REPLICATE]
-     >> rw []
-     >> rfs [t_walkstar_eqn1]
-     >> fs []
-     >> rfs [t_walkstar_eqn1])
+   Cases_on `¬(n < LENGTH subst)`
+   >> simp []
    >> fs []
-   >> qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
-   >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
-   >> rw [EL_REPLICATE, t_walkstar_eqn1, t_walkstar_idempotent]
-   >> irule check_t_infer_deBruijn_subst
-   >- metis_tac [check_t_more5, SUBSET_DEF, NOT_IN_EMPTY]
+   >> rfs [t_walkstar_eqn1]
    >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
    >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
    >> strip_tac
-   >> pop_assum (mp_tac o GSYM)
-   >> simp []
-   >> rfs [EVERY_EL]
-   >> strip_tac
-   >> first_x_assum drule
-   >> strip_tac
-   >> `check_t max_tvs (FDOM s) (t_walkstar s (EL n subst'))`
-     by (
-       irule t_walkstar_check
-       >> simp []
-       >> `FDOM s ⊆ UNIV` by rw [SUBSET_DEF]
-       >> metis_tac [check_s_more3])
-   >> pop_assum mp_tac
-   >> simp []
-   >> rw []
-   >> drule t_walkstar_uncheck
-   >> simp []
-   >> rw []
-   >> drule infer_deBruijn_subst_uncheck
-   >> rw [LENGTH_REPLICATE])
- >- cheat
- >- (
-   qexists_tac `REPLICATE tvs' (infer_deBruijn_subst subst t)`
-   >> simp [LENGTH_REPLICATE, EVERY_REPLICATE]
-   >> rw [EL_REPLICATE, t_walkstar_eqn1]
-   >- cheat
-   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> rw []
    >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_string)` mp_tac)
    >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> strip_tac
+   >> rfs [EL_REPLICATE, t_walkstar_eqn1]
+   >> Cases_on `t'`
+   >> rfs [t_walkstar_eqn1, infer_deBruijn_subst_def]
    >> rw []
-   >> pop_assum (mp_tac o GSYM)
-   >> rw []
-   >> fs []
-   >> Cases_on `t`
-   >> fs [infer_deBruijn_subst_def, t_walkstar_eqn1, LENGTH_REPLICATE, EL_REPLICATE]
-   >> rw []
-   >> rfs [t_walkstar_eqn1]
-   >> fs []
-   >> rfs [t_walkstar_eqn1]
-   >> cheat)
+   >- (
+     every_case_tac
+     >> rfs [t_walkstar_eqn1]
+     >> `check_t max_tvs {} (EL n subst)` by metis_tac [EVERY_EL]
+     >> drule t_walkstar_no_vars
+     >> disch_then drule
+     >> simp []
+     >> rw []
+     >> qexists_tac `REPLICATE (LENGTH subst''') (EL n subst)`
+     >> rw [LENGTH_REPLICATE, EVERY_REPLICATE, EL_REPLICATE]
+     >> `{} ⊆ FDOM s` by rw [SUBSET_DEF]
+     >> metis_tac [check_t_more5])
+   >- metis_tac [infer_tTheory.infer_t_11, tctor_distinct])
+ >- cheat
  >- (
-   fs [LENGTH_NIL]
-   >> Cases_on `tvsl`
-   >> fs [])
+   first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def])
+ >- fs [LENGTH_NIL, METIS_PROVE [LENGTH_NIL] ``!x. 0 = LENGTH x ⇔ x = []``]
  >- (
-   Cases_on `tvsl'`
-   >> Cases_on `tsl`
-   >> Cases_on `tvsl`
+   Cases_on `tvsl`
+   >> Cases_on `tvsl'`
+   >> Cases_on `tsl'`
    >> fs []));
 
 val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
   `∀t' max_tvs s tvs tvs' t.
-    t_wfs s ∧ check_s max_tvs (FDOM s) s ⇒
+    t_wfs s ⇒
     (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
      ∀subst.
       LENGTH subst = tvs ∧
