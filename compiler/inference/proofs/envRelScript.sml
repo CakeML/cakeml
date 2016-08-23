@@ -242,9 +242,11 @@ val tscheme_approx_def = Define `
 (* I think the following should hold without the check_s hypotheses, but it
  * doesn't seem provable with the proof approach below. *)
 val tscheme_approx_lem = Q.prove (
- `let tscheme_prop max_tvs s tvs t tvs' t' =
-  (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇒
-   !subst.
+ `(!t max_tvs tvs tvs' t'.
+    t_wfs s
+    ⇒
+    tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇒
+    !subst.
      LENGTH subst = tvs ∧
      EVERY (check_t max_tvs {}) subst
      ⇒
@@ -252,23 +254,30 @@ val tscheme_approx_lem = Q.prove (
        LENGTH subst' = tvs' ∧
        EVERY (check_t max_tvs (FDOM s)) subst' ∧
        t_walkstar s (infer_deBruijn_subst subst t) =
-       t_walkstar s (infer_deBruijn_subst subst' t'))
-  in
-  (!t max_tvs s tvs tvs' t'.
+       t_walkstar s (infer_deBruijn_subst subst' t')) ∧
+  (!ts max_tvs tvs tvs' ts'.
     t_wfs s
     ⇒
-    tscheme_prop max_tvs s tvs t tvs' t') ∧
-  (!tsl max_tvs s tvsl tvsl' tsl'.
-    LENGTH tsl = LENGTH tvsl ∧
-    LENGTH tvsl' = LENGTH tsl' ∧
-    LENGTH tsl = LENGTH tsl' ∧
-    t_wfs s
+    (!subst.
+     LENGTH subst = tvs ∧
+     EVERY (check_t 0 {}) subst
+     ⇒
+     ?subst'.
+       LENGTH subst' = tvs' ∧
+       EVERY (check_t max_tvs (FDOM s)) subst' ∧
+       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst) ts) =
+       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst') ts'))
     ⇒
-    LIST_REL (\(tvs,t) (tvs',t'). tscheme_prop max_tvs s tvs t tvs' t')
-      (ZIP (tvsl,tsl)) (ZIP (tvsl', tsl')))`,
-
- simp [LET_THM]
- >> Induct
+    (!subst.
+     LENGTH subst = tvs ∧
+     EVERY (check_t max_tvs {}) subst
+     ⇒
+     ?subst'.
+       LENGTH subst' = tvs' ∧
+       EVERY (check_t max_tvs (FDOM s)) subst' ∧
+       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst) ts) =
+       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst') ts')))`,
+ Induct
  >> fs [t_walkstar_eqn1, infer_deBruijn_subst_def, tscheme_approx_def]
  >> rw []
  >- (
@@ -299,16 +308,41 @@ val tscheme_approx_lem = Q.prove (
      >> `{} ⊆ FDOM s` by rw [SUBSET_DEF]
      >> metis_tac [check_t_more5])
    >- metis_tac [infer_tTheory.infer_t_11, tctor_distinct])
- >- cheat
+ >- (
+   fs []
+   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> strip_tac
+   >> Cases_on `t'`
+   >> rfs [infer_deBruijn_subst_def, t_walkstar_eqn1]
+   >- (
+     Cases_on `n < tvs'`
+     >> fs []
+     >> rfs [t_walkstar_eqn1]
+     >> cheat)
+   >- fs [METIS_PROVE [] ``(\x. f y x) = f y``]
+   >- (
+     pop_assum (mp_tac o GSYM)
+     >> simp []
+     >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_string)` mp_tac)
+     >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+     >> strip_tac
+     >> strip_tac
+     >> fs []
+     >> cheat))
  >- (
    first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
    >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def])
- >- fs [LENGTH_NIL, METIS_PROVE [LENGTH_NIL] ``!x. 0 = LENGTH x ⇔ x = []``]
  >- (
-   Cases_on `tvsl`
-   >> Cases_on `tvsl'`
-   >> Cases_on `tsl'`
-   >> fs []));
+   first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> strip_tac)
+ >- (
+   Cases_on `ts'`
+   >> fs []
+   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
+   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
+   >> cheat));
 
 val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
   `∀t' max_tvs s tvs tvs' t.
