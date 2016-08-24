@@ -399,4 +399,6 @@ val bvi_to_data_compile_side = prove(``
 
 val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();

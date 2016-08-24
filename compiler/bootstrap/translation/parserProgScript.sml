@@ -105,4 +105,6 @@ val parse_prog_side_lemma = store_thm("parse_prog_side_lemma",
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();
