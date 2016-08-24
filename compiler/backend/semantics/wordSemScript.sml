@@ -503,7 +503,9 @@ val evaluate_def = tDefine "evaluate" `
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
   (evaluate (LocValue r l1 l2,s) =
-     (NONE,set_var r (Loc l1 l2) s)) /\
+     if l1 ∈ domain s.code then
+       (NONE,set_var r (Loc l1 l2) s)
+     else (SOME Error,s)) /\
   (evaluate (FFI ffi_index ptr len names,s) =
     case (get_var len s, get_var ptr s) of
     | SOME (Word w),SOME (Word w2) =>

@@ -1181,9 +1181,12 @@ val comp_correct = Q.prove(
     \\ imp_res_tac call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* LocValue *)
    (full_simp_tac(srw_ss())[evaluate_def,Once comp_def] \\ srw_tac[][]
+    \\ last_x_assum mp_tac \\ IF_CASES_TAC \\ rw[] \\ rw[]
+    \\ `l1 ∈ domain t1.code`
+    by ( fs[state_rel_def,code_rel_def,domain_lookup] \\ metis_tac[] )
     \\ full_simp_tac(srw_ss())[state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
     \\ `r <> k /\ r <> k+1 /\ r <> k+2` by decide_tac \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
+    \\ every_case_tac \\ rw[] \\ fs[] \\ res_tac \\ fs[] \\ rfs[])
   THEN1 (* StackAlloc *) (
     simp[comp_def]
     \\ drule evaluate_stack_alloc
@@ -1957,7 +1960,7 @@ val init_prop_def = Define `
 val init_code_pre_def = Define `
   init_code_pre k s <=>
     ?ptr2 ptr3 ptr4.
-      good_dimindex (:'a) /\ 8 <= k /\
+      good_dimindex (:'a) /\ 8 <= k /\ 1 ∈ domain s.code /\
       {k; k + 1; k + 2} SUBSET s.ffi_save_regs /\
       ~s.use_stack /\ ~s.use_store /\ ~s.use_alloc /\
       FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
@@ -2103,6 +2106,8 @@ val init_code_thm = store_thm("init_code_thm",
     \\ fs [store_list_def] \\ EVAL_TAC
     \\ fs [FLOOKUP_DEF])
   \\ strip_tac \\ fs []
+  \\ reverse IF_CASES_TAC \\ fs[]
+  >- ( fs[Abbr`s7`] )
   \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
   \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))

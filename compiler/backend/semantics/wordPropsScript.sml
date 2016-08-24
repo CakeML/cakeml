@@ -1115,8 +1115,9 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
     qexists_tac`fromAList lss'`>>full_simp_tac(srw_ss())[]>>
     qexists_tac`lss'`>>full_simp_tac(srw_ss())[])
-  >- (*LocValue*)
+  >- (*LocValue*) (
     fs[evaluate_def,set_var_def,state_component_equality,s_key_eq_refl]
+    \\ rw[s_key_eq_refl,state_component_equality] )
   >-(*FFI*)
     (full_simp_tac(srw_ss())[evaluate_def]>>
     every_case_tac>>Cases_on`call_FFI s.ffi ffi_index x'`>>full_simp_tac(srw_ss())[LET_THM]>>
@@ -1663,7 +1664,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     >>
       full_simp_tac(srw_ss())[LET_THM])
   >- (*LocValue*)
-    (qexists_tac`perm`>>fs[set_var_def,state_component_equality])
+    (qexists_tac`perm`>>rw[]>>fs[set_var_def,state_component_equality])
   >- (*FFI*)
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[get_var_perm]>>
@@ -2119,7 +2120,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     (IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,state_component_equality,dec_clock_def]>>
     srestac>>full_simp_tac(srw_ss())[]>>metis_tac[])
   >-
-    (fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
+    (rw[]>>fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
     qpat_x_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
   >>

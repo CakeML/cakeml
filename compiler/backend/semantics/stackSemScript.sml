@@ -448,7 +448,9 @@ val evaluate_def = tDefine "evaluate" `
           | _ => (SOME Error,s))
     | res => (SOME Error,s)) /\
   (evaluate (LocValue r l1 l2,s) =
-     (NONE,set_var r (Loc l1 l2) s)) /\
+     if l1 ∈ domain s.code then
+       (NONE,set_var r (Loc l1 l2) s)
+     else (SOME Error,s)) /\
   (evaluate (StackAlloc n,s) =
      if ~s.use_stack then (SOME Error,s) else
      if s.stack_space < n then (SOME (Halt (Word 2w)),empty_env s) else

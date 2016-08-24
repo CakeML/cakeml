@@ -134,6 +134,10 @@ val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
   `MAP FST (stack_names$compile f c) = MAP FST c`,
   rw[compile_def,MAP_MAP_o,MAP_EQ_f,prog_comp_def,FORALL_PROD]);
 
+val domain_rename_state_code = Q.store_thm("domain_rename_state_code[simp]",
+  `domain (rename_state f s).code = domain s.code`,
+  rw[rename_state_def,domain_fromAList,toAList_domain,EXTENSION]);
+
 val comp_STOP_While = prove(
   ``comp f (STOP (While cmp r1 ri c1)) =
     STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))``,
@@ -294,7 +298,7 @@ val comp_correct = Q.prove(
     metis_tac[BIJ_DEF])
   THEN1 (
     simp[Once comp_def] >> fs[evaluate_def] >>
-    rveq >> fs[set_var_find_name] )
+    rw[] >> fs[] >> rveq >> fs[set_var_find_name] )
   \\ (
     simp[Once comp_def] >> fs[evaluate_def] >>
     simp[Once rename_state_def] >> rveq >> simp[] ));
