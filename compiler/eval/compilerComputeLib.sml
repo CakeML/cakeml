@@ -610,7 +610,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.lab_lookup_def
     ,lab_to_targetTheory.line_length_def
     ,lab_to_targetTheory.line_ok_light_def
-    ,lab_to_targetTheory.all_enc_ok_light_def
+    ,lab_to_targetTheory.sec_ok_light_def
     ,lab_to_targetTheory.pad_bytes_def
     ,lab_to_targetTheory.add_nop_def
     ,lab_to_targetTheory.pad_section_def
