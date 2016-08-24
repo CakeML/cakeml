@@ -1880,7 +1880,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      fs[MAP_EQ_f])
   >- (* Var *)
     (fs[env_rel_complete_def]>>pop_assum drule>>rw[]>>
-    fs[success_eqns,tscheme_approx_def]>>
+    `t_wfs s` by metis_tac[sub_completion_wfs]>>
+    fs[success_eqns,tscheme_approx_thm]>>
     (* The unconversion of the deBruijn specs *)
     qabbrev_tac`unargs = MAP unconvert_t targs`>>
     first_x_assum (qspec_then`unargs` mp_tac)>>
@@ -1888,7 +1889,6 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       (fs[Abbr`unargs`,EVERY_MAP,EVERY_MEM]>>rw[]>>
       metis_tac[check_freevars_to_check_t])>>
     rw[]>>fs[sub_completion_def]>>
-    `t_wfs s` by metis_tac[pure_add_constraints_success]>>
     drule (GSYM db_subst_infer_subst_swap3)>>
     disch_then drule>>
     disch_then (qspecl_then[`unargs`] assume_tac)>>
@@ -2320,7 +2320,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         rw[]>>simp[]>>
         ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[t_compat_trans])
   >-
-    (*Letrec - skipped *)
+    (*Letrec*)
     (imp_res_tac type_funs_MAP_FST>>
     imp_res_tac type_funs_distinct>>
     `MAP (λx,y,z. x) funs = MAP FST funs` by
@@ -2360,100 +2360,91 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       `LENGTH env = LENGTH funs` by metis_tac[LENGTH_MAP]>>
       rw[Abbr`fun_tys`]
       >-
-        cheat
-        (*fs[Abbr`new_tenv`]>>
-        simp[check_env_merge]>>CONJ_TAC
+        (fs[ienv_ok_def,ienv_val_ok_def,Abbr`new_tenv`]>>
+        match_mp_tac nsAll_nsAppend>>reverse (rw[])
         >-
-          (fs[check_env_def]>>
-          qpat_abbrev_tac `ls = MAP (λn.Infer_Tuvar(n+st.next_uvar))A` >>
-          `LENGTH funs = LENGTH ls` by
-            metis_tac[LENGTH_MAP,LENGTH_COUNT_LIST]>>
-          simp[EL_MAP,EL_ZIP,MAP2_MAP,EVERY_EL]>>
-          rw[Abbr`ls`]>>
-          fs[EL_MAP,EL_COUNT_LIST,LENGTH_COUNT_LIST]>>
-          qpat_abbrev_tac `x= EL n funs`>>
-          PairCases_on`x`>>fs[check_t_def,EL_COUNT_LIST])
+          (fs[nsAll_def,FORALL_PROD]>>
+          metis_tac[check_t_more3,ADD_SYM])
         >>
-          imp_res_tac check_env_more>>
-          pop_assum(qspec_then `LENGTH funs + st.next_uvar` mp_tac)>>
-          impl_tac>-DECIDE_TAC>>fs[]*)
+        fs[nsAll_def,nsLookup_alist_to_ns_some,MAP2_MAP,LENGTH_COUNT_LIST]>>
+        rw[]>>
+        Cases_on`v`>>
+        imp_res_tac ALOOKUP_MEM>>fs[MEM_MAP]>>
+        PairCases_on`y`>>fs[MEM_ZIP,LENGTH_COUNT_LIST,EL_MAP,EL_COUNT_LIST,check_t_def])
       >-
-        (fs[SUBSET_DEF]>>rw[]>>res_tac>>DECIDE_TAC)
+        (fs[SUBSET_DEF]>>
+        rw[]>>
+        last_x_assum(qspec_then`x` mp_tac)>>fs[])
       >>
-        cheat
-        (*`t_compat s s'` by metis_tac[SUBMAP_t_compat]>>
-        imp_res_tac tenv_invC_t_compat>>
-        ntac 5 (pop_assum kall_tac)>>
-        fs[tenv_invC_def,Abbr`new_tenv`]>>
-        qpat_abbrev_tac `ls = MAP2 (λ(f,x,e) uvar. (f,0:num,uvar)) funs
-                             (MAP (λn. Infer_Tuvar (n+st.next_uvar ))
-                             (COUNT_LIST (LENGTH funs)))`>>
-        `LENGTH ls = LENGTH funs` by
-          fs[Abbr`ls`,LENGTH_MAP2,LENGTH_COUNT_LIST]>>
-        `!n. n < LENGTH ls ⇒
-         EL n ls =
-         (λ(f,x,e). (f,0,Infer_Tuvar (st.next_uvar+n))) (EL n funs)` by
-           (rw[Abbr`ls`]>>
-           fs[MAP2_MAP,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>
-           qabbrev_tac `v = EL n funs`>>PairCases_on`v`>>
-           fs[EL_COUNT_LIST])>>
-        `!k. ALOOKUP env k = NONE ⇒  ALOOKUP ls k = NONE` by
-          (rw[]>>
-          SPOSE_NOT_THEN assume_tac>>
-          `?v. ALOOKUP ls k  = SOME v` by
-            metis_tac[NOT_SOME_NONE]>>
-          imp_res_tac ALOOKUP_MEM>>
-          fs[MEM_EL]>>
-          fs[ALOOKUP_NONE]>>
-          first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
-          Cases_on`EL n funs`>>Cases_on`r`>>fs[]>>
-          `MEM q (MAP FST funs)` by
-            (fs[MEM_MAP,MEM_EL,EXISTS_PROD]>>
-            metis_tac[])>>
-          metis_tac[])>>
-        rw[]>>fs[lookup_tenv_bind_var_list]
-        >-
-          (full_case_tac>>fs[]>>metis_tac[type_funs_Tfn])
-        >>
-          full_case_tac>>fs[ALOOKUP_APPEND]>>
-          imp_res_tac ALOOKUP_MEM>>
-           `MEM x (MAP FST env)` by
-             (fs[EXISTS_PROD,MEM_MAP]>>metis_tac[])>>
-           qpat_x_assum `A = MAP FST env` (SUBST_ALL_TAC o SYM)>>
-           fs[MEM_MAP,MEM_EL]>>
-           first_x_assum(qspec_then `n'` assume_tac)>>rfs[]>>
-           Cases_on`EL n' funs`>>Cases_on`r`>>fs[]>>
-           `n' < LENGTH ls` by fs[]>>
-           imp_res_tac EL_MEM>>rfs[]>>
-           imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>
-           pop_assum mp_tac>>impl_tac>>
-           `MAP FST ls = MAP FST funs` by
-           (rw[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST,MAP_ZIP]>>
-           match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
+        fs[env_rel_complete_def]>>ntac 4 strip_tac>>
+        fs[Abbr`new_tenv`,lookup_var_bind_var_list,alist_to_ns_def,nsLookup_nsAppend_some]>>
+       Cases_on`x`>>fs[nsLookup_def]
+       >-
+         (pop_assum mp_tac>>TOP_CASE_TAC
+         >-
+           (strip_tac>>
+           qmatch_goalsub_abbrev_tac `ALOOKUP ls n = _`>>
+           `ALOOKUP ls n = NONE` by
+             (fs[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST,ALOOKUP_NONE,MEM_MAP,FORALL_PROD,MEM_ZIP]>>rw[]>>
+             CCONTR_TAC>>fs[]>>
+             `MEM n (MAP FST funs)` by
+               (fs[MEM_MAP,MEM_EL]>>
+               metis_tac[FST])>>
+             metis_tac[FST,PAIR,MEM_MAP])>>
+           first_x_assum(qspecl_then [`Short n`,`tvs`,`t'`] assume_tac)>>
+           rfs[id_to_mods_def]>>rw[]
            >-
-             fs[LENGTH_ZIP,LENGTH_COUNT_LIST]
+             metis_tac[]
            >>
-           rw[]>>fs[EL_MAP,EL_ZIP,LENGTH_COUNT_LIST]>>
-           Cases_on`EL x funs`>>Cases_on`r`>>fs[])>>
-           fs[]>>
-           rw[Abbr`targs`]>>
-           fs[EL_MAP]>>
-           `n = n'` by
-             (`q = EL n (MAP FST env)` by
-               (fs[EL_MAP]>>
-               qpat_x_assum`A = EL n env` (SUBST1_TAC o SYM)>>
-               fs[])>>
-             imp_res_tac type_funs_MAP_FST >>
-             pop_assum (SUBST_ALL_TAC o SYM)>>
-             `q = EL n' (MAP FST funs)` by
-               (FULL_SIMP_TAC arith_ss [EL_MAP])>>
-             fs[]>>
-             Q.ISPEC_THEN `MAP FST funs`assume_tac EL_ALL_DISTINCT_EL_EQ>>
-             pop_assum (assume_tac o (fst o EQ_IMP_RULE)) >>rfs[]>>
-             metis_tac[])>>
-          fs[]>>
-          qpat_x_assum `A = EL n' env` (SUBST1_TAC o SYM)>>
-          fs[check_t_def]*))>>
+             match_mp_tac (GEN_ALL tscheme_approx_weakening2)>>fs[]>>
+             HINT_EXISTS_TAC>>fs[SUBSET_DEF]>>
+             metis_tac[SUBMAP_t_compat])
+         >>
+           imp_res_tac ALOOKUP_MEM>>rw[]
+           >-
+             (fs[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
+             metis_tac[])
+           >>
+             fs[MEM_EL]>>
+             qmatch_goalsub_abbrev_tac `ALOOKUP ls n = _`>>
+             `ALOOKUP ls n = SOME(0,Infer_Tuvar(n'+st.next_uvar))` by
+               (`MAP FST ls = MAP FST funs` by
+                   (fs[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST]>>
+                   match_mp_tac LIST_EQ>>
+                   fs[LENGTH_ZIP,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>rw[]>>
+                   pairarg_tac>>fs[]>>
+                   `FST (EL x env) = FST (EL x funs)` by
+                     fs[LIST_EQ_REWRITE,EL_MAP]>>
+                   fs[])>>
+               match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
+               rw[]
+               >-
+                 metis_tac[]
+               >>
+                 fs[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,EXISTS_PROD]>>
+                 fs[MEM_ZIP,LENGTH_COUNT_LIST]>>
+                 `FST (EL n' funs) = n` by
+                   (fs[LIST_EQ_REWRITE,EL_MAP]>>
+                   metis_tac[FST])>>
+                 Cases_on`EL n' funs`>>Cases_on`r`>>fs[]>>
+                 qexists_tac`q'`>>qexists_tac`r'`>>qexists_tac`n'`>>
+                 fs[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST])>>
+             fs[tscheme_approx_def,LENGTH_NIL,infer_deBruijn_subst_id,Abbr`targs`,EL_MAP]>>
+             `t' = SND (EL n' env)` by metis_tac[SND]>>
+             fs[]>>match_mp_tac t_walkstar_no_vars>>
+             fs[EVERY_EL,EL_MAP]>>
+             metis_tac[check_freevars_to_check_t])
+       >>
+         first_x_assum(qspecl_then [`Long m i`,`tvs`,`t'`] assume_tac)>>
+         rfs[]>>
+         rw[]>- metis_tac[]
+         >-
+           (fs[id_to_mods_def]>>Cases_on`p1`>>fs[nsLookupMod_def])
+         >>
+           match_mp_tac (GEN_ALL tscheme_approx_weakening2)>>fs[]>>
+           HINT_EXISTS_TAC>>fs[SUBSET_DEF]>>
+           metis_tac[SUBMAP_t_compat])
+    >>
     fs[ienv_ok_def]>>
     qunabbrev_tac `fun_tys`>>
     rw[]>>
@@ -2494,11 +2485,22 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
                               ,`nst`,`constraints''`] mp_tac)>>
     impl_tac>-
       (imp_res_tac infer_e_next_uvar_mono>>
-      fs[Abbr`st'`,Abbr`nst`]>>
-      cheat
-      (*metis_tac[check_env_more,pure_add_constraints_wfs
-               ,pure_add_constraints_success
-               ,tenv_invC_t_compat,t_compat_def,t_compat_trans]*))>>
+      fs[Abbr`st'`,Abbr`nst`]>>rw[]
+      >-
+        (match_mp_tac (GEN_ALL (CONJUNCT1 ienv_val_ok_more))>>
+        HINT_EXISTS_TAC>>
+        fs[SUBSET_DEF,EQ_SYM_EQ])
+      >-
+        metis_tac[pure_add_constraints_success]
+      >-
+        metis_tac[pure_add_constraints_success]
+      >-
+        (fs[env_rel_complete_def]>>rw[]>-metis_tac[]>>
+        first_x_assum drule>>rw[]>>
+        simp[]>>
+        match_mp_tac (GEN_ALL tscheme_approx_weakening2)>>
+        HINT_EXISTS_TAC>>fs[EQ_SYM_EQ,SUBSET_DEF]>>
+        metis_tac[t_compat_trans]))>>
     rw[]>>
     Q.LIST_EXISTS_TAC [`constraints'''`,`s'''`,`st'''`,`t'`]>>
     fs[Abbr`nst`]>>
