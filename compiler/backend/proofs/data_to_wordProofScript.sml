@@ -5337,9 +5337,18 @@ val assign_thm = Q.prove(
       \\ drule memory_rel_tl
       \\ simp_tac std_ss [GSYM APPEND_ASSOC]))
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
-   (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
-    \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
+   (fs [assign_def] \\ fs [do_app]
+    \\ Cases_on `vals` \\ fs []
+    \\ qpat_assum `_ = Rval (v,s2)` mp_tac
+    \\ IF_CASES_TAC \\ fs []
+    \\ rveq \\ fs []
+    \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [state_rel_thm] \\ eval_tac
+    \\ fs [domain_lookup,lookup_map]
+    \\ reverse IF_CASES_TAC THEN1
+     (`F` by all_tac \\ fs [code_rel_def]
+      \\ rename1 `lookup _ s2.code = SOME zzz` \\ PairCases_on `zzz` \\ res_tac
+      \\ fs []) \\ fs []
     \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
     \\ rw [] \\ fs [] \\ rw [] \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
