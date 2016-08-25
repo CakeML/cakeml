@@ -180,6 +180,24 @@ val write_bytearray_isWord = Q.store_thm("write_bytearray_isWord",
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[isWord_def]);
 
+val FOLDL_LENGTH_LEMMA = prove(
+  ``!xs k l d q r.
+      FOLDL (λ(i,t) a. (i + d,insert i a t)) (k,l) xs = (q,r) ==>
+      q = LENGTH xs * d + k``,
+  Induct \\ fs [FOLDL] \\ rw [] \\ res_tac \\ fs [MULT_CLAUSES]);
+
+val fromList_SNOC = store_thm("fromList_SNOC",
+ ``!xs y. fromList (SNOC y xs) = insert (LENGTH xs) y (fromList xs)``,
+  fs [fromList_def,FOLDL_APPEND,SNOC_APPEND] \\ rw []
+  \\ Cases_on `FOLDL (λ(i,t) a. (i + 1,insert i a t)) (0,LN) xs`
+  \\ fs [] \\ imp_res_tac FOLDL_LENGTH_LEMMA \\ fs []);
+
+val fromList2_SNOC = store_thm("fromList2_SNOC",
+ ``!xs y. fromList2 (SNOC y xs) = insert (2 * LENGTH xs) y (fromList2 xs)``,
+  fs [fromList2_def,FOLDL_APPEND,SNOC_APPEND] \\ rw []
+  \\ Cases_on `FOLDL (λ(i,t) a. (i + 2,insert i a t)) (0,LN) xs`
+  \\ fs [] \\ imp_res_tac FOLDL_LENGTH_LEMMA \\ fs []);
+
 (* -- *)
 
 (* -------------------------------------------------------
@@ -3761,24 +3779,6 @@ val cut_env_adjust_set_insert_1 = prove(
   \\ rw [] \\ fs [SUBSET_DEF]
   \\ res_tac \\ fs [NOT_1_domain]);
 
-val FOLDL_LENGTH_LEMMA = prove(
-  ``!xs k l d q r.
-      FOLDL (λ(i,t) a. (i + d,insert i a t)) (k,l) xs = (q,r) ==>
-      q = LENGTH xs * d + k``,
-  Induct \\ fs [FOLDL] \\ rw [] \\ res_tac \\ fs [MULT_CLAUSES]);
-
-val fromList_SNOC = store_thm("fromList_SNOC",
- ``!xs y. fromList (SNOC y xs) = insert (LENGTH xs) y (fromList xs)``,
-  fs [fromList_def,FOLDL_APPEND,SNOC_APPEND] \\ rw []
-  \\ Cases_on `FOLDL (λ(i,t) a. (i + 1,insert i a t)) (0,LN) xs`
-  \\ fs [] \\ imp_res_tac FOLDL_LENGTH_LEMMA \\ fs []);
-
-val fromList2_SNOC = store_thm("fromList2_SNOC",
- ``!xs y. fromList2 (SNOC y xs) = insert (2 * LENGTH xs) y (fromList2 xs)``,
-  fs [fromList2_def,FOLDL_APPEND,SNOC_APPEND] \\ rw []
-  \\ Cases_on `FOLDL (λ(i,t) a. (i + 2,insert i a t)) (0,LN) xs`
-  \\ fs [] \\ imp_res_tac FOLDL_LENGTH_LEMMA \\ fs []);
-
 val state_rel_IMP_Number_arg = prove(
   ``state_rel c l1 l2 (call_env xs s) (call_env ys t) [] locs /\
     n < dimword (:'a) DIV 16 /\ LENGTH ys = LENGTH xs + 1 ==>
@@ -4152,6 +4152,124 @@ val assign_thm = Q.prove(
     \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on `op = WordFromInt` \\ fs[] THEN1 (
+    imp_res_tac get_vars_IMP_LENGTH
+    \\ fs[do_app]
+    \\ every_case_tac \\ fs[]
+    \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+    \\ fs[state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ fs[wordSemTheory.get_vars_def]
+    \\ every_case_tac \\ fs[] \\ clean_tac
+    \\ rpt_drule memory_rel_Number_IMP \\ rw[]
+    \\ simp[assign_def]
+    \\ BasicProvers.TOP_CASE_TAC
+    >- simp[]
+    \\ simp[list_Seq_def]
+    \\ drule(GEN_ALL memory_rel_WordFromInt)
+    \\ qpat_abbrev_tac`w64 = i2w i`
+    \\ disch_then(qspec_then`w64`mp_tac o CONV_RULE(SWAP_FORALL_CONV))
+    \\ qspecl_then[`:'a`,`w64`]strip_assume_tac Word64Rep_DataElement
+    \\ simp[]
+    \\ qmatch_assum_abbrev_tac`encode_header _ _ len = _`
+    \\ `len = LENGTH ws`
+    by (
+      fs[Word64Rep_def,Abbr`len`]
+      \\ IF_CASES_TAC \\ fs[] )
+    \\ qunabbrev_tac`len` \\ fs[]
+    \\ impl_tac
+    >- ( fs[consume_space_def] )
+    \\ strip_tac
+    \\ `2 < dimindex(:'a)` by fs[good_dimindex_def]
+    \\ Cases_on`ws` \\ fs[ADD1]
+    \\ fs[store_list_def,consume_space_def]
+    \\ rveq \\ eval_tac
+    \\ fs[lookup_insert,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
+    \\ IF_CASES_TAC
+    \\ eval_tac
+    \\ simp[wordSemTheory.get_var_def,lookup_insert,
+            wordSemTheory.mem_store_def,
+            wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+    >- (
+      conj_tac >- rw[]
+      \\ fs[LENGTH_EQ_NUM_compute]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ fs[inter_insert_ODD_adjust_set_alt]
+      \\ fs[make_ptr_def,FAPPLY_FUPDATE_THM,store_list_def]
+      \\ rveq
+      \\ qmatch_abbrev_tac`memory_rel c _ refs sp st mem _ ((_,w1)::_)`
+      \\ qmatch_assum_abbrev_tac`memory_rel c _ refs sp' st mem' _ ((_,w1)::_)`
+      \\ match_mp_tac (GEN_ALL memory_rel_less_space)
+      \\ qexists_tac`sp'`
+      \\ reverse conj_tac >- simp[Abbr`sp`,Abbr`sp'`]
+      \\ `mem = mem'`
+      by (
+        simp[Abbr`mem`,Abbr`mem'`,FUN_EQ_THM,APPLY_UPDATE_THM]
+        \\ fs[Word64Rep_def] \\ rveq
+        \\ `(63 >< 0) w64 = (Smallnum i >>>2)`
+        by (
+          fs[Abbr`w64`,Smallnum_i2w]
+          \\ cheat (* word proof *) )
+        \\ pop_assum SUBST_ALL_TAC
+        \\ rw[]
+        \\ `F` suffices_by rw[]
+        \\ pop_assum mp_tac
+        \\ simp[]
+        \\ fs[bytes_in_word_def,good_dimindex_def]
+        \\ EVAL_TAC \\ fs[dimword_def] )
+      \\ rw[])
+    \\ qmatch_assum_rename_tac`LENGTH z ≠ 0`
+    \\ Cases_on`z` \\ fs[ADD1]
+    \\ fs[store_list_def,WORD_MUL_LSL,lookup_insert,FLOOKUP_UPDATE]
+    \\ conj_tac >- rw[]
+    \\ qpat_x_assum` _ = LENGTH _ + _`mp_tac
+    \\ rw[]
+    \\ qmatch_assum_rename_tac`2 = LENGTH z + 2`
+    \\ `LENGTH z = 0` by decide_tac
+    \\ fs[LENGTH_EQ_NUM_compute]
+    \\ fs[store_list_def]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ fs[inter_insert_ODD_adjust_set_alt]
+    \\ fs[make_ptr_def,FAPPLY_FUPDATE_THM]
+    \\ rveq
+    \\ qmatch_abbrev_tac`memory_rel c _ refs sp st mem _ ((_,w1)::_)`
+    \\ qmatch_assum_abbrev_tac`memory_rel c _ refs sp st mem' _ ((_,w2)::_)`
+    \\ `mem = mem'`
+    by (
+      simp[Abbr`mem`,Abbr`mem'`,FUN_EQ_THM,APPLY_UPDATE_THM]
+      \\ fs[Word64Rep_def] \\ rveq
+      \\ rfs[good_dimindex_def] \\ rfs[]
+      \\ qpat_abbrev_tac`w0 = (63 >< _) w64`
+      \\ `w0 = 0w`
+      by (
+        imp_res_tac small_int_IMP_MIN_MAX
+        \\ rfs[good_dimindex_def]
+        \\ simp[Abbr`w64`]
+        \\ qpat_x_assum`dimindex _ = _`assume_tac
+        \\ cheat (* word proof *) )
+      \\ pop_assum SUBST1_TAC
+      \\ rw[]
+      \\ TRY (
+        `F` suffices_by rw[]
+        \\ ntac 2 (pop_assum mp_tac)
+        \\ simp[bytes_in_word_def]
+        \\ EVAL_TAC
+        \\ simp[dimword_def]
+        \\ NO_TAC)
+      \\ simp[Smallnum_i2w,Abbr`w64`]
+      \\ imp_res_tac small_int_IMP_MIN_MAX
+      \\ rfs[good_dimindex_def]
+      \\ qpat_x_assum`dimindex _ = _`assume_tac
+      \\ cheat (* word proof *) )
+    \\ `w1 = w2`
+    by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
+    \\ rw[])
   \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
