@@ -110,11 +110,29 @@ val ssa_cc_trans_inst_def = Define`
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
+    (* r4 -> reg0, r3 -> reg2, r1 -> reg4 *)
+    let mov_in = Move 0 [(2,r3');(0,r4')] in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
-    let mov_in = Move 0 [(0,r4')] in (* r4 -> reg 0 *)
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
-    let mov_out = Move 0 [(r4'',0)] in (* reg 0 -> r4 *)
-      (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
+    let mov_out = Move 0 [(r1',4);(r4'',0)] in
+      (Seq mov_in (Seq (Inst (Arith (AddCarry 4 r2' 2 0))) mov_out), ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
+    let r3' = option_lookup ssa r3 in
+    let r4' = option_lookup ssa r4 in
+    let mov_in = Move 0 [(0,r3')] in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
+    let mov_out = Move 0 [(r1',2);(r2',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 2 0 0 r4'))) mov_out),ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
+    let r3' = option_lookup ssa r3 in
+    let r4' = option_lookup ssa r4 in
+    let r5' = option_lookup ssa r5 in
+    let mov_in = Move 0 [(0,r3');(2,r4')] in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
+    let mov_out = Move 0 [(r1',0);(r2',2)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 2 0 2 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -324,7 +342,11 @@ val apply_colour_inst_def = Define`
     Arith (Shift shift (f r1) (f r2) n)) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
     Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
-   (apply_colour_inst f (Mem Load r (Addr a w)) =
+  (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
+    Arith (LongMul (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (LongDiv r1 r2 r3 r4 r5)) =
+    Arith (LongDiv (f r1) (f r2) (f r3) (f r4) (f r5))) ∧
+  (apply_colour_inst f (Mem Load r (Addr a w)) =
     Mem Load (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Store r (Addr a w)) =
     Mem Store (f r) (Addr (f a) w)) ∧
@@ -378,6 +400,8 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst (Mem Load8 r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst inst = LN)`
@@ -395,6 +419,10 @@ val get_live_inst_def = Define`
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
+  (get_live_inst (Arith (LongMul r1 r2 r3 r4)) live =
+    insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
+  (get_live_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
+    insert r5 () (insert r4 () (insert r3 () (delete r2 (delete r1 live))))) ∧
   (get_live_inst (Mem Load r (Addr a w)) live =
     insert a () (delete r live)) ∧
   (get_live_inst (Mem Store r (Addr a w)) live =
@@ -480,6 +508,10 @@ val remove_dead_inst_def = Define`
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst (Arith (LongMul r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
+  (remove_dead_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
+    (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
   (remove_dead_inst (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
   (*Catchall -- for other instructions*)
@@ -591,6 +623,8 @@ val get_delta_inst_def = Define`
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
+  (get_delta_inst (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
+  (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
   (get_delta_inst (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
   (get_delta_inst (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
@@ -747,6 +781,8 @@ val max_var_inst_def = Define`
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧

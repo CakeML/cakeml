@@ -284,6 +284,24 @@ val inst_def = Define `
                  (set_var r1 (Word (n2w res)) s))
 
         | _ => NONE)
+    | Arith (LongMul r1 r2 r3 r4) =>
+        (let vs = get_vars [r3;r4] s in
+        case vs of
+        SOME [Word w3;Word w4] =>
+         let r = w2n w3 * w2n w4 in
+           SOME (set_var r1 (Word (n2w (r DIV dimword(:'a)))) (set_var r2 (Word (n2w r)) s))
+        | _ => NONE)
+    | Arith (LongDiv r1 r2 r3 r4 r5) =>
+       (let vs = get_vars [r3;r4;r5] s in
+       case vs of
+       SOME [Word w3;Word w4;Word w5] =>
+         let n = w2n w3 * dimword (:'a) + w2n w4 in
+         let d = w2n w5 in
+         let q = n DIV d in
+         if (d ≠ 0 ∧ q < dimword(:'a)) then
+           SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
+         else NONE
+      | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | NONE => NONE
