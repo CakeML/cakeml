@@ -692,26 +692,29 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         first_x_assum(qspecl_then[`n'`,`n`]mp_tac)>>
         impl_tac>-srw_tac[][]>>
         metis_tac[])>>
-      full_simp_tac(srw_ss())[])
-    >-
-      (fs[get_vars_perm]>>
-      Cases_on`get_vars [n0;n1;n2] st`>>fs[]>>
+      full_simp_tac(srw_ss())[])>>
+    TRY (
+      fs[get_vars_perm]>>
+      qmatch_goalsub_abbrev_tac `get_vars ls st`>>
+      Cases_on`get_vars ls st`>>fs[Abbr`ls`]>>
       imp_res_tac strong_locals_rel_get_vars>>fs[]>>
       pop_assum kall_tac>> pop_assum mp_tac>>
       impl_tac>-
         metis_tac[]>>
       fs[]>>
-      `∀n'. n' ∈ domain live ⇒
-       (n' ≠ n2 ⇒ f n' ≠ f n2) ∧
-       (n' ≠ n ⇒ f n' ≠ f n)` by
-        (qpat_x_assum`INJ f A B` mp_tac>>
+      qmatch_asmsub_abbrev_tac `INJ f (domain A)`>>
+      `!n n'. n ∈ domain A ∧
+              n' ∈ domain A ∧ n ≠ n' ⇒ f n ≠ f n'` by
+        (fs[get_writes_def,get_writes_inst_def,Abbr`A`]>>
+        qpat_x_assum`INJ f A B` mp_tac>>
         rpt (pop_assum kall_tac)>>rw[]>>
         FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,get_writes_def,get_writes_inst_def,domain_insert,IN_UNION]>>
         metis_tac[IN_INSERT])>>
+      fs[get_writes_def,get_writes_inst_def,Abbr`A`,domain_union]>>
       every_case_tac>>fs[set_var_def,strong_locals_rel_def,lookup_insert]>>
       rw[]>>
       pop_assum mp_tac>>
-      ntac 2 IF_CASES_TAC>>fs[]>>
+      rpt IF_CASES_TAC>>fs[]>>
       metis_tac[])
     >-
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
@@ -1835,8 +1838,26 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
         fs[INJ_IMP_IMAGE_DIFF_single])
       >>
       fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
-    >- start_tac
-    >- start_tac
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF])
+      >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ,DIFF_UNION]>>
+      rw[]>>
+      `{n ; n0} = {n} ∪ {n0} ∧ {n0;n} = {n} ∪ {n0}` by fs[EXTENSION]>>
+      fs[GSYM DIFF_UNION])
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF])
+      >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ,DIFF_UNION]>>
+      rw[]>>
+      `{n ; n0} = {n} ∪ {n0} ∧ {n0;n} = {n} ∪ {n0}` by fs[EXTENSION]>>
+      fs[GSYM DIFF_UNION])
     >-
       (start_tac>-
         (CONJ_TAC>-
@@ -1846,7 +1867,9 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
       `n2 INSERT n1 INSERT n0 INSERT domain live DIFF {n;n2} =
        n2 INSERT n1 INSERT n0 INSERT domain live DIFF {n}` by
          (rw[EXTENSION,EQ_IMP_THM]>>fs[])>>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
+      `{ n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>>
+      fs[GSYM DIFF_UNION]
       >-
         (match_mp_tac (GEN_ALL INJ_less)>>fs[]>>
         ntac 2 (qpat_x_assum`INJ f A B` kall_tac)>>
@@ -2169,6 +2192,7 @@ val strong_locals_rel_I_insert_insert = prove(``
   rw[strong_locals_rel_def,lookup_insert]>>
   IF_CASES_TAC>>fs[])
 
+(* TODO: Fixed up to here *)
 val evaluate_remove_dead = store_thm("evaluate_remove_dead",
 ``∀prog live prog' livein st t res rst.
   strong_locals_rel I (domain livein) st.locals t ∧
