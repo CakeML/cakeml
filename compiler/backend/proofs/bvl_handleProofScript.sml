@@ -13,7 +13,7 @@ val MAPi_ID = store_thm("MAPi_ID[simp]",
 
 val evaluate_SmartLet = store_thm("evaluate_SmartLet[simp]",
   ``bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)``,
-  rw [SmartLet_def] \\ fs [LENGTH_NIL,evaluate_def]);
+  rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]);
 
 val let_ok_def = Define `
   (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
@@ -206,7 +206,7 @@ val compile_correct = store_thm("compile_correct",
     \\ Cases_on `Boolv T = HD a` \\ fs [] \\ res_tac \\ fs [evaluate_def]
     \\ Cases_on `Boolv F = HD a` \\ fs [] \\ res_tac \\ fs [evaluate_def])
   THEN1 (* Let *)
-   (Cases_on `LENGTH xs = 0` \\ fs [LENGTH_NIL] \\ rveq
+   (Cases_on `LENGTH xs = 0` \\ fs [LENGTH_NIL,NULL_EQ] \\ rveq
     \\ fs [evaluate_def,env_rel_mk_Union]
     \\ imp_res_tac OptionalLetLet_limit \\ rveq \\ fs []
     \\ drule (GEN_ALL OptionalLetLet_IMP)
@@ -290,7 +290,7 @@ val ALOOKUP_MAPi = store_thm("ALOOKUP_MAPi",
 
 val bVarBound_SmartLet = store_thm("bVarBound_SmartLet[simp]",
   ``bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]``,
-  rw [SmartLet_def] \\ fs [LENGTH_NIL]);
+  rw [SmartLet_def] \\ fs [NULL_EQ]);
 
 val bVarBound_LetLet = store_thm("bVarBound_LetLet",
   ``bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n l1 y]``,
@@ -333,7 +333,7 @@ val handle_ok_Var_Const_list = store_thm("handle_ok_Var_Const_list",
 
 val handle_ok_SmartLet = store_thm("handle_ok_SmartLet",
   ``handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]``,
-  rw [SmartLet_def,handle_ok_def] \\ fs [LENGTH_NIL,handle_ok_def]);
+  rw [SmartLet_def,handle_ok_def] \\ fs [NULL_EQ,LENGTH_NIL,handle_ok_def]);
 
 val handle_ok_OptionalLetLet = store_thm("handle_ok_OptionalLetLet",
   ``handle_ok [e] /\ bVarBound n [e] ==>
@@ -364,6 +364,7 @@ val compile_handle_ok = store_thm("compile_handle_ok",
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
   \\ fs [handle_ok_def]
+  \\ TRY ( conj_tac >- ( strip_tac \\ fs[LENGTH_NIL] ) )
   \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
   \\ conj_tac THEN1
    (conj_tac THEN1
@@ -376,6 +377,7 @@ val compile_handle_ok = store_thm("compile_handle_ok",
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ match_mp_tac bVarBound_compile \\ fs [])
   \\ rw [SmartLet_def] \\ fs [handle_ok_def]
+  \\ IF_CASES_TAC \\ fs[]
   \\ rpt (pop_assum kall_tac)
   \\ match_mp_tac handle_ok_Var_Const_list
   \\ fs [EVERY_GENLIST]

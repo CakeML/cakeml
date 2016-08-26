@@ -22,7 +22,7 @@ val no_raise_def = tDefine "no_raise" `
  (WF_REL_TAC `measure exp1_size`);
 
 val SmartLet_def = Define `
-  SmartLet xs x = if LENGTH xs = 0 then x else Let xs x`
+  SmartLet xs x = if NULL xs then x else Let xs x`
 
 val LetLet_def = Define `
   LetLet env_length fvs (body:bvl$exp) =
@@ -54,7 +54,7 @@ val compile_def = tDefine "compile" `
        OptionalLetLet (If (HD x1) (HD x2) (HD x3)) n
          (mk_Union l1 (mk_Union l2 l3)) (s1+s2+s3+1) l) /\
   (compile l n [Let xs x2] =
-     if LENGTH xs = 0 then
+     if NULL xs then
        compile l n [x2]
      else
        let k = LENGTH xs in
