@@ -2183,9 +2183,8 @@ val inst_ok_less_def = Define`
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 n)) =
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (*This becomes automatic by calling conventions:
-   inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4) ∧*)
+  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
@@ -2268,8 +2267,7 @@ val wf_cutsets_def = Define`
   (wf_cutsets _ = T)`
 
 val inst_arg_convention_def = Define`
-  (* NOTE: This can be simplified to just r4 = 0 *)
-  (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r1 = 4 ∧ r3 = 2 ∧ r4 = 0) ∧
+  (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 2 ∧ r2 = 0 ∧ r3 = 0) ∧
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 2 ∧ r3 = 0 ∧ r4 = 2) ∧
   (inst_arg_convention _ = T)`
