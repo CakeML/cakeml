@@ -520,9 +520,9 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
-  (evaluate (LocValue r l1 l2,s) =
+  (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
-       (NONE,set_var r (Loc l1 l2) s)
+       (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
   (evaluate (FFI ffi_index ptr len names,s) =
     case (get_var len s, get_var ptr s) of

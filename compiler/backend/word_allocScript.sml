@@ -253,9 +253,9 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (Set n exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
     (Set n exp',ssa,na)) ∧
-  (ssa_cc_trans (LocValue r l1 l2) ssa na =
+  (ssa_cc_trans (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
-      (LocValue r' l1 l2,ssa',na')) ∧
+      (LocValue r' l1,ssa',na')) ∧
   (ssa_cc_trans (FFI ffi_index ptr len numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -377,8 +377,8 @@ val apply_colour_def = Define `
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (FFI ffi_index ptr len numset) =
     FFI ffi_index (f ptr) (f len) (apply_nummap_key f numset)) ∧
-  (apply_colour f (LocValue r l1 l2) =
-    LocValue (f r) l1 l2) ∧
+  (apply_colour f (LocValue r l1) =
+    LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
@@ -488,7 +488,7 @@ val get_live_def = Define`
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
-  (get_live (LocValue r l1 l2) live = delete r live) ∧
+  (get_live (LocValue r l1) live = delete r live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
   (*Cut-set must be live, args input must be live
     For tail calls, there shouldn't be a liveset since control flow will
@@ -537,10 +537,10 @@ val remove_dead_def = Define`
     if lookup num live = NONE then
       (Skip,live)
     else (Get num store,delete num live)) ∧
-  (remove_dead (LocValue r l1 l2) live =
+  (remove_dead (LocValue r l1) live =
     if lookup r live = NONE then
       (Skip,live)
-    else (LocValue r l1 l2,delete r live)) ∧
+    else (LocValue r l1,delete r live)) ∧
   (remove_dead (Seq s1 s2) live =
     let (s2,s2live) = remove_dead s2 live in
     let (s1,s1live) = remove_dead s1 s2live in
@@ -575,7 +575,7 @@ val get_writes_def = Define`
   (get_writes (Inst i) = get_writes_inst i) ∧
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
-  (get_writes (LocValue r l1 l2) = insert r () LN) ∧
+  (get_writes (LocValue r l1) = insert r () LN) ∧
   (get_writes prog = LN)`
 
 (* Old representation *)
@@ -667,7 +667,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
   (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
   (get_clash_tree Tick = Delta [] []) ∧
-  (get_clash_tree (LocValue r l1 l2) = Delta [r] []) ∧
+  (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
@@ -819,7 +819,7 @@ val max_var_def = Define `
   (max_var (Raise num) = num) ∧
   (max_var (Return num1 num2) = MAX num1 num2) ∧
   (max_var Tick = 0) ∧
-  (max_var (LocValue r l1 l2) = r) ∧
+  (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var p = 0)`
 

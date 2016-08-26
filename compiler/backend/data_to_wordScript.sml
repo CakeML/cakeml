@@ -341,7 +341,7 @@ val assign_def = Define `
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
-    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
+    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs),l)
     | Equal => (case args of
                | [v1;v2] =>
                  let retf = Assign (adjust_var dest) FALSE_CONST in
