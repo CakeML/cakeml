@@ -30,12 +30,12 @@ val _ = export_rewrites["getConst_def"];
 
 val dest_Op_Const_def = Define `
   (dest_Op_Const ((Op (Const i) xs):bvl$exp) =
-     if LENGTH xs = 0 then SOME i else NONE) /\
+    if NULL xs then SOME i else NONE) /\
   (dest_Op_Const _ = NONE)`;
 
 val is_simple_def = Define `
-  (is_simple ((Op (Cons t) xs):bvl$exp) = (LENGTH xs = 0)) /\
-  (is_simple (Op (Const i) xs) = (LENGTH xs = 0)) /\
+  (is_simple ((Op (Cons _) xs):bvl$exp) = NULL xs) /\
+  (is_simple (Op (Const _) xs) = NULL xs) /\
   (is_simple _ = F)`;
 
 val SmartOp_def = Define `
@@ -67,7 +67,7 @@ val extract_def = Define `
   (extract ((Var n):bvl$exp) ys = SOME ((Var (n + LENGTH ys + 1)):bvl$exp)) /\
   (extract (Op (Const i) xs) ys = SOME (Op (Const i) [])) /\
   (extract (Op (Cons t) xs) ys =
-    if LENGTH xs = 0 then SOME (Op (Cons t) []) else NONE) /\
+    if NULL xs then SOME (Op (Cons t) []) else NONE) /\
   (extract _ _ = NONE)`
 
 val extract_list_def = Define `

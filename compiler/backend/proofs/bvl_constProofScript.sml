@@ -93,14 +93,14 @@ val evaluate_delete_var_Rval = prove(
   \\ rename1 `bvl_const$extract (Op opp ll) _ = SOME xx`
   \\ Cases_on `opp` \\ fs [extract_def] \\ rw []
   \\ every_case_tac \\ fs []
-  \\ fs [v_rel_def,LENGTH_NIL,evaluate_def,do_app_def]
+  \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []);
 
 val IS_SOME_dest_Op_Const = store_thm("IS_SOME_dest_Op_Const[simp]",
   ``IS_SOME (dest_Op_Const h) = ?i. h = Op (Const i) []``,
   Cases_on `h` \\ fs [dest_Op_Const_def]
   \\ Cases_on `o'` \\ fs [dest_Op_Const_def]
-  \\ rw [] \\ fs [LENGTH_NIL]);
+  \\ rw [] \\ fs [NULL_EQ]);
 
 val evaluate_EQ_NIL = store_thm("evaluate_EQ_NIL",
   ``bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t``,
@@ -112,7 +112,7 @@ val evaluate_EQ_NIL = store_thm("evaluate_EQ_NIL",
 val is_simple_thm = store_thm("is_simple_thm",
   ``is_simple v <=> (?t. v = Op (Cons t) []) \/ (?i. v = Op (Const i) [])``,
   Cases_on `v` \\ fs [is_simple_def]
-  \\ Cases_on `o'` \\ fs [is_simple_def,LENGTH_NIL]);
+  \\ Cases_on `o'` \\ fs [is_simple_def,NULL_EQ]);
 
 val SmartOp_thm = store_thm("SmartOp_thm",
   ``evaluate ([Op op xs],env,s) = (res,s2) /\
