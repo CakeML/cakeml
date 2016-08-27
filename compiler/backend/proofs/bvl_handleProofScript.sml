@@ -1,15 +1,6 @@
 open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
-open indexedListsTheory;
 
 val _ = new_theory"bvl_handleProof";
-
-(* TODO: move, and open indexedListsTheory in preamble *)
-
-val MAPi_ID = store_thm("MAPi_ID[simp]",
-  ``MAPi (\x y. y) = I``,
-  fs [FUN_EQ_THM] \\ Induct \\ fs [o_DEF]);
-
-(* -- *)
 
 val evaluate_SmartLet = store_thm("evaluate_SmartLet[simp]",
   ``bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)``,

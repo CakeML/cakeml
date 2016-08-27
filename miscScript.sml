@@ -1801,6 +1801,10 @@ val num_from_hex_string_num_to_hex_string = Q.store_thm("num_from_hex_string_num
   |> SIMP_RULE std_ss [combinTheory.o_DEF,FUN_EQ_THM]
   |> MATCH_ACCEPT_TAC)
 
+val MAPi_ID = store_thm("MAPi_ID[simp]",
+  ``MAPi (\x y. y) = I``,
+  fs [FUN_EQ_THM] \\ Induct \\ fs [o_DEF]);
+
 val enumerate_def = Define`
   (enumerate n [] = []) ∧
   (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
