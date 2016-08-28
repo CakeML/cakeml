@@ -433,4 +433,13 @@ val extract_labels_def = Define`
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
 
+val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
+  ``find_code d r code = SOME e ==>
+    get_labels e SUBSET loc_check code``,
+  Cases_on `d`
+  \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
+         loc_check_def,FORALL_PROD]
+  \\ every_case_tac \\ fs []
+  \\ metis_tac []);
+
 val _ = export_theory();

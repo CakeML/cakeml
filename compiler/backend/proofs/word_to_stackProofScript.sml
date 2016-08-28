@@ -4442,15 +4442,6 @@ val get_labels_wStackLoad = store_thm("get_labels_wStackLoad",
   Induct \\ fs [wStackLoad_def]
   \\ Cases \\ fs [wStackLoad_def,get_labels_def]);
 
-val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
-  ``find_code d r code = SOME e ==>
-    get_labels e SUBSET loc_check code``,
-  Cases_on `d`
-  \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
-         loc_check_def,FORALL_PROD]
-  \\ every_case_tac \\ fs []
-  \\ metis_tac []);
-
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -4473,7 +4464,6 @@ val comp_correct = Q.store_thm("comp_correct",
          | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
          | SOME (Exception _ y) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock`,
-
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs[get_labels_def]
   THEN1 (* Skip *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
@@ -5876,9 +5866,6 @@ val comp_correct = Q.store_thm("comp_correct",
        DECIDE_TAC>>
      qpat_x_assum`A=v` sym_sub_tac>>
      simp[]) *) >>
-
-
-
     Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
     first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
     Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
@@ -5893,6 +5880,12 @@ val comp_correct = Q.store_thm("comp_correct",
         Cases_on`dest`>>
         fsrw_tac[][state_rel_def,find_code_def]>>
         rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+      CONJ_TAC>-
+       (fs [comp_def,get_labels_def]
+        \\ drule find_code_IMP_get_labels
+        \\ fs [get_labels_def]
+        \\ imp_res_tac stackPropsTheory.evaluate_consts
+        \\ fs [Abbr `stack_state`,Abbr`t6`]) >>
       CONJ_TAC>-
         (`EVEN (max_var r)` by
             (ho_match_mp_tac max_var_IMP>>
@@ -6011,6 +6004,10 @@ val comp_correct = Q.store_thm("comp_correct",
         first_x_assum(qspecl_then[`k`,`f`,`f'`,`t2`,`bs'`,`lens`] mp_tac)>>
         impl_tac>-
           (fsrw_tac[][convs_def]>>rw[]
+          >-
+           (fs [comp_def,get_labels_def,PopHandler_def]
+            \\ imp_res_tac stackPropsTheory.evaluate_consts
+            \\ fs [Abbr `stack_state`,Abbr`t6`])
           >-
             (qpat_x_assum`A<B:num` mp_tac>>
             simp[word_allocTheory.max_var_def])
@@ -6141,6 +6138,10 @@ val comp_correct = Q.store_thm("comp_correct",
       impl_tac>-
         (fsrw_tac[][convs_def]>>rw[]
         >-
+         (fs [comp_def,get_labels_def,PopHandler_def]
+          \\ imp_res_tac stackPropsTheory.evaluate_consts
+          \\ fs [Abbr `stack_state`,Abbr`t6`])
+        >-
           fs[word_allocTheory.max_var_def]
         >>
           unabbrev_all_tac>>
@@ -6192,7 +6193,7 @@ val comp_Call = prove(
           res1 = SOME (Halt (Word 2w)) /\
           t1.ffi.io_events ≼ s1.ffi.io_events /\
           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)``,
-  rw [] \\ drule comp_Call_lemma \\ fs []
+  rw [] \\ drule comp_Call_lemma \\ fs [get_labels_def]
   \\ disch_then drule \\ disch_then(qspecl_then[`t.bitmaps`] mp_tac)
   \\ fs [] \\ strip_tac
   \\ `0 < 2 * k` by (fs [state_rel_def] \\ decide_tac) \\ fs []
