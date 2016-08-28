@@ -3597,7 +3597,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
   >- (
     reverse BasicProvers.FULL_CASE_TAC
     \\ fs[wordLangTheory.every_var_inst_def,word_allocTheory.max_var_inst_def,inst_arg_convention_def]
-    >-
+    >- (*AddCarry*)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 6 (FULL_CASE_TAC)>>
       fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
@@ -3632,6 +3632,82 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       rpt strip_tac>>
       simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
       simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE])
+    >- (*LongDiv*)
+      (pop_assum mp_tac>>fs[get_vars_def]>>
+      every_case_tac>>fs[wInst_def]>>
+      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[TWOxDIV2]>>
+      pairarg_tac>>fs[]>>
+      strip_tac>>
+      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont),t) = (NONE,t') ∧ _ t'`>>fs[]>>
+      `kont = (λn. Inst(Arith (LongDiv 0 1 0 1 n))) n5` by fs[]>>
+      pop_assum SUBST1_TAC>>
+      match_mp_tac (GEN_ALL wStackLoad_thm1)>>
+      asm_exists_tac >> simp[]>>
+      rfs[]>> asm_exists_tac >> simp[]>>
+      drule (GEN_ALL state_rel_get_var_imp)>>
+      disch_then assume_tac>>
+      first_assum (qspecl_then [`0`,`Word c`] mp_tac)>>
+      impl_tac>- fs[state_rel_def]>>
+      first_x_assum (qspecl_then [`1`,`Word c'`] mp_tac)>>
+      impl_tac>- fs[state_rel_def]>>
+      simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
+      `1 < k` by fs[state_rel_def]>>
+      rw[]
+      >-
+        (imp_res_tac state_rel_get_var_imp>>
+        fs[]>>
+        assume_tac (GEN_ALL state_rel_set_var)>>
+        first_assum (qspec_then`0` assume_tac)>>fs[]>>
+        pop_assum match_mp_tac>>fs[]>>
+        first_assum (qspec_then`1` assume_tac)>>fs[])
+      >-
+        (imp_res_tac state_rel_get_var_imp2>>
+        qpat_abbrev_tac`A = FLOOKUP B 0n`>>
+        `A = SOME (Word c)` by fs[Abbr`A`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
+        qpat_abbrev_tac`B = FLOOKUP C 1n`>>
+        `B = SOME (Word c')` by fs[Abbr`B`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
+        fs[]>>
+        assume_tac (GEN_ALL state_rel_set_var)>>
+        first_assum (qspec_then`0` assume_tac)>>fs[]>>
+        pop_assum match_mp_tac>>fs[]>>
+        first_assum (qspec_then`1` assume_tac)>>fs[]))
+    >-
+      (pop_assum mp_tac>>fs[get_vars_def]>>
+      every_case_tac>>fs[wInst_def]>>
+      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[TWOxDIV2]>>
+      pairarg_tac>>fs[]>>
+      strip_tac>>
+      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont),t) = (NONE,t') ∧ _ t'`>>fs[]>>
+      `kont = (λn. Inst(Arith (LongMul 1 0 0 n))) n4` by fs[]>>
+      pop_assum SUBST1_TAC>>
+      match_mp_tac (GEN_ALL wStackLoad_thm1)>>
+      asm_exists_tac >> simp[]>>
+      rfs[]>> asm_exists_tac >> simp[]>>
+      drule (GEN_ALL state_rel_get_var_imp)>>
+      disch_then assume_tac>>
+      first_x_assum (qspecl_then [`0`,`Word c`] mp_tac)>>
+      impl_tac>- fs[state_rel_def]>>
+      simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
+      `1 < k` by fs[state_rel_def]>>
+      rw[]
+      >-
+        (imp_res_tac state_rel_get_var_imp>>
+        fs[]>>
+        assume_tac (GEN_ALL state_rel_set_var)>>
+        first_assum (qspec_then`1` assume_tac)>>fs[]>>
+        pop_assum match_mp_tac>>fs[]>>
+        first_assum (qspec_then`0` assume_tac)>>fs[])
+      >-
+        (imp_res_tac state_rel_get_var_imp2>>
+        qpat_abbrev_tac`A = FLOOKUP B 0n`>>
+        `A = SOME (Word c)` by fs[Abbr`A`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
+        fs[]>>
+        assume_tac (GEN_ALL state_rel_set_var)>>
+        first_assum (qspec_then`1` assume_tac)>>fs[]>>
+        pop_assum match_mp_tac>>fs[]>>
+        first_assum (qspec_then`0` assume_tac)>>fs[]))
     >- (
       fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
       \\ simp[wInst_def,TWOxDIV2]
@@ -4248,7 +4324,8 @@ val DROP_SUB2 = prove(``
 
 val evaluate_PushHandler = prove(``
   3 ≤ t.stack_space ∧
-  state_rel k 0 0 (push_env x' NONE s with locals:=LN) t (f'::lens) ⇒
+  state_rel k 0 0 (push_env x' NONE s with locals:=LN) t (f'::lens) ∧
+  x''2 ∈ domain t.code ⇒
   ∃t'.
   evaluate(PushHandler (x''2:num) (x''3:num) (k,f:num,f'),t) = (NONE,t') ∧
   t' = t with <|stack_space:=t'.stack_space; regs:=t'.regs;stack:=t'.stack;store:=t'.store|> ∧
@@ -4353,6 +4430,12 @@ val ALL_DISTINCT_MEM_toAList_fromAList = prove(``
   Cases_on`x`>>fs[MEM_toAList,lookup_fromAList]>>
   rw[]>>
   metis_tac[ALOOKUP_MEM,ALOOKUP_ALL_DISTINCT_MEM])
+
+val state_rel_code_domain = prove(``
+  state_rel k f f' s t lens ⇒
+  domain s.code ⊆ domain t.code``,
+  strip_tac>>fs[state_rel_def,SUBSET_DEF,domain_lookup,EXISTS_PROD]>>
+  metis_tac[])
 
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
@@ -4867,13 +4950,16 @@ val comp_correct = Q.store_thm("comp_correct",
   THEN1 (* LocValue *) (
     fs[comp_def,wordSemTheory.evaluate_def]
     \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ every_case_tac \\ fs[]
     \\ rw[]
     \\ qexists_tac`0` \\ simp[]
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`NONE` \\ simp[]
     \\ match_mp_tac wRegWrite1_thm1
     \\ simp[stackSemTheory.evaluate_def]
-    \\ fs[word_allocTheory.max_var_def,GSYM LEFT_ADD_DISTRIB])
+    \\ fs[word_allocTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+    \\ imp_res_tac state_rel_code_domain
+    \\ fs[SUBSET_DEF])
   THEN1 (* FFI *)
    (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
     \\ rw [] \\ fs [] \\ rw []
@@ -5533,7 +5619,9 @@ val comp_correct = Q.store_thm("comp_correct",
       imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
       fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
       metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
+    (* Needs to go in wordSem?*)
     drule (evaluate_PushHandler |>INST_TYPE[gamma|->alpha,delta|->alpha])>>
+    `x''2 ∈ domain t5.code` by cheat>>
     simp[evaluate_PushHandler_clock]>>
     strip_tac>>
     simp[StackHandlerArgs_def,StackArgs_def,evaluate_stack_move_seq]>>
