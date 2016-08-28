@@ -352,6 +352,24 @@ val fix_clock_IMP = prove(
 
 val STOP_def = Define `STOP x = x`;
 
+val get_labels_def = Define `
+  (get_labels (Seq p1 p2) = get_labels p1 UNION get_labels p2) /\
+  (get_labels (If _ _ _ p1 p2) = get_labels p1 UNION get_labels p2) /\
+  (get_labels (Call ret _ handler) =
+     (case ret of
+      | NONE => {}
+      | SOME (r,_,l1,l2) => (l1,l2) INSERT get_labels r) UNION
+     (case handler of
+      | NONE => {}
+      | SOME (r,l1,l2) => (l1,l2) INSERT get_labels r)) /\
+  (get_labels (Halt _) = {}) /\
+  (get_labels _ = {})`
+
+val loc_check_def = Define `
+  loc_check l1 l2 code <=>
+    if l1 = 0 then l1 ∈ domain code else
+      ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
@@ -466,7 +484,7 @@ val evaluate_def = tDefine "evaluate" `
           | _ => (SOME Error,s))
     | res => (SOME Error,s)) /\
   (evaluate (LocValue r l1 l2,s) =
-     if l1 ∈ domain s.code then
+     if loc_check l1 l2 s.code then
        (NONE,set_var r (Loc l1 l2) s)
      else (SOME Error,s)) /\
   (evaluate (StackAlloc n,s) =
