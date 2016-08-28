@@ -301,13 +301,13 @@ val tscheme_approx_weakening2 = prove(``
   tscheme_approx tvs s t1 t2 ∧ t_compat s s' ∧ FDOM s ⊆ FDOM s' ⇒
   tscheme_approx tvs s' t1 t2``,
   Cases_on`t1`>>Cases_on`t2`>>rw[tscheme_approx_def]>>
-  first_x_assum(qspec_then`subst` assume_tac)>>rfs[]>>
   qexists_tac`subst'`>>fs[]>>
   rw[]
   >-
     (fs[EVERY_MEM]>>rw[]>>
     metis_tac[check_t_more5])
   >>
+  first_x_assum(qspec_then`subst` assume_tac)>>rfs[]>>
   fs[t_compat_def]>>metis_tac[])
 
 val env_rel_complete_t_compat = prove(
@@ -1670,6 +1670,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        FDOM s' = count st'.next_uvar ∧
        t_compat s s' ∧
        MAP SND env = MAP (convert_t o t_walkstar s') env')`,
+
   ho_match_mp_tac type_e_strongind >>
   rw [add_constraint_success,success_eqns,infer_e_def]
   (*Easy cases*)
@@ -1881,10 +1882,19 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
   >- (* Var *)
     (fs[env_rel_complete_def]>>pop_assum drule>>rw[]>>
     `t_wfs s` by metis_tac[sub_completion_wfs]>>
-    fs[success_eqns,tscheme_approx_thm]>>
+    drule tscheme_approx_thm>>
+    disch_then drule>>
+    strip_tac>>
+    qpat_x_assum `t_wfs s` mp_tac>>
+    strip_tac>>
+    qpat_x_assum `tscheme_approx _ _ _ _` kall_tac >>
+    fs[success_eqns]>>
     (* The unconversion of the deBruijn specs *)
     qabbrev_tac`unargs = MAP unconvert_t targs`>>
     first_x_assum (qspec_then`unargs` mp_tac)>>
+    impl_tac>-
+      (fs[Abbr`unargs`,EVERY_MAP,EVERY_MEM]>>rw[]>>
+      metis_tac[check_freevars_to_check_t])>>
     impl_tac>-
       (fs[Abbr`unargs`,EVERY_MAP,EVERY_MEM]>>rw[]>>
       metis_tac[check_freevars_to_check_t])>>

@@ -878,8 +878,8 @@ val check_s_more3 = Q.store_thm ("check_s_more3",
 rw [check_s_def] >>
 metis_tac [check_t_more5]);
 
-val check_t_deBruijn_inc2 = Q.prove (
-`!inc t. check_t tvs {} t ⇒ check_t (inc + tvs) {} (infer_deBruijn_inc inc t)`,
+val check_t_deBruijn_inc2 = Q.store_thm ("check_t_deBruijn_inc2",
+`!inc t s. check_t tvs s t ⇒ check_t (inc + tvs) s (infer_deBruijn_inc inc t)`,
 ho_match_mp_tac infer_deBruijn_inc_ind >>
 rw [check_t_def, infer_deBruijn_inc_def] >>
 fs [EVERY_MAP, EVERY_MEM]);
@@ -2786,6 +2786,30 @@ val infer_deBruijn_subst_uncheck = Q.store_thm ("infer_deBruijn_subst_uncheck",
  >> rw []
  >> first_x_assum drule
  >> fs [MEM_EL, PULL_EXISTS]);
+val db_subst_inc_id = Q.store_thm ("db_subst_inc_id",
+  `!inst t.
+    infer_deBruijn_subst inst (infer_deBruijn_inc (LENGTH inst) t) = t`,
+ ho_match_mp_tac infer_deBruijn_subst_ind
+ >> rw [infer_deBruijn_inc_def, infer_deBruijn_subst_def,
+        MAP_MAP_o, combinTheory.o_DEF]
+ >> Induct_on `ts`
+ >> rw []);
+
+val t_walkstar_db_subst = Q.store_thm ("t_walkstar_db_subst",
+  `!inst t s.
+    t_wfs s ⇒
+    t_walkstar s (infer_deBruijn_subst inst t)
+    =
+    infer_deBruijn_subst (MAP (t_walkstar s) inst)
+               (t_walkstar (infer_deBruijn_inc (LENGTH inst) o_f s) t)`,
+ ho_match_mp_tac infer_deBruijn_subst_ind
+ >> rw [infer_deBruijn_subst_def]
+ >> drule inc_wfs
+ >> disch_then (qspec_then `LENGTH inst` mp_tac)
+ >> rw [t_walkstar_eqn1, infer_deBruijn_subst_def, EL_MAP,
+        MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+ >> simp [walkstar_inc2]
+ >> metis_tac [db_subst_inc_id, LENGTH_MAP]);
 
 val generalise_subst_exist = store_thm("generalise_subst_exist",``
   (t_wfs s ∧

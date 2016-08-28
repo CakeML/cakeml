@@ -538,8 +538,10 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> rename1 `nsLookup _ _ = SOME v`
    >> `?tvs t. v = (tvs, t)` by metis_tac [pair_CASES]
    >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> fs [tscheme_approx_thm]
-   >> first_x_assum
+   >> drule tscheme_approx_thm
+   >> fs []
+   >> disch_then drule
+   >> disch_then
      (qspec_then `MAP (t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` mp_tac)
    >> simp [LENGTH_COUNT_LIST, EVERY_MAP, every_count_list, check_t_def]
    >> impl_keep_tac

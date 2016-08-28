@@ -214,140 +214,30 @@ val infer_type_subst_nil = store_thm("infer_type_subst_nil",
  * approach would be to instantiate t with fresh variables of some sort;
  * however, that does not work well with our general setup which requires all
  * type variables to be explicitly bound somewhere. Instead, we require that t'
- * be able to match the result of any instantiation of t. In fact, we can
- * restrict to variable free substitutions, because for each type parameter to
- * t, there are at least two different types (e.g., int and bool) that can be
- * used to instantiate it, and t' can only match in both cases if it is at least
- * as general at t. Compared to allowing bound type variables and unification
- * variables in the instantiation of t's type parameters, this choice makes
- * tscheme_approx monotone is max_tvs and s (under the SUBMAP relation).
+ * be able to match the result of any instantiation of t. In fact, we slightly
+ * restrict the form of instantiation to be on in which the instantiation has
+ * only good de Bruijn and unification variables, and the substitution for t is
+ * also applied to the substitution for t'. So t''s substitution is just
+ * matching t, and then instantiation of t is making things good for the
+ * walkstar
  *
- * Once we instantiate t, we just need to be able to instantiate t' and then
- * apply the substitution. We directly require that the instantiation of t' not
- * contain free de Bruijn or unification variables to make things work smoothly.
  * *)
 
 val tscheme_approx_def = Define `
   tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
-    !subst.
-      LENGTH subst = tvs ∧
-      EVERY (check_t 0 {}) subst
-      ⇒
-      ?subst'.
-        LENGTH subst' = tvs' ∧
-        EVERY (check_t max_tvs (FDOM s)) subst' ∧
-        t_walkstar s (infer_deBruijn_subst subst t) =
-        t_walkstar s (infer_deBruijn_subst subst' t')`;
-
-(* I think the following should hold without the check_s hypotheses, but it
- * doesn't seem provable with the proof approach below. *)
-val tscheme_approx_lem = Q.prove (
- `(!t max_tvs tvs tvs' t'.
-    t_wfs s
-    ⇒
-    tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇒
-    !subst.
-     LENGTH subst = tvs ∧
-     EVERY (check_t max_tvs {}) subst
-     ⇒
-     ?subst'.
-       LENGTH subst' = tvs' ∧
-       EVERY (check_t max_tvs (FDOM s)) subst' ∧
+    ?subst'.
+      LENGTH subst' = tvs' ∧
+      EVERY (check_t (max_tvs + tvs) (FDOM s)) subst' ∧
+      !subst.
+       LENGTH subst = tvs
+       ⇒
        t_walkstar s (infer_deBruijn_subst subst t) =
-       t_walkstar s (infer_deBruijn_subst subst' t')) ∧
-  (!ts max_tvs tvs tvs' ts'.
-    t_wfs s
-    ⇒
-    (!subst.
-     LENGTH subst = tvs ∧
-     EVERY (check_t 0 {}) subst
-     ⇒
-     ?subst'.
-       LENGTH subst' = tvs' ∧
-       EVERY (check_t max_tvs (FDOM s)) subst' ∧
-       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst) ts) =
-       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst') ts'))
-    ⇒
-    (!subst.
-     LENGTH subst = tvs ∧
-     EVERY (check_t max_tvs {}) subst
-     ⇒
-     ?subst'.
-       LENGTH subst' = tvs' ∧
-       EVERY (check_t max_tvs (FDOM s)) subst' ∧
-       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst) ts) =
-       MAP (t_walkstar s) (MAP (infer_deBruijn_subst subst') ts')))`,
- Induct
- >> fs [t_walkstar_eqn1, infer_deBruijn_subst_def, tscheme_approx_def]
- >> rw []
- >- (
-   Cases_on `¬(n < LENGTH subst)`
-   >> simp []
-   >> fs []
-   >> rfs [t_walkstar_eqn1]
-   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> strip_tac
-   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_string)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> strip_tac
-   >> rfs [EL_REPLICATE, t_walkstar_eqn1]
-   >> Cases_on `t'`
-   >> rfs [t_walkstar_eqn1, infer_deBruijn_subst_def]
-   >> rw []
-   >- (
-     every_case_tac
-     >> rfs [t_walkstar_eqn1]
-     >> `check_t max_tvs {} (EL n subst)` by metis_tac [EVERY_EL]
-     >> drule t_walkstar_no_vars
-     >> disch_then drule
-     >> simp []
-     >> rw []
-     >> qexists_tac `REPLICATE (LENGTH subst''') (EL n subst)`
-     >> rw [LENGTH_REPLICATE, EVERY_REPLICATE, EL_REPLICATE]
-     >> `{} ⊆ FDOM s` by rw [SUBSET_DEF]
-     >> metis_tac [check_t_more5])
-   >- metis_tac [infer_tTheory.infer_t_11, tctor_distinct])
- >- (
-   fs []
-   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> strip_tac
-   >> Cases_on `t'`
-   >> rfs [infer_deBruijn_subst_def, t_walkstar_eqn1]
-   >- (
-     Cases_on `n < tvs'`
-     >> fs []
-     >> rfs [t_walkstar_eqn1]
-     >> cheat)
-   >- fs [METIS_PROVE [] ``(\x. f y x) = f y``]
-   >- (
-     pop_assum (mp_tac o GSYM)
-     >> simp []
-     >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_string)` mp_tac)
-     >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-     >> strip_tac
-     >> strip_tac
-     >> fs []
-     >> cheat))
- >- (
-   first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def])
- >- (
-   first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> strip_tac)
- >- (
-   Cases_on `ts'`
-   >> fs []
-   >> first_assum (qspec_then `REPLICATE (LENGTH subst) (Infer_Tapp [] TC_int)` mp_tac)
-   >> simp_tac (srw_ss()) [LENGTH_REPLICATE, EVERY_REPLICATE, check_t_def]
-   >> cheat));
+       t_walkstar s (infer_deBruijn_subst (MAP (infer_deBruijn_subst subst) subst') t')`;
 
 val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
   `∀t' max_tvs s tvs tvs' t.
     t_wfs s ⇒
-    (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
+    (tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇒
      ∀subst.
       LENGTH subst = tvs ∧
       EVERY (check_t max_tvs ∅) subst
@@ -356,12 +246,14 @@ val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
         LENGTH subst' = tvs' ∧
         EVERY (check_t max_tvs (FDOM s)) subst' ∧
         t_walkstar s (infer_deBruijn_subst subst t) = t_walkstar s (infer_deBruijn_subst subst' t'))`,
- rw []
- >> eq_tac
+ rw [tscheme_approx_def]
+ >> qexists_tac `MAP (infer_deBruijn_subst subst) subst'`
+ >> fs [EVERY_MAP, EVERY_MEM]
  >> rw []
- >- metis_tac [tscheme_approx_lem, LET_THM]
- >> fs [tscheme_approx_def]
- >> metis_tac [check_t_more2, DECIDE ``x+0n = x``]);
+ >> first_x_assum drule
+ >> rw []
+ >> irule check_t_infer_deBruijn_subst
+ >> metis_tac [EVERY_MEM, check_t_more5, SUBSET_DEF, NOT_IN_EMPTY]);
 
 val env_rel_sound_def = Define `
   env_rel_sound s ienv tenv tenvE ⇔
@@ -415,11 +307,11 @@ val tscheme_approx_weakening = Q.store_thm ("tscheme_approx_weakening",
  >> Cases_on `ts2`
  >> fs [tscheme_approx_def]
  >> rw []
- >> first_x_assum (qspec_then `subst` mp_tac)
- >> rw []
  >> qexists_tac `subst'`
  >> rw []
  >- metis_tac [SUBMAP_DEF, check_t_more5, SUBSET_DEF]
+ >> first_x_assum (qspec_then `subst` mp_tac)
+ >> rw []
  >> metis_tac [t_walkstar_idempotent, t_walkstar_SUBMAP]);
 
 val tscheme_approx0 = Q.store_thm ("tscheme_approx0",
@@ -483,13 +375,7 @@ val env_rel_sound_merge0 = Q.store_thm ("env_rel_sound_merge0",
      >> fs []
      >> metis_tac [check_t_more2, DECIDE ``x + 0n = x``])
    >- (
-     rw [tscheme_approx_def]
-     >> qexists_tac `subst`
-     >> fs [LENGTH_NIL]
-     >> rw []
-     >> simp [infer_deBruijn_subst_id]
-     >> fs []
-     >> `check_t (num_tvs tenvE) {} (t_walkstar s t)`
+     `check_t (num_tvs tenvE) {} (t_walkstar s t)`
        by (
          irule (CONJUNCT1 check_t_walkstar)
          >> simp []
@@ -499,8 +385,10 @@ val env_rel_sound_merge0 = Q.store_thm ("env_rel_sound_merge0",
          >> rw []
          >> metis_tac [check_t_more2, DECIDE ``z + 0n = z``])
      >> drule check_t_empty_unconvert_convert_id
-     >> rw []
-     >> fs [t_walkstar_idempotent]))
+     >> simp []
+     >> disch_then kall_tac
+     >> irule tscheme_approx0
+     >> rw []))
  >- (
    first_x_assum drule
    >> rw [lookup_var_def, lookup_varE_def]
