@@ -367,8 +367,8 @@ val get_labels_def = Define `
 
 val loc_check_def = Define `
   loc_check code (l1,l2) <=>
-    if l1 = 0 then l1 ∈ domain code else
-      ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`
+    (l2 = 0 /\ l1 ∈ domain code) \/
+    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
