@@ -1861,7 +1861,7 @@ val MAP_FST_optimise = Q.store_thm("MAP_FST_optimise[simp]",
 val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
   `lookup n ls = SOME (a,b) ⇒
    ALOOKUP (optimise x (toAList ls)) n =
-     SOME (a,bvl_handle$compile_exp x a (bvl_const$compile_exp b))`,
+     SOME (a,bvl_handle$compile_any x a b)`,
   srw_tac[][] >>
   Cases_on`ALOOKUP (optimise x (toAList ls)) n` >- (
     imp_res_tac ALOOKUP_FAILS >>
@@ -1875,9 +1875,8 @@ val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
 val evaluate_IMP_optimise = store_thm("evaluate_IMP_optimise",
   ``evaluate ([r],zenv,zs) = (res,s') /\ res <> Rerr (Rabort Rtype_error) /\
     LENGTH zenv = q ==>
-    evaluate ([bvl_handle$compile_exp x q
-                (bvl_const$compile_exp r)],zenv,zs) = (res,s')``,
-  rw [] \\ match_mp_tac bvl_handleProofTheory.compile_correct \\ fs []
+    evaluate ([bvl_handle$compile_any x q r],zenv,zs) = (res,s')``,
+  rw [] \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
   \\ drule (GEN_ALL bvl_constProofTheory.evaluate_compile_exp) \\ fs []);
 
 val optimise_evaluate = Q.store_thm("optimise_evaluate",
@@ -1923,8 +1922,7 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
 
 val fromAList_optimise = Q.prove(
   `fromAList (optimise x p) =
-   map (λ(a,e). (a, bvl_handle$compile_exp x a
-                   (bvl_const$compile_exp e))) (fromAList p)`,
+   map (λ(a,e). (a, bvl_handle$compile_any x a e)) (fromAList p)`,
   simp[map_fromAList,optimise_def] >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM,UNCURRY]);
@@ -2586,9 +2584,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ qspec_tac (`compile_prog limit.inline_size_limit prog`,`xs`)
     \\ Induct \\ fs [handle_ok_def]
     \\ Cases_on
-        `MAP (λx. compile_exp limit.exp_cut (FST (SND x)) (compile_exp (SND (SND x)))) xs`
+        `MAP (λx. compile_any limit.exp_cut (FST (SND x)) (SND (SND x))) xs`
     \\ fs [handle_ok_def]
-    \\ simp[bvl_handleProofTheory.compile_exp_handle_ok])
+    \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
   \\ metis_tac [optimise_semantics,
        bvl_inlineProofTheory.compile_prog_semantics]);
 

@@ -1,4 +1,4 @@
-open preamble bvlTheory db_varsTheory;
+open preamble bvlTheory db_varsTheory bvl_constTheory;
 
 val _ = new_theory "bvl_handle";
 
@@ -87,7 +87,33 @@ val compile_def = tDefine "compile" `
 val compile_ind = theorem"compile_ind";
 
 val compile_exp_def = Define `
-  compile_exp cut_size arity e = HD (FST (compile cut_size arity [e]))`;
+  compile_exp cut_size arity e =
+    HD (FST (compile cut_size arity [bvl_const$compile_exp e]))`;
+
+val dest_Seq_def = Define `
+  (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
+  (dest_Seq _ = NONE)`
+
+val compile_seqs_def = tDefine "compile_seqs" `
+  compile_seqs cut_size e acc =
+    case dest_Seq e of
+    | NONE => (let new_e = compile_exp cut_size 0 e in
+                 case acc of
+                 | NONE => new_e
+                 | SOME rest => Let [new_e] (Let [] (Let [] rest)))
+    | SOME (e1,e2) =>
+        compile_seqs cut_size e1
+          (SOME (compile_seqs cut_size e2 acc))`
+  ((WF_REL_TAC ` measure (\(c,e,a). exp_size e) `
+    \\ strip_tac \\ HO_MATCH_MP_TAC (fetch "-" "dest_Seq_ind")
+    \\ fs [dest_Seq_def] \\ EVAL_TAC \\ fs []):tactic);
+
+val compile_any_def = Define `
+  compile_any cut_size arity e =
+    if arity = 0 then
+      compile_seqs cut_size e NONE
+    else
+      compile_exp cut_size arity e`;
 
 val compile_length = Q.store_thm("compile_length[simp]",
   `!l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs`,
@@ -100,5 +126,14 @@ val compile_sing = store_thm("compile_sing",
   `LENGTH (FST (compile l n [x])) = LENGTH [x]` by fs []
   \\ rpt strip_tac \\ full_simp_tac std_ss [LENGTH]
   \\ Cases_on `dx` \\ fs [LENGTH_NIL]);
+
+val compile_seqs_compute = save_thm("compile_seqs_compute",
+  LIST_CONJ [
+    compile_seqs_def
+    |> Q.SPECL [`e`,`c`,`NONE`]
+    |> SIMP_RULE std_ss [LET_THM],
+    compile_seqs_def
+    |> Q.SPECL [`e`,`c`,`SOME y`]
+    |> SIMP_RULE std_ss [LET_THM]]);
 
 val _ = export_theory();

@@ -248,9 +248,66 @@ val compile_correct = store_thm("compile_correct",
     k = LENGTH env ==>
     (evaluate ([compile_exp l k x],env,s1) = (res,s2))``,
   fs [compile_exp_def]
-  \\ Cases_on `compile l (LENGTH env) [x]` \\ PairCases_on `r`
-  \\ rw [] \\ imp_res_tac compile_sing \\ rw []
-  \\ imp_res_tac compile_correct);
+  \\ Cases_on `compile l (LENGTH env) [bvl_const$compile_exp x]`
+  \\ PairCases_on `r` \\ rw []
+  \\ drule bvl_constProofTheory.evaluate_compile_exp \\ fs [] \\ rw []
+  \\ drule compile_sing \\ rw []
+  \\ drule compile_correct \\ fs []);
+
+val dest_Seq_thm = store_thm("dest_Seq_thm",
+  ``!x. dest_Seq x = SOME (y0,y1) <=>
+        x = Let [y0;y1] (Var 1)``,
+  ho_match_mp_tac dest_Seq_ind \\ fs [] \\ rw [] \\ EVAL_TAC
+  \\ rw [] \\ eq_tac \\ rw []);
+
+val compile_seqs_correct = store_thm("compile_seqs_correct",
+  ``!l x acc s1 s2 s3 res res3.
+      evaluate ([x],[],s1) = (res,s2) /\
+      (!y r. acc = SOME y /\ res = Rval r ==>
+             res3 <> Rerr (Rabort Rtype_error) /\
+             evaluate ([y],[],s2) = (res3,s3)) /\
+      res <> Rerr (Rabort Rtype_error) ==>
+      evaluate ([compile_seqs l x acc],[],s1) =
+        if acc = NONE then (res,s2) else
+          case res of Rval _ => (res3,s3) | _ => (res,s2)``,
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rpt strip_tac
+  \\ once_rewrite_tac [compile_seqs_def]
+  \\ Cases_on `dest_Seq x` \\ fs []
+  THEN1
+   (CASE_TAC \\ fs []
+    THEN1 (match_mp_tac compile_correct \\ fs [])
+    \\ fs [bvlSemTheory.evaluate_def]
+    \\ drule (GEN_ALL compile_correct) \\ fs [] \\ rw []
+    \\ CASE_TAC \\ fs []
+    \\ pop_assum kall_tac
+    \\ rename1 `evaluate ([y],[],s2) = (res3,s3)`
+    \\ `FST (evaluate ([y],[],s2)) <> Rerr (Rabort Rtype_error)` by fs []
+    \\ drule evaluate_expand_env \\ fs [])
+  \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
+  \\ fs [dest_Seq_thm] \\ rveq
+  \\ fs [evaluate_def]
+  \\ Cases_on `evaluate ([y0],[],s1)` \\ fs []
+  \\ rename1 `evaluate ([y0],[],s1) = (res5,s5)`
+  \\ first_assum drule \\ strip_tac
+  \\ reverse (Cases_on `res5`) \\ fs []
+  THEN1 (rveq \\ fs [] \\ rfs [])
+  \\ Cases_on `evaluate ([y1],[],s5)` \\ fs []
+  \\ rename1 `evaluate ([y1],[],s5) = (res6,s6)`
+  \\ Cases_on `res6` \\ fs []
+  \\ fs [ADD1]
+  \\ drule evaluate_SING
+  \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ qpat_x_assum `!x1 x2 x3 x4. _` kall_tac
+  \\ first_x_assum drule \\ fs []
+  \\ Cases_on `acc` \\ fs []);
+
+val compile_any_correct = store_thm("compile_any_correct",
+  ``(evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
+    k = LENGTH env ==>
+    (evaluate ([compile_any l k x],env,s1) = (res,s2))``,
+  rw [compile_any_def,compile_correct] \\ fs [LENGTH_NIL] \\ rw []
+  \\ drule compile_seqs_correct
+  \\ disch_then (qspecl_then [`l`,`NONE`] mp_tac) \\ fs []);
 
 val compile_IMP_LENGTH = store_thm("compile_IMP_LENGTH",
   ``compile l n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs``,
@@ -312,6 +369,30 @@ val bVarBound_compile = Q.store_thm("bVarBound_compile",
 val compile_IMP_bVarBound = store_thm("compile_IMP_bVarBound",
   ``compile l n xs = (ys,l2,s2) ==> bVarBound n ys``,
   rw [] \\ mp_tac (Q.INST [`m`|->`n`] (SPEC_ALL bVarBound_compile)) \\ fs []);
+
+val compile_exp_bVarBound = store_thm("compile_exp_bVarBound",
+  ``bVarBound n [compile_exp l n x]``,
+  fs [compile_exp_def]
+  \\ Cases_on `compile l n [bvl_const$compile_exp x]`
+  \\ Cases_on `r` \\ fs []
+  \\ drule compile_IMP_bVarBound
+  \\ drule compile_IMP_LENGTH
+  \\ Cases_on `q` \\ fs []
+  \\ Cases_on `t` \\ fs []);
+
+val compile_seqs_bVarBound = store_thm("compile_seqs_bVarBound",
+  ``!l x acc.
+      (!y. acc = SOME y ==> bVarBound 0 [y]) ==>
+      bVarBound 0 [compile_seqs l x acc]``,
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
+  \\ once_rewrite_tac [compile_seqs_def]
+  \\ Cases_on `dest_Seq x` \\ fs []
+  THEN1
+   (CASE_TAC \\ fs [compile_exp_bVarBound]
+    \\ match_mp_tac bVarBound_LESS_EQ
+    \\ asm_exists_tac \\ fs [])
+  \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
+  \\ fs [] \\ first_x_assum match_mp_tac \\ fs []);
 
 val bEvery_CONS = store_thm("bEvery_CONS",
   ``bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)``,
@@ -377,8 +458,30 @@ val compile_handle_ok = store_thm("compile_handle_ok",
 val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
   ``handle_ok [compile_exp l n x]``,
   fs [bvl_handleTheory.compile_exp_def]
-  \\ Cases_on `compile l n [x]` \\ fs [] \\ PairCases_on `r`
+  \\ Cases_on `compile l n [bvl_const$compile_exp x]`
+  \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
-  \\ qspecl_then [`l`,`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
+  \\ qspecl_then [`l`,`n`,`[bvl_const$compile_exp x]`] mp_tac compile_handle_ok
+  \\ fs []);
+
+val compile_seqs_handle_ok = store_thm("compile_seqs_handle_ok",
+  ``!l x acc.
+      (!y. acc = SOME y ==> handle_ok [y] /\ bVarBound 0 [y]) ==>
+      handle_ok [compile_seqs l x acc]``,
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
+  \\ once_rewrite_tac [compile_seqs_def]
+  \\ Cases_on `dest_Seq x` \\ fs []
+  THEN1
+   (CASE_TAC \\ fs [compile_exp_handle_ok]
+    \\ fs [handle_ok_def,compile_exp_handle_ok]
+    \\ fs [let_ok_def])
+  \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
+  \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
+  \\ match_mp_tac compile_seqs_bVarBound \\ fs []);
+
+val compile_any_handle_ok = store_thm("compile_any_handle_ok",
+  ``handle_ok [compile_any l n x]``,
+  rw [compile_any_def,compile_exp_handle_ok]
+  \\ match_mp_tac compile_seqs_handle_ok \\ fs []);
 
 val _ = export_theory();

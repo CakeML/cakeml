@@ -228,10 +228,8 @@ val compile_prog_def = Define `
 
 val optimise_def = Define `
   optimise cut_size ls =
-  MAP (λ(name,arity,exp).
-      (name,arity,
-       bvl_handle$compile_exp cut_size arity
-         (bvl_const$compile_exp exp))) ls`;
+    MAP (λ(name,arity,exp).
+          (name,arity,bvl_handle$compile_any cut_size arity exp)) ls`;
 
 val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
