@@ -12,9 +12,8 @@ fun progress thm = rpt_drule_then strip_assume_tac thm
 
 (*------------------------------------------------------------------*)
 (** The [cf] function assumes that programs are in "normal form"
-    (which is close to ANF). We currently do not have a normalization
-    function, only lemmas that exploit the fact that some program is
-    in normal form.
+    (which is close to ANF). These lemmas exploit the fact that some
+    program is in normal form.
 *)
 
 val exp2v_def = Define `
@@ -108,5 +107,15 @@ val exp2v_list_LENGTH = store_thm ("exp2v_list_LENGTH",
   Induct_on `l` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ res_tac \\ fs [] \\ rw []
 )
+
+(*------------------------------------------------------------------*)
+(* [normalise] *)
+
+val normalise_def = Define `
+  normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
+
+val evaluate_normalise = store_thm("evaluate_normalise",
+  ``evaluate F env s (normalise exp) res = evaluate F env s exp res``,
+  fs [normalise_def]);
 
 val _ = export_theory ()
