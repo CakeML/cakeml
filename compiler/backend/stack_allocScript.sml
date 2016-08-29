@@ -176,7 +176,7 @@ val comp_def = Define `
     | While c r ri p1 =>
         let (q1,m) = comp n m p1 in
           (While c r ri q1,m)
-    | Call NONE dest exc => (Call NONE dest NONE,m)
+    | Call NONE dest exc => (Call NONE dest exc,m)
     | Call (SOME (p1,lr,l1,l2)) dest exc =>
         let (q1,m) = comp n m p1 in
          (case exc of

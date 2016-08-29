@@ -340,6 +340,40 @@ val finish_tac =
     last_x_assum(qspec_then`ck'`mp_tac) >>
     simp[] >> NO_TAC)
 
+val code_installed_get_labels_IMP = prove(
+  ``!e n q pc.
+      code_installed pc (append (FST (flatten e n q))) c /\
+      (l1,l2) ∈ get_labels e ==>
+      ?v. loc_to_pc l1 l2 c = SOME v``,
+  recInduct flatten_ind \\ rw []
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ once_rewrite_tac [flatten_def]
+  \\ Cases_on `p` \\ fs [get_labels_def] THEN1
+   (every_case_tac
+    \\ TRY pairarg_tac \\ fs []
+    \\ TRY pairarg_tac \\ fs [code_installed_def]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+    \\ fs [code_installed_def]
+    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+    \\ fs [code_installed_def])
+  \\ every_case_tac \\ fs []
+  \\ TRY pairarg_tac \\ fs []
+  \\ TRY pairarg_tac \\ fs [code_installed_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ fs [get_labels_def]
+  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []);
+
+val loc_check_IMP_loc_to_pc = store_thm("loc_check_IMP_loc_to_pc",
+  ``loc_check s.code (l1,l2) /\ state_rel s t1 ==>
+    ?v. loc_to_pc l1 l2 t1.code = SOME v``,
+  rw [loc_check_def] \\ fs [state_rel_def]
+  \\ fs [domain_lookup] \\ res_tac \\ fs []
+  \\ imp_res_tac code_installed_get_labels_IMP \\ fs []);
+
 val flatten_correct = Q.store_thm("flatten_correct",
   `∀prog s1 r s2 n l t1.
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
@@ -1390,11 +1424,14 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ full_simp_tac(srw_ss())[flatten_def,code_installed_def]
     \\ simp [Once evaluate_def] \\ qexists_tac `1`
     \\ full_simp_tac(srw_ss())[asm_fetch_def,lab_to_loc_def]
+    \\ fs [get_pc_value_def]
+    \\ CASE_TAC
+    THEN1 (imp_res_tac loc_check_IMP_loc_to_pc \\ fs [])
     \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def]
     \\ (fn g => subterm (fn tm =>
          qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g))
     \\ full_simp_tac(srw_ss())[state_rel_def,set_var_def,FLOOKUP_UPDATE,APPLY_UPDATE_THM]
-    \\ srw_tac[][] \\ res_tac) >>
+    \\ srw_tac[][] \\ res_tac \\ fs []) >>
   srw_tac[][stackSemTheory.evaluate_def] >>
   full_simp_tac(srw_ss())[state_rel_def]);
 

@@ -826,6 +826,25 @@ val lsl_word_shift = store_thm("lsl_word_shift",
   srw_tac[][WORD_MUL_LSL,word_shift_def,bytes_in_word_def,
       labPropsTheory.good_dimindex_def]);
 
+val get_labels_stack_alloc = prove(
+  ``!k n. get_labels (stack_alloc k n) = {}``,
+  recInduct stack_alloc_ind \\ rw []
+  \\ once_rewrite_tac [stack_alloc_def] \\ rw []
+  \\ fs [get_labels_def,single_stack_alloc_def]);
+
+val get_labels_comp = store_thm("get_labels_comp",
+  ``!k e. get_labels (comp k e) = get_labels e``,
+  recInduct comp_ind \\ rw [] \\ Cases_on `p`
+  \\ once_rewrite_tac [comp_def] \\ fs [get_labels_def] \\ rw []
+  \\ fs [get_labels_def,list_Seq_def]
+  \\ every_case_tac \\ fs [get_labels_stack_alloc]);
+
+val code_rel_loc_check = store_thm("code_rel_loc_check",
+  ``code_rel k c1 c2 /\ loc_check c1 (l1,l2) ==> loc_check c2 (l1,l2)``,
+  fs [loc_check_def,code_rel_def,domain_lookup,PULL_EXISTS] \\ rw []
+  \\ res_tac \\ fs [] \\ disj2_tac
+  \\ asm_exists_tac \\ fs [get_labels_comp]);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -1185,9 +1204,9 @@ val comp_correct = Q.prove(
   THEN1 (* LocValue *)
    (full_simp_tac(srw_ss())[evaluate_def,Once comp_def] \\ srw_tac[][]
     \\ last_x_assum mp_tac \\ IF_CASES_TAC \\ rw[] \\ rw[]
-    \\ `l1 ∈ domain t1.code`
-    by ( fs[state_rel_def,code_rel_def,domain_lookup] \\ metis_tac[] )
-    \\ full_simp_tac(srw_ss())[state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
+    \\ reverse CASE_TAC
+    THEN1 (fs [state_rel_def] \\ imp_res_tac code_rel_loc_check \\ fs [])
+    \\ fs[state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
     \\ `r <> k /\ r <> k+1 /\ r <> k+2` by decide_tac \\ full_simp_tac(srw_ss())[]
     \\ every_case_tac \\ rw[] \\ fs[] \\ res_tac \\ fs[] \\ rfs[])
   THEN1 (* StackAlloc *) (
