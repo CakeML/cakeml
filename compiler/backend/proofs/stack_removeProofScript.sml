@@ -2129,7 +2129,7 @@ val init_code_thm = store_thm("init_code_thm",
     \\ fs [FLOOKUP_DEF])
   \\ strip_tac \\ fs []
   \\ reverse IF_CASES_TAC \\ fs[]
-  >- ( fs[Abbr`s7`] )
+  >- ( fs[Abbr`s7`,loc_check_def] )
   \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
   \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))
