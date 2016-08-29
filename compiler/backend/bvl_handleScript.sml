@@ -111,11 +111,13 @@ val compile_seqs_def = tDefine "compile_seqs" `
     \\ fs [dest_Seq_def] \\ EVAL_TAC \\ fs []):tactic);
 
 val compile_any_def = Define `
-  compile_any cut_size arity e =
+  compile_any cut_size arity e = compile_exp cut_size arity e
+(*
     if arity = 0 then
       compile_seqs cut_size e NONE
     else
-      compile_exp cut_size arity e`;
+      compile_exp cut_size arity e
+*)`;
 
 val compile_length = Q.store_thm("compile_length[simp]",
   `!l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs`,
