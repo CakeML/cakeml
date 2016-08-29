@@ -83,7 +83,7 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    ffi.io_events ≼ ffi'.io_events ∧
    (IS_SOME ffi.final_event ⇒ ffi' = ffi)`,
-  metis_tac[do_app_call_FFI_rel,RTC_call_FFI_rel_io_events_mono])
+  metis_tac[do_app_call_FFI_rel,call_FFI_rel_io_events_mono])
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `(∀(s:'ffi state) e exp.
