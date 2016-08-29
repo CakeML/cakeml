@@ -71,12 +71,7 @@ val flatten_def = Define `
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],m)
     | Return r _ => (List [Asm (JumpReg r) [] 0],m)
-    | Call NONE dest handler =>
-        (case handler of
-         | NONE => (List [compile_jump dest],m)
-         | SOME (q,l1,l2) =>
-             let (xs,m) = flatten q n m in
-               (List [Label l1 l2 0] ++ xs,m))
+    | Call NONE dest handler => (List [compile_jump dest],m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
         let (xs,m) = flatten p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;

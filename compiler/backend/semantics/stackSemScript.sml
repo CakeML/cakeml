@@ -358,10 +358,10 @@ val get_labels_def = Define `
   (get_labels (Call ret _ handler) =
      (case ret of
       | NONE => {}
-      | SOME (r,_,l1,l2) => (l1,l2) INSERT get_labels r) UNION
-     (case handler of
-      | NONE => {}
-      | SOME (r,l1,l2) => (l1,l2) INSERT get_labels r)) /\
+      | SOME (r,_,l1,l2) => (l1,l2) INSERT get_labels r UNION
+          (case handler of
+           | NONE => {}
+           | SOME (r,l1,l2) => (l1,l2) INSERT get_labels r))) /\
   (get_labels (Halt _) = {}) /\
   (get_labels _ = {})`
 
