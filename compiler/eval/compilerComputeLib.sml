@@ -556,6 +556,8 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [db_varsTheory.mk_Union_def
     ,db_varsTheory.vars_to_list_def
+    ,db_varsTheory.vars_from_list_def
+    ,db_varsTheory.vars_flatten_def
     ,db_varsTheory.has_var_def
     ,db_varsTheory.db_to_set_acc_def
     ,db_varsTheory.db_to_set_def

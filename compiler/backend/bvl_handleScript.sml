@@ -27,7 +27,7 @@ val SmartLet_def = Define `
 val LetLet_def = Define `
   LetLet env_length fvs (body:bvl$exp) =
     let xs = GENLIST I env_length in
-    let zs = FILTER (\n. has_var n fvs) xs in
+    let zs = FILTER (\n. IS_SOME (lookup n fvs)) xs in
     let ys = MAPi (\i x. (x,i)) zs in
     let long_list = GENLIST (\n. case ALOOKUP ys n of
                                  | NONE => Op (Const 0) []
@@ -37,7 +37,9 @@ val LetLet_def = Define `
 val OptionalLetLet_def = Define `
   OptionalLetLet e env_size live s (limit:num) =
     if s < limit then ([e],live,s) else
-      ([(Let [] (LetLet env_size live e))],live,0n)`;
+      let fvs = db_to_set live in
+      let flat_live = vars_from_list (MAP FST (toAList fvs)) in
+        ([(Let [] (LetLet env_size fvs e))],flat_live,0n)`;
 
 val compile_def = tDefine "compile" `
   (compile l n [] = ([]:bvl$exp list,Empty,0n)) /\
@@ -66,7 +68,7 @@ val compile_def = tDefine "compile" `
      let (y1,l1,s1) = compile l n [x1] in
        if no_raise y1 then (y1,l1,s1) else
          let (y2,l2,s2) = compile l (n+1) [x2] in
-           ([Handle (LetLet n l1 (HD y1)) (HD y2)],
+           ([Handle (LetLet n (db_to_set l1) (HD y1)) (HD y2)],
             mk_Union l1 (Shift 1 l2),
             s2 (* s1 intentionally left out because
                   it does not contrib to exp size in BVI *))) /\
