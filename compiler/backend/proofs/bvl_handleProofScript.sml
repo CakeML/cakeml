@@ -2,6 +2,23 @@ open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_handleProof";
 
+(*
+val no_raise_def = tDefine "no_raise" `
+  (no_raise [] <=> T) /\
+  (no_raise (x::y::xs) <=> no_raise [x] /\ no_raise (y::xs)) /\
+  (no_raise [Var v] <=> T) /\
+  (no_raise [If x1 x2 x3] <=>
+     no_raise [x1] /\ no_raise [x2] /\ no_raise [x3]) /\
+  (no_raise [Let xs x2] <=>
+     no_raise xs /\ no_raise [x2]) /\
+  (no_raise [Raise x1] <=> F) /\
+  (no_raise [Handle x1 x2] <=> no_raise [x2]) /\
+  (no_raise [Op op xs] <=> no_raise xs) /\
+  (no_raise [Tick x] <=> no_raise [x]) /\
+  (no_raise [Call t dest xs] <=> F)`
+ (WF_REL_TAC `measure exp1_size`);
+*)
+
 val evaluate_SmartLet = store_thm("evaluate_SmartLet[simp]",
   ``bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)``,
   rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]);

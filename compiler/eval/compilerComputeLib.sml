@@ -267,7 +267,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_constTheory.isConst_def
     ,bvl_constTheory.is_simple_def
       (* ---- bvl_handle ---- *)
-    ,bvl_handleTheory.no_raise_def
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
     ,bvl_handleTheory.OptionalLetLet_def
