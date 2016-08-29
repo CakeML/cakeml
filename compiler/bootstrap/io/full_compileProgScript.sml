@@ -633,11 +633,23 @@ val evaluate_prog = let
   in th end
 
 val evaluate_prog_rel_IMP_evaluate_prog_fun = prove(
-  ``bigStep$evaluate_prog F env st prog (st',new_tds,Rval r) ==>
+  ``bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
     ?k. funBigStep$evaluate_prog (st with clock := k) env prog =
           (st',new_tds,Rval r)``,
-  cheat (* This ought to be trivial, but I can't find the relevant
-           implications between FBS and relational evaluate_prog *));
+  rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
+  \\ qexists_tac`c + st.clock`
+  \\ (funBigStepEquivTheory.functional_evaluate_prog
+      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO |> GEN_ALL
+      |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","env","prog"]))
+      |> qspecl_then[`st with clock := c + st.clock`,`env`,`prog`]mp_tac)
+  \\ rw[] \\ pairarg_tac \\ fs[]
+  \\ fs[bigStepTheory.evaluate_whole_prog_def]
+  \\ drule bigClockTheory.prog_add_to_counter \\ simp[]
+  \\ disch_then(qspec_then`st.clock`strip_assume_tac)
+  \\ drule determTheory.prog_determ
+  \\ every_case_tac \\ fs[]
+  \\ TRY (disch_then drule \\ rw[])
+  \\ fs[state_component_equality]);
 
 val semantics_prog_entire_program = store_thm("semantics_prog_entire_program",
   ``?io_list.
@@ -647,6 +659,13 @@ val semantics_prog_entire_program = store_thm("semantics_prog_entire_program",
   fs[semanticsTheory.semantics_prog_def,PULL_EXISTS]
   \\ strip_assume_tac evaluate_prog
   \\ fs[semanticsTheory.evaluate_prog_with_clock_def]
+  \\ qmatch_assum_abbrev_tac`evaluate_prog F init_env inp prog res`
+  \\ `evaluate_whole_prog F init_env inp prog res`
+  by (
+    simp[bigStepTheory.evaluate_whole_prog_def,Abbr`res`]
+    \\ simp[Abbr`inp`,Abbr`prog`]
+    \\ EVAL_TAC )
+  \\ unabbrev_all_tac
   \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
   \\ strip_tac \\ qexists_tac `k` \\ fs []);
 
