@@ -415,4 +415,6 @@ val _ = translate infer_prog_def;
 
 val _ = translate (infer_def ``infertype_prog``);
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();

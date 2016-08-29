@@ -1,19 +1,10 @@
 open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
-open indexedListsTheory;
 
 val _ = new_theory"bvl_handleProof";
 
-(* TODO: move, and open indexedListsTheory in preamble *)
-
-val MAPi_ID = store_thm("MAPi_ID[simp]",
-  ``MAPi (\x y. y) = I``,
-  fs [FUN_EQ_THM] \\ Induct \\ fs [o_DEF]);
-
-(* -- *)
-
 val evaluate_SmartLet = store_thm("evaluate_SmartLet[simp]",
   ``bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)``,
-  rw [SmartLet_def] \\ fs [LENGTH_NIL,evaluate_def]);
+  rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]);
 
 val let_ok_def = Define `
   (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
@@ -44,17 +35,6 @@ val handle_ok_def = tDefine "handle_ok" `
   (WF_REL_TAC `measure (exp1_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
-
-val no_raise_evaluate = store_thm("no_raise_evaluate",
-  ``!xs env s1 res r.
-      no_raise xs /\ (evaluate (xs,env,s1) = (res,r)) ==>
-      !a. res <> Rerr (Rraise a)``,
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ rw []
-  \\ pop_assum mp_tac \\ fs []
-  \\ once_rewrite_tac [evaluate_def] \\ fs [no_raise_def]
-  \\ every_case_tac \\ fs [] \\ res_tac \\ fs []
-  \\ CCONTR_TAC \\ rw [] \\ fs [] \\ rveq
-  \\ imp_res_tac do_app_err \\ fs []);
 
 val evaluate_GENLIST = save_thm("evaluate_GENLIST",
   evaluate_genlist_vars
@@ -96,11 +76,15 @@ val ALOOKUP_MAPi_APPEND2 = store_thm("ALOOKUP_MAPi_APPEND2",
       ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) k = SOME (LENGTH xs + z)``,
   Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
 
+val IS_SOME_lookup_db_to_set = store_thm("IS_SOME_lookup_db_to_set",
+  ``!n. IS_SOME (lookup n (db_to_set l)) = has_var n l``,
+  fs [db_varsTheory.lookup_db_to_set,IS_SOME_EXISTS]);
+
 val evaluate_LetLet = store_thm("evaluate_LetLet",
   ``(∀env2 extra.
        env_rel l1 env env2 ==> evaluate ([y],env2 ++ extra,s1) = res) /\
     env_rel l1 env env1 ==>
-    evaluate ([LetLet (LENGTH env) l1 y],env1 ++ extra,s1) = res``,
+    evaluate ([LetLet (LENGTH env) (db_to_set l1) y],env1 ++ extra,s1) = res``,
   fs [LetLet_def] \\ rw [o_DEF] \\ fs [Once evaluate_def]
   \\ qabbrev_tac `qs = (FILTER (λn. has_var n l1) (GENLIST I (LENGTH env)))`
   \\ `evaluate
@@ -114,7 +98,7 @@ val evaluate_LetLet = store_thm("evaluate_LetLet",
     \\ rw [] \\ fs [evaluate_def]
     \\ imp_res_tac env_rel_length \\ fs [EL_APPEND1]
     \\ fs [env_rel_def,LIST_RELi_EL_EQN])
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def,IS_SOME_lookup_db_to_set]
   \\ qpat_abbrev_tac `ev = bvlSem$evaluate _`
   \\ qsuff_tac `ev =
        (Rval (MAPi (\i v. if has_var i l1 then v else Number 0) env),s1)`
@@ -158,26 +142,45 @@ val env_rel_refl = store_thm("env_rel_refl",
   ``env_rel l env env``,
   fs [LIST_RELi_EL_EQN,env_rel_def]);
 
+val opt_lemma = prove(
+  ``x = y <=> (x = SOME () <=> y = SOME ())``,
+  Cases_on `x` \\ Cases_on `y` \\ fs []);
+
 val OptionalLetLet_IMP = prove(
-  ``(ys,l,s') = OptionalLetLet y (LENGTH env) lx s1 limit /\
+  ``(ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
-    env_rel l env env1 ==>
-    evaluate (ys,env1 ++ extra,s) = res``,
+    env_rel l env env1 /\ b ==>
+    evaluate (ys,env1 ++ extra,s) = res /\ b``,
   rw [OptionalLetLet_def,evaluate_def]
-  \\ drule evaluate_LetLet \\ fs []);
+  \\ drule evaluate_LetLet \\ fs []
+  \\ fs [GSYM db_varsTheory.vars_flatten_def,GSYM db_varsTheory.vars_to_list_def]
+  \\ `db_to_set (vars_flatten lx) = db_to_set lx` by all_tac \\ fs []
+  \\ fs [spt_eq_thm,db_varsTheory.wf_db_to_set]
+  \\ rw [] \\ once_rewrite_tac [opt_lemma]
+  \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]
+  \\ fs []);
 
 val OptionalLetLet_limit = store_thm("OptionalLetLet_limit",
-  ``(ys,l,s') = OptionalLetLet e (LENGTH env) lx s1 limit ==> l = lx``,
-  rw [OptionalLetLet_def]);
+  ``(ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\
+    env_rel l env env1 ==> env_rel lx env env1``,
+  rw [OptionalLetLet_def,GSYM db_varsTheory.vars_to_list_def,
+      GSYM db_varsTheory.vars_flatten_def,env_rel_def] \\ fs []);
+
+val OptionalLetLet_nr = store_thm("OptionalLetLet_nr",
+  ``(ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr ==>
+    nr' = nr``,
+  rw [OptionalLetLet_def,GSYM db_varsTheory.vars_to_list_def,
+      GSYM db_varsTheory.vars_flatten_def,env_rel_def] \\ fs []);
 
 val compile_correct = store_thm("compile_correct",
-  ``!xs env s1 ys env1 res s2 extra l s.
-      compile limit (LENGTH env) xs = (ys,l,s) /\ env_rel l env env1 /\
+  ``!xs env s1 ys env1 res s2 extra l s nr.
+      compile limit (LENGTH env) xs = (ys,l,s,nr) /\ env_rel l env env1 /\
       (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) ==>
-      (evaluate (ys,env1 ++ extra,s1) = (res,s2))``,
+      (evaluate (ys,env1 ++ extra,s1) = (res,s2)) /\
+      (nr ==> !e. res <> Rerr (Rraise e))``,
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
-  \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
+  \\ recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   \\ FULL_SIMP_TAC std_ss [compile_def,evaluate_def]
   \\ fs [LET_THM] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [env_rel_mk_Union]
   \\ imp_res_tac compile_sing \\ rveq
@@ -199,40 +202,58 @@ val compile_correct = store_thm("compile_correct",
     \\ fs [evaluate_def,rich_listTheory.EL_APPEND1]
     \\ fs [env_rel_def,LIST_RELi_EL_EQN])
   THEN1 (* If *)
-   (fs [env_rel_mk_Union]
-    \\ first_x_assum drule
+   (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
+    \\ pop_assum match_mp_tac
+    \\ drule (GEN_ALL OptionalLetLet_limit)
+    \\ fs [env_rel_mk_Union] \\ strip_tac
     \\ Cases_on `evaluate ([x1],env,s)` \\ Cases_on `q` \\ fs []
-    \\ disch_then (qspec_then `[]` mp_tac) \\ fs [] \\ rw []
+    \\ rveq \\ fs []
+    \\ imp_res_tac OptionalLetLet_nr
+    \\ rw [] \\ res_tac
     \\ Cases_on `Boolv T = HD a` \\ fs [] \\ res_tac \\ fs [evaluate_def]
     \\ Cases_on `Boolv F = HD a` \\ fs [] \\ res_tac \\ fs [evaluate_def])
   THEN1 (* Let *)
-   (Cases_on `LENGTH xs = 0` \\ fs [LENGTH_NIL] \\ rveq
-    \\ fs [evaluate_def,env_rel_mk_Union]
-    \\ imp_res_tac OptionalLetLet_limit \\ rveq \\ fs []
-    \\ drule (GEN_ALL OptionalLetLet_IMP)
-    \\ disch_then match_mp_tac
-    \\ fs [env_rel_mk_Union]
-    \\ rpt strip_tac
-    \\ fs [evaluate_def]
+   (Cases_on `LENGTH xs = 0` \\ fs [LENGTH_NIL,NULL_EQ] \\ rveq
+    \\ fs [evaluate_def,env_rel_mk_Union] THEN1 metis_tac []
+    \\ fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
+    \\ pop_assum match_mp_tac
+    \\ drule (GEN_ALL OptionalLetLet_limit)
+    \\ fs [env_rel_mk_Union] \\ strip_tac
     \\ Cases_on `evaluate (xs,env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-    \\ res_tac \\ fs []
-    \\ `env_rel l2 (a ++ env) (a ++ env2)` by
+    \\ imp_res_tac OptionalLetLet_nr
+    \\ TRY
+     (res_tac \\ fs [evaluate_def]
+      \\ `env_rel l2 (a ++ env) (a ++ env2)` by
+       (fs [env_rel_def,LIST_RELi_EL_EQN] \\ rw []
+        \\ Cases_on `i < LENGTH a` \\ fs [EL_APPEND1,NOT_LESS,EL_APPEND2] \\ NO_TAC)
+      \\ res_tac \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+    \\ `env_rel l2 (a ++ env) (a ++ env1)` by
      (fs [env_rel_def,LIST_RELi_EL_EQN] \\ rw []
       \\ Cases_on `i < LENGTH a` \\ fs [EL_APPEND1,NOT_LESS,EL_APPEND2] \\ NO_TAC)
     \\ res_tac \\ fs [])
   THEN1 (* Raise *)
-   (Cases_on `evaluate ([x1],env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
+   (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
+    \\ pop_assum match_mp_tac
+    \\ drule (GEN_ALL OptionalLetLet_limit)
+    \\ fs [env_rel_mk_Union] \\ strip_tac
+    \\ Cases_on `evaluate ([x1],env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
+    \\ imp_res_tac OptionalLetLet_nr
     \\ res_tac \\ fs [evaluate_def])
   THEN1 (* Handle *)
-   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
+   (rpt gen_tac \\ strip_tac
+    \\ Cases_on `evaluate ([x1],env,s1)` \\ fs []
     \\ `q <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs []) \\ fs []
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] \\ fs []
     \\ rename1 `compile limit (LENGTH env) [x1] = ([yy],l1,s3)`
-    \\ Cases_on `no_raise [yy]` \\ fs [] \\ rveq \\ res_tac THEN1
-     (pop_assum (assume_tac o SPEC_ALL)
-      \\ imp_res_tac no_raise_evaluate
-      \\ every_case_tac \\ fs [])
+    \\ Cases_on `nr1` \\ fs [] \\ rveq
+    THEN1
+     (Cases_on `q` \\ fs [] \\ rveq \\ fs []
+      \\ Cases_on `e` \\ fs [] \\ rfs [] \\ rveq \\ fs [])
     \\ fs [evaluate_def,env_rel_mk_Union]
     \\ drule evaluate_LetLet \\ fs []
     \\ every_case_tac \\ fs [ADD1] \\ rw [] \\ rfs[]
@@ -240,13 +261,27 @@ val compile_correct = store_thm("compile_correct",
      (fs [env_rel_def,LIST_RELi_EL_EQN]
       \\ Cases \\ fs [ADD1]) \\ res_tac \\ fs [])
   THEN1 (* Op *)
-   (Cases_on `evaluate (xs,env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
-    \\ res_tac \\ fs [evaluate_def])
+   (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
+    \\ pop_assum match_mp_tac
+    \\ drule (GEN_ALL OptionalLetLet_limit)
+    \\ imp_res_tac OptionalLetLet_nr
+    \\ fs [env_rel_mk_Union] \\ strip_tac
+    \\ Cases_on `evaluate (xs,env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
+    \\ res_tac \\ fs [evaluate_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac do_app_err \\ fs [] \\ res_tac \\ fs [])
   THEN1 (* Tick *)
-   (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def])
+   (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def] \\ res_tac \\ fs [])
   THEN1 (* Call *)
-   (Cases_on `evaluate (xs,env,s1)` \\ Cases_on `q` \\ fs [] \\ rw[]
-    \\ res_tac \\ fs []))
+   (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
+    \\ pop_assum match_mp_tac
+    \\ drule (GEN_ALL OptionalLetLet_limit)
+    \\ imp_res_tac OptionalLetLet_nr
+    \\ fs [env_rel_mk_Union] \\ strip_tac
+    \\ Cases_on `evaluate (xs,env,s1)` \\ Cases_on `q` \\ fs [] \\ rw[]
+    \\ res_tac \\ fs [evaluate_def]))
   |> Q.SPECL [`xs`,`env`,`s1`,`ys`,`env`,`res`,`s2`,`[]`]
   |> SIMP_RULE std_ss [APPEND_NIL,env_rel_refl];
 
@@ -257,9 +292,66 @@ val compile_correct = store_thm("compile_correct",
     k = LENGTH env ==>
     (evaluate ([compile_exp l k x],env,s1) = (res,s2))``,
   fs [compile_exp_def]
-  \\ Cases_on `compile l (LENGTH env) [x]` \\ PairCases_on `r`
-  \\ rw [] \\ imp_res_tac compile_sing \\ rw []
-  \\ imp_res_tac compile_correct);
+  \\ Cases_on `compile l (LENGTH env) [bvl_const$compile_exp x]`
+  \\ PairCases_on `r` \\ rw []
+  \\ drule bvl_constProofTheory.evaluate_compile_exp \\ fs [] \\ rw []
+  \\ drule compile_sing \\ rw []
+  \\ drule compile_correct \\ fs []);
+
+val dest_Seq_thm = store_thm("dest_Seq_thm",
+  ``!x. dest_Seq x = SOME (y0,y1) <=>
+        x = Let [y0;y1] (Var 1)``,
+  ho_match_mp_tac dest_Seq_ind \\ fs [] \\ rw [] \\ EVAL_TAC
+  \\ rw [] \\ eq_tac \\ rw []);
+
+val compile_seqs_correct = store_thm("compile_seqs_correct",
+  ``!l x acc s1 s2 s3 res res3.
+      evaluate ([x],[],s1) = (res,s2) /\
+      (!y r. acc = SOME y /\ res = Rval r ==>
+             res3 <> Rerr (Rabort Rtype_error) /\
+             evaluate ([y],[],s2) = (res3,s3)) /\
+      res <> Rerr (Rabort Rtype_error) ==>
+      evaluate ([compile_seqs l x acc],[],s1) =
+        if acc = NONE then (res,s2) else
+          case res of Rval _ => (res3,s3) | _ => (res,s2)``,
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rpt strip_tac
+  \\ once_rewrite_tac [compile_seqs_def]
+  \\ Cases_on `dest_Seq x` \\ fs []
+  THEN1
+   (CASE_TAC \\ fs []
+    THEN1 (match_mp_tac compile_correct \\ fs [])
+    \\ fs [bvlSemTheory.evaluate_def]
+    \\ drule (GEN_ALL compile_correct) \\ fs [] \\ rw []
+    \\ CASE_TAC \\ fs []
+    \\ pop_assum kall_tac
+    \\ rename1 `evaluate ([y],[],s2) = (res3,s3)`
+    \\ `FST (evaluate ([y],[],s2)) <> Rerr (Rabort Rtype_error)` by fs []
+    \\ drule evaluate_expand_env \\ fs [])
+  \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
+  \\ fs [dest_Seq_thm] \\ rveq
+  \\ fs [evaluate_def]
+  \\ Cases_on `evaluate ([y0],[],s1)` \\ fs []
+  \\ rename1 `evaluate ([y0],[],s1) = (res5,s5)`
+  \\ first_assum drule \\ strip_tac
+  \\ reverse (Cases_on `res5`) \\ fs []
+  THEN1 (rveq \\ fs [] \\ rfs [])
+  \\ Cases_on `evaluate ([y1],[],s5)` \\ fs []
+  \\ rename1 `evaluate ([y1],[],s5) = (res6,s6)`
+  \\ Cases_on `res6` \\ fs []
+  \\ fs [ADD1]
+  \\ drule evaluate_SING
+  \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ qpat_x_assum `!x1 x2 x3 x4. _` kall_tac
+  \\ first_x_assum drule \\ fs []
+  \\ Cases_on `acc` \\ fs []);
+
+val compile_any_correct = store_thm("compile_any_correct",
+  ``(evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
+    k = LENGTH env ==>
+    (evaluate ([compile_any l k x],env,s1) = (res,s2))``,
+  rw [compile_any_def,compile_correct] \\ fs [LENGTH_NIL] \\ rw []
+  \\ drule compile_seqs_correct
+  \\ disch_then (qspecl_then [`l`,`NONE`] mp_tac) \\ fs []);
 
 val compile_IMP_LENGTH = store_thm("compile_IMP_LENGTH",
   ``compile l n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs``,
@@ -290,21 +382,22 @@ val ALOOKUP_MAPi = store_thm("ALOOKUP_MAPi",
 
 val bVarBound_SmartLet = store_thm("bVarBound_SmartLet[simp]",
   ``bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]``,
-  rw [SmartLet_def] \\ fs [LENGTH_NIL]);
+  rw [SmartLet_def] \\ fs [NULL_EQ]);
 
 val bVarBound_LetLet = store_thm("bVarBound_LetLet",
-  ``bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n l1 y]``,
+  ``bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n (l1:num_set) y]``,
   fs [LetLet_def] \\ strip_tac
   \\ once_rewrite_tac [bVarBound_MEM]
   \\ fs [MEM_MAP,MEM_GENLIST,PULL_EXISTS,MEM_FILTER]
   \\ reverse conj_tac
   THEN1 (match_mp_tac bVarBound_LESS_EQ \\ asm_exists_tac \\ fs [])
   \\ rw [] \\ every_case_tac \\ fs []
-  \\ qabbrev_tac `xs = FILTER (λn. has_var n l1) (GENLIST I n)`
+  \\ qabbrev_tac `xs = FILTER (λn. IS_SOME (lookup n l1)) (GENLIST I n)`
   \\ imp_res_tac ALOOKUP_MAPi \\ fs []);
 
 val bVarBound_OptionalLetLet = store_thm("bVarBound_OptionalLetLet",
-  ``bVarBound m [e] /\ n <= m ==> bVarBound m (FST (OptionalLetLet e n l s limit))``,
+  ``bVarBound m [e] /\ n <= m ==>
+    bVarBound m (FST (OptionalLetLet e n l s limit nr))``,
   rw [OptionalLetLet_def,bVarBound_LetLet]);
 
 val bVarBound_compile = Q.store_thm("bVarBound_compile",
@@ -322,6 +415,30 @@ val compile_IMP_bVarBound = store_thm("compile_IMP_bVarBound",
   ``compile l n xs = (ys,l2,s2) ==> bVarBound n ys``,
   rw [] \\ mp_tac (Q.INST [`m`|->`n`] (SPEC_ALL bVarBound_compile)) \\ fs []);
 
+val compile_exp_bVarBound = store_thm("compile_exp_bVarBound",
+  ``bVarBound n [compile_exp l n x]``,
+  fs [compile_exp_def]
+  \\ Cases_on `compile l n [bvl_const$compile_exp x]`
+  \\ Cases_on `r` \\ fs []
+  \\ drule compile_IMP_bVarBound
+  \\ drule compile_IMP_LENGTH
+  \\ Cases_on `q` \\ fs []
+  \\ Cases_on `t` \\ fs []);
+
+val compile_seqs_bVarBound = store_thm("compile_seqs_bVarBound",
+  ``!l x acc.
+      (!y. acc = SOME y ==> bVarBound 0 [y]) ==>
+      bVarBound 0 [compile_seqs l x acc]``,
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
+  \\ once_rewrite_tac [compile_seqs_def]
+  \\ Cases_on `dest_Seq x` \\ fs []
+  THEN1
+   (CASE_TAC \\ fs [compile_exp_bVarBound]
+    \\ match_mp_tac bVarBound_LESS_EQ
+    \\ asm_exists_tac \\ fs [])
+  \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
+  \\ fs [] \\ first_x_assum match_mp_tac \\ fs []);
+
 val bEvery_CONS = store_thm("bEvery_CONS",
   ``bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)``,
   Cases_on `xs` \\ fs []);
@@ -333,11 +450,11 @@ val handle_ok_Var_Const_list = store_thm("handle_ok_Var_Const_list",
 
 val handle_ok_SmartLet = store_thm("handle_ok_SmartLet",
   ``handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]``,
-  rw [SmartLet_def,handle_ok_def] \\ fs [LENGTH_NIL,handle_ok_def]);
+  rw [SmartLet_def,handle_ok_def] \\ fs [NULL_EQ,LENGTH_NIL,handle_ok_def]);
 
 val handle_ok_OptionalLetLet = store_thm("handle_ok_OptionalLetLet",
   ``handle_ok [e] /\ bVarBound n [e] ==>
-    handle_ok (FST (OptionalLetLet e n lx s l))``,
+    handle_ok (FST (OptionalLetLet e n lx s l nr))``,
   rw [OptionalLetLet_def] \\ fs [handle_ok_def]
   \\ reverse conj_tac THEN1
    (fs [LetLet_def,handle_ok_SmartLet]
@@ -364,6 +481,7 @@ val compile_handle_ok = store_thm("compile_handle_ok",
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
   \\ fs [handle_ok_def]
+  \\ TRY ( conj_tac >- ( strip_tac \\ fs[LENGTH_NIL] ) )
   \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
   \\ conj_tac THEN1
    (conj_tac THEN1
@@ -376,6 +494,7 @@ val compile_handle_ok = store_thm("compile_handle_ok",
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ match_mp_tac bVarBound_compile \\ fs [])
   \\ rw [SmartLet_def] \\ fs [handle_ok_def]
+  \\ IF_CASES_TAC \\ fs[]
   \\ rpt (pop_assum kall_tac)
   \\ match_mp_tac handle_ok_Var_Const_list
   \\ fs [EVERY_GENLIST]
@@ -384,8 +503,30 @@ val compile_handle_ok = store_thm("compile_handle_ok",
 val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
   ``handle_ok [compile_exp l n x]``,
   fs [bvl_handleTheory.compile_exp_def]
-  \\ Cases_on `compile l n [x]` \\ fs [] \\ PairCases_on `r`
+  \\ Cases_on `compile l n [bvl_const$compile_exp x]`
+  \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
-  \\ qspecl_then [`l`,`n`,`[x]`] mp_tac compile_handle_ok \\ fs []);
+  \\ qspecl_then [`l`,`n`,`[bvl_const$compile_exp x]`] mp_tac compile_handle_ok
+  \\ fs []);
+
+val compile_seqs_handle_ok = store_thm("compile_seqs_handle_ok",
+  ``!l x acc.
+      (!y. acc = SOME y ==> handle_ok [y] /\ bVarBound 0 [y]) ==>
+      handle_ok [compile_seqs l x acc]``,
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
+  \\ once_rewrite_tac [compile_seqs_def]
+  \\ Cases_on `dest_Seq x` \\ fs []
+  THEN1
+   (CASE_TAC \\ fs [compile_exp_handle_ok]
+    \\ fs [handle_ok_def,compile_exp_handle_ok]
+    \\ fs [let_ok_def])
+  \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
+  \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
+  \\ match_mp_tac compile_seqs_bVarBound \\ fs []);
+
+val compile_any_handle_ok = store_thm("compile_any_handle_ok",
+  ``handle_ok [compile_any l n x]``,
+  rw [compile_any_def,compile_exp_handle_ok]
+  \\ match_mp_tac compile_seqs_handle_ok \\ fs []);
 
 val _ = export_theory();

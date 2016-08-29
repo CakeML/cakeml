@@ -1,5 +1,5 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
+open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory funBigStepPropsTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
 open compileProgTheory
 
@@ -505,14 +505,6 @@ val extract_output_def = Define `
          if LENGTH bytes <> 1 then NONE else
            SOME (CHR (w2n (SND (HD bytes))) :: rest))`
 
-val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n bytes t. call_FFI s1 n bytes = (s2,t)`;
-
-val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
-  ``evaluate_prog F env st prog (st',tds,res) ==>
-    RTC call_FFI_rel st.ffi st'.ffi``,
-  cheat (* has this been proved elsewhere? *) );
-
 val extract_output_APPEND = store_thm("extract_output_APPEND",
   ``!xs ys.
       extract_output (xs ++ ys) =
@@ -525,6 +517,19 @@ val extract_output_APPEND = store_thm("extract_output_APPEND",
   THEN1 (every_case_tac \\ fs [])
   \\ Cases_on `h` \\ fs [extract_output_def]
   \\ rpt (CASE_TAC \\ fs []));
+
+val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
+  ``evaluate_prog F env st prog (st',tds,res) ==>
+    RTC call_FFI_rel st.ffi st'.ffi``,
+  rw[bigClockTheory.prog_clocked_unclocked_equiv]
+  \\ (funBigStepEquivTheory.functional_evaluate_tops
+      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO
+      |> Q.GENL[`tops`,`s`,`env`]
+      |> qspecl_then[`env`,`st with clock := c`,`prog`]mp_tac)
+  \\ rw[] \\ pairarg_tac \\ fs[]
+  \\ drule evaluate_tops_call_FFI_rel_imp
+  \\ imp_res_tac determTheory.prog_determ
+  \\ fs[] \\ rw[]);
 
 val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
   ``!st st'.
@@ -633,11 +638,23 @@ val evaluate_prog = let
   in th end
 
 val evaluate_prog_rel_IMP_evaluate_prog_fun = prove(
-  ``bigStep$evaluate_prog F env st prog (st',new_tds,Rval r) ==>
+  ``bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
     ?k. funBigStep$evaluate_prog (st with clock := k) env prog =
           (st',new_tds,Rval r)``,
-  cheat (* This ought to be trivial, but I can't find the relevant
-           implications between FBS and relational evaluate_prog *));
+  rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
+  \\ qexists_tac`c + st.clock`
+  \\ (funBigStepEquivTheory.functional_evaluate_prog
+      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO |> GEN_ALL
+      |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","env","prog"]))
+      |> qspecl_then[`st with clock := c + st.clock`,`env`,`prog`]mp_tac)
+  \\ rw[] \\ pairarg_tac \\ fs[]
+  \\ fs[bigStepTheory.evaluate_whole_prog_def]
+  \\ drule bigClockTheory.prog_add_to_counter \\ simp[]
+  \\ disch_then(qspec_then`st.clock`strip_assume_tac)
+  \\ drule determTheory.prog_determ
+  \\ every_case_tac \\ fs[]
+  \\ TRY (disch_then drule \\ rw[])
+  \\ fs[state_component_equality]);
 
 val semantics_prog_entire_program = store_thm("semantics_prog_entire_program",
   ``?io_list.
@@ -647,6 +664,13 @@ val semantics_prog_entire_program = store_thm("semantics_prog_entire_program",
   fs[semanticsTheory.semantics_prog_def,PULL_EXISTS]
   \\ strip_assume_tac evaluate_prog
   \\ fs[semanticsTheory.evaluate_prog_with_clock_def]
+  \\ qmatch_assum_abbrev_tac`evaluate_prog F init_env inp prog res`
+  \\ `evaluate_whole_prog F init_env inp prog res`
+  by (
+    simp[bigStepTheory.evaluate_whole_prog_def,Abbr`res`]
+    \\ simp[Abbr`inp`,Abbr`prog`]
+    \\ EVAL_TAC )
+  \\ unabbrev_all_tac
   \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
   \\ strip_tac \\ qexists_tac `k` \\ fs []);
 

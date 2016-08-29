@@ -198,5 +198,6 @@ val sec_ra_state_side_def = prove(``
 
 val _ = translate reg_alloc_def;
 
-val _ = export_theory();
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+val _ = export_theory();
