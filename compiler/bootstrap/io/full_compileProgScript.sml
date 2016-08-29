@@ -1,5 +1,5 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
+open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory funBigStepPropsTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
 open compileProgTheory
 
@@ -505,14 +505,6 @@ val extract_output_def = Define `
          if LENGTH bytes <> 1 then NONE else
            SOME (CHR (w2n (SND (HD bytes))) :: rest))`
 
-val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n bytes t. call_FFI s1 n bytes = (s2,t)`;
-
-val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
-  ``evaluate_prog F env st prog (st',tds,res) ==>
-    RTC call_FFI_rel st.ffi st'.ffi``,
-  cheat (* has this been proved elsewhere? *) );
-
 val extract_output_APPEND = store_thm("extract_output_APPEND",
   ``!xs ys.
       extract_output (xs ++ ys) =
@@ -525,6 +517,19 @@ val extract_output_APPEND = store_thm("extract_output_APPEND",
   THEN1 (every_case_tac \\ fs [])
   \\ Cases_on `h` \\ fs [extract_output_def]
   \\ rpt (CASE_TAC \\ fs []));
+
+val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
+  ``evaluate_prog F env st prog (st',tds,res) ==>
+    RTC call_FFI_rel st.ffi st'.ffi``,
+  rw[bigClockTheory.prog_clocked_unclocked_equiv]
+  \\ (funBigStepEquivTheory.functional_evaluate_tops
+      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO
+      |> Q.GENL[`tops`,`s`,`env`]
+      |> qspecl_then[`env`,`st with clock := c`,`prog`]mp_tac)
+  \\ rw[] \\ pairarg_tac \\ fs[]
+  \\ drule evaluate_tops_call_FFI_rel_imp
+  \\ imp_res_tac determTheory.prog_determ
+  \\ fs[] \\ rw[]);
 
 val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
   ``!st st'.

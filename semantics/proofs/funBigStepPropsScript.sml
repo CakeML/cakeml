@@ -3,13 +3,87 @@ open terminationTheory
 
 val _ = new_theory"funBigStepProps"
 
+val call_FFI_rel_def = Define `
+  call_FFI_rel s1 s2 <=> ?n bytes t. call_FFI s1 n bytes = (s2,t)`;
+
+val call_FFI_rel_io_events_mono = Q.store_thm("call_FFI_rel_io_events_mono",
+  `∀s1 s2.
+   RTC call_FFI_rel s1 s2 ⇒
+   s1.io_events ≼ s2.io_events ∧
+   (IS_SOME s1.final_event ⇒ s2 = s1)`,
+  ho_match_mp_tac RTC_INDUCT
+  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+  \\ fs[IS_PREFIX_APPEND]);
+
+val do_app_call_FFI_rel = Q.store_thm("do_app_call_FFI_rel",
+  `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
+   call_FFI_rel^* ffi ffi'`,
+  srw_tac[][evalPropsTheory.do_app_cases] >> rw[] >>
+  match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >>
+  metis_tac[]);
+
+val evaluate_call_FFI_rel = Q.store_thm("evaluate_call_FFI_rel",
+  `(∀(s:'ffi state) e exp.
+      RTC call_FFI_rel s.ffi (FST (evaluate s e exp)).ffi) ∧
+   (∀(s:'ffi state) e v pes errv.
+      RTC call_FFI_rel s.ffi (FST (evaluate_match s e v pes errv)).ffi)`,
+  ho_match_mp_tac terminationTheory.evaluate_ind >>
+  srw_tac[][terminationTheory.evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  TRY (
+    rename1`op ≠ Opapp` >>
+    imp_res_tac do_app_call_FFI_rel >>
+    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+  TRY (
+    rename1`op = Opapp` >>
+    rev_full_simp_tac(srw_ss())[dec_clock_def] >>
+    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def,FST])
+
+val evaluate_call_FFI_rel_imp = Q.store_thm("evaluate_call_FFI_rel_imp",
+  `(∀s e p s' r.
+      evaluate s e p = (s',r) ⇒
+      RTC call_FFI_rel s.ffi s'.ffi) ∧
+   (∀s e v pes errv s' r.
+      evaluate_match s e v pes errv = (s',r) ⇒
+      RTC call_FFI_rel s.ffi s'.ffi)`,
+  metis_tac[PAIR,FST,evaluate_call_FFI_rel])
+
+val evaluate_decs_call_FFI_rel = Q.prove(
+  `∀mn s e d.
+     RTC call_FFI_rel s.ffi (FST (evaluate_decs mn s e d)).ffi`,
+  ho_match_mp_tac evaluate_decs_ind >>
+  srw_tac[][evaluate_decs_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]);
+
+val evaluate_decs_call_FFI_rel_imp = Q.store_thm("evaluate_decs_call_FFI_rel_imp",
+  `∀m s e p s' r.
+     evaluate_decs m s e p = (s',r) ⇒
+     RTC call_FFI_rel s.ffi s'.ffi`,
+  metis_tac[PAIR,FST,evaluate_decs_call_FFI_rel])
+
+val evaluate_tops_call_FFI_rel = Q.prove(
+  `∀s e p.
+     RTC call_FFI_rel s.ffi (FST (evaluate_tops s e p)).ffi`,
+  ho_match_mp_tac evaluate_tops_ind >>
+  srw_tac[][evaluate_tops_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_decs_call_FFI_rel,FST])
+
+val evaluate_tops_call_FFI_rel_imp = Q.store_thm("evaluate_tops_call_FFI_rel_imp",
+  `∀s e p s' r.
+     evaluate_tops s e p = (s',r) ⇒
+     RTC call_FFI_rel s.ffi s'.ffi`,
+  metis_tac[PAIR,FST,evaluate_tops_call_FFI_rel])
+
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    ffi.io_events ≼ ffi'.io_events ∧
    (IS_SOME ffi.final_event ⇒ ffi' = ffi)`,
-  srw_tac[][evalPropsTheory.do_app_cases] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
+  metis_tac[do_app_call_FFI_rel,RTC_call_FFI_rel_io_events_mono])
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `(∀(s:'ffi state) e exp.
@@ -18,18 +92,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
    (∀(s:'ffi state) e v pes errv.
       s.ffi.io_events ≼ (FST (evaluate_match s e v pes errv)).ffi.io_events ∧
       (IS_SOME s.ffi.final_event ⇒ (FST (evaluate_match s e v pes errv)).ffi = s.ffi))`,
-  ho_match_mp_tac terminationTheory.evaluate_ind >>
-  srw_tac[][terminationTheory.evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  TRY (
-    rename1`op ≠ Opapp` >>
-    imp_res_tac do_app_io_events_mono >>
-    metis_tac[IS_PREFIX_TRANS] ) >>
-  TRY (
-    rename1`op = Opapp` >>
-    rev_full_simp_tac(srw_ss())[dec_clock_def] >>
-    metis_tac[IS_PREFIX_TRANS] ) >>
-  metis_tac[IS_PREFIX_TRANS,FST])
+  metis_tac[evaluate_call_FFI_rel,call_FFI_rel_io_events_mono]);
 
 val evaluate_io_events_mono_imp = Q.store_thm("evaluate_io_events_mono_imp",
   `(∀s e p s' r.
@@ -46,10 +109,7 @@ val evaluate_decs_io_events_mono = Q.prove(
   `∀mn s e d.
      s.ffi.io_events ≼ (FST (evaluate_decs mn s e d)).ffi.io_events ∧
      (IS_SOME s.ffi.final_event ⇒ (FST (evaluate_decs mn s e d)).ffi = s.ffi)`,
-  ho_match_mp_tac evaluate_decs_ind >>
-  srw_tac[][evaluate_decs_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,FST]);
+  metis_tac[evaluate_decs_call_FFI_rel,call_FFI_rel_io_events_mono]);
 
 val evaluate_decs_io_events_mono_imp = Q.store_thm("evaluate_decs_io_events_mono_imp",
   `∀m s e p s' r.
@@ -62,10 +122,7 @@ val evaluate_tops_io_events_mono = Q.prove(
   `∀s e p.
      s.ffi.io_events ≼ (FST (evaluate_tops s e p)).ffi.io_events ∧
      (IS_SOME s.ffi.final_event ⇒ (FST (evaluate_tops s e p)).ffi = s.ffi)`,
-  ho_match_mp_tac evaluate_tops_ind >>
-  srw_tac[][evaluate_tops_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  metis_tac[IS_PREFIX_TRANS,evaluate_decs_io_events_mono,FST])
+  metis_tac[evaluate_tops_call_FFI_rel,call_FFI_rel_io_events_mono])
 
 val evaluate_tops_io_events_mono_imp = Q.store_thm("evaluate_tops_io_events_mono_imp",
   `∀s e p s' r.
