@@ -5757,7 +5757,7 @@ val comp_correct = Q.store_thm("comp_correct",
       t'' with <|regs:=t''.regs|+(0,Loc x3 x4);
                 stack_space:=t''.stack_space - (m'-(LENGTH q-k));
                 clock:=t.clock-1|>`>>
-    `state_rel k m' m word_state stack_state (f'::lens)` by cheat (*
+    `state_rel k m' m word_state stack_state (f'::lens)` by
       (ntac 3 (qpat_x_assum`!a b. P` kall_tac)>>
       `sargs = (LENGTH q -k)` by
         (simp[stack_arg_count_def,Abbr`sargs`]>>
@@ -5845,27 +5845,28 @@ val comp_correct = Q.store_thm("comp_correct",
      first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
      rpt(qpat_x_assum`!a b. P` kall_tac)>>
      fsrw_tac[][]>>
-     simp[EL_TAKE]>>
-     qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-     `k < (n DIV 2+1)` by simp[]>>
      simp[]>>
-     disch_then sym_sub_tac>>
-     qpat_x_assum`!x. A ⇒ B = C` mp_tac>>
-     rpt(qpat_x_assum`!n.P` kall_tac)>>
-     strip_tac>>
-     simp[EL_DROP]>>
-     strip_tac>>
-     `n DIV 2 + 1 < f +k` by
-       (Cases_on`f'`>>fsrw_tac[][ADD1]>>DECIDE_TAC)>>
-     qpat_x_assum`!x. A ⇒ B = C` mp_tac>>
-     qpat_x_assum`A+3:num = t5.stack_space` kall_tac>>
-     simp[EL_DROP]>>
-     disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
-     ntac 60 (last_x_assum kall_tac)>>
+     `f+k - (n DIV 2 +1) < f` by simp[]>>
+     fsrw_tac[][EL_TAKE]>>
+     qpat_assum`∀x. A ⇒ EL B (DROP t5.stack_space t5.stack) = EL D E` mp_tac>>
+     disch_then (qspec_then `f+k-(n DIV 2 +1)` mp_tac)>>
      impl_tac>-
-       DECIDE_TAC>>
-     qpat_x_assum`A=v` sym_sub_tac>>
-     simp[]) *) >>
+       simp[]>>
+     disch_then SUBST_ALL_TAC>>
+     qpat_x_assum`DROP A B = DROP C D` mp_tac>>
+     `t'.stack_space - (LENGTH q-k) + (LENGTH q-k) = t'.stack_space` by simp[]>>
+     pop_assum SUBST1_TAC>>
+     disch_then sym_sub_tac>>
+     first_x_assum (qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
+     impl_tac>-
+       simp[]>>
+     fs[EL_DROP]>>
+     qpat_x_assum `t'.stack_space + 3 = t5.stack_space` mp_tac>>
+     rpt(pop_assum kall_tac)>>
+     rw[]>>
+     `f' + k - n DIV 2 + 3 + t'.stack_space =
+     f' + k + t5.stack_space - n DIV 2` by fs[]>>
+     fs[])>>
     Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
     first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
     Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
