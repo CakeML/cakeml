@@ -379,14 +379,15 @@ val bvl_inline_inline_all_side = prove(``
 
 val _ = translate(bvl_inlineTheory.compile_prog_def);
 
-val _ = translate(bvl_to_bviTheory.compile_def)
+val _ = translate(bvl_handleTheory.compile_exp_def);
 
-val bvl_to_bvi_compile_side = prove(``
-  ∀w x y z. bvl_to_bvi_compile_side w x y z ⇔ T``,
-  EVAL_TAC>>
-  rpt strip_tac >>
-  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-  simp[bvl_handleTheory.compile_length]) |> update_precondition
+val bvl_handle_compile_exp_side = prove(``
+  ∀x y z. bvl_handle_compile_exp_side x y z ⇔ T``,
+  EVAL_TAC \\ rpt strip_tac
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ rw[]) |> update_precondition;
+
+val _ = translate(bvl_to_bviTheory.compile_def)
 
 val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
 val _ = translate (COUNT_LIST_compute)
