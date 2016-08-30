@@ -146,6 +146,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
  fs [infer_d_def, success_eqns, type_d_cases] >>
  fs []
  >- (
+
    fs [init_state_def]
    >> rw []
    >> rename1 `infer_e _ _ _ = (Success t1, st1)`
@@ -215,7 +216,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        >> every_case_tac
        >> fs []
        >> simp []
-
+       >> cheat)
    >> drule env_rel_e_sound_empty_to
    >> disch_then drule
    >> disch_then drule
@@ -224,6 +225,18 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> simp []
    >> disch_then drule
    >> simp [num_tvs_def]
+   >> disch_then drule
+   >> drule (CONJUNCT1 infer_p_sound)
+   >> simp []
+   >> disch_then (qspecl_then [`tenv`, `tvs`, `(t1,t)::ec1`, `last_sub`] mp_tac)
+   >> simp [num_tvs_def]
+   >> impl_tac
+   >- fs [typeSoundInvariantsTheory.tenv_ok_def, env_rel_sound_def]
+   >> rw []
+
+   >> Cases_on `tvs = 0`
+   >> fs [success_eqns, empty_decls_def, empty_inf_decls_def]
+   >> rw [convert_decls_def, ienv_to_tenv_def]
 
 
    >> disch_then drule

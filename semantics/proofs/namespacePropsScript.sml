@@ -751,4 +751,12 @@ val nsAll2_nsLift = Q.store_thm ("nsAll2_nsLift[simp]",
  >> every_case_tac
  >> fs []);
 
+(* -------------- nsMap --------------- *)
+
+val nsMap_alist_to_ns = Q.store_thm ("nsMap_alist_to_ns[simp]",
+  `!f l. nsMap f (alist_to_ns l) = alist_to_ns (MAP (\(k,v). (k, f v)) l)`,
+ Induct_on `l`
+ >> rw []
+ >> rw [alist_to_ns_def, nsMap_def]);
+
 val _ = export_theory ();
