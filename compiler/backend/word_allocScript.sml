@@ -513,8 +513,18 @@ val remove_dead_def = Define`
   (remove_dead (Seq s1 s2) live =
     let (s2,s2live) = remove_dead s2 live in
     let (s1,s1live) = remove_dead s1 s2live in
-      (Seq s1 s2,s1live)) ∧
+    let prog =
+      if s1 = Skip then
+        if s2 = Skip then Skip
+        else s2
+      else
+        if s2 = Skip then s1
+        else Seq s1 s2
+    in (prog,s1live)) ∧
   (remove_dead (MustTerminate n s1) live =
+    (* This can technically be optimized away if it was a Skip,
+       but we should never use MustTerminate to wrap completely dead code
+    *)
     let (s1,s1live) = remove_dead s1 live in
       (MustTerminate n s1,s1live)) ∧
   (remove_dead (If cmp r1 ri e2 e3) live =
@@ -524,7 +534,10 @@ val remove_dead_def = Define`
     let liveset =
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live in
-    (If cmp r1 ri e2 e3,liveset)) ∧
+    let prog =
+      if e2 = Skip ∧ e3 = Skip then Skip
+      else If cmp r1 ri e2 e3 in
+    (prog,liveset)) ∧
   (remove_dead (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
     (*top level*)
     let args_set = numset_list_insert args LN in

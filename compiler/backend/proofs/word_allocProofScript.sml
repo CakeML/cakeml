@@ -2346,10 +2346,12 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
     rpt var_eq_tac>>fs[evaluate_def]
     >-
       (strip_tac>> first_x_assum drule>>
-      simp[]>>rw[]>>fs[])
+      disch_then drule>> simp[]>> strip_tac>>
+      rw[]>>fs[evaluate_def])
     >>
       strip_tac>>first_x_assum drule>>
-      simp[]>>rw[]>>fs[state_component_equality]>>
+      disch_then drule>> simp[]>> strip_tac>>
+      rw[]>>fs[state_component_equality,evaluate_def]>>
       FULL_CASE_TAC>>fs[])
   >- (*must terminate*)
     (rpt (pairarg_tac>>fs[])>>
@@ -2362,16 +2364,17 @@ val evaluate_remove_dead = store_thm("evaluate_remove_dead",
     (rpt (pairarg_tac>>fs[])>>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 4 (TOP_CASE_TAC>>fs[])>>
-    rpt var_eq_tac>>fs[evaluate_def]>>
+    rpt var_eq_tac>>
     Cases_on`ri`>>fs[get_var_imm_def]>>
     imp_res_tac strong_locals_rel_I_get_var>>
     TRY(first_x_assum(qspecl_then[`t`,`domain (union e2_live e3_live)`] mp_tac)>>
     impl_tac>-
       (fs[strong_locals_rel_def]>>
       metis_tac[]))>>
-    fs[]>>
-    rw[]>>
-    first_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union])
+    rw[]>>fs[evaluate_def,get_var_imm_def]>>
+    TRY(first_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union]>>
+    NO_TAC)>>
+    last_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union])
   >- (*call*)
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>fs[])>>
@@ -6473,10 +6476,10 @@ val remove_dead_conventions = store_thm("remove_dead_conventions",
   (extract_labels p = extract_labels comp)``,
   ho_match_mp_tac remove_dead_ind>>rw[]>>
   fs[remove_dead_def]>>
-  TRY(IF_CASES_TAC)>>fs convs>>
+  rpt IF_CASES_TAC>>fs convs>>
   rpt(pairarg_tac>>fs[])>>
-  fs convs>>
-  EVERY_CASE_TAC>>fs[])
+  rw[]>> fs convs>>
+  EVERY_CASE_TAC>>fs convs)
 
 (* MISC *)
 val list_max_IMP = prove(``
