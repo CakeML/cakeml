@@ -32,8 +32,8 @@ val enc_ok_def = Define `
   enc_ok (c : 'a asm_config) =
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
-    (!w. asm_ok w c ==> (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
-                        (LENGTH (c.encode w) <> 0)) /\
+    (!w. (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
+          LENGTH (c.encode w) <> 0) /\
     (* label instantiation predictably affects length of code *)
     (!w1 w2. offset_monotonic c.encode c w1 w2 (Jump w1) (Jump w2)) /\
     (!cmp r ri w1 w2.
@@ -56,6 +56,20 @@ val () = Datatype `
      ; config : 'a asm_config
      |>`
 
+val target_ok_def = Define`
+  target_ok t =
+  enc_ok t.config /\
+  (!ms1 ms2 s.
+     (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
+     (t.state_rel s ms1 = t.state_rel s ms2) /\
+     (t.state_ok ms1 = t.state_ok ms2)) /\
+  (!ms s.
+     t.state_rel s ms ==>
+     t.state_ok ms /\ (t.get_pc ms = s.pc) /\
+     (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
+     (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
+          (t.get_reg ms i = s.regs i)))`
+
 val interference_ok_def = Define `
   interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
 
@@ -70,23 +84,14 @@ val asserts_def = zDefine `
 
 val backend_correct_def = Define `
   backend_correct t <=>
-    enc_ok t.config /\
-    (!ms1 ms2 s.
-        (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
-        (t.state_rel s ms1 = t.state_rel s ms2) /\
-        (t.state_ok ms1 = t.state_ok ms2)) /\
-    (!ms s. t.state_rel s ms ==>
-            t.state_ok ms /\ (t.get_pc ms = s.pc) /\
-            (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
-            (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
-                 (t.get_reg ms i = s.regs i))) /\
+    target_ok t /\
     !s1 i s2 ms.
       asm_step t.config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
+            let pcs = all_pcs (LENGTH (t.config.encode i)) s1.pc in
             asserts n (\k s. env (n - k) (t.next s)) ms
-              (\ms'. t.state_ok ms' /\
-                     t.get_pc ms' IN all_pcs (LENGTH (t.config.encode i)) s1.pc)
+              (\ms'. t.state_ok ms' /\ t.get_pc ms' IN pcs)
               (\ms'. t.state_rel s2 ms')`
 
 (* lemma for proofs *)
@@ -147,6 +152,23 @@ val write_mem_word_consts = prove(
               ((write_mem_word a n w s).align = s.align) /\
               ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
   Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+
+val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
+  `((binop_upd a b c d x).mem_domain = x.mem_domain) ∧
+   ((binop_upd a b c d x).align = x.align) ∧
+   ((binop_upd a b c d x).failed = x.failed) ∧
+   ((binop_upd a b c d x).mem = x.mem) ∧
+   ((binop_upd a b c d x).lr = x.lr) ∧
+   ((binop_upd a b c d x).be = x.be)`,
+  Cases_on`b`>>EVAL_TAC);
+
+val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
+  `((arith_upd a x).mem_domain = x.mem_domain) ∧
+   ((arith_upd a x).align = x.align) ∧
+   ((arith_upd a x).mem = x.mem) ∧
+   ((arith_upd a x).lr = x.lr) ∧
+   ((arith_upd a x).be = x.be)`,
+  Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
 
 val asm_consts = store_thm("asm_consts[simp]",
   ``!i w s. ((asm i w s).be = s.be) /\

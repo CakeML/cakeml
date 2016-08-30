@@ -51,22 +51,9 @@ val add_arm6_encode_compset = computeLib.extend_compset
                     EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
                     valid_immediate_def]]
 
-val add_arm6_decode_compset = computeLib.extend_compset
-   [computeLib.Defs
-      [arm6_bop_dec_def, arm6_sh_dec_def, arm6_cmp_dec_def, decode_imm12_def,
-       fetch_word_def, decode_word_def, arm6_dec_aux_def, arm6_dec_def,
-       DecodeARM_def, DecodeImmShift_def, ARMExpandImm_C_def, Shift_C_def,
-       ROR_C_def, ConditionPassed_def, CurrentCond_def, SetPassCondition_def,
-       Do_def, boolify28_n2w, boolify4_n2w],
-    computeLib.Tys
-      (List.map arm_type
-         ["arm_state", "PSR", "Architecture", "InstrSet", "Branch", "Data",
-          "Load", "Store", "instruction", "offset1", "SRType"]),
-    computeLib.Convs [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]]
-
-val arm6_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val arm6_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
     [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
-     add_arm6_encode_compset, add_arm6_decode_compset]]
+     add_arm6_encode_compset]]
 
 end

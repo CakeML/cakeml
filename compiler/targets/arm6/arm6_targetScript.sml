@@ -26,12 +26,15 @@ val arm6_asm_state_def = Define`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
+val arm6_encode_fail_def = zDefine`
+  arm6_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
+
 val arm6_encode_def = Define`
    arm6_encode c i =
-      case encode (c, i) of
-         ARM w =>
-           [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list
-       | _ => ARB`
+   case encode (c, i) of
+      ARM w =>
+        [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list
+    | _ => arm6_encode_fail`
 
 val () = Parse.temp_overload_on ("enc", ``arm6_encode 14w``)
 
@@ -83,6 +86,8 @@ val arm6_enc_def = Define`
                       THE (EncodeARMImmediate i))))) /\
    (arm6_enc (Inst (Arith (Shift sh r1 r2 n))) =
        enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm6_sh sh, n)))) /\
+   (arm6_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = arm6_encode_fail) /\
+   (arm6_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm6_encode_fail) /\
    (arm6_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        enc (Data (TestCompareImmediate (2w, n2w r4, 0w))) ++
        arm6_encode 0w (Data (TestCompareImmediate (3w, n2w r4, 0w))) ++
@@ -94,7 +99,7 @@ val arm6_enc_def = Define`
          enc
            (Load
               (LoadWord (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Inst (Mem Load32 _ _)) = []) /\
+   (arm6_enc (Inst (Mem Load32 _ _)) = arm6_encode_fail) /\
    (arm6_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -107,7 +112,7 @@ val arm6_enc_def = Define`
            (Store
               (StoreWord
                  (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Inst (Mem Store32 r1 (Addr r2 a))) = []) /\
+   (arm6_enc (Inst (Mem Store32 r1 (Addr r2 a))) = arm6_encode_fail) /\
    (arm6_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -140,124 +145,6 @@ val arm6_enc_def = Define`
             in
                enc (Data (ArithLogicImmediate (opc, F, n2w r, 15w, imm12t))) ++
                enc (Data (ArithLogicImmediate (opc, F, n2w r, n2w r, imm12b))))`
-
-val arm6_bop_dec_def = Define`
-   (arm6_bop_dec (0b0100w: word4) = Add) /\
-   (arm6_bop_dec 0b0010w = Sub) /\
-   (arm6_bop_dec 0b0000w = And) /\
-   (arm6_bop_dec 0b1100w = Or ) /\
-   (arm6_bop_dec 0b0001w = Xor)`
-
-val arm6_sh_dec_def = Define`
-   (arm6_sh_dec SRType_LSL = Lsl) /\
-   (arm6_sh_dec SRType_LSR = Lsr) /\
-   (arm6_sh_dec SRType_ASR = Asr)`
-
-val arm6_cmp_dec_def = Define`
-   (arm6_cmp_dec ((2w, 0b1011w): word2 # word4) = Less) /\
-   (arm6_cmp_dec  (2w, 0b0011w) = Lower) /\
-   (arm6_cmp_dec  (2w, 0b0000w) = Equal)/\
-   (arm6_cmp_dec  (0w, 0b0000w) = Test) /\
-   (arm6_cmp_dec  (2w, 0b1010w) = NotLess) /\
-   (arm6_cmp_dec  (2w, 0b0010w) = NotLower) /\
-   (arm6_cmp_dec  (2w, 0b0001w) = NotEqual)/\
-   (arm6_cmp_dec  (0w, 0b0001w) = NotTest)`
-
-val decode_imm12_def = Define`
-   decode_imm12 imm12 = FST (FST (ARMExpandImm_C (imm12, F) ARB))`
-
-val fetch_word_def = Define`
-   fetch_word (b0 :: b1 :: b2 :: b3 :: (rest: word8 list)) =
-     ((b3 @@ b2 @@ b1 @@ b0) : word32, rest)`
-
-val dec_state_tm = ``<| Architecture := ARMv6; Encoding := Encoding_ARM |>``
-
-val decode_word_def = Define`
-   decode_word l =
-   let (w, rest) = fetch_word l in
-   let cond = (31 >< 28) w : word4 in
-   let s = SetPassCondition cond ^dec_state_tm in
-      (cond, FST (DecodeARM w s), rest)`
-
-val arm6_dec_aux_def = Define`
-  arm6_dec_aux (ast, rest) =
-  case ast of
-     Data (ArithLogicImmediate (opc, F, r1, r2, imm12)) =>
-      if opc = 14w then Inst Skip
-      else if r2 = 15w then
-         let imm32 = decode_imm12 imm12 in
-            if (11 >< 8) imm12 = 0w then
-               Loc (w2n r1) (if opc = 2w then 8w - imm32 else imm32 + 8w)
-            else
-              (case decode_word rest of
-                  (14w, Data (ArithLogicImmediate (opc2, F, r3, r4, imm12b)),
-                   rest2) =>
-                     let imm32b = decode_imm12 imm12b in
-                        Loc (w2n r1)
-                            (if opc = 2w then 8w - imm32 - imm32b
-                             else imm32 + imm32b + 8w)
-                | _ => ARB)
-      else Inst (Arith (Binop (arm6_bop_dec opc) (w2n r1) (w2n r2)
-                              (Imm (decode_imm12 imm12))))
-   | Data (Move (F, neg, r, imm12)) =>
-      let c = decode_imm12 imm12 in Inst (Const (w2n r) (if neg then ~c else c))
-   | Data (Register (opc, F, r1, r2, r3, SRType_LSL, 0)) =>
-      Inst (Arith (Binop (arm6_bop_dec opc) (w2n r1) (w2n r2) (Reg (w2n r3))))
-   | Data (ShiftImmediate (F, F, r1, r2, sh, n)) =>
-      Inst (Arith (Shift (arm6_sh_dec sh) (w2n r1) (w2n r2) n))
-   | Load (LoadLiteral (T, r, 0w)) =>
-        (case decode_word rest of
-            (14w, Branch (BranchTarget 0w), rest2) =>
-               Inst (Const (w2n r) (FST (fetch_word rest2)))
-          | _ => ARB)
-   | Load (LoadWord (plus, T, F, r1, r2, immediate_form1 imm12)) =>
-      Inst (Mem Load (w2n r1) (Addr (w2n r2) (if plus then imm12 else -imm12)))
-   | Load (LoadByte (T, plus, T, F, r1, r2, immediate_form1 imm12)) =>
-      Inst (Mem Load8 (w2n r1) (Addr (w2n r2) (if plus then imm12 else -imm12)))
-   | Store (StoreWord (plus, T, F, r1, r2, immediate_form1 imm12)) =>
-      Inst (Mem Store (w2n r1) (Addr (w2n r2) (if plus then imm12 else -imm12)))
-   | Store (StoreByte (plus, T, F, r1, r2, immediate_form1 imm12)) =>
-      Inst (Mem Store8 (w2n r1) (Addr (w2n r2)
-                (if plus then imm12 else -imm12)))
-   | Branch (BranchTarget imm32) => Jump (imm32 + 8w)
-   | Branch (BranchLinkExchangeImmediate (InstrSet_ARM, imm32)) =>
-      Call (imm32 + 8w)
-   | Branch (BranchExchange r) => JumpReg (w2n r)
-   | Data (TestCompareImmediate (opc, r, imm12)) =>
-        (case decode_word rest of
-            (cond2, Branch (BranchTarget imm32), _) =>
-               JumpCmp (arm6_cmp_dec (opc, cond2)) (w2n r)
-                       (Imm (decode_imm12 imm12)) (imm32 + 12w)
-          | (0w, Data (TestCompareImmediate (3w, r2, 0w)), rest2) =>
-               (case decode_word rest2 of
-                   (14w,
-                    Data (Register
-                            (5w, T, r3, r4, r5, SRType_LSL, 0)), rest3) =>
-                     (case decode_word rest3 of
-                         (3w, Data (Move (F, F, r6, 0w)), rest4) =>
-                            (case decode_word rest4 of
-                                (2w, Data (Move (F, F, r7, 1w)), _) =>
-                                   if (opc = 2w) /\ (imm12 = 0w) /\
-                                      (r = r2) /\ (r2 = r6) /\ (r6 = r7)
-                                     then Inst
-                                            (Arith
-                                              (AddCarry
-                                                (w2n r3) (w2n r4) (w2n r5)
-                                                (w2n r2)))
-                                   else ARB
-                              | _ => ARB)
-                       | _ => ARB)
-                 | _ => ARB)
-          | _ => ARB)
-   | Data (TestCompareRegister (opc, r1, r2, SRType_LSL, 0)) =>
-        (case decode_word rest of
-            (cond2, Branch (BranchTarget imm32), _) =>
-               JumpCmp (arm6_cmp_dec (opc, cond2)) (w2n r1) (Reg (w2n r2))
-                       (imm32 + 12w)
-          | _ => ARB)
-   | _ => ARB`
-
-val arm6_dec_def = Define `arm6_dec = arm6_dec_aux o SND o decode_word`
 
 (* --- Configuration for ARMv6 --- *)
 

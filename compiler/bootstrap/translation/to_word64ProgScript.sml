@@ -1,12 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open reg_allocProgTheory;
+open to_dataProgTheory;
 
-val _ = new_theory "compiler64_preludeProg"
+val _ = new_theory "to_word64Prog"
 
-(* temporary *)
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "to_dataProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -44,7 +43,7 @@ fun def_of_const tm = let
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
 
-  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``] else []
+  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:64``,beta|->``:64``] else []
 
   val def = def |> RW (!extra_preprocessing)
                 |> INST_TYPE insts
@@ -152,5 +151,108 @@ val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> 
 
 val _ = save_thm ("comp_ind",data_to_wordTheory.comp_ind|> conv64|> wcomp_simp)
 val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64)
+
+open word_simpTheory word_allocTheory word_instTheory
+
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
+
+val _ = translate (spec64 compile_exp_def)
+
+val _ = translate (spec64 max_var_def)
+
+(* TODO: Remove from x64Prog *)
+val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
+val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
+
+val _ = translate (wordLangTheory.num_exp_def |> conv64)
+val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (op_consts_def|>conv64|> SIMP_RULE std_ss [word_2comp_def] |> conv64)
+
+val rws = prove(``
+  ($+ = λx y. x + y) ∧
+  ($&& = λx y. x && y) ∧
+  ($|| = λx y. x || y) ∧
+  ($?? = λx y. x ?? y)``,
+  fs[FUN_EQ_THM])
+
+val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws]|> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (convert_sub_def |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
+
+val _ = translate (spec64 pull_exp_def)
+
+val word_inst_pull_exp_side = prove(``
+  ∀x. word_inst_pull_exp_side x ⇔ T``,
+  ho_match_mp_tac pull_exp_ind>>rw[]>>
+  simp[Once (fetch "-" "word_inst_pull_exp_side_def"),
+      fetch "-" "word_inst_optimize_consts_side_def",
+      wordLangTheory.word_op_def]>>
+  metis_tac[]) |> update_precondition
+
+val _ = translate (spec64 inst_select_def)
+
+val _ = translate (spec64 list_next_var_rename_move_def)
+
+val word_alloc_list_next_var_rename_move_side = prove(``
+  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T``,
+  simp[fetch "-" "word_alloc_list_next_var_rename_move_side_def"]>>
+  Induct_on`z`>>fs[list_next_var_rename_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
+
+val _ = translate (spec64 full_ssa_cc_trans_def)
+
+val word_alloc_full_ssa_cc_trans_side = prove(``
+  ∀x y. word_alloc_full_ssa_cc_trans_side x y``,
+  simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
+  rw[]>>pop_assum kall_tac>>
+  map_every qid_spec_tac [`v6`,`v7`,`y`]>>
+  ho_match_mp_tac ssa_cc_trans_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "word_alloc_ssa_cc_trans_side_def")]>>
+  map_every qid_spec_tac [`ssa`,`na`]>>
+  Induct_on`ls`>>fs[list_next_var_rename_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
+
+val _ = translate (spec64 remove_dead_def)
+
+val _ = translate (spec64 word_alloc_def)
+
+val word_alloc_apply_colour_side = prove(``
+  ∀x y. word_alloc_apply_colour_side x y ⇔ T``,
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
+
+val word_alloc_word_alloc_side = prove(``
+  ∀w x y z. word_alloc_word_alloc_side w x y z ⇔ T``,
+  simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
+  Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
+  word_alloc_apply_colour_side]) |> update_precondition
+
+val _ = translate (spec64 three_to_two_reg_def)
+
+val _ = translate (spec64 word_removeTheory.remove_must_terminate_def)
+
+val _ = translate (spec64 word_to_wordTheory.compile_def)
+
+val word_to_word_compile_side = prove(``
+  ∀x y z. word_to_word_compile_side x y z ⇔ T``,
+  simp[fetch"-""word_to_word_compile_side_def"]>>
+  Induct_on`z`>>fs[word_to_wordTheory.next_n_oracle_def]) |> update_precondition
+
+(* FromList likely to break when implemented *)
+val _ = translate(conv64 FromList_code_def)
+val _ = translate(conv64 FromList1_code_def)
+val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
+val _ = translate(MakeBytes_def |> conv64)
+val _ = translate(RefByte_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss[SmallLsr_def])
+val _ = translate(RefArray_code_def |> inline_simp |> conv64)
+val _ = translate(Replicate_code_def|> inline_simp |> conv64)
+
+val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
+
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = export_theory();

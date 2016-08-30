@@ -25,6 +25,10 @@ val inst_find_name_def = Define `
         Arith (Shift sop (find_name f d) (find_name f r) i)
     | Arith (AddCarry r1 r2 r3 r4) =>
         Arith (AddCarry (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (LongMul r1 r2 r3 r4) =>
+        Arith (LongMul (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (LongDiv r1 r2 r3 r4 r5) =>
+        Arith (LongDiv (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4) (find_name f r5))
     | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)`
 
 val dest_find_name_def = Define`
@@ -64,6 +68,12 @@ val compile_def = Define `
 
 (* some defaults *)
 
+val names_ok_def = Define `
+  names_ok names reg_count avoid_regs =
+    let xs = GENLIST (find_name names) (reg_count - LENGTH avoid_regs) in
+      ALL_DISTINCT xs /\
+      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs`
+
 val x64_names_def = Define `
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
@@ -73,17 +83,22 @@ val x64_names_def = Define `
        argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
        the third(3) in rdx(r3), the fourth(4) in rcx(2), the fifth(5)
        in r8 and the sixth in r9.
+       Callee-saved regs: r12-r15, rbx
      *)
-    (insert 1 7 o
-     insert 2 6 o
+    (insert 1 7 o  (* arg 1 *)
+     insert 2 6 o  (* arg 2 *)
   (* insert 3 3 o *)
      insert 4 2 o
      insert 5 8 o
      insert 6 9 o
+     insert 11 12 o
+     insert 12 13 o
+     insert 13 14 o
+     insert 14 11 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 1 o
-     insert 8 14 o
-     insert 9 15) LN:num num_map`
+     insert 8 15 o
+     insert 9 11) LN:num num_map`
 
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
@@ -112,5 +127,42 @@ val arm_names_def = Define `
 
 val arm_names_def = save_thm("arm_names_def",
   CONV_RULE (RAND_CONV EVAL) arm_names_def);
+
+val arm8_names_def = Define `
+  arm8_names =
+    (* source can use 31 regs (0-30),
+       target's r31 must be avoided (hardcoded to 0, sometimes sp),
+       source 0 must represent r30 (link register) *)
+    (insert 0 30 o
+     insert 1 0 o
+     insert 2 1 o
+     insert 30 2) LN:num num_map`
+
+val arm8_names_def = save_thm("arm8_names_def",
+  CONV_RULE (RAND_CONV EVAL) arm8_names_def);
+
+val mips_names_def = Define `
+  mips_names =
+    (* source can use 30 regs (2-31),
+       target's r0 must be avoided (hardcoded to 0),
+       target's r1 must be avoided (used by encoder in asm),
+       source 0 must represent r31 (link register)
+       argument regs 4-7 *)
+    (insert 0 31 o
+     insert 1 4 o
+     insert 2 5 o
+     insert 3 6 o
+     insert 4 7 o
+     insert 5 2 o
+     insert 6 3 o
+     insert 7 30 o
+     (* the rest just ensures that the mapping is well-formed *)
+     insert 30 1 o
+     insert 31 0) LN:num num_map`
+
+val mips_names_def = save_thm("mips_names_def",
+  CONV_RULE (RAND_CONV EVAL) mips_names_def);
+
+val riscv_names_def = Define `riscv_names = mips_names`;
 
 val _ = export_theory();

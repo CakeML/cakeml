@@ -11,7 +11,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
     | ffi_asm n = let
     val n = n - 1
     in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
-       "     pushq   %r15"::
+       "     pushq   %rax"::
        "     jmp     cdecl(ffi" ^ (Int.toString n) ^ ")"::
        "     .p2align 3"::
        "":: ffi_asm n end

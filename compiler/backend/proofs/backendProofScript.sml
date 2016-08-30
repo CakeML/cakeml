@@ -398,8 +398,12 @@ val data_to_word_compile_imp = prove(
        (MAP SND prog1))``,
   fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
   CONJ_TAC>-
-    (fs[lookup_fromAList]>>
-     simp[ALOOKUP_APPEND]
+    (fs[lookup_fromAList]
+     \\ simp[ALOOKUP_APPEND]
+     \\ conj_tac THEN1
+      (fs [EVERY_MEM,FORALL_PROD,data_to_wordTheory.stubs_def]
+       \\ rw [] \\ fs []
+       \\ rpt (qpat_x_assum `_ = (_:num)` mp_tac) \\ EVAL_TAC)
      \\ gen_tac
      \\ reverse BasicProvers.TOP_CASE_TAC
      >- (
@@ -1247,6 +1251,7 @@ val clos_to_data_names = store_thm("clos_to_data_names",
   strip_tac>>
   pairarg_tac>>fs[]>>rveq>>fs[]>>
   EVAL_TAC>>
+  REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>

@@ -52,6 +52,12 @@ val wf_db_to_set = Q.store_thm("wf_db_to_set",
 val vars_to_list_def = Define `
   vars_to_list db = MAP FST (toAList (db_to_set db))`
 
+val vars_from_list_def = Define `
+  vars_from_list vs = FOLDL (\s1 v. Union (Var v) s1) Empty vs`;
+
+val vars_flatten_def = Define `
+  vars_flatten db = vars_from_list (vars_to_list db)`;
+
 val has_var_def = Define `
   (has_var n Empty <=> F) /\
   (has_var n (Var v) <=> (n = v)) /\
@@ -88,6 +94,19 @@ val MEM_vars_to_list = store_thm("MEM_vars_to_list",
   ``MEM n (vars_to_list d) = has_var n d``,
   fs [vars_to_list_def,MEM_MAP,EXISTS_PROD,MEM_toAList]
   \\ fs [lookup_db_to_set]);
+
+val has_var_FOLDL_Union = prove(
+  ``!vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
+             MEM n vs \/ has_var n s``,
+  Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
+
+val MEM_vars_from_list = store_thm("MEM_vars_from_list",
+  ``!vs n. has_var n (vars_from_list vs) <=> MEM n vs``,
+  fs [vars_from_list_def,has_var_FOLDL_Union]);
+
+val has_var_vars_flatten = store_thm("has_var_vars_flatten[simp]",
+  ``has_var n (vars_flatten d) = has_var n d``,
+  fs [vars_flatten_def,MEM_vars_from_list,MEM_vars_to_list]);
 
 val ALL_DISTINCT_vars_to_list = store_thm("ALL_DISTINCT_vars_to_list",
   ``ALL_DISTINCT (vars_to_list d)``,

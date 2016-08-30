@@ -658,13 +658,17 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
-val benchmarks = [foldl,reverse,fib,btree,queue,qsort]
-val names = ["foldl","reverse","fib","btree","queue","qsort"]
-val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+val hello = helloProgTheory.entire_program_def |> concl |> rand
+
+val benchmarks = [foldl,reverse,fib,btree,queue,qsort,hello]
+val names = ["foldl","reverse","fib","btree","queue","qsort","hello"]
+
+val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 fun write_asm [] = ()
-  | write_asm ((name,bytes)::xs) =
-    (write_cake_S 1000 1000 0 bytes ("exec/benchmark_" ^ name ^ ".S") ;
+  | write_asm ((name,(bytes,ffi_count))::xs) =
+    (write_cake_S 1000 1000 (numSyntax.int_of_term ffi_count)
+       bytes ("exec/benchmark_" ^ name ^ ".S") ;
     write_asm xs)
 
 val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks

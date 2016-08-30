@@ -46,6 +46,7 @@ val add_ast_compset = computeLib.extend_compset
    computeLib.Tys
     [``:MMLnonT``
     ,``:ast$top``
+    ,``:ast$spec``
     ,``:ast$dec``
     ,``:ast$pat``
     ,``:ast$exp``
@@ -55,10 +56,16 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$lit``
     ,``:opb``
     ,``:opn``
-    ,``:('a,'b) namespace$id``
+    ,``:opw``
+    ,``:ast$shift``
+    ,``:'a ast$id``
+    ,``:ast$word_size``
+     ,``:('a,'b) namespace$id``
     ,``:eq_result``
     ,``:ast$tctor``
     ,``:'a sem_env``
+    ,``:ast$t``
+    ,``:'a environment``
     ]]
 
 val add_lexparse_compset = computeLib.extend_compset

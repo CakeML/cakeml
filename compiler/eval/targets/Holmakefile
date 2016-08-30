@@ -1,0 +1,19 @@
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = ../../targets/mips ../../targets/arm6 ../../targets/asm .. $(HOLDIR)/examples/l3-machine-code/mips/model $(HOLDIR)/examples/l3-machine-code/arm/model ../../../unverified/reg_alloc
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

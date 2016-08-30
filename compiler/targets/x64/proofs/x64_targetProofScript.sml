@@ -431,9 +431,12 @@ val is_rax_Zreg2num = Q.prove(
 
 val is_rax = Q.prove(
    `!n. n < 16 ==> ((RAX = num2Zreg n) = (n = 0))`,
-   rw [x64Theory.is_rax_def]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ rfs []
+   rw [] \\ fs [wordsTheory.NUMERAL_LESS_THM]
+   )
+
+val is_rdx = Q.prove(
+   `!n. n < 16 ==> ((RDX = num2Zreg n) = (n = 2))`,
+   rw [] \\ fs [wordsTheory.NUMERAL_LESS_THM]
    )
 
 (* some rewrites ---------------------------------------------------------- *)
@@ -442,12 +445,13 @@ val encode_rwts =
    let
       open x64Theory
    in
-      [x64_enc_def, x64_bop_def, x64_cmp_def, x64_sh_def, x64_encode_jcc_def,
-       encode_def, e_rm_reg_def, e_gen_rm_reg_def, e_ModRM_def, e_opsize_def,
-       rex_prefix_def, e_opc_def, e_rm_imm8_def, e_opsize_imm_def,
-       not_byte_def, e_rax_imm_def, e_rm_imm_def, e_imm_8_32_def, e_imm_def,
-       e_imm8_def, e_imm16_def, e_imm32_def, e_imm64_def, Zsize_width_def,
-       Zbinop_name2num_thm, asmSemTheory.is_test_def, total_num2Zreg_def
+      [x64_enc_def, x64_enc0_def, x64_bop_def, x64_cmp_def, x64_sh_def,
+       x64_encode_jcc_def, encode_def, e_rm_reg_def, e_gen_rm_reg_def,
+       e_ModRM_def, e_opsize_def, rex_prefix_def, e_opc_def, e_rm_imm8_def,
+       e_opsize_imm_def, not_byte_def, e_rax_imm_def, e_rm_imm_def,
+       e_imm_8_32_def, e_imm_def, e_imm8_def, e_imm16_def, e_imm32_def,
+       e_imm64_def, Zsize_width_def, Zbinop_name2num_thm,
+       asmSemTheory.is_test_def, total_num2Zreg_def
        ]
    end
 
@@ -605,14 +609,15 @@ in
       EXISTS_TAC n
       \\ simp [asmPropsTheory.asserts_eval, x64_proj_def]
       \\ NTAC 2 STRIP_TAC
-      \\ qpat_x_assum `~(aa).failed` mp_tac
-      \\ qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
+      \\ qpat_x_assum `~(aa : 64 asm_state).failed` mp_tac
+      \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ pop_assum mp_tac
       \\ qpat_x_assum `asm_ok aa x64_config` mp_tac
       \\ simp enc_rwts
       \\ REPEAT DISCH_TAC
       \\ qunabbrev_tac `instr`
+      \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
       \\ abbreviate_n2w
       \\ MAP_EVERY asmLib.split_bytes_in_memory_tac l
       \\ NTAC (i + 1) next_state_tac
@@ -622,8 +627,8 @@ in
       \\ unabbrev_all_tac
       \\ rw [combinTheory.APPLY_UPDATE_THM, x64Theory.num2Zreg_11,
              binop_lem10b, adc_lem2, wordsTheory.w2w_n2w,
-             GSYM wordsTheory.word_add_n2w]
-      \\ fs [is_rax, adc_lem1]
+             GSYM wordsTheory.word_add_n2w, GSYM wordsTheory.word_mul_def]
+      \\ fs [is_rax, is_rdx, adc_lem1]
       \\ blastLib.FULL_BBLAST_TAC
     end
 end
@@ -725,138 +730,32 @@ val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
-val encode_tac = simp enc_rwts \\ rw []
-
-(* -------------------------------------------------------------------------
-   x64_asm_deterministic
-   x64_backend_correct
-   ------------------------------------------------------------------------- *)
-
-val print_tac = asmLib.print_tac "encode"
-
-val x64_encoding = Count.apply Q.prove (
-   `!i. asm_ok i x64_config ==> (LENGTH (x64_enc i) <> 0)`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ encode_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ qabbrev_tac `r = n2w n : word4`
-         \\ Cases_on `(63 >< 31) c = 0w : 33 word`
-         \\ Cases_on `word_bit 3 r`
-         \\ encode_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            >| [
-               (* Reg *)
-               Cases_on `(b = Or) /\ (n0 = n')`
-               >- encode_tac
-               \\ Cases_on `b`
-               \\ encode_tac,
-               (* Imm *)
-               Cases_on `b`
-               \\ (Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
-                   \\ encode_tac
-                  )
-            ]
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `s`
-            \\ encode_tac
-            )
-            (*--------------
-                AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ qabbrev_tac `r4 = n2w n2 : word4`
-            \\ Cases_on `word_bit 3 r4`
-            \\ encode_tac
-         )
-      \\ print_tac "Mem"
-      \\ Cases_on `a`
-      \\ Cases_on `m`
-      \\ encode_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ encode_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ encode_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ encode_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ encode_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ encode_tac
+val x64_encoding = Q.prove (
+   `!i. LENGTH (x64_enc i) <> 0`,
+   strip_tac
+   \\ Cases_on `x64_enc0 i`
+   \\ simp [x64_enc_def, x64_dec_fail_def]
    )
 
-val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [x64_config_def] x64_encoding ::
-   enc_ok_rwts
+(* -------------------------------------------------------------------------
+   x64 backend_correct
+   ------------------------------------------------------------------------- *)
 
-val print_tac = asmLib.print_tac "correct"
+val print_tac = asmLib.print_tac ""
 
-val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
+val x64_backend_correct = Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,
-   simp [asmPropsTheory.backend_correct_def, x64_target_def]
+   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
+         x64_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def, asmPropsTheory.interference_ok_def]
+      \\ simp [x64_config_def]
       \\ Cases_on `i`,
       srw_tac [] [x64_asm_state_def, x64_config_def, fun2set_eq],
       srw_tac [] [x64_proj_def, x64_asm_state_def],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
+      rw [asmPropsTheory.enc_ok_def, x64_config_def, x64_encoding]
+      \\ simp encode_rwts
    ]
    >- (
       (*--------------
@@ -913,6 +812,20 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
             print_tac "Shift"
             \\ Cases_on `s`
             \\ Cases_on `n1 = 1`
+            \\ next_tac []
+            )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ next_tac []
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
             \\ next_tac []
             )
             (*--------------

@@ -47,6 +47,15 @@ val _ = Datatype`
             ; do_call : bool |>`
 val res = register_type``:foo``
 
+val foo_def = tDefine"foo"`
+  foo (k:num) n =
+  if n = 0 then []
+  else if n ≤ 256n then [k]
+  else foo (k+1) (n-256)`
+  (WF_REL_TAC `measure SND`\\fs[])
+
+val res = translate foo_def
+
 val _ = (print_asts := true);
 
 val _ = export_theory();

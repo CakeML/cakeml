@@ -3,7 +3,6 @@ open preamble;
 open cmlParseTheory cmlPEGTheory;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
 open lexerProgTheory;
 
 val _ = new_theory "parserProg"
@@ -105,5 +104,7 @@ val parse_prog_side_lemma = store_thm("parse_prog_side_lemma",
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
+
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = export_theory();

@@ -762,4 +762,16 @@ val filter_skip_semantics = store_thm("filter_skip_semantics",
   srw_tac[][] \\ match_mp_tac state_rel_IMP_sem_EQ_sem
   \\ full_simp_tac(srw_ss())[state_rel_def,state_component_equality,Once adjust_pc_def]);
 
+val sec_ends_with_label_filter_skip = Q.store_thm("sec_ends_with_label_filter_skip",
+  `∀code.
+   EVERY sec_ends_with_label code ⇒
+   EVERY sec_ends_with_label (filter_skip code)`,
+  Induct \\ simp[filter_skip_def]
+  \\ Cases \\ fs[filter_skip_def,sec_ends_with_label_def]
+  \\ Induct_on`l` \\ fs[NULL_EQ]
+  \\ Cases \\ fs[LAST_CONS_cond,not_skip_def]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ fs[LAST_CONS_cond]);
+
 val _ = export_theory();

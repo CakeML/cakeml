@@ -179,19 +179,78 @@ val Eval_Let = store_thm("Eval_Let",
 val lookup_var_def = Define `
   lookup_var name env = ALOOKUP env.v name`;
 
-val lookup_cons_def = zDefine `
-  lookup_cons name (env:v environment) =
-    lookup_alist_mod_env (Short name) env.c`;
+val lookup_cons_def = Define `
+  lookup_cons name (env:v environment) = SND_ALOOKUP env.c name`;
+
+val lookup_mod_def = Define `
+  lookup_mod name env = ALOOKUP env.m name`;
+
+val lookup_cons_thm = store_thm("lookup_cons_thm",
+  ``lookup_cons name (env:v environment) =
+      lookup_alist_mod_env (Short name) env.c``,
+  Cases_on `env.c`
+  \\ fs [lookup_cons_def,lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
+
+val lookup_var_id_thm = store_thm("lookup_var_id_thm",
+  ``(lookup_var_id (Short v) env = lookup_var v env) /\
+    (lookup_var_id (Long mn v) env =
+       case lookup_mod mn env of
+       | NONE => NONE
+       | SOME env1 => ALOOKUP env1 v)``,
+  fs [lookup_var_id_def,lookup_mod_def,lookup_var_def] \\ CASE_TAC \\ fs []);
 
 val lookup_var_write = store_thm("lookup_var_write",
-  ``(lookup_var v (write w x env) =
-     if v = w then SOME x else lookup_var v env) /\
+  ``(lookup_var v (write w x env) = if v = w then SOME x else lookup_var v env) /\
     (lookup_var_id (Short v) (write w x env) =
-     if v = w then SOME x else lookup_var_id (Short v) env) /\
-    (lookup_var_id (Long m v) (write w x env) =
-     lookup_var_id (Long m v) env)``,
-  SIMP_TAC std_ss [lookup_var_id_def,lookup_var_def,write_def]
-  \\ simp [] \\ METIS_TAC []);
+        if v = w then SOME x else lookup_var_id (Short v) env) /\
+    (lookup_var_id (Long mn v) (write w x env) =
+        lookup_var_id (Long mn v) env) /\
+    (lookup_cons name (write w x env) = lookup_cons name env)``,
+  fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_thm] \\ rw []);
+
+val lookup_var_write_mod = store_thm("lookup_var_write_mod",
+  ``(lookup_var v (write_mod mn e1 env) = lookup_var v env) /\
+    (lookup_mod m (write_mod mn e1 env) =
+     if m = mn then SOME e1.v else lookup_mod m env) /\
+    (lookup_cons name (write_mod mn e1 env) = lookup_cons name env)``,
+  fs [lookup_var_id_def,lookup_var_def,write_mod_def,
+      lookup_cons_thm,lookup_mod_def] \\ rw []
+  \\ Cases_on `env.c` \\ fs [] \\ fs [lookup_alist_mod_env_def]);
+
+val lookup_var_write_cons = store_thm("lookup_var_write_mod",
+  ``(lookup_var v (write_cons n d env) = lookup_var v env) /\
+    (lookup_mod m (write_cons n d env) = lookup_mod m env) /\
+    (lookup_cons name (write_cons n d env) =
+     if name = n then SOME d else lookup_cons name env)``,
+  fs [lookup_var_id_def,lookup_var_def,write_cons_def,
+      lookup_cons_thm,lookup_mod_def] \\ rw []
+  \\ Cases_on `env.c` \\ fs []
+  \\ fs [lookup_alist_mod_env_def,merge_alist_mod_env_def]);
+
+val lookup_var_empty_env = store_thm("lookup_var_empty_env",
+  ``(lookup_var v empty_env = NONE) /\
+    (lookup_var_id (Short v) empty_env = NONE) /\
+    (lookup_var_id (Long m v) empty_env = NONE) /\
+    (lookup_cons name empty_env = NONE)``,
+  fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
+  \\ fs [lookup_alist_mod_env_def]);
+
+val lookup_var_merge_env = store_thm("lookup_var_merge_env",
+  ``(lookup_var v1 (merge_env e1 e2) =
+       case lookup_var v1 e1 of
+       | NONE => lookup_var v1 e2
+       | res => res) /\
+    (lookup_cons v1 (merge_env e1 e2) =
+       case lookup_cons v1 e1 of
+       | NONE => lookup_cons v1 e2
+       | res => res) /\
+    (lookup_mod v1 (merge_env e1 e2) =
+       case lookup_mod v1 e1 of
+       | NONE => lookup_mod v1 e2
+       | res => res)``,
+  fs [lookup_var_def,lookup_cons_thm,merge_env_def,ALOOKUP_APPEND,lookup_mod_def]
+  \\ Cases_on `e1.c` \\ Cases_on `e2.c`
+  \\ fs [lookup_alist_mod_env_def,ALOOKUP_APPEND]);
 
 val Eval_Var_Short = store_thm("Eval_Var_Short",
   ``P v ==> !name env.
@@ -572,22 +631,15 @@ val FOLDR_LEMMA2 = prove(
   \\ simp[environment_component_equality]
   \\ fs [write_def,UNCURRY]);
 
-val write_rec_thm = store_thm("write_rec_thm",
-  ``write_rec funs env =
-    FOLDR (\(f,x,e) env'. write f (Recclosure env funs f) env') env funs``,
-  SIMP_TAC std_ss [write_rec_def,build_rec_env_def]
-  \\ Q.SPEC_TAC (`Recclosure env funs`,`rrr`)
-  \\ SIMP_TAC std_ss [FOLDR_LEMMA,FOLDR_LEMMA2]);
-
 val Eval_Recclosure_ALT = store_thm("Eval_Recclosure_ALT",
   ``!funs fname name body.
       (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ==>
       (!v. a n v ==>
-           Eval (write name v (write_rec funs env2)) body (b (f n))) ==>
+           Eval (write name v (write_rec funs env2 env2)) body (b (f n))) ==>
       LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
       (find_recfun fname funs = SOME (name,body)) ==>
       Eval env (Var (Short fname)) ((Eq a n --> b) f)``,
-  FULL_SIMP_TAC std_ss [write_rec_def,write_def]
+  FULL_SIMP_TAC std_ss [write_rec_thm,write_def]
   \\ NTAC 7 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
@@ -603,7 +655,7 @@ val Eval_Recclosure_ALT = store_thm("Eval_Recclosure_ALT",
 
 val Eval_Recclosure = store_thm("Eval_Recclosure",
   ``(!v. a n v ==>
-         Eval (write name v (write_rec [(fname,name,body)] env2))
+         Eval (write name v (write_rec [(fname,name,body)] env2 env2))
               body (b (f n))) ==>
     LOOKUP_VAR fname env (Recclosure env2 [(fname,name,body)] fname) ==>
     Eval env (Var (Short fname)) ((Eq a n --> b) f)``,
@@ -1689,18 +1741,18 @@ val always_evaluates_fn = store_thm("always_evaluates_fn",
 (* lookup cons *)
 
 val lookup_cons_write = store_thm("lookup_cons_write",
-  ``!funs n x env name.
+  ``!funs n x env name env1.
       (lookup_cons name (write n x env) = lookup_cons name env) /\
-      (lookup_cons name (write_rec funs env) = lookup_cons name env)``,
+      (lookup_cons name (write_rec funs env1 env) = lookup_cons name env)``,
   Induct \\ REPEAT STRIP_TAC
-  \\ fs [write_rec_def,write_def,lookup_cons_def]);
+  \\ fs [write_rec_thm,write_def,lookup_cons_thm]);
 
 val lookup_var_id_write = store_thm("lookup_var_id_write",
   ``(lookup_var_id (Short name) (write n v env) =
        if n = name then SOME v else lookup_var_id (Short name) env) /\
     (lookup_var_id (Long mn name) (write n v env) =
        lookup_var_id (Long mn name) env)``,
-  EVAL_TAC \\ rw [] \\ fs [lookup_var_id_def]);
+  fs [write_def] \\ EVAL_TAC \\ rw [] \\ fs [lookup_var_id_def]);
 
 val DISJOINT_set_SIMP = store_thm("DISJOINT_set_SIMP",
   ``(DISJOINT (set []) s <=> T) /\

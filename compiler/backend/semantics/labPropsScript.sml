@@ -3,6 +3,10 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
+val sec_ends_with_label_def = Define`
+  sec_ends_with_label (Section _ ls) ⇔
+    ¬NULL ls ∧ is_Label (LAST ls)`;
+
 val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
   `reg_imm r (s with clock := z) = reg_imm r s`,
   Cases_on`r`>>EVAL_TAC);

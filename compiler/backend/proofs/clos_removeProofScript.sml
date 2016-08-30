@@ -1,4 +1,4 @@
-open preamble indexedListsTheory
+open preamble
      closLangTheory closSemTheory closPropsTheory
      clos_relationTheory clos_relationPropsTheory
      clos_removeTheory

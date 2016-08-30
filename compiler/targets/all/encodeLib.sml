@@ -18,12 +18,7 @@ val () =
         arm8_targetLib.add_arm8_encode_compset,
         x64_targetLib.add_x64_encode_compset,
         mips_targetLib.add_mips_encode_compset,
-        riscv_targetLib.add_riscv_encode_compset,
-        arm6_targetLib.add_arm6_decode_compset,
-        arm8_targetLib.add_arm8_decode_compset,
-        x64_targetLib.add_x64_decode_compset,
-        mips_targetLib.add_mips_decode_compset,
-        riscv_targetLib.add_riscv_decode_compset
+        riscv_targetLib.add_riscv_encode_compset
        ]
     ] computeLib.the_compset
  )
@@ -36,14 +31,13 @@ fun string_quotation l = [QUOTE (String.concatWith " " l)] : string quotation
 val mk_asm_ok = Lib.curry (#2 (HolKernel.syntax_fns2 "asm" "asm_ok"))
 fun ok tm = Lib.equal boolSyntax.T o eval o mk_asm_ok tm
 
-fun mk f s = #2 (HolKernel.syntax_fns1 (s ^ "_target") (s ^ "_" ^ f))
-fun mk_enc_dec s = (mk "enc" s, mk "dec" s)
+fun mk s = #2 (HolKernel.syntax_fns1 (s ^ "_target") (s ^ "_enc"))
 
-val (mk_arm6_enc, mk_arm6_dec) = mk_enc_dec "arm6"
-val (mk_arm8_enc, mk_arm8_dec) = mk_enc_dec "arm8"
-val (mk_x64_enc, mk_x64_dec) = mk_enc_dec "x64"
-val (mk_mips_enc, mk_mips_dec) = mk_enc_dec "mips"
-val (mk_riscv_enc, mk_riscv_dec) = mk_enc_dec "riscv"
+val mk_arm6_enc = mk "arm6"
+val mk_arm8_enc = mk "arm8"
+val mk_x64_enc = mk "x64"
+val mk_mips_enc = mk "mips"
+val mk_riscv_enc = mk "riscv"
 
 fun config_tm s = Term.prim_mk_const {Name = s ^ "_config", Thy = s ^ "_target"}
 val arm6_config = config_tm "arm6"
@@ -121,17 +115,6 @@ in
   val reduce = boolSyntax.rhs o Thm.concl o Conv.QCONV REDUCE_LITERALS_CONV
 end
 
-fun check_dec tm f (l : term) =
-  let
-    val d = eval (f l)
-  in
-    if d = tm then ()
-    else ( print "[decode mismatch]\n"
-         ; Parse.print_term d
-         ; print "\n"
-         )
-  end
-
 fun encoding q =
   let
     val tm = Feedback.trace ("notify type variable guesses", 0) Parse.Term q
@@ -152,7 +135,6 @@ fun encoding q =
                      in
                        armAssemblerLib.print_arm_disassemble
                          (string_quotation (split32 false l))
-                     ; check_dec tm32 mk_arm6_dec l
                      end
               else print_not_ok (),
       arm8 = fn () =>
@@ -162,7 +144,6 @@ fun encoding q =
                      in
                        arm8AssemblerLib.print_arm8_disassemble
                          (string_quotation (split32 false l))
-                     ; check_dec tm64 mk_arm8_dec l
                      end
               else print_not_ok (),
       x64 = fn () =>
@@ -171,7 +152,6 @@ fun encoding q =
                        val l = eval (mk_x64_enc tm64)
                      in
                        print_x64_disassemble l
-                     ; check_dec tm64 mk_x64_dec l
                      end
               else print_not_ok (),
       mips = fn () =>
@@ -180,7 +160,6 @@ fun encoding q =
                        val l = (eval (mk_mips_enc tm64))
                      in
                        print_mips_disassemble (split32 true l)
-                     ; check_dec tm64 mk_mips_dec l
                      end
               else print_not_ok (),
       riscv = fn () =>
@@ -189,7 +168,6 @@ fun encoding q =
                        val l = eval (mk_riscv_enc tm64)
                      in
                        print_riscv_disassemble (split32 false l)
-                     ; check_dec tm64 mk_riscv_dec l
                      end
               else print_not_ok ()
     }
