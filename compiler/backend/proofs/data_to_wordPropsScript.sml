@@ -2811,6 +2811,38 @@ val memory_rel_Ref = store_thm("memory_rel_Ref",
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]);
 
+val memory_rel_write = store_thm("memory_rel_write",
+  ``memory_rel c be refs sp st m dm vars ==>
+    ?(free:'a word).
+      FLOOKUP st NextFree = SOME (Word free) /\
+      !n.
+        n < sp ==>
+        let a = free + bytes_in_word * n2w n in
+          a IN dm /\ memory_rel c be refs sp st ((a =+ w) m) dm vars``,
+  fs [LET_THM,memory_rel_def,heap_in_memory_store_def]
+  \\ strip_tac \\ fs [word_ml_inv_def,abs_ml_inv_def]
+  \\ fs [unused_space_inv_def]
+  \\ ntac 2 strip_tac \\ fs []
+  \\ drule heap_lookup_SPLIT
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_list_exists_def]
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ Cases_on `LENGTH xs = sp'` \\ fs [SEP_CLAUSES] \\ fs [SEP_F_def] \\ rveq
+  \\ `n < LENGTH xs` by decide_tac
+  \\ drule LESS_LENGTH
+  \\ strip_tac \\ rveq \\ fs [word_list_def,word_list_APPEND]
+  \\ conj_tac THEN1 (fs [] \\ SEP_R_TAC \\ fs [])
+  \\ qexists_tac `ha ++ [Unused (LENGTH ys1 + SUC (LENGTH ys2) − 1)] ++ hb`
+  \\ qexists_tac `limit`
+  \\ qexists_tac `heap_length ha`
+  \\ qexists_tac `LENGTH ys1 + (SUC (LENGTH ys2))`
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_list_exists_def,
+         SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+  \\ qexists_tac `ys1 ++ w::ys2` \\ fs [SEP_CLAUSES]
+  \\ qexists_tac `hs` \\ fs []
+  \\ fs [word_list_def,word_list_APPEND]
+  \\ SEP_WRITE_TAC);
+
 val memory_rel_REPLICATE = store_thm("memory_rel_REPLICATE",
   ``memory_rel c be refs sp st m dm ((v,w)::vars) ==>
     memory_rel c be refs sp st m dm (REPLICATE n (v,w) ++ vars)``,
