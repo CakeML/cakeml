@@ -2084,7 +2084,7 @@ val comp_correct = Q.store_thm("comp_correct",
   \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def,set_var_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[get_var_def]
-  \\ TRY (drule loc_check_compile \\ impl_tac \\ fs []) \\ fs []
+  \\ TRY (drule loc_check_compile \\ impl_tac >- metis_tac[] \\ fs []) \\ fs []
   \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
