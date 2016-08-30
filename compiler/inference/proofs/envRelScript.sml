@@ -296,12 +296,13 @@ val db_subst_infer_subst_swap3 = Q.store_thm ("db_subst_infer_subst_swap3",
  >> metis_tac []);
 
 val tscheme_approx_weakening = Q.store_thm ("tscheme_approx_weakening",
-  `!tvs s1 s2 ts1 ts2.
+  `!tvs tvs' s1 s2 ts1 ts2.
     tscheme_approx tvs s1 ts1 ts2 ∧
     t_wfs s2 ∧
-    s1 SUBMAP s2
+    s1 SUBMAP s2 ∧
+    tvs ≤ tvs'
     ⇒
-    tscheme_approx tvs s2 ts1 ts2`,
+    tscheme_approx tvs' s2 ts1 ts2`,
  rw []
  >> Cases_on `ts1`
  >> Cases_on `ts2`
@@ -309,10 +310,29 @@ val tscheme_approx_weakening = Q.store_thm ("tscheme_approx_weakening",
  >> rw []
  >> qexists_tac `subst'`
  >> rw []
- >- metis_tac [SUBMAP_DEF, check_t_more5, SUBSET_DEF]
+ >> `tvs + (tvs' - tvs) = tvs'` by decide_tac
+ >- prove_tac [SUBMAP_DEF, check_t_more5, SUBSET_DEF, check_t_more2, ADD_COMM, ADD_ASSOC]
  >> first_x_assum (qspec_then `subst` mp_tac)
  >> rw []
  >> metis_tac [t_walkstar_idempotent, t_walkstar_SUBMAP]);
+
+val env_rel_sound_extend_tvs = Q.store_thm ("env_rel_sound_extend_tvs",
+  `!s ienv tenv bindings tvs.
+    t_wfs s ∧
+    env_rel_sound s ienv tenv Empty
+    ⇒
+    env_rel_sound s ienv tenv (bind_tvar tvs Empty)`,
+ rw [env_rel_sound_def]
+ >> first_x_assum drule
+ >> simp [bind_tvar_def, lookup_var_def, lookup_varE_def, tveLookup_def]
+ >> rw []
+ >> every_case_tac
+ >> fs []
+ >> rw []
+ >- metis_tac [check_freevars_add,DECIDE ``x+y>=x:num``, ADD_COMM, ADD_ASSOC]
+ >- metis_tac [SUBMAP_REFL, tscheme_approx_weakening, DECIDE ``0n ≤ x``]
+ >- metis_tac [check_freevars_add,DECIDE ``x+y>=x:num``, ADD_COMM, ADD_ASSOC]
+ >- metis_tac [SUBMAP_REFL, tscheme_approx_weakening, DECIDE ``0n ≤ x``]);
 
 val tscheme_approx0 = Q.store_thm ("tscheme_approx0",
   `!tvs s t. t_wfs s ⇒ tscheme_approx tvs s (0, t) (0, t_walkstar s t)`,

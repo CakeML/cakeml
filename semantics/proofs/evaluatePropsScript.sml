@@ -23,7 +23,7 @@ val call_FFI_rel_io_events_mono = Q.store_thm("call_FFI_rel_io_events_mono",
 val do_app_call_FFI_rel = Q.store_thm("do_app_call_FFI_rel",
   `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    call_FFI_rel^* ffi ffi'`,
-  srw_tac[][evalPropsTheory.do_app_cases] >> rw[] >>
+  srw_tac[][do_app_cases] >> rw[] >>
   match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >>
   metis_tac[]);
 

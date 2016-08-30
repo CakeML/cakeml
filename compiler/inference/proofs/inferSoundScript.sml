@@ -5,11 +5,8 @@ open inferPropsTheory;
 open typeSysPropsTheory;
 open infer_eSoundTheory;
 open envRelTheory;
-
-(*
 open type_eDetermTheory;
 open infer_eCompleteTheory
-*)
 
 val _ = new_theory "inferSound";
 
@@ -192,14 +189,13 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >- metis_tac [infer_p_next_uvar_mono, check_t_more4]
    >> rw []
    >> `?ec1 last_sub.
-          ts = MAP (t_walkstar last_sub) (MAP SND env) ∧
+          ts = MAP (t_walkstar last_sub) (MAP SND bindings) ∧
           t_wfs last_sub ∧
           sub_completion tvs st1'.next_uvar s ec1 last_sub`
      by (
        `tvs = tvs +0 ` by DECIDE_TAC>>pop_assum SUBST1_TAC>>
        match_mp_tac generalise_complete>>fs[]>>
-       cheat
-       (*metis_tac[infer_d_check_s_helper1]*))
+       fs [LAMBDA_PROD, EVERY_MAP])
    >> drule sub_completion_unify2
    >> disch_then drule
    >> rw []
@@ -208,15 +204,8 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> rw []
    >> `env_rel_sound FEMPTY ienv tenv (bind_tvar tvs Empty)`
      by (
-       fs [env_rel_sound_def]
-       >> rw []
-       >> first_x_assum drule
-       >> rw []
-       >> fs [lookup_var_def, lookup_varE_def]
-       >> every_case_tac
-       >> fs []
-       >> simp []
-       >> cheat)
+      `t_wfs FEMPTY` by rw [t_wfs_def]
+      >> metis_tac [env_rel_sound_extend_tvs])
    >> drule env_rel_e_sound_empty_to
    >> disch_then drule
    >> disch_then drule
@@ -233,11 +222,40 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> impl_tac
    >- fs [typeSoundInvariantsTheory.tenv_ok_def, env_rel_sound_def]
    >> rw []
-
-   >> Cases_on `tvs = 0`
+   >> `t_walkstar last_sub t = t_walkstar last_sub t1`
+     by (
+       imp_res_tac infer_e_wfs >>
+       imp_res_tac infer_p_wfs >>
+       imp_res_tac t_unify_wfs >>
+       metis_tac [sub_completion_apply, t_unify_apply])
+   >> Cases_on `is_value e`
    >> fs [success_eqns, empty_decls_def, empty_inf_decls_def]
    >> rw [convert_decls_def, ienv_to_tenv_def]
 
+   >- (
+     qexists_tac `tvs`
+     >> qexists_tac `convert_t (t_walkstar last_sub t)`
+     >> qexists_tac `convert_env last_sub bindings`
+     >> rw []
+     >- (
+       simp [ZIP_MAP, tenv_add_tvs_def]
+       >> simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, convert_env_def])
+     >- (
+       imp_res_tac infer_p_bindings
+       >> fs [])
+     >- cheat)
+   >- (
+     qexists_tac `convert_t (t_walkstar last_sub t)`
+     >> qexists_tac `convert_env last_sub bindings`
+     >> rw []
+     >- (
+       simp [ZIP_MAP, tenv_add_tvs_def]
+       >> simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, convert_env_def])
+     >- cheat
+     >- (
+       imp_res_tac infer_p_bindings
+       >> fs [])
+     >- fs [bind_tvar_def]))
 
    >> disch_then drule
 
@@ -370,6 +388,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            CONJ_ASM1_TAC>-
              (imp_res_tac infer_p_bindings >>fs [])
            >>
+
            (*Proof of generalization*)
            rw[weakE_def] >>
            Cases_on`ALOOKUP (tenv_add_tvs tvs' bindings') x`>>fs[]>>

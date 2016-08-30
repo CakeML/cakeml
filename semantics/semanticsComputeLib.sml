@@ -58,14 +58,12 @@ val add_ast_compset = computeLib.extend_compset
     ,``:opn``
     ,``:opw``
     ,``:ast$shift``
-    ,``:'a ast$id``
     ,``:ast$word_size``
      ,``:('a,'b) namespace$id``
     ,``:eq_result``
     ,``:ast$tctor``
     ,``:'a sem_env``
     ,``:ast$t``
-    ,``:'a environment``
     ]]
 
 val add_lexparse_compset = computeLib.extend_compset

@@ -16,31 +16,25 @@ val sub_completion_empty = Q.prove (
  metis_tac []);
 
 val infer_pe_complete = Q.store_thm ("infer_pe_complete",
-  `check_menv ienv.inf_m ∧
-    menv_alpha ienv.inf_m tenv.m ∧
-    tenv_ctor_ok tenv.c ∧
-    ienv.inf_c = tenv.c ∧
-    ienv.inf_t = tenv.t ∧
-    tenv_tabbrev_ok tenv.t ∧
-    num_tvs tenv.v = tvs ∧
-    check_env {} ienv.inf_v ∧
-    tenv_invC FEMPTY ienv.inf_v tenv.v ∧
+  `ienv_ok {} ienv ∧
+    env_rel_complete FEMPTY ienv tenv Empty ∧
     type_p tvs tenv p t1 tenv1 ∧
-    type_e tenv e t1
+    type_e tenv Empty e t1
     ⇒
     ?t t' new_bindings st st' s constrs s'.
       infer_e ienv e init_infer_state = (Success t, st) ∧
       infer_p ienv p st = (Success (t', new_bindings), st') ∧
       t_unify st'.subst t t' = SOME s ∧
-      sub_completion (num_tvs tenv.v) st'.next_uvar s constrs s' ∧
+      sub_completion tvs st'.next_uvar s constrs s' ∧
       FDOM s' = count st'.next_uvar ∧
       t1 = convert_t (t_walkstar s' t') ∧
       t1 = convert_t (t_walkstar s' t) ∧
       t_wfs s ∧
-      simp_tenv_invC s' (num_tvs tenv.v) new_bindings tenv1`,
-  rw [] >>
-  (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
-  (infer_p_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+      simp_tenv_invC s' tvs new_bindings tenv1`,
+
+  rw []
+  >> drule (CONJUNCT1 infer_e_complete)
+  >> drule (CONJUNCT1 infer_p_complete) >>
   rw [] >>
   `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
   first_x_assum (qspecl_then [`FEMPTY`, `ienv`, `init_infer_state`, `[]`] mp_tac) >>
