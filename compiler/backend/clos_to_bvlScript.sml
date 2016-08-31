@@ -24,12 +24,6 @@ val clos_tag_shift_inj = Q.store_thm("clos_tag_shift_inj",
   `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`,
   EVAL_TAC >> rw[] >> simp[])
 
-val bool_to_tag_def = Define`
-  bool_to_tag b = if b then true_tag else false_tag`
-
-val Bool_def = Define`
-  Bool b = Op (Cons (bool_to_tag b)) []`;
-
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
@@ -148,9 +142,6 @@ val mk_cl_call_def = Define `
 
 val partial_app_fn_location_def = Define `
   partial_app_fn_location (max_app:num) m n = max_app + max_app * m + n`;
-
-val mk_tick_def = Define `
-  mk_tick n e = FUNPOW Tick n e : bvl$exp`;
 
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `

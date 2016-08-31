@@ -1,4 +1,4 @@
-open preamble bvlTheory clos_to_bvlTheory;
+open preamble bvlTheory
 
 val _ = new_theory "bvl_const";
 

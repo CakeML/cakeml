@@ -71,16 +71,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
       (* ---- conLang ---- *)
-    ,conLangTheory.bind_tag_def
-    ,conLangTheory.chr_tag_def
-    ,conLangTheory.div_tag_def
-    ,conLangTheory.subscript_tag_def
-    ,conLangTheory.true_tag_def
-    ,conLangTheory.false_tag_def
-    ,conLangTheory.nil_tag_def
-    ,conLangTheory.cons_tag_def
-    ,conLangTheory.none_tag_def
-    ,conLangTheory.some_tag_def
+    ,con_tagsTheory.bind_tag_def
+    ,con_tagsTheory.chr_tag_def
+    ,con_tagsTheory.div_tag_def
+    ,con_tagsTheory.subscript_tag_def
+    ,con_tagsTheory.true_tag_def
+    ,con_tagsTheory.false_tag_def
+    ,con_tagsTheory.nil_tag_def
+    ,con_tagsTheory.cons_tag_def
+    ,con_tagsTheory.none_tag_def
+    ,con_tagsTheory.some_tag_def
     ,conLangTheory.num_defs_def
     ]
   ,computeLib.Tys
@@ -222,7 +222,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.ToList_code_def
     ,clos_to_bvlTheory.generate_partial_app_closure_fn_def
     ,clos_to_bvlTheory.generate_generic_app_def
-    ,clos_to_bvlTheory.mk_tick_def
+    ,bvlTheory.mk_tick_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.mk_cl_call_def
     ,clos_to_bvlTheory.ToList_location_def
@@ -240,8 +240,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.compile_op_def
     ,clos_to_bvlTheory.mk_const_def
     ,clos_to_bvlTheory.partial_app_tag_def
-    ,clos_to_bvlTheory.Bool_def
-    ,clos_to_bvlTheory.bool_to_tag_def
+    ,bvlTheory.Bool_def
+    ,con_tagsTheory.bool_to_tag_def
     ,clos_to_bvlTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def

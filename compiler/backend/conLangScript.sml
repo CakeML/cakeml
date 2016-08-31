@@ -1,5 +1,7 @@
 open preamble
 
+open con_tagsTheory
+
 val _ = numLib.prefer_num();
 
 val _ = new_theory "conLang"
@@ -11,22 +13,6 @@ val _ = new_theory "conLang"
  * expressions. Constructors explicitly mention the type they are constructing.
  * Also type and exception declarations are removed.
  *)
-
-(* these must match what the prim_types_program generates *)
-
-val _ = Define `bind_tag      = 0`;
-val _ = Define `chr_tag       = 1`;
-val _ = Define `div_tag       = 2`;
-val _ = Define `subscript_tag = 3`;
-
-val _ = Define `true_tag  = 0`;
-val _ = Define `false_tag = 1`;
-
-val _ = Define `nil_tag   = 0`;
-val _ = Define `cons_tag  = 0`;
-
-val _ = Define `none_tag  = 0`;
-val _ = Define `some_tag  = 0`;
 
 val _ = Datatype`
  op =
