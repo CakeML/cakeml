@@ -97,7 +97,7 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
               metis_tac [])
           >- (fs [] >>
               rw [GSYM small_big_exp_equiv, to_small_st_def] >>
-              qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, Rval ([],a))` >>
+              qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, Rval <|v := alist_to_ns a; c := nsEmpty|>)` >>
               rw [] >>
               metis_tac [])))
   >- metis_tac []
@@ -126,7 +126,7 @@ val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
  >- (rw [] >>
      imp_res_tac (GSYM untyped_safety_dec) >>
      pop_assum (qspecl_then [`mn`] strip_assume_tac) >>
-     `?s. (?err. r = (s,Rerr err)) ∨ (?cenv env'. r = (s,Rval (cenv,env')))` by metis_tac [pair_CASES, result_nchotomy] >>
+     `?s. (?err. r = (s,Rerr err)) ∨ (?env'. r = (s,Rval env'))` by metis_tac [pair_CASES, result_nchotomy] >>
      rw []
      >- metis_tac []
      >- metis_tac [PAIR_EQ, result_11, pair_CASES, dec_determ, dec_unclocked]));
@@ -161,7 +161,7 @@ val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
      metis_tac [untyped_safety_top])
  >- (rw [] >>
      imp_res_tac (GSYM untyped_safety_top) >>
-     `?s cenv. (?err. r = (s,cenv,Rerr err)) ∨ (?menv env'. r = (s,cenv,Rval (menv,env')))` by metis_tac [pair_CASES, result_nchotomy] >>
+     `?s. (?err. r = (s,Rerr err)) ∨ (?env'. r = (s,Rval env'))` by metis_tac [pair_CASES, result_nchotomy] >>
      rw []
      >- metis_tac []
      >- metis_tac [PAIR_EQ, result_11, pair_CASES, top_determ, top_unclocked]));

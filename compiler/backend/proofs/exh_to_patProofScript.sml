@@ -1,5 +1,5 @@
 open preamble
-     semanticPrimitivesTheory evalPropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
      exhLangTheory exh_to_patTheory
      patLangTheory patPropsTheory
 

@@ -431,9 +431,12 @@ val is_rax_Zreg2num = Q.prove(
 
 val is_rax = Q.prove(
    `!n. n < 16 ==> ((RAX = num2Zreg n) = (n = 0))`,
-   rw [x64Theory.is_rax_def]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ rfs []
+   rw [] \\ fs [wordsTheory.NUMERAL_LESS_THM]
+   )
+
+val is_rdx = Q.prove(
+   `!n. n < 16 ==> ((RDX = num2Zreg n) = (n = 2))`,
+   rw [] \\ fs [wordsTheory.NUMERAL_LESS_THM]
    )
 
 (* some rewrites ---------------------------------------------------------- *)
@@ -606,8 +609,8 @@ in
       EXISTS_TAC n
       \\ simp [asmPropsTheory.asserts_eval, x64_proj_def]
       \\ NTAC 2 STRIP_TAC
-      \\ qpat_x_assum `~(aa).failed` mp_tac
-      \\ qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
+      \\ qpat_x_assum `~(aa : 64 asm_state).failed` mp_tac
+      \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ pop_assum mp_tac
       \\ qpat_x_assum `asm_ok aa x64_config` mp_tac
@@ -624,8 +627,8 @@ in
       \\ unabbrev_all_tac
       \\ rw [combinTheory.APPLY_UPDATE_THM, x64Theory.num2Zreg_11,
              binop_lem10b, adc_lem2, wordsTheory.w2w_n2w,
-             GSYM wordsTheory.word_add_n2w]
-      \\ fs [is_rax, adc_lem1]
+             GSYM wordsTheory.word_add_n2w, GSYM wordsTheory.word_mul_def]
+      \\ fs [is_rax, is_rdx, adc_lem1]
       \\ blastLib.FULL_BBLAST_TAC
     end
 end
@@ -727,7 +730,7 @@ val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
-val x64_encoding = Count.apply Q.prove (
+val x64_encoding = Q.prove (
    `!i. LENGTH (x64_enc i) <> 0`,
    strip_tac
    \\ Cases_on `x64_enc0 i`
@@ -740,7 +743,7 @@ val x64_encoding = Count.apply Q.prove (
 
 val print_tac = asmLib.print_tac ""
 
-val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
+val x64_backend_correct = Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,
    simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
          x64_target_def]
@@ -809,6 +812,20 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
             print_tac "Shift"
             \\ Cases_on `s`
             \\ Cases_on `n1 = 1`
+            \\ next_tac []
+            )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ next_tac []
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
             \\ next_tac []
             )
             (*--------------

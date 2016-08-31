@@ -13,15 +13,13 @@ val add_ast_compset = computeLib.extend_compset
     ,libTheory.opt_bind_def
     ,terminationTheory.is_value_def
     ,astTheory.pat_bindings_def
-    ,astTheory.mk_id_def
+    ,namespaceTheory.mk_id_def
     ,typeSystemTheory.check_ctor_tenv_def
     ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
     ,terminationTheory.check_type_names_def
     ,terminationTheory.type_name_subst_def
     ,typeSystemTheory.check_exn_tenv_def
-    ,typeSystemTheory.merge_mod_env_def
-    ,typeSystemTheory.lookup_mod_env_def
     ,typeSystemTheory.tid_exn_to_tc_def
     ,typeSystemTheory.build_ctor_tenv_def
     ,terminationTheory.check_dup_ctors_thm
@@ -30,10 +28,8 @@ val add_ast_compset = computeLib.extend_compset
     ,semanticPrimitivesTheory.string_escape_def
     ,semanticPrimitivesTheory.build_tdefs_def
     ,semanticPrimitivesTheory.result_case_def
-    ,semanticPrimitivesTheory.merge_alist_mod_env_def
     ,semanticPrimitivesTheory.match_result_case_def
     ,semanticPrimitivesTheory.combine_dec_result_def
-    ,semanticPrimitivesTheory.lookup_alist_mod_env_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
     ,semanticPrimitivesTheory.no_dup_mods_def
@@ -62,12 +58,12 @@ val add_ast_compset = computeLib.extend_compset
     ,``:opn``
     ,``:opw``
     ,``:ast$shift``
-    ,``:'a ast$id``
     ,``:ast$word_size``
+     ,``:('a,'b) namespace$id``
     ,``:eq_result``
     ,``:ast$tctor``
+    ,``:'a sem_env``
     ,``:ast$t``
-    ,``:'a environment``
     ]]
 
 val add_lexparse_compset = computeLib.extend_compset

@@ -709,6 +709,20 @@ val arm8_encoding = Q.prove (
             \\ shift_cases_tac
             \\ enc_tac
             )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ enc_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
+            \\ enc_tac
+            )
             (*--------------
                 AddCarry
               --------------*)
@@ -770,7 +784,7 @@ val enc_ok_rwts =
 
 val print_tac = asmLib.print_tac "correct"
 
-val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
+val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
    `backend_correct arm8_target`,
    simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
          arm8_target_def]
@@ -881,6 +895,20 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
                 imp_res_tac asr2
             ]
             \\ simp []
+            )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ lfs enc_rwts
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
+            \\ lfs enc_rwts
             )
             (*--------------
                 AddCarry

@@ -253,6 +253,6 @@ val _ = translate(Replicate_code_def|> inline_simp |> conv64)
 
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();
-
-

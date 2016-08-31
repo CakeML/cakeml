@@ -153,6 +153,23 @@ val write_mem_word_consts = prove(
               ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
   Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
 
+val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
+  `((binop_upd a b c d x).mem_domain = x.mem_domain) ∧
+   ((binop_upd a b c d x).align = x.align) ∧
+   ((binop_upd a b c d x).failed = x.failed) ∧
+   ((binop_upd a b c d x).mem = x.mem) ∧
+   ((binop_upd a b c d x).lr = x.lr) ∧
+   ((binop_upd a b c d x).be = x.be)`,
+  Cases_on`b`>>EVAL_TAC);
+
+val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
+  `((arith_upd a x).mem_domain = x.mem_domain) ∧
+   ((arith_upd a x).align = x.align) ∧
+   ((arith_upd a x).mem = x.mem) ∧
+   ((arith_upd a x).lr = x.lr) ∧
+   ((arith_upd a x).be = x.be)`,
+  Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
+
 val asm_consts = store_thm("asm_consts[simp]",
   ``!i w s. ((asm i w s).be = s.be) /\
             ((asm i w s).lr = s.lr) /\

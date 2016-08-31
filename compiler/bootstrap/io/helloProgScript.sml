@@ -248,9 +248,6 @@ val raw_evaluate_prog = let
   val entire_program_def = Define `entire_program = ^tm`
   val th = th |> SIMP_RULE std_ss [GSYM entire_program_def,PULL_EXISTS,
                    ml_progTheory.ML_code_def,ml_progTheory.Prog_def]
-  val lemma = prove(``x = y ==> T``,fs [])
-  val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
-             (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[lemma])) th
   in th end
 
 val _ = export_theory ()

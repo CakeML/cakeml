@@ -95,4 +95,6 @@ val lexer_fun_side = prove(``
   simp[Once (fetch"-""lexer_fun_side_def"),
        Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0
+
 val _ = export_theory();

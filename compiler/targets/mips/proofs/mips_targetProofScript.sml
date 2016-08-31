@@ -364,6 +364,20 @@ val mips_encoding = Q.prove (
             \\ Cases_on `n1 < 32`
             \\ enc_tac
             )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ enc_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongMul"
+            \\ enc_tac
+            )
             (*--------------
                 AddCarry
               --------------*)
@@ -418,7 +432,7 @@ val enc_ok_rwts =
 
 val print_tac = asmLib.print_tac "correct"
 
-val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
+val mips_backend_correct = Q.store_thm ("mips_backend_correct",
    `backend_correct mips_target`,
    simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
          mips_target_def]
@@ -484,6 +498,20 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
             print_tac "Shift"
             \\ Cases_on `s`
             \\ Cases_on `n1 < 32`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongMul"
             \\ next_tac
             )
             (*--------------

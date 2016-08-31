@@ -84,6 +84,23 @@ val arith_upd_def = Define `
        in
          upd_reg r4 (Word (if dimword(:'a) <= r then 1w else 0w))
             (upd_reg r1 (Word (n2w r)) s)
+     | _ => assert F s) /\
+  (arith_upd (LongMul r1 r2 r3 r4) s =
+     case (read_reg r3 s, read_reg r4 s) of
+     | (Word w3, Word w4) =>
+       let r = w2n w3 * w2n w4 in
+       upd_reg r1 (Word (n2w (r DIV dimword(:'a))))
+         (upd_reg r2 (Word (n2w r)) s)
+     | _ => assert F s)
+     /\
+  (arith_upd (LongDiv r1 r2 r3 r4 r5) s =
+     case (read_reg r3 s, read_reg r4 s, read_reg r5 s) of
+     | (Word w3, Word w4, Word w5) =>
+       let n = w2n w3 * dimword (:'a) + w2n w4 in
+       let d = w2n w5 in
+       let q = n DIV d in
+       assert (d ≠ 0 ∧ q < dimword(:'a))
+         (upd_reg r1 (Word (n2w q)) (upd_reg r2 (Word (n2w (n MOD d))) s))
      | _ => assert F s)`
 
 val addr_def = Define `

@@ -80,6 +80,10 @@ val x64_enc_def = Define`
        x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
    (x64_enc0 (Inst (Arith (Shift sh r1 r2 n))) =
        x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r1, n2w n)))) /\
+   (x64_enc0 (Inst (Arith (LongMul _ _ _ r))) =
+       x64$encode (Zmul (Z64, reg r))) /\
+   (x64_enc0 (Inst (Arith (LongDiv _ _ _ _ r))) =
+       x64$encode (Zdiv (Z64, reg r))) /\
    (x64_enc0 (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        x64$encode (Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w))) ++
        x64$encode Zcmc ++

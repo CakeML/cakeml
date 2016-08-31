@@ -60,11 +60,22 @@ val arith_upd_def = Define `
      binop_upd r1 b (read_reg r2 s) (reg_imm ri s) s) /\
   (arith_upd (Shift l r1 r2 n) s =
      upd_reg r1 (word_shift l (read_reg r2 s) n) s) /\
+  (arith_upd (LongMul r1 r2 r3 r4) (s : 'a asm_state) =
+     let r = w2n (read_reg r3 s) * w2n (read_reg r4 s)
+     in
+       upd_reg r1 (n2w (r DIV dimword (:'a))) (upd_reg r2 (n2w r) s)) /\
+  (arith_upd (LongDiv r1 r2 r3 r4 r5) (s : 'a asm_state) =
+     let n = w2n (read_reg r3 s) * dimword (:'a) + w2n (read_reg r4 s) in
+     let d = w2n (read_reg r5 s) in
+     let q = n DIV d
+     in
+       assert (d <> 0 /\ q < dimword (:'a))
+         (upd_reg r1 (n2w q) (upd_reg r2 (n2w (n MOD d)) s))) /\
   (arith_upd (AddCarry r1 r2 r3 r4) (s : 'a asm_state) =
      let r = w2n (read_reg r2 s) + w2n (read_reg r3 s) +
              (if read_reg r4 s = 0w then 0 else 1)
      in
-       upd_reg r4 (if dimword(:'a) <= r then 1w else 0w)
+       upd_reg r4 (if dimword (:'a) <= r then 1w else 0w)
          (upd_reg r1 (n2w r) s))`
 
 val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`

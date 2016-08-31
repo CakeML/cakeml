@@ -1,6 +1,6 @@
 open preamble intSimps;
-open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
-open funBigStepTheory;
+open libTheory astTheory open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
+open evaluateTheory;
 
 val _ = new_theory "termination";
 
@@ -10,7 +10,7 @@ val exps_size_def = Define `exps_size = exp6_size`;
 val pes_size_def = Define `pes_size = exp3_size`;
 val funs_size_def = Define `funs_size = exp1_size`;
 
-val vs_size_def = Define `vs_size = v6_size`;
+val vs_size_def = Define `vs_size = v7_size`;
 val envE_size_def = Define `envE_size = v2_size`;
 val envM_size_def = Define `envM_size = v4_size`;
 
@@ -30,9 +30,9 @@ val exps_size_thm = size_thm "exps_size_thm" ``exps_size`` ``exp_size``;
 val pes_size_thm = size_thm "pes_size_thm" ``pes_size`` ``exp5_size``;
 val funs_size_thm = size_thm "funs_size_thm" ``funs_size`` ``exp2_size``;
 val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
-val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
-val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``;
-val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``;
+(* val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``; *)
+(* val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``; *)
+(* val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``; *)
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -50,7 +50,7 @@ val SUM_MAP_exp4_size_thm = store_thm(
                                       SUM (MAP exp_size (MAP SND ls)) +
                                       LENGTH ls``,
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def])
+Cases >> srw_tac[ARITH_ss][exp_size_def]);
 
 val SUM_MAP_exp5_size_thm = store_thm(
 "SUM_MAP_exp5_size_thm",
@@ -58,7 +58,7 @@ val SUM_MAP_exp5_size_thm = store_thm(
                                 SUM (MAP exp_size (MAP SND ls)) +
                                 LENGTH ls``,
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def])
+Cases >> srw_tac[ARITH_ss][exp_size_def]);
 
 (*
 val SUM_MAP_v2_size_thm = store_thm(
@@ -93,6 +93,17 @@ fun register name def ind =
   in
     ()
   end;
+
+val (nsMap_def, nsMap_ind) =
+  tprove_no_defn ((nsMap_def, nsMap_ind),
+  wf_rel_tac `measure (\(_, env). namespace_size (\x. 1) (\x. 1) (\x. 1) env)`
+  >> Induct_on `m`
+  >> rw [namespace_size_def]
+  >> rw [namespace_size_def]
+  >> first_x_assum drule
+  >> disch_then (qspec_then `v` assume_tac)
+  >> decide_tac);
+val _ = register "nsMap" nsMap_def nsMap_ind;
 
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
@@ -237,17 +248,17 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
    (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
-  fs[check_clock_def,dec_clock_def] >> simp[])
+  fs[check_clock_def,dec_clock_def] >> simp[]);
 
 val check_clock_id = Q.store_thm("check_clock_id",
   `s'.clock ≤ s.clock ⇒ check_clock s' s = s'`,
-  EVAL_TAC >> rw[state_component_equality])
+  EVAL_TAC >> rw[state_component_equality]);
 
-val s = ``s:'ffi state``
-val s' = ``s':'ffi state``
+val s = ``s:'ffi state``;
+val s' = ``s':'ffi state``;
 val clean_term = term_rewrite
   [``check_clock ^s' ^s = s'``,
-   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``];
 
 val evaluate_ind = let
   val evaluate_ind = evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *)
@@ -261,7 +272,7 @@ in prove(goal,
   res_tac >>
   imp_res_tac evaluate_clock >>
   fsrw_tac[ARITH_ss][check_clock_id])
-end
+end;
 
 val evaluate_def = let
   val evaluate_def = evaluate_def |> INST_TYPE[alpha |-> ``:'ffi``] (* TODO: same as above *)
@@ -278,6 +289,6 @@ end
 
 val _ = register "evaluate" evaluate_def evaluate_ind
 
-val _ = export_rewrites["funBigStep.list_result_def"];
+val _ = export_rewrites["evaluate.list_result_def"];
 
 val _ = export_theory ();

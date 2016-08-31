@@ -1,5 +1,5 @@
 open preamble;
-open semanticPrimitivesTheory evalPropsTheory;
+open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
@@ -495,30 +495,30 @@ val do_app = Q.prove (
   Cases_on `s1_i1` >>
   Cases_on `op`
   >- ((* Opn *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* Opb *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* Opw *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >- ((* Shift *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]
       \\ Cases_on`w'` \\ Cases_on`s` \\ fs[shift8_lookup_def,shift64_lookup_def])
   >- ((* Equality *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct])
   >- ((* Opapp *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* Opassign *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_assign_def,store_v_same_type_def] >>
       every_case_tac >> full_simp_tac(srw_ss())[] >-
@@ -526,13 +526,13 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN,sv_rel_cases] >>
       srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> res_tac >> full_simp_tac(srw_ss())[])
   >- ((* Opref *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases] >>
       metis_tac [LIST_REL_LENGTH])
   >- ((* Opderef *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -543,13 +543,13 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[] >>
       srw_tac[][])
   >- ((* Aw8alloc *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases] >>
       metis_tac [LIST_REL_LENGTH])
   >- ((* Aw8sub *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -560,7 +560,7 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[] >>
       srw_tac[][markerTheory.Abbrev_def])
   >- ((* Aw8length *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -572,7 +572,7 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[] >>
       srw_tac[][markerTheory.Abbrev_def])
   >- ((* Aw8update *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -585,39 +585,39 @@ val do_app = Q.prove (
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][])
   >- ((* WordFromInt *)
-    srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
+    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* WordToInt *)
-    srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
+    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* Ord *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* Chr *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* Chopb *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* Explode *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       simp[char_list_to_v])
   >- ((* Implode *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][])
   >- ((* Strlen *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
   >- ((* VfromList *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       imp_res_tac v_to_list >>
       srw_tac[][])
   >- ((* Vsub *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
@@ -626,18 +626,18 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
       full_simp_tac(srw_ss())[arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ])
   >- ((* Vlength *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       srw_tac[][] >>
       metis_tac [LIST_REL_LENGTH, vs_rel_list_rel])
   >- ((* Aalloc *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases, vs_rel_list_rel, LIST_REL_REPLICATE_same] >>
       metis_tac [LIST_REL_LENGTH])
   >- ((* Asub *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
       srw_tac[][] >>
@@ -655,7 +655,7 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
       decide_tac)
   >- ((* Alength *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       srw_tac[][] >>
       full_simp_tac(srw_ss())[store_lookup_def, sv_rel_cases] >>
@@ -665,7 +665,7 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[sv_rel_cases] >>
       metis_tac [store_v_distinct, store_v_11, LIST_REL_LENGTH, vs_rel_list_rel])
   >- ((* Aupdate *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
       srw_tac[][] >>
@@ -685,7 +685,7 @@ val do_app = Q.prove (
       srw_tac[][] >>
       decide_tac)
   >- ((* FFI *)
-      srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -811,7 +811,7 @@ val do_opapp = Q.prove (
            srw_tac[][DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
            srw_tac[][]
            >- (MAP_EVERY qexists_tac [`env with v := (n'', v2)::build_rec_env funs (env with v := env.v ++ env') env.v`, `env'`] >>
-               srw_tac[][evalPropsTheory.build_rec_env_merge, EXTENSION]
+               srw_tac[][semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION]
                >- (srw_tac[][MEM_MAP, EXISTS_PROD] >>
                    imp_res_tac env_rel_dom >>
                    metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
@@ -829,7 +829,7 @@ val do_opapp = Q.prove (
            srw_tac[][DRESTRICT_UNIV, GSYM DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
            MAP_EVERY qexists_tac [`<| m := env''.m; c := env''.c; v := [(n'',v2)] |>`,
                                   `build_rec_env funs env'' env''.v`] >>
-           srw_tac[][semanticPrimitivesTheory.environment_component_equality, evalPropsTheory.build_rec_env_merge, EXTENSION]
+           srw_tac[][semanticPrimitivesTheory.environment_component_equality, semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION]
            >- (match_mp_tac global_env_inv_extend2 >>
                srw_tac[][MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_triple, GSYM MAP_REVERSE]
                >- metis_tac [global_env_inv_add_locals, UNION_EMPTY] >>
@@ -889,8 +889,12 @@ val pmatch = Q.prove (
   srw_tac[][terminationTheory.pmatch_def, modSemTheory.pmatch_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, modSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
+  >> TRY (full_simp_tac(srw_ss())[Once v_rel_cases] >>
+          srw_tac[][modSemTheory.pmatch_def, match_result_rel_def] >>
+          FAIL_TAC "")
   >- (every_case_tac >>
-      full_simp_tac(srw_ss())[match_result_rel_def])
+      full_simp_tac(srw_ss())[match_result_rel_def] >>
+      metis_tac [length_vs_rel])
   >- (every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       metis_tac [length_vs_rel])
@@ -911,8 +915,9 @@ val pmatch = Q.prove (
           full_simp_tac(srw_ss())[sv_rel_cases] >>
           res_tac >>
           full_simp_tac(srw_ss())[]))
-  >> TRY (
-      CASE_TAC >>
+  >- cheat
+  (* first_x_assum (qspecl_then [`env'`,`env''`,`genv`,`env_i1`,`s_i1`,`v_i1`] assume_tac) *)
+  >- (CASE_TAC >>
       every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       srw_tac[][] >>
@@ -922,9 +927,7 @@ val pmatch = Q.prove (
       srw_tac[][] >>
       CCONTR_TAC >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
-      metis_tac [match_result_rel_def, match_result_distinct]) >>
-  full_simp_tac(srw_ss())[Once v_rel_cases] >>
-  srw_tac[][modSemTheory.pmatch_def, match_result_rel_def]);
+      metis_tac [match_result_rel_def, match_result_distinct])) ;
 
 (* compiler correctness *)
 
@@ -986,12 +989,12 @@ val global_env_inv_lookup_mod3 = Q.prove (
   metis_tac []);
 
 val s = mk_var("s",
-  ``bigStep$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
   |> type_subst[alpha |-> ``:'ffi``]);
 
 val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
-     funBigStep$evaluate s env es = res ⇒
+     evaluate$evaluate s env es = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !mods tops s' r env_i1 s_i1 es_i1 locals.
        res = (s',r) ∧
@@ -1004,7 +1007,7 @@ val compile_exp_correct' = Q.prove (
          s_rel s' s'_i1 ∧
          modSem$evaluate env_i1 s_i1 es_i1 = (s'_i1, r_i1)) ∧
    (∀^s env v pes err_v res.
-     funBigStep$evaluate_match s env v pes err_v = res ⇒
+     evaluate$evaluate_match s env v pes err_v = res ⇒
      SND res ≠ Rerr (Rabort Rtype_error) ⇒
      !mods tops s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals.
        (res = (s',r)) ∧
@@ -1167,7 +1170,7 @@ val compile_exp_correct' = Q.prove (
       full_simp_tac(srw_ss())[Abbr`ss`] >>
       first_x_assum drule >>
       impl_tac >- (
-        full_simp_tac(srw_ss())[s_rel_cases,modSemTheory.dec_clock_def,funBigStepTheory.dec_clock_def] ) >>
+        full_simp_tac(srw_ss())[s_rel_cases,modSemTheory.dec_clock_def,evaluateTheory.dec_clock_def] ) >>
       strip_tac >> full_simp_tac(srw_ss())[PULL_EXISTS] >>
       asm_exists_tac >> full_simp_tac(srw_ss())[] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -1199,7 +1202,7 @@ val compile_exp_correct' = Q.prove (
       full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >>
       BasicProvers.TOP_CASE_TAC >> srw_tac[][evaluate_def] ) >>
     BasicProvers.TOP_CASE_TAC >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-    imp_res_tac funBigStepPropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
     Cases_on`a`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
     reverse BasicProvers.TOP_CASE_TAC >- (
       srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
@@ -1256,7 +1259,7 @@ val compile_exp_correct' = Q.prove (
     disch_then drule >> simp[] >> strip_tac >>
     asm_exists_tac >> simp[] >>
     asm_exists_tac >> simp[] >>
-    imp_res_tac funBigStepPropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
     Cases_on`a`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
     full_simp_tac(srw_ss())[semanticPrimitivesTheory.do_if_def] >>
     qpat_x_assum`_ = SOME _`mp_tac >> srw_tac[][] >>
@@ -1283,7 +1286,7 @@ val compile_exp_correct' = Q.prove (
     FIRST_X_ASSUM drule >> simp[] >> strip_tac >>
     rator_x_assum`result_rel`mp_tac >>
     simp[Once result_rel_cases] >> strip_tac >>
-    imp_res_tac funBigStepPropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
     Cases_on`a`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
     full_simp_tac(srw_ss())[vs_rel_list_rel] >>
     first_x_assum drule >>
@@ -1346,7 +1349,7 @@ val compile_exp_correct' = Q.prove (
     first_x_assum match_mp_tac >> simp[] >>
     full_simp_tac(srw_ss())[env_all_rel_cases,semanticPrimitivesTheory.environment_component_equality] >>
     srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][] >>
-    simp[evalPropsTheory.build_rec_env_merge,build_rec_env_merge] >>
+    simp[semanticPrimitivesPropsTheory.build_rec_env_merge,build_rec_env_merge] >>
     qexists_tac`env''`>>simp[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] >>
     simp[UNION_COMM] >>
     imp_res_tac global_env_inv_add_locals >> simp[] >>
@@ -1610,7 +1613,7 @@ val letrec_global_env = Q.prove (
                  []
                  ∅
                  (build_rec_env funs env [])`,
-  srw_tac[][evalPropsTheory.build_rec_env_merge] >>
+  srw_tac[][semanticPrimitivesPropsTheory.build_rec_env_merge] >>
   srw_tac[][v_rel_eqns, flookup_fupdate_list] >>
   every_case_tac >>
   srw_tac[][compile_funs_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, RIGHT_EXISTS_AND_THM]
@@ -1652,7 +1655,7 @@ val letrec_global_env = Q.prove (
           metis_tac [find_recfun_el])
       >- metis_tac [letrec_global_env_lem3,FST_triple]))
   |> SIMP_RULE(srw_ss())[FUPDATE_LIST,FST_triple,compile_funs_map,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,
-                         evalPropsTheory.build_rec_env_merge,MAP_REVERSE]
+                         semanticPrimitivesPropsTheory.build_rec_env_merge,MAP_REVERSE]
 
 val compile_dec_num_bindings = Q.prove(
   `!next mn mods tops d next' tops' d_i1.
@@ -1699,7 +1702,7 @@ val pmatch_evaluate_vars_lem =
 val compile_decs_correct = Q.prove (
   `!mn s env ds mods tops env_i1 s' r s_i1 next' tops' ds_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    funBigStep$evaluate_decs mn s env ds = (s',cenv',r) ∧
+    evaluate$evaluate_decs mn s env ds = (s',cenv',r) ∧
     global_env_inv s_i1.globals mods tops env.m {} env.v ∧
     env_all_rel s_i1.globals mods tops env env_i1 {} ∧
     s_rel s s_i1 ∧
@@ -1723,8 +1726,8 @@ val compile_decs_correct = Q.prove (
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) (Rerr err) (Rerr err_i1) ∧
           s_rel s' s'_i1)`,
-  ho_match_mp_tac funBigStepTheory.evaluate_decs_ind >>
-  simp [funBigStepTheory.evaluate_decs_def] >>
+  ho_match_mp_tac evaluateTheory.evaluate_decs_ind >>
+  simp [evaluateTheory.evaluate_decs_def] >>
   conj_tac
   >- ntac 2 (rw [compile_dec_def, compile_decs_def, evaluate_decs_def, v_rel_eqns]) >>
   conj_tac
@@ -1882,7 +1885,7 @@ val compile_decs_correct = Q.prove (
     qpat_abbrev_tac `tops' = (tops |++ X)` >>
     qexists_tac `MAP (λ(f,x,e). (f, Closure (env.c,[]) x e)) (compile_funs mods tops' (REVERSE funs))` >>
     simp [compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,fst_alloc_defs,
-          evalPropsTheory.build_rec_env_merge,MAP_REVERSE,ETA_AX] >>
+          semanticPrimitivesPropsTheory.build_rec_env_merge,MAP_REVERSE,ETA_AX] >>
     conj_tac
     >- fs [env_all_rel_cases] >>
     conj_tac
@@ -2063,7 +2066,7 @@ val compile_top_decs = Q.store_thm("compile_top_decs",
 val evaluate_tops_decs = Q.store_thm("evaluate_tops_decs",
   `evaluate_tops st env (top::prog) =
    let (mno,ds) = case top of Tmod mn _ ds => (SOME mn,ds) | Tdec d => (NONE,[d]) in
-   let (st',new_ctors,r) = funBigStep$evaluate_decs mno st env ds in
+   let (st',new_ctors,r) = evaluate$evaluate_decs mno st env ds in
    let (st',new_ctors,r) =
      case mno of SOME mn =>
        if mn ∉ st.defined_mods ∧ no_dup_types ds
@@ -2076,19 +2079,19 @@ val evaluate_tops_decs = Q.store_thm("evaluate_tops_decs",
        let (new_mods,new_vals) = case mno of SOME mn => ([(mn,new_vals)],[]) | _ => ([],new_vals) in
        let (st'',new_ctors',r) = evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) prog in
          (st'',merge_alist_mod_env new_ctors' new_ctors,combine_mod_result new_mods new_vals r)`,
-  Cases_on`prog` \\ simp[funBigStepTheory.evaluate_tops_def]
+  Cases_on`prog` \\ simp[evaluateTheory.evaluate_tops_def]
   \\ rpt (pairarg_tac \\ fs[])
   >- (
     every_case_tac \\ fs[]
-    \\ rw[funBigStepTheory.evaluate_tops_def,combine_mod_result_def]
-    \\ Cases_on`d` \\ fs[funBigStepTheory.evaluate_decs_def]
+    \\ rw[evaluateTheory.evaluate_tops_def,combine_mod_result_def]
+    \\ Cases_on`d` \\ fs[evaluateTheory.evaluate_decs_def]
     \\ every_case_tac \\ fs[] )
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ Cases_on`top`\\fs[]\\rw[]\\fs[]\\rw[]
-  \\ fs[funBigStepTheory.evaluate_tops_def]
+  \\ fs[evaluateTheory.evaluate_tops_def]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ Cases_on`d` \\ fs[funBigStepTheory.evaluate_decs_def]
+  \\ Cases_on`d` \\ fs[evaluateTheory.evaluate_decs_def]
   \\ every_case_tac \\ fs[] );
 
 val evaluate_decs_to_dummy_env = Q.store_thm("evaluate_decs_to_dummy_env",
@@ -2136,7 +2139,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
          result_rel (\a b (c:'a). T) (s_i1.globals ++ new_genv) r (Rerr err_i1))`,
   Induct_on`prog`
   \\ fs[compile_prog_def]
-  >- ( rw[funBigStepTheory.evaluate_tops_def,evaluate_prompts_def] \\ fs[] )
+  >- ( rw[evaluateTheory.evaluate_tops_def,evaluate_prompts_def] \\ fs[] )
   \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
@@ -2168,14 +2171,14 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       \\ Cases_on`d` \\ fs[compile_dec_def] \\ rveq \\ fs[]
       \\ NO_TAC)
     \\ TRY (
-      Cases_on`prog` \\ fs[funBigStepTheory.evaluate_tops_def,compile_prog_def]
+      Cases_on`prog` \\ fs[evaluateTheory.evaluate_tops_def,compile_prog_def]
       \\ rveq \\ fs[]
       \\ every_case_tac \\ fs[] \\ rw[] \\ fs[] \\ NO_TAC)
     \\ fs[semanticPrimitivesTheory.no_dup_types_def,semanticPrimitivesTheory.decs_to_types_def]
-    \\ every_case_tac \\ fs[funBigStepTheory.evaluate_decs_def]
+    \\ every_case_tac \\ fs[evaluateTheory.evaluate_decs_def]
     \\ fs[compile_decs_def,compile_dec_def] \\ rveq
     \\ fs[no_dup_types_def,decs_to_types_def]
-    \\ Cases_on`prog`\\fs[funBigStepTheory.evaluate_tops_def,funBigStepTheory.evaluate_decs_def]
+    \\ Cases_on`prog`\\fs[evaluateTheory.evaluate_tops_def,evaluateTheory.evaluate_decs_def]
     \\ every_case_tac \\ fs[] )
   \\ pairarg_tac \\ fs[]
   \\ strip_tac
@@ -2242,7 +2245,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ rator_x_assum`invariant`mp_tac
     \\ simp[extend_top_env_def,invariant_def]
     \\ fs[Abbr`s2`]
-    \\ imp_res_tac funBigStepEquivTheory.functional_evaluate_decs
+    \\ imp_res_tac evaluateEquivTheory.functional_evaluate_decs
     \\ imp_res_tac eval_ds_no_new_mods \\ fs[]
     \\ Cases_on`mno`\\fs[]\\rveq\\fs[] \\ strip_tac
     \\ Cases_on`h` \\ fs[] \\ rveq
@@ -2403,7 +2406,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
      (∀err. r = Rerr err ⇒ ∃err_i1. r_i1 = SOME err_i1 ∧
        ∃new_genv.
          result_rel (\a b (c:'a). T) (s_i1.globals ++ new_genv) r (Rerr err_i1))`,
-  rw[modSemTheory.evaluate_prog_def, funBigStepTheory.evaluate_prog_def]
+  rw[modSemTheory.evaluate_prog_def, evaluateTheory.evaluate_prog_def]
   \\ imp_res_tac compile_prog_mods
   \\ imp_res_tac compile_prog_top_types
   \\ imp_res_tac compile_prog_mods_ok
@@ -2419,7 +2422,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
   \\ Cases_on`r`\\fs[invariant_def]
   \\ metis_tac[PAIR]);
 
-open semanticsTheory funBigStepEquivTheory
+open semanticsTheory evaluateEquivTheory
 
 val precondition_def = Define`
   precondition s1 env1 c s2 env2 ⇔
@@ -2550,6 +2553,6 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[funBigStepPropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
+  \\ metis_tac[evaluatePropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
 
 val _ = export_theory ();

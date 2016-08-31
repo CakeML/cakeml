@@ -49,6 +49,7 @@ val prog_x64_def = zDefine`
 
 val cs = wordsLib.words_compset();
 val () = basicComputeLib.add_basic_compset cs;
+val () = semanticsComputeLib.add_ast_compset cs;
 val () = compilerComputeLib.add_compiler_compset cs;
 val eval = computeLib.CBV_CONV cs;
 
@@ -252,12 +253,47 @@ val to_bvi_thm0 =
       PATH_CONV"rllr"(REWR_CONV bvl_conf_clos_conf_next_loc) THENC
       PATH_CONV"rlllr"(REWR_CONV bvl_conf_clos_conf_start) THENC
       PATH_CONV"rlr"(REWR_CONV bvl_conf_bvl_conf))
-  |> time (CONV_RULE(RAND_CONV eval))
-val (c,p) = to_bvi_thm0 |> rconc |> dest_pair
+
+val _ = Lib.say "... inline: "
+val th1 =
+  to_bvi_thm0 |> rconc |> rand |>
+  (REWR_CONV bvl_to_bviTheory.compile_def THENC
+   RAND_CONV(
+     RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
+     RATOR_CONV(RAND_CONV eval) THENC
+     REWR_CONV bvl_to_bviTheory.optimise_def THENC
+     RAND_CONV (time eval)))
+
+val mapfn = th1 |> rconc |> rand |> rator |> rand
+fun eval_fn i n t = eval(mk_comb(mapfn,t)) before Lib.say(String.concat[Int.toString i,".",Int.toString n,"\n"])
+val els = th1 |> rconc |> rand |> rand |> listSyntax.dest_list |> #1
+val _ = Lib.say "... optimise: "
+
+(*
+val tm1 =
+mk_comb(mapfn,el 24 els)
+|> PAIRED_BETA_CONV
+|> rconc |> rand |> rand
+val res = time eval tm1
+*)
+
+val mapths = time (parlist 8 40 eval_fn) els;
+
+val _ = Lib.say "... compile: "
+val th2 = th1 |> CONV_RULE(RAND_CONV(
+  RAND_CONV(map_ths_conv mapths) THENC
+  time eval))
+
+val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
+  RAND_CONV(REWR_CONV th2) THENC
+  REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
+  REWR_CONV LET_THM THENC BETA_CONV))
+
+val (c,p) = to_bvi_thm1 |> rconc |> dest_pair
 val bvi_conf_def = zDefine`bvi_conf = ^c`;
 val bvi_prog_def = zDefine`bvi_prog = ^p`;
 val to_bvi_thm =
-  to_bvi_thm0 |> CONV_RULE(RAND_CONV(
+  to_bvi_thm1 |> CONV_RULE(RAND_CONV(
     FORK_CONV(REWR_CONV(SYM bvi_conf_def),
               REWR_CONV(SYM bvi_prog_def))));
 val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;

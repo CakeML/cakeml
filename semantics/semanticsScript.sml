@@ -15,10 +15,10 @@ parse toks =
 val _ = Datatype`
   state = <| (* Type system state *)
             tdecs : decls;
-            tenv : type_environment;
+            tenv : type_env;
             (* Semantics state *)
             sem_st : 'ffi semanticPrimitives$state;
-            sem_env : v environment |>`;
+            sem_env : v sem_env |>`;
 
 val _ = hide "state";
 
@@ -31,7 +31,7 @@ can_type_prog state prog ⇔
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
-    let (st',envC,r) =
+    let (st',r) =
       evaluate_prog (st with clock := k) env prog
     in (st'.ffi,r)`;
 
@@ -39,12 +39,14 @@ val semantics_prog_def = Define `
 (semantics_prog st env prog (Terminate outcome io_list) ⇔
   (* there is a clock for which evaluation terminates, either internally or via
      FFI, and the accumulated io events match the given io_list *)
-  ?k ffi r.
+  (?k ffi r.
     evaluate_prog_with_clock st env k prog = (ffi,r) ∧
     (if ffi.final_event = NONE then
-       (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+       (r ≠ Rerr (Rabort Rtimeout_error)) ∧ outcome = Success
      else outcome = FFI_outcome (THE ffi.final_event)) ∧
     (io_list = ffi.io_events)) ∧
+  (!k ffi.
+    evaluate_prog_with_clock st env k prog ≠ (ffi, Rerr (Rabort Rtype_error)))) ∧
 (semantics_prog st env prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.

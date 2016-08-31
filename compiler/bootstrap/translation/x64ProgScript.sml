@@ -115,4 +115,6 @@ val _ = translate x64_enc_def
 
 val _ = translate (x64_config_def |> gconv)
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();

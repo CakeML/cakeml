@@ -564,14 +564,30 @@ val assign_def = Define `
         ,l)
       | _ => (GiveUp,l))
     (* TODO: WordShift W64 *)
-    (* TODO:
     | WordFromInt => (case args of
       | [v1] =>
         let len = if dimindex(:'a) < 64 then 2 else 1 in
         (case encode_header c 3 len of
          | NONE => (GiveUp,l)
-         | SOME (header:'a word) => ...)
-      | _ => (Skip, l)) *)
+         | SOME (header:'a word) =>
+           list_Seq [
+             Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * n2w (len+1))]);
+             Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+             if len = 1 then
+               Store (Op Add [Var 1; Const bytes_in_word]) 3
+             else
+               list_Seq [
+                 Assign 5 (Const 0w);
+                 Store (Op Add [Var 1; Const bytes_in_word]) 5;
+                 Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 3 ];
+             Assign 3 (Const header);
+             Store (Var 1) 3;
+             Set EndOfHeap (Var 1);
+             Assign (adjust_var dest)
+               (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                            (Nat (shift_length c − shift (:'a)));
+                          Const 1w])], l)
+      | _ => (Skip, l))
     (* TODO: WordToInt *)
     | FFI ffi_index =>
       (case args of

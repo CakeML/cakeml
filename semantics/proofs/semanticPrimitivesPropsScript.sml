@@ -2,25 +2,34 @@
  * semantic primitives. *)
 
 open preamble;
-open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
+open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
 open terminationTheory;
+open namespacePropsTheory;
 open boolSimps;
 
-val _ = new_theory "evalProps";
+val _ = new_theory "semanticPrimitivesProps";
 
 val with_same_v = Q.store_thm("with_same_v[simp]",
-  `(env:'v environment) with v := env.v = env`,
-  srw_tac[][environment_component_equality]);
+  `(env:'v sem_env) with v := env.v = env`,
+  srw_tac[][sem_env_component_equality]);
+
+val unchanged_env = Q.store_thm ("unchanged_env[simp]",
+ `!(env : 'a sem_env).
+  <| v := env.v; c := env.c |> = env`,
+ rw [sem_env_component_equality]);
 
 val with_same_clock = Q.store_thm("with_same_clock",
   `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
   rw[semanticPrimitivesTheory.state_component_equality])
 
-val mk_id_11 = Q.store_thm("mk_id_11[simp]",
-  `mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
-  map_every Cases_on[`a`,`c`] >> EVAL_TAC)
-
 val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,srw_tac[][Boolv_def]);
+
+val extend_dec_env_assoc = Q.store_thm ("extend_dec_env_assoc[simp]",
+  `!env1 env2 env3.
+    extend_dec_env env1 (extend_dec_env env2 env3)
+    =
+    extend_dec_env (extend_dec_env env1 env2) env3`,
+ rw [extend_dec_env_def]);
 
 val Tword_simp = Q.store_thm("Tword_simp[simp]",
   `(∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
@@ -103,6 +112,7 @@ val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
  >- srw_tac[][pat_bindings_def]
  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
  >- srw_tac[][pat_bindings_def]
  >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
 
@@ -137,6 +147,35 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
  qexists_tac `env'''++env''` >>
  srw_tac[][] >>
  metis_tac [pat_bindings_accum]);
+
+val pmatch_acc = Q.store_thm ("pmatch_acc",
+ `(!envc store p v env env' env2.
+    (pmatch envc store p v env = Match env' ⇔
+     pmatch envc store p v (env++env2) = Match (env'++env2)) ∧
+    (pmatch envc store p v env = No_match ⇔
+     pmatch envc store p v (env++env2) = No_match) ∧
+    (pmatch envc store p v env = Match_type_error ⇔
+     pmatch envc store p v (env++env2) = Match_type_error)) ∧
+  (!envc store ps vs env env' env2.
+    (pmatch_list envc store ps vs env = Match env' ⇔
+     pmatch_list envc store ps vs (env++env2) = Match (env'++env2)) ∧
+    (pmatch_list envc store ps vs env = No_match ⇔
+     pmatch_list envc store ps vs (env++env2) = No_match) ∧
+    (pmatch_list envc store ps vs env = Match_type_error ⇔
+     pmatch_list envc store ps vs (env++env2) = Match_type_error))`,
+ ho_match_mp_tac pmatch_ind
+ >> rw [pmatch_def]
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >- (every_case_tac >> rw [])
+ >> CASE_TAC
+ >> rw []
+ >> CASE_TAC
+ >> rw []
+ >> metis_tac [match_result_distinct, match_result_11]);
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
@@ -305,7 +344,6 @@ val do_app_cases = Q.store_thm ("do_app_cases",
  every_case_tac >>
  srw_tac[][] >>
  metis_tac []);
- *)
 
 val do_opapp_cases = store_thm("do_opapp_cases",
   ``∀env' vs v.
@@ -322,21 +360,22 @@ val do_opapp_cases = store_thm("do_opapp_cases",
   srw_tac[][do_opapp_def] >>
   cases_on `vs` >> srw_tac[][] >>
   every_case_tac >> metis_tac []);
+ *)
 
 val build_rec_env_help_lem = Q.prove (
-`∀funs env funs'.
-FOLDR (λ(f,x,e) env'. (f,Recclosure env funs' f)::env') env' funs =
-MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'`,
-Induct >>
-srw_tac[][] >>
-PairCases_on `h` >>
-srw_tac[][]);
+  `∀funs env funs'.
+    FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
+    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'`,
+ Induct >>
+ srw_tac[][] >>
+ PairCases_on `h` >>
+ srw_tac[][]);
 
 (* Alternate definition for build_rec_env *)
 val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
 `∀funs funs' env env'.
   build_rec_env funs env env' =
-  MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs ++ env'`,
+  nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs f)) funs)) env'`,
 srw_tac[][build_rec_env_def, build_rec_env_help_lem]);
 
 val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
@@ -345,31 +384,6 @@ val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
 srw_tac[][do_con_check_def, build_conv_def] >>
 every_case_tac >>
 full_simp_tac(srw_ss())[]);
-
-val merge_alist_mod_env_empty = Q.store_thm("merge_alist_mod_env_empty[simp]",
-  `!mod_env. merge_alist_mod_env ([],[]) mod_env = mod_env`,
-  srw_tac[][] >>
-  PairCases_on `mod_env` >>
-  srw_tac[][merge_alist_mod_env_def]);
-
-val merge_alist_mod_env_assoc = Q.store_thm ("merge_alist_mod_env_assoc",
-`∀env1 env2 env3.
-  merge_alist_mod_env env1 (merge_alist_mod_env env2 env3) =
-  merge_alist_mod_env (merge_alist_mod_env env1 env2) env3`,
-srw_tac[][] >>
-PairCases_on `env1` >>
-PairCases_on `env2` >>
-PairCases_on `env3` >>
-srw_tac[][merge_alist_mod_env_def, FUNION_ASSOC]);
-
-val merge_alist_mod_env_empty_assoc = Q.store_thm ("merge_alist_mod_env_empty_assoc",
-`!env1 env2 env3.
-  merge_alist_mod_env ([],env1) (merge_alist_mod_env ([],env2) env3)
-  =
-  merge_alist_mod_env ([],env1 ++ env2) env3`,
- srw_tac[][] >>
- PairCases_on `env3` >>
- srw_tac[][merge_alist_mod_env_def]);
 
 val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
 `!cn1 tn1 cn2 tn2.
@@ -410,10 +424,12 @@ val same_tid_tid = Q.store_thm("same_tid_tid",
 val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
 `(!tvs tn ctors tds mn.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
-    build_tdefs mn tds  ++ REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)) ∧
- (!mn. build_tdefs mn [] = [])`,
- srw_tac[][build_tdefs_def]);
+    nsAppend (build_tdefs mn tds)
+           (alist_to_ns (REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)))) ∧
+ (!mn. build_tdefs mn [] = nsEmpty)`,
+ srw_tac[][build_tdefs_def, REVERSE_APPEND]);
 
+ (*
 val MAP_FST_build_tdefs = store_thm("MAP_FST_build_tdefs",
   ``set (MAP FST (build_tdefs mn ls)) =
     set (MAP FST (FLAT (MAP (SND o SND) ls)))``,
@@ -421,6 +437,7 @@ val MAP_FST_build_tdefs = store_thm("MAP_FST_build_tdefs",
   qx_gen_tac`p`>>PairCases_on`p`>>simp[build_tdefs_cons,MAP_REVERSE] >>
   simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
   metis_tac[UNION_COMM])
+  *)
 
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
@@ -628,7 +645,7 @@ val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
   srw_tac[][EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
   res_tac >>
   qmatch_assum_rename_tac`sv_every P x` >>
-  Cases_on`x`>>full_simp_tac(srw_ss())[EVERY_MEM])
+  Cases_on`x`>>full_simp_tac(srw_ss())[EVERY_MEM]);
 
 val map_sv_compose = store_thm("map_sv_compose",
   ``map_sv f (map_sv g x) = map_sv (f o g) x``,
@@ -639,61 +656,13 @@ val map_match_def = Define`
   (map_match f x = x)`
 val _ = export_rewrites["map_match_def"]
 
-(* TODO see if this is actually needed
-val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_prog_MAP_Tdec",
-  ``∀ck env cs tids ds res.
-      evaluate_decs ck NONE env (cs,tids) ds res
-      ⇔
-      case res of ((s,tids'),envC,r) =>
-      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. ([],envE))(I)r)``,
-  Induct_on`ds`>>simp[Once evaluate_decs_cases,Once evaluate_prog_cases] >- (
-    rpt gen_tac >> BasicProvers.EVERY_CASE_TAC >> simp[] >>
-    Cases_on`r'`>>simp[] ) >>
-  srw_tac[DNF_ss][] >>
-  PairCases_on`res`>>srw_tac[DNF_ss][]>>
-  PairCases_on`env`>>srw_tac[DNF_ss][]>>
-  simp[evaluate_top_cases] >> srw_tac[DNF_ss][] >>
-  srw_tac[DNF_ss][EQ_IMP_THM] >- (
-    Cases_on`e`>>simp[] )
-  >- (
-    disj1_tac >>
-    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(equal``evaluate_dec`` o fst o strip_comb))) >>
-    first_assum(split_pair_match o concl) >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    fsrw_tac[DNF_ss][EQ_IMP_THM] >>
-    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-    simp[] >> strip_tac >>
-    full_simp_tac(srw_ss())[] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    Cases_on`r`>> simp[combine_dec_result_def,combine_mod_result_def,merge_alist_mod_env_def] )
-  >- (
-    disj2_tac >>
-    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(equal``evaluate_dec`` o fst o strip_comb))) >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    fsrw_tac[DNF_ss][EQ_IMP_THM,FORALL_PROD,merge_alist_mod_env_def] >>
-    `∃z. r' = map_result (λenvE. ([],envE)) I z` by (
-      Cases_on`r'`>>full_simp_tac(srw_ss())[combine_mod_result_def] >>
-      TRY(METIS_TAC[]) >>
-      Cases_on`a`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`res4`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      qexists_tac`Rval r` >> simp[] ) >>
-    PairCases_on`new_tds'`>>full_simp_tac(srw_ss())[merge_alist_mod_env_def]>>srw_tac[][]>>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    full_simp_tac(srw_ss())[combine_dec_result_def,combine_mod_result_def] >>
-    BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    TRY (Cases_on`res4`>>full_simp_tac(srw_ss())[]) >>
-    Cases_on`a`>>Cases_on`e`>>full_simp_tac(srw_ss())[]>>srw_tac[][])
-  >- (
-    Cases_on`a`>>full_simp_tac(srw_ss())[]))
-    *)
-
 val find_recfun_ALOOKUP = store_thm(
 "find_recfun_ALOOKUP",
 ``∀funs n. find_recfun n funs = ALOOKUP funs n``,
 Induct >- srw_tac[][semanticPrimitivesTheory.find_recfun_def] >>
 qx_gen_tac `d` >>
 PairCases_on `d` >>
-srw_tac[][semanticPrimitivesTheory.find_recfun_def])
+srw_tac[][semanticPrimitivesTheory.find_recfun_def]);
 
 val find_recfun_el = Q.store_thm("find_recfun_el",
   `!f funs x e n.
@@ -724,33 +693,6 @@ val ctors_of_dec_def = Define`
   ctors_of_dec _ = []`
 val _ = export_rewrites["ctors_of_dec_def"]
 
-val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
-  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
-      ∀cn.
-        IS_SOME (ALOOKUP (FST(SND res)) cn) ⇒
-        MEM cn (FLAT (MAP ctors_of_dec decs))``,
-  HO_MATCH_MP_TAC evaluate_decs_ind >>
-  simp[] >>
-  srw_tac[][Once evaluate_dec_cases] >> simp[] >>
-  full_simp_tac(srw_ss())[ALOOKUP_APPEND] >>
-  full_simp_tac(srw_ss())[] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  full_simp_tac(srw_ss())[FLOOKUP_UPDATE] >>
-  BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[miscTheory.IS_SOME_EXISTS] >>
-  full_simp_tac(srw_ss())[flookup_fupdate_list,MEM_MAP,semanticPrimitivesTheory.build_tdefs_def,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
-  BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac ALOOKUP_MEM >>
-  full_simp_tac(srw_ss())[MEM_FLAT, MEM_MAP] >>
-  srw_tac[][] >>
-  PairCases_on `y` >>
-  full_simp_tac(srw_ss())[MEM_MAP] >>
-  srw_tac[][] >>
-  PairCases_on `y` >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  METIS_TAC[pair_CASES])
-
 (* free vars *)
 
 val FV_def = tDefine "FV"`
@@ -766,6 +708,7 @@ val FV_def = tDefine "FV"`
   (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
   (FV (Let xo e b) = FV e ∪ (FV b DIFF (case xo of NONE => {} | SOME x => {Short x}))) ∧
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
+  (FV (Tannot e t) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
@@ -778,7 +721,7 @@ val FV_def = tDefine "FV"`
      | INL e => exp_size e
      | INR (INL es) => exp6_size es
      | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`)
+     | INR (INR (INR (defs))) => exp1_size defs)`);
 val _ = export_rewrites["FV_def"]
 
 val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
@@ -806,7 +749,7 @@ val new_dec_vs_def = Define`
   (new_dec_vs (Dexn _ _) = []) ∧
   (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
   (new_dec_vs (Dletrec funs) = MAP FST funs)`
-val _ = export_rewrites["new_dec_vs_def"]
+val _ = export_rewrites["new_dec_vs_def"];
 
 val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
 
@@ -817,12 +760,12 @@ val FV_decs_def = Define`
 val FV_top_def = Define`
   (FV_top (Tdec d) = FV_dec d) ∧
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
-val _ = export_rewrites["FV_top_def"]
+val _ = export_rewrites["FV_top_def"];
 
 val new_top_vs_def = Define`
   new_top_vs (Tdec d) = MAP Short (new_dec_vs d) ∧
-  new_top_vs (Tmod mn _ ds) = MAP (Long mn) (new_decs_vs ds)`
-val _ = export_rewrites["new_top_vs_def"]
+  new_top_vs (Tmod mn _ ds) = MAP (Long mn o Short) (new_decs_vs ds)`
+val _ = export_rewrites["new_top_vs_def"];
 
 val FV_prog_def = Define`
   (FV_prog [] = {}) ∧
@@ -831,165 +774,6 @@ val FV_prog_def = Define`
 val all_env_dom_def = Define`
   all_env_dom (envM,envC,envE) =
     IMAGE Short (set (MAP FST envE)) ∪
-    { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`
-
-val st = ``st:'ffi state``
-
-val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_types_mods",
-`(!ck env ^st e r. evaluate ck env st e r ⇒
-   st.defined_types = (FST r).defined_types ∧
-   st.defined_mods = (FST r).defined_mods) ∧
- (!ck env ^st es r. evaluate_list ck env st es r ⇒
-   st.defined_types = (FST r).defined_types ∧
-   st.defined_mods = (FST r).defined_mods) ∧
- (!ck env ^st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒
-   st.defined_types = (FST r).defined_types ∧
-   st.defined_mods = (FST r).defined_mods)`,
- ho_match_mp_tac bigStepTheory.evaluate_ind >>
- srw_tac[][]);
-
-val evaluate_ignores_types_mods = Q.store_thm ("evaluate_ignores_types_mods",
-`(∀ck env ^st e r.
-   evaluate ck env st e r ⇒
-   !x y. evaluate ck env (st with <| defined_types:= x; defined_mods := y |>) e
-            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
- (∀ck env ^st es r.
-   evaluate_list ck env st es r ⇒
-   !x y. evaluate_list ck env (st with <| defined_types:= x; defined_mods := y |>) es
-            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
- (∀ck env ^st v pes err_v r.
-   evaluate_match ck env st v pes err_v r ⇒
-   !x y. evaluate_match ck env (st with <| defined_types:= x; defined_mods := y |>) v pes err_v
-            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r))`,
- ho_match_mp_tac bigStepTheory.evaluate_ind >>
- srw_tac[][] >>
- srw_tac[][Once evaluate_cases, state_component_equality] >>
- metis_tac [state_accfupds, K_DEF]);
-
-val eval_d_no_new_mods = Q.store_thm ("eval_d_no_new_mods",
-`!ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`,
- srw_tac[][evaluate_dec_cases] >>
- imp_res_tac evaluate_no_new_types_mods >>
- full_simp_tac(srw_ss())[]);
-
-val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
-`!ck mn env ^st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`,
- ho_match_mp_tac evaluate_decs_ind >>
- srw_tac[][] >>
- imp_res_tac eval_d_no_new_mods >>
- full_simp_tac(srw_ss())[]);
-
-(* REPL bootstrap lemmas *)
-
-(* TODO
-val evaluate_decs_last3 = prove(
-  ``∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
-      evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
-      decs = decs0 ++ [Dlet (Pvar x) (App Opref [Con i []]);Dlet(Pvar y)(App Opref [Con j []]);Dlet (Pvar p) (Fun q r)]
-      ⇒
-      ∃n ls1 ls2 ls iv jv.
-      c = ((p,(Closure(FST env,merge_alist_mod_env([],b)(FST(SND env)),ls1 ++ SND(SND env)) q r))::ls1) ∧
-      ls1 = ((y,Loc (n+1))::ls2) ∧ n+1 < LENGTH s1 ∧
-      ls2 = ((x,Loc n)::ls) ∧
-      build_conv (merge_alist_mod_env([],b)(FST(SND env))) i [] = SOME iv ∧
-      build_conv (merge_alist_mod_env([],b)(FST(SND env))) j [] = SOME jv ∧
-      (EL n s1 = Refv iv) ∧
-      (EL (n+1) s1 = Refv jv)``,
-  Induct_on`decs0` >>
-  srw_tac[][Once bigStepTheory.evaluate_decs_cases] >- (
-    full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
-    full_simp_tac(srw_ss())[semanticPrimitivesTheory.combine_dec_result_def] >>
-    full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_dec_cases] >>
-    full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_cases] >>
-    full_simp_tac(srw_ss())[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] >>
-    full_simp_tac(srw_ss())[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    full_simp_tac(srw_ss())[semanticPrimitivesTheory.do_app_def] >>
-    full_simp_tac(srw_ss())[semanticPrimitivesTheory.store_alloc_def,LET_THM] >>
-    full_simp_tac(srw_ss())[terminationTheory.pmatch_def] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
-    full_simp_tac(srw_ss())[semanticPrimitivesTheory.combine_dec_result_def] >>
-    full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_dec_cases] >>
-    rator_x_assum`evaluate`mp_tac >>
-    simp[Once bigStepTheory.evaluate_cases] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
-    srw_tac[][] >>
-    full_simp_tac(srw_ss())[pmatch_def] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[Once evaluate_cases] >>
-    full_simp_tac(srw_ss())[Once evaluate_cases] >> srw_tac[][] >>
-    PairCases_on`cenv` >>
-    srw_tac[][merge_alist_mod_env_def] >>
-    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
-    full_simp_tac(srw_ss())[build_conv_def,merge_alist_mod_env_def,lookup_alist_mod_env_def,all_env_to_cenv_def]) >>
-  Cases_on`r'`>>full_simp_tac(srw_ss())[semanticPrimitivesTheory.combine_dec_result_def]>>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  rev_full_simp_tac(srw_ss())[semanticPrimitivesTheory.all_env_to_cenv_def] >>
-  PairCases_on`cenv` >>
-  full_simp_tac(srw_ss())[semanticPrimitivesTheory.merge_alist_mod_env_def, FUNION_ASSOC])
-
-val evaluate_Tmod_last3 = store_thm("evaluate_Tmod_last3",
-  ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
-    decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
-  ⇒
-    ∃n ls1 ls iv jv.
-    env = (p,(Closure (FST env0,merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0)),ls++(SND(SND env0))) q z))::ls ∧
-    (ls = (y,Loc (n+1))::(x,Loc n)::ls1) ∧
-    n+1 < LENGTH (SND cs) ∧
-    build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) i [] = SOME iv ∧
-    build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) j [] = SOME jv ∧
-    (EL n (SND cs) = Refv iv) ∧
-    (EL (n+1) (SND cs) = Refv jv)``,
-  Cases_on`cs`>>srw_tac[][bigStepTheory.evaluate_top_cases]>>
-  imp_res_tac evaluate_decs_last3 >> full_simp_tac(srw_ss())[]) |> GEN_ALL
-
-val evaluate_decs_tys = prove(
-  ``∀decs0 decs1 decs ck mn env s s' tys c tds tvs tn cts cn as.
-    evaluate_decs ck (SOME mn) env s decs (s',tys,Rval c) ∧
-    decs = decs0 ++ [Dtype tds] ++ decs1 ∧
-    MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
-    ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
-    ⇒
-    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
-  Induct >> srw_tac[][Once evaluate_decs_cases] >- (
-    full_simp_tac(srw_ss())[Once evaluate_dec_cases] >> srw_tac[][] >>
-    simp[ALOOKUP_APPEND] >>
-    imp_res_tac evaluate_decs_ctors_in >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    Cases_on`ALOOKUP  (build_tdefs (SOME mn) tds) cn` >- (
-      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, ALOOKUP_NONE, semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
-      METIS_TAC[] ) >>
-    pop_assum mp_tac >>
-    simp[build_tdefs_def] >>
-    simp[] >>
-    srw_tac[][] >>
-    imp_res_tac ALOOKUP_MEM >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    qmatch_assum_abbrev_tac`ALOOKUP al k = SOME v` >>
-    `ALL_DISTINCT (MAP FST al)` by (
-      simp[Abbr`al`,ALL_DISTINCT_REVERSE,rich_listTheory.MAP_REVERSE] >>
-      simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-      full_simp_tac(srw_ss())[check_dup_ctors_thm,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,LAMBDA_PROD] ) >>
-    qmatch_abbrev_tac`v = w` >>
-    `MEM (k,w) al` by (
-      simp[Abbr`al`] >>
-      simp[Abbr`w`,MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD,mk_id_def] >>
-      METIS_TAC[]) >>
-    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> full_simp_tac(srw_ss())[]) >>
-  simp[ALOOKUP_APPEND] >>
-  Cases_on`r`>>full_simp_tac(srw_ss())[semanticPrimitivesTheory.combine_dec_result_def] >>
-  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
-  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
-  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
-  simp[])
-
-val evaluate_Tmod_tys = store_thm("evaluate_Tmod_tys",
-  ``evaluate_top F env s (Tmod mn NONE decs) (s',([(m,tys)],e),Rval r) ⇒
-    decs = decs0 ++ [Dtype tds] ++ decs1 ⇒
-    MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
-    ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
-    ⇒
-    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
-  srw_tac[][evaluate_top_cases,miscTheory.FEMPTY_FUPDATE_EQ] >>
-  METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
-  *)
+    { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`;
 
 val _ = export_theory ();

@@ -1,4 +1,5 @@
-open preamble miscTheory astTheory typeSystemTheory;
+open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
+open namespacePropsTheory;
 open infer_tTheory unifyTheory;
 open stringTheory monadsyntax;
 
@@ -55,21 +56,13 @@ val write_def = Define `
 
 val id_to_string_def = Define `
 (id_to_string (Short x) = x) ∧
-(id_to_string (Long x y) = x ++ "." ++ y)`;
+(id_to_string (Long x y) = x ++ "." ++ id_to_string y)`;
 
 val lookup_st_ex_def = Define `
-(lookup_st_ex pr x [] = failwith ("failed lookup: " ++ pr x)) ∧
-(lookup_st_ex pr x ((y,v)::e) =
-  if x = y then
-    return v
-  else
-    lookup_st_ex pr x e)`;
-
-val flookup_st_ex = Define `
-flookup_st_ex pr x m =
-  case FLOOKUP m x of
-     | NONE => failwith ("failed lookup: " ++ pr x)
-     | SOME v => return v`;
+  lookup_st_ex id ienv st =
+    case nsLookup ienv id of
+    | NONE => (Failure (id_to_string id), st)
+    | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
 infer_st = <| next_uvar : num;
@@ -138,11 +131,10 @@ apply_subst_list ts =
 *)
 
 val _ = Hol_datatype `
- inf_environment =
-  <| inf_m : modN |-> (varN, num # infer_t) alist
+ inf_env =
+  <| inf_v : (modN, varN, num # infer_t) namespace
    ; inf_c : tenv_ctor
-   ; inf_v : (varN, num # infer_t) alist
-   ; inf_t : tenv_tabbrev
+   ; inf_t : tenv_abbrev
    |>`;
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
@@ -203,58 +195,56 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
  res_tac >>
  decide_tac);
 
-val lookup_tenvC_st_ex_def = Define `
-(lookup_tenvC_st_ex (Short cn) (cenvm, cenv) =
-  lookup_st_ex (\x.x) cn cenv) ∧
-(lookup_tenvC_st_ex (Long mn cn) (cenvm, cenv) =
-  do cenv' <- lookup_st_ex (\x. id_to_string (Long x cn)) mn cenvm;
-     lookup_st_ex (\x. id_to_string (Long mn x)) cn cenv'
-  od)`;
-
 val infer_p_def = tDefine "infer_p" `
-(infer_p cenv (Pvar n) =
+(infer_p ienv (Pvar n) =
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
-(infer_p cenv (Plit (IntLit i)) =
+(infer_p ienv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
-(infer_p cenv (Plit (Char s)) =
+(infer_p ienv (Plit (Char s)) =
   return (Infer_Tapp [] TC_char, [])) ∧
-(infer_p cenv (Plit (StrLit s)) =
+(infer_p ienv (Plit (StrLit s)) =
   return (Infer_Tapp [] TC_string, [])) ∧
-(infer_p cenv (Plit (Word8 w)) =
+(infer_p ienv (Plit (Word8 w)) =
   return (Infer_Tapp [] TC_word8, [])) ∧
-(infer_p cenv (Plit (Word64 w)) =
+(infer_p ienv (Plit (Word64 w)) =
   return (Infer_Tapp [] TC_word64, [])) ∧
-(infer_p cenv (Pcon cn_opt ps) =
+(infer_p ienv (Pcon cn_opt ps) =
   case cn_opt of
     | NONE =>
-        do (ts,tenv) <- infer_ps cenv ps;
+        do (ts,tenv) <- infer_ps ienv ps;
            return (Infer_Tapp ts TC_tup, tenv)
         od
     | SOME cn =>
-        do (tvs',ts,tn) <- lookup_tenvC_st_ex cn cenv;
-           (ts'',tenv) <- infer_ps cenv ps;
+        do (tvs',ts,tn) <- lookup_st_ex cn ienv.inf_c;
+           (ts'',tenv) <- infer_ps ienv ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
            () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
            return (Infer_Tapp ts' (tid_exn_to_tc tn), tenv)
         od) ∧
-(infer_p cenv (Pref p) =
-  do (t,tenv) <- infer_p cenv p;
+(infer_p ienv (Pref p) =
+  do (t,tenv) <- infer_p ienv p;
     return (Infer_Tapp [t] TC_ref, tenv)
   od) ∧
-(infer_ps cenv [] =
+(infer_p ienv (Ptannot p t) =
+ do (t',tenv) <- infer_p ienv p;
+    () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) "Bad type annotation";
+    () <- add_constraint t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
+    return (t', tenv)
+ od) ∧
+(infer_ps ienv [] =
   return ([], [])) ∧
-(infer_ps cenv (p::ps) =
-  do (t, tenv) <- infer_p cenv p;
-     (ts, tenv') <- infer_ps cenv ps;
+(infer_ps ienv (p::ps) =
+  do (t, tenv) <- infer_p ienv p;
+     (ts, tenv') <- infer_ps ienv ps;
      return (t::ts, tenv'++tenv)
   od)`
 (WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p
                                   | INR (_,ps) => pat1_size ps)` >>
  rw []);
 
-val infer_p_ind = fetch "-" "infer_p_ind"
+val infer_p_ind = fetch "-" "infer_p_ind";
 
 val constrain_op_def = Define `
 constrain_op op ts =
@@ -417,14 +407,8 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] TC_word8)) ∧
 (infer_e ienv (Lit (Word64 w)) =
   return (Infer_Tapp [] TC_word64)) ∧
-(infer_e ienv (Var (Short n)) =
-  do (tvs,t) <- lookup_st_ex (\x.x) n ienv.inf_v;
-     uvs <- n_fresh_uvar tvs;
-     return (infer_deBruijn_subst uvs t)
-  od) ∧
-(infer_e ienv (Var (Long mn n)) =
-  do venv <- flookup_st_ex (\x. id_to_string (Long x n)) mn ienv.inf_m;
-     (tvs,t) <- lookup_st_ex (\x. id_to_string (Long mn x)) n venv;
+(infer_e ienv (Var id) =
+  do (tvs,t) <- lookup_st_ex id ienv.inf_v;
      uvs <- n_fresh_uvar tvs;
      return (infer_deBruijn_subst uvs t)
   od) ∧
@@ -435,7 +419,7 @@ val infer_e_def = tDefine "infer_e" `
           return (Infer_Tapp ts TC_tup)
        od
     | SOME cn =>
-       do (tvs',ts,tn) <- lookup_tenvC_st_ex cn ienv.inf_c;
+       do (tvs',ts,tn) <- lookup_st_ex cn ienv.inf_c;
           ts'' <- infer_es ienv es;
           ts' <- n_fresh_uvar (LENGTH tvs');
           () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
@@ -443,7 +427,7 @@ val infer_e_def = tDefine "infer_e" `
        od) ∧
 (infer_e ienv (Fun x e) =
   do t1 <- fresh_uvar;
-     t2 <- infer_e (ienv with inf_v:=((x,(0,t1))::ienv.inf_v)) e;
+     t2 <- infer_e (ienv with inf_v := nsBind x (0,t1) ienv.inf_v) e;
      return (Infer_Tapp [t1;t2] TC_fn)
   od) ∧
 (infer_e ienv (App op es) =
@@ -488,7 +472,7 @@ val infer_e_def = tDefine "infer_e" `
   else
     *)
     do t1 <- infer_e ienv e1;
-       t2 <- infer_e (ienv with inf_v:=opt_bind x (0,t1) ienv.inf_v) e2;
+       t2 <- infer_e (ienv with inf_v := nsOptBind x (0,t1) ienv.inf_v) e2;
        return t2
     od) ∧
 (* Don't do polymorphism for non-top-level let recs
@@ -509,12 +493,18 @@ val infer_e_def = tDefine "infer_e" `
 (infer_e ienv (Letrec funs e) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
      uvars <- n_fresh_uvar (LENGTH funs);
-     env' <- return (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars ++ ienv.inf_v);
+     env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
      funs_ts <- infer_funs (ienv with inf_v:=env') funs;
      () <- add_constraints uvars funs_ts;
      t <- infer_e (ienv with inf_v:=env') e;
      return t
   od) ∧
+(infer_e ienv (Tannot e t) =
+  do t' <- infer_e ienv e;
+     () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) "Bad type annotation";
+     () <- add_constraint t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
+     return t'
+   od) ∧
 (infer_es ienv [] =
   return []) ∧
 (infer_es ienv (e::es) =
@@ -525,10 +515,10 @@ val infer_e_def = tDefine "infer_e" `
 (infer_pes ienv [] t1 t2 =
    return ()) ∧
 (infer_pes ienv ((p,e)::pes) t1 t2 =
-  do (t1', env') <- infer_p ienv.inf_c p;
+  do (t1', env') <- infer_p ienv p;
      () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t1';
-     t2' <- infer_e (ienv with inf_v := (MAP (\(n,t). (n,(0,t))) env' ++ ienv.inf_v)) e;
+     t2' <- infer_e (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
      () <- add_constraint t2 t2';
      () <- infer_pes ienv pes t1 t2;
      return ()
@@ -536,7 +526,7 @@ val infer_e_def = tDefine "infer_e" `
 (infer_funs ienv [] = return []) ∧
 (infer_funs ienv ((f, x, e)::funs) =
   do uvar <- fresh_uvar;
-     t <- infer_e (ienv with inf_v:=((x,(0,uvar))::ienv.inf_v)) e;
+     t <- infer_e (ienv with inf_v := nsBind x (0,uvar) ienv.inf_v) e;
      ts <- infer_funs ienv funs;
      return (Infer_Tapp [uvar;t] TC_fn::ts)
   od)`
@@ -546,13 +536,15 @@ val infer_e_def = tDefine "infer_e" `
                                     | INR (INR (INR (_,funs))) => exp1_size funs)` >>
  rw []);
 
-(* The final part of the inferencer state that appears at the decls level (and above) are the declared names. The only difference from the type system is that we use lists instead of sets *)
+(* The final part of the inferencer state that appears at the decls level (and
+ * above) are the declared names. The only difference from the type system is
+ * that we use lists instead of sets *)
 
 val _ = Hol_datatype `
  inf_decls =
-  <| inf_defined_mods : modN list;
-     inf_defined_types : (typeN id) list;
-     inf_defined_exns : (conN id) list|>`;
+  <| inf_defined_mods : modN list list;
+     inf_defined_types : ((modN, typeN) id) list;
+     inf_defined_exns : ((modN, conN) id) list|>`;
 
 val empty_inf_decls = Define `
  (empty_inf_decls = (<|inf_defined_mods := []; inf_defined_types := []; inf_defined_exns := []|>))`;
@@ -562,43 +554,58 @@ val infer_d_def = Define `
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e ienv e;
-     (t2,env') <- infer_p ienv.inf_c p;
+     (t2,env') <- infer_p ienv p;
      () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
      () <- guard (num_tvs = 0 ∨ is_value e) "Value restriction violated";
-     return (empty_inf_decls, FEMPTY, [], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'))
+     return (empty_inf_decls,
+             <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
+                inf_c := nsEmpty;
+                inf_t := nsEmpty |>)
   od) ∧
 (infer_d mn idecls ienv (Dletrec funs) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
-     env' <- return (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars ++ ienv.inf_v);
+     env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
      funs_ts <- infer_funs (ienv with inf_v:= env') funs;
      () <- add_constraints uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
-     return (empty_inf_decls,FEMPTY, [], list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts')
+     return (empty_inf_decls,
+             <| inf_v := alist_to_ns (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts');
+                inf_c := nsEmpty;
+                inf_t := nsEmpty |>)
   od) ∧
 (infer_d mn idecls ienv (Dtype tdefs) =
-  do inf_t' <- return (FEMPTY |++ (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
-     inf_t'' <- return (merge_mod_env (FEMPTY,inf_t') ienv.inf_t);
-     () <- guard (check_ctor_tenv mn inf_t'' tdefs) "Bad type definition";
+  do ienvT1 <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
+     ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
+     () <- guard (check_ctor_tenv ienvT2 tdefs) "Bad type definition";
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
      () <- guard (EVERY (\new_id. ~MEM new_id idecls.inf_defined_types) new_tdecls) "Duplicate type definition";
-     return (empty_inf_decls with inf_defined_types := new_tdecls,inf_t', build_ctor_tenv mn inf_t'' tdefs, [])
+     return (empty_inf_decls with inf_defined_types := new_tdecls,
+             <| inf_v := nsEmpty;
+                inf_c := build_ctor_tenv mn ienvT2 tdefs;
+                inf_t := ienvT1 |>)
   od) ∧
 (infer_d mn idecls ienv (Dtabbrev tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) "Bad type definition";
-     return (empty_inf_decls, FEMPTY |+ (tn, (tvs,type_name_subst ienv.inf_t t)), [], [])
+     return (empty_inf_decls,
+             <| inf_v := nsEmpty;
+                inf_c := nsEmpty;
+                inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>)
   od) ∧
 (infer_d mn idecls ienv (Dexn cn ts) =
   do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names ienv.inf_t) ts ) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) idecls.inf_defined_exns) "Duplicate exception definition";
-     return (empty_inf_decls with inf_defined_exns:=[mk_id mn cn], FEMPTY, [(cn, ([], MAP (\x. type_name_subst ienv.inf_t x) ts, TypeExn (mk_id mn cn)))], [])
+     return (empty_inf_decls with inf_defined_exns:=[mk_id mn cn],
+             <| inf_v := nsEmpty;
+                inf_c := nsSing cn ([], MAP (\x. type_name_subst ienv.inf_t x) ts, TypeExn (mk_id mn cn));
+                inf_t := nsEmpty |>)
   od)`;
 
 val append_decls_def = Define `
@@ -607,18 +614,20 @@ append_decls idecls1 idecls2 =
     inf_defined_types := idecls1.inf_defined_types ++ idecls2.inf_defined_types ;
     inf_defined_exns := idecls1.inf_defined_exns ++ idecls2.inf_defined_exns|>`;
 
+val extend_dec_ienv_def = Define `
+  extend_dec_ienv ienv' ienv =
+     <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
+        inf_c := nsAppend ienv'.inf_c ienv.inf_c;
+        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>`;
+
 val infer_ds_def = Define `
 (infer_ds mn idecls ienv [] =
-  return (empty_inf_decls, FEMPTY, [],[])) ∧
+  return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
 (infer_ds mn idecls ienv (d::ds) =
   do
-    (decls',tenvT',cenv',env') <- infer_d mn idecls ienv d;
-    (decls'',tenvT'',cenv'',env'') <- infer_ds mn (append_decls decls' idecls)
-    (ienv with
-      <|inf_t:=(merge_mod_env (FEMPTY,tenvT') ienv.inf_t);
-        inf_c:=(merge_alist_mod_env ([],cenv') ienv.inf_c);
-        inf_v:=(env' ++ ienv.inf_v)|>) ds;
-    return (append_decls decls'' decls', FUNION tenvT'' tenvT', cenv'' ++ cenv', env'' ++ env')
+    (idecls',ienv') <- infer_d mn idecls ienv d;
+    (idecls'',ienv'') <- infer_ds mn (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) ds;
+    return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
   od)`;
 
 val t_to_freevars_def = Define `
@@ -636,71 +645,46 @@ val t_to_freevars_def = Define `
   od)`;
 
 val check_specs_def = Define `
-(check_specs mn tenvT idecls tenvT' cenv env [] =
-  return (idecls,tenvT',cenv,env)) ∧
-(check_specs mn tenvT idecls tenvT' cenv env (Sval x t::specs) =
+(check_specs mn tenvT idecls ienv [] =
+  return (idecls,ienv)) ∧
+(check_specs mn tenvT idecls ienv (Sval x t::specs) =
   do fvs <- t_to_freevars t;
      fvs' <- return (nub fvs);
      () <- guard (check_type_names tenvT t) "Bad type annotation";
-     check_specs mn tenvT idecls tenvT' cenv ((x, (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) (type_name_subst tenvT t))) :: env) specs
+     check_specs mn tenvT idecls
+       (ienv with inf_v := nsBind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs'))))
+                                                     (type_name_subst tenvT t))
+                              ienv.inf_v)
+        specs
   od) ∧
-(check_specs mn tenvT idecls tenvT' cenv env (Stype tdefs :: specs) =
-  do new_tenvT <- return (FEMPTY |++ MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs);
-     tenvT'' <- return (merge_mod_env (FEMPTY,new_tenvT) tenvT);
-     () <- guard (check_ctor_tenv mn tenvT'' tdefs) "Bad type definition";
+(check_specs mn tenvT idecls ienv (Stype tdefs :: specs) =
+  do new_tenvT <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
+     tenvT' <- return (nsAppend new_tenvT tenvT);
+     () <- guard (check_ctor_tenv tenvT' tdefs) "Bad type definition";
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
-     check_specs mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) (idecls with <|inf_defined_types:=new_tdecls++idecls.inf_defined_types|>) (FUNION new_tenvT tenvT') (build_ctor_tenv mn tenvT'' tdefs ++ cenv) env specs
+     check_specs mn tenvT' (idecls with <|inf_defined_types:=new_tdecls++idecls.inf_defined_types|>)
+       <| inf_v := ienv.inf_v;
+          inf_c := nsAppend (build_ctor_tenv mn tenvT' tdefs) ienv.inf_c;
+          inf_t := (nsAppend new_tenvT ienv.inf_t) |>
+       specs
   od) ∧
-(check_specs mn tenvT idecls tenvT' cenv env (Stabbrev tvs tn t :: specs) =
+(check_specs mn tenvT idecls ienv (Stabbrev tvs tn t :: specs) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
-     new_tenvT <- return (tn, (tvs,type_name_subst tenvT t));
-     check_specs mn (merge_mod_env (FEMPTY,FEMPTY |+ new_tenvT) tenvT) idecls (tenvT' |+ new_tenvT) cenv env specs
+     new_tenvT <- return (nsSing tn (tvs,type_name_subst tenvT t));
+     check_specs mn (nsAppend new_tenvT tenvT) idecls (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
   od) ∧
-(check_specs mn tenvT idecls tenvT' cenv env (Sexn cn ts :: specs) =
+(check_specs mn tenvT idecls ienv (Sexn cn ts :: specs) =
   do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts) "Bad exception definition";
-     check_specs mn tenvT (idecls with <|inf_defined_exns:=mk_id mn cn::idecls.inf_defined_exns|>) tenvT' ((cn, ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn))) :: cenv) env specs
+     check_specs mn tenvT (idecls with <|inf_defined_exns:=mk_id mn cn::idecls.inf_defined_exns|>)
+       (ienv with inf_c := nsBind cn ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) ienv.inf_c) specs
   od) ∧
-(check_specs mn tenvT idecls tenvT' cenv env (Stype_opq tvs tn :: specs) =
+(check_specs mn tenvT idecls ienv (Stype_opq tvs tn :: specs) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
-     new_tenvT <- return (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
-     check_specs mn (merge_mod_env (FEMPTY,FEMPTY |+ new_tenvT) tenvT) (idecls with <|inf_defined_types:=mk_id mn tn::idecls.inf_defined_types|>) (tenvT' |+ new_tenvT) cenv env specs
+     new_tenvT <- return (nsSing tn (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
+     check_specs mn (nsAppend new_tenvT tenvT) (idecls with <|inf_defined_types:=mk_id mn tn::idecls.inf_defined_types|>)
+       (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
   od)`;
-
-val check_flat_weakC_def = Define `
-(check_flat_weakC cenv_impl cenv_spec =
-  EVERY (\(cn, (tvs_spec, ts_spec, tn_spec)).
-            case ALOOKUP cenv_impl cn of
-              | NONE => F
-              | SOME (tvs_impl,ts_impl,tn_impl) =>
-                  (tn_spec = tn_impl) ∧
-                  (tvs_spec = tvs_impl) ∧
-                  (ts_spec = ts_impl))
-        cenv_spec)`;
-
-val check_flat_weakT_def = Define `
-(check_flat_weakT mn tenvT_impl tenvT_spec =
-  FEVERY (\(tn, (tvs_spec, t_spec)).
-            case FLOOKUP tenvT_impl tn of
-              | NONE => F
-              | SOME (tvs_impl,t_impl) =>
-                  (tvs_spec = tvs_impl) ∧
-                  ((t_spec = t_impl) ∨
-                   t_spec = Tapp (MAP Tvar tvs_spec) (TC_name (mk_id mn tn))))
-        tenvT_spec)`;
-
-val check_weakE_def = Define `
-(check_weakE env_impl [] = return ()) ∧
-(check_weakE env_impl ((n, (tvs_spec, t_spec)) :: env_spec) =
-  case ALOOKUP env_impl n of
-    | NONE => failwith "Signature mismatch"
-    | SOME (tvs_impl,t_impl) =>
-        do () <- init_state;
-           uvs <- n_fresh_uvar tvs_impl;
-           t <- return (infer_deBruijn_subst uvs t_impl);
-           () <- add_constraint t_spec t;
-           check_weakE env_impl env_spec
-        od)`;
 
 val check_weak_decls_def = Define `
 check_weak_decls decls_impl decls_spec ⇔
@@ -708,62 +692,70 @@ check_weak_decls decls_impl decls_spec ⇔
   list_subset decls_spec.inf_defined_types decls_impl.inf_defined_types ∧
   list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
 
+val check_tscheme_inst_def = Define `
+  check_tscheme_inst _ (tvs_impl, t_impl) (tvs_spec, t_spec) ⇔
+    let M =
+    do () <- init_state;
+       uvs <- n_fresh_uvar tvs_impl;
+       t <- return (infer_deBruijn_subst uvs t_impl);
+       () <- add_constraint t_spec t
+    od
+    in
+    case M init_infer_state of
+    | (Success _, _) => T
+    | _ => F `;
+
+val check_weak_ienv_def = Define `
+  check_weak_ienv ienv_impl ienv_spec ⇔
+    nsSub_compute [] check_tscheme_inst ienv_spec.inf_v ienv_impl.inf_v ∧
+    nsSub_compute [] (λ_ x y. x = y) ienv_spec.inf_c ienv_impl.inf_c ∧
+    nsSub_compute [] weak_tenvT ienv_spec.inf_t ienv_impl.inf_t`;
+
 val check_signature_def = Define `
-(check_signature mn tenvT init_decls decls1 tenvT' cenv env NONE =
-  return (decls1, tenvT', cenv, env)) ∧
-(check_signature mn tenvT init_decls decls1 tenvT' cenv env (SOME specs) =
-  do (decls', tenvT'', cenv', env') <- check_specs mn tenvT empty_inf_decls FEMPTY [] [] specs;
-     () <- guard (check_flat_weakT mn tenvT' tenvT'') "Signature mismatch";
-     () <- guard (check_flat_weakC cenv (anub cenv' [])) "Signature mismatch";
-     () <- check_weakE env (anub env' []);
+(check_signature mn tenvT init_decls decls1 ienv NONE =
+  return (decls1, ienv)) ∧
+(check_signature mn tenvT init_decls decls1 ienv (SOME specs) =
+  do (decls', ienv') <- check_specs mn tenvT empty_inf_decls <|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |> specs;
+     () <- guard (check_weak_ienv ienv ienv') "Signature mismatch";
      () <- guard (check_weak_decls decls1 decls') "Signature mismatch";
-     return (decls',tenvT'',cenv',env')
+     return (decls',ienv')
   od)`;
+
+val ienvLift_def = Define `
+  ienvLift mn ienv =
+    <|inf_v := nsLift mn ienv.inf_v; inf_c := nsLift mn ienv.inf_c; inf_t := nsLift mn ienv.inf_t|>`;
 
 val infer_top_def = Define `
 (infer_top idecls ienv (Tdec d) =
   do
-    (decls',tenvT',cenv',env') <- infer_d NONE idecls ienv d;
-    return (decls',(FEMPTY,tenvT'),FEMPTY,([],cenv'), env')
+    (decls',ienv') <- infer_d [] idecls ienv d;
+    return (decls', ienv')
   od) ∧
 (infer_top idecls ienv (Tmod mn spec ds1) =
   do
-    () <- guard (~MEM mn idecls.inf_defined_mods) ("Duplicate module: " ++ mn);
-    (decls',tenvT',cenv',env') <- infer_ds (SOME mn) idecls ienv ds1;
-    (new_decls,tenvT'',cenv'',env'')
-        <- check_signature (SOME mn) ienv.inf_t idecls decls' tenvT' cenv' env' spec;
-    return (new_decls with inf_defined_mods := mn :: new_decls.inf_defined_mods,
-            (FEMPTY |+ (mn,tenvT''),FEMPTY),
-            FEMPTY |+ (mn,env''),
-            ([(mn,cenv'')],[]),
-            [])
+    () <- guard (~MEM [mn] idecls.inf_defined_mods) ("Duplicate module: " ++ mn);
+    (decls',ienv') <- infer_ds [mn] idecls ienv ds1;
+    (new_decls,ienv'') <- check_signature [mn] ienv.inf_t idecls decls' ienv' spec;
+    return (new_decls with inf_defined_mods := [mn] :: new_decls.inf_defined_mods, ienvLift mn ienv'')
   od)`;
 
 val infer_prog_def = Define `
 (infer_prog idecls ienv [] =
-  return (empty_inf_decls,(FEMPTY,FEMPTY),FEMPTY,([],[]),[])) ∧
-(infer_prog idecls ienv (top::ds) =
+  return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
+(infer_prog idecls ienv (top::tops) =
   do
-    (decls',tenvT',menv',cenv',env') <- infer_top idecls ienv top;
-    (decls'', tenvT'', menv'', cenv'', env'') <- infer_prog (append_decls decls' idecls)
-      <|inf_t:=(merge_mod_env tenvT' ienv.inf_t);
-        inf_c:=(merge_alist_mod_env cenv' ienv.inf_c);
-        inf_v:=(env' ++ ienv.inf_v);
-        inf_m:=FUNION menv' ienv.inf_m|> ds;
-    return (append_decls decls'' decls',
-            merge_mod_env tenvT'' tenvT',
-            FUNION menv'' menv',
-            merge_alist_mod_env cenv'' cenv',
-            env'' ++ env')
+    (idecls',ienv') <- infer_top idecls ienv top;
+    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) tops;
+    return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
   od)`;
 
 val _ = Datatype`
   inferencer_config =
   <| inf_decls : inf_decls
-   ; inf_env   : inf_environment|>`
+   ; inf_env   : inf_env|>`
 
 val init_env_def = Define`
-   init_env = <|inf_t := (FEMPTY,FEMPTY); inf_m := FEMPTY ; inf_c := ([],[]) ; inf_v := [] |> `;
+   init_env = <|inf_v := nsEmpty; inf_c := nsEmpty ; inf_v := nsEmpty |> `;
 
 val init_config_def = Define`
   init_config =
@@ -773,14 +765,9 @@ val init_config_def = Define`
 val infertype_prog_def = Define`
   infertype_prog c prog =
     case FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
-    | Success (new_decls, new_t, new_m, new_c, new_v) =>
+    | Success (new_decls, new_ienv) =>
         SOME ( <| inf_decls := append_decls new_decls c.inf_decls
-                ; inf_env :=
-                  <|inf_t:=(merge_mod_env new_t c.inf_env.inf_t);
-                    inf_c:=(merge_alist_mod_env new_c c.inf_env.inf_c);
-                    inf_v:=(new_v ++ c.inf_env.inf_v);
-                    inf_m:=FUNION new_m c.inf_env.inf_m|>
-                |>)
+                ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
     | _ => NONE`;
 
 val Infer_Tfn_def = Define `
@@ -847,22 +834,9 @@ val check_t_def = tDefine "check_t" `
  res_tac >>
  decide_tac);
 
-val check_env_def = Define `
-check_env uvars env =
-  EVERY (\(x, (tvs,t)). check_t tvs uvars t) env`;
-
-val check_menv_def = Define `
-check_menv menv =
-  FEVERY (\(mn,env). EVERY (\(x, (tvs,t)). check_t tvs {} t) env) menv`;
-
-val check_flat_cenv_def = Define `
-check_flat_cenv cenv =
-  EVERY (\(cn,(tvs,ts,t)). EVERY (check_freevars 0 tvs) ts) cenv`;
-
-val check_cenv_def = Define `
-check_cenv (mcenv, cenv) ⇔
-  EVERY (\(cn,cenv'). check_flat_cenv cenv') mcenv ∧
-  check_flat_cenv cenv`;
+val ienv_val_ok_def = Define `
+ienv_val_ok uvars env =
+  nsAll (\x (tvs,t). check_t tvs uvars t) env`;
 
 val check_s_def = Define `
 check_s tvs uvs s =

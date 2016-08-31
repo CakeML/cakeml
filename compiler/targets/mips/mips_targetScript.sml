@@ -122,6 +122,8 @@ val mips_enc_def = Define`
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
+   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = mips_encode_fail) /\
+   (mips_enc (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        encs [ArithR (SLTU (0w, n2w r4, 1w));
              ArithR (DADDU (n2w r2, n2w r3, n2w r1));

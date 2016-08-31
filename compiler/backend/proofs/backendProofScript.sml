@@ -1251,6 +1251,7 @@ val clos_to_data_names = store_thm("clos_to_data_names",
   strip_tac>>
   pairarg_tac>>fs[]>>rveq>>fs[]>>
   EVAL_TAC>>
+  REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>

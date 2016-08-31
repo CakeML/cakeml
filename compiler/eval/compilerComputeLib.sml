@@ -267,12 +267,14 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_constTheory.isConst_def
     ,bvl_constTheory.is_simple_def
       (* ---- bvl_handle ---- *)
-    ,bvl_handleTheory.no_raise_def
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
     ,bvl_handleTheory.OptionalLetLet_def
     ,bvl_handleTheory.compile_def
     ,bvl_handleTheory.compile_exp_def
+    ,bvl_handleTheory.dest_Seq_def
+    ,bvl_handleTheory.compile_seqs_compute
+    ,bvl_handleTheory.compile_any_def
       (* ---- bvl_jump ---- *)
     ,bvl_jumpTheory.JumpList_def
     ,bvl_jumpTheory.Jump_def
@@ -304,6 +306,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.ListLength_location_eq
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
+    ,bvl_to_bviTheory.compile_aux_def
     ,bvl_to_bviTheory.optimise_def
     ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
@@ -316,6 +319,8 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Tys
     [ (* ---- data ---- *)
      ``:dataLang$prog``
+      (* ---- data_to_word ---- *)
+    ,``:data_to_word$word_op_type``
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
@@ -550,6 +555,8 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [db_varsTheory.mk_Union_def
     ,db_varsTheory.vars_to_list_def
+    ,db_varsTheory.vars_from_list_def
+    ,db_varsTheory.vars_flatten_def
     ,db_varsTheory.has_var_def
     ,db_varsTheory.db_to_set_acc_def
     ,db_varsTheory.db_to_set_def
@@ -608,7 +615,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.lab_lookup_def
     ,lab_to_targetTheory.line_length_def
     ,lab_to_targetTheory.line_ok_light_def
-    ,lab_to_targetTheory.all_enc_ok_light_def
+    ,lab_to_targetTheory.sec_ok_light_def
     ,lab_to_targetTheory.pad_bytes_def
     ,lab_to_targetTheory.add_nop_def
     ,lab_to_targetTheory.pad_section_def

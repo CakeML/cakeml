@@ -2,8 +2,9 @@ open import Pervasives
 open import Ast
 open import SemanticPrimitives
 open import Ffi
-open import BigStep
+open import Namespace
 open import Lib
+open import Evaluate
 
 val prim_types_program : prog
 let prim_types_program =
@@ -15,21 +16,17 @@ let prim_types_program =
    Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]);])]);
    Tdec (Dtype [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]);])]);]
 
-val add_to_sem_env : forall 'ffi. Eq 'ffi => (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)
+val add_to_sem_env :
+  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> prog -> maybe (state 'ffi * sem_env v)
 let add_to_sem_env (st, env) prog =
-  let res = { res | evaluate_whole_prog false env st prog res } in
-    if res = {} then
-      Nothing
-    else
-      match Set_extra.choose res with
-      | (st', new_ctors, Rval (new_mods, new_vals)) ->
-        Just (st', extend_top_env new_mods new_vals new_ctors env)
-      | _ -> Nothing
-      end
+  match evaluate_prog st env prog with
+  | (st', Rval env') -> Just (st', extend_dec_env env' env)
+  | _ -> Nothing
+  end
 
-val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)
+val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
 let prim_sem_env ffi =
   add_to_sem_env
     (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
-     <| m = []; c = ([],[]); v = [] |>)
+     <| v = nsEmpty; c = nsEmpty |>)
         prim_types_program

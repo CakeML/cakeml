@@ -98,4 +98,6 @@ val mips_enc_side = prove(``
 
 val _ = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();

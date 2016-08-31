@@ -19,7 +19,7 @@ val _ = hide "nt"
 (* handling constructor arities gets very complicated when "open" is
    implemented *)
 val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
-                               ctr_arities : string id |-> num |>`
+                               ctr_arities : (string, string) id |-> num |>`
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
 
@@ -161,7 +161,7 @@ val ptree_Tyop_def = Define`
           [pt] =>
           do
             (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-            SOME(Long str s)
+            SOME(Long str (Short s))
           od ++
           do
             nm <- ptree_UQTyop pt;
@@ -349,7 +349,7 @@ val ptree_ConstructorName_def = Define`
               od ++
               do
                 (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                SOME (Long str s)
+                SOME (Long str (Short s))
               od
             | _ => NONE
 `
@@ -486,7 +486,7 @@ val ptree_FQV_def = Define`
           [pt] => OPTION_MAP Short (ptree_V pt) ++
                   do
                     (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                    SOME(Long str s)
+                    SOME(Long str (Short s))
                   od
         | _ => NONE
 `
@@ -546,17 +546,28 @@ val ptree_Pattern_def = Define`
             SOME(mkPatApp cn p)
           od
         | _ => NONE
-    else if nm = mkNT nPattern then
+    else if nm = mkNT nPcons then
       case args of
           [papt] => ptree_Pattern nPapp papt
-        | [papt; cons_t; pattpt] =>
+        | [papt; cons_t; pcons_pt] =>
           do
             assert (cons_t = Lf (TK (SymbolT "::")));
             pa <- ptree_Pattern nPapp papt;
-            patt <- ptree_Pattern nPattern pattpt;
+            patt <- ptree_Pattern nPcons pcons_pt;
             SOME(Pcon (SOME (Short "::")) [pa; patt])
           od
         | _ => NONE
+    else if nm = mkNT nPattern then
+      case args of
+          [pcons] => ptree_Pattern nPcons pcons
+        | [pcons_pt; colon_t; type_pt] =>
+          do
+            assert (colon_t = Lf (TOK ColonT));
+            pc <- ptree_Pattern nPcons pcons_pt;
+            ty <- ptree_Type nType type_pt;
+            return (Ptannot pc ty)
+          od
+        | _ => fail
     else if nm = mkNT nPtuple then
       case args of
           [lp; rp] => if lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT) then
@@ -736,8 +747,8 @@ val ptree_OpID_def = Define`
           do
               (str,s) <- destLongidT tk ;
               ifM (isConstructor (SOME str) s)
-                  (return (Con (SOME (Long str s)) []))
-                  (return (Var (Long str s)))
+                  (return (Con (SOME (Long str (Short s))) []))
+                  (return (Var (Long str (Short s))))
           od ++
           (if tk = StarT then
              ifM (isSymbolicConstructor NONE "*")
@@ -896,11 +907,11 @@ val ptree_Expr_def = Define`
         | _ => NONE
       else if nt = mkNT nEtyped then
         case subs of
-          [t1;colon;t2] => do
+          [e_pt; colon; ty_pt] => do
             assert(colon = Lf (TOK ColonT));
-            t1 <- ptree_Expr nEbefore t1;
-            t2 <- ptree_Type nType t2;
-            SOME t1 (* TODO: FIXME *)
+            e <- ptree_Expr nEbefore e_pt;
+            ty <- ptree_Type nType ty_pt;
+            return (Tannot e ty)
           od
         | [t] => ptree_Expr nEbefore t
         | _ => NONE

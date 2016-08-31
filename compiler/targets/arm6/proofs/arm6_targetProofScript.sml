@@ -648,7 +648,7 @@ local
 in
    fun next_tac gs =
       (
-       qpat_x_assum `bytes_in_memory aa bb cc dd` mp_tac
+       qpat_x_assum `bytes_in_memory (aa : word32) bb cc dd` mp_tac
        \\ simp enc_rwts
        \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
@@ -767,6 +767,20 @@ val arm6_encoding = Q.prove (
             \\ Cases_on `s`
             \\ enc_tac
             )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ enc_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongMul"
+            \\ enc_tac
+            )
             (*--------------
                 AddCarry
               --------------*)
@@ -826,7 +840,7 @@ val enc_ok_rwts =
 
 val print_tac = asmLib.print_tac "correct"
 
-val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
+val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
    `backend_correct arm6_target`,
    simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
          arm6_target_def]
@@ -887,6 +901,20 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                LongMul
+              --------------*)
+            print_tac "LongMul"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                LongDiv
+              --------------*)
+            print_tac "LongDiv"
             \\ next_tac
             )
             (*--------------

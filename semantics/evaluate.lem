@@ -1,6 +1,7 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
+open import Namespace
 open import SemanticPrimitives
 open import Ffi
 
@@ -21,8 +22,8 @@ list_result (Rval v) = Rval [v]
 and
 list_result (Rerr e) = Rerr e
 
-val evaluate : forall 'ffi. state 'ffi -> environment v -> list exp -> state 'ffi * result (list v) v
-val evaluate_match : forall 'ffi. state 'ffi -> environment v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
+val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v
+val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
 let rec
 evaluate st env [] = (st, Rval [])
 and
@@ -63,7 +64,7 @@ evaluate st env [Con cn es] =
   else (st, Rerr (Rabort Rtype_error))
 and
 evaluate st env [Var n] =
-  match lookup_var_id n env with
+  match nsLookup env.v n with
   | Just v -> (st, Rval [v])
   | Nothing -> (st, Rerr (Rabort Rtype_error))
   end
@@ -120,7 +121,7 @@ evaluate st env [Mat e pes] =
 and
 evaluate st env [Let xo e1 e2] =
   match evaluate st env [e1] with
-  | (st', Rval v) -> evaluate (check_clock st' st) <| env with v = opt_bind xo (head v) env.v |> [e2]
+  | (st', Rval v) -> evaluate (check_clock st' st) <| env with v = nsOptBind xo (head v) env.v |> [e2]
   | res -> res
   end
 and
@@ -130,29 +131,31 @@ evaluate st env [Letrec funs e] =
   else
     (st, Rerr (Rabort Rtype_error))
 and
+evaluate st env [Tannot e t] =
+  evaluate st env [e]
+and
 evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
 and
 evaluate_match st env v ((p,e)::pes) err_v  =
   if allDistinct (pat_bindings p []) then
-    match pmatch env.c st.refs p v env.v with
-    | Match env_v' -> evaluate st <| env with v = env_v' |> [e]
+    match pmatch env.c st.refs p v [] with
+    | Match env_v' -> evaluate st <| env with v = nsAppend (alist_to_ns env_v') env.v |> [e]
     | No_match -> evaluate_match st env v pes err_v
     | Match_type_error -> (st, Rerr (Rabort Rtype_error))
     end
   else (st, Rerr (Rabort Rtype_error))
 
-val evaluate_decs : forall 'ffi. maybe modN -> state 'ffi -> environment v -> list dec -> state 'ffi * flat_env_ctor * result env_val v
+val evaluate_decs :
+  forall 'ffi. list modN -> state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec
-evaluate_decs mn st env [] = (st, [], Rval [])
+evaluate_decs mn st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs mn st env (d1::d2::ds) =
   match evaluate_decs mn st env [d1] with
-  | (st, new_ctors, Rval new_vals) ->
-      match
-        evaluate_decs mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
-      with (st',new_ctors',r) ->
-        (st', new_ctors'++new_ctors, combine_dec_result new_vals r)
-      end
+  | (st1, Rval env1) ->
+    match evaluate_decs mn st1 (extend_dec_env env1 env) (d2::ds) with
+    | (st2,r) -> (st2, combine_dec_result env1 r)
+    end
   | res -> res
   end
 and
@@ -161,22 +164,20 @@ evaluate_decs mn st env [Dlet p e] =
     match evaluate st env [e] with
     | (st', Rval v) ->
         (st',
-         [],
          match pmatch env.c st'.refs p (head v) [] with
-         | Match new_vals -> Rval new_vals
+         | Match new_vals -> Rval <| v = alist_to_ns new_vals; c = nsEmpty |>
          | No_match -> Rerr (Rraise Bindv)
          | Match_type_error -> Rerr (Rabort Rtype_error)
          end)
-    | (st', Rerr err) -> (st', [], Rerr err)
+    | (st', Rerr err) -> (st', Rerr err)
     end
   else
-    (st, [], Rerr (Rabort Rtype_error))
+    (st, Rerr (Rabort Rtype_error))
 and
 evaluate_decs mn st env [Dletrec funs] =
   (st,
-   [],
    if allDistinct (map (fun (x,y,z) -> x) funs) then
-     Rval (build_rec_env funs env [])
+     Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>
    else
      Rerr (Rabort Rtype_error))
 and
@@ -186,66 +187,60 @@ evaluate_decs mn st env [Dtype tds] =
        disjoint new_tdecs st.defined_types &&
        allDistinct (map (fun (tvs,tn,ctors) -> tn) tds)
     then
-      (<| st with defined_types = new_tdecs union st.defined_types |>, build_tdefs mn tds, Rval [])
+      (<| st with defined_types = new_tdecs union st.defined_types |>,
+       Rval <| v = nsEmpty; c = build_tdefs mn tds |>)
     else
-      (st, [], Rerr (Rabort Rtype_error))
+      (st, Rerr (Rabort Rtype_error))
 and
 evaluate_decs mn st env [Dtabbrev tvs tn t] =
-  (st, [], Rval [])
+  (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs mn st env [Dexn cn ts] =
   if TypeExn (mk_id mn cn) IN st.defined_types then
-    (st, [], Rerr (Rabort Rtype_error))
+    (st, Rerr (Rabort Rtype_error))
   else
     (<| st with defined_types = {TypeExn (mk_id mn cn)} union st.defined_types |>,
-     [(cn, (length ts, TypeExn (mk_id mn cn)))],
-     Rval [])
+     Rval <| v = nsEmpty; c = nsSing cn (length ts, TypeExn (mk_id mn cn)) |>)
 declare termination_argument evaluate_decs = automatic
 
-val evaluate_tops : forall 'ffi. state 'ffi -> environment v -> list top -> state 'ffi * env_ctor * result (env_mod * env_val) v
+let envLift mn env =
+  <| v = nsLift mn env.v; c = nsLift mn env.c |>
+
+val evaluate_tops :
+  forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v
 let rec
-evaluate_tops st env [] = (st, ([],[]), Rval ([],[]))
+evaluate_tops st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_tops st env (top1::top2::tops) =
   match evaluate_tops st env [top1] with
-  | (st', new_ctors, Rval (new_mods,new_vals)) ->
-      match evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) with
-      | (st'', new_ctors', r) ->
-        (st'',
-         merge_alist_mod_env new_ctors' new_ctors,
-         combine_mod_result new_mods new_vals r)
+  | (st1, Rval env1) ->
+      match evaluate_tops st1 (extend_dec_env env1 env) (top2::tops) with
+      | (st2, r) -> (st2, combine_dec_result env1 r)
       end
   | res -> res
   end
 and
-evaluate_tops st env [Tdec d] =
-  match evaluate_decs Nothing st env [d] with
-  | (st', new_ctors, Rval new_vals) ->
-      (st', ([],new_ctors), Rval ([],new_vals))
-  | (st', new_ctors, Rerr err) ->
-      (st', ([],[]), Rerr err)
-  end
+evaluate_tops st env [Tdec d] = evaluate_decs [] st env [d]
 and
 evaluate_tops st env [Tmod mn specs ds] =
-  if not (mn IN st.defined_mods) && no_dup_types ds
+  if not ([mn] IN st.defined_mods) && no_dup_types ds
   then
-    match evaluate_decs (Just mn) st env ds with
-    | (st', new_ctors, r) ->
-        (<| st' with defined_mods = {mn} union st'.defined_mods |>,
-         ([(mn,new_ctors)],[]),
+    match evaluate_decs [mn] st env ds with
+    | (st', r) ->
+        (<| st' with defined_mods = {[mn]} union st'.defined_mods |>,
          match r with
-         | Rval new_vals -> Rval ([(mn,new_vals)],[])
+         | Rval env' -> Rval <| v = nsLift mn env'.v; c = nsLift mn env'.c |>
          | Rerr err -> Rerr err
          end)
     end
   else
-    (st, ([],[]), Rerr (Rabort Rtype_error))
+    (st, Rerr (Rabort Rtype_error))
 declare termination_argument evaluate_tops = automatic
 
-val evaluate_prog : forall 'ffi. state 'ffi -> environment v -> prog -> state 'ffi * env_ctor * result (env_mod * env_val) v
+val evaluate_prog : forall 'ffi. state 'ffi -> sem_env v -> prog -> state 'ffi * result (sem_env v) v
 let
 evaluate_prog st env prog =
   if no_dup_mods prog st.defined_mods && no_dup_top_types prog st.defined_types then
     evaluate_tops st env prog
   else
-    (st, ([],[]), Rerr (Rabort Rtype_error))
+    (st, Rerr (Rabort Rtype_error))

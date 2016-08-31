@@ -805,7 +805,8 @@ val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
 (* word64 *)
 
 val word64_thm = Q.store_thm("word64_thm",
-  `abs_ml_inv conf (w1::w2::stack) refs (r1::r2::roots,heap,be,a,sp) limit ∧
+  `abs_ml_inv conf (ws ++ stack) refs (rs ++ roots,heap,be,a,sp) limit ∧
+   LENGTH ws = LENGTH rs ∧
    (Word64Rep (:'a) w64 :'a ml_el) = DataElement [] len (Word64Tag,xs) ∧
    LENGTH xs < sp
    ⇒
@@ -856,6 +857,7 @@ val word64_thm = Q.store_thm("word64_thm",
   >- (
     simp[v_inv_def]
     \\ match_mp_tac EVERY2_MEM_MONO
+    \\ imp_res_tac LIST_REL_APPEND_IMP
     \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
     \\ simp[FORALL_PROD] \\ rw[]
     \\ match_mp_tac v_inv_SUBMAP
@@ -872,7 +874,7 @@ val word64_thm = Q.store_thm("word64_thm",
   \\ fs[RefBlock_def,Bytes_def]
   \\ imp_res_tac heap_store_rel_lemma
   \\ fs[]
-  \\ TRY (qexists_tac`ws` \\ simp[])
+  \\ TRY (qexists_tac`ws'` \\ simp[])
   \\ match_mp_tac EVERY2_MEM_MONO
   \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
   \\ simp[FORALL_PROD] \\ rw[]
@@ -2583,8 +2585,8 @@ val get_lowerbits_or_1 = prove(
   ``get_lowerbits c v = (get_lowerbits c v || 1w)``,
   Cases_on `v` \\ fs [get_lowerbits_def]);
 
-val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
-  `memory_rel c be refs sp st m dm (w1::w2::vars) ∧ good_dimindex (:'a) ∧
+val memory_rel_Word64 = Q.store_thm("memory_rel_Word64",
+  `memory_rel c be refs sp st m dm (vs ++ vars) ∧ good_dimindex (:'a) ∧
    (Word64Rep (:'a) w64 : 'a ml_el) = DataElement [] (LENGTH ws) (Word64Tag,ws) ∧
    LENGTH ws < sp ∧
    encode_header c 3 (LENGTH ws) = SOME hd
@@ -2598,7 +2600,12 @@ val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
           (st |+ (EndOfHeap,Word w)) m1  dm
           ((Word64 w64, make_ptr c (w - curr) (0w:'a word) (LENGTH ws))::vars)`,
   rw[memory_rel_def,word_ml_inv_def,PULL_EXISTS]
-  \\ rpt_drule (GEN_ALL word64_thm) \\ strip_tac
+  \\ imp_res_tac EVERY2_SWAP
+  \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs[] \\ clean_tac
+  \\ drule (GEN_ALL word64_thm) \\ fs[]
+  \\ disch_then drule \\ impl_tac >- fs[] \\ strip_tac
   \\ first_assum(part_match_exists_tac(find_term (same_const``abs_ml_inv`` o #1 o strip_comb)) o concl)
   \\ simp[]
   \\ fs[heap_in_memory_store_def,FLOOKUP_UPDATE]
@@ -2650,7 +2657,8 @@ val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
   \\ reverse conj_tac
   >- (
     simp[word_addr_def,make_ptr_def,get_addr_def,
-         get_lowerbits_def,bytes_in_word_mul_eq_shift])
+         get_lowerbits_def,bytes_in_word_mul_eq_shift]
+    \\ imp_res_tac EVERY2_SWAP \\ fs[])
   \\ pop_assum mp_tac
   \\ simp[word_heap_APPEND,heap_length_APPEND,
           heap_length_heap_expand,word_heap_heap_expand]
@@ -2662,6 +2670,16 @@ val memory_rel_WordOp64 = Q.store_thm("memory_rel_WordOp64",
   \\ simp[word_list_def]
   \\ simp[Q.SPEC`[_]`heap_length_def,el_length_def,ADD1]
   \\ simp[AC STAR_ASSOC STAR_COMM]);
+
+val memory_rel_WordOp64 =
+  memory_rel_Word64 |> Q.GEN`vs` |> Q.SPEC`[w1;w2]`
+  |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
+  |> curry save_thm"memory_rel_WordOp64"
+
+val memory_rel_WordFromInt =
+  memory_rel_Word64 |> Q.GEN`vs` |> Q.SPEC`[w1]`
+  |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
+  |> curry save_thm"memory_rel_WordFromInt"
 
 val memory_rel_Cons = store_thm("memory_rel_Cons",
   ``memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
