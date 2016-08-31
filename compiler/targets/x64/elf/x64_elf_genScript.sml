@@ -15,7 +15,7 @@ val _ = Define `
  *   2. 64-bit ELF file identifier,
  *   3. 2LSB data encoding, required by AMD64 ABI,
  *   4. Current version of ELF file,
- *   5. Targetting the GNU (Linux) OS/ABI combination,
+ *   5. Targetting no OS/ABI extensions (could use GNU?),
  *   6. Version number of ABI (arbitrary, but set to 0 to match most AMD64 executables),
  *   7. Final padding to make up 16 bytes of header.
  *)
@@ -23,9 +23,9 @@ val _ = Define `
     elf64_ident_field : unsigned_char list =
       [ elf_mn_mag0; elf_mn_mag1; elf_mn_mag2; elf_mn_mag3
       ; unsigned_char_of_num elf_class_64                 
-      ; unsigned_char_of_num elf_data_2lsb                
+      ; unsigned_char_of_num elf_data_2lsb 
       ; unsigned_char_of_num elf_ev_current               
-      ; unsigned_char_of_num elf_osabi_gnu                
+      ; unsigned_char_of_num elf_osabi_none                
       ; unsigned_char_of_num 0                            
       ] ++ repeat 7 (unsigned_char_of_num 0)`;            
 
@@ -80,12 +80,12 @@ val _ = Define `
  * here 176 = 176 (mod 2097152), as required.
  *)
 val _ = Define `
-  x64_text_segment_header (code_size : num) : elf64_program_header_table_entry =
+  x64_text_segment_header (entry : num) (code_size : num) : elf64_program_header_table_entry =
     <| elf64_p_type   := n2w elf_pt_load
      ; elf64_p_flags  := n2w (1 + 4)
      ; elf64_p_offset := n2w (64 + 56 + 56)
-     ; elf64_p_vaddr  := n2w (64 + 56 + 56)
-     ; elf64_p_paddr  := n2w (64 + 56 + 56)
+     ; elf64_p_vaddr  := n2w entry
+     ; elf64_p_paddr  := n2w entry
      ; elf64_p_filesz := n2w code_size
      ; elf64_p_memsz  := n2w code_size
      ; elf64_p_align  := n2w 2097152 (* 0x200000 *)
@@ -95,8 +95,8 @@ val _ = Define `
  * a segment's virtual address must be equal to the offset modulo the alignment.
  *)
 val _ = Define `
-  compute_vaddr_modulo (offset : num) (align : num) : num =
-    ((offset DIV align) * offset) + offset MOD align`;
+  compute_vaddr_modulo (base : num) (offset : num) (align : num) : num =
+    base + ((offset DIV align) * offset) + offset MOD align`;
 
 (* Creates a program header table entry describing the heap segment of an executable file.
  * Fields are, in (line) order:
@@ -112,13 +112,13 @@ val _ = Define `
  *   8. The alignment is taken to be 0x200000, which seems to be typical for X64 executable files.
  *)
 val _ = Define `
-  x64_heap_segment_header (code_size : num) (heap_size : num) : elf64_program_header_table_entry =
-    let heap_size = MIN 1 heap_size in
+  x64_heap_segment_header (entry : num) (code_size : num) (heap_size : num) : elf64_program_header_table_entry =
+    let heap_size = MAX 1 heap_size in
       <| elf64_p_type   := n2w elf_pt_load
        ; elf64_p_flags  := n2w (2 + 4)
        ; elf64_p_offset := n2w (64 + 56 + 56 + code_size)
-       ; elf64_p_vaddr  := n2w (compute_vaddr_modulo (176 + code_size) 2097152) (* 0x200000 *)
-       ; elf64_p_paddr  := n2w (compute_vaddr_modulo (176 + code_size) 2097152) (* 0x200000 *)
+       ; elf64_p_vaddr  := n2w (compute_vaddr_modulo 4194304 (176 + code_size) 2097152) (* 0x200000 *)
+       ; elf64_p_paddr  := n2w (compute_vaddr_modulo 4194304 (176 + code_size) 2097152) (* 0x200000 *)
        ; elf64_p_filesz := n2w 1
        ; elf64_p_memsz  := n2w heap_size
        ; elf64_p_align  := n2w 2097152    (* 0x200000 *)
@@ -130,10 +130,10 @@ val _ = Define `
 val _ = Define `
   x64_build_elf_file (code : word8 list) (heap_size : num) : byte_sequence =
     let code_size = LENGTH code in
-    let entry     = 176 in
+    let entry     = 4194304 + 176 in (* 0x4000B0 *)
     let hdr       = x64_elf64_header entry in
-    let text_hdr  = x64_text_segment_header code_size in
-    let heap_hdr  = x64_heap_segment_header code_size heap_size in
+    let text_hdr  = x64_text_segment_header entry code_size in
+    let heap_hdr  = x64_heap_segment_header entry code_size heap_size in
     let text_seg  = from_byte_lists [code] in
     let heap_seg  = create 1 (n2w 0) in
       byte_sequence$concat0
@@ -146,27 +146,49 @@ val _ = Define `
 
 val _ = export_theory();
 
-val test =
+val _ =
   EVAL ``
-    let bs0 = Sequence
-            [127w; 69w; 76w; 70w; 2w; 1w; 1w; 3w; 0w; 0w; 0w; 0w; 0w;
-             0w; 0w; 0w; 0w; 2w; 0w; 62w; 0w; 0w; 0w; 1w; 0w; 0w; 0w;
-             0w; 0w; 0w; 0w; 176w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 64w; 0w;
-             0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 64w; 0w;
-             56w; 0w; 2w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 1w; 0w;
-             0w; 0w; 5w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 176w; 0w; 0w; 0w;
-             0w; 0w; 0w; 0w; 176w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 176w; 0w;
-             0w; 0w; 0w; 0w; 0w; 0w; 2w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 2w;
-             0w; 0w; 0w; 0w; 0w; 32w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w;
-             0w; 6w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 178w; 0w; 0w; 0w; 0w;
-             0w; 0w; 0w; 178w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 178w; 0w; 0w;
-             0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 1w; 0w;
-             0w; 0w; 0w; 0w; 32w; 0w; 0w; 100w; 55w; 0w]
-    in
-      read_elf64_header bs0 >>= (λ(hdr,bs1).
-        obtain_elf64_program_header_table hdr bs0 >>= (λpht.
-           obtain_elf64_section_header_table hdr bs0 >>= (λsht.
-              obtain_elf64_section_header_string_table hdr sht bs0 >>= (λshstrtab.
-                 obtain_elf64_interpreted_segments pht bs0 >>= (λsegs.
-                    obtain_elf64_interpreted_sections shstrtab sht bs0)))))
-  ``;
+    let bs    = x64_build_elf_file [144w; 233w; 0w; 0w; 0w; 0w] 16384 in
+    let bytes = byte_list_of_byte_sequence bs in
+    let str   = MAP (\x. let w = word_to_hex_string x in
+                           if LENGTH w = 1 then
+			     "0" ++ w
+			   else w) bytes
+    in str``
+
+val _ =
+    EVAL ``
+      let bs0 = (Sequence [127w; 69w; 76w; 70w; 2w; 1w; 1w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w;
+      0w; 2w; 0w; 62w; 0w; 1w; 0w; 0w; 0w; 176w; 0w; 64w; 0w; 0w; 0w;
+      0w; 0w; 64w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w;
+      0w; 0w; 0w; 0w; 0w; 0w; 64w; 0w; 56w; 0w; 2w; 0w; 0w; 0w; 0w; 0w;
+      0w; 0w; 1w; 0w; 0w; 0w; 5w; 0w; 0w; 0w; 176w; 0w; 0w; 0w; 0w; 0w;
+      0w; 0w; 176w; 0w; 64w; 0w; 0w; 0w; 0w; 0w; 176w; 0w; 64w; 0w; 0w;
+      0w; 0w; 0w; 6w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 6w; 0w; 0w; 0w; 0w;
+      0w; 0w; 0w; 0w; 0w; 32w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w; 6w;
+      0w; 0w; 0w; 182w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 34w; 2w; 128w; 0w;
+      0w; 0w; 0w; 0w; 34w; 2w; 128w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w;
+      0w; 0w; 0w; 0w; 0w; 64w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 32w; 0w;
+      0w; 0w; 0w; 0w; 144w; 233w; 0w; 0w; 0w; 0w; 0w]) in
+        read_elf64_header bs0 >>=
+        (λ(hdr,bs1).
+          obtain_elf64_program_header_table hdr bs0 >>=
+          (λpht.
+             obtain_elf64_section_header_table hdr bs0 >>=
+             (λsht.
+                obtain_elf64_section_header_string_table hdr sht bs0 >>=
+                (λshstrtab.
+                   obtain_elf64_interpreted_segments pht bs0 >>=
+                   (λsegs.
+                      obtain_elf64_interpreted_sections shstrtab sht bs0 >>=
+                      (λsects.
+                         obtain_elf64_bits_and_bobs hdr pht segs sht sects bs0 >>=
+                         (λbits_and_bobs.
+                          return
+                            <|elf64_file_header := hdr;
+                              elf64_file_program_header_table := pht;
+                              elf64_file_section_header_table := sht;
+                              elf64_file_interpreted_segments := segs;
+                              elf64_file_interpreted_sections := sects;
+                              elf64_file_bits_and_bobs :=
+                                bits_and_bobs|>)))))))``;
