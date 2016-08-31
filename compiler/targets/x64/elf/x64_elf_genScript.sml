@@ -148,7 +148,7 @@ val _ = export_theory();
 
 val _ =
   EVAL ``
-    let bs    = x64_build_elf_file [144w; 233w; 0w; 0w; 0w; 0w] 16384 in
+    let bs    = x64_build_elf_file [144w; 235w; 254w] 16384 in
     let bytes = byte_list_of_byte_sequence bs in
     let str   = MAP (\x. let w = word_to_hex_string x in
                            if LENGTH w = 1 then
@@ -166,8 +166,8 @@ val _ =
       0w; 0w; 176w; 0w; 64w; 0w; 0w; 0w; 0w; 0w; 176w; 0w; 64w; 0w; 0w;
       0w; 0w; 0w; 6w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 6w; 0w; 0w; 0w; 0w;
       0w; 0w; 0w; 0w; 0w; 32w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w; 6w;
-      0w; 0w; 0w; 182w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 34w; 2w; 128w; 0w;
-      0w; 0w; 0w; 0w; 34w; 2w; 128w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w;
+      0w; 0w; 0w; 182w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 182w; 0w; 64w; 0w;
+      0w; 0w; 0w; 0w; 182w; 0w; 64w; 0w; 0w; 0w; 0w; 0w; 1w; 0w; 0w; 0w;
       0w; 0w; 0w; 0w; 0w; 64w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 32w; 0w;
       0w; 0w; 0w; 0w; 144w; 233w; 0w; 0w; 0w; 0w; 0w]) in
         read_elf64_header bs0 >>=
