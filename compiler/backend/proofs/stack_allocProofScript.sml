@@ -1630,6 +1630,38 @@ val find_code_regs_SUBMAP = Q.store_thm("find_code_regs_SUBMAP",
   \\ every_case_tac \\ fs[] \\ res_tac \\ fs[]
   \\ rw[] );
 
+val get_labels_comp = store_thm("get_labels_comp",
+  ``!n p e. get_labels e SUBSET get_labels (FST (comp n p e))``,
+  recInduct comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ TRY pairarg_tac \\ fs [get_labels_def,SUBSET_DEF]
+  \\ TRY pairarg_tac \\ fs [get_labels_def,SUBSET_DEF]
+  \\ rw [] \\ fs []);
+
+val loc_check_compile = store_thm("loc_check_compile",
+  ``loc_check s.code (l1,l2) /\
+    (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location) ==>
+    loc_check (fromAList (compile c (toAList s.code))) (l1,l2)``,
+  fs [loc_check_def,domain_lookup] \\ rw [] \\ fs []
+  \\ fs [compile_def,lookup_fromAList,ALOOKUP_def,stubs_def]
+  THEN1
+   (CASE_TAC \\ fs [ALOOKUP_MAP]
+    \\ disj1_tac
+    \\ `ALOOKUP (toAList s.code) l1 = SOME v` by fs [ALOOKUP_toAList]
+    \\ pop_assum mp_tac
+    \\ qspec_tac (`toAList s.code`,`xs`)
+    \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def]
+    \\ rw [] \\ fs [prog_comp_def])
+  \\ disj2_tac \\ qexists_tac `n`
+  \\ CASE_TAC \\ fs []
+  \\ `ALOOKUP (toAList s.code) n = SOME e` by fs [ALOOKUP_toAList]
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`toAList s.code`,`xs`)
+  \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def,prog_comp_def]
+  \\ rw [] \\ metis_tac [get_labels_comp,SUBSET_DEF]);
+
 val comp_correct = Q.store_thm("comp_correct",
   `!p (s:('a,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
@@ -2048,8 +2080,11 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ match_mp_tac SUBMAP_DRESTRICT
     \\ simp[])
   \\ rpt strip_tac
-  \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def,set_var_def]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
+  \\ qexists_tac `0`
+  \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def,set_var_def]
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[get_var_def]
+  \\ TRY (drule loc_check_compile \\ impl_tac >- metis_tac[] \\ fs []) \\ fs []
   \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]

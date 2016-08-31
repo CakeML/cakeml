@@ -1115,8 +1115,9 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
     qexists_tac`fromAList lss'`>>full_simp_tac(srw_ss())[]>>
     qexists_tac`lss'`>>full_simp_tac(srw_ss())[])
-  >- (*LocValue*)
+  >- (*LocValue*) (
     fs[evaluate_def,set_var_def,state_component_equality,s_key_eq_refl]
+    \\ rw[s_key_eq_refl,state_component_equality] )
   >-(*FFI*)
     (full_simp_tac(srw_ss())[evaluate_def]>>
     every_case_tac>>Cases_on`call_FFI s.ffi ffi_index x'`>>full_simp_tac(srw_ss())[LET_THM]>>
@@ -1663,7 +1664,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     >>
       full_simp_tac(srw_ss())[LET_THM])
   >- (*LocValue*)
-    (qexists_tac`perm`>>fs[set_var_def,state_component_equality])
+    (qexists_tac`perm`>>rw[]>>fs[set_var_def,state_component_equality])
   >- (*FFI*)
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[get_var_perm]>>
@@ -1976,9 +1977,9 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       srestac>>metis_tac[])
     >-
       (reverse (Cases_on`a`)>>fs[assign_def,LET_THM]>>
-      qpat_x_assum`A=(res,rst)` mp_tac
-      >-
-        (qpat_abbrev_tac`ls = [n0;n1;n2]`>>
+      qpat_x_assum`A=(res,rst)` mp_tac>>
+      TRY (* everything not special*)
+        (qpat_abbrev_tac`ls = A:num list`>>
         FULL_CASE_TAC>>fs[]>>
         imp_res_tac locals_rel_get_vars>>fs[every_var_inst_def]>>
         unabbrev_all_tac>>fs[]>>
@@ -2119,7 +2120,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     (IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,state_component_equality,dec_clock_def]>>
     srestac>>full_simp_tac(srw_ss())[]>>metis_tac[])
   >-
-    (fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
+    (rw[]>>fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
     qpat_x_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
   >>
@@ -2198,7 +2199,9 @@ val distinct_tar_reg_def = Define`
     ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg _ ⇔ T)`
 
-(*Instructions are 2 register code for arith ok*)
+(*Instructions are 2 register code for arith ok
+  Currently no two_reg for Mul and Div
+*)
 val two_reg_inst_def = Define`
   (two_reg_inst (Arith (Binop bop r1 r2 ri))
     ⇔ (r1 = r2)) ∧
@@ -2265,6 +2268,8 @@ val wf_cutsets_def = Define`
 
 val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 2 ∧ r2 = 0 ∧ r3 = 0) ∧
+  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 2 ∧ r3 = 0 ∧ r4 = 2) ∧
   (inst_arg_convention _ = T)`
 
 (* Syntactic conventions for allocator *)

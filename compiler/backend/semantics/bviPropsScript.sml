@@ -306,50 +306,27 @@ val do_app_aux_const = Q.store_thm("do_app_aux_const",
   Cases_on`op`>>srw_tac[][do_app_aux_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
 
-val do_app_aux_with_code = Q.store_thm("do_app_aux_with_code",
-  `do_app_aux op vs (s with code := c) =
-   OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with code := c))) (do_app_aux op vs s)`,
-  srw_tac[][do_app_aux_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[]);
-
 val do_app_with_code = Q.store_thm("do_app_with_code",
   `bviSem$do_app op vs s = Rval (r,s') ⇒
    domain s.code ⊆ domain c ⇒
    do_app op vs (s with code := c) = Rval (r,s' with code := c)`,
-  srw_tac[][do_app_def,do_app_aux_with_code] >>
-  Cases_on`do_app_aux op vs s`>>full_simp_tac(srw_ss())[]>>
-  reverse(Cases_on`x`)>>full_simp_tac(srw_ss())[]>- (
-    every_case_tac >> full_simp_tac(srw_ss())[] ) >>
-  Cases_on`do_app op vs (bvi_to_bvl s)` >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-  full_simp_tac(srw_ss())[bvi_to_bvl_def] >>
-  imp_res_tac bvlPropsTheory.do_app_with_code >> full_simp_tac(srw_ss())[domain_map] >>
-  full_simp_tac(srw_ss())[bvlSemTheory.state_component_equality] >>
-  full_simp_tac(srw_ss())[bvl_to_bvi_def,bviSemTheory.state_component_equality] >>
-  rpt(first_x_assum(qspec_then`map (K ARB) c`mp_tac)) >>
-  simp[domain_map,bvlSemTheory.state_component_equality] );
+  fs [do_app_def,do_app_aux_def]
+  \\ Cases_on `op` \\ fs []
+  \\ every_case_tac \\ fs [bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [bvlSemTheory.do_app_def]
+  \\ rw [] \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
+  \\ CCONTR_TAC \\ fs [SUBSET_DEF] \\ res_tac);
 
 val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bviSem$do_app op vs s = Rerr e ⇒
    (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e`,
-  srw_tac[][do_app_def,do_app_aux_with_code] >>
-  Cases_on`do_app_aux op vs s`>>full_simp_tac(srw_ss())[]>>
-  (reverse(Cases_on`x`)>>full_simp_tac(srw_ss())[]>- (
-     every_case_tac >> full_simp_tac(srw_ss())[] )) >>
-  Cases_on`do_app op vs (bvi_to_bvl s)` >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-  full_simp_tac(srw_ss())[bvi_to_bvl_def] >>
-  imp_res_tac bvlPropsTheory.do_app_with_code >> full_simp_tac(srw_ss())[domain_map] >>
-  imp_res_tac bvlPropsTheory.do_app_with_code_err >> full_simp_tac(srw_ss())[domain_map] >>
-  full_simp_tac(srw_ss())[bvlSemTheory.state_component_equality] >>
-  full_simp_tac(srw_ss())[bvl_to_bvi_def,bviSemTheory.state_component_equality] >>
-  TRY(
-    rpt(first_x_assum(qspec_then`map (K ARB) s.code`mp_tac)) >>
-    simp[domain_map,bvlSemTheory.state_component_equality] >>
-    NO_TAC) >>
-  rpt(first_x_assum(qspec_then`map (K ARB) c`mp_tac)) >>
-  simp[domain_map,bvlSemTheory.state_component_equality]);
+  fs [do_app_def,do_app_aux_def]
+  \\ Cases_on `op` \\ fs []
+  \\ every_case_tac \\ fs [bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [bvlSemTheory.do_app_def]
+  \\ rw [] \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
+  \\ CCONTR_TAC \\ fs [SUBSET_DEF] \\ res_tac);
 
 val find_code_add_code = Q.store_thm("find_code_add_code",
   `bvlSem$find_code dest a (fromAList code) = SOME x ⇒

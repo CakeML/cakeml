@@ -614,22 +614,29 @@ val filter_correct = prove(
           res_tac>>
           inc_pc_tac)
     >-
-      (full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def]>>
-       srw_tac[][]>>res_tac>>
-       ntac 2 (pop_assum kall_tac)>>
-       first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
-       qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
-       first_x_assum(qspec_then`B` mp_tac)>>
-       impl_tac>-
-         (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
-         `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
-         metis_tac[adjust_pc_all_skips])>>
-       srw_tac[][Abbr`B`]>>
-       qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
-       qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
-       first_x_assum(qspec_then`k'` assume_tac)>>
-       `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
-       metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
+      (full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def,get_pc_value_def]>>
+      Cases_on`l'`>>fs[]>>
+      Cases_on`loc_to_pc n'' n0 (filter_skip t1.code)`>>fs[]
+      >-
+        (imp_res_tac loc_to_pc_eq_NONE>>fs[]>>
+        disch_then(qspec_then`0` assume_tac)>>rw[]>>
+        fs[]>>qexists_tac`k`>>fs[])
+      >>
+      imp_res_tac loc_to_pc_eq_SOME>>
+      fs[]>>rw[]>>
+      first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
+      qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
+      first_x_assum(qspec_then`B` mp_tac)>>
+      impl_tac>-
+        (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
+        `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
+        metis_tac[adjust_pc_all_skips])>>
+      srw_tac[][Abbr`B`]>>
+      qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
+      qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
+      first_x_assum(qspec_then`k'` assume_tac)>>
+      `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
+      metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
     >-
       (reverse(Cases_on`t1.regs t1.len_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       (Cases_on`t1.regs t1.link_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>

@@ -743,7 +743,13 @@ val do_app_adjust = Q.prove(
     res_tac >> METIS_TAC[])
   THEN1 (* Label *)
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[bEvalOp_def,bvl_to_bvi_id]
-    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def])
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def]
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ fs [state_rel_def]
+    \\ fs [domain_lookup]
+    \\ rename1 `lookup _ r.code = SOME vv`
+    \\ PairCases_on `vv` \\ res_tac
+    \\ rfs [] \\ pairarg_tac \\ fs [])
   THEN1 (* FFI *) (
     Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>

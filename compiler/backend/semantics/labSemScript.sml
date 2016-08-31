@@ -276,8 +276,9 @@ val evaluate_def = tDefine "evaluate" `
         | Word _ => (Halt Resource_limit_hit,s)
         | _ => (Error,s))
     | SOME (LabAsm (LocValue r lab) _ _ _) =>
-        let s1 = upd_reg r (lab_to_loc lab) s in
-          evaluate (inc_pc (dec_clock s1))
+       (if get_pc_value lab s = NONE then (Error,s) else
+          let s1 = upd_reg r (lab_to_loc lab) s in
+            evaluate (inc_pc (dec_clock s1)))
     | SOME (LabAsm (Jump l) _ _ _) =>
        (case get_pc_value l s of
         | NONE => (Error,s)

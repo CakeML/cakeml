@@ -1665,6 +1665,7 @@ val compile_correct = Q.prove(
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
            \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
     \\ rpt strip_tac \\ pop_assum mp_tac
+    \\ Cases_on `get_pc_value (Lab l1 l2) s1` \\ fs []
     \\ qpat_abbrev_tac `jj = asm$Loc reg lll` \\ rpt strip_tac
     \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]mp_tac
          asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
@@ -1693,15 +1694,13 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][word_loc_val_def]
       \\ res_tac \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac lab_lookup_IMP \\ srw_tac[][]
-      \\ cheat (* semantics needs tweaking *))
+      \\ imp_res_tac lab_lookup_IMP \\ srw_tac[][])
     \\ rpt strip_tac
     \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN`s1.clock - 1 + k`mp_tac)
     \\ rpt strip_tac
-    \\ Q.EXISTS_TAC `k + l - 1` \\ full_simp_tac(srw_ss())[]
-    \\ `s1.clock - 1 + k + l = s1.clock + (k + l - 1)` by decide_tac
-    \\ full_simp_tac(srw_ss())[])
+    \\ Q.EXISTS_TAC `k + l - 1` \\ fs[]
+    \\ `s1.clock - 1 + k + l = k + (l + s1.clock) − 1` by decide_tac \\ fs [])
   THEN1 (* CallFFI *)
    (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
     \\ qmatch_assum_rename_tac
