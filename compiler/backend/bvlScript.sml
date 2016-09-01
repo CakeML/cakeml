@@ -1,4 +1,4 @@
-open preamble closLangTheory con_tagsTheory;
+open preamble closLangTheory prim_tagsTheory;
 
 val _ = new_theory "bvl";
 

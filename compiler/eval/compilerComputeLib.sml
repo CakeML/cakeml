@@ -71,16 +71,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
       (* ---- conLang ---- *)
-    ,con_tagsTheory.bind_tag_def
-    ,con_tagsTheory.chr_tag_def
-    ,con_tagsTheory.div_tag_def
-    ,con_tagsTheory.subscript_tag_def
-    ,con_tagsTheory.true_tag_def
-    ,con_tagsTheory.false_tag_def
-    ,con_tagsTheory.nil_tag_def
-    ,con_tagsTheory.cons_tag_def
-    ,con_tagsTheory.none_tag_def
-    ,con_tagsTheory.some_tag_def
+    ,prim_tagsTheory.bind_tag_def
+    ,prim_tagsTheory.chr_tag_def
+    ,prim_tagsTheory.div_tag_def
+    ,prim_tagsTheory.subscript_tag_def
+    ,prim_tagsTheory.true_tag_def
+    ,prim_tagsTheory.false_tag_def
+    ,prim_tagsTheory.nil_tag_def
+    ,prim_tagsTheory.cons_tag_def
+    ,prim_tagsTheory.none_tag_def
+    ,prim_tagsTheory.some_tag_def
     ,conLangTheory.num_defs_def
     ]
   ,computeLib.Tys
@@ -241,7 +241,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_const_def
     ,clos_to_bvlTheory.partial_app_tag_def
     ,bvlTheory.Bool_def
-    ,con_tagsTheory.bool_to_tag_def
+    ,prim_tagsTheory.bool_to_tag_def
     ,clos_to_bvlTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
