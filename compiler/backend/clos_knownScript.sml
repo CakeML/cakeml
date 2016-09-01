@@ -17,27 +17,29 @@ val _ = new_theory "clos_known";
    ----------------------------------------------------------------- *)
 
 val _ = Datatype `
-  val_approx = Clos num num (* location in code table, arity *)
-             | Tuple (val_approx list) (* conses or tuples *)
-             | Int int      (* used to index tuples *)
-             | Other        (* unknown *)
-             | Impossible`  (* value 'returned' by Raise *)
+  val_approx =
+    Clos num num                (* location in code table, arity *)
+  | Tuple num (val_approx list) (* conses or tuples *)
+  | Int int                     (* used to index tuples *)
+  | Other                       (* unknown *)
+  | Impossible`                 (* value 'returned' by Raise *)
 val val_approx_size_def = definition "val_approx_size_def"
 
 val merge_def = tDefine "merge" `
   (merge Impossible y = y) ∧
   (merge x Impossible = x) ∧
-  (merge (Tuple xs) (Tuple ys) =
-     if LENGTH xs = LENGTH ys then Tuple (MAP2 merge xs ys)
+  (merge (Tuple tg1 xs) (Tuple tg2 ys) =
+     if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (MAP2 merge xs ys)
      else Other) ∧
   (merge (Clos m1 n1) (Clos m2 n2) = if m1 = m2 ∧ n1 = n2 then Clos m1 n1
                                      else Other) ∧
   (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
   (merge _ _ = Other)
 ` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
-   rw[val_approx_size_def] >> simp[] >> rename1 `MEM x xs` >>
-   rename1 `MEM y ys` >>
-   first_x_assum (qspecl_then [`y::TL (TL ys)`, `x`, `y`] mp_tac) >>
+   rw[val_approx_size_def] >> simp[] >>
+   rename[`MEM x xs`, `MEM y ys`, `SUC (LENGTH xs) = LENGTH ys`,
+          `tag + (val_approx1_size xs + _)`, `val_approx_size x < _`] >>
+   first_x_assum (qspecl_then [`tag`, `y::TL (TL ys)`, `x`, `y`] mp_tac) >>
    impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
    rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
 val merge_def =
@@ -47,8 +49,9 @@ val merge_def =
 val merge_tup_def = tDefine "merge_tup" `
   (merge_tup (Impossible,y) = y) ∧
   (merge_tup (x,Impossible) = x) ∧
-  (merge_tup (Tuple xs,Tuple ys) =
-     if LENGTH xs = LENGTH ys then Tuple (MAP merge_tup (ZIP(xs,ys)))
+  (merge_tup (Tuple tg1 xs,Tuple tg2 ys) =
+     if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then
+       Tuple tg1 (MAP merge_tup (ZIP(xs,ys)))
      else Other) ∧
   (merge_tup (Clos m1 n1,Clos m2 n2) = if m1 = m2 ∧ n1 = n2 then Clos m1 n1
                                      else Other) ∧
@@ -58,7 +61,9 @@ val merge_tup_def = tDefine "merge_tup" `
    rpt strip_tac>>
    imp_res_tac MEM_ZIP>>fs[]>>
    rw[val_approx_size_def] >> Cases_on`ys`>>fs[]>>
-   res_tac>>fs[])
+   first_x_assum (first_assum o mp_then.mp_then (mp_then.Pos (el 2)) mp_tac) >>
+   simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
+   disch_then (qspec_then `tag` mp_tac) >> simp[])
 
 val merge_alt = store_thm("merge_alt",``
   ∀x y.merge x y = merge_tup (x,y)``,
@@ -80,11 +85,11 @@ val known_op_def = Define `
        case lookup n g of
        | NONE => (Other,insert n a g)
        | SOME other => (Other,insert n (merge other a) g)) /\
-  (known_op (Cons _) as g = (Tuple as,g)) /\
+  (known_op (Cons tg) as g = (Tuple tg as,g)) /\
   (known_op (Const i) as g = (Int i,g)) /\
   (known_op El as g =
      case as of
-     | [Tuple xs; Int i] =>
+     | [Tuple _ xs; Int i] =>
          if 0 <= i /\ i < &LENGTH xs
          then (EL (Num i) xs,g)
          else (Other,g)

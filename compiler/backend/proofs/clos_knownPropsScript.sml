@@ -107,9 +107,10 @@ val subapprox_Impossible = Q.store_thm(
 
 val subapprox_Tuple = Q.store_thm(
   "subapprox_Tuple[simp]",
-  `Tuple as1 ◁ Tuple as2 ⇔ LIST_REL subapprox as1 as2`,
-  simp[subapprox_def, MAP2_MAP, LIST_REL_EL_EQN] >>
-  Cases_on `LENGTH as1 = LENGTH as2` >> simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]);
+  `Tuple tg1 as1 ◁ Tuple tg2 as2 ⇔ tg1 = tg2 ∧ LIST_REL subapprox as1 as2`,
+  simp[subapprox_def, MAP2_MAP, LIST_REL_EL_EQN, bool_case_eq] >>
+  Cases_on `LENGTH as1 = LENGTH as2` >> Cases_on `tg1 = tg2` >>
+  simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] >> metis_tac[]);
 
 val better_definedg_def = Define`
   better_definedg g1 g2 ⇔
@@ -149,13 +150,16 @@ val val_approx_val_def = tDefine "val_approx_val" `
         v = Recclosure (SOME base) [] env fs j ∧
         m = base + 2*j ∧ j < LENGTH fs ∧
         n = FST (EL j fs))) ∧
-  (val_approx_val (Tuple vas) v ⇔
-    ∃n vs. v = Block n vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
+  (val_approx_val (Tuple tg vas) v ⇔
+     ∃vs. v = Block tg vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
   (val_approx_val Impossible v ⇔ F) ∧
   (val_approx_val (Int i) v ⇔ v = Number i) ∧
   (val_approx_val Other v ⇔ T)
 ` (WF_REL_TAC `measure (val_approx_size o FST)` >> simp[] >> Induct >>
-   dsimp[val_approx_size_def] >> rpt strip_tac >> res_tac >> simp[])
+   dsimp[val_approx_size_def] >> rpt strip_tac
+   >- (rename1 `val_approx1_size vvs` >> Induct_on `vvs` >>
+       dsimp[val_approx_size_def] >> rpt strip_tac >> res_tac >> simp[]) >>
+   res_tac >> simp[])
 
 val val_approx_val_def = save_thm(
   "val_approx_val_def[simp]",
@@ -176,7 +180,7 @@ val val_approx_better_approx = Q.store_thm(
   `∀a1 v a2.
      a1 ◁ a2 ∧ val_approx_val a1 v ⇒ val_approx_val a2 v`,
   ho_match_mp_tac (theorem "val_approx_val_ind") >> dsimp[] >> rpt gen_tac >>
-  rename1 `Tuple a2s ◁ apx2` >>
+  rename1 `Tuple _ a2s ◁ apx2` >>
   Cases_on `apx2` >> dsimp[] >> simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
 
 val _ = export_theory();
