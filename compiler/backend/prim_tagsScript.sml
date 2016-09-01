@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib;
+open preamble
 
-val _ = new_theory "con_tags";
+val _ = new_theory "prim_tags";
 
 val _ = numLib.prefer_num();
 

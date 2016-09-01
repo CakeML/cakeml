@@ -1,6 +1,6 @@
 open preamble
 
-open con_tagsTheory
+open prim_tagsTheory
 
 val _ = numLib.prefer_num();
 
