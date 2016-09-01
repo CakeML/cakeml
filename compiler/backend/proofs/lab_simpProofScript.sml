@@ -42,23 +42,65 @@ every_case_tac \\ fs[LAST_CONS_cond] \\ rw[GSYM NULL_EQ]
 add section_of_pc, add
 *)
 
-val section_of_pc_def = Define `
-section_of_pc pc code
-`
+val pc_to_section_def = Define `
+(pc_to_section pc [] = NONE) /\
+(pc_to_section 0 ((Section k xs)::ys) = SOME k) /\
+(pc_to_section pc ((Section k [])::ys) = pc_to_section pc ys) /\
+(pc_to_section (SUC pc) ((Section k (x::xs))::ys) = pc_to_section pc ((Section k xs)::ys))`;
 
+val demorgan_thingy = Q.store_thm("demorgan_thingy",
+`~ (a = b /\ c = d) = (a <> b \/ c <> d)`, metis_tac []);
+
+val loc_to_pc_section_is_pc_to_section = Q.store_thm("loc_to_pc_section_is_pc_to_section",
+`!n1 n2 sections pc. loc_to_pc n1 n2 sections = SOME pc ==> pc_to_section pc sections = SOME n1`
+recInduct loc_to_pc_ind \\
+rw [pc_to_section_def] >-
+rw [loc_to_pc_def] >-
+(
+  Cases_on `xs` >-
+           rw [pc_to_section_def] >-
+           fs [loc_to_pc_def] >-
+           (
+             Cases_on `k = n1 /\ n2 = 0` \\
+rw[SYM (ASSUME ``0 = pc``)] \\
+rw[pc_to_section_def] \\
+fs [demorgan_thingy] \\
+rw[pc_to_section_def] \\
+first_x_assum (qspec_then `pc` strip_assume_tac) \\
+fs [] \\
+first_x_assum (qspec_then `pc` strip_assume_tac) \\ rw[lab_simp_def]
+fs [] \\
+
+POP_ASSUM (fn th => rw[SYM th]) \\
+ASSUME ``0 = pc``] \\
+
+  )
+
+Cases_on `k` \\ Cases_on `pc` >-
+fs[pc_to_section_def] \\
+           (
+rw[pc_to_section_def] \\
+           )
+  recInduct pc_to_section_ind
+)
+
+                                                    )
+val pc_to_section_not_none_eq = Q.store_thm("pc_to_section_not_none_eq",
+`!n pc sections k. (?n'. n = SOME n') /\ pc_to_section pc sections = n ==> pc_to_section pc sections = pc_to_section pc (Section k []::sections)`,
+rw[pc_to_section_def] \\
+                                           )
 val asm_fetch_aux_simp_def = Define `
 asm_fetch_aux_simp pc code =
  (case asm_fetch_aux pc code of
     | SOME (LabAsm (Jump (Lab n1 n2)) w bytes len) =>
       (case loc_to_pc n1 n2 code of
-         | SOME pc' => SOME (if pc' = pc + 1 /\ n1 = section_of_pc pc /\ n2 <> 0 then Asm (Inst Skip) bytes len else LabAsm (Jump (Lab n1 n2)) w bytes len)
+         | SOME pc' => SOME (if pc' = pc + 1 /\ SOME n1 = pc_to_section pc code /\ n2 <> 0 then Asm (Inst Skip) bytes len else LabAsm (Jump (Lab n1 n2)) w bytes len)
          | NONE => SOME (LabAsm (Jump (Lab n1 n2)) w bytes len)
       )
     | x => x
  )
 `
 
-val lab_simp_ind = theorem "lab_simp_ind";
 val lab_simp_asm_fetch_aux_simp = Q.store_thm("lab_simp_asm_fetch_aux_simp",
 `!s pc. asm_fetch_aux pc (lab_simp s) = asm_fetch_aux_simp pc s`,
 recInduct lab_simp_ind \\
@@ -66,11 +108,9 @@ rw [lab_simp_def, NULL_EQ] >-
 (
   rw[asm_fetch_aux_def, asm_fetch_aux_simp_def, loc_to_pc_def] \\
   every_case_tac \\ fs[] \\ rw []
-) >-
-(
+) \\
 rw [asm_fetch_aux_simp_def] \\
 Cases_on `lines` \\
-)
 
 
 val lab_simp_asm_fetch_aux = Q.store_thm("state_rel_asm_fetch_aux",
