@@ -596,7 +596,11 @@ val known_preserves_setGlobals = Q.store_thm(
       elist_globals (MAP FST all) = elist_globals es`,
   ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rw[] >> fs[] >> imp_res_tac known_sing_EQ_E >>
-  rw[] >> fs[] >> rw[] >> simp[elist_globals_FOLDR] >>
+  rw[] >> fs[] >> rw[] >> simp[elist_globals_FOLDR]
+  >- (rename [`isGlobal opn`] >> Cases_on `opn` >> fs[isGlobal_def] >>
+      rename [`destIntApx a`] >> Cases_on `a` >>
+      fs[destIntApx_def, op_gbag_def, elist_globals_FOLDR] >>
+      fs[known_op_def, bool_case_eq, eqs, NULL_EQ]) >>
   irule FOLDR_CONG >> simp[] >>
   simp[LIST_EQ_REWRITE, EL_MAP] >>
   rpt strip_tac >> pairarg_tac >>
@@ -624,6 +628,7 @@ val known_preserves_esgc_free = Q.store_thm(
   ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rw[] >> fs[] >> imp_res_tac known_sing_EQ_E >>
   rw[] >> fs[] >> rw[ALL_EL_MAP]
+  >- (every_case_tac >> simp[] >> fs[EVERY_MEM, MEM_MAP, PULL_EXISTS])
   >- (imp_res_tac known_preserves_setGlobals >> fs[])
   >- (fs[elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS] >> rpt strip_tac >>
       pairarg_tac >> rw[] >> fs[FORALL_PROD] >>
@@ -866,6 +871,14 @@ val known_correct_approx = Q.store_thm(
       fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       resolve_selected hd subspt_known_op_elist_globals >> simp[] >>
       disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
+      rename[`known_op opn`] >> Cases_on `isGlobal opn` >> fs[] >| [
+        rename[`destIntApx apx`] >> Cases_on `destIntApx apx` >| [
+          ALL_TAC,
+          fs[evaluate_def, do_app_def] >> rveq >> simp[] >> Cases_on `apx` >>
+          fs[destIntApx_def]
+        ],
+        ALL_TAC
+      ] >>
       fs[evaluate_def, pair_case_eq, result_case_eq] >> rveq >>
       fs[] >> sel_ihpc last >> simp[] >> disch_then (resolve_selected last) >>
       simp[] >> (impl_keep_tac >- metis_tac[subspt_trans]) >>
@@ -1722,20 +1735,42 @@ val known_correct0 = Q.prove(
   >- (say "op" >>
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def,
            BAG_ALL_DISTINCT_BAG_UNION] >>
-      rpt strip_tac >> rveq >> fs[] >>
-      rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+      rpt gen_tac >> strip_tac >> rpt gen_tac >>
+      rpt (pairarg_tac >> fs[]) >>
+      rename[`isGlobal opn`, `destIntApx apx`] >>
+      Cases_on `isGlobal opn ∧ ∃i. destIntApx apx = SOME i`
+      >- (pop_assum strip_assume_tac >> simp[] >>
+          Cases_on `opn` >> fs[isGlobal_def] >>
+          Cases_on `apx` >> fs[destIntApx_def] >> rveq >>
+          fs[known_op_def, NULL_EQ, bool_case_eq, eqs] >> rveq >>
+          imp_res_tac known_LENGTH_EQ_E >> fs[LENGTH_NIL_SYM] >> rveq >>
+          simp[evaluate_def] >>
+          rpt strip_tac >> rveq >> fs[evaluate_def, do_app_def, eqs] >>
+          fs[state_globals_approx_def, subspt_def] >> rveq >> simp[] >>
+          fs[known_def] >> rveq >>
+          rename[`lookup n g0 = SOME (Int i)`, `kvrel g1 v (Number i)`] >>
+          `lookup n g1 = SOME (Int i)` by metis_tac[domain_lookup] >>
+          metis_tac[val_rel_def, val_approx_val_def, SOME_11]) >>
+      rename[`closLang$Op opn (MAP FST es)`,
+             `closSem$evaluate(MAP FST ealist,_,_)`] >>
+      rpt strip_tac >>
+      `ealist = [(Op opn (MAP FST es), apx)]`
+         by (Cases_on `isGlobal opn` >> fs[] >>
+             Cases_on `apx` >> fs[destIntApx_def]) >>
+      pop_assum SUBST_ALL_TAC >> rveq >>
+      qpat_x_assum `¬(_ ∧ _)` kall_tac >> fs[] >>
       dsimp[evaluate_def, result_case_eq, pair_case_eq] >>
       sel_ihpc last >> simp[PULL_EXISTS] >>
       rpt (disch_then (resolve_selected last) >> simp[]) >>
       resolve_selected hd subspt_known_op_elist_globals >> simp[] >>
       rpt (disch_then (resolve_selected hd) >> simp[]) >> strip_tac >>
-      (impl_keep_tac >- metis_tac[subspt_trans]) >> rw[] >> simp[]
+      (impl_keep_tac >- metis_tac[subspt_trans])
       >- ((* args evaluate OK, do_app evaluates OK *)
           metis_tac[kvrel_op_correct_Rval, EVERY2_REVERSE])
       >- ((* args evaluate OK, do_app errors *)
-          imp_res_tac do_app_EQ_Rerr >> rw[] >>
+          rw[] >> imp_res_tac do_app_EQ_Rerr >> rw[] >>
           metis_tac[result_CASES, pair_CASES])
-      >- ((* args error *) fs[krrel_err_rw] >>
+      >- ((* args error *) rw[] >> fs[krrel_err_rw] >>
          metis_tac[result_CASES, pair_CASES]))
   >- (say "fn" >>
       simp[evaluate_def, pair_case_eq, result_case_eq,
@@ -2058,6 +2093,7 @@ val known_preserves_every_Fn_NONE = Q.store_thm(
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
   imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
   >- (simp[Once every_Fn_vs_NONE_EVERY] >> simp[GSYM every_Fn_vs_NONE_EVERY])
+  >- (every_case_tac >> simp[Once every_Fn_vs_NONE_EVERY])
   >- (simp[Once every_Fn_vs_NONE_EVERY] >>
       simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rpt strip_tac >>
       sel_ihpc hd >> rename1 `known[bod] env g0` >>
@@ -2075,6 +2111,7 @@ val known_preserves_every_Fn_SOME = Q.store_thm(
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
   imp_res_tac known_sing_EQ_E >> rveq >> fs[] >> rveq
   >- (simp[Once every_Fn_SOME_EVERY]>>simp[GSYM every_Fn_SOME_EVERY])
+  >- (every_case_tac >> simp[Once every_Fn_SOME_EVERY])
   >- (simp[Once every_Fn_SOME_EVERY] >>
       simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rpt strip_tac >>
       sel_ihpc hd >> rename1 `known[bod] env g0` >>
@@ -2110,7 +2147,7 @@ val known_op_increases_subspt_info = Q.store_thm(
     ⇒
      a2 ◁ a1 ∧ subspt g2 g`,
   rpt gen_tac >> Cases_on `opn` >>
-  simp[known_op_def, eqs, va_case_eq, bool_case_eq] >>
+  simp[known_op_def, eqs, va_case_eq, bool_case_eq, NULL_EQ] >>
   disch_then strip_assume_tac >> rveq >> simp[] >> fs[]
   >- (fs[subspt_def] >> metis_tac[domain_lookup, NOT_SOME_NONE])
   >- (fs[subspt_def] >> metis_tac[domain_lookup, subapprox_refl, SOME_11])
@@ -2330,6 +2367,11 @@ val known_code_locs = Q.store_thm("known_code_locs",
   \\ rw[code_locs_append]
   \\ fs[code_locs_def]
   \\ imp_res_tac known_sing_EQ_E \\ fs[]
+  >- (every_case_tac >> simp[code_locs_def] >>
+      rename[`isGlobal opn`, `destIntApx apx`] >>
+      Cases_on `opn` >> fs[isGlobal_def] >> Cases_on `apx` >>
+      fs[destIntApx_def, known_op_def, bool_case_eq, NULL_EQ, eqs] >> rveq >>
+      imp_res_tac known_LENGTH_EQ_E >> fs[LENGTH_NIL_SYM, code_locs_def])
   \\ fs[code_locs_map]
   \\ AP_TERM_TAC
   \\ simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]

@@ -68,9 +68,11 @@ val merge_alt = store_thm("merge_alt",``
 
 val known_op_def = Define `
   (known_op (Global n) as g =
+   if NULL as then
      case lookup n g of
-     | NONE => (Other,g)
-     | SOME x => (x,g)) /\
+       | NONE => (Other,g)
+       | SOME x => (x,g)
+   else (Other,g)) /\
   (known_op (SetGlobal n) as g =
      case as of
      | [] => (Other,g)
@@ -103,6 +105,16 @@ val _ = export_rewrites["dest_Clos_def"];
 val clos_gen_def = Define`
   (clos_gen n i [] = []) ∧
   (clos_gen n i ((x,_)::xs) = Clos (n+2*i) x::clos_gen n (i+1) xs)`
+
+val isGlobal_def = Define`
+  (isGlobal (Global _) ⇔ T) ∧
+  (isGlobal _ ⇔ F)
+`
+
+val destIntApx_def = Define`
+  destIntApx (Int i) = SOME i ∧
+  destIntApx _ = NONE
+`;
 
 val known_def = tDefine "known" `
   (known [] vs (g:val_approx spt) = ([],g)) /\
@@ -145,7 +157,14 @@ val known_def = tDefine "known" `
   (known [Op op xs] vs g =
      let (e1,g) = known xs vs g in
      let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
-       ([(Op op (MAP FST e1),a)],g)) /\
+     let e =
+         if isGlobal op then
+           case destIntApx a of
+               NONE => Op op (MAP FST e1)
+             | SOME i => Op (Const i) []
+         else Op op (MAP FST e1)
+     in
+       ([(e,a)],g)) /\
   (known [App loc_opt x xs] vs g =
      let (e2,g) = known xs vs g in
      let (e1,g) = known [x] vs g in
