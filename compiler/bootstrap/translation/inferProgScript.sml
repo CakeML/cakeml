@@ -1,8 +1,7 @@
-open HolKernel Parse boolLib bossLib;
-open preamble;
-open parserProgTheory;
-open inferTheory
-open ml_translatorLib ml_translatorTheory;
+open preamble
+     parserProgTheory inferTheory
+     ml_translatorLib ml_translatorTheory
+     inferPropsTheory
 
 val _ = new_theory "inferProg"
 
@@ -336,8 +335,24 @@ val aggr_infer_def = full_infer_def true;
 val _ = translate (infer_def ``apply_subst``);
 val _ = translate (infer_def ``apply_subst_list``);
 val _ = translate (infer_def ``add_constraint``);
+
+val add_constraint_side_def = definition"add_constraint_side_def"
+
 val _ = translate (infer_def ``add_constraints``);
+
+val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
+  `∀x y z. t_wfs z.subst ⇒ add_constraints_side x y z`,
+  recInduct add_constraints_ind
+  \\ rw[Once(theorem"add_constraints_side_def")]
+  \\ rw[Once(theorem"add_constraints_side_def")]
+  \\ rw[add_constraint_side_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs[add_constraint_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ metis_tac[unifyTheory.t_unify_wfs]);
+
 val _ = translate (aggr_infer_def ``constrain_op``);
+
 val _ = translate (infer_def ``t_to_freevars``);
 
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
@@ -345,6 +360,29 @@ val _ = translate (typeSystemTheory.build_ctor_tenv_def
                                   funpow 2 (LAND_CONV o PairRules.PABS_CONV) o
                                   funpow 2 RAND_CONV o funpow 2 LAND_CONV)
                                  (ONCE_REWRITE_CONV [GSYM ETA_AX]))))
+
+val type_name_subst_side_def = theorem"type_name_subst_side_def";
+
+val type_name_subst_side_thm = store_thm("type_name_subst_side_thm",
+  ``∀a b. check_type_names a b
+    ⇒ type_name_subst_side a b``,
+  ho_match_mp_tac terminationTheory.type_name_subst_ind >>
+  rw[Once type_name_subst_side_def] >>
+  rw[Once type_name_subst_side_def] >>
+  fs[terminationTheory.check_type_names_def,EVERY_MEM])
+
+val build_ctor_tenv_side_def = definition"build_ctor_tenv_side_def";
+
+val build_ctor_tenv_side_thm = store_thm("build_ctor_tenv_side_thm",
+  ``∀x y z. check_ctor_tenv x y z ⇒ build_ctor_tenv_side x y z``,
+  rw[build_ctor_tenv_side_def] >>
+  fs[typeSystemTheory.check_ctor_tenv_def] >>
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  last_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
+  match_mp_tac type_name_subst_side_thm >>
+  pop_assum ACCEPT_TAC);
 
 val EVERY_INTRO = prove(
   ``(!x::set s. P x) = EVERY P s``,
@@ -367,11 +405,187 @@ val _ = translate (infer_def ``is_value``
             |> RW1 [EVERY_EQ_EVERY])
 
 val _ = translate (infer_def ``infer_p``)
+
+val infer_p_side_def = theorem"infer_p_side_def";
+
+val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
+`(!cenv p st. t_wfs st.subst ⇒ infer_p_side cenv p st) ∧
+ (!cenv ps st. t_wfs st.subst ⇒ infer_ps_side cenv ps st)`,
+ho_match_mp_tac infer_p_ind >>
+rw [] >>
+rw [Once infer_p_side_def] >>
+fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
+rw [] >|
+[PairCases_on `x4` >>
+     match_mp_tac add_constraints_side_thm >>
+     rw [] >>
+     metis_tac [infer_p_wfs],
+ PairCases_on `x1` >>
+     metis_tac [infer_p_wfs]]);
+
 val _ = translate (infer_def ``infer_e``)
+
+val helper_tac =
+  imp_res_tac infer_e_wfs >>
+  imp_res_tac unifyTheory.t_unify_wfs >>
+  rw [] >>
+  NO_TAC
+
+val apply_subst_list_side_def = definition"apply_subst_list_side_def";
+val apply_subst_side_def = definition"apply_subst_side_def";
+val constrain_op_side_def = definition"constrain_op_side_def";
+val infer_e_side_def = theorem"infer_e_side_def";
+
+val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
+`(!menv e st. t_wfs st.subst ⇒ infer_e_side menv e st) /\
+ (!menv es st. t_wfs st.subst ⇒ infer_es_side menv es st) /\
+ (!menv pes t1 t2 st. t_wfs st.subst ⇒ infer_pes_side menv pes t1 t2 st) /\
+ (!menv funs st. t_wfs st.subst ⇒ infer_funs_side menv funs st)`,
+  ho_match_mp_tac infer_e_ind >>
+  rw [] >>
+  rw [Once infer_e_side_def, add_constraint_side_def] >>
+  fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
+  rw [constrain_op_side_def, add_constraint_side_def,
+      apply_subst_side_def, apply_subst_list_side_def] >>
+  fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
+  TRY (imp_res_tac infer_e_wfs >>
+       imp_res_tac unifyTheory.t_unify_wfs >>
+       rw [] >>
+       NO_TAC) >|
+  [match_mp_tac add_constraints_side_thm >>
+       rw [] >>
+       prove_tac [infer_e_wfs],
+   match_mp_tac add_constraints_side_thm >>
+       rw [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [],
+   imp_res_tac infer_e_wfs >>
+       imp_res_tac unifyTheory.t_unify_wfs >>
+       imp_res_tac pure_add_constraints_wfs >>
+       rw [],
+   prove_tac [infer_p_side_thm],
+   every_case_tac >>
+       fs [] >>
+       PairCases_on `x25` >>
+       imp_res_tac infer_p_wfs >>
+       fs [],
+   every_case_tac >>
+       fs [] >>
+       PairCases_on `x25` >> fs[LAMBDA_PROD] >>
+       imp_res_tac infer_p_wfs >>
+       imp_res_tac unifyTheory.t_unify_wfs >>
+       fs [],
+   every_case_tac >>
+       fs [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [] >>
+       imp_res_tac unifyTheory.t_unify_wfs >>
+       PairCases_on `x25` >>
+       imp_res_tac infer_p_wfs >>
+       fs [],
+   every_case_tac >>
+       fs [] >>
+       qpat_assum `!st. t_wfs st.subst ⇒ infer_pes_side _ _ _ _ st` match_mp_tac >>
+       fs [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [] >>
+       imp_res_tac unifyTheory.t_unify_wfs >>
+       PairCases_on `x25` >>
+       imp_res_tac infer_p_wfs >>
+       fs []]);
+
 val _ = translate (infer_def ``infer_d``)
+
+val infer_d_side_def = definition"infer_d_side_def";
+
+val generalise_list_length = Q.prove (
+`!min start s x.
+  LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))`,
+induct_on `x` >>
+srw_tac[] [generalise_def] >>
+srw_tac[] [] >>
+metis_tac [SND]);
+
+val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
+`!mn decls env d st. infer_d_side mn decls env d st`,
+  rw [infer_d_side_def] >>
+  fs [init_state_def, success_eqns] >>
+  rw [add_constraint_side_def, apply_subst_list_side_def] >>
+  `t_wfs init_infer_state.subst`
+            by rw [init_infer_state_def, unifyTheory.t_wfs_def] >|
+  [match_mp_tac (hd (CONJUNCTS infer_e_side_thm)) >>
+       rw [],
+   match_mp_tac (hd (CONJUNCTS infer_p_side_thm)) >>
+       rw [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [],
+   every_case_tac >>
+       fs [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [] >>
+       PairCases_on `v20` >>
+       imp_res_tac infer_p_wfs >>
+       fs [] >>
+       prove_tac [],
+   every_case_tac >>
+       fs [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [] >>
+       PairCases_on `v20` >>
+       imp_res_tac infer_p_wfs >>
+       fs [] >>
+       prove_tac [unifyTheory.t_unify_wfs],
+   metis_tac [generalise_list_length],
+   match_mp_tac (List.nth (CONJUNCTS infer_e_side_thm, 3)) >>
+       rw [],
+   match_mp_tac add_constraints_side_thm >>
+       rw [] >>
+       imp_res_tac infer_e_wfs >>
+       fs [],
+   imp_res_tac pure_add_constraints_wfs >>
+       imp_res_tac infer_e_wfs >>
+       fs [],
+   match_mp_tac build_ctor_tenv_side_thm >>
+   last_x_assum mp_tac >> rw[],
+   match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[],
+   match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]
+   ]);
+
+val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
+
 val _ = translate (infer_def ``infer_ds``)
 val _ = translate (infer_def ``check_weakE``)
+
+val check_weake_side_def = theorem"check_weake_side_def";
+
+val check_weake_side_thm = Q.store_thm ("check_weake_side_thm",
+`!env specs st. check_weake_side env specs st`,
+induct_on `specs` >>
+rw [] >>
+rw [add_constraint_side_def, Once check_weake_side_def] >>
+fs [success_eqns, init_state_def] >>
+rw [] >>
+fs [init_infer_state_def, unifyTheory.t_wfs_def]);
+
+val _ = check_weake_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
+
 val _ = translate (infer_def ``check_specs``)
+
+val check_specs_side_def = theorem"check_specs_side_def";
+
+val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
+`!mn decls z y cenv env specs st. check_specs_side mn decls z y cenv env specs st`,
+(check_specs_ind |> SPEC_ALL |> UNDISCH |> Q.SPEC`v`
+  |> SIMP_RULE std_ss [GSYM FORALL_PROD] |> Q.GEN`v` |> DISCH_ALL
+  |> Q.GEN`P` |> ho_match_mp_tac) >>
+rw [] >>
+rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >>
+TRY (match_mp_tac build_ctor_tenv_side_thm >>rw[])>>
+TRY (match_mp_tac type_name_subst_side_thm>>every_case_tac>>fs[EVERY_MEM])>>
+fsrw_tac[boolSimps.ETA_ss][]);
+
+val _ = check_specs_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
+
 val _ = translate (infer_def ``check_signature``)
 val _ = translate (infer_def ``infer_top``)
 
