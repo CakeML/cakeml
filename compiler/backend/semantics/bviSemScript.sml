@@ -61,7 +61,7 @@ val do_app_aux_def = Define `
             (case v_to_list lv of
              | SOME vs => if len = Number (& (LENGTH vs))
                           then SOME (SOME (Block n vs, s))
-                          else SOME NONE
+                          else NONE
              | _ => NONE)
          | _ => NONE)
     | (Global n, _) => NONE

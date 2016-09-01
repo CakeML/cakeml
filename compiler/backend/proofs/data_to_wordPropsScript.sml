@@ -2924,6 +2924,20 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
   \\ rpt strip_tac
   \\ simp [Once get_lowerbits_or_1]);
 
+val memory_rel_Cons_empty = store_thm("memory_rel_Cons_empty",
+  ``memory_rel c be refs sp st m (dm:'a word set) vars /\
+    tag < dimword (:α) DIV 16 /\ good_dimindex (:'a) ==>
+    memory_rel c be refs sp st m dm
+      ((Block tag [],Word (BlockNil tag))::vars)``,
+  fs [memory_rel_def] \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def]
+  \\ rpt_drule cons_thm_EMPTY
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ fs [word_addr_def,BlockNil_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ fs [GSYM word_mul_n2w]
+  \\ match_mp_tac BlockNil_and_lemma \\ fs []);
+
 val memory_rel_Ref = store_thm("memory_rel_Ref",
   ``memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
     LENGTH vals = LENGTH (ws:'a word_loc list) /\
@@ -3319,6 +3333,11 @@ val memory_rel_RefByte = store_thm("memory_rel_RefByte",
 
 val memory_rel_tail = store_thm("memory_rel_tail",
   ``memory_rel c be refs sp st m dm (v::vars) ==>
+    memory_rel c be refs sp st m dm vars``,
+  match_mp_tac memory_rel_rearrange \\ fs []);
+
+val memory_rel_drop = store_thm("memory_rel_drop",
+  ``memory_rel c be refs sp st m dm (vs ++ vars) ==>
     memory_rel c be refs sp st m dm vars``,
   match_mp_tac memory_rel_rearrange \\ fs []);
 
@@ -4984,5 +5003,30 @@ val memory_rel_less_space = Q.store_thm("memory_rel_less_space",
   `memory_rel c be refs sp st m dm vars ∧ sp' ≤ sp ⇒
    memory_rel c be refs sp' st m dm vars`,
   rw[memory_rel_def] \\ asm_exists_tac \\ simp[]);
+
+val maxout_bits_IMP = store_thm("maxout_bits_IMP",
+  ``i < dimindex (:'a) /\ (maxout_bits tag k n:'a word) ' i ==> i <= n + k``,
+  rw [maxout_bits_def] \\ rfs [word_lsl_def,fcpTheory.FCP_BETA,n2w_def]
+  THEN1
+   (CCONTR_TAC \\ fs [GSYM NOT_LESS]
+    \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
+    \\ `tag DIV 2 ** (i − n) = 0` by all_tac \\ fs []
+    \\ match_mp_tac LESS_DIV_EQ_ZERO
+    \\ match_mp_tac LESS_LESS_EQ_TRANS
+    \\ asm_exists_tac \\ fs [])
+  \\ rfs [all_ones_def,word_bits_def,fcpTheory.FCP_BETA]);
+
+val make_cons_ptr_thm = store_thm("make_cons_ptr_thm",
+  ``make_cons_ptr conf (f:'a word) tag len =
+     Word ((f << (shift_length conf − shift (:'a)) || 1w ||
+            ptr_bits conf tag len))``,
+  fs [make_cons_ptr_def]
+  \\ `get_lowerbits conf (Word (ptr_bits conf tag len)) =
+      (ptr_bits conf tag len || 1w)` by all_tac \\ fs []
+  \\ fs [get_lowerbits_def]
+  \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_bits_def,word_or_def]
+  \\ rw [] \\ fs [] \\ eq_tac \\ fs [] \\ rw [] \\ fs []
+  \\ disj1_tac \\ rfs [ptr_bits_def,word_or_def,fcpTheory.FCP_BETA]
+  \\ imp_res_tac maxout_bits_IMP \\ fs [shift_length_def]);
 
 val _ = export_theory();

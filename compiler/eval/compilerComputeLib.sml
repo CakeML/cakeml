@@ -392,6 +392,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.SmallLsr_def
     ,data_to_wordTheory.RefByte_code_def
+    ,data_to_wordTheory.Maxout_bits_code_def
+    ,data_to_wordTheory.Make_ptr_bits_code_def
     ,data_to_wordTheory.FromList_code_def
     ,data_to_wordTheory.FromList1_code_def
     ,data_to_wordTheory.RefArray_code_def
