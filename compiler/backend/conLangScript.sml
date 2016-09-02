@@ -67,4 +67,7 @@ val _ = Define `
   ∧
   (num_defs (Dletrec funs::ds) = (LENGTH funs + num_defs ds))`;
 
+(* for each type, for each arity, the number of constructors of that arity *)
+val _ = type_abbrev( "exh_ctors_env" , ``:typeN id |-> num spt``);
+
 val _ = export_theory()
