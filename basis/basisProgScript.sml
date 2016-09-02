@@ -1,8 +1,8 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
+     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
 
-val _ = new_theory "basisProgram"
+val _ = new_theory "basisProg"
 
 (* setup *)
 
