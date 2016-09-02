@@ -132,10 +132,6 @@ val _ = ml_prog_update (open_module "Char");
 val _ = append_dec ``Dtabbrev [] "char" (Tapp [] TC_char)``;
 val _ = trans "ord" `ORD`
 val _ = trans "chr" `CHR`
-val _ = trans "<" `string$char_lt`
-val _ = trans ">" `string$char_gt`
-val _ = trans "<=" `string$char_le`
-val _ = trans ">=" `string$char_ge`
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -152,7 +148,7 @@ val char_of_byte_side = store_thm("char_of_byte_side",
 
   val write = bytarray [0w];
   val write = fn c =>
-    val _ = write[0] := (n2w (ord c))
+    val _ = (write[0] := c)
     in FFI 0 write end
 
 *)
@@ -204,11 +200,10 @@ val e =
 val _ = ml_prog_update (add_Dlet_Fun ``"read"`` ``"c"`` e "read_v")
 
 val e =
-  ``Let (SOME "c") (App Opapp [Var (Long "Char" "ord"); Var (Short "c")])
-     (Let (SOME "c") (App Opapp [Var (Long "Word8" "fromInt"); Var (Short "c")])
-       (Let (SOME "c") (Apps [Var (Long "Word8Array" "update"); Var (Short "write");  Lit (IntLit 0); Var (Short "c")])
-         (Let (SOME "_") (App (FFI 0) [Var (Short "write")])
-           (Var (Short "c")))))``
+  ``Let (SOME "c") (Apps [Var (Long "Word8Array" "update");
+                          Var (Short "write");
+                          Lit (IntLit 0); Var (Short "c")])
+      (Let (SOME "_") (App (FFI 0) [Var (Short "write")]) (Var (Short "c")))``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
@@ -234,7 +229,7 @@ val STDIN_def = Define `
   STDIN input = IO (Str input) stdin_fun [1;2]`;
 
 val STDOUT_def = Define `
-  STDOUT output = IO (Str output) stdout_fun [0]`
+  STDOUT (output:word8 list) = IO (Str (MAP (CHR o w2n) output)) stdout_fun [0]`
 
 val CHAR_IO_def = Define `
   CHAR_IO = SEP_EXISTS w. W8ARRAY write_loc [w]`;
@@ -286,29 +281,23 @@ val read_spec = store_thm ("read_spec",
 
 val write_spec = store_thm ("write_spec",
   ``!a av n nv v.
-     CHAR c cv ==>
+     WORD c cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
        (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\xv. W8ARRAY write_loc [w] * STDOUT output * & (NUM (ORD c) xv)`
-  THEN1 (xapp \\ xsimpl \\ metis_tac [])
-  \\ xlet `\wv. W8ARRAY write_loc [w] * STDOUT output *
-                & (WORD (n2w (ORD c):word8) wv)`
-  THEN1 (xapp \\ xsimpl \\ metis_tac [])
-  \\ xlet `\zv. STDOUT output * W8ARRAY write_loc [n2w (ORD c)] *
+  \\ xlet `\zv. STDOUT output * W8ARRAY write_loc [c] *
                 & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY write_loc [n2w (ORD c)]`
+  \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY write_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
-    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl
-    \\ EVAL_TAC \\ fs [ORD_BOUND, CHR_ORD])
+    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
   \\ xret \\ xsimpl);
 
 val write_list = parse_topdecl
@@ -340,7 +329,7 @@ val _ = ml_prog_update (ml_progLib.add_prog main pick_name);
 
 val write_list_spec = store_thm ("write_list_spec",
   ``!xs cv output.
-     LIST_TYPE CHAR xs cv ==>
+     LIST_TYPE WORD xs cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
@@ -352,7 +341,7 @@ val write_list_spec = store_thm ("write_list_spec",
   \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
-  \\ xlet `\uv. CHAR_IO * STDOUT (STRCAT output [h])`
+  \\ xlet `\uv. CHAR_IO * STDOUT (output ++ [h])`
   THEN1
    (xapp \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
@@ -406,19 +395,20 @@ val main_spec = store_thm ("main",
   ``!cv input output.
       app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
         [cv]
-        (CHAR_IO * STDIN input * STDOUT "")
+        (CHAR_IO * STDIN input * STDOUT [])
         (\uv. CHAR_IO * STDIN "" * STDOUT (compile input))``,
   xcf "main" (basis_st())
-  \\ xlet `\v. CHAR_IO * STDIN input * STDOUT "" * &(LIST_TYPE CHAR "" v)`
+  \\ xlet `\v. CHAR_IO * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
   THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
-  \\ xlet `\x. CHAR_IO * STDIN "" * STDOUT "" * &(LIST_TYPE CHAR input x)`
+  \\ xlet `\x. CHAR_IO * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
   THEN1
    (xapp \\ instantiate \\ xsimpl
-    \\ qexists_tac `STDOUT ""` \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
-  \\ xlet `\y. CHAR_IO * STDIN "" * STDOUT "" * &(LIST_TYPE CHAR (compile input) y)`
+    \\ qexists_tac `STDOUT []` \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
+  \\ xlet `\y. CHAR_IO * STDIN "" * STDOUT [] *
+               &(LIST_TYPE WORD (compile input) y)`
   THEN1 (xapp \\ instantiate \\ xsimpl)
   \\ xapp \\ instantiate \\ fs []
-  \\ xsimpl \\ qexists_tac `STDIN ""` \\ qexists_tac `""` \\ xsimpl);
+  \\ xsimpl \\ qexists_tac `STDIN ""` \\ qexists_tac `[]` \\ xsimpl);
 
 (* prove final eval thm *)
 
@@ -465,11 +455,11 @@ val raw_evaluate_prog = let
 (* next we instantiate the ffi and projection to remove the separation logic *)
 
 val io_ffi_oracle_def = Define `
-  (io_ffi_oracle:(string # string) oracle) =
+  (io_ffi_oracle:(string # (word8 list)) oracle) =
     \index (inp,out) bytes.
        if index = 0 then
          case bytes of
-         | [b] => Oracle_return (inp,out ++ [CHR (w2n b)]) [b]
+         | [b] => Oracle_return (inp,out ++ [b]) [b]
          | _ => Oracle_fail
        else if index = 1 then
          case bytes of
@@ -485,12 +475,13 @@ val io_ffi_oracle_def = Define `
 val io_ffi_def = Define `
   io_ffi (inp:string) =
     <| oracle := io_ffi_oracle
-     ; ffi_state := (inp,"")
+     ; ffi_state := (inp,[])
      ; final_event := NONE
      ; io_events := [] |>`;
 
 val io_proj1_def = Define `
-  io_proj1 = (\(inp,out). FEMPTY |++ [(0,Str out);(1,Str inp);(2n,Str inp)])`;
+  io_proj1 = (\(inp,out:word8 list).
+    FEMPTY |++ [(0,Str (MAP (CHR o w2n) out));(1,Str inp);(2n,Str inp)])`;
 
 val io_proj2_def = Define `
   io_proj2 = [([0n],stdout_fun);([1;2],stdin_fun)]`;
@@ -503,7 +494,7 @@ val extract_output_def = Define `
      | SOME rest =>
          if index <> 0 then SOME rest else
          if LENGTH bytes <> 1 then NONE else
-           SOME (CHR (w2n (SND (HD bytes))) :: rest))`
+           SOME ((SND (HD bytes)) :: rest))`
 
 val extract_output_APPEND = store_thm("extract_output_APPEND",
   ``!xs ys.
@@ -561,6 +552,16 @@ val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
   \\ fs [io_ffi_oracle_def]
   \\ Cases_on `st.ffi_state` \\ fs [] \\ rw []);
 
+val w2n_lt_256 =
+  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
+         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
+
+val MAP_CHR_w2n_11 = store_thm("MAP_CHR_w2n_11",
+  ``!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2``,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
+
 val evaluate_prog = let
   val th = raw_evaluate_prog |> Q.GEN `ffi` |> ISPEC ``io_ffi input``
              |> Q.INST [`p`|->`(io_proj1,io_proj2)`]
@@ -603,18 +604,18 @@ val evaluate_prog = let
   val eval_tm = lhs |> helperLib.list_dest dest_conj |> last
   val rhs = ``^eval_tm /\
               st'.ffi.final_event = NONE /\
-              st'.ffi.ffi_state = ("",compile input) /\
+              st'.ffi.ffi_state = ([],compile input) /\
               extract_output st'.ffi.io_events = SOME (compile input)``
   val goal = mk_imp(lhs,rhs)
   val lemma = prove(goal,
     rw []
-    \\ `(STDIN "" * STDOUT (compile input) * CHAR_IO) h'` by
+    \\ `(STDIN [] * STDOUT (compile input) * CHAR_IO) h'` by
            (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
     \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
            GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
-    \\ `FFI_part (Str "") stdin_fun [1; 2] IN
+    \\ `FFI_part (Str []) stdin_fun [1; 2] IN
           (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi) /\
-        FFI_part (Str (compile input)) stdout_fun [0] IN
+        FFI_part (Str (MAP (CHR o w2n) (compile input))) stdout_fun [0] IN
           (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi)` by
            cfHeapsBaseLib.SPLIT_TAC
     \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap]
@@ -626,6 +627,7 @@ val evaluate_prog = let
     \\ rw [] \\ drule evaluate_prog_RTC_call_FFI_rel
     \\ strip_tac
     \\ `compile input = SND (st'.ffi.ffi_state)` by fs []
+    \\ fs [MAP_CHR_w2n_11]
     \\ pop_assum (fn th => rewrite_tac[th])
     \\ match_mp_tac (RTC_call_FFI_rel_IMP_io_events |> MP_CANON |> SPEC_ALL
           |> Q.INST [`ys`|->`[]`]
