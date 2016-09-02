@@ -269,25 +269,28 @@ val inst_correct = Q.store_thm("inst_correct",
     \\ fs[] \\ strip_tac));
 
 val flatten_leq = Q.store_thm("flatten_leq",
-  `∀x y z. z ≤ SND (flatten x y z)`,
+  `∀x y z. z ≤ SND (SND (flatten x y z))`,
   ho_match_mp_tac flatten_ind >> srw_tac[][]>>
   ONCE_REWRITE_TAC[flatten_def] >>
   CASE_TAC >> simp[] >> full_simp_tac(srw_ss())[] >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  pairarg_tac >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> fs[] >>
+  pairarg_tac >> fs[] >>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
-  simp[]);
+  rw[]);
 
 val no_ret_correct = Q.store_thm("no_ret_correct",
-  `∀p. no_ret p ⇒ ∀s. IS_SOME (FST (evaluate (p,s)))`,
-  ho_match_mp_tac no_ret_ind >> srw_tac[][] >>
-  Cases_on`p`>>simp[stackSemTheory.evaluate_def] >>
-  full_simp_tac(srw_ss())[Once no_ret_def] >>
-  full_simp_tac(srw_ss())[GSYM no_ret_def] >>
+  `∀p y z. FST(SND(flatten p y z)) ⇒ ∀s. IS_SOME (FST (evaluate (p,s)))`,
+  ho_match_mp_tac flatten_ind >> rw[] >>
+  pop_assum mp_tac \\
+  Cases_on`p`>>simp[Once flatten_def,stackSemTheory.evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   rev_full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
+  TRY pairarg_tac >> fs[] >> rw[stackSemTheory.evaluate_def] >>
+  TRY pairarg_tac >> fs[] >> rw[] >> fs[stackSemTheory.evaluate_def] >>
+  fs[Q.SPEC`Skip`flatten_def] >>
+  every_case_tac >> fs[] >>
   METIS_TAC[NOT_SOME_NONE,FST,option_CASES]);
 
 val compile_jump_correct = Q.store_thm("compile_jump_correct",
@@ -322,7 +325,8 @@ val code_installed_get_labels_IMP = prove(
   \\ every_case_tac \\ fs []
   \\ TRY pairarg_tac \\ fs []
   \\ TRY pairarg_tac \\ fs [code_installed_def]
-  \\ rw [] \\ res_tac \\ fs []
+  \\ TRY pairarg_tac \\ fs [code_installed_def]
+  \\ rw [] \\ res_tac \\ fs [code_installed_def]
   \\ fs [get_labels_def]
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
@@ -701,7 +705,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       qexists_tac`ck`>>simp[] >>
       qexists_tac`t2`>>simp[] >>
       TOP_CASE_TAC >> fs[FILTER_APPEND]) >>
-    Cases_on`no_ret c1`>>full_simp_tac(srw_ss())[] >- (
+    Cases_on`nr1`>>full_simp_tac(srw_ss())[] >- (
       full_simp_tac(srw_ss())[code_installed_def] >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
@@ -711,7 +715,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
       qmatch_asmsub_rename_tac`if xx then _ else _` >>
       (Cases_on`xx`)>>fs[] >- (
-        `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
+        `IS_SOME r` by metis_tac[no_ret_correct,FST,SND] >>
         full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
         rfs[good_syntax_def,FILTER_APPEND] >>
@@ -753,7 +757,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       fs[Abbr`pc`] >>
       CASE_TAC \\ fs[] >>
       CASE_TAC \\ fs[]) >>
-    Cases_on`no_ret c2`>>full_simp_tac(srw_ss())[] >- (
+    Cases_on`nr2`>>full_simp_tac(srw_ss())[] >- (
       full_simp_tac(srw_ss())[code_installed_def] >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
@@ -763,7 +767,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
       qmatch_asmsub_rename_tac`if xx then _ else _` >>
       reverse (Cases_on`xx`)>>fs[] >- (
-        `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
+        `IS_SOME r` by metis_tac[no_ret_correct,FST,SND] >>
         full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
         rfs[good_syntax_def,FILTER_APPEND] >>
@@ -1915,7 +1919,7 @@ val stack_to_lab_lab_pres = store_thm("stack_to_lab_lab_pres",``
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
   next_lab p ≤ nl ⇒
-  let (cp,nl') = flatten p n nl in
+  let (cp,nr,nl') = flatten p n nl in
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (append cp)) ∧
   ALL_DISTINCT (extract_labels (append cp)) ∧
   (∀lab. MEM lab (extract_labels (append cp)) ⇒ MEM lab (extract_labels p) ∨ (nl ≤ SND lab ∧ SND lab < nl')) ∧
@@ -1951,7 +1955,7 @@ val stack_to_lab_lab_pres = store_thm("stack_to_lab_lab_pres",``
     `1 ≤ nl` by
       metis_tac[LESS_EQ_TRANS,next_lab_non_zero]>>
     fs[ALL_DISTINCT_APPEND]>>
-    qpat_x_assum`A=(cp,nl')` mp_tac>>
+    qpat_x_assum`A=(cp,_,nl')` mp_tac>>
     BasicProvers.EVERY_CASE_TAC>>strip_tac>>rveq>>fs[extract_labels_def,extract_labels_append,ALL_DISTINCT_APPEND]>>
     TRY
       (rw[]>>
