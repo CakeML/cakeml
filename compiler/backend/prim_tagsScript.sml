@@ -21,6 +21,8 @@ val _ = Define `cons_tag  = 0`;
 val _ = Define `none_tag  = 0`;
 val _ = Define `some_tag  = 0`;
 
+val _ = Define `tuple_tag = 0`;
+
 val bool_to_tag_def = Define`
   bool_to_tag b = if b then true_tag else false_tag`
 

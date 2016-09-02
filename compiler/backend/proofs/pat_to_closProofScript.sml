@@ -357,7 +357,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       simp[compile_state_def,get_global_def,EL_MAP] >>
       pop_assum mp_tac >> BasicProvers.CASE_TAC >>fs[] >>
       strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-      simp[LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def] )
+      simp[LUPDATE_MAP,prim_tagsTheory.tuple_tag_def] )
     >- ( (* TagLenEq *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] )

@@ -81,6 +81,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,prim_tagsTheory.cons_tag_def
     ,prim_tagsTheory.none_tag_def
     ,prim_tagsTheory.some_tag_def
+    ,prim_tagsTheory.tuple_tag_def
     ,conLangTheory.num_defs_def
     ]
   ,computeLib.Tys
@@ -127,7 +128,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.get_tags_def
     ,dec_to_exhTheory.exhaustive_match_def
-    ,dec_to_exhTheory.tuple_tag_def
     ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_pat_def
     ]

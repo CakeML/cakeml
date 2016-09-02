@@ -58,8 +58,6 @@ val add_default_def = Define `
    else
      pes ++ [(Pvar "x", Raise (Con (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
 
-val _ = Define `tuple_tag = 0`;
-
 val _ = tDefine"compile_pat"`
   (compile_pat (Pvar x) = Pvar x)
   ∧

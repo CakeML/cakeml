@@ -18,7 +18,6 @@ BARE_THYS = ../../../semantics/terminationTheory\
 						../../../semantics/proofs/funBigStepPropsTheory\
 						../../targets/targetPropsTheory\
 						../source_to_modTheory\
-						../pat_to_closTheory\
 						../bvl_constTheory\
 						../bvi_to_dataTheory\
 						../lab_to_targetTheory
