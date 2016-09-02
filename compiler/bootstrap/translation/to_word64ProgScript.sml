@@ -242,10 +242,11 @@ val word_to_word_compile_side = prove(``
   simp[fetch"-""word_to_word_compile_side_def"]>>
   Induct_on`z`>>fs[word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 
-(* FromList likely to break when implemented *)
-val _ = translate(conv64 FromList_code_def)
-val _ = translate(conv64 FromList1_code_def)
+val _ = translate(Maxout_bits_code_def |> conv64)
+val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv64)
 val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
+val _ = translate(FromList_code_def |> conv64)
+val _ = translate(FromList1_code_def |> inline_simp |> conv64)
 val _ = translate(MakeBytes_def |> conv64)
 val _ = translate(RefByte_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss[SmallLsr_def])
 val _ = translate(RefArray_code_def |> inline_simp |> conv64)
