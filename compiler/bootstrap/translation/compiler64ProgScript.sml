@@ -2,7 +2,7 @@ open preamble
      to_target64ProgTheory compilerTheory
      ml_translatorLib ml_translatorTheory
 
-val _ = new_theory"compiler64";
+val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "to_target64Prog";
 
