@@ -492,4 +492,24 @@ val MAP_CHR_w2n_11 = store_thm("MAP_CHR_w2n_11",
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 
+val evaluate_prog_rel_IMP_evaluate_prog_fun = store_thm(
+   "evaluate_prog_rel_IMP_evaluate_prog_fun",
+  ``bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
+    ?k. funBigStep$evaluate_prog (st with clock := k) env prog =
+          (st',new_tds,Rval r)``,
+  rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
+  \\ qexists_tac`c + st.clock`
+  \\ (funBigStepEquivTheory.functional_evaluate_prog
+      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO |> GEN_ALL
+      |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","env","prog"]))
+      |> qspecl_then[`st with clock := c + st.clock`,`env`,`prog`]mp_tac)
+  \\ rw[] \\ pairarg_tac \\ fs[]
+  \\ fs[bigStepTheory.evaluate_whole_prog_def]
+  \\ drule bigClockTheory.prog_add_to_counter \\ simp[]
+  \\ disch_then(qspec_then`st.clock`strip_assume_tac)
+  \\ drule determTheory.prog_determ
+  \\ every_case_tac \\ fs[]
+  \\ TRY (disch_then drule \\ rw[])
+  \\ fs[semanticPrimitivesTheory.state_component_equality]);
+
 val _ = export_theory ()
