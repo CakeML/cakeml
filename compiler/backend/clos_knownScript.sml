@@ -111,14 +111,18 @@ val clos_gen_def = Define`
   (clos_gen n i [] = []) ∧
   (clos_gen n i ((x,_)::xs) = Clos (n+2*i) x::clos_gen n (i+1) xs)`
 
+val _ = Datatype`globalOpt = gO_Int int | gO_NullTuple num | gO_None`
+
 val isGlobal_def = Define`
   (isGlobal (Global _) ⇔ T) ∧
   (isGlobal _ ⇔ F)
 `
 
-val destIntApx_def = Define`
-  destIntApx (Int i) = SOME i ∧
-  destIntApx _ = NONE
+val gO_destApx_def = Define`
+  (gO_destApx (Int i) = gO_Int i) ∧
+  (gO_destApx (Tuple tag args) = if NULL args then gO_NullTuple tag
+                                 else gO_None) ∧
+  (gO_destApx _ = gO_None)
 `;
 
 val known_def = tDefine "known" `
@@ -164,9 +168,10 @@ val known_def = tDefine "known" `
      let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
      let e =
          if isGlobal op then
-           case destIntApx a of
-               NONE => Op op (MAP FST e1)
-             | SOME i => Op (Const i) []
+           case gO_destApx a of
+               gO_None => Op op (MAP FST e1)
+             | gO_Int i => Op (Const i) []
+             | gO_NullTuple tag => Op (Cons tag) []
          else Op op (MAP FST e1)
      in
        ([(e,a)],g)) /\

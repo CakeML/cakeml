@@ -598,9 +598,9 @@ val known_preserves_setGlobals = Q.store_thm(
   rpt (pairarg_tac >> fs[]) >> rw[] >> fs[] >> imp_res_tac known_sing_EQ_E >>
   rw[] >> fs[] >> rw[] >> simp[elist_globals_FOLDR]
   >- (rename [`isGlobal opn`] >> Cases_on `opn` >> fs[isGlobal_def] >>
-      rename [`destIntApx a`] >> Cases_on `a` >>
-      fs[destIntApx_def, op_gbag_def, elist_globals_FOLDR] >>
-      fs[known_op_def, bool_case_eq, eqs, NULL_EQ]) >>
+      rename [`gO_destApx a`] >> Cases_on `a` >>
+      fs[gO_destApx_def, op_gbag_def, elist_globals_FOLDR] >>
+      fs[known_op_def, bool_case_eq, eqs, NULL_EQ] >> rw[op_gbag_def]) >>
   irule FOLDR_CONG >> simp[] >>
   simp[LIST_EQ_REWRITE, EL_MAP] >>
   rpt strip_tac >> pairarg_tac >>
@@ -872,10 +872,12 @@ val known_correct_approx = Q.store_thm(
       resolve_selected hd subspt_known_op_elist_globals >> simp[] >>
       disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
       rename[`known_op opn`] >> Cases_on `isGlobal opn` >> fs[] >| [
-        rename[`destIntApx apx`] >> Cases_on `destIntApx apx` >| [
-          ALL_TAC,
+        rename[`gO_destApx apx`] >> Cases_on `gO_destApx apx` >| [
           fs[evaluate_def, do_app_def] >> rveq >> simp[] >> Cases_on `apx` >>
-          fs[destIntApx_def]
+          fs[gO_destApx_def, bool_case_eq, NULL_EQ],
+          fs[evaluate_def, do_app_def] >> rveq >> simp[] >> Cases_on `apx` >>
+          fs[gO_destApx_def, bool_case_eq, NULL_EQ],
+          ALL_TAC
         ],
         ALL_TAC
       ] >>
@@ -1737,17 +1739,21 @@ val known_correct0 = Q.prove(
            BAG_ALL_DISTINCT_BAG_UNION] >>
       rpt gen_tac >> strip_tac >> rpt gen_tac >>
       rpt (pairarg_tac >> fs[]) >>
-      rename[`isGlobal opn`, `destIntApx apx`] >>
-      Cases_on `isGlobal opn ∧ ∃i. destIntApx apx = SOME i`
+      rename[`isGlobal opn`, `gO_destApx apx`] >>
+      Cases_on `isGlobal opn ∧ gO_destApx apx ≠ gO_None`
       >- (pop_assum strip_assume_tac >> simp[] >>
           Cases_on `opn` >> fs[isGlobal_def] >>
-          Cases_on `apx` >> fs[destIntApx_def] >> rveq >>
+          Cases_on `apx` >> fs[gO_destApx_def] >> rveq >>
           fs[known_op_def, NULL_EQ, bool_case_eq, eqs] >> rveq >>
           imp_res_tac known_LENGTH_EQ_E >> fs[LENGTH_NIL_SYM] >> rveq >>
           simp[evaluate_def] >>
           rpt strip_tac >> rveq >> fs[evaluate_def, do_app_def, eqs] >>
           fs[state_globals_approx_def, subspt_def] >> rveq >> simp[] >>
-          fs[known_def] >> rveq >>
+          fs[known_def] >> rveq
+          >- (rename[`lookup n g0 = SOME (Tuple tg [])`,
+                     `kvrel g1 v (Block tg [])`] >>
+              `lookup n g1 = SOME (Tuple tg [])` by metis_tac[domain_lookup] >>
+              res_tac >> fs[] >> rveq >> fs[val_approx_val_def]) >>
           rename[`lookup n g0 = SOME (Int i)`, `kvrel g1 v (Number i)`] >>
           `lookup n g1 = SOME (Int i)` by metis_tac[domain_lookup] >>
           metis_tac[val_rel_def, val_approx_val_def, SOME_11]) >>
@@ -1756,7 +1762,7 @@ val known_correct0 = Q.prove(
       rpt strip_tac >>
       `ealist = [(Op opn (MAP FST es), apx)]`
          by (Cases_on `isGlobal opn` >> fs[] >>
-             Cases_on `apx` >> fs[destIntApx_def]) >>
+             Cases_on `apx` >> fs[gO_destApx_def] >> every_case_tac >> fs[]) >>
       pop_assum SUBST_ALL_TAC >> rveq >>
       qpat_x_assum `¬(_ ∧ _)` kall_tac >> fs[] >>
       dsimp[evaluate_def, result_case_eq, pair_case_eq] >>
@@ -2368,9 +2374,9 @@ val known_code_locs = Q.store_thm("known_code_locs",
   \\ fs[code_locs_def]
   \\ imp_res_tac known_sing_EQ_E \\ fs[]
   >- (every_case_tac >> simp[code_locs_def] >>
-      rename[`isGlobal opn`, `destIntApx apx`] >>
+      rename[`isGlobal opn`, `gO_destApx apx`] >>
       Cases_on `opn` >> fs[isGlobal_def] >> Cases_on `apx` >>
-      fs[destIntApx_def, known_op_def, bool_case_eq, NULL_EQ, eqs] >> rveq >>
+      fs[gO_destApx_def, known_op_def, bool_case_eq, NULL_EQ, eqs] >> rveq >>
       imp_res_tac known_LENGTH_EQ_E >> fs[LENGTH_NIL_SYM, code_locs_def])
   \\ fs[code_locs_map]
   \\ AP_TERM_TAC
