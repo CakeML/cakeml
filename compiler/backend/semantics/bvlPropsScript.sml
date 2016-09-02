@@ -1,4 +1,4 @@
-open preamble bvlTheory bvlSemTheory clos_to_bvlTheory bvl_constTheory;
+open preamble bvlTheory bvlSemTheory bvl_constTheory;
 open prim_tagsTheory;
 
 val _ = new_theory"bvlProps";
