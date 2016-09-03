@@ -107,9 +107,19 @@ val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_i
 
 val _ = translate (clos_knownTheory.known_def)
 
+val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
+
+val clos_known_merge_side = prove(``
+  ∀a b. clos_known_merge_side a b ⇔ T``,
+  EVAL_TAC \\
+  recInduct clos_knownTheory.merge_tup_ind \\
+  rw[] \\
+  rw[Once clos_known_merge_tup_side_def]);
+
 val clos_known_known_op_side = prove(``
   ∀a b c. clos_known_known_op_side a b c ⇔ T``,
-  simp[Once (fetch"-" "clos_known_known_op_side_def")]>>rw[]>>
+  simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
+  rw[clos_known_merge_side]>>
   intLib.COOPER_TAC)
 
 val clos_known_known_side = prove(``
@@ -120,6 +130,7 @@ val clos_known_known_side = prove(``
     imp_res_tac clos_knownTheory.known_sing_EQ_E>>
     fs[])>>
   rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
+  fs[clos_known_merge_side] >>
   metis_tac[FST,PAIR,clos_known_known_op_side]) |> update_precondition
 
 (* call *)
