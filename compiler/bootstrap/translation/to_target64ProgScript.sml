@@ -8,19 +8,8 @@ val _ = new_theory "to_target64Prog"
 val _ = translation_extends "to_word64Prog";
 
 val RW = REWRITE_RULE
-val RW1 = ONCE_REWRITE_RULE
-fun list_dest f tm =
-  let val (x,y) = f tm in list_dest f x @ list_dest f y end
-  handle HOL_ERR _ => [tm];
-val dest_fun_type = dom_rng
-val mk_fun_type = curry op -->;
-fun list_mk_fun_type [ty] = ty
-  | list_mk_fun_type (ty1::tys) =
-      mk_fun_type ty1 (list_mk_fun_type tys)
-  | list_mk_fun_type _ = fail()
 
 val _ = add_preferred_thy "-";
-val _ = add_preferred_thy "termination";
 
 val NOT_NIL_AND_LEMMA = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
@@ -40,8 +29,7 @@ fun def_of_const tm = let
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
     DB.fetch thy name
-  val def = def_from_thy "termination" name handle HOL_ERR _ =>
-            def_from_thy (#Thy res) name handle HOL_ERR _ =>
+  val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
 
   val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then map (fn x => x |-> ``:64``) (!inst_tyargs)  else []
@@ -64,6 +52,10 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
+
+val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
+
+val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,``foo:'a stackLang$prog``]
 
@@ -268,7 +260,7 @@ val _ = translate (prog_comp_def |> INST_TYPE [beta|->``:64``])
 
 val _ = translate (store_list_code_def |> inline_simp |> conv64)
 val _ = translate (init_memory_def |> inline_simp |> conv64)
-val _ = translate (init_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss [word_mul_def])
+val _ = translate (init_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss [word_mul_def]|>gconv|>SIMP_RULE std_ss[w2n_n2w] |> conv64)
 
 val _ = translate (spec64 compile_def)
 
