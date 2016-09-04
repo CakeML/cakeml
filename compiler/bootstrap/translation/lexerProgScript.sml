@@ -1,8 +1,6 @@
-open HolKernel Parse boolLib bossLib;
-open preamble;
-open lexer_funTheory lexer_implTheory;
-open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory ioProgTheory;
+open preamble
+     lexer_funTheory lexer_implTheory ioProgTheory
+     ml_translatorLib ml_translatorTheory
 
 val _ = new_theory "lexerProg"
 
