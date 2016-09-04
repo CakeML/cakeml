@@ -1,5 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_compileLib x64_exportLib
+open helloProgTheory
 
 val _ = new_theory "benchmark"
 
@@ -658,8 +659,9 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
-val benchmarks = [foldl,reverse,fib,btree,queue,qsort]
-val names = ["foldl","reverse","fib","btree","queue","qsort"]
+val hello = entire_program_def |> concl |> rand
+val benchmarks = [hello,foldl,reverse,fib,btree,queue,qsort]
+val names = ["hello","foldl","reverse","fib","btree","queue","qsort"]
 
 val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
 
