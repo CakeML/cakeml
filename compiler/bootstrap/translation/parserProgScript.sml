@@ -51,7 +51,8 @@ val _ = (find_def_for_const := def_of_const);
 
 (* parsing: peg_exec and cmlPEG *)
 
-val _ = translate (def_of_const ``cmlPEG``);
+val res = register_type``:(token,MMLnonT) parsetree``;
+val res = register_type``:MMLnonT``;
 
 local
   val ths = ml_translatorLib.eq_lemmas();
@@ -151,6 +152,8 @@ val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = pr
   conj_tac >- METIS_TAC[GRAMMAR_PARSETREE_TYPE_no_closures] >>
   METIS_TAC[GRAMMAR_PARSETREE_TYPE_types_match,GRAMMAR_PARSETREE_TYPE_11])
   |> store_eq_thm
+
+val _ = translate (def_of_const ``cmlPEG``);
 
 val INTRO_FLOOKUP = store_thm("INTRO_FLOOKUP",
   ``(if n IN FDOM G.rules
