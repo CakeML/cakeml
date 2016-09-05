@@ -4,7 +4,7 @@ open preamble
      ml_translatorLib
      ioProgLib
 
-val () = new_theory "compiler_x64";
+val () = new_theory "compiler_x64Prog";
 
 val () = translation_extends "x64Prog";
 
