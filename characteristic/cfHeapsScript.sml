@@ -84,6 +84,12 @@ val local_is_local = store_thm ("local_is_local",
   metis_tac [is_local_def, local_local]
 )
 
+val is_local_prove = store_thm ("is_local_prove",
+  ``!F. (!H Q. F H Q <=> local F H Q) ==> is_local F``,
+  rpt strip_tac \\ fs [is_local_def] \\
+  NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs []
+);
+
 val local_frame_gc = store_thm ("local_frame_gc",
   ``!F H H1 H2 Q1 Q.
       is_local F ==>

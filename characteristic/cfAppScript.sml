@@ -1,7 +1,7 @@
 open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
-open cfTacticsBaseLib
+open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
+open cfTacticsBaseLib cfHeapsLib
 
 val _ = new_theory "cfApp"
 
@@ -27,8 +27,26 @@ val app_basic_def = Define `
 
 val app_basic_local = prove (
   ``!f x. is_local (app_basic p f x)``,
-  cheat)
-
+  simp [is_local_def] \\ rpt strip_tac \\
+  irule EQ_EXT \\ qx_gen_tac `H` \\ irule EQ_EXT \\ qx_gen_tac `Q` \\
+  eq_tac \\ fs [local_elim] \\
+  simp [local_def] \\ strip_tac \\ simp [app_basic_def] \\ rpt strip_tac \\
+  first_assum progress \\
+  qpat_assum `(H1 * H2) h` (strip_assume_tac o REWRITE_RULE [STAR_def]) \\
+  fs [] \\ rename1 `H1 h1` \\ rename1 `H2 h2` \\
+  qpat_assum `app_basic _ _ _ _ _` (mp_tac o REWRITE_RULE [app_basic_def]) \\
+  disch_then (qspecl_then [`h1`, `i UNION h2`, `st`] mp_tac) \\
+  impl_tac THEN1 SPLIT_TAC \\ disch_then progress \\
+  rename1 `Q' v' h1'` \\
+  qpat_x_assum `_ ==+> _` mp_tac \\
+  disch_then (mp_tac o REWRITE_RULE [SEP_IMPPOST_def, STARPOST_def]) \\
+  disch_then (mp_tac o REWRITE_RULE [SEP_IMP_def]) \\
+  disch_then (qspecl_then [`v'`, `h1' UNION h2`] mp_tac) \\ simp [] \\
+  impl_tac
+  THEN1 (simp [STAR_def] \\ Q.LIST_EXISTS_TAC [`h1'`, `h2`] \\ SPLIT_TAC) \\
+  disch_then (assume_tac o REWRITE_RULE [STAR_def]) \\ fs [] \\
+  instantiate \\ rename1 `GC gc` \\ rename1 `SPLIT3 _ (h1', i', i UNION h2)` \\
+  qexists_tac `gc UNION i'` \\ SPLIT_TAC);
 
 (* [app]: n-ary application *)
 val app_def = Define `
@@ -46,7 +64,7 @@ val app_alt_ind = store_thm ("app_alt_ind",
        (\g. SEP_EXISTS H'. H' * cond (app_basic p g x H' Q))``,
   Induct_on `xs` \\ fs [] \\ rpt strip_tac \\
   Cases_on `xs` \\ fs [app_def]
-)
+);
 
 val app_alt_ind_w = store_thm ("app_alt_ind_w",
   ``!f xs x H Q.
@@ -56,10 +74,76 @@ val app_alt_ind_w = store_thm ("app_alt_ind_w",
   rpt strip_tac \\ fs [app_alt_ind]
 )
 
+val app_ge_2_unfold = store_thm ("app_ge_2_unfold",
+  ``!f x xs H Q.
+      xs <> [] ==>
+      app (p:'ffi ffi_proj) f (x::xs) H Q =
+      app_basic p f x H (\g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))``,
+  rpt strip_tac \\ Cases_on `xs` \\ fs [app_def]
+);
+
+val app_ge_2_unfold_extens = store_thm ("app_ge_2_unfold_extens",
+  ``!f x xs.
+      xs <> [] ==>
+      app (p:'ffi ffi_proj) f (x::xs) =
+      \H Q. app_basic p f x H (\g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))``,
+  rpt strip_tac \\ NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs [app_ge_2_unfold]
+);
+
+(* Weaken-frame-gc for [app]; auxiliary lemma for [app_local] *)
+
+val app_wgframe = store_thm ("app_wgframe",
+  ``!f xs H H1 H2 Q1 Q.
+      app (p:'ffi ffi_proj) f xs H1 Q1 ==>
+      H ==>> (H1 * H2) ==>
+      (Q1 *+ H2) ==+> (Q *+ GC) ==>
+      app p f xs H Q``,
+  NTAC 2 gen_tac \\ Q.SPEC_TAC (`f`, `f`) \\
+  Induct_on `xs` THEN1 (fs [app_def]) \\ rpt strip_tac \\ rename1 `x::xs` \\
+  Cases_on `xs = []`
+  THEN1 (
+    fs [app_def] \\ irule local_frame_gc THEN1 (fs [app_basic_local]) \\
+    instantiate
+  )
+  THEN1 (
+    fs [app_ge_2_unfold] \\ irule local_frame THEN1 (fs [app_basic_local]) \\
+    instantiate \\ simp [SEP_IMPPOST_def] \\ qx_gen_tac `g` \\
+    hpull \\ qx_gen_tac `HR` \\ strip_tac \\ hsimpl \\ qexists_tac `HR * H2` \\
+    hsimpl \\ first_assum irule \\ instantiate \\ hsimpl
+  )
+);
+
+val app_weaken = store_thm ("app_weaken",
+  ``!f xs H Q Q'.
+      app (p:'ffi ffi_proj) f xs H Q ==>
+      Q ==+> Q' ==>
+      app p f xs H Q'``,
+  rpt strip_tac \\ fs [SEP_IMPPOST_def] \\ irule app_wgframe \\ instantiate \\
+  hsimpl \\ (*fixme*) qexists_tac `emp` \\ simp [GC_def] \\ hsimpl \\
+  gen_tac \\ qexists_tac `emp` \\ hsimpl \\ fs [] (* uhh *)
+);
+
 val app_local = store_thm ("app_local",
   ``!f xs. xs <> [] ==> is_local (app (p:'ffi ffi_proj) f xs)``,
-  cheat)
-
+  rpt strip_tac \\ irule is_local_prove \\ rpt strip_tac \\
+  Cases_on `xs` \\ fs [] \\ rename1 `x1::xs` \\
+  Cases_on `xs` \\ fs []
+  THEN1 (
+    `!x. app p f [x] = app_basic p f x` by
+      (gen_tac \\ NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs [app_def]) \\
+    fs [Once (REWRITE_RULE [is_local_def] app_basic_local)]
+  )
+  THEN1 (
+    rename1 `x1::x2::xs` \\ simp [app_ge_2_unfold_extens] \\
+    eq_tac \\ strip_tac THEN1 (irule local_elim \\ fs []) \\
+    simp [Once (REWRITE_RULE [is_local_def] app_basic_local)] \\
+    fs [local_def] \\ rpt strip_tac \\ first_x_assum progress \\
+    rename1 `(H1 * H2) h` \\ instantiate \\ simp [SEP_IMPPOST_def] \\
+    qx_gen_tac `g` \\ hpull \\ qx_gen_tac `H'` \\ strip_tac \\ hsimpl \\
+    qexists_tac `H' * H2` \\ hsimpl \\ irule app_wgframe \\ instantiate \\
+    hsimpl
+  )
+);
 
 (* [curried (p:'ffi ffi_proj) n f] states that [f] is curried [n] times *)
 val curried_def = Define `
