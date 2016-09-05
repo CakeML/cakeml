@@ -164,6 +164,7 @@ val curried_def = Define `
 (** When [curried n f] holds and the number of the arguments [xs] is less than
     [n], then [app f xs] is a function [g] such that [app g ys] has the same
     behavior as [app f (xs++ys)]. *)
+(*
 val app_partial = prove (
   ``!n xs f. curried (p:'ffi ffi_proj) n f ==> (0 < LENGTH xs /\ LENGTH xs < n) ==>
     app (p:'ffi ffi_proj) f xs emp (\g. cond (
@@ -188,6 +189,7 @@ val app_partial = prove (
     )
   )
 )
+*)
 
 (*------------------------------------------------------------------*)
 (** Packaging *)
