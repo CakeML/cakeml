@@ -2,6 +2,7 @@ open preamble
      x64ProgTheory
      x64_configTheory
      ml_translatorLib
+     ioProgLib
 
 val () = new_theory "compiler_x64";
 
@@ -30,14 +31,16 @@ val res = translate prim_config_def;
 
 (* TODO: x64_compiler_config should be called x64_backend_config, and should
          probably be defined elsewhere *)
-val compile_x64_def = Define`
+val compiler_x64_def = Define`
   compiler_x64 = compile_to_bytes <| inferencer_config := prim_config; backend_config := x64_compiler_config |>`;
 
 val res = translate
   (x64_compiler_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1])
 
-val res = translate compile_x64_def;
+val res = translate compiler_x64_def;
+
+val res = append_main_call "compiler_x64" ``compiler_x64``;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
