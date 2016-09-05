@@ -157,7 +157,20 @@ val curried_def = Define `
                   !xs H Q.
                     LENGTH xs = n ==>
                     app (p:'ffi ffi_proj) f (x::xs) H Q ==>
-                    app (p:'ffi ffi_proj) g xs H Q))`
+                    app (p:'ffi ffi_proj) g xs H Q))`;
+
+val curried_ge_2_unfold = store_thm ("curried_ge_2_unfold",
+  ``!n f.
+      n > 1 ==>
+      curried (p:'ffi ffi_proj) n f =
+      !x. app_basic p f x emp
+            (\g. cond (curried p (PRE n) g /\
+                 !xs H Q.
+                   LENGTH xs = PRE n ==>
+                   app p f (x::xs) H Q ==> app p g xs H Q))``,
+  rpt strip_tac \\ Cases_on `n` \\ fs [] \\ rename1 `SUC n > 1` \\
+  Cases_on `n` \\ fs [Once curried_def]
+);
 
 (* app_over_app / app_over_take *)
 
