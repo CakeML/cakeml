@@ -1861,17 +1861,17 @@ val _ = save_thm("compile_exps_correct",compile_exps_correct);
 (* composed compiler correctness *)
 
 val MAP_FST_optimise = Q.store_thm("MAP_FST_optimise[simp]",
-  `MAP FST (optimise x prog) = MAP FST prog`,
+  `MAP FST (optimise split_seq x prog) = MAP FST prog`,
   simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
 
 val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
   `lookup n ls = SOME (a,b) ⇒
-   ALOOKUP (optimise x (toAList ls)) n =
-     SOME (a,bvl_handle$compile_any x a b)`,
+   ALOOKUP (optimise split_seq x (toAList ls)) n =
+     SOME (a,bvl_handle$compile_any split_seq x a b)`,
   srw_tac[][] >>
-  Cases_on`ALOOKUP (optimise x (toAList ls)) n` >- (
+  Cases_on`ALOOKUP (optimise split_seq x (toAList ls)) n` >- (
     imp_res_tac ALOOKUP_FAILS >>
-    `¬MEM n (MAP FST (optimise x (toAList ls)))` by METIS_TAC[MEM_MAP,FST,PAIR] >>
+    `¬MEM n (MAP FST (optimise split_seq x (toAList ls)))` by METIS_TAC[MEM_MAP,FST,PAIR] >>
     full_simp_tac(srw_ss())[toAList_domain] >>
     METIS_TAC[domain_lookup] ) >>
   imp_res_tac ALOOKUP_MEM >>
@@ -1881,7 +1881,7 @@ val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
 val evaluate_IMP_optimise = store_thm("evaluate_IMP_optimise",
   ``evaluate ([r],zenv,zs) = (res,s') /\ res <> Rerr (Rabort Rtype_error) /\
     LENGTH zenv = q ==>
-    evaluate ([bvl_handle$compile_any x q r],zenv,zs) = (res,s')``,
+    evaluate ([bvl_handle$compile_any split_seq x q r],zenv,zs) = (res,s')``,
   rw [] \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
   \\ drule (GEN_ALL bvl_constProofTheory.evaluate_compile_exp) \\ fs []);
 
@@ -1889,8 +1889,8 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
   `∀xs env s res s'.
      evaluate (xs,env,s) = (res,s') ∧
      res ≠ Rerr (Rabort Rtype_error) ⇒
-     evaluate (xs,env,s with code := fromAList (optimise x (toAList s.code))) =
-       (res,s' with code := fromAList (optimise x (toAList s.code)))`,
+     evaluate (xs,env,s with code := fromAList (optimise split_seq x (toAList s.code))) =
+       (res,s' with code := fromAList (optimise split_seq x (toAList s.code)))`,
   recInduct bvlSemTheory.evaluate_ind >>
   srw_tac[][bvlSemTheory.evaluate_def] >>
   TRY (
@@ -1927,21 +1927,21 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
   \\ rw []\\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]);
 
 val fromAList_optimise = Q.prove(
-  `fromAList (optimise x p) =
-   map (λ(a,e). (a, bvl_handle$compile_any x a e)) (fromAList p)`,
+  `fromAList (optimise split_seq x p) =
+   map (λ(a,e). (a, bvl_handle$compile_any split_seq x a e)) (fromAList p)`,
   simp[map_fromAList,optimise_def] >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM,UNCURRY]);
 
 val optimise_semantics = Q.store_thm("optimise_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (optimise x prog)) start =
+   semantics ffi0 (fromAList (optimise split_seq x prog)) start =
    semantics ffi0 (fromAList prog) start`,
   simp[bvlSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList (optimise x prog)) k) =
+  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList (optimise split_seq x prog)) k) =
     let (r,s) = bvlSem$evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) in
-      (r, s with code := fromAList (optimise x (toAList s.code)))` by (
+      (r, s with code := fromAList (optimise split_seq x (toAList s.code)))` by (
     gen_tac >> simp[] >>
     qmatch_abbrev_tac`_ = (_ (bvlSem$evaluate (xs,env,s)))` >>
     Q.ISPECL_THEN[`xs`,`env`,`s`]mp_tac optimise_evaluate >>
@@ -2590,7 +2590,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ qspec_tac (`compile_prog limit.inline_size_limit prog`,`xs`)
     \\ Induct \\ fs [handle_ok_def]
     \\ Cases_on
-        `MAP (λx. compile_any limit.exp_cut (FST (SND x)) (SND (SND x))) xs`
+        `MAP (λx. compile_any limit.split_main_at_seq limit.exp_cut (FST (SND x)) (SND (SND x))) xs`
     \\ fs [handle_ok_def]
     \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
   \\ metis_tac [optimise_semantics,
