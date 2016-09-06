@@ -7,9 +7,6 @@ val () = wordsLib.guess_lengths ()
 
 (* some lemmas ------------------------------------------------------------- *)
 
-val arm8_asm_state =
-   REWRITE_RULE [DECIDE ``n < 31 = n < 32 /\ n <> 31``] arm8_asm_state_def
-
 fun cases_on_DecodeBitMasks (g as (asl, _)) =
    let
       val (_, tm, _) = TypeBase.dest_case (lhs (List.nth (List.rev asl, 1)))
@@ -170,9 +167,9 @@ val lem13 = Q.prove(
 
 val lem14 = Q.prove(
    `!s state c: word64 n.
-      arm8_asm_state s state /\ n < 32 /\ n <> 31 /\
+      target_state_rel arm8_target s state /\ n < 32 /\ n <> 31 /\
       aligned 3 (c + s.regs n) ==> aligned 3 (c + state.REG (n2w n))`,
-   rw [arm8_asm_state] \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
 
 val lem16 =
@@ -201,9 +198,9 @@ val lem18 = Q.prove(
 
 val lem19 = Q.prove(
    `!s state c: word64 n.
-      arm8_asm_state s state /\ n < 32 /\ n <> 31 /\
+      target_state_rel arm8_target s state /\ n < 32 /\ n <> 31 /\
       aligned 2 (c + s.regs n) ==> aligned 2 (c + state.REG (n2w n))`,
-   rw [arm8_asm_state] \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
 
 val lem20 = blastLib.BBLAST_PROVE ``a <> b ==> (a + -1w * b <> 0w: word64)``
@@ -481,7 +478,7 @@ val rfs = rev_full_simp_tac (srw_ss())
 
 val bytes_in_memory_thm = Q.prove(
    `!s state a b c d.
-      arm8_asm_state s state /\
+      target_state_rel arm8_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       (state.PSTATE.EL = 0w) /\
@@ -498,14 +495,14 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 2w IN s.mem_domain /\
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
-   rw [arm8_asm_state_def, arm8_ok_def, asmSemTheory.bytes_in_memory_def,
-       set_sepTheory.fun2set_eq]
+   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
+       arm8_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    \\ rfs []
    )
 
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
-      arm8_asm_state s state /\
+      target_state_rel arm8_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w + 3w) = d) /\
       (state.MEM (state.PC + w + 2w) = c) /\
@@ -515,8 +512,8 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 2w IN s.mem_domain /\
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
-   rw [arm8_asm_state_def, arm8_ok_def, asmSemTheory.bytes_in_memory_def,
-       set_sepTheory.fun2set_eq]
+   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
+       arm8_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    \\ rfs []
    )
 
@@ -598,14 +595,12 @@ fun next_state_tacN (w, x) fltr (asl, g) =
 
 val next_state_tac1 = next_state_tacN (`4w`, 0)
 
-local
-   val th = REWRITE_RULE [arm8_ok_def] arm8_asm_state
-in
-   fun state_tac thms =
-      REPEAT (qpat_x_assum `NextStateARM8 qqq = zzz` (K all_tac))
-      \\ fs ([th, asmPropsTheory.all_pcs] @ thms)
-      \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
-end
+fun state_tac thms =
+  REPEAT (qpat_x_assum `NextStateARM8 qqq = zzz` (K all_tac))
+  \\ fs ([asmPropsTheory.sym_target_state_rel, arm8_target_def,
+          arm8_config_def, asmPropsTheory.all_pcs, arm8_ok_def,
+          set_sepTheory.fun2set_eq] @ thms)
+  \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
 
 val shift_cases_tac =
    Cases_on `s`
@@ -786,17 +781,17 @@ val print_tac = asmLib.print_tac "correct"
 
 val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
    `backend_correct arm8_target`,
-   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
-         arm8_target_def]
+   simp [asmPropsTheory.backend_correct_def]
+   \\ qabbrev_tac `state_rel = target_state_rel arm8_target`
+   \\ simp [asmPropsTheory.target_ok_def, arm8_target_def,
+            asmSemTheory.asm_step_def, arm8_config_def]
+   \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def]
-      \\ simp [arm8_config_def]
-      \\ Cases_on `i`,
-      srw_tac [] [arm8_asm_state_def, arm8_config_def, set_sepTheory.fun2set_eq]
-      \\  `i < 31` by decide_tac
-      \\ simp [],
-      srw_tac [] [arm8_proj_def, arm8_asm_state_def, arm8_ok_def],
+      rw [] \\ Cases_on `i`,
+      srw_tac [] [arm8_proj_def, asmPropsTheory.target_state_rel_def,
+                  arm8_target_def, arm8_config_def, arm8_ok_def,
+                  set_sepTheory.fun2set_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (

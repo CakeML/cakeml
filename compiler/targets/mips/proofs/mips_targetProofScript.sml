@@ -7,12 +7,9 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val mips_asm_state =
-   REWRITE_RULE [DECIDE ``1 < i = i <> 0n /\ i <> 1n``] mips_asm_state_def
-
 val bytes_in_memory_thm = Q.prove(
    `!w s state a b c d.
-      mips_asm_state s state /\
+      target_state_rel mips_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       state.CP0.Config.BE /\
@@ -30,15 +27,15 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 2w IN s.mem_domain /\
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
-   rw [mips_asm_state_def, mips_ok_def, asmSemTheory.bytes_in_memory_def,
+   rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+       mips_ok_def, asmSemTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
-   \\ rfs []
    \\ blastLib.FULL_BBLAST_TAC
    )
 
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
-      mips_asm_state s state /\
+      target_state_rel mips_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w) = a) /\
       (state.MEM (state.PC + w + 1w) = b) /\
@@ -48,9 +45,8 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 2w IN s.mem_domain /\
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
-   rw [mips_asm_state_def, mips_ok_def, asmSemTheory.bytes_in_memory_def,
-       set_sepTheory.fun2set_eq]
-   \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+       mips_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    )
 
 val lem1 = asmLib.v2w_BIT_n2w 5
@@ -61,9 +57,9 @@ val lem4 =
 
 val lem5 = Q.prove(
    `!n s state.
-     n <> 0 /\ n <> 1 /\ n < 32 /\ mips_asm_state s state ==>
+     n <> 0 /\ n <> 1 /\ n < 32 /\ target_state_rel mips_target s state ==>
      (s.regs n = state.gpr (n2w n))`,
-   lrw [mips_asm_state]
+   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def]
    )
 
 val lem6 =
@@ -228,7 +224,8 @@ end
 
 fun state_tac asm =
    NO_STRIP_FULL_SIMP_TAC (srw_ss())
-      [asmPropsTheory.all_pcs, mips_ok_def, mips_asm_state,
+      [asmPropsTheory.all_pcs, mips_ok_def,
+       asmPropsTheory.sym_target_state_rel, mips_target_def, mips_config_def,
        alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, lem8, lem9]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
@@ -434,17 +431,18 @@ val print_tac = asmLib.print_tac "correct"
 
 val mips_backend_correct = Q.store_thm ("mips_backend_correct",
    `backend_correct mips_target`,
-   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
-         mips_target_def]
+   simp [asmPropsTheory.backend_correct_def]
+   \\ qabbrev_tac `state_rel = target_state_rel mips_target`
+   \\ simp [asmPropsTheory.target_state_rel_def, mips_target_def,
+            mips_config_def, asmSemTheory.asm_step_def,
+            asmPropsTheory.target_ok_def]
+   \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def]
-      \\ simp [mips_config_def]
-      \\ Cases_on `i`,
-      srw_tac [] [mips_asm_state_def, mips_config_def, set_sepTheory.fun2set_eq]
-      \\  `1 < i` by decide_tac
-      \\ simp [],
-      srw_tac [] [mips_proj_def, mips_asm_state_def, mips_ok_def],
+      rw [] \\ Cases_on `i`,
+      srw_tac [] [mips_proj_def, asmPropsTheory.target_state_rel_def,
+                  mips_target_def, mips_config_def, mips_ok_def,
+                  set_sepTheory.fun2set_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
