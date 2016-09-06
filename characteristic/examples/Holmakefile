@@ -12,7 +12,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-PRE_BARE_THYS1 = basisProgramTheory
+PRE_BARE_THYS1 = basisProgTheory
 PRE_BARE_THYS3 = cfTacticsBaseLib cfTacticsLib
 
 BARE_THYS1 =  $(patsubst %,../../basis/%,$(PRE_BARE_THYS1))

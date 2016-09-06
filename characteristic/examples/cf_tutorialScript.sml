@@ -10,7 +10,7 @@
 *)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
-local open ml_progLib basisProgramTheory in end
+local open ml_progLib basisProgTheory in end
 
 val _ = new_theory "cf_tutorial";
 
@@ -19,13 +19,13 @@ val _ = new_theory "cf_tutorial";
 
    Let's first fetch the state (of type ml_progLib.ml_prog_state)
    corresponding to the base definitions (the ones in
-   basis/basisProgramScript.sml). It is defined in
-   basisProgramTheory, and comes with specifications for the
+   basis/basisProgScript.sml). It is defined in
+   basisProgTheory, and comes with specifications for the
    functions it defines.
 *)
 val basis_st =
   ml_progLib.unpack_ml_prog_state
-    basisProgramTheory.basis_prog_state
+    basisProgTheory.basis_prog_state
 
 (* Then, write the code for the programs we want to specify.
 
