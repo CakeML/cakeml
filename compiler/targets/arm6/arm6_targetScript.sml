@@ -55,10 +55,8 @@ val arm6_cmp_def = Define`
 
 val arm6_enc_def = Define`
    (arm6_enc (Inst Skip) =
-       (* NoOperation instruction is for >= ARMv6T2 and so isn't available.
-          Using BIC r0, r0, #0 instead.
-        *)
-       enc (Data (ArithLogicImmediate (14w, F, 0w, 0w, 0w)))) /\
+       (* >= ARMv6T2 has dedicated NOP but using MOV r0, r0 instead. *)
+       enc (Data (ShiftImmediate (F, F, 0w, 0w, SRType_LSL, 0)))) /\
    (arm6_enc (Inst (Const r i)) =
       case EncodeARMImmediate i of
          SOME imm12 => enc (Data (Move (F, F, n2w r, imm12)))
