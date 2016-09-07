@@ -432,7 +432,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[store_assign_def,store_v_same_type_def] >>
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,compile_sv_def,dec_to_exhTheory.tuple_tag_def,true_neq_false])
+      rw[] >> fs[EL_LUPDATE,compile_sv_def,prim_tagsTheory.tuple_tag_def,true_neq_false])
     >- ( (* WordToInt *)
       every_case_tac \\ fs[] \\ rveq
       \\ imp_res_tac evaluate_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_1]
@@ -561,7 +561,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[store_assign_def,store_v_same_type_def] >>
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def,true_neq_false])
+      rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,prim_tagsTheory.tuple_tag_def,true_neq_false])
     >- ( (* FFI *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
@@ -602,7 +602,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def] >>
-    simp[evaluate_REPLICATE_Op_AllocGlobal,do_app_def,dec_to_exhTheory.tuple_tag_def] >>
+    simp[evaluate_REPLICATE_Op_AllocGlobal,do_app_def,prim_tagsTheory.tuple_tag_def] >>
     rpt gen_tac >>
     simp[compile_state_def] >>
     simp[MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ));
