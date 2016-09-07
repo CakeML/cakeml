@@ -706,136 +706,29 @@ in
            alignmentTheory.aligned_add_sub, aligned_add]
 end
 
-val enc_tac =
-  simp (arm6_encode_fail_def :: enc_rwts)
-  \\ REPEAT (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`
-             \\ Cases_on `b`
-             \\ simp [])
-
-(* -------------------------------------------------------------------------
-   arm6 backend_correct
-   ------------------------------------------------------------------------- *)
-
-val print_tac = asmLib.print_tac "encode"
+val length_arm6_encode = Q.prove(
+  `!c i. LENGTH (arm6_encode c i) = 4`,
+  rw [arm6_encode_def, arm6_encode_fail_def]
+  \\ CASE_TAC
+  \\ simp []
+  )
 
 val arm6_encoding = Q.prove (
    `!i. let n = LENGTH (arm6_enc i) in (n MOD 4 = 0) /\ n <> 0`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ REVERSE (Cases_on `EncodeARMImmediate c`)
-         >- enc_tac
-         \\ REVERSE (Cases_on `EncodeARMImmediate ~c`)
-         >- (imp_res_tac decode_some_encode_neg_immediate \\ enc_tac)
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            \\ Cases_on `b`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `s`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-            (*--------------
-                AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ enc_tac
-         )
-      \\ print_tac "Mem"
-      \\ Cases_on `a`
-      \\ Cases_on `m`
-      \\ Cases_on `0w <= c`
-      \\ enc_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ enc_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ enc_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ Cases_on `8w <= c`
-   >| [
-        Cases_on `c + 0xFFFFFFF8w <+ 256w`,
-        Cases_on `-1w * c + 0x8w <+ 256w`
-   ]
-   \\ enc_tac
+   strip_tac
+   \\ asmLib.asm_cases_tac `i`
+   \\ simp [arm6_enc_def, arm6_cmp_def, arm6_encode_fail_def,
+            length_arm6_encode]
+   \\ REPEAT CASE_TAC
+   \\ rw [length_arm6_encode]
    )
 
 val enc_ok_rwts =
   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm6_encoding :: enc_ok_rwts
+
+(* -------------------------------------------------------------------------
+   arm6 backend_correct
+   ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 

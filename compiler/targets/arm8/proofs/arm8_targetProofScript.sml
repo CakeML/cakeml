@@ -639,144 +639,30 @@ fun next_tac n =
          asmPropsTheory.interference_ok_def, arm8_proj_def]
    \\ NTAC 2 strip_tac
 
-val enc_tac =
-  simp (arm8_encode_fail_def :: enc_rwts)
-  \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
-             \\ CASE_TAC
-             \\ simp [])
+val length_arm8_encode = Q.prove(
+  `!i. LENGTH (arm8_encode i) = 4`,
+  rw [arm8_encode_def, arm8_encode_fail_def]
+  \\ CASE_TAC
+  \\ simp []
+  )
+
+val arm8_encoding = Q.prove (
+  `!i. let n = LENGTH (arm8_enc i) in (n MOD 4 = 0) /\ n <> 0`,
+  strip_tac
+  \\ asmLib.asm_cases_tac `i`
+  \\ simp [arm8_enc_def, arm8_encode_fail_def, length_arm8_encode]
+  \\ REPEAT CASE_TAC
+  \\ rw [length_arm8_encode]
+  )
+
+val enc_ok_rwts =
+   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm8_encoding :: enc_ok_rwts
 
 (* -------------------------------------------------------------------------
    arm8 backend_correct
    ------------------------------------------------------------------------- *)
 
 val ext12 = ``(11 >< 0) : word64 -> word12``
-val print_tac = asmLib.print_tac "encode"
-
-val arm8_encoding = Q.prove (
-   `!i. let n = LENGTH (arm8_enc i) in (n MOD 4 = 0) /\ n <> 0`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ Cases_on `arm8_enc_mov_imm c`
-         >| [ Cases_on `arm8_enc_mov_imm (~c)`
-              >| [ Cases_on `EncodeBitMask c`
-                   >| [all_tac, Cases_on `x` \\ Cases_on `r`],
-                   Cases_on `x`
-              ],
-              Cases_on `x`
-         ]
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            \\ Cases_on `b`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ shift_cases_tac
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongDiv"
-            \\ enc_tac
-            )
-            (*--------------
-                AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ enc_tac
-         )
-      \\ print_tac "Mem"
-      \\ Cases_on `a`
-      \\ Cases_on `m`
-      >| [
-         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-         Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
-         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`,
-         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-         Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
-         Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`
-      ]
-      \\ enc_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ enc_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ enc_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ enc_tac
-   )
-
-val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm8_encoding :: enc_ok_rwts
-
 val print_tac = asmLib.print_tac "correct"
 
 val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",

@@ -285,137 +285,27 @@ val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
-val enc_tac =
-  simp (riscv_encode_fail_def :: enc_rwts)
-  \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
-             \\ CASE_TAC
-             \\ simp [])
-
-(* -------------------------------------------------------------------------
-   riscv backend_correct
-   ------------------------------------------------------------------------- *)
-
-val print_tac = asmLib.print_tac "encode"
+val length_riscv_encode = Q.prove(
+  `!i. LENGTH (riscv_encode i) = 4`,
+  rw [riscv_encode_def]
+  )
 
 val riscv_encoding = Q.prove (
    `!i. let n = LENGTH (riscv_enc i) in (n MOD 4 = 0) /\ n <> 0`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ Cases_on `c = sw2sw ((11 >< 0) c : word12)`
-         >- enc_tac
-         \\ Cases_on `((63 >< 32) c = 0w: word32) /\ ~c ' 31 \/
-                      ((63 >< 32) c = -1w: word32) /\ c ' 31`
-         >- (Cases_on `c ' 11` \\ enc_tac)
-         \\ Cases_on `c ' 31`
-         \\ Cases_on `c ' 43`
-         \\ Cases_on `c ' 11`
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            \\ Cases_on `b`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `s`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongDiv"
-            \\ enc_tac
-            )
-            (*--------------
-               AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ enc_tac
-         )
-         (*--------------
-             Mem
-           --------------*)
-         \\ print_tac "Mem"
-         \\ Cases_on `a`
-         \\ Cases_on `m`
-         \\ enc_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ enc_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ enc_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ enc_tac
+   strip_tac
+   \\ asmLib.asm_cases_tac `i`
+   \\ rw [riscv_enc_def, riscv_const32_def, riscv_encode_fail_def,
+          length_riscv_encode]
+   \\ REPEAT CASE_TAC
+   \\ rw [length_riscv_encode]
    )
 
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [] riscv_encoding :: enc_ok_rwts
+
+(* -------------------------------------------------------------------------
+   riscv backend_correct
+   ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 

@@ -293,139 +293,27 @@ val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
-val enc_tac =
-  simp (mips_encode_fail_def :: enc_rwts)
-  \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
-             \\ CASE_TAC
-             \\ simp [])
-
-(* -------------------------------------------------------------------------
-   mips backend_correct
-   ------------------------------------------------------------------------- *)
-
-val print_tac = asmLib.print_tac "encode"
+val length_mips_encode = Q.prove(
+  `!i. LENGTH (mips_encode i) = 4`,
+  rw [mips_encode_def]
+  )
 
 val mips_encoding = Q.prove (
    `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ Cases_on `((63 >< 32) c = 0w: word32) /\
-                      ((31 >< 16) c = 0w: word16)`
-         >- enc_tac
-         \\ Cases_on `((63 >< 32) c = -1w: word32) /\
-                      ((31 >< 16) c = -1w: word16) /\
-                      ((15 >< 0) c : word16) ' 15`
-         >- enc_tac
-         \\ Cases_on `((63 >< 32) c = 0w: word32) /\
-                      ~((31 >< 16) c : word16) ' 15 \/
-                      ((63 >< 32) c = -1w: word32) /\
-                      ((31 >< 16) c : word16) ' 15`
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            \\ Cases_on `b`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `s`
-            \\ Cases_on `n1 < 32`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-            (*--------------
-                AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ enc_tac
-         )
-      \\ print_tac "Mem"
-      \\ Cases_on `a`
-      \\ Cases_on `m`
-      \\ enc_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ enc_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ enc_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ Cases_on `n = 31`
-   \\ enc_tac
+   strip_tac
+   \\ asmLib.asm_cases_tac `i`
+   \\ simp [encs_def, mips_enc_def, mips_cmp_def, mips_encode_fail_def,
+            length_mips_encode]
+   \\ REPEAT CASE_TAC
+   \\ rw [length_mips_encode]
    )
 
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [] mips_encoding :: enc_ok_rwts
+
+(* -------------------------------------------------------------------------
+   mips backend_correct
+   ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
