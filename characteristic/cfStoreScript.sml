@@ -156,4 +156,9 @@ val store2heap_LUPDATE = store_thm ("store2heap_LUPDATE",
     first_assum drule \\
     disch_then (qspecl_then [`x`, `Mem n'' s'`] assume_tac) \\ fs []))
 
+val st2heap_clock = store_thm ("st2heap_clock",
+  ``!st ck. st2heap (p:'ffi ffi_proj) (st with clock := ck) = st2heap p st``,
+  fs [st2heap_def]
+);
+
 val _ = export_theory ()

@@ -2,6 +2,7 @@ open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
 open cfTacticsBaseLib cfHeapsLib
+open funBigStepTheory
 
 val _ = new_theory "cfApp"
 
@@ -14,16 +15,19 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
     closures.
 *)
 
+val evaluate_ck_def = Define `
+  evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
+
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: v -> hprop) =
     !(h: heap) (i: heap) (st: 'ffi state).
       SPLIT (st2heap p st) (h, i) ==> H h ==>
-      ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state).
+      ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state) ck.
         SPLIT3 (st2heap p st') (h', g, i) /\
         Q v' h' /\
         (do_opapp [f;x] = SOME (env, exp)) /\
-        evaluate F env st exp (st', Rval v')`
+        evaluate_ck ck st env [exp] = (st', Rval [v'])`
 
 val app_basic_local = prove (
   ``!f x. is_local (app_basic p f x)``,
@@ -224,11 +228,19 @@ val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
       ml_translatorTheory.evaluate_closure_def,PULL_EXISTS]
+  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
   \\ rw [] \\ res_tac \\ instantiate
+  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
   \\ drule ml_translatorTheory.evaluate_empty_state_IMP
   \\ disch_then (qspec_then `st` assume_tac)
-  \\ instantiate \\ fs [cond_def]
-  \\ qexists_tac `{}` \\ SPLIT_TAC);
+  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
+  \\ rename1 `evaluate _ _ (st with clock := ck) _ _`
+  \\ GEN_EXISTS_TAC "ck" `ck` \\ instantiate \\ simp [cond_def]
+  \\ Q.LIST_EXISTS_TAC [`{}`, `st with clock := 0`]
+  \\ CONJ_TAC THEN_LT REVERSE_LT
+  THEN1 (prove_tac [bigStepTheory.evaluate_rules])
+  THEN1 (fs [st2heap_clock] \\ SPLIT_TAC)
+);
 
 val app_basic_weaken = store_thm("app_basic_weaken",
   ``(!x v. P x v ==> Q x v) ==>
