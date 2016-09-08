@@ -295,6 +295,12 @@ val option_ldrop_lemma = prove(
 
 val IMP_IMP2 = METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``
 
+val lab_lookup_def = Define `
+  lab_lookup k1 k2 labs =
+    case lookup k1 labs of
+    | NONE => NONE
+    | SOME f => lookup k2 f`
+
 val lab_lookup_IMP = prove(
   ``(lab_lookup l1 l2 labs = SOME x) ==>
     (find_pos (Lab l1 l2) labs = x)``,
