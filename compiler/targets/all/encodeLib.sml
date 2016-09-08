@@ -11,7 +11,7 @@ val () =
  ( computeLib.del_consts
      [``arm6_target$arm6_enc``, ``arm8_target$arm8_enc``,
       ``x64_target$x64_enc``, ``mips_target$mips_enc``,
-       ``riscv_target$riscv_enc``, ``arm8_target$valid_immediate``]
+      ``riscv_target$riscv_enc``, ``arm8_target$valid_immediate``]
  ; computeLib.extend_compset
     [computeLib.Extenders
        [arm6_targetLib.add_arm6_encode_compset,
@@ -232,6 +232,8 @@ val () = encodings [All]
     `Inst (Arith (Binop Or 2 2 (Imm 0xFFw)))`,
     `Inst (Arith (Shift Lsr 2 2 1))`,
     `Inst (Arith (Shift Asr 2 2 1))`,
+    `Inst (Arith (LongDiv 0 2 0 2 3))`,
+    `Inst (Arith (LongMul 2 0 0 3))`,
     `Inst (Arith (AddCarry 2 2 3 6))`,
     `Inst (Mem Load 2 (Addr 3 0w))`,
     `Inst (Mem Load 2 (Addr 3 0x10w))`,

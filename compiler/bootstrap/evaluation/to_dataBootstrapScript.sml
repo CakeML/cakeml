@@ -1,7 +1,7 @@
 open preamble
      ml_translatorLib ml_progLib
      backendTheory compilerComputeLib
-     x64ProgTheory
+     compiler_x64ProgTheory
 
 val _ = new_theory"to_dataBootstrap";
 
@@ -21,9 +21,6 @@ val _ = new_theory"to_dataBootstrap";
   suggests incremental compilation like that might be impossible, since some
   phases need to know they have the whole program.
 
-  At present, we only have prog_x64, (and only partially) since that is all
-  that has been translated.
-
   Alternatively, the different to_data theorems for different targets could go
   into different theories. The only thing they share is init_conf_def and the
   strategy for evaluation.
@@ -33,7 +30,7 @@ val _ = Globals.max_print_depth := 20;
 
 val rconc = rhs o concl;
 
-val _ = translation_extends"x64Prog";
+val _ = translation_extends"compiler_x64Prog";
 
 val ML_code_prog =
   get_ml_prog_state ()

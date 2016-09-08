@@ -170,19 +170,17 @@ val binop_lem11 = Q.prove(
    rw []
    )
 
-val fun2set_eq = set_sepTheory.fun2set_eq
-
 val mem_lem1 = Q.prove(
    `!a n s state.
-       x64_asm_state s state /\ n < 16 /\
+       target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
        s.regs n + a IN s.mem_domain ==>
        (state.MEM (state.REG (num2Zreg n) + a) = s.mem (s.regs n + a))`,
-   metis_tac [x64_asm_state_def, fun2set_eq]
+   rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_config_def]
    )
 
 val mem_lem2 = Q.prove(
    `!a n s state.
-    x64_asm_state s state /\ n < 16 /\
+    target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
     s.regs n + a IN s.mem_domain /\
     s.regs n + a + 1w IN s.mem_domain /\
     s.regs n + a + 2w IN s.mem_domain /\
@@ -190,13 +188,13 @@ val mem_lem2 = Q.prove(
     (read_mem32 state.MEM (state.REG (num2Zreg n) + a) =
      s.mem (s.regs n + a + 3w) @@ s.mem (s.regs n + a + 2w) @@
      s.mem (s.regs n + a + 1w) @@ s.mem (s.regs n + a))`,
-   rw [x64_asm_state_def, x64_stepTheory.read_mem32_def, fun2set_eq]
-   \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_config_def,
+       x64_stepTheory.read_mem32_def]
    )
 
 val mem_lem3 = Q.prove(
    `!a n s state.
-    x64_asm_state s state /\ n < 16 /\
+    target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
     s.regs n + a IN s.mem_domain /\
     s.regs n + a + 1w IN s.mem_domain /\
     s.regs n + a + 2w IN s.mem_domain /\
@@ -210,8 +208,8 @@ val mem_lem3 = Q.prove(
      s.mem (s.regs n + a + 5w) @@ s.mem (s.regs n + a + 4w) @@
      s.mem (s.regs n + a + 3w) @@ s.mem (s.regs n + a + 2w) @@
      s.mem (s.regs n + a + 1w) @@ s.mem (s.regs n + a))`,
-   rw [x64_asm_state_def, x64_stepTheory.read_mem64_def, fun2set_eq]
-   \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_config_def,
+       x64_stepTheory.read_mem64_def]
    )
 
 val mem_lem4 =
@@ -494,10 +492,11 @@ local
       in
          Q.prove(
             `!s state.
-               x64_asm_state s state /\
+               target_state_rel x64_target s state /\
                bytes_in_memory ^(add_offset pc m) ^l s.mem s.mem_domain ==>
                (state.exception = NoException) /\ ^r`,
-            rw [x64_asm_state_def, asmSemTheory.bytes_in_memory_def, fun2set_eq]
+            rw [asmPropsTheory.target_state_rel_def, x64_target_def,
+                x64_config_def, asmSemTheory.bytes_in_memory_def]
             \\ rfs []
          ) |> Thm.GENL b
       end
@@ -607,13 +606,14 @@ in
       val n = numLib.term_of_int i
     in
       EXISTS_TAC n
-      \\ simp [asmPropsTheory.asserts_eval, x64_proj_def]
+      \\ simp [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+               x64_proj_def]
       \\ NTAC 2 STRIP_TAC
       \\ qpat_x_assum `~(aa : 64 asm_state).failed` mp_tac
       \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ pop_assum mp_tac
-      \\ qpat_x_assum `asm_ok aa x64_config` mp_tac
+      \\ qpat_x_assum `asm_ok (aa : 64 asm) bb` mp_tac
       \\ simp enc_rwts
       \\ REPEAT DISCH_TAC
       \\ qunabbrev_tac `instr`
@@ -621,7 +621,9 @@ in
       \\ abbreviate_n2w
       \\ MAP_EVERY asmLib.split_bytes_in_memory_tac l
       \\ NTAC (i + 1) next_state_tac
-      \\ rfs [x64Theory.RexReg_def, x64_asm_state_def, asmPropsTheory.all_pcs,
+      \\ rfs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
+              asmPropsTheory.sym_target_state_rel, x64_target_def,
+              x64_config_def, set_sepTheory.fun2set_eq,
               const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
               binop_lem6, binop_lem7, binop_lem8, jump_lem2, cmp_lem1, cmp_lem3]
       \\ unabbrev_all_tac
@@ -667,11 +669,13 @@ local
       \\ fsrw_tac [] []
       \\ rfs [Abbr `r2`, mem_lem5, binop_lem7]
       \\ REPEAT (qpat_x_assum `NextStateX64 q = z` (K all_tac))
-      \\ rfs [x64Theory.RexReg_def, x64_asm_state_def, asmPropsTheory.all_pcs,
+      \\ rfs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
+              asmPropsTheory.sym_target_state_rel, x64_target_def,
+              x64_config_def, set_sepTheory.fun2set_eq,
               REWRITE_RULE [mem_lem14] x64_stepTheory.write_mem64_def,
               REWRITE_RULE [mem_lem15] x64_stepTheory.write_mem32_def,
               const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
-              mem_lem8, fun2set_eq]
+              mem_lem8]
       \\ Q.UNABBREV_TAC `r1`
       \\ rw [combinTheory.APPLY_UPDATE_THM, x64Theory.num2Zreg_11]
       \\ tac
@@ -745,16 +749,18 @@ val print_tac = asmLib.print_tac ""
 
 val x64_backend_correct = Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,
-   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
-         x64_target_def]
+   simp [asmPropsTheory.backend_correct_def]
+   \\ qabbrev_tac `state_rel = target_state_rel x64_target`
+   \\ simp [asmPropsTheory.target_ok_def, x64_target_def, x64_config_def,
+            asmSemTheory.asm_step_def]
+   \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def, asmPropsTheory.interference_ok_def]
-      \\ simp [x64_config_def]
-      \\ Cases_on `i`,
-      srw_tac [] [x64_asm_state_def, x64_config_def, fun2set_eq],
-      srw_tac [] [x64_proj_def, x64_asm_state_def],
-      rw [asmPropsTheory.enc_ok_def, x64_config_def, x64_encoding]
+      rw [] \\ Cases_on `i`,
+      srw_tac [] [x64_proj_def, asmPropsTheory.target_state_rel_def,
+                  x64_target_def, set_sepTheory.fun2set_eq],
+      rw [asmPropsTheory.enc_ok_def, x64_config_def, x64_encoding,
+          x64_target_def]
       \\ simp encode_rwts
    ]
    >- (
@@ -840,7 +846,9 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
              Mem
            --------------*)
          \\ qexists_tac `0`
-         \\ simp [asmPropsTheory.asserts_eval, x64_next_def, x64_proj_def]
+         \\ simp [asmPropsTheory.asserts_eval,
+                  asmPropsTheory.interference_ok_def,
+                  x64_next_def, x64_proj_def]
          \\ NTAC 2 STRIP_TAC
          \\ Cases_on `a`
          \\ qabbrev_tac `r1 = n2w n : word4`

@@ -227,25 +227,27 @@ val compile_prog_def = Define `
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ append code, n1)`;
 
 val optimise_def = Define `
-  optimise cut_size ls =
+  optimise split_seq cut_size ls =
     MAP (λ(name,arity,exp).
-          (name,arity,bvl_handle$compile_any cut_size arity exp)) ls`;
+          (name,arity,bvl_handle$compile_any split_seq cut_size arity exp)) ls`;
 
 val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
+            ; split_main_at_seq : bool (* split main expression at Seqs *)
             |>`;
 
 val default_config_def = Define`
-  default_config = <|
-    inline_size_limit := 3;
-    exp_cut := 200
-  |>`;
+  default_config =
+    <| inline_size_limit := 3
+     ; exp_cut := 200
+     ; split_main_at_seq := T
+     |>`;
 
 val compile_def = Define `
   compile start n c prog =
     compile_prog start n
-      (optimise c.exp_cut
+      (optimise c.split_main_at_seq c.exp_cut
          (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

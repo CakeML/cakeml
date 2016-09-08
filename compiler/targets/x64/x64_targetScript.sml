@@ -9,15 +9,6 @@ val () = wordsLib.guess_lengths()
 
 val x64_next_def = Define `x64_next = THE o NextStateX64`
 
-(* --- Relate ASM and x86-64 states --- *)
-
-val x64_asm_state_def = Define`
-   x64_asm_state s ms =
-   (ms.exception = NoException) /\
-   (!i. i < 16 ==> (s.regs i = ms.REG (num2Zreg i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.RIP)`
-
 (* --- Encode ASM instructions to x86-64 bytes. --- *)
 
 val total_num2Zreg_def = Define`
@@ -163,14 +154,13 @@ val x64_proj_def = Define`
 
 val x64_target_def = Define`
    x64_target =
-   <| get_pc := x64_state_RIP
+   <| next := x64_next
+    ; config := x64_config
+    ; get_pc := x64_state_RIP
     ; get_reg := (\s. s.REG o num2Zreg)
     ; get_byte := x64_state_MEM
     ; state_ok := (\s. s.exception = NoException)
-    ; state_rel := x64_asm_state
     ; proj := x64_proj
-    ; next := x64_next
-    ; config := x64_config
     |>`
 
 val () = export_theory ()

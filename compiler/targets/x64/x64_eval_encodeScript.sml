@@ -62,6 +62,12 @@ val shift_rwt =
     mk_let_thm `([72w: word8], (1w: word8))`,
     mk_let_thm `n2w (Zreg2num (total_num2Zreg r1))`]
 
+val long_div_rwt =
+  enc_thm "long div" [boolTheory.LET_THM, e_opsize_def]
+
+val long_mul_rwt =
+  enc_thm "long mul" [boolTheory.LET_THM, e_opsize_def]
+
 val add_carry_rwt =
   enc_thm "add carry"
    [mk_let_thm `2w : word4`,
@@ -105,9 +111,9 @@ val loc_rwt = enc_thm "loc" [e_opsize_def, boolTheory.LET_DEF]
 
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
-    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, add_carry_rwt,
-     load_rwt, load32_rwt, load8_rwt, store_rwt, store32_rwt, store8_rwt,
-     jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
-     x64_enc_def])
+    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_div_rwt,
+     long_mul_rwt, add_carry_rwt, load_rwt, load32_rwt, load8_rwt, store_rwt,
+     store32_rwt, store8_rwt, jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt,
+     call_rwt, jump_reg_rwt, loc_rwt, x64_enc_def])
 
 val () = export_theory ()

@@ -348,7 +348,7 @@ val compile_seqs_correct = store_thm("compile_seqs_correct",
 val compile_any_correct = store_thm("compile_any_correct",
   ``(evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     k = LENGTH env ==>
-    (evaluate ([compile_any l k x],env,s1) = (res,s2))``,
+    (evaluate ([compile_any split_seq l k x],env,s1) = (res,s2))``,
   rw [compile_any_def,compile_correct] \\ fs [LENGTH_NIL] \\ rw []
   \\ drule compile_seqs_correct
   \\ disch_then (qspecl_then [`l`,`NONE`] mp_tac) \\ fs []);
@@ -525,7 +525,7 @@ val compile_seqs_handle_ok = store_thm("compile_seqs_handle_ok",
   \\ match_mp_tac compile_seqs_bVarBound \\ fs []);
 
 val compile_any_handle_ok = store_thm("compile_any_handle_ok",
-  ``handle_ok [compile_any l n x]``,
+  ``handle_ok [compile_any split_seq l n x]``,
   rw [compile_any_def,compile_exp_handle_ok]
   \\ match_mp_tac compile_seqs_handle_ok \\ fs []);
 

@@ -1071,6 +1071,10 @@ val lemma = prove(
            stack_removeProofTheory.init_code_pre_def]
     \\ qexists_tac `MAP (find_name c.stack_conf.reg_names) [2;3;4]`
     \\ fs [MAP,BIJ_FLOOKUP_MAPKEYS,FUPDATE_LIST] \\ fs [FLOOKUP_UPDATE]
+    \\ conj_tac THEN1
+      (fs[Abbr`prog3`,domain_fromAList,MEM_MAP]>>
+      EVAL_TAC>>fs[EXISTS_PROD]>>
+      metis_tac[])
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]

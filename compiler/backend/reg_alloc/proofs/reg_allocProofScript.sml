@@ -2108,28 +2108,20 @@ val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_
     >-
       (Q.ISPECL_THEN[`t1_live`,`t2_live`,`G'''`,`G'`,`live'`] assume_tac extend_clique_props>>
       rfs[]>>
-      fs[check_col_def,GSYM MAP_MAP_o]>>
-      rw[]
-      >-
-        (match_mp_tac colouring_satisfactory_cliques>>fs[]>>
-        qexists_tac`G'`>>fs[ALL_DISTINCT_MAP_FST_toAList]>>
-        (*spg_is_clique invariant under permute*)
-        match_mp_tac (GEN_ALL sp_g_is_clique_swap)>>
-        HINT_EXISTS_TAC>>
-        fs[MEM_MAP,MEM_toAList,EXISTS_PROD,lookup_union,EXTENSION,domain_lookup]>>
-        rw[EQ_IMP_THM]>>
-        FULL_CASE_TAC>>fs[]>>
-        metis_tac[option_CLAUSES])>>
-      fs[domain_union,UNION_COMM]>>
-      fs[domain_fromAList,MAP_MAP_o,o_DEF,EXTENSION,MEM_MAP,EXISTS_PROD]>>
-      fs[MEM_toAList,lookup_union]>>
-      rw[EQ_IMP_THM]>>EVERY_CASE_TAC>>fs[domain_lookup]
-      >- metis_tac[domain_lookup]
-      >- metis_tac[domain_lookup]>>
-      qexists_tac`x'`>>fs[]
-      >- (`lookup x' livein = SOME ()` by fs[]>>fs[])
-      >> (`lookup x' livein' = SOME ()` by fs[]>>fs[]>>
-         FULL_CASE_TAC>>fs[]))
+      `set t2_live ∪ set t1_live =
+      set (MAP FST (toAList (difference livein' livein))) ∪ domain livein` by
+        (fs[EXTENSION,toAList_domain,domain_lookup,lookup_difference]>>
+        rw[EQ_IMP_THM]>>fs[]>>
+        Cases_on`lookup x livein`>>fs[]>>
+        metis_tac[])>>
+      fs[]>>
+      qpat_assum`A = set t1_live` sym_sub_tac>>
+      match_mp_tac check_partial_col_success>>
+      fs[]>>
+      drule colouring_satisfactory_cliques>>
+      rpt (disch_then drule)>>
+      strip_tac>>
+      metis_tac[ALL_DISTINCT_set_INJ])
     >>
       fs[check_col_def,GSYM MAP_MAP_o]>>
       rw[]

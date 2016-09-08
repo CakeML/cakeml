@@ -472,7 +472,10 @@ val compile_single_correct = prove(``
   >- tac
   >- tac
   >- tac
-  >- tac
+  >- (
+    tac
+    \\ fs[domain_lookup]
+    \\ metis_tac[] )
   >- (tac>>
      Cases_on`call_FFI st.ffi n x'`>>simp[]));
 

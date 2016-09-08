@@ -385,6 +385,24 @@ val inst_def = Define `
                  (set_var r1 (Word (n2w res)) s))
 
         | _ => NONE)
+    | Arith (LongMul r1 r2 r3 r4) =>
+        (let vs = get_vars [r3;r4] s in
+        case vs of
+        SOME [Word w3;Word w4] =>
+         let r = w2n w3 * w2n w4 in
+           SOME (set_var r1 (Word (n2w (r DIV dimword(:'a)))) (set_var r2 (Word (n2w r)) s))
+        | _ => NONE)
+    | Arith (LongDiv r1 r2 r3 r4 r5) =>
+       (let vs = get_vars [r3;r4;r5] s in
+       case vs of
+       SOME [Word w3;Word w4;Word w5] =>
+         let n = w2n w3 * dimword (:'a) + w2n w4 in
+         let d = w2n w5 in
+         let q = n DIV d in
+         if (d ≠ 0 ∧ q < dimword(:'a)) then
+           SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
+         else NONE
+      | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
@@ -502,8 +520,10 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
-  (evaluate (LocValue r l1 l2,s) =
-     (NONE,set_var r (Loc l1 l2) s)) /\
+  (evaluate (LocValue r l1,s) =
+     if l1 ∈ domain s.code then
+       (NONE,set_var r (Loc l1 0) s)
+     else (SOME Error,s)) /\
   (evaluate (FFI ffi_index ptr len names,s) =
     case (get_var len s, get_var ptr s) of
     | SOME (Word w),SOME (Word w2) =>

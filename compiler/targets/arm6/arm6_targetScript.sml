@@ -9,20 +9,13 @@ val () = wordsLib.guess_lengths ()
 
 val arm6_next_def = Define `arm6_next = THE o NextStateARM`
 
-(* --- Relate ASM and ARMv6 states --- *)
+(* --- Valid ARMv6 states --- *)
 
 val arm6_ok_def = Define`
    arm6_ok ms =
    GoodMode ms.CPSR.M /\ ~ms.CPSR.E /\ ~ms.CPSR.J /\ ~ms.CPSR.T /\
    (ms.Architecture = ARMv6) /\ ~ms.Extensions Extension_Security /\
    (ms.exception = NoException) /\ aligned 2 (ms.REG RName_PC)`
-
-val arm6_asm_state_def = Define`
-   arm6_asm_state s ms =
-   arm6_ok ms /\
-   (!i. i < 15 ==> (s.regs i = ms.REG (R_mode ms.CPSR.M (n2w i)))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.REG RName_PC)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -62,10 +55,8 @@ val arm6_cmp_def = Define`
 
 val arm6_enc_def = Define`
    (arm6_enc (Inst Skip) =
-       (* NoOperation instruction is for >= ARMv6T2 and so isn't available.
-          Using BIC r0, r0, #0 instead.
-        *)
-       enc (Data (ArithLogicImmediate (14w, F, 0w, 0w, 0w)))) /\
+       (* >= ARMv6T2 has dedicated NOP but using MOV r0, r0 instead. *)
+       enc (Data (ShiftImmediate (F, F, 0w, 0w, SRType_LSL, 0)))) /\
    (arm6_enc (Inst (Const r i)) =
       case EncodeARMImmediate i of
          SOME imm12 => enc (Data (Move (F, F, n2w r, imm12)))
@@ -188,14 +179,13 @@ val arm6_proj_def = Define`
 
 val arm6_target_def = Define`
    arm6_target =
-   <| get_pc := (\s. s.REG RName_PC)
+   <| next := arm6_next
+    ; config := arm6_config
+    ; get_pc := (\s. s.REG RName_PC)
     ; get_reg := (\s. s.REG o R_mode s.CPSR.M o n2w)
     ; get_byte := arm_state_MEM
     ; state_ok := arm6_ok
-    ; state_rel := arm6_asm_state
     ; proj := arm6_proj
-    ; next := arm6_next
-    ; config := arm6_config
     |>`
 
 val () = export_theory ()

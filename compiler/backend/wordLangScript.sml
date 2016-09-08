@@ -49,8 +49,8 @@ val _ = Datatype `
        | Raise num
        | Return num num
        | Tick
-       | LocValue num num num    (* assign v1 := Loc v2 v3 *)
-       | FFI num num num num_set (*FFI index, array_ptr, array_len, cut-set*) `;
+       | LocValue num num        (* assign v1 := Loc v2 0 *)
+       | FFI num num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
 
 val num_stubs_def = Define`
   num_stubs = stackLang$num_stubs + 1 (* raise *)`;
@@ -85,6 +85,8 @@ val every_var_inst_def = Define`
     (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
   (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
   (every_var_inst P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst P (Arith (LongMul r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
@@ -102,7 +104,7 @@ val every_var_def = Define `
   (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (Get num store) = P num) ∧
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
-  (every_var P (LocValue r _ _) = P r) ∧
+  (every_var P (LocValue r _) = P r) ∧
   (every_var P (FFI ffi_index ptr len names) =
     (P ptr ∧ P len ∧ every_name P names)) ∧
   (every_var P (MustTerminate n s1) = every_var P s1) ∧

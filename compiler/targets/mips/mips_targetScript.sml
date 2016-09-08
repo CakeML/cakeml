@@ -22,20 +22,13 @@ val mips_next_def = Define`
    let s' = THE (NextStateMIPS s) in
      if IS_SOME s'.BranchDelay then THE (NextStateMIPS s') else s'`
 
-(* --- Relate ASM and MIPS states --- *)
+(* --- Valid MIPS states --- *)
 
 val mips_ok_def = Define`
    mips_ok ms =
    ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\ ~ms.exceptionSignalled /\
    (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
    (ms.exception = NoException) /\ aligned 2 ms.PC`
-
-val mips_asm_state_def = Define`
-   mips_asm_state s ms =
-   mips_ok ms /\
-   (!i. 1 < i /\ i < 32 ==> (s.regs i = ms.gpr (n2w i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
@@ -209,14 +202,13 @@ val mips_proj_def = Define`
 
 val mips_target_def = Define`
    mips_target =
-   <| get_pc := mips_state_PC
+   <| next := mips_next
+    ; config := mips_config
+    ; get_pc := mips_state_PC
     ; get_reg := (\s. mips_state_gpr s o n2w)
     ; get_byte := mips_state_MEM
     ; state_ok := mips_ok
-    ; state_rel := mips_asm_state
     ; proj := mips_proj
-    ; next := mips_next
-    ; config := mips_config
     |>`
 
 val () = export_theory ()

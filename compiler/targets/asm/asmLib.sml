@@ -221,6 +221,39 @@ in
         | NONE => ALL_TAC) (asl, g)
 end
 
+fun asm_cases_tac i =
+  Cases_on i
+  >| [
+    Q.MATCH_GOALSUB_RENAME_TAC `Inst i`
+    \\ Cases_on `i`
+    >| [
+      all_tac,
+      all_tac,
+      Q.MATCH_GOALSUB_RENAME_TAC `Arith a`
+      \\ Cases_on `a`
+      >| [
+        Q.MATCH_GOALSUB_RENAME_TAC `Binop b _ _ r`
+        \\ Cases_on `r`
+        \\ Cases_on `b`,
+        Q.MATCH_GOALSUB_RENAME_TAC `Shift s _ _ _`
+        \\ Cases_on `s`,
+        all_tac,
+        all_tac,
+        all_tac
+      ],
+      Q.MATCH_GOALSUB_RENAME_TAC `Mem m _ a`
+      \\ Cases_on `a`
+      \\ Cases_on `m`
+    ],
+    all_tac,
+    Q.MATCH_GOALSUB_RENAME_TAC `JumpCmp c _ r _`
+    \\ Cases_on `r`
+    \\ Cases_on `c`,
+    all_tac,
+    all_tac,
+    all_tac
+  ]
+
 local
   fun can_match [QUOTE s] =
         Lib.can (Term.match_term (Parse.Term [QUOTE (s ^ " : 'a asm")]))

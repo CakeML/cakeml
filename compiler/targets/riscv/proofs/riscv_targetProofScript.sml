@@ -7,12 +7,9 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val riscv_asm_state =
-   REWRITE_RULE [DECIDE ``1 < i = i <> 0n /\ i <> 1``] riscv_asm_state_def
-
 val bytes_in_memory_thm = Q.prove(
    `!w s state a b c d.
-      riscv_asm_state s state /\
+      target_state_rel riscv_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       ((state.c_MCSR state.procID).mstatus.VM = 0w) /\
@@ -27,14 +24,15 @@ val bytes_in_memory_thm = Q.prove(
       state.c_PC state.procID + 2w IN s.mem_domain /\
       state.c_PC state.procID + 1w IN s.mem_domain /\
       state.c_PC state.procID IN s.mem_domain`,
-   rw [riscv_asm_state_def, riscv_ok_def, asmSemTheory.bytes_in_memory_def,
+   rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
+       riscv_ok_def, asmSemTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
-   \\ rfs []
+   \\ fs []
    )
 
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
-      riscv_asm_state s state /\
+      target_state_rel riscv_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM8 (state.c_PC state.procID + w) = a) /\
       (state.MEM8 (state.c_PC state.procID + w + 1w) = b) /\
@@ -44,9 +42,10 @@ val bytes_in_memory_thm2 = Q.prove(
       state.c_PC state.procID + w + 2w IN s.mem_domain /\
       state.c_PC state.procID + w + 1w IN s.mem_domain /\
       state.c_PC state.procID + w IN s.mem_domain`,
-   rw [riscv_asm_state_def, riscv_ok_def, asmSemTheory.bytes_in_memory_def,
-       set_sepTheory.fun2set_eq]
-   \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
+       riscv_ok_def, asmSemTheory.bytes_in_memory_def,
+       alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
+   \\ fs []
    )
 
 val lem1 = asmLib.v2w_BIT_n2w 5
@@ -54,9 +53,9 @@ val lem2 = asmLib.v2w_BIT_n2w 6
 
 val lem3 = Q.prove(
    `!n s state.
-     n <> 0 /\ n <> 1 /\ n < 32 /\ riscv_asm_state s state ==>
+     n <> 0 /\ n <> 1 /\ n < 32 /\ target_state_rel riscv_target s state ==>
      (s.regs n = state.c_gpr state.procID (n2w n))`,
-   lrw [riscv_asm_state]
+   lrw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def]
    )
 
 val lem4 = blastLib.BBLAST_PROVE
@@ -209,7 +208,8 @@ in
     in
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss())
-         [riscv_ok_def, riscv_asm_state, asmPropsTheory.all_pcs, lem2,
+         [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
+          riscv_config_def, asmPropsTheory.all_pcs, lem2,
           alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
        \\ MAP_EVERY (fn s =>
             qunabbrev_tac [QUOTE s]
@@ -285,154 +285,42 @@ val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
-val enc_tac =
-  simp (riscv_encode_fail_def :: enc_rwts)
-  \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
-             \\ CASE_TAC
-             \\ simp [])
-
-(* -------------------------------------------------------------------------
-   riscv backend_correct
-   ------------------------------------------------------------------------- *)
-
-val print_tac = asmLib.print_tac "encode"
+val length_riscv_encode = Q.prove(
+  `!i. LENGTH (riscv_encode i) = 4`,
+  rw [riscv_encode_def]
+  )
 
 val riscv_encoding = Q.prove (
    `!i. let n = LENGTH (riscv_enc i) in (n MOD 4 = 0) /\ n <> 0`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ Cases_on `c = sw2sw ((11 >< 0) c : word12)`
-         >- enc_tac
-         \\ Cases_on `((63 >< 32) c = 0w: word32) /\ ~c ' 31 \/
-                      ((63 >< 32) c = -1w: word32) /\ c ' 31`
-         >- (Cases_on `c ' 11` \\ enc_tac)
-         \\ Cases_on `c ' 31`
-         \\ Cases_on `c ' 43`
-         \\ Cases_on `c ' 11`
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            \\ Cases_on `b`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `s`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongDiv"
-            \\ enc_tac
-            )
-            (*--------------
-               AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ enc_tac
-         )
-         (*--------------
-             Mem
-           --------------*)
-         \\ print_tac "Mem"
-         \\ Cases_on `a`
-         \\ Cases_on `m`
-         \\ enc_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ enc_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ enc_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ enc_tac
+   strip_tac
+   \\ asmLib.asm_cases_tac `i`
+   \\ rw [riscv_enc_def, riscv_const32_def, riscv_encode_fail_def,
+          length_riscv_encode]
+   \\ REPEAT CASE_TAC
+   \\ rw [length_riscv_encode]
    )
 
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [] riscv_encoding :: enc_ok_rwts
 
+(* -------------------------------------------------------------------------
+   riscv backend_correct
+   ------------------------------------------------------------------------- *)
+
 val print_tac = asmLib.print_tac "correct"
 
 val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
    `backend_correct riscv_target`,
-   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
-         riscv_target_def]
+   simp [asmPropsTheory.backend_correct_def]
+   \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
+   \\ simp [asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+            riscv_target_def, riscv_config_def, asmSemTheory.asm_step_def]
+   \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def]
-      \\ simp [riscv_config_def]
-      \\ Cases_on `i`,
-      srw_tac []
-        [riscv_asm_state_def, riscv_config_def, set_sepTheory.fun2set_eq]
-      \\  `1 < i` by decide_tac
-      \\ simp [],
-      srw_tac [] [riscv_proj_def, riscv_asm_state_def, riscv_ok_def],
+      rw [] \\ Cases_on `i`,
+      srw_tac [] [riscv_proj_def, asmPropsTheory.target_state_rel_def,
+                  riscv_config_def, riscv_ok_def, set_sepTheory.fun2set_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (

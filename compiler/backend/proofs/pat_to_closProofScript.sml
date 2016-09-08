@@ -273,7 +273,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE,SWAP_REVERSE_SYM,PULL_EXISTS] >>
       rw[opn_lookup_def,closSemTheory.do_eq_def] >>
       TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[conLangTheory.false_tag_def,conLangTheory.true_tag_def] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[prim_tagsTheory.false_tag_def,prim_tagsTheory.true_tag_def] >>
       rw[prim_exn_def,opn_lookup_def] )
     >- ( (* Opb *)
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def,

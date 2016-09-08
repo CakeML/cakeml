@@ -9,7 +9,7 @@ val () = wordsLib.guess_lengths ()
 
 val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
 
-(* --- Relate ASM and ARMv8 states --- *)
+(* --- Valid ARMv8 states --- *)
 
 val arm8_ok_def = Define`
    arm8_ok ms =
@@ -17,13 +17,6 @@ val arm8_ok_def = Define`
    ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
    ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
    (ms.exception = NoException) /\ aligned 2 ms.PC`
-
-val arm8_asm_state_def = Define`
-   arm8_asm_state s ms =
-   arm8_ok ms /\
-   (!i. i < 31 ==> (s.regs i = ms.REG (n2w i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -248,14 +241,13 @@ val arm8_proj_def = Define`
 
 val arm8_target_def = Define`
    arm8_target =
-   <| get_pc := arm8_state_PC
+   <| next := arm8_next
+    ; config := arm8_config
+    ; get_pc := arm8_state_PC
     ; get_reg := (\s. arm8_state_REG s o n2w)
     ; get_byte := arm8_state_MEM
     ; state_ok := arm8_ok
-    ; state_rel := arm8_asm_state
     ; proj := arm8_proj
-    ; next := arm8_next
-    ; config := arm8_config
     |>`
 
 val () = export_theory ()

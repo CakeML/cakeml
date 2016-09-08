@@ -104,7 +104,10 @@ val word_remove_correct = store_thm("word_remove_correct",``
     (Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_imm_def,get_var_def]>>
     ntac 5(TOP_CASE_TAC>>full_simp_tac(srw_ss())[]))
   >-
-    (ntac 6(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+    (fs[domain_lookup,EXISTS_PROD] \\ res_tac \\ fs[]
+     \\ fs[state_component_equality] )
+  >- (
+     ntac 6(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[LET_THM]>>pairarg_tac>>full_simp_tac(srw_ss())[state_component_equality]>>
     rveq>>full_simp_tac(srw_ss())[])
   >>

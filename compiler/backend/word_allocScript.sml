@@ -111,10 +111,27 @@ val ssa_cc_trans_inst_def = Define`
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
-    let mov_in = Move 0 [(0,r4')] in (* r4 -> reg 0 *)
+    let mov_in = Move 0 [(0,r4')] in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
-    let mov_out = Move 0 [(r4'',0)] in (* reg 0 -> r4 *)
+    let mov_out = Move 0 [(r4'',0)] in
       (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
+    let r3' = option_lookup ssa r3 in
+    let r4' = option_lookup ssa r4 in
+    let mov_in = Move 0 [(0,r3')] in
+    let (r2',ssa',na') = next_var_rename r2 ssa na in
+    let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
+    let mov_out = Move 0 [(r2',0);(r1',2)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 2 0 0 r4'))) mov_out),ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
+    let r3' = option_lookup ssa r3 in
+    let r4' = option_lookup ssa r4 in
+    let r5' = option_lookup ssa r5 in
+    let mov_in = Move 0 [(0,r3');(2,r4')] in
+    let (r2',ssa',na') = next_var_rename r2 ssa na in
+    let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
+    let mov_out = Move 0 [(r2',2);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 2 0 2 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -236,9 +253,9 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (Set n exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
     (Set n exp',ssa,na)) ∧
-  (ssa_cc_trans (LocValue r l1 l2) ssa na =
+  (ssa_cc_trans (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
-      (LocValue r' l1 l2,ssa',na')) ∧
+      (LocValue r' l1,ssa',na')) ∧
   (ssa_cc_trans (FFI ffi_index ptr len numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -324,7 +341,11 @@ val apply_colour_inst_def = Define`
     Arith (Shift shift (f r1) (f r2) n)) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
     Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
-   (apply_colour_inst f (Mem Load r (Addr a w)) =
+  (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
+    Arith (LongMul (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (LongDiv r1 r2 r3 r4 r5)) =
+    Arith (LongDiv (f r1) (f r2) (f r3) (f r4) (f r5))) ∧
+  (apply_colour_inst f (Mem Load r (Addr a w)) =
     Mem Load (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Store r (Addr a w)) =
     Mem Store (f r) (Addr (f a) w)) ∧
@@ -356,8 +377,8 @@ val apply_colour_def = Define `
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (FFI ffi_index ptr len numset) =
     FFI ffi_index (f ptr) (f len) (apply_nummap_key f numset)) ∧
-  (apply_colour f (LocValue r l1 l2) =
-    LocValue (f r) l1 l2) ∧
+  (apply_colour f (LocValue r l1) =
+    LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
@@ -378,6 +399,8 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst (Mem Load8 r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst inst = LN)`
@@ -395,6 +418,10 @@ val get_live_inst_def = Define`
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
+  (get_live_inst (Arith (LongMul r1 r2 r3 r4)) live =
+    insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
+  (get_live_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
+    insert r5 () (insert r4 () (insert r3 () (delete r2 (delete r1 live))))) ∧
   (get_live_inst (Mem Load r (Addr a w)) live =
     insert a () (delete r live)) ∧
   (get_live_inst (Mem Store r (Addr a w)) live =
@@ -461,7 +488,7 @@ val get_live_def = Define`
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
-  (get_live (LocValue r l1 l2) live = delete r live) ∧
+  (get_live (LocValue r l1) live = delete r live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
   (*Cut-set must be live, args input must be live
     For tail calls, there shouldn't be a liveset since control flow will
@@ -480,6 +507,10 @@ val remove_dead_inst_def = Define`
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst (Arith (LongMul r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
+  (remove_dead_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
+    (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
   (remove_dead_inst (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
   (*Catchall -- for other instructions*)
@@ -506,10 +537,10 @@ val remove_dead_def = Define`
     if lookup num live = NONE then
       (Skip,live)
     else (Get num store,delete num live)) ∧
-  (remove_dead (LocValue r l1 l2) live =
+  (remove_dead (LocValue r l1) live =
     if lookup r live = NONE then
       (Skip,live)
-    else (LocValue r l1 l2,delete r live)) ∧
+    else (LocValue r l1,delete r live)) ∧
   (remove_dead (Seq s1 s2) live =
     let (s2,s2live) = remove_dead s2 live in
     let (s1,s1live) = remove_dead s1 s2live in
@@ -557,7 +588,7 @@ val get_writes_def = Define`
   (get_writes (Inst i) = get_writes_inst i) ∧
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
-  (get_writes (LocValue r l1 l2) = insert r () LN) ∧
+  (get_writes (LocValue r l1) = insert r () LN) ∧
   (get_writes prog = LN)`
 
 (* Old representation *)
@@ -604,6 +635,8 @@ val get_delta_inst_def = Define`
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
+  (get_delta_inst (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
+  (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
   (get_delta_inst (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
   (get_delta_inst (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
@@ -647,7 +680,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
   (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
   (get_clash_tree Tick = Delta [] []) ∧
-  (get_clash_tree (LocValue r l1 l2) = Delta [r] []) ∧
+  (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
@@ -760,6 +793,8 @@ val max_var_inst_def = Define`
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
@@ -797,7 +832,7 @@ val max_var_def = Define `
   (max_var (Raise num) = num) ∧
   (max_var (Return num1 num2) = MAX num1 num2) ∧
   (max_var Tick = 0) ∧
-  (max_var (LocValue r l1 l2) = r) ∧
+  (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var p = 0)`
 

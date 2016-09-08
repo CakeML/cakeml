@@ -1,12 +1,10 @@
-open HolKernel Parse boolLib bossLib;
-open preamble;
-open lexer_funTheory lexer_implTheory;
-open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open preamble
+     lexer_funTheory lexer_implTheory ioProgTheory
+     ml_translatorLib ml_translatorTheory
 
 val _ = new_theory "lexerProg"
 
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "ioProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE

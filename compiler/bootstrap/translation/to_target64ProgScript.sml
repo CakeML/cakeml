@@ -8,19 +8,8 @@ val _ = new_theory "to_target64Prog"
 val _ = translation_extends "to_word64Prog";
 
 val RW = REWRITE_RULE
-val RW1 = ONCE_REWRITE_RULE
-fun list_dest f tm =
-  let val (x,y) = f tm in list_dest f x @ list_dest f y end
-  handle HOL_ERR _ => [tm];
-val dest_fun_type = dom_rng
-val mk_fun_type = curry op -->;
-fun list_mk_fun_type [ty] = ty
-  | list_mk_fun_type (ty1::tys) =
-      mk_fun_type ty1 (list_mk_fun_type tys)
-  | list_mk_fun_type _ = fail()
 
 val _ = add_preferred_thy "-";
-val _ = add_preferred_thy "termination";
 
 val NOT_NIL_AND_LEMMA = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
@@ -40,8 +29,7 @@ fun def_of_const tm = let
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
     DB.fetch thy name
-  val def = def_from_thy "termination" name handle HOL_ERR _ =>
-            def_from_thy (#Thy res) name handle HOL_ERR _ =>
+  val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
 
   val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then map (fn x => x |-> ``:64``) (!inst_tyargs)  else []
@@ -65,6 +53,10 @@ val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
+val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
+
+val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
+
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,``foo:'a stackLang$prog``]
 
 val _ = inst_tyargs := [alpha]
@@ -75,6 +67,145 @@ val _ = translate (conv64 write_bitmap_def|> (RW (!extra_preprocessing)))
 
 (* TODO: The paired let trips up the translator's single line def mechanism, unable to find a smaller failing example yet *)
 val _ = translate (conv64 (wLive_def |> SIMP_RULE std_ss [LET_THM]))
+
+local
+  val ths = ml_translatorLib.eq_lemmas();
+in
+  fun find_equality_type_thm tm =
+    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
+end
+
+val EqualityType_NUM = find_equality_type_thm``NUM``
+val EqualityType_WORD = find_equality_type_thm``WORD``
+
+val EqualityType_SUM_TYPE_NUM_NUM = find_equality_type_thm``SUM_TYPE NUM NUM``
+  |> Q.GENL[`a`,`b`]
+  |> Q.ISPECL[`NUM`,`NUM`]
+  |> SIMP_RULE std_ss [EqualityType_NUM];
+
+val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
+  |> Q.GENL[`c`,`b`]
+  |> Q.ISPECL[`NUM`,`NUM`]
+  |> SIMP_RULE std_ss [EqualityType_NUM];
+
+val EqualityType_PAIR_TYPE_NUM_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
+  |> Q.GENL[`c`,`b`]
+  |> Q.ISPECL[`NUM`,`PAIR_TYPE NUM NUM`]
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
+
+val EqualityType_ASM_CMP_TYPE = find_equality_type_thm``ASM_CMP_TYPE``
+  |> SIMP_RULE std_ss []
+val EqualityType_ASM_REG_IMM_TYPE = find_equality_type_thm``ASM_REG_IMM_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
+val EqualityType_ASM_SHIFT_TYPE = find_equality_type_thm``ASM_SHIFT_TYPE``
+  |> SIMP_RULE std_ss []
+val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
+  |> SIMP_RULE std_ss []
+val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
+val EqualityType_ASM_MEM_OP_TYPE = find_equality_type_thm``ASM_MEM_OP_TYPE``
+  |> SIMP_RULE std_ss []
+val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_ASM_SHIFT_TYPE,
+                       EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
+val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
+                       EqualityType_ASM_MEM_OP_TYPE,EqualityType_ASM_ARITH_TYPE]
+
+val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
+  |> SIMP_RULE std_ss []
+
+val STACKLANG_PROG_TYPE_def = theorem"STACKLANG_PROG_TYPE_def";
+val STACKLANG_PROG_TYPE_ind = theorem"STACKLANG_PROG_TYPE_ind";
+
+val STACKLANG_PROG_TYPE_no_closures = Q.prove(
+  `∀a b. STACKLANG_PROG_TYPE a b ⇒ no_closures b`,
+  ho_match_mp_tac STACKLANG_PROG_TYPE_ind
+  \\ rw[STACKLANG_PROG_TYPE_def]
+  \\ rw[no_closures_def] \\
+  TRY (
+    qmatch_rename_tac`no_closures y` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x y` \\
+    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[no_closures_def] \\
+    qmatch_rename_tac`no_closures y` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
+    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
+    rw[no_closures_def] \\
+    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
+  metis_tac[EqualityType_def,
+            EqualityType_NUM,
+            EqualityType_SUM_TYPE_NUM_NUM,
+            EqualityType_STACKLANG_STORE_NAME_TYPE,
+            EqualityType_ASM_CMP_TYPE,
+            EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_ASM_INST_TYPE]);
+
+val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
+
+val STACKLANG_PROG_TYPE_types_match = Q.prove(
+  `∀a b c d. STACKLANG_PROG_TYPE a b ∧ STACKLANG_PROG_TYPE c d ⇒ types_match b d`,
+  ho_match_mp_tac STACKLANG_PROG_TYPE_ind
+  \\ rw[STACKLANG_PROG_TYPE_def]
+  \\ Cases_on`c` \\ fs[STACKLANG_PROG_TYPE_def,types_match_def,ctor_same_type_def]
+  \\ rw[] \\
+  TRY (
+    qmatch_rename_tac`types_match y1 y2` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x1 y1` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x2 y2` \\
+    Cases_on`x1` \\ Cases_on`x2` \\ fs[OPTION_TYPE_def] \\
+    rw[types_match_def,ctor_same_type_def] \\
+    qmatch_rename_tac`types_match y1 y2` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y1` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y2` \\
+    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
+    rw[types_match_def,ctor_same_type_def] \\
+    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
+  metis_tac[EqualityType_def,
+            EqualityType_NUM,
+            EqualityType_SUM_TYPE_NUM_NUM,
+            EqualityType_STACKLANG_STORE_NAME_TYPE,
+            EqualityType_ASM_CMP_TYPE,
+            EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_ASM_INST_TYPE]);
+
+val STACKLANG_PROG_TYPE_11 = Q.prove(
+  `∀a b c d. STACKLANG_PROG_TYPE a b ∧ STACKLANG_PROG_TYPE c d ⇒ (a = c ⇔ b = d)`,
+  ho_match_mp_tac STACKLANG_PROG_TYPE_ind
+  \\ rw[STACKLANG_PROG_TYPE_def]
+  \\ Cases_on`c` \\ fs[STACKLANG_PROG_TYPE_def]
+  \\ rw[EQ_IMP_THM] \\
+  TRY (
+    qmatch_rename_tac`y1 = y2` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x y1` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x y2` \\
+    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[] \\
+    qmatch_rename_tac`y1 = y2` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y1` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y2` \\
+    Cases_on`x` \\ fs[PAIR_TYPE_def] \\ rw[] \\
+    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
+  TRY (
+    qmatch_rename_tac`x1 = x2` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x1 y` \\
+    qmatch_assum_rename_tac`OPTION_TYPE _ x2 y` \\
+    Cases_on`x1` \\ Cases_on`x2` \\ fs[OPTION_TYPE_def] \\ rw[] \\
+    qmatch_rename_tac`x1 = x2` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y` \\
+    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y` \\
+    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\ rw[] \\
+    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
+  metis_tac[EqualityType_def,
+            EqualityType_NUM,
+            EqualityType_SUM_TYPE_NUM_NUM,
+            EqualityType_STACKLANG_STORE_NAME_TYPE,
+            EqualityType_ASM_CMP_TYPE,
+            EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_ASM_INST_TYPE]);
+
+val EqualityType_STACKLANG_PROG_TYPE = Q.prove(
+  `EqualityType STACKLANG_PROG_TYPE`,
+  metis_tac[EqualityType_def,STACKLANG_PROG_TYPE_no_closures,STACKLANG_PROG_TYPE_types_match,STACKLANG_PROG_TYPE_11])
+  |> store_eq_thm;
 
 (* TODO: the name is messed up (pair_) *)
 val _ = translate PAIR_MAP
@@ -129,7 +260,7 @@ val _ = translate (prog_comp_def |> INST_TYPE [beta|->``:64``])
 
 val _ = translate (store_list_code_def |> inline_simp |> conv64)
 val _ = translate (init_memory_def |> inline_simp |> conv64)
-val _ = translate (init_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss [word_mul_def])
+val _ = translate (init_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss [word_mul_def]|>gconv|>SIMP_RULE std_ss[w2n_n2w] |> conv64)
 
 val _ = translate (spec64 compile_def)
 

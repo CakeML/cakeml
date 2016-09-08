@@ -1,5 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_compileLib x64_exportLib
+open helloProgTheory
 
 val _ = new_theory "benchmark"
 
@@ -658,22 +659,22 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
-val hello = helloProgTheory.entire_program_def |> concl |> rand
+val hello = entire_program_def |> concl |> rand
+val benchmarks = [hello,foldl,reverse,fib,btree,queue,qsort]
+val names = ["hello","foldl","reverse","fib","btree","queue","qsort"]
 
-val benchmarks = [foldl,reverse,fib,btree,queue,qsort,hello]
-val names = ["foldl","reverse","fib","btree","queue","qsort","hello"]
+val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_count))::xs) =
     (write_cake_S 1000 1000 (numSyntax.int_of_term ffi_count)
-       bytes ("exec/benchmark_" ^ name ^ ".S") ;
+       bytes ("cakeml/" ^ name ^ ".S") ;
     write_asm xs)
 
-val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
-val _ = write_asm (zip (map (fn s => "full_"^s)names) benchmarks_bytes);
+val _ = write_asm (zip names benchmarks_bytes);
 
 val _ = map save_thm (zip names benchmarks_compiled);
 
