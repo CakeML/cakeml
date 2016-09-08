@@ -7,7 +7,7 @@ val () = wordsLib.guess_lengths()
 
 val riscv_next_def = Define `riscv_next s = THE (NextRISCV s)`
 
-(* --- Relate ASM and RISC-V states --- *)
+(* --- Valid RISC-V states --- *)
 
 (* We assume virtual memory is turned off and a 64-bit architecture (RV64I) *)
 val riscv_ok_def = Define`
@@ -16,13 +16,6 @@ val riscv_ok_def = Define`
    ((ms.c_MCSR ms.procID).mcpuid.ArchBase = 2w) /\
    (ms.c_NextFetch ms.procID = NONE) /\
    (ms.exception = NoException) /\ aligned 2 (ms.c_PC ms.procID)`
-
-val riscv_asm_state_def = Define`
-   riscv_asm_state s ms =
-   riscv_ok ms /\
-   (!i. 1 < i /\ i < 32 ==> (s.regs i = ms.c_gpr ms.procID (n2w i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM8, s.mem_domain)) /\
-   (s.pc = ms.c_PC ms.procID)`
 
 (* --- Encode ASM instructions to RISC-V bytes. --- *)
 
@@ -195,14 +188,13 @@ val riscv_proj_def = Define`
 
 val riscv_target_def = Define`
    riscv_target =
-   <| get_pc := (\s. s.c_PC s.procID)
+   <| next := riscv_next
+    ; config := riscv_config
+    ; get_pc := (\s. s.c_PC s.procID)
     ; get_reg := (\s. s.c_gpr s.procID o n2w)
     ; get_byte := riscv_state_MEM8
     ; state_ok := riscv_ok
-    ; state_rel := riscv_asm_state
     ; proj := riscv_proj
-    ; next := riscv_next
-    ; config := riscv_config
     |>`
 
 val () = export_theory ()

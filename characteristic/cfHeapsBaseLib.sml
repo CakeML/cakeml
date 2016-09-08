@@ -307,11 +307,14 @@ val hsimpl_cancel_one = CONSEQ_CONV_TAC hsimpl_cancel_one_conseq_conv
 val hsimpl_cancel = CONSEQ_CONV_TAC hsimpl_cancel_conseq_conv
 
 (* test goal:
-  g `(A:hprop * B * C * l ~~> v * l' ~~> w * D) ==>> (l' ~~> z * B * Z * l ~~> v' * Y * D * A)`;
+  g `(v = v' ==>
+      (A:hprop * B * C * l ~~> v * l' ~~> w * D) ==>> (l' ~~> z * B * Z * l ~~> v' * Y * D * A))`;
+  e strip_tac;
+
   e hsimpl_cancel_one;
   e hsimpl_cancel_one;
   e hsimpl_cancel_one;
-  e (hsimpl_cancel_one \\ strip_tac THEN1 cheat);
+  e (hsimpl_cancel_one \\ strip_tac THEN1 (fs []));
   e hsimpl_cancel_one;
 
   (* or alternatively *)

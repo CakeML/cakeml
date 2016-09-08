@@ -2,13 +2,10 @@ open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open semanticPrimitivesTheory cfHeapsTheory
 open cfHeapsBaseLib cfStoreTheory
+open cfTacticsBaseLib
+open funBigStepTheory
 
 val _ = new_theory "cfNormalize"
-
-fun rpt_drule_then thm_tac thm =
-  drule thm \\ rpt (disch_then drule) \\ disch_then thm_tac
-
-fun progress thm = rpt_drule_then strip_assume_tac thm
 
 (*------------------------------------------------------------------*)
 (** The [cf] function assumes that programs are in "normal form"
@@ -23,9 +20,9 @@ val exp2v_def = Define `
 
 val exp2v_evaluate = store_thm ("exp2v_evaluate",
   ``!e env st v. exp2v env e = SOME v ==>
-    evaluate F env st e (st, Rval v)``,
-  Induct \\ fs [exp2v_def] \\ prove_tac [bigStepTheory.evaluate_rules]
-)
+    evaluate st env [e] = (st, Rval [v])``,
+  Induct \\ fs [exp2v_def, terminationTheory.evaluate_def]
+);
 
 val exp2v_list_def = Define `
   exp2v_list env [] = SOME [] /\
@@ -35,60 +32,58 @@ val exp2v_list_def = Define `
       | SOME v =>
         (case exp2v_list env xs of
           | NONE => NONE
-          | SOME vs => SOME (v :: vs)))`
+          | SOME vs => SOME (v :: vs)))`;
 
 val exp2v_list_evaluate = store_thm ("exp2v_list_evaluate",
   ``!l lv env st. exp2v_list env l = SOME lv ==>
-    evaluate_list F env st l (st, Rval lv)``,
+    evaluate st env l = (st, Rval lv)``,
   Induct
-  THEN1 (fs [exp2v_list_def] \\ prove_tac [bigStepTheory.evaluate_rules])
+  THEN1 (fs [exp2v_list_def, terminationTheory.evaluate_def])
   THEN1 (
     rpt strip_tac \\ fs [exp2v_list_def] \\
-    Cases_on `exp2v env h` \\ fs [] \\
-    Cases_on `exp2v_list env l` \\ fs [] \\
-    qpat_x_assum `_::_ = _` (assume_tac o GSYM) \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    qexists_tac `st` \\ fs [exp2v_evaluate]
+    every_case_tac \\ fs [] \\ rw [] \\
+    first_assum progress \\ progress exp2v_evaluate \\
+    Cases_on `l` \\ fs [terminationTheory.evaluate_def]
   )
-)
+);
 
-val evaluate_list_rcons = store_thm ("evaluate_list_rcons",
+val evaluate_list_rcons = store_thm ("evaluate_rcons",
   ``!env st st' st'' l x lv v.
-     evaluate_list F env st l (st', Rval lv) /\
-     evaluate F env st' x (st'', Rval v) ==>
-     evaluate_list F env st (l ++ [x]) (st'', Rval (lv ++ [v]))``,
+     evaluate st env l = (st', Rval lv) /\
+     evaluate st' env [x] = (st'', Rval [v]) ==>
+     evaluate st env (l ++ [x]) = (st'', Rval (lv ++ [v]))``,
 
   Induct_on `l`
   THEN1 (
-    rpt strip_tac \\ fs [] \\
-    qpat_x_assum `evaluate_list _ _ _ _ _` mp_tac \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    rpt strip_tac \\ qexists_tac `st''` \\ fs [] \\
-    prove_tac [bigStepTheory.evaluate_rules]
+    rpt strip_tac \\ fs [terminationTheory.evaluate_def]
   )
   THEN1 (
-    rpt strip_tac \\ fs [] \\
-    qpat_x_assum `evaluate_list _ _ _ _ _` mp_tac \\
-    once_rewrite_tac [bigStepTheory.evaluate_cases] \\ fs [] \\
-    rpt strip_tac \\
-    Q.LIST_EXISTS_TAC [`v'`, `vs ++ [v]`] \\ fs [] \\
-    asm_exists_tac \\ fs [] \\
-    metis_tac []
+    rpt strip_tac \\ fs [terminationTheory.evaluate_def] \\
+    Cases_on `l` \\ fs []
+    THEN1 (
+      fs [terminationTheory.evaluate_def] \\
+      last_assum (fn t =>
+        progress_with t
+          (CONJ_PAIR funBigStepPropsTheory.evaluate_length |> fst)) \\
+      fs [LENGTH_EQ_NUM_compute]
+    )
+    THEN1 (
+      qpat_x_assum `evaluate _ _ (_::_::_) = _`
+        (assume_tac o REWRITE_RULE [terminationTheory.evaluate_def]) \\
+      every_case_tac \\ fs [] \\ rw [] \\ first_assum progress \\
+      simp [terminationTheory.evaluate_def]
+    )
   )
-)
+);
 
 val exp2v_list_REVERSE = store_thm ("exp2v_list_REVERSE",
   ``!l (st: 'ffi semanticPrimitives$state) lv env. exp2v_list env l = SOME lv ==>
-    evaluate_list F env st (REVERSE l) (st, Rval (REVERSE lv))``,
+    evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))``,
   Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
-  fs [exp2v_list_def]
-  THEN1 (prove_tac [bigStepTheory.evaluate_rules])
-  THEN1 (
-    Cases_on `exp2v env h` \\ Cases_on `exp2v_list env l` \\ fs [] \\
-    first_assum progress \\ irule evaluate_list_rcons \\
-    metis_tac [exp2v_evaluate]
-  )
-)
+  fs [exp2v_list_def, terminationTheory.evaluate_def] \\
+  every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_list_rcons \\
+  metis_tac [exp2v_evaluate]
+);
 
 val exp2v_list_rcons = store_thm ("exp2v_list_rcons",
   ``!xs x l env.
@@ -100,13 +95,13 @@ val exp2v_list_rcons = store_thm ("exp2v_list_rcons",
   Induct_on `xs` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ fs [] \\
   first_assum progress \\ fs [] \\ rw []
-)
+);
 
 val exp2v_list_LENGTH = store_thm ("exp2v_list_LENGTH",
   ``!l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv``,
   Induct_on `l` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ res_tac \\ fs [] \\ rw []
-)
+);
 
 (*------------------------------------------------------------------*)
 (* [normalise] *)
@@ -115,7 +110,7 @@ val normalise_def = Define `
   normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
 
 val evaluate_normalise = store_thm("evaluate_normalise",
-  ``evaluate F env s (normalise exp) res = evaluate F env s exp res``,
+  ``evaluate s env [normalise exp] = evaluate s env [exp]``,
   fs [normalise_def]);
 
 val _ = export_theory ()

@@ -1,12 +1,12 @@
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
-local open ml_progLib basisProgramTheory in end
+local open ml_progLib basisProgTheory in end
 
 val _ = new_theory "cf_examples";
 
 val basis_st =
   ml_progLib.unpack_ml_prog_state
-    basisProgramTheory.basis_prog_state
+    basisProgTheory.basis_prog_state
 
 val example_let0 = parse_topdecl
   "fun example_let0 n = let val a = 3; in a end"

@@ -2,7 +2,7 @@ open preamble
      to_target64ProgTheory compilerTheory
      ml_translatorLib ml_translatorTheory
 
-val _ = new_theory"compiler64";
+val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "to_target64Prog";
 
@@ -31,6 +31,14 @@ val def = spec64 backendTheory.compile_def
 val res = translate def
 
 val def = spec64 compilerTheory.compile_def
+
+val res = translate def
+
+val res = translate basisProgTheory.basis_def
+
+val res = translate compilerTheory.encode_error_def
+
+val def = spec64 compilerTheory.compile_to_bytes_def
 
 val res = translate def
 

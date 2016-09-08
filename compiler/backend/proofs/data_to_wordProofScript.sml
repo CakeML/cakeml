@@ -3869,7 +3869,7 @@ val EXP_LEMMA1 = prove(
   fs [EXP_ADD]);
 
 val evaluate_Maxout_bits_code = prove(
-  ``n_reg <> dest /\ n < dimword (:'a) /\ 2 ** rep_len < dimword (:α) /\
+  ``n_reg <> dest /\ n < dimword (:'a) /\ rep_len < dimindex (:α) /\
     k < dimindex (:'a) /\
     lookup n_reg (t:('a,'ffi) wordSem$state).locals = SOME (Word (n2w n:'a word)) ==>
     evaluate (Maxout_bits_code rep_len k dest n_reg,set_var dest (Word w) t) =
@@ -3877,11 +3877,12 @@ val evaluate_Maxout_bits_code = prove(
   fs [Maxout_bits_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
       wordSemTheory.set_var_def,wordSemTheory.get_var_imm_def,
       asmSemTheory.word_cmp_def,lookup_insert,WORD_LO,word_exp_rw,
-      maxout_bits_def] \\ rw [] \\ fs [insert_shadow]);
+      maxout_bits_def] \\ rw [] \\ fs [insert_shadow]
+  \\ `2 ** rep_len < dimword (:α)` by all_tac \\ fs [] \\ fs [dimword_def]);
 
 val Make_ptr_bits_thm = store_thm("Make_ptr_bits_thm",
-  ``tag_reg ≠ dest ∧ tag1 < dimword (:α) ∧ 2 ** c.tag_bits < dimword (:α) ∧
-    len_reg ≠ dest ∧ len1 < dimword (:α) ∧ 2 ** c.len_bits < dimword (:α) ∧
+  ``tag_reg ≠ dest ∧ tag1 < dimword (:α) ∧ c.tag_bits < dimindex (:α) ∧
+    len_reg ≠ dest ∧ len1 < dimword (:α) ∧ c.len_bits < dimindex (:α) ∧
     c.len_bits + 1 < dimindex (:α) /\
     FLOOKUP (t:('a,'ffi) wordSem$state).store NextFree = SOME (Word f) /\
     FLOOKUP t.store CurrHeap = SOME (Word d) /\
@@ -3986,7 +3987,17 @@ val FromList_thm = store_thm("FromList_thm",
   \\ rpt_drule state_rel_get_var_IMP \\ strip_tac
   \\ qpat_assum `get_var 2 s0.locals = SOME (Number (&(4 * tag)))` assume_tac
   \\ rpt_drule state_rel_get_var_Number_IMP \\ strip_tac \\ fs []
-  \\ `small_int (:'a) (&LENGTH x)` by cheat
+  \\ `small_int (:'a) (&LENGTH x)` by
+   (fs [state_rel_thm]
+    \\ qpat_assum `memory_rel c t.be s.refs s.space t.store _ _ _` assume_tac
+    \\ qpat_assum `get_var 0 s.locals = SOME (Number (&LENGTH x))` assume_tac
+    \\ qpat_assum `lookup 2 t.locals = SOME (Word w)` assume_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,get_var_def]
+    \\ fs [inter_insert,NOT_1_domain]
+    \\ rpt_drule memory_rel_lookup
+    \\ fs [adjust_var_def,lookup_insert] \\ strip_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,get_var_def]
+    \\ metis_tac [memory_rel_Number_IMP])
   \\ qpat_assum `get_var 0 s0.locals = SOME (Number (&LENGTH x))` assume_tac
   \\ rpt_drule state_rel_get_var_Number_IMP \\ strip_tac \\ fs []
   \\ fs [adjust_var_def] \\ fs [wordSemTheory.get_var_def]
@@ -4000,8 +4011,18 @@ val FromList_thm = store_thm("FromList_thm",
   \\ fs [wordSemTheory.set_var_def,lookup_insert] \\ rfs []
   \\ pop_assum (qspecl_then [`tag`,`LENGTH x`] mp_tac)
   \\ match_mp_tac (METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``)
-  \\ conj_tac THEN1 cheat
+  \\ `16 * tag < dimword (:'a) /\ 4 * LENGTH x < dimword (:'a)` by
+   (fs [encode_header_def,X_LT_DIV,small_int_def] \\ NO_TAC)
+  \\ conj_tac THEN1
+   (fs [Smallnum_def,shift_length_def]
+    \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
+    \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+    \\ fs [state_rel_def,heap_in_memory_store_def,shift_length_def])
   \\ strip_tac \\ fs []
+  \\ `w2n w = 4 * LENGTH x` by
+   (qpat_assum `state_rel c l1 l2 s t [] locs` assume_tac
+    \\ rpt_drule state_rel_get_var_Number_IMP
+    \\ fs [adjust_var_def,wordSemTheory.get_var_def,Smallnum_def] \\ NO_TAC)
   \\ fs [state_rel_thm,get_var_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ rpt_drule memory_rel_lookup \\ fs [adjust_var_def]
@@ -4017,17 +4038,23 @@ val FromList_thm = store_thm("FromList_thm",
        (fs [code_rel_def,stubs_def] \\ NO_TAC)
   \\ disch_then drule
   \\ `encode_header c (4 * tag) (LENGTH x) = SOME hd` by
-   (fs [encode_header_def] \\ conj_tac THEN1 cheat
+   (fs [encode_header_def] \\ conj_tac THEN1
+     (fs [encode_header_def,dimword_def,labPropsTheory.good_dimindex_def]
+      \\ rfs [] \\ conj_tac \\ fs [] \\ rfs [DIV_LT_X]
+      \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
     \\ fs [make_header_def,Abbr`hd`]
     \\ fs [WORD_MUL_LSL,word_mul_n2w,Smallnum_def,EXP_LEMMA1]
     \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
     \\ fs [memory_rel_def,heap_in_memory_store_def]
     \\ fs [labPropsTheory.good_dimindex_def] \\ rfs [])
   \\ rpt_drule memory_rel_FromList
-  \\ impl_tac THEN1 cheat
+  \\ impl_tac THEN1
+    (fs [Abbr `s0`,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
   \\ strip_tac
   \\ disch_then drule
-  \\ impl_tac THEN1 cheat
+  \\ impl_tac THEN1
+   (fs [Abbr `s0`,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+    \\ fs [Smallnum_def,dimword_def,labPropsTheory.good_dimindex_def] \\ rfs [])
   \\ strip_tac \\ fs [lookup_def,EVAL ``join_env LN []``]
   \\ fs [Abbr`s0`]
   \\ fs [FAPPLY_FUPDATE_THM]

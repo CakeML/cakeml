@@ -7,12 +7,9 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val mips_asm_state =
-   REWRITE_RULE [DECIDE ``1 < i = i <> 0n /\ i <> 1n``] mips_asm_state_def
-
 val bytes_in_memory_thm = Q.prove(
    `!w s state a b c d.
-      mips_asm_state s state /\
+      target_state_rel mips_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       state.CP0.Config.BE /\
@@ -30,15 +27,15 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 2w IN s.mem_domain /\
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
-   rw [mips_asm_state_def, mips_ok_def, asmSemTheory.bytes_in_memory_def,
+   rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+       mips_ok_def, asmSemTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
-   \\ rfs []
    \\ blastLib.FULL_BBLAST_TAC
    )
 
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
-      mips_asm_state s state /\
+      target_state_rel mips_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w) = a) /\
       (state.MEM (state.PC + w + 1w) = b) /\
@@ -48,9 +45,8 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 2w IN s.mem_domain /\
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
-   rw [mips_asm_state_def, mips_ok_def, asmSemTheory.bytes_in_memory_def,
-       set_sepTheory.fun2set_eq]
-   \\ rfs []
+   rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+       mips_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    )
 
 val lem1 = asmLib.v2w_BIT_n2w 5
@@ -61,9 +57,9 @@ val lem4 =
 
 val lem5 = Q.prove(
    `!n s state.
-     n <> 0 /\ n <> 1 /\ n < 32 /\ mips_asm_state s state ==>
+     n <> 0 /\ n <> 1 /\ n < 32 /\ target_state_rel mips_target s state ==>
      (s.regs n = state.gpr (n2w n))`,
-   lrw [mips_asm_state]
+   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def]
    )
 
 val lem6 =
@@ -228,7 +224,8 @@ end
 
 fun state_tac asm =
    NO_STRIP_FULL_SIMP_TAC (srw_ss())
-      [asmPropsTheory.all_pcs, mips_ok_def, mips_asm_state,
+      [asmPropsTheory.all_pcs, mips_ok_def,
+       asmPropsTheory.sym_target_state_rel, mips_target_def, mips_config_def,
        alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, lem8, lem9]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
@@ -296,155 +293,44 @@ val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
       (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
-val enc_tac =
-  simp (mips_encode_fail_def :: enc_rwts)
-  \\ REPEAT (TRY (Q.MATCH_GOALSUB_RENAME_TAC `if b then _ else _`)
-             \\ CASE_TAC
-             \\ simp [])
-
-(* -------------------------------------------------------------------------
-   mips backend_correct
-   ------------------------------------------------------------------------- *)
-
-val print_tac = asmLib.print_tac "encode"
+val length_mips_encode = Q.prove(
+  `!i. LENGTH (mips_encode i) = 4`,
+  rw [mips_encode_def]
+  )
 
 val mips_encoding = Q.prove (
    `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
-   Cases
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
-         \\ Cases_on `((63 >< 32) c = 0w: word32) /\
-                      ((31 >< 16) c = 0w: word16)`
-         >- enc_tac
-         \\ Cases_on `((63 >< 32) c = -1w: word32) /\
-                      ((31 >< 16) c = -1w: word16) /\
-                      ((15 >< 0) c : word16) ' 15`
-         >- enc_tac
-         \\ Cases_on `((63 >< 32) c = 0w: word32) /\
-                      ~((31 >< 16) c : word16) ' 15 \/
-                      ((63 >< 32) c = -1w: word32) /\
-                      ((31 >< 16) c : word16) ' 15`
-         \\ enc_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
-            \\ Cases_on `r`
-            \\ Cases_on `b`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `s`
-            \\ Cases_on `n1 < 32`
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongMul"
-            \\ enc_tac
-            )
-            (*--------------
-                AddCarry
-              --------------*)
-            \\ print_tac "AddCarry"
-            \\ enc_tac
-         )
-      \\ print_tac "Mem"
-      \\ Cases_on `a`
-      \\ Cases_on `m`
-      \\ enc_tac
-      )
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      \\ enc_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ enc_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ enc_tac
-      )
-      (*--------------
-          Loc
-        --------------*)
-   \\ print_tac "Loc"
-   \\ Cases_on `n = 31`
-   \\ enc_tac
+   strip_tac
+   \\ asmLib.asm_cases_tac `i`
+   \\ simp [encs_def, mips_enc_def, mips_cmp_def, mips_encode_fail_def,
+            length_mips_encode]
+   \\ REPEAT CASE_TAC
+   \\ rw [length_mips_encode]
    )
 
 val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [] mips_encoding :: enc_ok_rwts
 
+(* -------------------------------------------------------------------------
+   mips backend_correct
+   ------------------------------------------------------------------------- *)
+
 val print_tac = asmLib.print_tac "correct"
 
 val mips_backend_correct = Q.store_thm ("mips_backend_correct",
    `backend_correct mips_target`,
-   simp [asmPropsTheory.backend_correct_def, asmPropsTheory.target_ok_def,
-         mips_target_def]
+   simp [asmPropsTheory.backend_correct_def]
+   \\ qabbrev_tac `state_rel = target_state_rel mips_target`
+   \\ simp [asmPropsTheory.target_state_rel_def, mips_target_def,
+            mips_config_def, asmSemTheory.asm_step_def,
+            asmPropsTheory.target_ok_def]
+   \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_def]
-      \\ simp [mips_config_def]
-      \\ Cases_on `i`,
-      srw_tac [] [mips_asm_state_def, mips_config_def, set_sepTheory.fun2set_eq]
-      \\  `1 < i` by decide_tac
-      \\ simp [],
-      srw_tac [] [mips_proj_def, mips_asm_state_def, mips_ok_def],
+      rw [] \\ Cases_on `i`,
+      srw_tac [] [mips_proj_def, asmPropsTheory.target_state_rel_def,
+                  mips_target_def, mips_config_def, mips_ok_def,
+                  set_sepTheory.fun2set_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (

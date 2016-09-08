@@ -1,7 +1,6 @@
 open preamble
 open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
-open compileProgTheory
 
 val _ = new_theory "helloProg"
 

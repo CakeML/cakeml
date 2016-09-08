@@ -156,6 +156,7 @@ val add_compiler_compset = computeLib.extend_compset
      ``:closLang$exp``
     ,``:closLang$op``
     ,``:clos_known$val_approx``
+    ,``:clos_known$globalOpt``
     ]
   ,computeLib.Defs
     [closLangTheory.pure_def
@@ -202,6 +203,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_knownTheory.dest_Clos_def
     ,clos_knownTheory.known_def
     ,clos_knownTheory.known_op_def
+    ,clos_knownTheory.isGlobal_def
+    ,clos_knownTheory.gO_destApx_def
     ,clos_knownTheory.clos_gen_def
     ]
   ,computeLib.Tys
@@ -577,7 +580,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_namesTheory.mips_names_def
     ,stack_namesTheory.riscv_names_def
       (* ---- stack_to_lab ---- *)
-    ,stack_to_labTheory.no_ret_def
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def
     ,stack_to_labTheory.flatten_def

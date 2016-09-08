@@ -5850,8 +5850,12 @@ val comp_correct = Q.store_thm("comp_correct",
      fsrw_tac[][EL_TAKE]>>
      qpat_assum`∀x. A ⇒ EL B (DROP t5.stack_space t5.stack) = EL D E` mp_tac>>
      disch_then (qspec_then `f+k-(n DIV 2 +1)` mp_tac)>>
-     impl_tac>-
-       simp[]>>
+     impl_tac>- (
+       rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.less_tm)) o concl)))
+       \\ rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.leq_tm)) o concl)))
+       \\ rpt(first_x_assum(mp_tac o assert(can (find_term (equal ``(=):num->num->bool``)) o concl)))
+       \\ rpt (pop_assum kall_tac)
+       \\ rw[]) >>
      disch_then SUBST_ALL_TAC>>
      qpat_x_assum`DROP A B = DROP C D` mp_tac>>
      `t'.stack_space - (LENGTH q-k) + (LENGTH q-k) = t'.stack_space` by simp[]>>

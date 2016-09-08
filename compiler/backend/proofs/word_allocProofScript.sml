@@ -1935,19 +1935,28 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     simp[Once check_partial_col_def]>>
     strip_tac>>
     rveq>>
-    imp_res_tac check_col_INJ>>
-    imp_res_tac check_partial_col_INJ>>
-    rpt (qpat_x_assum `!P. Q` kall_tac)>>
-    rfs[AND_IMP_INTRO]>>
-    pop_assum mp_tac>>impl_keep_tac>-
-      fs[wf_union]>>
+    qpat_x_assum`wf A` mp_tac>>
+    drule check_partial_col_INJ>>
+    rpt (disch_then drule)>>
     strip_tac>>
-    fs[domain_numset_list_insert,domain_union]>>
-    CONJ_TAC>-
+    drule check_partial_col_INJ>>
+    rpt (disch_then drule)>>
+    ntac 2 strip_tac>>
+    fs[]>>rw[]
+    >-
       (match_mp_tac (GEN_ALL INJ_less)>>
       HINT_EXISTS_TAC>>
-      fs[SUBSET_DEF])>>
-    fs[numset_list_insert_def,wf_insert_swap]))
+      fs[SUBSET_DEF,domain_numset_list_insert,domain_union]>>
+      rw[]>>fs[toAList_domain,domain_lookup,lookup_difference]>>
+      Cases_on`lookup x (get_live prog live)`>>fs[])>>
+    fs[numset_list_insert_def,wf_insert_swap]>>
+    dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm]>>
+    fs[wf_insert,wf_union,lookup_insert,lookup_numset_list_insert,toAList_domain,domain_lookup,lookup_difference,lookup_union]>>rw[]>>
+    FULL_CASE_TAC>>fs[])
+    >-
+      (Cases_on`lookup n' (get_live prog' live)`>>fs[])
+    >>
+      Cases_on`lookup n (get_live prog' live)`>>fs[])
   >-
     metis_tac[wf_cutsets_def]
   >-
