@@ -15,6 +15,7 @@ val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 
 (* value relation *)
+val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
