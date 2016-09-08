@@ -52,10 +52,8 @@ val _ = Datatype `
        | LocValue num num        (* assign v1 := Loc v2 0 *)
        | FFI num num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
 
-val num_stubs_def = Define`
-  num_stubs = stackLang$num_stubs + 1 (* raise *)`;
 val raise_stub_location_def = Define`
-  raise_stub_location = wordLang$num_stubs - 1`;
+  raise_stub_location = word_num_stubs - 1`;
 val raise_stub_location_eq = save_thm("raise_stub_location_eq",
   EVAL``raise_stub_location``);
 

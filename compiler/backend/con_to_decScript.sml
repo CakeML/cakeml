@@ -1,4 +1,5 @@
 open preamble conLangTheory
+open backend_commonTheory
 
 val _ = new_theory"con_to_dec"
 

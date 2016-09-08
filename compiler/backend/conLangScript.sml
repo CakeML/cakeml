@@ -1,7 +1,5 @@
 open preamble
 
-open prim_tagsTheory
-
 val _ = numLib.prefer_num();
 
 val _ = new_theory "conLang"

@@ -1,4 +1,5 @@
 open preamble modLangTheory conLangTheory
+open backend_commonTheory
 
 (* The translator to conLang keeps a mapping (tag_env) of each constructor to
  * its arity, tag, and type. Tags need only be unique for each arity-type pair,

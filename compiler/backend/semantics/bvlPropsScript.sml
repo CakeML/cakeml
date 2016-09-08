@@ -1,5 +1,5 @@
 open preamble bvlTheory bvlSemTheory bvl_constTheory;
-open prim_tagsTheory;
+open backend_commonTheory
 
 val _ = new_theory"bvlProps";
 
