@@ -1,4 +1,4 @@
-open preamble labLangTheory lab_filterTheory;
+open preamble labLangTheory lab_filterTheory lab_simpTheory;
 
 val _ = new_theory"lab_to_target";
 
@@ -342,34 +342,6 @@ val compile_lab_def = Define `
       | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,limit)
       | NONE => NONE`;
 
-val lab_simp_sec_def = Define `
-(lab_simp_sec (a :: b :: xs) =
- case (a, b) of
-   | ((LabAsm (Jump (Lab n11 n21)) w wl n), (Label n12 n22 k))
-     => if (n11 = n12 /\ n21 = n22) then (Asm (Inst Skip) wl n :: Label n12 n22 k :: lab_simp_sec xs) else (a :: b :: lab_simp_sec xs)
-   | _ => a :: b :: lab_simp_sec xs) /\
-(lab_simp_sec x = x)
-`
-
-val lab_simp_def = Define `
-(lab_simp ((Section k lines) :: sections) =
- let simpd = lab_simp_sec lines in
-     if NULL simpd
-     then lab_simp sections
-     else (Section k simpd) :: lab_simp sections) /\
-(lab_simp [] = [])`
-
-(*
-(case LAST simpd of
-   | LabAsm (Jump (Lab secnum labnum)) _ _ _ =>
-     if (case sections of
-           | Section k2 (Label _ n2 _ :: _) :: _ =>
-             secnum = k2 /\ labnum = n2
-           | _ => F)
-     then (Section k (FRONT simpd)) :: lab_simp sections
-     else (Section k simpd) :: lab_simp sections
-   | _ => (Section k simpd) :: lab_simp sections)) /\
-*)
 (* compile labLang *)
 
 val compile_def = Define `
