@@ -13,7 +13,7 @@ val _ = new_theory"dec_to_exh"
 val _ = tDefine"is_unconditional"`
   is_unconditional p ⇔
   case p of
-  | Pvar _ => T
+  | conLang$Pvar _ => T
   | Pcon NONE ps => EVERY is_unconditional ps
   | Pref p => is_unconditional p
   | _ => F`
