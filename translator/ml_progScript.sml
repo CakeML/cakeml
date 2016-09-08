@@ -1,6 +1,6 @@
 open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory evalPropsTheory bigClockTheory;
+open astTheory libTheory namespaceTheory semanticPrimitivesTheory;
+open namespacePropsTheory;
 open mlstringTheory integerTheory;
 open terminationTheory;
 
@@ -14,59 +14,51 @@ val _ = new_theory "ml_prog";
    cause very slow appends. *)
 
 val write_def = zDefine `
-  write name v env = env with v := (name,v)::env.v`;
+  write name v (env : v sem_env) = env with v := nsBind name v env.v`;
 
 val write_cons_def = zDefine `
-  write_cons n d (env:v environment) =
-    (env with c := merge_alist_mod_env ([],[(n,d)]) env.c)`
+  write_cons n d (env:v sem_env) =
+    (env with c := nsBind n d env.c)`;
 
 val write_mod_def = zDefine `
-  write_mod mn env env2 =
-    env2 with <| c := ((mn,SND env.c)::FST env2.c,SND env2.c)
-               ; m := ((mn,env.v)::env2.m) |>`
+  write_mod mn (env : v sem_env) env2 =
+    <| v := nsAppend (nsLift mn env.v) env2.v;
+       c := nsAppend (nsLift mn env.c) env2.c |>`;
 
 val empty_env_def = zDefine `
-  empty_env = <| v := [] ; m := [] ; c := ([],[]) |>`
+  empty_env = <| v := nsEmpty ; c := nsEmpty |>`
 
 val merge_env_def = zDefine `
-  merge_env env2 env1 =
-    <| v := env2.v ++ env1.v
-     ; c := (FST env2.c ++ FST env1.c, SND env2.c ++ SND env1.c)
-     ; m := env2.m ++ env1.m |>`;
-
+  merge_env env2 env1 = nsAppend env2 env1`;
 
 (* some theorems that can be used by EVAL to compute lookups *)
 
-val SND_ALOOKUP_def = Define `
-  (SND_ALOOKUP (x,[]) q = NONE) /\
-  (SND_ALOOKUP (x,(y,z)::xs) q = if q = y then SOME z else SND_ALOOKUP (x,xs) q)`;
-
 val write_simp = store_thm("write_simp[compute]",
   ``(write n v env).c = env.c /\
-    (write n v env).m = env.m /\
-    ALOOKUP (write n v env).v q =
-      if n = q then SOME v else ALOOKUP env.v q``,
-  fs [write_def]);
+    nsLookup (write n v env).v q =
+      if Short n = q then SOME v else nsLookup env.v q``,
+  fs [write_def] >>
+  Cases_on `q` >>
+  rw []);
 
 val write_cons_simp = store_thm("write_cons_simp[compute]",
   ``(write_cons n v env).v = env.v /\
-    (write_cons n v env).m = env.m /\
-    SND_ALOOKUP (write_cons n v env).c q =
-      if n = q then SOME v else SND_ALOOKUP env.c q``,
-  Cases_on `env.c`
-  \\ rw [write_cons_def,merge_alist_mod_env_def,SND_ALOOKUP_def]);
-
-val SND_ALOOKUP_EQ_ALOOKUP = store_thm("SND_ALOOKUP_EQ_ALOOKUP",
-  ``!xs ys q. SND_ALOOKUP (xs,ys) q = ALOOKUP ys q``,
-  Induct_on `ys` \\ fs [ALOOKUP_def,SND_ALOOKUP_def,FORALL_PROD] \\ rw []);
+    nsLookup (write_cons n v env).c q =
+      if Short n = q then SOME v else nsLookup env.c q``,
+  fs [write_cons_def] >>
+  Cases_on `q` >>
+  rw []);
 
 val write_mod_simp = store_thm("write_mod_simp[compute]",
-  ``(write_mod n v env).v = env.v /\
-    SND_ALOOKUP (write_mod n v env).c k = SND_ALOOKUP env.c k /\
-    ALOOKUP (write_mod n v env).m q =
-      if n = q then SOME v.v else ALOOKUP env.m q``,
-  Cases_on `env.c`
-  \\ rw [write_mod_def,merge_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
+  ``nsLookup (write_mod n env' env).v (Short k) = nsLookup env.v (Short k) /\
+    nsLookup (write_mod n env' env).c (Short k) = nsLookup env.c (Short k) /\
+    (nsLookup (write_mod n env' env).v (Long mn id) =
+      if mn = n then nsLookup env'.v id else nsLookup env.v id) ∧
+    (nsLookup (write_mod n env' env).c (Long mn id) =
+      if mn = n then nsLookup env'.c id else nsLookup env.c id)``,
+
+  rw [write_mod_def]
+
 
 val empty_simp = store_thm("empty_simp[compute]",
   ``ALOOKUP empty_env.v q = NONE /\

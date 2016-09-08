@@ -204,6 +204,15 @@ val nsLookupMod_nsLift = Q.store_thm ("nsLookupMod_nsLift",
  >> CASE_TAC
  >> rw [nsLookupMod_def]);
 
+val nsLookup_nsLift_append = Q.store_thm ("nsLookup_nsLift_append[simp]",
+  `!m ns ns' m' id n.
+   nsLookup (nsAppend (nsLift m ns) ns') (Short n) = nsLookup ns' (Short n) ∧
+   nsLookup (nsAppend (nsLift m ns) ns') (Long m' id) =
+     if m = m' then nsLookup ns id else nsLookup ns' (Long m' id)`,
+ rpt strip_tac
+ >> Cases_on `ns'`
+ >> rw [nsAppend_def, nsLift_def, nsLookup_def]);
+
 (* --------------- nsAppend ------------- *)
 
 val nsLookup_nsAppend_none = Q.store_thm ("nsLookup_nsAppend_none",
