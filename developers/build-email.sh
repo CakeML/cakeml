@@ -5,14 +5,25 @@ cd $(dirname "$0")/..
 tmpdir=${1:-"/tmp"}
 tmpfile="$tmpdir/vml-build-email.txt"
 
+# Create a temporary file to keep track of the state
+state_f=$(mktemp /tmp/reg-test.XXXXXX)
+trap "rm -f $state_f" 0 2 3 15 EXIT
+
 to='builds@cakeml.org'
 
-timeout 12h developers/regression-test.sh &> >(tee $tmpfile)
+timeout 12h developers/regression-test.sh $state_f &> >(tee $tmpfile)
 
 case $? in
   124)
+    cur_build_dir=`cat $state_f`
+    echo "build timed out when testing: $cur_build_dir"
+    echo "" >> $tmpfile
+    echo "build timed out when testing: $cur_build_dir" >> $tmpfile
+    echo "Regression Log:" >> $tmpfile
+    echo "----------------------------" >> $tmpfile
+    tail -n80 $(dirname "$0")/$cur_build_dir/regression.log | col -bpx >> $tmpfile
+    echo "----------------------------" >> $tmpfile
     cat $tmpfile | mail -s "TIMEOUT" $to
-    echo "build timed out"
     exit 124
     ;;
   0)
