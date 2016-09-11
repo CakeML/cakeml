@@ -1968,10 +1968,13 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
           fs[tscheme_approx_def,LENGTH_NIL,infer_deBruijn_subst_id]>>
           metis_tac[t_walkstar_no_vars])
           >>
-          FULL_CASE_TAC>>fs[]>>
-          metis_tac[tscheme_approx_weakening])
+          FULL_CASE_TAC>>fs[]>>rw[]>>fs[]>>
+          match_mp_tac tscheme_approx_weakening>>
+          first_assum (match_exists_tac o concl)>>fs[])
         >>
-          metis_tac[tscheme_approx_weakening])
+          rw[]>>fs[]>>
+          match_mp_tac tscheme_approx_weakening>>
+          first_assum (match_exists_tac o concl)>>fs[])
     >>
     strip_tac>>rw[success_eqns]>>
     HINT_EXISTS_TAC>>HINT_EXISTS_TAC>>
@@ -2611,9 +2614,13 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
           metis_tac[t_walkstar_no_vars])
           >>
           FULL_CASE_TAC>>fs[]>>
-          metis_tac[tscheme_approx_weakening])
+          rw[]>>fs[]>>
+          match_mp_tac tscheme_approx_weakening>>
+          first_assum (match_exists_tac o concl)>>fs[])
         >>
-          metis_tac[tscheme_approx_weakening])>>
+          rw[]>>fs[]>>
+          match_mp_tac tscheme_approx_weakening>>
+          first_assum (match_exists_tac o concl)>>fs[])>>
     rw[]>>
     fs[PULL_EXISTS]>>
     first_x_assum(qspecl_then[`s''`,`ienv with inf_v:= ienv.inf_v`,`st''`,`constraints''`] mp_tac)>>

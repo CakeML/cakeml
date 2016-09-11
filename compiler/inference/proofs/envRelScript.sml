@@ -488,7 +488,8 @@ val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
  >> irule tscheme_approx_weakening
  >> simp []
  >> qexists_tac `FEMPTY`
- >> simp [SUBMAP_FEMPTY]);
+ >> simp [SUBMAP_FEMPTY]
+ >> HINT_EXISTS_TAC>>fs[]);
 
 (*
 val env_rel_e_sound_extend = Q.store_thm ("env_rel_e_sound_extend",
