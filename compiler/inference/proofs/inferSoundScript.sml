@@ -129,22 +129,38 @@ val ienv_to_tenv_def = Define `
        c := ienv.inf_c;
        t := ienv.inf_t |>`;
 
+val lookup_var_empty = prove(``
+  lookup_var x (bind_tvar tvs Empty) tenv =
+  lookup_var x Empty tenv``,
+  rw[bind_tvar_def,lookup_var_def,lookup_varE_def]>>
+  EVERY_CASE_TAC>>fs[tveLookup_def])
+
+(* TODO: This should be generalized eventually *)
+val env_rel_complete_bind = store_thm("env_rel_complete_bind",``
+  env_rel_complete FEMPTY ienv tenv Empty ⇒
+  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)``,
+  rw[env_rel_complete_def,lookup_var_empty]>>res_tac>>fs[]
+  >-
+    metis_tac[]
+  >>
+  match_mp_tac tscheme_approx_weakening>>qexists_tac`0`>>
+  HINT_EXISTS_TAC>>
+  fs[t_wfs_def])
+
 val infer_d_sound = Q.store_thm ("infer_d_sound",
 `!mn decls tenv ienv d st1 st2 decls' ienv'.
   infer_d mn decls ienv d st1 = (Success (decls',ienv'), st2) ∧
   env_rel tenv ienv
   ⇒
   type_d T mn (convert_decls decls) tenv d (convert_decls decls') (ienv_to_tenv ienv')`,
-
  fs[env_rel_def]>>
  cases_on `d` >>
  rpt gen_tac >>
  strip_tac >>
  fs [infer_d_def, success_eqns, type_d_cases] >>
  fs []
- >- (
-
-   fs [init_state_def]
+ >- (*Dlet*)
+   (fs [init_state_def]
    >> rw []
    >> rename1 `infer_e _ _ _ = (Success t1, st1)`
    >> rename1 `infer_p _ _ _ = (Success v, st1')`
@@ -243,7 +259,15 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      >- (
        imp_res_tac infer_p_bindings
        >> fs [])
-     >- cheat)
+     >-
+       (* Need to prove that there is a substitution from*)
+       (imp_res_tac env_rel_complete_bind>>
+       pop_assum(qspec_then`tvs'` assume_tac)>>
+       drule (GEN_ALL infer_pe_complete)>>
+       rpt (disch_then drule)>>
+       strip_tac>>rfs[]>>
+       fs[]>>rfs[]>>
+       cheat))
    >- (
      qexists_tac `convert_t (t_walkstar last_sub t)`
      >> qexists_tac `convert_env last_sub bindings`
@@ -251,12 +275,24 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      >- (
        simp [ZIP_MAP, tenv_add_tvs_def]
        >> simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, convert_env_def])
-     >- cheat
+     >-
+       (match_mp_tac infer_e_type_pe_determ>>
+       HINT_EXISTS_TAC>>fs[]>>
+       imp_res_tac generalise_none>>
+       pop_assum(qspec_then`count st1'.next_uvar` mp_tac)>>
+       impl_tac>>fs[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
+       rw[]>>res_tac>>
+       qpat_x_assum `t_wfs s` assume_tac>>
+       drule t_walkstar_check>>
+       disch_then match_mp_tac>>
+       rw[]
+       >- (match_mp_tac check_s_more5>>HINT_EXISTS_TAC>>fs[])
+       >- (match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] (CONJUNCT1 check_t_more5))>>HINT_EXISTS_TAC>>fs[]))
      >- (
        imp_res_tac infer_p_bindings
        >> fs [])
      >- fs [bind_tvar_def]))
-
+  (*
    >> disch_then drule
 
      fs [METIS_PROVE [] ``!x. (x = 0:num ∨ is_value e) = (x<>0 ⇒ is_value e)``] >>
@@ -578,9 +614,10 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
            fs[SUBSET_DEF,EXTENSION])
        >>
        rw[]>>
-       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
+       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]) *)
  (*Letrec*)
- >- (fs [success_eqns] >>
+ >- cheat
+   (*fs [success_eqns] >>
      `?tvs s ts. generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l)))) = (tvs,s,ts)`
                  by (cases_on `generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l))))` >>
                      rw [] >>
@@ -810,7 +847,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
          fs[EVERY_MAP,EVERY_GENLIST])
        >>
        rw[]>>
-       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
+       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]*)
  >- (rw [convert_decls_def, ienv_to_tenv_def, EVERY_MAP, DISJOINT_DEF, EXTENSION,empty_inf_decls_def] >>
      fs [EVERY_MAP, EVERY_MEM, env_rel_sound_def] >>
      rw [MEM_MAP] >>

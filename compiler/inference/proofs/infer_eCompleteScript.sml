@@ -1315,12 +1315,12 @@ val sub_completion_completes = store_thm("sub_completion_completes",
   check_t 0 (count n) t ∧
   FDOM s = count n ∧
   (!uv. uv < n ⇒
-    check_t (num_tvs tenvE) {} (t_walkstar s (Infer_Tuvar uv)))
+    check_t tvs {} (t_walkstar s (Infer_Tuvar uv)))
   ⇒
-  check_t (num_tvs tenvE) {} (t_walkstar s t)``,
-  assume_tac (GEN_ALL (fst(CONJ_PAIR check_t_less)))>>
+  check_t tvs {} (t_walkstar s t)``,
+  assume_tac (GEN_ALL (CONJUNCT1 check_t_less))>>
   rw[]>>
-  first_x_assum(qspecl_then[`count n`,`s`,`num_tvs tenvE`,`t`] mp_tac)>>
+  first_x_assum(qspecl_then[`count n`,`s`,`tvs`,`t`] mp_tac)>>
   impl_tac>>fs[]);
 
 val lookup_var_bind_var_list = prove(
