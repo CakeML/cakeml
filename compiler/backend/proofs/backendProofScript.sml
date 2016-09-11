@@ -13,6 +13,7 @@ open preamble primSemEnvTheory semanticsPropsTheory
      word_to_stackProofTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
+     backend_commonTheory
 local open compilerComputeLib dataPropsTheory in end
 open word_to_stackTheory
 
@@ -376,7 +377,7 @@ val word_to_stack_sl_gs = prove(``
 
 val data_to_word_compile_imp = prove(
   ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
-    EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST prog) ∧
+    EVERY (λn. data_num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
         (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
     code_rel c.data_conf (fromAList prog)
@@ -411,7 +412,7 @@ val data_to_word_compile_imp = prove(
        \\ imp_res_tac ALOOKUP_MEM
        \\ fs[data_to_wordTheory.stubs_def,EVERY_MAP,EVERY_MEM]
        \\ res_tac \\ fs[] \\ fs code_and_locs
-       \\ fs[dataLangTheory.num_stubs_def] \\ rw[] \\ fs[]) >>
+       \\ fs[data_num_stubs_def] \\ rw[] \\ fs[]) >>
     ntac 4 (last_x_assum kall_tac)>>
     qid_spec_tac`n` >>
     Induct_on`prog`>>rw[]>>PairCases_on`h`>>
@@ -937,7 +938,7 @@ val LESS_MULT_LEMMA = prove(
 local
 val lemma = prove(
   ``(from_data c prog = SOME (bytes,ffi_limit) /\
-     EVERY (\n. dataLang$num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+     EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
      t.regs (find_name c.stack_conf.reg_names 2) <=+
@@ -1248,7 +1249,7 @@ val from_data_ignore = prove(
 val clos_to_data_names = store_thm("clos_to_data_names",
   ``clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
-    EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
+    EVERY (λn. data_num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))``,
   fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
   fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
@@ -1260,7 +1261,7 @@ val clos_to_data_names = store_thm("clos_to_data_names",
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>
   imp_res_tac compile_list_distinct_locs>>
-  rfs[bvl_to_bviTheory.num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
+  rfs[bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
   fs[EVERY_MEM]>>rw[]
   \\ TRY strip_tac
   \\ res_tac
