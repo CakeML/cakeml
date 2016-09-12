@@ -118,6 +118,24 @@ val evaluate_normalise = store_thm("evaluate_normalise",
 (*------------------------------------------------------------------*)
 (* [full_normalise] *)
 
+(* [dest_opapp]: destruct an n-ary application. *)
+val dest_opapp_def = Define `
+  dest_opapp (App Opapp l) =
+       (case l of
+          | [f; x] =>
+            (case dest_opapp f of
+               | SOME (f', args) => SOME (f', args ++ [x])
+               | NONE => SOME (f, [x]))
+          | _ => NONE) /\
+  dest_opapp _ = NONE`
+
+val mk_opapp_def = tDefine "mk_opapp" `
+  mk_opapp xs =
+    if LENGTH xs < 2 then HD xs else
+      App Opapp [mk_opapp (FRONT xs); LAST xs]`
+ (WF_REL_TAC `measure LENGTH`
+  \\ fs [LENGTH_FRONT] \\ Cases \\ fs []);
+
 val MEM_exp_size = prove(
   ``!args a. MEM a args ==> exp_size a <= exp6_size args``,
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []);
@@ -136,8 +154,14 @@ val get_name_aux_def = tDefine "get_name_aux" `
   \\ match_mp_tac (DECIDE ``m <= m1 /\ n <= n1 ==> m + n < m1 + (n1 + 1n)``)
   \\ fs [LENGTH_FILTER_LEQ]);
 
+val alpha = EVAL ``GENLIST (\n. CHR (n + ORD #"a")) 26`` |> concl |> rand
+
+val alpha_def = Define `alpha = ^alpha`;
+
 val get_name_def = Define `
-  get_name vs = get_name_aux 0 vs`;
+  get_name vs =
+    let ws = FILTER (\s. ~(MEM [s] vs)) alpha in
+      if NULL ws then get_name_aux 0 vs else [HD ws]`;
 
 val get_names_def = Define `
   (get_names vs [] = []) /\
@@ -177,6 +201,19 @@ val bind_let_def = Define `
     let (ns,ys,new_args) = bind_lets [x] in
       (ns,ys,HD new_args)`;
 
+val exp6_size_lemma = prove(
+  ``!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys``,
+  Induct \\ fs [astTheory.exp_size_def]);
+
+val dest_opapp_size = prove(
+  ``!xs p_1 p_2.
+      dest_opapp xs = SOME (p_1,p_2) ==>
+      exp_size p_1 + exp6_size p_2 < exp_size xs``,
+  recInduct (theorem "dest_opapp_ind") \\ fs [dest_opapp_def]
+  \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [astTheory.exp_size_def]
+  \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]);
+
 val norm_def = tDefine "norm" `
   norm (Lit l) = (Lit l,[]) /\
   norm (Var (Short name)) = (Var (Short name),[name]) /\
@@ -186,8 +223,13 @@ val norm_def = tDefine "norm" `
      let (e2,n2) = norm e2 in
        (Let opt e1 e2,n1 ++ delete_opt opt n2)) /\
   norm (App op args) =
-    (let (ns,ys,new_args) = bind_lets (MAP norm args) in
-       (Lets ys (App op new_args),ns)) /\
+    (case dest_opapp (App op args) of
+     | SOME (f,args) =>
+         let (ns,ys,new_args) = bind_lets (MAP norm (f::args)) in
+           (Lets ys (mk_opapp new_args),ns)
+     | NONE =>
+         let (ns,ys,new_args) = bind_lets (MAP norm args) in
+           (Lets ys (App op new_args),ns)) /\
   norm (Con x args) =
     (let (ns,ys,new_args) = bind_lets (MAP norm args) in
        (Lets ys (Con x new_args),ns)) /\
@@ -231,7 +273,8 @@ val norm_def = tDefine "norm" `
  (WF_REL_TAC `measure (\x. case x of INL v => exp_size v
                                    | INR v => exp3_size v)`
   \\ fs [] \\ rw [] \\ imp_res_tac MEM_exp_size \\ fs []
-  \\ imp_res_tac MEM_exp1_size \\ fs [])
+  \\ imp_res_tac MEM_exp1_size \\ fs []
+  \\ imp_res_tac dest_opapp_size \\ fs [astTheory.exp_size_def])
 
 val full_normalise_def = Define `
   full_normalise e = FST (norm e)`;
@@ -242,7 +285,6 @@ val MEM_v_size = prove(
 
 val norm_exp_rel_def = Define `
   norm_exp_rel e1 e2 <=> (e1 = e2) \/
-                         (e1 = full_normalise e2) \/
                          (full_normalise e1 = e2)`
 
 val free_in_def = Define ` (* TODO: complete *)
@@ -299,8 +341,8 @@ val norm_state_rel_def = Define `
 (*
 val full_normalise_correct = store_thm("full_normalise_correct",
   ``env_rel (free_in e) env1 env2 /\ norm_state_rel s1 s2 /\
-    evaluate ck env1 s1 e (rs1,res1) ==>
-    ?rs2 res2. evaluate ck env2 s2 (full_normalise e) (rs2,res2) /\
+    evaluate ck env1 s1 e1 (rs1,res1) /\ norm_exp_rel e1 e2 ==>
+    ?rs2 res2. evaluate ck env2 s2 e2 (rs2,res2) /\
                norm_state_rel rs1 rs2 /\ norm_res_rel res1 res2``,
   ... ); TODO
 *)

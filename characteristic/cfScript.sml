@@ -25,17 +25,6 @@ val cf_bottom_def = Define `
 
 (** 1) n-ary applications *)
 
-(* [dest_opapp]: destruct an n-ary application. *)
-val dest_opapp_def = Define `
-  dest_opapp (App Opapp l) =
-       (case l of
-          | [f; x] =>
-            (case dest_opapp f of
-               | SOME (f', args) => SOME (f', args ++ [x])
-               | NONE => SOME (f, [x]))
-          | _ => NONE) /\
-  dest_opapp _ = NONE`
-
 val dest_opapp_not_empty_arglist = Q.prove (
   `!e f args. dest_opapp e = SOME (f, args) ==> args <> []`,
   Cases \\ fs [dest_opapp_def] \\ rename1 `App op _` \\
