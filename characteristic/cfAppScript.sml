@@ -248,4 +248,38 @@ val app_basic_weaken = store_thm("app_basic_weaken",
      app_basic p v v1 x Q)``,
   fs [app_basic_def] \\ metis_tac []);
 
+val evaluate_list_SING = prove(
+  ``bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
+    bigStep$evaluate b env st exp (st', Rval v)``,
+  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
+
+val app_basic_rel = store_thm("app_basic_rel",
+  ``app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: v -> hprop) =
+    !(h: heap) (i: heap) (st: 'ffi state).
+      SPLIT (st2heap p st) (h, i) ==> H h ==>
+      ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state).
+        SPLIT3 (st2heap p st') (h', g, i) /\
+        Q v' h' /\
+        (do_opapp [f;x] = SOME (env, exp)) /\
+        bigStep$evaluate F env st exp (st', Rval v')``,
+  fs [app_basic_def,evaluate_ck_def,evaluate_list_SING,
+      funBigStepEquivTheory.functional_evaluate_list,
+      bigClockTheory.big_clocked_unclocked_equiv,PULL_EXISTS]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ first_x_assum drule \\ fs [] \\ strip_tac
+  \\ rename1 `evaluate _ _ (_ with clock := ck) _ _` \\ fs []
+  THEN1
+   (rename1 `SPLIT3 (st2heap p st1) (h1,g,i)`
+    \\ qabbrev_tac `st2 = st1 with clock := st.clock`
+    \\ `SPLIT3 (st2heap p st2) (h1,g,i)` by (fs [st2heap_def,Abbr `st2`] \\ NO_TAC)
+    \\ rpt (asm_exists_tac \\ fs []) \\ fs [Abbr `st2`]
+    \\ qexists_tac `ck - st1.clock`
+    \\ drule bigClockTheory.clocked_min_counter \\ fs [])
+  THEN1
+   (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
+
 val _ = export_theory ()

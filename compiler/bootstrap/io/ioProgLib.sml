@@ -59,7 +59,7 @@ fun append_main_call compile_str compile_tm = let
     val st = goal |> rator |> rator |> rand
     val th =
       main_spec |> SPEC_ALL |> Q.INST_TYPE [`:'ffi`|->`:'a`]
-       |> REWRITE_RULE [cfAppTheory.app_basic_def,cfAppTheory.app_def]
+       |> REWRITE_RULE [cfAppTheory.app_basic_rel,cfAppTheory.app_def]
        |> Q.SPEC `st2heap (p:'a ffi_proj) ^st`
        |> Q.SPEC `{}`
        |> Q.SPEC `^st`
