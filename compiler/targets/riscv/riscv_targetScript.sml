@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib riscv_stepLib;
+open asmLib riscv_stepTheory;
 
 val () = new_theory "riscv_target"
 
@@ -196,5 +196,13 @@ val riscv_target_def = Define`
     ; state_ok := riscv_ok
     ; proj := riscv_proj
     |>`
+
+val (riscv_config, riscv_asm_ok) =
+  asmLib.target_asm_rwts
+    [DECIDE ``a < 32 /\ a <> 0n /\ a <> 1n = 1 < a /\ a < 32``]
+    ``riscv_config``
+
+val riscv_config = save_thm("riscv_config", riscv_config)
+val riscv_asm_ok = save_thm("riscv_asm_ok", riscv_asm_ok)
 
 val () = export_theory ()

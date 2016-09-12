@@ -11,14 +11,20 @@ val () =
  ( computeLib.del_consts
      [``arm6_target$arm6_enc``, ``arm8_target$arm8_enc``,
       ``x64_target$x64_enc``, ``mips_target$mips_enc``,
-      ``riscv_target$riscv_enc``, ``arm8_target$valid_immediate``]
+      ``riscv_target$riscv_enc``,
+      ``arm6_target$arm6_config``, ``arm8_target$arm8_config``,
+      ``x64_target$x64_config``, ``mips_target$mips_config``,
+      ``riscv_target$riscv_config``,
+      ``arm8_target$valid_immediate``,
+      ``asm$asm_ok``]
  ; computeLib.extend_compset
     [computeLib.Extenders
        [arm6_targetLib.add_arm6_encode_compset,
         arm8_targetLib.add_arm8_encode_compset,
         x64_targetLib.add_x64_encode_compset,
         mips_targetLib.add_mips_encode_compset,
-        riscv_targetLib.add_riscv_encode_compset
+        riscv_targetLib.add_riscv_encode_compset,
+        asmLib.add_asm_compset
        ]
     ] computeLib.the_compset
  )
@@ -219,7 +225,7 @@ fun encodings arches l =
 
 (*
 
-val () = encodings [All]
+val () = Count.apply (encodings [All])
    [
     `Inst Skip`,
     `Inst (Const 8 0w)`,

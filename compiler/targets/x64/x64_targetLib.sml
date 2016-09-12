@@ -45,11 +45,13 @@ end
 
 val add_x64_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``x64_target$x64_enc``, 1, x64_encode_conv)],
-   computeLib.Defs [x64_targetTheory.x64_config_def]]
+   computeLib.Defs [x64_targetTheory.x64_config]]
 
 val x64_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
       add_x64_encode_compset]]
+
+val () = asmLib.add_asm_ok_thm x64_targetTheory.x64_asm_ok
 
 end

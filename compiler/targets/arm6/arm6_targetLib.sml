@@ -47,7 +47,7 @@ end
 
 val add_arm6_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``arm6_target$arm6_enc``, 1, arm6_encode_conv)],
-   computeLib.Defs [arm6_targetTheory.arm6_config_def,
+   computeLib.Defs [arm6_targetTheory.arm6_config,
                     EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
                     valid_immediate_def]]
 
@@ -55,5 +55,7 @@ val arm6_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
     [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
      add_arm6_encode_compset]]
+
+val () = asmLib.add_asm_ok_thm arm6_targetTheory.arm6_asm_ok
 
 end

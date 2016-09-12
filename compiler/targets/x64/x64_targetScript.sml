@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib x64Theory;
+open asmLib x64_stepTheory;
 
 val () = new_theory "x64_target"
 
@@ -162,5 +162,11 @@ val x64_target_def = Define`
     ; state_ok := (\s. s.exception = NoException)
     ; proj := x64_proj
     |>`
+
+val (x64_config, x64_asm_ok) =
+  asmLib.target_asm_rwts [alignmentTheory.aligned_0] ``x64_config``
+
+val x64_config = save_thm("x64_config", x64_config)
+val x64_asm_ok = save_thm("x64_asm_ok", x64_asm_ok)
 
 val () = export_theory ()

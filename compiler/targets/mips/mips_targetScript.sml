@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib mipsTheory;
+open asmLib mips_stepTheory;
 
 val () = new_theory "mips_target"
 
@@ -210,5 +210,13 @@ val mips_target_def = Define`
     ; state_ok := mips_ok
     ; proj := mips_proj
     |>`
+
+val (mips_config, mips_asm_ok) =
+  asmLib.target_asm_rwts
+    [DECIDE ``a < 32 /\ a <> 0n /\ a <> 1n = 1 < a /\ a < 32``]
+    ``mips_config``
+
+val mips_config = save_thm("mips_config", mips_config)
+val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)
 
 val () = export_theory ()

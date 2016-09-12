@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib arm8Theory;
+open asmLib arm8_stepTheory;
 
 val () = new_theory "arm8_target"
 
@@ -249,5 +249,12 @@ val arm8_target_def = Define`
     ; state_ok := arm8_ok
     ; proj := arm8_proj
     |>`
+
+val (arm8_config, arm8_asm_ok) =
+  asmLib.target_asm_rwts [DECIDE ``a < 32 /\ a <> 31n = a < 31``]
+    ``arm8_config``
+
+val arm8_config = save_thm("arm8_config", arm8_config)
+val arm8_asm_ok = save_thm("arm8_asm_ok", arm8_asm_ok)
 
 val () = export_theory ()

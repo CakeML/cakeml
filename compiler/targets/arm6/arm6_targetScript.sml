@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib arm_stepLib;
+open asmLib arm_stepTheory;
 
 val () = new_theory "arm6_target"
 
@@ -187,5 +187,12 @@ val arm6_target_def = Define`
     ; state_ok := arm6_ok
     ; proj := arm6_proj
     |>`
+
+val (arm6_config, arm6_asm_ok) =
+  asmLib.target_asm_rwts [DECIDE ``a < 16 /\ a <> 15n = a < 15``]
+    ``arm6_config``
+
+val arm6_config = save_thm("arm6_config", arm6_config)
+val arm6_asm_ok = save_thm("arm6_asm_ok", arm6_asm_ok)
 
 val () = export_theory ()

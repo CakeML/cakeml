@@ -31,9 +31,7 @@ val () =
       compilerComputeLib.add_compiler_compset,
       asmLib.add_asm_compset,
       x64_targetLib.add_x64_encode_compset],
-    computeLib.Defs [
-      x64_compiler_config_def,
-      x64_config_def]
+    computeLib.Defs [x64_configTheory.x64_compiler_config_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
 
