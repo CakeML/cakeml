@@ -1,7 +1,9 @@
 open preamble bviTheory;
-local open bvlSemTheory in end;
+local open backend_commonTheory bvlSemTheory in end;
 
 val _ = new_theory"bviSem";
+
+val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
 
 val _ = Datatype `
   state =

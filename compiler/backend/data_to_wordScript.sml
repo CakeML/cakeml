@@ -111,7 +111,7 @@ val lookup_word_op_def = Define`
 val _ = export_rewrites["lookup_word_op_def"];
 
 val FromList_location_def = Define`
-  FromList_location = wordLang$num_stubs`;
+  FromList_location = word_num_stubs`;
 val FromList1_location_def = Define`
   FromList1_location = FromList_location+1`;
 val RefByte_location_def = Define`
@@ -387,7 +387,7 @@ val assign_def = Define `
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
-    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs),l)
+    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
     | Equal => (case args of
                | [v1;v2] =>
                  let retf = Assign (adjust_var dest) FALSE_CONST in
@@ -701,7 +701,7 @@ val stubs_def = Define`
   ]`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
-  `wordLang$num_stubs + LENGTH (stubs (:α) c) = dataLang$num_stubs`,
+  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`,
   EVAL_TAC);
 
 val compile_def = Define `

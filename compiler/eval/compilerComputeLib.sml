@@ -71,16 +71,17 @@ val add_compiler_compset = computeLib.extend_compset
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
       (* ---- conLang ---- *)
-    ,prim_tagsTheory.bind_tag_def
-    ,prim_tagsTheory.chr_tag_def
-    ,prim_tagsTheory.div_tag_def
-    ,prim_tagsTheory.subscript_tag_def
-    ,prim_tagsTheory.true_tag_def
-    ,prim_tagsTheory.false_tag_def
-    ,prim_tagsTheory.nil_tag_def
-    ,prim_tagsTheory.cons_tag_def
-    ,prim_tagsTheory.none_tag_def
-    ,prim_tagsTheory.some_tag_def
+    ,backend_commonTheory.bind_tag_def
+    ,backend_commonTheory.chr_tag_def
+    ,backend_commonTheory.div_tag_def
+    ,backend_commonTheory.subscript_tag_def
+    ,backend_commonTheory.true_tag_def
+    ,backend_commonTheory.false_tag_def
+    ,backend_commonTheory.nil_tag_def
+    ,backend_commonTheory.cons_tag_def
+    ,backend_commonTheory.none_tag_def
+    ,backend_commonTheory.some_tag_def
+    ,backend_commonTheory.tuple_tag_def
     ,conLangTheory.num_defs_def
     ]
   ,computeLib.Tys
@@ -127,7 +128,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.get_tags_def
     ,dec_to_exhTheory.exhaustive_match_def
-    ,dec_to_exhTheory.tuple_tag_def
     ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_pat_def
     ]
@@ -244,7 +244,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_const_def
     ,clos_to_bvlTheory.partial_app_tag_def
     ,bvlTheory.Bool_def
-    ,prim_tagsTheory.bool_to_tag_def
+    ,backend_commonTheory.bool_to_tag_def
     ,clos_to_bvlTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
@@ -290,14 +290,13 @@ val add_compiler_compset = computeLib.extend_compset
     [ (* ---- bvl_to_bvi ---- *)
      bvl_to_bviTheory.destLet_def
     ,bvl_to_bviTheory.alloc_glob_count_def
-    ,bvl_to_bviTheory.num_stubs_def
+    ,backend_commonTheory.bvl_num_stubs_def
     ,bvl_to_bviTheory.compile_prog_def
     ,bvl_to_bviTheory.compile_list_def
     ,bvl_to_bviTheory.compile_single_def
     ,bvl_to_bviTheory.compile_def
     ,bvl_to_bviTheory.compile_op_def
     ,bvl_to_bviTheory.stubs_def
-    ,bvl_to_bviTheory.num_stubs_def
     ,bvl_to_bviTheory.CopyGlobals_code_def
     ,bvl_to_bviTheory.AllocGlobal_code_def
     ,bvl_to_bviTheory.InitGlobals_code_def
@@ -327,7 +326,7 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
-    ,dataLangTheory.num_stubs_def
+    ,backend_commonTheory.data_num_stubs_def
       (* ---- bvi_to_data ---- *)
     ,bvi_to_dataTheory.op_space_reset_def
     ,bvi_to_dataTheory.op_requires_names_eqn
@@ -364,7 +363,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,wordLangTheory.every_var_def
     ,wordLangTheory.every_name_def
     ,wordLangTheory.every_var_inst_def
-    ,wordLangTheory.num_stubs_def
+    ,backend_commonTheory.word_num_stubs_def
     ,wordLangTheory.raise_stub_location_eq
       (* ---- data_to_word ---- *)
     ,data_to_wordTheory.adjust_var_def
@@ -485,7 +484,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
     ,stackLangTheory.word_shift_def
-    ,stackLangTheory.num_stubs_def
+    ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
       (* ---- word_to_stack ---- *)
     ,word_to_stackTheory.wReg1_def

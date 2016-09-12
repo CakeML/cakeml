@@ -11,7 +11,8 @@ val _ = new_theory"bvi_to_dataProof";
 (* value relation *)
 
 val code_rel_def = Define `
-  code_rel bvi_code data_code <=>
+  code_rel (bvi_code : (num # bvi$exp) num_map)
+           (data_code : (num # dataLang$prog) num_map) <=>
     wf bvi_code /\ wf data_code /\
     (domain bvi_code = domain data_code) /\
     !n exp arg_count.

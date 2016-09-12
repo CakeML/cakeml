@@ -187,7 +187,7 @@ val init_stubs_def = Define `
      (2n,halt_inst 2w)]`
 
 val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
-  `LENGTH (init_stubs max_heap bitmaps k start) + 1 (* gc *) = stackLang$num_stubs`,
+  `LENGTH (init_stubs max_heap bitmaps k start) + 1 (* gc *) = stack_num_stubs`,
   EVAL_TAC);
 
 (* -- full compiler -- *)

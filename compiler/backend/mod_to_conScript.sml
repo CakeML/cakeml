@@ -1,4 +1,5 @@
 open preamble modLangTheory conLangTheory
+open backend_commonTheory
 
 (* The translator to conLang keeps a mapping (tag_env) of each constructor to
  * its arity, tag, and type. Tags need only be unique for each arity-type pair,
@@ -121,9 +122,6 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
    rw [compile_exp_def] >>
    PairCases_on `h` >>
    rw [compile_exp_def]);
-
-(* for each type, for each arity, the number of constructors of that arity *)
-val _ = type_abbrev( "exh_ctors_env" , ``:typeN id |-> num spt``);
 
 (* next exception tag (arity-indexed),
  * current tag env,

@@ -5,7 +5,9 @@ open preamble
 
 val _ = new_theory"clos_removeProof";
 
-val _ = Parse.bring_to_front_overload"Let"{Name="Let",Thy="closLang"};
+fun closLangFront s =
+  Parse.bring_to_front_overload s {Name = s, Thy = "closLang"}
+val _ = List.app closLangFront ["Let", "exp_size", "exp3_size"]
 
 (* TODO: move *)
 val FOLDL_acc = Q.prove(
@@ -111,7 +113,7 @@ val remove_fv = Q.store_thm("remove_fv",
 )
 
 val mustkeep_def = Define`
-  mustkeep n e vset ⇔ has_var n vset ∨ ¬pure e
+  mustkeep n (e:closLang$exp) vset ⇔ has_var n vset ∨ ¬pure e
 `;
 val rm1_def = Define`
   rm1 vset n i e = if mustkeep (n + i) e vset then HD (FST (remove [e]))
@@ -374,7 +376,7 @@ val unused_vars_correct = Q.store_thm(
   >- (simp[evaluate_def, res_rel_rw] >> metis_tac[val_rel_mono]) >>
   ONCE_REWRITE_TAC [fv_cons, evaluate_CONS, every_Fn_vs_NONE_CONS] >>
   dsimp[] >> rpt gen_tac >>
-  rename1 `exp3_size es + (closLang$exp_size e + 1)` >>
+  rename1 `exp3_size es + (exp_size e + 1)` >>
   reverse (Cases_on `es`)
   >- (rename1 `exp3_size (e2::es) + (closLang$exp_size e1 + 1)` >>
       srw_tac[][] >>
@@ -973,7 +975,7 @@ val remove_correct = Q.store_thm("remove_correct",
        >- metis_tac[remove_fv,fv1_intro] >>
        full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> irule (CONJUNCT1 val_rel_mono) >>
        qexists_tac `i` >> simp[] >> imp_res_tac evaluate_clock >> lfs[]) >>
-  TRY (rename1`Letrec` >>
+  TRY (rename1`closLang$Letrec` >>
        lfs[MAP_MAP_o, combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R] >>
        rename1 `remove [body] = ([body'], body'frees)` >>
        Cases_on `no_overlap (LENGTH fns) body'frees` >> full_simp_tac(srw_ss())[]

@@ -4102,6 +4102,12 @@ val state_rel_IMP_Number_arg = store_thm("state_rel_IMP_Number_arg",
   \\ fs [small_int_def,labPropsTheory.good_dimindex_def]
   \\ rfs [dimword_def]);
 
+val get_var_get_real_addr_lemma =
+    GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(
+                                   same_const``wordSem$get_var`` o #1 o
+                                   strip_comb o lhs)))
+                     get_real_addr_lemma)
+
 val assign_thm = Q.store_thm("assign_thm",
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_requires_names op ==> names_opt <> NONE) /\
@@ -5125,13 +5131,13 @@ val assign_thm = Q.store_thm("assign_thm",
       \\ `get_var (adjust_var a1) tt = get_var (adjust_var a1) t`
       by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
       \\ rfs[]
-      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ rpt_drule get_var_get_real_addr_lemma
       \\ simp[Abbr`tt`]
       \\ qpat_abbrev_tac`tt = t with locals := insert 1 _ (insert _ _ _)`
       \\ `get_var (adjust_var a2) tt = get_var (adjust_var a2) t`
       by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
       \\ rfs[]
-      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ rpt_drule get_var_get_real_addr_lemma
       \\ simp[Abbr`tt`]
       \\ simp[wordSemTheory.get_var_imm_def,wordSemTheory.get_var_def,lookup_insert]
       \\ IF_CASES_TAC \\ fs[]
@@ -5155,13 +5161,13 @@ val assign_thm = Q.store_thm("assign_thm",
         \\ `get_var (adjust_var a1) tt = get_var (adjust_var a1) t`
         by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
         \\ rfs[]
-        \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+        \\ rpt_drule get_var_get_real_addr_lemma
         \\ simp[Abbr`tt`]
         \\ qpat_abbrev_tac`tt = t with locals := insert 1 _ (insert _ _ _)`
         \\ `get_var (adjust_var a2) tt = get_var (adjust_var a2) t`
         by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
         \\ rfs[]
-        \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+        \\ rpt_drule get_var_get_real_addr_lemma
         \\ simp[Abbr`tt`]
         \\ simp[wordSemTheory.get_var_imm_def,wordSemTheory.get_var_def,lookup_insert]
         \\ rpt strip_tac
@@ -5439,11 +5445,11 @@ val assign_thm = Q.store_thm("assign_thm",
       \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
       by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
       \\ rfs[]
-      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ rpt_drule get_var_get_real_addr_lemma
       \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
       by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
       \\ rfs[]
-      \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+      \\ rpt_drule get_var_get_real_addr_lemma
       \\ qpat_abbrev_tac`sow = word_op_CASE opw _ _ _ _ _`
       \\ qpat_abbrev_tac`sw = _ sow _ _ _ _ _`
       \\ `sw = SOME (w2w w64)`
@@ -5506,11 +5512,11 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
     by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
     \\ rfs[]
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
     by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
     \\ rfs[]
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ qpat_abbrev_tac`sw = binop_CASE b _ _ _ _ _`
     \\ `sw = SOME ((63 >< 32) w64)`
     by (
@@ -5528,11 +5534,11 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
     by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
     \\ rfs[]
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
     by (fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert])
     \\ rfs[]
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ qpat_abbrev_tac`sw = binop_CASE b _ _ _ _ _`
     \\ `sw = SOME ((31 >< 0) w64)`
     by (
@@ -5877,7 +5883,7 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ every_case_tac \\ fs[] \\ clean_tac
     \\ rpt_drule memory_rel_ByteArray_IMP
     \\ strip_tac \\ clean_tac
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ imp_res_tac memory_rel_tl
     \\ rpt_drule memory_rel_Number_IMP
     \\ imp_res_tac memory_rel_tl
@@ -5962,7 +5968,7 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ rpt_drule memory_rel_ByteArray_IMP
     \\ strip_tac \\ clean_tac
     \\ first_x_assum(qspec_then`ARB`kall_tac)
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ imp_res_tac memory_rel_tl
     \\ rpt_drule memory_rel_Number_IMP
     \\ pop_assum kall_tac
@@ -6259,13 +6265,13 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ rpt_drule memory_rel_ByteArray_IMP
     \\ strip_tac \\ clean_tac
     \\ simp[assign_def,list_Seq_def] \\ eval_tac
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ simp[]
     \\ qpat_abbrev_tac`tt = t with locals := _`
     \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
     by fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert]
     \\ rfs[]
-    \\ rpt_drule (GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(same_const``get_var`` o #1 o strip_comb o lhs)))get_real_addr_lemma))
+    \\ rpt_drule get_var_get_real_addr_lemma
     \\ `tt.store = t.store` by simp[Abbr`tt`]
     \\ simp[]
     \\ IF_CASES_TAC >- ( fs[shift_def] )

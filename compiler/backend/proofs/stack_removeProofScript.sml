@@ -10,7 +10,7 @@ local open dep_rewrite blastLib in end
 
 val _ = new_theory"stack_removeProof";
 
-val _ = bring_to_front_overload"num_stubs"{Thy="stackLang",Name="num_stubs"};
+val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
 
 (* TODO: move *)
 
