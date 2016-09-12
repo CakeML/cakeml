@@ -606,8 +606,9 @@ in
       val n = numLib.term_of_int i
     in
       EXISTS_TAC n
-      \\ simp [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
-               x64_proj_def]
+      \\ SIMP_TAC std_ss
+           [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+            x64_proj_def]
       \\ NTAC 2 STRIP_TAC
       \\ qpat_x_assum `~(aa : 64 asm_state).failed` mp_tac
       \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
@@ -781,7 +782,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
            --------------*)
          print_tac "Const"
          \\ Cases_on `(63 >< 31) c = 0w : 33 word`
-         \\ Cases_on `word_bit 3 (n2w n : word4)`
+         >| [Cases_on `word_bit 3 (n2w n : word4)`, all_tac]
          \\ next_tac []
          )
       >- (
@@ -961,17 +962,51 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
          \\ next_tac [3]
          )
       \\ Cases_on `c`
-      \\ Cases_on `n = 0`
-      >| (let
-            val t4 = Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
-                     >- next_tac [4]
-            and t6 = next_tac [6]
-            and t7 = next_tac [7]
-            val l = [t4 \\ t6, t4 \\ t7]
-            val l = l @ l @ l @ [t6, t7]
-          in
-            l @ l
-          end)
+      >| [
+        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        >- next_tac [4]
+        \\ Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        >- next_tac [4]
+        \\ Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        >- next_tac [4]
+        \\ Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        >- next_tac [4]
+        \\ Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        >- next_tac [4]
+        \\ Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        >- next_tac [4]
+        \\ Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+        ,
+        Cases_on `n = 0`
+        >- next_tac [6]
+        \\ next_tac [7]
+      ]
       )
       (*--------------
           no Call
