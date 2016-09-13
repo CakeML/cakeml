@@ -756,4 +756,20 @@ val bootstrap_thm = save_thm("bootstrap_thm",
 val temp_defs = (List.map #1 (definitions"-"))
 val () = List.app delete_binding temp_defs;
 
+val stack_mb = 2000
+val heap_mb = 2000
+val filename = "cake.S"
+
+val (bytes_tm,ffi_limit_tm) =
+  bootstrap_thm |> rconc
+  |> optionSyntax.dest_some
+  |> pairSyntax.dest_pair
+
+val () = Lib.say"Writing output: "
+
+val () = time (
+  x64_exportLib.write_cake_S stack_mb heap_mb
+    (numSyntax.int_of_term ffi_limit_tm)
+    bytes_tm ) cake_S
+
 val _ = export_theory();
