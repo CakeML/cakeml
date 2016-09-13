@@ -599,7 +599,7 @@ val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
   >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
-      rename1 `pure_op opn` >> Cases_on `opn` >>
+      rename1 `closLang$pure_op opn` >> Cases_on `opn` >>
       full_simp_tac(srw_ss())[pure_op_def, do_app_def, eqs, bool_case_eq] >>
       srw_tac[][] >>
       rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
