@@ -51,10 +51,10 @@ val () =
       basicComputeLib.add_basic_compset,
       semanticsComputeLib.add_ast_compset,
       compilerComputeLib.add_compiler_compset,
+      x64_targetLib.add_x64_encode_compset,
       asmLib.add_asm_compset ],
     computeLib.Defs [
       x64_compiler_config_def,
-      x64_config_def,
       data_prog_x64_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
