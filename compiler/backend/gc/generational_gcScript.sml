@@ -364,88 +364,62 @@ val partial_gc_related = store_thm("partial_gc_related",
          (ADDR_MAP (FAPPLY f) roots,state)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
       gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)``,
-
-  rpt strip_tac
-  \\ mp_tac simulation
-  \\ fs []
-  \\ strip_tac
-  \\ qabbrev_tac `broots = to_basic_roots conf.gen_start roots ++ refs_to_roots (heap_drop conf.refs_start (to_basic_heap conf heap))`
-  \\ qabbrev_tac `bheap = to_basic_heap conf heap`
-  \\ qabbrev_tac `bconf = to_basic_conf conf`
-
-  \\ `roots_ok broots bheap` by cheat
-  \\ drule basic_gc_related
-  \\ `heap_ok bheap bconf.limit` by cheat
-  \\ disch_then drule
-  \\ rpt strip_tac
-  \\ first_x_assum drule
-  \\ rpt strip_tac
-  \\ fs []
-  \\ qexists_tac `fmap_fun f conf.gen_start heap`
-  \\ rpt strip_tac
-
-  >- (qunabbrev_tac `broots`
-     \\ fs [addr_map_take]
-     \\ qabbrev_tac `t = to_basic_roots conf.gen_start roots:('a heap_address, 'a) data_sort  heap_address list`
-     \\ `LENGTH roots = LENGTH t` by cheat
-     \\ fs [TAKE_LENGTH_APPEND]
-
-     \\ qpat_assum `ADDR_MAP _ _ = _` mp_tac
-     \\ qpat_assum `roots_ok _ _` kall_tac
-     \\ qpat_assum `roots_ok _ _` mp_tac
-
-     \\ qunabbrev_tac `t`
-     \\ rpt (pop_assum kall_tac)
-     \\ qspec_tac (`roots'`,`xs`)
-
-     \\ Induct_on `roots`
-     \\ fs [to_basic_roots_def]
-     \\ fs [ADDR_MAP_def]
-     \\ reverse Cases
-     >- cheat
-     \\ fs [ADDR_MAP_def]
-     \\ fs [roots_shift_def]
-     \\ Cases
-     >- rw [ADDR_MAP_def]
-     \\ IF_CASES_TAC
-     >- (rw [ADDR_MAP_def]
-        \\ Cases_on `h`
-        \\ fs [roots_shift_def]
-        \\ every_case_tac \\ fs []
-        \\ imp_res_tac roots_ok_TL \\ fs []
-        \\ rveq
-        \\ `n IN heap_addresses 0 heap` by cheat
-        \\ metis_tac [fmap_fun_LESS_gen_start]
-        )
-        \\ fs [fmap_fun_def]
-
-        \\ fs [FUN_FMAP_DEF]
-
-
-     )
-
-
-
-\\ simp []                    (* print_match [] ``...`` hittar saker *)
-
-  \\                            (* FUN_FMAP  *)
-
-
-  \\ fs []
-  \\ rw []
-
-  \\ disch
-
-
-  \\ disch_then
-  rw []
-
-  \\ mp_tac simulation
-  \\ fs []
-  \\ rpt strip_tac
-  \\ fs []
-
   cheat);
+  (* rpt strip_tac *)
+  (* \\ mp_tac simulation *)
+  (* \\ fs [] *)
+  (* \\ strip_tac *)
+  (* \\ qabbrev_tac `broots = to_basic_roots conf.gen_start roots ++ refs_to_roots (heap_drop conf.refs_start (to_basic_heap conf heap))` *)
+  (* \\ qabbrev_tac `bheap = to_basic_heap conf heap` *)
+  (* \\ qabbrev_tac `bconf = to_basic_conf conf` *)
+
+  (* \\ `roots_ok broots bheap` by cheat *)
+  (* \\ drule basic_gc_related *)
+  (* \\ `heap_ok bheap bconf.limit` by cheat *)
+  (* \\ disch_then drule *)
+  (* \\ rpt strip_tac *)
+  (* \\ first_x_assum drule *)
+  (* \\ rpt strip_tac *)
+  (* \\ fs [] *)
+  (* \\ qexists_tac `fmap_fun f conf.gen_start heap` *)
+  (* \\ rpt strip_tac *)
+
+  (* >- (qunabbrev_tac `broots` *)
+  (*    \\ fs [addr_map_take] *)
+  (*    \\ qabbrev_tac `t = to_basic_roots conf.gen_start roots:('a heap_address, 'a) data_sort  heap_address list` *)
+  (*    \\ `LENGTH roots = LENGTH t` by cheat *)
+  (*    \\ fs [TAKE_LENGTH_APPEND] *)
+
+  (*    \\ qpat_assum `ADDR_MAP _ _ = _` mp_tac *)
+  (*    \\ qpat_assum `roots_ok _ _` kall_tac *)
+  (*    \\ qpat_assum `roots_ok _ _` mp_tac *)
+
+  (*    \\ qunabbrev_tac `t` *)
+  (*    \\ rpt (pop_assum kall_tac) *)
+  (*    \\ qspec_tac (`roots'`,`xs`) *)
+
+  (*    \\ Induct_on `roots` *)
+  (*    \\ fs [to_basic_roots_def] *)
+  (*    \\ fs [ADDR_MAP_def] *)
+  (*    \\ reverse Cases *)
+  (*    >- cheat *)
+  (*    \\ fs [ADDR_MAP_def] *)
+  (*    \\ fs [roots_shift_def] *)
+  (*    \\ Cases *)
+  (*    >- rw [ADDR_MAP_def] *)
+  (*    \\ IF_CASES_TAC *)
+  (*    >- (rw [ADDR_MAP_def] *)
+  (*       \\ Cases_on `h` *)
+  (*       \\ fs [roots_shift_def] *)
+  (*       \\ every_case_tac \\ fs [] *)
+  (*       \\ imp_res_tac roots_ok_TL \\ fs [] *)
+  (*       \\ rveq *)
+  (*       \\ `n IN heap_addresses 0 heap` by cheat *)
+  (*       \\ metis_tac [fmap_fun_LESS_gen_start] *)
+  (*       ) *)
+  (*       \\ fs [fmap_fun_def] *)
+
+  (*       \\ fs [FUN_FMAP_DEF] *)
 
 val full_gc_related = store_thm("full_gc_related",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
