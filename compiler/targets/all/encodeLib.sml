@@ -16,7 +16,8 @@ val () =
       ``x64_target$x64_config``, ``mips_target$mips_config``,
       ``riscv_target$riscv_config``,
       ``arm8_target$valid_immediate``,
-      ``asm$asm_ok``]
+      ``asm$asm_ok : 'a asm -> 'a asm_config -> bool``,
+      ``asm$addr_offset_ok : 'a word -> 'a asm_config -> bool``]
  ; computeLib.extend_compset
     [computeLib.Extenders
        [arm6_targetLib.add_arm6_encode_compset,
