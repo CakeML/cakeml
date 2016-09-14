@@ -68,9 +68,6 @@ local
      `JumpReg r : 'a asm`,
      `Loc r w : 'a asm`
     ]
-  val aligned2 =
-    Conv.RIGHT_CONV_RULE EVAL
-      (Q.SPECL [`2`, `x`] alignmentTheory.aligned_bitwise_and)
 in
   fun target_asm_rwts rwts tc =
     let
@@ -81,17 +78,19 @@ in
     in
       (rwt,
        utilsLib.map_conv
-         (SIMP_CONV (srw_ss()++boolSimps.CONJ_ss)
-            (rwt :: aligned2 :: rwts @ asm_ok_rwts))
+         (SIMP_CONV (srw_ss()++boolSimps.CONJ_ss) (rwt :: rwts @ asm_ok_rwts))
          (mk_addr_offset_ok (w, tc) ::
           List.map (fn i => mk_asm_ok (parse_term i, tc)) asm_tms))
     end
 end
 
 local
-   val rwts = ref ([] : thm list)
-   val cnv = ref NO_CONV
-   val pair_term_compare = Lib.pair_compare (Term.compare, Term.compare)
+  val aligned2 =
+    Conv.RIGHT_CONV_RULE EVAL
+      (Q.SPECL [`2`, `x`] alignmentTheory.aligned_bitwise_and)
+  val rwts = ref ([aligned2] : thm list)
+  val cnv = ref NO_CONV
+  val pair_term_compare = Lib.pair_compare (Term.compare, Term.compare)
 in
   fun add_asm_ok_thm th =
     ( rwts := th :: !rwts

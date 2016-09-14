@@ -7,10 +7,18 @@ val () = wordsLib.guess_lengths ()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val n_tm = ``n < 16 /\ n <> 15n``
+val valid_immediate = Q.prove(
+  `!i. IS_SOME (EncodeARMImmediate i) = valid_immediate i`,
+  simp [valid_immediate_def])
+
+val arm6_config =
+  REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_config
+
+val arm6_asm_ok =
+  REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_asm_ok
 
 val lem1 = Q.prove(
-   `!n m. ^n_tm ==> RName_PC <> R_mode m (n2w n)`,
+   `!n m. n < 15 ==> RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15`,
    CONV_TAC (Conv.ONCE_DEPTH_CONV SYM_CONV)
    \\ simp [arm_stepTheory.R_x_pc]
    )
@@ -27,7 +35,7 @@ val lem5 =
 
 val lem6 = Q.prove(
    `!s state c n.
-      target_state_rel arm6_target s state /\ ^n_tm /\
+      target_state_rel arm6_target s state /\ n < 15 /\
       aligned 2 (c + s.regs n) ==>
       aligned 2 (c + state.REG (R_mode state.CPSR.M (n2w n)))`,
    rw [asmPropsTheory.target_state_rel_def, alignmentTheory.aligned_extract,
@@ -44,12 +52,16 @@ fun bprove tm =
                 \\ blastLib.BBLAST_TAC)
 
 val jmp_tm =
-   ``0xFE00000Cw <= c /\ c <= 0x2000007w: word32 /\ aligned 2 (c: word32)``
+   ``0xFE000008w <= c /\ c <= 0x2000007w: word32 /\ aligned 2 (c: word32)``
+
+val cjmp_tm =
+   ``0xFE00000Cw <= c /\ c <= 0x200000Bw: word32 /\ aligned 2 (c: word32)``
 
 val lem8 = bprove
-   `^jmp_tm ==>
-    0xFE000000w <= c + 0xFFFFFFF8w /\ 0xFE000000w <= c + 0xFFFFFFF4w /\
-    c + 0xFFFFFFF8w <= 0x1FFFFFCw /\ c + 0xFFFFFFF4w <= 0x1FFFFFCw: word32`
+   `(^jmp_tm ==>
+     0xFE000000w <= c + 0xFFFFFFF8w /\ c + 0xFFFFFFF8w <= 0x1FFFFFCw) /\
+    (^cjmp_tm ==>
+     0xFE000000w <= c + 0xFFFFFFF4w /\ c + 0xFFFFFFF4w <= 0x1FFFFFCw)`
 
 val lem9 = bprove
   `Abbrev (a = (25 >< 2) (c + 0xFFFFFFF8w): word24) /\ a ' 23 /\ ^jmp_tm ==>
@@ -95,30 +107,13 @@ val lem15 = bprove
 
 val lem16 = bprove
    `!c r: word32.
-       Abbrev (r = c + 0xFFFFFFF4w) /\ ^jmp_tm ==>
+       Abbrev (r = c + 0xFFFFFFF4w) /\ ^cjmp_tm ==>
        (sw2sw
         ((v2w
           [r ' 25; r ' 24; r ' 23; r ' 22; r ' 21; r ' 20; r ' 19; r ' 18;
            r ' 17; r ' 16; r ' 15; r ' 14; r ' 13; r ' 12; r ' 11; r ' 10;
            r ' 9; r ' 8; r ' 7; r ' 6; r ' 5; r ' 4; r ' 3; r ' 2]: word24
           @@ (0w: word2)) : 26 word) = c - 12w)`
-
-val lem18 =
-   blastLib.BBLAST_PROVE
-     ``((11 >< 8) (v2w [F; F; F; F; b7; b6; b5; b4; b3; b2; b1; b0] : word12) =
-        0w: word4) /\
-       ((11 >< 8) (v2w [T; T; F; F; b7; b6; b5; b4; b3; b2; b1; b0] : word12) =
-        12w: word4)``
-
-val lem19 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32.
-          c + 0xFFFFFFF8w <+ 256w ==>
-          (w2w (v2w
-                [c:word32 ' 7 = c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-                 c ' 6 = c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 = c ' 4 \/ c ' 3;
-                 c ' 4 = c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
-           c - 8w: word32)``
 
 fun tac n =
    simp [Ntimes armTheory.EncodeARMImmediate_aux_def n,
@@ -393,7 +388,6 @@ val aligned_add = Q.prove(
    metis_tac [wordsTheory.WORD_ADD_COMM, alignmentTheory.aligned_add_sub]
    )
 
-
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -407,15 +401,13 @@ val encode_rwts =
    end
 
 val enc_rwts =
-   [arm6_config_def, asmPropsTheory.offset_monotonic_def,
-    lem4, lem5, lem8, decode_imm8_thm1, decode_imm8_thm3,
-    arm_stepTheory.Aligned, alignmentTheory.aligned_0,
-    alignmentTheory.aligned_numeric] @
-   encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
+   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, decode_imm8_thm1,
+    decode_imm8_thm3, arm_stepTheory.Aligned, alignmentTheory.aligned_0,
+    alignmentTheory.aligned_numeric, arm6_asm_ok] @
+   encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-   [asmPropsTheory.enc_ok_def, arm6_config_def] @
-   encode_rwts @ asmLib.asm_ok_rwts
+   [asmPropsTheory.enc_ok_def, arm6_config, arm6_asm_ok] @ encode_rwts
 
 (* some custom tactics ---------------------------------------------------- *)
 
@@ -585,11 +577,13 @@ local
            end)
 in
    val state_tac =
-      fs [asmPropsTheory.sym_target_state_rel, arm6_target_def,
-          arm6_config_def, asmPropsTheory.all_pcs, arm6_ok_def,
+      NO_STRIP_FULL_SIMP_TAC (srw_ss())
+         [asmPropsTheory.sym_target_state_rel, arm6_target_def,
+          asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq]
-      \\ rfs []
+          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
+          DECIDE ``a < 16 /\ a <> 15n = a < 15``]
+      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
@@ -635,9 +629,6 @@ local
              else all_tac
              )
          \\ NTAC j next_state_tac
-         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (qpat_x_assum `qqq IN s1.mem_domain` kall_tac)
-         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
          \\ state_tac
       end gs
@@ -647,11 +638,8 @@ local
 in
    fun next_tac gs =
       (
-       qpat_x_assum `bytes_in_memory (aa : word32) bb cc dd` mp_tac
-       \\ simp enc_rwts
-       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-       \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-       \\ strip_tac
+       NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+       \\ qpat_x_assum `bytes_in_memory (aa : word32) bb cc dd` assume_tac
        \\ next_tac' (get_asm (snd gs))
       ) gs
    val cnext_tac =
@@ -736,14 +724,14 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
    `backend_correct arm6_target`,
    simp [asmPropsTheory.backend_correct_def]
    \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
-   \\ simp [asmPropsTheory.target_ok_def, arm6_config_def, arm6_target_def,
+   \\ simp [asmPropsTheory.target_ok_def, arm6_target_def, arm6_config,
             asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [] \\ Cases_on `i`,
       srw_tac [] [arm6_proj_def, asmPropsTheory.target_state_rel_def,
-                  arm6_target_def, arm6_config_def, arm6_ok_def,
+                  arm6_target_def, arm6_config, arm6_ok_def,
                   set_sepTheory.fun2set_eq]
       \\ rfs [reg_mode_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
