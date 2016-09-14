@@ -478,7 +478,7 @@ val compile_exps_Var_list = prove(
   ``!l n. EVERY isVar l ==> (∃aux. compile_exps n l = (MAP (Var o destVar) l ,aux,n) ∧ append aux = [])``,
   Induct \\ fs[compile_exps_def] \\ Cases \\ rw[isVar_def] \\ fs[]
   \\ Cases_on`l` \\ fs[compile_exps_def,destVar_def]
-  \\ qmatch_goalsub_rename_tac`compile_exps a`
+  \\ qmatch_goalsub_rename_tac`bvl_to_bvi$compile_exps a`
   \\ first_x_assum(qspec_then`a`strip_assume_tac) \\ fs[]);
 
 val compile_int_thm = prove(
@@ -2295,7 +2295,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     imp_res_tac compile_list_imp >>
     rpt strip_tac >>
     first_x_assum drule >> strip_tac >>
-    qmatch_assum_rename_tac`compile_exps nn _ = _` >>
+    qmatch_assum_rename_tac`bvl_to_bvi$compile_exps nn _ = _` >>
     qexists_tac`nn` >> simp[] >>
     rewrite_tac [CONJ_ASSOC] >>
     reverse conj_tac >- (
