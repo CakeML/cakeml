@@ -2,6 +2,8 @@ open preamble bvi_letTheory bviSemTheory bviPropsTheory;
 
 val _ = new_theory"bvi_letProof";
 
+val _ = bring_to_front_overload "compile" {Name = "compile", Thy = "bvi_let"}
+
 val v_rel_def = Define `
   v_rel a x y xs ys <=> LLOOKUP ys a = SOME x`;
 
