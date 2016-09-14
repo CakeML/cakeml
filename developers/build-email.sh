@@ -10,11 +10,12 @@ trap "rm -f $log_f $state_f" 0 2 3 15 EXIT
 to='builds@cakeml.org'
 
 timeout 12h developers/regression-test.sh $state_f &> >(tee $log_f)
+result=$?
 
 cur_build_dir=`cat $state_f`
 cd $cur_build_dir
 
-case $? in
+case $result in
   0)
     cat $log_f | mail -s "OK" $to
     echo "build succeeded"
@@ -22,12 +23,12 @@ case $? in
   124)
     cat $log_f timing.log <(tail -n80 regression.log) | col -bpx | mail -s "TIMEOUT" $to
     echo "build timed out in: $cur_build_dir"
-    exit 124
     ;;
   *)
     subject=$(tail -n1 $log_f)
     cat $log_f timing.log <(tail -n80 regression.log) | col -bpx | mail -s "$subject" $to
     echo "build failed in: $cur_build_dir"
-    exit 1
     ;;
 esac
+
+exit $result
