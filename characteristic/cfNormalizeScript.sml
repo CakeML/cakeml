@@ -163,43 +163,9 @@ val get_name_def = Define `
     let ws = FILTER (\s. ~(MEM [s] vs)) alpha in
       if NULL ws then get_name_aux 0 vs else [HD ws]`;
 
-val get_names_def = Define `
-  (get_names vs [] = []) /\
-  (get_names vs (x::xs) =
-     let v = get_name vs in
-       (v,x)::get_names (v::vs) xs)`
-
-val isVarLit_def = Define `
-  isVarLit (Var v) = T /\
-  isVarLit (Lit l) = T /\
-  isVarLit _ = F`
-
 val Lets_def = Define `
   Lets [] e = e /\
-  Lets ((INL _)::xs) e = Lets xs e /\
-  Lets ((INR (n,x))::xs) e = Let (SOME n) x (Lets xs e)`
-
-val delete_opt_def = Define `
-  delete_opt NONE xs = xs /\
-  delete_opt (SOME v) xs = FILTER (\x. v <> x) xs`
-
-val bind_lets_def = Define `
-  bind_lets xs =
-    let ns = FLAT (MAP SND xs) in
-    let ys = get_names ns xs in
-    let ys = MAP (\(n,e,ns). (if isVarLit e then INL e else INR (n,e))) ys in
-    let new_args = MAP (\x. case x of INL e => e | INR (n,e) => Var (Short n)) ys in
-      (ns,ys,new_args)`
-
-val bind_let2_def = Define `
-  bind_let2 x y =
-    let (ns,ys,new_args) = bind_lets [x;y] in
-      (ns,ys,HD new_args, HD (TL new_args))`;
-
-val bind_let_def = Define `
-  bind_let x =
-    let (ns,ys,new_args) = bind_lets [x] in
-      (ns,ys,HD new_args)`;
+  Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)`
 
 val exp6_size_lemma = prove(
   ``!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys``,
@@ -214,78 +180,123 @@ val dest_opapp_size = prove(
   \\ fs [astTheory.exp_size_def]
   \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]);
 
+val wrap_if_needed_def = Define `
+  wrap_if_needed needs_wrapping ns e b =
+    if needs_wrapping then (
+      let x = get_name ns in
+      (Var (Short x), x::ns, (x,e)::b)
+    ) else (
+      (e, ns, b)
+    )`;
+
 val norm_def = tDefine "norm" `
-  norm (Lit l) = (Lit l,[]) /\
-  norm (Var (Short name)) = (Var (Short name),[name]) /\
-  norm (Var long) = (Var long,[]) /\
-  norm (Let opt e1 e2) =
-    (let (e1,n1) = norm e1 in
-     let (e2,n2) = norm e2 in
-       (Let opt e1 e2,n1 ++ delete_opt opt n2)) /\
-  norm (App op args) =
-    (case dest_opapp (App op args) of
-     | SOME (f,args) =>
-         let (ns,ys,new_args) = bind_lets (MAP norm (f::args)) in
-           (Lets ys (mk_opapp new_args),ns)
-     | NONE =>
-         let (ns,ys,new_args) = bind_lets (MAP norm args) in
-           (Lets ys (App op new_args),ns)) /\
-  norm (Con x args) =
-    (let (ns,ys,new_args) = bind_lets (MAP norm args) in
-       (Lets ys (Con x new_args),ns)) /\
-  norm (Raise e) =
-    (let (ns,ys,new_e) = bind_let (norm e) in
-       (Lets ys (Raise new_e),ns)) /\
-  norm (Log l e1 e2) =
-    (let (ns,ys,e1,e2) = bind_let2 (norm e1) (norm e2) in
-       (Lets ys (Log l e1 e2),ns)) /\
-  norm (Fun v e) =
-    (let (e,n) = norm e in
-       (Fun v e,delete_opt (SOME v) n)) /\
-  norm (Mat e1 e2) =
-    (let (e1,n1) = norm e1 in
-     let (e2,n2) = norm_pat e2 in
-       (Mat e1 e2,n1 ++ n2)) /\
-  norm (Handle e1 e2) =
-    (let (e1,n1) = norm e1 in
-     let (e2,n2) = norm_pat e2 in
-       (Handle e1 e2,n1 ++ n2)) /\
-  norm (If e1 e2 e3) =
-    (let (e1,n1) = norm e1 in
-     let (e2,n2) = norm e2 in
-     let (e3,n3) = norm e3 in
-       if isVarLit e1 then
-         (If e1 e2 e3, n1++n2++n3)
-       else
-         let v = get_name (n2++n3) in
-           (Let (SOME v) e1 (If (Var (Short v)) e2 e3),n1++n2++n3)) /\
-  norm (Letrec rs e) =
-    (let xs = MAP (\(v,a,e). (v,a,norm e)) rs in
-     let rs = MAP (\(v,a,e,_). (v,a,e)) xs in
-     let ns = FLAT (MAP (\(v,a,e,n). n) xs) in
-     let (e,n) = norm e in
-       (Letrec rs e,n)) /\
-  norm_pat [] = ([],[]) /\
-  norm_pat ((pat,x)::xs) =
-    (let (e1,n1) = norm x in
-     let (e2,n2) = norm_pat xs in
-       ((pat,e1)::e2,n1 ++ n2))`
- (WF_REL_TAC `measure (\x. case x of INL v => exp_size v
-                                   | INR v => exp3_size v)`
-  \\ fs [] \\ rw [] \\ imp_res_tac MEM_exp_size \\ fs []
-  \\ imp_res_tac MEM_exp1_size \\ fs []
-  \\ imp_res_tac dest_opapp_size \\ fs [astTheory.exp_size_def])
+  norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
+  norm is_named as_value ns (Var (Short name)) = (Var (Short name), name::ns, []) /\
+  norm is_named as_value ns (Var long) = (Var long, ns, []) /\
+  norm is_named as_value ns (Let opt e1 e2) =
+    (case opt of
+         SOME x =>
+         (let (e1',ns,b1) = norm T F ns e1 in
+          let (e2',ns) = protect F ns e2 in
+          let e' = Lets b1 (Lets [(x, e1')] e2') in
+          wrap_if_needed as_value (x::ns) e' [])
+       | NONE =>
+         (let (e1', ns, b1) = norm F F ns e1 in
+          let (e2', ns) = protect F ns e2 in
+          wrap_if_needed as_value ns (Let NONE e1' e2') b1)) /\
+  norm is_named as_value ns (App Opapp args) =
+    (case dest_opapp (App Opapp args) of
+         SOME (f, args) =>
+         (let (f', ns, b0) = norm F T ns f in
+          let (args', ns, bi) = norm_list F T ns args in
+          let e' = mk_opapp (f' :: args') in
+          let b' = FLAT (REVERSE (b0 :: bi)) (* right-to-left evaluation *) in
+          wrap_if_needed as_value ns e' b')
+       | NONE => ARB) /\
+  norm is_named as_value ns (App op args) =
+    (let (args', ns, bi) = norm_list F T ns args in
+     let b' = FLAT (REVERSE bi) in (* right-to-left evaluation *)
+     wrap_if_needed as_value ns (App op args') b') /\
+  norm is_named as_value ns (Con x args) =
+    (let (args', ns, bi) = norm_list F T ns args in
+     let b = FLAT (REVERSE bi) in (* right-to-left evaluation *)
+     wrap_if_needed as_value ns (Con x args') b) /\
+  norm is_named as_value ns (Raise e) = ARB /\
+  norm is_named as_value ns (Log l e1 e2) =
+    (let (e1', n1, b1) = norm F T ns e1 in
+     let (e2', n2, b2) = norm F T n1 e2 in
+     if b2 = [] then (
+       if b1 = [] then (
+         (* produce: <e1> op <e2> *)
+         (Log l e1' e2', n2, [])
+       ) else (
+         (* produce: let <b1> in <e1> op <e2> *)
+         wrap_if_needed as_value n2 (Log l e1' e2') b1
+       )
+     ) else (
+       let (e2', n2, b2) = norm F F n1 e2 in
+       case l of
+           And =>
+           (* produce: let <b1> in <e1'> andalso (lets <b2> in <e2'>) *)
+           wrap_if_needed as_value n2 (Log And e1' (Lets b2 e2')) b1
+         | Or =>
+           (* produce: let <b1> in <e1'> orelse (let <b2> in <e2'>) *)
+           wrap_if_needed as_value n2 (Log Or e1' (Lets b2 e2')) b1
+     )) /\
+  norm is_named as_value ns (Fun v e) =
+    (let (e', ns) = protect is_named (v::ns) e in
+     wrap_if_needed (as_value \/ ~is_named) ns (Fun v e') []) /\
+  norm is_named as_value ns (Mat e1 e2) =
+    (let (e1',n1,b1) = norm F T ns e1 in
+     let (rows', ni) = norm_rows n1 e2 in
+     let e' = Mat e1' rows' in
+     wrap_if_needed as_value ni e' b1) /\
+  norm is_named as_value ns (Handle e1 e2) = ARB /\
+  norm is_named as_value ns (If e1 e2 e3) =
+    (let (e1', ns, b) = norm F T ns e1 in
+     let (e2', ns) = protect F ns e2 in
+     let (e3', ns) = protect F ns e3 in
+     wrap_if_needed as_value ns (If e1' e2' e3') b) /\
+  norm is_named as_value ns (Letrec rs e) =
+    (let (rs', ns) = norm_letrec_branches ns rs in
+     let (e', ns) = protect F ns e in
+     wrap_if_needed as_value ns (Letrec rs' e') []) /\
+  norm_list is_named as_value ns ([]: exp list) = ([], ns, []) /\
+  norm_list is_named as_value ns (e::es) =
+    (let (e', ns', b) = norm is_named as_value ns e in
+     let (es', ns'', bs) = norm_list is_named as_value ns' es in
+     (e' :: es', ns'', b::bs)) /\
+  norm_rows ns ([]: (pat, exp) alist) = ([], ns) /\
+  norm_rows ns (row :: rows) =
+    (let (row', ns') = protect_row F ns row in
+     let (rows', ns'') = norm_rows ns' rows in
+     (row' :: rows', ns'')) /\
+  norm_letrec_branches ns ([]: (string, string # exp) alist) = ([], ns) /\
+  norm_letrec_branches ns (branch :: branches) =
+    (let (branch', ns') = protect_letrec_branch T ns branch in
+     let (branches', ns'') = norm_letrec_branches ns' branches in
+     (branch' :: branches', ns'')) /\
+  protect is_named ns e =
+    (let (e',ns',b) = norm is_named F ns e in
+     (Lets b e', ns')) /\
+  protect_row is_named ns row =
+    (let (row_e', ns') = protect is_named ns (SND row) in
+     ((FST row, row_e'), ns')) /\
+  protect_letrec_branch is_named ns branch =
+    (let (branch_e', ns') = protect is_named ns (SND (SND branch)) in
+     ((FST branch, FST (SND branch), branch_e'), ns'))`
+ cheat;
 
 val full_normalise_def = Define `
-  full_normalise e = FST (norm e)`;
+  full_normalise ns e = FST (protect T ns e)`;
 
 val MEM_v_size = prove(
   ``!xs. MEM a xs ==> v_size a < v6_size xs``,
   Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []);
 
 val norm_exp_rel_def = Define `
-  norm_exp_rel e1 e2 <=> (e1 = e2) \/
-                         (full_normalise e1 = e2)`
+  norm_exp_rel ns e1 e2 <=> (e1 = e2) \/
+                            (full_normalise ns e1 = e2)`
 
 val free_in_def = Define ` (* TODO: complete *)
   free_in (Lit l) v = T /\
@@ -304,13 +315,13 @@ val (norm_rel_rules,norm_rel_ind,norm_rel_cases) = Hol_reln `
   (!xs ys t.
      EVERY2 norm_rel xs ys ==>
      norm_rel (Conv t xs) (Conv t ys)) /\
-  (!v env1 env2 e1 e2.
-     norm_exp_rel e1 e2 /\ (free_in e1 = free_in e2) /\
+  (!v env1 env2 ns e1 e2.
+     norm_exp_rel ns e1 e2 /\ (free_in e1 = free_in e2) /\
      env_rel (free_in e1 DELETE Short v1) env1 env2 ==>
      norm_rel (Closure env1 v e1) (Closure env2 v e2)) /\
-  (!v env1 env2 es1 es2.
+  (!v env1 env2 ns es1 es2.
      EVERY2 (\(n1,v1,e1) (n2,v2,e2).
-       n1 = n2 /\ v1 = v2 /\ norm_exp_rel e1 e2 /\ (free_in e1 = free_in e2) /\
+       n1 = n2 /\ v1 = v2 /\ norm_exp_rel ns e1 e2 /\ (free_in e1 = free_in e2) /\
        env_rel (free_in e1 DELETE Short v1) env1 env2) es1 es2 ==>
      norm_rel (Recclosure env1 es1 v) (Recclosure env2 es2 v)) /\
   (!env1 env2 s.
@@ -346,5 +357,19 @@ val full_normalise_correct = store_thm("full_normalise_correct",
                norm_state_rel rs1 rs2 /\ norm_res_rel res1 res2``,
   ... ); TODO
 *)
+
+val full_normalise_dec_def = Define `
+  full_normalise_dec (Dlet pat exp) =
+    Dlet pat (full_normalise [] exp) /\
+  full_normalise_dec (Dletrec l) =
+    Dletrec (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
+  full_normalise_dec dec = dec`;
+
+val full_normalise_top_def = Define `
+  full_normalise_top (Tdec dec) = Tdec (full_normalise_dec dec) /\
+  full_normalise_top top = top`;
+
+val full_normalise_prog_def = Define `
+  full_normalise_prog prog = MAP full_normalise_top prog`;
 
 val _ = export_theory ()
