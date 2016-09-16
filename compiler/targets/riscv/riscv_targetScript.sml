@@ -104,37 +104,87 @@ val riscv_enc_def = Define`
        | INR f => riscv_encode (Store (f (n2w r2, n2w r1, w2w a)))) /\
    (riscv_enc (Jump a) = riscv_encode (Branch (JAL (0w, w2w (a >>> 1))))) /\
    (riscv_enc (JumpCmp c r1 (Reg r2) a) =
-      let off = w2w (a >>> 1) in
-      case c of
-         Equal => riscv_encode (Branch (BEQ (n2w r1, n2w r2, off)))
-       | Less  => riscv_encode (Branch (BLT (n2w r1, n2w r2, off)))
-       | Lower => riscv_encode (Branch (BLTU (n2w r1, n2w r2, off)))
-       | Test  => riscv_encode (ArithR (AND (1w, n2w r1, n2w r2))) ++
-                  riscv_encode (Branch (BEQ (1w, 0w, off - 2w)))
-       | NotEqual => riscv_encode (Branch (BNE (n2w r1, n2w r2, off)))
-       | NotLess  => riscv_encode (Branch (BGE (n2w r1, n2w r2, off)))
-       | NotLower => riscv_encode (Branch (BGEU (n2w r1, n2w r2, off)))
-       | NotTest  => riscv_encode (ArithR (AND (1w, n2w r1, n2w r2))) ++
-                     riscv_encode (Branch (BNE (1w, 0w, off - 2w)))) /\
+      if -0xFFCw <= a /\ a <= 0xFFFw then
+        let off12 = w2w (a >>> 1) in
+        case c of
+           Equal => riscv_encode (Branch (BEQ (n2w r1, n2w r2, off12)))
+         | Less  => riscv_encode (Branch (BLT (n2w r1, n2w r2, off12)))
+         | Lower => riscv_encode (Branch (BLTU (n2w r1, n2w r2, off12)))
+         | Test  => riscv_encode (ArithR (AND (1w, n2w r1, n2w r2))) ++
+                    riscv_encode (Branch (BEQ (1w, 0w, off12 - 2w)))
+         | NotEqual => riscv_encode (Branch (BNE (n2w r1, n2w r2, off12)))
+         | NotLess  => riscv_encode (Branch (BGE (n2w r1, n2w r2, off12)))
+         | NotLower => riscv_encode (Branch (BGEU (n2w r1, n2w r2, off12)))
+         | NotTest  => riscv_encode (ArithR (AND (1w, n2w r1, n2w r2))) ++
+                       riscv_encode (Branch (BNE (1w, 0w, off12 - 2w)))
+      else
+        let off20 = w2w (a >>> 1) - 2w in
+        case c of
+           Equal => riscv_encode (Branch (BNE (n2w r1, n2w r2, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | Less  => riscv_encode (Branch (BGE (n2w r1, n2w r2, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | Lower => riscv_encode (Branch (BGEU (n2w r1, n2w r2, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | Test  => riscv_encode (ArithR (AND (1w, n2w r1, n2w r2))) ++
+                    riscv_encode (Branch (BNE (1w, 0w, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20 - 2w)))
+         | NotEqual => riscv_encode (Branch (BEQ (n2w r1, n2w r2, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))
+         | NotLess  => riscv_encode (Branch (BLT (n2w r1, n2w r2, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))
+         | NotLower => riscv_encode (Branch (BLTU (n2w r1, n2w r2, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))
+         | NotTest  => riscv_encode (ArithR (AND (1w, n2w r1, n2w r2))) ++
+                       riscv_encode (Branch (BEQ (1w, 0w, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20 - 2w)))) /\
    (riscv_enc (JumpCmp c r (Imm i) a) =
-      let off = w2w (a >>> 1) - 2w in
-      case c of
-         Equal => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
-                  riscv_encode (Branch (BEQ (n2w r, 1w, off)))
-       | Less  => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
-                  riscv_encode (Branch (BLT (n2w r, 1w, off)))
-       | Lower => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
-                  riscv_encode (Branch (BLTU (n2w r, 1w, off)))
-       | Test  => riscv_encode (ArithI (ANDI (1w, n2w r, w2w i))) ++
-                  riscv_encode (Branch (BEQ (1w, 0w, off)))
-       | NotEqual => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
-                     riscv_encode (Branch (BNE (n2w r, 1w, off)))
-       | NotLess  => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
-                     riscv_encode (Branch (BGE (n2w r, 1w, off)))
-       | NotLower => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
-                     riscv_encode (Branch (BGEU (n2w r, 1w, off)))
-       | NotTest  => riscv_encode (ArithI (ANDI (1w, n2w r, w2w i))) ++
-                     riscv_encode (Branch (BNE (1w, 0w, off)))) /\
+      if -0xFFCw <= a /\ a <= 0xFFFw then
+        let off12 = w2w (a >>> 1) - 2w in
+        case c of
+           Equal => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                    riscv_encode (Branch (BEQ (n2w r, 1w, off12)))
+         | Less  => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                    riscv_encode (Branch (BLT (n2w r, 1w, off12)))
+         | Lower => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                    riscv_encode (Branch (BLTU (n2w r, 1w, off12)))
+         | Test  => riscv_encode (ArithI (ANDI (1w, n2w r, w2w i))) ++
+                    riscv_encode (Branch (BEQ (1w, 0w, off12)))
+         | NotEqual => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                       riscv_encode (Branch (BNE (n2w r, 1w, off12)))
+         | NotLess  => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                       riscv_encode (Branch (BGE (n2w r, 1w, off12)))
+         | NotLower => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                       riscv_encode (Branch (BGEU (n2w r, 1w, off12)))
+         | NotTest  => riscv_encode (ArithI (ANDI (1w, n2w r, w2w i))) ++
+                       riscv_encode (Branch (BNE (1w, 0w, off12)))
+      else
+        let off20 = w2w (a >>> 1) - 4w in
+        case c of
+           Equal => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                    riscv_encode (Branch (BNE (n2w r, 1w, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | Less  => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                    riscv_encode (Branch (BGE (n2w r, 1w, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | Lower => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                    riscv_encode (Branch (BGEU (n2w r, 1w, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | Test  => riscv_encode (ArithI (ANDI (1w, n2w r, w2w i))) ++
+                    riscv_encode (Branch (BNE (1w, 0w, 4w))) ++
+                    riscv_encode (Branch (JAL (0w, off20)))
+         | NotEqual => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                       riscv_encode (Branch (BEQ (n2w r, 1w, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))
+         | NotLess  => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                       riscv_encode (Branch (BLT (n2w r, 1w, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))
+         | NotLower => riscv_encode (ArithI (ORI (1w, 0w, w2w i))) ++
+                       riscv_encode (Branch (BLTU (n2w r, 1w, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))
+         | NotTest  => riscv_encode (ArithI (ANDI (1w, n2w r, w2w i))) ++
+                       riscv_encode (Branch (BEQ (1w, 0w, 4w))) ++
+                       riscv_encode (Branch (JAL (0w, off20)))) /\
    (riscv_enc (Call a) = riscv_encode (Branch (JAL (31w, w2w (a >>> 1))))) /\
    (riscv_enc (JumpReg r) = riscv_encode (Branch (JALR (0w, n2w r, 0w)))) /\
    (riscv_enc (Loc r i) =
@@ -147,8 +197,6 @@ val riscv_enc_def = Define`
 val eval = rhs o concl o EVAL
 val min12 = eval ``sw2sw (INT_MINw: word12) : word64``
 val max12 = eval ``sw2sw (INT_MAXw: word12) : word64``
-val min13 = eval ``sw2sw (INT_MINw: 13 word) : word64``
-val max13 = eval ``sw2sw (INT_MAXw: 13 word) : word64``
 val min21 = eval ``sw2sw (INT_MINw: 21 word) : word64``
 val max21 = eval ``sw2sw (INT_MAXw: 21 word) : word64``
 val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
@@ -169,8 +217,8 @@ val riscv_config_def = Define`
     ; addr_offset_max := ^max12
     ; jump_offset_min := ^min21
     ; jump_offset_max := ^max21
-    ; cjump_offset_min := ^min13 + 4w
-    ; cjump_offset_max := ^max13
+    ; cjump_offset_min := ^min21 + 8w
+    ; cjump_offset_max := ^max21 + 4w
     ; loc_offset_min := ^min32
     ; loc_offset_max := 0x7FFFF7FFw
     ; code_alignment := 2

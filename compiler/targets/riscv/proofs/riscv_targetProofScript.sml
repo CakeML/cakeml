@@ -59,10 +59,7 @@ val lem4 = blastLib.BBLAST_PROVE
 
 
 val lem5 = Q.prove(
-  `aligned 2 (c: word64) ==>
-   ~word_lsb (v2w [c ' 20; c ' 19; c ' 18; c ' 17; c ' 16; c ' 15; c ' 14;
-                   c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
-                   c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1] : 20 word)`,
+  `aligned 2 (c: word64) ==> ~c ' 1`,
   simp [alignmentTheory.aligned_extract]
   \\ blastLib.BBLAST_TAC
   )
@@ -152,7 +149,7 @@ local
             (((^etm).c_MCSR (^etm).procID).mcpuid.ArchBase =
              (ms.c_MCSR ms.procID).mcpuid.ArchBase) /\
             ((^etm).c_PC (^etm).procID = ^pc)`
-            by asm_simp_tac (srw_ss())
+            by asm_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss)
                  [combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ, Abbr `^tm`]
          end (asl, g)
        , etm
@@ -181,11 +178,12 @@ in
          \\ assume_tac step_thm
          \\ qabbrev_tac `^next_state_var = ^next_state`
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
-              [lem1, lem4, lem5, alignmentTheory.aligned_numeric]
+              [lem1, lem4, lem5, bitstringTheory.word_lsb_v2w,
+               alignmentTheory.aligned_numeric]
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state riscv_next_def)
          \\ byte_eq_tac
-         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) [lem1]
+         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) [lem1, lem5]
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 end
@@ -249,31 +247,48 @@ local
       case asmLib.strip_bytes_in_memory (hd asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
-   fun next_tac' asm gs =
+   fun gen_next_tac asm (j, i) =
+     exists_tac (numLib.term_of_int (j - 1))
+     \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
+              asmPropsTheory.interference_ok_def, riscv_proj_def]
+     \\ NTAC 2 strip_tac
+     \\ NTAC i (split_bytes_in_memory_tac 4)
+     \\ NTAC j next_state_tac
+     \\ state_tac asm
+   fun next_tac_by_instructions asm gs =
       let
          val j = number_of_instructions (fst gs)
-         val i = j - 1
-         val n = numLib.term_of_int i
       in
-         exists_tac n
-         \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
-                  asmPropsTheory.interference_ok_def, riscv_proj_def]
-         \\ NTAC 2 strip_tac
-         \\ NTAC i (split_bytes_in_memory_tac 4)
-         \\ NTAC j next_state_tac
-         \\ state_tac asm
-      end gs
+         gen_next_tac asm (j, j - 1) gs
+      end
+   fun jc_next_tac_by_instructions asm gs =
+      let
+         val j = number_of_instructions (fst gs) - 1
+      in
+         gen_next_tac asm (j, j) gs
+      end
    val (_, _, dest_riscv_enc, is_riscv_enc) =
      HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
+   val th = DECIDE ``~a \/ ~b ==> (a /\ b = F)``
+   val skip = ``Inst Skip : 64 asm``
 in
-   fun next_tac gs =
-     (
-      NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
-      \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` assume_tac
-      \\ next_tac' (get_asm (snd gs))
-     ) gs
+  fun next_tac gs =
+    (
+     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+     \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
+     \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` assume_tac
+     \\ next_tac_by_instructions (get_asm (snd gs))
+    ) gs
+  fun jc_next_tac c =
+    NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+    \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
+    \\ pop_assum (SUBST_ALL_TAC o MATCH_MP th)
+    \\ NO_STRIP_FULL_SIMP_TAC bool_ss []
+    \\ Cases_on c
+    \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` assume_tac
+    >- next_tac_by_instructions skip
+    \\ jc_next_tac_by_instructions skip
 end
 
 val enc_ok_tac =
@@ -407,9 +422,34 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
+      \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
+      >- (Cases_on `r`
+          \\ Cases_on `c`
+          \\ next_tac)
       \\ Cases_on `r`
       \\ Cases_on `c`
-      \\ next_tac
+      >| [
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) &&
+                     ms.c_gpr ms.procID (n2w n') = 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+
+                       ms.c_gpr ms.procID (n2w n'))`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <
+                       ms.c_gpr ms.procID (n2w n'))`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
+                      ms.c_gpr ms.procID (n2w n')) <> 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) = c'`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ c'`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) < c'`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) && c' = 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> c'`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
+      ]
       )
       (*--------------
           Call
@@ -444,9 +484,13 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
+      \\ Cases_on `-0xFFCw <= w1 /\ w1 <= 0xFFFw`
+      \\ Cases_on `-0xFFCw <= w2 /\ w2 <= 0xFFFw`
       \\ Cases_on `ri`
       \\ Cases_on `cmp`
       \\ enc_ok_tac
+      \\ fs [alignmentTheory.aligned_extract]
+      \\ blastLib.FULL_BBLAST_TAC
       )
    >- (
       (*--------------
