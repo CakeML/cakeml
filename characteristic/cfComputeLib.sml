@@ -23,17 +23,11 @@ val add_cf_aux_compset = computeLib.extend_compset
      cfTheory.pat_typechecks_def,
      cfTheory.pat_without_Pref_def,
      cfTheory.validate_pat_def,
-     cfTheory.build_cases_def
-    ]
-  ]
-
-val add_cf_normalize_compset = computeLib.extend_compset
-  [computeLib.Defs
-    [cfNormalizeTheory.exp2v_def,
+     cfTheory.build_cases_def,
+     cfNormalizeTheory.exp2v_def,
      cfNormalizeTheory.exp2v_list_def,
      cfNormalizeTheory.dest_opapp_def
     ]
   ]
-
 
 end

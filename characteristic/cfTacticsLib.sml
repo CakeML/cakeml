@@ -5,7 +5,7 @@ open preamble
 open ConseqConv match_goal
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormalizeSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -37,7 +37,6 @@ val () = basicComputeLib.add_basic_compset cs
 val () = semanticsComputeLib.add_semantics_compset cs
 val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
-val () = cfComputeLib.add_cf_normalize_compset cs
 
 val _ = (max_print_depth := 15)
 
@@ -62,6 +61,20 @@ in
   val simp_conv = stateful SIMP_CONV let_arith_list
   val simp_rule = stateful SIMP_RULE let_arith_list
 end
+
+(*------------------------------------------------------------------*)
+
+fun normalise_exp tm = let
+    val normalise_tm = mk_full_normalise (listSyntax.mk_nil stringSyntax.string_ty, tm)
+    val eval_th = EVAL normalise_tm
+in rhs (concl eval_th) end
+
+fun normalise_prog prog_tm = let
+    val normalise_prog_tm = mk_full_normalise_prog prog_tm
+    val eval_th = EVAL normalise_prog_tm
+in rhs (concl eval_th) end
+
+fun process_topdecl str = normalise_prog (parse_topdecl str)
 
 (*------------------------------------------------------------------*)
 
