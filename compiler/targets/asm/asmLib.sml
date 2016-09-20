@@ -18,8 +18,7 @@ fun write_mem_word n =
 
 val asm_ok_rwts =
    [asm_ok_def, inst_ok_def, addr_ok_def, reg_ok_def, arith_ok_def, cmp_ok_def,
-    reg_imm_ok_def, addr_offset_ok_def, jump_offset_ok_def, cjump_offset_ok_def,
-    loc_offset_ok_def]
+    reg_imm_ok_def, offset_ok_def, alignmentTheory.aligned_0]
 
 val asm_rwts =
    [upd_pc_def, upd_reg_def, upd_mem_def, read_reg_def, read_mem_def,
@@ -27,15 +26,15 @@ val asm_rwts =
     arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
-    mem_op_def, inst_def, jump_to_offset_def, asm_def]
+    mem_op_def, inst_def, jump_to_offset_def, asm_def,
+    Q.prove
+      (`!a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)`, rw [])
+    ]
 
 (* compset support -------------------------------------------------------- *)
 
 val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) =
   HolKernel.syntax_fns2 "asm" "asm_ok"
-
-val (addr_offset_ok_tm, mk_addr_offset_ok, dest_addr_offset_ok, _) =
-  HolKernel.syntax_fns2 "asm" "addr_offset_ok"
 
 local
   val accessors =
@@ -68,6 +67,7 @@ local
      `JumpReg r : 'a asm`,
      `Loc r w : 'a asm`
     ]
+  val conv = SIMP_CONV (srw_ss()++boolSimps.CONJ_ss++boolSimps.LET_ss)
 in
   fun target_asm_rwts rwts tc =
     let
@@ -77,10 +77,8 @@ in
       val rwt = asm_config_rwts tc
     in
       (rwt,
-       utilsLib.map_conv
-         (SIMP_CONV (srw_ss()++boolSimps.CONJ_ss) (rwt :: rwts @ asm_ok_rwts))
-         (mk_addr_offset_ok (w, tc) ::
-          List.map (fn i => mk_asm_ok (parse_term i, tc)) asm_tms))
+       utilsLib.map_conv (conv (rwt :: rwts @ asm_ok_rwts))
+         (List.map (fn i => mk_asm_ok (parse_term i, tc)) asm_tms))
     end
 end
 
@@ -99,11 +97,6 @@ in
   val asm_ok_conv =
     Conv.memoize (Lib.total dest_asm_ok) (Redblackmap.mkDict pair_term_compare)
       (not o is_asm_ok) (ERR "asm_ok_conv" "") (fn t => !cnv t)
-  val addr_offset_ok_conv =
-    Conv.memoize (Lib.total dest_addr_offset_ok)
-      (Redblackmap.mkDict pair_term_compare)
-      (fn t => t = boolSyntax.T orelse t = boolSyntax.F)
-      (ERR "addr_offset_ok_conv" "") (fn t => !cnv t)
 end
 
 fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
@@ -118,8 +111,7 @@ val add_asm_compset = computeLib.extend_compset
       read_mem_word_def, mem_op_def, is_test_def, inst_def, jump_to_offset_def,
       asm_def, alignmentTheory.aligned_extract],
    computeLib.Convs
-     [(asm_ok_tm, 2, asm_ok_conv),
-      (addr_offset_ok_tm, 2, addr_offset_ok_conv)],
+     [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
      (List.map asm_type0 ["cmp", "mem_op", "binop", "shift"] @
       List.map asm_type  ["asm_config", "asm", "inst"])]

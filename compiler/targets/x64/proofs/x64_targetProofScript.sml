@@ -454,14 +454,14 @@ val encode_rwts =
    end
 
 val enc_rwts =
-  [x64_config_def, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
-   const_lem1, const_lem2, binop_lem9b,
-   jump_lem1, jump_lem3, jump_lem4, jump_lem5, jump_lem6, cmp_lem7,
+  [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
+   const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
+   jump_lem5, jump_lem6, cmp_lem7, x64_asm_ok,
    utilsLib.mk_cond_rand_thms [``asmSem$asm_state_failed``]] @
-  encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
+  encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-  encode_rwts @ asmLib.asm_ok_rwts @ [asmPropsTheory.enc_ok_def, x64_config_def]
+  x64_asm_ok :: encode_rwts @ [asmPropsTheory.enc_ok_def, x64_config]
 
 (* some custom tactics ---------------------------------------------------- *)
 
@@ -606,27 +606,21 @@ in
       val n = numLib.term_of_int i
     in
       EXISTS_TAC n
-      \\ SIMP_TAC std_ss
-           [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
-            x64_proj_def]
+      \\ SIMP_TAC std_ss [asmPropsTheory.asserts_eval, x64_proj_def,
+                          asmPropsTheory.interference_ok_def]
       \\ NTAC 2 STRIP_TAC
-      \\ qpat_x_assum `~(aa : 64 asm_state).failed` mp_tac
-      \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
-      \\ pop_assum mp_tac
-      \\ qpat_x_assum `asm_ok (aa : 64 asm) bb` mp_tac
-      \\ simp enc_rwts
-      \\ REPEAT DISCH_TAC
+      \\ NO_STRIP_REV_FULL_SIMP_TAC
+           (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
       \\ qunabbrev_tac `instr`
-      \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
       \\ abbreviate_n2w
       \\ MAP_EVERY asmLib.split_bytes_in_memory_tac l
       \\ NTAC (i + 1) next_state_tac
-      \\ rfs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
-              asmPropsTheory.sym_target_state_rel, x64_target_def,
-              x64_config_def, set_sepTheory.fun2set_eq,
-              const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
-              binop_lem6, binop_lem7, binop_lem8, jump_lem2, cmp_lem1, cmp_lem3]
+      \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
+             asmPropsTheory.sym_target_state_rel, x64_target_def,
+             x64_config, set_sepTheory.fun2set_eq,
+             const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
+             binop_lem6, binop_lem7, binop_lem8, jump_lem2, cmp_lem1, cmp_lem3]
       \\ unabbrev_all_tac
       \\ rw [combinTheory.APPLY_UPDATE_THM, x64Theory.num2Zreg_11,
              binop_lem10b, adc_lem2, wordsTheory.w2w_n2w,
@@ -672,7 +666,7 @@ local
       \\ REPEAT (qpat_x_assum `NextStateX64 q = z` (K all_tac))
       \\ rfs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
               asmPropsTheory.sym_target_state_rel, x64_target_def,
-              x64_config_def, set_sepTheory.fun2set_eq,
+              x64_config, set_sepTheory.fun2set_eq,
               REWRITE_RULE [mem_lem14] x64_stepTheory.write_mem64_def,
               REWRITE_RULE [mem_lem15] x64_stepTheory.write_mem32_def,
               const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
@@ -752,7 +746,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,
    simp [asmPropsTheory.backend_correct_def]
    \\ qabbrev_tac `state_rel = target_state_rel x64_target`
-   \\ simp [asmPropsTheory.target_ok_def, x64_target_def, x64_config_def,
+   \\ simp [asmPropsTheory.target_ok_def, x64_target_def, x64_config,
             asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
@@ -760,7 +754,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
       rw [] \\ Cases_on `i`,
       srw_tac [] [x64_proj_def, asmPropsTheory.target_state_rel_def,
                   x64_target_def, set_sepTheory.fun2set_eq],
-      rw [asmPropsTheory.enc_ok_def, x64_config_def, x64_encoding,
+      rw [asmPropsTheory.enc_ok_def, x64_config, x64_encoding,
           x64_target_def]
       \\ simp encode_rwts
    ]
@@ -856,10 +850,14 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
          \\ qabbrev_tac `r2 = n2w n' : word4`
          \\ `RexReg (r2 ' 3,(2 >< 0) r2) = num2Zreg n'`
          by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`]
-             \\ fsrw_tac [] enc_rwts)
+             \\ fsrw_tac [] (x64_config :: asmLib.asm_ok_rwts))
          \\ Cases_on `m`
-         \\ lfs enc_rwts
-         \\ rfs []
+         \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
+         \\ NO_STRIP_REV_FULL_SIMP_TAC
+               (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
+         \\ qunabbrev_tac `instr`
+         \\ NO_STRIP_FULL_SIMP_TAC (std_ss++listSimps.LIST_ss) []
+         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
          >- (
             (*--------------
                 Load

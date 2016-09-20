@@ -222,16 +222,12 @@ val arm8_config_def = Define`
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := valid_immediate
-    ; addr_offset_min := ^off_min
-    ; addr_offset_max := ^off_max
-    ; jump_offset_min := ^jump_min
-    ; jump_offset_max := ^jump_max
-    ; cjump_offset_min := ^cjump_min
-    ; cjump_offset_max := ^cjump_max
-    ; loc_offset_min := ^loc_min
-    ; loc_offset_max := ^loc_max
     ; code_alignment := 2
+    ; valid_imm := valid_immediate
+    ; addr_offset := (^off_min, ^off_max)
+    ; jump_offset := (^jump_min, ^jump_max)
+    ; cjump_offset := (^cjump_min, ^cjump_max)
+    ; loc_offset := (^loc_min, ^loc_max)
     |>`
 
 val arm8_proj_def = Define`

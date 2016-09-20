@@ -56,9 +56,10 @@ val lem4 =
    |> Thm.EQ_IMP_RULE |> fst
 
 val lem5 = Q.prove(
-   `!n s state.
-     n <> 0 /\ n <> 1 /\ n < 32 /\ target_state_rel mips_target s state ==>
-     (s.regs n = state.gpr (n2w n))`,
+   `!s state.
+     target_state_rel mips_target s state ==>
+     !n. 1 < n /\ n < 32 ==>
+         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5`,
    lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def]
    )
 
@@ -107,6 +108,10 @@ val lem10 =
                 c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5;
                 c ' 4; c ' 3; c ' 2; c ' 1; c ' 0]: word16) = c)``
 
+val lem11 = DECIDE ``!i. i < 32 /\ i <> 0 /\ i <> 1 = 1 < i /\ i < 32n``
+
+val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
+
 val adc_lem1 = Q.prove(
   `((if b then 1w else 0w) = v2w [x] || v2w [y] : word64) = (b = x \/ y)`,
   rw [] \\ blastLib.BBLAST_TAC)
@@ -135,11 +140,10 @@ val encode_rwts =
    end
 
 val enc_rwts =
-  [mips_config_def] @ encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
+  [mips_config, mips_asm_ok] @ encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-  [asmPropsTheory.enc_ok_def, mips_config_def] @
-  encode_rwts @ asmLib.asm_ok_rwts
+  [asmPropsTheory.enc_ok_def, mips_config, mips_asm_ok] @ encode_rwts
 
 (* some custom tactics ---------------------------------------------------- *)
 
@@ -210,13 +214,14 @@ in
          \\ tac
          \\ assume_tac (step the_state bd l)
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
-              [lem1, lem6, lem7, lem10,
+              [lem1, lem6, lem7, lem10, alignmentTheory.aligned_numeric,
                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state mips_next_def)
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
-               [lem1, lem4, combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
+               [lem1, lem4, lem12, combinTheory.UPDATE_APPLY,
+                combinTheory.UPDATE_EQ]
          \\ TRY (Q.PAT_X_ASSUM `NextStateMIPS qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
@@ -224,8 +229,8 @@ end
 
 fun state_tac asm =
    NO_STRIP_FULL_SIMP_TAC (srw_ss())
-      [asmPropsTheory.all_pcs, mips_ok_def,
-       asmPropsTheory.sym_target_state_rel, mips_target_def, mips_config_def,
+      [asmPropsTheory.all_pcs, mips_ok_def, lem11,
+       asmPropsTheory.sym_target_state_rel, mips_target_def, mips_config,
        alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, lem8, lem9]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
@@ -250,7 +255,7 @@ fun state_tac asm =
 
 local
    fun number_of_instructions asl =
-      case asmLib.strip_bytes_in_memory (hd asl) of
+      case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
    fun has_branch tm =
@@ -265,13 +270,14 @@ local
          val n = numLib.term_of_int (if has_branch asm then i - 1 else i)
       in
          exists_tac n
-         \\ simp [asmPropsTheory.asserts_eval,
-                  asmPropsTheory.interference_ok_def, mips_proj_def]
+         \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
+              [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+               mips_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
-         \\ REPEAT (Q.PAT_X_ASSUM `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (Q.PAT_X_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
+         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
+         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ state_tac asm
       end gs
    val (_, _, dest_mips_enc, is_mips_enc) =
@@ -280,12 +286,11 @@ local
 in
    fun next_tac gs =
      (
-      qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
-      \\ simp enc_rwts
+      qpat_x_assum `target_state_rel mips_target s1 ms`
+          (fn th => assume_tac th \\ assume_tac (MATCH_MP lem5 th))
+      \\ Q.PAT_ABBREV_TAC `instr = mips_enc aa`
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ imp_res_tac lem5
-      \\ NO_STRIP_FULL_SIMP_TAC std_ss []
-      \\ strip_tac
+      \\ qunabbrev_tac `instr`
       \\ next_tac' (get_asm (snd gs))) gs
 end
 
@@ -322,14 +327,14 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
    simp [asmPropsTheory.backend_correct_def]
    \\ qabbrev_tac `state_rel = target_state_rel mips_target`
    \\ simp [asmPropsTheory.target_state_rel_def, mips_target_def,
-            mips_config_def, asmSemTheory.asm_step_def,
+            mips_config, asmSemTheory.asm_step_def,
             asmPropsTheory.target_ok_def]
    \\ qunabbrev_tac `state_rel`
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [] \\ Cases_on `i`,
       srw_tac [] [mips_proj_def, asmPropsTheory.target_state_rel_def,
-                  mips_target_def, mips_config_def, mips_ok_def,
+                  mips_target_def, mips_config, mips_ok_def,
                   set_sepTheory.fun2set_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]

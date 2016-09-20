@@ -154,6 +154,7 @@ val arm6_config_def = Define`
    arm6_config =
    <| ISA := ARMv6
     ; encode := arm6_enc
+    ; code_alignment := 2
     ; reg_count := 16
     ; avoid_regs := [15]
     ; link_reg := SOME 14
@@ -161,15 +162,10 @@ val arm6_config_def = Define`
     ; two_reg_arith := F
     ; big_endian := F
     ; valid_imm := \c i. valid_immediate i
-    ; addr_offset_min := ^min12
-    ; addr_offset_max := ^max12
-    ; jump_offset_min := ^min26 + 8w
-    ; jump_offset_max := ^max26 + 8w
-    ; cjump_offset_min := ^min26 + 12w
-    ; cjump_offset_max := ^max26 + 12w
-    ; loc_offset_min := ^min16
-    ; loc_offset_max := ^max16
-    ; code_alignment := 2
+    ; addr_offset := (^min12, ^max12)
+    ; jump_offset := (^min26 + 8w, ^max26 + 8w)
+    ; cjump_offset := (^min26 + 12w, ^max26 + 12w)
+    ; loc_offset := (^min16, ^max16)
     |>`
 
 val arm6_proj_def = Define`

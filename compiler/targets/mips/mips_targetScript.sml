@@ -184,14 +184,10 @@ val mips_config_def = Define`
                 0w <= i /\ i <= ^umax16
               else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
                    i <= ^max16)
-    ; addr_offset_min := ^min16
-    ; addr_offset_max := ^max16
-    ; jump_offset_min := ^min16
-    ; jump_offset_max := ^max16
-    ; cjump_offset_min := ^min16
-    ; cjump_offset_max := ^max16
-    ; loc_offset_min := ^min16 + 12w
-    ; loc_offset_max := ^max16 + 8w
+    ; addr_offset := (^min16, ^max16)
+    ; jump_offset := (^min16, ^max16)
+    ; cjump_offset := (^min16, ^max16)
+    ; loc_offset := (^min16 + 12w, ^max16 + 8w)
     ; code_alignment := 2
     |>`
 

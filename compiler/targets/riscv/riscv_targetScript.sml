@@ -213,14 +213,10 @@ val riscv_config_def = Define`
     ; big_endian := F
     ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
                           i <= ^max12)
-    ; addr_offset_min := ^min12
-    ; addr_offset_max := ^max12
-    ; jump_offset_min := ^min21
-    ; jump_offset_max := ^max21
-    ; cjump_offset_min := ^min21 + 8w
-    ; cjump_offset_max := ^max21 + 4w
-    ; loc_offset_min := ^min32
-    ; loc_offset_max := 0x7FFFF7FFw
+    ; addr_offset := (^min12, ^max12)
+    ; jump_offset := (^min21, ^max21)
+    ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
+    ; loc_offset := (^min32, 0x7FFFF7FFw)
     ; code_alignment := 2
     |>`
 

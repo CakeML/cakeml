@@ -597,7 +597,7 @@ end
 
 local
    fun number_of_instructions asl =
-      case asmLib.strip_bytes_in_memory (hd asl) of
+      case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
    fun can_match t = Lib.can (Term.match_term t)
@@ -606,8 +606,7 @@ local
          val j = number_of_instructions asl
          val i = j - 1
          val has_branch = asmLib.isConst asm andalso j = 3
-         val neg_mem =
-           asmLib.isMem asm andalso boolSyntax.is_neg (List.nth (asl, 1))
+         val neg_mem = asmLib.isMem asm andalso boolSyntax.is_neg (hd asl)
          val j = if has_branch then 2 else j
          val n = numLib.term_of_int (j - 1)
       in
@@ -639,7 +638,6 @@ in
    fun next_tac gs =
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-       \\ qpat_x_assum `bytes_in_memory (aa : word32) bb cc dd` assume_tac
        \\ next_tac' (get_asm (snd gs))
       ) gs
    val cnext_tac =

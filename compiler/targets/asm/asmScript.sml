@@ -119,24 +119,20 @@ val () = Datatype `
 
 val () = Datatype `
   asm_config =
-    <| ISA              : architecture
-     ; encode           : 'a asm -> word8 list
-     ; avoid_regs       : num list
-     ; big_endian       : bool
-     ; code_alignment   : num
-     ; has_mem_32       : bool
-     ; link_reg         : num option
-     ; reg_count        : num
-     ; two_reg_arith    : bool
-     ; valid_imm        : (binop + cmp) -> 'a word -> bool
-     ; addr_offset_min  : 'a word
-     ; addr_offset_max  : 'a word
-     ; jump_offset_min  : 'a word
-     ; jump_offset_max  : 'a word
-     ; cjump_offset_min : 'a word
-     ; cjump_offset_max : 'a word
-     ; loc_offset_min   : 'a word
-     ; loc_offset_max   : 'a word
+    <| ISA            : architecture
+     ; encode         : 'a asm -> word8 list
+     ; big_endian     : bool
+     ; code_alignment : num
+     ; has_mem_32     : bool
+     ; link_reg       : num option
+     ; avoid_regs     : num list
+     ; reg_count      : num
+     ; two_reg_arith  : bool
+     ; valid_imm      : (binop + cmp) -> 'a word -> bool
+     ; addr_offset    : 'a word # 'a word
+     ; jump_offset    : 'a word # 'a word
+     ; cjump_offset   : 'a word # 'a word
+     ; loc_offset     : 'a word # 'a word
      |>`
 
 val reg_ok_def = Define `
@@ -156,16 +152,16 @@ val arith_ok_def = Define `
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
-  (arith_ok (LongMul r1 r2 r3 r4) (c: 'a asm_config) =
+  (arith_ok (LongMul r1 r2 r3 r4) c =
      if c.ISA = x86_64 then
        (r1 = 2) /\ (r2 = 0) /\ (r3 = 0) /\ reg_ok r4 c
      else
        F /\ (* temporary - pending update for other ISAs  *)
        reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c) /\
-  (arith_ok (LongDiv r1 r2 r3 r4 r5) (c: 'a asm_config) =
+  (arith_ok (LongDiv r1 r2 r3 r4 r5) c =
      (c.ISA = x86_64) /\
      (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\ reg_ok r5 c) /\
-  (arith_ok (AddCarry r1 r2 r3 r4) (c: 'a asm_config) =
+  (arith_ok (AddCarry r1 r2 r3 r4) c =
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      (* Require register inequality for some architectures *)
@@ -174,20 +170,16 @@ val arith_ok_def = Define `
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
 
-val addr_offset_ok_def = Define `
-  addr_offset_ok w c = c.addr_offset_min <= w /\ w <= c.addr_offset_max`
+val offset_ok_def = Define`
+  offset_ok a offset w =
+  let (min, max) = offset in min <= w /\ w <= max /\ aligned a w`
 
-val jump_offset_ok_def = Define `
-  jump_offset_ok w c = c.jump_offset_min <= w /\ w <= c.jump_offset_max /\
-                       aligned c.code_alignment w`
-
-val cjump_offset_ok_def = Define `
-  cjump_offset_ok w c = c.cjump_offset_min <= w /\ w <= c.cjump_offset_max /\
-                        aligned c.code_alignment w`
-
-val loc_offset_ok_def = Define `
-  loc_offset_ok w c = c.loc_offset_min <= w /\ w <= c.loc_offset_max /\
-                      aligned c.code_alignment w`
+val () =
+   List.app overload_on
+    [("addr_offset_ok",  ``\w c. offset_ok 0 c.addr_offset w``),
+     ("jump_offset_ok",  ``\w c. offset_ok c.code_alignment c.jump_offset w``),
+     ("cjump_offset_ok", ``\w c. offset_ok c.code_alignment c.cjump_offset w``),
+     ("loc_offset_ok",   ``\w c. offset_ok c.code_alignment c.loc_offset w``)]
 
 val addr_ok_def = Define `
   addr_ok (Addr r w) c = reg_ok r c /\ addr_offset_ok w c`

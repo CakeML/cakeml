@@ -138,14 +138,10 @@ val x64_config_def = Define`
     ; two_reg_arith := T
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
-    ; addr_offset_min := ^min32
-    ; addr_offset_max := ^max32
-    ; jump_offset_min := ^min32 + 13w
-    ; jump_offset_max := ^max32 + 5w
-    ; cjump_offset_min := ^min32 + 13w
-    ; cjump_offset_max := ^max32 + 5w
-    ; loc_offset_min := ^min32 + 7w
-    ; loc_offset_max := ^max32 + 7w
+    ; addr_offset := (^min32, ^max32)
+    ; jump_offset := (^min32 + 13w, ^max32 + 5w)
+    ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
+    ; loc_offset := (^min32 + 7w, ^max32 + 7w)
     ; code_alignment := 0
     |>`
 

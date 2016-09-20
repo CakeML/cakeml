@@ -243,8 +243,9 @@ in
 end
 
 local
+   val skip = ``Inst Skip : 64 asm``
    fun number_of_instructions asl =
-      case asmLib.strip_bytes_in_memory (hd asl) of
+      case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
    fun gen_next_tac asm (j, i) =
@@ -261,34 +262,26 @@ local
       in
          gen_next_tac asm (j, j - 1) gs
       end
-   fun jc_next_tac_by_instructions asm gs =
+   fun jc_next_tac_by_instructions gs =
       let
          val j = number_of_instructions (fst gs) - 1
       in
-         gen_next_tac asm (j, j) gs
+         gen_next_tac skip (j, j) gs
       end
    val (_, _, dest_riscv_enc, is_riscv_enc) =
      HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
-   val th = DECIDE ``~a \/ ~b ==> (a /\ b = F)``
-   val skip = ``Inst Skip : 64 asm``
 in
   fun next_tac gs =
     (
      NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-     \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
-     \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` assume_tac
      \\ next_tac_by_instructions (get_asm (snd gs))
     ) gs
   fun jc_next_tac c =
     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-    \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
-    \\ pop_assum (SUBST_ALL_TAC o MATCH_MP th)
-    \\ NO_STRIP_FULL_SIMP_TAC bool_ss []
     \\ Cases_on c
-    \\ qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` assume_tac
     >- next_tac_by_instructions skip
-    \\ jc_next_tac_by_instructions skip
+    \\ jc_next_tac_by_instructions
 end
 
 val enc_ok_tac =
