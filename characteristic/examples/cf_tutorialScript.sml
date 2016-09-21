@@ -29,36 +29,23 @@ val basis_st =
 
 (* Then, write the code for the programs we want to specify.
 
-   At the moment, these programs need to be written in A-normal form.
-
-   Trying to specify a program not in normal form, or using
-   (currently) non-implemented primitives will cause its
-   characteristic formula to eventually reduce to ``F``.
-
    We define first a length function on lists, then the fromList
    function we want to specify (it takes a list of bytes, and returns
    a new bytearray containing those bytes).
 *)
-val list_length = parse_topdecl
+val list_length = process_topdecl
   "fun length l = \
  \    case l of \
  \      [] => 0 \
- \    | x::xs => \
- \      let val xs_len = length xs \
- \      in xs_len + 1 end"
+ \    | x::xs => (length xs) + 1"
 
-val bytearray_fromlist = parse_topdecl
+val bytearray_fromlist = process_topdecl
   "fun fromList ls = \
- \    let val len = length ls \
- \        val w8z = Word8.fromInt 0 \
- \        val a = Word8Array.array len w8z \
+ \    let val a = Word8Array.array (length ls) (Word8.fromInt 0) \
  \        fun f ls i = \
  \          case ls of \
  \            [] => a \
- \          | h::t => \
- \            let val ipp = i + 1 in \
- \              (Word8Array.update a i h; f t ipp) \
- \            end \
+ \          | h::t => (Word8Array.update a i h; f t (i + 1)) \
  \    in f ls 0 end"
 
 (* Now add these definitions to the basis ml_prog_state.
@@ -202,8 +189,8 @@ val bytearray_fromlist_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "fromList" st) [lv]
        emp (\av. W8ARRAY av l)`,
   xcf "fromList" st \\
-  xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
   xlet `\w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
   xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
     THEN1 (xapp \\ fs []) \\
 
@@ -248,20 +235,18 @@ val bytearray_fromlist_spec = Q.prove (
          We first use the general specification to do some progress,
          before using the induction hypothesis.
       *)
-      fs [] \\ last_assum xapp_spec \\ xmatch \\
-      xlet `\ippv. & NUM (LENGTH l_pre + 1) ippv * W8ARRAY av (l_pre ++ rest)`
-      THEN1 (
-        xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate \\
-        (* tedious? *) fs [INT_def] \\ intLib.ARITH_TAC
-      ) \\
-      rename1 `lvs = Conv _ [hv; tv]` \\ rename1 `WORD h hv` \\
-      fs [LENGTH_CONS] \\ rename1 `rest = rest_h :: rest_t` \\
+      fs [] \\ last_assum xapp_spec \\ xmatch \\ fs [LENGTH_CONS] \\
+      rename1 `rest = rest_h :: rest_t` \\ rw [] \\
 
-      (* Sequences are encoded as lets, so we can just use [xlet] here
-      *)
+      (* Sequences are encoded as lets, so we can just use [xlet] here *)
       xlet `\_. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
         xapp \\ xsimpl \\ fs [UNIT_TYPE_def] \\ instantiate \\
         fs [lupdate_append]
+      ) \\
+      xlet `\ippv. & NUM (LENGTH l_pre + 1) ippv * W8ARRAY av (l_pre ++ h::rest_t)`
+      THEN1 (
+        xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate \\
+        (* tedious? *) fs [INT_def] \\ intLib.ARITH_TAC
       ) \\
       once_rewrite_tac [
         Q.prove(`l_pre ++ h::ls = (l_pre ++ [h]) ++ ls`, fs [])
