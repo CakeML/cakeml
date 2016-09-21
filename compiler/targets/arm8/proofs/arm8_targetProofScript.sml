@@ -612,6 +612,15 @@ fun next_tac n =
    \\ NTAC 2 strip_tac
    \\ Q.PAT_ABBREV_TAC `instr = arm8_enc aa`
 
+val enc_rwts_tac =
+  NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
+  \\ qunabbrev_tac `instr`
+  \\ simp_tac (std_ss++listSimps.LIST_ss) []
+
+(* -------------------------------------------------------------------------
+   arm8 target_ok
+   ------------------------------------------------------------------------- *)
+
 val length_arm8_encode = Q.prove(
   `!i. LENGTH (arm8_encode i) = 4`,
   rw [arm8_encode_def, arm8_encode_fail_def]
@@ -627,14 +636,16 @@ val arm8_encoding = Q.prove (
   \\ REPEAT CASE_TAC
   \\ rw [length_arm8_encode]
   )
+  |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm8_encoding :: enc_ok_rwts
-
-val enc_rwts_tac =
-  NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
-  \\ qunabbrev_tac `instr`
-  \\ simp_tac (std_ss++listSimps.LIST_ss) []
+val arm8_target_ok = Q.prove (
+   `target_ok arm8_target`,
+   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+        arm8_proj_def, arm8_target_def, arm8_config, arm8_ok_def,
+        set_sepTheory.fun2set_eq, arm8_encoding] @ enc_ok_rwts)
+   >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
+   \\ lfs enc_rwts
+   )
 
 (* -------------------------------------------------------------------------
    arm8 backend_correct
@@ -645,19 +656,11 @@ val print_tac = asmLib.print_tac "correct"
 
 val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
    `backend_correct arm8_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, arm8_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm8_target`
-   \\ simp [asmPropsTheory.target_ok_def, arm8_target_def,
-            asmSemTheory.asm_step_def, arm8_config]
+   \\ rw [arm8_target_def, asmSemTheory.asm_step_def, arm8_config]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [arm8_proj_def, asmPropsTheory.target_state_rel_def,
-                  arm8_target_def, arm8_config, arm8_ok_def,
-                  set_sepTheory.fun2set_eq],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -912,34 +915,6 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
       \\ state_tac [alignmentTheory.aligned_extract]
       \\ blastLib.FULL_BBLAST_TAC
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ lfs enc_rwts
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `ri`
-      \\ Cases_on `cmp`
-      \\ lfs enc_rwts
-      )
-   >- (
-      (*--------------
-          Call enc_ok
-        --------------*)
-      print_tac "enc_ok: Call"
-      \\ lfs enc_rwts
-      )
-   \\ (*--------------
-          Loc enc_ok
-        --------------*)
-      print_tac "enc_ok: Loc"
-   \\ lfs enc_rwts
    )
 
 val () = export_theory ()

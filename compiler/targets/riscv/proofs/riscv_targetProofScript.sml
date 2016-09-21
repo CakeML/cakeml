@@ -284,9 +284,9 @@ in
     \\ jc_next_tac_by_instructions
 end
 
-val enc_ok_tac =
-   full_simp_tac (srw_ss()++boolSimps.LET_ss)
-      (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+(* -------------------------------------------------------------------------
+   riscv target_ok
+   ------------------------------------------------------------------------- *)
 
 val length_riscv_encode = Q.prove(
   `!i. LENGTH (riscv_encode i) = 4`,
@@ -302,9 +302,26 @@ val riscv_encoding = Q.prove (
    \\ REPEAT CASE_TAC
    \\ rw [length_riscv_encode]
    )
+   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] riscv_encoding :: enc_ok_rwts
+val riscv_target_ok = Q.prove (
+   `target_ok riscv_target`,
+   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+        riscv_proj_def, riscv_target_def, riscv_config, riscv_ok_def,
+        set_sepTheory.fun2set_eq, riscv_encoding] @ enc_ok_rwts)
+   >| [all_tac,
+       Cases_on `-0xFFCw <= w1 /\ w1 <= 0xFFFw`
+       \\ Cases_on `-0xFFCw <= w2 /\ w2 <= 0xFFFw`
+       \\ Cases_on `ri`
+       \\ Cases_on `cmp`,
+       all_tac,
+       all_tac
+   ]
+   \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+         (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+   \\ fs [alignmentTheory.aligned_extract]
+   \\ blastLib.FULL_BBLAST_TAC
+   )
 
 (* -------------------------------------------------------------------------
    riscv backend_correct
@@ -314,18 +331,11 @@ val print_tac = asmLib.print_tac "correct"
 
 val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
    `backend_correct riscv_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
-   \\ simp [asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
-            riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
+   \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [riscv_proj_def, asmPropsTheory.target_state_rel_def,
-                  riscv_config, riscv_ok_def, set_sepTheory.fun2set_eq],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -465,37 +475,6 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
       print_tac "Loc"
       \\ next_tac
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ enc_ok_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `-0xFFCw <= w1 /\ w1 <= 0xFFFw`
-      \\ Cases_on `-0xFFCw <= w2 /\ w2 <= 0xFFFw`
-      \\ Cases_on `ri`
-      \\ Cases_on `cmp`
-      \\ enc_ok_tac
-      \\ fs [alignmentTheory.aligned_extract]
-      \\ blastLib.FULL_BBLAST_TAC
-      )
-   >- (
-      (*--------------
-          Call enc_ok
-        --------------*)
-      enc_ok_tac
-      )
-   \\ (*--------------
-          Loc enc_ok
-        --------------*)
-      print_tac "enc_ok: Loc"
-   \\ enc_ok_tac
    )
 
 val () = export_theory ()

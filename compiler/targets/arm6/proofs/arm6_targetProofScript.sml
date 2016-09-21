@@ -692,6 +692,10 @@ in
            alignmentTheory.aligned_add_sub, aligned_add]
 end
 
+(* -------------------------------------------------------------------------
+   arm6 target_ok
+   ------------------------------------------------------------------------- *)
+
 val length_arm6_encode = Q.prove(
   `!c i. LENGTH (arm6_encode c i) = 4`,
   rw [arm6_encode_def, arm6_encode_fail_def]
@@ -708,9 +712,19 @@ val arm6_encoding = Q.prove (
    \\ REPEAT CASE_TAC
    \\ rw [length_arm6_encode]
    )
+   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val enc_ok_rwts =
-  SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm6_encoding :: enc_ok_rwts
+val arm6_target_ok = Q.prove (
+   `target_ok arm6_target`,
+   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+        arm6_proj_def, arm6_target_def, arm6_config, arm6_ok_def,
+        set_sepTheory.fun2set_eq, arm6_encoding] @ enc_ok_rwts)
+   \\ rfs [reg_mode_eq]
+   >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
+   \\ lfs enc_rwts
+   \\ rw [] \\ rw []
+   \\ blastLib.FULL_BBLAST_TAC
+   )
 
 (* -------------------------------------------------------------------------
    arm6 backend_correct
@@ -720,20 +734,11 @@ val print_tac = asmLib.print_tac "correct"
 
 val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
    `backend_correct arm6_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, arm6_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
-   \\ simp [asmPropsTheory.target_ok_def, arm6_target_def, arm6_config,
-            asmSemTheory.asm_step_def]
+   \\ rw [arm6_target_def, arm6_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [arm6_proj_def, asmPropsTheory.target_state_rel_def,
-                  arm6_target_def, arm6_config, arm6_ok_def,
-                  set_sepTheory.fun2set_eq]
-      \\ rfs [reg_mode_eq],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -873,36 +878,6 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ lfs enc_rwts
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `ri`
-      \\ Cases_on `cmp`
-      \\ lfs enc_rwts
-      )
-   >- (
-      (*--------------
-          Call enc_ok
-        --------------*)
-      print_tac "enc_ok: Call"
-      \\ lfs enc_rwts
-      )
-   \\ (*--------------
-          Loc enc_ok
-        --------------*)
-      print_tac "enc_ok: Loc"
-   \\ lrw enc_rwts
-   \\ rw []
-   \\ blastLib.FULL_BBLAST_TAC
    )
 
 val () = export_theory ()

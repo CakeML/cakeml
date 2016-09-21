@@ -294,9 +294,9 @@ in
       \\ next_tac' (get_asm (snd gs))) gs
 end
 
-val enc_ok_tac =
-   full_simp_tac (srw_ss()++boolSimps.LET_ss)
-      (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+(* -------------------------------------------------------------------------
+   mips target_ok
+   ------------------------------------------------------------------------- *)
 
 val length_mips_encode = Q.prove(
   `!i. LENGTH (mips_encode i) = 4`,
@@ -312,9 +312,17 @@ val mips_encoding = Q.prove (
    \\ REPEAT CASE_TAC
    \\ rw [length_mips_encode]
    )
+   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] mips_encoding :: enc_ok_rwts
+val mips_target_ok = Q.prove (
+   `target_ok mips_target`,
+   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+        mips_proj_def, mips_target_def, mips_config, mips_ok_def,
+        set_sepTheory.fun2set_eq, mips_encoding] @ enc_ok_rwts)
+   >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, Cases_on `r = 31`]
+   \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+        (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+   )
 
 (* -------------------------------------------------------------------------
    mips backend_correct
@@ -324,20 +332,11 @@ val print_tac = asmLib.print_tac "correct"
 
 val mips_backend_correct = Q.store_thm ("mips_backend_correct",
    `backend_correct mips_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, mips_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel mips_target`
-   \\ simp [asmPropsTheory.target_state_rel_def, mips_target_def,
-            mips_config, asmSemTheory.asm_step_def,
-            asmPropsTheory.target_ok_def]
+   \\ rw [mips_target_def, mips_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [mips_proj_def, asmPropsTheory.target_state_rel_def,
-                  mips_target_def, mips_config, mips_ok_def,
-                  set_sepTheory.fun2set_eq],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -478,34 +477,6 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
       \\ Cases_on `n = 31`
       \\ next_tac
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ enc_ok_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `ri`
-      \\ Cases_on `cmp`
-      \\ enc_ok_tac
-      )
-   >- (
-      (*--------------
-          Call enc_ok
-        --------------*)
-      enc_ok_tac
-      )
-   \\ (*--------------
-          Loc enc_ok
-        --------------*)
-      print_tac "enc_ok: Loc"
-   \\ Cases_on `r = 31`
-   \\ enc_ok_tac
    )
 
 val () = export_theory ()

@@ -725,15 +725,35 @@ in
    val store_tac = load_store_tac false
 end
 
-val enc_ok_tac =
-   full_simp_tac (srw_ss()++boolSimps.LET_ss)
-      (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+(* -------------------------------------------------------------------------
+   x64 target_ok
+   ------------------------------------------------------------------------- *)
 
 val x64_encoding = Q.prove (
    `!i. LENGTH (x64_enc i) <> 0`,
    strip_tac
    \\ Cases_on `x64_enc0 i`
    \\ simp [x64_enc_def, x64_dec_fail_def]
+   )
+
+val x64_target_ok = Q.prove (
+   `target_ok x64_target`,
+   rw [asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+       x64_proj_def, x64_target_def, x64_config, x64_encoding,
+       set_sepTheory.fun2set_eq, asmPropsTheory.enc_ok_def]
+   >| [simp encode_rwts,
+       all_tac,
+       Cases_on `ri`
+       >| [all_tac,
+           Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
+           >| [all_tac, Cases_on `r = 0`]
+       ],
+       all_tac,
+       all_tac
+   ]
+   \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+        (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+   \\ rw [jump_lem1, jump_lem3, jump_lem4, jump_lem5, jump_lem6, loc_lem1]
    )
 
 (* -------------------------------------------------------------------------
@@ -744,20 +764,11 @@ val print_tac = asmLib.print_tac ""
 
 val x64_backend_correct = Q.store_thm("x64_backend_correct",
    `backend_correct x64_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, x64_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel x64_target`
-   \\ simp [asmPropsTheory.target_ok_def, x64_target_def, x64_config,
-            asmSemTheory.asm_step_def]
+   \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [x64_proj_def, asmPropsTheory.target_state_rel_def,
-                  x64_target_def, set_sepTheory.fun2set_eq],
-      rw [asmPropsTheory.enc_ok_def, x64_config, x64_encoding,
-          x64_target_def]
-      \\ simp encode_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -1025,40 +1036,6 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
       print_tac "Loc"
       \\ next_tac []
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ enc_ok_tac
-      \\ rw []
-      \\ blastLib.FULL_BBLAST_TAC
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `ri`
-      >| [all_tac,
-          Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
-          >| [all_tac, Cases_on `r = 0`]
-      ]
-      \\ enc_ok_tac
-      \\ rw [jump_lem1, jump_lem3, jump_lem4, jump_lem5, jump_lem6]
-      )
-   >- (
-      (*--------------
-          no Call enc_ok
-        --------------*)
-      enc_ok_tac
-      )
-      (*--------------
-          Loc enc_ok
-        --------------*)
-   \\ print_tac "enc_ok: Loc"
-   \\ enc_ok_tac
-   \\ rw [loc_lem1]
    )
 
 val () = export_theory ()
