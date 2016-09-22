@@ -5424,16 +5424,48 @@ val comp_correct = Q.store_thm("comp_correct",
           simp[FLOOKUP_UPDATE]>>
           fsrw_tac[][stackSemTheory.get_var_def]>>
           metis_tac[])>>
-        simp[LLOOKUP_THM]>>
+        `k ≤ LENGTH q` by (
+          fsrw_tac[][lookup_fromList2,lookup_fromList]
+          \\ rpt(qpat_x_assum`n DIV 2 < _`mp_tac)
+          \\ qpat_x_assum`¬(n DIV 2 < _)`mp_tac
+          \\ rpt(pop_assum kall_tac)
+          \\ decide_tac) >>
+        simp[LLOOKUP_THM] >>
         Cases_on `m=0` \\ fsrw_tac[] []
         THEN1
           (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
-          decide_tac)>>
-        simp[Abbr`m'`]>>
+           qpat_x_assum`¬(n DIV 2 < _)`mp_tac >>
+           qpat_x_assum`(n DIV 2 < LENGTH _)`mp_tac >>
+           qpat_x_assum`k ≤ _`mp_tac >>
+           qpat_x_assum`_ ≤ k`mp_tac >>
+           rpt(pop_assum kall_tac) >>
+           decide_tac)>>
+        `m' = m+1` by (
+          qunabbrev_tac`m'` >>
+          IF_CASES_TAC >- (
+            qpat_x_assum`m ≤ _`mp_tac >>
+            pop_assum(SUBST1_TAC o EQT_INTRO) >>
+            qpat_x_assum`m ≠ 0`mp_tac >>
+            rpt(pop_assum kall_tac) >>
+            rw[] ) >>
+          REFL_TAC ) >>
+        pop_assum SUBST_ALL_TAC >>
+        simp_tac(srw_ss()++ARITH_ss)[] >>
         fsrw_tac[][LLOOKUP_THM,lookup_fromList2,lookup_fromList]>>
-        (*Slow...*)
-        ntac 60 (last_x_assum kall_tac)>>
-        simp[EL_TAKE,EL_DROP]>>
+        `LENGTH q ≤ k+m` by (
+          qpat_x_assum`_ ≤ m`mp_tac >>
+          qpat_x_assum`sargs = _`mp_tac >>
+          rpt(pop_assum kall_tac) >> rw[] ) >>
+        reverse conj_tac >- (
+          qpat_x_assum`n DIV 2 < _`mp_tac >>
+          qpat_x_assum`n DIV 2 < _`mp_tac >>
+          pop_assum mp_tac >>
+          rpt(pop_assum kall_tac) >> rw[] ) >>
+        `m+1 ≤ t5.stack_space` by ( simp[] ) >>
+        qpat_x_assum`_ ≤ LENGTH t'.stack`mp_tac >>
+        ntac 5 (pop_assum mp_tac) >>
+        simp_tac(srw_ss()++ARITH_ss)[EL_DROP,EL_TAKE] >>
+        rpt strip_tac >>
         first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
         qpat_x_assum`DROP A B = DROP C D` mp_tac>>
         `k < (n DIV 2+1)` by simp[]>>
@@ -5445,8 +5477,6 @@ val comp_correct = Q.store_thm("comp_correct",
         rpt(qpat_x_assum`!n.P` kall_tac)>>
         simp[EL_DROP]>>
         disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
-        ntac 30 (pop_assum mp_tac)>>
-        rpt (pop_assum kall_tac)>>
         simp[])>>
       Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
       first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
@@ -5828,24 +5858,61 @@ val comp_correct = Q.store_thm("comp_correct",
         rw[FLOOKUP_UPDATE]>>
         fsrw_tac[][stackSemTheory.get_var_def,FLOOKUP_UPDATE]>>
         metis_tac[])>>
+      `k ≤ LENGTH q` by (
+        fsrw_tac[][lookup_fromList2,lookup_fromList]
+        \\ rpt(qpat_x_assum`n DIV 2 < _`mp_tac)
+        \\ qpat_x_assum`¬(n DIV 2 < _)`mp_tac
+        \\ rpt(pop_assum kall_tac)
+        \\ decide_tac) >>
       ntac 3 (qpat_x_assum`!a b.P` kall_tac)>>
       fsrw_tac[][]>>
-      simp[LLOOKUP_THM]>>
+      `LENGTH q = k + sargs` by (
+        pop_assum mp_tac >>
+        qpat_x_assum`sargs = _ `mp_tac >>
+        rpt(pop_assum kall_tac) >> rw[] ) >>
+      first_assum SUBST1_TAC >>
+      simp_tac(srw_ss()++ARITH_ss)[] >>
+      `sargs ≤ m'` by metis_tac[LESS_EQ_TRANS] >>
+      pop_assum mp_tac >>
+      simp_tac(srw_ss()++ARITH_ss)[] >>
       Cases_on `m=0` \\ fsrw_tac[] []
       THEN1
-       (fsrw_tac[] [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fsrw_tac[] []
-        \\ fsrw_tac[] [lookup_fromList2,lookup_fromList]
-        \\ decide_tac) >>
-     (*Extremely slow*)
-     simp[Abbr`m'`]>>
-     fsrw_tac[][LLOOKUP_THM,lookup_fromList2,lookup_fromList]>>
-     ntac 80 (last_x_assum kall_tac)>>
-     simp[EL_TAKE,EL_DROP]>>
+        (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
+         qpat_x_assum`¬(n DIV 2 < _)`mp_tac >>
+         qpat_x_assum`(n DIV 2 < k + _)`mp_tac >>
+         qpat_x_assum`LENGTH q = _`mp_tac >>
+         qpat_x_assum`sargs = 0`mp_tac >>
+         rpt(pop_assum kall_tac) >>
+         decide_tac)>>
+      `m' = m+1` by (
+        qunabbrev_tac`m'` >>
+        IF_CASES_TAC >- (
+          qpat_x_assum`m ≤ _`mp_tac >>
+          pop_assum(SUBST1_TAC o EQT_INTRO) >>
+          qpat_x_assum`m ≠ 0`mp_tac >>
+          rpt(pop_assum kall_tac) >>
+          rw[] ) >>
+        REFL_TAC ) >>
+      pop_assum SUBST_ALL_TAC >>
+      simp_tac(srw_ss()++ARITH_ss)[] >>
+      `m+1 ≤ t'.stack_space` by simp[] >>
+      pop_assum mp_tac >>
+      qpat_x_assum`LENGTH t'.stack = _`(mp_tac o SYM) >>
+      qpat_x_assum`_.stack_space ≤ LENGTH t''.stack`mp_tac >>
+      simp_tac(srw_ss()++ARITH_ss)[LLOOKUP_THM,EL_TAKE,EL_DROP] >>
+      ntac 4 strip_tac >>
+      fsrw_tac[][lookup_fromList2,lookup_fromList] >>
+      reverse conj_asm2_tac >- simp[] >>
+      pop_assum mp_tac >>
+      qpat_x_assum`¬(_ < _)`mp_tac >>
+      qpat_x_assum`m + 1 ≤ _`mp_tac >>
+      simp_tac(srw_ss()++ARITH_ss)[] >>
+      ntac 3 strip_tac >>
      first_x_assum(qspecl_then[`n`,`v`] kall_tac)>>
      first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
      rpt(qpat_x_assum`!a b. P` kall_tac)>>
      fsrw_tac[][]>>
-     simp[]>>
+     simp[LLOOKUP_THM]>>
      `f+k - (n DIV 2 +1) < f` by simp[]>>
      fsrw_tac[][EL_TAKE]>>
      qpat_assum`∀x. A ⇒ EL B (DROP t5.stack_space t5.stack) = EL D E` mp_tac>>
@@ -5858,12 +5925,12 @@ val comp_correct = Q.store_thm("comp_correct",
        \\ rw[]) >>
      disch_then SUBST_ALL_TAC>>
      qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-     `t'.stack_space - (LENGTH q-k) + (LENGTH q-k) = t'.stack_space` by simp[]>>
-     pop_assum SUBST1_TAC>>
-     disch_then sym_sub_tac>>
+     ntac 6 (pop_assum mp_tac) >>
+     simp_tac(srw_ss()++ARITH_ss)[] >>
+     ntac 5 strip_tac >>
+     disch_then sym_sub_tac >>
      first_x_assum (qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
-     impl_tac>-
-       simp[]>>
+     impl_tac>- simp[]>>
      fs[EL_DROP]>>
      qpat_x_assum `t'.stack_space + 3 = t5.stack_space` mp_tac>>
      rpt(pop_assum kall_tac)>>
