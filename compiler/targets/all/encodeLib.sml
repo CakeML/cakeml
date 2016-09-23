@@ -152,14 +152,6 @@ fun encoding q =
                          (string_quotation (split32 false l))
                      end
               else print_not_ok (),
-      x64 = fn () =>
-              if ok64 x64_config
-                then let
-                       val l = eval (mk_x64_enc tm64)
-                     in
-                       print_x64_disassemble l
-                     end
-              else print_not_ok (),
       mips = fn () =>
               if ok64 mips_config
                 then let
@@ -175,11 +167,19 @@ fun encoding q =
                      in
                        print_riscv_disassemble (split32 false l)
                      end
+              else print_not_ok (),
+      x64 = fn () =>
+              if ok64 x64_config
+                then let
+                       val l = eval (mk_x64_enc tm64)
+                     in
+                       print_x64_disassemble l
+                     end
               else print_not_ok ()
     }
   end
 
-datatype arch = Compare | All | ARMv6 | ARMv8 | x86_64 | MIPS | RISCV
+datatype arch = Compare | All | ARMv6 | ARMv8 | MIPS | RISCV | x86_64
 
 fun encodings arches l =
   let
@@ -197,9 +197,9 @@ fun encodings arches l =
                         ; print "\n"
                         ; pr "ARMv6" ARMv6 arm6
                         ; pr "ARMv8" ARMv8 arm8
-                        ; pr "x86-64" x86_64 x64
                         ; pr "MIPS-64" MIPS mips
                         ; pr "RISC-V" RISCV riscv
+                        ; pr "x86-64" x86_64 x64
                         )) es
             end
     else let
@@ -217,9 +217,9 @@ fun encodings arches l =
          in
            pr "ARMv6" ARMv6 (#arm6)
          ; pr "ARMv8" ARMv8 (#arm8)
-         ; pr "x86-64" x86_64 (#x64)
          ; pr "MIPS-64" MIPS (#mips)
          ; pr "RISC-V" RISCV (#riscv)
+         ; pr "x86-64" x86_64 (#x64)
          end
   end
 
