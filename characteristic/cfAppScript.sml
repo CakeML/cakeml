@@ -20,14 +20,16 @@ val evaluate_ck_def = Define `
 
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
-  app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: v -> hprop) =
+  app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h: heap) (i: heap) (st: 'ffi state).
       SPLIT (st2heap p st) (h, i) ==> H h ==>
-      ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state) ck.
+      ?env exp (r: res) (h': heap) (g: heap) (st': 'ffi state) ck.
         SPLIT3 (st2heap p st') (h', g, i) /\
-        Q v' h' /\
-        (do_opapp [f;x] = SOME (env, exp)) /\
-        evaluate_ck ck st env [exp] = (st', Rval [v'])`
+        Q r h' /\
+        do_opapp [f;x] = SOME (env, exp) /\
+        case r of
+          | Val v' => evaluate_ck ck st env [exp] = (st', Rval [v'])
+          | Exn e  => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
 
 val app_basic_local = prove (
   ``!f x. is_local (app_basic p f x)``,
@@ -41,31 +43,32 @@ val app_basic_local = prove (
   qpat_assum `app_basic _ _ _ _ _` (mp_tac o REWRITE_RULE [app_basic_def]) \\
   disch_then (qspecl_then [`h1`, `i UNION h2`, `st`] mp_tac) \\
   impl_tac THEN1 SPLIT_TAC \\ disch_then progress \\
-  rename1 `Q' v' h1'` \\
+  rename1 `Q1 r' h1'` \\
   qpat_x_assum `_ ==+> _` mp_tac \\
   disch_then (mp_tac o REWRITE_RULE [SEP_IMPPOST_def, STARPOST_def]) \\
   disch_then (mp_tac o REWRITE_RULE [SEP_IMP_def]) \\
-  disch_then (qspecl_then [`v'`, `h1' UNION h2`] mp_tac) \\ simp [] \\
+  disch_then (qspecl_then [`r'`, `h1' UNION h2`] mp_tac) \\ simp [] \\
   impl_tac
   THEN1 (simp [STAR_def] \\ Q.LIST_EXISTS_TAC [`h1'`, `h2`] \\ SPLIT_TAC) \\
   disch_then (assume_tac o REWRITE_RULE [STAR_def]) \\ fs [] \\
   instantiate \\ rename1 `GC gc` \\ rename1 `SPLIT3 _ (h1', i', i UNION h2)` \\
-  qexists_tac `gc UNION i'` \\ SPLIT_TAC);
+  qexists_tac `gc UNION i'` \\ SPLIT_TAC
+);
 
 (* [app]: n-ary application *)
 val app_def = Define `
-  app (p:'ffi ffi_proj) (f: v) ([]: v list) (H: hprop) (Q: v -> hprop) = F /\
+  app (p:'ffi ffi_proj) (f: v) ([]: v list) (H: hprop) (Q: res -> hprop) = F /\
   app (p:'ffi ffi_proj) f [x] H Q = app_basic p f x H Q /\
   app (p:'ffi ffi_proj) f (x::xs) H Q =
     app_basic p f x H
-      (\g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
+      (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
 
 val app_alt_ind = store_thm ("app_alt_ind",
   ``!f xs x H Q.
      xs <> [] ==>
      app (p:'ffi ffi_proj) f (xs ++ [x]) H Q =
      app (p:'ffi ffi_proj) f xs H
-       (\g. SEP_EXISTS H'. H' * cond (app_basic p g x H' Q))``,
+       (POSTv g. SEP_EXISTS H'. H' * cond (app_basic p g x H' Q))``,
   Induct_on `xs` \\ fs [] \\ rpt strip_tac \\
   Cases_on `xs` \\ fs [app_def]
 );
@@ -74,7 +77,7 @@ val app_alt_ind_w = store_thm ("app_alt_ind_w",
   ``!f xs x H Q.
      app (p:'ffi ffi_proj) f (xs ++ [x]) H Q ==> xs <> [] ==>
      app (p:'ffi ffi_proj) f xs H
-       (\g. SEP_EXISTS H'. H' * cond (app_basic (p:'ffi ffi_proj) g x H' Q))``,
+       (POSTv g. SEP_EXISTS H'. H' * cond (app_basic (p:'ffi ffi_proj) g x H' Q))``,
   rpt strip_tac \\ fs [app_alt_ind]
 )
 
@@ -82,7 +85,7 @@ val app_ge_2_unfold = store_thm ("app_ge_2_unfold",
   ``!f x xs H Q.
       xs <> [] ==>
       app (p:'ffi ffi_proj) f (x::xs) H Q =
-      app_basic p f x H (\g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))``,
+      app_basic p f x H (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))``,
   rpt strip_tac \\ Cases_on `xs` \\ fs [app_def]
 );
 
@@ -90,7 +93,7 @@ val app_ge_2_unfold_extens = store_thm ("app_ge_2_unfold_extens",
   ``!f x xs.
       xs <> [] ==>
       app (p:'ffi ffi_proj) f (x::xs) =
-      \H Q. app_basic p f x H (\g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))``,
+      \H Q. app_basic p f x H (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))``,
   rpt strip_tac \\ NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs [app_ge_2_unfold]
 );
 
@@ -111,9 +114,10 @@ val app_wgframe = store_thm ("app_wgframe",
   )
   THEN1 (
     fs [app_ge_2_unfold] \\ irule local_frame THEN1 (fs [app_basic_local]) \\
-    instantiate \\ simp [SEP_IMPPOST_def] \\ qx_gen_tac `g` \\
-    hpull \\ qx_gen_tac `HR` \\ strip_tac \\ hsimpl \\ qexists_tac `HR * H2` \\
-    hsimpl \\ first_assum irule \\ instantiate \\ hsimpl
+    instantiate \\ simp [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `r` \\
+    Cases_on `r` \\ simp [POSTv_def] \\ hpull \\ hsimpl \\
+    qx_gen_tac `HR` \\ strip_tac \\ qexists_tac `HR * H2` \\ hsimpl \\
+    first_assum irule \\ instantiate \\ hsimpl
   )
 );
 
@@ -143,9 +147,9 @@ val app_local = store_thm ("app_local",
     simp [Once (REWRITE_RULE [is_local_def] app_basic_local)] \\
     fs [local_def] \\ rpt strip_tac \\ first_x_assum progress \\
     rename1 `(H1 * H2) h` \\ instantiate \\ simp [SEP_IMPPOST_def] \\
-    qx_gen_tac `g` \\ hpull \\ qx_gen_tac `H'` \\ strip_tac \\ hsimpl \\
-    qexists_tac `H' * H2` \\ hsimpl \\ irule app_wgframe \\ instantiate \\
-    hsimpl
+    Cases \\ simp [STARPOST_def, POSTv_def] \\ hsimpl \\
+    qx_gen_tac `H'` \\ strip_tac \\ qexists_tac `H' * H2` \\ hsimpl \\
+    irule app_wgframe \\ instantiate \\ hsimpl
   )
 );
 
@@ -157,7 +161,7 @@ val curried_def = Define `
      | SUC 0 => T
      | SUC n =>
        !x. app_basic (p:'ffi ffi_proj) f x emp
-             (\g. cond (curried (p:'ffi ffi_proj) n g /\
+             (POSTv g. cond (curried (p:'ffi ffi_proj) n g /\
                   !xs H Q.
                     LENGTH xs = n ==>
                     app (p:'ffi ffi_proj) f (x::xs) H Q ==>
@@ -168,7 +172,7 @@ val curried_ge_2_unfold = store_thm ("curried_ge_2_unfold",
       n > 1 ==>
       curried (p:'ffi ffi_proj) n f =
       !x. app_basic p f x emp
-            (\g. cond (curried p (PRE n) g /\
+            (POSTv g. cond (curried p (PRE n) g /\
                  !xs H Q.
                    LENGTH xs = PRE n ==>
                    app p f (x::xs) H Q ==> app p g xs H Q))``,
@@ -224,18 +228,18 @@ val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
   ``(a --> b) f v ==>
     !x v1.
       a x v1 ==>
-      app_basic (p:'ffi ffi_proj) v v1 emp ((&) o b (f x))``,
+      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. & b (f x) v)``,
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
-      ml_translatorTheory.evaluate_closure_def,PULL_EXISTS]
+      ml_translatorTheory.evaluate_closure_def,POSTv_def, PULL_EXISTS]
   \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
   \\ rw [] \\ res_tac \\ instantiate
   \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
   \\ drule ml_translatorTheory.evaluate_empty_state_IMP
   \\ disch_then (qspec_then `st` assume_tac)
   \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
-  \\ rename1 `evaluate _ _ (st with clock := ck) _ _`
-  \\ GEN_EXISTS_TAC "ck" `ck` \\ instantiate \\ simp [cond_def]
+  \\ rename1 `evaluate _ _ (st with clock := ck) _ (_, Rval v')`
+  \\ GEN_EXISTS_TAC "ck" `ck` \\ qexists_tac `Val v'` \\ simp [cond_def]
   \\ Q.LIST_EXISTS_TAC [`{}`, `st with clock := 0`]
   \\ CONJ_TAC THEN_LT REVERSE_LT
   THEN1 (prove_tac [bigStepTheory.evaluate_rules])
@@ -255,29 +259,42 @@ val evaluate_list_SING = prove(
   \\ once_rewrite_tac [CONJ_COMM]
   \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
 
+val evaluate_list_raise_SING = prove(
+  ``bigStep$evaluate_list b env st [exp] (st', Rerr (Rraise v)) <=>
+    bigStep$evaluate b env st exp (st', Rerr (Rraise v))``,
+  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
+  \\ eq_tac \\ fs [] \\ strip_tac
+  \\ pop_assum (assume_tac o
+                SIMP_RULE std_ss [Once bigStepTheory.evaluate_cases])
+  \\ fs []);
+
 val app_basic_rel = store_thm("app_basic_rel",
-  ``app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: v -> hprop) =
+  ``app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h: heap) (i: heap) (st: 'ffi state).
       SPLIT (st2heap p st) (h, i) ==> H h ==>
-      ?env exp (v': v) (h': heap) (g: heap) (st': 'ffi state).
+      ?env exp (r: res) (h': heap) (g: heap) (st': 'ffi state).
         SPLIT3 (st2heap p st') (h', g, i) /\
-        Q v' h' /\
-        (do_opapp [f;x] = SOME (env, exp)) /\
-        bigStep$evaluate F env st exp (st', Rval v')``,
-  fs [app_basic_def,evaluate_ck_def,evaluate_list_SING,
+        Q r h' /\
+        do_opapp [f;x] = SOME (env, exp) /\
+        case r of
+          | Val v' => bigStep$evaluate F env st exp (st', Rval v')
+          | Exn e  => bigStep$evaluate F env st exp (st', Rerr (Rraise e))``,
+  fs [app_basic_def,evaluate_ck_def,evaluate_list_SING,evaluate_list_raise_SING,
       funBigStepEquivTheory.functional_evaluate_list,
       bigClockTheory.big_clocked_unclocked_equiv,PULL_EXISTS]
   \\ rw [] \\ eq_tac \\ rw []
   \\ first_x_assum drule \\ fs [] \\ strip_tac
+  \\ GEN_EXISTS_TAC "r" `r`
+  \\ Cases_on `r` \\ fs []
   \\ rename1 `evaluate _ _ (_ with clock := ck) _ _` \\ fs []
-  THEN1
+  \\ try_finally
    (rename1 `SPLIT3 (st2heap p st1) (h1,g,i)`
     \\ qabbrev_tac `st2 = st1 with clock := st.clock`
     \\ `SPLIT3 (st2heap p st2) (h1,g,i)` by (fs [st2heap_def,Abbr `st2`] \\ NO_TAC)
     \\ rpt (asm_exists_tac \\ fs []) \\ fs [Abbr `st2`]
     \\ qexists_tac `ck - st1.clock`
     \\ drule bigClockTheory.clocked_min_counter \\ fs [])
-  THEN1
+  \\ try_finally
    (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));

@@ -23,6 +23,10 @@ val _ = Datatype `
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
 
+val _ = Datatype `
+  res = Val v
+      | Exn v`
+
 val _ = type_abbrev("ffi_proj",
   ``: ('ffi -> (num |-> ffi)) #
       ((num list # ffi_next) list)``)
@@ -48,16 +52,40 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_I
 
 (* STAR for post-conditions *)
 val STARPOST_def = Define `
-  STARPOST (Q: v -> hprop) (H: hprop) =
-    \x. (Q x) * H`
+  STARPOST (Q: res -> hprop) (H: hprop) =
+    \r. (Q r) * H`
 
 (* SEP_IMP lifted to post-conditions *)
 val SEP_IMPPOST_def = Define `
-  SEP_IMPPOST (Q1: v -> hprop) (Q2: v -> hprop) =
-    !x. SEP_IMP (Q1 x) (Q2 x)`
+  SEP_IMPPOST (Q1: res -> hprop) (Q2: res -> hprop) =
+    !r. SEP_IMP (Q1 r) (Q2 r)`
+
+val SEP_IMPPOSTv_def = Define `
+  SEP_IMPPOSTv (Q1: res -> hprop) (Q2: res -> hprop) =
+    !v. SEP_IMP (Q1 (Val v)) (Q2 (Val v))`
+
+val SEP_IMPPOSTe_def = Define `
+  SEP_IMPPOSTe (Q1: res -> hprop) (Q2: res -> hprop) =
+    !e. SEP_IMP (Q1 (Exn e)) (Q2 (Exn e))`
 
 (* Garbage collection predicate *)
 val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
+
+(* Injections for post-conditions *)
+val POSTv_def = new_binder_definition("POSTv_def",
+  ``($POSTv) = \(Qv: v -> hprop).
+      \r. case r of
+            | Val v => Qv v
+            | Exn e => cond F``)
+
+val POSTe_def = new_binder_definition("POSTe_def",
+  ``($POSTe) = \(Qe: v -> hprop).
+      \r. case r of
+            | Val v => cond F
+            | Exn e => Qe e``)
+
+val POST_F_def = Define `
+  POST_F (r: res): hprop = cond F`
 
 (* cond specialized to equality to some value; as a post-condition *)
 val cond_eq_def = Define `
@@ -97,6 +125,12 @@ val _ = add_infix ("==>>", 470, HOLgrammars.RIGHT)
 val _ = overload_on ("==+>", Term `SEP_IMPPOST`)
 val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 
+val _ = overload_on ("==v>", Term `SEP_IMPPOSTv`)
+val _ = add_infix ("==v>", 470, HOLgrammars.RIGHT)
+
+val _ = overload_on ("==e>", Term `SEP_IMPPOSTe`)
+val _ = add_infix ("==e>", 470, HOLgrammars.RIGHT)
+
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
 (*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
 (*                   paren_style = OnlyIfNecessary, *)
@@ -120,6 +154,11 @@ val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
 
 val SPLIT3_of_SPLIT_emp3 = store_thm ("SPLIT3_of_SPLIT_emp3",
   ``!h h1 h2. SPLIT h (h1, h2) ==> SPLIT3 h (h1, h2, {})``,
+  SPLIT_TAC
+)
+
+val SPLIT3_of_SPLIT_emp2 = store_thm ("SPLIT3_of_SPLIT_emp2",
+  ``!h h1 h3. SPLIT h (h1, h3) ==> SPLIT3 h (h1, {}, h3)``,
   SPLIT_TAC
 )
 
@@ -318,7 +357,8 @@ val SEP_IMP_IO_frame_single = store_thm ("SEP_IMP_IO_frame_single",
 
 val rew_heap_thms =
   [AC STAR_COMM STAR_ASSOC, SEP_CLAUSES, STARPOST_emp,
-   SEP_IMPPOST_def, STARPOST_def, cond_eq_def]
+   SEP_IMPPOST_def, SEP_IMPPOSTv_def, SEP_IMPPOSTe_def,
+   STARPOST_def, cond_eq_def]
 
 val rew_heap = full_simp_tac bool_ss rew_heap_thms
 

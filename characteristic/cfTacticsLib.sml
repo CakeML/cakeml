@@ -120,10 +120,15 @@ val cf_defs =
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
    cf_log_def, cf_if_def, cf_match_def]
 
+val cleanup_exn_side_cond =
+  simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left]
+
 val xlocal =
   FIRST [
     first_assum MATCH_ACCEPT_TAC,
     (HO_MATCH_MP_TAC app_local \\ fs [] \\ NO_TAC),
+    (HO_MATCH_ACCEPT_TAC build_cases_local \\ NO_TAC),
     (fs (local_is_local :: cf_defs) \\ NO_TAC)
   ] (* todo: is_local_pred *)
 
@@ -426,12 +431,12 @@ fun xapp_spec spec = xapp_core (SOME spec)
 (* [xret] *)
 
 val xret_irule_lemma =
-  FIRST [irule xret_lemma_unify,
-         irule xret_lemma]
+  FIRST [(* irule xret_lemma_unify,*)
+         HO_MATCH_MP_TAC xret_lemma \\ conj_tac]
 
 val xret_no_gc_core =
-    FIRST [irule xret_lemma_unify,
-           (* todo evars *) irule xret_no_gc_lemma]
+    FIRST [(*irule xret_lemma_unify,*)
+           (* todo evars *) HO_MATCH_MP_TAC xret_no_gc_lemma \\ conj_tac]
 
 val xlit_core =
   head_unfold cf_lit_def \\ cbv
@@ -448,7 +453,9 @@ fun xret_pre cont1 cont2 (g as (_, w)) =
     else if is_cf_con w then xcon_core
     else if is_cf_var w then xvar_core
     else fail ()) \\
-   cont1) g
+   cont1 \\
+   cleanup_exn_side_cond
+   ) g
   (* todo: also do stuff with lets *)
 
 val xret = xret_pre xret_irule_lemma (TRY xpull)
@@ -465,6 +472,7 @@ val xlog_base =
   head_unfold cf_log_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
+  cleanup_exn_side_cond \\
   TRY (asm_exists_tac \\ simp [])
 
 val xlog = xlog_base
@@ -507,6 +515,7 @@ end
 
 val unfold_build_cases =
   simp [build_cases_def] \\
+  CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
   simp []
 
@@ -540,6 +549,7 @@ val xffi =
   xpull_check_not_needed \\
   head_unfold cf_ffi_def \\
   irule local_elim \\ hnf \\
-  simp [app_ffi_def] \\ reduce_tac
+  simp [app_ffi_def] \\ reduce_tac \\
+  conj_tac \\ cleanup_exn_side_cond
 
 end
