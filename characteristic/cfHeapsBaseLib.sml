@@ -368,7 +368,9 @@ val hcancel_conseq_conv =
     (CONSEQ_CONV_get_context_congruences CONSEQ_CONV_NO_CONTEXT)
     CONSEQ_CONV_default_cache_opt NONE
     true (* redepth *)
-    [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_def))),
+    [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
      (true, NONE, K (SCC hcancel_setup_conv)),
      (true, NONE, K hsimpl_cancel_conseq_conv),
      (true, NONE, K hpullr_conseq_conv),
@@ -387,7 +389,9 @@ val hsimpl_conseq_conv =
     (CONSEQ_CONV_get_context_congruences CONSEQ_CONV_NO_CONTEXT)
     CONSEQ_CONV_default_cache_opt NONE
     true (* redepth *)
-    [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_def))),
+    [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
      (true, NONE, K (SCC hcancel_setup_conv)),
      (true, NONE, K hpull_conseq_conv),
      (true, NONE, K hsimpl_cancel_conseq_conv),

@@ -118,7 +118,7 @@ val cf_defs =
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-   cf_log_def, cf_if_def, cf_match_def]
+   cf_log_def, cf_if_def, cf_match_def, cf_raise_def, cf_handle_def]
 
 val cleanup_exn_side_cond =
   simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
@@ -210,18 +210,64 @@ fun xlet_core cont0 cont1 cont2 =
   irule local_elim \\ hnf \\
   simp [libTheory.opt_bind_def] \\
   cont0 \\
-  CONJ_TAC THENL [all_tac, cont1 \\ cont2]
+  CONJ_TAC THENL [
+    CONJ_TAC THENL [
+      all_tac,
+      TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv)
+    ],
+    cont1 \\ cont2
+  ]
+
+val res_CASE_tm =
+  CONJ_PAIR cfHeapsBaseTheory.res_case_def
+  |> fst |> SPEC_ALL |> concl
+  |> lhs |> strip_comb |> fst
+
+val POSTv_tm =
+  cfHeapsBaseTheory.POSTv_def |> SPEC_ALL |> concl
+  |> lhs |> strip_comb |> fst
+
+val POST_tm =
+  cfHeapsBaseTheory.POST_def |> SPEC_ALL |> concl
+  |> lhs |> strip_comb |> fst
+
+fun vname_of_post Qtm = let
+  val vname_lam = fst o dest_var o fst o dest_abs
+  fun vname_res_CASE_lam tm = let
+      val body = dest_abs tm |> snd
+    in
+      if body = res_CASE_tm then
+        List.nth (strip_comb body |> snd, 1)
+        |> vname_lam
+      else fail ()
+    end
+  fun vname_POSTv tm = let
+      val (base, args) = strip_comb tm
+    in if base = POSTv_tm then vname_lam (List.hd args)
+       else fail()
+    end
+  fun vname_POST tm = let
+      val (base, args) = strip_comb tm
+    in if base = POST_tm then vname_lam (List.hd args)
+       else fail()
+    end
+in
+  vname_POSTv Qtm handle HOL_ERR _ =>
+  vname_POST Qtm handle HOL_ERR _ =>
+  vname_res_CASE_lam Qtm handle HOL_ERR _ =>
+  "v"
+end
 
 (* temporary basic wrapper until evars *)
 fun xlet Q (g as (asl, w)) = let
   val ctx = free_varsl (w :: asl)
-  val name = (fst o dest_var o fst o dest_abs o Term) Q
+  val name = vname_of_post (Term Q)
   val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
   val qname = [QUOTE name']
 in
   xlet_core
     (qexists_tac Q)
-    (qx_gen_tac qname \\ cbv)
+    (qx_gen_tac qname \\ simp [])
     (TRY xpull)
     g
 end

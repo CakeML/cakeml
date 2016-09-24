@@ -73,13 +73,13 @@ val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
 
 (* Injections for post-conditions *)
 val POSTv_def = new_binder_definition("POSTv_def",
-  ``($POSTv) = \(Qv: v -> hprop).
+  ``($POSTv) (Qv: v -> hprop) =
       \r. case r of
             | Val v => Qv v
             | Exn e => cond F``)
 
 val POSTe_def = new_binder_definition("POSTe_def",
-  ``($POSTe) = \(Qe: v -> hprop).
+  ``($POSTe) (Qe: v -> hprop) =
       \r. case r of
             | Val v => cond F
             | Exn e => Qe e``)
@@ -374,6 +374,18 @@ val GC_STAR_GC = store_thm ("GC_STAR_GC",
 )
 
 (*------------------------------------------------------------------*)
+(* Unfolding + case split lemma for SEP_IMPPOST *)
+
+val SEP_IMPPOST_unfold = store_thm ("SEP_IMPPOST_unfold",
+  ``!Q1 Q2.
+      (Q1 ==+> Q2) <=>
+      (!v. Q1 (Val v) ==>> Q2 (Val v)) /\
+      (!v. Q1 (Exn v) ==>> Q2 (Exn v))``,
+  rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ fs [SEP_IMPPOST_def] \\
+  Cases \\ fs []
+);
+
+(*------------------------------------------------------------------*)
 (** Extraction from H1 in H1 ==>> H2 *)
 
 val hpull_prop = store_thm ("hpull_prop",
@@ -438,5 +450,51 @@ val hsimpl_gc = store_thm ("hsimpl_gc",
   ``!H. H ==>> GC``,
   fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
 )
+
+(*------------------------------------------------------------------*)
+(* Automatic rewrites for POSTv/POSTe/POST *)
+
+val POSTv_Val = store_thm ("POSTv_Val[simp]",
+  ``!Qv v. $POSTv Qv (Val v) = Qv v``,
+  fs [POSTv_def]
+);
+
+val POSTv_Exn = store_thm ("POSTv_Exn[simp]",
+  ``!Qv v. $POSTv Qv (Exn v) = &F``,
+  fs [POSTv_def]
+);
+
+val POSTe_Val = store_thm ("POSTe_Val[simp]",
+  ``!Qe v. $POSTe Qe (Val v) = &F``,
+  fs [POSTe_def]
+);
+
+val POSTe_Exn = store_thm ("POSTe_Exn[simp]",
+  ``!Qe v. $POSTe Qe (Exn v) = Qe v``,
+  fs [POSTe_def]
+);
+
+val POST_Val = store_thm ("POST_Val[simp]",
+  ``!Qv Qe v. POST Qv Qe (Val v) = Qv v``,
+  fs [POST_def]
+);
+
+val POST_Exn = store_thm ("POST_Exn[simp]",
+  ``!Qv Qe v. POST Qv Qe (Exn v) = Qe v``,
+  fs [POST_def]
+);
+
+(*------------------------------------------------------------------*)
+(* Lemmas for ==v> / ==e> *)
+
+val SEP_IMPPOSTv_POSTe = store_thm ("SEP_IMPPOSTv_POSTe",
+  ``!Q1 Q2. $POSTe Q1 ==v> $POSTe Q2``,
+  fs [POSTe_def, SEP_IMPPOSTv_def, SEP_IMP_def]
+);
+
+val SEP_IMPPOSTe_POSTv = store_thm ("SEP_IMPPOSTe_POSTv",
+  ``!Q1 Q2. $POSTv Q1 ==e> $POSTv Q2``,
+  fs [POSTv_def, SEP_IMPPOSTe_def, SEP_IMP_def]
+);
 
 val _ = export_theory()

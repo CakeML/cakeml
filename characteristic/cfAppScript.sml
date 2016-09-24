@@ -126,9 +126,9 @@ val app_weaken = store_thm ("app_weaken",
       app (p:'ffi ffi_proj) f xs H Q ==>
       Q ==+> Q' ==>
       app p f xs H Q'``,
-  rpt strip_tac \\ fs [SEP_IMPPOST_def] \\ irule app_wgframe \\ instantiate \\
-  hsimpl \\ (*fixme*) qexists_tac `emp` \\ simp [GC_def] \\ hsimpl \\
-  gen_tac \\ qexists_tac `emp` \\ hsimpl \\ fs [] (* uhh *)
+  rpt strip_tac \\ irule app_wgframe \\ instantiate \\ fs [SEP_IMPPOST_def] \\
+  rpt (hsimpl \\ TRY hinst) \\ simp [GC_def] \\ hsimpl \\
+  gen_tac \\ qexists_tac `emp` \\ hsimpl \\ fs []
 );
 
 val app_local = store_thm ("app_local",

@@ -1235,9 +1235,8 @@ val cf_var_def = Define `
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
-    ?Q'. F1 env H Q' /\
-         (!xv. F2 (env with <| v := opt_bind n xv env.v |>) (Q' (Val xv)) Q) /\
-         Q' ==e> Q)`
+    ?Q'. (F1 env H Q' /\ Q' ==e> Q) /\
+         (!xv. F2 (env with <| v := opt_bind n xv env.v |>) (Q' (Val xv)) Q))`
 
 val cf_opn_def = Define `
   cf_opn opn x1 x2 = \env. local (\H Q.
