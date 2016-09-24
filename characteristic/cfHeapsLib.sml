@@ -84,7 +84,7 @@ fun hclean_one_dcc_core ctx =
   STRENGTHEN_CONSEQ_CONV (hclean_one_conseq_conv_core ctx)
 
 val hclean_setup_conv =
-    F_pre_post_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
+    F_pre_post_conv (QCONV heap_clean_conv) REFL
 
 fun hclean_one_conseq_conv ctx =
   STRENGTHEN_CONSEQ_CONV hclean_setup_conv THEN_DCC
@@ -96,7 +96,7 @@ fun hclean_conseq_conv ctx =
     (CONSEQ_CONV_get_context_congruences CONSEQ_CONV_FULL_CONTEXT)
     CONSEQ_CONV_default_cache_opt NONE true
     [(true, NONE, hclean_one_dcc_core)] ctx
-  
+
 val hclean_one = ASM_CONSEQ_CONV_TAC hclean_one_conseq_conv
 val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv
 

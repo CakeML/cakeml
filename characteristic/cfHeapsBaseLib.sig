@@ -20,6 +20,8 @@ sig
   val SEP_IMP_conv : conv -> conv -> conv
   val rearrange_star_conv : term -> term list -> conv
 
+  val heap_clean_conv : conv
+
   (*----------------------------------------------------------------*)
   (* Prove an "easy" goal about sets, involving UNION, DISJOINT,... Useful
     after unfolding the definitions of heap predicates. *)

@@ -28,6 +28,10 @@ val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
 
 val SEP_CLAUSES = LIST_CONJ [SEP_CLAUSES, STARPOST_def, cond_eq_def]
 
+val heap_clean_conv =
+  SIMP_CONV bool_ss [SEP_CLAUSES] THENC
+  DEPTH_CONV (REWR_CONV SEP_F_to_cond)
+
 (*------------------------------------------------------------------*)
 (** Auxiliary functions *)
 
@@ -154,7 +158,7 @@ fun hpull_one_conseq_conv_core t =
 
 val hpull_setup_conv =
   (* cleanup the left heap a bit (remove ``emp``, pull SEP_EXISTS,...) *)
-  SEP_IMP_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
+  SEP_IMP_conv (QCONV heap_clean_conv) REFL
 
 val hpull_one_conseq_conv =
   STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
@@ -331,7 +335,7 @@ fun hpullr_conseq_conv_core t =
   end
 
 val hpullr_setup_conv =
-  SEP_IMP_conv REFL (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
+  SEP_IMP_conv REFL (QCONV heap_clean_conv)
 
 val hpullr_one_conseq_conv =
   STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
@@ -360,8 +364,8 @@ val SCC = STRENGTHEN_CONSEQ_CONV
 
 val hcancel_setup_conv =
   SEP_IMP_conv
-    (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
-    (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
+    (QCONV heap_clean_conv)
+    (QCONV heap_clean_conv)
 
 val hcancel_conseq_conv =
   EXT_DEPTH_CONSEQ_CONV

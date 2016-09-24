@@ -84,6 +84,12 @@ val POSTe_def = new_binder_definition("POSTe_def",
             | Val v => cond F
             | Exn e => Qe e``)
 
+val POST_def = Define `
+  POST (Qv: v -> hprop) (Qe: v -> hprop) = \r.
+    case r of
+     | Val v => Qv v
+     | Exn e => Qe e`
+
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
 
@@ -363,6 +369,14 @@ val rew_heap_thms =
 val rew_heap = full_simp_tac bool_ss rew_heap_thms
 
 (*------------------------------------------------------------------*)
+(* Workaround because of SEP_CLAUSES turning &F into SEP_F *)
+
+val SEP_F_to_cond = store_thm ("SEP_F_to_cond",
+  ``SEP_F = &F``,
+  irule EQ_EXT \\ fs [SEP_F_def, cond_def]
+);
+
+(*------------------------------------------------------------------*)
 (** Properties of GC *)
 
 val GC_STAR_GC = store_thm ("GC_STAR_GC",
@@ -487,14 +501,14 @@ val POST_Exn = store_thm ("POST_Exn[simp]",
 (*------------------------------------------------------------------*)
 (* Lemmas for ==v> / ==e> *)
 
-val SEP_IMPPOSTv_POSTe = store_thm ("SEP_IMPPOSTv_POSTe",
-  ``!Q1 Q2. $POSTe Q1 ==v> $POSTe Q2``,
-  fs [POSTe_def, SEP_IMPPOSTv_def, SEP_IMP_def]
+val SEP_IMPPOSTv_POSTe_left = store_thm ("SEP_IMPPOSTv_POSTe_left",
+  ``!Qe Q. $POSTe Qe ==v> Q``,
+  fs [POSTe_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
-val SEP_IMPPOSTe_POSTv = store_thm ("SEP_IMPPOSTe_POSTv",
-  ``!Q1 Q2. $POSTv Q1 ==e> $POSTv Q2``,
-  fs [POSTv_def, SEP_IMPPOSTe_def, SEP_IMP_def]
+val SEP_IMPPOSTe_POSTv_left = store_thm ("SEP_IMPPOSTe_POSTv_left",
+  ``!Qv Q. $POSTv Qv ==e> Q``,
+  fs [POSTv_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
 );
 
 val _ = export_theory()
