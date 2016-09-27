@@ -809,15 +809,15 @@ val pmatch_v_of_pat_norest = store_thm ("pmatch_v_of_pat_norest",
 
 (* The nested ifs corresponding to a list of patterns *)
 
-val build_cases_def = Define `
-  build_cases v nomatch_exn [] env H Q =
+val cf_cases_def = Define `
+  cf_cases v nomatch_exn [] env H Q =
     local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F) H Q /\
-  build_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
+  cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
       ((if (?insts. v_of_pat_norest env.c pat insts = SOME v) then
           (!insts. v_of_pat_norest env.c pat insts = SOME v ==>
              row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
-        else build_cases v nomatch_exn rows env H Q) /\
+        else cf_cases v nomatch_exn rows env H Q) /\
        (!s. validate_pat env.c s pat v env.v))
     ) H Q`;
 
@@ -831,22 +831,22 @@ in
     )
 end
 
-val build_cases_local = store_thm ("build_cases_local",
+val cf_cases_local = store_thm ("cf_cases_local",
   ``!v nomatch_exn rows env.
-      is_local (build_cases v nomatch_exn rows env)``,
+      is_local (cf_cases v nomatch_exn rows env)``,
   rpt strip_tac \\
-  `build_cases v nomatch_exn rows env =
-   (\H Q. build_cases v nomatch_exn rows env H Q)` by (
+  `cf_cases v nomatch_exn rows env =
+   (\H Q. cf_cases v nomatch_exn rows env H Q)` by (
     NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs [] \\ NO_TAC) \\
   pop_assum (once_rewrite_tac o sing) \\
   Induct_on `rows`
   THEN1 (
-    fs [build_cases_def] \\
+    fs [cf_cases_def] \\
     CONV_TAC (RAND_CONV NETA_CONV) \\
     fs [local_is_local]
   )
   THEN1 (
-    qx_gen_tac `p` \\ Cases_on `p` \\ fs [build_cases_def] \\
+    qx_gen_tac `p` \\ Cases_on `p` \\ fs [cf_cases_def] \\
     CONV_TAC (RAND_CONV NETA_CONV) \\ fs [local_is_local]
   )
 );
@@ -1437,7 +1437,7 @@ val cf_match_def = Define `
   cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      build_cases v Bindv rows env H Q)`
+      cf_cases v Bindv rows env H Q)`
 
 val cf_raise_def = Define `
   cf_raise e = \env. local (\H Q.
@@ -1450,7 +1450,7 @@ val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
       (Fe env H Q' /\ Q' ==v> Q) /\
-      (!ev. build_cases ev ev rows env (Q' (Exn ev)) Q))`
+      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -1825,10 +1825,10 @@ val cf_letrec_sound = Q.prove (
   fs [letrec_pull_params_names, letrec_pull_params_def]
 );
 
-val build_cases_evaluate_match = Q.prove (
+val cf_cases_evaluate_match = Q.prove (
   `!v env H Q nomatch_exn rows p st h_i h_k.
     EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
-    build_cases v nomatch_exn (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
+    cf_cases v nomatch_exn (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
     SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
     ?r st' h_f h_g ck.
       SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
@@ -1841,7 +1841,7 @@ val build_cases_evaluate_match = Q.prove (
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rraise v'))`,
 
-  Induct_on `rows` \\ rpt strip_tac \\ fs [build_cases_def]
+  Induct_on `rows` \\ rpt strip_tac \\ fs [cf_cases_def]
   THEN1 (
     fs [local_def] \\ first_x_assum progress \\
     fs [terminationTheory.evaluate_def] \\
@@ -2428,11 +2428,11 @@ val cf_sound = store_thm ("cf_sound",
     instantiate
   )
   THEN1 (
-    (* Mat: the bulk of the proof is done in [build_cases_evaluate_match] *)
+    (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
     cf_strip_sound_full_tac \\
     `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
       (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
-    progress build_cases_evaluate_match \\
+    progress cf_cases_evaluate_match \\
     instantiate \\ qexists_tac `ck` \\
     cf_exp2v_evaluate_tac `st with clock := ck`
   )
@@ -2464,7 +2464,7 @@ val cf_sound = store_thm ("cf_sound",
       `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
       progress SPLIT_of_SPLIT3_2u3 \\
-      progress build_cases_evaluate_match \\
+      progress cf_cases_evaluate_match \\
       qexists_tac `r` \\ Cases_on `r` \\ fs []
       THEN (
         rename1 `SPLIT3 (st2heap _ st'') (h_f', h_k UNION h_g, h_g')` \\

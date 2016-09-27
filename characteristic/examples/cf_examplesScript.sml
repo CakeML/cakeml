@@ -166,6 +166,84 @@ val example_and_spec = Q.prove (
   xlog \\ xret \\ xsimpl
 )
 
+val example_raise = process_topdecl
+  "exception Foo \
+ \ fun example_raise u = raise Foo"
+
+val st = ml_progLib.add_prog example_raise pick_name basis_st
+
+val example_raise_spec = Q.prove (
+  `!uv.
+     UNIT_TYPE () uv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_raise" st) [uv]
+       emp (POSTe v. & (v = Conv (SOME ("Foo", TypeExn (Short "Foo"))) []))`,
+  xcf "example_raise" st \\
+  xlet `POSTv ev. & (ev = Conv (SOME ("Foo", TypeExn (Short "Foo"))) [])`
+  THEN1 (xcon \\ xsimpl) \\
+  xraise \\ xsimpl
+);
+
+val example_handle = process_topdecl
+  "exception Foo of int \
+ \ fun example_handle x = (raise (Foo 3)) handle Foo i => i"
+(* handle precedence bug in the parser? *)
+
+val st = ml_progLib.add_prog example_handle pick_name basis_st
+
+val Foo_exn_def = Define `
+  Foo_exn i v = (v = Conv (SOME ("Foo", TypeExn (Short "Foo"))) [Litv (IntLit i)])`
+
+val example_handle_spec = Q.prove (
+  `!uv.
+     UNIT_TYPE () uv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_handle" st) [uv]
+       emp (POSTv v. & INT 3 v)`,
+  xcf "example_handle" st \\
+  xhandle `POSTe v. & Foo_exn 3 v`
+  THEN1 (
+    xlet `POSTv v. & Foo_exn 3 v`
+    THEN1 (xcon \\ fs [Foo_exn_def] \\ xsimpl) \\
+    xraise \\ xsimpl
+  ) \\
+  fs [Foo_exn_def] \\ xcases \\ xvar \\ xsimpl
+);
+
+val example_handle2 = process_topdecl
+  "exception Foo of int \
+ \ fun example_handle2 x = \
+ \   (if x > 0 then        \
+ \      1                  \
+ \    else                 \
+ \      raise (Foo (~1)))  \
+ \   handle Foo i => i     "
+
+val st = ml_progLib.add_prog example_handle2 pick_name basis_st
+
+val example_handle2_spec = Q.prove (
+  `!x xv.
+     INT x xv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_handle2" st) [xv]
+       emp (POSTv v. & INT (if x > 0 then 1 else (-1)) v)`,
+  xcf "example_handle2" st \\
+  xhandle `POST (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))`
+  THEN1 (
+    xlet `POSTv bv. & (BOOL (x > 0) bv)`
+    THEN1 (xapp \\ fs []) \\
+    xif
+    THEN1 (
+      xret \\ xsimpl \\ rpt strip_tac \\
+      irule FALSITY \\ intLib.ARITH_TAC
+    )
+    THEN1 (
+      xlet `POSTv ev. & Foo_exn (-1) ev`
+      THEN1 (xret \\ fs [Foo_exn_def] \\ xsimpl) \\
+      xraise \\ xsimpl \\ intLib.ARITH_TAC
+    )
+  )
+  THEN1 xsimpl \\
+  fs [Foo_exn_def] \\ xcases \\ xret \\ xsimpl \\ intLib.ARITH_TAC
+);
+
 val list_length = process_topdecl
   "fun length l = \
  \    case l of \

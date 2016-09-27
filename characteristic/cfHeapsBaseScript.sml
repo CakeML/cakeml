@@ -199,7 +199,7 @@ val SPLIT_of_SPLIT3_2u3 = store_thm ("SPLIT_of_SPLIT3_2u3",
 val STARPOST_emp = store_thm ("STARPOST_emp",
   ``!Q. Q *+ emp = Q``,
   strip_tac \\ fs [STARPOST_def] \\ metis_tac [SEP_CLAUSES]
-)
+);
 
 val SEP_IMP_frame_single_l = store_thm ("SEP_IMP_frame_single_l",
   ``!H' R.

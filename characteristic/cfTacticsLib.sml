@@ -128,7 +128,7 @@ val xlocal =
   FIRST [
     first_assum MATCH_ACCEPT_TAC,
     (HO_MATCH_MP_TAC app_local \\ fs [] \\ NO_TAC),
-    (HO_MATCH_ACCEPT_TAC build_cases_local \\ NO_TAC),
+    (HO_MATCH_ACCEPT_TAC cf_cases_local \\ NO_TAC),
     (fs (local_is_local :: cf_defs) \\ NO_TAC)
   ] (* todo: is_local_pred *)
 
@@ -231,7 +231,7 @@ val POST_tm =
   cfHeapsBaseTheory.POST_def |> SPEC_ALL |> concl
   |> lhs |> strip_comb |> fst
 
-fun vname_of_post Qtm = let
+fun vname_of_post fallback Qtm = let
   val vname_lam = fst o dest_var o fst o dest_abs
   fun vname_res_CASE_lam tm = let
       val body = dest_abs tm |> snd
@@ -255,13 +255,13 @@ in
   vname_POSTv Qtm handle HOL_ERR _ =>
   vname_POST Qtm handle HOL_ERR _ =>
   vname_res_CASE_lam Qtm handle HOL_ERR _ =>
-  "v"
+  fallback
 end
 
 (* temporary basic wrapper until evars *)
 fun xlet Q (g as (asl, w)) = let
   val ctx = free_varsl (w :: asl)
-  val name = vname_of_post (Term Q)
+  val name = vname_of_post "v" (Term Q)
   val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
   val qname = [QUOTE name']
 in
@@ -534,7 +534,7 @@ val xif_base =
 
 val xif = xif_base
 
-(* [xmatch] *)
+(* [xcases] *)
 
 fun clean_cases_conv tm = let
   val cond_conv =
@@ -559,8 +559,8 @@ in
    RAND_CONV else_conv) tm
 end
 
-val unfold_build_cases =
-  simp [build_cases_def] \\
+val unfold_cases =
+  simp [cf_cases_def] \\
   CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
   simp []
@@ -580,12 +580,18 @@ val validate_pat_all_conv =
     RAND_CONV validate_pat_conv THENC RW.RW_CONV [boolTheory.AND_CLAUSES]
   )
 
+val xcases =
+  xpull_check_not_needed \\
+  unfold_cases \\
+  CONV_TAC validate_pat_all_conv
+
+(* [xmatch] *)
+
 val xmatch_base =
   xpull_check_not_needed \\
-  head_unfold cf_match_def \\ irule local_elim \\ hnf \\
+  head_unfold cf_match_def \\ irule local_elim \\
   reduce_tac \\
-  unfold_build_cases \\
-  CONV_TAC validate_pat_all_conv
+  xcases
 
 val xmatch = xmatch_base
 
@@ -597,5 +603,41 @@ val xffi =
   irule local_elim \\ hnf \\
   simp [app_ffi_def] \\ reduce_tac \\
   conj_tac \\ cleanup_exn_side_cond
+
+(* [xraise] *)
+
+val xraise =
+  xpull_check_not_needed \\
+  head_unfold cf_raise_def \\ reduce_tac \\
+  HO_MATCH_MP_TAC xret_lemma \\
+  cleanup_exn_side_cond
+
+(* [xhandle] *)
+
+fun xhandle_core cont0 cont1 =
+  xpull_check_not_needed \\
+  head_unfold cf_handle_def \\
+  irule local_elim \\ hnf \\
+  cont0 \\
+  CONJ_TAC THENL [
+    CONJ_TAC THENL [all_tac, cleanup_exn_side_cond],
+    cont1
+  ]
+
+fun xhandle Q (g as (asl, w)) = let
+  val ctx = free_varsl (w :: asl)
+  val name = vname_of_post "e" (Term Q)
+  val name' =
+    prim_variant ctx (mk_var (name, v_ty))
+    |> dest_var |> fst
+  val qname = [QUOTE name']
+in
+  xhandle_core
+    (qexists_tac Q)
+    (qx_gen_tac qname \\
+     reduce_tac \\
+     TRY xpull)
+    g
+end
 
 end
