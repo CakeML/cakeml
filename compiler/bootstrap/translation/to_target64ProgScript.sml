@@ -289,10 +289,7 @@ val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:64``,beta |-> ``:
 
 val _ = translate(conv64 arith_ok_def)
 
-(* TODO: there may be a better rewrite for aligned*)
-val _ = translate(jump_offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
-val _ = translate(cjump_offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
-val _ = translate(loc_offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
+(* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
