@@ -6,3 +6,10 @@ for benchmark in polyc_*; do
     time ./$benchmark
   done
 done
+for benchmark in mlton_*; do
+  echo $benchmark
+  for i in `seq 10`
+  do
+    time ./$benchmark
+  done
+done

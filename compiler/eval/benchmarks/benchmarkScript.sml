@@ -659,9 +659,102 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
+(* TODO: Flipped order of comparison for abs *)
+val nqueens =
+``[Tdec (Dexn "Fail" []);
+  Tdec
+    (Dletrec
+       [("abs","x",
+         If
+           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
+           (Var (Short "x"))
+           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
+  Tdec
+    (Dletrec
+       [("curcheck","p",
+         Fun "ls"
+           (Mat (Var (Short "ls"))
+              [(Pcon (SOME (Short "nil")) [],Con NONE []);
+               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
+                Mat (Var (Short "p"))
+                  [(Pcon NONE [Pvar "x"; Pvar "y"],
+                    Mat (Var (Short "l"))
+                      [(Pcon NONE [Pvar "a"; Pvar "b"],
+                        If
+                          (Log Or
+                             (Log Or
+                                (App Equality
+                                   [Var (Short "a");Var (Short "x")])
+                                (App Equality
+                                   [Var (Short "b");Var (Short "y")]))
+                             (App Equality
+                                [App Opapp [Var (Short "abs");
+                                   App (Opn Minus)
+                                     [Var (Short "a");Var (Short "x")]];
+                                 App Opapp [Var (Short "abs");
+                                    App (Opn Minus)
+                                       [Var (Short "b");Var (Short "y")]]])
+                            )
+                          (Raise (Con (SOME (Short "Fail")) []))
+                          (App Opapp
+                             [App Opapp
+                                [Var (Short "curcheck");
+                                 Con NONE
+                                   [Var (Short "x");
+                                    Var (Short "y")]];
+                              Var (Short "ls")]))])])]))]);
+  Tdec
+    (Dletrec
+       [("nqueens","n",
+         Fun "cur"
+           (Fun "ls"
+              (If
+                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
+                 (Var (Short "ls"))
+                 (Letrec
+                    [("find_queen","y",
+                      If
+                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
+                        (Raise (Con (SOME (Short "Fail")) []))
+                        (Handle
+                           (Let NONE
+                              (App Opapp
+                                 [App Opapp
+                                    [Var (Short "curcheck");
+                                     Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")]];
+                                  Var (Short "ls")])
+                              (App Opapp
+                                 [App Opapp
+                                    [App Opapp
+                                       [Var (Short "nqueens");
+                                        Var (Short "n")];
+                                     App (Opn Plus)[Var (Short "cur");
+                                        Lit (IntLit 1)]];
+                                  Con (SOME (Short "::"))
+                                    [Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")];
+                                     Var (Short "ls")]]))
+                           [(Pcon (SOME (Short "Fail")) [],
+                             App Opapp
+                               [Var (Short "find_queen");
+                                App (Opn Plus) [Var (Short "y");
+                                   Lit (IntLit 1)]])]))]
+                    (App Opapp
+                       [Var (Short "find_queen");
+                        Lit (IntLit 0)])))))]);
+  Tdec
+    (Dlet (Pvar "foo")
+       (App Opapp
+          [App Opapp
+             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
+              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
+
 val hello = entire_program_def |> concl |> rand
-val benchmarks = [hello,foldl,reverse,fib,btree,queue,qsort]
-val names = ["hello","foldl","reverse","fib","btree","queue","qsort"]
+val benchmarks = [nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
+val names = ["nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
 
 val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
 
