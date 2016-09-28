@@ -138,6 +138,11 @@ val SPLIT_emp2 = store_thm ("SPLIT_emp2",
   SPLIT_TAC
 )
 
+val SPLIT3_emp1 = store_thm ("SPLIT3_emp1",
+  ``!h h1 h2. SPLIT3 h ({}, h1, h2) = SPLIT h (h1, h2)``,
+  SPLIT_TAC
+)
+
 val SPLIT_of_SPLIT3_2u3 = store_thm ("SPLIT_of_SPLIT3_2u3",
   ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT h (h1, h2 UNION h3)``,
   SPLIT_TAC
