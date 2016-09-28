@@ -109,7 +109,7 @@ val add_asm_compset = computeLib.extend_compset
       assert_def, reg_imm_def, binop_upd_def, word_cmp_def, word_shift_def,
       arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
       read_mem_word_def, mem_op_def, is_test_def, inst_def, jump_to_offset_def,
-      asm_def, alignmentTheory.aligned_extract],
+      asm_def, alignmentTheory.aligned_extract,offset_ok_def],
    computeLib.Convs
      [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
