@@ -2550,6 +2550,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[funBigStepPropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
+  \\ metis_tac[funBigStepPropsTheory.evaluate_prog_ffi_mono_clock,
+               funBigStepPropsTheory.io_events_mono_def,
+               LESS_EQ_CASES,FST]);
 
 val _ = export_theory ();

@@ -13,7 +13,7 @@ val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   REWRITE_TAC[IMAGE_COMPOSE] >>
   match_mp_tac prefix_chain_lprefix_chain >>
   srw_tac[][prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> srw_tac[][] >>
-  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
+  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,io_events_mono_def,FST]);
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s e p. ∃b. semantics_prog s e p b`,
@@ -95,12 +95,12 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
         rpt var_eq_tac >> full_simp_tac(srw_ss())[] ) >>
       Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> full_simp_tac(srw_ss())[] >- (
         metis_tac[LESS_EQ_CASES,
-                  evaluate_prog_ffi_mono_clock,
+                  evaluate_prog_ffi_mono_clock,io_events_mono_def,
                   FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
       Cases_on`r = Rerr (Rabort Rtimeout_error) ∨ r' = Rerr (Rabort Rtimeout_error)` >- (
         metis_tac[prog_clocked_timeout_smaller,
                   LESS_IMP_LESS_OR_EQ,
-                  evaluate_prog_ffi_mono_clock,
+                  evaluate_prog_ffi_mono_clock,io_events_mono_def,
                   FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
       imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
       first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL prog_clocked_zero_determ))) >>
