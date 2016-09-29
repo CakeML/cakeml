@@ -756,8 +756,8 @@ val bootstrap_thm = save_thm("bootstrap_thm",
 val temp_defs = (List.map #1 (definitions"-"))
 val () = List.app delete_binding temp_defs;
 
-val stack_mb = 2000
-val heap_mb = 2000
+val stack_mb = 1000
+val heap_mb = 1000
 val filename = "cake.S"
 
 val (bytes_tm,ffi_limit_tm) =
