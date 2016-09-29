@@ -770,6 +770,6 @@ val () = Lib.say"Writing output: "
 val () = time (
   x64_exportLib.write_cake_S stack_mb heap_mb
     (numSyntax.int_of_term ffi_limit_tm)
-    bytes_tm ) cake_S
+    bytes_tm ) filename
 
 val _ = export_theory();
