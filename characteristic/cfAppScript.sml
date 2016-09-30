@@ -299,4 +299,125 @@ val app_basic_rel = store_thm("app_basic_rel",
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
 
+val Eval_def = Define `
+  Eval env exp P =
+    ?res refs.
+      evaluate F env empty_state exp (empty_state with refs := refs,Rval res) /\
+          P (res:v)`;
+
+val evaluate_closure_def = Define `
+  evaluate_closure input cl output =
+    ?env exp refs.
+      (do_opapp [cl;input] = SOME (env,exp)) /\
+      evaluate F env empty_state exp
+          (empty_state with refs := refs,Rval (output))`;
+
+val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
+  AppReturns P cl Q =
+    !v. P v ==> ?u. evaluate_closure v cl u /\ Q u`;
+
+val Arrow_def = Define `
+  Arrow a b =
+    \f v. !x. AppReturns (a x) v (b (f x))`;
+
+val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
+  `evaluate F env empty_state exp (empty_state with refs := refs,Rval x) ⇒
+   ∀s. evaluate F env s exp (s with refs := s.refs ++ refs,Rval x)`,
+  cheat);
+
+val store2heap_aux_append_many = Q.store_thm("store2heap_aux_append_many",
+  `∀s n x.
+    store2heap_aux n (s ++ x) =
+    store2heap_aux (n + LENGTH s) x ∪ store2heap_aux n s`,
+  Induct \\ rw[store2heap_aux_def,ADD1,EXTENSION]
+  \\ metis_tac[]);
+
+val store2heap_append_many = Q.store_thm("store2heap_append_many",
+  `∀s x.
+    store2heap (s ++ x) = store2heap s ∪ store2heap_aux (LENGTH s) x`,
+  rw[store2heap_def,store2heap_aux_append_many,UNION_COMM]);
+
+val st2heap_with_refs_append = Q.store_thm("st2heap_with_refs_append",
+  `st2heap p (st with refs := r1 ++ r2) =
+   st2heap p (st with refs := r1) ∪ store2heap_aux (LENGTH r1) r2`,
+  rw[st2heap_def,store2heap_append_many]
+  \\ metis_tac[UNION_COMM,UNION_ASSOC]);
+
+val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
+  ``(Arrow a b) f v ==>
+    !x v1.
+      a x v1 ==>
+      app_basic (p:'ffi ffi_proj) v v1 emp ((&) o b (f x))``,
+  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
+      Arrow_def,AppReturns_def,
+      evaluate_closure_def,PULL_EXISTS]
+  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
+  \\ rw [] \\ res_tac \\ instantiate
+  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
+  \\ simp [Once (CONJUNCT2 bigStepTheory.evaluate_cases)]
+  \\ drule (INST_TYPE[alpha|->``:'ffi``]evaluate_empty_state_IMP)
+  \\ disch_then (qspec_then `st` assume_tac)
+  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
+  \\ rename1 `evaluate _ _ (st with clock := ck) _ _`
+  \\ GEN_EXISTS_TAC "ck" `ck` \\ instantiate \\ simp [cond_def]
+  \\ fs[st2heap_clock]
+  \\ fs[SPLIT3_emp1]
+  \\ fs[st2heap_with_refs_append]
+  \\ `st with refs := st.refs = st` by fs[state_component_equality]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ qexists_tac`store2heap_aux (LENGTH st.refs) refs`
+  \\ fs[SPLIT_def]
+  \\ conj_tac >- SPLIT_TAC
+  \\ fs[IN_DISJOINT]
+  \\ Cases
+  \\ fs[FFI_part_NOT_IN_store2heap_aux,st2heap_def,Mem_NOT_IN_ffi2heap]
+  \\ spose_not_then strip_assume_tac
+  \\ imp_res_tac store2heap_IN_LENGTH
+  \\ imp_res_tac store2heap_aux_IN_bound
+  \\ decide_tac);
+
+val functional_evaluate = Q.store_thm("functional_evaluate",
+  `evaluate T env s e (s',r) ⇔ evaluate s env [e] = (s',list_result r)`,
+  funBigStepEquivTheory.functional_evaluate_list |> Q.GENL[`r`,`es`] |> qspec_then`[e]`mp_tac \\
+  ntac 6 (simp[Once (CONJUNCT2 bigStepTheory.evaluate_cases)]) \\
+  Cases_on`r` \\ fs[]);
+
+val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty_state",
+  `evaluate s env es = (s',Rval r) ∧
+   s.refs = [] ∧ (∀m x bytes. s.ffi.oracle m x bytes = Oracle_fail) ∧
+   (* s'.ffi.final_event = NONE ∧ this is probably necessary *)
+   t = empty_state with clock := s.clock ∧
+   t' = empty_state with <| clock := s'.clock; refs := s'.refs |>
+   ⇒
+   evaluate t env es = (t',Rval r)`,
+  cheat);
+
+val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
+  `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (cond o b (f x))) ⇒ Arrow a b f v`,
+  rw[app_basic_def,Arrow_def,AppReturns_def,evaluate_closure_def,emp_def,SPLIT_emp1] \\
+  first_x_assum drule \\
+  fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
+  fs[cond_def,SPLIT3_emp1] \\
+  ffi2heap_def
+  disch_then(
+    qspec_then`ARB with
+      <| refs := [];
+         ffi := ARB with <| final_event := NONE ; oracle := λm x bytes. Oracle_fail |> |>`
+    mp_tac) \\
+  rw[] \\ instantiate \\
+  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\
+  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\ rw[] \\
+  imp_res_tac bigClockTheory.clocked_min_counter \\ fs[] \\
+  pop_assum mp_tac \\ pop_assum kall_tac \\
+  fs[bigClockTheory.big_clocked_unclocked_equiv,functional_evaluate] \\
+  rw[] \\
+  qexists_tac`s2.refs` \\
+  qexists_tac`ck - s2.clock` \\
+  match_mp_tac (INST_TYPE[alpha|->beta](GEN_ALL evaluate_imp_evaluate_empty_state)) \\
+  instantiate);
+
+val Arrow_eq_app_basic = Q.store_thm("Arrow_eq_app_basic",
+  `Arrow a b f v ⇔ (∀x v1. a x v1 ⇒ app_basic p v v1 emp (cond o b (f x)))`,
+  metis_tac[Arrow_IMP_app_basic,app_basic_IMP_Arrow]);
+
 val _ = export_theory ()
