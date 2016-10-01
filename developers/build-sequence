@@ -35,10 +35,6 @@ compiler/targets/mips/proofs
 compiler/targets/riscv/proofs
 compiler/proofs
 
-# compiler bootstrap
-compiler/bootstrap/translation
-compiler/bootstrap/evaluation
-
 # candle
 candle/set-theory
 candle/syntax-lib
@@ -56,3 +52,7 @@ explorer
 compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
+
+# compiler bootstrap
+compiler/bootstrap/translation
+compiler/bootstrap/evaluation
