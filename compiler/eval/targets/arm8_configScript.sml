@@ -1,8 +1,8 @@
 open HolKernel boolLib bossLib lcsymtacs
 
-open arm6_targetLib asmLib;
+open arm8_targetLib asmLib;
 
-val _ = new_theory"arm_config";
+val _ = new_theory"arm8_config";
 
 val rconc = rhs o concl
 
@@ -11,14 +11,14 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 (* TODO: may need to change *)
-val data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=0; len_size:=8|>``
+val data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=0; len_size:=16|>``
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
-val word_conf = ``<| bitmaps := []:32 word list |>``
-val stack_conf = ``<|reg_names:=arm_names;max_heap:=1000000|>``
-val lab_conf = ``<|labels:=LN;asm_conf:=arm6_config;init_clock:=5|>``
+val word_conf = ``<| bitmaps := []:64 word list |>``
+val stack_conf = ``<|reg_names:=arm8_names;max_heap:=1000000|>``
+val lab_conf = ``<|labels:=LN;asm_conf:=arm8_config;init_clock:=5|>``
 
-val arm_compiler_config_def = Define`
-  arm_compiler_config =
+val arm8_compiler_config_def = Define`
+  arm8_compiler_config =
              <|source_conf:=^(source_conf);
                mod_conf:=^(mod_conf);
                clos_conf:=^(clos_conf);
@@ -31,13 +31,13 @@ val arm_compiler_config_def = Define`
                |>`;
 
 val tes = EVAL
-  ``let c = arm_compiler_config in
+  ``let c = arm8_compiler_config in
       names_ok c.stack_conf.reg_names
          c.lab_conf.asm_conf.reg_count
          c.lab_conf.asm_conf.avoid_regs``
 
 val must_be_callee_saved = EVAL
-  ``let c = arm_compiler_config in
+  ``let c = arm8_compiler_config in
     let n = (c.lab_conf.asm_conf.reg_count -
                (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)) in
     let xs = [n;n+1;n+2n] in
