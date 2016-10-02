@@ -15,13 +15,13 @@ val _ = PolyML.print_depth 5;
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes conf prog =
+fun to_bytes alg conf prog =
   let
   val _ = println "Compile to livesets"
   val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=1;col_oracle:= ^(oracles)|>``
+  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
+  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
   val _ = println "Repeat compilation with oracle"
   (*This repeats the "to_livesets" step, but that isn't very costly*)
   val compile_thm = Count.apply eval``
@@ -756,7 +756,7 @@ val hello = entire_program_def |> concl |> rand
 val benchmarks = [nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
 val names = ["nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
 
-val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
+val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
@@ -770,6 +770,25 @@ val benchmarks_bytes = map extract_bytes benchmarks_compiled
 val _ = write_asm (zip names benchmarks_bytes);
 
 val _ = map save_thm (zip names benchmarks_compiled);
+
+(*
+(*Turning down the register allocator*)
+val benchmarks_compiled2 = map (to_bytes 0 ``x64_compiler_config``) benchmarks
+val benchmarks_bytes2 = map extract_bytes benchmarks_compiled2
+val _ = write_asm (zip names benchmarks_bytes2);
+
+(* Turn off clos optimizations*)
+val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+val benchmarks_compiled3 = map (to_bytes 0 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_bytes3 = map extract_bytes benchmarks_compiled3
+val _ = write_asm (zip names benchmarks_bytes3);
+
+(* Turn off bvl_to_bvi optimzations ?*)
+val bvl_o0 =  ``<|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|>``
+val benchmarks_compiled4 = map (to_bytes 0 ``x64_compiler_config with <|clos_conf:=^(clos_o0);bvl_conf:=^(bvl_o0)|>``) benchmarks
+val benchmarks_bytes4 = map extract_bytes benchmarks_compiled4
+val _ = write_asm (zip names benchmarks_bytes4);
+*)
 
 (*val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``

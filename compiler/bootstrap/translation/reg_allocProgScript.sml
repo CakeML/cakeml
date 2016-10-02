@@ -200,4 +200,27 @@ val _ = translate reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+(*
+misc code to generate the unverified register allocator in SML
+
+(* This normally gets generated inside word_alloc's translation *)
+val _ = translate (clash_tree_to_spg_def |> REWRITE_RULE [MEMBER_INTRO])
+
+open ml_progLib astPP
+
+val ML_code_prog =
+  get_ml_prog_state ()
+  |> clean_state |> remove_snocs
+  |> get_thm
+
+val prog = ML_code_prog |> concl |> strip_comb |> #2 |> el 3
+
+val _ = enable_astPP()
+
+val _ = trace("pp_avoids_symbol_merges",0)
+val t = TextIO.openOut("reg_alloc.sml")
+val _ = TextIO.output(t,term_to_string prog)
+val _ = TextIO.closeOut(t)
+
+*)
 val _ = export_theory();
