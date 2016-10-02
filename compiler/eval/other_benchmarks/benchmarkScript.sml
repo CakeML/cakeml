@@ -20,7 +20,7 @@ fun to_bytes eval conf prog =
   val _ = println "Compile to livesets"
   val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc init)))
+  val oracles = reg_allocComputeLib.get_oracle 3 (fst (pairSyntax.dest_pair (rconc init)))
   val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
   val _ = println "Repeat compilation with oracle"
   (*This repeats the "to_livesets" step, but that isn't very costly*)

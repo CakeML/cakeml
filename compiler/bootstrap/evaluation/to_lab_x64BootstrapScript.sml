@@ -232,7 +232,7 @@ val to_livesets_thm =
 val oracles =
   to_livesets_thm
   |> rconc |> pairSyntax.dest_pair |> #1
-  |> time reg_allocComputeLib.get_oracle
+  |> time (reg_allocComputeLib.get_oracle 3)
 
 val x64_oracle_def = mk_def"x64_oracle" oracles;
 
