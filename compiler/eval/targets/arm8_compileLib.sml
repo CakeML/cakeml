@@ -7,7 +7,7 @@ val _ = ParseExtras.temp_loose_equality()
 
 open arm8_targetLib asmLib;
 open compilerComputeLib;
-open arm8_configTheory
+open configTheory
 
 val cmp = wordsLib.words_compset ()
 val () = computeLib.extend_compset
@@ -17,7 +17,7 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [arm8_configTheory.arm8_compiler_config_def]
+      [configTheory.arm8_compiler_config_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

@@ -7,7 +7,7 @@ val _ = ParseExtras.temp_loose_equality()
 
 open riscv_targetLib asmLib;
 open compilerComputeLib;
-open riscv_configTheory
+open configTheory
 
 val cmp = wordsLib.words_compset ()
 val () = computeLib.extend_compset
@@ -17,7 +17,7 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [riscv_configTheory.riscv_compiler_config_def]
+      [configTheory.riscv_compiler_config_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

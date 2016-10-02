@@ -613,7 +613,7 @@ val nqueens =
 
 val benchmarks = [nqueens,foldl,reverse,fib,btree,queue,qsort]
 val names = ["nqueens","foldl","reverse","fib","btree","queue","qsort"]
-val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 fun save_th conf (str,th)=
   save_thm (conf^"_"^str,th)
@@ -642,5 +642,19 @@ val x64_benchmarks_compiled = map (to_bytes x64_compileLib.eval ``x64_compiler_c
 val x64_benchmarks_bytes = map extract_bytes x64_benchmarks_compiled
 
 val _ = map (save_th "x64") (zip names x64_benchmarks_compiled);
+
+open arm_exportLib arm8_exportLib mips_exportLib riscv_exportLib x64_exportLib
+
+fun write_asm prefix exporter [] = ()
+  | write_asm prefix exporter ((name,(bytes,ffi_count))::xs) =
+    (exporter 1000 1000 (numSyntax.int_of_term ffi_count)
+       bytes ("cakeml/" ^ prefix ^"_"^ name ^ ".S") ;
+    write_asm prefix exporter xs)
+
+val _ = write_asm "arm" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes);
+val _ = write_asm "arm8" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes);
+val _ = write_asm "mips" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes);
+val _ = write_asm "riscv" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes);
+val _ = write_asm "x64" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes);
 
 val _ = export_theory ();
