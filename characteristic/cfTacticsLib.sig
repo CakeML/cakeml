@@ -32,7 +32,7 @@ sig
      to the value; the introduced name will be deduced from the
      variable of the lambda.
 
-     Example: [xlet `\i. & INT 3 i`]
+     Example: [xlet `POSTv i. & INT 3 i`]
   *)
   val xlet : term quotation -> tactic
 
@@ -104,7 +104,7 @@ sig
   val xmatch : tactic
 
   (* [xffi] applies on characteristic formulae for ffi operations, of the form
-  [cf_ffi ...].
+     [cf_ffi ...].
 
   *)
   val xffi : tactic

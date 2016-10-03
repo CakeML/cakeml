@@ -68,7 +68,7 @@ val list_length_spec = store_thm ("list_length_spec",
    !x1..xn argv1.. argvm.
      facts_about_xi_argvj x1 .. xn .. argv1 .. argvm ==>
      app (p:'ffi ffi_proj) ^(fetch_v "name" st) [argv1, argv2,...]
-       precondition (\v. postcondition v)
+       precondition postcondition
 
    where:
 
@@ -84,20 +84,36 @@ val list_length_spec = store_thm ("list_length_spec",
      logic, using the predicates defined in ml_translatorTheory,
      and/or contain any necessary logical preconditions;
 
-   - [precondition] and [postcondition v] are heap predicates (of type
-     [hprop]), and describe the memory heap respectively before and
-     after the execution of the function.
+   - [precondition] is a heap predicate (of type [hprop]), and describe
+     the memory heap before the execution of the function.
      The syntax for heap predicates includes:
      - [emp]: the empty heap
      - [H1 * H2]: separating conjunction (H1, H2: hprop)
      - [& P]: a pure fact (P: bool)
      - [H1 ==>> H2]: heap implication (H1, H2: hprop)
-     - [REF r v]: a reference cell (
+     - [REF r v]: a reference cell
      - [ARRAY r lv]: an array
 
      NB: it is always better to put pure preconditions as logical
      preconditions (in [facts_about_xi_argvj]) than in the
      precondition heap.
+
+   - [postcondition] describes the state of the heap after the
+     execution of the function.
+
+     As the function may either return, producing a value, or raise an
+     exception, several helper functions are provided for writing
+     post-conditions:
+
+     - [POSTv v. Q] is a post-condition that asserts that the function
+       will always reduce to a value, here bound to [v], and that the
+       heap predicate [Q] (of type [hprop]) must be satisfied;
+     - [POSTe v. Q] is similar, but for functions that always raise an
+       exception;
+     - [POST Qv Qe] is the general case: [Qv] of type [v -> hprop] is
+       the post-condition for when the function returns a value, and
+       [Qe] (also of type [v -> hprop]) is the post-condition for when
+       the function raises an exception.
 *)
   ``!a l lv.
      LIST_TYPE a l lv ==>
