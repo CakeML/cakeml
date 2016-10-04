@@ -173,25 +173,19 @@ val riscv_names_def = Define `
      0 avoided (hardwired zero)
      2 avoided (stack pointer)
      31 avoided (used by encoder)
+     3 avoid regs means 29 regs available for CakeML
+     constraints:
+       the last 3 of these (26, 27, 28) must be mapped to callee saved regs
+       0 1 and 2 must be mapped to link reg (1), 1st arg (10), 2nd arg (11)
   *)
   (insert 0 1 o
    insert 1 10 o
    insert 2 11 o
-   insert 3 12 o
-   insert 4 13 o
-   insert 5 14 o
-   insert 6 15 o
-   insert 7 16 o
-   insert 8 17 o
+   insert 28 8 o
    (* the rest to make the mapping well-formed *)
-   insert 10 3 o
-   insert 11 4 o
-   insert 12 5 o
-   insert 13 6 o
-   insert 14 7 o
-   insert 15 8 o
-   insert 16 10 o
-   insert 17 11) LN:num num_map`;
+   insert 8 28 o
+   insert 10 29 o
+   insert 11 30) LN:num num_map`;
 
 val riscv_names_def = save_thm("riscv_names_def",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
