@@ -164,6 +164,7 @@ val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
 
 val riscv_names_def = Define `
+  riscv_names =
   (* arguments: 10-17
        including return values: 10-11
      temporaries: 5-7, 28-31
