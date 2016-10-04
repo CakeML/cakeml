@@ -206,8 +206,12 @@ val riscv_config_def = Define`
    <| ISA := RISC_V
     ; encode := riscv_enc
     ; reg_count := 32
-    ; avoid_regs := [0; 1]
-    ; link_reg := SOME 31
+    (* calling conventions: https://riscv.org/specifications/, p109
+       0 - hardwired zero
+       2 - stack pointer
+       31 - used by encoder above (TODO: currently 1 is used, it should be swapped to 31) *)
+    ; avoid_regs := [0; 2; 31]
+    ; link_reg := SOME 1
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F

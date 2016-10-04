@@ -163,6 +163,37 @@ val mips_names_def = Define `
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
 
-val riscv_names_def = Define `riscv_names = mips_names`;
+val riscv_names_def = Define `
+  (* arguments: 10-17
+       including return values: 10-11
+     temporaries: 5-7, 28-31
+     return address: 1
+     saved regs: 8-9, 18-27
+     3 = global pointer, 4 = thread pointer (not sure if they need to be avoided)
+     0 avoided (hardwired zero)
+     2 avoided (stack pointer)
+     31 avoided (used by encoder)
+  *)
+  (insert 0 1 o
+   insert 1 10 o
+   insert 2 11 o
+   insert 3 12 o
+   insert 4 13 o
+   insert 5 14 o
+   insert 6 15 o
+   insert 7 16 o
+   insert 8 17 o
+   (* the rest to make the mapping well-formed *)
+   insert 10 3 o
+   insert 11 4 o
+   insert 12 5 o
+   insert 13 6 o
+   insert 14 7 o
+   insert 15 8 o
+   insert 16 10 o
+   insert 17 11) LN:num num_map`;
+
+val riscv_names_def = save_thm("riscv_names_def",
+  CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
 val _ = export_theory();
