@@ -221,7 +221,9 @@ val norm_def = tDefine "norm" `
     (let (args', ns, bi) = norm_list F T ns args in
      let b = FLAT (REVERSE bi) in (* right-to-left evaluation *)
      wrap_if_needed as_value ns (Con x args') b) /\
-  norm is_named as_value ns (Raise e) = ARB /\
+  norm is_named as_value ns (Raise e) =
+    (let (e',ns,b) = norm F T ns e in
+     wrap_if_needed as_value ns (Raise e') b) /\
   norm is_named as_value ns (Log l e1 e2) =
     (let (e1', n1, b1) = norm F T ns e1 in
      let (e2', n2, b2) = norm F T n1 e2 in
@@ -251,7 +253,11 @@ val norm_def = tDefine "norm" `
      let (rows', ni) = norm_rows n1 e2 in
      let e' = Mat e1' rows' in
      wrap_if_needed as_value ni e' b1) /\
-  norm is_named as_value ns (Handle e1 e2) = ARB /\
+  norm is_named as_value ns (Handle e1 e2) =
+    (let (e1',n1) = protect F ns e1 in
+     let (rows', ni) = norm_rows n1 e2 in
+     let e' = Handle e1' rows' in
+     wrap_if_needed as_value ni e' []) /\
   norm is_named as_value ns (If e1 e2 e3) =
     (let (e1', ns, b) = norm F T ns e1 in
      let (e2', ns) = protect F ns e2 in

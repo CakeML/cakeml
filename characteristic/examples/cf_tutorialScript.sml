@@ -68,7 +68,7 @@ val list_length_spec = store_thm ("list_length_spec",
    !x1..xn argv1.. argvm.
      facts_about_xi_argvj x1 .. xn .. argv1 .. argvm ==>
      app (p:'ffi ffi_proj) ^(fetch_v "name" st) [argv1, argv2,...]
-       precondition (\v. postcondition v)
+       precondition postcondition
 
    where:
 
@@ -84,25 +84,41 @@ val list_length_spec = store_thm ("list_length_spec",
      logic, using the predicates defined in ml_translatorTheory,
      and/or contain any necessary logical preconditions;
 
-   - [precondition] and [postcondition v] are heap predicates (of type
-     [hprop]), and describe the memory heap respectively before and
-     after the execution of the function.
+   - [precondition] is a heap predicate (of type [hprop]), and describe
+     the memory heap before the execution of the function.
      The syntax for heap predicates includes:
      - [emp]: the empty heap
      - [H1 * H2]: separating conjunction (H1, H2: hprop)
      - [& P]: a pure fact (P: bool)
      - [H1 ==>> H2]: heap implication (H1, H2: hprop)
-     - [REF r v]: a reference cell (
+     - [REF r v]: a reference cell
      - [ARRAY r lv]: an array
 
      NB: it is always better to put pure preconditions as logical
      preconditions (in [facts_about_xi_argvj]) than in the
      precondition heap.
+
+   - [postcondition] describes the state of the heap after the
+     execution of the function.
+
+     As the function may either return, producing a value, or raise an
+     exception, several helper functions are provided for writing
+     post-conditions:
+
+     - [POSTv v. Q] is a post-condition that asserts that the function
+       will always reduce to a value, here bound to [v], and that the
+       heap predicate [Q] (of type [hprop]) must be satisfied;
+     - [POSTe v. Q] is similar, but for functions that always raise an
+       exception;
+     - [POST Qv Qe] is the general case: [Qv] of type [v -> hprop] is
+       the post-condition for when the function returns a value, and
+       [Qe] (also of type [v -> hprop]) is the post-condition for when
+       the function raises an exception.
 *)
   ``!a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
-       emp (\v. & NUM (LENGTH l) v)``,
+       emp (POSTv v. & NUM (LENGTH l) v)``,
 
   (* Let's reason by induction on [l].
   *)
@@ -151,7 +167,7 @@ val list_length_spec = store_thm ("list_length_spec",
        We get two subgoals, one for proving that this intermediate
        post-condition holds, and one for the rest of the proof.
     *)
-    xlet `\xs_len. & NUM (LENGTH xs) xs_len`
+    xlet `POSTv xs_len. & NUM (LENGTH xs) xs_len`
     THEN1 (
 
       (* [cf_app...] goal: we use [xapp].
@@ -187,11 +203,11 @@ val bytearray_fromlist_spec = Q.prove (
   `!l lv.
      LIST_TYPE WORD l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "fromList" st) [lv]
-       emp (\av. W8ARRAY av l)`,
+       emp (POSTv av. W8ARRAY av l)`,
   xcf "fromList" st \\
-  xlet `\w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
-  xlet `\len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
-  xlet `\av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
+  xlet `POSTv w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
+  xlet `POSTv len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
+  xlet `POSTv av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
     THEN1 (xapp \\ fs []) \\
 
   (* [cf_fun] and [cf_fun_rec] goals are handled by [xfun] and
@@ -218,7 +234,7 @@ val bytearray_fromlist_spec = Q.prove (
         ==>
        app p f [lvs; iv]
          (W8ARRAY av (l_pre ++ rest))
-         (\ret. & (ret = av) * W8ARRAY av (l_pre ++ ls))`
+         (POSTv ret. & (ret = av) * W8ARRAY av (l_pre ++ ls))`
   THEN1 (
     (* We get the specification to prove as a first subgoal
     *)
@@ -239,11 +255,11 @@ val bytearray_fromlist_spec = Q.prove (
       rename1 `rest = rest_h :: rest_t` \\ rw [] \\
 
       (* Sequences are encoded as lets, so we can just use [xlet] here *)
-      xlet `\_. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
+      xlet `POSTv _. W8ARRAY av (l_pre ++ h :: rest_t)` THEN1 (
         xapp \\ xsimpl \\ fs [UNIT_TYPE_def] \\ instantiate \\
         fs [lupdate_append]
       ) \\
-      xlet `\ippv. & NUM (LENGTH l_pre + 1) ippv * W8ARRAY av (l_pre ++ h::rest_t)`
+      xlet `POSTv ippv. & NUM (LENGTH l_pre + 1) ippv * W8ARRAY av (l_pre ++ h::rest_t)`
       THEN1 (
         xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate \\
         (* tedious? *) fs [INT_def] \\ intLib.ARITH_TAC

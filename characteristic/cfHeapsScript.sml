@@ -34,7 +34,7 @@ val hchange_lemma = store_thm ("hchange_lemma",
 (* local = frame rule + consequence rule + garbage collection *)
 
 val local_def = Define `
-  local cf (H: hprop) (Q: v -> hprop) =
+  local cf (H: hprop) (Q: res -> hprop) =
     !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
       cf H1 Q1 /\

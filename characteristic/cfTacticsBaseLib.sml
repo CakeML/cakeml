@@ -395,53 +395,6 @@ fun print_dcc direction t = (
   REFL_CONSEQ_CONV t
 )
 
-type subterm_cont =
-     (term -> term) * (conseq_conv -> conseq_conv)
-
-type cont_conseq_conv = term -> thm * subterm_cont
-
-fun STEP_CONT_CONSEQ_CONV ccc t = fst (ccc t)
-
-fun THEN_CONT_CONSEQ_CONV ccc1 ccc2 t =
-  let val (thm1, (subtm1, cont1)) = ccc1 t
-      val t1 = CONSEQ_CONV___GET_SIMPLIFIED_TERM thm1 t
-      val t1_subtm = subtm1 t1
-  in
-    let val (subthm2, (subtm2, cont2)) = ccc2 t1_subtm
-        val subthm2 = snd (CONSEQ_CONV_WRAPPER___CONVERT_RESULT
-                             CONSEQ_CONV_STRENGTHEN_direction
-                             subthm2 t1_subtm)
-                           handle UNCHANGED => subthm2
-        val thm2 = cont1 (fn _ => subthm2) t1
-        val thm = THEN_CONSEQ_CONV___combine thm1 thm2 t
-        val subtm = subtm2 o subtm1
-        val cont = cont1 o cont2
-    in
-       (thm, (subtm, cont))
-    end handle UNCHANGED =>
-      (thm1, (subtm1, cont1))
-  end handle UNCHANGED =>
-    ccc2 t
-
-fun ORELSE_CONT_CONSEQ_CONV ccc1 ccc2 t =
-  ccc1 t handle HOL_ERR _ => ccc2 t
-
-fun EVERY_CONT_CONSEQ_CONV [] t = raise UNCHANGED
-  | EVERY_CONT_CONSEQ_CONV (ccc::L) t =
-    THEN_CONT_CONSEQ_CONV ccc (EVERY_CONT_CONSEQ_CONV L) t
-
-fun LOOP_CONT_CONSEQ_CONV ccc t =
-  let val ret = ccc t
-  in THEN_CONT_CONSEQ_CONV (fn _ => ret) (LOOP_CONT_CONSEQ_CONV ccc) t end
-
-fun INPLACE_CONT_CONSEQ_CONV cc t = (cc t, (I, I))
-
-val REFL_CONT_CONSEQ_CONV =
-  INPLACE_CONT_CONSEQ_CONV REFL_CONSEQ_CONV
-
-fun TRY_CONT_CONSEQ_CONV ccc =
-  ORELSE_CONT_CONSEQ_CONV ccc REFL_CONT_CONSEQ_CONV
-
 (*----------------------------------------------------------------------------*)
 (* A conseq_conv that instantiate evars of the goal to match the conclusion
    of the rewriting theorem, using unification
