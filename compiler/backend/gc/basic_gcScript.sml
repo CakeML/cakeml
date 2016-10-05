@@ -5,7 +5,7 @@ val _ = new_theory "basic_gc";
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
 (* Copying GC which moves references to the end of the heap. This
-implementation is a pre-stage to the generational GC. *)
+   implementation is a pre-stage to the generational GC. *)
 
 val _ = Datatype `
   basic_gc_conf =
@@ -460,20 +460,23 @@ val gc_move_thm = prove(
   \\ fs [isSomeDataElement_def]
   \\ imp_res_tac heap_lookup_SPLIT
   \\ rw []
+  \\ pairarg_tac
+  \\ simp []
+  \\ full_simp [gc_forward_ptr_thm]
+  \\ simp [heap_map1_def]
   (* isRef *)
   >-
-    (pairarg_tac
-    \\ simp []
-    \\ full_simp [gc_forward_ptr_thm]
-    \\ simp [heap_map1_def]
-    \\ qabbrev_tac `r = state.a + (state.n − (l + 1))`
+    (qabbrev_tac `r = state.a + (state.n − (l + 1))`
     \\ qabbrev_tac `rheap = state.r4 ++ state.r3 ++ state.r2 ++ state.r1`
     \\ qabbrev_tac `lheap = state.h1 ++ state.h2`
     \\ assume_tac (heap_map_ForwardPointer_lemma |> Q.SPEC `r`)
     \\ `l+1 <= state.n` by all_tac
-    >- cheat                    (* simple *)
-    \\ `~(heap_length ha IN FDOM (heap_map 0 (ha ++ DataElement ys l d::hb)))` by all_tac
-    >- full_simp_tac std_ss [NOT_IN_heap_map]
+    >- (fs [gc_inv_def]
+       \\ qpat_assum `_ = state.n` (assume_tac o GSYM)
+       \\ full_simp []
+       \\ simp [FILTER_APPEND,heap_length_APPEND,
+               isForwardPointer_def,heap_length_def,el_length_def,SUM_APPEND])
+    \\ assume_tac NOT_IN_heap_map
     \\ qpat_assum `_ = heap` (assume_tac o GSYM)
     \\ full_simp []
     \\ rpt strip_tac
@@ -548,7 +551,6 @@ val gc_move_thm = prove(
       (`j = r` by all_tac
       >- full_simp [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
       \\ simp []
-      (* \\ rename1 *)
       \\ `~(is_final conf state' r)` by all_tac
       >- (simp [is_final_def]
          \\ unabbrev_all_tac
@@ -662,9 +664,189 @@ val gc_move_thm = prove(
        \\ rpt strip_tac
        \\ res_tac
        \\ simp []))
-
     (* ~conf.isRef *)
-  \\ cheat);
+  \\ qabbrev_tac `rheap = state.r4 ++ state.r3 ++ state.r2 ++ state.r1`
+  \\ qabbrev_tac `lheap = state.h1 ++ state.h2`
+  \\ qpat_abbrev_tac `state' = state with <| h2 := _; a := _; n := _; ok := ok; heap := _ |>`
+  \\ assume_tac (heap_map_ForwardPointer_lemma |> Q.SPEC `state.a`)
+  \\ `l+1 <= state.n` by all_tac
+  >- (fs [gc_inv_def]
+     \\ qpat_assum `_ = state.n` (assume_tac o GSYM)
+     \\ full_simp []
+     \\ simp [FILTER_APPEND,heap_length_APPEND,
+             isForwardPointer_def,heap_length_def,el_length_def,SUM_APPEND])
+  \\ assume_tac NOT_IN_heap_map
+  \\ qpat_assum `_ = heap` (assume_tac o GSYM)
+  \\ full_simp []
+  \\ rpt strip_tac
+  >- fs []
+  >- fs []
+  >- metis_tac [isSomeDataOrForward_lemma_expanded]
+  \\ full_simp [gc_inv_def,LET_THM] \\ simp [gc_state_component_equality]
+  \\ full_simp []
+  \\ rpt strip_tac \\ TRY (unabbrev_all_tac \\ fs [gc_state_component_equality] \\ NO_TAC)
+  >- (unabbrev_all_tac
+     \\ simp [gc_state_component_equality]
+     \\ simp [heap_length_APPEND,heap_length_def,el_length_def])
+  >- (unabbrev_all_tac
+     \\ simp [gc_state_component_equality]
+     \\ qpat_x_assum `_ = state.n` mp_tac
+     \\ simp [FILTER_APPEND,heap_length_APPEND,
+             isForwardPointer_def,heap_length_def,el_length_def,SUM_APPEND])
+  >- (unabbrev_all_tac
+     \\ simp [gc_state_component_equality]
+     \\ qpat_x_assum `_ = conf.limit` mp_tac
+     \\ simp [heap_length_APPEND,heap_length_def,el_length_def])
+  >- (unabbrev_all_tac
+     \\ simp [gc_state_component_equality]
+     \\ qpat_x_assum `heaps_similar _ _` mp_tac
+     \\ once_rewrite_tac [CONS_APPEND]
+     \\ simp [] \\ strip_tac
+     \\ drule heaps_similar_lemma
+     \\ fs [])
+  >- (unabbrev_all_tac
+     \\ simp [gc_state_component_equality]
+     \\ fs [isDataElement_def])
+  >- (qabbrev_tac `heap' = ha ++ DataElement ys l d::hb` (* BIJ *)
+     \\ simp [gc_state_component_equality]
+     \\ `~(state.a IN heap_addresses 0 lheap)` by all_tac
+     >- (unabbrev_all_tac
+        \\ qpat_x_assum `_ = state.a` (assume_tac o GSYM)
+        \\ simp []
+        \\ fs [NOT_IN_heap_addresses_gt])
+     \\ `~(state.a IN heap_addresses (state.a + state.n) rheap)` by all_tac
+     >- (unabbrev_all_tac
+        \\ qpat_x_assum `_ = state.a` (assume_tac o GSYM)
+        \\ simp []
+        \\ fs [NOT_IN_heap_addresses_less])
+     \\ `heap_addresses state.a [DataElement ys l d]
+         = state.a INSERT {}` by all_tac
+     >- simp [heap_addresses_def]
+     \\ `(λa'. (heap_map 0 heap' |+ (heap_length ha,state.a)) ' a') =
+           ((heap_length ha =+ state.a) (\a. heap_map 0 heap' ' a))` by all_tac
+     >- simp [FUN_EQ_THM,APPLY_UPDATE_THM,FAPPLY_FUPDATE_THM]
+     \\ unabbrev_all_tac \\ simp [gc_state_component_equality]
+     \\ simp [heap_map1_def]
+     \\ drule BIJ_UPDATE
+     \\ simp [heap_map1_def]
+     \\ disch_then drule
+     \\ simp [IN_UNION]
+     \\ ntac 2 (disch_then drule)
+     \\ `heap_addresses 0 (state.h1 ++ state.h2 ++ [DataElement ys l d]) =
+         heap_addresses 0 (state.h1 ++ state.h2) UNION {state.a}` by all_tac
+     >- simp [heap_addresses_APPEND]
+     \\ simp [UNION_COMM]
+     \\ once_rewrite_tac [GSYM UNION_ASSOC]
+     \\ simp [GSYM INSERT_SING_UNION])
+  \\ Cases_on `i = heap_length ha`
+  >- (`j = state.a` by all_tac
+     >- (unabbrev_all_tac \\ fs [gc_state_component_equality]
+        \\ rfs []
+        \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM])
+     \\ simp []
+     \\ `~(is_final conf state' state.a)` by all_tac
+     >- (simp [is_final_def]
+        \\ unabbrev_all_tac \\ simp [gc_state_component_equality]
+        \\ qpat_x_assum `heap_length _ = state.a` (assume_tac o GSYM)
+        \\ simp []
+        \\ fs [heap_length_APPEND])
+     \\ simp []
+     \\ `heap_lookup (heap_length ha) heap0 = SOME (DataElement ys l d)` by all_tac
+     >- (imp_res_tac heap_similar_Data_IMP
+        \\ simp [heap_lookup_PREFIX])
+     \\ simp []
+     \\ Q.UNABBREV_TAC `state'` \\ fs [gc_state_component_equality]
+     (* \\ qpat_x_assum `heap_length _ = state.a` (assume_tac o GSYM) *)
+     (* \\ simp [] *)
+     \\ ntac 5 (once_rewrite_tac [GSYM APPEND_ASSOC])
+     \\ once_rewrite_tac [GSYM CONS_APPEND]
+     \\ qpat_x_assum `heap_length _ = state.a` (assume_tac)
+     \\ drule heap_lookup_LENGTH
+     \\ simp [])
+
+  \\ `FLOOKUP (heap_map 0 (ha ++ DataElement ys l d::hb)) i = SOME j` by all_tac
+  >- (Q.UNABBREV_TAC `state'` \\ fs [gc_state_component_equality]
+     \\ rfs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM])
+  \\ qpat_x_assum `! i j:num. _` (mp_tac o Q.SPECL [`i`,`j`])
+  \\ fs [] \\ strip_tac \\ fs []
+  (* \\ Q.UNABBREV_TAC `state'` \\ fs [gc_state_component_equality] *)
+  \\ `heap_lookup j (lheap ++ heap_expand state.n ++ state.r4 ++ state.r3 ++ state.r2 ++ state.r1)
+     = heap_lookup j (state'.h1 ++ state'.h2 ++ heap_expand state'.n ++ state'.r4 ++ state'.r3 ++ state'.r2 ++ state'.r1)` by all_tac
+  >- (Cases_on `j = heap_length lheap`
+     >- (unabbrev_all_tac \\ fs []
+        \\ `F` by all_tac \\ fs []
+        \\ qpat_x_assum `heap_lookup _ _ = SOME _` mp_tac
+        \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ once_rewrite_tac [heap_lookup_APPEND]
+        \\ IF_CASES_TAC \\ simp []
+        >- fs [heap_length_APPEND]
+        \\ qpat_x_assum `_ = state.a` (mp_tac o GSYM)
+        \\ fs [heap_length_APPEND]
+        \\ strip_tac \\ simp []
+        \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ once_rewrite_tac [heap_lookup_APPEND]
+        \\ simp []
+        \\ simp [heap_lookup_def,heap_expand_def])
+     \\ qpat_x_assum `heap_lookup _ _ = SOME _` (assume_tac o GSYM)
+     \\ Q.UNABBREV_TAC `state'` \\ fs [gc_state_component_equality]
+     (* \\ rewrite_tac [GSYM APPEND_ASSOC] *)
+     (* \\ once_rewrite_tac [GSYM CONS_APPEND] *)
+     \\ ntac 4
+        (once_rewrite_tac [heap_lookup_APPEND]
+        \\ match_mp_tac IMP_if_equal
+        \\ strip_tac
+        >- (fs [heap_length_APPEND,heap_length_heap_expand]
+           \\ simp [heap_length_def,el_length_def])
+        \\ reverse strip_tac
+        >- (fs [heap_length_APPEND,heap_length_heap_expand]
+           \\ simp [heap_length_def,el_length_def])
+        \\ strip_tac)
+     \\ rewrite_tac [GSYM APPEND_ASSOC]
+     \\ once_rewrite_tac [heap_lookup_APPEND]
+     \\ match_mp_tac IMP_if_equal
+     \\ simp []
+     \\ strip_tac
+     \\ Cases_on `j - state.a = 0`
+     >- (simp []
+        \\ `F` by all_tac
+        \\ qpat_x_assum `SOME _ = heap_lookup _ _` (mp_tac o GSYM)
+        \\ rewrite_tac [GSYM APPEND_ASSOC]
+        \\ once_rewrite_tac [heap_lookup_APPEND]
+        \\ fs [])
+     \\ cheat                   (* heap_lookup Unused *)
+     (* \\ simp [heap_expand_def] *)
+     (* \\ rw [heap_lookup_def] *)
+     (* \\ fs [el_length_def] *)
+     (* \\ unabbrev_all_tac \\ fs [] *)
+     (* \\ pop_assum mp_tac *)
+     (* \\ IF_CASES_TAC \\ fs [] *)
+     (* \\ qpat_x_assum `_ = state.a` (assume_tac o GSYM) *)
+     )
+  \\ fs []
+  \\ `is_final conf state j = is_final conf state' j` by all_tac
+  >- (simp [is_final_def]
+     \\ unabbrev_all_tac \\ fs [gc_state_component_equality])
+  \\ simp []
+  \\ strip_tac
+  >- (match_mp_tac IMP_if_equal
+     \\ simp []
+     \\ strip_tac
+     \\ simp [heap_map1_def]
+     \\ unabbrev_all_tac \\ fs [gc_state_component_equality]
+     \\ qpat_x_assum `heap_map 0 _ = heap_map 0 _ |+ _` mp_tac
+     \\ once_rewrite_tac [CONS_APPEND]
+     \\ simp [APPEND_ASSOC]
+     \\ strip_tac \\ simp []
+     (* \\ res_tac \\ fs [] *)
+     \\ match_mp_tac ADDR_MAP_EQ
+     \\ simp [FAPPLY_FUPDATE_THM]
+     \\ metis_tac [])
+   \\ pop_assum (assume_tac o GSYM)
+   \\ simp []
+   \\ unabbrev_all_tac \\ fs [gc_state_component_equality]
+   \\ rpt strip_tac
+   \\ res_tac
+   \\ simp []);
 
 val gc_move_ALT = store_thm("gc_move_ALT",
   ``gc_move conf state y =
