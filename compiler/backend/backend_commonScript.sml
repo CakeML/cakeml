@@ -2,8 +2,7 @@ open HolKernel Parse boolLib bossLib;
 open preamble
 
 val _ = new_theory "backend_common";
-
-val _ = numLib.prefer_num();
+val _ = set_grammar_ancestry ["arithmetic"]
 
 (* these must match what the prim_types_program generates *)
 
