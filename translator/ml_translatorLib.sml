@@ -1947,13 +1947,9 @@ fun get_induction_for_def def = let
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
                        :: aux xs
     in (rev o aux o rev) xs end
-  fun dest_fun_app tm = let
-    val (x,y) = dest_comb tm
-    val (f,args) = dest_fun_app x
-    in (f,args @ [y]) end handle HOL_ERR _ => (tm,[])
   fun f tm = let
     val (lhs,rhs) = dest_eq tm
-    val (const,args) = dest_fun_app lhs
+    val (const,args) = strip_comb lhs
     val vargs = mk_arg_vars args
     val args = pairSyntax.list_mk_pair args
     in (const,vargs,args,rhs) end
@@ -2011,13 +2007,9 @@ fun mutual_to_single_line_def def = let
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
                        :: aux xs
     in (rev o aux o rev) xs end
-  fun dest_fun_app tm = let
-    val (x,y) = dest_comb tm
-    val (f,args) = dest_fun_app x
-    in (f,args @ [y]) end handle HOL_ERR _ => (tm,[])
   fun f tm = let
     val (lhs,rhs) = dest_eq tm
-    val (const,args) = dest_fun_app lhs
+    val (const,args) = strip_comb lhs
     val vargs = mk_arg_vars args
     in (const,vargs,args,rhs) end
   val cs = def |> CONJUNCTS |> map (f o concl o SPEC_ALL)

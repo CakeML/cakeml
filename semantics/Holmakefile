@@ -3,29 +3,40 @@ INCLUDES = .. $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/example
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS)
+all: $(TARGETS) addancs
 .PHONY: all
 
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
 LEM_OPT = -wl_unused_vars ign
 
-SRC = tokens ast semanticPrimitives smallStep funBigStep bigStep typeSystem primTypes
+SRC = tokens semanticPrimitives smallStep funBigStep bigStep typeSystem primTypes
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
+LEM_CMD = lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -i ffi/ffi.lem -hol
+
 $(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
- 	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -i ffi/ffi.lem -hol $(LEMS);\
- 	else touch $(GENS); fi
+	if type lem;\
+	then $(LEM_CMD) $(LEMS);\
+	else touch $(GENS); fi
+
+astScript.sml: ast.lem ../lib.lem ffi/ffi.lem addancs
+	if type lem; then $(LEM_CMD) ast.lem ; else touch astScript.sml ; fi
+	./addancs astScript.sml integer words string
 
 ifdef POLY
 HOLHEAP = heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o addancs
 
 BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../basicComputeLib ffi/ffiTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 all: $(HOLHEAP)
+
+addancs: addancs.sml
+	$(POLYC) -o $@ $<
+
+
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS) ASCIInumbersTheory

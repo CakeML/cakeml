@@ -1,6 +1,7 @@
-open preamble bvlTheory;
+open preamble closLangTheory;
 
 val _ = new_theory "bvi";
+val _ = set_grammar_ancestry ["closLang" (* for op *)]
 
 (* BVI = bytecode-value intermediate language *)
 

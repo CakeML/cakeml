@@ -3,6 +3,7 @@ open semanticPrimitivesTheory evalPropsTheory;
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
+(* val _ = set_grammar_ancestry ["source_to_mod"] *)
 
 (* value relation *)
 
@@ -1578,8 +1579,8 @@ val alookup_alloc_defs_bounds_rev = Q.prove(
   DECIDE_TAC);
 
 val letrec_global_env_lem = Q.prove (
-  `!funs funs' (env:v environment) v x.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) x = SOME v ∧
+  `!funs funs' env v x.
+    ALOOKUP (MAP (λ(fn,n,e). (fn,semanticPrimitives$Recclosure env funs' fn)) funs) x = SOME v ∧
     ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
     ⇒
     v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs))`,

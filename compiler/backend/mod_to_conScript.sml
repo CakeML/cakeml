@@ -12,6 +12,8 @@ open backend_commonTheory
  *)
 
 val _ = new_theory"mod_to_con"
+val _ = set_grammar_ancestry ["backend_common", "modLang", "conLang",
+                              "semanticPrimitives" (* for TypeId *)]
 
 (* for each constructor, its arity, tag, and type *)
 val _ = type_abbrev( "flat_tag_env" , ``:conN |-> (num # num # tid_or_exn)``);
