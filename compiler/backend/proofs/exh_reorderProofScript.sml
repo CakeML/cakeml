@@ -205,18 +205,25 @@ val isPcon_def = Define`
 val find_match_may_drop = Q.store_thm ("find_match_may_drop",
     `! b a. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a)) /\ (EVERY (\x. isPcon (FST x)) a)) ==>
      ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
+     
+     HERE
+
      Induct_on `a`
      \\ fs []
      \\ ntac 2 gen_tac
-     \\ rw []
+     \\ strip_tac
      >- (
-        fs []
-        \\ rw [Once find_match_def]
-        \\ fs []
-        \\ res_tac
-        \\ every_case_tac
-        \\ fs []
-
+        res_tac
+        \\ fs [] \\ rfs []
+        \\ rw []
+        \\ Cases_on `pmatch refs (FST h) v []`
+        >- (
+            rw [Once find_match_def]
+            >- (
+             rw [Once find_match_def]
+             \\ fs []
+            )
+        )
      )
 
 
