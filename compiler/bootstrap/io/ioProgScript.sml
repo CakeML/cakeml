@@ -98,20 +98,20 @@ val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
   ``!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (\v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
   prove_array_spec "Word8Array.array");
 
 val w8array_sub_spec = store_thm ("w8array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (\v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.sub");
 
 val w8array_length_spec = store_thm ("w8array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (\v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.length");
 
 val w8array_update_spec = store_thm ("w8array_update_spec",
@@ -120,7 +120,7 @@ val w8array_update_spec = store_thm ("w8array_update_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (\v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
   prove_array_spec "Word8Array.update");
 
 
