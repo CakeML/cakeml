@@ -173,39 +173,81 @@ val _ = temp_overload_on ("None",``NONE``)
 val _ = temp_overload_on ("Some",``SOME``)
 val _ = temp_overload_on ("Length",``LENGTH``)
 
+(*
 val find_match_aux_def = Define`
     find_match_aux refs v [] i = NONE /\
     find_match_aux refs v (p::ps) i = 
         if ALL_DISTINCT (pat_bindings p []) then
             case pmatch refs p v [] of
             | Match env' => SOME i
+            | Match_type_error => None
             | _ => find_match_aux refs v ps (SUC i)
         else NONE
-    `
+  `
+
+  *)
+
 
 val find_match_def = Define`
-    find_match refs v ps = 
-        find_match_aux refs v ps 0
-`
+    find_match refs v [] = NONE /\
+    find_match refs v (pe::pes) = 
+        if ALL_DISTINCT (pat_bindings (FST pe) []) then
+            case pmatch refs (FST pe) v [] of
+            | Match env' => SOME (SND pe)
+            | Match_type_error => None
+            | _ => find_match refs v pes
+        else NONE `
 
-(*connection between evaluate_match and find_match*)
-val evaluate_match_find_match_none = Q.store_thm ("evaluate_match_find_match",
-    `!i. find_match_aux s.refs v (MAP FST pes) i = NONE ==>
+val isPcon_def = Define`
+    (isPcon (Pcon _ _) = T) /\
+    isPcon _ = F`
+
+val find_match_may_drop = Q.store_thm ("find_match_may_drop",
+    `! b a. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a)) /\ (EVERY (\x. isPcon (FST x)) a)) ==>
+     ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
+     Induct_on `a`
+     \\ fs []
+     \\ ntac 2 gen_tac
+     \\ rw []
+     >- (
+        fs []
+        \\ rw [Once find_match_def]
+        \\ fs []
+        \\ res_tac
+        \\ every_case_tac
+        \\ fs []
+
+     )
+
+
+val evaluate_match_find_match_none = Q.store_thm ("evaluate_match_find_match_none",
+    `find_match s.refs v pes = NONE ==>
             evaluate_match env s v pes = (s, Rerr(Rabort Rtype_error))
             `,
     Induct_on `pes`
-    \\ fs [find_match_aux_def, evaluate_def]
+    \\ fs [find_match_def, evaluate_def]
     \\ Cases
     \\ fs [evaluate_def]
-    \\ gen_tac \\ strip_tac
+    \\ rw []
     \\ simp [Once pmatch_nil]
     \\ every_case_tac
-    \\ fs []
-    \\ res_tac 
+    \\ fs [evaluate_def,find_match_def]
 )
+(*
+val find_match_mono = Q.store_thm ("find_match_mono",
+    `!n i. find_match_aux refs v pes n = Some i ==> n <= i /\ (i - n < Length pes)`,
+    Induct_on `pes`
+    \\ fs [find_match_aux_def]
+    \\ rw []
+    \\ every_case_tac \\ fs [] \\ res_tac \\ fs []
+    )
+*)
+
+val find_match_lift_one = Q.store_thm ("find_match_lift_one",
+    ` find_match s.refs v (a++[b]++c) = find_match s.refs v (b::a++c)`
 
 (*connection between evaluate_match and find_match*)
-val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match",
+val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match_some",
     `!n i. find_match_aux s.refs v (MAP FST pes) n = Some (n + i) ==>
             (i < Length pes /\
             ? env'. pmatch s.refs (FST (EL i pes)) v env = 
@@ -219,22 +261,41 @@ val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match",
     \\ ntac 2 gen_tac 
     \\ fs [ADD1]
     \\ TOP_CASE_TAC
-    here...
-    does i = 0 ?? is that insane ? 
-     
     \\ strip_tac
-    \\ simp [Once pmatch_nil]
-    \\ every_case_tac
+    \\ imp_res_tac find_match_mono
+    \\ Cases_on `i` \\ fs [ADD1]
     \\ fs []
-    \\ res_tac 
+    \\ first_x_assum (qspecl_then [`n+1`,`n'`] mp_tac)
+    \\ fs []
+    \\ strip_tac \\ fs []
+    \\ rw [pmatch_nil]
+)
+
+val evaluate_match_find_match = Q.store_thm("evaluate_match_find_match",
+    `(find_match s.refs v (MAP FST pes) = None ==> 
+        evaluate_match env s v pes = (s, Rerr (Rabort Rtype_error))) /\
+      find_match s.refs v (MAP FST pes) = Some i ==>
+        (i < Length pes /\
+            ? env'. pmatch s.refs (FST (EL i pes)) v env = 
+                Match env' /\
+                    evaluate_match env s v pes = evaluate env' s [(SND (EL i pes))]) `,
+    rw [find_match_def]
+    \\ METIS_TAC [evaluate_match_find_match_none,evaluate_match_find_match_some, LENGTH_MAP, ADD_CLAUSES]
 )
 
 
-(*prove the connection to const_fst*)
+val cons_cons_sep_meh = Q.store_thm("const_cons_sep_meh",
+    ` find_match s.refs v (MAP FST (x++[y]++)) `
 
-        
-    
-`
+
+val find_match_const_cons_fst = Q.store_thm("find_match_const_cons_fst_some",
+    `
+      (find_match s.refs v (MAP FST pes) = Some i) ==>
+      ?j. (find_match s.refs v (MAP FST (const_cons_fst pes)) = Some j) /\ 
+          (EL j (const_cons_fst pes)) = (EL i pes)`,
+      fs [const_cons_fst_def, find_match_def]
+      \\ 
+
 
 val compile_correct = Q.store_thm( "compile_correct",
     `(!env ^s es s1 r1. 
