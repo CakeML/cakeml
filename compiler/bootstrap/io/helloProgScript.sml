@@ -174,12 +174,12 @@ val write_spec = store_thm ("write_spec",
        (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [CHR (w2n c)]))``,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\zv. STDOUT output * W8ARRAY write_loc [c] *
-                & (UNIT_TYPE () zv)`
+  \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
+                     & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `\_. STDOUT (output ++ [CHR (w2n c)]) * W8ARRAY write_loc [c]`
+  \\ xlet `POSTv _. STDOUT (output ++ [CHR (w2n c)]) * W8ARRAY write_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
@@ -199,12 +199,12 @@ val main_spec = store_thm ("main",
       app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
         [cv]
         (CHAR_IO * STDOUT "")
-        (\uv. CHAR_IO * STDOUT "Hi")``,
+        (POSTv uv. CHAR_IO * STDOUT "Hi")``,
   xcf "main" (basis_st())
-  \\ xlet `\v. CHAR_IO * STDOUT "H"` THEN1
+  \\ xlet `POSTv v. CHAR_IO * STDOUT "H"` THEN1
    (xapp \\ qexists_tac `emp` \\ qexists_tac `""` \\ qexists_tac `n2w (ORD #"H")`
     \\ xsimpl)
-  \\ xlet `\v. CHAR_IO * STDOUT "Hi"` THEN1
+  \\ xlet `POSTv v. CHAR_IO * STDOUT "Hi"` THEN1
    (xapp \\ qexists_tac `emp` \\ qexists_tac `"H"` \\ qexists_tac `n2w (ORD #"i")`
     \\ xsimpl)
   \\ xvar \\ fs [] \\ xsimpl);

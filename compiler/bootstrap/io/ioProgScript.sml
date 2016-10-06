@@ -239,16 +239,16 @@ val can_read_spec = store_thm ("can_read_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.can_read" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (\uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)``,
+       (POSTv uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)``,
   xcf "CharIO.can_read" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
+  \\ xlet `POSTv wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
   THEN1
    (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
     \\ `MEM 1 [1n;2]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ fs [stdin_fun_def])
-  \\ xlet `\zv. STDIN input * W8ARRAY write_loc [if input = "" then 0w else 1w] *
-                & (WORD (if input = "" then 0w:word8 else 1w) zv)`
+  \\ xlet `POSTv zv. STDIN input * W8ARRAY write_loc [if input = "" then 0w else 1w] *
+                     & (WORD (if input = "" then 0w:word8 else 1w) zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ xsimpl \\ fs [])
@@ -261,16 +261,16 @@ val read_spec = store_thm ("read_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.read" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (\uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))``,
+       (POSTv uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))``,
   xcf "CharIO.read" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
+  \\ xlet `POSTv wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
   THEN1
    (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
     \\ `MEM 2 [1n;2]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ fs [stdin_fun_def])
-  \\ xlet `\zv. STDIN (TL input) * W8ARRAY write_loc [n2w (ORD (HD input))] *
-                & (WORD (n2w (ORD (HD input)):word8) zv)`
+  \\ xlet `POSTv zv. STDIN (TL input) * W8ARRAY write_loc [n2w (ORD (HD input))] *
+                     & (WORD (n2w (ORD (HD input)):word8) zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ xsimpl \\ fs [])
@@ -284,15 +284,15 @@ val write_spec = store_thm ("write_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\zv. STDOUT output * W8ARRAY write_loc [c] *
-                & (UNIT_TYPE () zv)`
+  \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
+                     & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY write_loc [c]`
+  \\ xlet `POSTv _. STDOUT (output ++ [c]) * W8ARRAY write_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
@@ -323,7 +323,7 @@ val write_list_spec = store_thm ("write_list_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (\uv. CHAR_IO * STDOUT (output ++ xs))``,
+       (POSTv uv. CHAR_IO * STDOUT (output ++ xs))``,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -331,7 +331,7 @@ val write_list_spec = store_thm ("write_list_spec",
   \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
-  \\ xlet `\uv. CHAR_IO * STDOUT (output ++ [h])`
+  \\ xlet `POSTv uv. CHAR_IO * STDOUT (output ++ [h])`
   THEN1
    (xapp \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
@@ -351,31 +351,31 @@ val read_all_spec = store_thm ("read_all_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "read_all" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (\uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))``,
+       (POSTv uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))``,
   Induct_on `input`
   THEN1
    (xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
-    \\ xlet `\v. CHAR_IO * STDIN "" * &(UNIT_TYPE () v)`
+    \\ xlet `POSTv v. CHAR_IO * STDIN "" * &(UNIT_TYPE () v)`
     THEN1 (xcon \\ fs [] \\ xsimpl)
-    \\ xlet `\bv. CHAR_IO * STDIN "" * &(BOOL F bv)`
+    \\ xlet `POSTv bv. CHAR_IO * STDIN "" * &(BOOL F bv)`
     THEN1
      (xapp \\ fs [PULL_EXISTS]
       \\ qexists_tac `emp` \\ qexists_tac `""` \\ xsimpl)
     \\ xif \\ instantiate
     \\ xapp \\ instantiate \\ xsimpl)
   \\ xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
-  \\ xlet `\v. CHAR_IO * STDIN (h::input) * &(UNIT_TYPE () v)`
+  \\ xlet `POSTv v. CHAR_IO * STDIN (h::input) * &(UNIT_TYPE () v)`
   THEN1 (xcon \\ fs [] \\ xsimpl)
-  \\ xlet `\bv. CHAR_IO * STDIN (h::input) * &(BOOL T bv)`
+  \\ xlet `POSTv bv. CHAR_IO * STDIN (h::input) * &(BOOL T bv)`
   THEN1
    (xapp \\ fs [PULL_EXISTS]
     \\ qexists_tac `emp` \\ qexists_tac `h::input` \\ xsimpl)
   \\ xif \\ instantiate \\ fs []
-  \\ xlet `\cv. CHAR_IO * STDIN input * &(CHAR h cv)`
+  \\ xlet `POSTv cv. CHAR_IO * STDIN input * &(CHAR h cv)`
   THEN1
    (xapp \\ qexists_tac `emp` \\ fs []
     \\ qexists_tac `h::input` \\ fs [] \\ xsimpl)
-  \\ xlet `\x. CHAR_IO * STDIN input * &(LIST_TYPE CHAR (h::xs) x)`
+  \\ xlet `POSTv x. CHAR_IO * STDIN input * &(LIST_TYPE CHAR (h::xs) x)`
   THEN1 (xcon \\ fs [] \\ xsimpl \\ fs [LIST_TYPE_def])
   \\ xapp
   \\ instantiate \\ xsimpl
