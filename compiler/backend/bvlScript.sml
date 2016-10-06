@@ -1,6 +1,9 @@
 open preamble closLangTheory backend_commonTheory
 
 val _ = new_theory "bvl";
+val _ = set_grammar_ancestry [
+   "closLang", (* for op *) "backend_common" (* for tags *)
+]
 
 (* BVL = bytecode-value language *)
 

@@ -1,6 +1,7 @@
 open preamble closLangTheory clos_freeTheory;
 
 val _ = new_theory "clos_annotate";
+val _ = set_grammar_ancestry ["closLang", "clos_free"]
 
 (* shift renames variables to use only those in the annotations *)
 
