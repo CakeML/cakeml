@@ -207,10 +207,7 @@ val mips_target_def = Define`
     ; proj := mips_proj
     |>`
 
-val (mips_config, mips_asm_ok) =
-  asmLib.target_asm_rwts
-    [DECIDE ``a < 32 /\ a <> 0n /\ a <> 1n = 1 < a /\ a < 32``]
-    ``mips_config``
+val (mips_config, mips_asm_ok) = asmLib.target_asm_rwts [] ``mips_config``
 
 val mips_config = save_thm("mips_config", mips_config)
 val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)

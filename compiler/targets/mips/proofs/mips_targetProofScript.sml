@@ -58,7 +58,7 @@ val lem4 =
 val lem5 = Q.prove(
    `!s state.
      target_state_rel mips_target s state ==>
-     !n. 1 < n /\ n < 32 ==>
+     !n. n < 32 /\ n <> 0 /\ n <> 1 /\ n <> 26 /\ n <> 27 /\ n <> 29 ==>
          (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5`,
    lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def]
    )
@@ -108,8 +108,6 @@ val lem10 =
                 c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5;
                 c ' 4; c ' 3; c ' 2; c ' 1; c ' 0]: word16) = c)``
 
-val lem11 = DECIDE ``!i. i < 32 /\ i <> 0 /\ i <> 1 = 1 < i /\ i < 32n``
-
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
 
 val adc_lem1 = Q.prove(
@@ -118,7 +116,7 @@ val adc_lem1 = Q.prove(
 
 val adc_lem2 = Q.prove(
   `!r2 : word64 r3 : word64.
-    (18446744073709551616 <= w2n r2 + (w2n r3 + 1) =
+    (18446744073709551616 <= w2n r2 + w2n r3 + 1 =
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
     (18446744073709551616 <= w2n r2 + w2n r3 =
      18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
@@ -229,17 +227,22 @@ end
 
 fun state_tac asm =
    NO_STRIP_FULL_SIMP_TAC (srw_ss())
-      [asmPropsTheory.all_pcs, mips_ok_def, lem11,
+      [asmPropsTheory.all_pcs, mips_ok_def,
        asmPropsTheory.sym_target_state_rel, mips_target_def, mips_config,
        alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, lem8, lem9]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
          \\ Cases_on `i = n2`
-         \\ simp [combinTheory.UPDATE_APPLY, adc_lem1]
-         >- (Cases_on `r4 = 0w` \\ simp [adc_lem2] \\ blastLib.BBLAST_TAC)
+         \\ asm_simp_tac (srw_ss()) [combinTheory.UPDATE_APPLY, adc_lem1]
+         >- (Cases_on `r4 = 0w`
+             \\ asm_simp_tac (srw_ss()) [adc_lem2]
+             \\ blastLib.BBLAST_TAC
+            )
          \\ Cases_on `i = n`
-         \\ simp [combinTheory.UPDATE_APPLY, GSYM wordsTheory.word_add_n2w]
-         \\ rw [bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``,
+         \\ asm_simp_tac (srw_ss())
+              [combinTheory.UPDATE_APPLY, GSYM wordsTheory.word_add_n2w]
+         \\ srw_tac []
+               [bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``,
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
          rw [combinTheory.APPLY_UPDATE_THM,

@@ -18,7 +18,8 @@ val arm6_asm_ok =
   REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_asm_ok
 
 val lem1 = Q.prove(
-   `!n m. n < 15 ==> RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15`,
+   `!n m. n < 16 /\ n <> 13 /\ n <> 15 ==>
+          RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15`,
    CONV_TAC (Conv.ONCE_DEPTH_CONV SYM_CONV)
    \\ simp [arm_stepTheory.R_x_pc]
    )
@@ -35,11 +36,11 @@ val lem5 =
 
 val lem6 = Q.prove(
    `!s state c n.
-      target_state_rel arm6_target s state /\ n < 15 /\
+      target_state_rel arm6_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
       aligned 2 (c + s.regs n) ==>
       aligned 2 (c + state.REG (R_mode state.CPSR.M (n2w n)))`,
    rw [asmPropsTheory.target_state_rel_def, alignmentTheory.aligned_extract,
-       arm6_target_def, arm6_config_def]
+       arm6_target_def, arm6_config_def, lem1]
    )
 
 val lem7 = Q.prove(
@@ -581,8 +582,7 @@ in
          [asmPropsTheory.sym_target_state_rel, arm6_target_def,
           asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
-          DECIDE ``a < 16 /\ a <> 15n = a < 15``]
+          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq]
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac

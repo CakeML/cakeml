@@ -156,7 +156,7 @@ val arm6_config_def = Define`
     ; encode := arm6_enc
     ; code_alignment := 2
     ; reg_count := 16
-    ; avoid_regs := [13;15]
+    ; avoid_regs := [13; 15]
     ; link_reg := SOME 14
     ; has_mem_32 := F
     ; two_reg_arith := F
@@ -184,9 +184,7 @@ val arm6_target_def = Define`
     ; proj := arm6_proj
     |>`
 
-val (arm6_config, arm6_asm_ok) =
-  asmLib.target_asm_rwts [DECIDE ``a < 16 /\ a <> 15n = a < 15``]
-    ``arm6_config``
+val (arm6_config, arm6_asm_ok) = asmLib.target_asm_rwts [] ``arm6_config``
 
 val arm6_config = save_thm("arm6_config", arm6_config)
 val arm6_asm_ok = save_thm("arm6_asm_ok", arm6_asm_ok)
