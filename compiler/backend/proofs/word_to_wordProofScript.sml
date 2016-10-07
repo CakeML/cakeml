@@ -158,8 +158,8 @@ val compile_single_correct = prove(``
           rst.code = st.code ∧
           rst1 = rst with code:=l``,
   (*recInduct doesn't seem to give a nice induction thm*)
-  completeInduct_on`((st:('a,'b)state).termdep)`>>
-  completeInduct_on`((st:('a,'b)state).clock)`>>
+  completeInduct_on`((st:('a,'b)wordSem$state).termdep)`>>
+  completeInduct_on`((st:('a,'b)wordSem$state).clock)`>>
   simp[PULL_FORALL]>>
   completeInduct_on`prog_size (K 0) (prog:'a wordLang$prog)`>>
   rpt strip_tac>>

@@ -7,6 +7,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
 val _ = new_theory "data_to_wordProof";
 
 (* TODO: move *)
+val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
 
 val WORD_MUL_BIT0 = store_thm("WORD_MUL_BIT0",
   ``!a b. (a * b) ' 0 <=> a ' 0 /\ b ' 0``,
