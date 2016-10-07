@@ -5,6 +5,7 @@ val _ = new_theory "wordLang";
 (* word lang = structured program with words, stack and memory *)
 
 val _ = Parse.type_abbrev("shift",``:asm$shift``);
+val _ = ParseExtras.tight_equality()
 
 val _ = Datatype `
   num_exp = Nat num

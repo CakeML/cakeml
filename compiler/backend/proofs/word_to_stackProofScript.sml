@@ -5,6 +5,12 @@ open preamble semanticsPropsTheory stackSemTheory wordSemTheory
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_stackProof";
+val _ = set_grammar_ancestry [
+  "stackProps", (* for extract_labels *)
+  "wordProps",
+  "labProps", (* for good_dimindex *)
+  "stackSem", "wordSem", "word_to_stack"
+]
 
 val TWOxDIV2 = Q.store_thm("TWOxDIV2",
   `2 * x DIV 2 = x`,
@@ -1502,7 +1508,8 @@ val gc_state_rel = prove(
   \\ metis_tac[]);
 
 val alloc_alt = prove(
-  ``FST (alloc c names (s:('a,'ffi) wordSem$state)) <> SOME (Error:'a result) ==>
+  ``FST (alloc c names (s:('a,'ffi) wordSem$state)) <>
+    SOME (Error:'a wordSem$result) ==>
     (alloc c names (s:('a,'ffi) wordSem$state) =
      case cut_env names s.locals of
        NONE => (SOME Error,s)
@@ -1512,7 +1519,7 @@ val alloc_alt = prove(
            NONE => (SOME Error,s)
          | SOME s' =>
              case pop_env s' of
-               NONE => (SOME (Error:'a result),s')
+               NONE => (SOME Error,s')
              | SOME s' =>
                  case FLOOKUP s'.store AllocSize of
                    NONE => (SOME Error,s')
@@ -1556,6 +1563,7 @@ val MEM_index_list_EL = prove(``
   pop_assum SUBST_ALL_TAC>>
   simp[])
 
+val _ = type_abbrev("result", ``:'a wordSem$result``)
 val alloc_IMP_alloc = prove(
   ``(wordSem$alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
@@ -2449,7 +2457,7 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
 
 val IS_SOME_get_vars_set_var = Q.store_thm("IS_SOME_get_vars_set_var",
   `∀ls s.
-    IS_SOME (get_vars ls s) ⇒
+    IS_SOME (wordSem$get_vars ls s) ⇒
     IS_SOME (get_vars ls (set_var k v s))`,
   Induct \\ simp[get_vars_def]
   \\ rw[] \\ every_case_tac \\ fs[IS_SOME_EXISTS,PULL_EXISTS]
@@ -2458,7 +2466,8 @@ val IS_SOME_get_vars_set_var = Q.store_thm("IS_SOME_get_vars_set_var",
   \\ res_tac \\ fs[]);
 
 val IS_SOME_get_vars_EVERY = Q.store_thm("IS_SOME_get_vars_EVERY",
-  `∀xs s. IS_SOME (get_vars xs s) ⇔ EVERY (λx. IS_SOME (get_var x s)) xs`,
+  `∀xs s.
+     IS_SOME (wordSem$get_vars xs s) ⇔ EVERY (λx. IS_SOME (get_var x s)) xs`,
   Induct \\ simp[get_vars_def,EVERY_MEM]
   \\ rw[] \\ every_case_tac \\ fs[EVERY_MEM]
   \\ metis_tac[IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES]);
@@ -3085,7 +3094,8 @@ val wRegWrite1_thm2 = Q.store_thm("wRegWrite1_thm2",
   \\ simp[stackSemTheory.get_var_def,Once stackSemTheory.set_var_def]
   \\ simp[Once stackSemTheory.set_var_def]
   \\ simp[FLOOKUP_UPDATE]>>
-  `∀A B. set_var 0 v' A with stack:= B = set_var 0 v' (A with stack:=B)` by
+  `∀A B. stackSem$set_var 0 v' A with stack:= B =
+         set_var 0 v' (A with stack:=B)` by
     fs[stackSemTheory.set_var_def]>>
   simp[]>>
   match_mp_tac (state_rel_set_var |> Q.GEN`x`|>Q.SPEC`0`|>SIMP_RULE std_ss[])>>
@@ -3960,7 +3970,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
             reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
             word_allocTheory.max_var_exp_def,list_max_def]
     \\ simp[EQ_MULT_LCANCEL]
-    \\ qpat_abbrev_tac`tt = set_var (k+1) _ _`
+    \\ qpat_abbrev_tac`tt = stackSem$set_var (k+1) _ _`
     \\ `state_rel k f f' s tt lens` by simp[Abbr`tt`]
     \\ disch_then (fn th => drule th >> mp_tac th)
     \\ pop_assum kall_tac
@@ -6535,7 +6545,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
   simp[] >> strip_tac >>
   disch_then drule >>
   simp[] >> strip_tac >>
-  qmatch_assum_abbrev_tac`n < LENGTH (SND (evaluate (exps,ss))).ffi.io_events` >>
+  qmatch_assum_abbrev_tac`n < LENGTH (SND (stackSem$evaluate (exps,ss))).ffi.io_events` >>
   Q.ISPECL_THEN[`exps`,`ss`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
   disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`ss`]>>strip_tac>>
   qexists_tac`k'`>>simp[]>>
