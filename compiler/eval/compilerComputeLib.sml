@@ -37,6 +37,13 @@ lab -> stack -> word -> ...
 
 *)
 
+structure Parse = struct
+  open Parse
+  val (Type,Term) = parse_from_grammars (merge_grammars ["backend"])
+end
+
+open Parse
+
 in
 
 val add_compiler_compset = computeLib.extend_compset
