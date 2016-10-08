@@ -354,9 +354,26 @@ val big_remove_clock = Q.store_thm("big_remove_clock",
   rw[bigClockTheory.big_clocked_unclocked_equiv] \\
   metis_tac[bigClockTheory.clocked_min_counter]);
 
-val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",
+val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
+  (∀(s:'a state) env e s' r.
+     evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
+  (∀(s:'a state) env v pes errv s' r.
+     evaluate_match s env v pes errv = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)`,
+  ho_match_mp_tac evaluate_ind
+  \\ rw[] \\ fs[evaluate_def]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
+  \\ fs[dec_clock_def]
+  \\ fs[evalPropsTheory.do_app_cases] \\ rw[]
+  \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
+  \\ rw[]);
+
+val big_refs_length_mono = Q.store_thm("big_refs_length_mono",
   `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`,
-  cheat);
+  Cases_on`ck`
+  \\ rw[functional_evaluate]
+  \\ fs[bigClockTheory.big_clocked_unclocked_equiv,functional_evaluate]
+  \\ imp_res_tac evaluate_refs_length_mono
+  \\ fs[]);
 
 val SPLIT_st2heap_length_leq = Q.store_thm("SPLIT_st2heap_length_leq",
   `SPLIT (st2heap p s') (g,st2heap p s) ∧
@@ -382,11 +399,24 @@ val SPLIT_st2heap_length_leq = Q.store_thm("SPLIT_st2heap_length_leq",
   \\ first_x_assum(qspec_then`Mem n (EL n s.refs)`mp_tac)
   \\ simp[]);
 
+val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
+  `SPLIT (st2heap p st') (g,st2heap p st) ⇒
+   st'.ffi.io_events = st.ffi.io_events ∧
+   st'.ffi.final_event = st.ffi.final_event`,
+   cheat);
+
 val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_same",
   `evaluate F env st exp (st',Rval res) ∧
    SPLIT (st2heap p st') (g,st2heap p st) ⇒
    st'.ffi = st.ffi`,
-   cheat);
+  rw[] \\
+  imp_res_tac SPLIT_st2heap_ffi \\
+  fs[bigClockTheory.big_clocked_unclocked_equiv] \\
+  fs[functional_evaluate] \\
+  imp_res_tac funBigStepPropsTheory.evaluate_io_events_mono_imp \\
+  fs[funBigStepPropsTheory.io_events_mono_def] \\
+  Cases_on`st.ffi.final_event` \\ fs[]);
+
 (*
     and that
     !x. SPLIT (st2heap p (st' with ffi := x)) (g,st2heap p (st with
@@ -624,7 +654,7 @@ val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
   drule SPLIT_st2heap_evaluate_ffi_same \\
   fs[st2heap_clock] \\ strip_tac \\
   drule SPLIT_st2heap_length_leq \\ simp[] \\
-  imp_res_tac evaluate_refs_length_mono \\ fs[] \\
+  imp_res_tac big_refs_length_mono \\ fs[] \\
   rw[IS_PREFIX_APPEND] \\
   qexists_tac`l` \\
   match_mp_tac (INST_TYPE[alpha|->beta](GEN_ALL evaluate_imp_evaluate_empty_state)) \\
