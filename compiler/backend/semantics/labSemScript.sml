@@ -15,7 +15,7 @@ val _ = Datatype `
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
      ; io_regs    : num -> num -> 'a word option  (* oracle *)
-     ; code       : 'a prog
+     ; code       : 'a labLang$prog
      ; clock      : num
      ; failed     : bool
      ; ptr_reg    : num
