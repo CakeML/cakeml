@@ -449,9 +449,8 @@ val do_app_NONE_ffi = Q.store_thm("do_app_NONE_ffi",
   \\ fs[store_assign_def,store_v_same_type_def]
   \\ every_case_tac \\ fs[]);
 
-(*
 val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
-  `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ⇒
+  `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ∧ ffi.final_event = NONE ⇒
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)`,
   rw[]
   \\ fs[evalPropsTheory.do_app_cases]
@@ -459,43 +458,7 @@ val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
   \\ fs[ffiTheory.call_FFI_def]
   \\ every_case_tac \\ fs[]
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
-*)
-
-(*
-val clocked_evaluate_ffi_sandwich = Q.prove(
-  `evaluate T env s exp (s',r) ∧
-   evaluate T env s' exp' (s'',r') ∧
-   s''.ffi = s.ffi ⇒ s'.ffi = s.ffi`,
-  rw[functional_evaluate] \\
-  metis_tac[evaluate_io_events_mono_imp,io_events_mono_trans,
-            io_events_mono_antisym]);
-
-val evaluate_ffi_sandwich = Q.prove(
-  `evaluate ck env s exp (s',r) ∧
-   evaluate ck env s' exp' (s'',r') ∧
-   s''.ffi = s.ffi ⇒ s'.ffi = s.ffi`,
-  Cases_on`ck` >- metis_tac[clocked_evaluate_ffi_sandwich] \\
-  rw[bigClockTheory.big_clocked_unclocked_equiv] \\
-  fs[functional_evaluate] \\
-  imp_res_tac evaluate_io_events_mono_imp \\ fs[] \\
-  metis_tac[io_events_mono_antisym]);
-
-val clocked_evaluate_match_ffi_sandwich = Q.prove(
-  `evaluate T env s exp (s',r) ∧
-   evaluate_match T env s' v pes errv (s'',r') ∧
-   s''.ffi = s.ffi ⇒ s'.ffi = s.ffi`,
-  rw[functional_evaluate,GSYM funBigStepEquivTheory.functional_evaluate_match] \\
-  metis_tac[evaluate_io_events_mono_imp,io_events_mono_trans,
-            io_events_mono_antisym]);
-
-val evaluate_match_ffi_sandwich = Q.prove(
-  `evaluate ck env s exp (s',r) ∧
-   evaluate_match ck env s' v pes errv (s'',r') ∧
-   s''.ffi = s.ffi ⇒ s'.ffi = s.ffi`,
-  Cases_on`ck` >- metis_tac[clocked_evaluate_match_ffi_sandwich] \\
-  rw[bigClockTheory.big_clocked_unclocked_equiv] (* TODO: this theorem needs extending *) \\
-  cheat);
-*)
+  \\ rfs[]);
 
 val evaluate_ffi_sandwich = Q.store_thm("evaluate_ffi_sandwich",
   `evaluate s env exp = (s',r) ∧
@@ -524,11 +487,10 @@ val option_CASE_fst_cong = Q.store_thm("option_CASE_fst_cong",
    (c, option_CASE r f (λb. g b))`,
   Cases_on`r` \\ fs[]);
 
-(*
 val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
-  (∀(s:'a state) env e s' r refs.
+  (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ∧
-     s'.ffi = s.ffi
+     s'.ffi = s.ffi ∧ s.ffi.final_event = NONE
      ⇒
      ∀(t:'b state).
        t.clock = s.clock ∧ t.refs = s.refs ∧
@@ -536,9 +498,9 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
        t.defined_mods = s.defined_mods
        ⇒
        evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs |>, r)) ∧
-  (∀(s:'a state) env v pes errv s' r refs.
+  (∀(s:'a state) env v pes errv s' r.
      evaluate_match s env v pes errv = (s',r) ∧
-     s'.ffi = s.ffi
+     s'.ffi = s.ffi ∧ s.ffi.final_event = NONE
      ⇒
      ∀(t:'b state).
        t.clock = s.clock ∧ t.refs = s.refs ∧
@@ -638,12 +600,114 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ imp_res_tac do_app_io_events_mono
     \\ imp_res_tac evaluate_io_events_mono_imp
     \\ imp_res_tac io_events_mono_antisym \\ fs[]
-*)
+    \\ imp_res_tac do_app_SOME_ffi_same \\ fs[]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- rw[state_component_equality]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rw[state_component_equality] ))
 
 val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
   `evaluate F env (empty_state with refs := s.refs) exp (empty_state with refs := s.refs ++ refs',Rval x) ⇒
    evaluate F env (s:'ffi state) exp (s with refs := s.refs ++ refs',Rval x)`,
-  cheat);
+  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
+  \\ fs[functional_evaluate]
+  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
+              INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``](
+                CONJUNCT1 evaluate_ffi_intro)))
+  \\ simp[]
+  \\ impl_tac >- EVAL_TAC
+  \\ disch_then(qspec_then`s with <| clock := c;
+                                     defined_types := empty_state.defined_types;
+                                     defined_mods := empty_state.defined_mods |>`mp_tac)
+  \\ simp[] \\ strip_tac
+  \\ `Rval [x] = list_result ((Rval x):(v,v) result)` by EVAL_TAC
+  \\ pop_assum SUBST_ALL_TAC
+  \\ fs[GSYM functional_evaluate]
+  \\ qmatch_assum_abbrev_tac`evaluate T env (ss with clock := c) exp (ss' with clock := 0, Rval x)`
+  \\ `evaluate F env ss exp (ss',Rval x)`
+  by (
+    simp[bigClockTheory.big_clocked_unclocked_equiv]
+    \\ asm_exists_tac
+    \\ fs[Abbr`ss'`] )
+  \\ drule (CONJUNCT1 evalPropsTheory.evaluate_ignores_types_mods)
+  \\ disch_then(qspecl_then[`s.defined_types`,`s.defined_mods`]mp_tac)
+  \\ simp[Abbr`ss`,Abbr`ss'`]
+  \\ qmatch_abbrev_tac`evaluate _ _ ss _ (tt,_) ⇒ evaluate _ _ s _ (t,_)`
+  \\ `ss = s` by simp[Abbr`ss`,state_component_equality]
+  \\ `tt = t` by simp[Abbr`tt`,Abbr`t`,state_component_equality]
+  \\ rw[] );
 
 val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty_state",
   `evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧ s.ffi.final_event = NONE ∧
@@ -651,7 +715,33 @@ val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty
    t' = empty_state with <| refs := s'.refs |>
    ⇒
    evaluate F env t es (t',Rval r)`,
-  cheat);
+  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
+  \\ fs[functional_evaluate]
+  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
+              INST_TYPE[beta|->oneSyntax.one_ty](
+                CONJUNCT1 evaluate_ffi_intro)))
+  \\ simp[]
+  \\ disch_then(qspec_then`empty_state with <| clock := c;
+                                     refs := s.refs;
+                                     defined_types := s.defined_types;
+                                     defined_mods := s.defined_mods |>`mp_tac)
+  \\ simp[] \\ strip_tac
+  \\ `Rval [r] = list_result ((Rval r):(v,v) result)` by EVAL_TAC
+  \\ pop_assum SUBST_ALL_TAC
+  \\ fs[GSYM functional_evaluate]
+  \\ qmatch_assum_abbrev_tac`evaluate T env (ss with clock := c) exp (ss' with clock := 0, Rval x)`
+  \\ `evaluate F env ss exp (ss',Rval x)`
+  by (
+    simp[bigClockTheory.big_clocked_unclocked_equiv]
+    \\ asm_exists_tac
+    \\ fs[Abbr`ss`,Abbr`ss'`] )
+  \\ drule (CONJUNCT1 evalPropsTheory.evaluate_ignores_types_mods)
+  \\ disch_then(qspecl_then[`empty_state.defined_types`,`empty_state.defined_mods`]mp_tac)
+  \\ simp[Abbr`ss`,Abbr`ss'`]
+  \\ qmatch_abbrev_tac`evaluate _ _ ss _ (tt,_) ⇒ evaluate _ _ sa _ (t,_)`
+  \\ `ss = sa` by simp[Abbr`ss`,Abbr`sa`,state_component_equality]
+  \\ `tt = t` by simp[Abbr`tt`,Abbr`t`,state_component_equality]
+  \\ rw[] );
 
 val Eval_def = Define `
   Eval env exp P =
