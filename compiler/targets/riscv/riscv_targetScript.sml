@@ -211,9 +211,10 @@ val riscv_config_def = Define`
     (* calling conventions: https://riscv.org/specifications/, p109
        0 - hardwired zero
        2 - stack pointer
+       3 - global pointer
        31 - used by encoder above
     *)
-    ; avoid_regs := [0; 2; 31]
+    ; avoid_regs := [0; 2; 3 ; 31]
     ; link_reg := SOME 1
     ; has_mem_32 := T
     ; two_reg_arith := F

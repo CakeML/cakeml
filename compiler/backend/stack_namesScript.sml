@@ -176,18 +176,18 @@ val riscv_names_def = Define `
      3 = global pointer, 4 = thread pointer (not sure if they need to be avoided)
      0 avoided (hardwired zero)
      2 avoided (stack pointer)
+     3 avoided (global pointer)
      31 avoided (used by encoder)
-     3 avoid regs means 29 regs available for CakeML
+     4 avoid regs means 28 regs available for CakeML
      constraints:
-       the last 3 of these (26, 27, 28) must be mapped to callee saved regs
+       the last 3 of these (25, 26, 27) must be mapped to callee saved regs
        0 1 and 2 must be mapped to link reg (1), 1st arg (10), 2nd arg (11)
   *)
   (insert 0 1 o
    insert 1 10 o
    insert 2 11 o
-   insert 28 8 o
+   insert 3 28 o
    (* the rest to make the mapping well-formed *)
-   insert 8 28 o
    insert 10 29 o
    insert 11 30) LN:num num_map`;
 

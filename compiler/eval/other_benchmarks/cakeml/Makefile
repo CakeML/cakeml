@@ -1,13 +1,14 @@
 CC = gcc
+RISCVCC = riscv64-unknown-elf-gcc
 
 SRCS = $(wildcard *.S)
 
-PROGS = $(patsubst %.S,cake_%,$(SRCS))
+RISCVPROGS = $(patsubst riscv_%.S,cake_riscv_%,$(SRCS))
 
-all: $(PROGS)
+all: $(RISCVPROGS)
 
-cake_% : %.S
-	$(CC) $< ffi.c -g -o $@
+cake_riscv_% : riscv_%.S
+	$(RISCVCC) $< ffi.c -g -o $@
 
 clean:
-	rm $(PROGS)
+	rm $(RISCVPROGS)
