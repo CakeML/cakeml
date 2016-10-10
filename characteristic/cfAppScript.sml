@@ -224,28 +224,6 @@ val spec_def = Define `
 (*------------------------------------------------------------------*)
 (* Relating [app] to [_ --> _] from the translator *)
 
-val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
-  ``(a --> b) f v ==>
-    !x v1.
-      a x v1 ==>
-      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. & b (f x) v)``,
-  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
-      ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
-      ml_translatorTheory.evaluate_closure_def,POSTv_def, PULL_EXISTS]
-  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
-  \\ rw [] \\ res_tac \\ instantiate
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ drule ml_translatorTheory.evaluate_empty_state_IMP
-  \\ disch_then (qspec_then `st` assume_tac)
-  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
-  \\ rename1 `evaluate _ _ (st with clock := ck) _ (_, Rval v')`
-  \\ GEN_EXISTS_TAC "ck" `ck` \\ qexists_tac `Val v'` \\ simp [cond_def]
-  \\ Q.LIST_EXISTS_TAC [`{}`, `st with clock := 0`]
-  \\ CONJ_TAC THEN_LT REVERSE_LT
-  THEN1 (prove_tac [bigStepTheory.evaluate_rules])
-  THEN1 (fs [st2heap_clock] \\ SPLIT_TAC)
-);
-
 val app_basic_weaken = store_thm("app_basic_weaken",
   ``(!x v. P x v ==> Q x v) ==>
     (app_basic p v v1 x P ==>
@@ -299,6 +277,8 @@ val app_basic_rel = store_thm("app_basic_rel",
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
 
+(* TODO: move to appropriate locations *)
+
 val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
   `FFI_part x1 x2 x3 ∉ store2heap refs`,
   rw[store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
@@ -338,9 +318,10 @@ val POSTv_cond = Q.store_thm("POSTv_cond",
   rw[POSTv_def]
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]);
 
-(* TODO: move to appropriate locations *)
-
 open terminationTheory funBigStepPropsTheory
+val functional_evaluate = ml_translatorTheory.functional_evaluate
+val evaluate_ffi_intro = ml_translatorTheory.evaluate_ffi_intro
+val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
 val big_remove_clock = Q.store_thm("big_remove_clock",
   `∀c ck env s e s' r.
@@ -446,7 +427,7 @@ val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
       a x v1 ==>
       app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)``,
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
-      Arrow_def,AppReturns_def,PULL_EXISTS]
+      ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
   \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
   \\ rw []
   \\ first_x_assum drule \\ strip_tac
@@ -476,7 +457,7 @@ val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
 
 val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
   `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒ Arrow a b f v`,
-  rw[app_basic_def,Arrow_def,AppReturns_def,emp_def,SPLIT_emp1] \\
+  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1] \\
   first_x_assum drule \\
   fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
   fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\
