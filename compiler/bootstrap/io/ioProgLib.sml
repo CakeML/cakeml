@@ -25,15 +25,15 @@ fun append_main_call compile_str compile_tm = let
         app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
           [cv]
           (CHAR_IO * STDIN input * STDOUT [])
-          (\uv. CHAR_IO * STDIN "" * STDOUT (^compile input))``,
+          (POSTv uv. CHAR_IO * STDIN "" * STDOUT (^compile input))``,
     xcf "main" (basis_st())
-    \\ xlet `\v. CHAR_IO * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
+    \\ xlet `POSTv v. CHAR_IO * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
     THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
-    \\ xlet `\x. CHAR_IO * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
+    \\ xlet `POSTv x. CHAR_IO * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
     THEN1
      (xapp \\ instantiate \\ xsimpl
       \\ qexists_tac `STDOUT []` \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
-    \\ xlet `\y. CHAR_IO * STDIN "" * STDOUT [] *
+    \\ xlet `POSTv y. CHAR_IO * STDIN "" * STDOUT [] *
                  &(LIST_TYPE WORD (^compile input) y)`
     THEN1 (xapp \\ instantiate \\ xsimpl)
     \\ xapp \\ instantiate \\ fs []
@@ -63,7 +63,11 @@ fun append_main_call compile_str compile_tm = let
        |> Q.SPEC `st2heap (p:'a ffi_proj) ^st`
        |> Q.SPEC `{}`
        |> Q.SPEC `^st`
-       |> SIMP_RULE std_ss [cfHeapsBaseTheory.SPLIT_emp2]
+       |> SIMP_RULE std_ss [PULL_EXISTS,
+            cfHeapsBaseTheory.res_case_def,
+            cfHeapsBaseTheory.POSTv_ignore,
+            cfHeapsBaseTheory.SPLIT3_emp3,
+            cfHeapsBaseTheory.SPLIT_emp2]
        |> Q.INST [`cv`|->`Litv (IntLit 0)`]
        |> SIMP_RULE std_ss [Once exists_lemma]
        |> SIMP_RULE std_ss [GSYM PULL_EXISTS,GSYM th]
