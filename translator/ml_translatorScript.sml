@@ -1890,6 +1890,13 @@ val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
 
 val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
+val Eval_constant = store_thm("Eval_constant",
+  ``!refs. Eval env exp P ==>
+      ?v refs'. evaluate F env (empty_state with refs := refs) exp (empty_state with refs := refs ++ refs', Rval v)``,
+  rw[Eval_def] \\
+  first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ METIS_TAC[]);
+
 val Eval_evaluate_IMP = store_thm("Eval_evaluate_IMP",
   ``Eval env exp P /\
     evaluate F env s exp (s', Rval v) ==>
