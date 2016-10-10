@@ -18,13 +18,125 @@ val EvalPatRel_def = Define`
          if ∃vars. pat vars = x
          then Rval(Conv NONE []) else Rerr(Rraise ARB))`
 
+(*
+  This is very similar to pmatch_list (see theorems proving connection below).
+  It omits some checks, which are unnecessary for the translator but needed in
+  the semantics; it thereby makes the translator's automation easier.
+*)
+val Pmatch_def = tDefine"Pmatch"`
+  (Pmatch env refs [] [] = SOME env) ∧
+  (Pmatch env refs (p1::p2::ps) (v1::v2::vs) =
+     case Pmatch env refs [p1] [v1] of | NONE => NONE
+     | SOME env' => Pmatch env' refs (p2::ps) (v2::vs)) ∧
+  (Pmatch env refs [Pvar x] [v] = SOME (write x v env)) ∧
+  (Pmatch env refs [Plit l] [Litv l'] =
+     if l = l' then SOME env else NONE) ∧
+  (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (n',t')) vs] =
+     case lookup_alist_mod_env n env.c of
+      | NONE => NONE
+     | SOME (l,t) =>
+       if same_tid t t' ∧ LENGTH ps = l ∧
+          same_ctor (id_to_n n, t) (n',t')
+       then Pmatch env refs ps vs
+       else NONE) ∧
+  (Pmatch env refs [Pcon NONE ps] [Conv NONE vs] =
+     if LENGTH ps = LENGTH vs then
+       Pmatch env refs ps vs
+     else NONE) ∧
+  (Pmatch env refs [Pref p] [Loc lnum] =
+   case store_lookup lnum refs of
+   | SOME (Refv v) => Pmatch env refs [p] [v]
+   | _ => NONE) ∧
+  (Pmatch env refs _ _ = NONE)`
+  (WF_REL_TAC`measure (pat1_size o FST o SND o SND)`)
+
+val Pmatch_ind = theorem"Pmatch_ind"
+
 val EvalPatBind_def = Define`
   EvalPatBind env a p pat vars env2 ⇔
-    ∃x av refs env'.
+    ∃x av refs.
       a x av ∧
-      (pmatch env.c refs p av env.v = Match env') ∧
-      (env2 = env with v := env') ∧
+      (Pmatch env refs [p] [av] = SOME env2) ∧
       (pat vars = x)`
+
+val Pmatch_cons = store_thm("Pmatch_cons",
+  ``∀ps vs.
+      Pmatch env refs (p::ps) (v::vs) =
+      case Pmatch env refs [p] [v] of | NONE => NONE
+      | SOME env' => Pmatch env' refs ps vs``,
+  Induct >> Cases_on`vs` >> simp[Pmatch_def] >>
+  BasicProvers.CASE_TAC >>
+  Cases_on`ps`>>simp[Pmatch_def])
+
+val Pmatch_SOME_const = store_thm("Pmatch_SOME_const",
+  ``∀env refs ps vs env'.
+      Pmatch env refs ps vs = SOME env' ⇒
+      env'.m = env.m ∧
+      env'.c = env.c``,
+  ho_match_mp_tac Pmatch_ind >> simp[Pmatch_def] >>
+  rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[write_def])
+
+val pmatch_imp_Pmatch = prove(
+  ``(∀envC s p v env aenv.
+      envC = aenv.c ∧ env = aenv.v ⇒
+      case pmatch envC s p v aenv.v of
+      | Match env' =>
+        Pmatch aenv s [p] [v] = SOME (aenv with v := env')
+      | _ => Pmatch aenv s [p] [v] = NONE) ∧
+    (∀envC s ps vs env aenv.
+      envC = aenv.c ∧ env = aenv.v ⇒
+      case pmatch_list envC s ps vs aenv.v of
+      | Match env' =>
+        Pmatch aenv s ps vs = SOME (aenv with v := env')
+      | _ => Pmatch aenv s ps vs = NONE)``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def,Pmatch_def,write_def]
+  >> TRY (rw[environment_component_equality]>>NO_TAC)
+  >- (
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] )
+  >- (
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
+    fs[store_lookup_def] >>
+    first_x_assum(qspec_then`aenv`mp_tac) \\
+    simp[])
+  >- (
+    first_x_assum(qspec_then`aenv`mp_tac)>>simp[]>>
+    BasicProvers.CASE_TAC >> fs[] >>
+    simp[Once Pmatch_cons] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    simp[Once Pmatch_cons] >> rw[Pmatch_def] >>
+    first_x_assum(qspec_then`aenv with v := a`mp_tac)>>simp[]>>
+    BasicProvers.CASE_TAC >> simp[Once Pmatch_cons])
+  >- (
+    Cases_on`v110`>>simp[Pmatch_def]))
+  |> SIMP_RULE std_ss []
+  |> curry save_thm "pmatch_imp_Pmatch"
+
+val Pmatch_imp_pmatch = store_thm("Pmatch_imp_pmatch",
+  ``∀env s ps vs env'.
+      (Pmatch env s ps vs = SOME env' ⇒
+       pmatch_list env.c s ps vs env.v =
+         Match env'.v) ∧
+      (Pmatch env s ps vs = NONE ⇒
+       ∀env2.
+       pmatch_list env.c s ps vs env.v ≠
+         Match env2)``,
+  ho_match_mp_tac Pmatch_ind >>
+  simp[Pmatch_def,pmatch_def] >> rw[] >>
+  fs[write_def] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> rfs[] >> rw[] >>
+  imp_res_tac Pmatch_SOME_const >>
+  fs[write_def] >>
+  rfs[] >>
+  Cases_on`v20`>>fs[pmatch_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[store_lookup_def,empty_store_def])
 
 val pmatch_PMATCH_ROW_COND_No_match = store_thm("pmatch_PMATCH_ROW_COND_No_match",
   ``EvalPatRel env a p pat ∧
@@ -90,6 +202,8 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
     `EvalPatBind env a p pat vars (env with v := env2)`
     by (
       simp[EvalPatBind_def,environment_component_equality] \\
+      qspecl_then[`refs++refs'`,`p`,`res'`,`env`]mp_tac(CONJUNCT1 pmatch_imp_Pmatch) \\
+      simp[] \\
       metis_tac[] ) \\
     first_x_assum drule \\ simp[]
     \\ disch_then(qspec_then`refs++refs'`strip_assume_tac)
