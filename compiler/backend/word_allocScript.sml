@@ -125,17 +125,17 @@ val ssa_cc_trans_inst_def = Define`
     let mov_in = Move 0 [(0,r3')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',2)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 2 0 0 r4'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',0);(r1',8)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 8 0 0 r4'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(0,r3');(2,r4')] in
+    let mov_in = Move 0 [(0,r3');(8,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',2);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 2 0 2 r5'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',8);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 0 8 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -718,6 +718,34 @@ val get_prefs_def = Define`
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
+(* Forced edges for certain instructions
+  At the moment this really only ever occurs for AddCarry
+*)
+val get_forced_def = Define`
+  (get_forced c (Inst i) acc =
+    if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+      case i of
+        Arith (AddCarry r1 r2 r3 r4) =>
+          (* This weirdness forces get_forced lists
+          to satisfy EVERY (λ(x,y).x≠y)*)
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          (if r1=r4 then [] else [(r1,r4)]) ++
+          acc
+      | _ => acc
+    else
+      acc) ∧
+  (get_forced c (MustTerminate n s1) acc =
+    get_forced c s1 acc) ∧
+  (get_forced c (Seq s1 s2) acc =
+    get_forced c s1 (get_forced c s2 acc)) ∧
+  (get_forced c (If cmp num rimm e2 e3) acc =
+    get_forced c e2 (get_forced c e3 acc)) ∧
+  (get_forced c (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
+    case h of
+      NONE => get_forced c ret_handler acc
+    | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
+  (get_forced c prog acc = acc)`
+
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`
   (check_colouring_ok_alt col [] = T) ∧
@@ -731,7 +759,7 @@ val every_even_colour_def = Define`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
-  oracle_colour_ok k col_opt tree prog ⇔
+  oracle_colour_ok k col_opt tree prog ls ⇔
   case col_opt of
     NONE => NONE
   | SOME col =>
@@ -743,7 +771,8 @@ val oracle_colour_ok_def = Define`
        if
          (* Note: possibly avoid these checks and instead check the oracle domain directly *)
          every_var is_phy_var prog ∧
-         every_stack_var (λx. x ≥ 2*k) prog
+         every_stack_var (λx. x ≥ 2*k) prog ∧
+         EVERY (λ(x,y). (tcol x) ≠ (tcol y)) ls
        then
          SOME prog
        else
@@ -755,13 +784,15 @@ val oracle_colour_ok_def = Define`
   prog is the program to be colored
   col_opt is an optional oracle colour*)
 val word_alloc_def = Define`
-  word_alloc alg k prog col_opt =
+  word_alloc c alg k prog col_opt =
   let tree = get_clash_tree prog in
   let moves = get_prefs prog [] in
-  case oracle_colour_ok k col_opt tree prog of
+  let forced = get_forced c prog [] in
+  case oracle_colour_ok k col_opt tree prog forced of
     NONE =>
     let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-    let col = reg_alloc alg clash_graph k moves in
+    let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
+    let col = reg_alloc alg ext_graph k moves in
       apply_colour (total_colour col) prog
   | SOME col_prog =>
       col_prog`
