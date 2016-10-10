@@ -2994,7 +2994,7 @@ val _ = (max_print_depth := 25)
 
     in if is_fun then let
 
-      val lemma = th |> SIMP_RULE std_ss [evaluate_Fun,Eval_def,code_def]
+      val lemma = th |> SIMP_RULE std_ss [Eval_Fun_rw,code_def]
       val n = ml_fname |> stringSyntax.fromMLstring
       val v = lemma |> concl |> rand |> rator |> rand
       val exp = lemma |> concl |> rand |> rand
@@ -3187,7 +3187,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     fun inst_envs (fname,ml_fname,def,th,pre) = let
       val lemmas = LOOKUP_VAR_def :: map GSYM v_defs @ code_defs
       val th = th |> ii |> jj |> D |> REWRITE_RULE lemmas
-                  |> SIMP_RULE std_ss [Eval_def,evaluate_Var]
+                  |> SIMP_RULE std_ss [Eval_Var]
                   |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
                   |> clean_assumptions |> UNDISCH_ALL
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)

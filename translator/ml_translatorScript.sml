@@ -1862,14 +1862,27 @@ val PULL_EXISTS_EXTRA = store_thm("PULL_EXISTS_EXTRA",
   ``(Q ==> ?x. P x) <=> ?x. Q ==> P x``,
   metis_tac []);
 
-val evaluate_Fun = store_thm("evaluate_Fun",
+val evaluate_Fun = prove(
   ``evaluate F env s (Fun n exp) (s',Rval r) <=> r = Closure env n exp ∧ s' = s``,
   fs [Once evaluate_cases] \\ fs[EQ_IMP_THM]);
 
-val evaluate_Var = store_thm("evaluate_Var",
+val Eval_Fun_rw = Q.store_thm("Eval_Fun_rw",
+  `Eval env (Fun n exp) P <=> P (Closure env n exp)`,
+  rw[Eval_def,evaluate_Fun,EQ_IMP_THM]
+  >- METIS_TAC[]
+  \\ rw[state_component_equality]);
+
+val evaluate_Var = prove(
   ``evaluate F env s (Var (Short n)) (s',Rval r) <=>
     ?v. lookup_var n env = SOME r ∧ s' = s``,
   fs [Once evaluate_cases] \\ EVAL_TAC \\ fs[EQ_IMP_THM]);
+
+val Eval_Var = Q.store_thm("Eval_Var",
+  `Eval env (Var (Short n)) P <=>
+   ?v. lookup_var n env = SOME v /\ P v`,
+  rw[Eval_def,evaluate_Var,EQ_IMP_THM]
+  >- METIS_TAC[]
+  \\ rw[state_component_equality]);
 
 val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
   ``lookup_var n = lookup_var_id (Short n)``,
