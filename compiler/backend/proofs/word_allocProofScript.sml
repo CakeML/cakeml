@@ -2050,23 +2050,30 @@ val check_colouring_ok_alt_INJ = prove(``
   full_simp_tac(srw_ss())[set_toAList_keys])
 *)
 
+val get_forced_pairwise_distinct = prove(``
+  ∀c prog ls.
+  EVERY (λx,y. x ≠ y) ls ⇒
+  EVERY (λx,y. x ≠ y) (get_forced c prog ls)``,
+  ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
+  EVERY_CASE_TAC>>fs[])
+
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = store_thm("word_alloc_correct",``
-  ∀alg prog k col_opt st.
+  ∀c alg prog k col_opt st.
   even_starting_locals st.locals ∧
   wf_cutsets prog
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
   if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(word_alloc alg k prog col_opt,st) in
+  let (res',rcst) = evaluate(word_alloc c alg k prog col_opt,st) in
     res = res' ∧
     word_state_eq_rel rst rcst ∧
     case res of
       NONE => T
     | SOME _ => rst.locals = rcst.locals``,
   srw_tac[][]>>
-  qpat_abbrev_tac`cprog = word_alloc A B C D`>>
+  qpat_abbrev_tac`cprog = word_alloc A B C D E`>>
   full_simp_tac(srw_ss())[word_alloc_def]>>
   pop_assum mp_tac>>LET_ELIM_TAC>>
   pop_assum mp_tac>>reverse FULL_CASE_TAC>>strip_tac
@@ -2091,20 +2098,42 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
   >>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour col`,`LN:num_set`] mp_tac evaluate_apply_colour>>
+  `undir_graph clash_graph ∧ undir_graph ext_graph ∧ is_subgraph clash_graph ext_graph` by
+    (CONJ_ASM1_TAC>-
+     (imp_res_tac clash_tree_to_spg_props>>
+     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
+    fs[Abbr`ext_graph`]>>
+    qspecl_then [`c`,`prog`,`[]`] assume_tac get_forced_pairwise_distinct>>
+    rfs[]>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    qid_spec_tac`clash_graph`>>
+    qid_spec_tac`forced`>>
+    rpt (pop_assum kall_tac)>>
+    Induct>>fs[FORALL_PROD]>>rw[]>>
+    fs[is_subgraph_refl]>>
+    res_tac>>fs[]>>
+    imp_res_tac undir_g_insert_props>>fs[]>>
+    metis_tac[is_subgraph_trans])>>
   impl_tac>-
     (srw_tac[][]
     >-
       (*Prove that the colors are okay*)
       (imp_res_tac clash_tree_to_spg_props>>
-      pop_assum mp_tac>>fs[AND_IMP_INTRO]>> impl_keep_tac>-
+      pop_assum mp_tac>>
+      ntac 35 (pop_assum kall_tac)>>
+      fs[AND_IMP_INTRO]>> impl_keep_tac>-
         fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>
       fs[]>>
       imp_res_tac (reg_alloc_total_satisfactory|>rm_let)>>
+      pop_assum kall_tac>>
       pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>
       rfs[]>>
+      imp_res_tac colouring_satisfactory_subgraph>>
       imp_res_tac colouring_satisfactory_check_clash_tree>>
+      pop_assum kall_tac>>
       pop_assum(qspecl_then[`LN`,`LN`] mp_tac)>>
-      ntac 40 (pop_assum kall_tac)>>
+      ntac 22 (pop_assum kall_tac)>>
       fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>rw[]>>
       Q.ISPECL_THEN [`prog`,`total_colour col`,`LN:num_set`,`LN:num_set`,`livein`,`flivein`] mp_tac clash_tree_colouring_ok>>
       fs[wf_def,hide_def])
@@ -2116,10 +2145,9 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
       full_simp_tac(srw_ss())[domain_lookup]>>
       first_x_assum(qspec_then`n` assume_tac)>>
       rev_full_simp_tac(srw_ss())[]>>
-      Q.ISPECL_THEN[`alg`,`clash_graph`,`k`,`moves`] mp_tac (reg_alloc_conventional_phy_var|>rm_let)>>
+      Q.ISPECL_THEN[`alg`,`ext_graph`,`k`,`moves`] mp_tac (reg_alloc_conventional_phy_var|>rm_let)>>
       impl_tac>-
-        (imp_res_tac clash_tree_to_spg_props>>
-        fs[sp_g_is_clique_def,undir_graph_def,lookup_def])
+        fs[]
       >>
       srw_tac[][colouring_conventional_def,LET_THM])
   >>
@@ -4073,7 +4101,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       ntac 3 FULL_CASE_TAC >>fs[]>>
       disch_then sym_sub_tac>>fs[]>>
       imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
-      `option_lookup ssa n3 ≠ 0 ∧ option_lookup ssa n3 ≠ 2` by
+      `option_lookup ssa n3 ≠ 0 ∧ option_lookup ssa n3 ≠ 8` by
         (fs[ssa_locals_rel_def]>>
         first_x_assum(qspecl_then[`n3`,`x'`]assume_tac)>>
         rfs[domain_lookup,ssa_map_ok_def]>>
@@ -6416,7 +6444,7 @@ val every_var_T = prove(``
 
 val oracle_colour_ok_conventions = prove(``
   pre_alloc_conventions prog ∧
-  oracle_colour_ok k col_opt (get_clash_tree prog) prog = SOME x ⇒
+  oracle_colour_ok k col_opt (get_clash_tree prog) prog ls = SOME x ⇒
   post_alloc_conventions k x``,
   fs[oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
   rw[]>>fs[]>>
@@ -6429,26 +6457,45 @@ val oracle_colour_ok_conventions = prove(``
   fs[EVERY_MEM,FORALL_PROD]);
 
 val pre_post_conventions_word_alloc = store_thm("pre_post_conventions_word_alloc",``
-  ∀alg prog k col_opt.
+  ∀c alg prog k col_opt.
   pre_alloc_conventions prog ⇒
-  post_alloc_conventions k (word_alloc alg k prog col_opt)``,
+  post_alloc_conventions k (word_alloc c alg k prog col_opt)``,
   fs[post_alloc_conventions_def,word_alloc_def]>>
   rw[]>>
   FULL_CASE_TAC>>fs[]>>
   imp_res_tac oracle_colour_ok_conventions >>
   fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
   pairarg_tac>>fs[]>>
-  `undir_graph clash_graph` by
-    (imp_res_tac clash_tree_to_spg_props>>
-    fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
+  qmatch_goalsub_abbrev_tac`reg_alloc alg ext_graph`>>
+  `undir_graph clash_graph ∧ undir_graph ext_graph ∧ is_subgraph clash_graph ext_graph` by
+    (CONJ_ASM1_TAC>-
+     (imp_res_tac clash_tree_to_spg_props>>
+     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
+    fs[Abbr`ext_graph`]>>
+    qspecl_then [`c`,`prog`,`[]`] assume_tac get_forced_pairwise_distinct>>
+    rfs[]>>
+    qmatch_goalsub_abbrev_tac`FOLDR _ _ forced`>>
+    pop_assum kall_tac>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    qid_spec_tac`clash_graph`>>
+    qid_spec_tac`forced`>>
+    rpt (pop_assum kall_tac)>>
+    Induct>>fs[FORALL_PROD]>>rw[]>>
+    fs[is_subgraph_refl]>>
+    res_tac>>fs[]>>
+    imp_res_tac undir_g_insert_props>>fs[]>>
+    metis_tac[is_subgraph_trans])>>
   imp_res_tac reg_alloc_conventional>>
+  pop_assum kall_tac>>
   pop_assum(qspecl_then[`get_prefs prog []`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  assume_tac (Q.SPEC`prog`every_var_in_get_clash_tree)>>
-  `every_var (λx. x ∈ domain clash_graph) prog` by
+  assume_tac (Q.ISPEC`prog:'b wordLang$prog`every_var_in_get_clash_tree)>>
+  `every_var (λx. x ∈ domain ext_graph) prog` by
     (match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>srw_tac[][]>>
     imp_res_tac clash_tree_to_spg_domain>>
-    fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
+    fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>
+    metis_tac[is_subgraph_def,SUBSET_DEF])>>
   full_simp_tac(srw_ss())[colouring_conventional_def,LET_THM]
   >-
     (match_mp_tac every_var_apply_colour>>
@@ -6458,7 +6505,7 @@ val pre_post_conventions_word_alloc = store_thm("pre_post_conventions_word_alloc
   >-
     (match_mp_tac every_stack_var_apply_colour>>
     imp_res_tac every_var_imp_every_stack_var>>
-    qexists_tac `λx. (x ∈ domain clash_graph ∧ is_stack_var x)` >>srw_tac[][]
+    qexists_tac `λx. (x ∈ domain ext_graph ∧ is_stack_var x)` >>srw_tac[][]
     >-
       metis_tac[every_stack_var_conj]
     >>
@@ -6482,9 +6529,9 @@ val word_alloc_two_reg_inst_lem = prove(``
     EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]);
 
 val word_alloc_two_reg_inst = store_thm("word_alloc_two_reg_inst",``
-  ∀alg k prog col_opt.
+  ∀c alg k prog col_opt.
   every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (word_alloc alg k prog col_opt)``,
+  every_inst two_reg_inst (word_alloc c alg k prog col_opt)``,
   full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_two_reg_inst_lem]);
@@ -6500,34 +6547,101 @@ val word_alloc_flat_exp_conventions_lem = prove(``
     Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def]);
 
 val word_alloc_flat_exp_conventions = store_thm("word_alloc_flat_exp_conventions",``
-  ∀alg k prog col_opt.
+  ∀c alg k prog col_opt.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (word_alloc alg k prog col_opt)``,
+  flat_exp_conventions (word_alloc c alg k prog col_opt)``,
   full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_flat_exp_conventions_lem]);
 
-(*
+val get_forced_tail_split = prove(``
+  ∀c p ls ls'.
+  get_forced c p (ls++ls') =
+  get_forced c p ls ++ ls'``,
+  ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
+  EVERY_CASE_TAC>>fs[])
+
+val EVERY_get_forced = prove(``
+  EVERY P (get_forced c p ls) ⇔
+  EVERY P (get_forced c p []) ∧ EVERY P ls``,
+  Q.SPECL_THEN [`c`,`p`,`[]`,`ls`] assume_tac get_forced_tail_split>>
+  fs[])
+
 val word_alloc_full_inst_ok_less_lem = prove(``
   ∀f prog c.
-  full_inst_ok_less c prog ⇒
+  full_inst_ok_less c prog ∧
+  EVERY (λ(x,y). (f x) ≠ (f y)) (get_forced c prog []) ⇒
   full_inst_ok_less c (apply_colour f prog)``,
-  ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[full_inst_ok_less_def]>>srw_tac[][]
-  >-
+  ho_match_mp_tac apply_colour_ind>>
+  fs[full_inst_ok_less_def,get_forced_def]>>rw[]>>
+  TRY
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    full_simp_tac(srw_ss())[inst_ok_less_def,full_inst_ok_less_def])
-  >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[full_inst_ok_less_def]>>
+    fs[inst_ok_less_def,full_inst_ok_less_def]>>
     rfs[])
+  >>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>
+    fs[get_forced_def]>>
+    metis_tac[EVERY_get_forced])
+
+val lookup_undir_g_insert_existing = prove(``
+  lookup x G = SOME v ⇒
+  lookup x (undir_g_insert a b G) =
+  if x = a then SOME (insert b () v)
+  else if x = b then SOME (insert a () v)
+  else SOME v``,
+  rw[undir_g_insert_def,dir_g_insert_def,lookup_insert]>>
+  fs[insert_shadow])
 
 val word_alloc_full_inst_ok_less = store_thm("word_alloc_full_inst_ok_less",``
   ∀alg k prog col_opt c.
   full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (word_alloc alg k prog col_opt)``,
+  full_inst_ok_less c (word_alloc c alg k prog col_opt)``,
   full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[word_alloc_full_inst_ok_less_lem])
-*)
+  rveq>>
+  match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
+  `undir_graph clash_graph ∧ undir_graph ext_graph` by
+    (CONJ_ASM1_TAC>-
+     (imp_res_tac clash_tree_to_spg_props>>
+     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
+    fs[Abbr`ext_graph`]>>
+    qspecl_then [`c`,`prog`,`[]`] assume_tac (INST_TYPE [beta|->alpha] get_forced_pairwise_distinct)>>
+    rfs[]>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    qid_spec_tac`clash_graph`>>
+    qid_spec_tac`forced`>>
+    rpt (pop_assum kall_tac)>>
+    Induct>>fs[FORALL_PROD]>>rw[]>>
+    fs[is_subgraph_refl]>>
+    res_tac>>fs[]>>
+    imp_res_tac undir_g_insert_props>>fs[]>>
+    metis_tac[is_subgraph_trans])>>
+  imp_res_tac reg_alloc_satisfactory>>fs[]>>
+  pop_assum kall_tac>>
+  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rfs[]>>
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+  `p_1 ∈ domain ext_graph ∧ p_2 ∈ domain ext_graph ∧ p_2 ∈ domain (THE (lookup p_1 ext_graph))` by
+    (fs[Abbr`ext_graph`]>>
+    pop_assum mp_tac>>
+    map_every qid_spec_tac [`p_1`,`p_2`,`clash_graph`,`forced`]>>
+    rpt(pop_assum kall_tac)>>
+    Induct>>fs[FORALL_PROD]>>rw[]>>
+    fs[undir_g_insert_domain]>>
+    TRY(metis_tac[])
+    >-
+      (fs[undir_g_insert_def,dir_g_insert_def,lookup_insert]>>
+      TOP_CASE_TAC>>fs[])
+    >>
+      last_x_assum drule>>
+      disch_then(qspec_then`clash_graph` assume_tac)>>
+      rfs[domain_lookup]>>
+      imp_res_tac lookup_undir_g_insert_existing>>
+      fs[]>>
+      rw[lookup_insert])>>
+  fs[SUBSET_DEF]>>res_tac>>
+  fs[partial_colouring_satisfactory_def,total_colour_def,domain_lookup]>>
+  metis_tac[])
 
 (* label preservation theorems *)
 val fake_moves_no_labs = prove(``
@@ -6565,7 +6679,7 @@ val apply_colour_lab_pres = prove(``
   EVERY_CASE_TAC>>fs[]);
 
 val word_alloc_lab_pres = store_thm("word_alloc_lab_pres",``
-  extract_labels prog = extract_labels (word_alloc alg k prog col_opt)``,
+  extract_labels prog = extract_labels (word_alloc c alg k prog col_opt)``,
   fs[word_alloc_def,oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[]>>
   TRY(pairarg_tac)>>fs[]>>metis_tac[apply_colour_lab_pres]);
 

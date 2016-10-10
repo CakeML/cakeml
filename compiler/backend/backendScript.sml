@@ -256,6 +256,7 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
 
+(*
 val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
   let (c',p) = to_data c p in
@@ -272,17 +273,17 @@ val to_livesets_def = Define`
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
      (name_num,arg_count,prog)) p in
-  let clashmov = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog []) p in
-  ((reg_count,clashmov),c,p)`
+  let clashmovforce = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog [],get_forced c.lab_conf.asm_conf prog []) p in
+  ((reg_count,clashmovforce),c,p)`
 
 val from_livesets_def = Define`
-  from_livesets ((k,clashmov),c,p) =
+  from_livesets ((k,clashmovforce),c,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
-  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmov,p)) in
+  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmovforec,p)) in
   let p =
-    MAP (λ(col_opt,((tree,moves),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,moves,force),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog of
         NONE =>
           (let (clash_graph,_) = clash_tree_to_spg tree [] LN in
@@ -369,5 +370,6 @@ val to_data_change_config = Q.store_thm("to_data_change_config",
   rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_exh_def,to_dec_def,to_con_def,to_mod_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
   \\ simp[config_component_equality]);
+*)
 
 val _ = export_theory();
