@@ -381,15 +381,6 @@ val do_eq_succeeds = prove(``
  \\ Cases_on `v1 = v2`
  \\ fs []);
 
-val empty_state_tac =
-  srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][empty_state_def,ffiTheory.initial_ffi_state_def]
-val empty_state_tac2 =
-  fs[empty_state_def,ffiTheory.initial_ffi_state_def]
-val record_simp_failure_tac =
-  qmatch_abbrev_tac`bigStep$evaluate _ _ X _ (Y,_)`
-  \\ `X = Y` by simp[Abbr`X`,Abbr`Y`,state_component_equality]
-  \\ fs[]
-
 val empty_state_with_refs_eq = Q.prove(
   `empty_state with refs := r =
    s2 with <| refs := r'; ffi := f |> ⇔
@@ -1238,39 +1229,37 @@ val LIST_TYPE_CHAR_char_list_to_v = store_thm("LIST_TYPE_CHAR_char_list_to_v",
 
 val tac =
   rw[Eval_def] >>
-  rw[Once evaluate_cases] >>
-  empty_state_tac >>
-  rw[state_component_equality] >>
+  rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
-  first_assum(match_exists_tac o concl) >> rw[] >>
-  rw[Once evaluate_cases] >>
-  rw[do_app_cases,PULL_EXISTS] >>
-  rw[state_component_equality]
+  rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
+  rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim] >>
+  fs[STRING_TYPE_def]
 
 val Eval_implode = store_thm("Eval_implode",
   ``!env x1 l.
       Eval env x1 (LIST_TYPE CHAR l) ==>
       Eval env (App Implode [x1]) (STRING_TYPE (implode l))``,
   tac >>
-  rw[STRING_TYPE_def] >>
-  imp_res_tac LIST_TYPE_CHAR_v_to_char_list >>
-  simp[stringTheory.IMPLODE_EXPLODE_I,mlstringTheory.explode_implode])
+  metis_tac[LIST_TYPE_CHAR_v_to_char_list,
+            stringTheory.IMPLODE_EXPLODE_I,
+            mlstringTheory.explode_implode])
 
 val Eval_explode = store_thm("Eval_explode",
   ``!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))``,
   tac >>
-  fs[STRING_TYPE_def,stringTheory.IMPLODE_EXPLODE_I,
-     LIST_TYPE_CHAR_char_list_to_v])
+  metis_tac[LIST_TYPE_CHAR_char_list_to_v,
+            stringTheory.IMPLODE_EXPLODE_I,
+            mlstringTheory.explode_implode])
 
 val Eval_strlen = store_thm("Eval_strlen",
   ``!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Strlen [x1]) (NUM (strlen s))``,
   tac >>
-  fs[STRING_TYPE_def,NUM_def,INT_def,mlstringTheory.strlen_def])
+  fs[NUM_def,INT_def,mlstringTheory.strlen_def] >>
+  metis_tac[])
 
 (* vectors *)
 
@@ -1297,38 +1286,35 @@ val Eval_sub = store_thm("Eval_sub",
      n < length v ==>
      Eval env (App Vsub [x1; x2]) (a (sub v n))``,
   rw [Eval_def] >>
-  rw [Once evaluate_cases] >>
-  empty_state_tac >>
-  rw[state_component_equality] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
-  rw [do_app_cases] >>
-  rw [PULL_EXISTS] >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  asm_exists_tac >> fs[] >>
+  first_x_assum(qspec_then`refs++refs'`strip_assume_tac) >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
+  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
+  asm_exists_tac >> fs[] >>
+  rw [do_app_cases,PULL_EXISTS] >>
   `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
-  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
   qexists_tac`EL n l'` >>
-  fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS] >>
-  record_simp_failure_tac);
+  fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS]);
 
 val Eval_vector = store_thm("Eval_vector",
  ``!env x1 a l.
      Eval env x1 (LIST_TYPE a l) ==>
      Eval env (App VfromList [x1]) (VECTOR_TYPE a (Vector l))``,
   rw [Eval_def] >>
-  rw [Once evaluate_cases] >>
-  empty_state_tac >>
-  rw[state_component_equality] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
+  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
+  asm_exists_tac >> fs[] >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
   fs [VECTOR_TYPE_def] >>
-  empty_state_tac2 >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  simp[GSYM PULL_EXISTS] >>
-  conj_tac >- record_simp_failure_tac >>
   pop_assum mp_tac >>
   pop_assum (fn _ => all_tac) >>
   Q.SPEC_TAC (`res`, `res`) >>
@@ -1344,265 +1330,300 @@ val Eval_length = store_thm("Eval_length",
       Eval env x1 (VECTOR_TYPE a v) ==>
       Eval env (App Vlength [x1]) (NUM (length v))``,
   rw [Eval_def] >>
-  rw [Once evaluate_cases] >>
-  empty_state_tac >>
-  rw[state_component_equality] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
+  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
+  asm_exists_tac >> fs[] >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
   `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
   rw [] >>
-  empty_state_tac2 >>
-  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def] >>
-  rveq >> asm_exists_tac >>
-  conj_tac >- record_simp_failure_tac >>
-  metis_tac []);
+  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
 (* evaluate lemmas *)
 
-val _ = temp_overload_on("has_emp",``\x. (FST x).refs = empty_store``)
+(* TODO: move to appropriate locations *)
 
-val s = ``s:'ffi state``
+local open funBigStepEquivTheory in end
+open funBigStepTheory funBigStepPropsTheory
 
-val evaluate_empty_store_lemma = prove(
- ``(!ck env s e r1.
-      evaluate ck env ^s e r1 ==> has_emp r1 ==> (s.refs = empty_store)) /\
-   (!ck env s es r1.
-      evaluate_list ck env ^s es r1 ==> has_emp r1 ==> (s.refs = empty_store)) /\
-   (!ck env s v pes errv r1.
-      evaluate_match ck env ^s v pes errv r1 ==> has_emp r1 ==> (s.refs = empty_store))``,
-  HO_MATCH_MP_TAC evaluate_ind \\ rw [] \\ POP_ASSUM MP_TAC
-  \\ TRY (Cases_on `op`)
-  \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases,LET_DEF,store_alloc_def]
-  THEN1 (Cases_on `s2`
-    \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def, store_alloc_def,empty_store_def,APPEND]
-    \\ Cases_on `lnum`
-    \\ fs [LUPDATE_def])
-  THEN1 (Cases_on `s2`
-    \\ FULL_SIMP_TAC (srw_ss()) [store_alloc_def,empty_store_def,APPEND])
-  THEN1 (Cases_on `s2`
-    \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def, store_alloc_def,empty_store_def,APPEND]
-    \\ Cases_on `lnum`
-    \\ fs [LUPDATE_def])
-  \\ FULL_SIMP_TAC std_ss [IMP_DISJ_THM]
-  \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL]
-  \\ FULL_SIMP_TAC list_ss [])
-  |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
+val io_events_mono_antisym = Q.store_thm("io_events_mono_antisym",
+  `io_events_mono s1 s2 ∧ io_events_mono s2 s1 ⇒ s1 = s2`,
+  rw[io_events_mono_def]
+  \\ Cases_on`s1.final_event` \\ rfs[]
+  \\ Cases_on`s2.final_event` \\ rfs[]
+  \\ imp_res_tac IS_PREFIX_ANTISYM
+  \\ rfs[]);
 
-val _ = temp_overload_on("has_emp_no_fail",
-  ``\x. ((FST x).refs = empty_store) /\
-        ~(SND x = (Rerr (Rabort Rtype_error)):('b,'c) result)``)
+val evaluate_state_const = Q.store_thm("evaluate_state_const",
+  `evaluate s env es = (s',r) ⇒
+   s'.defined_types = s.defined_types ∧
+   s'.defined_mods = s.defined_mods`,
+  rw[funBigStepEquivTheory.functional_evaluate_list]
+  \\ imp_res_tac evalPropsTheory.evaluate_no_new_types_mods
+  \\ fs[]);
 
-val evaluate_no_clock = prove(
- ``(!ck env ^s e r1.
-      evaluate ck env s e r1 ==> ~ck ==> (s.clock = (FST r1).clock)) /\
-   (!ck env ^s es r1.
-      evaluate_list ck env s es r1 ==> ~ck ==> (s.clock = (FST r1).clock))  /\
-   (!ck env ^s v pes errv r1.
-      evaluate_match ck env s v pes errv r1 ==>  ~ck ==> (s.clock = (FST r1).clock))``,
-  HO_MATCH_MP_TAC evaluate_ind \\ rw [])
-  |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
+val functional_evaluate = Q.store_thm("functional_evaluate",
+  `evaluate T env s e (s',r) ⇔ evaluate s env [e] = (s',list_result r)`,
+  funBigStepEquivTheory.functional_evaluate_list |> Q.GENL[`r`,`es`] |> qspec_then`[e]`mp_tac \\
+  ntac 6 (simp[Once (CONJUNCT2 bigStepTheory.evaluate_cases)]) \\
+  Cases_on`r` \\ fs[]);
 
-val evaluate_constant_clock = store_thm("evaluate_constant_clock",
-  ``evaluate F env s1 exp (s2,res) <=>
-    evaluate F env s1 exp (s2,res) /\ (s1.clock = s2.clock)``,
-  EQ_TAC \\ rpt strip_tac \\ fs []
-  \\ imp_res_tac evaluate_no_clock \\ fs []);
+val do_app_NONE_ffi = Q.store_thm("do_app_NONE_ffi",
+  `do_app (refs,ffi) op args = NONE ⇒
+   do_app (refs,ffi') op args = NONE`,
+  rw[do_app_def]
+  \\ every_case_tac \\ fs[]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ fs[store_assign_def,store_v_same_type_def]
+  \\ every_case_tac \\ fs[]);
 
-val sind = IndDefLib.derive_strong_induction(evaluate_rules,evaluate_ind);
+val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
+  `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ∧ ffi.final_event = NONE ⇒
+   do_app (refs,ffi') op args = SOME ((refs',ffi'),r)`,
+  rw[]
+  \\ fs[evalPropsTheory.do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ every_case_tac \\ fs[]
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
+  \\ rfs[]);
 
-val do_app_empty_store = prove(
-  ``!op vs.
-      FST s3 <> empty_store ==>
-      ~(do_app s3 op vs = SOME ((empty_store,io),e''))``,
-  Cases_on`s3`>>
-  SIMP_TAC std_ss [do_app_cases] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC std_ss [store_alloc_def, store_assign_def, LET_THM]
-  \\ FULL_SIMP_TAC std_ss [LENGTH_LUPDATE,empty_store_def,GSYM LENGTH_NIL,
-                           store_alloc_def, store_lookup_def]
-  \\ Cases_on`q`>>fs[]
-  \\ spose_not_then strip_assume_tac >> rw[] >>
-  Cases_on`v10`>>fs[] >> rw[] >> rfs[] >>
-  intLib.COOPER_TAC);
+val evaluate_ffi_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate s''' env' exp' = (s'',r') ∧
+   s'''.ffi = s'.ffi ∧ s''.ffi = s.ffi
+   ⇒ s'.ffi = s.ffi`,
+  rw[] \\
+  imp_res_tac evaluate_io_events_mono_imp \\ fs[] \\
+  metis_tac[io_events_mono_antisym]);
 
-val do_app_lemma = prove(
-  ``!op.
-      (do_app (empty_store,io1) op vs = SOME ((empty_store,(io:'ffi ffi_state)),e'')) ==>
-      !t. do_app (t:('ffi,v)store_ffi) op vs = SOME (t,e'')``,
-  Cases \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on`t` \\ fs[do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def]
-  \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ TRY (Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def, LET_THM, store_lookup_def,
-                               store_alloc_def]
-  \\ rw []);
+val evaluate_match_ffi_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate_match s' env' v pes errv  = (s'',r') ∧
+   s''.ffi = s.ffi ⇒ s'.ffi = s.ffi`,
+  rw[] \\
+  imp_res_tac evaluate_io_events_mono_imp \\ fs[] \\
+  metis_tac[io_events_mono_antisym]);
 
-val do_app_lemma_gen = prove(
-  ``!op.
-      (do_app (empty_store,io1) op vs = SOME ((empty_store,(io:unit ffi_state)),e'')) ==>
-      !t. do_app (t:('ffi,v)store_ffi) op vs = SOME (t,e'')``,
-  Cases \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on`t` \\ fs[do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def]
-  \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ TRY (Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def, LET_THM, store_lookup_def,
-                               store_alloc_def]
-  \\ rw []);
+val result_CASE_fst_cong = Q.prove(
+  `result_CASE r (λa. (c,f a)) (λb. (c,g b)) =
+   (c, result_CASE r (λa. f a) (λb. g b))`,
+  Cases_on`r` \\ fs[]);
 
-val pmatch_empty_store = store_thm("pmatch_empty_store",
-  ``(!cenv (s:v store) (p:pat) v env x.
-      (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
-      !s. (pmatch cenv s p v env = x)) /\
-    (!cenv (s:v store) (p:pat list) vs env x.
-      (pmatch_list cenv empty_store p vs env = x) /\ x <> Match_type_error ==>
-      !s. (pmatch_list cenv s p vs env = x))``,
-  HO_MATCH_MP_TAC pmatch_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [pmatch_def]
-  \\ FULL_SIMP_TAC std_ss [store_lookup_def,empty_store_def,LENGTH]
-  THEN1 (BasicProvers.EVERY_CASE_TAC \\ rw [])
-  THEN1 (METIS_TAC [])
-  \\ Cases_on `pmatch cenv [] p v env`
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Q.PAT_X_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
-  \\ FULL_SIMP_TAC (srw_ss()) []);
+val option_CASE_fst_cong = Q.prove(
+  `option_CASE r (c,f) (λb. (c,g b)) =
+   (c, option_CASE r f (λb. g b))`,
+  Cases_on`r` \\ fs[]);
 
-val s0 = ``s:unit state``
-val t = ``t:'ffi state``
-
-val evaluate_empty_store_IMP_any_store = prove(
- ``(!ck env ^s0 e r1.
-      evaluate ck env s e r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !^t. evaluate ck env t e (t,SND r1)) /\
-   (!ck env ^s0 es r1.
-      evaluate_list ck env s es r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !^t. evaluate_list ck env t es (t,SND r1)) /\
-   (!ck env ^s0 v pes errv r1.
-      evaluate_match ck env s v pes errv r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !^t. evaluate_match ck env t v pes errv (t,SND r1))``,
-  HO_MATCH_MP_TAC sind \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ FULL_SIMP_TAC (srw_ss()) []
-  THEN1
-   (Cases_on `r1`
-    \\ `s'.refs = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
-    \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC [])
-  THEN1
-   METIS_TAC []
-  THEN1
-   (Cases_on `r1`
-    \\ rw []
-    \\ fs []
-    \\ `s2.refs = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
-    \\ rw []
-    \\ `s.refs = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
-    \\ METIS_TAC [pair_CASES, FST, SND])
-  THEN1
-   (`s2.refs = empty_store` by METIS_TAC [do_app_empty_store,FST] \\ fs []
-    \\ imp_res_tac do_app_lemma_gen \\ fs[] \\ rw[]
-    \\ disj1_tac
-    \\ Q.LIST_EXISTS_TAC[`vs`,`t`]
-    \\ simp[]
-    \\ simp[state_component_equality])
-  THEN1
-   (`s'.refs = empty_store` by
-      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma_gen
-    \\ METIS_TAC [pair_CASES, FST, SND])
-  THEN1
-   (FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma_gen
-    \\ METIS_TAC [pair_CASES, FST, SND, Boolv_11])
-  THEN1
-   (`s'.refs = empty_store` by
-      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ fs [do_if_def]
-    \\ Cases_on `v = Boolv T` \\ fs []
-    \\ Cases_on `v = Boolv F` \\ fs [Boolv_11]
-    \\ METIS_TAC [pair_CASES, FST, SND, Boolv_11])
-  \\ TRY
-   (`s'.refs = empty_store` by
-      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma
-    \\ METIS_TAC [pair_CASES, FST, SND])
-  \\ Cases_on `r1` \\ fs []
-  \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
-  \\ IMP_RES_TAC evaluate_empty_store_lemma \\ fs []
-  \\ IMP_RES_TAC pmatch_empty_store \\ fs []);
+val evaluate_ind = terminationTheory.evaluate_ind
+val evaluate_def = terminationTheory.evaluate_def
+val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
+  (∀(s:'a state) env e s' r.
+     evaluate s env e = (s',r) ∧
+     s'.ffi = s.ffi ∧ s.ffi.final_event = NONE
+     ⇒
+     ∀(t:'b state).
+       t.clock = s.clock ∧ t.refs = s.refs
+       ⇒
+       evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs |>, r)) ∧
+  (∀(s:'a state) env v pes errv s' r.
+     evaluate_match s env v pes errv = (s',r) ∧
+     s'.ffi = s.ffi ∧ s.ffi.final_event = NONE
+     ⇒
+     ∀(t:'b state).
+       t.clock = s.clock ∧ t.refs = s.refs
+       ⇒
+       evaluate_match t env v pes errv = (t with <| clock := s'.clock; refs := s'.refs |>, r))`,
+  ho_match_mp_tac evaluate_ind
+  \\ rw[]
+  >- ( rfs[evaluate_def] \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[result_CASE_fst_cong]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ qmatch_assum_abbrev_tac`evaluate t1 _ (_::_) = _`
+    \\ rfs[]
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def] \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
+    \\ first_x_assum(qspec_then`t`mp_tac) \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- fs[state_component_equality]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ fs[option_CASE_fst_cong,result_CASE_fst_cong] )
+  >- (
+    rfs[evaluate_def]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (
+      TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      >- ( strip_tac \\ rveq \\ fs[] )
+      \\ strip_tac \\ fs[]
+      \\ rename1`evaluate (dec_clock s1) _ _ = _`
+      \\ `s1.ffi = s.ffi`
+      by (
+        imp_res_tac evaluate_ffi_sandwich
+        \\ rfs[dec_clock_def] )
+      \\ fs[]
+      \\ rfs[dec_clock_def] \\ fs[]
+      \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+      \\ first_x_assum(qspec_then`t1`mp_tac)
+      \\ fs[Abbr`t1`]
+      \\ imp_res_tac evaluate_state_const \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ rfs[]
+      \\ imp_res_tac do_app_NONE_ffi
+      \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rveq \\ fs[]
+    \\ imp_res_tac do_app_io_events_mono
+    \\ imp_res_tac evaluate_io_events_mono_imp
+    \\ imp_res_tac io_events_mono_antisym \\ fs[]
+    \\ imp_res_tac do_app_SOME_ffi_same \\ fs[]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- rw[state_component_equality]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rw[state_component_equality] ))
 
 val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
-  `evaluate F env empty_state exp (empty_state,Rval x) ⇒
-   ∀(s:'ffi state). evaluate F env s exp (s,Rval x)`,
-  strip_tac \\ imp_res_tac evaluate_empty_store_IMP_any_store \\ fs []
-  \\ pop_assum match_mp_tac \\ EVAL_TAC);
-
-val evaluate_empty_store_IMP_any_store = prove(
- ``(!ck env ^s e r1.
-      evaluate ck env s e r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !^t. evaluate ck env t e (t,SND r1)) /\
-   (!ck env ^s es r1.
-      evaluate_list ck env s es r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !^t. evaluate_list ck env t es (t,SND r1)) /\
-   (!ck env ^s v pes errv r1.
-      evaluate_match ck env s v pes errv r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !^t. evaluate_match ck env t v pes errv (t,SND r1))``,
-  HO_MATCH_MP_TAC sind \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ FULL_SIMP_TAC (srw_ss()) []
-  THEN1
-   (Cases_on `r1`
-    \\ `s'.refs = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
-    \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC [])
-  THEN1
-   METIS_TAC []
-  THEN1
-   (Cases_on `r1`
-    \\ rw []
-    \\ fs []
-    \\ `s2.refs = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
-    \\ rw []
-    \\ `s.refs = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
-    \\ METIS_TAC [pair_CASES, FST, SND])
-  THEN1
-   (`s2.refs = empty_store` by METIS_TAC [do_app_empty_store,FST] \\ fs []
-    \\ imp_res_tac do_app_lemma \\ fs[] \\ rw[]
-    \\ disj1_tac
-    \\ Q.LIST_EXISTS_TAC[`vs`,`t`]
-    \\ simp[]
-    \\ simp[state_component_equality])
-  THEN1
-   (`s'.refs = empty_store` by
-      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma
-    \\ METIS_TAC [pair_CASES, FST, SND])
-  THEN1
-   (FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma
-    \\ METIS_TAC [pair_CASES, FST, SND, Boolv_11])
-  THEN1
-   (`s'.refs = empty_store` by
-      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ fs [do_if_def]
-    \\ Cases_on `v = Boolv T` \\ fs []
-    \\ Cases_on `v = Boolv F` \\ fs [Boolv_11]
-    \\ METIS_TAC [pair_CASES, FST, SND, Boolv_11])
-  \\ TRY
-   (`s'.refs = empty_store` by
-      (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma
-    \\ METIS_TAC [pair_CASES, FST, SND])
-  \\ Cases_on `r1` \\ fs []
-  \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
-  \\ IMP_RES_TAC evaluate_empty_store_lemma \\ fs []
-  \\ IMP_RES_TAC pmatch_empty_store \\ fs []);
-
-val evaluate_empty_state_IMP = prove(
-  ``evaluate F env empty_state exp (empty_state,Rval x) ⇒
-    ∀(s:unit state). evaluate F env s exp (s,Rval x)``,
-  rw[] >> imp_res_tac evaluate_empty_store_IMP_any_store >> fs[empty_state_def])
+  `evaluate F env (empty_state with refs := s.refs) exp (empty_state with refs := s.refs ++ refs',Rval x) ⇒
+   evaluate F env (s:'ffi state) exp (s with refs := s.refs ++ refs',Rval x)`,
+  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
+  \\ fs[functional_evaluate]
+  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
+              INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``](
+                CONJUNCT1 evaluate_ffi_intro)))
+  \\ simp[]
+  \\ impl_tac >- EVAL_TAC
+  \\ disch_then(qspec_then`s with clock := c`mp_tac)
+  \\ simp[] \\ strip_tac
+  \\ `Rval [x] = list_result ((Rval x):(v,v) result)` by EVAL_TAC
+  \\ pop_assum SUBST_ALL_TAC
+  \\ fs[GSYM functional_evaluate]
+  \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
+  \\ asm_exists_tac \\ fs[]);
 
 (* a few misc. lemmas that help the automation *)
 
@@ -1611,15 +1632,12 @@ val IMP_PreImp = store_thm("IMP_PreImp",
   REPEAT Cases \\ EVAL_TAC);
 
 val evaluate_list_SIMP = store_thm("evaluate_list_SIMP",
-  ``(evaluate_list F env empty_state [] (empty_state,Rval ([])) = T) /\
-    (evaluate_list F env empty_state (x::xs) (empty_state,Rval ((y::ys))) <=>
-     evaluate F env empty_state x (empty_state,Rval (y)) /\
-     evaluate_list F env empty_state xs (empty_state,Rval (ys)))``,
+  ``(evaluate_list F env s [] (s',Rval ([])) = (s = s')) /\
+    (evaluate_list F env s (x::xs) (s',Rval ((y::ys))) <=>
+     ?s''. evaluate F env s x (s'',Rval (y)) /\
+     evaluate_list F env s'' xs (s',Rval (ys)))``,
   REPEAT STRIP_TAC \\ SIMP_TAC std_ss [Once evaluate_cases]
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ METIS_TAC[evaluate_empty_store_IMP_any_store,SND,
-               prove(``∀x. has_emp_no_fail (empty_state,Rval x)``,simp[empty_state_def]),
-               determTheory.big_exp_determ,PAIR_EQ]);
+  \\ FULL_SIMP_TAC (srw_ss()) [EQ_IMP_THM]);
 
 val UNCURRY1 = prove(
   ``!f. UNCURRY f = \x. case x of (x,y) => f x y``,
@@ -1667,38 +1685,6 @@ val MEM_EQ_MEMBER = prove(
 val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   ``(MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
-
-(* always_evaluates *)
-
-val always_evaluates_def = Define `
-  always_evaluates env exp =
-    !(s1:unit state). ?s2 res. evaluate F env s1 exp (s2,Rval res)`;
-
-val Eval_IMP_always_evaluates = store_thm("Eval_IMP_always_evaluates",
-  ``!env exp P. Eval env exp P ==> always_evaluates env exp``,
-  FULL_SIMP_TAC std_ss [Eval_def,always_evaluates_def] \\ REPEAT STRIP_TAC
-  \\ Q.LIST_EXISTS_TAC [`s1`,`res`] \\ FULL_SIMP_TAC std_ss []
-  \\ imp_res_tac evaluate_empty_state_IMP
-  \\ FULL_SIMP_TAC std_ss []);
-
-val always_evaluates_ref = store_thm("always_evaluates_ref",
-  ``!env exp. always_evaluates env exp ==>
-              always_evaluates env (App Opref [exp])``,
-  FULL_SIMP_TAC std_ss [always_evaluates_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1`)
-  \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ SRW_TAC [] []
-  \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ SRW_TAC [boolSimps.DNF_ss] [do_app_def,store_alloc_def]
-  \\ ONCE_REWRITE_TAC [hd (tl (CONJUNCTS evaluate_cases))]
-  \\ SRW_TAC [] []
-  \\ METIS_TAC []);
-
-val always_evaluates_fn = store_thm("always_evaluates_fn",
-  ``!n exp env. always_evaluates env (Fun n exp)``,
-  FULL_SIMP_TAC std_ss [always_evaluates_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC [] []);
 
 (* lookup cons *)
 
@@ -1877,13 +1863,13 @@ val PULL_EXISTS_EXTRA = store_thm("PULL_EXISTS_EXTRA",
   metis_tac []);
 
 val evaluate_Fun = store_thm("evaluate_Fun",
-  ``evaluate F env s (Fun n exp) (s,Rval r) <=> r = Closure env n exp``,
-  fs [Once evaluate_cases]);
+  ``evaluate F env s (Fun n exp) (s',Rval r) <=> r = Closure env n exp ∧ s' = s``,
+  fs [Once evaluate_cases] \\ fs[EQ_IMP_THM]);
 
 val evaluate_Var = store_thm("evaluate_Var",
-  ``evaluate F env s (Var (Short n)) (s,Rval r) <=>
-    ?v. lookup_var n env = SOME r``,
-  fs [Once evaluate_cases] \\ EVAL_TAC);
+  ``evaluate F env s (Var (Short n)) (s',Rval r) <=>
+    ?v. lookup_var n env = SOME r ∧ s' = s``,
+  fs [Once evaluate_cases] \\ EVAL_TAC \\ fs[EQ_IMP_THM]);
 
 val lookup_var_eq_lookup_var_id = store_thm("lookup_var_eq_lookup_var_id",
   ``lookup_var n = lookup_var_id (Short n)``,
@@ -1893,9 +1879,13 @@ val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
 val Eval_evaluate_IMP = store_thm("Eval_evaluate_IMP",
   ``Eval env exp P /\
-    evaluate F env empty_state exp (empty_state, Rval v) ==>
+    evaluate F env s exp (s', Rval v) ==>
     P v``,
-  fs [Eval_def] \\ rw [] \\ imp_res_tac evaluate_11_Rval \\ fs []);
+  fs [Eval_def] \\ rw []
+  \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
+  \\ imp_res_tac evaluate_empty_state_IMP
+  \\ imp_res_tac evaluate_11_Rval
+  \\ fs[]);
 
 val pair_CASE_UNCURRY = store_thm("pair_CASE_UNCURRY",
   ``!x y. pair_CASE x y = UNCURRY y x``,
