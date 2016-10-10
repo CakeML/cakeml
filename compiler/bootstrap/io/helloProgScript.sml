@@ -231,7 +231,11 @@ val main_applied = let
      |> Q.SPEC `st2heap (p:'a ffi_proj) ^st`
      |> Q.SPEC `{}`
      |> Q.SPEC `^st`
-     |> SIMP_RULE std_ss [cfHeapsBaseTheory.SPLIT_emp2]
+     |> SIMP_RULE std_ss [PULL_EXISTS,
+          cfHeapsBaseTheory.res_case_def,
+          cfHeapsBaseTheory.POSTv_ignore,
+          cfHeapsBaseTheory.SPLIT3_emp3,
+          cfHeapsBaseTheory.SPLIT_emp2]
      |> Q.INST [`cv`|->`Litv (IntLit 0)`]
      |> SIMP_RULE std_ss [Once exists_lemma]
      |> SIMP_RULE std_ss [GSYM PULL_EXISTS,GSYM th]

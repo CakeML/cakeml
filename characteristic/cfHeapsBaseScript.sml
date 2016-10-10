@@ -188,6 +188,10 @@ val SPLIT3_emp1 = store_thm ("SPLIT3_emp1",
   SPLIT_TAC
 )
 
+val SPLIT3_emp3 = Q.store_thm("SPLIT3_emp3",
+  `!h h1 h2. SPLIT3 h (h1,h2,{}) = SPLIT h (h1,h2)`,
+  SPLIT_TAC)
+
 val SPLIT_of_SPLIT3_2u3 = store_thm ("SPLIT_of_SPLIT3_2u3",
   ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT h (h1, h2 UNION h3)``,
   SPLIT_TAC
@@ -497,6 +501,12 @@ val POST_Exn = store_thm ("POST_Exn[simp]",
   ``!Qv Qe v. POST Qv Qe (Exn v) = Qe v``,
   fs [POST_def]
 );
+
+(* other lemmas about POSTv *)
+
+val POSTv_ignore = Q.store_thm("POSTv_ignore",
+   `(POSTv v. P) r h ⇔ ∃v. r = Val v ∧ P h`,
+   rw[POSTv_def] \\ Cases_on`r` \\ rw[cond_def]);
 
 (*------------------------------------------------------------------*)
 (* Lemmas for ==v> / ==e> *)
