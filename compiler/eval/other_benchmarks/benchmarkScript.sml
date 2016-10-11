@@ -654,46 +654,46 @@ fun to_bytes_wrap opt eval conf =
 (* x64 all opts and no opts *)
 val x64_benchmarks_compiled_all = map (to_bytes_wrap true x64_compileLib.eval ``x64_compiler_config``) benchmarks;
 val x64_benchmarks_bytes_all = map extract_bytes x64_benchmarks_compiled_all;
-val _ = write_asm 1000 "x64_all" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_all);
+val _ = write_asm 1000 "x64/all" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_all);
 
 val x64_benchmarks_compiled_none = map (to_bytes_wrap false x64_compileLib.eval ``x64_compiler_config``) benchmarks;
 val x64_benchmarks_bytes_none = map extract_bytes x64_benchmarks_compiled_none;
-val _ = write_asm 1000 "x64_none" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_none);
+val _ = write_asm 1000 "x64/none" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_none);
 
 (* arm all_opts and no opts *)
 val arm_benchmarks_compiled_all = map (to_bytes_wrap true arm_compileLib.eval ``arm_compiler_config``) benchmarks;
 val arm_benchmarks_bytes_all = map extract_bytes arm_benchmarks_compiled_all;
-val _ = write_asm 500 "arm_all" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_all);
+val _ = write_asm 500 "arm/all" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_all);
 
 val arm_benchmarks_compiled_none = map (to_bytes_wrap false arm_compileLib.eval ``arm_compiler_config``) benchmarks;
 val arm_benchmarks_bytes_none = map extract_bytes arm_benchmarks_compiled_none;
-val _ = write_asm 500 "arm_none" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_none);
+val _ = write_asm 500 "arm/none" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_none);
 
 (* riscv all_opts and no opts *)
 val riscv_benchmarks_compiled_all = map (to_bytes_wrap true riscv_compileLib.eval ``riscv_compiler_config``) benchmarks;
 val riscv_benchmarks_bytes_all = map extract_bytes riscv_benchmarks_compiled_all;
-val _ = write_asm 1000 "riscv_all" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_all);
+val _ = write_asm 1000 "riscv/all" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_all);
 
 val riscv_benchmarks_compiled_none = map (to_bytes_wrap false riscv_compileLib.eval ``riscv_compiler_config``) benchmarks;
 val riscv_benchmarks_bytes_none = map extract_bytes riscv_benchmarks_compiled_none;
-val _ = write_asm 1000 "riscv_none" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_none);
+val _ = write_asm 1000 "riscv/none" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_none);
 
 (* arm8 all_opts and no opts *)
 val arm8_benchmarks_compiled_all = map (to_bytes_wrap true arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
 val arm8_benchmarks_bytes_all = map extract_bytes arm8_benchmarks_compiled_all;
-val _ = write_asm 1000 "arm8_all" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_all);
+val _ = write_asm 1000 "arm8/all" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_all);
 
 val arm8_benchmarks_compiled_none = map (to_bytes_wrap false arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
 val arm8_benchmarks_bytes_none = map extract_bytes arm8_benchmarks_compiled_none;
-val _ = write_asm 1000 "arm8_none" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_none);
+val _ = write_asm 1000 "arm8/none" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_none);
 
 (* mips all_opts and no opts *)
 val mips_benchmarks_compiled_all = map (to_bytes_wrap true mips_compileLib.eval ``mips_compiler_config``) benchmarks;
 val mips_benchmarks_bytes_all = map extract_bytes mips_benchmarks_compiled_all;
-val _ = write_asm 1000 "mips_all" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_all);
+val _ = write_asm 1000 "mips/all" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_all);
 
 val mips_benchmarks_compiled_none = map (to_bytes_wrap false mips_compileLib.eval ``mips_compiler_config``) benchmarks;
 val mips_benchmarks_bytes_none = map extract_bytes mips_benchmarks_compiled_none;
-val _ = write_asm 1000 "mips_none" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_none);
+val _ = write_asm 1000 "mips/none" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_none);
 
 val _ = export_theory ();
