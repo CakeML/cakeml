@@ -10,6 +10,7 @@ val _ = Datatype `
   ffi = Str string
       | Num num
       | Cons ffi ffi
+      | List (ffi list)
       | Stream (num llist)`
 
 val _ = temp_type_abbrev("loc", ``:num``)
