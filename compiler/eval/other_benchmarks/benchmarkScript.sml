@@ -681,11 +681,11 @@ val _ = write_asm 1000 "riscv/none" riscv_exportLib.write_cake_S (zip names risc
 (* arm8 all_opts and no opts *)
 val arm8_benchmarks_compiled_all = map (to_bytes_wrap true arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
 val arm8_benchmarks_bytes_all = map extract_bytes arm8_benchmarks_compiled_all;
-val _ = write_asm 1000 "arm8/all" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_all);
+val _ = write_asm 500 "arm8/all" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_all);
 
 val arm8_benchmarks_compiled_none = map (to_bytes_wrap false arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
 val arm8_benchmarks_bytes_none = map extract_bytes arm8_benchmarks_compiled_none;
-val _ = write_asm 1000 "arm8/none" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_none);
+val _ = write_asm 500 "arm8/none" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_none);
 
 (* mips all_opts and no opts *)
 val mips_benchmarks_compiled_all = map (to_bytes_wrap true mips_compileLib.eval ``mips_compiler_config``) benchmarks;
