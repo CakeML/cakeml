@@ -681,7 +681,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:shift``
     ,``:'a arith``
     ,``:'a addr``
-    ,``:mem_op``
+    ,``:memop``
     ,``:'a inst``
     ,``:'a asm``
     ]
