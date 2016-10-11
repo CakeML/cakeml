@@ -21,11 +21,11 @@ val evaluate_ck_def = Define `
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
-    !(h: heap) (i: heap) (st: 'ffi state).
-      SPLIT (st2heap p st) (h, i) ==> H h ==>
-      ?env exp (r: res) (h': heap) (g: heap) (st': 'ffi state) ck.
-        SPLIT3 (st2heap p st') (h', g, i) /\
-        Q r h' /\
+    !(h_i: heap) (h_k: heap) (st: 'ffi state).
+      SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
+      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state) ck.
+        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
+        Q r h_f /\
         do_opapp [f;x] = SOME (env, exp) /\
         case r of
           | Val v' => evaluate_ck ck st env [exp] = (st', Rval [v'])
@@ -38,21 +38,21 @@ val app_basic_local = prove (
   eq_tac \\ fs [local_elim] \\
   simp [local_def] \\ strip_tac \\ simp [app_basic_def] \\ rpt strip_tac \\
   first_assum progress \\
-  qpat_assum `(H1 * H2) h` (strip_assume_tac o REWRITE_RULE [STAR_def]) \\
-  fs [] \\ rename1 `H1 h1` \\ rename1 `H2 h2` \\
+  qpat_assum `(H1 * H2) h_i` (strip_assume_tac o REWRITE_RULE [STAR_def]) \\
+  fs [] \\ rename1 `H1 h_i_1` \\ rename1 `H2 h_i_2` \\
   qpat_assum `app_basic _ _ _ _ _` (mp_tac o REWRITE_RULE [app_basic_def]) \\
-  disch_then (qspecl_then [`h1`, `i UNION h2`, `st`] mp_tac) \\
+  disch_then (qspecl_then [`h_i_1`, `h_k UNION h_i_2`, `st`] mp_tac) \\
   impl_tac THEN1 SPLIT_TAC \\ disch_then progress \\
-  rename1 `Q1 r' h1'` \\
+  rename1 `Q1 r' h_f_1` \\
   qpat_x_assum `_ ==+> _` mp_tac \\
   disch_then (mp_tac o REWRITE_RULE [SEP_IMPPOST_def, STARPOST_def]) \\
   disch_then (mp_tac o REWRITE_RULE [SEP_IMP_def]) \\
-  disch_then (qspecl_then [`r'`, `h1' UNION h2`] mp_tac) \\ simp [] \\
+  disch_then (qspecl_then [`r'`, `h_f_1 UNION h_i_2`] mp_tac) \\ simp [] \\
   impl_tac
-  THEN1 (simp [STAR_def] \\ Q.LIST_EXISTS_TAC [`h1'`, `h2`] \\ SPLIT_TAC) \\
+  THEN1 (simp [STAR_def] \\ Q.LIST_EXISTS_TAC [`h_f_1`, `h_i_2`] \\ SPLIT_TAC) \\
   disch_then (assume_tac o REWRITE_RULE [STAR_def]) \\ fs [] \\
-  instantiate \\ rename1 `GC gc` \\ rename1 `SPLIT3 _ (h1', i', i UNION h2)` \\
-  qexists_tac `gc UNION i'` \\ SPLIT_TAC
+  instantiate \\ rename1 `GC h_g'` \\ qexists_tac `h_g' UNION h_g` \\
+  SPLIT_TAC
 );
 
 (* [app]: n-ary application *)
@@ -270,11 +270,11 @@ val evaluate_list_raise_SING = prove(
 
 val app_basic_rel = store_thm("app_basic_rel",
   ``app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
-    !(h: heap) (i: heap) (st: 'ffi state).
-      SPLIT (st2heap p st) (h, i) ==> H h ==>
-      ?env exp (r: res) (h': heap) (g: heap) (st': 'ffi state).
-        SPLIT3 (st2heap p st') (h', g, i) /\
-        Q r h' /\
+    !(h_i: heap) (h_k: heap) (st: 'ffi state).
+      SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
+      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state).
+        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
+        Q r h_f /\
         do_opapp [f;x] = SOME (env, exp) /\
         case r of
           | Val v' => bigStep$evaluate F env st exp (st', Rval v')
@@ -288,9 +288,9 @@ val app_basic_rel = store_thm("app_basic_rel",
   \\ Cases_on `r` \\ fs []
   \\ rename1 `evaluate _ _ (_ with clock := ck) _ _` \\ fs []
   \\ try_finally
-   (rename1 `SPLIT3 (st2heap p st1) (h1,g,i)`
+   (rename1 `SPLIT3 (st2heap p st1) (h_f,h_k,h_g)`
     \\ qabbrev_tac `st2 = st1 with clock := st.clock`
-    \\ `SPLIT3 (st2heap p st2) (h1,g,i)` by (fs [st2heap_def,Abbr `st2`] \\ NO_TAC)
+    \\ `SPLIT3 (st2heap p st2) (h_f,h_k,h_g)` by (fs [st2heap_def,Abbr `st2`] \\ NO_TAC)
     \\ rpt (asm_exists_tac \\ fs []) \\ fs [Abbr `st2`]
     \\ qexists_tac `ck - st1.clock`
     \\ drule bigClockTheory.clocked_min_counter \\ fs [])
