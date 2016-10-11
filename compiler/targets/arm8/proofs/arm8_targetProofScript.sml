@@ -805,10 +805,10 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
          >| [
             Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
             Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`,
+         (* Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`, *)
             Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`
+            Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+         (* Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)` *)
          ]
          \\ enc_rwts_tac
          \\ rfs []
