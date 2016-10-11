@@ -134,7 +134,8 @@ fun append_main_call compile_str compile_tm = let
     val goal = mk_imp(lhs,rhs)
     val lemma = prove(goal,
       rw []
-      \\ `(STDIN [] * STDOUT (^compile input) * CHAR_IO) h'` by
+      \\ rename1 `(CHAR_IO * STDIN _ * STDOUT _) h_f`
+      \\ `(STDIN [] * STDOUT (^compile input) * CHAR_IO) h_f` by
              (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
       \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
              GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]

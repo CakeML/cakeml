@@ -196,6 +196,7 @@ val app_one_naryClosure = store_thm ("app_one_naryClosure",
   rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
   rename1 `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
   Cases_on `xs` THENL [all_tac, rename1 `_::_::x''::xs`] \\
+
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
   Cases_on `r` \\ fs [POSTv_def, cond_def] \\
@@ -204,11 +205,12 @@ val app_one_naryClosure = store_thm ("app_one_naryClosure",
   fs [] \\ qpat_x_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
   fs [evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
   fs [do_opapp_def] \\
-  progress SPLIT_of_SPLIT3_2u3 \\ first_assum progress \\
+  progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   fs [with_clock_with_clock] \\
-  rename1 `SPLIT3 (st2heap _ st'') (h_f'', h_g'', h_g' UNION h_k)` \\
-  `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC
-  \\ simp [PULL_EXISTS] \\ instantiate
+  rename1 `SPLIT3 (st2heap _ st') (h_f', h_k UNION h_g, h_g')` \\
+  `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f', h_k, h_g UNION h_g')`
+    by SPLIT_TAC \\
+  simp [PULL_EXISTS] \\ instantiate
 );
 
 val curried_naryClosure = store_thm ("curried_naryClosure",
@@ -223,7 +225,7 @@ val curried_naryClosure = store_thm ("curried_naryClosure",
     rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
     fs [emp_def, cond_def, do_opapp_def, POSTv_def] \\
     rename1 `SPLIT (st2heap _ st) ({}, h_k)` \\
-    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, {}, h_k)` by SPLIT_TAC \\
+    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, h_k, {})` by SPLIT_TAC \\
     instantiate \\ rename1 `(n, x) :: _` \\
     first_x_assum (qspecl_then [`env with v := (n,x)::env.v`, `body`]
       assume_tac) \\
@@ -280,8 +282,9 @@ val app_one_naryRecclosure = store_thm ("app_one_naryRecclosure",
   fs [naryFun_def, evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
   fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   fs [with_clock_with_clock] \\
-  rename1 `SPLIT3 (st2heap _ st') (h_f'', h_g'', h_g' UNION h_k)` \\
-  `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f'', h_g' UNION h_g'', h_k)` by SPLIT_TAC \\
+  rename1 `SPLIT3 (st2heap _ st') (h_f', h_k UNION h_g, h_g')` \\
+  `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f', h_k, h_g UNION h_g')`
+    by SPLIT_TAC \\
   simp [PULL_EXISTS] \\ instantiate
 );
 
@@ -907,6 +910,7 @@ val sound_local = store_thm ("sound_local",
   `SPLIT (st2heap (p:'ffi ffi_proj) st) (h'_i, h_k UNION h'_k)` by SPLIT_TAC \\
   qpat_x_assum `sound _ _ _` (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
   rename1 `SPLIT3 _ (h'_f, _, h'_g)` \\
+
   fs [SEP_IMPPOST_def, STARPOST_def, SEP_IMP_def, STAR_def] \\
   first_x_assum (qspecl_then [`r`, `h'_f UNION h'_k`] assume_tac) \\
   `DISJOINT h'_f h'_k` by SPLIT_TAC \\
@@ -957,7 +961,7 @@ val app_of_htriple_valid = Q.prove (
     fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
     Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
     fs [evaluate_ck_def, terminationTheory.evaluate_def, st2heap_clock] \\
-    progress SPLIT3_of_SPLIT_emp2 \\ instantiate \\ fs [naryClosure_def]
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]
   )
 );
 
@@ -991,7 +995,7 @@ val app_rec_of_htriple_valid_aux = Q.prove (
     progress_then (fs o sing) do_opapp_naryRecclosure \\
     Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
     fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
-    progress SPLIT3_of_SPLIT_emp2 \\ instantiate \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
     (* fixme *)
     qexists_tac `naryClosure
       (env with v := (n,xv)::(ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
@@ -1916,6 +1920,7 @@ val cf_ffi_sound = Q.prove (
    first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
    fs [SPLIT_SING_2] \\ rveq \\
    rename1 `F' u2` \\
+
    `store_lookup y st.refs = SOME (W8array ws) /\
     Mem y (W8array ws) IN st2heap p st` by
      (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
@@ -1923,6 +1928,7 @@ val cf_ffi_sound = Q.prove (
       \\ imp_res_tac store2heap_IN_EL
       \\ imp_res_tac store2heap_IN_LENGTH
       \\ fs [store_lookup_def] \\ NO_TAC) \\
+
    fs [ffiTheory.call_FFI_def] \\
    fs [IO_def,one_def] \\ rveq \\
    fs [st2heap_def,FFI_part_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
@@ -2192,7 +2198,7 @@ val cf_sound = store_thm ("cf_sound",
         cf_evaluate_step_tac \\
         fs [app_def, app_basic_def] \\ first_assum progress \\
         fs [evaluate_ck_def] \\
-        rename1 `SPLIT3 (st2heap _ st') (h_f, h_g, h_k)` \\
+        rename1 `SPLIT3 (st2heap _ st') (h_f, h_k, h_g)` \\
         progress SPLIT3_swap23 \\ instantiate \\
         qexists_tac `ck + 1` \\ cf_exp2v_evaluate_tac `st with clock := ck + 1` \\
         fs [funBigStepTheory.dec_clock_def]
@@ -2235,7 +2241,7 @@ val cf_sound = store_thm ("cf_sound",
           qpat_assum `evaluate _ _ [App Opapp papp] = _` (add_to_clock `ck' + 1`) \\
           fs [with_clock_with_clock] \\
           (* Finish proving the goal *)
-          rename1 `SPLIT3 (st2heap _ st'') (h_f', h_g', _)` \\
+          rename1 `SPLIT3 (st2heap _ st'') (h_f', _, h_g')` \\
           `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f', h_k, h_g' UNION h_g)`
             by SPLIT_TAC \\
           GEN_EXISTS_TAC "st'''" `st'' with clock := st''.clock + st'.clock` \\
