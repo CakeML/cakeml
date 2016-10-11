@@ -11,8 +11,8 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
     | ffi_asm n = let
     val n = n - 1
     in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
-       "     pushq   %rax"::
-       "     jmp     cdecl(ffi" ^ (Int.toString n) ^ ")"::
+       (*"     pushq   %rax"::*)
+       "     j     cdecl(ffi" ^ (Int.toString n) ^ ")"::
        "     .p2align 3"::
        "":: ffi_asm n end
   in
@@ -43,13 +43,13 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "     .text",
    "     .globl  cdecl(main)",
    "cdecl(main):",
-   "     pushq   %rbp        # push base pointer",
-   "     movq    %rsp, %rbp  # save stack pointer",
-   "     leaq    cake_main(%rip), %rdi   # arg1: entry address",
-   "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap",
-   "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack",
-   "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack",
-   "     jmp     cake_main",
+   (*"     pushq   %rbp        # push base pointer",
+   "     movq    %rsp, %rbp  # save stack pointer",*)
+   "     la      $a0,cake_main   # arg1: entry address",
+   "     la      $a1,cake_heap   # arg2: first address of heap",
+   "     la      $v1,cake_stack  # arg3: first address of stack",
+   "     la      $v0,cake_end    # arg4: first address past the stack",
+   "     j     cake_main",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
    "",
@@ -57,11 +57,11 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    ""] @
    ffi_asm ffi_count @
   ["cake_clear:",
-   "     callq   cdecl(exit)",
+   "     j   cdecl(exit)",
    "     .p2align 3",
    "",
    "cake_exit:",
-   "     callq   cdecl(exit)",
+   "     j   cdecl(exit)",
    "     .p2align 3",
    "",
    "cake_main:",

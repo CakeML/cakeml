@@ -1,5 +1,6 @@
 CC = gcc
 RISCVCC = riscv64-unknown-elf-gcc
+MIPSCC = mips-linux-gnu-gcc-4.4 
 
 SRCS = $(wildcard *.S)
 
@@ -32,7 +33,7 @@ cake_x64_% : x64_%.S
 	$(CC) $< ffi.c -g -o $@
 
 cake_mips_% : mips_%.S
-	$(CC) $< ffi.c -g -o $@
+	$(MIPSCC) $< ffi.c -g -o $@
 
 clean:
 	rm $(RISCVPROGS) $(ARM6PROGS) $(ARM8PROGS) $(X64PROGS) $(MIPSPROGS)

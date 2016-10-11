@@ -647,7 +647,8 @@ fun to_bytes_wrap opt eval conf =
     (* no bvl opts *)
     let bvl = <|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|> in
     (* no pattern match opt *)
-    let data = <|tag_bits:=0; len_bits:=0; pad_bits:=0; len_size:=conf.data_conf.len_size|> in
+    let orig_pad = conf.data_conf.pad_bits in
+    let data = <|tag_bits:=0; len_bits:=0; pad_bits:= 1; len_size:=conf.data_conf.len_size|> in
     conf with <|clos_conf:=clos;bvl_conf:=bvl;data_conf:=data|>``))
 
 (* x64 all opts and no opts *)
