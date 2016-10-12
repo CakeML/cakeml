@@ -58,7 +58,7 @@ val lem4 =
 val lem5 = Q.prove(
    `!s state.
      target_state_rel mips_target s state ==>
-     !n. n < 32 /\ n <> 0 /\ n <> 1 /\ n <> 26 /\ n <> 27 /\ n <> 29 ==>
+     !n. n < 32 /\ n <> 0 /\ n <> 1 /\ n <> 25 /\ n <> 26 /\ n <> 27 /\ n <> 28 /\ n <> 29 ==>
          (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5`,
    lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def]
    )

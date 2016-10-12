@@ -142,26 +142,25 @@ val arm8_names_def = save_thm("arm8_names_def",
 
 val mips_names_def = Define `
   mips_names =
-    (* source can use 27 regs (r2-r25,r28,r30-r31),
+    (* source can use 25 regs (r2-r24,r30-r31),
        target's r0 must be avoided (hardcoded to 0),
        target's r1 must be avoided (used by encoder in asm),
+       target's r25 and r28 are used to set up PIC
        target's r29 must be avoided (stack pointer),
        target's r26-r27 avoided (reserved for OS kernel),
        source 0 must represent r31 (link register),
        source 1 2 must be r4, r5 (1st 2 args),
-       top 3 (24-26) must be callee-saved (in 16-23, 28, 30) *)
+       top 3 (22-24) must be callee-saved (in 16-23, 28, 30) *)
     (insert 0 31 o
      insert 1 4 o
      insert 2 5 o
-     insert 24 21 o
-     insert 25 22 o
-     insert 26 23 o
+     insert 22 21 o
+     insert 23 22 o
+     insert 24 23 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 4 2 o
-     insert 5 28 o
      insert 21 24 o
-     insert 22 25 o
-     insert 23 30) LN:num num_map`
+     insert 5 30) LN:num num_map`
 
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);

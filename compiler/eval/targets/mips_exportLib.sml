@@ -12,7 +12,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
     val n = n - 1
     in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
        (*"     pushq   %rax"::*)
-       "     j     cdecl(ffi" ^ (Int.toString n) ^ ")"::
+       "     j     cake_back_ffi" ^ (Int.toString n)::
        "     .p2align 3"::
        "":: ffi_asm n end
   in
@@ -45,11 +45,12 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "cdecl(main):",
    (*"     pushq   %rbp        # push base pointer",
    "     movq    %rsp, %rbp  # save stack pointer",*)
-   "     la      $a0,cake_main   # arg1: entry address",
-   "     la      $a1,cake_heap   # arg2: first address of heap",
-   "     la      $v1,cake_stack  # arg3: first address of stack",
-   "     la      $v0,cake_end    # arg4: first address past the stack",
+   "     dla      $a0,cake_main   # arg1: entry address",
+   "     dla      $a1,cake_heap   # arg2: first address of heap",
+   "     dla      $v1,cake_stack  # arg3: first address of stack",
+   "     dla      $v0,cake_end    # arg4: first address past the stack",
    "     j     cake_main",
+   "     nop",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
    "",
@@ -57,11 +58,11 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    ""] @
    ffi_asm ffi_count @
   ["cake_clear:",
-   "     j   cdecl(exit)",
+   "     j   cake_back_clear",
    "     .p2align 3",
    "",
    "cake_exit:",
-   "     j   cdecl(exit)",
+   "     j   cake_back_exit",
    "     .p2align 3",
    "",
    "cake_main:",
@@ -69,6 +70,31 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "#### Output of the CakeML compiler follows",
    ""]
   end |> map (fn s => s ^ "\n");
+
+fun cake_tail_lines ffi_count = let
+  fun ffi_asm 0 = []
+    | ffi_asm n = let
+    val n = n - 1
+    in ("cake_back_ffi" ^ (Int.toString n) ^ ":") ::
+       (*"     pushq   %rax"::*)
+       "     dla $t9, cdecl(ffi" ^ (Int.toString n) ^ ")"::
+       "     j $t9"::
+       "     .p2align 3"::
+       "":: ffi_asm n end
+  in
+  ""::
+  ffi_asm ffi_count @
+  ["cake_back_clear:",
+   "     dla $t9, cdecl(exit)",
+   "     j $t9",
+   "     .p2align 3",
+   "",
+   "cake_back_exit:",
+   "     dla $t9, cdecl(exit)",
+   "     j $t9",
+   "     .p2align 3",
+   ""]
+  end  |> map (fn s => s ^ "\n");
 
 fun byte_list_to_asm_lines bytes = let
   val (xs,ty) = listSyntax.dest_list bytes
@@ -96,7 +122,8 @@ fun byte_list_to_asm_lines bytes = let
 
 fun cake_lines stack_mb heap_mb ffi_count bytes_tm =
   cake_boilerplate_lines stack_mb heap_mb ffi_count @
-  byte_list_to_asm_lines bytes_tm;
+  byte_list_to_asm_lines bytes_tm @
+  cake_tail_lines ffi_count;
 
 fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
   val lines = cake_lines stack_mb heap_mb ffi_count bytes_tm

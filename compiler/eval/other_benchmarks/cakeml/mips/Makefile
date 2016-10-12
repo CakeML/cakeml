@@ -1,4 +1,4 @@
-CC = gcc
+CC = mips64-openwrt-linux-gcc
 
 SRCS = $(wildcard *.S)
 
@@ -9,7 +9,7 @@ all: mips
 mips : $(PROGS)
 
 cake_mips_% : %.S
-	$(CC) $< ../ffi.c -g -o $@
+	$(CC) $< ../ffi.c -g -o $@ -static
 
 clean:
 	rm $(PROGS)
