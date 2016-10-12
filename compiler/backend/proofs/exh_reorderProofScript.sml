@@ -173,62 +173,135 @@ val _ = temp_overload_on ("None",``NONE``)
 val _ = temp_overload_on ("Some",``SOME``)
 val _ = temp_overload_on ("Length",``LENGTH``)
 
-(*
-val find_match_aux_def = Define`
-    find_match_aux refs v [] i = NONE /\
-    find_match_aux refs v (p::ps) i = 
-        if ALL_DISTINCT (pat_bindings p []) then
-            case pmatch refs p v [] of
-            | Match env' => SOME i
-            | Match_type_error => None
-            | _ => find_match_aux refs v ps (SUC i)
-        else NONE
-  `
-
-  *)
-
 
 val find_match_def = Define`
-    find_match refs v [] = NONE /\
+    find_match refs v [] = No_match /\
     find_match refs v (pe::pes) = 
         if ALL_DISTINCT (pat_bindings (FST pe) []) then
             case pmatch refs (FST pe) v [] of
-            | Match env' => SOME (SND pe)
-            | Match_type_error => None
+            | Match env' => Match (env', SND pe)
+            | Match_type_error => Match_type_error
             | _ => find_match refs v pes
-        else NONE `
+        else Match_type_error `
 
 val isPcon_def = Define`
     (isPcon (Pcon _ _) = T) /\
     isPcon _ = F`
 
-val find_match_may_drop = Q.store_thm ("find_match_may_drop",
-    `! b a. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a)) /\ (EVERY (\x. isPcon (FST x)) a)) ==>
+val is_const_con_pat_bindings_empty = Q.store_thm("is_const_con_pat_bindings_empty",
+    `is_const_con x ==> pat_bindings x a = a`,
+    Cases_on `x`
+    \\ fs [is_const_con_def]
+    \\ EVAL_TAC)
+
+val find_match_drop_no_match = Q.store_thm ("find_match_drop_no_match",
+    `! a b. pmatch refs (FST b) v [] = No_match /\ (is_const_con (FST b)) ==>
      ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
-     
-     HERE
+     Induct
+     \\ rw [find_match_def, is_const_con_pat_bindings_empty]
+)
 
-     Induct_on `a`
-     \\ fs []
-     \\ ntac 2 gen_tac
-     \\ strip_tac
-     >- (
-        res_tac
-        \\ fs [] \\ rfs []
-        \\ rw []
-        \\ Cases_on `pmatch refs (FST h) v []`
-        >- (
-            rw [Once find_match_def]
-            >- (
-             rw [Once find_match_def]
-             \\ fs []
-            )
-        )
-     )
+val find_match_may_drop = Q.store_thm ("find_match_may_drop",
+    `! a b. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a))) ==>
+     ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
+     Induct
+     \\ rw [find_match_def]
+     \\ CASE_TAC
+     \\ rw [find_match_drop_no_match]
+)
 
+val pmatch_same_match = Q.store_thm("pmatch_same_match",
+    `is_const_con x /\ pmatch refs x v [] = Match a /\ ¬(isPvar y) /\
+        pmatch refs y v [] = Match b
+        ==> (x = y)`,
+    Cases_on `x` \\ rw [is_const_con_def]
+    \\ Cases_on `v` \\ fs [pmatch_def]
+    \\ every_case_tac \\ fs []
+    \\ fs [LENGTH_NIL_SYM]
+    \\ Cases_on `y` \\ fs [pmatch_def]
+    \\ rw []
+    \\ every_case_tac \\ fs [LENGTH_NIL]
+)
+
+val pmatch_match_match = Q.store_thm("pmatch_match_match",
+    `! x y v. is_const_con x /\ isPcon y /\ pmatch refs x v [] = Match_type_error ==>
+        pmatch refs y v [] = Match_type_error`,
+     Cases \\ fs [isPcon_def, is_const_con_def] 
+     \\ Cases \\ fs [isPcon_def,is_const_con_def] 
+     \\ Cases \\ fs [pmatch_def]
+     \\ rw [LENGTH_NIL_SYM, LENGTH_NIL]
+     \\ fs [LENGTH_NIL_SYM, LENGTH_NIL]
+     \\ spose_not_then strip_assume_tac \\ fs[LENGTH_NIL_SYM]
+     \\ rfs[pmatch_def]);
+
+val pmatch_match_con = Q.store_thm("pmatch_match_con",
+    `∀x y v.
+     is_const_con x /\ pmatch refs x v [] = Match a /\ (isPcon y) ==>
+        pmatch refs y v [] <> Match_type_error`,
+    Cases \\ Cases \\ fs[is_const_con_def,isPcon_def,pmatch_def]
+    \\ Cases \\ fs[pmatch_def]
+    \\ rw[]
+    \\ fs[LENGTH_NIL_SYM,pmatch_def,LENGTH_NIL]);
+
+val isPcon_isPvar = Q.store_thm("isPcon_isPvar",
+  `∀x. isPcon x ==> ¬isPvar x`,
+  Cases \\ rw[isPcon_def,isPvar_def]);
+
+val find_match_may_reord = Q.store_thm("find_match_may_reord",
+    `! a b. is_const_con (FST b) /\ ¬((MEM (FST b) (MAP FST a)))
+            /\ EVERY (isPcon o FST) a /\
+            find_match refs v (a ++ [b] ++ c) ≠ Match_type_error
+            ==> 
+        find_match refs v (a ++ [b] ++ c) = find_match refs v (b::a++c) `,
+    Induct \\ fs []
+    \\ rw [find_match_def]
+    \\ every_case_tac \\ fs [find_match_def]
+    >- ( imp_res_tac pmatch_match_match \\ fs [])
+    >- ( imp_res_tac pmatch_match_match \\ fs [])
+    >- (
+        imp_res_tac isPcon_isPvar \\
+        imp_res_tac pmatch_same_match  )
+    >- (
+      CCONTR_TAC \\ fs[o_DEF] \\
+      first_x_assum(qspec_then`b`mp_tac) \\ rw[] )
+    >- (
+      CCONTR_TAC \\ fs[]
+      \\ fs[is_const_con_pat_bindings_empty] ))
+
+val find_match_drop_after_pvar = Q.store_thm("find_match_drop_after_pvar",
+    `! a. isPvar (FST b) ==>
+        find_match refs v (a ++ [b] ++ c) = find_match refs v (a ++ [b])
+    `,
+    Induct \\ fs [find_match_def]
+    \\ rw [] 
+    \\ CASE_TAC
+    \\ Cases_on `FST b` \\ fs [pmatch_def, isPvar_def]
+    )
+
+val (reord_rules,reord_ind,reord_cases) = Hol_reln`
+  (isPvar (FST b) ==> reord (a ++ [b] ++ c) (a ++ [b])) /\
+  (is_const_con (FST b) /\
+   MEM (FST b) (MAP FST a) ==>
+   reord (a ++ [b] ++ c) (a ++ c)) /\
+  (is_const_con (FST b) /\
+   ¬MEM (FST b) (MAP FST a) /\
+   EVERY isPcon (MAP FST a) ==>
+   reord (a ++ [b] ++ c) ([b] ++ a ++ c))`;
+
+val const_cons_sep_def=Define `
+    (const_cons_sep [] a const_cons = (const_cons,a) ) /\
+    (const_cons_sep (b::c) a const_cons=
+        if (isPvar (FST b)) then
+            (const_cons,(b::a))
+        else if (is_const_con (FST b)) then
+                if MEM (FST b) (MAP FST const_cons) then
+                     const_cons_sep c a const_cons
+                else const_cons_sep c a (b::const_cons)
+        else const_cons_sep c (b::a) const_cons)
+`
 
 val evaluate_match_find_match_none = Q.store_thm ("evaluate_match_find_match_none",
-    `find_match s.refs v pes = NONE ==>
+    `(!env. find_match s.refs v pes ≠ Match env) ==>
             evaluate_match env s v pes = (s, Rerr(Rabort Rtype_error))
             `,
     Induct_on `pes`
@@ -240,44 +313,23 @@ val evaluate_match_find_match_none = Q.store_thm ("evaluate_match_find_match_non
     \\ every_case_tac
     \\ fs [evaluate_def,find_match_def]
 )
-(*
-val find_match_mono = Q.store_thm ("find_match_mono",
-    `!n i. find_match_aux refs v pes n = Some i ==> n <= i /\ (i - n < Length pes)`,
-    Induct_on `pes`
-    \\ fs [find_match_aux_def]
-    \\ rw []
-    \\ every_case_tac \\ fs [] \\ res_tac \\ fs []
-    )
-*)
-
-val find_match_lift_one = Q.store_thm ("find_match_lift_one",
-    ` find_match s.refs v (a++[b]++c) = find_match s.refs v (b::a++c)`
 
 (*connection between evaluate_match and find_match*)
 val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match_some",
-    `!n i. find_match_aux s.refs v (MAP FST pes) n = Some (n + i) ==>
-            (i < Length pes /\
-            ? env'. pmatch s.refs (FST (EL i pes)) v env = 
-                Match env' /\
-                    evaluate_match env s v pes = evaluate env' s [(SND (EL i pes))])
-            `,
+    ` find_match s.refs v pes = Match (env',e) ==>
+        evaluate_match env s v pes = evaluate (env' ++ env) s [e] `,
     Induct_on `pes`
-    \\ fs [find_match_aux_def, evaluate_def]
+    \\ fs [find_match_def,evaluate_def]
     \\ Cases
     \\ fs [evaluate_def]
-    \\ ntac 2 gen_tac 
-    \\ fs [ADD1]
     \\ TOP_CASE_TAC
     \\ strip_tac
-    \\ imp_res_tac find_match_mono
-    \\ Cases_on `i` \\ fs [ADD1]
-    \\ fs []
-    \\ first_x_assum (qspecl_then [`n+1`,`n'`] mp_tac)
-    \\ fs []
-    \\ strip_tac \\ fs []
-    \\ rw [pmatch_nil]
+    \\ rw [Once pmatch_nil]
+    \\ pop_assum mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
 )
 
+(*
 val evaluate_match_find_match = Q.store_thm("evaluate_match_find_match",
     `(find_match s.refs v (MAP FST pes) = None ==> 
         evaluate_match env s v pes = (s, Rerr (Rabort Rtype_error))) /\
@@ -289,6 +341,7 @@ val evaluate_match_find_match = Q.store_thm("evaluate_match_find_match",
     rw [find_match_def]
     \\ METIS_TAC [evaluate_match_find_match_none,evaluate_match_find_match_some, LENGTH_MAP, ADD_CLAUSES]
 )
+*)
 
 
 val cons_cons_sep_meh = Q.store_thm("const_cons_sep_meh",
