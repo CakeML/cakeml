@@ -11,7 +11,8 @@ val _ = overload_on ("monad_unit_bind", ``OPTION_IGNORE_BIND``)
 
 val _ = Datatype`
   RO_fs = <| files : (string # string) list ;
-             infds : (num # (string # num)) list
+             infds : (num # (string # num)) list ;
+             stdout : string
   |>
 `
 
@@ -19,15 +20,19 @@ val nextFD_def = Define`
   nextFD fsys = LEAST n. ~ MEM n (MAP FST fsys.infds)
 `;
 
+val writeStdOut_def = Define`
+  writeStdOut c fsys =
+    SOME (fsys with stdout := fsys.stdout ++ [c])
+`;
+
 val openFile_def = Define`
   openFile fnm fsys =
-     do
-        ALOOKUP fsys.files fnm ;
-        return <|
-          files := fsys.files ;
-          infds := (nextFD fsys, (fnm, 0)) :: fsys.infds
-        |>
-     od
+     let fd = nextFD fsys
+     in
+       do
+          ALOOKUP fsys.files fnm ;
+          return (fd, fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
+       od
 `;
 
 val A_DELKEY_def = Define`
@@ -123,7 +128,9 @@ val encode_fds_def = Define`
 `;
 
 val encode_def = Define`
-  encode fs = cfHeapsBase$Cons (encode_files fs.files) (encode_fds fs.infds)
+  encode fs = cfHeapsBase$Cons
+                         (encode_files fs.files)
+                         (Cons (encode_fds fs.infds) (Str fs.stdout))
 `
 
 
@@ -148,11 +155,12 @@ val decode_encode_fds = Q.store_thm(
   simp[decode_encode_list, decode_encode_pair]);
 
 val decode_def = Define`
-  (decode (Cons files0 fds0) =
+  (decode (Cons files0 (Cons fds0 stdout0)) =
      do
         files <- decode_files files0 ;
         fds <- decode_fds fds0 ;
-        return <| files := files ; infds := fds |>
+        stdout <- destStr stdout0 ;
+        return <| files := files ; infds := fds ; stdout := stdout |>
      od) ∧
   (decode _ = fail)
 `;
@@ -162,5 +170,104 @@ val decode_encode_FS = Q.store_thm(
   `decode (encode fs) = return fs`,
   simp[decode_def, encode_def, decode_encode_files, decode_encode_fds] >>
   simp[theorem "RO_fs_component_equality"]);
+
+val encode_11 = Q.store_thm(
+  "encode_11[simp]",
+  `encode fs1 = encode fs2 ⇔ fs1 = fs2`,
+  metis_tac[decode_encode_FS, SOME_11]);
+
+(* ----------------------------------------------------------------------
+    Making the above available in the ffi_next view of the world
+   ----------------------------------------------------------------------
+
+    There are four operations to be used in the example:
+
+    1. write char to stdout
+    2. open file
+    3. read char from file descriptor
+    4. close file
+
+    The existing example that handles stdout and the write operation
+    labels that operation with 0; we might as well keep that, and then
+    number the others above 1, 2 and 3. There should probably be a
+    better way of developing this numbering methodically (and
+    compositionally?).
+
+   ---------------------------------------------------------------------- *)
+
+val getNullTermStr_def = Define`
+  getNullTermStr (bytes : word8 list) =
+     let sz = findi 0w bytes
+     in
+       if sz = LENGTH bytes then NONE
+       else SOME(MAP (CHR o w2n) (TAKE sz bytes))
+`
+
+val fs_ffi_next_def = Define`
+  fs_ffi_next (n:num) bytes fs_ffi =
+    do
+      fs <- decode fs_ffi ;
+      case n of
+        0 => do (* write *)
+               assert(LENGTH bytes = 1);
+               fs' <- writeStdOut (CHR (w2n (HD bytes))) fs;
+               return (bytes, encode fs')
+             od
+      | 1 => do (* open file *)
+               fname <- getNullTermStr bytes;
+               (fd, fs') <- openFile fname fs;
+               assert(fd < 256);
+               return ([n2w fd], encode fs')
+             od
+      | 2 => do
+               assert(LENGTH bytes = 1);
+               (copt, fs') <- fgetc (w2n (HD bytes)) fs;
+               case copt of
+                   NONE => return ([255w], encode fs')
+                 | SOME c => return ([n2w (ORD c)], encode fs')
+             od
+      | 3 => do
+               assert(LENGTH bytes = 1);
+               (_, fs') <- closeFD (w2n (HD bytes)) fs;
+               return (bytes, encode fs')
+             od
+      | _ => fail
+    od
+`;
+
+val ALOOKUP_EXISTS_IFF = Q.store_thm(
+  "ALOOKUP_EXISTS_IFF",
+  `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
+  Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
+
+val closeFD_lemma = Q.store_thm(
+  "closeFD_lemma",
+  `fd ∈ FDOM (alist_to_fmap fs.infds) ∧ fd < 256
+     ⇒
+   fs_ffi_next 3 [n2w fd] (encode fs) =
+     SOME ([n2w fd], encode (fs with infds updated_by A_DELKEY fd))`,
+  simp[fs_ffi_next_def, decode_encode_FS, closeFD_def, PULL_EXISTS,
+       theorem "RO_fs_component_equality", MEM_MAP, FORALL_PROD,
+       ALOOKUP_EXISTS_IFF] >> metis_tac[]);
+
+(* ----------------------------------------------------------------------
+
+    Our operations require memory to be allocated in the heap for the
+    passing of parameters:
+
+    1. write requires write_loc for the storage of the character to be
+       written
+    2. open-file requires filenamae_loc for the storage of the name of the
+       (probably zero-terminated) file
+    3. read-char needs storage for a single byte for identifying the
+       file-descripter to read through. This assumes that there can't
+       be more than 256 file-descriptors.  Perhaps we can share write_loc.
+    4. close-file also needs a file-descriptor.
+
+   ---------------------------------------------------------------------- *)
+
+
+
+
 
 val _ = export_theory();
