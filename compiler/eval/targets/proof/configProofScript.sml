@@ -21,7 +21,7 @@ val x64_conf_ok = prove(``
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
 val arm6_machine_config_def = Define`
-  arm6_machine_config = <|target:= arm6_target ; len_reg:=1  ; ptr_reg := 0 ; caller_saved_regs := [11;12;13]|>`
+  arm6_machine_config = <|target:= arm6_target ; len_reg:=1  ; ptr_reg := 0 ; caller_saved_regs := [8;10;11]|>`
 
 val arm6_conf_ok = prove(``
   conf_ok arm_compiler_config arm6_machine_config``,
@@ -31,10 +31,11 @@ val arm6_conf_ok = prove(``
   >-
     cheat (* There's probably a better way to check this than brute force?*)
   >>
-  fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
+  fs[markerTheory.Abbrev_def]>>
+  EVAL_TAC>>fs[]);
 
 val arm8_machine_config_def = Define`
-  arm8_machine_config = <|target:= arm8_target ; len_reg:=1  ; ptr_reg := 0 ; caller_saved_regs := [2;28;29]|>`
+  arm8_machine_config = <|target:= arm8_target ; len_reg:=1  ; ptr_reg := 0 ; caller_saved_regs := [27;28;29]|>`
 
 val arm8_conf_ok = prove(``
   conf_ok arm8_compiler_config arm8_machine_config``,
@@ -49,7 +50,7 @@ val arm8_conf_ok = prove(``
   fs[]);
 
 val riscv_machine_config_def = Define`
-  riscv_machine_config = <|target:= riscv_target; len_reg:=5  ; ptr_reg := 4 ; caller_saved_regs := [27;28;29]|>`
+  riscv_machine_config = <|target:= riscv_target; len_reg:= 11 ; ptr_reg :=10 ; caller_saved_regs := [25;26;27]|>`
 
 val riscv_conf_ok = prove(``
   conf_ok riscv_compiler_config riscv_machine_config``,
@@ -64,7 +65,7 @@ val riscv_conf_ok = prove(``
   fs[]);
 
 val mips_machine_config_def = Define`
-  mips_machine_config = <|target:= mips_target; len_reg:=5  ; ptr_reg := 4 ; caller_saved_regs := [27;28;29]|>`
+  mips_machine_config = <|target:= mips_target; len_reg:=5  ; ptr_reg := 4 ; caller_saved_regs := [21;22;23]|>`
 
 val mips_conf_ok = prove(``
   conf_ok mips_compiler_config mips_machine_config``,
