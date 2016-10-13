@@ -960,13 +960,13 @@ val lemma = prove(
     Abbrev (ra_regs = (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5))) /\
     2 < ra_regs ∧
-    save_regs = set mc_conf.caller_saved_regs /\
+    save_regs = set mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+2))
-      mc_conf.caller_saved_regs /\
+      mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+3))
-      mc_conf.caller_saved_regs /\
+      mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+4))
-      mc_conf.caller_saved_regs /\
+      mc_conf.callee_saved_regs /\
     10 ≤ ra_regs +2 /\
     (LENGTH mc_conf.target.config.avoid_regs + 5) <
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
