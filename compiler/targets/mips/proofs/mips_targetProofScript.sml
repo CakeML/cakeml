@@ -58,9 +58,10 @@ val lem4 =
 val lem5 = Q.prove(
    `!s state.
      target_state_rel mips_target s state ==>
-     !n. n < 32 /\ n <> 0 /\ n <> 1 /\ n <> 25 /\ n <> 26 /\ n <> 27 /\ n <> 28 /\ n <> 29 ==>
+     !n. n < 32 /\ mips_reg_ok n ==>
          (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5`,
-   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def]
+   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+        mips_reg_ok_def]
    )
 
 val lem6 =
@@ -227,9 +228,9 @@ end
 
 fun state_tac asm =
    NO_STRIP_FULL_SIMP_TAC (srw_ss())
-      [asmPropsTheory.all_pcs, mips_ok_def,
-       asmPropsTheory.sym_target_state_rel, mips_target_def, mips_config,
-       alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, lem8, lem9]
+      [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
+       mips_target_def, mips_config, alignmentTheory.aligned_numeric,
+       set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
          \\ Cases_on `i = n2`
@@ -281,20 +282,23 @@ local
          \\ NTAC j next_state_tac
          \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
          \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
-         \\ state_tac asm
       end gs
    val (_, _, dest_mips_enc, is_mips_enc) =
       HolKernel.syntax_fns1 "mips_target" "mips_enc"
    fun get_asm tm = dest_mips_enc (HolKernel.find_term is_mips_enc tm)
 in
    fun next_tac gs =
-     (
-      qpat_x_assum `target_state_rel mips_target s1 ms`
-          (fn th => assume_tac th \\ assume_tac (MATCH_MP lem5 th))
-      \\ Q.PAT_ABBREV_TAC `instr = mips_enc aa`
-      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ qunabbrev_tac `instr`
-      \\ next_tac' (get_asm (snd gs))) gs
+     let
+       val asm = get_asm (snd gs)
+     in
+       qpat_x_assum `target_state_rel mips_target s1 ms`
+           (fn th => assume_tac th \\ assume_tac (MATCH_MP lem5 th))
+       \\ Q.PAT_ABBREV_TAC `instr = mips_enc aa`
+       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+       \\ qunabbrev_tac `instr`
+       \\ next_tac' asm
+       \\ state_tac asm
+     end gs
 end
 
 (* -------------------------------------------------------------------------
