@@ -94,11 +94,12 @@ val x64_names_def = Define `
      insert 11 12 o
      insert 12 13 o
      insert 13 14 o
-     insert 14 11 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 1 o
      insert 8 15 o
-     insert 9 11) LN:num num_map`
+     insert 9 11 o
+     insert 14 4 o
+     insert 15 5) LN:num num_map`
 
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
@@ -119,7 +120,8 @@ val arm_names_def = Define `
      insert 13 10 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 8 2 o
-     insert 10 12) LN:num num_map`
+     insert 10 12 o
+     insert 14 13) LN:num num_map`
 
 val arm_names_def = save_thm("arm_names_def",
   CONV_RULE (RAND_CONV EVAL) arm_names_def);
@@ -160,7 +162,9 @@ val mips_names_def = Define `
      (* the rest just ensures that the mapping is well-formed *)
      insert 4 2 o
      insert 21 24 o
-     insert 5 30) LN:num num_map`
+     insert 5 30 o
+     insert 31 0 o
+     insert 30 1) LN:num num_map`
 
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
@@ -188,7 +192,10 @@ val riscv_names_def = Define `
    insert 3 28 o
    (* the rest to make the mapping well-formed *)
    insert 10 29 o
-   insert 11 30) LN:num num_map`;
+   insert 11 30 o
+   insert 28 0 o
+   insert 29 2 o
+   insert 30 3) LN:num num_map`;
 
 val riscv_names_def = save_thm("riscv_names_def",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
