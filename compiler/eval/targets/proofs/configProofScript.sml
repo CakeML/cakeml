@@ -111,17 +111,20 @@ val find_name_bij_iff = Q.store_thm("find_name_bij_iff",
     \\ metis_tac[])
   \\ metis_tac[] )
 
+val names_tac =
+  simp[find_name_bij_iff]
+  \\ EVAL_TAC
+  \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
+  \\ rpt strip_tac \\ rveq \\ EVAL_TAC
+
 val x64_machine_config_def = Define`
   x64_machine_config = <|target:= x64_target; len_reg:=6 ; ptr_reg := 7 ; caller_saved_regs := [12;13;14]|>`
 
 val x64_conf_ok = prove(``
   conf_ok x64_compiler_config x64_machine_config``,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
-  >-
-    fs[x64_machine_config_def,x64_backend_correct]
-  >- (
-    simp[find_name_bij_iff] \\ EVAL_TAC
-    \\ cheat (* totally false *) )
+  >- fs[x64_machine_config_def,x64_backend_correct]
+  >- names_tac
   >>
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
@@ -131,10 +134,8 @@ val arm6_machine_config_def = Define`
 val arm6_conf_ok = prove(``
   conf_ok arm_compiler_config arm6_machine_config``,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
-  >-
-    fs[arm6_machine_config_def,arm6_backend_correct]
-  >-
-    cheat (* There's probably a better way to check this than brute force?*)
+  >- fs[arm6_machine_config_def,arm6_backend_correct]
+  >- names_tac
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>fs[]);
@@ -145,10 +146,8 @@ val arm8_machine_config_def = Define`
 val arm8_conf_ok = prove(``
   conf_ok arm8_compiler_config arm8_machine_config``,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
-  >-
-    fs[arm8_machine_config_def,arm8_backend_correct]
-  >-
-    cheat (* There's probably a better way to check this than brute force?*)
+  >- fs[arm8_machine_config_def,arm8_backend_correct]
+  >- names_tac
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -160,10 +159,8 @@ val riscv_machine_config_def = Define`
 val riscv_conf_ok = prove(``
   conf_ok riscv_compiler_config riscv_machine_config``,
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
-  >-
-    fs[riscv_machine_config_def,riscv_backend_correct]
-  >-
-    cheat (* There's probably a better way to check this than brute force?*)
+  >- fs[riscv_machine_config_def,riscv_backend_correct]
+  >- names_tac
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -175,10 +172,8 @@ val mips_machine_config_def = Define`
 val mips_conf_ok = prove(``
   conf_ok mips_compiler_config mips_machine_config``,
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
-  >-
-    fs[mips_machine_config_def,mips_backend_correct]
-  >-
-    cheat (* There's probably a better way to check this than brute force?*)
+  >- fs[mips_machine_config_def,mips_backend_correct]
+  >- names_tac
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
