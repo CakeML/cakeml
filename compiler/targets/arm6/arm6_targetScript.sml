@@ -90,7 +90,7 @@ val arm6_enc_def = Define`
          enc
            (Load
               (LoadWord (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Inst (Mem Load32 _ _)) = arm6_encode_fail) /\
+   (* (arm6_enc (Inst (Mem Load32 _ _)) = arm6_encode_fail) /\ *)
    (arm6_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -103,7 +103,7 @@ val arm6_enc_def = Define`
            (Store
               (StoreWord
                  (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Inst (Mem Store32 r1 (Addr r2 a))) = arm6_encode_fail) /\
+   (* (arm6_enc (Inst (Mem Store32 r1 (Addr r2 a))) = arm6_encode_fail) /\ *)
    (arm6_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -156,9 +156,8 @@ val arm6_config_def = Define`
     ; encode := arm6_enc
     ; code_alignment := 2
     ; reg_count := 16
-    ; avoid_regs := [15]
+    ; avoid_regs := [13; 15]
     ; link_reg := SOME 14
-    ; has_mem_32 := F
     ; two_reg_arith := F
     ; big_endian := F
     ; valid_imm := \c i. valid_immediate i
@@ -184,9 +183,7 @@ val arm6_target_def = Define`
     ; proj := arm6_proj
     |>`
 
-val (arm6_config, arm6_asm_ok) =
-  asmLib.target_asm_rwts [DECIDE ``a < 16 /\ a <> 15n = a < 15``]
-    ``arm6_config``
+val (arm6_config, arm6_asm_ok) = asmLib.target_asm_rwts [] ``arm6_config``
 
 val arm6_config = save_thm("arm6_config", arm6_config)
 val arm6_asm_ok = save_thm("arm6_asm_ok", arm6_asm_ok)

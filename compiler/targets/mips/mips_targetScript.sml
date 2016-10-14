@@ -64,10 +64,10 @@ val mips_sh32_def = Define`
 
 val mips_memop_def = Define`
    (mips_memop Load    = INL LD) /\
-   (mips_memop Load32  = INL LWU) /\
+(* (mips_memop Load32  = INL LWU) /\ *)
    (mips_memop Load8   = INL LBU) /\
    (mips_memop Store   = INR SD) /\
-   (mips_memop Store32 = INR SW) /\
+(* (mips_memop Store32 = INR SW) /\ *)
    (mips_memop Store8  = INR SB)`
 
 val mips_cmp_def = Define`
@@ -174,9 +174,8 @@ val mips_config_def = Define`
    <| ISA := MIPS
     ; encode := mips_enc
     ; reg_count := 32
-    ; avoid_regs := [0; 1]
+    ; avoid_regs := [0; 1; 25; 26; 27; 28; 29]
     ; link_reg := SOME 31
-    ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := T
     ; valid_imm :=
@@ -207,10 +206,14 @@ val mips_target_def = Define`
     ; proj := mips_proj
     |>`
 
+val mips_reg_ok_def = Define`
+  mips_reg_ok n = ~MEM n mips_config.avoid_regs`
+
+val mips_reg_ok = save_thm("mips_reg_ok",
+  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def))
+
 val (mips_config, mips_asm_ok) =
-  asmLib.target_asm_rwts
-    [DECIDE ``a < 32 /\ a <> 0n /\ a <> 1n = 1 < a /\ a < 32``]
-    ``mips_config``
+  asmLib.target_asm_rwts [mips_reg_ok] ``mips_config``
 
 val mips_config = save_thm("mips_config", mips_config)
 val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)

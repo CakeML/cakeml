@@ -94,15 +94,20 @@ val () = Datatype `
 val () = Datatype `
   addr = Addr reg ('a word)`
 
+(* old version
 val () = Datatype `
   mem_op = Load  | Load8  | Load32
          | Store | Store8 | Store32`
+*)
+
+val () = Datatype `
+  memop = Load  | Load8 | Store | Store8`
 
 val () = Datatype `
   inst = Skip
        | Const reg ('a word)
        | Arith ('a arith)
-       | Mem mem_op reg ('a addr)`
+       | Mem memop reg ('a addr)`
 
 val () = Datatype `
   asm = Inst ('a inst)
@@ -123,7 +128,6 @@ val () = Datatype `
      ; encode         : 'a asm -> word8 list
      ; big_endian     : bool
      ; code_alignment : num
-     ; has_mem_32     : bool
      ; link_reg       : num option
      ; avoid_regs     : num list
      ; reg_count      : num
@@ -188,9 +192,9 @@ val inst_ok_def = Define `
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
-  (inst_ok (Mem m r a) c =
-     (((m = Load32) \/ (m = Store32)) ==> c.has_mem_32) /\ reg_ok r c /\
-     addr_ok a c)`
+  (inst_ok (Mem m r a : 'a inst) c =
+     (* (((m = Load32) \/ (m = Store32)) ==> (dimindex(:'a) = 64)) /\ *)
+     reg_ok r c /\ addr_ok a c)`
 
 val asm_ok_def = Define `
   (asm_ok (Inst i) c = inst_ok i c) /\

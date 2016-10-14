@@ -892,6 +892,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
             by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
             \\ load_tac
             )
+         (*
          >- (
             (*--------------
                 Load32
@@ -910,6 +911,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
             \\ qpat_x_assum `~(a /\ b)` (K all_tac)
             \\ load_tac
             )
+         *)
          >- (
             (*--------------
                 Store
@@ -938,6 +940,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
             ]
             \\ store_tac
             )
+         (*
             (*--------------
                 Store32
               --------------*)
@@ -951,6 +954,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
          by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
          \\ qpat_x_assum `~(a /\ b)` (K all_tac)
          \\ store_tac
+         *)
       ) (* close Inst *)
       (*--------------
           Jump

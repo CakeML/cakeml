@@ -94,35 +94,33 @@ val x64_names_def = Define `
      insert 11 12 o
      insert 12 13 o
      insert 13 14 o
-     insert 14 11 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 1 o
      insert 8 15 o
-     insert 9 11) LN:num num_map`
+     insert 9 11 o
+     insert 14 4 o
+     insert 15 5) LN:num num_map`
 
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
 val arm_names_def = Define `
   arm_names =
-    (* source can use 14 regs (0-13),
-       target's r13 must be avoided,
-       source 0 must represent r14 (link register) *)
+    (* source can use 14 regs,
+       target's r15 must be avoided (pc),
+       target's r13 must be avoided (stack pointer),
+       source 0 must represent r14 (link register),
+       source 1-2 must be r0 and r1 (1st 2 arguments)
+       the top three (source 11-13) must be callee-saved
+       (callee-saved include: r4-r8, r10-11) *)
     (insert 0 14 o
      insert 1 0 o
      insert 2 1 o
-     insert 3 2 o
-     insert 4 3 o
-     insert 5 4 o
-     insert 6 5 o
-     insert 7 6 o
-     insert 8 7 o
-     insert 9 8 o
-     insert 10 9 o
-     insert 11 10 o
-     insert 12 11 o
-     insert 13 12 o
+     insert 12 8 o
+     insert 13 10 o
      (* the rest just ensures that the mapping is well-formed *)
+     insert 8 2 o
+     insert 10 12 o
      insert 14 13) LN:num num_map`
 
 val arm_names_def = save_thm("arm_names_def",
@@ -131,38 +129,75 @@ val arm_names_def = save_thm("arm_names_def",
 val arm8_names_def = Define `
   arm8_names =
     (* source can use 31 regs (0-30),
-       target's r31 must be avoided (hardcoded to 0, sometimes sp),
-       source 0 must represent r30 (link register) *)
+       target's r31 must be avoided (stack pointer),
+       source 0 must represent r30 (link register),
+       source 1-2 must be r0,r1 (1st 2 args),
+       top three (28-30) must be callee-saved (in r19-r29) *)
     (insert 0 30 o
      insert 1 0 o
      insert 2 1 o
-     insert 30 2) LN:num num_map`
+     insert 30 27 o
+     insert 27 2) LN:num num_map`
 
 val arm8_names_def = save_thm("arm8_names_def",
   CONV_RULE (RAND_CONV EVAL) arm8_names_def);
 
 val mips_names_def = Define `
   mips_names =
-    (* source can use 30 regs (2-31),
+    (* source can use 25 regs (r2-r24,r30-r31),
        target's r0 must be avoided (hardcoded to 0),
        target's r1 must be avoided (used by encoder in asm),
-       source 0 must represent r31 (link register)
-       argument regs 4-7 *)
+       target's r25 and r28 are used to set up PIC
+       target's r29 must be avoided (stack pointer),
+       target's r26-r27 avoided (reserved for OS kernel),
+       source 0 must represent r31 (link register),
+       source 1 2 must be r4, r5 (1st 2 args),
+       top 3 (22-24) must be callee-saved (in 16-23, 28, 30) *)
     (insert 0 31 o
      insert 1 4 o
      insert 2 5 o
-     insert 3 6 o
-     insert 4 7 o
-     insert 5 2 o
-     insert 6 3 o
-     insert 7 30 o
+     insert 22 21 o
+     insert 23 22 o
+     insert 24 23 o
      (* the rest just ensures that the mapping is well-formed *)
-     insert 30 1 o
-     insert 31 0) LN:num num_map`
+     insert 4 2 o
+     insert 21 24 o
+     insert 5 30 o
+     insert 31 0 o
+     insert 30 1) LN:num num_map`
 
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
 
-val riscv_names_def = Define `riscv_names = mips_names`;
+val riscv_names_def = Define `
+  riscv_names =
+  (* arguments: 10-17
+       including return values: 10-11
+     temporaries: 5-7, 28-31
+     return address: 1
+     saved regs: 8-9, 18-27
+     3 = global pointer, 4 = thread pointer (not sure if they need to be avoided)
+     0 avoided (hardwired zero)
+     2 avoided (stack pointer)
+     3 avoided (global pointer)
+     31 avoided (used by encoder)
+     4 avoid regs means 28 regs available for CakeML
+     constraints:
+       the last 3 of these (25, 26, 27) must be mapped to callee saved regs
+       0 1 and 2 must be mapped to link reg (1), 1st arg (10), 2nd arg (11)
+  *)
+  (insert 0 1 o
+   insert 1 10 o
+   insert 2 11 o
+   insert 3 28 o
+   (* the rest to make the mapping well-formed *)
+   insert 10 29 o
+   insert 11 30 o
+   insert 28 0 o
+   insert 29 2 o
+   insert 30 3) LN:num num_map`;
+
+val riscv_names_def = save_thm("riscv_names_def",
+  CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
 val _ = export_theory();

@@ -21,6 +21,7 @@ compiler/backend/gc
 compiler/backend
 compiler/targets/asm
 compiler/targets
+compiler/eval/targets
 
 # compiler verification
 compiler/parsing/proofs
@@ -33,6 +34,7 @@ compiler/targets/arm6/proofs
 compiler/targets/arm8/proofs
 compiler/targets/mips/proofs
 compiler/targets/riscv/proofs
+compiler/eval/targets/proofs
 compiler/proofs
 
 # candle

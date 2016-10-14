@@ -48,7 +48,7 @@ val bytes_in_memory_thm2 = Q.prove(
    \\ fs []
    )
 
-val lem1 = CONJ (asmLib.v2w_BIT_n2w 5) (DECIDE ``!n. 1n < n ==> n <> 0``)
+val lem1 = asmLib.v2w_BIT_n2w 5
 val lem2 = asmLib.v2w_BIT_n2w 6
 
 val lem4 = blastLib.BBLAST_PROVE
@@ -190,7 +190,6 @@ end
 
 local
   val thm = DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``
-  val thm2 = DECIDE ``a < 32 /\ a <> 0n /\ a <> 1n = 1 < a /\ a < 32``
   val cond_rand_thms =
     utilsLib.mk_cond_rand_thms
        (utilsLib.accessor_fns ``: riscv_state`` @
@@ -205,7 +204,7 @@ in
        NO_STRIP_FULL_SIMP_TAC (srw_ss())
          [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
           riscv_config, asmPropsTheory.all_pcs, lem2, cond_rand_thms,
-          alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, thm2]
+          alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
        \\ MAP_EVERY (fn s =>
             qunabbrev_tac [QUOTE s]
             \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
@@ -216,7 +215,7 @@ in
        \\ asm_simp_tac (srw_ss())
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
        \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-       \\ simp []
+       \\ asm_simp_tac (srw_ss()) []
        \\ (if asmLib.isAddCarry asm then
              qabbrev_tac `r2 = ms.c_gpr ms.procID (n2w n0)`
              \\ qabbrev_tac `r3 = ms.c_gpr ms.procID (n2w n1)`
@@ -224,9 +223,10 @@ in
              \\ Cases_on `i = n2`
              \\ asm_simp_tac std_ss [wordsTheory.WORD_LO_word_0, lem8]
              >- (Cases_on `ms.c_gpr ms.procID (n2w n2) = 0w`
-                 \\ simp [wordsTheory.WORD_LO_word_0, lem7, lem9]
+                 \\ asm_simp_tac (srw_ss())
+                      [wordsTheory.WORD_LO_word_0, lem7, lem9]
                  \\ blastLib.BBLAST_TAC)
-             \\ rw [GSYM wordsTheory.word_add_n2w, lem7]
+             \\ srw_tac [] [GSYM wordsTheory.word_add_n2w, lem7]
            else
              rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
                  thm]

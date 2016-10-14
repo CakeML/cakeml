@@ -1,9 +1,10 @@
 open HolKernel boolLib bossLib lcsymtacs;
+open x64_compileLib
+open riscv_compileLib
 open arm_compileLib
 open mips_compileLib
-open riscv_compileLib
 open arm8_compileLib
-open x64_compileLib
+open arm_exportLib arm8_exportLib mips_exportLib riscv_exportLib x64_exportLib
 
 val _ = new_theory "benchmark"
 
@@ -15,12 +16,12 @@ val _ = PolyML.print_depth 5;
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes eval conf prog =
+fun to_bytes alg eval conf prog =
   let
   val _ = println "Compile to livesets"
   val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle 3 (fst (pairSyntax.dest_pair (rconc init)))
+  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
   val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
   val _ = println "Repeat compilation with oracle"
   (*This repeats the "to_livesets" step, but that isn't very costly*)
@@ -611,50 +612,88 @@ val nqueens =
              [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
               Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
 
-val benchmarks = [nqueens,foldl,reverse,fib,btree,queue,qsort]
-val names = ["nqueens","foldl","reverse","fib","btree","queue","qsort"]
+val sayhi = ``
+[Tdec (Dlet (Pvar"h") (App (FFI 0) [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(104)))]]));
+ Tdec (Dlet (Pvar"i") (App (FFI 0) [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(105)))]]))]``
+
+val benchmarks = [sayhi,foldl,reverse,fib,btree,queue,qsort]
+val names = ["sayhi","foldl","reverse","fib","btree","queue","qsort"]
+
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 fun save_th conf (str,th)=
   save_thm (conf^"_"^str,th)
 
-val arm_benchmarks_compiled = map (to_bytes arm_compileLib.eval ``arm_compiler_config``) benchmarks
-val arm_benchmarks_bytes = map extract_bytes arm_benchmarks_compiled
-
-val _ = map (save_th "arm") (zip names arm_benchmarks_compiled);
-
-val mips_benchmarks_compiled = map (to_bytes mips_compileLib.eval ``mips_compiler_config``) benchmarks
-val mips_benchmarks_bytes = map extract_bytes mips_benchmarks_compiled
-
-val _ = map (save_th "mips") (zip names mips_benchmarks_compiled);
-
-val riscv_benchmarks_compiled = map (to_bytes riscv_compileLib.eval ``riscv_compiler_config``) benchmarks
-val riscv_benchmarks_bytes = map extract_bytes riscv_benchmarks_compiled
-
-val _ = map (save_th "riscv") (zip names riscv_benchmarks_compiled);
-
-val arm8_benchmarks_compiled = map (to_bytes arm8_compileLib.eval ``arm8_compiler_config``) benchmarks
-val arm8_benchmarks_bytes = map extract_bytes arm8_benchmarks_compiled
-
-val _ = map (save_th "arm8") (zip names arm8_benchmarks_compiled);
-
-val x64_benchmarks_compiled = map (to_bytes x64_compileLib.eval ``x64_compiler_config``) benchmarks
-val x64_benchmarks_bytes = map extract_bytes x64_benchmarks_compiled
-
-val _ = map (save_th "x64") (zip names x64_benchmarks_compiled);
-
-open arm_exportLib arm8_exportLib mips_exportLib riscv_exportLib x64_exportLib
-
-fun write_asm prefix exporter [] = ()
-  | write_asm prefix exporter ((name,(bytes,ffi_count))::xs) =
-    (exporter 1000 1000 (numSyntax.int_of_term ffi_count)
+fun write_asm sz prefix exporter [] = ()
+  | write_asm sz prefix exporter ((name,(bytes,ffi_count))::xs) =
+    (exporter sz sz (numSyntax.int_of_term ffi_count)
        bytes ("cakeml/" ^ prefix ^"_"^ name ^ ".S") ;
-    write_asm prefix exporter xs)
+    write_asm sz prefix exporter xs)
 
-val _ = write_asm "arm" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes);
-val _ = write_asm "arm8" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes);
-val _ = write_asm "mips" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes);
-val _ = write_asm "riscv" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes);
-val _ = write_asm "x64" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes);
+(*"*)
+(* Set up for benchmarking with / without optimizations *)
+
+fun to_bytes_wrap opt eval conf =
+  if opt
+  then
+    to_bytes 3 eval conf
+  else
+    (* no reg_alloc *)
+    to_bytes 0 eval
+    (rconc (eval``
+    let conf = ^(conf) in
+    (* no fp opts *)
+    let clos = conf.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|> in
+    (* no bvl opts *)
+    let bvl = <|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|> in
+    (* no pattern match opt *)
+    let orig_pad = conf.data_conf.pad_bits in
+    let data = <|tag_bits:=0; len_bits:=0; pad_bits:= 1; len_size:=conf.data_conf.len_size|> in
+    conf with <|clos_conf:=clos;bvl_conf:=bvl;data_conf:=data|>``))
+
+(* x64 all opts and no opts *)
+val x64_benchmarks_compiled_all = map (to_bytes_wrap true x64_compileLib.eval ``x64_compiler_config``) benchmarks;
+val x64_benchmarks_bytes_all = map extract_bytes x64_benchmarks_compiled_all;
+val _ = write_asm 1000 "x64/all" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_all);
+
+val x64_benchmarks_compiled_none = map (to_bytes_wrap false x64_compileLib.eval ``x64_compiler_config``) benchmarks;
+val x64_benchmarks_bytes_none = map extract_bytes x64_benchmarks_compiled_none;
+val _ = write_asm 1000 "x64/none" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_none);
+
+(* arm all_opts and no opts *)
+val arm_benchmarks_compiled_all = map (to_bytes_wrap true arm_compileLib.eval ``arm_compiler_config``) benchmarks;
+val arm_benchmarks_bytes_all = map extract_bytes arm_benchmarks_compiled_all;
+val _ = write_asm 500 "arm/all" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_all);
+
+val arm_benchmarks_compiled_none = map (to_bytes_wrap false arm_compileLib.eval ``arm_compiler_config``) benchmarks;
+val arm_benchmarks_bytes_none = map extract_bytes arm_benchmarks_compiled_none;
+val _ = write_asm 500 "arm/none" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_none);
+
+(* riscv all_opts and no opts *)
+val riscv_benchmarks_compiled_all = map (to_bytes_wrap true riscv_compileLib.eval ``riscv_compiler_config``) benchmarks;
+val riscv_benchmarks_bytes_all = map extract_bytes riscv_benchmarks_compiled_all;
+val _ = write_asm 1000 "riscv/all" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_all);
+
+val riscv_benchmarks_compiled_none = map (to_bytes_wrap false riscv_compileLib.eval ``riscv_compiler_config``) benchmarks;
+val riscv_benchmarks_bytes_none = map extract_bytes riscv_benchmarks_compiled_none;
+val _ = write_asm 1000 "riscv/none" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_none);
+
+(* arm8 all_opts and no opts *)
+val arm8_benchmarks_compiled_all = map (to_bytes_wrap true arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
+val arm8_benchmarks_bytes_all = map extract_bytes arm8_benchmarks_compiled_all;
+val _ = write_asm 500 "arm8/all" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_all);
+
+val arm8_benchmarks_compiled_none = map (to_bytes_wrap false arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
+val arm8_benchmarks_bytes_none = map extract_bytes arm8_benchmarks_compiled_none;
+val _ = write_asm 500 "arm8/none" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_none);
+
+(* mips all_opts and no opts *)
+val mips_benchmarks_compiled_all = map (to_bytes_wrap true mips_compileLib.eval ``mips_compiler_config``) benchmarks;
+val mips_benchmarks_bytes_all = map extract_bytes mips_benchmarks_compiled_all;
+val _ = write_asm 1000 "mips/all" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_all);
+
+val mips_benchmarks_compiled_none = map (to_bytes_wrap false mips_compileLib.eval ``mips_compiler_config``) benchmarks;
+val mips_benchmarks_bytes_none = map extract_bytes mips_benchmarks_compiled_none;
+val _ = write_asm 1000 "mips/none" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_none);
 
 val _ = export_theory ();
