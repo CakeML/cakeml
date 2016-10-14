@@ -20,7 +20,7 @@ val config_ok_def = Define`
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
-    type_sound_invariants (NONE:(unit,v) semanticPrimitives$result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env) ∧
+    type_sound_invariants (NONE:(unit,semanticPrimitives$v) semanticPrimitives$result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
