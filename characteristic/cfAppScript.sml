@@ -28,8 +28,8 @@ val app_basic_def = Define `
         Q r h_f /\
         do_opapp [f;x] = SOME (env, exp) /\
         case r of
-          | Val v' => evaluate_ck ck st env [exp] = (st', Rval [v'])
-          | Exn e  => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
+          | Val v => evaluate_ck ck st env [exp] = (st', Rval [v])
+          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
 
 val app_basic_local = prove (
   ``!f x. is_local (app_basic p f x)``,
