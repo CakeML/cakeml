@@ -171,7 +171,7 @@ val all_asm_ok_def = Define `
 
 val line_ok_light_def = Define `
   (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
-  (line_ok_light c (Asm b bytes l) <=> asm_ok b c) /\
+  (line_ok_light c (Asm b bytes l) <=> T) /\
   (line_ok_light c (LabAsm Halt w bytes l) <=>
      asm_ok (Jump w) c) /\
   (line_ok_light c (LabAsm ClearCache w bytes l) <=>
@@ -190,6 +190,19 @@ val _ = export_rewrites["sec_ok_light_def"];
 
 val _ = overload_on("all_enc_ok_light",``λc ls.
   EVERY (sec_ok_light c) ls``);
+
+(* asm_ok checks coming into lab_to_target *)
+val line_ok_pre_def = Define`
+  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok b c) ∧
+  (line_ok_pre c _ ⇔ T)`
+
+val sec_ok_pre_def = Define`
+  sec_ok_pre c (Section k ls) ⇔
+    EVERY (line_ok_pre c) ls`;
+val _ = export_rewrites["sec_ok_pre_def"];
+
+val _ = overload_on("all_enc_ok_pre",``λc ls.
+  EVERY (sec_ok_pre c) ls``);
 
 (* pad with nop byte, and nop instruction *)
 

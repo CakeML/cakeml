@@ -7278,5 +7278,6 @@ val data_to_word_compile_conventions = store_thm("data_to_word_compile_to_word_c
     (EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ∧
      addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p``,cheat)
+*)
 
 val _ = export_theory();
