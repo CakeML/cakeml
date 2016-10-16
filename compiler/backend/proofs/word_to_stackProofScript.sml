@@ -537,7 +537,7 @@ val state_rel_def = Define `
   state_rel k f f' (s:('a,'ffi) wordSem$state) (t:('a,'ffi) stackSem$state) lens ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
-    (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 2 < k /\
+    (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 4 < k /\
     (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\ s.termdep = 0 /\
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     (!n word_prog arg_count.
@@ -3650,7 +3650,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       pairarg_tac>>fs[]>>
       strip_tac>>
       qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont),t) = (NONE,t') ∧ _ t'`>>fs[]>>
-      `kont = (λn. Inst(Arith (LongDiv 0 1 0 1 n))) n5` by fs[]>>
+      `kont = (λn. Inst(Arith (LongDiv 0 4 0 4 n))) n5` by fs[]>>
       pop_assum SUBST1_TAC>>
       match_mp_tac (GEN_ALL wStackLoad_thm1)>>
       asm_exists_tac >> simp[]>>
@@ -3659,10 +3659,10 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       disch_then assume_tac>>
       first_assum (qspecl_then [`0`,`Word c`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
-      first_x_assum (qspecl_then [`1`,`Word c'`] mp_tac)>>
+      first_x_assum (qspecl_then [`4`,`Word c'`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
       simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
-      `1 < k` by fs[state_rel_def]>>
+      `4 < k` by fs[state_rel_def]>>
       rw[]
       >-
         (imp_res_tac state_rel_get_var_imp>>
@@ -3670,18 +3670,18 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         assume_tac (GEN_ALL state_rel_set_var)>>
         first_assum (qspec_then`0` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
-        first_assum (qspec_then`1` assume_tac)>>fs[])
+        first_assum (qspec_then`4` assume_tac)>>fs[])
       >-
         (imp_res_tac state_rel_get_var_imp2>>
         qpat_abbrev_tac`A = FLOOKUP B 0n`>>
         `A = SOME (Word c)` by fs[Abbr`A`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
-        qpat_abbrev_tac`B = FLOOKUP C 1n`>>
+        qpat_abbrev_tac`B = FLOOKUP C 4n`>>
         `B = SOME (Word c')` by fs[Abbr`B`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
         fs[]>>
         assume_tac (GEN_ALL state_rel_set_var)>>
         first_assum (qspec_then`0` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
-        first_assum (qspec_then`1` assume_tac)>>fs[]))
+        first_assum (qspec_then`4` assume_tac)>>fs[]))
     >-
       (pop_assum mp_tac>>fs[get_vars_def]>>
       every_case_tac>>fs[wInst_def]>>
@@ -3690,7 +3690,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       pairarg_tac>>fs[]>>
       strip_tac>>
       qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont),t) = (NONE,t') ∧ _ t'`>>fs[]>>
-      `kont = (λn. Inst(Arith (LongMul 1 0 0 n))) n4` by fs[]>>
+      `kont = (λn. Inst(Arith (LongMul 4 0 0 n))) n4` by fs[]>>
       pop_assum SUBST1_TAC>>
       match_mp_tac (GEN_ALL wStackLoad_thm1)>>
       asm_exists_tac >> simp[]>>
@@ -3700,13 +3700,13 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       first_x_assum (qspecl_then [`0`,`Word c`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
       simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
-      `1 < k` by fs[state_rel_def]>>
+      `4 < k` by fs[state_rel_def]>>
       rw[]
       >-
         (imp_res_tac state_rel_get_var_imp>>
         fs[]>>
         assume_tac (GEN_ALL state_rel_set_var)>>
-        first_assum (qspec_then`1` assume_tac)>>fs[]>>
+        first_assum (qspec_then`4` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
         first_assum (qspec_then`0` assume_tac)>>fs[])
       >-
@@ -3715,7 +3715,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         `A = SOME (Word c)` by fs[Abbr`A`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
         fs[]>>
         assume_tac (GEN_ALL state_rel_set_var)>>
-        first_assum (qspec_then`1` assume_tac)>>fs[]>>
+        first_assum (qspec_then`4` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
         first_assum (qspec_then`0` assume_tac)>>fs[]))
     >- (
@@ -6560,7 +6560,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
 
 val init_state_ok_def = Define `
   init_state_ok k (t:('a,'ffi)stackSem$state) <=>
-    2n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
+    4n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.stack_space <= LENGTH t.stack /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
@@ -6739,5 +6739,102 @@ val word_to_stack_compile_lab_pres = store_thm("word_to_stack_compile_lab_pres",
   qpat_abbrev_tac`m = if _ then _ else _`>>
   pairarg_tac>>rw[]>>EVAL_TAC>>
   metis_tac[FST,word_to_stack_lab_pres])
+
+val EVEN_DIV_2_props = prove(``
+  a MOD 2 = 0 ∧ b MOD 2 = 0 ∧ a ≠ b ⇒
+  a DIV 2 ≠ b DIV 2 ∧ a DIV 2 ≠ 0 ``,cheat)
+
+val wconvs = [post_alloc_conventions_def,wordPropsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
+
+val call_dest_def_full_inst_ok_less = prove(``
+  call_dest d a k = (q0,d') ⇒
+  full_inst_ok_less c q0``,
+  Cases_on`d`>>EVAL_TAC>>rw[]>>
+  EVAL_TAC>>
+  pairarg_tac>>fs[]>>
+  pop_assum mp_tac>>PairCases_on`k`>>
+  EVAL_TAC>>rw[]>>
+  EVAL_TAC>>rw[])
+
+val wLive_full_inst_ok_less = prove(``
+  wLive q bs kf = (q1,bs') ⇒
+  full_inst_ok_less c q1``,
+  PairCases_on`kf`>>
+  fs[wLive_def]>>
+  rw[]>-EVAL_TAC>>
+  rpt(pairarg_tac>>fs[])>>
+  rveq>>EVAL_TAC)
+
+val word_to_stack_full_inst_ok_less = store_thm("word_to_stack_inst_ok_less",``
+  ∀p bs kf c.
+  post_alloc_conventions k p ∧
+  (FST kf) ≠ 0 ∧
+  full_inst_ok_less c p ⇒
+  full_inst_ok_less c (FST (comp p bs kf))``,
+  ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def]>>
+  fs[full_inst_ok_less_def]
+  >-
+    (PairCases_on`kf`>>fs[wMove_def]>>
+    qpat_abbrev_tac`ls = MAP f l`>>
+    rpt (pop_assum kall_tac)>> Induct_on`ls`>>EVAL_TAC>>
+    fs[FORALL_PROD]>>Cases_on`ls`>>EVAL_TAC>>rw[]>>
+    every_case_tac>>fs[]>>EVAL_TAC)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>
+    PairCases_on`kf`>>
+    ntac 3 (pop_assum mp_tac)>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]>>
+    metis_tac[EVEN_DIV_2_props])
+  >-
+    (PairCases_on`kf'`>>
+    rpt(EVAL_TAC>>rw[]))
+  >-
+    fs wconvs
+  >-
+    (pairarg_tac>>fs[]>>
+    pairarg_tac>>fs wconvs>>
+    fs[full_inst_ok_less_def])
+  >-
+    (rpt (pairarg_tac>>fs[])>>
+    ntac 4 (pop_assum mp_tac)>>
+    PairCases_on`kf`>>
+    Cases_on`ri`>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]>>
+    fs wconvs)
+  >-
+    (every_case_tac>> fs[full_inst_ok_less_def]>>
+    PairCases_on`kf`>>
+    rpt(EVAL_TAC>>rw[]))
+  >-
+    (PairCases_on`kf`>>
+    rpt(EVAL_TAC>>rw[]))
+  >-
+    (every_case_tac>>rpt(pairarg_tac >>fs[])>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]>>
+    fs wconvs>>
+    TRY(metis_tac[call_dest_def_full_inst_ok_less,wLive_full_inst_ok_less])>>
+    PairCases_on`kf`>>EVAL_TAC>>rw[]>>
+    qmatch_goalsub_abbrev_tac`stack_move n w x y z`>>
+    `full_inst_ok_less c z` by (unabbrev_all_tac>>EVAL_TAC)>>
+    pop_assum mp_tac>>
+    rpt (pop_assum kall_tac)>>
+    map_every qid_spec_tac [`z`,`w`,`n`]>>
+    Induct>>EVAL_TAC>>fs[])
+  >-
+    (pairarg_tac>>fs[]>>EVAL_TAC>>
+    metis_tac[wLive_full_inst_ok_less])
+  >-
+    (PairCases_on`kf`>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]))
+
+(*
+TODO: register bounds
+*)
 
 val _ = export_theory();

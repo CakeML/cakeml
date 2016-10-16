@@ -442,4 +442,45 @@ val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
   \\ every_case_tac \\ fs []
   \\ metis_tac []);
 
+open wordPropsTheory
+
+val inst_ok_less_def = wordPropsTheory.inst_ok_less_def
+
+val two_reg_inst_def = wordPropsTheory.two_reg_inst_def
+
+val every_inst_def = Define`
+  (every_inst P (Inst i) ⇔ P i) ∧
+  (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
+  (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
+  (every_inst P (While cmp r ri p) ⇔ every_inst P p) ∧
+  (every_inst P (Call ret dest handler) ⇔
+      (case ret of
+        NONE => T
+      | SOME (ret_handler,_,_,_) => every_inst P ret_handler ∧
+      (case handler of
+        NONE => T
+      | SOME (h,_,_) => every_inst P h))) ∧
+  (every_inst P prog ⇔ T)`
+
+val full_inst_ok_less_def = Define`
+  (full_inst_ok_less c (Inst i) ⇔ inst_ok_less c i) ∧
+  (full_inst_ok_less c (Seq p1 p2) ⇔
+    (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
+  (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
+    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
+    full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
+  (full_inst_ok_less c (While cmp r ri p) ⇔
+    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
+    full_inst_ok_less c p)) ∧
+  (full_inst_ok_less c (Call ret dest handler)
+    ⇔ (case ret of
+        NONE => T
+      | SOME (ret_handler,_,_,_) => full_inst_ok_less c ret_handler ∧
+      (case handler of
+        NONE => T
+      | SOME (h,_,_) => full_inst_ok_less c h))) ∧
+  (full_inst_ok_less c prog ⇔ T)`
+
+
+
 val _ = export_theory();

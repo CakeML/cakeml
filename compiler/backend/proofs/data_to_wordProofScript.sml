@@ -7221,7 +7221,8 @@ val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
       ALL_DISTINCT labs) p``,
   fs[compile_def]>>
   qpat_abbrev_tac`datap = _ ++ MAP (A B) prog`>>
-  assume_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
+  mp_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
+  rw[]>>
   pairarg_tac>>fs[Abbr`datap`]>>
   fs[EVERY_MEM]>>rw[]
   >-
@@ -7267,5 +7268,15 @@ val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
     ntac 2 (pop_assum kall_tac)>>
     pop_assum (qspec_then `p_1,p_2` assume_tac)>>fs[MEM_EL,EQ_IMP_THM]>>
     metis_tac[]);
+
+(*
+val data_to_word_compile_conventions = store_thm("data_to_word_compile_to_word_conventions",``
+  let (c,p) = compile data_conf word_conf asm_conf prog in
+  EVERY (λ(n,m,prog).
+    flat_exp_conventions prog ∧
+    post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
+    (EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ∧
+     addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p``,cheat)
 
 val _ = export_theory();
