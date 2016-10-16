@@ -138,6 +138,7 @@ sig
   val reduce_tac : tactic
 
   val normalise_exp : term -> term
+  val normalise_dec : term -> term
   val normalise_prog : term -> term
 
   val hide_environments : bool -> unit

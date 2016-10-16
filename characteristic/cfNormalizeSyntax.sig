@@ -6,6 +6,11 @@ signature cfNormalizeSyntax = sig
   val dest_full_normalise_prog : term -> term
   val is_full_normalise_prog   : term -> bool
 
+  val full_normalise_dec_tm   : term
+  val mk_full_normalise_dec   : term -> term
+  val dest_full_normalise_dec : term -> term
+  val is_full_normalise_dec   : term -> bool
+
   val full_normalise_tm   : term
   val mk_full_normalise   : term * term -> term
   val dest_full_normalise : term -> term * term

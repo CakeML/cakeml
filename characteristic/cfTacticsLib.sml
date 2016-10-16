@@ -69,6 +69,11 @@ fun normalise_exp tm = let
     val eval_th = EVAL normalise_tm
 in rhs (concl eval_th) end
 
+fun normalise_dec dec_tm = let
+  val normalise_dec_tm = mk_full_normalise_dec dec_tm
+  val eval_th = EVAL normalise_dec_tm
+in rhs (concl eval_th) end
+
 fun normalise_prog prog_tm = let
     val normalise_prog_tm = mk_full_normalise_prog prog_tm
     val eval_th = EVAL normalise_prog_tm
