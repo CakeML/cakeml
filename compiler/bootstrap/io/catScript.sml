@@ -226,6 +226,83 @@ val Apps_def = tDefine "Apps" `
 val LetApps_def = Define `
   LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
 
+val parse_t =
+  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (lexer_fun s) [] done failed of
+          Result (SOME(_,[x])) => ptree_Decl x``
+fun ParseDecl [QUOTE s] =
+  EVAL (mk_comb(parse_t, stringSyntax.fromMLstring s))
+       |> concl |> rhs |> rand
+
+val copyi_q =
+  `fun copyi a i clist =
+      case clist of
+          [] => let val z = Word8.fromInt 0 in Word8Array.update a i z end
+        | c::cs => let
+            val ordc = Char.ord c
+            val cw = Word8.fromInt ordc
+            val unit = Word8Array.update a i cw
+            val suci = i + 1
+          in
+            copyi a suci cs
+          end`
+val copyi_d = ParseDecl copyi_q
+val _ = append_dec copyi_d
+
+val copyi_spec = Q.store_thm(
+  "copyi_spec",
+  `∀n nv cs csv a av.
+     NUM n nv /\ n + LENGTH cs < LENGTH a /\ LIST_TYPE CHAR cs csv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "copyi" (basis_st()))
+       [av; nv; csv]
+       (W8ARRAY av a)
+       (POSTv v. cond (UNIT_TYPE () v) *
+                 W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) cs) n a))`,
+  Induct_on `cs` >> fs[LIST_TYPE_def, LENGTH_NIL]
+  >- (xcf "copyi" (basis_st()) >> xmatch >>
+      xlet `POSTv zv. & WORD (0w:word8) zv * W8ARRAY av a`
+      >- (xapp >> xsimpl) >>
+      xapp >> xsimpl >> simp[insertNTS_atI_NIL] >> xsimpl >>
+      metis_tac[DECIDE ``(x:num) + 1 < y ⇒ x < y``]) >>
+
+  xcf "copyi" (basis_st()) >> xmatch >>
+  rename [`LIST_TYPE CHAR ctail ctailv`, `CHAR chd chdv`] >>
+  xlet `POSTv oc. &(NUM (ORD chd)) oc * W8ARRAY av a`
+  >- (xapp >> xsimpl >> metis_tac[]) >>
+  xlet `POSTv cw. &(WORD (n2w (ORD chd) : word8) cw) * W8ARRAY av a`
+  >- (xapp >> xsimpl >> metis_tac[]) >>
+  xlet `POSTv u. &(UNIT_TYPE () u) * W8ARRAY av (LUPDATE (n2w (ORD chd)) n a)`
+  >- (xapp >> simp[]) >>
+  qabbrev_tac `a0 = LUPDATE (n2w (ORD chd)) n a` >>
+  xlet `POSTv si. &(NUM (n + 1) si) * W8ARRAY av a0`
+  >- (xapp >> xsimpl >> qexists_tac `&n` >>
+      fs[ml_translatorTheory.NUM_def, integerTheory.INT_ADD]) >>
+  xapp >> xsimpl >> qexists_tac `n + 1` >>
+  simp[insertNTS_atI_CONS, Abbr`a0`, LUPDATE_insertNTS_commute]);
+
+val str_to_w8array_q =
+  `fun str_to_w8array a s = let
+     val clist = String.explode s
+   in
+      copyi a 0 clist
+   end`
+val str_to_w8array_d = ParseDecl str_to_w8array_q
+val _ = append_dec str_to_w8array_d
+
+val str_to_w8array_spec = Q.store_thm(
+  "str_to_w8array_spec",
+  `∀s sv a av.
+     LENGTH (explode s) < LENGTH a ∧ STRING_TYPE s sv ⇒
+     app (p:'ffi ffi_proj) ^(fetch_v "str_to_w8array" (basis_st()))
+       [av; sv]
+       (W8ARRAY av a)
+       (POSTv v.
+          cond (UNIT_TYPE () v) *
+          W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 a))`,
+  rpt strip_tac >> xcf "str_to_w8array" (basis_st()) >>
+  xlet `POSTv csv. &(LIST_TYPE CHAR (explode s) csv) * W8ARRAY av a`
+  >- (xapp >> xsimpl >> metis_tac[]) >>
+  xapp >> simp[])
+
 (* ML implementation of write function (0), with parameter "c" *)
 val write_e =
   ``LetApps "c" (Long "Word8Array" "update")
@@ -238,10 +315,14 @@ val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` write_e "write_v")
 (* ML implementation of open function (1), with parameter name "fname" *)
 val open_e =
   ``Let (SOME "_")
-        (Apps [Var (Long "Word8Array" "copyVec");
+        (Apps [Var (Short "str_to_w8array");
                Var (Short "filename_array");
                Var (Short "fname")])
-        (App (FFI 1) [Var (Short "filename_array")])`` |> EVAL |> concl |> rand
+    (Let (SOME "_")
+         (App (FFI 1) [Var (Short "filename_array")])
+      (Apps [Var (Long "Word8Array" "sub"); Var (Short "filename_array");
+             Lit (IntLit 0)]))``
+    |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"open"`` ``"fname"`` open_e "open_v")
 val open_v_def = definition "open_v_def"
 
@@ -275,13 +356,13 @@ val CHAR_IO_char1_def = Define `
   CHAR_IO_char1 = SEP_EXISTS w. W8ARRAY onechar_loc [w]`;
 
 val CHAR_IO_fname_def = Define`
-  CHAR_IO_fname = SEP_EXISTS v. W8ARRAY filename_loc v * cond (LENGTH v = 256)
+  CHAR_IO_fname =
+    SEP_EXISTS v. W8ARRAY filename_loc v * cond (LENGTH v = 256)
 `;
 
 val CHAR_IO_def = Define`
   CHAR_IO = CHAR_IO_char1 * CHAR_IO_fname
 `;
-
 
 val write_spec = store_thm ("write_spec",
   ``!c cv.
@@ -289,7 +370,9 @@ val write_spec = store_thm ("write_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * CATFS fs)
-       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * CATFS (fs with stdout := fs.stdout ++ [CHR (w2n c)]))``,
+       (POSTv uv.
+         cond (UNIT_TYPE () uv) * CHAR_IO *
+         CATFS (fs with stdout := fs.stdout ++ [CHR (w2n c)]))``,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def, CHAR_IO_char1_def] \\ xpull
   \\ xlet `POSTv zv. CATFS fs * W8ARRAY onechar_loc [c] * CHAR_IO_fname *
@@ -305,89 +388,72 @@ val write_spec = store_thm ("write_spec",
     \\ simp[write_lemma])
   \\ xret \\ xsimpl);
 
-val parse_t =
-  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (lexer_fun s) [] done failed of
-          Result (SOME(_,[x])) => ptree_Decl x``
-fun ParseDecl [QUOTE s] =
-  EVAL (mk_comb(parse_t, stringSyntax.fromMLstring s))
-       |> concl |> rhs |> rand
+val ORD_eq_0 = Q.store_thm(
+  "ORD_eq_0[simp]",
+  `ORD c = 0 ⇔ c = CHR 0`,
+  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
 
-val copyi_q =
-  `fun copyi a i clist =
-      case clist of
-          [] => let val z = Word8.fromInt 0 in Word8Array.update a i z end
-        | c::cs => let
-            val ordc = Char.ord c
-            val cw = Word8.fromInt ordc
-            val unit = Word8Array.update a i cw
-            val suci = i + 1
-          in
-            copyi a suci cs
-          end`
-val copyi_d = ParseDecl copyi_q
-val _ = append_dec copyi_d
+val nextFD_lt_256 = Q.store_thm(
+  "nextFD_lt_256",
+  `CARD (set (MAP FST fs.infds)) < 256 ⇒ nextFD fs < 256`,
+  simp[nextFD_def] >> strip_tac >> numLib.LEAST_ELIM_TAC >> simp[] >>
+  qabbrev_tac `ns = MAP FST fs.infds` >> RM_ALL_ABBREVS_TAC >> conj_tac
+  >- (qexists_tac `MAX_SET (set ns) + 1` >>
+      pop_assum kall_tac >> DEEP_INTRO_TAC MAX_SET_ELIM >> simp[] >>
+      rpt strip_tac >> res_tac >> fs[]) >>
+  rpt strip_tac >> spose_not_then assume_tac >>
+  `count 256 ⊆ set ns` by simp[SUBSET_DEF] >>
+  `256 ≤ CARD (set ns)`
+     by metis_tac[CARD_COUNT, CARD_SUBSET, FINITE_LIST_TO_SET] >>
+  fs[]);
 
-val LUPDATE_commutes = Q.store_thm(
-  "LUPDATE_commutes",
-  `∀m n e1 e2 l.
-    m ≠ n ⇒
-    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
-  Induct_on `l` >> simp[LUPDATE_def] >>
-  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
-  rename[`LUPDATE _ nn (_ :: _)`] >>
-  Cases_on `nn` >> fs[LUPDATE_def]);
+val HD_LUPDATE = Q.store_thm(
+  "HD_LUPDATE",
+  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
+  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
 
-val LUPDATE_insertNTS_commute = Q.store_thm(
-  "LUPDATE_insertNTS_commute",
-  `∀ws pos1 pos2 a w.
-     pos2 < pos1 ∧ pos1 + LENGTH ws < LENGTH a
-       ⇒
-     insertNTS_atI ws pos1 (LUPDATE w pos2 a) =
-       LUPDATE w pos2 (insertNTS_atI ws pos1 a)`,
-  Induct >> simp[insertNTS_atI_NIL, insertNTS_atI_CONS, LUPDATE_commutes]);
+val open_spec = Q.store_thm(
+  "open_spec",
+  `∀s sv fs.
+     STRING_TYPE s sv ∧ explode s ∈ FDOM (alist_to_fmap fs.files) ∧
+     EVERY (λc. c ≠ CHR 0) (explode s) ∧
+     LENGTH (explode s) < 256 ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 256 ⇒
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.open" (basis_st()))
+       [sv]
+       (CHAR_IO * CATFS fs)
+       (POSTv wv. &(WORD (n2w (FST (THE (openFile (explode s) fs))):word8) wv) *
+                  CATFS (SND (THE (openFile (explode s) fs))) * CHAR_IO)`,
+  rpt strip_tac >>
+  xcf "CharIO.open" (basis_st()) >>
+  fs[CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
+  rename [`W8ARRAY filename_loc fnm0`] >>
+  xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_char1 *
+                 W8ARRAY filename_loc
+                         (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0) *
+                 CATFS fs`
+  >- (xapp >> xsimpl >> instantiate >>
+      simp[definition "filename_loc_def"] >> xsimpl) >>
+  qabbrev_tac `fnm = insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0` >>
+  qabbrev_tac `open_res = THE (openFile (explode s) fs)` >>
+  xlet `POSTv u.
+          &(UNIT_TYPE () u) * CHAR_IO_char1 *
+          W8ARRAY filename_loc (LUPDATE (n2w (FST open_res)) 0 fnm) *
+          CATFS (SND open_res)`
+  >- (xffi >> simp[definition "filename_loc_def", CATFS_def] >> xsimpl >>
+      map_every qexists_tac [`CHAR_IO_char1`, `encode fs`,
+                             `encode (SND open_res)`,
+                             `fs_ffi_next`, `[0;1;2;3]`] >> xsimpl >>
+      simp[fs_ffi_next_def, decode_encode_FS, EXISTS_PROD, Abbr`fnm`,
+           getNullTermStr_insertNTS_atI, EVERY_MAP, ORD_BOUND,
+           dimword_8, MAP_MAP_o, o_DEF, char_BIJ] >>
+      csimp[openFile_def, PULL_EXISTS, Abbr`open_res`] >>
+      simp[nextFD_lt_256, ALOOKUP_EXISTS_IFF] >> fs[MEM_MAP, EXISTS_PROD] >>
+      metis_tac[]) >>
+  xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
+  csimp[HD_LUPDATE] >>
+  simp[Abbr`fnm`, LENGTH_insertNTS_atI])
 
-val copyi_spec = Q.store_thm(
-  "copyi_spec",
-  `∀n nv cs csv a av.
-     NUM n nv /\ n + LENGTH cs + 1 < LENGTH a /\ LIST_TYPE CHAR cs csv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "copyi" (basis_st()))
-       [av; nv; csv]
-       (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) *
-                 W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) cs) n a))`,
-  Induct_on `cs` >> fs[LIST_TYPE_def, LENGTH_NIL]
-  >- (xcf "copyi" (basis_st()) >> xmatch >>
-      xlet `POSTv zv. & WORD (0w:word8) zv * W8ARRAY av a`
-      >- (xapp >> xsimpl) >>
-      xapp >> xsimpl >> simp[insertNTS_atI_NIL] >> xsimpl >>
-      metis_tac[DECIDE ``(x:num) + 1 < y ⇒ x < y``]) >>
-
-  xcf "copyi" (basis_st()) >> xmatch >>
-  rename [`LIST_TYPE CHAR ctail ctailv`, `CHAR chd chdv`] >>
-  xlet `POSTv oc. &(NUM (ORD chd)) oc * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
-  xlet `POSTv cw. &(WORD (n2w (ORD chd) : word8) cw) * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
-  xlet `POSTv u. &(UNIT_TYPE () u) * W8ARRAY av (LUPDATE (n2w (ORD chd)) n a)`
-  >- (xapp >> simp[]) >>
-  qabbrev_tac `a0 = LUPDATE (n2w (ORD chd)) n a` >>
-  xlet `POSTv si. &(NUM (n + 1) si) * W8ARRAY av a0`
-  >- (xapp >> xsimpl >> qexists_tac `&n` >>
-      fs[ml_translatorTheory.NUM_def, integerTheory.INT_ADD]) >>
-  xapp >> xsimpl >> qexists_tac `n + 1` >>
-  simp[insertNTS_atI_CONS, Abbr`a0`] >> xsimpl >>
-  simp[LUPDATE_insertNTS_commute])
-
-
-val str_to_w8array_q =
-  `fun str_to_s8array a s = let
-     val clist = String.explode s
-   in
-      copyi a 0 clist
-   end`
 (*
-val str_to_w8array_e =
-
 
 val e =
   ``LetApps "_" (Long "CharIO" "write") [Lit (Word8 (n2w (ORD #"H")))]

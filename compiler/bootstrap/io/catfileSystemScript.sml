@@ -323,4 +323,9 @@ val getNullTermStr_insertNTS_atI = Q.store_thm(
   simp[getNullTermStr_def, insertNTS_atI_def, findi_APPEND, EVERY_neq_findi,
        findi_def, TAKE_APPEND])
 
+val LENGTH_insertNTS_atI = Q.store_thm(
+  "LENGTH_insertNTS_atI",
+  `p + LENGTH l1 < LENGTH l2 ⇒ LENGTH (insertNTS_atI l1 p l2) = LENGTH l2`,
+  simp[insertNTS_atI_def]);
+
 val _ = export_theory()
