@@ -205,6 +205,7 @@ val getNullTermStr_def = Define`
        else SOME(MAP (CHR o w2n) (TAKE sz bytes))
 `
 
+
 val fs_ffi_next_def = Define`
   fs_ffi_next (n:num) bytes fs_ffi =
     do
@@ -219,7 +220,7 @@ val fs_ffi_next_def = Define`
                fname <- getNullTermStr bytes;
                (fd, fs') <- openFile fname fs;
                assert(fd < 256);
-               return ([n2w fd], encode fs')
+               return (LUPDATE (n2w fd) 0 bytes, encode fs')
              od
       | 2 => do
                assert(LENGTH bytes = 1);
@@ -280,5 +281,46 @@ val insertNTS_atI_CONS = Q.store_thm(
   >- (Cases_on `l` >> simp[ADD1, LUPDATE_def]) >>
   Cases_on `l` >> simp[ADD1] >> fs[ADD1] >>
   simp[GSYM ADD1, LUPDATE_def]);
+
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
+
+val LUPDATE_insertNTS_commute = Q.store_thm(
+  "LUPDATE_insertNTS_commute",
+  `∀ws pos1 pos2 a w.
+     pos2 < pos1 ∧ pos1 + LENGTH ws < LENGTH a
+       ⇒
+     insertNTS_atI ws pos1 (LUPDATE w pos2 a) =
+       LUPDATE w pos2 (insertNTS_atI ws pos1 a)`,
+  Induct >> simp[insertNTS_atI_NIL, insertNTS_atI_CONS, LUPDATE_commutes]);
+
+val findi_APPEND = Q.store_thm(
+  "findi_APPEND",
+  `∀l1 l2 x.
+      findi x (l1 ++ l2) =
+        let n0 = findi x l1
+        in
+          if n0 = LENGTH l1 then n0 + findi x l2
+          else n0`,
+  Induct >> simp[findi_def] >> rw[] >> fs[]);
+
+val EVERY_neq_findi = Q.store_thm(
+  "EVERY_neq_findi",
+  `EVERY (λx. x ≠ e) l ⇒ findi e l = LENGTH l`,
+  Induct_on `l` >> simp[findi_def]);
+
+val getNullTermStr_insertNTS_atI = Q.store_thm(
+  "getNullTermStr_insertNTS_atI",
+  `∀cs l. LENGTH cs < LENGTH l ∧ EVERY (λc. c ≠ 0w) cs ⇒
+          getNullTermStr (insertNTS_atI cs 0 l) = SOME (MAP (CHR o w2n) cs)`,
+  simp[getNullTermStr_def, insertNTS_atI_def, findi_APPEND, EVERY_neq_findi,
+       findi_def, TAKE_APPEND])
 
 val _ = export_theory()
