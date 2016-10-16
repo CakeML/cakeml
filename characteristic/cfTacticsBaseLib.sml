@@ -124,62 +124,20 @@ fun rewr_head_conv thm tm =
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory lexer_implTheory
 
-fun parse nt sem s = let
-    val s_t = stringSyntax.lift_string bool s
-    val t = (rhs o concl o EVAL) ``lexer_fun ^s_t``
-    val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
-    val evalth = EVAL ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
-    val r = rhs (concl evalth)
+fun parse_t nt sem =
+  ``\s. case peg_exec cmlPEG (nt (mkNT ^nt) I) (lexer_fun s) [] done failed of
+          Result (SOME(_,[x])) => ^sem x``
 
-    fun diag(s,t) = let
-        fun pp pps (s,t) =
-          (PP.begin_block pps PP.CONSISTENT 0;
-           PP.add_string pps s;
-           PP.add_break pps (1,2);
-           pp_term pps t;
-           PP.end_block pps)
-    in
-        print (PP.pp_to_string 79 pp (s,t) ^ "\n")
-    end
-    fun die (s,t) = (diag (s,t); raise Fail "Failed")
-in
-  if same_const (rator r) ``Result`` then
-    if optionSyntax.is_some (rand r) then let
-      val pair = rand (rand r)
-      val remaining_input = pair |> rator |> rand
-      val res = pair |> rand |> rator |> rand
-    in
-      if listSyntax.is_nil remaining_input then let
-        (* val _ = diag ("EVAL to: ", res) *)
-        val fringe_th = EVAL ``ptree_fringe ^res``
-        val fringe_t = rhs (concl fringe_th)
-        (* val _ = diag ("fringe = ", fringe_t) *)
-      in
-        if aconv fringe_t ttoks then let
-          val ptree_res =
-              case Lib.total mk_comb(sem,res) of
-                  NONE => optionSyntax.mk_none bool
-                | SOME t =>
-                  let
-                    val rt = rhs (concl (EVAL t))
-                  in
-                    if optionSyntax.is_some rt then
-                      rand rt
-                    else die ("Sem. failure", rt)
-                  end
-          (* val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res) *)
-        in
-          ptree_res
-        end
-        else die ("Fringe not preserved!", ttoks)
-      end
-      else die ("REMANING INPUT:", pair)
-    end
-    else die ("FAILED:", r)
-  else die ("NO RESULT:", r)
-end
+fun string_of_q [] = ""
+  | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
+  | string_of_q (ANTIQUOTE s :: qs) = s ^ (string_of_q qs)
 
-fun parse_topdecl str = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs`` str
+fun parse nt sem q =
+  EVAL (mk_comb(parse_t nt sem, stringSyntax.fromMLstring (string_of_q q)))
+  |> concl |> rhs |> rand
+
+val parse_decl = parse ``nDecl`` ``ptree_Decl``
+val parse_topdecs = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
 
 fun pick_name str =
   if str = "<" then "lt" else
@@ -197,7 +155,7 @@ fun pick_name str =
 
 fun fetch_v name st =
   let val env = ml_progLib.get_env st
-      val ident_expr = parse ``nEbase`` ``ptree_Expr nEbase`` name
+      val ident_expr = parse ``nEbase`` ``ptree_Expr nEbase`` [QUOTE name]
       val ident = astSyntax.dest_Var ident_expr
       val evalth = EVAL ``lookup_var_id ^ident ^env``
   in (optionLib.dest_some o rhs o concl) evalth end

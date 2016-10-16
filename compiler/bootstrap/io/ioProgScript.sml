@@ -299,21 +299,23 @@ val write_spec = store_thm ("write_spec",
     \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
   \\ xret \\ xsimpl);
 
-val write_list = parse_topdecl
-  ("fun write_list xs = " ^
-   "  case xs of [] => () | (x::xs) => (CharIO.write x; write_list xs)");
+val write_list = parse_topdecs
+  `fun write_list xs =
+     case xs of
+         [] => ()
+       | x::xs => (CharIO.write x; write_list xs)`;
 
 val _ = ml_prog_update (ml_progLib.add_prog write_list pick_name);
 
-val read_all = parse_topdecl
-  ("fun read_all xs =   " ^
-   "  let val u = ()    " ^
-   "      val t = CharIO.can_read u in  " ^
-   "    if t then                       " ^
-   "      let val c = CharIO.read u     " ^
-   "          val xs = c :: xs          " ^
-   "      in read_all xs end            " ^
-   "    else reverse xs end             ");
+val read_all = parse_topdecs
+  `fun read_all xs =
+     let val u = ()
+         val t = CharIO.can_read u in
+         if t then
+             let val c = CharIO.read u
+                 val xs = c :: xs
+             in read_all xs end
+         else reverse xs end`;
 
 val _ = ml_prog_update (ml_progLib.add_prog read_all pick_name);
 

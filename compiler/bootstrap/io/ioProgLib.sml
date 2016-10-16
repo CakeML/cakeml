@@ -9,12 +9,12 @@ fun append_main_call compile_str compile_tm = let
 
   val compile = compile_tm
 
-  val main = parse_topdecl
-    ("fun main u = let             " ^
-     "  val u = []                 " ^
-     "  val input = read_all u     " ^
-     "  val bytes = " ^ compile_str ^ " input  " ^
-     "  in write_list bytes end    ")
+  val main = parse_topdecs
+    `fun main u = let
+       val u = []
+       val input = read_all u
+       val bytes = ^compile_str input
+     in write_list bytes end`
 
   val _ = ml_prog_update (ml_progLib.add_prog main pick_name);
 

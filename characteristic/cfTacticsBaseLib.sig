@@ -29,8 +29,9 @@ sig
 
   val rewr_head_conv : thm -> conv
 
-  val parse : term -> term -> string -> term
-  val parse_topdecl : string -> term
+  val parse : term -> term -> string quotation -> term
+  val parse_decl : string quotation -> term
+  val parse_topdecs : string quotation -> term
 
   val pick_name : string -> string
   val fetch_v : string -> ml_progLib.ml_prog_state -> term

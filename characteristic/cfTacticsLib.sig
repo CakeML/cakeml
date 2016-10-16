@@ -2,8 +2,9 @@ signature cfTacticsLib =
 sig
   include Abbrev
 
-  (* Parse and normalise a program consisting of a toplevel declaration *)
-  val process_topdecl : string -> term
+  (* Parse and normalise a program consisting of one or several toplevel
+     declarations *)
+  val process_topdecs : string quotation -> term
 
   (* [xcf name prog_state] is usually the first tactic to call when
      proving a specification.

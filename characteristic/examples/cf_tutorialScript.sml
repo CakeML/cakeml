@@ -33,27 +33,23 @@ val basis_st =
    function we want to specify (it takes a list of bytes, and returns
    a new bytearray containing those bytes).
 *)
-val list_length = process_topdecl
-  "fun length l = \
- \    case l of \
- \      [] => 0 \
- \    | x::xs => (length xs) + 1"
+val bytearray_fromlist = process_topdecs
+  `fun length l =
+     case l of
+         [] => 0
+       | x::xs => (length xs) + 1
 
-val bytearray_fromlist = process_topdecl
-  "fun fromList ls = \
- \    let val a = Word8Array.array (length ls) (Word8.fromInt 0) \
- \        fun f ls i = \
- \          case ls of \
- \            [] => a \
- \          | h::t => (Word8Array.update a i h; f t (i + 1)) \
- \    in f ls 0 end"
+   fun fromList ls =
+     let val a = Word8Array.array (length ls) (Word8.fromInt 0)
+         fun f ls i =
+           case ls of
+               [] => a
+             | h::t => (Word8Array.update a i h; f t (i+1))
+     in f ls 0 end`
 
 (* Now add these definitions to the basis ml_prog_state.
 *)
-val st = basis_st
-  |> ml_progLib.add_prog list_length pick_name
-  |> ml_progLib.add_prog bytearray_fromlist pick_name
-
+val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
 (* We can start proving a specification for length.
 
