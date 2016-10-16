@@ -173,6 +173,9 @@ val _ = trans "size" `strlen`
 
 val _ = ml_prog_update (close_module NONE);
 
+(* toplevel int operations *)
+val _ = trans "+" `(+):int->int->int`
+
 (* CharIO -- CF verified *)
 
 val _ = ml_prog_update (open_module "CharIO");
@@ -313,13 +316,37 @@ val copyi_q =
   `fun copyi a i clist =
       case clist of
           [] => let val z = Word8.fromInt 0 in Word8Array.update a i z end
-        | c::cs => (Word8Array.update a i (Word8.fromInt (Char.ord c)) ;
-                    copyi a (i + 1) cs)`
+        | c::cs => let
+            val ordc = Char.ord c
+            val cw = Word8.fromInt ordc
+            val unit = Word8Array.update a i cw
+            val suci = i + 1
+          in
+            copyi a suci cs
+          end`
 val copyi_d = ParseDecl copyi_q
 val _ = append_dec copyi_d
 
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
 
-(* val copyi_spec = Q.store_thm(
+val LUPDATE_insertNTS_commute = Q.store_thm(
+  "LUPDATE_insertNTS_commute",
+  `∀ws pos1 pos2 a w.
+     pos2 < pos1 ∧ pos1 + LENGTH ws < LENGTH a
+       ⇒
+     insertNTS_atI ws pos1 (LUPDATE w pos2 a) =
+       LUPDATE w pos2 (insertNTS_atI ws pos1 a)`,
+  Induct >> simp[insertNTS_atI_NIL, insertNTS_atI_CONS, LUPDATE_commutes]);
+
+val copyi_spec = Q.store_thm(
   "copyi_spec",
   `∀n nv cs csv a av.
      NUM n nv /\ n + LENGTH cs + 1 < LENGTH a /\ LIST_TYPE CHAR cs csv ==>
@@ -330,15 +357,35 @@ val _ = append_dec copyi_d
                  W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) cs) n a))`,
   Induct_on `cs` >> fs[LIST_TYPE_def, LENGTH_NIL]
   >- (xcf "copyi" (basis_st()) >> xmatch >>
-      xlet `POSTv zv. & WORD (0w:word8) zv` >- xapp_prepare_goal
+      xlet `POSTv zv. & WORD (0w:word8) zv * W8ARRAY av a`
+      >- (xapp >> xsimpl) >>
+      xapp >> xsimpl >> simp[insertNTS_atI_NIL] >> xsimpl >>
+      metis_tac[DECIDE ``(x:num) + 1 < y ⇒ x < y``]) >>
 
-val str_to_w8array = (* free variables "a" and "s" *)
-  "fun str_to_s8array a s = let\n\
-  \    val clist = String.explode s\n\
-  \in\n\
-  \    copyi a 0 clist \n\
-  \end"
+  xcf "copyi" (basis_st()) >> xmatch >>
+  rename [`LIST_TYPE CHAR ctail ctailv`, `CHAR chd chdv`] >>
+  xlet `POSTv oc. &(NUM (ORD chd)) oc * W8ARRAY av a`
+  >- (xapp >> xsimpl >> metis_tac[]) >>
+  xlet `POSTv cw. &(WORD (n2w (ORD chd) : word8) cw) * W8ARRAY av a`
+  >- (xapp >> xsimpl >> metis_tac[]) >>
+  xlet `POSTv u. &(UNIT_TYPE () u) * W8ARRAY av (LUPDATE (n2w (ORD chd)) n a)`
+  >- (xapp >> simp[]) >>
+  qabbrev_tac `a0 = LUPDATE (n2w (ORD chd)) n a` >>
+  xlet `POSTv si. &(NUM (n + 1) si) * W8ARRAY av a0`
+  >- (xapp >> xsimpl >> qexists_tac `&n` >>
+      fs[ml_translatorTheory.NUM_def, integerTheory.INT_ADD]) >>
+  xapp >> xsimpl >> qexists_tac `n + 1` >>
+  simp[insertNTS_atI_CONS, Abbr`a0`] >> xsimpl >>
+  simp[LUPDATE_insertNTS_commute])
 
+
+val str_to_w8array_q =
+  `fun str_to_s8array a s = let
+     val clist = String.explode s
+   in
+      copyi a 0 clist
+   end`
+(*
 val str_to_w8array_e =
 
 
