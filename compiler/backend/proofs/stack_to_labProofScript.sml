@@ -2029,4 +2029,361 @@ val EVERY_sec_ends_with_label_MAP_prog_to_section = Q.store_thm("EVERY_sec_ends_
   Induct \\ simp[] \\ Cases \\ simp[prog_to_section_def]
   \\ pairarg_tac \\ fs[sec_ends_with_label_def]);
 
+(* asm_ok out of stack_names *)
+val stack_asm_ok_def = Define`
+  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
+  (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
+  (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
+  (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Call r tar h) ⇔
+    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_ok c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_ok c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_ok c _ ⇔  T)`
+
+val flatten_line_ok_pre = prove(``
+  ∀p n m ls a b c.
+  stack_asm_ok c p ∧
+  flatten p n m = (ls,a,b) ⇒
+  EVERY (line_ok_pre c) (append ls)``,
+  ho_match_mp_tac flatten_ind>>Cases_on`p`>>rw[]>>
+  pop_assum mp_tac>>simp[Once flatten_def]>>rw[]>>fs[]
+  >-
+    (EVAL_TAC>>fs[stack_asm_ok_def])
+  >-
+    (every_case_tac>>fs[stack_asm_ok_def]>>
+    rpt(pairarg_tac>>fs[])>>
+    Cases_on`s`>>fs[]>>rw[]>>TRY(EVAL_TAC>>fs[]>>NO_TAC))
+  >-
+    (rpt(pairarg_tac>>fs[])>>fs[stack_asm_ok_def]>>
+    rw[])
+  >-
+    (*TODO: Actually the jump part of Ifs should be moved out into the
+    line_ok_pre check as well as well *)
+    (rpt(pairarg_tac>>fs[])>>
+    every_case_tac>>fs[stack_asm_ok_def]>>rw[]>>EVAL_TAC)
+  >-
+    (*TODO: see above*)
+    (rpt(pairarg_tac>>fs[])>>rw[]>>fs[stack_asm_ok_def]>>
+    EVAL_TAC)
+  >>
+    EVAL_TAC>>fs[stack_asm_ok_def])
+
+val compile_all_enc_ok_pre = prove(``
+  EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
+  all_enc_ok_pre c (MAP prog_to_section prog)``,
+  fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
+  fs[prog_to_section_def]>>pairarg_tac>>rw[]
+  >- metis_tac[flatten_line_ok_pre]
+  >- EVAL_TAC)
+
+(*TODO: doing proofs here for convenience, move to stackProps when done*)
+(* stack_name renames registers to obey non-clashing names
+  It should be sufficient that the incoming nregs < reg_count - avoid_regs,
+  and that the mapping target for these avoids bad regs
+*)
+
+val reg_name_def = Define`
+  reg_name r c ⇔
+  r < c.reg_count - LENGTH (c.avoid_regs)`
+
+(* inst requirements just before stack_names *)
+
+val reg_imm_name_def = Define`
+  (reg_imm_name b (Reg r) c ⇔ reg_name r c) ∧
+  (reg_imm_name b (Imm w) c ⇔ c.valid_imm b w)`
+
+val arith_name_def = Define`
+  (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
+    (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
+    reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
+  (arith_name (Shift l r1 r2 n) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
+  (arith_name (LongMul r1 r2 r3 r4) c ⇔
+    (if c.ISA = x86_64 then r1 = 4 ∧ r2 = 0 ∧ r3 = 0 ∧ reg_name r4 c
+    else F ∧ reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c)) ∧
+  (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
+    reg_name r5 c) ∧
+  (arith_name (AddCarry r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))`
+
+val addr_name_def = Define`
+  addr_name (Addr r w) c ⇔ reg_name r c ∧ addr_offset_ok w c`
+
+val inst_name_def = Define`
+  (inst_name c (Const r w) ⇔ reg_name r c) ∧
+  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name a c) ∧
+  (inst_name c (Arith x) ⇔ arith_name x c) ∧
+  (inst_name _ _ = T)`
+
+val stack_asm_name_def = Define`
+  (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
+  (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
+  (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
+  (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Call r tar h) ⇔
+    (case tar of INR r => reg_name r c | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_name c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_name c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_name c _ ⇔  T)`
+
+open stack_namesTheory
+
+val names_ok_imp = prove(``
+  names_ok f c.reg_count c.avoid_regs ⇒
+  ∀n. reg_name n c ⇒
+  let n' = find_name f n in
+  reg_ok n' c``,
+  fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def])
+
+val names_ok_imp2 = prove(``
+  names_ok f c.reg_count c.avoid_regs ∧
+  n ≠ n' ∧
+  reg_name n c ∧ reg_name n' c ⇒
+  find_name f n ≠ find_name f n'``,
+  rw[names_ok_def]>>fs[ALL_DISTINCT_GENLIST,reg_name_def]>>
+  metis_tac[])
+
+val fixed_names_def = Define`
+  fixed_names names c =
+  if c.ISA = x86_64 then
+    find_name names 4 = 2 ∧
+    find_name names 0 = 0
+  else T`
+
+val sn_comp_imp_stack_asm_ok = prove(``
+  ∀f p.
+  stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
+  fixed_names f c ⇒
+  stack_asm_ok c (stack_names$comp f p)``,
+  ho_match_mp_tac comp_ind>>
+  Cases_on`p`>>rw[]>>
+  simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
+  >-
+    (simp[Once inst_find_name_def]>>every_case_tac>>
+    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.addr_ok_def]
+    (* Some of these are extremely annoying to prove with the separation of
+       stack_names and configs... *)
+    >-
+      metis_tac[names_ok_imp]
+    >-
+      (rw[]>>
+      TRY(metis_tac[names_ok_imp])
+      >-
+        (Cases_on`r`>>fs[ri_find_name_def])
+      >>
+        Cases_on`r`>>
+        fs[reg_imm_name_def,asmTheory.reg_imm_ok_def,ri_find_name_def]>>
+        metis_tac[names_ok_imp])
+    >-
+      metis_tac[names_ok_imp]
+    >-
+      (fs[fixed_names_def]>>
+      metis_tac[names_ok_imp])
+    >-
+      (fs[fixed_names_def]>>
+      metis_tac[names_ok_imp])
+    >-
+      (rw[]>>metis_tac[names_ok_imp,names_ok_imp2])
+    >>
+      metis_tac[names_ok_imp])
+  >-
+    (every_case_tac>>fs[dest_find_name_def]>>
+    metis_tac[names_ok_imp,asmTheory.reg_ok_def])
+  >>
+  fs[ok_names_def]>>metis_tac[names_ok_imp,asmTheory.reg_ok_def])
+
+val sn_compile_imp_stack_asm_ok = prove(``
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  names_ok f c.reg_count c.avoid_regs ∧
+  fixed_names f c ⇒
+  EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)``,
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def,compile_def,MEM_MAP,EXISTS_PROD]>>
+  rw[]>>
+  metis_tac[sn_comp_imp_stack_asm_ok])
+
+open stack_removeTheory
+
+val stack_asm_remove_def = Define`
+  (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackLoadAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (*(stack_asm_remove c (StackAlloc n) ⇔ reg_name n c) ∧*)
+  (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
+  (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
+  (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
+  (stack_asm_remove c (Call r tar h) ⇔
+    (case r of
+      (SOME (p,_,_,_) => stack_asm_remove c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_remove c p'
+      | _ => T)
+    | _ => T)) ∧
+  (stack_asm_remove c _ ⇔  T)`
+
+val sr_comp_stack_asm_name = prove(``
+  ∀k p.
+  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
+  addr_offset_ok 0w c ∧
+  good_dimindex (:'a) ∧
+  (∀n. n ≤ max_stack_alloc ⇒
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  (* Needed to implement the global store *)
+  (∀s. addr_offset_ok (store_offset s) c) ∧
+  reg_name (k+2) c ∧
+  reg_name (k+1) c ∧
+  reg_name k c ⇒
+  stack_asm_name c (comp k p)``,
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  simp[Once comp_def]>>
+  rw[]>>
+  fs[stack_asm_name_def,inst_name_def,stack_asm_remove_def,addr_name_def,arith_name_def,reg_imm_name_def,stackLangTheory.list_Seq_def]
+  >-
+    (every_case_tac>>fs[])
+  >-
+    (* stack alloc *)
+    (completeInduct_on`n`>>
+    simp[Once stack_alloc_def]>>rw[]
+    >-
+      EVAL_TAC
+    >-
+      (EVAL_TAC>>fs[reg_name_def])
+    >>
+      rw[stack_asm_name_def]
+      >-
+        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
+      >>
+        first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
+        rfs[max_stack_alloc_def])
+  (* TODO: need to assume something on all stack lookup/store sizes? *)
+  >-
+    (* StackFree's arg *)
+    cheat
+  >-
+    (* StackStore's second arg *)
+    cheat
+  >-
+    (* StackLoad's second arg *)
+    cheat
+  >>
+    fs[good_dimindex_def,stackLangTheory.word_shift_def])
+
+val sr_compile_stack_asm_name = prove(``
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+  addr_offset_ok 0w c ∧
+  good_dimindex (:'a) ∧
+  (∀n. n ≤ max_stack_alloc ⇒
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  c.valid_imm (INL Add) 4w ∧
+  c.valid_imm (INL Add) 8w ∧
+  (* Needed to implement the global store *)
+  (∀s. addr_offset_ok (store_offset s) c) ∧
+  reg_name 5 c ∧
+  reg_name (k+2) c ∧
+  reg_name (k+1) c ∧
+  reg_name k c ⇒
+  EVERY (λ(n,p). stack_asm_name c p)
+  (compile max_heap bitmaps k start prog)``,
+  rw[compile_def]
+  >-
+    (fs[good_dimindex_def]>>EVAL_TAC>>fs[]>>rw[]>>EVAL_TAC>>fs[reg_name_def]>>
+    pairarg_tac>>fs[asmTheory.offset_ok_def]>>
+    Induct_on`bitmaps`>>rw[]>>
+    EVAL_TAC>>fs[])
+  >>
+    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+    metis_tac[sr_comp_stack_asm_name])
+
+open stack_allocTheory
+
+val sa_comp_stack_asm_name = prove(``
+  ∀n m p.
+  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
+  let (p',m') = comp n m p in
+  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'``,
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  simp[Once comp_def]
+  >-
+    (Cases_on`o'`>-
+      fs[Once comp_def,stack_asm_name_def,stack_asm_remove_def]
+    >>
+    PairCases_on`x`>>SIMP_TAC std_ss [Once comp_def]>>fs[]>>
+    FULL_CASE_TAC>>fs[]>>
+    TRY(PairCases_on`x`)>>
+    rpt(pairarg_tac>>fs[])>>rw[]>>
+    fs[stack_asm_name_def,stack_asm_remove_def])
+  >>
+    rpt(pairarg_tac>>fs[])>>rw[]>>
+    fs[stack_asm_name_def,stack_asm_remove_def])
+
+val sa_compile_stack_asm_name = prove(``
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+  (* conf_ok is too strong, but we already have it anyway *)
+  conf_ok (:'a) conf ∧
+  addr_offset_ok 0w c ∧
+  reg_name 10 c ∧ good_dimindex(:'a) ∧
+  c.valid_imm (INL Add) 8w ∧
+  c.valid_imm (INL Add) 4w ∧
+  c.valid_imm (INL Add) 1w ∧
+  c.valid_imm (INL Sub) 1w
+  ⇒
+  EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
+  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)``,
+  fs[compile_def]>>rw[]>>
+  TRY
+    (EVAL_TAC>>fs[reg_name_def,good_dimindex_def,asmTheory.offset_ok_def,data_to_wordProofTheory.conf_ok_def,data_to_wordTheory.shift_length_def]>>
+    pairarg_tac>>fs[]>>NO_TAC)
+  >>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+  rw[]>>res_tac>>
+  drule sa_comp_stack_asm_name>>fs[]>>
+  disch_then(qspecl_then[`p_1`,`next_lab p_2`] assume_tac)>>
+  pairarg_tac>>fs[])
+
+open stack_to_labTheory
+
+val stack_to_lab_compile_all_enc_ok = store_thm("stack_to_lab_compile_all_enc_ok",``
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). stack_asm_remove c p) prog ∧
+  names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
+  fixed_names c1.reg_names c ∧
+  addr_offset_ok 0w c ∧ good_dimindex (:α) ∧
+  (∀n.
+     n ≤ max_stack_alloc ⇒
+     c.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8)))) ∧
+  c.valid_imm (INL Add) 1w ∧ c.valid_imm (INL Sub) 1w ∧
+  c.valid_imm (INL Add) 4w ∧ c.valid_imm (INL Add) 8w ∧
+  (∀s. addr_offset_ok (store_offset s) c) ∧ reg_name 10 c ∧
+  reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
+  conf_ok (:'a) c2 ⇒
+  all_enc_ok_pre c (compile c1 c2 c3 sp prog)``,
+  rw[compile_def]>>match_mp_tac compile_all_enc_ok_pre>>
+  match_mp_tac sn_compile_imp_stack_asm_ok>>fs[]>>
+  match_mp_tac sr_compile_stack_asm_name>>fs[reg_name_def]>>
+  match_mp_tac sa_compile_stack_asm_name>>fs[reg_name_def])
+
 val _ = export_theory();

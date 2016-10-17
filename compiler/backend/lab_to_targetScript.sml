@@ -191,19 +191,6 @@ val _ = export_rewrites["sec_ok_light_def"];
 val _ = overload_on("all_enc_ok_light",``λc ls.
   EVERY (sec_ok_light c) ls``);
 
-(* asm_ok checks coming into lab_to_target *)
-val line_ok_pre_def = Define`
-  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok b c) ∧
-  (line_ok_pre c _ ⇔ T)`
-
-val sec_ok_pre_def = Define`
-  sec_ok_pre c (Section k ls) ⇔
-    EVERY (line_ok_pre c) ls`;
-val _ = export_rewrites["sec_ok_pre_def"];
-
-val _ = overload_on("all_enc_ok_pre",``λc ls.
-  EVERY (sec_ok_pre c) ls``);
-
 (* pad with nop byte, and nop instruction *)
 
 val pad_bytes_def = Define `
