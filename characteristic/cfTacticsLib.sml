@@ -123,7 +123,7 @@ val cf_defs =
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-   cf_log_def, cf_if_def, cf_match_def, cf_raise_def, cf_handle_def]
+   cf_log_def, cf_if_def, cf_match_def, cf_ffi_def, cf_raise_def, cf_handle_def]
 
 val cleanup_exn_side_cond =
   simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
