@@ -11,12 +11,24 @@ val _ = overload_on ("NONE", ``NONE``)
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = overload_on ("monad_unit_bind", ``OPTION_IGNORE_BIND``)
 
+val ALOOKUP_EXISTS_IFF = Q.store_thm(
+  "ALOOKUP_EXISTS_IFF",
+  `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
+  Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
+
 val _ = Datatype`
   RO_fs = <| files : (string # string) list ;
              infds : (num # (string # num)) list ;
              stdout : string
   |>
 `
+
+val wfFS_def = Define`
+  wfFS fs =
+    ∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
+         ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
+                   fnm ∈ FDOM (alist_to_fmap fs.files)
+`;
 
 val nextFD_def = Define`
   nextFD fsys = LEAST n. ~ MEM n (MAP FST fsys.infds)
@@ -36,6 +48,37 @@ val openFile_def = Define`
           return (fd, fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
        od
 `;
+
+val openFileFS_def = Define`
+  openFileFS fnm fs =
+    case openFile fnm fs of
+      NONE => fs
+    | SOME (_, fs') => fs'
+`;
+
+val wfFS_openFile = Q.store_thm(
+  "wfFS_openFile",
+  `wfFS fs ⇒ wfFS (openFileFS fnm fs)`,
+  simp[openFileFS_def, openFile_def] >>
+  Cases_on `ALOOKUP fs.files fnm` >> simp[] >>
+  dsimp[wfFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
+  metis_tac[ALOOKUP_EXISTS_IFF]);
+
+val eof_def = Define`
+  eof fd fsys =
+    do
+      (fnm,pos) <- ALOOKUP fsys.infds fd ;
+      contents <- ALOOKUP fsys.files fnm ;
+      return (LENGTH contents <= pos)
+    od
+`;
+
+val wfFS_eof_EQ_SOME = Q.store_thm(
+  "wfFS_eof_EQ_SOME",
+  `wfFS fs ∧ fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
+   ∃b. eof fd fs = SOME b`,
+  simp[eof_def, EXISTS_PROD, PULL_EXISTS, MEM_MAP, wfFS_def] >>
+  rpt strip_tac >> res_tac >> metis_tac[ALOOKUP_EXISTS_IFF]);
 
 val A_DELKEY_def = Define`
   A_DELKEY k alist = FILTER (λp. FST p <> k) alist
@@ -168,7 +211,7 @@ val decode_def = Define`
 `;
 
 val decode_encode_FS = Q.store_thm(
-  "decode_encode_FS",
+  "decode_encode_FS[simp]",
   `decode (encode fs) = return fs`,
   simp[decode_def, encode_def, decode_encode_files, decode_encode_fds] >>
   simp[theorem "RO_fs_component_equality"]);
@@ -234,14 +277,14 @@ val fs_ffi_next_def = Define`
                (_, fs') <- closeFD (w2n (HD bytes)) fs;
                return (bytes, encode fs')
              od
+      | 4 => do (* eof check *)
+               assert(LENGTH bytes = 1);
+               b <- eof (w2n (HD bytes)) fs ;
+               return (LUPDATE (if b then 1w else 0w) 0 bytes, encode fs)
+             od
       | _ => fail
     od
 `;
-
-val ALOOKUP_EXISTS_IFF = Q.store_thm(
-  "ALOOKUP_EXISTS_IFF",
-  `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
-  Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
 
 val closeFD_lemma = Q.store_thm(
   "closeFD_lemma",
