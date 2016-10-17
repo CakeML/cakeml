@@ -352,14 +352,36 @@ val open_e =
 val _ = ml_prog_update (add_Dlet_Fun ``"open"`` ``"fname"`` open_e "open_v")
 val open_v_def = definition "open_v_def"
 
+(* ML implementation of eof function (4), with parameter w8 (a fd) *)
+val eof_e =
+  ``Let (SOME "_") (Apps [Var (Long "Word8Array" "update");
+                          Var (Short "onechar"); Lit (IntLit 0);
+                          Var (Short "w8")]) (
+    Let (SOME "_") (App (FFI 4) [Var (Short "onechar")]) (
+    Let (SOME "bw") (Apps [Var (Long "Word8Array" "sub");
+                           Var (Short "onechar"); Lit (IntLit 0)]) (
+      Apps [Var (Short "word_eq1"); Var (Short "bw")])))``
+  |> EVAL |> concl |> rand
+val _ = ml_prog_update (add_Dlet_Fun ``"eof"`` ``"w8"`` eof_e "eof_v")
+
 (* ML implementation of fgetc function (2), with parameter name "fd" *)
 val fgetc_e =
-  ``Let (SOME "_")
-        (Apps [Var (Long "Word8Array" "update");
-               Var (Short "onechar");
-               Lit (IntLit 0);
-               Var (Short "fd")])
-        (App (FFI 2) [Var (Short "onechar")])`` |> EVAL |> concl |> rand
+  ``Let (SOME "eofp")
+        (Apps [Var (Short "eof"); Var (Short "fd")]) (
+    If (Var (Short "eofp"))
+       (Con (SOME (Short "NONE")) [])
+       (Let (SOME "u1")
+            (Apps [Var (Long "Word8Array" "update");
+                   Var (Short "onechar");
+                   Lit (IntLit 0);
+                   Var (Short "fd")]) (
+        Let (SOME "u2") (App (FFI 2) [Var (Short "onechar")]) (
+        Let (SOME "cw") (Apps [Var (Long "Word8Array" "sub");
+                               Var (Short "onechar"); Lit (IntLit 0)]) (
+        Let (SOME "ci") (Apps [Var (Long "Word8" "toInt"); Var (Short "cw")]) (
+        Let (SOME "c") (Apps [Var (Long "Char" "chr"); Var (Short "ci")]) (
+          Con (SOME (Short "SOME")) [Var (Short "c")])))))))``
+   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"fgetc"`` ``"fd"`` fgetc_e "fgetc_v")
 val fgetc_v_def = definition "fgetc_v_def"
 
@@ -372,18 +394,6 @@ val close_e =
              (Let (SOME "_") (App (FFI 3) [Var (Short "onechar")])
                   (Con NONE []))`` |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"close"`` ``"w8"`` close_e "close_v")
-
-(* ML implementation of eof function (4), with parameter w8 (a fd) *)
-val eof_e =
-  ``Let (SOME "_") (Apps [Var (Long "Word8Array" "update");
-                          Var (Short "onechar"); Lit (IntLit 0);
-                          Var (Short "w8")]) (
-    Let (SOME "_") (App (FFI 4) [Var (Short "onechar")]) (
-    Let (SOME "bw") (Apps [Var (Long "Word8Array" "sub");
-                           Var (Short "onechar"); Lit (IntLit 0)]) (
-      Apps [Var (Short "word_eq1"); Var (Short "bw")])))``
-  |> EVAL |> concl |> rand
-val _ = ml_prog_update (add_Dlet_Fun ``"eof"`` ``"w8"`` eof_e "eof_v")
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -493,7 +503,7 @@ val open_spec = Q.store_thm(
 val eof_spec = Q.store_thm(
   "eof_spec",
   `∀(w:word8) wv fs.
-     WORD w wv ∧ w2n w ∈ FDOM (alist_to_fmap fs.infds) ∧ wfFS fs ⇒
+     WORD w wv ∧ validFD (w2n w) fs ∧ wfFS fs ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.eof" (basis_st()))
        [wv]
        (CHAR_IO * CATFS fs)
@@ -512,7 +522,7 @@ val eof_spec = Q.store_thm(
       `MEM 4n [0;1;2;3;4]` by simp[] >> instantiate >> xsimpl >>
       csimp[fs_ffi_next_def, LUPDATE_def] >>
       simp[eof_def, EXISTS_PROD, PULL_EXISTS] >>
-      fs[wfFS_def] >> res_tac >> simp[ALOOKUP_EXISTS_IFF]>>
+      fs[wfFS_def, validFD_def] >> res_tac >> simp[ALOOKUP_EXISTS_IFF]>>
       fs[EXISTS_PROD, MEM_MAP] >> metis_tac[]) >>
   xlet `POSTv bw. &(WORD (if THE (eof (w2n w) fs) then 1w else 0w:word8) bw) *
                   CATFS fs * CHAR_IO_fname *
@@ -520,6 +530,48 @@ val eof_spec = Q.store_thm(
   >- (xapp >> simp[definition "onechar_loc_def"] >> xsimpl) >>
   xapp >> xsimpl >>
   qexists_tac `if THE (eof (w2n w) fs) then 1w else 0w` >> rw[]);
+
+val fgetc_spec = Q.store_thm(
+  "fgetc_spec",
+  `∀(fdw:word8) fdv fs.
+     WORD fdw fdv ∧ validFD (w2n fdw) fs ∧ wfFS fs ⇒
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.fgetc" (basis_st())) [fdv]
+       (CHAR_IO * CATFS fs)
+       (POSTv coptv.
+          &(OPTION_TYPE CHAR (FDchar (w2n fdw) fs) coptv) * CHAR_IO *
+          CATFS (bumpFD (w2n fdw) fs))`,
+  rpt strip_tac >> xcf "CharIO.fgetc" (basis_st()) >>
+  xlet `POSTv bv. &(BOOL (THE (eof (w2n fdw) fs)) bv) * CATFS fs * CHAR_IO`
+  >- (xapp >> simp[definition "onechar_loc_def"] >> xsimpl >> instantiate >>
+      xsimpl) >>
+  `∃eofb. eof (w2n fdw) fs = SOME eofb` by metis_tac[wfFS_eof_EQ_SOME] >>
+  fs[] >> xif
+  >- (xret >> fs[eof_FDchar, eof_bumpFD, OPTION_TYPE_def] >> xsimpl) >> fs[] >>
+  simp[CHAR_IO_def, CHAR_IO_char1_def] >> xpull >>
+  xlet `POSTv u1. W8ARRAY onechar_loc [fdw] * CATFS fs * CHAR_IO_fname`
+  >- (xapp >> simp[definition "onechar_loc_def"] >> xsimpl >>
+      simp[LUPDATE_def]) >>
+  fs[] >>
+  `∃c. FDchar (w2n fdw) fs = SOME c` by metis_tac[neof_FDchar] >> simp[] >>
+  xlet `POSTv u2. &UNIT_TYPE () u2 * CATFS (bumpFD (w2n fdw) fs) *
+                  CHAR_IO_fname * W8ARRAY onechar_loc [n2w (ORD c)]`
+  >- (xffi >> simp[definition "onechar_loc_def", CATFS_def] >> xsimpl >>
+      `MEM 2 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
+      simp[fs_ffi_next_def, EXISTS_PROD, fgetc_def]) >>
+  xlet `POSTv cwv.
+         &(WORD (n2w (ORD c) : word8) cwv) * CHAR_IO_fname *
+         W8ARRAY onechar_loc [n2w (ORD c)] * CATFS (bumpFD (w2n fdw) fs)`
+  >- (xapp >> simp[definition "onechar_loc_def"] >> xsimpl) >>
+  xlet `POSTv civ. &NUM (ORD c) civ * CHAR_IO_fname *
+                   W8ARRAY onechar_loc [n2w (ORD c)] *
+                   CATFS (bumpFD (w2n fdw) fs)`
+  >- (xapp >> simp[definition "onechar_loc_def"] >> xsimpl >>
+      instantiate >> simp[ORD_BOUND]) >>
+  xlet `POSTv cv. &CHAR c cv * CATFS (bumpFD (w2n fdw) fs) * CHAR_IO_fname *
+                  W8ARRAY onechar_loc [n2w (ORD c)]`
+  >- (xapp >> simp[definition "onechar_loc_def"] >> xsimpl >>
+      instantiate >> simp[ORD_BOUND, CHR_ORD]) >>
+  xret >> xsimpl >> simp[OPTION_TYPE_def])
 
 (*
 

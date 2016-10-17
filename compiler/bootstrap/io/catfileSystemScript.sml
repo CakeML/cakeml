@@ -73,12 +73,81 @@ val eof_def = Define`
     od
 `;
 
+val validFD_def = Define`
+  validFD fd fs ⇔ fd ∈ FDOM (alist_to_fmap fs.infds)
+`;
+
 val wfFS_eof_EQ_SOME = Q.store_thm(
   "wfFS_eof_EQ_SOME",
-  `wfFS fs ∧ fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
+  `wfFS fs ∧ validFD fd fs ⇒
    ∃b. eof fd fs = SOME b`,
-  simp[eof_def, EXISTS_PROD, PULL_EXISTS, MEM_MAP, wfFS_def] >>
+  simp[eof_def, EXISTS_PROD, PULL_EXISTS, MEM_MAP, wfFS_def, validFD_def] >>
   rpt strip_tac >> res_tac >> metis_tac[ALOOKUP_EXISTS_IFF]);
+
+val FDchar_def = Define`
+  FDchar fd fs =
+    do
+      (fnm, off) <- ALOOKUP fs.infds fd ;
+      content <- ALOOKUP fs.files fnm ;
+      if off < LENGTH content then SOME (EL off content)
+      else NONE
+    od
+`;
+
+val eof_FDchar = Q.store_thm(
+  "eof_FDchar",
+  `eof fd fs = SOME T ⇒ FDchar fd fs = NONE`,
+  simp[eof_def, EXISTS_PROD, FDchar_def, PULL_EXISTS]);
+
+val ALIST_FUPDKEY_def = Define`
+  (ALIST_FUPDKEY k f [] = []) ∧
+  (ALIST_FUPDKEY k f ((k',v)::rest) =
+     if k = k' then (k,f v)::rest
+     else (k',v) :: ALIST_FUPDKEY k f rest)
+`;
+
+val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
+  "ALIST_FUPDKEY_ALOOKUP",
+  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
+     case ALOOKUP al k1 of
+         NONE => NONE
+       | SOME v => if k1 = k2 then SOME (f v) else SOME v`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
+  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
+  simp[]);
+
+val bumpFD_def = Define`
+  bumpFD fd fs =
+    case FDchar fd fs of
+        NONE => fs
+      | SOME _ =>
+          fs with infds updated_by (ALIST_FUPDKEY fd (I ## SUC))
+`;
+
+val eof_bumpFD = Q.store_thm(
+  "eof_bumpFD",
+  `eof fd fs = SOME T ⇒ bumpFD fd fs = fs`,
+  simp[bumpFD_def, eof_FDchar]);
+
+val neof_FDchar = Q.store_thm(
+  "neof_FDchar",
+  `eof fd fs = SOME F ⇒ ∃c. FDchar fd fs = SOME c`,
+  simp[eof_def, FDchar_def, EXISTS_PROD, PULL_EXISTS, FORALL_PROD]);
+
+val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
+  "MAP_FST_ALIST_FUPDKEY[simp]",
+  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
+  Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
+
+val option_case_eq =
+    prove_case_eq_thm  { nchotomy = option_nchotomy, case_def = option_case_def}
+
+val wfFS_bumpFD = Q.store_thm(
+  "wfFS_bumpFD[simp]",
+  `wfFS (bumpFD fd fs) ⇔ wfFS fs`,
+  simp[bumpFD_def] >> Cases_on `FDchar fd fs` >> simp[] >>
+  dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
+        EXISTS_PROD] >> metis_tac[]);
 
 val A_DELKEY_def = Define`
   A_DELKEY k alist = FILTER (λp. FST p <> k) alist
@@ -86,16 +155,8 @@ val A_DELKEY_def = Define`
 
 val fgetc_def = Define`
   fgetc fd fsys =
-    do
-       (fnm, off) <- ALOOKUP fsys.infds fd ;
-       content <- ALOOKUP fsys.files fnm ;
-       if off < LENGTH content then
-         return
-           (SOME (EL off content),
-            fsys with infds := (fd,(fnm,off+1)) :: A_DELKEY fd fsys.infds)
-       else
-         return (NONE, fsys)
-    od
+    if validFD fd fsys then SOME (FDchar fd fsys, bumpFD fd fsys)
+    else NONE
 `;
 
 val closeFD_def = Define`
