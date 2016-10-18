@@ -3,6 +3,11 @@ struct
 
 fun append_main_call compile_str compile_tm = let
 
+(*
+val compile_str  = "compile"
+val compile_tm = ``compile``
+*)
+
   open preamble;
   open ioProgTheory ml_translatorLib ml_progLib;
   open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
@@ -24,20 +29,22 @@ fun append_main_call compile_str compile_tm = let
     ``!cv input output.
         app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
           [cv]
-          (CHAR_IO * STDIN input * STDOUT [])
-          (POSTv uv. CHAR_IO * STDIN "" * STDOUT (^compile input))``,
+          (CHAR_IO * one FFI_split * STDIN input * STDOUT [])
+          (POSTv uv. CHAR_IO * one FFI_split * STDIN "" * STDOUT (^compile input))``,
     xcf "main" (basis_st())
-    \\ xlet `POSTv v. CHAR_IO * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
+    \\ xlet `POSTv v. CHAR_IO * one FFI_split * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
     THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
-    \\ xlet `POSTv x. CHAR_IO * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
+    \\ xlet `POSTv x. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
     THEN1
      (xapp \\ instantiate \\ xsimpl
-      \\ qexists_tac `STDOUT []` \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
-    \\ xlet `POSTv y. CHAR_IO * STDIN "" * STDOUT [] *
+      \\ qexists_tac `one FFI_split * STDOUT []`
+      \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
+    \\ xlet `POSTv y. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] *
                  &(LIST_TYPE WORD (^compile input) y)`
     THEN1 (xapp \\ instantiate \\ xsimpl)
     \\ xapp \\ instantiate \\ fs []
-    \\ xsimpl \\ qexists_tac `STDIN ""` \\ qexists_tac `[]` \\ xsimpl);
+    \\ xsimpl \\ qexists_tac `one FFI_split * STDIN ""`
+    \\ qexists_tac `[]` \\ xsimpl);
 
   (* prove final eval thm *)
 
@@ -100,18 +107,7 @@ fun append_main_call compile_str compile_tm = let
     val th = th |> REWRITE_RULE [lemma1,lemma2]
     val goal = th |> concl |> dest_imp |> fst
     val lemma = prove(goal,
-     fs [cfStoreTheory.st2heap_def]
-     \\ reverse IF_CASES_TAC THEN1
-      (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
-       \\ fs [cfStoreTheory.parts_ok_def]
-       \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
-       \\ fs [io_proj2_def] \\ rw [] \\ fs [MEM] \\ rw []
-       \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def,FUPDATE_LIST]
-       \\ Cases_on `x` \\ fs [FAPPLY_FUPDATE_THM]
-       \\ every_case_tac \\ fs [] \\ rw []
-       \\ fs [io_ffi_def,io_ffi_oracle_def,FAPPLY_FUPDATE_THM]
-       \\ fs [GSYM fmap_EQ,FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-       \\ rw [] \\ fs [])
+     fs [cfStoreTheory.st2heap_def,parts_ok_io_ffi]
      \\ fs [CHAR_IO_def,STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
             set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
             EVAL ``write_loc``,cfHeapsBaseTheory.W8ARRAY_def,
@@ -119,6 +115,7 @@ fun append_main_call compile_str compile_tm = let
      \\ rewrite_tac [GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.cond_STAR]
      \\ fs [set_sepTheory.one_STAR]
      \\ simp [set_sepTheory.one_def]
+     \\ qexists_tac `[]`
      \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
      \\ fs [EXTENSION] \\ rpt strip_tac \\ EQ_TAC \\ rw [] \\ rw []
      \\ TRY (EVAL_TAC \\ NO_TAC)
@@ -134,14 +131,15 @@ fun append_main_call compile_str compile_tm = let
     val goal = mk_imp(lhs,rhs)
     val lemma = prove(goal,
       rw []
-      \\ rename1 `(CHAR_IO * STDIN _ * STDOUT _) h_f`
-      \\ `(STDIN [] * STDOUT (^compile input) * CHAR_IO) h_f` by
+      \\ rename1 `(CHAR_IO * one FFI_split * STDIN _ * STDOUT _) h_f`
+      \\ `(STDIN [] * one FFI_split * STDOUT (^compile input) * CHAR_IO) h_f` by
              (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
       \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
+             set_sepTheory.SEP_EXISTS_THM,set_sepTheory.SEP_CLAUSES,
              GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
-      \\ `FFI_part (Str []) stdin_fun [1; 2] IN
+      \\ `FFI_part (Str []) stdin_fun [1; 2] events'' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi) /\
-          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun [0] IN
+          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun [0] events''' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi)` by
              cfHeapsBaseLib.SPLIT_TAC
       \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap]
