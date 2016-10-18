@@ -504,7 +504,7 @@ val open_spec = Q.store_thm(
 val eof_spec = Q.store_thm(
   "eof_spec",
   `∀(w:word8) wv fs.
-     WORD w wv ∧ validFD (w2n w) fs ∧ wfFS fs ⇒
+     WORD w wv ∧ validFD (w2n w) fs  ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.eof" (basis_st()))
        [wv]
        (CHAR_IO * CATFS fs)
@@ -519,7 +519,7 @@ val eof_spec = Q.store_thm(
       simp[LUPDATE_def]) >>
   xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_fname * CATFS fs *
                  W8ARRAY onechar_loc [if THE (eof (w2n w) fs) then 1w else 0w]`
-  >- (xffi >> simp[onechar_loc_def, CATFS_def] >>
+  >- (simp[CATFS_def] >> xpull >> xffi >> simp[onechar_loc_def] >>
       `MEM 4n [0;1;2;3;4]` by simp[] >> instantiate >> xsimpl >>
       csimp[fs_ffi_next_def, LUPDATE_def] >>
       simp[eof_def, EXISTS_PROD, PULL_EXISTS] >>
@@ -535,40 +535,41 @@ val eof_spec = Q.store_thm(
 val fgetc_spec = Q.store_thm(
   "fgetc_spec",
   `∀(fdw:word8) fdv fs.
-     WORD fdw fdv ∧ validFD (w2n fdw) fs ∧ wfFS fs ⇒
+     WORD fdw fdv ∧ validFD (w2n fdw) fs ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.fgetc" (basis_st())) [fdv]
        (CHAR_IO * CATFS fs)
        (POSTv coptv.
           &(OPTION_TYPE CHAR (FDchar (w2n fdw) fs) coptv) * CHAR_IO *
           CATFS (bumpFD (w2n fdw) fs))`,
   rpt strip_tac >> xcf "CharIO.fgetc" (basis_st()) >>
+  simp[CATFS_def] >> xpull >>
+  qabbrev_tac `catfs = λfs. IO (encode fs) fs_ffi_next [0;1;2;3;4]` >> simp[] >>
   `∃eofb. eof (w2n fdw) fs = SOME eofb` by metis_tac[wfFS_eof_EQ_SOME] >>
-  xlet `POSTv bv. &(BOOL eofb bv) * CATFS fs * CHAR_IO`
-  >- (xapp >> simp[onechar_loc_def] >> xsimpl >> instantiate >>
+  xlet `POSTv bv. &(BOOL eofb bv) * catfs fs * CHAR_IO`
+  >- (xapp >> simp[onechar_loc_def, CATFS_def] >> xsimpl >> instantiate >>
       xsimpl) >>
   xif >- (xret >> fs[eof_FDchar, eof_bumpFD, OPTION_TYPE_def] >> xsimpl) >>
   fs[] >>
   simp[CHAR_IO_def, CHAR_IO_char1_def] >> xpull >>
-  xlet `POSTv u1. W8ARRAY onechar_loc [fdw] * CATFS fs * CHAR_IO_fname`
+  xlet `POSTv u1. W8ARRAY onechar_loc [fdw] * catfs fs * CHAR_IO_fname`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
       simp[LUPDATE_def]) >>
-  fs[] >>
   `∃c. FDchar (w2n fdw) fs = SOME c` by metis_tac[neof_FDchar] >> simp[] >>
-  xlet `POSTv u2. &UNIT_TYPE () u2 * CATFS (bumpFD (w2n fdw) fs) *
+  xlet `POSTv u2. &UNIT_TYPE () u2 * catfs (bumpFD (w2n fdw) fs) *
                   CHAR_IO_fname * W8ARRAY onechar_loc [n2w (ORD c)]`
-  >- (xffi >> simp[onechar_loc_def, CATFS_def] >> xsimpl >>
+  >- (xffi >> simp[onechar_loc_def, Abbr`catfs`] >> xsimpl >>
       `MEM 2 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
       simp[fs_ffi_next_def, EXISTS_PROD, fgetc_def]) >>
   xlet `POSTv cwv.
          &(WORD (n2w (ORD c) : word8) cwv) * CHAR_IO_fname *
-         W8ARRAY onechar_loc [n2w (ORD c)] * CATFS (bumpFD (w2n fdw) fs)`
+         W8ARRAY onechar_loc [n2w (ORD c)] * catfs (bumpFD (w2n fdw) fs)`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl) >>
   xlet `POSTv civ. &NUM (ORD c) civ * CHAR_IO_fname *
                    W8ARRAY onechar_loc [n2w (ORD c)] *
-                   CATFS (bumpFD (w2n fdw) fs)`
+                   catfs (bumpFD (w2n fdw) fs)`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
       instantiate >> simp[ORD_BOUND]) >>
-  xlet `POSTv cv. &CHAR c cv * CATFS (bumpFD (w2n fdw) fs) * CHAR_IO_fname *
+  xlet `POSTv cv. &CHAR c cv * catfs (bumpFD (w2n fdw) fs) * CHAR_IO_fname *
                   W8ARRAY onechar_loc [n2w (ORD c)]`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
       instantiate >> simp[ORD_BOUND, CHR_ORD]) >>
