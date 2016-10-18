@@ -11,10 +11,75 @@ val _ = overload_on ("NONE", ``NONE``)
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = overload_on ("monad_unit_bind", ``OPTION_IGNORE_BIND``)
 
+(* TODO: move candidates follow *)
 val ALOOKUP_EXISTS_IFF = Q.store_thm(
   "ALOOKUP_EXISTS_IFF",
   `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
   Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
+
+val ALIST_FUPDKEY_def = Define`
+  (ALIST_FUPDKEY k f [] = []) ∧
+  (ALIST_FUPDKEY k f ((k',v)::rest) =
+     if k = k' then (k,f v)::rest
+     else (k',v) :: ALIST_FUPDKEY k f rest)
+`;
+
+val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
+  "ALIST_FUPDKEY_ALOOKUP",
+  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
+     case ALOOKUP al k1 of
+         NONE => NONE
+       | SOME v => if k1 = k2 then SOME (f v) else SOME v`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
+  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
+  simp[]);
+
+val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
+  "MAP_FST_ALIST_FUPDKEY[simp]",
+  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
+  Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
+
+val A_DELKEY_def = Define`
+  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
+`;
+
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
+
+val MEM_DELKEY = Q.store_thm(
+  "MEM_DELKEY[simp]",
+  `∀al. MEM (k1,v) (A_DELKEY k2 al) ⇔ k1 ≠ k2 ∧ MEM (k1,v) al`,
+  Induct >> simp[A_DELKEY_def, FORALL_PROD] >> rw[MEM_FILTER] >>
+  metis_tac[]);
+
+val ALOOKUP_ADELKEY = Q.store_thm(
+  "ALOOKUP_ADELKEY",
+  `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`,
+  simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
+
+val findi_APPEND = Q.store_thm(
+  "findi_APPEND",
+  `∀l1 l2 x.
+      findi x (l1 ++ l2) =
+        let n0 = findi x l1
+        in
+          if n0 = LENGTH l1 then n0 + findi x l2
+          else n0`,
+  Induct >> simp[findi_def] >> rw[] >> fs[]);
+
+val EVERY_neq_findi = Q.store_thm(
+  "EVERY_neq_findi",
+  `EVERY (λx. x ≠ e) l ⇒ findi e l = LENGTH l`,
+  Induct_on `l` >> simp[findi_def]);
+
+
 
 val _ = Datatype`
   RO_fs = <| files : (string # string) list ;
@@ -99,23 +164,6 @@ val eof_FDchar = Q.store_thm(
   `eof fd fs = SOME T ⇒ FDchar fd fs = NONE`,
   simp[eof_def, EXISTS_PROD, FDchar_def, PULL_EXISTS]);
 
-val ALIST_FUPDKEY_def = Define`
-  (ALIST_FUPDKEY k f [] = []) ∧
-  (ALIST_FUPDKEY k f ((k',v)::rest) =
-     if k = k' then (k,f v)::rest
-     else (k',v) :: ALIST_FUPDKEY k f rest)
-`;
-
-val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
-  "ALIST_FUPDKEY_ALOOKUP",
-  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
-     case ALOOKUP al k1 of
-         NONE => NONE
-       | SOME v => if k1 = k2 then SOME (f v) else SOME v`,
-  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
-  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
-  simp[]);
-
 val bumpFD_def = Define`
   bumpFD fd fs =
     case FDchar fd fs of
@@ -134,11 +182,6 @@ val neof_FDchar = Q.store_thm(
   `eof fd fs = SOME F ⇒ ∃c. FDchar fd fs = SOME c`,
   simp[eof_def, FDchar_def, EXISTS_PROD, PULL_EXISTS, FORALL_PROD]);
 
-val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
-  "MAP_FST_ALIST_FUPDKEY[simp]",
-  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
-  Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
-
 val option_case_eq =
     prove_case_eq_thm  { nchotomy = option_nchotomy, case_def = option_case_def}
 
@@ -148,10 +191,6 @@ val wfFS_bumpFD = Q.store_thm(
   simp[bumpFD_def] >> Cases_on `FDchar fd fs` >> simp[] >>
   dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
         EXISTS_PROD] >> metis_tac[]);
-
-val A_DELKEY_def = Define`
-  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
-`;
 
 val fgetc_def = Define`
   fgetc fd fsys =
@@ -386,16 +425,6 @@ val insertNTS_atI_CONS = Q.store_thm(
   Cases_on `l` >> simp[ADD1] >> fs[ADD1] >>
   simp[GSYM ADD1, LUPDATE_def]);
 
-val LUPDATE_commutes = Q.store_thm(
-  "LUPDATE_commutes",
-  `∀m n e1 e2 l.
-    m ≠ n ⇒
-    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
-  Induct_on `l` >> simp[LUPDATE_def] >>
-  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
-  rename[`LUPDATE _ nn (_ :: _)`] >>
-  Cases_on `nn` >> fs[LUPDATE_def]);
-
 val LUPDATE_insertNTS_commute = Q.store_thm(
   "LUPDATE_insertNTS_commute",
   `∀ws pos1 pos2 a w.
@@ -404,21 +433,6 @@ val LUPDATE_insertNTS_commute = Q.store_thm(
      insertNTS_atI ws pos1 (LUPDATE w pos2 a) =
        LUPDATE w pos2 (insertNTS_atI ws pos1 a)`,
   Induct >> simp[insertNTS_atI_NIL, insertNTS_atI_CONS, LUPDATE_commutes]);
-
-val findi_APPEND = Q.store_thm(
-  "findi_APPEND",
-  `∀l1 l2 x.
-      findi x (l1 ++ l2) =
-        let n0 = findi x l1
-        in
-          if n0 = LENGTH l1 then n0 + findi x l2
-          else n0`,
-  Induct >> simp[findi_def] >> rw[] >> fs[]);
-
-val EVERY_neq_findi = Q.store_thm(
-  "EVERY_neq_findi",
-  `EVERY (λx. x ≠ e) l ⇒ findi e l = LENGTH l`,
-  Induct_on `l` >> simp[findi_def]);
 
 val getNullTermStr_insertNTS_atI = Q.store_thm(
   "getNullTermStr_insertNTS_atI",
@@ -431,5 +445,11 @@ val LENGTH_insertNTS_atI = Q.store_thm(
   "LENGTH_insertNTS_atI",
   `p + LENGTH l1 < LENGTH l2 ⇒ LENGTH (insertNTS_atI l1 p l2) = LENGTH l2`,
   simp[insertNTS_atI_def]);
+
+val wfFS_DELKEY = Q.store_thm(
+  "wfFS_DELKEY[simp]",
+  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
+  simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
+       ALOOKUP_ADELKEY] >> metis_tac[]);
 
 val _ = export_theory()
