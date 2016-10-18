@@ -74,12 +74,14 @@ val findi_APPEND = Q.store_thm(
           else n0`,
   Induct >> simp[findi_def] >> rw[] >> fs[]);
 
-val EVERY_neq_findi = Q.store_thm(
-  "EVERY_neq_findi",
-  `EVERY (λx. x ≠ e) l ⇒ findi e l = LENGTH l`,
-  Induct_on `l` >> simp[findi_def]);
+val NOT_MEM_findi_IFF = Q.store_thm(
+  "NOT_MEM_findi_IFF",
+  `¬MEM e l ⇔ findi e l = LENGTH l`,
+  Induct_on `l` >> simp[findi_def, bool_case_eq, ADD1] >> metis_tac[]);
 
-
+val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
+  "NOT_MEM_findi",
+  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
 
 val _ = Datatype`
   RO_fs = <| files : (string # string) list ;
@@ -436,9 +438,9 @@ val LUPDATE_insertNTS_commute = Q.store_thm(
 
 val getNullTermStr_insertNTS_atI = Q.store_thm(
   "getNullTermStr_insertNTS_atI",
-  `∀cs l. LENGTH cs < LENGTH l ∧ EVERY (λc. c ≠ 0w) cs ⇒
+  `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
           getNullTermStr (insertNTS_atI cs 0 l) = SOME (MAP (CHR o w2n) cs)`,
-  simp[getNullTermStr_def, insertNTS_atI_def, findi_APPEND, EVERY_neq_findi,
+  simp[getNullTermStr_def, insertNTS_atI_def, findi_APPEND, NOT_MEM_findi,
        findi_def, TAKE_APPEND])
 
 val LENGTH_insertNTS_atI = Q.store_thm(

@@ -437,8 +437,8 @@ val write_spec = store_thm ("write_spec",
   xret \\ xsimpl);
 
 val ORD_eq_0 = Q.store_thm(
-  "ORD_eq_0[simp]",
-  `ORD c = 0 ⇔ c = CHR 0`,
+  "ORD_eq_0",
+  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
   metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
 
 val nextFD_lt_256 = Q.store_thm(
@@ -464,7 +464,7 @@ val open_spec = Q.store_thm(
   "open_spec",
   `∀s sv fs.
      STRING_TYPE s sv ∧ explode s ∈ FDOM (alist_to_fmap fs.files) ∧
-     EVERY (λc. c ≠ CHR 0) (explode s) ∧
+     ¬MEM (CHR 0) (explode s) ∧
      LENGTH (explode s) < 256 ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 256 ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.open" (basis_st()))
        [sv]
@@ -486,11 +486,10 @@ val open_spec = Q.store_thm(
           &(UNIT_TYPE () u) * CHAR_IO_char1 *
           W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
           CATFS (openFileFS (explode s) fs)`
-  >- (xffi >> simp[definition "filename_loc_def", CATFS_def] >>
-      map_every qexists_tac [`fnm`, `CHAR_IO_char1 * &wfFS fs`] >>
+  >- (simp[CATFS_def] >> xpull >> xffi >> simp[definition "filename_loc_def"] >>
       `MEM 1 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
       simp[fs_ffi_next_def, decode_encode_FS, EXISTS_PROD, Abbr`fnm`,
-           getNullTermStr_insertNTS_atI, EVERY_MAP, ORD_BOUND,
+           getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
            dimword_8, MAP_MAP_o, o_DEF, char_BIJ] >>
       csimp[PULL_EXISTS, wfFS_openFile] >>
       csimp[nextFD_lt_256, ALOOKUP_EXISTS_IFF, openFile_def, openFileFS_def,
