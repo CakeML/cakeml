@@ -145,7 +145,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",`
       (ntac 3 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       Cases_on`handler`>>TRY(PairCases_on`x'''`)>>full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,dec_clock_def,call_env_def]>>rev_full_simp_tac(srw_ss())[]>>srw_tac[][]>>
       imp_res_tac evaluate_code_const>>
-      imp_res_tac pop_env_code_clock>>
+      imp_res_tac pop_env_code_gc_fun_clock>>
       full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       qexists_tac`clk+clk'`>>
       imp_res_tac evaluate_add_clock>>
@@ -163,7 +163,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",`
       >>
         ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
         imp_res_tac evaluate_code_const>>
-        imp_res_tac pop_env_code_clock>>
+        imp_res_tac pop_env_code_gc_fun_clock>>
         full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
         qexists_tac`clk+clk'`>>
         imp_res_tac evaluate_add_clock>>
