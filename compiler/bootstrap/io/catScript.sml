@@ -392,8 +392,7 @@ val close_e =
                           Var (Short "onechar");
                           Lit (IntLit 0);
                           Var (Short "w8")])
-             (Let (SOME "_") (App (FFI 3) [Var (Short "onechar")])
-                  (Con NONE []))`` |> EVAL |> concl |> rand
+        (App (FFI 3) [Var (Short "onechar")])`` |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"close"`` ``"w8"`` close_e "close_v")
 
 val _ = ml_prog_update (close_module NONE);
@@ -574,6 +573,26 @@ val fgetc_spec = Q.store_thm(
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
       instantiate >> simp[ORD_BOUND, CHR_ORD]) >>
   xret >> xsimpl >> simp[OPTION_TYPE_def])
+
+val close_spec = Q.store_thm(
+  "close_spec",
+  `∀(fdw:word8) fdv fs.
+     WORD fdw fdv ∧ validFD (w2n fdw) fs ⇒
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.close" (basis_st())) [fdv]
+       (CHAR_IO * CATFS fs)
+       (POSTv u. &UNIT_TYPE () u * CHAR_IO *
+                 CATFS (fs with infds updated_by A_DELKEY (w2n fdw)))`,
+  rpt strip_tac >>
+  xcf "CharIO.close" (basis_st()) >> simp[CHAR_IO_def, CHAR_IO_char1_def] >>
+  xpull >>
+  xlet `POSTv u.
+         &UNIT_TYPE () u * W8ARRAY onechar_loc [fdw] * CHAR_IO_fname * CATFS fs`
+  >- (xapp >> simp[onechar_loc_def] >> xsimpl >> simp[LUPDATE_def]) >>
+  simp[CATFS_def] >> xpull >> xffi >> simp[onechar_loc_def] >> xsimpl >>
+  `MEM 3 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
+  simp[fs_ffi_next_def, wfFS_DELKEY, closeFD_def, EXISTS_PROD] >>
+  fs[wfFS_def, MEM_MAP, EXISTS_PROD, PULL_EXISTS, validFD_def] >>
+  simp[RO_fs_component_equality] >> metis_tac[])
 
 (*
 
