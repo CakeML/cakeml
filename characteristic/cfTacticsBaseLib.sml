@@ -5,6 +5,15 @@ open preamble
 open set_sepTheory helperLib ConseqConv
 open quantHeuristicsTools
 
+structure Parse =
+struct
+  open Parse
+  val (Type,Term) = parse_from_grammars
+                      (merge_grammars ["cmlPtreeConversion", "cmlPEG",
+                                       "semanticPrimitives", "lexer_fun"])
+end
+open Parse
+
 fun find_map f [] = NONE
   | find_map f (x :: xs) =
     (case f x of
@@ -124,17 +133,27 @@ fun rewr_head_conv thm tm =
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory lexer_implTheory
 
-fun parse_t nt sem =
-  ``\s. case peg_exec cmlPEG (nt (mkNT ^nt) I) (lexer_fun s) [] done failed of
-          Result (SOME(_,[x])) => ^sem x``
+val parse_t =
+  Lib.with_flag (Feedback.MESG_outstream, (fn s => ()))
+   Parse.Term
+     `\inputnt sem s.
+        case
+          peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
+        of
+          Result (SOME(_,[x])) => sem x : 'a`
 
 fun string_of_q [] = ""
   | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
   | string_of_q (ANTIQUOTE s :: qs) = s ^ (string_of_q qs)
 
 fun parse nt sem q =
-  EVAL (mk_comb(parse_t nt sem, stringSyntax.fromMLstring (string_of_q q)))
-  |> concl |> rhs |> rand
+  let
+    val (_,r) = dom_rng (type_of sem)
+  in
+    EVAL (list_mk_comb(inst [alpha |-> r] parse_t,
+                       [nt, sem, stringSyntax.fromMLstring (string_of_q q)]))
+         |> concl |> rhs |> rand
+  end
 
 val parse_decl = parse ``nDecl`` ``ptree_Decl``
 val parse_topdecs = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
@@ -153,9 +172,11 @@ fun pick_name str =
   if str = "!" then "deref" else
   if str = ":=" then "assign" else str (* name is fine *)
 
+val nEbase_t = ``nEbase``
+val ptree_t = ``ptree_Expr nEbase``
 fun fetch_v name st =
   let val env = ml_progLib.get_env st
-      val ident_expr = parse ``nEbase`` ``ptree_Expr nEbase`` [QUOTE name]
+      val ident_expr = parse nEbase_t ptree_t [QUOTE name]
       val ident = astSyntax.dest_Var ident_expr
       val evalth = EVAL ``lookup_var_id ^ident ^env``
   in (optionLib.dest_some o rhs o concl) evalth end
