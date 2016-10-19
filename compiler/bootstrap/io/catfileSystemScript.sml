@@ -10,6 +10,7 @@ val _ = overload_on ("SOME", ``SOME``)
 val _ = overload_on ("NONE", ``NONE``)
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = overload_on ("monad_unit_bind", ``OPTION_IGNORE_BIND``)
+val _ = overload_on ("++", ``OPTION_CHOICE``)
 
 (* TODO: move candidates follow *)
 val ALOOKUP_EXISTS_IFF = Q.store_thm(
@@ -364,9 +365,9 @@ val fs_ffi_next_def = Define`
       | 1 => do (* open file *)
                fname <- getNullTermStr bytes;
                (fd, fs') <- openFile fname fs;
-               assert(fd < 256);
+               assert(fd < 255);
                return (LUPDATE (n2w fd) 0 bytes, encode fs')
-             od
+             od ++ return (LUPDATE 255w 0 bytes, encode fs)
       | 2 => do
                assert(LENGTH bytes = 1);
                (copt, fs') <- fgetc (w2n (HD bytes)) fs;
