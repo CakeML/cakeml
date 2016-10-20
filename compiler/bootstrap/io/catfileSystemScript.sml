@@ -368,22 +368,24 @@ val fs_ffi_next_def = Define`
                assert(fd < 255);
                return (LUPDATE (n2w fd) 0 bytes, encode fs')
              od ++ return (LUPDATE 255w 0 bytes, encode fs)
-      | 2 => do
+      | 2 => do (* fgetc *)
                assert(LENGTH bytes = 1);
                (copt, fs') <- fgetc (w2n (HD bytes)) fs;
                case copt of
                    NONE => return ([255w], encode fs')
                  | SOME c => return ([n2w (ORD c)], encode fs')
              od
-      | 3 => do
+      | 3 => do (* close *)
                assert(LENGTH bytes = 1);
                (_, fs') <- closeFD (w2n (HD bytes)) fs;
                return (bytes, encode fs')
              od
       | 4 => do (* eof check *)
                assert(LENGTH bytes = 1);
-               b <- eof (w2n (HD bytes)) fs ;
-               return (LUPDATE (if b then 1w else 0w) 0 bytes, encode fs)
+               do
+                 b <- eof (w2n (HD bytes)) fs ;
+                 return (LUPDATE (if b then 1w else 0w) 0 bytes, encode fs)
+               od ++ return (LUPDATE 255w 0 bytes, encode fs)
              od
       | _ => fail
     od

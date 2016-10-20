@@ -364,7 +364,10 @@ val write_e =
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` write_e "write_v")
 
-val _ = append_prog (process_topdecs `exception BadFileName`)
+val _ = process_topdecs `
+  exception BadFileName;
+  exception InvalidFD
+` |> append_prog
 
 (* ML implementation of open function (1), with parameter name "fname" *)
 val open_e =
@@ -394,7 +397,10 @@ val eof_e =
     Let (SOME "_") (App (FFI 4) [Var (Short "onechar")]) (
     Let (SOME "bw") (Apps [Var (Long "Word8Array" "sub");
                            Var (Short "onechar"); Lit (IntLit 0)]) (
-      Apps [Var (Short "word_eq1"); Var (Short "bw")])))``
+      Mat (Var (Short "bw")) [
+        (Plit (Word8 255w), Raise (Con (SOME (Short "InvalidFD")) []));
+        (Pvar "_", Apps [Var (Short "word_eq1"); Var (Short "bw")])
+      ]))) ``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"eof"`` ``"w8"`` eof_e "eof_v")
 
@@ -567,12 +573,26 @@ val eof_spec = Q.store_thm(
       `MEM 4n [0;1;2;3;4]` by simp[] >> instantiate >> xsimpl >>
       csimp[fs_ffi_next_def, LUPDATE_def] >>
       simp[eof_def, EXISTS_PROD, PULL_EXISTS] >>
-      fs[wfFS_def, validFD_def] >> res_tac >> simp[ALOOKUP_EXISTS_IFF]>>
-      fs[EXISTS_PROD, MEM_MAP] >> metis_tac[]) >>
+      `∃fnm pos. ALOOKUP fs.infds (w2n w) = SOME (fnm,pos)`
+        by (fs[validFD_def, MEM_MAP, EXISTS_PROD] >>
+            metis_tac[ALOOKUP_EXISTS_IFF, PAIR, EXISTS_PROD]) >>
+      simp[] >>
+      `∃conts. ALOOKUP fs.files fnm = SOME conts`
+        by (fs[wfFS_def, validFD_def] >> res_tac >> fs[MEM_MAP, EXISTS_PROD] >>
+            rw[] >> metis_tac[ALOOKUP_EXISTS_IFF]) >> simp[]) >>
   xlet `POSTv bw. &(WORD (if THE (eof (w2n w) fs) then 1w else 0w:word8) bw) *
                   CATFS fs * CHAR_IO_fname *
                   W8ARRAY onechar_loc [if THE (eof (w2n w) fs) then 1w else 0w]`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl) >>
+  xmatch >>
+  `bw ≠ Litv (Word8 255w)`
+     by (strip_tac >> fs[WORD_def, w2w_def, bool_case_eq]) >> simp[] >>
+  simp[validate_pat_def, pat_typechecks_def, pat_without_Pref_def,
+       terminationTheory.pmatch_def, astTheory.pat_bindings_def] >>
+  reverse conj_tac
+  >- (fs[WORD_def] >>
+      simp[terminationTheory.pmatch_def, w2w_def, bool_case_eq,
+           semanticPrimitivesTheory.lit_same_type_def]) >>
   xapp >> xsimpl >>
   qexists_tac `if THE (eof (w2n w) fs) then 1w else 0w` >> rw[]);
 
