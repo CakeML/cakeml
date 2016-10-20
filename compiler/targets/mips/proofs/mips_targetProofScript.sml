@@ -127,6 +127,21 @@ val adc_lem2 = Q.prove(
    \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_add_n2w,
           wordsTheory.word_ls_n2w])
 
+val mul_long1 = Q.prove(
+  `!a : word64 b. (63 >< 0) (w2w a * w2w b : word128) = a * b`,
+  srw_tac [wordsLib.WORD_EXTRACT_ss]
+    [Once wordsTheory.WORD_EXTRACT_OVER_MUL])
+
+val mul_long2 = Q.prove(
+  `!a : word64 b : word64.
+    n2w ((w2n a * w2n b) DIV 18446744073709551616) =
+    (127 >< 64) (w2w a * w2w b : word128) : word64`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -165,6 +180,8 @@ local
    val ev = mips_stepLib.mips_eval true
    val s = ``s: mips_state``
    val d = ``d: word64 option``
+   fun try_gen q th = Q.GEN q th handle HOL_ERR _ => th
+   val try_gen = try_gen `vHI` o try_gen `vLO`
    fun step the_state bd l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)
@@ -177,7 +194,7 @@ local
                     then Thm.INST [d |-> Term.rand bd] o List.last
                  else List.hd
       in
-         (Thm.INST [s |-> the_state] o Drule.DISCH_ALL o f) thms
+         (try_gen o Thm.INST [s |-> the_state] o Drule.DISCH_ALL o f) thms
       end
 in
    fun next_state_tac (asl, g) =
@@ -246,7 +263,8 @@ fun state_tac asm =
                [bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``,
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
-         rw [combinTheory.APPLY_UPDATE_THM,
+         rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2,
+             GSYM wordsTheory.word_mul_def,
              DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
          \\ (if asmLib.isMem asm then
               rw [boolTheory.FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM]

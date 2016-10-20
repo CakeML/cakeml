@@ -157,11 +157,10 @@ val arith_ok_def = Define `
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
   (arith_ok (LongMul r1 r2 r3 r4) c =
-     if c.ISA = x86_64 then
-       (r1 = 2) /\ (r2 = 0) /\ (r3 = 0) /\ reg_ok r4 c
-     else
-       F /\ (* temporary - pending update for other ISAs  *)
-       reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
+     ((c.ISA = ARMv6) ==> r1 <> r2) /\
+     (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r2 <> r3 /\ r2 <> r4)) /\
   (arith_ok (LongDiv r1 r2 r3 r4 r5) c =
      (c.ISA = x86_64) /\
      (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\ reg_ok r5 c) /\
