@@ -773,29 +773,42 @@ val nextFD_NOT_MEM = Q.store_thm(
 
 val do_onefile_spec = Q.store_thm(
   "do_onefile_spec",
-  `∀fnm fnv fs content.
+  `∀fnm fnv fs.
       CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
       LENGTH (explode fnm) < 256 ∧
-      STRING_TYPE fnm fnv ∧ ¬MEM (CHR 0) (explode fnm) ∧
-      ALOOKUP fs.files (explode fnm) = SOME content
+      STRING_TYPE fnm fnv ∧ ¬MEM (CHR 0) (explode fnm)
     ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (basis_st())) [fnv]
        (CHAR_IO * CATFS fs)
-       (POSTv u. &UNIT_TYPE () u * CHAR_IO *
-                 CATFS (fs with stdout updated_by (λout. out ++ content)))`,
+       (POST
+         (\u. SEP_EXISTS content.
+              &UNIT_TYPE () u *
+              &(ALOOKUP fs.files (explode fnm) = SOME content) *
+              CHAR_IO *
+              CATFS (fs with stdout updated_by (λout. out ++ content)))
+         (\e. &BadFileName_exn e *
+              &(~inFS_fname (explode fnm) fs) *
+              CHAR_IO * CATFS fs))`,
   rpt strip_tac >> xcf "do_onefile" (basis_st()) >>
-  xlet `POSTv fdv.
-          &(WORD (n2w (nextFD fs) : word8) fdv ∧
-            validFD (nextFD fs) (openFileFS (explode fnm) fs)) *
-          CHAR_IO * CATFS (openFileFS (explode fnm) fs)`
-  >- (xapp >> fs[] >> instantiate >> xsimpl >>
-      simp[MEM_MAP, EXISTS_PROD, inFS_fname_def] >>
-      metis_tac[ALOOKUP_EXISTS_IFF]) >>
+  xlet `POST
+          (\fdv.
+            &(WORD (n2w (nextFD fs) : word8) fdv ∧
+              validFD (nextFD fs) (openFileFS (explode fnm) fs) ∧
+              inFS_fname (explode fnm) fs) *
+            CHAR_IO * CATFS (openFileFS (explode fnm) fs))
+          (\e.
+            &(BadFileName_exn e ∧ ~inFS_fname (explode fnm) fs) *
+            CHAR_IO * CATFS fs)`
+  >- (xapp >> fs[] >> instantiate >> xsimpl)
+  >- xsimpl >>
   qabbrev_tac `fd = nextFD fs` >>
   qabbrev_tac `fs0 = openFileFS (explode fnm) fs` >>
-  `ALOOKUP fs0.infds fd = SOME (explode fnm, 0)`
-     by (UNABBREV_ALL_TAC >> fs[validFD_def, openFileFS_def, openFile_def] >>
-         rfs[nextFD_ltX]) >>
+  `ALOOKUP fs0.infds fd = SOME (explode fnm, 0)` by
+    (UNABBREV_ALL_TAC >>
+     fs [validFD_def, openFileFS_def, openFile_def] >>
+     progress inFS_fname_ALOOKUP_EXISTS >> fs [] >>
+     rfs[nextFD_ltX] >> NO_TAC) >>
+  progress inFS_fname_ALOOKUP_EXISTS >>
   xfun_spec `recurse`
     `!m n fs00 uv.
        UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
@@ -844,7 +857,7 @@ val do_onefile_spec = Q.store_thm(
           xsimpl >> map_every qexists_tac [`emp`, `fs00`] >> xsimpl >>
           simp[validFD_def, MEM_MAP, EXISTS_PROD] >>
           metis_tac[EXISTS_PROD, PAIR, ALOOKUP_EXISTS_IFF]) >>
-      `∃c. FDchar fd fs00 = SOME c` by (irule neof_FDchar >> simp[eof_def]) >>
+      `∃c. FDchar fd fs00 = SOME c` by (irule neof_FDchar >> simp[eof_def] >> NO_TAC) >>
       fs[OPTION_TYPE_def] >> rveq >> xmatch >>
       qabbrev_tac `fs01 = bumpFD fd fs00
                             with stdout updated_by (λout. out ++ [c])` >>
@@ -887,13 +900,14 @@ val do_onefile_spec = Q.store_thm(
       simp[Abbr`fs0`, openFileFS_def, openFile_def, Abbr`fd`, nextFD_ltX]) >>
   (* calling close *)
   xapp >> xsimpl >> instantiate >>
-  `fd < 256` by (fs[] >> simp[Abbr`fd`, nextFD_ltX]) >> simp[] >>
+  `fd < 256` by (fs[] >> simp[Abbr`fd`, nextFD_ltX] >> NO_TAC) >> simp[] >>
   map_every qexists_tac [`emp`,
     `fs0 with <| infds updated_by ALIST_FUPDKEY fd (I ## K (LENGTH content)) ;
                  stdout updated_by (λout. out ++ content) |>`
   ] >> simp[] >> xsimpl >> conj_tac
   >- (simp[validFD_def, EXISTS_PROD, MEM_MAP] >>
       metis_tac[EXISTS_PROD, ALOOKUP_EXISTS_IFF, PAIR]) >>
+  rpt strip_tac >>
   qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
   `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
   simp[RO_fs_component_equality, openFileFS_def, openFile_def] >> fs[] >>

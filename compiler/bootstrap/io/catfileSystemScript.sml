@@ -472,4 +472,11 @@ val not_inFS_fname_openFile = Q.store_thm(
   `~inFS_fname fname fs ⇒ openFile fname fs = NONE`,
   fs [inFS_fname_def, openFile_def, ALOOKUP_NONE]);
 
+val inFS_fname_ALOOKUP_EXISTS = Q.store_thm(
+  "inFS_fname_ALOOKUP_EXISTS",
+  `inFS_fname fname fs ⇒ ∃content. ALOOKUP fs.files fname = SOME content`,
+  fs [inFS_fname_def, MEM_MAP] >> rpt strip_tac >> fs[] >>
+  rename1 `fname = FST p` >> Cases_on `p` >>
+  fs[ALOOKUP_EXISTS_IFF] >> metis_tac[]);
+
 val _ = export_theory()
