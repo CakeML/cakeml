@@ -642,7 +642,7 @@ val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
   instantiate);
 
 val Arrow_eq_app_basic = Q.store_thm("Arrow_eq_app_basic",
-  `Arrow a b f v ⇔ (∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. &b (f x) v))`,
-  metis_tac[Arrow_IMP_app_basic,app_basic_IMP_Arrow]);
+  `Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))`,
+  metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]);
 
 val _ = export_theory ()
