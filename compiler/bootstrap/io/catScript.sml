@@ -370,7 +370,7 @@ val _ = process_topdecs `
 ` |> append_prog
 
 (* ML implementation of open function (1), with parameter name "fname" *)
-val open_e =
+val openIn_e =
   ``Let (SOME "_")
         (Apps [Var (Short "str_to_w8array");
                Var (Short "filename_array");
@@ -386,8 +386,9 @@ val open_e =
             (Raise (Var (Short "e"))))
        (Var (Short "fd"))))))``
     |> EVAL |> concl |> rand
-val _ = ml_prog_update (add_Dlet_Fun ``"open"`` ``"fname"`` open_e "open_v")
-val open_v_def = definition "open_v_def"
+val _ = ml_prog_update
+          (add_Dlet_Fun ``"openIn"`` ``"fname"`` openIn_e "openIn_v")
+val openIn_v_def = definition "openIn_v_def"
 
 (* ML implementation of eof function (4), with parameter w8 (a fd) *)
 val eof_e =
@@ -507,20 +508,20 @@ val HD_LUPDATE = Q.store_thm(
   `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
   Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
 
-val open_spec = Q.store_thm(
-  "open_spec",
+val openIn_spec = Q.store_thm(
+  "openIn_spec",
   `∀s sv fs.
      STRING_TYPE s sv ∧ explode s ∈ FDOM (alist_to_fmap fs.files) ∧
      ¬MEM (CHR 0) (explode s) ∧
      LENGTH (explode s) < 256 ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.open" (basis_st()))
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.openIn" (basis_st()))
        [sv]
        (CHAR_IO * CATFS fs)
        (POSTv wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
                     validFD (nextFD fs) (openFileFS (explode s) fs)) *
                   CATFS (openFileFS (explode s) fs) * CHAR_IO)`,
   rpt strip_tac >>
-  xcf "CharIO.open" (basis_st()) >>
+  xcf "CharIO.openIn" (basis_st()) >>
   fs[CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
   xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_char1 *
