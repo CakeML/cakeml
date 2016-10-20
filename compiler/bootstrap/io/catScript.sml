@@ -681,4 +681,81 @@ val close_spec = Q.store_thm(
   >- (xapp >> xsimpl >> qexists_tac `1w` >> simp[]) >>
   xif >> qexists_tac `T` >> simp[] >> xret >> xsimpl);
 
+val _ = process_topdecs `
+  fun do_onefile fname =
+    let
+      val fd = CharIO.openIn fname
+      fun recurse () =
+        case CharIO.fgetc fd of
+            NONE => ()
+          | SOME c => (CharIO.write c; recurse ())
+    in
+      recurse () ;
+      CharIO.close fd
+    end` |> append_prog
+
+(*
+val do_onefile_spec = Q.store_thm(
+  "do_onefile_spec",
+  `∀fnm fnv fs content.
+      wfFS fs ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+      LENGTH (explode fnm) < 256 ∧
+      STRING_TYPE fnm fnv ∧ ¬MEM (CHR 0) (explode fnm) ∧
+      ALOOKUP fs.files (explode fnm) = SOME content
+    ⇒
+      app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (basis_st())) [fnv]
+       (CHAR_IO * CATFS fs)
+       (POSTv u. &UNIT_TYPE () u * CHAR_IO *
+                 CATFS (fs with stdout updated_by (λout. out ++ content)))`,
+  rpt strip_tac >> xcf "do_onefile" (basis_st()) >>
+  xlet `POSTv fdv.
+          &(WORD (n2w (nextFD fs) : word8) fdv ∧
+            validFD (nextFD fs) (openFileFS (explode fnm) fs)) *
+          CHAR_IO * CATFS (openFileFS (explode fnm) fs)`
+  >- (xapp >> fs[] >> instantiate >> xsimpl >>
+      simp[MEM_MAP, EXISTS_PROD] >> metis_tac[ALOOKUP_EXISTS_IFF]) >>
+  qabbrev_tac `fd = nextFD fs` >>
+  qabbrev_tac `fs0 = openFileFS (explode fnm) fs` >>
+  `ALOOKUP fs0.infds fd = SOME (explode fnm, 0)`
+     by (UNABBREV_ALL_TAC >> fs[validFD_def, openFileFS_def, openFile_def] >>
+         rfs[nextFD_ltX]) >>
+  xfun_spec `recurse`
+    `!m n fs00 uv.
+       UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
+       fs00.files = fs.files ∧
+       ALOOKUP fs00.infds fd = SOME (explode fnm, n)
+         ==>
+       app p recurse [uv]
+         (CHAR_IO * CATFS fs00)
+         (POSTv u.
+            &UNIT_TYPE () u * CHAR_IO *
+            CATFS (fs00 with stdout updated_by (λout. out ++ DROP n content)))`
+  >- (Induct
+      >- ((* base case *)
+          rpt strip_tac >> `n = STRLEN content` by simp[] >> fs[] >> rveq >>
+          xapp >> xmatch >> fs[UNIT_TYPE_def] >> reverse conj_tac
+          >- simp[validate_pat_def, pat_typechecks_def,
+                  terminationTheory.pmatch_def, pat_without_Pref_def,
+                  astTheory.pat_bindings_def] >>
+          xlet `POSTv av.
+                  &OPTION_TYPE CHAR NONE av * CHAR_IO * CATFS fs00`
+          >- (rveq >> xapp >> xsimpl >> instantiate >>
+              `fd < 256` by simp[Abbr`fd`, nextFD_ltX] >> simp[] >>
+              xsimpl >> map_every qexists_tac [`emp`, `fs00`] >> xsimpl >>
+              conj_tac
+              >- (simp[validFD_def, EXISTS_PROD, MEM_MAP] >>
+                  metis_tac[EXISTS_PROD, PAIR, ALOOKUP_EXISTS_IFF]) >>
+              `FDchar fd fs00 = NONE` by simp[FDchar_def] >>
+              `bumpFD fd fs00 = fs00` by simp[bumpFD_def] >>
+              xsimpl) >>
+          xmatch >> fs[OPTION_TYPE_def] >> reverse conj_tac
+          >- simp[validate_pat_def, pat_typechecks_def,
+                  terminationTheory.pmatch_def, pat_without_Pref_def,
+                  astTheory.pat_bindings_def, ml_progTheory.SND_ALOOKUP_INTRO,
+                 ]
+
+
+
+*)
+
 val _ = export_theory();
