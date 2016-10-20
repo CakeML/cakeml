@@ -212,6 +212,9 @@ val closeFD_def = Define`
     od
 `;
 
+val good_fname_def = Define `
+  good_fname s fs = (s ∈ FDOM (alist_to_fmap fs.files))`
+
 (* ----------------------------------------------------------------------
     Coding RO_fs values as ffi values
    ---------------------------------------------------------------------- *)
@@ -463,5 +466,10 @@ val wfFS_DELKEY = Q.store_thm(
   `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
   simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
        ALOOKUP_ADELKEY] >> metis_tac[]);
+
+val bad_fname_openFile = Q.store_thm(
+  "bad_fname_openFile",
+  `~good_fname fname fs ⇒ openFile fname fs = NONE`,
+  fs [good_fname_def, openFile_def, ALOOKUP_NONE]);
 
 val _ = export_theory()

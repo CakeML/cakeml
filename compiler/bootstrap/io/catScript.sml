@@ -371,6 +371,15 @@ val _ = process_topdecs `
   exception InvalidFD
 ` |> append_prog
 
+(* Predicates for exceptions BadFileName and InvalidFD *)
+val BadFileName_exn_def = Define `
+  BadFileName_exn v =
+    (v = Conv (SOME ("BadFileName", TypeExn (Long "CharIO" "BadFileName"))) [])`
+
+val InvalidFD_exn_def = Define `
+  InvalidFD_exn v =
+    (v = Conv (SOME ("InvalidFD", TypeExn (Long "CharIO" "InvalidFD"))) [])`
+
 (* ML implementation of open function (1), with parameter name "fname" *)
 val openIn_e =
   ``Let (SOME "_")
@@ -516,16 +525,18 @@ val HD_LUPDATE = Q.store_thm(
 val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
-     STRING_TYPE s sv ∧ explode s ∈ FDOM (alist_to_fmap fs.files) ∧
-     ¬MEM (CHR 0) (explode s) ∧
+     STRING_TYPE s sv ∧ ¬MEM (CHR 0) (explode s) ∧
      LENGTH (explode s) < 256 ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.openIn" (basis_st()))
        [sv]
        (CHAR_IO * CATFS fs)
-       (POSTv wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
-                    validFD (nextFD fs) (openFileFS (explode s) fs)) *
-                  CATFS (openFileFS (explode s) fs) * CHAR_IO)`,
-  rpt strip_tac >>
+       (POST
+          (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
+                  validFD (nextFD fs) (openFileFS (explode s) fs) ∧
+                  good_fname (explode s) fs) *
+                CATFS (openFileFS (explode s) fs) * CHAR_IO)
+          (\e. &(BadFileName_exn e ∧ ~good_fname (explode s) fs) *
+               CATFS fs * CHAR_IO))`,
   xcf "CharIO.openIn" (basis_st()) >>
   fs[CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
@@ -536,34 +547,68 @@ val openIn_spec = Q.store_thm(
   >- (xapp >> xsimpl >> instantiate >>
       simp[definition "filename_loc_def"] >> xsimpl) >>
   qabbrev_tac `fnm = insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0` >>
-  xlet `POSTv u2.
-          &(UNIT_TYPE () u2 /\ nextFD fs < 255 /\
-            validFD (nextFD fs) (openFileFS (explode s) fs)) *
-          CHAR_IO_char1 *
-          W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
-          CATFS (openFileFS (explode s) fs)`
-  >- (simp[CATFS_def] >> xpull >> xffi >> simp[definition "filename_loc_def"] >>
-      `MEM 1 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
-      simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
-           getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
-           dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile] >>
-      `∃content. ALOOKUP fs.files (explode s) = SOME content`
-        by (fs[ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >> metis_tac[]) >>
-      csimp[nextFD_ltX, openFile_def, openFileFS_def, validFD_def]) >>
-  xlet `POSTv fdv. &WORD (n2w (nextFD fs) : word8) fdv *
-                   CHAR_IO_char1 *
-                   W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
-                   CATFS (openFileFS (explode s) fs)`
-  >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
-      csimp[HD_LUPDATE] >>
-      simp[Abbr`fnm`, LENGTH_insertNTS_atI]) >>
-  xlet `POSTv eqn1v. &BOOL F eqn1v * CHAR_IO_char1 *
+  Cases_on `good_fname (explode s) fs`
+  >- (
+    xlet `POSTv u2.
+            &(UNIT_TYPE () u2 /\ nextFD fs < 255 /\
+              validFD (nextFD fs) (openFileFS (explode s) fs)) *
+            CHAR_IO_char1 *
+            W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
+            CATFS (openFileFS (explode s) fs)`
+    >- (simp[CATFS_def] >> xpull >> xffi >> simp[definition "filename_loc_def"] >>
+        `MEM 1 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
+        simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
+             getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
+             dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile] >>
+        `∃content. ALOOKUP fs.files (explode s) = SOME content`
+          by (fs[good_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
+              metis_tac[]) >>
+        csimp[nextFD_ltX, openFile_def, openFileFS_def, validFD_def]) >>
+    xlet `POSTv fdv. &WORD (n2w (nextFD fs) : word8) fdv *
+                     CHAR_IO_char1 *
                      W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
                      CATFS (openFileFS (explode s) fs)`
-  >- (xapp >> xsimpl >> qexists_tac `n2w (nextFD fs)` >>
-      simp[WORD_def, BOOL_def]) >>
-  xif >> qexists_tac `F` >> simp[] >> xret >> xsimpl >>
-  simp[Abbr`fnm`, LENGTH_insertNTS_atI]);
+    >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
+        csimp[HD_LUPDATE] >>
+        simp[Abbr`fnm`, LENGTH_insertNTS_atI]) >>
+    xlet `POSTv eqn1v. &BOOL F eqn1v * CHAR_IO_char1 *
+                       W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
+                       CATFS (openFileFS (explode s) fs)`
+    >- (xapp >> xsimpl >> qexists_tac `n2w (nextFD fs)` >>
+        simp[WORD_def, BOOL_def]) >>
+    xif >> instantiate >> xret >> xsimpl >>
+    simp[Abbr`fnm`, LENGTH_insertNTS_atI]
+  )
+  >- (
+    xlet `POSTv u2.
+            &UNIT_TYPE () u2 * CHAR_IO_char1 * CATFS fs *
+            W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
+
+    >- (simp[CATFS_def] >> xpull >> xffi >> simp[definition "filename_loc_def"] >>
+        `MEM 1 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
+        simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
+             getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
+             dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile] >>
+        simp[bad_fname_openFile]) >>
+    xlet `POSTv fdv. &WORD (255w: word8) fdv *
+                     CHAR_IO_char1 * CATFS fs *
+                     W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
+    >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
+        csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insertNTS_atI]) >>
+    xlet `POSTv eqn1v.
+            &BOOL T eqn1v *
+            CHAR_IO_char1 * CATFS fs *
+            W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
+    >- (xapp >> xsimpl >> fs[WORD_def, BOOL_def]) >>
+    xif >> instantiate >>
+    xlet `POSTv ev.
+            &BadFileName_exn ev *
+            CHAR_IO_char1 * CATFS fs *
+            W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
+    >- (xret >> xsimpl >> simp[BadFileName_exn_def]) >>
+    xraise >> xsimpl >> simp[Abbr`fnm`, LENGTH_insertNTS_atI]
+  )
+);
 
 val eof_spec = Q.store_thm(
   "eof_spec",
@@ -744,7 +789,8 @@ val do_onefile_spec = Q.store_thm(
             validFD (nextFD fs) (openFileFS (explode fnm) fs)) *
           CHAR_IO * CATFS (openFileFS (explode fnm) fs)`
   >- (xapp >> fs[] >> instantiate >> xsimpl >>
-      simp[MEM_MAP, EXISTS_PROD] >> metis_tac[ALOOKUP_EXISTS_IFF]) >>
+      simp[MEM_MAP, EXISTS_PROD, good_fname_def] >>
+      metis_tac[ALOOKUP_EXISTS_IFF]) >>
   qabbrev_tac `fd = nextFD fs` >>
   qabbrev_tac `fs0 = openFileFS (explode fnm) fs` >>
   `ALOOKUP fs0.infds fd = SOME (explode fnm, 0)`
