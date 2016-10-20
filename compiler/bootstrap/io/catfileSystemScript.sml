@@ -94,6 +94,7 @@ val _ = Datatype`
 val wfFS_def = Define`
   wfFS fs =
     ∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
+         fd < 255 ∧
          ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
                    fnm ∈ FDOM (alist_to_fmap fs.files)
 `;
@@ -112,6 +113,7 @@ val openFile_def = Define`
      let fd = nextFD fsys
      in
        do
+          assert (fd < 255) ;
           ALOOKUP fsys.files fnm ;
           return (fd, fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
        od
@@ -128,6 +130,7 @@ val wfFS_openFile = Q.store_thm(
   "wfFS_openFile",
   `wfFS fs ⇒ wfFS (openFileFS fnm fs)`,
   simp[openFileFS_def, openFile_def] >>
+  Cases_on `nextFD fs < 255` >> simp[] >>
   Cases_on `ALOOKUP fs.files fnm` >> simp[] >>
   dsimp[wfFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
   metis_tac[ALOOKUP_EXISTS_IFF]);
@@ -377,8 +380,10 @@ val fs_ffi_next_def = Define`
              od
       | 3 => do (* close *)
                assert(LENGTH bytes = 1);
-               (_, fs') <- closeFD (w2n (HD bytes)) fs;
-               return (bytes, encode fs')
+               do
+                 (_, fs') <- closeFD (w2n (HD bytes)) fs;
+                 return (LUPDATE 1w 0 bytes, encode fs')
+               od ++ return (LUPDATE 0w 0 bytes, encode fs)
              od
       | 4 => do (* eof check *)
                assert(LENGTH bytes = 1);
@@ -393,13 +398,15 @@ val fs_ffi_next_def = Define`
 
 val closeFD_lemma = Q.store_thm(
   "closeFD_lemma",
-  `fd ∈ FDOM (alist_to_fmap fs.infds) ∧ fd < 256
+  `validFD fd fs ∧ wfFS fs
      ⇒
    fs_ffi_next 3 [n2w fd] (encode fs) =
-     SOME ([n2w fd], encode (fs with infds updated_by A_DELKEY fd))`,
+     SOME ([1w], encode (fs with infds updated_by A_DELKEY fd))`,
   simp[fs_ffi_next_def, decode_encode_FS, closeFD_def, PULL_EXISTS,
-       theorem "RO_fs_component_equality", MEM_MAP, FORALL_PROD,
-       ALOOKUP_EXISTS_IFF] >> metis_tac[]);
+       MEM_MAP, FORALL_PROD, ALOOKUP_EXISTS_IFF, validFD_def, wfFS_def,
+       EXISTS_PROD] >>
+  rpt strip_tac >> res_tac >> simp[LUPDATE_def] >>
+  simp[theorem "RO_fs_component_equality"]);
 
 val write_lemma = Q.store_thm(
   "write_lemma",

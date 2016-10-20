@@ -430,8 +430,16 @@ val close_e =
   ``Let (SOME "_") (Apps [Var (Long "Word8Array" "update");
                           Var (Short "onechar");
                           Lit (IntLit 0);
-                          Var (Short "w8")])
-        (App (FFI 3) [Var (Short "onechar")])`` |> EVAL |> concl |> rand
+                          Var (Short "w8")]) (
+    Let (SOME "u2") (App (FFI 3) [Var (Short "onechar")]) (
+    Let (SOME "okw") (Apps [Var (Long "Word8Array" "sub");
+                            Var (Short "onechar");
+                            Lit (IntLit 0)]) (
+    Let (SOME "ok") (Apps [Var (Short "word_eq1"); Var (Short "okw")]) (
+      If (Var (Short "ok"))
+         (Con NONE [])
+         (Raise (Con (SOME (Short "InvalidFD")) []))))))``
+    |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"close"`` ``"w8"`` close_e "close_v")
 
 val _ = ml_prog_update (close_module NONE);
@@ -653,11 +661,24 @@ val close_spec = Q.store_thm(
   xlet `POSTv u.
          &UNIT_TYPE () u * W8ARRAY onechar_loc [fdw] * CHAR_IO_fname * CATFS fs`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >> simp[LUPDATE_def]) >>
-  simp[CATFS_def] >> xpull >> xffi >> simp[onechar_loc_def] >> xsimpl >>
-  `MEM 3 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
-  simp[fs_ffi_next_def, wfFS_DELKEY, closeFD_def, EXISTS_PROD] >>
-  fs[wfFS_def, MEM_MAP, EXISTS_PROD, PULL_EXISTS, validFD_def] >>
-  simp[RO_fs_component_equality] >> metis_tac[])
+  xlet `POSTv u2.
+          &UNIT_TYPE () u2 * W8ARRAY onechar_loc [1w] * CHAR_IO_fname *
+          CATFS (fs with infds updated_by A_DELKEY (w2n fdw))`
+  >- (simp[CATFS_def] >> xpull >> xffi >> simp[onechar_loc_def] >> xsimpl >>
+      `MEM 3 [0;1;2;3;4n]` by simp[] >> instantiate >> xsimpl >>
+      simp[fs_ffi_next_def, wfFS_DELKEY, closeFD_def, EXISTS_PROD] >>
+      `∃p. ALOOKUP fs.infds (w2n fdw) = SOME p`
+        by (fs[validFD_def, MEM_MAP, EXISTS_PROD] >>
+            metis_tac[PAIR,EXISTS_PROD, ALOOKUP_EXISTS_IFF]) >>
+      simp[LUPDATE_def, RO_fs_component_equality]) >>
+  qabbrev_tac `fs' = fs with infds updated_by A_DELKEY (w2n fdw)` >>
+  xlet `POSTv okwv. &WORD (1w:word8) okwv * CHAR_IO * CATFS fs'`
+  >- (simp[CHAR_IO_def, CHAR_IO_char1_def] >> xapp >> simp[onechar_loc_def] >>
+      xsimpl) >>
+  simp[GSYM CHAR_IO_char1_def, GSYM CHAR_IO_def] >>
+  xlet `POSTv okbv. &BOOL T okbv * CHAR_IO * CATFS fs'`
+  >- (xapp >> xsimpl >> qexists_tac `1w` >> simp[]) >>
+  xif >> qexists_tac `T` >> simp[] >> xret >> xsimpl);
 
 (*
 
