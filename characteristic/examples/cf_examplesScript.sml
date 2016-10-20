@@ -136,6 +136,20 @@ val is_nil_spec = Q.prove (
   xmatch \\ xret \\ xsimpl
 )
 
+val is_none = process_topdecs
+  `fun is_none opt = case opt of NONE => true | SOME _ => false`
+
+val st = ml_progLib.add_prog is_none pick_name basis_st
+
+val is_none_spec = Q.prove (
+  `!ov a opt.
+     OPTION_TYPE a opt ov ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "is_none" st) [ov]
+       emp (POSTv bv. & BOOL (opt = NONE) bv)`,
+  xcf "is_none" st \\ Cases_on `opt` \\ fs [OPTION_TYPE_def] \\
+  xmatch \\ xcon \\ xsimpl
+)
+
 val example_eq = process_topdecs
   `fun example_eq x = (x = 3)`
 
