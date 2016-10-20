@@ -15,7 +15,7 @@ val _ = Datatype `
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list # ffi) option``);
+val _ = temp_type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list # ffi) option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
