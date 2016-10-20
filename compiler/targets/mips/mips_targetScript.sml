@@ -115,7 +115,10 @@ val mips_enc_def = Define`
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
-   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = mips_encode_fail) /\
+   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+       encs [MultDiv (DMULTU (n2w r3, n2w r4));
+             MultDiv (MFLO (n2w r2));
+             MultDiv (MFHI (n2w r1))]) /\
    (mips_enc (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        encs [ArithR (SLTU (0w, n2w r4, 1w));
@@ -193,7 +196,8 @@ val mips_config_def = Define`
 val mips_proj_def = Define`
    mips_proj d s =
    (s.CP0.Config, s.CP0.Status.RE, s.exceptionSignalled,
-    s.BranchDelay, s.BranchTo, s.exception, s.gpr, fun2set (s.MEM,d), s.PC)`
+    s.BranchDelay, s.BranchTo, s.exception, s.gpr, s.lo, s.hi,
+    fun2set (s.MEM,d), s.PC)`
 
 val mips_target_def = Define`
    mips_target =

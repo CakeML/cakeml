@@ -120,7 +120,10 @@ val arm8_enc_def = Define`
                        (BitfieldMove@64
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1)))
                 | NONE => arm8_encode_fail)) /\
-   (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = arm8_encode_fail) /\
+   (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+      arm8_encode
+        (Data (MultiplyAddSub@64 (1w, F, n2w r4, 31w, n2w r3, n2w r2))) ++
+      arm8_encode (Data (MultiplyHigh (F, n2w r4, n2w r3, n2w r1)))) /\
    (arm8_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm8_encode_fail) /\
    (arm8_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       arm8_encode (Data (AddSubImmediate@64 (1w, T, T, 0w, n2w r4, 0x1Fw))) ++

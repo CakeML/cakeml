@@ -421,6 +421,16 @@ val asr2 = Q.prove(
            bitTheory.BIT_EXP_SUB1]
    )
 
+val mul_long = Q.prove(
+  `!a : word64 b : word64.
+    n2w ((w2n a * w2n b) DIV 18446744073709551616) =
+    (127 >< 64) (w2w a * w2w b : word128) : word64`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
+
 (* some rewrites ----------------------------------------------------------- *)
 
 val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
@@ -765,7 +775,13 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
                 LongMul
               --------------*)
             print_tac "LongMul"
+            \\ next_tac `1`
             \\ enc_rwts_tac
+            \\ asmLib.split_bytes_in_memory_tac 4
+            \\ next_state_tac01
+            \\ next_state_tacN (`4w`, 0) filter_reg_31
+            \\ state_tac [GSYM wordsTheory.word_mul_def, mul_long,
+                          arm8Theory.ExtendWord_def]
             )
          >- (
             (*--------------
