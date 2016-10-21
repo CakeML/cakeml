@@ -155,6 +155,7 @@ fun parse nt sem q =
          |> concl |> rhs |> rand
   end
 
+val parse_exp = parse ``nE`` ``ptree_Expr nE``
 val parse_decl = parse ``nDecl`` ``ptree_Decl``
 val parse_topdecs = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
 

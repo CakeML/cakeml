@@ -364,6 +364,9 @@ val full_normalise_correct = store_thm("full_normalise_correct",
   ... ); TODO
 *)
 
+val full_normalise_exp_def = Define `
+  full_normalise_exp exp = full_normalise [] exp`
+
 val full_normalise_decl_def = Define `
   full_normalise_decl (Dlet pat exp) =
     Dlet pat (full_normalise [] exp) /\

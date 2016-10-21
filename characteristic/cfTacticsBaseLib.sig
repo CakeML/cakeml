@@ -30,6 +30,7 @@ sig
   val rewr_head_conv : thm -> conv
 
   val parse : term -> term -> string quotation -> term
+  val parse_exp : string quotation -> term
   val parse_decl : string quotation -> term
   val parse_topdecs : string quotation -> term
 
