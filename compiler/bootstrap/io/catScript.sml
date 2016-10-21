@@ -924,7 +924,7 @@ val cat_spec = Q.store_thm(
   "cat_spec",
   `∀fns fnsv fs.
      LIST_TYPE STRING_TYPE fns fnsv ∧
-     (∀fnm. MEM fnm fns ⇒ explode fnm ∈ FDOM (alist_to_fmap fs.files) ∧
+     (∀fnm. MEM fnm fns ⇒ inFS_fname (explode fnm) fs ∧
                           LENGTH (explode fnm) < 256 ∧
                           ¬MEM (CHR 0) (explode fnm)) ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255
@@ -944,18 +944,16 @@ val cat_spec = Q.store_thm(
       UNABBREV_ALL_TAC >> simp[RO_fs_component_equality]) >>
   xmatch >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   rename [`STRING_TYPE fname fname_v`] >>
-  `∃cnts. ALOOKUP fs.files (explode fname) = SOME cnts`
-    by (fs[MEM_MAP, EXISTS_PROD] >> metis_tac[ALOOKUP_EXISTS_IFF]) >>
+  progress inFS_fname_ALOOKUP_EXISTS >>
+  rename1 `ALOOKUP fs.files _ = SOME cnts` >>
   xlet `POSTv uv.
          &UNIT_TYPE () uv * CHAR_IO *
          CATFS (fs with stdout updated_by (λout. out ++ cnts))`
-  >- (xapp >> fs[] >> simp[] >>
-      `inFS_fname (explode fname) fs` by simp[inFS_fname_def] >>
-      simp[] >> xsimpl >> instantiate >> xsimpl) >>
+  >- (xapp >> xsimpl >> instantiate >> xsimpl) >>
   xapp >>
   map_every qexists_tac
     [`emp`, `fs with stdout updated_by (λout. out ++ cnts)`] >>
-  simp[] >> xsimpl >>
+  simp[] >> xsimpl >> rpt strip_tac >- fs[inFS_fname_def] >>
   qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
   `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
   simp[RO_fs_component_equality, catfiles_string_def])
