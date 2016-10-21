@@ -915,4 +915,49 @@ val do_onefile_spec = Q.store_thm(
   simp[A_DELKEY_def, ALIST_FUPDKEY_def, FILTER_EQ_ID, EVERY_MEM,
        FORALL_PROD, nextFD_NOT_MEM]);
 
+val catfiles_string_def = Define`
+  catfiles_string fs fns =
+    FLAT (MAP (λfnm. THE (ALOOKUP fs.files (explode fnm))) fns)
+`;
+
+val cat_spec = Q.store_thm(
+  "cat_spec",
+  `∀fns fnsv fs.
+     LIST_TYPE STRING_TYPE fns fnsv ∧
+     (∀fnm. MEM fnm fns ⇒ explode fnm ∈ FDOM (alist_to_fmap fs.files) ∧
+                          LENGTH (explode fnm) < 256 ∧
+                          ¬MEM (CHR 0) (explode fnm)) ∧
+     CARD (FDOM (alist_to_fmap fs.infds)) < 255
+    ⇒
+     app (p:'ffi ffi_proj) ^(fetch_v "cat" (basis_st())) [fnsv]
+       (CHAR_IO * CATFS fs)
+       (POSTv u.
+          &UNIT_TYPE () u * CHAR_IO *
+          CATFS (fs with stdout updated_by
+                   (λout. out ++ catfiles_string fs fns)))`,
+  Induct >>
+  rpt strip_tac >> xcf "cat" (basis_st()) >>
+  fs[LIST_TYPE_def]
+  >- (xmatch >> xret >> simp[catfiles_string_def] >> xsimpl >>
+      qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+      `fs1 = fs2` suffices_by xsimpl >>
+      UNABBREV_ALL_TAC >> simp[RO_fs_component_equality]) >>
+  xmatch >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+  rename [`STRING_TYPE fname fname_v`] >>
+  `∃cnts. ALOOKUP fs.files (explode fname) = SOME cnts`
+    by (fs[MEM_MAP, EXISTS_PROD] >> metis_tac[ALOOKUP_EXISTS_IFF]) >>
+  xlet `POSTv uv.
+         &UNIT_TYPE () uv * CHAR_IO *
+         CATFS (fs with stdout updated_by (λout. out ++ cnts))`
+  >- (xapp >> fs[] >> simp[] >>
+      `inFS_fname (explode fname) fs` by simp[inFS_fname_def] >>
+      simp[] >> xsimpl >> instantiate >> xsimpl) >>
+  xapp >>
+  map_every qexists_tac
+    [`emp`, `fs with stdout updated_by (λout. out ++ cnts)`] >>
+  simp[] >> xsimpl >>
+  qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+  `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
+  simp[RO_fs_component_equality, catfiles_string_def])
+
 val _ = export_theory();
