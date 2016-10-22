@@ -85,8 +85,8 @@ val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
   NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
 
 val _ = Datatype`
-  RO_fs = <| files : (string # string) list ;
-             infds : (num # (string # num)) list ;
+  RO_fs = <| files : (mlstring # string) list ;
+             infds : (num # (mlstring # num)) list ;
              stdout : string
   |>
 `
@@ -273,12 +273,12 @@ val decode_encode_list = Q.store_thm(
   simp[OPT_MMAP_def]);
 
 val encode_files_def = Define`
-  encode_files fs = encode_list (encode_pair Str Str) fs
+  encode_files fs = encode_list (encode_pair (Str o explode) Str) fs
 `;
 
 val encode_fds_def = Define`
   encode_fds fds =
-     encode_list (encode_pair Num (encode_pair Str Num)) fds
+     encode_list (encode_pair Num (encode_pair (Str o explode) Num)) fds
 `;
 
 val encode_def = Define`
@@ -289,24 +289,26 @@ val encode_def = Define`
 
 
 val decode_files_def = Define`
-  decode_files f = decode_list (decode_pair destStr destStr) f
+  decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
 `
 
 val decode_encode_files = store_thm(
   "decode_encode_files",
-  “∀l. decode_files (encode_files l) = return l”,
+  ``∀l. decode_files (encode_files l) = return l``,
   simp[encode_files_def, decode_files_def] >>
-  simp[decode_encode_list, decode_encode_pair]);
+  simp[decode_encode_list, decode_encode_pair, implode_explode]);
 
 val decode_fds_def = Define`
-  decode_fds = decode_list (decode_pair destNum (decode_pair destStr destNum))
+  decode_fds =
+    decode_list (decode_pair destNum
+                             (decode_pair (lift implode o destStr) destNum))
 `;
 
 val decode_encode_fds = Q.store_thm(
   "decode_encode_fds",
   `decode_fds (encode_fds fds) = return fds`,
   simp[decode_fds_def, encode_fds_def] >>
-  simp[decode_encode_list, decode_encode_pair]);
+  simp[decode_encode_list, decode_encode_pair, implode_explode]);
 
 val decode_def = Define`
   (decode (Cons files0 (Cons fds0 stdout0)) =
@@ -370,7 +372,7 @@ val fs_ffi_next_def = Define`
              od
       | 1 => do (* open file *)
                fname <- getNullTermStr bytes;
-               (fd, fs') <- openFile fname fs;
+               (fd, fs') <- openFile (implode fname) fs;
                assert(fd < 255);
                return (LUPDATE (n2w fd) 0 bytes, encode fs')
              od ++ return (LUPDATE 255w 0 bytes, encode fs)
