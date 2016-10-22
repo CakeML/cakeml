@@ -216,7 +216,7 @@ val riscv_config_def = Define`
        3 - global pointer
        31 - used by encoder above
     *)
-    ; avoid_regs := [0; 2; 3 ; 31]
+    ; avoid_regs := [0; 2; 3; 31]
     ; link_reg := SOME 1
     ; two_reg_arith := F
     ; big_endian := F
