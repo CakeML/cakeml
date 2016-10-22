@@ -472,6 +472,13 @@ val CHAR_IO_def = Define`
   CHAR_IO = CHAR_IO_char1 * CHAR_IO_fname
 `;
 
+val FILENAME_def = Define `
+  FILENAME s sv =
+    (STRING_TYPE s sv ∧
+     ¬MEM (CHR 0) (explode s) ∧
+     LENGTH (explode s) < 256)
+`;
+
 val write_spec = store_thm ("write_spec",
   ``!c cv.
      CHAR (c:char) cv ==>
@@ -525,8 +532,8 @@ val HD_LUPDATE = Q.store_thm(
 val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
-     STRING_TYPE s sv ∧ ¬MEM (CHR 0) (explode s) ∧
-     LENGTH (explode s) < 256 ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
+     FILENAME s sv ∧
+     CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.openIn" (basis_st()))
        [sv]
        (CHAR_IO * CATFS fs)
@@ -538,7 +545,7 @@ val openIn_spec = Q.store_thm(
           (\e. &(BadFileName_exn e ∧ ~inFS_fname (explode s) fs) *
                CATFS fs * CHAR_IO))`,
   xcf "CharIO.openIn" (basis_st()) >>
-  fs[CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
+  fs[FILENAME_def, CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
   xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_char1 *
                  W8ARRAY filename_loc
@@ -774,9 +781,8 @@ val nextFD_NOT_MEM = Q.store_thm(
 val do_onefile_spec = Q.store_thm(
   "do_onefile_spec",
   `∀fnm fnv fs.
-      CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
-      LENGTH (explode fnm) < 256 ∧
-      STRING_TYPE fnm fnv ∧ ¬MEM (CHR 0) (explode fnm)
+      FILENAME fnm fnv ∧
+      CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (basis_st())) [fnv]
        (CHAR_IO * CATFS fs)
@@ -923,10 +929,8 @@ val catfiles_string_def = Define`
 val cat_spec = Q.store_thm(
   "cat_spec",
   `∀fns fnsv fs.
-     LIST_TYPE STRING_TYPE fns fnsv ∧
-     (∀fnm. MEM fnm fns ⇒ inFS_fname (explode fnm) fs ∧
-                          LENGTH (explode fnm) < 256 ∧
-                          ¬MEM (CHR 0) (explode fnm)) ∧
+     LIST_TYPE FILENAME fns fnsv ∧
+     EVERY (\fnm. inFS_fname (explode fnm) fs) fns ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "cat" (basis_st())) [fnsv]
@@ -942,8 +946,7 @@ val cat_spec = Q.store_thm(
       qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
       `fs1 = fs2` suffices_by xsimpl >>
       UNABBREV_ALL_TAC >> simp[RO_fs_component_equality]) >>
-  xmatch >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
-  rename [`STRING_TYPE fname fname_v`] >>
+  xmatch >>
   progress inFS_fname_ALOOKUP_EXISTS >>
   rename1 `ALOOKUP fs.files _ = SOME cnts` >>
   xlet `POSTv uv.
