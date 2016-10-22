@@ -476,7 +476,7 @@ val FILENAME_def = Define `
   FILENAME s sv =
     (STRING_TYPE s sv ∧
      ¬MEM (CHR 0) (explode s) ∧
-     LENGTH (explode s) < 256)
+     strlen s < 256)
 `;
 
 val write_spec = store_thm ("write_spec",
@@ -544,7 +544,7 @@ val openIn_spec = Q.store_thm(
                 CATFS (openFileFS s fs) * CHAR_IO)
           (\e. &(BadFileName_exn e ∧ ~inFS_fname s fs) * CATFS fs * CHAR_IO))`,
   xcf "CharIO.openIn" (basis_st()) >>
-  fs[FILENAME_def, CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
+  fs[FILENAME_def, strlen_def, CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
   xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_char1 *
                  W8ARRAY filename_loc
