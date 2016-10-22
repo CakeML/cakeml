@@ -922,9 +922,12 @@ val do_onefile_spec = Q.store_thm(
   simp[A_DELKEY_def, ALIST_FUPDKEY_def, FILTER_EQ_ID, EVERY_MEM,
        FORALL_PROD, nextFD_NOT_MEM]);
 
+val file_contents_def = Define `
+  file_contents fnm fs = THE (ALOOKUP fs.files fnm)`
+
 val catfiles_string_def = Define`
   catfiles_string fs fns =
-    FLAT (MAP (λfnm. THE (ALOOKUP fs.files fnm)) fns)
+    FLAT (MAP (λfnm. file_contents fnm fs) fns)
 `;
 
 val cat_spec0 = Q.prove(
@@ -942,7 +945,7 @@ val cat_spec0 = Q.prove(
   Induct >>
   rpt strip_tac >> xcf "cat" (basis_st()) >>
   fs[LIST_TYPE_def]
-  >- (xmatch >> xret >> simp[catfiles_string_def] >> xsimpl >>
+  >- (xmatch >> xret >> simp[catfiles_string_def, file_contents_def] >> xsimpl >>
       qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
       `fs1 = fs2` suffices_by xsimpl >>
       UNABBREV_ALL_TAC >> simp[RO_fs_component_equality]) >>
@@ -959,11 +962,52 @@ val cat_spec0 = Q.prove(
   simp[] >> xsimpl >> rpt strip_tac >- fs[inFS_fname_def] >>
   qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
   `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
-  simp[RO_fs_component_equality, catfiles_string_def])
+  simp[RO_fs_component_equality, catfiles_string_def, file_contents_def])
 
 val cat_spec = save_thm(
   "cat_spec",
   cat_spec0 |> SIMP_RULE (srw_ss()) [GSYM strlen_def])
+
+val _ = process_topdecs `
+  fun cat1 f =
+    (do_onefile f)
+    handle CharIO.BadFileName => ()
+` |> append_prog
+
+val catfile_string_def = Define `
+  catfile_string fs fnm =
+    if inFS_fname fnm fs then file_contents fnm fs
+    else ""`
+
+val cat1_spec = Q.store_thm (
+  "cat1_spec",
+  `!fnm fnmv.
+     FILENAME fnm fnmv /\
+     CARD (FDOM (alist_to_fmap fs.infds)) < 255 ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "cat1" (basis_st())) [fnmv]
+       (CHAR_IO * CATFS fs)
+       (POSTv u.
+          &UNIT_TYPE () u * CHAR_IO *
+          CATFS (fs with stdout updated_by (\out. out ++ catfile_string fs fnm)))`,
+  xcf "cat1" (basis_st()) >>
+  xhandle `POST
+             (\u. SEP_EXISTS content. &UNIT_TYPE () u *
+               &(ALOOKUP fs.files fnm = SOME content) *
+               CHAR_IO *
+               CATFS (fs with stdout updated_by (\out. out ++ content)))
+             (\e. &BadFileName_exn e * &(~inFS_fname fnm fs) *
+                  CHAR_IO * CATFS fs)` >> fs[]
+  >- ((*xapp_prepare_goal*) xapp >> fs[])
+  >- (xsimpl >> rpt strip_tac >>
+      qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2` >>
+      `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
+      simp[RO_fs_component_equality, catfile_string_def, file_contents_def] >>
+      progress ALOOKUP_SOME_inFS_fname >> fs []) >>
+  fs [BadFileName_exn_def] >> xcases >> xret >> xsimpl >>
+      qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+      `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
+      simp[RO_fs_component_equality, catfile_string_def, file_contents_def]
+);
 
 val _ = overload_on ("noNullBytes", ``λs. ¬MEM (CHR 0) (explode s)``)
 

@@ -481,4 +481,14 @@ val inFS_fname_ALOOKUP_EXISTS = Q.store_thm(
   rename1 `fname = FST p` >> Cases_on `p` >>
   fs[ALOOKUP_EXISTS_IFF] >> metis_tac[]);
 
+val ALOOKUP_SOME_inFS_fname = Q.store_thm(
+  "ALOOKUP_SOME_inFS_fname",
+  `ALOOKUP fs.files fnm = SOME contents ==> inFS_fname fnm fs`,
+  Induct_on `fs.files` >> rpt strip_tac >>
+  qpat_x_assum `_ = fs.files` (assume_tac o GSYM) >> rw[] >>
+  fs [inFS_fname_def] >> rename1 `fs.files = p::ps` >>
+  Cases_on `p` >> fs [ALOOKUP_def] >> every_case_tac >> fs[] >> rw[] >>
+  first_assum (qspec_then `fs with files := ps` assume_tac) >> fs []
+);
+
 val _ = export_theory()
