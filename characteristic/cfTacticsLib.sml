@@ -37,6 +37,15 @@ val () = basicComputeLib.add_basic_compset cs
 val () = semanticsComputeLib.add_semantics_compset cs
 val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
+val () = computeLib.extend_compset [
+  computeLib.Defs [
+    ml_progTheory.merge_env_def,
+    ml_progTheory.write_def,
+    ml_progTheory.write_mod_def,
+    ml_progTheory.write_cons_def,
+    ml_progTheory.empty_env_def,
+    semanticPrimitivesTheory.merge_alist_mod_env_def
+  ]] cs
 
 val _ = (max_print_depth := 15)
 
