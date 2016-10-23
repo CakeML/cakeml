@@ -2107,8 +2107,10 @@ val arith_name_def = Define`
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
     (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
   (arith_name (LongMul r1 r2 r3 r4) c ⇔
-    (if c.ISA = x86_64 then r1 = 4 ∧ r2 = 0 ∧ r3 = 0 ∧ reg_name r4 c
-    else F ∧ reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c)) ∧
+    reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = x86_64 ⇒ r1 = 4 ∧ r2 = 0 ∧ r3 = 0) ∧
+    (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r2 ≠ r3 ∧ r2 ≠ r4)) ∧
   (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
     c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
     reg_name r5 c) ∧
@@ -2148,8 +2150,7 @@ open stack_namesTheory
 val names_ok_imp = prove(``
   names_ok f c.reg_count c.avoid_regs ⇒
   ∀n. reg_name n c ⇒
-  let n' = find_name f n in
-  reg_ok n' c``,
+  reg_ok (find_name f n) c``,
   fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def])
 
 val names_ok_imp2 = prove(``
@@ -2194,8 +2195,9 @@ val sn_comp_imp_stack_asm_ok = prove(``
     >-
       metis_tac[names_ok_imp]
     >-
-      (fs[fixed_names_def]>>
-      metis_tac[names_ok_imp])
+      (rw[]>>
+      fs[fixed_names_def]>>
+      metis_tac[names_ok_imp,names_ok_imp2])
     >-
       (fs[fixed_names_def]>>
       metis_tac[names_ok_imp])
@@ -2207,7 +2209,7 @@ val sn_comp_imp_stack_asm_ok = prove(``
     (every_case_tac>>fs[dest_find_name_def]>>
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])
   >>
-  fs[ok_names_def]>>metis_tac[names_ok_imp,asmTheory.reg_ok_def])
+  metis_tac[names_ok_imp,asmTheory.reg_ok_def])
 
 val sn_compile_imp_stack_asm_ok = prove(``
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
@@ -2223,14 +2225,13 @@ open stack_removeTheory
 val stack_asm_remove_def = Define`
   (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c ∧ addr_offset_ok (word_offset n0) c) ∧
   (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
-  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c ∧ addr_offset_ok (word_offset n0) c) ∧
   (stack_asm_remove c (StackLoadAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
   (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
-  (*(stack_asm_remove c (StackAlloc n) ⇔ reg_name n c) ∧*)
   (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
   (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
   (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
@@ -2249,7 +2250,8 @@ val sr_comp_stack_asm_name = prove(``
   addr_offset_ok 0w c ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
+  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
   (* Needed to implement the global store *)
   (∀s. addr_offset_ok (store_offset s) c) ∧
   reg_name (k+2) c ∧
@@ -2277,16 +2279,20 @@ val sr_comp_stack_asm_name = prove(``
       >>
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
-  (* TODO: need to assume something on all stack lookup/store sizes? *)
-  >-
-    (* StackFree's arg *)
-    cheat
-  >-
-    (* StackStore's second arg *)
-    cheat
-  >-
-    (* StackLoad's second arg *)
-    cheat
+  >- (* stack free *)
+    (completeInduct_on`n`>>
+    simp[Once stack_free_def]>>rw[]
+    >-
+      EVAL_TAC
+    >-
+      (EVAL_TAC>>fs[reg_name_def])
+    >>
+      rw[stack_asm_name_def]
+      >-
+        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
+      >>
+        first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
+        rfs[max_stack_alloc_def])
   >>
     fs[good_dimindex_def,stackLangTheory.word_shift_def])
 
@@ -2296,7 +2302,8 @@ val sr_compile_stack_asm_name = prove(``
   addr_offset_ok 0w c ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
+  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
   c.valid_imm (INL Add) 4w ∧
   c.valid_imm (INL Add) 8w ∧
   (* Needed to implement the global store *)
@@ -2372,9 +2379,9 @@ val stack_to_lab_compile_all_enc_ok = store_thm("stack_to_lab_compile_all_enc_ok
   names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
   addr_offset_ok 0w c ∧ good_dimindex (:α) ∧
-  (∀n.
-     n ≤ max_stack_alloc ⇒
-     c.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8)))) ∧
+  (∀n. n ≤ max_stack_alloc ⇒
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
+  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
   c.valid_imm (INL Add) 1w ∧ c.valid_imm (INL Sub) 1w ∧
   c.valid_imm (INL Add) 4w ∧ c.valid_imm (INL Add) 8w ∧
   (∀s. addr_offset_ok (store_offset s) c) ∧ reg_name 10 c ∧

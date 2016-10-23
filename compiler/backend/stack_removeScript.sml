@@ -50,6 +50,19 @@ val stack_alloc_def = tDefine "stack_alloc" `
           (stack_alloc k (n - max_stack_alloc))`
  (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
 
+val single_stack_free_def = Define `
+  single_stack_free k n =
+    Inst (Arith (Binop Add k k (Imm (word_offset n))))`
+
+val stack_free_def = tDefine "stack_free" `
+  stack_free k n =
+    if n = 0 then Skip else
+    if n <= max_stack_alloc then single_stack_free k n else
+      Seq (single_stack_free k max_stack_alloc)
+          (stack_free k (n - max_stack_alloc))`
+ (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
+
+
 val comp_def = Define `
   comp k (p:'a stackLang$prog) =
     case p of
@@ -61,7 +74,7 @@ val comp_def = Define `
         if name = CurrHeap then move (k+2) r
         else Inst (Mem Store r (Addr (k+1) (store_offset name)))
     (* remove stack operations *)
-    | StackFree n => Inst (Arith (Binop Add k k (Imm (word_offset n))))
+    | StackFree n => stack_free k n
     | StackAlloc n => stack_alloc k n
     | StackStore r n => Inst (Mem Store r (Addr k (word_offset n)))
     | StackLoad r n => Inst (Mem Load r (Addr k (word_offset n)))

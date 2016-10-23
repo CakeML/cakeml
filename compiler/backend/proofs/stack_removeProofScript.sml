@@ -826,6 +826,12 @@ val lsl_word_shift = store_thm("lsl_word_shift",
   srw_tac[][WORD_MUL_LSL,word_shift_def,bytes_in_word_def,
       labPropsTheory.good_dimindex_def]);
 
+val get_labels_stack_free = prove(
+  ``!k n. get_labels (stack_free k n) = {}``,
+  recInduct stack_free_ind \\ rw []
+  \\ once_rewrite_tac [stack_free_def] \\ rw []
+  \\ fs [get_labels_def,single_stack_free_def]);
+
 val get_labels_stack_alloc = prove(
   ``!k n. get_labels (stack_alloc k n) = {}``,
   recInduct stack_alloc_ind \\ rw []
@@ -837,13 +843,78 @@ val get_labels_comp = store_thm("get_labels_comp",
   recInduct comp_ind \\ rw [] \\ Cases_on `p`
   \\ once_rewrite_tac [comp_def] \\ fs [get_labels_def] \\ rw []
   \\ fs [get_labels_def,list_Seq_def]
-  \\ every_case_tac \\ fs [get_labels_stack_alloc]);
+  \\ every_case_tac \\ fs [get_labels_stack_alloc,get_labels_stack_free]);
 
 val code_rel_loc_check = store_thm("code_rel_loc_check",
   ``code_rel k c1 c2 /\ loc_check c1 (l1,l2) ==> loc_check c2 (l1,l2)``,
   fs [loc_check_def,code_rel_def,domain_lookup,PULL_EXISTS] \\ rw []
   \\ res_tac \\ fs [] \\ disj2_tac
   \\ asm_exists_tac \\ fs [get_labels_comp]);
+
+val evaluate_single_stack_free = Q.store_thm("evaluate_single_stack_free",
+  `state_rel k s t1 ∧
+   ((r,s2) = (NONE, s with stack_space := s.stack_space + n)) ∧
+   ¬(LENGTH s.stack < s.stack_space + n) ∧
+   n ≠ 0 ∧ n ≤ max_stack_alloc
+   ⇒
+   ∃ck t2.
+     evaluate (single_stack_free k n,t1 with clock := t1.clock + ck) = (r,t2) ∧ state_rel k s2 t2`,
+  simp[single_stack_free_def,evaluate_def,inst_def,assign_def,word_exp_def,
+       wordLangTheory.word_op_def,GSYM get_var_def]
+  \\ strip_tac
+  \\ imp_res_tac state_rel_get_var_k
+  \\ simp[]
+  \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
+  \\ simp[]
+  \\ simp[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
+  \\ full_simp_tac(srw_ss())[state_rel_def]
+  \\ simp[FLOOKUP_UPDATE]
+  \\ rw[] >> TRY (metis_tac[])
+  \\ simp[word_offset_def,bytes_in_word_def,word_mul_n2w,word_add_n2w]
+  \\ simp[RIGHT_ADD_DISTRIB,GSYM word_add_n2w])
+
+val evaluate_stack_free = Q.store_thm("evaluate_stack_free",
+  `∀k n r s s2 t1.
+   evaluate (StackFree n,s) = (r,s2) ∧ r ≠ SOME Error ∧
+   state_rel k s t1
+   ⇒
+   ∃ck t2.
+     evaluate (stack_free k n,t1 with clock := ck + t1.clock) = (r,t2) ∧
+     state_rel k s2 t2`,
+  ho_match_mp_tac stack_free_ind
+  \\ srw_tac[][stackSemTheory.evaluate_def]
+  \\ simp[Once stack_free_def]
+  \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
+  >- (
+    srw_tac[][evaluate_def]
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def]
+    \\ metis_tac[])
+  \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
+  >- (
+    every_case_tac>>fs[]>>
+    drule evaluate_single_stack_free>> rw[])
+  \\ simp[evaluate_def]
+  \\ drule (GEN_ALL evaluate_single_stack_free)
+  \\ disch_then(qspec_then`max_stack_alloc`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n"])))
+  \\ simp[]>>
+  qpat_assum`A=(r,s2)` mp_tac>>
+  IF_CASES_TAC>>fs[]>>
+  qpat_assum`A=(r,s2)` mp_tac>>
+  IF_CASES_TAC>>fs[]>>
+  impl_keep_tac >- EVAL_TAC>>
+  strip_tac>>
+  qabbrev_tac`s' = s with stack_space := max_stack_alloc + s.stack_space`>>
+  `∃ck'. ∃t2'. evaluate (stack_free k (n - max_stack_alloc), t2 with clock := ck' + t2.clock) = (r,t2') ∧ state_rel k s2 t2'`
+  by (
+    first_x_assum match_mp_tac >>
+    qexists_tac`s'` >> simp[Abbr`s'`]>>rw[])
+  \\ rator_x_assum`evaluate`mp_tac
+  \\ drule (GEN_ALL evaluate_add_clock)
+  \\ disch_then(qspec_then`ck'`mp_tac)
+  \\ rveq \\ fs[]
+  \\ ntac 2 strip_tac
+  \\ qexists_tac`ck+ck'`\\simp[]);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
@@ -1221,21 +1292,13 @@ val comp_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[state_rel_def] )
   THEN1 (* StackFree *) (
     simp[comp_def]
-    \\ simp[evaluate_def,inst_def,assign_def,word_exp_def]
-    \\ imp_res_tac state_rel_get_var_k
-    \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ simp[wordLangTheory.word_op_def]
-    \\ full_simp_tac(srw_ss())[evaluate_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ rator_x_assum`state_rel`mp_tac
-    \\ simp[state_rel_def,set_var_def,FLOOKUP_UPDATE]
-    \\ strip_tac
-    \\ rveq
+    \\ drule evaluate_stack_free
     \\ simp[]
-    \\ conj_tac >- metis_tac[]
-    \\ simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-    \\ simp[word_offset_def,bytes_in_word_def,word_mul_n2w]
-    \\ metis_tac[])
+    \\ disch_then drule
+    \\ strip_tac \\ simp[]
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[evaluate_def]
+    \\ every_case_tac \\ fs[])
   THEN1 (* StackLoad *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -2494,6 +2557,11 @@ val stack_remove_lab_pres = store_thm("stack_remove_lab_pres",``
   >-
     (qid_spec_tac`n`>>completeInduct_on`n`>>rw[Once stack_alloc_def]>>
     fs[extract_labels_def,single_stack_alloc_def]>>
+    first_assum match_mp_tac>>
+    fs[max_stack_alloc_def])
+  >-
+    (qid_spec_tac`n`>>completeInduct_on`n`>>rw[Once stack_free_def]>>
+    fs[extract_labels_def,single_stack_free_def]>>
     first_assum match_mp_tac>>
     fs[max_stack_alloc_def])
   >- EVAL_TAC);
