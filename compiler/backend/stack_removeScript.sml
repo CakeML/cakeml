@@ -62,9 +62,37 @@ val stack_free_def = tDefine "stack_free" `
           (stack_free k (n - max_stack_alloc))`
  (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
 
+(* upshift the stack pointer *)
+val upshift_def = tDefine"upshift"`
+  upshift r n =
+    if n ≤ max_stack_alloc then
+      (Inst (Arith (Binop Add r r (Imm (word_offset n))))):'a stackLang$prog
+    else
+      Seq (Inst (Arith (Binop Add r r (Imm (word_offset max_stack_alloc)))))
+      (upshift r (n-max_stack_alloc))`
+  (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
+
+val downshift_def = tDefine"downshift"`
+  downshift r n =
+    if n ≤ max_stack_alloc then
+      (Inst (Arith (Binop Sub r r (Imm (word_offset n))))) :'a stackLang$prog
+    else
+      Seq (Inst (Arith (Binop Sub r r (Imm (word_offset max_stack_alloc)))))
+      (downshift r (n-max_stack_alloc))`
+  (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
+
+(* Shifts k up and down to store r into n*)
+val stack_store_def = Define`
+  stack_store k r n =
+     Seq (upshift k n)
+    (Seq (Inst (Mem Store r (Addr k 0w))) (downshift k n))`
+
+val stack_load_def = Define`
+  stack_load r n =
+    Seq (upshift r n) (Inst (Mem Load r (Addr r 0w))):'a stackLang$prog`
 
 val comp_def = Define `
-  comp k (p:'a stackLang$prog) =
+  comp off k (p:'a stackLang$prog) =
     case p of
     (* remove store accesses *)
     | Get r name =>
@@ -76,8 +104,18 @@ val comp_def = Define `
     (* remove stack operations *)
     | StackFree n => stack_free k n
     | StackAlloc n => stack_alloc k n
-    | StackStore r n => Inst (Mem Store r (Addr k (word_offset n)))
-    | StackLoad r n => Inst (Mem Load r (Addr k (word_offset n)))
+    | StackStore r n =>
+      let w = word_offset n in
+      if offset_ok 0 off w then
+        Inst (Mem Store r (Addr k w))
+      else
+        stack_store k r n
+    | StackLoad r n =>
+      let w = word_offset n in
+      if offset_ok 0 off w then
+        Inst (Mem Load r (Addr k w))
+      else
+        Seq (move r k) (stack_load r n)
     | StackLoadAny r i => Seq (Seq (move r i) (add_inst r k))
                               (Inst (Mem Load r (Addr r 0w)))
     | StackStoreAny r i => Seq (Inst (Arith (Binop Add k k (Reg i))))
@@ -93,20 +131,20 @@ val comp_def = Define `
                   left_shift_inst r (word_shift (:'a));
                   Inst (Mem Load r (Addr r 0w))]
     (* for the rest, just leave it unchanged *)
-    | Seq p1 p2 => Seq (comp k p1) (comp k p2)
-    | If c r ri p1 p2 => If c r ri (comp k p1) (comp k p2)
-    | While c r ri p1 => While c r ri (comp k p1)
+    | Seq p1 p2 => Seq (comp off k p1) (comp off k p2)
+    | If c r ri p1 p2 => If c r ri (comp off k p1) (comp off k p2)
+    | While c r ri p1 => While c r ri (comp off k p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE
-              | SOME (p1,lr,l1,l2) => SOME (comp k p1,lr,l1,l2))
+              | SOME (p1,lr,l1,l2) => SOME (comp off k p1,lr,l1,l2))
           dest (case exc of
                 | NONE => NONE
-                | SOME (p2,l1,l2) => SOME (comp k p2,l1,l2))
+                | SOME (p2,l1,l2) => SOME (comp off k p2,l1,l2))
     | p => p`
 
 val prog_comp_def = Define `
-  prog_comp k (n,p) = (n,comp k p)`
+  prog_comp off k (n,p) = (n,comp off k p)`
 
 (* -- init code -- *)
 
@@ -206,7 +244,7 @@ val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
 (* -- full compiler -- *)
 
 val compile_def = Define `
-  compile max_heap bitmaps k start prog =
-    init_stubs max_heap bitmaps k start ++ MAP (prog_comp k) prog`;
+  compile off max_heap bitmaps k start prog =
+    init_stubs max_heap bitmaps k start ++ MAP (prog_comp off k) prog`;
 
 val _ = export_theory();

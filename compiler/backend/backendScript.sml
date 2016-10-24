@@ -53,7 +53,7 @@ val compile_def = Define`
     let c = c with word_conf := c' in
     let c = c with stack_conf updated_by
              (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf - 1) in
-    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
       lab_to_target$compile c.lab_conf (p:'a prog)`;
 
 val to_mod_def = Define`
@@ -133,7 +133,7 @@ val to_lab_def = Define`
   let (c,p) = to_stack c p in
   let c = c with stack_conf updated_by
            (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf -1) in
-  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
   (c,p:'a prog)`;
 
 val to_target_def = Define`
@@ -172,7 +172,7 @@ val from_stack_def = Define`
   from_stack c p =
   let c = c with stack_conf updated_by
            (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf -1) in
-  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
   from_lab c (p:'a prog)`;
 
 val from_word_def = Define`

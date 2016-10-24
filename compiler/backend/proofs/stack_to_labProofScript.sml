@@ -1833,7 +1833,7 @@ val state_rel_make_init = store_thm("state_rel_make_init",
 
 val halt_assum_lemma = prove(
   ``halt_assum (:'ffi)
-     (fromAList (stack_names$compile f (compile max_heap bitmaps k l code)))``,
+     (fromAList (stack_names$compile f (compile off max_heap bitmaps k l code)))``,
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
          stackSemTheory.find_code_def]
@@ -1847,7 +1847,7 @@ val halt_assum_lemma = prove(
          get_var_def,FLOOKUP_UPDATE]);
 
 val MAP_FST_compile_compile = prove(
-  ``MAP FST (compile max_heap bitmaps k InitGlobals_location
+  ``MAP FST (compile off max_heap bitmaps k InitGlobals_location
               (stack_alloc$compile c code)) =
     0::1::2::gc_stub_location::MAP FST code``,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
@@ -1861,7 +1861,7 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
   val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile max_heap bitmaps k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile off max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
@@ -1881,7 +1881,7 @@ val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
   val th = from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`stack_alloc$compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile max_heap bitmaps k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile off max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
@@ -1992,7 +1992,7 @@ val stack_to_lab_compile_lab_pres = store_thm("stack_to_lab_compile_lab_pres",``
     EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) prog ∧
   ALL_DISTINCT (MAP FST prog) ⇒
-  labels_ok (compile c c2 c3 sp prog)``,
+  labels_ok (compile c c2 c3 sp offset prog)``,
   rw[labels_ok_def,stack_to_labTheory.compile_def]
   >-
     (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>
@@ -2225,9 +2225,9 @@ open stack_removeTheory
 val stack_asm_remove_def = Define`
   (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c ∧ addr_offset_ok (word_offset n0) c) ∧
+  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
-  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c ∧ addr_offset_ok (word_offset n0) c) ∧
+  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackLoadAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
   (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
@@ -2245,7 +2245,7 @@ val stack_asm_remove_def = Define`
   (stack_asm_remove c _ ⇔  T)`
 
 val sr_comp_stack_asm_name = prove(``
-  ∀k p.
+  ∀off k p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
   addr_offset_ok 0w c ∧
   good_dimindex (:'a) ∧
@@ -2256,8 +2256,9 @@ val sr_comp_stack_asm_name = prove(``
   (∀s. addr_offset_ok (store_offset s) c) ∧
   reg_name (k+2) c ∧
   reg_name (k+1) c ∧
-  reg_name k c ⇒
-  stack_asm_name c (comp k p)``,
+  reg_name k c ∧
+  off = c.addr_offset ⇒
+  stack_asm_name c (comp off k p)``,
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def]>>
   rw[]>>
@@ -2294,7 +2295,16 @@ val sr_comp_stack_asm_name = prove(``
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
   >>
-    fs[good_dimindex_def,stackLangTheory.word_shift_def])
+    fs[good_dimindex_def,stackLangTheory.word_shift_def]
+  >>
+    simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
+    qpat_assum`!n. A ⇒ B` mp_tac>>
+    rpt(qpat_x_assum`reg_name _ c` mp_tac)>>
+    rpt (pop_assum kall_tac)>>
+    rw[]>>completeInduct_on`n0`>>
+    simp[Once upshift_def,Once downshift_def]>>rw[]>>
+    fs[stack_asm_name_def,inst_name_def,arith_name_def,reg_imm_name_def,word_offset_def]>>
+    first_x_assum match_mp_tac>>fs[max_stack_alloc_def])
 
 val sr_compile_stack_asm_name = prove(``
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
@@ -2313,7 +2323,7 @@ val sr_compile_stack_asm_name = prove(``
   reg_name (k+1) c ∧
   reg_name k c ⇒
   EVERY (λ(n,p). stack_asm_name c p)
-  (compile max_heap bitmaps k start prog)``,
+  (compile c.addr_offset max_heap bitmaps k start prog)``,
   rw[compile_def]
   >-
     (fs[good_dimindex_def]>>EVAL_TAC>>fs[]>>rw[]>>EVAL_TAC>>fs[reg_name_def]>>
@@ -2387,7 +2397,7 @@ val stack_to_lab_compile_all_enc_ok = store_thm("stack_to_lab_compile_all_enc_ok
   (∀s. addr_offset_ok (store_offset s) c) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
   conf_ok (:'a) c2 ⇒
-  all_enc_ok_pre c (compile c1 c2 c3 sp prog)``,
+  all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)``,
   rw[compile_def]>>match_mp_tac compile_all_enc_ok_pre>>
   match_mp_tac sn_compile_imp_stack_asm_ok>>fs[]>>
   match_mp_tac sr_compile_stack_asm_name>>fs[reg_name_def]>>
