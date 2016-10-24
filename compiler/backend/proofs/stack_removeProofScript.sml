@@ -944,6 +944,7 @@ val evaluate_upshift = prove(``
   simp[state_component_equality,FUPD11_SAME_KEY_AND_BASE,word_offset_def]>>
   FULL_SIMP_TAC std_ss [Once (GSYM WORD_ADD_ASSOC),word_add_n2w]>>
   FULL_SIMP_TAC std_ss [GSYM RIGHT_ADD_DISTRIB]>>
+  simp[])
 
 val evaluate_downshift = prove(``
   ∀r n st w.
