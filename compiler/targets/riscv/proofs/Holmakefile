@@ -1,4 +1,4 @@
-INCLUDES = ../ ../../asm
+INCLUDES = ../ ../../asm $(HOLDIR)/examples/l3-machine-code/riscv/prog
 
 ifdef POLY
 HOLHEAP = $(HOLDIR)/examples/l3-machine-code/riscv/prog/riscv-step-heap

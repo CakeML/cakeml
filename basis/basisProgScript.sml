@@ -1,8 +1,8 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
+     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
 
-val _ = new_theory "basisProgram"
+val _ = new_theory "basisProg"
 
 (* setup *)
 
@@ -104,18 +104,18 @@ fun prove_ref_spec op_name =
 
 val ref_spec = store_thm ("ref_spec",
   ``!xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (basis_st())) [xv]
-          emp (\rv. rv ~~> xv)``,
+          emp (POSTv rv. rv ~~> xv)``,
   prove_ref_spec "op ref");
 
 val deref_spec = store_thm ("deref_spec",
   ``!xv. app (p:'ffi ffi_proj) ^(fetch_v "op !" (basis_st())) [rv]
-          (rv ~~> xv) (\yv. cond (xv = yv) * rv ~~> xv)``,
+          (rv ~~> xv) (POSTv yv. cond (xv = yv) * rv ~~> xv)``,
   prove_ref_spec "op !");
 
 val assign_spec = store_thm ("assign_spec",
   ``!rv xv yv.
      app (p:'ffi ffi_proj) ^(fetch_v "op :=" (basis_st())) [rv; yv]
-       (rv ~~> xv) (\v. cond (UNIT_TYPE () v) * rv ~~> yv)``,
+       (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)``,
   prove_ref_spec "op :=");
 
 
@@ -159,20 +159,20 @@ val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
   ``!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (\v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
   prove_array_spec "Word8Array.array");
 
 val w8array_sub_spec = store_thm ("w8array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (\v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.sub");
 
 val w8array_length_spec = store_thm ("w8array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (\v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.length");
 
 val w8array_update_spec = store_thm ("w8array_update_spec",
@@ -181,7 +181,7 @@ val w8array_update_spec = store_thm ("w8array_update_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (\v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
   prove_array_spec "Word8Array.update");
 
 
@@ -216,21 +216,21 @@ val array_alloc_spec = store_thm ("array_alloc_spec",
   ``!n nv v.
      NUM n nv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Array.array" (basis_st())) [nv; v]
-       emp (\av. ARRAY av (REPLICATE n v))``,
+       emp (POSTv av. ARRAY av (REPLICATE n v))``,
   prove_array_spec "Array.array");
 
 val array_sub_spec = store_thm ("array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Array.sub" (basis_st())) [av; nv]
-       (ARRAY av a) (\v. cond (v = EL n a) * ARRAY av a)``,
+       (ARRAY av a) (POSTv v. cond (v = EL n a) * ARRAY av a)``,
   prove_array_spec "Array.sub");
 
 val array_length_spec = store_thm ("array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Array.length" (basis_st())) [av]
        (ARRAY av a)
-       (\v. cond (NUM (LENGTH a) v) * ARRAY av a)``,
+       (POSTv v. cond (NUM (LENGTH a) v) * ARRAY av a)``,
   prove_array_spec "Array.length");
 
 val array_update_spec = store_thm ("array_update_spec",
@@ -239,7 +239,7 @@ val array_update_spec = store_thm ("array_update_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "Array.update" (basis_st()))
        [av; nv; v]
        (ARRAY av a)
-       (\uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))``,
   prove_array_spec "Array.update");
 
 
@@ -337,19 +337,19 @@ val print_spec = store_thm ("print_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.print" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
   xcf "CharIO.print" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\xv. W8ARRAY print_loc [w] * STDOUT output * & (NUM (ORD c) xv)`
+  \\ xlet `POSTv xv. W8ARRAY print_loc [w] * STDOUT output * & (NUM (ORD c) xv)`
   THEN1 (xapp \\ xsimpl \\ metis_tac [])
-  \\ xlet `\wv. W8ARRAY print_loc [w] * STDOUT output *
-                & (WORD (n2w (ORD c):word8) wv)`
+  \\ xlet `POSTv wv. W8ARRAY print_loc [w] * STDOUT output *
+                     & (WORD (n2w (ORD c):word8) wv)`
   THEN1 (xapp \\ xsimpl \\ metis_tac [])
-  \\ xlet `\zv. STDOUT output * W8ARRAY print_loc [n2w (ORD c)] * & (UNIT_TYPE () zv)`
+  \\ xlet `POSTv zv. STDOUT output * W8ARRAY print_loc [n2w (ORD c)] * & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``print_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY print_loc [n2w (ORD c)]`
+  \\ xlet `POSTv _. STDOUT (output ++ [c]) * W8ARRAY print_loc [n2w (ORD c)]`
   THEN1
    (xffi
     \\ fs [EVAL ``print_loc``, STDOUT_def]

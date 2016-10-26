@@ -4,19 +4,6 @@ local open stack_allocTheory stack_removeTheory stack_namesTheory
 
 val _ = new_theory "stack_to_lab";
 
-val no_ret_def = Define `
-  no_ret (p:'a stackLang$prog) =
-    case p of
-    | Halt _ => T
-    | Raise _ => T
-    | Return _ _ => T
-    | Seq p1 p2 => no_ret p1 \/ no_ret p2
-    | If _ _ _ p1 p2 => no_ret p1 /\ no_ret p2
-    | Call NONE _ _ => T
-    | Call (SOME (p1,_,_,_)) _ NONE => no_ret p1
-    | Call (SOME (p1,_,_,_)) _ (SOME (p2,_,_)) => no_ret p1 /\ no_ret p2
-    | _ => F`
-
 val compile_jump_def = Define `
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)`;
@@ -38,61 +25,61 @@ val _ = temp_overload_on("++",``Append``)
 val flatten_def = Define `
   flatten p n m =
     case p of
-    | Tick => (List [Asm (Inst (Skip)) [] 0],m)
-    | Inst a => (List [Asm (Inst a) [] 0],m)
-    | Halt _ => (List [LabAsm Halt 0w [] 0],m)
+    | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
+    | Inst a => (List [Asm (Inst a) [] 0],F,m)
+    | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
     | Seq p1 p2 =>
-        let (xs,m) = flatten p1 n m in
-        let (ys,m) = flatten p2 n m in
-          (xs ++ ys, m)
+        let (xs,nr1,m) = flatten p1 n m in
+        let (ys,nr2,m) = flatten p2 n m in
+          (xs ++ ys, nr1 ∨ nr2, m)
     | If c r ri p1 p2 =>
-        let (xs,m) = flatten p1 n m in
-        let (ys,m) = flatten p2 n m in
-          if (p1 = Skip) /\ (p2 = Skip) then (List [],m)
+        let (xs,nr1,m) = flatten p1 n m in
+        let (ys,nr2,m) = flatten p2 n m in
+          if (p1 = Skip) /\ (p2 = Skip) then (List [],F,m)
           else if p1 = Skip then
             (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
-             List [Label n m 0],m+1)
+             List [Label n m 0],F,m+1)
           else if p2 = Skip then
             (List [LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
-             List [Label n m 0],m+1)
-          else if no_ret p1 then
+             List [Label n m 0],F,m+1)
+          else if nr1 then
             (List [LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
-             List [Label n m 0] ++ ys,m+1)
-          else if no_ret p2 then
+             List [Label n m 0] ++ ys,nr2,m+1)
+          else if nr2 then
             (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
-             List [Label n m 0] ++ xs,m+1)
+             List [Label n m 0] ++ xs,nr1,m+1)
           else
             (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
              List [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
-             List [Label n (m+1) 0],m+2)
+             List [Label n (m+1) 0],nr1 ∧ nr2,m+2)
     | While c r ri p1 =>
-        let (xs,m) = flatten p1 n m in
+        let (xs,_,m) = flatten p1 n m in
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
-           xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],m+2)
-    | Raise r => (List [Asm (JumpReg r) [] 0],m)
-    | Return r _ => (List [Asm (JumpReg r) [] 0],m)
-    | Call NONE dest _ => (List [compile_jump dest],m)
+           xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
+    | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
+    | Return r _ => (List [Asm (JumpReg r) [] 0],T,m)
+    | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
-        let (xs,m) = flatten p1 n m in
+        let (xs,nr1,m) = flatten p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
         (case handler of
-        | NONE => (prefix, m)
+        | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
-            let (ys,m) = flatten p2 n m in
+            let (ys,nr2,m) = flatten p2 n m in
               (prefix ++ (List [LabAsm (Jump (Lab n m)) 0w [] 0; Label k1 k2 0] ++
-              ys ++ List [Label n m 0]), m+1))
+              ys ++ List [Label n m 0]), nr1 ∧ nr2, m+1))
     | JumpLower r1 r2 target =>
-        (List [LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
+        (List [LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0w [] 0],F,m)
     | FFI ffi_index _ _ lr => (List [LabAsm (LocValue lr (Lab n m)) 0w [] 0;
                                      LabAsm (CallFFI ffi_index) 0w [] 0;
-                                     Label n m 0],m+1)
-    | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],m)
-    | _  => (List [],m)`
+                                     Label n m 0],F,m+1)
+    | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],F,m)
+    | _  => (List [],F,m)`
 
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    let (lines,m) = (flatten p n (next_lab p)) in
+    let (lines,_,m) = (flatten p n (next_lab p)) in
       Section n (append (Append lines (List [Label n m 0])))`
 
 val _ = Datatype`config =

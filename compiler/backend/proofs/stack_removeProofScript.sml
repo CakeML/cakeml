@@ -10,7 +10,7 @@ local open dep_rewrite blastLib in end
 
 val _ = new_theory"stack_removeProof";
 
-val _ = bring_to_front_overload"num_stubs"{Thy="stackLang",Name="num_stubs"};
+val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
 
 (* TODO: move *)
 
@@ -169,6 +169,8 @@ val good_syntax_inst_def = Define`
   (good_syntax_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
   (good_syntax_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
   (good_syntax_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
+  (good_syntax_inst (Arith (LongMul r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
+  (good_syntax_inst (Arith (LongDiv r1 r2 r3 r4 r5)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k ∧ r5 < k) ∧
   (good_syntax_inst _ _ ⇔ T)`;
 val _ = export_rewrites["good_syntax_inst_def"];
 
@@ -722,8 +724,9 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ simp_tac(srw_ss())[]
     \\ rveq \\ simp[])
   >- (
-    reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    >- (
+    reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] >>
+    TRY
+      (qmatch_goalsub_rename_tac`get_vars _ _`>>
       fs[get_vars_def]
       \\ every_case_tac \\ fs[]
       \\ imp_res_tac state_rel_get_var \\ fs[]
@@ -822,6 +825,25 @@ val lsl_word_shift = store_thm("lsl_word_shift",
     w ≪ word_shift (:α) = w * bytes_in_word:'a word``,
   srw_tac[][WORD_MUL_LSL,word_shift_def,bytes_in_word_def,
       labPropsTheory.good_dimindex_def]);
+
+val get_labels_stack_alloc = prove(
+  ``!k n. get_labels (stack_alloc k n) = {}``,
+  recInduct stack_alloc_ind \\ rw []
+  \\ once_rewrite_tac [stack_alloc_def] \\ rw []
+  \\ fs [get_labels_def,single_stack_alloc_def]);
+
+val get_labels_comp = store_thm("get_labels_comp",
+  ``!k e. get_labels (comp k e) = get_labels e``,
+  recInduct comp_ind \\ rw [] \\ Cases_on `p`
+  \\ once_rewrite_tac [comp_def] \\ fs [get_labels_def] \\ rw []
+  \\ fs [get_labels_def,list_Seq_def]
+  \\ every_case_tac \\ fs [get_labels_stack_alloc]);
+
+val code_rel_loc_check = store_thm("code_rel_loc_check",
+  ``code_rel k c1 c2 /\ loc_check c1 (l1,l2) ==> loc_check c2 (l1,l2)``,
+  fs [loc_check_def,code_rel_def,domain_lookup,PULL_EXISTS] \\ rw []
+  \\ res_tac \\ fs [] \\ disj2_tac
+  \\ asm_exists_tac \\ fs [get_labels_comp]);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
@@ -1181,9 +1203,12 @@ val comp_correct = Q.prove(
     \\ imp_res_tac call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* LocValue *)
    (full_simp_tac(srw_ss())[evaluate_def,Once comp_def] \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
+    \\ last_x_assum mp_tac \\ IF_CASES_TAC \\ rw[] \\ rw[]
+    \\ reverse CASE_TAC
+    THEN1 (fs [state_rel_def] \\ imp_res_tac code_rel_loc_check \\ fs [])
+    \\ fs[state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
     \\ `r <> k /\ r <> k+1 /\ r <> k+2` by decide_tac \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
+    \\ every_case_tac \\ rw[] \\ fs[] \\ res_tac \\ fs[] \\ rfs[])
   THEN1 (* StackAlloc *) (
     simp[comp_def]
     \\ drule evaluate_stack_alloc
@@ -1957,7 +1982,7 @@ val init_prop_def = Define `
 val init_code_pre_def = Define `
   init_code_pre k s <=>
     ?ptr2 ptr3 ptr4.
-      good_dimindex (:'a) /\ 8 <= k /\
+      good_dimindex (:'a) /\ 8 <= k /\ 1 ∈ domain s.code /\
       {k; k + 1; k + 2} SUBSET s.ffi_save_regs /\
       ~s.use_stack /\ ~s.use_store /\ ~s.use_alloc /\
       FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
@@ -2103,6 +2128,8 @@ val init_code_thm = store_thm("init_code_thm",
     \\ fs [store_list_def] \\ EVAL_TAC
     \\ fs [FLOOKUP_DEF])
   \\ strip_tac \\ fs []
+  \\ reverse IF_CASES_TAC \\ fs[]
+  >- ( fs[Abbr`s7`,loc_check_def] )
   \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
   \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))

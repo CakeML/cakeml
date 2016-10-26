@@ -1,4 +1,5 @@
 open preamble exhLangTheory patLangTheory
+open backend_commonTheory
 
 val _ = new_theory"exh_to_pat"
 

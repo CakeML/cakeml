@@ -1,14 +1,18 @@
 open HolKernel Parse boolLib bossLib;
 open preamble;
-open std_preludeTheory std_preludeLib;
+open ioProgTheory ml_translatorLib;
+open ioProgLib
 
 val _ = new_theory "compileProg"
 
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "ioProg";
 
 val compile_def = Define `
-  compile str = "  Hello world!  " ++ REVERSE str`;
+  compile str =
+    MAP (\c. n2w (ORD c)) ("  Hello world!  " ++ REVERSE str) :word8 list`;
 
 val res = translate compile_def
+
+val th = ioProgLib.append_main_call "compile" ``compile``;
 
 val _ = export_theory();

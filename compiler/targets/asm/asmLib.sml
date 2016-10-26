@@ -6,28 +6,6 @@ open asmTheory asmSemTheory asmPropsTheory utilsLib
 
 val ERR = Feedback.mk_HOL_ERR "asmLib"
 
-(* compset support -------------------------------------------------------- *)
-
-fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
-val asm_type0 = asm_type []
-val asm_type = asm_type [``:64``]
-
-fun add_asm_compset cmp =
-   ( computeLib.add_thms
-      [asm_ok_def, inst_ok_def, addr_ok_def, reg_ok_def, arith_ok_def,
-       cmp_ok_def, reg_imm_ok_def, addr_offset_ok_def, jump_offset_ok_def,
-       cjump_offset_ok_def, loc_offset_ok_def, upd_pc_def, upd_reg_def,
-       upd_mem_def, read_reg_def, read_mem_def, assert_def, reg_imm_def,
-       binop_upd_def, word_cmp_def, word_shift_def, arith_upd_def, addr_def,
-       mem_load_def, write_mem_word_def, mem_store_def, read_mem_word_def,
-       mem_op_def, is_test_def, inst_def, jump_to_offset_def, asm_def,
-       alignmentTheory.aligned_extract] cmp
-   ; utilsLib.add_datatypes
-        (List.map asm_type0 ["cmp", "mem_op", "binop", "shift"] @
-         List.map asm_type  ["asm_config", "asm", "inst"])
-        cmp
-   )
-
 (* some rewrites ---------------------------------------------------------- *)
 
 fun read_mem_word n =
@@ -40,8 +18,7 @@ fun write_mem_word n =
 
 val asm_ok_rwts =
    [asm_ok_def, inst_ok_def, addr_ok_def, reg_ok_def, arith_ok_def, cmp_ok_def,
-    reg_imm_ok_def, addr_offset_ok_def, jump_offset_ok_def, cjump_offset_ok_def,
-    loc_offset_ok_def]
+    reg_imm_ok_def, offset_ok_def, alignmentTheory.aligned_0]
 
 val asm_rwts =
    [upd_pc_def, upd_reg_def, upd_mem_def, read_reg_def, read_mem_def,
@@ -49,7 +26,95 @@ val asm_rwts =
     arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
-    mem_op_def, inst_def, jump_to_offset_def, asm_def]
+    mem_op_def, inst_def, jump_to_offset_def, asm_def,
+    Q.prove
+      (`!a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)`, rw [])
+    ]
+
+(* compset support -------------------------------------------------------- *)
+
+val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) =
+  HolKernel.syntax_fns2 "asm" "asm_ok"
+
+local
+  val accessors =
+    List.map
+      (fst o Term.dest_comb o boolSyntax.lhs o Thm.concl o Drule.SPEC_ALL)
+      (TypeBase.accessors_of ``:'a asm_config``)
+  fun asm_config_rwts tc =
+    utilsLib.map_conv EVAL
+      (List.map (fn f => boolSyntax.mk_icomb (f, tc)) accessors)
+  val asm_tms =
+    [
+     `Inst Skip : 'a asm`,
+     `Inst (Const r w) : 'a asm`,
+     `Inst (Arith (Binop b r1 r2 (Reg r3))) : 'a asm`,
+     `Inst (Arith (Binop b r1 r2 (Imm w))) : 'a asm`,
+     `Inst (Arith (Shift s r1 r2 n)) : 'a asm`,
+     `Inst (Arith (LongMul r1 r2 r3 r4)) : 'a asm`,
+     `Inst (Arith (LongDiv r1 r2 r3 r4 r5)) : 'a asm`,
+     `Inst (Arith (AddCarry r1 r2 r3 r4)) : 'a asm`,
+     `Inst (Mem Load r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Load8 r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Load32 r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Store r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Store8 r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Store32 r1 (Addr r2 w)) : 'a asm`,
+     `Jump w : 'a asm`,
+     `JumpCmp x r1 (Reg r2) w : 'a asm`,
+     `JumpCmp x r1 (Imm i) w : 'a asm`,
+     `Call r : 'a asm`,
+     `JumpReg r : 'a asm`,
+     `Loc r w : 'a asm`
+    ]
+  val conv = SIMP_CONV (srw_ss()++boolSimps.CONJ_ss++boolSimps.LET_ss)
+in
+  fun target_asm_rwts rwts tc =
+    let
+      val ty = hd (snd (Type.dest_type (Term.type_of tc)))
+      val parse_term = Term.inst [Type.alpha |-> ty] o Parse.Term
+      val w = Term.mk_var ("a", wordsSyntax.mk_word_type ty)
+      val rwt = asm_config_rwts tc
+    in
+      (rwt,
+       utilsLib.map_conv (conv (rwt :: rwts @ asm_ok_rwts))
+         (List.map (fn i => mk_asm_ok (parse_term i, tc)) asm_tms))
+    end
+end
+
+local
+  val aligned2 =
+    Conv.RIGHT_CONV_RULE EVAL
+      (Q.SPECL [`2`, `x`] alignmentTheory.aligned_bitwise_and)
+  val rwts = ref ([aligned2] : thm list)
+  val cnv = ref NO_CONV
+  val pair_term_compare = Lib.pair_compare (Term.compare, Term.compare)
+in
+  fun add_asm_ok_thm th =
+    ( rwts := th :: !rwts
+    ; cnv := (PURE_REWRITE_CONV (!rwts) THENC wordsLib.WORD_EVAL_CONV)
+    )
+  val asm_ok_conv =
+    Conv.memoize (Lib.total dest_asm_ok) (Redblackmap.mkDict pair_term_compare)
+      (not o is_asm_ok) (ERR "asm_ok_conv" "") (fn t => !cnv t)
+end
+
+fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
+val asm_type0 = asm_type []
+val asm_type = asm_type [``:64``]
+
+val add_asm_compset = computeLib.extend_compset
+  [computeLib.Defs
+     [upd_pc_def, upd_reg_def, upd_mem_def, read_reg_def, read_mem_def,
+      assert_def, reg_imm_def, binop_upd_def, word_cmp_def, word_shift_def,
+      arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
+      read_mem_word_def, mem_op_def, is_test_def, inst_def, jump_to_offset_def,
+      asm_def, alignmentTheory.aligned_extract,offset_ok_def],
+   computeLib.Convs
+     [(asm_ok_tm, 2, asm_ok_conv)],
+   computeLib.Tys
+     (List.map asm_type0 ["cmp", "memop", "binop", "shift"] @
+      List.map asm_type  ["asm_config", "asm", "inst"])]
 
 (* some custom tools/tactics ---------------------------------------------- *)
 
@@ -220,6 +285,39 @@ in
             end
         | NONE => ALL_TAC) (asl, g)
 end
+
+fun asm_cases_tac i =
+  Cases_on i
+  >| [
+    Q.MATCH_GOALSUB_RENAME_TAC `Inst i`
+    \\ Cases_on `i`
+    >| [
+      all_tac,
+      all_tac,
+      Q.MATCH_GOALSUB_RENAME_TAC `Arith a`
+      \\ Cases_on `a`
+      >| [
+        Q.MATCH_GOALSUB_RENAME_TAC `Binop b _ _ r`
+        \\ Cases_on `r`
+        \\ Cases_on `b`,
+        Q.MATCH_GOALSUB_RENAME_TAC `Shift s _ _ _`
+        \\ Cases_on `s`,
+        all_tac,
+        all_tac,
+        all_tac
+      ],
+      Q.MATCH_GOALSUB_RENAME_TAC `Mem m _ a`
+      \\ Cases_on `a`
+      \\ Cases_on `m`
+    ],
+    all_tac,
+    Q.MATCH_GOALSUB_RENAME_TAC `JumpCmp c _ r _`
+    \\ Cases_on `r`
+    \\ Cases_on `c`,
+    all_tac,
+    all_tac,
+    all_tac
+  ]
 
 local
   fun can_match [QUOTE s] =

@@ -610,7 +610,7 @@ val calls_replace_SND = Q.store_thm("calls_replace_SND",
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ rveq \\ fs[]
   \\ TRY (
-    qmatch_goalsub_rename_tac`Letrec`
+    qmatch_goalsub_rename_tac`closLang$Letrec`
     \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`insert_each p n g0`
     \\ TRY (

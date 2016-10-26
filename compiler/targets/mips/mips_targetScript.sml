@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib mipsTheory;
+open asmLib mips_stepTheory;
 
 val () = new_theory "mips_target"
 
@@ -22,20 +22,13 @@ val mips_next_def = Define`
    let s' = THE (NextStateMIPS s) in
      if IS_SOME s'.BranchDelay then THE (NextStateMIPS s') else s'`
 
-(* --- Relate ASM and MIPS states --- *)
+(* --- Valid MIPS states --- *)
 
 val mips_ok_def = Define`
    mips_ok ms =
    ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\ ~ms.exceptionSignalled /\
    (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
    (ms.exception = NoException) /\ aligned 2 ms.PC`
-
-val mips_asm_state_def = Define`
-   mips_asm_state s ms =
-   mips_ok ms /\
-   (!i. 1 < i /\ i < 32 ==> (s.regs i = ms.gpr (n2w i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
@@ -71,10 +64,10 @@ val mips_sh32_def = Define`
 
 val mips_memop_def = Define`
    (mips_memop Load    = INL LD) /\
-   (mips_memop Load32  = INL LWU) /\
+(* (mips_memop Load32  = INL LWU) /\ *)
    (mips_memop Load8   = INL LBU) /\
    (mips_memop Store   = INR SD) /\
-   (mips_memop Store32 = INR SW) /\
+(* (mips_memop Store32 = INR SW) /\ *)
    (mips_memop Store8  = INR SB)`
 
 val mips_cmp_def = Define`
@@ -88,6 +81,9 @@ val mips_cmp_def = Define`
    (mips_cmp NotTest  = (SOME (AND, ANDI), BNE))`
 
 val nop = ``Shift (SLL (0w, 0w, 0w))``
+
+val mips_encode_fail_def = Define`
+  mips_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
 
 val mips_enc_def = Define`
    (mips_enc (Inst Skip) = mips_encode ^nop) /\
@@ -112,12 +108,18 @@ val mips_enc_def = Define`
                   ArithI (ORI (n2w r, n2w r, bottom))]) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
        mips_encode (ArithR (mips_bop_r bop (n2w r2, n2w r3, n2w r1)))) /\
-   (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) = []) /\
+   (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
+       mips_encode (ArithI (DADDIU (n2w r2, n2w r1, -(w2w i))))) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
        mips_encode (ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i)))) /\
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
+   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+       encs [MultDiv (DMULTU (n2w r3, n2w r4));
+             MultDiv (MFLO (n2w r2));
+             MultDiv (MFHI (n2w r1))]) /\
+   (mips_enc (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        encs [ArithR (SLTU (0w, n2w r4, 1w));
              ArithR (DADDU (n2w r2, n2w r3, n2w r1));
@@ -163,218 +165,6 @@ val mips_enc_def = Define`
             ArithI (DADDIU (31w, n2w r, w2w (i - 12w))); (* r := LR - 12 + i *)
             ArithI (ORI (1w, 31w, 0w))]))`               (* LR := $1         *)
 
-val fetch_decode_def = Define`
-   fetch_decode (b0 :: b1 :: b2 :: b3 :: (rest: word8 list)) =
-   (Decode (b0 @@ b1 @@ b2 @@ b3), rest)`
-
-val all_same_def = Define`
-   (all_same (h::t) = EVERY ((=) h) t)`
-
-val when_nop_def = Define`
-   when_nop l (r: 64 asm) = case fetch_decode l of (^nop, _) => r`
-
-val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
-   mips_dec l =
-   case fetch_decode l of
-      (ArithR (SLT (r1, r2, 1w)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Less (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLess (w2n r1) (Reg (w2n r2))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithR (SLTU (r1, r2, 1w)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Lower (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLower (w2n r1) (Reg (w2n r2))
-                          (sw2sw ((a + 2w) << 2)))
-          | (ArithR (DADDU (r3, r4, r5)), rest1) =>
-               (case fetch_decode rest1 of
-                   (ArithR (SLTU (r6, r7, r8)), rest2) =>
-                      (case fetch_decode rest2 of
-                          (ArithR (DADDU (r9, 1w, r10)), rest3) =>
-                             (case fetch_decode rest3 of
-                                 (ArithR (SLTU (r11, 1w, 1w)), rest4) =>
-                                    (case fetch_decode rest4 of
-                                        (ArithR (OR (r12, 1w, r13)), _) =>
-                                           if (r1 = 0w) /\
-                                              (r2 = r8) /\ (r8 = r12) /\
-                                              (r12 = r13) /\
-                                              (r4 = r7) /\
-                                              (r5 = r6) /\ (r6 = r9) /\
-                                              (r9 = r10) /\ (r10 = r11) then
-                                              Inst (Arith
-                                                (AddCarry (w2n r5) (w2n r3)
-                                                   (w2n r4) (w2n r2)))
-                                           else ARB
-                                      | _ => ARB)
-                               | _ => ARB)
-                        | _ => ARB)
-                 | _ => ARB)
-          | _ => ARB)
-    | (ArithR (AND (r1, r2, 1w)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Test (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotTest (w2n r1) (Reg (w2n r2))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (DADDIU (0w, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BEQ (r, 1w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Equal (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BNE (r, 1w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotEqual (w2n r) (Imm (sw2sw i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (ORI (0w, r, i)), _) =>
-        Inst (Const (w2n r) (w2w i : word64))
-    | (ArithI (ADDIU (0w, r, i)), _) =>
-        Inst (Const (w2n r) (sw2sw i : word64))
-    | (ArithI (SLTI (r, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Less (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLess (w2n r) (Imm (sw2sw i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (SLTIU (r, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Lower (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotLower (w2n r) (Imm (sw2sw i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (ANDI (r1, 1w, i)), rest) =>
-        (case fetch_decode rest of
-            (Branch (BEQ (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp Test (w2n r1) (Imm (w2w i)) (sw2sw ((a + 2w) << 2)))
-          | (Branch (BNE (1w, 0w, a)), rest1) =>
-               when_nop rest1
-                 (JumpCmp NotTest (w2n r1) (Imm (w2w i))
-                          (sw2sw ((a + 2w) << 2)))
-          | _ => ARB)
-    | (ArithI (ORI (31w, 1w, 0w)), rest0) =>
-        (case fetch_decode rest0 of
-            (Branch (BLTZAL (0w, 0w)), rest1) =>
-              (case fetch_decode rest1 of
-                  (ArithI (DADDIU (31w, rr, i)), rest2) =>
-                    (case fetch_decode rest2 of
-                        (ArithI (ORI (1w, 31w, 0w)), _) =>
-                           Loc (w2n rr) (sw2sw i + 12w)
-                      | _ => ARB)
-                | _ => ARB)
-          | _ => ARB)
-    | (ArithI (LUI (r0, i0)), rest0) =>
-        (case fetch_decode rest0 of
-            (ArithI (XORI (r1, r2, i1)), _) =>
-                if all_same [r0; r1; r2] then
-                   Inst (Const (w2n r0) (sw2sw ((i0 @@ i1) : word32)))
-                else
-                   ARB
-          | (ArithI (ORI (r1, r2, i1)), rest1) =>
-              (case fetch_decode rest1 of
-                  (Shift (DSLL (r3, r4, 16w)), rest2) =>
-                    (case fetch_decode rest2 of
-                        (ArithI (ORI (r5, r6, i2)), rest3) =>
-                             (case fetch_decode rest3 of
-                                 (Shift (DSLL (r7, r8, 16w)), rest4) =>
-                                   (case fetch_decode rest4 of
-                                       (ArithI (ORI (r9, r10, i3)), _) =>
-                                          if all_same [r0; r1; r2; r3; r4; r5;
-                                                       r6; r7; r8; r9; r10]
-                                             then Inst (Const (w2n r0)
-                                                         (i0 @@ i1 @@ i2 @@ i3))
-                                          else ARB
-                                     | _ => ARB)
-                               | _ => ARB)
-                      | _ => ARB)
-                | _ => ARB)
-          | _ => ARB)
-    | (ArithR (DADDU (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Add (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (DSUBU (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Sub (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (AND (r1, r2, r3)), _) =>
-        Inst (Arith (Binop And (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (OR (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Or (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithR (XOR (r1, r2, r3)), _) =>
-        Inst (Arith (Binop Xor (w2n r3) (w2n r1) (Reg (w2n r2))))
-    | (ArithI (DADDIU (r1, r2, i)), _) =>
-        Inst (Arith (Binop Add (w2n r2) (w2n r1) (Imm (sw2sw i))))
-    | (ArithI (ANDI (r1, r2, i)), _) =>
-        Inst (Arith (Binop And (w2n r2) (w2n r1) (Imm (w2w i))))
-    | (ArithI (ORI (r1, r2, i)), _) =>
-        Inst (Arith (Binop Or (w2n r2) (w2n r1) (Imm (w2w i))))
-    | (ArithI (XORI (r1, r2, i)), _) =>
-        Inst (Arith (Binop Xor (w2n r2) (w2n r1) (Imm (w2w i))))
-    | (Shift (SLL (0w, 0w, 0w)), _) =>
-        Inst Skip
-    | (Shift (DSLL (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsl (w2n r2) (w2n r1) (w2n n)))
-    | (Shift (DSRL (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsr (w2n r2) (w2n r1) (w2n n)))
-    | (Shift (DSRA (r1, r2, n)), _) =>
-        Inst (Arith (Shift Asr (w2n r2) (w2n r1) (w2n n)))
-    | (Shift (DSLL32 (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsl (w2n r2) (w2n r1) (w2n n + 32)))
-    | (Shift (DSRL32 (r1, r2, n)), _) =>
-        Inst (Arith (Shift Lsr (w2n r2) (w2n r1) (w2n n + 32)))
-    | (Shift (DSRA32 (r1, r2, n)), _) =>
-        Inst (Arith (Shift Asr (w2n r2) (w2n r1) (w2n n + 32)))
-    | (Load (LD (r2, r1, a)), _) =>
-        Inst (Mem Load (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Load (LWU (r2, r1, a)), _) =>
-        Inst (Mem Load32 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Load (LBU (r2, r1, a)), _) =>
-        Inst (Mem Load8 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Store (SD (r2, r1, a)), _) =>
-        Inst (Mem Store (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Store (SW (r2, r1, a)), _) =>
-        Inst (Mem Store32 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Store (SB (r2, r1, a)), _) =>
-        Inst (Mem Store8 (w2n r1) (Addr (w2n r2) (sw2sw a)))
-    | (Branch (BEQ (r1, r2, a)), rest) =>
-        when_nop rest
-           (let aa = sw2sw ((a + 1w) << 2) in
-               if (r1 = 0w) /\ (r1 = r2) then
-                  Jump aa
-               else
-                  JumpCmp Equal (w2n r1) (Reg (w2n r2)) aa)
-    | (Branch (BNE (r1, r2, a)), rest) =>
-        when_nop rest
-           (JumpCmp NotEqual (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 1w) << 2)))
-    | (Branch (BGEZAL (0w, a)), rest) =>
-        when_nop rest (Call (sw2sw ((a + 1w) << 2)))
-    | (Branch (BLTZAL (0w, 0w)), rest) =>
-        (case fetch_decode rest of
-             (ArithI (DADDIU (31w, 31w, i)), rest2) =>
-            Loc 31 (sw2sw i + 8w)
-          | _ => ARB)
-    | (Branch (JR r), rest) =>
-        when_nop rest (JumpReg (w2n r))
-    | _ => ARB`
-
 (* --- Configuration for MIPS --- *)
 
 val eval = rhs o concl o EVAL
@@ -387,42 +177,49 @@ val mips_config_def = Define`
    <| ISA := MIPS
     ; encode := mips_enc
     ; reg_count := 32
-    ; avoid_regs := [0; 1]
+    ; avoid_regs := [0; 1; 25; 26; 27; 28; 29]
     ; link_reg := SOME 31
-    ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := T
     ; valid_imm :=
        (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
                 0w <= i /\ i <= ^umax16
-              else
-                b <> INL Sub /\ ^min16 <= i /\ i <= ^max16)
-    ; addr_offset_min := ^min16
-    ; addr_offset_max := ^max16
-    ; jump_offset_min := ^min16
-    ; jump_offset_max := ^max16
-    ; cjump_offset_min := ^min16
-    ; cjump_offset_max := ^max16
-    ; loc_offset_min := ^min16 + 12w
-    ; loc_offset_max := ^max16 + 8w
+              else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
+                   i <= ^max16)
+    ; addr_offset := (^min16, ^max16)
+    ; jump_offset := (^min16, ^max16)
+    ; cjump_offset := (^min16, ^max16)
+    ; loc_offset := (^min16 + 12w, ^max16 + 8w)
     ; code_alignment := 2
     |>`
 
 val mips_proj_def = Define`
    mips_proj d s =
    (s.CP0.Config, s.CP0.Status.RE, s.exceptionSignalled,
-    s.BranchDelay, s.BranchTo, s.exception, s.gpr, fun2set (s.MEM,d), s.PC)`
+    s.BranchDelay, s.BranchTo, s.exception, s.gpr, s.lo, s.hi,
+    fun2set (s.MEM,d), s.PC)`
 
 val mips_target_def = Define`
    mips_target =
-   <| get_pc := mips_state_PC
+   <| next := mips_next
+    ; config := mips_config
+    ; get_pc := mips_state_PC
     ; get_reg := (\s. mips_state_gpr s o n2w)
     ; get_byte := mips_state_MEM
     ; state_ok := mips_ok
-    ; state_rel := mips_asm_state
     ; proj := mips_proj
-    ; next := mips_next
-    ; config := mips_config
     |>`
+
+val mips_reg_ok_def = Define`
+  mips_reg_ok n = ~MEM n mips_config.avoid_regs`
+
+val mips_reg_ok = save_thm("mips_reg_ok",
+  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def))
+
+val (mips_config, mips_asm_ok) =
+  asmLib.target_asm_rwts [mips_reg_ok] ``mips_config``
+
+val mips_config = save_thm("mips_config", mips_config)
+val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)
 
 val () = export_theory ()

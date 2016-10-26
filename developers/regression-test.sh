@@ -13,7 +13,7 @@ then
 fi
 
 cd $(dirname "$0")
-source ./misc.sh
+source misc.sh
 cd ..
 
 case $(uname -a) in
@@ -24,6 +24,11 @@ echo
 
 while read i
 do
+  #save the current state
+  if [ -n "$1" ]; then
+      echo $i > $1;
+  fi
+
   [[ $i == '#'* ]] || [[ -z $i ]] && continue
   if [ ! -d $i ]
   then

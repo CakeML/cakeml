@@ -6,7 +6,7 @@ open preamble
 val _ = new_theory "dec_to_exhProof";
 
 val find_recfun_compile_funs = prove(
-  ``∀ls f exh. find_recfun f (compile_funs exh ls) =
+  ``∀ls f exh. find_recfun f (dec_to_exh$compile_funs exh ls) =
                OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)``,
   Induct >> simp[compile_funs_map] >- (
     simp[semanticPrimitivesTheory.find_recfun_def] ) >>

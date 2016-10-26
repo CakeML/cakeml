@@ -127,6 +127,8 @@ val add_reg_alloc_compset = extend_compset
     parmoveTheory.fstep_def
     ]]
 
+val ERR = mk_HOL_ERR"reg_allocComputeLib";
+
 (* unit sptree to ML unit sptree_spt*)
 fun dest_unit_sptree tm =
  case Lib.total boolSyntax.dest_strip_comb tm of
@@ -184,30 +186,32 @@ fun dest_moves tm =
   map
   (fn p => tup3 (map int_of_term p)) split end
 
-fun alloc_aux k [] n = (print"\n";[])
-|   alloc_aux k ((clash_tree,moves)::xs) n =
+fun ct_to_spg ct = fst(clash_tree_to_spg ct [] Ln)
+
+fun alloc_aux alg k [] n = (print"\n";[])
+|   alloc_aux alg k ((clash_tree,moves)::xs) n =
   let val _ = print (strcat (Int.toString n) " ")
-      val clash_tree_poly = dest_clash_tree clash_tree
+      val clash_tree_poly = (ct_to_spg o dest_clash_tree) clash_tree
       val moves_poly = dest_moves moves in
-      irc_alloc clash_tree_poly k moves_poly :: alloc_aux k xs (n+1)
+      reg_alloc alg clash_tree_poly k moves_poly :: alloc_aux alg k xs (n+1)
   end;
 
 (*Main thing to call for external allocator
   Should be passed a term of the form (k,(clashsetlist,moves) list)
 *)
-fun alloc_all t =
+fun alloc_all alg t =
   let val (k,ls) = pairSyntax.dest_pair t
     val clash_mov_ls = map pairSyntax.dest_pair (fst(listSyntax.dest_list ls)) in
-    alloc_aux (int_of_term k) clash_mov_ls 0
+    alloc_aux alg (int_of_term k) clash_mov_ls 0
   end
 
-fun get_oracle t =
-  let val cols = alloc_all t
+fun get_oracle alg t =
+  let val cols = alloc_all alg t
       val alloc = listSyntax.mk_list (map mk_num_sptree cols,``:num num_map``) in
   ``let alloc = ^(alloc) in
     \n. if n >= LENGTH alloc then NONE else SOME(EL n alloc)``
   end
 
-(*get_oracle ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[]);Set LN,[(1n,1n,2n)]])`` *)
+(*get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[]);Set LN,[(1n,1n,2n)]])`` *)
 end
 end

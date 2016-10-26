@@ -1,6 +1,7 @@
 open preamble conLangTheory;
 
 val _ = new_theory "patLang"
+val _ = set_grammar_ancestry ["conLang"]
 
 (* Removes pattern-matching and variable names. Follows exhLang.
  *

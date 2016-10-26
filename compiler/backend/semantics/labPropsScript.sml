@@ -3,6 +3,10 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
+val sec_ends_with_label_def = Define`
+  sec_ends_with_label (Section _ ls) ⇔
+    ¬NULL ls ∧ is_Label (LAST ls)`;
+
 val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
   `reg_imm r (s with clock := z) = reg_imm r s`,
   Cases_on`r`>>EVAL_TAC);
@@ -93,6 +97,11 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    (labSem$arith_upd a x).ffi = x.ffi`,
   Cases_on`a` >> EVAL_TAC >>
   every_case_tac >> EVAL_TAC >> rw[]);
+
+val line_length_def = Define `
+  (line_length (Label k1 k2 l) = if l = 0 then 0 else 1) /\
+  (line_length (Asm b bytes l) = LENGTH bytes) /\
+  (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
 val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
   `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,

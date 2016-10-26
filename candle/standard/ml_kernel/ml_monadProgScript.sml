@@ -376,7 +376,7 @@ val option_CASE_LEMMA2 = prove(
 
 val EvalM_Recclosure = store_thm("EvalM_Recclosure",
   ``(!v. a n v ==>
-         EvalM (write name v (write_rec [(fname,name,body)] env2))
+         EvalM (write name v (write_rec [(fname,name,body)] env2 env2))
                body (b (f n))) ==>
     LOOKUP_VAR fname env (Recclosure env2 [(fname,name,body)] fname) ==>
     EvalM env (Var (Short fname)) ((PURE (Eq a n) -M-> b) f)``,
@@ -405,7 +405,7 @@ val IND_HELP = store_thm("IND_HELP",
   \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []);
 
 val write_rec_one = store_thm("write_rec_one",
-  ``write_rec [(x,y,z)] env = write x (Recclosure env [(x,y,z)] x) env``,
+  ``write_rec [(x,y,z)] env env = write x (Recclosure env [(x,y,z)] x) env``,
   SIMP_TAC std_ss [write_rec_def,write_def,build_rec_env_def,FOLDR]);
 
 (* Eq simps *)
@@ -474,8 +474,7 @@ val EvalM_failwith = store_thm("EvalM_failwith",
   IMP_RES_TAC (evaluate_empty_state_IMP
                |> INST_TYPE [``:'ffi``|->``:unit``]) >>
   rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_def] >>
-  fs [lookup_alist_mod_env_def] >>
+  fs [lookup_cons_thm] >>
   fs[HOL_EXN_TYPE_def,id_to_n_def] >>
   METIS_TAC[]);
 
@@ -494,8 +493,7 @@ val EvalM_raise_clash = store_thm("EvalM_raise_clash",
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[Once(CONJUNCT2 evaluate_cases)] >>
   rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_def] >>
-  fs [lookup_alist_mod_env_def] >>
+  fs [lookup_cons_thm] >>
   fs[HOL_EXN_TYPE_def,id_to_n_def] >>
   METIS_TAC[evaluate_empty_state_IMP]);
 
@@ -558,7 +556,7 @@ val EvalM_handle_clash = store_thm("EvalM_handle_clash",
   srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
   simp[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS,pat_bindings_def] >>
   first_assum(match_exists_tac o concl) >>
-  simp[pmatch_def] >> fs[lookup_cons_def] >>
+  simp[pmatch_def] >> fs[lookup_cons_thm] >>
   fs[same_tid_def,id_to_n_def,same_ctor_def] >- (
     simp[Once evaluate_cases,HOL_MONAD_def,HOL_EXN_TYPE_def] ) >>
   res_tac >> fs[write_def] >>

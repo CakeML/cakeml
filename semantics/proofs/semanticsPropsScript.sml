@@ -13,7 +13,7 @@ val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   REWRITE_TAC[IMAGE_COMPOSE] >>
   match_mp_tac prefix_chain_lprefix_chain >>
   srw_tac[][prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> srw_tac[][] >>
-  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
+  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,io_events_mono_def,FST]);
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s e p. ∃b. semantics_prog s e p b`,
@@ -41,7 +41,7 @@ val with_clock_ffi = Q.prove(
   `(s with clock := x).ffi = s.ffi`,EVAL_TAC)
 
 val tac1 =
-    metis_tac[semanticPrimitivesTheory.result_11,evaluate_prog_ffi_mono_clock,
+    metis_tac[semanticPrimitivesTheory.result_11,evaluate_prog_ffi_mono_clock,io_events_mono_def,
               semanticPrimitivesTheory.error_result_11,option_nchotomy,LESS_EQ_CASES,
               semanticPrimitivesTheory.abort_distinct,pair_CASES,FST,THE_DEF,
               PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR,LESS_OR_EQ]
@@ -51,32 +51,32 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     semantics_prog s e p b ∧
     semantics_prog s e p b' ⇒
     b = b'`,
- rw []
- >> Cases_on `b`
- >> Cases_on `b'`
- >> fs [semantics_prog_def]
- >- metis_tac[unique_lprefix_lub]
- >- tac1
- >- tac1
- >- tac1
- >- (
-   fs [evaluate_prog_with_clock_def]
-   >> pairarg_tac
-   >> fs []
-   >> pairarg_tac
-   >> fs []
-   >> rpt var_eq_tac
-   >> pop_assum mp_tac
-   >> drule evaluate_prog_clock_determ
-   >> ntac 2 DISCH_TAC
-   >> first_x_assum drule
-   >> simp []
-   >> every_case_tac
-   >> fs [semanticPrimitivesTheory.state_component_equality]
-   >> tac1)
- >- tac1
- >- tac1
- >- tac1);
+  rw []
+  >> Cases_on `b`
+  >> Cases_on `b'`
+  >> fs [semantics_prog_def]
+  >- metis_tac[unique_lprefix_lub]
+  >- tac1
+  >- tac1
+  >- tac1
+  >- (
+    fs [evaluate_prog_with_clock_def]
+    >> pairarg_tac
+    >> fs []
+    >> pairarg_tac
+    >> fs []
+    >> rpt var_eq_tac
+    >> pop_assum mp_tac
+    >> drule evaluate_prog_clock_determ
+    >> ntac 2 DISCH_TAC
+    >> first_x_assum drule
+    >> simp []
+    >> every_case_tac
+    >> fs [semanticPrimitivesTheory.state_component_equality]
+    >> tac1)
+  >- tac1
+  >- tac1
+  >- tac1);
 
 val state_invariant_def = Define`
   state_invariant st ⇔

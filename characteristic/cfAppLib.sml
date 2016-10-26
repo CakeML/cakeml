@@ -29,7 +29,8 @@ fun mk_app_of_Arrow_goal t = let
     mk_cond (
       list_mk_comb (ret_pred, [list_mk_comb (f, xs), post_v])
     )
-  val post_tm = mk_abs (post_v, post_body)
+  fun mk_POSTv Qvtm = (lhs o concl) (SPEC Qvtm cfHeapsBaseTheory.POSTv_def)
+  val post_tm = mk_POSTv (mk_abs (post_v, post_body))
   val app_spec_tm =
     mk_app (
       proj_tm,
@@ -65,6 +66,7 @@ fun app_of_Arrow_rule thm = let
         drule Arrow_IMP_app_basic \\
         disch_then (fn th => mp_tac (MATCH_MP th asm)) \\
         match_mp_tac app_basic_weaken \\
+        Cases THEN_LT REVERSE_LT THEN1 (simp [cfHeapsBaseTheory.POSTv_def]) \\
         fs [cond_def, SEP_EXISTS_THM] \\ rpt strip_tac \\
         qexists_tac `emp` \\ fs [SEP_CLAUSES] \\ tac_acc
       ) all_tac (rev assums)

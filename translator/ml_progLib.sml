@@ -55,7 +55,7 @@ fun define_abbrev for_eval name tm = let
              val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
              in mk_eq(mk_comb(n,vars),tm) end
   val def_name = name ^ "_def"
-  val def = Definition.new_definition(def_name,tm)
+  val def = (*Definition.*)new_definition(def_name,tm)
   val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
   in def end
 
@@ -242,7 +242,13 @@ fun remove_snocs (ML_code (ss,envs,vs,th)) = let
 fun get_thm (ML_code (ss,envs,vs,th)) = th
 fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 
-fun get_env s = get_thm s |> concl |> rator |> rand
+fun get_env s = let
+  val th = get_thm s
+  val th = MATCH_MP ML_code_NONE_Dlet_var th
+           handle HOL_ERR _ =>
+           MATCH_MP ML_code_SOME_Dlet_var th
+  in th |> SPEC_ALL |> concl |> dest_imp |> fst
+        |> rator |> rator |> rator |> rand end
 
 fun get_state s = get_thm s |> concl |> rand
 
@@ -272,7 +278,10 @@ fun clean_state (ML_code (ss,envs,vs,th)) = let
 (*
 
 val s = init_state
-val prog_tm = EVAL ``basis_program`` |> concl |> rand
+val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
+val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
+val prog_tm = ``[Tdec ^dec1_tm; Tdec ^dec2_tm]``
+
 fun pick_name str =
   if str = "<" then "lt" else
   if str = ">" then "gt" else
@@ -286,8 +295,9 @@ fun pick_name str =
   if str = "!" then "deref" else
   if str = ":=" then "update" else str
 
-val th = get_thm (add_prog prog_tm pick_name init_state)
-val th = REWRITE_RULE [GSYM (EVAL ``basis_program``)] th
+val s = (add_prog prog_tm pick_name init_state)
+
+val th = get_env s1
 
 val env = th |> concl |> rator |> rand |> EVAL
 

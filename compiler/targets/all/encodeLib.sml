@@ -11,7 +11,12 @@ val () =
  ( computeLib.del_consts
      [``arm6_target$arm6_enc``, ``arm8_target$arm8_enc``,
       ``x64_target$x64_enc``, ``mips_target$mips_enc``,
-       ``riscv_target$riscv_enc``, ``arm8_target$valid_immediate``]
+      ``riscv_target$riscv_enc``,
+      ``arm6_target$arm6_config``, ``arm8_target$arm8_config``,
+      ``x64_target$x64_config``, ``mips_target$mips_config``,
+      ``riscv_target$riscv_config``,
+      ``arm8_target$valid_immediate``,
+      ``asm$asm_ok : 'a asm -> 'a asm_config -> bool``]
  ; computeLib.extend_compset
     [computeLib.Extenders
        [arm6_targetLib.add_arm6_encode_compset,
@@ -19,11 +24,7 @@ val () =
         x64_targetLib.add_x64_encode_compset,
         mips_targetLib.add_mips_encode_compset,
         riscv_targetLib.add_riscv_encode_compset,
-        arm6_targetLib.add_arm6_decode_compset,
-        arm8_targetLib.add_arm8_decode_compset,
-        x64_targetLib.add_x64_decode_compset,
-        mips_targetLib.add_mips_decode_compset,
-        riscv_targetLib.add_riscv_decode_compset
+        asmLib.add_asm_compset
        ]
     ] computeLib.the_compset
  )
@@ -36,14 +37,13 @@ fun string_quotation l = [QUOTE (String.concatWith " " l)] : string quotation
 val mk_asm_ok = Lib.curry (#2 (HolKernel.syntax_fns2 "asm" "asm_ok"))
 fun ok tm = Lib.equal boolSyntax.T o eval o mk_asm_ok tm
 
-fun mk f s = #2 (HolKernel.syntax_fns1 (s ^ "_target") (s ^ "_" ^ f))
-fun mk_enc_dec s = (mk "enc" s, mk "dec" s)
+fun mk s = #2 (HolKernel.syntax_fns1 (s ^ "_target") (s ^ "_enc"))
 
-val (mk_arm6_enc, mk_arm6_dec) = mk_enc_dec "arm6"
-val (mk_arm8_enc, mk_arm8_dec) = mk_enc_dec "arm8"
-val (mk_x64_enc, mk_x64_dec) = mk_enc_dec "x64"
-val (mk_mips_enc, mk_mips_dec) = mk_enc_dec "mips"
-val (mk_riscv_enc, mk_riscv_dec) = mk_enc_dec "riscv"
+val mk_arm6_enc = mk "arm6"
+val mk_arm8_enc = mk "arm8"
+val mk_x64_enc = mk "x64"
+val mk_mips_enc = mk "mips"
+val mk_riscv_enc = mk "riscv"
 
 fun config_tm s = Term.prim_mk_const {Name = s ^ "_config", Thy = s ^ "_target"}
 val arm6_config = config_tm "arm6"
@@ -121,17 +121,6 @@ in
   val reduce = boolSyntax.rhs o Thm.concl o Conv.QCONV REDUCE_LITERALS_CONV
 end
 
-fun check_dec tm f (l : term) =
-  let
-    val d = eval (f l)
-  in
-    if d = tm then ()
-    else ( print "[decode mismatch]\n"
-         ; Parse.print_term d
-         ; print "\n"
-         )
-  end
-
 fun encoding q =
   let
     val tm = Feedback.trace ("notify type variable guesses", 0) Parse.Term q
@@ -152,7 +141,6 @@ fun encoding q =
                      in
                        armAssemblerLib.print_arm_disassemble
                          (string_quotation (split32 false l))
-                     ; check_dec tm32 mk_arm6_dec l
                      end
               else print_not_ok (),
       arm8 = fn () =>
@@ -162,16 +150,6 @@ fun encoding q =
                      in
                        arm8AssemblerLib.print_arm8_disassemble
                          (string_quotation (split32 false l))
-                     ; check_dec tm64 mk_arm8_dec l
-                     end
-              else print_not_ok (),
-      x64 = fn () =>
-              if ok64 x64_config
-                then let
-                       val l = eval (mk_x64_enc tm64)
-                     in
-                       print_x64_disassemble l
-                     ; check_dec tm64 mk_x64_dec l
                      end
               else print_not_ok (),
       mips = fn () =>
@@ -180,7 +158,6 @@ fun encoding q =
                        val l = (eval (mk_mips_enc tm64))
                      in
                        print_mips_disassemble (split32 true l)
-                     ; check_dec tm64 mk_mips_dec l
                      end
               else print_not_ok (),
       riscv = fn () =>
@@ -189,13 +166,20 @@ fun encoding q =
                        val l = eval (mk_riscv_enc tm64)
                      in
                        print_riscv_disassemble (split32 false l)
-                     ; check_dec tm64 mk_riscv_dec l
+                     end
+              else print_not_ok (),
+      x64 = fn () =>
+              if ok64 x64_config
+                then let
+                       val l = eval (mk_x64_enc tm64)
+                     in
+                       print_x64_disassemble l
                      end
               else print_not_ok ()
     }
   end
 
-datatype arch = Compare | All | ARMv6 | ARMv8 | x86_64 | MIPS | RISCV
+datatype arch = Compare | All | ARMv6 | ARMv8 | MIPS | RISCV | x86_64
 
 fun encodings arches l =
   let
@@ -213,9 +197,9 @@ fun encodings arches l =
                         ; print "\n"
                         ; pr "ARMv6" ARMv6 arm6
                         ; pr "ARMv8" ARMv8 arm8
-                        ; pr "x86-64" x86_64 x64
                         ; pr "MIPS-64" MIPS mips
                         ; pr "RISC-V" RISCV riscv
+                        ; pr "x86-64" x86_64 x64
                         )) es
             end
     else let
@@ -233,15 +217,22 @@ fun encodings arches l =
          in
            pr "ARMv6" ARMv6 (#arm6)
          ; pr "ARMv8" ARMv8 (#arm8)
-         ; pr "x86-64" x86_64 (#x64)
          ; pr "MIPS-64" MIPS (#mips)
          ; pr "RISC-V" RISCV (#riscv)
+         ; pr "x86-64" x86_64 (#x64)
          end
   end
 
 (*
 
-val () = encodings [All]
+open encodeLib
+
+val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
+   [
+    `Inst (Arith (LongMul 4 5 6 7))`
+   ]
+
+val () = Count.apply (encodings [All])
    [
     `Inst Skip`,
     `Inst (Const 8 0w)`,
@@ -254,6 +245,8 @@ val () = encodings [All]
     `Inst (Arith (Binop Or 2 2 (Imm 0xFFw)))`,
     `Inst (Arith (Shift Lsr 2 2 1))`,
     `Inst (Arith (Shift Asr 2 2 1))`,
+    `Inst (Arith (LongDiv 0 2 0 2 3))`,
+    `Inst (Arith (LongMul 2 0 0 3))`,
     `Inst (Arith (AddCarry 2 2 3 6))`,
     `Inst (Mem Load 2 (Addr 3 0w))`,
     `Inst (Mem Load 2 (Addr 3 0x10w))`,

@@ -3,6 +3,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
+(* val _ = set_grammar_ancestry ["source_to_mod"] *)
 
 (* value relation *)
 
@@ -989,7 +990,7 @@ val global_env_inv_lookup_mod3 = Q.prove (
   metis_tac []);
 
 val s = mk_var("s",
-  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
   |> type_subst[alpha |-> ``:'ffi``]);
 
 val compile_exp_correct' = Q.prove (
@@ -1581,8 +1582,8 @@ val alookup_alloc_defs_bounds_rev = Q.prove(
   DECIDE_TAC);
 
 val letrec_global_env_lem = Q.prove (
-  `!funs funs' (env:v environment) v x.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) x = SOME v ∧
+  `!funs funs' env v x.
+    ALOOKUP (MAP (λ(fn,n,e). (fn,semanticPrimitives$Recclosure env funs' fn)) funs) x = SOME v ∧
     ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
     ⇒
     v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs))`,
@@ -2245,8 +2246,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ rator_x_assum`invariant`mp_tac
     \\ simp[extend_top_env_def,invariant_def]
     \\ fs[Abbr`s2`]
-    \\ imp_res_tac evaluateEquivTheory.functional_evaluate_decs
-    \\ imp_res_tac eval_ds_no_new_mods \\ fs[]
+    \\ imp_res_tac evaluatePropsTheory.evaluate_decs_state_unchanged \\ fs[]
     \\ Cases_on`mno`\\fs[]\\rveq\\fs[] \\ strip_tac
     \\ Cases_on`h` \\ fs[] \\ rveq
     >- (
@@ -2422,7 +2422,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
   \\ Cases_on`r`\\fs[invariant_def]
   \\ metis_tac[PAIR]);
 
-open semanticsTheory evaluateEquivTheory
+open semanticsTheory
 
 val precondition_def = Define`
   precondition s1 env1 c s2 env2 ⇔
@@ -2553,6 +2553,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[evaluatePropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
+  \\ metis_tac[evaluatePropsTheory.evaluate_prog_ffi_mono_clock,
+               evaluatePropsTheory.io_events_mono_def,
+               LESS_EQ_CASES,FST]);
 
 val _ = export_theory ();
