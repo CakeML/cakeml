@@ -9,7 +9,7 @@ val _ = overload_on ("fail", ``NONE``)
 val _ = overload_on ("SOME", ``SOME``)
 val _ = overload_on ("NONE", ``NONE``)
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = overload_on ("monad_unit_bind", ``OPTION_IGNORE_BIND``)
+val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 val _ = overload_on ("++", ``OPTION_CHOICE``)
 
 (* TODO: move candidates follow *)
