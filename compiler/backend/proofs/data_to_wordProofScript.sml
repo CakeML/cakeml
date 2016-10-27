@@ -113,23 +113,6 @@ val PERM_ALL_DISTINCT_MAP = Q.prove(
   \\ `PERM (MAP f xs) (MAP f ys)` by full_simp_tac(srw_ss())[PERM_MAP]
   \\ metis_tac [ALL_DISTINCT_PERM])
 
-val GENLIST_I =
-  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
-    |> SIMP_RULE std_ss []
-
-val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
-  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
-  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
-
-val PERM_list_rearrange = Q.prove(
-  `!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)`,
-  srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
-  \\ full_simp_tac(srw_ss())[mem_list_rearrange]
-  \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
-  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
-
 val ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME = Q.prove(
   `!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y`,
   Induct \\ full_simp_tac(srw_ss())[]

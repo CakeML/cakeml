@@ -2138,6 +2138,23 @@ val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
   >- metis_tac[]>>
   qexists_tac `g n`>>full_simp_tac(srw_ss())[])
 
+val GENLIST_I =
+  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
+    |> SIMP_RULE std_ss []
+
+val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
+  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
+  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
+
+val PERM_list_rearrange = store_thm("PERM_list_rearrange",
+  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
+  srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
+  \\ full_simp_tac(srw_ss())[mem_list_rearrange]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
+
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
     !wl m d s wl1 m1 s1.
