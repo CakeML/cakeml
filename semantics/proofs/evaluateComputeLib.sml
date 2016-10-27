@@ -4,7 +4,7 @@ open semanticPrimitivesTheory evaluateTheory
 
   val add_evaluate_compset = computeLib.extend_compset
     [computeLib.Extenders [semanticsComputeLib.add_ast_compset]
-    ,computeLib.Tys [``:'ffi state``]
+    ,computeLib.Tys [``:'ffi semanticPrimitives$state``]
     ,computeLib.Defs
       [evaluate_def
       ,evaluate_decs_def
