@@ -201,7 +201,7 @@ val find_match_drop_no_match = Q.store_thm ("find_match_drop_no_match",
      \\ rw [find_match_def, is_const_con_pat_bindings_empty]
 )
 
-val find_match_may_drop = Q.store_thm ("find_match_may_drop",
+val find_match_may_drop_dup = Q.store_thm ("find_match_may_drop_dup",
     `! a b. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a))) ==>
      ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
      Induct
@@ -249,7 +249,7 @@ val isPcon_isPvar = Q.store_thm("isPcon_isPvar",
 
 val find_match_may_reord = Q.store_thm("find_match_may_reord",
     `! a b. is_const_con (FST b) /\ ¬((MEM (FST b) (MAP FST a)))
-            /\ EVERY (isPcon o FST) a /\
+            /\ EVERY isPcon (MAP FST a) /\
             find_match refs v (a ++ [b] ++ c) ≠ Match_type_error
             ==> 
         find_match refs v (a ++ [b] ++ c) = find_match refs v (b::a++c) `,
@@ -262,7 +262,7 @@ val find_match_may_reord = Q.store_thm("find_match_may_reord",
         imp_res_tac isPcon_isPvar \\
         imp_res_tac pmatch_same_match  )
     >- (
-      CCONTR_TAC \\ fs[o_DEF] \\
+      CCONTR_TAC \\ fs[EVERY_MAP] \\
       first_x_assum(qspec_then`b`mp_tac) \\ rw[] )
     >- (
       CCONTR_TAC \\ fs[]
@@ -288,6 +288,10 @@ val (reord_rules,reord_ind,reord_cases) = Hol_reln`
    EVERY isPcon (MAP FST a) ==>
    reord (a ++ [b] ++ c) ([b] ++ a ++ c))`;
 
+val is_const_con_is_Pcon = Q.store_thm("is_const_con_is_Pcon",
+  `is_const_con x ==> isPcon x`,
+  Cases_on`x` \\ rw[isPcon_def,is_const_con_def]);
+
 val const_cons_sep_def=Define `
     (const_cons_sep [] a const_cons = (const_cons,a) ) /\
     (const_cons_sep (b::c) a const_cons=
@@ -297,8 +301,53 @@ val const_cons_sep_def=Define `
                 if MEM (FST b) (MAP FST const_cons) then
                      const_cons_sep c a const_cons
                 else const_cons_sep c a (b::const_cons)
-        else const_cons_sep c (b::a) const_cons)
-`
+        else if isPcon (FST b) then
+            const_cons_sep c (b::a) const_cons
+        else (const_cons, REVERSE (b::c)++a))
+            `
+val const_cons_sep_reord = Q.store_thm("const_cons_sep_reord", 
+    `! a const_cons. 
+        const_cons_sep pes a const_cons = (const_cons', a') /\
+        EVERY isPcon (MAP FST a) /\
+        EVERY ($~ o is_const_con) (MAP FST a) /\
+        EVERY is_const_con (MAP FST const_cons) 
+         ==> 
+        reord^* (const_cons ++ (REVERSE a) ++ pes) (const_cons' ++ (REVERSE a')) `,
+    Induct_on `pes` \\ fs [] \\ rw [const_cons_sep_def]
+    >- (
+        rw []
+        \\ match_mp_tac RTC_SUBSET
+        \\ rw [reord_cases]
+    )
+    >- (
+       rw [Once RTC_CASES1]
+       \\ disj2_tac
+       \\ fs []
+       \\ first_x_assum drule \\ strip_tac
+       \\ rfs []
+       \\ HINT_EXISTS_TAC
+       \\ rw [reord_cases]
+       \\ METIS_TAC [APPEND_ASSOC, MEM_APPEND, MAP_APPEND]
+    )
+    >-(
+      fs [] 
+      \\ first_x_assum drule \\ strip_tac
+      \\ rfs []
+      \\ rw [Once RTC_CASES1]
+      \\ disj2_tac
+      \\ HINT_EXISTS_TAC
+      \\ rw [reord_cases]
+      \\ disj2_tac \\ disj2_tac
+      \\ qexists_tac`const_cons++REVERSE a`
+      \\ simp[MAP_REVERSE,EVERY_REVERSE]
+      \\ fs[EVERY_MEM,MEM_MAP]
+      \\ metis_tac[is_const_con_is_Pcon] )
+    >- (
+      first_x_assum drule \\ strip_tac
+      \\ rfs[]
+      \\ metis_tac[CONS_APPEND,APPEND_ASSOC] )
+    >- (
+      rw[REVERSE_APPEND] ))
 
 val evaluate_match_find_match_none = Q.store_thm ("evaluate_match_find_match_none",
     `(!env. find_match s.refs v pes ≠ Match env) ==>
@@ -329,6 +378,20 @@ val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match_som
     \\ TOP_CASE_TAC \\ fs[]
 )
 
+val find_match_preserved_reord = Q.store_thm("find_match_preserved_reord", 
+    `! pes pes'. reord pes pes' ==> find_match refs v pes <> Match_type_error ==> find_match refs v pes = find_match refs v pes'`,
+    ho_match_mp_tac reord_ind
+    \\ strip_tac 
+    >-( 
+        METIS_TAC [find_match_drop_after_pvar]
+    )
+    \\ strip_tac
+    >- (
+        METIS_TAC [find_match_may_drop_dup]
+    )
+    \\ METIS_TAC [find_match_may_reord, APPEND_ASSOC, CONS_APPEND] 
+)
+
 (*
 val evaluate_match_find_match = Q.store_thm("evaluate_match_find_match",
     `(find_match s.refs v (MAP FST pes) = None ==> 
@@ -343,6 +406,8 @@ val evaluate_match_find_match = Q.store_thm("evaluate_match_find_match",
 )
 *)
 
+val cons_cons_sep_meh_reord = Q.store_thm("cons_cons_sep_meh_reord", 
+    ` `
 
 val cons_cons_sep_meh = Q.store_thm("const_cons_sep_meh",
     ` find_match s.refs v (MAP FST (x++[y]++)) `
