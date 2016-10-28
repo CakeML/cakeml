@@ -1443,16 +1443,16 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
   fs[AND_IMP_INTRO]>>rfs[]>>
   impl_tac>-
     (unabbrev_all_tac>>fs[]>>rw[]
-    >- cheat (*
-      (simp[bind_var_list2_append] >>
+    >- (
+      simp[bind_var_list2_append] >>
       match_mp_tac tenv_val_ok_bvl2 >> simp[] >>
-      imp_res_tac type_top_tenv_ok >>
-      fs [num_tvs_bvl2, num_tvs_def]) *)
-    >- cheat (*
-      (fs[typeSoundInvariantsTheory.tenv_mod_ok_def]>>
+      imp_res_tac type_top_tenv_val_ok >> rfs[] >>
+      fs [num_tvs_bvl2, num_tvs_def])
+    >- (
+       fs[typeSoundInvariantsTheory.tenv_mod_ok_def]>>
        match_mp_tac fevery_funion >> simp[] >>
-       imp_res_tac type_top_tenv_ok >>
-       fs [num_tvs_bvl2, num_tvs_def]) *)
+       imp_res_tac type_top_tenv_val_ok >>
+       fs [num_tvs_bvl2, num_tvs_def])
     >- metis_tac[check_menv_def,fevery_funion]
     >- fs[menv_alpha_def,fmap_rel_FUNION_rels]
     >- metis_tac[tenv_ctor_ok_merge,check_cenv_tenvC_ok]
