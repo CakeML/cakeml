@@ -853,16 +853,17 @@ val infer_ds_complete = prove(``
   fs[AND_IMP_INTRO]>>
   impl_tac>-
     (rw[Abbr`tenv''`,Abbr`ienv'`]>>fs[]
-    >- cheat (*
-      (fs[bind_var_list2_append]>>
-      match_mp_tac tenv_val_ok_bvl2>>
-      fs[typeSoundInvariantsTheory.tenv_val_ok_def,tenv_val_ok_bind_var_list2]>>
-      imp_res_tac type_d_tenv_ok>>fs[num_tvs_bvl2,num_tvs_def]) *)
-    >- cheat (*
-      (fs[tenv_ctor_ok_merge]>>
-      imp_res_tac type_d_ctMap_ok >>
-      match_mp_tac ctMap_ok_tenvC_ok >> rfs[] >>
-      metis_tac[MAP_REVERSE,ALL_DISTINCT_REVERSE]) *)
+    >- (
+      fs[bind_var_list2_append]>>
+      match_mp_tac tenv_val_ok_bvl2>> fs[] >>
+      drule type_d_tenv_val_ok >>
+      fs[num_tvs_bvl2,num_tvs_def])
+    >- (
+      fs[tenv_ctor_ok_merge]>>
+      drule typeSysPropsTheory.type_d_tenv_ok >>
+      impl_tac >> fs[typeSoundInvariantsTheory.tenv_ok_def] >>
+      fs[extend_env_new_decs_def,tenv_ctor_ok_merge]
+      )
     >-
       (match_mp_tac tenv_tabbrev_ok_merge>>
       fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def]>>
