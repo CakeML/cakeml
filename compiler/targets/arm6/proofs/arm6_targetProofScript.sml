@@ -805,6 +805,13 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
             )
          >- (
             (*--------------
+                Div
+              --------------*)
+            print_tac "LongDiv"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
                 LongMul
               --------------*)
             print_tac "LongMul"

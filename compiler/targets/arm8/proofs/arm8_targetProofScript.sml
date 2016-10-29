@@ -772,6 +772,16 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             )
          >- (
             (*--------------
+                Div
+              --------------*)
+            print_tac "Div"
+            \\ next_tac `0`
+            \\ enc_rwts_tac
+            \\ next_state_tac01
+            \\ state_tac []
+            )
+         >- (
+            (*--------------
                 LongMul
               --------------*)
             print_tac "LongMul"

@@ -87,6 +87,7 @@ val () = Datatype `
 val () = Datatype `
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
+        | Div reg reg reg
         | LongMul reg reg reg reg
         | LongDiv reg reg reg reg reg
         | AddCarry reg reg reg reg`
@@ -146,6 +147,7 @@ val reg_imm_ok_def = Define `
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
   (reg_imm_ok b (Imm w) c = c.valid_imm b w)`
 
+(* Requires register inequality for some architectures *)
 val arith_ok_def = Define `
   (arith_ok (Binop b r1 r2 ri) c =
      (* note: register to register moves can be implmented with
@@ -156,18 +158,20 @@ val arith_ok_def = Define `
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
+  (arith_ok (Div r1 r2 r3) c =
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
+     c.ISA IN {ARMv8; MIPS; RISC_V}) /\
   (arith_ok (LongMul r1 r2 r3 r4) c =
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
      ((c.ISA = ARMv6) ==> r1 <> r2) /\
-     (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r2 <> r3 /\ r2 <> r4)) /\
+     (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
   (arith_ok (LongDiv r1 r2 r3 r4 r5) c =
-     (c.ISA = x86_64) /\
-     (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\ reg_ok r5 c) /\
+     (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\
+     reg_ok r5 c) /\
   (arith_ok (AddCarry r1 r2 r3 r4) c =
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
-     (* Require register inequality for some architectures *)
      (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4))`
 
 val cmp_ok_def = Define `

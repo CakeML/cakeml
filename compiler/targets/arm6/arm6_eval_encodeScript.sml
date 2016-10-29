@@ -10,10 +10,10 @@ val () = new_theory "arm6_eval_encode"
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
-  val n = ["skip", "const", "binop reg", "binop imm", "shift", "long mul",
-           "long div", "add carry", "load", (* "load32", *) "load8", "store",
-           (* "store32", *) "store8", "jump", "cjump reg", "cjump imm", "call",
-           "jump reg", "loc"]
+  val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
+           "long mul", "long div", "add carry", "load", (* "load32", *) "load8",
+           "store", (* "store32", *) "store8", "jump", "cjump reg", "cjump imm",
+           "call", "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS arm6_enc_def)
   val thm =  Q.SPEC `f` boolTheory.LET_THM
   val bits30 =
