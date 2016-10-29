@@ -1,6 +1,6 @@
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory evalPropsTheory bigClockTheory;
+     determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory;
 open mlstringTheory integerTheory;
 open terminationTheory;
 

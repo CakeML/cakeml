@@ -1,4 +1,4 @@
-open preamble bigStepTheory;
+open preamble;
 val _ = new_theory "decLang"
 
 (* Removes declarations. Follows conLang.

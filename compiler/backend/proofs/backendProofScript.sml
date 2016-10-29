@@ -1304,6 +1304,7 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[source_to_modProofTheory.v_rel_cases] >>
     rw[prim_config_eq] >>
     Cases_on`ffi`>>rw[ffiTheory.ffi_state_component_equality] >>
+    fs[semanticPrimitivesTheory.merge_alist_mod_env_def] >>
     CONV_TAC(PATH_CONV"brrrllr"(REWRITE_CONV[DOMSUB_FUPDATE_THM] THENC EVAL)) >>
     rpt(CHANGED_TAC(CONV_TAC(PATH_CONV"brrrllr"(REWRITE_CONV[FRANGE_FUPDATE,DRESTRICT_FUPDATE] THENC EVAL)))) >>
     rw[DRESTRICT_DRESTRICT] >>

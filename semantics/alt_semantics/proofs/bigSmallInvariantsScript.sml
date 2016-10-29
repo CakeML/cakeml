@@ -112,7 +112,13 @@ evaluate_ctxt env s (Ccon cn vs ()  es) v (s, Rerr (Rabort Rtype_error)))
 (do_con_check env.c cn ((LENGTH vs + LENGTH es) + 1) /\
 evaluate_list F env s es (s', Rerr err))
 ==>
-evaluate_ctxt env s (Ccon cn vs ()  es) v (s', Rerr err))`;
+evaluate_ctxt env s (Ccon cn vs ()  es) v (s', Rerr err))
+
+/\ (! env v s t.
+T
+==>
+evaluate_ctxt env s (Ctannot ()  t) v (s, Rval v))`;
+
 
 val _ = Hol_reln ` (! res s.
 T

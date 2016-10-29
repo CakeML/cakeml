@@ -1,7 +1,9 @@
-open preamble funBigStepTheory funBigStepEquivTheory bigClockTheory determTheory;
+open preamble evaluateTheory;
 open terminationTheory
+open semanticPrimitivesTheory;
+open semanticPrimitivesPropsTheory;
 
-val _ = new_theory"funBigStepProps"
+val _ = new_theory"evaluateProps"
 
 val call_FFI_rel_def = Define `
   call_FFI_rel s1 s2 <=> ?n bytes t. call_FFI s1 n bytes = (s2,t)`;
@@ -35,7 +37,7 @@ val call_FFI_rel_io_events_mono = Q.store_thm("call_FFI_rel_io_events_mono",
 val do_app_call_FFI_rel = Q.store_thm("do_app_call_FFI_rel",
   `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    call_FFI_rel^* ffi ffi'`,
-  srw_tac[][evalPropsTheory.do_app_cases] >> rw[] >>
+  srw_tac[][do_app_cases] >> rw[] >>
   match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >>
   metis_tac[]);
 
@@ -136,18 +138,111 @@ val evaluate_tops_io_events_mono_imp = Q.store_thm("evaluate_tops_io_events_mono
      io_events_mono s.ffi s'.ffi`,
   metis_tac[PAIR,FST,evaluate_tops_io_events_mono])
 
-val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
-  `evaluate s e p = (s',r) ∧
-   r ≠ Rerr (Rabort Rtimeout_error) ⇒
-   evaluate (s with clock := s.clock + extra) e p =
-   (s' with clock := s'.clock + extra,r)`,
-  srw_tac[][] >>
-  imp_res_tac functional_evaluate_list >>
-  imp_res_tac add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
-  Cases_on`evaluate (s with clock := s.clock + extra) e p` >>
-  Cases_on`r'` >>
-  imp_res_tac functional_evaluate_list >>
-  metis_tac[big_exp_determ,PAIR_EQ])
+val evaluate_add_to_clock_lemma = Q.prove(
+  `(!(s:'ffi state) env es s' r extra.
+    evaluate s env es = (s',r) ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ⇒
+    evaluate (s with clock := s.clock + extra) env es =
+    (s' with clock := s'.clock + extra,r)) ∧
+   (!(s:'ffi state) env v pes err_v s' r extra.
+    evaluate_match s env v pes err_v = (s', r) ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ⇒
+    evaluate_match (s with clock := s.clock + extra) env v pes err_v =
+      (s' with clock := s'.clock + extra,r))`,
+ (* The proof is fragile about generated names, but I don't see how to make it
+  * robust without significant effort *)
+ ho_match_mp_tac evaluate_ind
+ >> rw [evaluate_def]
+ >- (
+   Cases_on `evaluate s env [e1]`
+   >> Cases_on `r'`
+   >> fs []
+   >> Cases_on `evaluate q env (e2::es)`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw [])
+ >- (
+   Cases_on `evaluate s env [e]`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw [])
+ >- (
+   Cases_on `evaluate s env [e]`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw []
+   >> Cases_on `e'`
+   >> fs []
+   >> rw []
+   >> fs [])
+ >- (
+   Cases_on `evaluate s env (REVERSE es)`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw []
+   >> CASE_TAC
+   >> fs [])
+ >- (
+   CASE_TAC
+   >> fs [])
+ >- (
+   Cases_on `evaluate s env (REVERSE es)`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw []
+   >- (
+     every_case_tac
+     >> fs []
+     >> rfs [dec_clock_def]
+     >> first_x_assum (qspec_then `extra` mp_tac)
+     >> simp [])
+   >- (
+     fs []
+     >> CASE_TAC
+     >> fs []
+     >> every_case_tac
+     >> fs []
+     >> rw []))
+ >- (
+   Cases_on `evaluate s env [e1]`
+   >> fs []
+   >> Cases_on `r'`
+   >> fs []
+   >> rw []
+   >> rw []
+   >> CASE_TAC
+   >> fs []
+   >> every_case_tac
+   >> fs [])
+ >- (
+   Cases_on `evaluate s env [e1]`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw []
+   >> every_case_tac
+   >> fs []
+   >> rw [])
+ >- (
+   Cases_on `evaluate s env [e]`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw [])
+ >- (
+   Cases_on `evaluate s env [e1]`
+   >> Cases_on `r'`
+   >> fs []
+   >> rw []
+   >> every_case_tac
+   >> fs []
+   >> rw [])
+ >- (
+   CASE_TAC
+   >> fs []));
+
+val evaluate_add_to_clock = save_thm("evaluate_add_to_clock",
+  CONJUNCT1 evaluate_add_to_clock_lemma);
+val evaluate_match_add_to_clock = save_thm("evaluate_match_add_to_clock",
+  CONJUNCT2 evaluate_add_to_clock_lemma);
 
 val list_result_eq_Rval = Q.store_thm("list_result_eq_Rval[simp]",
   `list_result r = Rval r' ⇔ ∃v. r' = [v] ∧ r = Rval v`,
@@ -173,6 +268,95 @@ val evaluate_length = Q.store_thm("evaluate_length",
   srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][])
 
+val evaluate_nil = Q.store_thm("evaluate_nil[simp]",
+  `∀(s:'ffi state) env. evaluate s env [] = (s,Rval [])`,
+ rw [evaluate_def]);
+
+val evaluate_sing = Q.store_thm("evaluate_sing",
+  `∀(s:'ffi state) env e s' vs. evaluate s env [e] = (s',Rval vs) ⇒ ∃v. vs = [v]`,
+ rw []
+ >> imp_res_tac evaluate_length
+ >> Cases_on `vs`
+ >> fs []
+ >> Cases_on `t`
+ >> fs []);
+
+val evaluate_cons = Q.store_thm ("evaluate_cons",
+ `∀(s:'ffi state) env e es.
+   evaluate s env (e::es) =
+     case evaluate s env [e] of
+     | (s', Rval vs) =>
+      (case evaluate s' env es of
+       | (s'', Rval vs') => (s'', Rval (vs++vs'))
+       | err => err)
+     | err => err`,
+ Cases_on `es`
+ >> rw [evaluate_def]
+ >- every_case_tac
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate _ _ _ = (st',r)`
+ >> Cases_on `r`
+ >> simp []
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate _ _ (e'::es) = (st'',r)`
+ >> Cases_on `r`
+ >> simp []
+ >> drule evaluate_sing
+ >> rw []);
+
+val evaluate_length = Q.store_thm("evaluate_length",
+  `(∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
+   (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1)`,
+  ho_match_mp_tac evaluate_ind >>
+  srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][])
+
+val evaluate_decs_nil = Q.store_thm("evaluate_decs_nil[simp]",
+  `∀mn (s:'ffi state) env. evaluate_decs mn s env [] = (s,[],Rval [])`,
+ rw [evaluate_decs_def]);
+
+val evaluate_decs_cons = Q.store_thm ("evaluate_decs_cons",
+ `∀mn (s:'ffi state) env d ds.
+   evaluate_decs mn s env (d::ds) =
+     case evaluate_decs mn s env [d] of
+     | (s', ctors, Rval new_vals) =>
+      (case evaluate_decs mn s' (extend_dec_env new_vals ctors env) ds of
+       | (s'', ctors', r) => (s'', ctors'++ctors, combine_dec_result new_vals r)
+       | err => err)
+     | err => err`,
+ Cases_on `ds`
+ >> rw [evaluate_decs_def]
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate_decs _ _ _ _ = (s',ctors,r)`
+ >> Cases_on `r`
+ >> simp [combine_dec_result_def]);
+
+val evaluate_tops_nil = Q.store_thm("evaluate_tops_nil[simp]",
+  `∀(s:'ffi state) env. evaluate_tops s env [] = (s,([],[]),Rval ([],[]))`,
+ rw [evaluate_tops_def]);
+
+val evaluate_tops_cons = Q.store_thm ("evaluate_tops_cons",
+ `∀(s:'ffi state) env top tops.
+   evaluate_tops s env (top::tops) =
+     case evaluate_tops s env [top] of
+     | (s', ctors, Rval (new_mods, new_vals)) =>
+      (case evaluate_tops s' (extend_top_env new_mods new_vals ctors env) tops of
+       | (s'', ctors', r) => (s'', merge_alist_mod_env ctors' ctors, combine_mod_result new_mods new_vals r)
+       | err => err)
+     | err => err`,
+ Cases_on `tops`
+ >> rw [evaluate_tops_def]
+ >> split_pair_case_tac
+ >> simp []
+ >> rename1 `evaluate_tops _ _ _ = (s',ctors,r)`
+ >> Cases_on `r`
+ >> simp [combine_mod_result_def]
+ >> split_pair_case_tac
+ >> simp []);
+
 val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
   `evaluate_match s e v p er = (s',r) ⇒
    ∃r'. r = list_result r'`,
@@ -181,46 +365,166 @@ val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
     Cases_on`a` >> full_simp_tac(srw_ss())[LENGTH_NIL],all_tac] >>
   metis_tac[list_result_def]);
 
-val evaluate_match_add_to_clock = Q.store_thm("evaluate_match_add_to_clock",
-  `evaluate_match s e v p er = (s',r) ∧
-   r ≠ Rerr (Rabort Rtimeout_error) ⇒
-   evaluate_match (s with clock := s.clock + extra) e v p er =
-   (s' with clock := s'.clock + extra,r)`,
-  srw_tac[][] >>
-  imp_res_tac evaluate_match_list_result >> srw_tac[][] >>
-  imp_res_tac functional_evaluate_match >>
-  imp_res_tac add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[list_result_eq_Rerr] >> rev_full_simp_tac(srw_ss())[] >>
-  simp[functional_evaluate_match]);
-
 val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
-  `evaluate_decs m s e p = (s',c,r) ∧
+  `!m s e p s' c r extra.
+   evaluate_decs m s e p = (s',c,r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
    evaluate_decs m (s with clock := s.clock + extra) e p =
    (s' with clock := s'.clock + extra,c,r)`,
-  srw_tac[][] >>
-  imp_res_tac functional_evaluate_decs >>
-  imp_res_tac decs_add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
-  Cases_on`evaluate_decs m (s with clock := s.clock + extra) e p` >>
-  Cases_on`r'` >>
-  imp_res_tac functional_evaluate_decs >>
-  metis_tac[decs_determ,PAIR_EQ])
+  ho_match_mp_tac evaluate_decs_ind
+  >> rw [evaluate_decs_def]
+  >- (
+    pop_assum mp_tac
+    >> pop_assum mp_tac
+    >> CASE_TAC
+    >> CASE_TAC
+    >> CASE_TAC
+    >> fs []
+    >> rw []
+    >> fs []
+    >> pop_assum mp_tac
+    >> pop_assum mp_tac
+    >> split_pair_case_tac
+    >> rw []
+    >> fs []
+    >> Cases_on `r'`
+    >> fs []
+    >> Cases_on `e'`
+    >> fs [combine_dec_result_def])
+  >- (
+    every_case_tac
+    >> fs []
+    >> rw []
+    >> imp_res_tac evaluate_add_to_clock
+    >> fs []
+    >> rw []
+    >> fs []
+    >> rw [])
+  >> rw []);
 
 val evaluate_tops_add_to_clock = Q.store_thm("evaluate_tops_add_to_clock",
-  `evaluate_tops s e p = (s',c,r) ∧
+ `!s e p s' c r extra.
+   evaluate_tops s e p = (s',c,r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
    evaluate_tops (s with clock := s.clock + extra) e p =
    (s' with clock := s'.clock + extra,c,r)`,
-  srw_tac[][] >>
-  imp_res_tac functional_evaluate_tops >>
-  imp_res_tac prog_add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
-  Cases_on`evaluate_tops (s with clock := s.clock + extra) e p` >>
-  Cases_on`r'` >>
-  imp_res_tac functional_evaluate_tops >>
-  metis_tac[prog_determ,PAIR_EQ])
+ ho_match_mp_tac evaluate_tops_ind
+ >> rw [evaluate_tops_def]
+ >- (
+   pop_assum mp_tac
+   >> pop_assum mp_tac
+   >> split_pair_case_tac
+   >> fs []
+   >> CASE_TAC
+   >> simp []
+   >> fs []
+   >- (
+     CASE_TAC
+     >> fs []
+     >> split_pair_case_tac
+     >> simp []
+     >> rw []
+     >> Cases_on `r''`
+     >> fs [combine_mod_result_def])
+   >- (
+     rw []
+     >> fs []))
+ >- (
+   every_case_tac
+   >> fs []
+   >> rw []
+   >> imp_res_tac evaluate_decs_add_to_clock
+   >> fs [])
+ >- (
+   every_case_tac
+   >> fs []
+   >> rw []
+   >> imp_res_tac evaluate_decs_add_to_clock
+   >> fs []
+   >> rw []));
+
+val add_lemma = Q.prove (
+ `!(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra`,
+ intLib.ARITH_TAC);
+
+val with_clock_with_clock = Q.prove (
+`((s with clock := x) with clock := y) = s with clock := y`,
+ rw []);
 
 val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+
+val tac1 =
+  metis_tac[result_distinct,result_11,evaluate_tops_add_to_clock,
+            error_result_11,error_result_distinct,option_nchotomy,
+            abort_distinct,pair_CASES,FST,with_clock_ffi,
+            PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR, add_lemma,
+            state_component_equality, with_clock_with_clock]
+
+val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
+`!s e p s1 c1 r1 s2 c2 r2 k1 k2.
+  evaluate_prog (s with clock := k1) e p = (s1,c1,r1) ∧
+  evaluate_prog (s with clock := k2) e p = (s2,c2,r2)
+  ⇒
+  case (r1,r2) of
+  | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
+    T
+  | (Rerr (Rabort Rtimeout_error), _) =>
+    k1 < k2
+  | (_, Rerr (Rabort Rtimeout_error)) =>
+    k2 < k1
+  | _ =>
+    s1.ffi = s2.ffi ∧ c1 = c2 ∧ r1 = r2`,
+ rw []
+ >> Cases_on `r2 = Rerr (Rabort Rtimeout_error)`
+ >> Cases_on `r1 = Rerr (Rabort Rtimeout_error)`
+ >> fs []
+ >> fs []
+ >> fs []
+ >> rw []
+ >- (
+   `k2 < k1` suffices_by (every_case_tac >> fs [])
+   >> CCONTR_TAC
+   >> fs [evaluate_prog_def]
+   >> every_case_tac
+   >> fs []
+   >> `?extra. k2 = k1 + extra` by intLib.ARITH_TAC
+   >> qpat_x_assum `evaluate_tops _ _ _ = _` mp_tac
+   >> drule evaluate_tops_add_to_clock
+   >> rw [])
+ >- (
+   `k1 < k2` suffices_by (every_case_tac >> fs [])
+   >> CCONTR_TAC
+   >> fs [evaluate_prog_def]
+   >> every_case_tac
+   >> fs []
+   >> `?extra. k1 = k2 + extra` by intLib.ARITH_TAC
+   >> drule evaluate_tops_add_to_clock
+   >> fs []
+   >> qexists_tac `extra`
+   >> simp [])
+ >- (
+   fs [evaluate_prog_def]
+   >> qpat_x_assum `(if _ then _ else _) = _` mp_tac
+   >> CASE_TAC
+   >> rw []
+   >> rw []
+   >> qspecl_then [`k1`, `k2`] strip_assume_tac add_lemma
+   >> var_eq_tac
+   >| [
+     drule evaluate_tops_add_to_clock
+       >> simp []
+       >> disch_then (qspec_then `extra` mp_tac)
+       >> rw [],
+     qpat_x_assum `evaluate_tops _ _ _ = _` mp_tac
+       >> drule evaluate_tops_add_to_clock
+       >> simp []
+       >> disch_then (qspec_then `extra` mp_tac)
+       >> rw []]
+   >> every_case_tac
+   >> fs []
+   >> rw []));
+
 val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
@@ -276,7 +580,8 @@ val evaluate_tops_add_to_clock_io_events_mono = Q.store_thm("evaluate_tops_add_t
 
 val with_clock_clock = Q.prove(
   `(s with clock := k).clock = k`,
-  EVAL_TAC)
+  EVAL_TAC);
+
 val with_clock_with_clock = Q.prove(
   `((s with clock := k1) with clock := k2) = s with clock := k2`,
   EVAL_TAC)
@@ -293,4 +598,33 @@ val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
   metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
 
-val _ = export_theory()
+val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
+ `(!(st:'ffi state) env es st' r.
+    evaluate st env es = (st', r)
+    ⇒
+    st'.defined_types = st.defined_types ∧
+    st'.defined_mods = st.defined_mods) ∧
+  (!(st:'ffi state) env v pes err_v st' r.
+    evaluate_match st env v pes err_v = (st', r)
+    ⇒
+    st'.defined_types = st.defined_types ∧
+    st'.defined_mods = st.defined_mods)`,
+ ho_match_mp_tac evaluate_ind
+ >> rw [evaluate_def]
+ >> every_case_tac
+ >> fs []
+ >> rw [dec_clock_def]);
+
+val evaluate_decs_state_unchanged = Q.store_thm ("evaluate_decs_state_unchanged",
+ `!mn st env ds st' new_ctors r.
+  evaluate_decs mn st env ds = (st',new_ctors,r)
+  ⇒
+  st.defined_mods = st'.defined_mods`,
+ ho_match_mp_tac evaluate_decs_ind
+ >> rw [evaluate_decs_def]
+ >> every_case_tac
+ >> fs []
+ >> rw []
+ >> metis_tac [evaluate_state_unchanged]);
+
+val _ = export_theory();

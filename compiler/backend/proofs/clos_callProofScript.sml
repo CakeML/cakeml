@@ -1937,7 +1937,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ pop_assum mp_tac \\ EVAL_TAC)
     \\ strip_tac \\ fs []
     \\ qexists_tac `ck` \\ fs []
-    \\ every_case_tac \\ fs [evalPropsTheory.result_rel_def,PULL_EXISTS]
+    \\ every_case_tac \\ fs [semanticPrimitivesPropsTheory.result_rel_def,PULL_EXISTS]
     \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH
     \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])
   (* Handle *)

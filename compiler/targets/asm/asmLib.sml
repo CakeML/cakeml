@@ -51,6 +51,7 @@ local
      `Inst (Arith (Binop b r1 r2 (Reg r3))) : 'a asm`,
      `Inst (Arith (Binop b r1 r2 (Imm w))) : 'a asm`,
      `Inst (Arith (Shift s r1 r2 n)) : 'a asm`,
+     `Inst (Arith (Div r1 r2 r3)) : 'a asm`,
      `Inst (Arith (LongMul r1 r2 r3 r4)) : 'a asm`,
      `Inst (Arith (LongDiv r1 r2 r3 r4 r5)) : 'a asm`,
      `Inst (Arith (AddCarry r1 r2 r3 r4)) : 'a asm`,
@@ -161,18 +162,9 @@ in
                   bytes_in_memory_concat
                   |> Drule.ISPECL [l1, l2]
                   |> Conv.CONV_RULE
-                       (Conv.LAND_CONV
-                          (Conv.RATOR_CONV
-                             (Conv.RATOR_CONV
-                                (Conv.RAND_CONV listLib.APPEND_CONV)))
-                        THENC Conv.RAND_CONV
-                                (Conv.RAND_CONV
-                                   (Conv.RATOR_CONV
-                                      (Conv.RATOR_CONV
-                                            (Conv.RATOR_CONV
-                                               (Conv.RAND_CONV
-                                                  (Conv.DEPTH_CONV
-                                                     listLib.LENGTH_CONV)))))))
+                       (Conv.PATH_CONV "lrllr" listLib.APPEND_CONV
+                        THENC Conv.PATH_CONV "rrlllr"
+                                (Conv.DEPTH_CONV listLib.LENGTH_CONV))
             in
                qpat_x_assum `asmSem$bytes_in_memory ^pc ^l ^mem ^mem_domain`
                   (fn thm =>
@@ -292,8 +284,8 @@ fun asm_cases_tac i =
     Q.MATCH_GOALSUB_RENAME_TAC `Inst i`
     \\ Cases_on `i`
     >| [
-      all_tac,
-      all_tac,
+      all_tac, (* Skip *)
+      all_tac, (* Concst *)
       Q.MATCH_GOALSUB_RENAME_TAC `Arith a`
       \\ Cases_on `a`
       >| [
@@ -302,21 +294,22 @@ fun asm_cases_tac i =
         \\ Cases_on `b`,
         Q.MATCH_GOALSUB_RENAME_TAC `Shift s _ _ _`
         \\ Cases_on `s`,
-        all_tac,
-        all_tac,
-        all_tac
+        all_tac, (* Div *)
+        all_tac, (* LongMul *)
+        all_tac, (* LongDiv *)
+        all_tac  (* AddCarry *)
       ],
       Q.MATCH_GOALSUB_RENAME_TAC `Mem m _ a`
       \\ Cases_on `a`
       \\ Cases_on `m`
     ],
-    all_tac,
+    all_tac, (* Jump *)
     Q.MATCH_GOALSUB_RENAME_TAC `JumpCmp c _ r _`
     \\ Cases_on `r`
     \\ Cases_on `c`,
-    all_tac,
-    all_tac,
-    all_tac
+    all_tac, (* Call *)
+    all_tac, (* JumpReg *)
+    all_tac  (* Loc *)
   ]
 
 local

@@ -397,6 +397,13 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
             )
          >- (
             (*--------------
+                Div
+              --------------*)
+            print_tac "Div"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
                 LongMul
               --------------*)
             print_tac "LongMul"

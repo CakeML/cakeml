@@ -1,5 +1,5 @@
 open preamble
-     semanticPrimitivesTheory evalPropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
      mod_to_conTheory conPropsTheory;
 
 val _ = new_theory "mod_to_conProof";
@@ -1100,7 +1100,7 @@ val pat_bindings = Q.prove (
   induct_on `ps` >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[conSemTheory.pat_bindings_def, astTheory.pat_bindings_def, compile_pat_def] >>
-  metis_tac [APPEND_11, evalPropsTheory.pat_bindings_accum, conPropsTheory.pat_bindings_accum]);
+  metis_tac [APPEND_11, semanticPrimitivesPropsTheory.pat_bindings_accum, conPropsTheory.pat_bindings_accum]);
 
 val pmatch_exh_weak = Q.prove (
   `(!(exh:exh_ctors_env) s p v env res exh'.

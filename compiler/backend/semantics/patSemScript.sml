@@ -1,4 +1,4 @@
-open preamble bigStepTheory patLangTheory
+open preamble patLangTheory
 
 val _ = new_theory"patSem"
 

@@ -33,7 +33,8 @@ val _ = Hol_datatype `
   | Clet of  varN option => unit => exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of  ( conN id)option => v list => unit => exp list`;
+  | Ccon of  ( conN id)option => v list => unit => exp list
+  | Ctannot of unit => t`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v environment``);
 
@@ -147,6 +148,8 @@ val _ = Define `
           push env s e (Ccon n (v::vs) ()  es) c
         else
           Eabort Rtype_error
+    | (Ctannot ()  t, env) :: c =>
+        return env s v c
   )))`;
 
 
@@ -161,7 +164,7 @@ val _ = Define `
  (e_step (env, s, ev, c) =  
 ((case ev of
       Val v  =>
-	continue s v c
+        continue s v c
     | Exp e =>
         (case e of
             Lit l => return env s (Litv l) c
@@ -204,6 +207,7 @@ val _ = Define `
               else
                 Estep (( env with<| v := build_rec_env funs env env.v |>),
                        s, Exp e, c)
+          | Tannot e t => push env s e (Ctannot ()  t) c
         )
   )))`;
 

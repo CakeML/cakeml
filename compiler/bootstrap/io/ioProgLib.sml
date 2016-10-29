@@ -181,7 +181,12 @@ fun append_main_call compile_str compile_tm = let
       \\ EVAL_TAC )
     \\ unabbrev_all_tac
     \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
-    \\ strip_tac \\ qexists_tac `k` \\ fs []);
+    \\ strip_tac \\ qexists_tac `k` \\ fs []
+    \\ rw[] \\ pairarg_tac \\ fs[]
+    \\ pop_assum mp_tac
+    \\ drule evaluatePropsTheory.evaluate_prog_clock_determ
+    \\ ntac 2 strip_tac \\ first_x_assum drule
+    \\ fs[] \\ rpt (CASE_TAC \\ fs[]));
 
   in semantics_prog_entire_program end;
 

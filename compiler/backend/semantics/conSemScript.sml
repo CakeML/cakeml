@@ -1,4 +1,4 @@
-open preamble bigStepTheory conLangTheory
+open preamble conLangTheory
 
 val _ = new_theory"conSem"
 

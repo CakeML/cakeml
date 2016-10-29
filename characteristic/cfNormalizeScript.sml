@@ -2,8 +2,8 @@ open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open semanticPrimitivesTheory cfHeapsTheory
 open cfHeapsBaseLib cfStoreTheory
-open cfTacticsBaseLib
-open funBigStepTheory
+open cfTacticsBaseLib;
+open terminationTheory
 open ASCIInumbersTheory
 
 val _ = new_theory "cfNormalize"
@@ -65,7 +65,7 @@ val evaluate_list_rcons = store_thm ("evaluate_rcons",
       fs [terminationTheory.evaluate_def] \\
       last_assum (fn t =>
         progress_with t
-          (CONJ_PAIR funBigStepPropsTheory.evaluate_length |> fst)) \\
+          (CONJ_PAIR evaluatePropsTheory.evaluate_length |> fst)) \\
       fs [LENGTH_EQ_NUM_compute]
     )
     THEN1 (

@@ -2,7 +2,6 @@ open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
 open cfTacticsBaseLib cfHeapsLib
-open funBigStepTheory
 
 val _ = new_theory "cfApp"
 

@@ -23,6 +23,7 @@ type ctxt_frame =
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of maybe (id conN) * list v * unit * list exp
+  | Ctannot of unit * t
 type ctxt = ctxt_frame * environment v
 
 (* State for CEK-style expression evaluation
@@ -126,6 +127,8 @@ let continue s v cs =
           push env s e (Ccon n (v::vs) () es) c
         else
           Eabort Rtype_error
+    | (Ctannot () t, env) :: c ->
+        return env s v c
   end
 
 (* The single step expression evaluator.  Returns None if there is nothing to
@@ -138,7 +141,7 @@ val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi
 let e_step (env, s, ev, c) =
   match ev with
     | Val v  ->
-	continue s v c
+        continue s v c
     | Exp e ->
         match e with
           | Lit l -> return env s (Litv l) c
@@ -181,6 +184,7 @@ let e_step (env, s, ev, c) =
               else
                 Estep (<| env with v = build_rec_env funs env env.v |>,
                        s, Exp e, c)
+          | Tannot e t -> push env s e (Ctannot () t) c
         end
   end
 

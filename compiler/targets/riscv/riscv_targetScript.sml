@@ -91,9 +91,11 @@ val riscv_enc_def = Define`
      riscv_encode (ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i)))) /\
    (riscv_enc (Inst (Arith (Shift sh r1 r2 n))) =
      riscv_encode (Shift (riscv_sh sh (n2w r1, n2w r2, n2w n)))) /\
+   (riscv_enc (Inst (Arith (Div r1 r2 r3))) =
+     riscv_encode (MulDiv (DIVU (n2w r1, n2w r2, n2w r3)))) /\
    (riscv_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
-     riscv_encode (MulDiv (MUL (n2w r2, n2w r3, n2w r4))) ++
-     riscv_encode (MulDiv (MULHU (n2w r1, n2w r3, n2w r4)))) /\
+     riscv_encode (MulDiv (MULHU (n2w r1, n2w r3, n2w r4))) ++
+     riscv_encode (MulDiv (MUL (n2w r2, n2w r3, n2w r4)))) /\
    (riscv_enc (Inst (Arith (LongDiv _ _ _ _ _))) = riscv_encode_fail) /\
    (riscv_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
      riscv_encode (ArithR (SLTU (temp_reg, 0w, n2w r4))) ++
@@ -216,7 +218,7 @@ val riscv_config_def = Define`
        3 - global pointer
        31 - used by encoder above
     *)
-    ; avoid_regs := [0; 2; 3 ; 31]
+    ; avoid_regs := [0; 2; 3; 31]
     ; link_reg := SOME 1
     ; two_reg_arith := F
     ; big_endian := F
