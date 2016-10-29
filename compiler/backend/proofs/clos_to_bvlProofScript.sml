@@ -118,15 +118,8 @@ val el_take_append = Q.prove (
   `!n l x l2. n ≤ LENGTH l ⇒ EL n (TAKE n l ++ [x] ++ l2) = x`,
   Induct_on `l` >>
   srw_tac[][] >>
-  `0 < n` by decide_tac >>
-  srw_tac[][EL_CONS] >>
-  Cases_on `n = SUC (LENGTH l)` >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][PRE_SUB1]
-  >- (first_x_assum (qspec_then `LENGTH l` mp_tac) >>
-      srw_tac[][])
-  >- (first_x_assum (qspec_then `n-1` mp_tac) >>
-      srw_tac [ARITH_ss] []));
+  ONCE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
+  fs[EL_APPEND2,LENGTH_TAKE])
 
 val el_append2 = Q.prove (
   `∀l x. EL (LENGTH l) (l++[x]) = x`,
@@ -199,12 +192,8 @@ val take_drop_lemma = Q.prove (
    ⇒
    TAKE (rem_args + 1) (DROP (LENGTH arg_list − (rem_args + 1)) (arg_list ++ stuff)) =
    DROP (LENGTH arg_list − (rem_args + 1)) arg_list`,
-  Induct_on `arg_list` >>
-  srw_tac[][] >>
-  full_simp_tac (srw_ss() ++ ARITH_ss) [ADD1, TAKE_LENGTH_APPEND] >>
-  `LENGTH arg_list = rem_args` by decide_tac >>
-  srw_tac[][] >>
-  full_simp_tac (srw_ss() ++ ARITH_ss) [ADD1, TAKE_LENGTH_APPEND]);
+  Induct_on `arg_list` >>fs[ADD1]>>rw[]>>
+  Cases_on`rem_args = LENGTH arg_list`>>fs[TAKE_LENGTH_APPEND])
 
 val ETA2_THM = Q.prove (
   `(\x y. f a b c x y) = f a b c`,
