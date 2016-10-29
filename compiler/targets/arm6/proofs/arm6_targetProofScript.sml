@@ -389,6 +389,8 @@ val aligned_add = Q.prove(
    metis_tac [wordsTheory.WORD_ADD_COMM, alignmentTheory.aligned_add_sub]
    )
 
+val _ = diminish_srw_ss ["MOD_ss"]
+
 val adc_lem1 = Q.prove(
   `!r2 r3 : word32 r4 : word32.
       CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
