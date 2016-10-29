@@ -2,7 +2,7 @@ open preamble
      determTheory ml_translatorTheory
      patternMatchesTheory patternMatchesLib;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open determTheory evalPropsTheory bigClockTheory mlstringTheory;
+open determTheory bigStepPropsTheory bigClockTheory mlstringTheory;
 open integerTheory terminationTheory;
 
 val _ = new_theory "ml_pmatch";
@@ -38,6 +38,7 @@ val Pmatch_def = tDefine"Pmatch"`
      if LENGTH ps = LENGTH vs then
        Pmatch env ps vs
      else NONE) ∧
+  (Pmatch env [Ptannot p t] [v] = Pmatch env [p] [v]) ∧
   (Pmatch env _ _ = NONE)`
   (WF_REL_TAC`measure (pat1_size o FST o SND)`)
 
@@ -106,7 +107,8 @@ val pmatch_imp_Pmatch = prove(
     first_x_assum(qspec_then`aenv with v := a`mp_tac)>>simp[]>>
     BasicProvers.CASE_TAC >> simp[Once Pmatch_cons])
   >- (
-    Cases_on`v110`>>simp[Pmatch_def]))
+    qmatch_goalsub_rename_tac`h::t` >>
+    Cases_on`t`>>simp[Pmatch_def]))
   |> SIMP_RULE std_ss []
   |> curry save_thm "pmatch_imp_Pmatch"
 

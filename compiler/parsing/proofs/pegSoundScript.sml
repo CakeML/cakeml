@@ -513,8 +513,21 @@ val peg_sound = store_thm(
       fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >>
       lrresolve X (free_in ``nPatternList``) mp_tac >> simp[] >>
       strip_tac >> rveq >> dsimp[])
-  >- (print_tac "nPattern" >>
-      `NT_rank (mkNT nPapp) < NT_rank (mkNT nPattern)`
+  >- (print_tac "nPattern" >> strip_tac >> rveq >>
+      `NT_rank (mkNT nPcons) < NT_rank (mkNT nPattern)` by simp[NT_rank_def] >>
+      simp[cmlG_FDOM, cmlG_applied]
+      >- (dsimp[APPEND_EQ_CONS] >> csimp[] >>
+          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
+          fs[MAP_EQ_APPEND] >> rveq >> dsimp[] >> fs[] >>
+          rename1`peg_eval _ (inp2, nt (mkNT nType) I)` >>
+          first_x_assum (qspecl_then [`mkNT nType`, `inp2`] mp_tac) >>
+          simp[] >> metis_tac[])
+      >- (dsimp[MAP_EQ_CONS] >> disj1_tac >>
+          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
+      >- (dsimp[MAP_EQ_CONS] >> disj1_tac >>
+          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[]))
+  >- (print_tac "nPcons" >>
+      `NT_rank (mkNT nPapp) < NT_rank (mkNT nPcons)`
         by simp[NT_rank_def] >> strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM]
       >- (lrresolve KEEP (K true) mp_tac >> rpt kill_asm_guard >>

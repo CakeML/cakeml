@@ -1,7 +1,7 @@
 open preamble
      compilerTheory
      semanticsTheory targetSemTheory
-     evalPropsTheory funBigStepEquivTheory typeSoundTheory bigClockTheory
+     evaluatePropsTheory typeSoundTheory
      pegSoundTheory pegCompleteTheory
      inferSoundTheory inferCompleteTheory
      backendProofTheory
@@ -20,7 +20,7 @@ val config_ok_def = Define`
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
-    type_sound_invariants (NONE:(unit,semanticPrimitives$v) semanticPrimitives$result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env) ∧
+    (?ctMap. type_sound_invariant st.sem_st st.sem_env st.tdecs ctMap FEMPTY st.tenv) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
@@ -74,11 +74,8 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ metis_tac[]);
 
 val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
-  `env_rel st.tenv c.inf_env ∧
-   st.tdecs = convert_decls c.inf_decls ∧
-   st.sem_st.defined_mods = st.tdecs.defined_mods ∧
-   consistent_decls st.sem_st.defined_types decls_no_sig ∧
-   weak_decls_only_mods decls_no_sig st.tdecs
+  `env_rel st.tenv c.inf_env
+   ∧ st.tdecs = convert_decls c.inf_decls
    ⇒
    ∃c'. infertype_prog c p = if can_type_prog st p then SOME c' else NONE`,
   strip_tac
@@ -94,17 +91,8 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
     \\ drule infer_prog_sound
     \\ disch_then drule
     \\ strip_tac
-    \\ conj_tac >- ( drule type_no_dup_mods \\ fs[] )
-    \\ conj_tac
-    >- (
-      match_mp_tac (GEN_ALL type_no_dup_top_types)
-      \\ asm_exists_tac \\ simp[]
-      \\ asm_exists_tac \\ simp[]
-      \\ rfs[] )
-    \\ asm_exists_tac
-    \\ simp[] )
-  \\ simp[]
-  \\ spose_not_then strip_assume_tac
+    \\ asm_exists_tac \\ fs[] )
+  \\ rw[] \\ CCONTR_TAC \\ fs[]
   \\ `∃a b c d. new_tenv = (a,b,c,d)` by metis_tac[PAIR]
   \\ rveq
   \\ drule (SIMP_RULE(srw_ss())[GSYM AND_IMP_INTRO]infer_prog_complete) (* TODO: why is AND_IMP_INTRO necessary? *)
@@ -136,9 +124,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ drule (GEN_ALL infertype_prog_correct)
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
-  \\ rator_assum`type_sound_invariants`(strip_assume_tac o SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariants_def])
+  \\ rator_assum`type_sound_invariant`(strip_assume_tac o SIMP_RULE std_ss [typeSoundTheory.type_sound_invariant_def])
   \\ rfs[]
-  \\ disch_then drule \\ simp[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
   \\ BasicProvers.CASE_TAC \\ simp[]
@@ -155,28 +142,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[]
   \\ disch_then (match_mp_tac o MP_CANON)
   \\ simp[RIGHT_EXISTS_AND_THM]
-  \\ fs[can_type_prog_def]
-  \\ Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)`
-  >- metis_tac[semanticsPropsTheory.prog_diverges_semantics_prog]
-  \\ drule whole_prog_type_soundness
-  \\ rfs[]
-  \\ `∃a b c d. new_tenv = (a,b,c,d)` by metis_tac[PAIR]
-  \\ rveq
-  \\ disch_then drule
-  \\ strip_tac
-  \\ simp[semantics_prog_def,evaluate_prog_with_clock_def]
-  \\ gen_tac \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac functional_evaluate_prog
-  \\ qpat_x_assum`_ ⇒ _`mp_tac
-  \\ simp[PULL_EXISTS]
-  \\ rfs[bigStepTheory.evaluate_whole_prog_def]
-  \\ Cases_on`r' = Rerr (Rabort Rtimeout_error)` \\ fs[]
-  \\ imp_res_tac prog_unclocked_ignore \\ fs[] \\ rfs[]
-  \\ first_x_assum(qspec_then`st.sem_st.clock`mp_tac)
-  \\ simp[with_same_clock] \\ strip_tac
-  \\ rpt gen_tac \\ strip_tac
-  \\ imp_res_tac determTheory.prog_determ
-  \\ fs[]);
+  \\ fs[can_type_prog_def] >>
+  metis_tac [semantics_type_sound]);
 
 val code_installed_def = Define `
   code_installed (bytes,cc,ffi,ffi_limit,mc,ms) =

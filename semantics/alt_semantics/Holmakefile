@@ -1,0 +1,32 @@
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = .. ../.. ../../lem_lib_stub ../ffi
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
+#LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
+LEM_OPT = -wl_unused_vars ign
+
+SRC = bigStep smallStep
+LEMS = $(patsubst %,%.lem,$(SRC))
+GENS = $(patsubst %,%Script.sml,$(SRC))
+
+$(GENS): $(LEMS) ../../lib.lem ../ffi/ffi.lem ../semanticPrimitives.lem ../ast.lem
+ 	if type lem;\
+ 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../lib.lem -i ../ffi/ffi.lem -i ../ast.lem -i ../semanticPrimitives.lem -hol $(LEMS);\
+ 	else touch $(GENS); fi
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../semanticPrimitivesTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+all: $(HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) -b ../heap
+endif

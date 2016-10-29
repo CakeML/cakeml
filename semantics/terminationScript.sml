@@ -1,6 +1,6 @@
 open preamble intSimps;
 open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
-open funBigStepTheory;
+open evaluateTheory;
 
 val _ = new_theory "termination";
 
@@ -237,17 +237,17 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
    (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
-  fs[check_clock_def,dec_clock_def] >> simp[])
+  fs[check_clock_def,dec_clock_def] >> simp[]);
 
 val check_clock_id = Q.store_thm("check_clock_id",
   `s'.clock ≤ s.clock ⇒ check_clock s' s = s'`,
-  EVAL_TAC >> rw[state_component_equality])
+  EVAL_TAC >> rw[state_component_equality]);
 
-val s = ``s:'ffi state``
-val s' = ``s':'ffi state``
+val s = ``s:'ffi state``;
+val s' = ``s':'ffi state``;
 val clean_term = term_rewrite
   [``check_clock ^s' ^s = s'``,
-   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``];
 
 val evaluate_ind = let
   val evaluate_ind = evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *)
@@ -261,7 +261,7 @@ in prove(goal,
   res_tac >>
   imp_res_tac evaluate_clock >>
   fsrw_tac[ARITH_ss][check_clock_id])
-end
+end;
 
 val evaluate_def = let
   val evaluate_def = evaluate_def |> INST_TYPE[alpha |-> ``:'ffi``] (* TODO: same as above *)
@@ -278,6 +278,6 @@ end
 
 val _ = register "evaluate" evaluate_def evaluate_ind
 
-val _ = export_rewrites["funBigStep.list_result_def"];
+val _ = export_rewrites["evaluate.list_result_def"];
 
 val _ = export_theory ();

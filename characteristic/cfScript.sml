@@ -297,7 +297,7 @@ val curried_naryRecclosure = store_thm ("curried_naryRecclosure",
 
   rpt strip_tac \\ Cases_on `ns` \\ fs []
   THEN1 (
-    fs [curried_def, evalPropsTheory.find_recfun_ALOOKUP] \\
+    fs [curried_def, semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] \\
     progress ALOOKUP_MEM \\ progress letrec_pull_params_nonnil_params \\ fs []
   )
   THEN1 (
@@ -452,6 +452,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
       | NONE => NONE) /\
   v_of_pat _ (Pref pat) _ =
     NONE (* unsupported *) /\
+  v_of_pat envC (Ptannot p _) insts = v_of_pat envC p insts /\
   v_of_pat _ _ _ = NONE /\
 
   v_of_pat_list _ [] insts = SOME ([], insts) /\
@@ -493,7 +494,7 @@ val v_of_pat_insts_length = store_thm ("v_of_pat_insts_length",
   THEN1 (every_case_tac \\ fs [])
   THEN1 (
     every_case_tac \\ fs [] \\ rw [] \\
-    once_rewrite_tac [evalPropsTheory.pat_bindings_accum] \\ fs []
+    once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs []
   )
 );
 
@@ -543,7 +544,7 @@ val v_of_pat_NONE_extend_insts = store_thm ("v_of_pat_NONE_extend_insts",
   )
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\
-    fs [Once (snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum))]
+    fs [Once (snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum))]
     THEN1 (
       `LENGTH insts >= LENGTH (pat_bindings pat [])` by (fs []) \\ fs []
     )
@@ -586,7 +587,7 @@ val v_of_pat_remove_rest_insts = store_thm ("v_of_pat_remove_rest_insts",
     qpat_assum `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
     rw []
     THEN1 (
-      once_rewrite_tac [snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum)] \\
+      once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
       fs []
     )
     THEN1 (
@@ -673,9 +674,10 @@ val pat_without_Pref_def = tDefine "pat_without_Pref" `
   pat_without_Pref (Plit _) = T /\
   pat_without_Pref (Pcon _ args) =
     EVERY pat_without_Pref args /\
-  pat_without_Pref (Pref _) = F`
+  pat_without_Pref (Pref _) = F /\
+  pat_without_Pref (Ptannot p _) = pat_without_Pref p`
 
-  (WF_REL_TAC `measure pat_size` \\
+  (WF_REL_TAC `measure pat_size` \\ simp[] \\
    Cases \\ Induct \\ fs [basicSizeTheory.option_size_def] \\
    fs [list_size_def, astTheory.pat_size_def] \\ rpt strip_tac \\ fs [] \\
    first_assum progress \\ fs []);
@@ -726,7 +728,7 @@ val v_of_pat_pmatch = store_thm ("v_of_pat_pmatch",
       progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
       rename1 `insts' ++ rest` \\ first_assum (qspec_then `insts'` (fs o sing))
     ) \\
-    once_rewrite_tac [snd (CONJ_PAIR evalPropsTheory.pat_bindings_accum)] \\
+    once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
     fs [] \\ progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
     fs [REVERSE_APPEND] \\ progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\
     fs [GSYM ZIP_APPEND] \\ once_rewrite_tac [GSYM APPEND_ASSOC] \\
@@ -773,7 +775,7 @@ val pmatch_v_of_pat = store_thm ("pmatch_v_of_pat",
     fs [pat_bindings_def] \\ qexists_tac `insts` \\ fs [] \\
     rename1 `same_ctor (id_to_n id1, t1) (n2, t2)` \\
     `t1 = t2 /\ id_to_n id1 = n2` by
-      (irule evalPropsTheory.same_ctor_and_same_tid \\ fs []) \\ rw [] \\
+      (irule semanticPrimitivesPropsTheory.same_ctor_and_same_tid \\ fs []) \\ rw [] \\
     rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length
   )
   THEN1 (
@@ -782,10 +784,12 @@ val pmatch_v_of_pat = store_thm ("pmatch_v_of_pat",
     rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs []
   )
   THEN1 (fs [pat_without_Pref_def])
+  THEN1 (fs [pat_without_Pref_def,pat_bindings_def,v_of_pat_def,pmatch_def]
+         \\ metis_tac[])
   THEN1 (
     fs [pmatch_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     first_assum progress \\ rw [] \\ fs [pat_bindings_def] \\
-    once_rewrite_tac [evalPropsTheory.pat_bindings_accum] \\ fs [] \\
+    once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs [] \\
     rename1 `ZIP (pat_bindings pat [], REVERSE insts)` \\
     rename1 `ZIP (pats_bindings pats [], REVERSE insts')` \\
     qexists_tac `insts ++ insts'` \\
@@ -1779,7 +1783,7 @@ val cf_letrec_sound_aux = Q.prove (
       ) \\
       `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)` by all_tac
       THEN1 (
-        fs [evalPropsTheory.find_recfun_ALOOKUP] \\
+        fs [semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] \\
         irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [GSYM FST_rw] \\
         fs [letrec_pull_params_names]
       ) \\
@@ -2039,7 +2043,7 @@ val evaluate_add_to_clock_lemma = Q.prove (
      r <> Rerr (Rabort Rtimeout_error) ==>
      evaluate (s with clock := s.clock + extra) e p =
      (s' with clock := s'.clock + extra, r)`,
-  fs [funBigStepPropsTheory.evaluate_add_to_clock]
+  fs [evaluatePropsTheory.evaluate_add_to_clock]
 );
 
 val evaluate_match_add_to_clock_lemma = Q.prove (
@@ -2048,7 +2052,7 @@ val evaluate_match_add_to_clock_lemma = Q.prove (
      r <> Rerr (Rabort Rtimeout_error) ==>
      evaluate_match (s with clock := s.clock + extra) env v rows err_v =
      (s' with clock := s'.clock + extra, r)`,
-  fs [funBigStepPropsTheory.evaluate_match_add_to_clock]
+  fs [evaluatePropsTheory.evaluate_match_add_to_clock]
 );
 
 fun add_to_clock qtm th g =
@@ -2201,7 +2205,7 @@ val cf_sound = store_thm ("cf_sound",
         rename1 `SPLIT3 (st2heap _ st') (h_f, h_k, h_g)` \\
         progress SPLIT3_swap23 \\ instantiate \\
         qexists_tac `ck + 1` \\ cf_exp2v_evaluate_tac `st with clock := ck + 1` \\
-        fs [funBigStepTheory.dec_clock_def]
+        fs [evaluateTheory.dec_clock_def]
       )
       (* 2+ arguments *)
       THEN1 (
@@ -2245,7 +2249,7 @@ val cf_sound = store_thm ("cf_sound",
           `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f', h_k, h_g' UNION h_g)`
             by SPLIT_TAC \\
           GEN_EXISTS_TAC "st'''" `st'' with clock := st''.clock + st'.clock` \\
-          fs [st2heap_clock] \\ instantiate \\ fs [funBigStepTheory.dec_clock_def] \\
+          fs [st2heap_clock] \\ instantiate \\ fs [evaluateTheory.dec_clock_def] \\
           qpat_assum `evaluate (st' with clock := _) _ _ = _` (add_to_clock `st'.clock`) \\
           fs [with_clock_with_clock]
         )
@@ -2391,7 +2395,7 @@ val cf_sound = store_thm ("cf_sound",
       fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
       fs [integerTheory.INT_ABS] \\
       full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
-      fs [funBigStepTheory.list_result_def] \\
+      fs [evaluateTheory.list_result_def] \\
       ((rename1 `W8array _` \\
         qexists_tac `Mem l (W8array (LUPDATE w (Num i) ws)) INSERT u`) ORELSE
        qexists_tac `Mem l (Varray (LUPDATE v (Num i) vs)) INSERT u`) \\

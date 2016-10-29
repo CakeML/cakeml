@@ -1,4 +1,4 @@
-open preamble funBigStepTheory interpTheory semanticPrimitivesTheory
+open preamble evaluateTheory interpTheory semanticPrimitivesTheory
 open terminationTheory
 
 val _ = new_theory"funBigStepEquiv"
@@ -20,7 +20,7 @@ val evaluate_eq_run_eval_list = Q.store_thm("evaluate_eq_run_eval_list",
     qmatch_assum_rename_tac`get_store st = _` >>
     fs[get_store_def]>>rw[])) >>
   (TRY
-    (CHANGED_TAC (imp_res_tac evalPropsTheory.do_con_check_build_conv) >>
+    (CHANGED_TAC (imp_res_tac semanticPrimitivesPropsTheory.do_con_check_build_conv) >>
      TRY (
        qmatch_assum_abbrev_tac`build_conv _ _ vs = _` >>
        first_x_assum(qspec_then`vs`strip_assume_tac) >>
@@ -30,7 +30,7 @@ val evaluate_eq_run_eval_list = Q.store_thm("evaluate_eq_run_eval_list",
      rfs[] >> rw[] >>
      fs[do_con_check_def])) >>
    TRY(fs[do_con_check_def]>>NO_TAC) >>
-   every_case_tac >> fs[dec_clock_def,funBigStepTheory.dec_clock_def] >> rfs[] >>
+   every_case_tac >> fs[dec_clock_def,evaluateTheory.dec_clock_def] >> rfs[] >>
    fs[state_transformerTheory.UNIT_DEF] >> rw[list_result_def] >>
    fs[set_store_def] >> rw[] >>
    fs[FST_triple])

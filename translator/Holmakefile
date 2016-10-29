@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../semantics/proofs ../lem_lib_stub ../explorer/pp/astPP
+INCLUDES = .. ../semantics ../semantics/proofs ../semantics/alt_semantics/proofs ../lem_lib_stub ../explorer/pp/astPP
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -17,7 +17,7 @@ PRE_BARE_THYS1 = astTheory tokensTheory semanticPrimitivesTheory
 PRE_BARE_THYS3 = determTheory bigClockTheory
 
 BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
-BARE_THYS3 =  $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS3))
+BARE_THYS3 =  $(patsubst %,../semantics/alt_semantics/proofs/%,$(PRE_BARE_THYS3))
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS3)) ../explorer/pp/astPP/astPP.uo $(PARENTHEAP)
 

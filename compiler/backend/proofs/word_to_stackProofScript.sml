@@ -6,6 +6,7 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_stackProof";
 val _ = set_grammar_ancestry [
+  "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
   "wordProps",
   "labProps", (* for good_dimindex *)
@@ -6269,7 +6270,7 @@ val comp_Call = prove(
       ∃ck t1 res1.
         evaluate (Call NONE (INL start) NONE,t with clock := t.clock + ck) =
         (res1,t1) /\ 1w <> (0w:'a word) /\ 2w <> (0w:'a word) /\
-        if lift compile_result res = res1 then
+        if OPTION_MAP compile_result res = res1 then
           s1.ffi = t1.ffi /\ s1.clock = t1.clock
         else
           res1 = SOME (Halt (Word 2w)) /\

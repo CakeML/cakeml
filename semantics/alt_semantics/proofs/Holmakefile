@@ -1,21 +1,21 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../ffi ../.. ../../lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
+INCLUDES = .. ../.. ../../proofs ../../.. ../../ffi ../../../lem_lib_stub
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-SEMI = tokens ast semanticPrimitives evaluate typeSystem
-SRC = typeSoundInvariants
+SEMI = ../tokens ../ast ../semanticPrimitives bigStep
+SRC = bigSmallInvariants
 LEMI = $(patsubst %,../%.lem,$(SEMI))
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 LEM_OPT = -wl_unused_vars ign
 
-$(GENS) : ../../lib.lem $(LEMI) $(LEMS) ../ffi/ffi.lem
+$(GENS) : ../../../lib.lem $(LEMI) $(LEMS) ../../ffi/ffi.lem
 	if type lem;\
-	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../ffi/ffi.lem -i ../../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
+	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../ffi/ffi.lem -i ../../../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
 	else touch $(GENS); fi
 
 ifdef POLY
@@ -23,7 +23,7 @@ HOLHEAP = heap
 PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../libTheory ../evaluateTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../terminationTheory ../semanticsComputeLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
+BARE_THYS = ../bigStepTheory ../smallStepTheory ../../proofs/semanticPrimitivesPropsTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
