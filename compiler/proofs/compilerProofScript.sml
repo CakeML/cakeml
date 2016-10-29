@@ -74,11 +74,8 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ metis_tac[]);
 
 val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
-  `env_rel st.tenv c.inf_env ∧
-   st.tdecs = convert_decls c.inf_decls ∧
-   st.sem_st.defined_mods = st.tdecs.defined_mods ∧
-   consistent_decls st.sem_st.defined_types decls_no_sig ∧
-   weak_decls_only_mods decls_no_sig st.tdecs
+  `env_rel st.tenv c.inf_env
+   ∧ st.tdecs = convert_decls c.inf_decls
    ⇒
    ∃c'. infertype_prog c p = if can_type_prog st p then SOME c' else NONE`,
   strip_tac
@@ -94,17 +91,8 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
     \\ drule infer_prog_sound
     \\ disch_then drule
     \\ strip_tac
-    \\ conj_tac >- ( drule typeSysPropsTheory.type_no_dup_mods \\ fs[] )
-    \\ conj_tac
-    >- (
-      match_mp_tac (GEN_ALL typeSysPropsTheory.type_no_dup_top_types)
-      \\ asm_exists_tac \\ simp[]
-      \\ asm_exists_tac \\ simp[]
-      \\ rfs[] )
-    \\ asm_exists_tac
-    \\ simp[] )
-  \\ simp[]
-  \\ spose_not_then strip_assume_tac
+    \\ asm_exists_tac \\ fs[] )
+  \\ rw[] \\ CCONTR_TAC \\ fs[]
   \\ `∃a b c d. new_tenv = (a,b,c,d)` by metis_tac[PAIR]
   \\ rveq
   \\ drule (SIMP_RULE(srw_ss())[GSYM AND_IMP_INTRO]infer_prog_complete) (* TODO: why is AND_IMP_INTRO necessary? *)
@@ -137,10 +125,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
   \\ rator_assum`type_sound_invariant`(strip_assume_tac o SIMP_RULE std_ss [typeSoundTheory.type_sound_invariant_def])
-  \\ rfs[] >>
-  `st.sem_st.defined_mods = (convert_decls cc.inferencer_config.inf_decls).defined_mods` by cheat >>
-  simp [] >>
-  disch_then drule \\ simp[]
+  \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
   \\ BasicProvers.CASE_TAC \\ simp[]
