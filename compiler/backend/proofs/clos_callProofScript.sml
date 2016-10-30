@@ -15,7 +15,7 @@ val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
 
 val TAKE_MAP = Q.store_thm("TAKE_MAP",
   `∀ls n f. TAKE n (MAP f ls) = MAP f (TAKE n ls)`,
-  Induct \\ rw[]);
+  Induct \\ rw[] \\ Cases_on`n` \\ rw[]);
 
 val IS_SUFFIX_TRANS = Q.store_thm("IS_SUFFIX_TRANS",
   `∀l1 l2 l3. IS_SUFFIX l1 l2 ∧ IS_SUFFIX l2 l3 ⇒ IS_SUFFIX l1 l3`,

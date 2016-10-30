@@ -77,6 +77,11 @@ val arith_upd_def = Define `
      case read_reg r2 s of
      | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s
      | _ => assert F s) /\
+  (arith_upd (Div r1 r2 r3) s =
+     case (read_reg r3 s,read_reg r2 s) of
+     | (Word q,Word w2) =>
+       assert (q <> 0w) (upd_reg r1 (Word (w2 // q)) s)
+     | _ => assert F s) /\
   (arith_upd (AddCarry r1 r2 r3 r4) s =
      case (read_reg r2 s, read_reg r3 s, read_reg r4 s) of
      | (Word w2, Word w3, Word w4) =>

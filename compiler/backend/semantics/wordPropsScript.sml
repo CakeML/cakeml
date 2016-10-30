@@ -793,9 +793,8 @@ val s_val_eq_REVERSE = prove(
 
 val s_val_eq_TAKE = prove(
   ``!s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)``,
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]>>IF_CASES_TAC>>
-  full_simp_tac(srw_ss())[s_val_eq_def])
+  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>rw[]>>
+  Cases_on`n`>>fs[s_val_eq_def])
 
 val s_val_eq_LASTN = prove(
   ``!s t n. s_val_eq s t
@@ -821,8 +820,7 @@ val s_key_eq_REVERSE = prove(
 val s_key_eq_TAKE = prove(
   ``!s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)``,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]>>IF_CASES_TAC>>
-  full_simp_tac(srw_ss())[s_key_eq_def])
+  rw[]>>Cases_on`n`>>fs[s_key_eq_def])
 
 val s_key_eq_LASTN = prove(
   ``!s t n. s_key_eq s t
