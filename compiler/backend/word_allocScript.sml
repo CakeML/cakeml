@@ -110,6 +110,11 @@ val ssa_cc_trans_inst_def = Define`
     let r2' = option_lookup ssa r2 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
       (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    (Inst (Arith (Div r1' r2' r3')),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
@@ -343,6 +348,8 @@ val apply_colour_inst_def = Define`
     Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧
   (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
     Arith (Shift shift (f r1) (f r2) n)) ∧
+  (apply_colour_inst f (Arith (Div r1 r2 r3)) =
+    Arith (Div (f r1) (f r2) (f r3))) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
     Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
@@ -402,6 +409,7 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
+  (get_writes_inst (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
@@ -419,6 +427,8 @@ val get_live_inst_def = Define`
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 n)) live =
     insert r2 () (delete r1 live)) ∧
+  (get_live_inst (Arith (Div r1 r2 r3)) live =
+    (insert r3 () (insert r2 () (delete r1 live)))) ∧
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
@@ -509,6 +519,7 @@ val remove_dead_inst_def = Define`
   (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
   (remove_dead_inst (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst (Arith (Div r1 r2 r3)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst (Arith (LongMul r1 r2 r3 r4)) live =
@@ -638,6 +649,7 @@ val get_delta_inst_def = Define`
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
   (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
@@ -723,17 +735,23 @@ val get_prefs_def = Define`
 *)
 val get_forced_def = Define`
   (get_forced c (Inst i) acc =
-    if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
-      case i of
-        Arith (AddCarry r1 r2 r3 r4) =>
-          (* This weirdness forces get_forced lists
-          to satisfy EVERY (λ(x,y).x≠y)*)
+    case i of
+      Arith (AddCarry r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
           (if r1=r3 then [] else [(r1,r3)]) ++
           (if r1=r4 then [] else [(r1,r4)]) ++
           acc
-      | _ => acc
-    else
-      acc) ∧
+       else acc
+    | Arith (LongMul r1 r2 r3 r4) =>
+       if (c.ISA = ARMv6) then
+         (if (r1=r2) then [] else [(r1,r2)]) ++ acc
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+         (if r1=r3 then [] else [(r1,r3)]) ++
+         (if r1=r4 then [] else [(r1,r4)]) ++
+         acc
+       else
+         acc
+    | _ => acc) ∧
   (get_forced c (MustTerminate n s1) acc =
     get_forced c s1 acc) ∧
   (get_forced c (Seq s1 s2) acc =
@@ -827,6 +845,7 @@ val max_var_inst_def = Define`
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧

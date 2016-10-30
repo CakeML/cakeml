@@ -94,8 +94,8 @@ val arith_upd_def = Define `
      case (read_reg r3 s, read_reg r4 s) of
      | (Word w3, Word w4) =>
        let r = w2n w3 * w2n w4 in
-       upd_reg r1 (Word (n2w (r DIV dimword(:'a))))
-         (upd_reg r2 (Word (n2w r)) s)
+      upd_reg r2 (Word (n2w r))
+       (upd_reg r1 (Word (n2w (r DIV dimword(:'a)))) s)
      | _ => assert F s)
      /\
   (arith_upd (LongDiv r1 r2 r3 r4 r5) s =

@@ -79,6 +79,11 @@ val wInst_def = Define `
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 a))) n1 kf)) /\
+  (wInst (Arith (Div n1 n2 n3)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (Div n1 n2 n3))) n1 kf)) ∧
   (wInst (Arith (AddCarry n1 n2 n3 n4)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
