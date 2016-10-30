@@ -275,14 +275,13 @@ val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
   \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
 
 val TAKE_TAKE_MIN = prove(
-  ``!xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs``,
-  Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
-  \\ rw [] \\ fs [] \\ TRY (`F` by decide_tac)
-  \\ `n = 1` by decide_tac \\ fs []);
+    ``!xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs``,
+    Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
+    \\ rw [] \\ fs [] \\ Cases_on`n` \\ fs[]);
 
 val TAKE_DROP_EQ = prove(
   ``!xs n m. TAKE m (DROP n xs) = DROP n (TAKE (m + n) xs)``,
-  Induct \\ fs [] \\ rw [] \\ fs []
+  Induct \\ fs [] \\ rw [] \\ fs [] \\ Cases_on`n` \\ fs[]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
 
 val DROP_TAKE_NIL = prove(
@@ -291,8 +290,11 @@ val DROP_TAKE_NIL = prove(
 
 val TAKE_LUPDATE = store_thm("TAKE_LUPDATE[simp]",
   ``!xs n x i. TAKE n (LUPDATE x i xs) = LUPDATE x i (TAKE n xs)``,
-  Induct \\ fs [LUPDATE_def]
-  \\ Cases_on `i` \\ fs [LUPDATE_def] \\ rw [LUPDATE_def]);
+  Induct \\ fs [LUPDATE_def] \\ Cases_on `i` \\ fs [LUPDATE_def] \\ rw [LUPDATE_def]
+  >-
+    (Cases_on`n`>>fs[LUPDATE_def])
+  >>
+    Cases_on`n'`>>fs[LUPDATE_def]);
 
 local
   val DROP_LUPDATE_lemma1 = prove(
@@ -301,13 +303,11 @@ local
     Induct \\ fs [LUPDATE_def] \\ rw []
     \\ Cases_on `m` \\ fs [LUPDATE_def]
     \\ qmatch_assum_rename_tac `n <= SUC i`
-    \\ `n - 1 <= i /\ (SUC i - n = i - (n - 1))` by decide_tac \\ fs [])
+    \\ Cases_on`n`>>fs[LUPDATE_def])
   val DROP_LUPDATE_lemma2 = prove(
     ``!xs n m h. m < n ==> DROP n (LUPDATE h m xs) = DROP n xs``,
     Induct \\ fs [LUPDATE_def] \\ rw []
-    \\ Cases_on `m` \\ fs [LUPDATE_def]
-    \\ qmatch_assum_rename_tac `SUC i < n`
-    \\ first_x_assum match_mp_tac \\ decide_tac)
+    \\ Cases_on `m` \\ fs [LUPDATE_def])
 in
   val DROP_LUPDATE = store_thm("DROP_LUPDATE",
     ``!n h m xs.
@@ -1872,19 +1872,10 @@ val LASTN_DROP2 = prove(``
   ∀l n.
   LASTN n l = DROP (LENGTH l -n) l``,
   Induct>>fs[LASTN_def]>>
-  rw[TAKE_APPEND]
-  >-
-    `¬ (n ≤ LENGTH l)` by DECIDE_TAC
-  >-
-    (fs[ADD1]>>
-    `LENGTH l +1 - n -1 = LENGTH l -n` by DECIDE_TAC>>
-    fs[])
-  >-
-    (`LENGTH l -n = 0` by DECIDE_TAC >>
-    pop_assum SUBST_ALL_TAC>>fs[DROP])
-  >>
-    `n = LENGTH l` by DECIDE_TAC>>
-    simp[ADD1])
+  rw[TAKE_APPEND]>>
+  Cases_on`n > LENGTH l`>>fs[ADD1]>>
+  `LENGTH l - n = 0` by fs[]>>
+  simp[DROP_def])
 
 (* Allow prefixes of (frames of) stacks to be directly dropped
   using handler_val
