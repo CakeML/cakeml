@@ -2181,8 +2181,12 @@ val inst_ok_less_def = Define`
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 n)) =
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (*
+  (inst_ok_less c (Arith (Div r1 r2 r3)) =
+     c.ISA IN {ARMv8; MIPS; RISC_V}) ∧
+  Note: LongMul and LongDiv don't *)
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) ∧
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`

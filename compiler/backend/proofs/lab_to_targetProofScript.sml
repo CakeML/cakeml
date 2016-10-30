@@ -960,12 +960,7 @@ val arith_upd_lemma = Q.prove(
     \\ every_case_tac \\ fs[]
     \\ EVAL_TAC \\ rw[] \\ EVAL_TAC \\ fs[]
     \\ fs[read_reg_def]
-    \\ fs[labSemTheory.assert_def])
-  >>
-    cheat
-    (* NOTE: This is due to the flipped order of results for LongMul.
-    Fix on asm_ok branch *)
-    );
+    \\ fs[labSemTheory.assert_def]));
 
 val MULT_ADD_LESS_MULT = prove(
   ``!m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num``,

@@ -1839,7 +1839,12 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
       >>
       fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
     >-
-      fs[hide_def,check_partial_col_def,numset_list_delete_def]
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF_single])
+      >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
     >-
       (start_tac>-
         (CONJ_TAC>-
@@ -4068,6 +4073,29 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       setup_tac>>
       match_mp_tac ssa_locals_rel_set_var>>
       full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
+    >-
+      (*Div*)
+      (fs[get_vars_perm]>>
+      Cases_on`get_vars [n1;n0] st`>>fs[get_vars_def]>>
+      pop_assum mp_tac>>
+      ntac 2 FULL_CASE_TAC >>fs[]>>
+      disch_then sym_sub_tac>>fs[]>>
+      imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+      Cases_on`x'`>>Cases_on`x''`>>
+      fs[set_var_def,alist_insert_def]>>
+      IF_CASES_TAC>>
+      fs[lookup_insert,alist_insert_def,insert_shadow,ssa_locals_rel_def,every_var_def,every_var_inst_def]>>
+      CONJ_TAC>-
+        (rw[]>>metis_tac[])>>
+      ntac 2 strip_tac>>
+      IF_CASES_TAC>>fs[]>>
+      IF_CASES_TAC>>fs[ssa_map_ok_def]>>
+      strip_tac>>
+      first_x_assum (qspecl_then[`x`,`y`] assume_tac)>>rfs[]>>
+      fs[domain_lookup]>>
+      first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
+      fs[is_phy_var_def]>>
+      rw[]>>fs[])
     >- (*LongMul*)
       (fs[get_vars_perm]>>
       Cases_on`get_vars [n1;n2] st`>>fs[get_vars_def]>>
@@ -6582,7 +6610,7 @@ val word_alloc_full_inst_ok_less_lem = prove(``
   TRY
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     fs[inst_ok_less_def,full_inst_ok_less_def]>>
-    rfs[])
+    rw[]>>fs[]>>rfs[])
   >>
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     fs[get_forced_def]>>
