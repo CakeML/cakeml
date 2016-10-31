@@ -2029,6 +2029,8 @@ val EVERY_sec_ends_with_label_MAP_prog_to_section = Q.store_thm("EVERY_sec_ends_
   Induct \\ simp[] \\ Cases \\ simp[prog_to_section_def]
   \\ pairarg_tac \\ fs[sec_ends_with_label_def]);
 
+val stack_asm_ok_def = stackPropsTheory.stack_asm_ok_def
+
 val flatten_line_ok_pre = prove(``
   ∀p n m ls a b c.
   stack_asm_ok c p ∧
@@ -2071,205 +2073,6 @@ val compile_all_enc_ok_pre = prove(``
   and that the mapping target for these avoids bad regs
 *)
 
-open stack_namesTheory
-
-val names_ok_imp = prove(``
-  names_ok f c.reg_count c.avoid_regs ⇒
-  ∀n. reg_name n c ⇒
-  reg_ok (find_name f n) c``,
-  fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def])
-
-val names_ok_imp2 = prove(``
-  names_ok f c.reg_count c.avoid_regs ∧
-  n ≠ n' ∧
-  reg_name n c ∧ reg_name n' c ⇒
-  find_name f n ≠ find_name f n'``,
-  rw[names_ok_def]>>fs[ALL_DISTINCT_GENLIST,reg_name_def]>>
-  metis_tac[])
-
-val sn_comp_imp_stack_asm_ok = prove(``
-  ∀f p.
-  stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
-  fixed_names f c ⇒
-  stack_asm_ok c (stack_names$comp f p)``,
-  ho_match_mp_tac comp_ind>>
-  Cases_on`p`>>rw[]>>
-  simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
-  >-
-    (simp[Once inst_find_name_def]>>every_case_tac>>
-    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.addr_ok_def]>>
-    (* Some of these are extremely annoying to prove with the separation of
-       stack_names and configs... *)
-    TRY(metis_tac[names_ok_imp,names_ok_imp2])
-    >-
-      (rw[]>>
-      TRY(metis_tac[names_ok_imp])
-      >-
-        (Cases_on`r`>>fs[ri_find_name_def])
-      >>
-        Cases_on`r`>>
-        fs[reg_imm_name_def,asmTheory.reg_imm_ok_def,ri_find_name_def]>>
-        metis_tac[names_ok_imp])
-    >>
-      (rw[]>>
-      fs[fixed_names_def]>>
-      metis_tac[names_ok_imp,names_ok_imp2]))
-  >-
-    (every_case_tac>>fs[dest_find_name_def]>>
-    metis_tac[names_ok_imp,asmTheory.reg_ok_def])
-  >>
-  metis_tac[names_ok_imp,asmTheory.reg_ok_def])
-
-val sn_compile_imp_stack_asm_ok = prove(``
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  names_ok f c.reg_count c.avoid_regs ∧
-  fixed_names f c ⇒
-  EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)``,
-  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def,compile_def,MEM_MAP,EXISTS_PROD]>>
-  rw[]>>
-  metis_tac[sn_comp_imp_stack_asm_ok])
-
-open stack_removeTheory
-
-val sr_comp_stack_asm_name = prove(``
-  ∀off k p.
-  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
-  addr_offset_ok 0w c ∧
-  good_dimindex (:'a) ∧
-  (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
-  (* Needed to implement the global store *)
-  (∀s. addr_offset_ok (store_offset s) c) ∧
-  reg_name (k+2) c ∧
-  reg_name (k+1) c ∧
-  reg_name k c ∧
-  off = c.addr_offset ⇒
-  stack_asm_name c (comp off k p)``,
-  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
-  simp[Once comp_def]>>
-  rw[]>>
-  fs[stack_asm_name_def,inst_name_def,stack_asm_remove_def,addr_name_def,arith_name_def,reg_imm_name_def,stackLangTheory.list_Seq_def]
-  >-
-    (every_case_tac>>fs[])
-  >-
-    (* stack alloc *)
-    (completeInduct_on`n`>>
-    simp[Once stack_alloc_def]>>rw[]
-    >-
-      EVAL_TAC
-    >-
-      (EVAL_TAC>>fs[reg_name_def])
-    >>
-      rw[stack_asm_name_def]
-      >-
-        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
-      >>
-        first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
-        rfs[max_stack_alloc_def])
-  >- (* stack free *)
-    (completeInduct_on`n`>>
-    simp[Once stack_free_def]>>rw[]
-    >-
-      EVAL_TAC
-    >-
-      (EVAL_TAC>>fs[reg_name_def])
-    >>
-      rw[stack_asm_name_def]
-      >-
-        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
-      >>
-        first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
-        rfs[max_stack_alloc_def])
-  >>
-    fs[good_dimindex_def,stackLangTheory.word_shift_def]
-  >>
-    simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
-    qpat_assum`!n. A ⇒ B` mp_tac>>
-    rpt(qpat_x_assum`reg_name _ c` mp_tac)>>
-    rpt (pop_assum kall_tac)>>
-    rw[]>>completeInduct_on`n0`>>
-    simp[Once upshift_def,Once downshift_def]>>rw[]>>
-    fs[stack_asm_name_def,inst_name_def,arith_name_def,reg_imm_name_def,word_offset_def]>>
-    first_x_assum match_mp_tac>>fs[max_stack_alloc_def])
-
-val sr_compile_stack_asm_name = prove(``
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
-  addr_offset_ok 0w c ∧
-  good_dimindex (:'a) ∧
-  (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
-  c.valid_imm (INL Add) 4w ∧
-  c.valid_imm (INL Add) 8w ∧
-  (* Needed to implement the global store *)
-  (∀s. addr_offset_ok (store_offset s) c) ∧
-  reg_name 5 c ∧
-  reg_name (k+2) c ∧
-  reg_name (k+1) c ∧
-  reg_name k c ⇒
-  EVERY (λ(n,p). stack_asm_name c p)
-  (compile c.addr_offset max_heap bitmaps k start prog)``,
-  rw[compile_def]
-  >-
-    (fs[good_dimindex_def]>>EVAL_TAC>>fs[]>>rw[]>>EVAL_TAC>>fs[reg_name_def]>>
-    pairarg_tac>>fs[asmTheory.offset_ok_def]>>
-    Induct_on`bitmaps`>>rw[]>>
-    EVAL_TAC>>fs[])
-  >>
-    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
-    metis_tac[sr_comp_stack_asm_name])
-
-open stack_allocTheory
-
-val sa_comp_stack_asm_name = prove(``
-  ∀n m p.
-  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
-  let (p',m') = comp n m p in
-  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'``,
-  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
-  simp[Once comp_def]
-  >-
-    (Cases_on`o'`>-
-      fs[Once comp_def,stack_asm_name_def,stack_asm_remove_def]
-    >>
-    PairCases_on`x`>>SIMP_TAC std_ss [Once comp_def]>>fs[]>>
-    FULL_CASE_TAC>>fs[]>>
-    TRY(PairCases_on`x`)>>
-    rpt(pairarg_tac>>fs[])>>rw[]>>
-    fs[stack_asm_name_def,stack_asm_remove_def])
-  >>
-    rpt(pairarg_tac>>fs[])>>rw[]>>
-    fs[stack_asm_name_def,stack_asm_remove_def])
-
-val sa_compile_stack_asm_name = prove(``
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
-  (* conf_ok is too strong, but we already have it anyway *)
-  conf_ok (:'a) conf ∧
-  addr_offset_ok 0w c ∧
-  reg_name 10 c ∧ good_dimindex(:'a) ∧
-  c.valid_imm (INL Add) 8w ∧
-  c.valid_imm (INL Add) 4w ∧
-  c.valid_imm (INL Add) 1w ∧
-  c.valid_imm (INL Sub) 1w
-  ⇒
-  EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
-  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)``,
-  fs[compile_def]>>rw[]>>
-  TRY
-    (EVAL_TAC>>fs[reg_name_def,good_dimindex_def,asmTheory.offset_ok_def,data_to_wordProofTheory.conf_ok_def,data_to_wordTheory.shift_length_def]>>
-    pairarg_tac>>fs[]>>NO_TAC)
-  >>
-  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
-  rw[]>>res_tac>>
-  drule sa_comp_stack_asm_name>>fs[]>>
-  disch_then(qspecl_then[`p_1`,`next_lab p_2`] assume_tac)>>
-  pairarg_tac>>fs[])
-
-open stack_to_labTheory
-
 val stack_to_lab_compile_all_enc_ok = store_thm("stack_to_lab_compile_all_enc_ok",``
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). stack_asm_remove c p) prog ∧
@@ -2285,9 +2088,10 @@ val stack_to_lab_compile_all_enc_ok = store_thm("stack_to_lab_compile_all_enc_ok
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
   conf_ok (:'a) c2 ⇒
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)``,
-  rw[compile_def]>>match_mp_tac compile_all_enc_ok_pre>>
+  rw[stack_to_labTheory.compile_def]>>
+  match_mp_tac compile_all_enc_ok_pre>>
   match_mp_tac sn_compile_imp_stack_asm_ok>>fs[]>>
-  match_mp_tac sr_compile_stack_asm_name>>fs[reg_name_def]>>
-  match_mp_tac sa_compile_stack_asm_name>>fs[reg_name_def])
+  match_mp_tac sr_compile_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
+  match_mp_tac sa_compile_stack_asm_convs>>fs[stackPropsTheory.reg_name_def])
 
 val _ = export_theory();

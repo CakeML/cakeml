@@ -2681,4 +2681,94 @@ val stack_remove_lab_pres = store_thm("stack_remove_lab_pres",``
     fs[max_stack_alloc_def])
   >- EVAL_TAC);
 
+val sr_comp_stack_asm_name = prove(``
+  ∀off k p.
+  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
+  addr_offset_ok 0w c ∧
+  good_dimindex (:'a) ∧
+  (∀n. n ≤ max_stack_alloc ⇒
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
+  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  (* Needed to implement the global store *)
+  (∀s. addr_offset_ok (store_offset s) c) ∧
+  reg_name (k+2) c ∧
+  reg_name (k+1) c ∧
+  reg_name k c ∧
+  off = c.addr_offset ⇒
+  stack_asm_name c (comp off k p)``,
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  simp[Once comp_def]>>
+  rw[]>>
+  fs[stack_asm_name_def,inst_name_def,stack_asm_remove_def,addr_name_def,arith_name_def,reg_imm_name_def,stackLangTheory.list_Seq_def]
+  >-
+    (every_case_tac>>fs[])
+  >-
+    (* stack alloc *)
+    (completeInduct_on`n`>>
+    simp[Once stack_alloc_def]>>rw[]
+    >-
+      EVAL_TAC
+    >-
+      (EVAL_TAC>>fs[reg_name_def])
+    >>
+      rw[stack_asm_name_def]
+      >-
+        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
+      >>
+        first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
+        rfs[max_stack_alloc_def])
+  >- (* stack free *)
+    (completeInduct_on`n`>>
+    simp[Once stack_free_def]>>rw[]
+    >-
+      EVAL_TAC
+    >-
+      (EVAL_TAC>>fs[reg_name_def])
+    >>
+      rw[stack_asm_name_def]
+      >-
+        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
+      >>
+        first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
+        rfs[max_stack_alloc_def])
+  >>
+    fs[labPropsTheory.good_dimindex_def,stackLangTheory.word_shift_def]
+  >>
+    simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
+    qpat_assum`!n. A ⇒ B` mp_tac>>
+    rpt(qpat_x_assum`reg_name _ c` mp_tac)>>
+    rpt (pop_assum kall_tac)>>
+    rw[]>>completeInduct_on`n0`>>
+    simp[Once upshift_def,Once downshift_def]>>rw[]>>
+    fs[stack_asm_name_def,inst_name_def,arith_name_def,reg_imm_name_def,word_offset_def]>>
+    first_x_assum match_mp_tac>>fs[max_stack_alloc_def])
+
+val sr_compile_stack_asm_name = store_thm("sr_compile_stack_asm_name",``
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+  addr_offset_ok 0w c ∧
+  good_dimindex (:'a) ∧
+  (∀n. n ≤ max_stack_alloc ⇒
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
+  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  c.valid_imm (INL Add) 4w ∧
+  c.valid_imm (INL Add) 8w ∧
+  (* Needed to implement the global store *)
+  (∀s. addr_offset_ok (store_offset s) c) ∧
+  reg_name 5 c ∧
+  reg_name (k+2) c ∧
+  reg_name (k+1) c ∧
+  reg_name k c ⇒
+  EVERY (λ(n,p). stack_asm_name c p)
+  (compile c.addr_offset max_heap bitmaps k start prog)``,
+  rw[compile_def]
+  >-
+    (fs[labPropsTheory.good_dimindex_def]>>EVAL_TAC>>fs[]>>rw[]>>EVAL_TAC>>fs[reg_name_def]>>
+    pairarg_tac>>fs[asmTheory.offset_ok_def]>>
+    Induct_on`bitmaps`>>rw[]>>
+    EVAL_TAC>>fs[])
+  >>
+    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+    metis_tac[sr_comp_stack_asm_name])
+
 val _ = export_theory();
