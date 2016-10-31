@@ -442,45 +442,110 @@ val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
   \\ every_case_tac \\ fs []
   \\ metis_tac []);
 
-open wordPropsTheory
+(* asm_ok out of stack_names *)
+val stack_asm_ok_def = Define`
+  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
+  (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
+  (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
+  (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Call r tar h) ⇔
+    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_ok c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_ok c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_ok c _ ⇔  T)`
 
-val inst_ok_less_def = wordPropsTheory.inst_ok_less_def
+val reg_name_def = Define`
+  reg_name r c ⇔
+  r < c.reg_count - LENGTH (c.avoid_regs)`
 
-val two_reg_inst_def = wordPropsTheory.two_reg_inst_def
+(* inst requirements just before stack_names *)
 
-val every_inst_def = Define`
-  (every_inst P (Inst i) ⇔ P i) ∧
-  (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
-  (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
-  (every_inst P (While cmp r ri p) ⇔ every_inst P p) ∧
-  (every_inst P (Call ret dest handler) ⇔
-      (case ret of
-        NONE => T
-      | SOME (ret_handler,_,_,_) => every_inst P ret_handler ∧
-      (case handler of
-        NONE => T
-      | SOME (h,_,_) => every_inst P h))) ∧
-  (every_inst P prog ⇔ T)`
+val reg_imm_name_def = Define`
+  (reg_imm_name b (Reg r) c ⇔ reg_name r c) ∧
+  (reg_imm_name b (Imm w) c ⇔ c.valid_imm b w)`
 
-val full_inst_ok_less_def = Define`
-  (full_inst_ok_less c (Inst i) ⇔ inst_ok_less c i) ∧
-  (full_inst_ok_less c (Seq p1 p2) ⇔
-    (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
-  (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
-    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
-    full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
-  (full_inst_ok_less c (While cmp r ri p) ⇔
-    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
-    full_inst_ok_less c p)) ∧
-  (full_inst_ok_less c (Call ret dest handler)
-    ⇔ (case ret of
-        NONE => T
-      | SOME (ret_handler,_,_,_) => full_inst_ok_less c ret_handler ∧
-      (case handler of
-        NONE => T
-      | SOME (h,_,_) => full_inst_ok_less c h))) ∧
-  (full_inst_ok_less c prog ⇔ T)`
+val arith_name_def = Define`
+  (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
+    (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
+    reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
+  (arith_name (Shift l r1 r2 n) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
+  (arith_name (Div r1 r2 r3) c ⇔
+    (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
+    c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
+  (arith_name (LongMul r1 r2 r3 r4) c ⇔
+    reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = x86_64 ⇒ r1 = 4 ∧ r2 = 0 ∧ r3 = 0) ∧
+    (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
+  (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
+    reg_name r5 c) ∧
+  (arith_name (AddCarry r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))`
 
+val addr_name_def = Define`
+  addr_name (Addr r w) c ⇔ reg_name r c ∧ addr_offset_ok w c`
 
+val inst_name_def = Define`
+  (inst_name c (Const r w) ⇔ reg_name r c) ∧
+  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name a c) ∧
+  (inst_name c (Arith x) ⇔ arith_name x c) ∧
+  (inst_name _ _ = T)`
+
+val stack_asm_name_def = Define`
+  (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
+  (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
+  (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
+  (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Call r tar h) ⇔
+    (case tar of INR r => reg_name r c | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_name c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_name c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_name c _ ⇔  T)`
+
+val fixed_names_def = Define`
+  fixed_names names c =
+  if c.ISA = x86_64 then
+    find_name names 4 = 2 ∧
+    find_name names 0 = 0
+  else T`
+
+val stack_asm_remove_def = Define`
+  (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackLoadAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
+  (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
+  (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
+  (stack_asm_remove c (Call r tar h) ⇔
+    (case r of
+      (SOME (p,_,_,_) => stack_asm_remove c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_remove c p'
+      | _ => T)
+    | _ => T)) ∧
+  (stack_asm_remove c _ ⇔  T)`
 
 val _ = export_theory();

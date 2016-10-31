@@ -2029,24 +2029,6 @@ val EVERY_sec_ends_with_label_MAP_prog_to_section = Q.store_thm("EVERY_sec_ends_
   Induct \\ simp[] \\ Cases \\ simp[prog_to_section_def]
   \\ pairarg_tac \\ fs[sec_ends_with_label_def]);
 
-(* asm_ok out of stack_names *)
-val stack_asm_ok_def = Define`
-  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
-  (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
-  (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
-  (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
-  (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-  (stack_asm_ok c (Call r tar h) ⇔
-    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
-    case r of
-      (SOME (p,_,_,_) => stack_asm_ok c p ∧
-      case h of
-      SOME (p',_,_) => stack_asm_ok c p'
-      | _ => T)
-    | _ => T) ∧
-  (stack_asm_ok c _ ⇔  T)`
-
 val flatten_line_ok_pre = prove(``
   ∀p n m ls a b c.
   stack_asm_ok c p ∧
@@ -2089,62 +2071,6 @@ val compile_all_enc_ok_pre = prove(``
   and that the mapping target for these avoids bad regs
 *)
 
-val reg_name_def = Define`
-  reg_name r c ⇔
-  r < c.reg_count - LENGTH (c.avoid_regs)`
-
-(* inst requirements just before stack_names *)
-
-val reg_imm_name_def = Define`
-  (reg_imm_name b (Reg r) c ⇔ reg_name r c) ∧
-  (reg_imm_name b (Imm w) c ⇔ c.valid_imm b w)`
-
-val arith_name_def = Define`
-  (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
-    (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
-    reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
-  (arith_name (Shift l r1 r2 n) c ⇔
-    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
-  (arith_name (LongMul r1 r2 r3 r4) c ⇔
-    reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = x86_64 ⇒ r1 = 4 ∧ r2 = 0 ∧ r3 = 0) ∧
-    (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
-    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r2 ≠ r3 ∧ r2 ≠ r4)) ∧
-  (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
-    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
-    reg_name r5 c) ∧
-  (arith_name (AddCarry r1 r2 r3 r4) c ⇔
-    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))`
-
-val addr_name_def = Define`
-  addr_name (Addr r w) c ⇔ reg_name r c ∧ addr_offset_ok w c`
-
-val inst_name_def = Define`
-  (inst_name c (Const r w) ⇔ reg_name r c) ∧
-  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name a c) ∧
-  (inst_name c (Arith x) ⇔ arith_name x c) ∧
-  (inst_name _ _ = T)`
-
-val stack_asm_name_def = Define`
-  (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
-  (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
-  (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
-  (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
-  (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
-  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
-  (stack_asm_name c (Call r tar h) ⇔
-    (case tar of INR r => reg_name r c | _ => T) ∧
-    case r of
-      (SOME (p,_,_,_) => stack_asm_name c p ∧
-      case h of
-      SOME (p',_,_) => stack_asm_name c p'
-      | _ => T)
-    | _ => T) ∧
-  (stack_asm_name c _ ⇔  T)`
-
 open stack_namesTheory
 
 val names_ok_imp = prove(``
@@ -2161,13 +2087,6 @@ val names_ok_imp2 = prove(``
   rw[names_ok_def]>>fs[ALL_DISTINCT_GENLIST,reg_name_def]>>
   metis_tac[])
 
-val fixed_names_def = Define`
-  fixed_names names c =
-  if c.ISA = x86_64 then
-    find_name names 4 = 2 ∧
-    find_name names 0 = 0
-  else T`
-
 val sn_comp_imp_stack_asm_ok = prove(``
   ∀f p.
   stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
@@ -2178,11 +2097,10 @@ val sn_comp_imp_stack_asm_ok = prove(``
   simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
   >-
     (simp[Once inst_find_name_def]>>every_case_tac>>
-    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.addr_ok_def]
+    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.addr_ok_def]>>
     (* Some of these are extremely annoying to prove with the separation of
        stack_names and configs... *)
-    >-
-      metis_tac[names_ok_imp]
+    TRY(metis_tac[names_ok_imp,names_ok_imp2])
     >-
       (rw[]>>
       TRY(metis_tac[names_ok_imp])
@@ -2192,19 +2110,10 @@ val sn_comp_imp_stack_asm_ok = prove(``
         Cases_on`r`>>
         fs[reg_imm_name_def,asmTheory.reg_imm_ok_def,ri_find_name_def]>>
         metis_tac[names_ok_imp])
-    >-
-      metis_tac[names_ok_imp]
-    >-
+    >>
       (rw[]>>
       fs[fixed_names_def]>>
-      metis_tac[names_ok_imp,names_ok_imp2])
-    >-
-      (fs[fixed_names_def]>>
-      metis_tac[names_ok_imp])
-    >-
-      (rw[]>>metis_tac[names_ok_imp,names_ok_imp2])
-    >>
-      metis_tac[names_ok_imp])
+      metis_tac[names_ok_imp,names_ok_imp2]))
   >-
     (every_case_tac>>fs[dest_find_name_def]>>
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])
@@ -2221,28 +2130,6 @@ val sn_compile_imp_stack_asm_ok = prove(``
   metis_tac[sn_comp_imp_stack_asm_ok])
 
 open stack_removeTheory
-
-val stack_asm_remove_def = Define`
-  (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
-  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (StackLoadAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
-  (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
-  (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
-  (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
-  (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
-  (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
-  (stack_asm_remove c (Call r tar h) ⇔
-    (case r of
-      (SOME (p,_,_,_) => stack_asm_remove c p ∧
-      case h of
-      SOME (p',_,_) => stack_asm_remove c p'
-      | _ => T)
-    | _ => T)) ∧
-  (stack_asm_remove c _ ⇔  T)`
 
 val sr_comp_stack_asm_name = prove(``
   ∀off k p.

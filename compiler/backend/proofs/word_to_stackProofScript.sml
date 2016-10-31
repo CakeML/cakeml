@@ -6732,8 +6732,9 @@ val word_to_stack_compile_lab_pres = store_thm("word_to_stack_compile_lab_pres",
   metis_tac[FST,word_to_stack_lab_pres])
 
 val EVEN_DIV_2_props = prove(``
-  a MOD 2 = 0 ∧ b MOD 2 = 0 ∧ a ≠ b ⇒
-  a DIV 2 ≠ b DIV 2 ∧ a DIV 2 ≠ 0 ``,cheat)
+  a MOD 2 = 0 ∧ b MOD 2 = 0 ⇒
+  (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)``,
+  cheat)
 
 val wconvs = [post_alloc_conventions_def,wordPropsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
 
@@ -6760,12 +6761,13 @@ val wLive_stack_asm_name = prove(``
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_name = store_thm("word_to_stack_stack_asm_name",``
+val word_to_stack_stack_asm_name_lem = prove(``
   ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
-  (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
+  (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
+  4 < (FST kf) ⇒
   stack_asm_name c (FST (comp p bs kf))``,
   ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def,stack_asm_name_def]
   >-
@@ -6786,10 +6788,9 @@ val word_to_stack_stack_asm_name = store_thm("word_to_stack_stack_asm_name",``
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>fs[]>>
-    rw[]>>TRY(metis_tac[EVEN_DIV_2_props])>>
-    TRY(qpat_assum`addr_offset_ok c' c` mp_tac>>EVAL_TAC>>fs[])>>
-    (*LongDiv and LongMul not quite matching up*)
-    cheat)
+    rw[]>>
+    TRY(metis_tac[EVEN_DIV_2_props])>>
+    qpat_assum`addr_offset_ok c' c` mp_tac>>EVAL_TAC>>fs[])
   >-
     (PairCases_on`kf'`>>
     ntac 3 (EVAL_TAC>>rw[])>>
@@ -6804,7 +6805,8 @@ val word_to_stack_stack_asm_name = store_thm("word_to_stack_stack_asm_name",``
     EVAL_TAC>>rw[])
   >-
     (fs wconvs>>rpt (pairarg_tac>>fs[])>>
-    ntac 6 (pop_assum mp_tac)>>
+    fs[every_inst_def]>>
+    ntac 4 (pop_assum mp_tac)>>
     PairCases_on`kf`>>
     Cases_on`ri`>>
     EVAL_TAC>>rw[]>>
@@ -6841,50 +6843,64 @@ val word_to_stack_stack_asm_name = store_thm("word_to_stack_stack_asm_name",``
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]))
 
-(* BLA *)
-val word_to_stack_stack_asm_name = store_thm("word_to_stack_stack_asm_name",``
-  ∀p bs kf c.
-  (*post_alloc_conventions k p ∧
-  (FST kf) ≠ 0 ∧
-  full_inst_ok_less c p  ⇒*)
-  k+1 < c.reg_count - LENGTH c.avoid_regs ⇒
-  stack_asm_name c (FST (comp p bs kf))``,
-  ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def,stack_asm_name_def]
+val call_dest_stack_asm_remove = prove(``
+  (FST k)+1 < c.reg_count - LENGTH c.avoid_regs ∧
+  call_dest d a k = (q0,d') ⇒
+  stack_asm_remove c q0 ∧
+  case d' of
+    INR r => r ≤ (FST k)+1
+  | INL l => T``,
+  Cases_on`d`>>EVAL_TAC>>rw[]>>
+  EVAL_TAC>>
+  pairarg_tac>>fs[]>>
+  pop_assum mp_tac>>PairCases_on`k`>>
+  EVAL_TAC>>rw[]>>
+  EVAL_TAC>>rw[])
+
+val wLive_stack_asm_remove = prove(``
+  (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
+  wLive q bs kf = (q1,bs') ⇒
+  stack_asm_remove c q1``,
+  PairCases_on`kf`>>
+  fs[wLive_def]>>
+  rw[]>-EVAL_TAC>>
+  rpt(pairarg_tac>>fs[])>>
+  rveq>>EVAL_TAC>>fs[])
+
+val word_to_stack_stack_asm_remove_lem = prove(``
+  ∀(p:'a prog) bs kf (c:'a asm_config).
+  (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
+  stack_asm_remove c (FST (comp p bs kf))``,
+  ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def,stack_asm_remove_def]
   >-
     (PairCases_on`kf`>>fs[wMove_def]>>
-    qpat_abbrev_tac`ls = MAP f l`>>
-
-    rpt (pop_assum kall_tac)>> Induct_on`ls`>>EVAL_TAC>>
-    fs[FORALL_PROD]>>Cases_on`ls`>>EVAL_TAC>>rw[]>>
-    every_case_tac>>fs[]>>EVAL_TAC)
+    qpat_abbrev_tac`ls = parmove f`>>
+    pop_assum kall_tac >> Induct_on`ls`>>EVAL_TAC>>
+    fs[FORALL_PROD]>>
+    Cases_on`ls`>>EVAL_TAC>>rw[]>>
+    fs[]>>
+    Cases_on`p_1`>>Cases_on`p_2`>>EVAL_TAC>>fs[]>>every_case_tac>>fs[]>>
+    EVAL_TAC>>fs[])
   >-
     (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`b`>>Cases_on`r`)>>
     PairCases_on`kf`>>
-    ntac 3 (pop_assum mp_tac)>>
-    EVAL_TAC>>rw[]>>
-    EVAL_TAC>>rw[]>>
-    EVAL_TAC>>rw[]>>
-    metis_tac[EVEN_DIV_2_props])
+    rpt(EVAL_TAC>>rw[]))
   >-
     (PairCases_on`kf'`>>
     rpt(EVAL_TAC>>rw[]))
   >-
-    fs wconvs
+    (rpt(pairarg_tac>>fs[])>>
+    EVAL_TAC>>fs[])
   >-
-    (pairarg_tac>>fs[]>>
-    pairarg_tac>>fs wconvs>>
-    fs[full_inst_ok_less_def])
-  >-
-    (rpt (pairarg_tac>>fs[])>>
+    (rpt(pairarg_tac>>fs[])>>
     ntac 4 (pop_assum mp_tac)>>
     PairCases_on`kf`>>
     Cases_on`ri`>>
     EVAL_TAC>>rw[]>>
-    EVAL_TAC>>rw[]>>
-    fs wconvs)
+    EVAL_TAC>>rw[])
   >-
-    (every_case_tac>> fs[full_inst_ok_less_def]>>
+    (every_case_tac>>
     PairCases_on`kf`>>
     rpt(EVAL_TAC>>rw[]))
   >-
@@ -6894,29 +6910,52 @@ val word_to_stack_stack_asm_name = store_thm("word_to_stack_stack_asm_name",``
     (every_case_tac>>rpt(pairarg_tac >>fs[])>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
-    fs wconvs>>
-    imp_res_tac call_dest_stack_asm_name>>
-    imp_res_tac wLive_stack_asm_name>>
+    imp_res_tac call_dest_stack_asm_remove>>
+    imp_res_tac wLive_stack_asm_remove>>
     fs[]>>
-    TRY(CASE_TAC>>fs[])>>
-    TRY(PairCases_on`kf`>>EVAL_TAC>>rw[])>>
-    TRY(first_assum match_mp_tac>>fs wconvs>>fs[every_inst_def])>>
+    PairCases_on`kf`>>EVAL_TAC>>rw[]>>
     qmatch_goalsub_abbrev_tac`stack_move n w x y z`>>
-    `stack_asm_name c z` by (unabbrev_all_tac>>EVAL_TAC)>>
+    `stack_asm_remove c z` by (unabbrev_all_tac>>EVAL_TAC)>>
     pop_assum mp_tac>>
+    qpat_assum`A < B` mp_tac>>
     rpt (pop_assum kall_tac)>>
     map_every qid_spec_tac [`z`,`w`,`n`]>>
     Induct>>EVAL_TAC>>fs[])
   >-
     (pairarg_tac>>fs[]>>EVAL_TAC>>
-    metis_tac[wLive_stack_asm_name])
+    metis_tac[wLive_stack_asm_remove])
   >-
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]))
 
-(*
-TODO: register bounds
-*)
+val word_to_stack_stack_asm_convs = store_thm("word_to_stack_stack_asm_convs",``
+  EVERY (λ(n,m,p).
+  full_inst_ok_less c p ∧
+  (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
+  post_alloc_conventions (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
+  4 < (c.reg_count - (LENGTH c.avoid_regs +5)) ⇒
+  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(compile c progs))``,
+  fs[compile_def]>>pairarg_tac>>rw[]
+  >- (EVAL_TAC>>fs[])
+  >- (EVAL_TAC>>fs[])
+  >>
+    qabbrev_tac`f = [4w]`>> pop_assum kall_tac>>
+    rpt (pop_assum mp_tac)>>
+    map_every qid_spec_tac[`progs'`,`f`,`bitmaps`,`progs`]>>
+    Induct>>fs[FORALL_PROD,compile_word_to_stack_def]>>
+    rpt strip_tac>>
+    FULL_SIMP_TAC (srw_ss())[compile_prog_def]>>
+    qpat_assum`A=(progs',bitmaps)`mp_tac>>LET_ELIM_TAC>>
+    rpt (pairarg_tac>>fs[])>>
+    qpat_assum`A=progs'` sym_sub_tac>>simp[]>>CONJ_TAC
+    >-
+      (qmatch_asmsub_abbrev_tac`comp p_2 f kf`>>
+      Q.ISPECL_THEN [`p_2`,`f`,`kf`,`c`] assume_tac word_to_stack_stack_asm_name_lem>>
+      Q.ISPECL_THEN [`p_2`,`f`,`kf`,`c`] assume_tac word_to_stack_stack_asm_remove_lem>>
+      rfs[Abbr`kf`]>>
+      rw[]>>EVAL_TAC>>fs[])
+    >>
+      metis_tac[])
 
 val _ = export_theory();
