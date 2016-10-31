@@ -1,5 +1,5 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory funBigStepPropsTheory
+open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory evaluatePropsTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
 
 val _ = new_theory "ioProg"
@@ -450,7 +450,7 @@ val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
       |> Q.GENL[`tops`,`s`,`env`]
       |> qspecl_then[`env`,`st with clock := c`,`prog`]mp_tac)
   \\ rw[] \\ pairarg_tac \\ fs[]
-  \\ drule funBigStepPropsTheory.evaluate_tops_call_FFI_rel_imp
+  \\ drule evaluatePropsTheory.evaluate_tops_call_FFI_rel_imp
   \\ imp_res_tac determTheory.prog_determ
   \\ fs[] \\ rw[]);
 
@@ -461,7 +461,7 @@ val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
       extract_output st.io_events = SOME (SND (st.ffi_state)) ==>
       extract_output st'.io_events = SOME (SND (st'.ffi_state))``,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
-  \\ fs [funBigStepPropsTheory.call_FFI_rel_def]
+  \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
   \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
@@ -497,7 +497,7 @@ val MAP_CHR_w2n_11 = store_thm("MAP_CHR_w2n_11",
 val evaluate_prog_rel_IMP_evaluate_prog_fun = store_thm(
    "evaluate_prog_rel_IMP_evaluate_prog_fun",
   ``bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
-    ?k. funBigStep$evaluate_prog (st with clock := k) env prog =
+    ?k. evaluate$evaluate_prog (st with clock := k) env prog =
           (st',new_tds,Rval r)``,
   rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
   \\ qexists_tac`c + st.clock`

@@ -204,7 +204,7 @@ val _ = Define `
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
-(*val type_p : nat -> tenv_ctor -> pat -> t -> list (varN * t) -> bool*)
+(*val type_p : nat -> type_environment -> pat -> t -> list (varN * t) -> bool*)
 
 (* An expression has a type *)
 (*val type_e : type_environment -> exp -> t -> bool*)
@@ -442,64 +442,71 @@ val _ = Define `
   )))`;
 
 
-val _ = Hol_reln ` (! tvs tenv_ctor n t.
+val _ = Hol_reln ` (! tvs tenv n t.
 (check_freevars tvs [] t)
 ==>
-type_p tvs tenv_ctor (Pvar n) t [(n,t)])
+type_p tvs tenv (Pvar n) t [(n,t)])
 
-/\ (! tvs tenv_ctor n.
+/\ (! tvs tenv n.
 T
 ==>
-type_p tvs tenv_ctor (Plit (IntLit n)) Tint [])
+type_p tvs tenv (Plit (IntLit n)) Tint [])
 
-/\ (! tvs tenv_ctor c.
+/\ (! tvs tenv c.
 T
 ==>
-type_p tvs tenv_ctor (Plit (Char c)) Tchar [])
+type_p tvs tenv (Plit (Char c)) Tchar [])
 
-/\ (! tvs tenv_ctor s.
+/\ (! tvs tenv s.
 T
 ==>
-type_p tvs tenv_ctor (Plit (StrLit s)) Tstring [])
+type_p tvs tenv (Plit (StrLit s)) Tstring [])
 
-/\ (! tvs tenv_ctor w.
+/\ (! tvs tenv w.
 T
 ==>
-type_p tvs tenv_ctor (Plit (Word8 w)) Tword8 [])
+type_p tvs tenv (Plit (Word8 w)) Tword8 [])
 
-/\ (! tvs tenv_ctor w.
+/\ (! tvs tenv w.
 T
 ==>
-type_p tvs tenv_ctor (Plit (Word64 w)) Tword64 [])
+type_p tvs tenv (Plit (Word64 w)) Tword64 [])
 
-/\ (! tvs tenv_ctor cn ps ts tvs' tn ts' bindings.
+/\ (! tvs tenv cn ps ts tvs' tn ts' bindings.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\
-type_ps tvs tenv_ctor ps (MAP (type_subst (alist_to_fmap (ZIP (tvs', ts')))) ts) bindings /\
-(lookup_alist_mod_env cn tenv_ctor = SOME (tvs', ts, tn)))
+type_ps tvs tenv ps (MAP (type_subst (alist_to_fmap (ZIP (tvs', ts')))) ts) bindings /\
+(lookup_alist_mod_env cn tenv.c = SOME (tvs', ts, tn)))
 ==>
-type_p tvs tenv_ctor (Pcon (SOME cn) ps) (Tapp ts' (tid_exn_to_tc tn)) bindings)
+type_p tvs tenv (Pcon (SOME cn) ps) (Tapp ts' (tid_exn_to_tc tn)) bindings)
 
-/\ (! tvs tenv_ctor ps ts bindings.
-(type_ps tvs tenv_ctor ps ts bindings)
+/\ (! tvs tenv ps ts bindings.
+(type_ps tvs tenv ps ts bindings)
 ==>
-type_p tvs tenv_ctor (Pcon NONE ps) (Tapp ts TC_tup) bindings)
+type_p tvs tenv (Pcon NONE ps) (Tapp ts TC_tup) bindings)
 
-/\ (! tvs tenv_ctor p t bindings.
-(type_p tvs tenv_ctor p t bindings)
+/\ (! tvs tenv p t bindings.
+(type_p tvs tenv p t bindings)
 ==>
-type_p tvs tenv_ctor (Pref p) (Tref t) bindings)
+type_p tvs tenv (Pref p) (Tref t) bindings)
 
-/\ (! tvs tenv_ctor.
+/\ (! tvs tenv p t bindings.
+(check_freevars( 0) [] t /\
+check_type_names tenv.t t /\
+type_p tvs tenv p (type_name_subst tenv.t t) bindings)
+==>
+type_p tvs tenv (Ptannot p t) (type_name_subst tenv.t t) bindings)
+
+/\ (! tvs tenv.
 T
 ==>
-type_ps tvs tenv_ctor [] [] [])
+type_ps tvs tenv [] [] [])
 
-/\ (! tvs tenv_ctor p ps t ts bindings bindings'.
-(type_p tvs tenv_ctor p t bindings /\
-type_ps tvs tenv_ctor ps ts bindings')
+/\ (! tvs tenv p ps t ts bindings bindings'.
+(type_p tvs tenv p t bindings /\
+type_ps tvs tenv ps ts bindings')
 ==>
-type_ps tvs tenv_ctor (p::ps) (t::ts) (bindings'++bindings))`;
+type_ps tvs tenv (p::ps) (t::ts) (bindings'++bindings))`;
 
 val _ = Hol_reln ` (! tenv n.
 T
@@ -536,7 +543,7 @@ type_e tenv (Raise e) t)
 (type_e tenv e t /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes). ? bindings.
    ALL_DISTINCT (pat_bindings p []) /\
-   type_p (num_tvs tenv.v) tenv.c p Texn bindings /\
+   type_p (num_tvs tenv.v) tenv p Texn bindings /\
    type_e (tenv with<| v := bind_var_list( 0) bindings tenv.v|>) e t))
 ==>
 type_e tenv (Handle e pes) t)
@@ -590,7 +597,7 @@ type_e tenv (If e1 e2 e3) t)
 (type_e tenv e t1 /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? bindings.
    ALL_DISTINCT (pat_bindings p []) /\
-   type_p (num_tvs tenv.v) tenv.c p t1 bindings /\
+   type_p (num_tvs tenv.v) tenv p t1 bindings /\
    type_e (tenv with<| v := bind_var_list( 0) bindings tenv.v|>) e t2))
 ==>
 type_e tenv (Mat e pes) t2)
@@ -616,6 +623,13 @@ type_e tenv (Letrec funs e) t
 type_e (tenv with<| v := bind_var_list( 0) bindings tenv.v|>) e t)
 ==>
 type_e tenv (Letrec funs e) t)
+
+/\ (! tenv e t.
+(check_freevars( 0) [] t /\
+check_type_names tenv.t t /\
+type_e tenv e (type_name_subst tenv.t t))
+==>
+type_e tenv (Tannot e t) (type_name_subst tenv.t t))
 
 /\ (! tenv.
 T
@@ -651,8 +665,8 @@ val _ = Define `
 val _ = Define `
  (type_pe_determ tenv p e =  
 (! t1 tenv1 t2 tenv2.    
-(type_p( 0) tenv.c p t1 tenv1 /\ type_e tenv e t1 /\
-    type_p( 0) tenv.c p t2 tenv2 /\ type_e tenv e t2)
+(type_p( 0) tenv p t1 tenv1 /\ type_e tenv e t1 /\
+    type_p( 0) tenv p t2 tenv2 /\ type_e tenv e t2)
     ==>    
 (tenv1 = tenv2)))`;
 
@@ -679,11 +693,11 @@ val _ = Define `
 val _ = Hol_reln ` (! extra_checks tvs mn tenv p e t bindings decls.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
-type_p tvs tenv.c p t bindings /\
+type_p tvs tenv p t bindings /\
 type_e (tenv with<| v := bind_tvar tvs tenv.v|>) e t /\
 (extra_checks ==>  
 (! tvs' bindings' t'.    
-(type_p tvs' tenv.c p t' bindings' /\
+(type_p tvs' tenv p t' bindings' /\
     type_e (tenv with<| v := bind_tvar tvs' tenv.v|>) e t') ==>
       weakE (tenv_add_tvs tvs bindings) (tenv_add_tvs tvs' bindings'))))
 ==>
@@ -696,7 +710,7 @@ type_d extra_checks mn decls tenv (Dlet p e) empty_decls (FEMPTY, [], tenv_add_t
    instantiation. However, we should only do the check when the extra_checks
    argument tells us to. *)(extra_checks ==> (~ (is_value e) /\ type_pe_determ tenv p e)) /\
 ALL_DISTINCT (pat_bindings p []) /\
-type_p( 0) tenv.c p t bindings /\
+type_p( 0) tenv p t bindings /\
 type_e tenv e t)
 ==>
 type_d extra_checks mn decls tenv (Dlet p e) empty_decls (FEMPTY, [], tenv_add_tvs( 0) bindings))

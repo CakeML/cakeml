@@ -103,14 +103,14 @@ val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_ASM_MEM_OP_TYPE = find_equality_type_thm``ASM_MEM_OP_TYPE``
+val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_ASM_SHIFT_TYPE,
                        EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
 val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
-                       EqualityType_ASM_MEM_OP_TYPE,EqualityType_ASM_ARITH_TYPE]
+                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE]
 
 val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
   |> SIMP_RULE std_ss []
@@ -287,7 +287,7 @@ val _ = translate (spec64 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:64``,beta |-> ``:64``])
 
-val _ = translate(conv64 arith_ok_def)
+val _ = translate(conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 

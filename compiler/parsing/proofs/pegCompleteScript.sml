@@ -616,6 +616,20 @@ val firstSetML_nPapp = store_thm(
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
+val firstSet_nPcons = store_thm(
+  "firstSet_nPcons[simp]",
+  ``firstSet cmlG (NN nPcons :: rest) = firstSet cmlG [NN nPbase]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
+
+val firstSetML_nPcons = store_thm(
+  "firstSetML_nPcons[simp]",
+  ``mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
+    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
+    mkNT nPcons ∉ sn ⇒
+    firstSetML cmlG sn (NN nPcons :: rest) = firstSet cmlG [NN nPbase]``,
+  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
+
 val firstSet_nPattern = store_thm(
   "firstSet_nPattern[simp]",
   ``firstSet cmlG (NN nPattern :: rest) = firstSet cmlG [NN nPbase]``,
@@ -1203,16 +1217,22 @@ val stoppers_def = Define`
   (stoppers nNonETopLevelDecs = ∅) ∧
   (stoppers nOptTypEqn =
      UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
+  (stoppers nPcons =
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪
+                { StringT s | T } ∪ { CharT c | T } ∪
+                firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPapp =
      UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪
                 { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPattern =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪
-                { StringT s | T } ∪ { CharT c | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT} ∪
+                { AlphaT s | T } ∪ { SymbolT s | T } ∪ { LongidT s1 s2 | T } ∪
+                { IntT i | T } ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPatternList =
-     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; SymbolT "::"} ∪
+     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT} ∪
+                { AlphaT s | T } ∪ { SymbolT s | T } ∪ { LongidT s1 s2 | T } ∪
                 {IntT i | T} ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPbaseList1 = UNIV DIFF firstSet cmlG [NN nPbase]) ∧
@@ -1907,6 +1927,14 @@ val completeness = store_thm(
           strip_tac >> rw[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
       normlist >> simp[])
+  >- (print_tac "nPcons" >> stdstart
+      >- (normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
+          asm_match `ptree_head ppt = NN nPapp` >> qexists_tac `ppt` >>
+          simp[] >> first_x_assum (match_mp_tac o has_const ``LENGTH``) >>
+          simp[firstSet_nV, firstSet_nConstructorName]) >>
+      first_assum (unify_firstconj kall_tac) >> simp[] >>
+      conj_tac >- simp[NT_rank_def] >>
+      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
   >- (print_tac "nPbaseList1" >> stdstart
       >- (first_x_assum (unify_firstconj mp_tac) >> simp[] >>
           asm_match `ptree_fringe pt = MAP TK pfx` >>
@@ -1947,14 +1975,12 @@ val completeness = store_thm(
           Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
       normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
       simp[])
-  >- (print_tac "nPattern" >> stdstart
-      >- (normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
-          asm_match `ptree_head ppt = NN nPapp` >> qexists_tac `ppt` >>
-          simp[] >> first_x_assum (match_mp_tac o has_const ``LENGTH``) >>
-          simp[firstSet_nV, firstSet_nConstructorName]) >>
-      first_assum (unify_firstconj kall_tac) >> simp[] >>
-      conj_tac >- simp[NT_rank_def] >>
-      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+  >- (print_tac "nPattern" >> stdstart >> dsimp[]
+      >- (simp[NT_rank_def] >>
+          rename[`sfx ≠ [] ⇒ _`] >> Cases_on `sfx` >> simp[peg_eval_tok_NONE] >>
+          fs[]) >>
+      disj1_tac >> normlist >> first_assum (unify_firstconj kall_tac) >>
+      simp[APPEND_EQ_CONS] >> first_x_assum match_mp_tac >> simp[])
   >- (print_tac "nPapp" >> stdstart
       >- (DISJ1_TAC >>
           erule mp_tac

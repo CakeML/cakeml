@@ -11,6 +11,13 @@ PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
+BARE_THYS = ../../../backend/proofs/backendProofTheory\
+						../../../targets/x64/proofs/x64_targetProofTheory\
+						../../../targets/arm6/proofs/arm6_targetProofTheory\
+						../../../targets/arm8/proofs/arm8_targetProofTheory\
+						../../../targets/riscv/proofs/riscv_targetProofTheory\
+						../../../targets/mips/proofs/mips_targetProofTheory
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

@@ -204,6 +204,12 @@ evaluate ck env s (Letrec funs e) bv)
 ==>
 evaluate ck env s (Letrec funs e) (s, Rerr (Rabort Rtype_error)))
 
+/\ (! ck env e t s bv.
+(evaluate ck env s e bv)
+==>
+evaluate ck env s (Tannot e t) bv)
+
+
 /\ (! ck env s.
 T
 ==>

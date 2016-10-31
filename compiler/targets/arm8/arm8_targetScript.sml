@@ -120,7 +120,12 @@ val arm8_enc_def = Define`
                        (BitfieldMove@64
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1)))
                 | NONE => arm8_encode_fail)) /\
-   (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = arm8_encode_fail) /\
+   (arm8_enc (Inst (Arith (Div r1 r2 r3))) =
+      arm8_encode (Data (Division@64 (1w, T, n2w r3, n2w r2, n2w r1)))) /\
+   (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+      arm8_encode (Data (MultiplyHigh (F, n2w r4, n2w r3, n2w r1))) ++
+      arm8_encode
+        (Data (MultiplyAddSub@64 (1w, F, n2w r4, 31w, n2w r3, n2w r2)))) /\
    (arm8_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm8_encode_fail) /\
    (arm8_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       arm8_encode (Data (AddSubImmediate@64 (1w, T, T, 0w, n2w r4, 0x1Fw))) ++
@@ -135,12 +140,14 @@ val arm8_enc_def = Define`
            (LoadStoreImmediate@64
               (3w, F, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   (*
    (arm8_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
            (LoadStoreImmediate@32
               (2w, T, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   *)
    (arm8_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
@@ -153,12 +160,14 @@ val arm8_enc_def = Define`
            (LoadStoreImmediate@64
               (3w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   (*
    (arm8_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
            (LoadStoreImmediate@32
               (2w, T, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   *)
    (arm8_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
@@ -219,7 +228,6 @@ val arm8_config_def = Define`
     ; reg_count := 32
     ; avoid_regs := [31]
     ; link_reg := SOME 30
-    ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F
     ; code_alignment := 2

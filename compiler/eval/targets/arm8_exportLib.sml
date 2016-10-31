@@ -4,15 +4,15 @@ local open HolKernel boolLib bossLib lcsymtacs in
 
 fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
   val heap_line  = "    .space  " ^ (Int.toString heap_mb) ^
-                   " * 1024 * 1024   # heap size in bytes"
+                   " * 1024 * 1024   // heap size in bytes"
   val stack_line = "    .space  " ^ Int.toString stack_mb ^
-                   " * 1024 * 1024   # stack size in bytes"
+                   " * 1024 * 1024   // stack size in bytes"
   fun ffi_asm 0 = []
     | ffi_asm n = let
     val n = n - 1
     in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
-       "     pushq   %rax"::
-       "     jmp     cdecl(ffi" ^ (Int.toString n) ^ ")"::
+       (*"     pushq   %rax"::*)
+       "     b     cdecl(ffi" ^ (Int.toString n) ^ ")"::
        "     .p2align 3"::
        "":: ffi_asm n end
   in
@@ -43,13 +43,13 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "     .text",
    "     .globl  cdecl(main)",
    "cdecl(main):",
-   "     pushq   %rbp        # push base pointer",
-   "     movq    %rsp, %rbp  # save stack pointer",
-   "     leaq    cake_main(%rip), %rdi   # arg1: entry address",
-   "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap",
-   "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack",
-   "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack",
-   "     jmp     cake_main",
+   (*"     pushq   %rbp        # push base pointer",
+   "     movq    %rsp, %rbp  # save stack pointer",*)
+   "     ldr    x0,=cake_main   // arg1: entry address",
+   "     ldr    x1,=cake_heap   // arg2: first address of heap",
+   "     ldr    x3,=cake_stack  // arg3: first address of stack",
+   "     ldr    x4,=cake_end    // arg4: first address past the stack",
+   "     b      cake_main",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
    "",
@@ -57,11 +57,11 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    ""] @
    ffi_asm ffi_count @
   ["cake_clear:",
-   "     callq   cdecl(exit)",
+   "     b   cdecl(exit)",
    "     .p2align 3",
    "",
    "cake_exit:",
-   "     callq   cdecl(exit)",
+   "     b   cdecl(exit)",
    "     .p2align 3",
    "",
    "cake_main:",

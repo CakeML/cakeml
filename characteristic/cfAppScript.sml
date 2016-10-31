@@ -2,7 +2,6 @@ open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormalizeTheory
 open cfTacticsBaseLib cfHeapsLib
-open funBigStepTheory
 
 val _ = new_theory "cfApp"
 
@@ -326,7 +325,8 @@ val POSTv_cond = Q.store_thm("POSTv_cond",
   rw[POSTv_def]
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]);
 
-open terminationTheory funBigStepPropsTheory
+open terminationTheory evaluatePropsTheory
+val dec_clock_def = evaluateTheory.dec_clock_def
 val functional_evaluate = ml_translatorTheory.functional_evaluate
 val evaluate_ffi_intro = ml_translatorTheory.evaluate_ffi_intro
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
@@ -355,7 +355,7 @@ val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
   \\ rw[] \\ fs[evaluate_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
   \\ fs[dec_clock_def]
-  \\ fs[evalPropsTheory.do_app_cases] \\ rw[]
+  \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
   \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
   \\ rw[]);
 

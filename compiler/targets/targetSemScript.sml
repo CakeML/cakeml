@@ -16,7 +16,7 @@ val _ = Datatype `
     ; len_reg : num
     (* major interference by FFI calls *)
     ; ffi_interfer : num -> num -> word8 list -> 'b -> 'b
-    ; caller_saved_regs : num list
+    ; callee_saved_regs : num list
     (* minor interference during exeuction *)
     ; next_interfer : num -> 'b -> 'b
     (* program exits successfully at halt_pc *)

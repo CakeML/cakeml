@@ -1,6 +1,6 @@
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory evalPropsTheory bigClockTheory packLib;
+     determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory packLib;
 open mlstringTheory integerTheory;
 open terminationTheory ml_progTheory;
 
@@ -1347,7 +1347,7 @@ val Eval_length = store_thm("Eval_length",
 (* TODO: move to appropriate locations *)
 
 local open funBigStepEquivTheory in end
-open funBigStepTheory funBigStepPropsTheory
+open evaluatePropsTheory
 
 val io_events_mono_antisym = Q.store_thm("io_events_mono_antisym",
   `io_events_mono s1 s2 ∧ io_events_mono s2 s1 ⇒ s1 = s2`,
@@ -1357,13 +1357,7 @@ val io_events_mono_antisym = Q.store_thm("io_events_mono_antisym",
   \\ imp_res_tac IS_PREFIX_ANTISYM
   \\ rfs[]);
 
-val evaluate_state_const = Q.store_thm("evaluate_state_const",
-  `evaluate s env es = (s',r) ⇒
-   s'.defined_types = s.defined_types ∧
-   s'.defined_mods = s.defined_mods`,
-  rw[funBigStepEquivTheory.functional_evaluate_list]
-  \\ imp_res_tac evalPropsTheory.evaluate_no_new_types_mods
-  \\ fs[]);
+val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged
 
 val functional_evaluate = Q.store_thm("functional_evaluate",
   `evaluate T env s e (s',r) ⇔ evaluate s env [e] = (s',list_result r)`,
@@ -1384,7 +1378,7 @@ val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
   `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ∧ ffi.final_event = NONE ⇒
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)`,
   rw[]
-  \\ fs[evalPropsTheory.do_app_cases]
+  \\ fs[do_app_cases]
   \\ rw[] \\ fs[]
   \\ fs[ffiTheory.call_FFI_def]
   \\ every_case_tac \\ fs[]
@@ -1420,6 +1414,7 @@ val option_CASE_fst_cong = Q.prove(
 
 val evaluate_ind = terminationTheory.evaluate_ind
 val evaluate_def = terminationTheory.evaluate_def
+val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
   (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ∧
@@ -1597,6 +1592,9 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ rw[state_component_equality] )
   >- (
     rfs[evaluate_def]
     \\ rw[state_component_equality] )

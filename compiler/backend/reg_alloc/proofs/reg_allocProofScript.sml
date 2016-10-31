@@ -763,8 +763,7 @@ val unbound_colours_props = prove(``
   Induct_on`ls`>>srw_tac[][unbound_colours_def]>>
   imp_res_tac SORTED_TAIL>>
   `is_phy_var (col+2)` by
-    (qspec_then `2` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`col`,`2`] assume_tac)>>rev_full_simp_tac(srw_ss())[is_phy_var_def])>>
+    fs[is_phy_var_def]>>
   full_simp_tac(srw_ss())[]
   >-
     DECIDE_TAC

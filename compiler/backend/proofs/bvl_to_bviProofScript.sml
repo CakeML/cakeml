@@ -1067,7 +1067,7 @@ val compile_exps_correct = Q.prove(
       \\ first_x_assum drule \\ Cases_on `x` \\ fs [isVar_def])
     \\ strip_tac \\ fs []
     \\ reverse (Cases_on `q`)
-    \\ fs [evalPropsTheory.map_result_def] \\ rveq \\ fs []
+    \\ fs [semanticPrimitivesPropsTheory.map_result_def] \\ rveq \\ fs []
     THEN1 (Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs [find_code_def])
     \\ ntac 3 (IMP_RES_TAC aux_code_installed_APPEND \\ fs[])
     \\ fs [aux_code_installed_def,compile_aux_def]
@@ -1109,12 +1109,12 @@ val compile_exps_correct = Q.prove(
     \\ fs [find_code_def]
     \\ `?d2. c2 = [d2]` by (Cases_on `c2` \\ fs [LENGTH_NIL]) \\ rveq \\ fs []
     \\ drule bvi_letProofTheory.evaluate_compile_exp
-    \\ impl_tac THEN1 (Cases_on `res` \\ fs [evalPropsTheory.map_result_def])
+    \\ impl_tac THEN1 (Cases_on `res` \\ fs [semanticPrimitivesPropsTheory.map_result_def])
     \\ strip_tac \\ fs []
     \\ `dec_clock 1 (inc_clock (c' + 1) t2) = inc_clock c' t2` by
            (EVAL_TAC \\ fs [] \\ NO_TAC)
-    \\ fs [] \\ Cases_on `res` \\ fs [evalPropsTheory.map_result_def]
-    \\ Cases_on `e'` \\ fs [evalPropsTheory.map_error_result_def])
+    \\ fs [] \\ Cases_on `res` \\ fs [semanticPrimitivesPropsTheory.map_result_def]
+    \\ Cases_on `e'` \\ fs [semanticPrimitivesPropsTheory.map_error_result_def])
   THEN1 (* Raise *)
    (`?c1 aux1 n1. compile_exps n [x1] = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]

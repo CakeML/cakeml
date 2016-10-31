@@ -48,7 +48,7 @@ val bytes_in_memory_thm2 = Q.prove(
    \\ fs []
    )
 
-val lem1 = CONJ (asmLib.v2w_BIT_n2w 5) (DECIDE ``!n. 1n < n ==> n <> 0``)
+val lem1 = asmLib.v2w_BIT_n2w 5
 val lem2 = asmLib.v2w_BIT_n2w 6
 
 val lem4 = blastLib.BBLAST_PROVE
@@ -87,6 +87,16 @@ val lem9 = Q.prove(
    \\ imp_res_tac wordsTheory.BITS_ZEROL_DIMINDEX
    \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_add_n2w,
           wordsTheory.word_ls_n2w])
+
+val mul_long = Q.prove(
+  `!a : word64 b : word64.
+    n2w ((w2n a * w2n b) DIV 18446744073709551616) =
+    (127 >< 64) (w2w a * w2w b : word128) : word64`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
 
 (* some rewrites ---------------------------------------------------------- *)
 
@@ -190,7 +200,6 @@ end
 
 local
   val thm = DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``
-  val thm2 = DECIDE ``a < 32 /\ a <> 0n /\ a <> 1n = 1 < a /\ a < 32``
   val cond_rand_thms =
     utilsLib.mk_cond_rand_thms
        (utilsLib.accessor_fns ``: riscv_state`` @
@@ -205,7 +214,7 @@ in
        NO_STRIP_FULL_SIMP_TAC (srw_ss())
          [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
           riscv_config, asmPropsTheory.all_pcs, lem2, cond_rand_thms,
-          alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, thm2]
+          alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
        \\ MAP_EVERY (fn s =>
             qunabbrev_tac [QUOTE s]
             \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
@@ -216,7 +225,7 @@ in
        \\ asm_simp_tac (srw_ss())
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
        \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-       \\ simp []
+       \\ asm_simp_tac (srw_ss()) []
        \\ (if asmLib.isAddCarry asm then
              qabbrev_tac `r2 = ms.c_gpr ms.procID (n2w n0)`
              \\ qabbrev_tac `r3 = ms.c_gpr ms.procID (n2w n1)`
@@ -224,12 +233,14 @@ in
              \\ Cases_on `i = n2`
              \\ asm_simp_tac std_ss [wordsTheory.WORD_LO_word_0, lem8]
              >- (Cases_on `ms.c_gpr ms.procID (n2w n2) = 0w`
-                 \\ simp [wordsTheory.WORD_LO_word_0, lem7, lem9]
+                 \\ asm_simp_tac (srw_ss())
+                      [wordsTheory.WORD_LO_word_0, lem7, lem9]
                  \\ blastLib.BBLAST_TAC)
-             \\ rw [GSYM wordsTheory.word_add_n2w, lem7]
+             \\ srw_tac [] [GSYM wordsTheory.word_add_n2w, lem7]
            else
-             rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-                 thm]
+             srw_tac []
+                [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+                 GSYM wordsTheory.word_mul_def, mul_long, thm]
              \\ (if asmLib.isMem asm then
                    full_simp_tac
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++
@@ -243,30 +254,28 @@ in
 end
 
 local
-   val skip = ``Inst Skip : 64 asm``
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
-   fun gen_next_tac asm (j, i) =
+   fun gen_next_tac (j, i) =
      exists_tac (numLib.term_of_int (j - 1))
      \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
               asmPropsTheory.interference_ok_def, riscv_proj_def]
      \\ NTAC 2 strip_tac
      \\ NTAC i (split_bytes_in_memory_tac 4)
      \\ NTAC j next_state_tac
-     \\ state_tac asm
-   fun next_tac_by_instructions asm gs =
+   fun next_tac_by_instructions gs =
       let
          val j = number_of_instructions (fst gs)
       in
-         gen_next_tac asm (j, j - 1) gs
+         gen_next_tac (j, j - 1) gs
       end
    fun jc_next_tac_by_instructions gs =
       let
          val j = number_of_instructions (fst gs) - 1
       in
-         gen_next_tac skip (j, j) gs
+         gen_next_tac (j, j) gs
       end
    val (_, _, dest_riscv_enc, is_riscv_enc) =
      HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
@@ -275,13 +284,14 @@ in
   fun next_tac gs =
     (
      NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-     \\ next_tac_by_instructions (get_asm (snd gs))
+     \\ next_tac_by_instructions
+     \\ state_tac (get_asm (snd gs))
     ) gs
   fun jc_next_tac c =
     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ Cases_on c
-    >- next_tac_by_instructions skip
-    \\ jc_next_tac_by_instructions
+    >| [next_tac_by_instructions, jc_next_tac_by_instructions]
+    \\ state_tac ``Inst Skip : 64 asm``
 end
 
 (* -------------------------------------------------------------------------
@@ -383,6 +393,13 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                Div
+              --------------*)
+            print_tac "Div"
             \\ next_tac
             )
          >- (

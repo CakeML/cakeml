@@ -6393,10 +6393,11 @@ val assign_thm = Q.store_thm("assign_thm",
       by (
         Cases_on`ls'` \\ fs[Abbr`i`]
         \\ simp[LIST_EQ_REWRITE,ADD1,EL_DROP,EL_CONS,PRE_SUB1]
-        \\ IF_CASES_TAC \\ fs[]
-        >- (
-          `LENGTH ls = SUC n` by decide_tac \\ simp[ADD1] )
-        \\ Cases \\ simp[EL_DROP,ADD1,EL_CONS,PRE_SUB1] )
+        \\ Induct \\ rw[ADD1]
+        \\ simp[EL_DROP]
+        \\ `x''' + LENGTH ls - n = SUC(x''' + LENGTH ls - (n+1))` by decide_tac
+        \\ pop_assum SUBST1_TAC
+        \\ simp[EL])
       \\ first_assum SUBST1_TAC
       \\ qpat_abbrev_tac`wb = write_bytearray _ (_ :: _) _ _ _`
       \\ qpat_abbrev_tac `wb1 = write_bytearray _ _ _ _ _`

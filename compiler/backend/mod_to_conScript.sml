@@ -48,7 +48,9 @@ val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Pcon con_id ps) =
     (Pcon (lookup_tag_env con_id tagenv) (MAP (compile_pat tagenv) ps)))
   ∧
-  (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))`
+  (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))
+  ∧
+  (compile_pat tagenv (Ptannot p t) = compile_pat tagenv p)`
   (WF_REL_TAC `inv_image $< (\(x,p). pat_size p)` >>
    srw_tac [ARITH_ss] [astTheory.pat_size_def] >>
    Induct_on `ps` >>

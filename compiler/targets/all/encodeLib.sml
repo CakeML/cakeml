@@ -225,6 +225,13 @@ fun encodings arches l =
 
 (*
 
+open encodeLib
+
+val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
+   [
+    `Inst (Arith (LongMul 4 5 6 7))`
+   ]
+
 val () = Count.apply (encodings [All])
    [
     `Inst Skip`,

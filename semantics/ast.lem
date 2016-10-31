@@ -149,6 +149,7 @@ type pat =
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of maybe (id conN) * list pat
   | Pref of pat
+  | Ptannot of pat * t
 
 (* Expressions *)
 type exp =
@@ -177,6 +178,7 @@ type exp =
      The first varN is the function's name, and the second varN
      is its parameter. *)
   | Letrec of list (varN * varN * exp) * exp
+  | Tannot of exp * t
 
 type type_def = list (list tvarN * typeN * list (conN * list t))
 
@@ -229,6 +231,9 @@ pat_bindings (Pcon _ ps) already_bound =
   pats_bindings ps already_bound
 and
 pat_bindings (Pref p) already_bound =
+  pat_bindings p already_bound
+and
+pat_bindings (Ptannot p _) already_bound =
   pat_bindings p already_bound
 and
 pats_bindings [] already_bound =

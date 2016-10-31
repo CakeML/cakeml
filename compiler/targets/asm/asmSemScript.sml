@@ -60,10 +60,13 @@ val arith_upd_def = Define `
      binop_upd r1 b (read_reg r2 s) (reg_imm ri s) s) /\
   (arith_upd (Shift l r1 r2 n) s =
      upd_reg r1 (word_shift l (read_reg r2 s) n) s) /\
+  (arith_upd (Div r1 r2 r3) s =
+     let q = read_reg r3 s in
+       assert (q <> 0w) (upd_reg r1 (read_reg r2 s // q) s)) /\
   (arith_upd (LongMul r1 r2 r3 r4) (s : 'a asm_state) =
      let r = w2n (read_reg r3 s) * w2n (read_reg r4 s)
      in
-       upd_reg r1 (n2w (r DIV dimword (:'a))) (upd_reg r2 (n2w r) s)) /\
+       upd_reg r2 (n2w r) (upd_reg r1 (n2w (r DIV dimword (:'a))) s)) /\
   (arith_upd (LongDiv r1 r2 r3 r4 r5) (s : 'a asm_state) =
      let n = w2n (read_reg r3 s) * dimword (:'a) + w2n (read_reg r4 s) in
      let d = w2n (read_reg r5 s) in

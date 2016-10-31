@@ -83,14 +83,18 @@ val x64_enc_def = Define`
        x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
    (x64_enc0 (Inst (Mem Load r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, ld r1 r2 a))) /\
+   (*
    (x64_enc0 (Inst (Mem Load32 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z32, ld r1 r2 a))) /\
+   *)
    (x64_enc0 (Inst (Mem Load8 r1 (Addr r2 a))) =
        x64$encode (Zmovzx (Z8 T, ld r1 r2 a, Z64))) /\
    (x64_enc0 (Inst (Mem Store r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, st r1 r2 a))) /\
+   (*
    (x64_enc0 (Inst (Mem Store32 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z32, st r1 r2 a))) /\
+   *)
    (x64_enc0 (Inst (Mem Store8 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a))) /\
    (x64_enc0 (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
@@ -134,7 +138,6 @@ val x64_config_def = Define`
     ; reg_count := 16
     ; avoid_regs := [4;5]
     ; link_reg := NONE
-    ; has_mem_32 := T
     ; two_reg_arith := T
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32

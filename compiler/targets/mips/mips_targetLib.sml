@@ -31,7 +31,8 @@ end
 
 val add_mips_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``mips_target$mips_enc``, 1, mips_encode_conv)],
-   computeLib.Defs [mips_targetTheory.mips_config]]
+   computeLib.Defs [mips_targetTheory.mips_config,
+                    mips_targetTheory.mips_reg_ok_def]]
 
 val mips_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders

@@ -18,7 +18,8 @@ val arm6_asm_ok =
   REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_asm_ok
 
 val lem1 = Q.prove(
-   `!n m. n < 15 ==> RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15`,
+   `!n m. n < 16 /\ n <> 13 /\ n <> 15 ==>
+          RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15`,
    CONV_TAC (Conv.ONCE_DEPTH_CONV SYM_CONV)
    \\ simp [arm_stepTheory.R_x_pc]
    )
@@ -35,11 +36,11 @@ val lem5 =
 
 val lem6 = Q.prove(
    `!s state c n.
-      target_state_rel arm6_target s state /\ n < 15 /\
+      target_state_rel arm6_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
       aligned 2 (c + s.regs n) ==>
       aligned 2 (c + state.REG (R_mode state.CPSR.M (n2w n)))`,
    rw [asmPropsTheory.target_state_rel_def, alignmentTheory.aligned_extract,
-       arm6_target_def, arm6_config_def]
+       arm6_target_def, arm6_config_def, lem1]
    )
 
 val lem7 = Q.prove(
@@ -388,6 +389,47 @@ val aligned_add = Q.prove(
    metis_tac [wordsTheory.WORD_ADD_COMM, alignmentTheory.aligned_add_sub]
    )
 
+val _ = diminish_srw_ss ["MOD_ss"]
+
+val adc_lem1 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
+      4294967296 <= w2n r2 + (w2n r3 + 1)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem2 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
+      n2w (w2n r2 + (w2n r3 + 1))`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem3 = Q.prove(
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem4 = Q.prove(
+  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val mul_long_lem1 = Q.prove(
+  `!a : word32 b. (31 >< 0) (w2w a * w2w b : word64) = a * b`,
+  srw_tac [wordsLib.WORD_EXTRACT_ss]
+    [Once wordsTheory.WORD_EXTRACT_OVER_MUL])
+
+val mul_long_lem2 = Q.prove(
+  `!a : word32 b : word32.
+    n2w ((w2n a * w2n b) DIV 4294967296) =
+    (63 >< 32) (w2w a * w2w b : word64) : word32`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -396,7 +438,7 @@ val encode_rwts =
    in
       [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
        encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
-       EncodeImmShift_def
+       e_multiply_def, EncodeImmShift_def
        ]
    end
 
@@ -533,30 +575,6 @@ in
      ORELSE next_state_tac0 [false, true]
 end
 
-val adc_lem1 = Q.prove(
-  `!r2 r3 : word32 r4 : word32.
-      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
-      4294967296 <= w2n r2 + (w2n r3 + 1)`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
-val adc_lem2 = Q.prove(
-  `!r2 r3 : word32 r4 : word32.
-      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
-      n2w (w2n r2 + (w2n r3 + 1))`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
-val adc_lem3 = Q.prove(
-  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
-val adc_lem4 = Q.prove(
-  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
 local
    val i_tm = ``R_mode ms.CPSR.M (n2w i)``
    val reg_tac =
@@ -581,17 +599,18 @@ in
          [asmPropsTheory.sym_target_state_rel, arm6_target_def,
           asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
-          DECIDE ``a < 16 /\ a <> 15n = a < 15``]
+          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq]
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
              lem1, lem2, lem3, adc_lem2, adc_lem4,
-             alignmentTheory.align_aligned]
-      \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-             updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
+             mul_long_lem1, mul_long_lem2,
+             GSYM wordsTheory.word_mul_def, alignmentTheory.align_aligned]
+      \\ srw_tac []
+           [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+            updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
+            decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
       \\ fs [adc_lem1, adc_lem3]
 end
 
@@ -629,7 +648,6 @@ local
              )
          \\ NTAC j next_state_tac
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
-         \\ state_tac
       end gs
    val (_, _, dest_arm6_enc, is_arm6_enc) =
      HolKernel.syntax_fns1 "arm6_target" "arm6_enc"
@@ -639,6 +657,7 @@ in
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ next_tac' (get_asm (snd gs))
+       \\ state_tac
       ) gs
    val cnext_tac =
       next_tac
@@ -784,6 +803,13 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                Div
+              --------------*)
+            print_tac "LongDiv"
             \\ next_tac
             )
          >- (
