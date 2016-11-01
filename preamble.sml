@@ -212,8 +212,7 @@ fun any_match_mp impth th =
 
 val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
-(* TODO: this doesn't prove the hyps if there's more than one *)
-fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
+fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));
 
 (* if the first conjunct under the goal's existential prefix matches the term
    except for some places where it has structure and the term just has variables,
