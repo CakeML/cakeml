@@ -1,5 +1,5 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory funBigStepPropsTheory
+open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory evaluatePropsTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
 
 val _ = new_theory "ioProg"
@@ -98,20 +98,20 @@ val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
   ``!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (\v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
   prove_array_spec "Word8Array.array");
 
 val w8array_sub_spec = store_thm ("w8array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (\v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.sub");
 
 val w8array_length_spec = store_thm ("w8array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (\v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.length");
 
 val w8array_update_spec = store_thm ("w8array_update_spec",
@@ -120,7 +120,7 @@ val w8array_update_spec = store_thm ("w8array_update_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (\v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
   prove_array_spec "Word8Array.update");
 
 
@@ -239,16 +239,16 @@ val can_read_spec = store_thm ("can_read_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.can_read" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (\uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)``,
+       (POSTv uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)``,
   xcf "CharIO.can_read" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
+  \\ xlet `POSTv wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
   THEN1
    (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
     \\ `MEM 1 [1n;2]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ fs [stdin_fun_def])
-  \\ xlet `\zv. STDIN input * W8ARRAY write_loc [if input = "" then 0w else 1w] *
-                & (WORD (if input = "" then 0w:word8 else 1w) zv)`
+  \\ xlet `POSTv zv. STDIN input * W8ARRAY write_loc [if input = "" then 0w else 1w] *
+                     & (WORD (if input = "" then 0w:word8 else 1w) zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ xsimpl \\ fs [])
@@ -261,16 +261,16 @@ val read_spec = store_thm ("read_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.read" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (\uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))``,
+       (POSTv uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))``,
   xcf "CharIO.read" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
+  \\ xlet `POSTv wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
   THEN1
    (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
     \\ `MEM 2 [1n;2]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ fs [stdin_fun_def])
-  \\ xlet `\zv. STDIN (TL input) * W8ARRAY write_loc [n2w (ORD (HD input))] *
-                & (WORD (n2w (ORD (HD input)):word8) zv)`
+  \\ xlet `POSTv zv. STDIN (TL input) * W8ARRAY write_loc [n2w (ORD (HD input))] *
+                     & (WORD (n2w (ORD (HD input)):word8) zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ xsimpl \\ fs [])
@@ -284,15 +284,15 @@ val write_spec = store_thm ("write_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\zv. STDOUT output * W8ARRAY write_loc [c] *
-                & (UNIT_TYPE () zv)`
+  \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
+                     & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `\_. STDOUT (output ++ [c]) * W8ARRAY write_loc [c]`
+  \\ xlet `POSTv _. STDOUT (output ++ [c]) * W8ARRAY write_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
@@ -323,7 +323,7 @@ val write_list_spec = store_thm ("write_list_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (\uv. CHAR_IO * STDOUT (output ++ xs))``,
+       (POSTv uv. CHAR_IO * STDOUT (output ++ xs))``,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -331,7 +331,7 @@ val write_list_spec = store_thm ("write_list_spec",
   \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
-  \\ xlet `\uv. CHAR_IO * STDOUT (output ++ [h])`
+  \\ xlet `POSTv uv. CHAR_IO * STDOUT (output ++ [h])`
   THEN1
    (xapp \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
@@ -351,31 +351,31 @@ val read_all_spec = store_thm ("read_all_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "read_all" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (\uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))``,
+       (POSTv uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))``,
   Induct_on `input`
   THEN1
    (xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
-    \\ xlet `\v. CHAR_IO * STDIN "" * &(UNIT_TYPE () v)`
+    \\ xlet `POSTv v. CHAR_IO * STDIN "" * &(UNIT_TYPE () v)`
     THEN1 (xcon \\ fs [] \\ xsimpl)
-    \\ xlet `\bv. CHAR_IO * STDIN "" * &(BOOL F bv)`
+    \\ xlet `POSTv bv. CHAR_IO * STDIN "" * &(BOOL F bv)`
     THEN1
      (xapp \\ fs [PULL_EXISTS]
       \\ qexists_tac `emp` \\ qexists_tac `""` \\ xsimpl)
     \\ xif \\ instantiate
     \\ xapp \\ instantiate \\ xsimpl)
   \\ xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
-  \\ xlet `\v. CHAR_IO * STDIN (h::input) * &(UNIT_TYPE () v)`
+  \\ xlet `POSTv v. CHAR_IO * STDIN (h::input) * &(UNIT_TYPE () v)`
   THEN1 (xcon \\ fs [] \\ xsimpl)
-  \\ xlet `\bv. CHAR_IO * STDIN (h::input) * &(BOOL T bv)`
+  \\ xlet `POSTv bv. CHAR_IO * STDIN (h::input) * &(BOOL T bv)`
   THEN1
    (xapp \\ fs [PULL_EXISTS]
     \\ qexists_tac `emp` \\ qexists_tac `h::input` \\ xsimpl)
   \\ xif \\ instantiate \\ fs []
-  \\ xlet `\cv. CHAR_IO * STDIN input * &(CHAR h cv)`
+  \\ xlet `POSTv cv. CHAR_IO * STDIN input * &(CHAR h cv)`
   THEN1
    (xapp \\ qexists_tac `emp` \\ fs []
     \\ qexists_tac `h::input` \\ fs [] \\ xsimpl)
-  \\ xlet `\x. CHAR_IO * STDIN input * &(LIST_TYPE CHAR (h::xs) x)`
+  \\ xlet `POSTv x. CHAR_IO * STDIN input * &(LIST_TYPE CHAR (h::xs) x)`
   THEN1 (xcon \\ fs [] \\ xsimpl \\ fs [LIST_TYPE_def])
   \\ xapp
   \\ instantiate \\ xsimpl
@@ -448,7 +448,7 @@ val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
       |> Q.GENL[`tops`,`s`,`env`]
       |> qspecl_then[`env`,`st with clock := c`,`prog`]mp_tac)
   \\ rw[] \\ pairarg_tac \\ fs[]
-  \\ drule funBigStepPropsTheory.evaluate_tops_call_FFI_rel_imp
+  \\ drule evaluatePropsTheory.evaluate_tops_call_FFI_rel_imp
   \\ imp_res_tac determTheory.prog_determ
   \\ fs[] \\ rw[]);
 
@@ -459,7 +459,7 @@ val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
       extract_output st.io_events = SOME (SND (st.ffi_state)) ==>
       extract_output st'.io_events = SOME (SND (st'.ffi_state))``,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
-  \\ fs [funBigStepPropsTheory.call_FFI_rel_def]
+  \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
   \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
@@ -495,7 +495,7 @@ val MAP_CHR_w2n_11 = store_thm("MAP_CHR_w2n_11",
 val evaluate_prog_rel_IMP_evaluate_prog_fun = store_thm(
    "evaluate_prog_rel_IMP_evaluate_prog_fun",
   ``bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
-    ?k. funBigStep$evaluate_prog (st with clock := k) env prog =
+    ?k. evaluate$evaluate_prog (st with clock := k) env prog =
           (st',new_tds,Rval r)``,
   rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
   \\ qexists_tac`c + st.clock`

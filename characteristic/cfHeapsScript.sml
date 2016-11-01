@@ -34,7 +34,7 @@ val hchange_lemma = store_thm ("hchange_lemma",
 (* local = frame rule + consequence rule + garbage collection *)
 
 val local_def = Define `
-  local cf (H: hprop) (Q: v -> hprop) =
+  local cf (H: hprop) (Q: res -> hprop) =
     !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
       cf H1 Q1 /\
@@ -136,6 +136,21 @@ val local_gc_pre_on = store_thm ("local_gc_pre_on",
   THEN1 (fs [])
   THEN1 hsimpl
 )
+
+val local_gc_post = store_thm ("local_gc_post",
+  ``!Q' F H Q.
+     is_local F ==>
+     F H Q' ==>
+     Q' ==+> Q *+ GC ==>
+     F H Q``,
+  rpt strip_tac \\ fs [is_local_def] \\
+  qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
+  fs [local_def] \\ rpt strip_tac \\
+  Q.LIST_EXISTS_TAC [`H`, `&T`, `Q'`] \\ rpt strip_tac
+  THEN1 (fs [STAR_def, cond_def, SPLIT_emp2])
+  THEN1 (fs [])
+  THEN1 (hsimpl \\ fs [SEP_IMPPOST_def, STARPOST_def])
+);
 
 (* Extraction of premisses from [local] *)
 

@@ -1,7 +1,8 @@
 open preamble;
-local open bvlTheory wordLangTheory in end;
+local open closLangTheory in end;
 
 val _ = new_theory "dataLang";
+val _ = set_grammar_ancestry ["closLang" (* for op *), "misc" (* for num_set *)]
 
 (* dataLang = last language with a data abstraction *)
 
@@ -34,10 +35,10 @@ val _ = Datatype `
        | Call ((num # num_set) option) (* return var, cut-set *)
                           (num option) (* target of call *)
                             (num list) (* arguments *)
-             ((num # dataLang$prog) option) (* handler: varname, handler code *)
+                 ((num # prog) option) (* handler: varname, handler code *)
        | Assign num op (num list) (num_set option)
-       | Seq dataLang$prog dataLang$prog
-       | If num dataLang$prog dataLang$prog
+       | Seq prog prog
+       | If num prog prog
        | MakeSpace num num_set
        | Raise num
        | Return num
@@ -45,8 +46,5 @@ val _ = Datatype `
 
 val mk_ticks_def = Define `
   mk_ticks n e = FUNPOW (Seq Tick) n e`;
-
-val num_stubs_def = Define`
-  num_stubs = wordLang$num_stubs + 5`;
 
 val _ = export_theory();

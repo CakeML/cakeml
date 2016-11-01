@@ -144,14 +144,14 @@ val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_ASM_MEM_OP_TYPE = find_equality_type_thm``ASM_MEM_OP_TYPE``
+val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_ASM_SHIFT_TYPE,
                        EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
 val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
-                       EqualityType_ASM_MEM_OP_TYPE,EqualityType_ASM_ARITH_TYPE]
+                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE]
 
 val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
   |> SIMP_RULE std_ss []
@@ -467,6 +467,7 @@ val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 val _ = translate (wordLangTheory.num_exp_def |> conv64)
+val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
 val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
 val _ = translate (op_consts_def|>conv64|>econv)

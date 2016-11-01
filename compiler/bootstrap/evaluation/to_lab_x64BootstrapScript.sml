@@ -51,10 +51,10 @@ val () =
       basicComputeLib.add_basic_compset,
       semanticsComputeLib.add_ast_compset,
       compilerComputeLib.add_compiler_compset,
+      x64_targetLib.add_x64_encode_compset,
       asmLib.add_asm_compset ],
     computeLib.Defs [
       x64_compiler_config_def,
-      x64_config_def,
       data_prog_x64_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
@@ -232,7 +232,7 @@ val to_livesets_thm =
 val oracles =
   to_livesets_thm
   |> rconc |> pairSyntax.dest_pair |> #1
-  |> time reg_allocComputeLib.get_oracle
+  |> time (reg_allocComputeLib.get_oracle 3)
 
 val x64_oracle_def = mk_def"x64_oracle" oracles;
 

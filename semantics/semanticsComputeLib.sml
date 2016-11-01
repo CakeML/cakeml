@@ -1,4 +1,4 @@
-structure semanticsComputeLib =
+structure semanticsComputeLib :> semanticsComputeLib =
 struct
 
 open HolKernel boolLib bossLib
@@ -6,6 +6,16 @@ open HolKernel boolLib bossLib
 open astTheory gramTheory semanticPrimitivesTheory terminationTheory
      lexer_funTheory tokenUtilsTheory cmlPtreeConversionTheory
 *)
+
+structure Parse =
+struct
+  open Parse
+  val (Type,Term) = parse_from_grammars
+                      (merge_grammars ["ast", "gram", "semanticPrimitives",
+                                       "lexer_fun"])
+end
+
+open Parse
 
 val add_ast_compset = computeLib.extend_compset
   [computeLib.Defs

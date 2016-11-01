@@ -1,5 +1,10 @@
 open HolKernel boolLib bossLib lcsymtacs;
-open arm_compileLib mips_compileLib
+open x64_compileLib
+open riscv_compileLib
+open arm_compileLib
+open mips_compileLib
+open arm8_compileLib
+open arm_exportLib arm8_exportLib mips_exportLib riscv_exportLib x64_exportLib
 
 val _ = new_theory "benchmark"
 
@@ -9,18 +14,15 @@ val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20;
 val _ = PolyML.print_depth 5;
 
-(*Compilation of basis_prog is very slow, so we avoid it for now*)
-(*val initial_prog = rconc (EVAL``prim_types_program``)*)
-
 fun println s = print (strcat s "\n");
 
-fun to_bytes eval conf prog =
+fun to_bytes alg eval conf prog =
   let
   val _ = println "Compile to livesets"
   val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=1;col_oracle:= ^(oracles)|>``
+  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
+  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
   val _ = println "Repeat compilation with oracle"
   (*This repeats the "to_livesets" step, but that isn't very costly*)
   val compile_thm = Count.apply eval``
@@ -517,15 +519,181 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
-val benchmarks = [foldl,reverse,fib,btree,queue,qsort]
-val names = ["foldl","reverse","fib","btree","queue","qsort"]
-val extract_bytes = fst o pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+(* TODO: Flipped order of comparison for abs *)
+val nqueens =
+``[Tdec (Dexn "Fail" []);
+  Tdec
+    (Dletrec
+       [("abs","x",
+         If
+           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
+           (Var (Short "x"))
+           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
+  Tdec
+    (Dletrec
+       [("curcheck","p",
+         Fun "ls"
+           (Mat (Var (Short "ls"))
+              [(Pcon (SOME (Short "nil")) [],Con NONE []);
+               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
+                Mat (Var (Short "p"))
+                  [(Pcon NONE [Pvar "x"; Pvar "y"],
+                    Mat (Var (Short "l"))
+                      [(Pcon NONE [Pvar "a"; Pvar "b"],
+                        If
+                          (Log Or
+                             (Log Or
+                                (App Equality
+                                   [Var (Short "a");Var (Short "x")])
+                                (App Equality
+                                   [Var (Short "b");Var (Short "y")]))
+                             (App Equality
+                                [App Opapp [Var (Short "abs");
+                                   App (Opn Minus)
+                                     [Var (Short "a");Var (Short "x")]];
+                                 App Opapp [Var (Short "abs");
+                                    App (Opn Minus)
+                                       [Var (Short "b");Var (Short "y")]]])
+                            )
+                          (Raise (Con (SOME (Short "Fail")) []))
+                          (App Opapp
+                             [App Opapp
+                                [Var (Short "curcheck");
+                                 Con NONE
+                                   [Var (Short "x");
+                                    Var (Short "y")]];
+                              Var (Short "ls")]))])])]))]);
+  Tdec
+    (Dletrec
+       [("nqueens","n",
+         Fun "cur"
+           (Fun "ls"
+              (If
+                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
+                 (Var (Short "ls"))
+                 (Letrec
+                    [("find_queen","y",
+                      If
+                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
+                        (Raise (Con (SOME (Short "Fail")) []))
+                        (Handle
+                           (Let NONE
+                              (App Opapp
+                                 [App Opapp
+                                    [Var (Short "curcheck");
+                                     Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")]];
+                                  Var (Short "ls")])
+                              (App Opapp
+                                 [App Opapp
+                                    [App Opapp
+                                       [Var (Short "nqueens");
+                                        Var (Short "n")];
+                                     App (Opn Plus)[Var (Short "cur");
+                                        Lit (IntLit 1)]];
+                                  Con (SOME (Short "::"))
+                                    [Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")];
+                                     Var (Short "ls")]]))
+                           [(Pcon (SOME (Short "Fail")) [],
+                             App Opapp
+                               [Var (Short "find_queen");
+                                App (Opn Plus) [Var (Short "y");
+                                   Lit (IntLit 1)]])]))]
+                    (App Opapp
+                       [Var (Short "find_queen");
+                        Lit (IntLit 0)])))))]);
+  Tdec
+    (Dlet (Pvar "foo")
+       (App Opapp
+          [App Opapp
+             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
+              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
 
-val arm_benchmarks_compiled = map (to_bytes arm_compileLib.eval ``arm_compiler_config``) benchmarks
-val arm_benchmarks_bytes = map extract_bytes arm_benchmarks_compiled
+val sayhi = ``
+[Tdec (Dlet (Pvar"h") (App (FFI 0) [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(104)))]]));
+ Tdec (Dlet (Pvar"i") (App (FFI 0) [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(105)))]]))]``
 
-val mips_benchmarks_compiled = map (to_bytes mips_compileLib.eval ``mips_compiler_config``) benchmarks
+val benchmarks = [sayhi,foldl,reverse,fib,btree,queue,qsort]
+val names = ["sayhi","foldl","reverse","fib","btree","queue","qsort"]
 
-val mips_benchmarks_bytes = map extract_bytes mips_benchmarks_compiled
+val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+
+fun save_th conf (str,th)=
+  save_thm (conf^"_"^str,th)
+
+fun write_asm sz prefix exporter [] = ()
+  | write_asm sz prefix exporter ((name,(bytes,ffi_count))::xs) =
+    (exporter sz sz (numSyntax.int_of_term ffi_count)
+       bytes ("cakeml/" ^ prefix ^"_"^ name ^ ".S") ;
+    write_asm sz prefix exporter xs)
+
+(*"*)
+(* Set up for benchmarking with / without optimizations *)
+
+fun to_bytes_wrap opt eval conf =
+  if opt
+  then
+    to_bytes 3 eval conf
+  else
+    (* no reg_alloc *)
+    to_bytes 0 eval
+    (rconc (eval``
+    let conf = ^(conf) in
+    (* no fp opts *)
+    let clos = conf.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|> in
+    (* no bvl opts *)
+    let bvl = <|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|> in
+    (* no pattern match opt *)
+    let orig_pad = conf.data_conf.pad_bits in
+    let data = <|tag_bits:=0; len_bits:=0; pad_bits:= 1; len_size:=conf.data_conf.len_size|> in
+    conf with <|clos_conf:=clos;bvl_conf:=bvl;data_conf:=data|>``))
+
+(* x64 all opts and no opts *)
+val x64_benchmarks_compiled_all = map (to_bytes_wrap true x64_compileLib.eval ``x64_compiler_config``) benchmarks;
+val x64_benchmarks_bytes_all = map extract_bytes x64_benchmarks_compiled_all;
+val _ = write_asm 1000 "x64/all" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_all);
+
+val x64_benchmarks_compiled_none = map (to_bytes_wrap false x64_compileLib.eval ``x64_compiler_config``) benchmarks;
+val x64_benchmarks_bytes_none = map extract_bytes x64_benchmarks_compiled_none;
+val _ = write_asm 1000 "x64/none" x64_exportLib.write_cake_S (zip names x64_benchmarks_bytes_none);
+
+(* arm all_opts and no opts *)
+val arm_benchmarks_compiled_all = map (to_bytes_wrap true arm_compileLib.eval ``arm_compiler_config``) benchmarks;
+val arm_benchmarks_bytes_all = map extract_bytes arm_benchmarks_compiled_all;
+val _ = write_asm 500 "arm/all" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_all);
+
+val arm_benchmarks_compiled_none = map (to_bytes_wrap false arm_compileLib.eval ``arm_compiler_config``) benchmarks;
+val arm_benchmarks_bytes_none = map extract_bytes arm_benchmarks_compiled_none;
+val _ = write_asm 500 "arm/none" arm_exportLib.write_cake_S (zip names arm_benchmarks_bytes_none);
+
+(* riscv all_opts and no opts *)
+val riscv_benchmarks_compiled_all = map (to_bytes_wrap true riscv_compileLib.eval ``riscv_compiler_config``) benchmarks;
+val riscv_benchmarks_bytes_all = map extract_bytes riscv_benchmarks_compiled_all;
+val _ = write_asm 1000 "riscv/all" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_all);
+
+val riscv_benchmarks_compiled_none = map (to_bytes_wrap false riscv_compileLib.eval ``riscv_compiler_config``) benchmarks;
+val riscv_benchmarks_bytes_none = map extract_bytes riscv_benchmarks_compiled_none;
+val _ = write_asm 1000 "riscv/none" riscv_exportLib.write_cake_S (zip names riscv_benchmarks_bytes_none);
+
+(* arm8 all_opts and no opts *)
+val arm8_benchmarks_compiled_all = map (to_bytes_wrap true arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
+val arm8_benchmarks_bytes_all = map extract_bytes arm8_benchmarks_compiled_all;
+val _ = write_asm 500 "arm8/all" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_all);
+
+val arm8_benchmarks_compiled_none = map (to_bytes_wrap false arm8_compileLib.eval ``arm8_compiler_config``) benchmarks;
+val arm8_benchmarks_bytes_none = map extract_bytes arm8_benchmarks_compiled_none;
+val _ = write_asm 500 "arm8/none" arm8_exportLib.write_cake_S (zip names arm8_benchmarks_bytes_none);
+
+(* mips all_opts and no opts *)
+val mips_benchmarks_compiled_all = map (to_bytes_wrap true mips_compileLib.eval ``mips_compiler_config``) benchmarks;
+val mips_benchmarks_bytes_all = map extract_bytes mips_benchmarks_compiled_all;
+val _ = write_asm 1000 "mips/all" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_all);
+
+val mips_benchmarks_compiled_none = map (to_bytes_wrap false mips_compileLib.eval ``mips_compiler_config``) benchmarks;
+val mips_benchmarks_bytes_none = map extract_bytes mips_benchmarks_compiled_none;
+val _ = write_asm 1000 "mips/none" mips_exportLib.write_cake_S (zip names mips_benchmarks_bytes_none);
 
 val _ = export_theory ();

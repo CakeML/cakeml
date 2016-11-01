@@ -25,15 +25,15 @@ fun append_main_call compile_str compile_tm = let
         app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
           [cv]
           (CHAR_IO * STDIN input * STDOUT [])
-          (\uv. CHAR_IO * STDIN "" * STDOUT (^compile input))``,
+          (POSTv uv. CHAR_IO * STDIN "" * STDOUT (^compile input))``,
     xcf "main" (basis_st())
-    \\ xlet `\v. CHAR_IO * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
+    \\ xlet `POSTv v. CHAR_IO * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
     THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
-    \\ xlet `\x. CHAR_IO * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
+    \\ xlet `POSTv x. CHAR_IO * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
     THEN1
      (xapp \\ instantiate \\ xsimpl
       \\ qexists_tac `STDOUT []` \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
-    \\ xlet `\y. CHAR_IO * STDIN "" * STDOUT [] *
+    \\ xlet `POSTv y. CHAR_IO * STDIN "" * STDOUT [] *
                  &(LIST_TYPE WORD (^compile input) y)`
     THEN1 (xapp \\ instantiate \\ xsimpl)
     \\ xapp \\ instantiate \\ fs []
@@ -59,11 +59,15 @@ fun append_main_call compile_str compile_tm = let
     val st = goal |> rator |> rator |> rand
     val th =
       main_spec |> SPEC_ALL |> Q.INST_TYPE [`:'ffi`|->`:'a`]
-       |> REWRITE_RULE [cfAppTheory.app_basic_def,cfAppTheory.app_def]
+       |> REWRITE_RULE [cfAppTheory.app_basic_rel,cfAppTheory.app_def]
        |> Q.SPEC `st2heap (p:'a ffi_proj) ^st`
        |> Q.SPEC `{}`
        |> Q.SPEC `^st`
-       |> SIMP_RULE std_ss [cfHeapsBaseTheory.SPLIT_emp2]
+       |> SIMP_RULE std_ss [PULL_EXISTS,
+            cfHeapsBaseTheory.res_case_def,
+            cfHeapsBaseTheory.POSTv_ignore,
+            cfHeapsBaseTheory.SPLIT3_emp3,
+            cfHeapsBaseTheory.SPLIT_emp2]
        |> Q.INST [`cv`|->`Litv (IntLit 0)`]
        |> SIMP_RULE std_ss [Once exists_lemma]
        |> SIMP_RULE std_ss [GSYM PULL_EXISTS,GSYM th]
@@ -130,7 +134,8 @@ fun append_main_call compile_str compile_tm = let
     val goal = mk_imp(lhs,rhs)
     val lemma = prove(goal,
       rw []
-      \\ `(STDIN [] * STDOUT (^compile input) * CHAR_IO) h'` by
+      \\ rename1 `(CHAR_IO * STDIN _ * STDOUT _) h_f`
+      \\ `(STDIN [] * STDOUT (^compile input) * CHAR_IO) h_f` by
              (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
       \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
              GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
@@ -176,7 +181,12 @@ fun append_main_call compile_str compile_tm = let
       \\ EVAL_TAC )
     \\ unabbrev_all_tac
     \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
-    \\ strip_tac \\ qexists_tac `k` \\ fs []);
+    \\ strip_tac \\ qexists_tac `k` \\ fs []
+    \\ rw[] \\ pairarg_tac \\ fs[]
+    \\ pop_assum mp_tac
+    \\ drule evaluatePropsTheory.evaluate_prog_clock_determ
+    \\ ntac 2 strip_tac \\ first_x_assum drule
+    \\ fs[] \\ rpt (CASE_TAC \\ fs[]));
 
   in semantics_prog_entire_program end;
 

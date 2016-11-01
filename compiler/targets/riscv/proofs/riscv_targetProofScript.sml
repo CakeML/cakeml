@@ -51,13 +51,6 @@ val bytes_in_memory_thm2 = Q.prove(
 val lem1 = asmLib.v2w_BIT_n2w 5
 val lem2 = asmLib.v2w_BIT_n2w 6
 
-val lem3 = Q.prove(
-   `!n s state.
-     n <> 0 /\ n <> 1 /\ n < 32 /\ target_state_rel riscv_target s state ==>
-     (s.regs n = state.c_gpr state.procID (n2w n))`,
-   lrw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def]
-   )
-
 val lem4 = blastLib.BBLAST_PROVE
   ``0xFFFFFFFFFFFFF800w <= c /\ c <= 0x7FFw ==>
     (sw2sw
@@ -66,10 +59,7 @@ val lem4 = blastLib.BBLAST_PROVE
 
 
 val lem5 = Q.prove(
-  `aligned 2 (c: word64) ==>
-   ~word_lsb (v2w [c ' 20; c ' 19; c ' 18; c ' 17; c ' 16; c ' 15; c ' 14;
-                   c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
-                   c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1] : 20 word)`,
+  `aligned 2 (c: word64) ==> ~c ' 1`,
   simp [alignmentTheory.aligned_extract]
   \\ blastLib.BBLAST_TAC
   )
@@ -98,6 +88,16 @@ val lem9 = Q.prove(
    \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_add_n2w,
           wordsTheory.word_ls_n2w])
 
+val mul_long = Q.prove(
+  `!a : word64 b : word64.
+    n2w ((w2n a * w2n b) DIV 18446744073709551616) =
+    (127 >< 64) (w2w a * w2w b : word128) : word64`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -110,11 +110,10 @@ val encode_rwts =
    end
 
 val enc_rwts =
-  [riscv_config_def, lem6] @ encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
+  [riscv_config, riscv_asm_ok, lem6] @ encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-  [asmPropsTheory.enc_ok_def, riscv_config_def] @
-  encode_rwts @ asmLib.asm_ok_rwts
+  [asmPropsTheory.enc_ok_def, riscv_config, riscv_asm_ok] @ encode_rwts
 
 (* some custom tactics ---------------------------------------------------- *)
 
@@ -160,7 +159,7 @@ local
             (((^etm).c_MCSR (^etm).procID).mcpuid.ArchBase =
              (ms.c_MCSR ms.procID).mcpuid.ArchBase) /\
             ((^etm).c_PC (^etm).procID = ^pc)`
-            by asm_simp_tac (srw_ss())
+            by asm_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss)
                  [combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ, Abbr `^tm`]
          end (asl, g)
        , etm
@@ -189,17 +188,22 @@ in
          \\ assume_tac step_thm
          \\ qabbrev_tac `^next_state_var = ^next_state`
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
-              [lem1, lem4, lem5, alignmentTheory.aligned_numeric]
+              [lem1, lem4, lem5, bitstringTheory.word_lsb_v2w,
+               alignmentTheory.aligned_numeric]
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state riscv_next_def)
          \\ byte_eq_tac
-         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) [lem1]
+         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) [lem1, lem5]
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 end
 
 local
   val thm = DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``
+  val cond_rand_thms =
+    utilsLib.mk_cond_rand_thms
+       (utilsLib.accessor_fns ``: riscv_state`` @
+        utilsLib.accessor_fns ``: 64 asm_state``)
 in
   fun state_tac asm (gs as (asl, _)) =
     let
@@ -209,7 +213,7 @@ in
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss())
          [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
-          riscv_config_def, asmPropsTheory.all_pcs, lem2,
+          riscv_config, asmPropsTheory.all_pcs, lem2, cond_rand_thms,
           alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
        \\ MAP_EVERY (fn s =>
             qunabbrev_tac [QUOTE s]
@@ -221,7 +225,7 @@ in
        \\ asm_simp_tac (srw_ss())
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
        \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-       \\ simp []
+       \\ asm_simp_tac (srw_ss()) []
        \\ (if asmLib.isAddCarry asm then
              qabbrev_tac `r2 = ms.c_gpr ms.procID (n2w n0)`
              \\ qabbrev_tac `r3 = ms.c_gpr ms.procID (n2w n1)`
@@ -229,11 +233,14 @@ in
              \\ Cases_on `i = n2`
              \\ asm_simp_tac std_ss [wordsTheory.WORD_LO_word_0, lem8]
              >- (Cases_on `ms.c_gpr ms.procID (n2w n2) = 0w`
-                 \\ simp [wordsTheory.WORD_LO_word_0, lem7, lem9]
+                 \\ asm_simp_tac (srw_ss())
+                      [wordsTheory.WORD_LO_word_0, lem7, lem9]
                  \\ blastLib.BBLAST_TAC)
-             \\ rw [GSYM wordsTheory.word_add_n2w, lem7]
+             \\ srw_tac [] [GSYM wordsTheory.word_add_n2w, lem7]
            else
-             rw [combinTheory.APPLY_UPDATE_THM, thm]
+             srw_tac []
+                [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+                 GSYM wordsTheory.word_mul_def, mul_long, thm]
              \\ (if asmLib.isMem asm then
                    full_simp_tac
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++
@@ -248,42 +255,48 @@ end
 
 local
    fun number_of_instructions asl =
-      case asmLib.strip_bytes_in_memory (hd asl) of
+      case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
-   fun next_tac' asm gs =
+   fun gen_next_tac (j, i) =
+     exists_tac (numLib.term_of_int (j - 1))
+     \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
+              asmPropsTheory.interference_ok_def, riscv_proj_def]
+     \\ NTAC 2 strip_tac
+     \\ NTAC i (split_bytes_in_memory_tac 4)
+     \\ NTAC j next_state_tac
+   fun next_tac_by_instructions gs =
       let
          val j = number_of_instructions (fst gs)
-         val i = j - 1
-         val n = numLib.term_of_int i
       in
-         exists_tac n
-         \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
-                  asmPropsTheory.interference_ok_def, riscv_proj_def]
-         \\ NTAC 2 strip_tac
-         \\ NTAC i (split_bytes_in_memory_tac 4)
-         \\ NTAC j next_state_tac
-         \\ REPEAT (Q.PAT_X_ASSUM `ms.MEM8 qq = bn` kall_tac)
-         \\ REPEAT (Q.PAT_X_ASSUM `NextRISCV qq = qqq` kall_tac)
-         \\ state_tac asm
-      end gs
+         gen_next_tac (j, j - 1) gs
+      end
+   fun jc_next_tac_by_instructions gs =
+      let
+         val j = number_of_instructions (fst gs) - 1
+      in
+         gen_next_tac (j, j) gs
+      end
    val (_, _, dest_riscv_enc, is_riscv_enc) =
      HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
 in
-   fun next_tac gs =
-     (qpat_x_assum `bytes_in_memory (aa : word64) bb cc dd` mp_tac
-      \\ simp enc_rwts
-      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ imp_res_tac lem3
-      \\ NO_STRIP_FULL_SIMP_TAC std_ss []
-      \\ strip_tac
-      \\ next_tac' (get_asm (snd gs))) gs
+  fun next_tac gs =
+    (
+     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+     \\ next_tac_by_instructions
+     \\ state_tac (get_asm (snd gs))
+    ) gs
+  fun jc_next_tac c =
+    NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+    \\ Cases_on c
+    >| [next_tac_by_instructions, jc_next_tac_by_instructions]
+    \\ state_tac ``Inst Skip : 64 asm``
 end
 
-val enc_ok_tac =
-   full_simp_tac (srw_ss()++boolSimps.LET_ss)
-      (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+(* -------------------------------------------------------------------------
+   riscv target_ok
+   ------------------------------------------------------------------------- *)
 
 val length_riscv_encode = Q.prove(
   `!i. LENGTH (riscv_encode i) = 4`,
@@ -299,9 +312,26 @@ val riscv_encoding = Q.prove (
    \\ REPEAT CASE_TAC
    \\ rw [length_riscv_encode]
    )
+   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val enc_ok_rwts =
-   SIMP_RULE (bool_ss++boolSimps.LET_ss) [] riscv_encoding :: enc_ok_rwts
+val riscv_target_ok = Q.prove (
+   `target_ok riscv_target`,
+   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+        riscv_proj_def, riscv_target_def, riscv_config, riscv_ok_def,
+        set_sepTheory.fun2set_eq, riscv_encoding] @ enc_ok_rwts)
+   >| [all_tac,
+       Cases_on `-0xFFCw <= w1 /\ w1 <= 0xFFFw`
+       \\ Cases_on `-0xFFCw <= w2 /\ w2 <= 0xFFFw`
+       \\ Cases_on `ri`
+       \\ Cases_on `cmp`,
+       all_tac,
+       all_tac
+   ]
+   \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+         (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+   \\ fs [alignmentTheory.aligned_extract]
+   \\ blastLib.FULL_BBLAST_TAC
+   )
 
 (* -------------------------------------------------------------------------
    riscv backend_correct
@@ -311,18 +341,11 @@ val print_tac = asmLib.print_tac "correct"
 
 val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
    `backend_correct riscv_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
-   \\ simp [asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
-            riscv_target_def, riscv_config_def, asmSemTheory.asm_step_def]
+   \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [riscv_proj_def, asmPropsTheory.target_state_rel_def,
-                  riscv_config_def, riscv_ok_def, set_sepTheory.fun2set_eq],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -374,6 +397,13 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
             )
          >- (
             (*--------------
+                Div
+              --------------*)
+            print_tac "Div"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
                 LongMul
               --------------*)
             print_tac "LongMul"
@@ -412,30 +442,34 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
+      \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
+      >- (Cases_on `r`
+          \\ Cases_on `c`
+          \\ next_tac)
       \\ Cases_on `r`
       \\ Cases_on `c`
       >| [
-         Cases_on `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) &&
-                   ms.c_gpr ms.procID (n2w n') = 0w`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`,
-         Cases_on `~(ms.c_gpr ms.procID (n2w n) <+
-                     ms.c_gpr ms.procID (n2w n'))`,
-         Cases_on `~(ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n'))`,
-         Cases_on `(ms.c_gpr ms.procID (n2w n) &&
-                    ms.c_gpr ms.procID (n2w n')) <> 0w`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) = c'`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) <+ c'`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) < c'`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) && c' = 0w`,
-         Cases_on `ms.c_gpr ms.procID (n2w n) <> c'`,
-         Cases_on `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
-         Cases_on `~(ms.c_gpr ms.procID (n2w n) < c')`,
-         Cases_on `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) &&
+                     ms.c_gpr ms.procID (n2w n') = 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+
+                       ms.c_gpr ms.procID (n2w n'))`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <
+                       ms.c_gpr ms.procID (n2w n'))`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
+                      ms.c_gpr ms.procID (n2w n')) <> 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) = c'`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ c'`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) < c'`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) && c' = 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> c'`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
       ]
-      \\ next_tac
       )
       (*--------------
           Call
@@ -458,33 +492,6 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
       print_tac "Loc"
       \\ next_tac
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ enc_ok_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `ri`
-      \\ Cases_on `cmp`
-      \\ enc_ok_tac
-      )
-   >- (
-      (*--------------
-          Call enc_ok
-        --------------*)
-      enc_ok_tac
-      )
-   \\ (*--------------
-          Loc enc_ok
-        --------------*)
-      print_tac "enc_ok: Loc"
-   \\ enc_ok_tac
    )
 
 val () = export_theory ()

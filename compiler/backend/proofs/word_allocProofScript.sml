@@ -1839,6 +1839,8 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
       >>
       fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
     >-
+      fs[hide_def,check_partial_col_def,numset_list_delete_def]
+    >-
       (start_tac>-
         (CONJ_TAC>-
           subset_tac>>
@@ -2126,7 +2128,7 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
   srw_tac[][]>>
   qexists_tac`perm'`>>srw_tac[][]>>
   full_simp_tac(srw_ss())[LET_THM]>>
-  FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
+  FULL_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
 val apply_colour_exp_I = prove(``
   ∀f exp.
@@ -3517,6 +3519,9 @@ val is_stack_var_add= prove(``
   (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
     pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]));
+
+
+val _ = diminish_srw_ss ["MOD_ss"]
 
 val is_alloc_var_flip = prove(``
   is_alloc_var na ⇒ is_stack_var (na+2)``,

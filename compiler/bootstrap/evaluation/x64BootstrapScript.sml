@@ -31,9 +31,7 @@ val () =
       compilerComputeLib.add_compiler_compset,
       asmLib.add_asm_compset,
       x64_targetLib.add_x64_encode_compset],
-    computeLib.Defs [
-      x64_compiler_config_def,
-      x64_config_def]
+    computeLib.Defs [x64_configTheory.x64_compiler_config_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
 
@@ -757,5 +755,21 @@ val bootstrap_thm = save_thm("bootstrap_thm",
 
 val temp_defs = (List.map #1 (definitions"-"))
 val () = List.app delete_binding temp_defs;
+
+val stack_mb = 1000
+val heap_mb = 1000
+val filename = "cake.S"
+
+val (bytes_tm,ffi_limit_tm) =
+  bootstrap_thm |> rconc
+  |> optionSyntax.dest_some
+  |> pairSyntax.dest_pair
+
+val () = Lib.say"Writing output: "
+
+val () = time (
+  x64_exportLib.write_cake_S stack_mb heap_mb
+    (numSyntax.int_of_term ffi_limit_tm)
+    bytes_tm ) filename
 
 val _ = export_theory();

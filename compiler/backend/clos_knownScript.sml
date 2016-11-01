@@ -2,6 +2,8 @@ open preamble closLangTheory;
 
 val _ = new_theory "clos_known";
 
+val _ = set_grammar_ancestry ["closLang", "sptree", "misc"]
+
 (* -----------------------------------------------------------------
 
   This compiler transformation turns App NONEs into APP SOMEs.

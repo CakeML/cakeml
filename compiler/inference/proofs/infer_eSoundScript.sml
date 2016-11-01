@@ -390,6 +390,22 @@ val binop_tac =
  srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def] >>
  metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
+val binop_tac2 =
+imp_res_tac infer_e_wfs >>
+imp_res_tac t_unify_wfs >>
+fsrw_tac[] [] >>
+imp_res_tac sub_completion_unify2 >>
+imp_res_tac sub_completion_infer >>
+fsrw_tac[] [] >>
+last_x_assum drule >> disch_then drule >> fsrw_tac[] [] >>
+disch_then drule >> srw_tac[] [] >>
+imp_res_tac t_unify_apply >>
+`t_walkstar s t1 = t_walkstar s (Infer_Tapp [] (TC_name (Short "bool")))`
+  by metis_tac[sub_completion_apply] >>
+imp_res_tac t_unify_wfs >>
+imp_res_tac sub_completion_wfs >>
+fsrw_tac[] [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def]
+
 val constrain_op_sub_completion = Q.prove (
 `sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
  constrain_op op ts st' = (Success t,st)

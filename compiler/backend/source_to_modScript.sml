@@ -17,6 +17,20 @@ val _ = new_theory"source_to_mod"
 val Bool_def = Define `
  Bool b = (App (Opb (if b then Leq else Lt)) [Lit (IntLit 0); Lit (IntLit 0)])`;
 
+val compile_pat_def = tDefine "compile_pat" `
+  (compile_pat (ast$Pvar v) = ast$Pvar v) ∧
+  (compile_pat (Plit l) = Plit l) ∧
+  (compile_pat (Pcon id ps) = Pcon id (MAP compile_pat ps)) ∧
+  (compile_pat (Pref p) = Pref (compile_pat p)) ∧
+  (compile_pat (Ptannot p t) = compile_pat p)`
+  (WF_REL_TAC `measure pat_size` >>
+   rw [] >>
+   Induct_on `ps` >>
+   rw [pat_size_def]
+   >- decide_tac >>
+   res_tac >>
+   decide_tac);
+
 val compile_exp_def = tDefine"compile_exp"`
   (compile_exp menv env (Raise e) =
     Raise (compile_exp menv env e))
@@ -87,7 +101,7 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_pes menv env [] = [])
   ∧
   (compile_pes menv env ((p,e)::pes) =
-    (p, compile_exp menv (FOLDR (λk m. m \\ k) env (pat_bindings p [])) e)
+    (compile_pat p, compile_exp menv (FOLDR (λk m. m \\ k) env (pat_bindings p [])) e)
     :: compile_pes menv env pes)
   ∧
   (compile_funs menv env [] = [])
@@ -155,7 +169,7 @@ val compile_dec_def = Define `
        let l = LENGTH xs in
          (next + l,
           alloc_defs next xs,
-          Dlet l (Mat e' [(p, Con NONE (MAP Var_local xs))]))
+          Dlet l (Mat e' [(compile_pat p, Con NONE (MAP Var_local xs))]))
    | Dletrec funs =>
        let fun_names = REVERSE (MAP FST funs) in
        let env' = alloc_defs next fun_names in

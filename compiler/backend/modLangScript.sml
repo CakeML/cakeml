@@ -2,6 +2,8 @@ open preamble astTheory
 
 val _ = new_theory "modLang"
 
+val _ = set_grammar_ancestry ["ast"]
+
 (* The first intermediate language modLang. Removes modules, and introduces
  * special variable references for referring to top-level bindings.  Also
  * removes andalso and orelse and replaces them with if.

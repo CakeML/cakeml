@@ -1,7 +1,11 @@
 open preamble wordLangTheory reg_allocTheory
 
-val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_alloc";
+val _ = set_grammar_ancestry [
+  "asm" (* for arity-2 Const *),
+  "wordLang",
+  "reg_alloc"
+]
 
 (*Defines the algorithms related to the register allocator, currently:
 0) Syntactic forms before and after allocation
@@ -34,7 +38,7 @@ val list_next_var_rename_def = Define`
       (y::ys,ssa'',na''))`
 
 val fake_move_def = Define`
-  fake_move v = Inst (Const v 0w)`
+  fake_move v : α wordLang$prog = Inst (Const v 0w)`
 
 (*Do the merging moves only*)
 val merge_moves_def = Define`

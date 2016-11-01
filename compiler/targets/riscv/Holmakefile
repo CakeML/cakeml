@@ -1,7 +1,9 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/riscv/step \
-           $(HOLDIR)/examples/l3-machine-code/riscv/prog ../asm
+INCLUDES = $(HOLDIR)/examples/l3-machine-code/common \
+           $(HOLDIR)/examples/l3-machine-code/riscv/model \
+           $(HOLDIR)/examples/l3-machine-code/riscv/step \
+           ../asm
 
 ifdef POLY
-HOLHEAP = $(HOLDIR)/examples/l3-machine-code/riscv/prog/riscv-step-heap
+HOLHEAP = $(HOLDIR)/examples/l3-machine-code/riscv/step/riscv-heap
 endif

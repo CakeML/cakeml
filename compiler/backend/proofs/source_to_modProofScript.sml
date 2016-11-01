@@ -3,6 +3,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
+(* val _ = set_grammar_ancestry ["source_to_mod"] *)
 
 (* value relation *)
 
@@ -864,6 +865,14 @@ val build_conv = Q.prove (
   srw_tac[][Once v_rel_cases] >>
   full_simp_tac(srw_ss())[env_all_rel_cases] >> rev_full_simp_tac(srw_ss())[]);
 
+val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
+`!(p:ast$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`,
+  ho_match_mp_tac compile_pat_ind >>
+  simp [compile_pat_def, astTheory.pat_bindings_def] >>
+  induct_on `ps` >>
+  rw [] >>
+  fs [astTheory.pat_bindings_def, PULL_FORALL]);
+
 val pmatch = Q.prove (
   `(!cenv s p v env r env' env'' genv env_i1 s_i1 v_i1.
     pmatch cenv s p v env = r ∧
@@ -873,7 +882,7 @@ val pmatch = Q.prove (
     env_rel genv env' env_i1
     ⇒
     ?r_i1.
-      pmatch cenv s_i1 p v_i1 env_i1 = r_i1 ∧
+      pmatch cenv s_i1 (compile_pat p) v_i1 env_i1 = r_i1 ∧
       match_result_rel genv env'' r r_i1) ∧
    (!cenv s ps vs env r env' env'' genv env_i1 s_i1 vs_i1.
     pmatch_list cenv s ps vs env = r ∧
@@ -883,10 +892,10 @@ val pmatch = Q.prove (
     env_rel genv env' env_i1
     ⇒
     ?r_i1.
-      pmatch_list cenv s_i1 ps vs_i1 env_i1 = r_i1 ∧
+      pmatch_list cenv s_i1 (MAP compile_pat ps) vs_i1 env_i1 = r_i1 ∧
       match_result_rel genv env'' r r_i1)`,
   ho_match_mp_tac terminationTheory.pmatch_ind >>
-  srw_tac[][terminationTheory.pmatch_def, modSemTheory.pmatch_def] >>
+  srw_tac[][terminationTheory.pmatch_def, modSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, modSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
   >> TRY (full_simp_tac(srw_ss())[Once v_rel_cases] >>
@@ -915,8 +924,6 @@ val pmatch = Q.prove (
           full_simp_tac(srw_ss())[sv_rel_cases] >>
           res_tac >>
           full_simp_tac(srw_ss())[]))
-  >- cheat
-  (* first_x_assum (qspecl_then [`env'`,`env''`,`genv`,`env_i1`,`s_i1`,`v_i1`] assume_tac) *)
   >- (CASE_TAC >>
       every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
@@ -989,7 +996,7 @@ val global_env_inv_lookup_mod3 = Q.prove (
   metis_tac []);
 
 val s = mk_var("s",
-  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
   |> type_subst[alpha |-> ``:'ffi``]);
 
 val compile_exp_correct' = Q.prove (
@@ -1581,8 +1588,8 @@ val alookup_alloc_defs_bounds_rev = Q.prove(
   DECIDE_TAC);
 
 val letrec_global_env_lem = Q.prove (
-  `!funs funs' (env:v environment) v x.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) x = SOME v ∧
+  `!funs funs' env v x.
+    ALOOKUP (MAP (λ(fn,n,e). (fn,semanticPrimitives$Recclosure env funs' fn)) funs) x = SOME v ∧
     ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
     ⇒
     v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs))`,
@@ -1844,17 +1851,17 @@ val compile_decs_correct = Q.prove (
     fs [s_rel_cases, env_all_rel_cases] >>
     rw [] >>
     `match_result_rel s'_i1.globals [] (pmatch env'.c q.refs p r ([]++[]))
-           (pmatch env'.c s'_i1.refs p r' [])` by (
+           (pmatch env'.c s'_i1.refs (compile_pat p) r' [])` by (
       match_mp_tac pmatch_lem >>
       simp [env_rel_list_rel] >>
       NO_TAC) >>
     fs [] >>
-    Cases_on `pmatch env'.c s'_i1.refs p r' []` >>
+    Cases_on `pmatch env'.c s'_i1.refs (compile_pat p) r' []` >>
     rfs [match_result_rel_def, env_rel_list_rel, Bindv_def]
     >- rw [v_rel_eqns] >>
     simp [do_con_check_def] >>
     qmatch_assum_abbrev_tac `_ = Match bind_i1` >>
-    `evaluate (env_i1 with v := bind_i1) s'_i1 (MAP Var_local (pat_bindings p (MAP FST env_i1.v))) =
+    `evaluate (env_i1 with v := bind_i1) s'_i1 (MAP Var_local (pat_bindings (compile_pat p) (MAP FST env_i1.v))) =
         (s'_i1,Rval (MAP SND bind_i1))` by (
       match_mp_tac pmatch_evaluate_vars_lem >>
       simp [] >>
@@ -2245,8 +2252,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ rator_x_assum`invariant`mp_tac
     \\ simp[extend_top_env_def,invariant_def]
     \\ fs[Abbr`s2`]
-    \\ imp_res_tac evaluateEquivTheory.functional_evaluate_decs
-    \\ imp_res_tac eval_ds_no_new_mods \\ fs[]
+    \\ imp_res_tac evaluatePropsTheory.evaluate_decs_state_unchanged \\ fs[]
     \\ Cases_on`mno`\\fs[]\\rveq\\fs[] \\ strip_tac
     \\ Cases_on`h` \\ fs[] \\ rveq
     >- (
@@ -2422,7 +2428,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
   \\ Cases_on`r`\\fs[invariant_def]
   \\ metis_tac[PAIR]);
 
-open semanticsTheory evaluateEquivTheory
+open semanticsTheory
 
 val precondition_def = Define`
   precondition s1 env1 c s2 env2 ⇔
@@ -2553,6 +2559,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[evaluatePropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
+  \\ metis_tac[evaluatePropsTheory.evaluate_prog_ffi_mono_clock,
+               evaluatePropsTheory.io_events_mono_def,
+               LESS_EQ_CASES,FST]);
 
 val _ = export_theory ();

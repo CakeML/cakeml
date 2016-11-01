@@ -1,10 +1,9 @@
 open preamble
 
-open prim_tagsTheory
-
 val _ = numLib.prefer_num();
 
 val _ = new_theory "conLang"
+val _ = set_grammar_ancestry ["ast", "finite_map", "sptree"]
 
 (* Removes named datatype constructors. Follows modLang.
  *
@@ -66,5 +65,8 @@ val _ = Define `
   (num_defs (Dlet n _::ds) = (n + num_defs ds))
   ∧
   (num_defs (Dletrec funs::ds) = (LENGTH funs + num_defs ds))`;
+
+(* for each type, for each arity, the number of constructors of that arity *)
+val _ = type_abbrev( "exh_ctors_env" , ``:typeN id |-> num spt``);
 
 val _ = export_theory()

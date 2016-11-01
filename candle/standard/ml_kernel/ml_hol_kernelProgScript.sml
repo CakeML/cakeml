@@ -149,7 +149,7 @@ fun derive_case_of ty = let
         THEN1 (match_mp_tac (MP_CANON evaluate_empty_state_IMP) \\ fs [])
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
         \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
-              lookup_alist_mod_env_def,lookup_cons_def,same_tid_def,id_to_n_def,
+              lookup_alist_mod_env_def,lookup_cons_thm,same_tid_def,id_to_n_def,
               same_ctor_def,write_def]
 (*
   val _ = set_goal([],goal)
@@ -424,7 +424,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val body = th |> UNDISCH_ALL |> concl |> rator |> rand
   val inv = smart_get_type_inv (type_of v)
   val new_env = ``write ^vname_str v (write_rec
-                    [(^fname_str,^vname_str,^body)] env)``
+                    [(^fname_str,^vname_str,^body)] env env)``
   val old_env = ``env:v environment``
   val assum = subst [old_env|->new_env]
               ``Eval env (Var (Short ^vname_str)) (^inv ^v)``

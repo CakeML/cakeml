@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib arm_stepLib;
+open asmLib arm_stepTheory;
 
 val () = new_theory "arm6_target"
 
@@ -77,7 +77,10 @@ val arm6_enc_def = Define`
                       THE (EncodeARMImmediate i))))) /\
    (arm6_enc (Inst (Arith (Shift sh r1 r2 n))) =
        enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm6_sh sh, n)))) /\
-   (arm6_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = arm6_encode_fail) /\
+   (arm6_enc (Inst (Arith (Div _ _ _))) = arm6_encode_fail) /\
+   (arm6_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+       enc (Multiply
+              (MultiplyLong (F, F, F, n2w r1, n2w r2, n2w r3, n2w r4)))) /\
    (arm6_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm6_encode_fail) /\
    (arm6_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        enc (Data (TestCompareImmediate (2w, n2w r4, 0w))) ++
@@ -90,7 +93,7 @@ val arm6_enc_def = Define`
          enc
            (Load
               (LoadWord (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Inst (Mem Load32 _ _)) = arm6_encode_fail) /\
+   (* (arm6_enc (Inst (Mem Load32 _ _)) = arm6_encode_fail) /\ *)
    (arm6_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -103,7 +106,7 @@ val arm6_enc_def = Define`
            (Store
               (StoreWord
                  (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Inst (Mem Store32 r1 (Addr r2 a))) = arm6_encode_fail) /\
+   (* (arm6_enc (Inst (Mem Store32 r1 (Addr r2 a))) = arm6_encode_fail) /\ *)
    (arm6_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc
@@ -144,8 +147,8 @@ val min12 = eval ``-(w2w (UINT_MAXw: word12)) : word32``
 val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
 val min16 = eval ``-(w2w (UINT_MAXw: word16)) + 8w : word32``
 val max16 = eval ``w2w (UINT_MAXw: word16) + 8w : word32``
-val min26 = eval ``sw2sw (INT_MINw: 26 word) + 12w : word32``
-val max26 = eval ``sw2sw (INT_MAXw: 26 word) + 8w : word32``
+val min26 = eval ``sw2sw (INT_MINw: 26 word) : word32``
+val max26 = eval ``sw2sw (INT_MAXw: 26 word) : word32``
 
 val valid_immediate_def = Define`
    valid_immediate = IS_SOME o EncodeARMImmediate`
@@ -154,22 +157,17 @@ val arm6_config_def = Define`
    arm6_config =
    <| ISA := ARMv6
     ; encode := arm6_enc
+    ; code_alignment := 2
     ; reg_count := 16
-    ; avoid_regs := [15]
+    ; avoid_regs := [13; 15]
     ; link_reg := SOME 14
-    ; has_mem_32 := F
     ; two_reg_arith := F
     ; big_endian := F
     ; valid_imm := \c i. valid_immediate i
-    ; addr_offset_min := ^min12
-    ; addr_offset_max := ^max12
-    ; jump_offset_min := ^min26
-    ; jump_offset_max := ^max26
-    ; cjump_offset_min := ^min26
-    ; cjump_offset_max := ^max26
-    ; loc_offset_min := ^min16
-    ; loc_offset_max := ^max16
-    ; code_alignment := 2
+    ; addr_offset := (^min12, ^max12)
+    ; jump_offset := (^min26 + 8w, ^max26 + 8w)
+    ; cjump_offset := (^min26 + 12w, ^max26 + 12w)
+    ; loc_offset := (^min16, ^max16)
     |>`
 
 val arm6_proj_def = Define`
@@ -187,5 +185,10 @@ val arm6_target_def = Define`
     ; state_ok := arm6_ok
     ; proj := arm6_proj
     |>`
+
+val (arm6_config, arm6_asm_ok) = asmLib.target_asm_rwts [] ``arm6_config``
+
+val arm6_config = save_thm("arm6_config", arm6_config)
+val arm6_asm_ok = save_thm("arm6_asm_ok", arm6_asm_ok)
 
 val () = export_theory ()

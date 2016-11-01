@@ -1,6 +1,7 @@
-open preamble patLangTheory closLangTheory dec_to_exhTheory
+open preamble patLangTheory closLangTheory backend_commonTheory
 
 val _ = new_theory"pat_to_clos"
+val _ = set_grammar_ancestry ["patLang", "closLang", "backend_common"]
 
 val string_tag_def = Define`string_tag = 0:num`
 val vector_tag_def = Define`vector_tag = 1:num`

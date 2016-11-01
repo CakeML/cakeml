@@ -28,6 +28,10 @@ val rew_heap_AC = full_simp_tac bool_ss [AC STAR_COMM STAR_ASSOC]
 
 val SEP_CLAUSES = LIST_CONJ [SEP_CLAUSES, STARPOST_def, cond_eq_def]
 
+val heap_clean_conv =
+  SIMP_CONV bool_ss [SEP_CLAUSES] THENC
+  DEPTH_CONV (REWR_CONV SEP_F_to_cond)
+
 (*------------------------------------------------------------------*)
 (** Auxiliary functions *)
 
@@ -84,14 +88,6 @@ val emp_tm =
   inst [alpha |-> ``:heap_part``]
     (emp_def |> concl |> lhs)
 
-fun UNFOLD_SEP_IMPPOST_ccc tm = let
-  val _ = if not (is_sep_imppost tm) then fail () else ()
-  val th =
-      CONSEQ_TOP_REWRITE_CONV ([], [SEP_IMPPOST_def], [])
-        CONSEQ_CONV_STRENGTHEN_direction tm
-  val cont = (snd o dest_forall, FORALL_CONSEQ_CONV)
-in (th, cont) end
-
 fun SEP_IMP_conv convl convr t =
   let val (l, r) = dest_sep_imp t
       val rew_t = MATCH_MP (MATCH_MP SEP_IMP_rew (convl l)) (convr r)
@@ -127,7 +123,7 @@ fun hpullable tm =
 
 (** hpull *)
 
-fun hpull_cont_conseq_conv_core t =
+fun hpull_one_conseq_conv_core t =
   let
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
@@ -141,8 +137,7 @@ fun hpull_cont_conseq_conv_core t =
           THEN_CONSEQ_CONV
             (rearrange_conv tm)
             (CONSEQ_TOP_REWRITE_CONV ([], [hpull_prop, hpull_prop_single], [])
-              CONSEQ_CONV_STRENGTHEN_direction),
-          (rand, IMP_CONCL_CONSEQ_CONV)
+              CONSEQ_CONV_STRENGTHEN_direction)
         )
       else if is_sep_exists tm then
         SOME (
@@ -151,38 +146,27 @@ fun hpull_cont_conseq_conv_core t =
             CONSEQ_TOP_REWRITE_CONV ([], [hpull_exists_single], [])
               CONSEQ_CONV_STRENGTHEN_direction,
             REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)
-          ],
-          (snd o strip_forall, STRIP_FORALL_CONSEQ_CONV)
+          ]
         )
       else
         NONE
   in
     case find_map pull ls of
         NONE => raise UNCHANGED
-      | SOME (cc, cont) => (cc t, cont)
+      | SOME cc => cc t
   end
 
 val hpull_setup_conv =
   (* cleanup the left heap a bit (remove ``emp``, pull SEP_EXISTS,...) *)
-  SEP_IMP_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
-
-val hpull_one_cont_conseq_conv =
-  THEN_CONT_CONSEQ_CONV
-    (INPLACE_CONT_CONSEQ_CONV hpull_setup_conv)
-    hpull_cont_conseq_conv_core
+  SEP_IMP_conv (QCONV heap_clean_conv) REFL
 
 val hpull_one_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hpull_one_cont_conseq_conv)
-
-val hpull_cont_conseq_conv =
-  THEN_CONT_CONSEQ_CONV
-    (INPLACE_CONT_CONSEQ_CONV hpull_setup_conv)
-    (LOOP_CONT_CONSEQ_CONV hpull_cont_conseq_conv_core)
+  STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
+  STRENGTHEN_CONSEQ_CONV hpull_one_conseq_conv_core
 
 val hpull_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hpull_cont_conseq_conv)
+  STRENGTHEN_CONSEQ_CONV hpull_setup_conv THEN_DCC
+  REDEPTH_CONSEQ_CONV (STRENGTHEN_CONSEQ_CONV hpull_one_conseq_conv_core)
 
 val hpull_one = CONSEQ_CONV_TAC hpull_one_conseq_conv
 val hpull = CONSEQ_CONV_TAC hpull_conseq_conv
@@ -205,7 +189,7 @@ val hpull = CONSEQ_CONV_TAC hpull_conseq_conv
 
 (** hsimpl_cancel *)
 
-fun hsimpl_cancel_one_cont_conseq_conv t =
+fun hsimpl_cancel_one_conseq_conv_core t =
   let
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
@@ -275,33 +259,26 @@ fun hsimpl_cancel_one_cont_conseq_conv t =
   in
     case is of
         tm :: _ =>
-        (THEN_CONSEQ_CONV
-           (rearrange_conv tm tm)
-           (CONSEQ_TOP_REWRITE_CONV ([], frame_thms, [])
-             CONSEQ_CONV_STRENGTHEN_direction) t,
-          (I, I))
+        THEN_CONSEQ_CONV
+          (rearrange_conv tm tm)
+          (CONSEQ_TOP_REWRITE_CONV ([], frame_thms, [])
+            CONSEQ_CONV_STRENGTHEN_direction) t
 
        | [] =>
          case find_matching_cells () of
              SOME (tm1, tm2) =>
-             (THEN_CONSEQ_CONV
-                (rearrange_conv tm1 tm2)
-                (CONSEQ_TOP_REWRITE_CONV ([], frame_cell_thms, [])
-                   CONSEQ_CONV_STRENGTHEN_direction) t,
-              (rand, CONJ2_CONSEQ_CONV))
+             THEN_CONSEQ_CONV
+               (rearrange_conv tm1 tm2)
+               (CONSEQ_TOP_REWRITE_CONV ([], frame_cell_thms, [])
+                  CONSEQ_CONV_STRENGTHEN_direction) t
            | NONE => raise UNCHANGED
   end
 
 val hsimpl_cancel_one_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hsimpl_cancel_one_cont_conseq_conv)
-
-val hsimpl_cancel_cont_conseq_conv =
-  LOOP_CONT_CONSEQ_CONV hsimpl_cancel_one_cont_conseq_conv
+  STRENGTHEN_CONSEQ_CONV hsimpl_cancel_one_conseq_conv_core
 
 val hsimpl_cancel_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hsimpl_cancel_cont_conseq_conv)
+  REDEPTH_CONSEQ_CONV hsimpl_cancel_one_conseq_conv
 
 val hsimpl_cancel_one = CONSEQ_CONV_TAC hsimpl_cancel_one_conseq_conv
 val hsimpl_cancel = CONSEQ_CONV_TAC hsimpl_cancel_conseq_conv
@@ -323,7 +300,7 @@ val hsimpl_cancel = CONSEQ_CONV_TAC hsimpl_cancel_conseq_conv
 
 (** hpullr *)
 
-fun hpullr_cont_conseq_conv_core t =
+fun hpullr_conseq_conv_core t =
   let
     val (l, r) = dest_sep_imp t
     val rs = list_dest dest_star r
@@ -338,8 +315,7 @@ fun hpullr_cont_conseq_conv_core t =
             rearrange_conv tm,
             CONSEQ_TOP_REWRITE_CONV ([], [hsimpl_prop, hsimpl_prop_single], [])
               CONSEQ_CONV_STRENGTHEN_direction
-          ],
-          (rand, CONJ2_CONSEQ_CONV)
+          ]
         )
       else if is_sep_exists tm then
         SOME (
@@ -348,37 +324,26 @@ fun hpullr_cont_conseq_conv_core t =
             CONSEQ_TOP_REWRITE_CONV ([], [hsimpl_exists_single], [])
               CONSEQ_CONV_STRENGTHEN_direction,
             REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)
-          ],
-          (snd o strip_exists, STRIP_EXISTS_CONSEQ_CONV)
+          ]
         )
       else
         NONE
   in
     case find_map simpl rs of
         NONE => raise UNCHANGED
-      | SOME (cc, cont) => (cc t, cont)
+      | SOME cc => cc t
   end
 
 val hpullr_setup_conv =
-  SEP_IMP_conv REFL (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
-
-val hpullr_one_cont_conseq_conv =
-  THEN_CONT_CONSEQ_CONV
-    (INPLACE_CONT_CONSEQ_CONV hpullr_setup_conv)
-    hpullr_cont_conseq_conv_core
+  SEP_IMP_conv REFL (QCONV heap_clean_conv)
 
 val hpullr_one_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hpullr_one_cont_conseq_conv)
-
-val hpullr_cont_conseq_conv =
-  THEN_CONT_CONSEQ_CONV
-    (INPLACE_CONT_CONSEQ_CONV hpullr_setup_conv)
-    (LOOP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv_core)
+  STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
+  STRENGTHEN_CONSEQ_CONV hpullr_conseq_conv_core
 
 val hpullr_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv)
+  STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
+  REDEPTH_CONSEQ_CONV (STRENGTHEN_CONSEQ_CONV hpullr_conseq_conv_core)
 
 val hpullr_one = CONSEQ_CONV_TAC hpullr_one_conseq_conv
 val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
@@ -395,58 +360,53 @@ val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
 
 (** hcancel: hsimpl_cancel + hpullr *)
 
-val hcancel_cont_conseq_conv_core =
-  EVERY_CONT_CONSEQ_CONV [
-    LOOP_CONT_CONSEQ_CONV (
-      THEN_CONT_CONSEQ_CONV
-        (LOOP_CONT_CONSEQ_CONV hsimpl_cancel_cont_conseq_conv)
-        (LOOP_CONT_CONSEQ_CONV hpullr_cont_conseq_conv)
-    ),
-    INPLACE_CONT_CONSEQ_CONV
-      (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])
-  ]
+val SCC = STRENGTHEN_CONSEQ_CONV
 
 val hcancel_setup_conv =
   SEP_IMP_conv
-    (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
-    (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES]))
-
-val hcancel_cont_conseq_conv =
-  EVERY_CONT_CONSEQ_CONV [
-    TRY_CONT_CONSEQ_CONV UNFOLD_SEP_IMPPOST_ccc,
-    INPLACE_CONT_CONSEQ_CONV hcancel_setup_conv,
-    hcancel_cont_conseq_conv_core
-  ]
+    (QCONV heap_clean_conv)
+    (QCONV heap_clean_conv)
 
 val hcancel_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hcancel_cont_conseq_conv) THEN_DCC
-  STRENGTHEN_CONSEQ_CONV
-    (TRY_CONV LIST_FORALL_SIMP_CONV)
+  EXT_DEPTH_CONSEQ_CONV
+    (CONSEQ_CONV_get_context_congruences CONSEQ_CONV_NO_CONTEXT)
+    CONSEQ_CONV_default_cache_opt NONE
+    true (* redepth *)
+    [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
+     (true, NONE, K (SCC hcancel_setup_conv)),
+     (true, NONE, K hsimpl_cancel_conseq_conv),
+     (true, NONE, K hpullr_conseq_conv),
+     (false, NONE, K (SCC (TRY_CONV LIST_FORALL_SIMP_CONV))),
+     (false, NONE, K (SCC (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])))
+    ]
+    []
 
 val hcancel =
   CONSEQ_CONV_TAC hcancel_conseq_conv
 
 (** hsimpl *)
 
-val hsimpl_cont_conseq_conv =
-  EVERY_CONT_CONSEQ_CONV [
-    TRY_CONT_CONSEQ_CONV UNFOLD_SEP_IMPPOST_ccc,
-    hpull_cont_conseq_conv,
-    hcancel_cont_conseq_conv
-  ]
-
 val hsimpl_conseq_conv =
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV hsimpl_cont_conseq_conv) THEN_DCC
-  STRENGTHEN_CONSEQ_CONV
-    (TRY_CONV LIST_FORALL_SIMP_CONV)
-
-val hsimpl_top =
-  CONSEQ_CONV_TAC hsimpl_conseq_conv
+  EXT_DEPTH_CONSEQ_CONV
+    (CONSEQ_CONV_get_context_congruences CONSEQ_CONV_NO_CONTEXT)
+    CONSEQ_CONV_default_cache_opt NONE
+    true (* redepth *)
+    [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
+     (true, NONE, K (SCC hcancel_setup_conv)),
+     (true, NONE, K hpull_conseq_conv),
+     (true, NONE, K hsimpl_cancel_conseq_conv),
+     (true, NONE, K hpullr_conseq_conv),
+     (false, NONE, K (SCC (TRY_CONV LIST_FORALL_SIMP_CONV))),
+     (false, NONE, K (SCC (SIMP_CONV bool_ss [hsimpl_gc, SEP_IMP_REFL])))
+    ]
+    []
 
 val hsimpl =
-  DEPTH_CONSEQ_CONV_TAC hsimpl_conseq_conv
+  CONSEQ_CONV_TAC hsimpl_conseq_conv
 
 (* test goal:
   g `(A:hprop * B * C * l ~~> v * l' ~~> u * D) ==>> (B * Z * l ~~> v' * l' ~~> u' * Y * cond Q * D * A)`;

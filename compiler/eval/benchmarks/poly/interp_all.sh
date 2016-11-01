@@ -1,6 +1,6 @@
 TIMEFORMAT=%R
 for benchmark in *.sml; do
-  echo cake_$benchmark
+  echo poly_$benchmark
   for i in `seq 10`
   do
     time (sed '2d;1d;$d' $benchmark | poly > dump)

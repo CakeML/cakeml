@@ -248,7 +248,7 @@ val LENGTH_TAKE_EQ_MIN = store_thm("LENGTH_TAKE_EQ_MIN",
 val hd_drop = Q.store_thm ("hd_drop",
   `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
   Induct_on `l` >>
-  srw_tac[][] >>
+  srw_tac[][DROP_def] >>
   `n - 1 < LENGTH l` by decide_tac >>
   res_tac >>
   `0 < n` by decide_tac >>
@@ -2029,13 +2029,9 @@ val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
   `NULL (l1 ++ l2) ⇔ NULL l1 ∧ NULL l2`,
   simp[NULL_LENGTH]);
 
-val MAP_TAKE = Q.store_thm("MAP_TAKE",
-  `∀l i. MAP f (TAKE i l) = TAKE i (MAP f l)`,
-  Induct \\ simp[] \\ rw[]);
-
 val MAP_DROP = Q.store_thm("MAP_DROP",
   `∀l i. MAP f (DROP i l) = DROP i (MAP f l)`,
-  Induct \\ simp[] \\ rw[]);
+  Induct \\ simp[DROP_def] \\ rw[]);
 
 val MAP_FRONT = Q.store_thm("MAP_FRONT",
   `∀ls. ls ≠ [] ⇒ MAP f (FRONT ls) = FRONT (MAP f ls)`,

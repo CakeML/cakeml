@@ -1,4 +1,4 @@
-open preamble conLangTheory mod_to_conTheory
+open preamble conLangTheory
 
 val _ = new_theory"conSem"
 

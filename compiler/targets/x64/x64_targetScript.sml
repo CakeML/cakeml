@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib x64Theory;
+open asmLib x64_stepTheory;
 
 val () = new_theory "x64_target"
 
@@ -71,6 +71,7 @@ val x64_enc_def = Define`
        x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
    (x64_enc0 (Inst (Arith (Shift sh r1 r2 n))) =
        x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r1, n2w n)))) /\
+   (x64_enc0 (Inst (Arith (Div _ _ _))) = []) /\
    (x64_enc0 (Inst (Arith (LongMul _ _ _ r))) =
        x64$encode (Zmul (Z64, reg r))) /\
    (x64_enc0 (Inst (Arith (LongDiv _ _ _ _ r))) =
@@ -83,14 +84,18 @@ val x64_enc_def = Define`
        x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
    (x64_enc0 (Inst (Mem Load r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, ld r1 r2 a))) /\
+   (*
    (x64_enc0 (Inst (Mem Load32 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z32, ld r1 r2 a))) /\
+   *)
    (x64_enc0 (Inst (Mem Load8 r1 (Addr r2 a))) =
        x64$encode (Zmovzx (Z8 T, ld r1 r2 a, Z64))) /\
    (x64_enc0 (Inst (Mem Store r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, st r1 r2 a))) /\
+   (*
    (x64_enc0 (Inst (Mem Store32 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z32, st r1 r2 a))) /\
+   *)
    (x64_enc0 (Inst (Mem Store8 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a))) /\
    (x64_enc0 (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
@@ -134,18 +139,13 @@ val x64_config_def = Define`
     ; reg_count := 16
     ; avoid_regs := [4;5]
     ; link_reg := NONE
-    ; has_mem_32 := T
     ; two_reg_arith := T
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
-    ; addr_offset_min := ^min32
-    ; addr_offset_max := ^max32
-    ; jump_offset_min := ^min32 + 13w
-    ; jump_offset_max := ^max32 + 5w
-    ; cjump_offset_min := ^min32 + 13w
-    ; cjump_offset_max := ^max32 + 5w
-    ; loc_offset_min := ^min32 + 7w
-    ; loc_offset_max := ^max32 + 7w
+    ; addr_offset := (^min32, ^max32)
+    ; jump_offset := (^min32 + 13w, ^max32 + 5w)
+    ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
+    ; loc_offset := (^min32 + 7w, ^max32 + 7w)
     ; code_alignment := 0
     |>`
 
@@ -162,5 +162,11 @@ val x64_target_def = Define`
     ; state_ok := (\s. s.exception = NoException)
     ; proj := x64_proj
     |>`
+
+val (x64_config, x64_asm_ok) =
+  asmLib.target_asm_rwts [alignmentTheory.aligned_0] ``x64_config``
+
+val x64_config = save_thm("x64_config", x64_config)
+val x64_asm_ok = save_thm("x64_asm_ok", x64_asm_ok)
 
 val () = export_theory ()

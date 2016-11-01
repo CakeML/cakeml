@@ -7,6 +7,7 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "ast"
+val _ = set_grammar_ancestry ["integer", "words", "string"];
 
 (*open import Pervasives*)
 (*open import Lib*)
@@ -278,7 +279,8 @@ val _ = type_abbrev( "prog" , ``: top list``);
 (pat_bindings (Pref p) already_bound =  
 (pat_bindings p already_bound))
 /\
-(pat_bindings (Ptannot p _) = (pat_bindings p))
+(pat_bindings (Ptannot p _) already_bound =  
+(pat_bindings p already_bound))
 /\
 (pats_bindings [] already_bound =
   already_bound)

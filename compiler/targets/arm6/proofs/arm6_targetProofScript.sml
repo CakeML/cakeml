@@ -7,10 +7,19 @@ val () = wordsLib.guess_lengths ()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val n_tm = ``n < 16 /\ n <> 15n``
+val valid_immediate = Q.prove(
+  `!i. IS_SOME (EncodeARMImmediate i) = valid_immediate i`,
+  simp [valid_immediate_def])
+
+val arm6_config =
+  REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_config
+
+val arm6_asm_ok =
+  REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_asm_ok
 
 val lem1 = Q.prove(
-   `!n m. ^n_tm ==> RName_PC <> R_mode m (n2w n)`,
+   `!n m. n < 16 /\ n <> 13 /\ n <> 15 ==>
+          RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15`,
    CONV_TAC (Conv.ONCE_DEPTH_CONV SYM_CONV)
    \\ simp [arm_stepTheory.R_x_pc]
    )
@@ -27,11 +36,11 @@ val lem5 =
 
 val lem6 = Q.prove(
    `!s state c n.
-      target_state_rel arm6_target s state /\ ^n_tm /\
+      target_state_rel arm6_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
       aligned 2 (c + s.regs n) ==>
       aligned 2 (c + state.REG (R_mode state.CPSR.M (n2w n)))`,
    rw [asmPropsTheory.target_state_rel_def, alignmentTheory.aligned_extract,
-       arm6_target_def, arm6_config_def]
+       arm6_target_def, arm6_config_def, lem1]
    )
 
 val lem7 = Q.prove(
@@ -44,12 +53,16 @@ fun bprove tm =
                 \\ blastLib.BBLAST_TAC)
 
 val jmp_tm =
-   ``0xFE00000Cw <= c /\ c <= 0x2000007w: word32 /\ aligned 2 (c: word32)``
+   ``0xFE000008w <= c /\ c <= 0x2000007w: word32 /\ aligned 2 (c: word32)``
+
+val cjmp_tm =
+   ``0xFE00000Cw <= c /\ c <= 0x200000Bw: word32 /\ aligned 2 (c: word32)``
 
 val lem8 = bprove
-   `^jmp_tm ==>
-    0xFE000000w <= c + 0xFFFFFFF8w /\ 0xFE000000w <= c + 0xFFFFFFF4w /\
-    c + 0xFFFFFFF8w <= 0x1FFFFFCw /\ c + 0xFFFFFFF4w <= 0x1FFFFFCw: word32`
+   `(^jmp_tm ==>
+     0xFE000000w <= c + 0xFFFFFFF8w /\ c + 0xFFFFFFF8w <= 0x1FFFFFCw) /\
+    (^cjmp_tm ==>
+     0xFE000000w <= c + 0xFFFFFFF4w /\ c + 0xFFFFFFF4w <= 0x1FFFFFCw)`
 
 val lem9 = bprove
   `Abbrev (a = (25 >< 2) (c + 0xFFFFFFF8w): word24) /\ a ' 23 /\ ^jmp_tm ==>
@@ -95,30 +108,13 @@ val lem15 = bprove
 
 val lem16 = bprove
    `!c r: word32.
-       Abbrev (r = c + 0xFFFFFFF4w) /\ ^jmp_tm ==>
+       Abbrev (r = c + 0xFFFFFFF4w) /\ ^cjmp_tm ==>
        (sw2sw
         ((v2w
           [r ' 25; r ' 24; r ' 23; r ' 22; r ' 21; r ' 20; r ' 19; r ' 18;
            r ' 17; r ' 16; r ' 15; r ' 14; r ' 13; r ' 12; r ' 11; r ' 10;
            r ' 9; r ' 8; r ' 7; r ' 6; r ' 5; r ' 4; r ' 3; r ' 2]: word24
           @@ (0w: word2)) : 26 word) = c - 12w)`
-
-val lem18 =
-   blastLib.BBLAST_PROVE
-     ``((11 >< 8) (v2w [F; F; F; F; b7; b6; b5; b4; b3; b2; b1; b0] : word12) =
-        0w: word4) /\
-       ((11 >< 8) (v2w [T; T; F; F; b7; b6; b5; b4; b3; b2; b1; b0] : word12) =
-        12w: word4)``
-
-val lem19 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32.
-          c + 0xFFFFFFF8w <+ 256w ==>
-          (w2w (v2w
-                [c:word32 ' 7 = c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-                 c ' 6 = c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 = c ' 4 \/ c ' 3;
-                 c ' 4 = c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
-           c - 8w: word32)``
 
 fun tac n =
    simp [Ntimes armTheory.EncodeARMImmediate_aux_def n,
@@ -393,6 +389,46 @@ val aligned_add = Q.prove(
    metis_tac [wordsTheory.WORD_ADD_COMM, alignmentTheory.aligned_add_sub]
    )
 
+val _ = diminish_srw_ss ["MOD_ss"]
+
+val adc_lem1 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
+      4294967296 <= w2n r2 + (w2n r3 + 1)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem2 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
+      n2w (w2n r2 + (w2n r3 + 1))`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem3 = Q.prove(
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem4 = Q.prove(
+  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val mul_long_lem1 = Q.prove(
+  `!a : word32 b. (31 >< 0) (w2w a * w2w b : word64) = a * b`,
+  srw_tac [wordsLib.WORD_EXTRACT_ss]
+    [Once wordsTheory.WORD_EXTRACT_OVER_MUL])
+
+val mul_long_lem2 = Q.prove(
+  `!a : word32 b : word32.
+    n2w ((w2n a * w2n b) DIV 4294967296) =
+    (63 >< 32) (w2w a * w2w b : word64) : word32`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
 
 (* some rewrites ---------------------------------------------------------- *)
 
@@ -402,20 +438,18 @@ val encode_rwts =
    in
       [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
        encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
-       EncodeImmShift_def
+       e_multiply_def, EncodeImmShift_def
        ]
    end
 
 val enc_rwts =
-   [arm6_config_def, asmPropsTheory.offset_monotonic_def,
-    lem4, lem5, lem8, decode_imm8_thm1, decode_imm8_thm3,
-    arm_stepTheory.Aligned, alignmentTheory.aligned_0,
-    alignmentTheory.aligned_numeric] @
-   encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
+   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, decode_imm8_thm1,
+    decode_imm8_thm3, arm_stepTheory.Aligned, alignmentTheory.aligned_0,
+    alignmentTheory.aligned_numeric, arm6_asm_ok] @
+   encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-   [asmPropsTheory.enc_ok_def, arm6_config_def] @
-   encode_rwts @ asmLib.asm_ok_rwts
+   [asmPropsTheory.enc_ok_def, arm6_config, arm6_asm_ok] @ encode_rwts
 
 (* some custom tactics ---------------------------------------------------- *)
 
@@ -541,30 +575,6 @@ in
      ORELSE next_state_tac0 [false, true]
 end
 
-val adc_lem1 = Q.prove(
-  `!r2 r3 : word32 r4 : word32.
-      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
-      4294967296 <= w2n r2 + (w2n r3 + 1)`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
-val adc_lem2 = Q.prove(
-  `!r2 r3 : word32 r4 : word32.
-      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
-      n2w (w2n r2 + (w2n r3 + 1))`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
-val adc_lem3 = Q.prove(
-  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
-val adc_lem4 = Q.prove(
-  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
-  rw [wordsTheory.add_with_carry_def]
-)
-
 local
    val i_tm = ``R_mode ms.CPSR.M (n2w i)``
    val reg_tac =
@@ -585,25 +595,28 @@ local
            end)
 in
    val state_tac =
-      fs [asmPropsTheory.sym_target_state_rel, arm6_target_def,
-          arm6_config_def, asmPropsTheory.all_pcs, arm6_ok_def,
+      NO_STRIP_FULL_SIMP_TAC (srw_ss())
+         [asmPropsTheory.sym_target_state_rel, arm6_target_def,
+          asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
           alignmentTheory.align_aligned, set_sepTheory.fun2set_eq]
-      \\ rfs []
+      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
              lem1, lem2, lem3, adc_lem2, adc_lem4,
-             alignmentTheory.align_aligned]
-      \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-             updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
+             mul_long_lem1, mul_long_lem2,
+             GSYM wordsTheory.word_mul_def, alignmentTheory.align_aligned]
+      \\ srw_tac []
+           [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+            updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
+            decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
       \\ fs [adc_lem1, adc_lem3]
 end
 
 local
    fun number_of_instructions asl =
-      case asmLib.strip_bytes_in_memory (hd asl) of
+      case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
    fun can_match t = Lib.can (Term.match_term t)
@@ -612,8 +625,7 @@ local
          val j = number_of_instructions asl
          val i = j - 1
          val has_branch = asmLib.isConst asm andalso j = 3
-         val neg_mem =
-           asmLib.isMem asm andalso boolSyntax.is_neg (List.nth (asl, 1))
+         val neg_mem = asmLib.isMem asm andalso boolSyntax.is_neg (hd asl)
          val j = if has_branch then 2 else j
          val n = numLib.term_of_int (j - 1)
       in
@@ -635,11 +647,7 @@ local
              else all_tac
              )
          \\ NTAC j next_state_tac
-         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (qpat_x_assum `qqq IN s1.mem_domain` kall_tac)
-         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
-         \\ state_tac
       end gs
    val (_, _, dest_arm6_enc, is_arm6_enc) =
      HolKernel.syntax_fns1 "arm6_target" "arm6_enc"
@@ -647,12 +655,9 @@ local
 in
    fun next_tac gs =
       (
-       qpat_x_assum `bytes_in_memory (aa : word32) bb cc dd` mp_tac
-       \\ simp enc_rwts
-       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-       \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-       \\ strip_tac
+       NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ next_tac' (get_asm (snd gs))
+       \\ state_tac
       ) gs
    val cnext_tac =
       next_tac
@@ -706,6 +711,10 @@ in
            alignmentTheory.aligned_add_sub, aligned_add]
 end
 
+(* -------------------------------------------------------------------------
+   arm6 target_ok
+   ------------------------------------------------------------------------- *)
+
 val length_arm6_encode = Q.prove(
   `!c i. LENGTH (arm6_encode c i) = 4`,
   rw [arm6_encode_def, arm6_encode_fail_def]
@@ -722,9 +731,19 @@ val arm6_encoding = Q.prove (
    \\ REPEAT CASE_TAC
    \\ rw [length_arm6_encode]
    )
+   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val enc_ok_rwts =
-  SIMP_RULE (bool_ss++boolSimps.LET_ss) [] arm6_encoding :: enc_ok_rwts
+val arm6_target_ok = Q.prove (
+   `target_ok arm6_target`,
+   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+        arm6_proj_def, arm6_target_def, arm6_config, arm6_ok_def,
+        set_sepTheory.fun2set_eq, arm6_encoding] @ enc_ok_rwts)
+   \\ rfs [reg_mode_eq]
+   >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
+   \\ lfs enc_rwts
+   \\ rw [] \\ rw []
+   \\ blastLib.FULL_BBLAST_TAC
+   )
 
 (* -------------------------------------------------------------------------
    arm6 backend_correct
@@ -734,20 +753,11 @@ val print_tac = asmLib.print_tac "correct"
 
 val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
    `backend_correct arm6_target`,
-   simp [asmPropsTheory.backend_correct_def]
+   simp [asmPropsTheory.backend_correct_def, arm6_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
-   \\ simp [asmPropsTheory.target_ok_def, arm6_config_def, arm6_target_def,
-            asmSemTheory.asm_step_def]
+   \\ rw [arm6_target_def, arm6_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
-   \\ REVERSE (REPEAT conj_tac)
-   >| [
-      rw [] \\ Cases_on `i`,
-      srw_tac [] [arm6_proj_def, asmPropsTheory.target_state_rel_def,
-                  arm6_target_def, arm6_config_def, arm6_ok_def,
-                  set_sepTheory.fun2set_eq]
-      \\ rfs [reg_mode_eq],
-      srw_tac [boolSimps.LET_ss] enc_ok_rwts
-   ]
+   \\ Cases_on `i`
    >- (
       (*--------------
           Inst
@@ -793,6 +803,13 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                Div
+              --------------*)
+            print_tac "LongDiv"
             \\ next_tac
             )
          >- (
@@ -887,36 +904,6 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
       )
-   >- (
-      (*--------------
-          Jump enc_ok
-        --------------*)
-      print_tac "enc_ok: Jump"
-      \\ lfs enc_rwts
-      )
-   >- (
-      (*--------------
-          JumpCmp enc_ok
-        --------------*)
-      print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `ri`
-      \\ Cases_on `cmp`
-      \\ lfs enc_rwts
-      )
-   >- (
-      (*--------------
-          Call enc_ok
-        --------------*)
-      print_tac "enc_ok: Call"
-      \\ lfs enc_rwts
-      )
-   \\ (*--------------
-          Loc enc_ok
-        --------------*)
-      print_tac "enc_ok: Loc"
-   \\ lrw enc_rwts
-   \\ rw []
-   \\ blastLib.FULL_BBLAST_TAC
    )
 
 val () = export_theory ()
