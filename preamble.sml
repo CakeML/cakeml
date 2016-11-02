@@ -34,7 +34,6 @@ fun term_rewrite eq_tms tm =
      |> concl |> rhs
 
 (* replace (syntactically equal) subterms of one term by another *)
-(* TODO: can Term.subst be used instead always? If so, delete. *)
 fun replace_term from to =
   let
     fun f tm =
