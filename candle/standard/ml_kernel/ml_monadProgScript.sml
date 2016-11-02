@@ -662,28 +662,12 @@ val EvalM_Let = store_thm("EvalM_Let",
 
 (* PMATCH *)
 
-(* currently broken ... *)
-
 val EvalM_PMATCH_NIL = store_thm("EvalM_PMATCH_NIL",
   ``!b x xv a.
       Eval env x (a xv) ==>
       CONTAINER F ==>
       EvalM env (Mat x []) (b (PMATCH xv []))``,
   rw[CONTAINER_def]);
-
-val pmatch_ignore_empty_store = prove(
-  ``(pmatch cenv empty_store p r eenv = Match x) ==>
-    (pmatch cenv s p r eenv = Match x)``,
-  REPEAT STRIP_TAC
-  \\ IMP_RES_TAC pmatch_empty_store
-  \\ fs []);
-
-val pmatch_ignore_empty_store_No_match = prove(
-  ``(pmatch cenv empty_store p r eenv = No_match) ==>
-    (pmatch cenv s p r eenv = No_match)``,
-  REPEAT STRIP_TAC
-  \\ IMP_RES_TAC pmatch_empty_store
-  \\ fs []);
 
 val EvalM_PMATCH = store_thm("EvalM_PMATCH",
   ``!b a x xv.
@@ -727,79 +711,27 @@ val EvalM_PMATCH = store_thm("EvalM_PMATCH",
       simp[] \\
       metis_tac[] ) \\
     first_x_assum drule \\ simp[]
-    \\ disch_then(qspec_then`s with refs := s.refs ++ junk'`mp_tac)
-    \\ simp[] \\ disch_then drule
-    \\ disch_then(qspec_then`[]`strip_assume_tac) \\ fs[]
+    \\ disch_then(qspec_then`s`mp_tac)
+    \\ disch_then drule
+    \\ disch_then(qspec_then`junk'`strip_assume_tac) \\ fs[]
     \\ asm_exists_tac \\ fs[]
     \\ simp[PMATCH_def,PMATCH_ROW_def,PMATCH_ROW_COND_def] >>
     `(some x. pat x = pat vars') = SOME vars` by (
       simp[optionTheory.some_def] >>
       METIS_TAC[] ) >>
-    simp[]) >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) \\
-  qpat_x_assum`evaluate F _ _ (Mat _ _) _`mp_tac >>
-  simp[Once evaluate_cases] >> strip_tac >>
-  imp_res_tac (CONJUNCT1 big_exp_determ) >> fs[] >> rw[] >>
-  srw_tac[DNF_ss][] >> disj2_tac >>
-  simp[PMATCH_def,PMATCH_ROW_def] >>
-  imp_res_tac pmatch_PMATCH_ROW_COND_No_match >>
-  first_x_assum(qspec_then`refs++refs'`strip_assume_tac) >> fs[] >>
+    simp[] >>
+    asm_exists_tac \\ fs[]) >>
+  drule (GEN_ALL pmatch_PMATCH_ROW_COND_No_match)
+  \\ disch_then drule \\ disch_then drule
+  \\ simp[] \\ strip_tac \\
+  first_x_assum(qspec_then`s`mp_tac) \\
+  disch_then drule \\
+  simp[Once evaluate_cases,PULL_EXISTS] \\
+  disch_then(qspec_then`junk`mp_tac) \\
+  strip_tac \\ imp_res_tac determTheory.big_exp_determ \\ fs[] \\
+  rw[] \\ asm_exists_tac \\ fs[] \\
+  fs[PMATCH_def,PMATCH_ROW_def] \\
   asm_exists_tac \\ fs[]);
-
-
-  rw[Eval_def,EvalM_def] >>
-  rw[Once evaluate_cases,PULL_EXISTS] >> fs[] >>
-  `!result. evaluate F env s x result <=> (result = (s,Rval res'))` by
-      METIS_TAC [determTheory.big_exp_determ,evaluate_empty_state_IMP] >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  Cases_on`∃vars. PMATCH_ROW_COND pat (K T) xv vars` >> fs[] >- (
-    imp_res_tac pmatch_PMATCH_ROW_COND_Match >>
-    ntac 3 (pop_assum kall_tac) >>
-    fs[EvalPatRel_def] >>
-    first_x_assum(qspec_then`vars`mp_tac)>>simp[] >>
-    qpat_x_assum`p1 xv ⇒ X`kall_tac >>
-    fs[EvalPatBind_def,PMATCH_ROW_COND_def,PULL_EXISTS] >>
-    first_x_assum(qspec_then`vars`mp_tac)>>simp[] >> strip_tac >>
-    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
-    srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-    imp_res_tac Pmatch_imp_pmatch >>
-    imp_res_tac Pmatch_SOME_const >>
-    fs[pmatch_def] >>
-    qpat_x_assum`X = Match Y` mp_tac >> BasicProvers.CASE_TAC >>
-    fs[GSYM AND_IMP_INTRO] >>
-    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
-    rfs[] >>
-    `(∃vars'. pat vars' = pat vars) = T` by metis_tac[] >>
-    fs[] >> rfs[] >>
-    simp[PMATCH_def,PMATCH_ROW_def,PMATCH_ROW_COND_def] >>
-    `(some x. pat x = pat vars) = SOME vars` by (
-      simp[optionTheory.some_def] >>
-      METIS_TAC[] ) >>
-    imp_res_tac pmatch_ignore_empty_store >>
-    simp[] >> fs[] >> rw[] >>
-    `env with v := env2.v = env2` by simp[environment_component_equality] >>
-    fs[pmatch_def]) >>
-  FIRST_X_ASSUM (MP_TAC o Q.SPECL [`s:unit state`,`refs`]) >> fs [] >>
-  REPEAT STRIP_TAC >>
-  qpat_x_assum`evaluate F X Y (Mat A B) R`mp_tac >>
-  simp[Once evaluate_cases] >> strip_tac >>
-  imp_res_tac (determTheory.big_exp_determ) >> fs[] >> rw[] >>
-  `!reslut. evaluate_match F env s res' ys
-         (Conv (SOME ("Bind",TypeExn (Short "Bind"))) []) result <=>
-            (result = (s2,res''))` by
-               METIS_TAC [determTheory.big_exp_determ] >>
-  fs [] >> srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
-  simp[PMATCH_def,PMATCH_ROW_def] >>
-  imp_res_tac pmatch_PMATCH_ROW_COND_No_match >>
-  imp_res_tac Pmatch_imp_pmatch >>
-  fs[pmatch_def] >>
-  pop_assum mp_tac >> BasicProvers.CASE_TAC >>
-  imp_res_tac pmatch_ignore_empty_store_No_match >> fs [] >- METIS_TAC[] >>
-  fs[EvalPatRel_def] >>
-  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[Once evaluate_cases] >>
-  `empty_state.refs = empty_store` by EVAL_TAC >>
-  rw[]);
 
 (* ref 0 *)
 
