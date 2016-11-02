@@ -327,8 +327,6 @@ val POSTv_cond = Q.store_thm("POSTv_cond",
 
 open terminationTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
-val functional_evaluate = ml_translatorTheory.functional_evaluate
-val evaluate_ffi_intro = ml_translatorTheory.evaluate_ffi_intro
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
 val big_remove_clock = Q.store_thm("big_remove_clock",
@@ -362,8 +360,8 @@ val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
 val big_refs_length_mono = Q.store_thm("big_refs_length_mono",
   `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`,
   Cases_on`ck`
-  \\ rw[functional_evaluate]
-  \\ fs[bigClockTheory.big_clocked_unclocked_equiv,functional_evaluate]
+  \\ rw[funBigStepEquivTheory.functional_evaluate]
+  \\ fs[bigClockTheory.big_clocked_unclocked_equiv,funBigStepEquivTheory.functional_evaluate]
   \\ imp_res_tac evaluate_refs_length_mono
   \\ fs[]);
 
@@ -556,7 +554,7 @@ val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_sa
    st'.ffi = st.ffi`,
   rw[] \\ imp_res_tac SPLIT_st2heap_ffi
   \\ fs[bigClockTheory.big_clocked_unclocked_equiv]
-  \\ fs[functional_evaluate]
+  \\ fs[funBigStepEquivTheory.functional_evaluate]
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ fs[io_events_mono_def]
   \\ Cases_on`st.ffi.final_event` \\ fs[] \\ rfs []
@@ -571,7 +569,7 @@ val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty
    ⇒
    evaluate F env t es (t',Rval r)`,
   rw[Once bigClockTheory.big_clocked_unclocked_equiv]
-  \\ fs[functional_evaluate]
+  \\ fs[funBigStepEquivTheory.functional_evaluate]
   \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
               INST_TYPE[beta|->oneSyntax.one_ty](
                 CONJUNCT1 evaluate_ffi_intro)))
@@ -580,7 +578,7 @@ val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty
   \\ simp[] \\ strip_tac
   \\ `Rval [r] = list_result ((Rval r):(v,v) result)` by EVAL_TAC
   \\ pop_assum SUBST_ALL_TAC
-  \\ fs[GSYM functional_evaluate]
+  \\ fs[GSYM funBigStepEquivTheory.functional_evaluate]
   \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
   \\ asm_exists_tac \\ fs[]);
 
