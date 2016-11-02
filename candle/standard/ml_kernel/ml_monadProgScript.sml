@@ -135,6 +135,131 @@ val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def"
   fetch "-" "THM_TYPE_def";
 *)
 
+(* ref 0 *)
+
+val init_type_constants_def = Define `
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`
+
+val init_type_constants_v = translate init_type_constants_def
+
+val the_type_constants_def = Define `
+    the_type_constants = Loc (LENGTH init_type_constants_refs)`;
+
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
+
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_type_constants")])
+        (^(get_state k) with refs := init_type_constants_refs ++ [Refv init_type_constants_v],
+         Rval (the_type_constants))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_type_constants") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_type_constants" [the_type_constants_def] k end)
+
+(* ref 1 *)
+
+val init_term_constants_def = Define `
+  init_term_constants = [(strlit"=",
+    Tyapp (strlit"fun")
+      [Tyvar (strlit"A");
+       Tyapp (strlit"fun")
+         [Tyvar (strlit"A");
+          Tyapp (strlit"bool") []]])]`
+
+val init_term_constants_v = translate init_term_constants_def
+
+val the_term_constants_def = Define `
+    the_term_constants = Loc (LENGTH init_type_constants_refs + 1 +
+                              LENGTH init_term_constants_refs)`;
+
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
+
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_term_constants")])
+        (^(get_state k) with refs := init_type_constants_refs ++ [Refv init_type_constants_v] ++
+                                     init_term_constants_refs ++ [Refv init_term_constants_v],
+         Rval (the_term_constants))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_term_constants") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_term_constants" [the_term_constants_def] k end)
+
+(* ref 2 *)
+
+val init_axioms_def = Define `
+  init_axioms = []:thm list`
+
+val init_axioms_v = translate init_axioms_def
+
+val the_axioms_def = Define `
+    the_axioms = Loc (LENGTH init_type_constants_refs + 1 +
+                      LENGTH init_term_constants_refs + 1 +
+                      LENGTH init_axioms_refs)`;
+
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
+
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_axioms")])
+        (^(get_state k) with refs := init_type_constants_refs ++ [Refv init_type_constants_v] ++
+                                     init_term_constants_refs ++ [Refv init_term_constants_v] ++
+                                     init_axioms_refs ++ [Refv init_axioms_v],
+         Rval (the_axioms))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_axioms") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_axioms" [the_axioms_def] k end)
+
+(* ref 3 *)
+
+val init_context_def = Define `
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`
+
+val init_context_v = translate init_context_def
+
+val the_context_def = Define `
+    the_context = Loc (LENGTH init_type_constants_refs + 1 +
+                       LENGTH init_term_constants_refs + 1 +
+                       LENGTH init_axioms_refs + 1 +
+                       LENGTH init_context_refs)`;
+
+(* for debugging:
+val s = ref ml_progLib.init_state
+val _ = ml_prog_update (fn k => (s := k; k))
+val k = !s
+*)
+
+val _ = ml_prog_update (fn k => let
+  val lemma = prove(
+    ``evaluate F ^(get_env k) ^(get_state k)
+        (App Opref [Var (Short "init_context")])
+        (^(get_state k) with refs := init_type_constants_refs ++ [Refv init_type_constants_v] ++
+                                     init_term_constants_refs ++ [Refv init_term_constants_v] ++
+                                     init_axioms_refs ++ [Refv init_axioms_v] ++
+                                     init_context_refs ++ [Refv init_context_v],
+         Rval (the_context))``,
+    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
+        EVAL ``lookup_var_id (Short "init_context") ^(get_env k)``])
+    \\ EVAL_TAC \\ fs [])
+  in add_Dlet lemma "the_context" [the_context_def] k end)
+
 (* definition of EvalM *)
 
 val isRefv_def = Define `
@@ -142,19 +267,21 @@ val isRefv_def = Define `
 
 val HOL_STORE_def = Define `
   HOL_STORE s refs <=>
-    4 <= LENGTH s /\
+    ∃type_constants term_constants axioms context.
+    init_type_constants_refs ++ [type_constants] ++
+    init_term_constants_refs ++ [term_constants] ++
+    init_axioms_refs ++ [axioms] ++
+    init_context_refs ++ [context] ≼ s ∧
     isRefv ((LIST_TYPE (PAIR_TYPE STRING_TYPE NUM))
-            refs.the_type_constants) (EL 0 s) /\
+            refs.the_type_constants) type_constants /\
     isRefv ((LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE))
-            refs.the_term_constants) (EL 1 s) /\
-    isRefv (LIST_TYPE THM_TYPE refs.the_axioms) (EL 2 s) /\
-    isRefv (LIST_TYPE UPDATE_TYPE refs.the_context) (EL 3 s)`;
+            refs.the_term_constants) term_constants /\
+    isRefv (LIST_TYPE THM_TYPE refs.the_axioms) axioms /\
+    isRefv (LIST_TYPE UPDATE_TYPE refs.the_context) context`;
 
 val HOL_STORE_append = Q.store_thm("HOL_STORE_append",
   `HOL_STORE srefs refs ⇒ HOL_STORE (srefs ++ junk) refs`,
-  rw[HOL_STORE_def] \\
-  rpt (qmatch_asmsub_rename_tac`LENGTH tt`
-       \\ Cases_on`tt` \\ fs[ADD1]));
+  rw[HOL_STORE_def] \\ fs[IS_PREFIX_APPEND]);
 
 val EvalM_def = Define `
   EvalM env exp P <=>
@@ -350,17 +477,11 @@ val TERM_TYPE_EXISTS = prove(
 val HOL_STORE_EXISTS = store_thm("HOL_STORE_EXISTS",
   ``?(s:unit state) refs. HOL_STORE s.refs refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
-  \\ Q.EXISTS_TAC `<| refs :=
-                   [Refv (Conv (SOME ("nil",TypeId (Short "list"))) []);
-                    Refv (Conv (SOME ("nil",TypeId (Short "list"))) []);
-                    Refv (Conv (SOME ("nil",TypeId (Short "list"))) []);
-                    Refv (Conv (SOME ("nil",TypeId (Short "list"))) [])]|>`
-  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,EL,HD,TL,isRefv_def]
-  \\ Q.EXISTS_TAC `<| the_type_constants := [] ;
-                      the_term_constants := [] ;
-                      the_context        := [] ;
-                      the_axioms         := [] |>`
-  \\ FULL_SIMP_TAC (srw_ss()) [LIST_TYPE_def]);
+  \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
+  \\ ntac 4 (qexists_tac`Refv (Conv (SOME ("nil",TypeId (Short "list"))) [])`)
+  \\ simp[isRefv_def]
+  \\ srw_tac[QI_ss][]
+  \\ metis_tac[IS_PREFIX_REFL,LIST_TYPE_def]);
 
 val EvalM_Fun_PURE_IMP = store_thm("EvalM_Fun_PURE_IMP",
   ``EvalM env (Fun n exp) (PURE P f) ==>
@@ -421,11 +542,6 @@ val EvalM_Recclosure = store_thm("EvalM_Recclosure",
   \\ rw[Eq_def,do_opapp_def,Once find_recfun_def,HOL_STORE_append]
   \\ fs[build_rec_env_def,write_rec_def,FOLDR,write_def]
   \\ METIS_TAC[APPEND_ASSOC]);
-
-val option_CASE_LEMMA2 = prove(
-  Pmatch.with_classic_heuristic Term
-  `!topt. (case topt of NONE => v | SOME z => v) = v`,
-  Cases \\ SRW_TAC [] [] \\ Cases_on `x` \\ SRW_TAC [] []);
 
 val IND_HELP = store_thm("IND_HELP",
   ``!env cl.
@@ -733,236 +849,96 @@ val EvalM_PMATCH = store_thm("EvalM_PMATCH",
   fs[PMATCH_def,PMATCH_ROW_def] \\
   asm_exists_tac \\ fs[]);
 
-(* ref 0 *)
-
-val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`
-
-val init_type_constants_v = translate init_type_constants_def
-
-val the_type_constants_def = Define `
-    the_type_constants = Loc 0`;
-
-(* for debugging:
-val s = ref ml_progLib.init_state
-val _ = ml_prog_update (fn k => (s := k; k))
-val k = !s
-*)
-
-val _ = ml_prog_update (fn k => let
-  val lemma = prove(
-    ``evaluate F ^(get_env k) ^(get_state k)
-        (App Opref [Var (Short "init_type_constants")])
-        (^(get_state k) with refs := [Refv init_type_constants_v],
-         Rval (the_type_constants))``,
-    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
-        EVAL ``lookup_var_id (Short "init_type_constants") ^(get_env k)``])
-    \\ EVAL_TAC \\ fs [])
-  in add_Dlet lemma "the_type_constants" [the_type_constants_def] k end)
-
-(* ref 1 *)
-
-val init_term_constants_def = Define `
-  init_term_constants = [(strlit"=",
-    Tyapp (strlit"fun")
-      [Tyvar (strlit"A");
-       Tyapp (strlit"fun")
-         [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`
-
-val init_term_constants_v = translate init_term_constants_def
-
-val the_term_constants_def = Define `
-    the_term_constants = Loc 1`;
-
-(* for debugging:
-val s = ref ml_progLib.init_state
-val _ = ml_prog_update (fn k => (s := k; k))
-val k = !s
-*)
-
-val _ = ml_prog_update (fn k => let
-  val lemma = prove(
-    ``evaluate F ^(get_env k) ^(get_state k)
-        (App Opref [Var (Short "init_term_constants")])
-        (^(get_state k) with refs := [Refv init_type_constants_v;
-                                      Refv init_term_constants_v],
-         Rval (the_term_constants))``,
-    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
-        EVAL ``lookup_var_id (Short "init_term_constants") ^(get_env k)``])
-    \\ EVAL_TAC \\ fs [])
-  in add_Dlet lemma "the_term_constants" [the_term_constants_def] k end)
-
-(* ref 2 *)
-
-val init_axioms_def = Define `
-  init_axioms = []:thm list`
-
-val init_axioms_v = translate init_axioms_def
-
-val the_axioms_def = Define `
-    the_axioms = Loc 2`;
-
-(* for debugging:
-val s = ref ml_progLib.init_state
-val _ = ml_prog_update (fn k => (s := k; k))
-val k = !s
-*)
-
-val _ = ml_prog_update (fn k => let
-  val lemma = prove(
-    ``evaluate F ^(get_env k) ^(get_state k)
-        (App Opref [Var (Short "init_axioms")])
-        (^(get_state k) with refs := [Refv init_type_constants_v;
-                                      Refv init_term_constants_v;
-                                      Refv init_axioms_v],
-         Rval (the_axioms))``,
-    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
-        EVAL ``lookup_var_id (Short "init_axioms") ^(get_env k)``])
-    \\ EVAL_TAC \\ fs [])
-  in add_Dlet lemma "the_axioms" [the_axioms_def] k end)
-
-(* ref 3 *)
-
-val init_context_def = Define `
-  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`
-
-val init_context_v = translate init_context_def
-
-val the_context_def = Define `
-    the_context = Loc 3`;
-
-(* for debugging:
-val s = ref ml_progLib.init_state
-val _ = ml_prog_update (fn k => (s := k; k))
-val k = !s
-*)
-
-val _ = ml_prog_update (fn k => let
-  val lemma = prove(
-    ``evaluate F ^(get_env k) ^(get_state k)
-        (App Opref [Var (Short "init_context")])
-        (^(get_state k) with refs := [Refv init_type_constants_v;
-                                      Refv init_term_constants_v;
-                                      Refv init_axioms_v;
-                                      Refv init_context_v],
-         Rval (the_context))``,
-    ntac 5 (fs [Once evaluate_cases,PULL_EXISTS,do_app_def,store_alloc_def,
-        EVAL ``lookup_var_id (Short "init_context") ^(get_env k)``])
-    \\ EVAL_TAC \\ fs [])
-  in add_Dlet lemma "the_context" [the_context_def] k end)
-
 (* read and update refs *)
 
-fun read_tac n =
-  SIMP_TAC std_ss [Eval_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [option_CASE_LEMMA2]
-  \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-  \\ SIMP_TAC std_ss [EvalM_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ fs [the_type_constants_def,
-       the_term_constants_def,the_axioms_def,the_context_def,
-       PULL_EXISTS,evaluate_list_cases,do_app_def,
-       store_lookup_def,option_CASE_LEMMA2]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [HOL_STORE_def]
-  \\ `0 < LENGTH s.refs` by DECIDE_TAC
-  \\ `1 < LENGTH s.refs` by DECIDE_TAC
-  \\ `2 < LENGTH s.refs` by DECIDE_TAC
-  \\ `3 < LENGTH s.refs` by DECIDE_TAC
-  \\ FULL_SIMP_TAC std_ss []
-  \\ Q.LIST_EXISTS_TAC [`s`,`Rval (case EL ^n s.refs of Refv v => v)`,`refs`]
-  \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_type_constants_def,
-        get_the_term_constants_def,get_the_axioms_def,
-        get_the_context_def,EL,isRefv_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ fs []
-  \\ fs[state_component_equality];
+val read_tac =
+  rw[EvalM_def]
+  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
+  \\ ntac 6 (rw[Once evaluate_cases])
+  \\ fs[HOL_STORE_def,IS_PREFIX_APPEND]
+  \\ rw[do_app_def]
+  \\ fs[the_type_constants_def,the_term_constants_def,the_axioms_def,the_context_def]
+  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2]
+  \\ fs[isRefv_def]
+  \\ srw_tac[DNF_ss][] \\ fs[]
+  \\ disj1_tac
+  \\ fs[get_the_type_constants_def,get_the_term_constants_def,get_the_axioms_def,get_the_context_def]
+  \\ fs[HOL_MONAD_def];
 
 val get_type_constants_thm = store_thm("get_the_type_constants_thm",
   ``lookup_var_id (Short "the_type_constants") env = SOME the_type_constants ==>
     EvalM env (App Opderef [Var (Short "the_type_constants")])
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM))
                  get_the_type_constants)``,
-  read_tac ``0:num``);
+  read_tac);
 
 val get_term_constants_thm = store_thm("get_the_term_constants_thm",
   ``lookup_var_id (Short "the_term_constants") env = SOME the_term_constants ==>
     EvalM env (App Opderef [Var (Short "the_term_constants")])
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE))
                  get_the_term_constants)``,
-  read_tac ``1:num``);
+  read_tac);
 
 val get_the_axioms_thm = store_thm("get_the_axioms_thm",
   ``lookup_var_id (Short "the_axioms") env = SOME the_axioms ==>
     EvalM env (App Opderef [Var (Short "the_axioms")])
       (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
-  read_tac ``2:num``);
+  read_tac);
 
 val get_the_context_thm = store_thm("get_the_context_thm",
   ``lookup_var_id (Short "the_context") env = SOME the_context ==>
     EvalM env (App Opderef [Var (Short "the_context")])
       (HOL_MONAD (LIST_TYPE UPDATE_TYPE) get_the_context)``,
-  read_tac ``3:num``);
+  read_tac);
 
-fun update_tac n r =
-  SIMP_TAC (srw_ss()) [option_CASE_LEMMA2]
-  \\ STRIP_TAC \\ POP_ASSUM MP_TAC
-  \\ SIMP_TAC std_ss [EvalM_def]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
-  \\ fs [evaluate_list_cases,PULL_EXISTS]
-  \\ `evaluate F env s exp (s,Rval res)` by
-        METIS_TAC [evaluate_empty_state_IMP]
-  \\ `!x. evaluate F env s exp x = (x = (s,Rval res))` by
-        METIS_TAC [determTheory.big_exp_determ]
-  \\ fs [] \\ SIMP_TAC (srw_ss()) [Once do_app_def]
-  \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA2,PULL_EXISTS]
-  \\ FULL_SIMP_TAC std_ss [the_type_constants_def,the_axioms_def,
-       the_term_constants_def,the_context_def]
-  \\ `0 < LENGTH s.refs` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `1 < LENGTH s.refs` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `2 < LENGTH s.refs` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `3 < LENGTH s.refs` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
-  \\ EXISTS_TAC``(s:unit state) with refs := LUPDATE (Refv res) ^n s.refs``
-  \\ Q.LIST_EXISTS_TAC [`Rval (Conv NONE [])`,r]
-  \\ fs []
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ fs [store_v_same_type_def]
-  \\ FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]
-  \\ fs [HOL_STORE_def,EL_LUPDATE,isRefv_def]
-  \\ EVAL_TAC
-  \\ simp[state_component_equality];
+val update_tac =
+  rw[]
+  \\ imp_res_tac Eval_IMP_PURE
+  \\ fs[EvalM_def] \\ rw[]
+  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
+  \\ ntac 3 (rw[Once(CONJUNCT2 evaluate_cases)])
+  \\ rw[CONJUNCT1 evaluate_cases |> Q.SPECL[`F`,`env`,`s`,`Var _`]]
+  \\ srw_tac[DNF_ss][] \\ disj1_tac
+  \\ first_x_assum drule
+  \\ disch_then(qspec_then`junk`strip_assume_tac)
+  \\ fs[PURE_def] \\ rw[]
+  \\ asm_exists_tac \\ fs[]
+  \\ rw[do_app_def]
+  \\ fs[HOL_STORE_def,IS_PREFIX_APPEND,PULL_EXISTS]
+  \\ fs[the_type_constants_def,the_term_constants_def,the_axioms_def,the_context_def]
+  \\ fs[store_assign_def,EL_APPEND1,EL_APPEND2,isRefv_def,store_v_same_type_def]
+  \\ fs[LUPDATE_APPEND1,LUPDATE_APPEND2,LUPDATE_def]
+  \\ fs[HOL_MONAD_def]
+  \\ fs[set_the_type_constants_def,set_the_term_constants_def,set_the_axioms_def,set_the_context_def]
+  \\ EVAL_TAC;
 
 val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
   ``lookup_var_id (Short "the_type_constants") env = SOME the_type_constants ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x) ==>
     EvalM env (App Opassign [Var (Short "the_type_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_type_constants x))``,
-  update_tac ``0n`` `refs with the_type_constants := x`);
+  update_tac);
 
 val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
   ``lookup_var_id (Short "the_term_constants") env = SOME the_term_constants ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x) ==>
     EvalM env (App Opassign [Var (Short "the_term_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
-  update_tac ``1n`` `refs with the_term_constants := x`);
+  update_tac);
 
 val set_the_axioms_thm = store_thm("set_the_axioms_thm",
   ``lookup_var_id (Short "the_axioms") env = SOME the_axioms ==>
     Eval env exp (LIST_TYPE THM_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_axioms"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_axioms x))``,
-  update_tac ``2n`` `refs with the_axioms := x`);
+  update_tac);
 
 val set_the_context_thm = store_thm("set_the_context_thm",
   ``lookup_var_id (Short "the_context") env = SOME the_context ==>
     Eval env exp (LIST_TYPE UPDATE_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_context"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_context x))``,
-  update_tac ``3n`` `refs with the_context := x`);
+  update_tac);
 
 val _ = (print_asts := true);
 
