@@ -373,15 +373,6 @@ val do_if_either_or = Q.store_thm("do_if_is_ether_or",
   THENL [simp [],
     Cases_on `v = Boolv F` THEN simp []]))
 
-
-val check_clock_def = Define`
-  check_clock s' s =
-    s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock`;
-
-val check_clock_id = Q.store_thm("check_clock_id",
-  `s'.clock ≤ s.clock ⇒ patSem$check_clock s' s = s'`,
-  EVAL_TAC >> rw[theorem"state_component_equality"])
-
 val dec_clock_def = Define`
 dec_clock s = s with clock := s.clock -1`;
 
@@ -391,8 +382,6 @@ val fix_clock_def = Define `
 val fix_clock_IMP = prove(
   ``fix_clock s x = (s1,res) ==> s1.clock <= s.clock``,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
-
-val STOP_def = Define `STOP x = x`;
 
 val evaluate_def = tDefine "evaluate"`
   (evaluate (env:patSem$v list) (s:'ffi patSem$state) ([]:patLang$exp list) = (s,Rval [])) ∧
@@ -465,7 +454,7 @@ val evaluate_def = tDefine "evaluate"`
   THEN rpt strip_tac
   THEN imp_res_tac fix_clock_IMP
   THEN imp_res_tac do_if_either_or
-  THEN fs [dec_clock_def,check_clock_def])
+  THEN fs [dec_clock_def])
 
 val evaluate_ind = theorem"evaluate_ind"
 
