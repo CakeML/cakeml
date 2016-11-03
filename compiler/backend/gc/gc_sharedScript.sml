@@ -50,6 +50,14 @@ val el_length_def = Define `
   (el_length (ForwardPointer n d l) = l+1) /\
   (el_length (DataElement xs l data) = l+1)`;
 
+val el_length_NOT_0 = store_thm("el_length_NOT_0",
+  ``!el. el_length el <> 0``,
+  Cases \\ fs [el_length_def]);
+
+val el_length_GT_0 = store_thm("el_length_GT_0",
+  ``!el. 1 <= el_length el``,
+  Cases \\ fs [el_length_def]);
+
 val heap_length_def = Define `
   heap_length heap = SUM (MAP el_length heap)`;
 
