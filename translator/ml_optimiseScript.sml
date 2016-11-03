@@ -290,7 +290,9 @@ val OPTIMISE_def = Define `
 val Eval_OPTIMISE = store_thm("Eval_OPTIMISE",
   ``Eval env exp P ==> Eval env (OPTIMISE exp) P``,
   SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
   \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss [OPTIMISE_def]
+  \\ qexists_tac`refs'`
   \\ MATCH_MP_TAC BOTTOM_UP_OPT_THM
   \\ SIMP_TAC std_ss [opt_sub_add_thm,let_id_thm]
   \\ MATCH_MP_TAC BOTTOM_UP_OPT_THM

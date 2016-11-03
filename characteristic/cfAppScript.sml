@@ -27,8 +27,8 @@ val app_basic_def = Define `
         Q r h_f /\
         do_opapp [f;x] = SOME (env, exp) /\
         case r of
-          | Val v' => evaluate_ck ck st env [exp] = (st', Rval [v'])
-          | Exn e  => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
+          | Val v => evaluate_ck ck st env [exp] = (st', Rval [v])
+          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
 
 val app_basic_local = prove (
   ``!f x. is_local (app_basic p f x)``,
@@ -201,11 +201,11 @@ val app_partial = prove (
 
     THEN1 (
       (* xs = x :: zs = [x] *)
-      fs [app_def] \\ cheat
+      fs [app_def] \\ ...
     )
     THEN1 (
       (* xs = x :: zs = [x::y::t] *)
-      rename1 `x::y::t` \\ fs [app_def] \\ cheat
+      rename1 `x::y::t` \\ fs [app_def] \\ ..
     )
   )
 )
@@ -222,28 +222,6 @@ val spec_def = Define `
 
 (*------------------------------------------------------------------*)
 (* Relating [app] to [_ --> _] from the translator *)
-
-val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
-  ``(a --> b) f v ==>
-    !x v1.
-      a x v1 ==>
-      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. & b (f x) v)``,
-  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
-      ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
-      ml_translatorTheory.evaluate_closure_def,POSTv_def, PULL_EXISTS]
-  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
-  \\ rw [] \\ res_tac \\ instantiate
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ drule ml_translatorTheory.evaluate_empty_state_IMP
-  \\ disch_then (qspec_then `st` assume_tac)
-  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
-  \\ rename1 `evaluate _ _ (st with clock := ck) _ (_, Rval v')`
-  \\ GEN_EXISTS_TAC "ck" `ck` \\ qexists_tac `Val v'` \\ simp [cond_def]
-  \\ Q.LIST_EXISTS_TAC [`{}`, `st with clock := 0`]
-  \\ CONJ_TAC THEN_LT REVERSE_LT
-  THEN1 (prove_tac [bigStepTheory.evaluate_rules])
-  THEN1 (fs [st2heap_clock] \\ SPLIT_TAC)
-);
 
 val app_basic_weaken = store_thm("app_basic_weaken",
   ``(!x v. P x v ==> Q x v) ==>
@@ -297,5 +275,372 @@ val app_basic_rel = store_thm("app_basic_rel",
    (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
+
+(* TODO: move to appropriate locations *)
+
+val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
+  `FFI_part x1 x2 x3 x4 ∉ store2heap refs`,
+  rw[store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
+
+val FFI_full_NOT_IN_store2heap = Q.store_thm("FFI_full_NOT_IN_store2heap",
+  `FFI_full x1 x2 ∉ store2heap refs`,
+  rw[store2heap_def,FFI_full_NOT_IN_store2heap_aux]);
+
+val FFI_split_NOT_IN_store2heap = Q.store_thm("FFI_split_NOT_IN_store2heap",
+  `FFI_split ∉ store2heap refs`,
+  rw[store2heap_def,FFI_split_NOT_IN_store2heap_aux]);
+
+val store2heap_aux_MAPi = Q.store_thm("store2heap_aux_MAPi",
+  `∀n s. store2heap_aux n s = set (MAPi (λi v. Mem (n+i) v) s)`,
+  Induct_on`s`
+  \\ rw[store2heap_aux_def,o_DEF,ADD1]
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ rw[FUN_EQ_THM]);
+
+val store2heap_MAPi = Q.store_thm("store2heap_MAPi",
+  `store2heap s = set (MAPi Mem s)`,
+  rw[store2heap_def,store2heap_aux_MAPi]
+  \\ srw_tac[ETA_ss][]);
+
+val store2heap_aux_append_many = Q.store_thm("store2heap_aux_append_many",
+  `∀s n x.
+    store2heap_aux n (s ++ x) =
+    store2heap_aux (n + LENGTH s) x ∪ store2heap_aux n s`,
+  Induct \\ rw[store2heap_aux_def,ADD1,EXTENSION]
+  \\ metis_tac[]);
+
+val store2heap_append_many = Q.store_thm("store2heap_append_many",
+  `∀s x.
+    store2heap (s ++ x) = store2heap s ∪ store2heap_aux (LENGTH s) x`,
+  rw[store2heap_def,store2heap_aux_append_many,UNION_COMM]);
+
+val st2heap_with_refs_append = Q.store_thm("st2heap_with_refs_append",
+  `st2heap p (st with refs := r1 ++ r2) =
+   st2heap p (st with refs := r1) ∪ store2heap_aux (LENGTH r1) r2`,
+  rw[st2heap_def,store2heap_append_many]
+  \\ metis_tac[UNION_COMM,UNION_ASSOC]);
+
+val POSTv_cond = Q.store_thm("POSTv_cond",
+  `(POSTv v. &f v) r h ⇔ ∃v. r = Val v ∧ f v ∧ h = ∅`,
+  rw[POSTv_def]
+  \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]);
+
+open terminationTheory evaluatePropsTheory
+val dec_clock_def = evaluateTheory.dec_clock_def
+val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
+
+val big_remove_clock = Q.store_thm("big_remove_clock",
+  `∀c ck env s e s' r.
+     evaluate ck env s e (s',r) ∧
+     r ≠ Rerr (Rabort Rtimeout_error)
+     ⇒
+     evaluate F env (s with clock := c) e (s' with clock := c,r)`,
+  gen_tac \\ reverse Cases
+  >- (
+    rw[] \\
+    imp_res_tac bigClockTheory.big_unclocked \\
+    `∀s. s = s with clock := s.clock` by simp[state_component_equality] \\
+    metis_tac[bigClockTheory.big_unclocked] ) \\
+  rw[bigClockTheory.big_clocked_unclocked_equiv] \\
+  metis_tac[bigClockTheory.clocked_min_counter]);
+
+val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
+  (∀(s:'a state) env e s' r.
+     evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
+  (∀(s:'a state) env v pes errv s' r.
+     evaluate_match s env v pes errv = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)`,
+  ho_match_mp_tac evaluate_ind
+  \\ rw[] \\ fs[evaluate_def]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
+  \\ fs[dec_clock_def]
+  \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
+  \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
+  \\ rw[]);
+
+val big_refs_length_mono = Q.store_thm("big_refs_length_mono",
+  `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`,
+  Cases_on`ck`
+  \\ rw[funBigStepEquivTheory.functional_evaluate]
+  \\ fs[bigClockTheory.big_clocked_unclocked_equiv,funBigStepEquivTheory.functional_evaluate]
+  \\ imp_res_tac evaluate_refs_length_mono
+  \\ fs[]);
+
+val SPLIT_st2heap_length_leq = Q.store_thm("SPLIT_st2heap_length_leq",
+  `SPLIT (st2heap p s') (st2heap p s, h_g) ∧
+   LENGTH s.refs ≤ LENGTH s'.refs ∧ s'.ffi = s.ffi ⇒
+   s.refs ≼ s'.refs`,
+  rw[SPLIT_def,st2heap_def]
+  \\ `store2heap s'.refs = store2heap s.refs ∪ h_g` by (
+    fs[EXTENSION]
+    \\ reverse Cases \\ fs[FFI_part_NOT_IN_store2heap]
+    \\ fs[IN_DISJOINT]
+    \\ metis_tac[Mem_NOT_IN_ffi2heap,FFI_part_NOT_IN_store2heap,
+                 FFI_split_NOT_IN_store2heap,
+                 FFI_full_NOT_IN_store2heap])
+  \\ fs[IS_PREFIX_APPEND]
+  \\ qexists_tac`DROP (LENGTH s.refs) s'.refs`
+  \\ simp[LIST_EQ_REWRITE]
+  \\ qx_gen_tac`n` \\ strip_tac
+  \\ reverse(Cases_on`n < LENGTH s.refs`)
+  >- ( simp[EL_APPEND2,EL_DROP] )
+  \\ simp[EL_APPEND1]
+  \\ fs[store2heap_MAPi,EXTENSION,MEM_MAPi]
+  \\ first_x_assum(qspec_then`Mem n (EL n s.refs)`mp_tac)
+  \\ simp[]);
+
+val forall_cases = prove(
+  ``(!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
+                  (P FFI_split) /\
+                  (!x3 x4 x2 x1. P (FFI_part x1 x2 x3 x4)) /\
+                  (!x1 x2. P (FFI_full x1 x2))``,
+  EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []);
+
+val SPLIT_UNION_IMP_SUBSET = prove(
+  ``SPLIT x (y UNION y1,y2) ==> y1 SUBSET x``,
+  SPLIT_TAC);
+
+val FILTER_ffi_has_index_in_EQ_NIL = prove(
+  ``~(MEM n xs) /\ EVERY (ffi_has_index_in xs) ys ==>
+    FILTER (ffi_has_index_in [n]) ys = []``,
+  Induct_on `ys` \\ fs [] \\ rw [] \\ fs []
+  \\ Cases_on `h` \\ fs [ffi_has_index_in_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ fs []);
+
+val FILTER_ffi_has_index_in_MEM = prove(
+  ``!ys zs xs x.
+      MEM x xs /\
+      FILTER (ffi_has_index_in xs) ys = FILTER (ffi_has_index_in xs) zs ==>
+      FILTER (ffi_has_index_in [x]) ys = FILTER (ffi_has_index_in [x]) zs``,
+  once_rewrite_tac [EQ_SYM_EQ] \\ Induct \\ fs [] THEN1
+   (fs [listTheory.FILTER_EQ_NIL] \\ fs [EVERY_MEM] \\ rw []
+    \\ res_tac \\ Cases_on `x'` \\ fs [ffi_has_index_in_def]
+    \\ CCONTR_TAC \\ fs [])
+  \\ rpt strip_tac
+  \\ reverse (Cases_on `ffi_has_index_in xs h` \\ fs [])
+  THEN1
+   (`~ffi_has_index_in [x] h` by
+        (Cases_on `h` \\ fs [ffi_has_index_in_def] \\ CCONTR_TAC \\ fs [])
+    \\ fs [] \\ metis_tac [])
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [FILTER_EQ_CONS]
+  THEN1
+   (qexists_tac `l1` \\ qexists_tac `l2` \\ fs [] \\ rveq \\ fs []
+    \\ fs [listTheory.FILTER_EQ_NIL] \\ fs [EVERY_MEM]
+    \\ reverse conj_tac
+    THEN1 (first_x_assum match_mp_tac \\ fs [] \\ asm_exists_tac \\ fs [])
+    \\ rw [] \\ res_tac
+    \\ Cases_on `x'` \\ fs [ffi_has_index_in_def]
+    \\ CCONTR_TAC \\ fs [])
+  \\ fs [FILTER_APPEND]
+  \\ fs [GSYM FILTER_APPEND]
+  \\ first_x_assum match_mp_tac \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [FILTER_APPEND]);
+
+val LENGTH_FILTER_EQ_IMP_LENGTH_EQ = prove(
+  ``!xs ys.
+      (∀n. LENGTH (FILTER (ffi_has_index_in [n]) xs) =
+           LENGTH (FILTER (ffi_has_index_in [n]) ys)) ==>
+      LENGTH xs = LENGTH ys``,
+  Induct \\ fs [] THEN1
+   (Cases_on `ys` \\ fs [] \\ Cases_on `h` \\ fs [ffi_has_index_in_def]
+    \\ qexists_tac `n` \\ fs [])
+  \\ Cases \\ fs [ffi_has_index_in_def] \\ rw []
+  \\ qpat_assum `_` (qspec_then `n` mp_tac)
+  \\ rewrite_tac [] \\ fs [LENGTH]
+  \\ strip_tac
+  \\ `LENGTH (FILTER (ffi_has_index_in [n]) ys) <> 0` by decide_tac
+  \\ fs [LENGTH_NIL]
+  \\ fs [FILTER_NEQ_NIL]
+  \\ fs [MEM_SPLIT]
+  \\ rveq \\ fs [FILTER_APPEND,ADD1]
+  \\ first_x_assum (qspec_then `l1 ++ l2` mp_tac)
+  \\ impl_tac \\ fs []
+  \\ Cases_on `x` \\ fs [ffi_has_index_in_def] \\ rveq
+  \\ rw [] \\ first_x_assum (qspec_then `n'` mp_tac)
+  \\ rw [] \\ fs [FILTER_APPEND]);
+
+val IN_DISJOINT_LEMMA1 = prove(
+  ``!s. x IN h_g /\ DISJOINT s h_g ==> ~(x IN s)``,
+  SPLIT_TAC);
+
+val FFI_part_EXISTS = prove(
+  ``parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
+    FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 ==>
+    ?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s2``,
+  strip_tac \\ rfs [ffi2heap_def] \\ asm_exists_tac \\ fs []
+  \\ fs [parts_ok_def] \\ metis_tac []);
+
+val ALL_DISTINCT_FLAT_MEM_IMP = prove(
+  ``!p1 x x2 y2.
+      ALL_DISTINCT (FLAT (MAP FST p1)) /\ x <> [] /\
+      MEM (x,x2) p1 /\ MEM (x,y2) p1 ==> x2 = y2``,
+  Induct \\ fs [] \\ Cases \\ fs [ALL_DISTINCT_APPEND]
+  \\ rw [] \\ res_tac \\ rveq
+  \\ Cases_on `MEM (q,r) p1` \\ fs [] \\ res_tac
+  \\ fs [MEM_FLAT,MEM_MAP,FORALL_PROD]
+  \\ Cases_on `q` \\ fs []
+  \\ metis_tac [MEM]);
+
+val FFI_part_11 = prove(
+  ``parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
+    FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 /\
+    FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s1 ==>
+    x1 = y1 /\ x2 = y2 /\ x4 = y4``,
+  strip_tac \\ rfs [ffi2heap_def]
+  \\ Cases_on `x3` \\ fs [] \\ fs [parts_ok_def]
+  \\ imp_res_tac ALL_DISTINCT_FLAT_MEM_IMP \\ fs []);
+
+val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
+  `SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
+   st'.ffi.final_event = st.ffi.final_event /\
+   !n. FILTER (ffi_has_index_in [n]) st'.ffi.io_events =
+       FILTER (ffi_has_index_in [n]) st.ffi.io_events`,
+  PairCases_on `p` \\ strip_tac
+  \\ reverse (Cases_on `parts_ok st.ffi (p0,p1) = parts_ok st'.ffi (p0,p1)`)
+  THEN1
+   (reverse (Cases_on `parts_ok st.ffi (p0,p1)`)
+    \\ fs [ffi2heap_def,st2heap_def]
+    THEN1
+     (fs [SPLIT_def] \\ fs [EXTENSION] \\ fs [st2heap_def]
+      \\ qpat_x_assum `!x._` (assume_tac o GSYM)
+      \\ fs [forall_cases,FFI_full_NOT_IN_store2heap,FFI_part_NOT_IN_store2heap]
+      \\ fs [Mem_NOT_IN_ffi2heap] \\ metis_tac [])
+    \\ drule SPLIT_UNION_IMP_SUBSET
+    \\ fs [SUBSET_DEF,PULL_EXISTS,FFI_split_NOT_IN_store2heap])
+  \\ fs [SPLIT_def] \\ fs [EXTENSION] \\ fs [st2heap_def]
+  \\ qpat_x_assum `!x._` (assume_tac o GSYM)
+  \\ fs [forall_cases,FFI_full_NOT_IN_store2heap,FFI_part_NOT_IN_store2heap]
+  \\ fs [Mem_NOT_IN_ffi2heap]
+  \\ reverse (Cases_on `parts_ok st.ffi (p0,p1)`) \\ fs [] THEN1
+   (fs [ffi2heap_def]
+    \\ first_x_assum (qspecl_then [`st.ffi.final_event`,`st.ffi.io_events`] mp_tac)
+    \\ fs [])
+  \\ conj_tac THEN1 fs [parts_ok_def] \\ rw []
+  \\ ntac 2 (qpat_x_assum `!x1 x2. _ <=> _` kall_tac)
+  \\ qpat_x_assum `_ <=> _` kall_tac
+  \\ `∀x3 x4 x2 x1.
+        FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) st'.ffi ⇔
+        FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) st.ffi` by
+   (rw [] \\ eq_tac \\ rw []
+    \\ `FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) st'.ffi` by metis_tac []
+    \\ `?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) st.ffi` by
+          metis_tac [FFI_part_EXISTS]
+    \\ `FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) st'.ffi` by metis_tac []
+    \\ `x1 = y1 /\ x2 = y2 /\ x4 = y4` by metis_tac [FFI_part_11]
+    \\ rveq \\ fs [] \\ NO_TAC)
+  \\ pop_assum mp_tac \\ qpat_x_assum `!x. _` kall_tac \\ rw []
+  \\ fs [ffi2heap_def] \\ rfs []
+  \\ fs [parts_ok_def]
+  \\ reverse (Cases_on `MEM n ((FLAT (MAP FST p1)))`)
+  THEN1 (imp_res_tac FILTER_ffi_has_index_in_EQ_NIL \\ fs [])
+  \\ fs [MEM_FLAT,MEM_MAP]
+  \\ rpt var_eq_tac
+  \\ PairCases_on `y` \\ fs []
+  \\ qpat_x_assum `∀ns u. _ ==> _` mp_tac
+  \\ qpat_assum `!x1 x2. _ ==> _` drule
+  \\ strip_tac
+  \\ first_assum (qspecl_then [`y0`,
+       `FILTER (ffi_has_index_in y0) st'.ffi.io_events`,`y1`,`s`] mp_tac)
+  \\ `y0 <> []` by (CCONTR_TAC \\ fs [])
+  \\ rewrite_tac [] \\ simp []
+  \\ strip_tac
+  \\ rpt strip_tac
+  \\ match_mp_tac FILTER_ffi_has_index_in_MEM
+  \\ fs [] \\ asm_exists_tac \\ fs [])
+
+val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_same",
+  `evaluate F env st exp (st',Rval res) ∧
+   SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
+   st'.ffi = st.ffi`,
+  rw[] \\ imp_res_tac SPLIT_st2heap_ffi
+  \\ fs[bigClockTheory.big_clocked_unclocked_equiv]
+  \\ fs[funBigStepEquivTheory.functional_evaluate]
+  \\ imp_res_tac evaluate_io_events_mono_imp
+  \\ fs[io_events_mono_def]
+  \\ Cases_on`st.ffi.final_event` \\ fs[] \\ rfs []
+  \\ `LENGTH st.ffi.io_events = LENGTH st'.ffi.io_events`
+        by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
+  \\ metis_tac [IS_PREFIX_LENGTH_ANTI]);
+
+val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty_state",
+  `evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧ s.ffi.final_event = NONE ∧
+   t = empty_state with <| refs := s.refs |> ∧
+   t' = empty_state with <| refs := s'.refs |>
+   ⇒
+   evaluate F env t es (t',Rval r)`,
+  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
+  \\ fs[funBigStepEquivTheory.functional_evaluate]
+  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
+              INST_TYPE[beta|->oneSyntax.one_ty](
+                CONJUNCT1 evaluate_ffi_intro)))
+  \\ simp[]
+  \\ disch_then(qspec_then`empty_state with <| clock := c; refs := s.refs |>`mp_tac)
+  \\ simp[] \\ strip_tac
+  \\ `Rval [r] = list_result ((Rval r):(v,v) result)` by EVAL_TAC
+  \\ pop_assum SUBST_ALL_TAC
+  \\ fs[GSYM funBigStepEquivTheory.functional_evaluate]
+  \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
+  \\ asm_exists_tac \\ fs[]);
+
+val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
+  ``(Arrow a b) f v ==>
+    !x v1.
+      a x v1 ==>
+      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)``,
+  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
+      ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
+  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
+  \\ rw []
+  \\ first_x_assum drule \\ strip_tac
+  \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
+  \\ instantiate
+  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
+  \\ simp [Once (CONJUNCT2 bigStepTheory.evaluate_cases)]
+  \\ drule evaluate_empty_state_IMP \\ strip_tac
+  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
+  \\ rename1 `evaluate _ _ (st with clock := ck) _ _`
+  \\ simp[POSTv_cond,PULL_EXISTS]
+  \\ instantiate
+  \\ fs[st2heap_clock]
+  \\ fs[SPLIT3_emp1]
+  \\ fs[st2heap_with_refs_append]
+  \\ `st with refs := st.refs = st` by fs[state_component_equality]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ qexists_tac`store2heap_aux (LENGTH st.refs) refs'`
+  \\ fs[SPLIT_def]
+  \\ fs[IN_DISJOINT]
+  \\ Cases \\ fs[FFI_split_NOT_IN_store2heap_aux,
+                 FFI_part_NOT_IN_store2heap_aux,
+                 FFI_full_NOT_IN_store2heap_aux,
+                 st2heap_def,Mem_NOT_IN_ffi2heap]
+  \\ spose_not_then strip_assume_tac
+  \\ imp_res_tac store2heap_IN_LENGTH
+  \\ imp_res_tac store2heap_aux_IN_bound
+  \\ decide_tac);
+
+val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
+  `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒ Arrow a b f v`,
+  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1] \\
+  first_x_assum drule \\
+  fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
+  fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\
+  disch_then( qspec_then`ARB with <| refs := refs; ffi := <| final_event := NONE |> |>` mp_tac) \\
+  rw[] \\ instantiate \\
+  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\
+  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\ rw[] \\
+  drule big_remove_clock \\ rw[] \\
+  first_x_assum(qspec_then`0`strip_assume_tac) \\
+  drule SPLIT_st2heap_evaluate_ffi_same \\
+  fs[st2heap_clock] \\ strip_tac \\
+  drule SPLIT_st2heap_length_leq \\ simp[] \\
+  imp_res_tac big_refs_length_mono \\ fs[] \\
+  rw[IS_PREFIX_APPEND] \\
+  qexists_tac`l` \\
+  match_mp_tac (INST_TYPE[alpha|->beta](GEN_ALL evaluate_imp_evaluate_empty_state)) \\
+  instantiate);
+
+val Arrow_eq_app_basic = Q.store_thm("Arrow_eq_app_basic",
+  `Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))`,
+  metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]);
 
 val _ = export_theory ()

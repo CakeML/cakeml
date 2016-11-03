@@ -353,6 +353,26 @@ val do_opapp_cases = store_thm("do_opapp_cases",
   cases_on `vs` >> srw_tac[][] >>
   every_case_tac >> metis_tac []);
 
+val do_app_NONE_ffi = Q.store_thm("do_app_NONE_ffi",
+  `do_app (refs,ffi) op args = NONE ⇒
+   do_app (refs,ffi') op args = NONE`,
+  rw[do_app_def]
+  \\ every_case_tac \\ fs[]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ fs[store_assign_def,store_v_same_type_def]
+  \\ every_case_tac \\ fs[]);
+
+val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
+  `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ∧ ffi.final_event = NONE ⇒
+   do_app (refs,ffi') op args = SOME ((refs',ffi'),r)`,
+  rw[]
+  \\ fs[do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ every_case_tac \\ fs[]
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
+  \\ rfs[]);
+
 val build_rec_env_help_lem = Q.prove (
 `∀funs env funs'.
 FOLDR (λ(f,x,e) env'. (f,Recclosure env funs' f)::env') env' funs =

@@ -299,21 +299,23 @@ val write_spec = store_thm ("write_spec",
     \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
   \\ xret \\ xsimpl);
 
-val write_list = parse_topdecl
-  ("fun write_list xs = " ^
-   "  case xs of [] => () | (x::xs) => (CharIO.write x; write_list xs)");
+val write_list = parse_topdecs
+  `fun write_list xs =
+     case xs of
+         [] => ()
+       | x::xs => (CharIO.write x; write_list xs)`;
 
 val _ = ml_prog_update (ml_progLib.add_prog write_list pick_name);
 
-val read_all = parse_topdecl
-  ("fun read_all xs =   " ^
-   "  let val u = ()    " ^
-   "      val t = CharIO.can_read u in  " ^
-   "    if t then                       " ^
-   "      let val c = CharIO.read u     " ^
-   "          val xs = c :: xs          " ^
-   "      in read_all xs end            " ^
-   "    else reverse xs end             ");
+val read_all = parse_topdecs
+  `fun read_all xs =
+     let val u = ()
+         val t = CharIO.can_read u in
+         if t then
+             let val c = CharIO.read u
+                 val xs = c :: xs
+             in read_all xs end
+         else reverse xs end`;
 
 val _ = ml_prog_update (ml_progLib.add_prog read_all pick_name);
 
@@ -511,5 +513,25 @@ val evaluate_prog_rel_IMP_evaluate_prog_fun = store_thm(
   \\ every_case_tac \\ fs[]
   \\ TRY (disch_then drule \\ rw[])
   \\ fs[semanticPrimitivesTheory.state_component_equality]);
+
+val parts_ok_io_ffi = store_thm("parts_ok_io_ffi",
+  ``parts_ok (io_ffi input) (io_proj1,io_proj2)``,
+  fs [cfStoreTheory.parts_ok_def]
+  \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
+  THEN1
+   (fs [io_proj2_def,io_proj1_def,io_ffi_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ EVAL_TAC \\ qexists_tac `Str input` \\ fs [] \\ rw [])
+  THEN1
+   (fs [io_proj2_def] \\ rveq \\ fs [stdout_fun_def,stdin_fun_def]
+    \\ rfs [io_proj1_def] \\ pairarg_tac \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+  THEN1
+   (fs [io_ffi_def,io_ffi_oracle_def,io_proj2_def] \\ rveq \\ fs []
+    \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def]
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ rw [] \\ fs []));
 
 val _ = export_theory ()

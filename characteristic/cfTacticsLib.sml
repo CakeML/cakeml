@@ -37,6 +37,15 @@ val () = basicComputeLib.add_basic_compset cs
 val () = semanticsComputeLib.add_semantics_compset cs
 val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
+val () = computeLib.extend_compset [
+  computeLib.Defs [
+    ml_progTheory.merge_env_def,
+    ml_progTheory.write_def,
+    ml_progTheory.write_mod_def,
+    ml_progTheory.write_cons_def,
+    ml_progTheory.empty_env_def,
+    semanticPrimitivesTheory.merge_alist_mod_env_def
+  ]] cs
 
 val _ = (max_print_depth := 15)
 
@@ -69,12 +78,17 @@ fun normalise_exp tm = let
     val eval_th = EVAL normalise_tm
 in rhs (concl eval_th) end
 
+fun normalise_dec dec_tm = let
+  val normalise_decl_tm = mk_full_normalise_decl dec_tm
+  val eval_th = EVAL normalise_decl_tm
+in rhs (concl eval_th) end
+
 fun normalise_prog prog_tm = let
     val normalise_prog_tm = mk_full_normalise_prog prog_tm
     val eval_th = EVAL normalise_prog_tm
 in rhs (concl eval_th) end
 
-fun process_topdecl str = normalise_prog (parse_topdecl str)
+fun process_topdecs q = normalise_prog (parse_topdecs q)
 
 (*------------------------------------------------------------------*)
 
@@ -118,7 +132,7 @@ val cf_defs =
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-   cf_log_def, cf_if_def, cf_match_def, cf_raise_def, cf_handle_def]
+   cf_log_def, cf_if_def, cf_match_def, cf_ffi_def, cf_raise_def, cf_handle_def]
 
 val cleanup_exn_side_cond =
   simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,

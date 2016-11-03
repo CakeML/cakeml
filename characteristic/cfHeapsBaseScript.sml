@@ -10,6 +10,7 @@ val _ = Datatype `
   ffi = Str string
       | Num num
       | Cons ffi ffi
+      | List (ffi list)
       | Stream (num llist)`
 
 val _ = temp_type_abbrev("loc", ``:num``)
@@ -18,7 +19,9 @@ val _ = temp_type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list 
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
-            | FFI_part ffi ffi_next (num list)`
+            | FFI_split
+            | FFI_part ffi ffi_next (num list) (io_event list)
+            | FFI_full (final_event option) (io_event list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
@@ -117,7 +120,7 @@ val W8ARRAY_def = Define `
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
 
 val IO_def = Define `
-  IO s u ns = one (FFI_part s u ns)`;
+  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events)`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
