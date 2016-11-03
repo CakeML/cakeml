@@ -4097,8 +4097,6 @@ val heap_in_memory_store_UpdateByte = Q.store_thm("heap_in_memory_store_UpdateBy
    heap_in_memory_store (ha ++ [Bytes be (LUPDATE b i bs) ws] ++ hb)
    a sp c s
    ((byte_align ad =+ Word (set_byte ad b w be)) m) dm limit`,
-   cheat)
-  (*
   rw[heap_in_memory_store_def]
   \\ fs[heap_length_Bytes,heap_length_APPEND]
   \\ clean_tac
@@ -4231,7 +4229,9 @@ val heap_in_memory_store_UpdateByte = Q.store_thm("heap_in_memory_store_UpdateBy
   \\ `bt' = bt`
   by (
     simp[Abbr`bt'`,Abbr`bt`]
-    \\ simp[Abbr`bs`,Abbr`bs'`,DROP_APPEND])
+    \\ simp[Abbr`bs`,Abbr`bs'`]
+    \\ asm_simp_tac(std_ss++ARITH_ss)
+         [DROP_APPEND,LENGTH_APPEND,LENGTH,DROP_def,LENGTH_DROP])
   \\ qunabbrev_tac`bt'` \\ pop_assum SUBST_ALL_TAC
   \\ qpat_abbrev_tac`bh = Word (make_byte_header _ _)::_`
   \\ simp[word_list_def]
@@ -4253,7 +4253,7 @@ val heap_in_memory_store_UpdateByte = Q.store_thm("heap_in_memory_store_UpdateBy
     \\ `DROP (bw * LENGTH w1) bs' = DROP (bw * LENGTH w1) b1 ++ [b] ++ b2`
     by (
       qpat_x_assum`_ = LENGTH b1`(assume_tac o SYM)
-      \\ simp[Abbr`bs'`,DROP_APPEND]
+      \\ asm_simp_tac(std_ss++ARITH_ss)[Abbr`bs'`,DROP_APPEND,LENGTH_APPEND,LENGTH,DROP_def,APPEND_11]
       \\ qmatch_abbrev_tac`DROP n b2 = b2`
       \\ `n = 0` by ( simp[Abbr`n`] )
       \\ simp[] )
@@ -4261,7 +4261,7 @@ val heap_in_memory_store_UpdateByte = Q.store_thm("heap_in_memory_store_UpdateBy
     \\ `DROP (bw * LENGTH w1) bs = DROP (bw * LENGTH w1) b1 ++ [b'] ++ b2`
     by (
       qpat_x_assum`_ = LENGTH b1`(assume_tac o SYM)
-      \\ simp[Abbr`bs`,DROP_APPEND]
+      \\ asm_simp_tac(std_ss++ARITH_ss)[Abbr`bs`,DROP_APPEND,LENGTH_APPEND,LENGTH,DROP_def,APPEND_11]
       \\ qmatch_abbrev_tac`DROP n b2 = b2`
       \\ `n = 0` by ( simp[Abbr`n`] )
       \\ simp[] )
@@ -4292,7 +4292,7 @@ val heap_in_memory_store_UpdateByte = Q.store_thm("heap_in_memory_store_UpdateBy
     by ( simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[lupdate_append2] )
-  \\ fsrw_tac[star_ss][]); *)
+  \\ fsrw_tac[star_ss][]);
 
 val hide_memory_rel_def = Define`
   hide_memory_rel = memory_rel`;
