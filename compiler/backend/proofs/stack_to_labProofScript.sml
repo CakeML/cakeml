@@ -1831,9 +1831,9 @@ val state_rel_make_init = store_thm("state_rel_make_init",
   \\ eq_tac \\ strip_tac \\ fs []
   \\ metis_tac [FLOOKUP_regs]);
 
-val halt_assum_lemma = prove(
-  ``halt_assum (:'ffi)
-     (fromAList (stack_names$compile f (compile max_heap bitmaps k l code)))``,
+val halt_assum_lemma = Q.prove(
+  `halt_assum (:'ffi)
+     (fromAList (stack_names$compile f (compile max_heap bitmaps k l code)))`,
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
          stackSemTheory.find_code_def]
@@ -1846,10 +1846,10 @@ val halt_assum_lemma = prove(
   \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0w) (dec_clock s)``,
          get_var_def,FLOOKUP_UPDATE]);
 
-val MAP_FST_compile_compile = prove(
-  ``MAP FST (compile max_heap bitmaps k InitGlobals_location
+val MAP_FST_compile_compile = Q.prove(
+  `MAP FST (compile max_heap bitmaps k InitGlobals_location
               (stack_alloc$compile c code)) =
-    0::1::2::gc_stub_location::MAP FST code``,
+    0::1::2::gc_stub_location::MAP FST code`,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
       stack_allocTheory.compile_def,
       stack_allocTheory.stubs_def,stack_removeTheory.prog_comp_def]
@@ -1901,15 +1901,15 @@ val extract_labels_def = Define`
   (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
   (extract_labels (x::xs) = extract_labels xs)`
 
-val extract_labels_append = store_thm("extract_labels_append",``
+val extract_labels_append = Q.store_thm("extract_labels_append",`
   ∀A B.
-  extract_labels (A++B) = extract_labels A ++ extract_labels B``,
+  extract_labels (A++B) = extract_labels A ++ extract_labels B`,
   Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
 
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
-val next_lab_non_zero = store_thm("next_lab_non_zero",``
-  ∀p. 1 ≤ next_lab p``,
+val next_lab_non_zero = Q.store_thm("next_lab_non_zero",`
+  ∀p. 1 ≤ next_lab p`,
   ho_match_mp_tac next_lab_ind>>Cases_on`p`>>
   rw[]>>once_rewrite_tac[next_lab_def]>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[]);
@@ -1973,15 +1973,15 @@ val labels_ok_def = Define`
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) code`;
 
-val MAP_prog_to_section_FST = prove(``
+val MAP_prog_to_section_FST = Q.prove(`
   MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
-  MAP FST prog``,
+  MAP FST prog`,
   match_mp_tac LIST_EQ>>rw[EL_MAP]>>Cases_on`EL x prog`>>fs[prog_to_section_def]>>
   pairarg_tac>>fs[]);
 
-val extract_label_store_list_code = prove(``
+val extract_label_store_list_code = Q.prove(`
   ∀a t ls.
-  extract_labels (store_list_code a t ls) = []``,
+  extract_labels (store_list_code a t ls) = []`,
   ho_match_mp_tac stack_removeTheory.store_list_code_ind>>
   EVAL_TAC>>fs[]);
 

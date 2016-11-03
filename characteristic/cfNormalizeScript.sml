@@ -110,8 +110,8 @@ val exp2v_list_LENGTH = store_thm ("exp2v_list_LENGTH",
 val normalise_def = Define `
   normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
 
-val evaluate_normalise = store_thm("evaluate_normalise",
-  ``evaluate s env [normalise exp] = evaluate s env [exp]``,
+val evaluate_normalise = Q.store_thm("evaluate_normalise",
+  `evaluate s env [normalise exp] = evaluate s env [exp]`,
   fs [normalise_def]);
 
 
@@ -136,8 +136,8 @@ val mk_opapp_def = tDefine "mk_opapp" `
  (WF_REL_TAC `measure LENGTH`
   \\ fs [LENGTH_FRONT] \\ Cases \\ fs []);
 
-val MEM_exp_size = prove(
-  ``!args a. MEM a args ==> exp_size a <= exp6_size args``,
+val MEM_exp_size = Q.prove(
+  `!args a. MEM a args ==> exp_size a <= exp6_size args`,
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []);
 
 val MEM_exp1_size = prove(
@@ -167,8 +167,8 @@ val Lets_def = Define `
   Lets [] e = e /\
   Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)`
 
-val exp6_size_lemma = prove(
-  ``!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys``,
+val exp6_size_lemma = Q.prove(
+  `!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys`,
   Induct \\ fs [astTheory.exp_size_def]);
 
 val dest_opapp_size = prove(
@@ -296,8 +296,8 @@ val norm_def = tDefine "norm" `
 val full_normalise_def = Define `
   full_normalise ns e = FST (protect T ns e)`;
 
-val MEM_v_size = prove(
-  ``!xs. MEM a xs ==> v_size a < v6_size xs``,
+val MEM_v_size = Q.prove(
+  `!xs. MEM a xs ==> v_size a < v6_size xs`,
   Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []);
 
 val norm_exp_rel_def = Define `

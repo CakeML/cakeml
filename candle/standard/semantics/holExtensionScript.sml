@@ -12,13 +12,13 @@ val sound_update_def = xDefine"sound_update"`
            i' models (thyof (upd::ctxt))`
 val _ = Parse.overload_on("sound_update",``sound_update0 ^mem``)
 
-val new_constant_correct = store_thm("new_constant_correct",
-  ``is_set_theory ^mem ⇒
+val new_constant_correct = Q.store_thm("new_constant_correct",
+  `is_set_theory ^mem ⇒
     ∀ctxt name ty.
      theory_ok (thyof ctxt) ∧
      name ∉ (FDOM (tmsof ctxt)) ∧
      type_ok (tysof ctxt) ty ⇒
-     sound_update ctxt (NewConst name ty)``,
+     sound_update ctxt (NewConst name ty)`,
   rw[] >> REWRITE_TAC[sound_update_def,equal_on_def] >>
   gen_tac >> strip_tac >>
   qexists_tac`(tyaof i,
@@ -290,15 +290,15 @@ val new_specification_correct = store_thm("new_specification_correct",
     metis_tac[term_ok_welltyped] ) >>
   rw[Abbr`v4`])
 
-val new_definition_correct = store_thm("new_definition_correct",
-  ``is_set_theory ^mem ⇒
+val new_definition_correct = Q.store_thm("new_definition_correct",
+  `is_set_theory ^mem ⇒
     ∀ctxt name tm.
     theory_ok (thyof ctxt) ∧
     term_ok (sigof ctxt) tm ∧
     name ∉ FDOM (tmsof ctxt) ∧
     CLOSED tm ∧
     set (tvars tm) ⊆ set (tyvars (typeof tm))
-    ⇒ sound_update ctxt (ConstDef name tm)``,
+    ⇒ sound_update ctxt (ConstDef name tm)`,
   rw[] >>
   ho_match_mp_tac (UNDISCH new_specification_correct) >>
   simp[] >> fs[SUBSET_DEF,CLOSED_def,vfree_in_equation] >>
@@ -308,12 +308,12 @@ val new_definition_correct = store_thm("new_definition_correct",
   imp_res_tac term_ok_welltyped >>
   imp_res_tac term_ok_type_ok >> fs[])
 
-val new_type_correct = store_thm("new_type_correct",
-  ``is_set_theory ^mem ⇒
+val new_type_correct = Q.store_thm("new_type_correct",
+  `is_set_theory ^mem ⇒
     ∀ctxt name arity.
      theory_ok (thyof ctxt) ∧
      name ∉ FDOM (tysof ctxt) ⇒
-     sound_update ctxt (NewType name arity)``,
+     sound_update ctxt (NewType name arity)`,
   rw[] >> REWRITE_TAC[sound_update_def,equal_on_def] >>
   gen_tac >> strip_tac >>
   qexists_tac`((name =+ (K boolset)) (tyaof i),tmaof i)` >>
@@ -784,11 +784,11 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   metis_tac[mem_boolset])
 val _ = delete_const"eqsh"
 
-val updates_consistent = store_thm("updates_consistent",
-  ``is_set_theory ^mem ⇒
+val updates_consistent = Q.store_thm("updates_consistent",
+  `is_set_theory ^mem ⇒
     ∀upd ctxt. upd updates ctxt ⇒
       theory_ok (thyof ctxt) ∧ (∀p. upd ≠ NewAxiom p) ⇒
-      sound_update ctxt upd``,
+      sound_update ctxt upd`,
   strip_tac >>
   ho_match_mp_tac updates_ind >>
   conj_tac >- simp[] >>
@@ -797,13 +797,13 @@ val updates_consistent = store_thm("updates_consistent",
   conj_tac >- metis_tac[update_distinct,new_type_correct] >>
   metis_tac[update_distinct,new_type_definition_correct])
 
-val extends_consistent = store_thm("extends_consistent",
-  ``is_set_theory ^mem ⇒
+val extends_consistent = Q.store_thm("extends_consistent",
+  `is_set_theory ^mem ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
       ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
           (∀p. MEM (NewAxiom p) ctxt2 ⇒ MEM (NewAxiom p) ctxt1)
         ⇒
-        ∃i'. equal_on (sigof ctxt1) i i' ∧ i' models (thyof ctxt2)``,
+        ∃i'. equal_on (sigof ctxt1) i i' ∧ i' models (thyof ctxt2)`,
   rw[] >>
   Q.ISPEC_THEN
     `λctxt. theory_ok (thyof ctxt) ∧

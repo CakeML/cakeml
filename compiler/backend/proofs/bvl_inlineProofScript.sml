@@ -14,14 +14,14 @@ val code_rel_def = Define `
              evaluate ([e1],env,s with code := c1) = (res,t with code := c1) ==>
              evaluate ([e2],env,s with code := c2) = (res,t with code := c2)`
 
-val code_rel_refl = store_thm("code_rel_refl",
-  ``!c. code_rel (:'ffi) c c``,
+val code_rel_refl = Q.store_thm("code_rel_refl",
+  `!c. code_rel (:'ffi) c c`,
   fs [code_rel_def]);
 
-val code_rel_trans = store_thm("code_rel_trans",
-  ``!c1 c2 c3.
+val code_rel_trans = Q.store_thm("code_rel_trans",
+  `!c1 c2 c3.
       code_rel (:'ffi) c1 c2 /\ code_rel (:'ffi) c2 c3 ==>
-      code_rel (:'ffi) c1 c3``,
+      code_rel (:'ffi) c1 c3`,
   fs [code_rel_def] \\ rw [] \\ res_tac
   \\ first_x_assum drule \\ rw [] \\ fs []);
 
@@ -187,8 +187,8 @@ val evaluate_inline = Q.store_thm("evaluate_inline",
      \\ split_tac `evaluate ([x],env,s)` \\ split_tac `evaluate (y::xs,env,r)`
      \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) []));
 
-val exp_rel_inline = store_thm("exp_rel_inline",
-  ``subspt cs c ==> exp_rel (:'ffi) c e (HD (inline cs [e]))``,
+val exp_rel_inline = Q.store_thm("exp_rel_inline",
+  `subspt cs c ==> exp_rel (:'ffi) c e (HD (inline cs [e]))`,
   fs [exp_rel_def] \\ rw []
   \\ qpat_x_assum `_ = (_,_)` (fn th => assume_tac th THEN
         once_rewrite_tac [GSYM th])
@@ -211,33 +211,33 @@ val code_rel_insert_insert_inline = store_thm("code_rel_insert_insert_inline",
   \\ pop_assum (fn th => once_rewrite_tac [th]) \\ rw []
   \\ match_mp_tac code_rel_insert_inline \\ fs []);
 
-val inline_all_acc = store_thm("inline_all_acc",
-  ``!xs ys cs limit.
-      inline_all limit cs xs ys = REVERSE ys ++ inline_all limit cs xs []``,
+val inline_all_acc = Q.store_thm("inline_all_acc",
+  `!xs ys cs limit.
+      inline_all limit cs xs ys = REVERSE ys ++ inline_all limit cs xs []`,
   Induct \\ fs [inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ once_rewrite_tac [inline_all_def] \\ simp_tac std_ss [LET_THM]
   \\ rpt strip_tac \\ IF_CASES_TAC
   \\ qpat_x_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
 
-val fromAList_SWAP = prove(
-  ``!xs x ys.
+val fromAList_SWAP = Q.prove(
+  `!xs x ys.
       ALL_DISTINCT (FST x::MAP FST xs) ==>
-      fromAList (xs ++ x::ys) = fromAList (x::(xs ++ ys))``,
+      fromAList (xs ++ x::ys) = fromAList (x::(xs ++ ys))`,
   Induct \\ fs [] \\ rw []
   \\ PairCases_on `h` \\ fs [fromAList_def]
   \\ PairCases_on `x` \\ fs [fromAList_def]
   \\ fs [spt_eq_thm,wf_insert,wf_fromAList]
   \\ rw [lookup_insert]);
 
-val code_rel_rearrange_lemma = store_thm("code_rel_rearrange_lemma",
-  ``ALL_DISTINCT (FST x::MAP FST xs) /\
+val code_rel_rearrange_lemma = Q.store_thm("code_rel_rearrange_lemma",
+  `ALL_DISTINCT (FST x::MAP FST xs) /\
     MAP FST zs = MAP FST xs /\
     code_rel (:'ffi) (fromAList (xs++x::ys)) (fromAList (zs++x::ys)) ==>
-    code_rel (:'ffi) (fromAList (x::(xs++ys))) (fromAList (x::(zs++ys))) ``,
+    code_rel (:'ffi) (fromAList (x::(xs++ys))) (fromAList (x::(zs++ys))) `,
   metis_tac [fromAList_SWAP,APPEND]);
 
-val MAP_FST_inline_all = store_thm("MAP_FST_inline_all",
-  ``!xs cs. MAP FST (inline_all limit cs xs []) = MAP FST xs``,
+val MAP_FST_inline_all = Q.store_thm("MAP_FST_inline_all",
+  `!xs cs. MAP FST (inline_all limit cs xs []) = MAP FST xs`,
   Induct \\ fs [inline_all_def] \\ strip_tac
   \\ PairCases_on `h` \\ fs [inline_all_def] \\ rw []
   \\ once_rewrite_tac [inline_all_acc] \\ fs []);
@@ -286,16 +286,16 @@ val code_rel_inline_all = store_thm("code_rel_inline_all",
   \\ Cases_on `y'` \\ fs [])
   |> Q.SPECL [`xs`,`[]`] |> SIMP_RULE std_ss [APPEND_NIL];
 
-val code_rel_compile_prog = store_thm("code_rel_compile_prog",
-  ``ALL_DISTINCT (MAP FST prog) ==>
-    code_rel (:'ffi) (fromAList prog) (fromAList (compile_prog limit prog))``,
+val code_rel_compile_prog = Q.store_thm("code_rel_compile_prog",
+  `ALL_DISTINCT (MAP FST prog) ==>
+    code_rel (:'ffi) (fromAList prog) (fromAList (compile_prog limit prog))`,
   fs [compile_prog_def] \\ rw [code_rel_refl]
   \\ match_mp_tac code_rel_inline_all \\ fs [lookup_def]);
 
-val code_rel_IMP_semantics_EQ = store_thm("code_rel_IMP_semantics_EQ",
-  ``!(ffi:'ffi ffi_state) c1 c2 start.
+val code_rel_IMP_semantics_EQ = Q.store_thm("code_rel_IMP_semantics_EQ",
+  `!(ffi:'ffi ffi_state) c1 c2 start.
       code_rel (:'ffi) c1 c2 /\ semantics ffi c1 start <> Fail ==>
-      semantics ffi c2 start = semantics ffi c1 start``,
+      semantics ffi c2 start = semantics ffi c1 start`,
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ ntac 5 strip_tac \\ simp[bvlSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -373,8 +373,8 @@ val compile_prog_semantics = save_thm("compile_prog_semantics",
    (code_rel_compile_prog |> UNDISCH) |> SPEC_ALL
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
 
-val MAP_FST_compile_prog = store_thm("MAP_FST_compile_prog",
-  ``MAP FST (bvl_inline$compile_prog limit prog) = MAP FST prog``,
+val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog",
+  `MAP FST (bvl_inline$compile_prog limit prog) = MAP FST prog`,
   fs [bvl_inlineTheory.compile_prog_def] \\ rw [MAP_FST_inline_all]);
 
 val _ = export_theory();

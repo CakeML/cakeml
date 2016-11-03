@@ -413,9 +413,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
   rpt var_eq_tac >>
   fs[dec_result_rel_cases,compile_state_def]);
 
-val set_globals_esgc = prove(``
+val set_globals_esgc = Q.prove(`
   (∀e. set_globals e = {||} ⇒ conProps$esgc_free e) ∧
-  (∀es. elist_globals es = {||} ⇒ EVERY conProps$esgc_free es)``,
+  (∀es. elist_globals es = {||} ⇒ EVERY conProps$esgc_free es)`,
   ho_match_mp_tac set_globals_ind>>rw[])
 
 val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",

@@ -20,19 +20,19 @@ val SUBMAP_DRESTRICT = Q.store_thm("SUBMAP_DRESTRICT",
    DRESTRICT f1 s1 ⊑ DRESTRICT f2 s2`,
   rw[SUBMAP_DEF,FDOM_DRESTRICT,SUBSET_DEF,DRESTRICT_DEF]);
 
-val DROP_IMP_LESS_LENGTH = prove(
-  ``!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs``,
+val DROP_IMP_LESS_LENGTH = Q.prove(
+  `!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs`,
   Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
   \\ res_tac \\ decide_tac);
 
-val DROP_EQ_CONS_IMP_DROP_SUC = prove(
-  ``!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys``,
+val DROP_EQ_CONS_IMP_DROP_SUC = Q.prove(
+  `!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys`,
   Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
   \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
   \\ `n - 1 + 1 = n` by decide_tac \\ full_simp_tac(srw_ss())[]);
 
-val DROP_IMP_EL = store_thm("DROP_IMP_EL",
-  ``!xs n h t. DROP n xs = h::t ==> (EL n xs = h)``,
+val DROP_IMP_EL = Q.store_thm("DROP_IMP_EL",
+  `!xs n h t. DROP n xs = h::t ==> (EL n xs = h)`,
   Induct \\ fs [DROP_def] \\ Cases_on `n` \\ fs []);
 
 (* -- *)
@@ -86,21 +86,21 @@ val good_syntax_def = Define `
      (case x2 of SOME (y,_,_) => good_syntax y | NONE => T)) /\
   (good_syntax _ <=> T)`
 
-val get_var_imm_case = prove(
-  ``get_var_imm ri s =
+val get_var_imm_case = Q.prove(
+  `get_var_imm ri s =
     case ri of
     | Reg n => get_var n s
-    | Imm w => SOME (Word w)``,
+    | Imm w => SOME (Word w)`,
   Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]);
 
 val prog_comp_lemma = prove(
   ``prog_comp = \(n,p). (n,FST (comp n (next_lab p) p))``,
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
-val lookup_IMP_lookup_compile = prove(
-  ``lookup dest s.code = SOME x /\ dest ≠ gc_stub_location ==>
+val lookup_IMP_lookup_compile = Q.prove(
+  `lookup dest s.code = SOME x /\ dest ≠ gc_stub_location ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
-            SOME (FST (comp m1 n1 x))``,
+            SOME (FST (comp m1 n1 x))`,
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
     (full_simp_tac(srw_ss())[stubs_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac) \\ full_simp_tac(srw_ss())[]
@@ -372,8 +372,8 @@ val word_gc_move_bitmap_def = Define `
            | NONE => NONE
            | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)`
 
-val bit_length_thm = store_thm("bit_length_thm",
-  ``!w. ((w >>> bit_length w) = 0w) /\ !n. n < bit_length w ==> (w >>> n) <> 0w``,
+val bit_length_thm = Q.store_thm("bit_length_thm",
+  `!w. ((w >>> bit_length w) = 0w) /\ !n. n < bit_length w ==> (w >>> n) <> 0w`,
   HO_MATCH_MP_TAC bit_length_ind \\ srw_tac[][]
   \\ once_rewrite_tac [bit_length_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
@@ -383,18 +383,18 @@ val bit_length_thm = store_thm("bit_length_thm",
   \\ once_rewrite_tac [bit_length_def]
   \\ full_simp_tac(srw_ss())[ADD1] \\ srw_tac[][]);
 
-val word_lsr_dimindex = prove(
-  ``(w:'a word) >>> dimindex (:'a) = 0w``,
+val word_lsr_dimindex = Q.prove(
+  `(w:'a word) >>> dimindex (:'a) = 0w`,
   full_simp_tac(srw_ss())[]);
 
-val bit_length_LESS_EQ_dimindex = store_thm("bit_length_LESS_EQ_dimindex",
-  ``bit_length (w:'a word) <= dimindex (:'a)``,
+val bit_length_LESS_EQ_dimindex = Q.store_thm("bit_length_LESS_EQ_dimindex",
+  `bit_length (w:'a word) <= dimindex (:'a)`,
   CCONTR_TAC \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
   \\ imp_res_tac bit_length_thm
   \\ full_simp_tac(srw_ss())[word_lsr_dimindex]);
 
-val shift_to_zero_word_msb = store_thm("shift_to_zero_word_msb",
-  ``(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n``,
+val shift_to_zero_word_msb = Q.store_thm("shift_to_zero_word_msb",
+  `(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] []
   \\ CCONTR_TAC
   \\ qpat_x_assum `!xx.bb` mp_tac
@@ -402,17 +402,17 @@ val shift_to_zero_word_msb = store_thm("shift_to_zero_word_msb",
   \\ qexists_tac `dimindex (:α) - 1 - n`
   \\ simp [])
 
-val word_msb_IMP_bit_length = prove(
-  ``!h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))``,
+val word_msb_IMP_bit_length = Q.prove(
+  `!h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))`,
   srw_tac[][] \\ imp_res_tac shift_to_zero_word_msb \\ CCONTR_TAC
   \\ imp_res_tac (DECIDE ``n<>m ==> n < m \/ m < n:num``)
   \\ qspec_then `h` mp_tac bit_length_thm
   \\ strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[word_lsr_dimindex]
   \\ decide_tac);
 
-val get_bits_intro = prove(
-  ``word_msb (h:'a word) ==>
-    GENLIST (\i. h ' i) (dimindex (:'a) - 1) = get_bits h``,
+val get_bits_intro = Q.prove(
+  `word_msb (h:'a word) ==>
+    GENLIST (\i. h ' i) (dimindex (:'a) - 1) = get_bits h`,
   full_simp_tac(srw_ss())[get_bits_def,word_msb_IMP_bit_length]);
 
 val filter_bitmap_APPEND = prove(
@@ -533,12 +533,12 @@ val word_gc_move_bitmaps_unroll = prove(
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]);
 
-val bit_length_minus_1 = store_thm("bit_length_minus_1",
-  ``w <> 0w ==> bit_length w − 1 = bit_length (w >>> 1)``,
+val bit_length_minus_1 = Q.store_thm("bit_length_minus_1",
+  `w <> 0w ==> bit_length w − 1 = bit_length (w >>> 1)`,
   simp [Once bit_length_def]);
 
-val bit_length_eq_1 = store_thm("bit_length_eq_1",
-  ``bit_length w = 1 <=> w = 1w``,
+val bit_length_eq_1 = Q.store_thm("bit_length_eq_1",
+  `bit_length w = 1 <=> w = 1w`,
   Cases_on `w = 1w` \\ full_simp_tac(srw_ss())[] THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[])
   \\ once_rewrite_tac [bit_length_def] \\ srw_tac[][]
   \\ once_rewrite_tac [bit_length_def] \\ srw_tac[][]
@@ -549,8 +549,8 @@ val bit_length_eq_1 = store_thm("bit_length_eq_1",
   \\ Cases_on `n'` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[DIV_EQ_X] \\ decide_tac);
 
-val word_and_one_eq_0_iff = store_thm("word_and_one_eq_0_iff",
-  ``!w. ((w && 1w) = 0w) <=> ~(w ' 0)``,
+val word_and_one_eq_0_iff = Q.store_thm("word_and_one_eq_0_iff",
+  `!w. ((w && 1w) = 0w) <=> ~(w ' 0)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
 val word_gc_move_bitmap_unroll = prove(
@@ -603,9 +603,9 @@ val word_gc_move_bitmap_unroll = prove(
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
-val split_num_forall_to_10 = prove(
-  ``($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
-               P 6 /\ P 7 /\ P 8 /\ P 9 /\ !x. 9 < x ==> P (x:num)``,
+val split_num_forall_to_10 = Q.prove(
+  `($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
+               P 6 /\ P 7 /\ P 8 /\ P 9 /\ !x. 9 < x ==> P (x:num)`,
   full_simp_tac(srw_ss())[GSYM (RAND_CONV ETA_CONV ``!x. P x``)]
   \\ eq_tac \\ srw_tac[][]
   \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
@@ -617,8 +617,8 @@ val nine_less = DECIDE
   ``9 < n ==> n <> 0 /\ n <> 1 /\ n <> 2 /\ n <> 3 /\ n <> 4 /\
               n <> 5 /\ n <> 6 /\ n <> 7 /\ n <> 8 /\ n <> 9n``
 
-val word_shift_not_0 = store_thm("word_shift_not_0",
-  ``word_shift (:'a) <> 0``,
+val word_shift_not_0 = Q.store_thm("word_shift_not_0",
+  `word_shift (:'a) <> 0`,
   srw_tac[][stackLangTheory.word_shift_def] \\ full_simp_tac(srw_ss())[]);
 
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
@@ -698,23 +698,23 @@ val memcpy_code_thm = store_thm("memcpy_code_thm",
   \\ match_mp_tac (memcpy_code_thm |> SIMP_RULE (srw_ss()) [])
   \\ metis_tac [])
 
-val select_lower_lemma = store_thm("select_lower_lemma",
-  ``(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)``,
+val select_lower_lemma = Q.store_thm("select_lower_lemma",
+  `(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [wordsTheory.word_index]
   \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)`
   \\ fs []
   )
 
-val select_eq_select_0 = store_thm("select_eq_select_0",
-  ``k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)``,
+val select_eq_select_0 = Q.store_thm("select_eq_select_0",
+  `k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ eq_tac \\ rw [])
 
-val is_fwd_ptr_iff = prove(
-  ``!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w``,
+val is_fwd_ptr_iff = Q.prove(
+  `!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w`,
   Cases \\ full_simp_tac(srw_ss())[is_fwd_ptr_def]);
 
-val isWord_thm = prove(
-  ``!w. isWord w = ?v. w = Word v``,
+val isWord_thm = Q.prove(
+  `!w. isWord w = ?v. w = Word v`,
   Cases \\ full_simp_tac(srw_ss())[isWord_def]);
 
 val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
@@ -1002,24 +1002,24 @@ val word_gc_move_loop_code_thm = prove(
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less]);
 
-val lower_2w_eq = prove(
-  ``!w:'a word. good_dimindex (:'a) ==> (w <+ 2w <=> w = 0w \/ w = 1w)``,
+val lower_2w_eq = Q.prove(
+  `!w:'a word. good_dimindex (:'a) ==> (w <+ 2w <=> w = 0w \/ w = 1w)`,
   Cases \\ fs [labPropsTheory.good_dimindex_def,WORD_LO,dimword_def]
   \\ rw [] \\ rw []);
 
-val EL_LENGTH_ADD_LEMMA = prove(
-  ``EL (LENGTH init + LENGTH old) (init ++ old ++ [x] ++ st1) = x``,
+val EL_LENGTH_ADD_LEMMA = Q.prove(
+  `EL (LENGTH init + LENGTH old) (init ++ old ++ [x] ++ st1) = x`,
   mp_tac (EL_LENGTH_APPEND |> Q.SPECL [`[x] ++ st1`,`init++old`])
   \\ fs []);
 
-val LUPDATE_LENGTH_ADD_LEMMA = prove(
-  ``LUPDATE w (LENGTH init + LENGTH old) (init ++ old ++ [x] ++ st1) =
-       init ++ old ++ [w] ++ st1``,
+val LUPDATE_LENGTH_ADD_LEMMA = Q.prove(
+  `LUPDATE w (LENGTH init + LENGTH old) (init ++ old ++ [x] ++ st1) =
+       init ++ old ++ [w] ++ st1`,
   mp_tac (LUPDATE_LENGTH |> Q.SPECL [`init++old`]) \\ fs []);
 
-val bytes_in_word_word_shift_n2w = store_thm("bytes_in_word_word_shift_n2w",
-  ``good_dimindex (:α) ∧ (dimindex(:'a) DIV 8) * n < dimword (:α) ⇒
-    (bytes_in_word * n2w n) ⋙ word_shift (:α) = (n2w n):'a word``,
+val bytes_in_word_word_shift_n2w = Q.store_thm("bytes_in_word_word_shift_n2w",
+  `good_dimindex (:α) ∧ (dimindex(:'a) DIV 8) * n < dimword (:α) ⇒
+    (bytes_in_word * n2w n) ⋙ word_shift (:α) = (n2w n):'a word`,
   strip_tac \\ match_mp_tac bytes_in_word_word_shift
   \\ fs [bytes_in_word_def]
   \\ `(dimindex (:α) DIV 8) < dimword (:α) /\ n < dimword (:α)` by
@@ -1161,8 +1161,8 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
-val word_msb_IFF_lsr_EQ_0 = store_thm("word_msb_IFF_lsr_EQ_0",
-  ``word_msb h <=> (h >>> (dimindex (:'a) - 1) <> 0w:'a word)``,
+val word_msb_IFF_lsr_EQ_0 = Q.store_thm("word_msb_IFF_lsr_EQ_0",
+  `word_msb h <=> (h >>> (dimindex (:'a) - 1) <> 0w:'a word)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [])
 
 val map_bitmap_IMP_LENGTH = store_thm("map_bitmap_IMP_LENGTH",
@@ -1305,8 +1305,8 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
-val EL_LENGTH_ADD_LEMMA = prove(
-  ``!n xs y ys. LENGTH xs = n ==> EL n (xs ++ y::ys) = y``,
+val EL_LENGTH_ADD_LEMMA = Q.prove(
+  `!n xs y ys. LENGTH xs = n ==> EL n (xs ++ y::ys) = y`,
   fs [EL_LENGTH_APPEND]);
 
 val word_gc_move_roots_bitmaps_code_thm =
@@ -1603,10 +1603,10 @@ val alloc_correct = prove(
   \\ qexists_tac `ck+1` \\ fs []
   \\ Cases_on `r` \\ fs [state_component_equality]);
 
-val find_code_IMP_lookup = prove(
-  ``find_code dest regs (s:'a num_map) = SOME x ==>
+val find_code_IMP_lookup = Q.prove(
+  `find_code dest regs (s:'a num_map) = SOME x ==>
     ?k. lookup k s = SOME x /\
-        (find_code dest regs = ((lookup k):'a num_map -> 'a option))``,
+        (find_code dest regs = ((lookup k):'a num_map -> 'a option))`,
   Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
 
@@ -1630,8 +1630,8 @@ val find_code_regs_SUBMAP = Q.store_thm("find_code_regs_SUBMAP",
   \\ every_case_tac \\ fs[] \\ res_tac \\ fs[]
   \\ rw[] );
 
-val get_labels_comp = store_thm("get_labels_comp",
-  ``!n p e. get_labels e SUBSET get_labels (FST (comp n p e))``,
+val get_labels_comp = Q.store_thm("get_labels_comp",
+  `!n p e. get_labels e SUBSET get_labels (FST (comp n p e))`,
   recInduct comp_ind \\ rw []
   \\ Cases_on `p` \\ fs []
   \\ once_rewrite_tac [comp_def] \\ fs []
@@ -2334,10 +2334,10 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
   \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
-val extract_labels_next_lab = store_thm("extract_labels_next_lab",``
+val extract_labels_next_lab = Q.store_thm("extract_labels_next_lab",`
   ∀p e.
   MEM e (extract_labels p) ⇒
-  SND e < next_lab p``,
+  SND e < next_lab p`,
   ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [next_lab_def]>>fs[extract_labels_def]>>
   fs[extract_labels_def]>>

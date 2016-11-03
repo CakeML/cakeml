@@ -77,17 +77,17 @@ val free_SING = store_thm("free_SING",
   REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val LENGTH_FST_free = store_thm("LENGTH_FST_free",
-  ``LENGTH (FST (free fns)) = LENGTH fns``,
+val LENGTH_FST_free = Q.store_thm("LENGTH_FST_free",
+  `LENGTH (FST (free fns)) = LENGTH fns`,
   Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
 
-val HD_FST_free = store_thm("HD_FST_free",
-  ``[HD (FST (free [x1]))] = FST (free [x1])``,
+val HD_FST_free = Q.store_thm("HD_FST_free",
+  `[HD (FST (free [x1]))] = FST (free [x1])`,
   Cases_on `free [x1]` \\ fs []
   \\ imp_res_tac free_SING \\ fs[]);
 
-val free_CONS = store_thm("free_CONS",
-  ``FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)``,
+val free_CONS = Q.store_thm("free_CONS",
+  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`,
   Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
   \\ Cases_on `free [x]` \\ fs []
   \\ Cases_on `free (h::t)` \\ fs [SING_HD]

@@ -11,8 +11,8 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -425,9 +425,9 @@ val _ = translate (GiveUp_def |> wcomp_simp |> conv64)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
 
-val assign_rw = prove(``
+val assign_rw = Q.prove(`
   (i < 0 ⇒ n2w (Num (4 * (0 -i))) = n2w (Num (ABS (4*(0-i))))) ∧
-  (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))``,
+  (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))`,
   rw[]
   >-
     (`0 ≤ 4* -i` by intLib.COOPER_TAC>>
@@ -443,8 +443,8 @@ val assign_rw = prove(``
 val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 (*
-val data_to_word_assign_side = prove(``
-  ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T``,
+val data_to_word_assign_side = Q.prove(`
+  ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T`,
   rw[]>>
   simp[fetch "-" "data_to_word_assign_side_def",NULL]>>
   Cases_on`e`>>rw[]>>
@@ -472,11 +472,11 @@ val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_d
 
 val _ = translate (op_consts_def|>conv64|>econv)
 
-val rws = prove(``
+val rws = Q.prove(`
   ($+ = λx y. x + y) ∧
   ($&& = λx y. x && y) ∧
   ($|| = λx y. x || y) ∧
-  ($?? = λx y. x ?? y)``,
+  ($?? = λx y. x ?? y)`,
   fs[FUN_EQ_THM])
 
 val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws]|> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
@@ -485,8 +485,8 @@ val _ = translate (convert_sub_def |> conv64 |> SIMP_RULE std_ss [word_2comp_def
 
 val _ = translate (spec64 pull_exp_def)
 
-val word_inst_pull_exp_side = prove(``
-  ∀x. word_inst_pull_exp_side x ⇔ T``,
+val word_inst_pull_exp_side = Q.prove(`
+  ∀x. word_inst_pull_exp_side x ⇔ T`,
   ho_match_mp_tac pull_exp_ind>>rw[]>>
   simp[Once (fetch "-" "word_inst_pull_exp_side_def"),
       fetch "-" "word_inst_optimize_consts_side_def",
@@ -497,8 +497,8 @@ val _ = translate (spec64 inst_select_def)
 
 val _ = translate (spec64 list_next_var_rename_move_def)
 
-val word_alloc_list_next_var_rename_move_side = prove(``
-  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T``,
+val word_alloc_list_next_var_rename_move_side = Q.prove(`
+  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T`,
   simp[fetch "-" "word_alloc_list_next_var_rename_move_side_def"]>>
   Induct_on`z`>>fs[list_next_var_rename_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>
@@ -506,8 +506,8 @@ val word_alloc_list_next_var_rename_move_side = prove(``
 
 val _ = translate (spec64 full_ssa_cc_trans_def)
 
-val word_alloc_full_ssa_cc_trans_side = prove(``
-  ∀x y. word_alloc_full_ssa_cc_trans_side x y``,
+val word_alloc_full_ssa_cc_trans_side = Q.prove(`
+  ∀x y. word_alloc_full_ssa_cc_trans_side x y`,
   simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
   rw[]>>pop_assum kall_tac>>
   map_every qid_spec_tac [`v6`,`v7`,`y`]>>
@@ -523,13 +523,13 @@ val _ = translate (spec64 remove_dead_def)
 
 val _ = translate (spec64 word_alloc_def)
 
-val word_alloc_apply_colour_side = prove(``
-  ∀x y. word_alloc_apply_colour_side x y ⇔ T``,
+val word_alloc_apply_colour_side = Q.prove(`
+  ∀x y. word_alloc_apply_colour_side x y ⇔ T`,
   ho_match_mp_tac apply_colour_ind>>rw[]>>
   simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
 
-val word_alloc_word_alloc_side = prove(``
-  ∀w x y z. word_alloc_word_alloc_side w x y z ⇔ T``,
+val word_alloc_word_alloc_side = Q.prove(`
+  ∀w x y z. word_alloc_word_alloc_side w x y z ⇔ T`,
   simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
   Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
   word_alloc_apply_colour_side]) |> update_precondition
@@ -540,8 +540,8 @@ val _ = translate (spec64 word_removeTheory.remove_must_terminate_def)
 
 val _ = translate (spec64 word_to_wordTheory.compile_def)
 
-val word_to_word_compile_side = prove(``
-  ∀x y z. word_to_word_compile_side x y z ⇔ T``,
+val word_to_word_compile_side = Q.prove(`
+  ∀x y z. word_to_word_compile_side x y z ⇔ T`,
   simp[fetch"-""word_to_word_compile_side_def"]>>
   Induct_on`z`>>fs[word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 

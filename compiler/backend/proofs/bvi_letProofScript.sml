@@ -13,29 +13,29 @@ val env_rel_def = Define `
      v_rel a x y (x::e1) (y::e2) /\ env_rel rest d e1 e2) /\
   (env_rel _ _ _ _ = F)`
 
-val env_rel_length = store_thm("env_rel_length",
-  ``!ax env env2. env_rel ax d env env2 ==> LENGTH env <= LENGTH env2``,
+val env_rel_length = Q.store_thm("env_rel_length",
+  `!ax env env2. env_rel ax d env env2 ==> LENGTH env <= LENGTH env2`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ rw [] \\ Cases_on `d` \\ fs []
   \\ imp_res_tac (METIS_PROVE [] ``x=y ==> LENGTH x = LENGTH y``) \\ fs []);
 
-val env_rel_LLOOKUP_NONE = prove(
-  ``!ax env env2 n d.
+val env_rel_LLOOKUP_NONE = Q.prove(
+  `!ax env env2 n d.
       env_rel ax d env env2 /\
       LLOOKUP ax n = NONE /\
       n < LENGTH env ==>
       n+d < LENGTH env2 /\
-      EL (n+d) env2 = EL n env``,
+      EL (n+d) env2 = EL n env`,
   Induct THEN1 (fs [env_rel_def,LLOOKUP_def,EL_DROP])
   \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ rw [] \\ Cases_on `n` \\ fs []
   \\ res_tac \\ fs [LLOOKUP_def] \\ rfs [] \\ fs[ADD_CLAUSES]);
 
-val env_rel_LOOKUP_SOME = prove(
-  ``!env env2 ax x n d.
+val env_rel_LOOKUP_SOME = Q.prove(
+  `!env env2 ax x n d.
       env_rel ax d env env2 /\
       LLOOKUP ax n = SOME x ==>
-      v_rel x (EL n env) (EL n env2) (DROP n env) (DROP n env2)``,
+      v_rel x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
   Induct \\ Cases_on `env2` \\ Cases_on `ax` \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [env_rel_def] \\ res_tac \\ fs []
   \\ Cases_on `n` \\ fs [env_rel_def]
@@ -103,27 +103,27 @@ val evaluate_SNOC_Rval = store_thm("evaluate_SNOC_Rval",
   \\ imp_res_tac evaluate_SING_IMP \\ rw []
   \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []);
 
-val compile_CONS = store_thm("compile_CONS",
-  ``compile ax d (x::xs) = compile ax d [x] ++ compile ax d xs``,
+val compile_CONS = Q.store_thm("compile_CONS",
+  `compile ax d (x::xs) = compile ax d [x] ++ compile ax d xs`,
   Cases_on `xs` \\ fs [compile_def]);
 
-val compile_APPEND = store_thm("compile_APPEND",
-  ``!xs ys ax d. compile ax d (xs ++ ys) = compile ax d xs ++ compile ax d ys``,
+val compile_APPEND = Q.store_thm("compile_APPEND",
+  `!xs ys ax d. compile ax d (xs ++ ys) = compile ax d xs ++ compile ax d ys`,
   Induct \\ fs [compile_def]
   \\ once_rewrite_tac [compile_CONS] \\ fs []);
 
-val IMP_COMM = store_thm("IMP_COMM",
-  ``(b1 ==> b2 ==> b3) <=> (b2 ==> b1 ==> b3)``,
+val IMP_COMM = Q.store_thm("IMP_COMM",
+  `(b1 ==> b2 ==> b3) <=> (b2 ==> b1 ==> b3)`,
   metis_tac []);
 
-val exp_size_APPEND = store_thm("exp_size_APPEND",
-  ``!xs ys. exp2_size (xs ++ ys) = exp2_size xs + exp2_size ys``,
+val exp_size_APPEND = Q.store_thm("exp_size_APPEND",
+  `!xs ys. exp2_size (xs ++ ys) = exp2_size xs + exp2_size ys`,
   Induct \\ fs [bviTheory.exp_size_def]);
 
-val env_rel_MAP = store_thm("env_rel_MAP",
-  ``!ax env1 env2 d a.
+val env_rel_MAP = Q.store_thm("env_rel_MAP",
+  `!ax env1 env2 d a.
       env_rel ax d env1 env2 ==>
-      env_rel (MAP ($+ (LENGTH a)) ax) (d + LENGTH a) env1 (a ++ env2)``,
+      env_rel (MAP ($+ (LENGTH a)) ax) (d + LENGTH a) env1 (a ++ env2)`,
   Induct \\ fs [env_rel_def]
   THEN1 (once_rewrite_tac [EQ_SYM_EQ] \\ Induct_on `a` \\ fs [ADD1])
   \\ Cases_on `env1` \\ Cases_on `env2` \\ fs [env_rel_def]

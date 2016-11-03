@@ -34,55 +34,55 @@ val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
 val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``;
 val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``;
 
-val SUM_MAP_exp2_size_thm = store_thm(
+val SUM_MAP_exp2_size_thm = Q.store_thm(
 "SUM_MAP_exp2_size_thm",
-``∀defs. SUM (MAP exp2_size defs) = SUM (MAP (list_size char_size) (MAP FST defs)) +
+`∀defs. SUM (MAP exp2_size defs) = SUM (MAP (list_size char_size) (MAP FST defs)) +
                                           SUM (MAP exp4_size (MAP SND defs)) +
-                                          LENGTH defs``,
+                                          LENGTH defs`,
 Induct >- rw[exp_size_def] >>
 qx_gen_tac `p` >>
 PairCases_on `p` >>
 srw_tac[ARITH_ss][exp_size_def])
 
-val SUM_MAP_exp4_size_thm = store_thm(
+val SUM_MAP_exp4_size_thm = Q.store_thm(
 "SUM_MAP_exp4_size_thm",
-``∀ls. SUM (MAP exp4_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
+`∀ls. SUM (MAP exp4_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
                                       SUM (MAP exp_size (MAP SND ls)) +
-                                      LENGTH ls``,
+                                      LENGTH ls`,
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 
-val SUM_MAP_exp5_size_thm = store_thm(
+val SUM_MAP_exp5_size_thm = Q.store_thm(
 "SUM_MAP_exp5_size_thm",
-``∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
+`∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
                                 SUM (MAP exp_size (MAP SND ls)) +
-                                LENGTH ls``,
+                                LENGTH ls`,
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 
 (*
-val SUM_MAP_v2_size_thm = store_thm(
+val SUM_MAP_v2_size_thm = Q.store_thm(
 "SUM_MAP_v2_size_thm",
-``∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
+`∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
                                 SUM (MAP v_size (MAP SND env)) +
-                                LENGTH env``,
+                                LENGTH env`,
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 *)
 
 (*
-val SUM_MAP_v3_size_thm = store_thm(
+val SUM_MAP_v3_size_thm = Q.store_thm(
 "SUM_MAP_v3_size_thm",
-``∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
+`∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
                                       SUM (MAP (option_size (pair_size (λx. x) f)) (MAP SND env)) +
-                                      LENGTH env``,
+                                      LENGTH env`,
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 *)
 
-val exp_size_positive = store_thm(
+val exp_size_positive = Q.store_thm(
 "exp_size_positive",
-``∀e. 0 < exp_size e``,
+`∀e. 0 < exp_size e`,
 Induct >> srw_tac[ARITH_ss][exp_size_def])
 val _ = export_rewrites["exp_size_positive"];
 

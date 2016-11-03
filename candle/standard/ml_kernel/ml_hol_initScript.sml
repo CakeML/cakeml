@@ -5,10 +5,10 @@ open terminationTheory
 
 val _ = new_theory"ml_hol_init"
 
-val kernel_init_thm = store_thm("kernel_init_thm",
-  ``∃refs.
+val kernel_init_thm = Q.store_thm("kernel_init_thm",
+  `∃refs.
       HOL_STORE (candle_init_state ffi).refs refs ∧
-      STATE init_ctxt refs``,
+      STATE init_ctxt refs`,
   qexists_tac`<|
     the_type_constants := init_type_constants;
     the_term_constants := init_term_constants;

@@ -85,9 +85,9 @@ val destAlphaT_def = Define`
 `;
 val _ = export_rewrites ["destAlphaT_def"]
 
-val destAlphaT_EQ_SOME = store_thm(
+val destAlphaT_EQ_SOME = Q.store_thm(
   "destAlphaT_EQ_SOME[simp]",
-  ``destAlphaT t = SOME s ⇔ t = AlphaT s``,
+  `destAlphaT t = SOME s ⇔ t = AlphaT s`,
   Cases_on `t` >> simp[]);
 
 val destSymbolT_def = Define`
@@ -96,9 +96,9 @@ val destSymbolT_def = Define`
 `;
 val _ = export_rewrites ["destSymbolT_def"]
 
-val destSymbolT_EQ_SOME = store_thm(
+val destSymbolT_EQ_SOME = Q.store_thm(
   "destSymbolT_EQ_SOME[simp]",
-  ``destSymbolT t = SOME s ⇔ t = SymbolT s``,
+  `destSymbolT t = SOME s ⇔ t = SymbolT s`,
   Cases_on `t` >> simp[]);
 
 val destIntT_def = Define`

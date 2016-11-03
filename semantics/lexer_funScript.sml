@@ -85,8 +85,8 @@ val skip_comment_def = Define `
      if [x;y] = "*)" then (if d = 0 then SOME xs else skip_comment xs (d-1))
      else skip_comment (y::xs) d)`
 
-val skip_comment_thm = store_thm("skip_comment_thm",
-  ``!xs d str. (skip_comment xs d = SOME str) ==> LENGTH str <= LENGTH xs``,
+val skip_comment_thm = Q.store_thm("skip_comment_thm",
+  `!xs d str. (skip_comment xs d = SOME str) ==> LENGTH str <= LENGTH xs`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [skip_comment_def]

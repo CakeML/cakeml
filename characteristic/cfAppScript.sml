@@ -223,11 +223,11 @@ val spec_def = Define `
 (*------------------------------------------------------------------*)
 (* Relating [app] to [_ --> _] from the translator *)
 
-val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
-  ``(a --> b) f v ==>
+val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
+  `(a --> b) f v ==>
     !x v1.
       a x v1 ==>
-      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. & b (f x) v)``,
+      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. & b (f x) v)`,
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,
       ml_translatorTheory.evaluate_closure_def,POSTv_def, PULL_EXISTS]
@@ -245,10 +245,10 @@ val Arrow_IMP_app_basic = store_thm("Arrow_IMP_app_basic",
   THEN1 (fs [st2heap_clock] \\ SPLIT_TAC)
 );
 
-val app_basic_weaken = store_thm("app_basic_weaken",
-  ``(!x v. P x v ==> Q x v) ==>
+val app_basic_weaken = Q.store_thm("app_basic_weaken",
+  `(!x v. P x v ==> Q x v) ==>
     (app_basic p v v1 x P ==>
-     app_basic p v v1 x Q)``,
+     app_basic p v v1 x Q)`,
   fs [app_basic_def] \\ metis_tac []);
 
 val evaluate_list_SING = prove(

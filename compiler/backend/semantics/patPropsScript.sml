@@ -5,7 +5,7 @@ val _ = new_theory"patProps"
 val evaluate_lit = save_thm("evaluate_lit[simp]",
       EVAL``patSem$evaluate env s [Lit l]``)
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``patSem$Boolv T = Boolv F``);
 
@@ -25,8 +25,8 @@ val no_closures_def = tDefine"no_closures"`
  simp[v_size_def]>>srw_tac[][]>>res_tac>>simp[])
 val _ = export_rewrites["no_closures_def"];
 
-val no_closures_Boolv = store_thm("no_closures_Boolv[simp]",
-  ``no_closures (Boolv b)``,
+val no_closures_Boolv = Q.store_thm("no_closures_Boolv[simp]",
+  `no_closures (Boolv b)`,
   EVAL_TAC);
 
 val evaluate_raise_rval = store_thm("evaluate_raise_rval",

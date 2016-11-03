@@ -71,9 +71,9 @@ val generalise_no_uvars = Q.prove (
 
 (* this might be totally wrong
 
-val generalise_uvars = prove(
-  ``(∀t m n s u d. FINITE u ∧ check_t d u t ⇒ FST(generalise m n s t) ≤ n + CARD (u DIFF (FDOM s))) ∧
-    (∀ts m n s u d. FINITE u ∧ EVERY (check_t d u) ts ⇒ FST(generalise_list m n s ts) ≤ CARD (u DIFF (FDOM s)))``,
+val generalise_uvars = Q.prove(
+  `(∀t m n s u d. FINITE u ∧ check_t d u t ⇒ FST(generalise m n s t) ≤ n + CARD (u DIFF (FDOM s))) ∧
+    (∀ts m n s u d. FINITE u ∧ EVERY (check_t d u) ts ⇒ FST(generalise_list m n s ts) ≤ CARD (u DIFF (FDOM s)))`,
   ho_match_mp_tac infer_tTheory.infer_t_induction >>
   rw[generalise_def,check_t_def] >> rw[] >>
   TRY BasicProvers.CASE_TAC >> simp[] >>
@@ -1135,28 +1135,28 @@ val check_specs_complete = store_thm("check_specs_complete",
   simp[EXTENSION]>>
   metis_tac[FUPDATE_EQ_FUNION,FUNION_ASSOC])
 
-val check_flat_weakT_complete = store_thm("check_flat_weakT_complete",
-  ``∀mn tenvT1 tenvT2.
+val check_flat_weakT_complete = Q.store_thm("check_flat_weakT_complete",
+  `∀mn tenvT1 tenvT2.
     flat_weakT mn tenvT1 tenvT2 ⇒
-    check_flat_weakT mn tenvT1 tenvT2``,
+    check_flat_weakT mn tenvT1 tenvT2`,
   simp[flat_weakT_def,check_flat_weakT_def,FEVERY_ALL_FLOOKUP,FORALL_PROD] >>
   rw[] >> first_x_assum(qspec_then`k`strip_assume_tac) >> rfs[])
 
-val check_flat_weakC_complete = store_thm("check_flat_weakC_complete",
-  ``∀tenvC1 tenvC2.
+val check_flat_weakC_complete = Q.store_thm("check_flat_weakC_complete",
+  `∀tenvC1 tenvC2.
     flat_weakC tenvC1 tenvC2 ⇒
-    check_flat_weakC tenvC1 (anub tenvC2 [])``,
+    check_flat_weakC tenvC1 (anub tenvC2 [])`,
   simp[flat_weakC_def,check_flat_weakC_def] >> rw[] >>
   match_mp_tac EVERY_anub_suff >> rw[] >>
   first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
   BasicProvers.EVERY_CASE_TAC  >> fs[])
 
-val weakE_anub_rev = store_thm("weakE_anub_rev",
-  ``∀env1 env2. weakE env1 env2 ⇒ weakE env1 (anub env2 [])``,
+val weakE_anub_rev = Q.store_thm("weakE_anub_rev",
+  `∀env1 env2. weakE env1 env2 ⇒ weakE env1 (anub env2 [])`,
   rw[weakE_def] >>
   fs[Once ALOOKUP_anub])
 
-val deBruijn_subst_unconvert = prove(``
+val deBruijn_subst_unconvert = Q.prove(`
   (∀t.
   check_freevars n [] t ⇒
   unconvert_t (deBruijn_subst 0 subst t) =
@@ -1165,7 +1165,7 @@ val deBruijn_subst_unconvert = prove(``
   EVERY (check_freevars n []) ts ⇒
   MAP (unconvert_t o (deBruijn_subst 0 subst)) ts
   =
-  MAP ((infer_deBruijn_subst (MAP unconvert_t subst)) o unconvert_t) ts)``,
+  MAP ((infer_deBruijn_subst (MAP unconvert_t subst)) o unconvert_t) ts)`,
   Induct>>fs[check_freevars_def]>>rw[]>>
   fs[deBruijn_subst_def,unconvert_t_def,infer_deBruijn_subst_def]
   >-
@@ -1174,7 +1174,7 @@ val deBruijn_subst_unconvert = prove(``
     fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f])
 
 (*This might have been proven elsewhere...*)
-val infer_deBruijn_subst_twice = prove(``
+val infer_deBruijn_subst_twice = Q.prove(`
   (∀t.
   check_t (LENGTH subst2) {} t ⇒
   (infer_deBruijn_subst subst1 (infer_deBruijn_subst subst2 t) =
@@ -1182,13 +1182,13 @@ val infer_deBruijn_subst_twice = prove(``
   (∀ts.
   EVERY (check_t (LENGTH subst2) {}) ts ⇒
   MAP ((infer_deBruijn_subst subst1) o (infer_deBruijn_subst subst2)) ts =
-  MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)``,
+  MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_def]>>
   simp[EL_MAP]>>
   fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f])
 
-val t_walkstar_infer_deBruijn_subst = prove(``
+val t_walkstar_infer_deBruijn_subst = Q.prove(`
  t_wfs s ∧
  LENGTH ls = tvs ∧
  EVERY (check_t y {}) ls ∧
@@ -1203,7 +1203,7 @@ val t_walkstar_infer_deBruijn_subst = prove(``
   EVERY (check_t tvs {}) ts
   ⇒
   MAP ((t_walkstar s) o (infer_deBruijn_subst ls)) ts =
-  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))``,
+  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))`,
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_def]>>
   fs[EVERY_MEM,MEM_EL]
@@ -1213,7 +1213,7 @@ val t_walkstar_infer_deBruijn_subst = prove(``
     fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f])
 
 (*Definitely proved before somewhere*)
-val infer_deBruijn_subst_check_t = prove(``
+val infer_deBruijn_subst_check_t = Q.prove(`
   EVERY (check_t tvs {}) ls
   ⇒
   (∀t.
@@ -1223,7 +1223,7 @@ val infer_deBruijn_subst_check_t = prove(``
   (∀ts.
   EVERY (check_t (LENGTH ls) {}) ts
   ⇒
-  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))``,
+  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))`,
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_def]>>
   fs[EVERY_MEM,MEM_EL]>>
@@ -1314,10 +1314,10 @@ val check_weakE_complete = store_thm("check_weakE_complete",
    strip_tac>>
    metis_tac[IS_SOME_EXISTS,SUBMAP_t_compat,t_compat_eqs_t_unify])
 
-val check_weak_decls_complete = store_thm("check_weak_decls_complete",
-  ``decls1.inf_defined_mods = decls2.inf_defined_mods ∧
+val check_weak_decls_complete = Q.store_thm("check_weak_decls_complete",
+  `decls1.inf_defined_mods = decls2.inf_defined_mods ∧
     weak_decls (convert_decls decls1) (convert_decls decls2) ⇒
-    check_weak_decls decls1 decls2``,
+    check_weak_decls decls1 decls2`,
   rw[weak_decls_def,convert_decls_def,check_weak_decls_def,list_subset_def] >>
   fs[EXTENSION,SUBSET_DEF,EVERY_MEM]);
 

@@ -7,10 +7,10 @@ val _ = ParseExtras.temp_tight_equality ();
 
 val _ = new_theory "reg_allocProof";
 
-val convention_partitions = store_thm("convention_partitions",``
+val convention_partitions = Q.store_thm("convention_partitions",`
   ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
       (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))``,
+      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))`,
   srw_tac[][is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
   \\ `n MOD 2 = (n MOD 4) MOD 2` by
    (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
@@ -29,13 +29,13 @@ val in_clash_sets_def = Define`
   colouring_satisfactory guarantees that cliques have all distinct colours
 *)
 
-val lookup_dir_g_insert_correct = prove(``
+val lookup_dir_g_insert_correct = Q.prove(`
   ∀x y g.
   let g' = dir_g_insert x y g in
   lookup_g x y g' = T ∧
   ∀x' y'.
     x' ≠ x ∨ y' ≠ y ⇒
-    lookup_g x' y' g' = lookup_g x' y' g``,
+    lookup_g x' y' g' = lookup_g x' y' g`,
   full_simp_tac(srw_ss())[dir_g_insert_def,LET_THM,lookup_g_def]>>
   ntac 3 strip_tac>>CONJ_ASM1_TAC
   >-
@@ -46,37 +46,37 @@ val lookup_dir_g_insert_correct = prove(``
     full_case_tac>>
     full_simp_tac(srw_ss())[domain_insert,lookup_insert,lookup_def])
 
-val undir_g_insert_domain = prove(``
+val undir_g_insert_domain = Q.prove(`
   domain (undir_g_insert x y G) =
-  {x;y} ∪ domain G``,
+  {x;y} ∪ domain G`,
   srw_tac[][undir_g_insert_def,dir_g_insert_def]>>
   full_simp_tac(srw_ss())[domain_insert,EXTENSION]>>
   metis_tac[])
 
-val list_g_insert_domain = prove(``
+val list_g_insert_domain = Q.prove(`
   ∀ls.
   domain(list_g_insert q ls G) =
-  domain G ∪ set ls ∪ {q}``,
+  domain G ∪ set ls ∪ {q}`,
   Induct>>full_simp_tac(srw_ss())[list_g_insert_def]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[EXTENSION,undir_g_insert_domain]>>
   every_case_tac>>full_simp_tac(srw_ss())[domain_insert,domain_lookup,lookup_insert]>>
   metis_tac[])
 
-val clique_g_insert_domain = prove(``
+val clique_g_insert_domain = Q.prove(`
   ∀ls.
   domain (clique_g_insert ls G) =
-  domain G ∪ set ls``,
+  domain G ∪ set ls`,
   Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[list_g_insert_domain]>>
   srw_tac[][EXTENSION]>>metis_tac[])
 
-val list_g_insert_correct = prove(``
+val list_g_insert_correct = Q.prove(`
   ∀ls x g.
   let g' = list_g_insert x ls g in
     ∀u v.
       lookup_g u v g' = ((u = x ∧ MEM v ls)
                       ∨ (v = x ∧ MEM u ls)
-                      ∨ lookup_g u v g)``,
+                      ∨ lookup_g u v g)`,
   Induct>>srw_tac[][list_g_insert_def,undir_g_insert_def]>>
   unabbrev_all_tac>>full_simp_tac(srw_ss())[]>-
     (full_simp_tac(srw_ss())[lookup_g_def]>>every_case_tac>>full_simp_tac(srw_ss())[lookup_insert]>>
@@ -84,13 +84,13 @@ val list_g_insert_correct = prove(``
     full_simp_tac(srw_ss())[lookup_def])>>
   metis_tac[lookup_dir_g_insert_correct])
 
-val clique_g_insert_correct = prove(``
+val clique_g_insert_correct = Q.prove(`
   !ls x g.
   ALL_DISTINCT ls ⇒
   let g' = clique_g_insert ls g in
     ∀u v.
       lookup_g u v g' = ((MEM u ls ∧ MEM v ls ∧ u ≠ v)
-                      ∨ lookup_g u v g)``,
+                      ∨ lookup_g u v g)`,
   Induct>>srw_tac[][clique_g_insert_def]>>
   unabbrev_all_tac>>metis_tac[list_g_insert_correct])
 
@@ -109,9 +109,9 @@ val colouring_satisfactory_def = Define `
     case edges of NONE => F
                 | SOME edges => ∀e. e ∈ domain edges ⇒ col e ≠ col v)`
 
-val clique_g_insert_is_clique = prove(``
+val clique_g_insert_is_clique = Q.prove(`
   !ls g.
-  sp_g_is_clique ls (clique_g_insert ls g)``,
+  sp_g_is_clique ls (clique_g_insert ls g)`,
   Induct>>
   srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
   fs[list_g_insert_domain,clique_g_insert_domain,SUBSET_DEF]>>
@@ -120,31 +120,31 @@ val clique_g_insert_is_clique = prove(``
     full_simp_tac(srw_ss())[sp_g_is_clique_def]>>
     metis_tac[list_g_insert_correct])
 
-val clique_g_insert_preserves_clique = prove(``
+val clique_g_insert_preserves_clique = Q.prove(`
   !ls g ls'.
   ALL_DISTINCT ls' ∧
   sp_g_is_clique ls g ⇒
-  sp_g_is_clique ls (clique_g_insert ls' g)``,
+  sp_g_is_clique ls (clique_g_insert ls' g)`,
   Induct>>
   srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
   fs[clique_g_insert_domain,SUBSET_DEF]>>
   metis_tac[clique_g_insert_correct])
 
-val clash_sets_clique = store_thm("clash_sets_clique",``
+val clash_sets_clique = Q.store_thm("clash_sets_clique",`
   ∀ls x.
   MEM x ls ⇒
-  sp_g_is_clique (MAP FST (toAList x)) (clash_sets_to_sp_g ls)``,
+  sp_g_is_clique (MAP FST (toAList x)) (clash_sets_to_sp_g ls)`,
   Induct>>full_simp_tac(srw_ss())[clash_sets_to_sp_g_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   metis_tac[clique_g_insert_is_clique
            ,clique_g_insert_preserves_clique,ALL_DISTINCT_MAP_FST_toAList])
 
-val colouring_satisfactory_cliques = store_thm("colouring_satisfactory_cliques",``
+val colouring_satisfactory_cliques = Q.store_thm("colouring_satisfactory_cliques",`
   ∀ls g (f:num->num).
   ALL_DISTINCT ls ∧
   colouring_satisfactory f g ∧ sp_g_is_clique ls g
   ⇒
-  ALL_DISTINCT (MAP f ls)``,
+  ALL_DISTINCT (MAP f ls)`,
   Induct>>
   full_simp_tac(srw_ss())[sp_g_is_clique_def,colouring_satisfactory_def]>>
   srw_tac[][]
@@ -195,42 +195,42 @@ val satisfactory_pref_def = Define`
   2) The total colouring generated is conventional
 *)
 
-val aux_pref_satisfactory = prove(``
+val aux_pref_satisfactory = Q.prove(`
   ∀prefs.
-  satisfactory_pref (aux_pref prefs)``,
+  satisfactory_pref (aux_pref prefs)`,
   full_simp_tac(srw_ss())[satisfactory_pref_def,aux_pref_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>
   Cases_on`ls`>>full_simp_tac(srw_ss())[]>>
   metis_tac[])
 
-val first_match_col_mem = prove(``
+val first_match_col_mem = Q.prove(`
   ∀ls.
   first_match_col cand col ls = SOME x
-  ⇒ MEM x cand``,
+  ⇒ MEM x cand`,
   Induct>>srw_tac[][first_match_col_def]>>
   Cases_on`h`>>full_simp_tac(srw_ss())[first_match_col_def,LET_THM]>>
   every_case_tac>>rev_full_simp_tac(srw_ss())[])
 
-val move_pref_satisfactory = prove(``
+val move_pref_satisfactory = Q.prove(`
   ∀moves.
-  satisfactory_pref (move_pref moves)``,
+  satisfactory_pref (move_pref moves)`,
   full_simp_tac(srw_ss())[satisfactory_pref_def,move_pref_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>Cases_on`ls`>>full_simp_tac(srw_ss())[]>>
   imp_res_tac first_match_col_mem>>
   full_simp_tac(srw_ss())[])
 
-val aux_move_pref_satisfactory = prove(``
+val aux_move_pref_satisfactory = Q.prove(`
   ∀prefs moves.
-  satisfactory_pref (aux_move_pref prefs moves)``,
+  satisfactory_pref (aux_move_pref prefs moves)`,
   full_simp_tac(srw_ss())[satisfactory_pref_def,aux_move_pref_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>
   metis_tac[aux_pref_satisfactory,move_pref_satisfactory,satisfactory_pref_def])
 
-val id_colour_lemma = prove(``
+val id_colour_lemma = Q.prove(`
   ∀ls.
   let t = id_colour ls in
   domain t = set ls ∧
-  ∀x. (MEM x ls ⇒ lookup x t = SOME x)``,
+  ∀x. (MEM x ls ⇒ lookup x t = SOME x)`,
   Induct>>full_simp_tac(srw_ss())[id_colour_def,LET_THM,lookup_insert]>>srw_tac[][])
 
 (*alloc_colouring_aux never overwrites an old colouring*)
@@ -271,13 +271,13 @@ val partial_colouring_satisfactory_def = Define`
     let edges = THE (lookup v G) in
     ∀v'. v' ∈ domain edges ∧ v' ∈ domain col ⇒ lookup v col ≠ lookup v' col`
 
-val remove_colours_removes = prove(``
+val remove_colours_removes = Q.prove(`
   ∀ls col k ls'.
   remove_colours col ls k = ls'
   ⇒
   ∀x. MEM x ls' ⇒
   MEM x k ∧
-  (∀y c. MEM y ls ∧ lookup y col = SOME c ⇒ c ≠ x)``,
+  (∀y c. MEM y ls ∧ lookup y col = SOME c ⇒ c ≠ x)`,
   Induct>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
   Cases_on`k`>>
   full_simp_tac(srw_ss())[remove_colours_def,LET_THM]
@@ -295,7 +295,7 @@ val remove_colours_removes = prove(``
     first_x_assum(qspec_then`y` assume_tac)>>
     Cases_on`y=h`>>full_simp_tac(srw_ss())[MEM_FILTER]>>metis_tac[])
 
-val partial_colouring_satisfactory_extend = prove(``
+val partial_colouring_satisfactory_extend = Q.prove(`
   partial_colouring_satisfactory col G ∧
   undir_graph G ∧
   h ∉ domain col ∧
@@ -304,7 +304,7 @@ val partial_colouring_satisfactory_extend = prove(``
        y ∈ domain col ⇒
        THE (lookup y col) ≠ (v:num))
   ⇒
-  partial_colouring_satisfactory (insert h v col) G``,
+  partial_colouring_satisfactory (insert h v col) G`,
   full_simp_tac(srw_ss())[partial_colouring_satisfactory_def]>>rpt strip_tac
   >-
     full_simp_tac(srw_ss())[domain_lookup]
@@ -529,11 +529,11 @@ val alloc_colouring_aux_domain_3 = prove(``
     >>
     res_tac)
 
-val list_mem = prove(``
+val list_mem = Q.prove(`
   ∀ls ls'.
     MEM x ls ∧ (h::ls') = ls ∧ x ≠ h
     ⇒
-    MEM x ls'``,
+    MEM x ls'`,
   srw_tac[][]>>full_simp_tac(srw_ss())[])
 
 (*If not the assigned colour then it must have come from before*)
@@ -578,11 +578,11 @@ val alloc_colouring_aux_domain_5 = prove(``
   qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[domain_lookup])
 
-val id_colour_always_sat = prove(``
+val id_colour_always_sat = Q.prove(`
   undir_graph G ∧
   (∀x. MEM x ls ⇒ x ∈ domain G)
   ⇒
-  partial_colouring_satisfactory (id_colour ls) G``,
+  partial_colouring_satisfactory (id_colour ls) G`,
   Q.ISPEC_THEN `ls` assume_tac id_colour_lemma>>
   srw_tac[][undir_graph_def,partial_colouring_satisfactory_def]>>
   full_simp_tac(srw_ss())[LET_THM]>-
@@ -716,12 +716,12 @@ val alloc_colouring_success_2 = prove(``
   full_simp_tac(srw_ss())[alloc_colouring_def]>>srw_tac[][]>>
   imp_res_tac alloc_colouring_aux_domain_5>>full_simp_tac(srw_ss())[])
 
-val spill_colouring_never_overwrites = prove(``
+val spill_colouring_never_overwrites = Q.prove(`
   ∀ls col col'.
   lookup x col = SOME y ∧
   spill_colouring G k prefs ls col = col'
   ⇒
-  lookup x col' = SOME y``,
+  lookup x col' = SOME y`,
   Induct>>full_simp_tac(srw_ss())[spill_colouring_def,assign_colour2_def]>>srw_tac[][]>>
   Cases_on`x=h`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
   >-
@@ -730,20 +730,20 @@ val spill_colouring_never_overwrites = prove(``
   every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[lookup_insert])
 
-val spill_colouring_domain_subset = prove(``
+val spill_colouring_domain_subset = Q.prove(`
   ∀ls col col'.
-  domain col ⊆ domain (spill_colouring G k prefs ls col)``,
+  domain col ⊆ domain (spill_colouring G k prefs ls col)`,
   srw_tac[][SUBSET_DEF]>>full_simp_tac(srw_ss())[domain_lookup]>>
   metis_tac[domain_lookup,spill_colouring_never_overwrites])
 
-val SORTED_TAIL = prove(``
-  SORTED R (x::xs) ⇒ SORTED R xs``,
+val SORTED_TAIL = Q.prove(`
+  SORTED R (x::xs) ⇒ SORTED R xs`,
   Cases_on`xs`>>full_simp_tac(srw_ss())[SORTED_DEF])
 
-val SORTED_HEAD_LT = prove(``
+val SORTED_HEAD_LT = Q.prove(`
   ∀ls.
   (col:num) < h ∧ SORTED (λx y. x≤y) (h::ls) ⇒
-  ¬MEM col ls``,
+  ¬MEM col ls`,
   Induct>>srw_tac[][SORTED_DEF]
   >-
     DECIDE_TAC
@@ -752,14 +752,14 @@ val SORTED_HEAD_LT = prove(``
     Cases_on`ls`>>full_simp_tac(srw_ss())[SORTED_DEF]>>DECIDE_TAC)
 
 (*prove multiple properties in one go*)
-val unbound_colours_props = prove(``
+val unbound_colours_props = Q.prove(`
   ∀col ls col'.
     is_phy_var col ∧
     SORTED (λx y.x≤y) ls ∧
     unbound_colours col ls = col'
     ⇒
     is_phy_var col' ∧ col' ≥ col ∧
-    ¬MEM col' ls``,
+    ¬MEM col' ls`,
   Induct_on`ls`>>srw_tac[][unbound_colours_def]>>
   imp_res_tac SORTED_TAIL>>
   `is_phy_var (col+2)` by
@@ -785,14 +785,14 @@ val is_phy_var_tac =
     `(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0]);
 
-val option_filter_eq = prove(``
-  ∀ls. option_filter ls = MAP THE (FILTER IS_SOME ls)``,
+val option_filter_eq = Q.prove(`
+  ∀ls. option_filter ls = MAP THE (FILTER IS_SOME ls)`,
   Induct>>srw_tac[][option_filter_def]>>every_case_tac>>full_simp_tac(srw_ss())[])
 
-val assign_colour2_satisfactory = prove(``
+val assign_colour2_satisfactory = Q.prove(`
   undir_graph G ∧
   partial_colouring_satisfactory col G ⇒
-  partial_colouring_satisfactory (assign_colour2 G k prefs h col) G``,
+  partial_colouring_satisfactory (assign_colour2 G k prefs h col) G`,
   srw_tac[][assign_colour2_def]>>
   full_simp_tac(srw_ss())[LET_THM]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
@@ -817,12 +817,12 @@ val assign_colour2_satisfactory = prove(``
     ,PULL_EXISTS,MEM_toAList]>>
   HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])
 
-val assign_colour2_conventional = prove(``
+val assign_colour2_conventional = Q.prove(`
   v ∈ domain G ∧
   v ∉ domain col ∧
   assign_colour2 G k prefs v col  = col'
   ⇒
-  ∃y. lookup v col' = SOME y ∧ y≥2*k ∧ is_phy_var y``,
+  ∃y. lookup v col' = SOME y ∧ y≥2*k ∧ is_phy_var y`,
   srw_tac[][assign_colour2_def]>>
   full_simp_tac(srw_ss())[LET_THM,domain_lookup]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
@@ -833,23 +833,23 @@ val assign_colour2_conventional = prove(``
 
 (*Coloring produced after each spill_colouring step is
   partial_colouring_satisfactory*)
-val spill_colouring_satisfactory = prove(``
+val spill_colouring_satisfactory = Q.prove(`
   ∀G k prefs ls col.
   undir_graph G ∧
   partial_colouring_satisfactory col G
   ⇒
   let col' = spill_colouring G k prefs ls col in
-    partial_colouring_satisfactory col' G``,
+    partial_colouring_satisfactory col' G`,
   Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
   metis_tac[assign_colour2_satisfactory])
 
 (*Domain is extended*)
-val spill_colouring_domain_1 = prove(``
+val spill_colouring_domain_1 = Q.prove(`
   ∀G k prefs ls col.
   let col' = spill_colouring G k prefs ls col in
   ∀x. MEM x ls ∧ x ∈ domain G ⇒
-      x ∈ domain col'``,
+      x ∈ domain col'`,
   Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]
   >-
     (full_simp_tac(srw_ss())[assign_colour2_def,domain_lookup,LET_THM]>>
@@ -872,11 +872,11 @@ val spill_colouring_domain_1 = prove(``
     metis_tac[])
 
 (*Coloring is extended on the list according to conventions*)
-val spill_colouring_domain_2 = prove(``
+val spill_colouring_domain_2 = Q.prove(`
   ∀G k prefs ls col.
   let col' = spill_colouring G k prefs ls col in
   ∀x. MEM x ls ∧ x ∈ domain G ∧ x ∉ domain col ⇒
-      ∃y. lookup x col' = SOME y ∧ y ≥ 2*k ∧ is_phy_var y``,
+      ∃y. lookup x col' = SOME y ∧ y ≥ 2*k ∧ is_phy_var y`,
   Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]
   >-
     (imp_res_tac assign_colour2_conventional>>full_simp_tac(srw_ss())[]>>
@@ -891,20 +891,20 @@ val spill_colouring_domain_2 = prove(``
       full_simp_tac(srw_ss())[LET_THM]>>
       metis_tac[])
 
-val assign_colour2_reverse = prove(``
+val assign_colour2_reverse = Q.prove(`
   ∀G:sp_graph k prefs h col col'.
   assign_colour2 G k prefs h col = col'
   ⇒
   ∀x. x ≠ h ⇒
-  (x ∈ domain col' ⇒ x ∈ domain col)``,
+  (x ∈ domain col' ⇒ x ∈ domain col)`,
   srw_tac[][assign_colour2_def]>>every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[])
 
-val spill_colouring_domain_3 = prove(``
+val spill_colouring_domain_3 = Q.prove(`
   ∀G k prefs ls col.
   let col' = spill_colouring G k prefs ls col in
   ∀x. ¬MEM x ls ⇒
-  (x ∈ domain col' ⇒ x ∈ domain col)``,
+  (x ∈ domain col' ⇒ x ∈ domain col)`,
   Induct_on`ls`>>srw_tac[][spill_colouring_def,LET_THM]>>
   Cases_on`assign_colour2 G k prefs h col`>>full_simp_tac(srw_ss())[]>>
   metis_tac[assign_colour2_reverse])
@@ -914,13 +914,13 @@ val is_subgraph_edges_def = Define`
     domain G = domain H  ∧  (*We never change the vertex set*)
    (∀x y. lookup_g x y G ⇒ lookup_g x y H)`
 
-val partial_colouring_satisfactory_subgraph_edges = prove(``
+val partial_colouring_satisfactory_subgraph_edges = Q.prove(`
   ∀G H col.
   (*Every edge in G is in H*)
   undir_graph G ∧
   is_subgraph_edges G H ∧
   (partial_colouring_satisfactory col H) ⇒
-  partial_colouring_satisfactory col G``,
+  partial_colouring_satisfactory col G`,
   full_simp_tac(srw_ss())[partial_colouring_satisfactory_def,lookup_g_def,is_subgraph_edges_def]>>
   srw_tac[][]>>
   `v ∈ domain G` by full_simp_tac(srw_ss())[]>>
@@ -938,10 +938,10 @@ val partial_colouring_satisfactory_subgraph_edges = prove(``
   pop_assum(qspec_then`v'` assume_tac)>>
   rev_full_simp_tac(srw_ss())[])
 
-val undir_g_preserve = prove(``
+val undir_g_preserve = Q.prove(`
   undir_graph G ∧
   x ≠ y ⇒
-  undir_graph (undir_g_insert x y G)``,
+  undir_graph (undir_g_insert x y G)`,
   full_simp_tac(srw_ss())[undir_graph_def,undir_g_insert_def,dir_g_insert_def]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[lookup_insert]>>
   IF_CASES_TAC >-
@@ -968,12 +968,12 @@ val finish_tac =
   last_x_assum(qspec_then `v'` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
   pop_assum(qspec_then`v` assume_tac)>>rev_full_simp_tac(srw_ss())[];
 
-val partial_colouring_satisfactory_extend_2 = prove(``
+val partial_colouring_satisfactory_extend_2 = Q.prove(`
   undir_graph G ∧
   partial_colouring_satisfactory col G ∧
   (x ∉ domain col ∨ y ∉ domain col ∧
   x ∈ domain G ∧ y ∈ domain G) ⇒
-  partial_colouring_satisfactory col (undir_g_insert x y G)``,
+  partial_colouring_satisfactory col (undir_g_insert x y G)`,
   full_simp_tac(srw_ss())[undir_g_insert_def,dir_g_insert_def
     ,partial_colouring_satisfactory_def]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[domain_lookup,LET_THM]>>
@@ -998,12 +998,12 @@ val partial_colouring_satisfactory_extend_2 = prove(``
   Cases_on`v'=y`>>full_simp_tac(srw_ss())[lookup_def]>>
   finish_tac)
 
-val list_g_insert_undir = prove(``
+val list_g_insert_undir = Q.prove(`
   ∀ls G col.
   undir_graph G ∧
   ¬MEM q ls ⇒
   let G' = list_g_insert q ls G in
-  undir_graph G'``,
+  undir_graph G'`,
   Induct>>srw_tac[][list_g_insert_def]>>
   full_simp_tac(srw_ss())[Abbr`G'`]
   >-
@@ -1016,7 +1016,7 @@ val list_g_insert_undir = prove(``
   >>
     metis_tac[undir_g_preserve])
 
-val list_g_insert_lemma = prove(``
+val list_g_insert_lemma = Q.prove(`
   ∀ls G col.
   undir_graph G ∧
   ¬ MEM q ls ∧
@@ -1027,7 +1027,7 @@ val list_g_insert_lemma = prove(``
   let G' = list_g_insert q ls G in
   is_subgraph_edges G G' ∧
   undir_graph G' ∧
-  partial_colouring_satisfactory col G'``,
+  partial_colouring_satisfactory col G'`,
   Induct
   >-
     (srw_tac[][list_g_insert_def,is_subgraph_edges_def]>>
@@ -1060,10 +1060,10 @@ val list_g_insert_lemma = prove(``
     match_mp_tac partial_colouring_satisfactory_extend_2>>
     rev_full_simp_tac(srw_ss())[list_g_insert_domain])
 
-val is_subgraph_edges_trans = prove(``
+val is_subgraph_edges_trans = Q.prove(`
   is_subgraph_edges A B ∧
   is_subgraph_edges B C ⇒
-  is_subgraph_edges A C``,
+  is_subgraph_edges A C`,
   full_simp_tac(srw_ss())[is_subgraph_edges_def]>>srw_tac[][SUBSET_DEF])
 
 val full_coalesce_aux_extends = prove(``
@@ -1659,11 +1659,11 @@ val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
   first_x_assum(qspec_then`v'''` assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[])
 
-val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
+val reg_alloc_conventional = Q.store_thm("reg_alloc_conventional" ,`
   ∀alg G k moves.
   undir_graph G ⇒
   let col = reg_alloc alg G k moves in
-  colouring_conventional G k (total_colour col)``,
+  colouring_conventional G k (total_colour col)`,
   srw_tac[][]>>imp_res_tac reg_alloc_satisfactory>>
   pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   srw_tac[][total_colour_def,reg_alloc_def,colouring_conventional_def]>>
@@ -1737,11 +1737,11 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
       metis_tac[spill_colouring_domain_3,optionTheory.option_CLAUSES])
 
 (*strengthen case of the above*)
-val reg_alloc_conventional_phy_var = store_thm("reg_alloc_conventional_phy_var",``
+val reg_alloc_conventional_phy_var = Q.store_thm("reg_alloc_conventional_phy_var",`
   ∀alg G k moves.
   undir_graph G ⇒
   let col = reg_alloc alg G k moves in
-  ∀x. is_phy_var x ⇒ (total_colour col) x = x``,
+  ∀x. is_phy_var x ⇒ (total_colour col) x = x`,
   srw_tac[][]>>Cases_on`x ∈ domain col`
   >-
   (imp_res_tac reg_alloc_satisfactory >>
@@ -1761,28 +1761,28 @@ val reg_alloc_conventional_phy_var = store_thm("reg_alloc_conventional_phy_var",
   - clash_sets_to_sp_g produces undirected graphs
 *)
 
-val clique_g_insert_undir = prove(``
+val clique_g_insert_undir = Q.prove(`
   ∀ls G.
   undir_graph G ∧
   ALL_DISTINCT ls
   ⇒
-  undir_graph (clique_g_insert ls G)``,
+  undir_graph (clique_g_insert ls G)`,
   Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
   metis_tac[list_g_insert_undir])
 
-val clash_sets_to_sp_g_undir = store_thm("clash_sets_to_sp_g_undir",``
+val clash_sets_to_sp_g_undir = Q.store_thm("clash_sets_to_sp_g_undir",`
 ∀ls.
-  undir_graph (clash_sets_to_sp_g ls)``,
+  undir_graph (clash_sets_to_sp_g ls)`,
   Induct>-srw_tac[][clash_sets_to_sp_g_def,undir_graph_def,lookup_def]>>
   srw_tac[][clash_sets_to_sp_g_def]>>
   match_mp_tac clique_g_insert_undir>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList])
 
-val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
+val clash_sets_to_sp_g_domain = Q.store_thm("clash_sets_to_sp_g_domain",`
 ∀ls x.
   in_clash_sets ls x ⇒
-  x ∈ domain (clash_sets_to_sp_g ls)``,
+  x ∈ domain (clash_sets_to_sp_g ls)`,
   Induct>>full_simp_tac(srw_ss())[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>srw_tac[][]>>res_tac>>
   full_simp_tac(srw_ss())[clique_g_insert_domain]>>
   full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
@@ -1795,15 +1795,15 @@ val is_subgraph_def = Define`
   domain G ⊆ domain H ∧
   ∀x y. lookup_g x y G ⇒ lookup_g x y H`
 
-val is_subgraph_refl = prove(``is_subgraph G G``, fs[is_subgraph_def])
+val is_subgraph_refl = Q.prove(`is_subgraph G G`, fs[is_subgraph_def])
 
-val is_subgraph_trans = prove(``
+val is_subgraph_trans = Q.prove(`
   is_subgraph A B ∧ is_subgraph B C ⇒
-  is_subgraph A C``,
+  is_subgraph A C`,
   fs[is_subgraph_def]>>
   metis_tac[SUBSET_TRANS])
 
-val list_g_insert_props = prove(``
+val list_g_insert_props = Q.prove(`
   ∀live h G.
   sp_g_is_clique live G ∧
   undir_graph G ∧
@@ -1811,17 +1811,17 @@ val list_g_insert_props = prove(``
   let G' = list_g_insert h live G in
   is_subgraph G G' ∧
   undir_graph G' ∧
-  sp_g_is_clique (h::live) G'``,
+  sp_g_is_clique (h::live) G'`,
   ntac 4 strip_tac>>
   Q.ISPECL_THEN [`live`,`h`,`G`] assume_tac list_g_insert_correct>>
   Q.ISPECL_THEN [`h`,`live`,`G`] assume_tac (GEN_ALL list_g_insert_undir)>>
   fs[is_subgraph_def,sp_g_is_clique_def,list_g_insert_domain]>>
   metis_tac[SUBSET_UNION,UNION_COMM,UNION_ASSOC])
 
-val clique_g_insert_subgraph = prove(``
+val clique_g_insert_subgraph = Q.prove(`
   ∀live G.
   ALL_DISTINCT live ⇒
-  is_subgraph G (clique_g_insert live G)``,
+  is_subgraph G (clique_g_insert live G)`,
   rw[]>>
   imp_res_tac clique_g_insert_correct>>
   fs[is_subgraph_def,clique_g_insert_domain])
@@ -1850,10 +1850,10 @@ val extend_clique_props = prove(``
     rfs[is_subgraph_def]>>
     fs[EXTENSION]>>metis_tac[SUBSET_TRANS]))
 
-val colouring_satisfactory_subgraph = prove(``
+val colouring_satisfactory_subgraph = Q.prove(`
   is_subgraph G H ∧
   colouring_satisfactory col H ⇒
-  colouring_satisfactory col G``,
+  colouring_satisfactory col G`,
   fs[colouring_satisfactory_def,is_subgraph_def]>>rw[]>>
   fs[domain_lookup,lookup_g_def]>>rw[]>>
   first_x_assum(qspecl_then[`v`,`e`] assume_tac)>>rfs[]>>
@@ -1861,10 +1861,10 @@ val colouring_satisfactory_subgraph = prove(``
   first_x_assum(qspec_then`v`assume_tac)>>rfs[])
 
 (*TODO: this is in word_allocProof*)
-val INJ_less = prove(``
+val INJ_less = Q.prove(`
   INJ f s' UNIV ∧ s ⊆ s'
   ⇒
-  INJ f s UNIV``,
+  INJ f s UNIV`,
   metis_tac[INJ_DEF,SUBSET_DEF])
 
 (*Form up the entire clique, then check*)
@@ -1911,46 +1911,46 @@ val check_partial_col_success = prove(``
   rw[]>>fs[EXTENSION]>>
   fs[domain_lookup]>>metis_tac[])
 
-val ALL_DISTINCT_set_INJ = prove(``
+val ALL_DISTINCT_set_INJ = Q.prove(`
   ∀ls col.
   ALL_DISTINCT (MAP col ls) ⇒
-  INJ col (set ls) UNIV``,
+  INJ col (set ls) UNIV`,
   Induct>>fs[INJ_DEF]>>rw[]>>
   fs[MEM_MAP]>>
   metis_tac[])
 
-val ALL_DISTINCT_IMP_INJ = prove(``
+val ALL_DISTINCT_IMP_INJ = Q.prove(`
   ALL_DISTINCT (MAP col live') ∧
   set live' = set livelist ∪ set l ⇒
-  INJ col (set l ∪ set livelist) UNIV``,
+  INJ col (set l ∪ set livelist) UNIV`,
   rw[]>>
   imp_res_tac ALL_DISTINCT_set_INJ>>
   metis_tac[UNION_COMM])
 
-val sp_g_is_clique_subgraph = prove(``
+val sp_g_is_clique_subgraph = Q.prove(`
   ∀ls.
   sp_g_is_clique ls G ∧
   is_subgraph G G' ⇒
-  sp_g_is_clique ls G'``,
+  sp_g_is_clique ls G'`,
   Induct>>fs[sp_g_is_clique_def,SUBSET_DEF]>>
   ntac 5 strip_tac>>fs[is_subgraph_def,SUBSET_DEF]>>
   metis_tac[])
 
 (*More generally, any LIST SUBSET satisfies this*)
-val sp_g_is_clique_FILTER = prove(``
+val sp_g_is_clique_FILTER = Q.prove(`
   ∀ls.
   sp_g_is_clique ls G ⇒
-  sp_g_is_clique (FILTER P ls) G``,
+  sp_g_is_clique (FILTER P ls) G`,
   Induct>>fs[sp_g_is_clique_def]>>
   strip_tac>>
   cases_on`P h`>>
   fs[MEM_FILTER]>>
   metis_tac[])
 
-val domain_numset_list_delete = store_thm("domain_numset_list_delete",``
+val domain_numset_list_delete = Q.store_thm("domain_numset_list_delete",`
   ∀l live.
   domain (numset_list_delete l live) =
-  domain live DIFF set l``,
+  domain live DIFF set l`,
   Induct>>fs[numset_list_delete_def]>>rw[]>>
   fs[EXTENSION]>>
   metis_tac[])
@@ -2008,11 +2008,11 @@ val clash_tree_to_spg_props = store_thm("clash_tree_to_spg_props",``
     rfs[]>>
     metis_tac[is_subgraph_trans])
 
-val sp_g_is_clique_swap = prove(``
+val sp_g_is_clique_swap = Q.prove(`
   ∀ls'.
   sp_g_is_clique ls G ∧
   (∀x. MEM x ls ⇔ MEM x ls') ⇒
-  sp_g_is_clique ls' G``,
+  sp_g_is_clique ls' G`,
   fs[sp_g_is_clique_def,SUBSET_DEF])
 
 val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_check_clash_tree",``

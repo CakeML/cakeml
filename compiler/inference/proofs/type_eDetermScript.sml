@@ -188,7 +188,7 @@ val generalise_complete_lem = Q.prove (
  mp_tac (Q.SPECL [`n`, `s`, `[t]`] generalise_complete) >>
  rw [generalise_def, LET_THM]);
 
-val t_vars_check_t = prove(``
+val t_vars_check_t = Q.prove(`
   (∀t.
   ¬check_t 0 {} t ∧
   check_t 0 s t ⇒
@@ -197,7 +197,7 @@ val t_vars_check_t = prove(``
   ∀x.MEM x ts ⇒
     ¬check_t 0 {} x ∧
     check_t 0 s x ⇒
-    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)``,
+    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,t_vars_eqn]>>
   fs[EXISTS_MEM,EVERY_MEM]>>res_tac>>
@@ -205,14 +205,14 @@ val t_vars_check_t = prove(``
   fs[MEM_MAP]>>
   metis_tac[]);
 
-val t_walkstar_diff = prove(``
+val t_walkstar_diff = Q.prove(`
   t_wfs s1 ∧ t_wfs s2 ∧
   (t_walkstar s1 (Infer_Tuvar n) ≠ t_walkstar s2 (Infer_Tuvar n))
   ⇒
   (∀t.(n ∈ t_vars t) ⇒ t_walkstar s1 t ≠ t_walkstar s2 t) ∧
   (∀ts.
   ∀x. MEM x ts ⇒
-    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)``,
+    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)`,
   strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[t_vars_eqn]>>fs[]>>

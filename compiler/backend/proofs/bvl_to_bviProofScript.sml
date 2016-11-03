@@ -33,8 +33,8 @@ val adjust_bv_Unit = Q.store_thm("adjust_bv_Unit[simp]",
   `adjust_bv x Unit = Unit`,
   EVAL_TAC);
 
-val adjust_bv_Boolv = store_thm("adjust_bv_Boolv[simp]",
-  ``adjust_bv x (Boolv b) = Boolv b``,
+val adjust_bv_Boolv = Q.store_thm("adjust_bv_Boolv[simp]",
+  `adjust_bv x (Boolv b) = Boolv b`,
   Cases_on`b`>>EVAL_TAC)
 
 val aux_code_installed_def = Define `
@@ -43,11 +43,11 @@ val aux_code_installed_def = Define `
      (sptree$lookup name t = SOME (arg_count,body)) /\
      aux_code_installed rest t)`
 
-val aux_code_installed_APPEND = prove(
-  ``!xs ys.
+val aux_code_installed_APPEND = Q.prove(
+  `!xs ys.
       aux_code_installed (xs++ys) code ==>
       aux_code_installed xs code /\
-      aux_code_installed ys code``,
+      aux_code_installed ys code`,
   Induct \\ full_simp_tac(srw_ss())[APPEND,aux_code_installed_def,FORALL_PROD] \\ METIS_TAC []);
 
 val state_rel_def = Define `
@@ -88,9 +88,9 @@ val bv_ok_def = tDefine "bv_ok" `
 
 val bv_ok_ind = theorem"bv_ok_ind";
 
-val bv_ok_SUBSET_IMP = prove(
-  ``!refs x refs2.
-      bv_ok refs x /\ FDOM refs SUBSET FDOM refs2 ==> bv_ok refs2 x``,
+val bv_ok_SUBSET_IMP = Q.prove(
+  `!refs x refs2.
+      bv_ok refs x /\ FDOM refs SUBSET FDOM refs2 ==> bv_ok refs2 x`,
   HO_MATCH_MP_TAC bv_ok_ind \\ full_simp_tac(srw_ss())[bv_ok_def]
   \\ full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM]);
 
@@ -102,11 +102,11 @@ val bv_ok_Boolv = Q.store_thm("bv_ok_Boolv[simp]",
   `bv_ok refs (Boolv b)`,
   EVAL_TAC)
 
-val bv_ok_IMP_adjust_bv_eq = prove(
-  ``!b2 a1 b3.
+val bv_ok_IMP_adjust_bv_eq = Q.prove(
+  `!b2 a1 b3.
       bv_ok (s5:'ffi bvlSem$state).refs a1 /\
       (!a. a IN FDOM s5.refs ==> b2 a = b3 a) ==>
-      (adjust_bv b2 a1 = adjust_bv b3 a1)``,
+      (adjust_bv b2 a1 = adjust_bv b3 a1)`,
   HO_MATCH_MP_TAC adjust_bv_ind
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bv_ok_def]
   \\ full_simp_tac(srw_ss())[MAP_EQ_f,EVERY_MEM]);
@@ -120,9 +120,9 @@ val state_ok_def = Define `
 
 (* evaluate preserves state_ok *)
 
-val evaluate_ok_lemma = prove(
-  ``(state_ok (dec_clock n s) = state_ok s) /\
-    ((dec_clock n s).refs = s.refs)``,
+val evaluate_ok_lemma = Q.prove(
+  `(state_ok (dec_clock n s) = state_ok s) /\
+    ((dec_clock n s).refs = s.refs)`,
   full_simp_tac(srw_ss())[state_ok_def,bvlSemTheory.dec_clock_def]);
 
 val evaluate_IMP_bv_ok = prove(

@@ -16,16 +16,16 @@ val state_rel_def = Define `
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
-val state_rel_ID = prove(
-  ``!s live. state_rel s s live``,
+val state_rel_ID = Q.prove(
+  `!s live. state_rel s s live`,
   fs [state_rel_def]);
 
-val jump_exc_IMP_state_rel = prove(
-  ``!s1 t1 s2 t2.
+val jump_exc_IMP_state_rel = Q.prove(
+  `!s1 t1 s2 t2.
       (jump_exc s1 = SOME s2) /\ (jump_exc t1 = SOME t2) /\
       state_rel s1 t1 LN /\ (LENGTH s2.stack = LENGTH t2.stack) ==>
       state_rel (s2 with handler := s1.handler)
-                (t2 with handler := t1.handler) LN``,
+                (t2 with handler := t1.handler) LN`,
   REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [jump_exc_def]
   \\ every_case_tac >> fs[]
@@ -51,9 +51,9 @@ val state_rel_IMP_do_app = prove(
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]);
 
-val state_rel_IMP_do_app_err = prove(
-  ``(do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
-    (do_app op args t1 = Rerr e)``,
+val state_rel_IMP_do_app_err = Q.prove(
+  `(do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
+    (do_app op args t1 = Rerr e)`,
   STRIP_TAC
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def]
@@ -65,11 +65,11 @@ val state_rel_IMP_do_app_err = prove(
   \\ fs [bvi_to_data_def]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]);
 
-val state_rel_IMP_get_vars = prove(
-  ``!args s1 t1 t xs.
+val state_rel_IMP_get_vars = Q.prove(
+  `!args s1 t1 t xs.
       state_rel s1 t1 (list_insert args t) /\
       (get_vars args s1.locals = SOME xs) ==>
-      (get_vars args t1.locals = SOME xs)``,
+      (get_vars args t1.locals = SOME xs)`,
   Induct \\ fs [get_vars_def] \\ REPEAT STRIP_TAC
   \\ `state_rel s1 t1 (list_insert args t) /\
       (get_var h s1.locals = get_var h t1.locals)` by ALL_TAC THEN1
@@ -78,9 +78,9 @@ val state_rel_IMP_get_vars = prove(
   \\ every_case_tac >> fs[]
   \\ RES_TAC \\ fs [] \\ SRW_TAC [] []);
 
-val is_pure_do_app_Rerr_IMP = prove(
-  ``is_pure op /\ do_app op xs s = Rerr e ==>
-    Rabort Rtype_error = e``,
+val is_pure_do_app_Rerr_IMP = Q.prove(
+  `is_pure op /\ do_app op xs s = Rerr e ==>
+    Rabort Rtype_error = e`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
   \\ EVAL_TAC \\ every_case_tac \\ fs []
   \\ fs [state_component_equality]);

@@ -137,30 +137,30 @@ val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
    ((asmSem$upd_pc x s).pc = x)`,
   EVAL_TAC);
 
-val asm_failed_ignore_new_pc = store_thm("asm_failed_ignore_new_pc",
-  ``!i v w s. (asm i w s).failed <=> (asm i v s).failed``,
+val asm_failed_ignore_new_pc = Q.store_thm("asm_failed_ignore_new_pc",
+  `!i v w s. (asm i w s).failed <=> (asm i v s).failed`,
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
-  ``!i v w s. (asm i w s).mem = (asm i v s).mem``,
+val asm_mem_ignore_new_pc = Q.store_thm("asm_mem_ignore_new_pc",
+  `!i v w s. (asm i w s).mem = (asm i v s).mem`,
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-val SND_read_mem_word_consts = prove(
-  ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+val SND_read_mem_word_consts = Q.prove(
+  `!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
             ((SND (read_mem_word a n s)).lr = s.lr) /\
             ((SND (read_mem_word a n s)).align = s.align) /\
-            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)`,
   Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ full_simp_tac(srw_ss())[assert_def])
 
-val write_mem_word_consts = prove(
-  ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
+val write_mem_word_consts = Q.prove(
+  `!n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
               ((write_mem_word a n w s).align = s.align) /\
-              ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)`,
   Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
 
 val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
@@ -180,11 +180,11 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    ((arith_upd a x).be = x.be)`,
   Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
 
-val asm_consts = store_thm("asm_consts[simp]",
-  ``!i w s. ((asm i w s).be = s.be) /\
+val asm_consts = Q.store_thm("asm_consts[simp]",
+  `!i w s. ((asm i w s).be = s.be) /\
             ((asm i w s).lr = s.lr) /\
             ((asm i w s).align = s.align) /\
-            ((asm i w s).mem_domain = s.mem_domain)``,
+            ((asm i w s).mem_domain = s.mem_domain)`,
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
   \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]

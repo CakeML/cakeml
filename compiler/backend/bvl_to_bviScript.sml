@@ -193,8 +193,8 @@ val compile_exps_def = tDefine "compile_exps" `
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
-val compile_exps_LENGTH_lemma = prove(
-  ``!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)``,
+val compile_exps_LENGTH_lemma = Q.prove(
+  `!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)`,
   HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_exps_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);

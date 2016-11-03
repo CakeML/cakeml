@@ -137,8 +137,8 @@ val _ = ml_prog_update (close_module NONE);
 val _ = trans "byte_is_nonzero" `\(w:word8). w <> 0w`
 val _ = trans "char_of_byte" `\(w:word8). CHR (w2n w)`
 
-val char_of_byte_side = store_thm("char_of_byte_side",
-  ``char_of_byte_side w``,
+val char_of_byte_side = Q.store_thm("char_of_byte_side",
+  `char_of_byte_side w`,
   metis_tac [fetch"-" "char_of_byte_side_def",w2n_lt,EVAL ``dimword(:8)``]);
 
 (* CharIO -- CF verified *)
@@ -426,14 +426,14 @@ val extract_output_def = Define `
          if LENGTH bytes <> 1 then NONE else
            SOME ((SND (HD bytes)) :: rest))`
 
-val extract_output_APPEND = store_thm("extract_output_APPEND",
-  ``!xs ys.
+val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
+  `!xs ys.
       extract_output (xs ++ ys) =
       case extract_output ys of
       | NONE => NONE
       | SOME rest => case extract_output xs of
                      | NONE => NONE
-                     | SOME front => SOME (front ++ rest)``,
+                     | SOME front => SOME (front ++ rest)`,
   Induct \\ fs [APPEND,extract_output_def] \\ rw []
   THEN1 (every_case_tac \\ fs [])
   \\ Cases_on `h` \\ fs [extract_output_def]
@@ -452,12 +452,12 @@ val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
   \\ imp_res_tac determTheory.prog_determ
   \\ fs[] \\ rw[]);
 
-val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
-  ``!st st'.
+val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events",
+  `!st st'.
       call_FFI_rel^* st st' ==>
       st.oracle = io_ffi_oracle /\
       extract_output st.io_events = SOME (SND (st.ffi_state)) ==>
-      extract_output st'.io_events = SOME (SND (st'.ffi_state))``,
+      extract_output st'.io_events = SOME (SND (st'.ffi_state))`,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -486,9 +486,9 @@ val w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]
          |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
 
-val MAP_CHR_w2n_11 = store_thm("MAP_CHR_w2n_11",
-  ``!ws1 ws2:word8 list.
-      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2``,
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 

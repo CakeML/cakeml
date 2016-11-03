@@ -510,8 +510,8 @@ val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
 val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
-val frange_image = prove(
-  ``FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)``,
+val frange_image = Q.prove(
+  `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]);
 
 val peg_range =
@@ -569,7 +569,7 @@ val pegnt_case_ths = peg0_cases
 
 fun pegnt(t,acc) = let
   val th =
-      prove(``¬peg0 cmlPEG (pnt ^t)``,
+      Q.prove(`¬peg0 cmlPEG (pnt ^t)`,
             simp(pegnt_case_ths @ cmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
                   peg_StructName_def,
@@ -657,7 +657,7 @@ val peg0_tokeq = Store_thm(
 
 fun wfnt(t,acc) = let
   val th =
-    prove(``wfpeg cmlPEG (pnt ^t)``,
+    Q.prove(`wfpeg cmlPEG (pnt ^t)`,
           SIMP_TAC (srw_ss())
                    (cmlpeg_rules_applied @
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
@@ -702,8 +702,8 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
                       ``nDtypeCons``])
 *)
 
-val subexprs_pnt = prove(
-  ``subexprs (pnt n) = {pnt n}``,
+val subexprs_pnt = Q.prove(
+  `subexprs (pnt n) = {pnt n}`,
   simp[subexprs_def, pnt_def]);
 
 val PEG_exprs = save_thm(
@@ -718,9 +718,9 @@ val PEG_exprs = save_thm(
           pred_setTheory.INSERT_UNION_EQ
          ])
 
-val PEG_wellformed = store_thm(
+val PEG_wellformed = Q.store_thm(
   "PEG_wellformed",
-  ``wfG cmlPEG``,
+  `wfG cmlPEG`,
   simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
@@ -754,7 +754,7 @@ local
   val nts = recurse [] r
 in
 val FDOM_cmlPEG_nts = let
-  fun p t = prove(``^t ∈ FDOM cmlPEG.rules``, simp[FDOM_cmlPEG])
+  fun p t = Q.prove(`^t ∈ FDOM cmlPEG.rules`, simp[FDOM_cmlPEG])
 in
   save_thm("FDOM_cmlPEG_nts", LIST_CONJ (map p nts)) before
   export_rewrites ["FDOM_cmlPEG_nts"]

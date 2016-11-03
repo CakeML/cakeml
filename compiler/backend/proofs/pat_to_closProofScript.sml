@@ -56,11 +56,11 @@ val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
 
 (* semantic functions respect translation *)
 
-val do_eq = store_thm("do_eq",
-  ``(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
+val do_eq = Q.store_thm("do_eq",
+  `(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
       (do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2))) ∧
     (∀vs1 vs2. do_eq_list vs1 vs2 ≠ Eq_type_error ⇒
-      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))``,
+      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))`,
   ho_match_mp_tac patSemTheory.do_eq_ind >>
   simp[patSemTheory.do_eq_def,closSemTheory.do_eq_def] >>
   conj_tac >- (
@@ -82,16 +82,16 @@ val do_eq = store_thm("do_eq",
   rw[]>>fs[]>>
   BasicProvers.CASE_TAC>>fs[]);
 
-val list_to_v = store_thm("list_to_v",
-  ``∀ls. list_to_v (MAP (Number o $& o ORD) ls) =
-         compile_v (char_list_to_v ls)``,
+val list_to_v = Q.store_thm("list_to_v",
+  `∀ls. list_to_v (MAP (Number o $& o ORD) ls) =
+         compile_v (char_list_to_v ls)`,
   Induct >> simp[list_to_v_def,char_list_to_v_def])
 
 val v_to_list_def = closSemTheory.v_to_list_def;
 
-val v_to_char_list = store_thm("v_to_char_list",
-  ``∀v ls. (v_to_char_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))``,
+val v_to_char_list = Q.store_thm("v_to_char_list",
+  `∀v ls. (v_to_char_list v = SOME ls) ⇒
+           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))`,
   ho_match_mp_tac v_to_char_list_ind >>
   simp[v_to_char_list_def,v_to_list_def] >>
   rw[] >>
@@ -105,15 +105,15 @@ val v_to_char_list = store_thm("v_to_char_list",
   rw[]>>fs[]>>
   Cases_on`v_to_char_list h`>>fs[]>> rw[])
 
-val v_to_list = store_thm("v_to_list",
-  ``∀v ls. (v_to_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP compile_v ls))``,
+val v_to_list = Q.store_thm("v_to_list",
+  `∀v ls. (v_to_list v = SOME ls) ⇒
+           (v_to_list (compile_v v) = SOME (MAP compile_v ls))`,
   ho_match_mp_tac patSemTheory.v_to_list_ind >>
   simp[patSemTheory.v_to_list_def,v_to_list_def] >>
   rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[])
 
-val Boolv = store_thm("Boolv[simp]",
-  ``compile_v (Boolv b) = Boolv b``,
+val Boolv = Q.store_thm("Boolv[simp]",
+  `compile_v (Boolv b) = Boolv b`,
   Cases_on`b`>>EVAL_TAC)
 
 (* compiler correctness *)
@@ -724,8 +724,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 (* more correctness properties *)
 
-val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
-  ``0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]``,
+val compile_contains_App_SOME = Q.store_thm("compile_contains_App_SOME",
+  `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`,
   strip_tac >>
   ho_match_mp_tac compile_ind >>
   simp[compile_def,contains_App_SOME_def] >>

@@ -45,21 +45,21 @@ val env_rel_def = Define `
   env_rel l env env1 =
     LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1`
 
-val env_rel_mk_Union = store_thm("env_rel_mk_Union",
-  ``!env env1. env_rel (mk_Union lx ly) env env1 <=>
-               env_rel lx env env1 /\ env_rel ly env env1``,
+val env_rel_mk_Union = Q.store_thm("env_rel_mk_Union",
+  `!env env1. env_rel (mk_Union lx ly) env env1 <=>
+               env_rel lx env env1 /\ env_rel ly env env1`,
   fs [LIST_RELi_EL_EQN,env_rel_def] \\ metis_tac []);
 
-val env_rel_length = store_thm("env_rel_length",
-  ``env_rel l env env1 ==> LENGTH env1 = LENGTH env``,
+val env_rel_length = Q.store_thm("env_rel_length",
+  `env_rel l env env1 ==> LENGTH env1 = LENGTH env`,
   fs [LIST_RELi_EL_EQN,env_rel_def]);
 
-val env_rel_MAPi = store_thm("env_rel_MAPi",
-  ``env_rel l1 env (MAPi (\i v. if has_var i l1 then v else Number 0) env)``,
+val env_rel_MAPi = Q.store_thm("env_rel_MAPi",
+  `env_rel l1 env (MAPi (\i v. if has_var i l1 then v else Number 0) env)`,
   fs [LIST_RELi_EL_EQN,env_rel_def]);
 
-val IMP_EL_SING = store_thm("IMP_EL_SING",
-  ``k = LENGTH xs ==> EL k (xs ++ [x] ++ ys) = x``,
+val IMP_EL_SING = Q.store_thm("IMP_EL_SING",
+  `k = LENGTH xs ==> EL k (xs ++ [x] ++ ys) = x`,
   rw [] \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [EL_APPEND2]);
 
@@ -76,8 +76,8 @@ val ALOOKUP_MAPi_APPEND2 = store_thm("ALOOKUP_MAPi_APPEND2",
       ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) k = SOME (LENGTH xs + z)``,
   Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
 
-val IS_SOME_lookup_db_to_set = store_thm("IS_SOME_lookup_db_to_set",
-  ``!n. IS_SOME (lookup n (db_to_set l)) = has_var n l``,
+val IS_SOME_lookup_db_to_set = Q.store_thm("IS_SOME_lookup_db_to_set",
+  `!n. IS_SOME (lookup n (db_to_set l)) = has_var n l`,
   fs [db_varsTheory.lookup_db_to_set,IS_SOME_EXISTS]);
 
 val evaluate_LetLet = store_thm("evaluate_LetLet",
@@ -138,12 +138,12 @@ val evaluate_LetLet = store_thm("evaluate_LetLet",
   \\ fs [evaluate_def,do_app_def,MAPi_def,MAPi_APPEND]
   \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []);
 
-val env_rel_refl = store_thm("env_rel_refl",
-  ``env_rel l env env``,
+val env_rel_refl = Q.store_thm("env_rel_refl",
+  `env_rel l env env`,
   fs [LIST_RELi_EL_EQN,env_rel_def]);
 
-val opt_lemma = prove(
-  ``x = y <=> (x = SOME () <=> y = SOME ())``,
+val opt_lemma = Q.prove(
+  `x = y <=> (x = SOME () <=> y = SOME ())`,
   Cases_on `x` \\ Cases_on `y` \\ fs []);
 
 val OptionalLetLet_IMP = prove(
@@ -357,20 +357,20 @@ val compile_IMP_LENGTH = store_thm("compile_IMP_LENGTH",
   ``compile l n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs``,
   rw [] \\ mp_tac (SPEC_ALL compile_length) \\ asm_simp_tac std_ss []);
 
-val bVarBound_CONS = store_thm("bVarBound_CONS",
-  ``bVarBound m [x] /\ bVarBound m xs ==> bVarBound m (x::xs)``,
+val bVarBound_CONS = Q.store_thm("bVarBound_CONS",
+  `bVarBound m [x] /\ bVarBound m xs ==> bVarBound m (x::xs)`,
   Cases_on `xs` \\ fs []);
 
-val bVarBound_MEM = store_thm("bVarBound_MEM",
-  ``bVarBound n xs <=> !x. MEM x xs ==> bVarBound n [x]``,
+val bVarBound_MEM = Q.store_thm("bVarBound_MEM",
+  `bVarBound n xs <=> !x. MEM x xs ==> bVarBound n [x]`,
   fs [Once bVarBound_EVERY,EVERY_MEM]);
 
-val bEvery_MEM = store_thm("bEvery_MEM",
-  ``bEvery p xs = !x. MEM x xs ==> bEvery p [x]``,
+val bEvery_MEM = Q.store_thm("bEvery_MEM",
+  `bEvery p xs = !x. MEM x xs ==> bEvery p [x]`,
   fs [Once bEvery_EVERY,EVERY_MEM]);
 
-val bVarBound_LESS_EQ = store_thm("bVarBound_LESS_EQ",
-  ``!m xs n. bVarBound m xs /\ m <= n ==> bVarBound n xs``,
+val bVarBound_LESS_EQ = Q.store_thm("bVarBound_LESS_EQ",
+  `!m xs n. bVarBound m xs /\ m <= n ==> bVarBound n xs`,
   HO_MATCH_MP_TAC bVarBound_ind \\ rw [] \\ fs []);
 
 val ALOOKUP_MAPi = store_thm("ALOOKUP_MAPi",
@@ -380,12 +380,12 @@ val ALOOKUP_MAPi = store_thm("ALOOKUP_MAPi",
   \\ fs [SNOC_APPEND,MAPi_APPEND,ALOOKUP_APPEND]
   \\ every_case_tac \\ fs []);
 
-val bVarBound_SmartLet = store_thm("bVarBound_SmartLet[simp]",
-  ``bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]``,
+val bVarBound_SmartLet = Q.store_thm("bVarBound_SmartLet[simp]",
+  `bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]`,
   rw [SmartLet_def] \\ fs [NULL_EQ]);
 
-val bVarBound_LetLet = store_thm("bVarBound_LetLet",
-  ``bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n (l1:num_set) y]``,
+val bVarBound_LetLet = Q.store_thm("bVarBound_LetLet",
+  `bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n (l1:num_set) y]`,
   fs [LetLet_def] \\ strip_tac
   \\ once_rewrite_tac [bVarBound_MEM]
   \\ fs [MEM_MAP,MEM_GENLIST,PULL_EXISTS,MEM_FILTER]
@@ -395,9 +395,9 @@ val bVarBound_LetLet = store_thm("bVarBound_LetLet",
   \\ qabbrev_tac `xs = FILTER (λn. IS_SOME (lookup n l1)) (GENLIST I n)`
   \\ imp_res_tac ALOOKUP_MAPi \\ fs []);
 
-val bVarBound_OptionalLetLet = store_thm("bVarBound_OptionalLetLet",
-  ``bVarBound m [e] /\ n <= m ==>
-    bVarBound m (FST (OptionalLetLet e n l s limit nr))``,
+val bVarBound_OptionalLetLet = Q.store_thm("bVarBound_OptionalLetLet",
+  `bVarBound m [e] /\ n <= m ==>
+    bVarBound m (FST (OptionalLetLet e n l s limit nr))`,
   rw [OptionalLetLet_def,bVarBound_LetLet]);
 
 val bVarBound_compile = Q.store_thm("bVarBound_compile",
@@ -415,8 +415,8 @@ val compile_IMP_bVarBound = store_thm("compile_IMP_bVarBound",
   ``compile l n xs = (ys,l2,s2) ==> bVarBound n ys``,
   rw [] \\ mp_tac (Q.INST [`m`|->`n`] (SPEC_ALL bVarBound_compile)) \\ fs []);
 
-val compile_exp_bVarBound = store_thm("compile_exp_bVarBound",
-  ``bVarBound n [compile_exp l n x]``,
+val compile_exp_bVarBound = Q.store_thm("compile_exp_bVarBound",
+  `bVarBound n [compile_exp l n x]`,
   fs [compile_exp_def]
   \\ Cases_on `compile l n [bvl_const$compile_exp x]`
   \\ Cases_on `r` \\ fs []
@@ -425,10 +425,10 @@ val compile_exp_bVarBound = store_thm("compile_exp_bVarBound",
   \\ Cases_on `q` \\ fs []
   \\ Cases_on `t` \\ fs []);
 
-val compile_seqs_bVarBound = store_thm("compile_seqs_bVarBound",
-  ``!l x acc.
+val compile_seqs_bVarBound = Q.store_thm("compile_seqs_bVarBound",
+  `!l x acc.
       (!y. acc = SOME y ==> bVarBound 0 [y]) ==>
-      bVarBound 0 [compile_seqs l x acc]``,
+      bVarBound 0 [compile_seqs l x acc]`,
   HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
   \\ once_rewrite_tac [compile_seqs_def]
   \\ Cases_on `dest_Seq x` \\ fs []
@@ -439,22 +439,22 @@ val compile_seqs_bVarBound = store_thm("compile_seqs_bVarBound",
   \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
   \\ fs [] \\ first_x_assum match_mp_tac \\ fs []);
 
-val bEvery_CONS = store_thm("bEvery_CONS",
-  ``bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)``,
+val bEvery_CONS = Q.store_thm("bEvery_CONS",
+  `bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)`,
   Cases_on `xs` \\ fs []);
 
-val handle_ok_Var_Const_list = store_thm("handle_ok_Var_Const_list",
-  ``EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs``,
+val handle_ok_Var_Const_list = Q.store_thm("handle_ok_Var_Const_list",
+  `EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs`,
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]);
 
-val handle_ok_SmartLet = store_thm("handle_ok_SmartLet",
-  ``handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]``,
+val handle_ok_SmartLet = Q.store_thm("handle_ok_SmartLet",
+  `handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]`,
   rw [SmartLet_def,handle_ok_def] \\ fs [NULL_EQ,LENGTH_NIL,handle_ok_def]);
 
-val handle_ok_OptionalLetLet = store_thm("handle_ok_OptionalLetLet",
-  ``handle_ok [e] /\ bVarBound n [e] ==>
-    handle_ok (FST (OptionalLetLet e n lx s l nr))``,
+val handle_ok_OptionalLetLet = Q.store_thm("handle_ok_OptionalLetLet",
+  `handle_ok [e] /\ bVarBound n [e] ==>
+    handle_ok (FST (OptionalLetLet e n lx s l nr))`,
   rw [OptionalLetLet_def] \\ fs [handle_ok_def]
   \\ reverse conj_tac THEN1
    (fs [LetLet_def,handle_ok_SmartLet]
@@ -469,8 +469,8 @@ val handle_ok_OptionalLetLet = store_thm("handle_ok_OptionalLetLet",
       \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
   \\ match_mp_tac bVarBound_LESS_EQ \\ asm_exists_tac \\ fs []);
 
-val compile_handle_ok = store_thm("compile_handle_ok",
-  ``∀l n xs. handle_ok (FST (compile l n xs))``,
+val compile_handle_ok = Q.store_thm("compile_handle_ok",
+  `∀l n xs. handle_ok (FST (compile l n xs))`,
   ho_match_mp_tac compile_ind \\ rw []
   \\ fs [compile_def,handle_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -500,8 +500,8 @@ val compile_handle_ok = store_thm("compile_handle_ok",
   \\ fs [EVERY_GENLIST]
   \\ rw [] \\ every_case_tac \\ fs []);
 
-val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
-  ``handle_ok [compile_exp l n x]``,
+val compile_exp_handle_ok = Q.store_thm("compile_exp_handle_ok",
+  `handle_ok [compile_exp l n x]`,
   fs [bvl_handleTheory.compile_exp_def]
   \\ Cases_on `compile l n [bvl_const$compile_exp x]`
   \\ fs [] \\ PairCases_on `r`
@@ -509,10 +509,10 @@ val compile_exp_handle_ok = store_thm("compile_exp_handle_ok",
   \\ qspecl_then [`l`,`n`,`[bvl_const$compile_exp x]`] mp_tac compile_handle_ok
   \\ fs []);
 
-val compile_seqs_handle_ok = store_thm("compile_seqs_handle_ok",
-  ``!l x acc.
+val compile_seqs_handle_ok = Q.store_thm("compile_seqs_handle_ok",
+  `!l x acc.
       (!y. acc = SOME y ==> handle_ok [y] /\ bVarBound 0 [y]) ==>
-      handle_ok [compile_seqs l x acc]``,
+      handle_ok [compile_seqs l x acc]`,
   HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
   \\ once_rewrite_tac [compile_seqs_def]
   \\ Cases_on `dest_Seq x` \\ fs []
@@ -524,8 +524,8 @@ val compile_seqs_handle_ok = store_thm("compile_seqs_handle_ok",
   \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
   \\ match_mp_tac compile_seqs_bVarBound \\ fs []);
 
-val compile_any_handle_ok = store_thm("compile_any_handle_ok",
-  ``handle_ok [compile_any split_seq l n x]``,
+val compile_any_handle_ok = Q.store_thm("compile_any_handle_ok",
+  `handle_ok [compile_any split_seq l n x]`,
   rw [compile_any_def,compile_exp_handle_ok]
   \\ match_mp_tac compile_seqs_handle_ok \\ fs []);
 

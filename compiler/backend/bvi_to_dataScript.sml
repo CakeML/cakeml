@@ -19,9 +19,9 @@ val op_space_reset_def = Define `
 val op_requires_names_def = Define`
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n))`;
 
-val op_requires_names_eqn = store_thm("op_requires_names_eqn",
-  ``∀op. op_requires_names op =
-    (op_space_reset op ∨ (case op of FFI n => T | _ => F))``,
+val op_requires_names_eqn = Q.store_thm("op_requires_names_eqn",
+  `∀op. op_requires_names op =
+    (op_space_reset op ∨ (case op of FFI n => T | _ => F))`,
     Cases>>fs[op_requires_names_def])
 
 val iAssign_def = Define `
@@ -84,9 +84,9 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-val compile_LESS_EQ_lemma = prove(
-  ``!n env tail live xs.
-      n <= SND (SND (compile n env tail live xs))``,
+val compile_LESS_EQ_lemma = Q.prove(
+  `!n env tail live xs.
+      n <= SND (SND (compile n env tail live xs))`,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
@@ -97,9 +97,9 @@ val compile_LESS_EQ = store_thm("compile_LESS_EQ",
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LESS_EQ_lemma)
   \\ FULL_SIMP_TAC std_ss []);
 
-val compile_LENGTH_lemma = prove(
-  ``!n env tail live xs.
-      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)``,
+val compile_LENGTH_lemma = Q.prove(
+  `!n env tail live xs.
+      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)`,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []);

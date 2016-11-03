@@ -22,8 +22,8 @@ val _ = Datatype `
 val dec_clock_def = Define `
   dec_clock (s:'ffi dataSem$state) = s with clock := s.clock - 1`;
 
-val LESS_EQ_dec_clock = prove(
-  ``r.clock <= (dec_clock s).clock ==> r.clock <= s.clock``,
+val LESS_EQ_dec_clock = Q.prove(
+  `r.clock <= (dec_clock s).clock ==> r.clock <= s.clock`,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val data_to_bvi_def = Define `
@@ -81,18 +81,18 @@ val check_clock_def = Define `
   check_clock (s1:'ffi dataSem$state) (s2:'ffi dataSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
-val check_clock_thm = prove(
-  ``(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))``,
+val check_clock_thm = Q.prove(
+  `(check_clock s1 s2).clock <= s2.clock /\
+    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))`,
   SRW_TAC [] [check_clock_def])
 
-val check_clock_lemma = prove(
-  ``b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)``,
+val check_clock_lemma = Q.prove(
+  `b ==> ((check_clock s1 s).clock < s.clock \/
+          ((check_clock s1 s).clock = s.clock) /\ b)`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val check_clock_IMP = prove(
-  ``n <= (check_clock r s).clock ==> n <= s.clock``,
+val check_clock_IMP = Q.prove(
+  `n <= (check_clock r s).clock ==> n <= s.clock`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val call_env_def = Define `
@@ -138,14 +138,14 @@ val cut_state_opt_def = Define `
     | NONE => SOME s
     | SOME names => cut_state names s`;
 
-val pop_env_clock = prove(
-  ``(pop_env s = SOME s1) ==> (s1.clock = s.clock)``,
+val pop_env_clock = Q.prove(
+  `(pop_env s = SOME s1) ==> (s1.clock = s.clock)`,
   full_simp_tac(srw_ss())[pop_env_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val push_env_clock = prove(
-  ``(push_env env b s).clock = s.clock``,
+val push_env_clock = Q.prove(
+  `(push_env env b s).clock = s.clock`,
   Cases_on `b` \\ full_simp_tac(srw_ss())[push_env_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
@@ -279,8 +279,8 @@ val clean_term = term_rewrite
                    [``check_clock s1 s2 = s1:'ffi dataSem$state``,
                     ``(s.clock < k \/ b2) <=> (s:'ffi dataSem$state).clock < k:num``]
 
-val set_var_check_clock = prove(
-  ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
+val set_var_check_clock = Q.prove(
+  `set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2`,
   SIMP_TAC std_ss [set_var_def,check_clock_def] \\ SRW_TAC [] []);
 
 val evaluate_ind = save_thm("evaluate_ind",let

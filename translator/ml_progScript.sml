@@ -41,18 +41,18 @@ val SND_ALOOKUP_def = Define `
   (SND_ALOOKUP (x,[]) q = NONE) /\
   (SND_ALOOKUP (x,(y,z)::xs) q = if q = y then SOME z else SND_ALOOKUP (x,xs) q)`;
 
-val write_simp = store_thm("write_simp[compute]",
-  ``(write n v env).c = env.c /\
+val write_simp = Q.store_thm("write_simp[compute]",
+  `(write n v env).c = env.c /\
     (write n v env).m = env.m /\
     ALOOKUP (write n v env).v q =
-      if n = q then SOME v else ALOOKUP env.v q``,
+      if n = q then SOME v else ALOOKUP env.v q`,
   fs [write_def]);
 
-val write_cons_simp = store_thm("write_cons_simp[compute]",
-  ``(write_cons n v env).v = env.v /\
+val write_cons_simp = Q.store_thm("write_cons_simp[compute]",
+  `(write_cons n v env).v = env.v /\
     (write_cons n v env).m = env.m /\
     SND_ALOOKUP (write_cons n v env).c q =
-      if n = q then SOME v else SND_ALOOKUP env.c q``,
+      if n = q then SOME v else SND_ALOOKUP env.c q`,
   Cases_on `env.c`
   \\ rw [write_cons_def,merge_alist_mod_env_def,SND_ALOOKUP_def]);
 
@@ -60,34 +60,34 @@ val SND_ALOOKUP_EQ_ALOOKUP = store_thm("SND_ALOOKUP_EQ_ALOOKUP",
   ``!xs ys q. SND_ALOOKUP (xs,ys) q = ALOOKUP ys q``,
   Induct_on `ys` \\ fs [ALOOKUP_def,SND_ALOOKUP_def,FORALL_PROD] \\ rw []);
 
-val write_mod_simp = store_thm("write_mod_simp[compute]",
-  ``(write_mod n v env).v = env.v /\
+val write_mod_simp = Q.store_thm("write_mod_simp[compute]",
+  `(write_mod n v env).v = env.v /\
     SND_ALOOKUP (write_mod n v env).c k = SND_ALOOKUP env.c k /\
     ALOOKUP (write_mod n v env).m q =
-      if n = q then SOME v.v else ALOOKUP env.m q``,
+      if n = q then SOME v.v else ALOOKUP env.m q`,
   Cases_on `env.c`
   \\ rw [write_mod_def,merge_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
 
-val empty_simp = store_thm("empty_simp[compute]",
-  ``ALOOKUP empty_env.v q = NONE /\
+val empty_simp = Q.store_thm("empty_simp[compute]",
+  `ALOOKUP empty_env.v q = NONE /\
     ALOOKUP empty_env.m q = NONE /\
-    SND_ALOOKUP empty_env.c q = NONE``,
+    SND_ALOOKUP empty_env.c q = NONE`,
   fs [empty_env_def,SND_ALOOKUP_def] );
 
-val merge_env_simp = store_thm("merge_env_simp[compute]",
-  ``(ALOOKUP (merge_env e1 e2).v k =
+val merge_env_simp = Q.store_thm("merge_env_simp[compute]",
+  `(ALOOKUP (merge_env e1 e2).v k =
       case ALOOKUP e1.v k of SOME x => SOME x | NONE => ALOOKUP e2.v k) /\
     (ALOOKUP (merge_env e1 e2).m k =
       case ALOOKUP e1.m k of SOME x => SOME x | NONE => ALOOKUP e2.m k) /\
     (SND_ALOOKUP (merge_env e1 e2).c k =
-      case SND_ALOOKUP e1.c k of SOME x => SOME x | NONE => SND_ALOOKUP e2.c k)``,
+      case SND_ALOOKUP e1.c k of SOME x => SOME x | NONE => SND_ALOOKUP e2.c k)`,
   fs [merge_env_def,ALOOKUP_APPEND]
   \\ Cases_on `e1.c` \\ pop_assum kall_tac \\ fs []
   \\ Cases_on `e2.c` \\ pop_assum kall_tac \\ fs []
   \\ fs [SND_ALOOKUP_EQ_ALOOKUP,ALOOKUP_APPEND]);
 
-val SND_ALOOKUP_INTRO = store_thm("SND_ALOOKUP_INTRO[compute]",
-  ``lookup_alist_mod_env (Short v) x = SND_ALOOKUP x v``,
+val SND_ALOOKUP_INTRO = Q.store_thm("SND_ALOOKUP_INTRO[compute]",
+  `lookup_alist_mod_env (Short v) x = SND_ALOOKUP x v`,
   Cases_on `x` \\ fs [lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
 
 
@@ -105,9 +105,9 @@ val write_exn_def = Define `
   write_exn mn n l env =
     write_cons n (LENGTH l,TypeExn (mk_id mn n)) env`;
 
-val write_rec_thm = store_thm("write_rec_thm",
-  ``write_rec funs env1 env =
-    env with v := build_rec_env funs env1 env.v``,
+val write_rec_thm = Q.store_thm("write_rec_thm",
+  `write_rec funs env1 env =
+    env with v := build_rec_env funs env1 env.v`,
   fs [write_rec_def,build_rec_env_def]
   \\ qspec_tac (`Recclosure env1 funs`,`hh`)
   \\ qspec_tac (`env`,`env`)
@@ -164,12 +164,12 @@ val Decls_Dtype = store_thm("Decls_Dtype",
   \\ rw[write_tds_thm,environment_component_equality,empty_env_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ fs [merge_alist_mod_env_def]);
 
-val Decls_Dexn = store_thm("Decls_Dexn",
-  ``!mn env s n l env2 s2.
+val Decls_Dexn = Q.store_thm("Decls_Dexn",
+  `!mn env s n l env2 s2.
       Decls mn env s [Dexn n l] env2 s2 <=>
       TypeExn (mk_id mn n) NOTIN s.defined_types /\
       s2 = s with defined_types := {TypeExn (mk_id mn n)} UNION s.defined_types /\
-      env2 = write_exn mn n l empty_env``,
+      env2 = write_exn mn n l empty_env`,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -178,10 +178,10 @@ val Decls_Dexn = store_thm("Decls_Dexn",
   \\ fs[PULL_EXISTS,write_exn_thm,write_tds_thm,environment_component_equality]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [empty_env_def,merge_alist_mod_env_def]);
 
-val Decls_Dtabbrev = store_thm("Decls_Dtabbrev",
-  ``!mn env s n l env2 s2.
+val Decls_Dtabbrev = Q.store_thm("Decls_Dtabbrev",
+  `!mn env s n l env2 s2.
       Decls mn env s [Dtabbrev x y z] env2 s2 <=>
-      s2 = s ∧ env2 = empty_env``,
+      s2 = s ∧ env2 = empty_env`,
   fs [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -229,10 +229,10 @@ val Decls_Dletrec = store_thm("Decls_Dletrec",
   \\ fs [environment_component_equality]
   \\ simp[] \\ rw [] \\ eq_tac \\ rw []);
 
-val Decls_NIL = store_thm("Decls_NIL",
-  ``!mn env s n l env2 s2.
+val Decls_NIL = Q.store_thm("Decls_NIL",
+  `!mn env s n l env2 s2.
       Decls mn env s [] env2 s2 <=>
-      s2 = s ∧ env2 = empty_env``,
+      s2 = s ∧ env2 = empty_env`,
   fs [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -240,13 +240,13 @@ val Decls_NIL = store_thm("Decls_NIL",
   \\ rw [environment_component_equality] \\ eq_tac
   \\ fs [empty_env_def]);
 
-val Decls_CONS = store_thm("Decls_CONS",
-  ``!s1 s3 mn env1 d ds1 ds2 env3.
+val Decls_CONS = Q.store_thm("Decls_CONS",
+  `!s1 s3 mn env1 d ds1 ds2 env3.
       Decls mn env1 s1 (d::ds2) env3 s3 =
       ?envA envB s2.
          Decls mn env1 s1 [d] envA s2 /\
          Decls mn (merge_env envA env1) s2 ds2 envB s3 /\
-         env3 = merge_env envB envA``,
+         env3 = merge_env envB envA`,
   rw[Decls_def,PULL_EXISTS]
   \\ rw[Once evaluate_decs_cases,PULL_EXISTS]
   \\ rw[Once evaluate_decs_cases,SimpRHS,PULL_EXISTS]
@@ -269,33 +269,33 @@ val Decls_CONS = store_thm("Decls_CONS",
   \\ fs [] \\ rw [environment_component_equality]
   \\ Cases_on `env1.c` \\ fs [merge_alist_mod_env_def]);
 
-val merge_env_empty_env = store_thm("merge_env_empty_env",
-  ``merge_env env empty_env = env /\
-    merge_env empty_env env = env``,
+val merge_env_empty_env = Q.store_thm("merge_env_empty_env",
+  `merge_env env empty_env = env /\
+    merge_env empty_env env = env`,
   rw [environment_component_equality,merge_env_def,empty_env_def]);
 
-val merge_env_assoc = store_thm("merge_env_assoc",
-  ``merge_env env1 (merge_env env2 env3) = merge_env (merge_env env1 env2) env3``,
+val merge_env_assoc = Q.store_thm("merge_env_assoc",
+  `merge_env env1 (merge_env env2 env3) = merge_env (merge_env env1 env2) env3`,
   fs [merge_env_def]);
 
-val Decls_APPEND = store_thm("Decls_APPEND",
-  ``!s1 s3 mn env1 ds1 ds2 env3.
+val Decls_APPEND = Q.store_thm("Decls_APPEND",
+  `!s1 s3 mn env1 ds1 ds2 env3.
       Decls mn env1 s1 (ds1 ++ ds2) env3 s3 =
       ?envA envB s2.
          Decls mn env1 s1 ds1 envA s2 /\
          Decls mn (merge_env envA env1) s2 ds2 envB s3 /\
-         env3 = merge_env envB envA``,
+         env3 = merge_env envB envA`,
   Induct_on `ds1` \\ fs [APPEND,Decls_NIL,merge_env_empty_env]
   \\ once_rewrite_tac [Decls_CONS]
   \\ fs [PULL_EXISTS,merge_env_assoc] \\ metis_tac []);
 
-val Decls_SNOC = store_thm("Decls_SNOC",
-  ``!s1 s3 mn env1 ds1 d env3.
+val Decls_SNOC = Q.store_thm("Decls_SNOC",
+  `!s1 s3 mn env1 ds1 d env3.
       Decls mn env1 s1 (SNOC d ds1) env3 s3 =
       ?envA envB s2.
          Decls mn env1 s1 ds1 envA s2 /\
          Decls mn (merge_env envA env1) s2 [d] envB s3 /\
-         env3 = merge_env envB envA``,
+         env3 = merge_env envB envA`,
   METIS_TAC [SNOC_APPEND, Decls_APPEND]);
 
 
@@ -306,19 +306,19 @@ val Prog_def = Define `
     evaluate_prog F env1 s1 prog
       (s2,env2.c,Rval (env2.m,env2.v))`
 
-val Prog_NIL = store_thm("Prog_NIL",
-  ``!s1 s3 env1 ds1 ds2 env3.
-      Prog env1 s1 [] env3 s3 <=> (env3 = empty_env) /\ (s3 = s1)``,
+val Prog_NIL = Q.store_thm("Prog_NIL",
+  `!s1 s3 env1 ds1 ds2 env3.
+      Prog env1 s1 [] env3 s3 <=> (env3 = empty_env) /\ (s3 = s1)`,
   fs [Prog_def,Once evaluate_prog_cases] \\ EVAL_TAC \\ rw [empty_env_def]
   \\ fs [environment_component_equality] \\ eq_tac \\ rw []);
 
-val Prog_CONS = store_thm("Prog_CONS",
-  ``!s1 s3 env1 d ds2 env3.
+val Prog_CONS = Q.store_thm("Prog_CONS",
+  `!s1 s3 env1 d ds2 env3.
       Prog env1 s1 (d::ds2) env3 s3 =
       ?envA envB s2.
          Prog env1 s1 [d] envA s2 /\
          Prog (merge_env envA env1) s2 ds2 envB s3 /\
-         env3 = merge_env envB envA``,
+         env3 = merge_env envB envA`,
   fs [Prog_def]
   \\ simp [Once evaluate_prog_cases]
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -349,19 +349,19 @@ val Prog_CONS = store_thm("Prog_CONS",
   \\ fs [] \\ Cases_on `new_tds'`
   \\ rw [environment_component_equality,merge_alist_mod_env_def]);
 
-val Prog_APPEND = store_thm("Prog_APPEND",
-  ``!s1 s3 env1 ds1 ds2 env3.
+val Prog_APPEND = Q.store_thm("Prog_APPEND",
+  `!s1 s3 env1 ds1 ds2 env3.
       Prog env1 s1 (ds1 ++ ds2) env3 s3 =
       ?envA envB s2.
          Prog env1 s1 ds1 envA s2 /\
          Prog (merge_env envA env1) s2 ds2 envB s3 /\
-         env3 = merge_env envB envA``,
+         env3 = merge_env envB envA`,
   Induct_on `ds1` \\ fs [Prog_NIL] \\ once_rewrite_tac [Prog_CONS]
   \\ fs [] \\ metis_tac [merge_env_assoc,merge_env_empty_env]);
 
-val Prog_Tdec = store_thm("Prog_Tdec",
-  ``Prog env1 s1 [Tdec d] env2 s2 <=>
-    Decls NONE env1 s1 [d] env2 s2``,
+val Prog_Tdec = Q.store_thm("Prog_Tdec",
+  `Prog env1 s1 [Tdec d] env2 s2 <=>
+    Decls NONE env1 s1 [d] env2 s2`,
   fs [Prog_def,Decls_def,Once evaluate_prog_cases]
   \\ fs [Prog_def,Decls_def,Once evaluate_prog_cases]
   \\ fs [combine_mod_result_def,Once evaluate_top_cases,PULL_EXISTS]
@@ -370,13 +370,13 @@ val Prog_Tdec = store_thm("Prog_Tdec",
          extend_top_env_def,environment_component_equality]
   \\ rw [] \\ eq_tac \\ rw [] \\ asm_exists_tac \\ fs []);
 
-val Prog_Tmod = store_thm("Prog_Tmod",
-  ``Prog env1 s1 [Tmod mn specs ds] env2 s2 <=>
+val Prog_Tmod = Q.store_thm("Prog_Tmod",
+  `Prog env1 s1 [Tmod mn specs ds] env2 s2 <=>
     mn ∉ s1.defined_mods /\ no_dup_types ds /\
     ?s env.
       Decls (SOME mn) env1 s1 ds env s /\
       s2 = s with defined_mods := {mn} ∪ s.defined_mods /\
-      env2 = write_mod mn env empty_env``,
+      env2 = write_mod mn env empty_env`,
   fs [Prog_def,Decls_def,Once evaluate_prog_cases,PULL_EXISTS,
       combine_mod_result_def,Once evaluate_top_cases]
   \\ fs [Prog_def,Decls_def,Once evaluate_prog_cases,PULL_EXISTS,
@@ -419,8 +419,8 @@ in
     init_state ffi = ^init_state_tm`;
 end
 
-val ML_code_NIL = store_thm("ML_code_NIL",
-  ``ML_code init_env (init_state ffi) [] NONE empty_env (init_state ffi)``,
+val ML_code_NIL = Q.store_thm("ML_code_NIL",
+  `ML_code init_env (init_state ffi) [] NONE empty_env (init_state ffi)`,
   fs [ML_code_def,Prog_NIL]);
 
 (* opening and closing of modules *)
@@ -480,13 +480,13 @@ val ML_code_SOME_Dtype = store_thm("ML_code_SOME_Dtype",
 
 (* appending a Dexn *)
 
-val ML_code_NONE_Dexn = store_thm("ML_code_NONE_Dexn",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_NONE_Dexn = Q.store_thm("ML_code_NONE_Dexn",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !n l.
       TypeExn (mk_id NONE n) ∉ s2.defined_types ==>
       ML_code env1 s1 (SNOC (Tdec (Dexn n l)) prog) NONE
         (write_exn NONE n l env2)
-        (s2 with defined_types := {TypeExn (mk_id NONE n)} ∪ s2.defined_types)``,
+        (s2 with defined_types := {TypeExn (mk_id NONE n)} ∪ s2.defined_types)`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dexn]
   \\ rw [] \\ asm_exists_tac \\ fs [] \\ Cases_on `env2.c`
   \\ fs [write_exn_thm,merge_env_def,merge_alist_mod_env_def,empty_env_def]
@@ -509,10 +509,10 @@ val ML_code_SOME_Dexn = store_thm("ML_code_SOME_Dexn",
 
 (* appending a Dtabbrev *)
 
-val ML_code_NONE_Dtabbrev = store_thm("ML_code_NONE_Dtabbrev",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_NONE_Dtabbrev = Q.store_thm("ML_code_NONE_Dtabbrev",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !x y z.
-      ML_code env1 s1 (SNOC (Tdec (Dtabbrev x y z)) prog) NONE env2 s2``,
+      ML_code env1 s1 (SNOC (Tdec (Dtabbrev x y z)) prog) NONE env2 s2`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtabbrev,
       merge_env_empty_env]);
 
@@ -526,9 +526,9 @@ val ML_code_SOME_Dtabbrev = store_thm("ML_code_SOME_Dtabbrev",
 
 (* appending a Letrec *)
 
-val build_rec_env_APPEND = prove(
-  ``build_rec_env funs cl_env [] ++ add_to_env =
-    build_rec_env funs cl_env add_to_env``,
+val build_rec_env_APPEND = Q.prove(
+  `build_rec_env funs cl_env [] ++ add_to_env =
+    build_rec_env funs cl_env add_to_env`,
   fs [build_rec_env_def] \\ qspec_tac (`Recclosure cl_env funs`,`xxx`)
   \\ qspec_tac (`add_to_env`,`xs`)
   \\ Induct_on `funs` \\ fs [FORALL_PROD]);
@@ -589,11 +589,11 @@ val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
   \\ fs [write_def,merge_env_def,empty_env_def]
   \\ fs [extend_top_env_def,environment_component_equality]);
 
-val ML_code_NONE_Dlet_Fun = store_thm("ML_code_NONE_Dlet_Fun",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_NONE_Dlet_Fun = Q.store_thm("ML_code_NONE_Dlet_Fun",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !n v e.
       ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) (Fun v e))) prog)
-        NONE (write n (Closure (merge_env env2 env1) v e) env2) s2``,
+        NONE (write n (Closure (merge_env env2 env1) v e) env2) s2`,
   rw [] \\ match_mp_tac (ML_code_NONE_Dlet_var |> MP_CANON) \\ fs []
   \\ fs [Once evaluate_cases]);
 
@@ -607,9 +607,9 @@ val ML_code_SOME_Dlet_Fun = store_thm("ML_code_SOME_Dlet_Fun",
 
 (* misc used by automation *)
 
-val DISJOINT_set_simp = store_thm("DISJOINT_set_simp",
-  ``DISJOINT (set []) s /\
-    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)``,
+val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
+  `DISJOINT (set []) s /\
+    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
   fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
 
 val _ = export_theory();

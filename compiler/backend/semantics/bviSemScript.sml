@@ -16,8 +16,8 @@ val _ = Datatype `
 val dec_clock_def = Define `
   dec_clock x s = s with clock := s.clock - x`;
 
-val LESS_EQ_dec_clock = prove(
-  ``r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock``,
+val LESS_EQ_dec_clock = Q.prove(
+  `r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock`,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val bvi_to_bvl_def = Define `
@@ -87,18 +87,18 @@ val check_clock_def = Define `
   check_clock (s1:'ffi bviSem$state) (s2:'ffi bviSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
-val check_clock_thm = prove(
-  ``(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))``,
+val check_clock_thm = Q.prove(
+  `(check_clock s1 s2).clock <= s2.clock /\
+    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))`,
   SRW_TAC [] [check_clock_def])
 
-val check_clock_lemma = prove(
-  ``b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)``,
+val check_clock_lemma = Q.prove(
+  `b ==> ((check_clock s1 s).clock < s.clock \/
+          ((check_clock s1 s).clock = s.clock) /\ b)`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val check_clock_IMP = prove(
-  ``n <= (check_clock r s).clock ==> n <= s.clock``,
+val check_clock_IMP = Q.prove(
+  `n <= (check_clock r s).clock ==> n <= s.clock`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 (* The semantics of expression evaluation is defined next. For

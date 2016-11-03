@@ -41,7 +41,7 @@ val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
     MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs ++ env'`,
   srw_tac[][build_rec_env_def, build_rec_env_help_lem]);
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,srw_tac[][Boolv_def]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`Boolv b1 = Boolv b2 ⇔ (b1 = b2)`,srw_tac[][Boolv_def]);
 
 val evaluate_length = Q.store_thm("evaluate_length",
   `(∀env (s:'ffi modSem$state) ls s' vs.
@@ -515,17 +515,17 @@ val evaluate_decs_state_const = Q.store_thm("evaluate_decs_state_const",
   `∀x f.(x with globals updated_by f).defined_mods = x.defined_mods` by simp[] >>
   metis_tac[FST]);
 
-val evaluate_dec_tids_acc = store_thm("evaluate_dec_tids_acc",
-  ``∀env st d res. evaluate_dec env st d = res ⇒
-      st.defined_types ⊆ (FST res).defined_types``,
+val evaluate_dec_tids_acc = Q.store_thm("evaluate_dec_tids_acc",
+  `∀env st d res. evaluate_dec env st d = res ⇒
+      st.defined_types ⊆ (FST res).defined_types`,
   Cases_on`d`>>srw_tac[][evaluate_dec_def] >> srw_tac[][] >>
   BasicProvers.CASE_TAC >>
   imp_res_tac evaluate_state_const >>
   every_case_tac >> srw_tac[][]);
 
-val evaluate_decs_tids_acc = store_thm("evaluate_decs_tids_acc",
-  ``∀env st ds res. evaluate_decs env st ds = res ⇒
-      st.defined_types ⊆ (FST res).defined_types``,
+val evaluate_decs_tids_acc = Q.store_thm("evaluate_decs_tids_acc",
+  `∀env st ds res. evaluate_decs env st ds = res ⇒
+      st.defined_types ⊆ (FST res).defined_types`,
   Induct_on`ds`>>srw_tac[][evaluate_decs_def]>>srw_tac[][]>>
   every_case_tac >> full_simp_tac(srw_ss())[]>>
   imp_res_tac evaluate_dec_tids_acc >> full_simp_tac(srw_ss())[] >>
@@ -562,16 +562,16 @@ val evaluate_decs_tids_disjoint = Q.store_thm("evaluate_decs_tids_disjoint",
 val tids_of_prompt_def = Define`
   tids_of_prompt (Prompt _ ds) = tids_of_decs ds`;
 
-val evaluate_prompt_tids_disjoint = prove(
-  ``∀env s p res. evaluate_prompt env s p = res ⇒
+val evaluate_prompt_tids_disjoint = Q.prove(
+  `∀env s p res. evaluate_prompt env s p = res ⇒
       SND(SND(SND res)) = NONE ⇒
-      DISJOINT (IMAGE TypeId (tids_of_prompt p)) s.defined_types``,
+      DISJOINT (IMAGE TypeId (tids_of_prompt p)) s.defined_types`,
   Cases_on`p`>>srw_tac[][evaluate_prompt_def]>>full_simp_tac(srw_ss())[tids_of_prompt_def]>>
   full_simp_tac(srw_ss())[LET_THM,UNCURRY] >> metis_tac[evaluate_decs_tids_disjoint]);
 
-val evaluate_prompt_tids_acc = prove(
-  ``∀env s p res. evaluate_prompt env s p = res ⇒
-      s.defined_types ⊆ (FST res).defined_types``,
+val evaluate_prompt_tids_acc = Q.prove(
+  `∀env s p res. evaluate_prompt env s p = res ⇒
+      s.defined_types ⊆ (FST res).defined_types`,
   Cases_on`p`>>srw_tac[][evaluate_prompt_def]>>full_simp_tac(srw_ss())[]>>
   metis_tac[evaluate_decs_tids_acc,FST]);
 

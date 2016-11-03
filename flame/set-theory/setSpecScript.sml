@@ -62,24 +62,24 @@ val is_set_theory_def = Define`
     regular mem ∧
     replacement mem`
 
-val separation_unique = store_thm("separation_unique",
-  ``extensional ^mem ⇒
-    ∀sub1 sub2. is_separation mem sub1 ∧ is_separation mem sub2 ⇒ sub1 = sub2``,
+val separation_unique = Q.store_thm("separation_unique",
+  `extensional ^mem ⇒
+    ∀sub1 sub2. is_separation mem sub1 ∧ is_separation mem sub2 ⇒ sub1 = sub2`,
   rw[is_separation_def,extensional_def,FUN_EQ_THM])
 
-val power_unique = store_thm("power_unique",
-  ``extensional ^mem ⇒
-    ∀power1 power2. is_power mem power1 ∧ is_power mem power2 ⇒ power1 = power2``,
+val power_unique = Q.store_thm("power_unique",
+  `extensional ^mem ⇒
+    ∀power1 power2. is_power mem power1 ∧ is_power mem power2 ⇒ power1 = power2`,
   rw[is_power_def,extensional_def,FUN_EQ_THM])
 
-val union_unique = store_thm("union_unique",
-  ``extensional ^mem ⇒
-    ∀union1 union2. is_union mem union1 ∧ is_union mem union2 ⇒ union1 = union2``,
+val union_unique = Q.store_thm("union_unique",
+  `extensional ^mem ⇒
+    ∀union1 union2. is_union mem union1 ∧ is_union mem union2 ⇒ union1 = union2`,
   rw[is_union_def,extensional_def,FUN_EQ_THM])
 
-val upair_unique = store_thm("upair_unique",
-  ``extensional ^mem ⇒
-    ∀upair1 upair2. is_upair mem upair1 ∧ is_upair mem upair2 ⇒ upair1 = upair2``,
+val upair_unique = Q.store_thm("upair_unique",
+  `extensional ^mem ⇒
+    ∀upair1 upair2. is_upair mem upair1 ∧ is_upair mem upair2 ⇒ upair1 = upair2`,
   rw[is_upair_def,extensional_def,FUN_EQ_THM])
 
 val sub_def = Define`
@@ -94,28 +94,28 @@ val union_def = Define`
 val upair_def = Define`
   upair ^mem = @upair. is_upair mem upair`
 
-val is_extensional = store_thm("is_extensional",
-  ``is_set_theory ^mem ⇒ extensional mem``,
+val is_extensional = Q.store_thm("is_extensional",
+  `is_set_theory ^mem ⇒ extensional mem`,
   rw[is_set_theory_def])
 
-val is_separation_sub = store_thm("is_separation_sub",
-  ``is_set_theory ^mem ⇒ is_separation mem (sub mem)``,
+val is_separation_sub = Q.store_thm("is_separation_sub",
+  `is_set_theory ^mem ⇒ is_separation mem (sub mem)`,
   rw[sub_def] >> SELECT_ELIM_TAC >> fsrw_tac[SATISFY_ss][is_set_theory_def])
 
-val is_power_power = store_thm("is_power_power",
-  ``is_set_theory ^mem ⇒ is_power mem (power mem)``,
+val is_power_power = Q.store_thm("is_power_power",
+  `is_set_theory ^mem ⇒ is_power mem (power mem)`,
   rw[power_def] >> SELECT_ELIM_TAC >> fsrw_tac[SATISFY_ss][is_set_theory_def])
 
-val is_union_union = store_thm("is_union_union",
-  ``is_set_theory ^mem ⇒ is_union mem (union mem)``,
+val is_union_union = Q.store_thm("is_union_union",
+  `is_set_theory ^mem ⇒ is_union mem (union mem)`,
   rw[union_def] >> SELECT_ELIM_TAC >> fsrw_tac[SATISFY_ss][is_set_theory_def])
 
-val is_upair_upair = store_thm("is_upair_upair",
-  ``is_set_theory ^mem ⇒ is_upair mem (upair mem)``,
+val is_upair_upair = Q.store_thm("is_upair_upair",
+  `is_set_theory ^mem ⇒ is_upair mem (upair mem)`,
   rw[upair_def] >> SELECT_ELIM_TAC >> fsrw_tac[SATISFY_ss][is_set_theory_def])
 
-val is_regular = store_thm("is_regular",
-  ``is_set_theory ^mem ⇒ regular mem``,
+val is_regular = Q.store_thm("is_regular",
+  `is_set_theory ^mem ⇒ regular mem`,
   rw[is_set_theory_def])
 
 val _ = Parse.add_infix("suchthat",9,Parse.LEFT)
@@ -124,22 +124,22 @@ val _ = Parse.overload_on("Pow",``power ^mem``)
 val _ = Parse.overload_on("+",``upair ^mem``)
 val _ = Parse.overload_on("⋃",``union ^mem``)
 
-val mem_sub = store_thm("mem_sub",
-  ``is_set_theory ^mem ⇒ ∀x s P. x <: (s suchthat P) ⇔ x <: s ∧ P x``,
+val mem_sub = Q.store_thm("mem_sub",
+  `is_set_theory ^mem ⇒ ∀x s P. x <: (s suchthat P) ⇔ x <: s ∧ P x`,
   strip_tac >> imp_res_tac is_separation_sub >> fs[is_separation_def])
 
-val mem_power = store_thm("mem_power",
-  ``is_set_theory ^mem ⇒
-    ∀x y. x <: (Pow y) ⇔ (∀b. b <: x ⇒ b <: y)``,
+val mem_power = Q.store_thm("mem_power",
+  `is_set_theory ^mem ⇒
+    ∀x y. x <: (Pow y) ⇔ (∀b. b <: x ⇒ b <: y)`,
   strip_tac >> imp_res_tac is_power_power >> fs[is_power_def])
 
-val mem_union = store_thm("mem_union",
-  ``is_set_theory ^mem ⇒
-    ∀x s. x <: ⋃ s ⇔ ∃a. x <: a ∧ a <: s``,
+val mem_union = Q.store_thm("mem_union",
+  `is_set_theory ^mem ⇒
+    ∀x s. x <: ⋃ s ⇔ ∃a. x <: a ∧ a <: s`,
   strip_tac >> imp_res_tac is_union_union >> fs[is_union_def])
 
-val mem_upair = store_thm("mem_upair",
-  ``is_set_theory ^mem ⇒ ∀a x y. a <: (x + y) ⇔ a = x ∨ a = y``,
+val mem_upair = Q.store_thm("mem_upair",
+  `is_set_theory ^mem ⇒ ∀a x y. a <: (x + y) ⇔ a = x ∨ a = y`,
   strip_tac >> imp_res_tac is_upair_upair >> fs[is_upair_def])
 
 val empty_def = Define`
@@ -147,18 +147,18 @@ val empty_def = Define`
 
 val _ = Parse.overload_on("∅",``empty ^mem``)
 
-val mem_empty = store_thm("mem_empty",
-  ``is_set_theory ^mem ⇒ ∀x. ¬(x <: ∅)``,
+val mem_empty = Q.store_thm("mem_empty",
+  `is_set_theory ^mem ⇒ ∀x. ¬(x <: ∅)`,
   strip_tac >> imp_res_tac is_separation_sub >>
   fs[empty_def,is_separation_def])
 
-val not_empty = store_thm("not_empty",
-  ``is_set_theory ^mem ⇒ ∀x. ¬(x = ∅) ⇔ ∃y. y <: x``,
+val not_empty = Q.store_thm("not_empty",
+  `is_set_theory ^mem ⇒ ∀x. ¬(x = ∅) ⇔ ∃y. y <: x`,
   strip_tac >> imp_res_tac is_extensional >>
   fs[empty_def,extensional_def,mem_sub])
 
-val eq_empty = store_thm("eq_empty",
-  ``is_set_theory ^mem ⇒ ∀x. (x = ∅) ⇔ ∀y. ~(y <: x)``,
+val eq_empty = Q.store_thm("eq_empty",
+  `is_set_theory ^mem ⇒ ∀x. (x = ∅) ⇔ ∀y. ~(y <: x)`,
   strip_tac >> imp_res_tac is_extensional >>
   fs[empty_def,extensional_def,mem_sub])
 
@@ -167,15 +167,15 @@ val unit_def = Define`
 
 val _ = Parse.overload_on("Unit",``unit ^mem``)
 
-val mem_unit = store_thm("mem_unit",
-  ``is_set_theory ^mem ⇒
-    ∀x y. x <: (Unit y) ⇔ x = y``,
+val mem_unit = Q.store_thm("mem_unit",
+  `is_set_theory ^mem ⇒
+    ∀x y. x <: (Unit y) ⇔ x = y`,
   strip_tac >> imp_res_tac is_upair_upair >>
   fs[is_upair_def,unit_def])
 
-val unit_inj = store_thm("unit_inj",
-  ``is_set_theory ^mem ⇒
-    ∀x y. Unit x = Unit y ⇔ x = y``,
+val unit_inj = Q.store_thm("unit_inj",
+  `is_set_theory ^mem ⇒
+    ∀x y. Unit x = Unit y ⇔ x = y`,
   strip_tac >>
   imp_res_tac is_extensional >>
   fs[extensional_def,mem_unit] >>
@@ -186,9 +186,9 @@ val one_def = Define`
 
 val _ = Parse.overload_on("One",``one ^mem``)
 
-val mem_one = store_thm("mem_one",
-  ``is_set_theory ^mem ⇒
-    ∀x. x <: One ⇔ x = ∅``,
+val mem_one = Q.store_thm("mem_one",
+  `is_set_theory ^mem ⇒
+    ∀x. x <: One ⇔ x = ∅`,
   strip_tac >> simp[mem_unit,one_def])
 
 val two_def = Define`
@@ -196,9 +196,9 @@ val two_def = Define`
 
 val _ = Parse.overload_on("Two",``two ^mem``)
 
-val mem_two = store_thm("mem_two",
-  ``is_set_theory ^mem ⇒
-    ∀x. x <: Two ⇔ x = ∅ ∨ x = One``,
+val mem_two = Q.store_thm("mem_two",
+  `is_set_theory ^mem ⇒
+    ∀x. x <: Two ⇔ x = ∅ ∨ x = One`,
   strip_tac >> simp[mem_upair,mem_one,two_def])
 
 val binary_inter_def = Define`
@@ -206,9 +206,9 @@ val binary_inter_def = Define`
 
 val _ = Parse.overload_on("INTER",``binary_inter ^mem``)
 
-val mem_binary_inter = store_thm("mem_binary_inter",
-  ``is_set_theory ^mem ⇒
-    ∀x y z. x <: y ∩ z ⇔ x <: y ∧ x <: z``,
+val mem_binary_inter = Q.store_thm("mem_binary_inter",
+  `is_set_theory ^mem ⇒
+    ∀x y z. x <: y ∩ z ⇔ x <: y ∧ x <: z`,
   strip_tac >> simp[binary_inter_def,mem_sub])
 
 val subset_def = Define`
@@ -216,14 +216,14 @@ val subset_def = Define`
 
 val _ = Parse.overload_on("SUBSET",``subset ^mem``)
 
-val subset_refl = store_thm("subset_refl",
-  ``is_set_theory ^mem ⇒
-    ∀x. x ⊆ x``,
+val subset_refl = Q.store_thm("subset_refl",
+  `is_set_theory ^mem ⇒
+    ∀x. x ⊆ x`,
   strip_tac >> simp[subset_def])
 
-val subset_mem = store_thm("subset_mem",
-  ``is_set_theory ^mem ⇒
-    ∀x y z. x <: y ∧ y ⊆ z ⇒ x <: z``,
+val subset_mem = Q.store_thm("subset_mem",
+  `is_set_theory ^mem ⇒
+    ∀x y z. x <: y ∧ y ⊆ z ⇒ x <: z`,
   strip_tac >> simp[subset_def])
 
 val psubset_def = Define`
@@ -242,17 +242,17 @@ val mem_pair = store_thm("mem_pair",
   strip_tac >>
   simp[pair_def,mem_upair])
 
-val upair_inj = store_thm("upair_inj",
-  ``is_set_theory ^mem ⇒
-    ∀a b c d. a + b = c + d ⇔ a = c ∧ b = d ∨ a = d ∧ b = c``,
+val upair_inj = Q.store_thm("upair_inj",
+  `is_set_theory ^mem ⇒
+    ∀a b c d. a + b = c + d ⇔ a = c ∧ b = d ∨ a = d ∧ b = c`,
   strip_tac >>
   imp_res_tac is_extensional >>
   fs[extensional_def,mem_upair] >>
   metis_tac[])
 
-val unit_eq_upair = store_thm("unit_eq_upair",
-  ``is_set_theory ^mem ⇒
-    ∀x y z. Unit x = y + z ⇔ x = y ∧ y = z``,
+val unit_eq_upair = Q.store_thm("unit_eq_upair",
+  `is_set_theory ^mem ⇒
+    ∀x y z. Unit x = y + z ⇔ x = y ∧ y = z`,
   strip_tac >>
   imp_res_tac is_extensional >>
   fs[extensional_def,mem_unit,mem_upair] >>
@@ -270,9 +270,9 @@ val binary_union_def = Define`
 
 val _ = Parse.overload_on("UNION",``binary_union ^mem``)
 
-val mem_binary_union = store_thm("mem_binary_union",
-  ``is_set_theory ^mem ⇒
-    ∀a x y. a <: (x ∪ y) ⇔ a <: x ∨ a <: y``,
+val mem_binary_union = Q.store_thm("mem_binary_union",
+  `is_set_theory ^mem ⇒
+    ∀a x y. a <: (x ∪ y) ⇔ a <: x ∨ a <: y`,
   strip_tac >> fs[binary_union_def,mem_union,mem_upair] >>
   metis_tac[])
 
@@ -297,10 +297,10 @@ val relspace_def = Define`
 
 val _ = Parse.overload_on("Relspace",``relspace ^mem``)
 
-val mem_relspace = store_thm("mem_relspace",
-  ``is_set_theory ^mem ⇒
+val mem_relspace = Q.store_thm("mem_relspace",
+  `is_set_theory ^mem ⇒
     ∀d r f. f <: Relspace d r ⇔
-            f <: Pow (d × r)``,
+            f <: Pow (d × r)`,
   rw[relspace_def])
 
 val relspace_pairs = store_thm("relspace_pairs",
@@ -358,10 +358,10 @@ val mem_id = store_thm("mem_id",
   strip_tac >>
   asm_rewrite_tac[])
 
-val replacement = store_thm("replacement",
-  ``is_set_theory ^mem ⇒
+val replacement = Q.store_thm("replacement",
+  `is_set_theory ^mem ⇒
      ∀R. is_functional R ⇒
-          ∀d. ∃r. ∀y. y <: r ⇔ ∃x. x <: d ∧ R x y``,
+          ∀d. ∃r. ∀y. y <: r ⇔ ∃x. x <: d ∧ R x y`,
   DISCH_TAC >> IMP_RES_TAC is_set_theory_def >>
   IMP_RES_THEN MP_TAC replacement_def >>
   rw[])
@@ -373,9 +373,9 @@ val _ = Parse.hide "''"
 val _ = Parse.add_infix("''",2000,Parse.LEFT)
 val _ = Parse.overload_on("''",``image ^mem``)
 
-val mem_image = store_thm("mem_image",
-  ``is_set_theory ^mem ⇒
-    ∀f d y. y <: f '' d ⇔ ∃x. x <: d ∧ f x = y``,
+val mem_image = Q.store_thm("mem_image",
+  `is_set_theory ^mem ⇒
+    ∀f d y. y <: f '' d ⇔ ∃x. x <: d ∧ f x = y`,
   REPEAT STRIP_TAC >>
   IMP_RES_TAC replacement >>
   `is_functional (λx y. f x = y)` by simp[is_functional_def] >>
@@ -421,9 +421,9 @@ val inverse_pairs = store_thm("inverse_pairs",
 
 (* Unless f is 1-1 and onto, Inverse f is not a function. *)
 
-val funspace_inverse = store_thm("funspace_inverse",
-  ``is_set_theory ^mem ⇒
-    ∀f d r. f <: Funspace d r ∧ is_11 f d ∧ is_Onto f r ⇒ Inverse f <: Funspace r d``,
+val funspace_inverse = Q.store_thm("funspace_inverse",
+  `is_set_theory ^mem ⇒
+    ∀f d r. f <: Funspace d r ∧ is_11 f d ∧ is_Onto f r ⇒ Inverse f <: Funspace r d`,
   strip_tac >>
   simp[is_one_one_def,is_onto_def,mem_funspace,mem_relspace,mem_power,mem_product,EXISTS_UNIQUE_THM] >>
   REPEAT gen_tac >> strip_tac >>
@@ -435,9 +435,9 @@ val funspace_inverse = store_thm("funspace_inverse",
       metis_tac[pair_inj]
     ])
 
-val inverse_is_11_onto = store_thm("inverse_is_11_onto",
-  ``is_set_theory ^mem ⇒
-    ∀f d r. f <: Funspace d r ∧ is_11 f d ∧ is_Onto f r ⇒ is_11 (Inverse f) r ∧ is_Onto (Inverse f) d``,
+val inverse_is_11_onto = Q.store_thm("inverse_is_11_onto",
+  `is_set_theory ^mem ⇒
+    ∀f d r. f <: Funspace d r ∧ is_11 f d ∧ is_Onto f r ⇒ is_11 (Inverse f) r ∧ is_Onto (Inverse f) d`,
   strip_tac >>
   simp[is_one_one_def,is_onto_def,mem_funspace,mem_relspace,mem_power,mem_product,EXISTS_UNIQUE_THM] >>
   REPEAT gen_tac >> strip_tac >>
@@ -456,9 +456,9 @@ val mem_funspace_pairs = store_thm("mem_funspace_pairs",
 
 val pop_tac = pop_assum (fn th => all_tac)
 
-val inverse_inverse_eq_id = store_thm("inverse_inverse_eq_id",
-  ``is_set_theory ^mem ⇒
-    ∀f d r. f <: Funspace d r ∧ is_11 f d ∧ is_Onto f r ⇒ Inverse (Inverse f) = f``,
+val inverse_inverse_eq_id = Q.store_thm("inverse_inverse_eq_id",
+  `is_set_theory ^mem ⇒
+    ∀f d r. f <: Funspace d r ∧ is_11 f d ∧ is_Onto f r ⇒ Inverse (Inverse f) = f`,
   rw[] >>
   `is_11 (Inverse f) r ∧ is_Onto (Inverse f) d` by metis_tac[inverse_is_11_onto] >>
   `Inverse f <: Funspace r d` by simp[funspace_inverse] >>
@@ -480,17 +480,17 @@ val false_def = Define`
 val _ = Parse.overload_on("True",``true ^mem``)
 val _ = Parse.overload_on("False",``false ^mem``)
 
-val true_neq_false = store_thm("true_neq_false",
-  ``is_set_theory ^mem ⇒ True ≠ False``,
+val true_neq_false = Q.store_thm("true_neq_false",
+  `is_set_theory ^mem ⇒ True ≠ False`,
   strip_tac >>
   imp_res_tac mem_one >>
   imp_res_tac mem_empty >>
   fs[true_def,false_def,is_set_theory_def,extensional_def,one_def] >>
   metis_tac[])
 
-val mem_boolset = store_thm("mem_boolset",
-  ``is_set_theory ^mem ⇒
-    ∀x. x <: boolset ⇔ ((x = True) ∨ (x = False))``,
+val mem_boolset = Q.store_thm("mem_boolset",
+  `is_set_theory ^mem ⇒
+    ∀x. x <: boolset ⇔ ((x = True) ∨ (x = False))`,
   strip_tac >> fs[mem_two,true_def,false_def])
 
 val boolean_def = Define`
@@ -498,14 +498,14 @@ val boolean_def = Define`
 
 val _ = Parse.overload_on("Boolean",``boolean ^mem``)
 
-val boolean_in_boolset = store_thm("boolean_in_boolset",
-  ``is_set_theory ^mem ⇒
-    ∀b. Boolean b <: boolset``,
+val boolean_in_boolset = Q.store_thm("boolean_in_boolset",
+  `is_set_theory ^mem ⇒
+    ∀b. Boolean b <: boolset`,
   strip_tac >> imp_res_tac mem_boolset >>
   Cases >> simp[boolean_def])
 
-val boolean_eq_true = store_thm("boolean_eq_true",
-  ``is_set_theory ^mem ⇒ ∀b. Boolean b = True ⇔ b``,
+val boolean_eq_true = Q.store_thm("boolean_eq_true",
+  `is_set_theory ^mem ⇒ ∀b. Boolean b = True ⇔ b`,
   strip_tac >> rw[boolean_def,true_neq_false])
 
 val holds_def = Define`
@@ -518,23 +518,23 @@ val suc_def = Define`
 
 val _ = Parse.overload_on("Suc",``suc ^mem``)
 
-val mem_suc = store_thm("mem_suc",
-  ``is_set_theory ^mem ⇒
-    ∀x y. x <: (Suc y) ⇔ x = y ∨ x <: y``,
+val mem_suc = Q.store_thm("mem_suc",
+  `is_set_theory ^mem ⇒
+    ∀x y. x <: (Suc y) ⇔ x = y ∨ x <: y`,
   strip_tac >> rw[suc_def,mem_binary_union,mem_unit] >> METIS_TAC[])
 
-val suc_not_empty = store_thm("suc_not_empty",
-  ``is_set_theory ^mem ⇒
-    ∀x. ~(∅ = Suc x)``,
+val suc_not_empty = Q.store_thm("suc_not_empty",
+  `is_set_theory ^mem ⇒
+    ∀x. ~(∅ = Suc x)`,
   strip_tac >>
   imp_res_tac is_extensional >>
   fs[extensional_def,mem_empty] >>
   simp[suc_def,mem_binary_union,mem_unit] >>
   metis_tac[])
 
-val not_mem_ident = store_thm("not_mem_ident",
-  ``is_set_theory ^mem ⇒
-    ∀x. ~(x <: x)``,
+val not_mem_ident = Q.store_thm("not_mem_ident",
+  `is_set_theory ^mem ⇒
+    ∀x. ~(x <: x)`,
   strip_tac >>
   imp_res_tac is_regular >>
   gen_tac >>
@@ -543,9 +543,9 @@ val not_mem_ident = store_thm("not_mem_ident",
   first_assum (mp_tac o Q.SPEC`Unit x`) >>
   simp[mem_unit])
 
-val not_mem_cycle = store_thm("not_mem_cycle",
-  ``is_set_theory ^mem ⇒
-    ∀x y. ~(x <: y ∧ y <: x)``,
+val not_mem_cycle = Q.store_thm("not_mem_cycle",
+  `is_set_theory ^mem ⇒
+    ∀x y. ~(x <: y ∧ y <: x)`,
   strip_tac >>
   imp_res_tac is_regular >>
   REPEAT gen_tac >>
@@ -554,9 +554,9 @@ val not_mem_cycle = store_thm("not_mem_cycle",
   first_assum (mp_tac o Q.SPEC`x + y`) >>
   metis_tac[mem_upair])
 
-val suc_11 = store_thm("suc_11",
-  ``is_set_theory ^mem ⇒
-    ∀x y. (Suc x = Suc y) ⇔ (x = y)``,
+val suc_11 = Q.store_thm("suc_11",
+  `is_set_theory ^mem ⇒
+    ∀x y. (Suc x = Suc y) ⇔ (x = y)`,
   metis_tac[mem_suc,not_mem_cycle])
 
 
@@ -565,39 +565,39 @@ val abstract_def = Define`
 
 val _ = Parse.overload_on("Abstract",``abstract ^mem``)
 
-val apply_abstract = store_thm("apply_abstract",
-  ``is_set_theory ^mem ⇒
-    ∀f x s t. x <: s ∧ f x <: t ⇒ (Abstract s t f) ' x = f x``,
+val apply_abstract = Q.store_thm("apply_abstract",
+  `is_set_theory ^mem ⇒
+    ∀f x s t. x <: s ∧ f x <: t ⇒ (Abstract s t f) ' x = f x`,
   strip_tac >>
   rw[apply_def,abstract_def] >>
   SELECT_ELIM_TAC >>
   simp[mem_sub,mem_product,pair_inj])
 
-val apply_abstract_matchable = store_thm("apply_abstract_matchable",
-  ``∀f x s t u. x <: s ∧ f x <: t ∧ is_set_theory ^mem ∧ f x = u ⇒ Abstract s t f ' x = u``,
+val apply_abstract_matchable = Q.store_thm("apply_abstract_matchable",
+  `∀f x s t u. x <: s ∧ f x <: t ∧ is_set_theory ^mem ∧ f x = u ⇒ Abstract s t f ' x = u`,
   metis_tac[apply_abstract])
 
-val apply_in_rng = store_thm("apply_in_rng",
-  ``is_set_theory ^mem ⇒
+val apply_in_rng = Q.store_thm("apply_in_rng",
+  `is_set_theory ^mem ⇒
     ∀f x s t. x <: s ∧ f <: Funspace s t ⇒
-    f ' x <: t``,
+    f ' x <: t`,
   strip_tac >>
   simp[funspace_def,mem_sub,relspace_def,
        mem_power,apply_def,mem_product,EXISTS_UNIQUE_THM] >>
   rw[] >> res_tac >> SELECT_ELIM_TAC >> res_tac >> rfs[pair_inj] >> metis_tac[])
 
-val abstract_in_funspace = store_thm("abstract_in_funspace",
-  ``is_set_theory ^mem ⇒
-    ∀f s t. (∀x. x <: s ⇒ f x <: t) ⇒ Abstract s t f <: Funspace s t``,
+val abstract_in_funspace = Q.store_thm("abstract_in_funspace",
+  `is_set_theory ^mem ⇒
+    ∀f s t. (∀x. x <: s ⇒ f x <: t) ⇒ Abstract s t f <: Funspace s t`,
   strip_tac >>
   simp[funspace_def,relspace_def,abstract_def,mem_power,mem_product,mem_sub] >>
   simp[EXISTS_UNIQUE_THM,pair_inj])
 
-val abstract_eq = store_thm("abstract_eq",
-  ``is_set_theory ^mem ⇒
+val abstract_eq = Q.store_thm("abstract_eq",
+  `is_set_theory ^mem ⇒
     ∀s t1 t2 f g.
     (∀x. x <: s ⇒ f x <: t1 ∧ g x <: t2 ∧ f x = g x)
-    ⇒ Abstract s t1 f = Abstract s t2 g``,
+    ⇒ Abstract s t1 f = Abstract s t2 g`,
   rw[] >>
   imp_res_tac is_extensional >>
   pop_assum mp_tac >>
@@ -606,10 +606,10 @@ val abstract_eq = store_thm("abstract_eq",
   simp[abstract_def,mem_sub,mem_product] >>
   metis_tac[pair_inj])
 
-val in_funspace_abstract = store_thm("in_funspace_abstract",
-  ``is_set_theory ^mem ⇒
+val in_funspace_abstract = Q.store_thm("in_funspace_abstract",
+  `is_set_theory ^mem ⇒
     ∀z s t. z <: Funspace s t ⇒
-    ∃f. z = Abstract s t f ∧ (∀x. x <: s ⇒ f x <: t)``,
+    ∃f. z = Abstract s t f ∧ (∀x. x <: s ⇒ f x <: t)`,
   rw[funspace_def,mem_sub,relspace_def,mem_power] >>
   qexists_tac`λx. @y. (x,y) <: z` >>
   conj_tac >- (
@@ -634,15 +634,15 @@ val apply_eq_mem = store_thm("apply_eq_mem",
   conj_tac >- simp[] >>
   metis_tac[])
 
-val id_funspace = store_thm("id_funspace",
-  ``is_set_theory ^mem ⇒
-    ∀d. Id d <: Funspace d d``,
+val id_funspace = Q.store_thm("id_funspace",
+  `is_set_theory ^mem ⇒
+    ∀d. Id d <: Funspace d d`,
   strip_tac >>
   simp[id_def,funspace_def,mem_sub,mem_relspace,mem_power,mem_product,pair_inj,EXISTS_UNIQUE_THM])
 
-val apply_id = store_thm("apply_id",
-  ``is_set_theory ^mem ⇒
-    ∀d x. x <: d ⇒ Id d ' x = x``,
+val apply_id = Q.store_thm("apply_id",
+  `is_set_theory ^mem ⇒
+    ∀d x. x <: d ⇒ Id d ' x = x`,
   rw[] >>
   imp_res_tac id_funspace >>
   pop_assum (assume_tac o SPEC_ALL) >>
@@ -650,9 +650,9 @@ val apply_id = store_thm("apply_id",
   asm_rewrite_tac[] >>
   simp[mem_id])
 
-val apply_extensional = store_thm("apply_extensional",
-  ``is_set_theory ^mem ⇒
-    ∀d r f g. f <: Funspace d r ∧ g <: Funspace d r ⇒ ((f = g) ⇔ ∀x. x <: d ⇒ f ' x = g ' x)``,
+val apply_extensional = Q.store_thm("apply_extensional",
+  `is_set_theory ^mem ⇒
+    ∀d r f g. f <: Funspace d r ∧ g <: Funspace d r ⇒ ((f = g) ⇔ ∀x. x <: d ⇒ f ' x = g ' x)`,
   rw[] >>
   EQ_TAC >|
     [ strip_tac >>
@@ -744,17 +744,17 @@ val is_model_def = Define`
     is_inductive mem indset ∧
     is_choice mem ch`
 
-val is_model_is_set_theory = store_thm("is_model_is_set_theory",
-  ``is_model M ⇒ is_set_theory ^mem``,
+val is_model_is_set_theory = Q.store_thm("is_model_is_set_theory",
+  `is_model M ⇒ is_set_theory ^mem`,
   rw[is_model_def])
 
-val indset_inhabited = store_thm("indset_inhabited",
-  ``is_infinite ^mem indset ⇒ ∃i. i <: indset``,
+val indset_inhabited = Q.store_thm("indset_inhabited",
+  `is_infinite ^mem indset ⇒ ∃i. i <: indset`,
   rw[is_infinite_def] >> imp_res_tac INFINITE_INHAB >>
   fs[] >> metis_tac[])
 
-val inductive_set_inhabited = store_thm("inductive_set_inhabited",
-  ``is_inductive ^mem indset ⇒ ∃i. i <: indset``,
+val inductive_set_inhabited = Q.store_thm("inductive_set_inhabited",
+  `is_inductive ^mem indset ⇒ ∃i. i <: indset`,
   metis_tac[is_inductive_def])
 
 val num2indset_def = Define`
@@ -763,48 +763,48 @@ val num2indset_def = Define`
 
 val _ = Parse.overload_on("Num2indset",``num2indset ^mem``)
 
-val num2indset_in_indset = store_thm("num2indset_in_indset",
-  ``is_inductive ^mem indset ⇒ ∀n. Num2indset n <: indset``,
+val num2indset_in_indset = Q.store_thm("num2indset_in_indset",
+  `is_inductive ^mem indset ⇒ ∀n. Num2indset n <: indset`,
   simp[is_inductive_def] >>
   strip_tac >>
   Induct >>
   simp[num2indset_def])
 
-val empty_num2indset = store_thm("empty_num2indset",
-  ``is_set_theory ^mem ⇒
-    ∀n. ∅ = Num2indset n ∨ ∅ <: Num2indset n``,
+val empty_num2indset = Q.store_thm("empty_num2indset",
+  `is_set_theory ^mem ⇒
+    ∀n. ∅ = Num2indset n ∨ ∅ <: Num2indset n`,
   strip_tac >>
   Induct >>
   simp[num2indset_def,mem_suc])
 
-val full_mem_num2indset = store_thm("full_mem_num2indset",
-  ``is_set_theory ^mem ⇒
-    ∀n m. m < n ⇒ Num2indset m <: Num2indset n``,
+val full_mem_num2indset = Q.store_thm("full_mem_num2indset",
+  `is_set_theory ^mem ⇒
+    ∀n m. m < n ⇒ Num2indset m <: Num2indset n`,
   strip_tac >>
   Induct >>
   simp[prim_recTheory.NOT_LESS_0,prim_recTheory.LESS_THM,num2indset_def,mem_suc] >>
   metis_tac[])
 
-val mem_num2indset_is_num2indset = store_thm("mem_num2indset_is_num2indset",
-  ``is_set_theory ^mem ⇒
-    ∀n a. a <: Num2indset n ⇒ ∃m. a = Num2indset m ∧ m < n``,
+val mem_num2indset_is_num2indset = Q.store_thm("mem_num2indset_is_num2indset",
+  `is_set_theory ^mem ⇒
+    ∀n a. a <: Num2indset n ⇒ ∃m. a = Num2indset m ∧ m < n`,
   strip_tac >>
   Induct >>
   simp[prim_recTheory.NOT_LESS_0,prim_recTheory.LESS_THM,num2indset_def,mem_empty,mem_suc] >>
   metis_tac[])
 
-val mem_num2indset_is_num2indset_eq = store_thm("mem_num2indset_is_num2indset_eq",
-  ``is_set_theory ^mem ⇒
-    ∀n a. (a <: Num2indset n) = ∃m. a = Num2indset m ∧ m < n``,
+val mem_num2indset_is_num2indset_eq = Q.store_thm("mem_num2indset_is_num2indset_eq",
+  `is_set_theory ^mem ⇒
+    ∀n a. (a <: Num2indset n) = ∃m. a = Num2indset m ∧ m < n`,
   metis_tac[mem_num2indset_is_num2indset,full_mem_num2indset] )
 
 val MAX_SUC = TAC_PROOF(([],
   ``∀a b. MAX (SUC a) (SUC b) = SUC (MAX a b)``),
   simp[arithmeticTheory.MAX_DEF])
 
-val num2indset_11 = store_thm("num2indset_11",
-  ``is_set_theory ^mem ⇒
-    ∀n m. (Num2indset n = Num2indset m) ⇔ (n = m)``,
+val num2indset_11 = Q.store_thm("num2indset_11",
+  `is_set_theory ^mem ⇒
+    ∀n m. (Num2indset n = Num2indset m) ⇔ (n = m)`,
   strip_tac >>
   completeInduct_on `MAX n m` >>
   Cases >> Cases >>
@@ -817,15 +817,15 @@ val num2indset_11 = store_thm("num2indset_11",
   strip_tac >>
   simp[suc_11])
 
-val num2indset_mem_less = store_thm("num2indset_mem_less",
-  ``is_set_theory ^mem ⇒
-    ∀n m. (Num2indset m <: Num2indset n) ⇔ (m < n)``,
+val num2indset_mem_less = Q.store_thm("num2indset_mem_less",
+  `is_set_theory ^mem ⇒
+    ∀n m. (Num2indset m <: Num2indset n) ⇔ (m < n)`,
   strip_tac >>
   simp[mem_num2indset_is_num2indset_eq] >>
   simp[num2indset_11])
 
-val inductive_set_infinite = store_thm("inductive_set_infinite",
-  ``is_set_theory ^mem ∧ is_inductive ^mem indset ⇒ is_infinite mem indset``,
+val inductive_set_infinite = Q.store_thm("inductive_set_infinite",
+  `is_set_theory ^mem ∧ is_inductive ^mem indset ⇒ is_infinite mem indset`,
   rw[is_infinite_def] >>
   match_mp_tac (REFORM_RULE INFINITE_SUBSET) >>
   qexists_tac`pred_set$IMAGE Num2indset UNIV` >>
@@ -838,8 +838,8 @@ val inductive_set_infinite = store_thm("inductive_set_infinite",
       rw[] >>
       simp[num2indset_in_indset] ])
 
-val funspace_inhabited = store_thm("funspace_inhabited",
-  ``is_set_theory ^mem ⇒ ∀s t. (∃x. x <: s) ∧ (∃x. x <: t) ⇒ ∃f. f <: Funspace s t``,
+val funspace_inhabited = Q.store_thm("funspace_inhabited",
+  `is_set_theory ^mem ⇒ ∀s t. (∃x. x <: s) ∧ (∃x. x <: t) ⇒ ∃f. f <: Funspace s t`,
   rw[] >> qexists_tac`Abstract s t (λx. @x. x <: t)` >>
   match_mp_tac (MP_CANON abstract_in_funspace) >>
   metis_tac[])
@@ -858,14 +858,14 @@ val pair_not_empty = store_thm("pair_not_empty",
   simp[pair_def,mem_upair] >>
   metis_tac[])
 
-val tuple_empty = store_thm("tuple_empty",
-  ``is_set_theory ^mem ⇒ ∀ls. tuple ls = ∅ ⇔ ls = []``,
+val tuple_empty = Q.store_thm("tuple_empty",
+  `is_set_theory ^mem ⇒ ∀ls. tuple ls = ∅ ⇔ ls = []`,
   strip_tac >> Cases >> simp[tuple_def] >>
   simp[pair_not_empty] )
 
-val tuple_inj = store_thm("tuple_inj",
-  ``is_set_theory ^mem ⇒
-    ∀l1 l2. tuple l1 = tuple l2 ⇔ l1 = l2``,
+val tuple_inj = Q.store_thm("tuple_inj",
+  `is_set_theory ^mem ⇒
+    ∀l1 l2. tuple l1 = tuple l2 ⇔ l1 = l2`,
   strip_tac >>
   Induct >> simp[tuple_def] >- metis_tac[tuple_empty] >>
   gen_tac >> Cases >> simp[tuple_def,pair_not_empty] >>
@@ -876,9 +876,9 @@ val bigcross_def = Define`
   (bigcross0 ^mem (a::as) = a × (bigcross0 ^mem as))`
 val _ = Parse.overload_on("bigcross",``bigcross0 ^mem``)
 
-val mem_bigcross = store_thm("mem_bigcross",
-  ``is_set_theory ^mem ⇒
-    ∀ls x. (mem x (bigcross ls) ⇔ ∃xs. x = tuple xs ∧ LIST_REL mem xs ls)``,
+val mem_bigcross = Q.store_thm("mem_bigcross",
+  `is_set_theory ^mem ⇒
+    ∀ls x. (mem x (bigcross ls) ⇔ ∃xs. x = tuple xs ∧ LIST_REL mem xs ls)`,
   strip_tac >> Induct >>
   simp[bigcross_def,tuple_def,mem_one] >>
   simp[mem_product,PULL_EXISTS,tuple_def])

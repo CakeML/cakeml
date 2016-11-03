@@ -38,8 +38,8 @@ val lookup_qsort = save_thm("lookup_qsort",
 
 (* --- a more concrete example, not much use --- *)
 
-val Eval_Var_lemma = prove(
-  ``(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
+val Eval_Var_lemma = Q.prove(
+  `(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P`,
   fs [Eval_def,lookup_var_id_def,lookup_var_def,
       Once bigStepTheory.evaluate_cases]);
 

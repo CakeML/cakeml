@@ -11,8 +11,8 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -212,16 +212,16 @@ val _ = translate PAIR_MAP
 
 val _ = translate parmoveTheory.fstep_def
 
-val parmove_fstep_side = prove(``
-  ∀x. parmove_fstep_side x ⇔ T``,
+val parmove_fstep_side = Q.prove(`
+  ∀x. parmove_fstep_side x ⇔ T`,
   EVAL_TAC>>rw[]>>Cases_on`v18`>>fs[]) |> update_precondition
 
 val _ = translate (spec64 word_to_stackTheory.wMove_def)
 
 val _ = translate (spec64 call_dest_def)
 
-val word_to_stack_call_dest_side = prove(``
-  ∀a b c. word_to_stack_call_dest_side a b c ⇔ T``,
+val word_to_stack_call_dest_side = Q.prove(`
+  ∀a b c. word_to_stack_call_dest_side a b c ⇔ T`,
   EVAL_TAC>>Cases_on`b`>>fs[]) |> update_precondition
 
 val _ = translate (spec64 comp_def)

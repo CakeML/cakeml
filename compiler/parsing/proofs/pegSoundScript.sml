@@ -208,9 +208,9 @@ val length_no_greater = store_thm(
   metis_tac[peg_eval_suffix',
             DECIDE ``x ≤ y:num ⇔ x < y ∨ x = y``]);
 
-val MAP_TK_11 = store_thm(
+val MAP_TK_11 = Q.store_thm(
   "MAP_TK_11[simp]",
-  ``MAP TK x = MAP TK y ⇔ x = y``,
+  `MAP TK x = MAP TK y ⇔ x = y`,
   eq_tac >> simp[] >> strip_tac >>
   match_mp_tac
     (INST_TYPE [beta |-> ``:(token,MMLnonT) grammar$symbol``]

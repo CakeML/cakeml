@@ -614,9 +614,9 @@ val step_e_not_timeout = Q.prove (
   imp_res_tac do_app_not_timeout >>
   srw_tac[][]);
 
-val small_eval_list_not_timeout = prove(
-  ``∀env s es res. small_eval_list env s es res ⇒
-    SND res ≠ Rerr (Rabort Rtimeout_error)``,
+val small_eval_list_not_timeout = Q.prove(
+  `∀env s es res. small_eval_list env s es res ⇒
+    SND res ≠ Rerr (Rabort Rtimeout_error)`,
   ho_match_mp_tac small_eval_list_ind >> srw_tac[][] >>
   metis_tac [step_e_not_timeout]);
 
@@ -669,8 +669,8 @@ val small_eval_list_app_error = prove(
   srw_tac[][Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`])
 
 
-val do_opapp_NONE_tail = prove(
-  ``do_opapp (h::t) = NONE ∧ LENGTH t ≠ 2 ⇒ do_opapp t = NONE``,
+val do_opapp_NONE_tail = Q.prove(
+  `do_opapp (h::t) = NONE ∧ LENGTH t ≠ 2 ⇒ do_opapp t = NONE`,
   srw_tac[][do_opapp_def] >> every_case_tac >> full_simp_tac(srw_ss())[])
 
 val e_step_exp_err_any_ctxt = prove(

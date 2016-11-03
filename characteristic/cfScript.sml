@@ -890,8 +890,8 @@ val htriple_valid_normalise = store_thm ("htriple_valid_normalise",
   fs [htriple_valid_def, evaluate_ck_def, evaluate_normalise]
 );
 
-val sound_normalise = store_thm("sound_normalise",
-  ``sound p (normalise e) R <=> sound p e R``,
+val sound_normalise = Q.store_thm("sound_normalise",
+  `sound p (normalise e) R <=> sound p e R`,
   fs [sound_def, htriple_valid_normalise]);
 
 val star_split = Q.prove (
@@ -1044,8 +1044,8 @@ val SPLIT_SING_2 = store_thm("SPLIT_SING_2",
   ``SPLIT s (x,{y}) <=> (s = y INSERT x) /\ ~(y IN x)``,
   SPLIT_TAC);
 
-val SUBSET_IN = prove(
-  ``!s t x. s SUBSET t /\ x IN s ==> x IN t``,
+val SUBSET_IN = Q.prove(
+  `!s t x. s SUBSET t /\ x IN s ==> x IN t`,
   fs [SUBSET_DEF] \\ metis_tac []);
 
 val SPLIT_FFI_SET_IMP_DISJOINT = store_thm("SPLIT_FFI_SET_IMP_DISJOINT",
@@ -1079,9 +1079,9 @@ val FLOOKUP_FUPDATE_LIST = store_thm("FLOOKUP_FUPDATE_LIST",
   Induct \\ fs [FUPDATE_LIST] \\ rw [] \\ fs []
   \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]);
 
-val ALL_DISTINCT_FLAT_MEM_IMP = store_thm("ALL_DISTINCT_FLAT_MEM_IMP",
-  ``!p2. ALL_DISTINCT (FLAT p2) /\ MEM ns' p2 /\ MEM ns p2 /\
-         MEM m ns' /\ MEM m ns ==> ns = ns'``,
+val ALL_DISTINCT_FLAT_MEM_IMP = Q.store_thm("ALL_DISTINCT_FLAT_MEM_IMP",
+  `!p2. ALL_DISTINCT (FLAT p2) /\ MEM ns' p2 /\ MEM ns p2 /\
+         MEM m ns' /\ MEM m ns ==> ns = ns'`,
   Induct \\ fs [ALL_DISTINCT_APPEND] \\ rw [] \\ fs []
   \\ res_tac \\ fs [MEM_FLAT] \\ metis_tac []);
 

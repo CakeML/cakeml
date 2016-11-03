@@ -56,30 +56,30 @@ val ODD_SUB = Q.store_thm("ODD_SUB",
   `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`,
   rw[ODD_EVEN,EVEN_SUB]);
 
-val IS_SUBLIST_MEM = prove(``
+val IS_SUBLIST_MEM = Q.prove(`
   ∀ls ls' x.
   MEM x ls ∧ IS_SUBLIST ls' ls ⇒
-  MEM x ls'``,
+  MEM x ls'`,
   Induct>>Induct_on`ls'`>>rw[IS_SUBLIST]>>
   metis_tac[MEM,IS_PREFIX_IS_SUBLIST])
 
-val IS_SUBLIST_APPEND1 = prove(``
+val IS_SUBLIST_APPEND1 = Q.prove(`
   ∀A B C.
   IS_SUBLIST A C ⇒
-  IS_SUBLIST (A++B) C``,
+  IS_SUBLIST (A++B) C`,
   rw[]>>match_mp_tac (snd(EQ_IMP_RULE (SPEC_ALL IS_SUBLIST_APPEND)))>>
   fs[IS_SUBLIST_APPEND]>>
   metis_tac[APPEND_ASSOC])
 
-val IS_SUBLIST_APPEND2 = prove(``
+val IS_SUBLIST_APPEND2 = Q.prove(`
   ∀A B C.
   IS_SUBLIST B C ⇒
-  IS_SUBLIST (A++B) C``,
+  IS_SUBLIST (A++B) C`,
   Induct_on`A`>>Induct_on`B`>>Induct_on`C`>>fs[IS_SUBLIST])
 
-val IS_SUBLIST_REFL = prove(``
+val IS_SUBLIST_REFL = Q.prove(`
   ∀ls.
-  IS_SUBLIST ls ls``,
+  IS_SUBLIST ls ls`,
   Induct>>fs[IS_SUBLIST])
 
 val map2_snoc = Q.prove (
@@ -770,30 +770,30 @@ val env_rel_def = Define `
   (env_rel max_app f refs code (x::xs) (y::ys) <=>
      v_rel max_app f refs code x y /\ env_rel max_app f refs code xs ys)`;
 
-val env_rel_APPEND = prove(
-  ``!xs1 xs2.
+val env_rel_APPEND = Q.prove(
+  `!xs1 xs2.
       EVERY2 (v_rel max_app f1 refs code) xs1 xs2 /\
       env_rel max_app f1 refs code ys1 ys2 ==>
-      env_rel max_app f1 refs code (xs1 ++ ys1) (xs2 ++ ys2)``,
+      env_rel max_app f1 refs code (xs1 ++ ys1) (xs2 ++ ys2)`,
   Induct \\ Cases_on `xs2` \\ full_simp_tac(srw_ss())[env_rel_def]);
 
-val list_rel_IMP_env_rel = prove(
-  ``!xs ys.
+val list_rel_IMP_env_rel = Q.prove(
+  `!xs ys.
       LIST_REL (v_rel max_app f refs code) xs ys ==>
-      env_rel max_app f refs code xs (ys ++ ts)``,
+      env_rel max_app f refs code xs (ys ++ ts)`,
   Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[env_rel_def]
   \\ Cases_on `ts` \\ full_simp_tac(srw_ss())[env_rel_def]);
 
-val env_rel_IMP_LENGTH = prove(
-  ``!env1 env2.
+val env_rel_IMP_LENGTH = Q.prove(
+  `!env1 env2.
       env_rel max_app f refs code env1 env2 ==>
-      LENGTH env1 <= LENGTH env2``,
+      LENGTH env1 <= LENGTH env2`,
   Induct \\ Cases_on `env2` \\ full_simp_tac(srw_ss())[env_rel_def]);
 
-val LESS_LENGTH_env_rel_IMP = prove(
-  ``!env env2 n.
+val LESS_LENGTH_env_rel_IMP = Q.prove(
+  `!env env2 n.
       n < LENGTH env /\ env_rel max_app f refs code env env2 ==>
-      n < LENGTH env2 /\ v_rel max_app f refs code (EL n env) (EL n env2)``,
+      n < LENGTH env2 /\ v_rel max_app f refs code (EL n env) (EL n env2)`,
   Induct \\ full_simp_tac(srw_ss())[LENGTH] \\ REPEAT STRIP_TAC
   \\ Cases_on `env2` \\ full_simp_tac(srw_ss())[env_rel_def]
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]);
@@ -833,9 +833,9 @@ val state_rel_def = Define `
 val _ = temp_overload_on ("ksrel", ``clos_knownProof$state_rel``)
 
 
-val state_rel_globals = prove(
-  ``state_rel f s t ⇒
-    LIST_REL (OPTREL (v_rel s.max_app f t.refs t.code)) s.globals t.globals``,
+val state_rel_globals = Q.prove(
+  `state_rel f s t ⇒
+    LIST_REL (OPTREL (v_rel s.max_app f t.refs t.code)) s.globals t.globals`,
   srw_tac[][state_rel_def]);
 
 val state_rel_clock = Q.store_thm ("state_rel_clock[simp]",
@@ -856,10 +856,10 @@ val cl_rel_SUBMAP = Q.prove (
   \\ full_simp_tac(srw_ss())[FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`) \\ full_simp_tac(srw_ss())[]);
 
-val v_rel_SUBMAP = prove(
-  ``!x y. v_rel max_app f1 refs1 code x y ==>
+val v_rel_SUBMAP = Q.prove(
+  `!x y. v_rel max_app f1 refs1 code x y ==>
       f1 SUBMAP f2 /\ FDIFF refs1 (FRANGE f1) SUBMAP FDIFF refs2 (FRANGE f2) ==>
-      v_rel max_app f2 refs2 code x y``,
+      v_rel max_app f2 refs2 code x y`,
   HO_MATCH_MP_TAC v_rel_ind \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [v_rel_cases] \\ full_simp_tac(srw_ss())[]
   THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ full_simp_tac(srw_ss())[])
@@ -875,11 +875,11 @@ val v_rel_SUBMAP = prove(
          metis_tac [SUBMAP_FRANGE_SUBSET] ))
   |> SPEC_ALL |> MP_CANON;
 
-val env_rel_SUBMAP = prove(
-  ``!env1 env2.
+val env_rel_SUBMAP = Q.prove(
+  `!env1 env2.
       env_rel max_app f1 refs1 code env1 env2 /\
       f1 SUBMAP f2 /\ FDIFF refs1 (FRANGE f1) SUBMAP FDIFF refs2 (FRANGE f2) ==>
-      env_rel max_app f2 refs2 code env1 env2``,
+      env_rel max_app f2 refs2 code env1 env2`,
   Induct \\ Cases_on `env2` \\ full_simp_tac(srw_ss())[env_rel_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC v_rel_SUBMAP) |> GEN_ALL;
 
@@ -1294,8 +1294,8 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 | INR (vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val do_eq = prove(
-  ``INJ ($' f) (FDOM f) (FRANGE f) ⇒
+val do_eq = Q.prove(
+  `INJ ($' f) (FDOM f) (FRANGE f) ⇒
     (∀x y x1 y1.
            v_rel max_app f r c x x1 ∧
            v_rel max_app f r c y y1 ⇒
@@ -1303,7 +1303,7 @@ val do_eq = prove(
     (∀x y x1 y1.
            LIST_REL (v_rel max_app f r c) x x1 ∧
            LIST_REL (v_rel max_app f r c) y y1 ⇒
-           do_eq_list x y = do_eq_list x1 y1)``,
+           do_eq_list x y = do_eq_list x1 y1)`,
    strip_tac >>
    HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
    srw_tac[][]
@@ -1513,8 +1513,8 @@ val equality = Q.prove(
 
 (* compiler correctness *)
 
-val EXISTS_NOT_IN_refs = prove(
-  ``?x. ~(x IN FDOM (t1:'ffi bvlSem$state).refs)``,
+val EXISTS_NOT_IN_refs = Q.prove(
+  `?x. ~(x IN FDOM (t1:'ffi bvlSem$state).refs)`,
   METIS_TAC [NUM_NOT_IN_FDOM])
 
 val lookup_vars_IMP2 = prove(
@@ -4021,16 +4021,16 @@ val remove_compile_alt = prove(``
   Induct>>fs[clos_removeTheory.compile_def]>-EVAL_TAC>>
   simp[FORALL_PROD]>>rw[Once clos_removeTheory.remove_CONS]);
 
-val remove_FST = prove(``
-  ∀ls b.MAP FST (clos_remove$compile b ls) = MAP FST ls``,
+val remove_FST = Q.prove(`
+  ∀ls b.MAP FST (clos_remove$compile b ls) = MAP FST ls`,
   Induct>>Cases_on`b`>>fs[clos_removeTheory.compile_def,FORALL_PROD]
   >-
     EVAL_TAC>>
   first_x_assum(qspec_then`T` assume_tac)>>fs[clos_removeTheory.compile_def]>>
   rw[Once clos_removeTheory.remove_CONS])
 
-val IMP_PERM_code_merge = store_thm("IMP_PERM_code_merge",
-  ``!xs ys zs. PERM (xs ++ ys) zs ==> PERM (code_merge xs ys) zs``,
+val IMP_PERM_code_merge = Q.store_thm("IMP_PERM_code_merge",
+  `!xs ys zs. PERM (xs ++ ys) zs ==> PERM (code_merge xs ys) zs`,
   HO_MATCH_MP_TAC code_merge_ind \\ rw []
   \\ once_rewrite_tac [code_merge_def]
   \\ fs [] \\ Cases_on `xs` \\ fs []
@@ -4061,8 +4061,8 @@ val code_split_IMP_PERM = store_thm("code_split_IMP_PERM",
   \\ qexists_tac `xs2 ++ xs3` \\ fs [sortingTheory.PERM_APPEND_IFF]
   \\ fs [PERM_APPEND]);
 
-val PERM_code_sort = store_thm("PERM_code_sort",
-  ``!xs. PERM (code_sort xs) xs``,
+val PERM_code_sort = Q.store_thm("PERM_code_sort",
+  `!xs. PERM (code_sort xs) xs`,
   HO_MATCH_MP_TAC code_sort_ind \\ rw [code_sort_def]
   \\ pairarg_tac \\ fs []
   \\ match_mp_tac IMP_PERM_code_merge
@@ -4071,15 +4071,15 @@ val PERM_code_sort = store_thm("PERM_code_sort",
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac sortingTheory.PERM_CONG \\ fs []);
 
-val ALL_DISTINCT_code_sort = store_thm("ALL_DISTINCT_code_sort",
-  ``ALL_DISTINCT (MAP FST (code_sort xs)) <=> ALL_DISTINCT (MAP FST xs)``,
+val ALL_DISTINCT_code_sort = Q.store_thm("ALL_DISTINCT_code_sort",
+  `ALL_DISTINCT (MAP FST (code_sort xs)) <=> ALL_DISTINCT (MAP FST xs)`,
   match_mp_tac sortingTheory.ALL_DISTINCT_PERM
   \\ match_mp_tac sortingTheory.PERM_MAP \\ fs [PERM_code_sort]);
 
-val PERM_IMP_fromAList_EQ_fromAList = store_thm("PERM_IMP_fromAList_EQ_fromAList",
-  ``!xs ys.
+val PERM_IMP_fromAList_EQ_fromAList = Q.store_thm("PERM_IMP_fromAList_EQ_fromAList",
+  `!xs ys.
       PERM xs ys ==> ALL_DISTINCT (MAP FST xs) ==>
-      fromAList xs = fromAList ys``,
+      fromAList xs = fromAList ys`,
   Induct \\ fs [sortingTheory.PERM_NIL,sortingTheory.PERM_CONS_EQ_APPEND]
   \\ rw [] \\ res_tac
   \\ fs [ALL_DISTINCT_APPEND]
@@ -4088,9 +4088,9 @@ val PERM_IMP_fromAList_EQ_fromAList = store_thm("PERM_IMP_fromAList_EQ_fromAList
   \\ rw [] \\ fs [GSYM alistTheory.ALOOKUP_NONE]
   \\ every_case_tac \\ fs []);
 
-val fromAList_code_sort = store_thm("fromAList_code_sort",
-  ``ALL_DISTINCT (MAP FST xs) ==>
-    fromAList (code_sort xs) = fromAList xs``,
+val fromAList_code_sort = Q.store_thm("fromAList_code_sort",
+  `ALL_DISTINCT (MAP FST xs) ==>
+    fromAList (code_sort xs) = fromAList xs`,
   rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
   \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
 
@@ -4243,11 +4243,11 @@ val clos_init_with_clock = Q.store_thm("clos_init_with_clock[simp]",
   EVAL_TAC);
 
 (* actually, this can be made even stronger *)
-val code_installed_fromAList_strong = prove(``
+val code_installed_fromAList_strong = Q.prove(`
   ∀ls ls'.
   ALL_DISTINCT(MAP FST ls) ∧
   IS_SUBLIST ls ls' ⇒
-  code_installed ls' (fromAList ls)``,
+  code_installed ls' (fromAList ls)`,
   srw_tac[][code_installed_def,EVERY_MEM,FORALL_PROD,lookup_fromAList] >>
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM,IS_SUBLIST_MEM])
 

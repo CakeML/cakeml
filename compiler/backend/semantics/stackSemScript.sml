@@ -147,22 +147,22 @@ val check_clock_def = Define `
   check_clock (s1:('a,'ffi) stackSem$state) (s2:('a,'ffi) stackSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
-val check_clock_thm = prove(
-  ``(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))``,
+val check_clock_thm = Q.prove(
+  `(check_clock s1 s2).clock <= s2.clock /\
+    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))`,
   SRW_TAC [] [check_clock_def])
 
-val check_clock_alt = prove(
-  ``(s1.clock <= (dec_clock s2).clock ==> (check_clock s1 s2 = s1))``,
+val check_clock_alt = Q.prove(
+  `(s1.clock <= (dec_clock s2).clock ==> (check_clock s1 s2 = s1))`,
   SRW_TAC [] [check_clock_def,dec_clock_def] \\ `F` by DECIDE_TAC)
 
-val check_clock_lemma = prove(
-  ``b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)``,
+val check_clock_lemma = Q.prove(
+  `b ==> ((check_clock s1 s).clock < s.clock \/
+          ((check_clock s1 s).clock = s.clock) /\ b)`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val check_clock_IMP = prove(
-  ``n <= (check_clock r s).clock ==> n <= s.clock``,
+val check_clock_IMP = Q.prove(
+  `n <= (check_clock r s).clock ==> n <= s.clock`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val empty_env_def = Define `
@@ -555,8 +555,8 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
-val gc_clock = store_thm("gc_clock",
-  ``!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock``,
+val gc_clock = Q.store_thm("gc_clock",
+  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock`,
   fs [gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> fs[]
   \\ SRW_TAC [] [] \\ fs []);
@@ -572,8 +572,8 @@ val alloc_clock = store_thm("alloc_clock",
   \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
   \\ EVAL_TAC \\ decide_tac);
 
-val inst_clock = prove(
-  ``inst i s = SOME s2 ==> s2.clock <= s.clock``,
+val inst_clock = Q.prove(
+  `inst i s = SOME s2 ==> s2.clock <= s.clock`,
   Cases_on `i` \\ fs [inst_def,assign_def] \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ fs []
   \\ fs [mem_store_def] \\ SRW_TAC [] []);

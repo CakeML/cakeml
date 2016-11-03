@@ -114,28 +114,28 @@ val implements_def = Define `
   implements x y <=>
     (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)`;
 
-val implements_intro = store_thm("implements_intro",
-  ``(b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}``,
+val implements_intro = Q.store_thm("implements_intro",
+  `(b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}`,
   full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
-val implements_trivial_intro = store_thm("implements_trivial_intro",
-  ``(y = x) ==> implements {y} {x}``,
+val implements_trivial_intro = Q.store_thm("implements_trivial_intro",
+  `(y = x) ==> implements {y} {x}`,
   full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
-val implements_intro_ext = store_thm("implements_intro_ext",
-  ``(b /\ x <> Fail ==> y IN extend_with_resource_limit {x}) ==>
-    b ==> implements {y} {x}``,
+val implements_intro_ext = Q.store_thm("implements_intro_ext",
+  `(b /\ x <> Fail ==> y IN extend_with_resource_limit {x}) ==>
+    b ==> implements {y} {x}`,
   full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
-val isPREFIX_IMP_LPREFIX = prove(
-  ``!xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)``,
+val isPREFIX_IMP_LPREFIX = Q.prove(
+  `!xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)`,
   full_simp_tac(srw_ss())[LPREFIX_def,llistTheory.from_toList]);
 
-val implements_trans = store_thm("implements_trans",
-  ``implements y z ==> implements x y ==> implements x z``,
+val implements_trans = Q.store_thm("implements_trans",
+  `implements y z ==> implements x y ==> implements x z`,
   full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
   \\ Cases_on `Fail IN y` \\ full_simp_tac(srw_ss())[]

@@ -36,21 +36,21 @@ val evaluate_Seq_assoc = store_thm("evaluate_Seq_assoc",
   ``!p s. evaluate (Seq_assoc Skip p,s) = evaluate (p,^s)``,
   fs [evaluate_Seq_assoc_lemma,evaluate_def]);
 
-val extract_labels_SmartSeq = store_thm("extract_labels_SmartSeq",
-  ``extract_labels (SmartSeq p1 p2) = extract_labels (Seq p1 p2)``,
+val extract_labels_SmartSeq = Q.store_thm("extract_labels_SmartSeq",
+  `extract_labels (SmartSeq p1 p2) = extract_labels (Seq p1 p2)`,
   rw [SmartSeq_def,extract_labels_def]);
 
-val extract_labels_Seq_assoc_lemma = store_thm("extract_labels_Seq_assoc_lemma",
-  ``!p1 p2. extract_labels (Seq_assoc p1 p2) =
-            extract_labels p1 ++ extract_labels p2``,
+val extract_labels_Seq_assoc_lemma = Q.store_thm("extract_labels_Seq_assoc_lemma",
+  `!p1 p2. extract_labels (Seq_assoc p1 p2) =
+            extract_labels p1 ++ extract_labels p2`,
   HO_MATCH_MP_TAC Seq_assoc_ind \\ fs [] \\ rw []
   \\ fs [Seq_assoc_def,extract_labels_def,extract_labels_SmartSeq]
   \\ Cases_on `ret_prog` \\ Cases_on `handler` \\ fs []
   \\ PairCases_on `x` \\ fs []
   \\ PairCases_on `x'` \\ fs []);
 
-val extract_labels_Seq_assoc = store_thm("extract_labels_Seq_assoc",
-  ``extract_labels (Seq_assoc Skip p) = extract_labels p``,
+val extract_labels_Seq_assoc = Q.store_thm("extract_labels_Seq_assoc",
+  `extract_labels (Seq_assoc Skip p) = extract_labels p`,
   fs [extract_labels_Seq_assoc_lemma,extract_labels_def]);
 
 (* verification of simp_if *)
@@ -119,15 +119,15 @@ val evaluate_simp_if = store_thm("evaluate_simp_if",
   \\ PairCases_on `x'` \\ fs[add_ret_loc_def,push_env_def]
   \\ TRY (PairCases_on `x''`) \\ fs[add_ret_loc_def,push_env_def]);
 
-val simp_if_works = store_thm("simp_if_works",
-  ``IS_SOME (apply_if_opt
+val simp_if_works = Q.store_thm("simp_if_works",
+  `IS_SOME (apply_if_opt
      (If Less 5 (Imm 5w) (Assign 3 (Const 5w)) (Assign 3 (Const (4w:word32))))
-     (If Equal 3 (Imm (4w:word32)) (Raise 1) (Raise 2)))``,
+     (If Equal 3 (Imm (4w:word32)) (Raise 1) (Raise 2)))`,
   EVAL_TAC);
 
-val extract_labels_apply_if_opt = store_thm("extract_labels_apply_if_opt",
-  ``apply_if_opt p1 p2 = SOME p ==>
-    PERM (extract_labels p) (extract_labels p1 ++ extract_labels p2)``,
+val extract_labels_apply_if_opt = Q.store_thm("extract_labels_apply_if_opt",
+  `apply_if_opt p1 p2 = SOME p ==>
+    PERM (extract_labels p) (extract_labels p1 ++ extract_labels p2)`,
   fs [apply_if_opt_def]
   \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs [] \\ rw []
@@ -136,8 +136,8 @@ val extract_labels_apply_if_opt = store_thm("extract_labels_apply_if_opt",
   \\ Cases_on `p1` \\ fs [dest_Seq_def] \\ rveq \\ fs [extract_labels_def]
   \\ metis_tac[PERM_APPEND,APPEND_ASSOC,PERM_APPEND_IFF])
 
-val extract_labels_simp_if = store_thm("extract_labels_simp_if",
-  ``!p. PERM (extract_labels (simp_if p)) (extract_labels p)``,
+val extract_labels_simp_if = Q.store_thm("extract_labels_simp_if",
+  `!p. PERM (extract_labels (simp_if p)) (extract_labels p)`,
   HO_MATCH_MP_TAC simp_if_ind \\ fs [simp_if_def] \\ rw []
   \\ fs [extract_labels_def]
   \\ every_case_tac \\ fs [extract_labels_def]
@@ -151,8 +151,8 @@ val compile_exp_thm = store_thm("compile_exp_thm",
     evaluate (word_simp$compile_exp prog,s) = (res,s2)``,
   fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc]);
 
-val extract_labels_compile_exp = store_thm("extract_labels_compile_exp[simp]",
-  ``!p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)``,
+val extract_labels_compile_exp = Q.store_thm("extract_labels_compile_exp[simp]",
+  `!p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)`,
   fs [word_simpTheory.compile_exp_def]>>
   metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS])
 

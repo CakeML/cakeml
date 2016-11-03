@@ -42,9 +42,9 @@ val mem_store_rename_state = Q.store_thm("mem_store_rename_state[simp]",
   `mem_store x y (rename_state f s) = OPTION_MAP (rename_state f) (mem_store x y s)`,
   EVAL_TAC >> rw[] >> EVAL_TAC);
 
-val get_var_find_name = store_thm("get_var_find_name[simp]",
-  ``BIJ (find_name f) UNIV UNIV ==>
-    get_var (find_name f v) (rename_state f s) = get_var v s``,
+val get_var_find_name = Q.store_thm("get_var_find_name[simp]",
+  `BIJ (find_name f) UNIV UNIV ==>
+    get_var (find_name f v) (rename_state f s) = get_var v s`,
   fs [get_var_def,rename_state_def,FLOOKUP_DEF,MAP_KEYS_def]
   \\ rpt strip_tac \\ imp_res_tac BIJ_IMP_11 \\ fs []
   \\ rw [] \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -138,13 +138,13 @@ val domain_rename_state_code = Q.store_thm("domain_rename_state_code[simp]",
   `domain (rename_state f s).code = domain s.code`,
   rw[rename_state_def,domain_fromAList,toAList_domain,EXTENSION]);
 
-val comp_STOP_While = prove(
-  ``comp f (STOP (While cmp r1 ri c1)) =
-    STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))``,
+val comp_STOP_While = Q.prove(
+  `comp f (STOP (While cmp r1 ri c1)) =
+    STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))`,
   simp [Once comp_def] \\ fs [STOP_def]);
 
-val get_labels_comp = prove(
-  ``!f p. get_labels (comp f p) = get_labels p``,
+val get_labels_comp = Q.prove(
+  `!f p. get_labels (comp f p) = get_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [comp_def] \\ fs [get_labels_def]
   \\ every_case_tac \\ fs []);
@@ -316,10 +316,10 @@ val comp_correct = Q.prove(
     simp[Once comp_def] >> fs[evaluate_def] >>
     simp[Once rename_state_def] >> rveq >> simp[] ));
 
-val compile_semantics = store_thm("compile_semantics",
-  ``BIJ (find_name f) UNIV UNIV /\
+val compile_semantics = Q.store_thm("compile_semantics",
+  `BIJ (find_name f) UNIV UNIV /\
     ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
-    semantics start (rename_state f s) = semantics start s``,
+    semantics start (rename_state f s) = semantics start s`,
   simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
   simp[semantics_def] >>
   simp[
@@ -333,11 +333,11 @@ val compile_semantics = store_thm("compile_semantics",
   simp[rename_state_def] >>
   srw_tac[QUANT_INST_ss[pair_default_qp]][]);
 
-val compile_semantics_alt = prove(
-  ``!s t.
+val compile_semantics_alt = Q.prove(
+  `!s t.
       BIJ (find_name f) UNIV UNIV /\ (rename_state f s = t) /\
       ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
-      semantics start t = semantics start s``,
+      semantics start t = semantics start s`,
   fs [compile_semantics]);
 
 val make_init_def = Define `
@@ -361,9 +361,9 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ rw[prog_comp_eta,ALOOKUP_MAP_gen,ALOOKUP_toAList,lookup_fromAList]);
 
-val stack_names_lab_pres = store_thm("stack_names_lab_pres",``
+val stack_names_lab_pres = Q.store_thm("stack_names_lab_pres",`
   ∀f p.
-  extract_labels p = extract_labels (comp f p)``,
+  extract_labels p = extract_labels (comp f p)`,
   HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [comp_def]>>fs[extract_labels_def]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])

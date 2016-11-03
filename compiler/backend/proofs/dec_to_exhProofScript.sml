@@ -16,8 +16,8 @@ val find_recfun_compile_funs = prove(
   every_case_tac >>
   simp[] >> full_simp_tac(srw_ss())[compile_funs_map]);
 
-val exhaustive_match_submap = prove(
-  ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
+val exhaustive_match_submap = Q.prove(
+  `exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes`,
   srw_tac[][exhaustive_match_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac FLOOKUP_SUBMAP >> full_simp_tac(srw_ss())[] >> srw_tac[][])
@@ -102,8 +102,8 @@ val v_rel_eqn = Q.prove (
    srw_tac[][Once v_rel_cases] >>
    metis_tac []);
 
-val vs_rel_LIST_REL = prove(
-  ``∀vs vs' exh. vs_rel exh vs vs' = LIST_REL (v_rel exh) vs vs'``,
+val vs_rel_LIST_REL = Q.prove(
+  `∀vs vs' exh. vs_rel exh vs vs' = LIST_REL (v_rel exh) vs vs'`,
   Induct >> simp[v_rel_eqn])
 
 val env_rel_LIST_REL = Q.prove(
@@ -111,22 +111,22 @@ val env_rel_LIST_REL = Q.prove(
   Induct_on`env`>>simp[v_rel_eqn]>>Cases>>simp[v_rel_eqn] >>
   srw_tac[][EXISTS_PROD]);
 
-val env_rel_MAP = store_thm("env_rel_MAP",
-  ``∀exh env1 env2. env_rel exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
-      LIST_REL (v_rel exh) (MAP SND env1) (MAP SND env2)``,
+val env_rel_MAP = Q.store_thm("env_rel_MAP",
+  `∀exh env1 env2. env_rel exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
+      LIST_REL (v_rel exh) (MAP SND env1) (MAP SND env2)`,
   Induct_on`env1`>>simp[Once v_rel_cases] >>
   Cases >> Cases_on`env2` >> srw_tac[][] >>
   Cases_on`h`>>srw_tac[][] >> metis_tac[])
 
 val _ = augment_srw_ss[rewrites[vs_rel_LIST_REL,find_recfun_compile_funs]]
 
-val v_rel_lit_loc = store_thm("v_rel_lit_loc[simp]",
-  ``(v_rel exh (Litv l) lh ⇔ lh = Litv l) ∧
+val v_rel_lit_loc = Q.store_thm("v_rel_lit_loc[simp]",
+  `(v_rel exh (Litv l) lh ⇔ lh = Litv l) ∧
     (v_rel exh l2 (Litv l) ⇔ l2 = Litv l) ∧
     (v_rel exh (Loc n) lh ⇔ lh = Loc n) ∧
     (v_rel exh l2 (Loc n) ⇔ l2 = Loc n) ∧
     (v_rel exh (Conv t []) lh ⇔ lh = Conv (get_tag t) []) ∧
-    (v_rel exh (Boolv b) lh ⇔ lh = Boolv b)``,
+    (v_rel exh (Boolv b) lh ⇔ lh = Boolv b)`,
   srw_tac[][] >> srw_tac[][Once v_rel_cases, conSemTheory.Boolv_def, exhSemTheory.Boolv_def])
 
 val state_rel_def = Define`
@@ -283,9 +283,9 @@ val pmatch = Q.prove (
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       metis_tac []));
 
-val pat_bindings = prove(
-  ``(∀p ls. pat_bindings (compile_pat p) ls = pat_bindings p ls) ∧
-    (∀ps ls. pats_bindings (MAP compile_pat ps) ls = pats_bindings ps ls)``,
+val pat_bindings = Q.prove(
+  `(∀p ls. pat_bindings (compile_pat p) ls = pat_bindings p ls) ∧
+    (∀ps ls. pats_bindings (MAP compile_pat ps) ls = pats_bindings ps ls)`,
   ho_match_mp_tac(TypeBase.induction_of(``:conLang$pat``)) >>
   simp[conSemTheory.pat_bindings_def,exhSemTheory.pat_bindings_def,compile_pat_def] >>
   srw_tac[][] >> cases_on`o'` >>
@@ -310,8 +310,8 @@ val v_to_list = Q.prove (
   srw_tac[][] >>
   metis_tac [NOT_SOME_NONE, SOME_11]);
 
-val char_list_to_v = prove(
-  ``∀ls. v_rel exh (char_list_to_v ls) (char_list_to_v ls)``,
+val char_list_to_v = Q.prove(
+  `∀ls. v_rel exh (char_list_to_v ls) (char_list_to_v ls)`,
   Induct >> simp[conSemTheory.char_list_to_v_def,exhSemTheory.char_list_to_v_def] >>
   simp[v_rel_eqn])
 
@@ -489,8 +489,8 @@ val exists_match_def = Define `
   exists_match exh s ps v ⇔
     !env. ?p. MEM p ps ∧ pmatch exh s p v env ≠ No_match`;
 
-val is_unconditional_thm = prove(
-  ``∀p a b c d. is_unconditional p ⇒ pmatch a b p c d ≠ No_match``,
+val is_unconditional_thm = Q.prove(
+  `∀p a b c d. is_unconditional p ⇒ pmatch a b p c d ≠ No_match`,
   ho_match_mp_tac is_unconditional_ind >>
   Cases >> srw_tac[][] >>
   Cases_on`c`>>srw_tac[][conSemTheory.pmatch_def]
@@ -515,8 +515,8 @@ val is_unconditional_thm = prove(
     BasicProvers.EVERY_CASE_TAC >>
     metis_tac[]))
 
-val is_unconditional_list_thm = prove(
-  ``∀l1 l2 a b c. EVERY is_unconditional l1 ⇒ pmatch_list a b l1 l2 c ≠ No_match``,
+val is_unconditional_list_thm = Q.prove(
+  `∀l1 l2 a b c. EVERY is_unconditional l1 ⇒ pmatch_list a b l1 l2 c ≠ No_match`,
   Induct >> Cases_on`l2` >> simp[conSemTheory.pmatch_def] >>
   srw_tac[][] >>
   BasicProvers.CASE_TAC >>

@@ -105,17 +105,17 @@ val remove_SING = store_thm("remove_SING",
   REPEAT STRIP_TAC \\ IMP_RES_TAC remove_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val LENGTH_FST_remove = store_thm("LENGTH_FST_remove",
-  ``LENGTH (FST (remove fns)) = LENGTH fns``,
+val LENGTH_FST_remove = Q.store_thm("LENGTH_FST_remove",
+  `LENGTH (FST (remove fns)) = LENGTH fns`,
   Cases_on `remove fns` \\ fs [] \\ IMP_RES_TAC remove_LENGTH);
 
-val HD_FST_remove = store_thm("HD_FST_remove",
-  ``[HD (FST (remove [x1]))] = FST (remove [x1])``,
+val HD_FST_remove = Q.store_thm("HD_FST_remove",
+  `[HD (FST (remove [x1]))] = FST (remove [x1])`,
   Cases_on `remove [x1]` \\ fs []
   \\ imp_res_tac remove_SING \\ fs[]);
 
-val remove_CONS = store_thm("remove_CONS",
-  ``FST (remove (x::xs)) = HD (FST (remove [x])) :: FST (remove xs)``,
+val remove_CONS = Q.store_thm("remove_CONS",
+  `FST (remove (x::xs)) = HD (FST (remove [x])) :: FST (remove xs)`,
   Cases_on `xs` \\ fs [remove_def,SING_HD,LENGTH_FST_remove,LET_DEF]
   \\ Cases_on `remove [x]` \\ fs []
   \\ Cases_on `remove (h::t)` \\ fs [SING_HD]

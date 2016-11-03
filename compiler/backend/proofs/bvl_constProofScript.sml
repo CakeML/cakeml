@@ -17,25 +17,25 @@ val env_rel_def = Define `
      v_rel (:'a) a x y (x::e1) (y::e2) /\ env_rel (:'a) rest e1 e2) /\
   (env_rel _ _ _ _ = F)`
 
-val env_rel_length = store_thm("env_rel_length",
-  ``!ax env env2. env_rel (:α) ax env env2 ==> LENGTH env2 = LENGTH env``,
+val env_rel_length = Q.store_thm("env_rel_length",
+  `!ax env env2. env_rel (:α) ax env env2 ==> LENGTH env2 = LENGTH env`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def]);
 
-val env_rel_LLOOKUP_NONE = prove(
-  ``!ax env env2 n.
+val env_rel_LLOOKUP_NONE = Q.prove(
+  `!ax env env2 n.
       env_rel (:α) ax env env2 /\
       (LLOOKUP ax n = NONE \/ LLOOKUP ax n = SOME NONE) ==>
-      EL n env2 = EL n env``,
+      EL n env2 = EL n env`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [] \\ Cases_on `n` \\ fs [EL]);
 
-val env_rel_LOOKUP_SOME = prove(
-  ``!env env2 ax x n.
+val env_rel_LOOKUP_SOME = Q.prove(
+  `!env env2 ax x n.
       env_rel (:α) ax env env2 /\
       LLOOKUP ax n = SOME (SOME x) ==>
-      v_rel (:'a) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)``,
+      v_rel (:'a) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
   Induct \\ Cases_on `env2` \\ Cases_on `ax` \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [env_rel_def] \\ res_tac \\ fs []
   \\ Cases_on `n` \\ fs [env_rel_def]
@@ -96,8 +96,8 @@ val evaluate_delete_var_Rval = prove(
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []);
 
-val IS_SOME_dest_Op_Const = store_thm("IS_SOME_dest_Op_Const[simp]",
-  ``IS_SOME (dest_Op_Const h) = ?i. h = Op (Const i) []``,
+val IS_SOME_dest_Op_Const = Q.store_thm("IS_SOME_dest_Op_Const[simp]",
+  `IS_SOME (dest_Op_Const h) = ?i. h = Op (Const i) []`,
   Cases_on `h` \\ fs [dest_Op_Const_def]
   \\ Cases_on `o'` \\ fs [dest_Op_Const_def]
   \\ rw [] \\ fs [NULL_EQ]);
@@ -109,8 +109,8 @@ val evaluate_EQ_NIL = store_thm("evaluate_EQ_NIL",
   \\ rw [] \\ TRY eq_tac \\ fs [] \\ rw [] \\ fs [LENGTH_NIL]
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]);
 
-val is_simple_thm = store_thm("is_simple_thm",
-  ``is_simple v <=> (?t. v = Op (Cons t) []) \/ (?i. v = Op (Const i) [])``,
+val is_simple_thm = Q.store_thm("is_simple_thm",
+  `is_simple v <=> (?t. v = Op (Cons t) []) \/ (?i. v = Op (Const i) [])`,
   Cases_on `v` \\ fs [is_simple_def]
   \\ Cases_on `o'` \\ fs [is_simple_def,NULL_EQ]);
 

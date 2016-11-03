@@ -250,14 +250,14 @@ val check_clock_def = Define `
   check_clock (s1:'ffi closSem$state) (s2:'ffi closSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
-val check_clock_thm = prove(
-  ``(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))``,
+val check_clock_thm = Q.prove(
+  `(check_clock s1 s2).clock <= s2.clock /\
+    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))`,
   SRW_TAC [] [check_clock_def])
 
-val check_clock_lemma = prove(
-  ``b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)``,
+val check_clock_lemma = Q.prove(
+  `b ==> ((check_clock s1 s).clock < s.clock \/
+          ((check_clock s1 s).clock = s.clock) /\ b)`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 (* The semantics of expression evaluation is defined next. For
@@ -454,8 +454,8 @@ val evaluate_app_NIL = save_thm(
 
 (* We prove that the clock never increases. *)
 
-val check_clock_IMP = prove(
-  ``n <= (check_clock r s).clock ==> n <= s.clock``,
+val check_clock_IMP = Q.prove(
+  `n <= (check_clock r s).clock ==> n <= s.clock`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val do_app_const = store_thm("do_app_const",

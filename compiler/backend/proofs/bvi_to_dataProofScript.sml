@@ -92,10 +92,10 @@ val optimise_correct = Q.store_thm("optimise_correct",
   full_simp_tac(srw_ss())[optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
   \\ METIS_TAC [simp_correct,data_liveProofTheory.compile_correct,data_spaceProofTheory.compile_correct,FST]);
 
-val compile_RANGE_lemma = prove(
-  ``!n env tail live xs.
+val compile_RANGE_lemma = Q.prove(
+  `!n env tail live xs.
       EVERY (\v. v < (SND (SND (compile n env tail live xs))))
-        (FST (SND (compile n env tail live xs)))``,
+        (FST (SND (compile n env tail live xs)))`,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) []

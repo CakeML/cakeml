@@ -24,8 +24,8 @@ val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
-val MEM_exp_size1 = prove(
-  ``!xs a. MEM a xs ==> exp_size a <= exp6_size xs``,
+val MEM_exp_size1 = Q.prove(
+  `!xs a. MEM a xs ==> exp_size a <= exp6_size xs`,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
 
@@ -58,18 +58,18 @@ val two_assums = METIS_PROVE [] ``(b ==> c) = (b ==> c /\ b)``;
 
 val isRval_def = Define `(isRval (Rval _) = T) /\ (isRval _ = F)`;
 
-val do_log_IMP = prove(
-  ``(do_log op v e2 = SOME (Exp x2)) ==> (x2 = e2)``,
+val do_log_IMP = Q.prove(
+  `(do_log op v e2 = SOME (Exp x2)) ==> (x2 = e2)`,
   fs [do_log_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
-val do_log_IMP_2 = prove(
-  ``(do_log op v e2 = SOME (Exp e2)) ==>
-    !e3. (do_log op v e3 = SOME (Exp e3))``,
+val do_log_IMP_2 = Q.prove(
+  `(do_log op v e2 = SOME (Exp e2)) ==>
+    !e3. (do_log op v e3 = SOME (Exp e3))`,
   fs [do_log_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
-val do_log_IMP_3 = prove(
-  ``(do_log op v e2 = SOME (Val x)) ==>
-    !e3. (do_log op v e3 = SOME (Val x))``,
+val do_log_IMP_3 = Q.prove(
+  `(do_log op v e2 = SOME (Val x)) ==>
+    !e3. (do_log op v e3 = SOME (Val x))`,
   fs [do_log_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
 val s = ``s:'ffi semanticPrimitives$state``
@@ -287,8 +287,8 @@ val OPTIMISE_def = Define `
   OPTIMISE =
     BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let`;
 
-val Eval_OPTIMISE = store_thm("Eval_OPTIMISE",
-  ``Eval env exp P ==> Eval env (OPTIMISE exp) P``,
+val Eval_OPTIMISE = Q.store_thm("Eval_OPTIMISE",
+  `Eval env exp P ==> Eval env (OPTIMISE exp) P`,
   SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
   \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss [OPTIMISE_def]
   \\ MATCH_MP_TAC BOTTOM_UP_OPT_THM

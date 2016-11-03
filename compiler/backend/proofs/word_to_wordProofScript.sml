@@ -86,10 +86,10 @@ val compile_single_lem = store_thm("compile_single_lem",``
     pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]);
 
-val get_vars_code_frame = prove(``
+val get_vars_code_frame = Q.prove(`
   ∀ls.
   get_vars ls (st with code:=l) =
-  get_vars ls st``,
+  get_vars ls st`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_def])
 
 (*TODO: Move to wordProps so there're no scoping problems..*)
@@ -109,8 +109,8 @@ val tac =
     qexists_tac`st.permute`>>full_simp_tac(srw_ss())[alloc_def,get_var_def,gc_def,LET_THM,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,call_env_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,get_vars_perm,get_vars_code_frame,set_vars_def,word_exp_perm,word_exp_code_frame,mem_store_def]>>
     every_case_tac>>full_simp_tac(srw_ss())[state_component_equality]
 
-val rm_perm = prove(``
-  s with permute:= s.permute = s``,full_simp_tac(srw_ss())[state_component_equality])
+val rm_perm = Q.prove(`
+  s with permute:= s.permute = s`,full_simp_tac(srw_ss())[state_component_equality])
 
 val size_tac= (full_simp_tac(srw_ss())[wordLangTheory.prog_size_def]>>DECIDE_TAC);
 
@@ -136,12 +136,12 @@ val find_code_thm = prove(``
     Cases_on`x''`>>full_simp_tac(srw_ss())[compile_single_def,LET_THM]>>
     metis_tac[])
 
-val push_env_code_frame = prove(``
-  (push_env a b c).code = c.code``,
+val push_env_code_frame = Q.prove(`
+  (push_env a b c).code = c.code`,
   Cases_on`b`>>TRY(PairCases_on`x`)>>full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def])
 
-val pop_env_termdep = prove(``
-  pop_env rst = SOME x ⇒ x.termdep = rst.termdep``,
+val pop_env_termdep = Q.prove(`
+  pop_env rst = SOME x ⇒ x.termdep = rst.termdep`,
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality])
 
 val compile_single_correct = prove(``

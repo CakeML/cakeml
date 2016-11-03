@@ -44,8 +44,8 @@ val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
    initial_state f c k with code := c1 = initial_state f c1 k`,
   EVAL_TAC);
 
-val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",
-  ``bool_to_tag b1 = bool_to_tag b2 ⇔ (b1 = b2)``,
+val bool_to_tag_11 = Q.store_thm("bool_to_tag_11[simp]",
+  `bool_to_tag b1 = bool_to_tag b2 ⇔ (b1 = b2)`,
   srw_tac[][bool_to_tag_def] >> EVAL_TAC >> simp[])
 
 val _ = Q.store_thm("Boolv_11[simp]",`bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
@@ -345,7 +345,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono])
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
 val do_app_inc_clock = Q.prove(
   `do_app op vs (inc_clock x y) =

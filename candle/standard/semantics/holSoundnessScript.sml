@@ -303,8 +303,8 @@ val TRANS_correct = store_thm("TRANS_correct",
   rfs[boolean_eq_true] >> fs[term_ok_equation] >>
   metis_tac[termsem_aconv,ACONV_SYM,term_ok_welltyped])
 
-val proves_sound = store_thm("proves_sound",
-  ``is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c``,
+val proves_sound = Q.store_thm("proves_sound",
+  `is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c`,
   strip_tac >> match_mp_tac proves_ind >>
   conj_tac >- metis_tac[ABS_correct] >>
   conj_tac >- metis_tac[ASSUME_correct] >>

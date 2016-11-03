@@ -74,18 +74,18 @@ val code_locs_def = tDefine "code_locs" `
    full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 
-val code_locs_cons = store_thm("code_locs_cons",
-  ``∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs``,
+val code_locs_cons = Q.store_thm("code_locs_cons",
+  `∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs`,
   gen_tac >> Cases >> simp[code_locs_def]);
 
-val code_locs_append = store_thm("code_locs_append",
-  ``!l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
+val code_locs_append = Q.store_thm("code_locs_append",
+  `!l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2`,
   Induct >> simp[code_locs_def] >>
   simp[Once code_locs_cons] >>
   simp[Once code_locs_cons,SimpRHS]);
 
-val code_locs_map = store_thm("code_locs_map",
-  ``!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)``,
+val code_locs_map = Q.store_thm("code_locs_map",
+  `!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)`,
   Induct \\ full_simp_tac(srw_ss())[code_locs_def]
   \\ ONCE_REWRITE_TAC [code_locs_cons] \\ full_simp_tac(srw_ss())[code_locs_def]);
 
@@ -130,8 +130,8 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
    full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 
-val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
-  ``∀ls max_app. contains_App_SOME max_app ls ⇔ EXISTS (λx. contains_App_SOME max_app [x]) ls``,
+val contains_App_SOME_EXISTS = Q.store_thm("contains_App_SOME_EXISTS",
+  `∀ls max_app. contains_App_SOME max_app ls ⇔ EXISTS (λx. contains_App_SOME max_app [x]) ls`,
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def])
 
@@ -178,8 +178,8 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
    decide_tac);
 val _ = export_rewrites["every_Fn_SOME_def"];
 
-val every_Fn_SOME_EVERY = store_thm("every_Fn_SOME_EVERY",
-  ``∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls``,
+val every_Fn_SOME_EVERY = Q.store_thm("every_Fn_SOME_EVERY",
+  `∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls`,
   Induct >> simp[every_Fn_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_SOME_def])
 
@@ -226,8 +226,8 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
    decide_tac);
 val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
-val every_Fn_vs_NONE_EVERY = store_thm("every_Fn_vs_NONE_EVERY",
-  ``∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls``,
+val every_Fn_vs_NONE_EVERY = Q.store_thm("every_Fn_vs_NONE_EVERY",
+  `∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls`,
   Induct >> simp[every_Fn_vs_NONE_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_NONE_def])
 
@@ -274,8 +274,8 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
    decide_tac);
 val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
-val every_Fn_vs_SOME_EVERY = store_thm("every_Fn_vs_SOME_EVERY",
-  ``∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls``,
+val every_Fn_vs_SOME_EVERY = Q.store_thm("every_Fn_vs_SOME_EVERY",
+  `∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls`,
   Induct >> simp[every_Fn_vs_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_SOME_def])
 
@@ -369,7 +369,7 @@ val do_app_err = Q.store_thm("do_app_err",
   srw_tac[][do_app_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][])
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
 val do_eq_list_rel = store_thm("do_eq_list_rel",
   ``∀l1 l2 l3 l4.
@@ -509,8 +509,8 @@ val evaluate_REPLICATE_Op_AllocGlobal = store_thm("evaluate_REPLICATE_Op_AllocGl
   simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
   simp[state_component_equality])
 
-val lookup_vars_NONE = store_thm("lookup_vars_NONE",
-  ``!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v``,
+val lookup_vars_NONE = Q.store_thm("lookup_vars_NONE",
+  `!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `h < LENGTH env` \\ full_simp_tac(srw_ss())[NOT_LESS]
@@ -518,18 +518,18 @@ val lookup_vars_NONE = store_thm("lookup_vars_NONE",
   THEN1 METIS_TAC []
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [NOT_LESS]);
 
-val lookup_vars_SOME = store_thm("lookup_vars_SOME",
-  ``!vs env xs.
+val lookup_vars_SOME = Q.store_thm("lookup_vars_SOME",
+  `!vs env xs.
       (lookup_vars vs env = SOME xs) ==>
-      (LENGTH vs = LENGTH xs)``,
+      (LENGTH vs = LENGTH xs)`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ REPEAT STRIP_TAC
   \\ Cases_on `lookup_vars vs env` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ RES_TAC);
 
-val lookup_vars_MEM = prove(
-  ``!ys n x (env2:closSem$v list).
+val lookup_vars_MEM = Q.prove(
+  `!ys n x (env2:closSem$v list).
       (lookup_vars ys env2 = SOME x) /\ n < LENGTH ys ==>
       (EL n ys) < LENGTH env2 /\
-      (EL n x = EL (EL n ys) env2)``,
+      (EL n x = EL (EL n ys) env2)`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ NTAC 5 STRIP_TAC
   \\ Cases_on `lookup_vars ys env2` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL

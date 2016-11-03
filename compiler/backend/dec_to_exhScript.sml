@@ -102,8 +102,8 @@ val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefin
     | INR (INR (INL (pes))) => exp3_size pes
     | INR (INR (INR (funs))) => exp1_size funs)`)
 
-val p2sz_append = prove(
-  ``∀p1 p2. p2sz (p1++p2) = p2sz p1 + p2sz p2``,
+val p2sz_append = Q.prove(
+  `∀p1 p2. p2sz (p1++p2) = p2sz p1 + p2sz p2`,
   Induct >> simp[e2sz_def] >>
   Cases >> simp[e2sz_def])
 

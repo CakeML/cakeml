@@ -89,13 +89,13 @@ val _ = Parse.overload_on("is_valuation",``is_valuation0 ^mem``)
 (* term assignment for instances of constants *)
 
 val instance_def = new_specification("instance_def",["instance"],
-  prove(``∃f. ∀tmsig (i:'U interpretation) name ty ty0 tyin.
+  Q.prove(`∃f. ∀tmsig (i:'U interpretation) name ty ty0 tyin.
               FLOOKUP tmsig name = SOME ty0 ∧
               ty = TYPE_SUBST tyin ty0
               ⇒
               f tmsig i name ty =
               λτ. tmaof i name
-                (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (MAP implode (STRING_SORT (MAP explode (tyvars ty0)))))``,
+                (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (MAP implode (STRING_SORT (MAP explode (tyvars ty0)))))`,
     simp[GSYM SKOLEM_THM] >> rw[] >>
     Cases_on`FLOOKUP tmsig name`>>simp[] >>
     qmatch_assum_rename_tac`FLOOKUP tmsig name = SOME ty0` >>

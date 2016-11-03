@@ -10,8 +10,8 @@ val _ = translation_extends "inferProg";
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -106,8 +106,8 @@ val briggs_coalesce_alt = prove(``
 val _ = translate briggs_coalesce_alt
 
 (*Use the clock trick*)
-val rpt_do_step_side = prove(``
-  ∀s. rpt_do_step_side s ⇔ T``,
+val rpt_do_step_side = Q.prove(`
+  ∀s. rpt_do_step_side s ⇔ T`,
   fsm[fetch "-" "rpt_do_step_side_def"]>>
   completeInduct_on`s.clock`>>
   rw[]>>
@@ -131,8 +131,8 @@ val rpt_do_step_side = prove(``
   IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
 
 (*Use the clock trick*)
-val rpt_do_step2_side = prove(``
-  ∀s. rpt_do_step2_side s ⇔ T``,
+val rpt_do_step2_side = Q.prove(`
+  ∀s. rpt_do_step2_side s ⇔ T`,
   fsm[fetch "-" "rpt_do_step2_side_def"]>>
   completeInduct_on`s.clock`>>
   rw[]>>
@@ -155,8 +155,8 @@ val rpt_do_step2_side = prove(``
     fs[FUNPOW]>>
   IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
 
-val briggs_coalesce_side = prove(``
-  ∀s. briggs_coalesce_side s ⇔ T``,
+val briggs_coalesce_side = Q.prove(`
+  ∀s. briggs_coalesce_side s ⇔ T`,
   fsm[fetch "-" "briggs_coalesce_side_def"]>>
   completeInduct_on`s.clock`>>
   rw[]>>
@@ -182,16 +182,16 @@ val briggs_coalesce_side = prove(``
 
 val _ = translate init_ra_state_def
 
-val init_ra_state_side_def = prove(``
-  ∀a b c. init_ra_state_side a b c ⇔ T``,
+val init_ra_state_side_def = Q.prove(`
+  ∀a b c. init_ra_state_side a b c ⇔ T`,
   fs[fetch "-" "init_ra_state_side_def"]>>rw[]>>
   fs[MEM_FILTER,MEM_MAP]>>Cases_on`y`>>
   fs[MEM_toAList]) |> update_precondition
 
 val _ = translate (sec_ra_state_def |> REWRITE_RULE[MEMBER_INTRO])
 
-val sec_ra_state_side_def = prove(``
-  ∀a b c d. sec_ra_state_side a b c d ⇔ T``,
+val sec_ra_state_side_def = Q.prove(`
+  ∀a b c d. sec_ra_state_side a b c d ⇔ T`,
   fs[fetch "-" "sec_ra_state_side_def"]>>rw[]>>
   fs[MEM_FILTER,MEM_MAP,quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE])
   |>update_precondition

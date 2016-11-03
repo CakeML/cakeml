@@ -444,8 +444,8 @@ val do_con_check = Q.prove (
   induct_on `es` >>
   srw_tac[][compile_exp_def]);
 
-val char_list_to_v = prove(
-  ``∀ls. v_rel genv (char_list_to_v ls) (char_list_to_v ls)``,
+val char_list_to_v = Q.prove(
+  `∀ls. v_rel genv (char_list_to_v ls) (char_list_to_v ls)`,
   Induct >> simp[semanticPrimitivesTheory.char_list_to_v_def,
                  modSemTheory.char_list_to_v_def,
                  v_rel_eqns])

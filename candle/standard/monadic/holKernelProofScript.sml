@@ -5,16 +5,16 @@ val _ = new_theory "holKernelProof";
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
 
-val rev_assocd_thm = prove(
-  ``rev_assocd = REV_ASSOCD``,
+val rev_assocd_thm = Q.prove(
+  `rev_assocd = REV_ASSOCD`,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
   \\ ONCE_REWRITE_TAC [rev_assocd_def] \\ SRW_TAC [] [REV_ASSOCD]
   \\ Cases_on `h` \\ SRW_TAC [] [REV_ASSOCD]);
 
 val REPLICATE_GENLIST = rich_listTheory.REPLICATE_GENLIST
 
-val REPLICATE_11 = prove(
-  ``!m n x. (REPLICATE n x = REPLICATE m x) = (m = n)``,
+val REPLICATE_11 = Q.prove(
+  `!m n x. (REPLICATE n x = REPLICATE m x) = (m = n)`,
   Induct \\ Cases \\ SRW_TAC [] [rich_listTheory.REPLICATE]);
 
 val _ = temp_overload_on("impossible_term",``holSyntax$Comb (Var (strlit "x") Bool) (Var (strlit "x") Bool)``);
@@ -45,32 +45,32 @@ val STATE_def = Define `
 (* impossible term lemmas                                                    *)
 (* ------------------------------------------------------------------------- *)
 
-val term_ok_impossible_term = prove(
-  ``~(term_ok defs impossible_term)``,
+val term_ok_impossible_term = Q.prove(
+  `~(term_ok defs impossible_term)`,
   simp[term_ok_def])
 
-val impossible_term_thm = prove(
-  ``TERM defs tm ==> tm <> impossible_term``,
+val impossible_term_thm = Q.prove(
+  `TERM defs tm ==> tm <> impossible_term`,
   SIMP_TAC std_ss [TERM_def] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [term_ok_impossible_term])
 
-val Abs_Var = prove(
-  ``TERM defs (Abs v tm) ==> ?s ty. v = Var s ty``,
+val Abs_Var = Q.prove(
+  `TERM defs (Abs v tm) ==> ?s ty. v = Var s ty`,
   simp[TERM_def,term_ok_def] >> rw[])
 
 (* ------------------------------------------------------------------------- *)
 (* invariant lemmas                                                          *)
 (* ------------------------------------------------------------------------- *)
 
-val CONTEXT_ALL_DISTINCT = prove(
-  ``CONTEXT defs ⇒ ALL_DISTINCT (MAP FST (type_list defs)) ∧
-                   ALL_DISTINCT (MAP FST (const_list defs))``,
+val CONTEXT_ALL_DISTINCT = Q.prove(
+  `CONTEXT defs ⇒ ALL_DISTINCT (MAP FST (type_list defs)) ∧
+                   ALL_DISTINCT (MAP FST (const_list defs))`,
   rw[CONTEXT_def] >>
   METIS_TAC[extends_ALL_DISTINCT,init_ALL_DISTINCT])
 
-val STATE_ALL_DISTINCT = prove(
-  ``STATE defs s ⇒ ALL_DISTINCT (MAP FST s.the_type_constants) ∧
-                   ALL_DISTINCT (MAP FST s.the_term_constants)``,
+val STATE_ALL_DISTINCT = Q.prove(
+  `STATE defs s ⇒ ALL_DISTINCT (MAP FST s.the_type_constants) ∧
+                   ALL_DISTINCT (MAP FST s.the_term_constants)`,
   rw[STATE_def] >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
   qpat_x_assum`X = const_list Y`(assume_tac o SYM) >> fs[] >>
@@ -86,8 +86,8 @@ val TYPE_Tyapp = prove(
   imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
   rfs[STATE_def])
 
-val CONTEXT_std_sig = prove(
-  ``CONTEXT defs ⇒ is_std_sig (sigof defs)``,
+val CONTEXT_std_sig = Q.prove(
+  `CONTEXT defs ⇒ is_std_sig (sigof defs)`,
   rw[CONTEXT_def] >>
   imp_res_tac extends_theory_ok >> fs[init_theory_ok] >>
   imp_res_tac theory_ok_sig >> fs[is_std_sig_def])
@@ -102,53 +102,53 @@ val CONTEXT_fun = prove(
   EQ_TAC >> rw[] >> res_tac >> fs[] >>
   imp_res_tac ALOOKUP_MEM)
 
-val TYPE = prove(
-  ``(STATE defs state ==> TYPE defs (Tyvar v)) /\
-    (TYPE defs (Tyapp op tys) ==> EVERY (TYPE defs) tys)``,
+val TYPE = Q.prove(
+  `(STATE defs state ==> TYPE defs (Tyvar v)) /\
+    (TYPE defs (Tyapp op tys) ==> EVERY (TYPE defs) tys)`,
   conj_tac >- (
     simp[STATE_def,TYPE_def,EVERY_MEM] >>
     rw[] >> simp[type_ok_def] ) >>
   rw[EVERY_MEM,TYPE_def] >>
   fs[type_ok_def,EVERY_MAP,EVERY_MEM]);
 
-val TERM = prove(
-  ``(TERM defs (Var n ty) ==> TYPE defs ty) /\
+val TERM = Q.prove(
+  `(TERM defs (Var n ty) ==> TYPE defs ty) /\
     (TERM defs (Const n ty) ==> TYPE defs ty) /\
     (TERM defs (Abs (Var v ty) x) ==> TERM defs x /\ TYPE defs ty) /\
-    (TERM defs (Comb x y) ==> TERM defs x /\ TERM defs y)``,
+    (TERM defs (Comb x y) ==> TERM defs x /\ TERM defs y)`,
   rw[TERM_def,TYPE_def] >> fs[term_ok_def])
 
-val TYPE_Fun = prove(
-  ``CONTEXT defs ∧ TYPE defs ty1 /\ TYPE defs ty2 ==>
-    TYPE defs (Tyapp (strlit "fun") [ty1;ty2])``,
+val TYPE_Fun = Q.prove(
+  `CONTEXT defs ∧ TYPE defs ty1 /\ TYPE defs ty2 ==>
+    TYPE defs (Tyapp (strlit "fun") [ty1;ty2])`,
   rw[TYPE_def,type_ok_def] >>
   imp_res_tac CONTEXT_fun >>
   METIS_TAC[ALOOKUP_ALL_DISTINCT_MEM,CONTEXT_ALL_DISTINCT]);
 
-val TERM_Var_SIMP = prove(
-  ``(TERM defs (Var n ty) = TYPE defs ty)``,
+val TERM_Var_SIMP = Q.prove(
+  `(TERM defs (Var n ty) = TYPE defs ty)`,
   rw[TERM_def,TYPE_def,term_ok_def]);
 
-val TERM_Var = prove(
-  ``TYPE defs ty ==> TERM defs (Var n ty)``,
+val TERM_Var = Q.prove(
+  `TYPE defs ty ==> TERM defs (Var n ty)`,
   METIS_TAC [TERM_Var_SIMP]);
 
-val IMP_TERM_Abs = prove(
-  ``TERM defs (Var str ty) /\ TERM defs bod ==>
-    TERM defs (Abs (Var str ty) bod)``,
+val IMP_TERM_Abs = Q.prove(
+  `TERM defs (Var str ty) /\ TERM defs bod ==>
+    TERM defs (Abs (Var str ty) bod)`,
   fs[TERM_def,term_ok_def]);
 
-val IMP_TERM_Comb = prove(
-  ``TERM defs f /\
+val IMP_TERM_Comb = Q.prove(
+  `TERM defs f /\
     TERM defs a /\
     (typeof a = ty1) /\
     (typeof f = Fun ty1 ty2) ==>
-    TERM defs (Comb f a)``,
+    TERM defs (Comb f a)`,
   rw[TERM_def,term_ok_def] >>
   METIS_TAC[term_ok_welltyped])
 
-val TERM_Abs = prove(
-  ``TERM defs (Abs (Var v ty) tm) <=> TYPE defs ty /\ TERM defs tm``,
+val TERM_Abs = Q.prove(
+  `TERM defs (Abs (Var v ty) tm) <=> TYPE defs ty /\ TERM defs tm`,
   rw[TERM_def,term_ok_def,TYPE_def]);
 
 val INST_CORE_LEMMA =
@@ -181,8 +181,8 @@ val INST_CORE_EMPTY = prove(
   >> simp[])
   |> Q.SPECL [`tm`,`[]`] |> SIMP_RULE std_ss [EVERY_DEF] |> GEN_ALL;
 
-val THM = prove(
-  ``THM defs (Sequent asl c) ==> EVERY (TERM defs) asl /\ TERM defs c``,
+val THM = Q.prove(
+  `THM defs (Sequent asl c) ==> EVERY (TERM defs) asl /\ TERM defs c`,
   SIMP_TAC std_ss [THM_def] \\ SIMP_TAC std_ss [EVERY_MEM] >>
   strip_tac >> imp_res_tac proves_term_ok >>
   fs[EVERY_MEM,TERM_def,MEM_MAP,PULL_EXISTS])
@@ -193,25 +193,25 @@ val type_IND = type_induction
   |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL
   |> Q.GEN`P`
 
-val type_subst_EMPTY = prove(
-  ``!ty. type_subst [] ty = ty``,
+val type_subst_EMPTY = Q.prove(
+  `!ty. type_subst [] ty = ty`,
   HO_MATCH_MP_TAC type_IND
   \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once type_subst_def]
   \\ SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF]
   \\ `MAP (\a. type_subst [] a) l = l` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
   \\ Induct_on `l` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]);
 
-val MAP_EQ_2 = prove(
-  ``(MAP f l = [x;y]) ⇔ ∃x0 y0. (l = [x0;y0]) ∧ (x = f x0) ∧ (y = f y0)``,
+val MAP_EQ_2 = Q.prove(
+  `(MAP f l = [x;y]) ⇔ ∃x0 y0. (l = [x0;y0]) ∧ (x = f x0) ∧ (y = f y0)`,
   Cases_on`l`>>simp[]>>Cases_on`t`>>simp[]>>METIS_TAC[])
 
 val sequent_has_type_bool = prove(
   ``(d,h) |- c ⇒ EVERY (λt. t has_type Bool) (c::h)``,
   strip_tac >> imp_res_tac proves_term_ok >> fs[EVERY_MEM])
 
-val THM_term_ok_bool = prove(
-  ``THM defs (Sequent asl p) ⇒
-    EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (p::asl)``,
+val THM_term_ok_bool = Q.prove(
+  `THM defs (Sequent asl p) ⇒
+    EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (p::asl)`,
   REPEAT STRIP_TAC
   \\ IMP_RES_TAC THM
   \\ FULL_SIMP_TAC std_ss [THM_def]
@@ -252,10 +252,10 @@ val get_type_arity_thm = prove(
     get_the_type_constants_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC assoc_thm);
 
-val mk_vartype_thm = store_thm("mk_vartype_thm",
-  ``!name s.
+val mk_vartype_thm = Q.store_thm("mk_vartype_thm",
+  `!name s.
       STATE s.the_context s ⇒
-      TYPE s.the_context (mk_vartype name)``,
+      TYPE s.the_context (mk_vartype name)`,
   SIMP_TAC (srw_ss()) [mk_vartype_def,TYPE_def,type_ok_def,STATE_def]);
 
 val mk_type_thm = store_thm("mk_type_thm",
@@ -289,16 +289,16 @@ val dest_vartype_thm = store_thm("dest_vartype_thm",
   Cases \\ FULL_SIMP_TAC (srw_ss())
     [dest_vartype_def,failwith_def,ex_return_def]);
 
-val is_type_thm = store_thm("is_type_thm",
-  ``!ty. is_type ty = ?s tys. ty = Tyapp s tys``,
+val is_type_thm = Q.store_thm("is_type_thm",
+  `!ty. is_type ty = ?s tys. ty = Tyapp s tys`,
   Cases \\ SIMP_TAC (srw_ss()) [is_type_def]);
 
-val is_vartype_thm = store_thm("is_vartype_thm",
-  ``!ty. is_vartype ty = ?s. ty = Tyvar s``,
+val is_vartype_thm = Q.store_thm("is_vartype_thm",
+  `!ty. is_vartype ty = ?s. ty = Tyvar s`,
   Cases \\ SIMP_TAC (srw_ss()) [is_vartype_def]);
 
-val tyvars_thm = prove(
-  ``!ty s. MEM s (holKernel$tyvars ty) = MEM s (holSyntax$tyvars ty)``,
+val tyvars_thm = Q.prove(
+  `!ty s. MEM s (holKernel$tyvars ty) = MEM s (holSyntax$tyvars ty)`,
   HO_MATCH_MP_TAC holKernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
   \\ Cases_on `ty` \\ FULL_SIMP_TAC (srw_ss()) [type_11,type_distinct]
   \\ SIMP_TAC (srw_ss()) [Once holKernelTheory.tyvars_def,
@@ -360,10 +360,10 @@ val term_type_def = Define `
     | Abs (Var _ ty) t => Tyapp (strlit "fun") [ty; term_type t]
     | _ => Tyvar (strlit "")`
 
-val term_type = prove(
-  ``!defs tm. CONTEXT defs ∧ TERM defs tm ==>
+val term_type = Q.prove(
+  `!defs tm. CONTEXT defs ∧ TERM defs tm ==>
     (term_type tm = typeof tm) /\
-    TYPE defs (term_type tm)``,
+    TYPE defs (term_type tm)`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ STRIP_TAC \\ Induct \\ ONCE_REWRITE_TAC [term_type_def]
   \\ SIMP_TAC (srw_ss()) [typeof_def]
@@ -448,20 +448,20 @@ val raconv_thm = prove(
   THEN1 (REPEAT STRIP_TAC \\ MATCH_MP_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [])
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [])
 
-val aconv_thm = store_thm("aconv_thm",
-  ``!tm1 tm2 env.
+val aconv_thm = Q.store_thm("aconv_thm",
+  `!tm1 tm2 env.
       STATE defs s /\ TERM defs tm1 /\ TERM defs tm2 ==>
-      (aconv tm1 tm2 = ACONV tm1 tm2)``,
+      (aconv tm1 tm2 = ACONV tm1 tm2)`,
   SIMP_TAC std_ss [aconv_def,ACONV_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC (raconv_thm |> Q.SPECL [`t1`,`t2`,`[]`]
        |> SIMP_RULE std_ss [EVERY_DEF,MAP])
   \\ FULL_SIMP_TAC std_ss []);
 
-val is_term_thm = store_thm("is_term_thm",
-  ``(is_var tm = ?n ty. tm = Var n ty) /\
+val is_term_thm = Q.store_thm("is_term_thm",
+  `(is_var tm = ?n ty. tm = Var n ty) /\
     (is_const tm = ?n ty. tm = Const n ty) /\
     (is_abs tm = ?v x. tm = Abs v x) /\
-    (is_comb tm = ?x y. tm = Comb x y)``,
+    (is_comb tm = ?x y. tm = Comb x y)`,
   Cases_on `tm` \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss []);
 
 val mk_var_thm = store_thm("mk_var_thm",
@@ -548,12 +548,12 @@ val rand_thm = store_thm("rand_thm",
   \\ SIMP_TAC (srw_ss()) [rand_def,ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
 
-val type_subst_bool = prove(
-  ``type_subst i Bool = Bool``,
+val type_subst_bool = Q.prove(
+  `type_subst i Bool = Bool`,
   SIMP_TAC (srw_ss()) [Once type_subst_def,LET_DEF]);
 
-val type_subst_fun = prove(
-  ``type_subst i (Fun ty1 ty2) = Fun (type_subst i ty1) (type_subst i ty2)``,
+val type_subst_fun = Q.prove(
+  `type_subst i (Fun ty1 ty2) = Fun (type_subst i ty1) (type_subst i ty2)`,
   SIMP_TAC (srw_ss()) [Once type_subst_def,LET_DEF] \\ SRW_TAC [] []);
 
 val TERM_Const = prove(
@@ -688,38 +688,38 @@ val mk_eq_thm = store_thm("mk_eq_thm",
          ``type_of (Const x y)`` |> SIMP_CONV (srw_ss()) [Once type_of_def],
          ex_bind_def,dest_type_def]);
 
-val TERM_Eq_x = prove(
-  ``STATE defs s /\ TERM defs (Comb (Const (strlit "=") ty) x) ==>
-    (Fun (typeof x) (Fun (typeof x) Bool) = ty)``,
+val TERM_Eq_x = Q.prove(
+  `STATE defs s /\ TERM defs (Comb (Const (strlit "=") ty) x) ==>
+    (Fun (typeof x) (Fun (typeof x) Bool) = ty)`,
   rw[TERM_def,STATE_def] >>
   fs[term_ok_def] >>
   imp_res_tac CONTEXT_std_sig >>
   fs[is_std_sig_def] >> rw[] >>
   fs[TYPE_SUBST_def])
 
-val TERM_Comb = prove(
-  ``CONTEXT defs ⇒
+val TERM_Comb = Q.prove(
+  `CONTEXT defs ⇒
     (TERM defs (Comb f a) <=>
      TERM defs f /\ TERM defs a /\
-     ?ty. term_type f = Fun (term_type a) ty)``,
+     ?ty. term_type f = Fun (term_type a) ty)`,
   REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC term_type
   \\ FULL_SIMP_TAC std_ss [TERM_def,WELLTYPED_CLAUSES,term_ok_def]
   \\ METIS_TAC[term_ok_welltyped])
 
-val MAP_EQ_2_SYM = prove(
-  ``([x;y] = MAP f l) ⇔ (MAP f l = [x;y])``,METIS_TAC[])
+val MAP_EQ_2_SYM = Q.prove(
+  `([x;y] = MAP f l) ⇔ (MAP f l = [x;y])`,METIS_TAC[])
 
-val Equal_type = prove(
-  ``STATE defs s ∧ TERM defs (Const (strlit "=") ty) ==> ?a. ty = Fun a (Fun a Bool)``,
+val Equal_type = Q.prove(
+  `STATE defs s ∧ TERM defs (Const (strlit "=") ty) ==> ?a. ty = Fun a (Fun a Bool)`,
   rw[STATE_def,TERM_def] >>
   imp_res_tac CONTEXT_std_sig >>
   fs[is_std_sig_def,term_ok_def])
 
-val Equal_type_IMP = prove(
-  ``STATE defs s ∧ TERM defs (Comb (Const (strlit "=") (Fun a' (Fun a' Bool))) ll) ==>
-    (typeof ll = a')``,
+val Equal_type_IMP = Q.prove(
+  `STATE defs s ∧ TERM defs (Comb (Const (strlit "=") (Fun a' (Fun a' Bool))) ll) ==>
+    (typeof ll = a')`,
   simp[TERM_Comb] >> strip_tac >>
   imp_res_tac TERM_Eq_x >>
   fs[Once term_type_def] >>
@@ -737,10 +737,10 @@ val dest_eq_thm = store_thm("dest_eq_thm",
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM_Eq_x);
 
-val VFREE_IN_IMP = prove(
-  ``!y. TERM defs y /\ TYPE defs ty /\ STATE defs s /\
+val VFREE_IN_IMP = Q.prove(
+  `!y. TERM defs y /\ TYPE defs ty /\ STATE defs s /\
         VFREE_IN (Var name ty) y ==>
-        vfree_in (Var name ty) y``,
+        vfree_in (Var name ty) y`,
   METIS_TAC [vfree_in_thm]);
 
 val SELECT_LEMMA = prove(
@@ -767,18 +767,18 @@ val SELECT_LEMMA2 = prove(
                             VFREE_IN s tm'` by METIS_TAC []
   \\ FULL_SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD]);
 
-val is_var_thm = prove(
-  ``!x. is_var x = ?v ty. x = Var v ty``,
+val is_var_thm = Q.prove(
+  `!x. is_var x = ?v ty. x = Var v ty`,
   Cases \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]);
 
-val VSUBST_EMPTY = prove(
-  ``(!tm. holSyntax$VSUBST [] tm = tm)``,
+val VSUBST_EMPTY = Q.prove(
+  `(!tm. holSyntax$VSUBST [] tm = tm)`,
   Induct
   \\ FULL_SIMP_TAC (srw_ss()) [VSUBST_def,REV_ASSOCD,EVERY_DEF,FILTER,LET_THM]);
 
-val VFREE_IN_TYPE = prove(
-  ``!x. VFREE_IN (Var name oty) x /\ TERM defs x ==>
-        ?ty. (oty = ty) /\ TYPE defs ty``,
+val VFREE_IN_TYPE = Q.prove(
+  `!x. VFREE_IN (Var name oty) x /\ TERM defs x ==>
+        ?ty. (oty = ty) /\ TYPE defs ty`,
   Induct
   THEN1 (SIMP_TAC std_ss [VFREE_IN_def,term_11] \\ METIS_TAC [TERM])
   THEN1 (SRW_TAC [] [VFREE_IN_def,term_11,term_distinct])
@@ -789,9 +789,9 @@ val VFREE_IN_TYPE = prove(
   \\ IMP_RES_TAC TERM
   \\ FULL_SIMP_TAC std_ss [VFREE_IN_def] \\ METIS_TAC []);
 
-val VFREE_IN_IMP_MEM = prove(
-  ``VFREE_IN (Var name oty) h0 /\ TERM defs h0 /\ STATE defs s ==>
-    ?ty1. MEM (Var name ty1) (frees h0) /\ (oty = ty1) /\ TYPE defs ty1``,
+val VFREE_IN_IMP_MEM = Q.prove(
+  `VFREE_IN (Var name oty) h0 /\ TERM defs h0 /\ STATE defs s ==>
+    ?ty1. MEM (Var name ty1) (frees h0) /\ (oty = ty1) /\ TYPE defs ty1`,
   Induct_on `h0` THEN1 (Q.SPEC_TAC (`oty`,`oty`)
     \\ FULL_SIMP_TAC (srw_ss()) [VFREE_IN_def,term_11,Once frees_def]
     \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [])
@@ -806,8 +806,8 @@ val VFREE_IN_IMP_MEM = prove(
   \\ IMP_RES_TAC VFREE_IN_TYPE \\ FULL_SIMP_TAC std_ss []
   \\ fs[])
 
-val term_type_Var = prove(
-  ``term_type (Var v ty) = ty``,
+val term_type_Var = Q.prove(
+  `term_type (Var v ty) = ty`,
   SIMP_TAC (srw_ss()) [Once term_type_def]);
 
 val vsubst_aux_thm = prove(
@@ -1047,13 +1047,13 @@ val inst_aux_Var = prove(
   SIMP_TAC (srw_ss()) [Once inst_aux_def,rev_assocd_thm,REV_ASSOCD,
        LET_DEF,ex_return_def] \\ METIS_TAC []);
 
-val MEM_subtract = prove(
-  ``!xs ys x. MEM x (subtract xs ys) <=> MEM x xs /\ ~MEM x ys``,
+val MEM_subtract = Q.prove(
+  `!xs ys x. MEM x (subtract xs ys) <=> MEM x xs /\ ~MEM x ys`,
   FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER,MEM] \\ METIS_TAC []);
 
-val MEM_frees = prove(
-  ``!tm y. TERM defs tm /\ MEM y (frees tm) ==>
-           ?v ty. (y = Var v ty) /\ TYPE defs ty``,
+val MEM_frees = Q.prove(
+  `!tm y. TERM defs tm /\ MEM y (frees tm) ==>
+           ?v ty. (y = Var v ty) /\ TYPE defs ty`,
   Induct \\ SIMP_TAC (srw_ss()) [Once frees_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,MEM_subtract]);
@@ -1276,10 +1276,10 @@ val inst_thm = store_thm("inst_thm",
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TYPE_def,FORALL_PROD,MEM,IS_RESULT_def]
   \\ METIS_TAC [])
 
-val freesin_IMP = prove(
-  ``!rhs vars.
+val freesin_IMP = Q.prove(
+  `!rhs vars.
        freesin vars rhs /\ TERM defs rhs /\ VFREE_IN (Var x ty) (rhs) ==>
-       MEM (Var x ty) vars``,
+       MEM (Var x ty) vars`,
   Induct \\ SIMP_TAC (srw_ss()) [Once freesin_def]
   THEN1 (REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
          \\ FULL_SIMP_TAC std_ss [CLOSED_def,VFREE_IN_def])
@@ -1292,27 +1292,27 @@ val freesin_IMP = prove(
   \\ FULL_SIMP_TAC std_ss [MEM]
   \\ FULL_SIMP_TAC (srw_ss()) [term_11]);
 
-val ALL_DISTINCT_union = prove(
-  ``!xs. ALL_DISTINCT (holSyntaxExtra$union xs ys) = ALL_DISTINCT ys``,
+val ALL_DISTINCT_union = Q.prove(
+  `!xs. ALL_DISTINCT (holSyntaxExtra$union xs ys) = ALL_DISTINCT ys`,
   Induct \\ SIMP_TAC (srw_ss()) [union_def,Once itlist_def,insert_def]
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [union_def]);
 
-val ALL_DISTINCT_tyvars_ALT = prove(
-  ``!h. ALL_DISTINCT (tyvars (h:type))``,
+val ALL_DISTINCT_tyvars_ALT = Q.prove(
+  `!h. ALL_DISTINCT (tyvars (h:type))`,
   HO_MATCH_MP_TAC type_IND \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once holKernelTheory.tyvars_def]
   \\ Induct_on `l` \\ SIMP_TAC (srw_ss()) [Once itlist_def,MAP]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_union]);
 
-val ALL_DISTINCT_type_vars_in_term = prove(
-  ``!P. ALL_DISTINCT (type_vars_in_term P)``,
+val ALL_DISTINCT_type_vars_in_term = Q.prove(
+  `!P. ALL_DISTINCT (type_vars_in_term P)`,
   Induct \\ SIMP_TAC (srw_ss()) [Once type_vars_in_term_def]
   \\ FULL_SIMP_TAC std_ss [tyvars_ALL_DISTINCT,ALL_DISTINCT_union]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_tyvars_ALT]);
 
-val MEM_type_vars_in_term = prove(
-  ``!rhs v. TERM defs rhs ==>
-            (MEM v (type_vars_in_term rhs) = MEM v (tvars rhs))``,
+val MEM_type_vars_in_term = Q.prove(
+  `!rhs v. TERM defs rhs ==>
+            (MEM v (type_vars_in_term rhs) = MEM v (tvars rhs))`,
   Induct
   \\ SIMP_TAC (srw_ss()) [Once type_vars_in_term_def,tvars_def,tyvars_thm]
   THEN1 (FULL_SIMP_TAC std_ss [MEM_union,MEM_LIST_UNION] \\ REPEAT STRIP_TAC
@@ -1323,9 +1323,9 @@ val MEM_type_vars_in_term = prove(
        tvars_def,MEM_LIST_UNION]
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]);
 
-val QSORT_type_vars_in_term = prove(
-  ``TERM defs P ==>
-    (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))``,
+val QSORT_type_vars_in_term = Q.prove(
+  `TERM defs P ==>
+    (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))`,
   REPEAT STRIP_TAC \\
   MATCH_MP_TAC (MP_CANON sortingTheory.SORTED_PERM_EQ) \\
   qexists_tac`$<=` >>
@@ -1359,15 +1359,15 @@ val dest_thm_thm = store_thm("dest_thm_thm",
   REPEAT STRIP_TAC \\ Cases_on `th` \\ IMP_RES_TAC THM
   \\ FULL_SIMP_TAC std_ss [dest_thm_def] \\ METIS_TAC []);
 
-val hyp_thm = store_thm("hyp_thm",
-  ``THM defs th /\ STATE defs s /\ (hyp th = asl) ==>
-    EVERY (TERM defs) asl``,
+val hyp_thm = Q.store_thm("hyp_thm",
+  `THM defs th /\ STATE defs s /\ (hyp th = asl) ==>
+    EVERY (TERM defs) asl`,
   REPEAT STRIP_TAC \\ Cases_on `th` \\ IMP_RES_TAC THM
   \\ FULL_SIMP_TAC std_ss [hyp_def] \\ METIS_TAC []);
 
-val concl_thm = store_thm("concl_thm",
-  ``THM defs th /\ STATE defs s /\ (concl th = c) ==>
-    TERM defs c``,
+val concl_thm = Q.store_thm("concl_thm",
+  `THM defs th /\ STATE defs s /\ (concl th = c) ==>
+    TERM defs c`,
   REPEAT STRIP_TAC \\ Cases_on `th` \\ IMP_RES_TAC THM
   \\ FULL_SIMP_TAC std_ss [concl_def] \\ METIS_TAC []);
 
@@ -1828,16 +1828,16 @@ val INST_thm = store_thm("INST_thm",
 (* Verification of definition functions                                      *)
 (* ------------------------------------------------------------------------- *)
 
-val TYPE_CONS_EXTEND = store_thm("TYPE_CONS_EXTEND",
-  ``STATE (d::defs) s /\ TYPE defs ty ==> TYPE (d::defs) ty``,
+val TYPE_CONS_EXTEND = Q.store_thm("TYPE_CONS_EXTEND",
+  `STATE (d::defs) s /\ TYPE defs ty ==> TYPE (d::defs) ty`,
   simp[STATE_def,TYPE_def] >> strip_tac >>
   match_mp_tac type_ok_extend >>
   HINT_EXISTS_TAC >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
   Cases_on`d`>>fs[SUBMAP_FUNION])
 
-val TERM_CONS_EXTEND = store_thm("TERM_CONS_EXTEND",
-  ``STATE (d::defs) s /\ TERM defs tm ==> TERM (d::defs) tm``,
+val TERM_CONS_EXTEND = Q.store_thm("TERM_CONS_EXTEND",
+  `STATE (d::defs) s /\ TERM defs tm ==> TERM (d::defs) tm`,
   simp[STATE_def,TERM_def] >> strip_tac >>
   match_mp_tac term_ok_extend >>
   map_every qexists_tac[`tysof(defs)`,`tmsof(defs)`] >>
@@ -1851,16 +1851,16 @@ val TERM_CONS_EXTEND = store_thm("TERM_CONS_EXTEND",
 val STRCAT_SHADOW_def = zDefine`
   STRCAT_SHADOW = STRCAT`
 
-val first_dup_thm = prove(
-  ``∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)``,
+val first_dup_thm = Q.prove(
+  `∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)`,
   Induct >> simp[Once first_dup_def] >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >>
   strip_tac >> res_tac >>
   fs[MEM] >> METIS_TAC[])
 
-val first_dup_SOME = prove(
-  ``∀ls acc. (first_dup ls acc = SOME x) ⇒ ¬ALL_DISTINCT (ls++acc)``,
+val first_dup_SOME = Q.prove(
+  `∀ls acc. (first_dup ls acc = SOME x) ⇒ ¬ALL_DISTINCT (ls++acc)`,
   Induct >> simp[Once first_dup_def] >>
   rw[] >> fs[ALL_DISTINCT_APPEND] >>
   res_tac >> rw[] >> fs[ALL_DISTINCT] >> fs[] >>

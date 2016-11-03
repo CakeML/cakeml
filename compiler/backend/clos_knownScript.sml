@@ -100,8 +100,8 @@ val known_op_def = Define `
      | _ => (Other,g)) /\
   (known_op op as g = (Other,g))`
 
-val EL_MEM_LEMMA = prove(
-  ``!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs``,
+val EL_MEM_LEMMA = Q.prove(
+  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
 val dest_Clos_def = Define `

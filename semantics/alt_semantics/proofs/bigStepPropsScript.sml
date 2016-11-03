@@ -52,11 +52,11 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     Cases_on`a`>>full_simp_tac(srw_ss())[]))
   *)
 
-val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
-  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+val evaluate_decs_ctors_in = Q.store_thm("evaluate_decs_ctors_in",
+  `∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
       ∀cn.
         IS_SOME (ALOOKUP (FST(SND res)) cn) ⇒
-        MEM cn (FLAT (MAP ctors_of_dec decs))``,
+        MEM cn (FLAT (MAP ctors_of_dec decs))`,
   HO_MATCH_MP_TAC evaluate_decs_ind >>
   simp[] >>
   srw_tac[][Once evaluate_dec_cases] >> simp[] >>

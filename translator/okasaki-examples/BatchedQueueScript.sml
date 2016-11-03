@@ -35,27 +35,27 @@ val queue_inv_def = Define `
   queue_inv q (QUEUE xs ys) <=>
     (q = xs ++ REVERSE ys) /\ ((xs = []) ==> (ys = []))`;
 
-val empty_thm = prove(
-  ``!xs. queue_inv xs empty = (xs = [])``,
+val empty_thm = Q.prove(
+  `!xs. queue_inv xs empty = (xs = [])`,
   EVAL_TAC THEN SIMP_TAC std_ss []);
 
-val is_empty_thm = prove(
-  ``!q xs. queue_inv xs q ==> (is_empty q = (xs = []))``,
+val is_empty_thm = Q.prove(
+  `!q xs. queue_inv xs q ==> (is_empty q = (xs = []))`,
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] [REV_DEF]);
 
-val snoc_thm = prove(
-  ``!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)``,
+val snoc_thm = Q.prove(
+  `!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)`,
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
     [queue_inv_def,snoc_def,REVERSE_DEF,checkf_def,APPEND]);
 
-val head_thm = prove(
-  ``!q x xs. queue_inv (x::xs) q ==> (head q = x)``,
+val head_thm = Q.prove(
+  `!q x xs. queue_inv (x::xs) q ==> (head q = x)`,
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
     [queue_inv_def,head_def,REVERSE_DEF,checkf_def,APPEND]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []);
 
-val tail_thm = prove(
-  ``!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)``,
+val tail_thm = Q.prove(
+  `!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)`,
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN TRY (Cases_on `t`) THEN EVAL_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,REV_DEF]);

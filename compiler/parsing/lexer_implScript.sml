@@ -213,22 +213,22 @@ val next_sym_alt_def = tDefine "next_sym_alt"`
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
    THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC)
 
-val EVERY_isDigit_imp = prove(``
+val EVERY_isDigit_imp = Q.prove(`
   EVERY isDigit x ⇒
-  MAP UNHEX x = MAP unhex_alt x``,
+  MAP UNHEX x = MAP unhex_alt x`,
   rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def])
 
-val toNum_rw = prove(``
+val toNum_rw = Q.prove(`
   ∀x. EVERY isDigit x ⇒
-  toNum x = num_from_dec_string_alt x``,
+  toNum x = num_from_dec_string_alt x`,
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_dec_string_def,num_from_dec_string_alt_def]>>
   AP_TERM_TAC>>
   match_mp_tac EVERY_isDigit_imp>>
   metis_tac[rich_listTheory.EVERY_REVERSE])
 
-val EVERY_IMPLODE = prove(``
+val EVERY_IMPLODE = Q.prove(`
   ∀ls P.
-  EVERY P (IMPLODE ls) ⇔ EVERY P ls``,
+  EVERY P (IMPLODE ls) ⇔ EVERY P ls`,
   Induct>>fs[])
 
 val read_while_P_lem = prove(``
@@ -248,8 +248,8 @@ val read_while_P = prove(``
   rw[]>>ho_match_mp_tac read_while_P_lem>>
   MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[])
 
-val next_sym_eq = store_thm("next_sym_eq",
-  ``∀x. next_sym x = next_sym_alt x``,
+val next_sym_eq = Q.store_thm("next_sym_eq",
+  `∀x. next_sym x = next_sym_alt x`,
   ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
   TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
   TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
@@ -361,14 +361,14 @@ val lex_until_top_semicolon_alt_LESS = store_thm(
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_alt_LESS
   THEN FULL_SIMP_TAC std_ss []);
 
-val token_of_sym_EQ_LEMMA = prove(
-  ``((token_of_sym q = LetT) = (q = OtherS "let")) /\
+val token_of_sym_EQ_LEMMA = Q.prove(
+  `((token_of_sym q = LetT) = (q = OtherS "let")) /\
     ((token_of_sym q = EndT) = (q = OtherS "end")) /\
     ((token_of_sym q = SigT) = (q = OtherS "sig")) /\
     ((token_of_sym q = StructT) = (q = OtherS "struct")) /\
     ((token_of_sym q = SemicolonT) = (q = OtherS ";")) /\
     ((token_of_sym q = RparT) = (q = OtherS ")")) /\
-    ((token_of_sym q = LparT) = (q = OtherS "("))``,
+    ((token_of_sym q = LparT) = (q = OtherS "("))`,
   REPEAT STRIP_TAC
   THEN SIMP_TAC std_ss [token_of_sym_def,get_token_def,processIdent_def,LET_DEF]
   THEN BasicProvers.FULL_CASE_TAC THEN SRW_TAC [] []
@@ -479,9 +479,9 @@ val lex_aux_tokens_thm = prove(
   >> SRW_TAC [] [] >> SRW_TAC [] []
   >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];
 
-val lex_impl_all_tokens_thm = prove(
-  ``!input. lex_impl_all input =
-            lex_impl_all_tokens (lexer_fun input)``,
+val lex_impl_all_tokens_thm = Q.prove(
+  `!input. lex_impl_all input =
+            lex_impl_all_tokens (lexer_fun input)`,
   HO_MATCH_MP_TAC (fetch "-" "lex_impl_all_ind") >> REPEAT STRIP_TAC
   >> SIMP_TAC std_ss [Once lex_impl_all_def,Once lex_impl_all_tokens_def]
   >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
@@ -517,8 +517,8 @@ val lex_aux_tokens_thm = prove(
   >> FULL_SIMP_TAC (srw_ss()) [LENGTH,arithmeticTheory.ADD1])
   |> Q.SPECL [`input`,`0`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
 
-val split_top_level_semi_thm = prove(
-  ``!input. split_top_level_semi input = lex_impl_all_tokens input``,
+val split_top_level_semi_thm = Q.prove(
+  `!input. split_top_level_semi input = lex_impl_all_tokens input`,
   HO_MATCH_MP_TAC split_top_level_semi_ind >> REPEAT STRIP_TAC
   >> SIMP_TAC std_ss [Once split_top_level_semi_def,Once lex_impl_all_tokens_def,
       Once lex_until_toplevel_semicolon_tokens_def]
@@ -529,8 +529,8 @@ val split_top_level_semi_thm = prove(
   >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
   >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
 
-val lexer_correct = store_thm("lexer_correct",
-  ``!input. split_top_level_semi (lexer_fun input) = lex_impl_all input``,
+val lexer_correct = Q.store_thm("lexer_correct",
+  `!input. split_top_level_semi (lexer_fun input) = lex_impl_all input`,
   SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
 
 val _ = export_theory();

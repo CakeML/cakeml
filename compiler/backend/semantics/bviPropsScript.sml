@@ -16,8 +16,8 @@ val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
    initial_state f c k with code := c1 = initial_state f c1 k`,
   EVAL_TAC);
 
-val bvl_to_bvi_id = store_thm("bvl_to_bvi_id",
-  ``bvl_to_bvi (bvi_to_bvl s) s = s``,
+val bvl_to_bvi_id = Q.store_thm("bvl_to_bvi_id",
+  `bvl_to_bvi (bvi_to_bvl s) s = s`,
   EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]);
 
 val bvl_to_bvi_with_refs = Q.store_thm("bvl_to_bvi_with_refs",
@@ -138,12 +138,12 @@ val evaluate_APPEND = store_thm("evaluate_APPEND",
 val inc_clock_def = Define `
   inc_clock n (s:'ffi bviSem$state) = s with clock := s.clock + n`;
 
-val inc_clock_ZERO = store_thm("inc_clock_ZERO",
-  ``!s. inc_clock 0 s = s``,
+val inc_clock_ZERO = Q.store_thm("inc_clock_ZERO",
+  `!s. inc_clock 0 s = s`,
   full_simp_tac(srw_ss())[inc_clock_def,state_component_equality]);
 
-val inc_clock_ADD = store_thm("inc_clock_ADD",
-  ``inc_clock n (inc_clock m s) = inc_clock (n+m) s``,
+val inc_clock_ADD = Q.store_thm("inc_clock_ADD",
+  `inc_clock n (inc_clock m s) = inc_clock (n+m) s`,
   full_simp_tac(srw_ss())[inc_clock_def,state_component_equality,AC ADD_ASSOC ADD_COMM]);
 
 val inc_clock_refs = Q.store_thm("inc_clock_refs[simp]",
@@ -184,14 +184,14 @@ val dec_clock_code = Q.store_thm("dec_clock_code[simp]",
   `(dec_clock n s).code = s.code`,
   srw_tac[][dec_clock_def])
 
-val dec_clock_inv_clock = store_thm("dec_clock_inv_clock",
-  ``¬(t1.clock < ticks + 1) ==>
-    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))``,
+val dec_clock_inv_clock = Q.store_thm("dec_clock_inv_clock",
+  `¬(t1.clock < ticks + 1) ==>
+    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))`,
   full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
 
-val dec_clock_inv_clock1 = store_thm("dec_clock_inv_clock1",
-  ``t1.clock <> 0 ==>
-    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))``,
+val dec_clock_inv_clock1 = Q.store_thm("dec_clock_inv_clock1",
+  `t1.clock <> 0 ==>
+    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))`,
   full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
 
 val dec_clock0 = Q.store_thm ("dec_clock0[simp]",

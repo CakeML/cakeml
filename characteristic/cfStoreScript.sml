@@ -117,16 +117,16 @@ val store2heap_IN_unique_key = store_thm ("store2heap_IN_unique_key",
   tac_store2heap_IN
 )
 
-val Mem_NOT_IN_ffi2heap = store_thm("Mem_NOT_IN_ffi2heap",
-  ``~(Mem rv x IN ffi2heap (p:'ffi ffi_proj) f)``,
+val Mem_NOT_IN_ffi2heap = Q.store_thm("Mem_NOT_IN_ffi2heap",
+  `~(Mem rv x IN ffi2heap (p:'ffi ffi_proj) f)`,
   PairCases_on `p` \\ fs [ffi2heap_def] \\ rw []);
 
-val FFI_part_NOT_IN_store2heap_aux = store_thm("FFI_part_NOT_IN_store2heap_aux",
-  ``∀n s. FFI_part x1 x2 x3 ∉ store2heap_aux n s``,
+val FFI_part_NOT_IN_store2heap_aux = Q.store_thm("FFI_part_NOT_IN_store2heap_aux",
+  `∀n s. FFI_part x1 x2 x3 ∉ store2heap_aux n s`,
   Induct_on `s` \\ fs [store2heap_aux_def]);
 
-val FFI_part_NOT_IN_store2heap = store_thm("FFI_part_NOT_IN_store2heap",
-  ``!s. ~(FFI_part x1 x2 x3 ∈ store2heap s)``,
+val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
+  `!s. ~(FFI_part x1 x2 x3 ∈ store2heap s)`,
   fs [store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
 
 val store2heap_LUPDATE = store_thm ("store2heap_LUPDATE",

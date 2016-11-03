@@ -3,9 +3,9 @@ open preamble closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 val _ = new_theory"clos_numberProof";
 
 (* properties of renumber_code_locs *)
-val option_case_eq = prove(
-  ``(option_CASE opt n s = v) ⇔
-      (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)``,
+val option_case_eq = Q.prove(
+  `(option_CASE opt n s = v) ⇔
+      (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)`,
   Cases_on `opt` >> simp[EQ_SYM_EQ]);
 
 
@@ -27,9 +27,9 @@ fun tac (g as (asl,w)) =
     map_every (fn tm => Cases_on [ANTIQUOTE tm]) tms g
   end
 
-val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
-  ``(∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
-    (∀n e. n ≤ FST (renumber_code_locs n e))``,
+val renumber_code_locs_inc = Q.store_thm("renumber_code_locs_inc",
+  `(∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
+    (∀n e. n ≤ FST (renumber_code_locs n e))`,
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> srw_tac[][] >>
   tac >> full_simp_tac(srw_ss())[] >>
@@ -49,13 +49,13 @@ val renumber_code_locs_list_length = prove(
   Cases_on`renumber_code_locs_list q ls`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
   res_tac)
 
-val renumber_code_locs_distinct_lemma = prove(
-  ``(∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
+val renumber_code_locs_distinct_lemma = Q.prove(
+  `(∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
             EVERY ($<= n) (code_locs (SND (renumber_code_locs_list n es))) ∧
             EVERY ($> (FST (renumber_code_locs_list n es))) (code_locs (SND (renumber_code_locs_list n es)))) ∧
     (∀n e. SORTED $< (code_locs [SND (renumber_code_locs n e)]) ∧
             EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
-            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))``,
+            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))`,
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def,code_locs_def,pairTheory.UNCURRY] >>
   srw_tac[][] >> rpt (CHANGED_TAC tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
@@ -103,10 +103,10 @@ val renumber_code_locs_distinct_lemma = prove(
   rev_full_simp_tac(srw_ss())[MAP_ZIP] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP]);
 
-val renumber_code_locs_distinct = store_thm("renumber_code_locs_distinct",
-  ``∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
+val renumber_code_locs_distinct = Q.store_thm("renumber_code_locs_distinct",
+  `∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
           EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
-          EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)])``,
+          EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)])`,
   srw_tac[][] >>
   qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_distinct_lemma) >> simp[] >>
   match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT)) >>
@@ -169,14 +169,14 @@ val state_rel_clock = Q.prove (
   `!s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)`,
    srw_tac[][state_rel_def] \\ rfs[]);
 
-val state_rel_globals = prove(
-  ``state_rel s t ⇒
-    LIST_REL (OPTREL (v_rel s.max_app)) s.globals t.globals``,
+val state_rel_globals = Q.prove(
+  `state_rel s t ⇒
+    LIST_REL (OPTREL (v_rel s.max_app)) s.globals t.globals`,
   srw_tac[][state_rel_def])
 
-val state_rel_refs = prove(
-  ``state_rel s t ⇒
-    fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs``,
+val state_rel_refs = Q.prove(
+  `state_rel s t ⇒
+    fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs`,
   srw_tac[][state_rel_def])
 
 val v_rel_simp = let
@@ -194,15 +194,15 @@ val v_rel_simp = let
             ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
   |> curry save_thm"v_rel_simp"
 
-val v_rel_Boolv = store_thm("v_rel_Boolv[simp]",
-  ``(v_rel max_app x (Boolv b) ⇔ (x = Boolv b)) ∧
-    (v_rel max_app (Boolv b) x ⇔ (x = Boolv b))``,
+val v_rel_Boolv = Q.store_thm("v_rel_Boolv[simp]",
+  `(v_rel max_app x (Boolv b) ⇔ (x = Boolv b)) ∧
+    (v_rel max_app (Boolv b) x ⇔ (x = Boolv b))`,
   Cases_on`b`>>srw_tac[][Boolv_def,Once v_rel_cases] >>
   srw_tac[][Once v_rel_cases])
 
-val v_rel_Unit = store_thm("v_rel_Unit[simp]",
-  ``(v_rel max_app x Unit ⇔ (x = Unit)) ∧
-    (v_rel max_app Unit x ⇔ (x = Unit))``,
+val v_rel_Unit = Q.store_thm("v_rel_Unit[simp]",
+  `(v_rel max_app x Unit ⇔ (x = Unit)) ∧
+    (v_rel max_app Unit x ⇔ (x = Unit))`,
   EVAL_TAC >> simp[v_rel_simp])
 
 (* semantic functions respect relation *)
@@ -341,28 +341,28 @@ val helper = Q.prove (
   `SND ((λ(n',x'). (n',[x'])) x) = [SND x]`,
   Cases_on `x` >> full_simp_tac(srw_ss())[]);
 
-val list_to_v = prove(
-  ``∀l1 l2. LIST_REL (v_rel max_app) l1 l2 ⇒
-    v_rel max_app (list_to_v l1) (list_to_v l2)``,
+val list_to_v = Q.prove(
+  `∀l1 l2. LIST_REL (v_rel max_app) l1 l2 ⇒
+    v_rel max_app (list_to_v l1) (list_to_v l2)`,
   Induct >> simp[list_to_v_def,v_rel_simp] >>
   srw_tac[][PULL_EXISTS,list_to_v_def])
 
-val v_rel_Boolv_mono = prove(
-  ``(x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))``,
+val v_rel_Boolv_mono = Q.prove(
+  `(x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))`,
   Cases_on`x`>>simp[Boolv_def,v_rel_simp])
 
-val v_to_list = prove(
-  ``∀x y. v_rel max_app x y ⇒
-          OPTREL (LIST_REL (v_rel max_app)) (v_to_list x) (v_to_list y)``,
+val v_to_list = Q.prove(
+  `∀x y. v_rel max_app x y ⇒
+          OPTREL (LIST_REL (v_rel max_app)) (v_to_list x) (v_to_list y)`,
   ho_match_mp_tac v_to_list_ind >>
   simp[v_rel_simp,v_to_list_def,PULL_EXISTS] >>
   srw_tac[][] >> TRY(srw_tac[][optionTheory.OPTREL_def]>>NO_TAC) >>
   first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
   full_simp_tac(srw_ss())[optionTheory.OPTREL_def])
 
-val do_eq = prove(
-  ``∀x1 y1. v_rel max_app x1 y1 ⇒
-      ∀x2 y2. v_rel max_app x2 y2 ⇒ (do_eq x1 x2 = do_eq y1 y2)``,
+val do_eq = Q.prove(
+  `∀x1 y1. v_rel max_app x1 y1 ⇒
+      ∀x2 y2. v_rel max_app x2 y2 ⇒ (do_eq x1 x2 = do_eq y1 y2)`,
   ho_match_mp_tac v_rel_ind >> srw_tac[][] >>
   Cases_on`x2`>>full_simp_tac(srw_ss())[v_rel_simp]>>TRY(full_simp_tac(srw_ss())[do_eq_def]>>NO_TAC)>> srw_tac[][] >>
   simp[do_eq_def] >>

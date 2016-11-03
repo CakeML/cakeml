@@ -310,9 +310,9 @@ val clock_neutral_def = Define `
   (clock_neutral (If _ _ _ p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
   (clock_neutral r <=> F)`
 
-val inst_clock_neutral = prove(
-  ``(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
-    (inst i s = NONE ==> inst i (s with clock := k) = NONE)``,
+val inst_clock_neutral = Q.prove(
+  `(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
+    (inst i s = NONE ==> inst i (s with clock := k) = NONE)`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
   \\ srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
@@ -320,9 +320,9 @@ val inst_clock_neutral = prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
   \\ srw_tac[][state_component_equality]);
 
-val inst_clock_neutral_ffi = prove(
-  ``(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
-    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)``,
+val inst_clock_neutral_ffi = Q.prove(
+  `(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
+    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality]>>
   reverse full_case_tac>>fs[]>>
   TRY
@@ -361,8 +361,8 @@ val evaluate_ffi_neutral = store_thm("evaluate_ffi_neutral",
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
-val semantics_Terminate_IMP_PREFIX = store_thm("semantics_Terminate_IMP_PREFIX",
-  ``semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l``,
+val semantics_Terminate_IMP_PREFIX = Q.store_thm("semantics_Terminate_IMP_PREFIX",
+  `semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l`,
   full_simp_tac(srw_ss())[semantics_def,LET_DEF] \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]);
@@ -402,10 +402,10 @@ val map_bitmap_length = store_thm("map_bitmap_length",``
   pop_assum mp_tac>>every_case_tac>>rw[]>>res_tac>>
   fs[]>>DECIDE_TAC);
 
-val dec_stack_length = store_thm("dec_stack_length",``
+val dec_stack_length = Q.store_thm("dec_stack_length",`
   ∀bs enc orig_stack new_stack.
   dec_stack bs enc orig_stack = SOME new_stack ⇒
-  LENGTH orig_stack = LENGTH new_stack``,
+  LENGTH orig_stack = LENGTH new_stack`,
   ho_match_mp_tac stackSemTheory.dec_stack_ind>>
   fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
   pop_assum mp_tac>>
@@ -433,9 +433,9 @@ val extract_labels_def = Define`
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
 
-val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
-  ``find_code d r code = SOME e ==>
-    get_labels e SUBSET loc_check code``,
+val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
+  `find_code d r code = SOME e ==>
+    get_labels e SUBSET loc_check code`,
   Cases_on `d`
   \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
          loc_check_def,FORALL_PROD]
