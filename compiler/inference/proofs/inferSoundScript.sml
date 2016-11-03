@@ -6,7 +6,8 @@ open typeSysPropsTheory;
 open infer_eSoundTheory;
 open envRelTheory;
 open type_eDetermTheory;
-open infer_eCompleteTheory
+open infer_eCompleteTheory;
+open namespacePropsTheory;
 
 val _ = new_theory "inferSound";
 
@@ -128,6 +129,46 @@ val ienv_to_tenv_def = Define `
     <| v := nsMap (\(tvs, t). (tvs, convert_t t)) ienv.inf_v;
        c := ienv.inf_c;
        t := ienv.inf_t |>`;
+
+val ienv_to_tenv_extend = Q.store_thm ("ienv_to_tenv_extend",
+  `!ienv1 ienv2.
+    ienv_to_tenv (extend_dec_ienv ienv2 ienv1) =
+    extend_dec_tenv (ienv_to_tenv ienv2) (ienv_to_tenv ienv1)`,
+  rw [ienv_to_tenv_def, extend_dec_tenv_def, extend_dec_ienv_def, nsMap_nsAppend]);
+
+  (*
+val env_rel_ienv_to_tenv = Q.store_thm ("env_rel_ienv_to_tenv",
+  `!ienv. ienv_ok {} ienv ⇒ env_rel (ienv_to_tenv ienv) ienv`,
+  rw [env_rel_def, ienv_to_tenv_def]
+  >- (
+    fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
+        typeSoundInvariantsTheory.tenv_val_ok_def] >>
+    cheat)
+  >- cheat
+  >- (
+    rw [env_rel_sound_def, lookup_var_def] >>
+    `?tvs t. ts = (tvs,t)` by metis_tac [pair_CASES] >>
+    rw [] >>
+    qexists_tac `tvs` >>
+    qexists_tac `convert_t t` >>
+    `check_t tvs {} t`
+      by (
+        fs [ienv_ok_def, ienv_val_ok_def] >>
+        drule nsLookup_nsAll >>
+        disch_then drule >>
+        simp []) >>
+    rw []
+    >- metis_tac [check_t_to_check_freevars]
+    >- cheat
+    >- (
+      drule check_t_empty_unconvert_convert_id >>
+      rw [tscheme_approx_refl]))
+  >- (
+    rw [env_rel_complete_def, lookup_var_def] >>
+   nsAll_nsMap
+
+nsLookupMod_nsMap
+*)
 
 val lookup_var_empty = prove(``
   lookup_var x (bind_tvar tvs Empty) tenv =
@@ -861,23 +902,45 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >> metis_tac[MAP_ID]));
 
 val infer_ds_sound = Q.prove (
-`!mn decls ienv ds st1 decls' tenvT' cenv' env' st2 tenv.
-  infer_ds mn decls ienv ds st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
-  env_rel tenv ienv
-  ⇒
-  type_ds T mn (convert_decls decls) tenv ds (convert_decls decls') (tenvT',cenv',(convert_env2 env'))`,
- fs[env_rel_def]>>
- induct_on `ds` >>
- rpt gen_tac >>
- rw [infer_ds_def, success_eqns]
- >- rw [empty_decls_def,convert_decls_def, convert_env2_def, Once type_ds_cases,empty_inf_decls_def]
- >- rw [convert_env2_def]
+  `!mn idecls ienv ds st1 idecls' ienv' st2 tenv.
+    infer_ds mn idecls ienv ds st1 = (Success (idecls',ienv'), st2) ∧
+    env_rel tenv ienv
+    ⇒
+    type_ds T mn (convert_decls idecls) tenv ds (convert_decls idecls') (ienv_to_tenv ienv')`,
+
+  induct_on `ds` >>
+  rw [infer_ds_def, success_eqns]
+  >- rw [empty_decls_def,convert_decls_def, ienv_to_tenv_def, Once type_ds_cases,empty_inf_decls_def]
+  >- rw [ienv_to_tenv_def] >>
+  rw [Once type_ds_cases] >>
+  pairarg_tac >>
+  fs [success_eqns] >>
+  pairarg_tac >>
+  fs [success_eqns] >>
+  rpt var_eq_tac >>
+  simp [] >>
+  drule infer_d_sound >>
+  disch_then drule >>
+  strip_tac >>
+  rename1 `infer_d _ idecls1 ienv1 _ _ = (Success (idecls2, ienv2), _)` >>
+  rename1 `infer_ds _ _ _ _ _ = (Success (idecls3, ienv3), _)` >>
+  qexists_tac `ienv_to_tenv ienv2` >>
+  qexists_tac `ienv_to_tenv ienv3` >>
+  qexists_tac `convert_decls idecls2` >>
+  qexists_tac `convert_decls idecls3` >>
+  simp [ienv_to_tenv_extend, GSYM convert_append_decls] >>
+  first_x_assum irule >>
+  qexists_tac `extend_dec_ienv ienv2 ienv1` >>
+  simp []
+
+metis_tac [env_rel_extend]
+
+
  >>
  `?decls'' cenv'' tenvT'' env''. v' = (decls'',tenvT'',cenv'',env'')` by metis_tac [pair_CASES] >>
  fs [success_eqns] >>
  `?decls''' tenvT''' cenv''' env'''. v'' = (decls''',tenvT''',cenv''',env''')` by metis_tac [pair_CASES] >>
  fs [success_eqns] >>
- rw [Once type_ds_cases] >>
  fs [init_infer_state_def] >>
  imp_res_tac infer_d_check >>
  ntac 6 (pop_assum kall_tac) >>

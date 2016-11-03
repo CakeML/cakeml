@@ -255,6 +255,17 @@ val tscheme_approx_thm = Q.store_thm ("tscheme_approx_thm",
  >> irule check_t_infer_deBruijn_subst
  >> metis_tac [EVERY_MEM, check_t_more5, SUBSET_DEF, NOT_IN_EMPTY]);
 
+val tscheme_approx_refl = Q.store_thm ("tscheme_approx_refl",
+  `!max_tvs s tvs t. tscheme_approx max_tvs s (tvs,t) (tvs,t)`,
+  rw [tscheme_approx_def] >>
+  qexists_tac `MAP Infer_Tvar_db (COUNT_LIST tvs)` >>
+  rw [LENGTH_COUNT_LIST, EVERY_MAP, every_count_list, check_t_def,
+      MAP_MAP_o, combinTheory.o_DEF, infer_deBruijn_subst_def] >>
+  irule (METIS_PROVE [] ``y = y' ⇒ f x y = f x y'``) >>
+  irule (METIS_PROVE [] ``y = y' ⇒ f y x = f y' x``) >>
+  irule LIST_EQ >>
+  rw [LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST]);
+
 val env_rel_sound_def = Define `
   env_rel_sound s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
@@ -266,6 +277,23 @@ val env_rel_sound_def = Define `
         check_freevars (tvs' + num_tvs tenvE) [] t' ∧
         lookup_var x tenvE tenv = SOME (tvs', t') ∧
         tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')`;
+
+val env_rel_sound_lookup_none = Q.store_thm ("env_rel_sound_lookup_none",
+  `!ienv tenv s tenvE id.
+    env_rel_sound s ienv tenv tenvE ∧
+    lookup_var id tenvE tenv = NONE
+    ⇒
+    nsLookup ienv.inf_v id = NONE`,
+  rw [env_rel_sound_def, lookup_var_def] >>
+  every_case_tac >>
+  fs [] >>
+  CCONTR_TAC >>
+  `?v. nsLookup ienv.inf_v id = SOME v` by metis_tac [option_nchotomy] >>
+  fs [] >>
+  first_x_assum drule >>
+  strip_tac >>
+  every_case_tac >>
+  fs []);
 
 val env_rel_sound_lookup_some = Q.store_thm ("env_rel_sound_lookup_some",
   `!id ts s ienv tenv tenvE.
@@ -472,6 +500,19 @@ val env_rel_complete_def = Define `
         (* A stronger version is guaranteed by ienv_ok
         check_t (tvs' + num_tvs tenvE) {} t' ∧*)
         tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')`;
+
+val env_rel_complete_lookup_none = Q.store_thm ("env_rel_complete_lookup_none",
+  `!ienv tenv s tenvE x.
+    env_rel_complete s ienv tenv tenvE ∧
+    nsLookup ienv.inf_v x = NONE
+    ⇒
+    nsLookup tenv.v x = NONE`,
+  rw [env_rel_complete_def, lookup_var_def] >>
+  first_x_assum (qspec_then `x` mp_tac) >>
+  simp [lookup_varE_def] >>
+  every_case_tac >>
+  rw [] >>
+  metis_tac [option_nchotomy, pair_CASES]);
 
 val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
 `!s ienv tenv tenvE.
@@ -808,7 +849,90 @@ val env_rel_def = Define`
  env_rel tenv ienv ⇔
   ienv_ok {} ienv ∧
   tenv_ok tenv ∧
+  (* To rule out 1 env with an empty module and the other without that module at all *)
+  (!x. nsLookupMod ienv.inf_v x = NONE ⇔ nsLookupMod tenv.v x = NONE) ∧
   env_rel_sound FEMPTY ienv tenv Empty ∧
   env_rel_complete FEMPTY ienv tenv Empty`;
+
+val lookup_varE_empty = Q.store_thm ("lookup_varE_empty[simp]",
+  `!x. lookup_varE x Empty = NONE`,
+    rw [lookup_varE_def, tveLookup_def] >>
+    every_case_tac);
+
+val env_rel_extend = Q.store_thm ("env_rel_extend",
+  `!tenv1 ienv1 tenv2 ienv2.
+    env_rel tenv1 ienv1 ∧
+    env_rel tenv2 ienv2
+    ⇒
+    env_rel (extend_dec_tenv tenv1 tenv2) (extend_dec_ienv ienv1 ienv2)`,
+  rpt gen_tac >>
+  simp [env_rel_def] >>
+  strip_tac >>
+  conj_tac
+  >- metis_tac [ienv_ok_extend_dec_ienv] >>
+  conj_tac
+  >- metis_tac [extend_dec_tenv_ok] >>
+  simp [env_rel_sound_def, env_rel_complete_def, extend_dec_tenv_def,
+        extend_dec_ienv_def, lookup_var_def, nsLookup_nsAppend_some,
+        nsLookupMod_nsAppend_none] >>
+  conj_tac
+  >- metis_tac [NOT_SOME_NONE, option_nchotomy] >>
+  conj_tac
+  >- (
+    conj_tac
+    >- fs [env_rel_sound_def] >>
+    conj_tac
+    >- fs [env_rel_sound_def] >>
+    rw []
+    >- (
+      fs [env_rel_sound_def] >>
+      first_x_assum drule >>
+      rw [] >>
+      qexists_tac `tvs'` >>
+      qexists_tac `t'` >>
+      simp [] >>
+      fs [lookup_var_def])
+    >- (
+      `nsLookup tenv1.v x = NONE` by metis_tac [env_rel_complete_lookup_none] >>
+      rw [] >>
+      fs [env_rel_sound_def] >>
+      first_x_assum drule >>
+      rw [] >>
+      qexists_tac `tvs'` >>
+      qexists_tac `t'` >>
+      simp [] >>
+      fs [lookup_var_def]))
+  >- (
+    conj_tac
+    >- fs [env_rel_complete_def] >>
+    conj_tac
+    >- fs [env_rel_complete_def] >>
+    rpt gen_tac >>
+    strip_tac
+    >- (
+      fs [env_rel_complete_def, lookup_var_def] >>
+      first_x_assum drule >>
+      rw [] >>
+      qexists_tac `tvs''` >>
+      qexists_tac `t''` >>
+      simp [])
+    >- (
+      `nsLookup ienv1.inf_v x = NONE`
+        by (
+          irule env_rel_sound_lookup_none >>
+          rw [lookup_var_def, lookup_varE_def] >>
+          qexists_tac `FEMPTY` >>
+          qexists_tac `tenv1` >>
+          qexists_tac `Empty` >>
+          simp [] >>
+          every_case_tac >>
+          rw [] >>
+          fs [tveLookup_def]) >>
+      fs [env_rel_complete_def, lookup_var_def] >>
+      first_x_assum drule >>
+      rw [] >>
+      qexists_tac `tvs''` >>
+      qexists_tac `t''` >>
+      simp [])));
 
 val _ = export_theory ();

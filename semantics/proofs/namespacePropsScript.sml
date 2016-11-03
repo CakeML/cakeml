@@ -156,6 +156,18 @@ val nsAll2_nsSing = Q.store_thm ("nsAll2_nsSing[simp]",
  >> Cases_on `path`
  >> fs [nsSing_def, nsLookupMod_def]);
 
+(* -------------- nsLookup ------------------ *)
+
+val nsLookup_to_nsLookupMod = Q.store_thm ("nsLookup_to_nsLookupMod",
+  `!n v t.
+    nsLookup n v = SOME t
+    ⇒
+    ?m. nsLookupMod n (id_to_mods v) = SOME m ∧ nsLookup m (Short (id_to_n v)) = SOME t`,
+  ho_match_mp_tac nsLookup_ind >>
+  rw [id_to_n_def, nsLookup_def, nsLookupMod_def, id_to_mods_def] >>
+  CASE_TAC >>
+  fs []);
+
 (* -------------- alist_to_ns --------------- *)
 
 val nsLookup_alist_to_ns_some = Q.store_thm ("nsLookup_alist_to_ns_some",
@@ -767,5 +779,10 @@ val nsMap_alist_to_ns = Q.store_thm ("nsMap_alist_to_ns[simp]",
  Induct_on `l`
  >> rw []
  >> rw [alist_to_ns_def, nsMap_def]);
+
+val nsMap_nsAppend = Q.store_thm ("nsMap_nsAppend",
+  `!n1 n2 f. nsMap f (nsAppend n1 n2) = nsAppend (nsMap f n1) (nsMap f n2)`,
+  ho_match_mp_tac nsAppend_ind >>
+  rw [nsAppend_def, nsMap_def]);
 
 val _ = export_theory ();
