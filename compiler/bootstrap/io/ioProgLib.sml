@@ -29,21 +29,21 @@ val compile_tm = ``compile``
     ``!cv input output.
         app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
           [cv]
-          (CHAR_IO * one FFI_split * STDIN input * STDOUT [])
-          (POSTv uv. CHAR_IO * one FFI_split * STDIN "" * STDOUT (^compile input))``,
+          (CHAR_IO * one FFI_split * STDIN input * STDOUT [] * frame)
+          (POSTv uv. CHAR_IO * one FFI_split * STDIN "" * STDOUT (^compile input) * frame)``,
     xcf "main" (basis_st())
-    \\ xlet `POSTv v. CHAR_IO * one FFI_split * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v)`
+    \\ xlet `POSTv v. CHAR_IO * one FFI_split * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v) * frame`
     THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
-    \\ xlet `POSTv x. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x)`
+    \\ xlet `POSTv x. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x) * frame`
     THEN1
      (xapp \\ instantiate \\ xsimpl
-      \\ qexists_tac `one FFI_split * STDOUT []`
+      \\ qexists_tac `one FFI_split * STDOUT [] * frame`
       \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
     \\ xlet `POSTv y. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] *
-                 &(LIST_TYPE WORD (^compile input) y)`
+                 &(LIST_TYPE WORD (^compile input) y) * frame`
     THEN1 (xapp \\ instantiate \\ xsimpl)
     \\ xapp \\ instantiate \\ fs []
-    \\ xsimpl \\ qexists_tac `one FFI_split * STDIN ""`
+    \\ xsimpl \\ qexists_tac `one FFI_split * STDIN "" * frame`
     \\ qexists_tac `[]` \\ xsimpl);
 
   (* prove final eval thm *)
@@ -104,7 +104,7 @@ val compile_tm = ``compile``
     val (x,y) = dest_comb (tm |> rand)
     val pat = mk_comb(rator tm,mk_comb(x,mk_var("ffi",type_of y)))
     val lemma2 = EVAL pat
-    val th = th |> REWRITE_RULE [lemma1,lemma2]
+    val th = th |> REWRITE_RULE [lemma1,lemma2] |> Q.INST[`frame`|->`K T`]
     val goal = th |> concl |> dest_imp |> fst
     val lemma = prove(goal,
      fs [cfStoreTheory.st2heap_def,parts_ok_io_ffi]
@@ -115,7 +115,7 @@ val compile_tm = ``compile``
      \\ rewrite_tac [GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.cond_STAR]
      \\ fs [set_sepTheory.one_STAR]
      \\ simp [set_sepTheory.one_def]
-     \\ qexists_tac `[]`
+     \\ TRY(qexists_tac`0w`) \\ fs[cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
      \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
      \\ fs [EXTENSION] \\ rpt strip_tac \\ EQ_TAC \\ rw [] \\ rw []
      \\ TRY (EVAL_TAC \\ NO_TAC)
@@ -130,9 +130,9 @@ val compile_tm = ``compile``
                 extract_output st'.ffi.io_events = SOME (^compile input)``
     val goal = mk_imp(lhs,rhs)
     val lemma = prove(goal,
-      rw []
-      \\ rename1 `(CHAR_IO * one FFI_split * STDIN _ * STDOUT _) h_f`
-      \\ `(STDIN [] * one FFI_split * STDOUT (^compile input) * CHAR_IO) h_f` by
+      strip_tac
+      \\ rename1 `(CHAR_IO * one FFI_split * STDIN _ * STDOUT _ * _) h_f`
+      \\ `(STDIN [] * one FFI_split * STDOUT (^compile input) * CHAR_IO * K T) h_f` by
              (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
       \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
              set_sepTheory.SEP_EXISTS_THM,set_sepTheory.SEP_CLAUSES,
