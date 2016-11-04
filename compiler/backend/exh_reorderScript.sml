@@ -14,9 +14,13 @@ val isPvar_def = Define`
     (isPvar (Pvar _) = T) /\
     isPvar _ = F`
 
-val _ = export_rewrites ["isPvar_def", "is_const_con_def"]
+val isPcon_def = Define`
+    (isPcon (Pcon _ _) = T) /\
+    isPcon _ = F`
 
-val const_cons_sep_def = Define`
+val _ = export_rewrites ["isPvar_def","isPcon_def", "is_const_con_def"]
+
+(*val const_cons_sep_def = Define`
     (const_cons_sep (x::xs) non_con_cons = 
         if (isPvar (FST x))
             then non_con_cons ++ (x::xs)
@@ -29,18 +33,53 @@ val const_cons_sep_def = Define`
 
 val const_cons_fst_def = Define`
     const_cons_fst pes = const_cons_sep pes []`
+*)
+val is_const_con_is_Pcon = Q.store_thm("is_const_con_is_Pcon",
+  `is_const_con x ==> isPcon x`,
+  Cases_on`x` \\ rw[isPcon_def,is_const_con_def]);
+
+val const_cons_sep_def=Define `
+    (const_cons_sep [] a const_cons = (const_cons,a) ) /\
+    (const_cons_sep (b::c) a const_cons=
+        if (isPvar (FST b)) then
+            (const_cons,(b::a))
+        else if (is_const_con (FST b)) then
+                if MEM (FST b) (MAP FST const_cons) then
+                     const_cons_sep c a const_cons
+                else const_cons_sep c a (b::const_cons)
+        else if isPcon (FST b) then
+            const_cons_sep c (b::a) const_cons
+        else (const_cons, REVERSE (b::c)++a))
+            `
+
+val const_cons_fst_def = Define`
+        const_cons_fst pes = 
+            let (const_cons, a) = const_cons_sep pes [] [] 
+            in const_cons ++ REVERSE a`
+
+val const_cons_sep_MEM= Q.store_thm("const_cons_sep_MEM", 
+    `! y z. ¬ (MEM x y ) /\ ¬ (MEM x z) /\ 
+            MEM x ((\(a,b). a ++ REVERSE b) (const_cons_sep pes y z)) ==> MEM x pes`,
+    Induct_on `pes`
+    \\ rw [const_cons_sep_def] \\ METIS_TAC [MEM])
+
+val const_cons_fst_MEM = Q.store_thm("const_cons_fst_MEM",
+    `MEM x (const_cons_fst pes) ==> MEM x pes`,
+    rw [const_cons_fst_def]
+    \\ METIS_TAC [MEM, const_cons_sep_MEM]
+    )
 
 val compile_def = tDefine "compile" `
     (compile [] = []) /\
     (compile [Raise e] = [Raise (HD (compile [e]))]) /\
-    (compile [Handle e pes] =  [Handle (HD (compile [e])) (const_cons_fst pes)]) /\
+    (compile [Handle e pes] =  [Handle (HD (compile [e])) (MAP (λ(p,e). (p,HD (compile [e]))) (const_cons_fst pes))]) /\
     (compile [Lit l] = [Lit l]) /\
     (compile [Con n es] = [Con n (compile es)] ) /\
     (compile [Var_local v] = [Var_local v]) /\
     (compile [Var_global n] = [Var_global n]) /\
     (compile [Fun v e] = [Fun v (HD (compile [e]))]) /\
     (compile [App op es] = [App op (compile es)]) /\
-    (compile [Mat e pes] =  [Mat (HD (compile [e])) (const_cons_fst pes)]) /\
+    (compile [Mat e pes] =  [Mat (HD (compile [e])) (MAP (λ(p,e). (p,HD (compile [e]))) (const_cons_fst pes))]) /\
     (compile [Let vo e1 e2] = [Let vo (HD (compile [e1])) (HD (compile [e2]))]) /\
     (compile [Letrec funs e] = 
         [Letrec (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
@@ -48,15 +87,30 @@ val compile_def = tDefine "compile" `
     (compile (x::y::xs) = 
         compile [x] ++ compile (y::xs)
     )`
+
+
     (
      WF_REL_TAC `measure exp6_size` 
      \\ simp []
-     \\ gen_tac
-     \\ Induct_on `funs`
-     \\ rw [exp_size_def]
-     \\ rw [exp_size_def]
-     \\ res_tac
-     \\ rw []
+     \\ conj_tac
+     >- (
+          gen_tac
+         \\ Induct_on `funs`
+         \\ rw [exp_size_def]
+         \\ rw [exp_size_def]
+         \\ res_tac
+         \\ rw []
      )
- 
+     >- (
+        REPEAT strip_tac 
+        \\ imp_res_tac const_cons_fst_MEM
+        \\ last_x_assum kall_tac
+        \\ Induct_on `pes`
+         \\ rw [exp_size_def]
+         \\ rw [exp_size_def]
+         \\ res_tac
+         \\ rw []
+     )
+ )
+
 val () = export_theory();
