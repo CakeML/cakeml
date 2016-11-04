@@ -452,7 +452,7 @@ val evaluate_def = tDefine "evaluate"`
    | res => res) ∧
   (evaluate env s [Handle e pes] =
    case fix_clock s (evaluate env s [e]) of
-   | (s', Rerr (Rraise v)) => evaluate_match env s v pes v
+   | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
    | res => res) ∧
   (evaluate env s [Con tag es] =
    case evaluate env s (REVERSE es) of
@@ -491,7 +491,7 @@ val evaluate_def = tDefine "evaluate"`
    | res => res) ∧
   (evaluate env s [Let n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
-   | (s', Rval vs) => evaluate (env with v updated_by opt_bind n (HD vs)) s [e2]
+   | (s, Rval vs) => evaluate (env with v updated_by opt_bind n (HD vs)) s [e2]
    | res => res) ∧
   (evaluate env s [Letrec funs e] =
    if ALL_DISTINCT (MAP FST funs)

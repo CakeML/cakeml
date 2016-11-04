@@ -159,8 +159,8 @@ val dest_addarg_Fn_EQ_SOME = Q.store_thm(
 
 val app_rw_closure = save_thm(
   "app_rw_closure",
-  Q.prove(
-    mk_imp(`0n < numargs ∧ LENGTH (cargs:closSem$v list) < numargs`,
+  prove(
+    mk_imp(``0n < numargs ∧ LENGTH (cargs:closSem$v list) < numargs``,
            concl evaluate_app_rw
                  |> strip_forall |> #2 |> rand
                  |> Term.subst [``f:closSem$v`` |->

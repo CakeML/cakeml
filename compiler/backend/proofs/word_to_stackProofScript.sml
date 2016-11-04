@@ -6527,7 +6527,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >>
     first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
     BasicProvers.TOP_CASE_TAC >> simp[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(replace_term(#1(dest_exists(#2 g)))(``k':num``)(assert(has_pair_type)tm))`) (#2 g) g) >>
+    (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (

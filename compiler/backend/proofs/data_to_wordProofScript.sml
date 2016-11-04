@@ -7112,7 +7112,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     strip_tac >> full_simp_tac(srw_ss())[] >>
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) ) >>
-  (fn g => subterm (fn tm => Cases_on`^(replace_term(#1(dest_exists(#2 g)))(``k:num``)(assert(has_pair_type)tm))`) (#2 g) g) >>
+    (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (

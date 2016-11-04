@@ -494,8 +494,8 @@ val evaluate_def = tDefine"evaluate"`
 val evaluate_ind = theorem"evaluate_ind"
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀env ^s e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env ^s v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >> fs[])
