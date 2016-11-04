@@ -134,7 +134,6 @@ val gc_forward_ptr_def = Define `
        let (xs,ok) = gc_forward_ptr (a - el_length x) xs ptr d ok in
          (x::xs,ok))`;
 
-
 val heap_expand_def = Define `
   heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
 

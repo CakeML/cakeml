@@ -1122,7 +1122,8 @@ val gc_move_refs_thm = prove(
       ?state'.
         (gc_move_refs conf state = state') /\
         ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
-        gc_inv conf state' heap0``,
+        gc_inv conf state' heap0 /\
+        (state'.r3 = []) /\ (state'.r2 = [])``,
   recInduct (theorem "gc_move_refs_ind")
   \\ rpt strip_tac
   \\ once_rewrite_tac [gc_move_refs_def]
@@ -1241,6 +1242,70 @@ val gc_move_refs_thm = prove(
      \\ fs [heap_length_heap_expand,heap_length_APPEND]
      \\ fs [heap_length_def])
   \\ simp [] \\ fs []);
+
+val gc_move_list_heap_length = prove(
+  ``!conf state state' xs ys.
+  (gc_move_list conf state xs = (ys,state')) ==>
+  (heap_length state.h1 <= heap_length state'.h1) /\
+  (heap_length state.r1 <= heap_length state'.r1)``,
+  ntac 6 strip_tac
+  \\ drule gc_move_list_consts
+  \\ fs []);
+
+val gc_move_data_heap_length = prove(
+  ``!conf state state'.
+    Abbrev (state' = gc_move_data conf state) ==>
+    heap_length state.h1 <= heap_length state'.h1 ∧
+    heap_length state.r1 <= heap_length state'.r1``,
+  rewrite_tac [markerTheory.Abbrev_def]
+  \\ recInduct (theorem "gc_move_data_ind")
+  \\ ntac 4 strip_tac
+  \\ once_rewrite_tac [gc_move_data_def]
+  \\ Cases_on `state.h2` \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on `h` \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ drule gc_move_list_consts
+  \\ strip_tac \\ strip_tac
+  \\ fs []
+  \\ qsuff_tac `heap_length state''.h1 <= heap_length (state''.h1 ++ [DataElement xs' n b])`
+  >- decide_tac
+  \\ fs [heap_length_APPEND]);
+
+val gc_move_refs_heap_length = prove(
+  ``!conf state state'.
+    (state' = gc_move_refs conf state) ==>
+    heap_length state.h1 <= heap_length state'.h1 ∧
+    heap_length state.r1 <= heap_length state'.r1``,
+  rewrite_tac [markerTheory.Abbrev_def]
+  \\ recInduct (theorem "gc_move_refs_ind")
+  \\ ntac 4 strip_tac
+  \\ once_rewrite_tac [gc_move_refs_def]
+  \\ Cases_on `state.r2` \\ fs [heap_length_APPEND]
+  \\ Cases_on `h` \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ drule gc_move_list_consts
+  \\ strip_tac \\ strip_tac
+  \\ fs []);
+
+val gc_move_loop_gc_inv = prove(
+  ``!conf state h t.
+    gc_inv conf state heap0 /\ (state.r2 = []) /\ (state.r4 = h::t) /\ (state.r3 = []) ==>
+    gc_inv conf (state with <|r2 := h::t; r4 := []|>) heap0``,
+  rpt strip_tac
+  \\ fs [gc_inv_def]
+  \\ qpat_x_assum `state.a + _ = conf.limit` mp_tac
+  \\ qpat_x_assum `BIJ _ _ _` mp_tac
+  \\ qpat_x_assum `!i j. _` mp_tac
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ rewrite_tac [APPEND_ASSOC]
+  \\ rpt strip_tac \\ TRY (fs [] \\ NO_TAC)
+  \\ qpat_x_assum `!i j. _` (qspecl_then [`i`,`j`] mp_tac)
+  \\ fs []
+  \\ strip_tac \\ fs []
+  \\ `is_final conf state j = is_final conf (state with <|r4 := []; r2 := h::t|>) j` by all_tac
+  >- fs [is_final_def,heap_length_def]
+  \\ fs [] \\ fs []);
 
 val gc_move_loop_thm = prove(
   ``!conf state clock.
