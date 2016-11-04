@@ -806,4 +806,8 @@ val nsAll_nsMap = Q.store_thm ("nsAll_nsMap",
   rw [nsMap_def, nsAll_def, nsLookup_nsMap] >>
   metis_tac []);
 
+val nsLift_nsMap = Q.store_thm ("nsLift_nsMap",
+  `!f n mn. nsLift mn (nsMap f n) = nsMap f (nsLift mn n)`,
+  rw [nsLift_def, nsMap_def]);
+
 val _ = export_theory ();

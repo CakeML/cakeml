@@ -136,6 +136,10 @@ val ienv_to_tenv_extend = Q.store_thm ("ienv_to_tenv_extend",
     extend_dec_tenv (ienv_to_tenv ienv2) (ienv_to_tenv ienv1)`,
   rw [ienv_to_tenv_def, extend_dec_tenv_def, extend_dec_ienv_def, nsMap_nsAppend]);
 
+val ienv_to_tenv_lift = Q.store_thm ("ienv_to_tenv_lift",
+  `!mn ienv. ienv_to_tenv (ienvLift mn ienv) = tenvLift mn (ienv_to_tenv ienv)`,
+  rw [ienv_to_tenv_def, ienvLift_def, tenvLift_def, nsLift_nsMap]);
+
 val env_rel_ienv_to_tenv = Q.store_thm ("env_rel_ienv_to_tenv",
   `!ienv. ienv_ok {} ienv ⇒ env_rel (ienv_to_tenv ienv) ienv`,
   rw [env_rel_def, ienv_to_tenv_def]
@@ -953,6 +957,105 @@ val infer_ds_sound = Q.prove (
   simp [] >>
   metis_tac [env_rel_extend, env_rel_ienv_to_tenv, env_rel_def, infer_d_check]);
 
+val weak_tenv_ienv_to_tenv = Q.store_thm ("weak_tenv_ienv_to_tenv",
+  `!ienv1 ienv2.
+    check_weak_ienv ienv1 ienv2 ⇒ weak_tenv (ienv_to_tenv ienv1) (ienv_to_tenv ienv2)`,
+  rw [check_weak_ienv_def, weak_tenv_def, ienv_to_tenv_def, GSYM nsSub_compute_thm]
+  >- cheat);
+
+val weak_decls_ienv_to_tenv = Q.store_thm ("weak_decls_ienv_to_tenv",
+  `!idecls1 idecls2.
+    check_weak_decls idecls1 idecls2 ⇒ weak_decls (convert_decls idecls1) (convert_decls idecls2)`,
+  rw [check_weak_decls_def, weak_decls_def, convert_decls_def, SUBSET_DEF, 
+      EVERY_MEM, list_subset_def]);
+
+val infer_top_sound = Q.store_thm ("infer_top_sound",
+  `!idecls ienv top st1 idecls' ienv' st2 tenv.
+    infer_top idecls ienv top st1 = (Success (idecls',ienv'), st2) ∧
+    env_rel tenv ienv
+    ⇒
+    type_top T (convert_decls idecls) tenv top (convert_decls idecls') (ienv_to_tenv ienv')`,
+  rw [] >>
+  Cases_on `top` >>
+  fs [infer_top_def, success_eqns, type_top_cases] >>
+  pairarg_tac >>
+  fs []
+  >- (
+    fs [success_eqns] >>
+    pairarg_tac >>
+    fs [success_eqns] >>
+    rpt var_eq_tac >>
+    drule infer_ds_sound >>
+    disch_then drule >>
+    rw [] >>
+    rename1 `check_signature _ ienv.inf_t _ idecls2 ienv2 sig st2 =
+               (Success (idecls3,ienv3), st3)` >>
+    Cases_on `sig` >>
+    fs [check_signature_def, typeSystemTheory.check_signature_cases,
+        success_eqns]
+    >- (
+      rpt var_eq_tac >>
+      qexists_tac `ienv_to_tenv ienv2` >>
+      qexists_tac `convert_decls idecls2` >>
+      rw [convert_decls_def, union_decls_def, GSYM INSERT_SING_UNION, ienv_to_tenv_lift]) >>
+    pairarg_tac >>
+    fs [success_eqns] >>
+    rpt var_eq_tac >>
+    qexists_tac `ienv_to_tenv ienv2` >>
+    rename1 `check_weak_ienv _ ienv3` >>
+    qexists_tac `ienv_to_tenv ienv3` >>
+    qexists_tac `convert_decls idecls2` >>
+    rename1 `check_weak_decls _ idecls3` >>
+    qexists_tac `convert_decls idecls3` >>
+    rw [ienv_to_tenv_lift]
+    >- simp [convert_decls_def, union_decls_def, GSYM INSERT_SING_UNION]
+    >- simp [convert_decls_def]
+    >- metis_tac [weak_tenv_ienv_to_tenv]
+    >- metis_tac [weak_decls_ienv_to_tenv]
+    >- cheat)
+  >- (
+    irule infer_d_sound >>
+    rw [] >>
+    fs [success_eqns] >>
+    metis_tac []));
+
+val infer_prog_sound = Q.store_thm ("infer_prog_sound",
+  `!idecls ienv prog st1 idecls' ienv' st2 tenv.
+    infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2) ∧
+    env_rel tenv ienv
+    ⇒
+    type_prog T (convert_decls idecls) tenv prog (convert_decls idecls') (ienv_to_tenv ienv')`,
+  induct_on `prog` >>
+  rw [infer_prog_def, success_eqns]
+  >- rw [empty_decls_def,convert_decls_def, empty_inf_decls_def]
+  >- rw [ienv_to_tenv_def] >>
+  rw [Once type_prog_cases] >>
+  pairarg_tac >>
+  fs [success_eqns] >>
+  pairarg_tac >>
+  fs [success_eqns] >>
+  rpt var_eq_tac >>
+  drule infer_top_sound >>
+  disch_then drule >>
+  strip_tac >>
+  rename1 `infer_top idecls1 ienv1 _ _ = (Success (idecls2, ienv2), _)` >>
+  rename1 `infer_prog _ _ _ _ = (Success (idecls3, ienv3), _)` >>
+  qexists_tac `ienv_to_tenv ienv2` >>
+  qexists_tac `ienv_to_tenv ienv3` >>
+  qexists_tac `convert_decls idecls2` >>
+  qexists_tac `convert_decls idecls3` >>
+  simp [ienv_to_tenv_extend, GSYM convert_append_decls] >>
+  first_x_assum irule >>
+  qexists_tac `extend_dec_ienv ienv2 ienv1` >>
+  simp [] >>
+  metis_tac [env_rel_extend, env_rel_ienv_to_tenv, env_rel_def,
+  infer_top_invariant]);
+
+(*
+
+
+
+
 val db_subst_infer_subst_swap2 = Q.prove (
 `(!t s tvs uvar n.
   t_wfs s ∧
@@ -1492,5 +1595,6 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
      fs[GSYM bind_var_list2_append]>>
      metis_tac [FUNION_ASSOC, APPEND_ASSOC, merge_mod_env_assoc,
                 semanticPrimitivesPropsTheory.merge_alist_mod_env_assoc]))
+                *)
 
 val _ = export_theory ();
