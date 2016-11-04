@@ -785,4 +785,25 @@ val nsMap_nsAppend = Q.store_thm ("nsMap_nsAppend",
   ho_match_mp_tac nsAppend_ind >>
   rw [nsAppend_def, nsMap_def]);
 
+val nsLookupMod_nsMap = Q.store_thm ("nsLookupMod_nsMap",
+  `!n x f. nsLookupMod (nsMap f n) x = lift (nsMap f) (nsLookupMod n x)`,
+  ho_match_mp_tac nsLookupMod_ind >>
+  rw [nsLookupMod_def, nsMap_def, ALOOKUP_MAP] >>
+  every_case_tac >>
+  rw [] >>
+  fs []);
+
+val nsLookup_nsMap = Q.store_thm ("nsLookup_nsMap",
+  `!n x f. nsLookup (nsMap f n) x = lift f (nsLookup n x)`,
+  ho_match_mp_tac nsLookup_ind >>
+  rw [nsLookup_def, nsMap_def, ALOOKUP_MAP] >>
+  every_case_tac >>
+  rw [] >>
+  fs []);
+
+val nsAll_nsMap = Q.store_thm ("nsAll_nsMap",
+  `!f n P. nsAll P (nsMap f n) ⇔ nsAll (\x y. P x (f y)) n`,
+  rw [nsMap_def, nsAll_def, nsLookup_nsMap] >>
+  metis_tac []);
+
 val _ = export_theory ();
