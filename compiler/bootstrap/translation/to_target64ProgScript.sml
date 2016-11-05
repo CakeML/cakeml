@@ -287,7 +287,7 @@ val _ = translate (spec64 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:64``,beta |-> ``:64``])
 
-val _ = translate(conv64 arith_ok_def)
+val _ = translate(conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 

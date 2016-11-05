@@ -10,7 +10,7 @@ val () = new_theory "x64_eval_encode"
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
-  val n = ["skip", "const", "binop reg", "binop imm", "shift", "long mul",
+  val n = ["skip", "const", "binop reg", "binop imm", "shift", "div", "long mul",
            "long div", "add carry", "load", (* "load32", *) "load8", "store",
            (* "store32", *) "store8", "jump", "cjump reg", "cjump imm", "call",
            "jump reg", "loc"]
@@ -39,6 +39,7 @@ in
 end
 
 val skip_rwt = enc_thm "skip" []
+val div_rwt = enc_thm "div" []
 val const_rwt = enc_thm "const" [boolTheory.LET_DEF]
 
 local
@@ -111,7 +112,7 @@ val loc_rwt = enc_thm "loc" [e_opsize_def, boolTheory.LET_DEF]
 
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
-    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_div_rwt,
+    [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_div_rwt,
      long_mul_rwt, add_carry_rwt, load_rwt, (* load32_rwt, *) load8_rwt,
      store_rwt, (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt, x64_enc_def])

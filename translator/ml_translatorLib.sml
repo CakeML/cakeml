@@ -78,6 +78,12 @@ val Dlet_v_x =
   end
 fun Dtype ls = astSyntax.mk_Dtype(listSyntax.mk_list(ls,listSyntax.dest_list_type(#1(dom_rng(type_of astSyntax.Dtype_tm)))))
 fun Tapp ls x = astSyntax.mk_Tapp(listSyntax.mk_list(ls,astSyntax.t_ty),x)
+fun mk_store_v ty = mk_thy_type{Thy="semanticPrimitives",Tyop="store_v",Args=[ty]}
+val v_store_v = mk_store_v v_ty
+val refs_ty = listSyntax.mk_list_type v_store_v
+val refs = mk_var("refs",refs_ty)
+val refs' = mk_var("refs'",refs_ty)
+val v = mk_var("v",v_ty)
 
 fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
@@ -1174,7 +1180,6 @@ fun derive_thms_for_type is_exn_type ty = let
       TAG_def |> ISPEC (numSyntax.term_of_int n) |> ISPEC (mk_var("b",type_of T))
               |> SPEC_ALL |> concl |> dest_eq |> fst
     val tag_pat_0 = fixed_tag_pat 0
-    val empty_state = empty_state_def |> concl |> dest_eq |> fst
     fun case_tac n = let
       val tag_pat_n = fixed_tag_pat n
       in
@@ -1185,20 +1190,22 @@ fun derive_thms_for_type is_exn_type ty = let
                can (match_term tag_pat_n) tm)
           \\ POP_ASSUM (fn th => FULL_SIMP_TAC (srw_ss()) [th])
           \\ PAT_X_ASSUM tag_pat_0 (MP_TAC o
-               (CONV_RULE ((RAND_CONV o RAND_CONV)
-                 (ALPHA_CONV (mk_var("v",v_ty))))) o
+               (CONV_RULE ((RAND_CONV o QUANT_CONV o RAND_CONV)
+                 (ALPHA_CONV v))) o
                REWRITE_RULE [TAG_def,Eval_def])
           \\ POP_ASSUM (MP_TAC o REWRITE_RULE [] o remove_primes o
                         SPEC_ALL o REWRITE_RULE [TAG_def])
           \\ STRIP_TAC \\ STRIP_TAC
           \\ POP_ASSUM (STRIP_ASSUME_TAC o REWRITE_RULE [inv_def] o UNDISCH)
+          \\ CONV_TAC (REWR_CONV Eval_def)
+          \\ X_GEN_TAC refs
+          \\ last_x_assum(X_CHOOSE_THEN v (X_CHOOSE_THEN refs' strip_assume_tac) o SPEC refs)
           \\ PAT_X_ASSUM tag_pat (STRIP_ASSUME_TAC o UNDISCH_ALL o
                 REWRITE_RULE [GSYM AND_IMP_INTRO] o remove_primes o
                 SPEC_ALL o REWRITE_RULE [TAG_def,Eval_def])
-          \\ CONV_TAC (REWR_CONV Eval_def) \\ EXISTS_TAC (mk_var("res",v_ty))
           \\ ASM_REWRITE_TAC [evaluate_Mat]
-          \\ EXISTS_TAC (mk_var("v",v_ty))
-          \\ EXISTS_TAC empty_state \\ ASM_REWRITE_TAC []
+          \\ SIMP_TAC bool_ss [PULL_EXISTS]
+          \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl)
           \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
                   lookup_cons_thm,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
@@ -1206,6 +1213,10 @@ fun derive_thms_for_type is_exn_type ty = let
             (ONCE_REWRITE_TAC [evaluate_match_rw]
              \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
                   same_ctor_def,same_tid_def,id_to_n_def,write_def])
+          \\ first_x_assum(strip_assume_tac o SPEC(listSyntax.mk_append(refs,refs')))
+          \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+          \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl)
+          \\ ASM_REWRITE_TAC[]
       end
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
 (*
@@ -1230,12 +1241,12 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
-    val tag_name = if name = "PAIR_TYPE"
+    val the_tag_name = if name = "PAIR_TYPE"
                    then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
                 (* else optionSyntax.mk_some(full_id str) *)
     val result = mk_Eval(mk_var("env", venvironment),
-                         astSyntax.mk_Con(tag_name, exps_tm),
+                         astSyntax.mk_Con(the_tag_name, exps_tm),
                          mk_comb(inv,tm))
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
@@ -1251,18 +1262,35 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
-    fun add_primes str 0 = []
-      | add_primes str n = mk_var(str,v_ty) :: add_primes (str ^ "'") (n-1)
-    val witness = listSyntax.mk_list(add_primes "res" (length xs),v_ty)
-    val revw = listSyntax.mk_reverse(witness)
+    val lenxs = length xs
+    fun mk_witness n rprev rs acc =
+      if n > lenxs then
+        EXISTS_TAC (listSyntax.list_mk_append (List.rev rs)) THEN
+        EXISTS_TAC (listSyntax.mk_list(List.rev acc,v_ty)) else
+      let
+        val nstr = Int.toString n
+        val rnext = mk_var(String.concat["refs",nstr],refs_ty)
+        val vnext = mk_var(String.concat["res",nstr],v_ty)
+      in
+        first_x_assum(
+          (X_CHOOSE_THEN vnext
+            (X_CHOOSE_THEN rnext strip_assume_tac))
+          o SPEC rprev) THEN
+        mk_witness (n+1) (listSyntax.mk_append(rprev,rnext)) (rnext::rs) (vnext::acc)
+      end
     val lemma = prove(goal,
-      SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
+      SIMP_TAC std_ss [Eval_def]
+      \\ rpt (disch_then strip_assume_tac)
+      \\ X_GEN_TAC refs
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
-           (*all_env_to_cenv_def,*)lookup_cons_thm,build_conv_def,id_to_n_def]
-      \\ EXISTS_TAC revw
+           (*all_env_to_cenv_def,*)lookup_cons_thm,build_conv_def,id_to_n_def,
+           state_component_equality]
+      \\ (if List.null xs then ALL_TAC else mk_witness 1 refs [] [])
       \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
-      \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,evaluate_list_SIMP,APPEND,CONS_11])
+      \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,evaluate_list_SIMP,APPEND,CONS_11,APPEND_ASSOC]
+      \\ rpt(first_assum(part_match_exists_tac (hd o strip_conj) o concl)
+             \\ ASM_REWRITE_TAC[]))
     in (pat,lemma) end;
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
@@ -2994,7 +3022,7 @@ val _ = (max_print_depth := 25)
 
     in if is_fun then let
 
-      val lemma = th |> SIMP_RULE std_ss [evaluate_Fun,Eval_def,code_def]
+      val lemma = th |> SIMP_RULE std_ss [Eval_Fun_rw,code_def]
       val n = ml_fname |> stringSyntax.fromMLstring
       val v = lemma |> concl |> rand |> rator |> rand
       val exp = lemma |> concl |> rand |> rand
@@ -3007,26 +3035,34 @@ val _ = (max_print_depth := 25)
       val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
       in save_thm(fname ^ "_v_thm",v_thm) end else let
 
-      val eval_v_thm = let
-        val vs = free_vars (concl th)
-        fun aux (v,th) = let
-          val (ss,ii) = match_term v UNIT_TYPE
-          in INST ss (INST_TYPE ii th) end
-        val th1 = foldl aux th vs
-        val lemma = th1 |> PURE_ONCE_REWRITE_RULE [Eval_def]
-                        |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-        val v_name = find_const_name (fname ^ "_v")
-        val v_thm = new_specification("temp",[v_name],lemma)
-                    |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-        val _ = delete_binding "temp"
-        in CONJUNCT1 v_thm end
-      val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th eval_v_thm)
+      val curr_state = get_curr_state()
+      val curr_refs =
+        mk_icomb(prim_mk_const{Name="state_refs",Thy="semanticPrimitives"},curr_state)
+      val curr_refs_eq = EVAL curr_refs
+      val vs = free_vars (concl th)
+      fun aux (v,th) = let
+        val (ss,ii) = match_term v UNIT_TYPE
+        in INST ss (INST_TYPE ii th) end
+      val th1 = foldl aux th vs
+      val lemma =
+        Eval_constant
+        |> ISPEC curr_refs
+        |> PURE_REWRITE_RULE[curr_refs_eq]
+        |> C MATCH_MP th1
+        |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+      val v_name = find_const_name (fname ^ "_v")
+      val refs_name = find_const_name (fname  ^ "_refs")
+      val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma)
+                  |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+      val _ = delete_binding "temp"
+      val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
                   |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
                   |> REWRITE_RULE [code_def]
-      val eval_thm = eval_v_thm
-                     |> MATCH_MP evaluate_empty_state_IMP
-                     |> ISPEC (get_curr_state())
-                     |> REWRITE_RULE [code_def]
+      val eval_thm =
+        v_thm_temp
+        |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
+        |> MATCH_MP evaluate_empty_state_IMP
+        |> REWRITE_RULE [code_def]
       val var_str = ml_fname
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
       val _ = ml_prog_update (add_Dlet eval_thm var_str [])
@@ -3187,7 +3223,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     fun inst_envs (fname,ml_fname,def,th,pre) = let
       val lemmas = LOOKUP_VAR_def :: map GSYM v_defs @ code_defs
       val th = th |> ii |> jj |> D |> REWRITE_RULE lemmas
-                  |> SIMP_RULE std_ss [Eval_def,evaluate_Var]
+                  |> SIMP_RULE std_ss [Eval_Var]
                   |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
                   |> clean_assumptions |> UNDISCH_ALL
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
