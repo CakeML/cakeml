@@ -6,6 +6,7 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_stackProof";
 val _ = set_grammar_ancestry [
+  "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
   "wordProps",
   "labProps", (* for good_dimindex *)

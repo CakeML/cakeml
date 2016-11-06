@@ -64,7 +64,7 @@ val from_word = let
 
 val full_make_init_ffi = prove(
   ``(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,regs,
+         (bitmaps,c1,code,f,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs)).ffi = ffi``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
@@ -147,17 +147,17 @@ val data_to_word_precond_def = fetch "-" "data_to_word_precond_def" |> SPEC_ALL
 
 val full_make_init_gc_fun = prove(
   ``(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,regs, xx,
+         (bitmaps,c1,code,f,k,max_heap,off,regs, xx,
           save_regs)).gc_fun = word_gc_fun c1``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]);
 
 val full_make_init_bitmaps = prove(
   ``full_init_pre
-         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
+         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs) ==>
     (full_make_init
-         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
+         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs)).bitmaps = bitmaps``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
@@ -168,12 +168,12 @@ val full_init_pre_IMP_init_store_ok = prove(
   ``max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
     init_store_ok c1
       ((full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,(s:('a,'ffi)labSem$state),
+          (bitmaps,c1,code3,f,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
              save_regs)).store \\ Handler)
        (full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).memory
+          (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).memory
        (full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).mdomain``,
+          (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).mdomain``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def]
   \\ CASE_TAC \\ fs [] THEN1
@@ -192,13 +192,13 @@ val full_init_pre_IMP_init_store_ok = prove(
   \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]);
 
 val full_init_pre_IMP_init_state_ok = prove(
-  ``2 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
+  ``4 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
     (case bitmaps of [] => F | h::_ => 4w = h) /\
     good_dimindex (:α) ==>
     init_state_ok
       (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
       (full_make_init
-        (bitmaps:'a word list,c1,code3,f,k,max_heap,regs,s,save_regs))``,
+        (bitmaps:'a word list,c1,code3,f,k,max_heap,off,regs,s,save_regs))``,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ CASE_TAC \\ fs [] THEN1
@@ -288,7 +288,7 @@ val stack_move_sr_gs = prove(``
 val word_to_stack_sr_gs = prove(``
   ∀p n args.
   post_alloc_conventions (FST args) p ∧
-  1 ≤ FST args ⇒
+  4 ≤ FST args ⇒
   good_syntax (FST(word_to_stack$comp p n args)) (FST args+2)``,
   recInduct comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>> fs convs
   >-
@@ -376,7 +376,7 @@ val word_to_stack_sl_gs = prove(``
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def]));
 
 val data_to_word_compile_imp = prove(
-  ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
+  ``LENGTH mc_conf.target.config.avoid_regs + 9 ≤ mc_conf.target.config.reg_count ∧
     EVERY (λn. data_num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
         (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
@@ -387,11 +387,15 @@ val data_to_word_compile_imp = prove(
       (fromAList (stubs(:α) c.data_conf ++ MAP ((compile_part c.data_conf) :
          num # num # dataLang$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
     EVERY
-    (λ(n,m,prog).
-       flat_exp_conventions prog ∧
+    (λ(n,m,prog').
+       flat_exp_conventions prog' ∧
        post_alloc_conventions
          (mc_conf.target.config.reg_count −
-          (LENGTH mc_conf.target.config.avoid_regs + 5)) prog) p /\
+          (LENGTH mc_conf.target.config.avoid_regs + 5)) prog' ∧
+       (EVERY (λ(n,m,prog). every_inst (λi. F) prog) (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) ∧
+              addr_offset_ok 0w mc_conf.target.config ⇒
+              full_inst_ok_less mc_conf.target.config prog') ∧
+       (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
      EVERY (\p. stack_to_labProof$good_syntax p 1 2 0) (MAP SND prog1) /\
      EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
@@ -489,7 +493,7 @@ val data_to_word_compile_imp = prove(
   pairarg_tac>>fs[]>>
   rveq>>fs[]>>
   (reverse CONJ_TAC>-metis_tac[])>>
-  qpat_x_assum`A=(prog,bitmaps')` mp_tac>>
+  qpat_x_assum`A=(prog',bitmaps')` mp_tac>>
   FULL_SIMP_TAC std_ss [compile_prog_def,LET_THM]>>
   qpat_abbrev_tac`m = MAX A B`>>
   pairarg_tac>>fs[]>>strip_tac>>
@@ -792,8 +796,15 @@ val code_installed_prog_to_section = prove(
   \\ pairarg_tac>>fs[]>>rveq>>fs[]
   \\ metis_tac[labs_correct_append]);
 
+val upshift_downshift_syntax = prove(``
+  ∀n n0.
+  good_syntax (upshift n n0) 1 2 0 ∧
+  good_syntax (downshift n n0) 1 2 0``,
+  completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>strip_tac>>IF_CASES_TAC>>simp[sl_gs_def]>>
+  first_assum match_mp_tac>>EVAL_TAC>>fs[])
+
 val stack_remove_syntax_pres = prove(
-  ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
+  ``Abbrev (prog3 = compile off n bitmaps k pos prog2) /\
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog2) ==>
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3)``,
   rw[]>>
@@ -806,7 +817,7 @@ val stack_remove_syntax_pres = prove(
     (Induct_on`bitmaps`>>fs[stack_removeTheory.store_list_code_def]>>
     EVAL_TAC>>fs[]))>>
   (rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
-  map_every qid_spec_tac[`p_2`,`k`]>>
+  map_every qid_spec_tac[`p_2`,`k`,`off`]>>
   ho_match_mp_tac stack_removeTheory.comp_ind>>
   Cases_on`p_2`>>rw[]>>
   ONCE_REWRITE_TAC [stack_removeTheory.comp_def]>>
@@ -814,11 +825,14 @@ val stack_remove_syntax_pres = prove(
   TRY(IF_CASES_TAC>>fs convs)
   >-
     (BasicProvers.EVERY_CASE_TAC>>fs[])
-  >-
-    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def]>>
+  >>
+  TRY (* stack_alloc and stack_free *)
+    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def,Once stack_removeTheory.stack_free_def,stack_removeTheory.single_stack_free_def]>>
     rpt (IF_CASES_TAC>>fs convs)>>
     first_assum match_mp_tac>>
-    EVAL_TAC>>fs[])
+    EVAL_TAC>>fs[]>>NO_TAC)
+  >- simp[stack_removeTheory.stack_store_def,stack_removeTheory.stack_load_def,sl_gs_def,upshift_downshift_syntax]
+  >- simp[stack_removeTheory.stack_store_def,stack_removeTheory.stack_load_def,sl_gs_def,upshift_downshift_syntax]
   >- EVAL_TAC));
 
 val stack_names_syntax_pres = prove(
@@ -935,6 +949,22 @@ val LESS_MULT_LEMMA = prove(
   \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
   \\ fs []);
 
+(* asm config's syntactic constraints needed for asm_ok to hold *)
+val conf_constraint_def = Define`
+  conf_constraint (conf:'a asm_config) ⇔
+  addr_offset_ok 0w conf ∧
+  (∀n.
+     n ≤ max_stack_alloc ⇒
+     conf.valid_imm (INL Sub)
+       (n2w (n * (dimindex (:α) DIV 8))) ∧
+     conf.valid_imm (INL Add)
+       (n2w (n * (dimindex (:α) DIV 8)))) ∧
+  conf.valid_imm (INL Add) 1w ∧
+  conf.valid_imm (INL Sub) 1w ∧
+  conf.valid_imm (INL Add) 4w ∧
+  conf.valid_imm (INL Add) 8w ∧
+  ∀s. addr_offset_ok (store_offset s) conf`
+
 local
 val lemma = prove(
   ``(from_data c prog = SOME (bytes,ffi_limit) /\
@@ -957,6 +987,11 @@ val lemma = prove(
     find_name c.stack_conf.reg_names 1 = mc_conf.ptr_reg /\
     (find_name c.stack_conf.reg_names 0 =
        case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) /\
+    (* Syntactic constraints on asm_config*)
+    conf_constraint mc_conf.target.config ∧
+    (* Specific to register renamings*)
+    names_ok c.stack_conf.reg_names mc_conf.target.config.reg_count mc_conf.target.config.avoid_regs ∧
+    fixed_names c.stack_conf.reg_names mc_conf.target.config ∧
     Abbrev (ra_regs = (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5))) /\
     2 < ra_regs ∧
@@ -968,7 +1003,8 @@ val lemma = prove(
     MEM (find_name c.stack_conf.reg_names (ra_regs+4))
       mc_conf.callee_saved_regs /\
     10 ≤ ra_regs +2 /\
-    (LENGTH mc_conf.target.config.avoid_regs + 5) <
+    (* At least 11 register available*)
+    LENGTH mc_conf.target.config.avoid_regs + 11 ≤
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
     data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
   strip_tac \\ fs [data_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
@@ -985,7 +1021,7 @@ val lemma = prove(
   \\ fs [from_stack_def]
   \\ fs [from_lab_def]
   \\ last_x_assum mp_tac
-  \\ qpat_abbrev_tac `tp = compile _ _ _ _ p'`
+  \\ qpat_abbrev_tac `tp = compile _ _ _ _ _ p'`
   (*Parts of this proof can be re-used...*)
   \\ `labels_ok tp` by
     (fs[Abbr`tp`]>>match_mp_tac stack_to_lab_compile_lab_pres>>
@@ -999,13 +1035,22 @@ val lemma = prove(
     CCONTR_TAC>>
     fs[]>>res_tac>>fs[] >>
     ntac 3 (pop_assum mp_tac) >> EVAL_TAC)
+  \\ `all_enc_ok_pre mc_conf.target.config tp` by
+    (fs[Abbr`tp`]>> match_mp_tac stack_to_lab_compile_all_enc_ok>>
+    fs[stackPropsTheory.reg_name_def,conf_constraint_def]>>
+    simp[GSYM EVERY_CONJ,LAMBDA_PROD]>>
+    `p' = SND (compile mc_conf.target.config p)` by fs[]>>
+    pop_assum SUBST1_TAC>>
+    match_mp_tac word_to_stack_stack_asm_convs>>
+    simp[]>>
+    cheat)
   \\ strip_tac
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []
   \\ rename1 `_ = (c2,prog1)`
   \\ qabbrev_tac `prog2 = compile c.data_conf prog1`
   \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ qpat_abbrev_tac `prog3 = compile _ c2.bitmaps _ _ prog2`
+  \\ qpat_abbrev_tac `prog3 = compile _ _ c2.bitmaps _ _ prog2`
   \\ qabbrev_tac `prog4 = compile c.stack_conf.reg_names prog3`
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
@@ -1014,6 +1059,7 @@ val lemma = prove(
   \\ fs [data_to_wordTheory.compile_def]
   \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
   \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.data_conf - 1` \\ fs []
+  \\ `LENGTH mc_conf.target.config.avoid_regs + 9 ≤ mc_conf.target.config.reg_count` by fs[]
   \\ drule data_to_word_compile_imp \\ strip_tac
   \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α)c.data_conf ++ MAP (compile_part c.data_conf) prog)` \\ fs []
   \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
@@ -1054,6 +1100,8 @@ val lemma = prove(
     \\ qabbrev_tac `n1 = l DIV k`
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
+  \\ Cases_on`mc_conf.target.config.addr_offset`
+  \\ qexists_tac`q` \\ qexists_tac `r` \\ fs[]
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf - 1) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
@@ -1147,7 +1195,9 @@ val lemma = prove(
     >- (
       EVAL_TAC \\ fs[EVERY_MEM] \\ strip_tac \\ res_tac \\ fs[]
       \\ pop_assum mp_tac \\ EVAL_TAC ))
-  \\ TRY (conj_tac >- ( EVAL_TAC \\ fs[EVERY_MEM] \\ rw[] \\ strip_tac \\ res_tac \\ fs[] \\ pop_assum mp_tac \\ EVAL_TAC))
+  \\ TRY (conj_tac >-
+    (fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[]))
   \\ TRY (conj_tac >- (
     ntac 3 strip_tac \\ rename1 `ALOOKUP prog1 k = SOME _`
     \\ imp_res_tac ALOOKUP_MEM

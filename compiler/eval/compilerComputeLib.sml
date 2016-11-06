@@ -444,6 +444,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_instTheory.rm_const_def
     ,word_instTheory.is_const_def
       (* ---- wordLang ssa form and interface to reg allocator ---- *)
+    ,word_allocTheory.get_forced_def
     ,word_allocTheory.big_union_def
     ,word_allocTheory.word_alloc_def
     ,word_allocTheory.full_ssa_cc_trans_def
