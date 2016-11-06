@@ -47,6 +47,14 @@ val nsSub_mono = Q.store_thm ("nsSub_mono[mono]",
  >> rw []
  >> metis_tac []);
 
+val nsSub_mono2 = Q.store_thm ("nsSub_mono2",
+  `(!x y z. nsLookup e1 x = SOME y ∧ nsLookup e2 x = SOME z ∧ R1 x y z ⇒ R2 x y z) ⇒ (nsSub R1 e1 e2 ⇒ nsSub R2 e1 e2)`,
+ Cases_on `e1`
+ >> Cases_on `e2`
+ >> simp [nsSub_def, nsLookup_def]
+ >> rw []
+ >> metis_tac []);
+
 val nsAll2_mono = Q.store_thm ("nsAll2_mono[mono]",
   `(!x y z. R1 x y z ⇒ R2 x y z) ⇒ nsAll2 R1 e1 e2 ⇒ nsAll2 R2 e1 e2`,
  rw [nsAll2_def]
@@ -809,5 +817,13 @@ val nsAll_nsMap = Q.store_thm ("nsAll_nsMap",
 val nsLift_nsMap = Q.store_thm ("nsLift_nsMap",
   `!f n mn. nsLift mn (nsMap f n) = nsMap f (nsLift mn n)`,
   rw [nsLift_def, nsMap_def]);
+
+val nsSub_nsMap = Q.store_thm ("nsSub_nsMap",
+  `!R f n1 n2.
+    nsSub R (nsMap f n1) (nsMap f n2) ⇔ nsSub (\id x y. R id (f x) (f y)) n1 n2`,
+  rw [nsSub_def, nsMap_def, nsLookup_nsMap, nsLookupMod_nsMap] >>
+  eq_tac >>
+  rw [] >>
+  metis_tac []);
 
 val _ = export_theory ();

@@ -693,7 +693,7 @@ check_weak_decls decls_impl decls_spec ⇔
   list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
 
 val check_tscheme_inst_def = Define `
-  check_tscheme_inst _ (tvs_impl, t_impl) (tvs_spec, t_spec) ⇔
+  check_tscheme_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
     let M =
     do () <- init_state;
        uvs <- n_fresh_uvar tvs_impl;
