@@ -158,15 +158,15 @@ val extract_labels_compile_exp = store_thm("extract_labels_compile_exp[simp]",
 
 val dest_Seq_no_inst = prove(``
   ∀prog.
-  every_inst (λi.F) prog ⇒
-  every_inst (λi.F) (FST (dest_Seq prog)) ∧
-  every_inst (λi.F) (SND (dest_Seq prog))``,
+  every_inst (inst_ok_less ac) prog ⇒
+  every_inst (inst_ok_less ac) (FST (dest_Seq prog)) ∧
+  every_inst (inst_ok_less ac) (SND (dest_Seq prog))``,
   ho_match_mp_tac dest_Seq_ind>>rw[dest_Seq_def]>>fs[every_inst_def])
 
 val simp_if_no_inst = prove(``
   ∀prog.
-  every_inst (λi.F) prog ⇒
-  every_inst (λi.F) (simp_if prog)``,
+  every_inst (inst_ok_less ac) prog ⇒
+  every_inst (inst_ok_less ac) (simp_if prog)``,
   ho_match_mp_tac simp_if_ind>>rw[simp_if_def]>>
   EVERY_CASE_TAC>>
   fs[every_inst_def,apply_if_opt_def]>>
@@ -181,16 +181,16 @@ val simp_if_no_inst = prove(``
 
 val Seq_assoc_no_inst = prove(``
   ∀p1 p2.
-  every_inst (λi.F) p1 ∧ every_inst (λi.F) p2 ⇒
-  every_inst (λi.F) (Seq_assoc p1 p2)``,
+  every_inst (inst_ok_less ac) p1 ∧ every_inst (inst_ok_less ac) p2 ⇒
+  every_inst (inst_ok_less ac) (Seq_assoc p1 p2)``,
   ho_match_mp_tac Seq_assoc_ind>>fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
   fs[every_inst_def]>>
   every_case_tac>>fs[])
 
 val compile_exp_no_inst = store_thm("compile_exp_no_inst",``
   ∀prog.
-  every_inst (λi.F) prog ⇒
-  every_inst (λi.F) (compile_exp prog)``,
+  every_inst (inst_ok_less ac) prog ⇒
+  every_inst (inst_ok_less ac) (compile_exp prog)``,
   fs[compile_exp_def]>>
   metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def])
 

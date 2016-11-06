@@ -392,9 +392,8 @@ val data_to_word_compile_imp = prove(
        post_alloc_conventions
          (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5)) prog' ∧
-       (EVERY (λ(n,m,prog). every_inst (λi. F) prog) (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) ∧
-              addr_offset_ok 0w mc_conf.target.config ⇒
-              full_inst_ok_less mc_conf.target.config prog') ∧
+       (addr_offset_ok 0w mc_conf.target.config ⇒
+        full_inst_ok_less mc_conf.target.config prog') ∧
        (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
      EVERY (\p. stack_to_labProof$good_syntax p 1 2 0) (MAP SND prog1) /\
@@ -476,8 +475,9 @@ val data_to_word_compile_imp = prove(
     \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] ) >>
     *)
   CONJ_ASM1_TAC>-
-    (assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)c.data_conf++(MAP (compile_part c.data_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
+    (assume_tac(GEN_ALL data_to_wordProofTheory.data_to_word_compile_conventions)>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
+    rfs[data_to_wordTheory.compile_def])>>
   qpat_x_assum`EVERY _ (MAP FST _)`kall_tac >>
   qmatch_assum_rename_tac`_ pprog = _` >>
   rw[]>>fs[word_to_stackTheory.compile_def]>>pairarg_tac>>fs[]>>rveq>>
@@ -1043,7 +1043,10 @@ val lemma = prove(
     pop_assum SUBST1_TAC>>
     match_mp_tac word_to_stack_stack_asm_convs>>
     simp[]>>
-    cheat)
+    assume_tac(GEN_ALL data_to_wordProofTheory.data_to_word_compile_conventions)>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
+    rfs[data_to_wordTheory.compile_def,EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])
   \\ strip_tac
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []

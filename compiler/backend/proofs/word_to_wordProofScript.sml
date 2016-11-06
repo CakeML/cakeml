@@ -545,7 +545,7 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    (EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ∧
+    (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
      addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs``,
   fs[compile_def]>>pairarg_tac>>fs[]>>

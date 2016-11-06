@@ -7270,15 +7270,51 @@ val data_to_word_compile_lab_pres = store_thm("data_to_word_compile_lab_pres",``
     pop_assum (qspec_then `p_1,p_2` assume_tac)>>fs[MEM_EL,EQ_IMP_THM]>>
     metis_tac[]);
 
-(*
-val data_to_word_compile_conventions = store_thm("data_to_word_compile_to_word_conventions",``
-  let (c,p) = compile data_conf word_conf asm_conf prog in
+val StoreEach_no_inst = prove(``
+  ∀a ls off.
+  every_inst (inst_ok_less ac) (StoreEach a ls off)``,
+  Induct_on`ls`>>rw[StoreEach_def,every_inst_def])
+
+val assign_no_inst = prove(``
+  addr_offset_ok 0w ac ⇒
+  every_inst (inst_ok_less ac) (FST(assign a b c d e f g))``,
+  fs[assign_def]>>Cases_on`e`>>fs[every_inst_def]>>
+  rw[]>>fs[every_inst_def,GiveUp_def]>>
+  every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,inst_ok_less_def]>>
+  Cases_on`o'`>>fs[])
+
+val comp_no_inst = prove(``
+  ∀c n m p.
+  addr_offset_ok 0w ac ⇒
+  every_inst (inst_ok_less ac) (FST(comp c n m p))``,
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  simp[Once comp_def,every_inst_def]>>
+  every_case_tac>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[assign_no_inst]>>
+  EVAL_TAC>>fs[])
+
+val data_to_word_compile_conventions = store_thm("data_to_word_compile_conventions",``
+  let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    (EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ∧
-     addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p``,cheat)
-*)
+    (addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p``,
+ fs[compile_def]>>
+ qpat_abbrev_tac`p= stubs(:'a) data_conf ++B`>>
+ pairarg_tac>>fs[]>>
+ Q.SPECL_THEN [`wc`,`p`,`ac`] mp_tac (GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
+ rw[]>>fs[EVERY_MEM,LAMBDA_PROD,FORALL_PROD]>>rw[]>>
+ res_tac>>fs[]>>
+ first_assum match_mp_tac>>
+ simp[Abbr`p`]>>rw[]
+ >-
+   (pop_assum mp_tac>>rpt(pop_assum kall_tac)>>
+   fs[stubs_def]>>rw[]>>
+   rpt(EVAL_TAC>>rw[]))
+ >>
+   fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
+   match_mp_tac comp_no_inst>>fs[])
 
 val _ = export_theory();

@@ -824,7 +824,7 @@ val inst_select_exp_full_inst_ok_less = prove(``
 val inst_select_full_inst_ok_less = store_thm("inst_select_full_inst_ok_less",``
   ∀c temp prog.
   addr_offset_ok 0w c ∧
-  every_inst (λi. F) prog
+  every_inst (inst_ok_less c) prog
   ⇒
   full_inst_ok_less c (inst_select c temp prog)``,
   ho_match_mp_tac inst_select_ind>>
