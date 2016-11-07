@@ -5,7 +5,7 @@ val _ = new_theory "stack_remove";
 (* -- compiler -- *)
 
 val max_stack_alloc_def = Define `
-  max_stack_alloc = 256n`;
+  max_stack_alloc = 255n`;
 
 val word_offset_def = Define `
   word_offset n = n2w (dimindex (:'a) DIV 8 * n):'a word`;
