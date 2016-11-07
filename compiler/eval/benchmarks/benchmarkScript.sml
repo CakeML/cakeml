@@ -796,11 +796,11 @@ val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_ca
 val clos_o3 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
 val clos_o4 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``
 
-val benchmarks_o0 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
-val benchmarks_o1 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
-val benchmarks_o2 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
-val benchmarks_o3 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
-val benchmarks_o4 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
+val benchmarks_o0 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_o1 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
+val benchmarks_o2 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
+val benchmarks_o3 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
+val benchmarks_o4 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
 
 
 val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
