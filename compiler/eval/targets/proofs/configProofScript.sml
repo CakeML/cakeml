@@ -125,6 +125,20 @@ val x64_conf_ok = prove(``
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_machine_config_def,x64_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>>NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      ntac 129 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])
+    >-
+      ntac 129 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
@@ -136,6 +150,37 @@ val arm6_conf_ok = prove(``
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm6_machine_config_def,arm6_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>>
+    fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      ntac 129 (
+      Cases_on`n`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))>>
+      Cases_on`n'`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))
+      >>
+      fs[ADD1])
+    >-
+      ntac 129 (
+      Cases_on`n`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))>>
+      Cases_on`n'`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))
+      >>
+      fs[ADD1])
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>fs[]);
@@ -148,6 +193,20 @@ val arm8_conf_ok = prove(``
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_machine_config_def,arm8_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      ntac 129 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])
+    >-
+      ntac 129 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -161,6 +220,24 @@ val riscv_conf_ok = prove(``
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_machine_config_def,riscv_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (ntac 128 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])>>
+      (* False when exactly 256 *)
+      cheat)
+    >-
+      (ntac 128 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])>>
+      (* False when exactly 256 *)
+      cheat)
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -174,6 +251,20 @@ val mips_conf_ok = prove(``
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[mips_machine_config_def,mips_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      ntac 129 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])
+    >-
+      ntac 129 (
+      Cases_on`n`>- EVAL_TAC>>
+      Cases_on`n'`>- EVAL_TAC>>fs[ADD1])
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
