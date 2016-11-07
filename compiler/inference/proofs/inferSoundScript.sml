@@ -1118,6 +1118,16 @@ val weak_decls_ienv_to_tenv = Q.store_thm ("weak_decls_ienv_to_tenv",
   rw [check_weak_decls_def, weak_decls_def, convert_decls_def, SUBSET_DEF,
       EVERY_MEM, list_subset_def]);
 
+val check_freevars_nub = Q.prove (
+`(!t x fvs.
+  check_freevars x fvs t ⇒
+  check_freevars x (nub fvs) t) ∧
+ (!ts x fvs.
+  EVERY (check_freevars x fvs) ts ⇒
+  EVERY (check_freevars x (nub fvs)) ts)`,
+Induct >>
+rw [check_freevars_def] >> metis_tac[]);
+
 val check_specs_sound = Q.prove (
   `!mn tenvT idecls1 ienv1 specs st1 idecls2 ienv2 st2.
     check_specs mn tenvT idecls1 ienv1 specs st1 = (Success (idecls2,ienv2), st2) ∧
@@ -1133,78 +1143,84 @@ val check_specs_sound = Q.prove (
     rw [Once type_specs_cases] >>
     qexists_tac `<|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty|>` >>
     rw [ienv_to_tenv_def, extend_dec_ienv_def, inf_env_component_equality])
-  >> cheat);
-
-  (*
- >- (
-   first_x_assum drule >>
-   rw [] >>
-   qexists_tac `decls3` >>
-   qmatch_abbrev_tac `ienv1 with inf_v := new_binding`
-   simp [Once type_specs_cases, PULL_EXISTS, ienv_to_tenv_def,
-         extend_dec_ienv_def, extend_dec_tenv_def] >>
-   qexists_tac `ienv3` >>
-   rw []
-
-   `check_freevars 0 fvs t` by metis_tac [t_to_freevars_check] >>
-   fs[PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def]>>
-   fs[convert_env2_def]>>
-   Q.LIST_EXISTS_TAC [`decls''`, `tenvT''`,`nub fvs`]>>fs[]>>
-   rw [] >>
-   `check_freevars 0 (nub fvs) (type_name_subst orig_tenvT t)` by fs[check_freevars_type_name_subst]>>
-   fs [LENGTH_MAP, convert_env2_def, convert_t_subst,
-       LENGTH_COUNT_LIST,LENGTH_GENLIST] >>
-   fs [MAP_MAP_o, combinTheory.o_DEF, convert_t_def] >>
-   metis_tac [COUNT_LIST_GENLIST, combinTheory.I_DEF])
-
- >- (rw [Once type_specs_cases] >>
-     rw [convert_decls_def] >>
-     res_tac >>
-     pop_assum mp_tac>>impl_tac>-
-       (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
-      fs[FEVERY_ALL_FLOOKUP,flookup_update_list_some]>>rw[]>>
-      imp_res_tac ALOOKUP_MEM>>
-      fs[MEM_MAP]>>PairCases_on`y`>>
-      fs[check_freevars_def,EVERY_MAP,EVERY_MEM])>>
-    strip_tac>>
-    fs[PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def]>>
-    qexists_tac`tenvT'''`>>
-    qexists_tac`decls''`>>
-    fs[union_decls_def,convert_decls_def]>>
-    rw[EXTENSION]>- metis_tac[]>>
-    fs[FUNION_ASSOC])
- >- (rw [Once type_specs_cases, PULL_EXISTS] >>
-     res_tac >>
-     pop_assum mp_tac>>impl_tac>-
-       (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
-       fs[FEVERY_FUPDATE,FEVERY_FEMPTY,check_freevars_type_name_subst])>>
-     strip_tac>>
-     qexists_tac`decls''`>>fs[EXISTS_PROD,append_new_dec_tenv_def]>>
-     qexists_tac`tenvT''`>>
-     rw[FUNION_FUPDATE_2]>>
-     rw[FUNION_FUPDATE_1])
- >- (rw [Once type_specs_cases] >>
-     res_tac >>
-     fs[PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def]>>
-     qexists_tac`tenvT''`>>
-     qexists_tac`decls''`>>
-     fs[union_decls_def,convert_decls_def,EXTENSION]>>
-     metis_tac[])
- >- (rw [Once type_specs_cases, convert_decls_def] >>
-     res_tac >>
-     pop_assum mp_tac>>impl_tac>-
-       (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
-      fs[FEVERY_FUPDATE,FEVERY_FEMPTY,check_freevars_type_name_subst,check_freevars_def,EVERY_MAP,EVERY_MEM])>>
-     rw [PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def] >>
-     qexists_tac`tenvT''`>>
-     qexists_tac`decls''`>>
-     fs[union_decls_def,convert_decls_def,Once INSERT_SING_UNION]>>
-     fs[EXTENSION]>>
-     CONJ_TAC>- metis_tac[]>>
-     rw[FUNION_FUPDATE_2]>>
-     rw[FUNION_FUPDATE_1]))
-     *)
-
+  >- (
+    first_x_assum drule >>
+    rw [] >>
+    qexists_tac `decls3` >>
+    qmatch_assum_abbrev_tac
+      `check_specs _ _ _ (ienv1 with inf_v := nsBind name new_binding ienv1.inf_v) _ _ = _` >>
+    simp [Once type_specs_cases] >>
+    qexists_tac `ienv3 with inf_v := nsAppend ienv3.inf_v (nsSing name new_binding)` >>
+    rw [extend_dec_ienv_def, extend_dec_tenv_def, ienv_to_tenv_def, nsMap_nsAppend,
+        nsAppend_nsSing]
+    >- (
+      HINT_EXISTS_TAC >>
+      rw [ienv_to_tenv_def] >>
+      unabbrev_all_tac >>
+      fs [] >>
+      qexists_tac `nub fvs` >>
+      conj_asm2_tac
+      >- (
+        rpt AP_TERM_TAC >>
+        drule check_freevars_type_name_subst >>
+        disch_then drule >>
+        disch_then drule >>
+        rw [convert_t_subst, LENGTH_COUNT_LIST, MAP_MAP_o, combinTheory.o_DEF,
+            convert_t_def, MAP_GENLIST, COUNT_LIST_GENLIST])
+      >- metis_tac [t_to_freevars_check, check_freevars_nub])
+    >- metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing])
+  >- (
+    first_x_assum drule >>
+    impl_tac
+    >- (
+      irule tenv_abbrev_ok_merge >>
+      simp [] >>
+      rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+      irule nsAll_alist_to_ns >>
+      simp [EVERY_MAP] >>
+      rw [EVERY_MEM] >>
+      pairarg_tac >>
+      simp [] >>
+      pairarg_tac >>
+      simp [] >>
+      pairarg_tac >>
+      fs [] >>
+      rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
+    rw [] >>
+    simp [Once type_specs_cases, PULL_EXISTS] >>
+    cheat)
+  >- (
+    simp [Once type_specs_cases, PULL_EXISTS] >>
+    first_x_assum (qspec_then `nsBind tn (tvs,type_name_subst tenvT t) nsEmpty` mp_tac) >>
+    simp [] >>
+    disch_then drule >>
+    impl_tac
+    >- (
+      fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+      irule nsAll_nsBind >>
+      simp [] >>
+      irule check_freevars_type_name_subst >>
+      simp [typeSoundInvariantsTheory.tenv_abbrev_ok_def]) >>
+    rw [] >>
+    cheat)
+  >- (
+    first_x_assum drule >>
+    rw [] >>
+    simp [Once type_specs_cases, PULL_EXISTS] >>
+    qmatch_assum_abbrev_tac
+      `check_specs _ _ _ (ienv1 with inf_c := nsBind name new_binding ienv1.inf_c) _ _ = _` >>
+    qexists_tac `ienv3 with inf_c := nsAppend ienv3.inf_c (nsSing name new_binding)` >>
+    rw [extend_dec_ienv_def, extend_dec_tenv_def, ienv_to_tenv_def, nsMap_nsAppend,
+        nsAppend_nsSing] >>
+    qexists_tac `ienv_to_tenv ienv3` >>
+    simp [] >>
+    HINT_EXISTS_TAC >>
+    rw [ienv_to_tenv_def, union_decls_def, convert_decls_def] >>
+    metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC])
+  >- (
+    simp [Once type_specs_cases, PULL_EXISTS] >>
+    first_x_assum (qspec_then `nsBind tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))) nsEmpty` mp_tac) >> 
+    cheat));
 
 val infer_top_sound = Q.store_thm ("infer_top_sound",
   `!idecls ienv top st1 idecls' ienv' st2 tenv.
@@ -1361,15 +1377,6 @@ val check_flat_weakT_sound = Q.prove (
  imp_res_tac FEVERY_FLOOKUP >>
  REV_FULL_SIMP_TAC (srw_ss()) []);
 
-val check_freevars_nub = Q.prove (
-`(!t x fvs.
-  check_freevars x fvs t ⇒
-  check_freevars x (nub fvs) t) ∧
- (!ts x fvs.
-  EVERY (check_freevars x fvs) ts ⇒
-  EVERY (check_freevars x (nub fvs)) ts)`,
-Induct >>
-rw [check_freevars_def] >> metis_tac[]);
                *)
 
 val _ = export_theory ();

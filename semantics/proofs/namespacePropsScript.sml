@@ -164,6 +164,10 @@ val nsAll2_nsSing = Q.store_thm ("nsAll2_nsSing[simp]",
  >> Cases_on `path`
  >> fs [nsSing_def, nsLookupMod_def]);
 
+val nsMap_nsSing = Q.store_thm ("nsMap_nsSing[simp]",
+  `!f x v. nsMap f (nsSing x v) = nsSing x (f v)`,
+  rw [nsSing_def, nsMap_def]);
+
 (* -------------- nsLookup ------------------ *)
 
 val nsLookup_to_nsLookupMod = Q.store_thm ("nsLookup_to_nsLookupMod",
