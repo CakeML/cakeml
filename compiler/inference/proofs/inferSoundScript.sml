@@ -1219,8 +1219,23 @@ val check_specs_sound = Q.prove (
     metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC])
   >- (
     simp [Once type_specs_cases, PULL_EXISTS] >>
-    first_x_assum (qspec_then `nsBind tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))) nsEmpty` mp_tac) >> 
-    cheat));
+    first_x_assum (qspec_then `nsBind tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))) nsEmpty` mp_tac) >>
+    simp [] >>
+    disch_then drule >>
+    impl_tac
+    >- (
+      fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+      irule nsAll_nsBind >>
+      simp [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
+    rw [] >>
+    qmatch_assum_abbrev_tac
+      `check_specs _ _ _ (ienv1 with inf_t := nsBind name new_binding ienv1.inf_t) _ _ = _` >>
+    qexists_tac `ienv3 with inf_t := nsAppend ienv3.inf_t (nsSing name new_binding)` >>
+    qexists_tac `ienv_to_tenv ienv3` >>
+    qexists_tac `decls3` >>
+    simp [ienv_to_tenv_def, extend_dec_tenv_def, extend_dec_ienv_def,
+          union_decls_def, convert_decls_def] >>
+    metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC]));
 
 val infer_top_sound = Q.store_thm ("infer_top_sound",
   `!idecls ienv top st1 idecls' ienv' st2 tenv.
