@@ -234,8 +234,8 @@ val Eval_FLOOKUP = Q.prove(
 val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
 val AUPDATE_eval = translate AUPDATE_def;
 
-val FMAP_EQ_ALIST_UPDATE = prove(
-  ``FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))``,
+val FMAP_EQ_ALIST_UPDATE = Q.prove(
+  `FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))`,
   SIMP_TAC (srw_ss()) [FMAP_EQ_ALIST_def,AUPDATE_def,ALOOKUP_def,FUN_EQ_THM,
     finite_mapTheory.FLOOKUP_DEF,finite_mapTheory.FAPPLY_FUPDATE_THM]
   THEN METIS_TAC []);
@@ -245,12 +245,9 @@ val Eval_FUPDATE = Q.prove(
           PAIR_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool) -->
           LIST_TYPE (PAIR_TYPE a b)) AUPDATE) v ==>
         ((FMAP_TYPE a b --> PAIR_TYPE a b --> FMAP_TYPE a b) FUPDATE) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
-    PULL_EXISTS] THEN REPEAT STRIP_TAC THEN RES_TAC
-  THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
-  THEN REPEAT STRIP_TAC THEN RES_TAC
-  THEN Q.LIST_EXISTS_TAC [`u'`,`AUPDATE l x'`]
-  THEN FULL_SIMP_TAC std_ss [] THEN METIS_TAC [FMAP_EQ_ALIST_UPDATE,PAIR])
+  rw[Arrow_def,AppReturns_def,FMAP_TYPE_def] \\
+  first_x_assum(fn th => first_x_assum (qspec_then`refs`strip_assume_tac o MATCH_MP th)) \\
+  METIS_TAC[FMAP_EQ_ALIST_UPDATE,PAIR,APPEND_ASSOC] (* this also works above, but slower *))
   |> (fn th => MATCH_MP th AUPDATE_eval)
   |> add_user_proved_v_thm;
 
@@ -275,16 +272,16 @@ val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
-val AEVERY_AUX_THM = prove(
-  ``!l aux P. AEVERY_AUX aux P l <=>
-              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)``,
+val AEVERY_AUX_THM = Q.prove(
+  `!l aux P. AEVERY_AUX aux P l <=>
+              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)`,
   Induct
   THEN FULL_SIMP_TAC std_ss [ALOOKUP_def,AEVERY_AUX_def,FORALL_PROD,
     MEM,GSYM MEMBER_INTRO] THEN REPEAT STRIP_TAC
   THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]);
 
-val AEVERY_THM = prove(
-  ``AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)``,
+val AEVERY_THM = Q.prove(
+  `AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)`,
   SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]);
 
 val AEVERY_EQ_FEVERY = Q.prove(
@@ -297,13 +294,10 @@ val Eval_FEVERY = Q.prove(
          LIST_TYPE (PAIR_TYPE a b) --> BOOL) AEVERY) v ==>
         (((PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool) --> BOOL) -->
          FMAP_TYPE a b --> BOOL) FEVERY) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
-    PULL_EXISTS] THEN REPEAT STRIP_TAC
-  THEN RES_TAC THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
-  THEN REPEAT STRIP_TAC THEN RES_TAC
-  THEN Q.MATCH_ASSUM_RENAME_TAC `BOOL (AEVERY x l) u1`
-  THEN Q.LIST_EXISTS_TAC [`u1`]
-  THEN FULL_SIMP_TAC (srw_ss()) [BOOL_def,AEVERY_EQ_FEVERY,Boolv_11])
+  rw[Arrow_def,AppReturns_def,FMAP_TYPE_def,PULL_EXISTS,BOOL_def] \\
+  first_x_assum(fn th => first_x_assum (qspec_then`refs`strip_assume_tac o MATCH_MP th)) \\
+  fs [] \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl) \\ fs[] \\
+  METIS_TAC[AEVERY_EQ_FEVERY,Boolv_11])
   |> (fn th => MATCH_MP th AEVERY_eval)
   |> add_user_proved_v_thm;
 
@@ -327,13 +321,10 @@ val Eval_o_f = Q.prove(
   `!v. (((b --> c) --> LIST_TYPE (PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool)) -->
           LIST_TYPE (PAIR_TYPE a (c:'c->v->bool))) AMAP) v ==>
         (((b --> c) --> FMAP_TYPE a b --> FMAP_TYPE a c) $o_f) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
-    PULL_EXISTS] THEN REPEAT STRIP_TAC
-  THEN RES_TAC THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
-  THEN REPEAT STRIP_TAC THEN RES_TAC
-  THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a c) (AMAP x l) u1`
-  THEN Q.LIST_EXISTS_TAC [`u1`,`AMAP x l`]
-  THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_o_f])
+  rw[Arrow_def,AppReturns_def,FMAP_TYPE_def,PULL_EXISTS] \\
+  first_x_assum(fn th => first_x_assum (qspec_then`refs`strip_assume_tac o MATCH_MP th)) \\
+  fs [] \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl) \\ fs[] \\
+  METIS_TAC[FMAP_EQ_ALIST_o_f])
   |> (fn th => MATCH_MP th AMAP_eval)
   |> add_user_proved_v_thm;
 
@@ -358,18 +349,13 @@ val Eval_FUNION = Q.prove(
   `!v. (LIST_TYPE (PAIR_TYPE a b) --> LIST_TYPE (PAIR_TYPE a b) -->
          LIST_TYPE (PAIR_TYPE a b)) APPEND v ==>
         (FMAP_TYPE a b --> FMAP_TYPE a b --> FMAP_TYPE a b) $FUNION v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
-    PULL_EXISTS,FMAP_EQ_ALIST_def]
-  THEN REPEAT STRIP_TAC
-  THEN RES_TAC THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
-  THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a b) l1 v1`
-  THEN REPEAT STRIP_TAC
-  THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a b) l2 v2`
-  THEN Q.PAT_X_ASSUM `!x v. bbb` (MP_TAC o Q.SPECL [`l2`,`v2`])
-  THEN FULL_SIMP_TAC std_ss [] THEN STRIP_TAC
-  THEN Q.LIST_EXISTS_TAC [`u'`,`l1 ++ l2`]
-  THEN FULL_SIMP_TAC std_ss []
-  THEN FULL_SIMP_TAC std_ss [ALOOKUP_APPEND,FUN_EQ_THM]
+  rw[Arrow_def,AppReturns_def,FMAP_TYPE_def,FMAP_EQ_ALIST_def,PULL_EXISTS] \\
+  first_x_assum(fn th => first_x_assum (qspec_then`refs`strip_assume_tac o MATCH_MP th)) \\
+  fs [] \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl) \\ fs[] \\ rw[] \\
+  first_x_assum(fn th => first_x_assum (qspec_then`refs''`strip_assume_tac o MATCH_MP th)) \\
+  fs [] \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl) \\ fs[] \\
+  first_assum(part_match_exists_tac (hd o strip_conj) o concl) \\ fs[] \\
+  FULL_SIMP_TAC std_ss [ALOOKUP_APPEND,FUN_EQ_THM]
   THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF,FUNION_DEF,IN_UNION]
   THEN REPEAT STRIP_TAC THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [])
   |> (fn th => MATCH_MP th append_eval)
@@ -396,12 +382,9 @@ val Eval_fmap_domsub = Q.prove(
   `!v. ((LIST_TYPE (PAIR_TYPE a b) --> a -->
           LIST_TYPE (PAIR_TYPE a b)) ADEL) v ==>
         ((FMAP_TYPE a b --> a --> FMAP_TYPE a b) $\\) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
-    PULL_EXISTS] THEN REPEAT STRIP_TAC THEN RES_TAC
-  THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
-  THEN REPEAT STRIP_TAC THEN RES_TAC
-  THEN Q.LIST_EXISTS_TAC [`u'`,`ADEL l x'`]
-  THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_ADEL])
+  rw[Arrow_def,AppReturns_def,FMAP_TYPE_def,PULL_EXISTS] \\
+  first_x_assum(fn th => first_x_assum (qspec_then`refs`strip_assume_tac o MATCH_MP th)) \\
+  METIS_TAC[FMAP_EQ_ALIST_ADEL])
   |> (fn th => MATCH_MP th ADEL_eval)
   |> add_user_proved_v_thm;
 

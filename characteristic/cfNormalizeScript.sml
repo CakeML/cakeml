@@ -364,15 +364,18 @@ val full_normalise_correct = store_thm("full_normalise_correct",
   ... ); TODO
 *)
 
-val full_normalise_dec_def = Define `
-  full_normalise_dec (Dlet pat exp) =
+val full_normalise_exp_def = Define `
+  full_normalise_exp exp = full_normalise [] exp`
+
+val full_normalise_decl_def = Define `
+  full_normalise_decl (Dlet pat exp) =
     Dlet pat (full_normalise [] exp) /\
-  full_normalise_dec (Dletrec l) =
+  full_normalise_decl (Dletrec l) =
     Dletrec (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
-  full_normalise_dec dec = dec`;
+  full_normalise_decl decl = decl`;
 
 val full_normalise_top_def = Define `
-  full_normalise_top (Tdec dec) = Tdec (full_normalise_dec dec) /\
+  full_normalise_top (Tdec decl) = Tdec (full_normalise_decl decl) /\
   full_normalise_top top = top`;
 
 val full_normalise_prog_def = Define `

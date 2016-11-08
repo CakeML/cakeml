@@ -8,8 +8,8 @@ val basis_st =
   ml_progLib.unpack_ml_prog_state
     basisProgTheory.basis_prog_state
 
-val example_let0 = process_topdecl
-  "fun example_let0 n = let val a = 3; in a end"
+val example_let0 = process_topdecs
+  `fun example_let0 n = let val a = 3; in a end`
 
 val st0 = ml_progLib.add_prog example_let0 pick_name basis_st
 
@@ -21,8 +21,8 @@ val example_let0_spec = Q.prove (
   xret \\ xsimpl
 )
 
-val example_let1 = process_topdecl
-  "fun example_let1 _ = let val a = (); in a end"
+val example_let1 = process_topdecs
+  `fun example_let1 _ = let val a = (); in a end`
 
 val st1 = ml_progLib.add_prog example_let1 pick_name basis_st
 
@@ -34,8 +34,8 @@ val example_let1_spec = Q.prove (
   xret \\ xsimpl
 )
 
-val example_let2 = process_topdecl
-  "fun example_let2 u = let val a = u; in a end"
+val example_let2 = process_topdecs
+  `fun example_let2 u = let val a = u; in a end`
 
 val st2 = ml_progLib.add_prog example_let2 pick_name basis_st
 
@@ -47,8 +47,8 @@ val example_let2_spec = Q.prove (
   xret \\ xsimpl
 )
 
-val example_let = process_topdecl
-  "fun example_let n = let val a = n + 1; val b = n - 1; in a+b end"
+val example_let = process_topdecs
+  `fun example_let n = let val a = n + 1; val b = n - 1; in a+b end`
 
 val st = ml_progLib.add_prog example_let pick_name basis_st
 
@@ -66,8 +66,8 @@ val example_let_spec = Q.prove (
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 )
 
-val alloc_ref2 = process_topdecl
-  "fun alloc_ref2 a b = (ref a, ref b);"
+val alloc_ref2 = process_topdecs
+  `fun alloc_ref2 a b = (ref a, ref b);`
 
 val st = ml_progLib.add_prog alloc_ref2 pick_name basis_st
 
@@ -85,8 +85,8 @@ val alloc_ref2_spec = Q.prove (
   xret \\ fs [PAIR_TYPE_def] \\ xsimpl
 )
 
-val swap = process_topdecl
-  "fun swap r1 r2 = let val x1 = !r1 in r1 := !r2; r2 := x1 end"
+val swap = process_topdecs
+  `fun swap r1 r2 = let val x1 = !r1 in r1 := !r2; r2 := x1 end`
 
 val st2 = ml_progLib.add_prog swap pick_name st
 
@@ -105,8 +105,8 @@ val swap_spec = Q.prove (
   xapp \\ xsimpl
 )
 
-val example_if = process_topdecl
-  "fun example_if n = if n > 0 then 1 else 2"
+val example_if = process_topdecs
+  `fun example_if n = if n > 0 then 1 else 2`
 
 val st = ml_progLib.add_prog example_if pick_name basis_st
 
@@ -121,8 +121,8 @@ val example_if_spec = Q.prove (
   xif \\ xret \\ xsimpl
 )
 
-val is_nil = process_topdecl
-  "fun is_nil l = case l of [] => true | x::xs => false"
+val is_nil = process_topdecs
+  `fun is_nil l = case l of [] => true | x::xs => false`
 
 val st = ml_progLib.add_prog is_nil pick_name basis_st
 
@@ -136,8 +136,22 @@ val is_nil_spec = Q.prove (
   xmatch \\ xret \\ xsimpl
 )
 
-val example_eq = process_topdecl
-  "fun example_eq x = (x = 3)"
+val is_none = process_topdecs
+  `fun is_none opt = case opt of NONE => true | SOME _ => false`
+
+val st = ml_progLib.add_prog is_none pick_name basis_st
+
+val is_none_spec = Q.prove (
+  `!ov a opt.
+     OPTION_TYPE a opt ov ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "is_none" st) [ov]
+       emp (POSTv bv. & BOOL (opt = NONE) bv)`,
+  xcf "is_none" st \\ Cases_on `opt` \\ fs [OPTION_TYPE_def] \\
+  xmatch \\ xcon \\ xsimpl
+)
+
+val example_eq = process_topdecs
+  `fun example_eq x = (x = 3)`
 
 val st = ml_progLib.add_prog example_eq pick_name basis_st
 
@@ -151,8 +165,8 @@ val example_eq_spec = Q.prove (
   fs [EqualityType_NUM_BOOL]
 )
 
-val example_and = process_topdecl
-  "fun example_and u = true andalso false"
+val example_and = process_topdecs
+  `fun example_and u = true andalso false`
 
 val st = ml_progLib.add_prog example_and pick_name basis_st
 
@@ -166,9 +180,9 @@ val example_and_spec = Q.prove (
   xlog \\ xret \\ xsimpl
 )
 
-val example_raise = process_topdecl
-  "exception Foo \
- \ fun example_raise u = raise Foo"
+val example_raise = process_topdecs
+  `exception Foo
+   fun example_raise u = raise Foo`
 
 val st = ml_progLib.add_prog example_raise pick_name basis_st
 
@@ -183,9 +197,9 @@ val example_raise_spec = Q.prove (
   xraise \\ xsimpl
 );
 
-val example_handle = process_topdecl
-  "exception Foo of int \
- \ fun example_handle x = (raise (Foo 3)) handle Foo i => i"
+val example_handle = process_topdecs
+  `exception Foo of int
+   fun example_handle x = (raise (Foo 3)) handle Foo i => i`
 (* handle precedence bug in the parser? *)
 
 val st = ml_progLib.add_prog example_handle pick_name basis_st
@@ -208,14 +222,14 @@ val example_handle_spec = Q.prove (
   fs [Foo_exn_def] \\ xcases \\ xvar \\ xsimpl
 );
 
-val example_handle2 = process_topdecl
-  "exception Foo of int \
- \ fun example_handle2 x = \
- \   (if x > 0 then        \
- \      1                  \
- \    else                 \
- \      raise (Foo (~1)))  \
- \   handle Foo i => i     "
+val example_handle2 = process_topdecs
+  `exception Foo of int
+   fun example_handle2 x =
+     (if x > 0 then
+        1
+      else
+        raise (Foo (~1)))
+     handle Foo i => i`
 
 val st = ml_progLib.add_prog example_handle2 pick_name basis_st
 
@@ -244,24 +258,21 @@ val example_handle2_spec = Q.prove (
   fs [Foo_exn_def] \\ xcases \\ xret \\ xsimpl \\ intLib.ARITH_TAC
 );
 
-val list_length = process_topdecl
-  "fun length l = \
- \    case l of \
- \      [] => 0 \
- \    | x::xs => (length xs) + 1"
+val bytearray_fromlist = process_topdecs
+  `fun length l =
+     case l of
+         [] => 0
+       | x::xs => (length xs) + 1
 
-val bytearray_fromlist = process_topdecl
-  "fun fromList ls = \
- \    let val a = Word8Array.array (length ls) (Word8.fromInt 0) \
- \        fun f ls i = \
- \          case ls of \
- \            [] => a \
- \          | h::t => (Word8Array.update a i h; f t (i+1)) \
- \    in f ls 0 end"
+   fun fromList ls =
+     let val a = Word8Array.array (length ls) (Word8.fromInt 0)
+         fun f ls i =
+           case ls of
+               [] => a
+             | h::t => (Word8Array.update a i h; f t (i+1))
+     in f ls 0 end`
 
-val st = basis_st
-  |> ml_progLib.add_prog list_length pick_name
-  |> ml_progLib.add_prog bytearray_fromlist pick_name
+val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
 val list_length_spec = store_thm ("list_length_spec",
   ``!a l lv.
