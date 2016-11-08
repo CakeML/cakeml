@@ -14,8 +14,8 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``ex_return``);
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
-val PAIR_EQ_COLLAPSE = prove (
-``(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))``,
+val PAIR_EQ_COLLAPSE = Q.prove (
+`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
 Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
 
 val pabs_elim_ss =
@@ -73,16 +73,16 @@ val codomain_PMATCH = Q.prove(
   rpt tac)
 val res = fix holSyntaxTheory.codomain_raw "codomain_def" codomain_PMATCH
 
-val rev_assocd_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL rev_assocd_def))) =
+val rev_assocd_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL rev_assocd_def))) =
     case l of
        (x,y)::l1 => if y = a then x else rev_assocd a l1 d
-     | _ => d``,
+     | _ => d`,
   rpt tac)
 val res = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
-val type_of_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL type_of_def))) =
+val type_of_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL type_of_def))) =
     case tm of
     | Var _ ty => return ty
     | Const _ ty => return ty
@@ -94,12 +94,12 @@ val type_of_PMATCH = prove(
            od
     | Abs (Var _ ty) t
         => do x <- type_of t; mk_fun_ty ty x od
-    | _ => failwith (strlit "match")``,
+    | _ => failwith (strlit "match")`,
   monadtac >> rpt tac)
 val res = fix type_of_def "type_of_def" type_of_PMATCH
 
-val raconv_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL raconv_def))) =
+val raconv_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL raconv_def))) =
     case (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
@@ -110,7 +110,7 @@ val raconv_PMATCH = prove(
             | (Var n1 ty1,Var n2 ty2)
                 => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
             | _ => F)
-    | _ => F``,
+    | _ => F`,
   rpt tac)
 val res = fix raconv_def "raconv_def" raconv_PMATCH
 
@@ -157,31 +157,31 @@ val mk_comb_PMATCH = Q.prove(
   monadtac >> rpt tac)
 val res = fix mk_comb_def "mk_comb_def" mk_comb_PMATCH
 
-val dest_var_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL dest_var_def))) =
+val dest_var_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL dest_var_def))) =
     case tm of Var s ty => return (s,ty)
-            | _ => failwith (strlit "dest_var: not a variable")``,
+            | _ => failwith (strlit "dest_var: not a variable")`,
   rpt tac)
 val res = fix dest_var_def "dest_var_def" dest_var_PMATCH
 
-val dest_const_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL dest_const_def))) =
+val dest_const_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL dest_const_def))) =
     case tm of Const s ty => return (s,ty)
-            | _ => failwith (strlit "dest_const: not a constant")``,
+            | _ => failwith (strlit "dest_const: not a constant")`,
   rpt tac)
 val res = fix dest_const_def "dest_const_def" dest_const_PMATCH
 
-val dest_comb_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL dest_comb_def))) =
+val dest_comb_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL dest_comb_def))) =
     case tm of Comb f x => return (f,x)
-            | _ => failwith (strlit "dest_comb: not a combination")``,
+            | _ => failwith (strlit "dest_comb: not a combination")`,
   rpt tac)
 val res = fix dest_comb_def "dest_comb_def" dest_comb_PMATCH
 
-val dest_abs_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL dest_abs_def))) =
+val dest_abs_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL dest_abs_def))) =
     case tm of Abs v b => return (v,b)
-            | _ => failwith (strlit "dest_abs: not an abstraction")``,
+            | _ => failwith (strlit "dest_abs: not an abstraction")`,
   rpt tac)
 val res = fix dest_abs_def "dest_abs_def" dest_abs_PMATCH
 
@@ -210,11 +210,11 @@ val rand_PMATCH = Q.prove(
   rpt tac)
 val res = fix rand_def "rand_def" rand_PMATCH
 
-val dest_eq_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL dest_eq_def))) =
+val dest_eq_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL dest_eq_def))) =
     case tm of
       Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
-    | _ => failwith (strlit "dest_eq")``,
+    | _ => failwith (strlit "dest_eq")`,
   rpt tac)
 val res = fix dest_eq_def "dest_eq_def" dest_eq_PMATCH
 
@@ -226,31 +226,31 @@ val is_eq_PMATCH = Q.prove(
   rpt tac)
 val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
 
-val TRANS_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL TRANS_def))) =
+val TRANS_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL TRANS_def))) =
     case (c1,c2) of
       (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
         else failwith (strlit "TRANS")
-    | _ => failwith (strlit "TRANS")``,
+    | _ => failwith (strlit "TRANS")`,
   rpt tac)
 val res = fix TRANS_def "TRANS_def" TRANS_PMATCH
 
-val MK_COMB_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL MK_COMB_def))) =
+val MK_COMB_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL MK_COMB_def))) =
    case (c1,c2) of
      (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
           eq <- mk_eq(x1,x2) ;
           return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith (strlit "MK_COMB")``,
+   | _ => failwith (strlit "MK_COMB")`,
   rpt tac)
 val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
 
-val ABS_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL ABS_def))) =
+val ABS_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL ABS_def))) =
     case c of
       Comb (Comb (Const (strlit "=") _) l) r =>
         if EXISTS (vfree_in v) asl
@@ -259,17 +259,17 @@ val ABS_PMATCH = prove(
                 a2 <- mk_abs(v,r) ;
                 eq <- mk_eq(a1,a2) ;
                 return (Sequent asl eq) od
-    | _ => failwith (strlit "ABS: not an equation")``,
+    | _ => failwith (strlit "ABS: not an equation")`,
   BasicProvers.CASE_TAC >> rpt tac)
 val res = fix ABS_def "ABS_def" ABS_PMATCH
 
-val BETA_PMATCH = prove(
-  ``^(rhs(concl(SPEC_ALL BETA_def))) =
+val BETA_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL BETA_def))) =
     case tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
         else failwith (strlit "BETA: not a trivial beta-redex")
-    | _ => failwith (strlit "BETA: not a trivial beta-redex")``,
+    | _ => failwith (strlit "BETA: not a trivial beta-redex")`,
   rpt tac)
 val res = fix BETA_def "BETA_def" BETA_PMATCH
 

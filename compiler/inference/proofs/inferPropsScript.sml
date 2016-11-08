@@ -2482,21 +2482,21 @@ val check_freevars_more = Q.store_thm("check_freevars_more",
     fs[SUBSET_DEF] >>
   fs[EVERY_MEM])
 
-val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
-  ``(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
+val check_freevars_t_to_freevars = Q.store_thm("check_freevars_t_to_freevars",
+  `(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
       ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
     (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
-      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
+      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)`,
   Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
   simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
 
-val check_t_infer_type_subst_dbs = store_thm("check_t_infer_type_subst_dbs",
-  ``∀m w t n u ls.
+val check_t_infer_type_subst_dbs = Q.store_thm("check_t_infer_type_subst_dbs",
+  `∀m w t n u ls.
     check_freevars m w t ∧
     m + LENGTH ls ≤ n ∧
     (ls = [] ⇒ 0 < m)
     ⇒
-    check_t n u (infer_type_subst (ZIP(ls,MAP Infer_Tvar_db (COUNT_LIST (LENGTH ls)))) t)``,
+    check_t n u (infer_type_subst (ZIP(ls,MAP Infer_Tvar_db (COUNT_LIST (LENGTH ls)))) t)`,
   ho_match_mp_tac check_freevars_ind >>
   conj_tac >- (
     simp[check_freevars_def] >>
@@ -3210,7 +3210,7 @@ val menv_alpha_def = Define`
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 
-val generalise_subst_exist = store_thm("generalise_subst_exist",``
+val generalise_subst_exist = Q.store_thm("generalise_subst_exist",`
   (t_wfs s ∧
   (∀uv. uv ∈ FDOM s ⇒ check_t tvs {} (t_walkstar s (Infer_Tuvar uv))))
   ⇒
@@ -3237,7 +3237,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
   ∃subst'.
     LENGTH subst' = a ∧
     (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧
-    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))``,
+    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))`,
   strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   srw_tac[][]>>
@@ -3396,15 +3396,15 @@ val tenv_alpha_bind_var_list2 = Q.store_thm("tenv_alpha_bind_var_list2",`
   fs[tenv_alpha_def]>>
   metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
 
-val check_weakE_EVERY = store_thm("check_weakE_EVERY",
-  ``∀env_impl env_spec st.
+val check_weakE_EVERY = Q.store_thm("check_weakE_EVERY",
+  `∀env_impl env_spec st.
       (∃st'. check_weakE env_impl env_spec st = (Success (),st')) ⇔
       EVERY (λ(n,tvs_spec,t_spec).
            case ALOOKUP env_impl n of
            | NONE => F
            | SOME (tvs_impl,t_impl) =>
                let t = infer_deBruijn_subst (GENLIST Infer_Tuvar tvs_impl) t_impl in
-               IS_SOME (t_unify FEMPTY t_spec t)) env_spec``,
+               IS_SOME (t_unify FEMPTY t_spec t)) env_spec`,
   ho_match_mp_tac check_weakE_ind >>
   conj_tac >- rw[check_weakE_def,success_eqns] >>
   rw[check_weakE_def] >>

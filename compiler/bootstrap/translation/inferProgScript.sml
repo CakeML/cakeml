@@ -157,8 +157,8 @@ val t_oc_side_def = Q.store_thm("t_oc_side_def",
 
 val _ = translate unifyTheory.t_ext_s_check_eqn;
 
-val t_unify_lemma = prove(
-  ``t_wfs s ==>
+val t_unify_lemma = Q.prove(
+  `t_wfs s ==>
     (t_unify s t1 t2 =
        case (t_walk s t1,t_walk s t2) of
        | (Infer_Tvar_db n1,Infer_Tvar_db n2) =>
@@ -183,7 +183,7 @@ val t_unify_lemma = prove(
        | (t1::ts1,t2::ts2) => (case t_unify s t1 t2 of
                                | NONE => NONE
                                | SOME s' => ts_unify s' ts1 ts2)
-       | _ => NONE)``,
+       | _ => NONE)`,
   REPEAT STRIP_TAC
   THEN1 ASM_SIMP_TAC std_ss [unifyTheory.t_unify_eqn]
   THEN Cases_on `ts1` THEN Cases_on `ts2`
@@ -242,9 +242,9 @@ val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
 
-val pair_abs_hack = prove(
-  ``(\(v2:string,v1:infer_t). (v2,0,v1)) =
-    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))``,
+val pair_abs_hack = Q.prove(
+  `(\(v2:string,v1:infer_t). (v2,0,v1)) =
+    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))`,
   SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]);
 
 fun fix_infer_induction_thm def = let
@@ -284,8 +284,8 @@ val option_case_apply = Q.prove(
   `!oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)`,
   Cases THEN SRW_TAC [] []);
 
-val pr_CASE = prove(
-  ``pair_CASE (x,y) f = f x y``,
+val pr_CASE = Q.prove(
+  `pair_CASE (x,y) f = f x y`,
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
@@ -846,7 +846,7 @@ val _ = translate (infer_def ``check_signature``)
 
 val _ = translate (infer_def ``infer_top``)
 
-val infer_prog_def = prove(``
+val infer_prog_def = Q.prove(`
   (∀idecls ienv x.
       infer_prog idecls ienv [] x =
       (Success (empty_inf_decls,(FEMPTY,FEMPTY),FEMPTY,([],[]),[]),x)) ∧
@@ -873,7 +873,7 @@ val infer_prog_def = prove(``
                   SND (SND (SND (SND y'))) ++ SND (SND (SND (SND y)))),
                s)
           | (Failure e,s) => (Failure e,s))
-     | (Failure e,s) => (Failure e,s)``,
+     | (Failure e,s) => (Failure e,s)`,
      rw[infer_prog_def]>>EVAL_TAC>>
      BasicProvers.EVERY_CASE_TAC>>PairCases_on`a`>>
      fs[]>>

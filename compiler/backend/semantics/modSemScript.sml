@@ -397,8 +397,8 @@ dec_clock s = s with clock := s.clock -1`;
 val fix_clock_def = Define `
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`
 
-val fix_clock_IMP = prove(
-  ``fix_clock s x = (s1,res) ==> s1.clock <= s.clock``,
+val fix_clock_IMP = Q.prove(
+  `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 val evaluate_def = tDefine"evaluate"`

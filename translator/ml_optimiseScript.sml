@@ -29,8 +29,8 @@ val MEM_exp_size1 = Q.prove(
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
 
-val MEM_exp_size2 = prove(
-  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys``,
+val MEM_exp_size2 = Q.prove(
+  `!ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys`,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
   THEN FULL_SIMP_TAC std_ss [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
@@ -74,11 +74,11 @@ val do_log_IMP_3 = Q.prove(
 
 val s = ``s:'ffi semanticPrimitives$state``
 
-val BOTTOM_UP_OPT_LEMMA = prove(
-  ``(!ck env ^s exp res. evaluate F env s exp res ==> isRval (SND res) ==> evaluate F env s (f exp) res) ==>
+val BOTTOM_UP_OPT_LEMMA = Q.prove(
+  `(!ck env ^s exp res. evaluate F env s exp res ==> isRval (SND res) ==> evaluate F env s (f exp) res) ==>
     (!ck x1 ^s x2 x3. evaluate ck x1 s x2 x3 ==> isRval (SND x3) ∧ (ck = F) ==> evaluate ck x1 s (BOTTOM_UP_OPT f x2) x3) /\
     (!ck x1 ^s x2 x3. evaluate_list ck x1 s x2 x3 ==> isRval (SND x3) ∧ (ck = F) ==> evaluate_list ck x1 s (MAP (BOTTOM_UP_OPT f) x2) x3) /\
-    (!ck x1 ^s x2 x3 x4 x5. evaluate_match ck x1 s x2 x3 x4 x5 ==> isRval (SND x5) ∧ (ck = F) ==> evaluate_match ck x1 s x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4 x5)``,
+    (!ck x1 ^s x2 x3 x4 x5. evaluate_match ck x1 s x2 x3 x4 x5 ==> isRval (SND x5) ∧ (ck = F) ==> evaluate_match ck x1 s x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4 x5)`,
   STRIP_TAC \\ ONCE_REWRITE_TAC [two_assums]
   \\ HO_MATCH_MP_TAC bigStepTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [BOTTOM_UP_OPT_def,isRval_def,AND_IMP_INTRO, rich_listTheory.MAP_REVERSE]
@@ -139,14 +139,14 @@ val BOTTOM_UP_OPT_LEMMA = prove(
     \\ METIS_TAC [Boolv_11])
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def] \\ METIS_TAC []);
 
-val BOTTOM_UP_OPT_THM = prove(
-  ``!f.
+val BOTTOM_UP_OPT_THM = Q.prove(
+  `!f.
       (!env ^s exp t res.
          evaluate F env s exp (t,Rval res) ==>
          evaluate F env s (f exp) (t,Rval res)) ==>
       (!env ^s exp t res.
          evaluate F env s exp (t,Rval res) ==>
-         evaluate F env s (BOTTOM_UP_OPT f exp) (t,Rval res))``,
+         evaluate F env s (BOTTOM_UP_OPT f exp) (t,Rval res))`,
   STRIP_TAC \\ STRIP_TAC \\ (BOTTOM_UP_OPT_LEMMA
     |> UNDISCH |> CONJUNCT1
     |> Q.SPECL [`F`, `env`,`s`,`exp`,`(t,Rval res)`] |> GEN_ALL
@@ -163,9 +163,9 @@ val abs2let_def = Define `
      case x of App Opapp [Fun v exp; y] => Let (SOME v) y exp
              | rest => rest`;
 
-val abs2let_thm = prove(
-  ``!env s exp t res. evaluate F env s exp (t,Rval res) ==>
-                      evaluate F env s (abs2let exp) (t,Rval res)``,
+val abs2let_thm = Q.prove(
+  `!env s exp t res. evaluate F env s exp (t,Rval res) ==>
+                      evaluate F env s (abs2let exp) (t,Rval res)`,
   SIMP_TAC std_ss [abs2let_def] \\ REPEAT STRIP_TAC
   \\ BasicProvers.EVERY_CASE_TAC
   \\ ASM_SIMP_TAC std_ss [] \\ POP_ASSUM MP_TAC
@@ -189,9 +189,9 @@ val let_id_def = Define `
      if (y = Var (Short v)) then x else Let (SOME v) x y) /\
   (let_id rest = rest)`;
 
-val let_id_thm = prove(
-  ``!env s exp t res. evaluate F env s exp (t,Rval res) ==>
-                      evaluate F env s (let_id exp) (t,Rval res)``,
+val let_id_thm = Q.prove(
+  `!env s exp t res. evaluate F env s exp (t,Rval res) ==>
+                      evaluate F env s (let_id exp) (t,Rval res)`,
   STRIP_TAC \\ STRIP_TAC \\ HO_MATCH_MP_TAC (fetch "-" "let_id_ind")
   \\ FULL_SIMP_TAC std_ss [let_id_def] \\ SRW_TAC [] [] \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
@@ -220,34 +220,34 @@ val opt_sub_add_def = Define `
             else x
          | _ => x`;
 
-val dest_binop_thm = prove(
-  ``!x. (dest_binop x = SOME (x1,x2,x3)) ==> (x = App (Opn x1) [x2; x3])``,
+val dest_binop_thm = Q.prove(
+  `!x. (dest_binop x = SOME (x1,x2,x3)) ==> (x = App (Opn x1) [x2; x3])`,
   HO_MATCH_MP_TAC (fetch "-" "dest_binop_ind")
   \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]);
 
-val do_app_IMP = prove(
-  ``(do_app s (Opn opn) [v1; v2] = SOME (s1,e3)) ==>
-    ?i1 i2. (v1 = Litv (IntLit i1)) /\ (v2 = Litv (IntLit i2))``,
+val do_app_IMP = Q.prove(
+  `(do_app s (Opn opn) [v1; v2] = SOME (s1,e3)) ==>
+    ?i1 i2. (v1 = Litv (IntLit i1)) /\ (v2 = Litv (IntLit i2))`,
   Cases_on`s` >> FULL_SIMP_TAC (srw_ss()) [do_app_cases]
   \\ SRW_TAC [] []);
 
-val evaluate_11_Rval = prove(
-  ``evaluate ck env s exp (t,Rval res1) ==>
-    evaluate ck env s exp (t,Rval res2) ==> (res1 = res2)``,
+val evaluate_11_Rval = Q.prove(
+  `evaluate ck env s exp (t,Rval res1) ==>
+    evaluate ck env s exp (t,Rval res2) ==> (res1 = res2)`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC big_exp_determ
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
-val evaluate_Lit = prove(
-  ``evaluate ck env s (Lit l) (s1,Rval (res)) <=> (res = Litv l) /\ (s = s1)``,
+val evaluate_Lit = Q.prove(
+  `evaluate ck env s (Lit l) (s1,Rval (res)) <=> (res = Litv l) /\ (s = s1)`,
   FULL_SIMP_TAC (srw_ss()) [Once evaluate_cases] \\ METIS_TAC []);
 
 val with_same_refs_io = Q.prove(
   `x with <| refs := x.refs; ffi := x.ffi |> = x`,
   rw[state_component_equality])
 
-val opt_sub_add_thm = prove(
-  ``!env s exp t res. evaluate F env s exp (t,Rval res) ==>
-                      evaluate F env s (opt_sub_add exp) (t,Rval res)``,
+val opt_sub_add_thm = Q.prove(
+  `!env s exp t res. evaluate F env s exp (t,Rval res) ==>
+                      evaluate F env s (opt_sub_add exp) (t,Rval res)`,
   STRIP_TAC \\ STRIP_TAC \\ STRIP_TAC \\ SIMP_TAC std_ss [opt_sub_add_def]
   \\ Cases_on `dest_binop exp` \\ FULL_SIMP_TAC std_ss []
   \\ `?x1 x2 x3. x = (x1,x2,x3)` by METIS_TAC [PAIR] \\ fs []

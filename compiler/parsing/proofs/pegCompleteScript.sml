@@ -248,22 +248,22 @@ val firstSet_nV = Q.store_thm(
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nFQV = store_thm(
+val firstSet_nFQV = Q.store_thm(
   "firstSet_nFQV",
-  ``firstSet cmlG [NT (mkNT nFQV)] =
+  `firstSet cmlG [NT (mkNT nFQV)] =
       firstSet cmlG [NT (mkNT nV)] ∪
       { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i)) ∧
-                              i ∉ {"true"; "false"; "ref"; "nil"}}``,
+                              i ∉ {"true"; "false"; "ref"; "nil"}}`,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION]);
 
-val firstSet_nConstructorName = store_thm(
+val firstSet_nConstructorName = Q.store_thm(
   "firstSet_nConstructorName",
-  ``firstSet cmlG (NN nConstructorName :: rest) =
+  `firstSet cmlG (NN nConstructorName :: rest) =
       { LongidT str s | (str,s) | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
                                   s ∈ {"true"; "false"; "ref"; "nil"}} ∪
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
-      { AlphaT s | s ∈ {"true"; "false"; "ref"; "nil"}}``,
+      { AlphaT s | s ∈ {"true"; "false"; "ref"; "nil"}}`,
   ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
@@ -753,12 +753,12 @@ val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
                              |> C MATCH_MP PEG_wellformed
 
-val peg_respects_firstSets = store_thm(
+val peg_respects_firstSets = Q.store_thm(
   "peg_respects_firstSets",
-  ``∀N i0 t.
+  `∀N i0 t.
       t ∉ firstSet cmlG [NT N] ∧ ¬peg0 cmlPEG (nt N I) ∧
       nt N I ∈ Gexprs cmlPEG ⇒
-      peg_eval cmlPEG (t::i0, nt N I) NONE``,
+      peg_eval cmlPEG (t::i0, nt N I) NONE`,
   rpt gen_tac >> CONV_TAC CONTRAPOS_CONV >> simp[] >>
   Cases_on `nt N I ∈ Gexprs cmlPEG` >> simp[] >>
   IMP_RES_THEN (qspec_then `t::i0` (qxchl [`r`] assume_tac)) cmlPEG_total >>
@@ -784,10 +784,10 @@ val sym2peg_def = Define`
   sym2peg (NT N) = nt N I
 `;
 
-val not_peg0_peg_eval_NIL_NONE = store_thm(
+val not_peg0_peg_eval_NIL_NONE = Q.store_thm(
   "not_peg0_peg_eval_NIL_NONE",
-  ``¬peg0 G sym ∧ sym ∈ Gexprs G ∧ wfG G ⇒
-    peg_eval G ([], sym) NONE``,
+  `¬peg0 G sym ∧ sym ∈ Gexprs G ∧ wfG G ⇒
+    peg_eval G ([], sym) NONE`,
   strip_tac >>
   `∃r. peg_eval G ([], sym) r`
     by metis_tac [peg_eval_total] >>
@@ -979,32 +979,32 @@ val elim_det = Q.prove(`(!x. P x ⇔ (x = y)) ==> P y`, METIS_TAC[])
 
 val peg_det = CONJUNCT1 peg_deterministic
 
-val peg_seql_NONE_det = store_thm(
+val peg_seql_NONE_det = Q.store_thm(
   "peg_seql_NONE_det",
-  ``peg_eval G (i0, seql syms f) NONE ⇒
-    ∀f' r. peg_eval G (i0, seql syms f') r ⇔ r = NONE``,
+  `peg_eval G (i0, seql syms f) NONE ⇒
+    ∀f' r. peg_eval G (i0, seql syms f') r ⇔ r = NONE`,
   Induct_on `syms` >> simp[] >> rpt strip_tac >>
   rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >> simp[]);
 
-val peg_seql_NONE_append = store_thm(
+val peg_seql_NONE_append = Q.store_thm(
   "peg_seql_NONE_append",
-  ``∀i0 f. peg_eval G (i0, seql (l1 ++ l2) f) NONE ⇔
+  `∀i0 f. peg_eval G (i0, seql (l1 ++ l2) f) NONE ⇔
            peg_eval G (i0, seql l1 I) NONE ∨
            ∃i' r. peg_eval G (i0, seql l1 I) (SOME(i',r)) ∧
-                  peg_eval G (i', seql l2 I) NONE``,
+                  peg_eval G (i', seql l2 I) NONE`,
   Induct_on `l1` >> simp[] >- metis_tac [peg_seql_NONE_det] >>
   map_every qx_gen_tac [`h`, `i0`] >>
   Cases_on `peg_eval G (i0,h) NONE` >> simp[] >>
   dsimp[] >> metis_tac[]);
 
-val peg_seql_SOME_append = store_thm(
+val peg_seql_SOME_append = Q.store_thm(
   "peg_seql_SOME_append",
-  ``∀i0 l2 f i r.
+  `∀i0 l2 f i r.
       peg_eval G (i0, seql (l1 ++ l2) f) (SOME(i,r)) ⇔
       ∃i' r1 r2.
           peg_eval G (i0, seql l1 I) (SOME(i',r1)) ∧
           peg_eval G (i', seql l2 I) (SOME(i,r2)) ∧
-          (r = f (r1 ++ r2))``,
+          (r = f (r1 ++ r2))`,
   Induct_on `l1` >> simp[]
   >- (Induct_on `l2` >- simp[] >>
       ONCE_REWRITE_TAC [peg_eval_seql_CONS] >>
@@ -1013,12 +1013,12 @@ val peg_seql_SOME_append = store_thm(
 
 fun has_const c = assert (Lib.can (find_term (same_const c)) o concl)
 
-val eOR_wrongtok = store_thm(
+val eOR_wrongtok = Q.store_thm(
   "eOR_wrongtok",
-  ``¬peg_eval cmlPEG (RaiseT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
+  `¬peg_eval cmlPEG (RaiseT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
     ¬peg_eval cmlPEG (FnT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
     ¬peg_eval cmlPEG (CaseT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
-    ¬peg_eval cmlPEG (IfT::i0, nt (mkNT nElogicOR) I) (SOME(i,r))``,
+    ¬peg_eval cmlPEG (IfT::i0, nt (mkNT nElogicOR) I) (SOME(i,r))`,
   rpt conj_tac >>
   qmatch_abbrev_tac `¬peg_eval cmlPEG (ttk::i0, nt (mkNT nElogicOR) I) (SOME(i,r))` >>
   strip_tac >>
@@ -1026,12 +1026,12 @@ val eOR_wrongtok = store_thm(
     suffices_by (first_assum (assume_tac o MATCH_MP peg_det) >> simp[]) >>
   simp[Abbr`ttk`, peg_respects_firstSets]);
 
-val nE'_nE = store_thm(
+val nE'_nE = Q.store_thm(
   "nE'_nE",
-  ``∀i0 i r.
+  `∀i0 i r.
       peg_eval cmlPEG (i0, nt (mkNT nE') I) (SOME(i,r)) ∧
       (i ≠ [] ⇒ HD i ≠ HandleT) ⇒
-      ∃r'. peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r'))``,
+      ∃r'. peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r'))`,
   gen_tac >> completeInduct_on `LENGTH i0` >> gen_tac >> strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >>
   simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
@@ -1053,13 +1053,13 @@ val nE'_nE = store_thm(
   fs[eOR_wrongtok]);
 
 
-val nE'_bar_nE = store_thm(
+val nE'_bar_nE = Q.store_thm(
   "nE'_bar_nE",
-  ``∀i0 i i' r r'.
+  `∀i0 i i' r r'.
         peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r)) ∧
         (i ≠ [] ⇒ HD i ≠ BarT ∧ HD i ≠ HandleT) ∧ i' ≠ [] ∧
         peg_eval cmlPEG (i0, nt (mkNT nE') I) (SOME(i',r')) ⇒
-        HD i' ≠ BarT``,
+        HD i' ≠ BarT`,
   gen_tac >> completeInduct_on `LENGTH i0` >> rpt strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >> rw[] >>
   rpt (qpat_x_assum `peg_eval X Y Z` mp_tac) >>
@@ -1274,9 +1274,9 @@ in
 end g
 val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
 
-val eapp_complete = store_thm(
+val eapp_complete = Q.store_thm(
   "eapp_complete",
-  ``(∀pt' pfx' sfx' N.
+  `(∀pt' pfx' sfx' N.
        LENGTH pfx' < LENGTH master ∧ valid_ptree cmlG pt' ∧
        mkNT N ∈ FDOM cmlPEG.rules ∧
        ptree_head pt' = NN N ∧ ptree_fringe pt' = MAP TK pfx' ∧
@@ -1292,7 +1292,7 @@ val eapp_complete = store_thm(
        IS_SUFFIX master pfx ∧ valid_ptree cmlG apt ∧
        ptree_head apt = NN nEapp ∧ ptree_fringe apt = MAP TK pfx ∧
        (sfx ≠ [] ⇒ HD sfx ∈ stoppers nEapp) ⇒
-       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT nEapp) I) (SOME(sfx, [apt]))``,
+       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT nEapp) I) (SOME(sfx, [apt]))`,
   strip_tac >>
   simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, (*list_case_lemma, *)
        peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM] >>
@@ -1356,9 +1356,9 @@ val leftmost_FOLDL = Q.store_thm(
     leftmost acc`,
   qid_spec_tac `acc` >> Induct_on `args` >> simp[leftmost_def]);
 
-val dtype_complete = store_thm(
+val dtype_complete = Q.store_thm(
   "dtype_complete",
-  ``(∀pt' pfx' sfx' N.
+  `(∀pt' pfx' sfx' N.
        LENGTH pfx' < LENGTH master ∧ valid_ptree cmlG pt' ∧
        mkNT N ∈ FDOM cmlPEG.rules ∧
        ptree_head pt' = NN N ∧ ptree_fringe pt' = MAP TK pfx' ∧
@@ -1374,7 +1374,7 @@ val dtype_complete = store_thm(
        IS_SUFFIX master pfx ∧ valid_ptree cmlG apt ∧
        ptree_head apt = NN nDType ∧ ptree_fringe apt = MAP TK pfx ∧
        (sfx ≠ [] ⇒ HD sfx ∈ stoppers nDType) ⇒
-       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT nDType) I) (SOME(sfx, [apt]))``,
+       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT nDType) I) (SOME(sfx, [apt]))`,
   strip_tac >>
   simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, (*list_case_lemma, *)
        peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM] >>
@@ -1458,9 +1458,9 @@ val dtype_complete = store_thm(
      (sfx ≠ [] ∧ nullable cmlG [SEP] ⇒ HD sfx ∉ firstSet cmlG [C])
    and I can't be bothered with that right now. *)
 
-val peg_linfix_complete = store_thm(
+val peg_linfix_complete = Q.store_thm(
   "peg_linfix_complete",
-  ``(∀n. SEP = NT n ⇒
+  `(∀n. SEP = NT n ⇒
          ∃nn. n = mkNT nn ∧ nt (mkNT nn) I ∈ Gexprs cmlPEG ∧
               stoppers nn = UNIV) ∧
     (∀n. C = NT n ⇒ ∃nn. n = mkNT nn) ∧
@@ -1492,7 +1492,7 @@ val peg_linfix_complete = store_thm(
   ⇒
       peg_eval cmlPEG (pfx ++ sfx,
                        peg_linfix (mkNT P) (sym2peg C) (sym2peg SEP))
-                      (SOME(sfx,[pt]))``,
+                      (SOME(sfx,[pt]))`,
   strip_tac >>
   simp[peg_linfix_def, list_case_lemma, peg_eval_rpt] >> dsimp[] >>
   gen_tac >>
@@ -1599,14 +1599,14 @@ val stdstart =
 
 fun note_tac s g = (print (s ^ "\n"); ALL_TAC g)
 
-val completeness = store_thm(
+val completeness = Q.store_thm(
   "completeness",
-  ``∀pt N pfx sfx.
+  `∀pt N pfx sfx.
       valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT N) ∧
       mkNT N ∈ FDOM cmlPEG.rules ∧
       (sfx ≠ [] ⇒ HD sfx ∈ stoppers N) ∧ ptree_fringe pt = MAP TOK pfx ⇒
       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT N) I)
-                      (SOME(sfx, [pt]))``,
+                      (SOME(sfx, [pt]))`,
   ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >>
   disch_then (strip_assume_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
   RULE_ASSUM_TAC (SIMP_RULE (srw_ss() ++ CONJ_ss) [AND_IMP_INTRO]) >>
@@ -2594,14 +2594,14 @@ val completeness = store_thm(
 
 (* two valid parse-trees with the same head, and the same fringes, which
    are all tokens, must be identical. *)
-val cmlG_unambiguous = store_thm(
+val cmlG_unambiguous = Q.store_thm(
   "cmlG_unambiguous",
-  ``valid_ptree cmlG pt1 ∧ ptree_head pt1 = NT (mkNT N) ∧
+  `valid_ptree cmlG pt1 ∧ ptree_head pt1 = NT (mkNT N) ∧
     valid_ptree cmlG pt2 ∧ ptree_head pt2 = NT (mkNT N) ∧
     mkNT N ∈ FDOM cmlPEG.rules ∧ (* e.g., nTopLevelDecs *)
     ptree_fringe pt2 = ptree_fringe pt1 ∧
     (∀s. s ∈ set (ptree_fringe pt1) ⇒ ∃t. s = TOK t) ⇒
-    pt1 = pt2``,
+    pt1 = pt2`,
   rpt strip_tac >>
   `∃ts. ptree_fringe pt1 = MAP TK ts`
     by (Q.UNDISCH_THEN `ptree_fringe pt2 = ptree_fringe pt1` kall_tac >>

@@ -30,10 +30,10 @@ val aligned_w2n = Q.store_thm("aligned_w2n",
   \\ `(n DIV 2 ** k * 2 ** k) < dimword (:α)` by decide_tac
   \\ asm_simp_tac std_ss [] \\ decide_tac);
 
-val word_list_exists_thm = store_thm("word_list_exists_thm",
-  ``(word_list_exists a 0 = emp) /\
+val word_list_exists_thm = Q.store_thm("word_list_exists_thm",
+  `(word_list_exists a 0 = emp) /\
     (word_list_exists a (SUC n) =
-     SEP_EXISTS w. one (a,w) * word_list_exists (a + bytes_in_word) n)``,
+     SEP_EXISTS w. one (a,w) * word_list_exists (a + bytes_in_word) n)`,
   full_simp_tac(srw_ss())[word_list_exists_def,LENGTH_NIL,FUN_EQ_THM,ADD1,
           SEP_EXISTS_THM,cond_STAR,word_list_def,SEP_CLAUSES]
   \\ srw_tac[][] \\ eq_tac \\ srw_tac[][]
@@ -323,13 +323,13 @@ val state_rel_set_var = Q.store_thm("state_rel_set_var[simp]",
   full_simp_tac(srw_ss())[state_rel_def,set_var_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[FLOOKUP_UPDATE]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
-val word_store_CurrHeap = prove(
-  ``word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store``,
+val word_store_CurrHeap = Q.prove(
+  `word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store`,
   full_simp_tac(srw_ss())[word_store_def,store_list_def,FLOOKUP_UPDATE]);
 
-val memory_fun2set_IMP_read = prove(
-  ``(memory m d * p) (fun2set (m1,d1)) /\ a IN d ==>
-    a IN d1 /\ m1 a = m a``,
+val memory_fun2set_IMP_read = Q.prove(
+  `(memory m d * p) (fun2set (m1,d1)) /\ a IN d ==>
+    a IN d1 /\ m1 a = m a`,
   simp [Once STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
   \\ full_simp_tac(srw_ss())[fun2set_def,SUBSET_DEF,PULL_EXISTS]);
 
@@ -400,12 +400,12 @@ val write_bytearray_EQ = Q.prove(
     (first_x_assum match_mp_tac \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][]);
 
-val write_bytearray_lemma = prove(
-  ``!new_bytes a m1 d1 be x p m d.
+val write_bytearray_lemma = Q.prove(
+  `!new_bytes a m1 d1 be x p m d.
       (memory m1 d1 * p) (fun2set (m,d)) /\
       read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME x ==>
       (memory (write_bytearray a new_bytes m1 d1 be) d1 * p)
-        (fun2set (write_bytearray a new_bytes m d be,d))``,
+        (fun2set (write_bytearray a new_bytes m d be,d))`,
   simp [STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
   \\ full_simp_tac(srw_ss())[fun2set_def,SUBSET_DEF,PULL_EXISTS] \\ srw_tac[][]
   \\ `d1 SUBSET d` by full_simp_tac(srw_ss())[SUBSET_DEF]
@@ -839,8 +839,8 @@ val get_labels_comp = Q.store_thm("get_labels_comp",
   \\ fs [get_labels_def,list_Seq_def]
   \\ every_case_tac \\ fs [get_labels_stack_alloc]);
 
-val code_rel_loc_check = store_thm("code_rel_loc_check",
-  ``code_rel k c1 c2 /\ loc_check c1 (l1,l2) ==> loc_check c2 (l1,l2)``,
+val code_rel_loc_check = Q.store_thm("code_rel_loc_check",
+  `code_rel k c1 c2 /\ loc_check c1 (l1,l2) ==> loc_check c2 (l1,l2)`,
   fs [loc_check_def,code_rel_def,domain_lookup,PULL_EXISTS] \\ rw []
   \\ res_tac \\ fs [] \\ disj2_tac
   \\ asm_exists_tac \\ fs [get_labels_comp]);
@@ -1719,8 +1719,8 @@ val mem_val_def = Define `
   (mem_val regs (INL w) = Word w) /\
   (mem_val (regs:num |-> 'a word_loc) (INR n) = regs ' n)`
 
-val store_list_code_thm = store_thm("store_list_code_thm",
-  ``!xs s w frame ys m dm.
+val store_list_code_thm = Q.store_thm("store_list_code_thm",
+  `!xs s w frame ys m dm.
       (word_list w ys * frame) (fun2set (m,dm)) /\
       m = s.memory /\ dm = s.mdomain /\
       (LENGTH ys = LENGTH xs) /\ a <> t /\
@@ -1731,7 +1731,7 @@ val store_list_code_thm = store_thm("store_list_code_thm",
         evaluate (store_list_code a t xs,s) =
           (NONE,s with <| memory := m1;
                           regs := s.regs |++
-            [(a,Word (w + bytes_in_word * n2w (LENGTH xs)));(t,r1)] |>)``,
+            [(a,Word (w + bytes_in_word * n2w (LENGTH xs)));(t,r1)] |>)`,
   simp_tac std_ss []
   \\ Induct \\ fs [] THEN1
    (fs [word_list_def,SEP_CLAUSES,store_list_code_def,LENGTH_NIL]
@@ -1896,10 +1896,10 @@ val word_list_and_rev_join_lemma = Q.prove(
   \\ fs [word_list_EQ_rev] \\ rw []
   \\ fs [AC STAR_COMM STAR_ASSOC,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
-val word_list_IMP_read_mem = prove(
-  ``!xs a p.
+val word_list_IMP_read_mem = Q.prove(
+  `!xs a p.
       (p * word_list a xs) (fun2set (m,dm)) ==>
-      read_mem a m (LENGTH xs) = xs``,
+      read_mem a m (LENGTH xs) = xs`,
   Induct \\ fs [read_mem_def,word_list_def,STAR_ASSOC]
   \\ rw [] \\ res_tac \\ SEP_R_TAC);
 
@@ -1907,10 +1907,10 @@ val INSERT_DELETE_EQ_DELETE = Q.prove(
   `(x INSERT s) DELETE x = s DELETE x`,
   fs [EXTENSION] \\ metis_tac []);
 
-val word_list_exists_addresses = store_thm("word_list_exists_addresses",
-  ``!n a. (dimindex(:'a) DIV 8) * n < dimword (:'a) /\
+val word_list_exists_addresses = Q.store_thm("word_list_exists_addresses",
+  `!n a. (dimindex(:'a) DIV 8) * n < dimword (:'a) /\
           good_dimindex (:'a) ==>
-          word_list_exists a n (fun2set (m1,addresses (a:'a word) n))``,
+          word_list_exists a n (fun2set (m1,addresses (a:'a word) n))`,
   Induct
   THEN1 (fs [word_list_exists_thm,fun2set_def,emp_def,addresses_def])
   \\ fs [word_list_exists_thm,emp_def,addresses_def,INSERT_DELETE_EQ_DELETE,
@@ -2000,15 +2000,15 @@ val byte_aligned_bytes_in_word_MULT = Q.prove(
   \\ qspecl_then [`3`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
   \\ fs [WORD_MUL_LSL]);
 
-val init_code_thm = store_thm("init_code_thm",
-  ``init_code_pre k s /\ code_rel k code s.code /\
+val init_code_thm = Q.store_thm("init_code_thm",
+  `init_code_pre k s /\ code_rel k code s.code /\
     lookup stack_err_lab s.code = SOME (halt_inst 2w) ==>
     case evaluate (init_code max_heap bitmaps k,s) of
     | (SOME res,t) =>
          ?w. (res = Halt (Word w)) /\ w <> 0w /\ t.ffi = s.ffi
     | (NONE,t) =>
          state_rel k (init_reduce k code bitmaps t) t /\ t.ffi = s.ffi /\
-         init_prop max_heap (init_reduce k code bitmaps t)``,
+         init_prop max_heap (init_reduce k code bitmaps t)`,
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
@@ -2240,8 +2240,8 @@ val init_pre_def = Define `
     (* TODO: remove: *) s.ffi.final_event = NONE /\
     init_code_pre k s`
 
-val evaluate_init_code = store_thm("evaluate_init_code",
-  ``init_pre max_heap bitmaps k start s /\
+val evaluate_init_code = Q.store_thm("evaluate_init_code",
+  `init_pre max_heap bitmaps k start s /\
     lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     code_rel k code s.code ==>
     case evaluate (init_code max_heap bitmaps k,s) of
@@ -2249,7 +2249,7 @@ val evaluate_init_code = store_thm("evaluate_init_code",
         w <> 0w /\ t.ffi = s.ffi /\ make_init_opt max_heap bitmaps k code s = NONE
     | (NONE,t) => ?r. make_init_opt max_heap bitmaps k code s = SOME r /\
                       state_rel k r t /\ t.ffi = s.ffi
-    | _ => F``,
+    | _ => F`,
   strip_tac \\ fs [init_pre_def]
   \\ drule init_code_thm \\ fs []
   \\ CASE_TAC \\ CASE_TAC
@@ -2261,26 +2261,26 @@ val clock_neutral_store_list_code = Q.store_thm("clock_neutral_store_list_code",
   Induct \\ fs [clock_neutral_def,store_list_code_def]
   \\ Cases \\ fs [clock_neutral_def,store_list_code_def,list_Seq_def]);
 
-val evaluate_init_code_clock = prove(
-  ``evaluate (init_code max_heap bitmaps k,s) = (res,t) ==>
+val evaluate_init_code_clock = Q.prove(
+  `evaluate (init_code max_heap bitmaps k,s) = (res,t) ==>
     evaluate (init_code max_heap bitmaps k,s with clock := c) =
-      (res,t with clock := c)``,
+      (res,t with clock := c)`,
   srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
-val evaluate_init_code_ffi = prove(
-  ``evaluate (init_code max_heap bitmaps k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
+val evaluate_init_code_ffi = Q.prove(
+  `evaluate (init_code max_heap bitmaps k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
     evaluate (init_code max_heap bitmaps k,s with ffi := c) =
-      (res,(t with ffi := c):('a,'ffi) stackSem$state)``,
+      (res,(t with ffi := c):('a,'ffi) stackSem$state)`,
   srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
-val init_semantics = store_thm("init_semantics",
-  ``lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+val init_semantics = Q.store_thm("init_semantics",
+  `lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     code_rel k code s.code /\
     init_pre max_heap bitmaps k start s ==>
     case evaluate (init_code max_heap bitmaps k,s) of
@@ -2290,7 +2290,7 @@ val init_semantics = store_thm("init_semantics",
     | (NONE,t) =>
         (semantics 0 s = semantics start t) /\
         ?r. make_init_opt max_heap bitmaps k code s = SOME r /\ state_rel k r t
-    | _ => F``,
+    | _ => F`,
   srw_tac[][]
   \\ pop_assum (fn th => assume_tac th \\ mp_tac th)
   \\ simp_tac std_ss [init_pre_def] \\ rw []
@@ -2404,14 +2404,14 @@ val make_init_any_def = Define `
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>`
 
-val make_init_semantics = store_thm("make_init_semantics",
-  ``init_pre max_heap bitmaps k start s2 /\
+val make_init_semantics = Q.store_thm("make_init_semantics",
+  `init_pre max_heap bitmaps k start s2 /\
     EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code /\
     s2.code = fromAList (compile max_heap bitmaps k start code) /\
     IS_SOME (make_init_opt max_heap bitmaps k (fromAList code) s2) /\
     make_init_any max_heap bitmaps k (fromAList code) s2 = s1 /\
     semantics start s1 <> Fail ==>
-    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
+    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}`,
   fs [make_init_any_def]
   \\ Cases_on `make_init_opt max_heap bitmaps k (fromAList code) s2` \\ fs []
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -2422,21 +2422,21 @@ val make_init_semantics = store_thm("make_init_semantics",
   \\ qexists_tac `fromAList code` \\ fs [] \\ rfs []
   \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
-val make_init_semantics_fail = store_thm("make_init_semantics_fail",
-  ``init_pre max_heap bitmaps k start s2 /\
+val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
+  `init_pre max_heap bitmaps k start s2 /\
     EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code /\
     s2.code = fromAList (compile max_heap bitmaps k start code) /\
     make_init_opt max_heap bitmaps k (fromAList code) s2 = NONE ==>
-    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events``,
+    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
   rw [] \\ drule (GEN_ALL make_init_opt_NONE_semantics)
   \\ disch_then match_mp_tac \\ fs []
   \\ qexists_tac `fromAList code` \\ fs [] \\ rfs []
   \\ imp_res_tac IMP_code_rel \\ rfs []
   \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
-val make_init_any_ffi = store_thm("make_init_any_ffi",
-  ``(make_init_any max_heap bitmaps k code s).ffi =
-    (s:('a,'ffi) stackSem$state).ffi``,
+val make_init_any_ffi = Q.store_thm("make_init_any_ffi",
+  `(make_init_any max_heap bitmaps k code s).ffi =
+    (s:('a,'ffi) stackSem$state).ffi`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []
   \\ imp_res_tac evaluate_init_code_ffi

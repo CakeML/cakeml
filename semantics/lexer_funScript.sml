@@ -33,9 +33,9 @@ val read_while_def = Define `
      if P c then read_while P cs (c :: s)
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
-val read_while_thm = store_thm("read_while_thm",
-  ``!cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
+val read_while_thm = Q.store_thm("read_while_thm",
+  `!cs s cs' s'.
+       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs`,
   Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
@@ -60,9 +60,9 @@ val read_string_def = tDefine "read_string" `
   (WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
    THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC)
 
-val read_string_thm = store_thm("read_string_thm",
-  ``!s t x1 x2. (read_string s t = (x1,x2)) ==>
-                (LENGTH x2 <= LENGTH s + LENGTH t)``,
+val read_string_thm = Q.store_thm("read_string_thm",
+  `!s t x1 x2. (read_string s t = (x1,x2)) ==>
+                (LENGTH x2 <= LENGTH s + LENGTH t)`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "read_string_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
@@ -169,8 +169,8 @@ val lem2 = Q.prove (
   Cases_on `z a` THEN
   FULL_SIMP_TAC std_ss []);
 
-val next_sym_LESS = store_thm("next_sym_LESS",
-  ``!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input``,
+val next_sym_LESS = Q.store_thm("next_sym_LESS",
+  `!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input`,
   HO_MATCH_MP_TAC (fetch "-" "next_sym_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [next_sym_def]
   THEN SIMP_TAC (srw_ss()) [METIS_PROVE [] ``(b ==> c) <=> ~b \/ c``]
@@ -299,9 +299,9 @@ val next_token_def = Define `
     | NONE => NONE
     | SOME (sym, rest_of_input) => SOME (token_of_sym sym, rest_of_input)`;
 
-val next_token_LESS = store_thm("next_token_LESS",
-  ``!s rest input. (next_token input = SOME (s,rest)) ==>
-                   LENGTH rest < LENGTH input``,
+val next_token_LESS = Q.store_thm("next_token_LESS",
+  `!s rest input. (next_token input = SOME (s,rest)) ==>
+                   LENGTH rest < LENGTH input`,
   NTAC 3 STRIP_TAC THEN Cases_on `next_sym input`
   THEN ASM_SIMP_TAC (srw_ss()) [next_token_def]
   THEN Cases_on `x` THEN ASM_SIMP_TAC (srw_ss()) []

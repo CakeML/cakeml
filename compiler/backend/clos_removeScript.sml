@@ -86,8 +86,8 @@ val remove_def = tDefine "remove" `
 
 val remove_ind = theorem "remove_ind";
 
-val remove_LENGTH_LEMMA = prove(
-  ``!xs. (case remove xs of (ys,s1) => (LENGTH xs = LENGTH ys))``,
+val remove_LENGTH_LEMMA = Q.prove(
+  `!xs. (case remove xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
   recInduct remove_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [remove_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
@@ -96,12 +96,12 @@ val remove_LENGTH_LEMMA = prove(
   \\ SRW_TAC [] [] \\ DECIDE_TAC)
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
-val remove_LENGTH = store_thm("remove_LENGTH",
-  ``!xs ys l. (remove xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)``,
+val remove_LENGTH = Q.store_thm("remove_LENGTH",
+  `!xs ys l. (remove xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
   REPEAT STRIP_TAC \\ MP_TAC remove_LENGTH_LEMMA \\ fs []);
 
-val remove_SING = store_thm("remove_SING",
-  ``(remove [x] = (ys,l)) ==> ?y. ys = [y]``,
+val remove_SING = Q.store_thm("remove_SING",
+  `(remove [x] = (ys,l)) ==> ?y. ys = [y]`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC remove_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
@@ -123,7 +123,7 @@ val remove_CONS = Q.store_thm("remove_CONS",
 
 val remove_alt = save_thm ("remove_alt",remove_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
-val remove_alt_ind = store_thm("remove_alt_ind",``
+val remove_alt_ind = Q.store_thm("remove_alt_ind",`
     ∀P.
      P [] ∧
      (∀x y xs.
@@ -153,7 +153,7 @@ val remove_alt_ind = store_thm("remove_alt_ind",``
      (∀x1 x2.
         (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
         P [Handle x1 x2]) ∧ (∀ticks dest xs. P xs ⇒ P [Call ticks dest xs]) ⇒
-     ∀v. P v``,
+     ∀v. P v`,
   ntac 2 strip_tac>>
   ho_match_mp_tac remove_ind>>
   fs[]>>rw[]>>TRY(metis_tac[])>>

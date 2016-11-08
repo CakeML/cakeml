@@ -32,15 +32,15 @@ val exp_rel_def = Define `
       res <> Rerr (Rabort Rtype_error) ==>
       evaluate ([e2],env,s) = (res,t)`
 
-val evaluate_code_insert = store_thm("evaluate_code_insert",
-  ``!xs env (s:'ffi bvlSem$state) res t e1 e2 n arity c.
+val evaluate_code_insert = Q.store_thm("evaluate_code_insert",
+  `!xs env (s:'ffi bvlSem$state) res t e1 e2 n arity c.
       evaluate (xs,env,s) = (res,t) /\
       exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 /\
       res ≠ Rerr (Rabort Rtype_error) /\
       lookup n c = SOME (arity,e1) /\
       s.code = c ==>
       evaluate (xs,env,s with code := insert n (arity,e2) c) =
-                  (res,t with code := insert n (arity,e2) c)``,
+                  (res,t with code := insert n (arity,e2) c)`,
   recInduct bvlSemTheory.evaluate_ind \\ reverse (rw [])
   \\ fs [bvlSemTheory.evaluate_def]
   THEN1 (* Call *)
@@ -129,10 +129,10 @@ val evaluate_code_insert = store_thm("evaluate_code_insert",
     \\ imp_res_tac evaluate_code \\ fs []
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []));
 
-val code_rel_insert = store_thm("code_rel_insert",
-  ``lookup n c = SOME (arity,e1) /\
+val code_rel_insert = Q.store_thm("code_rel_insert",
+  `lookup n c = SOME (arity,e1) /\
     exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 ==>
-    code_rel (:'ffi) c (insert n (arity,e2) c)``,
+    code_rel (:'ffi) c (insert n (arity,e2) c)`,
   fs [code_rel_def] \\ rw [lookup_insert] \\ rw [] \\ fs [] \\ rw []
   \\ TRY (drule evaluate_code_insert \\ fs [] \\ NO_TAC)
   \\ drule evaluate_code_insert \\ fs []
@@ -194,18 +194,18 @@ val exp_rel_inline = Q.store_thm("exp_rel_inline",
         once_rewrite_tac [GSYM th])
   \\ match_mp_tac evaluate_inline \\ fs []);
 
-val code_rel_insert_inline = store_thm("code_rel_insert_inline",
-  ``lookup n c = SOME (arity,e1) /\ subspt cs c /\ ~(n IN domain cs) ==>
-    code_rel (:'ffi) c (insert n (arity,(HD (inline cs [e1]))) c)``,
+val code_rel_insert_inline = Q.store_thm("code_rel_insert_inline",
+  `lookup n c = SOME (arity,e1) /\ subspt cs c /\ ~(n IN domain cs) ==>
+    code_rel (:'ffi) c (insert n (arity,(HD (inline cs [e1]))) c)`,
   rw [] \\ match_mp_tac code_rel_insert \\ fs []
   \\ match_mp_tac exp_rel_inline
   \\ fs [subspt_def,domain_lookup,PULL_EXISTS,lookup_insert]
   \\ rw [] \\ res_tac \\ fs []);
 
-val code_rel_insert_insert_inline = store_thm("code_rel_insert_insert_inline",
-  ``subspt cs (insert n (arity,e1) c) /\ ~(n IN domain cs) ==>
+val code_rel_insert_insert_inline = Q.store_thm("code_rel_insert_insert_inline",
+  `subspt cs (insert n (arity,e1) c) /\ ~(n IN domain cs) ==>
     code_rel (:'ffi) (insert n (arity,e1) c)
-                     (insert n (arity,(HD (inline cs [e1]))) c)``,
+                     (insert n (arity,(HD (inline cs [e1]))) c)`,
   `insert n (arity,HD (inline cs [e1])) c =
    insert n (arity,HD (inline cs [e1])) (insert n (arity,e1) c)` by fs [insert_shadow]
   \\ pop_assum (fn th => once_rewrite_tac [th]) \\ rw []
@@ -242,20 +242,20 @@ val MAP_FST_inline_all = Q.store_thm("MAP_FST_inline_all",
   \\ PairCases_on `h` \\ fs [inline_all_def] \\ rw []
   \\ once_rewrite_tac [inline_all_acc] \\ fs []);
 
-val MEM_IMP_ALOOKUP_SOME = store_thm("MEM_IMP_ALOOKUP_SOME",
-  ``!xs x y.
+val MEM_IMP_ALOOKUP_SOME = Q.store_thm("MEM_IMP_ALOOKUP_SOME",
+  `!xs x y.
       ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==>
-      ALOOKUP xs x = SOME y``,
+      ALOOKUP xs x = SOME y`,
   Induct \\ fs [FORALL_PROD] \\ rw []
   \\ res_tac \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []);
 
-val code_rel_inline_all = store_thm("code_rel_inline_all",
-  ``!xs ys cs.
+val code_rel_inline_all = Q.store_thm("code_rel_inline_all",
+  `!xs ys cs.
       (!x y. lookup x cs = SOME y ==> MEM (x,y) ys /\ !y. ~MEM (x,y) xs) /\
       ALL_DISTINCT (MAP FST (ys ++ xs)) ==>
       code_rel (:'ffi)
         (fromAList (xs ++ ys))
-        (fromAList (inline_all limit cs xs [] ++ ys))``,
+        (fromAList (inline_all limit cs xs [] ++ ys))`,
   Induct \\ fs [inline_all_def,code_rel_refl]
   \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ reverse (rw [inline_all_def])

@@ -149,9 +149,9 @@ val get_labels_comp = Q.prove(
   \\ Cases_on `p` \\ once_rewrite_tac [comp_def] \\ fs [get_labels_def]
   \\ every_case_tac \\ fs []);
 
-val loc_check_rename_state = prove(
-  ``loc_check (rename_state f s).code (l1,l2) =
-    loc_check s.code (l1,l2)``,
+val loc_check_rename_state = Q.prove(
+  `loc_check (rename_state f s).code (l1,l2) =
+    loc_check s.code (l1,l2)`,
   fs [loc_check_def,rename_state_def,lookup_fromAList,compile_def,prog_comp_def]
   \\ simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList]
   \\ fs [PULL_EXISTS,get_labels_comp]);

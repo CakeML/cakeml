@@ -118,33 +118,33 @@ fun prove_array_spec op_name =
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
-val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
-  ``!n nv w wv.
+val w8array_alloc_spec = Q.store_thm ("w8array_alloc_spec",
+  `!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))`,
   prove_array_spec "Word8Array.array");
 
-val w8array_sub_spec = store_thm ("w8array_sub_spec",
-  ``!a av n nv.
+val w8array_sub_spec = Q.store_thm ("w8array_sub_spec",
+  `!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)`,
   prove_array_spec "Word8Array.sub");
 
-val w8array_length_spec = store_thm ("w8array_length_spec",
-  ``!a av.
+val w8array_length_spec = Q.store_thm ("w8array_length_spec",
+  `!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)`,
   prove_array_spec "Word8Array.length");
 
-val w8array_update_spec = store_thm ("w8array_update_spec",
-  ``!a av n nv w wv.
+val w8array_update_spec = Q.store_thm ("w8array_update_spec",
+  `!a av n nv w wv.
      NUM n nv /\ n < LENGTH a /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))`,
   prove_array_spec "Word8Array.update");
 
 (* Char module -- translated *)
@@ -479,15 +479,15 @@ val FILENAME_def = Define `
      strlen s < 256)
 `;
 
-val write_spec = store_thm ("write_spec",
-  ``!c cv.
+val write_spec = Q.store_thm ("write_spec",
+  `!c cv.
      CHAR (c:char) cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * CATFS fs)
        (POSTv uv.
          cond (UNIT_TYPE () uv) * CHAR_IO *
-         CATFS (fs with stdout := fs.stdout ++ [c]))``,
+         CATFS (fs with stdout := fs.stdout ++ [c]))`,
   xcf "CharIO.write" (basis_st()) >>
   xlet `POSTv civ. &NUM (ORD c) civ * CHAR_IO * CATFS fs`
   >- (xapp >> xsimpl >> instantiate) >>

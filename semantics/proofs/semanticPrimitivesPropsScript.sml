@@ -337,8 +337,8 @@ val do_app_cases = Q.store_thm ("do_app_cases",
  metis_tac []);
  *)
 
-val do_opapp_cases = store_thm("do_opapp_cases",
-  ``∀env' vs v.
+val do_opapp_cases = Q.store_thm("do_opapp_cases",
+  `∀env' vs v.
     (do_opapp vs = SOME (env',v))
     =
   ((∃v2 env'' n e.
@@ -348,7 +348,7 @@ val do_opapp_cases = store_thm("do_opapp_cases",
     (vs = [Recclosure env'' funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))``,
+    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))`,
   srw_tac[][do_opapp_def] >>
   cases_on `vs` >> srw_tac[][] >>
   every_case_tac >> metis_tac []);
@@ -759,13 +759,13 @@ val _ = export_rewrites["FV_def"]
 
 val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
 
-val FV_pes_MAP = store_thm("FV_pes_MAP",
-  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
+val FV_pes_MAP = Q.store_thm("FV_pes_MAP",
+  `FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))`,
   Induct_on`pes`>>simp[]>>
   qx_gen_tac`p`>>PairCases_on`p`>>srw_tac[][])
 
-val FV_defs_MAP = store_thm("FV_defs_MAP",
-  ``∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))``,
+val FV_defs_MAP = Q.store_thm("FV_defs_MAP",
+  `∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))`,
   Induct_on`ls`>>simp[FORALL_PROD])
 
 val FV_dec_def = Define`

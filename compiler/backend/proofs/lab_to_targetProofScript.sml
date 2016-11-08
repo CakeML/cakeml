@@ -32,9 +32,9 @@ val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
   \\ Cases_on`n = LENGTH xs`
   \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
 
-val call_FFI_LENGTH = prove(
-  ``(call_FFI st index x = (new_st,new_bytes)) ==>
-    (LENGTH x = LENGTH new_bytes)``,
+val call_FFI_LENGTH = Q.prove(
+  `(call_FFI st index x = (new_st,new_bytes)) ==>
+    (LENGTH x = LENGTH new_bytes)`,
   full_simp_tac(srw_ss())[call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[listTheory.LENGTH_MAP]);
 
@@ -283,9 +283,9 @@ val option_ldrop_option_ldrop = Q.prove(
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[option_ldrop_SUC,ADD_CLAUSES]);
 
 (*
-val option_ldrop_lemma = prove(
-  ``(call_FFI index x io = (new_bytes,new_io)) /\ new_io <> NONE ==>
-    (new_io = option_ldrop 1 io)``,
+val option_ldrop_lemma = Q.prove(
+  `(call_FFI index x io = (new_bytes,new_io)) /\ new_io <> NONE ==>
+    (new_io = option_ldrop 1 io)`,
   full_simp_tac(srw_ss())[call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
   \\ srw_tac[][]
   \\ Q.MATCH_ASSUM_RENAME_TAC `LTL ll <> NONE`
@@ -496,8 +496,8 @@ val bytes_in_mem_APPEND = Q.prove(
 
 val s1 = ``s1:('a,'ffi) labSem$state``;
 
-val IMP_bytes_in_memory = prove(
-  ``code_similar code1 code2 /\
+val IMP_bytes_in_memory = Q.prove(
+  `code_similar code1 code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     (asm_fetch_aux pc code1 = SOME i) /\
     bytes_in_mem p (prog_to_bytes code2) m (dm:'a word set) dm1 ==>
@@ -506,20 +506,20 @@ val IMP_bytes_in_memory = prove(
       line_ok (mc_conf:('a,'state,'b) machine_config).target.config
         labs (pos_val pc 0 code2) j /\
       (pos_val (pc+1) 0 code2 = pos_val pc 0 code2 + LENGTH (line_bytes j)) /\
-      line_similar i j``,
+      line_similar i j`,
   rpt strip_tac
   \\ mp_tac prog_to_bytes_lemma \\ fs[] \\ rpt strip_tac
   \\ fs[bytes_in_mem_APPEND]
   \\ Q.EXISTS_TAC `j` \\ fs[] \\ decide_tac);
 
-val IMP_bytes_in_memory_JumpReg = prove(
-  ``code_similar s1.code code2 /\
+val IMP_bytes_in_memory_JumpReg = Q.prove(
+  `code_similar s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (JumpReg r1) l n)) ==>
     bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
       (mc_conf.target.config.encode (JumpReg r1)) t1.mem t1.mem_domain /\
-    asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+    asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -531,8 +531,8 @@ val IMP_bytes_in_memory_JumpReg = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
-val IMP_bytes_in_memory_Jump = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_Jump = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Jump jtarget) l bytes n)) ==>
@@ -542,7 +542,7 @@ val IMP_bytes_in_memory_Jump = prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -555,8 +555,8 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
-val IMP_bytes_in_memory_JumpCmp = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_JumpCmp = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)) ==>
@@ -566,7 +566,7 @@ val IMP_bytes_in_memory_JumpCmp = prove(
       (enc = mc_conf.target.config.encode (JumpCmp cmp rr ri tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -579,8 +579,8 @@ val IMP_bytes_in_memory_JumpCmp = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
-val IMP_bytes_in_memory_JumpCmp_1 = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_JumpCmp_1 = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)) ==>
@@ -591,7 +591,7 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -606,22 +606,22 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ srw_tac[][]);
 
-val IMP_bytes_in_memory_Call = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_Call = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok
       (mc_conf: ('a,'state,'b) machine_config).target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem
       (t1:'a asm_state).mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Call ww) l bytes n)) ==>
-    F``,
+    F`,
   rpt strip_tac
   \\ full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
   \\ imp_res_tac IMP_bytes_in_memory
   \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[line_ok_def] \\ rev_full_simp_tac(srw_ss())[]);
 
-val IMP_bytes_in_memory_LocValue = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_LocValue = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) l bytes n)) ==>
@@ -632,7 +632,7 @@ val IMP_bytes_in_memory_LocValue = prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -647,8 +647,8 @@ val IMP_bytes_in_memory_LocValue = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ srw_tac[][]);
 
-val IMP_bytes_in_memory_Inst = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_Inst = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (Inst i) bytes len)) ==>
@@ -659,7 +659,7 @@ val IMP_bytes_in_memory_Inst = prove(
       bytes_in_mem ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain s1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Inst i) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (Inst i) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -674,8 +674,8 @@ val IMP_bytes_in_memory_Inst = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ srw_tac[][]);
 
-val IMP_bytes_in_memory_CallFFI = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_CallFFI = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
@@ -684,7 +684,7 @@ val IMP_bytes_in_memory_CallFFI = prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -697,8 +697,8 @@ val IMP_bytes_in_memory_CallFFI = prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
-val IMP_bytes_in_memory_Halt = prove(
-  ``code_similar ^s1.code code2 /\
+val IMP_bytes_in_memory_Halt = Q.prove(
+  `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm Halt l bytes n)) ==>
@@ -707,7 +707,7 @@ val IMP_bytes_in_memory_Halt = prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config``,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -768,18 +768,18 @@ val pos_val_MOD_0 = Q.prove(
   |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
   |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
-val state_rel_weaken = prove(
-  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
-    state_rel (mc_conf,code2,labs,p,F) s1 t1 ms1``,
+val state_rel_weaken = Q.prove(
+  `state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
+    state_rel (mc_conf,code2,labs,p,F) s1 t1 ms1`,
   full_simp_tac(srw_ss())[state_rel_def] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
 
-val read_bytearray_state_rel = prove(
-  ``!n a x.
+val read_bytearray_state_rel = Q.prove(
+  `!n a x.
       state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
       (read_bytearray a n (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
       (read_bytearray a n
         (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
-       SOME x)``,
+       SOME x)`,
   Induct
   \\ full_simp_tac(srw_ss())[read_bytearray_def]
   \\ rpt strip_tac
@@ -810,12 +810,12 @@ val bytes_in_mem_asm_write_bytearray_lemma = Q.prove(
       bytes_in_mem p xs m2 d k`,
   Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def]);
 
-val bytes_in_mem_asm_write_bytearray = prove(
-  ``state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
+val bytes_in_mem_asm_write_bytearray = Q.prove(
+  `state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
     (read_bytearray c1 (LENGTH new_bytes) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
     bytes_in_mem p xs
-      (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain``,
+      (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain`,
   STRIP_TAC \\ match_mp_tac bytes_in_mem_asm_write_bytearray_lemma
   \\ POP_ASSUM MP_TAC
   \\ Q.SPEC_TAC (`c1`,`a`)
@@ -879,10 +879,10 @@ val CallFFI_bytearray_lemma = Q.prove(
   \\ Cases_on `byte_align c1 = byte_align a` \\ full_simp_tac(srw_ss())[word_loc_val_def]
   \\ full_simp_tac(srw_ss())[get_byte_set_byte_diff]);
 
-val word_cmp_lemma = prove(
-  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
+val word_cmp_lemma = Q.prove(
+  `state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
     (word_cmp cmp (read_reg rr s1) (reg_imm ri s1) = SOME x) ==>
-    (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))``,
+    (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))`,
   Cases_on `ri` \\ full_simp_tac(srw_ss())[labSemTheory.reg_imm_def,asmSemTheory.reg_imm_def]
   \\ full_simp_tac(srw_ss())[asmSemTheory.read_reg_def]
   \\ Cases_on `s1.regs rr` \\ full_simp_tac(srw_ss())[]
@@ -904,9 +904,9 @@ val bytes_in_mem_IMP_memory = Q.prove(
       bytes_in_memory a xs m1 dm`,
   Induct \\ full_simp_tac(srw_ss())[bytes_in_memory_def,bytes_in_mem_def]);
 
-val state_rel_shift_interfer = prove(
-  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 x ==>
-    state_rel (shift_interfer l mc_conf,code2,labs,p,T) s1 t1 x``,
+val state_rel_shift_interfer = Q.prove(
+  `state_rel (mc_conf,code2,labs,p,T) s1 t1 x ==>
+    state_rel (shift_interfer l mc_conf,code2,labs,p,T) s1 t1 x`,
   full_simp_tac(srw_ss())[state_rel_def,shift_interfer_def]
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ res_tac
   \\ full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def]);
@@ -1425,9 +1425,9 @@ val Inst_lemma = Q.prove(
       rw[APPLY_UPDATE_THM]>>
       rfs[])))
 
-val state_rel_ignore_io_events = prove(
-  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
-    state_rel (mc_conf,code2,labs,p,T) (s1 with ffi := io) t1 ms1``,
+val state_rel_ignore_io_events = Q.prove(
+  `state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
+    state_rel (mc_conf,code2,labs,p,T) (s1 with ffi := io) t1 ms1`,
   full_simp_tac(srw_ss())[state_rel_def] \\ rpt strip_tac
   \\ res_tac \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]);
 
@@ -1936,10 +1936,10 @@ val init_ok_def = Define `
     ?code2 labs t1.
       state_rel (mc_conf,code2,labs,p,T) s t1 ms`
 
-val evaluate_ignore_clocks = prove(
-  ``evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
+val evaluate_ignore_clocks = Q.prove(
+  `evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
-    (r1,ms1,st1) = (r2,ms2,st2)``,
+    (r1,ms1,st1) = (r2,ms2,st2)`,
   srw_tac[][] \\ imp_res_tac evaluate_add_clock \\ full_simp_tac(srw_ss())[]
   \\ pop_assum (qspec_then `k'` mp_tac)
   \\ pop_assum (qspec_then `k` mp_tac)
@@ -2342,11 +2342,11 @@ val has_odd_inst_alignment = Q.store_thm("has_odd_inst_alignment",
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ metis_tac[line_ok_alignment,ODD_EVEN]);
 
-val enc_lines_again_IMP_similar = prove(``
+val enc_lines_again_IMP_similar = Q.prove(`
   ∀labs pos enc lines acc ok lines' ok' curr.
   enc_lines_again labs pos enc lines (acc,ok) = (lines',ok') ⇒
   LIST_REL line_similar curr (REVERSE acc) ⇒
-  LIST_REL line_similar (curr++lines) lines'``,
+  LIST_REL line_similar (curr++lines) lines'`,
   Induct_on`lines`>>fs[enc_lines_again_def]>>rw[]>>
   fs[AND_IMP_INTRO]>>
   `curr ++ h ::lines = SNOC h curr ++ lines` by fs[]>>
@@ -2355,9 +2355,9 @@ val enc_lines_again_IMP_similar = prove(``
   Cases_on`h`>>fs[enc_lines_again_def]>>EVERY_CASE_TAC>>
   asm_exists_tac>>fs[SNOC_APPEND,line_similar_def])
 
-val enc_secs_again_IMP_similar = prove(
-  ``∀pos labs enc code code1 ok.
-  enc_secs_again pos labs enc code = (code1,ok) ==> code_similar code code1``,
+val enc_secs_again_IMP_similar = Q.prove(
+  `∀pos labs enc code code1 ok.
+  enc_secs_again pos labs enc code = (code1,ok) ==> code_similar code code1`,
   ho_match_mp_tac enc_secs_again_ind>>fs[enc_secs_again_def]>>rw[]>>
   ntac 2 (pairarg_tac>>fs[])>>
   rveq>>fs[code_similar_def]>>
@@ -2413,31 +2413,31 @@ val enc_lines_again_simp_def = Define`
 
 val enc_lines_again_simp_ind = theorem"enc_lines_again_simp_ind";
 
-val enc_lines_again_simp_EQ = prove(``
+val enc_lines_again_simp_EQ = Q.prove(`
   ∀labs pos enc ls acc b.
   let (ls',flag) = enc_lines_again_simp labs pos enc ls in
-  enc_lines_again labs pos enc ls (acc,b) = (REVERSE acc ++ ls',b ∧ flag)``,
+  enc_lines_again labs pos enc ls (acc,b) = (REVERSE acc ++ ls',b ∧ flag)`,
   ho_match_mp_tac enc_lines_again_simp_ind >>
   fs[enc_lines_again_simp_def,enc_lines_again_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>
   rw[EQ_IMP_THM]>>fs[])
 
 (*
-val enc_lines_again_simp_lemma = prove(``
+val enc_lines_again_simp_lemma = Q.prove(`
   ∀labs pos enc lines lines' acc n.
   enc_lines_again_simp labs pos enc lines = (lines',T) ⇒
   asm_line_labs pos lines acc = asm_line_labs pos lines' acc ∧
-  sec_length lines n = sec_length lines' n``,
+  sec_length lines n = sec_length lines' n`,
   ho_match_mp_tac enc_lines_again_simp_ind >>
   fs[enc_lines_again_simp_def]>>rw[]>>
   pairarg_tac>>fs[]>>
   rveq>>fs[asm_line_labs_def,full_sec_length_def]>>
   fs[sec_length_def])
 
-val enc_lines_again_T_IMP = prove(``
+val enc_lines_again_T_IMP = Q.prove(`
   enc_lines_again labs pos enc lines ([],T) = (lines',T) ⇒
   sec_labs pos lines = sec_labs pos lines' ∧
-  full_sec_length lines = full_sec_length lines'``,
+  full_sec_length lines = full_sec_length lines'`,
   strip_tac>>
   Q.ISPECL_THEN[`labs`,`pos`,`enc`,`lines`,`[]:'a line list`,`T`] assume_tac enc_lines_again_simp_EQ>>
   fs[]>>pairarg_tac>>fs[]>>
@@ -2448,10 +2448,10 @@ val enc_lines_again_T_IMP = prove(``
 *)
 
 (*
-val enc_secs_again_T_IMP = prove(``
+val enc_secs_again_T_IMP = Q.prove(`
   ∀pos code enc labs sec_list acc.
   enc_secs_again pos labs enc code = (sec_list,T) ⇒
-  compute_labels pos code acc = compute_labels pos sec_list acc``,
+  compute_labels pos code acc = compute_labels pos sec_list acc`,
   Induct_on`code`>>fs[enc_secs_again_def]>>rw[]>>
   Cases_on`h`>>fs[compute_labels_def]>>
   pairarg_tac>>fs[enc_secs_again_def]>>
@@ -2711,8 +2711,8 @@ val IS_SOME_lab_lookup_compute_labels = Q.prove(
 
 *)
 
-val MEM_all_labels = prove(
-  ``MEM (l1,l2,pos) (all_labels labs) <=> lab_lookup l1 l2 labs = SOME pos``,
+val MEM_all_labels = Q.prove(
+  `MEM (l1,l2,pos) (all_labels labs) <=> lab_lookup l1 l2 labs = SOME pos`,
   rw[lab_lookup_def,all_labels_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_toAList,EXISTS_PROD]
   \\ CASE_TAC);
 
@@ -4740,8 +4740,8 @@ val aligned_1_intro = Q.prove(
   `((1w && w) = 0w) <=> aligned 1 w`,
   fs [alignmentTheory.aligned_bitwise_and]);
 
-val IMP_state_rel_make_init = prove(
-  ``good_syntax mc_conf code LN /\
+val IMP_state_rel_make_init = Q.prove(
+  `good_syntax mc_conf code LN /\
     EVERY sec_ends_with_label code /\
     enc_ok mc_conf.target.config /\
     remove_labels clock mc_conf.target.config code =
@@ -4752,7 +4752,7 @@ val IMP_state_rel_make_init = prove(
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms,T)
       (make_init mc_conf (ffi:'ffi ffi_state)
-         save_regs io_regs t m dm ms code) t ms``,
+         save_regs io_regs t m dm ms code) t ms`,
   srw_tac[][] \\ drule remove_labels_thm
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def,make_init_def,
@@ -4798,8 +4798,8 @@ val implements_intro_gen = Q.store_thm("implements_intro_gen",
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[semanticsPropsTheory.extend_with_resource_limit_def]);
 
-val semantics_compile_lemma = store_thm("semantics_compile_lemma",
-  ``ffi.final_event = NONE /\
+val semantics_compile_lemma = Q.store_thm("semantics_compile_lemma",
+  `ffi.final_event = NONE /\
     backend_correct mc_conf.target /\
     good_syntax mc_conf code LN /\
     EVERY sec_ends_with_label code /\
@@ -4809,7 +4809,7 @@ val semantics_compile_lemma = store_thm("semantics_compile_lemma",
     good_init_state mc_conf t m ms ffi ffi_limit bytes io_regs save_regs dm /\
     semantics (make_init mc_conf ffi save_regs io_regs t m dm ms code) <> Fail ==>
     machine_sem mc_conf ffi ms =
-    {semantics (make_init mc_conf ffi save_regs io_regs t m dm ms code)}``,
+    {semantics (make_init mc_conf ffi save_regs io_regs t m dm ms code)}`,
   full_simp_tac(srw_ss())[compile_def,compile_lab_def,GSYM AND_IMP_INTRO]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]

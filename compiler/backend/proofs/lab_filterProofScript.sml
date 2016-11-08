@@ -497,12 +497,12 @@ val inc_pc_tac =
   `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
   metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC];
 
-val filter_correct = prove(
-  ``!(s1:('a,'ffi) labSem$state) t1 res s2.
+val filter_correct = Q.prove(
+  `!(s1:('a,'ffi) labSem$state) t1 res s2.
       (evaluate s1 = (res,s2)) /\ state_rel s1 t1 /\ ~t1.failed ==>
       ?k t2.
         (evaluate (t1 with clock := s1.clock + k) = (res,t2)) /\
-        (s2.ffi = t2.ffi)``,
+        (s2.ffi = t2.ffi)`,
   ho_match_mp_tac evaluate_ind>>srw_tac[][]>>
   qpat_x_assum`evaluate s1 = A` mp_tac>>
   simp[Once evaluate_def]>>

@@ -245,15 +245,15 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
-val do_app_clock = store_thm("do_app_clock",
-  ``(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock``,
+val do_app_clock = Q.store_thm("do_app_clock",
+  `(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock`,
   SIMP_TAC std_ss [do_app_def,do_space_def,consume_space_def]
   \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ IMP_RES_TAC bviSemTheory.do_app_const \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def] \\ SRW_TAC [] []);
 
-val evaluate_clock = store_thm("evaluate_clock",
-  ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
+val evaluate_clock = Q.store_thm("evaluate_clock",
+  `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ simp[]
@@ -269,8 +269,8 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]);
 
-val evaluate_check_clock = prove(
-  ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
+val evaluate_check_clock = Q.prove(
+  `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)`,
   METIS_TAC [evaluate_clock,check_clock_thm]);
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)

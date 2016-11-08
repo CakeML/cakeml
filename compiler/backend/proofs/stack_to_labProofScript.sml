@@ -304,11 +304,11 @@ val compile_jump_correct = Q.store_thm("compile_jump_correct",
   simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
   CASE_TAC >> full_simp_tac(srw_ss())[]);
 
-val code_installed_get_labels_IMP = prove(
-  ``!e n q pc.
+val code_installed_get_labels_IMP = Q.prove(
+  `!e n q pc.
       code_installed pc (append (FST (flatten e n q))) c /\
       (l1,l2) ∈ get_labels e ==>
-      ?v. loc_to_pc l1 l2 c = SOME v``,
+      ?v. loc_to_pc l1 l2 c = SOME v`,
   recInduct flatten_ind \\ rw []
   \\ ntac 2 (pop_assum mp_tac)
   \\ once_rewrite_tac [flatten_def]
@@ -332,9 +332,9 @@ val code_installed_get_labels_IMP = prove(
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []);
 
-val loc_check_IMP_loc_to_pc = store_thm("loc_check_IMP_loc_to_pc",
-  ``loc_check s.code (l1,l2) /\ state_rel s t1 ==>
-    ?v. loc_to_pc l1 l2 t1.code = SOME v``,
+val loc_check_IMP_loc_to_pc = Q.store_thm("loc_check_IMP_loc_to_pc",
+  `loc_check s.code (l1,l2) /\ state_rel s t1 ==>
+    ?v. loc_to_pc l1 l2 t1.code = SOME v`,
   rw [loc_check_def] \\ fs [state_rel_def]
   \\ fs [domain_lookup] \\ res_tac \\ fs []
   \\ imp_res_tac code_installed_get_labels_IMP \\ fs []);
@@ -1809,15 +1809,15 @@ fun define_abbrev name tm = let
   val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
   in Define `^n ^vars = ^tm` end;
 
-val FLOOKUP_regs = prove(
-  ``!regs n v f s.
+val FLOOKUP_regs = Q.prove(
+  `!regs n v f s.
       FLOOKUP (FEMPTY |++ MAP (λr. (r,read_reg r s)) regs) n = SOME v ==>
-      read_reg n s = v``,
+      read_reg n s = v`,
   recInduct SNOC_INDUCT \\ fs [FUPDATE_LIST,FOLDL_SNOC,MAP_SNOC]
   \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs []);
 
-val state_rel_make_init = store_thm("state_rel_make_init",
-  ``state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
+val state_rel_make_init = Q.store_thm("state_rel_make_init",
+  `state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
      good_syntax prog s.ptr_reg s.len_reg s.link_reg ∧
@@ -1826,7 +1826,7 @@ val state_rel_make_init = store_thm("state_rel_make_init",
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
     s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
     s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
-    (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)``,
+    (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)`,
   fs [state_rel_def,make_init_def,FLOOKUP_regs]
   \\ eq_tac \\ strip_tac \\ fs []
   \\ metis_tac [FLOOKUP_regs]);
@@ -1914,7 +1914,7 @@ val next_lab_non_zero = Q.store_thm("next_lab_non_zero",`
   rw[]>>once_rewrite_tac[next_lab_def]>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[]);
 
-val stack_to_lab_lab_pres = store_thm("stack_to_lab_lab_pres",``
+val stack_to_lab_lab_pres = Q.store_thm("stack_to_lab_lab_pres",`
   ∀p n nl.
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
@@ -1923,7 +1923,7 @@ val stack_to_lab_lab_pres = store_thm("stack_to_lab_lab_pres",``
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (append cp)) ∧
   ALL_DISTINCT (extract_labels (append cp)) ∧
   (∀lab. MEM lab (extract_labels (append cp)) ⇒ MEM lab (extract_labels p) ∨ (nl ≤ SND lab ∧ SND lab < nl')) ∧
-  nl ≤ nl'``,
+  nl ≤ nl'`,
   HO_MATCH_MP_TAC flatten_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [flatten_def]>>fs[extract_labels_def,sextract_labels_def]
   >-
@@ -1985,14 +1985,14 @@ val extract_label_store_list_code = Q.prove(`
   ho_match_mp_tac stack_removeTheory.store_list_code_ind>>
   EVAL_TAC>>fs[]);
 
-val stack_to_lab_compile_lab_pres = store_thm("stack_to_lab_compile_lab_pres",``
+val stack_to_lab_compile_lab_pres = Q.store_thm("stack_to_lab_compile_lab_pres",`
   EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ gc_stub_location) (MAP FST prog) ∧
   EVERY (λn,p.
     let labs = extract_labels p in
     EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) prog ∧
   ALL_DISTINCT (MAP FST prog) ⇒
-  labels_ok (compile c c2 c3 sp prog)``,
+  labels_ok (compile c c2 c3 sp prog)`,
   rw[labels_ok_def,stack_to_labTheory.compile_def]
   >-
     (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>

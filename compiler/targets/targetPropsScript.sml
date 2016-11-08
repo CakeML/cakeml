@@ -137,10 +137,10 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
 
 (* basic properties *)
 
-val evaluate_add_clock = store_thm("evaluate_add_clock",
-  ``∀mc_conf ffi k ms k1 r ms1 st1.
+val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
+  `∀mc_conf ffi k ms k1 r ms1 st1.
     evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
-    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)``,
+    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][] >>
   qhdtm_x_assum`evaluate` mp_tac >>
   simp[Once evaluate_def] >>

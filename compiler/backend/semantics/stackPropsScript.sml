@@ -141,8 +141,8 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    (dec_clock z).bitmaps = z.bitmaps`,
   EVAL_TAC);
 
-val evaluate_consts = store_thm("evaluate_consts",
-  ``!c s r s1.
+val evaluate_consts = Q.store_thm("evaluate_consts",
+  `!c s r s1.
       evaluate (c,s) = (r,s1) ==>
       s1.use_alloc = s.use_alloc /\
       s1.use_store = s.use_store /\
@@ -151,7 +151,7 @@ val evaluate_consts = store_thm("evaluate_consts",
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
       s1.mdomain = s.mdomain /\
-      s1.bitmaps = s.bitmaps``,
+      s1.bitmaps = s.bitmaps`,
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
@@ -335,10 +335,10 @@ val inst_clock_neutral_ffi = Q.prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
   \\ srw_tac[][state_component_equality]));
 
-val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
-  ``!prog s res t.
+val evaluate_clock_neutral = Q.store_thm("evaluate_clock_neutral",
+  `!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with clock := c) = (res,t with clock := c)``,
+      evaluate (prog,s with clock := c) = (res,t with clock := c)`,
   recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
@@ -348,10 +348,10 @@ val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
-val evaluate_ffi_neutral = store_thm("evaluate_ffi_neutral",
-  ``!prog s res t.
+val evaluate_ffi_neutral = Q.store_thm("evaluate_ffi_neutral",
+  `!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with ffi := c) = (res,t with ffi := c)``,
+      evaluate (prog,s with ffi := c) = (res,t with ffi := c)`,
   recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def])
@@ -388,11 +388,11 @@ val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
             EVAL``(s with clock := k).clock``,
             EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
 
-val map_bitmap_length = store_thm("map_bitmap_length",``
+val map_bitmap_length = Q.store_thm("map_bitmap_length",`
   ∀a b c x y z.
   map_bitmap a b c = SOME(x,y,z) ⇒
   LENGTH c = LENGTH x + LENGTH z ∧
-  LENGTH x = LENGTH a``,
+  LENGTH x = LENGTH a`,
   Induct>>rw[]>>
   Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
   fs[map_bitmap_def]>>

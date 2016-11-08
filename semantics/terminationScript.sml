@@ -211,13 +211,13 @@ val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
     ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
 metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
 
-val do_log_thm = store_thm("do_log_thm",
-  ``do_log l v e =
+val do_log_thm = Q.store_thm("do_log_thm",
+  `do_log l v e =
     if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
     if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
     if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
     if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
-    NONE``,
+    NONE`,
   rw[semanticPrimitivesTheory.do_log_def] >>
   every_case_tac >> rw[])
 

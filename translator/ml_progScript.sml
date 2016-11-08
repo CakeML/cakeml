@@ -56,8 +56,8 @@ val write_cons_simp = Q.store_thm("write_cons_simp[compute]",
   Cases_on `env.c`
   \\ rw [write_cons_def,merge_alist_mod_env_def,SND_ALOOKUP_def]);
 
-val SND_ALOOKUP_EQ_ALOOKUP = store_thm("SND_ALOOKUP_EQ_ALOOKUP",
-  ``!xs ys q. SND_ALOOKUP (xs,ys) q = ALOOKUP ys q``,
+val SND_ALOOKUP_EQ_ALOOKUP = Q.store_thm("SND_ALOOKUP_EQ_ALOOKUP",
+  `!xs ys q. SND_ALOOKUP (xs,ys) q = ALOOKUP ys q`,
   Induct_on `ys` \\ fs [ALOOKUP_def,SND_ALOOKUP_def,FORALL_PROD] \\ rw []);
 
 val write_mod_simp = Q.store_thm("write_mod_simp[compute]",
@@ -114,9 +114,9 @@ val write_rec_thm = Q.store_thm("write_rec_thm",
   \\ Induct_on `funs` \\ fs [FORALL_PROD]
   \\ fs [environment_component_equality,write_def]);
 
-val write_tds_thm = store_thm("write_tds_thm",
-  ``write_tds mn tds env =
-    env with c := merge_alist_mod_env ([],build_tdefs mn tds) env.c``,
+val write_tds_thm = Q.store_thm("write_tds_thm",
+  `write_tds mn tds env =
+    env with c := merge_alist_mod_env ([],build_tdefs mn tds) env.c`,
   Cases_on `env.c`
   \\ fs [write_tds_def,merge_alist_mod_env_def]
   \\ pop_assum mp_tac
@@ -130,10 +130,10 @@ val write_tds_thm = store_thm("write_tds_thm",
   \\ simp [environment_component_equality,FORALL_PROD,write_cons_def,
            merge_alist_mod_env_def]);
 
-val write_exn_thm = store_thm("write_exn_thm",
-  ``write_exn mn n l env =
+val write_exn_thm = Q.store_thm("write_exn_thm",
+  `write_exn mn n l env =
     env with c := merge_alist_mod_env
-                    ([],[(n,LENGTH l,TypeExn (mk_id mn n))]) env.c``,
+                    ([],[(n,LENGTH l,TypeExn (mk_id mn n))]) env.c`,
   fs [write_exn_def,write_cons_def]);
 
 
@@ -147,14 +147,14 @@ val Decls_def = Define `
       env2.c = ([],new_tds) ∧
       env2.v = res_env`;
 
-val Decls_Dtype = store_thm("Decls_Dtype",
-  ``!mn env s tds env2 s2.
+val Decls_Dtype = Q.store_thm("Decls_Dtype",
+  `!mn env s tds env2 s2.
       Decls mn env s [Dtype tds] env2 s2 <=>
       check_dup_ctors tds /\
       DISJOINT (type_defs_to_new_tdecs mn tds) s.defined_types /\
       ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) /\
       s2 = s with defined_types := type_defs_to_new_tdecs mn tds UNION s.defined_types /\
-      env2 = write_tds mn tds empty_env``,
+      env2 = write_tds mn tds empty_env`,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -188,11 +188,11 @@ val Decls_Dtabbrev = Q.store_thm("Decls_Dtabbrev",
   \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
   \\ rw [environment_component_equality] \\ eq_tac \\ fs [empty_env_def]);
 
-val Decls_Dlet = store_thm("Decls_Dlet",
-  ``!mn env s1 v e s2 env2.
+val Decls_Dlet = Q.store_thm("Decls_Dlet",
+  `!mn env s1 v e s2 env2.
       Decls mn env s1 [Dlet (Pvar v) e] env2 s2 <=>
       ?x. evaluate F env s1 e (s2,Rval x) /\
-          (env2 = write v x empty_env)``,
+          (env2 = write v x empty_env)`,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -206,17 +206,17 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   \\ simp[] \\ rw [] \\ eq_tac \\ rw []
   \\ METIS_TAC [big_unclocked, pair_CASES, evaluate_no_new_types_mods,FST]);
 
-val FOLDR_LEMMA = prove(
-  ``!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-            FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs``,
+val FOLDR_LEMMA = Q.prove(
+  `!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
+            FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
 
-val Decls_Dletrec = store_thm("Decls_Dletrec",
-  ``!mn env s1 funs s2 env2.
+val Decls_Dletrec = Q.store_thm("Decls_Dletrec",
+  `!mn env s1 funs s2 env2.
       Decls mn env s1 [Dletrec funs] env2 s2 <=>
       (s2 = s1) /\
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
-      (env2 = write_rec funs env empty_env)``,
+      (env2 = write_rec funs env empty_env)`,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -425,18 +425,18 @@ val ML_code_NIL = Q.store_thm("ML_code_NIL",
 
 (* opening and closing of modules *)
 
-val ML_code_new_module = store_thm("ML_code_new_module",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_new_module = Q.store_thm("ML_code_new_module",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !mn. mn ∉ s2.defined_mods ==>
-         ML_code env1 s1 prog (SOME (mn,[],env2)) empty_env s2``,
+         ML_code env1 s1 prog (SOME (mn,[],env2)) empty_env s2`,
   fs [ML_code_def] \\ rw [Decls_NIL] \\ EVAL_TAC);
 
-val ML_code_close_module = store_thm("ML_code_close_module",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_close_module = Q.store_thm("ML_code_close_module",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !sigs.
       ML_code env1 s1 (SNOC (Tmod mn sigs ds) prog) NONE
         (write_mod mn env2 env)
-        (s2 with defined_mods := mn INSERT s2.defined_mods)``,
+        (s2 with defined_mods := mn INSERT s2.defined_mods)`,
   fs [ML_code_def] \\ rw [] \\ fs [SNOC_APPEND,Prog_APPEND]
   \\ asm_exists_tac \\ fs [Prog_Tmod,PULL_EXISTS]
   \\ asm_exists_tac \\ fs []
@@ -447,8 +447,8 @@ val ML_code_close_module = store_thm("ML_code_close_module",
 
 (* appending a Dtype *)
 
-val ML_code_NONE_Dtype = store_thm("ML_code_NONE_Dtype",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_NONE_Dtype = Q.store_thm("ML_code_NONE_Dtype",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !tds.
       check_dup_ctors tds ∧
       DISJOINT (type_defs_to_new_tdecs NONE tds) s2.defined_types ∧
@@ -456,14 +456,14 @@ val ML_code_NONE_Dtype = store_thm("ML_code_NONE_Dtype",
       ML_code env1 s1 (SNOC (Tdec (Dtype tds)) prog) NONE
         (write_tds NONE tds env2)
         (s2 with defined_types :=
-                   type_defs_to_new_tdecs NONE tds ∪ s2.defined_types)``,
+                   type_defs_to_new_tdecs NONE tds ∪ s2.defined_types)`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtype]
   \\ rw [] \\ asm_exists_tac \\ fs [] \\ Cases_on `env2.c`
   \\ fs [write_tds_thm,merge_env_def,merge_alist_mod_env_def,empty_env_def]
   \\ fs [extend_top_env_def,environment_component_equality]);
 
-val ML_code_SOME_Dtype = store_thm("ML_code_SOME_Dtype",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_SOME_Dtype = Q.store_thm("ML_code_SOME_Dtype",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !tds.
       check_dup_ctors tds ∧ no_dup_types (SNOC (Dtype tds) ds) /\
       DISJOINT (type_defs_to_new_tdecs (SOME mn) tds) s2.defined_types ∧
@@ -471,7 +471,7 @@ val ML_code_SOME_Dtype = store_thm("ML_code_SOME_Dtype",
       ML_code env1 s1 prog (SOME (mn,SNOC (Dtype tds) ds,env))
         (write_tds (SOME mn) tds env2)
         (s2 with defined_types :=
-                   type_defs_to_new_tdecs (SOME mn) tds ∪ s2.defined_types)``,
+                   type_defs_to_new_tdecs (SOME mn) tds ∪ s2.defined_types)`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtype,Decls_SNOC]
   \\ rw [] \\ asm_exists_tac \\ fs [] \\ rw [] \\ asm_exists_tac
   \\ fs [] \\ Cases_on `env2.c`
@@ -492,14 +492,14 @@ val ML_code_NONE_Dexn = Q.store_thm("ML_code_NONE_Dexn",
   \\ fs [write_exn_thm,merge_env_def,merge_alist_mod_env_def,empty_env_def]
   \\ fs [extend_top_env_def,environment_component_equality]);
 
-val ML_code_SOME_Dexn = store_thm("ML_code_SOME_Dexn",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_SOME_Dexn = Q.store_thm("ML_code_SOME_Dexn",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !n l.
       TypeExn (mk_id (SOME mn) n) ∉ s2.defined_types ==>
       ML_code env1 s1 prog (SOME (mn,SNOC (Dexn n l) ds,env))
         (write_exn (SOME mn) n l env2)
         (s2 with defined_types :=
-                   {TypeExn (mk_id (SOME mn) n)} ∪ s2.defined_types)``,
+                   {TypeExn (mk_id (SOME mn) n)} ∪ s2.defined_types)`,
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dexn]
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [no_dup_types_def,  decs_to_types_def]
@@ -516,10 +516,10 @@ val ML_code_NONE_Dtabbrev = Q.store_thm("ML_code_NONE_Dtabbrev",
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtabbrev,
       merge_env_empty_env]);
 
-val ML_code_SOME_Dtabbrev = store_thm("ML_code_SOME_Dtabbrev",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_SOME_Dtabbrev = Q.store_thm("ML_code_SOME_Dtabbrev",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !x y z.
-      ML_code env1 s1 prog (SOME (mn,SNOC (Dtabbrev x y z) ds,env)) env2 s2``,
+      ML_code env1 s1 prog (SOME (mn,SNOC (Dtabbrev x y z) ds,env)) env2 s2`,
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dtabbrev]
   \\ rw [] \\ asm_exists_tac \\ fs [no_dup_types_def,  decs_to_types_def]
   \\ asm_exists_tac \\ fs [merge_env_empty_env]);
@@ -533,24 +533,24 @@ val build_rec_env_APPEND = Q.prove(
   \\ qspec_tac (`add_to_env`,`xs`)
   \\ Induct_on `funs` \\ fs [FORALL_PROD]);
 
-val ML_code_NONE_Dletrec = store_thm("ML_code_NONE_Dletrec",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_NONE_Dletrec = Q.store_thm("ML_code_NONE_Dletrec",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !fns.
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
       ML_code env1 s1 (SNOC (Tdec (Dletrec fns)) prog) NONE
-        (write_rec fns (merge_env env2 env1) env2) s2``,
+        (write_rec fns (merge_env env2 env1) env2) s2`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dletrec]
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [merge_env_def,write_rec_thm,empty_env_def]
   \\ fs [extend_top_env_def,environment_component_equality]
   \\ fs [build_rec_env_APPEND]);
 
-val ML_code_SOME_Dletrec = store_thm("ML_code_SOME_Dletrec",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_SOME_Dletrec = Q.store_thm("ML_code_SOME_Dletrec",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !fns.
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
       ML_code env1 s1 prog (SOME (mn,SNOC (Dletrec fns) ds,env))
-        (write_rec fns (merge_env env2 (merge_env env env1)) env2) s2``,
+        (write_rec fns (merge_env env2 (merge_env env env1)) env2) s2`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dletrec,Decls_SNOC]
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [no_dup_types_def,  decs_to_types_def]
@@ -561,26 +561,26 @@ val ML_code_SOME_Dletrec = store_thm("ML_code_SOME_Dletrec",
 
 (* appending a Let *)
 
-val ML_code_NONE_Dlet_var = store_thm("ML_code_NONE_Dlet_var",
-  ``ML_code env1 s1 prog NONE env2 s2 ==>
+val ML_code_NONE_Dlet_var = Q.store_thm("ML_code_NONE_Dlet_var",
+  `ML_code env1 s1 prog NONE env2 s2 ==>
     !e x s3.
       evaluate F (merge_env env2 env1) s2 e (s3,Rval x) ==>
       !n.
         ML_code env1 s1 (SNOC (Tdec (Dlet (Pvar n) e)) prog)
-          NONE (write n x env2) s3``,
+          NONE (write n x env2) s3`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet]
   \\ rw [] \\ asm_exists_tac \\ fs [PULL_EXISTS]
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [write_def,merge_env_def,empty_env_def]
   \\ fs [extend_top_env_def,environment_component_equality]);
 
-val ML_code_SOME_Dlet_var = store_thm("ML_code_SOME_Dlet_var",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_SOME_Dlet_var = Q.store_thm("ML_code_SOME_Dlet_var",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !e x s3.
       evaluate F (merge_env env2 (merge_env env env1)) s2 e (s3,Rval x) ==>
       !n.
         ML_code env1 s1 prog (SOME (mn,SNOC (Dlet (Pvar n) e) ds,env))
-          (write n x env2) s3``,
+          (write n x env2) s3`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet,Decls_SNOC]
   \\ rw [] \\ asm_exists_tac \\ fs [PULL_EXISTS]
   \\ fs [no_dup_types_def,  decs_to_types_def]
@@ -597,11 +597,11 @@ val ML_code_NONE_Dlet_Fun = Q.store_thm("ML_code_NONE_Dlet_Fun",
   rw [] \\ match_mp_tac (ML_code_NONE_Dlet_var |> MP_CANON) \\ fs []
   \\ fs [Once evaluate_cases]);
 
-val ML_code_SOME_Dlet_Fun = store_thm("ML_code_SOME_Dlet_Fun",
-  ``ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
+val ML_code_SOME_Dlet_Fun = Q.store_thm("ML_code_SOME_Dlet_Fun",
+  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !n v e.
       ML_code env1 s1 prog (SOME (mn,SNOC (Dlet (Pvar n) (Fun v e)) ds,env))
-        (write n (Closure (merge_env env2 (merge_env env env1)) v e) env2) s2``,
+        (write n (Closure (merge_env env2 (merge_env env env1)) v e) env2) s2`,
   rw [] \\ match_mp_tac (ML_code_SOME_Dlet_var |> MP_CANON) \\ fs []
   \\ fs [Once evaluate_cases]);
 

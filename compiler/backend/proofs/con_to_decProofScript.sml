@@ -58,11 +58,11 @@ val compile_env_exh = Q.store_thm("compile_env_exh[simp]",
 
 (* semantic functions are equivalent *)
 
-val do_app = prove(
-  ``∀st op vs res.
+val do_app = Q.prove(
+  `∀st op vs res.
       conSem$do_app st op vs = SOME res ⇒
       ∀s. s.refs = FST st ∧ s.ffi = SND st ⇒
-        decSem$do_app s op vs = SOME (s with <|refs := FST(FST res); ffi := SND(FST res)|>,SND res)``,
+        decSem$do_app s op vs = SOME (s with <|refs := FST(FST res); ffi := SND(FST res)|>,SND res)`,
   Cases >> rw[conSemTheory.do_app_def,decSemTheory.do_app_def] >>
   Cases_on`op`>>fs[] >>
   rpt(BasicProvers.CASE_TAC >> fs[LET_THM,store_alloc_def]))

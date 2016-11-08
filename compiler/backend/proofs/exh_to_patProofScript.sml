@@ -70,11 +70,11 @@ val do_eq = Q.prove(
   simp[exhSemTheory.do_eq_def,patSemTheory.do_eq_def] >>
   srw_tac[][] >> BasicProvers.CASE_TAC >> srw_tac[][])
 
-val do_opapp = prove(
-  ``∀vs env exp.
+val do_opapp = Q.prove(
+  `∀vs env exp.
     do_opapp vs = SOME (env,exp) ⇒
     do_opapp (compile_vs vs) =
-      SOME (MAP (compile_v o SND) env, compile_exp (MAP (SOME o FST) env) exp)``,
+      SOME (MAP (compile_v o SND) env, compile_exp (MAP (SOME o FST) env) exp)`,
   rpt gen_tac >> simp[exhSemTheory.do_opapp_def] >>
   BasicProvers.CASE_TAC >>
   Cases_on`t`>>simp[]>>
@@ -145,12 +145,12 @@ val tac =
   full_simp_tac(srw_ss())[] >>
   srw_tac[][exhSemTheory.prim_exn_def, compile_v_def];
 
-val do_app = prove(
-  ``∀op vs s0 s0_pat env s res.
+val do_app = Q.prove(
+  `∀op vs s0 s0_pat env s res.
      do_app s0 op vs = SOME (s,res)
      ⇒
      do_app (compile_state s0) (Op op) (compile_vs vs) =
-       SOME (compile_state s,map_result compile_v compile_v res)``,
+       SOME (compile_state s,map_result compile_v compile_v res)`,
   srw_tac[][compile_state_def] >>
   imp_res_tac exhSemTheory.do_app_cases >>
   full_simp_tac(srw_ss())[exhSemTheory.do_app_def]
@@ -391,8 +391,8 @@ val s = mk_var("s",
   ``exhSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
-val compile_pat_correct = prove(
-  ``(∀p v ^s env res env4.
+val compile_pat_correct = Q.prove(
+  `(∀p v ^s env res env4.
        pmatch s.refs p v env = res ∧ res ≠ Match_type_error ⇒
        evaluate
          (compile_v v::env4)
@@ -409,7 +409,7 @@ val compile_pat_correct = prove(
          (compile_state s)
          [compile_pats n ps] =
          (compile_state s
-         ,Rval [Boolv (∃env'. res = Match env')]))``,
+         ,Rval [Boolv (∃env'. res = Match env')]))`,
   ho_match_mp_tac compile_pat_ind >>
   srw_tac[][exhSemTheory.pmatch_def,compile_pat_def] >>
   srw_tac[][patSemTheory.evaluate_def]
@@ -1070,14 +1070,14 @@ val do_eq_v_rel = Q.store_thm("do_eq_v_rel",
   BasicProvers.CASE_TAC >> srw_tac[][] >>
   res_tac >> full_simp_tac(srw_ss())[])
 
-val do_opapp_v_rel = store_thm("do_opapp_v_rel",
-  ``∀vs vs'.
+val do_opapp_v_rel = Q.store_thm("do_opapp_v_rel",
+  `∀vs vs'.
     LIST_REL v_rel vs vs' ⇒
     OPTION_REL
       (λ(env1,e1) (env2,e2).
         exp_rel (LENGTH env1) (LENGTH env2) (env_rel v_rel env1 env2) e1 e2)
       (do_opapp vs)
-      (do_opapp vs')``,
+      (do_opapp vs')`,
   srw_tac[][patSemTheory.do_opapp_def] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def] >> srw_tac[][] >>
   Cases_on`t`>>full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def] >> srw_tac[][] >>
@@ -1160,8 +1160,8 @@ in
   val s = mk_var("s",ty)
 end
 
-val do_app_v_rel = store_thm("do_app_v_rel",
-  ``∀^s op s' vs vs'.
+val do_app_v_rel = Q.store_thm("do_app_v_rel",
+  `∀^s op s' vs vs'.
       LIST_REL v_rel vs vs' ⇒
       state_rel s s' ⇒
       OPTION_REL
@@ -1169,7 +1169,7 @@ val do_app_v_rel = store_thm("do_app_v_rel",
           state_rel s1 s2 ∧
           result_rel v_rel v_rel res1 res2)
         (do_app s op vs)
-        (do_app s' op vs')``,
+        (do_app s' op vs')`,
   srw_tac[][] >>
   srw_tac[][optionTheory.OPTREL_def] >>
   Cases_on`do_app s op vs`>>srw_tac[][]>-(
@@ -1293,15 +1293,15 @@ val do_app_v_rel = store_thm("do_app_v_rel",
     simp[EL_LUPDATE] >> srw_tac[][] >> srw_tac[][] >> NO_TAC) >>
   metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE,optionTheory.SOME_11,PAIR_EQ])
 
-val evaluate_exp_rel = store_thm("evaluate_exp_rel",
-  ``(∀env1 ^s1 es1 s'1 r1. evaluate env1 s1 es1 = (s'1,r1) ⇒
+val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
+  `(∀env1 ^s1 es1 s'1 r1. evaluate env1 s1 es1 = (s'1,r1) ⇒
        ∀env2 s2 es2.
          LIST_REL (exp_rel (LENGTH env1) (LENGTH env2) (env_rel v_rel env1 env2)) es1 es2 ∧
          state_rel s1 s2 ⇒
          ∃s'2 r2.
            evaluate env2 s2 es2 = (s'2,r2) ∧
            state_rel s'1 s'2 ∧
-           result_rel (LIST_REL v_rel) v_rel r1 r2)``,
+           result_rel (LIST_REL v_rel) v_rel r1 r2)`,
   ho_match_mp_tac patSemTheory.evaluate_ind >>
   strip_tac >- ( srw_tac[][patSemTheory.evaluate_def] >> srw_tac[][]) >>
   strip_tac >- (
@@ -1691,8 +1691,8 @@ val ground_exp_rel_refl = Q.store_thm("ground_exp_rel_refl",
     NO_TAC) >>
   simp[bindn_thm])
 
-val compile_row_acc = store_thm("compile_row_acc",
-  ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
+val compile_row_acc = Q.store_thm("compile_row_acc",
+  `(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
        ∀bvs2 r1 n1 f1 r2 n2 f2.
          compile_row (N::bvs1) p = (r1,n1,f1) ∧
          compile_row (N::bvs2) p = (r2,n2,f2) ⇒
@@ -1708,7 +1708,7 @@ val compile_row_acc = store_thm("compile_row_acc",
         n1 = n2 ∧ f1 = f2 ∧
         ∃ls. r1 = ls ++ bvsk ++ (N::bvs1) ∧
              r2 = ls ++ bvsk ++ (N::bvs2) ∧
-             LENGTH ls = n1)``,
+             LENGTH ls = n1)`,
   ho_match_mp_tac compile_row_ind >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -1786,8 +1786,8 @@ val compile_row_acc = store_thm("compile_row_acc",
   rpt BasicProvers.VAR_EQ_TAC >>
   simp[])
 
-val compile_row_shift = store_thm("compile_row_shift",
-  ``(∀bvs p bvs1 n1 f z1 z2 V e1 e2.
+val compile_row_shift = Q.store_thm("compile_row_shift",
+  `(∀bvs p bvs1 n1 f z1 z2 V e1 e2.
        compile_row bvs p = (bvs1,n1,f) ∧ 0 < z1 ∧ 0 < z2 ∧ V 0 0 ∧ bvs ≠ [] ∧
        exp_rel (z1 + n1) (z2 + n1) (bindn n1 V) e1 e2
        ⇒
@@ -1797,7 +1797,7 @@ val compile_row_shift = store_thm("compile_row_shift",
        n < z1 ∧ n < z2 ∧ V n n ∧
        exp_rel (z1 + n1) (z2 + n1) (bindn (n1) V) e1 e2
        ⇒
-       exp_rel z1 z2 V (f e1) (f e2))``,
+       exp_rel z1 z2 V (f e1) (f e2))`,
   ho_match_mp_tac compile_row_ind >>
   simp[compile_row_def] >>
   strip_tac >- (
@@ -2548,10 +2548,10 @@ val compile_pat_empty = Q.prove(`
   rw[compile_pat_def,op_gbag_def,sIf_def,sLet_def,set_globals_let_els]>>
   every_case_tac>>fs[])
 
-val compile_row_set_globals = prove(``
+val compile_row_set_globals = Q.prove(`
   (∀bvs p a b f exp.
   compile_row bvs p = (a,b,f) ⇒ set_globals (f exp) = set_globals exp) ∧
-  (∀bvs n k ps a b f exp. compile_cols bvs n k ps = (a,b,f) ⇒ set_globals (f exp) = set_globals exp)``,
+  (∀bvs n k ps a b f exp. compile_cols bvs n k ps = (a,b,f) ⇒ set_globals (f exp) = set_globals exp)`,
   ho_match_mp_tac compile_row_ind>>rw[compile_row_def]>>fs[]>>
   rpt (pairarg_tac>>fs[sLet_def])>>
   qpat_x_assum `A=f` sym_sub_tac>>rw[op_gbag_def]>>
@@ -2599,13 +2599,13 @@ val compile_pat_esgc_free = Q.prove(`
   rw[compile_pat_def,op_gbag_def,sIf_def,sLet_def,esgc_free_let_els]>>
   every_case_tac>>fs[])
 
-val compile_row_esgc_free = prove(``
+val compile_row_esgc_free = Q.prove(`
   (∀bvs p a b f exp.
   compile_row bvs p = (a,b,f) ∧ esgc_free exp ⇒
   esgc_free (f exp)) ∧
   (∀bvs n k ps a b f exp.
   compile_cols bvs n k ps = (a,b,f) ∧ esgc_free exp ⇒
-  esgc_free (f exp))``,
+  esgc_free (f exp))`,
   ho_match_mp_tac compile_row_ind>>rw[compile_row_def]>>fs[]>>
   rpt (pairarg_tac>>fs[sLet_def])>>
   qpat_x_assum `A=f` sym_sub_tac>>rw[op_gbag_def])

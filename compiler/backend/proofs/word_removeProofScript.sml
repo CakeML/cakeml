@@ -3,9 +3,9 @@ open preamble word_removeTheory wordSemTheory wordPropsTheory;
 val _ = new_theory "word_removeProof";
 
 (* semantics *)
-val alloc_termdep_code_frame = prove(``
+val alloc_termdep_code_frame = Q.prove(`
   alloc c names (s with <|termdep:=d;code:=l|>) =
-  (FST (alloc c names s),SND(alloc c names s) with <|termdep:=d;code:=l|>)``,
+  (FST (alloc c names s),SND(alloc c names s) with <|termdep:=d;code:=l|>)`,
   full_simp_tac(srw_ss())[alloc_def]>>TOP_CASE_TAC>>
   full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,gc_def,set_store_def]>>
   ntac 3(FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -42,14 +42,14 @@ val pop_env_termdep_code_frame = Q.prove(`
   lift (λs. s with <|termdep:=0;code:=l|>) (pop_env r')`,
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
 
-val word_remove_correct = store_thm("word_remove_correct",``
+val word_remove_correct = Q.store_thm("word_remove_correct",`
   ∀prog st res rst.
   (!n v p. lookup n st.code = SOME (v,p) ==>
          lookup n l = SOME (v,remove_must_terminate p)) ∧
   evaluate(prog,st) = (res,rst) ∧
   res ≠ SOME Error ⇒
   ∃clk.
-  evaluate(remove_must_terminate prog,st with <|clock:=st.clock+clk;termdep:=0;code:=l|>) = (res,rst with <|termdep:=0;code:=l|>)``,
+  evaluate(remove_must_terminate prog,st with <|clock:=st.clock+clk;termdep:=0;code:=l|>) = (res,rst with <|termdep:=0;code:=l|>)`,
   recInduct evaluate_ind>>
   full_simp_tac(srw_ss())[evaluate_def,remove_must_terminate_def,state_component_equality,call_env_def,get_var_def,set_var_def,dec_clock_def]>>srw_tac[][]
   >-

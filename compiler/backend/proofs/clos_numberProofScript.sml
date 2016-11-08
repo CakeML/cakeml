@@ -37,13 +37,13 @@ val renumber_code_locs_inc = Q.store_thm("renumber_code_locs_inc",
   tac >> full_simp_tac(srw_ss())[] >> simp[] >>
   pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]);
 
-val renumber_code_locs_imp_inc = store_thm("renumber_code_locs_imp_inc",
-  ``(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
-    (renumber_code_locs n e = (z,v) ⇒ n ≤ z)``,
+val renumber_code_locs_imp_inc = Q.store_thm("renumber_code_locs_imp_inc",
+  `(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
+    (renumber_code_locs n e = (z,v) ⇒ n ≤ z)`,
   metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc])
 
-val renumber_code_locs_list_length = prove(
-  ``∀ls n x y. renumber_code_locs_list n ls = (x,y) ⇒ LENGTH y = LENGTH ls``,
+val renumber_code_locs_list_length = Q.prove(
+  `∀ls n x y. renumber_code_locs_list n ls = (x,y) ⇒ LENGTH y = LENGTH ls`,
   Induct >> simp[renumber_code_locs_def,LENGTH_NIL] >> srw_tac[][] >>
   Cases_on`renumber_code_locs n h`>>full_simp_tac(srw_ss())[]>>
   Cases_on`renumber_code_locs_list q ls`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
@@ -113,10 +113,10 @@ val renumber_code_locs_distinct = Q.store_thm("renumber_code_locs_distinct",
   qexists_tac`$<` >> simp[] >>
   simp[relationTheory.irreflexive_def])
 
-val renumber_code_locs_list_els = prove(
-  ``∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
+val renumber_code_locs_list_els = Q.prove(
+  `∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
       ∀x. x < LENGTH ls ⇒
-        ∃m. EL x ls' = SND (renumber_code_locs m (EL x ls))``,
+        ∃m. EL x ls' = SND (renumber_code_locs m (EL x ls))`,
   Induct >> simp[renumber_code_locs_def] >>
   simp[UNCURRY] >> srw_tac[][] >>
   Cases_on`x`>>full_simp_tac(srw_ss())[] >- METIS_TAC[] >>
@@ -370,15 +370,15 @@ val do_eq = Q.prove(
   match_mp_tac do_eq_list_rel >> srw_tac[][] >>
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN,EL_ZIP])
 
-val do_app = prove(
-  ``state_rel s1 s2 ∧
+val do_app = Q.prove(
+  `state_rel s1 s2 ∧
     LIST_REL (v_rel s1.max_app) x1 x2 ⇒
     (∀err.
       do_app op x1 s1 = (Rerr err) ⇒
       do_app op x2 s2 = (Rerr err)) ∧
     (∀v1 w1. do_app op x1 s1 = Rval(v1,w1) ⇒
              ∃v2 w2. do_app op x2 s2 = Rval(v2,w2) ∧
-                     v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)``,
+                     v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)`,
   strip_tac >>
   simp[do_app_def] >>
   Cases_on`op`>>simp[v_rel_simp]>>

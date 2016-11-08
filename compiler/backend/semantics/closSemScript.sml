@@ -458,22 +458,22 @@ val check_clock_IMP = Q.prove(
   `n <= (check_clock r s).clock ==> n <= s.clock`,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val do_app_const = store_thm("do_app_const",
-  ``(do_app op args s1 = Rval (res,s2)) ==>
+val do_app_const = Q.store_thm("do_app_const",
+  `(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
-    (s2.code = s1.code)``,
+    (s2.code = s1.code)`,
   SIMP_TAC std_ss [do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val evaluate_ind = theorem"evaluate_ind"
 
-val evaluate_clock_help = prove (
-  ``(!tup vs (s2:'ffi closSem$state).
+val evaluate_clock_help = Q.prove (
+  `(!tup vs (s2:'ffi closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:'ffi closSem$state) vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
@@ -488,16 +488,16 @@ val evaluate_clock_help = prove (
           \\ SRW_TAC [] [check_clock_def] \\ DECIDE_TAC)
   \\ rfs [] \\ fs [] \\ rfs [check_clock_def]);
 
-val evaluate_clock = store_thm("evaluate_clock",
-``(!xs env s1 vs s2.
+val evaluate_clock = Q.store_thm("evaluate_clock",
+`(!xs env s1 vs s2.
       (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock) ∧
     (!loc_opt f args s1 vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
  metis_tac [evaluate_clock_help, SND]);
 
-val evaluate_check_clock = prove(
-  ``!xs env s1 vs s2.
-      (evaluate (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
+val evaluate_check_clock = Q.prove(
+  `!xs env s1 vs s2.
+      (evaluate (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)`,
   METIS_TAC [evaluate_clock,check_clock_thm]);
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)

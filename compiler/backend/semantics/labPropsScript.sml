@@ -205,9 +205,9 @@ val get_byte_set_byte_diff = Q.store_thm("get_byte_set_byte_diff",
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac)
 
-val evaluate_pres_final_event = store_thm("evaluate_pres_final_event",
-  ``!s1.
-      (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi``,
+val evaluate_pres_final_event = Q.store_thm("evaluate_pres_final_event",
+  `!s1.
+      (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi`,
   completeInduct_on `s1.clock`
   \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
   \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
@@ -237,10 +237,10 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   rpt var_eq_tac >> fs[] >>
   fs[IS_PREFIX_APPEND]);
 
-val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
-  ``!s res r k.
+val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
+  `!s res r k.
       evaluate s = (res,r) /\ res <> TimeOut ==>
-      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)``,
+      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)`,
   ho_match_mp_tac evaluate_ind >> rw[] >>
   qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>

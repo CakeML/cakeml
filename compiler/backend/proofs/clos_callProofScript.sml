@@ -1140,8 +1140,8 @@ val env_rel_DROP_args = Q.store_thm("env_rel_DROP_args",
   \\ simp[] \\ strip_tac
   \\ rfs[EL_DROP]);
 
-val subg_insert_each' = store_thm("subg_insert_each'",
-  ``!gb fns1 es g1.
+val subg_insert_each' = Q.store_thm("subg_insert_each'",
+  `!gb fns1 es g1.
       subg gb (FST new_g,l ++ SND (insert_each' g1 loc (LENGTH fns1) g)) /\
       SND new_g = l ++ SND g /\ LENGTH fns1 = LENGTH es
       ∧ wfg g ∧
@@ -1150,7 +1150,7 @@ val subg_insert_each' = store_thm("subg_insert_each'",
       (∀i. i < LENGTH fns1 ⇒ ALOOKUP g1 (2*i+loc+1) = SOME (FST (EL i fns1), EL i es))
       ==>
       subg (FST new_g,l ++ SND (insert_each' g1 loc (LENGTH fns1) g))
-        (code_list loc (ZIP (MAP FST fns1,es)) new_g)``,
+        (code_list loc (ZIP (MAP FST fns1,es)) new_g)`,
   Cases_on `new_g` \\ fs [] \\ PairCases_on `g` \\ fs []
   \\ rw [] \\ rveq \\ fs [subg_def]
   \\ fs[ALL_DISTINCT_APPEND,MAP_FST_code_list,MEM_GENLIST,PULL_EXISTS,
@@ -1274,8 +1274,8 @@ val wfv_Boolv = Q.store_thm("wfv_Boolv",
   `wfv g1 l1 (Boolv b) /\ wfv g1 l1 Unit`,
   Cases_on `b` \\ EVAL_TAC);
 
-val do_app_thm = prove(
-  ``case do_app op (REVERSE a) (r:'ffi closSem$state) of
+val do_app_thm = Q.prove(
+  `case do_app op (REVERSE a) (r:'ffi closSem$state) of
       Rerr (Rraise _) => F
     | Rerr (Rabort e) => (e = Rtype_error)
     | Rval (w,s) =>
@@ -1283,7 +1283,7 @@ val do_app_thm = prove(
         wfv_state g1 l1 s /\ wfv g1 l1 w) /\
        (LIST_REL (v_rel g1 l1) a v /\ state_rel g1 l1 r t ==>
         ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
-                v_rel g1 l1 w w' /\ state_rel g1 l1 s s')``,
+                v_rel g1 l1 w w' /\ state_rel g1 l1 s s')`,
   once_rewrite_tac [GSYM REVERSE_REVERSE]
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
@@ -1480,13 +1480,13 @@ val do_app_thm = prove(
     \\ first_x_assum drule \\ fs [])
   \\ Cases_on `op` \\ fs []);
 
-val NOT_IN_domain_FST_g = store_thm("NOT_IN_domain_FST_g",
-  ``ALL_DISTINCT (code_locs xs ++ code_locs ys) ⇒
+val NOT_IN_domain_FST_g = Q.store_thm("NOT_IN_domain_FST_g",
+  `ALL_DISTINCT (code_locs xs ++ code_locs ys) ⇒
     calls ys g' = (e2,g) ⇒
     wfg g' ⇒
     MEM x (code_locs xs) ⇒
     x ∉ domain (FST g') ⇒
-    x ∉ domain (FST g)``,
+    x ∉ domain (FST g)`,
   rw [] \\ imp_res_tac calls_domain
   \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
   \\ CCONTR_TAC \\ fs [] \\ res_tac \\ rveq \\ fs []

@@ -9,14 +9,14 @@ val state_rel_ffi_mono = Q.store_thm(
     state_rel k w (s1 with ffi := (ffi:'ffi ffi_state)) (s2 with ffi := ffi)`,
   ONCE_REWRITE_TAC [val_rel_def] >> simp[]);
 
-val exp_rel_evaluate = store_thm(
+val exp_rel_evaluate = Q.store_thm(
   "exp_rel_evaluate",
-  ``∀e1 e2.
+  `∀e1 e2.
       exp_rel (:'ffi) w e1 e2 ==>
       ∀(s1: 'ffi closSem$state) s2 k.
          state_rel k w s1 s2 ⇒
          res_rel w (evaluate (e1,[], s1 with clock := k))
-                   (evaluate (e2,[], s2 with clock := k))``,
+                   (evaluate (e2,[], s2 with clock := k))`,
   simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
   qx_genl_tac [`e1`, `e2`] >> strip_tac >>
   qx_genl_tac [`s1`, `s2`, `k`] >>
@@ -50,8 +50,8 @@ val appkindeq =
     prove_case_eq_thm { case_def = TypeBase.case_def_of ``:app_kind``,
                         nchotomy = TypeBase.nchotomy_of ``:app_kind``}
 
-val paireq = prove(
-  ``pair_CASE p f = v ⇔ ∃a b. p = (a,b) ∧ v = f a b``,
+val paireq = Q.prove(
+  `pair_CASE p f = v ⇔ ∃a b. p = (a,b) ∧ v = f a b`,
   Cases_on `p` >> simp[] >> metis_tac[]);
 
 val ioeventeq =
@@ -67,9 +67,9 @@ val optioneq = Q.prove(
   Cases_on `opt` >> simp[] >> metis_tac[]);
 
 (*
-val do_app_preserves_ioNONE = store_thm(
+val do_app_preserves_ioNONE = Q.store_thm(
   "do_app_preserves_ioNONE",
-  ``do_app op args s = Rval (v, s') ∧ s.io = NONE ⇒ s'.io = NONE``,
+  `do_app op args s = Rval (v, s') ∧ s.io = NONE ⇒ s'.io = NONE`,
   Cases_on `op` >> Cases_on `args` >>
   simp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
   srw_tac[][] >> srw_tac[][] >> full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]);
@@ -81,13 +81,13 @@ val dec_clock_ffi = Q.store_thm(
   simp[dec_clock_def]);
 
 (*
-val ioNONE_preserved = store_thm(
+val ioNONE_preserved = Q.store_thm(
   "ioNONE_preserved",
-  ``(∀esenvs es env s s' rv.
+  `(∀esenvs es env s s' rv.
        evaluate esenvs = (rv, s') ∧ esenvs = (es,env,s) ∧ s.io = NONE ⇒
        s'.io = NONE) ∧
     (∀l f vs s s' rv.
-       evaluate_app l f vs s = (rv, s') ∧ s.io = NONE ⇒ s'.io = NONE)``,
+       evaluate_app l f vs s = (rv, s') ∧ s.io = NONE ⇒ s'.io = NONE)`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
   simp[Once evaluate_def, paireq, resulteq, booleq, errorresulteq,
        optioneq, appkindeq, listeq] >>
@@ -180,18 +180,18 @@ val doapp_extendio_type_error = Q.store_thm(
   Cases_on `opt` >> Cases_on `args` >>
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq])
 
-val doapp_extendio_nonffi = store_thm(
+val doapp_extendio_nonffi = Q.store_thm(
   "doapp_extendio_nonffi",
-  ``do_app opt args s0 = Rval (rv, s) ∧ (∀n. opt ≠ FFI n) ⇒
-    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)``,
+  `do_app opt args s0 = Rval (rv, s) ∧ (∀n. opt ≠ FFI n) ⇒
+    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)`,
   Cases_on `opt` >> Cases_on `args` >>
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
   metis_tac[])
 
-val doapp_extendio_SOMEioresult = store_thm(
+val doapp_extendio_SOMEioresult = Q.store_thm(
   "doapp_extendio_SOMEioresult",
-  ``do_app opt args s0 = Rval (rv, s) ∧ s.io ≠ NONE ⇒
-    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)``,
+  `do_app opt args s0 = Rval (rv, s) ∧ s.io ≠ NONE ⇒
+    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)`,
   Cases_on `∀n. opt ≠ FFI n` >> simp[] >- metis_tac[doapp_extendio_nonffi] >>
   full_simp_tac(srw_ss())[] >> Cases_on `args` >>
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
@@ -203,10 +203,10 @@ val doapp_extendio_SOMEioresult = store_thm(
 
 fun first_r_assum ttac = first_x_assum (fn th => ttac th >> assume_tac th)
 
-val res_rel_ffi = store_thm(
+val res_rel_ffi = Q.store_thm(
   "res_rel_ffi",
-  ``res_rel w (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
-    s2.ffi = s1.ffi``,
+  `res_rel w (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
+    s2.ffi = s1.ffi`,
   Cases_on `r1` >> simp[]
   >- (simp[res_rel_rw] >> strip_tac >> full_simp_tac(srw_ss())[Once state_rel_rw]) >>
   rename1 `Rerr e` >> Cases_on `e` >> simp[]

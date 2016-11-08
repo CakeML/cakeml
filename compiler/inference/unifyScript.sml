@@ -3,12 +3,12 @@ open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
 open infer_tTheory;
 
-val option_map_case = prove (
-  ``!f opt.
+val option_map_case = Q.prove (
+  `!f opt.
     OPTION_MAP f opt =
     case opt of
          NONE => NONE
-       | SOME a => SOME (f a)``,
+       | SOME a => SOME (f a)`,
   simp[FUN_EQ_THM] >>
   gen_tac >> Cases >>
   rw[OPTION_MAP_DEF])
@@ -1037,9 +1037,9 @@ metis_tac [no_vars_lem, MAP_MAP_o, combinTheory.o_DEF]);
 
 (*Theorems about unification for completeness proof*)
 
-val t_walk_vwalk_id = store_thm ("t_walk_vwalk_id",
-``t_wfs s ⇒
-  !n. t_walk s (t_vwalk s n) = t_vwalk s n``,
+val t_walk_vwalk_id = Q.store_thm ("t_walk_vwalk_id",
+`t_wfs s ⇒
+  !n. t_walk s (t_vwalk s n) = t_vwalk s n`,
   strip_tac>>
   ho_match_mp_tac (Q.INST[`s`|->`s`]t_vwalk_ind)>>
   rw[]>>
@@ -1077,12 +1077,12 @@ val encode_walkstar_reverse = encode_walkstar |>
 			      SPEC_ALL|>UNDISCH|>SYM |>
 			      DISCH_ALL |> GEN_ALL;
 
-val t_unify_mgu = store_thm ("t_unify_mgu",
-``!s t1 t2 sx s2.
+val t_unify_mgu = Q.store_thm ("t_unify_mgu",
+`!s t1 t2 sx s2.
   t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ∧ t_wfs s2 ∧
   (t_walkstar s2 (t_walkstar s t1)) = t_walkstar s2 (t_walkstar s t2)
   ⇒
-  ∀t. t_walkstar s2 (t_walkstar sx t) = t_walkstar s2 (t_walkstar s t)``,
+  ∀t. t_walkstar s2 (t_walkstar sx t) = t_walkstar s2 (t_walkstar s t)`,
   rw[]>>
   `t_wfs sx` by metis_tac[t_unify_wfs]>>
   rfs[t_walkstar_def,encode_walkstar_reverse]>>

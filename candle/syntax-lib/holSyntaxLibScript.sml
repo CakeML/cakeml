@@ -9,8 +9,8 @@ val ALPHAVARS_def = Define`
     (tmp = tp) ∨
     (FST tp ≠ FST tmp) ∧ (SND tp ≠ SND tmp) ∧ ALPHAVARS oenv tmp)`
 
-val ALPHAVARS_REFL = store_thm("ALPHAVARS_REFL",
-  ``∀env t. EVERY (UNCURRY $=) env ==> ALPHAVARS env (t,t)``,
+val ALPHAVARS_REFL = Q.store_thm("ALPHAVARS_REFL",
+  `∀env t. EVERY (UNCURRY $=) env ==> ALPHAVARS env (t,t)`,
   Induct >> simp[ALPHAVARS_def,FORALL_PROD])
 
 val ALPHAVARS_MEM = Q.store_thm("ALPHAVARS_MEM",
@@ -21,14 +21,14 @@ val REV_ASSOCD_def = Define`
   (REV_ASSOCD a [] d = d) ∧
   (REV_ASSOCD a (p::t) d = if SND p = a then FST p else REV_ASSOCD a t d)`
 
-val REV_ASSOCD = store_thm("REV_ASSOCD",
-  ``(∀a d. REV_ASSOCD a [] d = d) ∧
+val REV_ASSOCD = Q.store_thm("REV_ASSOCD",
+  `(∀a d. REV_ASSOCD a [] d = d) ∧
     (∀a x y t d. REV_ASSOCD a ((x,y)::t) d =
-                 if y = a then x else REV_ASSOCD a t d)``,
+                 if y = a then x else REV_ASSOCD a t d)`,
   rw[REV_ASSOCD_def])
 
-val REV_ASSOCD_ALOOKUP = store_thm("REV_ASSOCD_ALOOKUP",
-  ``∀ls x d. REV_ASSOCD x ls d = case ALOOKUP (MAP (λ(x,y). (y,x)) ls) x of NONE => d | SOME y => y``,
+val REV_ASSOCD_ALOOKUP = Q.store_thm("REV_ASSOCD_ALOOKUP",
+  `∀ls x d. REV_ASSOCD x ls d = case ALOOKUP (MAP (λ(x,y). (y,x)) ls) x of NONE => d | SOME y => y`,
   Induct >> simp[REV_ASSOCD] >>
   Cases >> simp[REV_ASSOCD] >> rw[])
 
@@ -40,15 +40,15 @@ val PRIMED_INFINITE = Q.store_thm("PRIMED_INFINITE",
   Cases_on`GENLIST (K #"'") y`>>simp[]>>rw[]>>
   Cases_on`y`>>fs[GENLIST_CONS])
 
-val REV_ASSOCD_FILTER = store_thm("REV_ASSOCD_FILTER",
-  ``∀l a b d.
+val REV_ASSOCD_FILTER = Q.store_thm("REV_ASSOCD_FILTER",
+  `∀l a b d.
       REV_ASSOCD a (FILTER (λ(y,x). P x) l) b =
-        if P a then REV_ASSOCD a l b else b``,
+        if P a then REV_ASSOCD a l b else b`,
   Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
   rw[] >> fs[FORALL_PROD,REV_ASSOCD] >> rw[] >> fs[])
 
-val REV_ASSOCD_MEM = store_thm("REV_ASSOCD_MEM",
-  ``∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)``,
+val REV_ASSOCD_MEM = Q.store_thm("REV_ASSOCD_MEM",
+  `∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)`,
   Induct >> simp[REV_ASSOCD,FORALL_PROD] >>rw[]>>fs[])
 
 val tyvar_inst_exists = Q.store_thm("tyvar_inst_exists",

@@ -63,9 +63,9 @@ val destLongidT_def = Define`
 `
 val _ = export_rewrites ["destLongidT_def"]
 
-val destLongidT_EQ_SOME = store_thm(
+val destLongidT_EQ_SOME = Q.store_thm(
   "destLongidT_EQ_SOME[simp]",
-  ``destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)``,
+  `destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)`,
   Cases_on `t` >> simp[] >> metis_tac[]);
 
 val destTyvarPT_def = Define`

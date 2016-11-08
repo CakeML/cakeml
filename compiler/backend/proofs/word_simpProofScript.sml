@@ -6,21 +6,21 @@ val s = ``s:('a,'ffi) wordSem$state``
 
 (* verification of Seq_assoc *)
 
-val evaluate_SmartSeq = store_thm("evaluate_SmartSeq",
-  ``evaluate (SmartSeq p1 p2,s) = evaluate (Seq p1 p2,^s)``,
+val evaluate_SmartSeq = Q.store_thm("evaluate_SmartSeq",
+  `evaluate (SmartSeq p1 p2,s) = evaluate (Seq p1 p2,^s)`,
   rw [SmartSeq_def,evaluate_def]);
 
-val evaluate_Seq_Skip = store_thm("evaluate_Seq_Skip",
-  ``!p1 s. evaluate (Seq p1 Skip,s) = evaluate (p1,^s)``,
+val evaluate_Seq_Skip = Q.store_thm("evaluate_Seq_Skip",
+  `!p1 s. evaluate (Seq p1 Skip,s) = evaluate (p1,^s)`,
   Induct \\ fs [evaluate_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs [] \\ rw [] \\ fs []));
 
-val evaluate_Skip_Seq = store_thm("evaluate_Skip_Seq",
-  ``evaluate (Seq Skip p,s) = evaluate (p,^s)``,
+val evaluate_Skip_Seq = Q.store_thm("evaluate_Skip_Seq",
+  `evaluate (Seq Skip p,s) = evaluate (p,^s)`,
   fs [evaluate_def]);
 
-val evaluate_Seq_assoc_lemma = store_thm("evaluate_Seq_assoc_lemma",
-  ``!p1 p2 s. evaluate (Seq_assoc p1 p2,s) = evaluate (Seq p1 p2,^s)``,
+val evaluate_Seq_assoc_lemma = Q.store_thm("evaluate_Seq_assoc_lemma",
+  `!p1 p2 s. evaluate (Seq_assoc p1 p2,s) = evaluate (Seq p1 p2,^s)`,
   HO_MATCH_MP_TAC Seq_assoc_ind \\ fs [] \\ rw []
   \\ fs [evaluate_SmartSeq,Seq_assoc_def,evaluate_Seq_Skip,evaluate_def]
   \\ (rpt (pairarg_tac \\ fs [] \\ rw [] \\ fs []))
@@ -32,8 +32,8 @@ val evaluate_Seq_assoc_lemma = store_thm("evaluate_Seq_assoc_lemma",
   \\ PairCases_on `x'` \\ fs[add_ret_loc_def]
   \\ PairCases_on `x''` \\ fs[add_ret_loc_def,push_env_def])
 
-val evaluate_Seq_assoc = store_thm("evaluate_Seq_assoc",
-  ``!p s. evaluate (Seq_assoc Skip p,s) = evaluate (p,^s)``,
+val evaluate_Seq_assoc = Q.store_thm("evaluate_Seq_assoc",
+  `!p s. evaluate (Seq_assoc Skip p,s) = evaluate (p,^s)`,
   fs [evaluate_Seq_assoc_lemma,evaluate_def]);
 
 val extract_labels_SmartSeq = Q.store_thm("extract_labels_SmartSeq",
@@ -55,31 +55,31 @@ val extract_labels_Seq_assoc = Q.store_thm("extract_labels_Seq_assoc",
 
 (* verification of simp_if *)
 
-val dest_If_Eq_Imm_thm = store_thm("dest_If_Eq_Imm_thm",
-  ``dest_If_Eq_Imm x2 = SOME (n,w,p1,p2) <=>
-    x2 = If Equal n (Imm w) p1 p2``,
+val dest_If_Eq_Imm_thm = Q.store_thm("dest_If_Eq_Imm_thm",
+  `dest_If_Eq_Imm x2 = SOME (n,w,p1,p2) <=>
+    x2 = If Equal n (Imm w) p1 p2`,
   Cases_on `x2` \\ fs [dest_If_Eq_Imm_def,dest_If_def]
   \\ every_case_tac \\ fs []);
 
-val dest_If_thm = store_thm("dest_If_thm",
-  ``dest_If x2 = SOME (g1,g2,g3,g4,g5) <=> x2 = If g1 g2 g3 g4 g5``,
+val dest_If_thm = Q.store_thm("dest_If_thm",
+  `dest_If x2 = SOME (g1,g2,g3,g4,g5) <=> x2 = If g1 g2 g3 g4 g5`,
   Cases_on `x2` \\ fs [dest_If_def]);
 
-val dest_Seq_IMP = store_thm("dest_Seq_IMP",
-  ``dest_Seq p1 = (x1,x2) ==> evaluate (p1,s) = evaluate (Seq x1 x2,^s)``,
+val dest_Seq_IMP = Q.store_thm("dest_Seq_IMP",
+  `dest_Seq p1 = (x1,x2) ==> evaluate (p1,s) = evaluate (Seq x1 x2,^s)`,
   Cases_on `p1` \\ fs [SmartSeq_def,dest_Seq_def]
   \\ rw [] \\ fs [evaluate_Skip_Seq]);
 
-val dest_Seq_Assign_Const_IMP = store_thm("dest_Seq_Assign_Const_IMP",
-  ``dest_Seq_Assign_Const v p = SOME (q,w) ==>
-    evaluate (p,s) = evaluate (Seq q (Assign v (Const w)),^s)``,
+val dest_Seq_Assign_Const_IMP = Q.store_thm("dest_Seq_Assign_Const_IMP",
+  `dest_Seq_Assign_Const v p = SOME (q,w) ==>
+    evaluate (p,s) = evaluate (Seq q (Assign v (Const w)),^s)`,
   fs [dest_Seq_Assign_Const_def] \\ pairarg_tac \\ fs []
   \\ Cases_on `p2` \\ fs [] \\ Cases_on `e` \\ fs []
   \\ rw [] \\ imp_res_tac dest_Seq_IMP \\ fs []);
 
-val evaluate_apply_if_opt = store_thm("evaluate_apply_if_opt",
-  ``apply_if_opt p1 p2 = SOME x ==>
-    evaluate (Seq p1 p2,s) = evaluate (x,^s)``,
+val evaluate_apply_if_opt = Q.store_thm("evaluate_apply_if_opt",
+  `apply_if_opt p1 p2 = SOME x ==>
+    evaluate (Seq p1 p2,s) = evaluate (x,^s)`,
   fs [apply_if_opt_def]
   \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs []
@@ -105,8 +105,8 @@ val evaluate_apply_if_opt = store_thm("evaluate_apply_if_opt",
   \\ Cases_on `res' = NONE` \\ fs [word_exp_def] \\ rveq
   \\ fs [get_var_def,set_var_def,asmSemTheory.word_cmp_def]);
 
-val evaluate_simp_if = store_thm("evaluate_simp_if",
-  ``!p s. evaluate (simp_if p,s) = evaluate (p,^s)``,
+val evaluate_simp_if = Q.store_thm("evaluate_simp_if",
+  `!p s. evaluate (simp_if p,s) = evaluate (p,^s)`,
   HO_MATCH_MP_TAC simp_if_ind \\ fs [simp_if_def,evaluate_def] \\ rw []
   THEN1
    (CASE_TAC \\ fs [evaluate_def]
@@ -146,9 +146,9 @@ val extract_labels_simp_if = Q.store_thm("extract_labels_simp_if",
 
 (* putting it all together *)
 
-val compile_exp_thm = store_thm("compile_exp_thm",
-  ``wordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error ==>
-    evaluate (word_simp$compile_exp prog,s) = (res,s2)``,
+val compile_exp_thm = Q.store_thm("compile_exp_thm",
+  `wordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error ==>
+    evaluate (word_simp$compile_exp prog,s) = (res,s2)`,
   fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc]);
 
 val extract_labels_compile_exp = Q.store_thm("extract_labels_compile_exp[simp]",

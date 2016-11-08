@@ -222,8 +222,8 @@ val termsem_equation = Q.store_thm("termsem_equation",
 
 (* aconv *)
 
-val termsem_raconv = store_thm("termsem_raconv",
-  ``∀env tp. RACONV env tp ⇒
+val termsem_raconv = Q.store_thm("termsem_raconv",
+  `∀env tp. RACONV env tp ⇒
       ∀Γ i v1 v2.
         (FST v1 = FST v2) ∧
         (∀x1 ty1 x2 ty2.
@@ -233,7 +233,7 @@ val termsem_raconv = store_thm("termsem_raconv",
         EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
         welltyped (FST tp) ∧ welltyped (SND tp)
         ⇒
-        termsem Γ i v1 (FST tp) = termsem Γ i v2 (SND tp)``,
+        termsem Γ i v1 (FST tp) = termsem Γ i v2 (SND tp)`,
   ho_match_mp_tac RACONV_strongind >>
   rpt conj_tac >> simp[termsem_def] >>
   TRY (metis_tac[]) >>
@@ -258,11 +258,11 @@ val termsem_aconv = Q.store_thm("termsem_aconv",
 
 (* semantics only depends on valuation of free variables *)
 
-val termsem_frees = store_thm("termsem_frees",
-  ``∀Γ i t v1 v2.
+val termsem_frees = Q.store_thm("termsem_frees",
+  `∀Γ i t v1 v2.
       welltyped t ∧ FST v1 = FST v2 ∧
       (∀x ty. VFREE_IN (Var x ty) t ⇒ SND v1 (x,ty) = SND v2 (x,ty))
-      ⇒ termsem Γ i v1 t = termsem Γ i v2 t``,
+      ⇒ termsem Γ i v1 t = termsem Γ i v2 t`,
   ntac 2 gen_tac >> Induct >>
   simp[termsem_def] >- metis_tac[] >>
   rw[] >> rw[termsem_def] >> rpt AP_TERM_TAC >>
@@ -312,8 +312,8 @@ val termsem_tyfrees = Q.store_thm("termsem_tyfrees",
 
 (* semantics of substitution *)
 
-val termsem_simple_subst = store_thm("termsem_simple_subst",
-  ``∀tm ilist.
+val termsem_simple_subst = Q.store_thm("termsem_simple_subst",
+  `∀tm ilist.
       welltyped tm ∧
       DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty)
@@ -324,7 +324,7 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
           (FST v, SND v =++
                   MAP ((dest_var ## termsem Γ i v) o (λ(s',s). (s,s')))
                       (REVERSE ilist))
-          tm``,
+          tm`,
   Induct >> simp[termsem_def] >- (
     simp[REV_ASSOCD_ALOOKUP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
     rw[] >> BasicProvers.CASE_TAC >> rw[termsem_def] >- (
@@ -390,8 +390,8 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
   fs[Abbr`ls`,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
   metis_tac[welltyped_def])
 
-val termsem_VSUBST = store_thm("termsem_VSUBST",
-  `` ∀tm ilist.
+val termsem_VSUBST = Q.store_thm("termsem_VSUBST",
+  ` ∀tm ilist.
       welltyped tm ∧
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ⇒
       ∀Γ i v.
@@ -399,7 +399,7 @@ val termsem_VSUBST = store_thm("termsem_VSUBST",
        termsem Γ i (FST v,
                     SND v =++
                     MAP ((dest_var ## termsem Γ i v) o (λ(s',s). (s,s')))
-                      (REVERSE ilist)) tm``,
+                      (REVERSE ilist)) tm`,
   rw[] >>
   Q.ISPECL_THEN[`{y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)}`,`tm`]mp_tac fresh_term_def >>
   simp[] >>
@@ -417,8 +417,8 @@ val termsem_VSUBST = store_thm("termsem_VSUBST",
 
 (* semantics of instantiation *)
 
-val termsem_simple_inst = store_thm("termsem_simple_inst",
-  ``∀Γ tm tyin tmenv.
+val termsem_simple_inst = Q.store_thm("termsem_simple_inst",
+  `∀Γ tm tyin tmenv.
       welltyped tm ∧ term_ok Γ tm ∧
       ALL_DISTINCT (bv_names tm) ∧
       DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
@@ -429,7 +429,7 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
         termsem tmenv i
           ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
            (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
-          tm``,
+          tm`,
   Cases >> Induct >> simp[termsem_def,term_ok_def] >- (
     rw[] >> rw[TYPE_SUBST_compose] >>
     qmatch_abbrev_tac`instance sig int name (TYPE_SUBST i2 ty0) t1 =
@@ -465,15 +465,15 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
   rw[combinTheory.APPLY_UPDATE_THM] >>
   metis_tac[])
 
-val termsem_INST = store_thm("termsem_INST",
-  ``∀Γ tm tyin tmenv.
+val termsem_INST = Q.store_thm("termsem_INST",
+  `∀Γ tm tyin tmenv.
       term_ok Γ tm ∧ tmenv = tmsof Γ ⇒
       ∀i v.
         termsem tmenv i v (INST tyin tm) =
         termsem tmenv i
           ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
            (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
-          tm``,
+          tm`,
   rw[] >> imp_res_tac term_ok_welltyped >>
   Q.ISPECL_THEN[`{x | ∃ty. VFREE_IN (Var x ty) tm}`,`tm`]mp_tac fresh_term_def >>
   simp[] >>
@@ -493,12 +493,12 @@ val termsem_INST = store_thm("termsem_INST",
 
 (* extending the context doesn't change the semantics *)
 
-val termsem_extend = store_thm("termsem_extend",
-  ``∀tyenv tmenv tyenv' tmenv' tm.
+val termsem_extend = Q.store_thm("termsem_extend",
+  `∀tyenv tmenv tyenv' tmenv' tm.
       tmenv ⊑ tmenv' ∧
       term_ok (tyenv,tmenv) tm ⇒
       ∀i v. termsem tmenv' i v tm =
-            termsem tmenv i v tm``,
+            termsem tmenv i v tm`,
   ntac 4 gen_tac >> Induct >> simp[termsem_def,term_ok_def] >>
   rw[] >> simp[termsem_def] >>
   qmatch_abbrev_tac`X = instance sig int name ty t` >>
@@ -516,12 +516,12 @@ val is_valuation_reduce = Q.store_thm("is_valuation_reduce",
   rw[is_valuation_def,is_term_valuation_def] >>
   metis_tac[type_ok_extend])
 
-val satisfies_extend = store_thm("satisfies_extend",
-  ``∀tyenv tmenv tyenv' tmenv' tm i h c.
+val satisfies_extend = Q.store_thm("satisfies_extend",
+  `∀tyenv tmenv tyenv' tmenv' tm i h c.
       tmenv ⊑ tmenv' ∧ tyenv ⊑ tyenv' ∧
       EVERY (term_ok (tyenv,tmenv)) (c::h) ∧
       i satisfies ((tyenv,tmenv),h,c) ⇒
-      i satisfies ((tyenv',tmenv'),h,c)``,
+      i satisfies ((tyenv',tmenv'),h,c)`,
   rw[satisfies_def] >> fs[EVERY_MEM] >>
   metis_tac[term_ok_extend,termsem_extend,is_valuation_reduce])
 
@@ -618,14 +618,14 @@ val termsem_sig = Q.store_thm("termsem_sig",
   unabbrev_all_tac >> fs[] >>
   fs[FORALL_PROD] >> res_tac >> fs[])
 
-val satisfies_sig = store_thm("satisfies_sig",
-  ``∀i i' sig h c.
+val satisfies_sig = Q.store_thm("satisfies_sig",
+  `∀i i' sig h c.
     is_std_sig sig ∧
     EVERY (term_ok sig) (c::h) ∧
     equal_on sig i i' ∧
     i satisfies (sig,h,c)
     ⇒
-    i' satisfies (sig,h,c)``,
+    i' satisfies (sig,h,c)`,
   rw[satisfies_def] >>
   qsuff_tac`termsem (tmsof sig) i v c = True` >- metis_tac[termsem_sig] >>
   first_x_assum match_mp_tac >>
@@ -636,10 +636,10 @@ val satisfies_sig = store_thm("satisfies_sig",
 
 (* valuations exist *)
 
-val term_valuation_exists = store_thm("term_valuation_exists",
-  ``is_set_theory ^mem ⇒
+val term_valuation_exists = Q.store_thm("term_valuation_exists",
+  `is_set_theory ^mem ⇒
     ∀tyenv δ τ. is_type_valuation τ ∧ is_type_assignment tyenv δ ⇒
-      ∃σ. is_valuation tyenv δ (τ,σ)``,
+      ∃σ. is_valuation tyenv δ (τ,σ)`,
   rw[is_valuation_def,is_term_valuation_def] >>
   qexists_tac`λ(x,ty). @v. v <: typesem δ τ ty` >> rw[] >>
   metis_tac[typesem_inhabited])
@@ -657,14 +657,14 @@ val valuation_exists = Q.store_thm("valuation_exists",
   conj_asm1_tac >- simp[is_type_valuation_exists] >>
   fs[is_term_valuation_def] >> metis_tac[typesem_inhabited])
 
-val extend_valuation_exists = store_thm("extend_valuation_exists",
-  ``is_set_theory ^mem ⇒
+val extend_valuation_exists = Q.store_thm("extend_valuation_exists",
+  `is_set_theory ^mem ⇒
     ∀tysig δ v tysig'.
     is_valuation tysig δ v ∧ tysig ⊑ tysig' ∧
     is_type_assignment tysig' δ ⇒
     ∃v'. is_valuation tysig' δ v' ∧
          (tyvof v' = tyvof v) ∧
-         (∀x ty. type_ok tysig ty ⇒ (tmvof v (x,ty) = tmvof v' (x,ty)))``,
+         (∀x ty. type_ok tysig ty ⇒ (tmvof v (x,ty) = tmvof v' (x,ty)))`,
   rw[] >> simp[EXISTS_PROD] >>
   fs[is_valuation_def,is_term_valuation_def] >>
   qexists_tac`λ(x,ty).
@@ -724,17 +724,17 @@ val is_term_assignment_reduce = Q.store_thm("is_term_assignment_reduce",
    rw[is_term_assignment_def] >>
    imp_res_tac FEVERY_SUBMAP)
 
-val is_interpretation_reduce = store_thm("is_interpretation_reduce",
-  ``∀i tyenv tmenv tyenv' tmenv'.
+val is_interpretation_reduce = Q.store_thm("is_interpretation_reduce",
+  `∀i tyenv tmenv tyenv' tmenv'.
      tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧
      is_interpretation (tyenv',tmenv') i ⇒
-     is_interpretation (tyenv,tmenv) i``,
+     is_interpretation (tyenv,tmenv) i`,
   Cases >> rw[is_interpretation_def] >>
   imp_res_tac is_type_assignment_reduce >>
   imp_res_tac is_term_assignment_reduce)
 
-val is_valuation_extend_sig = store_thm("is_valuation_extend_sig",
-  ``is_set_theory ^mem ⇒
+val is_valuation_extend_sig = Q.store_thm("is_valuation_extend_sig",
+  `is_set_theory ^mem ⇒
     ∀tyenv tyenv' tyass v.
     is_valuation tyenv tyass v ∧
     is_type_assignment tyenv' tyass ∧
@@ -742,7 +742,7 @@ val is_valuation_extend_sig = store_thm("is_valuation_extend_sig",
     ∃v'.
       (tyvof v' = tyvof v) ∧
       (∀ty. type_ok tyenv ty ⇒ ∀x. tmvof v' (x,ty) = tmvof v (x,ty)) ∧
-      is_valuation tyenv' tyass v'``,
+      is_valuation tyenv' tyass v'`,
   rw[is_valuation_def] >>
   fs[is_term_valuation_def] >>
   simp[EXISTS_PROD] >>
@@ -752,8 +752,8 @@ val is_valuation_extend_sig = store_thm("is_valuation_extend_sig",
   match_mp_tac (UNDISCH typesem_inhabited) >>
   metis_tac[])
 
-val satisfies_reduce = store_thm("satisfies_reduce",
-  ``is_set_theory ^mem ⇒
+val satisfies_reduce = Q.store_thm("satisfies_reduce",
+  `is_set_theory ^mem ⇒
     ∀i tyenv tmenv tyenv' tmenv' h c.
       is_std_sig (tyenv,tmenv) ∧
       tyenv ⊑ tyenv' ∧
@@ -761,7 +761,7 @@ val satisfies_reduce = store_thm("satisfies_reduce",
       EVERY (term_ok (tyenv,tmenv)) (c::h) ∧
       is_type_assignment tyenv' (tyaof i) ∧
       i satisfies ((tyenv',tmenv'),h,c) ⇒
-      i satisfies ((tyenv,tmenv),h,c)``,
+      i satisfies ((tyenv,tmenv),h,c)`,
   rw[satisfies_def] >>
   qspecl_then[`tyenv`,`tyenv'`,`tyaof i`,`v`]mp_tac (UNDISCH is_valuation_extend_sig) >>
   simp[] >> strip_tac >>
@@ -783,15 +783,15 @@ val satisfies_reduce = store_thm("satisfies_reduce",
   impl_tac >- ( fs[EVERY_MEM] ) >>
   simp[])
 
-val models_reduce = store_thm("models_reduce",
-  ``is_set_theory ^mem ⇒
+val models_reduce = Q.store_thm("models_reduce",
+  `is_set_theory ^mem ⇒
     ∀i tyenv tmenv axs tyenv' tmenv' axs'.
      is_std_sig (tyenv,tmenv) ∧
      tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧ (axs ⊆ axs') ∧
      i models ((tyenv',tmenv'),axs') ∧
      (∀p. p ∈ axs ⇒ (term_ok (tyenv,tmenv)) p)
      ⇒
-     i models ((tyenv,tmenv),axs)``,
+     i models ((tyenv,tmenv),axs)`,
   strip_tac >>
   Cases >> rw[models_def] >>
   imp_res_tac is_interpretation_reduce >>

@@ -19,9 +19,9 @@ val exp2v_def = Define `
   exp2v env (Var name) = lookup_var_id name env /\
   exp2v _ _ = NONE`
 
-val exp2v_evaluate = store_thm ("exp2v_evaluate",
-  ``!e env st v. exp2v env e = SOME v ==>
-    evaluate st env [e] = (st, Rval [v])``,
+val exp2v_evaluate = Q.store_thm ("exp2v_evaluate",
+  `!e env st v. exp2v env e = SOME v ==>
+    evaluate st env [e] = (st, Rval [v])`,
   Induct \\ fs [exp2v_def, terminationTheory.evaluate_def]
 );
 
@@ -35,9 +35,9 @@ val exp2v_list_def = Define `
           | NONE => NONE
           | SOME vs => SOME (v :: vs)))`;
 
-val exp2v_list_evaluate = store_thm ("exp2v_list_evaluate",
-  ``!l lv env st. exp2v_list env l = SOME lv ==>
-    evaluate st env l = (st, Rval lv)``,
+val exp2v_list_evaluate = Q.store_thm ("exp2v_list_evaluate",
+  `!l lv env st. exp2v_list env l = SOME lv ==>
+    evaluate st env l = (st, Rval lv)`,
   Induct
   THEN1 (fs [exp2v_list_def, terminationTheory.evaluate_def])
   THEN1 (
@@ -48,11 +48,11 @@ val exp2v_list_evaluate = store_thm ("exp2v_list_evaluate",
   )
 );
 
-val evaluate_list_rcons = store_thm ("evaluate_rcons",
-  ``!env st st' st'' l x lv v.
+val evaluate_list_rcons = Q.store_thm ("evaluate_rcons",
+  `!env st st' st'' l x lv v.
      evaluate st env l = (st', Rval lv) /\
      evaluate st' env [x] = (st'', Rval [v]) ==>
-     evaluate st env (l ++ [x]) = (st'', Rval (lv ++ [v]))``,
+     evaluate st env (l ++ [x]) = (st'', Rval (lv ++ [v]))`,
 
   Induct_on `l`
   THEN1 (
@@ -77,29 +77,29 @@ val evaluate_list_rcons = store_thm ("evaluate_rcons",
   )
 );
 
-val exp2v_list_REVERSE = store_thm ("exp2v_list_REVERSE",
-  ``!l (st: 'ffi semanticPrimitives$state) lv env. exp2v_list env l = SOME lv ==>
-    evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))``,
+val exp2v_list_REVERSE = Q.store_thm ("exp2v_list_REVERSE",
+  `!l (st: 'ffi semanticPrimitives$state) lv env. exp2v_list env l = SOME lv ==>
+    evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))`,
   Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
   fs [exp2v_list_def, terminationTheory.evaluate_def] \\
   every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_list_rcons \\
   metis_tac [exp2v_evaluate]
 );
 
-val exp2v_list_rcons = store_thm ("exp2v_list_rcons",
-  ``!xs x l env.
+val exp2v_list_rcons = Q.store_thm ("exp2v_list_rcons",
+  `!xs x l env.
      exp2v_list env (xs ++ [x]) = SOME l ==>
      ?xvs xv.
        l = xvs ++ [xv] /\
        exp2v_list env xs = SOME xvs /\
-       exp2v env x = SOME xv``,
+       exp2v env x = SOME xv`,
   Induct_on `xs` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ fs [] \\
   first_assum progress \\ fs [] \\ rw []
 );
 
-val exp2v_list_LENGTH = store_thm ("exp2v_list_LENGTH",
-  ``!l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv``,
+val exp2v_list_LENGTH = Q.store_thm ("exp2v_list_LENGTH",
+  `!l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv`,
   Induct_on `l` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ res_tac \\ fs [] \\ rw []
 );
@@ -140,8 +140,8 @@ val MEM_exp_size = Q.prove(
   `!args a. MEM a args ==> exp_size a <= exp6_size args`,
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []);
 
-val MEM_exp1_size = prove(
-  ``!rs. MEM (v,a,e') rs ==> exp_size e' < exp1_size rs``,
+val MEM_exp1_size = Q.prove(
+  `!rs. MEM (v,a,e') rs ==> exp_size e' < exp1_size rs`,
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
   \\ fs [astTheory.exp_size_def]);
 
@@ -171,10 +171,10 @@ val exp6_size_lemma = Q.prove(
   `!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys`,
   Induct \\ fs [astTheory.exp_size_def]);
 
-val dest_opapp_size = prove(
-  ``!xs p_1 p_2.
+val dest_opapp_size = Q.prove(
+  `!xs p_1 p_2.
       dest_opapp xs = SOME (p_1,p_2) ==>
-      exp_size p_1 + exp6_size p_2 < exp_size xs``,
+      exp_size p_1 + exp6_size p_2 < exp_size xs`,
   recInduct (theorem "dest_opapp_ind") \\ fs [dest_opapp_def]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [astTheory.exp_size_def]
@@ -356,11 +356,11 @@ val norm_state_rel_def = Define `
      s1.defined_mods = s2.defined_mods`
 
 (*
-val full_normalise_correct = store_thm("full_normalise_correct",
-  ``env_rel (free_in e) env1 env2 /\ norm_state_rel s1 s2 /\
+val full_normalise_correct = Q.store_thm("full_normalise_correct",
+  `env_rel (free_in e) env1 env2 /\ norm_state_rel s1 s2 /\
     evaluate ck env1 s1 e1 (rs1,res1) /\ norm_exp_rel e1 e2 ==>
     ?rs2 res2. evaluate ck env2 s2 e2 (rs2,res2) /\
-               norm_state_rel rs1 rs2 /\ norm_res_rel res1 res2``,
+               norm_state_rel rs1 rs2 /\ norm_res_rel res1 res2`,
   ... ); TODO
 *)
 

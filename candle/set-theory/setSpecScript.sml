@@ -180,9 +180,9 @@ val unit_eq_upair = Q.store_thm("unit_eq_upair",
   fs[extensional_def,mem_unit,mem_upair] >>
   metis_tac[])
 
-val pair_inj = store_thm("pair_inj",
-  ``is_set_theory ^mem ⇒
-    ∀a b c d. (a,b) = (c,d) ⇔ a = c ∧ b = d``,
+val pair_inj = Q.store_thm("pair_inj",
+  `is_set_theory ^mem ⇒
+    ∀a b c d. (a,b) = (c,d) ⇔ a = c ∧ b = d`,
   strip_tac >> fs[pair_def] >> rw[] >>
   simp[upair_inj,unit_inj,unit_eq_upair] >>
   metis_tac[])
@@ -205,9 +205,9 @@ val product_def = Define`
 
 val _ = Parse.overload_on("CROSS",``product ^mem``)
 
-val mem_product = store_thm("mem_product",
-  ``is_set_theory ^mem ⇒
-    ∀a x y. a <: (x × y) ⇔ ∃b c. a = (b,c) ∧ b <: x ∧ c <: y``,
+val mem_product = Q.store_thm("mem_product",
+  `is_set_theory ^mem ⇒
+    ∀a x y. a <: (x × y) ⇔ ∃b c. a = (b,c) ∧ b <: x ∧ c <: y`,
   strip_tac >> fs[product_def] >>
   simp[mem_sub,mem_power,mem_binary_union] >>
   rw[EQ_IMP_THM] >> TRY(metis_tac[]) >>
@@ -399,8 +399,8 @@ val tuple_def = Define`
   (tuple0 ^mem (a::as) = (a, tuple0 ^mem as))`
 val _ = Parse.overload_on("tuple",``tuple0 ^mem``)
 
-val pair_not_empty = store_thm("pair_not_empty",
-  ``is_set_theory ^mem ⇒ (x,y) ≠ ∅``,
+val pair_not_empty = Q.store_thm("pair_not_empty",
+  `is_set_theory ^mem ⇒ (x,y) ≠ ∅`,
   rw[] >>
   imp_res_tac is_extensional >>
   fs[extensional_def,mem_empty] >>

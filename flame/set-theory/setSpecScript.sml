@@ -236,9 +236,9 @@ val pair_def = Define`
 
 val _ = Parse.overload_on(",",``pair ^mem``)
 
-val mem_pair = store_thm("mem_pair",
-  ``is_set_theory ^mem ⇒
-    ∀a x y. a <: (x,y) ⇔ a = Unit x ∨ a = (x + y)``,
+val mem_pair = Q.store_thm("mem_pair",
+  `is_set_theory ^mem ⇒
+    ∀a x y. a <: (x,y) ⇔ a = Unit x ∨ a = (x + y)`,
   strip_tac >>
   simp[pair_def,mem_upair])
 
@@ -258,9 +258,9 @@ val unit_eq_upair = Q.store_thm("unit_eq_upair",
   fs[extensional_def,mem_unit,mem_upair] >>
   metis_tac[])
 
-val pair_inj = store_thm("pair_inj",
-  ``is_set_theory ^mem ⇒
-    ∀a b c d. (a,b) = (c,d) ⇔ a = c ∧ b = d``,
+val pair_inj = Q.store_thm("pair_inj",
+  `is_set_theory ^mem ⇒
+    ∀a b c d. (a,b) = (c,d) ⇔ a = c ∧ b = d`,
   strip_tac >> fs[pair_def] >> rw[] >>
   simp[upair_inj,unit_inj,unit_eq_upair] >>
   metis_tac[])
@@ -283,9 +283,9 @@ val product_def = Define`
 
 val _ = Parse.overload_on("CROSS",``product ^mem``)
 
-val mem_product = store_thm("mem_product",
-  ``is_set_theory ^mem ⇒
-    ∀a x y. a <: (x × y) ⇔ ∃b c. a = (b,c) ∧ b <: x ∧ c <: y``,
+val mem_product = Q.store_thm("mem_product",
+  `is_set_theory ^mem ⇒
+    ∀a x y. a <: (x × y) ⇔ ∃b c. a = (b,c) ∧ b <: x ∧ c <: y`,
   strip_tac >> fs[product_def] >>
   simp[mem_sub,mem_power,mem_binary_union] >>
   rw[EQ_IMP_THM] >> TRY(metis_tac[]) >>
@@ -303,17 +303,17 @@ val mem_relspace = Q.store_thm("mem_relspace",
             f <: Pow (d × r)`,
   rw[relspace_def])
 
-val relspace_pairs = store_thm("relspace_pairs",
-  ``is_set_theory ^mem ⇒
-    ∀d r f a. f <: Relspace d r ∧ a <: f ⇒ ∃x y. x <: d ∧ y <: r ∧ a = (x,y)``,
+val relspace_pairs = Q.store_thm("relspace_pairs",
+  `is_set_theory ^mem ⇒
+    ∀d r f a. f <: Relspace d r ∧ a <: f ⇒ ∃x y. x <: d ∧ y <: r ∧ a = (x,y)`,
   strip_tac >>
   simp[relspace_def,mem_sub,mem_power,mem_product] >>
   metis_tac[])
 
-val mem_rel = store_thm("mem_rel",
-  ``is_set_theory ^mem ⇒
+val mem_rel = Q.store_thm("mem_rel",
+  `is_set_theory ^mem ⇒
     ∀d r f. f <: Relspace d r ⇒
-            ∀x y. (x,y) <: f ⇒ x <: d ∧ y <: r``,
+            ∀x y. (x,y) <: f ⇒ x <: d ∧ y <: r`,
   strip_tac >>
   simp[relspace_def,mem_power,mem_product] >>
   metis_tac[pair_inj])
@@ -325,15 +325,15 @@ val funspace_def = Define`
 
 val _ = Parse.overload_on("Funspace",``funspace ^mem``)
 
-val mem_funspace = store_thm("mem_funspace",
-  ``is_set_theory ^mem ⇒
+val mem_funspace = Q.store_thm("mem_funspace",
+  `is_set_theory ^mem ⇒
     ∀d r f. f <: Funspace d r ⇔
-            f <: Relspace d r ∧ ∀x. x <: d ⇒ ∃!y. (x,y) <: f``,
+            f <: Relspace d r ∧ ∀x. x <: d ⇒ ∃!y. (x,y) <: f`,
   rw[funspace_def,mem_sub])
 
-val funspace_pairs = store_thm("funspace_pairs",
-  ``is_set_theory ^mem ⇒
-    ∀d r f a. f <: Funspace d r ∧ a <: f ⇒ ∃x y. x <: d ∧ y <: r ∧ a = (x,y)``,
+val funspace_pairs = Q.store_thm("funspace_pairs",
+  `is_set_theory ^mem ⇒
+    ∀d r f a. f <: Funspace d r ∧ a <: f ⇒ ∃x y. x <: d ∧ y <: r ∧ a = (x,y)`,
   strip_tac >>
   simp[funspace_def,mem_sub] >>
   metis_tac[relspace_pairs])
@@ -348,9 +348,9 @@ val id_def = Define`
 
 val _ = Parse.overload_on("Id",``id ^mem``)
 
-val mem_id = store_thm("mem_id",
-  ``is_set_theory ^mem ⇒
-        ∀d x y. (x,y) <: Id d ⇔ (y <: d ∧ x = y)``,
+val mem_id = Q.store_thm("mem_id",
+  `is_set_theory ^mem ⇒
+        ∀d x y. (x,y) <: Id d ⇔ (y <: d ∧ x = y)`,
   strip_tac >>
   simp[id_def,mem_sub,mem_product,pair_inj] >>
   rw[] >>
@@ -396,9 +396,9 @@ val inverse_def = Define`
 
 val _ = Parse.overload_on("Inverse",``inverse ^mem``)
 
-val mem_inverse = store_thm("mem_inverse",
-  ``is_set_theory ^mem ⇒
-    ∀f x y. (x,y) <: Inverse f ⇔ (y,x) <: f``,
+val mem_inverse = Q.store_thm("mem_inverse",
+  `is_set_theory ^mem ⇒
+    ∀f x y. (x,y) <: Inverse f ⇔ (y,x) <: f`,
   strip_tac >> simp[inverse_def] >> rw[] >>
   SELECT_ELIM_TAC >>
   conj_tac >- (
@@ -407,9 +407,9 @@ val mem_inverse = store_thm("mem_inverse",
     metis_tac[mem_pair,mem_unit,mem_upair,pair_inj] ) >>
   metis_tac[pair_inj])
 
-val inverse_pairs = store_thm("inverse_pairs",
-  ``is_set_theory ^mem ⇒
-    ∀f a. a <: Inverse f ⇒ ∃y x. a = (y,x)``,
+val inverse_pairs = Q.store_thm("inverse_pairs",
+  `is_set_theory ^mem ⇒
+    ∀f a. a <: Inverse f ⇒ ∃y x. a = (y,x)`,
   strip_tac >> simp[inverse_def] >>
   REPEAT gen_tac >>
   SELECT_ELIM_TAC >>
@@ -447,9 +447,9 @@ val inverse_is_11_onto = Q.store_thm("inverse_is_11_onto",
       simp[mem_inverse]
     ])
 
-val mem_funspace_pairs = store_thm("mem_funspace_pairs",
-  ``is_set_theory ^mem ⇒
-    ∀f d r. f <: Funspace d r ⇒ ∀a. a <: f ⇒ ∃x y. a = (x,y)``,
+val mem_funspace_pairs = Q.store_thm("mem_funspace_pairs",
+  `is_set_theory ^mem ⇒
+    ∀f d r. f <: Funspace d r ⇒ ∀a. a <: f ⇒ ∃x y. a = (x,y)`,
   strip_tac >>
   simp[is_one_one_def,is_onto_def,mem_funspace,mem_relspace,mem_power,mem_product,EXISTS_UNIQUE_THM] >>
   metis_tac[])
@@ -625,10 +625,10 @@ val in_funspace_abstract = Q.store_thm("in_funspace_abstract",
   rfs[EXISTS_UNIQUE_THM,mem_product] >>
   metis_tac[pair_inj])
 
-val apply_eq_mem = store_thm("apply_eq_mem",
-  ``is_set_theory ^mem ⇒
+val apply_eq_mem = Q.store_thm("apply_eq_mem",
+  `is_set_theory ^mem ⇒
     ∀f d r. f <: Funspace d r ⇒
-            ∀x. x <: d ⇒ ∀y. f ' x = y ⇔ (x,y) <: f``,
+            ∀x. x <: d ⇒ ∀y. f ' x = y ⇔ (x,y) <: f`,
   strip_tac >> simp[apply_def,mem_funspace,EXISTS_UNIQUE_THM] >> rw[] >>
   SELECT_ELIM_TAC >>
   conj_tac >- simp[] >>
@@ -678,11 +678,11 @@ val dep_funspace_def = Define`
 
 val _ = Parse.overload_on("Dep_funspace",``dep_funspace ^mem``)
 
-val mem_dep_funspace = store_thm("mem_dep_funspace",
-  ``is_set_theory ^mem ⇒
+val mem_dep_funspace = Q.store_thm("mem_dep_funspace",
+  `is_set_theory ^mem ⇒
     ∀f d g. g <: Dep_funspace d f ⇔
             g <: Relspace d (⋃ (f '' d)) ∧
-            ∀x. x <: d ⇒ (∃!y. (x,y) <: g) ∧ g ' x <: f x``,
+            ∀x. x <: d ⇒ (∃!y. (x,y) <: g) ∧ g ' x <: f x`,
   rw[dep_funspace_def,mem_sub,mem_funspace] >>
   METIS_TAC[])
 
@@ -693,11 +693,11 @@ val dep_prodspace_def = Define`
 
 val _ = Parse.overload_on("Dep_prodspace",``dep_prodspace ^mem``)
 
-val mem_dep_prodspace = store_thm("mem_dep_prodspace",
-  ``is_set_theory ^mem ⇒
+val mem_dep_prodspace = Q.store_thm("mem_dep_prodspace",
+  `is_set_theory ^mem ⇒
     ∀f d r. r <: Dep_prodspace d f ⇔
             r <: d × ⋃ (f '' d) ∧
-            ∀x y. (x,y) <: r ⇒ x <: d ∧ y <: f x``,
+            ∀x y. (x,y) <: r ⇒ x <: d ∧ y <: f x`,
   rw[dep_prodspace_def,mem_sub])
 
 val axiom_of_choice = save_thm("axiom_of_choice",UNDISCH(prove(
@@ -849,8 +849,8 @@ val tuple_def = Define`
   (tuple0 ^mem (a::as) = (a, tuple0 ^mem as))`
 val _ = Parse.overload_on("tuple",``tuple0 ^mem``)
 
-val pair_not_empty = store_thm("pair_not_empty",
-  ``is_set_theory ^mem ⇒ (x,y) ≠ ∅``,
+val pair_not_empty = Q.store_thm("pair_not_empty",
+  `is_set_theory ^mem ⇒ (x,y) ≠ ∅`,
   rw[] >>
   imp_res_tac is_extensional >>
   fs[extensional_def,mem_empty] >>

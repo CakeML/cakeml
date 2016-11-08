@@ -25,10 +25,10 @@ val lookup_tenv_NONE = Q.prove(`
   Induct>>fs[lookup_tenv_val_def]>>rw[]>>
   metis_tac[])
 
-val lookup_tenv_SOME = prove(``
+val lookup_tenv_SOME = Q.prove(`
   ∀ls n tvs t.
   (lookup_tenv_val x n ls = SOME(tvs,t) ⇒
-  ∀m. ∃tvs' t'. lookup_tenv_val x m ls = SOME(tvs',t'))``,
+  ∀m. ∃tvs' t'. lookup_tenv_val x m ls = SOME(tvs',t'))`,
   Induct>>fs[lookup_tenv_val_def]>>rw[]>>
   metis_tac[])
 

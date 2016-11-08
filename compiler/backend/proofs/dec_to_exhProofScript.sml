@@ -5,9 +5,9 @@ open preamble
 
 val _ = new_theory "dec_to_exhProof";
 
-val find_recfun_compile_funs = prove(
-  ``∀ls f exh. find_recfun f (dec_to_exh$compile_funs exh ls) =
-               OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)``,
+val find_recfun_compile_funs = Q.prove(
+  `∀ls f exh. find_recfun f (dec_to_exh$compile_funs exh ls) =
+               OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)`,
   Induct >> simp[compile_funs_map] >- (
     simp[semanticPrimitivesTheory.find_recfun_def] ) >>
   simp[Once semanticPrimitivesTheory.find_recfun_def] >>
@@ -434,14 +434,14 @@ val do_app_lem = Q.prove (
        `l = l'` by metis_tac[semanticPrimitivesPropsTheory.sv_rel_def] >>
        full_simp_tac(srw_ss())[])) |> INST_TYPE[alpha|->``:'ffi``];
 
-val do_app = prove(
-  ``∀s1 op vs s2 res exh s1_exh vs_exh.
+val do_app = Q.prove(
+  `∀s1 op vs s2 res exh s1_exh vs_exh.
       do_app (s1:'ffi decSem$state) op vs = SOME (s2,res) ∧
       state_rel exh s1 s1_exh ∧
       vs_rel exh vs vs_exh ⇒
       ∃s2_exh res_exh.
         do_app s1_exh op vs_exh = SOME (s2_exh,res_exh) ∧
-        result_rel v_rel exh (s2,res) (s2_exh,res_exh)``,
+        result_rel v_rel exh (s2,res) (s2_exh,res_exh)`,
   rpt gen_tac >>
   srw_tac[][decSemTheory.do_app_def] >>
   Cases_on`op`>>full_simp_tac(srw_ss())[] >- (
@@ -457,15 +457,15 @@ val do_app = prove(
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,semanticPrimitivesPropsTheory.sv_rel_cases] >>
   srw_tac[][] >> metis_tac[NOT_SOME_NONE]);
 
-val do_opapp = prove(
-  ``∀vs env e exh vs_exh.
+val do_opapp = Q.prove(
+  `∀vs env e exh vs_exh.
     do_opapp vs = SOME (env,e) ∧
     vs_rel exh vs vs_exh
     ⇒
     ∃exh' env_exh.
       env_rel exh env env_exh ∧
       exh' ⊑ exh ∧
-      do_opapp vs_exh = SOME (env_exh,compile_exp exh' e)``,
+      do_opapp vs_exh = SOME (env_exh,compile_exp exh' e)`,
   srw_tac[][conSemTheory.do_opapp_def,exhSemTheory.do_opapp_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   TRY (full_simp_tac(srw_ss())[Once v_rel_cases]>>NO_TAC) >>
@@ -560,8 +560,8 @@ val get_tags_thm = Q.prove(
     metis_tac[] ) >>
   metis_tac[])
 
-val pmatch_Pcon_No_match = prove(
-  ``EVERY is_unconditional ps ⇒
+val pmatch_Pcon_No_match = Q.prove(
+  `EVERY is_unconditional ps ⇒
     ((pmatch exh s (Pcon (SOME(c,TypeId t)) ps) v env = No_match) ⇔
      ∃cv vs tags max maxv.
        v = Conv (SOME(cv,TypeId t)) vs ∧
@@ -569,7 +569,7 @@ val pmatch_Pcon_No_match = prove(
        lookup (LENGTH ps) tags = SOME max ∧
        lookup (LENGTH vs) tags = SOME maxv ∧
        c < max ∧ cv < maxv ∧
-       (LENGTH ps = LENGTH vs ⇒ c ≠ cv))``,
+       (LENGTH ps = LENGTH vs ⇒ c ≠ cv))`,
   Cases_on`v`>>srw_tac[][conSemTheory.pmatch_def]>>
   Cases_on`o'`>>simp[conSemTheory.pmatch_def] >>
   PairCases_on`x`>>simp[conSemTheory.pmatch_def]>>

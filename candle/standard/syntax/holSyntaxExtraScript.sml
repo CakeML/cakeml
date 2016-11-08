@@ -28,11 +28,11 @@ val extends_ind = Q.store_thm("extends_ind",
 
 (* deconstructing variables *)
 
-val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
-  ``∀ls f x ty.
+val ALOOKUP_MAP_dest_var = Q.store_thm("ALOOKUP_MAP_dest_var",
+  `∀ls f x ty.
       EVERY (λs. ∃x ty. s = Var x ty) (MAP FST ls) ⇒
       ALOOKUP (MAP (dest_var ## f) ls) (x,ty) =
-      OPTION_MAP f (ALOOKUP ls (Var x ty))``,
+      OPTION_MAP f (ALOOKUP ls (Var x ty))`,
   Induct >> simp[] >> Cases >> simp[EVERY_MEM,EVERY_MAP] >>
   rw[] >> fs[])
 
@@ -53,12 +53,12 @@ val is_instance_refl = Q.store_thm("is_instance_refl",
   rw[] >> qexists_tac`[]` >> rw[])
 val _ = export_rewrites["is_instance_refl"]
 
-val swap_ff = store_thm("swap_ff",
-  ``∀f g. (λ(x,y). (y,x)) o (f ## g) = (g ## f) o (λ(x,y). (y,x))``,
+val swap_ff = Q.store_thm("swap_ff",
+  `∀f g. (λ(x,y). (y,x)) o (f ## g) = (g ## f) o (λ(x,y). (y,x))`,
   rw[FUN_EQ_THM,FORALL_PROD])
 
-val ff_def = store_thm("ff_def",
-  ``∀f g. (f ## g) = λ(x,y). (f x, g y)``,
+val ff_def = Q.store_thm("ff_def",
+  `∀f g. (f ## g) = λ(x,y). (f x, g y)`,
   rw[FUN_EQ_THM,FORALL_PROD,PAIR_MAP_THM])
 
 val TYPE_SUBST_compose = Q.store_thm("TYPE_SUBST_compose",
@@ -111,8 +111,8 @@ val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
 (* Alpha-equivalence *)
 
-val RACONV = store_thm("RACONV",
- ``(RACONV env (Var x1 ty1,Var x2 ty2) <=>
+val RACONV = Q.store_thm("RACONV",
+ `(RACONV env (Var x1 ty1,Var x2 ty2) <=>
         ALPHAVARS env (Var x1 ty1,Var x2 ty2)) /\
    (RACONV env (Var x1 ty1,Const x2 ty2) <=> F) /\
    (RACONV env (Var x1 ty1,Comb l2 r2) <=> F) /\
@@ -131,11 +131,11 @@ val RACONV = store_thm("RACONV",
    (RACONV env (Abs v1 t1,Comb l2 r2) <=> F) /\
    (RACONV env (Abs v1 t1,Abs v2 t2) <=>
           typeof v1 = typeof v2 /\
-          RACONV (CONS (v1,v2) env) (t1,t2))``,
+          RACONV (CONS (v1,v2) env) (t1,t2))`,
   REPEAT CONJ_TAC THEN simp[Once RACONV_cases] >> metis_tac[])
 
-val RACONV_REFL = store_thm("RACONV_REFL",
-  ``∀t env. EVERY (UNCURRY $=) env ⇒ RACONV env (t,t)``,
+val RACONV_REFL = Q.store_thm("RACONV_REFL",
+  `∀t env. EVERY (UNCURRY $=) env ⇒ RACONV env (t,t)`,
   Induct >> simp[RACONV,ALPHAVARS_REFL])
 
 val ACONV_REFL = Q.store_thm("ACONV_REFL",
@@ -143,8 +143,8 @@ val ACONV_REFL = Q.store_thm("ACONV_REFL",
   simp[ACONV_def,RACONV_REFL])
 val _ = export_rewrites["ACONV_REFL"]
 
-val RACONV_TRANS = store_thm("RACONV_TRANS",
-  ``∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)``,
+val RACONV_TRANS = Q.store_thm("RACONV_TRANS",
+  `∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)`,
   ho_match_mp_tac RACONV_ind >> simp[RACONV] >>
   conj_tac >- (
     Induct >- simp[ALPHAVARS_def] >>
@@ -163,8 +163,8 @@ val ACONV_TRANS = Q.store_thm("ACONV_TRANS",
   `∀t1 t2 t3. ACONV t1 t2 ∧ ACONV t2 t3 ⇒ ACONV t1 t3`,
   rw[ACONV_def] >> imp_res_tac RACONV_TRANS >> fs[LENGTH_NIL])
 
-val RACONV_SYM = store_thm("RACONV_SYM",
-  ``∀env tp. RACONV env tp ⇒ RACONV (MAP (λ(x,y). (y,x)) env) (SND tp,FST tp)``,
+val RACONV_SYM = Q.store_thm("RACONV_SYM",
+  `∀env tp. RACONV env tp ⇒ RACONV (MAP (λ(x,y). (y,x)) env) (SND tp,FST tp)`,
   ho_match_mp_tac RACONV_ind >> simp[] >>
   conj_tac >- (
     Induct >> simp[ALPHAVARS_def,RACONV] >>
@@ -176,20 +176,20 @@ val ACONV_SYM = Q.store_thm("ACONV_SYM",
   `∀t1 t2. ACONV t1 t2 ⇒ ACONV t2 t1`,
   rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
 
-val ALPHAVARS_TYPE = store_thm("ALPHAVARS_TYPE",
-  ``∀env s t. ALPHAVARS env (s,t) ∧
+val ALPHAVARS_TYPE = Q.store_thm("ALPHAVARS_TYPE",
+  `∀env s t. ALPHAVARS env (s,t) ∧
               EVERY (λ(x,y). welltyped x ∧ welltyped y
                              ∧ (typeof x = typeof y)) env ∧
               welltyped s ∧ welltyped t
-              ⇒ typeof s = typeof t``,
+              ⇒ typeof s = typeof t`,
   Induct >> simp[ALPHAVARS_def,FORALL_PROD] >> rw[] >> rw[])
 
-val RACONV_TYPE = store_thm("RACONV_TYPE",
-  ``∀env p. RACONV env p
+val RACONV_TYPE = Q.store_thm("RACONV_TYPE",
+  `∀env p. RACONV env p
             ⇒ EVERY (λ(x,y). welltyped x ∧ welltyped y
                              ∧ (typeof x = typeof y)) env ∧
               welltyped (FST p) ∧ welltyped (SND p)
-              ⇒ typeof (FST p) = typeof (SND p)``,
+              ⇒ typeof (FST p) = typeof (SND p)`,
   ho_match_mp_tac RACONV_ind >>
   simp[FORALL_PROD,typeof_def,WELLTYPED_CLAUSES] >>
   rw[] >> imp_res_tac ALPHAVARS_TYPE >>
@@ -269,18 +269,18 @@ val subterm_welltyped = save_thm("subterm_welltyped",
 
 (* term ordering *)
 
-val type_lt_thm = prove(
-  ``(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
+val type_lt_thm = Q.prove(
+  `(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
     (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
     (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
     (type_lt (Tyapp x1 args1) (Tyapp x2 args2) ⇔
        (mlstring_lt LEX LLEX type_lt)
-         (x1,args1) (x2,args2))``,
+         (x1,args1) (x2,args2))`,
   rw[] >> rw[Once type_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
   |> curry save_thm "type_lt_thm"
 
-val term_lt_thm = prove(``
+val term_lt_thm = Q.prove(`
   (term_lt (Var x1 ty1) (Var x2 ty2) ⇔
      (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
   (term_lt (Var _ _) (Const _ _) ⇔ T) ∧
@@ -300,7 +300,7 @@ val term_lt_thm = prove(``
   (term_lt (Abs _ _) (Const _ _) ⇔ F) ∧
   (term_lt (Abs _ _) (Comb _ _) ⇔ F) ∧
   (term_lt (Abs s1 s2) (Abs t1 t2) ⇔
-    (term_lt LEX term_lt) (s1,s2) (t1,t2))``,
+    (term_lt LEX term_lt) (s1,s2) (t1,t2))`,
   rw[] >> rw[Once term_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
   |> curry save_thm "term_lt_thm"
@@ -463,13 +463,13 @@ val LLEX_irreflexive = Q.prove(
 
 val irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
 
-val type_cmp_thm = store_thm("type_cmp_thm",
-  ``∀t1 t2.  type_cmp t1 t2 =
+val type_cmp_thm = Q.store_thm("type_cmp_thm",
+  `∀t1 t2.  type_cmp t1 t2 =
     case (t1,t2) of
     | (Tyvar x1, Tyvar x2) => mlstring_cmp x1 x2
     | (Tyvar _, _) => LESS
     | (_, Tyvar _) => GREATER
-    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring_cmp (list_cmp type_cmp) (x1,a1) (x2,a2)``,
+    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring_cmp (list_cmp type_cmp) (x1,a1) (x2,a2)`,
   ho_match_mp_tac type_ind >>
   conj_tac >- (
     gen_tac >> Cases >>
@@ -502,8 +502,8 @@ val type_cmp_ind = Q.store_thm("type_cmp_ind",
   first_x_assum match_mp_tac >> simp[] >>
   fs[EVERY_MEM])
 
-val term_cmp_thm = store_thm("term_cmp_thm",
-  ``∀t1 t2. term_cmp t1 t2 =
+val term_cmp_thm = Q.store_thm("term_cmp_thm",
+  `∀t1 t2. term_cmp t1 t2 =
     case (t1,t2) of
     | (Var x1 ty1, Var x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
     | (Var _ _, _) => LESS
@@ -516,7 +516,7 @@ val term_cmp_thm = store_thm("term_cmp_thm",
     | (_, Comb _ _) => GREATER
     | (Abs s1 t1, Abs s2 t2) => pair_cmp term_cmp term_cmp (s1,t1) (s2,t2)
     | (Abs _ _, _) => LESS
-    | (_, Abs _ _) => GREATER``,
+    | (_, Abs _ _) => GREATER`,
   ho_match_mp_tac term_induction >>
   conj_tac >- (
     ntac 2 gen_tac >> Cases >>
@@ -574,15 +574,15 @@ val ALPHAVARS_ordav = Q.prove(
   rfs[term_cmp_def,TO_of_LinearOrder] >>
   ntac 2 (pop_assum mp_tac) >> rw[])
 
-val ordav_ALPHAVARS = prove(
-  ``∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)``,
+val ordav_ALPHAVARS = Q.prove(
+  `∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)`,
   ho_match_mp_tac ordav_ind >>
   rw[ALPHAVARS_def,ordav_def] >>
   fs[term_cmp_def,TO_of_LinearOrder] >>
   rpt(pop_assum mp_tac) >> rw[])
 
-val ALPHAVARS_eq_ordav = store_thm("ALPHAVARS_eq_ordav",
-  ``∀env t1 t2. ALPHAVARS env (t1,t2) ⇔ ordav env t1 t2 = EQUAL``,
+val ALPHAVARS_eq_ordav = Q.store_thm("ALPHAVARS_eq_ordav",
+  `∀env t1 t2. ALPHAVARS env (t1,t2) ⇔ ordav env t1 t2 = EQUAL`,
   metis_tac[ALPHAVARS_ordav,ordav_ALPHAVARS,pair_CASES,FST,SND])
 
 val RACONV_orda = Q.prove(
@@ -591,8 +591,8 @@ val RACONV_orda = Q.prove(
   >- rw[orda_def] >- rw[orda_def] >- rw[Once orda_def] >>
   rw[Once orda_def])
 
-val orda_RACONV = prove(
-  ``∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)``,
+val orda_RACONV = Q.prove(
+  `∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)`,
   ho_match_mp_tac orda_ind >> rw[] >>
   reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
     fs[RACONV_REFL] ) >>
@@ -611,31 +611,31 @@ val orda_RACONV = prove(
   qhdtm_x_assum`type_cmp`mp_tac >>
   rw[type_cmp_def,TO_of_LinearOrder])
 
-val RACONV_eq_orda = store_thm("RACONV_eq_orda",
-  ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,
+val RACONV_eq_orda = Q.store_thm("RACONV_eq_orda",
+  `∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL`,
   metis_tac[RACONV_orda,orda_RACONV,pair_CASES,FST,SND])
 
 val ACONV_eq_orda = Q.store_thm("ACONV_eq_orda",
   `∀t1 t2. ACONV t1 t2 = (orda [] t1 t2 = EQUAL)`,
   rw[ACONV_def,RACONV_eq_orda])
 
-val ordav_FILTER = store_thm("ordav_FILTER",
-  ``∀env x y. ordav env x y =
+val ordav_FILTER = Q.store_thm("ordav_FILTER",
+  `∀env x y. ordav env x y =
       case FILTER (λ(x',y'). x' = x ∨ y' = y) env of
       | [] => term_cmp x y
-      | ((x',y')::_) => if x' = x then if y' = y then EQUAL else LESS else GREATER``,
+      | ((x',y')::_) => if x' = x then if y' = y then EQUAL else LESS else GREATER`,
   ho_match_mp_tac ordav_ind >> simp[ordav_def] >>
   strip_assume_tac TotOrd_term_cmp >>
   fs[TotOrd] >> rw[])
 
-val ordav_sym = store_thm("ordav_sym",
-  ``∀env v1 v2. invert (ordav env v1 v2) = ordav (MAP (λ(x,y). (y,x)) env) v2 v1``,
+val ordav_sym = Q.store_thm("ordav_sym",
+  `∀env v1 v2. invert (ordav env v1 v2) = ordav (MAP (λ(x,y). (y,x)) env) v2 v1`,
   ho_match_mp_tac ordav_ind >> simp[ordav_def] >>
   conj_tac >- metis_tac[invert_def,TotOrd_term_cmp,TotOrd,cpn_nchotomy,cpn_distinct] >>
   rw[])
 
-val orda_sym = store_thm("orda_sym",
-  ``∀env t1 t2. invert (orda env t1 t2) = orda (MAP (λ(x,y). (y,x)) env) t2 t1``,
+val orda_sym = Q.store_thm("orda_sym",
+  `∀env t1 t2. invert (orda env t1 t2) = orda (MAP (λ(x,y). (y,x)) env) t2 t1`,
   ho_match_mp_tac orda_ind >>
   rpt gen_tac >> rpt strip_tac >>
   ONCE_REWRITE_TAC[orda_def] >>
@@ -662,14 +662,14 @@ val orda_thm = Q.prove(
   BasicProvers.CASE_TAC >> rw[ordav_def] >>
   fs[GSYM RACONV_eq_orda,RACONV_REFL])
 
-val ordav_lx_trans = prove(
-  ``∀t1 t2 t3 env1 env2.
+val ordav_lx_trans = Q.prove(
+  `∀t1 t2 t3 env1 env2.
     ordav env1 t1 t2 ≠ GREATER ∧
     ordav env2 t2 t3 ≠ GREATER ∧
     MAP SND env1 = MAP FST env2
     ⇒ ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 ≠ GREATER ∧
       (ordav env1 t1 t2 = LESS ∨ ordav env2 t2 t3 = LESS ⇒
-       ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)``,
+       ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)`,
   mp_tac TotOrd_term_cmp >> simp[TotOrd] >> strip_tac >>
   ntac 3 gen_tac >> Induct >> simp[ordav_def] >- (
     metis_tac[cpn_nchotomy,cpn_distinct] ) >>
@@ -679,19 +679,19 @@ val ordav_lx_trans = prove(
   rw[ordav_def] >>
   metis_tac[cpn_nchotomy,cpn_distinct] )
 
-val undo_zip_map_fst = prove(
-  ``p::ZIP(MAP FST l1,MAP SND l2) =
-    ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))``,
+val undo_zip_map_fst = Q.prove(
+  `p::ZIP(MAP FST l1,MAP SND l2) =
+    ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))`,
   Cases_on`p`>>rw[])
 
-val orda_lx_trans = prove(
-  ``∀env1 t1 t2 env2 t3.
+val orda_lx_trans = Q.prove(
+  `∀env1 t1 t2 env2 t3.
     orda env1 t1 t2 ≠ GREATER ∧
     orda env2 t2 t3 ≠ GREATER ∧
     MAP SND env1 = MAP FST env2
     ⇒ orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 ≠ GREATER ∧
       (orda env1 t1 t2 = LESS ∨ orda env2 t2 t3 = LESS ⇒
-       orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)``,
+       orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)`,
   completeInduct_on`term_size t1 + term_size t2 + term_size t3` >>
   rpt gen_tac >> strip_tac >>
   BasicProvers.VAR_EQ_TAC >>
@@ -806,12 +806,12 @@ val alpha_lt_not_refl = Q.store_thm("alpha_lt_not_refl[simp]",
 
 (* VFREE_IN lemmas *)
 
-val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
-  ``∀env p. RACONV env p
+val VFREE_IN_RACONV = Q.store_thm("VFREE_IN_RACONV",
+  `∀env p. RACONV env p
             ⇒ ∀x ty. VFREE_IN (Var x ty) (FST p) ∧
                      ¬(∃y. MEM (Var x ty,y) env) ⇔
                      VFREE_IN (Var x ty) (SND p) ∧
-                     ¬(∃y. MEM (y,Var x ty) env)``,
+                     ¬(∃y. MEM (y,Var x ty) env)`,
   ho_match_mp_tac RACONV_ind >> simp[VFREE_IN_def] >>
   reverse conj_tac >- metis_tac[] >>
   Induct >> simp[ALPHAVARS_def,FORALL_PROD] >> rw[] >> metis_tac[])
@@ -1084,11 +1084,11 @@ val MEM_term_image = Q.store_thm("MEM_term_image",
 
 (* VSUBST lemmas *)
 
-val VSUBST_HAS_TYPE = store_thm("VSUBST_HAS_TYPE",
-  ``∀tm ty ilist.
+val VSUBST_HAS_TYPE = Q.store_thm("VSUBST_HAS_TYPE",
+  `∀tm ty ilist.
       tm has_type ty ∧
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty)
-      ⇒ (VSUBST ilist tm) has_type ty``,
+      ⇒ (VSUBST ilist tm) has_type ty`,
   Induct >> simp[VSUBST_def]
   >- (
     map_every qx_gen_tac[`x`,`ty`,`tty`] >>
@@ -1107,11 +1107,11 @@ val VSUBST_HAS_TYPE = store_thm("VSUBST_HAS_TYPE",
     simp[MEM_FILTER] >> rw[] >> TRY(metis_tac[]) >>
     simp[Once has_type_cases]))
 
-val VSUBST_WELLTYPED = store_thm("VSUBST_WELLTYPED",
-  ``∀tm ty ilist.
+val VSUBST_WELLTYPED = Q.store_thm("VSUBST_WELLTYPED",
+  `∀tm ty ilist.
       welltyped tm ∧
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty)
-      ⇒ welltyped (VSUBST ilist tm)``,
+      ⇒ welltyped (VSUBST ilist tm)`,
   metis_tac[VSUBST_HAS_TYPE,welltyped_def])
 
 val VFREE_IN_VSUBST = Q.store_thm("VFREE_IN_VSUBST",
@@ -1169,8 +1169,8 @@ val VSUBST_NIL = Q.store_thm("VSUBST_NIL[simp]",
 
 (* INST lemmas *)
 
-val INST_CORE_HAS_TYPE = store_thm("INST_CORE_HAS_TYPE",
-  ``∀n tm env tyin.
+val INST_CORE_HAS_TYPE = Q.store_thm("INST_CORE_HAS_TYPE",
+  `∀n tm env tyin.
       welltyped tm ∧ (sizeof tm = n) ∧
       (∀s s'. MEM (s,s') env ⇒
               ∃x ty. (s = Var x ty) ∧
@@ -1186,7 +1186,7 @@ val INST_CORE_HAS_TYPE = store_thm("INST_CORE_HAS_TYPE",
                tm' has_type (TYPE_SUBST tyin (typeof tm)) ∧
                (∀u uty. VFREE_IN (Var u uty) tm' ⇔
                         ∃oty. VFREE_IN (Var u oty) tm ∧
-                              uty = TYPE_SUBST tyin oty))``,
+                              uty = TYPE_SUBST tyin oty))`,
   gen_tac >> completeInduct_on`n` >>
   Induct >> simp[Once INST_CORE_def] >>
   TRY (
@@ -1471,12 +1471,12 @@ val term_ok_clauses = Q.store_thm("term_ok_clauses",
     EVAL_TAC >> NO_TAC) >>
   metis_tac[])
 
-val term_ok_VSUBST = store_thm("term_ok_VSUBST",
-  ``∀sig tm ilist.
+val term_ok_VSUBST = Q.store_thm("term_ok_VSUBST",
+  `∀sig tm ilist.
     term_ok sig tm ∧
     (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧ term_ok sig s')
     ⇒
-    term_ok sig (VSUBST ilist tm)``,
+    term_ok sig (VSUBST ilist tm)`,
   Cases >> Induct >> simp[VSUBST_def,term_ok_def] >- (
     ntac 2 gen_tac >> Induct >> simp[REV_ASSOCD,term_ok_def] >>
     Cases >> simp[REV_ASSOCD] >> rw[term_ok_def] >> metis_tac[])
@@ -1491,14 +1491,14 @@ val term_ok_VSUBST = store_thm("term_ok_VSUBST",
   rw[term_ok_def,MEM_FILTER] >>
   simp[Once has_type_cases])
 
-val term_ok_INST_CORE = store_thm("term_ok_INST_CORE",
-  ``∀sig env tyin tm.
+val term_ok_INST_CORE = Q.store_thm("term_ok_INST_CORE",
+  `∀sig env tyin tm.
       term_ok sig tm ∧
       EVERY (type_ok (FST sig)) (MAP FST tyin) ∧
       (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
       IS_RESULT (INST_CORE env tyin tm)
       ⇒
-      term_ok sig (RESULT (INST_CORE env tyin tm))``,
+      term_ok sig (RESULT (INST_CORE env tyin tm))`,
   Cases >> ho_match_mp_tac INST_CORE_ind >>
   simp[term_ok_def,INST_CORE_def] >>
   rw[term_ok_def,type_ok_TYPE_SUBST] >- (
@@ -1533,11 +1533,11 @@ val term_ok_INST = Q.store_thm("term_ok_INST",
   rw[INST_def] >>
   metis_tac[INST_CORE_NIL_IS_RESULT,term_ok_welltyped,term_ok_INST_CORE,MEM])
 
-val term_ok_raconv = store_thm("term_ok_raconv",
-  ``∀env tp. RACONV env tp ⇒
+val term_ok_raconv = Q.store_thm("term_ok_raconv",
+  `∀env tp. RACONV env tp ⇒
       ∀sig.
       EVERY (λ(s,s'). welltyped s ∧ welltyped s' ∧ typeof s = typeof s' ∧ type_ok (FST sig) (typeof s)) env ⇒
-      term_ok sig (FST tp) ∧ welltyped (SND tp) ⇒ term_ok sig (SND tp)``,
+      term_ok sig (FST tp) ∧ welltyped (SND tp) ⇒ term_ok sig (SND tp)`,
   ho_match_mp_tac RACONV_strongind >>
   rw[] >> Cases_on`sig`>>fs[term_ok_def] >- (
     imp_res_tac ALPHAVARS_MEM >> fs[EVERY_MEM,FORALL_PROD] >>
@@ -1621,11 +1621,11 @@ val bind_dbVSUBST = Q.store_thm("bind_dbVSUBST",
   Cases >> simp[REV_ASSOCD] >> strip_tac >>
   rw[] >> metis_tac[bind_not_free])
 
-val bind_dbVSUBST_cons = store_thm("bind_dbVSUBST_cons",
-  ``∀tm z x n ls.
+val bind_dbVSUBST_cons = Q.store_thm("bind_dbVSUBST_cons",
+  `∀tm z x n ls.
     ¬dbVFREE_IN (UNCURRY dbVar z) (dbVSUBST ls (bind x n tm))
     ⇒
-    bind z n (dbVSUBST ((UNCURRY dbVar z,UNCURRY dbVar x)::ls) tm) = dbVSUBST ls (bind x n tm)``,
+    bind z n (dbVSUBST ((UNCURRY dbVar z,UNCURRY dbVar x)::ls) tm) = dbVSUBST ls (bind x n tm)`,
   Induct >> simp[] >>
   CONV_TAC (RESORT_FORALL_CONV List.rev) >>
   rw[REV_ASSOCD] >>fs[] >- (
@@ -1663,17 +1663,17 @@ val dbVFREE_IN_VFREE_IN = Q.store_thm("dbVFREE_IN_VFREE_IN",
   simp[dbVFREE_IN_bind,PULL_EXISTS] >>
   Cases >> simp[] >> metis_tac[] )
 
-val MAP_db_FILTER_neq = store_thm("MAP_db_FILTER_neq",
-  ``∀ls z ty. MAP (λ(x,y). (db x, db y)) (FILTER (λ(x,y). y ≠ Var z ty) ls) = FILTER (λ(x,y). y ≠ dbVar z ty) (MAP (λ(x,y). (db x, db y)) ls)``,
+val MAP_db_FILTER_neq = Q.store_thm("MAP_db_FILTER_neq",
+  `∀ls z ty. MAP (λ(x,y). (db x, db y)) (FILTER (λ(x,y). y ≠ Var z ty) ls) = FILTER (λ(x,y). y ≠ dbVar z ty) (MAP (λ(x,y). (db x, db y)) ls)`,
   Induct >> simp[] >>
   Cases >> simp[] >>
   rw[] >-( Cases_on`r`>>fs[] ) >> fs[])
 
-val REV_ASSOCD_MAP_db = store_thm("REV_ASSOCD_MAP_db",
-  ``∀ls k ky.
+val REV_ASSOCD_MAP_db = Q.store_thm("REV_ASSOCD_MAP_db",
+  `∀ls k ky.
     (∀k v. MEM (v,k) ls ⇒ ∃x ty. k = Var x ty)
     ⇒
-    REV_ASSOCD (dbVar k ky) (MAP (λ(x,y). (db x, db y)) ls) (dbVar k ky) = db (REV_ASSOCD (Var k ky) ls (Var k ky))``,
+    REV_ASSOCD (dbVar k ky) (MAP (λ(x,y). (db x, db y)) ls) (dbVar k ky) = db (REV_ASSOCD (Var k ky) ls (Var k ky))`,
   Induct >> simp[REV_ASSOCD] >>
   Cases >> simp[REV_ASSOCD] >>
   rw[] >> fs[] >- (
@@ -1689,12 +1689,12 @@ val dbVFREE_IN_dbVSUBST = Q.store_thm("dbVFREE_IN_dbVSUBST",
                (REV_ASSOCD (dbVar y ty) ilist (dbVar y ty))`,
   Induct >> simp[] >> rw[] >> metis_tac[])
 
-val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
-  ``∀tm ilist.
+val VSUBST_dbVSUBST = Q.store_thm("VSUBST_dbVSUBST",
+  `∀tm ilist.
     welltyped tm ∧
     (∀k v. MEM (v,k) ilist ⇒ welltyped v ∧ ∃x ty. k = Var x ty)
     ⇒
-    db (VSUBST ilist tm) = dbVSUBST (MAP (λ(x,y). (db x, db y)) ilist) (db tm)``,
+    db (VSUBST ilist tm) = dbVSUBST (MAP (λ(x,y). (db x, db y)) ilist) (db tm)`,
   Induct >- (
     simp[VSUBST_def] >>
     ntac 2 gen_tac >> Induct >>
@@ -1806,10 +1806,10 @@ val dbINST_def = Define`
   dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)`
 val _ = export_rewrites["dbINST_def"]
 
-val dbINST_bind = store_thm("dbINST_bind",
-  ``∀tm v n ls.
+val dbINST_bind = Q.store_thm("dbINST_bind",
+  `∀tm v n ls.
       (∀ty. dbVFREE_IN (dbVar (FST v) ty) tm ∧ (TYPE_SUBST ls ty = TYPE_SUBST ls (SND v)) ⇒ ty = SND v)
-      ⇒ dbINST ls (bind v n tm) = bind (FST v,TYPE_SUBST ls (SND v)) n (dbINST ls tm)``,
+      ⇒ dbINST ls (bind v n tm) = bind (FST v,TYPE_SUBST ls (SND v)) n (dbINST ls tm)`,
   Induct >> simp[] >>
   Cases_on`v`>>simp[] >>
   rpt strip_tac >>
@@ -1821,11 +1821,11 @@ val dbVSUBST_nil = Q.store_thm("dbVSUBST_nil",
   Induct >> simp[REV_ASSOCD])
 val _ = export_rewrites["dbVSUBST_nil"]
 
-val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
-  ``∀tm tyin env tmi.
+val INST_CORE_dbINST = Q.store_thm("INST_CORE_dbINST",
+  `∀tm tyin env tmi.
       welltyped tm ∧ (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
       INST_CORE env tyin tm = Result tmi ⇒
-        db tmi = dbINST tyin (db tm)``,
+        db tmi = dbINST tyin (db tm)`,
   completeInduct_on`sizeof tm` >> Cases >> simp[] >- (
     strip_tac >>
     simp[INST_CORE_def] >>
@@ -1987,9 +1987,9 @@ val dbterm_db = Q.store_thm("dbterm_db",
 
 (* alpha-equivalence on de Bruijn terms *)
 
-val dbterm_RACONV = store_thm("dbterm_RACONV",
-  ``∀t1 env1 t2 env2. welltyped t1 ∧ welltyped t2 ∧ dbterm env1 t1 = dbterm env2 t2 ∧ LENGTH env1 = LENGTH env2 ⇒
-      RACONV (ZIP(MAP (UNCURRY Var) env1,MAP (UNCURRY Var) env2)) (t1,t2)``,
+val dbterm_RACONV = Q.store_thm("dbterm_RACONV",
+  `∀t1 env1 t2 env2. welltyped t1 ∧ welltyped t2 ∧ dbterm env1 t1 = dbterm env2 t2 ∧ LENGTH env1 = LENGTH env2 ⇒
+      RACONV (ZIP(MAP (UNCURRY Var) env1,MAP (UNCURRY Var) env2)) (t1,t2)`,
   Induct >- (
     ntac 3 gen_tac >> simp[] >>
     Cases >> simp[RACONV] >>
@@ -2048,12 +2048,12 @@ val ACONV_db = Q.store_thm("ACONV_db",
 
 (* respect of alpha-equivalence by VSUBST and INST follows *)
 
-val ACONV_VSUBST = store_thm("ACONV_VSUBST",
-  ``∀t1 t2 ilist.
+val ACONV_VSUBST = Q.store_thm("ACONV_VSUBST",
+  `∀t1 t2 ilist.
     welltyped t1 ∧ welltyped t2 ∧
     (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty ∧ v has_type ty) ∧
     ACONV t1 t2 ⇒
-    ACONV (VSUBST ilist t1) (VSUBST ilist t2)``,
+    ACONV (VSUBST ilist t1) (VSUBST ilist t2)`,
   rw[] >>
   imp_res_tac VSUBST_WELLTYPED >>
   rw[ACONV_db] >>
@@ -2095,11 +2095,11 @@ val simple_inst_def = Define`
   simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)`
 val _ = export_rewrites["simple_inst_def"]
 
-val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
-  ``∀tm ilist. DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
+val VSUBST_simple_subst = Q.store_thm("VSUBST_simple_subst",
+  `∀tm ilist. DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
                (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty) ∧
                welltyped tm
-               ⇒ VSUBST ilist tm = simple_subst ilist tm``,
+               ⇒ VSUBST ilist tm = simple_subst ilist tm`,
   Induct
   >- simp[VSUBST_def]
   >- simp[VSUBST_def]
@@ -2119,14 +2119,14 @@ val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
   fs[MEM_MAP,EXISTS_PROD,IN_DISJOINT] >>
   metis_tac[])
 
-val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
-  ``∀env tyin tm.
+val INST_CORE_simple_inst = Q.store_thm("INST_CORE_simple_inst",
+  `∀env tyin tm.
       ALL_DISTINCT (bv_names tm ++ (MAP (FST o dest_var o SND) env)) ∧
       DISJOINT (set(bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
       (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
       (∀x ty ty'. VFREE_IN (Var x ty) tm ∧ MEM (Var x ty') (MAP FST env) ⇒ ty' = ty) ∧
       welltyped tm
-      ⇒ INST_CORE env tyin tm = Result (simple_inst tyin tm)``,
+      ⇒ INST_CORE env tyin tm = Result (simple_inst tyin tm)`,
   ho_match_mp_tac INST_CORE_ind >>
   conj_tac >- (
     simp[INST_CORE_def] >> rpt gen_tac >> strip_tac >> rw[] >>
@@ -2180,12 +2180,12 @@ val INST_simple_inst = Q.store_thm("INST_simple_inst",
   qspecl_then[`[]`,`tyin`,`tm`]mp_tac INST_CORE_simple_inst >>
   simp[])
 
-val simple_subst_has_type = store_thm("simple_subst_has_type",
-  ``∀tm ty.
+val simple_subst_has_type = Q.store_thm("simple_subst_has_type",
+  `∀tm ty.
       tm has_type ty ⇒
       ∀subst.
         EVERY (λ(s',s). s' has_type typeof s) subst ⇒
-        simple_subst subst tm has_type ty``,
+        simple_subst subst tm has_type ty`,
   ho_match_mp_tac has_type_ind >>
   simp[] >> rw[] >- (
     simp[REV_ASSOCD_ALOOKUP] >> BasicProvers.CASE_TAC >-
@@ -2229,14 +2229,14 @@ val FST_rename_bvars = Q.store_thm("FST_rename_bvars",
   match_mp_tac rich_listTheory.DROP_DROP >>
   simp[])
 
-val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
-  ``∀names env tm.
+val rename_bvars_RACONV = Q.store_thm("rename_bvars_RACONV",
+  `∀names env tm.
     LENGTH (bv_names tm) ≤ LENGTH names ∧
     DISJOINT (set (MAP FST env ++ names)) (set (MAP (FST o SND) env ++ bv_names tm)) ∧
     DISJOINT (set (MAP FST env ++ names)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
     ALL_DISTINCT (MAP FST env ++ names) ∧
     welltyped tm
-    ⇒ RACONV (MAP (λ(s',(s,ty)). (Var s ty, Var s' ty)) env) (tm, SND (rename_bvars names env tm))``,
+    ⇒ RACONV (MAP (λ(s',(s,ty)). (Var s ty, Var s' ty)) env) (tm, SND (rename_bvars names env tm))`,
   ho_match_mp_tac (theorem"rename_bvars_ind") >>
   simp[rename_bvars_def,RACONV] >>
   conj_tac >- (
@@ -2370,8 +2370,8 @@ val FINITE_VFREE_IN = Q.store_thm("FINITE_VFREE_IN",
   metis_tac[])
 val _ = export_rewrites["FINITE_VFREE_IN"]
 
-val FINITE_VFREE_IN_2 = store_thm("FINITE_VFREE_IN_2",
-  ``∀tm. FINITE {(x,ty) | VFREE_IN (Var x ty) tm}``,
+val FINITE_VFREE_IN_2 = Q.store_thm("FINITE_VFREE_IN_2",
+  `∀tm. FINITE {(x,ty) | VFREE_IN (Var x ty) tm}`,
   Induct >> simp[] >- (
     rw[] >>
     qmatch_abbrev_tac`FINITE x` >>
@@ -2406,8 +2406,8 @@ val FINITE_VFREE_IN_list = Q.store_thm("FINITE_VFREE_IN_list",
   simp[FINITE_UNION])
 val _ = export_rewrites["FINITE_VFREE_IN_list"]
 
-val FINITE_MEM_Var = store_thm("FINITE_MEM_Var",
-  ``∀ls. FINITE {(x,ty) | MEM (Var x ty) ls}``,
+val FINITE_MEM_Var = Q.store_thm("FINITE_MEM_Var",
+  `∀ls. FINITE {(x,ty) | MEM (Var x ty) ls}`,
   Induct >> simp[] >>
   Cases >> simp[] >>
   qmatch_assum_abbrev_tac`FINITE P` >>
@@ -2619,8 +2619,8 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
   |> SIMP_RULE std_ss [] |> SPEC_ALL);
 
-val INST_CORE_Abs_thm = store_thm("INST_CORE_Abs_thm",
-  ``∀v t env tyin. welltyped (Abs v t) ⇒
+val INST_CORE_Abs_thm = Q.store_thm("INST_CORE_Abs_thm",
+  `∀v t env tyin. welltyped (Abs v t) ⇒
    INST_CORE env tyin (Abs v t) =
    (let (x,ty) = dest_var v in
     let ty' = TYPE_SUBST tyin ty in
@@ -2643,7 +2643,7 @@ val INST_CORE_Abs_thm = store_thm("INST_CORE_Abs_thm",
               in
                 if IS_RESULT tres' then
                   Result (Abs (Var x' ty') (RESULT tres'))
-                else tres')))``,
+                else tres')))`,
   rw[] >> simp[Once INST_CORE_def] >> rw[] >>
   unabbrev_all_tac >> fs[] >>
   rfs[GSYM INST_def] >>
@@ -2740,9 +2740,9 @@ val appThm_equation = save_thm("appThm_equation",
   proves_rules |> CONJUNCTS |> el 8
   |> REWRITE_RULE[GSYM AND_IMP_INTRO])
 
-val addAssum = store_thm("addAssum",
-  ``∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (a has_type Bool) ⇒
-      (thy,term_union [a] h) |- c``,
+val addAssum = Q.store_thm("addAssum",
+  `∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (a has_type Bool) ⇒
+      (thy,term_union [a] h) |- c`,
   rw[] >>
   ho_match_mp_tac (MP_CANON eqMp_equation) >>
   map_every qexists_tac[`c`,`c`] >> simp[] >>
@@ -2785,13 +2785,13 @@ val proves_concl_ACONV = Q.prove(
   Cases_on`thyh`>>fs[]>>
   metis_tac[eqMp_equation,term_union_thm,ACONV_SYM] )
 
-val proves_ACONV_lemma = prove(
-  ``∀thy c h' h1 h.
+val proves_ACONV_lemma = Q.prove(
+  `∀thy c h' h1 h.
     (thy,h1++h) |- c ∧
     hypset_ok (h1++h') ∧
     EVERY (λx. EXISTS (ACONV x) h') h ∧
     EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h'
-    ⇒ (thy,h1++h') |- c``,
+    ⇒ (thy,h1++h') |- c`,
   ntac 2 gen_tac >> Induct >> rw[] >> rw[] >>
   imp_res_tac proves_term_ok >> fs[hypset_ok_cons] >>
   Cases_on`EXISTS (ACONV h) h''` >- (
@@ -2871,13 +2871,13 @@ val proves_ACONV_lemma = prove(
     metis_tac[ACONV_SYM] ) >>
   metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
 
-val proves_ACONV = store_thm("proves_ACONV",
-  ``∀thy h' c' h c.
+val proves_ACONV = Q.store_thm("proves_ACONV",
+  `∀thy h' c' h c.
       (thy,h) |- c ∧ welltyped c' ∧ ACONV c c' ∧
       hypset_ok h' ∧
       EVERY (λx. EXISTS (ACONV x) h') h ∧
       EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h'
-      ⇒ (thy,h') |- c'``,
+      ⇒ (thy,h') |- c'`,
   rw[] >>
   qsuff_tac`(thy,h') |- c` >- metis_tac[proves_concl_ACONV] >>
   qpat_x_assum`welltyped c'`kall_tac >>
@@ -2927,12 +2927,12 @@ val sym = Q.store_thm("sym",
   metis_tac[equation_def,sym_equation])
 
 (* TODO: Use this to close issue #97 *)
-val trans_equation = store_thm("trans_equation",
-  ``∀thy h1 h2 t1 t2a t2b t3.
+val trans_equation = Q.store_thm("trans_equation",
+  `∀thy h1 h2 t1 t2a t2b t3.
       (thy,h2) |- t2b === t3 ⇒
       (thy,h1) |- t1 === t2a ⇒
       ACONV t2a t2b ⇒
-      (thy,term_union h1 h2) |- t1 === t3``,
+      (thy,term_union h1 h2) |- t1 === t3`,
   rw[] >>
   imp_res_tac proves_theory_ok >> fs[] >>
   imp_res_tac theory_ok_sig >>
@@ -2957,20 +2957,20 @@ val trans_equation = store_thm("trans_equation",
     simp[GSYM ACONV_def] ) >>
   metis_tac[sym_equation])
 
-val trans = store_thm("trans",
-  ``∀thy h1 h2 t1 t2a t2b t3 ty.
+val trans = Q.store_thm("trans",
+  `∀thy h1 h2 t1 t2a t2b t3 ty.
       (thy,h2) |- Comb (Comb (Equal ty) t2b) t3 ⇒
       (thy,h1) |- Comb (Comb (Equal ty) t1) t2a ⇒
       ACONV t2a t2b ⇒
-      (thy,term_union h1 h2) |- Comb (Comb (Equal ty) t1) t3``,
+      (thy,term_union h1 h2) |- Comb (Comb (Equal ty) t1) t3`,
   rw[] >>
   imp_res_tac proves_term_ok >> fs[] >>
   imp_res_tac term_ok_welltyped >> fs[] >>
   metis_tac[trans_equation,equation_def])
 
-val proveHyp = store_thm("proveHyp",
-  ``∀thy h1 c1 h2 c2. (thy,h1) |- c1 ∧ (thy,h2) |- c2 ⇒
-      (thy,term_union h2 (term_remove c2 h1)) |- c1``,
+val proveHyp = Q.store_thm("proveHyp",
+  `∀thy h1 c1 h2 c2. (thy,h1) |- c1 ∧ (thy,h2) |- c2 ⇒
+      (thy,term_union h2 (term_remove c2 h1)) |- c1`,
   rw[] >>
   imp_res_tac proves_term_ok >>
   imp_res_tac proves_theory_ok >> fs[] >>
@@ -3063,11 +3063,11 @@ val type_ok_extend = Q.store_thm("type_ok_extend",
   res_tac >>
   imp_res_tac FLOOKUP_SUBMAP)
 
-val term_ok_extend = store_thm("term_ok_extend",
-  ``∀t tyenv tmenv tyenv' tmenv'.
+val term_ok_extend = Q.store_thm("term_ok_extend",
+  `∀t tyenv tmenv tyenv' tmenv'.
     tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧
     term_ok (tyenv,tmenv) t ⇒
-    term_ok (tyenv',tmenv') t``,
+    term_ok (tyenv',tmenv') t`,
   Induct >> simp[term_ok_def] >> rw[] >>
   imp_res_tac type_ok_extend >>
   imp_res_tac FLOOKUP_SUBMAP >>
@@ -3082,10 +3082,10 @@ val term_ok_updates = Q.store_thm("term_ok_updates",
   simp[] >> conj_tac >> match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
   metis_tac[updates_DISJOINT,finite_mapTheory.SUBMAP_REFL,pred_setTheory.DISJOINT_SYM])
 
-val is_std_sig_extend = store_thm("is_std_sig_extend",
-  ``∀tyenv tmenv tyenv' tmenv'.
+val is_std_sig_extend = Q.store_thm("is_std_sig_extend",
+  `∀tyenv tmenv tyenv' tmenv'.
     is_std_sig (tyenv,tmenv) ∧ tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ⇒
-    is_std_sig (tyenv',tmenv')``,
+    is_std_sig (tyenv',tmenv')`,
   rw[is_std_sig_def] >> imp_res_tac FLOOKUP_SUBMAP)
 
 (* updates preserve ok *)
@@ -3445,11 +3445,11 @@ val update_extension = Q.prove (
       >- (Cases_on `ctxt` >>
           fs [])));
 
-val updates_proves = store_thm("updates_proves",
-  ``∀upd ctxt.  upd updates ctxt ⇒
+val updates_proves = Q.store_thm("updates_proves",
+  `∀upd ctxt.  upd updates ctxt ⇒
     ∀h c.
     (thyof ctxt,h) |- c ⇒
-    (thyof (upd::ctxt),h) |- c``,
+    (thyof (upd::ctxt),h) |- c`,
   metis_tac[update_extension])
 
 (* types occurring in a term *)
@@ -3569,8 +3569,8 @@ val arities_match_append = Q.store_thm("arities_match_append",
   ho_match_mp_tac arities_match_ind >>
   simp[arities_match_def])
 
-val tymatch_SOME = store_thm("tymatch_SOME",
-  ``∀ps obs sids s' ids'.
+val tymatch_SOME = Q.store_thm("tymatch_SOME",
+  `∀ps obs sids s' ids'.
      arities_match ps obs ∧
       DISJOINT (set (MAP SND (FST sids))) (set (MAP Tyvar (SND sids))) ∧
       (∀name. ¬MEM (Tyvar name,Tyvar name) (FST sids)) ∧
@@ -3581,7 +3581,7 @@ val tymatch_SOME = store_thm("tymatch_SOME",
          DISJOINT (set (MAP SND s')) (set (MAP Tyvar ids')) ∧
          (∀name. ¬MEM (Tyvar name,Tyvar name) s') ∧
          ALL_DISTINCT (MAP SND s') ∧
-         (MAP (TYPE_SUBST s') ps = obs)``,
+         (MAP (TYPE_SUBST s') ps = obs)`,
   ho_match_mp_tac tymatch_ind >>
   simp[tymatch_def,arities_match_def] >>
   conj_tac >- (

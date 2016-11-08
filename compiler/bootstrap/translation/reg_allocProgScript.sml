@@ -39,8 +39,8 @@ val _ = (find_def_for_const := def_of_const);
 fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
 
 (*Use WHILE which is already translated in the prelude*)
-val rpt_do_step_alt = prove(``
-  rpt_do_step = \s. ((),WHILE (FST o has_work) (SND o do_step) s)``,
+val rpt_do_step_alt = Q.prove(`
+  rpt_do_step = \s. ((),WHILE (FST o has_work) (SND o do_step) s)`,
   fs[FUN_EQ_THM,rpt_do_step_def]>>
   completeInduct_on`s.clock`>>
   rw[]>>
@@ -61,8 +61,8 @@ val rpt_do_step_alt = prove(``
 
 val _ = translate rpt_do_step_alt
 
-val rpt_do_step2_alt = prove(``
-  rpt_do_step2 = \s. ((),WHILE (FST o has_work) (SND o do_step2) s)``,
+val rpt_do_step2_alt = Q.prove(`
+  rpt_do_step2 = \s. ((),WHILE (FST o has_work) (SND o do_step2) s)`,
   fs[FUN_EQ_THM,rpt_do_step2_def]>>
   completeInduct_on`s.clock`>>
   rw[]>>
@@ -82,10 +82,10 @@ val rpt_do_step2_alt = prove(``
 
 val _ = translate rpt_do_step2_alt
 
-val briggs_coalesce_alt_lem = prove(
-``∀s.
+val briggs_coalesce_alt_lem = Q.prove(
+`∀s.
   MWHILE briggs_has_work do_briggs_step s =
-  ((),WHILE (FST o briggs_has_work) (SND o do_briggs_step) s)``,
+  ((),WHILE (FST o briggs_has_work) (SND o do_briggs_step) s)`,
   completeInduct_on`s.clock`>>rw[]>>
   fs[Once whileTheory.WHILE]>>
   Q.ISPECL_THEN [`briggs_has_work`,`do_briggs_step`] assume_tac MWHILE_DEF>>
@@ -98,8 +98,8 @@ val briggs_coalesce_alt_lem = prove(
   strip_tac>>
   simp[Once whileTheory.WHILE,SimpRHS])
 
-val briggs_coalesce_alt = prove(``
-  briggs_coalesce = \s. ((),SND (set_unavail_moves [] (SND (set_move_rel LN (WHILE (FST o briggs_has_work) (SND o do_briggs_step) s)))))``,
+val briggs_coalesce_alt = Q.prove(`
+  briggs_coalesce = \s. ((),SND (set_unavail_moves [] (SND (set_move_rel LN (WHILE (FST o briggs_has_work) (SND o do_briggs_step) s)))))`,
   fs[FUN_EQ_THM,briggs_coalesce_def,IGNORE_BIND_DEF,BIND_DEF,UNCURRY,set_unavail_moves_def,set_move_rel_def]>>
   fs[briggs_coalesce_alt_lem])
 

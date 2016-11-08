@@ -16,9 +16,9 @@ val map_state_clock = Q.store_thm("map_state_clock[simp]",
 val state_every_def = Define`
   state_every P s ⇔ EVERY (sv_every P) s.refs ∧ EVERY (OPTION_EVERY P) s.globals`
 
-val do_app_genv_weakening = prove(
-  ``decSem$do_app x op vs = SOME (x',c) ⇒
-    do_app (x with globals := x.globals ++ y) op vs = SOME (x' with globals := x'.globals ++ y,c)``,
+val do_app_genv_weakening = Q.prove(
+  `decSem$do_app x op vs = SOME (x',c) ⇒
+    do_app (x with globals := x.globals ++ y) op vs = SOME (x' with globals := x'.globals ++ y,c)`,
   srw_tac[][do_app_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   fsrw_tac[ARITH_ss][EL_APPEND1,LUPDATE_APPEND1,state_component_equality])

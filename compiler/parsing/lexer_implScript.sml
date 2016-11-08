@@ -231,20 +231,20 @@ val EVERY_IMPLODE = Q.prove(`
   EVERY P (IMPLODE ls) ⇔ EVERY P ls`,
   Induct>>fs[])
 
-val read_while_P_lem = prove(``
+val read_while_P_lem = Q.prove(`
   ∀ls rest P x y.
   EVERY P rest ∧
   read_while P ls rest = (x,y) ⇒
-  EVERY P x``,
+  EVERY P x`,
   Induct>>fs[read_while_def]>>rw[]>>
   fs[EVERY_IMPLODE,rich_listTheory.EVERY_REVERSE]>>
   first_assum match_mp_tac>>fs[]>>
   qexists_tac`STRING h rest`>>fs[])
 
-val read_while_P = prove(``
+val read_while_P = Q.prove(`
   ∀ls P x y.
   read_while P ls "" = (x,y) ⇒
-  EVERY P x``,
+  EVERY P x`,
   rw[]>>ho_match_mp_tac read_while_P_lem>>
   MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[])
 
@@ -284,11 +284,11 @@ val lex_aux_def = tDefine "lex_aux" `
 val lex_until_toplevel_semicolon_def = Define `
   lex_until_toplevel_semicolon input = lex_aux [] 0 input`;
 
-val lex_aux_LESS = prove(
-  ``!acc d input.
+val lex_aux_LESS = Q.prove(
+  `!acc d input.
       (lex_aux acc d input = SOME (ts, rest)) ==>
       if acc = [] then LENGTH rest < LENGTH input
-                  else LENGTH rest <= LENGTH input``,
+                  else LENGTH rest <= LENGTH input`,
   HO_MATCH_MP_TAC (fetch "-" "lex_aux_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [lex_aux_def]
@@ -302,10 +302,10 @@ val lex_aux_LESS = prove(
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
   THEN DECIDE_TAC);
 
-val lex_until_toplevel_semicolon_LESS = store_thm(
+val lex_until_toplevel_semicolon_LESS = Q.store_thm(
   "lex_until_toplevel_semicolon_LESS",
-  ``(lex_until_toplevel_semicolon input = SOME (ts,rest)) ==>
-    LENGTH rest < LENGTH input``,
+  `(lex_until_toplevel_semicolon input = SOME (ts,rest)) ==>
+    LENGTH rest < LENGTH input`,
   SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_LESS
   THEN FULL_SIMP_TAC std_ss []);
@@ -335,11 +335,11 @@ val lex_aux_alt_def = tDefine "lex_aux_alt" `
 val lex_until_top_semicolon_alt_def = Define `
   lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input`
 
-val lex_aux_alt_LESS = prove(
-  ``!acc d input.
+val lex_aux_alt_LESS = Q.prove(
+  `!acc d input.
       (lex_aux_alt acc d input = SOME (ts, rest)) ==>
       if acc = [] then LENGTH rest < LENGTH input
-                  else LENGTH rest <= LENGTH input``,
+                  else LENGTH rest <= LENGTH input`,
   HO_MATCH_MP_TAC (fetch "-" "lex_aux_alt_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [lex_aux_alt_def]
@@ -353,10 +353,10 @@ val lex_aux_alt_LESS = prove(
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
   THEN DECIDE_TAC);
 
-val lex_until_top_semicolon_alt_LESS = store_thm(
+val lex_until_top_semicolon_alt_LESS = Q.store_thm(
   "lex_until_top_semicolon_alt_LESS",
-  ``(lex_until_top_semicolon_alt input = SOME (ts,rest)) ==>
-    LENGTH rest < LENGTH input``,
+  `(lex_until_top_semicolon_alt input = SOME (ts,rest)) ==>
+    LENGTH rest < LENGTH input`,
   SIMP_TAC std_ss [lex_until_top_semicolon_alt_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_alt_LESS
   THEN FULL_SIMP_TAC std_ss []);
@@ -376,12 +376,12 @@ val token_of_sym_EQ_LEMMA = Q.prove(
   THEN BasicProvers.FULL_CASE_TAC THEN SRW_TAC [] []
   THEN CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) THEN SRW_TAC [] []);
 
-val lex_aux_alt_thm = prove(
-  ``!acc d input.
+val lex_aux_alt_thm = Q.prove(
+  `!acc d input.
       case lex_aux_alt acc d input of
       | NONE => (lex_aux (MAP token_of_sym acc) d input = NONE)
       | SOME (ts,rest) => (lex_aux (MAP token_of_sym acc) d input =
-                           SOME (MAP token_of_sym ts,rest))``,
+                           SOME (MAP token_of_sym ts,rest))`,
   HO_MATCH_MP_TAC (fetch "-" "lex_aux_alt_ind") THEN REPEAT STRIP_TAC
   THEN ONCE_REWRITE_TAC [lex_aux_alt_def,lex_aux_def]
   THEN SIMP_TAC std_ss [next_token_def]
@@ -392,12 +392,12 @@ val lex_aux_alt_thm = prove(
   THEN FULL_SIMP_TAC (srw_ss()) [token_of_sym_def,get_token_def])
   |> Q.SPECL [`[]`,`0`] |> SIMP_RULE std_ss [MAP];
 
-val lex_until_top_semicolon_alt_thm = store_thm(
+val lex_until_top_semicolon_alt_thm = Q.store_thm(
   "lex_until_top_semicolon_alt_thm",
-  ``case lex_until_top_semicolon_alt input of
+  `case lex_until_top_semicolon_alt input of
     | NONE => (lex_until_toplevel_semicolon input = NONE)
     | SOME (ts,rest) =>
-        (lex_until_toplevel_semicolon input = SOME (MAP token_of_sym ts,rest))``,
+        (lex_until_toplevel_semicolon input = SOME (MAP token_of_sym ts,rest))`,
   SIMP_TAC std_ss [lex_until_top_semicolon_alt_def,
     lex_until_toplevel_semicolon_def,lex_aux_alt_thm]);
 
@@ -438,11 +438,11 @@ val lex_aux_tokens_def = Define `
 val lex_until_toplevel_semicolon_tokens_def = Define `
   lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] 0 input`;
 
-val lex_aux_tokens_LESS = prove(
-  ``!acc d input.
+val lex_aux_tokens_LESS = Q.prove(
+  `!acc d input.
       (lex_aux_tokens acc d input = SOME (t,rest)) ==>
       (if acc = [] then LENGTH rest < LENGTH input
-                   else LENGTH rest <= LENGTH input)``,
+                   else LENGTH rest <= LENGTH input)`,
   Induct_on `input`
   THEN1 (EVAL_TAC >> SRW_TAC [] [LENGTH] >> SRW_TAC [] [LENGTH])
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def,LET_DEF]
@@ -462,12 +462,12 @@ val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
    >> SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
    >> METIS_TAC [lex_aux_tokens_LESS])
 
-val lex_aux_tokens_thm = prove(
-  ``!input acc d res1 res2.
+val lex_aux_tokens_thm = Q.prove(
+  `!input acc d res1 res2.
       (lex_aux_tokens acc d (lexer_fun input) = res1) /\
       (lex_aux acc d input = res2) ==>
       (case res2 of NONE => (res1 = NONE)
-                  | SOME (ts,rest) => (res1 = SOME (ts,lexer_fun rest)))``,
+                  | SOME (ts,rest) => (res1 = SOME (ts,lexer_fun rest)))`,
   HO_MATCH_MP_TAC lexer_fun_ind >> SIMP_TAC std_ss []
   >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]
   >> ONCE_REWRITE_TAC [lexer_fun_def]
@@ -491,14 +491,14 @@ val lex_impl_all_tokens_thm = Q.prove(
   >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
   >> REPEAT STRIP_TAC >> RES_TAC);
 
-val lex_aux_tokens_thm = prove(
-  ``!input d acc.
+val lex_aux_tokens_thm = Q.prove(
+  `!input d acc.
       (res = lex_aux_tokens acc d input) ==>
       case res of
         NONE => (toplevel_semi_dex (LENGTH acc) d input = NONE)
       | SOME (toks,rest) =>
           (toplevel_semi_dex (LENGTH acc) d input = SOME (LENGTH toks)) /\
-          (REVERSE acc ++ input = toks ++ rest)``,
+          (REVERSE acc ++ input = toks ++ rest)`,
   Induct
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
   >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]

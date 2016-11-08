@@ -5,8 +5,8 @@ val _ = new_theory"data_liveProof";
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 
-val SPLIT_PAIR = prove(
-  ``!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)``,
+val SPLIT_PAIR = Q.prove(
+  `!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)`,
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val state_rel_def = Define `
@@ -31,13 +31,13 @@ val jump_exc_IMP_state_rel = Q.prove(
   \\ every_case_tac >> fs[]
   \\ SRW_TAC [] [] \\ fs [state_rel_def]);
 
-val state_rel_IMP_do_app = prove(
-  ``(do_app op args s1 = Rval (v,s2)) /\
+val state_rel_IMP_do_app = Q.prove(
+  `(do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
     (do_app op args t1 = Rval (v,s2 with <| locals := t1.locals ;
                                              stack := t1.stack ;
-                                             handler := t1.handler |>))``,
+                                             handler := t1.handler |>))`,
   STRIP_TAC
   \\ IMP_RES_TAC do_app_const
   \\ fs [do_app_def,do_space_def]
@@ -85,8 +85,8 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
   \\ EVAL_TAC \\ every_case_tac \\ fs []
   \\ fs [state_component_equality]);
 
-val is_pure_do_app_Rval_IMP = prove(
-  ``is_pure op /\ do_app op x s = Rval (q,r) ==> r = s``,
+val is_pure_do_app_Rval_IMP = Q.prove(
+  `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
   \\ EVAL_TAC \\ every_case_tac \\ fs [data_spaceTheory.op_space_req_def]
   \\ fs [state_component_equality,is_pure_def]);

@@ -503,9 +503,9 @@ val pop_env_code_clock = Q.store_thm("pop_env_code_clock",`
   r.clock = x.clock`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
-val alloc_code_const = store_thm("alloc_code_const",``
+val alloc_code_const = Q.store_thm("alloc_code_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code``,
+  t.code = s.code`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
   imp_res_tac pop_env_code_clock>>fs[])
@@ -514,8 +514,8 @@ val inst_code_const = Q.prove(`
   inst i s = SOME t ⇒ s.code = t.code`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
 
-val evaluate_code_const = store_thm("evaluate_code_const",``
-  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code``,
+val evaluate_code_const = Q.store_thm("evaluate_code_const",`
+  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code`,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
   >-
     (rename1 `bad_dest_args _ _`>>
@@ -725,8 +725,8 @@ val gc_s_val_eq_word_state = Q.store_thm("gc_s_val_eq_word_state",
   full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
 
 (*Most generalised gc_s_val_eq*)
-val gc_s_val_eq_gen = store_thm ("gc_s_val_eq_gen",
-``
+val gc_s_val_eq_gen = Q.store_thm ("gc_s_val_eq_gen",
+`
   !s t s'.
   s.gc_fun = t.gc_fun ∧
   s.memory = t.memory ∧
@@ -739,7 +739,7 @@ val gc_s_val_eq_gen = store_thm ("gc_s_val_eq_gen",
   s_val_eq s'.stack t'.stack ∧
   s_key_eq t.stack t'.stack ∧
   t'.memory = s'.memory ∧
-  t'.store = s'.store`` ,
+  t'.store = s'.store` ,
   srw_tac[][]>>
   full_simp_tac(srw_ss())[gc_def,LET_THM]>>
   IMP_RES_TAC s_val_eq_enc_stack>>
@@ -891,7 +891,7 @@ val word_exp_stack_swap = Q.prove(
   every_case_tac>>full_simp_tac(srw_ss())[])
 
 (*Stack swap theorem for evaluate*)
-val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
+val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
   !c s.
       case evaluate (c,s) of
       | (SOME Error,s1) => T
@@ -933,7 +933,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
                           ?st. evaluate (c,s with stack := xs) =
                                 (res, s1 with stack := st)  /\
                                 s_val_eq s1.stack st /\
-                                s_key_eq xs st)``,
+                                s_key_eq xs st)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]
   >-(*Skip*)
     (full_simp_tac(srw_ss())[evaluate_def,s_key_eq_refl]>>srw_tac[][]>>HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[s_key_eq_refl])
@@ -1563,23 +1563,23 @@ val mem_store_perm = Q.prove(`
   full_simp_tac(srw_ss())[mem_store_def]>>every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality])
 
-val jump_exc_perm = prove(``
+val jump_exc_perm = Q.prove(`
   jump_exc (st with permute:=perm) =
   case jump_exc st of
     NONE => NONE
-  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)``,
+  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)`,
   full_simp_tac(srw_ss())[jump_exc_def]>>
   every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality]);
 
 (*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
-val permute_swap_lemma = store_thm("permute_swap_lemma",``
+val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   ∀prog st perm.
   let (res,rst) = evaluate(prog,st) in
     res ≠ SOME Error  (*Provable without this assum*)
     ⇒
     ∃perm'. evaluate(prog,st with permute := perm') =
-    (res,rst with permute:=perm)``,
+    (res,rst with permute:=perm)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def]
   >-
     metis_tac[ignore_perm]
@@ -1940,7 +1940,7 @@ val locals_rel_cut_env = Q.prove(`
 
 val srestac = qpat_x_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[]
 
-val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
+val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
   ∀prog st res rst loc temp.
   evaluate (prog,st) = (res,rst) ∧
   res ≠ SOME Error ∧
@@ -1950,7 +1950,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
   case res of
     NONE => locals_rel temp rst.locals loc'
-  |  SOME _ => rst.locals = loc'``,
+  |  SOME _ => rst.locals = loc'`,
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   Cases_on`prog`>>

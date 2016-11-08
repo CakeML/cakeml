@@ -336,10 +336,10 @@ val compile_oracle = Q.store_thm("compile_oracle",`
   rveq>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])
 
-val to_livesets_invariant = store_thm("to_livesets_invariant",``
+val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
   to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
-    (rcm,c with word_to_word_conf:=wc,p)``,
+    (rcm,c with word_to_word_conf:=wc,p)`,
   srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,

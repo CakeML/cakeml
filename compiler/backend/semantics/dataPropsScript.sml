@@ -107,10 +107,10 @@ val do_app_const = Q.store_thm("do_app_const",
   imp_res_tac bviPropsTheory.do_app_aux_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[consume_space_def] >> TRY var_eq_tac >> simp[])
 
-val do_app_locals = store_thm("do_app_locals",
-  ``(do_app op x s = Rval (q,r)) ==>
+val do_app_locals = Q.store_thm("do_app_locals",
+  `(do_app op x s = Rval (q,r)) ==>
     (do_app op x (s with locals := extra) =
-       Rval (q,r with locals := extra))``,
+       Rval (q,r with locals := extra))`,
   full_simp_tac(srw_ss())[do_app_def,do_space_def,consume_space_def,data_to_bvi_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
   \\ full_simp_tac(srw_ss())[bvi_to_data_def,state_component_equality]);
@@ -122,8 +122,8 @@ val do_space_alt = Q.store_thm("do_space_alt",
   full_simp_tac(srw_ss())[do_space_def] \\ SRW_TAC [] [consume_space_def]
   \\ full_simp_tac(srw_ss())[state_component_equality] \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC);
 
-val Seq_Skip = store_thm("Seq_Skip",
-  ``evaluate (Seq c Skip,s) = evaluate (c,s)``,
+val Seq_Skip = Q.store_thm("Seq_Skip",
+  `evaluate (Seq c Skip,s) = evaluate (c,s)`,
   full_simp_tac(srw_ss())[evaluate_def] \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []);
 
 val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
@@ -367,54 +367,54 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
       \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])))
 
-val evaluate_stack = store_thm("evaluate_stack",
-  ``!c s.
+val evaluate_stack = Q.store_thm("evaluate_stack",
+  `!c s.
       case evaluate (c,s) of
       | (SOME (Rerr(Rabort Rtype_error)),s1) => T
       | (SOME (Rerr(Rabort _)),s1) => (s1.stack = [])
       | (SOME (Rerr _),s1) =>
             (?s2. (jump_exc s = SOME s2) /\ (s2.locals = s1.locals) /\
                   (s2.stack = s1.stack) /\ (s2.handler = s1.handler))
-      | (_,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler)``,
+      | (_,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler)`,
   REPEAT STRIP_TAC \\ ASSUME_TAC (SPEC_ALL evaluate_stack_swap)
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_NONE_jump_exc = store_thm("evaluate_NONE_jump_exc",
-  ``(evaluate (c,s) = (NONE,u1)) /\ (jump_exc u1 = SOME x) ==>
+val evaluate_NONE_jump_exc = Q.store_thm("evaluate_NONE_jump_exc",
+  `(evaluate (c,s) = (NONE,u1)) /\ (jump_exc u1 = SOME x) ==>
     (jump_exc s = SOME (s with <| stack := x.stack ;
                                   handler := x.handler ;
-                                  locals := x.locals |>))``,
+                                  locals := x.locals |>))`,
   REPEAT STRIP_TAC \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_stack) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[jump_exc_def] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] []);
 
-val evaluate_NONE_jump_exc_ALT = store_thm("evaluate_NONE_jump_exc_ALT",
-  ``(evaluate (c,s) = (NONE,u1)) /\ (jump_exc s = SOME x) ==>
+val evaluate_NONE_jump_exc_ALT = Q.store_thm("evaluate_NONE_jump_exc_ALT",
+  `(evaluate (c,s) = (NONE,u1)) /\ (jump_exc s = SOME x) ==>
     (jump_exc u1 = SOME (u1 with <| stack := x.stack ;
                                   handler := x.handler ;
-                                  locals := x.locals |>))``,
+                                  locals := x.locals |>))`,
   REPEAT STRIP_TAC \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_stack) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[jump_exc_def] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] []);
 
-val evaluate_locals_LN_lemma = prove(
-  ``!c s.
+val evaluate_locals_LN_lemma = Q.prove(
+  `!c s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
       ((SND (evaluate (c,s))).locals = LN) \/
-      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))``,
+      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,fromList_def]
   \\ imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
   \\ Cases_on`a`>>full_simp_tac(srw_ss())[]);
 
-val evaluate_locals_LN = store_thm("evaluate_locals_LN",
-  ``!c s res t.
+val evaluate_locals_LN = Q.store_thm("evaluate_locals_LN",
+  `!c s res t.
       (evaluate (c,s) = (res,t)) /\ res <> NONE /\ res <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (t.locals = LN) \/ ?t. res = SOME (Rerr(Rraise t))``,
+      (t.locals = LN) \/ ?t. res = SOME (Rerr(Rraise t))`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ full_simp_tac(srw_ss())[]);
 
 val locals_ok_def = Define `
@@ -490,14 +490,14 @@ val bvi_to_data_space_locals = Q.store_thm("bvi_to_data_space_locals",
    ((bvi_to_data s t).space = t.space)`,
   EVAL_TAC);
 
-val evaluate_locals = store_thm("evaluate_locals",
-  ``!c s res s2 vars l.
+val evaluate_locals = Q.store_thm("evaluate_locals",
+  `!c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
       locals_ok s.locals l ==>
       ?w. (evaluate (c, s with locals := l) =
              (res,if res = NONE then s2 with locals := w
                                 else s2)) /\
-          locals_ok s2.locals w``,
+          locals_ok s2.locals w`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   THEN1 (* Skip *) (METIS_TAC [])
   THEN1 (* Move *)

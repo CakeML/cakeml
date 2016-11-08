@@ -50,10 +50,10 @@ val strip_sxcons_11 = Q.store_thm("strip_sxcons_11",
   \\ simp[Once simpleSexpTheory.strip_sxcons_def]
   \\ CASE_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]);
 
-val dstrip_sexp_size = store_thm(
+val dstrip_sexp_size = Q.store_thm(
   "dstrip_sexp_size",
-  ``∀s sym args. dstrip_sexp s = SOME (sym, args) ⇒
-                 ∀e. MEM e args ⇒ sexp_size e < sexp_size s``,
+  `∀s sym args. dstrip_sexp s = SOME (sym, args) ⇒
+                 ∀e. MEM e args ⇒ sexp_size e < sexp_size s`,
   Induct >> simp[dstrip_sexp_def, sexp_size_def] >>
   rename1 `sexp_CASE sxp` >> Cases_on `sxp` >> simp[] >> rpt strip_tac >>
   rename1 `MEM sxp0 sxpargs` >> rename1 `strip_sxcons sxp'` >>

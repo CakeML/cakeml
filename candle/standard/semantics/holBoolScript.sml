@@ -558,8 +558,8 @@ val termsem_implies = Q.store_thm("termsem_implies",
     imp_res_tac typesem_Bool >> simp[] ) >>
   simp[boolean_in_boolset] )
 
-val termsem_forall = store_thm("termsem_forall",
-  ``is_set_theory ^mem ⇒
+val termsem_forall = Q.store_thm("termsem_forall",
+  `is_set_theory ^mem ⇒
     ∀s i v f y b.
     is_valuation (tysof s) (tyaof i) v ∧
     is_interpretation s i ∧
@@ -568,7 +568,7 @@ val termsem_forall = store_thm("termsem_forall",
     is_forall_sig (tmsof s) ∧ is_forall_interpretation (tmaof i) ⇒
     termsem (tmsof s) i v (Forall f y b) =
     Boolean (∀x. x <: typesem (tyaof i) (tyvof v) y ⇒
-                 termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)``,
+                 termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)`,
   rw[termsem_def,is_forall_sig_def,is_forall_interpretation_def] >>
   qspecl_then[`tmsof s`,`i`,`strlit"!"`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[y,Tyvar(strlit"A")]`mp_tac) >>
@@ -606,8 +606,8 @@ val termsem_forall = store_thm("termsem_forall",
   fs[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> rw[] )
 
-val termsem_exists = store_thm("termsem_exists",
-  ``is_set_theory ^mem ⇒
+val termsem_exists = Q.store_thm("termsem_exists",
+  `is_set_theory ^mem ⇒
     ∀s i v f y b.
     is_valuation (tysof s) (tyaof i) v ∧
     is_interpretation s i ∧
@@ -616,7 +616,7 @@ val termsem_exists = store_thm("termsem_exists",
     is_exists_sig (tmsof s) ∧ is_exists_interpretation (tmaof i) ⇒
     termsem (tmsof s) i v (Exists f y b) =
     Boolean (∃x. x <: typesem (tyaof i) (tyvof v) y ∧
-                 termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)``,
+                 termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)`,
   rw[termsem_def,is_exists_sig_def,is_exists_interpretation_def] >>
   qspecl_then[`tmsof s`,`i`,`strlit"?"`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[y,Tyvar(strlit"A")]`mp_tac) >>

@@ -58,8 +58,8 @@ val new_constant_correct = Q.store_thm("new_constant_correct",
   simp[equal_on_def] >>
   metis_tac[])
 
-val new_specification_correct = store_thm("new_specification_correct",
-  ``is_set_theory ^mem ⇒
+val new_specification_correct = Q.store_thm("new_specification_correct",
+  `is_set_theory ^mem ⇒
     ∀ctxt eqs prop.
      theory_ok (thyof ctxt) ∧
      (thyof ctxt, MAP (λ(s,t). Var s (typeof t) === t) eqs) |- prop ∧
@@ -71,7 +71,7 @@ val new_specification_correct = store_thm("new_specification_correct",
                MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
      (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
      ALL_DISTINCT (MAP FST eqs) ⇒
-    sound_update ctxt (ConstSpec eqs prop)``,
+    sound_update ctxt (ConstSpec eqs prop)`,
   rw[] >> REWRITE_TAC[sound_update_def,equal_on_def] >>
   gen_tac >> strip_tac >>
   qexists_tac`(tyaof i,
@@ -363,8 +363,8 @@ val new_type_correct = Q.store_thm("new_type_correct",
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
 val eqsh_def = new_definition("eqsh",``eqsh = $=``)
-val new_type_definition_correct = store_thm("new_type_definition_correct",
-  ``is_set_theory ^mem ⇒
+val new_type_definition_correct = Q.store_thm("new_type_definition_correct",
+  `is_set_theory ^mem ⇒
     ∀ctxt name pred abs rep witness.
     (thyof ctxt,[]) |- Comb pred witness ∧
     CLOSED pred ∧
@@ -372,7 +372,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     abs ∉ (FDOM (tmsof ctxt)) ∧
     rep ∉ (FDOM (tmsof ctxt)) ∧
     abs ≠ rep ⇒
-    sound_update ctxt (TypeDefn name pred abs rep)``,
+    sound_update ctxt (TypeDefn name pred abs rep)`,
   rw[sound_update_def,equal_on_def,models_def,LET_THM] >>
   Q.PAT_ABBREV_TAC`tys' = tysof ctxt |+ X` >>
   Q.PAT_ABBREV_TAC`tms' = tmsof ctxt |+ X |+ Y` >>

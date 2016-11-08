@@ -364,7 +364,7 @@ val flatten_exp_every_var_exp = Q.prove(`
 (* inst_select correctness
   Main difficulty: Dealing with multiple choice of optimizations, depending on whether we are allowed to use them w.r.t. to the asm configuration
 *)
-val inst_select_exp_thm = prove(``
+val inst_select_exp_thm = Q.prove(`
   ∀c tar temp exp s w loc.
   binary_branch_exp exp ∧
   every_var_exp (λx. x < temp) exp ∧
@@ -376,7 +376,7 @@ val inst_select_exp_thm = prove(``
   ∀x.
     if x = tar then lookup x loc' = SOME w
     else if x < temp then lookup x loc' = lookup x s.locals
-    else T``,
+    else T`,
   completeInduct_on`exp_size (K 0) exp`>>
   rpt strip_tac>>
   Cases_on`exp`>>
@@ -569,7 +569,7 @@ val locals_rm = Q.prove(`
     The inst-selected program gives same result but
     with possibly more locals used
 *)
-val inst_select_thm = store_thm("inst_select_thm",``
+val inst_select_thm = Q.store_thm("inst_select_thm",`
   ∀c temp prog st res rst loc.
   evaluate (prog,st) = (res,rst) ∧
   every_var (λx. x < temp) prog ∧
@@ -579,7 +579,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
   evaluate (inst_select c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
   case res of
     NONE => locals_rel temp rst.locals loc'
-  | SOME _ => rst.locals = loc'``,
+  | SOME _ => rst.locals = loc'`,
   ho_match_mp_tac inst_select_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[inst_select_def,locals_rel_evaluate_thm]
   >-
@@ -836,12 +836,12 @@ val inst_select_full_inst_ok_less = Q.store_thm("inst_select_full_inst_ok_less",
 (* three_to_two_reg semantics *)
 
 (*Semantics preservation*)
-val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
+val three_to_two_reg_correct = Q.store_thm("three_to_two_reg_correct",`
   ∀prog s res s'.
   every_inst distinct_tar_reg prog ∧
   evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
   ⇒
-  evaluate(three_to_two_reg prog,s) = (res,s')``,
+  evaluate(three_to_two_reg prog,s) = (res,s')`,
   ho_match_mp_tac three_to_two_reg_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[three_to_two_reg_def,evaluate_def,state_component_equality]>>
   TRY
@@ -930,9 +930,9 @@ val inst_select_lab_pres = Q.store_thm("inst_select_lab_pres",`
   EVERY_CASE_TAC>>fs[extract_labels_def]>>
   TRY(metis_tac[inst_select_exp_no_lab]))
 
-val three_to_two_reg_lab_pres = store_thm ("three_to_two_reg_lab_pres",``
+val three_to_two_reg_lab_pres = Q.store_thm ("three_to_two_reg_lab_pres",`
   ∀prog.
-  extract_labels prog = extract_labels (three_to_two_reg prog)``,
+  extract_labels prog = extract_labels (three_to_two_reg prog)`,
   ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[])
 
 val _ = export_theory ();

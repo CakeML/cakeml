@@ -23,8 +23,8 @@ val _ = translation_extends "mini_prelude";
 
 val res = translate EVEN_MOD2;
 
-val UNIT_thm = prove(
-  ``UNIT x s = (x,s)``,
+val UNIT_thm = Q.prove(
+  `UNIT x s = (x,s)`,
   FULL_SIMP_TAC std_ss [state_transformerTheory.UNIT_DEF]);
 
 val _ = translate UNIT_thm;

@@ -133,12 +133,12 @@ end
 val cmlG_FDOM = save_thm("cmlG_FDOM",
   SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
 
-val paireq = prove(
-  ``(x,y) = z ⇔ x = FST z ∧ y = SND z``, Cases_on `z` >> simp[])
+val paireq = Q.prove(
+  `(x,y) = z ⇔ x = FST z ∧ y = SND z`, Cases_on `z` >> simp[])
 
-val GSPEC_INTER = prove(
-  ``GSPEC f ∩ Q =
-    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))``,
+val GSPEC_INTER = Q.prove(
+  `GSPEC f ∩ Q =
+    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))`,
   simp[GSPECIFICATION, EXTENSION, SPECIFICATION] >> qx_gen_tac `e` >>
   simp[paireq] >> metis_tac[])
 

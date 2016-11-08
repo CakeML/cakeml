@@ -342,11 +342,11 @@ val evaluate_compile = Q.prove(
            dec_clock_def] \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
-val compile_correct = store_thm("compile_correct",
-  ``!c s.
+val compile_correct = Q.store_thm("compile_correct",
+  `!c s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (evaluate (compile c, s) = evaluate (c,s))``,
+      (evaluate (compile c, s) = evaluate (c,s))`,
   REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
   \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_compile)
   \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC

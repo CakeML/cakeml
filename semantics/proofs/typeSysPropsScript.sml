@@ -32,9 +32,9 @@ val intro_alist_to_fmap = Q.store_thm ("intro_alist_to_fmap",
 `∀ls fm. fm |++ ls = alist_to_fmap (REVERSE ls) ⊌ fm`,
  metis_tac [FUNION_alist_to_fmap, REVERSE_REVERSE]);
 
-val type_env_list_rel = store_thm("type_env_list_rel",
-  ``!ctMap tenvS env tenv.
-   type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇔ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv``,
+val type_env_list_rel = Q.store_thm("type_env_list_rel",
+  `!ctMap tenvS env tenv.
+   type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇔ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv`,
   induct_on `env` >>
   srw_tac[][] >>
   cases_on `tenv` >>
@@ -47,10 +47,10 @@ val type_env_list_rel = store_thm("type_env_list_rel",
   full_simp_tac(srw_ss())[bind_var_list2_def] >>
   metis_tac []);
 
-val type_env_list_rel_append = store_thm("type_env_list_rel_append",
-  ``!ctMap tenvS env tenv rest rst.
+val type_env_list_rel_append = Q.store_thm("type_env_list_rel_append",
+  `!ctMap tenvS env tenv rest rst.
    type_env ctMap tenvS (env ++ rest) (bind_var_list2 tenv rst) ∧ LENGTH env = LENGTH tenv
-     ⇒ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv``,
+     ⇒ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv`,
   induct_on `env` >>
   srw_tac[][LENGTH_NIL_SYM] >>
   cases_on `tenv` >> full_simp_tac(srw_ss())[] >>
@@ -878,11 +878,11 @@ val bvl2_lookup = Q.store_thm ("bvl2_lookup",
  PairCases_on `h` >>
  srw_tac[][bind_var_list2_def, lookup_tenv_val_def, deBruijn_inc0]);
 
-val lookup_bvl2 = store_thm("lookup_bvl2",
- ``∀n tenv tenv2. lookup_tenv_val n m (bind_var_list2 tenv tenv2) =
+val lookup_bvl2 = Q.store_thm("lookup_bvl2",
+ `∀n tenv tenv2. lookup_tenv_val n m (bind_var_list2 tenv tenv2) =
                   case ALOOKUP tenv n of
                   | SOME (x,y) => SOME (x,deBruijn_inc x m y)
-                  | NONE => lookup_tenv_val n m tenv2``,
+                  | NONE => lookup_tenv_val n m tenv2`,
   induct_on`tenv` >>
   srw_tac[][bind_var_list2_def, lookup_tenv_val_def] >>
   PairCases_on`h` >>
@@ -2958,15 +2958,15 @@ val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
    >> PairCases_on `r`
    >> rw []));
 
-val type_top_tenv_val_ok = store_thm("type_top_tenv_val_ok",
-  ``∀ch decls tenv top decls' env.
+val type_top_tenv_val_ok = Q.store_thm("type_top_tenv_val_ok",
+  `∀ch decls tenv top decls' env.
     type_top ch decls tenv top decls' env ⇒
     ∀tenvT' menv' cenv' tenv'.
     env = (tenvT',menv',cenv',tenv') ⇒
       num_tvs tenv.v = 0 ⇒
       tenv_tabbrev_ok tenv.t ⇒
       tenv_val_ok (bind_var_list2 tenv' Empty) ∧
-      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'``,
+      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'`,
   ho_match_mp_tac type_top_ind >>
   srw_tac[][FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
      typeSoundInvariantsTheory.tenv_val_ok_def] >>

@@ -198,8 +198,8 @@ val universe_IN = Q.prove(
   `universe x ⇔ x ∈ universe`,
   rw[IN_DEF])
 
-val V_bij = store_thm("V_bij",
-  ``∀l e. e ∈ setlevel l ⇔ dest_V(mk_V(l,e)) = (l,e)``,
+val V_bij = Q.store_thm("V_bij",
+  `∀l e. e ∈ setlevel l ⇔ dest_V(mk_V(l,e)) = (l,e)`,
   rw[GSYM(CONJUNCT2 v_bij)] >>
   rw[universe_IN,universe_def])
 
@@ -220,8 +220,8 @@ val ELEMENT_IN_LEVEL = Q.store_thm("ELEMENT_IN_LEVEL",
   `∀x. (element x) ∈ setlevel (level x)`,
   rw[element_def,level_def,V_bij,v_bij])
 
-val SET = store_thm("SET",
-  ``∀x. mk_V(level x,element x) = x``,
+val SET = Q.store_thm("SET",
+  `∀x. mk_V(level x,element x) = x`,
   rw[level_def,element_def,v_bij])
 
 val set_def = Define`
@@ -256,16 +256,16 @@ val LEVEL_SET_EXISTS = Q.store_thm("LEVEL_SET_EXISTS",
   simp[V_bij,level_def] >>
   metis_tac[FST])
 
-val MK_V_CLAUSES = store_thm("MK_V_CLAUSES",
-  ``e ∈ setlevel l ⇒
-      level(mk_V(l,e)) = l ∧ element(mk_V(l,e)) = e``,
+val MK_V_CLAUSES = Q.store_thm("MK_V_CLAUSES",
+  `e ∈ setlevel l ⇒
+      level(mk_V(l,e)) = l ∧ element(mk_V(l,e)) = e`,
   rw[level_def,element_def,V_bij])
 
-val MK_V_SET = store_thm("MK_V_SET",
-  ``s ⊆ setlevel l ⇒
+val MK_V_SET = Q.store_thm("MK_V_SET",
+  `s ⊆ setlevel l ⇒
     set(mk_V(Powerset l,I_SET (setlevel l) s)) = s ∧
     level(mk_V(Powerset l,I_SET (setlevel l) s)) = Powerset l ∧
-    element(mk_V(Powerset l,I_SET (setlevel l) s)) = I_SET (setlevel l) s``,
+    element(mk_V(Powerset l,I_SET (setlevel l) s)) = I_SET (setlevel l) s`,
   strip_tac >>
   `I_SET (setlevel l) s ∈ setlevel (Powerset l)` by (
     rw[setlevel_def,IN_POW] ) >>
@@ -351,13 +351,13 @@ val pair_def = Define`
   pair x y = mk_V(Cartprod (level x) (level y),
                   I_PAIR(element x,element y))`
 
-val PAIR_IN_LEVEL = store_thm("PAIR_IN_LEVEL",
-  ``∀x y l m. x ∈ setlevel l ∧ y ∈ setlevel m
-              ⇒ I_PAIR(x,y) ∈ setlevel (Cartprod l m)``,
+val PAIR_IN_LEVEL = Q.store_thm("PAIR_IN_LEVEL",
+  `∀x y l m. x ∈ setlevel l ∧ y ∈ setlevel m
+              ⇒ I_PAIR(x,y) ∈ setlevel (Cartprod l m)`,
   simp[setlevel_def])
 
-val DEST_MK_PAIR = store_thm("DEST_MK_PAIR",
-  ``dest_V(pair x y) = (Cartprod (level x) (level y), I_PAIR(element x,element y))``,
+val DEST_MK_PAIR = Q.store_thm("DEST_MK_PAIR",
+  `dest_V(pair x y) = (Cartprod (level x) (level y), I_PAIR(element x,element y))`,
   simp[pair_def,GSYM V_bij] >>
   simp[PAIR_IN_LEVEL,ELEMENT_IN_LEVEL])
 

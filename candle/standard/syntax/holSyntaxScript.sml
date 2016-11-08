@@ -289,9 +289,9 @@ val sizeof_def = Define`
   sizeof (Abs v t) = 2 + sizeof t`
 val _ = export_rewrites["sizeof_def"]
 
-val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
-  ``∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
-              ⇒ sizeof (VSUBST ilist t) = sizeof t``,
+val SIZEOF_VSUBST = Q.store_thm("SIZEOF_VSUBST",
+  `∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
+              ⇒ sizeof (VSUBST ilist t) = sizeof t`,
   Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
     Q.ISPECL_THEN[`ilist`,`Var m t`,`Var m t`]mp_tac REV_ASSOCD_MEM >>
     rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
