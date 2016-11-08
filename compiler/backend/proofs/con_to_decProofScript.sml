@@ -275,7 +275,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     rw[] >>
     simp[decSemTheory.semantics_def] >>
     IF_CASES_TAC >> fs[] >- (
-      rator_x_assum`conSem$evaluate_prog`kall_tac >>
+      qhdtm_x_assum`conSem$evaluate_prog`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       pop_assum mp_tac >>
@@ -309,7 +309,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
           simp[RIGHT_FORALL_IMP_THM] >>
           impl_tac >- (strip_tac >> fs[dec_result_rel_cases]) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`decSem$evaluate`mp_tac >>
+          qhdtm_x_assum`decSem$evaluate`mp_tac >>
           drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
@@ -326,7 +326,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         impl_tac >- fs[] >>
         (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
         strip_tac >> fs[] >>
-        rator_x_assum`conSem$evaluate_prog`mp_tac >>
+        qhdtm_x_assum`conSem$evaluate_prog`mp_tac >>
         drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
         impl_tac >- (strip_tac >> fs[]) >>
@@ -348,7 +348,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       strip_tac >> fs[] >> rveq >>
       reverse(Cases_on`s''.ffi.final_event`)>>fs[]>>rfs[]>- (
         fsrw_tac[ARITH_ss][] >> rfs[compile_state_def,dec_result_rel_cases] >> fs[] >> rfs[]) >>
-      rator_x_assum`decSem$evaluate`mp_tac >>
+      qhdtm_x_assum`decSem$evaluate`mp_tac >>
       drule (GEN_ALL(CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
       impl_tac >- fs[] >>

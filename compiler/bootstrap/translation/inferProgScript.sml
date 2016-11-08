@@ -472,7 +472,7 @@ val AST_T_TYPE_types_match = Q.prove(
     Cases_on`c`>>fs[AST_T_TYPE_def,types_match_def,ctor_same_type_def] >>
     reverse conj_tac >- METIS_TAC[EqualityType_AST_TCTOR_TYPE,EqualityType_def] >> rw[] >>
     pop_assum kall_tac >>
-    rator_x_assum`AST_TCTOR_TYPE`kall_tac >>
+    qhdtm_x_assum`AST_TCTOR_TYPE`kall_tac >>
     rpt (pop_assum mp_tac) >>
     map_every qid_spec_tac[`v3_1'`,`v3_1`,`l`,`x_4`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >- (
@@ -492,7 +492,7 @@ val AST_T_TYPE_11 = Q.prove(
   simp[AST_T_TYPE_def,PULL_EXISTS] >> rw[] >- (
     Cases_on`c`>>fs[AST_T_TYPE_def] >>
     `x_3 = t ⇔ v3_2 = v3_2'` by METIS_TAC[EqualityType_AST_TCTOR_TYPE,EqualityType_def] >> rw[] >>
-    rpt(rator_x_assum`AST_TCTOR_TYPE`kall_tac) >>
+    rpt(qhdtm_x_assum`AST_TCTOR_TYPE`kall_tac) >>
     pop_assum kall_tac >>
     rpt (pop_assum mp_tac) >>
     map_every qid_spec_tac[`v3_1'`,`v3_1`,`l`,`x_4`] >>
@@ -537,7 +537,7 @@ val AST_PAT_TYPE_types_match = Q.prove(
   simp[AST_PAT_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >> rw[] >>
   Cases_on`c`>>fs[AST_PAT_TYPE_def,types_match_def,ctor_same_type_def] >> rw[] >>
   TRY (
-    rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     ntac 2 (pop_assum kall_tac) >> pop_assum mp_tac >>
     map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def] >- (
@@ -554,7 +554,7 @@ val AST_PAT_TYPE_11 = Q.prove(
   Cases_on`c`>>fs[AST_PAT_TYPE_def] >> rw[] >-
   ( METIS_TAC[EqualityType_def,EqualityType_AST_T_TYPE] )
   >- (
-    rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     `x_4 = o' ⇔ v3_1 = v3_1'` by METIS_TAC[EqualityType_def,EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] >>
     simp[] >>
     ntac 3 (pop_assum kall_tac) >> pop_assum mp_tac >>
@@ -594,7 +594,7 @@ val AST_EXP_TYPE_no_closures = Q.prove(
   simp[AST_EXP_TYPE_def,PULL_EXISTS,no_closures_def] >> rw[] >>
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     TRY(SIMP_RULE std_ss [EqualityType_def] EqualityType_LIST_TYPE_CHAR |> CONJUNCT1 |> MATCH_ACCEPT_TAC)>>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
@@ -617,9 +617,9 @@ val AST_EXP_TYPE_types_match = Q.prove(
   Cases_on`c`>>fs[AST_EXP_TYPE_def,types_match_def,ctor_same_type_def] >> rw[] >>
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y1`,`x1`,`y2`,`x2`] >>
@@ -645,9 +645,9 @@ val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) Q.pro
   Cases_on`c`>>fs[AST_EXP_TYPE_def] >> rw[] >>
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     REWRITE_TAC[AND_IMP_INTRO] >>
     last_x_assum mp_tac >>
     MATCH_MP_TAC SWAP_IMP >>

@@ -600,7 +600,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     ntac 2 (pop_assum mp_tac) >>
     simp[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,EXISTS_PROD,tenv_add_tvs_def] >>
     qunabbrev_tac`funs_ls1` >>
-    rator_x_assum`Abbrev`mp_tac >>
+    qhdtm_x_assum`Abbrev`mp_tac >>
     simp[markerTheory.Abbrev_def] >>
     simp[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
     simp[Once LIST_EQ_REWRITE] >>

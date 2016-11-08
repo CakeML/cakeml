@@ -124,7 +124,7 @@ val evaluate_decs_add_to_clock = Q.prove(
   BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  rator_x_assum`evaluate_decs`mp_tac >>
+  qhdtm_x_assum`evaluate_decs`mp_tac >>
   qmatch_assum_abbrev_tac`evaluate_decs envv ss decs = (sr,rr)` >>
   first_x_assum(qspecl_then[`envv`,`ss`,`sr`,`rr`]mp_tac) >>
   unabbrev_all_tac >> simp[]);
@@ -275,7 +275,7 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
   simp[] >> strip_tac >>
   imp_res_tac evaluate_dec_add_to_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_decs_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[rator_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
+  rveq >|[qhdtm_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
   qmatch_assum_abbrev_tac`evaluate_decs eee sss prog = _` >>
   last_x_assum(qspecl_then[`eee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
   fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -328,7 +328,7 @@ val evaluate_prompts_add_to_clock_io_events_mono = Q.store_thm("evaluate_prompts
   simp[] >> srw_tac[][] >>
   imp_res_tac evaluate_prompt_add_to_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_prompts_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[rator_x_assum`evaluate_prompts`mp_tac,ALL_TAC,ALL_TAC]>>
+  rveq >|[qhdtm_x_assum`evaluate_prompts`mp_tac,ALL_TAC,ALL_TAC]>>
   qmatch_assum_abbrev_tac`evaluate_prompts eee sss prog = _` >>
   last_x_assum(qspecl_then[`eee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
   fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>

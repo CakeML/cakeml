@@ -2044,7 +2044,7 @@ val state_rel_get_var_Block = Q.store_thm("state_rel_get_var_Block",
   \\ fs[abs_ml_inv_def]
   \\ fs[bc_stack_ref_inv_def]
   \\ fs[v_inv_def]
-  \\ rator_x_assum`COND`mp_tac
+  \\ qhdtm_x_assum`COND`mp_tac
   \\ IF_CASES_TAC \\ simp[word_addr_def]
   \\ strip_tac \\ rveq
   \\ simp[word_addr_def]);
@@ -6881,7 +6881,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     simp[wordSemTheory.semantics_def] >>
     IF_CASES_TAC >- (
       full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-      rator_x_assum`dataSem$evaluate`kall_tac >>
+      qhdtm_x_assum`dataSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       strip_tac >>
@@ -6924,7 +6924,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
           every_case_tac >> full_simp_tac(srw_ss())[]>>
           Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
           full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
-        rator_x_assum`wordSem$evaluate`mp_tac >>
+        qhdtm_x_assum`wordSem$evaluate`mp_tac >>
         drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
         simp[] >>
         disch_then(qspec_then`ck+k`mp_tac) >>
@@ -6962,7 +6962,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
         rveq>>full_simp_tac(srw_ss())[]>>
         last_x_assum(qspec_then`k+k'`mp_tac) >> simp[]) >>
       Cases_on`r`>>full_simp_tac(srw_ss())[]>>
-      rator_x_assum`wordSem$evaluate`mp_tac >>
+      qhdtm_x_assum`wordSem$evaluate`mp_tac >>
       drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -7032,7 +7032,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     first_assum(qspec_then`k`mp_tac) >>
     first_x_assum(qspec_then`k+ck`mp_tac) >>
     fsrw_tac[ARITH_ss][inc_clock_def] >>
-    rator_x_assum`wordSem$evaluate`mp_tac >>
+    qhdtm_x_assum`wordSem$evaluate`mp_tac >>
     drule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
     simp[]>>
     disch_then(qspec_then`ck`mp_tac)>>

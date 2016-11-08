@@ -597,7 +597,7 @@ val orda_RACONV = prove(
   reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
     fs[RACONV_REFL] ) >>
   qmatch_assum_abbrev_tac`p` >> fs[] >>
-  rator_x_assum`orda`mp_tac >>
+  qhdtm_x_assum`orda`mp_tac >>
   simp[Once orda_def] >>
   rw[] >- fs[markerTheory.Abbrev_def] >>
   pop_assum mp_tac >>
@@ -605,10 +605,10 @@ val orda_RACONV = prove(
   BasicProvers.CASE_TAC >>
   rw[RACONV,ALPHAVARS_eq_ordav] >>
   TRY (
-    rator_x_assum`term_cmp`mp_tac >>
+    qhdtm_x_assum`term_cmp`mp_tac >>
     rw[term_cmp_def,TO_of_LinearOrder] >>
     NO_TAC) >> fs[] >>
-  rator_x_assum`type_cmp`mp_tac >>
+  qhdtm_x_assum`type_cmp`mp_tac >>
   rw[type_cmp_def,TO_of_LinearOrder])
 
 val RACONV_eq_orda = store_thm("RACONV_eq_orda",

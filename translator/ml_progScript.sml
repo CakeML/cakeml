@@ -254,7 +254,7 @@ val Decls_CONS = Q.store_thm("Decls_CONS",
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
   \\ first_assum(match_exists_tac o concl) \\ simp[]
   THEN1
-   (ntac 2 (rator_x_assum`evaluate_decs`mp_tac)
+   (ntac 2 (qhdtm_x_assum`evaluate_decs`mp_tac)
     \\ rw[Once evaluate_decs_cases] >> fs[]
     \\ fs [merge_env_def] \\ rfs []
     \\ fs [empty_env_def,merge_env_def,extend_dec_env_def,merge_alist_mod_env_def]

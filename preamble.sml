@@ -33,20 +33,6 @@ fun term_rewrite eq_tms tm =
   tm |> QCONV (PURE_REWRITE_CONV (map (curry mk_thm []) eq_tms))
      |> concl |> rhs
 
-(* TODO: replace these with qhdtm_assum etc. *)
-local
-  fun find t asl =
-    case total (first (can (match_term t) o fst o strip_comb)) asl of SOME x => x
-    | NONE => first (can (match_term t o fst o strip_comb o lhs)) asl
-in
-  fun RATOR_X_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (find t asl) ttac g
-  fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
-
-  fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (find t asl)) g
-  fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
-end
-(* -- *)
-
 (* TODO: move to Lib (or Portable)? *)
 fun itlist3 f L1 L2 L3 base_value =
   let

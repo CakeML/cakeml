@@ -1291,7 +1291,7 @@ val compile_exp_correct' = Q.prove (
     imp_res_tac evaluate_globals >>
     pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
     FIRST_X_ASSUM drule >> simp[] >> strip_tac >>
-    rator_x_assum`result_rel`mp_tac >>
+    qhdtm_x_assum`result_rel`mp_tac >>
     simp[Once result_rel_cases] >> strip_tac >>
     imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
     Cases_on`a`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
@@ -1313,7 +1313,7 @@ val compile_exp_correct' = Q.prove (
     srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
     imp_res_tac evaluate_globals >>
     pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-    rator_x_assum`result_rel`mp_tac >>
+    qhdtm_x_assum`result_rel`mp_tac >>
     simp[Once result_rel_cases] >> strip_tac >>
     Cases_on`xo`>> srw_tac[][compile_exp_def,evaluate_def] >- (
       first_x_assum match_mp_tac >>
@@ -1383,11 +1383,11 @@ val compile_exp_correct' = Q.prove (
       drule (CONJUNCT1 pmatch) >>
       ONCE_REWRITE_TAC[CONJ_COMM] >>
       simp[GSYM CONJ_ASSOC] >>
-      rator_x_assum`s_rel`mp_tac >>
+      qhdtm_x_assum`s_rel`mp_tac >>
       simp[Once s_rel_cases] >> strip_tac >>
       disch_then drule >>
       disch_then drule >>
-      rator_x_assum`env_all_rel`mp_tac >>
+      qhdtm_x_assum`env_all_rel`mp_tac >>
       simp[Once env_all_rel_cases] >> strip_tac >>
       disch_then drule >> simp[] >> strip_tac >>
       qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
@@ -1403,11 +1403,11 @@ val compile_exp_correct' = Q.prove (
     drule (CONJUNCT1 pmatch) >>
     ONCE_REWRITE_TAC[CONJ_COMM] >>
     simp[GSYM CONJ_ASSOC] >>
-    rator_x_assum`s_rel`mp_tac >>
+    qhdtm_x_assum`s_rel`mp_tac >>
     simp[Once s_rel_cases] >> strip_tac >>
     disch_then drule >>
     disch_then drule >>
-    rator_x_assum`env_all_rel`mp_tac >>
+    qhdtm_x_assum`env_all_rel`mp_tac >>
     simp[Once env_all_rel_cases] >> strip_tac >>
     disch_then drule >> simp[] >> strip_tac >>
     qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
@@ -1801,13 +1801,13 @@ val compile_decs_correct = Q.prove (
       \\ simp[] \\ metis_tac[v_rel_weakening])
     \\ rw[Abbr`cx`]
     \\ qmatch_asmsub_abbrev_tac`evaluate_decs cc1 _ ds'`
-    \\ rator_x_assum`modSem$evaluate_decs`mp_tac
+    \\ qhdtm_x_assum`modSem$evaluate_decs`mp_tac
     \\ qmatch_asmsub_abbrev_tac`evaluate_decs cc2 _ ds'`
     \\ `cc1 = cc2`
     by (
       unabbrev_all_tac
       \\ simp[environment_component_equality]
-      \\ rator_x_assum`env_all_rel`mp_tac
+      \\ qhdtm_x_assum`env_all_rel`mp_tac
       \\ simp[env_all_rel_cases] \\ strip_tac
       \\ simp[]
       \\ rfs[env_rel_list_rel] )
@@ -2159,7 +2159,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   \\ pairarg_tac \\ fs[]
   \\ rw[]
   \\ fs[evaluate_prompt_def]
-  \\ rator_x_assum`COND`mp_tac
+  \\ qhdtm_x_assum`COND`mp_tac
   \\ imp_res_tac no_dup_types
   \\ reverse IF_CASES_TAC
   >- (
@@ -2249,7 +2249,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       strip_tac \\ fs[]
       \\ every_case_tac \\ fs[]
       \\ rw[] \\ fs[combine_mod_result_def] )
-    \\ rator_x_assum`invariant`mp_tac
+    \\ qhdtm_x_assum`invariant`mp_tac
     \\ simp[extend_top_env_def,invariant_def]
     \\ fs[Abbr`s2`]
     \\ imp_res_tac evaluatePropsTheory.evaluate_decs_state_unchanged \\ fs[]

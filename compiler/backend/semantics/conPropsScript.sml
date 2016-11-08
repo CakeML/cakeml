@@ -261,7 +261,7 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
   simp[] >> strip_tac >>
   imp_res_tac evaluate_dec_add_to_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_decs_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[rator_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
+  rveq >|[qhdtm_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
   qmatch_assum_abbrev_tac`evaluate_decs ee sss prog = _` >>
   last_x_assum(qspecl_then[`ee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
   fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -312,7 +312,7 @@ val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_t
   simp[] >> srw_tac[][] >>
   imp_res_tac evaluate_prompt_add_to_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_prog_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[rator_x_assum`evaluate_prog`mp_tac,ALL_TAC,ALL_TAC]>>
+  rveq >|[qhdtm_x_assum`evaluate_prog`mp_tac,ALL_TAC,ALL_TAC]>>
   qmatch_assum_abbrev_tac`evaluate_prog ee sss prog = _` >>
   last_x_assum(qspecl_then[`ee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
   fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>

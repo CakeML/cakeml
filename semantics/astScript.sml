@@ -10,6 +10,7 @@ val _ = new_theory "ast"
 val _ = set_grammar_ancestry ["integer", "words", "string"];
 val _ = set_grammar_ancestry ["integer", "words", "string"];
 val _ = set_grammar_ancestry ["integer", "words", "string"];
+val _ = set_grammar_ancestry ["integer", "words", "string"];
 
 (*open import Pervasives*)
 (*open import Lib*)

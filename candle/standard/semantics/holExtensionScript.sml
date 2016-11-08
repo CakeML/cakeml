@@ -400,7 +400,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   imp_res_tac proves_term_ok >>
   fs[term_ok_def] >>
   `pred has_type Fun rep_type Bool` by (
-    rator_x_assum`$has_type`mp_tac >>
+    qhdtm_x_assum`$has_type`mp_tac >>
     simp[Once has_type_cases] >>
     rw[Abbr`rep_type`] >>
     imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] ) >>

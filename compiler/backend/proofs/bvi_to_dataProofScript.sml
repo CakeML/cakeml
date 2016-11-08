@@ -1057,7 +1057,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     qx_gen_tac`res`>>srw_tac[][]>>
     simp[dataSemTheory.semantics_def] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-      rator_x_assum`bviSem$evaluate`kall_tac >>
+      qhdtm_x_assum`bviSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
@@ -1085,7 +1085,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`dataSem$evaluate`mp_tac >>
+          qhdtm_x_assum`dataSem$evaluate`mp_tac >>
           drule dataPropsTheory.evaluate_add_clock >>
           impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1101,7 +1101,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
         strip_tac >>
-        rator_x_assum`bviSem$evaluate`mp_tac >>
+        qhdtm_x_assum`bviSem$evaluate`mp_tac >>
         drule bviPropsTheory.evaluate_add_clock >>
         impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[inc_clock_def] >>
@@ -1117,7 +1117,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       fsrw_tac[ARITH_ss][] >>
       reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
-      rator_x_assum`dataSem$evaluate`mp_tac >>
+      qhdtm_x_assum`dataSem$evaluate`mp_tac >>
       drule dataPropsTheory.evaluate_add_clock >>
       impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>

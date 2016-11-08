@@ -117,7 +117,7 @@ val GRAMMAR_PARSETREE_TYPE_types_match = Q.prove(
   rw[] >- (
     Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def,types_match_def,ctor_same_type_def] >>
     conj_tac >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def] >>
-    rw[] >> rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    rw[] >> rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
@@ -135,7 +135,7 @@ val GRAMMAR_PARSETREE_TYPE_11 = Q.prove(
   rw[] >- (
     Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def] >>
     `x_3 = s ⇔ v2_1 = v2_1'` by METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def] >>
-    rw[] >> rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    rw[] >> rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >> rw[] >>

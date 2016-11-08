@@ -5737,7 +5737,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>LET_ELIM_TAC>>
   `∀x. x ∈ domain stack_set ⇒ is_stack_var x` by
   (unabbrev_all_tac>>
-  rpt (rator_x_assum `list_next_var_rename_move` mp_tac)>>
+  rpt (qhdtm_x_assum `list_next_var_rename_move` mp_tac)>>
   full_simp_tac(srw_ss())[domain_fromAList,MAP_ZIP,list_next_var_rename_move_def]>>
   LET_ELIM_TAC>>
   `ALL_DISTINCT (MAP FST (toAList x1))` by full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList]>>
@@ -5792,7 +5792,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
       rev_full_simp_tac(srw_ss())[]>>
       DECIDE_TAC)>>
     rev_full_simp_tac(srw_ss())[]>>metis_tac[convention_partitions])))>>
-  rpt (rator_x_assum `list_next_var_rename_move` mp_tac)>>
+  rpt (qhdtm_x_assum `list_next_var_rename_move` mp_tac)>>
   full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>LET_ELIM_TAC>>
   full_simp_tac(srw_ss())[EQ_SYM_EQ]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[every_stack_var_def,call_arg_convention_def]>>

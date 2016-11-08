@@ -684,7 +684,7 @@ val state_rel_IMP_sem_EQ_sem = Q.prove(
       DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
       conj_tac >- (
         srw_tac[][] >>
-        rator_x_assum`evaluate`mp_tac >>
+        qhdtm_x_assum`evaluate`mp_tac >>
         drule filter_correct >>
         disch_then(qspec_then`t with clock := k`mp_tac) >>
         impl_tac >- full_simp_tac(srw_ss())[state_rel_def] >>

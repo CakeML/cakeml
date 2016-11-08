@@ -57,7 +57,7 @@ val type_env_list_rel_append = store_thm("type_env_list_rel_append",
   PairCases_on`h'` >>
   full_simp_tac(srw_ss())[bind_var_list2_def] >>
   PairCases_on`h`>>simp[] >>
-  rator_x_assum`type_env`mp_tac >>
+  qhdtm_x_assum`type_env`mp_tac >>
   simp[Once type_v_cases] >>
   srw_tac[][] >>
   metis_tac[])

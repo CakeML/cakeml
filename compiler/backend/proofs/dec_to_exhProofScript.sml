@@ -866,7 +866,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
     srw_tac[][] >>
     simp[exhSemTheory.semantics_def] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-      rator_x_assum`decSem$evaluate`kall_tac >>
+      qhdtm_x_assum`decSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
@@ -906,7 +906,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           simp[RIGHT_FORALL_IMP_THM] >>
           impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[result_rel_cases]) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`exhSem$evaluate`mp_tac >>
+          qhdtm_x_assum`exhSem$evaluate`mp_tac >>
           drule (GEN_ALL (CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
@@ -926,7 +926,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
         strip_tac >>
-        rator_x_assum`decSem$evaluate`mp_tac >>
+        qhdtm_x_assum`decSem$evaluate`mp_tac >>
         drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
         impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
@@ -951,7 +951,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
       strip_tac >> rveq >>
       reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[state_rel_def,result_rel_cases] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-      rator_x_assum`exhSem$evaluate`mp_tac >>
+      qhdtm_x_assum`exhSem$evaluate`mp_tac >>
       drule (GEN_ALL(CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
       impl_tac >- full_simp_tac(srw_ss())[] >>

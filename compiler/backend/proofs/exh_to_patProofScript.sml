@@ -1277,11 +1277,11 @@ val do_app_v_rel = store_thm("do_app_v_rel",
   full_simp_tac(srw_ss())[optionTheory.OPTREL_def] >>
   TRY(
     qmatch_assum_rename_tac`v_rel (Conv t1 v1) (Conv t2 v2)` >>
-    rator_x_assum`v_rel`mp_tac >>
+    qhdtm_x_assum`v_rel`mp_tac >>
     simp[Once v_rel_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
   TRY(
     qmatch_assum_rename_tac`v_rel (Vectorv l1) (Vectorv l2)` >>
-    rator_x_assum`v_rel`mp_tac >>
+    qhdtm_x_assum`v_rel`mp_tac >>
     simp[Once v_rel_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
   TRY (
     CHANGED_TAC(full_simp_tac(srw_ss())[store_v_same_type_def]) >>
@@ -2065,7 +2065,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     var_eq_tac >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     simp[Once evaluate_cons] >>
-    rator_x_assum`result_rel`mp_tac >>
+    qhdtm_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
     simp[pair_lemma] >> (fn (g as (_,w)) => split_uncurry_arg_tac (rand(rator w)) g) >>
     full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2099,7 +2099,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     Cases_on`r`>>full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`er ≠ Rabort Rtype_error ⇒ _` >>
     Cases_on`er`>>full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    rator_x_assum`result_rel`mp_tac >>
+    qhdtm_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
     simp[pair_lemma] >> (fn (g as (_,w)) => split_uncurry_arg_tac (rand(rator w)) g) >>
     full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2163,7 +2163,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
       first_assum(split_uncurry_arg_tac o concl) >> full_simp_tac(srw_ss())[] >>
       IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- ( full_simp_tac(srw_ss())[state_rel_def,compile_state_def] ) >>
       strip_tac >> full_simp_tac(srw_ss())[] >>
-      rator_x_assum`result_rel`mp_tac >>
+      qhdtm_x_assum`result_rel`mp_tac >>
       specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
       simp[pair_lemma] >> (fn (g as (_,w)) => split_uncurry_arg_tac (rand(rator w)) g) >>
       full_simp_tac(srw_ss())[PULL_EXISTS] >> strip_tac >>
@@ -2198,7 +2198,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     reverse(Cases_on`r`)>>full_simp_tac(srw_ss())[] >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    rator_x_assum`result_rel`mp_tac >>
+    qhdtm_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
     simp[pair_lemma] >> (fn (g as (_,w)) => split_uncurry_arg_tac (rand(rator w)) g) >>
     full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2229,7 +2229,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
       simp[patSemTheory.evaluate_def] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
       reverse(Cases_on`r`)>>full_simp_tac(srw_ss())[]>>
-      rator_x_assum`result_rel`mp_tac >>
+      qhdtm_x_assum`result_rel`mp_tac >>
       specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
       simp[pair_lemma] >> (fn (g as (_,w)) => split_uncurry_arg_tac (rand(rator w)) g) >>
       full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2240,7 +2240,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     simp[patSemTheory.evaluate_def] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     reverse(Cases_on`r`)>>full_simp_tac(srw_ss())[]>- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    rator_x_assum`result_rel`mp_tac >>
+    qhdtm_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
     simp[pair_lemma] >> (fn (g as (_,w)) => split_uncurry_arg_tac (rand(rator w)) g) >>
     full_simp_tac(srw_ss())[PULL_EXISTS] >>
@@ -2329,7 +2329,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
       qpat_abbrev_tac`xx = evaluate _ _ _` >>
       qmatch_assum_abbrev_tac`Abbrev(xx = evaluate (v4::env4) s4 [f (compile_exp bvss exp)])` >>
       qunabbrev_tac`xx` >>
-      rator_x_assum`state_rel`mp_tac >>
+      qhdtm_x_assum`state_rel`mp_tac >>
       qpat_abbrev_tac`xx = evaluate _ _ _` >>
       qmatch_assum_abbrev_tac`Abbrev(xx = evaluate env3 s4 [exp3])` >>
       qunabbrev_tac`xx` >> strip_tac >>
@@ -2424,7 +2424,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
     srw_tac[][] >>
     simp[patSemTheory.semantics_def] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-      rator_x_assum`exhSem$evaluate`kall_tac >>
+      qhdtm_x_assum`exhSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
@@ -2452,7 +2452,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           simp[RIGHT_FORALL_IMP_THM] >>
           impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`patSem$evaluate`mp_tac >>
+          qhdtm_x_assum`patSem$evaluate`mp_tac >>
           drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
@@ -2469,7 +2469,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
         strip_tac >>
-        rator_x_assum`exhSem$evaluate`mp_tac >>
+        qhdtm_x_assum`exhSem$evaluate`mp_tac >>
         drule (GEN_ALL (CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
         impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>

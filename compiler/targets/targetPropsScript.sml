@@ -142,7 +142,7 @@ val evaluate_add_clock = store_thm("evaluate_add_clock",
     evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
     evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)``,
   ho_match_mp_tac evaluate_ind >> srw_tac[][] >>
-  rator_x_assum`evaluate` mp_tac >>
+  qhdtm_x_assum`evaluate` mp_tac >>
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   simp[Once evaluate_def,SimpR``$==>``] >>

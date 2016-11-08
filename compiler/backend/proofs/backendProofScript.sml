@@ -1346,7 +1346,7 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[] >> EVAL_TAC >>
     srw_tac[QUANT_INST_ss[std_qp]][]) >>
   disch_then drule >> strip_tac >>
-  rator_x_assum`from_mod`mp_tac >>
+  qhdtm_x_assum`from_mod`mp_tac >>
   srw_tac[][from_mod_def,Abbr`c''`,mod_to_conTheory.compile_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_assum_abbrev_tac`semantics_prog s env prog sem2` >>
@@ -1369,7 +1369,7 @@ val compile_correct = Q.store_thm("compile_correct",
   impl_tac >- (
     rw[Abbr`s`,prim_config_eq] >>
     fs[prim_config_eq] >>
-    rator_x_assum`next_inv`mp_tac >>
+    qhdtm_x_assum`next_inv`mp_tac >>
     rpt(pop_assum kall_tac) >>
     REWRITE_TAC[FRANGE_FUPDATE,DRESTRICT_FUPDATE,DOMSUB_FUPDATE_THM] >>
     EVAL_TAC >> rw[SUBSET_DEF] >> fs[PULL_EXISTS] >>
@@ -1380,14 +1380,14 @@ val compile_correct = Q.store_thm("compile_correct",
   strip_tac >>
   pop_assum(assume_tac o SYM) >> simp[] >>
   qunabbrev_tac`c'''`>>
-  rator_x_assum`from_con`mp_tac >>
+  qhdtm_x_assum`from_con`mp_tac >>
   srw_tac[][from_con_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   rfs[] >> fs[] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP (REWRITE_RULE[GSYM AND_IMP_INTRO]con_to_decProofTheory.compile_semantics))) >>
   simp[] >>
   impl_tac >- (
-    rator_x_assum`mod_to_con$compile_prog`mp_tac >>
+    qhdtm_x_assum`mod_to_con$compile_prog`mp_tac >>
     simp[prim_config_eq] >> EVAL_TAC >>
     `semantics env2 s2 p ≠ Fail` by simp[] >>
     pop_assum mp_tac >>
@@ -1406,9 +1406,9 @@ val compile_correct = Q.store_thm("compile_correct",
     qexists_tac`st`>>simp[Abbr`st`,mod_to_conTheory.get_exh_def] >>
     simp[FLOOKUP_UPDATE]) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
+  qhdtm_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  rator_x_assum`con_to_dec$compile`mp_tac >>
+  qhdtm_x_assum`con_to_dec$compile`mp_tac >>
   `c'.next_global = 0` by (
     fs[source_to_modTheory.compile_def,LET_THM] >>
     pairarg_tac >> fs[] >>
@@ -1427,7 +1427,7 @@ val compile_correct = Q.store_thm("compile_correct",
   CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
   simp[Abbr`es3`,dec_to_exhTheory.compile_exp_def] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_exh`mp_tac >>
+  qhdtm_x_assum`from_exh`mp_tac >>
   srw_tac[][from_exh_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   fs[exh_to_patTheory.compile_def] >>
@@ -1438,7 +1438,7 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`es3`,Abbr`env3`] >>
   fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_pat`mp_tac >>
+  qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
@@ -1449,7 +1449,7 @@ val compile_correct = Q.store_thm("compile_correct",
   first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
   fs[pat_to_closProofTheory.compile_state_def,Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_clos`mp_tac >>
+  qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics [] st3 [e3] }` >>
@@ -1472,7 +1472,7 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`e3`] >>
   fs[Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_bvl`mp_tac >>
+  qhdtm_x_assum`from_bvl`mp_tac >>
   srw_tac[][from_bvl_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
@@ -1486,7 +1486,7 @@ val compile_correct = Q.store_thm("compile_correct",
     EVAL_TAC >>
     simp[EVEN_ADD,EVEN_EXP_IFF])>>
   disch_then(SUBST_ALL_TAC o SYM) >>
-  rator_x_assum`from_bvi`mp_tac >>
+  qhdtm_x_assum`from_bvi`mp_tac >>
   srw_tac[][from_bvi_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) s3 }` >>

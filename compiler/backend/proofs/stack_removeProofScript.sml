@@ -523,7 +523,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
   \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
   >- (
     srw_tac[][find_code_def]
-    \\ rator_x_assum`state_rel`mp_tac
+    \\ qhdtm_x_assum`state_rel`mp_tac
     \\ simp[Once state_rel_def]
     \\ strip_tac
     \\ simp[halt_inst_def,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,dec_clock_def,get_var_def,FLOOKUP_UPDATE]
@@ -601,12 +601,12 @@ val evaluate_stack_alloc = Q.store_thm("evaluate_stack_alloc",
     \\ asm_exists_tac
     \\ simp[]
     \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[Abbr`s'`] )
-  \\ rator_x_assum`evaluate`mp_tac
+  \\ qhdtm_x_assum`evaluate`mp_tac
   \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then(qspec_then`ck'`mp_tac)
   \\ simp[] \\ ntac 2 strip_tac
   \\ qexists_tac`ck+ck'`\\simp[]
-  \\ rator_x_assum`COND`mp_tac
+  \\ qhdtm_x_assum`COND`mp_tac
   \\ simp[Abbr`s'`]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
@@ -1075,7 +1075,7 @@ val comp_correct = Q.prove(
       \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def])
     \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[good_syntax_def]
     \\ simp[Once comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[Once evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ drule (GEN_ALL find_code_lemma2)
@@ -1140,7 +1140,7 @@ val comp_correct = Q.prove(
       \\ first_x_assum drule \\ simp[] \\ strip_tac
       \\ first_x_assum drule \\ simp[] \\ strip_tac
       \\ fs[dec_clock_def]
-      \\ rator_x_assum`evaluate`mp_tac
+      \\ qhdtm_x_assum`evaluate`mp_tac
       \\ qmatch_goalsub_rename_tac`ck2 + t2.clock`
       \\ drule (GEN_ALL evaluate_add_clock)
       \\ disch_then(qspec_then`ck2`mp_tac)
@@ -1177,7 +1177,7 @@ val comp_correct = Q.prove(
     \\ first_x_assum drule \\ simp[] \\ strip_tac
     \\ first_x_assum drule \\ simp[] \\ strip_tac
     \\ fs[dec_clock_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ qmatch_goalsub_rename_tac`ck2 + t2.clock`
     \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then(qspec_then`ck2`mp_tac)
@@ -1227,7 +1227,7 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ full_simp_tac(srw_ss())[evaluate_def]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ rator_x_assum`state_rel`mp_tac
+    \\ qhdtm_x_assum`state_rel`mp_tac
     \\ simp[state_rel_def,set_var_def,FLOOKUP_UPDATE]
     \\ strip_tac
     \\ rveq
@@ -1238,7 +1238,7 @@ val comp_correct = Q.prove(
     \\ metis_tac[])
   THEN1 (* StackLoad *) (
     simp[comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -1260,7 +1260,7 @@ val comp_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[good_syntax_def])
   THEN1 (* StackLoadAny *) (
     simp[comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -1290,7 +1290,7 @@ val comp_correct = Q.prove(
     \\ simp[GSYM set_var_def])
   THEN1 (* StackStore *) (
     simp[comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -1316,7 +1316,7 @@ val comp_correct = Q.prove(
     \\ simp[])
   THEN1 (* StackStoreAny *) (
     simp[comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -1353,7 +1353,7 @@ val comp_correct = Q.prove(
     \\ SEP_WRITE_TAC)
   THEN1 (* StackGetSize *) (
     simp[comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ strip_tac \\ rveq
@@ -1374,7 +1374,7 @@ val comp_correct = Q.prove(
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
     \\ dep_rewrite.DEP_REWRITE_TAC[bytes_in_word_word_shift]
-    \\ rator_x_assum`good_syntax`mp_tac \\simp[good_syntax_def]
+    \\ qhdtm_x_assum`good_syntax`mp_tac \\simp[good_syntax_def]
     \\ strip_tac
     \\ qpat_x_assum`¬_`kall_tac
     \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE]
@@ -1394,7 +1394,7 @@ val comp_correct = Q.prove(
     \\ decide_tac)
   THEN1 (* StackSetSize *) (
     simp[comp_def]
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -1518,14 +1518,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
         Cases_on`t'.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
           rveq
           \\ `t2.ffi = r''.ffi` by (every_case_tac \\ full_simp_tac(srw_ss())[state_rel_def])
-          \\ ntac 2 (rator_x_assum`evaluate`mp_tac) >>
+          \\ ntac 2 (qhdtm_x_assum`evaluate`mp_tac) >>
           drule (GEN_ALL evaluate_add_clock) >>
           disch_then(qspec_then`ck+k'`mp_tac) >>
           simp[] >>
           impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
           simp[] >> ntac 3 strip_tac >>
           rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-        rator_x_assum`evaluate`mp_tac >>
+        qhdtm_x_assum`evaluate`mp_tac >>
         qmatch_assum_abbrev_tac`evaluate (e,ss) = (_,t')` >>
         qspecl_then[`ck+k'`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
         simp[Abbr`ss`] >>
@@ -1533,7 +1533,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         `t2.ffi = r''.ffi` by (every_case_tac \\ full_simp_tac(srw_ss())[state_rel_def])
         \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
         \\ simp[extend_with_resource_limit_def]) >>
-      rator_x_assum`evaluate`mp_tac >>
+      qhdtm_x_assum`evaluate`mp_tac >>
       drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`k''`mp_tac) >>
       simp[] >> strip_tac >>
@@ -1603,7 +1603,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    \\ ntac 2 (rator_x_assum`evaluate`mp_tac)
+    \\ ntac 2 (qhdtm_x_assum`evaluate`mp_tac)
     \\ drule (GEN_ALL evaluate_add_clock)
     \\ simp[] )
   \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[]
@@ -1624,7 +1624,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ simp[good_syntax_def,comp_def]
     \\ strip_tac
     \\ qpat_x_assum`∀k. _ ∨ _`(fn th => assume_tac th >> qspec_then`ck+k'`mp_tac th)
-    \\ rator_x_assum`evaluate`mp_tac
+    \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp_tac(srw_ss())[]
     \\ strip_tac
     \\ qpat_x_assum`option_CASE _ _ _`mp_tac
@@ -1697,7 +1697,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     qexists_tac`ck+k'`>>simp[] ) >>
   srw_tac[][] >>
   qexists_tac`k'`>>simp[] >>
-  ntac 2 (rator_x_assum`evaluate`mp_tac) >>
+  ntac 2 (qhdtm_x_assum`evaluate`mp_tac) >>
   qmatch_assum_abbrev_tac`evaluate (e,ss) = _` >>
   qspecl_then[`ck`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
   simp[Abbr`ss`] >>

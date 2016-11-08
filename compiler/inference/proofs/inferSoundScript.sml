@@ -591,7 +591,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           impl_tac>-
             (fs[]>>metis_tac[pure_add_constraints_wfs])
           >>
-          rator_x_assum `generalise_list` mp_tac>>
+          qhdtm_x_assum `generalise_list` mp_tac>>
           qpat_abbrev_tac `ts:infer_t list = MAP A B`>>
           qpat_abbrev_tac `ts':infer_t list = MAP A B`>>
           rw[]>>
@@ -652,7 +652,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
          `r = EL n (MAP SND bindings')` by (
            qpat_x_assum`MEM X bindings'`mp_tac >>
            qpat_x_assum`X = EL n Y`mp_tac >>
-           rator_x_assum`ALL_DISTINCT`mp_tac >>
+           qhdtm_x_assum`ALL_DISTINCT`mp_tac >>
            imp_res_tac type_funs_MAP_FST >>
            pop_assum kall_tac >> pop_assum mp_tac >>
            `n < LENGTH l` by metis_tac[] >> pop_assum mp_tac >>
@@ -830,7 +830,7 @@ val check_weakE_sound = Q.prove (
   REV_FULL_SIMP_TAC(srw_ss())[] >>
   Cases_on`ALOOKUP tenv1 n` >> fsrw_tac[][] >>
   `?tvs_impl t_impl. x = (tvs_impl,t_impl)` by metis_tac[PAIR] >> fsrw_tac[][] >>
-  rator_x_assum`EVERY`(mp_tac o CONV_RULE(REWR_CONV(GSYM check_weakE_EVERY))) >>
+  qhdtm_x_assum`EVERY`(mp_tac o CONV_RULE(REWR_CONV(GSYM check_weakE_EVERY))) >>
   strip_tac >>
   imp_res_tac anub_tl_anub >>
   fs[] >>

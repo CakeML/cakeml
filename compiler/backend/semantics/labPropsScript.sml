@@ -222,7 +222,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> rw[] >>
   Cases_on`s1.clock=0`>-fs[Once evaluate_def]>>fs[]>>
-  rator_x_assum`evaluate`mp_tac >>
+  qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
   Cases_on`asm_fetch s1`>>fs[] >>
   Cases_on`x`>>fs[] >- (
@@ -242,7 +242,7 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
       evaluate s = (res,r) /\ res <> TimeOut ==>
       evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)``,
   ho_match_mp_tac evaluate_ind >> rw[] >>
-  rator_x_assum`evaluate`mp_tac >>
+  qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> fs[] >> strip_tac >>
   simp[Once evaluate_def] >>

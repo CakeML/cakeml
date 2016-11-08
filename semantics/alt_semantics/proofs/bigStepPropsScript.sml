@@ -156,7 +156,7 @@ val evaluate_decs_last3 = prove(
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
     full_simp_tac(srw_ss())[semanticPrimitivesTheory.combine_dec_result_def] >>
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_dec_cases] >>
-    rator_x_assum`evaluate`mp_tac >>
+    qhdtm_x_assum`evaluate`mp_tac >>
     simp[Once bigStepTheory.evaluate_cases] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
     srw_tac[][] >>
