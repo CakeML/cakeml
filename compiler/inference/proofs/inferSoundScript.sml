@@ -13,39 +13,6 @@ val _ = new_theory "inferSound";
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM
 
-(*
-val lookup_tenv_NONE = prove(``
-  ∀ls n.
-  (lookup_tenv_val x n ls = NONE ⇒
-  ∀m. lookup_tenv_val x m ls = NONE)``,
-  Induct>>fs[lookup_tenv_val_def]>>rw[]>>
-  metis_tac[])
-
-val lookup_tenv_SOME = prove(``
-  ∀ls n tvs t.
-  (lookup_tenv_val x n ls = SOME(tvs,t) ⇒
-  ∀m. ∃tvs' t'. lookup_tenv_val x m ls = SOME(tvs',t'))``,
-  Induct>>fs[lookup_tenv_val_def]>>rw[]>>
-  metis_tac[])
-
-val tenv_invC_extend_tvar_empty_subst = Q.store_thm ("tenv_invC_extend_tvar_empty_subst",
-`!env tvs tenv.
-  tenv_val_ok tenv ∧
-  num_tvs tenv = 0 ∧
-  tenv_invC FEMPTY env tenv ⇒ tenv_invC FEMPTY env (bind_tvar tvs tenv)`,
-  rw[]>>
-  fs [tenv_invC_def,lookup_tenv_val_def,bind_tvar_def,tenv_val_ok_def] >>
-  Cases_on`tvs=0`>>fs[lookup_tenv_val_def]
-  >-
-    metis_tac[]
-  >>
-  rw[]>>
-  imp_res_tac lookup_tenv_SOME>>
-  pop_assum (qspec_then`0` assume_tac)>>fs[]>>
-  imp_res_tac lookup_tenv_val_inc_tvs>>
-  metis_tac[])
-  *)
-
 val letrec_lemma2 = Q.prove (
 `!funs_ts l l' s s'.
  (!t1 t2. t_walkstar s t1 = t_walkstar s t2 ⇒  t_walkstar s' t1 = t_walkstar s' t2) ∧
@@ -212,127 +179,128 @@ val env_rel_complete_bind = store_thm("env_rel_complete_bind",``
   fs[t_wfs_def])
 
 val infer_d_sound = Q.store_thm ("infer_d_sound",
-`!mn decls tenv ienv d st1 st2 decls' ienv'.
-  infer_d mn decls ienv d st1 = (Success (decls',ienv'), st2) ∧
-  env_rel tenv ienv
-  ⇒
-  type_d T mn (convert_decls decls) tenv d (convert_decls decls') (ienv_to_tenv ienv')`,
- fs[env_rel_def]>>
- cases_on `d` >>
- rpt gen_tac >>
- strip_tac >>
- fs [infer_d_def, success_eqns, type_d_cases] >>
- fs []
- >- (*Dlet*)
-   (fs [init_state_def]
-   >> rw []
-   >> rename1 `infer_e _ _ _ = (Success t1, st1)`
-   >> rename1 `infer_p _ _ _ = (Success v, st1')`
-   >> `?t bindings. v = (t,bindings)` by metis_tac [pair_CASES]
-   >> fs [success_eqns]
-   >> rw []
-   >> pairarg_tac
-   >> fs []
-   >> `t_wfs init_infer_state.subst` by rw [init_infer_state_def, t_wfs_def]
-   >> `init_infer_state.next_uvar = 0` by (fs [init_infer_state_def] >> rw [])
-   >> drule (CONJUNCT1 infer_e_wfs)
-   >> rw []
-   >> drule (CONJUNCT1 infer_p_wfs)
-   >> disch_then drule
-   >> rw []
-   >> drule t_unify_wfs
-   >> disch_then drule
-   >> rw []
-   >> drule (CONJUNCT1 infer_e_check_t)
-   >> impl_tac
-   >- fs [ienv_ok_def]
-   >> rw []
-   >> drule (CONJUNCT1 infer_e_check_s)
-   >> simp []
-   >> rename1 `generalise_list _ _ _ _ = (tvs, s2, ts)`
-   >> disch_then (qspec_then `0` mp_tac)
-   >> impl_tac
-   >- simp [check_s_def, init_infer_state_def]
-   >> rw []
-   >> drule (CONJUNCT1 infer_p_check_t)
-   >> rw []
-   >> drule (CONJUNCT1 infer_p_check_s)
-   >> disch_then (qspec_then `0` mp_tac)
-   >> impl_tac
-   >- fs [ienv_ok_def]
-   >> rw []
-   >> drule t_unify_check_s
-   >> simp []
-   >> disch_then drule
-   >> simp []
-   >> impl_tac
-   >- metis_tac [infer_p_next_uvar_mono, check_t_more4]
-   >> rw []
-   >> `?ec1 last_sub.
+  `!mn decls tenv ienv d st1 st2 decls' ienv'.
+    infer_d mn decls ienv d st1 = (Success (decls',ienv'), st2) ∧
+    env_rel tenv ienv
+    ⇒
+    type_d T mn (convert_decls decls) tenv d (convert_decls decls') (ienv_to_tenv ienv')`,
+  fs[env_rel_def]>>
+  cases_on `d` >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs [infer_d_def, success_eqns, type_d_cases] >>
+  fs []
+  >- ((*Dlet*)
+    fs [init_state_def] >>
+    rw [] >>
+    rename1 `infer_e _ _ _ = (Success t1, st1)` >>
+    rename1 `infer_p _ _ _ = (Success v, st1')` >>
+    `?t bindings. v = (t,bindings)` by metis_tac [pair_CASES] >>
+    fs [success_eqns] >>
+    rw [] >>
+    pairarg_tac >>
+    fs [] >>
+    `t_wfs init_infer_state.subst` by rw [init_infer_state_def, t_wfs_def] >>
+    `init_infer_state.next_uvar = 0` by (fs [init_infer_state_def] >> rw []) >>
+    drule (CONJUNCT1 infer_e_wfs) >>
+    rw [] >>
+    drule (CONJUNCT1 infer_p_wfs) >>
+    disch_then drule >>
+    rw [] >>
+    drule t_unify_wfs >>
+    disch_then drule >>
+    rw [] >>
+    drule (CONJUNCT1 infer_e_check_t) >>
+    impl_tac
+    >- fs [ienv_ok_def] >>
+    rw [] >>
+    drule (CONJUNCT1 infer_e_check_s) >>
+    simp [] >>
+    rename1 `generalise_list _ _ _ _ = (tvs, s2, ts)` >>
+    disch_then (qspec_then `0` mp_tac) >>
+    impl_tac
+    >- simp [check_s_def, init_infer_state_def] >>
+    rw [] >>
+    drule (CONJUNCT1 infer_p_check_t) >>
+    rw [] >>
+    drule (CONJUNCT1 infer_p_check_s) >>
+    disch_then (qspec_then `0` mp_tac) >>
+    impl_tac
+    >- fs [ienv_ok_def] >>
+    rw [] >>
+    drule t_unify_check_s >>
+    simp [] >>
+    disch_then drule >>
+    simp [] >>
+    impl_tac
+    >- metis_tac [infer_p_next_uvar_mono, check_t_more4] >>
+    rw [] >>
+    `?ec1 last_sub.
           ts = MAP (t_walkstar last_sub) (MAP SND bindings) ∧
           t_wfs last_sub ∧
           sub_completion tvs st1'.next_uvar s ec1 last_sub`
      by (
        `tvs = tvs +0 ` by DECIDE_TAC>>pop_assum SUBST1_TAC>>
        match_mp_tac generalise_complete>>fs[]>>
-       fs [LAMBDA_PROD, EVERY_MAP])
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> rw []
-   >> drule (CONJUNCT1 sub_completion_infer_p)
-   >> disch_then drule
-   >> rw []
-   >> `env_rel_sound FEMPTY ienv tenv (bind_tvar tvs Empty)`
+       fs [LAMBDA_PROD, EVERY_MAP]) >>
+    drule sub_completion_unify2 >>
+    disch_then drule >>
+    rw [] >>
+    drule (CONJUNCT1 sub_completion_infer_p) >>
+    disch_then drule >>
+    rw [] >>
+    `env_rel_sound FEMPTY ienv tenv (bind_tvar tvs Empty)`
      by (
       `t_wfs FEMPTY` by rw [t_wfs_def]
-      >> metis_tac [env_rel_sound_extend_tvs])
-   >> drule env_rel_e_sound_empty_to
-   >> disch_then drule
-   >> disch_then drule
-   >> rw []
-   >> drule (CONJUNCT1 infer_e_sound)
-   >> simp []
-   >> disch_then drule
-   >> simp [num_tvs_def]
-   >> disch_then drule
-   >> drule (CONJUNCT1 infer_p_sound)
-   >> simp []
-   >> disch_then (qspecl_then [`tenv`, `tvs`, `(t1,t)::ec1`, `last_sub`] mp_tac)
-   >> simp [num_tvs_def]
-   >> impl_tac
-   >- fs [typeSoundInvariantsTheory.tenv_ok_def, env_rel_sound_def]
-   >> rw []
-   >> `t_walkstar last_sub t = t_walkstar last_sub t1`
-     by (
-       imp_res_tac infer_e_wfs >>
-       imp_res_tac infer_p_wfs >>
-       imp_res_tac t_unify_wfs >>
-       metis_tac [sub_completion_apply, t_unify_apply])
-   >> Cases_on `is_value e`
-   >> fs [success_eqns, empty_decls_def, empty_inf_decls_def]
-   >> rw [convert_decls_def, ienv_to_tenv_def]
+      >> metis_tac [env_rel_sound_extend_tvs]) >>
+    drule env_rel_e_sound_empty_to >>
+    disch_then drule >>
+    disch_then drule >>
+    rw [] >>
+    drule (CONJUNCT1 infer_e_sound) >>
+    simp [] >>
+    disch_then drule >>
+    simp [num_tvs_def] >>
+    disch_then drule >>
+    drule (CONJUNCT1 infer_p_sound) >>
+    simp [] >>
+    disch_then (qspecl_then [`tenv`, `tvs`, `(t1,t)::ec1`, `last_sub`] mp_tac) >>
+    simp [num_tvs_def] >>
+    impl_tac
+    >- fs [typeSoundInvariantsTheory.tenv_ok_def, env_rel_sound_def] >>
+    rw [] >>
+    `t_walkstar last_sub t = t_walkstar last_sub t1`
+      by (
+        imp_res_tac infer_e_wfs >>
+        imp_res_tac infer_p_wfs >>
+        imp_res_tac t_unify_wfs >>
+        metis_tac [sub_completion_apply, t_unify_apply]) >>
+    Cases_on `is_value e` >>
+    fs [success_eqns, empty_decls_def, empty_inf_decls_def] >>
+    rw [convert_decls_def, ienv_to_tenv_def]
 
-   >- (
-     qexists_tac `tvs`
-     >> qexists_tac `convert_t (t_walkstar last_sub t)`
-     >> qexists_tac `convert_env last_sub bindings`
-     >> rw []
-     >- (
-       simp [ZIP_MAP, tenv_add_tvs_def]
-       >> simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, convert_env_def])
-     >- (
-       imp_res_tac infer_p_bindings
-       >> fs [])
-     >-
-       (* Need to prove that there is a substitution from*)
-       (imp_res_tac env_rel_complete_bind>>
-       pop_assum(qspec_then`tvs'` assume_tac)>>
-       drule (GEN_ALL infer_pe_complete)>>
-       rpt (disch_then drule)>>
-       strip_tac>>rfs[]>>
-       fs[]>>rfs[]>>
-       rpt var_eq_tac >>
-       cheat))
+    >- (
+      qexists_tac `tvs` >>
+      qexists_tac `convert_t (t_walkstar last_sub t)` >>
+      qexists_tac `convert_env last_sub bindings` >>
+      rw []
+      >- (
+        simp [ZIP_MAP, tenv_add_tvs_def] >>
+        simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, convert_env_def])
+      >- (imp_res_tac infer_p_bindings >> fs [])
+      >- (
+        (* Need to prove that there is a substitution from*)
+        drule (GEN_ALL env_rel_complete_bind) >>
+        disch_then (qspec_then `tvs'` assume_tac) >>
+        drule (GEN_ALL infer_pe_complete) >>
+        rpt (disch_then drule) >>
+        strip_tac >>
+        rfs [] >>
+        fs[] >>
+        rfs[] >>
+        rpt var_eq_tac >>
+        cheat))
+
    >- (
      qexists_tac `convert_t (t_walkstar last_sub t)`
      >> qexists_tac `convert_env last_sub bindings`
@@ -1353,62 +1321,5 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
   simp [] >>
   metis_tac [env_rel_extend, env_rel_ienv_to_tenv, env_rel_def,
   infer_top_invariant]);
-
-(*
-
-
-
-val weakE_anub = store_thm("weakE_anub",
-  ``∀env1 env2. weakE env1 (anub env2 []) ⇒ weakE env1 env2``,
-  rw[weakE_def] >>
-  fs[Once ALOOKUP_anub])
-
-val flat_weakC_anub = store_thm("flat_weakC_anub",
-  ``flat_weakC x (anub y []) ⇒ flat_weakC x y``,
-  rw[flat_weakC_def] >>
-  fs[Once ALOOKUP_anub])
-
-val check_flat_weakC_sound = Q.prove (
-`!tenvC1 tenvC2 acc.
-  check_flat_weakC tenvC1 (anub tenvC2 acc)
-  ⇒
-  flat_weakC tenvC1 (anub tenvC2 acc)`,
-rpt gen_tac >>
-Induct_on`anub tenvC2 acc` >>
-rw[] >- (
-  last_x_assum(strip_assume_tac o SYM) >>
-  rw[flat_weakC_def] ) >>
-qpat_x_assum`X = Y`(assume_tac o SYM) >>
-imp_res_tac anub_tl_anub >> rw[] >>
-fs [check_flat_weakC_def, flat_weakC_def, success_eqns] >>
-rw [] >>
-PairCases_on `h` >>
-fs [] >>
-rw [] >>
-cases_on `ALOOKUP tenvC1 cn` >>
-fs []);
-
-val check_flat_weakT_sound = Q.prove (
-`!mn tenvT1 tenvT2.
-  check_flat_weakT mn tenvT1 tenvT2
-  ⇒
-  flat_weakT mn tenvT1 tenvT2`,
- rw [check_flat_weakT_def, flat_weakT_def, success_eqns] >>
- cases_on `FLOOKUP tenvT2 tn` >>
- rw [] >>
- PairCases_on `x` >>
- rw [] >>
- cases_on `FLOOKUP tenvT1 tn` >>
- rw []
- >- (imp_res_tac FEVERY_FLOOKUP >>
-     fs [] >>
-     pop_assum mp_tac >>
-     rw []) >>
- PairCases_on `x` >>
- rw [] >>
- imp_res_tac FEVERY_FLOOKUP >>
- REV_FULL_SIMP_TAC (srw_ss()) []);
-
-               *)
 
 val _ = export_theory ();
