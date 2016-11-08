@@ -6,7 +6,7 @@ open inferPropsTheory;
 
 open infer_eSoundTheory;
 open infer_eCompleteTheory;
-open type_eDetermTheory
+open type_eDetermTheory envRelTheory;
 
 val _ = new_theory "inferComplete";
 
@@ -98,6 +98,7 @@ val generalise_uvars = prove(
   metis_tac[FST,arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_COMM]
 *)
 
+(*
 val tenv_inv_letrec_merge2 = prove(``
   ∀funs:(tvarN,tvarN #exp)alist tenv' env tenv s tenv'' tenv'''.
     tenv''' = (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs
@@ -807,7 +808,58 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
  >- fs[tenv_alpha_empty]
  >- metis_tac []
  >- fs[tenv_alpha_empty]);
+ *)
 
+val infer_d_complete = Q.store_thm ("infer_d_complete",
+  `!mn decls tenv ienv d st1 decls' tenv' idecls.
+    type_d T mn decls tenv d decls' tenv' ∧
+    env_rel tenv ienv ∧
+    decls = convert_decls idecls
+    ⇒
+    ?idecls' st2.
+      decls' = convert_decls idecls' ∧
+      infer_d mn idecls ienv d st1 = (Success (idecls',tenv_to_ienv tenv'), st2)`,
+  cheat);
+
+val infer_ds_complete = Q.store_thm ("infer_ds_complete",
+  `!x mn decls tenv ds decls' tenv'.
+    type_ds x mn decls tenv ds decls' tenv' ⇒
+    !idecls ienv st1.
+      env_rel tenv ienv ∧
+      decls = convert_decls idecls ∧
+      x = T
+      ⇒
+      ?idecls' st2.
+        decls' = convert_decls idecls' ∧
+        infer_ds mn idecls ienv ds st1 = (Success (idecls',tenv_to_ienv tenv'), st2)`,
+  ho_match_mp_tac type_ds_ind >>
+  rw [infer_ds_def, success_eqns]
+  >- simp [empty_decls_def, empty_inf_decls_def, tenv_to_ienv_def, convert_decls_def]
+  >- simp [tenv_to_ienv_def] >>
+  drule infer_d_complete >>
+  disch_then drule >>
+  disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
+  rw [] >>
+  rw [] >>
+  fs [GSYM convert_append_decls] >>
+  first_x_assum (qspec_then `append_decls idecls' idecls` mp_tac) >>
+  simp [] >>
+  disch_then (qspecl_then [`extend_dec_ienv (tenv_to_ienv tenv1) ienv`, `st2`] mp_tac) >>
+  impl_tac
+  >- (
+    irule env_rel_extend >>
+    simp [] >>
+    irule env_rel_tenv_to_ienv >>
+    drule type_d_tenv_ok >>
+    fs [env_rel_def] >>
+    metis_tac [type_d_tenv_ok_helper, env_rel_def]) >>
+  rw [] >>
+  rw [success_eqns, convert_append_decls] >>
+  metis_tac [tenv_to_ienv_extend]);
+
+
+
+(*
 val infer_ds_complete = prove(``
 !ds mn decls decls' tenvT' cenv' tenv tenv' st ienv idecls.
   type_ds T mn decls tenv ds decls' (tenvT',cenv',tenv') ∧
@@ -875,6 +927,7 @@ val infer_ds_complete = prove(``
       metis_tac[tenv_alpha_bind_var_list2])>>
   rw[]>>
   fs[convert_append_decls,append_new_dec_tenv_def,tenv_alpha_bind_var_list2,check_env_def]);
+  *)
 
 val t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]

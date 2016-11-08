@@ -1004,4 +1004,64 @@ val env_rel_ienv_to_tenv = Q.store_thm ("env_rel_ienv_to_tenv",
     drule check_t_empty_unconvert_convert_id >>
     rw [tscheme_approx_refl]));
 
+val tenv_to_ienv_def = Define `
+  tenv_to_ienv tenv =
+    <| inf_v := nsMap (\(tvs, t). (tvs, unconvert_t t)) tenv.v;
+       inf_c := tenv.c;
+       inf_t := tenv.t |>`;
+
+val tenv_to_ienv_extend = Q.store_thm ("tenv_to_ienv_extend",
+  `!tenv1 tenv2.
+    tenv_to_ienv (extend_dec_tenv tenv2 tenv1) =
+    extend_dec_ienv (tenv_to_ienv tenv2) (tenv_to_ienv tenv1)`,
+  rw [tenv_to_ienv_def, extend_dec_tenv_def, extend_dec_ienv_def, nsMap_nsAppend]);
+
+val env_rel_tenv_to_ienv = Q.store_thm ("env_rel_tenv_to_ienv",
+  `!tenv. tenv_ok tenv ⇒ env_rel tenv (tenv_to_ienv tenv)`,
+  rw [env_rel_def, tenv_to_ienv_def]
+  >- (
+    fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
+        typeSoundInvariantsTheory.tenv_val_ok_def] >>
+    simp [ienv_val_ok_def] >>
+    simp [nsAll_nsMap] >>
+    irule nsAll_mono >>
+    HINT_EXISTS_TAC >>
+    rw [] >>
+    pairarg_tac >>
+    simp [] >>
+    pairarg_tac >>
+    fs [] >>
+    rw [check_freevars_to_check_t])
+  >- simp [nsLookupMod_nsMap]
+  >- (
+    rw [env_rel_sound_def, lookup_var_def] >>
+    `?tvs t. ts = (tvs,t)` by metis_tac [pair_CASES] >>
+    rw [] >>
+    qexists_tac `tvs` >>
+    qexists_tac `convert_t t` >>
+    fs [nsLookup_nsMap] >>
+    pairarg_tac >>
+    fs [] >>
+    rpt var_eq_tac >>
+    `check_freevars tvs [] t'`
+      by (
+        fs [typeSoundInvariantsTheory.tenv_ok_def, typeSoundInvariantsTheory.tenv_val_ok_def] >>
+        fs [nsLookup_nsMap] >>
+        drule nsLookup_nsAll >>
+        disch_then drule >>
+        simp []) >>
+    rw []
+    >- metis_tac [check_freevars_empty_convert_unconvert_id]
+    >- metis_tac [check_freevars_empty_convert_unconvert_id]
+    >- (
+      drule check_freevars_empty_convert_unconvert_id >>
+      rw [tscheme_approx_refl]))
+  >- (
+    rw [env_rel_complete_def, lookup_var_def, nsLookup_nsMap, tscheme_approx_refl] >>
+    fs [typeSoundInvariantsTheory.tenv_ok_def, typeSoundInvariantsTheory.tenv_val_ok_def] >>
+    drule nsLookup_nsAll >>
+    disch_then drule >>
+    simp [] >>
+    metis_tac []));
+
 val _ = export_theory ();
