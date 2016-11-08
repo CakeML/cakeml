@@ -844,7 +844,7 @@ val tenv_bvl_def = Define`
 
   *)
 
-(*Environment relation at infer_d and above*)
+(* Environment relation at infer_d and above *)
 val env_rel_def = Define`
  env_rel tenv ienv ⇔
   ienv_ok {} ienv ∧
@@ -934,5 +934,74 @@ val env_rel_extend = Q.store_thm ("env_rel_extend",
       qexists_tac `tvs''` >>
       qexists_tac `t''` >>
       simp [])));
+
+val ienv_to_tenv_def = Define `
+  ienv_to_tenv ienv =
+    <| v := nsMap (\(tvs, t). (tvs, convert_t t)) ienv.inf_v;
+       c := ienv.inf_c;
+       t := ienv.inf_t |>`;
+
+val ienv_to_tenv_extend = Q.store_thm ("ienv_to_tenv_extend",
+  `!ienv1 ienv2.
+    ienv_to_tenv (extend_dec_ienv ienv2 ienv1) =
+    extend_dec_tenv (ienv_to_tenv ienv2) (ienv_to_tenv ienv1)`,
+  rw [ienv_to_tenv_def, extend_dec_tenv_def, extend_dec_ienv_def, nsMap_nsAppend]);
+
+val ienv_to_tenv_lift = Q.store_thm ("ienv_to_tenv_lift",
+  `!mn ienv. ienv_to_tenv (ienvLift mn ienv) = tenvLift mn (ienv_to_tenv ienv)`,
+  rw [ienv_to_tenv_def, ienvLift_def, tenvLift_def, nsLift_nsMap]);
+
+val env_rel_ienv_to_tenv = Q.store_thm ("env_rel_ienv_to_tenv",
+  `!ienv. ienv_ok {} ienv ⇒ env_rel (ienv_to_tenv ienv) ienv`,
+  rw [env_rel_def, ienv_to_tenv_def]
+  >- (
+    fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
+        typeSoundInvariantsTheory.tenv_val_ok_def] >>
+    simp [nsAll_nsMap] >>
+    fs [ienv_val_ok_def] >>
+    irule nsAll_mono >>
+    HINT_EXISTS_TAC >>
+    rw [] >>
+    pairarg_tac >>
+    simp [] >>
+    pairarg_tac >>
+    fs [] >>
+    rw [check_t_to_check_freevars])
+  >- simp [nsLookupMod_nsMap]
+  >- (
+    rw [env_rel_sound_def, lookup_var_def] >>
+    `?tvs t. ts = (tvs,t)` by metis_tac [pair_CASES] >>
+    rw [] >>
+    qexists_tac `tvs` >>
+    qexists_tac `convert_t t` >>
+    `check_t tvs {} t`
+      by (
+        fs [ienv_ok_def, ienv_val_ok_def] >>
+        drule nsLookup_nsAll >>
+        disch_then drule >>
+        simp []) >>
+    rw []
+    >- metis_tac [check_t_to_check_freevars]
+    >- simp [nsLookup_nsMap]
+    >- (
+      drule check_t_empty_unconvert_convert_id >>
+      rw [tscheme_approx_refl]))
+  >- (
+    simp [env_rel_complete_def, lookup_var_def, nsLookup_nsMap] >>
+    rpt gen_tac >>
+    strip_tac >>
+    pairarg_tac >>
+    fs [] >>
+    rpt var_eq_tac >>
+    `check_t tvs {} t'`
+      by (
+        fs [ienv_ok_def, ienv_val_ok_def] >>
+        drule nsLookup_nsAll >>
+        disch_then drule >>
+        simp []) >>
+    rw []
+    >- metis_tac [check_t_to_check_freevars] >>
+    drule check_t_empty_unconvert_convert_id >>
+    rw [tscheme_approx_refl]));
 
 val _ = export_theory ();
