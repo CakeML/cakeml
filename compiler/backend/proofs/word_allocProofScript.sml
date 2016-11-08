@@ -3362,7 +3362,8 @@ val list_next_var_rename_move_preserve = prove(``
     res = NONE ∧
     ssa_locals_rel na' ssa' st.locals rcst.locals ∧
     word_state_eq_rel st rcst ∧
-    (¬is_phy_var na ⇒ ∀w. is_phy_var w ⇒ lookup w rcst.locals = lookup w cst.locals)``,
+    (¬is_phy_var na ⇒ ∀w. is_phy_var w ⇒ lookup w rcst.locals = lookup w cst.locals) ∧
+    (∀x y. lookup x st.locals = SOME y ⇒ lookup (THE (lookup x ssa)) rcst.locals = SOME y)``,
   full_simp_tac(srw_ss())[list_next_var_rename_move_def,ssa_locals_rel_def]>>
   srw_tac[][]>>
   imp_res_tac list_next_var_rename_lemma_1>>
@@ -3430,8 +3431,8 @@ val list_next_var_rename_move_preserve = prove(``
     (res_tac>>DECIDE_TAC)
   >-
     full_simp_tac(srw_ss())[word_state_eq_rel_def,set_vars_def]
-  >>
-    full_simp_tac(srw_ss())[lookup_alist_insert,set_vars_def]>>
+  >-
+    (full_simp_tac(srw_ss())[lookup_alist_insert,set_vars_def]>>
     FULL_CASE_TAC>>
     imp_res_tac ALOOKUP_MEM>>
     full_simp_tac(srw_ss())[MEM_ZIP]>>
@@ -3449,7 +3450,21 @@ val list_next_var_rename_move_preserve = prove(``
         `∀k.(4:num)*k=k*4` by DECIDE_TAC>>
         metis_tac[arithmeticTheory.MOD_EQ_0])>>
       full_simp_tac(srw_ss())[])>>
-    metis_tac[convention_partitions]);
+    metis_tac[convention_partitions])
+  >>
+    fs[ssa_locals_rel_def,ssa_map_ok_def,domain_lookup]>>
+    res_tac>>fs[set_vars_def,lookup_alist_insert]>>
+    qpat_abbrev_tac`lss = ZIP(A,B)`>>
+    `ALOOKUP lss v = NONE` by
+      (fs[ALOOKUP_NONE,Abbr`lss`,MEM_MAP,FORALL_PROD,MEM_ZIP]>>
+      rw[]>>
+      Cases_on`n<LENGTH ls`>>fs[EL_MAP]>>
+      qpat_assum`MAP A B = MAP C ls` (mp_tac o SYM o (Q.AP_TERM `EL n`))>>
+      simp[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>rw[]>>
+      res_tac>>fs[])>>
+    fs[]>>
+    ntac 3 (last_x_assum kall_tac)>>
+    rfs[]);
 
 val get_vars_list_insert_eq_gen= prove(
 ``!ls x locs a b. (LENGTH ls = LENGTH x /\ ALL_DISTINCT ls /\
@@ -4363,6 +4378,19 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (unabbrev_all_tac >>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[MAP_ZIP]>>
     imp_res_tac ssa_locals_rel_get_vars>>
+    `get_vars names rcst = SOME x` by
+      (fs[Abbr`names`]>>
+      qpat_assum`get_vars l st = SOME x` mp_tac>>
+      qid_spec_tac`x`>>
+      qpat_assum`ssa_locals_rel na ssa st.locals cst.locals` mp_tac>>
+      qpat_assum`!x y. lookup x st.locals = SOME y ⇒ P` mp_tac>>
+      rpt(pop_assum kall_tac)>>
+      Induct_on`l`>>rw[get_vars_def,get_var_def]>>
+      fs[]>>
+      pop_assum mp_tac>>
+      ntac 2 (TOP_CASE_TAC>>fs[])>>rw[]>>
+      fs[ssa_locals_rel_def]>>res_tac>>fs[domain_lookup,option_lookup_def]>>
+      last_x_assum(qspecl_then[`h`,`x'`] assume_tac)>>rfs[])>>
     full_simp_tac(srw_ss())[Abbr`names`]>>
     `LENGTH l = LENGTH x` by
       metis_tac[get_vars_length_lemma]>>
@@ -4623,6 +4651,19 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (unabbrev_all_tac >>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[MAP_ZIP]>>
     imp_res_tac ssa_locals_rel_get_vars>>
+    `get_vars names rcst = SOME x` by
+      (fs[Abbr`names`]>>
+      qpat_assum`get_vars l st = SOME x` mp_tac>>
+      qid_spec_tac`x`>>
+      qpat_assum`ssa_locals_rel na ssa st.locals cst.locals` mp_tac>>
+      qpat_assum`!x y. lookup x st.locals = SOME y ⇒ P` mp_tac>>
+      rpt(pop_assum kall_tac)>>
+      Induct_on`l`>>rw[get_vars_def,get_var_def]>>
+      fs[]>>
+      pop_assum mp_tac>>
+      ntac 2 (TOP_CASE_TAC>>fs[])>>rw[]>>
+      fs[ssa_locals_rel_def]>>res_tac>>fs[domain_lookup,option_lookup_def]>>
+      last_x_assum(qspecl_then[`h`,`x'`] assume_tac)>>rfs[])>>
     full_simp_tac(srw_ss())[Abbr`names`]>>
     `LENGTH l = LENGTH x` by
       metis_tac[get_vars_length_lemma]>>
