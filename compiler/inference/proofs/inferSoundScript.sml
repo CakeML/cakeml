@@ -1188,7 +1188,18 @@ val check_specs_sound = Q.prove (
       rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
     rw [] >>
     simp [Once type_specs_cases, PULL_EXISTS] >>
-    cheat)
+    qmatch_assum_abbrev_tac
+      `check_specs _ _ _ <| inf_v := _;
+                            inf_c := nsAppend new_ctors _;
+                            inf_t := nsAppend new_tdefs _ |> _ _ = _` >>
+    qexists_tac `extend_dec_ienv ienv3 <| inf_v := nsEmpty; inf_c := new_ctors;
+                                    inf_t := new_tdefs |>` >>
+    qexists_tac `ienv_to_tenv ienv3` >>
+    qexists_tac `decls3` >>
+    rw [ienv_to_tenv_def, extend_dec_ienv_def, extend_dec_tenv_def] >>
+    rw [union_decls_def, convert_decls_def] >>
+    rw [EXTENSION] >>
+    metis_tac [])
   >- (
     simp [Once type_specs_cases, PULL_EXISTS] >>
     first_x_assum (qspec_then `nsBind tn (tvs,type_name_subst tenvT t) nsEmpty` mp_tac) >>
@@ -1202,7 +1213,13 @@ val check_specs_sound = Q.prove (
       irule check_freevars_type_name_subst >>
       simp [typeSoundInvariantsTheory.tenv_abbrev_ok_def]) >>
     rw [] >>
-    cheat)
+    qmatch_assum_abbrev_tac
+      `check_specs _ _ _ (ienv1 with inf_t := nsBind name new_t _) _ _ = _` >>
+    qexists_tac `decls3` >>
+    qexists_tac `ienv3 with inf_t := nsAppend ienv3.inf_t (nsSing name new_t)` >>
+    qexists_tac `ienv_to_tenv ienv3` >>
+    rw [ienv_to_tenv_def, extend_dec_ienv_def, extend_dec_tenv_def] >>
+    metis_tac [nsAppend_nsSing, nsAppend_assoc])
   >- (
     first_x_assum drule >>
     rw [] >>
