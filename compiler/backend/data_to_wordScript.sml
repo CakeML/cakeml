@@ -111,7 +111,7 @@ val lookup_word_op_def = Define`
 val _ = export_rewrites["lookup_word_op_def"];
 
 val FromList_location_def = Define`
-  FromList_location = wordLang$num_stubs`;
+  FromList_location = word_num_stubs`;
 val FromList1_location_def = Define`
   FromList1_location = FromList_location+1`;
 val RefByte_location_def = Define`
@@ -182,11 +182,57 @@ val RefByte_code_def = Define`
               (* ret_loc, addr, v, n, ret_val *)
               [0;1;4;6;3] NONE]`;
 
+val Maxout_bits_code_def = Define `
+  Maxout_bits_code rep_len k dest n =
+    If Lower n (Imm (n2w (2 ** rep_len)))
+      (Assign dest (Op Or [Var dest; Shift Lsl (Var n) (Nat k)]))
+      (Assign dest (Op Or [Var dest; Const (all_ones (k + rep_len) k)]))`
+
+val Make_ptr_bits_code_def = Define `
+  Make_ptr_bits_code c tag len dest =
+    list_Seq [Assign dest (Op Or
+       [Const 1w; Shift Lsl (Op Sub [Lookup NextFree; Lookup CurrHeap])
+           (Nat (shift_length c − shift (:'a)))]);
+        Maxout_bits_code c.tag_bits (1 + c.len_bits) dest tag;
+        Maxout_bits_code c.len_bits 1 dest len] :'a wordLang$prog`
+
 val FromList_code_def = Define `
-  FromList_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
+  FromList_code c =
+    let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+    let h = Shift Lsl (Var 2) (Nat (dimindex (:'a) - c.len_size - 2)) in
+      If Equal 2 (Imm 0w)
+        (list_Seq [Assign 6 (Op Add [Var 6; Const (2w:'a word)]);
+                   Return 0 6])
+        (list_Seq
+          [Assign 1 (Var 2); AllocVar limit (fromList [();();()]);
+           Assign 1 (Lookup NextFree);
+           Assign 5 (Op Or [h; Const 3w; Var 6]);
+           Assign 7 (Shift Lsr (Var 2) (Nat 2));
+           Assign 9 (Shift Lsr (Var 6) (Nat 4));
+           Make_ptr_bits_code c 9 7 3;
+           Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE])`;
 
 val FromList1_code_def = Define `
-  FromList1_code c = Skip:α wordLang$prog`; (* TODO: FromList *)
+  FromList1_code c =
+    (* 0 = return address
+       2 = address to write to
+       4 = where to lookup what to write
+       6 = how many left to write
+       8 = value to be returned
+      10 = first thing to write *)
+    list_Seq
+      [Store (Var 2) 10;
+       Assign 2 (Op Add [Var 2; Const bytes_in_word]);
+       If Equal 6 (Imm 0w)
+         (list_Seq
+            [Set NextFree (Var 2);
+             Return 0 8])
+         (list_Seq
+            [Assign 4 (real_addr c 4);
+             Assign 10 (Load (Op Add [Var 4; Const bytes_in_word]));
+             Assign 4 (Load (Op Add [Var 4; Const (2w * bytes_in_word)]));
+             Assign 6 (Op Sub [Var 6; Const 4w]);
+             Call NONE (SOME FromList1_location) [0;2;4;6;8;10] NONE])]`;
 
 val RefArray_code_def = Define `
   RefArray_code c =
@@ -331,7 +377,17 @@ val assign_def = Define `
                (SOME RefArray_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
        | _ => (Skip,l))
-    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
+    | FromList tag =>
+      (if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
+       case args of
+       | [v1;v2] =>
+         (MustTerminate (dimword (:α)) (list_Seq [
+            Assign 1 (Const (n2w (16 * tag)));
+            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+               (SOME FromList_location)
+                  [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
+       | _ => (Skip,l))
+    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
     | Equal => (case args of
                | [v1;v2] =>
                  let retf = Assign (adjust_var dest) FALSE_CONST in
@@ -554,14 +610,30 @@ val assign_def = Define `
         ,l)
       | _ => (GiveUp,l))
     (* TODO: WordShift W64 *)
-    (* TODO:
     | WordFromInt => (case args of
       | [v1] =>
         let len = if dimindex(:'a) < 64 then 2 else 1 in
         (case encode_header c 3 len of
          | NONE => (GiveUp,l)
-         | SOME (header:'a word) => ...)
-      | _ => (Skip, l)) *)
+         | SOME (header:'a word) =>
+           list_Seq [
+             Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * n2w (len+1))]);
+             Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+             if len = 1 then
+               Store (Op Add [Var 1; Const bytes_in_word]) 3
+             else
+               list_Seq [
+                 Assign 5 (Const 0w);
+                 Store (Op Add [Var 1; Const bytes_in_word]) 5;
+                 Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 3 ];
+             Assign 3 (Const header);
+             Store (Var 1) 3;
+             Set EndOfHeap (Var 1);
+             Assign (adjust_var dest)
+               (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                            (Nat (shift_length c − shift (:'a)));
+                          Const 1w])], l)
+      | _ => (Skip, l))
     (* TODO: WordToInt *)
     | FFI ffi_index =>
       (case args of
@@ -622,14 +694,14 @@ val compile_part_def = Define `
 val stubs_def = Define`
   stubs (:α) data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
-    (FromList1_location,4n,FromList1_code data_conf);
+    (FromList1_location,6n,FromList1_code data_conf);
     (RefByte_location,3n,RefByte_code data_conf);
     (RefArray_location,3n,RefArray_code data_conf);
     (Replicate_location,5n,Replicate_code)
   ]`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
-  `wordLang$num_stubs + LENGTH (stubs (:α) c) = dataLang$num_stubs`,
+  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`,
   EVAL_TAC);
 
 val compile_def = Define `

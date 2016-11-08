@@ -248,7 +248,7 @@ val LENGTH_TAKE_EQ_MIN = store_thm("LENGTH_TAKE_EQ_MIN",
 val hd_drop = Q.store_thm ("hd_drop",
   `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
   Induct_on `l` >>
-  srw_tac[][] >>
+  srw_tac[][DROP_def] >>
   `n - 1 < LENGTH l` by decide_tac >>
   res_tac >>
   `0 < n` by decide_tac >>
@@ -521,10 +521,6 @@ val list_max_def = Define `
   (list_max (x::xs) =
      let m = list_max xs in
        if m < x then x else m)`
-
-val index_of_def = Define `
-  (index_of i [] = (0:num)) /\
-  (index_of i (x::xs) = if i = x then 0 else 1 + index_of i xs)`;
 
 val list_inter_def = Define `
   list_inter xs ys = FILTER (\y. MEM y xs) ys`;
@@ -1805,6 +1801,10 @@ val num_from_hex_string_num_to_hex_string = Q.store_thm("num_from_hex_string_num
   |> SIMP_RULE std_ss [combinTheory.o_DEF,FUN_EQ_THM]
   |> MATCH_ACCEPT_TAC)
 
+val MAPi_ID = store_thm("MAPi_ID[simp]",
+  ``MAPi (\x y. y) = I``,
+  fs [FUN_EQ_THM] \\ Induct \\ fs [o_DEF]);
+
 val enumerate_def = Define`
   (enumerate n [] = []) ∧
   (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
@@ -2029,13 +2029,9 @@ val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
   `NULL (l1 ++ l2) ⇔ NULL l1 ∧ NULL l2`,
   simp[NULL_LENGTH]);
 
-val MAP_TAKE = Q.store_thm("MAP_TAKE",
-  `∀l i. MAP f (TAKE i l) = TAKE i (MAP f l)`,
-  Induct \\ simp[] \\ rw[]);
-
 val MAP_DROP = Q.store_thm("MAP_DROP",
   `∀l i. MAP f (DROP i l) = DROP i (MAP f l)`,
-  Induct \\ simp[] \\ rw[]);
+  Induct \\ simp[DROP_def] \\ rw[]);
 
 val MAP_FRONT = Q.store_thm("MAP_FRONT",
   `∀ls. ls ≠ [] ⇒ MAP f (FRONT ls) = FRONT (MAP f ls)`,

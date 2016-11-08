@@ -1,5 +1,5 @@
 open preamble
-     semanticPrimitivesTheory evalPropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
      exhLangTheory exh_to_patTheory
      patLangTheory patPropsTheory
 
@@ -222,7 +222,7 @@ val sIf_correct = store_thm("sIf_correct",
   Cases_on`l`>>simp[]>>
   simp[patSemTheory.evaluate_def] >>
   simp[patSemTheory.do_if_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[evaluate_Con_nil] >>
-  full_simp_tac(srw_ss())[patSemTheory.Boolv_def,conLangTheory.true_tag_def,conLangTheory.false_tag_def])
+  full_simp_tac(srw_ss())[patSemTheory.Boolv_def,backend_commonTheory.true_tag_def,backend_commonTheory.false_tag_def])
 
 val sIf_intro = Q.store_thm("sIf_intro",
   `P (evaluate env s [If e1 e2 e3]) ∧

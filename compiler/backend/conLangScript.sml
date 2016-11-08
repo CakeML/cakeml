@@ -3,6 +3,7 @@ open preamble
 val _ = numLib.prefer_num();
 
 val _ = new_theory "conLang"
+val _ = set_grammar_ancestry ["ast", "finite_map", "sptree"]
 
 (* Removes named datatype constructors. Follows modLang.
  *
@@ -11,22 +12,6 @@ val _ = new_theory "conLang"
  * expressions. Constructors explicitly mention the type they are constructing.
  * Also type and exception declarations are removed.
  *)
-
-(* these must match what the prim_types_program generates *)
-
-val _ = Define `bind_tag      = 0`;
-val _ = Define `chr_tag       = 1`;
-val _ = Define `div_tag       = 2`;
-val _ = Define `subscript_tag = 3`;
-
-val _ = Define `true_tag  = 0`;
-val _ = Define `false_tag = 1`;
-
-val _ = Define `nil_tag   = 0`;
-val _ = Define `cons_tag  = 0`;
-
-val _ = Define `none_tag  = 0`;
-val _ = Define `some_tag  = 0`;
 
 val _ = Datatype`
  op =
@@ -80,5 +65,8 @@ val _ = Define `
   (num_defs (Dlet n _::ds) = (n + num_defs ds))
   ∧
   (num_defs (Dletrec funs::ds) = (LENGTH funs + num_defs ds))`;
+
+(* for each type, for each arity, the number of constructors of that arity *)
+val _ = type_abbrev( "exh_ctors_env" , ``:typeN id |-> num spt``);
 
 val _ = export_theory()

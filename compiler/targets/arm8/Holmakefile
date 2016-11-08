@@ -1,8 +1,9 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/arm8/model \
+INCLUDES = $(HOLDIR)/examples/l3-machine-code/common \
+           $(HOLDIR)/examples/l3-machine-code/arm8/model \
            $(HOLDIR)/examples/l3-machine-code/arm8/step \
-           $(HOLDIR)/examples/l3-machine-code/arm8/prog ../asm
+           ../asm
 
 ifdef POLY
-HOLHEAP = $(HOLDIR)/examples/l3-machine-code/arm8/prog/arm8-step-heap
+HOLHEAP = $(HOLDIR)/examples/l3-machine-code/arm8/step/arm8-heap
 endif

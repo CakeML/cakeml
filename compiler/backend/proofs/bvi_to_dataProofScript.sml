@@ -11,7 +11,8 @@ val _ = new_theory"bvi_to_dataProof";
 (* value relation *)
 
 val code_rel_def = Define `
-  code_rel bvi_code data_code <=>
+  code_rel (bvi_code : (num # bvi$exp) num_map)
+           (data_code : (num # dataLang$prog) num_map) <=>
     wf bvi_code /\ wf data_code /\
     (domain bvi_code = domain data_code) /\
     !n exp arg_count.
@@ -66,7 +67,11 @@ val do_app_data_to_bvi = prove(
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality]
     \\ every_case_tac
-    \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality])
+    \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality]
+    \\ fs [domain_lookup,lookup_map]
+    \\ fs [code_rel_def]
+    \\ rename1 `lookup _ s1.code = SOME vvv`
+    \\ PairCases_on `vvv` \\ res_tac \\ fs [])
   \\ `do_app_aux op a (data_to_bvi t1) = SOME NONE` by
    (Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[])
@@ -76,7 +81,7 @@ val do_app_data_to_bvi = prove(
         bvlSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `do_app op a (bvi_to_bvl s1)` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.state_component_equality]);
+  \\ fs[bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.state_component_equality]);
 
 (* compiler correctness *)
 

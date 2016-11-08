@@ -245,6 +245,9 @@ pmatch envC s (Pref p) (Loc lnum) env =
     | Nothing -> Match_type_error
   end
 and
+pmatch envC s (Ptannot p t) v env =
+  pmatch envC s p v env
+and
 pmatch envC _ _ _ env = Match_type_error
 and
 pmatch_list envC s [] [] env = Match env

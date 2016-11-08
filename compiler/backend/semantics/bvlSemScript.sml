@@ -1,4 +1,4 @@
-open preamble bvlTheory closSemTheory clos_to_bvlTheory
+open preamble bvlTheory closSemTheory
 
 val _ = new_theory"bvlSem"
 

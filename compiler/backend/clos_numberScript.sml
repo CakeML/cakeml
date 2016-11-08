@@ -1,6 +1,7 @@
 open preamble closLangTheory;
 
 val _ = new_theory"clos_number";
+val _ = set_grammar_ancestry ["closLang"]
 
 (* add fresh code locations *)
 

@@ -2,6 +2,10 @@ signature cfTacticsLib =
 sig
   include Abbrev
 
+  (* Parse and normalise a program consisting of one or several toplevel
+     declarations *)
+  val process_topdecs : string quotation -> term
+
   (* [xcf name prog_state] is usually the first tactic to call when
      proving a specification.
 
@@ -29,7 +33,7 @@ sig
      to the value; the introduced name will be deduced from the
      variable of the lambda.
 
-     Example: [xlet `\i. & INT 3 i`]
+     Example: [xlet `POSTv i. & INT 3 i`]
   *)
   val xlet : term quotation -> tactic
 
@@ -101,16 +105,42 @@ sig
   val xmatch : tactic
 
   (* [xffi] applies on characteristic formulae for ffi operations, of the form
-  [cf_ffi ...].
+     [cf_ffi ...].
 
   *)
   val xffi : tactic
+
+  (* [xraise] applies on characteristic formulae for raise, of the form
+     [cf_raise ..].
+  *)
+  val xraise : tactic
+
+  (* [xhandle] applies on characteristic formulae for exception handling,
+     of the form [cf_handle ..].
+
+     A post-condition for the evaluation of the body must be provided.
+  *)
+  val xhandle : term quotation -> tactic
+
+  (* [xcases] is somewhat similar to [xmatch]. It applies to characteristic
+     formalue of the form [cf_cases ...], and simplifies them. Such formulae are
+     typically produced by [xhandle].
+
+     [xcases] is not automatically called by [xhandle] as the user is expected
+     to pull facts using [xpull], perform case analysis, unfold representation
+     predicates, ..., before calling [xcases].
+  *)
+  val xcases : tactic
 
   (* low level / debugging *)
   val xlocal : tactic
   val xapply : thm -> tactic
   val xapp_prepare_goal : tactic
   val reduce_tac : tactic
+
+  val normalise_exp : term -> term
+  val normalise_dec : term -> term
+  val normalise_prog : term -> term
 
   val hide_environments : bool -> unit
 end

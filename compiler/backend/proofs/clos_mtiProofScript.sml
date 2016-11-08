@@ -21,7 +21,7 @@ val nonnil_length = Q.prove(
 val DROP_TAKE_APPEND_DROP = Q.store_thm(
   "DROP_TAKE_APPEND_DROP",
   `∀l n m. n ≤ m ⇒ DROP n (TAKE m l) ++ DROP m l = DROP n l`,
-  Induct >> simp[] >> rw[]);
+  Induct >> simp[] >> Cases_on`n`>>rw[]);
 
 val EVERY_HD = Q.prove(
   `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,

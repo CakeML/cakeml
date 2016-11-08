@@ -1,13 +1,14 @@
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open inferProgTheory;
 
 val _ = new_theory "reg_allocProg";
 
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "inferProg";
 
-val _ = add_preferred_thy "reg_alloc";
+val _ = add_preferred_thy "-";
+val _ = add_preferred_thy "termination";
 
 val NOT_NIL_AND_LEMMA = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
@@ -197,5 +198,29 @@ val sec_ra_state_side_def = prove(``
 
 val _ = translate reg_alloc_def;
 
-val _ = export_theory();
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+(*
+misc code to generate the unverified register allocator in SML
+
+(* This normally gets generated inside word_alloc's translation *)
+val _ = translate (clash_tree_to_spg_def |> REWRITE_RULE [MEMBER_INTRO])
+
+open ml_progLib astPP
+
+val ML_code_prog =
+  get_ml_prog_state ()
+  |> clean_state |> remove_snocs
+  |> get_thm
+
+val prog = ML_code_prog |> concl |> strip_comb |> #2 |> el 3
+
+val _ = enable_astPP()
+
+val _ = trace("pp_avoids_symbol_merges",0)
+val t = TextIO.openOut("reg_alloc.sml")
+val _ = TextIO.output(t,term_to_string prog)
+val _ = TextIO.closeOut(t)
+
+*)
+val _ = export_theory();

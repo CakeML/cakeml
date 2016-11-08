@@ -614,22 +614,29 @@ val filter_correct = prove(
           res_tac>>
           inc_pc_tac)
     >-
-      (full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def]>>
-       srw_tac[][]>>res_tac>>
-       ntac 2 (pop_assum kall_tac)>>
-       first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
-       qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
-       first_x_assum(qspec_then`B` mp_tac)>>
-       impl_tac>-
-         (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
-         `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
-         metis_tac[adjust_pc_all_skips])>>
-       srw_tac[][Abbr`B`]>>
-       qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
-       qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
-       first_x_assum(qspec_then`k'` assume_tac)>>
-       `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
-       metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
+      (full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def,get_pc_value_def]>>
+      Cases_on`l'`>>fs[]>>
+      Cases_on`loc_to_pc n'' n0 (filter_skip t1.code)`>>fs[]
+      >-
+        (imp_res_tac loc_to_pc_eq_NONE>>fs[]>>
+        disch_then(qspec_then`0` assume_tac)>>rw[]>>
+        fs[]>>qexists_tac`k`>>fs[])
+      >>
+      imp_res_tac loc_to_pc_eq_SOME>>
+      fs[]>>rw[]>>
+      first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
+      qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
+      first_x_assum(qspec_then`B` mp_tac)>>
+      impl_tac>-
+        (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
+        `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
+        metis_tac[adjust_pc_all_skips])>>
+      srw_tac[][Abbr`B`]>>
+      qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
+      qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
+      first_x_assum(qspec_then`k'` assume_tac)>>
+      `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
+      metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
     >-
       (reverse(Cases_on`t1.regs t1.len_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       (Cases_on`t1.regs t1.link_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
@@ -761,5 +768,17 @@ val filter_skip_semantics = store_thm("filter_skip_semantics",
           semantics t = semantics s``,
   srw_tac[][] \\ match_mp_tac state_rel_IMP_sem_EQ_sem
   \\ full_simp_tac(srw_ss())[state_rel_def,state_component_equality,Once adjust_pc_def]);
+
+val sec_ends_with_label_filter_skip = Q.store_thm("sec_ends_with_label_filter_skip",
+  `∀code.
+   EVERY sec_ends_with_label code ⇒
+   EVERY sec_ends_with_label (filter_skip code)`,
+  Induct \\ simp[filter_skip_def]
+  \\ Cases \\ fs[filter_skip_def,sec_ends_with_label_def]
+  \\ Induct_on`l` \\ fs[NULL_EQ]
+  \\ Cases \\ fs[LAST_CONS_cond,not_skip_def]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ fs[LAST_CONS_cond]);
 
 val _ = export_theory();

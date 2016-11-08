@@ -35,9 +35,10 @@ val (step_rules,step_ind,step_cases) = (Hol_reln o List.map(replace_quote "\226\
   (NoRead μ d ⇒
    (μ,[(d,s)],τ) ▷ (μ,[],[(d,s)]++τ))`;
 
-val _ = Unicode.uset_fixity"\226\150\183"(Infix(NONASSOC,450));
-val _ = Unicode.uoverload_on("\226\150\183",``$step``);
-val _ = add_infix("\226\150\183*",450,NONASSOC);
+val _ = set_fixity"\226\150\183"(Infix(NONASSOC,450));
+val _ = overload_on("\226\150\183",``$step``);
+
+val _ = set_fixity "\226\150\183*" (Infix(NONASSOC,450));
 val _ = overload_on("\226\150\183*",``RTC $▷``);
 
 (* invariant on states *)
@@ -110,7 +111,7 @@ val wf_def = Define`
     (¬NULL σ ⇒ EVERY IS_SOME (MAP SND (FRONT σ))) ∧
     EVERY IS_SOME (MAP FST σ) ∧
     path σ`;
-val _ = Unicode.uoverload_on(UnicodeChars.turnstile,``wf``);
+val _ = overload_on(UnicodeChars.turnstile,``wf``);
 
 val wf_init = Q.store_thm("wf_init",
   `windmill μ ∧
@@ -309,8 +310,8 @@ val sem_final = Q.store_thm("sem_final",
 
 val eqenv_def = Define`
   eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
-val _ = Unicode.uset_fixity"\226\137\161"(Infix(NONASSOC,450));
-val _ = Unicode.uoverload_on("\226\137\161",``eqenv``);
+val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
+val _ = overload_on("\226\137\161",``eqenv``);
 
 val eqenv_sym = Q.prove(
   `p1 ≡ p2 ⇒ p2 ≡ p1`, rw[eqenv_def]);
@@ -433,9 +434,10 @@ val (dstep_rules,dstep_ind,dstep_cases) = (Hol_reln o List.map(replace_quote "\2
   (NoRead μ d ⇒
    (μ,[(d,s)],τ) ↪ (μ,[],[(d,s)]++τ))`;
 
-val _ = Unicode.uset_fixity"\226\134\170"(Infix(NONASSOC,450));
-val _ = Unicode.uoverload_on("\226\134\170",``$dstep``);
-val _ = add_infix("\226\134\170*",450,NONASSOC);
+val _ = set_fixity"\226\134\170"(Infix(NONASSOC,450));
+val _ = overload_on("\226\134\170",``$dstep``);
+
+val _ = set_fixity "\226\134\170*" (Infix(NONASSOC,450));
 val _ = overload_on("\226\134\170*",``RTC $↪``);
 
 (* ⊢ s1 condition not included in paper;

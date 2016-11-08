@@ -87,20 +87,28 @@ val () = Datatype `
 val () = Datatype `
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
+        | Div reg reg reg
+        | LongMul reg reg reg reg
+        | LongDiv reg reg reg reg reg
         | AddCarry reg reg reg reg`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
 
+(* old version
 val () = Datatype `
   mem_op = Load  | Load8  | Load32
          | Store | Store8 | Store32`
+*)
+
+val () = Datatype `
+  memop = Load  | Load8 | Store | Store8`
 
 val () = Datatype `
   inst = Skip
        | Const reg ('a word)
        | Arith ('a arith)
-       | Mem mem_op reg ('a addr)`
+       | Mem memop reg ('a addr)`
 
 val () = Datatype `
   asm = Inst ('a inst)
@@ -117,24 +125,19 @@ val () = Datatype `
 
 val () = Datatype `
   asm_config =
-    <| ISA              : architecture
-     ; encode           : 'a asm -> word8 list
-     ; avoid_regs       : num list
-     ; big_endian       : bool
-     ; code_alignment   : num
-     ; has_mem_32       : bool
-     ; link_reg         : num option
-     ; reg_count        : num
-     ; two_reg_arith    : bool
-     ; valid_imm        : (binop + cmp) -> 'a word -> bool
-     ; addr_offset_min  : 'a word
-     ; addr_offset_max  : 'a word
-     ; jump_offset_min  : 'a word
-     ; jump_offset_max  : 'a word
-     ; cjump_offset_min : 'a word
-     ; cjump_offset_max : 'a word
-     ; loc_offset_min   : 'a word
-     ; loc_offset_max   : 'a word
+    <| ISA            : architecture
+     ; encode         : 'a asm -> word8 list
+     ; big_endian     : bool
+     ; code_alignment : num
+     ; link_reg       : num option
+     ; avoid_regs     : num list
+     ; reg_count      : num
+     ; two_reg_arith  : bool
+     ; valid_imm      : (binop + cmp) -> 'a word -> bool
+     ; addr_offset    : 'a word # 'a word
+     ; jump_offset    : 'a word # 'a word
+     ; cjump_offset   : 'a word # 'a word
+     ; loc_offset     : 'a word # 'a word
      |>`
 
 val reg_ok_def = Define `
@@ -144,6 +147,7 @@ val reg_imm_ok_def = Define `
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
   (reg_imm_ok b (Imm w) c = c.valid_imm b w)`
 
+(* Requires register inequality for some architectures *)
 val arith_ok_def = Define `
   (arith_ok (Binop b r1 r2 ri) c =
      (* note: register to register moves can be implmented with
@@ -154,30 +158,35 @@ val arith_ok_def = Define `
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
-  (arith_ok (AddCarry r1 r2 r3 r4) (c: 'a asm_config) =
+  (arith_ok (Div r1 r2 r3) c =
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
+     c.ISA IN {ARMv8; MIPS; RISC_V}) /\
+  (arith_ok (LongMul r1 r2 r3 r4) c =
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
+     ((c.ISA = ARMv6) ==> r1 <> r2) /\
+     (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
+  (arith_ok (LongDiv r1 r2 r3 r4 r5) c =
+     (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\
+     reg_ok r5 c) /\
+  (arith_ok (AddCarry r1 r2 r3 r4) c =
      (c.two_reg_arith ==> (r1 = r2)) /\
-     reg_ok r1 c /\ reg_ok r2 c /\
-     reg_ok r3 c /\ reg_ok r4 c /\
-     (* Require register inequality for some architectures *)
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4))`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
 
-val addr_offset_ok_def = Define `
-  addr_offset_ok w c = c.addr_offset_min <= w /\ w <= c.addr_offset_max`
+val offset_ok_def = Define`
+  offset_ok a offset w =
+  let (min, max) = offset in min <= w /\ w <= max /\ aligned a w`
 
-val jump_offset_ok_def = Define `
-  jump_offset_ok w c = c.jump_offset_min <= w /\ w <= c.jump_offset_max /\
-                       aligned c.code_alignment w`
-
-val cjump_offset_ok_def = Define `
-  cjump_offset_ok w c = c.cjump_offset_min <= w /\ w <= c.cjump_offset_max /\
-                        aligned c.code_alignment w`
-
-val loc_offset_ok_def = Define `
-  loc_offset_ok w c = c.loc_offset_min <= w /\ w <= c.loc_offset_max /\
-                      aligned c.code_alignment w`
+val () =
+   List.app overload_on
+    [("addr_offset_ok",  ``\w c. offset_ok 0 c.addr_offset w``),
+     ("jump_offset_ok",  ``\w c. offset_ok c.code_alignment c.jump_offset w``),
+     ("cjump_offset_ok", ``\w c. offset_ok c.code_alignment c.cjump_offset w``),
+     ("loc_offset_ok",   ``\w c. offset_ok c.code_alignment c.loc_offset w``)]
 
 val addr_ok_def = Define `
   addr_ok (Addr r w) c = reg_ok r c /\ addr_offset_ok w c`
@@ -186,9 +195,9 @@ val inst_ok_def = Define `
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
-  (inst_ok (Mem m r a) c =
-     (((m = Load32) \/ (m = Store32)) ==> c.has_mem_32) /\ reg_ok r c /\
-     addr_ok a c)`
+  (inst_ok (Mem m r a : 'a inst) c =
+     (* (((m = Load32) \/ (m = Store32)) ==> (dimindex(:'a) = 64)) /\ *)
+     reg_ok r c /\ addr_ok a c)`
 
 val asm_ok_def = Define `
   (asm_ok (Inst i) c = inst_ok i c) /\

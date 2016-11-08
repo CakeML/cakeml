@@ -125,11 +125,8 @@ val check_clash_tree_def = Define`
     | SOME (t2_out,ft2_out) =>
     case topt of
       NONE =>
-        (*TODO: A better check here:
-          Everything in t1 not already in t2
-          should not have a colour in ft2_out
-        *)
-        check_col f (union t1_out t2_out)
+        (* This check can be done in either direction *)
+        check_partial_col f (MAP FST (toAList (difference t2_out t1_out))) t1_out ft1_out
     | SOME t => check_col f t) ∧
   (check_clash_tree f (Seq t1 t2) live flive =
     case check_clash_tree f t2 live flive of

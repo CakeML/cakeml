@@ -1,4 +1,4 @@
-open preamble bigStepTheory exhLangTheory dec_to_exhTheory
+open preamble exhLangTheory
 
 val _ = new_theory"exhSem"
 

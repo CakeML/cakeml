@@ -30,18 +30,18 @@ val evaluate_EQ_evaluate_lemma = prove(
   ``!n ms1 c.
       c.target.get_pc ms1 IN c.prog_addresses /\ c.target.state_ok ms1 /\
       interference_ok c.next_interfer (c.target.proj dm) /\
-      (!s ms. c.target.state_rel s ms ==> c.target.state_ok ms) /\
+      (!s ms. target_state_rel c.target s ms ==> c.target.state_ok ms) /\
       (!ms1 ms2. (c.target.proj dm ms1 = c.target.proj dm ms2) ==>
                  (c.target.state_ok ms1 = c.target.state_ok ms2)) /\
       (!env.
          interference_ok env (c.target.proj dm) ==>
          asserts n (\k s. env k (c.target.next s)) ms1
            (\ms'. c.target.state_ok ms' /\ c.target.get_pc ms' IN c.prog_addresses)
-           (\ms'. c.target.state_rel s2 ms')) ==>
+           (\ms'. target_state_rel c.target s2 ms')) ==>
       ?ms2.
         !k. (evaluate c io (k + (n + 1)) ms1 =
              evaluate (shift_interfer (n+1) c) io k ms2) /\
-            c.target.state_rel s2 ms2``,
+            target_state_rel c.target s2 ms2``,
   Induct THEN1
    (full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ full_simp_tac(srw_ss())[asserts_def,LET_DEF]
@@ -101,32 +101,38 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       asm_step c.target.config s1 i s2 /\
       (s2 = asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) /\
-      c.target.state_rel (s1:'a asm_state) (ms1:'state) ==>
+      target_state_rel c.target (s1:'a asm_state) (ms1:'state) ==>
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
-                  c.target.state_rel s2 ms2 /\ l <> 0``,
-  full_simp_tac(srw_ss())[backend_correct_def, target_ok_def]
+                  target_state_rel c.target s2 ms2 /\ l <> 0``,
+  full_simp_tac(srw_ss()) [backend_correct_def, target_ok_def, LET_DEF]
   \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ full_simp_tac(srw_ss())[] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
+  \\ full_simp_tac(srw_ss())[]
   \\ Q.EXISTS_TAC `n+1` \\ full_simp_tac(srw_ss())[]
-  \\ MATCH_MP_TAC (GEN_ALL evaluate_EQ_evaluate_lemma) \\ full_simp_tac(srw_ss())[]
-  \\ Q.EXISTS_TAC `s1.mem_domain` \\ full_simp_tac(srw_ss())[]
-  \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
-  THEN1 (full_simp_tac(srw_ss())[asm_step_def]
-         \\ IMP_RES_TAC enc_ok_not_empty
-         \\ Cases_on `c.target.config.encode i`
-         \\ full_simp_tac(srw_ss())[bytes_in_memory_def])
-  \\ full_simp_tac(srw_ss())[LET_DEF] \\ Q.PAT_X_ASSUM `!k. bb` (K ALL_TAC)
-  \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPECL [`\k. env (n - k)`]) \\ full_simp_tac(srw_ss())[]
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`]) \\ full_simp_tac(srw_ss())[]
+  \\ MATCH_MP_TAC (GEN_ALL evaluate_EQ_evaluate_lemma)
+  \\ full_simp_tac(srw_ss())[]
+  \\ Q.EXISTS_TAC `s1.mem_domain`
+  \\ full_simp_tac(srw_ss())[]
+  \\ REPEAT STRIP_TAC
+  \\ TRY (RES_TAC \\ fs [target_state_rel_def] \\ NO_TAC)
+  >- (full_simp_tac(srw_ss())[asm_step_def, target_state_rel_def]
+      \\ IMP_RES_TAC enc_ok_not_empty
+      \\ Cases_on `c.target.config.encode i`
+      \\ full_simp_tac(srw_ss())[bytes_in_memory_def])
+  \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPECL [`\k. env (n - k)`])
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`])
   \\ MATCH_MP_TAC IMP_IMP
   \\ STRIP_TAC THEN1 full_simp_tac(srw_ss())[interference_ok_def]
-  \\ MATCH_MP_TAC asserts_WEAKEN \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
-  THEN1 (POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
-         \\ full_simp_tac(srw_ss())[asm_step_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET)
-  \\ full_simp_tac(srw_ss())[FUN_EQ_THM] \\ REPEAT STRIP_TAC
-  \\ `n - (n - k) = k` by decide_tac \\ full_simp_tac(srw_ss())[])
+  \\ MATCH_MP_TAC asserts_WEAKEN
+  \\ SRW_TAC [] []
+  >- (POP_ASSUM MP_TAC
+      \\ MATCH_MP_TAC SUBSET_IMP
+      \\ full_simp_tac(srw_ss())[asm_step_def]
+      \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET)
+  \\ full_simp_tac(srw_ss())[FUN_EQ_THM]
+  \\ REPEAT STRIP_TAC
+  \\ `n - (n - k) = k` by decide_tac
+  \\ full_simp_tac(srw_ss())[])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
 
 (* basic properties *)

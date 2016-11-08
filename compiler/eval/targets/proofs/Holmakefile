@@ -1,0 +1,25 @@
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = ../../../backend/proofs .. ../../../targets/x64/proofs ../../../targets/arm6/proofs ../../../targets/arm8/proofs ../../../targets/mips/proofs ../../../targets/riscv/proofs
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+BARE_THYS = ../../../backend/proofs/backendProofTheory\
+						../../../targets/x64/proofs/x64_targetProofTheory\
+						../../../targets/arm6/proofs/arm6_targetProofTheory\
+						../../../targets/arm8/proofs/arm8_targetProofTheory\
+						../../../targets/riscv/proofs/riscv_targetProofTheory\
+						../../../targets/mips/proofs/mips_targetProofTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

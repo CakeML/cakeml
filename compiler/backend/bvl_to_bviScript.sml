@@ -1,4 +1,5 @@
 open preamble bvlTheory bviTheory;
+open backend_commonTheory
 local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataLangTheory in end;
 
 val _ = new_theory "bvl_to_bvi";
@@ -54,7 +55,7 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (WF_REL_TAC `measure exp1_size`)
 
 val AllocGlobal_location_def = Define`
-  AllocGlobal_location = dataLang$num_stubs`;
+  AllocGlobal_location = data_num_stubs`;
 val CopyGlobals_location_def = Define`
   CopyGlobals_location = AllocGlobal_location+1`;
 val InitGlobals_location_def = Define`
@@ -112,8 +113,7 @@ val stubs_def = Define `
                    (InitGlobals_location, InitGlobals_code start n);
                    (ListLength_location, ListLength_code)]`;
 
-val num_stubs_def = Define`
-  num_stubs = dataLang$num_stubs + 4`;
+val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -132,6 +132,10 @@ val compile_op_def = Define `
     | _ => Op op c1`
 
 val _ = temp_overload_on("++",``SmartAppend``);
+
+val compile_aux_def = Define`
+  compile_aux (k,args,p) =
+    List[(num_stubs + 2 * k + 1, args, bvi_let$compile_exp p)]`;
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps n [] = ([],Nil,n)) /\
@@ -152,7 +156,7 @@ val compile_exps_def = tDefine "compile_exps" `
        let (c2,aux2,n2) = compile_exps n1 [x0] in
        let n3 = n2 + 1 in
          ([Call 0 (SOME (num_stubs + 2 * n2 + 1)) c1 NONE],
-          aux1++aux2++List[(n2,LENGTH args,HD c2)], n3)
+          aux1++aux2++compile_aux(n2,LENGTH args,HD c2), n3)
      else
        let (c1,aux1,n1) = compile_exps n xs in
        let (c2,aux2,n2) = compile_exps n1 [x2] in
@@ -171,7 +175,7 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c1,aux1,n1) = compile_exps n args in
      let (c2,aux2,n2) = compile_exps n1 [x0] in
      let (c3,aux3,n3) = compile_exps n2 [x2] in
-     let aux4 = List[(n3,LENGTH args,HD c2)] in
+     let aux4 = compile_aux(n3,LENGTH args,HD c2) in
      let n4 = n3 + 1 in
        ([Call 0 (SOME (num_stubs + 2 * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
@@ -207,12 +211,10 @@ val compile_exps_SING = store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (MAP (\(k,args,p).
-          (num_stubs + 2 * k + 1,args,bvi_let$compile_exp p)) (append aux) ++
-       [(num_stubs + 2 * name,arg_count,HD c)],n1)`
+      (aux ++ List [(num_stubs + 2 * name,arg_count,HD c)],n1)`
 
 val compile_list_def = Define `
-  (compile_list n [] = ([],n)) /\
+  (compile_list n [] = (List [],n)) /\
   (compile_list n (p::progs) =
      let (code1,n1) = compile_single n p in
      let (code2,n2) = compile_list n1 progs in
@@ -222,30 +224,30 @@ val compile_prog_def = Define `
   compile_prog start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
-      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ code, n1)`;
+      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ append code, n1)`;
 
 val optimise_def = Define `
-  optimise cut_size ls =
-  MAP (λ(name,arity,exp).
-      (name,arity,
-       bvl_handle$compile_exp cut_size arity
-         (bvl_const$compile_exp exp))) ls`;
+  optimise split_seq cut_size ls =
+    MAP (λ(name,arity,exp).
+          (name,arity,bvl_handle$compile_any split_seq cut_size arity exp)) ls`;
 
 val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
+            ; split_main_at_seq : bool (* split main expression at Seqs *)
             |>`;
 
 val default_config_def = Define`
-  default_config = <|
-    inline_size_limit := 3;
-    exp_cut := 200
-  |>`;
+  default_config =
+    <| inline_size_limit := 3
+     ; exp_cut := 200
+     ; split_main_at_seq := T
+     |>`;
 
 val compile_def = Define `
   compile start n c prog =
     compile_prog start n
-      (optimise c.exp_cut
+      (optimise c.split_main_at_seq c.exp_cut
          (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

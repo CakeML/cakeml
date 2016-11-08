@@ -1,12 +1,10 @@
-open HolKernel Parse boolLib bossLib;
-open preamble;
-open lexer_funTheory lexer_implTheory;
-open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
+open preamble
+     lexer_funTheory lexer_implTheory ioProgTheory
+     ml_translatorLib ml_translatorTheory
 
 val _ = new_theory "lexerProg"
 
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "ioProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -94,5 +92,7 @@ val lexer_fun_side = prove(``
   ho_match_mp_tac lexer_fun_ind>>rw[]>>
   simp[Once (fetch"-""lexer_fun_side_def"),
        Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
+
+val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 val _ = export_theory();

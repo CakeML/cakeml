@@ -23,8 +23,14 @@ val inst_find_name_def = Define `
         Arith (Binop bop (find_name f d) (find_name f r) (ri_find_name f ri))
     | Arith (Shift sop d r i) =>
         Arith (Shift sop (find_name f d) (find_name f r) i)
+    | Arith (Div r1 r2 r3) =>
+        Arith (Div (find_name f r1) (find_name f r2) (find_name f r3))
     | Arith (AddCarry r1 r2 r3 r4) =>
         Arith (AddCarry (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (LongMul r1 r2 r3 r4) =>
+        Arith (LongMul (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (LongDiv r1 r2 r3 r4 r5) =>
+        Arith (LongDiv (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4) (find_name f r5))
     | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)`
 
 val dest_find_name_def = Define`
@@ -64,6 +70,12 @@ val compile_def = Define `
 
 (* some defaults *)
 
+val names_ok_def = Define `
+  names_ok names reg_count avoid_regs =
+    let xs = GENLIST (find_name names) (reg_count - LENGTH avoid_regs) in
+      ALL_DISTINCT xs /\
+      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs`
+
 val x64_names_def = Define `
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
@@ -73,41 +85,44 @@ val x64_names_def = Define `
        argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
        the third(3) in rdx(r3), the fourth(4) in rcx(2), the fifth(5)
        in r8 and the sixth in r9.
+       Callee-saved regs: r12-r15, rbx
      *)
-    (insert 1 7 o
-     insert 2 6 o
+    (insert 1 7 o  (* arg 1 *)
+     insert 2 6 o  (* arg 2 *)
   (* insert 3 3 o *)
      insert 4 2 o
      insert 5 8 o
      insert 6 9 o
+     insert 11 12 o
+     insert 12 13 o
+     insert 13 14 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 1 o
-     insert 8 14 o
-     insert 9 15) LN:num num_map`
+     insert 8 15 o
+     insert 9 11 o
+     insert 14 4 o
+     insert 15 5) LN:num num_map`
 
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
 val arm_names_def = Define `
   arm_names =
-    (* source can use 14 regs (0-13),
-       target's r13 must be avoided,
-       source 0 must represent r14 (link register) *)
+    (* source can use 14 regs,
+       target's r15 must be avoided (pc),
+       target's r13 must be avoided (stack pointer),
+       source 0 must represent r14 (link register),
+       source 1-2 must be r0 and r1 (1st 2 arguments)
+       the top three (source 11-13) must be callee-saved
+       (callee-saved include: r4-r8, r10-11) *)
     (insert 0 14 o
      insert 1 0 o
      insert 2 1 o
-     insert 3 2 o
-     insert 4 3 o
-     insert 5 4 o
-     insert 6 5 o
-     insert 7 6 o
-     insert 8 7 o
-     insert 9 8 o
-     insert 10 9 o
-     insert 11 10 o
-     insert 12 11 o
-     insert 13 12 o
+     insert 12 8 o
+     insert 13 10 o
      (* the rest just ensures that the mapping is well-formed *)
+     insert 8 2 o
+     insert 10 12 o
      insert 14 13) LN:num num_map`
 
 val arm_names_def = save_thm("arm_names_def",
@@ -116,38 +131,75 @@ val arm_names_def = save_thm("arm_names_def",
 val arm8_names_def = Define `
   arm8_names =
     (* source can use 31 regs (0-30),
-       target's r31 must be avoided (hardcoded to 0, sometimes sp),
-       source 0 must represent r30 (link register) *)
+       target's r31 must be avoided (stack pointer),
+       source 0 must represent r30 (link register),
+       source 1-2 must be r0,r1 (1st 2 args),
+       top three (28-30) must be callee-saved (in r19-r29) *)
     (insert 0 30 o
      insert 1 0 o
      insert 2 1 o
-     insert 30 2) LN:num num_map`
+     insert 30 27 o
+     insert 27 2) LN:num num_map`
 
 val arm8_names_def = save_thm("arm8_names_def",
   CONV_RULE (RAND_CONV EVAL) arm8_names_def);
 
 val mips_names_def = Define `
   mips_names =
-    (* source can use 30 regs (2-31),
+    (* source can use 25 regs (r2-r24,r30-r31),
        target's r0 must be avoided (hardcoded to 0),
        target's r1 must be avoided (used by encoder in asm),
-       source 0 must represent r31 (link register)
-       argument regs 4-7 *)
+       target's r25 and r28 are used to set up PIC
+       target's r29 must be avoided (stack pointer),
+       target's r26-r27 avoided (reserved for OS kernel),
+       source 0 must represent r31 (link register),
+       source 1 2 must be r4, r5 (1st 2 args),
+       top 3 (22-24) must be callee-saved (in 16-23, 28, 30) *)
     (insert 0 31 o
      insert 1 4 o
      insert 2 5 o
-     insert 3 6 o
-     insert 4 7 o
-     insert 5 2 o
-     insert 6 3 o
-     insert 7 30 o
+     insert 22 21 o
+     insert 23 22 o
+     insert 24 23 o
      (* the rest just ensures that the mapping is well-formed *)
-     insert 30 1 o
-     insert 31 0) LN:num num_map`
+     insert 4 2 o
+     insert 21 24 o
+     insert 5 30 o
+     insert 31 0 o
+     insert 30 1) LN:num num_map`
 
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
 
-val riscv_names_def = Define `riscv_names = mips_names`;
+val riscv_names_def = Define `
+  riscv_names =
+  (* arguments: 10-17
+       including return values: 10-11
+     temporaries: 5-7, 28-31
+     return address: 1
+     saved regs: 8-9, 18-27
+     3 = global pointer, 4 = thread pointer (not sure if they need to be avoided)
+     0 avoided (hardwired zero)
+     2 avoided (stack pointer)
+     3 avoided (global pointer)
+     31 avoided (used by encoder)
+     4 avoid regs means 28 regs available for CakeML
+     constraints:
+       the last 3 of these (25, 26, 27) must be mapped to callee saved regs
+       0 1 and 2 must be mapped to link reg (1), 1st arg (10), 2nd arg (11)
+  *)
+  (insert 0 1 o
+   insert 1 10 o
+   insert 2 11 o
+   insert 3 28 o
+   (* the rest to make the mapping well-formed *)
+   insert 10 29 o
+   insert 11 30 o
+   insert 28 0 o
+   insert 29 2 o
+   insert 30 3) LN:num num_map`;
+
+val riscv_names_def = save_thm("riscv_names_def",
+  CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
 val _ = export_theory();

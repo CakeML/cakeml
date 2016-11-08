@@ -1,4 +1,4 @@
-open preamble bigStepTheory modLangTheory;
+open preamble modLangTheory;
 
 val _ = new_theory "modSem"
 

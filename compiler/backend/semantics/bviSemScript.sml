@@ -1,7 +1,9 @@
 open preamble bviTheory;
-local open bvlSemTheory in end;
+local open backend_commonTheory bvlSemTheory in end;
 
 val _ = new_theory"bviSem";
+
+val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
 
 val _ = Datatype `
   state =
@@ -41,7 +43,9 @@ val do_app_aux_def = Define `
                         SOME (SOME (Number i, s))
                       else NONE
     | (Label l,xs) => (case xs of
-                       | [] => SOME (SOME (CodePtr (num_stubs + 2 * l), s))
+                       | [] => if num_stubs + 2 * l IN domain s.code then
+                                 SOME (SOME (CodePtr (num_stubs + 2 * l), s))
+                               else NONE
                        | _ => NONE)
     | (GlobalsPtr,xs) =>
         (case xs of
@@ -59,9 +63,9 @@ val do_app_aux_def = Define `
             (case v_to_list lv of
              | SOME vs => if len = Number (& (LENGTH vs))
                           then SOME (SOME (Block n vs, s))
-                          else SOME NONE
-             | _ => SOME NONE)
-         | _ => SOME NONE)
+                          else NONE
+             | _ => NONE)
+         | _ => NONE)
     | (Global n, _) => NONE
     | (SetGlobal n, _) => NONE
     | (AllocGlobal, _) => NONE

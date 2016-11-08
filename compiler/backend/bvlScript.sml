@@ -1,6 +1,9 @@
-open preamble closLangTheory;
+open preamble closLangTheory backend_commonTheory
 
 val _ = new_theory "bvl";
+val _ = set_grammar_ancestry [
+   "closLang", (* for op *) "backend_common" (* for tags *)
+]
 
 (* BVL = bytecode-value language *)
 
@@ -42,5 +45,11 @@ val _ = Datatype `
       | Tick exp
       | Call num (num option) (exp list)
       | Op closLang$op (exp list) `
+
+val Bool_def = Define`
+  Bool b = Op (Cons (bool_to_tag b)) []`;
+
+val mk_tick_def = Define `
+  mk_tick n e = FUNPOW Tick n e : bvl$exp`;
 
 val _ = export_theory();

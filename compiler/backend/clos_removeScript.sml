@@ -9,6 +9,7 @@ open indexedListsTheory
    dataLang's dead-code elimination pass. *)
 
 val _ = new_theory"clos_remove";
+val _ = set_grammar_ancestry ["indexedLists", "closLang", "db_vars"]
 
 val no_overlap_def = Define `
   (no_overlap 0 l <=> T) /\

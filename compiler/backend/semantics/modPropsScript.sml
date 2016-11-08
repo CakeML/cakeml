@@ -1,10 +1,10 @@
 open preamble modSemTheory
-local open astTheory evalPropsTheory terminationTheory in end
+local open astTheory semanticPrimitivesPropsTheory terminationTheory in end
 
 val _ = new_theory"modProps"
 
 val pat_bindings_def = astTheory.pat_bindings_def
-val pat_bindings_accum = evalPropsTheory.pat_bindings_accum
+val pat_bindings_accum = semanticPrimitivesPropsTheory.pat_bindings_accum
 
 val pmatch_extend = Q.store_thm("pmatch_extend",
   `(!cenv s p v env env' env''.

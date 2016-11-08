@@ -45,25 +45,13 @@ end
 
 val add_x64_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``x64_target$x64_enc``, 1, x64_encode_conv)],
-   computeLib.Defs [x64_targetTheory.x64_config_def]]
+   computeLib.Defs [x64_targetTheory.x64_config]]
 
-val add_x64_decode_compset = computeLib.extend_compset
-  [computeLib.Defs
-     [x64_dec_def, fetch_decode_def, x64_decode_def, x64_bop_dec_def,
-      x64_cmp_dec_def, x64_sh_def, x64_cmp_def, isZm_def, OpSize_def,
-      readPrefixes_def, readPrefix_def, prefixGroup_def, readOpcodeModRM_def,
-      readModRM_def, readSIB_def, readSibDisplacement_def,
-      readDisplacement_def, RexReg_def, rec'REX_def, oimmediate8_def,
-      immediate8_def, immediate16_def, immediate32_def, immediate64_def,
-      immediate_def, oimmediate_def, full_immediate_def, listTheory.MEM,
-      boolify8_n2w],
-   computeLib.Extenders [add_x64_datatypes],
-   computeLib.Tys [``:('a, 'b) sum``, ``:Zinst``, ``:REX``],
-   computeLib.Convs [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]]
-
-val x64_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val x64_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
-      add_x64_encode_compset, add_x64_decode_compset]]
+      add_x64_encode_compset]]
+
+val () = asmLib.add_asm_ok_thm x64_targetTheory.x64_asm_ok
 
 end

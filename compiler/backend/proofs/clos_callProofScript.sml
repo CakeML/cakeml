@@ -15,7 +15,7 @@ val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
 
 val TAKE_MAP = Q.store_thm("TAKE_MAP",
   `∀ls n f. TAKE n (MAP f ls) = MAP f (TAKE n ls)`,
-  Induct \\ rw[]);
+  Induct \\ rw[] \\ Cases_on`n` \\ rw[]);
 
 val IS_SUFFIX_TRANS = Q.store_thm("IS_SUFFIX_TRANS",
   `∀l1 l2 l3. IS_SUFFIX l1 l2 ∧ IS_SUFFIX l2 l3 ⇒ IS_SUFFIX l1 l3`,
@@ -610,7 +610,7 @@ val calls_replace_SND = Q.store_thm("calls_replace_SND",
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ rveq \\ fs[]
   \\ TRY (
-    qmatch_goalsub_rename_tac`Letrec`
+    qmatch_goalsub_rename_tac`closLang$Letrec`
     \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`insert_each p n g0`
     \\ TRY (
@@ -1937,7 +1937,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ pop_assum mp_tac \\ EVAL_TAC)
     \\ strip_tac \\ fs []
     \\ qexists_tac `ck` \\ fs []
-    \\ every_case_tac \\ fs [evalPropsTheory.result_rel_def,PULL_EXISTS]
+    \\ every_case_tac \\ fs [semanticPrimitivesPropsTheory.result_rel_def,PULL_EXISTS]
     \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH
     \\ Cases_on `a` \\ Cases_on `a'` \\ fs [])
   (* Handle *)

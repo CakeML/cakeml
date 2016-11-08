@@ -5,7 +5,7 @@ open preamble
 open ConseqConv match_goal
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormalizeSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -35,8 +35,19 @@ val cs = computeLib.the_compset
 val () = listLib.list_rws cs
 val () = basicComputeLib.add_basic_compset cs
 val () = semanticsComputeLib.add_semantics_compset cs
+val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
-val () = cfComputeLib.add_cf_normalize_compset cs
+val () = computeLib.extend_compset [
+  computeLib.Defs [
+    ml_progTheory.merge_env_def,
+    ml_progTheory.write_def,
+    ml_progTheory.write_mod_def,
+    ml_progTheory.write_cons_def,
+    ml_progTheory.empty_env_def,
+    semanticPrimitivesTheory.merge_alist_mod_env_def
+  ]] cs
+
+val _ = (max_print_depth := 15)
 
 val eval = computeLib.CBV_CONV cs
 val eval_tac = CONV_TAC eval
@@ -59,6 +70,25 @@ in
   val simp_conv = stateful SIMP_CONV let_arith_list
   val simp_rule = stateful SIMP_RULE let_arith_list
 end
+
+(*------------------------------------------------------------------*)
+
+fun normalise_exp tm = let
+    val normalise_tm = mk_full_normalise (listSyntax.mk_nil stringSyntax.string_ty, tm)
+    val eval_th = EVAL normalise_tm
+in rhs (concl eval_th) end
+
+fun normalise_dec dec_tm = let
+  val normalise_decl_tm = mk_full_normalise_decl dec_tm
+  val eval_th = EVAL normalise_decl_tm
+in rhs (concl eval_th) end
+
+fun normalise_prog prog_tm = let
+    val normalise_prog_tm = mk_full_normalise_prog prog_tm
+    val eval_th = EVAL normalise_prog_tm
+in rhs (concl eval_th) end
+
+fun process_topdecs q = normalise_prog (parse_topdecs q)
 
 (*------------------------------------------------------------------*)
 
@@ -102,12 +132,17 @@ val cf_defs =
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-   cf_log_def, cf_if_def, cf_match_def]
+   cf_log_def, cf_if_def, cf_match_def, cf_ffi_def, cf_raise_def, cf_handle_def]
+
+val cleanup_exn_side_cond =
+  simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left]
 
 val xlocal =
   FIRST [
     first_assum MATCH_ACCEPT_TAC,
     (HO_MATCH_MP_TAC app_local \\ fs [] \\ NO_TAC),
+    (HO_MATCH_ACCEPT_TAC cf_cases_local \\ NO_TAC),
     (fs (local_is_local :: cf_defs) \\ NO_TAC)
   ] (* todo: is_local_pred *)
 
@@ -189,18 +224,64 @@ fun xlet_core cont0 cont1 cont2 =
   irule local_elim \\ hnf \\
   simp [libTheory.opt_bind_def] \\
   cont0 \\
-  CONJ_TAC THENL [all_tac, cont1 \\ cont2]
+  CONJ_TAC THENL [
+    CONJ_TAC THENL [
+      all_tac,
+      TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left)
+    ],
+    cont1 \\ cont2
+  ]
+
+val res_CASE_tm =
+  CONJ_PAIR cfHeapsBaseTheory.res_case_def
+  |> fst |> SPEC_ALL |> concl
+  |> lhs |> strip_comb |> fst
+
+val POSTv_tm =
+  cfHeapsBaseTheory.POSTv_def |> SPEC_ALL |> concl
+  |> lhs |> strip_comb |> fst
+
+val POST_tm =
+  cfHeapsBaseTheory.POST_def |> SPEC_ALL |> concl
+  |> lhs |> strip_comb |> fst
+
+fun vname_of_post fallback Qtm = let
+  val vname_lam = fst o dest_var o fst o dest_abs
+  fun vname_res_CASE_lam tm = let
+      val body = dest_abs tm |> snd
+    in
+      if body = res_CASE_tm then
+        List.nth (strip_comb body |> snd, 1)
+        |> vname_lam
+      else fail ()
+    end
+  fun vname_POSTv tm = let
+      val (base, args) = strip_comb tm
+    in if base = POSTv_tm then vname_lam (List.hd args)
+       else fail()
+    end
+  fun vname_POST tm = let
+      val (base, args) = strip_comb tm
+    in if base = POST_tm then vname_lam (List.hd args)
+       else fail()
+    end
+in
+  vname_POSTv Qtm handle HOL_ERR _ =>
+  vname_POST Qtm handle HOL_ERR _ =>
+  vname_res_CASE_lam Qtm handle HOL_ERR _ =>
+  fallback
+end
 
 (* temporary basic wrapper until evars *)
 fun xlet Q (g as (asl, w)) = let
   val ctx = free_varsl (w :: asl)
-  val name = (fst o dest_var o fst o dest_abs o Term) Q
+  val name = vname_of_post "v" (Term Q)
   val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
   val qname = [QUOTE name']
 in
   xlet_core
     (qexists_tac Q)
-    (qx_gen_tac qname \\ cbv)
+    (qx_gen_tac qname \\ simp [])
     (TRY xpull)
     g
 end
@@ -410,12 +491,12 @@ fun xapp_spec spec = xapp_core (SOME spec)
 (* [xret] *)
 
 val xret_irule_lemma =
-  FIRST [irule xret_lemma_unify,
-         irule xret_lemma]
+  FIRST [(* irule xret_lemma_unify,*)
+         HO_MATCH_MP_TAC xret_lemma \\ conj_tac]
 
 val xret_no_gc_core =
-    FIRST [irule xret_lemma_unify,
-           (* todo evars *) irule xret_no_gc_lemma]
+    FIRST [(*irule xret_lemma_unify,*)
+           (* todo evars *) HO_MATCH_MP_TAC xret_no_gc_lemma \\ conj_tac]
 
 val xlit_core =
   head_unfold cf_lit_def \\ cbv
@@ -432,7 +513,9 @@ fun xret_pre cont1 cont2 (g as (_, w)) =
     else if is_cf_con w then xcon_core
     else if is_cf_var w then xvar_core
     else fail ()) \\
-   cont1) g
+   cont1 \\
+   cleanup_exn_side_cond
+   ) g
   (* todo: also do stuff with lets *)
 
 val xret = xret_pre xret_irule_lemma (TRY xpull)
@@ -449,6 +532,7 @@ val xlog_base =
   head_unfold cf_log_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
+  cleanup_exn_side_cond \\
   TRY (asm_exists_tac \\ simp [])
 
 val xlog = xlog_base
@@ -464,7 +548,7 @@ val xif_base =
 
 val xif = xif_base
 
-(* [xmatch] *)
+(* [xcases] *)
 
 fun clean_cases_conv tm = let
   val cond_conv =
@@ -489,8 +573,9 @@ in
    RAND_CONV else_conv) tm
 end
 
-val unfold_build_cases =
-  simp [build_cases_def] \\
+val unfold_cases =
+  simp [cf_cases_def] \\
+  CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
   simp []
 
@@ -509,12 +594,18 @@ val validate_pat_all_conv =
     RAND_CONV validate_pat_conv THENC RW.RW_CONV [boolTheory.AND_CLAUSES]
   )
 
+val xcases =
+  xpull_check_not_needed \\
+  unfold_cases \\
+  CONV_TAC validate_pat_all_conv
+
+(* [xmatch] *)
+
 val xmatch_base =
   xpull_check_not_needed \\
-  head_unfold cf_match_def \\ irule local_elim \\ hnf \\
+  head_unfold cf_match_def \\ irule local_elim \\
   reduce_tac \\
-  unfold_build_cases \\
-  CONV_TAC validate_pat_all_conv
+  xcases
 
 val xmatch = xmatch_base
 
@@ -524,6 +615,43 @@ val xffi =
   xpull_check_not_needed \\
   head_unfold cf_ffi_def \\
   irule local_elim \\ hnf \\
-  simp [app_ffi_def] \\ reduce_tac
+  simp [app_ffi_def] \\ reduce_tac \\
+  conj_tac \\ cleanup_exn_side_cond
+
+(* [xraise] *)
+
+val xraise =
+  xpull_check_not_needed \\
+  head_unfold cf_raise_def \\ reduce_tac \\
+  HO_MATCH_MP_TAC xret_lemma \\
+  cleanup_exn_side_cond
+
+(* [xhandle] *)
+
+fun xhandle_core cont0 cont1 =
+  xpull_check_not_needed \\
+  head_unfold cf_handle_def \\
+  irule local_elim \\ hnf \\
+  cont0 \\
+  CONJ_TAC THENL [
+    CONJ_TAC THENL [all_tac, cleanup_exn_side_cond],
+    cont1
+  ]
+
+fun xhandle Q (g as (asl, w)) = let
+  val ctx = free_varsl (w :: asl)
+  val name = vname_of_post "e" (Term Q)
+  val name' =
+    prim_variant ctx (mk_var (name, v_ty))
+    |> dest_var |> fst
+  val qname = [QUOTE name']
+in
+  xhandle_core
+    (qexists_tac Q)
+    (qx_gen_tac qname \\
+     reduce_tac \\
+     TRY xpull)
+    g
+end
 
 end

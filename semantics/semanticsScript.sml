@@ -24,10 +24,7 @@ val _ = hide "state";
 
 val can_type_prog_def = Define `
 can_type_prog state prog ⇔
-  no_dup_mods prog state.sem_st.defined_mods ∧
-  no_dup_top_types prog state.sem_st.defined_types ∧
-  ∃tdecs' new_tenv.
-    type_prog T state.tdecs state.tenv prog tdecs' new_tenv`;
+  ∃tdecs' new_tenv. type_prog T state.tdecs state.tenv prog tdecs' new_tenv`;
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
@@ -39,12 +36,14 @@ val semantics_prog_def = Define `
 (semantics_prog st env prog (Terminate outcome io_list) ⇔
   (* there is a clock for which evaluation terminates, either internally or via
      FFI, and the accumulated io events match the given io_list *)
-  ?k ffi r.
+  (?k ffi r.
     evaluate_prog_with_clock st env k prog = (ffi,r) ∧
     (if ffi.final_event = NONE then
-       (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+       (r ≠ Rerr (Rabort Rtimeout_error)) ∧ outcome = Success
      else outcome = FFI_outcome (THE ffi.final_event)) ∧
     (io_list = ffi.io_events)) ∧
+  (!k ffi.
+    evaluate_prog_with_clock st env k prog ≠ (ffi, Rerr (Rabort Rtype_error)))) ∧
 (semantics_prog st env prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.
