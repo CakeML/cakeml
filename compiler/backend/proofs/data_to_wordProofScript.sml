@@ -2832,7 +2832,7 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   bvi_to_data_def, wordSemTheory.the_words_def,
   bviSemTheory.bvl_to_bvi_def, data_to_bvi_def,
   bviSemTheory.bvi_to_bvl_def,wordSemTheory.mem_load_def,
-  wordLangTheory.word_op_def, wordSemTheory.word_sh_def,
+  wordLangTheory.word_op_def, wordLangTheory.word_sh_def,
   wordLangTheory.num_exp_def]
 
 val INT_EQ_NUM_LEMMA = Q.store_thm("INT_EQ_NUM_LEMMA",
@@ -3094,7 +3094,7 @@ val lookup_RefByte_location = Q.prove(
 val word_exp_rw = LIST_CONJ
   [wordSemTheory.word_exp_def,
    wordLangTheory.word_op_def,
-   wordSemTheory.word_sh_def,
+   wordLangTheory.word_sh_def,
    wordSemTheory.get_var_imm_def,
    wordLangTheory.num_exp_def,
    wordSemTheory.the_words_def,

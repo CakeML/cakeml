@@ -174,4 +174,12 @@ val word_op_def = Define `
     | (Sub,[w1;w2]) => SOME (w1 - w2)
     | _ => NONE`;
 
+val word_sh_def = Define `
+  word_sh sh (w:'a word) n =
+    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
+      case sh of
+      | Lsl => SOME (w << n)
+      | Lsr => SOME (w >>> n)
+      | Asr => SOME (w >> n)`;
+
 val _ = export_theory();

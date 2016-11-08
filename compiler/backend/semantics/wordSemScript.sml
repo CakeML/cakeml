@@ -128,14 +128,6 @@ val mem_load_def = Define `
       SOME (s.memory addr)
     else NONE`
 
-val word_sh_def = Define `
-  word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
-      case sh of
-      | Lsl => SOME (w << n)
-      | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)`;
-
 val the_words_def = Define `
   (the_words [] = SOME []) /\
   (the_words (w::ws) =
