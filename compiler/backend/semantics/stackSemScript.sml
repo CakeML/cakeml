@@ -143,28 +143,6 @@ val set_var_def = Define `
 val set_store_def = Define `
   set_store v x (s:('a,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
 
-val check_clock_def = Define `
-  check_clock (s1:('a,'ffi) stackSem$state) (s2:('a,'ffi) stackSem$state) =
-    if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
-
-val check_clock_thm = Q.prove(
-  `(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))`,
-  SRW_TAC [] [check_clock_def])
-
-val check_clock_alt = Q.prove(
-  `(s1.clock <= (dec_clock s2).clock ==> (check_clock s1 s2 = s1))`,
-  SRW_TAC [] [check_clock_def,dec_clock_def] \\ `F` by DECIDE_TAC)
-
-val check_clock_lemma = Q.prove(
-  `b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)`,
-  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
-
-val check_clock_IMP = Q.prove(
-  `n <= (check_clock r s).clock ==> n <= s.clock`,
-  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
-
 val empty_env_def = Define `
   empty_env (s:('a,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
@@ -585,7 +563,7 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   \\ FULL_SIMP_TAC std_ss [cut_state_opt_def,STOP_def]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs []
   \\ rpt (every_case_tac \\ fs []
-    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,empty_env_def]
+    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
     \\ IMP_RES_TAC inst_clock
     \\ IMP_RES_TAC alloc_clock
     \\ fs [set_var_def,set_store_def,dec_clock_def,LET_THM]
