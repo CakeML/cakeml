@@ -229,7 +229,11 @@ val do_app_def = Define `
     | _ => Error`;
 
 val dec_clock_def = Define `
-  dec_clock n (s:'ffi closSem$state) = s with clock := s.clock - n`;
+dec_clock n (s:'ffi closSem$state) = s with clock := s.clock - n`;
+
+val LESS_EQ_dec_clock = Q.prove(
+  `(r:'ffi closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock`,
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val find_code_def = Define `
   find_code p args code =
@@ -243,22 +247,15 @@ val find_code_def = Define `
 
 (* Proving termination of the evaluator directly is tricky. We make
    our life simpler by forcing the clock to stay good using
-   check_clock. At the bottom of this file, we remove all occurrences
-   of check_clock. *)
+   fix_clock. At the bottom of this file, we remove all occurrences
+   of fix_clock. *)
 
-val check_clock_def = Define `
-  check_clock (s1:'ffi closSem$state) (s2:'ffi closSem$state) =
-    if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
+val fix_clock_def = Define `
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
 
-val check_clock_thm = Q.prove(
-  `(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))`,
-  SRW_TAC [] [check_clock_def])
-
-val check_clock_lemma = Q.prove(
-  `b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)`,
-  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
+val fix_clock_IMP = Q.prove(
+  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 (* The semantics of expression evaluation is defined next. For
    convenience of subsequent proofs, the evaluation function is
@@ -340,32 +337,32 @@ val build_recc_def = Define `
 val evaluate_def = tDefine "evaluate" `
   (evaluate ([],env:closSem$v list,s:'ffi closSem$state) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
-     case evaluate ([x],env,s) of
+     case fix_clock s (evaluate ([x],env,s)) of
      | (Rval v1,s1) =>
-         (case evaluate (y::xs,env,check_clock s1 s) of
+         (case evaluate (y::xs,env,s1) of
           | (Rval vs,s2) => (Rval (HD v1::vs),s2)
           | res => res)
      | res => res) /\
   (evaluate ([Var n],env,s) =
      if n < LENGTH env then (Rval [EL n env],s) else (Rerr(Rabort Rtype_error),s)) /\
   (evaluate ([If x1 x2 x3],env,s) =
-     case evaluate ([x1],env,s) of
+     case fix_clock s (evaluate ([x1],env,s)) of
      | (Rval vs,s1) =>
-          if Boolv T = HD vs then evaluate ([x2],env,check_clock s1 s) else
-          if Boolv F = HD vs then evaluate ([x3],env,check_clock s1 s) else
+          if Boolv T = HD vs then evaluate ([x2],env,s1) else
+          if Boolv F = HD vs then evaluate ([x3],env,s1) else
             (Rerr(Rabort Rtype_error),s1)
      | res => res) /\
   (evaluate ([Let xs x2],env,s) =
-     case evaluate (xs,env,s) of
-     | (Rval vs,s1) => evaluate ([x2],vs++env,check_clock s1 s)
+     case fix_clock s (evaluate (xs,env,s)) of
+     | (Rval vs,s1) => evaluate ([x2],vs++env,s1)
      | res => res) /\
   (evaluate ([Raise x1],env,s) =
      case evaluate ([x1],env,s) of
      | (Rval vs,s) => (Rerr(Rraise (HD vs)),s)
      | res => res) /\
   (evaluate ([Handle x1 x2],env,s1) =
-     case evaluate ([x1],env,s1) of
-     | (Rerr(Rraise v),s) => evaluate ([x2],v::env,check_clock s s1)
+     case fix_clock s1 (evaluate ([x1],env,s1)) of
+     | (Rerr(Rraise v),s) => evaluate ([x2],v::env,s)
      | res => res) /\
   (evaluate ([Op op xs],env,s) =
      case evaluate (xs,env,s) of
@@ -400,10 +397,10 @@ val evaluate_def = tDefine "evaluate" `
        (Rerr(Rabort Rtype_error), s)) /\
   (evaluate ([App loc_opt x1 args],env,s) =
      if LENGTH args > 0 then
-       (case evaluate (args,env,s) of
+       (case fix_clock s (evaluate (args,env,s)) of
         | (Rval y2,s1) =>
-          (case evaluate ([x1],env,check_clock s1 s) of
-           | (Rval y1,s2) => evaluate_app loc_opt (HD y1) y2 (check_clock s2 s)
+          (case fix_clock s1 (evaluate ([x1],env,s1)) of
+           | (Rval y1,s2) => evaluate_app loc_opt (HD y1) y2 s2
            | res => res)
         | res => res)
      else
@@ -411,13 +408,13 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
   (evaluate ([Call ticks dest xs],env,s1) =
-     case evaluate (xs,env,s1) of
+     case fix_clock s1 (evaluate (xs,env,s1)) of
      | (Rval vs,s) =>
          (case find_code dest vs s.code of
           | NONE => (Rerr(Rabort Rtype_error),s)
           | SOME (args,exp) =>
-              if (s.clock < ticks+1) \/ (s1.clock < ticks+1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
-                  evaluate ([exp],args,dec_clock (ticks+1) (check_clock s s1)))
+              if (s.clock < ticks+1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
+                  evaluate ([exp],args,dec_clock (ticks+1) s))
      | res => res) ∧
   (evaluate_app loc_opt f [] s = (Rval [f], s)) ∧
   (evaluate_app loc_opt f args s =
@@ -431,32 +428,29 @@ val evaluate_def = tDefine "evaluate" `
          if s.clock < (LENGTH args - LENGTH rest_args)
          then (Rerr(Rabort Rtimeout_error),s with clock := 0)
          else
-           case evaluate ([exp],env,dec_clock (LENGTH args - LENGTH rest_args) s) of
+             case fix_clock (dec_clock (LENGTH args - LENGTH rest_args) s)
+                    (evaluate ([exp],env,dec_clock (LENGTH args - LENGTH rest_args) s)) of
            | (Rval [v], s1) =>
-               evaluate_app loc_opt v rest_args (check_clock s1 s)
+               evaluate_app loc_opt v rest_args s1
            | res => res)`
  (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
                (\x. case x of INL (xs,env,s) => (s.clock,exp3_size xs,0)
-                              | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
-  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-  \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
-  \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
-  \\ Cases_on `s.clock <= s2.clock`
+                            | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
+  \\ rpt strip_tac
+  \\ simp[dec_clock_def]
+  \\ imp_res_tac fix_clock_IMP
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC [] []
-  \\ TRY DECIDE_TAC >>
-  imp_res_tac dest_closure_length >>
-  full_simp_tac (srw_ss()++ARITH_ss) [])
+  \\ TRY DECIDE_TAC
+  \\ imp_res_tac dest_closure_length
+  \\ imp_res_tac LESS_EQ_dec_clock
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ decide_tac);
 
 val evaluate_app_NIL = save_thm(
   "evaluate_app_NIL[simp]",
   ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
 
 (* We prove that the clock never increases. *)
-
-val check_clock_IMP = Q.prove(
-  `n <= (check_clock r s).clock ==> n <= s.clock`,
-  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val do_app_const = Q.store_thm("do_app_const",
   `(do_app op args s1 = Rval (res,s2)) ==>
@@ -477,86 +471,33 @@ val evaluate_clock_help = Q.prove (
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
-  \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ RES_TAC \\ IMP_RES_TAC fix_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
-  \\ IMP_RES_TAC check_clock_IMP
+  \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
-  \\ POP_ASSUM MP_TAC
-  \\ TRY (REPEAT (POP_ASSUM (K ALL_TAC))
-          \\ SRW_TAC [] [check_clock_def] \\ DECIDE_TAC)
-  \\ rfs [] \\ fs [] \\ rfs [check_clock_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
 `(!xs env s1 vs s2.
       (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock) ∧
     (!loc_opt f args s1 vs s2.
       (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
- metis_tac [evaluate_clock_help, SND]);
+metis_tac [evaluate_clock_help, SND]);
 
-val evaluate_check_clock = Q.prove(
-  `!xs env s1 vs s2.
-      (evaluate (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)`,
-  METIS_TAC [evaluate_clock,check_clock_thm]);
+val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
+  `fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)`,
+  Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
+  \\ imp_res_tac evaluate_clock
+  \\ fs [MIN_DEF,theorem "state_component_equality"]);
 
-(* Finally, we remove check_clock from the induction and definition theorems. *)
+(* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-val clean_term = term_rewrite
-  [``check_clock s1 s2 = s1:'ffi closSem$state``,
-   ``(s.clock = 0 \/ b1) <=> (s:'ffi closSem$state).clock = 0``,
-   ``(s.clock < k \/ b2) <=> (s:'ffi closSem$state).clock < k:num``]
+val evaluate_def = save_thm("evaluate_def",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
-val evaluate_ind = save_thm("evaluate_ind",let
-  val raw_ind = evaluate_ind
-  val goal = raw_ind |> concl |> clean_term
-  (* set_goal([],goal) *)
-  val ind = prove(goal,
-    NTAC 3 STRIP_TAC \\ MATCH_MP_TAC raw_ind
-    \\ Tactical.REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    \\ TRY
-     (FIRST_X_ASSUM (MATCH_MP_TAC) \\ REPEAT STRIP_TAC \\ fs []
-      \\ IMP_RES_TAC evaluate_clock
-      \\ IMP_RES_TAC check_clock_thm \\ fs []
-      \\ `s1.clock <= s.clock` by (fs [dec_clock_def] \\ DECIDE_TAC)
-      \\ IMP_RES_TAC check_clock_thm \\ fs [])
-    \\ TRY
-     (FIRST_X_ASSUM (MATCH_MP_TAC)
-      \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ fs []
-      \\ IMP_RES_TAC evaluate_clock
-      \\ IMP_RES_TAC check_clock_thm \\ fs []
-      \\ FIRST_X_ASSUM (MATCH_MP_TAC)
-      \\ DECIDE_TAC)
-    \\ TRY
-     (FIRST_X_ASSUM (MATCH_MP_TAC)
-      \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ fs []
-      \\ IMP_RES_TAC evaluate_clock \\ IMP_RES_TAC LESS_EQ_TRANS
-      \\ IMP_RES_TAC check_clock_thm \\ fs []
-      \\ FIRST_X_ASSUM (MATCH_MP_TAC)
-      \\ DECIDE_TAC)
-   \\ TRY
-     (IMP_RES_TAC evaluate_clock
-      \\ fs [dec_clock_def]
-      \\ IMP_RES_TAC (DECIDE ``n <= m - k:num ==> n <= m``)
-      \\ IMP_RES_TAC LESS_EQ_TRANS
-      \\ IMP_RES_TAC check_clock_thm \\ fs []))
-  in ind end);
-
-val evaluate_def = save_thm("evaluate_def",let
-  val goal = evaluate_def |> concl |> clean_term
-  (* set_goal([],goal) *)
-  val thm = prove(goal,
-    REPEAT STRIP_TAC
-    \\ SIMP_TAC std_ss [Once evaluate_def]
-    \\ BasicProvers.EVERY_CASE_TAC
-    \\ IMP_RES_TAC evaluate_check_clock \\ fs []
-    \\ SRW_TAC [] []
-    \\ IMP_RES_TAC evaluate_clock
-    \\ fs [check_clock_def,dec_clock_def]
-    \\ TRY (`F` by DECIDE_TAC)
-    \\ IMP_RES_TAC LESS_EQ_TRANS
-    \\ fs [check_clock_def])
-  in thm end);
+val evaluate_ind = save_thm("evaluate_ind",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
 (* observational semantics *)
 
