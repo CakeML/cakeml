@@ -266,9 +266,9 @@ val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
   \\ fs [MIN_DEF,theorem "state_component_equality"]);
 
 val fix_clock_evaluate_call = Q.store_thm("fix_clock_evaluate_call",
-  `fix_clock s (evaluate (prog,call_env args1 (push_env env (IS_SOME handler) (dec_clock s)))) =
-   (evaluate (prog,call_env args1 (push_env env (IS_SOME handler) (dec_clock s))))`,
-  Cases_on `(evaluate (prog,call_env args1 (push_env env (IS_SOME handler) (dec_clock s))))`
+  `fix_clock s (evaluate (prog,call_env args1 (push_env env h (dec_clock s)))) =
+   (evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`,
+  Cases_on `(evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`
   >> fs [fix_clock_def]
   >> imp_res_tac evaluate_clock
   >> fs[MIN_DEF,theorem "state_component_equality",call_env_def,dec_clock_def,push_env_clock]
