@@ -85,6 +85,10 @@ val dec_clock_compile_state = Q.store_thm("dec_clock_compile_state",
   `dec_clock (compile_state s) = compile_state (dec_clock s)`,
   EVAL_TAC);
 
+val compile_state_with_clock = Q.store_thm("compile_state_with_clock",
+  `compile_state st with clock := k = compile_state (st with clock := k)`,
+  EVAL_TAC);
+
 val compile_state_simps = save_thm ("compile_state_simps", LIST_CONJ
     [EVAL ``(compile_state s).globals``,
      EVAL ``(compile_state s).clock``,
@@ -511,9 +515,9 @@ val do_app_compile = Q.store_thm("do_app_compile[simp]",
   \\ rw[]
   \\ fs[semanticPrimitivesTheory.store_v_same_type_def,EL_MAP]);
 
-(* main result *)
+(* main results *)
 
-val compile_correct = Q.store_thm( "compile_correct",
+val compile_evaluate = Q.store_thm( "compile_evaluate",
   `(!env ^s es s1 r1.
       (evaluate env s es = (s1, r1)) /\
       r1 <> Rerr (Rabort Rtype_error) ==>
@@ -640,5 +644,45 @@ val compile_correct = Q.store_thm( "compile_correct",
      \\ rfs []
     )
 );
+
+val compile_evaluate_rwt = Q.store_thm("compile_evaluate_rwt",
+  `SND (evaluate env st es) ≠ Rerr (Rabort Rtype_error) ⇒
+   evaluate (compile_env env) (compile_state st) (compile es) =
+     (compile_state ## map_result (MAP compile_v) compile_v) (evaluate env st es)`,
+  Cases_on`evaluate env st es` \\ rw[] \\ imp_res_tac compile_evaluate);
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `semantics env (st:'ffi exhSem$state) es ≠ Fail ⇒
+   semantics (compile_env env) (compile_state st) (compile es) = semantics env st es`,
+  simp[semantics_def,compile_state_with_clock] \\
+  IF_CASES_TAC \\ fs[compile_evaluate_rwt] \\
+  DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[] \\
+  DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[] \\
+  fs[PAIR_MAP] \\ rveq \\ fs[]
+  \\ TRY ( qexists_tac`k` \\ simp[] \\ CASE_TAC \\ fs[] )
+  \\ TRY (
+    first_x_assum(qspec_then`k`mp_tac) \\ simp[]
+    \\ spose_not_then strip_assume_tac \\ fs[]
+    \\ NO_TAC)
+  \\ qmatch_goalsub_abbrev_tac`FST p`
+  \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
+  \\ pop_assum (assume_tac o SYM)
+  \\ qmatch_assum_rename_tac`evaluate _ (st with clock := k1) _ = (s,r)`
+  \\ qmatch_assum_rename_tac`evaluate _ (st with clock := k2) _ = (s',r')`
+  \\ qspecl_then[`k1`,`k2`]strip_assume_tac LESS_EQ_CASES
+  \\ rpt(pop_assum mp_tac)
+  \\ map_every qid_spec_tac [`k1`,`k2`,`s`,`r`,`s'`,`r'`,`outcome`,`outcome'`]
+     THEN_LT USE_SG_THEN (fn th => metis_tac[th]) 1 2
+  \\ rpt gen_tac \\ rpt(disch_then strip_assume_tac)
+  \\ fs[LESS_EQ_EXISTS] \\ rveq
+  \\ qmatch_asmsub_rename_tac`st with clock := kk + p`
+  \\ qspecl_then[`env`,`st with clock := kk`,`es`,`p`]strip_assume_tac
+       (CONJUNCT1 evaluate_add_to_clock_io_events_mono)
+  \\ rfs[]
+  \\ every_case_tac \\ fs[]
+  \\ qspecl_then[`p`,`env`,`st with clock := kk`,`es`]mp_tac
+       (Q.GEN`extra`(CONJUNCT1 evaluate_add_to_clock))
+  \\ fs[]
+  \\ CCONTR_TAC \\ fs[]);
 
 val () = export_theory();
