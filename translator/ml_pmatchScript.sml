@@ -122,8 +122,11 @@ val pmatch_imp_Pmatch = Q.prove(
 
 val Pmatch_imp_pmatch = Q.store_thm("Pmatch_imp_pmatch",
   `∀env s ps vs env'.
-      (Pmatch env s ps vs = SOME env' ⇒
+    (Pmatch env s ps vs = SOME env' ⇒
        pmatch_list env.c s ps vs env.v =
+         Match env'.v) ∧
+      (Pmatch env s ps vs = NONE ⇒
+       ∀env2.
        pmatch_list env.c s ps vs env.v ≠
          Match env2)`,
   ho_match_mp_tac Pmatch_ind >>
