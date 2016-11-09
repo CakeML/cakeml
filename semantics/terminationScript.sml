@@ -219,7 +219,11 @@ val do_log_thm = Q.store_thm("do_log_thm",
     if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
     NONE`,
   rw[semanticPrimitivesTheory.do_log_def] >>
-  every_case_tac >> rw[])
+    every_case_tac >> rw[])
+
+val fix_clock_IMP = Q.prove(
+  `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 val (evaluate_def,evaluate_ind) =
   tprove_no_defn ((evaluate_def,evaluate_ind),
@@ -228,8 +232,9 @@ val (evaluate_def,evaluate_ind) =
          | INL(s,_,es) => (s.clock,exps_size es)
          | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
-  check_clock_def,dec_clock_def,LESS_OR_EQ,
+  dec_clock_def,LESS_OR_EQ,
   do_if_def,do_log_thm] >>
+  imp_res_tac fix_clock_IMP >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
@@ -237,44 +242,20 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
    (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
-  fs[check_clock_def,dec_clock_def] >> simp[]);
+  fs[dec_clock_def,fix_clock_def] >> simp[] >>
+  imp_res_tac fix_clock_IMP >> fs[]);
 
-val check_clock_id = Q.store_thm("check_clock_id",
-  `s'.clock ≤ s.clock ⇒ check_clock s' s = s'`,
-  EVAL_TAC >> rw[state_component_equality]);
+val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
+  `fix_clock s1 (evaluate s1 env e) = evaluate s1 env e`,
+  Cases_on `evaluate s1 env e` \\ fs [fix_clock_def]
+  \\ imp_res_tac evaluate_clock
+  \\ fs [MIN_DEF,state_component_equality]);
 
-val s = ``s:'ffi state``;
-val s' = ``s':'ffi state``;
-val clean_term = term_rewrite
-  [``check_clock ^s' ^s = s'``,
-   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``];
+val evaluate_def = save_thm("evaluate_def",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
 
-val evaluate_ind = let
-  val evaluate_ind = evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *)
-  val goal = evaluate_ind |> concl |> clean_term
-  (* set_goal([],goal) *)
-in prove(goal,
-  rpt gen_tac >> strip_tac >>
-  ho_match_mp_tac evaluate_ind >>
-  rw[] >> first_x_assum match_mp_tac >>
-  rw[] >> fs[] >>
-  res_tac >>
-  imp_res_tac evaluate_clock >>
-  fsrw_tac[ARITH_ss][check_clock_id])
-end;
-
-val evaluate_def = let
-  val evaluate_def = evaluate_def |> INST_TYPE[alpha |-> ``:'ffi``] (* TODO: same as above *)
-  val goal = evaluate_def |> concl |> clean_term
-  (* set_goal([],goal) *)
-in prove(goal,
-  rpt strip_tac >>
-  rw[Once evaluate_def] >>
-  every_case_tac >>
-  imp_res_tac evaluate_clock >>
-  fs[check_clock_id] >>
-  `F` suffices_by rw[] >> decide_tac)
-end
+val evaluate_ind = save_thm("evaluate_ind",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
 
 val _ = register "evaluate" evaluate_def evaluate_ind
 

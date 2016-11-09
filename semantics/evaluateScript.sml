@@ -14,14 +14,14 @@ val _ = new_theory "evaluate"
 (*open import SemanticPrimitives*)
 (*open import Ffi*)
 
-(* The semantics is defined here using check_clock so that HOL4 generates
+(* The semantics is defined here using fix_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
- * clean up the definition (in HOL4) to remove occurrences of check_clock. *)
+ * clean up the definition (in HOL4) to remove occurrences of fix_clock. *)
 
 val _ = Define `
- (check_clock s' s =  
-(( s' with<| clock := if s'.clock <= s.clock
-                     then s'.clock else s.clock |>)))`;
+ (fix_clock s (s',res) =  
+  (( s' with<| clock := if s'.clock <= s.clock
+                     then s'.clock else s.clock |>),res))`;
 
 
 val _ = Define `
@@ -44,9 +44,9 @@ val _ = Define `
 (evaluate st env [] = (st, Rval []))
 /\
 (evaluate st env (e1::e2::es) =  
-((case evaluate st env [e1] of
+((case fix_clock st (evaluate st env [e1]) of
     (st', Rval v1) =>
-      (case evaluate (check_clock st' st) env (e2::es) of
+      (case evaluate st' env (e2::es) of
         (st'', Rval vs) => (st'', Rval (HD v1::vs))
       | res => res
       )
@@ -62,8 +62,8 @@ val _ = Define `
   )))
 /\
 (evaluate st env [Handle e pes] =  
-((case evaluate st env [e] of
-    (st', Rerr (Rraise v)) => evaluate_match (check_clock st' st) env v pes v
+((case fix_clock st (evaluate st env [e]) of
+    (st', Rerr (Rraise v)) => evaluate_match st' env v pes v
   | res => res
   )))
 /\
@@ -88,15 +88,15 @@ val _ = Define `
 (evaluate st env [Fun x e] = (st, Rval [Closure env x e]))
 /\
 (evaluate st env [App op es] =  
-((case evaluate st env (REVERSE es) of
+((case fix_clock st (evaluate st env (REVERSE es)) of
     (st', Rval vs) =>
       if op = Opapp then
         (case do_opapp (REVERSE vs) of
           SOME (env',e) =>
-            if (st'.clock = 0) \/ (st.clock = 0) then
+            if st'.clock = 0 then
               (st', Rerr (Rabort Rtimeout_error))
             else
-              evaluate (dec_clock (check_clock st' st)) env' [e]
+              evaluate (dec_clock st') env' [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
       else
@@ -108,10 +108,10 @@ val _ = Define `
   )))
 /\
 (evaluate st env [Log lop e1 e2] =  
-((case evaluate st env [e1] of
+((case fix_clock st (evaluate st env [e1]) of
     (st', Rval v1) =>
       (case do_log lop (HD v1) e2 of
-        SOME (Exp e) => evaluate (check_clock st' st) env [e]
+        SOME (Exp e) => evaluate st' env [e]
       | SOME (Val v) => (st', Rval [v])
       | NONE => (st', Rerr (Rabort Rtype_error))
       )
@@ -119,25 +119,25 @@ val _ = Define `
   )))
 /\
 (evaluate st env [If e1 e2 e3] =  
-((case evaluate st env [e1] of
+((case fix_clock st (evaluate st env [e1]) of
     (st', Rval v) =>
       (case do_if (HD v) e2 e3 of
-        SOME e => evaluate (check_clock st' st) env [e]
+        SOME e => evaluate st' env [e]
       | NONE => (st', Rerr (Rabort Rtype_error))
       )
   | res => res
   )))
 /\
 (evaluate st env [Mat e pes] =  
-((case evaluate st env [e] of
+((case fix_clock st (evaluate st env [e]) of
     (st', Rval v) =>
-      evaluate_match (check_clock st' st) env (HD v) pes Bindv
+      evaluate_match st' env (HD v) pes Bindv
   | res => res
   )))
 /\
 (evaluate st env [Let xo e1 e2] =  
-((case evaluate st env [e1] of
-    (st', Rval v) => evaluate (check_clock st' st) ( env with<| v := opt_bind xo (HD v) env.v |>) [e2]
+((case fix_clock st (evaluate st env [e1]) of
+    (st', Rval v) => evaluate st' ( env with<| v := opt_bind xo (HD v) env.v |>) [e2]
   | res => res
   )))
 /\
