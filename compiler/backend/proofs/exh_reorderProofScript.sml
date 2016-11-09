@@ -144,16 +144,22 @@ val is_const_con_pat_bindings_empty = Q.store_thm("is_const_con_pat_bindings_emp
     \\ fs [is_const_con_def]
     \\ EVAL_TAC)
 
-val compile_length = Q.store_thm ("compile_length[simp]",
-  `! es. LENGTH (compile es) = LENGTH es`,
-  ho_match_mp_tac compile_ind
-  \\ rw [compile_def])
+val compile_append = Q.store_thm ("compile_append",
+  `! x h. compile (x ++ h) = (compile x) ++ (compile h)`,
+  Induct_on `x`
+  \\ fs []
+  \\ rw [Once compile_cons]
+  \\ hd_compile_sing_tac
+  \\ rw [Once compile_cons])
 
-val compile_sing = Q.store_thm ("compile_sing",
-  `! e. ?e2. compile [e] = [e2]`,
-  rw []
-  \\ qspec_then `[e]` mp_tac compile_length
-  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute])
+val compile_reverse = Q.store_thm ("compile_reverse",
+  `! x. REVERSE (compile x) = compile (REVERSE x)`,
+  Induct
+  \\ fs []
+  \\ rw [Once compile_cons]
+  \\ hd_compile_sing_tac
+  \\ rw [EQ_SYM_EQ, REVERSE_DEF]
+  \\ rw [compile_append])
 
 fun hd_compile_sing_tac (goal as (asl,w)) =
     let
@@ -163,13 +169,6 @@ fun hd_compile_sing_tac (goal as (asl,w)) =
         strip_assume_tac $ SPEC e_term compile_sing
     end
     goal
-
-val compile_cons = Q.store_thm ("compile_cons",
-  `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`,
-  rw []
-  \\ Cases_on `es`
-  \\ rw [compile_def]
-  \\ METIS_TAC [compile_sing, HD])
 
 fun app_compile_sing_tac (goal as (asl,w)) =
     let
@@ -187,25 +186,6 @@ fun app_compile_sing_tac (goal as (asl,w)) =
                 )
                 goal
     end
-
-val compile_nil = save_thm ("compile_nil[simp]", EVAL ``exh_reorder$compile []``);
-
-val compile_append = Q.store_thm ("compile_append",
-  `! x h. compile (x ++ h) = (compile x) ++ (compile h)`,
-  Induct_on `x`
-  \\ fs []
-  \\ rw [Once compile_cons]
-  \\ hd_compile_sing_tac
-  \\ rw [Once compile_cons])
-
-val compile_reverse = Q.store_thm ("compile_reverse",
-  `! x. REVERSE (compile x) = compile (REVERSE x)`,
-  Induct
-  \\ fs []
-  \\ rw [Once compile_cons]
-  \\ hd_compile_sing_tac
-  \\ rw [EQ_SYM_EQ, REVERSE_DEF]
-  \\ rw [compile_append])
 
 (* alternative characterisation of pattern matching *)
 

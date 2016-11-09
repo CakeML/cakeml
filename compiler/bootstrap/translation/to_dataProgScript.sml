@@ -58,7 +58,25 @@ val _ = translate (mod_to_conTheory.compile_def);
 
 val _ = translate (con_to_decTheory.compile_def);
 
-val _ = translate (dec_to_exhTheory.compile_exp_def);
+val _ = translate (exh_reorderTheory.compile_def);
+
+val exh_reorder_compile_side_def = theorem"exh_reorder_compile_side_def"
+val exh_reorder_compile_side = prove(``
+  ∀x. exh_reorder_compile_side x ⇔ T``,
+  recInduct exh_reorderTheory.compile_ind>>
+  rw[]>>
+  rw[Once exh_reorder_compile_side_def]>>
+  TRY(first_x_assum match_mp_tac \\ rw[]) \\
+  TRY(asm_exists_tac \\ rw[]) \\
+  fs[Once exh_reorderTheory.compile_cons])|>update_precondition;
+
+val _ = translate (dec_to_exhTheory.compile_def);
+
+val dec_to_exh_compile_side_def = definition"dec_to_exh_compile_side_def";
+val dec_to_exh_compile_side = Q.prove(
+  `∀x y. dec_to_exh_compile_side x y ⇔ T`,
+  rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
+  |> update_precondition;
 
 val _ = translate (exh_to_patTheory.pure_op_op_eqn);
 val _ = translate (exh_to_patTheory.compile_def);

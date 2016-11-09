@@ -96,4 +96,26 @@ val compile_def = tDefine "compile" `
   )
 )
 
+val compile_ind = theorem"compile_ind";
+
+val compile_length = Q.store_thm ("compile_length[simp]",
+  `! es. LENGTH (compile es) = LENGTH es`,
+  ho_match_mp_tac compile_ind
+  \\ rw [compile_def])
+
+val compile_sing = Q.store_thm ("compile_sing",
+  `! e. ?e2. compile [e] = [e2]`,
+  rw []
+  \\ qspec_then `[e]` mp_tac compile_length
+  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute])
+
+val compile_nil = save_thm ("compile_nil[simp]", EVAL ``exh_reorder$compile []``);
+
+val compile_cons = Q.store_thm ("compile_cons",
+  `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`,
+  rw []
+  \\ Cases_on `es`
+  \\ rw [compile_def]
+  \\ METIS_TAC [compile_sing, HD])
+
 val () = export_theory();
