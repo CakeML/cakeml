@@ -1064,4 +1064,9 @@ val env_rel_tenv_to_ienv = Q.store_thm ("env_rel_tenv_to_ienv",
     simp [] >>
     metis_tac []));
 
+val tenv_to_ienv_lift = Q.store_thm ("tenv_to_ienv_lift",
+  `!mn tenv. tenv_to_ienv (tenvLift mn tenv) = ienvLift mn (tenv_to_ienv tenv)`,
+  rw [tenv_to_ienv_def, ienvLift_def, tenvLift_def, namespacePropsTheory.nsLift_nsMap]);
+
+
 val _ = export_theory ();

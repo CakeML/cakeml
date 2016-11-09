@@ -857,7 +857,36 @@ val infer_ds_complete = Q.store_thm ("infer_ds_complete",
   rw [success_eqns, convert_append_decls] >>
   metis_tac [tenv_to_ienv_extend]);
 
+val infer_top_complete = Q.store_thm ("infer_top_complete",
+  `!x decls tenv top decls' tenv'.
+    type_top x decls tenv top decls' tenv' ⇒
+    !idecls ienv st1.
+      env_rel tenv ienv ∧
+      decls = convert_decls idecls ∧
+      x = T
+      ⇒
+      ?idecls' st2.
+        decls' = convert_decls idecls' ∧
+        infer_top idecls ienv top st1 = (Success (idecls',tenv_to_ienv tenv'), st2)`,
 
+  rw [type_top_cases] >>
+  rw [infer_top_def, success_eqns]
+  >- (
+    drule infer_d_complete >>
+    disch_then drule >>
+    disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
+    rw [] >>
+    qexists_tac `idecls'` >>
+    rw [success_eqns]) >>
+  drule infer_ds_complete >>
+  disch_then drule >>
+  disch_then (qspecl_then [`idecls`, `st1`] mp_tac) >>
+  rw [] >>
+  rw [success_eqns] >>
+  fs [check_signature_def, typeSystemTheory.check_signature_cases,
+      success_eqns]
+  >- fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION, tenv_to_ienv_lift] >>
+  cheat);
 
 (*
 val infer_ds_complete = prove(``
