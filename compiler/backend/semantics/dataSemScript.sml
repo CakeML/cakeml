@@ -80,10 +80,6 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val fix_clock_IMP_SYM = Q.prove(
-  `(res,s1) = fix_clock s x  ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
-
 val LESS_EQ_dec_clock = Q.prove(
   `r.clock <= (dec_clock s).clock ==> r.clock <= s.clock`,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
