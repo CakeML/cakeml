@@ -6746,19 +6746,19 @@ val word_to_stack_compile_lab_pres = Q.store_thm("word_to_stack_compile_lab_pres
   pairarg_tac>>rw[]>>EVAL_TAC>>
   metis_tac[FST,word_to_stack_lab_pres])
 
-val EVEN_DIV_2_props = prove(``
+val EVEN_DIV_2_props = Q.prove(`
   a MOD 2 = 0 ∧ b MOD 2 = 0 ⇒
-  (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)``,
+  (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)`,
   cheat)
 
 val wconvs = [post_alloc_conventions_def,wordPropsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
 
-val call_dest_stack_asm_name = prove(``
+val call_dest_stack_asm_name = Q.prove(`
   call_dest d a k = (q0,d') ⇒
   stack_asm_name c q0 ∧
   case d' of
     INR r => r ≤ (FST k)+1
-  | INL l => T``,
+  | INL l => T`,
   Cases_on`d`>>EVAL_TAC>>rw[]>>
   EVAL_TAC>>
   pairarg_tac>>fs[]>>
@@ -6766,24 +6766,24 @@ val call_dest_stack_asm_name = prove(``
   EVAL_TAC>>rw[]>>
   EVAL_TAC>>rw[])
 
-val wLive_stack_asm_name = prove(``
+val wLive_stack_asm_name = Q.prove(`
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   wLive q bs kf = (q1,bs') ⇒
-  stack_asm_name c q1``,
+  stack_asm_name c q1`,
   PairCases_on`kf`>>
   fs[wLive_def]>>
   rw[]>-EVAL_TAC>>
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_name_lem = prove(``
+val word_to_stack_stack_asm_name_lem = Q.prove(`
   ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   4 < (FST kf) ⇒
-  stack_asm_name c (FST (comp p bs kf))``,
+  stack_asm_name c (FST (comp p bs kf))`,
   ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def,stack_asm_name_def]
   >-
     (PairCases_on`kf`>>fs[wMove_def]>>
@@ -6858,13 +6858,13 @@ val word_to_stack_stack_asm_name_lem = prove(``
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]))
 
-val call_dest_stack_asm_remove = prove(``
+val call_dest_stack_asm_remove = Q.prove(`
   (FST k)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   call_dest d a k = (q0,d') ⇒
   stack_asm_remove c q0 ∧
   case d' of
     INR r => r ≤ (FST k)+1
-  | INL l => T``,
+  | INL l => T`,
   Cases_on`d`>>EVAL_TAC>>rw[]>>
   EVAL_TAC>>
   pairarg_tac>>fs[]>>
@@ -6872,20 +6872,20 @@ val call_dest_stack_asm_remove = prove(``
   EVAL_TAC>>rw[]>>
   EVAL_TAC>>rw[])
 
-val wLive_stack_asm_remove = prove(``
+val wLive_stack_asm_remove = Q.prove(`
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   wLive q bs kf = (q1,bs') ⇒
-  stack_asm_remove c q1``,
+  stack_asm_remove c q1`,
   PairCases_on`kf`>>
   fs[wLive_def]>>
   rw[]>-EVAL_TAC>>
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_remove_lem = prove(``
+val word_to_stack_stack_asm_remove_lem = Q.prove(`
   ∀(p:'a prog) bs kf (c:'a asm_config).
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
-  stack_asm_remove c (FST (comp p bs kf))``,
+  stack_asm_remove c (FST (comp p bs kf))`,
   ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def,stack_asm_remove_def]
   >-
     (PairCases_on`kf`>>fs[wMove_def]>>
@@ -6944,13 +6944,13 @@ val word_to_stack_stack_asm_remove_lem = prove(``
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]))
 
-val word_to_stack_stack_asm_convs = store_thm("word_to_stack_stack_asm_convs",``
+val word_to_stack_stack_asm_convs = Q.store_thm("word_to_stack_stack_asm_convs",`
   EVERY (λ(n,m,p).
   full_inst_ok_less c p ∧
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
   post_alloc_conventions (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
   4 < (c.reg_count - (LENGTH c.avoid_regs +5)) ⇒
-  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(compile c progs))``,
+  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(compile c progs))`,
   fs[compile_def]>>pairarg_tac>>rw[]
   >- (EVAL_TAC>>fs[])
   >- (EVAL_TAC>>fs[])

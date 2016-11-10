@@ -2391,11 +2391,11 @@ val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
   >>
     res_tac>>fs[]));
 
-val sa_comp_stack_asm_name = prove(``
+val sa_comp_stack_asm_name = Q.prove(`
   ∀n m p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
   let (p',m') = comp n m p in
-  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'``,
+  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'`,
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def]
   >-
@@ -2411,7 +2411,7 @@ val sa_comp_stack_asm_name = prove(``
     rpt(pairarg_tac>>fs[])>>rw[]>>
     fs[stack_asm_name_def,stack_asm_remove_def])
 
-val sa_compile_stack_asm_convs = store_thm("sa_compile_stack_asm_convs",``
+val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
@@ -2424,7 +2424,7 @@ val sa_compile_stack_asm_convs = store_thm("sa_compile_stack_asm_convs",``
   c.valid_imm (INL Sub) 1w
   ⇒
   EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
-  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)``,
+  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)`,
   fs[compile_def]>>rw[]>>
   TRY
     (EVAL_TAC>>fs[reg_name_def,labPropsTheory.good_dimindex_def,asmTheory.offset_ok_def,data_to_wordProofTheory.conf_ok_def,data_to_wordTheory.shift_length_def]>>

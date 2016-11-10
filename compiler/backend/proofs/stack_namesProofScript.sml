@@ -368,25 +368,25 @@ val stack_names_lab_pres = Q.store_thm("stack_names_lab_pres",`
   once_rewrite_tac [comp_def]>>fs[extract_labels_def]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])
 
-val names_ok_imp = prove(``
+val names_ok_imp = Q.prove(`
   names_ok f c.reg_count c.avoid_regs ⇒
   ∀n. reg_name n c ⇒
-  reg_ok (find_name f n) c``,
+  reg_ok (find_name f n) c`,
   fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def])
 
-val names_ok_imp2 = prove(``
+val names_ok_imp2 = Q.prove(`
   names_ok f c.reg_count c.avoid_regs ∧
   n ≠ n' ∧
   reg_name n c ∧ reg_name n' c ⇒
-  find_name f n ≠ find_name f n'``,
+  find_name f n ≠ find_name f n'`,
   rw[names_ok_def]>>fs[ALL_DISTINCT_GENLIST,reg_name_def]>>
   metis_tac[])
 
-val sn_comp_imp_stack_asm_ok = prove(``
+val sn_comp_imp_stack_asm_ok = Q.prove(`
   ∀f p.
   stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒
-  stack_asm_ok c (stack_names$comp f p)``,
+  stack_asm_ok c (stack_names$comp f p)`,
   ho_match_mp_tac comp_ind>>
   Cases_on`p`>>rw[]>>
   simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
@@ -415,11 +415,11 @@ val sn_comp_imp_stack_asm_ok = prove(``
   >>
   metis_tac[names_ok_imp,asmTheory.reg_ok_def])
 
-val sn_compile_imp_stack_asm_ok = store_thm("sn_compile_imp_stack_asm_ok",``
+val sn_compile_imp_stack_asm_ok = Q.store_thm("sn_compile_imp_stack_asm_ok",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒
-  EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)``,
+  EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)`,
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def,compile_def,MEM_MAP,EXISTS_PROD]>>
   rw[]>>
   metis_tac[sn_comp_imp_stack_asm_ok])
