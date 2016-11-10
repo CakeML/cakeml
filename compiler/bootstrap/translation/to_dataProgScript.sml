@@ -118,6 +118,94 @@ val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
 val EqualityType_PATLANG_OP_TYPE = find_equality_type_thm``PATLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_CONLANG_OP_TYPE]
 
+val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def
+
+val EXHLANG_PAT_TYPE_def = theorem"EXHLANG_PAT_TYPE_def";
+val EXHLANG_PAT_TYPE_ind = theorem"EXHLANG_PAT_TYPE_ind";
+
+val EXHLANG_PAT_TYPE_no_closures = Q.prove(
+  `∀a b. EXHLANG_PAT_TYPE a b ⇒ no_closures b`,
+  ho_match_mp_tac EXHLANG_PAT_TYPE_ind
+  \\ rw[EXHLANG_PAT_TYPE_def]
+  \\ rw[no_closures_def]
+  \\ TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y1`,`x1`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,no_closures_def] >>
+    qx_gen_tac`p` >>
+    simp[PULL_EXISTS,no_closures_def] >>
+    rw[] >>
+    METIS_TAC[EqualityType_def] ) >>
+  metis_tac[EqualityType_NUM,
+            EqualityType_AST_LIT_TYPE,
+            EqualityType_LIST_TYPE_CHAR,
+            EqualityType_def]);
+
+val EXHLANG_PAT_TYPE_types_match = Q.prove(
+  `∀a b c d. EXHLANG_PAT_TYPE a b ∧ EXHLANG_PAT_TYPE c d ⇒ types_match b d`,
+  ho_match_mp_tac EXHLANG_PAT_TYPE_ind \\
+  rw[EXHLANG_PAT_TYPE_def] \\
+  Cases_on`c` \\ fs[EXHLANG_PAT_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+    qx_gen_tac`p` >>
+    gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
+    rw[types_match_def,ctor_same_type_def] >>
+    PROVE_TAC[EqualityType_def] ) >>
+  metis_tac[EqualityType_NUM,
+            EqualityType_AST_LIT_TYPE,
+            EqualityType_LIST_TYPE_CHAR,
+            EqualityType_def]);
+
+val EXHLANG_PAT_TYPE_11 = Q.prove(
+  `∀a b c d. EXHLANG_PAT_TYPE a b ∧ EXHLANG_PAT_TYPE c d ⇒ (a = c ⇔ b = d)`,
+  ho_match_mp_tac EXHLANG_PAT_TYPE_ind \\
+  rw[EXHLANG_PAT_TYPE_def] \\
+  Cases_on`c` \\ fs[EXHLANG_PAT_TYPE_def] \\ rw[EQ_IMP_THM] \\
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x y1` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x y2` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y2`,`y1`,`x`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >>
+    rw[] >>
+    metis_tac[]) >>
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x2 y` >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y`,`x1`,`x2`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >- (
+      Cases \\ rw[LIST_TYPE_def] ) \\
+    gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
+    metis_tac[]) >>
+  metis_tac[EqualityType_NUM,
+            EqualityType_AST_LIT_TYPE,
+            EqualityType_LIST_TYPE_CHAR,
+            EqualityType_def]);
+
+val EqualityType_EXHLANG_PAT_TYPE = Q.prove(
+  `EqualityType EXHLANG_PAT_TYPE`,
+  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
+  |> store_eq_thm
+
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
 val PATLANG_EXP_TYPE_ind = theorem"PATLANG_EXP_TYPE_ind";
 
@@ -140,8 +228,6 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
-
-val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def
 
 val PATLANG_EXP_TYPE_types_match = Q.prove(
   `∀a b c d. PATLANG_EXP_TYPE a b ∧ PATLANG_EXP_TYPE c d ⇒ types_match b d`,
