@@ -239,8 +239,8 @@ val _ = Datatype`
 
 val default_config_def = Define`
   default_config =
-    <| inline_size_limit := 3
-     ; exp_cut := 200
+    <| inline_size_limit := 10
+     ; exp_cut := 1000
      ; split_main_at_seq := T
      |>`;
 

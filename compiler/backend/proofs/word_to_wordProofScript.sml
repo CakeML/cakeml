@@ -38,7 +38,7 @@ val compile_single_lem = Q.store_thm("compile_single_lem",`
     qpat_abbrev_tac`p3 = FST (remove_dead p2 LN)`>>
     qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
   TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2 LN)`)>>
-  Q.ISPECL_THEN [`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
+  Q.ISPECL_THEN [`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
       srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
@@ -536,21 +536,18 @@ val compile_word_to_word_thm = Q.store_thm("compile_word_to_word_thm",
 
 val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
-(* syntax going into stackLang
-  inst_ok_less and two_reg_inst are IGNORED for now
-  since we still have an exit check in lab_to_target
-*)
+(* syntax going into stackLang *)
 val compile_conventions = Q.store_thm("compile_to_word_conventions",`
-  (*addr_offset_ok 0w ac ∧ EVERY (λ(n,m,prog). every_inst (λi. F) prog) p ⇒*)
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY2 PERM (MAP (extract_labels o SND o SND) progs)
               (MAP (extract_labels o SND o SND) p) ∧
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
-    post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog
-    (*full_inst_ok_less ac prog ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)*)) progs`,
+    post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
+    (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
+     addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs`,
   fs[compile_def]>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>rveq>>rw[]>>
   `LENGTH n_oracles = LENGTH p` by
@@ -586,23 +583,25 @@ val compile_conventions = Q.store_thm("compile_to_word_conventions",`
     match_mp_tac (el 1 rmd_thms)>>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
-  match_mp_tac (el 3 rmt_thms)>>
-  match_mp_tac pre_post_conventions_word_alloc>>
-  IF_CASES_TAC>>
-  TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
-  match_mp_tac (el 3 rmd_thms)>>
-  fs[full_ssa_cc_trans_pre_alloc_conventions])
-  (* Rest of the proof for the other two conventions
-    (match_mp_tac (el 2 rmt_thms)>>
-    match_mp_tac word_alloc_full_inst_ok_less>>
+  CONJ_TAC>-
+    (match_mp_tac (el 3 rmt_thms)>>
+    match_mp_tac pre_post_conventions_word_alloc>>
     IF_CASES_TAC>>
+    TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
+    match_mp_tac (el 3 rmd_thms)>>
+    fs[full_ssa_cc_trans_pre_alloc_conventions])>>
+  CONJ_TAC>-
+    (rw[]>>match_mp_tac (el 2 rmt_thms)>>
+    match_mp_tac word_alloc_full_inst_ok_less>>
     TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
+    match_mp_tac (el 2 rmd_thms)>>
     match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
     match_mp_tac inst_select_full_inst_ok_less>>
-    metis_tac[EL_MEM])>>
+    fs[]>>
+    metis_tac[compile_exp_no_inst,MEM_EL])>>
   rw[]>>
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
-  fs[three_to_two_reg_two_reg_inst]*)
+  fs[three_to_two_reg_two_reg_inst])
 
 val _ = export_theory();

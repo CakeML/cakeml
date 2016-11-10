@@ -10,9 +10,6 @@ val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20;
 val _ = PolyML.print_depth 5;
 
-(*Compilation of basis_prog is very slow, so we avoid it for now*)
-(*val initial_prog = rconc (EVAL``prim_types_program``)*)
-
 fun println s = print (strcat s "\n");
 
 fun to_bytes alg conf prog =
@@ -790,18 +787,19 @@ val benchmarks_bytes4 = map extract_bytes benchmarks_compiled4
 val _ = write_asm (zip names benchmarks_bytes4);
 *)
 
-(*val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+(*
+
+val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
 val clos_o3 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
 val clos_o4 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``
 
-val benchmarks_o0 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
-val benchmarks_o1 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
-val benchmarks_o2 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
-val benchmarks_o3 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
-val benchmarks_o4 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
-
+val benchmarks_o0 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_o1 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
+val benchmarks_o2 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
+val benchmarks_o3 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
+val benchmarks_o4 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
 
 val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
 val benchmarks_o1_bytes = map extract_bytes benchmarks_o1

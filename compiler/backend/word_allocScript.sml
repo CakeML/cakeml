@@ -110,6 +110,11 @@ val ssa_cc_trans_inst_def = Define`
     let r2' = option_lookup ssa r2 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
       (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    (Inst (Arith (Div r1' r2' r3')),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
@@ -122,20 +127,20 @@ val ssa_cc_trans_inst_def = Define`
   (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
-    let mov_in = Move 0 [(0,r3')] in
-    let (r2',ssa',na') = next_var_rename r2 ssa na in
-    let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',2)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 2 0 0 r4'))) mov_out),ssa'',na'')) ∧
+    let mov_in = Move 0 [(0,r3');(4,r4')] in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
+    let mov_out = Move 0 [(r2',0);(r1',8)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 8 0 0 4))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(0,r3');(2,r4')] in
+    let mov_in = Move 0 [(0,r3');(8,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',2);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 2 0 2 r5'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',8);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 0 8 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -283,7 +288,7 @@ val ssa_cc_trans_def = Define`
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
-    let names = MAP (option_lookup ssa') args in
+    let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*(x+1)) (LENGTH names) in
     let move_args = (Move 0 (ZIP (conv_args,names))) in
     let ssa_cut = inter ssa' numset in
@@ -343,6 +348,8 @@ val apply_colour_inst_def = Define`
     Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧
   (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
     Arith (Shift shift (f r1) (f r2) n)) ∧
+  (apply_colour_inst f (Arith (Div r1 r2 r3)) =
+    Arith (Div (f r1) (f r2) (f r3))) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
     Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
@@ -402,6 +409,7 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
+  (get_writes_inst (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
@@ -419,6 +427,8 @@ val get_live_inst_def = Define`
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 n)) live =
     insert r2 () (delete r1 live)) ∧
+  (get_live_inst (Arith (Div r1 r2 r3)) live =
+    (insert r3 () (insert r2 () (delete r1 live)))) ∧
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
@@ -509,6 +519,7 @@ val remove_dead_inst_def = Define`
   (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
   (remove_dead_inst (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst (Arith (Div r1 r2 r3)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst (Arith (LongMul r1 r2 r3 r4)) live =
@@ -638,6 +649,7 @@ val get_delta_inst_def = Define`
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
   (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
@@ -718,6 +730,40 @@ val get_prefs_def = Define`
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
+(* Forced edges for certain instructions
+  At the moment this really only ever occurs for AddCarry
+*)
+val get_forced_def = Define`
+  (get_forced c (Inst i) acc =
+    case i of
+      Arith (AddCarry r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          (if r1=r4 then [] else [(r1,r4)]) ++
+          acc
+       else acc
+    | Arith (LongMul r1 r2 r3 r4) =>
+       if (c.ISA = ARMv6) then
+         (if (r1=r2) then [] else [(r1,r2)]) ++ acc
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+         (if r1=r3 then [] else [(r1,r3)]) ++
+         (if r1=r4 then [] else [(r1,r4)]) ++
+         acc
+       else
+         acc
+    | _ => acc) ∧
+  (get_forced c (MustTerminate n s1) acc =
+    get_forced c s1 acc) ∧
+  (get_forced c (Seq s1 s2) acc =
+    get_forced c s1 (get_forced c s2 acc)) ∧
+  (get_forced c (If cmp num rimm e2 e3) acc =
+    get_forced c e2 (get_forced c e3 acc)) ∧
+  (get_forced c (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
+    case h of
+      NONE => get_forced c ret_handler acc
+    | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
+  (get_forced c prog acc = acc)`
+
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`
   (check_colouring_ok_alt col [] = T) ∧
@@ -731,7 +777,7 @@ val every_even_colour_def = Define`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
-  oracle_colour_ok k col_opt tree prog ⇔
+  oracle_colour_ok k col_opt tree prog ls ⇔
   case col_opt of
     NONE => NONE
   | SOME col =>
@@ -743,7 +789,8 @@ val oracle_colour_ok_def = Define`
        if
          (* Note: possibly avoid these checks and instead check the oracle domain directly *)
          every_var is_phy_var prog ∧
-         every_stack_var (λx. x ≥ 2*k) prog
+         every_stack_var (λx. x ≥ 2*k) prog ∧
+         EVERY (λ(x,y). (tcol x) ≠ (tcol y)) ls
        then
          SOME prog
        else
@@ -755,13 +802,15 @@ val oracle_colour_ok_def = Define`
   prog is the program to be colored
   col_opt is an optional oracle colour*)
 val word_alloc_def = Define`
-  word_alloc alg k prog col_opt =
+  word_alloc c alg k prog col_opt =
   let tree = get_clash_tree prog in
   let moves = get_prefs prog [] in
-  case oracle_colour_ok k col_opt tree prog of
+  let forced = get_forced c prog [] in
+  case oracle_colour_ok k col_opt tree prog forced of
     NONE =>
     let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-    let col = reg_alloc alg clash_graph k moves in
+    let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
+    let col = reg_alloc alg ext_graph k moves in
       apply_colour (total_colour col) prog
   | SOME col_prog =>
       col_prog`
@@ -796,6 +845,7 @@ val max_var_inst_def = Define`
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧

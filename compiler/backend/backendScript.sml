@@ -53,7 +53,7 @@ val compile_def = Define`
     let c = c with word_conf := c' in
     let c = c with stack_conf updated_by
              (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf - 1) in
-    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
       lab_to_target$compile c.lab_conf (p:'a prog)`;
 
 val to_mod_def = Define`
@@ -133,7 +133,7 @@ val to_lab_def = Define`
   let (c,p) = to_stack c p in
   let c = c with stack_conf updated_by
            (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf -1) in
-  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
   (c,p:'a prog)`;
 
 val to_target_def = Define`
@@ -172,7 +172,7 @@ val from_stack_def = Define`
   from_stack c p =
   let c = c with stack_conf updated_by
            (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf -1) in
-  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) p in
+  let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
   from_lab c (p:'a prog)`;
 
 val from_word_def = Define`
@@ -272,21 +272,22 @@ val to_livesets_def = Define`
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
      (name_num,arg_count,prog)) p in
-  let clashmov = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog []) p in
-  ((reg_count,clashmov),c,p)`
+  let clashmovforce = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog [],get_forced c.lab_conf.asm_conf prog []) p in
+  ((reg_count,clashmovforce),c,p)`
 
 val from_livesets_def = Define`
-  from_livesets ((k,clashmov),c,p) =
+  from_livesets ((k,clashmovforce),c,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
-  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmov,p)) in
+  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmovforce,p)) in
   let p =
-    MAP (λ(col_opt,((tree,moves),name_num,arg_count,prog)).
-      case oracle_colour_ok k col_opt tree prog of
+    MAP (λ(col_opt,((tree,moves,forced),name_num,arg_count,prog)).
+      case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
           (let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-             let col = reg_alloc alg clash_graph k moves
+           let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
+             let col = reg_alloc alg ext_graph k moves
              in
                (name_num,arg_count,remove_must_terminate (apply_colour (total_colour col) prog)))
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in

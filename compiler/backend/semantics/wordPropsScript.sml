@@ -2181,8 +2181,15 @@ val inst_ok_less_def = Define`
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 n)) =
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Arith (Div r1 r2 r3)) =
+    (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
+  (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) =
+    ((c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
+  (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
+    (c.ISA = x86_64)) ∧
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) ∧
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
@@ -2266,8 +2273,9 @@ val wf_cutsets_def = Define`
 
 val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
-  (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 2 ∧ r2 = 0 ∧ r3 = 0) ∧
-  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 2 ∧ r3 = 0 ∧ r4 = 2) ∧
+  (* Follows conventions for x86 *)
+  (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 8 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
+  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 0 ∧ r4 = 8) ∧
   (inst_arg_convention _ = T)`
 
 (* Syntactic conventions for allocator *)

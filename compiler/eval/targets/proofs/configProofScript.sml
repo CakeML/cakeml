@@ -5,6 +5,8 @@ open configTheory
 
 open x64_targetProofTheory arm6_targetProofTheory arm8_targetProofTheory riscv_targetProofTheory mips_targetProofTheory
 
+open wordsLib blastLib
+
 val _ = new_theory"configProof";
 
 (* TODO: move *)
@@ -125,6 +127,20 @@ val x64_conf_ok = Q.prove(`
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_machine_config_def,x64_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>>NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (EVAL_TAC>>fs[]>>
+      match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>
+      fs[])
+    >-
+      (EVAL_TAC>>fs[]>>
+      match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>
+      fs[])
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
@@ -136,6 +152,37 @@ val arm6_conf_ok = Q.prove(`
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm6_machine_config_def,arm6_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>>
+    fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      ntac 128 (
+      Cases_on`n`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))>>
+      Cases_on`n'`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))
+      >>
+      fs[ADD1])
+    >-
+      ntac 128 (
+      Cases_on`n`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))>>
+      Cases_on`n'`
+      >-
+        (EVAL_TAC>>
+        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))
+      >>
+      fs[ADD1])
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>fs[]);
@@ -148,6 +195,36 @@ val arm8_conf_ok = Q.prove(`
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_machine_config_def,arm8_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (simp[GSYM word_mul_n2w]>>
+      srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
+      qpat_abbrev_tac`w = n2w n`>>fs[]>>
+      `w <= 255w ∧ 0w ≤ w` by
+        (fs[Abbr`w`]>>
+        dep_rewrite.DEP_REWRITE_TAC[word_le_n2w]>>
+        fs[]>>
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>EVAL_TAC>>
+      blastLib.BBLAST_PROVE_TAC)
+    >-
+      (simp[GSYM word_mul_n2w]>>
+      srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
+      qpat_abbrev_tac`w = n2w n`>>fs[]>>
+      `w <= 255w ∧ 0w ≤ w` by
+        (fs[Abbr`w`]>>
+        dep_rewrite.DEP_REWRITE_TAC[word_le_n2w]>>
+        fs[]>>
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>EVAL_TAC>>
+      blastLib.BBLAST_PROVE_TAC)
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -161,6 +238,36 @@ val riscv_conf_ok = Q.prove(`
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_machine_config_def,riscv_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (simp[GSYM word_mul_n2w]>>
+      srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
+      qpat_abbrev_tac`w = n2w n`>>fs[]>>
+      `w <= 255w ∧ 0w ≤ w` by
+        (fs[Abbr`w`]>>
+        dep_rewrite.DEP_REWRITE_TAC[word_le_n2w]>>
+        fs[]>>
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>EVAL_TAC>>
+      blastLib.BBLAST_PROVE_TAC)
+    >-
+      (simp[GSYM word_mul_n2w]>>
+      srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
+      qpat_abbrev_tac`w = n2w n`>>fs[]>>
+      `w <= 255w ∧ 0w ≤ w` by
+        (fs[Abbr`w`]>>
+        dep_rewrite.DEP_REWRITE_TAC[word_le_n2w]>>
+        fs[]>>
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>EVAL_TAC>>
+      blastLib.BBLAST_PROVE_TAC)
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -174,6 +281,36 @@ val mips_conf_ok = Q.prove(`
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[mips_machine_config_def,mips_backend_correct]
   >- names_tac
+  >-
+    (rw[conf_constraint_def]>>
+    TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
+    fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (simp[GSYM word_mul_n2w]>>
+      srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
+      qpat_abbrev_tac`w = n2w n`>>fs[]>>
+      `w <= 255w ∧ 0w ≤ w` by
+        (fs[Abbr`w`]>>
+        dep_rewrite.DEP_REWRITE_TAC[word_le_n2w]>>
+        fs[]>>
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>EVAL_TAC>>
+      blastLib.BBLAST_PROVE_TAC)
+    >-
+      (simp[GSYM word_mul_n2w]>>
+      srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
+      qpat_abbrev_tac`w = n2w n`>>fs[]>>
+      `w <= 255w ∧ 0w ≤ w` by
+        (fs[Abbr`w`]>>
+        dep_rewrite.DEP_REWRITE_TAC[word_le_n2w]>>
+        fs[]>>
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>EVAL_TAC>>
+      blastLib.BBLAST_PROVE_TAC)
+    >>
+    Cases_on`s`>>EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>

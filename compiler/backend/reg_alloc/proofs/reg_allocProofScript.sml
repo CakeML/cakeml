@@ -46,7 +46,7 @@ val lookup_dir_g_insert_correct = Q.prove(`
     full_case_tac>>
     full_simp_tac(srw_ss())[domain_insert,lookup_insert,lookup_def])
 
-val undir_g_insert_domain = Q.prove(`
+val undir_g_insert_domain = Q.store_thm("undir_g_insert_domain",`
   domain (undir_g_insert x y G) =
   {x;y} ∪ domain G`,
   srw_tac[][undir_g_insert_def,dir_g_insert_def]>>
@@ -1795,13 +1795,25 @@ val is_subgraph_def = Define`
   domain G ⊆ domain H ∧
   ∀x y. lookup_g x y G ⇒ lookup_g x y H`
 
-val is_subgraph_refl = Q.prove(`is_subgraph G G`, fs[is_subgraph_def])
+val is_subgraph_refl = Q.store_thm("is_subgraph_refl",`is_subgraph G G`, fs[is_subgraph_def])
 
-val is_subgraph_trans = Q.prove(`
+val is_subgraph_trans = Q.store_thm("is_subgraph_trans",`
   is_subgraph A B ∧ is_subgraph B C ⇒
   is_subgraph A C`,
   fs[is_subgraph_def]>>
   metis_tac[SUBSET_TRANS])
+
+val undir_g_insert_props = Q.store_thm("undir_g_insert_props",`
+  undir_graph G ∧
+  x ≠ y ⇒
+  let G' = undir_g_insert x y G in
+  is_subgraph G G' ∧
+  undir_graph G'`,
+  rw[]>>
+  fs[is_subgraph_def,undir_g_insert_domain,lookup_g_def,undir_g_insert_def,undir_g_preserve,dir_g_insert_def]>>rw[]>>
+  fs[lookup_insert]>>
+  rpt IF_CASES_TAC>>fs[]>>
+  FULL_CASE_TAC>>fs[lookup_insert])
 
 val list_g_insert_props = Q.prove(`
   ∀live h G.
@@ -1850,7 +1862,7 @@ val extend_clique_props = Q.prove(`
     rfs[is_subgraph_def]>>
     fs[EXTENSION]>>metis_tac[SUBSET_TRANS]))
 
-val colouring_satisfactory_subgraph = Q.prove(`
+val colouring_satisfactory_subgraph = Q.store_thm("colouring_satisfactory_subgraph",`
   is_subgraph G H ∧
   colouring_satisfactory col H ⇒
   colouring_satisfactory col G`,

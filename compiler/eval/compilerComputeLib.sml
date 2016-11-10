@@ -444,6 +444,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_instTheory.rm_const_def
     ,word_instTheory.is_const_def
       (* ---- wordLang ssa form and interface to reg allocator ---- *)
+    ,word_allocTheory.get_forced_def
     ,word_allocTheory.big_union_def
     ,word_allocTheory.word_alloc_def
     ,word_allocTheory.full_ssa_cc_trans_def
@@ -542,23 +543,29 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_allocTheory.clear_top_inst_def
       (* ---- stack_remove ---- *)
     ,stack_removeTheory.max_stack_alloc_def
-    ,stack_removeTheory.word_offset_def
+    ,stack_removeTheory.upshift_def
+    ,stack_removeTheory.compile_def
+    ,stack_removeTheory.init_stubs_def
+    ,stack_removeTheory.init_code_def
+    ,stack_removeTheory.store_init_def
+    ,stack_removeTheory.init_memory_def
+    ,stack_removeTheory.store_list_code_def
+    ,stack_removeTheory.halt_inst_def
+    ,stack_removeTheory.prog_comp_def
+    ,stack_removeTheory.comp_def
+    ,stack_removeTheory.stack_load_def
+    ,stack_removeTheory.stack_store_def
+    ,stack_removeTheory.downshift_def
+    ,stack_removeTheory.store_offset_def
+    ,stack_removeTheory.stack_free_def
+    ,stack_removeTheory.single_stack_free_def
+    ,stack_removeTheory.stack_alloc_def
+    ,stack_removeTheory.single_stack_alloc_def
+    ,stack_removeTheory.stack_err_lab_def
+    ,stack_removeTheory.store_length_def
     ,stack_removeTheory.store_list_def
     ,stack_removeTheory.store_pos_def
-    ,stack_removeTheory.store_length_def
-    ,stack_removeTheory.store_offset_def
-    ,stack_removeTheory.stack_err_lab_def
-    ,stack_removeTheory.single_stack_alloc_def
-    ,stack_removeTheory.stack_alloc_def
-    ,stack_removeTheory.comp_def
-    ,stack_removeTheory.prog_comp_def
-    ,stack_removeTheory.halt_inst_def
-    ,stack_removeTheory.store_list_code_def
-    ,stack_removeTheory.init_memory_def
-    ,stack_removeTheory.store_init_def
-    ,stack_removeTheory.init_code_def
-    ,stack_removeTheory.init_stubs_def
-    ,stack_removeTheory.compile_def
+    ,stack_removeTheory.word_offset_def
     ]
   ,computeLib.Tys
     [ (* ---- db_vars ---- *)
