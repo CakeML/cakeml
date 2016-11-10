@@ -306,6 +306,9 @@ val _ = Define `
     | NONE => Match_type_error
   )))
 /\
+(pmatch envC s (Ptannot p t) v env =  
+(pmatch envC s p v env))
+/\
 (pmatch envC _ _ _ env = Match_type_error)
 /\
 (pmatch_list envC s [] [] env = (Match env))

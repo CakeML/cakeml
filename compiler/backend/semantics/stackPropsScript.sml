@@ -324,9 +324,10 @@ val inst_clock_neutral_ffi = prove(
   ``(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
     (inst i s = NONE ==> inst i (s with ffi := k) = NONE)``,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality]>>
-  reverse full_case_tac>>fs[]
-  >-
-    (fs[get_vars_def,get_var_def]>>
+  reverse full_case_tac>>fs[]>>
+  TRY
+    (qmatch_goalsub_abbrev_tac`get_vars _ _`>>
+    fs[get_vars_def,get_var_def]>>
     rpt (BasicProvers.TOP_CASE_TAC>>fs[state_component_equality]))
   \\ rpt (srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
@@ -431,5 +432,14 @@ val extract_labels_def = Define`
   (extract_labels (If cmp r1 ri e2 e3) =
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
+
+val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
+  ``find_code d r code = SOME e ==>
+    get_labels e SUBSET loc_check code``,
+  Cases_on `d`
+  \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
+         loc_check_def,FORALL_PROD]
+  \\ every_case_tac \\ fs []
+  \\ metis_tac []);
 
 val _ = export_theory();

@@ -1,5 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_compileLib x64_exportLib
+open helloProgTheory
 
 val _ = new_theory "benchmark"
 
@@ -14,13 +15,13 @@ val _ = PolyML.print_depth 5;
 
 fun println s = print (strcat s "\n");
 
-fun to_bytes conf prog =
+fun to_bytes alg conf prog =
   let
   val _ = println "Compile to livesets"
   val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
   val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=1;col_oracle:= ^(oracles)|>``
+  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
+  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
   val _ = println "Repeat compilation with oracle"
   (*This repeats the "to_livesets" step, but that isn't very costly*)
   val compile_thm = Count.apply eval``
@@ -658,24 +659,136 @@ Tdec
                 [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
                  Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
 
-val hello = helloProgTheory.entire_program_def |> concl |> rand
+(* TODO: Flipped order of comparison for abs *)
+val nqueens =
+``[Tdec (Dexn "Fail" []);
+  Tdec
+    (Dletrec
+       [("abs","x",
+         If
+           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
+           (Var (Short "x"))
+           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
+  Tdec
+    (Dletrec
+       [("curcheck","p",
+         Fun "ls"
+           (Mat (Var (Short "ls"))
+              [(Pcon (SOME (Short "nil")) [],Con NONE []);
+               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
+                Mat (Var (Short "p"))
+                  [(Pcon NONE [Pvar "x"; Pvar "y"],
+                    Mat (Var (Short "l"))
+                      [(Pcon NONE [Pvar "a"; Pvar "b"],
+                        If
+                          (Log Or
+                             (Log Or
+                                (App Equality
+                                   [Var (Short "a");Var (Short "x")])
+                                (App Equality
+                                   [Var (Short "b");Var (Short "y")]))
+                             (App Equality
+                                [App Opapp [Var (Short "abs");
+                                   App (Opn Minus)
+                                     [Var (Short "a");Var (Short "x")]];
+                                 App Opapp [Var (Short "abs");
+                                    App (Opn Minus)
+                                       [Var (Short "b");Var (Short "y")]]])
+                            )
+                          (Raise (Con (SOME (Short "Fail")) []))
+                          (App Opapp
+                             [App Opapp
+                                [Var (Short "curcheck");
+                                 Con NONE
+                                   [Var (Short "x");
+                                    Var (Short "y")]];
+                              Var (Short "ls")]))])])]))]);
+  Tdec
+    (Dletrec
+       [("nqueens","n",
+         Fun "cur"
+           (Fun "ls"
+              (If
+                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
+                 (Var (Short "ls"))
+                 (Letrec
+                    [("find_queen","y",
+                      If
+                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
+                        (Raise (Con (SOME (Short "Fail")) []))
+                        (Handle
+                           (Let NONE
+                              (App Opapp
+                                 [App Opapp
+                                    [Var (Short "curcheck");
+                                     Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")]];
+                                  Var (Short "ls")])
+                              (App Opapp
+                                 [App Opapp
+                                    [App Opapp
+                                       [Var (Short "nqueens");
+                                        Var (Short "n")];
+                                     App (Opn Plus)[Var (Short "cur");
+                                        Lit (IntLit 1)]];
+                                  Con (SOME (Short "::"))
+                                    [Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")];
+                                     Var (Short "ls")]]))
+                           [(Pcon (SOME (Short "Fail")) [],
+                             App Opapp
+                               [Var (Short "find_queen");
+                                App (Opn Plus) [Var (Short "y");
+                                   Lit (IntLit 1)]])]))]
+                    (App Opapp
+                       [Var (Short "find_queen");
+                        Lit (IntLit 0)])))))]);
+  Tdec
+    (Dlet (Pvar "foo")
+       (App Opapp
+          [App Opapp
+             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
+              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
 
-val benchmarks = [foldl,reverse,fib,btree,queue,qsort,hello]
-val names = ["foldl","reverse","fib","btree","queue","qsort","hello"]
+val hello = entire_program_def |> concl |> rand
+val benchmarks = [nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
+val names = ["nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
+
+val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_count))::xs) =
     (write_cake_S 1000 1000 (numSyntax.int_of_term ffi_count)
-       bytes ("exec/benchmark_" ^ name ^ ".S") ;
+       bytes ("cakeml/" ^ name ^ ".S") ;
     write_asm xs)
 
-val benchmarks_compiled = map (to_bytes ``x64_compiler_config``) benchmarks
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
-val _ = write_asm (zip (map (fn s => "full_"^s)names) benchmarks_bytes);
+val _ = write_asm (zip names benchmarks_bytes);
 
 val _ = map save_thm (zip names benchmarks_compiled);
+
+(*
+(*Turning down the register allocator*)
+val benchmarks_compiled2 = map (to_bytes 0 ``x64_compiler_config``) benchmarks
+val benchmarks_bytes2 = map extract_bytes benchmarks_compiled2
+val _ = write_asm (zip names benchmarks_bytes2);
+
+(* Turn off clos optimizations*)
+val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+val benchmarks_compiled3 = map (to_bytes 0 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_bytes3 = map extract_bytes benchmarks_compiled3
+val _ = write_asm (zip names benchmarks_bytes3);
+
+(* Turn off bvl_to_bvi optimzations ?*)
+val bvl_o0 =  ``<|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|>``
+val benchmarks_compiled4 = map (to_bytes 0 ``x64_compiler_config with <|clos_conf:=^(clos_o0);bvl_conf:=^(bvl_o0)|>``) benchmarks
+val benchmarks_bytes4 = map extract_bytes benchmarks_compiled4
+val _ = write_asm (zip names benchmarks_bytes4);
+*)
 
 (*val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``

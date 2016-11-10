@@ -284,6 +284,24 @@ val inst_def = Define `
                  (set_var r1 (Word (n2w res)) s))
 
         | _ => NONE)
+    | Arith (LongMul r1 r2 r3 r4) =>
+        (let vs = get_vars [r3;r4] s in
+        case vs of
+        SOME [Word w3;Word w4] =>
+         let r = w2n w3 * w2n w4 in
+           SOME (set_var r1 (Word (n2w (r DIV dimword(:'a)))) (set_var r2 (Word (n2w r)) s))
+        | _ => NONE)
+    | Arith (LongDiv r1 r2 r3 r4 r5) =>
+       (let vs = get_vars [r3;r4;r5] s in
+       case vs of
+       SOME [Word w3;Word w4;Word w5] =>
+         let n = w2n w3 * dimword (:'a) + w2n w4 in
+         let d = w2n w5 in
+         let q = n DIV d in
+         if (d ≠ 0 ∧ q < dimword(:'a)) then
+           SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
+         else NONE
+      | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | NONE => NONE
@@ -333,6 +351,24 @@ val fix_clock_IMP = prove(
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 val STOP_def = Define `STOP x = x`;
+
+val get_labels_def = Define `
+  (get_labels (Seq p1 p2) = get_labels p1 UNION get_labels p2) /\
+  (get_labels (If _ _ _ p1 p2) = get_labels p1 UNION get_labels p2) /\
+  (get_labels (Call ret _ handler) =
+     (case ret of
+      | NONE => {}
+      | SOME (r,_,l1,l2) => (l1,l2) INSERT get_labels r UNION
+          (case handler of
+           | NONE => {}
+           | SOME (r,l1,l2) => (l1,l2) INSERT get_labels r))) /\
+  (get_labels (Halt _) = {}) /\
+  (get_labels _ = {})`
+
+val loc_check_def = Define `
+  loc_check code (l1,l2) <=>
+    (l2 = 0 /\ l1 ∈ domain code) \/
+    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
@@ -448,7 +484,9 @@ val evaluate_def = tDefine "evaluate" `
           | _ => (SOME Error,s))
     | res => (SOME Error,s)) /\
   (evaluate (LocValue r l1 l2,s) =
-     (NONE,set_var r (Loc l1 l2) s)) /\
+     if loc_check s.code (l1,l2) then
+       (NONE,set_var r (Loc l1 l2) s)
+     else (SOME Error,s)) /\
   (evaluate (StackAlloc n,s) =
      if ~s.use_stack then (SOME Error,s) else
      if s.stack_space < n then (SOME (Halt (Word 2w)),empty_env s) else

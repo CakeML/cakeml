@@ -7,7 +7,7 @@ val _ = ParseExtras.temp_loose_equality()
 
 open mips_targetLib asmLib;
 open compilerComputeLib;
-open mips_configTheory
+open configTheory
 
 val cmp = wordsLib.words_compset ()
 val () = computeLib.extend_compset
@@ -17,7 +17,7 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [mips_configTheory.mips_compiler_config_def]
+      [configTheory.mips_compiler_config_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

@@ -1,4 +1,5 @@
 open preamble asmTheory;
+open backend_commonTheory
 
 val _ = new_theory "stackLang";
 
@@ -66,10 +67,8 @@ val list_Seq_def = Define `
   (list_Seq [x] = x) /\
   (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
 
-val num_stubs_def = Define`
-  num_stubs = 4n`;
 val gc_stub_location_def = Define`
-  gc_stub_location = num_stubs-1`;
+  gc_stub_location = stack_num_stubs-1`;
 val gc_stub_location_eq = save_thm("gc_stub_location_eq",
   gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
 

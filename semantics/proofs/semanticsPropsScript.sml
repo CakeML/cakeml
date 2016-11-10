@@ -1,8 +1,8 @@
 open preamble
-     funBigStepEquivTheory funBigStepPropsTheory
-     determTheory bigClockTheory
+     evaluateTheory
+     evaluatePropsTheory
      semanticsTheory lprefix_lubTheory
-     typeSoundTheory untypedSafetyTheory
+     typeSoundTheory;
 
 val _ = new_theory"semanticsProps"
 
@@ -13,7 +13,7 @@ val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   REWRITE_TAC[IMAGE_COMPOSE] >>
   match_mp_tac prefix_chain_lprefix_chain >>
   srw_tac[][prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> srw_tac[][] >>
-  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
+  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,io_events_mono_def,FST]);
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s e p. ∃b. semantics_prog s e p b`,
@@ -23,8 +23,8 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
   Cases_on`∃k ffi r.
     evaluate_prog_with_clock s e k p = (ffi,r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    (ffi.final_event = NONE ⇒ ∀a. r ≠ Rerr (Rabort a))`
-  >- metis_tac[semantics_prog_def] >> full_simp_tac(srw_ss())[] >>
+    (ffi.final_event = NONE ⇒ r ≠ Rerr (Rabort Rtimeout_error))`
+  >- metis_tac[semantics_prog_def,SND] >> full_simp_tac(srw_ss())[] >>
   qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e k p)).io_events) UNIV))` >>
   simp[semantics_prog_def] >>
   conj_tac >- (
@@ -37,84 +37,50 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
   match_mp_tac build_lprefix_lub_thm >>
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain);
 
-val prog_clocked_zero_determ = Q.prove(
-  `evaluate_prog T x (y with clock := a) z (s with clock := 0,r) ∧
-   evaluate_prog T x (y with clock := b) z (t with clock := 0,u) ∧
-   SND r ≠ Rerr (Rabort Rtimeout_error) ∧
-   SND u ≠ Rerr (Rabort Rtimeout_error) ⇒
-   r = u ∧ (s with clock := y.clock) = (t with clock := y.clock)`,
-  strip_tac >>
-  qspecl_then[`x`,`y`,`z`,`s with clock := y.clock`,`r`](mp_tac o #2 o EQ_IMP_RULE)(prog_clocked_unclocked_equiv) >>
-  impl_tac >- (simp[] >> metis_tac[]) >>
-  qspecl_then[`x`,`y`,`z`,`t with clock := y.clock`,`u`](mp_tac o #2 o EQ_IMP_RULE)(prog_clocked_unclocked_equiv) >>
-  impl_tac >- (simp[] >> metis_tac[]) >>
-  metis_tac[prog_determ,PAIR_EQ])
-
-val prog_clocked_timeout_smaller = Q.prove(
-  `evaluate_prog T x (y with clock := a) z (p,q,r) ∧
-   evaluate_prog T x (y with clock := b) z (t,u,Rerr (Rabort Rtimeout_error)) ∧
-   r ≠ Rerr (Rabort	Rtimeout_error)
-   ⇒
-   b < a`,
-  rpt strip_tac >>
-  CCONTR_TAC >> full_simp_tac(srw_ss())[NOT_LESS] >>
-  full_simp_tac(srw_ss())[LESS_EQ_EXISTS] >>
-  imp_res_tac prog_add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  metis_tac[prog_determ,PAIR_EQ])
-
 val with_clock_ffi = Q.prove(
   `(s with clock := x).ffi = s.ffi`,EVAL_TAC)
 
-val tac0 =
-    full_simp_tac(srw_ss())[evaluate_prog_with_clock_def,LET_THM] >>
-    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    imp_res_tac functional_evaluate_prog >>
-    full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def]
-
 val tac1 =
-    metis_tac[semanticPrimitivesTheory.result_11,
-              semanticPrimitivesTheory.error_result_11,
-              semanticPrimitivesTheory.abort_distinct,
-              PAIR_EQ,IS_SOME_EXISTS,NOT_SOME_NONE,SND,PAIR]
+    metis_tac[semanticPrimitivesTheory.result_11,evaluate_prog_ffi_mono_clock,io_events_mono_def,
+              semanticPrimitivesTheory.error_result_11,option_nchotomy,LESS_EQ_CASES,
+              semanticPrimitivesTheory.abort_distinct,pair_CASES,FST,THE_DEF,
+              PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR,LESS_OR_EQ]
 
 val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
   `∀s e p b b'.
-    semantics_prog s e p b ∧ b ≠ Fail ∧
-    semantics_prog s e p b' ∧ b' ≠ Fail ⇒
+    semantics_prog s e p b ∧
+    semantics_prog s e p b' ⇒
     b = b'`,
-  ntac 3 gen_tac >> reverse Cases >> srw_tac[][semantics_prog_def]
+  rw []
+  >> Cases_on `b`
+  >> Cases_on `b'`
+  >> fs [semantics_prog_def]
+  >- metis_tac[unique_lprefix_lub]
+  >- tac1
+  >- tac1
+  >- tac1
   >- (
-    Cases_on`b'`>>full_simp_tac(srw_ss())[semantics_prog_def]
-    >- tac1
-    >- (
-      tac0 >>
-      qmatch_assum_abbrev_tac`if X then Y else Z` >>
-      reverse(Cases_on`X`)>>full_simp_tac(srw_ss())[Abbr`Y`,Abbr`Z`] >- (
-        rpt var_eq_tac >> full_simp_tac(srw_ss())[] ) >>
-      Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> full_simp_tac(srw_ss())[] >- (
-        metis_tac[LESS_EQ_CASES,
-                  evaluate_prog_ffi_mono_clock,
-                  FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
-      Cases_on`r = Rerr (Rabort Rtimeout_error) ∨ r' = Rerr (Rabort Rtimeout_error)` >- (
-        metis_tac[prog_clocked_timeout_smaller,
-                  LESS_IMP_LESS_OR_EQ,
-                  evaluate_prog_ffi_mono_clock,
-                  FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
-      imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
-      first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL prog_clocked_zero_determ))) >>
-      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[semanticPrimitivesTheory.state_component_equality] >>
-      srw_tac[][] >> every_case_tac >> rev_full_simp_tac(srw_ss())[]))
-  >- (
-    Cases_on`b'`>>full_simp_tac(srw_ss())[semantics_prog_def]
-    >- metis_tac[unique_lprefix_lub] >>
-    tac1))
+    fs [evaluate_prog_with_clock_def]
+    >> pairarg_tac
+    >> fs []
+    >> pairarg_tac
+    >> fs []
+    >> rpt var_eq_tac
+    >> pop_assum mp_tac
+    >> drule evaluate_prog_clock_determ
+    >> ntac 2 DISCH_TAC
+    >> first_x_assum drule
+    >> simp []
+    >> every_case_tac
+    >> fs [semanticPrimitivesTheory.state_component_equality]
+    >> tac1)
+  >- tac1
+  >- tac1
+  >- tac1);
 
 val state_invariant_def = Define`
   state_invariant st ⇔
-  type_sound_invariants (NONE:(v,v)result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env)`;
+  ?ctMap tenvS. type_sound_invariant st.sem_st st.sem_env st.tdecs ctMap tenvS st.tenv`;
 
 val clock_lemmas = Q.prove(
   `((x with clock := c).clock = c) ∧
@@ -122,61 +88,19 @@ val clock_lemmas = Q.prove(
    (x with clock := x.clock = x)`,
   srw_tac[][semanticPrimitivesTheory.state_component_equality])
 
-val prog_diverges_semantics_prog = Q.store_thm("prog_diverges_semantics_prog",
-  `prog_diverges st.sem_env st.sem_st prog ∧
-   no_dup_mods prog st.sem_st.defined_mods ∧
-   no_dup_top_types prog st.sem_st.defined_types ⇒
-   ¬semantics_prog st.sem_st st.sem_env prog Fail`,
-  strip_tac >>
-  (untyped_safety_prog
-   |> SPEC_ALL
-   |> EQ_IMP_RULE |> fst
-   |> CONTRAPOS
-   |> SIMP_RULE bool_ss []
-   |> imp_res_tac) >>
-  simp[semantics_prog_def,PULL_EXISTS] >>
-  srw_tac[][evaluate_prog_with_clock_def] >>
-  imp_res_tac functional_evaluate_prog >>
-  rev_full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def] >>
-  full_simp_tac(srw_ss())[prog_clocked_unclocked_equiv,FORALL_PROD] >>
-  imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
-  spose_not_then strip_assume_tac >>
-  Cases_on`envC`>>full_simp_tac(srw_ss())[] >>
-  metis_tac[clock_lemmas,
-            semanticPrimitivesTheory.result_11,
-            semanticPrimitivesTheory.error_result_11,
-            semanticPrimitivesTheory.abort_distinct])
-
 val semantics_deterministic = Q.store_thm("semantics_deterministic",
   `state_invariant st ⇒
    semantics st prelude inp = Execute bs
    ⇒ ∃b. bs = {b} ∧ b ≠ Fail`,
-  srw_tac[][semantics_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  `∀b. semantics_prog st.sem_st st.sem_env (prelude ++ x) b ⇒ b ≠ Fail` by(
-    full_simp_tac(srw_ss())[can_type_prog_def,state_invariant_def] >>
-    Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)` >- (
-      imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
-    full_simp_tac(srw_ss())[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
-    CCONTR_TAC >> full_simp_tac(srw_ss())[] >>
-    first_assum(split_uncurry_arg_tac o rand o lhs o concl) >>
-    imp_res_tac functional_evaluate_prog >>
-    (whole_prog_type_soundness
-     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-     |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
-    PairCases_on`new_tenv`>>
-    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-    simp[PULL_EXISTS] >> full_simp_tac(srw_ss())[] >>
-    rev_full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def] >>
-    simp[prog_clocked_unclocked_equiv,PULL_EXISTS] >>
-    CCONTR_TAC >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
-    metis_tac[prog_clocked_zero_determ,SND,PAIR_EQ,
-              semanticPrimitivesTheory.result_11,
-              semanticPrimitivesTheory.result_distinct,
-              semanticPrimitivesTheory.error_result_11,
-              semanticPrimitivesTheory.abort_distinct]) >>
-  simp[FUN_EQ_THM] >>
-  metis_tac[semantics_prog_total,semantics_prog_deterministic])
+ rw [state_invariant_def, semantics_def]
+ >> every_case_tac
+ >> fs [can_type_prog_def]
+ >> rw []
+ >> qspecl_then [`st.sem_st`, `st.sem_env`, `prelude ++ x`] strip_assume_tac semantics_prog_total
+ >> imp_res_tac semantics_type_sound
+ >> qexists_tac `b`
+ >> rw [EXTENSION, IN_DEF]
+ >> metis_tac [semantics_prog_deterministic]);
 
 val extend_with_resource_limit_def = Define`
   extend_with_resource_limit behaviours =

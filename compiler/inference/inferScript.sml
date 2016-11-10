@@ -212,42 +212,48 @@ val lookup_tenvC_st_ex_def = Define `
   od)`;
 
 val infer_p_def = tDefine "infer_p" `
-(infer_p cenv (Pvar n) =
+(infer_p type_env (Pvar n) =
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
-(infer_p cenv (Plit (IntLit i)) =
+(infer_p type_env (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
-(infer_p cenv (Plit (Char s)) =
+(infer_p type_env (Plit (Char s)) =
   return (Infer_Tapp [] TC_char, [])) ∧
-(infer_p cenv (Plit (StrLit s)) =
+(infer_p type_env (Plit (StrLit s)) =
   return (Infer_Tapp [] TC_string, [])) ∧
-(infer_p cenv (Plit (Word8 w)) =
+(infer_p type_env (Plit (Word8 w)) =
   return (Infer_Tapp [] TC_word8, [])) ∧
-(infer_p cenv (Plit (Word64 w)) =
+(infer_p type_env (Plit (Word64 w)) =
   return (Infer_Tapp [] TC_word64, [])) ∧
-(infer_p cenv (Pcon cn_opt ps) =
+(infer_p type_env (Pcon cn_opt ps) =
   case cn_opt of
     | NONE =>
-        do (ts,tenv) <- infer_ps cenv ps;
+        do (ts,tenv) <- infer_ps type_env ps;
            return (Infer_Tapp ts TC_tup, tenv)
         od
     | SOME cn =>
-        do (tvs',ts,tn) <- lookup_tenvC_st_ex cn cenv;
-           (ts'',tenv) <- infer_ps cenv ps;
+        do (tvs',ts,tn) <- lookup_tenvC_st_ex cn type_env.inf_c;
+           (ts'',tenv) <- infer_ps type_env ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
            () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
            return (Infer_Tapp ts' (tid_exn_to_tc tn), tenv)
         od) ∧
-(infer_p cenv (Pref p) =
-  do (t,tenv) <- infer_p cenv p;
+(infer_p type_env (Pref p) =
+  do (t,tenv) <- infer_p type_env p;
     return (Infer_Tapp [t] TC_ref, tenv)
   od) ∧
-(infer_ps cenv [] =
+(infer_p type_env (Ptannot p t) =
+ do (t',tenv) <- infer_p type_env p;
+    () <- guard (check_freevars 0 [] t ∧ check_type_names type_env.inf_t t) "Bad type annotation";
+    () <- add_constraint t' (infer_type_subst [] (type_name_subst type_env.inf_t t));
+    return (t', tenv)
+ od) ∧
+(infer_ps type_env [] =
   return ([], [])) ∧
-(infer_ps cenv (p::ps) =
-  do (t, tenv) <- infer_p cenv p;
-     (ts, tenv') <- infer_ps cenv ps;
+(infer_ps type_env (p::ps) =
+  do (t, tenv) <- infer_p type_env p;
+     (ts, tenv') <- infer_ps type_env ps;
      return (t::ts, tenv'++tenv)
   od)`
 (WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p
@@ -515,6 +521,12 @@ val infer_e_def = tDefine "infer_e" `
      t <- infer_e (ienv with inf_v:=env') e;
      return t
   od) ∧
+(infer_e ienv (Tannot e t) =
+  do t' <- infer_e ienv e;
+     () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) "Bad type annotation";
+     () <- add_constraint t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
+     return t'
+   od) ∧
 (infer_es ienv [] =
   return []) ∧
 (infer_es ienv (e::es) =
@@ -525,7 +537,7 @@ val infer_e_def = tDefine "infer_e" `
 (infer_pes ienv [] t1 t2 =
    return ()) ∧
 (infer_pes ienv ((p,e)::pes) t1 t2 =
-  do (t1', env') <- infer_p ienv.inf_c p;
+  do (t1', env') <- infer_p ienv p;
      () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t1';
      t2' <- infer_e (ienv with inf_v := (MAP (\(n,t). (n,(0,t))) env' ++ ienv.inf_v)) e;
@@ -562,7 +574,7 @@ val infer_d_def = Define `
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e ienv e;
-     (t2,env') <- infer_p ienv.inf_c p;
+     (t2,env') <- infer_p ienv p;
      () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t2;
      ts <- apply_subst_list (MAP SND env');

@@ -1,7 +1,6 @@
 open preamble
 open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
-open compileProgTheory
 
 val _ = new_theory "helloProg"
 
@@ -87,20 +86,20 @@ val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
   ``!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (\v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
   prove_array_spec "Word8Array.array");
 
 val w8array_sub_spec = store_thm ("w8array_sub_spec",
   ``!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (\v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.sub");
 
 val w8array_length_spec = store_thm ("w8array_length_spec",
   ``!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (\v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
   prove_array_spec "Word8Array.length");
 
 val w8array_update_spec = store_thm ("w8array_update_spec",
@@ -109,7 +108,7 @@ val w8array_update_spec = store_thm ("w8array_update_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (\v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
   prove_array_spec "Word8Array.update");
 
 
@@ -172,15 +171,15 @@ val write_spec = store_thm ("write_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (\uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [CHR (w2n c)]))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [CHR (w2n c)]))``,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `\zv. STDOUT output * W8ARRAY write_loc [c] *
-                & (UNIT_TYPE () zv)`
+  \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
+                     & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `\_. STDOUT (output ++ [CHR (w2n c)]) * W8ARRAY write_loc [c]`
+  \\ xlet `POSTv _. STDOUT (output ++ [CHR (w2n c)]) * W8ARRAY write_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
@@ -200,12 +199,12 @@ val main_spec = store_thm ("main",
       app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
         [cv]
         (CHAR_IO * STDOUT "")
-        (\uv. CHAR_IO * STDOUT "Hi")``,
+        (POSTv uv. CHAR_IO * STDOUT "Hi")``,
   xcf "main" (basis_st())
-  \\ xlet `\v. CHAR_IO * STDOUT "H"` THEN1
+  \\ xlet `POSTv v. CHAR_IO * STDOUT "H"` THEN1
    (xapp \\ qexists_tac `emp` \\ qexists_tac `""` \\ qexists_tac `n2w (ORD #"H")`
     \\ xsimpl)
-  \\ xlet `\v. CHAR_IO * STDOUT "Hi"` THEN1
+  \\ xlet `POSTv v. CHAR_IO * STDOUT "Hi"` THEN1
    (xapp \\ qexists_tac `emp` \\ qexists_tac `"H"` \\ qexists_tac `n2w (ORD #"i")`
     \\ xsimpl)
   \\ xvar \\ fs [] \\ xsimpl);
@@ -228,11 +227,15 @@ val main_applied = let
   val st = goal |> rator |> rator |> rand
   val th =
     main_spec |> SPEC_ALL |> Q.INST_TYPE [`:'ffi`|->`:'a`]
-     |> REWRITE_RULE [cfAppTheory.app_basic_def,cfAppTheory.app_def]
+     |> REWRITE_RULE [cfAppTheory.app_basic_rel,cfAppTheory.app_def]
      |> Q.SPEC `st2heap (p:'a ffi_proj) ^st`
      |> Q.SPEC `{}`
      |> Q.SPEC `^st`
-     |> SIMP_RULE std_ss [cfHeapsBaseTheory.SPLIT_emp2]
+     |> SIMP_RULE std_ss [PULL_EXISTS,
+          cfHeapsBaseTheory.res_case_def,
+          cfHeapsBaseTheory.POSTv_ignore,
+          cfHeapsBaseTheory.SPLIT3_emp3,
+          cfHeapsBaseTheory.SPLIT_emp2]
      |> Q.INST [`cv`|->`Litv (IntLit 0)`]
      |> SIMP_RULE std_ss [Once exists_lemma]
      |> SIMP_RULE std_ss [GSYM PULL_EXISTS,GSYM th]

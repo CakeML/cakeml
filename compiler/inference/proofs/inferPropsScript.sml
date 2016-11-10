@@ -2,7 +2,7 @@ open preamble;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
-local open evalPropsTheory typeSoundInvariantsTheory in
+local open semanticPrimitivesPropsTheory typeSoundInvariantsTheory in
 val check_dup_ctors_cons = check_dup_ctors_cons;
 val tenv_tabbrev_ok_def = tenv_tabbrev_ok_def;
 val flat_tenv_tabbrev_ok_def = flat_tenv_tabbrev_ok_def;
@@ -608,20 +608,21 @@ val infer_p_bindings = Q.store_thm ("infer_p_bindings",
     (pats_bindings ps x = MAP FST env ++ x))`,
 ho_match_mp_tac infer_p_ind >>
 rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem] >>
-rw [] >|
-[PairCases_on `v'` >>
-     rw [] >>
-     metis_tac [],
- PairCases_on `v''` >>
-     rw [] >>
-     metis_tac [],
- PairCases_on `v'` >>
-     rw [] >>
-     metis_tac [],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     rw [] >>
-     metis_tac [APPEND_ASSOC]]);
+rw []
+>- (PairCases_on `v'` >>
+    rw [] >>
+    metis_tac [])
+>- (PairCases_on `v''` >>
+    rw [] >>
+    metis_tac [])
+>- (PairCases_on `v'` >>
+    rw [] >>
+    metis_tac [])
+>- metis_tac []
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    rw [] >>
+    metis_tac [APPEND_ASSOC]));
 
 (* ---------- Dealing with the constraint set ---------- *)
 
@@ -784,8 +785,9 @@ ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
 rw [] >>
 res_tac >>
-fs [] >>
-prove_tac [pure_add_constraints_wfs]);
+fs []
+>- prove_tac [pure_add_constraints_wfs]
+>- metis_tac [t_unify_wfs])
 
 val infer_e_wfs = Q.store_thm ("infer_e_wfs",
 `(!ienv e st st' t.
@@ -1165,61 +1167,63 @@ val infer_p_check_t = Q.store_thm ("infer_p_check_t",
     EVERY (check_t 0 (count st'.next_uvar)) ts)`,
 ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
-rw [check_t_def] >|
-[PairCases_on `v'` >>
-     fs [remove_pair_lem, EVERY_MEM] >>
-     rw [] >>
-     metis_tac [check_t_more3],
- PairCases_on `v'` >>
-     fs [] >>
-     metis_tac [],
- PairCases_on `v''` >>
-     fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
-     rw [check_t_def] >>
-     `?n. st'.next_uvar = st'''.next_uvar + n`
-                 by (imp_res_tac infer_p_next_uvar_mono >>
-                     qexists_tac `st'.next_uvar - st'''.next_uvar` >>
-                     srw_tac [ARITH_ss] []) >>
-     metis_tac [check_t_more3],
- PairCases_on `v''` >>
-     fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
-     rw [check_t_def] >>
-     decide_tac,
- PairCases_on `v'` >>
-     fs [] >>
-     metis_tac [],
- PairCases_on `v'` >>
-     fs [] >>
-     metis_tac [],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     fs [] >>
-     metis_tac [infer_p_wfs],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     fs [remove_pair_lem, EVERY_MEM] >>
-     rw [] >>
-     `?n. st'.next_uvar = st''.next_uvar + n`
-                 by (imp_res_tac infer_p_next_uvar_mono >>
-                     qexists_tac `st'.next_uvar - st''.next_uvar` >>
-                     srw_tac [ARITH_ss] []) >>
-     metis_tac [check_t_more3],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     fs [] >>
-     `?n. st'.next_uvar = st''.next_uvar + n`
-                 by (imp_res_tac infer_p_next_uvar_mono >>
-                     qexists_tac `st'.next_uvar - st''.next_uvar` >>
-                     srw_tac [ARITH_ss] []) >>
-     metis_tac [check_t_more3],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     fs [] >>
-     `?n. st'.next_uvar = st''.next_uvar + n`
-                 by (imp_res_tac infer_p_next_uvar_mono >>
-                     qexists_tac `st'.next_uvar - st''.next_uvar` >>
-                     srw_tac [ARITH_ss] []) >>
-     metis_tac [infer_p_wfs, check_t_more3]]);
+rw [check_t_def]
+>- (PairCases_on `v'` >>
+    fs [remove_pair_lem, EVERY_MEM] >>
+    rw [] >>
+    metis_tac [check_t_more3])
+>- (PairCases_on `v'` >>
+    fs [] >>
+    metis_tac [])
+>- (PairCases_on `v''` >>
+    fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
+    rw [check_t_def] >>
+    `?n. st'.next_uvar = st'''.next_uvar + n`
+                by (imp_res_tac infer_p_next_uvar_mono >>
+                    qexists_tac `st'.next_uvar - st'''.next_uvar` >>
+                    srw_tac [ARITH_ss] []) >>
+    metis_tac [check_t_more3])
+>- (PairCases_on `v''` >>
+    fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
+    rw [check_t_def] >>
+    decide_tac)
+>- (PairCases_on `v'` >>
+    fs [] >>
+    metis_tac [])
+>- (PairCases_on `v'` >>
+    fs [] >>
+    metis_tac [])
+>- metis_tac []
+>- metis_tac []
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    fs [] >>
+    metis_tac [infer_p_wfs])
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    fs [remove_pair_lem, EVERY_MEM] >>
+    rw [] >>
+    `?n. st'.next_uvar = st''.next_uvar + n`
+                by (imp_res_tac infer_p_next_uvar_mono >>
+                    qexists_tac `st'.next_uvar - st''.next_uvar` >>
+                    srw_tac [ARITH_ss] []) >>
+    metis_tac [check_t_more3])
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    fs [] >>
+    `?n. st'.next_uvar = st''.next_uvar + n`
+                by (imp_res_tac infer_p_next_uvar_mono >>
+                    qexists_tac `st'.next_uvar - st''.next_uvar` >>
+                    srw_tac [ARITH_ss] []) >>
+    metis_tac [check_t_more3])
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    fs [] >>
+    `?n. st'.next_uvar = st''.next_uvar + n`
+                by (imp_res_tac infer_p_next_uvar_mono >>
+                    qexists_tac `st'.next_uvar - st''.next_uvar` >>
+                    srw_tac [ARITH_ss] []) >>
+    metis_tac [infer_p_wfs, check_t_more3]));
 
 val check_infer_type_subst = Q.prove (
 `(!t tvs uvs.
@@ -1244,52 +1248,75 @@ rw [check_freevars_def, check_t_def, infer_type_subst_def] >|
      fs[ADD1],
  metis_tac [EVERY_MAP]]);
 
+(* moved this one arround a bit *)
+val infer_type_subst_empty_check = store_thm("infer_type_subst_empty_check",``
+(∀t.
+  check_freevars 0 [] t ⇒
+  check_t 0 {} (infer_type_subst [] t)) ∧
+∀ts.
+EVERY (check_freevars 0 []) ts ⇒
+EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)``,
+                                             Induct>>fs[check_freevars_def,infer_type_subst_def,check_t_def]>>
+                                                   metis_tac[])
+
 val infer_p_check_s = Q.store_thm ("infer_p_check_s",
-`(!cenv p st t env st' tvs.
-    (infer_p cenv p st = (Success (t,env), st')) ∧
+`(!type_env p st t env st' tvs.
+    (infer_p type_env p st = (Success (t,env), st')) ∧
     t_wfs st.subst ∧
-    check_cenv cenv ∧
+    check_cenv type_env.inf_c ∧
+    tenv_tabbrev_ok type_env.inf_t ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst) ∧
- (!cenv ps st ts env st' tvs.
-    (infer_ps cenv ps st = (Success (ts,env), st')) ∧
+ (!type_env ps st ts env st' tvs.
+    (infer_ps type_env ps st = (Success (ts,env), st')) ∧
     t_wfs st.subst ∧
-    check_cenv cenv ∧
+    check_cenv type_env.inf_c ∧
+    tenv_tabbrev_ok type_env.inf_t ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst)`,
 ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
-rw [] >|
-[metis_tac [check_s_more],
- PairCases_on `v'` >>
-     metis_tac [check_s_more2, infer_p_next_uvar_mono],
- PairCases_on `v''` >>
-     fs [] >>
-     res_tac >>
-     imp_res_tac infer_p_wfs >>
-     `st'''.next_uvar ≤ st'''.next_uvar + LENGTH (FST v')` by decide_tac >>
-     `check_s tvs (count st'.next_uvar) st'''.subst` by metis_tac [check_s_more2,ADD_COMM] >>
-     match_mp_tac pure_add_constraints_check_s >>
-     qexists_tac `st'''.subst` >>
-     qexists_tac `(ZIP (v''0, MAP (infer_type_subst (ZIP (FST v', MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
-     rw [] >>
-     rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
-     metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_p_next_uvar_mono,
-                arithmeticTheory.LESS_EQ_TRANS, infer_p_check_t, ADD_COMM] >>
-     PairCases_on `v'` >>
-     fs [] >>
-     imp_res_tac check_cenv_lookup >>
-     imp_res_tac check_infer_type_subst >>
-     rw [] >>
-     fs [EVERY_MEM] >>
-     metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM],
- PairCases_on `v'` >>
-     metis_tac [check_s_more2, infer_p_next_uvar_mono],
- PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     metis_tac [infer_p_wfs, check_s_more2, infer_p_next_uvar_mono]]);
+rw []
+>- metis_tac [check_s_more]
+>- (PairCases_on `v'` >>
+    metis_tac [check_s_more2, infer_p_next_uvar_mono])
+>- (PairCases_on `v''` >>
+    fs [] >>
+    res_tac >>
+    imp_res_tac infer_p_wfs >>
+    `st'''.next_uvar ≤ st'''.next_uvar + LENGTH (FST v')` by decide_tac >>
+    `check_s tvs (count st'.next_uvar) st'''.subst` by metis_tac [check_s_more2,ADD_COMM] >>
+    match_mp_tac pure_add_constraints_check_s >>
+    qexists_tac `st'''.subst` >>
+    qexists_tac `(ZIP (v''0, MAP (infer_type_subst (ZIP (FST v', MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
+    rw [] >>
+    rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
+    metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_p_next_uvar_mono,
+               arithmeticTheory.LESS_EQ_TRANS, infer_p_check_t, ADD_COMM] >>
+    PairCases_on `v'` >>
+    fs [] >>
+    imp_res_tac check_cenv_lookup >>
+    imp_res_tac check_infer_type_subst >>
+    rw [] >>
+    fs [EVERY_MEM] >>
+    metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
+>- (PairCases_on `v'` >>
+    metis_tac [check_s_more2, infer_p_next_uvar_mono])
+>- (irule t_unify_check_s >>
+    qexists_tac `st''.subst` >>
+    qexists_tac `t'` >>
+    qexists_tac `(infer_type_subst [] (type_name_subst type_env'.inf_t t))` >>
+    rw []
+    >- metis_tac [infer_p_wfs]
+    >- metis_tac [t_unify_check_s]
+    >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM]
+    >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
+                  check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM, check_t_more])
+>- (PairCases_on `v'` >>
+    PairCases_on `v''` >>
+    metis_tac [infer_p_wfs, check_s_more2, infer_p_next_uvar_mono]));
 
 val check_env_more = Q.store_thm ("check_env_more",
 `!uvs env. check_env (count uvs) env ⇒ !uvs'. uvs ≤ uvs' ⇒ check_env (count uvs') env`,
@@ -1382,51 +1409,54 @@ ho_match_mp_tac infer_e_ind >>
 srw_tac[] [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem] >>
 fsrw_tac[] [check_t_def] >>
 imp_res_tac infer_e_next_uvar_mono >>
-fsrw_tac[] [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst] >|
-[metis_tac [check_t_more4],
- PairCases_on `v'` >>
-     imp_res_tac check_env_lookup >>
-     srw_tac[] [] >>
-     metis_tac [check_t_more3],
- PairCases_on `v'` >>
-     imp_res_tac check_menv_lookup >>
-     rw [] >>
-     metis_tac [check_t_more],
- metis_tac [check_t_more4],
- rw [EVERY_MEM, MEM_COUNT_LIST] >>
-     decide_tac,
- srw_tac [ARITH_ss] [] >>
-     res_tac >>
-     fs [check_t_def] >>
-     metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``],
- every_case_tac >>
-     fs [success_eqns] >>
-     rw [] >>
-     fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst] >>
-     res_tac >>
-     fs [],
- res_tac >>
-     fs [] >>
-     metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4],
- decide_tac,
- res_tac >>
-     fs [check_t_def] >>
-     pop_assum match_mp_tac  >>
-     rw [opt_bind_def] >>
-     every_case_tac >>
-     fs [] >>
-     rw [check_env_bind] >>
-     metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``],
- res_tac >>
-     fsrw_tac[] [check_env_merge, check_env_letrec_lem] >>
-     metis_tac [check_env_more, DECIDE ``x + y ≤ z ⇒ x ≤ z:num``],
- res_tac >>
-     fs [] >>
-     metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4],
- srw_tac [ARITH_ss] [] >>
-     res_tac >>
-     fs [check_t_def] >>
-     metis_tac [check_env_more, check_t_more4, DECIDE ``x ≤ x + 1:num``]]);
+fsrw_tac[] [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst]
+>- metis_tac [check_t_more4]
+>- (PairCases_on `v'` >>
+    imp_res_tac check_env_lookup >>
+    srw_tac[] [] >>
+    metis_tac [check_t_more3])
+>- (PairCases_on `v'` >>
+    imp_res_tac check_menv_lookup >>
+    rw [] >>
+    metis_tac [check_t_more])
+>- metis_tac [check_t_more4]
+>- (rw [EVERY_MEM, MEM_COUNT_LIST] >>
+    decide_tac)
+>- (srw_tac [ARITH_ss] [] >>
+    res_tac >>
+    fs [check_t_def] >>
+    metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
+>- (every_case_tac >>
+    fs [success_eqns] >>
+    rw [] >>
+    fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst] >>
+    res_tac >>
+    fs [])
+>- (res_tac >>
+    fs [] >>
+    metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4])
+>- decide_tac
+>- (res_tac >>
+    fs [check_t_def] >>
+    pop_assum match_mp_tac  >>
+    rw [opt_bind_def] >>
+    every_case_tac >>
+    fs [] >>
+    rw [check_env_bind] >>
+    metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
+>- (res_tac >>
+    fsrw_tac[] [check_env_merge, check_env_letrec_lem] >>
+    metis_tac [check_env_more, DECIDE ``x + y ≤ z ⇒ x ≤ z:num``])
+>- (res_tac >>
+    fs [] >>
+    metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4])
+>- (res_tac >>
+    fs [] >>
+    metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4])
+>- (srw_tac [ARITH_ss] [] >>
+    res_tac >>
+    fs [check_t_def] >>
+    metis_tac [check_env_more, check_t_more4, DECIDE ``x ≤ x + 1:num``]));
 
 val constrain_op_check_s = Q.prove (
 `!tvs op ts t st st'.
@@ -1592,6 +1622,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
     t_wfs st.subst ∧
     check_menv ienv.inf_m ∧
     check_cenv ienv.inf_c ∧
+    tenv_tabbrev_ok ienv.inf_t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
@@ -1601,6 +1632,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
     t_wfs st.subst ∧
     check_menv ienv.inf_m ∧
     check_cenv ienv.inf_c ∧
+    tenv_tabbrev_ok ienv.inf_t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
@@ -1610,6 +1642,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
     t_wfs st.subst ∧
     check_menv ienv.inf_m ∧
     check_cenv ienv.inf_c ∧
+    tenv_tabbrev_ok ienv.inf_t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     check_t 0 (count st.next_uvar) t1 ∧
     check_t 0 (count st.next_uvar) t2 ∧
@@ -1621,148 +1654,150 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
     t_wfs st.subst ∧
     check_menv ienv.inf_m ∧
     check_cenv ienv.inf_c ∧
+    tenv_tabbrev_ok ienv.inf_t ∧
     check_env (count st.next_uvar) ienv.inf_v ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst)`,
 ho_match_mp_tac infer_e_ind >>
 srw_tac[] [infer_e_def, success_eqns, remove_pair_lem] >>
-srw_tac[] [] >|
-[`t_wfs st''.subst` by (metis_tac [infer_e_wfs]) >>
+srw_tac[] []
+>- (`t_wfs st''.subst` by (metis_tac [infer_e_wfs]) >>
      match_mp_tac check_s_more >>
      match_mp_tac t_unify_check_s >>
      qexists_tac `st''.subst` >>
      qexists_tac `t2` >>
      qexists_tac `Infer_Tapp [] TC_exn` >>
      rw [check_t_def] >>
-     metis_tac [infer_e_check_t, arithmeticTheory.ADD_0, check_t_more2],
- `t_wfs st''.subst ∧
-  check_env (count (st'' with next_uvar := st''.next_uvar).next_uvar) ienv.inf_v`
+     metis_tac [infer_e_check_t, arithmeticTheory.ADD_0, check_t_more2])
+>- (`t_wfs st''.subst ∧
+     check_env (count (st'' with next_uvar := st''.next_uvar).next_uvar) ienv.inf_v`
                by metis_tac [check_env_more, infer_e_next_uvar_mono, infer_e_wfs, infer_st_rewrs] >>
-     `check_s tvs (count (st'' with next_uvar := st''.next_uvar).next_uvar) (st'' with next_uvar := st''.next_uvar).subst`
+    `check_s tvs (count (st'' with next_uvar := st''.next_uvar).next_uvar) (st'' with next_uvar := st''.next_uvar).subst`
                by metis_tac [infer_st_rewrs, check_s_more] >>
-     `check_t 0 (count (st'' with next_uvar := st''.next_uvar).next_uvar) t`
+    `check_t 0 (count (st'' with next_uvar := st''.next_uvar).next_uvar) t`
                by metis_tac [check_t_more4, infer_e_check_t, infer_st_rewrs] >>
-     `check_t 0 (count (st'' with next_uvar := st''.next_uvar).next_uvar) (Infer_Tapp [] TC_exn)`
-                  by rw [check_t_def] >>
-     fs[infer_st_rewrs]>>
-     metis_tac[],
- metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
- metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
- metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
- res_tac >>
-     imp_res_tac infer_e_wfs >>
-     `st'''.next_uvar ≤ st'''.next_uvar + LENGTH (FST v')` by decide_tac >>
-     `check_s tvs (count st'.next_uvar) st'''.subst` by metis_tac [check_s_more2] >>
-     match_mp_tac pure_add_constraints_check_s >>
-     qexists_tac `st'''.subst` >>
-     qexists_tac `(ZIP (ts'', MAP (infer_type_subst (ZIP (FST v', MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
-     rw [] >>
-     rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
-     metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_e_next_uvar_mono,
-                arithmeticTheory.LESS_EQ_TRANS, infer_e_check_t] >>
-     PairCases_on `v'` >>
-     fs [] >>
-     imp_res_tac check_cenv_lookup >>
-     imp_res_tac check_infer_type_subst >>
-     rw [] >>
-     fs [EVERY_MEM] >>
-     metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM],
- qpat_x_assum `!t1. P t1` match_mp_tac >>
-     rw [] >>
-     MAP_EVERY qexists_tac [`Infer_Tuvar st.next_uvar`, `st with next_uvar := st.next_uvar + 1`, `t2`] >>
-     rw [check_s_more, check_env_bind, check_t_def] >>
-     metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``],
- `t_wfs st''.subst ∧
-  EVERY (check_t 0 (count st''.next_uvar)) ts`
+    `check_t 0 (count (st'' with next_uvar := st''.next_uvar).next_uvar) (Infer_Tapp [] TC_exn)`
+               by rw [check_t_def] >>
+    fs[infer_st_rewrs]>>
+    metis_tac[])
+>- metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``]
+>- metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``]
+>- metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``]
+>- (res_tac >>
+    imp_res_tac infer_e_wfs >>
+    `st'''.next_uvar ≤ st'''.next_uvar + LENGTH (FST v')` by decide_tac >>
+    `check_s tvs (count st'.next_uvar) st'''.subst` by metis_tac [check_s_more2] >>
+    match_mp_tac pure_add_constraints_check_s >>
+    qexists_tac `st'''.subst` >>
+    qexists_tac `(ZIP (ts'', MAP (infer_type_subst (ZIP (FST v', MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
+    rw [] >>
+    rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
+    metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_e_next_uvar_mono,
+               arithmeticTheory.LESS_EQ_TRANS, infer_e_check_t] >>
+    PairCases_on `v'` >>
+    fs [] >>
+    imp_res_tac check_cenv_lookup >>
+    imp_res_tac check_infer_type_subst >>
+    rw [] >>
+    fs [EVERY_MEM] >>
+    metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
+>- (qpat_x_assum `!t1. P t1` match_mp_tac >>
+    rw [] >>
+    MAP_EVERY qexists_tac [`Infer_Tuvar st.next_uvar`, `st with next_uvar := st.next_uvar + 1`, `t2`] >>
+    rw [check_s_more, check_env_bind, check_t_def] >>
+    metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``])
+>- (`t_wfs st''.subst ∧
+     EVERY (check_t 0 (count st''.next_uvar)) ts`
           by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-     metis_tac [constrain_op_check_s],
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
-     `t_wfs st'''.subst ∧
-      t_wfs st''.subst ∧
-      check_env (count st''.next_uvar) ienv.inf_v ∧
-      check_env (count (st'''.next_uvar)) ienv.inf_v ∧
-      check_t 0 (count (st'''.next_uvar)) t1 ∧
-      check_t 0 (count (st'''.next_uvar)) t2`
-                  by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-      fs [] >>
-      `check_s tvs (count st'''.next_uvar) st'''.subst` by metis_tac [] >>
-      `t_wfs s` by metis_tac [t_unify_wfs] >>
+    metis_tac [constrain_op_check_s])
+>- (`!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
+    `t_wfs st'''.subst ∧
+     t_wfs st''.subst ∧
+     check_env (count st''.next_uvar) ienv.inf_v ∧
+     check_env (count (st'''.next_uvar)) ienv.inf_v ∧
+     check_t 0 (count (st'''.next_uvar)) t1 ∧
+     check_t 0 (count (st'''.next_uvar)) t2`
+                 by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
+    fs [] >>
+    `check_s tvs (count st'''.next_uvar) st'''.subst` by metis_tac [] >>
+    `t_wfs s` by metis_tac [t_unify_wfs] >>
+    match_mp_tac t_unify_check_s >>
+    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    reverse conj_tac >- metis_tac[check_t_more2, arithmeticTheory.ADD_0] >>
+    match_mp_tac t_unify_check_s >>
+    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    metis_tac [check_t_more2, arithmeticTheory.ADD_0])
+>- (`!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
+    `t_wfs st''.subst ∧ t_wfs s`
+              by metis_tac [infer_e_wfs, t_unify_wfs] >>
+    `t_wfs st''''.subst`
+              by metis_tac [infer_e_wfs, infer_st_rewrs] >>
+    `t_wfs st'''''.subst`
+              by metis_tac [infer_e_wfs, infer_st_rewrs] >>
+    `check_env (count st''.next_uvar) ienv.inf_v ∧
+     check_t 0 (count (st''.next_uvar)) t1`
+              by metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono] >>
+    `check_env (count st''''.next_uvar) ienv.inf_v ∧
+     check_t 0 (count (st''''.next_uvar)) t`
+              by metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
+    `check_t 0 (count (st'''''.next_uvar)) t ∧
+     check_t 0 (count (st'''''.next_uvar)) t3`
+             by metis_tac [check_t_more4, infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
+    `check_s tvs (count st''.next_uvar) st''.subst` by metis_tac [] >>
+    `check_s tvs (count st''.next_uvar) s` by (
       match_mp_tac t_unify_check_s >>
       CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
-      reverse conj_tac >- metis_tac[check_t_more2, arithmeticTheory.ADD_0] >>
-      match_mp_tac t_unify_check_s >>
-      CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      metis_tac [check_t_more2, arithmeticTheory.ADD_0],
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
-     `t_wfs st''.subst ∧ t_wfs s`
-               by metis_tac [infer_e_wfs, t_unify_wfs] >>
-     `t_wfs st''''.subst`
-               by metis_tac [infer_e_wfs, infer_st_rewrs] >>
-     `t_wfs st'''''.subst`
-               by metis_tac [infer_e_wfs, infer_st_rewrs] >>
-     `check_env (count st''.next_uvar) ienv.inf_v ∧
-      check_t 0 (count (st''.next_uvar)) t1`
-               by metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono] >>
-     `check_env (count st''''.next_uvar) ienv.inf_v ∧
-      check_t 0 (count (st''''.next_uvar)) t`
-               by metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
-     `check_t 0 (count (st'''''.next_uvar)) t ∧
-      check_t 0 (count (st'''''.next_uvar)) t3`
-              by metis_tac [check_t_more4, infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
-     `check_s tvs (count st''.next_uvar) st''.subst` by metis_tac [] >>
-     `check_s tvs (count st''.next_uvar) s` by (
-       match_mp_tac t_unify_check_s >>
-       CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
-       first_assum(match_exists_tac o concl) >> simp[] >>
-       metis_tac [ check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] ) >>
-     match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
-     first_assum(match_exists_tac o concl) >>
-     conj_tac >- simp[] >>
-     conj_tac >- simp[] >>
-     reverse conj_tac >- ( metis_tac[check_t_more2,arithmeticTheory.ADD_0] ) >>
-     first_x_assum(match_mp_tac) >>
-     first_assum(match_exists_tac o concl) >>
-     conj_tac >- simp[] >>
-     conj_tac >- simp[] >>
-     conj_tac >- simp[] >>
-     conj_tac >- simp[] >>
-     conj_tac >- simp[] >>
-     first_x_assum(match_mp_tac) >>
-     first_assum(match_exists_tac o concl) >> simp[],
- `t_wfs st''.subst ∧
-  check_env (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) ienv.inf_v`
+      metis_tac [ check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] ) >>
+    match_mp_tac t_unify_check_s >>
+    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(is_eq))) >>
+    first_assum(match_exists_tac o concl) >>
+    conj_tac >- simp[] >>
+    conj_tac >- simp[] >>
+    reverse conj_tac >- ( metis_tac[check_t_more2,arithmeticTheory.ADD_0] ) >>
+    first_x_assum(match_mp_tac) >>
+    first_assum(match_exists_tac o concl) >>
+    conj_tac >- simp[] >>
+    conj_tac >- simp[] >>
+    conj_tac >- simp[] >>
+    conj_tac >- simp[] >>
+    conj_tac >- simp[] >>
+    conj_tac >- simp[] >>
+    first_x_assum match_mp_tac >>
+    first_assum(match_exists_tac o concl) >> simp[])
+>- (`t_wfs st''.subst ∧
+     check_env (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) ienv.inf_v`
                by metis_tac [check_env_more, infer_e_next_uvar_mono, infer_e_wfs, DECIDE ``x ≤ x + 1:num``,
                              infer_st_rewrs] >>
-     `check_s tvs (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) (st'' with next_uvar := st''.next_uvar + 1).subst`
-               by metis_tac [infer_st_rewrs, check_s_more] >>
-     `check_t 0 (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) t1`
-               by metis_tac [check_t_more4, infer_e_check_t, infer_st_rewrs, DECIDE ``x ≤ x + 1:num``] >>
-     `check_t 0 (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) (Infer_Tuvar st''.next_uvar)`
-                  by rw [check_t_def] >>
-     qpat_x_assum `!t1 t2 st st' tvs. P t1 t2 st st' tvs` match_mp_tac >>
-     metis_tac [infer_st_rewrs, check_s_more],
- `check_env (count st''.next_uvar) (opt_bind x (0,t1) ienv.inf_v)`
+    `check_s tvs (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) (st'' with next_uvar := st''.next_uvar + 1).subst`
+              by metis_tac [infer_st_rewrs, check_s_more] >>
+    `check_t 0 (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) t1`
+              by metis_tac [check_t_more4, infer_e_check_t, infer_st_rewrs, DECIDE ``x ≤ x + 1:num``] >>
+    `check_t 0 (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) (Infer_Tuvar st''.next_uvar)`
+                 by rw [check_t_def] >>
+    qpat_x_assum `!t1 t2 st st' tvs. P t1 t2 st st' tvs` match_mp_tac >>
+    metis_tac [infer_st_rewrs, check_s_more])
+>- (`check_env (count st''.next_uvar) (opt_bind x (0,t1) ienv.inf_v)`
          by (rw [opt_bind_def] >>
              every_case_tac >>
              fs [check_env_bind] >>
              metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono]) >>
-     metis_tac [infer_e_wfs],
- `check_env (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar)
+    metis_tac [infer_e_wfs])
+>- (`check_env (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar)
             (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ ienv.inf_v)`
                  by (srw_tac[] [check_env_merge] >>
                      srw_tac[] [check_env_letrec_lem] >>
                      metis_tac [check_env_more, DECIDE ``x ≤ x + y:num``]) >>
-     `check_s tvs (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar) st.subst`
+    `check_s tvs (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar) st.subst`
                  by metis_tac [infer_st_rewrs, check_s_more2, DECIDE ``x ≤ x + y:num``] >>
-     fsrw_tac[][infer_st_rewrs]>>
-     `check_s tvs (count st'''.next_uvar) st'''.subst`
+    fsrw_tac[][infer_st_rewrs]>>
+    `check_s tvs (count st'''.next_uvar) st'''.subst`
                  by metis_tac [infer_st_rewrs]>>
-     `t_wfs st'''.subst` by metis_tac [infer_e_wfs, infer_st_rewrs] >>
-     `check_s tvs (count st'''.next_uvar) st''''.subst`
+    `t_wfs st'''.subst` by metis_tac [infer_e_wfs, infer_st_rewrs] >>
+    `check_s tvs (count st'''.next_uvar) st''''.subst`
                  by (match_mp_tac pure_add_constraints_check_s >>
                      qexists_tac `st'''.subst` >>
                      qexists_tac `ZIP (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs)),funs_ts)` >>
@@ -1773,60 +1808,70 @@ srw_tac[] [] >|
                       imp_res_tac infer_e_check_t>>
                       fs[]>>
                       metis_tac [infer_e_check_t, check_t_more2, arithmeticTheory.ADD_0]]) >>
-     `t_wfs st''''.subst` by metis_tac [pure_add_constraints_wfs] >>
-     `check_env (count st''''.next_uvar)
+    `t_wfs st''''.subst` by metis_tac [pure_add_constraints_wfs] >>
+    `check_env (count st''''.next_uvar)
             (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ ienv.inf_v)`
                   by metis_tac [check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
-     metis_tac [],
- metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_e_wfs],
- PairCases_on `v'` >>
-     `t_wfs st''.subst ∧
-      EVERY (λ(x,t). check_t 0 (count st''.next_uvar) t) v'1 ∧
-      check_t 0 (count st''.next_uvar) v'0 ∧
-      check_env (count st''.next_uvar) ienv.inf_v ∧
-      check_s tvs (count st''.next_uvar) st''.subst`
+    metis_tac [])
+>- (irule t_unify_check_s >>
+    qexists_tac `st''.subst` >>
+    qexists_tac `t'` >>
+    qexists_tac `(infer_type_subst [] (type_name_subst ienv.inf_t t))` >>
+    rw []
+    >- metis_tac [infer_e_wfs]
+    >- metis_tac [t_unify_check_s]
+    >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_e_check_t, ADD_COMM]
+    >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
+                  check_t_more2, arithmeticTheory.ADD_0, infer_e_check_t, ADD_COMM, check_t_more])
+>- metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_e_wfs]
+>- (PairCases_on `v'` >>
+    `t_wfs st''.subst ∧
+     EVERY (λ(x,t). check_t 0 (count st''.next_uvar) t) v'1 ∧
+     check_t 0 (count st''.next_uvar) v'0 ∧
+     check_env (count st''.next_uvar) ienv.inf_v ∧
+     check_s tvs (count st''.next_uvar) st''.subst`
              by metis_tac [infer_p_check_t, infer_p_wfs, infer_p_check_s, infer_p_next_uvar_mono,
                            check_env_more] >>
-     fs [] >>
-     `check_s tvs (count st''.next_uvar) s`
-                  by metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_p_next_uvar_mono,
-                                check_t_more4] >>
-     `check_env (count st''.next_uvar) (MAP (λ(n,t). (n,0,t)) v'1 ++ ienv.inf_v)`
-              by (rw [check_env_merge] >>
-                  rw [check_env_def, EVERY_MAP, LAMBDA_PROD]) >>
-     `t_wfs s` by metis_tac [t_unify_wfs] >>
-     fs[infer_st_rewrs]>>
-     imp_res_tac infer_e_check_t>>fs[]>>
-     `check_t 0 (count st''''.next_uvar) t2' ∧ t_wfs st''''.subst`
-                by metis_tac [infer_e_check_t, infer_e_wfs, infer_st_rewrs] >>
-     `check_t 0 (count st''.next_uvar) t2 ∧ check_t 0 (count st''.next_uvar) t1`
-                by metis_tac [check_t_more4, infer_p_next_uvar_mono] >>
-     `check_t 0 (count st''''.next_uvar) t2 ∧ check_t 0 (count st''''.next_uvar) t1`
-                by metis_tac [check_t_more4, infer_st_rewrs, infer_e_next_uvar_mono] >>
-     `check_s tvs (count st''''.next_uvar) st''''.subst`
-                by
-                (last_assum match_mp_tac>>fs[]>>
-                first_assum (match_exists_tac o concl)>>fs[])>>
-     `t_wfs s'` by metis_tac [t_unify_wfs] >>
-     `check_s tvs (count st''''.next_uvar) s'`
-                by (match_mp_tac t_unify_check_s >>
-                    metis_tac [check_s_more, check_t_more2, arithmeticTheory.ADD_0]) >>
-     `check_t 0 (count st''''.next_uvar) t2`
-                by metis_tac [check_t_more4, infer_e_next_uvar_mono] >>
-     `check_env (count st''''.next_uvar) ienv.inf_v` by metis_tac [infer_e_next_uvar_mono, infer_st_rewrs, check_env_more] >>
-     first_assum match_mp_tac>>
-     first_assum (match_exists_tac o concl)>>fs[],
- `check_env (count (st with next_uvar := st.next_uvar + 1).next_uvar) ((x, (0,Infer_Tuvar st.next_uvar)):: ienv.inf_v)`
+    fs [] >>
+    `check_s tvs (count st''.next_uvar) s`
+                 by metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_p_next_uvar_mono,
+                               check_t_more4] >>
+    `check_env (count st''.next_uvar) (MAP (λ(n,t). (n,0,t)) v'1 ++ ienv.inf_v)`
+             by (rw [check_env_merge] >>
+                 rw [check_env_def, EVERY_MAP, LAMBDA_PROD]) >>
+    `t_wfs s` by metis_tac [t_unify_wfs] >>
+    fs[infer_st_rewrs]>>
+    imp_res_tac infer_e_check_t>>fs[]>>
+    `check_t 0 (count st''''.next_uvar) t2' ∧ t_wfs st''''.subst`
+               by metis_tac [infer_e_check_t, infer_e_wfs, infer_st_rewrs] >>
+    `check_t 0 (count st''.next_uvar) t2 ∧ check_t 0 (count st''.next_uvar) t1`
+               by metis_tac [check_t_more4, infer_p_next_uvar_mono] >>
+    `check_t 0 (count st''''.next_uvar) t2 ∧ check_t 0 (count st''''.next_uvar) t1`
+               by metis_tac [check_t_more4, infer_st_rewrs, infer_e_next_uvar_mono] >>
+    `check_s tvs (count st''''.next_uvar) st''''.subst`
+               by
+               (last_assum match_mp_tac>>fs[]>>
+               first_assum (match_exists_tac o concl)>>fs[])>>
+    `t_wfs s'` by metis_tac [t_unify_wfs] >>
+    `check_s tvs (count st''''.next_uvar) s'`
+               by (match_mp_tac t_unify_check_s >>
+                   metis_tac [check_s_more, check_t_more2, arithmeticTheory.ADD_0]) >>
+    `check_t 0 (count st''''.next_uvar) t2`
+               by metis_tac [check_t_more4, infer_e_next_uvar_mono] >>
+    `check_env (count st''''.next_uvar) ienv.inf_v` by metis_tac [infer_e_next_uvar_mono, infer_st_rewrs, check_env_more] >>
+    first_assum match_mp_tac>>
+    first_assum (match_exists_tac o concl)>>fs[])
+>- (`check_env (count (st with next_uvar := st.next_uvar + 1).next_uvar) ((x, (0,Infer_Tuvar st.next_uvar)):: ienv.inf_v)`
                by (rw [check_env_bind, check_t_def] >>
                    metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``]) >>
-     `check_s tvs (count (st with next_uvar := st.next_uvar + 1).next_uvar) (st with next_uvar := st.next_uvar + 1).subst`
+    `check_s tvs (count (st with next_uvar := st.next_uvar + 1).next_uvar) (st with next_uvar := st.next_uvar + 1).subst`
                by metis_tac [infer_st_rewrs, check_s_more] >>
-     `t_wfs (st with next_uvar := st.next_uvar + 1).subst` by rw [] >>
-     `check_s tvs (count st'''.next_uvar) st'''.subst ∧ t_wfs st'''.subst`
+    `t_wfs (st with next_uvar := st.next_uvar + 1).subst` by rw [] >>
+    `check_s tvs (count st'''.next_uvar) st'''.subst ∧ t_wfs st'''.subst`
                by metis_tac [infer_e_wfs]  >>
-     `check_env (count st'''.next_uvar) ienv.inf_v`
+    `check_env (count st'''.next_uvar) ienv.inf_v`
                by metis_tac [infer_e_next_uvar_mono, check_env_more, infer_st_rewrs, DECIDE ``x ≤ x + 1:num``] >>
-     metis_tac []]);
+    metis_tac []));
 
 val helper_lemma = Q.prove (
 `!l1 l2 n.
@@ -1890,8 +1935,9 @@ val infer_d_check_s_helper1 = Q.store_thm ("infer_d_check_s_helper1",
   check_menv ienv.inf_m ∧
   check_cenv ienv.inf_c ∧
   check_env {} ienv.inf_v ∧
+  tenv_tabbrev_ok ienv.inf_t ∧
   (infer_e ienv e init_infer_state = (Success t1, st1)) ∧
-  (infer_p ienv.inf_c p st1 = (Success (t, env2), st2)) ∧
+  (infer_p ienv p st1 = (Success (t, env2), st2)) ∧
   (t_unify st2.subst t1 t = SOME s)
   ⇒
   check_s 0 (count st2.next_uvar) s`,
@@ -1916,6 +1962,7 @@ val infer_d_check_s_helper2 = Q.store_thm ("infer_d_check_s_helper2",
     check_menv ienv.inf_m ∧
     check_cenv ienv.inf_c ∧
     check_env {} ienv.inf_v ∧
+    tenv_tabbrev_ok ienv.inf_t ∧
     infer_funs
       (ienv with inf_v := MAP2 (λ(f,x,e) uvar. (f,0,uvar)) l
       (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l))) ++ ienv.inf_v) l
@@ -2442,16 +2489,6 @@ val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
       ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
   Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
   simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
-
-val infer_type_subst_empty_check = store_thm("infer_type_subst_empty_check",``
-  (∀t.
-  check_freevars 0 [] t ⇒
-  check_t 0 {} (infer_type_subst [] t)) ∧
-  ∀ts.
-  EVERY (check_freevars 0 []) ts ⇒
-  EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)``,
-  Induct>>fs[check_freevars_def,infer_type_subst_def,check_t_def]>>
-  metis_tac[])
 
 val check_t_infer_type_subst_dbs = store_thm("check_t_infer_type_subst_dbs",
   ``∀m w t n u ls.

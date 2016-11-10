@@ -46,29 +46,29 @@ val enc_ok_def = Define `
 
 val () = Datatype `
   target =
-    <| get_pc : 'b -> 'a word
+    <| config : 'a asm_config
+     ; next : 'b -> 'b
+     ; get_pc : 'b -> 'a word
      ; get_reg : 'b -> num -> 'a word
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
-     ; state_rel : 'a asm_state -> 'b -> bool
      ; proj : 'a word set -> 'b -> 'c
-     ; next : 'b -> 'b
-     ; config : 'a asm_config
      |>`
+
+val target_state_rel_def = Define`
+  target_state_rel t s ms =
+  t.state_ok ms /\ (t.get_pc ms = s.pc) /\
+  (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
+  (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
+       (t.get_reg ms i = s.regs i))`
 
 val target_ok_def = Define`
   target_ok t =
   enc_ok t.config /\
-  (!ms1 ms2 s.
-     (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
-     (t.state_rel s ms1 = t.state_rel s ms2) /\
-     (t.state_ok ms1 = t.state_ok ms2)) /\
-  (!ms s.
-     t.state_rel s ms ==>
-     t.state_ok ms /\ (t.get_pc ms = s.pc) /\
-     (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
-     (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
-          (t.get_reg ms i = s.regs i)))`
+  !ms1 ms2 s.
+    (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
+    (target_state_rel t s ms1 = target_state_rel t s ms2) /\
+    (t.state_ok ms1 = t.state_ok ms2)`
 
 val interference_ok_def = Define `
   interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
@@ -86,15 +86,25 @@ val backend_correct_def = Define `
   backend_correct t <=>
     target_ok t /\
     !s1 i s2 ms.
-      asm_step t.config s1 i s2 /\ t.state_rel s1 ms ==>
+      asm_step t.config s1 i s2 /\ target_state_rel t s1 ms ==>
       ?n. !env.
             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
             let pcs = all_pcs (LENGTH (t.config.encode i)) s1.pc in
             asserts n (\k s. env (n - k) (t.next s)) ms
               (\ms'. t.state_ok ms' /\ t.get_pc ms' IN pcs)
-              (\ms'. t.state_rel s2 ms')`
+              (\ms'. target_state_rel t s2 ms')`
 
 (* lemma for proofs *)
+
+val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
+  `!t s ms.
+     target_state_rel t s ms =
+     t.state_ok ms /\ (s.pc = t.get_pc ms) /\
+     (!a. a IN s.mem_domain ==> (s.mem a = t.get_byte ms a)) /\
+     (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
+          (s.regs i = t.get_reg ms i))`,
+  metis_tac [target_state_rel_def]
+  )
 
 val all_pcs = Theory.save_thm ("all_pcs", numLib.SUC_RULE all_pcs_def)
 

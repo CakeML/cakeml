@@ -13,6 +13,7 @@ open preamble primSemEnvTheory semanticsPropsTheory
      word_to_stackProofTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
+     backend_commonTheory
 local open compilerComputeLib dataPropsTheory in end
 open word_to_stackTheory
 
@@ -164,7 +165,7 @@ val full_make_init_bitmaps = prove(
   \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
 
 val full_init_pre_IMP_init_store_ok = prove(
-  ``max_heap = 2 * max_heap_limit (:'a) c1 ==>
+  ``max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
     init_store_ok c1
       ((full_make_init
           (bitmaps,c1,code3,f,k,max_heap,regs,(s:('a,'ffi)labSem$state),
@@ -187,7 +188,7 @@ val full_init_pre_IMP_init_store_ok = prove(
   \\ fs [init_store_ok_def,stack_removeProofTheory.init_prop_def]
   \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
        stack_removeProofTheory.word_list_exists_ADD]
-  \\ asm_exists_tac \\ fs []
+  \\ qexists_tac`len`
   \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]);
 
 val full_init_pre_IMP_init_state_ok = prove(
@@ -376,7 +377,7 @@ val word_to_stack_sl_gs = prove(``
 
 val data_to_word_compile_imp = prove(
   ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
-    EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST prog) ∧
+    EVERY (λn. data_num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
         (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
     code_rel c.data_conf (fromAList prog)
@@ -411,7 +412,7 @@ val data_to_word_compile_imp = prove(
        \\ imp_res_tac ALOOKUP_MEM
        \\ fs[data_to_wordTheory.stubs_def,EVERY_MAP,EVERY_MEM]
        \\ res_tac \\ fs[] \\ fs code_and_locs
-       \\ fs[dataLangTheory.num_stubs_def] \\ rw[] \\ fs[]) >>
+       \\ fs[data_num_stubs_def] \\ rw[] \\ fs[]) >>
     ntac 4 (last_x_assum kall_tac)>>
     qid_spec_tac`n` >>
     Induct_on`prog`>>rw[]>>PairCases_on`h`>>
@@ -937,7 +938,7 @@ val LESS_MULT_LEMMA = prove(
 local
 val lemma = prove(
   ``(from_data c prog = SOME (bytes,ffi_limit) /\
-     EVERY (\n. dataLang$num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+     EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
      t.regs (find_name c.stack_conf.reg_names 2) <=+
@@ -959,13 +960,13 @@ val lemma = prove(
     Abbrev (ra_regs = (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5))) /\
     2 < ra_regs ∧
-    save_regs = set mc_conf.caller_saved_regs /\
+    save_regs = set mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+2))
-      mc_conf.caller_saved_regs /\
+      mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+3))
-      mc_conf.caller_saved_regs /\
+      mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+4))
-      mc_conf.caller_saved_regs /\
+      mc_conf.callee_saved_regs /\
     10 ≤ ra_regs +2 /\
     (LENGTH mc_conf.target.config.avoid_regs + 5) <
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
@@ -1012,7 +1013,7 @@ val lemma = prove(
   \\ GEN_EXISTS_TAC "c1" `c.data_conf` \\ fs []
   \\ fs [data_to_wordTheory.compile_def]
   \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
-  \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.data_conf` \\ fs []
+  \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.data_conf - 1` \\ fs []
   \\ drule data_to_word_compile_imp \\ strip_tac
   \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α)c.data_conf ++ MAP (compile_part c.data_conf) prog)` \\ fs []
   \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
@@ -1053,7 +1054,7 @@ val lemma = prove(
     \\ qabbrev_tac `n1 = l DIV k`
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
-  \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf) c2.bitmaps
+  \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf - 1) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
            (make_init (fromAList prog4) regs save_regs
@@ -1071,6 +1072,10 @@ val lemma = prove(
            stack_removeProofTheory.init_code_pre_def]
     \\ qexists_tac `MAP (find_name c.stack_conf.reg_names) [2;3;4]`
     \\ fs [MAP,BIJ_FLOOKUP_MAPKEYS,FUPDATE_LIST] \\ fs [FLOOKUP_UPDATE]
+    \\ conj_tac THEN1
+      (fs[Abbr`prog3`,domain_fromAList,MEM_MAP]>>
+      EVAL_TAC>>fs[EXISTS_PROD]>>
+      metis_tac[])
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
@@ -1244,7 +1249,7 @@ val from_data_ignore = prove(
 val clos_to_data_names = store_thm("clos_to_data_names",
   ``clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
-    EVERY (λn. dataLang$num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
+    EVERY (λn. data_num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))``,
   fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
   fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
@@ -1256,7 +1261,7 @@ val clos_to_data_names = store_thm("clos_to_data_names",
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>
   imp_res_tac compile_list_distinct_locs>>
-  rfs[bvl_to_bviTheory.num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
+  rfs[bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
   fs[EVERY_MEM]>>rw[]
   \\ TRY strip_tac
   \\ res_tac
@@ -1299,6 +1304,7 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[source_to_modProofTheory.v_rel_cases] >>
     rw[prim_config_eq] >>
     Cases_on`ffi`>>rw[ffiTheory.ffi_state_component_equality] >>
+    fs[semanticPrimitivesTheory.merge_alist_mod_env_def] >>
     CONV_TAC(PATH_CONV"brrrllr"(REWRITE_CONV[DOMSUB_FUPDATE_THM] THENC EVAL)) >>
     rpt(CHANGED_TAC(CONV_TAC(PATH_CONV"brrrllr"(REWRITE_CONV[FRANGE_FUPDATE,DRESTRICT_FUPDATE] THENC EVAL)))) >>
     rw[DRESTRICT_DRESTRICT] >>

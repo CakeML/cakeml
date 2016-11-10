@@ -7,6 +7,7 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "ast"
+val _ = set_grammar_ancestry ["integer", "words", "string"];
 
 (*open import Pervasives*)
 (*open import Lib*)
@@ -207,7 +208,8 @@ val _ = Hol_datatype `
   (* Constructor applications.
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of  ( conN id)option => pat list
-  | Pref of pat`;
+  | Pref of pat
+  | Ptannot of pat => t`;
 
 
 (* Expressions *)
@@ -237,7 +239,8 @@ val _ = Hol_datatype `
      functions.
      The first varN is the function's name, and the second varN
      is its parameter. *)
-  | Letrec of (varN # varN # exp) list => exp`;
+  | Letrec of (varN # varN # exp) list => exp
+  | Tannot of exp => t`;
 
 
 val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # t list) list) list``);
@@ -298,6 +301,9 @@ val _ = type_abbrev( "prog" , ``: top list``);
 (pats_bindings ps already_bound))
 /\
 (pat_bindings (Pref p) already_bound =  
+(pat_bindings p already_bound))
+/\
+(pat_bindings (Ptannot p _) already_bound =  
 (pat_bindings p already_bound))
 /\
 (pats_bindings [] already_bound =

@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = parsing inference backend
+INCLUDES = parsing inference backend ../basis
 
 all: compilerTheory.uo
 .PHONY: all
@@ -10,7 +10,7 @@ PARENT_HOLHEAP = backend/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory
+BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory ../basis/basisProgTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

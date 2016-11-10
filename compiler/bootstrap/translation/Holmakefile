@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../translator ../../inference ../../parsing ../../backend ../.. ../../targets/x64 $(HOLDIR)/examples/l3-machine-code/x64/model ../../targets/mips $(HOLDIR)/examples/l3-machine-code/mips/model ../../backend/reg_alloc ../../backend/reg_alloc/proofs
+INCLUDES = ../../.. ../../../translator ../../inference ../../inference/proofs ../../parsing ../../backend ../.. ../../targets/x64 $(HOLDIR)/examples/l3-machine-code/x64/model ../../targets/mips $(HOLDIR)/examples/l3-machine-code/mips/model ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../io ../../eval/x64 ../../../explorer/pp/astPP
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -13,7 +13,8 @@ all: $(TARGETS) $(HOLHEAP)
 
 BARE_THYS = ../../../translator/ml_translatorLib \
 						../../../translator/std_preludeLib \
-						../../inference/inferTheory
+						../../inference/inferTheory \
+						../../inference/proofs/inferPropsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

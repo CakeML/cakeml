@@ -51,10 +51,10 @@ val () =
       basicComputeLib.add_basic_compset,
       semanticsComputeLib.add_ast_compset,
       compilerComputeLib.add_compiler_compset,
+      x64_targetLib.add_x64_encode_compset,
       asmLib.add_asm_compset ],
     computeLib.Defs [
       x64_compiler_config_def,
-      x64_config_def,
       data_prog_x64_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
@@ -73,8 +73,10 @@ fun intro_abbrev [] tm = raise UNCHANGED
 
 val chunk_size = 50
 val num_threads = 8
-fun say_str s i n =
+fun say_str s i n = ()
+  (*
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
+  *)
 
 val to_data_thm0 =
   MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
@@ -166,12 +168,13 @@ fun eval_fn i n p =
   let
     val () = say_str "word_to_word" i n
     val tm = mk_comb(word_to_word_fn,p)
-    val conv = RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC time eval
+    val conv = RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC (*time*) eval
   in
     conv tm
   end
 
-val ths = parlist num_threads chunk_size eval_fn word_prog;
+val () = Lib.say"word_to_word: "
+val ths = time (parlist num_threads chunk_size eval_fn) word_prog;
 
 val thm1 =
   tm1
@@ -206,12 +209,13 @@ fun eval_fn i n p =
   let
     val () = say_str "clash" i n
     val tm = mk_comb(clash_fn,p)
-    val conv = RATOR_CONV(REWR_CONV clash_fn_eq) THENC time eval
+    val conv = RATOR_CONV(REWR_CONV clash_fn_eq) THENC (*time*) eval
   in
     conv tm
   end
 
-val ths = parlist num_threads chunk_size eval_fn word_prog0;
+val () = Lib.say"clash: "
+val ths = time (parlist num_threads chunk_size eval_fn) word_prog0;
 
 val thm2 =
   tm2
@@ -228,7 +232,7 @@ val to_livesets_thm =
 val oracles =
   to_livesets_thm
   |> rconc |> pairSyntax.dest_pair |> #1
-  |> time reg_allocComputeLib.get_oracle
+  |> time (reg_allocComputeLib.get_oracle 3)
 
 val x64_oracle_def = mk_def"x64_oracle" oracles;
 
@@ -353,7 +357,7 @@ fun eval_fn i n (a,b,c) =
     val () = say_str "chunk" i n
     val tm = list_mk_comb(check_fn,[a,b,c])
   in
-    time eval tm
+    (*time*) eval tm
   end
 
 val x64_oracle_list_els =
@@ -389,7 +393,8 @@ fun avg ls = sum ls div (length ls)
 avg (map term_size encoded_prog_els)
 *)
 
-val map3els = parlist num_threads chunk_size eval_fn lss
+val () = Lib.say"chunk: ";
+val map3els = time (parlist num_threads chunk_size eval_fn) lss
 
 val check_fn_def = mk_def"check_fn"check_fn;
 
@@ -487,13 +492,14 @@ fun eval_fn i n p =
     val () = say_str "stack_alloc" i n
     val tm = mk_comb(prog_comp_tm,p)
   in
-    time eval tm
+    (*time*) eval tm
   end
 
 val stack_prog_els =
   stack_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_prog_els;
+val () = Lib.say"stack_alloc: "
+val ths = time (parlist num_threads chunk_size eval_fn) stack_prog_els;
 
 val stack_alloc_thm =
   tm4 |>
@@ -536,13 +542,14 @@ fun eval_fn i n p =
     val () = say_str "stack_remove" i n
     val tm = mk_comb(prog_comp_n_tm,p)
   in
-    time eval tm
+    (*time*) eval tm
   end
 
 val stack_alloc_prog_els =
   stack_alloc_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_alloc_prog_els;
+val () = Lib.say"stack_remove: "
+val ths = time (parlist num_threads chunk_size eval_fn) stack_alloc_prog_els;
 
 val stack_remove_thm =
   stack_remove_thm0
@@ -576,13 +583,14 @@ fun eval_fn i n p =
     val () = say_str "stack_names" i n
     val tm = mk_comb(prog_comp_nm_tm,p)
   in
-    time eval tm
+    (*time*) eval tm
   end
 
 val stack_remove_prog_els =
   stack_remove_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_remove_prog_els;
+val () = Lib.say"stack_names: "
+val ths = time (parlist num_threads chunk_size eval_fn) stack_remove_prog_els;
 
 val stack_names_thm0 =
   tm7
@@ -609,13 +617,14 @@ fun eval_fn i n p =
     val () = say_str "stack_to_lab" i n
     val tm = mk_comb(prog_to_section_tm,p)
   in
-    time eval tm
+    (*time*) eval tm
   end
 
 val stack_names_prog_els =
   stack_names_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = parlist num_threads chunk_size eval_fn stack_names_prog_els;
+val () = Lib.say"stack_to_lab: "
+val ths = time (parlist num_threads chunk_size eval_fn) stack_names_prog_els;
 
 val stack_to_lab_thm4 =
   stack_to_lab_thm3

@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib arm8Theory;
+open asmLib arm8_stepTheory;
 
 val () = new_theory "arm8_target"
 
@@ -9,7 +9,7 @@ val () = wordsLib.guess_lengths ()
 
 val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
 
-(* --- Relate ASM and ARMv8 states --- *)
+(* --- Valid ARMv8 states --- *)
 
 val arm8_ok_def = Define`
    arm8_ok ms =
@@ -17,13 +17,6 @@ val arm8_ok_def = Define`
    ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
    ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
    (ms.exception = NoException) /\ aligned 2 ms.PC`
-
-val arm8_asm_state_def = Define`
-   arm8_asm_state s ms =
-   arm8_ok ms /\
-   (!i. i < 31 ==> (s.regs i = ms.REG (n2w i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -127,7 +120,12 @@ val arm8_enc_def = Define`
                        (BitfieldMove@64
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1)))
                 | NONE => arm8_encode_fail)) /\
-   (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = arm8_encode_fail) /\
+   (arm8_enc (Inst (Arith (Div r1 r2 r3))) =
+      arm8_encode (Data (Division@64 (1w, T, n2w r3, n2w r2, n2w r1)))) /\
+   (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+      arm8_encode (Data (MultiplyHigh (F, n2w r4, n2w r3, n2w r1))) ++
+      arm8_encode
+        (Data (MultiplyAddSub@64 (1w, F, n2w r4, 31w, n2w r3, n2w r2)))) /\
    (arm8_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm8_encode_fail) /\
    (arm8_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       arm8_encode (Data (AddSubImmediate@64 (1w, T, T, 0w, n2w r4, 0x1Fw))) ++
@@ -142,12 +140,14 @@ val arm8_enc_def = Define`
            (LoadStoreImmediate@64
               (3w, F, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   (*
    (arm8_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
            (LoadStoreImmediate@32
               (2w, T, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   *)
    (arm8_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
@@ -160,12 +160,14 @@ val arm8_enc_def = Define`
            (LoadStoreImmediate@64
               (3w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   (*
    (arm8_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
            (LoadStoreImmediate@32
               (2w, T, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
+   *)
    (arm8_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore
@@ -226,19 +228,14 @@ val arm8_config_def = Define`
     ; reg_count := 32
     ; avoid_regs := [31]
     ; link_reg := SOME 30
-    ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := valid_immediate
-    ; addr_offset_min := ^off_min
-    ; addr_offset_max := ^off_max
-    ; jump_offset_min := ^jump_min
-    ; jump_offset_max := ^jump_max
-    ; cjump_offset_min := ^cjump_min
-    ; cjump_offset_max := ^cjump_max
-    ; loc_offset_min := ^loc_min
-    ; loc_offset_max := ^loc_max
     ; code_alignment := 2
+    ; valid_imm := valid_immediate
+    ; addr_offset := (^off_min, ^off_max)
+    ; jump_offset := (^jump_min, ^jump_max)
+    ; cjump_offset := (^cjump_min, ^cjump_max)
+    ; loc_offset := (^loc_min, ^loc_max)
     |>`
 
 val arm8_proj_def = Define`
@@ -248,14 +245,20 @@ val arm8_proj_def = Define`
 
 val arm8_target_def = Define`
    arm8_target =
-   <| get_pc := arm8_state_PC
+   <| next := arm8_next
+    ; config := arm8_config
+    ; get_pc := arm8_state_PC
     ; get_reg := (\s. arm8_state_REG s o n2w)
     ; get_byte := arm8_state_MEM
     ; state_ok := arm8_ok
-    ; state_rel := arm8_asm_state
     ; proj := arm8_proj
-    ; next := arm8_next
-    ; config := arm8_config
     |>`
+
+val (arm8_config, arm8_asm_ok) =
+  asmLib.target_asm_rwts [DECIDE ``a < 32 /\ a <> 31n = a < 31``]
+    ``arm8_config``
+
+val arm8_config = save_thm("arm8_config", arm8_config)
+val arm8_asm_ok = save_thm("arm8_asm_ok", arm8_asm_ok)
 
 val () = export_theory ()

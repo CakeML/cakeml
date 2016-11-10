@@ -5,6 +5,15 @@ open preamble
 open set_sepTheory helperLib ConseqConv
 open quantHeuristicsTools
 
+structure Parse =
+struct
+  open Parse
+  val (Type,Term) = parse_from_grammars
+                      (merge_grammars ["cmlPtreeConversion", "cmlPEG",
+                                       "semanticPrimitives", "lexer_fun"])
+end
+open Parse
+
 fun find_map f [] = NONE
   | find_map f (x :: xs) =
     (case f x of
@@ -124,62 +133,31 @@ fun rewr_head_conv thm tm =
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory lexer_implTheory
 
-fun parse nt sem s = let
-    val s_t = stringSyntax.lift_string bool s
-    val t = (rhs o concl o EVAL) ``lexer_fun ^s_t``
-    val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
-    val evalth = EVAL ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
-    val r = rhs (concl evalth)
+val parse_t =
+  Lib.with_flag (Feedback.MESG_outstream, (fn s => ()))
+   Parse.Term
+     `\inputnt sem s.
+        case
+          peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
+        of
+          Result (SOME(_,[x])) => sem x : 'a`
 
-    fun diag(s,t) = let
-        fun pp pps (s,t) =
-          (PP.begin_block pps PP.CONSISTENT 0;
-           PP.add_string pps s;
-           PP.add_break pps (1,2);
-           pp_term pps t;
-           PP.end_block pps)
-    in
-        print (PP.pp_to_string 79 pp (s,t) ^ "\n")
-    end
-    fun die (s,t) = (diag (s,t); raise Fail "Failed")
-in
-  if same_const (rator r) ``Result`` then
-    if optionSyntax.is_some (rand r) then let
-      val pair = rand (rand r)
-      val remaining_input = pair |> rator |> rand
-      val res = pair |> rand |> rator |> rand
-    in
-      if listSyntax.is_nil remaining_input then let
-        (* val _ = diag ("EVAL to: ", res) *)
-        val fringe_th = EVAL ``ptree_fringe ^res``
-        val fringe_t = rhs (concl fringe_th)
-        (* val _ = diag ("fringe = ", fringe_t) *)
-      in
-        if aconv fringe_t ttoks then let
-          val ptree_res =
-              case Lib.total mk_comb(sem,res) of
-                  NONE => optionSyntax.mk_none bool
-                | SOME t =>
-                  let
-                    val rt = rhs (concl (EVAL t))
-                  in
-                    if optionSyntax.is_some rt then
-                      rand rt
-                    else die ("Sem. failure", rt)
-                  end
-          (* val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res) *)
-        in
-          ptree_res
-        end
-        else die ("Fringe not preserved!", ttoks)
-      end
-      else die ("REMANING INPUT:", pair)
-    end
-    else die ("FAILED:", r)
-  else die ("NO RESULT:", r)
-end
+fun string_of_q [] = ""
+  | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
+  | string_of_q (ANTIQUOTE s :: qs) = s ^ (string_of_q qs)
 
-fun parse_topdecl str = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs`` str
+fun parse nt sem q =
+  let
+    val (_,r) = dom_rng (type_of sem)
+  in
+    EVAL (list_mk_comb(inst [alpha |-> r] parse_t,
+                       [nt, sem, stringSyntax.fromMLstring (string_of_q q)]))
+         |> concl |> rhs |> rand
+  end
+
+val parse_exp = parse ``nE`` ``ptree_Expr nE``
+val parse_decl = parse ``nDecl`` ``ptree_Decl``
+val parse_topdecs = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
 
 fun pick_name str =
   if str = "<" then "lt" else
@@ -195,9 +173,11 @@ fun pick_name str =
   if str = "!" then "deref" else
   if str = ":=" then "assign" else str (* name is fine *)
 
+val nEbase_t = ``nEbase``
+val ptree_t = ``ptree_Expr nEbase``
 fun fetch_v name st =
   let val env = ml_progLib.get_env st
-      val ident_expr = parse ``nEbase`` ``ptree_Expr nEbase`` name
+      val ident_expr = parse nEbase_t ptree_t [QUOTE name]
       val ident = astSyntax.dest_Var ident_expr
       val evalth = EVAL ``lookup_var_id ^ident ^env``
   in (optionLib.dest_some o rhs o concl) evalth end
@@ -394,53 +374,6 @@ fun print_dcc direction t = (
   print "\n\n";
   REFL_CONSEQ_CONV t
 )
-
-type subterm_cont =
-     (term -> term) * (conseq_conv -> conseq_conv)
-
-type cont_conseq_conv = term -> thm * subterm_cont
-
-fun STEP_CONT_CONSEQ_CONV ccc t = fst (ccc t)
-
-fun THEN_CONT_CONSEQ_CONV ccc1 ccc2 t =
-  let val (thm1, (subtm1, cont1)) = ccc1 t
-      val t1 = CONSEQ_CONV___GET_SIMPLIFIED_TERM thm1 t
-      val t1_subtm = subtm1 t1
-  in
-    let val (subthm2, (subtm2, cont2)) = ccc2 t1_subtm
-        val subthm2 = snd (CONSEQ_CONV_WRAPPER___CONVERT_RESULT
-                             CONSEQ_CONV_STRENGTHEN_direction
-                             subthm2 t1_subtm)
-                           handle UNCHANGED => subthm2
-        val thm2 = cont1 (fn _ => subthm2) t1
-        val thm = THEN_CONSEQ_CONV___combine thm1 thm2 t
-        val subtm = subtm2 o subtm1
-        val cont = cont1 o cont2
-    in
-       (thm, (subtm, cont))
-    end handle UNCHANGED =>
-      (thm1, (subtm1, cont1))
-  end handle UNCHANGED =>
-    ccc2 t
-
-fun ORELSE_CONT_CONSEQ_CONV ccc1 ccc2 t =
-  ccc1 t handle HOL_ERR _ => ccc2 t
-
-fun EVERY_CONT_CONSEQ_CONV [] t = raise UNCHANGED
-  | EVERY_CONT_CONSEQ_CONV (ccc::L) t =
-    THEN_CONT_CONSEQ_CONV ccc (EVERY_CONT_CONSEQ_CONV L) t
-
-fun LOOP_CONT_CONSEQ_CONV ccc t =
-  let val ret = ccc t
-  in THEN_CONT_CONSEQ_CONV (fn _ => ret) (LOOP_CONT_CONSEQ_CONV ccc) t end
-
-fun INPLACE_CONT_CONSEQ_CONV cc t = (cc t, (I, I))
-
-val REFL_CONT_CONSEQ_CONV =
-  INPLACE_CONT_CONSEQ_CONV REFL_CONSEQ_CONV
-
-fun TRY_CONT_CONSEQ_CONV ccc =
-  ORELSE_CONT_CONSEQ_CONV ccc REFL_CONT_CONSEQ_CONV
 
 (*----------------------------------------------------------------------------*)
 (* A conseq_conv that instantiate evars of the goal to match the conclusion

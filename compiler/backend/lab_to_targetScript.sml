@@ -169,17 +169,6 @@ val all_asm_ok_def = Define `
 
 *)
 
-val lab_lookup_def = Define `
-  lab_lookup k1 k2 labs =
-    case lookup k1 labs of
-    | NONE => NONE
-    | SOME f => lookup k2 f`
-
-val line_length_def = Define `
-  (line_length (Label k1 k2 l) = if l = 0 then 0 else 1) /\
-  (line_length (Asm b bytes l) = LENGTH bytes) /\
-  (line_length (LabAsm a w bytes l) = LENGTH bytes)`
-
 val line_ok_light_def = Define `
   (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
   (line_ok_light c (Asm b bytes l) <=> asm_ok b c) /\

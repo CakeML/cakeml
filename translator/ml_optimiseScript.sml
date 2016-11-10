@@ -1,6 +1,6 @@
 open preamble
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     bigClockTheory evalPropsTheory determTheory;
+     bigClockTheory semanticPrimitivesPropsTheory bigStepPropsTheory determTheory;
 open terminationTheory ml_translatorTheory
 
 val _ = new_theory "ml_optimise";
@@ -49,7 +49,8 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (* TODO: Handle wasn't optimised before full-blown exceptions were in the
            language, but perhaps it should be now? *)
   (BOTTOM_UP_OPT f (Handle x ys) = Handle x ys) /\
-  (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2))`
+  (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2)) ∧
+  (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t)`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
 
@@ -289,7 +290,9 @@ val OPTIMISE_def = Define `
 val Eval_OPTIMISE = store_thm("Eval_OPTIMISE",
   ``Eval env exp P ==> Eval env (OPTIMISE exp) P``,
   SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
   \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss [OPTIMISE_def]
+  \\ qexists_tac`refs'`
   \\ MATCH_MP_TAC BOTTOM_UP_OPT_THM
   \\ SIMP_TAC std_ss [opt_sub_add_thm,let_id_thm]
   \\ MATCH_MP_TAC BOTTOM_UP_OPT_THM

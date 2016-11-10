@@ -29,7 +29,8 @@ fun mk_app_of_Arrow_goal t = let
     mk_cond (
       list_mk_comb (ret_pred, [list_mk_comb (f, xs), post_v])
     )
-  val post_tm = mk_abs (post_v, post_body)
+  fun mk_POSTv Qvtm = (lhs o concl) (SPEC Qvtm cfHeapsBaseTheory.POSTv_def)
+  val post_tm = mk_POSTv (mk_abs (post_v, post_body))
   val app_spec_tm =
     mk_app (
       proj_tm,
@@ -45,6 +46,69 @@ fun mk_app_of_Arrow_goal t = let
 in
   list_mk_forall (xs @ vs, goal_body)
 end
+
+fun mk_Arrow_of_app_goal t = let
+  fun find_remove p l = let
+      fun aux acc [] = NONE
+        | aux acc (x::xs) =
+          if p x then SOME (x, List.rev acc @ xs)
+          else aux (x::acc) xs
+    in aux [] l end
+  fun strip_n n tm =
+    if n = 0 then (tm, [])
+    else let
+      val (tm', arg) = dest_comb tm
+      val (tm'', args) = strip_n (n-1) tm'
+    in (tm'', args @ [arg]) end
+  fun dest_pred t = strip_n 2 t
+  fun pred_v t = let val (_, [_, v]) = dest_pred t in v end
+  fun pred_x t = let val (_, [x, _]) = dest_pred t in x end
+  val (t_vars, t_body) = strip_forall t
+  val (hyps1, concl_tm) = strip_imp t_body
+  (* hyps: list of hypothesis *)
+  val hyps = flatten (map strip_conj hyps1)
+  (* conclusion: of the form "app fv [v1,...,vn] emp post" *)
+  val (_, fv, argsv, _, post) = dest_app concl_tm
+  (* list of value arguments: v1,...,vn *)
+  val (argsv_list, _) = listSyntax.dest_list argsv
+  (* hyps are either representation predicates (aka refinement invariants) about
+     arguments, or something else
+  *)
+  val (pred_hyps, other_hyps) = partition (fn p =>
+      exists (fn argv => pred_v p = argv handle HOL_ERR _ => false) argsv_list
+    ) hyps
+  val other_hyps_fvs = free_varsl other_hyps
+  (* Mapping with the logical counterparts of v1,...,vn *)
+  val assoc_argsv_args = List.map (fn p => (pred_v p, pred_x p)) pred_hyps
+  (* Gives the predicate for an argument value.
+     We may need to wrap the predicate using Eq if v appears elsewhere. *)
+  fun pred_for v = let
+    val x = assoc v assoc_argsv_args
+    val need_Eq = mem x other_hyps_fvs
+    val base_pred =
+      case List.find (fn p => pred_v p = v) pred_hyps of
+          NONE => fail()
+        | SOME p => (fst o dest_pred) p
+  in if need_Eq then mk_Eq (base_pred, x) else base_pred end
+  (* stripping post... *)
+  val (_, post_body1) = dest_comb post (* dest_POSTv *)
+  val (_, post_body2) = dest_abs post_body1
+  val (_, pure_post) = dest_comb post_body2 (* dest_cond *)
+  val (concl_pred, [f_x, v]) = dest_pred pure_post
+  val (f, _) = strip_n (List.length argsv_list) f_x
+  (* build the iterated Arrows *)
+  val arrows = foldl (fn (argv, arrows) =>
+      mk_Arrow (pred_for argv, arrows)
+    ) concl_pred (List.rev argsv_list)
+  (* re-generalize in the post what was originally quantified *)
+  val other_hyps_vars = intersect t_vars other_hyps_fvs
+  fun mk_list_conj_imp ([], concl) = concl
+    | mk_list_conj_imp (hyps, concl) = mk_imp (list_mk_conj hyps, concl)
+  val arrows_full_tm =
+    list_mk_forall (other_hyps_vars,
+      mk_list_conj_imp (other_hyps,
+        list_mk_comb (arrows, [f, fv])))
+in mk_imp (t, arrows_full_tm) end
 
 fun auto_prove proof_name (goal,tac) = let
   val (rest,validation) = tac ([],goal) handle Empty => fail()
@@ -65,6 +129,7 @@ fun app_of_Arrow_rule thm = let
         drule Arrow_IMP_app_basic \\
         disch_then (fn th => mp_tac (MATCH_MP th asm)) \\
         match_mp_tac app_basic_weaken \\
+        Cases THEN_LT REVERSE_LT THEN1 (simp [cfHeapsBaseTheory.POSTv_def]) \\
         fs [cond_def, SEP_EXISTS_THM] \\ rpt strip_tac \\
         qexists_tac `emp` \\ fs [SEP_CLAUSES] \\ tac_acc
       ) all_tac (rev assums)

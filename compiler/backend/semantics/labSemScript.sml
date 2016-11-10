@@ -15,7 +15,7 @@ val _ = Datatype `
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
      ; io_regs    : num -> num -> 'a word option  (* oracle *)
-     ; code       : 'a prog
+     ; code       : 'a labLang$prog
      ; clock      : num
      ; failed     : bool
      ; ptr_reg    : num
@@ -76,6 +76,11 @@ val arith_upd_def = Define `
   (arith_upd (Shift l r1 r2 n) s =
      case read_reg r2 s of
      | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s
+     | _ => assert F s) /\
+  (arith_upd (Div r1 r2 r3) s =
+     case (read_reg r3 s,read_reg r2 s) of
+     | (Word q,Word w2) =>
+       assert (q <> 0w) (upd_reg r1 (Word (w2 // q)) s)
      | _ => assert F s) /\
   (arith_upd (AddCarry r1 r2 r3 r4) s =
      case (read_reg r2 s, read_reg r3 s, read_reg r4 s) of
@@ -276,8 +281,9 @@ val evaluate_def = tDefine "evaluate" `
         | Word _ => (Halt Resource_limit_hit,s)
         | _ => (Error,s))
     | SOME (LabAsm (LocValue r lab) _ _ _) =>
-        let s1 = upd_reg r (lab_to_loc lab) s in
-          evaluate (inc_pc (dec_clock s1))
+       (if get_pc_value lab s = NONE then (Error,s) else
+          let s1 = upd_reg r (lab_to_loc lab) s in
+            evaluate (inc_pc (dec_clock s1)))
     | SOME (LabAsm (Jump l) _ _ _) =>
        (case get_pc_value l s of
         | NONE => (Error,s)

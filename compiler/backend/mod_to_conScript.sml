@@ -1,4 +1,5 @@
 open preamble modLangTheory conLangTheory
+open backend_commonTheory
 
 (* The translator to conLang keeps a mapping (tag_env) of each constructor to
  * its arity, tag, and type. Tags need only be unique for each arity-type pair,
@@ -11,6 +12,8 @@ open preamble modLangTheory conLangTheory
  *)
 
 val _ = new_theory"mod_to_con"
+val _ = set_grammar_ancestry ["backend_common", "modLang", "conLang",
+                              "semanticPrimitives" (* for TypeId *)]
 
 (* for each constructor, its arity, tag, and type *)
 val _ = type_abbrev( "flat_tag_env" , ``:conN |-> (num # num # tid_or_exn)``);
@@ -45,7 +48,9 @@ val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Pcon con_id ps) =
     (Pcon (lookup_tag_env con_id tagenv) (MAP (compile_pat tagenv) ps)))
   ∧
-  (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))`
+  (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))
+  ∧
+  (compile_pat tagenv (Ptannot p t) = compile_pat tagenv p)`
   (WF_REL_TAC `inv_image $< (\(x,p). pat_size p)` >>
    srw_tac [ARITH_ss] [astTheory.pat_size_def] >>
    Induct_on `ps` >>
@@ -121,9 +126,6 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
    rw [compile_exp_def] >>
    PairCases_on `h` >>
    rw [compile_exp_def]);
-
-(* for each type, for each arity, the number of constructors of that arity *)
-val _ = type_abbrev( "exh_ctors_env" , ``:typeN id |-> num spt``);
 
 (* next exception tag (arity-indexed),
  * current tag env,

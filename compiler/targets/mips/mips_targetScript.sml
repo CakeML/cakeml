@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib mipsTheory;
+open asmLib mips_stepTheory;
 
 val () = new_theory "mips_target"
 
@@ -22,20 +22,13 @@ val mips_next_def = Define`
    let s' = THE (NextStateMIPS s) in
      if IS_SOME s'.BranchDelay then THE (NextStateMIPS s') else s'`
 
-(* --- Relate ASM and MIPS states --- *)
+(* --- Valid MIPS states --- *)
 
 val mips_ok_def = Define`
    mips_ok ms =
    ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\ ~ms.exceptionSignalled /\
    (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
    (ms.exception = NoException) /\ aligned 2 ms.PC`
-
-val mips_asm_state_def = Define`
-   mips_asm_state s ms =
-   mips_ok ms /\
-   (!i. 1 < i /\ i < 32 ==> (s.regs i = ms.gpr (n2w i))) /\
-   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
-   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
@@ -71,10 +64,10 @@ val mips_sh32_def = Define`
 
 val mips_memop_def = Define`
    (mips_memop Load    = INL LD) /\
-   (mips_memop Load32  = INL LWU) /\
+(* (mips_memop Load32  = INL LWU) /\ *)
    (mips_memop Load8   = INL LBU) /\
    (mips_memop Store   = INR SD) /\
-   (mips_memop Store32 = INR SW) /\
+(* (mips_memop Store32 = INR SW) /\ *)
    (mips_memop Store8  = INR SB)`
 
 val mips_cmp_def = Define`
@@ -122,7 +115,13 @@ val mips_enc_def = Define`
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
-   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) = mips_encode_fail) /\
+   (mips_enc (Inst (Arith (Div r1 r2 r3))) =
+       encs [MultDiv (DDIVU (n2w r2, n2w r3));
+             MultDiv (MFLO (n2w r1))]) /\
+   (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+       encs [MultDiv (DMULTU (n2w r3, n2w r4));
+             MultDiv (MFHI (n2w r1));
+             MultDiv (MFLO (n2w r2))]) /\
    (mips_enc (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        encs [ArithR (SLTU (0w, n2w r4, 1w));
@@ -181,9 +180,8 @@ val mips_config_def = Define`
    <| ISA := MIPS
     ; encode := mips_enc
     ; reg_count := 32
-    ; avoid_regs := [0; 1]
+    ; avoid_regs := [0; 1; 25; 26; 27; 28; 29]
     ; link_reg := SOME 31
-    ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := T
     ; valid_imm :=
@@ -191,32 +189,40 @@ val mips_config_def = Define`
                 0w <= i /\ i <= ^umax16
               else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
                    i <= ^max16)
-    ; addr_offset_min := ^min16
-    ; addr_offset_max := ^max16
-    ; jump_offset_min := ^min16
-    ; jump_offset_max := ^max16
-    ; cjump_offset_min := ^min16
-    ; cjump_offset_max := ^max16
-    ; loc_offset_min := ^min16 + 12w
-    ; loc_offset_max := ^max16 + 8w
+    ; addr_offset := (^min16, ^max16)
+    ; jump_offset := (^min16, ^max16)
+    ; cjump_offset := (^min16, ^max16)
+    ; loc_offset := (^min16 + 12w, ^max16 + 8w)
     ; code_alignment := 2
     |>`
 
 val mips_proj_def = Define`
    mips_proj d s =
    (s.CP0.Config, s.CP0.Status.RE, s.exceptionSignalled,
-    s.BranchDelay, s.BranchTo, s.exception, s.gpr, fun2set (s.MEM,d), s.PC)`
+    s.BranchDelay, s.BranchTo, s.exception, s.gpr, s.lo, s.hi,
+    fun2set (s.MEM,d), s.PC)`
 
 val mips_target_def = Define`
    mips_target =
-   <| get_pc := mips_state_PC
+   <| next := mips_next
+    ; config := mips_config
+    ; get_pc := mips_state_PC
     ; get_reg := (\s. mips_state_gpr s o n2w)
     ; get_byte := mips_state_MEM
     ; state_ok := mips_ok
-    ; state_rel := mips_asm_state
     ; proj := mips_proj
-    ; next := mips_next
-    ; config := mips_config
     |>`
+
+val mips_reg_ok_def = Define`
+  mips_reg_ok n = ~MEM n mips_config.avoid_regs`
+
+val mips_reg_ok = save_thm("mips_reg_ok",
+  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def))
+
+val (mips_config, mips_asm_ok) =
+  asmLib.target_asm_rwts [mips_reg_ok] ``mips_config``
+
+val mips_config = save_thm("mips_config", mips_config)
+val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)
 
 val () = export_theory ()

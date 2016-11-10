@@ -15,6 +15,7 @@ val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 
 (* value relation *)
+val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
@@ -477,7 +478,7 @@ val compile_exps_Var_list = prove(
   ``!l n. EVERY isVar l ==> (∃aux. compile_exps n l = (MAP (Var o destVar) l ,aux,n) ∧ append aux = [])``,
   Induct \\ fs[compile_exps_def] \\ Cases \\ rw[isVar_def] \\ fs[]
   \\ Cases_on`l` \\ fs[compile_exps_def,destVar_def]
-  \\ qmatch_goalsub_rename_tac`compile_exps a`
+  \\ qmatch_goalsub_rename_tac`bvl_to_bvi$compile_exps a`
   \\ first_x_assum(qspec_then`a`strip_assume_tac) \\ fs[]);
 
 val compile_int_thm = prove(
@@ -743,7 +744,13 @@ val do_app_adjust = Q.prove(
     res_tac >> METIS_TAC[])
   THEN1 (* Label *)
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[bEvalOp_def,bvl_to_bvi_id]
-    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def])
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def]
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ fs [state_rel_def]
+    \\ fs [domain_lookup]
+    \\ rename1 `lookup _ r.code = SOME vv`
+    \\ PairCases_on `vv` \\ res_tac
+    \\ rfs [] \\ pairarg_tac \\ fs [])
   THEN1 (* FFI *) (
     Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
@@ -1060,7 +1067,7 @@ val compile_exps_correct = Q.prove(
       \\ first_x_assum drule \\ Cases_on `x` \\ fs [isVar_def])
     \\ strip_tac \\ fs []
     \\ reverse (Cases_on `q`)
-    \\ fs [evalPropsTheory.map_result_def] \\ rveq \\ fs []
+    \\ fs [semanticPrimitivesPropsTheory.map_result_def] \\ rveq \\ fs []
     THEN1 (Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs [find_code_def])
     \\ ntac 3 (IMP_RES_TAC aux_code_installed_APPEND \\ fs[])
     \\ fs [aux_code_installed_def,compile_aux_def]
@@ -1102,12 +1109,12 @@ val compile_exps_correct = Q.prove(
     \\ fs [find_code_def]
     \\ `?d2. c2 = [d2]` by (Cases_on `c2` \\ fs [LENGTH_NIL]) \\ rveq \\ fs []
     \\ drule bvi_letProofTheory.evaluate_compile_exp
-    \\ impl_tac THEN1 (Cases_on `res` \\ fs [evalPropsTheory.map_result_def])
+    \\ impl_tac THEN1 (Cases_on `res` \\ fs [semanticPrimitivesPropsTheory.map_result_def])
     \\ strip_tac \\ fs []
     \\ `dec_clock 1 (inc_clock (c' + 1) t2) = inc_clock c' t2` by
            (EVAL_TAC \\ fs [] \\ NO_TAC)
-    \\ fs [] \\ Cases_on `res` \\ fs [evalPropsTheory.map_result_def]
-    \\ Cases_on `e'` \\ fs [evalPropsTheory.map_error_result_def])
+    \\ fs [] \\ Cases_on `res` \\ fs [semanticPrimitivesPropsTheory.map_result_def]
+    \\ Cases_on `e'` \\ fs [semanticPrimitivesPropsTheory.map_error_result_def])
   THEN1 (* Raise *)
    (`?c1 aux1 n1. compile_exps n [x1] = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
@@ -1855,17 +1862,17 @@ val _ = save_thm("compile_exps_correct",compile_exps_correct);
 (* composed compiler correctness *)
 
 val MAP_FST_optimise = Q.store_thm("MAP_FST_optimise[simp]",
-  `MAP FST (optimise x prog) = MAP FST prog`,
+  `MAP FST (optimise split_seq x prog) = MAP FST prog`,
   simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
 
 val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
   `lookup n ls = SOME (a,b) ⇒
-   ALOOKUP (optimise x (toAList ls)) n =
-     SOME (a,bvl_handle$compile_exp x a (bvl_const$compile_exp b))`,
+   ALOOKUP (optimise split_seq x (toAList ls)) n =
+     SOME (a,bvl_handle$compile_any split_seq x a b)`,
   srw_tac[][] >>
-  Cases_on`ALOOKUP (optimise x (toAList ls)) n` >- (
+  Cases_on`ALOOKUP (optimise split_seq x (toAList ls)) n` >- (
     imp_res_tac ALOOKUP_FAILS >>
-    `¬MEM n (MAP FST (optimise x (toAList ls)))` by METIS_TAC[MEM_MAP,FST,PAIR] >>
+    `¬MEM n (MAP FST (optimise split_seq x (toAList ls)))` by METIS_TAC[MEM_MAP,FST,PAIR] >>
     full_simp_tac(srw_ss())[toAList_domain] >>
     METIS_TAC[domain_lookup] ) >>
   imp_res_tac ALOOKUP_MEM >>
@@ -1875,17 +1882,16 @@ val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
 val evaluate_IMP_optimise = store_thm("evaluate_IMP_optimise",
   ``evaluate ([r],zenv,zs) = (res,s') /\ res <> Rerr (Rabort Rtype_error) /\
     LENGTH zenv = q ==>
-    evaluate ([bvl_handle$compile_exp x q
-                (bvl_const$compile_exp r)],zenv,zs) = (res,s')``,
-  rw [] \\ match_mp_tac bvl_handleProofTheory.compile_correct \\ fs []
+    evaluate ([bvl_handle$compile_any split_seq x q r],zenv,zs) = (res,s')``,
+  rw [] \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
   \\ drule (GEN_ALL bvl_constProofTheory.evaluate_compile_exp) \\ fs []);
 
 val optimise_evaluate = Q.store_thm("optimise_evaluate",
   `∀xs env s res s'.
      evaluate (xs,env,s) = (res,s') ∧
      res ≠ Rerr (Rabort Rtype_error) ⇒
-     evaluate (xs,env,s with code := fromAList (optimise x (toAList s.code))) =
-       (res,s' with code := fromAList (optimise x (toAList s.code)))`,
+     evaluate (xs,env,s with code := fromAList (optimise split_seq x (toAList s.code))) =
+       (res,s' with code := fromAList (optimise split_seq x (toAList s.code)))`,
   recInduct bvlSemTheory.evaluate_ind >>
   srw_tac[][bvlSemTheory.evaluate_def] >>
   TRY (
@@ -1922,22 +1928,21 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
   \\ rw []\\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]);
 
 val fromAList_optimise = Q.prove(
-  `fromAList (optimise x p) =
-   map (λ(a,e). (a, bvl_handle$compile_exp x a
-                   (bvl_const$compile_exp e))) (fromAList p)`,
+  `fromAList (optimise split_seq x p) =
+   map (λ(a,e). (a, bvl_handle$compile_any split_seq x a e)) (fromAList p)`,
   simp[map_fromAList,optimise_def] >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM,UNCURRY]);
 
 val optimise_semantics = Q.store_thm("optimise_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (optimise x prog)) start =
+   semantics ffi0 (fromAList (optimise split_seq x prog)) start =
    semantics ffi0 (fromAList prog) start`,
   simp[bvlSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList (optimise x prog)) k) =
+  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList (optimise split_seq x prog)) k) =
     let (r,s) = bvlSem$evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) in
-      (r, s with code := fromAList (optimise x (toAList s.code)))` by (
+      (r, s with code := fromAList (optimise split_seq x (toAList s.code)))` by (
     gen_tac >> simp[] >>
     qmatch_abbrev_tac`_ = (_ (bvlSem$evaluate (xs,env,s)))` >>
     Q.ISPECL_THEN[`xs`,`env`,`s`]mp_tac optimise_evaluate >>
@@ -2290,7 +2295,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     imp_res_tac compile_list_imp >>
     rpt strip_tac >>
     first_x_assum drule >> strip_tac >>
-    qmatch_assum_rename_tac`compile_exps nn _ = _` >>
+    qmatch_assum_rename_tac`bvl_to_bvi$compile_exps nn _ = _` >>
     qexists_tac`nn` >> simp[] >>
     rewrite_tac [CONJ_ASSOC] >>
     reverse conj_tac >- (
@@ -2586,9 +2591,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ qspec_tac (`compile_prog limit.inline_size_limit prog`,`xs`)
     \\ Induct \\ fs [handle_ok_def]
     \\ Cases_on
-        `MAP (λx. compile_exp limit.exp_cut (FST (SND x)) (compile_exp (SND (SND x)))) xs`
+        `MAP (λx. compile_any limit.split_main_at_seq limit.exp_cut (FST (SND x)) (SND (SND x))) xs`
     \\ fs [handle_ok_def]
-    \\ simp[bvl_handleProofTheory.compile_exp_handle_ok])
+    \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
   \\ metis_tac [optimise_semantics,
        bvl_inlineProofTheory.compile_prog_semantics]);
 

@@ -11,14 +11,20 @@ val () =
  ( computeLib.del_consts
      [``arm6_target$arm6_enc``, ``arm8_target$arm8_enc``,
       ``x64_target$x64_enc``, ``mips_target$mips_enc``,
-       ``riscv_target$riscv_enc``, ``arm8_target$valid_immediate``]
+      ``riscv_target$riscv_enc``,
+      ``arm6_target$arm6_config``, ``arm8_target$arm8_config``,
+      ``x64_target$x64_config``, ``mips_target$mips_config``,
+      ``riscv_target$riscv_config``,
+      ``arm8_target$valid_immediate``,
+      ``asm$asm_ok : 'a asm -> 'a asm_config -> bool``]
  ; computeLib.extend_compset
     [computeLib.Extenders
        [arm6_targetLib.add_arm6_encode_compset,
         arm8_targetLib.add_arm8_encode_compset,
         x64_targetLib.add_x64_encode_compset,
         mips_targetLib.add_mips_encode_compset,
-        riscv_targetLib.add_riscv_encode_compset
+        riscv_targetLib.add_riscv_encode_compset,
+        asmLib.add_asm_compset
        ]
     ] computeLib.the_compset
  )
@@ -146,14 +152,6 @@ fun encoding q =
                          (string_quotation (split32 false l))
                      end
               else print_not_ok (),
-      x64 = fn () =>
-              if ok64 x64_config
-                then let
-                       val l = eval (mk_x64_enc tm64)
-                     in
-                       print_x64_disassemble l
-                     end
-              else print_not_ok (),
       mips = fn () =>
               if ok64 mips_config
                 then let
@@ -169,11 +167,19 @@ fun encoding q =
                      in
                        print_riscv_disassemble (split32 false l)
                      end
+              else print_not_ok (),
+      x64 = fn () =>
+              if ok64 x64_config
+                then let
+                       val l = eval (mk_x64_enc tm64)
+                     in
+                       print_x64_disassemble l
+                     end
               else print_not_ok ()
     }
   end
 
-datatype arch = Compare | All | ARMv6 | ARMv8 | x86_64 | MIPS | RISCV
+datatype arch = Compare | All | ARMv6 | ARMv8 | MIPS | RISCV | x86_64
 
 fun encodings arches l =
   let
@@ -191,9 +197,9 @@ fun encodings arches l =
                         ; print "\n"
                         ; pr "ARMv6" ARMv6 arm6
                         ; pr "ARMv8" ARMv8 arm8
-                        ; pr "x86-64" x86_64 x64
                         ; pr "MIPS-64" MIPS mips
                         ; pr "RISC-V" RISCV riscv
+                        ; pr "x86-64" x86_64 x64
                         )) es
             end
     else let
@@ -211,42 +217,52 @@ fun encodings arches l =
          in
            pr "ARMv6" ARMv6 (#arm6)
          ; pr "ARMv8" ARMv8 (#arm8)
-         ; pr "x86-64" x86_64 (#x64)
          ; pr "MIPS-64" MIPS (#mips)
          ; pr "RISC-V" RISCV (#riscv)
+         ; pr "x86-64" x86_64 (#x64)
          end
   end
 
 (*
 
-val () = encodings [All]
+open encodeLib
+
+val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
+   [
+    `Inst (Arith (LongMul 4 5 6 7))`
+   ]
+
+val () = Count.apply (encodings [All])
    [
     `Inst Skip`,
     `Inst (Const 8 0w)`,
-    `Inst (Const 2 0x100000000w)`,
-    `Inst (Const 2 0x100000001w)`,
-    `Inst (Const 2 0x100010001w)`,
-    `Inst (Arith (Binop Add 2 2 (Imm 1w)))`,
-    `Inst (Arith (Binop Add 2 2 (Imm 0x10000w)))`,
-    `Inst (Arith (Binop Add 2 2 (Reg 3)))`,
-    `Inst (Arith (Binop Or 2 2 (Imm 0xFFw)))`,
-    `Inst (Arith (Shift Lsr 2 2 1))`,
-    `Inst (Arith (Shift Asr 2 2 1))`,
-    `Inst (Arith (AddCarry 2 2 3 6))`,
-    `Inst (Mem Load 2 (Addr 3 0w))`,
-    `Inst (Mem Load 2 (Addr 3 0x10w))`,
-    `Inst (Mem Load8 2 (Addr 3 0x10w))`,
-    `Inst (Mem Load32 2 (Addr 3 0x10w))`,
-    `Inst (Mem Store 2 (Addr 3 0w))`,
-    `Inst (Mem Store 2 (Addr 3 0x10w))`,
-    `Inst (Mem Store8 2 (Addr 3 0x10w))`,
-    `Inst (Mem Store32 2 (Addr 3 0x10w))`,
+    `Inst (Const 6 0x100000000w)`,
+    `Inst (Const 6 0x100000001w)`,
+    `Inst (Const 6 0x100010001w)`,
+    `Inst (Arith (Binop Add 6 6 (Imm 1w)))`,
+    `Inst (Arith (Binop Add 6 6 (Imm 0x10000w)))`,
+    `Inst (Arith (Binop Add 6 6 (Reg 7)))`,
+    `Inst (Arith (Binop Or 6 6 (Imm 0xFFw)))`,
+    `Inst (Arith (Shift Lsr 6 6 1))`,
+    `Inst (Arith (Shift Asr 6 6 1))`,
+    `Inst (Arith (Div 6 7 8))`,
+    `Inst (Arith (LongDiv 0 2 0 2 3))`,
+    `Inst (Arith (LongMul 2 0 0 3))`,
+    `Inst (Arith (AddCarry 6 7 8 9))`,
+    `Inst (Mem Load 6 (Addr 7 0w))`,
+    `Inst (Mem Load 6 (Addr 7 0x10w))`,
+    `Inst (Mem Load8 6 (Addr 7 0x10w))`,
+ (* `Inst (Mem Load32 6 (Addr 7 0x10w))`, *)
+    `Inst (Mem Store 6 (Addr 7 0w))`,
+    `Inst (Mem Store 6 (Addr 7 0x10w))`,
+    `Inst (Mem Store8 6 (Addr 7 0x10w))`,
+ (* `Inst (Mem Store32 6 (Addr 7 0x10w))`, *)
     `Jump 12w`,
-    `JumpCmp Less 2 (Reg 3) 12w`,
-    `JumpCmp NotLess 2 (Imm 1w) 12w`,
+    `JumpCmp Less 6 (Reg 7) 12w`,
+    `JumpCmp NotLess 6 (Imm 1w) 12w`,
     `Call 0x10w`,
-    `JumpReg 2`,
-    `Loc 2 0xF00w`
+    `JumpReg 6`,
+    `Loc 6 0xF00w`
    ]
 
 *)

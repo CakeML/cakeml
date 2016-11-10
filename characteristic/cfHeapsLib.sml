@@ -36,7 +36,7 @@ fun prove_local_conseq_conv ctx =
           CONSEQ_CONV_STRENGTHEN_direction)) ctx
   in FIRST_CONSEQ_CONV ctx_cc end
 
-fun hclean_cont_conseq_conv ctx t =
+fun hclean_one_conseq_conv_core ctx t =
   let
     val (_, pre, _) = dest_F_pre_post t
     val hs = list_dest dest_star pre
@@ -58,8 +58,7 @@ fun hclean_cont_conseq_conv ctx t =
               ([], [hclean_prop, hclean_prop_single], [])
               CONSEQ_CONV_STRENGTHEN_direction,
             try_prove_local_cc
-          ],
-          (rand, IMP_CONCL_CONSEQ_CONV)
+          ]
         )
       else if is_sep_exists tm then
         SOME (
@@ -71,31 +70,33 @@ fun hclean_cont_conseq_conv ctx t =
             CONJ2_CONSEQ_CONV
               (REDEPTH_STRENGTHEN_CONSEQ_CONV (REDEPTH_CONV BETA_CONV)),
             try_prove_local_cc
-          ],
-          (snd o strip_forall, STRIP_FORALL_CONSEQ_CONV)
+          ]
         )
       else
         NONE
   in
     case find_map pull hs of
         NONE => raise UNCHANGED
-      | SOME (cc, cont) => (cc t, cont)
+      | SOME cc => cc t
   end
 
+fun hclean_one_dcc_core ctx =
+  STRENGTHEN_CONSEQ_CONV (hclean_one_conseq_conv_core ctx)
+
 val hclean_setup_conv =
-    F_pre_post_conv (QCONV (SIMP_CONV bool_ss [SEP_CLAUSES])) REFL
+    F_pre_post_conv (QCONV heap_clean_conv) REFL
 
 fun hclean_one_conseq_conv ctx =
   STRENGTHEN_CONSEQ_CONV hclean_setup_conv THEN_DCC
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV (hclean_cont_conseq_conv ctx))
+  (hclean_one_dcc_core ctx)
 
 fun hclean_conseq_conv ctx =
   STRENGTHEN_CONSEQ_CONV hclean_setup_conv THEN_DCC
-  STRENGTHEN_CONSEQ_CONV
-    (STEP_CONT_CONSEQ_CONV
-      (LOOP_CONT_CONSEQ_CONV (hclean_cont_conseq_conv ctx)))
-  
+  EXT_DEPTH_CONSEQ_CONV
+    (CONSEQ_CONV_get_context_congruences CONSEQ_CONV_FULL_CONTEXT)
+    CONSEQ_CONV_default_cache_opt NONE true
+    [(true, NONE, hclean_one_dcc_core)] ctx
+
 val hclean_one = ASM_CONSEQ_CONV_TAC hclean_one_conseq_conv
 val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv
 
@@ -114,11 +115,15 @@ val hclean = ASM_CONSEQ_CONV_TAC hclean_conseq_conv
 
    g `CF (H * emp) Q : bool`
    e hclean
+
+   g `CF (cond P * A * cond Q : hprop) (J:v -> hprop) : bool`
+   e hclean
 *)
 
 (** hchange *)
 
 infix then_ecc
+infix THEN_DCC
 
 fun hchange_apply_cc lemma_th cont_ecc1 cont_ecc2 =
   CONSEQ_TOP_REWRITE_CONV ([], [hchange_lemma], []) THEN_DCC
@@ -142,16 +147,12 @@ val hsimpl_cont_ecc =
 val id_cont_ecc =
   lift_conseq_conv_ecc REFL_CONSEQ_CONV
 
-fun hchange_core_cc lemma_th cont_ecc1 cont_ecc2 =
-  STEP_CONT_CONSEQ_CONV (
-    EVERY_CONT_CONSEQ_CONV [
-      hpull_cont_conseq_conv,
-      INPLACE_CONT_CONSEQ_CONV
-        (hchange_apply_cc lemma_th cont_ecc1 cont_ecc2
-         CONSEQ_CONV_STRENGTHEN_direction)
-    ]
-  )
-  |> STRENGTHEN_CONSEQ_CONV
+fun hchange_core_cc lemma_th cont_ecc1 cont_ecc2 dir t = let
+  val _ = cfHeapsBaseLib.dest_sep_imp t
+  val cc =
+    hpull_conseq_conv THEN_DCC
+    DEPTH_CONSEQ_CONV (hchange_apply_cc lemma_th cont_ecc1 cont_ecc2)
+in cc dir t end
 
 fun hchange_conseq_conv th =
   hchange_core_cc th hcancel_cont_ecc id_cont_ecc

@@ -1,5 +1,5 @@
 open preamble closLangTheory bvlTheory bvl_jumpTheory;
-local open conLangTheory pat_to_closTheory in (* for list tags *) end;
+open backend_commonTheory
 local open
   clos_mtiTheory
   clos_callTheory
@@ -10,6 +10,12 @@ local open
 in (* clos-to-clos transformations *) end;
 
 val _ = new_theory "clos_to_bvl";
+val _ = set_grammar_ancestry [
+  "backend_common",
+  "clos_mti", "clos_call", "clos_known", "clos_remove", "clos_number",
+  "clos_annotate",
+  "bvl_jump"
+]
 
 val closure_tag_def = Define`closure_tag = 30:num`
 val partial_app_tag_def = Define`partial_app_tag = 31:num`
@@ -23,12 +29,6 @@ val _ = EVAL``clos_tag_shift cons_tag = cons_tag`` |> EQT_ELIM
 val clos_tag_shift_inj = Q.store_thm("clos_tag_shift_inj",
   `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`,
   EVAL_TAC >> rw[] >> simp[])
-
-val bool_to_tag_def = Define`
-  bool_to_tag b = if b then true_tag else false_tag`
-
-val Bool_def = Define`
-  Bool b = Op (Cons (bool_to_tag b)) []`;
 
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
@@ -148,9 +148,6 @@ val mk_cl_call_def = Define `
 
 val partial_app_fn_location_def = Define `
   partial_app_fn_location (max_app:num) m n = max_app + max_app * m + n`;
-
-val mk_tick_def = Define `
-  mk_tick n e = FUNPOW Tick n e : bvl$exp`;
 
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `

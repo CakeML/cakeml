@@ -33,7 +33,7 @@ end
 
 val add_riscv_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``riscv_target$riscv_enc``, 1, riscv_encode_conv)],
-   computeLib.Defs [riscv_targetTheory.riscv_config_def],
+   computeLib.Defs [riscv_targetTheory.riscv_config],
    computeLib.Tys [``:('a, 'b) sum``]]
 
 val riscv_encode_decode_conv =
@@ -45,5 +45,7 @@ val riscv_encode_decode_conv =
         utilsLib.add_base_datatypes,
         asmLib.add_asm_compset,
         add_riscv_encode_compset]]
+
+val () = asmLib.add_asm_ok_thm riscv_targetTheory.riscv_asm_ok
 
 end

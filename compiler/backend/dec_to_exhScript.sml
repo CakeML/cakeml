@@ -1,4 +1,5 @@
 open preamble conLangTheory decLangTheory exhLangTheory
+open backend_commonTheory
 
 val _ = numLib.prefer_num()
 
@@ -12,7 +13,7 @@ val _ = new_theory"dec_to_exh"
 val _ = tDefine"is_unconditional"`
   is_unconditional p ⇔
   case p of
-  | Pvar _ => T
+  | conLang$Pvar _ => T
   | Pcon NONE ps => EVERY is_unconditional ps
   | Pref p => is_unconditional p
   | _ => F`
@@ -57,8 +58,6 @@ val add_default_def = Define `
      pes ++ [(Pvar "x", Raise (Var_local "x"))]
    else
      pes ++ [(Pvar "x", Raise (Con (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
-
-val _ = Define `tuple_tag = 0`;
 
 val _ = tDefine"compile_pat"`
   (compile_pat (Pvar x) = Pvar x)

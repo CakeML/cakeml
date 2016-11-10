@@ -1,4 +1,5 @@
 open preamble bvlTheory bviTheory;
+open backend_commonTheory
 local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataLangTheory in end;
 
 val _ = new_theory "bvl_to_bvi";
@@ -54,7 +55,7 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (WF_REL_TAC `measure exp1_size`)
 
 val AllocGlobal_location_def = Define`
-  AllocGlobal_location = dataLang$num_stubs`;
+  AllocGlobal_location = data_num_stubs`;
 val CopyGlobals_location_def = Define`
   CopyGlobals_location = AllocGlobal_location+1`;
 val InitGlobals_location_def = Define`
@@ -112,8 +113,7 @@ val stubs_def = Define `
                    (InitGlobals_location, InitGlobals_code start n);
                    (ListLength_location, ListLength_code)]`;
 
-val num_stubs_def = Define`
-  num_stubs = dataLang$num_stubs + 4`;
+val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -227,27 +227,27 @@ val compile_prog_def = Define `
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ append code, n1)`;
 
 val optimise_def = Define `
-  optimise cut_size ls =
-  MAP (λ(name,arity,exp).
-      (name,arity,
-       bvl_handle$compile_exp cut_size arity
-         (bvl_const$compile_exp exp))) ls`;
+  optimise split_seq cut_size ls =
+    MAP (λ(name,arity,exp).
+          (name,arity,bvl_handle$compile_any split_seq cut_size arity exp)) ls`;
 
 val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
+            ; split_main_at_seq : bool (* split main expression at Seqs *)
             |>`;
 
 val default_config_def = Define`
-  default_config = <|
-    inline_size_limit := 3;
-    exp_cut := 200
-  |>`;
+  default_config =
+    <| inline_size_limit := 3
+     ; exp_cut := 200
+     ; split_main_at_seq := T
+     |>`;
 
 val compile_def = Define `
   compile start n c prog =
     compile_prog start n
-      (optimise c.exp_cut
+      (optimise c.split_main_at_seq c.exp_cut
          (bvl_inline$compile_prog c.inline_size_limit prog))`;
 
 val _ = export_theory();

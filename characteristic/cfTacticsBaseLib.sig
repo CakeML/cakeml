@@ -29,8 +29,10 @@ sig
 
   val rewr_head_conv : thm -> conv
 
-  val parse : term -> term -> string -> term
-  val parse_topdecl : string -> term
+  val parse : term -> term -> string quotation -> term
+  val parse_exp : string quotation -> term
+  val parse_decl : string quotation -> term
+  val parse_topdecs : string quotation -> term
 
   val pick_name : string -> string
   val fetch_v : string -> ml_progLib.ml_prog_state -> term
@@ -114,22 +116,6 @@ sig
 
   val print_cc : conseq_conv
   val print_dcc : directed_conseq_conv
-
-  type subterm_cont =
-     (term -> term) * (conseq_conv -> conseq_conv)
-
-  type cont_conseq_conv = term -> thm * subterm_cont
-
-  val STEP_CONT_CONSEQ_CONV : cont_conseq_conv -> conseq_conv
-  val THEN_CONT_CONSEQ_CONV :
-    cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
-  val ORELSE_CONT_CONSEQ_CONV :
-    cont_conseq_conv -> cont_conseq_conv -> cont_conseq_conv
-  val TRY_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
-  val EVERY_CONT_CONSEQ_CONV : cont_conseq_conv list -> cont_conseq_conv
-  val LOOP_CONT_CONSEQ_CONV : cont_conseq_conv -> cont_conseq_conv
-  val INPLACE_CONT_CONSEQ_CONV : conseq_conv -> cont_conseq_conv
-  val REFL_CONT_CONSEQ_CONV : cont_conseq_conv
 
   (* -- *)
 

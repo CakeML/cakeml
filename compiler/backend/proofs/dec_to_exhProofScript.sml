@@ -6,7 +6,7 @@ open preamble
 val _ = new_theory "dec_to_exhProof";
 
 val find_recfun_compile_funs = prove(
-  ``∀ls f exh. find_recfun f (compile_funs exh ls) =
+  ``∀ls f exh. find_recfun f (dec_to_exh$compile_funs exh ls) =
                OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)``,
   Induct >> simp[compile_funs_map] >- (
     simp[semanticPrimitivesTheory.find_recfun_def] ) >>
@@ -274,7 +274,7 @@ val pmatch = Q.prove (
   >- metis_tac []
   >- (every_case_tac >>
       full_simp_tac(srw_ss())[match_result_error, store_lookup_def, LIST_REL_EL_EQN] >>
-      rev_full_simp_tac(srw_ss())[] >> metis_tac [evalPropsTheory.sv_rel_def])
+      rev_full_simp_tac(srw_ss())[] >> metis_tac [semanticPrimitivesPropsTheory.sv_rel_def])
   >- (every_case_tac >>
       srw_tac[][match_result_rel_def] >>
       res_tac >>
@@ -337,10 +337,10 @@ val tac =
   full_simp_tac(srw_ss())[conSemTheory.prim_exn_def, v_rel_eqn, conSemTheory.exn_tag_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN, EL_LUPDATE,state_rel_def] >>
-  srw_tac[][EL_LUPDATE, evalPropsTheory.sv_rel_def] >>
+  srw_tac[][EL_LUPDATE, semanticPrimitivesPropsTheory.sv_rel_def] >>
   res_tac >>
   pop_assum mp_tac >>
-  ASM_REWRITE_TAC [evalPropsTheory.sv_rel_def] >>
+  ASM_REWRITE_TAC [semanticPrimitivesPropsTheory.sv_rel_def] >>
   full_simp_tac(srw_ss())[v_rel_eqn, store_v_same_type_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[];
@@ -371,7 +371,7 @@ val do_app_lem = Q.prove (
           conSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
       full_simp_tac(srw_ss())[state_rel_def])
   >- (tac >>
-      metis_tac [v_rel_eqn, store_v_distinct, evalPropsTheory.sv_rel_def])
+      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def])
   >- tac
   >- (tac >>
     Cases_on`n < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
@@ -380,10 +380,10 @@ val do_app_lem = Q.prove (
     Cases_on`n' < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
     strip_tac >> `n' = LENGTH s1_exh.refs` by simp[] >> simp[])
   >- (tac >>
-      metis_tac [v_rel_eqn, store_v_distinct, evalPropsTheory.sv_rel_def])
+      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def])
   >- tac
   >- (tac >>
-      metis_tac [v_rel_eqn, store_v_distinct, evalPropsTheory.sv_rel_def])
+      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def])
   >- tac
   >- tac
   >- tac
@@ -427,11 +427,11 @@ val do_app_lem = Q.prove (
           full_simp_tac(srw_ss())[] >>
           imp_res_tac LIST_REL_LENGTH >>
           full_simp_tac (srw_ss()++ARITH_ss) [])
-      >- (ASM_REWRITE_TAC [evalPropsTheory.sv_rel_def, vs_rel_LIST_REL] >>
+      >- (ASM_REWRITE_TAC [semanticPrimitivesPropsTheory.sv_rel_def, vs_rel_LIST_REL] >>
           match_mp_tac EVERY2_LUPDATE_same >>
           full_simp_tac(srw_ss())[] ))
    >- (tac >>
-       `l = l'` by metis_tac[evalPropsTheory.sv_rel_def] >>
+       `l = l'` by metis_tac[semanticPrimitivesPropsTheory.sv_rel_def] >>
        full_simp_tac(srw_ss())[])) |> INST_TYPE[alpha|->``:'ffi``];
 
 val do_app = prove(
@@ -454,7 +454,7 @@ val do_app = prove(
   simp[exhSemTheory.do_app_def] >>
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN,result_rel_cases] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[state_rel_def] >>
-  full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,evalPropsTheory.sv_rel_cases] >>
+  full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,semanticPrimitivesPropsTheory.sv_rel_cases] >>
   srw_tac[][] >> metis_tac[NOT_SOME_NONE]);
 
 val do_opapp = prove(
