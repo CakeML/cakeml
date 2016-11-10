@@ -1023,6 +1023,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   full_simp_tac(srw_ss())[state_rel_def])
 
 open exh_reorderProofTheory
+val compile_sing = exh_reorderTheory.compile_sing
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `semantics env st [e] ≠ Fail ∧
