@@ -189,9 +189,10 @@ fun dest_moves tm =
 fun ct_to_spg ct = fst(clash_tree_to_spg ct [] Ln)
 
 fun alloc_aux alg k [] n = (print"\n";[])
-|   alloc_aux alg k ((clash_tree,moves)::xs) n =
+|   alloc_aux alg k ([clash_tree,moves,force]::xs) n =
   let val _ = print (strcat (Int.toString n) " ")
       val clash_tree_poly = (ct_to_spg o dest_clash_tree) clash_tree
+      (*TODO: handle forced edges*)
       val moves_poly = dest_moves moves in
       reg_alloc alg clash_tree_poly k moves_poly :: alloc_aux alg k xs (n+1)
   end;
@@ -201,7 +202,7 @@ fun alloc_aux alg k [] n = (print"\n";[])
 *)
 fun alloc_all alg t =
   let val (k,ls) = pairSyntax.dest_pair t
-    val clash_mov_ls = map pairSyntax.dest_pair (fst(listSyntax.dest_list ls)) in
+    val clash_mov_ls = map pairSyntax.strip_pair (fst(listSyntax.dest_list ls)) in
     alloc_aux alg (int_of_term k) clash_mov_ls 0
   end
 

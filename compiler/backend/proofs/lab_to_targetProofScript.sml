@@ -960,12 +960,7 @@ val arith_upd_lemma = Q.prove(
     \\ every_case_tac \\ fs[]
     \\ EVAL_TAC \\ rw[] \\ EVAL_TAC \\ fs[]
     \\ fs[read_reg_def]
-    \\ fs[labSemTheory.assert_def])
-  >>
-    cheat
-    (* NOTE: This is due to the flipped order of results for LongMul.
-    Fix on asm_ok branch *)
-    );
+    \\ fs[labSemTheory.assert_def]));
 
 val MULT_ADD_LESS_MULT = prove(
   ``!m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num``,
@@ -3064,15 +3059,15 @@ val offset_ok_def = Define`
 
 val offset_ok_ind = theorem"offset_ok_ind";
 
-val line_ok_light_imp_line_ok = Q.store_thm("line_ok_light_imp_line_ok",
+val line_ok_pre_light_imp_line_ok = Q.store_thm("line_ok_pre_light_imp_line_ok",
   `∀c labs pos line.
+     line_ok_pre c line ∧
      line_enc_with_nop c.encode labs pos line ∧
      line_offset_ok labs pos line ∧
      line_ok_light c line ∧ (is_Label line ⇒ EVEN pos) ⇒
      line_ok c labs pos line`,
   ho_match_mp_tac line_ok_ind
-  \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,
-        line_offset_ok_def,get_jump_offset_def] \\ fs[]);
+  \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,line_ok_pre_def,line_offset_ok_def,get_jump_offset_def] \\ fs[]);
 
 val all_enc_with_nop_def = Define`
   (all_enc_with_nop enc labs pos [] ⇔ T) ∧
@@ -3171,9 +3166,10 @@ val line_enc_with_nop_label_zero = Q.store_thm("line_enc_with_nop_label_zero",
   recInduct line_enc_with_nop_ind
   \\ rw[line_enc_with_nop_def]);
 
-val all_enc_ok_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_light_imp_all_enc_ok",
+val all_enc_ok_pre_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_pre_light_imp_all_enc_ok",
   `∀c labs pos code.
     all_enc_with_nop c.encode labs pos code ∧
+    all_enc_ok_pre c code ∧
     all_enc_ok_light c code ∧
     even_labels_strong pos code ∧
     offset_ok labs pos code
@@ -3181,7 +3177,7 @@ val all_enc_ok_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_light_imp_all_enc_
     all_enc_ok c labs pos code`,
   ho_match_mp_tac all_enc_ok_ind
   \\ rw[all_enc_ok_def,all_enc_with_nop_def,
-        even_labels_strong_def,line_ok_light_imp_line_ok,
+        even_labels_strong_def,line_ok_pre_light_imp_line_ok,
         offset_ok_def,lines_offset_ok_def]
   \\ imp_res_tac line_enc_with_nop_length_ok
   \\ imp_res_tac line_enc_with_nop_label_zero
@@ -4457,15 +4453,72 @@ val pad_code_compute_labels = Q.store_thm("pad_code_compute_labels",
   \\ Cases_on`lines` \\ fs[]
   \\ Cases_on`h` \\ fs[label_prefix_zero_cons]);
 
+val enc_lines_again_all_enc_ok_pre = prove(``
+  ∀labs pos enc lines acc ok res ok' c.
+  enc_lines_again labs pos enc lines (acc,ok) = (res,ok') ∧
+  EVERY (line_ok_pre c) lines ∧ EVERY (line_ok_pre c) acc ⇒
+  EVERY (line_ok_pre c) res``,
+  recInduct enc_lines_again_ind>>rw[enc_lines_again_def]>>
+  rw[EVERY_REVERSE]>>fs[line_ok_pre_def])
+
+val enc_secs_again_all_enc_ok_pre = prove(``
+  ∀pos labs enc ls res ok c.
+  enc_secs_again pos labs enc ls = (res,ok) ∧ all_enc_ok_pre c ls ⇒
+  all_enc_ok_pre c res``,
+  ho_match_mp_tac enc_secs_again_ind>>rw[enc_secs_again_def]>>
+  rw[]>>
+  rpt (pairarg_tac>>fs[])>>
+  rw[]>>
+  match_mp_tac enc_lines_again_all_enc_ok_pre>>asm_exists_tac>>fs[])
+
+val line_ok_pre_add_nop = prove(``
+  EVERY (line_ok_pre c) xs ⇒
+  EVERY (line_ok_pre c) (add_nop nop xs)``,
+  Induct_on`xs`>>EVAL_TAC>>Cases>>fs[]>>rw[]>>EVAL_TAC>>fs[line_ok_pre_def])
+
+val line_ok_pre_pad_section = prove(``
+  ∀nop xs acc c.
+  EVERY (line_ok_pre c) xs ∧ EVERY (line_ok_pre c) acc ⇒
+  EVERY (line_ok_pre c) (pad_section nop xs acc)``,
+  ho_match_mp_tac pad_section_ind>>rw[pad_section_def]>>
+  fs[EVERY_REVERSE]>>
+  first_x_assum match_mp_tac>>fs[line_ok_pre_def]>>
+  metis_tac[line_ok_pre_add_nop])
+
+val all_enc_ok_pre_pad_code = prove(``
+  ∀nop code c.
+  all_enc_ok_pre c code ⇒
+  all_enc_ok_pre c (pad_code nop code)``,
+  ho_match_mp_tac pad_code_ind>>rw[]>>EVAL_TAC>>rw[]>>
+  rfs[]>>
+  match_mp_tac line_ok_pre_pad_section>>fs[])
+
+val all_enc_ok_pre_lines_upd_lab_len = prove(``
+  ∀n lines acc.
+  EVERY (line_ok_pre c) lines ∧
+  EVERY (line_ok_pre c) acc ⇒
+  EVERY (line_ok_pre c) (lines_upd_lab_len n lines acc)``,
+  ho_match_mp_tac lines_upd_lab_len_ind>>rw[lines_upd_lab_len_def]>>
+  fs[EVERY_REVERSE,line_ok_pre_def])
+
+val all_enc_ok_pre_upd_lab_len = prove(``
+  ∀n code.
+  all_enc_ok_pre c code ⇒
+  all_enc_ok_pre c (upd_lab_len n code)``,
+  ho_match_mp_tac upd_lab_len_ind>>rw[]>> EVAL_TAC>>fs[]>>
+  match_mp_tac all_enc_ok_pre_lines_upd_lab_len>>fs[])
+
 val remove_labels_loop_thm = Q.prove(
   `∀n c code code2 labs.
     remove_labels_loop n c code = SOME (code2,labs) ∧
     good_syntax mc_conf code LN ∧
     EVERY sec_ends_with_label code ∧
+    all_enc_ok_pre c code ∧ (* new loop invariant *)
     all_encd0 mc_conf.target.config.encode code ∧
     c = mc_conf.target.config ∧
     enc_ok mc_conf.target.config
     ⇒
+    all_enc_ok_pre c code2 ∧
     all_enc_ok mc_conf.target.config labs 0 code2 /\
     code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
     (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
@@ -4486,6 +4539,7 @@ val remove_labels_loop_thm = Q.prove(
       >- (
         match_mp_tac enc_secs_again_ends_with_label
         \\ metis_tac[] )
+      >- (match_mp_tac enc_secs_again_all_enc_ok_pre>>metis_tac[])
       \\ match_mp_tac enc_secs_again_encd0
       \\ metis_tac[] )
     >> simp[] >> strip_tac >> fs []
@@ -4493,7 +4547,7 @@ val remove_labels_loop_thm = Q.prove(
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
-  \\ qmatch_abbrev_tac`all_enc_ok c labs 0 (pad_code nop sec_list) ∧ _`
+  \\ qmatch_abbrev_tac`_ ∧ all_enc_ok c labs 0 (pad_code nop sec_list) ∧ _`
   \\ qmatch_assum_abbrev_tac`enc_secs_again 0 labs0 enc code = (code1,T)`
   \\ qpat_x_assum`Abbrev(code1 = _)`kall_tac
   \\ `all_encd0 enc code1` by imp_res_tac enc_secs_again_encd0
@@ -4541,8 +4595,15 @@ val remove_labels_loop_thm = Q.prove(
   \\ `all_lab_len_pos_ok 0 sec_list`
   by metis_tac[enc_secs_again_pos_ok,upd_lab_len_pos_ok]
   \\ conj_asm1_tac
+  >-
+    (match_mp_tac all_enc_ok_pre_pad_code>>
+    match_mp_tac enc_secs_again_all_enc_ok_pre>>asm_exists_tac>>
+    fs[Abbr`code2`]>>
+    match_mp_tac all_enc_ok_pre_upd_lab_len>>
+    match_mp_tac enc_secs_again_all_enc_ok_pre>>asm_exists_tac>>fs[])
+  \\ conj_asm1_tac
   >- (
-    match_mp_tac all_enc_ok_light_imp_all_enc_ok \\ fs[]
+    match_mp_tac all_enc_ok_pre_light_imp_all_enc_ok \\ fs[]
     \\ conj_asm1_tac
     >- (
       match_mp_tac all_enc_with_nop_pad_code
@@ -4614,10 +4675,19 @@ val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[enc_sec_def]
   >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]);
 
+val all_enc_ok_pre_enc_sec_list = prove(``
+  ∀code enc c.
+  all_enc_ok_pre c code ⇒
+  all_enc_ok_pre c (enc_sec_list enc code)``,
+  fs[enc_sec_list_def]>>Induct>>fs[]>>
+  Cases>>fs[enc_sec_def]>>rw[]>>
+  Induct_on`l`>>fs[]>>Cases>>fs[enc_line_def,line_ok_pre_def])
+
 val remove_labels_thm = Q.store_thm("remove_labels_thm",
   `good_syntax mc_conf code LN /\
    EVERY sec_ends_with_label code /\
    enc_ok mc_conf.target.config /\
+   all_enc_ok_pre mc_conf.target.config code /\
    remove_labels clock mc_conf.target.config code = SOME (code2,labs) ==>
    all_enc_ok mc_conf.target.config labs 0 code2 /\
    code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
@@ -4632,7 +4702,7 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
   >> disch_then(qspec_then`mc_conf`mp_tac)
   >> impl_tac
   >- (
-    simp[good_syntax_def,enc_sec_list_encd0]
+    simp[good_syntax_def,enc_sec_list_encd0,all_enc_ok_pre_enc_sec_list]
     \\ match_mp_tac enc_sec_list_ends_with_label
     \\ fs[])
   >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]
@@ -4744,6 +4814,7 @@ val IMP_state_rel_make_init = prove(
   ``good_syntax mc_conf code LN /\
     EVERY sec_ends_with_label code /\
     enc_ok mc_conf.target.config /\
+    all_enc_ok_pre mc_conf.target.config code /\
     remove_labels clock mc_conf.target.config code =
       SOME (code2,labs) /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
@@ -4798,11 +4869,19 @@ val implements_intro_gen = store_thm("implements_intro_gen",
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[semanticsPropsTheory.extend_with_resource_limit_def]);
 
+val all_enc_ok_pre_filter_skip = prove(``
+  ∀code c.
+  all_enc_ok_pre c code ⇒
+  all_enc_ok_pre c (filter_skip code)``,
+  Induct>>TRY(Cases)>>fs[lab_filterTheory.filter_skip_def]>>rw[]>>
+  Induct_on`l`>>fs[]>>rw[])
+
 val semantics_compile_lemma = store_thm("semantics_compile_lemma",
   ``ffi.final_event = NONE /\
     backend_correct mc_conf.target /\
     good_syntax mc_conf code LN /\
     EVERY sec_ends_with_label code /\
+    all_enc_ok_pre c.asm_conf code /\
     c.asm_conf = mc_conf.target.config /\
     compile c code = SOME (bytes,ffi_limit) /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
@@ -4822,7 +4901,7 @@ val semantics_compile_lemma = store_thm("semantics_compile_lemma",
   \\ qexists_tac `c.init_clock`
   \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
   \\ full_simp_tac(srw_ss())[find_ffi_index_limit_filter_skip]
-  \\ fs [make_init_filter_skip,sec_ends_with_label_filter_skip])
+  \\ fs [make_init_filter_skip,sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip])
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]

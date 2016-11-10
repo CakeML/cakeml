@@ -2391,4 +2391,49 @@ val stack_alloc_lab_pres = store_thm("stack_alloc_lab_pres",``
   >>
     res_tac>>fs[]));
 
+val sa_comp_stack_asm_name = prove(``
+  ∀n m p.
+  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
+  let (p',m') = comp n m p in
+  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'``,
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  simp[Once comp_def]
+  >-
+    (Cases_on`o'`>-
+      fs[Once comp_def,stack_asm_name_def,stack_asm_remove_def]
+    >>
+    PairCases_on`x`>>SIMP_TAC std_ss [Once comp_def]>>fs[]>>
+    FULL_CASE_TAC>>fs[]>>
+    TRY(PairCases_on`x`)>>
+    rpt(pairarg_tac>>fs[])>>rw[]>>
+    fs[stack_asm_name_def,stack_asm_remove_def])
+  >>
+    rpt(pairarg_tac>>fs[])>>rw[]>>
+    fs[stack_asm_name_def,stack_asm_remove_def])
+
+val sa_compile_stack_asm_convs = store_thm("sa_compile_stack_asm_convs",``
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+  (* conf_ok is too strong, but we already have it anyway *)
+  conf_ok (:'a) conf ∧
+  addr_offset_ok 0w c ∧
+  reg_name 10 c ∧ good_dimindex(:'a) ∧
+  c.valid_imm (INL Add) 8w ∧
+  c.valid_imm (INL Add) 4w ∧
+  c.valid_imm (INL Add) 1w ∧
+  c.valid_imm (INL Sub) 1w
+  ⇒
+  EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
+  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)``,
+  fs[compile_def]>>rw[]>>
+  TRY
+    (EVAL_TAC>>fs[reg_name_def,labPropsTheory.good_dimindex_def,asmTheory.offset_ok_def,data_to_wordProofTheory.conf_ok_def,data_to_wordTheory.shift_length_def]>>
+    pairarg_tac>>fs[]>>NO_TAC)
+  >>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+  rw[]>>res_tac>>
+  drule sa_comp_stack_asm_name>>fs[]>>
+  disch_then(qspecl_then[`p_1`,`next_lab p_2`] assume_tac)>>
+  pairarg_tac>>fs[])
+
 val _ = export_theory();

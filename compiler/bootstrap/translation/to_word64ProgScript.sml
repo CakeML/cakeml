@@ -521,7 +521,9 @@ val word_alloc_full_ssa_cc_trans_side = prove(``
 
 val _ = translate (spec64 remove_dead_def)
 
-val _ = translate (spec64 word_alloc_def)
+val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_def)
+
+val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 
 val word_alloc_apply_colour_side = prove(``
   ∀x y. word_alloc_apply_colour_side x y ⇔ T``,
@@ -529,7 +531,7 @@ val word_alloc_apply_colour_side = prove(``
   simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
 
 val word_alloc_word_alloc_side = prove(``
-  ∀w x y z. word_alloc_word_alloc_side w x y z ⇔ T``,
+  ∀v w x y z. word_alloc_word_alloc_side v w x y z ⇔ T``,
   simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
   Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
   word_alloc_apply_colour_side]) |> update_precondition

@@ -382,6 +382,14 @@ val inst_def = Define `
     | Arith (Shift sh r1 r2 n) =>
         assign r1
           (Shift sh (Var r2) (Nat n)) s
+    | Arith (Div r1 r2 r3) =>
+       (let vs = get_vars[r3;r2] s in
+       case vs of
+       SOME [Word q;Word w2] =>
+         if q ≠ 0w then
+           SOME (set_var r1 (Word (w2 // q)) s)
+         else NONE
+      | _ => NONE)
     | Arith (AddCarry r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3;r4] s in
         case vs of
@@ -396,7 +404,7 @@ val inst_def = Define `
         case vs of
         SOME [Word w3;Word w4] =>
          let r = w2n w3 * w2n w4 in
-           SOME (set_var r1 (Word (n2w (r DIV dimword(:'a)))) (set_var r2 (Word (n2w r)) s))
+           SOME (set_var r2 (Word (n2w r)) (set_var r1 (Word (n2w (r DIV dimword(:'a)))) s))
         | _ => NONE)
     | Arith (LongDiv r1 r2 r3 r4 r5) =>
        (let vs = get_vars [r3;r4;r5] s in

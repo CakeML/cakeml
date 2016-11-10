@@ -171,7 +171,7 @@ val all_asm_ok_def = Define `
 
 val line_ok_light_def = Define `
   (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
-  (line_ok_light c (Asm b bytes l) <=> asm_ok b c) /\
+  (line_ok_light c (Asm b bytes l) <=> T) /\
   (line_ok_light c (LabAsm Halt w bytes l) <=>
      asm_ok (Jump w) c) /\
   (line_ok_light c (LabAsm ClearCache w bytes l) <=>
