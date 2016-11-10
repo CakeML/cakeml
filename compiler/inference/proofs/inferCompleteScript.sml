@@ -6,7 +6,7 @@ open inferPropsTheory;
 
 open infer_eSoundTheory;
 open infer_eCompleteTheory;
-open type_eDetermTheory envRelTheory;
+open type_eDetermTheory envRelTheory namespacePropsTheory;
 
 val _ = new_theory "inferComplete";
 
@@ -816,9 +816,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     env_rel tenv ienv ∧
     decls = convert_decls idecls
     ⇒
-    ?idecls' st2.
+    ?idecls' ienv' st2.
       decls' = convert_decls idecls' ∧
-      infer_d mn idecls ienv d st1 = (Success (idecls',tenv_to_ienv tenv'), st2)`,
+      env_rel tenv' ienv' ∧
+      infer_d mn idecls ienv d st1 = (Success (idecls',ienv'), st2)`,
   cheat);
 
 val infer_ds_complete = Q.store_thm ("infer_ds_complete",
@@ -829,13 +830,13 @@ val infer_ds_complete = Q.store_thm ("infer_ds_complete",
       decls = convert_decls idecls ∧
       x = T
       ⇒
-      ?idecls' st2.
+      ?idecls' ienv' st2.
         decls' = convert_decls idecls' ∧
-        infer_ds mn idecls ienv ds st1 = (Success (idecls',tenv_to_ienv tenv'), st2)`,
+        env_rel tenv' ienv' ∧
+        infer_ds mn idecls ienv ds st1 = (Success (idecls',ienv'), st2)`,
   ho_match_mp_tac type_ds_ind >>
   rw [infer_ds_def, success_eqns]
-  >- simp [empty_decls_def, empty_inf_decls_def, tenv_to_ienv_def, convert_decls_def]
-  >- simp [tenv_to_ienv_def] >>
+  >- simp [empty_decls_def, empty_inf_decls_def, convert_decls_def] >>
   drule infer_d_complete >>
   disch_then drule >>
   disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
@@ -844,18 +845,84 @@ val infer_ds_complete = Q.store_thm ("infer_ds_complete",
   fs [GSYM convert_append_decls] >>
   first_x_assum (qspec_then `append_decls idecls' idecls` mp_tac) >>
   simp [] >>
-  disch_then (qspecl_then [`extend_dec_ienv (tenv_to_ienv tenv1) ienv`, `st2`] mp_tac) >>
+  disch_then (qspecl_then [`extend_dec_ienv ienv' ienv`, `st2`] mp_tac) >>
   impl_tac
-  >- (
-    irule env_rel_extend >>
-    simp [] >>
-    irule env_rel_tenv_to_ienv >>
-    drule type_d_tenv_ok >>
-    fs [env_rel_def] >>
-    metis_tac [type_d_tenv_ok_helper, env_rel_def]) >>
+  >- (irule env_rel_extend >> simp []) >>
   rw [] >>
   rw [success_eqns, convert_append_decls] >>
-  metis_tac [tenv_to_ienv_extend]);
+  metis_tac [env_rel_extend]);
+
+
+val check_specs_complete = Q.store_thm ("check_specs_complete",
+  `!mn tenvT specs decls tenv.
+    type_specs mn tenvT specs decls tenv ⇒
+    ∀st1 extra_idecls extra_ienv.
+      ?st2 idecls new_ienv.
+        decls = convert_decls idecls ∧
+        env_rel tenv new_ienv ∧
+        check_specs mn tenvT extra_idecls extra_ienv specs st1 =
+          (Success (append_decls idecls extra_idecls,extend_dec_ienv new_ienv extra_ienv), st2)`,
+
+  ho_match_mp_tac type_specs_ind >>
+  rw [check_specs_def, success_eqns]
+  >- (
+    fs [extend_dec_ienv_def, empty_decls_def, convert_decls_def, append_decls_def,
+        inf_decls_component_equality, inf_env_component_equality] >>
+    qexists_tac `empty_inf_decls` >>
+    qexists_tac `<| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>` >>
+    rw [empty_inf_decls_def])
+  >- (
+    drule (CONJUNCT1 check_freevars_t_to_freevars) >>
+    disch_then (qspec_then `st1` strip_assume_tac) >>
+    rw [PULL_EXISTS] >>
+    qho_match_abbrev_tac
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ _ (extra_ienv with inf_v := nsBind name new extra_ienv.inf_v) _ _ = (Success (_ idecls new_ienv), st2)` >>
+    simp [] >>
+    first_x_assum (qspecl_then [`st'`, `extra_idecls`, `(extra_ienv with inf_v := nsBind name new extra_ienv.inf_v)`] mp_tac) >>
+    rw [] >>
+    rw [] >>
+    qexists_tac `idecls` >>
+    qexists_tac `extend_dec_ienv new_ienv <| inf_v := nsSing name new; inf_c := nsEmpty; inf_t := nsEmpty |>` >>
+    unabbrev_all_tac >>
+    rw []
+    >- (
+      irule env_rel_extend >>
+      rw [] >>
+      simp [env_rel_def, ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
+            ienv_val_ok_def, typeSoundInvariantsTheory.tenv_val_ok_def,
+            env_rel_sound_def, env_rel_complete_def, lookup_var_def] >>
+      cheat)
+    >- (
+      rw [extend_dec_ienv_def] >>
+      simp_tac std_ss [GSYM nsAppend_assoc, nsAppend_nsSing]))
+ >- (
+    qho_match_abbrev_tac
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ _ ∧ check_specs _ _ eid' <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (Success (_ idecls new_ienv), st2)` >>
+    simp [] >>
+    first_x_assum (qspecl_then [`st1`, `eid'`, `<|inf_v := extra_ienv.inf_v; inf_c := nsAppend new_ctors extra_ienv.inf_c; inf_t := nsAppend new_t extra_ienv.inf_t|>`] mp_tac) >>
+    rw [] >>
+    rw [] >>
+    qexists_tac `append_decls idecls <| inf_defined_types := MAP (λ(tvs,tn,ctors). mk_id mn tn) td;
+              inf_defined_mods := []; inf_defined_exns := []|>` >>
+    qexists_tac `extend_dec_ienv new_ienv <| inf_v := nsEmpty; inf_c := new_ctors; inf_t := new_t |>` >>
+    unabbrev_all_tac >>
+    rw []
+    >- (
+      simp [convert_append_decls] >>
+      rw [convert_decls_def])
+    >- (
+      irule env_rel_extend >>
+      rw [] >>
+      simp [env_rel_def, ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
+            ienv_val_ok_def, typeSoundInvariantsTheory.tenv_val_ok_def,
+            env_rel_sound_def, env_rel_complete_def, lookup_var_def] >>
+      cheat)
+    >- rw [append_decls_def]
+    >- rw [extend_dec_ienv_def])
+
+
+
+
 
 val infer_top_complete = Q.store_thm ("infer_top_complete",
   `!x decls tenv top decls' tenv'.
@@ -886,6 +953,8 @@ val infer_top_complete = Q.store_thm ("infer_top_complete",
   fs [check_signature_def, typeSystemTheory.check_signature_cases,
       success_eqns]
   >- fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION, tenv_to_ienv_lift] >>
+
+
   cheat);
 
 (*

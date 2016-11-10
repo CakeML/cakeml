@@ -935,6 +935,14 @@ val env_rel_extend = Q.store_thm ("env_rel_extend",
       qexists_tac `t''` >>
       simp [])));
 
+val env_rel_empty = Q.store_thm ("env_rel_empty[simp]",
+  `env_rel <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
+           <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>`,
+  rw [env_rel_def, ienv_ok_def, ienv_val_ok_def, env_rel_sound_def,
+      lookup_var_def, env_rel_complete_def] >>
+  Cases_on `x` >>
+  rw [namespaceTheory.nsLookupMod_def]);
+
 val ienv_to_tenv_def = Define `
   ienv_to_tenv ienv =
     <| v := nsMap (\(tvs, t). (tvs, convert_t t)) ienv.inf_v;

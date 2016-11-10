@@ -71,6 +71,10 @@ val nsLookup_nsEmpty = Q.store_thm ("nsLookup_nsEmpty[simp]",
  Cases
  >> rw [nsLookup_def, nsEmpty_def]);
 
+val nsLookupMod_nsEmpty = Q.store_thm ("nsLookupMod_nsEmpty[simp]",
+  `!x y. nsLookupMod nsEmpty (x::y) = NONE`,
+ rw [nsLookupMod_def, nsEmpty_def]);
+
 val nsAppend_nsEmpty = Q.store_thm ("nsAppend_nsEmpty[simp]",
   `!env. nsAppend env nsEmpty = env ∧ nsAppend nsEmpty env = env`,
  Cases
