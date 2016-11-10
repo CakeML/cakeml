@@ -144,23 +144,6 @@ val is_const_con_pat_bindings_empty = Q.store_thm("is_const_con_pat_bindings_emp
     \\ fs [is_const_con_def]
     \\ EVAL_TAC)
 
-val compile_append = Q.store_thm ("compile_append",
-  `! x h. compile (x ++ h) = (compile x) ++ (compile h)`,
-  Induct_on `x`
-  \\ fs []
-  \\ rw [Once compile_cons]
-  \\ hd_compile_sing_tac
-  \\ rw [Once compile_cons])
-
-val compile_reverse = Q.store_thm ("compile_reverse",
-  `! x. REVERSE (compile x) = compile (REVERSE x)`,
-  Induct
-  \\ fs []
-  \\ rw [Once compile_cons]
-  \\ hd_compile_sing_tac
-  \\ rw [EQ_SYM_EQ, REVERSE_DEF]
-  \\ rw [compile_append])
-
 fun hd_compile_sing_tac (goal as (asl,w)) =
     let
        val t = find_term (can (match_term ``HD (exh_reorder$compile [e])``)) w;
@@ -186,6 +169,23 @@ fun app_compile_sing_tac (goal as (asl,w)) =
                 )
                 goal
     end
+
+val compile_append = Q.store_thm ("compile_append",
+  `! x h. compile (x ++ h) = (compile x) ++ (compile h)`,
+  Induct_on `x`
+  \\ fs []
+  \\ rw [Once compile_cons]
+  \\ hd_compile_sing_tac
+  \\ rw [Once compile_cons])
+
+val compile_reverse = Q.store_thm ("compile_reverse",
+  `! x. REVERSE (compile x) = compile (REVERSE x)`,
+  Induct
+  \\ fs []
+  \\ rw [Once compile_cons]
+  \\ hd_compile_sing_tac
+  \\ rw [EQ_SYM_EQ, REVERSE_DEF]
+  \\ rw [compile_append])
 
 (* alternative characterisation of pattern matching *)
 
