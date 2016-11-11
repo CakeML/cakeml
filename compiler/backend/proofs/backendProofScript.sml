@@ -1469,16 +1469,16 @@ val compile_correct = Q.store_thm("compile_correct",
     rveq >> simp[prim_config_eq] ) >> fs[] >>
   strip_tac >> fs[] >>
   qunabbrev_tac`c''`>>fs[] >>
-  qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 es3 }` >>
-  (dec_to_exhProofTheory.compile_exp_semantics
-    |> Q.GENL[`sth`,`envh`,`es`,`st`,`env`]
-    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
+  qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 [e3] }` >>
+  (dec_to_exhProofTheory.compile_semantics
+    |> Q.GENL[`sth`,`envh`,`e`,`st`,`env`]
+    |> qispl_then[`env3`,`st3`,`e3`]mp_tac) >>
   simp[Abbr`env3`] >>
   simp[Once dec_to_exhProofTheory.v_rel_cases] >>
   simp[dec_to_exhProofTheory.state_rel_def] >>
   fs[Abbr`st3`,con_to_decProofTheory.compile_state_def] >>
   CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
-  simp[Abbr`es3`,dec_to_exhTheory.compile_exp_def] >>
+  simp[Abbr`e3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   rator_x_assum`from_exh`mp_tac >>
   srw_tac[][from_exh_def] >>

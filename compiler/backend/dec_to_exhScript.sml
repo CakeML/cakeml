@@ -1,4 +1,4 @@
-open preamble conLangTheory decLangTheory exhLangTheory
+open preamble conLangTheory decLangTheory exhLangTheory exh_reorderTheory
 open backend_commonTheory
 
 val _ = numLib.prefer_num()
@@ -184,5 +184,8 @@ val compile_exps_map = Q.store_thm ("compile_exps_map",
   `!exh es. compile_exps exh es = MAP (compile_exp exh) es`,
   Induct_on `es` >>
   rw [compile_exp_def]);
+
+val compile_def = Define`
+  compile exh e = HD (exh_reorder$compile [dec_to_exh$compile_exp exh e])`;
 
 val _ = export_theory()

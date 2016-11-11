@@ -7,7 +7,7 @@ open HolKernel boolLib bossLib computeLib
 open modLangTheory source_to_modTheory
 open conLangTheory mod_to_conTheory
 open decLangTheory con_to_decTheory
-open exhLangTheory dec_to_exhTheory
+open exhLangTheory dec_to_exhTheory exh_reorderTheory
 open patLangTheory exh_to_patTheory
 open closLangTheory pat_to_closTheory
 open clos_mtiTheory
@@ -138,6 +138,12 @@ val add_compiler_compset = computeLib.extend_compset
     ,dec_to_exhTheory.exhaustive_match_def
     ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_pat_def
+    ,exh_reorderTheory.is_const_con_def
+    ,exh_reorderTheory.isPcon_def
+    ,exh_reorderTheory.isPvar_def
+    ,exh_reorderTheory.const_cons_sep_def
+    ,exh_reorderTheory.const_cons_fst_def
+    ,exh_reorderTheory.compile_def
     ]
   ,computeLib.Tys
     [ (* ---- patLang ---- *)

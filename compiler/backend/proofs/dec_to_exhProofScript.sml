@@ -1022,9 +1022,24 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   srw_tac[][result_rel_cases] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[state_rel_def])
 
+open exh_reorderProofTheory
+val compile_sing = exh_reorderTheory.compile_sing
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `semantics env st [e] ≠ Fail ∧
+   env_rel env.exh env.v envh ∧
+   state_rel env.exh st sth
+   ⇒
+     semantics (compile_env envh) (compile_state sth)
+       [compile env.exh e] = semantics env st [e]`,
+  rw[]
+  \\ imp_res_tac compile_exp_semantics
+  \\ fs[compile_def,compile_exp_def]
+  \\ metis_tac[compile_semantics,compile_sing,HD]);
+
 open conPropsTheory
 
-val set_globals_eq = Q.store_thm("set_globals_eq",
+val compile_exp_set_globals_eq = Q.store_thm("compile_exp_set_globals_eq",
   `(∀exh exp. set_globals (dec_to_exh$compile_exp exh exp) = set_globals exp) ∧
    (∀exh exps.
      elist_globals(dec_to_exh$compile_exps exh exps) = elist_globals exps) ∧
@@ -1035,7 +1050,7 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
   ho_match_mp_tac compile_exp_ind >>
   rw[compile_exp_def,add_default_def,elist_globals_append])
 
-val compile_esgc_free = Q.store_thm("compile_esgc_free",
+val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
   `(∀exh exp. esgc_free exp ⇒ esgc_free (dec_to_exh$compile_exp exh exp)) ∧
    (∀exh exps.
      EVERY esgc_free exps ⇒ EVERY esgc_free (dec_to_exh$compile_exps exh exps)) ∧
@@ -1045,12 +1060,30 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
      EVERY esgc_free (MAP (SND o SND)funs) ⇒ EVERY esgc_free (MAP (SND o SND) (dec_to_exh$compile_funs exh funs)))`,
   ho_match_mp_tac compile_exp_ind >>
   rw[compile_exp_def,add_default_def]>>
-  fs[set_globals_eq]);
+  fs[compile_exp_set_globals_eq]);
 
-val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+val compile_exp_distinct_setglobals = Q.store_thm("compile_exp_distinct_setglobals",
   `∀exh e.
        BAG_ALL_DISTINCT (set_globals e) ⇒
        BAG_ALL_DISTINCT (set_globals (dec_to_exh$compile_exp exh e))`,
-  fs[set_globals_eq])
+  fs[compile_exp_set_globals_eq])
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `∀exh exp. esgc_free exp ⇒ esgc_free (dec_to_exh$compile exh exp)`,
+  rw[compile_def]
+  \\ imp_res_tac compile_exp_esgc_free
+  \\ metis_tac[compile_esgc_free,EVERY_DEF,HD,compile_sing]);
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀exh e.
+    BAG_ALL_DISTINCT (set_globals e) ⇒
+    BAG_ALL_DISTINCT (set_globals (dec_to_exh$compile exh e))`,
+  rw[compile_def]
+  \\ imp_res_tac compile_exp_distinct_setglobals
+  \\ first_x_assum(qspec_then`exh`strip_assume_tac)
+  \\ qspec_then`[compile_exp exh e]`mp_tac(Q.GEN`es`compile_distinct_globals)
+  \\ simp[]
+  \\ qspec_then`compile_exp exh e`strip_assume_tac compile_sing
+  \\ fs[]);
 
 val _ = export_theory ();

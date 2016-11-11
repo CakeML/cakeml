@@ -39,7 +39,7 @@ val compile_def = Define`
     let c = c with mod_conf := c' in
     let (n,e) = con_to_dec$compile c.source_conf.next_global p in
     let c = c with source_conf updated_by (λc. c with next_global := n) in
-    let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+    let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
     let e = exh_to_pat$compile e in
     let e = pat_to_clos$compile e in
     let (c',p) = clos_to_bvl$compile c.clos_conf e in
@@ -79,7 +79,7 @@ val to_dec_def = Define`
 val to_exh_def = Define`
   to_exh c p =
   let (c,e) = to_dec c p in
-  let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+  let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
   (c,e)`;
 
 val to_pat_def = Define`
@@ -216,7 +216,7 @@ val from_exh_def = Define`
 
 val from_dec_def = Define`
   from_dec c e =
-  let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+  let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
   from_exh c e`;
 
 val from_con_def = Define`
