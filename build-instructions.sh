@@ -5,6 +5,7 @@ cd
 git clone https://github.com/polyml/polyml -b fixes-5.6
 cd polyml
 ## optionally use polyml master, but that has some bugs (Aug 2016)
+# git checkout master
 ./configure
 ## optionally pass an installation prefix to configure
 # ./configure --prefix=<dir>
