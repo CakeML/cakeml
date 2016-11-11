@@ -6749,7 +6749,12 @@ val word_to_stack_compile_lab_pres = store_thm("word_to_stack_compile_lab_pres",
 val EVEN_DIV_2_props = prove(``
   a MOD 2 = 0 ∧ b MOD 2 = 0 ⇒
   (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)``,
-  cheat)
+  strip_tac
+  \\ qspec_then `a` strip_assume_tac (MATCH_MP DIVISION (DECIDE ``0<2n``))
+  \\ qpat_x_assum `a = _` (fn th => once_rewrite_tac [th])
+  \\ qspec_then `b` strip_assume_tac (MATCH_MP DIVISION (DECIDE ``0<2n``))
+  \\ qpat_x_assum `b = _` (fn th => once_rewrite_tac [th])
+  \\ asm_simp_tac std_ss [DIV_MULT] \\ fs []);
 
 val wconvs = [post_alloc_conventions_def,wordPropsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
 
