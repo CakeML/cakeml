@@ -3312,6 +3312,7 @@ val RefArray_thm = store_thm("RefArray_thm",
                 r [(v,rv)] locs``,
   cheat);
 (*
+
   fs [RefArray_code_def]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -3830,8 +3831,6 @@ val state_rel_IMP_test_zero = store_thm("state_rel_IMP_test_zero",
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) vs locs /\
     get_var i s.locals = SOME (Number n) ==>
     ?w. get_var (adjust_var i) t = SOME (Word w) /\ (w = 0w <=> (n = 0))``,
-  cheat);
-(*
   strip_tac
   \\ rpt_drule state_rel_get_var_IMP
   \\ strip_tac \\ fs []
@@ -3850,14 +3849,11 @@ val state_rel_IMP_test_zero = store_thm("state_rel_IMP_test_zero",
   \\ drule memory_rel_Number_EQ \\ fs []
   \\ strip_tac \\ fs [Smallnum_def]
   \\ eq_tac \\ rw [] \\ fs []);
-*)
 
 val state_rel_get_var_Number_IMP = store_thm("state_rel_get_var_Number_IMP",
   ``state_rel c l1 l2 s t vs locs /\
     get_var i s.locals = SOME (Number (&n)) /\ small_int (:'a) (&n) ==>
     ?w. get_var (adjust_var i) t = SOME (Word (Smallnum (&n):'a word))``,
-  cheat);
-(*
   strip_tac
   \\ rpt_drule state_rel_get_var_IMP
   \\ strip_tac \\ fs []
@@ -3871,11 +3867,10 @@ val state_rel_get_var_Number_IMP = store_thm("state_rel_get_var_Number_IMP",
   \\ qpat_assum `lookup i s.locals = SOME (Number (&n))` assume_tac
   \\ rpt (disch_then drule) \\ fs []
   \\ fs [word_ml_inv_def] \\ rw []
-  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
   \\ rw [] \\ fs [word_addr_def,Smallnum_def]
   \\ match_mp_tac minus_2_word_and_id
   \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT]);
-*)
 
 val EXP_LEMMA1 = prove(
   ``4n * n * (2 ** k) = n * 2 ** (k + 2)``,

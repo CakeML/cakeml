@@ -4562,6 +4562,25 @@ val memory_rel_RefPtr_IMP = store_thm("memory_rel_RefPtr_IMP",
   THEN1 (rpt_drule memory_rel_ValueArray_IMP \\ rw [] \\ fs [])
   THEN1 (rpt_drule memory_rel_ByteArray_IMP \\ rw [] \\ fs []));
 
+val Smallnum_bits = store_thm("Smallnum_bits",
+  ``(1w && Smallnum i) = 0w /\ (2w && Smallnum i) = 0w``,
+  Cases_on `i`
+  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
+             [Smallnum_def, GSYM wordsTheory.word_mul_n2w]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
+
+val memory_rel_any_Number_IMP = store_thm("memory_rel_any_Number_IMP",
+  ``good_dimindex (:'a) /\
+    memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
+    ?w. v = Word w /\ (w ' 0 <=> ~small_int (:'a) i)``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+      bc_stack_ref_inv_def,v_inv_def] \\ rw []
+  \\ fs [word_addr_def,get_addr_0]
+  \\ fs [fcpTheory.FCP_BETA,word_and_def,word_index]
+  \\ rewrite_tac [WORD_NEG,WORD_ADD_BIT0,word_index,word_1comp_def]
+  \\ simp_tac std_ss [fcpTheory.FCP_BETA,DIMINDEX_GT_0,word_1comp_def]
+  \\ EVAL_TAC);
+
 val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   ``good_dimindex (:'a) /\ small_int (:'a) i /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
@@ -4634,17 +4653,24 @@ val IMP_memory_rel_Number_num = store_thm("IMP_memory_rel_Number_num",
 val memory_rel_Number_EQ = store_thm("memory_rel_Number_EQ",
   ``memory_rel c be refs sp st m dm
       ((Number i1,w1)::(Number i2,w2)::vars) /\
-    small_int (:'a) i1 /\
-    small_int (:'a) i2 /\
+    (small_int (:'a) i1 \/ small_int (:'a) i2) /\
     good_dimindex (:'a) ==>
       ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)``,
-  strip_tac
-  \\ imp_res_tac memory_rel_Number_IMP
-  \\ drule memory_rel_tail \\ strip_tac
-  \\ imp_res_tac memory_rel_Number_IMP
-  \\ fs [] \\ rpt (qpat_x_assum `!x. _` kall_tac)
-  \\ fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
-  \\ drule num_eq_thm \\ rw []);
+  Cases_on `small_int (:'a) i1` \\ Cases_on `small_int (:'a) i2` \\ fs []
+  THEN1
+   (strip_tac
+    \\ imp_res_tac memory_rel_Number_IMP
+    \\ drule memory_rel_tail \\ strip_tac
+    \\ imp_res_tac memory_rel_Number_IMP
+    \\ fs [] \\ rpt (qpat_x_assum `!x. _` kall_tac)
+    \\ fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
+    \\ drule num_eq_thm \\ rw [])
+  \\ strip_tac
+  \\ imp_res_tac memory_rel_tl
+  \\ imp_res_tac memory_rel_any_Number_IMP
+  \\ fs [] \\ rw [] \\ fs [] \\ clean_tac \\ rfs []
+  \\ Cases_on `w = w'` \\ fs []
+  \\ CCONTR_TAC \\ fs []);
 
 val memory_rel_Number_LESS = store_thm("memory_rel_Number_LESS",
   ``memory_rel c be refs sp st m dm
@@ -4737,13 +4763,6 @@ val memory_rel_Boolv_F = store_thm("memory_rel_Boolv_F",
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
-
-val Smallnum_bits = store_thm("Smallnum_bits",
-  ``(1w && Smallnum i) = 0w /\ (2w && Smallnum i) = 0w``,
-  Cases_on `i`
-  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
-             [Smallnum_def, GSYM wordsTheory.word_mul_n2w]
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
 val IsBlock_word_lemma = store_thm("IsBlock_word_lemma",
   ``good_dimindex (:'a) ==> (2w && 16w * n2w n' + 2w) <> 0w :'a word``,
