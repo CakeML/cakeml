@@ -3103,12 +3103,33 @@ val get_vars_SOME_IFF_data = prove(
      get_vars xs t = SOME ys)``,
   fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
+val get_vars_SOME_IFF_data_eq = prove(
+  ``((get_vars [] t = SOME z) <=> (z = [])) /\
+    (get_vars (x::xs) t = SOME z <=>
+    ?y ys. z = y::ys /\ dataSem$get_var x t = SOME y /\
+           get_vars xs t = SOME ys)``,
+  Cases_on `z` \\ fs [get_vars_SOME_IFF_data]
+  \\ fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
+
 val get_vars_SOME_IFF = prove(
   ``(get_vars [] t = SOME [] <=> T) /\
     (get_vars (x::xs) t = SOME (y::ys) <=>
      get_var x t = SOME y /\
      wordSem$get_vars xs t = SOME ys)``,
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
+
+val get_vars_SOME_IFF_eq = prove(
+  ``((get_vars [] t = SOME z) <=> (z = [])) /\
+    (get_vars (x::xs) t = SOME z <=>
+    ?y ys. z = y::ys /\ wordSem$get_var x t = SOME y /\
+           get_vars xs t = SOME ys)``,
+  Cases_on `z` \\ fs [get_vars_SOME_IFF]
+  \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
+
+val memory_rel_get_var_IMP =
+  memory_rel_get_vars_IMP |> Q.INST [`n`|->`[u]`] |> GEN_ALL
+    |> SIMP_RULE std_ss [MAP,get_vars_SOME_IFF_eq,get_vars_SOME_IFF_data_eq,
+         PULL_EXISTS,ZIP,APPEND]
 
 val get_vars_sing = store_thm("get_vars_sing",
   ``get_vars [n] t = SOME x <=> ?x1. get_vars [n] t = SOME [x1] /\ x = [x1]``,
@@ -3297,6 +3318,29 @@ val FOUR_MUL_LSL = store_thm("FOUR_MUL_LSL",
   ``n2w (4 * i) << k = n2w i << (k + 2)``,
   fs [WORD_MUL_LSL,EXP_ADD,word_mul_n2w]);
 
+val evaluate_BignumHalt = store_thm("evaluate_BignumHalt",
+  ``state_rel c l1 l2 s t [] locs /\
+    get_var reg t = SOME (Word w) ==>
+    ∃r. (evaluate (BignumHalt reg,t) =
+          if w ' 0 then (SOME NotEnoughSpace,r)
+          else (NONE,t)) ∧ r.ffi = s.ffi ∧ t.ffi = s.ffi``,
+  fs [BignumHalt_def,wordSemTheory.evaluate_def,word_exp_rw,
+      asmSemTheory.word_cmp_def,word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (rw [] \\ qexists_tac `t` \\ fs [state_rel_def])
+  \\ rw [] \\ match_mp_tac evaluate_GiveUp \\ fs []);
+
+val state_rel_get_var_Number_IMP_alt = prove(
+  ``!k i. state_rel c l1 l2 s t [] locs /\
+          get_var k s.locals = SOME (Number i) /\
+          get_var (2 * k + 2) t = SOME a1 ==>
+          ?w:'a word. a1 = Word w /\ w ' 0 = ~small_int (:'a) i``,
+  fs [state_rel_thm] \\ rw []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule memory_rel_get_var_IMP
+  \\ fs [adjust_var_def] \\ rw []
+  \\ imp_res_tac memory_rel_any_Number_IMP \\ fs []);
+
 val RefArray_thm = store_thm("RefArray_thm",
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     get_vars [0;1] s.locals = SOME vals /\
@@ -3310,9 +3354,6 @@ val RefArray_thm = store_thm("RefArray_thm",
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs``,
-  cheat);
-(*
-
   fs [RefArray_code_def]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -3329,8 +3370,16 @@ val RefArray_thm = store_thm("RefArray_thm",
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
   \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
   \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
+  \\ fs [get_vars_SOME_IFF_data]
+  \\ drule (Q.SPEC `0` state_rel_get_var_Number_IMP_alt) \\ fs []
+  \\ strip_tac \\ rveq
+  \\ rpt_drule evaluate_BignumHalt
+  \\ Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs []
+  \\ ntac 3 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
   \\ fs [wordSemTheory.get_var_def]
-  \\ `a1 = Word (n2w (4 * i)) /\ 4 * i < dimword (:'a)` by
+  \\ `w = n2w (4 * i) /\ 4 * i < dimword (:'a)` by
    (fs [state_rel_def,get_vars_SOME_IFF_data]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
     \\ rpt_drule word_ml_inv_get_var_IMP
@@ -3338,8 +3387,8 @@ val RefArray_thm = store_thm("RefArray_thm",
     \\ qpat_assum `lookup 0 s.locals = SOME (Number (&i))` assume_tac
     \\ rpt (disch_then drule) \\ fs []
     \\ fs [word_ml_inv_def] \\ rw []
-    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
-    \\ rw [] \\ fs [word_addr_def,Smallnum_def]
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
+    \\ rw [] \\ fs [word_addr_def,Smallnum_def] \\ rw []
     \\ fs [small_int_def,X_LT_DIV]
     \\ match_mp_tac minus_2_word_and_id
     \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT] \\ NO_TAC)
@@ -3364,7 +3413,7 @@ val RefArray_thm = store_thm("RefArray_thm",
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
   \\ strip_tac \\ fs [set_vars_sing]
-  \\ reverse IF_CASES_TAC \\ fs [] THEN1 fs [state_rel_def]
+  \\ reverse IF_CASES_TAC \\ fs []
   \\ rveq \\ fs []
   \\ fs [bviSemTheory.bvl_to_bvi_def,
          bviSemTheory.bvi_to_bvl_def,
@@ -3395,8 +3444,8 @@ val RefArray_thm = store_thm("RefArray_thm",
     \\ res_tac \\ Cases_on `lookup 2 r.locals` \\ fs []
     \\ fs [word_ml_inv_def] \\ rw []
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
-    \\ rw [] \\ fs [word_addr_def,Smallnum_def]
-    \\ fs [small_int_def,X_LT_DIV]
+    \\ rw [] \\ fs [word_addr_def,Smallnum_def] \\ rfs []
+    \\ fs [small_int_def,X_LT_DIV,word_addr_def]
     \\ match_mp_tac minus_2_word_and_id
     \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT] \\ NO_TAC)
   \\ fs [] \\ IF_CASES_TAC
@@ -3489,7 +3538,6 @@ val RefArray_thm = store_thm("RefArray_thm",
   \\ qunabbrev_tac `ww`
   \\ AP_THM_TAC \\ AP_TERM_TAC \\ fs []
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
-*)
 
 val word_exp_SmallLsr = store_thm("word_exp_SmallLsr",
   ``word_exp s (SmallLsr e n) =
@@ -3538,8 +3586,6 @@ val RefByte_thm = store_thm("RefByte_thm",
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs``,
-  cheat);
-(*
   fs [RefByte_code_def]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefByte``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -3558,20 +3604,25 @@ val RefByte_thm = store_thm("RefByte_thm",
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
   \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
   \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
+  \\ fs [get_vars_SOME_IFF_data]
+  \\ drule (Q.SPEC `0` state_rel_get_var_Number_IMP_alt) \\ fs []
+  \\ strip_tac \\ rveq
+  \\ rpt_drule evaluate_BignumHalt
+  \\ Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs []
+  \\ ntac 3 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
+  \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
   \\ fs [wordSemTheory.get_var_def]
-  \\ `a1 = Word (n2w (4 * i)) /\ 4 * i < dimword (:'a)` by
-   (fs [state_rel_def,get_vars_SOME_IFF_data]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
-    \\ rpt_drule word_ml_inv_get_var_IMP
-    \\ fs [get_var_def,wordSemTheory.get_var_def,adjust_var_def]
-    \\ qpat_assum `lookup 0 s.locals = SOME (Number (&i))` assume_tac
-    \\ rpt (disch_then drule) \\ fs []
-    \\ fs [word_ml_inv_def] \\ rw []
-    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
-    \\ rw [] \\ fs [word_addr_def,Smallnum_def]
-    \\ fs [small_int_def,X_LT_DIV]
-    \\ match_mp_tac minus_2_word_and_id
-    \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT] \\ NO_TAC)
+  \\ `w' = n2w (4 * i) /\ 4 * i < dimword (:'a)` by
+   (fs [state_rel_thm]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ qpat_x_assum `get_var 0 s.locals = SOME (Number (&i))` assume_tac
+    \\ rpt_drule memory_rel_get_var_IMP \\ fs [adjust_var_def]
+    \\ fs [wordSemTheory.get_var_def]
+    \\ strip_tac \\ imp_res_tac memory_rel_Number_IMP
+    \\ fs [Smallnum_def] \\ fs [small_int_def] \\ fs [X_LT_DIV] \\ NO_TAC)
   \\ rveq \\ fs [word_exp_SmallLsr]
   \\ IF_CASES_TAC
   THEN1 (fs [shift_def,state_rel_def,
@@ -3605,7 +3656,7 @@ val RefByte_thm = store_thm("RefByte_thm",
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
   \\ strip_tac \\ fs [set_vars_sing]
-  \\ reverse IF_CASES_TAC \\ fs [] THEN1 fs [state_rel_def]
+  \\ reverse IF_CASES_TAC \\ fs []
   \\ rveq \\ fs []
   \\ fs [bviSemTheory.bvl_to_bvi_def,
          bviSemTheory.bvi_to_bvl_def,
@@ -3636,7 +3687,7 @@ val RefByte_thm = store_thm("RefByte_thm",
     \\ `IS_SOME (lookup 0 s9.locals)` by fs []
     \\ res_tac \\ Cases_on `lookup 2 r.locals` \\ fs []
     \\ fs [word_ml_inv_def] \\ rw []
-    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
     \\ rw [] \\ fs [word_addr_def,Smallnum_def]
     \\ fs [small_int_def,X_LT_DIV]
     \\ match_mp_tac minus_2_word_and_id
@@ -3654,7 +3705,7 @@ val RefByte_thm = store_thm("RefByte_thm",
     \\ `IS_SOME (lookup 1 s9.locals)` by fs []
     \\ res_tac \\ Cases_on `lookup 4 r.locals` \\ fs []
     \\ fs [word_ml_inv_def] \\ rw []
-    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
     \\ rw [] \\ fs [word_addr_def,Smallnum_def]
     \\ fs [word_mul_n2w,w2w_def,WORD_MUL_LSL]
     \\ fs [small_int_def,X_LT_DIV]
@@ -3754,7 +3805,6 @@ val RefByte_thm = store_thm("RefByte_thm",
   \\ AP_THM_TAC \\ AP_TERM_TAC \\ fs []
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [WORD_MUL_LSL,word_mul_n2w]);
-*)
 
 val FromList1_code_thm = store_thm("Replicate_code_thm",
   ``!k a b r x m1 a1 a2 a3 a4 a5 a6.
@@ -3926,8 +3976,6 @@ val FromList_thm = store_thm("FromList_thm",
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs``,
-  cheat);
-(*
   fs [dataSemTheory.do_app_def,bviSemTheory.do_app_def,
       bviSemTheory.do_app_aux_def,dataSemTheory.do_space_def,
       bvi_to_dataTheory.op_space_reset_def]
@@ -3964,6 +4012,16 @@ val FromList_thm = store_thm("FromList_thm",
     \\ drule memory_rel_zero_space
     \\ match_mp_tac memory_rel_rearrange
     \\ fs [] \\ rw [] \\ fs [])
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
+  \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
+  \\ fs [get_vars_SOME_IFF_data]
+  \\ rpt_drule state_rel_get_var_Number_IMP_alt \\ fs []
+  \\ strip_tac \\ rveq
+  \\ rpt_drule evaluate_BignumHalt
+  \\ Cases_on `small_int (:α) (&(LENGTH x))` \\ fs [] \\ strip_tac \\ fs []
+  \\ ntac 3 (pop_assum kall_tac)
   \\ fs []
   \\ ntac 2 (once_rewrite_tac [list_Seq_def])
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw,wordSemTheory.get_var_def]
@@ -3980,7 +4038,7 @@ val FromList_thm = store_thm("FromList_thm",
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
   \\ strip_tac \\ fs []
-  \\ reverse (Cases_on `res`) \\ fs [] THEN1 (fs [state_rel_def])
+  \\ reverse (Cases_on `res`) \\ fs []
   \\ `?f cur. FLOOKUP s1.store NextFree = SOME (Word f) /\
               FLOOKUP s1.store CurrHeap = SOME (Word cur)` by
         (fs [state_rel_def,heap_in_memory_store_def] \\ NO_TAC)
@@ -3997,17 +4055,7 @@ val FromList_thm = store_thm("FromList_thm",
   \\ rpt_drule state_rel_get_var_IMP \\ strip_tac
   \\ qpat_assum `get_var 2 s0.locals = SOME (Number (&(4 * tag)))` assume_tac
   \\ rpt_drule state_rel_get_var_Number_IMP \\ strip_tac \\ fs []
-  \\ `small_int (:'a) (&LENGTH x)` by
-   (fs [state_rel_thm]
-    \\ qpat_assum `memory_rel c t.be s.refs s.space t.store _ _ _` assume_tac
-    \\ qpat_assum `get_var 0 s.locals = SOME (Number (&LENGTH x))` assume_tac
-    \\ qpat_assum `lookup 2 t.locals = SOME (Word w)` assume_tac
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,get_var_def]
-    \\ fs [inter_insert,NOT_1_domain]
-    \\ rpt_drule memory_rel_lookup
-    \\ fs [adjust_var_def,lookup_insert] \\ strip_tac
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,get_var_def]
-    \\ metis_tac [memory_rel_Number_IMP])
+  \\ `small_int (:'a) (&LENGTH x)` by (fs [] \\ NO_TAC)
   \\ qpat_assum `get_var 0 s0.locals = SOME (Number (&LENGTH x))` assume_tac
   \\ rpt_drule state_rel_get_var_Number_IMP \\ strip_tac \\ fs []
   \\ fs [adjust_var_def] \\ fs [wordSemTheory.get_var_def]
@@ -4071,7 +4119,6 @@ val FromList_thm = store_thm("FromList_thm",
   \\ drule memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
   \\ fs [] \\ rw [] \\ fs []);
-*)
 
 val MAP_FST_EQ_IMP_IS_SOME_ALOOKUP = store_thm("MAP_FST_EQ_IMP_IS_SOME_ALOOKUP",
   ``!xs ys.

@@ -22,6 +22,9 @@ val GiveUp_def = Define `
   GiveUp = Seq (Assign 1 (Const (-1w)))
                (Alloc 1 (adjust_set (LN:num_set))) :'a wordLang$prog`
 
+val BignumHalt_def = Define `
+  BignumHalt r = If Test r (Imm 1w) Skip GiveUp`;
+
 val make_header_def = Define `
   make_header conf tag len =
     let l = dimindex (:'a) - conf.len_size in
@@ -160,7 +163,8 @@ val RefByte_code_def = Define`
       let x = SmallLsr h (dimindex (:'a) - 63) in
       let y = Shift Lsl h (Nat (dimindex (:'a) - shift (:'a) - c.len_size)) in
         list_Seq
-          [Assign 1 x;
+          [BignumHalt 2;
+           Assign 1 x;
            AllocVar limit (fromList [();()]);
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
@@ -204,7 +208,8 @@ val FromList_code_def = Define `
         (list_Seq [Assign 6 (Op Add [Var 6; Const (2w:'a word)]);
                    Return 0 6])
         (list_Seq
-          [Assign 1 (Var 2); AllocVar limit (fromList [();();()]);
+          [BignumHalt 2;
+           Assign 1 (Var 2); AllocVar limit (fromList [();();()]);
            Assign 1 (Lookup NextFree);
            Assign 5 (Op Or [h; Const 3w; Var 6]);
            Assign 7 (Shift Lsr (Var 2) (Nat 2));
@@ -238,7 +243,8 @@ val RefArray_code_def = Define `
   RefArray_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
         list_Seq
-          [Move 0 [(1,2)];
+          [BignumHalt 2;
+           Move 0 [(1,2)];
            AllocVar limit (fromList [();()]);
            Assign 1 (Op Sub [Lookup EndOfHeap;
            Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
@@ -255,7 +261,7 @@ val RefArray_code_def = Define `
            Store (Var 1) 5;
            Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;2;3] NONE]`
+              [0;1;4;2;3] NONE]`;
 
 val Replicate_code_def = Define `
   Replicate_code =

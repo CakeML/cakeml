@@ -378,6 +378,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.adjust_set_def
     ,data_to_wordTheory.Unit_def
     ,data_to_wordTheory.GiveUp_def
+    ,data_to_wordTheory.BignumHalt_def
     ,data_to_wordTheory.make_header_def
     ,data_to_wordTheory.tag_mask_def
     ,data_to_wordTheory.encode_header_def
