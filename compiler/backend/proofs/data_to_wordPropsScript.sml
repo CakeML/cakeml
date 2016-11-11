@@ -1,6 +1,6 @@
 open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
-     labSemTheory whileTheory helperLib alignmentTheory
+     labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
 local open blastLib in end;
 
 val _ = new_theory "data_to_wordProps";
@@ -29,18 +29,6 @@ val _ = type_abbrev("ml_el",
   ``:('a word_loc, tag # ('a word_loc list)) heap_element``);
 
 val _ = type_abbrev("ml_heap",``:'a ml_el list``);
-
-val words_of_bits_def = tDefine "words_of_bits" `
-  (words_of_bits [] = []:'a word list) /\
-  (words_of_bits xs =
-     let n = dimindex (:'a) in
-       n2w (num_of_bits (TAKE n xs)) :: words_of_bits (DROP n xs))`
-  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP])
-
-val bits_of_words_def = Define `
-  (bits_of_words [] = []) /\
-  (bits_of_words ((w:'a word)::ws) =
-     GENLIST (\n. w ' n) (dimindex (:'a)) ++ bits_of_words ws)`
 
 val word_of_bytes_def = Define `
   (word_of_bytes be a [] = 0w) /\
@@ -73,15 +61,10 @@ val Bytes_def = Define`
     let ws = write_bytes bs ws is_bigendian in
       DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), MAP Word ws)`
 
-val words_of_int_def = Define `
-  words_of_int i =
-    if 0 <= i then words_of_bits (bits_of_num (Num i)) else
-      MAP (~) (words_of_bits (bits_of_num (Num (int_not i))))`
-
 val Bignum_def = Define `
   Bignum i =
-    DataElement [] (LENGTH ((words_of_int i):'a word list))
-      (NumTag (i < 0), MAP Word ((words_of_int i):'a word list))`;
+    let (sign,payload:'a word list) = i2mw i in
+      DataElement [] (LENGTH payload) (NumTag sign, MAP Word payload)`;
 
 val Smallnum_def = Define `
   Smallnum i =
@@ -119,7 +102,6 @@ val v_size_LEMMA = prove(
 val v_inv_def = tDefine "v_inv" `
   (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
-       F /\ (* TODO: remove this line, so that bignums are allowed *)
        ?ptr. (x = Pointer ptr (Word 0w)) /\
              (heap_lookup ptr heap = SOME (Bignum i))) /\
   (v_inv (Word64 w) (x,f,heap) <=>
@@ -328,10 +310,12 @@ val v_inv_related = prove(
   completeInduct_on `v_size w` \\ NTAC 5 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
-    \\ Cases_on `small_int (:'a) i`
-    \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,Bignum_def]
-    \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
-    \\ full_simp_tac std_ss [ADDR_MAP_def] \\ fs [])
+    \\ Cases_on `small_int (:'a) i` \\ fs [] THEN1
+     (full_simp_tac (srw_ss()) [ADDR_APPLY_def,Bignum_def]
+      \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
+      \\ full_simp_tac std_ss [ADDR_MAP_def] \\ fs [])
+    \\ fs [gc_related_def,ADDR_APPLY_def,Bignum_def]
+    \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [ADDR_MAP_def])
   THEN1
    (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
     \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def]
