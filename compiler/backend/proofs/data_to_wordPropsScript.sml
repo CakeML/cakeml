@@ -774,7 +774,7 @@ val v_inv_SUBMAP = prove(
   completeInduct_on `v_size w` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,Bignum_def] \\ srw_tac [] []
-    \\ imp_res_tac heap_store_rel_lemma \\ full_simp_tac std_ss [])
+    \\ imp_res_tac heap_store_rel_lemma \\ fs [])
   THEN1 (
     rw[] \\ fs[v_inv_def]
     \\ qspecl_then[`:'a`,`c`]strip_assume_tac Word64Rep_DataElement
@@ -1185,7 +1185,7 @@ val NOT_isRefBlock = prove(
   ``~(isRefBlock (Bignum x)) /\
     ~(isRefBlock (Word64Rep a w)) /\
     ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))``,
-  simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def,Bignum_def]
+  fs [isRefBlock_def,RefBlock_def,Bignum_def,i2mw_def,LET_THM]
   \\ Cases_on`a` \\ EVAL_TAC \\ rw[]);
 
 val v_inv_Ref = prove(
@@ -1400,6 +1400,9 @@ val v_inv_IMP = prove(
       v_inv conf y (x,f,ha ++ [Bytes be ys ws] ++ hb)``,
   completeInduct_on `v_size y` \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `y` \\ fs [v_inv_def] \\ rw [] \\ fs []
+  THEN1
+   (fs[heap_lookup_APPEND,heap_length_APPEND,Bytes_def,heap_length_def,el_length_def]
+    \\ rw[] \\ fs[] \\ fs[heap_lookup_def,Bignum_def,i2mw_def])
   >- (
     fs[heap_lookup_APPEND,heap_length_APPEND,Bytes_def,heap_length_def,el_length_def]
     \\ rw[] \\ fs[]
@@ -1830,9 +1833,11 @@ val ref_eq_thm = store_thm("ref_eq_thm",
 
 val num_eq_thm = store_thm("num_eq_thm",
   ``abs_ml_inv conf (Number i1::Number i2::stack) refs
-      (r1::r2::roots,heap,be,a,sp) limit ==>
+      (r1::r2::roots,heap,be,a,sp) limit /\
+    small_int (:'a) i1 /\
+    small_int (:'a) i2 ==>
     ((i1 = i2) <=> (r1 = r2)) /\
-    r1 = Data (Word (Smallnum i1)) /\
+    r1 = Data (Word (Smallnum i1:'a word)) /\
     r2 = Data (Word (Smallnum i2))``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ fs [v_inv_def,INJ_DEF] \\ fs [Smallnum_def]
@@ -4558,9 +4563,9 @@ val memory_rel_RefPtr_IMP = store_thm("memory_rel_RefPtr_IMP",
   THEN1 (rpt_drule memory_rel_ByteArray_IMP \\ rw [] \\ fs []));
 
 val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
-  ``good_dimindex (:'a) /\
+  ``good_dimindex (:'a) /\ small_int (:'a) i /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
-    v = Word (Smallnum i) /\ small_int (:'a) i``,
+    v = Word (Smallnum i)``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def] \\ rw []
   \\ fs [word_addr_def,Smallnum_def,integer_wordTheory.i2w_def]
@@ -4628,18 +4633,25 @@ val IMP_memory_rel_Number_num = store_thm("IMP_memory_rel_Number_num",
 
 val memory_rel_Number_EQ = store_thm("memory_rel_Number_EQ",
   ``memory_rel c be refs sp st m dm
-      ((Number i1,w1)::(Number i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ((Number i1,w1)::(Number i2,w2)::vars) /\
+    small_int (:'a) i1 /\
+    small_int (:'a) i2 /\
+    good_dimindex (:'a) ==>
       ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)``,
   strip_tac
   \\ imp_res_tac memory_rel_Number_IMP
   \\ drule memory_rel_tail \\ strip_tac
   \\ imp_res_tac memory_rel_Number_IMP
-  \\ fs [] \\ fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
+  \\ fs [] \\ rpt (qpat_x_assum `!x. _` kall_tac)
+  \\ fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
   \\ drule num_eq_thm \\ rw []);
 
 val memory_rel_Number_LESS = store_thm("memory_rel_Number_LESS",
   ``memory_rel c be refs sp st m dm
-      ((Number i1,w1)::(Number i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ((Number i1,w1)::(Number i2,w2)::vars) /\
+    small_int (:'a) i1 /\
+    small_int (:'a) i2 /\
+    good_dimindex (:'a) ==>
       ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 < (v2:'a word) <=> i1 < i2)``,
   strip_tac
   \\ imp_res_tac memory_rel_Number_IMP
@@ -4649,7 +4661,10 @@ val memory_rel_Number_LESS = store_thm("memory_rel_Number_LESS",
 
 val memory_rel_Number_LESS_EQ = store_thm("memory_rel_Number_LESS_EQ",
   ``memory_rel c be refs sp st m dm
-      ((Number i1,w1)::(Number i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ((Number i1,w1)::(Number i2,w2)::vars) /\
+    small_int (:'a) i1 /\
+    small_int (:'a) i2 /\
+    good_dimindex (:'a) ==>
       ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 <= (v2:'a word) <=> i1 <= i2)``,
   rw [] \\ drule memory_rel_Number_LESS \\ fs [] \\ rw [] \\ fs []
   \\ drule memory_rel_Number_EQ \\ fs [] \\ rw [] \\ fs []
@@ -4829,6 +4844,7 @@ val Smallnum_test = prove(
 val memory_rel_Add = store_thm("memory_rel_Add",
   ``memory_rel c be refs sp st m dm
       ((Number i,Word wi)::(Number j,Word wj)::vars) /\
+    small_int (:'a) i /\ small_int (:'a) j /\
     good_dimindex (:'a) /\
     (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
     memory_rel c be refs sp st m dm
@@ -4861,6 +4877,7 @@ val exists_num = prove(
 val memory_rel_Sub = store_thm("memory_rel_Sub",
   ``memory_rel c be refs sp st m dm
        ((Number i,Word wi)::(Number j,Word wj)::vars) /\
+    small_int (:'a) i /\ small_int (:'a) j /\
     good_dimindex (:'a) /\
     (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
     memory_rel c be refs sp st m dm
@@ -4890,6 +4907,12 @@ val memory_rel_Sub = store_thm("memory_rel_Sub",
   \\ rfs [dimword_def]
   \\ intLib.COOPER_TAC);
 
+val small_int_w2n = store_thm("small_int_w2n[simp]",
+  ``good_dimindex (:'a) ==> small_int (:'a) (& (w2n (w:word8)))``,
+  rw [labPropsTheory.good_dimindex_def,small_int_def] \\ fs [dimword_def]
+  \\ assume_tac (w2n_lt |> INST_TYPE [``:'a``|->``:8``])
+  \\ fs [dimword_def] \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []);
+
 val memory_rel_And = store_thm("memory_rel_And",
   ``memory_rel c be refs sp st m dm
       ((Number (&(w2n (i:word8))),Word wi)::(Number (&(w2n j)),Word wj)::vars) /\
@@ -4897,6 +4920,7 @@ val memory_rel_And = store_thm("memory_rel_And",
     memory_rel c be refs sp st m dm
       ((Number (&w2n(i && j)),Word (wi && wj:'a word))::vars)``,
   rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ rfs [small_int_w2n]
   \\ fs [WORD_LEFT_AND_OVER_OR]
   \\ drule memory_rel_tail \\ strip_tac
   \\ imp_res_tac memory_rel_Number_IMP \\ fs []
