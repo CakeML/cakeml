@@ -25,13 +25,13 @@ val AES_CORRECT = save_thm("AES_CORRECT",AES_CORRECT);
 val res = translate (find_def ``Sbox``);
 val res = translate (find_def ``InvSbox``);
 
-val Sbox_side = prove(
-  ``!x. sbox_side x = T``,
+val Sbox_side = Q.prove(
+  `!x. sbox_side x = T`,
   EVAL_TAC THEN MP_TAC (INST_TYPE [alpha|->``:8``] w2n_lt) THEN SRW_TAC [] [])
   |> update_precondition;
 
-val InvSbox_side = prove(
-  ``!x. invsbox_side x = T``,
+val InvSbox_side = Q.prove(
+  `!x. invsbox_side x = T`,
   EVAL_TAC THEN MP_TAC (INST_TYPE [alpha|->``:8``] w2n_lt) THEN SRW_TAC [] [])
   |> update_precondition;
 

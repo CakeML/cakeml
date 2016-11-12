@@ -114,7 +114,7 @@ val merge_ind =
   SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] (fetch "-" "merge_ind");
 val _ = save_thm ("merge_ind",merge_ind);
 
-val merge_thm = prove(``
+val merge_thm = Q.prove(`
   merge get_key leq a b =
     case (a,b) of
     | (a,Empty) => a
@@ -131,7 +131,7 @@ val merge_thm = prove(``
           | Empty => Tree y (Tree x h1 h2) h2'
           | _ =>
             Tree y Empty (merge get_key leq
-                         (merge get_key leq (Tree x h1 h2) h1') h2')``,
+                         (merge get_key leq (Tree x h1 h2) h1') h2')`,
   Cases_on `a` THEN Cases_on `b` THEN SIMP_TAC (srw_ss()) [merge_def]);
 
 val _ = translate merge_thm;

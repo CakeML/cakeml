@@ -5,8 +5,8 @@ open holKernelTheory
 val _ = new_theory"pmatchExamples"
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
-val PAIR_EQ_COLLAPSE = prove (
-``(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))``,
+val PAIR_EQ_COLLAPSE = Q.prove (
+`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
 Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
 
 val pabs_elim_ss =
@@ -44,8 +44,8 @@ val static_ss = simpLib.merge_ss
 fun rc_ss gl = srw_ss() ++ simpLib.merge_ss (static_ss :: gl)
 (* -- *)
 
-val raconv_PMATCH_eq = prove(
-  ``^(rhs(concl(SPEC_ALL raconv_def))) =
+val raconv_PMATCH_eq = Q.prove(
+  `^(rhs(concl(SPEC_ALL raconv_def))) =
     CASE (tm1,tm2) OF
     [ ||. (Var _ _, Var _ _) ~> alphavars env tm1 tm2
     ; ||. (Const _ _, Const _ _) ~> (tm1 = tm2)
@@ -58,7 +58,7 @@ val raconv_PMATCH_eq = prove(
            ; ||. _ ~> F
            ]
     ; ||. _ ~> F
-    ]``,
+    ]`,
   rpt (
   BasicProvers.PURE_CASE_TAC >>
   FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
@@ -73,8 +73,8 @@ val raconv_PMATCH =
 
 (* stolen from deepMatchesLib.sml TODO *)
 
-val PAIR_EQ_COLLAPSE = prove (
-``(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))``,
+val PAIR_EQ_COLLAPSE = Q.prove (
+`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
 Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
 
 val pabs_elim_ss =

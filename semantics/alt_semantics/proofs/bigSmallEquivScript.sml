@@ -550,13 +550,13 @@ val result_cases = Q.prove (
  cases_on `e` >>
  full_simp_tac(srw_ss())[]);
 
-val small_eval_opapp_err = prove(
-  ``∀env s es res. small_eval_list env s es res ⇒
+val small_eval_opapp_err = Q.prove(
+  `∀env s es res. small_eval_list env s es res ⇒
     ∀s' vs. res = (s',Rval vs) ⇒
       ∀env0 v1 v0. LENGTH es + LENGTH v0 ≠ 1 ⇒
         ∃env' e' c'.
         e_step_reln^* (env0,s,Val v1,[Capp Opapp v0 () es,env]) (env',s',e',c') ∧
-        e_step (env',s',e',c') = Eabort Rtype_error``,
+        e_step (env',s',e',c') = Eabort Rtype_error`,
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
     srw_tac[][Once e_step_def,continue_def,application_thm] >>
@@ -571,13 +571,13 @@ val small_eval_opapp_err = prove(
   impl_tac >- simp[] >>
   metis_tac[transitive_RTC,transitive_def] );
 
-val small_eval_app_err = prove(
-  ``∀env s es res. small_eval_list env s es res ⇒
+val small_eval_app_err = Q.prove(
+  `∀env s es res. small_eval_list env s es res ⇒
     ∀s' vs. res = (s',Rval vs) ⇒
       ∀op env0 v1 v0. LENGTH es + LENGTH v0 > 2 ∧ op ≠ Opapp ⇒
         ∃env' e' c'.
         e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
-        e_step (env',s',e',c') = Eabort Rtype_error``,
+        e_step (env',s',e',c') = Eabort Rtype_error`,
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
     srw_tac[][Once e_step_def,continue_def,application_thm] >>
@@ -614,19 +614,19 @@ val step_e_not_timeout = Q.prove (
   imp_res_tac do_app_not_timeout >>
   srw_tac[][]);
 
-val small_eval_list_not_timeout = prove(
-  ``∀env s es res. small_eval_list env s es res ⇒
-    SND res ≠ Rerr (Rabort Rtimeout_error)``,
+val small_eval_list_not_timeout = Q.prove(
+  `∀env s es res. small_eval_list env s es res ⇒
+    SND res ≠ Rerr (Rabort Rtimeout_error)`,
   ho_match_mp_tac small_eval_list_ind >> srw_tac[][] >>
   metis_tac [step_e_not_timeout]);
 
-val small_eval_list_app_type_error = prove(
-  ``∀env s es res. small_eval_list env s es res ⇒
+val small_eval_list_app_type_error = Q.prove(
+  `∀env s es res. small_eval_list env s es res ⇒
       ∀s' err. res = (s',Rerr (Rabort a)) ⇒
         ∀op env0 v1 v0.
           ∃env' e' c'.
             e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
-            e_step (env',s',e',c') = Eabort a``,
+            e_step (env',s',e',c') = Eabort a`,
   ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> srw_tac[][] >- (
     srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
     srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
@@ -645,12 +645,12 @@ val small_eval_list_app_type_error = prove(
   first_assum(match_exists_tac o concl) >> srw_tac[][] >>
   srw_tac[][Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`])
 
-val small_eval_list_app_error = prove(
-  ``∀env s es res. small_eval_list env s es res ⇒
+val small_eval_list_app_error = Q.prove(
+  `∀env s es res. small_eval_list env s es res ⇒
       ∀s' v. res = (s',Rerr (Rraise v)) ⇒
         ∀op env0 v1 v0.
           ∃env' env''.
-            e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',Val v,[(Craise (),env'')])``,
+            e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',Val v,[(Craise (),env'')])`,
   ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> srw_tac[][] >- (
     srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
     imp_res_tac e_step_add_ctxt >>
@@ -669,12 +669,12 @@ val small_eval_list_app_error = prove(
   srw_tac[][Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`])
 
 
-val do_opapp_NONE_tail = prove(
-  ``do_opapp (h::t) = NONE ∧ LENGTH t ≠ 2 ⇒ do_opapp t = NONE``,
+val do_opapp_NONE_tail = Q.prove(
+  `do_opapp (h::t) = NONE ∧ LENGTH t ≠ 2 ⇒ do_opapp t = NONE`,
   srw_tac[][do_opapp_def] >> every_case_tac >> full_simp_tac(srw_ss())[])
 
-val e_step_exp_err_any_ctxt = prove(
-  ``e_step (x,y,Exp z,c1) = Eabort a ⇒ e_step (x,y,Exp z,c2) = Eabort a``,
+val e_step_exp_err_any_ctxt = Q.prove(
+  `e_step (x,y,Exp z,c1) = Eabort a ⇒ e_step (x,y,Exp z,c2) = Eabort a`,
   srw_tac[][e_step_def] >> every_case_tac >>
   full_simp_tac(srw_ss())[push_def,return_def,continue_def,application_thm] >>
   every_case_tac >> full_simp_tac(srw_ss())[] )
@@ -690,8 +690,8 @@ val do_opapp_too_many = Q.prove (
  every_case_tac >>
  full_simp_tac(srw_ss())[]);
 
-val do_app_type_error = prove(
-  ``do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s``,
+val do_app_type_error = Q.prove(
+  `do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s`,
   PairCases_on `s` >>
   srw_tac[][do_app_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>

@@ -390,8 +390,8 @@ fun print_dcc direction t = (
   val P_def = Define `P (x : num) (y : bool) = T`
   val Q_def = Define `Q (x : num) (y : num) = T`
 
-  val dummy_imp = prove (``
-    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)``,
+  val dummy_imp = Q.prove (`
+    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)`,
   REWRITE_TAC[P_def]);
 *)
 

@@ -2,12 +2,12 @@ structure unifyLib = struct
 local
   open HolKernel boolLib bossLib lcsymtacs
 
-  val t_unify_wfs = prove(
-   ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx``,
+  val t_unify_wfs = Q.prove(
+   `t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx`,
    metis_tac[unifyTheory.t_unify_unifier])
 
-  val t_wfs_FEMPTY = prove(
-    ``t_wfs FEMPTY``,
+  val t_wfs_FEMPTY = Q.prove(
+    `t_wfs FEMPTY`,
     rw[unifyTheory.t_wfs_def])
 
   val funs =

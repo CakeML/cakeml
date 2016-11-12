@@ -292,9 +292,9 @@ val decode_files_def = Define`
   decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
 `
 
-val decode_encode_files = store_thm(
+val decode_encode_files = Q.store_thm(
   "decode_encode_files",
-  ``∀l. decode_files (encode_files l) = return l``,
+  `∀l. decode_files (encode_files l) = return l`,
   simp[encode_files_def, decode_files_def] >>
   simp[decode_encode_list, decode_encode_pair, implode_explode]);
 

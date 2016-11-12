@@ -67,8 +67,8 @@ val merge_tup_def = tDefine "merge_tup" `
    simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
    disch_then (qspec_then `tag` mp_tac) >> simp[])
 
-val merge_alt = store_thm("merge_alt",``
-  ∀x y.merge x y = merge_tup (x,y)``,
+val merge_alt = Q.store_thm("merge_alt",`
+  ∀x y.merge x y = merge_tup (x,y)`,
   HO_MATCH_MP_TAC (fetch "-" "merge_ind")>>rw[merge_tup_def,MAP2_MAP]>>
   match_mp_tac LIST_EQ>>rw[EL_ZIP,EL_MAP]>>
   first_x_assum match_mp_tac>>metis_tac[MEM_EL])
@@ -100,8 +100,8 @@ val known_op_def = Define `
      | _ => (Other,g)) /\
   (known_op op as g = (Other,g))`
 
-val EL_MEM_LEMMA = prove(
-  ``!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs``,
+val EL_MEM_LEMMA = Q.prove(
+  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
 val dest_Clos_def = Define `

@@ -50,10 +50,10 @@ val strip_sxcons_11 = Q.store_thm("strip_sxcons_11",
   \\ simp[Once simpleSexpTheory.strip_sxcons_def]
   \\ CASE_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]);
 
-val dstrip_sexp_size = store_thm(
+val dstrip_sexp_size = Q.store_thm(
   "dstrip_sexp_size",
-  ``∀s sym args. dstrip_sexp s = SOME (sym, args) ⇒
-                 ∀e. MEM e args ⇒ sexp_size e < sexp_size s``,
+  `∀s sym args. dstrip_sexp s = SOME (sym, args) ⇒
+                 ∀e. MEM e args ⇒ sexp_size e < sexp_size s`,
   Induct >> simp[dstrip_sexp_def, sexp_size_def] >>
   rename1 `sexp_CASE sxp` >> Cases_on `sxp` >> simp[] >> rpt strip_tac >>
   rename1 `MEM sxp0 sxpargs` >> rename1 `strip_sxcons sxp'` >>
@@ -159,12 +159,12 @@ val decode_encode_control = Q.store_thm("decode_encode_control[simp]",
   \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
   \\ simp[stringTheory.CHR_ORD])
 
-val isHexDigit_alt = prove(
-  ``isHexDigit c ⇔ c ∈ set "0123456789abcdefABCDEF"``,
+val isHexDigit_alt = Q.prove(
+  `isHexDigit c ⇔ c ∈ set "0123456789abcdefABCDEF"`,
   rw[stringTheory.isHexDigit_def, EQ_IMP_THM] >> CONV_TAC EVAL >> simp[]);
 
-val UNHEX_lt16 = prove(
-  ``isHexDigit c ⇒ UNHEX c < 16``,
+val UNHEX_lt16 = Q.prove(
+  `isHexDigit c ⇒ UNHEX c < 16`,
   dsimp[isHexDigit_alt, ASCIInumbersTheory.UNHEX_def]);
 
 val isAlpha_isUpper_isLower = Q.store_thm(
@@ -308,41 +308,41 @@ val sexppair_def = Define`
     | _ => fail
 `;
 
-val sexppair_CONG = store_thm(
+val sexppair_CONG = Q.store_thm(
   "sexppair_CONG[defncong]",
-  ``∀s1 s2 p1 p1' p2 p2'.
+  `∀s1 s2 p1 p1' p2 p2'.
        s1 = s2 ∧
        (∀s. (∃s'. s2 = SX_CONS s s') ⇒ p1 s = p1' s) ∧
        (∀s. (∃s'. s2 = SX_CONS s' s) ⇒ p2 s = p2' s)
       ⇒
-       sexppair p1 p2 s1 = sexppair p1' p2' s2``,
+       sexppair p1 p2 s1 = sexppair p1' p2' s2`,
   simp[] >> Cases >> simp[sexppair_def])
 
 
-val strip_sxcons_FAIL_sexplist_FAIL = store_thm(
+val strip_sxcons_FAIL_sexplist_FAIL = Q.store_thm(
   "strip_sxcons_FAIL_sexplist_FAIL",
-  ``∀s. (strip_sxcons s = NONE) ⇒ (sexplist p s = NONE)``,
+  `∀s. (strip_sxcons s = NONE) ⇒ (sexplist p s = NONE)`,
   Induct >> simp[Once strip_sxcons_def, Once sexplist_def] >>
   metis_tac[TypeBase.nchotomy_of ``:α option``]);
 
-val monad_bind_FAIL = store_thm(
+val monad_bind_FAIL = Q.store_thm(
   "monad_bind_FAIL",
-  ``monad_bind m1 (λx. fail) = fail``,
+  `monad_bind m1 (λx. fail) = fail`,
   Cases_on `m1` >> simp[]);
 
-val monad_unitbind_CONG = store_thm(
+val monad_unitbind_CONG = Q.store_thm(
   "monad_unitbind_CONG[defncong]",
-  ``∀m11 m21 m12 m22.
+  `∀m11 m21 m12 m22.
       m11 = m12 ∧ (m12 = SOME () ⇒ m21 = m22) ⇒
-      monad_unitbind m11 m21 = monad_unitbind m12 m22``,
+      monad_unitbind m11 m21 = monad_unitbind m12 m22`,
   simp[] >> rpt gen_tac >> rename1 `m12 = SOME ()` >>
   Cases_on `m12` >> simp[]);
 
-val sexplist_CONG = store_thm(
+val sexplist_CONG = Q.store_thm(
   "sexplist_CONG[defncong]",
-  ``∀s1 s2 p1 p2.
+  `∀s1 s2 p1 p2.
       (s1 = s2) ∧ (∀e. sxMEM e s2 ⇒ p1 e = p2 e) ⇒
-      (sexplist p1 s1 = sexplist p2 s2)``,
+      (sexplist p1 s1 = sexplist p2 s2)`,
   simp[sxMEM_def] >> Induct >> dsimp[Once strip_sxcons_def]
   >- (ONCE_REWRITE_TAC [sexplist_def] >> simp[] >>
       rename1 `strip_sxcons t` >> Cases_on `strip_sxcons t` >>

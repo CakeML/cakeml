@@ -25,12 +25,12 @@ val compile_tm = ``compile``
 
   fun basis_st () = get_ml_prog_state ()
 
-  val main_spec = prove(
-    ``!cv input output.
+  val main_spec = Q.prove(
+    `!cv input output.
         app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
           [cv]
           (CHAR_IO * one FFI_split * STDIN input * STDOUT [] * frame)
-          (POSTv uv. CHAR_IO * one FFI_split * STDIN "" * STDOUT (^compile input) * frame)``,
+          (POSTv uv. CHAR_IO * one FFI_split * STDIN "" * STDOUT (^compile input) * frame)`,
     xcf "main" (basis_st())
     \\ xlet `POSTv v. CHAR_IO * one FFI_split * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v) * frame`
     THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
@@ -163,11 +163,11 @@ val compile_tm = ``compile``
              |> REWRITE_RULE []
     in th end
 
-  val semantics_prog_entire_program = store_thm("semantics_prog_entire_program",
-    ``?io_list.
+  val semantics_prog_entire_program = Q.store_thm("semantics_prog_entire_program",
+    `?io_list.
         semantics_prog (init_state (io_ffi input)) init_env entire_program
           (Terminate Success io_list) /\
-        extract_output io_list = SOME (^compile input)``,
+        extract_output io_list = SOME (^compile input)`,
     fs[semanticsTheory.semantics_prog_def,PULL_EXISTS]
     \\ strip_assume_tac evaluate_prog
     \\ fs[semanticsTheory.evaluate_prog_with_clock_def]

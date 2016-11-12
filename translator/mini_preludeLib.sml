@@ -17,13 +17,13 @@ val _ = save_thm("append_v_thm",append_v_thm);
 val res = translate REV_DEF;
 val res = translate REVERSE_REV;
 
-val hd_side_def = prove(
-  ``!xs. hd_side xs = ~(xs = [])``,
+val hd_side_def = Q.prove(
+  `!xs. hd_side xs = ~(xs = [])`,
   Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "hd_side_def"])
   |> update_precondition;
 
-val tl_side_def = prove(
-  ``!xs. tl_side xs = ~(xs = [])``,
+val tl_side_def = Q.prove(
+  `!xs. tl_side xs = ~(xs = [])`,
   Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "tl_side_def"])
   |> update_precondition;
 

@@ -110,8 +110,8 @@ fun derive_case_of ty = let
          ((Pcon xx pats,exp2)::pats2) errv (yyy,y)``
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
         SIMP_CONV (srw_ss()) [pmatch_def])
-  val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
-  val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+  val IF_T = Q.prove(`(if T then x else y) = x:'a`,SIMP_TAC std_ss []);
+  val IF_F = Q.prove(`(if F then x else y) = y:'a`,SIMP_TAC std_ss []);
   val init_tac =
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
@@ -258,7 +258,7 @@ fun inst_case_thm tm m2deep = let
 
 (* PMATCH *)
 
-val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
+val IMP_EQ_T = Q.prove(`a ==> (a <=> T)`,fs [])
 
 val prove_EvalMPatBind_fail = ref T;
 val goal = !prove_EvalMPatBind_fail;
@@ -794,7 +794,7 @@ val res = translate listTheory.APPEND;
 val res = translate mlstringTheory.strcat_def;
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
-val res = prove(``mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)``,
+val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
                 Cases_on`x1`>>Cases_on`x2`>>rw[mlstringTheory.mlstring_lt_def])
           |> translate
 val res = translate totoTheory.TO_of_LinearOrder
@@ -860,9 +860,9 @@ val type_compare_def = tDefine "type_compare" `
                   INR (x,_) => type1_size x
                 | INL (x,_) => type_size x)`)
 
-val type_cmp_thm = prove(
-  ``(type_cmp = type_compare) /\
-    (list_cmp type_cmp = type_list_compare)``,
+val type_cmp_thm = Q.prove(
+  `(type_cmp = type_compare) /\
+    (list_cmp type_cmp = type_list_compare)`,
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "type_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
@@ -913,8 +913,8 @@ val term_compare_def = Define `
          | Equal => term_compare t1' t2'
          | Greater => Greater`;
 
-val term_cmp_thm = prove(
-  ``term_cmp = term_compare``,
+val term_cmp_thm = Q.prove(
+  `term_cmp = term_compare`,
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
