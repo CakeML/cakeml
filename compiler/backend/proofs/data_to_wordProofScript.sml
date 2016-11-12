@@ -4178,8 +4178,6 @@ val assign_thm = Q.store_thm("assign_thm",
      (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
      (q <> SOME NotEnoughSpace ==>
      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)`,
-  cheat);
-(*
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ Cases_on `?tag. op = FromList tag` \\ fs [] THEN1
@@ -4516,8 +4514,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ Cases_on `op = WordFromInt` \\ fs[] THEN1 (
-    imp_res_tac get_vars_IMP_LENGTH
+  \\ Cases_on `op = WordFromInt` \\ fs[] THEN1 cheat (* update for bignums *)
+(*
+   (imp_res_tac get_vars_IMP_LENGTH
     \\ fs[do_app]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
@@ -4634,6 +4633,7 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ `w1 = w2`
     by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
     \\ rw[])
+*)
   \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -4752,7 +4752,8 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs [])
-  \\ Cases_on `op = Add` \\ fs [] THEN1
+  \\ Cases_on `op = Add` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -4787,7 +4788,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule memory_rel_zero_space \\ fs [])
-  \\ Cases_on `op = Sub` \\ fs [] THEN1
+*)
+  \\ Cases_on `op = Sub` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -4822,6 +4825,7 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule memory_rel_zero_space \\ fs [])
+*)
   \\ Cases_on `op = LengthByte` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -4861,7 +4865,8 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac (IMP_memory_rel_Number_num3
          |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs []
     \\ fs[good_dimindex_def])
-  \\ Cases_on `op = IsBlock` \\ fs [] THEN1
+  \\ Cases_on `op = IsBlock` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -4941,6 +4946,7 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,inter_insert_ODD_adjust_set]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+*)
   \\ Cases_on `op = Length` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -5017,7 +5023,8 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ fs [decode_length_def]
     \\ match_mp_tac IMP_memory_rel_Number_num \\ fs [])
-  \\ Cases_on `op = GreaterEq` \\ fs [] THEN1
+  \\ Cases_on `op = GreaterEq` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -5040,7 +5047,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
-  \\ Cases_on `op = Greater` \\ fs [] THEN1
+*)
+  \\ Cases_on `op = Greater` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -5064,7 +5073,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
-  \\ Cases_on `op = LessEq` \\ fs [] THEN1
+*)
+  \\ Cases_on `op = LessEq` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -5088,7 +5099,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
-  \\ Cases_on `op = Less` \\ fs [] THEN1
+*)
+  \\ Cases_on `op = Less` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -5110,7 +5123,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
-  \\ Cases_on `op = Equal` \\ fs [] THEN1
+*)
+  \\ Cases_on `op = Equal` \\ fs [] THEN1 cheat (* update for bignums *)
+(*
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
@@ -5300,8 +5315,10 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
-  \\ Cases_on `∃opw. op = WordOp W8 opw` \\ fs[] THEN1 (
-    imp_res_tac get_vars_IMP_LENGTH
+*)
+  \\ Cases_on `∃opw. op = WordOp W8 opw` \\ fs[] THEN1 cheat (* update for bignums *)
+(*
+   (imp_res_tac get_vars_IMP_LENGTH
     \\ fs[do_app]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
@@ -5456,6 +5473,7 @@ val assign_thm = Q.store_thm("assign_thm",
       \\ qmatch_goalsub_rename_tac`w2n w`
       \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
       \\ fs[good_dimindex_def,dimword_def] ))
+*)
   \\ Cases_on `∃opw. op = WordOp W64 opw` \\ fs[] THEN1 (
     imp_res_tac get_vars_IMP_LENGTH
     \\ fs[do_app]
@@ -5631,8 +5649,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ `w1 = w2`
     by ( simp[Abbr`w1`,Abbr`w2`,GSYM WORD_MUL_LSL] )
     \\ simp[] )
-  \\ Cases_on `∃sh n. op = WordShift W8 sh n` \\ fs[] THEN1 (
-    imp_res_tac get_vars_IMP_LENGTH
+  \\ Cases_on `∃sh n. op = WordShift W8 sh n` \\ fs[] THEN1 cheat (* update for bignums *)
+(*
+   (imp_res_tac get_vars_IMP_LENGTH
     \\ fs[do_app]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
@@ -5818,6 +5837,7 @@ val assign_thm = Q.store_thm("assign_thm",
       \\ simp[]
       \\ drule memory_rel_tl
       \\ simp_tac std_ss [GSYM APPEND_ASSOC]))
+*)
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app]
     \\ Cases_on `vals` \\ fs []
@@ -5923,8 +5943,9 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [])
-  \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 (
-    imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+  \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 cheat (* update for bignums *)
+(*
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs[]
     \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
     \\ imp_res_tac state_rel_get_vars_IMP
@@ -6010,8 +6031,10 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ drule memory_rel_tl \\ simp[] \\ strip_tac
     \\ drule memory_rel_tl \\ simp[] \\ strip_tac
     \\ drule memory_rel_tl \\ simp[])
-  \\ Cases_on `op = DerefByte` \\ fs[] THEN1 (
-    imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+*)
+  \\ Cases_on `op = DerefByte` \\ fs[] THEN1 cheat (* update for bignums *)
+(*
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs[]
     \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
     \\ imp_res_tac state_rel_get_vars_IMP
@@ -6086,6 +6109,7 @@ val assign_thm = Q.store_thm("assign_thm",
     \\ simp[]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ fs[])
+*)
   \\ Cases_on `op = El` \\ fs [] \\ fs [] \\ clean_tac THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
@@ -6505,10 +6529,9 @@ val assign_thm = Q.store_thm("assign_thm",
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = SetGlobal i` \\ fs [] THEN1 (fs [do_app])
-  \\ `assign c n l dest op args names_opt = (GiveUp,l)` by
-        (Cases_on `op` \\ fs [assign_def]
-         \\ every_case_tac \\ fs [] \\ NO_TAC) \\ fs []);
-*)
+  \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
+  \\ `?f. op = f ()` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
+  \\ Cases_on `op` \\ fs [assign_def] \\ every_case_tac \\ fs []);
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
