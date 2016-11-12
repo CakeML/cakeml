@@ -399,7 +399,7 @@ val is_fwd_ptr_def = Define `
 val update_addr_def = Define `
   update_addr conf fwd_ptr (old_addr:'a word) =
     ((fwd_ptr << (shift_length conf)) ||
-     ((shift_length conf - 1) -- 0) old_addr)`
+     ((small_shift_length conf - 1) -- 0) old_addr)`
 
 val memcpy_def = Define `
   memcpy w a b m dm =
@@ -524,8 +524,8 @@ val shift_around_under_big_shift = prove(
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val select_shift_out = prove(
-  ``n <> 0 ==> ((n - 1 -- 0) (w || v << n) = (n - 1 -- 0) w)``,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
+  ``n <> 0 /\ n <= m ==> ((n - 1 -- 0) (w || v << m) = (n - 1 -- 0) w)``,
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index]);
 
 val shift_length_NOT_ZERO = store_thm("shift_length_NOT_ZERO[simp]",
   ``shift_length conf <> 0``,
@@ -575,13 +575,13 @@ val is_fws_ptr_OR_31 = prove(
 
 val select_get_lowerbits = prove(
   ``(shift_length conf − 1 -- 0) (get_lowerbits conf a) =
+    get_lowerbits conf a /\
+    (small_shift_length conf − 1 -- 0) (get_lowerbits conf a) =
     get_lowerbits conf a``,
   Cases_on `a`
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
-  \\ eq_tac
-  \\ rw []
-  \\ fs []
-  )
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def,
+              small_shift_length_def,shift_length_def]
+  \\ eq_tac \\ rw [] \\ fs []);
 
 val LE_DIV_LT_IMP = prove(
   ``n <= l DIV 2 ** m /\ k < n ==> k * 2 ** m < l``,
@@ -691,11 +691,14 @@ val word_gc_move_thm = prove(
   \\ full_simp_tac(srw_ss())[ptr_to_addr_get_addr,word_heap_def,SEP_CLAUSES]
   \\ imp_res_tac heap_lookup_SPLIT \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_def,word_el_def]
+  \\ `small_shift_length conf <= shift_length conf /\
+      small_shift_length conf <> 0` by (EVAL_TAC \\ fs [] \\ NO_TAC)
   THEN1
-   (helperLib.SEP_R_TAC \\ full_simp_tac(srw_ss())[LET_THM,theWord_def,is_fws_ptr_OR_3]
+   (helperLib.SEP_R_TAC
+    \\ full_simp_tac(srw_ss())[LET_THM,theWord_def,is_fws_ptr_OR_3]
     \\ srw_tac[][] \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[update_addr_def,shift_to_zero]
-    \\ `2 <= shift_length conf` by (full_simp_tac(srw_ss())[shift_length_def] \\ decide_tac)
+    \\ `2 <= shift_length conf` by (fs[shift_length_def] \\ decide_tac)
     \\ full_simp_tac(srw_ss())[shift_around_under_big_shift]
     \\ full_simp_tac(srw_ss())[get_addr_def,select_shift_out]
     \\ full_simp_tac(srw_ss())[select_get_lowerbits,heap_length_def])
@@ -2880,10 +2883,11 @@ val get_real_addr_lemma = store_thm("get_real_addr_lemma",
     get_real_addr c t.store ptr_w = SOME x ==>
     word_exp t (real_addr c v) = SOME (Word (x:'a word))``,
   fs [get_real_addr_def] \\ every_case_tac \\ fs []
-  \\ fs [wordSemTheory.get_var_def,real_addr_def] \\ eval_tac \\ fs []
-  \\ rpt strip_tac \\ fs []
+  \\ fs [wordSemTheory.get_var_def,real_addr_def]
+  \\ eval_tac \\ fs [] \\ rw []
+  \\ eval_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
-  \\ rfs [shift_def]);
+  \\ rfs [shift_def] \\ fs []);
 
 val get_real_offset_lemma = store_thm("get_real_offset_lemma",
   ``get_var v t = SOME (Word i_w) /\
