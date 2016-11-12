@@ -5,9 +5,9 @@ open preamble
 
 val _ = new_theory "dec_to_exhProof";
 
-val find_recfun_compile_funs = prove(
-  ``∀ls f exh. find_recfun f (dec_to_exh$compile_funs exh ls) =
-               OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)``,
+val find_recfun_compile_funs = Q.prove(
+  `∀ls f exh. find_recfun f (dec_to_exh$compile_funs exh ls) =
+               OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)`,
   Induct >> simp[compile_funs_map] >- (
     simp[semanticPrimitivesTheory.find_recfun_def] ) >>
   simp[Once semanticPrimitivesTheory.find_recfun_def] >>
@@ -16,8 +16,8 @@ val find_recfun_compile_funs = prove(
   every_case_tac >>
   simp[] >> full_simp_tac(srw_ss())[compile_funs_map]);
 
-val exhaustive_match_submap = prove(
-  ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
+val exhaustive_match_submap = Q.prove(
+  `exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes`,
   srw_tac[][exhaustive_match_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac FLOOKUP_SUBMAP >> full_simp_tac(srw_ss())[] >> srw_tac[][])
@@ -102,8 +102,8 @@ val v_rel_eqn = Q.prove (
    srw_tac[][Once v_rel_cases] >>
    metis_tac []);
 
-val vs_rel_LIST_REL = prove(
-  ``∀vs vs' exh. vs_rel exh vs vs' = LIST_REL (v_rel exh) vs vs'``,
+val vs_rel_LIST_REL = Q.prove(
+  `∀vs vs' exh. vs_rel exh vs vs' = LIST_REL (v_rel exh) vs vs'`,
   Induct >> simp[v_rel_eqn])
 
 val env_rel_LIST_REL = Q.prove(
@@ -111,22 +111,22 @@ val env_rel_LIST_REL = Q.prove(
   Induct_on`env`>>simp[v_rel_eqn]>>Cases>>simp[v_rel_eqn] >>
   srw_tac[][EXISTS_PROD]);
 
-val env_rel_MAP = store_thm("env_rel_MAP",
-  ``∀exh env1 env2. env_rel exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
-      LIST_REL (v_rel exh) (MAP SND env1) (MAP SND env2)``,
+val env_rel_MAP = Q.store_thm("env_rel_MAP",
+  `∀exh env1 env2. env_rel exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
+      LIST_REL (v_rel exh) (MAP SND env1) (MAP SND env2)`,
   Induct_on`env1`>>simp[Once v_rel_cases] >>
   Cases >> Cases_on`env2` >> srw_tac[][] >>
   Cases_on`h`>>srw_tac[][] >> metis_tac[])
 
 val _ = augment_srw_ss[rewrites[vs_rel_LIST_REL,find_recfun_compile_funs]]
 
-val v_rel_lit_loc = store_thm("v_rel_lit_loc[simp]",
-  ``(v_rel exh (Litv l) lh ⇔ lh = Litv l) ∧
+val v_rel_lit_loc = Q.store_thm("v_rel_lit_loc[simp]",
+  `(v_rel exh (Litv l) lh ⇔ lh = Litv l) ∧
     (v_rel exh l2 (Litv l) ⇔ l2 = Litv l) ∧
     (v_rel exh (Loc n) lh ⇔ lh = Loc n) ∧
     (v_rel exh l2 (Loc n) ⇔ l2 = Loc n) ∧
     (v_rel exh (Conv t []) lh ⇔ lh = Conv (get_tag t) []) ∧
-    (v_rel exh (Boolv b) lh ⇔ lh = Boolv b)``,
+    (v_rel exh (Boolv b) lh ⇔ lh = Boolv b)`,
   srw_tac[][] >> srw_tac[][Once v_rel_cases, conSemTheory.Boolv_def, exhSemTheory.Boolv_def])
 
 val state_rel_def = Define`
@@ -283,9 +283,9 @@ val pmatch = Q.prove (
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       metis_tac []));
 
-val pat_bindings = prove(
-  ``(∀p ls. pat_bindings (compile_pat p) ls = pat_bindings p ls) ∧
-    (∀ps ls. pats_bindings (MAP compile_pat ps) ls = pats_bindings ps ls)``,
+val pat_bindings = Q.prove(
+  `(∀p ls. pat_bindings (compile_pat p) ls = pat_bindings p ls) ∧
+    (∀ps ls. pats_bindings (MAP compile_pat ps) ls = pats_bindings ps ls)`,
   ho_match_mp_tac(TypeBase.induction_of(``:conLang$pat``)) >>
   simp[conSemTheory.pat_bindings_def,exhSemTheory.pat_bindings_def,compile_pat_def] >>
   srw_tac[][] >> cases_on`o'` >>
@@ -310,8 +310,8 @@ val v_to_list = Q.prove (
   srw_tac[][] >>
   metis_tac [NOT_SOME_NONE, SOME_11]);
 
-val char_list_to_v = prove(
-  ``∀ls. v_rel exh (char_list_to_v ls) (char_list_to_v ls)``,
+val char_list_to_v = Q.prove(
+  `∀ls. v_rel exh (char_list_to_v ls) (char_list_to_v ls)`,
   Induct >> simp[conSemTheory.char_list_to_v_def,exhSemTheory.char_list_to_v_def] >>
   simp[v_rel_eqn])
 
@@ -434,14 +434,14 @@ val do_app_lem = Q.prove (
        `l = l'` by metis_tac[semanticPrimitivesPropsTheory.sv_rel_def] >>
        full_simp_tac(srw_ss())[])) |> INST_TYPE[alpha|->``:'ffi``];
 
-val do_app = prove(
-  ``∀s1 op vs s2 res exh s1_exh vs_exh.
+val do_app = Q.prove(
+  `∀s1 op vs s2 res exh s1_exh vs_exh.
       do_app (s1:'ffi decSem$state) op vs = SOME (s2,res) ∧
       state_rel exh s1 s1_exh ∧
       vs_rel exh vs vs_exh ⇒
       ∃s2_exh res_exh.
         do_app s1_exh op vs_exh = SOME (s2_exh,res_exh) ∧
-        result_rel v_rel exh (s2,res) (s2_exh,res_exh)``,
+        result_rel v_rel exh (s2,res) (s2_exh,res_exh)`,
   rpt gen_tac >>
   srw_tac[][decSemTheory.do_app_def] >>
   Cases_on`op`>>full_simp_tac(srw_ss())[] >- (
@@ -457,15 +457,15 @@ val do_app = prove(
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,semanticPrimitivesPropsTheory.sv_rel_cases] >>
   srw_tac[][] >> metis_tac[NOT_SOME_NONE]);
 
-val do_opapp = prove(
-  ``∀vs env e exh vs_exh.
+val do_opapp = Q.prove(
+  `∀vs env e exh vs_exh.
     do_opapp vs = SOME (env,e) ∧
     vs_rel exh vs vs_exh
     ⇒
     ∃exh' env_exh.
       env_rel exh env env_exh ∧
       exh' ⊑ exh ∧
-      do_opapp vs_exh = SOME (env_exh,compile_exp exh' e)``,
+      do_opapp vs_exh = SOME (env_exh,compile_exp exh' e)`,
   srw_tac[][conSemTheory.do_opapp_def,exhSemTheory.do_opapp_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   TRY (full_simp_tac(srw_ss())[Once v_rel_cases]>>NO_TAC) >>
@@ -489,8 +489,8 @@ val exists_match_def = Define `
   exists_match exh s ps v ⇔
     !env. ?p. MEM p ps ∧ pmatch exh s p v env ≠ No_match`;
 
-val is_unconditional_thm = prove(
-  ``∀p a b c d. is_unconditional p ⇒ pmatch a b p c d ≠ No_match``,
+val is_unconditional_thm = Q.prove(
+  `∀p a b c d. is_unconditional p ⇒ pmatch a b p c d ≠ No_match`,
   ho_match_mp_tac is_unconditional_ind >>
   Cases >> srw_tac[][] >>
   Cases_on`c`>>srw_tac[][conSemTheory.pmatch_def]
@@ -515,8 +515,8 @@ val is_unconditional_thm = prove(
     BasicProvers.EVERY_CASE_TAC >>
     metis_tac[]))
 
-val is_unconditional_list_thm = prove(
-  ``∀l1 l2 a b c. EVERY is_unconditional l1 ⇒ pmatch_list a b l1 l2 c ≠ No_match``,
+val is_unconditional_list_thm = Q.prove(
+  `∀l1 l2 a b c. EVERY is_unconditional l1 ⇒ pmatch_list a b l1 l2 c ≠ No_match`,
   Induct >> Cases_on`l2` >> simp[conSemTheory.pmatch_def] >>
   srw_tac[][] >>
   BasicProvers.CASE_TAC >>
@@ -560,8 +560,8 @@ val get_tags_thm = Q.prove(
     metis_tac[] ) >>
   metis_tac[])
 
-val pmatch_Pcon_No_match = prove(
-  ``EVERY is_unconditional ps ⇒
+val pmatch_Pcon_No_match = Q.prove(
+  `EVERY is_unconditional ps ⇒
     ((pmatch exh s (Pcon (SOME(c,TypeId t)) ps) v env = No_match) ⇔
      ∃cv vs tags max maxv.
        v = Conv (SOME(cv,TypeId t)) vs ∧
@@ -569,7 +569,7 @@ val pmatch_Pcon_No_match = prove(
        lookup (LENGTH ps) tags = SOME max ∧
        lookup (LENGTH vs) tags = SOME maxv ∧
        c < max ∧ cv < maxv ∧
-       (LENGTH ps = LENGTH vs ⇒ c ≠ cv))``,
+       (LENGTH ps = LENGTH vs ⇒ c ≠ cv))`,
   Cases_on`v`>>srw_tac[][conSemTheory.pmatch_def]>>
   Cases_on`o'`>>simp[conSemTheory.pmatch_def] >>
   PairCases_on`x`>>simp[conSemTheory.pmatch_def]>>
@@ -866,7 +866,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
     srw_tac[][] >>
     simp[exhSemTheory.semantics_def] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-      rator_x_assum`decSem$evaluate`kall_tac >>
+      qhdtm_x_assum`decSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
@@ -906,7 +906,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           simp[RIGHT_FORALL_IMP_THM] >>
           impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[result_rel_cases]) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`exhSem$evaluate`mp_tac >>
+          qhdtm_x_assum`exhSem$evaluate`mp_tac >>
           drule (GEN_ALL (CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
@@ -926,7 +926,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
         strip_tac >>
-        rator_x_assum`decSem$evaluate`mp_tac >>
+        qhdtm_x_assum`decSem$evaluate`mp_tac >>
         drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
         impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
@@ -951,7 +951,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
       strip_tac >> rveq >>
       reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[state_rel_def,result_rel_cases] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-      rator_x_assum`exhSem$evaluate`mp_tac >>
+      qhdtm_x_assum`exhSem$evaluate`mp_tac >>
       drule (GEN_ALL(CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
       impl_tac >- full_simp_tac(srw_ss())[] >>
@@ -1022,9 +1022,24 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   srw_tac[][result_rel_cases] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[state_rel_def])
 
+open exh_reorderProofTheory
+val compile_sing = exh_reorderTheory.compile_sing
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `semantics env st [e] ≠ Fail ∧
+   env_rel env.exh env.v envh ∧
+   state_rel env.exh st sth
+   ⇒
+     semantics (compile_env envh) (compile_state sth)
+       [compile env.exh e] = semantics env st [e]`,
+  rw[]
+  \\ imp_res_tac compile_exp_semantics
+  \\ fs[compile_def,compile_exp_def]
+  \\ metis_tac[compile_semantics,compile_sing,HD]);
+
 open conPropsTheory
 
-val set_globals_eq = Q.store_thm("set_globals_eq",
+val compile_exp_set_globals_eq = Q.store_thm("compile_exp_set_globals_eq",
   `(∀exh exp. set_globals (dec_to_exh$compile_exp exh exp) = set_globals exp) ∧
    (∀exh exps.
      elist_globals(dec_to_exh$compile_exps exh exps) = elist_globals exps) ∧
@@ -1035,7 +1050,7 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
   ho_match_mp_tac compile_exp_ind >>
   rw[compile_exp_def,add_default_def,elist_globals_append])
 
-val compile_esgc_free = Q.store_thm("compile_esgc_free",
+val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
   `(∀exh exp. esgc_free exp ⇒ esgc_free (dec_to_exh$compile_exp exh exp)) ∧
    (∀exh exps.
      EVERY esgc_free exps ⇒ EVERY esgc_free (dec_to_exh$compile_exps exh exps)) ∧
@@ -1045,12 +1060,30 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
      EVERY esgc_free (MAP (SND o SND)funs) ⇒ EVERY esgc_free (MAP (SND o SND) (dec_to_exh$compile_funs exh funs)))`,
   ho_match_mp_tac compile_exp_ind >>
   rw[compile_exp_def,add_default_def]>>
-  fs[set_globals_eq]);
+  fs[compile_exp_set_globals_eq]);
 
-val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+val compile_exp_distinct_setglobals = Q.store_thm("compile_exp_distinct_setglobals",
   `∀exh e.
        BAG_ALL_DISTINCT (set_globals e) ⇒
        BAG_ALL_DISTINCT (set_globals (dec_to_exh$compile_exp exh e))`,
-  fs[set_globals_eq])
+  fs[compile_exp_set_globals_eq])
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `∀exh exp. esgc_free exp ⇒ esgc_free (dec_to_exh$compile exh exp)`,
+  rw[compile_def]
+  \\ imp_res_tac compile_exp_esgc_free
+  \\ metis_tac[compile_esgc_free,EVERY_DEF,HD,compile_sing]);
+
+val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+  `∀exh e.
+    BAG_ALL_DISTINCT (set_globals e) ⇒
+    BAG_ALL_DISTINCT (set_globals (dec_to_exh$compile exh e))`,
+  rw[compile_def]
+  \\ imp_res_tac compile_exp_distinct_setglobals
+  \\ first_x_assum(qspec_then`exh`strip_assume_tac)
+  \\ qspec_then`[compile_exp exh e]`mp_tac(Q.GEN`es`compile_distinct_globals)
+  \\ simp[]
+  \\ qspec_then`compile_exp exh e`strip_assume_tac compile_sing
+  \\ fs[]);
 
 val _ = export_theory ();

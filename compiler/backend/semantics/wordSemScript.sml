@@ -459,14 +459,14 @@ val add_ret_loc_def = Define `
 val bad_dest_args_def = Define`
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
 
-val termdep_rw = prove(
-  ``((call_env p_1 s).termdep = s.termdep) /\
+val termdep_rw = Q.prove(
+  `((call_env p_1 s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
-    ((set_var n v s).termdep = s.termdep)``,
+    ((set_var n v s).termdep = s.termdep)`,
   EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-val fix_clock_IMP_LESS_EQ = prove(
-  ``!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep``,
+val fix_clock_IMP_LESS_EQ = Q.prove(
+  `!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 val evaluate_def = tDefine "evaluate" `
@@ -615,15 +615,15 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
-val gc_clock = store_thm("gc_clock",
-  ``!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep``,
+val gc_clock = Q.store_thm("gc_clock",
+  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
   full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val alloc_clock = store_thm("alloc_clock",
-  ``!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
-                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep``,
+val alloc_clock = Q.store_thm("alloc_clock",
+  `!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
+                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
   SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
   \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac gc_clock
@@ -634,8 +634,8 @@ val alloc_clock = store_thm("alloc_clock",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]);
 
-val inst_clock = prove(
-  ``inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep``,
+val inst_clock = Q.prove(
+  `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
@@ -670,8 +670,8 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ decide_tac);
 
-val fix_clock_evaluate = prove(
-  ``fix_clock s (evaluate (c1,s)) = evaluate (c1,s)``,
+val fix_clock_evaluate = Q.prove(
+  `fix_clock s (evaluate (c1,s)) = evaluate (c1,s)`,
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
   \\ imp_res_tac evaluate_clock \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
   \\ full_simp_tac(srw_ss())[state_component_equality]);

@@ -16,8 +16,8 @@ val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
    initial_state f c k with code := c1 = initial_state f c1 k`,
   EVAL_TAC);
 
-val bvl_to_bvi_id = store_thm("bvl_to_bvi_id",
-  ``bvl_to_bvi (bvi_to_bvl s) s = s``,
+val bvl_to_bvi_id = Q.store_thm("bvl_to_bvi_id",
+  `bvl_to_bvi (bvi_to_bvl s) s = s`,
   EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]);
 
 val bvl_to_bvi_with_refs = Q.store_thm("bvl_to_bvi_with_refs",
@@ -60,11 +60,11 @@ val domain_bvi_to_bvl_code = Q.store_thm("domain_bvi_to_bvl_code[simp]",
   `domain (bvi_to_bvl s).code = domain s.code`,
   srw_tac[][bvi_to_bvl_def,domain_map])
 
-val evaluate_LENGTH = prove(
-  ``!xs s env. (\(xs,s,env).
+val evaluate_LENGTH = Q.prove(
+  `!xs s env. (\(xs,s,env).
       (case evaluate (xs,s,env) of (Rval res,s1) => (LENGTH xs = LENGTH res)
             | _ => T))
-      (xs,s,env)``,
+      (xs,s,env)`,
   HO_MATCH_MP_TAC evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
@@ -74,24 +74,24 @@ val evaluate_LENGTH = prove(
 
 val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
 
-val evaluate_IMP_LENGTH = store_thm("evaluate_IMP_LENGTH",
-  ``(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)``,
+val evaluate_IMP_LENGTH = Q.store_thm("evaluate_IMP_LENGTH",
+  `(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_LENGTH) \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_SING_IMP = store_thm("evaluate_SING_IMP",
-  ``(evaluate ([x],env,s1) = (Rval vs,s2)) ==> ?w. vs = [w]``,
+val evaluate_SING_IMP = Q.store_thm("evaluate_SING_IMP",
+  `(evaluate ([x],env,s1) = (Rval vs,s2)) ==> ?w. vs = [w]`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_IMP_LENGTH
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
 
-val evaluate_CONS = store_thm("evaluate_CONS",
-  ``evaluate (x::xs,env,s) =
+val evaluate_CONS = Q.store_thm("evaluate_CONS",
+  `evaluate (x::xs,env,s) =
       case evaluate ([x],env,s) of
       | (Rval v,s2) =>
          (case evaluate (xs,env,s2) of
           | (Rval vs,s1) => (Rval (HD v::vs),s1)
           | t => t)
-      | t => t``,
+      | t => t`,
   Cases_on `xs` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `evaluate ([x],env,s)` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -99,15 +99,15 @@ val evaluate_CONS = store_thm("evaluate_CONS",
   \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_SNOC = store_thm("evaluate_SNOC",
-  ``!xs env s x.
+val evaluate_SNOC = Q.store_thm("evaluate_SNOC",
+  `!xs env s x.
       evaluate (SNOC x xs,env,s) =
       case evaluate (xs,env,s) of
       | (Rval vs,s2) =>
          (case evaluate ([x],env,s2) of
           | (Rval v,s1) => (Rval (vs ++ v),s1)
           | t => t)
-      | t => t``,
+      | t => t`,
   Induct THEN1
    (full_simp_tac(srw_ss())[SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
     \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[])
@@ -121,15 +121,15 @@ val evaluate_SNOC = store_thm("evaluate_SNOC",
   \\ Cases_on `a''` \\ full_simp_tac(srw_ss())[LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_APPEND = store_thm("evaluate_APPEND",
-  ``!xs env s ys.
+val evaluate_APPEND = Q.store_thm("evaluate_APPEND",
+  `!xs env s ys.
       evaluate (xs ++ ys,env,s) =
       case evaluate (xs,env,s) of
         (Rval vs,s2) =>
           (case evaluate (ys,env,s2) of
              (Rval ws,s1) => (Rval (vs ++ ws),s1)
            | res => res)
-      | res => res``,
+      | res => res`,
   Induct \\ full_simp_tac(srw_ss())[APPEND,evaluate_def] \\ REPEAT STRIP_TAC
   THEN1 REPEAT BasicProvers.CASE_TAC
   \\ ONCE_REWRITE_TAC [evaluate_CONS]
@@ -138,12 +138,12 @@ val evaluate_APPEND = store_thm("evaluate_APPEND",
 val inc_clock_def = Define `
   inc_clock n (s:'ffi bviSem$state) = s with clock := s.clock + n`;
 
-val inc_clock_ZERO = store_thm("inc_clock_ZERO",
-  ``!s. inc_clock 0 s = s``,
+val inc_clock_ZERO = Q.store_thm("inc_clock_ZERO",
+  `!s. inc_clock 0 s = s`,
   full_simp_tac(srw_ss())[inc_clock_def,state_component_equality]);
 
-val inc_clock_ADD = store_thm("inc_clock_ADD",
-  ``inc_clock n (inc_clock m s) = inc_clock (n+m) s``,
+val inc_clock_ADD = Q.store_thm("inc_clock_ADD",
+  `inc_clock n (inc_clock m s) = inc_clock (n+m) s`,
   full_simp_tac(srw_ss())[inc_clock_def,state_component_equality,AC ADD_ASSOC ADD_COMM]);
 
 val inc_clock_refs = Q.store_thm("inc_clock_refs[simp]",
@@ -184,33 +184,33 @@ val dec_clock_code = Q.store_thm("dec_clock_code[simp]",
   `(dec_clock n s).code = s.code`,
   srw_tac[][dec_clock_def])
 
-val dec_clock_inv_clock = store_thm("dec_clock_inv_clock",
-  ``¬(t1.clock < ticks + 1) ==>
-    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))``,
+val dec_clock_inv_clock = Q.store_thm("dec_clock_inv_clock",
+  `¬(t1.clock < ticks + 1) ==>
+    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))`,
   full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
 
-val dec_clock_inv_clock1 = store_thm("dec_clock_inv_clock1",
-  ``t1.clock <> 0 ==>
-    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))``,
+val dec_clock_inv_clock1 = Q.store_thm("dec_clock_inv_clock1",
+  `t1.clock <> 0 ==>
+    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))`,
   full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
 
 val dec_clock0 = Q.store_thm ("dec_clock0[simp]",
   `!n (s:'ffi bviSem$state). dec_clock 0 s = s`,
   simp [dec_clock_def, state_component_equality]);
 
-val do_app_inv_clock = prove(
-  ``case do_app op (REVERSE a) s of
+val do_app_inv_clock = Q.prove(
+  `case do_app op (REVERSE a) s of
     | Rerr e => (do_app op (REVERSE a) (inc_clock n s) = Rerr e)
-    | Rval (v,s1) => (do_app op (REVERSE a) (inc_clock n s) = Rval (v,inc_clock n s1))``,
+    | Rval (v,s1) => (do_app op (REVERSE a) (inc_clock n s) = Rval (v,inc_clock n s1))`,
   full_simp_tac(srw_ss())[bviSemTheory.do_app_def] \\ Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def,bvlSemTheory.do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ full_simp_tac(srw_ss())[bvi_to_bvl_def,closSemTheory.get_global_def,inc_clock_def,bvl_to_bvi_def,LET_DEF]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []);
 
-val evaluate_inv_clock = store_thm("evaluate_inv_clock",
-  ``!xs env t1 res t2 n.
+val evaluate_inv_clock = Q.store_thm("evaluate_inv_clock",
+  `!xs env t1 res t2 n.
       (evaluate (xs,env,t1) = (res,t2)) /\ res <> Rerr(Rabort Rtimeout_error) ==>
-      (evaluate (xs,env,inc_clock n t1) = (res,inc_clock n t2))``,
+      (evaluate (xs,env,inc_clock n t1) = (res,inc_clock n t2))`,
   SIMP_TAC std_ss [] \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[evaluate_def]
   THEN1 (`?res5 s5. evaluate ([x],env,s) = (res5,s5)` by METIS_TAC [PAIR]
@@ -251,8 +251,8 @@ val evaluate_inv_clock = store_thm("evaluate_inv_clock",
     \\ RES_TAC \\ TRY (full_simp_tac(srw_ss())[inc_clock_def] \\ decide_tac)
     \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]));
 
-val evaluate_code_const_lemma = prove(
-  ``!xs env s. (SND (evaluate (xs,env,s))).code = s.code``,
+val evaluate_code_const_lemma = Q.prove(
+  `!xs env s. (SND (evaluate (xs,env,s))).code = s.code`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ REV_FULL_SIMP_TAC std_ss [] \\ full_simp_tac(srw_ss())[dec_clock_def]
@@ -263,8 +263,8 @@ val evaluate_code_const_lemma = prove(
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bvl_to_bvi_def] \\ full_simp_tac(srw_ss())[do_app_aux_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]);
 
-val evaluate_code_const = store_thm("evaluate_code_const",
-  ``!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)``,
+val evaluate_code_const = Q.store_thm("evaluate_code_const",
+  `!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_code_const_lemma) \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_global_mono_lemma = Q.prove(
@@ -281,8 +281,8 @@ val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
   `∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global`,
   METIS_TAC[SND,evaluate_global_mono_lemma]);
 
-val do_app_code = store_thm("do_app_code",
-  ``!op s1 s2. (do_app op a s1 = Rval (x0,s2)) ==> (s2.code = s1.code)``,
+val do_app_code = Q.store_thm("do_app_code",
+  `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) ==> (s2.code = s1.code)`,
   SIMP_TAC std_ss [do_app_def] \\ REPEAT STRIP_TAC
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `do_app_aux op a s1` \\ full_simp_tac(srw_ss())[]

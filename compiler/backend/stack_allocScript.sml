@@ -31,7 +31,7 @@ val word_gc_move_code_def = Define `
          If Test 1 (Imm 3w)
            (list_Seq [right_shift_inst 1 2;
                       left_shift_inst 1 (shift_length conf);
-                      clear_top_inst 5 (shift_length conf - 1);
+                      clear_top_inst 5 (small_shift_length conf - 1);
                       or_inst 5 1])
            (list_Seq [(* get len+1w *)
                       right_shift_inst 1 (dimindex (:'a) - conf.len_size);
@@ -52,7 +52,7 @@ val word_gc_move_code_def = Define `
                       store_inst 0 2;
                       (* compute update_addr conf i w, where i in 4 and w in 5 *)
                       move 1 4;
-                      clear_top_inst 5 (shift_length conf - 1);
+                      clear_top_inst 5 (small_shift_length conf - 1);
                       left_shift_inst 1 (shift_length conf);
                       or_inst 5 1;
                       (* add to i in 4 *)

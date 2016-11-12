@@ -1,4 +1,4 @@
-open preamble conLangTheory decLangTheory exhLangTheory
+open preamble conLangTheory decLangTheory exhLangTheory exh_reorderTheory
 open backend_commonTheory
 
 val _ = numLib.prefer_num()
@@ -102,8 +102,8 @@ val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefin
     | INR (INR (INL (pes))) => exp3_size pes
     | INR (INR (INR (funs))) => exp1_size funs)`)
 
-val p2sz_append = prove(
-  ``∀p1 p2. p2sz (p1++p2) = p2sz p1 + p2sz p2``,
+val p2sz_append = Q.prove(
+  `∀p1 p2. p2sz (p1++p2) = p2sz p1 + p2sz p2`,
   Induct >> simp[e2sz_def] >>
   Cases >> simp[e2sz_def])
 
@@ -176,13 +176,16 @@ val compile_exp_def = tDefine"compile_exp"`
 val _ = map delete_const ["e2sz","p2sz","l2sz","f2sz","e2sz_UNION"]
 val _ = delete_binding "e2sz_ind"
 
-val compile_funs_map = store_thm("compile_funs_map",
-  ``compile_funs exh ls = MAP (λ(x,y,z). (x,y,compile_exp exh z)) ls``,
+val compile_funs_map = Q.store_thm("compile_funs_map",
+  `compile_funs exh ls = MAP (λ(x,y,z). (x,y,compile_exp exh z)) ls`,
   Induct_on`ls`>>simp[compile_exp_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[compile_exp_def]);
 
 val compile_exps_map = Q.store_thm ("compile_exps_map",
   `!exh es. compile_exps exh es = MAP (compile_exp exh) es`,
   Induct_on `es` >>
   rw [compile_exp_def]);
+
+val compile_def = Define`
+  compile exh e = HD (exh_reorder$compile [dec_to_exh$compile_exp exh e])`;
 
 val _ = export_theory()

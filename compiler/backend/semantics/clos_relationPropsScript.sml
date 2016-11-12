@@ -3,20 +3,20 @@ open clos_relationTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relationProps";
 
-val state_rel_ffi_mono = store_thm(
+val state_rel_ffi_mono = Q.store_thm(
   "state_rel_ffi_mono[simp]",
-  ``state_rel k w (s1:'ffi closSem$state) s2 ⇒
-    state_rel k w (s1 with ffi := (ffi:'ffi ffi_state)) (s2 with ffi := ffi)``,
+  `state_rel k w (s1:'ffi closSem$state) s2 ⇒
+    state_rel k w (s1 with ffi := (ffi:'ffi ffi_state)) (s2 with ffi := ffi)`,
   ONCE_REWRITE_TAC [val_rel_def] >> simp[]);
 
-val exp_rel_evaluate = store_thm(
+val exp_rel_evaluate = Q.store_thm(
   "exp_rel_evaluate",
-  ``∀e1 e2.
+  `∀e1 e2.
       exp_rel (:'ffi) w e1 e2 ==>
       ∀(s1: 'ffi closSem$state) s2 k.
          state_rel k w s1 s2 ⇒
          res_rel w (evaluate (e1,[], s1 with clock := k))
-                   (evaluate (e2,[], s2 with clock := k))``,
+                   (evaluate (e2,[], s2 with clock := k))`,
   simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
   qx_genl_tac [`e1`, `e2`] >> strip_tac >>
   qx_genl_tac [`s1`, `s2`, `k`] >>
@@ -50,44 +50,44 @@ val appkindeq =
     prove_case_eq_thm { case_def = TypeBase.case_def_of ``:app_kind``,
                         nchotomy = TypeBase.nchotomy_of ``:app_kind``}
 
-val paireq = prove(
-  ``pair_CASE p f = v ⇔ ∃a b. p = (a,b) ∧ v = f a b``,
+val paireq = Q.prove(
+  `pair_CASE p f = v ⇔ ∃a b. p = (a,b) ∧ v = f a b`,
   Cases_on `p` >> simp[] >> metis_tac[]);
 
 val ioeventeq =
     prove_case_eq_thm { case_def = TypeBase.case_def_of ``:io_event``,
                         nchotomy = TypeBase.nchotomy_of ``:io_event``}
 
-val booleq = prove(
-  ``(if p then x else y) = z ⇔ p ∧ x = z ∨ ¬p ∧ y = z``,
+val booleq = Q.prove(
+  `(if p then x else y) = z ⇔ p ∧ x = z ∨ ¬p ∧ y = z`,
   srw_tac[][]);
 
-val optioneq = prove(
-  ``option_CASE opt n s = x ⇔ opt = NONE ∧ n = x ∨ ∃y. opt = SOME y ∧ x = s y``,
+val optioneq = Q.prove(
+  `option_CASE opt n s = x ⇔ opt = NONE ∧ n = x ∨ ∃y. opt = SOME y ∧ x = s y`,
   Cases_on `opt` >> simp[] >> metis_tac[]);
 
 (*
-val do_app_preserves_ioNONE = store_thm(
+val do_app_preserves_ioNONE = Q.store_thm(
   "do_app_preserves_ioNONE",
-  ``do_app op args s = Rval (v, s') ∧ s.io = NONE ⇒ s'.io = NONE``,
+  `do_app op args s = Rval (v, s') ∧ s.io = NONE ⇒ s'.io = NONE`,
   Cases_on `op` >> Cases_on `args` >>
   simp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
   srw_tac[][] >> srw_tac[][] >> full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]);
 *)
 
-val dec_clock_ffi = store_thm(
+val dec_clock_ffi = Q.store_thm(
   "dec_clock_ffi[simp]",
-  ``(dec_clock n s).ffi = s.ffi``,
+  `(dec_clock n s).ffi = s.ffi`,
   simp[dec_clock_def]);
 
 (*
-val ioNONE_preserved = store_thm(
+val ioNONE_preserved = Q.store_thm(
   "ioNONE_preserved",
-  ``(∀esenvs es env s s' rv.
+  `(∀esenvs es env s s' rv.
        evaluate esenvs = (rv, s') ∧ esenvs = (es,env,s) ∧ s.io = NONE ⇒
        s'.io = NONE) ∧
     (∀l f vs s s' rv.
-       evaluate_app l f vs s = (rv, s') ∧ s.io = NONE ⇒ s'.io = NONE)``,
+       evaluate_app l f vs s = (rv, s') ∧ s.io = NONE ⇒ s'.io = NONE)`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
   simp[Once evaluate_def, paireq, resulteq, booleq, errorresulteq,
        optioneq, appkindeq, listeq] >>
@@ -96,9 +96,9 @@ val ioNONE_preserved = store_thm(
   >- metis_tac[]);
 *)
 
-val exp3_size_EQ0 = store_thm(
+val exp3_size_EQ0 = Q.store_thm(
   "exp3_size_EQ0[simp]",
-  ``closLang$exp3_size l = 0 ⇔ l = []``,
+  `closLang$exp3_size l = 0 ⇔ l = []`,
   Cases_on `l` >> simp[closLangTheory.exp_size_def]);
 
 val evaluate_ind' = save_thm(
@@ -123,15 +123,15 @@ val kill_asm_guard =
     disch_then (fn th => SUBGOAL_THEN (lhand (concl th))
                                       (MP_TAC o MATCH_MP th)) >- simp[]
 
-val merge1 = prove(
-  ``(∀s:'ffi closSem$state x. s.clock < N ⇒ P s x) ∧
+val merge1 = Q.prove(
+  `(∀s:'ffi closSem$state x. s.clock < N ⇒ P s x) ∧
     (∀s x. s.clock = N ∧ Q s x ⇒ P s x) ⇒
-    (∀s x. s.clock ≤ N ∧ Q s x ⇒ P s x)``,
+    (∀s x. s.clock ≤ N ∧ Q s x ⇒ P s x)`,
   dsimp[DECIDE ``x:num ≤ y ⇔ x < y ∨ x = y``]);
 
-val merge2 = prove(
-  ``(∀s:'ffi closSem$state x. s.clock < N ⇒ P s x) ∧ (∀s x. s.clock = N ⇒ P s x) ⇒
-    ∀s x. s.clock ≤ N ⇒ P s x``,
+val merge2 = Q.prove(
+  `(∀s:'ffi closSem$state x. s.clock < N ⇒ P s x) ∧ (∀s x. s.clock = N ⇒ P s x) ⇒
+    ∀s x. s.clock ≤ N ⇒ P s x`,
   dsimp[DECIDE ``x:num ≤ y ⇔ x < y ∨ x = y``]);
 
 val merge_tac =
@@ -162,36 +162,36 @@ val extendio_def = Define`
 
 val extendio_accessors = save_thm(
   "extendio_accessors[simp]",
-  map (fn acc => prove(``^acc (extendio s io) = ^acc s``,
+  map (fn acc => Q.prove(`^acc (extendio s io) = ^acc s`,
                        simp[extendio_def] >> Cases_on `s.io` >> simp[]))
       (filter (not o aconv ``state_io``) acc_ts) |> LIST_CONJ)
 
 val extendio_updates = save_thm(
   "extendio_updates[simp]",
   map
-    (fn upd => prove(``^upd (extendio s io) = extendio (^upd s) io``,
+    (fn upd => Q.prove(`^upd (extendio s io) = extendio (^upd s) io`,
                      simp[extendio_def]>> Cases_on `s.io` >> simp[]))
     (filter (not o aconv ``state_io_fupd`` o rator) upd_ts) |> LIST_CONJ)
 
-val doapp_extendio_type_error = store_thm(
+val doapp_extendio_type_error = Q.store_thm(
   "doapp_extendio_type_error",
-  ``do_app opt args s0 = Rerr (Rabort Rtype_error) ⇒
-    do_app opt args (extendio s0 io) = Rerr (Rabort Rtype_error)``,
+  `do_app opt args s0 = Rerr (Rabort Rtype_error) ⇒
+    do_app opt args (extendio s0 io) = Rerr (Rabort Rtype_error)`,
   Cases_on `opt` >> Cases_on `args` >>
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq])
 
-val doapp_extendio_nonffi = store_thm(
+val doapp_extendio_nonffi = Q.store_thm(
   "doapp_extendio_nonffi",
-  ``do_app opt args s0 = Rval (rv, s) ∧ (∀n. opt ≠ FFI n) ⇒
-    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)``,
+  `do_app opt args s0 = Rval (rv, s) ∧ (∀n. opt ≠ FFI n) ⇒
+    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)`,
   Cases_on `opt` >> Cases_on `args` >>
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
   metis_tac[])
 
-val doapp_extendio_SOMEioresult = store_thm(
+val doapp_extendio_SOMEioresult = Q.store_thm(
   "doapp_extendio_SOMEioresult",
-  ``do_app opt args s0 = Rval (rv, s) ∧ s.io ≠ NONE ⇒
-    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)``,
+  `do_app opt args s0 = Rval (rv, s) ∧ s.io ≠ NONE ⇒
+    do_app opt args (extendio s0 io) = Rval (rv, extendio s io)`,
   Cases_on `∀n. opt ≠ FFI n` >> simp[] >- metis_tac[doapp_extendio_nonffi] >>
   full_simp_tac(srw_ss())[] >> Cases_on `args` >>
   dsimp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
@@ -203,10 +203,10 @@ val doapp_extendio_SOMEioresult = store_thm(
 
 fun first_r_assum ttac = first_x_assum (fn th => ttac th >> assume_tac th)
 
-val res_rel_ffi = store_thm(
+val res_rel_ffi = Q.store_thm(
   "res_rel_ffi",
-  ``res_rel w (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
-    s2.ffi = s1.ffi``,
+  `res_rel w (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
+    s2.ffi = s1.ffi`,
   Cases_on `r1` >> simp[]
   >- (simp[res_rel_rw] >> strip_tac >> full_simp_tac(srw_ss())[Once state_rel_rw]) >>
   rename1 `Rerr e` >> Cases_on `e` >> simp[]
@@ -222,12 +222,12 @@ val _ = temp_overload_on("terminates",``λe s res.
      | SOME e => outcome = FFI_outcome e) ∧
     res = Terminate outcome s'.ffi.io_events``)
 
-val exp_rel_semantics = store_thm(
+val exp_rel_semantics = Q.store_thm(
   "exp_rel_semantics",
-  ``∀e1 e2 (s1:'ffi closSem$state) s2.
+  `∀e1 e2 (s1:'ffi closSem$state) s2.
       exp_rel (:'ffi) w e1 e2 ∧ (∀i. state_rel i w s1 s2) ∧
       semantics [] s1 e1 ≠ Fail ⇒
-      semantics [] s1 e1 = semantics [] s2 e2``,
+      semantics [] s1 e1 = semantics [] s2 e2`,
   qx_genl_tac [`e1`, `e2`, `s1`, `s2`] >> strip_tac >>
   simp[semantics_def] >>
   `fails e1 s1 ⇔ fails e2 s2` by (

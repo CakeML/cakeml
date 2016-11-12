@@ -113,8 +113,8 @@ val FINITE_SET_THEORY_IMAGE = TAC_PROOF(([],
   first_assum (mp_tac o REFORM_RULE o SPECL[``(INR x):'a+num``,``(INR y):'a+num``,``(INR y'):'a+num``]) >>
   simp[])
 
-val l_model_exists = store_thm("l_model_exists",
-  ``∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem``,
+val l_model_exists = Q.store_thm("l_model_exists",
+  `∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem`,
   qexists_tac`ISR` >>
   REWRITE_TAC[is_set_theory_pred_def] >>
   qexists_tac`λl1 l2. BIT (OUTR l1) (OUTR l2)` >>
@@ -343,8 +343,8 @@ val V_mem_rep_def =
 val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
 
 
-val is_set_theory_V = store_thm("is_set_theory_V",
-  ``is_set_theory V_mem``,
+val is_set_theory_V = Q.store_thm("is_set_theory_V",
+  `is_set_theory V_mem`,
   simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
@@ -407,8 +407,8 @@ val is_set_theory_V = store_thm("is_set_theory_V",
   disch_then (strip_assume_tac o REWRITE_RULE[V_bij] o Q.SPEC`dest_V d`) >>
   metis_tac[V_bij] )
 
-val V_choice_exists = prove(
-  ``∃ch. is_choice V_mem ch``,
+val V_choice_exists = Q.prove(
+  `∃ch. is_choice V_mem ch`,
   simp[is_choice_def,GSYM SKOLEM_THM] >>
   rw[] >> simp[V_mem_def] >>
   qspecl_then[`dest_V x`]mp_tac
@@ -423,9 +423,9 @@ val V_indset_def =
   new_specification("V_indset_def",["V_indset"],
     METIS_PROVE[]``∃i:α V. (∃x:α V. is_inductive V_mem x) ⇒ is_inductive V_mem i``)
 
-val is_model_V = store_thm("is_model_V",
-  ``(∃I:α V. is_inductive V_mem I) ⇒
-    is_model (V_mem,V_indset:α V,V_choice)``,
+val is_model_V = Q.store_thm("is_model_V",
+  `(∃I:α V. is_inductive V_mem I) ⇒
+    is_model (V_mem,V_indset:α V,V_choice)`,
   simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def])
 
 val _ = print_theory_to_file "-" "setModel";

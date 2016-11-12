@@ -5,8 +5,8 @@ val _ = new_theory "clos_call";
 val closed_def = Define `
   closed x = isEmpty (db_to_set (SND (free [x])))`
 
-val EL_MEM_LEMMA = prove(
-  ``!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs``,
+val EL_MEM_LEMMA = Q.prove(
+  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
 val insert_each_def = Define `
@@ -23,8 +23,8 @@ val calls_list_def = Define `
   (calls_list loc ((n,_)::xs) =
      (n,Call 0 (loc+1) (GENLIST Var n))::calls_list (loc+2n) xs)`;
 
-val exp3_size_MAP_SND = prove(
-  ``!fns. exp3_size (MAP SND fns) <= exp1_size fns``,
+val exp3_size_MAP_SND = Q.prove(
+  `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
   Induct \\ fs [exp_size_def,FORALL_PROD]);
 
 val calls_def = tDefine "calls" `

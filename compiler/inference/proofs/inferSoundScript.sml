@@ -18,17 +18,17 @@ val _ = new_theory "inferSound";
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM
 
-val lookup_tenv_NONE = prove(``
+val lookup_tenv_NONE = Q.prove(`
   ∀ls n.
   (lookup_tenv_val x n ls = NONE ⇒
-  ∀m. lookup_tenv_val x m ls = NONE)``,
+  ∀m. lookup_tenv_val x m ls = NONE)`,
   Induct>>fs[lookup_tenv_val_def]>>rw[]>>
   metis_tac[])
 
-val lookup_tenv_SOME = prove(``
+val lookup_tenv_SOME = Q.prove(`
   ∀ls n tvs t.
   (lookup_tenv_val x n ls = SOME(tvs,t) ⇒
-  ∀m. ∃tvs' t'. lookup_tenv_val x m ls = SOME(tvs',t'))``,
+  ∀m. ∃tvs' t'. lookup_tenv_val x m ls = SOME(tvs',t'))`,
   Induct>>fs[lookup_tenv_val_def]>>rw[]>>
   metis_tac[])
 
@@ -109,7 +109,7 @@ val check_s_more5 = Q.prove (
  rw [check_s_def] >>
  metis_tac [check_t_more5]);
 
-val deBruijn_subst_convert = prove(``
+val deBruijn_subst_convert = Q.prove(`
   (∀t.
   check_t n {} t ⇒
   deBruijn_subst 0 (MAP convert_t subst) (convert_t t) =
@@ -118,7 +118,7 @@ val deBruijn_subst_convert = prove(``
   EVERY (check_t n {}) ts ⇒
   MAP ((deBruijn_subst 0 (MAP convert_t subst)) o convert_t) ts
   =
-  MAP (convert_t o (infer_deBruijn_subst subst)) ts)``,
+  MAP (convert_t o (infer_deBruijn_subst subst)) ts)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def]>>
   fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_def]
@@ -591,7 +591,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           impl_tac>-
             (fs[]>>metis_tac[pure_add_constraints_wfs])
           >>
-          rator_x_assum `generalise_list` mp_tac>>
+          qhdtm_x_assum `generalise_list` mp_tac>>
           qpat_abbrev_tac `ts:infer_t list = MAP A B`>>
           qpat_abbrev_tac `ts':infer_t list = MAP A B`>>
           rw[]>>
@@ -652,7 +652,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
          `r = EL n (MAP SND bindings')` by (
            qpat_x_assum`MEM X bindings'`mp_tac >>
            qpat_x_assum`X = EL n Y`mp_tac >>
-           rator_x_assum`ALL_DISTINCT`mp_tac >>
+           qhdtm_x_assum`ALL_DISTINCT`mp_tac >>
            imp_res_tac type_funs_MAP_FST >>
            pop_assum kall_tac >> pop_assum mp_tac >>
            `n < LENGTH l` by metis_tac[] >> pop_assum mp_tac >>
@@ -804,13 +804,13 @@ rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
     infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
     LENGTH_COUNT_LIST]);
 
-val weakE_anub = store_thm("weakE_anub",
-  ``∀env1 env2. weakE env1 (anub env2 []) ⇒ weakE env1 env2``,
+val weakE_anub = Q.store_thm("weakE_anub",
+  `∀env1 env2. weakE env1 (anub env2 []) ⇒ weakE env1 env2`,
   rw[weakE_def] >>
   fs[Once ALOOKUP_anub])
 
-val flat_weakC_anub = store_thm("flat_weakC_anub",
-  ``flat_weakC x (anub y []) ⇒ flat_weakC x y``,
+val flat_weakC_anub = Q.store_thm("flat_weakC_anub",
+  `flat_weakC x (anub y []) ⇒ flat_weakC x y`,
   rw[flat_weakC_def] >>
   fs[Once ALOOKUP_anub])
 
@@ -830,7 +830,7 @@ val check_weakE_sound = Q.prove (
   REV_FULL_SIMP_TAC(srw_ss())[] >>
   Cases_on`ALOOKUP tenv1 n` >> fsrw_tac[][] >>
   `?tvs_impl t_impl. x = (tvs_impl,t_impl)` by metis_tac[PAIR] >> fsrw_tac[][] >>
-  rator_x_assum`EVERY`(mp_tac o CONV_RULE(REWR_CONV(GSYM check_weakE_EVERY))) >>
+  qhdtm_x_assum`EVERY`(mp_tac o CONV_RULE(REWR_CONV(GSYM check_weakE_EVERY))) >>
   strip_tac >>
   imp_res_tac anub_tl_anub >>
   fs[] >>

@@ -58,6 +58,9 @@ val StoreEach_def = Define `
      Seq (Store (Op Add [Var v; Const offset]) x)
          (StoreEach v xs (offset + bytes_in_word)))`
 
+val small_shift_length_def = Define `
+  small_shift_length conf = conf.len_bits + conf.tag_bits + 1`;
+
 val shift_length_def = Define `
   shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
 
@@ -67,7 +70,7 @@ val max_heap_limit_def = Define `
         (dimword (:'a) DIV 2 ** (shift (:'a) + 1))`
 
 val all_ones_def = Define `
-  all_ones m n = (m - 1 -- n) (~0w)`
+  all_ones m n = if m <= n then 0w else (m - 1 '' n) (~0w)`;
 
 val maxout_bits_def = Define `
   maxout_bits n rep_len k =
@@ -81,10 +84,10 @@ val ptr_bits_def = Define `
 val real_addr_def = Define `
   (real_addr (conf:data_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
-   (* if k <= conf.pad_bits + 1 then
+      if k <= conf.pad_bits + 1 then
         Op Add [Lookup CurrHeap;
                 Shift Lsr (Var r) (Nat (shift_length conf - k))]
-      else *)
+      else
         Op Add [Lookup CurrHeap;
                 Shift Lsl (Shift Lsr (Var r)
                   (Nat (shift_length conf))) (Nat k)]`
@@ -353,7 +356,7 @@ val assign_def = Define `
                            (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                                      (Nat (shift_length c − shift (:'a)));
                                    Const (1w ||
-                                           (shift_length c − 1 -- 0)
+                                           (small_shift_length c − 1 -- 0)
                                               (ptr_bits c tag (LENGTH args)))])],l))
     | Ref => (case encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)

@@ -39,7 +39,7 @@ val compile_def = Define`
     let c = c with mod_conf := c' in
     let (n,e) = con_to_dec$compile c.source_conf.next_global p in
     let c = c with source_conf updated_by (λc. c with next_global := n) in
-    let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+    let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
     let e = exh_to_pat$compile e in
     let e = pat_to_clos$compile e in
     let (c',p) = clos_to_bvl$compile c.clos_conf e in
@@ -79,7 +79,7 @@ val to_dec_def = Define`
 val to_exh_def = Define`
   to_exh c p =
   let (c,e) = to_dec c p in
-  let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+  let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
   (c,e)`;
 
 val to_pat_def = Define`
@@ -216,7 +216,7 @@ val from_exh_def = Define`
 
 val from_dec_def = Define`
   from_dec c e =
-  let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+  let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
   from_exh c e`;
 
 val from_con_def = Define`
@@ -294,8 +294,8 @@ val from_livesets_def = Define`
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`
 
-val compile_oracle = store_thm("compile_oracle",``
-  from_livesets (to_livesets c p) = compile c p``,
+val compile_oracle = Q.store_thm("compile_oracle",`
+  from_livesets (to_livesets c p) = compile c p`,
   srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,
@@ -337,10 +337,10 @@ val compile_oracle = store_thm("compile_oracle",``
   rveq>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])
 
-val to_livesets_invariant = store_thm("to_livesets_invariant",``
+val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
   to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
-    (rcm,c with word_to_word_conf:=wc,p)``,
+    (rcm,c with word_to_word_conf:=wc,p)`,
   srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,

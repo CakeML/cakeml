@@ -3,7 +3,7 @@ open preamble
      to_dataBootstrapTheory
      x64_configTheory
      x64_targetTheory
-     asmLib
+     x64_targetLib asmLib
 
 val _ = new_theory "to_lab_x64Bootstrap";
 
@@ -313,7 +313,7 @@ val LENGTH_x64_oracle_list =
 val GENLIST_EL_ZIP_lemma = Q.prove(
   `LENGTH l1 = n ∧ LENGTH l2 = n ∧ LENGTH x64_oracle_list = n ⇒
    GENLIST (λx. f (x64_oracle x, EL x (ZIP (l1,l2)))) n =
-   MAP3 (λa (b1,b2) (c1,c2,c3). f (SOME a, ((b1,b2), (c1,c2,c3)))) x64_oracle_list l1 l2`,
+   MAP3 (λa (b1,b2,b3) (c1,c2,c3). f (SOME a, ((b1,b2,b3), (c1,c2,c3)))) x64_oracle_list l1 l2`,
   rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,x64_oracle_thm,UNCURRY])
   |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_x64_oracle_list))
 
@@ -339,7 +339,7 @@ val compile_thm0 =
            REWR_CONV o_DEF THENC
            ABS_CONV(RAND_CONV BETA_CONV))) THENC
          REWR_CONV GENLIST_EL_ZIP_lemma THENC
-         PATH_CONV"lllraraararaa" (
+         PATH_CONV"lllrararaararaa" (
            PAIRED_BETA_CONV THENC
            PATH_CONV"llr"(
              REWR_CONV word_allocTheory.oracle_colour_ok_def THENC

@@ -4,9 +4,9 @@ open preamble
 
 val _ = new_theory"clos_freeProof";
 
-val IMP_EXISTS_IFF = prove(
-  ``!xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
-         (EXISTS P xs <=> EXISTS Q xs)``,
+val IMP_EXISTS_IFF = Q.prove(
+  `!xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
+         (EXISTS P xs <=> EXISTS Q xs)`,
   Induct \\ fs []);
 
 val free_thm = Q.store_thm("free_thm",

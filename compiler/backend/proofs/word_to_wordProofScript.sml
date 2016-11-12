@@ -17,7 +17,7 @@ val is_phy_var_tac =
 val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
 (*Chains up compile_single theorems*)
-val compile_single_lem = store_thm("compile_single_lem",``
+val compile_single_lem = Q.store_thm("compile_single_lem",`
   ∀prog n st.
   domain st.locals = set(even_list n)
   ⇒
@@ -30,7 +30,7 @@ val compile_single_lem = store_thm("compile_single_lem",``
     word_state_eq_rel rst rcst ∧
     case res of
       SOME _ => rst.locals = rcst.locals
-    | _ => T``,
+    | _ => T`,
   full_simp_tac(srw_ss())[compile_single_def,LET_DEF]>>srw_tac[][]>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
@@ -86,16 +86,16 @@ val compile_single_lem = store_thm("compile_single_lem",``
     pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]);
 
-val get_vars_code_frame = prove(``
+val get_vars_code_frame = Q.prove(`
   ∀ls.
   get_vars ls (st with code:=l) =
-  get_vars ls st``,
+  get_vars ls st`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_def])
 
 (*TODO: Move to wordProps so there're no scoping problems..*)
-val word_exp_code_frame = prove(``
+val word_exp_code_frame = Q.prove(`
   ∀(s:('a,'b) wordSem$state) exp. word_exp (s with code:=l) exp =
-          word_exp s (exp:'a wordLang$exp)``,
+          word_exp s (exp:'a wordLang$exp)`,
   ho_match_mp_tac wordSemTheory.word_exp_ind>>srw_tac[][word_exp_def]
   >-
     (every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
@@ -109,19 +109,19 @@ val tac =
     qexists_tac`st.permute`>>full_simp_tac(srw_ss())[alloc_def,get_var_def,gc_def,LET_THM,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,call_env_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,get_vars_perm,get_vars_code_frame,set_vars_def,word_exp_perm,word_exp_code_frame,mem_store_def]>>
     every_case_tac>>full_simp_tac(srw_ss())[state_component_equality]
 
-val rm_perm = prove(``
-  s with permute:= s.permute = s``,full_simp_tac(srw_ss())[state_component_equality])
+val rm_perm = Q.prove(`
+  s with permute:= s.permute = s`,full_simp_tac(srw_ss())[state_component_equality])
 
 val size_tac= (full_simp_tac(srw_ss())[wordLangTheory.prog_size_def]>>DECIDE_TAC);
 
-val find_code_thm = prove(``
+val find_code_thm = Q.prove(`
   (!n v. lookup n st.code = SOME v ==>
          ∃t k a c col.
          lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
   find_code o1 (add_ret_loc o' x) st.code = SOME (args,prog) ⇒
   ∃t k a c col n prog'.
   SND(compile_single t k a c ((n,LENGTH args,prog),col)) = (LENGTH args,prog') ∧
-  find_code o1 (add_ret_loc o' x) l = SOME(args,prog')``,
+  find_code o1 (add_ret_loc o' x) l = SOME(args,prog')`,
   Cases_on`o1`>>simp[find_code_def]>>srw_tac[][]
   >-
     (ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -136,15 +136,15 @@ val find_code_thm = prove(``
     Cases_on`x''`>>full_simp_tac(srw_ss())[compile_single_def,LET_THM]>>
     metis_tac[])
 
-val push_env_code_frame = prove(``
-  (push_env a b c).code = c.code``,
+val push_env_code_frame = Q.prove(`
+  (push_env a b c).code = c.code`,
   Cases_on`b`>>TRY(PairCases_on`x`)>>full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def])
 
-val pop_env_termdep = prove(``
-  pop_env rst = SOME x ⇒ x.termdep = rst.termdep``,
+val pop_env_termdep = Q.prove(`
+  pop_env rst = SOME x ⇒ x.termdep = rst.termdep`,
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality])
 
-val compile_single_correct = prove(``
+val compile_single_correct = Q.prove(`
   ∀prog st l.
   (!n v. lookup n st.code = SOME v ==>
          ∃t k a c col.
@@ -156,7 +156,7 @@ val compile_single_correct = prove(``
         let (res1,rst1) = evaluate (prog,st with code := l) in
           res1 = res ∧
           rst.code = st.code ∧
-          rst1 = rst with code:=l``,
+          rst1 = rst with code:=l`,
   (*recInduct doesn't seem to give a nice induction thm*)
   completeInduct_on`((st:('a,'b)wordSem$state).termdep)`>>
   completeInduct_on`((st:('a,'b)wordSem$state).clock)`>>
@@ -479,8 +479,8 @@ val compile_single_correct = prove(``
   >- (tac>>
      Cases_on`call_FFI st.ffi n x'`>>simp[]));
 
-val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
-  ``(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
+val compile_word_to_word_thm = Q.store_thm("compile_word_to_word_thm",
+  `(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
            ∃t k a c col.
            lookup n l = SOME (SND (full_compile_single t k a c ((n,v),col)))) ==>
     ?perm' clk.
@@ -488,7 +488,7 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
       let (res,rst) = evaluate (prog,st with permute := perm') in
         if res = SOME Error then T else
           let (res1,rst1) = evaluate (prog,st with <|code := l;clock:=st.clock+clk;termdep:=0|>) in
-            res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi``,
+            res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi`,
   simp[LET_THM]>>
   srw_tac[][]>>
   (*namely, l' is some map over st.code that replicates l everywhere except
@@ -537,7 +537,7 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
 val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
 (* syntax going into stackLang *)
-val compile_conventions = store_thm("compile_to_word_conventions",``
+val compile_conventions = Q.store_thm("compile_to_word_conventions",`
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY2 PERM (MAP (extract_labels o SND o SND) progs)
@@ -547,7 +547,7 @@ val compile_conventions = store_thm("compile_to_word_conventions",``
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
      addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs``,
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs`,
   fs[compile_def]>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>rveq>>rw[]>>
   `LENGTH n_oracles = LENGTH p` by

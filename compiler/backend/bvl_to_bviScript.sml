@@ -193,18 +193,18 @@ val compile_exps_def = tDefine "compile_exps" `
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
-val compile_exps_LENGTH_lemma = prove(
-  ``!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)``,
+val compile_exps_LENGTH_lemma = Q.prove(
+  `!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)`,
   HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_exps_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_exps_LENGTH = store_thm("compile_exps_LENGTH",
-  ``(compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)``,
+val compile_exps_LENGTH = Q.store_thm("compile_exps_LENGTH",
+  `(compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exps_LENGTH_lemma) \\ fs [])
 
-val compile_exps_SING = store_thm("compile_exps_SING",
-  ``(compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
+val compile_exps_SING = Q.store_thm("compile_exps_SING",
+  `(compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
 

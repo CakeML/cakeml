@@ -62,15 +62,15 @@ val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
   (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+2) xs ((i,x) :: aux))`;
 
-val build_aux_LENGTH = store_thm("build_aux_LENGTH",
-  ``!l n aux n1 t.
-      (build_aux n l aux = (n1,t)) ==> (n1 = n + 2 * LENGTH l)``,
+val build_aux_LENGTH = Q.store_thm("build_aux_LENGTH",
+  `!l n aux n1 t.
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + 2 * LENGTH l)`,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
 
-val build_aux_MOVE = store_thm("build_aux_MOVE",
-  ``!xs n aux n1 aux1.
+val build_aux_MOVE = Q.store_thm("build_aux_MOVE",
+  `!xs n aux n1 aux1.
       (build_aux n xs aux = (n1,aux1)) <=>
-      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)``,
+      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)`,
   Induct THEN1 (fs [build_aux_def] \\ METIS_TAC [])
   \\ ONCE_REWRITE_TAC [build_aux_def]
   \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
@@ -80,10 +80,10 @@ val build_aux_acc = Q.store_thm("build_aux_acc",
   `!k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux`,
   METIS_TAC[build_aux_MOVE,SND,PAIR]);
 
-val build_aux_MEM = store_thm("build_aux_MEM",
-  ``!c n aux n7 aux7.
+val build_aux_MEM = Q.store_thm("build_aux_MEM",
+  `!c n aux n7 aux7.
        (build_aux n c aux = (n7,aux7)) ==>
-       !k. k < LENGTH c ==> ?d. MEM (n + 2*k,d) aux7``,
+       !k. k < LENGTH c ==> ?d. MEM (n + 2*k,d) aux7`,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`(n,h)::aux`]) \\ fs []
   \\ REPEAT STRIP_TAC
@@ -92,11 +92,11 @@ val build_aux_MEM = store_thm("build_aux_MEM",
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
   \\ RES_TAC \\ fs [ADD1,LEFT_ADD_DISTRIB] \\ METIS_TAC []);
 
-val build_aux_APPEND1 = store_thm("build_aux_APPEND1",
-  ``!xs x n aux.
+val build_aux_APPEND1 = Q.store_thm("build_aux_APPEND1",
+  `!xs x n aux.
       build_aux n (xs ++ [x]) aux =
         let (n1,aux1) = build_aux n xs aux in
-          (n1+2,(n1,x)::aux1)``,
+          (n1+2,(n1,x)::aux1)`,
   Induct \\ fs [build_aux_def,LET_DEF]);
 
 val recc_Let_def = Define `
@@ -393,21 +393,21 @@ val compile_exps_SING = Q.store_thm("compile_exps_SING",
   \\ ASSUME_TAC (Q.SPECL [`max_app`,`[x]`,`aux`] compile_exps_acc) \\ rfs [LET_DEF]
   \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []);
 
-val compile_exps_CONS = store_thm("compile_exps_CONS",
-  ``!max_app xs x aux.
+val compile_exps_CONS = Q.store_thm("compile_exps_CONS",
+  `!max_app xs x aux.
       compile_exps max_app (x::xs) aux =
       (let (c1,aux1) = compile_exps max_app [x] aux in
        let (c2,aux2) = compile_exps max_app xs aux1 in
-         (c1 ++ c2,aux2))``,
+         (c1 ++ c2,aux2))`,
   Cases_on `xs` \\ fs[compile_exps_def] \\ fs [LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
 
-val compile_exps_SNOC = store_thm("compile_exps_SNOC",
-  ``!xs x aux max_app.
+val compile_exps_SNOC = Q.store_thm("compile_exps_SNOC",
+  `!xs x aux max_app.
       compile_exps max_app (SNOC x xs) aux =
       (let (c1,aux1) = compile_exps max_app xs aux in
        let (c2,aux2) = compile_exps max_app [x] aux1 in
-         (c1 ++ c2,aux2))``,
+         (c1 ++ c2,aux2))`,
   Induct THEN1
    (fs [compile_exps_def,LET_DEF]
     \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [])
@@ -453,16 +453,16 @@ val code_merge_def = tDefine "code_merge" `
           y1::code_merge xs ys1`
   (WF_REL_TAC `measure (\(xs,ys). LENGTH xs + LENGTH ys)` \\ rw []);
 
-val code_split_NULL = store_thm("code_split_NULL",
-  ``!ts1 ts2 ts3 xs ys.
+val code_split_NULL = Q.store_thm("code_split_NULL",
+  `!ts1 ts2 ts3 xs ys.
       (xs,ys) = code_split ts1 ts2 ts3 /\ ts2 <> [] /\ ts3 <> [] ==>
-      xs <> [] /\ ys <> []``,
+      xs <> [] /\ ys <> []`,
   Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []);
 
-val code_split_LENGTH = store_thm("code_split_LENGTH",
-  ``!ts1 ts2 ts3 xs ys.
+val code_split_LENGTH = Q.store_thm("code_split_LENGTH",
+  `!ts1 ts2 ts3 xs ys.
       (xs,ys) = code_split ts1 ts2 ts3 ==>
-      LENGTH xs + LENGTH ys = LENGTH ts1 + LENGTH ts2 + LENGTH ts3``,
+      LENGTH xs + LENGTH ys = LENGTH ts1 + LENGTH ts2 + LENGTH ts3`,
   Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []);
 
 val code_sort_def = tDefine "code_sort" `
