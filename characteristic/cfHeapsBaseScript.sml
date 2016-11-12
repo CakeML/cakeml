@@ -161,33 +161,33 @@ val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
 (*------------------------------------------------------------------*)
 (** Low level lemmas about SPLIT and SPLIT3 *)
 
-val SPLIT3_of_SPLIT_emp3 = store_thm ("SPLIT3_of_SPLIT_emp3",
-  ``!h h1 h2. SPLIT h (h1, h2) ==> SPLIT3 h (h1, h2, {})``,
+val SPLIT3_of_SPLIT_emp3 = Q.store_thm ("SPLIT3_of_SPLIT_emp3",
+  `!h h1 h2. SPLIT h (h1, h2) ==> SPLIT3 h (h1, h2, {})`,
   SPLIT_TAC
 )
 
-val SPLIT3_of_SPLIT_emp2 = store_thm ("SPLIT3_of_SPLIT_emp2",
-  ``!h h1 h3. SPLIT h (h1, h3) ==> SPLIT3 h (h1, {}, h3)``,
+val SPLIT3_of_SPLIT_emp2 = Q.store_thm ("SPLIT3_of_SPLIT_emp2",
+  `!h h1 h3. SPLIT h (h1, h3) ==> SPLIT3 h (h1, {}, h3)`,
   SPLIT_TAC
 )
 
-val SPLIT3_swap23 = store_thm ("SPLIT3_swap23",
-  ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT3 h (h1, h3, h2)``,
+val SPLIT3_swap23 = Q.store_thm ("SPLIT3_swap23",
+  `!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT3 h (h1, h3, h2)`,
   SPLIT_TAC
 )
 
-val SPLIT_emp1 = store_thm ("SPLIT_emp1",
-  ``!h h'. SPLIT h ({}, h') = (h' = h)``,
+val SPLIT_emp1 = Q.store_thm ("SPLIT_emp1",
+  `!h h'. SPLIT h ({}, h') = (h' = h)`,
   SPLIT_TAC
 )
 
-val SPLIT_emp2 = store_thm ("SPLIT_emp2",
-  ``!h h'. SPLIT h (h', {}) = (h' = h)``,
+val SPLIT_emp2 = Q.store_thm ("SPLIT_emp2",
+  `!h h'. SPLIT h (h', {}) = (h' = h)`,
   SPLIT_TAC
 )
 
-val SPLIT3_emp1 = store_thm ("SPLIT3_emp1",
-  ``!h h1 h2. SPLIT3 h ({}, h1, h2) = SPLIT h (h1, h2)``,
+val SPLIT3_emp1 = Q.store_thm ("SPLIT3_emp1",
+  `!h h1 h2. SPLIT3 h ({}, h1, h2) = SPLIT h (h1, h2)`,
   SPLIT_TAC
 )
 
@@ -195,173 +195,173 @@ val SPLIT3_emp3 = Q.store_thm("SPLIT3_emp3",
   `!h h1 h2. SPLIT3 h (h1,h2,{}) = SPLIT h (h1,h2)`,
   SPLIT_TAC)
 
-val SPLIT_of_SPLIT3_2u3 = store_thm ("SPLIT_of_SPLIT3_2u3",
-  ``!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT h (h1, h2 UNION h3)``,
+val SPLIT_of_SPLIT3_2u3 = Q.store_thm ("SPLIT_of_SPLIT3_2u3",
+  `!h h1 h2 h3. SPLIT3 h (h1, h2, h3) ==> SPLIT h (h1, h2 UNION h3)`,
   SPLIT_TAC
 )
 
 (*------------------------------------------------------------------*)
 (** Additionnal properties of STAR *)
 
-val STARPOST_emp = store_thm ("STARPOST_emp",
-  ``!Q. Q *+ emp = Q``,
+val STARPOST_emp = Q.store_thm ("STARPOST_emp",
+  `!Q. Q *+ emp = Q`,
   strip_tac \\ fs [STARPOST_def] \\ metis_tac [SEP_CLAUSES]
 );
 
-val SEP_IMP_frame_single_l = store_thm ("SEP_IMP_frame_single_l",
-  ``!H' R.
+val SEP_IMP_frame_single_l = Q.store_thm ("SEP_IMP_frame_single_l",
+  `!H' R.
      (emp ==>> H') ==>
-     (R ==>> H' * R)``,
+     (R ==>> H' * R)`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_frame_single_r = store_thm ("SEP_IMP_frame_single_r",
-  ``!H R.
+val SEP_IMP_frame_single_r = Q.store_thm ("SEP_IMP_frame_single_r",
+  `!H R.
      (H ==>> emp) ==>
-     (H * R ==>> R)``,
+     (H * R ==>> R)`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_cell_frame = store_thm ("SEP_IMP_cell_frame",
-  ``!H H' l v v'.
+val SEP_IMP_cell_frame = Q.store_thm ("SEP_IMP_cell_frame",
+  `!H H' l v v'.
      (v = v') /\ (H ==>> H') ==>
-     (H * l ~~>> v ==>> H' * l ~~>> v')``,
+     (H * l ~~>> v ==>> H' * l ~~>> v')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_cell_frame_single_l = store_thm ("SEP_IMP_cell_frame_single_l",
-  ``!H' l v v'.
+val SEP_IMP_cell_frame_single_l = Q.store_thm ("SEP_IMP_cell_frame_single_l",
+  `!H' l v v'.
      (v = v') /\ (emp ==>> H') ==>
-     (l ~~>> v ==>> H' * l ~~>> v')``,
+     (l ~~>> v ==>> H' * l ~~>> v')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_cell_frame_single_r = store_thm ("SEP_IMP_cell_frame_single_r",
-  ``!H l v v'.
+val SEP_IMP_cell_frame_single_r = Q.store_thm ("SEP_IMP_cell_frame_single_r",
+  `!H l v v'.
      (v = v') /\ (H ==>> emp) ==>
-     (H * l ~~>> v ==>> l ~~>> v')``,
+     (H * l ~~>> v ==>> l ~~>> v')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_cell_frame_single = store_thm ("SEP_IMP_cell_frame_single",
-  ``!H l v v'.
+val SEP_IMP_cell_frame_single = Q.store_thm ("SEP_IMP_cell_frame_single",
+  `!H l v v'.
      (v = v') /\ (emp ==>> emp) ==>
-     (l ~~>> v ==>> l ~~>> v')``,
+     (l ~~>> v ==>> l ~~>> v')`,
   fs [SEP_IMP_REFL]
 );
 
-val SEP_IMP_REF_frame = store_thm ("SEP_IMP_REF_frame",
-  ``!H H' r v v'.
+val SEP_IMP_REF_frame = Q.store_thm ("SEP_IMP_REF_frame",
+  `!H H' r v v'.
      (v = v') /\ (H ==>> H') ==>
-     (H * r ~~> v ==>> H' * r ~~> v')``,
+     (H * r ~~> v ==>> H' * r ~~> v')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_REF_frame_single_l = store_thm ("SEP_IMP_REF_frame_single_l",
-  ``!H' r v v'.
+val SEP_IMP_REF_frame_single_l = Q.store_thm ("SEP_IMP_REF_frame_single_l",
+  `!H' r v v'.
      (v = v') /\ (emp ==>> H') ==>
-     (r ~~> v ==>> H' * r ~~> v')``,
+     (r ~~> v ==>> H' * r ~~> v')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_REF_frame_single_r = store_thm ("SEP_IMP_REF_frame_single_r",
-  ``!H r v v'.
+val SEP_IMP_REF_frame_single_r = Q.store_thm ("SEP_IMP_REF_frame_single_r",
+  `!H r v v'.
      (v = v') /\ (H ==>> emp) ==>
-     (H * r ~~> v ==>> r ~~> v')``,
+     (H * r ~~> v ==>> r ~~> v')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_REF_frame_single = store_thm ("SEP_IMP_REF_frame_single",
-  ``!H r v v'.
+val SEP_IMP_REF_frame_single = Q.store_thm ("SEP_IMP_REF_frame_single",
+  `!H r v v'.
      (v = v') /\ (emp ==>> emp) ==>
-     (r ~~> v ==>> r ~~> v')``,
+     (r ~~> v ==>> r ~~> v')`,
   fs [SEP_IMP_REFL]
 );
 
-val SEP_IMP_ARRAY_frame = store_thm ("SEP_IMP_ARRAY_frame",
-  ``!H H' a vl vl'.
+val SEP_IMP_ARRAY_frame = Q.store_thm ("SEP_IMP_ARRAY_frame",
+  `!H H' a vl vl'.
      (vl = vl') /\ (H ==>> H') ==>
-     (H * ARRAY a vl ==>> H' * ARRAY a vl')``,
+     (H * ARRAY a vl ==>> H' * ARRAY a vl')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_ARRAY_frame_single_l = store_thm ("SEP_IMP_ARRAY_frame_single_l",
-  ``!H' a vl vl'.
+val SEP_IMP_ARRAY_frame_single_l = Q.store_thm ("SEP_IMP_ARRAY_frame_single_l",
+  `!H' a vl vl'.
      (vl = vl') /\ (emp ==>> H') ==>
-     (ARRAY a vl ==>> H' * ARRAY a vl')``,
+     (ARRAY a vl ==>> H' * ARRAY a vl')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_ARRAY_frame_single_r = store_thm ("SEP_IMP_ARRAY_frame_single_r",
-  ``!H a vl vl'.
+val SEP_IMP_ARRAY_frame_single_r = Q.store_thm ("SEP_IMP_ARRAY_frame_single_r",
+  `!H a vl vl'.
      (vl = vl') /\ (H ==>> emp) ==>
-     (H * ARRAY a vl ==>> ARRAY a vl')``,
+     (H * ARRAY a vl ==>> ARRAY a vl')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_ARRAY_frame_single = store_thm ("SEP_IMP_ARRAY_frame_single",
-  ``!H a vl vl'.
+val SEP_IMP_ARRAY_frame_single = Q.store_thm ("SEP_IMP_ARRAY_frame_single",
+  `!H a vl vl'.
      (vl = vl') /\ (emp ==>> emp) ==>
-     (ARRAY a vl ==>> ARRAY a vl')``,
+     (ARRAY a vl ==>> ARRAY a vl')`,
   fs [SEP_IMP_REFL]
 );
 
-val SEP_IMP_W8ARRAY_frame = store_thm ("SEP_IMP_W8ARRAY_frame",
-  ``!H H' a wl wl'.
+val SEP_IMP_W8ARRAY_frame = Q.store_thm ("SEP_IMP_W8ARRAY_frame",
+  `!H H' a wl wl'.
      (wl = wl') /\ (H ==>> H') ==>
-     (H * W8ARRAY a wl ==>> H' * W8ARRAY a wl')``,
+     (H * W8ARRAY a wl ==>> H' * W8ARRAY a wl')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_W8ARRAY_frame_single_l = store_thm (
+val SEP_IMP_W8ARRAY_frame_single_l = Q.store_thm (
   "SEP_IMP_W8ARRAY_frame_single_l",
-  ``!H' a wl wl'.
+  `!H' a wl wl'.
      (wl = wl') /\ (emp ==>> H') ==>
-     (W8ARRAY a wl ==>> H' * W8ARRAY a wl')``,
+     (W8ARRAY a wl ==>> H' * W8ARRAY a wl')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_W8ARRAY_frame_single_r = store_thm (
+val SEP_IMP_W8ARRAY_frame_single_r = Q.store_thm (
   "SEP_IMP_W8ARRAY_frame_single_r",
-  ``!H a wl wl'.
+  `!H a wl wl'.
      (wl = wl') /\ (H ==>> emp) ==>
-     (H * W8ARRAY a wl ==>> W8ARRAY a wl')``,
+     (H * W8ARRAY a wl ==>> W8ARRAY a wl')`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_W8ARRAY_frame_single = store_thm (
+val SEP_IMP_W8ARRAY_frame_single = Q.store_thm (
   "SEP_IMP_W8ARRAY_frame_single",
-  ``!H a wl wl'.
+  `!H a wl wl'.
      (wl = wl') /\ (emp ==>> emp) ==>
-     (W8ARRAY a wl ==>> W8ARRAY a wl')``,
+     (W8ARRAY a wl ==>> W8ARRAY a wl')`,
   fs [SEP_IMP_REFL]
 );
 
-val SEP_IMP_IO_frame = store_thm ("SEP_IMP_IO_frame",
-  ``!H H' idx st u st' u'.
+val SEP_IMP_IO_frame = Q.store_thm ("SEP_IMP_IO_frame",
+  `!H H' idx st u st' u'.
      (st = st' /\ u = u') /\ (H ==>> H') ==>
-     (H * IO st u idx ==>> H' * IO st' u' idx)``,
+     (H * IO st u idx ==>> H' * IO st' u' idx)`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_IO_frame_single_l = store_thm ("SEP_IMP_IO_frame_single_l",
-  ``!H' idx st u st' u'.
+val SEP_IMP_IO_frame_single_l = Q.store_thm ("SEP_IMP_IO_frame_single_l",
+  `!H' idx st u st' u'.
      (st = st' /\ u = u') /\ (emp ==>> H') ==>
-     (IO st u idx ==>> H' * IO st' u' idx)``,
+     (IO st u idx ==>> H' * IO st' u' idx)`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_IO_frame_singel_r = store_thm ("SEP_IMP_IO_frame_single_r",
-  ``!H idx st u st' u'.
+val SEP_IMP_IO_frame_singel_r = Q.store_thm ("SEP_IMP_IO_frame_single_r",
+  `!H idx st u st' u'.
      (st = st' /\ u = u') /\ (H ==>> emp) ==>
-     (H * IO st u idx ==>> IO st' u' idx)``,
+     (H * IO st u idx ==>> IO st' u' idx)`,
   rpt strip_tac \\ progress SEP_IMP_FRAME \\ fs [SEP_CLAUSES]
 );
 
-val SEP_IMP_IO_frame_single = store_thm ("SEP_IMP_IO_frame_single",
-  ``!idx st u st' u'.
+val SEP_IMP_IO_frame_single = Q.store_thm ("SEP_IMP_IO_frame_single",
+  `!idx st u st' u'.
      (st = st' /\ u = u') /\ (emp ==>> emp) ==>
-     (IO st u idx ==>> IO st' u' idx)``,
+     (IO st u idx ==>> IO st' u' idx)`,
   fs [SEP_IMP_REFL]
 );
 
@@ -378,16 +378,16 @@ val rew_heap = full_simp_tac bool_ss rew_heap_thms
 (*------------------------------------------------------------------*)
 (* Workaround because of SEP_CLAUSES turning &F into SEP_F *)
 
-val SEP_F_to_cond = store_thm ("SEP_F_to_cond",
-  ``SEP_F = &F``,
+val SEP_F_to_cond = Q.store_thm ("SEP_F_to_cond",
+  `SEP_F = &F`,
   irule EQ_EXT \\ fs [SEP_F_def, cond_def]
 );
 
 (*------------------------------------------------------------------*)
 (** Properties of GC *)
 
-val GC_STAR_GC = store_thm ("GC_STAR_GC",
-  ``GC * GC = GC``,
+val GC_STAR_GC = Q.store_thm ("GC_STAR_GC",
+  `GC * GC = GC`,
   fs [GC_def] \\ irule EQ_EXT \\ strip_tac \\ rew_heap \\
   fs [SEP_EXISTS] \\ eq_tac \\ rpt strip_tac
   THENL [all_tac, qexists_tac `emp` \\ rew_heap] \\
@@ -397,11 +397,11 @@ val GC_STAR_GC = store_thm ("GC_STAR_GC",
 (*------------------------------------------------------------------*)
 (* Unfolding + case split lemma for SEP_IMPPOST *)
 
-val SEP_IMPPOST_unfold = store_thm ("SEP_IMPPOST_unfold",
-  ``!Q1 Q2.
+val SEP_IMPPOST_unfold = Q.store_thm ("SEP_IMPPOST_unfold",
+  `!Q1 Q2.
       (Q1 ==+> Q2) <=>
       (!v. Q1 (Val v) ==>> Q2 (Val v)) /\
-      (!v. Q1 (Exn v) ==>> Q2 (Exn v))``,
+      (!v. Q1 (Exn v) ==>> Q2 (Exn v))`,
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ fs [SEP_IMPPOST_def] \\
   Cases \\ fs []
 );
@@ -409,32 +409,32 @@ val SEP_IMPPOST_unfold = store_thm ("SEP_IMPPOST_unfold",
 (*------------------------------------------------------------------*)
 (** Extraction from H1 in H1 ==>> H2 *)
 
-val hpull_prop = store_thm ("hpull_prop",
-  ``!H H' P.
+val hpull_prop = Q.store_thm ("hpull_prop",
+  `!H H' P.
      (P ==> H ==>> H') ==>
-     (H * cond P ==>> H')``,
+     (H * cond P ==>> H')`,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 )
 
-val hpull_prop_single = store_thm ("hpull_prop_single",
-  ``!H' P.
+val hpull_prop_single = Q.store_thm ("hpull_prop_single",
+  `!H' P.
      (P ==> emp ==>> H') ==>
-     (cond P ==>> H')``,
+     (cond P ==>> H')`,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
   SPLIT_TAC
 )
 
-val hpull_exists_single = store_thm ("hpull_exists_single",
-  ``!A H' J.
+val hpull_exists_single = Q.store_thm ("hpull_exists_single",
+  `!A H' J.
      (!x. (J x) ==>> H') ==>
-     ($SEP_EXISTS J ==>> H')``,
+     ($SEP_EXISTS J ==>> H')`,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
   SPLIT_TAC
 )
 
-val SEP_IMP_rew = store_thm ("SEP_IMP_rew",
-  ``!H1 H2 H1' H2'. (H1 = H2) ==> (H1' = H2') ==> (H1 ==>> H1') = (H2 ==>> H2')``,
+val SEP_IMP_rew = Q.store_thm ("SEP_IMP_rew",
+  `!H1 H2 H1' H2'. (H1 = H2) ==> (H1' = H2') ==> (H1 ==>> H1') = (H2 ==>> H2')`,
   rew_heap
 )
 
@@ -443,65 +443,65 @@ val SEP_IMP_rew = store_thm ("SEP_IMP_rew",
 
 (** Lemmas *)
 
-val hsimpl_prop = store_thm ("hsimpl_prop",
-  ``!H' H P.
+val hsimpl_prop = Q.store_thm ("hsimpl_prop",
+  `!H' H P.
      P /\ (H' ==>> H) ==>
-     (H' ==>> H * cond P)``,
+     (H' ==>> H * cond P)`,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 )
 
-val hsimpl_prop_single = store_thm ("hsimpl_prop_single",
-  ``!H' P.
+val hsimpl_prop_single = Q.store_thm ("hsimpl_prop_single",
+  `!H' P.
      P /\ (H' ==>> emp) ==>
-     (H' ==>> cond P)``,
+     (H' ==>> cond P)`,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
   SPLIT_TAC
 )
 
-val hsimpl_exists_single = store_thm ("hsimpl_exists_single",
-  ``!x H' J.
+val hsimpl_exists_single = Q.store_thm ("hsimpl_exists_single",
+  `!x H' J.
      (H' ==>> J x) ==>
-     (H' ==>> $SEP_EXISTS J)``,
+     (H' ==>> $SEP_EXISTS J)`,
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, SEP_EXISTS, emp_def] \\
   SPLIT_TAC
 )
 
-val hsimpl_gc = store_thm ("hsimpl_gc",
-  ``!H. H ==>> GC``,
+val hsimpl_gc = Q.store_thm ("hsimpl_gc",
+  `!H. H ==>> GC`,
   fs [GC_def, SEP_IMP_def, SEP_EXISTS] \\ metis_tac []
 )
 
 (*------------------------------------------------------------------*)
 (* Automatic rewrites for POSTv/POSTe/POST *)
 
-val POSTv_Val = store_thm ("POSTv_Val[simp]",
-  ``!Qv v. $POSTv Qv (Val v) = Qv v``,
+val POSTv_Val = Q.store_thm ("POSTv_Val[simp]",
+  `!Qv v. $POSTv Qv (Val v) = Qv v`,
   fs [POSTv_def]
 );
 
-val POSTv_Exn = store_thm ("POSTv_Exn[simp]",
-  ``!Qv v. $POSTv Qv (Exn v) = &F``,
+val POSTv_Exn = Q.store_thm ("POSTv_Exn[simp]",
+  `!Qv v. $POSTv Qv (Exn v) = &F`,
   fs [POSTv_def]
 );
 
-val POSTe_Val = store_thm ("POSTe_Val[simp]",
-  ``!Qe v. $POSTe Qe (Val v) = &F``,
+val POSTe_Val = Q.store_thm ("POSTe_Val[simp]",
+  `!Qe v. $POSTe Qe (Val v) = &F`,
   fs [POSTe_def]
 );
 
-val POSTe_Exn = store_thm ("POSTe_Exn[simp]",
-  ``!Qe v. $POSTe Qe (Exn v) = Qe v``,
+val POSTe_Exn = Q.store_thm ("POSTe_Exn[simp]",
+  `!Qe v. $POSTe Qe (Exn v) = Qe v`,
   fs [POSTe_def]
 );
 
-val POST_Val = store_thm ("POST_Val[simp]",
-  ``!Qv Qe v. POST Qv Qe (Val v) = Qv v``,
+val POST_Val = Q.store_thm ("POST_Val[simp]",
+  `!Qv Qe v. POST Qv Qe (Val v) = Qv v`,
   fs [POST_def]
 );
 
-val POST_Exn = store_thm ("POST_Exn[simp]",
-  ``!Qv Qe v. POST Qv Qe (Exn v) = Qe v``,
+val POST_Exn = Q.store_thm ("POST_Exn[simp]",
+  `!Qv Qe v. POST Qv Qe (Exn v) = Qe v`,
   fs [POST_def]
 );
 
@@ -514,13 +514,13 @@ val POSTv_ignore = Q.store_thm("POSTv_ignore",
 (*------------------------------------------------------------------*)
 (* Lemmas for ==v> / ==e> *)
 
-val SEP_IMPPOSTv_POSTe_left = store_thm ("SEP_IMPPOSTv_POSTe_left",
-  ``!Qe Q. $POSTe Qe ==v> Q``,
+val SEP_IMPPOSTv_POSTe_left = Q.store_thm ("SEP_IMPPOSTv_POSTe_left",
+  `!Qe Q. $POSTe Qe ==v> Q`,
   fs [POSTe_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
-val SEP_IMPPOSTe_POSTv_left = store_thm ("SEP_IMPPOSTe_POSTv_left",
-  ``!Qv Q. $POSTv Qv ==e> Q``,
+val SEP_IMPPOSTe_POSTv_left = Q.store_thm ("SEP_IMPPOSTe_POSTv_left",
+  `!Qv Q. $POSTv Qv ==e> Q`,
   fs [POSTv_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
 );
 

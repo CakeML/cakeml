@@ -74,18 +74,18 @@ val code_locs_def = tDefine "code_locs" `
    full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 
-val code_locs_cons = store_thm("code_locs_cons",
-  ``∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs``,
+val code_locs_cons = Q.store_thm("code_locs_cons",
+  `∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs`,
   gen_tac >> Cases >> simp[code_locs_def]);
 
-val code_locs_append = store_thm("code_locs_append",
-  ``!l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
+val code_locs_append = Q.store_thm("code_locs_append",
+  `!l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2`,
   Induct >> simp[code_locs_def] >>
   simp[Once code_locs_cons] >>
   simp[Once code_locs_cons,SimpRHS]);
 
-val code_locs_map = store_thm("code_locs_map",
-  ``!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)``,
+val code_locs_map = Q.store_thm("code_locs_map",
+  `!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)`,
   Induct \\ full_simp_tac(srw_ss())[code_locs_def]
   \\ ONCE_REWRITE_TAC [code_locs_cons] \\ full_simp_tac(srw_ss())[code_locs_def]);
 
@@ -130,8 +130,8 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
    full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 
-val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
-  ``∀ls max_app. contains_App_SOME max_app ls ⇔ EXISTS (λx. contains_App_SOME max_app [x]) ls``,
+val contains_App_SOME_EXISTS = Q.store_thm("contains_App_SOME_EXISTS",
+  `∀ls max_app. contains_App_SOME max_app ls ⇔ EXISTS (λx. contains_App_SOME max_app [x]) ls`,
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def])
 
@@ -178,8 +178,8 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
    decide_tac);
 val _ = export_rewrites["every_Fn_SOME_def"];
 
-val every_Fn_SOME_EVERY = store_thm("every_Fn_SOME_EVERY",
-  ``∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls``,
+val every_Fn_SOME_EVERY = Q.store_thm("every_Fn_SOME_EVERY",
+  `∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls`,
   Induct >> simp[every_Fn_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_SOME_def])
 
@@ -226,8 +226,8 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
    decide_tac);
 val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
-val every_Fn_vs_NONE_EVERY = store_thm("every_Fn_vs_NONE_EVERY",
-  ``∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls``,
+val every_Fn_vs_NONE_EVERY = Q.store_thm("every_Fn_vs_NONE_EVERY",
+  `∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls`,
   Induct >> simp[every_Fn_vs_NONE_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_NONE_def])
 
@@ -274,8 +274,8 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
    decide_tac);
 val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
-val every_Fn_vs_SOME_EVERY = store_thm("every_Fn_vs_SOME_EVERY",
-  ``∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls``,
+val every_Fn_vs_SOME_EVERY = Q.store_thm("every_Fn_vs_SOME_EVERY",
+  `∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls`,
   Induct >> simp[every_Fn_vs_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_SOME_def])
 
@@ -369,13 +369,13 @@ val do_app_err = Q.store_thm("do_app_err",
   srw_tac[][do_app_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][])
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
-val do_eq_list_rel = store_thm("do_eq_list_rel",
-  ``∀l1 l2 l3 l4.
+val do_eq_list_rel = Q.store_thm("do_eq_list_rel",
+  `∀l1 l2 l3 l4.
      LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧
      LIST_REL (λp1 p2. UNCURRY do_eq p1 = UNCURRY do_eq p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
-     closSem$do_eq_list l1 l2 = do_eq_list l3 l4``,
+     closSem$do_eq_list l1 l2 = do_eq_list l3 l4`,
    Induct >> simp[LENGTH_NIL_SYM] >- (
      simp[GSYM AND_IMP_INTRO, ZIP_EQ_NIL] ) >>
    gen_tac >> Cases >> simp[PULL_EXISTS] >>
@@ -401,31 +401,31 @@ val evaluate_LENGTH = prove(evaluate_LENGTH_ind |> concl |> rand,
 
 val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
 
-val evaluate_IMP_LENGTH = store_thm("evaluate_IMP_LENGTH",
-  ``(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)``,
+val evaluate_IMP_LENGTH = Q.store_thm("evaluate_IMP_LENGTH",
+  `(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)`,
   REPEAT STRIP_TAC
   \\ (evaluate_LENGTH |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`s`,`env`] MP_TAC)
   \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_app_IMP_LENGTH = store_thm("evaluate_app_IMP_LENGTH",
-  ``(evaluate_app x1 x2 x3 x4 = (Rval res,s1)) ==> (LENGTH res = 1)``,
+val evaluate_app_IMP_LENGTH = Q.store_thm("evaluate_app_IMP_LENGTH",
+  `(evaluate_app x1 x2 x3 x4 = (Rval res,s1)) ==> (LENGTH res = 1)`,
   REPEAT STRIP_TAC
   \\ (evaluate_LENGTH |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] MP_TAC)
   \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_SING = store_thm("evaluate_SING",
-  ``(evaluate ([x],s,env) = (Rval r,s2)) ==> ?r1. r = [r1]``,
+val evaluate_SING = Q.store_thm("evaluate_SING",
+  `(evaluate ([x],s,env) = (Rval r,s2)) ==> ?r1. r = [r1]`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_IMP_LENGTH
   \\ Cases_on `r` \\ full_simp_tac(srw_ss())[] \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_CONS = store_thm("evaluate_CONS",
-  ``evaluate (x::xs,env,s) =
+val evaluate_CONS = Q.store_thm("evaluate_CONS",
+  `evaluate (x::xs,env,s) =
       case evaluate ([x],env,s) of
       | (Rval v,s2) =>
          (case evaluate (xs,env,s2) of
           | (Rval vs,s1) => (Rval (HD v::vs),s1)
           | t => t)
-      | t => t``,
+      | t => t`,
   Cases_on `xs` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `evaluate ([x],env,s)` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -433,15 +433,15 @@ val evaluate_CONS = store_thm("evaluate_CONS",
   \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_SNOC = store_thm("evaluate_SNOC",
-  ``!xs env s x.
+val evaluate_SNOC = Q.store_thm("evaluate_SNOC",
+  `!xs env s x.
       evaluate (SNOC x xs,env,s) =
       case evaluate (xs,env,s) of
       | (Rval vs,s2) =>
          (case evaluate ([x],env,s2) of
           | (Rval v,s1) => (Rval (vs ++ v),s1)
           | t => t)
-      | t => t``,
+      | t => t`,
   Induct THEN1
    (full_simp_tac(srw_ss())[SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
     \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[])
@@ -476,41 +476,41 @@ val evaluate_const_lemma = prove(
   \\ IMP_RES_TAC do_app_const \\ full_simp_tac(srw_ss())[dec_clock_def])
   |> SIMP_RULE std_ss [FORALL_PROD]
 
-val evaluate_const = store_thm("evaluate_const",
-  ``(evaluate (xs,env,s) = (res,s1)) ==>
+val evaluate_const = Q.store_thm("evaluate_const",
+  `(evaluate (xs,env,s) = (res,s1)) ==>
       (s1.code = s.code) ∧
-      (s1.max_app = s.max_app)``,
+      (s1.max_app = s.max_app)`,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_app_const = store_thm("evaluate_app_const",
-  ``(evaluate_app x1 x2 x3 x4 = (res,s1)) ==>
+val evaluate_app_const = Q.store_thm("evaluate_app_const",
+  `(evaluate_app x1 x2 x3 x4 = (res,s1)) ==>
       (s1.code = x4.code) ∧
-      (s1.max_app = x4.max_app)``,
+      (s1.max_app = x4.max_app)`,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_MAP_Op_Const = store_thm("evaluate_MAP_Op_Const",
-  ``∀f env s ls.
+val evaluate_MAP_Op_Const = Q.store_thm("evaluate_MAP_Op_Const",
+  `∀f env s ls.
       evaluate (MAP (λx. Op (Const (f x)) []) ls,env,s) =
-      (Rval (MAP (Number o f) ls),s)``,
+      (Rval (MAP (Number o f) ls),s)`,
   ntac 3 gen_tac >> Induct >>
   simp[evaluate_def] >>
   simp[Once evaluate_CONS] >>
   simp[evaluate_def,do_app_def])
 
-val evaluate_REPLICATE_Op_AllocGlobal = store_thm("evaluate_REPLICATE_Op_AllocGlobal",
-  ``∀n env s. evaluate (REPLICATE n (Op AllocGlobal []),env,s) =
-              (Rval (GENLIST (K Unit) n),s with globals := s.globals ++ GENLIST (K NONE) n)``,
+val evaluate_REPLICATE_Op_AllocGlobal = Q.store_thm("evaluate_REPLICATE_Op_AllocGlobal",
+  `∀n env s. evaluate (REPLICATE n (Op AllocGlobal []),env,s) =
+              (Rval (GENLIST (K Unit) n),s with globals := s.globals ++ GENLIST (K NONE) n)`,
   Induct >> simp[evaluate_def,REPLICATE] >- (
     simp[state_component_equality] ) >>
   simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
   simp[state_component_equality])
 
-val lookup_vars_NONE = store_thm("lookup_vars_NONE",
-  ``!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v``,
+val lookup_vars_NONE = Q.store_thm("lookup_vars_NONE",
+  `!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `h < LENGTH env` \\ full_simp_tac(srw_ss())[NOT_LESS]
@@ -518,18 +518,18 @@ val lookup_vars_NONE = store_thm("lookup_vars_NONE",
   THEN1 METIS_TAC []
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [NOT_LESS]);
 
-val lookup_vars_SOME = store_thm("lookup_vars_SOME",
-  ``!vs env xs.
+val lookup_vars_SOME = Q.store_thm("lookup_vars_SOME",
+  `!vs env xs.
       (lookup_vars vs env = SOME xs) ==>
-      (LENGTH vs = LENGTH xs)``,
+      (LENGTH vs = LENGTH xs)`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ REPEAT STRIP_TAC
   \\ Cases_on `lookup_vars vs env` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ RES_TAC);
 
-val lookup_vars_MEM = prove(
-  ``!ys n x (env2:closSem$v list).
+val lookup_vars_MEM = Q.prove(
+  `!ys n x (env2:closSem$v list).
       (lookup_vars ys env2 = SOME x) /\ n < LENGTH ys ==>
       (EL n ys) < LENGTH env2 /\
-      (EL n x = EL (EL n ys) env2)``,
+      (EL n x = EL (EL n ys) env2)`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ NTAC 5 STRIP_TAC
   \\ Cases_on `lookup_vars ys env2` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL

@@ -12,8 +12,8 @@ val _ = Parse.temp_overload_on("g",``Var (strlit "f") (Fun A B)``)
 val mk_eta_ctxt_def = Define`
   mk_eta_ctxt ctxt = NewAxiom ((Abs x (Comb g x)) === g)::ctxt`
 
-val eta_extends = store_thm("eta_extends",
-  ``∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt``,
+val eta_extends = Q.store_thm("eta_extends",
+  `∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt`,
   rw[extends_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[Once RTC_CASES1] >> rw[mk_eta_ctxt_def] >>
@@ -30,11 +30,11 @@ val mk_select_ctxt_def = Define`
     NewConst (strlit "@") (Fun (Fun A Bool) A) ::
     ctxt`
 
-val select_extends = store_thm("select_extends",
-  ``∀ctxt. is_std_sig (sigof ctxt) ∧
+val select_extends = Q.store_thm("select_extends",
+  `∀ctxt. is_std_sig (sigof ctxt) ∧
            (strlit "@") ∉ FDOM (tmsof ctxt) ∧
            (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)))
-    ⇒ mk_select_ctxt ctxt extends ctxt``,
+    ⇒ mk_select_ctxt ctxt extends ctxt`,
   rw[extends_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[Once RTC_CASES1] >> reverse(rw[mk_select_ctxt_def]) >- (
@@ -68,13 +68,13 @@ val mk_infinity_ctxt_def = Define`
       (Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))) ::
     ctxt`
 
-val tyvar_inst_exists = prove(
-  ``∃i. ty = REV_ASSOCD (Tyvar a) i b``,
+val tyvar_inst_exists = Q.prove(
+  `∃i. ty = REV_ASSOCD (Tyvar a) i b`,
   qexists_tac`[(ty,Tyvar a)]` >>
   rw[REV_ASSOCD])
 
-val infinity_extends = store_thm("infinity_extends",
-  ``∀ctxt. theory_ok (thyof ctxt) ∧
+val infinity_extends = Q.store_thm("infinity_extends",
+  `∀ctxt. theory_ok (thyof ctxt) ∧
            DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"ONE_ONE";"ONTO"}) ∧
            (strlit "ind") ∉ FDOM (tysof ctxt) ∧
            (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))) ∧
@@ -82,7 +82,7 @@ val infinity_extends = store_thm("infinity_extends",
            (FLOOKUP (tmsof ctxt) (strlit "!") = SOME (Fun (Fun A Bool) Bool)) ∧
            (FLOOKUP (tmsof ctxt) (strlit "?") = SOME (Fun (Fun A Bool) Bool)) ∧
            (FLOOKUP (tmsof ctxt) (strlit "~") = SOME (Fun Bool Bool))
-       ⇒ mk_infinity_ctxt ctxt extends ctxt``,
+       ⇒ mk_infinity_ctxt ctxt extends ctxt`,
   rw[extends_def] >>
   imp_res_tac theory_ok_sig >>
   `ALOOKUP (type_list ctxt) (strlit "fun") = SOME 2` by fs[is_std_sig_def] >>

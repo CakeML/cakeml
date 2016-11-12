@@ -1249,13 +1249,13 @@ rw [check_freevars_def, check_t_def, infer_type_subst_def] >|
  metis_tac [EVERY_MAP]]);
 
 (* moved this one arround a bit *)
-val infer_type_subst_empty_check = store_thm("infer_type_subst_empty_check",``
+val infer_type_subst_empty_check = Q.store_thm("infer_type_subst_empty_check",`
 (∀t.
   check_freevars 0 [] t ⇒
   check_t 0 {} (infer_type_subst [] t)) ∧
 ∀ts.
 EVERY (check_freevars 0 []) ts ⇒
-EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)``,
+EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)`,
                                              Induct>>fs[check_freevars_def,infer_type_subst_def,check_t_def]>>
                                                    metis_tac[])
 
@@ -2475,28 +2475,28 @@ rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
 rw [] >>
 metis_tac [check_freevars_more_append]);
 
-val check_freevars_more = store_thm("check_freevars_more",
-  ``∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c``,
+val check_freevars_more = Q.store_thm("check_freevars_more",
+  `∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c`,
   ho_match_mp_tac check_freevars_ind >>
   rw[check_freevars_def] >-
     fs[SUBSET_DEF] >>
   fs[EVERY_MEM])
 
-val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
-  ``(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
+val check_freevars_t_to_freevars = Q.store_thm("check_freevars_t_to_freevars",
+  `(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
       ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
     (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
-      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
+      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)`,
   Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
   simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
 
-val check_t_infer_type_subst_dbs = store_thm("check_t_infer_type_subst_dbs",
-  ``∀m w t n u ls.
+val check_t_infer_type_subst_dbs = Q.store_thm("check_t_infer_type_subst_dbs",
+  `∀m w t n u ls.
     check_freevars m w t ∧
     m + LENGTH ls ≤ n ∧
     (ls = [] ⇒ 0 < m)
     ⇒
-    check_t n u (infer_type_subst (ZIP(ls,MAP Infer_Tvar_db (COUNT_LIST (LENGTH ls)))) t)``,
+    check_t n u (infer_type_subst (ZIP(ls,MAP Infer_Tvar_db (COUNT_LIST (LENGTH ls)))) t)`,
   ho_match_mp_tac check_freevars_ind >>
   conj_tac >- (
     simp[check_freevars_def] >>
@@ -2521,8 +2521,8 @@ val check_t_infer_type_subst_dbs = store_thm("check_t_infer_type_subst_dbs",
   rw[check_freevars_def,check_t_def,infer_type_subst_def] >>
   DECIDE_TAC)
 
-val nub_eq_nil = store_thm("nub_eq_nil",
-  ``∀ls. nub ls = [] ⇔ ls = []``,
+val nub_eq_nil = Q.store_thm("nub_eq_nil",
+  `∀ls. nub ls = [] ⇔ ls = []`,
   Induct >> simp[nub_def] >> rw[] >>
   Cases_on`ls`>>fs[])
 
@@ -3092,22 +3092,22 @@ val unconvert_t_Tword = Q.store_thm("unconvert_t_Tword[simp]",
   `unconvert_t (Tword wz) = Infer_Tapp [] (TC_word wz)`,
   EVAL_TAC);
 
-val check_freevars_empty_convert_unconvert_id = store_thm("check_freevars_empty_convert_unconvert_id",
-``!t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t``,
+val check_freevars_empty_convert_unconvert_id = Q.store_thm("check_freevars_empty_convert_unconvert_id",
+`!t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t`,
   ho_match_mp_tac unconvert_t_ind>>
   rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
 
-val check_t_empty_unconvert_convert_id = store_thm("check_t_empty_unconvert_convert_id",
-``!t. check_t n {} t ⇒
-  unconvert_t (convert_t t) = t``,
+val check_t_empty_unconvert_convert_id = Q.store_thm("check_t_empty_unconvert_convert_id",
+`!t. check_t n {} t ⇒
+  unconvert_t (convert_t t) = t`,
   ho_match_mp_tac (fetch "-" "convert_t_ind") >>
   rw[]>>
   fs[unconvert_t_def,convert_t_def,check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
 
-val check_freevars_to_check_t = store_thm("check_freevars_to_check_t",
-``!t z. check_freevars n [] t ⇒ check_t n {} (unconvert_t t)``,
+val check_freevars_to_check_t = Q.store_thm("check_freevars_to_check_t",
+`!t z. check_freevars n [] t ⇒ check_t n {} (unconvert_t t)`,
   ho_match_mp_tac unconvert_t_ind>>rw[]>>
   fs[unconvert_t_def,check_freevars_def,check_t_def]>>
   fs[EVERY_MAP,EVERY_MEM])
@@ -3139,13 +3139,13 @@ val tenv_alpha_def = Define`
     (tenv_inv FEMPTY tenv tenvE ∧
     tenv_invC FEMPTY tenv tenvE)`
 
-val infer_deBruijn_subst_id2 = store_thm("infer_deBruijn_subst_id2",
-  ``(∀t.
+val infer_deBruijn_subst_id2 = Q.store_thm("infer_deBruijn_subst_id2",
+  `(∀t.
   check_t tvs {} t ⇒
   infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs) t = t) ∧
   (∀ts.
   EVERY (check_t tvs {}) ts ⇒
-  MAP (infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs)) ts = ts)``,
+  MAP (infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs)) ts = ts)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[]>>fs[check_t_def]
   >-
@@ -3183,24 +3183,24 @@ val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
   >>
   fs[tenv_invC_def,convert_env2_def])
 
-val infer_deBruijn_subst_id = store_thm("infer_deBruijn_subst_id",
-``(!t. infer_deBruijn_subst [] t = t) ∧
-  (!ts. MAP (infer_deBruijn_subst []) ts = ts)``,
+val infer_deBruijn_subst_id = Q.store_thm("infer_deBruijn_subst_id",
+`(!t. infer_deBruijn_subst [] t = t) ∧
+  (!ts. MAP (infer_deBruijn_subst []) ts = ts)`,
   Induct>>rw[]>>fs[infer_deBruijn_subst_def,MAP_EQ_ID])
 
-val deBruijn_subst_nothing = store_thm("deBruijn_subst_nothing",
-  ``(∀t.
+val deBruijn_subst_nothing = Q.store_thm("deBruijn_subst_nothing",
+  `(∀t.
   deBruijn_subst 0 [] t = t )∧
   ∀ts.
-  MAP (deBruijn_subst 0 []) ts = ts``,
+  MAP (deBruijn_subst 0 []) ts = ts`,
   ho_match_mp_tac astTheory.t_induction>>
   fs[deBruijn_subst_def]>>rw[]>>
   fs[LIST_EQ_REWRITE]>>rw[]>>
   fs[MEM_EL,EL_MAP])
 
-val infer_type_subst_nil = store_thm("infer_type_subst_nil",
-  ``(∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
-    (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)``,
+val infer_type_subst_nil = Q.store_thm("infer_type_subst_nil",
+  `(∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
+    (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)`,
   ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
   rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
   fsrw_tac[boolSimps.ETA_ss][])
@@ -3210,7 +3210,7 @@ val menv_alpha_def = Define`
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 
-val generalise_subst_exist = store_thm("generalise_subst_exist",``
+val generalise_subst_exist = Q.store_thm("generalise_subst_exist",`
   (t_wfs s ∧
   (∀uv. uv ∈ FDOM s ⇒ check_t tvs {} (t_walkstar s (Infer_Tuvar uv))))
   ⇒
@@ -3237,7 +3237,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
   ∃subst'.
     LENGTH subst' = a ∧
     (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧
-    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))``,
+    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))`,
   strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   srw_tac[][]>>
@@ -3294,7 +3294,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     qexists_tac`subst'++subst''`>>fs[]>>
     metis_tac[])
 
-val infer_deBruijn_subst_infer_subst_walkstar = store_thm("infer_deBruijn_subst_infer_subst_walkstar",``
+val infer_deBruijn_subst_infer_subst_walkstar = Q.store_thm("infer_deBruijn_subst_infer_subst_walkstar",`
   ∀b subst n m.
   FRANGE b ⊆ count (LENGTH subst) ∧
   t_wfs s
@@ -3312,7 +3312,7 @@ val infer_deBruijn_subst_infer_subst_walkstar = store_thm("infer_deBruijn_subst_
   EVERY (λt.t_vars t ⊆ FDOM b) ts
   ⇒
   MAP ((infer_deBruijn_subst subst) o (infer_subst b)) ts =
-  MAP (t_walkstar s) ts))``,
+  MAP (t_walkstar s) ts))`,
   ntac 5 strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
   fs[infer_subst_def,t_walkstar_eqn1,check_t_def,infer_deBruijn_subst_def]
@@ -3330,29 +3330,29 @@ val infer_deBruijn_subst_infer_subst_walkstar = store_thm("infer_deBruijn_subst_
   >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
   >> REFL_TAC))
 
-val tenv_alpha_empty = store_thm("tenv_alpha_empty",``
-  tenv_alpha [] (bind_var_list2 [] Empty)``,
+val tenv_alpha_empty = Q.store_thm("tenv_alpha_empty",`
+  tenv_alpha [] (bind_var_list2 [] Empty)`,
   fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_val_def])
 
-val tenv_alpha_convert = store_thm("tenv_alpha_convert",
-  ``check_env ∅ tenv ⇒
-    tenv_alpha tenv (bind_var_list2 (convert_env2 tenv) Empty) ``,
+val tenv_alpha_convert = Q.store_thm("tenv_alpha_convert",
+  `check_env ∅ tenv ⇒
+    tenv_alpha tenv (bind_var_list2 (convert_env2 tenv) Empty) `,
   rw[tenv_alpha_def,tenv_inv_convert_env2,tenv_invC_convert_env2])
 
-val menv_alpha_convert = store_thm("menv_alpha_convert",
-  ``check_menv menv ⇒ menv_alpha menv (convert_menv menv)``,
+val menv_alpha_convert = Q.store_thm("menv_alpha_convert",
+  `check_menv menv ⇒ menv_alpha menv (convert_menv menv)`,
   rw[menv_alpha_def,convert_menv_def,fmap_rel_OPTREL_FLOOKUP,optionTheory.OPTREL_def,FLOOKUP_o_f] >>
   CASE_TAC >>
   fs[check_menv_def,FEVERY_ALL_FLOOKUP] >>
   res_tac >> fs[GSYM check_env_def] >>
   rw[GSYM convert_env2_def, tenv_alpha_convert])
 
-val tenv_inv_bind_var_list2 = prove(``
+val tenv_inv_bind_var_list2 = Q.prove(`
   tenv_inv FEMPTY itenv (bind_var_list2 tenv Empty) ∧
   tenv_inv FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧
   set (MAP FST itenv) = set (MAP FST tenv)
   ⇒
-  tenv_inv FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  tenv_inv FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)`,
   rw[tenv_inv_def]>>
   fs[GSYM bvl2_lookup]>>
   fs[ALOOKUP_APPEND]>>
@@ -3365,12 +3365,12 @@ val tenv_inv_bind_var_list2 = prove(``
     res_tac>>
     fs[])
 
-val tenv_invC_bind_var_list2 = prove(``
+val tenv_invC_bind_var_list2 = Q.prove(`
   tenv_invC FEMPTY itenv (bind_var_list2 tenv Empty) ∧
   tenv_invC FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧
   set (MAP FST itenv) = set (MAP FST tenv)
   ⇒
-  tenv_invC FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  tenv_invC FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)`,
   rw[tenv_invC_def]>>
   fs[GSYM bvl2_lookup]>>
   fs[ALOOKUP_APPEND]>>
@@ -3387,24 +3387,24 @@ val tenv_invC_bind_var_list2 = prove(``
     res_tac>>
     fs[])
 
-val tenv_alpha_bind_var_list2 = store_thm("tenv_alpha_bind_var_list2",``
+val tenv_alpha_bind_var_list2 = Q.store_thm("tenv_alpha_bind_var_list2",`
   tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
   set (MAP FST itenv) = set (MAP FST tenv) ∧
   tenv_alpha itenv' (bind_var_list2 tenv' Empty)
   ⇒
-  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)`,
   fs[tenv_alpha_def]>>
   metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
 
-val check_weakE_EVERY = store_thm("check_weakE_EVERY",
-  ``∀env_impl env_spec st.
+val check_weakE_EVERY = Q.store_thm("check_weakE_EVERY",
+  `∀env_impl env_spec st.
       (∃st'. check_weakE env_impl env_spec st = (Success (),st')) ⇔
       EVERY (λ(n,tvs_spec,t_spec).
            case ALOOKUP env_impl n of
            | NONE => F
            | SOME (tvs_impl,t_impl) =>
                let t = infer_deBruijn_subst (GENLIST Infer_Tuvar tvs_impl) t_impl in
-               IS_SOME (t_unify FEMPTY t_spec t)) env_spec``,
+               IS_SOME (t_unify FEMPTY t_spec t)) env_spec`,
   ho_match_mp_tac check_weakE_ind >>
   conj_tac >- rw[check_weakE_def,success_eqns] >>
   rw[check_weakE_def] >>
@@ -3419,8 +3419,8 @@ val check_weakE_EVERY = store_thm("check_weakE_EVERY",
     metis_tac[] ) >>
   simp[markerTheory.Abbrev_def,IS_SOME_EXISTS] )
 
-val convert_env2_anub = store_thm("convert_env2_anub",
-  ``∀ls ac. convert_env2 (anub ls ac) = anub (convert_env2 ls) ac``,
+val convert_env2_anub = Q.store_thm("convert_env2_anub",
+  `∀ls ac. convert_env2 (anub ls ac) = anub (convert_env2 ls) ac`,
   Induct >> fs[anub_def,convert_env2_def] >>
   fs[UNCURRY] >>
   Cases >> fs[anub_def,UNCURRY] >> rw[] >>

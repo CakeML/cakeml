@@ -330,7 +330,14 @@ val do_if_def = Define `
   else if v = Boolv F then
     SOME e2
   else
-    NONE)`;
+      NONE)`;
+
+val do_if_either_or = Q.store_thm("do_if_is_ether_or",
+  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`,
+  simp [do_if_def]
+  THEN1 (Cases_on `v = Boolv T`
+  THENL [simp [],
+    Cases_on `v = Boolv F` THEN simp []]))
 
 val pmatch_def = tDefine"pmatch"`
 (pmatch envC s (Pvar x) v' env = (Match ((x,v') :: env)))
@@ -384,23 +391,22 @@ val pmatch_def = tDefine"pmatch"`
                                         | INR (a,x,ps,y,z) => pats_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
-val check_clock_def = Define`
-  check_clock s' s =
-    s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock`;
-
-val check_clock_id = Q.store_thm("check_clock_id",
-  `s'.clock ≤ s.clock ⇒ modSem$check_clock s' s = s'`,
-  EVAL_TAC >> rw[theorem"state_component_equality"])
-
 val dec_clock_def = Define`
-  dec_clock s = s with clock := s.clock -1`;
+dec_clock s = s with clock := s.clock -1`;
+
+val fix_clock_def = Define `
+  fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`
+
+val fix_clock_IMP = Q.prove(
+  `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 val evaluate_def = tDefine"evaluate"`
   (evaluate (env:modSem$environment) (s:'ffi modSem$state) ([]:modLang$exp list) = (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
-    case evaluate env s [e1] of
-    | (s', Rval v) =>
-        (case evaluate env (check_clock s' s) (e2::es) of
+    case fix_clock s (evaluate env s [e1]) of
+    | (s, Rval v) =>
+        (case evaluate env s (e2::es) of
          | (s, Rval vs) => (s, Rval (HD v::vs))
          | res => res)
     | res => res) ∧
@@ -410,8 +416,8 @@ val evaluate_def = tDefine"evaluate"`
    | (s, Rval v) => (s, Rerr (Rraise (HD v)))
    | res => res) ∧
   (evaluate env s [Handle e pes] =
-   case evaluate env s [e] of
-   | (s', Rerr (Rraise v)) => evaluate_match env (check_clock s' s) v pes v
+   case fix_clock s (evaluate env s [e]) of
+   | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
    | res => res) ∧
   (evaluate env s [Con cn es] =
    if do_con_check env.c cn (LENGTH es) then
@@ -432,37 +438,37 @@ val evaluate_def = tDefine"evaluate"`
    else Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Fun n e] = (s, Rval [Closure (env.c,env.v) n e])) ∧
   (evaluate env s [App op es] =
-   case evaluate env s (REVERSE es) of
-   | (s', Rval vs) =>
+   case fix_clock s (evaluate env s (REVERSE es)) of
+   | (s, Rval vs) =>
        if op = Opapp then
          (case do_opapp (REVERSE vs) of
           | SOME (env', e) =>
-            if s'.clock = 0 ∨ s.clock = 0 then
-              (s', Rerr (Rabort Rtimeout_error))
+            if s.clock = 0 then
+              (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate env' (dec_clock (check_clock s' s)) [e]
-          | NONE => (s', Rerr (Rabort Rtype_error)))
+              evaluate env' (dec_clock s) [e]
+          | NONE => (s, Rerr (Rabort Rtype_error)))
        else
-       (case (do_app (s'.refs,s'.ffi) op (REVERSE vs)) of
-        | NONE => (s', Rerr (Rabort Rtype_error))
-        | SOME ((refs',ffi'),r) => (s' with <|refs:=refs';ffi:=ffi'|>, list_result r))
+       (case (do_app (s.refs,s.ffi) op (REVERSE vs)) of
+        | NONE => (s, Rerr (Rabort Rtype_error))
+        | SOME ((refs',ffi'),r) => (s with <|refs:=refs';ffi:=ffi'|>, list_result r))
    | res => res) ∧
   (evaluate env s [If e1 e2 e3] =
-   case evaluate env s [e1] of
-   | (s', Rval vs) =>
+   case fix_clock s (evaluate env s [e1]) of
+   | (s, Rval vs) =>
      (case do_if (HD vs) e2 e3 of
-      | SOME e => evaluate env (check_clock s' s) [e]
-      | NONE => (s', Rerr (Rabort Rtype_error)))
+      | SOME e => evaluate env s [e]
+      | NONE => (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Mat e pes] =
-   case evaluate env s [e] of
-   | (s', Rval v) =>
-       evaluate_match env (check_clock s' s) (HD v) pes
+   case fix_clock s (evaluate env s [e]) of
+   | (s, Rval v) =>
+       evaluate_match env s (HD v) pes
          (Conv (SOME ("Bind", (TypeExn (Short "Bind")))) [])
    | res => res) ∧
   (evaluate env s [Let n e1 e2] =
-   case evaluate env s [e1] of
-   | (s', Rval vs) => evaluate (env with v updated_by opt_bind n (HD vs)) (check_clock s' s) [e2]
+   case fix_clock s (evaluate env s [e1]) of
+   | (s, Rval vs) => evaluate (env with v updated_by opt_bind n (HD vs)) s [e2]
    | res => res) ∧
   (evaluate env s [Letrec funs e] =
    if ALL_DISTINCT (MAP FST funs)
@@ -478,55 +484,33 @@ val evaluate_def = tDefine"evaluate"`
    else (s, Rerr(Rabort Rtype_error)))`
   (wf_rel_tac`inv_image ($< LEX $<)
                 (λx. case x of (INL(_,s,es)) => (s.clock,exp6_size es)
-                             | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))` >>
-   simp[check_clock_def,dec_clock_def,do_if_def] >>
-   rw[] >> simp[]);
+                             | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))`
+  >> rpt strip_tac
+  >> simp[dec_clock_def]
+  >> imp_res_tac fix_clock_IMP
+  >> imp_res_tac do_if_either_or
+  >> rw[]);
 
 val evaluate_ind = theorem"evaluate_ind"
 
-val s = ``s1:'ffi modSem$state``
-
 val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀env ^s e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env ^s v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >> rw[] >> rfs[] >>
-  fs[check_clock_def,dec_clock_def] >> simp[] >>
-  fs[do_app_def] >>
-  every_case_tac >> fs[] >> rw[])
+  every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
+  imp_res_tac fix_clock_IMP >> fs[])
 
-val s' = ``s':'ffi modSem$state``
-val clean_term =
-  term_rewrite
-  [``check_clock ^s' ^s = s'``,
-   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
+val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
+  `fix_clock s (evaluate env s e) = evaluate env s e`,
+  Cases_on `evaluate env s e` \\ fs [fix_clock_def]
+  \\ imp_res_tac evaluate_clock
+  \\ fs [MIN_DEF,theorem "state_component_equality"]);
 
-val evaluate_ind = let
-  val goal = evaluate_ind |> concl |> clean_term
-  (* set_goal([],goal) *)
-in prove(goal,
-  rpt gen_tac >> strip_tac >>
-  ho_match_mp_tac evaluate_ind >>
-  rw[] >> first_x_assum match_mp_tac >>
-  rw[] >> fs[] >>
-  res_tac >>
-  imp_res_tac evaluate_clock >>
-  fsrw_tac[ARITH_ss][check_clock_id])
-end
-|> curry save_thm "evaluate_ind"
+val evaluate_def = save_thm("evaluate_def",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
-val evaluate_def = let
-  val goal = evaluate_def |> concl |> clean_term |> replace_term s' s
-  (* set_goal([],goal) *)
-in prove(goal,
-  rpt strip_tac >>
-  rw[Once evaluate_def] >>
-  every_case_tac >>
-  imp_res_tac evaluate_clock >>
-  fs[check_clock_id] >>
-  `F` suffices_by rw[] >> decide_tac)
-end
-|> curry save_thm "evaluate_def"
+val evaluate_ind = save_thm("evaluate_ind",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet n e) =

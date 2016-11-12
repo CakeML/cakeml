@@ -678,23 +678,23 @@ val known_op_correct_approx = Q.store_thm(
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
 
-val LENGTH_clos_gen = prove(``
+val LENGTH_clos_gen = Q.prove(`
   ∀ls x c.
-  LENGTH (clos_gen x c ls) = LENGTH ls``,
+  LENGTH (clos_gen x c ls) = LENGTH ls`,
   Induct>>fs[FORALL_PROD,clos_gen_def])
 
-val clos_gen_eq = prove(``
+val clos_gen_eq = Q.prove(`
   ∀n c fns.
   clos_gen n c fns =
-  GENLIST (λi. Clos (2* (i+c) +n ) (FST (EL i fns))) (LENGTH fns)``,
+  GENLIST (λi. Clos (2* (i+c) +n ) (FST (EL i fns))) (LENGTH fns)`,
   Induct_on`fns`>>fs[FORALL_PROD,clos_gen_def,GENLIST_CONS]>>rw[]>>
   simp[o_DEF,ADD1])
 
-val letrec_case_eq = prove(``
+val letrec_case_eq = Q.prove(`
   (case loc of
     NONE => REPLICATE (LENGTH fns) Other
   | SOME n => clos_gen n 0 fns) =
-  GENLIST (case loc of NONE => K Other | SOME n => λi. Clos (n+ 2*i) (FST (EL i fns))) (LENGTH fns)``,
+  GENLIST (case loc of NONE => K Other | SOME n => λi. Clos (n+ 2*i) (FST (EL i fns))) (LENGTH fns)`,
   Cases_on`loc`>>fs[clos_gen_eq,REPLICATE_GENLIST])
 
 val say = say0 "known_correct_approx"

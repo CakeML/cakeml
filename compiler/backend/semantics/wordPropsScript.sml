@@ -497,25 +497,25 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 (*code is unchanged across eval*)
-val pop_env_code_clock = store_thm("pop_env_code_clock",``
+val pop_env_code_clock = Q.store_thm("pop_env_code_clock",`
   pop_env r = SOME x ⇒
   r.code = x.code ∧
-  r.clock = x.clock``,
+  r.clock = x.clock`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
-val alloc_code_const = store_thm("alloc_code_const",``
+val alloc_code_const = Q.store_thm("alloc_code_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code``,
+  t.code = s.code`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
   imp_res_tac pop_env_code_clock>>fs[])
 
-val inst_code_const = prove(``
-  inst i s = SOME t ⇒ s.code = t.code``,
+val inst_code_const = Q.prove(`
+  inst i s = SOME t ⇒ s.code = t.code`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
 
-val evaluate_code_const = store_thm("evaluate_code_const",``
-  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code``,
+val evaluate_code_const = Q.store_thm("evaluate_code_const",`
+  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code`,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
   >-
     (rename1 `bad_dest_args _ _`>>
@@ -538,9 +538,9 @@ val evaluate_code_const = store_thm("evaluate_code_const",``
 
 (* -- *)
 
-val get_vars_length_lemma = store_thm("get_vars_length_lemma",
-  ``!ls s y. get_vars ls s = SOME y ==>
-           LENGTH y = LENGTH ls``,
+val get_vars_length_lemma = Q.store_thm("get_vars_length_lemma",
+  `!ls s y. get_vars ls s = SOME y ==>
+           LENGTH y = LENGTH ls`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def]>>
   Cases_on`get_var h s`>>full_simp_tac(srw_ss())[]>>
   Cases_on`get_vars ls s`>>full_simp_tac(srw_ss())[]>>
@@ -577,78 +577,78 @@ val s_key_eq_def = Define`
   (s_key_eq _ _ = F)`
 
 (*Reflexive*)
-val s_key_eq_refl = store_thm( "s_key_eq_refl",
-  ``!ls .s_key_eq ls ls = T``,
+val s_key_eq_refl = Q.store_thm( "s_key_eq_refl",
+  `!ls .s_key_eq ls ls = T`,
    Induct >> srw_tac[][s_key_eq_def]>>
    Cases_on`h`>> Cases_on`o'`>>srw_tac[][s_frame_key_eq_def])
 
-val s_val_eq_refl = store_thm( "s_val_eq_refl",
-  ``!ls.s_val_eq ls ls = T``,
+val s_val_eq_refl = Q.store_thm( "s_val_eq_refl",
+  `!ls.s_val_eq ls ls = T`,
   Induct >> srw_tac[][s_val_eq_def]>>
   Cases_on`h`>> Cases_on`o'`>>srw_tac[][s_frame_val_eq_def])
 
 (*transitive*)
-val s_frame_key_eq_trans = prove(
-  ``!a b c. s_frame_key_eq a b /\ s_frame_key_eq b c ==>
-            s_frame_key_eq a c``,
+val s_frame_key_eq_trans = Q.prove(
+  `!a b c. s_frame_key_eq a b /\ s_frame_key_eq b c ==>
+            s_frame_key_eq a c`,
   Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
   full_simp_tac(srw_ss())[s_frame_key_eq_def])
 
-val s_key_eq_trans = store_thm("s_key_eq_trans",
-  ``!a b c. s_key_eq a b /\ s_key_eq b c ==>
-            s_key_eq a c``,
+val s_key_eq_trans = Q.store_thm("s_key_eq_trans",
+  `!a b c. s_key_eq a b /\ s_key_eq b c ==>
+            s_key_eq a c`,
   Induct>>
   Cases_on`b`>>Cases_on`c`>>full_simp_tac(srw_ss())[s_key_eq_def]>>
   srw_tac[][]>>metis_tac[s_frame_key_eq_trans])
 
-val s_frame_val_eq_trans = prove(
-  ``!a b c. s_frame_val_eq a b /\ s_frame_val_eq b c ==>
-            s_frame_val_eq a c``,
+val s_frame_val_eq_trans = Q.prove(
+  `!a b c. s_frame_val_eq a b /\ s_frame_val_eq b c ==>
+            s_frame_val_eq a c`,
   Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
   full_simp_tac(srw_ss())[s_frame_val_eq_def])
 
-val s_val_eq_trans = prove(
-  ``!a b c. s_val_eq a b /\ s_val_eq b c ==>
-            s_val_eq a c``,
+val s_val_eq_trans = Q.prove(
+  `!a b c. s_val_eq a b /\ s_val_eq b c ==>
+            s_val_eq a c`,
   Induct>>
   Cases_on`b`>>Cases_on`c`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   srw_tac[][]>>metis_tac[s_frame_val_eq_trans])
 
 (*Symmetric*)
-val s_frame_key_eq_sym = prove(
-  ``!a b. s_frame_key_eq a b <=> s_frame_key_eq b a``,
+val s_frame_key_eq_sym = Q.prove(
+  `!a b. s_frame_key_eq a b <=> s_frame_key_eq b a`,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>full_simp_tac(srw_ss())[s_frame_key_eq_def,EQ_SYM_EQ])
 
-val s_key_eq_sym = store_thm("s_key_eq_sym",
-  ``!a b. s_key_eq a b <=> s_key_eq b a``,
+val s_key_eq_sym = Q.store_thm("s_key_eq_sym",
+  `!a b. s_key_eq a b <=> s_key_eq b a`,
   Induct>> Cases_on`b`>>full_simp_tac(srw_ss())[s_key_eq_def]>>
   strip_tac>>metis_tac[s_frame_key_eq_sym])
 
-val s_frame_val_eq_sym = prove(
-   ``!a b. s_frame_val_eq a b <=> s_frame_val_eq b a``,
+val s_frame_val_eq_sym = Q.prove(
+   `!a b. s_frame_val_eq a b <=> s_frame_val_eq b a`,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>full_simp_tac(srw_ss())[s_frame_val_eq_def,EQ_SYM_EQ])
 
-val s_val_eq_sym = store_thm("s_val_eq_sym",
-  ``!a b. s_val_eq a b <=> s_val_eq b a``,
+val s_val_eq_sym = Q.store_thm("s_val_eq_sym",
+  `!a b. s_val_eq a b <=> s_val_eq b a`,
   Induct>> Cases_on`b`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   strip_tac>>metis_tac[s_frame_val_eq_sym])
 
-val s_frame_val_and_key_eq = prove(
-  ``!s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t``,
+val s_frame_val_and_key_eq = Q.prove(
+  `!s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t`,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>
   full_simp_tac(srw_ss())[s_frame_val_eq_def,s_frame_key_eq_def,LIST_EQ_MAP_PAIR])
 
-val s_val_and_key_eq = store_thm("s_val_and_key_eq",
-  ``!s t. s_val_eq s t /\ s_key_eq s t ==> s =t``,
+val s_val_and_key_eq = Q.store_thm("s_val_and_key_eq",
+  `!s t. s_val_eq s t /\ s_key_eq s t ==> s =t`,
   Induct>-
     (Cases>>full_simp_tac(srw_ss())[s_val_eq_def])>>
   srw_tac[][]>>
   Cases_on`t`>>full_simp_tac(srw_ss())[s_val_eq_def,s_key_eq_def,s_frame_val_and_key_eq])
 
-val dec_stack_stack_key_eq = prove(
-  ``!wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'``,
+val dec_stack_stack_key_eq = Q.prove(
+  `!wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'`,
   ho_match_mp_tac dec_stack_ind>>srw_tac[][dec_stack_def]>>
   full_simp_tac(srw_ss())[s_key_eq_def]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[dec_stack_def]>>srw_tac[][]>>
@@ -656,21 +656,21 @@ val dec_stack_stack_key_eq = prove(
   full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,MAP_ZIP,NOT_LESS])
 
 (*gc preserves the stack_key relation*)
-val gc_s_key_eq = store_thm("gc_s_key_eq",
-  ``!s x. gc s = SOME x ==> s_key_eq s.stack x.stack``,
+val gc_s_key_eq = Q.store_thm("gc_s_key_eq",
+  `!s x. gc s = SOME x ==> s_key_eq s.stack x.stack`,
   srw_tac[][gc_def] >>full_simp_tac(srw_ss())[LET_THM]>>every_case_tac>>full_simp_tac(srw_ss())[]>>
   IMP_RES_TAC dec_stack_stack_key_eq>>
   full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
 
-val s_val_eq_enc_stack = prove(
-  ``!st st'. s_val_eq st st' ==> enc_stack st = enc_stack st'``,
+val s_val_eq_enc_stack = Q.prove(
+  `!st st'. s_val_eq st st' ==> enc_stack st = enc_stack st'`,
   Induct>>Cases_on`st'`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   Cases_on`h`>>Cases_on`h'`>>Cases_on`o''`>>Cases_on`o'`>>
   full_simp_tac(srw_ss())[s_frame_val_eq_def,enc_stack_def])
 
-val s_val_eq_dec_stack = prove(
-  ``!q st st' x. s_val_eq st st' /\ dec_stack q st = SOME x ==>
-    ?y. dec_stack q st' = SOME y /\ s_val_eq x y``,
+val s_val_eq_dec_stack = Q.prove(
+  `!q st st' x. s_val_eq st st' /\ dec_stack q st = SOME x ==>
+    ?y. dec_stack q st' = SOME y /\ s_val_eq x y`,
    ho_match_mp_tac dec_stack_ind >> srw_tac[][] >>
    Cases_on`st'`>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_refl]>>
    Cases_on`h`>>full_simp_tac(srw_ss())[dec_stack_def]>>
@@ -686,11 +686,11 @@ val s_val_eq_dec_stack = prove(
 
 (*gc succeeds on all stacks related by stack_val and there are relations
   in the result*)
-val gc_s_val_eq = store_thm("gc_s_val_eq",
-  ``!s x st y. s_val_eq s.stack st /\
+val gc_s_val_eq = Q.store_thm("gc_s_val_eq",
+  `!s x st y. s_val_eq s.stack st /\
              gc s = SOME y ==>
       ?z. gc (s with stack := st) = SOME (y with stack := z) /\
-          s_val_eq y.stack z /\ s_key_eq z st``,
+          s_val_eq y.stack z /\ s_key_eq z st`,
   srw_tac[][gc_def]>>full_simp_tac(srw_ss())[LET_THM]>>
   SIMP_TAC std_ss [markerTheory.Abbrev_def]>>
   IMP_RES_TAC s_val_eq_enc_stack>>full_simp_tac(srw_ss())[]>>
@@ -703,14 +703,14 @@ val gc_s_val_eq = store_thm("gc_s_val_eq",
   Q.EXISTS_TAC`y'`>>full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
 
 (*Slightly more general theorem allows the unused locals to be differnt*)
-val gc_s_val_eq_word_state = store_thm("gc_s_val_eq_word_state",
-  ``!s tlocs tstack y.
+val gc_s_val_eq_word_state = Q.store_thm("gc_s_val_eq_word_state",
+  `!s tlocs tstack y.
           s_val_eq s.stack tstack /\
           gc s = SOME y ==>
     ?zlocs zstack.
           gc (s with <|stack:=tstack;locals:=tlocs|>) =
           SOME (y with <|stack:=zstack;locals:=zlocs|>) /\
-          s_val_eq y.stack zstack /\ s_key_eq zstack tstack``,
+          s_val_eq y.stack zstack /\ s_key_eq zstack tstack`,
   srw_tac[][gc_def]>>full_simp_tac(srw_ss())[LET_THM]>>
   SIMP_TAC std_ss [markerTheory.Abbrev_def]>>
   IMP_RES_TAC s_val_eq_enc_stack>>full_simp_tac(srw_ss())[]>>
@@ -725,8 +725,8 @@ val gc_s_val_eq_word_state = store_thm("gc_s_val_eq_word_state",
   full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
 
 (*Most generalised gc_s_val_eq*)
-val gc_s_val_eq_gen = store_thm ("gc_s_val_eq_gen",
-``
+val gc_s_val_eq_gen = Q.store_thm ("gc_s_val_eq_gen",
+`
   !s t s'.
   s.gc_fun = t.gc_fun ∧
   s.memory = t.memory ∧
@@ -739,7 +739,7 @@ val gc_s_val_eq_gen = store_thm ("gc_s_val_eq_gen",
   s_val_eq s'.stack t'.stack ∧
   s_key_eq t.stack t'.stack ∧
   t'.memory = s'.memory ∧
-  t'.store = s'.store`` ,
+  t'.store = s'.store` ,
   srw_tac[][]>>
   full_simp_tac(srw_ss())[gc_def,LET_THM]>>
   IMP_RES_TAC s_val_eq_enc_stack>>
@@ -750,55 +750,55 @@ val gc_s_val_eq_gen = store_thm ("gc_s_val_eq_gen",
   metis_tac[s_val_eq_sym])
 
 (*pushing and popping maintain the stack_key relation*)
-val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",
-  ``!s t x opt. s_key_eq (push_env x opt s).stack t.stack ==>
+val push_env_pop_env_s_key_eq = Q.store_thm("push_env_pop_env_s_key_eq",
+  `!s t x opt. s_key_eq (push_env x opt s).stack t.stack ==>
               ?y. (pop_env t = SOME y /\
-                   s_key_eq s.stack y.stack)``,
+                   s_key_eq s.stack y.stack)`,
   srw_tac[][]>>Cases_on`opt`>>TRY(PairCases_on`x'`)>>
   full_simp_tac(srw_ss())[push_env_def]>>full_simp_tac(srw_ss())[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
   full_simp_tac(srw_ss())[s_key_eq_def,pop_env_def]>>every_case_tac>>
   full_simp_tac(srw_ss())[])
 
-val get_vars_stack_swap = prove(
-  ``!l s t. s.locals = t.locals ==>
-    get_vars l s = get_vars l t``,
+val get_vars_stack_swap = Q.prove(
+  `!l s t. s.locals = t.locals ==>
+    get_vars l s = get_vars l t`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_def]>>
   srw_tac[][]>> every_case_tac>>
   metis_tac[NOT_NONE_SOME,SOME_11])
 
-val get_vars_stack_swap_simp = prove(
-  ``!args. get_vars args (s with stack := xs) = get_vars args s``,
+val get_vars_stack_swap_simp = Q.prove(
+  `!args. get_vars args (s with stack := xs) = get_vars args s`,
   `(s with stack:=xs).locals = s.locals` by full_simp_tac(srw_ss())[]>>
   metis_tac[get_vars_stack_swap])
 
-val s_val_eq_length = store_thm("s_val_eq_length",
-  ``!s t. s_val_eq s t ==> LENGTH s = LENGTH t``,
+val s_val_eq_length = Q.store_thm("s_val_eq_length",
+  `!s t. s_val_eq s t ==> LENGTH s = LENGTH t`,
   Induct>>Cases>>full_simp_tac(srw_ss())[s_val_eq_def,LENGTH]>>
   Cases>>full_simp_tac(srw_ss())[s_val_eq_def])
 
-val s_key_eq_length = store_thm("s_key_eq_length",
-  ``!s t. s_key_eq s t ==> LENGTH s = LENGTH t``,
+val s_key_eq_length = Q.store_thm("s_key_eq_length",
+  `!s t. s_key_eq s t ==> LENGTH s = LENGTH t`,
   Induct>>Cases>>full_simp_tac(srw_ss())[s_key_eq_def,LENGTH]>>
   Cases>>full_simp_tac(srw_ss())[s_key_eq_def])
 
-val s_val_eq_APPEND = prove(
-  ``!s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)``,
+val s_val_eq_APPEND = Q.prove(
+  `!s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def])
 
-val s_val_eq_REVERSE = prove(
-  ``!s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)``,
+val s_val_eq_REVERSE = Q.prove(
+  `!s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND])
 
-val s_val_eq_TAKE = prove(
-  ``!s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)``,
+val s_val_eq_TAKE = Q.prove(
+  `!s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>rw[]>>
   Cases_on`n`>>fs[s_val_eq_def])
 
-val s_val_eq_LASTN = prove(
-  ``!s t n. s_val_eq s t
-    ==> s_val_eq (LASTN n s) (LASTN n t)``,
+val s_val_eq_LASTN = Q.prove(
+  `!s t n. s_val_eq s t
+    ==> s_val_eq (LASTN n s) (LASTN n t)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq [x] [y]` by full_simp_tac(srw_ss())[s_val_eq_def]>>
@@ -807,24 +807,24 @@ val s_val_eq_LASTN = prove(
   IMP_RES_TAC s_val_eq_TAKE>>
   metis_tac[s_val_eq_REVERSE])
 
-val s_key_eq_APPEND = prove(
-  ``!s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)``,
+val s_key_eq_APPEND = Q.prove(
+  `!s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def])
 
-val s_key_eq_REVERSE = prove(
-  ``!s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)``,
+val s_key_eq_REVERSE = Q.prove(
+  `!s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND])
 
-val s_key_eq_TAKE = prove(
-  ``!s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)``,
+val s_key_eq_TAKE = Q.prove(
+  `!s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
   rw[]>>Cases_on`n`>>fs[s_key_eq_def])
 
-val s_key_eq_LASTN = prove(
-  ``!s t n. s_key_eq s t
-    ==> s_key_eq (LASTN n s) (LASTN n t)``,
+val s_key_eq_LASTN = Q.prove(
+  `!s t n. s_key_eq s t
+    ==> s_key_eq (LASTN n s) (LASTN n t)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
   srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq [x] [y]` by full_simp_tac(srw_ss())[s_key_eq_def]>>
@@ -833,20 +833,20 @@ val s_key_eq_LASTN = prove(
   IMP_RES_TAC s_key_eq_TAKE>>
   metis_tac[s_key_eq_REVERSE])
 
-val s_key_eq_tail = store_thm("s_key_eq_tail",
- ``!a b c d. s_key_eq (a::b) (c::d) ==> s_key_eq b d``,
+val s_key_eq_tail = Q.store_thm("s_key_eq_tail",
+ `!a b c d. s_key_eq (a::b) (c::d) ==> s_key_eq b d`,
   full_simp_tac(srw_ss())[s_key_eq_def])
 
-val s_val_eq_tail = prove(
- ``!a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d``,
+val s_val_eq_tail = Q.prove(
+ `!a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d`,
   full_simp_tac(srw_ss())[s_val_eq_def])
 
-val s_key_eq_LASTN_exists = prove(
-  ``!s t n e y xs. s_key_eq s t /\
+val s_key_eq_LASTN_exists = Q.prove(
+  `!s t n e y xs. s_key_eq s t /\
     LASTN n s = StackFrame e (SOME y)::xs
     ==> ?e' ls. LASTN n t = StackFrame e' (SOME y)::ls
         /\ MAP FST e' = MAP FST e
-        /\ s_key_eq xs ls``,
+        /\ s_key_eq xs ls`,
    rpt strip_tac>>
    IMP_RES_TAC s_key_eq_LASTN>>
    first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
@@ -854,12 +854,12 @@ val s_key_eq_LASTN_exists = prove(
    full_simp_tac(srw_ss())[s_key_eq_def]>>
    Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def])
 
-val s_val_eq_LASTN_exists = store_thm("s_val_eq_LASTN_exists",
-  ``!s t n e y xs. s_val_eq s t /\
+val s_val_eq_LASTN_exists = Q.store_thm("s_val_eq_LASTN_exists",
+  `!s t n e y xs. s_val_eq s t /\
    LASTN n s = StackFrame e (SOME y)::xs
     ==> ?e' ls. LASTN n t = StackFrame e' (SOME y)::ls
        /\ MAP SND e' = MAP SND e
-       /\ s_val_eq xs ls``,
+       /\ s_val_eq xs ls`,
   rpt strip_tac>>
   IMP_RES_TAC s_val_eq_LASTN>>
   first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
@@ -867,16 +867,16 @@ val s_val_eq_LASTN_exists = store_thm("s_val_eq_LASTN_exists",
   full_simp_tac(srw_ss())[s_val_eq_def]>>
   Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_val_eq_def])
 
-val LASTN_LENGTH_cond = store_thm("LASTN_LENGTH_cond",
-  ``!n xs. n = LENGTH xs ==> LASTN n xs =xs``,
+val LASTN_LENGTH_cond = Q.store_thm("LASTN_LENGTH_cond",
+  `!n xs. n = LENGTH xs ==> LASTN n xs =xs`,
   metis_tac[LASTN_LENGTH_ID] )
 
-val handler_eq = prove(
-  ``x with handler := x.handler = x``, full_simp_tac(srw_ss())[state_component_equality])
+val handler_eq = Q.prove(
+  `x with handler := x.handler = x`, full_simp_tac(srw_ss())[state_component_equality])
 
 (*Stack is irrelevant to word_exp*)
-val word_exp_stack_swap = prove(
-  ``!s e st. word_exp s e = word_exp (s with stack:=st) e``,
+val word_exp_stack_swap = Q.prove(
+  `!s e st. word_exp s e = word_exp (s with stack:=st) e`,
   ho_match_mp_tac word_exp_ind>>
   srw_tac[][word_exp_def]
   >-
@@ -891,7 +891,7 @@ val word_exp_stack_swap = prove(
   every_case_tac>>full_simp_tac(srw_ss())[])
 
 (*Stack swap theorem for evaluate*)
-val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
+val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
   !c s.
       case evaluate (c,s) of
       | (SOME Error,s1) => T
@@ -933,7 +933,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
                           ?st. evaluate (c,s with stack := xs) =
                                 (res, s1 with stack := st)  /\
                                 s_val_eq s1.stack st /\
-                                s_key_eq xs st)``,
+                                s_key_eq xs st)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]
   >-(*Skip*)
     (full_simp_tac(srw_ss())[evaluate_def,s_key_eq_refl]>>srw_tac[][]>>HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[s_key_eq_refl])
@@ -1480,60 +1480,60 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
 
 (*--Permute Swap Lemma--*)
 
-val ignore_inc = prove(``
+val ignore_inc = Q.prove(`
   ∀perm:num->num->num.
-  (λn. perm(n+0)) = perm``,srw_tac[][FUN_EQ_THM])
+  (λn. perm(n+0)) = perm`,srw_tac[][FUN_EQ_THM])
 
-val ignore_perm = prove(``
-  ∀st. st with permute := st.permute = st`` ,
+val ignore_perm = Q.prove(`
+  ∀st. st with permute := st.permute = st` ,
   srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality])
 
-val get_vars_perm = store_thm("get_vars_perm",``
-  ∀args.get_vars args (st with permute:=perm) = get_vars args st``,
+val get_vars_perm = Q.store_thm("get_vars_perm",`
+  ∀args.get_vars args (st with permute:=perm) = get_vars args st`,
   Induct>>srw_tac[][get_vars_def,get_var_def])
 
-val pop_env_perm = store_thm("pop_env_perm",``
+val pop_env_perm = Q.store_thm("pop_env_perm",`
   pop_env (rst with permute:=perm) =
   (case pop_env rst of
     NONE => NONE
-  | SOME rst' => SOME (rst' with permute:=perm))``,
+  | SOME rst' => SOME (rst' with permute:=perm))`,
   full_simp_tac(srw_ss())[pop_env_def]>>every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality])
 
-val gc_perm = prove(``
+val gc_perm = Q.prove(`
   gc st = SOME x ⇒
-  gc (st with permute:=perm) = SOME (x with permute := perm)``,
+  gc (st with permute:=perm) = SOME (x with permute := perm)`,
   full_simp_tac(srw_ss())[gc_def,LET_THM]>>every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality])
 
-val get_var_perm = store_thm("get_var_perm",``
+val get_var_perm = Q.store_thm("get_var_perm",`
   get_var n (st with permute:=perm) =
-  (get_var n st)``,full_simp_tac(srw_ss())[get_var_def])
+  (get_var n st)`,full_simp_tac(srw_ss())[get_var_def])
 
-val get_var_imm_perm = store_thm("get_var_imm_perm",``
+val get_var_imm_perm = Q.store_thm("get_var_imm_perm",`
   get_var_imm n (st with permute:=perm) =
-  (get_var_imm n st)``,
+  (get_var_imm n st)`,
   Cases_on`n`>>
   full_simp_tac(srw_ss())[get_var_imm_def,get_var_perm])
 
-val set_var_perm = store_thm("set_var_perm",``
+val set_var_perm = Q.store_thm("set_var_perm",`
   set_var v x (s with permute:=perm) =
-  (set_var v x s) with permute:=perm``,
+  (set_var v x s) with permute:=perm`,
   full_simp_tac(srw_ss())[set_var_def])
 
-val get_vars_perm = prove(``
+val get_vars_perm = Q.prove(`
   ∀ls. get_vars ls (st with permute:=perm) =
-  (get_vars ls st)``,
+  (get_vars ls st)`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_perm])
 
-val set_vars_perm = prove(``
+val set_vars_perm = Q.prove(`
   ∀ls. set_vars ls x (st with permute := perm) =
-       (set_vars ls x st) with permute:=perm``,
+       (set_vars ls x st) with permute:=perm`,
   full_simp_tac(srw_ss())[set_vars_def])
 
-val word_state_rewrites = prove(``
+val word_state_rewrites = Q.prove(`
   (st with clock:=A) with permute:=B =
-  (st with <|clock:=A ;permute:=B|>)``,
+  (st with <|clock:=A ;permute:=B|>)`,
   full_simp_tac(srw_ss())[])
 
 val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
@@ -1543,9 +1543,9 @@ val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
           `(λn. perm' n) = perm'` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
           simp[]);
 
-val word_exp_perm = store_thm("word_exp_perm",``
+val word_exp_perm = Q.store_thm("word_exp_perm",`
   ∀s exp. word_exp (s with permute:=perm) exp =
-          word_exp s exp``,
+          word_exp s exp`,
   ho_match_mp_tac word_exp_ind>>srw_tac[][word_exp_def]
   >-
     (every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
@@ -1555,31 +1555,31 @@ val word_exp_perm = store_thm("word_exp_perm",``
     `ls = ls'` by
       (unabbrev_all_tac>>fs[MAP_EQ_f])>> fs[])
 
-val mem_store_perm = prove(``
+val mem_store_perm = Q.prove(`
   mem_store a (w:'a word_loc) (s with permute:=perm) =
   case mem_store a w s of
     NONE => NONE
-  | SOME x => SOME(x with permute:=perm)``,
+  | SOME x => SOME(x with permute:=perm)`,
   full_simp_tac(srw_ss())[mem_store_def]>>every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality])
 
-val jump_exc_perm = prove(``
+val jump_exc_perm = Q.prove(`
   jump_exc (st with permute:=perm) =
   case jump_exc st of
     NONE => NONE
-  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)``,
+  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)`,
   full_simp_tac(srw_ss())[jump_exc_def]>>
   every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality]);
 
 (*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
-val permute_swap_lemma = store_thm("permute_swap_lemma",``
+val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   ∀prog st perm.
   let (res,rst) = evaluate(prog,st) in
     res ≠ SOME Error  (*Provable without this assum*)
     ⇒
     ∃perm'. evaluate(prog,st with permute := perm') =
-    (res,rst with permute:=perm)``,
+    (res,rst with permute:=perm)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def]
   >-
     metis_tac[ignore_perm]
@@ -1735,37 +1735,37 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[]));
 
 (*Monotonicity*)
-val every_var_inst_mono = store_thm("every_var_inst_mono",``
+val every_var_inst_mono = Q.store_thm("every_var_inst_mono",`
   ∀P inst Q.
   (∀x. P x ⇒ Q x) ∧
   every_var_inst P inst
   ⇒
-  every_var_inst Q inst``,
+  every_var_inst Q inst`,
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])
 
-val every_var_exp_mono = store_thm("every_var_exp_mono",``
+val every_var_exp_mono = Q.store_thm("every_var_exp_mono",`
   ∀P exp Q.
   (∀x. P x ⇒ Q x) ∧
   every_var_exp P exp
   ⇒
-  every_var_exp Q exp``,
+  every_var_exp Q exp`,
   ho_match_mp_tac every_var_exp_ind>>srw_tac[][every_var_exp_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM])
 
-val every_name_mono = store_thm("every_name_mono",``
+val every_name_mono = Q.store_thm("every_name_mono",`
   ∀P names Q.
   (∀x. P x ⇒ Q x) ∧
-  every_name P names ⇒ every_name Q names``,
+  every_name P names ⇒ every_name Q names`,
   srw_tac[][every_name_def]>>
   metis_tac[EVERY_MONOTONIC])
 
-val every_var_mono = store_thm("every_var_mono",``
+val every_var_mono = Q.store_thm("every_var_mono",`
   ∀P prog Q.
   (∀x. P x ⇒ Q x) ∧
   every_var P prog
   ⇒
-  every_var Q prog``,
+  every_var Q prog`,
   ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`)>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`r`>>full_simp_tac(srw_ss())[])>>
@@ -1773,33 +1773,33 @@ val every_var_mono = store_thm("every_var_mono",``
   metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono,every_name_mono])
 
 (*Conjunct*)
-val every_var_inst_conj = store_thm("every_var_inst_conj",``
+val every_var_inst_conj = Q.store_thm("every_var_inst_conj",`
   ∀P inst Q.
   every_var_inst P inst ∧ every_var_inst Q inst ⇔
-  every_var_inst (λx. P x ∧ Q x) inst``,
+  every_var_inst (λx. P x ∧ Q x) inst`,
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
   metis_tac[])
 
-val every_var_exp_conj = store_thm("every_var_exp_conj",``
+val every_var_exp_conj = Q.store_thm("every_var_exp_conj",`
   ∀P exp Q.
   every_var_exp P exp ∧ every_var_exp Q exp ⇔
-  every_var_exp (λx. P x ∧ Q x) exp``,
+  every_var_exp (λx. P x ∧ Q x) exp`,
   ho_match_mp_tac every_var_exp_ind>>srw_tac[][every_var_exp_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM]>>
   metis_tac[])
 
-val every_name_conj = store_thm("every_name_conj",``
+val every_name_conj = Q.store_thm("every_name_conj",`
   ∀P names Q.
   every_name P names ∧ every_name Q names ⇔
-  every_name (λx. P x ∧ Q x) names``,
+  every_name (λx. P x ∧ Q x) names`,
   srw_tac[][every_name_def]>>
   metis_tac[EVERY_CONJ])
 
-val every_var_conj = store_thm("every_var_conj",``
+val every_var_conj = Q.store_thm("every_var_conj",`
   ∀P prog Q.
   every_var P prog  ∧ every_var Q prog ⇔
-  every_var (λx. P x ∧ Q x) prog``,
+  every_var (λx. P x ∧ Q x) prog`,
   ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[])>>
@@ -1809,9 +1809,9 @@ val every_var_conj = store_thm("every_var_conj",``
   TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj]))
 
 (*Similar lemmas about every_stack_var*)
-val every_var_imp_every_stack_var = store_thm("every_var_imp_every_stack_var",``
+val every_var_imp_every_stack_var = Q.store_thm("every_var_imp_every_stack_var",`
   ∀P prog.
-  every_var P prog ⇒ every_stack_var P prog``,
+  every_var P prog ⇒ every_stack_var P prog`,
   ho_match_mp_tac every_stack_var_ind>>
   srw_tac[][every_stack_var_def,every_var_def]>>
   Cases_on`ret`>>
@@ -1819,20 +1819,20 @@ val every_var_imp_every_stack_var = store_thm("every_var_imp_every_stack_var",``
   PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
   Cases_on`x'`>>Cases_on`r`>>full_simp_tac(srw_ss())[])
 
-val every_stack_var_mono = store_thm("every_stack_var_mono",``
+val every_stack_var_mono = Q.store_thm("every_stack_var_mono",`
   ∀P prog Q.
   (∀x. P x ⇒ Q x) ∧
   every_stack_var P prog
   ⇒
-  every_stack_var Q prog``,
+  every_stack_var Q prog`,
   ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`>>Cases_on`r`>>full_simp_tac(srw_ss())[]))>>
   metis_tac[every_name_mono])
 
-val every_stack_var_conj = store_thm("every_stack_var_conj",``
+val every_stack_var_conj = Q.store_thm("every_stack_var_conj",`
   ∀P prog Q.
   every_stack_var P prog  ∧ every_stack_var Q prog ⇔
-  every_stack_var (λx. P x ∧ Q x) prog``,
+  every_stack_var (λx. P x ∧ Q x) prog`,
   ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[])>>
@@ -1843,20 +1843,20 @@ val every_stack_var_conj = store_thm("every_stack_var_conj",``
 val locals_rel_def = Define`
   locals_rel temp (s:'a word_loc num_map) t ⇔ (∀x. x < temp ⇒ lookup x s = lookup x t)`
 
-val the_words_EVERY_IS_SOME = store_thm("the_words_EVERY_IS_SOME",
-  ``∀ls x.
+val the_words_EVERY_IS_SOME = Q.store_thm("the_words_EVERY_IS_SOME",
+  `∀ls x.
   the_words ls = SOME x ⇒
-  EVERY IS_SOME ls``,
+  EVERY IS_SOME ls`,
   Induct>>fs[]>>Cases>>fs[the_words_def]>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[])
 
-val locals_rel_word_exp = store_thm("locals_rel_word_exp",``
+val locals_rel_word_exp = Q.store_thm("locals_rel_word_exp",`
   ∀s exp w.
   every_var_exp (λx. x < temp) exp ∧
   word_exp s exp = SOME w ∧
   locals_rel temp s.locals loc ⇒
-  word_exp (s with locals:=loc) exp = SOME w``,
+  word_exp (s with locals:=loc) exp = SOME w`,
   ho_match_mp_tac word_exp_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[word_exp_def,every_var_exp_def,locals_rel_def]
   >-
@@ -1879,54 +1879,54 @@ val locals_rel_word_exp = store_thm("locals_rel_word_exp",``
   >>
     every_case_tac>>res_tac>>full_simp_tac(srw_ss())[])
 
-val locals_rel_get_vars  = store_thm("locals_rel_get_vars",``
+val locals_rel_get_vars  = Q.store_thm("locals_rel_get_vars",`
   ∀ls vs.
   get_vars ls st = SOME vs ∧
   EVERY (λx. x < temp) ls ∧
   locals_rel temp st.locals loc ⇒
-  get_vars ls (st with locals:= loc) = SOME vs``,
+  get_vars ls (st with locals:= loc) = SOME vs`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def]>>srw_tac[][]>>
   qpat_x_assum`A=SOME vs` mp_tac>>ntac 2 full_case_tac>>srw_tac[][]>>
   res_tac>>full_simp_tac(srw_ss())[get_var_def,locals_rel_def]>>
   res_tac>>
   full_simp_tac(srw_ss())[])
 
-val locals_rel_alist_insert = store_thm("locals_rel_alist_insert",``
+val locals_rel_alist_insert = Q.store_thm("locals_rel_alist_insert",`
   ∀ls vs s t.
   locals_rel temp s t ∧
   EVERY (λx. x < temp) ls ⇒
-  locals_rel temp (alist_insert ls vs s) (alist_insert ls vs t)``,
+  locals_rel temp (alist_insert ls vs s) (alist_insert ls vs t)`,
   ho_match_mp_tac alist_insert_ind>>full_simp_tac(srw_ss())[alist_insert_def,locals_rel_def]>>
   srw_tac[][]>>
   Cases_on`x'=ls`>>full_simp_tac(srw_ss())[lookup_insert])
 
-val locals_rel_get_var = store_thm("locals_rel_get_var",``
+val locals_rel_get_var = Q.store_thm("locals_rel_get_var",`
   r < temp ∧
   get_var r st = SOME x ∧
   locals_rel temp st.locals loc ⇒
-  get_var r (st with locals:=loc) = SOME x``,
+  get_var r (st with locals:=loc) = SOME x`,
   full_simp_tac(srw_ss())[get_var_def,locals_rel_def]>>
   metis_tac[])
 
-val locals_rel_get_var_imm = store_thm("locals_rel_get_var_imm",``
+val locals_rel_get_var_imm = Q.store_thm("locals_rel_get_var_imm",`
   every_var_imm (λx.x<temp) r ∧
   get_var_imm r st = SOME x ∧
   locals_rel temp st.locals loc ⇒
-  get_var_imm r (st with locals:=loc) = SOME x``,
+  get_var_imm r (st with locals:=loc) = SOME x`,
   Cases_on`r`>>full_simp_tac(srw_ss())[get_var_imm_def,every_var_imm_def]>>
   metis_tac[locals_rel_get_var])
 
-val locals_rel_set_var = prove(``
+val locals_rel_set_var = Q.prove(`
   ∀n s t.
   locals_rel temp s t ⇒
-  locals_rel temp (insert n v s) (insert n v t)``,
+  locals_rel temp (insert n v s) (insert n v t)`,
   srw_tac[][]>>full_simp_tac(srw_ss())[locals_rel_def,lookup_insert])
 
-val locals_rel_cut_env = prove(``
+val locals_rel_cut_env = Q.prove(`
   locals_rel temp loc loc' ∧
   every_name (λx. x < temp) names ∧
   cut_env names loc = SOME x ⇒
-  cut_env names loc' = SOME x``,
+  cut_env names loc' = SOME x`,
   srw_tac[][locals_rel_def,cut_env_def,SUBSET_DEF,every_name_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM,toAList_domain]
   >- metis_tac[domain_lookup]
@@ -1940,7 +1940,7 @@ val locals_rel_cut_env = prove(``
 
 val srestac = qpat_x_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[]
 
-val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
+val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
   ∀prog st res rst loc temp.
   evaluate (prog,st) = (res,rst) ∧
   res ≠ SOME Error ∧
@@ -1950,7 +1950,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
   case res of
     NONE => locals_rel temp rst.locals loc'
-  |  SOME _ => rst.locals = loc'``,
+  |  SOME _ => rst.locals = loc'`,
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   Cases_on`prog`>>
@@ -2129,8 +2129,8 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     Cases_on`res`>>full_simp_tac(srw_ss())[]))
 
-val mem_list_rearrange = store_thm("mem_list_rearrange",``
-  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
+val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
+  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls`,
   full_simp_tac(srw_ss())[MEM_EL]>>srw_tac[][wordSemTheory.list_rearrange_def]>>
   imp_res_tac BIJ_IFF_INV>>
   full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]>>

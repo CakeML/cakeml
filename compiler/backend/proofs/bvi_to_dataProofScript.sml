@@ -32,10 +32,10 @@ val state_rel_def = Define `
 val find_code_def = bvlSemTheory.find_code_def;
 val _ = temp_bring_to_front_overload"find_code"{Name="find_code",Thy="bvlSem"};
 
-val find_code_lemma = prove(
-  ``state_rel r t2 /\
+val find_code_lemma = Q.prove(
+  `state_rel r t2 /\
     (find_code dest a r.code = SOME (args,exp)) ==>
-    (find_code dest a t2.code = SOME (args,compile_exp (LENGTH args) exp))``,
+    (find_code dest a t2.code = SOME (args,compile_exp (LENGTH args) exp))`,
   reverse (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def]
   \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,code_rel_def]
   \\ REPEAT STRIP_TAC THEN1
@@ -51,10 +51,10 @@ val find_code_lemma = prove(
   \\ `?t1 t2. a = SNOC t1 t2` by METIS_TAC [SNOC_CASES]
   \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1]);
 
-val do_app_data_to_bvi = prove(
-  ``(do_app op a s1 = Rval (x0,s2)) /\ state_rel s1 t1 ==>
+val do_app_data_to_bvi = Q.prove(
+  `(do_app op a s1 = Rval (x0,s2)) /\ state_rel s1 t1 ==>
     (do_app op a (data_to_bvi t1) =
-      Rval (x0,s2 with code := map (K ARB) t1.code))``,
+      Rval (x0,s2 with code := map (K ARB) t1.code))`,
   full_simp_tac(srw_ss())[state_rel_def]
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[bviSemTheory.do_app_def] \\ REPEAT STRIP_TAC
@@ -92,10 +92,10 @@ val optimise_correct = Q.store_thm("optimise_correct",
   full_simp_tac(srw_ss())[optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
   \\ METIS_TAC [simp_correct,data_liveProofTheory.compile_correct,data_spaceProofTheory.compile_correct,FST]);
 
-val compile_RANGE_lemma = prove(
-  ``!n env tail live xs.
+val compile_RANGE_lemma = Q.prove(
+  `!n env tail live xs.
       EVERY (\v. v < (SND (SND (compile n env tail live xs))))
-        (FST (SND (compile n env tail live xs)))``,
+        (FST (SND (compile n env tail live xs)))`,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) []
@@ -106,8 +106,8 @@ val compile_RANGE_lemma = prove(
   \\ IMP_RES_TAC compile_LESS_EQ
   \\ TRY (Cases_on `tail`) \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC);
 
-val compile_RANGE = prove(
-  ``(compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs``,
+val compile_RANGE = Q.prove(
+  `(compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs`,
   REPEAT STRIP_TAC \\ MP_TAC (compile_RANGE_lemma |> SPEC_ALL) \\ full_simp_tac(srw_ss())[]);
 
 val _ = temp_overload_on("res_list",``map_result (λv. [v]) I``);
@@ -969,11 +969,11 @@ val compile_exp_lemma = compile_correct
   |> SIMP_RULE std_ss [LENGTH,GSYM compile_exp_def,option_case_NONE_F,
        PULL_EXISTS,EVERY_DEF];
 
-val compile_exp_correct = store_thm("compile_exp_correct",
-  ``^(compile_exp_lemma |> concl |> dest_imp |> fst) ==>
+val compile_exp_correct = Q.store_thm("compile_exp_correct",
+  `^(compile_exp_lemma |> concl |> dest_imp |> fst) ==>
     ?t2 prog vs next_var r.
       evaluate (compile_exp n exp,t1) = (SOME r,t2) /\
-      state_rel s2 t2 /\ res_list r = res``,
+      state_rel s2 t2 /\ res_list r = res`,
   REPEAT STRIP_TAC \\ MP_TAC compile_exp_lemma \\ full_simp_tac(srw_ss())[]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[compile_exp_def,LET_DEF]
   \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ full_simp_tac(srw_ss())[]
@@ -1057,7 +1057,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     qx_gen_tac`res`>>srw_tac[][]>>
     simp[dataSemTheory.semantics_def] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-      rator_x_assum`bviSem$evaluate`kall_tac >>
+      qhdtm_x_assum`bviSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       spose_not_then strip_assume_tac >>
@@ -1085,7 +1085,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`dataSem$evaluate`mp_tac >>
+          qhdtm_x_assum`dataSem$evaluate`mp_tac >>
           drule dataPropsTheory.evaluate_add_clock >>
           impl_tac >- (
             full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1101,7 +1101,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
         strip_tac >>
-        rator_x_assum`bviSem$evaluate`mp_tac >>
+        qhdtm_x_assum`bviSem$evaluate`mp_tac >>
         drule bviPropsTheory.evaluate_add_clock >>
         impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[inc_clock_def] >>
@@ -1117,7 +1117,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       fsrw_tac[ARITH_ss][] >>
       reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
-      rator_x_assum`dataSem$evaluate`mp_tac >>
+      qhdtm_x_assum`dataSem$evaluate`mp_tac >>
       drule dataPropsTheory.evaluate_add_clock >>
       impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>

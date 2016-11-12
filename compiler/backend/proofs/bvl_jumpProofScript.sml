@@ -2,11 +2,11 @@ open preamble bvl_jumpTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_jumpProof";
 
-val evaluate_JumpList = prove(
-  ``!n xs k.
+val evaluate_JumpList = Q.prove(
+  `!n xs k.
       k < LENGTH xs ==>
       (evaluate ([JumpList n xs],Number (&(n+k))::env,s) =
-       evaluate ([EL k xs],Number (&(n+k))::env,s))``,
+       evaluate ([EL k xs],Number (&(n+k))::env,s))`,
   recInduct JumpList_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ SIMP_TAC std_ss [Once JumpList_def,LET_DEF]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
@@ -23,11 +23,11 @@ val evaluate_JumpList = prove(
   \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[NOT_LESS]
   \\ IMP_RES_TAC EL_APPEND2 \\ full_simp_tac(srw_ss())[]);
 
-val evaluate_Jump = store_thm("evaluate_Jump",
-  ``(evaluate ([x],env,s) = (Rval [Number (&n)],t)) /\
+val evaluate_Jump = Q.store_thm("evaluate_Jump",
+  `(evaluate ([x],env,s) = (Rval [Number (&n)],t)) /\
     n < LENGTH xs ==>
     (evaluate ([Jump x xs],env,s) =
-     evaluate ([EL n xs],Number (&n) :: env,t))``,
+     evaluate ([EL n xs],Number (&n) :: env,t))`,
   full_simp_tac(srw_ss())[evaluate_def,Jump_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC evaluate_JumpList
   \\ POP_ASSUM (ASSUME_TAC o Q.SPECL [`t`,`0`]) \\ full_simp_tac(srw_ss())[]);

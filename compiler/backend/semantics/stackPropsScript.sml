@@ -141,8 +141,8 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    (dec_clock z).bitmaps = z.bitmaps`,
   EVAL_TAC);
 
-val evaluate_consts = store_thm("evaluate_consts",
-  ``!c s r s1.
+val evaluate_consts = Q.store_thm("evaluate_consts",
+  `!c s r s1.
       evaluate (c,s) = (r,s1) ==>
       s1.use_alloc = s.use_alloc /\
       s1.use_store = s.use_store /\
@@ -151,7 +151,7 @@ val evaluate_consts = store_thm("evaluate_consts",
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
       s1.mdomain = s.mdomain /\
-      s1.bitmaps = s.bitmaps``,
+      s1.bitmaps = s.bitmaps`,
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
@@ -310,9 +310,9 @@ val clock_neutral_def = Define `
   (clock_neutral (If _ _ _ p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
   (clock_neutral r <=> F)`
 
-val inst_clock_neutral = prove(
-  ``(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
-    (inst i s = NONE ==> inst i (s with clock := k) = NONE)``,
+val inst_clock_neutral = Q.prove(
+  `(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
+    (inst i s = NONE ==> inst i (s with clock := k) = NONE)`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
   \\ srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
@@ -320,9 +320,9 @@ val inst_clock_neutral = prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
   \\ srw_tac[][state_component_equality]);
 
-val inst_clock_neutral_ffi = prove(
-  ``(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
-    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)``,
+val inst_clock_neutral_ffi = Q.prove(
+  `(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
+    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality]>>
   reverse full_case_tac>>fs[]>>
   TRY
@@ -335,10 +335,10 @@ val inst_clock_neutral_ffi = prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
   \\ srw_tac[][state_component_equality]));
 
-val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
-  ``!prog s res t.
+val evaluate_clock_neutral = Q.store_thm("evaluate_clock_neutral",
+  `!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with clock := c) = (res,t with clock := c)``,
+      evaluate (prog,s with clock := c) = (res,t with clock := c)`,
   recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
@@ -348,10 +348,10 @@ val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
-val evaluate_ffi_neutral = store_thm("evaluate_ffi_neutral",
-  ``!prog s res t.
+val evaluate_ffi_neutral = Q.store_thm("evaluate_ffi_neutral",
+  `!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with ffi := c) = (res,t with ffi := c)``,
+      evaluate (prog,s with ffi := c) = (res,t with ffi := c)`,
   recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def])
@@ -361,8 +361,8 @@ val evaluate_ffi_neutral = store_thm("evaluate_ffi_neutral",
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
-val semantics_Terminate_IMP_PREFIX = store_thm("semantics_Terminate_IMP_PREFIX",
-  ``semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l``,
+val semantics_Terminate_IMP_PREFIX = Q.store_thm("semantics_Terminate_IMP_PREFIX",
+  `semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l`,
   full_simp_tac(srw_ss())[semantics_def,LET_DEF] \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]);
@@ -388,11 +388,11 @@ val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
             EVAL``(s with clock := k).clock``,
             EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
 
-val map_bitmap_length = store_thm("map_bitmap_length",``
+val map_bitmap_length = Q.store_thm("map_bitmap_length",`
   ∀a b c x y z.
   map_bitmap a b c = SOME(x,y,z) ⇒
   LENGTH c = LENGTH x + LENGTH z ∧
-  LENGTH x = LENGTH a``,
+  LENGTH x = LENGTH a`,
   Induct>>rw[]>>
   Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
   fs[map_bitmap_def]>>
@@ -402,10 +402,10 @@ val map_bitmap_length = store_thm("map_bitmap_length",``
   pop_assum mp_tac>>every_case_tac>>rw[]>>res_tac>>
   fs[]>>DECIDE_TAC);
 
-val dec_stack_length = store_thm("dec_stack_length",``
+val dec_stack_length = Q.store_thm("dec_stack_length",`
   ∀bs enc orig_stack new_stack.
   dec_stack bs enc orig_stack = SOME new_stack ⇒
-  LENGTH orig_stack = LENGTH new_stack``,
+  LENGTH orig_stack = LENGTH new_stack`,
   ho_match_mp_tac stackSemTheory.dec_stack_ind>>
   fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
   pop_assum mp_tac>>
@@ -433,9 +433,9 @@ val extract_labels_def = Define`
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
 
-val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
-  ``find_code d r code = SOME e ==>
-    get_labels e SUBSET loc_check code``,
+val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
+  `find_code d r code = SOME e ==>
+    get_labels e SUBSET loc_check code`,
   Cases_on `d`
   \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
          loc_check_def,FORALL_PROD]

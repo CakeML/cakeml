@@ -14,8 +14,8 @@ val RW = REWRITE_RULE
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -91,8 +91,8 @@ val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE s
 
 val _ = translate (mips_enc_def |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> SIMP_RULE std_ss[spec_word_bit,word_mul_def]|> econv)
 
-val mips_enc_side = prove(``
-  ∀x. mips_enc_side x ⇔ T``,
+val mips_enc_side = Q.prove(`
+  ∀x. mips_enc_side x ⇔ T`,
   simp[fetch "-" "mips_enc_side_def"]>>rw[]>>
   EVAL_TAC) |> update_precondition
 

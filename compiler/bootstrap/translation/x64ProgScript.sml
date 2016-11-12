@@ -13,8 +13,8 @@ val RW = REWRITE_RULE
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -95,8 +95,8 @@ val _ = translate (encode_def|>SIMP_RULE std_ss [word_bit_thm] |> wc_simp |> we_
 
 val _ = translate (x64_enc0_def |> we_simp |> gconv)
 
-val total_num2zreg_side = prove(``
-  ∀x. total_num2zreg_side x ⇔ T``,
+val total_num2zreg_side = Q.prove(`
+  ∀x. total_num2zreg_side x ⇔ T`,
   simp[fetch "-" "total_num2zreg_side_def"]>>
   FULL_SIMP_TAC std_ss [fetch "-" "num2zreg_side_def"]>>
   ntac 2 strip_tac>>
@@ -106,8 +106,8 @@ val total_num2zreg_side = prove(``
   Cases_on`n'`>>FULL_SIMP_TAC std_ss [ADD1])>>
   Cases_on`n`>>fs[])
 
-val x64_enc0_side = prove(``
-  ∀x. x64_enc0_side x ⇔ T``,
+val x64_enc0_side = Q.prove(`
+  ∀x. x64_enc0_side x ⇔ T`,
   simp[fetch "-" "x64_enc0_side_def",total_num2zreg_side]) |> update_precondition
 
 val _ = translate x64_enc_def

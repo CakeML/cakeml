@@ -72,22 +72,22 @@ val v_rel_simp = let
             ``v_rel y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
   |> curry save_thm "v_rel_simp";
 
-val v_rel_Boolv = store_thm("v_rel_Boolv[simp]",
-  ``(v_rel x (Boolv b) ⇔ (x = Boolv b)) ∧
-    (v_rel (Boolv b) x ⇔ (x = Boolv b))``,
+val v_rel_Boolv = Q.store_thm("v_rel_Boolv[simp]",
+  `(v_rel x (Boolv b) ⇔ (x = Boolv b)) ∧
+    (v_rel (Boolv b) x ⇔ (x = Boolv b))`,
   Cases_on`b`>>EVAL_TAC>>ntac 2(simp[Once v_rel_cases]))
 
-val v_rel_Unit = store_thm("v_rel_Unit[simp]",
-  ``(v_rel x Unit ⇔ (x = Unit)) ∧
-    (v_rel Unit x ⇔ (x = Unit))``,
+val v_rel_Unit = Q.store_thm("v_rel_Unit[simp]",
+  `(v_rel x Unit ⇔ (x = Unit)) ∧
+    (v_rel Unit x ⇔ (x = Unit))`,
   EVAL_TAC>>ntac 2(simp[Once v_rel_cases]))
 
 val env_ok_def = v_rel_cases |> CONJUNCT2
 
-val env_ok_EXTEND = prove(
-  ``EVERY2 v_rel env1 env2 /\ (l1 = LENGTH env1) /\
+val env_ok_EXTEND = Q.prove(
+  `EVERY2 v_rel env1 env2 /\ (l1 = LENGTH env1) /\
     (l1 <= n ==> env_ok m l i env1' env2' (n - l1)) ==>
-    env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n``,
+    env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n`,
   SRW_TAC [] [] \\ SIMP_TAC std_ss [env_ok_def]
   \\ Cases_on `n < LENGTH env1` \\ full_simp_tac(srw_ss())[] THEN1
    (DISJ2_TAC \\ DISJ1_TAC \\ REPEAT STRIP_TAC
@@ -150,19 +150,19 @@ val state_rel_max_app = Q.store_thm("state_rel_max_app",
 
 (* semantic functions respect relation *)
 
-val list_to_v = prove(
-  ``!l' l. LIST_REL v_rel l' l ==>
-           v_rel (list_to_v l') (list_to_v l)``,
+val list_to_v = Q.prove(
+  `!l' l. LIST_REL v_rel l' l ==>
+           v_rel (list_to_v l') (list_to_v l)`,
   Induct \\ Cases_on `l` \\ full_simp_tac(srw_ss())[list_to_v_def,v_rel_simp]);
 
-val v_to_list = prove(
-  ``!h h'.
+val v_to_list = Q.prove(
+  `!h h'.
       v_rel h h' ==>
       (v_to_list h = NONE /\
        v_to_list h' = NONE) \/
       ?x x'. (v_to_list h = SOME x) /\
              (v_to_list h' = SOME x') /\
-             EVERY2 v_rel x x'``,
+             EVERY2 v_rel x x'`,
   HO_MATCH_MP_TAC v_to_list_ind
   \\ full_simp_tac(srw_ss())[v_rel_simp]
   \\ full_simp_tac(srw_ss())[v_to_list_def]
@@ -173,13 +173,13 @@ val v_to_list = prove(
   \\ CCONTR_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[]
   \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val do_eq = prove(
-  ``(!h1 u1 h2 u2.
+val do_eq = Q.prove(
+  `(!h1 u1 h2 u2.
        v_rel h1 h2 /\ v_rel u1 u2 ==>
        (do_eq h1 u1 = do_eq h2 u2)) /\
     (!h1 u1 h2 u2.
       EVERY2 v_rel h1 h2 /\ EVERY2 v_rel u1 u2 ==>
-      (do_eq_list h1 u1 = do_eq_list h2 u2))``,
+      (do_eq_list h1 u1 = do_eq_list h2 u2))`,
   HO_MATCH_MP_TAC do_eq_ind
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ ONCE_REWRITE_TAC [do_eq_def]
@@ -189,9 +189,9 @@ val do_eq = prove(
   \\ Q.PAT_X_ASSUM `xx = do_eq y y'` (ASSUME_TAC o GSYM)
   \\ full_simp_tac(srw_ss())[]) |> CONJUNCT1 ;
 
-val do_app_IMP_case = prove(
-  ``(do_app UpdateByte xs s1 = Rval x) ==>
-    ?x1 x2 x3. xs = [RefPtr x1; Number x2; Number x3]``,
+val do_app_IMP_case = Q.prove(
+  `(do_app UpdateByte xs s1 = Rval x) ==>
+    ?x1 x2 x3. xs = [RefPtr x1; Number x2; Number x3]`,
   full_simp_tac(srw_ss())[do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]);
 
@@ -508,18 +508,18 @@ val do_app_err_thm = Q.prove(
 
 (* compiler correctness *)
 
-val lookup_EL_shifted_env = prove(
-  ``!y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
-            (lookup (EL n y) (shifted_env k y) = SOME (k + n))``,
+val lookup_EL_shifted_env = Q.prove(
+  `!y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
+            (lookup (EL n y) (shifted_env k y) = SOME (k + n))`,
   Induct \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[shifted_env_def,lookup_insert]
   \\ SRW_TAC [] [ADD1,AC ADD_COMM ADD_ASSOC]
   \\ full_simp_tac(srw_ss())[MEM_EL] \\ METIS_TAC []);
 
-val env_ok_shifted_env = prove(
-  ``env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
+val env_ok_shifted_env = Q.prove(
+  `env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
     (lookup_vars (MAP (get_var m l i) (FILTER (\n. n < m + l) live)) env2 =
       SOME x) ==>
-    env_ok (m + l) 0 (shifted_env 0 (FILTER (\n. n < m + l) live)) env x k``,
+    env_ok (m + l) 0 (shifted_env 0 (FILTER (\n. n < m + l) live)) env x k`,
   REPEAT STRIP_TAC
   \\ Q.ABBREV_TAC `y = FILTER (\n. n < m + l) live`
   \\ `ALL_DISTINCT y` by
@@ -545,11 +545,11 @@ val env_ok_shifted_env = prove(
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[lookup_EL_shifted_env]
   \\ IMP_RES_TAC lookup_vars_SOME \\ full_simp_tac(srw_ss())[]);
 
-val EL_shift_free = prove(
-  ``!fns index.
+val EL_shift_free = Q.prove(
+  `!fns index.
      index < LENGTH fns ==>
      ([EL index (shift (FST (free fns)) l m i)] =
-      (shift (FST (free [EL index fns])) l m i))``,
+      (shift (FST (free [EL index fns])) l m i))`,
   Induct \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [free_CONS]
   \\ SIMP_TAC std_ss [Once shift_CONS]
@@ -1105,8 +1105,8 @@ val shift_correct = Q.prove(
     \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
     \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[]));
 
-val env_set_default = prove(
-  ``x SUBSET env_ok 0 0 LN [] env'``,
+val env_set_default = Q.prove(
+  `x SUBSET env_ok 0 0 LN [] env'`,
   full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]);
 
 val annotate_correct = save_thm("annotate_correct",
@@ -1164,8 +1164,8 @@ val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
-val shift_code_locs = prove(
-  ``!xs env s1 env'. code_locs (shift xs env s1 env') = code_locs xs``,
+val shift_code_locs = Q.prove(
+  `!xs env s1 env'. code_locs (shift xs env s1 env') = code_locs xs`,
   ho_match_mp_tac shift_ind
   \\ simp[shift_def,code_locs_def,shift_LENGTH_LEMMA]
   \\ srw_tac[][code_locs_append]
@@ -1173,8 +1173,8 @@ val shift_code_locs = prove(
   \\ ONCE_REWRITE_TAC [code_locs_map]
   \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD])
 
-val free_code_locs = prove(
-  ``!xs. code_locs (FST (free xs)) = code_locs xs``,
+val free_code_locs = Q.prove(
+  `!xs. code_locs (FST (free xs)) = code_locs xs`,
   ho_match_mp_tac free_ind >>
   simp[free_def,code_locs_def,UNCURRY] >> srw_tac[][]
   \\ Cases_on `free [x]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
@@ -1186,8 +1186,8 @@ val free_code_locs = prove(
   \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD,HD_FST_free]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[])
 
-val annotate_code_locs = store_thm("annotate_code_locs",
-  ``!n ls. code_locs (annotate n ls) = code_locs ls``,
+val annotate_code_locs = Q.store_thm("annotate_code_locs",
+  `!n ls. code_locs (annotate n ls) = code_locs ls`,
   srw_tac[][annotate_def,shift_code_locs,free_code_locs])
 
 val _ = export_theory()

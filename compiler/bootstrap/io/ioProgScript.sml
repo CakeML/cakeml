@@ -94,33 +94,33 @@ fun prove_array_spec op_name =
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
-val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
-  ``!n nv w wv.
+val w8array_alloc_spec = Q.store_thm ("w8array_alloc_spec",
+  `!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))`,
   prove_array_spec "Word8Array.array");
 
-val w8array_sub_spec = store_thm ("w8array_sub_spec",
-  ``!a av n nv.
+val w8array_sub_spec = Q.store_thm ("w8array_sub_spec",
+  `!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)`,
   prove_array_spec "Word8Array.sub");
 
-val w8array_length_spec = store_thm ("w8array_length_spec",
-  ``!a av.
+val w8array_length_spec = Q.store_thm ("w8array_length_spec",
+  `!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)`,
   prove_array_spec "Word8Array.length");
 
-val w8array_update_spec = store_thm ("w8array_update_spec",
-  ``!a av n nv w wv.
+val w8array_update_spec = Q.store_thm ("w8array_update_spec",
+  `!a av n nv w wv.
      NUM n nv /\ n < LENGTH a /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))`,
   prove_array_spec "Word8Array.update");
 
 
@@ -137,8 +137,8 @@ val _ = ml_prog_update (close_module NONE);
 val _ = trans "byte_is_nonzero" `\(w:word8). w <> 0w`
 val _ = trans "char_of_byte" `\(w:word8). CHR (w2n w)`
 
-val char_of_byte_side = store_thm("char_of_byte_side",
-  ``char_of_byte_side w``,
+val char_of_byte_side = Q.store_thm("char_of_byte_side",
+  `char_of_byte_side w`,
   metis_tac [fetch"-" "char_of_byte_side_def",w2n_lt,EVAL ``dimword(:8)``]);
 
 (* CharIO -- CF verified *)
@@ -233,13 +233,13 @@ val STDOUT_def = Define `
 val CHAR_IO_def = Define `
   CHAR_IO = SEP_EXISTS w. W8ARRAY write_loc [w]`;
 
-val can_read_spec = store_thm ("can_read_spec",
-  ``!a av n nv v.
+val can_read_spec = Q.store_thm ("can_read_spec",
+  `!a av n nv v.
      UNIT_TYPE c cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.can_read" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (POSTv uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)``,
+       (POSTv uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)`,
   xcf "CharIO.can_read" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
   \\ xlet `POSTv wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
@@ -255,13 +255,13 @@ val can_read_spec = store_thm ("can_read_spec",
   \\ xapp \\ xsimpl
   \\ instantiate \\ rw []);
 
-val read_spec = store_thm ("read_spec",
-  ``!a av n nv v.
+val read_spec = Q.store_thm ("read_spec",
+  `!a av n nv v.
      UNIT_TYPE c cv /\ input <> "" ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.read" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (POSTv uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))``,
+       (POSTv uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))`,
   xcf "CharIO.read" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
   \\ xlet `POSTv wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
@@ -278,13 +278,13 @@ val read_spec = store_thm ("read_spec",
   \\ instantiate \\ rw []
   \\ fs [ORD_BOUND,CHR_ORD]);
 
-val write_spec = store_thm ("write_spec",
-  ``!a av n nv v.
+val write_spec = Q.store_thm ("write_spec",
+  `!a av n nv v.
      WORD c cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))`,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
   \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
@@ -319,13 +319,13 @@ val read_all = parse_topdecs
 
 val _ = ml_prog_update (ml_progLib.add_prog read_all pick_name);
 
-val write_list_spec = store_thm ("write_list_spec",
-  ``!xs cv output.
+val write_list_spec = Q.store_thm ("write_list_spec",
+  `!xs cv output.
      LIST_TYPE WORD xs cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (POSTv uv. CHAR_IO * STDOUT (output ++ xs))``,
+       (POSTv uv. CHAR_IO * STDOUT (output ++ xs))`,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -347,13 +347,13 @@ val char_reverse_v_thm = save_thm("char_reverse_v_thm",
   std_preludeTheory.reverse_v_thm
   |> GEN_ALL |> ISPEC ``CHAR``);
 
-val read_all_spec = store_thm ("read_all_spec",
-  ``!xs cv input.
+val read_all_spec = Q.store_thm ("read_all_spec",
+  `!xs cv input.
      LIST_TYPE CHAR xs cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "read_all" (basis_st()))
        [cv]
        (CHAR_IO * STDIN input)
-       (POSTv uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))``,
+       (POSTv uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))`,
   Induct_on `input`
   THEN1
    (xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -428,22 +428,22 @@ val extract_output_def = Define `
          if LENGTH bytes <> 1 then NONE else
            SOME ((SND (HD bytes)) :: rest))`
 
-val extract_output_APPEND = store_thm("extract_output_APPEND",
-  ``!xs ys.
+val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
+  `!xs ys.
       extract_output (xs ++ ys) =
       case extract_output ys of
       | NONE => NONE
       | SOME rest => case extract_output xs of
                      | NONE => NONE
-                     | SOME front => SOME (front ++ rest)``,
+                     | SOME front => SOME (front ++ rest)`,
   Induct \\ fs [APPEND,extract_output_def] \\ rw []
   THEN1 (every_case_tac \\ fs [])
   \\ Cases_on `h` \\ fs [extract_output_def]
   \\ rpt (CASE_TAC \\ fs []));
 
-val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
-  ``evaluate_prog F env st prog (st',tds,res) ==>
-    RTC call_FFI_rel st.ffi st'.ffi``,
+val evaluate_prog_RTC_call_FFI_rel = Q.store_thm("evaluate_prog_RTC_call_FFI_rel",
+  `evaluate_prog F env st prog (st',tds,res) ==>
+    RTC call_FFI_rel st.ffi st'.ffi`,
   rw[bigClockTheory.prog_clocked_unclocked_equiv]
   \\ (funBigStepEquivTheory.functional_evaluate_tops
       |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO
@@ -454,12 +454,12 @@ val evaluate_prog_RTC_call_FFI_rel = store_thm("evaluate_prog_RTC_call_FFI_rel",
   \\ imp_res_tac determTheory.prog_determ
   \\ fs[] \\ rw[]);
 
-val RTC_call_FFI_rel_IMP_io_events = store_thm("RTC_call_FFI_rel_IMP_io_events",
-  ``!st st'.
+val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events",
+  `!st st'.
       call_FFI_rel^* st st' ==>
       st.oracle = io_ffi_oracle /\
       extract_output st.io_events = SOME (SND (st.ffi_state)) ==>
-      extract_output st'.io_events = SOME (SND (st'.ffi_state))``,
+      extract_output st'.io_events = SOME (SND (st'.ffi_state))`,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -488,17 +488,17 @@ val w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]
          |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
 
-val MAP_CHR_w2n_11 = store_thm("MAP_CHR_w2n_11",
-  ``!ws1 ws2:word8 list.
-      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2``,
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 
-val evaluate_prog_rel_IMP_evaluate_prog_fun = store_thm(
+val evaluate_prog_rel_IMP_evaluate_prog_fun = Q.store_thm(
    "evaluate_prog_rel_IMP_evaluate_prog_fun",
-  ``bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
+  `bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
     ?k. evaluate$evaluate_prog (st with clock := k) env prog =
-          (st',new_tds,Rval r)``,
+          (st',new_tds,Rval r)`,
   rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
   \\ qexists_tac`c + st.clock`
   \\ (funBigStepEquivTheory.functional_evaluate_prog
@@ -514,8 +514,8 @@ val evaluate_prog_rel_IMP_evaluate_prog_fun = store_thm(
   \\ TRY (disch_then drule \\ rw[])
   \\ fs[semanticPrimitivesTheory.state_component_equality]);
 
-val parts_ok_io_ffi = store_thm("parts_ok_io_ffi",
-  ``parts_ok (io_ffi input) (io_proj1,io_proj2)``,
+val parts_ok_io_ffi = Q.store_thm("parts_ok_io_ffi",
+  `parts_ok (io_ffi input) (io_proj1,io_proj2)`,
   fs [cfStoreTheory.parts_ok_def]
   \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
   THEN1

@@ -58,8 +58,8 @@ val free_def = tDefine "free" `
 
 val free_ind = theorem "free_ind";
 
-val free_LENGTH_LEMMA = prove(
-  ``!xs. (case free xs of (ys,s1) => (LENGTH xs = LENGTH ys))``,
+val free_LENGTH_LEMMA = Q.prove(
+  `!xs. (case free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
   recInduct free_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [free_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
@@ -68,26 +68,26 @@ val free_LENGTH_LEMMA = prove(
   \\ SRW_TAC [] [] \\ DECIDE_TAC)
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
-val free_LENGTH = store_thm("free_LENGTH",
-  ``!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)``,
+val free_LENGTH = Q.store_thm("free_LENGTH",
+  `!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
   REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []);
 
-val free_SING = store_thm("free_SING",
-  ``(free [x] = (ys,l)) ==> ?y. ys = [y]``,
+val free_SING = Q.store_thm("free_SING",
+  `(free [x] = (ys,l)) ==> ?y. ys = [y]`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val LENGTH_FST_free = store_thm("LENGTH_FST_free",
-  ``LENGTH (FST (free fns)) = LENGTH fns``,
+val LENGTH_FST_free = Q.store_thm("LENGTH_FST_free",
+  `LENGTH (FST (free fns)) = LENGTH fns`,
   Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
 
-val HD_FST_free = store_thm("HD_FST_free",
-  ``[HD (FST (free [x1]))] = FST (free [x1])``,
+val HD_FST_free = Q.store_thm("HD_FST_free",
+  `[HD (FST (free [x1]))] = FST (free [x1])`,
   Cases_on `free [x1]` \\ fs []
   \\ imp_res_tac free_SING \\ fs[]);
 
-val free_CONS = store_thm("free_CONS",
-  ``FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)``,
+val free_CONS = Q.store_thm("free_CONS",
+  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`,
   Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
   \\ Cases_on `free [x]` \\ fs []
   \\ Cases_on `free (h::t)` \\ fs [SING_HD]

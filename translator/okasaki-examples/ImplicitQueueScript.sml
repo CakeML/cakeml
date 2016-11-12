@@ -81,74 +81,74 @@ val queue_ok_def = Define `
 val queue_inv_def = Define `
   queue_inv q t <=> queue_ok 0 t /\ (q = flatten t)`;
 
-val empty_thm = prove(
-  ``queue_inv [] empty``,
+val empty_thm = Q.prove(
+  `queue_inv [] empty`,
   EVAL_TAC);
 
-val exps_NOT_NIL = prove(
-  ``!e. ~(exps e = [])``,
+val exps_NOT_NIL = Q.prove(
+  `!e. ~(exps e = [])`,
   Induct THEN EVAL_TAC THEN FULL_SIMP_TAC std_ss [APPEND_eq_NIL]);
 
-val is_empty_thm = prove(
-  ``!xs q. queue_inv xs q ==> (is_empty q = (xs = []))``,
+val is_empty_thm = Q.prove(
+  `!xs q. queue_inv xs q ==> (is_empty q = (xs = []))`,
   Cases THEN Cases THEN EVAL_TAC
   THEN1 (Cases_on `d` THEN EVAL_TAC THEN SIMP_TAC std_ss [exps_NOT_NIL])
   THEN1 (Cases_on `d0` THEN EVAL_TAC THEN ONCE_REWRITE_TAC [EQ_SYM_EQ]
          THEN SIMP_TAC std_ss [exps_NOT_NIL,APPEND_eq_NIL])
   THEN Cases_on `d` THEN EVAL_TAC);
 
-val flatten_snoc = prove(
-  ``!x y n. queue_ok n x ==> (flatten (snoc x y) = flatten x ++ exps y)``,
+val flatten_snoc = Q.prove(
+  `!x y n. queue_ok n x ==> (flatten (snoc x y) = flatten x ++ exps y)`,
   Induct THEN Cases_on `d`
   THEN FULL_SIMP_TAC (srw_ss()) [snoc_def,flatten_def,digits_def,
       empty_def,queue_ok_def,two_def] THEN REPEAT STRIP_TAC
   THEN RES_TAC THEN FULL_SIMP_TAC std_ss [exps_def,APPEND_ASSOC]);
 
-val queue_ok_snoc = prove(
-  ``!q y n. queue_ok n q /\ depth n y ==> queue_ok n (snoc q y)``,
+val queue_ok_snoc = Q.prove(
+  `!q y n. queue_ok n q /\ depth n y ==> queue_ok n (snoc q y)`,
   Induct THEN Cases_on `d`
   THEN FULL_SIMP_TAC (srw_ss()) [snoc_def,queue_ok_def,ddepth_def,two_def,
     only_digits_def,EVERY_DEF,empty_def] THEN REPEAT STRIP_TAC
   THEN Q.PAT_X_ASSUM `!x.bbb` MATCH_MP_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [depth_def]);
 
-val snoc_thm = prove(
-  ``!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q (Once x))``,
+val snoc_thm = Q.prove(
+  `!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q (Once x))`,
   STRIP_TAC THEN SIMP_TAC std_ss [queue_inv_def] THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC flatten_snoc THEN FULL_SIMP_TAC std_ss [exps_def]
   THEN MATCH_MP_TAC queue_ok_snoc THEN FULL_SIMP_TAC std_ss [] THEN EVAL_TAC);
 
-val depth_0 = prove(
-  ``!e. depth 0 e ==> ?x. e = Once x``,
+val depth_0 = Q.prove(
+  `!e. depth 0 e ==> ?x. e = Once x`,
   Cases THEN SIMP_TAC (srw_ss()) [depth_def]);
 
-val head_thm = prove(
-  ``!q x xs. queue_inv (x::xs) q ==> (head q = Once x)``,
+val head_thm = Q.prove(
+  `!q x xs. queue_inv (x::xs) q ==> (head q = Once x)`,
   Cases THEN TRY (Cases_on `d`) THEN TRY (Cases_on `d0`)
   THEN EVAL_TAC THEN SIMP_TAC (srw_ss()) []
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC depth_0
   THEN FULL_SIMP_TAC (srw_ss()) [exps_def])
 
-val depth_IMP = prove(
-  ``!t n. depth n t ==> (LENGTH (exps t) = 2**n)``,
+val depth_IMP = Q.prove(
+  `!t n. depth n t ==> (LENGTH (exps t) = 2**n)`,
   Induct THEN1 (EVAL_TAC THEN FULL_SIMP_TAC std_ss [])
   THEN Cases THEN FULL_SIMP_TAC std_ss [depth_def,ADD1]
   THEN REPEAT STRIP_TAC THEN RES_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [exps_def,GSYM ADD1,EXP] THEN DECIDE_TAC);
 
-val LENGTH_EQ_APPEND_EQ = prove(
-  ``!xs xs2 ys ys2.
-      (LENGTH xs = LENGTH ys) /\ (xs ++ xs2 = ys ++ ys2) ==> (xs2 = ys2)``,
+val LENGTH_EQ_APPEND_EQ = Q.prove(
+  `!xs xs2 ys ys2.
+      (LENGTH xs = LENGTH ys) /\ (xs ++ xs2 = ys ++ ys2) ==> (xs2 = ys2)`,
   Induct THEN Cases_on `ys` THEN FULL_SIMP_TAC (srw_ss()) [ADD1]);
 
-val is_empty_EQ = prove(
-  ``!q. is_empty q = (q = Shallow Zero)``,
+val is_empty_EQ = Q.prove(
+  `!q. is_empty q = (q = Shallow Zero)`,
   Cases THEN Cases_on `d` THEN EVAL_TAC);
 
-val tail_lemma = prove(
-  ``!q n x xs.
+val tail_lemma = Q.prove(
+  `!q n x xs.
       queue_ok n q /\ (exps x ++ xs = flatten q) /\ depth n x ==>
-      queue_ok n (tail q) /\ (xs = flatten (tail q))``,
+      queue_ok n (tail q) /\ (xs = flatten (tail q))`,
   Induct THEN1 (Cases_on `d`
     THEN FULL_SIMP_TAC (srw_ss()) [flatten_def,digits_def,exps_NOT_NIL,tail_def,
            queue_ok_def,empty_def,ddepth_def,EVERY_DEF,two_def,only_digits_def]
@@ -204,8 +204,8 @@ val tail_lemma = prove(
   THEN MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 ==> b2) ==> (b ==> b1) ==> b2``)
   THEN FULL_SIMP_TAC std_ss [exps_def,depth_def]);
 
-val tail_thm = prove(
-  ``!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)``,
+val tail_thm = Q.prove(
+  `!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)`,
   FULL_SIMP_TAC std_ss [queue_inv_def] THEN NTAC 4 STRIP_TAC
   THEN MATCH_MP_TAC tail_lemma THEN Q.EXISTS_TAC `Once x`
   THEN FULL_SIMP_TAC std_ss [exps_def,APPEND,depth_def]);

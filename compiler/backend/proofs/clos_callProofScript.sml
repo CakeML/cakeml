@@ -7,8 +7,8 @@ val _ = new_theory"clos_callProof";
 
 (* TODO: move *)
 
-val MEM_REPLICATE_EQ = store_thm("MEM_REPLICATE_EQ",
-  ``!n x y. MEM x (REPLICATE n y) <=> x = y /\ n <> 0``,
+val MEM_REPLICATE_EQ = Q.store_thm("MEM_REPLICATE_EQ",
+  `!n x y. MEM x (REPLICATE n y) <=> x = y /\ n <> 0`,
   Induct \\ fs [REPLICATE] \\ rw [] \\ eq_tac \\ rw []);
 
 val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
@@ -27,8 +27,8 @@ val ALL_DISTINCT_FLAT_EVERY = Q.store_thm("ALL_DISTINCT_FLAT_EVERY",
 
 val IN_EVEN = SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``;
 
-val v_size_lemma = prove(
-  ``MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl``,
+val v_size_lemma = Q.prove(
+  `MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl`,
   Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
   res_tac >> simp[]);
 
@@ -53,18 +53,18 @@ val evaluate_add_clock =
   |> CONJUNCT1 |> GEN_ALL
   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
 
-val DISJOINT_IMAGE_SUC = store_thm("DISJOINT_IMAGE_SUC",
-  ``DISJOINT (IMAGE SUC x) (IMAGE SUC y) <=> DISJOINT x y``,
+val DISJOINT_IMAGE_SUC = Q.store_thm("DISJOINT_IMAGE_SUC",
+  `DISJOINT (IMAGE SUC x) (IMAGE SUC y) <=> DISJOINT x y`,
   fs [IN_DISJOINT] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
 
-val IMAGE_SUC_SUBSET_UNION = store_thm("IMAGE_SUC_SUBSET_UNION",
-  ``IMAGE SUC x SUBSET IMAGE SUC y UNION IMAGE SUC z <=>
-    x SUBSET y UNION z``,
+val IMAGE_SUC_SUBSET_UNION = Q.store_thm("IMAGE_SUC_SUBSET_UNION",
+  `IMAGE SUC x SUBSET IMAGE SUC y UNION IMAGE SUC z <=>
+    x SUBSET y UNION z`,
   fs [SUBSET_DEF] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
 
-val ALL_DISTINCT_APPEND_APPEND_IMP = store_thm("ALL_DISTINCT_APPEND_APPEND_IMP",
-  ``ALL_DISTINCT (xs ++ ys ++ zs) ==>
-    ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)``,
+val ALL_DISTINCT_APPEND_APPEND_IMP = Q.store_thm("ALL_DISTINCT_APPEND_APPEND_IMP",
+  `ALL_DISTINCT (xs ++ ys ++ zs) ==>
+    ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)`,
   fs [ALL_DISTINCT_APPEND]);
 
 val is_Recclosure_def = Define`
@@ -1140,8 +1140,8 @@ val env_rel_DROP_args = Q.store_thm("env_rel_DROP_args",
   \\ simp[] \\ strip_tac
   \\ rfs[EL_DROP]);
 
-val subg_insert_each' = store_thm("subg_insert_each'",
-  ``!gb fns1 es g1.
+val subg_insert_each' = Q.store_thm("subg_insert_each'",
+  `!gb fns1 es g1.
       subg gb (FST new_g,l ++ SND (insert_each' g1 loc (LENGTH fns1) g)) /\
       SND new_g = l ++ SND g /\ LENGTH fns1 = LENGTH es
       ∧ wfg g ∧
@@ -1150,7 +1150,7 @@ val subg_insert_each' = store_thm("subg_insert_each'",
       (∀i. i < LENGTH fns1 ⇒ ALOOKUP g1 (2*i+loc+1) = SOME (FST (EL i fns1), EL i es))
       ==>
       subg (FST new_g,l ++ SND (insert_each' g1 loc (LENGTH fns1) g))
-        (code_list loc (ZIP (MAP FST fns1,es)) new_g)``,
+        (code_list loc (ZIP (MAP FST fns1,es)) new_g)`,
   Cases_on `new_g` \\ fs [] \\ PairCases_on `g` \\ fs []
   \\ rw [] \\ rveq \\ fs [subg_def]
   \\ fs[ALL_DISTINCT_APPEND,MAP_FST_code_list,MEM_GENLIST,PULL_EXISTS,
@@ -1223,19 +1223,19 @@ val wfv_subg = Q.store_thm("wfv_subg",
 
 (* semantic functions respect relation *)
 
-val v_rel_Unit = store_thm("v_rel_Unit[simp]",
-  ``v_rel g1 l1 Unit Unit``,
+val v_rel_Unit = Q.store_thm("v_rel_Unit[simp]",
+  `v_rel g1 l1 Unit Unit`,
   EVAL_TAC \\ fs []);
 
-val do_eq_thm = store_thm("do_eq_thm",
-  ``(!h1 h1a b h2 h2a.
+val do_eq_thm = Q.store_thm("do_eq_thm",
+  `(!h1 h1a b h2 h2a.
        do_eq h1 h1a = Eq_val b /\ v_rel g1 l1 h1 h2 /\ v_rel g1 l1 h1a h2a ==>
        do_eq h2 h2a = Eq_val b) /\
     (!h1 h1a b h2 h2a.
        do_eq_list h1 h1a = Eq_val b /\
        LIST_REL (v_rel g1 l1) h1 h2 /\
        LIST_REL (v_rel g1 l1) h1a h2a ==>
-       do_eq_list h2 h2a = Eq_val b)``,
+       do_eq_list h2 h2a = Eq_val b)`,
   HO_MATCH_MP_TAC do_eq_ind \\ fs [] \\ rw []
   THEN1
    (Cases_on `h1` \\ Cases_on `h1a` \\ fs [v_rel_def,do_eq_def]
@@ -1245,37 +1245,37 @@ val do_eq_thm = store_thm("do_eq_thm",
   \\ fs [v_rel_def,do_eq_def |> CONJUNCT2] \\ every_case_tac \\ fs []
   \\ res_tac \\ fs [])
 
-val v_to_list_thm = store_thm("v_to_list_thm",
-  ``!h h' x.
+val v_to_list_thm = Q.store_thm("v_to_list_thm",
+  `!h h' x.
       v_to_list h = SOME x /\ v_rel g1 l1 h h' ==>
-      ?x'. v_to_list h' = SOME x' /\ LIST_REL (v_rel g1 l1) x x'``,
+      ?x'. v_to_list h' = SOME x' /\ LIST_REL (v_rel g1 l1) x x'`,
   recInduct v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rw []
   \\ fs [v_rel_def,v_to_list_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw []);
 
-val v_to_list_wfv = store_thm("v_to_list_wfv",
-  ``!h x. v_to_list h = SOME x /\ wfv g1 l1 h ==> EVERY (wfv g1 l1) x``,
+val v_to_list_wfv = Q.store_thm("v_to_list_wfv",
+  `!h x. v_to_list h = SOME x /\ wfv g1 l1 h ==> EVERY (wfv g1 l1) x`,
   recInduct v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw []);
 
-val v_rel_list_to_v = store_thm("v_rel_list_to_v",
-  ``!l1 l2.
+val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
+  `!l1 l2.
       LIST_REL (v_rel g1 l) l1 l2 ==>
-      v_rel g1 l (list_to_v l1) (list_to_v l2)``,
+      v_rel g1 l (list_to_v l1) (list_to_v l2)`,
   Induct \\ fs [v_rel_def,list_to_v_def,PULL_EXISTS]);
 
-val wfv_list_to_v = store_thm("wfv_list_to_v",
-  ``!l. EVERY (wfv g1 l1) l ==> wfv g1 l1 (list_to_v l)``,
+val wfv_list_to_v = Q.store_thm("wfv_list_to_v",
+  `!l. EVERY (wfv g1 l1) l ==> wfv g1 l1 (list_to_v l)`,
   Induct \\ fs [wfv_def,list_to_v_def,PULL_EXISTS]);
 
-val wfv_Boolv = store_thm("wfv_Boolv",
-  ``wfv g1 l1 (Boolv b) /\ wfv g1 l1 Unit``,
+val wfv_Boolv = Q.store_thm("wfv_Boolv",
+  `wfv g1 l1 (Boolv b) /\ wfv g1 l1 Unit`,
   Cases_on `b` \\ EVAL_TAC);
 
-val do_app_thm = prove(
-  ``case do_app op (REVERSE a) (r:'ffi closSem$state) of
+val do_app_thm = Q.prove(
+  `case do_app op (REVERSE a) (r:'ffi closSem$state) of
       Rerr (Rraise _) => F
     | Rerr (Rabort e) => (e = Rtype_error)
     | Rval (w,s) =>
@@ -1283,7 +1283,7 @@ val do_app_thm = prove(
         wfv_state g1 l1 s /\ wfv g1 l1 w) /\
        (LIST_REL (v_rel g1 l1) a v /\ state_rel g1 l1 r t ==>
         ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
-                v_rel g1 l1 w w' /\ state_rel g1 l1 s s')``,
+                v_rel g1 l1 w w' /\ state_rel g1 l1 s s')`,
   once_rewrite_tac [GSYM REVERSE_REVERSE]
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
@@ -1480,13 +1480,13 @@ val do_app_thm = prove(
     \\ first_x_assum drule \\ fs [])
   \\ Cases_on `op` \\ fs []);
 
-val NOT_IN_domain_FST_g = store_thm("NOT_IN_domain_FST_g",
-  ``ALL_DISTINCT (code_locs xs ++ code_locs ys) ⇒
+val NOT_IN_domain_FST_g = Q.store_thm("NOT_IN_domain_FST_g",
+  `ALL_DISTINCT (code_locs xs ++ code_locs ys) ⇒
     calls ys g' = (e2,g) ⇒
     wfg g' ⇒
     MEM x (code_locs xs) ⇒
     x ∉ domain (FST g') ⇒
-    x ∉ domain (FST g)``,
+    x ∉ domain (FST g)`,
   rw [] \\ imp_res_tac calls_domain
   \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
   \\ CCONTR_TAC \\ fs [] \\ res_tac \\ rveq \\ fs []
@@ -1495,8 +1495,8 @@ val NOT_IN_domain_FST_g = store_thm("NOT_IN_domain_FST_g",
   \\ rfs [wfg_def,SUBSET_DEF,EXTENSION] \\ rveq \\ fs []
   \\ fs [ALL_DISTINCT_APPEND] \\ res_tac);
 
-val v_rel_Boolv = store_thm("v_rel_Boolv[simp]",
-  ``v_rel g1 l1 (Boolv b) v <=> (v = Boolv b)``,
+val v_rel_Boolv = Q.store_thm("v_rel_Boolv[simp]",
+  `v_rel g1 l1 (Boolv b) v <=> (v = Boolv b)`,
   Cases_on `b` \\ Cases_on `v` \\ fs [v_rel_def,Boolv_def]);
 
 val s0 = ``s0:'ffi closSem$state``;
@@ -3322,24 +3322,24 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ disch_then(qspec_then`ck'`assume_tac)
   \\ qexists_tac`ck+ck'+1` \\ simp[]);
 
-val code_locs_calls_list = prove(``
-  ∀ls n. code_locs (MAP SND (calls_list n ls)) = []``,
+val code_locs_calls_list = Q.prove(`
+  ∀ls n. code_locs (MAP SND (calls_list n ls)) = []`,
   Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>EVAL_TAC>>
   fs[])
 
-val code_locs_code_list_MEM = prove(``
+val code_locs_code_list_MEM = Q.prove(`
   ∀ls n rest x.
   MEM x (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
-  MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))``,
+  MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))`,
   Induct>>fs[code_list_def,FORALL_PROD,Once code_locs_cons,code_locs_append]>>
   rw[]>>EVAL_TAC>>
   rw[EQ_IMP_THM]>>
   fs[Once code_locs_cons,code_locs_def])
 
-val code_locs_code_list_ALL_DISTINCT = prove(``
+val code_locs_code_list_ALL_DISTINCT = Q.prove(`
   ∀ls n rest.
   ALL_DISTINCT (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
-  ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))``,
+  ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))`,
   Induct>>fs[code_list_def,FORALL_PROD,Once code_locs_cons,code_locs_append]>>
   rw[]>>EVAL_TAC>>
   fs[ALL_DISTINCT_APPEND]>>
