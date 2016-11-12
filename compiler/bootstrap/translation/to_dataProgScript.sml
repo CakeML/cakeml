@@ -130,7 +130,7 @@ val EXHLANG_PAT_TYPE_no_closures = Q.prove(
   \\ rw[no_closures_def]
   \\ TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y1`,`x1`] >>
@@ -151,9 +151,9 @@ val EXHLANG_PAT_TYPE_types_match = Q.prove(
   Cases_on`c` \\ fs[EXHLANG_PAT_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
@@ -175,9 +175,9 @@ val EXHLANG_PAT_TYPE_11 = Q.prove(
   Cases_on`c` \\ fs[EXHLANG_PAT_TYPE_def] \\ rw[EQ_IMP_THM] \\
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x y1` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     qmatch_assum_rename_tac`LIST_TYPE _ x y2` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`y1`,`x`] >>
@@ -186,9 +186,9 @@ val EXHLANG_PAT_TYPE_11 = Q.prove(
     metis_tac[]) >>
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     qmatch_assum_rename_tac`LIST_TYPE _ x2 y` >>
-    rator_x_assum`LIST_TYPE`mp_tac >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y`,`x1`,`x2`] >>
