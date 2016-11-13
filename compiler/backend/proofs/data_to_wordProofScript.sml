@@ -4186,6 +4186,10 @@ val assign_thm_goal =
      (q <> SOME NotEnoughSpace ==>
      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
 
+val th = Q.store_thm("assign_WordToInt",
+  `op = WordToInt ==> ^assign_thm_goal`,
+  cheat (* WordToInt *));
+
 val th = Q.store_thm("assign_FromList",
   `(?tag. op = FromList tag) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -6732,8 +6736,9 @@ val assign_thm = Q.store_thm("assign_thm",
   \\ fs [] \\ strip_tac
   \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
-  \\ `?f. op = f ()` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
-  \\ Cases_on `op` \\ fs [] \\ fs [assign_def] \\ every_case_tac \\ fs []);
+  \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
+  \\ Cases_on `op` \\ fs []
+  \\ fs [assign_def] \\ every_case_tac \\ fs []);
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 

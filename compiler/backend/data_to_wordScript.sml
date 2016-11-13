@@ -283,6 +283,22 @@ val get_names_def = Define `
   (get_names NONE = LN) /\
   (get_names (SOME x) = x)`;
 
+val LoadWord64_def = Define `
+  LoadWord64 c i j =
+    Assign i (Load (Op Add [real_addr c j; Const bytes_in_word]))`;
+
+val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
+  WriteWord64 c (header:'a word) dest i =
+    list_Seq [Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * 2w)]);
+              Store (Op Add [Var 1; Const bytes_in_word]) i;
+              Assign 3 (Const header);
+              Store (Var 1) 3;
+              Set EndOfHeap (Var 1);
+              Assign (adjust_var dest)
+                (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                          (Nat (shift_length c − shift (:'a)));
+                        Const 1w])]`;
+
 val assign_def = Define `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -303,7 +319,6 @@ val assign_def = Define `
     | Global _ => (Skip,l)
     | SetGlobal _ => (Skip,l)
     | AllocGlobal => (Skip,l)
-    (* TODO: FromList *)
     | El => (case args of
              | [v1;v2] => (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
@@ -643,7 +658,20 @@ val assign_def = Define `
                             (Nat (shift_length c − shift (:'a)));
                           Const 1w])], l)
       | _ => (Skip, l))
-    (* TODO: WordToInt *)
+    | WordToInt =>
+     (case args of
+      | [v] =>
+         if dimindex(:'a) = 64 then
+           case encode_header c 3 1 of
+           | NONE => (GiveUp,l)
+           | SOME header =>
+             (list_Seq [LoadWord64 c 1 (adjust_var v);
+                        Assign 3 (Shift Lsr (Var 1) (Nat 61));
+                        Assign (adjust_var dest) (Shift Lsl (Var 1) (Nat 2));
+                        If Equal 3 (Imm 0w) Skip
+                          (WriteWord64 c header (adjust_var dest) 1)], l)
+         else (GiveUp,l)
+      | _ => (Skip, l))
     | FFI ffi_index =>
       (case args of
        | [v] =>
