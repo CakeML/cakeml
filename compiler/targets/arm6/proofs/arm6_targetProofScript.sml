@@ -438,8 +438,8 @@ val encode_rwts =
    in
       [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
        encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
-       EncodeImmShift_def
-       ]
+       e_multiply_def, EncodeImmShift_def, EncodeImmShift_def
+      ]
    end
 
 val enc_rwts =
@@ -629,8 +629,10 @@ in
       \\ reg_tac
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
              lem1, lem2, lem3, adc_lem2, adc_lem4,
+             mul_long_lem1, mul_long_lem2, GSYM wordsTheory.word_mul_def,
              alignmentTheory.align_aligned]
-      \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+      \\ srw_tac []
+            [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
              decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
       \\ fs [adc_lem1, adc_lem3]
@@ -670,7 +672,6 @@ local
              )
          \\ NTAC j next_state_tac
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
-         \\ state_tac
       end gs
    val (_, _, dest_arm6_enc, is_arm6_enc) =
      HolKernel.syntax_fns1 "arm6_target" "arm6_enc"
@@ -680,6 +681,7 @@ in
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ next_tac' (get_asm (snd gs))
+       \\ state_tac
       ) gs
    val cnext_tac =
       next_tac
@@ -702,7 +704,9 @@ local
          (* Less *)
          Cases_on `word_bit 31 q = SND (SND p)`,
          (* Test *)
-         (if imm then Cases_on `^n && c' = 0w` else Cases_on `^n && ^n' = 0w`)
+         (if imm
+            then Cases_on `(^n && c') = 0w`
+          else Cases_on `(^n && ^n') = 0w`)
         ]
     in
       l @ l
@@ -717,10 +721,10 @@ in
     Cases_on `c`
     \\ (if imm then
           qabbrev_tac `p = add_with_carry (^n, ~c',T)`
-          \\ qabbrev_tac `q = -1w * c' + ^n`
+          \\ qabbrev_tac `q = (-1w * c' + ^n)`
         else
           qabbrev_tac `p = add_with_carry (^n, ~^n',T)`
-          \\ qabbrev_tac `q = ^n + -1w * ^n'`)
+          \\ qabbrev_tac `q = (^n + -1w * ^n')`)
     >| tacs imm
     \\ next_tac
     \\ TRY (qunabbrev_tac `p`)
@@ -825,6 +829,13 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
               --------------*)
             print_tac "Shift"
             \\ Cases_on `s`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                Div
+              --------------*)
+            print_tac "Div"
             \\ next_tac
             )
          >- (
