@@ -134,11 +134,19 @@ val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
   `mem_load x (y with clock := k) = mem_load x y`,
   EVAL_TAC);
 
+val mem_store_const_full = Q.store_thm("mem_store_const_full",
+  `mem_store x y z = SOME a ⇒
+   a.clock = z.clock ∧
+   a.ffi = z.ffi ∧
+   a.handler = z.handler ∧
+   a.stack = z.stack`,
+  EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
+
 val mem_store_const = Q.store_thm("mem_store_const",
   `mem_store x y z = SOME a ⇒
    a.clock = z.clock ∧
    a.ffi = z.ffi`,
-  EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
+  metis_tac [mem_store_const_full]);
 
 val mem_store_with_const = Q.store_thm("mem_store_with_const[simp]",
   `mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y)`,
@@ -156,11 +164,19 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
     unabbrev_all_tac>>fs[MAP_EQ_f]>>
   rw[])
 
+val assign_const_full = Q.store_thm("assign_const_full",
+  `assign x y z = SOME a ⇒
+   a.clock = z.clock ∧
+   a.ffi = z.ffi ∧
+   a.handler = z.handler ∧
+   a.stack = z.stack`,
+  EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
+
 val assign_const = Q.store_thm("assign_const",
   `assign x y z = SOME a ⇒
    a.clock = z.clock ∧
    a.ffi = z.ffi`,
-  EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
+  metis_tac [assign_const_full]);
 
 val assign_with_const = Q.store_thm("assign_with_const[simp]",
   `assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z)`,
@@ -170,14 +186,22 @@ val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
   rw[inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
+val inst_const_full = Q.store_thm("inst_const_full",
+  `inst i s = SOME s' ⇒
+   s'.clock = s.clock ∧
+   s'.ffi = s.ffi ∧
+   s'.handler = s.handler ∧
+   s'.stack = s.stack`,
+  rw[inst_def, set_var_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac mem_store_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME s' ⇒
    s'.clock = s.clock ∧
    s'.ffi = s.ffi`,
-  rw[inst_def] >>
-  every_case_tac >>full_simp_tac(srw_ss())[] >>
-  imp_res_tac assign_const >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  metis_tac [inst_const_full]);
 
 val jump_exc_const = Q.store_thm("jump_exc_const",
   `jump_exc s = SOME (x,y) ⇒
