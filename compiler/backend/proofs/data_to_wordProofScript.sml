@@ -5413,162 +5413,165 @@ val th = Q.store_thm("assign_WordOpW8",
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ cheat (* update for bignums *) (*
-   (imp_res_tac get_vars_IMP_LENGTH
-    \\ fs[do_app]
-    \\ every_case_tac \\ fs[]
-    \\ clean_tac
-    \\ imp_res_tac state_rel_get_vars_IMP
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
-    \\ clean_tac
-    \\ fs[state_rel_thm] \\ eval_tac
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
-    \\ strip_tac
-    \\ imp_res_tac memory_rel_Number_IMP
-    \\ imp_res_tac memory_rel_tl
-    \\ imp_res_tac memory_rel_Number_IMP
-    \\ qhdtm_x_assum`memory_rel`kall_tac
-    \\ fs[wordSemTheory.get_vars_def]
-    \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ simp[assign_def] \\ eval_tac
-    \\ fs[wordSemTheory.get_var_def]
-    \\ qhdtm_x_assum`$some`mp_tac
-    \\ DEEP_INTRO_TAC some_intro \\ fs[]
-    \\ strip_tac \\ clean_tac
-    \\ Cases_on`opw` \\ simp[] \\ eval_tac \\ fs[lookup_insert]
-    \\ (conj_tac >- rw[])
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ match_mp_tac memory_rel_insert \\ fs[]
-    >- ( match_mp_tac memory_rel_And \\ fs[] )
-    >- ( match_mp_tac memory_rel_Or \\ fs[] )
-    >- ( match_mp_tac memory_rel_Xor \\ fs[] )
-    >- (
-      qmatch_goalsub_abbrev_tac`Word w`
-      \\ qmatch_goalsub_abbrev_tac`Number i`
-      \\ `w = Smallnum i`
-      by (
-        unabbrev_all_tac
-        \\ qmatch_goalsub_rename_tac`w2n (w1 + w2)`
-        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
-        \\ simp[WORD_MUL_LSL]
-        \\ ONCE_REWRITE_TAC[GSYM n2w_w2n]
-        \\ REWRITE_TAC[w2n_lsr]
-        \\ simp[word_mul_n2w,word_add_n2w]
-        \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
-        \\ fs[good_dimindex_def,dimword_def,GSYM LEFT_ADD_DISTRIB]
-        \\ qmatch_goalsub_abbrev_tac`(a * b) MOD f DIV d`
+  \\ imp_res_tac get_vars_IMP_LENGTH
+  \\ fs[do_app]
+  \\ every_case_tac \\ fs[]
+  \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ clean_tac
+  \\ fs[state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ qhdtm_x_assum`$some`mp_tac
+  \\ DEEP_INTRO_TAC some_intro \\ fs[]
+  \\ strip_tac \\ clean_tac
+  \\ qmatch_asmsub_rename_tac`[Number (&w2n w1); Number (&w2n w2)]`
+  \\ `small_int (:'a) (&w2n w1) ∧ small_int (:'a) (&w2n w2)`
+  by1 ( simp[small_int_w2n] )
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ imp_res_tac memory_rel_tl
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ qhdtm_x_assum`memory_rel`kall_tac
+  \\ ntac 2 (first_x_assum(qspec_then`ARB`kall_tac))
+  \\ fs[wordSemTheory.get_vars_def]
+  \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ simp[assign_def] \\ eval_tac
+  \\ fs[wordSemTheory.get_var_def]
+  \\ Cases_on`opw` \\ simp[] \\ eval_tac \\ fs[lookup_insert]
+  \\ (conj_tac >- rw[])
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs[]
+  >- ( match_mp_tac memory_rel_And \\ fs[] )
+  >- ( match_mp_tac memory_rel_Or \\ fs[] )
+  >- ( match_mp_tac memory_rel_Xor \\ fs[] )
+  >- (
+    qmatch_goalsub_abbrev_tac`Word w`
+    \\ qmatch_goalsub_abbrev_tac`Number i`
+    \\ `w = Smallnum i`
+    by (
+      unabbrev_all_tac
+      \\ qmatch_goalsub_rename_tac`w2n (w1 + w2)`
+      \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+      \\ simp[WORD_MUL_LSL]
+      \\ ONCE_REWRITE_TAC[GSYM n2w_w2n]
+      \\ REWRITE_TAC[w2n_lsr]
+      \\ simp[word_mul_n2w,word_add_n2w]
+      \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[word_add_n2w]
+      \\ fs[good_dimindex_def,dimword_def,GSYM LEFT_ADD_DISTRIB]
+      \\ qmatch_goalsub_abbrev_tac`(a * b) MOD f DIV d`
+      \\ qspecl_then[`a * b`,`d`,`f DIV d`]mp_tac (GSYM DIV_MOD_MOD_DIV)
+      \\ simp[Abbr`a`,Abbr`d`,Abbr`f`] \\ disch_then kall_tac
+      \\ qmatch_goalsub_abbrev_tac`d * b DIV f`
+      \\ `d * b = (b * (d DIV f)) * f`
+      by simp[Abbr`d`,Abbr`f`]
+      \\ pop_assum SUBST_ALL_TAC
+      \\ qspecl_then[`f`,`b * (d DIV f)`]mp_tac MULT_DIV
+      \\ (impl_tac >- simp[Abbr`f`])
+      \\ disch_then SUBST_ALL_TAC
+      \\ simp[Abbr`d`,Abbr`f`]
+      \\ qmatch_goalsub_abbrev_tac`a * b MOD q`
+      \\ qspecl_then[`a`,`b`,`q`]mp_tac MOD_COMMON_FACTOR
+      \\ (impl_tac >- simp[Abbr`a`,Abbr`q`])
+      \\ disch_then SUBST_ALL_TAC
+      \\ simp[Abbr`a`,Abbr`q`])
+    \\ pop_assum SUBST_ALL_TAC
+    \\ match_mp_tac IMP_memory_rel_Number
+    \\ fs[]
+    \\ fs[Abbr`i`,small_int_def]
+    \\ qmatch_goalsub_rename_tac`w2n w`
+    \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
+    \\ fs[good_dimindex_def,dimword_def] )
+  >- (
+    qmatch_goalsub_abbrev_tac`Word w`
+    \\ qmatch_goalsub_abbrev_tac`Number i`
+    \\ `w = Smallnum i`
+    by (
+      unabbrev_all_tac
+      \\ qmatch_goalsub_rename_tac`w2n (w1 + -1w * w2)`
+      \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
+      \\ simp[WORD_MUL_LSL]
+      \\ ONCE_REWRITE_TAC[GSYM n2w_w2n]
+      \\ REWRITE_TAC[w2n_lsr]
+      \\ simp[word_mul_n2w,word_add_n2w]
+      \\ REWRITE_TAC[WORD_SUB_INTRO,WORD_MULT_CLAUSES]
+      \\ Cases_on`w1` \\ Cases_on`w2`
+      \\ REWRITE_TAC[addressTheory.word_arith_lemma2]
+      \\ reverse(rw[]) \\ fs[NOT_LESS,GSYM LEFT_SUB_DISTRIB,GSYM RIGHT_SUB_DISTRIB]
+      >- (
+        qmatch_goalsub_abbrev_tac`(a * b) MOD f DIV d`
         \\ qspecl_then[`a * b`,`d`,`f DIV d`]mp_tac (GSYM DIV_MOD_MOD_DIV)
-        \\ simp[Abbr`a`,Abbr`d`,Abbr`f`] \\ disch_then kall_tac
-        \\ qmatch_goalsub_abbrev_tac`d * b DIV f`
-        \\ `d * b = (b * (d DIV f)) * f`
-        by simp[Abbr`d`,Abbr`f`]
+        \\ (impl_tac >- fs[Abbr`d`,Abbr`f`,good_dimindex_def,dimword_def])
+        \\ `d * (f DIV d) = f` by fs[good_dimindex_def,Abbr`f`,Abbr`d`,dimword_def]
         \\ pop_assum SUBST_ALL_TAC
-        \\ qspecl_then[`f`,`b * (d DIV f)`]mp_tac MULT_DIV
-        \\ (impl_tac >- simp[Abbr`f`])
-        \\ disch_then SUBST_ALL_TAC
-        \\ simp[Abbr`d`,Abbr`f`]
-        \\ qmatch_goalsub_abbrev_tac`a * b MOD q`
-        \\ qspecl_then[`a`,`b`,`q`]mp_tac MOD_COMMON_FACTOR
+        \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
+        \\ unabbrev_all_tac
+        \\ qmatch_goalsub_abbrev_tac`a * (b * d) DIV d`
+        \\ `a * (b * d) DIV d = a * b`
+        by (
+          qspecl_then[`d`,`a * b`]mp_tac MULT_DIV
+          \\ impl_tac >- simp[Abbr`d`]
+          \\ simp[] )
+        \\ pop_assum SUBST_ALL_TAC
+        \\ fs[Abbr`a`,Abbr`d`,dimword_def,good_dimindex_def]
+        \\ qmatch_goalsub_abbrev_tac`(a * b) MOD q`
+        \\ qspecl_then[`a`,`b`,`q DIV a`](mp_tac o GSYM) MOD_COMMON_FACTOR
         \\ (impl_tac >- simp[Abbr`a`,Abbr`q`])
-        \\ disch_then SUBST_ALL_TAC
-        \\ simp[Abbr`a`,Abbr`q`])
-      \\ pop_assum SUBST_ALL_TAC
-      \\ match_mp_tac IMP_memory_rel_Number
-      \\ fs[]
-      \\ fs[Abbr`i`,small_int_def]
-      \\ qmatch_goalsub_rename_tac`w2n w`
-      \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
-      \\ fs[good_dimindex_def,dimword_def] )
-    >- (
-      qmatch_goalsub_abbrev_tac`Word w`
-      \\ qmatch_goalsub_abbrev_tac`Number i`
-      \\ `w = Smallnum i`
+        \\ simp[Abbr`a`,Abbr`q`] \\ disch_then kall_tac
+        \\ `b < 256` by simp[Abbr`b`]
+        \\ simp[] )
+      \\ simp[word_2comp_n2w]
+      \\ qmatch_goalsub_abbrev_tac`(4 * (b * d)) MOD f`
+      \\ qmatch_goalsub_abbrev_tac`f - y MOD f`
+      \\ `f = d * 2**10`
       by (
         unabbrev_all_tac
-        \\ qmatch_goalsub_rename_tac`w2n (w1 + -1w * w2)`
-        \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
-        \\ simp[WORD_MUL_LSL]
-        \\ ONCE_REWRITE_TAC[GSYM n2w_w2n]
-        \\ REWRITE_TAC[w2n_lsr]
-        \\ simp[word_mul_n2w,word_add_n2w]
-        \\ REWRITE_TAC[WORD_SUB_INTRO,WORD_MULT_CLAUSES]
-        \\ Cases_on`w1` \\ Cases_on`w2`
-        \\ REWRITE_TAC[addressTheory.word_arith_lemma2]
-        \\ reverse(rw[]) \\ fs[NOT_LESS,GSYM LEFT_SUB_DISTRIB,GSYM RIGHT_SUB_DISTRIB]
-        >- (
-          qmatch_goalsub_abbrev_tac`(a * b) MOD f DIV d`
-          \\ qspecl_then[`a * b`,`d`,`f DIV d`]mp_tac (GSYM DIV_MOD_MOD_DIV)
-          \\ (impl_tac >- fs[Abbr`d`,Abbr`f`,good_dimindex_def,dimword_def])
-          \\ `d * (f DIV d) = f` by fs[good_dimindex_def,Abbr`f`,Abbr`d`,dimword_def]
-          \\ pop_assum SUBST_ALL_TAC
-          \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
-          \\ unabbrev_all_tac
-          \\ qmatch_goalsub_abbrev_tac`a * (b * d) DIV d`
-          \\ `a * (b * d) DIV d = a * b`
-          by (
-            qspecl_then[`d`,`a * b`]mp_tac MULT_DIV
-            \\ impl_tac >- simp[Abbr`d`]
-            \\ simp[] )
-          \\ pop_assum SUBST_ALL_TAC
-          \\ fs[Abbr`a`,Abbr`d`,dimword_def,good_dimindex_def]
-          \\ qmatch_goalsub_abbrev_tac`(a * b) MOD q`
-          \\ qspecl_then[`a`,`b`,`q DIV a`](mp_tac o GSYM) MOD_COMMON_FACTOR
-          \\ (impl_tac >- simp[Abbr`a`,Abbr`q`])
-          \\ simp[Abbr`a`,Abbr`q`] \\ disch_then kall_tac
-          \\ `b < 256` by simp[Abbr`b`]
-          \\ simp[] )
-        \\ simp[word_2comp_n2w]
-        \\ qmatch_goalsub_abbrev_tac`(4 * (b * d)) MOD f`
-        \\ qmatch_goalsub_abbrev_tac`f - y MOD f`
-        \\ `f = d * 2**10`
-        by (
-          unabbrev_all_tac
-          \\ fs[dimword_def,good_dimindex_def] )
-        \\ qunabbrev_tac`f`
-        \\ pop_assum SUBST_ALL_TAC
-        \\ fs[]
-        \\ qmatch_goalsub_abbrev_tac`m MOD (1024 * d) DIV d`
-        \\ qspecl_then[`m`,`d`,`1024`]mp_tac DIV_MOD_MOD_DIV
-        \\ impl_tac >- simp[Abbr`d`] \\ simp[]
-        \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
-        \\ qspecl_then[`1024 * d`,`(m DIV d) MOD 1024`]mp_tac LESS_MOD
-        \\ impl_tac
-        >- (
-          qspecl_then[`m DIV d`,`1024`]mp_tac MOD_LESS
-          \\ impl_tac >- simp[]
-          \\ `1024 < 1024 * d`
-          by (
-            simp[Abbr`d`,ONE_LT_EXP]
-            \\ fs[good_dimindex_def] )
-          \\ decide_tac )
-        \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
-        \\ fs[Abbr`m`,Abbr`y`]
-        \\ qspecl_then[`d`,`4 * b`,`1024`]mp_tac MOD_COMMON_FACTOR
-        \\ impl_tac >- simp[Abbr`d`] \\ simp[]
-        \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
-        \\ qmatch_assum_rename_tac`n2 < 256n`
-        \\ `n2 <= 256` by simp[]
-        \\ drule LESS_EQ_ADD_SUB
-        \\ qmatch_assum_rename_tac`n1 < n2`
-        \\ disch_then(qspec_then`n1`(CHANGED_TAC o SUBST_ALL_TAC))
-        \\ REWRITE_TAC[LEFT_ADD_DISTRIB]
-        \\ simp[LEFT_SUB_DISTRIB,Abbr`b`]
-        \\ `4 * (d * n2) - 4 * (d * n1) = (4 * d) * (n2 - n1)` by simp[]
-        \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-        \\ `1024 * d - 4 * d * (n2 - n1) = (1024 - 4 * (n2 - n1)) * d` by simp[]
-        \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-        \\ `0 < d` by simp[Abbr`d`]
-        \\ drule MULT_DIV
-        \\ disch_then(CHANGED_TAC o (fn th => REWRITE_TAC[th]))
-        \\ simp[])
+        \\ fs[dimword_def,good_dimindex_def] )
+      \\ qunabbrev_tac`f`
       \\ pop_assum SUBST_ALL_TAC
-      \\ match_mp_tac IMP_memory_rel_Number
       \\ fs[]
-      \\ fs[Abbr`i`,small_int_def]
-      \\ qmatch_goalsub_rename_tac`w2n w`
-      \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
-      \\ fs[good_dimindex_def,dimword_def] )) *));
+      \\ qmatch_goalsub_abbrev_tac`m MOD (1024 * d) DIV d`
+      \\ qspecl_then[`m`,`d`,`1024`]mp_tac DIV_MOD_MOD_DIV
+      \\ impl_tac >- simp[Abbr`d`] \\ simp[]
+      \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
+      \\ qspecl_then[`1024 * d`,`(m DIV d) MOD 1024`]mp_tac LESS_MOD
+      \\ impl_tac
+      >- (
+        qspecl_then[`m DIV d`,`1024`]mp_tac MOD_LESS
+        \\ impl_tac >- simp[]
+        \\ `1024 < 1024 * d`
+        by (
+          simp[Abbr`d`,ONE_LT_EXP]
+          \\ fs[good_dimindex_def] )
+        \\ decide_tac )
+      \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
+      \\ fs[Abbr`m`,Abbr`y`]
+      \\ qspecl_then[`d`,`4 * b`,`1024`]mp_tac MOD_COMMON_FACTOR
+      \\ impl_tac >- simp[Abbr`d`] \\ simp[]
+      \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
+      \\ qmatch_assum_rename_tac`n2 < 256n`
+      \\ `n2 <= 256` by simp[]
+      \\ drule LESS_EQ_ADD_SUB
+      \\ qmatch_assum_rename_tac`n1 < n2`
+      \\ disch_then(qspec_then`n1`(CHANGED_TAC o SUBST_ALL_TAC))
+      \\ REWRITE_TAC[LEFT_ADD_DISTRIB]
+      \\ simp[LEFT_SUB_DISTRIB,Abbr`b`]
+      \\ `4 * (d * n2) - 4 * (d * n1) = (4 * d) * (n2 - n1)` by simp[]
+      \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+      \\ `1024 * d - 4 * d * (n2 - n1) = (1024 - 4 * (n2 - n1)) * d` by simp[]
+      \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+      \\ `0 < d` by simp[Abbr`d`]
+      \\ drule MULT_DIV
+      \\ disch_then(CHANGED_TAC o (fn th => REWRITE_TAC[th]))
+      \\ simp[])
+    \\ pop_assum SUBST_ALL_TAC
+    \\ match_mp_tac IMP_memory_rel_Number
+    \\ fs[]
+    \\ fs[Abbr`i`,small_int_def]
+    \\ qmatch_goalsub_rename_tac`w2n w`
+    \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
+    \\ fs[good_dimindex_def,dimword_def] ));
 
 val th = Q.store_thm("assign_WordOpW64",
   `(?opw. op = WordOp W64 opw) ==> ^assign_thm_goal`,
