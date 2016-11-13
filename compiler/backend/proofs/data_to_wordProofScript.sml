@@ -6077,93 +6077,100 @@ val th = Q.store_thm("assign_UpdateByte",
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ cheat (* update for bignums *) (*
-   (imp_res_tac get_vars_IMP_LENGTH \\ fs[]
-    \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
-    \\ imp_res_tac state_rel_get_vars_IMP
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
-    \\ imp_res_tac get_vars_3_IMP
-    \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
-          bviPropsTheory.bvl_to_bvi_id,
-          bvi_to_data_refs, data_to_bvi_refs]
-    \\ fs[GSYM bvi_to_data_refs]
-    \\ fs[data_to_bvi_def]
-    \\ fs[state_rel_thm,set_var_def]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt_drule (memory_rel_get_vars_IMP )
-    \\ strip_tac
-    \\ fs[get_vars_def]
-    \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ clean_tac
-    \\ rpt_drule get_var_get_real_addr_lemma
-    \\ imp_res_tac memory_rel_tl
-    \\ rpt_drule memory_rel_Number_IMP
-    \\ imp_res_tac memory_rel_tl
-    \\ rpt_drule memory_rel_Number_IMP
-    \\ ntac 2 (pop_assum kall_tac)
-    \\ ntac 2 strip_tac \\ clean_tac
-    \\ qpat_x_assum`get_var (adjust_var e2) _ = _`assume_tac
-    \\ rpt_drule get_real_byte_offset_lemma
-    \\ simp[assign_def,list_Seq_def] \\ eval_tac
-    \\ fs[wordSemTheory.get_var_def]
-    \\ simp[lookup_insert,wordSemTheory.inst_def]
-    \\ `2 < dimindex(:'a)` by fs[good_dimindex_def]
-    \\ simp[wordSemTheory.get_var_def,Unit_def]
-    \\ eval_tac
-    \\ simp[lookup_insert]
-    \\ rpt strip_tac
-    \\ simp[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
-    \\ qspecl_then[`ii`,`2`](mp_tac o Q.GEN`ii` o SYM) WORD_MUL_LSL
-    \\ `i2w 4 = 4w` by EVAL_TAC
-    \\ simp[]
-    \\ `i2w i << 2 >>> 2 = i2w i`
-    by (
-      match_mp_tac lsl_lsr
-      \\ Cases_on`i`
-      \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
-    \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-    \\ `i2w (&w2n w) << 2 >>> 2 = i2w (&w2n w)`
-    by (
-      match_mp_tac lsl_lsr
-      \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
-    \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-    \\ `dimindex(:8) ≤ dimindex(:α)` by fs[good_dimindex_def]
-    \\ simp[integer_wordTheory.w2w_i2w]
-    \\ `i2w i = n2w (Num i)`
-    by (
-      rw[integer_wordTheory.i2w_def]
-      \\ `F` by intLib.COOPER_TAC )
-    \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-    \\ disch_then kall_tac
-    \\ qpat_x_assum`∀i. _ ⇒ mem_load_byte_aux _ _ _ _ = _`(qspec_then`Num i`mp_tac)
-    \\ impl_tac
-    >- (
-      fs[GSYM integerTheory.INT_OF_NUM]
-      \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
-      \\ PROVE_TAC[] )
-    \\ simp[wordSemTheory.mem_load_byte_aux_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ strip_tac
-    \\ simp[wordSemTheory.mem_store_byte_aux_def]
-    \\ simp[lookup_insert]
-    \\ conj_tac >- rw[]
-    \\ fs[inter_insert_ODD_adjust_set]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ match_mp_tac memory_rel_insert
-    \\ simp[]
-    \\ match_mp_tac memory_rel_Unit
-    \\ first_x_assum(qspecl_then[`Num i`,`w`]mp_tac)
-    \\ impl_tac
-    >- (
-      fs[GSYM integerTheory.INT_OF_NUM]
-      \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
-      \\ PROVE_TAC[] )
-    \\ simp[theWord_def] \\ strip_tac
-    \\ drule memory_rel_tl \\ simp[] \\ strip_tac
-    \\ drule memory_rel_tl \\ simp[] \\ strip_tac
-    \\ drule memory_rel_tl \\ simp[]) *));
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+  \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
+  \\ imp_res_tac get_vars_3_IMP
+  \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
+        bviPropsTheory.bvl_to_bvi_id,
+        bvi_to_data_refs, data_to_bvi_refs]
+  \\ fs[GSYM bvi_to_data_refs]
+  \\ fs[data_to_bvi_def]
+  \\ fs[state_rel_thm,set_var_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP )
+  \\ strip_tac
+  \\ fs[get_vars_def]
+  \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ strip_tac \\ clean_tac
+  \\ rpt_drule get_var_get_real_addr_lemma
+  \\ imp_res_tac memory_rel_tl
+  \\ `small_int (:'a) i`
+  by (
+    simp[small_int_def]
+    \\ fs[good_dimindex_def]
+    \\ rfs[dimword_def]
+    \\ intLib.COOPER_TAC )
+  \\ rpt_drule memory_rel_Number_IMP
+  \\ imp_res_tac memory_rel_tl
+  \\ `small_int (:'a) (&w2n w)`
+  by (match_mp_tac small_int_w2n \\ fs[])
+  \\ rpt_drule memory_rel_Number_IMP
+  \\ ntac 2 (qhdtm_x_assum`memory_rel` kall_tac)
+  \\ ntac 2 strip_tac \\ clean_tac
+  \\ qpat_x_assum`get_var (adjust_var e2) _ = _`assume_tac
+  \\ rpt_drule get_real_byte_offset_lemma
+  \\ simp[assign_def,list_Seq_def] \\ eval_tac
+  \\ fs[wordSemTheory.get_var_def]
+  \\ simp[lookup_insert,wordSemTheory.inst_def]
+  \\ `2 < dimindex(:'a)` by fs[good_dimindex_def]
+  \\ simp[wordSemTheory.get_var_def,Unit_def]
+  \\ eval_tac
+  \\ simp[lookup_insert]
+  \\ rpt strip_tac
+  \\ simp[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
+  \\ qspecl_then[`ii`,`2`](mp_tac o Q.GEN`ii` o SYM) WORD_MUL_LSL
+  \\ `i2w 4 = 4w` by EVAL_TAC
+  \\ simp[]
+  \\ `i2w i << 2 >>> 2 = i2w i`
+  by (
+    match_mp_tac lsl_lsr
+    \\ Cases_on`i`
+    \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
+  \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+  \\ `i2w (&w2n w) << 2 >>> 2 = i2w (&w2n w)`
+  by (
+    match_mp_tac lsl_lsr
+    \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
+  \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+  \\ `dimindex(:8) ≤ dimindex(:α)` by fs[good_dimindex_def]
+  \\ simp[integer_wordTheory.w2w_i2w]
+  \\ `i2w i = n2w (Num i)`
+  by (
+    rw[integer_wordTheory.i2w_def]
+    \\ `F` by intLib.COOPER_TAC )
+  \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+  \\ disch_then kall_tac
+  \\ qpat_x_assum`∀i. _ ⇒ mem_load_byte_aux _ _ _ _ = _`(qspec_then`Num i`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[GSYM integerTheory.INT_OF_NUM]
+    \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
+    \\ PROVE_TAC[] )
+  \\ simp[wordSemTheory.mem_load_byte_aux_def]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac
+  \\ simp[wordSemTheory.mem_store_byte_aux_def]
+  \\ simp[lookup_insert]
+  \\ conj_tac >- rw[]
+  \\ fs[inter_insert_ODD_adjust_set]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert
+  \\ simp[]
+  \\ match_mp_tac memory_rel_Unit
+  \\ first_x_assum(qspecl_then[`Num i`,`w`]mp_tac)
+  \\ impl_tac
+  >- (
+    fs[GSYM integerTheory.INT_OF_NUM]
+    \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
+    \\ PROVE_TAC[] )
+  \\ simp[theWord_def] \\ strip_tac
+  \\ drule memory_rel_tl \\ simp[] \\ strip_tac
+  \\ drule memory_rel_tl \\ simp[] \\ strip_tac
+  \\ drule memory_rel_tl \\ simp[]);
 
 val th = Q.store_thm("assign_DerefByte",
   `op = DerefByte ==> ^assign_thm_goal`,
