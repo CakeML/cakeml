@@ -4624,10 +4624,13 @@ val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
 val memory_rel_Number_bignum_IMP = store_thm("memory_rel_Number_bignum_IMP",
   ``memory_rel c be refs sp st m dm ((Number i,v)::vars) /\
     ~small_int (:'a) i /\ good_dimindex (:'a) ==>
-    ?w x a.
+    ?w x a y.
       v = Word w /\ (w && 1w) <> (0w:'a word) /\
       get_real_addr c st w = SOME a /\
-      a IN dm /\ m a = Word x /\ ((x && 8w) <> 0w)``,
+      a IN dm /\ m a = Word x /\ ((x && 8w) <> 0w) /\
+      a + bytes_in_word IN dm /\
+      m (a + bytes_in_word) = Word (n2w (Num (ABS i))) /\
+      ((x && 16w) = 0w <=> 0 <= i)``,
   fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
      bc_stack_ref_inv_def,v_inv_def] \\ rw[] \\ fs[word_addr_def]
   \\ fs[heap_in_memory_store_def]
@@ -4639,9 +4642,18 @@ val memory_rel_Number_bignum_IMP = store_thm("memory_rel_Number_bignum_IMP",
   \\ imp_res_tac heap_lookup_SPLIT \\ rveq
   \\ fs[word_heap_APPEND,word_heap_def,word_el_def,UNCURRY,word_list_def,
         Bignum_def,multiwordTheory.i2mw_def]
+  \\ `?ns. n2mw (Num (ABS i)) = (n2w (Num (ABS i))) :: ns` by
+   (once_rewrite_tac [multiwordTheory.n2mw_def]
+    \\ rw [n2w_mod]
+    \\ fs [small_int_def]
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs []
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs []
+    \\ intLib.COOPER_TAC)
+  \\ fs [word_payload_def,make_header_def,word_list_def]
   \\ SEP_R_TAC \\ simp[]
-  \\ fs [word_payload_def,make_header_def]
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]);
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+  \\ fs [GSYM integerTheory.INT_NOT_LT]
+  \\ Cases_on `i < 0i` \\ fs [] \\ EVAL_TAC);
 
 val memory_rel_Word64_IMP = Q.store_thm("memory_rel_Word64_IMP",
   `memory_rel c be refs sp st m dm ((Word64 w64,v:'a word_loc)::vars) /\
