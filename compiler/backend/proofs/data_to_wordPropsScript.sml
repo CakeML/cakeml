@@ -2068,8 +2068,8 @@ val word_payload_def = Define `
      (make_header conf 3w l,
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (NumTag b) qs conf =
-     (* header: ...101[11] or ...001[11] *)
-     (make_header conf (b2w b << 2 || 1w) (LENGTH qs),
+     (* header: ...111[11] or ...011[11] *)
+     (make_header conf (b2w b << 2 || 3w) (LENGTH qs),
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
      (* header: ...11111 *)
@@ -4620,6 +4620,28 @@ val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   \\ fs [word_addr_def,Smallnum_def,integer_wordTheory.i2w_def]
   \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
+
+val memory_rel_Number_bignum_IMP = store_thm("memory_rel_Number_bignum_IMP",
+  ``memory_rel c be refs sp st m dm ((Number i,v)::vars) /\
+    ~small_int (:'a) i /\ good_dimindex (:'a) ==>
+    ?w x a.
+      v = Word w /\ (w && 1w) <> (0w:'a word) /\
+      get_real_addr c st w = SOME a /\
+      a IN dm /\ m a = Word x /\ ((x && 8w) <> 0w)``,
+  fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+     bc_stack_ref_inv_def,v_inv_def] \\ rw[] \\ fs[word_addr_def]
+  \\ fs[heap_in_memory_store_def]
+  \\ imp_res_tac get_real_addr_get_addr \\ fs []
+  \\ fs [GSYM PULL_EXISTS]
+  \\ conj_tac THEN1
+   (fs [get_addr_def,make_ptr_def,get_lowerbits_def]
+    \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
+  \\ imp_res_tac heap_lookup_SPLIT \\ rveq
+  \\ fs[word_heap_APPEND,word_heap_def,word_el_def,UNCURRY,word_list_def,
+        Bignum_def,multiwordTheory.i2mw_def]
+  \\ SEP_R_TAC \\ simp[]
+  \\ fs [word_payload_def,make_header_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]);
 
 val memory_rel_Word64_IMP = Q.store_thm("memory_rel_Word64_IMP",
   `memory_rel c be refs sp st m dm ((Word64 w64,v:'a word_loc)::vars) /\
