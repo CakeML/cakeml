@@ -1187,7 +1187,9 @@ val NOT_isRefBlock = Q.prove(
     ~(isRefBlock (Word64Rep a w)) /\
     ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))`,
   simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def,Bignum_def]
-  \\ Cases_on`a` \\ EVAL_TAC \\ rw[]);
+  \\ Cases_on`a` \\ rw[]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ EVAL_TAC \\ rw[]);
 
 val v_inv_Ref = Q.prove(
   `RefBlock_inv heap heap2 ==>
