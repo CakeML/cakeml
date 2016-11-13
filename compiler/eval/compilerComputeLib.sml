@@ -138,6 +138,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,dec_to_exhTheory.exhaustive_match_def
     ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_pat_def
+    ,dec_to_exhTheory.compile_def
     ,exh_reorderTheory.is_const_con_def
     ,exh_reorderTheory.isPcon_def
     ,exh_reorderTheory.isPvar_def
