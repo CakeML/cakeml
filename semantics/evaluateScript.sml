@@ -19,7 +19,7 @@ val _ = new_theory "evaluate"
  * clean up the definition (in HOL4) to remove occurrences of fix_clock. *)
 
 val _ = Define `
- (fix_clock s (s',res) =  
+ (fix_clock s (s',res) =
   (( s' with<| clock := if s'.clock <= s.clock
                      then s'.clock else s.clock |>),res))`;
 
