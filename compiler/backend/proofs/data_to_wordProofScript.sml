@@ -4173,6 +4173,17 @@ val get_var_get_real_addr_lemma =
                                    strip_comb o lhs)))
                      get_real_addr_lemma)
 
+val evaluate_LoadWord64 = Q.store_thm("evaluate_LoadWord64",
+  `shift_length c < dimindex(:α) ∧
+   good_dimindex (:α) ∧
+   get_real_addr c (s:('a,'ffi)state).store ptr_w = SOME w ∧
+   get_var src s = SOME (Word ptr_w) ∧
+   w + bytes_in_word ∈ s.mdomain
+   ==>
+   evaluate (LoadWord64 c dest src,s) = (NONE, set_var dest (s.memory (w+bytes_in_word)) s)`,
+  rw[LoadWord64_def] \\ eval_tac
+  \\ rpt_drule get_var_get_real_addr_lemma);
+
 val assign_thm_goal =
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_requires_names op ==> names_opt <> NONE) /\
