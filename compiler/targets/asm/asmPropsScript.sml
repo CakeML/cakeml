@@ -10,7 +10,7 @@ val asm_deterministic = Q.store_thm("asm_deterministic",
 
 val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
   `!l1 l2 pc mem mem_domain.
-      bytes_in_memory pc (l1 ++ l2) mem mem_domain =
+      bytes_in_memory pc (l1 ++ l2) mem mem_domain <=>
       bytes_in_memory pc l1 mem mem_domain /\
       bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
   Induct
@@ -23,13 +23,13 @@ val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
 (* -- well-formedness of encoding -- *)
 
 val offset_monotonic_def = Define `
-  offset_monotonic enc c a1 a2 i1 i2 =
+  offset_monotonic enc c a1 a2 i1 i2 <=>
   asm_ok i1 c /\ asm_ok i2 c ==>
   (0w <= a1 /\ 0w <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
   (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
 
 val enc_ok_def = Define `
-  enc_ok (c : 'a asm_config) =
+  enc_ok (c : 'a asm_config) <=>
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
     (!w. (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
@@ -56,14 +56,14 @@ val () = Datatype `
      |>`
 
 val target_state_rel_def = Define`
-  target_state_rel t s ms =
+  target_state_rel t s ms <=>
   t.state_ok ms /\ (t.get_pc ms = s.pc) /\
   (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
   (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
        (t.get_reg ms i = s.regs i))`
 
 val target_ok_def = Define`
-  target_ok t =
+  target_ok t <=>
   enc_ok t.config /\
   !ms1 ms2 s.
     (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
@@ -98,7 +98,7 @@ val backend_correct_def = Define `
 
 val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
   `!t s ms.
-     target_state_rel t s ms =
+     target_state_rel t s ms <=>
      t.state_ok ms /\ (s.pc = t.get_pc ms) /\
      (!a. a IN s.mem_domain ==> (s.mem a = t.get_byte ms a)) /\
      (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>

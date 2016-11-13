@@ -12,7 +12,7 @@ val arm6_next_def = Define `arm6_next = THE o NextStateARM`
 (* --- Valid ARMv6 states --- *)
 
 val arm6_ok_def = Define`
-   arm6_ok ms =
+   arm6_ok ms <=>
    GoodMode ms.CPSR.M /\ ~ms.CPSR.E /\ ~ms.CPSR.J /\ ~ms.CPSR.T /\
    (ms.Architecture = ARMv6) /\ ~ms.Extensions Extension_Security /\
    (ms.exception = NoException) /\ aligned 2 (ms.REG RName_PC)`

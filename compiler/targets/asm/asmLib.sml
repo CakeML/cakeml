@@ -100,6 +100,9 @@ in
       (not o is_asm_ok) (ERR "asm_ok_conv" "") (fn t => !cnv t)
 end
 
+fun ast_type a s = Type.mk_thy_type {Thy = "ast", Tyop = s, Args = a}
+val ast_type0 = ast_type []
+
 fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
 val asm_type0 = asm_type []
 val asm_type = asm_type [``:64``]
@@ -114,7 +117,8 @@ val add_asm_compset = computeLib.extend_compset
    computeLib.Convs
      [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
-     (List.map asm_type0 ["cmp", "memop", "binop", "shift"] @
+     (List.map ast_type0 ["shift"] @
+      List.map asm_type0 ["cmp", "memop", "binop"] @
       List.map asm_type  ["asm_config", "asm", "inst"])]
 
 (* some custom tools/tactics ---------------------------------------------- *)

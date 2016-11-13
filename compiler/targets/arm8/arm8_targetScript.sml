@@ -12,7 +12,7 @@ val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
 (* --- Valid ARMv8 states --- *)
 
 val arm8_ok_def = Define`
-   arm8_ok ms =
+   arm8_ok ms <=>
    (ms.PSTATE.EL = 0w) /\
    ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
    ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
@@ -46,13 +46,13 @@ val cmp_cond_def = Define`
 
 val arm8_enc_mov_imm_def = Define`
    arm8_enc_mov_imm (i: word64) =
-   if i && 0xFFFFFFFFFFFF0000w = 0w then
+   if (i && 0xFFFFFFFFFFFF0000w) = 0w then
       SOME ((15 >< 0) i, 0w: word2)
-   else if i && 0xFFFFFFFF0000FFFFw = 0w then
+   else if (i && 0xFFFFFFFF0000FFFFw) = 0w then
       SOME ((31 >< 16) i, 1w)
-   else if i && 0xFFFF0000FFFFFFFFw = 0w then
+   else if (i && 0xFFFF0000FFFFFFFFw) = 0w then
       SOME ((47 >< 32) i, 2w)
-   else if i && 0x0000FFFFFFFFFFFFw = 0w then
+   else if (i && 0x0000FFFFFFFFFFFFw) = 0w then
       SOME ((63 >< 48) i, 3w)
    else
       NONE`
@@ -217,7 +217,7 @@ val valid_immediate_def = Define`
    if c IN {INL Add; INL Sub;
             INR Less; INR Lower; INR Equal;
             INR NotLess; INR NotLower; INR NotEqual} then
-      (~0xFFFw && i = 0w) \/ (~0xFFF000w && i = 0w)
+      ((~0xFFFw && i) = 0w) \/ ((~0xFFF000w && i) = 0w)
    else
       IS_SOME (EncodeBitMask i)`
 
@@ -255,7 +255,7 @@ val arm8_target_def = Define`
     |>`
 
 val (arm8_config, arm8_asm_ok) =
-  asmLib.target_asm_rwts [DECIDE ``a < 32 /\ a <> 31n = a < 31``]
+  asmLib.target_asm_rwts [DECIDE ``a < 32 /\ a <> 31n <=> a < 31``]
     ``arm8_config``
 
 val arm8_config = save_thm("arm8_config", arm8_config)

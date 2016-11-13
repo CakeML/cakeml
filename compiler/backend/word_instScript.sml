@@ -68,7 +68,7 @@ val pull_exp_def = tDefine "pull_exp"`
   (WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ fs[exp_size_def,asmTheory.binop_size_def,asmTheory.shift_size_def,store_name_size_def]
+   \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
    \\ TRY (DECIDE_TAC))
 
 (*Flatten list expressions to trees -- of the form:

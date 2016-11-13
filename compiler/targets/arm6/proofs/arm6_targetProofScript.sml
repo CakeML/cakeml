@@ -323,12 +323,12 @@ val decode_imm8_thm6 =
          (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
 
 val word_lo_not_carry = Q.prove(
-   `!a b. a <+ b = ~CARRY_OUT a (~b) T`,
+   `!a b. (a <+ b) = ~CARRY_OUT a (~b) T`,
    simp [wordsTheory.ADD_WITH_CARRY_SUB, wordsTheory.WORD_NOT_LOWER_EQUAL]
    )
 
 val word_lt_n_eq_v = Q.prove(
-   `!a b: word32. a < b = (word_bit 31 (a + -1w * b) <> OVERFLOW a (~b) T)`,
+   `!a b: word32. (a < b) = ((word_bit 31 (a + -1w * b) <> OVERFLOW a (~b) T))`,
    simp [wordsTheory.ADD_WITH_CARRY_SUB, GSYM wordsTheory.WORD_LO]
    \\ blastLib.BBLAST_TAC
    )
@@ -373,7 +373,7 @@ end
 
 val reg_mode_eq = Q.prove(
    `!m ms1 ms2.
-       (ms1.REG o R_mode m = ms2.REG o R_mode m) =
+       (ms1.REG o R_mode m = ms2.REG o R_mode m) <=>
        (!i. ms1.REG (R_mode m (n2w i)) = ms2.REG (R_mode m (n2w i))) /\
        (ms1.REG RName_PC = ms2.REG RName_PC)`,
    rw [FUN_EQ_THM]
@@ -393,7 +393,7 @@ val _ = diminish_srw_ss ["MOD_ss"]
 
 val adc_lem1 = Q.prove(
   `!r2 r3 : word32 r4 : word32.
-      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
       4294967296 <= w2n r2 + (w2n r3 + 1)`,
   rw [wordsTheory.add_with_carry_def]
 )
@@ -406,7 +406,7 @@ val adc_lem2 = Q.prove(
 )
 
 val adc_lem3 = Q.prove(
-  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3`,
   rw [wordsTheory.add_with_carry_def]
 )
 
@@ -577,7 +577,7 @@ end
 
 val adc_lem1 = Q.prove(
   `!r2 r3 : word32 r4 : word32.
-      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
       4294967296 <= w2n r2 + (w2n r3 + 1)`,
   rw [wordsTheory.add_with_carry_def]
 )
@@ -590,7 +590,7 @@ val adc_lem2 = Q.prove(
 )
 
 val adc_lem3 = Q.prove(
-  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3`,
   rw [wordsTheory.add_with_carry_def]
 )
 

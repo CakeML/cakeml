@@ -7469,6 +7469,9 @@ val compile_semantics = save_thm("compile_semantics",let
          |> UNDISCH
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
+val assign_def_extras = LIST_CONJ
+  [LoadWord64_def,WriteWord64_def,BignumHalt_def];
+
 val data_to_word_lab_pres_lem = Q.prove(`
   ∀c n l p.
   l ≠ 0 ⇒
@@ -7485,7 +7488,7 @@ val data_to_word_lab_pres_lem = Q.prove(`
     res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[])
   >-
-    (fs[assign_def]>>
+    (fs[assign_def,assign_def_extras]>>
     Cases_on`o'`>>
     fs[extract_labels_def,GiveUp_def]>>
     BasicProvers.EVERY_CASE_TAC>>
@@ -7536,11 +7539,11 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
                \\ imp_res_tac prim_recTheory.SUC_LESS)))>>
       qpat_x_assum`PERM A B` mp_tac >>
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
-           Make_ptr_bits_code_def,Maxout_bits_code_def,
+           Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
            MakeBytes_def,SmallLsr_def,GiveUp_def] >> rpt IF_CASES_TAC >>
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
-           Make_ptr_bits_code_def,Maxout_bits_code_def,
+           Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
            MakeBytes_def,SmallLsr_def])>>
     qpat_x_assum`n < LENGTH _`assume_tac >>
@@ -7570,7 +7573,8 @@ val assign_no_inst = Q.prove(`
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
-  every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,inst_ok_less_def]>>
+  every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+    inst_ok_less_def,assign_def_extras]>>
   Cases_on`o'`>>fs[])
 
 val comp_no_inst = Q.prove(`
