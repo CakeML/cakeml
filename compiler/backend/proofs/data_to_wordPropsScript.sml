@@ -16,7 +16,8 @@ val ZIP_REPLICATE = Q.store_thm("ZIP_REPLICATE",
 (* -- *)
 
 val get_lowerbits_def = Define `
-  (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
+  (get_lowerbits conf (Word w) =
+     ((((small_shift_length conf - 1) -- 0) w) || 1w)) /\
   (get_lowerbits conf _ = 1w)`;
 
 val _ = Datatype `
@@ -2261,18 +2262,26 @@ val memory_rel_Unit = Q.store_thm("memory_rel_Unit",
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac word_ml_inv_Unit \\ fs []);
 
+val bytes_in_word_mul_eq_shift = Q.store_thm("bytes_in_word_mul_eq_shift",
+  `good_dimindex (:'a) ==>
+   (bytes_in_word * w = (w << shift (:'a)):'a word)`,
+  fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []);
+
 val get_lowerbits_LSL_shift_length = Q.store_thm("get_lowerbits_LSL_shift_length",
   `get_lowerbits conf a >>> shift_length conf = 0w`,
   Cases_on `a`
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
-       [word_index, get_lowerbits_def, shift_length_def])
+       [word_index, get_lowerbits_def, small_shift_length_def, shift_length_def])
 
 val get_real_addr_def = Define `
   get_real_addr conf st (w:'a word) =
     let k = shift (:α) in
       case FLOOKUP st CurrHeap of
       | SOME (Word curr) =>
-          SOME (curr + (w >>> (shift_length conf) << k))
+          if k <= conf.pad_bits + 1
+          then SOME (curr + (w >>> (shift_length conf - k)))
+          else SOME (curr + (w >>> (shift_length conf) << k))
       | _ => NONE`
 
 val get_real_offset_def = Define `
@@ -2295,10 +2304,35 @@ val get_real_addr_get_addr = Q.store_thm("get_real_addr_get_addr",
     \\ match_mp_tac LESS_LESS_EQ_TRANS
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs [])
-  \\ drule lsl_lsr \\ fs [get_lowerbits_LSL_shift_length]
-  \\ fs [] \\ rw []
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
-  \\ rfs [WORD_MUL_LSL,word_mul_n2w,shift_def,bytes_in_word_def])
+  \\ reverse IF_CASES_TAC THEN1
+   (drule lsl_lsr \\ fs [get_lowerbits_LSL_shift_length]
+    \\ fs [] \\ rw []
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
+    \\ rfs [WORD_MUL_LSL,word_mul_n2w,shift_def,bytes_in_word_def])
+  \\ fs []
+  \\ `get_lowerbits c w ⋙ (shift_length c − shift (:α)) = 0w` by
+    (Cases_on `w` \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+       [word_index, get_lowerbits_def, shift_length_def, small_shift_length_def]
+     \\ NO_TAC) \\ fs []
+  \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
+  \\ fs [WORD_MUL_LSL,word_mul_n2w,bytes_in_word_def]
+  \\ `(n * 2 ** shift_length c) < dimword (:α)` by
+   (match_mp_tac LESS_LESS_EQ_TRANS
+    \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+  \\ `(n * (dimindex (:α) DIV 8)) < dimword (:α)` by
+   (match_mp_tac LESS_EQ_LESS_TRANS
+    \\ qexists_tac `n * 2 ** shift_length c` \\ fs []
+    \\ disj2_tac \\ fs [DIV_LE_X]
+    \\ rfs [shift_def,labPropsTheory.good_dimindex_def,shift_length_def,EXP_ADD]
+    \\ Cases_on `c.pad_bits` \\ fs [EXP,LEFT_ADD_DISTRIB]
+    \\ fs [GSYM EXP_ADD]
+    \\ Cases_on `2 ** (n' + (c.len_bits + c.tag_bits))` \\ fs [] \\ NO_TAC)
+  \\ fs []
+  \\ `shift_length c = shift (:'a) + (shift_length c - shift (:'a))` by
+    (fs [shift_def,labPropsTheory.good_dimindex_def,shift_length_def] \\ NO_TAC)
+  \\ pop_assum (fn th => simp_tac std_ss [Once th])
+  \\ simp_tac std_ss [EXP_ADD,MULT_ASSOC,MULT_DIV]
+  \\ fs [shift_def,labPropsTheory.good_dimindex_def]);
 
 val get_real_offset_thm = Q.store_thm("get_real_offset_thm",
   `good_dimindex (:'a) ==>
@@ -2615,12 +2649,6 @@ val store_list_def = Define `
 val minus_lemma = Q.prove(
   `-1w * (bytes_in_word * w) = bytes_in_word * -w`,
   fs []);
-
-val bytes_in_word_mul_eq_shift = Q.store_thm("bytes_in_word_mul_eq_shift",
-  `good_dimindex (:'a) ==>
-    (bytes_in_word * w = (w << shift (:'a)):'a word)`,
-  fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []);
 
 val n2w_lsr_eq_0 = Q.store_thm("n2w_lsr_eq_0",
   `n DIV 2 ** k = 0 /\ n < dimword (:'a) ==> n2w n >>> k = 0w:'a word`,
@@ -5007,7 +5035,7 @@ val memory_rel_less_space = Q.store_thm("memory_rel_less_space",
   rw[memory_rel_def] \\ asm_exists_tac \\ simp[]);
 
 val maxout_bits_IMP = Q.store_thm("maxout_bits_IMP",
-  `i < dimindex (:'a) /\ (maxout_bits tag k n:'a word) ' i ==> i <= n + k`,
+  `i < dimindex (:'a) /\ (maxout_bits tag k n:'a word) ' i ==> i < n + k`,
   rw [maxout_bits_def] \\ rfs [word_lsl_def,fcpTheory.FCP_BETA,n2w_def]
   THEN1
    (CCONTR_TAC \\ fs [GSYM NOT_LESS]
@@ -5016,7 +5044,9 @@ val maxout_bits_IMP = Q.store_thm("maxout_bits_IMP",
     \\ match_mp_tac LESS_DIV_EQ_ZERO
     \\ match_mp_tac LESS_LESS_EQ_TRANS
     \\ asm_exists_tac \\ fs [])
-  \\ rfs [all_ones_def,word_bits_def,fcpTheory.FCP_BETA]);
+  \\ rfs [all_ones_def,word_slice_def,fcpTheory.FCP_BETA]
+  \\ Cases_on `k` \\ fs [] \\ rfs [word_0]
+  \\ rfs [ADD1,fcpTheory.FCP_BETA]);
 
 val make_cons_ptr_thm = Q.store_thm("make_cons_ptr_thm",
   `make_cons_ptr conf (f:'a word) tag len =
@@ -5029,6 +5059,6 @@ val make_cons_ptr_thm = Q.store_thm("make_cons_ptr_thm",
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_bits_def,word_or_def]
   \\ rw [] \\ fs [] \\ eq_tac \\ fs [] \\ rw [] \\ fs []
   \\ disj1_tac \\ rfs [ptr_bits_def,word_or_def,fcpTheory.FCP_BETA]
-  \\ imp_res_tac maxout_bits_IMP \\ fs [shift_length_def]);
+  \\ imp_res_tac maxout_bits_IMP \\ fs [small_shift_length_def]);
 
 val _ = export_theory();

@@ -391,6 +391,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.list_Seq_def
     ,data_to_wordTheory.shift_def
     ,data_to_wordTheory.StoreEach_def
+    ,data_to_wordTheory.small_shift_length_def
     ,data_to_wordTheory.shift_length_def
     ,data_to_wordTheory.max_heap_limit_def
     ,data_to_wordTheory.all_ones_def
