@@ -6615,8 +6615,6 @@ val th = Q.store_thm("assign_FFI",
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ rw[] \\ rw[] )
   \\ qmatch_asmsub_abbrev_tac`((RefPtr p,Word w)::vars)`
-  \\ cheat (*
-
   \\ `∀n. n ≤ LENGTH ls ⇒
       let new_m = write_bytearray (aa + n2w (LENGTH ls - n)) (DROP (LENGTH ls - n) ls') t.memory t.mdomain t.be in
       memory_rel c t.be (x.refs |+ (p,ByteArray (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))) x.space t.store
@@ -6643,8 +6641,8 @@ val th = Q.store_thm("assign_FFI",
     \\ qmatch_asmsub_abbrev_tac`ByteArray ls1`
     \\ `ls2 = LUPDATE (EL (LENGTH ls - SUC n) ls') (LENGTH ls - SUC n) ls1`
     by (
-      simp[Abbr`ls1`,Abbr`ls2`,LIST_EQ_REWRITE,EL_APPEND_EQN,EL_LUPDATE]
-      \\ rw[] \\ fs[] \\ simp[EL_TAKE,hd_drop,EL_DROP] \\ cheat \\ NO_TAC )
+      simp[Abbr`ls1`,Abbr`ls2`,LIST_EQ_REWRITE,EL_APPEND_EQN,EL_LUPDATE,DROP_def,TAKE_def]
+      \\ rw[] \\ fs[] \\ simp[EL_TAKE,hd_drop,EL_DROP] \\ NO_TAC )
     \\ qunabbrev_tac`ls2` \\ fs[]
     \\ qmatch_goalsub_abbrev_tac`EL i ls'`
     \\ `i < LENGTH ls` by simp[Abbr`i`]
@@ -6702,7 +6700,7 @@ val th = Q.store_thm("assign_FFI",
   \\ ntac 10 (pop_assum kall_tac)
   \\ match_mp_tac memory_rel_rearrange
   \\ simp[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
-  \\ rw[] \\ rw[] \\ metis_tac[] *));
+  \\ rw[] \\ rw[] \\ metis_tac[]);
 
 val assign_thm = Q.store_thm("assign_thm",
   `^assign_thm_goal`,
