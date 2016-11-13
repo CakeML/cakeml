@@ -9,6 +9,9 @@ val _ = new_theory "data_to_wordProof";
 (* TODO: move *)
 val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
 
+fun op by1 (q,tac) = q by (tac \\ NO_TAC)
+infix 8 by1
+
 val WORD_MUL_BIT0 = Q.store_thm("WORD_MUL_BIT0",
   `!a b. (a * b) ' 0 <=> a ' 0 /\ b ' 0`,
   fs [word_mul_def,word_index,bitTheory.BIT0_ODD,ODD_MULT]
@@ -6178,82 +6181,86 @@ val th = Q.store_thm("assign_DerefByte",
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ cheat (* update for bignums *) (*
-   (imp_res_tac get_vars_IMP_LENGTH \\ fs[]
-    \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
-    \\ imp_res_tac state_rel_get_vars_IMP
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
-    \\ imp_res_tac get_vars_2_IMP
-    \\ fs[bviPropsTheory.bvl_to_bvi_id]
-    \\ fs[state_rel_thm,set_var_def]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt_drule (memory_rel_get_vars_IMP )
-    \\ strip_tac
-    \\ fs[get_vars_def]
-    \\ every_case_tac \\ fs[] \\ clean_tac
-    \\ fs[data_to_bvi_def]
-    \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ clean_tac
-    \\ first_x_assum(qspec_then`ARB`kall_tac)
-    \\ rpt_drule get_var_get_real_addr_lemma
-    \\ imp_res_tac memory_rel_tl
-    \\ rpt_drule memory_rel_Number_IMP
-    \\ pop_assum kall_tac
-    \\ strip_tac
-    \\ clean_tac
-    \\ qpat_x_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac
-    \\ rpt_drule get_real_byte_offset_lemma
-    \\ simp[assign_def,list_Seq_def] \\ eval_tac
-    \\ simp[wordSemTheory.inst_def]
-    \\ eval_tac
-    \\ fs[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
-    \\ qspecl_then[`i2w i`,`2`](mp_tac o SYM) WORD_MUL_LSL
-    \\ `i2w 4 = 4w` by EVAL_TAC
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+  \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ imp_res_tac get_vars_2_IMP
+  \\ fs[bviPropsTheory.bvl_to_bvi_id]
+  \\ fs[state_rel_thm,set_var_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP )
+  \\ strip_tac
+  \\ fs[get_vars_def]
+  \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ fs[data_to_bvi_def]
+  \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ strip_tac \\ clean_tac
+  \\ first_x_assum(qspec_then`ARB`kall_tac)
+  \\ rpt_drule get_var_get_real_addr_lemma
+  \\ imp_res_tac memory_rel_tl
+  \\ `small_int (:'a) i`
+  by (
+    simp[small_int_def]
+    \\ fs[good_dimindex_def]
+    \\ rfs[dimword_def]
+    \\ intLib.COOPER_TAC )
+  \\ rpt_drule memory_rel_Number_IMP
+  \\ qhdtm_x_assum`memory_rel` kall_tac
+  \\ strip_tac
+  \\ clean_tac
+  \\ qpat_x_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac
+  \\ rpt_drule get_real_byte_offset_lemma
+  \\ simp[assign_def,list_Seq_def] \\ eval_tac
+  \\ simp[wordSemTheory.inst_def]
+  \\ eval_tac
+  \\ fs[Smallnum_i2w,GSYM integer_wordTheory.word_i2w_mul]
+  \\ qspecl_then[`i2w i`,`2`](mp_tac o SYM) WORD_MUL_LSL
+  \\ `i2w 4 = 4w` by EVAL_TAC
+  \\ simp[]
+  \\ `i2w i << 2 >>> 2 = i2w i`
+  by (
+    match_mp_tac lsl_lsr
+    \\ REWRITE_TAC[GSYM integerTheory.INT_LT,
+                   GSYM integerTheory.INT_MUL,
+                   integer_wordTheory.w2n_i2w]
     \\ simp[]
-    \\ `i2w i << 2 >>> 2 = i2w i`
-    by (
-      match_mp_tac lsl_lsr
-      \\ REWRITE_TAC[GSYM integerTheory.INT_LT,
-                     GSYM integerTheory.INT_MUL,
-                     integer_wordTheory.w2n_i2w]
-      \\ simp[]
-      \\ reverse(Cases_on`i`) \\ fs[]
-      >- (
-        fs[dimword_def, integerTheory.INT_MOD0] )
-      \\ simp[integerTheory.INT_MOD,dimword_def]
-      \\ fs[small_int_def,dimword_def]
-      \\ fs[X_LT_DIV] )
-    \\ simp[]
-    \\ first_x_assum(qspec_then`Num i`mp_tac)
-    \\ impl_tac >- ( Cases_on`i` \\ fs[] )
-    \\ `i2w i = n2w (Num i)`
-    by (
-      rw[integer_wordTheory.i2w_def]
-      \\ Cases_on`i` \\ fs[] )
-    \\ fs[]
-    \\ `¬(2 ≥ dimindex(:α))` by fs[good_dimindex_def]
-    \\ simp[lookup_insert]
-    \\ ntac 4 strip_tac
-    \\ conj_tac >- rw[]
-    \\ fs[inter_insert_ODD_adjust_set]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ match_mp_tac memory_rel_insert
-    \\ qmatch_goalsub_abbrev_tac`(Number j,Word k)`
-    \\ `small_int (:α) j ∧ k = Smallnum j`
-    by (
-      fs[small_int_def,Abbr`j`]
-      \\ qmatch_goalsub_abbrev_tac`w2n w8`
-      \\ Q.ISPEC_THEN`w8`strip_assume_tac w2n_lt
-      \\ conj_tac
-      >- ( fs[good_dimindex_def,dimword_def] )
-      \\ simp[integer_wordTheory.i2w_def,Smallnum_i2w]
-      \\ simp[Abbr`k`,WORD_MUL_LSL]
-      \\ simp[GSYM word_mul_n2w]
-      \\ simp[w2w_def] )
-    \\ simp[]
-    \\ match_mp_tac IMP_memory_rel_Number
-    \\ fs[]) *));
+    \\ reverse(Cases_on`i`) \\ fs[]
+    >- (
+      fs[dimword_def, integerTheory.INT_MOD0] )
+    \\ simp[integerTheory.INT_MOD,dimword_def]
+    \\ fs[small_int_def,dimword_def]
+    \\ fs[X_LT_DIV] )
+  \\ simp[]
+  \\ first_x_assum(qspec_then`Num i`mp_tac)
+  \\ impl_tac >- ( Cases_on`i` \\ fs[] )
+  \\ `i2w i = n2w (Num i)`
+  by (
+    rw[integer_wordTheory.i2w_def]
+    \\ Cases_on`i` \\ fs[] )
+  \\ fs[]
+  \\ `¬(2 ≥ dimindex(:α))` by fs[good_dimindex_def]
+  \\ simp[lookup_insert]
+  \\ ntac 4 strip_tac
+  \\ conj_tac >- rw[]
+  \\ fs[inter_insert_ODD_adjust_set]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert
+  \\ qmatch_goalsub_abbrev_tac`(Number j,Word k)`
+  \\ `small_int (:α) j` by1 (simp[Abbr`j`,small_int_w2n])
+  \\ `k = Smallnum j`
+  by (
+    fs[small_int_def,Abbr`j`]
+    \\ qmatch_goalsub_abbrev_tac`w2n w8`
+    \\ Q.ISPEC_THEN`w8`strip_assume_tac w2n_lt
+    \\ simp[integer_wordTheory.i2w_def,Smallnum_i2w]
+    \\ simp[Abbr`k`,WORD_MUL_LSL]
+    \\ simp[GSYM word_mul_n2w]
+    \\ simp[w2w_def] )
+  \\ simp[]
+  \\ match_mp_tac IMP_memory_rel_Number
+  \\ fs[]);
 
 val th = Q.store_thm("assign_El",
   `op = El ==> ^assign_thm_goal`,
