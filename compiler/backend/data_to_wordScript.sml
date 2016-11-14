@@ -606,8 +606,8 @@ val assign_def = Define `
                        [Load (Op Add [real_addr c (adjust_var v1); Const (bytes_in_word <<1)]);
                         Load (Op Add [real_addr c (adjust_var v2); Const (bytes_in_word <<1)])]);
                      Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 5]
-                 | Carried Add => GiveUp (* TODO: implement *)
-                 | Carried Sub => GiveUp (* TODO: implement *));
+                 | Carried Add => GiveUp (* TODO: 32bit *)
+                 | Carried Sub => GiveUp (* TODO: 32bit *));
                 Store (Op Add [Var 1; Const bytes_in_word]) 3;
                 Assign 3 (Const header);
                 Store (Var 1) 3;
@@ -652,7 +652,7 @@ val assign_def = Define `
                      (Shift (case sh of Lsl => Lsl | Lsr => Lsr | Asr => Asr)
                        (Var 3) (Nat n));
                     WriteWord64 c header dest 3]
-                 else GiveUp (* TODO: implement *)), l)
+                 else GiveUp (* TODO: 32bit *)), l)
        | _ => (Skip,l))
     | WordFromInt => (case args of
       | [v1] =>
@@ -674,7 +674,7 @@ val assign_def = Define `
                      (If Test 1 (Imm 16w) Skip
                         (Assign 3 (Op Sub [Const 0w; Var 3])))))
                (WriteWord64 c header dest 3)
-            else GiveUp, l))
+            else GiveUp (* TODO: 32bit *), l))
       | _ => (Skip, l))
     | WordToInt =>
      (case args of
@@ -687,8 +687,8 @@ val assign_def = Define `
                         Assign 3 (Shift Lsr (Var 1) (Nat 61));
                         Assign (adjust_var dest) (Shift Lsl (Var 1) (Nat 2));
                         If Equal 3 (Imm 0w) Skip
-                          (WriteWord64 c header (adjust_var dest) 1)], l)
-         else (GiveUp,l)
+                          (WriteWord64 c header dest 1)], l)
+         else (GiveUp (* TODO: 32bit *) ,l)
       | _ => (Skip, l))
     | FFI ffi_index =>
       (case args of
