@@ -633,7 +633,21 @@ val assign_def = Define `
                 (Nat 2))
         ,l)
       | _ => (GiveUp,l))
-    (* TODO: WordShift W64 *)
+    | WordShift W64 sh n => (case args of
+       | [v1] =>
+         let len = if dimindex(:'a) < 64 then 2 else 1 in
+         (case encode_header c 3 len of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+                (if len = 1 then
+                  list_Seq [
+                    LoadWord64 c 3 (adjust_var v1);
+                    Assign 3
+                     (Shift (case sh of Lsl => Lsl | Lsr => Lsr | Asr => Asr)
+                       (Var 3) (Nat n));
+                    WriteWord64 c header dest 3]
+                 else GiveUp (* TODO: implement *)), l)
+       | _ => (Skip,l))
     | WordFromInt => (case args of
       | [v1] =>
         let len = if dimindex(:'a) < 64 then 2 else 1 in
