@@ -884,12 +884,12 @@ val evaluate_const_fp = Q.store_thm("evaluate_const_fp",
 (* putting it all together *)
 
 val compile_exp_thm = Q.store_thm("compile_exp_thm",
-  `ordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error ==>
-   evaluate (word_simp$compile_exp prog,s) = (res,s2)`
+  `wordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error ==>
+   evaluate (word_simp$compile_exp prog,s) = (res,s2)`,
   fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc]);
 
 val extract_labels_compile_exp = Q.store_thm("extract_labels_compile_exp[simp]",
-  `p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)`
+  `!p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)`,
   fs [word_simpTheory.compile_exp_def]>>
   metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS])
 
