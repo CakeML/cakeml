@@ -185,19 +185,6 @@ val get_var_imm_cs_def = Define `
   (get_var_imm_cs (Reg r) cs = lookup r cs) /\
   (get_var_imm_cs (Imm i) _ = SOME i)`;
 
-(* TODO: Question: this is a general function? *)
-val pair_option_def = Define `
-  (pair_option (SOME x, SOME y) = SOME (x, y)) /\
-  (pair_option _ = NONE)`;
-
-val pair_option_none_thm = store_thm("pair_option_none",
-  ``!x y. pair_option (x, y) = NONE ==> x = NONE \/ y = NONE``,
-  Cases \\ Cases \\ rw [pair_option_def]);
-
-val pair_option_some_thm = store_thm("pair_option_some",
-  ``!x y xv yv. pair_option (x, y) = SOME (xv, yv) ==> x = SOME xv /\ y = SOME yv``,
-  Cases \\ Cases \\ rw [pair_option_def]);
-
 val is_gc_const_def = Define `is_gc_const c = ((c && 1w) = 0w)`
 
 val const_fp_loop_def = Define `
@@ -217,8 +204,8 @@ val const_fp_loop_def = Define `
     let (p2', cs'') = const_fp_loop p2 cs' in
       (Seq p1' p2', cs'')) /\
   (const_fp_loop (wordLang$If cmp lhs rhs p1 p2) cs =
-    case pair_option (lookup lhs cs, get_var_imm_cs rhs cs) of
-      | SOME (clhs, crhs) =>
+    case (lookup lhs cs, get_var_imm_cs rhs cs) of
+      | (SOME clhs, SOME crhs) =>
         (if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in

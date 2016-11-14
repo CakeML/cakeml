@@ -788,20 +788,17 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   (* Does the first program evaluation fail? *)
   Cases_on `res'` \\ fs [] \\ res_tac \\ fs [] \\ rw [evaluate_def])
 
-  >- (** If, TODO: DOES NOT WORK **)
-  cheat
-  (*(rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac \\
-  Cases_on `pair_option (lookup lhs cs, get_var_imm_cs rhs cs)` \\
-  (* Question: This tactic is VERY slow here, and in other places here ... *)
-  fs [evaluate_def, const_fp_loop_def]
-    >-
-    (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
-    res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw [])
+  >- (** If **)
+  (rpt gen_tac \\ strip_tac \\ rewrite_tac [evaluate_def, const_fp_loop_def] \\ rpt gen_tac \\
+  reverse (Cases_on `lookup lhs cs`) \\ reverse (Cases_on `get_var_imm_cs rhs cs`) \\
+  DISCH_TAC \\ fs []
+    >- (* Both SOME *)
+    (imp_res_tac get_var_imm_cs_imp_get_var_imm_thm \\ res_tac \\ fs [] \\
+    Cases_on `word_cmp cmp x x'` \\ fs [] \\ res_tac \\ rw [])
 
-    >-
-    (Cases_on `x` \\
-    imp_res_tac pair_option_some_thm \\ imp_res_tac get_var_imm_cs_imp_get_var_imm_thm \\ res_tac \\
-    Cases_on `word_cmp cmp q r` \\ fs [] \\ res_tac \\ rw []))*)
+    \\ (* Otherwise *)
+    (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
+    res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
 
   >- (** Call **)
   (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def, evaluate_def] \\
