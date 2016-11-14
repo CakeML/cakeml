@@ -287,6 +287,12 @@ val LoadWord64_def = Define `
   LoadWord64 c i j =
     Assign i (Load (Op Add [real_addr c j; Const bytes_in_word]))`;
 
+val LoadBignum_def = Define`
+  LoadBignum c header word1 k = list_Seq [
+    Assign word1 (real_addr c k);
+    Assign header (Load (Var word1));
+    Assign word1 (Load (Op Add [Var word1; Const bytes_in_word]))]`;
+
 val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
   WriteWord64 c (header:'a word) dest i =
     list_Seq [Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * 2w)]);
@@ -654,23 +660,21 @@ val assign_def = Define `
         (case encode_header c 3 len of
          | NONE => (GiveUp,l)
          | SOME (header:'a word) =>
-           list_Seq [
-             Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * n2w (len+1))]);
-             Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
-             if len = 1 then
-               Store (Op Add [Var 1; Const bytes_in_word]) 3
-             else
-               list_Seq [
-                 Assign 5 (Const 0w);
-                 Store (Op Add [Var 1; Const bytes_in_word]) 5;
-                 Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 3 ];
-             Assign 3 (Const header);
-             Store (Var 1) 3;
-             Set EndOfHeap (Var 1);
-             Assign (adjust_var dest)
-               (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                            (Nat (shift_length c − shift (:'a)));
-                          Const 1w])], l)
+           (if len = 1 then
+             Seq
+               (* put the word value into 3 *)
+               (If Test (adjust_var v1) (Imm 1w)
+                   (* smallnum case *)
+                   (Seq
+                    (Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2)))
+                    (If Less 3 (Imm 0w) Skip (Assign 3 (Op Sub [Const 0w; Var 3]))))
+                   (* bignum case *)
+                   (Seq
+                     (LoadBignum c 1 3 (adjust_var v1))
+                     (If Test 1 (Imm 16w) Skip
+                        (Assign 3 (Op Sub [Const 0w; Var 3])))))
+               (WriteWord64 c header dest 3)
+            else GiveUp, l))
       | _ => (Skip, l))
     | WordToInt =>
      (case args of
