@@ -12,7 +12,7 @@ LEMSRC = lib
 LEMS = $(patsubst %,%.lem,$(LEMSRC))
 GENS = $(patsubst %,%Script.sml,$(LEMSRC))
 
-README.md: $(README_SOURCES)
+README.md: $(README_SOURCES) readmePrefix
 	developers/readme_gen $(README_SOURCES)
 
 $(GENS): $(LEMS)

@@ -2,12 +2,14 @@ The CakeML project: https://cakeml.org
 ======================================
 
 CakeML is a verified implementation of a significant subset of
-Standard ML in the [HOL4 theorem prover](http://hol-theorem-prover.org).
+Standard ML.
 
-We build the CakeML sources using the latest development version of
-[HOL4](https://github.com/HOL-Theorem-Prover/HOL).  We build HOL on
-[PolyML 5.6](http://www.polyml.org).  Example build instructions can
-be found in [build-instructions.sh](build-instructions.sh).
+The source and proofs for CakeML are developed in the [HOL4 theorem
+prover](http://hol-theorem-prover.org).  We use the latest development
+version of [HOL4](https://github.com/HOL-Theorem-Prover/HOL), which we
+build on [PolyML 5.6](http://www.polyml.org).
+Example build instructions can be found in
+[build-instructions.sh](build-instructions.sh).
 
 The [master](../../tree/master) branch contains the latest development
 version of CakeML.  See the [version1](../../tree/version1) branch for
