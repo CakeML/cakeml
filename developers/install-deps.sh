@@ -1,4 +1,6 @@
 #!/bin/bash
+## Builds various things for Travis. This file is probably obsolete,
+## since Travis is no longer supported.
 
 set -e
 
