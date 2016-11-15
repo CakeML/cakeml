@@ -248,7 +248,7 @@ fun create_summary filenames = let
   fun write_item (Prefix lines) = (map write_line lines; ())
     | write_item (Error _) = ()
     | write_item (TitleAndContent (title,lines)) =
-        (write_line ("\n[" ^ title ^ "]: \n") ;
+        (write_line ("\n[" ^ title ^ "](): \n") ;
          map write_line lines; ())
   val _ = map write_item output
   val _ = TextIO.closeOut(f)
