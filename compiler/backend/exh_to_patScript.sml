@@ -168,7 +168,7 @@ val _ = tDefine"compile_pat"`
    App (Op (Op Equality)) [Var_local 0; Lit l])
   ∧
   (compile_pat (Pcon tag []) =
-   App (Op (Op Equality)) [Var_local( 0); Con tag []])
+   App (Tag_eq tag 0) [Var_local 0])
   ∧
   (compile_pat (Pcon tag ps) =
    sIf (App (Tag_eq tag (LENGTH ps)) [Var_local 0])
