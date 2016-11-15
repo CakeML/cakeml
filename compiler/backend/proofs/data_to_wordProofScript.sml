@@ -1218,9 +1218,9 @@ val state_rel_init = Q.store_thm("state_rel_init",
   \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
     join_env_def,lookup_def,the_global_def,
     libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
-  \\ `FILTER (λ(n,v). n ≠ 0 ∧ EVEN n)
-        (toAList (inter t.locals (insert 0 () LN))) = []` by
-   (fs [FILTER_EQ_NIL] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
+  \\ qpat_abbrev_tac `fil = FILTER _ _`
+  \\ `fil = []` by
+   (fs [FILTER_EQ_NIL,Abbr `fil`] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
     \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ match_mp_tac IMP_memory_rel_Number
@@ -2302,7 +2302,8 @@ val word_gc_fun_IMP = Q.prove(
 val word_gc_move_roots_IMP_EVERY2 = Q.prove(
   `!xs ys pa m i c1 m1 pa1 i1 old dm c.
       word_gc_move_roots c (xs,i,pa,old,m,dm) = (ys,i1,pa1,m1,c1) ==>
-      EVERY2 (\x y. (isWord x <=> isWord y) /\ (~isWord x ==> x = y)) xs ys`,
+      EVERY2 (\x y. (isWord x <=> isWord y) /\
+                    (is_gc_word_const x ==> x = y)) xs ys`,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
   \\ full_simp_tac(srw_ss())[IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][]
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -2311,11 +2312,13 @@ val word_gc_move_roots_IMP_EVERY2 = Q.prove(
   \\ full_simp_tac(srw_ss())[] \\ Cases_on `h` \\ full_simp_tac(srw_ss())[word_gc_move_def] \\ srw_tac[][]
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]
   \\ UNABBREV_ALL_TAC \\ srw_tac[][] \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]);
+  \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ fs[isWord_def,word_simpProofTheory.is_gc_word_const_def,
+        word_simpTheory.is_gc_const_def]);
 
 val word_gc_IMP_EVERY2 = Q.prove(
   `word_gc_fun c (xs,m,dm,st) = SOME (ys,m1,s1) ==>
-    EVERY2 (\x y. (isWord x <=> isWord y) /\ (~isWord x ==> x = y)) xs ys`,
+    EVERY2 (\x y. (isWord x <=> isWord y) /\ (is_gc_word_const x ==> x = y)) xs ys`,
   full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -2323,6 +2326,14 @@ val word_gc_IMP_EVERY2 = Q.prove(
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_move_roots_IMP_EVERY2);
+
+val gc_fun_const_ok_word_gc_fun = prove(
+  ``gc_fun_const_ok (word_gc_fun c)``,
+  fs [word_simpProofTheory.gc_fun_const_ok_def] \\ rw []
+  \\ PairCases_on `x` \\ fs [] \\ PairCases_on `y` \\ fs []
+  \\ imp_res_tac word_gc_IMP_EVERY2
+  \\ pop_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono \\ fs []);
 
 val word_gc_fun_LENGTH = Q.store_thm("word_gc_fun_LENGTH",
   `word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs`,
@@ -2586,7 +2597,12 @@ val state_rel_gc = Q.prove(
   \\ AP_TERM_TAC
   \\ AP_TERM_TAC
   \\ match_mp_tac (GEN_ALL word_gc_fun_EL_lemma)
-  \\ imp_res_tac word_gc_IMP_EVERY2 \\ full_simp_tac(srw_ss())[]);
+  \\ imp_res_tac word_gc_IMP_EVERY2
+  \\ full_simp_tac(srw_ss())[]
+  \\ pop_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ fs [] \\ Cases \\ fs []
+  \\ fs [word_simpProofTheory.is_gc_word_const_def,isWord_def]);
 
 val gc_lemma = Q.prove(
   `let t0 = call_env [Loc l1 l2] (push_env y
@@ -6827,7 +6843,9 @@ val compile_correct = Q.store_thm("compile_correct",
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
   \\ rename1 `state_rel x0 l1 l2 s t [] []`
-  \\ drule compile_word_to_word_thm \\ srw_tac[][]
+  \\ drule compile_word_to_word_thm
+  \\ impl_tac THEN1 fs [state_rel_def,gc_fun_const_ok_word_gc_fun]
+  \\ srw_tac[][]
   \\ drule compile_correct_lemma \\ full_simp_tac(srw_ss())[]
   \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
    (full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]

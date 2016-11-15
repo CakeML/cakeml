@@ -236,7 +236,7 @@ val compile_exp_def = Define `
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
     let e = simp_if e in
-(*    let e = const_fp e in*)
+    let e = const_fp e in
       e`;
 
 val _ = export_theory();
