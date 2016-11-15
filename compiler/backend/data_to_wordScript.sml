@@ -683,11 +683,11 @@ val assign_def = Define `
            case encode_header c 3 1 of
            | NONE => (GiveUp,l)
            | SOME header =>
-             (list_Seq [LoadWord64 c 1 (adjust_var v);
-                        Assign 3 (Shift Lsr (Var 1) (Nat 61));
-                        Assign (adjust_var dest) (Shift Lsl (Var 1) (Nat 2));
-                        If Equal 3 (Imm 0w) Skip
-                          (WriteWord64 c header dest 1)], l)
+             (list_Seq [LoadWord64 c 3 (adjust_var v);
+                        Assign 1 (Shift Lsr (Var 3) (Nat 61));
+                        If Equal 1 (Imm 0w)
+                          (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
+                          (WriteWord64 c header dest 3)], l)
          else (GiveUp (* TODO: 32bit *) ,l)
       | _ => (Skip, l))
     | FFI ffi_index =>

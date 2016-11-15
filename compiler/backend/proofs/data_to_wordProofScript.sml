@@ -4198,6 +4198,10 @@ val join_env_locals_insert_odd = Q.store_thm("join_env_locals_insert_odd[simp]",
   `ODD n ⇒ join_env_locals sl (insert n v ls) = join_env_locals sl ls`,
   rw[join_env_locals_def,inter_insert_ODD_adjust_set_alt]);
 
+val join_env_locals_insert_dest_odd = Q.store_thm("join_env_locals_insert_dest_odd[simp]",
+  `ODD n ⇒ join_env_locals sl (insert (adjust_var dest) w (insert n v ls)) = join_env_locals sl (insert (adjust_var dest) w ls)`,
+  rw[join_env_locals_def,inter_insert_ODD_adjust_set]);
+
 val evaluate_WriteWord64 = Q.store_thm("evaluate_WriteWord64",
   `memory_rel c be refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
@@ -4280,9 +4284,79 @@ val assign_thm_goal =
      (q <> SOME NotEnoughSpace ==>
      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
 
+val evaluate_Assign =
+  SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
+
 val th = Q.store_thm("assign_WordToInt",
   `op = WordToInt ==> ^assign_thm_goal`,
-  cheat (* WordToInt *));
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH
+  \\ fs[do_app]
+  \\ every_case_tac \\ fs[]
+  \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ fs[state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ fs[wordSemTheory.get_vars_def]
+  \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ simp[assign_def]
+  \\ reverse BasicProvers.TOP_CASE_TAC >- simp[]
+  \\ BasicProvers.TOP_CASE_TAC >- simp[]
+  \\ simp[list_Seq_def]
+  \\ simp[Once wordSemTheory.evaluate_def]
+  \\ rpt_drule evaluate_LoadWord64 \\ fs[]
+  \\ disch_then kall_tac
+  \\ simp[Once wordSemTheory.evaluate_def]
+  \\ simp[evaluate_Assign,word_exp_rw,wordSemTheory.set_var_def]
+  \\ simp[Once wordSemTheory.evaluate_def]
+  \\ simp[evaluate_Assign,word_exp_rw,wordSemTheory.set_var_def]
+  \\ simp[Once wordSemTheory.evaluate_def]
+  \\ simp[wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def]
+  \\ simp[asmSemTheory.word_cmp_def]
+  \\ IF_CASES_TAC
+  >- (
+    simp[Once wordSemTheory.evaluate_def,lookup_insert]
+    \\ fs[consume_space_def]
+    \\ clean_tac \\ fs[]
+    \\ conj_tac >- rw[]
+    \\ simp[inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ qmatch_goalsub_abbrev_tac`Number i,Word sn`
+    \\ `sn = Smallnum i ∧ small_int (:α) i` suffices_by (
+      rw[]
+      \\ match_mp_tac IMP_memory_rel_Number
+      \\ simp[]
+      \\ match_mp_tac (GEN_ALL memory_rel_less_space)
+      \\ qexists_tac`x.space` \\ fs[] )
+    \\ simp[Abbr`sn`,Abbr`i`]
+    \\ reverse conj_tac
+    >- cheat (* if top 3 bits are 0, fits in small int *)
+    \\ simp[Smallnum_i2w]
+    \\ cheat (* word proof *) )
+  \\ cheat (* need to prove a version of evaluate_WriteWord64 that produces Number rather than Word64
+  \\ assume_tac (GEN_ALL evaluate_WriteWord64)
+  \\ SEP_I_TAC "evaluate" \\ fs[]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
+  \\ first_x_assum drule
+  \\ simp[wordSemTheory.get_var_def,lookup_insert]
+  \\ fs[consume_space_def]
+  \\ strip_tac \\ fs[]
+  \\ clean_tac \\ fs[]
+  \\ conj_tac >- rw[]
+  \\ fs[FAPPLY_FUPDATE_THM]
+  \\ match_mp_tac (GEN_ALL memory_rel_less_space)
+  \\ qexists_tac`x.space - 2` \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`Number w1`
+  \\ qmatch_asmsub_abbrev_tac`Number w2`
+  \\ `w1 = w2` suffices_by simp[]
+  \\ cheat*));
 
 val th = Q.store_thm("assign_FromList",
   `(?tag. op = FromList tag) ==> ^assign_thm_goal`,
@@ -4627,9 +4701,6 @@ val th = Q.store_thm("assign_RefArray",
   \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
-
-val evaluate_Assign =
-  SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
 
 val th = Q.store_thm("assign_WordFromInt",
   `op = WordFromInt ==> ^assign_thm_goal`,
