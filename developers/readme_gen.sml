@@ -104,8 +104,10 @@ fun read_comment_from_sml filename = let
                              NONE => fail "unable to read content of comment"
                            | SOME line => line)
                         else line);
+    val _ = not (is_blank_line fst_line) orelse
+            fail "first content line must not be blank"
     val _ = exists_char is_alphanum fst_line orelse
-            fail "first content line does not seem to have alphanumeric chars"
+            fail "first content line does not have alphanumeric chars"
     val _ = not (String.isSubstring end_comment fst_line) orelse
               fail ("first content line must not contain " ^ end_comment)
     val blank_prefix = implode (take_while (fn c => c = #" ") (explode fst_line))

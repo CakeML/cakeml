@@ -1,3 +1,7 @@
+(*
+   Small theory of wrapped strings, so the translator can distinguish
+   them from char lists and can target CakeML strings directly.
+*)
 open HolKernel boolLib bossLib lcsymtacs stringTheory relationTheory totoTheory pred_setTheory listTheory
 val _ = ParseExtras.temp_tight_equality()
 val _ = new_theory"mlstring"
