@@ -9,9 +9,9 @@ We build the CakeML sources using the latest development version of
 [PolyML 5.6](http://www.polyml.org).  Example build instructions can
 be found in [build-instructions.sh](build-instructions.sh).
 
-The [master](../master) branch contains the latest development version
-of CakeML.  See the [version1](../version1) branch for the previous
-version.
+The [master](../../tree/master) branch contains the latest development
+version of CakeML.  See the [version1](../../tree/version1) branch for
+the previous version.
 
 Directory structure
 -------------------
