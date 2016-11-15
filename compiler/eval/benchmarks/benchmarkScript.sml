@@ -36,6 +36,161 @@ fun to_bytes alg conf prog =
     compile_thm
   end
 
+val qsortimp =``
+[Tdec
+  (Dletrec
+     [("swap","i",
+       Fun "j"
+         (Fun "arr"
+            (Let (SOME "ti")
+               (App Asub [Var (Short "arr"); Var (Short "i")])
+               (Let (SOME "tj")
+                  (App Asub [Var (Short "arr"); Var (Short "j")])
+                  (Let (SOME "d")
+                     (App Aupdate [Var (Short "arr");Var (Short "i"); Var (Short "tj")])
+                     (Let (SOME "d")
+                        (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")])
+                        (Var (Short "arr"))))))))]);
+Tdec
+  (Dletrec
+     [("part_loop","i",
+       Fun "j"
+         (Fun "k"
+            (Fun "arr"
+               (If
+                  (App (Opb Lt) [Var (Short "i"); Var (Short "j")])
+                  (If
+                     (App (Opb Leq) [App Asub [Var (Short "arr"); Var (Short "i")]; Var (Short "k")])
+                     (App Opapp
+                        [App Opapp
+                           [App Opapp
+                              [App Opapp
+                                 [Var (Short "part_loop");
+                                  App (Opn Plus) [Var (Short "i");Lit (IntLit 1)]];
+                               Var (Short "j")]; Var (Short "k")];
+                         Var (Short "arr")])
+                     (Let (SOME "arr")
+                        (App Opapp
+                           [App Opapp
+                              [App Opapp
+                                 [Var (Short "swap");
+                                  Var (Short "i")];
+                               App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
+                            Var (Short "arr")])
+                        (App Opapp
+                           [App Opapp
+                              [App Opapp
+                                 [App Opapp
+                                    [Var (Short "part_loop");
+                                     Var (Short "i")];
+                                  App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
+                               Var (Short "k")];
+                            Var (Short "arr")])))
+                  (Con NONE
+                     [Var (Short "i"); Var (Short "arr")])))))]);
+Tdec
+  (Dletrec
+     [("inplace_partition","b",
+       Fun "e"
+         (Fun "arr"
+            (Let (SOME "k")
+               (App Opapp
+                  [App Opapp
+                     [Var (Long "Array" "sub");
+                      Var (Short "arr")]; Var (Short "b")])
+               (Let (SOME "res")
+                  (App Opapp
+                     [App Opapp
+                        [App Opapp
+                           [App Opapp
+                              [Var (Short "part_loop");
+                               App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]];
+                            Var (Short "e")]; Var (Short "k")];
+                      Var (Short "arr")])
+                  (Mat (Var (Short "res"))
+                     [(Pcon NONE [Pvar "i"; Pvar "arr"],
+                       Let (SOME "arr")
+                         (App Opapp
+                            [App Opapp
+                               [App Opapp
+                                  [Var (Short "swap");
+                                   Var (Short "b")];
+                                App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]];
+                             Var (Short "arr")])
+                         (Con NONE
+                            [App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)];
+                             Var (Short "arr")]))])))))]);
+Tdec
+  (Dletrec
+     [("inplace_qsort","b",
+       Fun "e"
+         (Fun "arr"
+            (If
+               (App (Opb Lt) [App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]; Var (Short "e")])
+               (Let (SOME "res")
+                  (App Opapp
+                     [App Opapp
+                        [App Opapp
+                           [Var (Short "inplace_partition");
+                            Var (Short "b")]; Var (Short "e")];
+                      Var (Short "arr")])
+                  (Mat (Var (Short "res"))
+                     [(Pcon NONE [Pvar "i"; Pvar "arr"],
+                       Let (SOME "arr")
+                         (App Opapp
+                            [App Opapp
+                               [App Opapp
+                                  [Var (Short "inplace_qsort");
+                                   Var (Short "b")];
+                                Var (Short "i")];
+                             Var (Short "arr")])
+                         (Let (SOME "arr")
+                            (App Opapp
+                               [App Opapp
+                                  [App Opapp
+                                     [Var (Short "inplace_qsort");
+                                      App (Opn Plus) [Var (Short "i"); Lit (IntLit 1)]];
+                                   Var (Short "e")];
+                                Var (Short "arr")])
+                            (Var (Short "arr"))))]))
+               (Var (Short "arr")))))]);
+Tdec
+  (Dletrec
+     [("initarr","len",
+       Fun "arr"
+         (Fun "n"
+            (If
+               (App Equality [Var (Short "n"); Var (Short "len")])
+               (Var (Short "arr"))
+               (Let (SOME "u")
+                  (App Aupdate [Var (Short "arr"); Var (Short "n");
+                      App (Opn Minus) [Var (Short "len"); Var (Short "n")]])
+                  (Let (SOME "u")
+                     (App Aupdate [Var (Short "arr"); App (Opn Plus) [Var (Short "n"); Var (Short "len")];App (Opn Minus) [Var (Short "len"); Var (Short "n")]])
+                     (App Opapp
+                        [App Opapp
+                           [App Opapp
+                              [Var (Short "initarr");
+                               Var (Short "len")];
+                            Var (Short "arr")];
+                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))))))]);
+Tdec
+  (Dletrec
+     [("mkarr","n",
+       App Opapp
+         [App Opapp
+            [App Opapp [Var (Short "initarr"); Var (Short "n")];
+             App Aalloc [App (Opn Plus) [Var (Short "n"); Var (Short "n")]; Lit (IntLit 0)]];
+          Lit (IntLit 0)])]);
+Tdec
+  (Dlet (Pvar "test")
+     (App Opapp
+        [App Opapp
+           [App Opapp
+              [Var (Short "inplace_qsort"); Lit (IntLit 0)];
+            Lit (IntLit 40000)];
+         App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]]))]``
+
 val btree = ``
 [Tdec
   (Dtype
@@ -750,10 +905,8 @@ val nqueens =
               Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
 
 val hello = entire_program_def |> concl |> rand
-val benchmarks = [nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
-val names = ["nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
-
-val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
+val benchmarks = [qsortimp,nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
+val names = ["qsortimp","nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
@@ -762,6 +915,8 @@ fun write_asm [] = ()
     (write_cake_S 1000 1000 (numSyntax.int_of_term ffi_count)
        bytes ("cakeml/" ^ name ^ ".S") ;
     write_asm xs)
+
+val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
 
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
 val _ = write_asm (zip names benchmarks_bytes);
@@ -788,7 +943,6 @@ val _ = write_asm (zip names benchmarks_bytes4);
 *)
 
 (*
-
 val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
