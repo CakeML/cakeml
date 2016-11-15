@@ -1,4 +1,5 @@
-The CakeML project (https://cakeml.org).
+The CakeML project (https://cakeml.org)
+=======================================
 
 A verified implementation of a significant subset of Standard ML in
 the [HOL4 theorem prover](http://hol-theorem-prover.org).
