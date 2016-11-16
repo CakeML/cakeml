@@ -6153,7 +6153,25 @@ val th = Q.store_thm("assign_WordShiftW8",
       simp[Abbr`w`,Abbr`i`]
       \\ simp[Smallnum_i2w,integer_wordTheory.i2w_def]
       \\ simp[GSYM word_mul_n2w]
-      \\ cheat (* word proof *))
+      \\ full_simp_tac(srw_ss()++wordsLib.WORD_MUL_LSL_ss)
+           [good_dimindex_def,GSYM wordsTheory.w2w_def]
+      \\ Cases_on `n' < 8`
+      \\ asm_simp_tac(std_ss++wordsLib.WORD_BIT_EQ_ss)
+           [MIN_DEF,
+            DECIDE ``(32n <= n + 31) = (8 <= n + 7) /\
+                     (32n <= n + 30) = (8 <= n + 6) /\
+                     (32n <= n + 29) = (8 <= n + 5) /\
+                     (32n <= n + 28) = (8 <= n + 4) /\
+                     (32n <= n + 27) = (8 <= n + 3) /\
+                     (32n <= n + 26) = (8 <= n + 2) /\
+                     (32n <= n + 25) = (8 <= n + 1)``,
+            DECIDE ``(64n <= n + 63) = (8 <= n + 7) /\
+                     (64n <= n + 62) = (8 <= n + 6) /\
+                     (64n <= n + 61) = (8 <= n + 5) /\
+                     (64n <= n + 60) = (8 <= n + 4) /\
+                     (64n <= n + 59) = (8 <= n + 3) /\
+                     (64n <= n + 58) = (8 <= n + 2) /\
+                     (64n <= n + 57) = (8 <= n + 1)``])
     \\ simp[Abbr`w`]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ simp[]
