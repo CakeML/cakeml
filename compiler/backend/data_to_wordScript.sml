@@ -665,9 +665,7 @@ val assign_def = Define `
                (* put the word value into 3 *)
                (If Test (adjust_var v1) (Imm 1w)
                    (* smallnum case *)
-                   (Seq
                     (Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2)))
-                    (If Less 3 (Imm 0w) (Assign 3 (Op Sub [Const 0w; Var 3])) Skip))
                    (* bignum case *)
                    (Seq
                      (LoadBignum c 1 3 (adjust_var v1))

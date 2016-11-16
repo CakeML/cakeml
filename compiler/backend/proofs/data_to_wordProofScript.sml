@@ -4743,38 +4743,6 @@ val th = Q.store_thm("assign_WordFromInt",
     \\ simp[wordSemTheory.set_var_def]
     \\ rpt_drule memory_rel_Number_IMP
     \\ strip_tac \\ clean_tac
-    \\ IF_CASES_TAC \\ fs[]
-    >- (
-      simp[word_exp_rw]
-      \\ assume_tac (GEN_ALL evaluate_WriteWord64)
-      \\ SEP_I_TAC "evaluate" \\ fs[]
-      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
-      \\ first_x_assum drule
-      \\ simp[wordSemTheory.get_var_def]
-      \\ fs[consume_space_def]
-      \\ rfs[good_dimindex_def] \\ rfs[lookup_insert]
-      \\ strip_tac \\ fs[]
-      \\ clean_tac \\ fs[]
-      \\ conj_tac >- rw[]
-      \\ match_mp_tac (GEN_ALL memory_rel_less_space)
-      \\ qexists_tac`x.space - 2` \\ simp[]
-      \\ fs[FAPPLY_FUPDATE_THM]
-      \\ qmatch_asmsub_abbrev_tac`Word64 w1`
-      \\ qmatch_goalsub_abbrev_tac`Word64 w2`
-      \\ `w1 = w2` suffices_by (rw[] \\ fs[])
-      \\ simp[Abbr`w1`,Abbr`w2`]
-      \\ `INT_MIN (:'a) <= 4 * i /\ 4 * i <= INT_MAX (:'a)`
-      by (rfs [small_int_def,wordsTheory.dimword_def,
-               integer_wordTheory.INT_MIN_def,wordsTheory.INT_MAX_def,
-               wordsTheory.INT_MIN_def]
-          \\ intLib.ARITH_TAC)
-      \\ fs[Smallnum_i2w,GSYM integer_wordTheory.i2w_minus_1,
-            integer_wordTheory.word_i2w_mul,integer_wordTheory.word_0_w2i,
-            integer_wordTheory.WORD_LTi,integerTheory.INT_DIV_LMUL,
-            integer_wordTheory.word_i2w_mul,GSYM integer_wordTheory.i2w_DIV,
-            integer_wordTheory.w2w_i2w,GSYM integerTheory.INT_NEG_MINUS1]
-      \\ cheat (* word proof - i2w (-i) = i2w i - so looks to be false *) )
-    \\ simp[Once wordSemTheory.evaluate_def]
     \\ assume_tac (GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -4792,7 +4760,13 @@ val th = Q.store_thm("assign_WordFromInt",
     \\ qmatch_goalsub_abbrev_tac`Word64 w2`
     \\ `w1 = w2` suffices_by (rw[] \\ fs[])
     \\ simp[Abbr`w1`,Abbr`w2`]
-    \\ cheat (* word proof *))
+    \\ `INT_MIN (:'a) <= 4 * i /\ 4 * i <= INT_MAX (:'a)`
+    by (rfs [small_int_def,wordsTheory.dimword_def,
+             integer_wordTheory.INT_MIN_def,wordsTheory.INT_MAX_def,
+             wordsTheory.INT_MIN_def]
+        \\ intLib.ARITH_TAC)
+    \\ simp[Smallnum_i2w,GSYM integer_wordTheory.i2w_DIV,
+            integerTheory.INT_DIV_LMUL,integer_wordTheory.w2w_i2w] )
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ drule (GEN_ALL evaluate_LoadBignum)
   \\ simp[] \\ clean_tac
