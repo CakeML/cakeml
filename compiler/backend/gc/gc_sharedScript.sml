@@ -77,10 +77,11 @@ val heap_take_def = Define `
     | SOME h => SOME (el::h))`;
 
 val heap_drop_def = Define `
-  (heap_drop 0 heap = heap) /\
-  (heap_drop a (el::heap) =
-    if a < el_length el then ARB else
-    heap_drop (a - el_length el) heap)`;
+  (heap_drop a [] = if a = 0 then [] else ARB) /\
+  (heap_drop a (x::xs) =
+    if a = 0 then x::xs else
+    if a < el_length x then ARB else
+    heap_drop (a - el_length x) xs)`;
 
 val heap_split_def = Define `
   (heap_split a [] = NONE) /\
@@ -92,6 +93,23 @@ val heap_split_def = Define `
     | SOME (h1,h2) =>
       SOME (el::h1,h2))`;
 
+val heap_split_lemma = store_thm("heap_split_lemma",
+  ``!heap a h1 h2.
+      (heap_split a heap = SOME (h1,h2)) ==>
+      (h1 ++ h2 = heap) /\
+      (heap_length h1 = a)``,
+  Induct
+  \\ fs [heap_split_def]
+  \\ rw []
+  >- fs [heap_length_def]
+  \\ Cases_on `heap_split (a − el_length h) heap` \\ fs []
+  \\ Cases_on `x`
+  \\ qpat_x_assum `!a h1 h2. _` drule
+  \\ fs []
+  \\ qpat_x_assum `_ = h1` (assume_tac o GSYM) \\ fs []
+  \\ strip_tac
+  \\ fs [heap_length_def]);
+
 val heap_segment_def = Define `
   heap_segment (a, b) heap =
     case heap_split a heap of
@@ -100,6 +118,16 @@ val heap_segment_def = Define `
       case heap_split (b - heap_length h1) heap' of
       | NONE => NONE
       | SOME (h2,h3) => SOME (h1,h2,h3)`;
+
+val heap_segment_lemma = store_thm("heap_segment_lemma",
+  ``!heap a b h1 h2 h3.
+      (heap_segment (a,b) heap = SOME (h1,h2,h3)) ==>
+      (h1 ++ h2 ++ h3 = heap) /\
+      (heap_length h1 = a) /\
+      (heap_length h2 = (b - a)) /\
+      (heap_length h3 = (heap_length heap - b))``,
+  cheat);
+
 
 val isDataElement_def = Define `
   isDataElement x = ?ys l d. x = DataElement ys l d`;
@@ -133,6 +161,24 @@ val gc_forward_ptr_def = Define `
      if a < el_length x then (x::xs,F) else
        let (xs,ok) = gc_forward_ptr (a - el_length x) xs ptr d ok in
          (x::xs,ok))`;
+
+val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
+  ``!heap n a ok x. (gc_forward_ptr n heap a d ok = (x,T)) ==> ok``,
+  Induct
+  >- simp [gc_forward_ptr_def]
+  \\ once_rewrite_tac [gc_forward_ptr_def]
+  \\ ntac 5 strip_tac
+  \\ IF_CASES_TAC
+  >- (once_rewrite_tac [PAIR_EQ] \\ strip_tac \\ fs [])
+  \\ IF_CASES_TAC
+  >- metis_tac [PAIR_EQ]
+  \\ rewrite_tac [LET_THM]
+  \\ pairarg_tac
+  \\ asm_rewrite_tac []
+  \\ DISCH_TAC
+  \\ fs []
+  \\ qpat_x_assum `!n a ok x. _` (qspecl_then [`n - el_length h`,`a`,`ok`,`xs`] assume_tac)
+  \\ fs []);
 
 val heap_expand_def = Define `
   heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
