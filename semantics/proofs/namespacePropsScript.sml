@@ -172,6 +172,12 @@ val nsMap_nsSing = Q.store_thm ("nsMap_nsSing[simp]",
   `!f x v. nsMap f (nsSing x v) = nsSing x (f v)`,
   rw [nsSing_def, nsMap_def]);
 
+val nsLookupMod_nsSing = Q.store_thm ("nsLookupMod_nsSing[simp]",
+  `!n1 n2 v. nsLookupMod (nsSing n2 v) n1 = if n1 = [] then SOME (nsSing n2 v) else NONE`,
+  rw [nsSing_def, nsLookupMod_def] >>
+  Cases_on `n1` >>
+  rw [nsLookupMod_def]);
+
 (* -------------- nsLookup ------------------ *)
 
 val nsLookup_to_nsLookupMod = Q.store_thm ("nsLookup_to_nsLookupMod",

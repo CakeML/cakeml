@@ -810,6 +810,146 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
  >- fs[tenv_alpha_empty]);
  *)
 
+ (*
+val t_to_freevars_type_name_subst = Q.store_thm ("t_to_freevars_type_name_subst",
+
+  `(!t. check_type_names tenvT t ⇒ t_to_freevars (type_name_subst tenvT t) st1 = t_to_freevars t st1) ∧
+   (!ts. EVERY (check_type_names tenvT) ts ⇒ ts_to_freevars (MAP (type_name_subst tenvT) ts) st1 = ts_to_freevars ts st1)`,
+
+  Induct >>
+  rw [t_to_freevars_def, success_eqns, type_name_subst_def, check_type_names_def] >>
+  fs [] >>
+  rw []
+  >- (
+    every_case_tac >>
+    rw [t_to_freevars_def]
+    metis_tac []
+
+    *)
+
+val unconvert_type_subst = Q.store_thm ("unconvert_type_subst",
+  `(!t subst fvs.
+     check_freevars 0 fvs t ∧ set fvs ⊆ set (MAP FST subst) ⇒
+     unconvert_t (type_subst (alist_to_fmap subst) t) =
+     infer_type_subst (MAP (\(x,y). (x, unconvert_t y)) subst) t) ∧
+  (!ts subst fvs.
+     EVERY (check_freevars 0 fvs) ts ∧ set fvs ⊆ set (MAP FST subst) ⇒
+     MAP (unconvert_t o type_subst (alist_to_fmap subst)) ts =
+     MAP (infer_type_subst (MAP (\(x,y). (x, unconvert_t y)) subst)) ts)`,
+ Induct >>
+ rw [unconvert_t_def, type_subst_def, infer_type_subst_def, MAP_MAP_o,
+     check_freevars_def] >>
+ fs [combinTheory.o_DEF]
+ >- (
+   every_case_tac >>
+   fs [ALOOKUP_MAP] >>
+   fs [] >>
+   fs [ALOOKUP_NONE, SUBSET_DEF] >>
+   metis_tac []) >>
+ metis_tac []);
+
+val env_rel_binding = Q.store_thm ("env_rel_binding",
+  `!fvs t fvs' name.
+   check_freevars 0 fvs' t ∧
+   set fvs' ⊆ set fvs
+   ⇒
+   env_rel
+     <|v :=
+        nsSing name
+          (LENGTH fvs,
+           type_subst
+             (alist_to_fmap (ZIP (fvs,MAP Tvar_db (GENLIST (λx. x) (LENGTH fvs)))))
+             t);
+      c := nsEmpty;
+      t := nsEmpty|>
+    <|inf_v :=
+        nsSing name
+          (LENGTH (nub fvs'),
+           infer_type_subst
+             (ZIP (nub fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH (nub fvs')))))
+             t);
+      inf_c := nsEmpty;
+      inf_t := nsEmpty|>`,
+
+  rw [env_rel_def]
+  >- (
+    rw [ienv_ok_def, ienv_val_ok_def] >>
+    Cases_on `nub fvs' = []` >>
+    fs []
+    >- (
+      simp [COUNT_LIST_def] >>
+      irule (CONJUNCT1 infer_type_subst_empty_check) >>
+      fs [nub_eq_nil] >>
+      metis_tac [t_to_freevars_check])
+    >- (
+      irule check_t_infer_type_subst_dbs >>
+      qexists_tac `0` >>
+      rw [] >>
+      metis_tac [check_freevars_type_name_subst]))
+  >- (
+    rw [typeSoundInvariantsTheory.tenv_ok_def, typeSoundInvariantsTheory.tenv_val_ok_def] >>
+    irule check_freevars_subst_single >>
+    rw [EVERY_MAP, EVERY_GENLIST, check_freevars_def] >>
+    rw [] >>
+    irule check_freevars_add >>
+    qexists_tac `0` >>
+    rw [] >>
+    irule check_freevars_more >>
+    metis_tac [])
+  >- (
+
+    rw [env_rel_sound_def, lookup_var_def]
+    >- (
+      irule check_freevars_subst_single >>
+      rw [EVERY_MAP, EVERY_GENLIST, check_freevars_def] >>
+      irule check_freevars_add >>
+      qexists_tac `0` >>
+      rw [] >>
+      irule check_freevars_more >>
+      metis_tac []) >>
+    rw [tscheme_approx_def, t_walkstar_FEMPTY] >>
+    EXISTS_TAC ``GENLIST (\n. case INDEX_OF (EL n (fvs:tvarN list)) (nub fvs')
+                                of NONE => Infer_Tapp [] TC_int
+                                 | SOME t => Infer_Tvar_db t) (LENGTH fvs)`` >>
+    rw [EVERY_GENLIST]
+    >- (
+      every_case_tac >>
+      rw [check_t_def] >>
+      cheat) >>
+    rw [MAP_GENLIST, combinTheory.o_DEF] >>
+    qmatch_abbrev_tac `_ = _ _ (unconvert_t (type_subst (alist_to_fmap s) _))` >>
+    drule (CONJUNCT1 unconvert_type_subst) >>
+    disch_then (qspec_then `s` mp_tac) >>
+    impl_tac
+    >- (
+      unabbrev_all_tac >>
+      fs [SUBSET_DEF] >>
+      rw [MEM_MAP, MEM_ZIP, LENGTH_GENLIST] >>
+      fs [PULL_EXISTS] >>
+      metis_tac [MEM_EL]) >>
+    simp [] >>
+    disch_then kall_tac >>
+    unabbrev_all_tac >>
+    `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
+      by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
+    simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
+    cheat)
+  >- (
+   rw [env_rel_complete_def, lookup_var_def]
+   >- (
+     qexists_tac `LENGTH fvs` >>
+     irule check_freevars_subst_single >>
+     rw [EVERY_MAP, EVERY_GENLIST, check_freevars_def] >>
+     irule check_freevars_add >>
+     qexists_tac `0` >>
+     rw [] >>
+     irule check_freevars_more >>
+     metis_tac []) >>
+
+   cheat));
+
+
+
 val infer_d_complete = Q.store_thm ("infer_d_complete",
   `!mn decls tenv ienv d st1 decls' tenv' idecls.
     type_d T mn decls tenv d decls' tenv' ∧
@@ -887,10 +1027,11 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
     >- (
       irule env_rel_extend >>
       rw [] >>
-      simp [env_rel_def, ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
-            ienv_val_ok_def, typeSoundInvariantsTheory.tenv_val_ok_def,
-            env_rel_sound_def, env_rel_complete_def, lookup_var_def] >>
-      cheat)
+      irule env_rel_binding >>
+      rw [] >>
+      irule check_freevars_type_name_subst >>
+      rw [] >>
+      metis_tac [t_to_freevars_check])
     >- (
       rw [extend_dec_ienv_def] >>
       simp_tac std_ss [GSYM nsAppend_assoc, nsAppend_nsSing]))
@@ -904,7 +1045,7 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
         simp [typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
         irule nsAll_alist_to_ns >>
         simp [EVERY_MAP, LAMBDA_PROD, check_freevars_def, EVERY_MEM] >>
-        cheat) >>
+        REWRITE_TAC [ELIM_UNCURRY]) >>
     `tenv_abbrev_ok (nsAppend new_t tenvT)` by metis_tac [tenv_abbrev_ok_merge] >>
     fs [] >>
     first_x_assum (qspecl_then [`st1`, `eid'`, `<|inf_v := extra_ienv.inf_v; inf_c := nsAppend new_ctors extra_ienv.inf_c; inf_t := nsAppend new_t extra_ienv.inf_t|>`] mp_tac) >>
@@ -959,12 +1100,87 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
     >- (
       irule env_rel_extend >>
       simp [] >>
-      cheat) >>
-    simp_tac std_ss [extend_dec_ienv_def, nsAppend_nsSing, GSYM nsAppend_assoc])
-  >- cheat
-  >- cheat);
-
-
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `tenv' = ienv_to_tenv ienv'`
+        by (
+          unabbrev_all_tac >>
+          rw [ienv_to_tenv_def]) >>
+      simp [] >>
+      irule env_rel_ienv_to_tenv >>
+      unabbrev_all_tac >>
+      rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+      metis_tac [check_freevars_type_name_subst]) >>
+    simp [extend_dec_ienv_def] >>
+    simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])
+  >- (
+    fs [] >>
+    qho_match_abbrev_tac
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (extra_ienv with inf_c := nsBind name new_c extra_ienv.inf_c) _ _ = (Success (_ idecls new_ienv), st2)` >>
+    simp [] >>
+    first_x_assum (qspecl_then [`st1`, `eid'`, `extra_ienv with inf_c := nsBind name new_c extra_ienv.inf_c`] mp_tac) >>
+    rw [] >>
+    rw [] >>
+    qexists_tac `append_decls idecls <| inf_defined_types := []; inf_defined_mods := []; inf_defined_exns := [mk_id mn name]|>` >>
+    qexists_tac `extend_dec_ienv new_ienv <| inf_v := nsEmpty; inf_c := nsSing name ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn name)); inf_t := nsEmpty |>` >>
+    unabbrev_all_tac >>
+    simp [convert_append_decls] >>
+    rw [convert_decls_def]
+    >- (
+      irule env_rel_extend >>
+      simp [] >>
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `tenv' = ienv_to_tenv ienv'`
+        by (
+          unabbrev_all_tac >>
+          rw [ienv_to_tenv_def]) >>
+      simp [] >>
+      irule env_rel_ienv_to_tenv >>
+      unabbrev_all_tac >>
+      rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def] >>
+      fs [EVERY_MEM, EVERY_MAP, check_exn_tenv_def] >>
+      metis_tac [check_freevars_type_name_subst])
+    >- simp [append_decls_def]
+    >- (
+      simp [extend_dec_ienv_def] >>
+      simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc] >>
+      metis_tac []))
+  >- (
+    qho_match_abbrev_tac
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (_ with inf_t := nsBind name new_t _) _ _ = (Success (_ idecls new_ienv), st2)` >>
+    simp [] >>
+    `tenv_abbrev_ok (nsBind name new_t tenvT)`
+      by (
+        fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+        irule nsAll_nsBind >>
+        unabbrev_all_tac >>
+        rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
+    first_x_assum (qspecl_then [`st1`, `eid'`, `extra_ienv with inf_t := nsBind name new_t extra_ienv.inf_t`] mp_tac) >>
+    rw [] >>
+    rw [] >>
+    qexists_tac `append_decls idecls <| inf_defined_types := [mk_id mn name]; inf_defined_mods := []; inf_defined_exns := []|>` >>
+    qexists_tac `extend_dec_ienv new_ienv <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))|>` >>
+    unabbrev_all_tac >>
+    rw []
+    >- (
+      simp [convert_append_decls] >>
+      simp [convert_decls_def])
+    >- (
+      irule env_rel_extend >>
+      simp [] >>
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `tenv' = ienv_to_tenv ienv'`
+        by (
+          unabbrev_all_tac >>
+          rw [ienv_to_tenv_def]) >>
+      simp [] >>
+      irule env_rel_ienv_to_tenv >>
+      unabbrev_all_tac >>
+      rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+      rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
+    >- simp [append_decls_def]
+    >- (
+      simp [extend_dec_ienv_def] >>
+      simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])));
 
 val infer_top_complete = Q.store_thm ("infer_top_complete",
   `!x decls tenv top decls' tenv'.
