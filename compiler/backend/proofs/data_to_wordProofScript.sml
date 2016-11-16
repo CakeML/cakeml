@@ -2,7 +2,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory data_to_wordPropsTheory finite_mapTheory
      data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
-     helperLib alignmentTheory;
+     helperLib alignmentTheory blastLib;
 
 val _ = new_theory "data_to_wordProof";
 
@@ -29,15 +29,7 @@ val word_lsr_index = Q.store_thm("word_lsr_index",
 
 val lsr_lsl = Q.store_thm("lsr_lsl",
   `∀w n. aligned n w ⇒ (w >>> n << n = w)`,
-  rw[]
-  \\ rw[GSYM WORD_EQ]
-  \\ fs[word_bit_def]
-  \\ rw[word_lsl_index,word_lsr_index]
-  \\ Cases_on`n ≤ x` \\ fs[]
-  \\ fs[aligned_extract]
-  \\ fs[word_extract_def,w2w_def,word_bits_def]
-  \\ last_x_assum(mp_tac o Q.AP_TERM`combin$C $' x`)
-  \\ simp[fcpTheory.FCP_BETA,word_0]);
+  simp [aligned_def, alignmentTheory.align_shift]);
 
 val word_index_test = Q.store_thm("word_index_test",
   `n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))`,
@@ -4337,9 +4329,17 @@ val th = Q.store_thm("assign_WordToInt",
       \\ qexists_tac`x.space` \\ fs[] )
     \\ simp[Abbr`sn`,Abbr`i`]
     \\ reverse conj_tac
-    >- cheat (* if top 3 bits are 0, fits in small int *)
-    \\ simp[Smallnum_i2w]
-    \\ cheat (* word proof *) )
+    >- (`c' >>> 61 = 0w`
+        by (qpat_x_assum `w2w c' >>> 61 = 0w` mp_tac
+            \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][])
+        \\ simp[small_int_def,wordsTheory.dimword_def]
+        \\ wordsLib.n2w_INTRO_TAC 64
+        \\ qpat_x_assum `c' >>> 61 = 0w` mp_tac
+        \\ blastLib.BBLAST_TAC)
+    \\ simp_tac(std_ss++wordsLib.WORD_MUL_LSL_ss)
+         [Smallnum_i2w,GSYM integerTheory.INT_MUL,
+          integer_wordTheory.i2w_w2n_w2w,GSYM integer_wordTheory.word_i2w_mul,
+          EVAL ``i2w 4 : 'a word``])
   \\ cheat (* need to prove a version of evaluate_WriteWord64 that produces Number rather than Word64
   \\ assume_tac (GEN_ALL evaluate_WriteWord64)
   \\ SEP_I_TAC "evaluate" \\ fs[]
@@ -4763,8 +4763,17 @@ val th = Q.store_thm("assign_WordFromInt",
       \\ qmatch_goalsub_abbrev_tac`Word64 w2`
       \\ `w1 = w2` suffices_by (rw[] \\ fs[])
       \\ simp[Abbr`w1`,Abbr`w2`]
-      \\ fs[Smallnum_i2w]
-      \\ cheat (* word proof *) )
+      \\ `INT_MIN (:'a) <= 4 * i /\ 4 * i <= INT_MAX (:'a)`
+      by (rfs [small_int_def,wordsTheory.dimword_def,
+               integer_wordTheory.INT_MIN_def,wordsTheory.INT_MAX_def,
+               wordsTheory.INT_MIN_def]
+          \\ intLib.ARITH_TAC)
+      \\ fs[Smallnum_i2w,GSYM integer_wordTheory.i2w_minus_1,
+            integer_wordTheory.word_i2w_mul,integer_wordTheory.word_0_w2i,
+            integer_wordTheory.WORD_LTi,integerTheory.INT_DIV_LMUL,
+            integer_wordTheory.word_i2w_mul,GSYM integer_wordTheory.i2w_DIV,
+            integer_wordTheory.w2w_i2w,GSYM integerTheory.INT_NEG_MINUS1]
+      \\ cheat (* word proof - i2w (-i) = i2w i - so looks to be false *) )
     \\ simp[Once wordSemTheory.evaluate_def]
     \\ assume_tac (GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[]
