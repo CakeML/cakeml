@@ -1,5 +1,7 @@
 open preamble astTheory terminationTheory modLangTheory
 
+infix ||>
+
 val _ = numLib.prefer_num()
 
 val _ = new_theory"source_to_mod"
@@ -15,14 +17,12 @@ val _ = new_theory"source_to_mod"
  *)
 
 val Bool_def = Define `
- Bool b = (App (Opb (if b then Leq else Lt)) [Lit (IntLit 0); Lit (IntLit 0)])`;
+Bool b = (App (Opb (if b then Leq else Lt)) [Lit (IntLit 0); Lit (IntLit 0)])`;
 
-val compile_pat_def = tDefine "compile_pat" `
-  (compile_pat (ast$Pvar v) = ast$Pvar v) ∧
-  (compile_pat (Plit l) = Plit l) ∧
-  (compile_pat (Pcon id ps) = Pcon id (MAP compile_pat ps)) ∧
-  (compile_pat (Pref p) = Pref (compile_pat p)) ∧
+val compile_pat_def = tDefine "compile_pat" (`
+  (compile_pat (ast$Pcon id ps) = ast$Pcon id (MAP compile_pat ps)) ∧
   (compile_pat (Ptannot p t) = compile_pat p)`
+  ||> otherwise_homomorphic)
   (WF_REL_TAC `measure pat_size` >>
    rw [] >>
    Induct_on `ps` >>

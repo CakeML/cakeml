@@ -4,8 +4,8 @@ local open intLib wordsLib in end;
 open set_relationTheory;
 open BasicProvers Defn HolKernel Parse Tactic
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
-     combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
-     listTheory llistTheory lprefix_lubTheory markerLib miscTheory
+     combinTheory dep_rewrite def_sugarLib finite_mapTheory indexedListsTheory
+     lcsymtacs listTheory llistTheory lprefix_lubTheory markerLib miscTheory
      mlstringTheory optionTheory pairLib pairTheory pred_setTheory
      quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
      sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
