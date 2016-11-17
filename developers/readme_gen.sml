@@ -28,6 +28,12 @@ fun exists p [] = false
 
 fun exists_char p str = exists p (explode str);
 
+fun mem x [] = false
+  | mem x (y::ys) = (x = y) orelse mem x ys
+
+fun distinct [] = []
+  | distinct (x::xs) = x :: distinct (List.filter (fn y => x <> y) xs)
+
 fun is_alphanum c =
   (#"a" <= c andalso c <= #"z") orelse
   (#"A" <= c andalso c <= #"Z") orelse
@@ -213,9 +219,8 @@ fun isError (Error _) = true | isError _ = false;
 
 fun create_summary filenames_and_paths = let
   val filenames = sort (fn s1 => fn s2 => s1 <= s2) filenames_and_paths
+  val filenames = distinct filenames
   (* remove lem generated scrit files *)
-  fun mem x [] = false
-    | mem x (y::ys) = (x = y) orelse mem x ys
   fun is_lem_generated filename =
     if String.isSuffix "Script.sml" filename then let
       val str = String.substring(filename,0,String.size(filename)-10)

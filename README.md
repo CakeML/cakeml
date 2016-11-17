@@ -47,10 +47,6 @@ A verified compiler for CakeML, including:
 This directory contains scripts for automating routine tasks, e.g. for
 running regression tests.
 
-[developers](developers):
-This directory contains scripts for automating routine tasks, e.g. for
-running regression tests.
-
 [documentation](documentation):
 Work-in-progress documentation regarding the CakeML language.
 
