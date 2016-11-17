@@ -6504,11 +6504,14 @@ val th = Q.store_thm("assign_UpdateByte",
     \\ Cases_on`i`
     \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
   \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-  \\ `i2w (&w2n w) << 2 >>> 2 = i2w (&w2n w)`
+  \\ `w2w w << 2 >>> 2 = w2w w`
   by (
     match_mp_tac lsl_lsr
-    \\ fs[small_int_def,X_LT_DIV,dimword_def,integer_wordTheory.i2w_def] )
+    \\ simp[w2n_w2w]
+    \\ reverse IF_CASES_TAC >- fs[good_dimindex_def]
+    \\ fs[small_int_def,X_LT_DIV])
   \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
+  \\ simp[w2w_w2w]
   \\ `dimindex(:8) ≤ dimindex(:α)` by fs[good_dimindex_def]
   \\ simp[integer_wordTheory.w2w_i2w]
   \\ `i2w i = n2w (Num i)`
@@ -6541,6 +6544,7 @@ val th = Q.store_thm("assign_UpdateByte",
     \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
     \\ PROVE_TAC[] )
   \\ simp[theWord_def] \\ strip_tac
+  \\ simp[WORD_ALL_BITS]
   \\ drule memory_rel_tl \\ simp[] \\ strip_tac
   \\ drule memory_rel_tl \\ simp[] \\ strip_tac
   \\ drule memory_rel_tl \\ simp[]);
