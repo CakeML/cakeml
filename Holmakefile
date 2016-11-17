@@ -1,7 +1,7 @@
 INCLUDES = developers $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple
 OPTIONS = QUIT_ON_FAILURE
 
-README_SOURCES = mlstringScript.sml miscScript.sml COPYING developers build-instructions.sh
+README_SOURCES = mlstringScript.sml miscScript.sml COPYING developers build-instructions.sh lib.lem libScript.sml
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = README.md $(patsubst %.sml,%.uo,$(THYFILES))
