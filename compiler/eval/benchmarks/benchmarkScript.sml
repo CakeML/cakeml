@@ -46,11 +46,9 @@ val qsortimp =``
                (App Asub [Var (Short "arr"); Var (Short "i")])
                (Let (SOME "tj")
                   (App Asub [Var (Short "arr"); Var (Short "j")])
-                  (Let (SOME "d")
+                  (Let (SOME "u")
                      (App Aupdate [Var (Short "arr");Var (Short "i"); Var (Short "tj")])
-                     (Let (SOME "d")
-                        (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")])
-                        (Var (Short "arr"))))))))]);
+                     (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")]))))))]);
 Tdec
   (Dletrec
      [("part_loop","i",
@@ -69,7 +67,7 @@ Tdec
                                   App (Opn Plus) [Var (Short "i");Lit (IntLit 1)]];
                                Var (Short "j")]; Var (Short "k")];
                          Var (Short "arr")])
-                     (Let (SOME "arr")
+                     (Let (SOME "u")
                         (App Opapp
                            [App Opapp
                               [App Opapp
@@ -86,19 +84,15 @@ Tdec
                                   App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
                                Var (Short "k")];
                             Var (Short "arr")])))
-                  (Con NONE
-                     [Var (Short "i"); Var (Short "arr")])))))]);
+                  (Var (Short "i"))))))]);
 Tdec
   (Dletrec
      [("inplace_partition","b",
        Fun "e"
          (Fun "arr"
             (Let (SOME "k")
-               (App Opapp
-                  [App Opapp
-                     [Var (Long "Array" "sub");
-                      Var (Short "arr")]; Var (Short "b")])
-               (Let (SOME "res")
+               (App Asub [Var (Short "arr"); Var (Short "b")])
+               (Let (SOME "i")
                   (App Opapp
                      [App Opapp
                         [App Opapp
@@ -107,19 +101,15 @@ Tdec
                                App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]];
                             Var (Short "e")]; Var (Short "k")];
                       Var (Short "arr")])
-                  (Mat (Var (Short "res"))
-                     [(Pcon NONE [Pvar "i"; Pvar "arr"],
-                       Let (SOME "arr")
-                         (App Opapp
+                  (Let (SOME "u")
+                     (App Opapp
                             [App Opapp
                                [App Opapp
                                   [Var (Short "swap");
                                    Var (Short "b")];
                                 App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]];
                              Var (Short "arr")])
-                         (Con NONE
-                            [App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)];
-                             Var (Short "arr")]))])))))]);
+                     (App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]))))))]);
 Tdec
   (Dletrec
      [("inplace_qsort","b",
@@ -127,33 +117,29 @@ Tdec
          (Fun "arr"
             (If
                (App (Opb Lt) [App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]; Var (Short "e")])
-               (Let (SOME "res")
+               (Let (SOME "i")
                   (App Opapp
                      [App Opapp
                         [App Opapp
                            [Var (Short "inplace_partition");
                             Var (Short "b")]; Var (Short "e")];
                       Var (Short "arr")])
-                  (Mat (Var (Short "res"))
-                     [(Pcon NONE [Pvar "i"; Pvar "arr"],
-                       Let (SOME "arr")
-                         (App Opapp
+                  (Let (SOME "u")
+                     (App Opapp
                             [App Opapp
                                [App Opapp
                                   [Var (Short "inplace_qsort");
                                    Var (Short "b")];
                                 Var (Short "i")];
                              Var (Short "arr")])
-                         (Let (SOME "arr")
-                            (App Opapp
+                     (App Opapp
                                [App Opapp
                                   [App Opapp
                                      [Var (Short "inplace_qsort");
                                       App (Opn Plus) [Var (Short "i"); Lit (IntLit 1)]];
                                    Var (Short "e")];
                                 Var (Short "arr")])
-                            (Var (Short "arr"))))]))
-               (Var (Short "arr")))))]);
+                     )) (Con NONE []))))]);
 Tdec
   (Dletrec
      [("initarr","len",
@@ -173,7 +159,8 @@ Tdec
                               [Var (Short "initarr");
                                Var (Short "len")];
                             Var (Short "arr")];
-                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))))))]);
+                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))
+                  ))))]);
 Tdec
   (Dletrec
      [("mkarr","n",
@@ -183,13 +170,15 @@ Tdec
              App Aalloc [App (Opn Plus) [Var (Short "n"); Var (Short "n")]; Lit (IntLit 0)]];
           Lit (IntLit 0)])]);
 Tdec
+  (Dlet (Pvar "foo")
+     (App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]));
+Tdec
   (Dlet (Pvar "test")
      (App Opapp
         [App Opapp
            [App Opapp
               [Var (Short "inplace_qsort"); Lit (IntLit 0)];
-            Lit (IntLit 40000)];
-         App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]]))]``
+            Lit (IntLit 40000)]; Var (Short "foo")]))]``
 
 val btree = ``
 [Tdec
