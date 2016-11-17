@@ -1,3 +1,7 @@
+(*
+   Miscellaneous definitions and minor lemmas used throughout the
+   development.
+*)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
 open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
 ASCIInumbersLib
