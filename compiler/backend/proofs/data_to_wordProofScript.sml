@@ -39,6 +39,17 @@ val word_and_one_eq_0_iff = Q.store_thm("word_and_one_eq_0_iff", (* same in stac
   `!w. ((w && 1w) = 0w) <=> ~(w ' 0)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
 
+val ABS_w2n = Q.store_thm("ABS_w2n[simp]",
+  `ABS (&w2n w) = &w2n w`,
+  rw[integerTheory.INT_ABS_EQ_ID]);
+
+val n2mw_w2n = Q.store_thm("n2mw_w2n",
+  `∀w. n2mw (w2n w) = if w = 0w then [] else [w]`,
+  simp[Once multiwordTheory.n2mw_def]
+  \\ gen_tac \\ IF_CASES_TAC \\ fs[]
+  \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
+  \\ simp[LESS_DIV_EQ_ZERO,multiwordTheory.n2mw_NIL]);
+
 val get_var_set_var = Q.store_thm("get_var_set_var[simp]",
   `get_var n (set_var n w s) = SOME w`,
   full_simp_tac(srw_ss())[wordSemTheory.get_var_def,wordSemTheory.set_var_def]);
@@ -4245,6 +4256,67 @@ val evaluate_WriteWord64 = Q.store_thm("evaluate_WriteWord64",
   \\ simp[]
   \\ fs[dimword_def] );
 
+val evaluate_WriteWord64_bignum = Q.store_thm("evaluate_WriteWord64_bignum",
+  `memory_rel c be refs sp t.store t.memory t.mdomain
+     (join_env_locals sl t.locals ++ vars) ∧
+   get_var src (t:('a,'ffi) state) = SOME (Word w) ∧
+   shift_length c < dimindex(:α) ∧
+   src ≠ 1 ∧ 1 < sp ∧
+   dimindex(:α) = 64 ∧
+   encode_header c 3 1 = SOME header ∧
+   ¬small_int (:α) (&w2n w) ∧
+   (∀n. IS_SOME (lookup n sl) ⇒ IS_SOME (lookup (adjust_var n) t.locals))
+   ==>
+   ∃eoh' m' locals' v.
+     evaluate (WriteWord64 c header dest src,t) = (NONE, t with <| store := t.store |+ (EndOfHeap, eoh'); memory := m'; locals := locals'|>) ∧
+     memory_rel c be refs (sp-2) (t.store |+ (EndOfHeap, eoh')) m' t.mdomain
+       (join_env_locals (insert dest (Number (&w2n w)) sl) locals' ++ vars) ∧
+     (∀n. IS_SOME (lookup n sl) ⇒ IS_SOME (lookup (adjust_var n) locals')) ∧
+     IS_SOME (lookup (adjust_var dest) locals') ∧
+     lookup 0 locals' = lookup 0 t.locals`,
+  rw[WriteWord64_def,list_Seq_def,join_env_locals_def]
+  \\ drule(GEN_ALL(IMP_memory_rel_bignum |> Q.GEN`vs` |> Q.SPEC`[]` |> SIMP_RULE (srw_ss())[]))
+  \\ disch_then(qspecl_then[`[w]`,`F`,`&w2n w`,`header`]mp_tac)
+  \\ simp[]
+  \\ impl_tac >- (
+    simp[good_dimindex_def]
+    \\ conj_tac
+    >- (
+      rw[Bignum_def]
+      \\ fs[multiwordTheory.i2mw_def]
+      \\ simp[n2mw_w2n]
+      \\ IF_CASES_TAC \\ fs[]
+      \\ fs[small_int_def]
+      \\ rfs[dimword_def] )
+    \\ CONV_TAC(PATH_CONV"lrlr"EVAL)
+    \\ simp[dimword_def])
+  \\ strip_tac
+  \\ eval_tac
+  \\ fs[wordSemTheory.get_var_def,
+        wordSemTheory.mem_store_def,
+        lookup_insert,
+        wordSemTheory.set_store_def,
+        FLOOKUP_UPDATE,
+        store_list_def]
+  \\ simp[wordSemTheory.state_component_equality,lookup_insert]
+  \\ qmatch_goalsub_abbrev_tac`(EndOfHeap,eoh')`
+  \\ qexists_tac`eoh'` \\ simp[]
+  \\ reverse conj_tac
+  >- ( rw[] \\ fs[FLOOKUP_DEF,EXTENSION] \\ metis_tac[] )
+  \\ full_simp_tac std_ss [APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert
+  \\ fs[inter_insert_ODD_adjust_set_alt]
+  \\ rw[] \\ fs[make_ptr_def]
+  \\ qmatch_abbrev_tac`memory_rel c be refs sp' st' m' md vars'`
+  \\ qmatch_assum_abbrev_tac`memory_rel c be refs sp' st' m'' md vars'`
+  \\ `m' = m''` suffices_by simp[]
+  \\ simp[Abbr`m'`,Abbr`m''`,FUN_EQ_THM,APPLY_UPDATE_THM]
+  \\ rw[]
+  \\ fs[]
+  \\ pop_assum mp_tac \\ EVAL_TAC
+  \\ simp[]
+  \\ fs[dimword_def] );
+
 val evaluate_LoadBignum = Q.store_thm("evaluate_LoadBignum",
   `memory_rel c be refs sp t.store t.memory t.mdomain ((Number i,v)::vars) ∧
    ¬small_int (:α) i ∧ good_dimindex (:α) ∧ shift_length c < dimindex (:α) ∧
@@ -4340,13 +4412,24 @@ val th = Q.store_thm("assign_WordToInt",
          [Smallnum_i2w,GSYM integerTheory.INT_MUL,
           integer_wordTheory.i2w_w2n_w2w,GSYM integer_wordTheory.word_i2w_mul,
           EVAL ``i2w 4 : 'a word``])
-  \\ cheat (* need to prove a version of evaluate_WriteWord64 that produces Number rather than Word64
-  \\ assume_tac (GEN_ALL evaluate_WriteWord64)
+  \\ assume_tac (GEN_ALL evaluate_WriteWord64_bignum)
   \\ SEP_I_TAC "evaluate" \\ fs[]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
   \\ first_x_assum drule
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ fs[consume_space_def]
+  \\ impl_tac
+  >- (
+    pop_assum mp_tac
+    \\ fs[small_int_def]
+    \\ simp[dimword_def]
+    \\ simp[w2n_w2w]
+    \\ qmatch_goalsub_rename_tac`w2n w`
+    \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+    \\ Cases_on`w` \\ fs[]
+    \\ rfs[word_index]
+    \\ imp_res_tac bitTheory.BIT_IMP_GE_TWOEXP
+    \\ fs[])
   \\ strip_tac \\ fs[]
   \\ clean_tac \\ fs[]
   \\ conj_tac >- rw[]
@@ -4356,7 +4439,8 @@ val th = Q.store_thm("assign_WordToInt",
   \\ qmatch_goalsub_abbrev_tac`Number w1`
   \\ qmatch_asmsub_abbrev_tac`Number w2`
   \\ `w1 = w2` suffices_by simp[]
-  \\ cheat*));
+  \\ simp[Abbr`w1`,Abbr`w2`]
+  \\ simp[w2n_w2w]);
 
 val th = Q.store_thm("assign_FromList",
   `(?tag. op = FromList tag) ==> ^assign_thm_goal`,
