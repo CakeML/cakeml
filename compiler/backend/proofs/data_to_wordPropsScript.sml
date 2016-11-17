@@ -2947,10 +2947,93 @@ val memory_rel_WordOp64 =
   |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
   |> curry save_thm"memory_rel_WordOp64"
 
-val memory_rel_WordFromInt =
-  memory_rel_Word64 |> Q.GEN`vs` |> Q.SPEC`[w1]`
-  |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
-  |> curry save_thm"memory_rel_WordFromInt"
+val IMP_memory_rel_bignum = Q.store_thm("IMP_memory_rel_bignum",
+  `memory_rel c be refs sp st m dm (vs ++ vars) ∧
+   good_dimindex (:α) ∧ ¬small_int (:α) i ∧
+   (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag sign,MAP Word ws) ∧
+   LENGTH ws < sp ∧
+   encode_header c (w2n ((b2w sign <<2 || 3w):α word)) (LENGTH ws) = SOME (hd:α word) ⇒
+   ∃eoh curr m1.
+     FLOOKUP st EndOfHeap = SOME (Word eoh) ∧
+     FLOOKUP st CurrHeap = SOME (Word curr) ∧
+     (let w = eoh - bytes_in_word * n2w (LENGTH ws + 1) in
+      store_list w (MAP Word (hd::ws)) m dm = SOME m1 ∧
+      memory_rel c be refs (sp - (LENGTH ws + 1))
+        (st |+ (EndOfHeap,Word w))
+        m1 dm ((Number i,make_ptr c (w - curr) (0w:α word) (LENGTH ws))::vars))`,
+  rw[memory_rel_def,word_ml_inv_def,PULL_EXISTS]
+  \\ imp_res_tac EVERY2_SWAP
+  \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs[] \\ clean_tac
+  \\ drule (GEN_ALL bignum_thm) \\ fs[]
+  \\ disch_then drule
+  \\ disch_then drule \\ impl_tac >- fs[] \\ strip_tac
+  \\ first_assum(part_match_exists_tac(find_term (same_const``abs_ml_inv`` o #1 o strip_comb)) o concl)
+  \\ simp[]
+  \\ fs[heap_in_memory_store_def,FLOOKUP_UPDATE]
+  \\ imp_res_tac heap_store_unused_IMP_length \\ fs[]
+  \\ fs[heap_store_unused_def]
+  \\ rfs[el_length_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ clean_tac
+  \\ qpat_x_assum`_ (fun2set _)`mp_tac
+  \\ ONCE_REWRITE_TAC[STAR_COMM]
+  \\ ONCE_REWRITE_TAC[CONS_APPEND]
+  \\ simp[word_heap_APPEND]
+  \\ qmatch_goalsub_rename_tac`[Unused (ex - 1)]`
+  \\ qpat_abbrev_tac`hex = [Unused _]`
+  \\ `hex = heap_expand ex` by simp[Abbr`hex`,heap_expand_def]
+  \\ qunabbrev_tac`hex`
+  \\ simp[word_heap_heap_expand,heap_length_heap_expand]
+  \\ qpat_abbrev_tac`len = LENGTH ws + 1`
+  \\ simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,minus_lemma]
+  \\ REWRITE_TAC[GSYM WORD_LEFT_ADD_DISTRIB,GSYM WORD_ADD_ASSOC]
+  \\ REWRITE_TAC[WORD_ADD_ASSOC,word_add_n2w]
+  \\ qmatch_goalsub_abbrev_tac`n2w (a - len)`
+  \\ `len ≤ a` by ( simp[Abbr`len`,Abbr`a`] )
+  \\ simp[n2w_sub]
+  \\ REWRITE_TAC[WORD_SUB_INTRO]
+  \\ asm_simp_tac std_ss [GSYM n2w_sub]
+  \\ `len ≤ ex` by simp[Abbr`len`]
+  \\ `ex = (ex - len) + len` by simp[]
+  \\ pop_assum SUBST1_TAC
+  \\ REWRITE_TAC[word_list_exists_ADD]
+  \\ qmatch_goalsub_abbrev_tac`word_list_exists x len`
+  \\ qmatch_goalsub_abbrev_tac`store_list y`
+  \\ `x = y`
+  by (
+    simp[Abbr`x`,Abbr`y`,n2w_sub,WORD_LEFT_ADD_DISTRIB,Abbr`a`,GSYM word_add_n2w] )
+  \\ qunabbrev_tac`x` \\ pop_assum SUBST_ALL_TAC
+  \\ simp[GSYM STAR_ASSOC]
+  \\ CONV_TAC(LAND_CONV(RATOR_CONV(RAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV STAR_COMM))))))
+  \\ simp[STAR_ASSOC]
+  \\ CONV_TAC(LAND_CONV(RATOR_CONV(REWR_CONV STAR_COMM)))
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`Word hd::_`
+  \\ `len = LENGTH (Word hd::MAP Word ws)` by simp[Abbr`len`]
+  \\ qunabbrev_tac `len` \\ pop_assum SUBST_ALL_TAC
+  \\ drule store_list_thm \\ strip_tac
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[heap_store_lemma]
+  \\ clean_tac
+  \\ reverse conj_tac
+  >- (
+    simp[word_addr_def,make_ptr_def,get_addr_def,
+         get_lowerbits_def,bytes_in_word_mul_eq_shift]
+    \\ imp_res_tac EVERY2_SWAP \\ fs[])
+  \\ pop_assum mp_tac
+  \\ simp[word_heap_APPEND,heap_length_APPEND,
+          heap_length_heap_expand,word_heap_heap_expand]
+  \\ simp[AC STAR_ASSOC STAR_COMM]
+  \\ simp[word_list_def,word_heap_def,SEP_CLAUSES]
+  \\ simp[word_el_def,word_payload_def]
+  \\ imp_res_tac encode_header_IMP
+  \\ fs[encode_header_def,SEP_CLAUSES]
+  \\ simp[word_list_def]
+  \\ simp[Q.SPEC`[_]`heap_length_def,el_length_def,ADD1]
+  \\ simp[AC STAR_ASSOC STAR_COMM]);
 
 val memory_rel_Cons = Q.store_thm("memory_rel_Cons",
   `memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
