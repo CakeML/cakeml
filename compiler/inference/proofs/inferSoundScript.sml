@@ -1015,7 +1015,8 @@ val weak_decls_ienv_to_tenv = Q.store_thm ("weak_decls_ienv_to_tenv",
   `!idecls1 idecls2.
     check_weak_decls idecls1 idecls2 ⇒ weak_decls (convert_decls idecls1) (convert_decls idecls2)`,
   rw [check_weak_decls_def, weak_decls_def, convert_decls_def, SUBSET_DEF,
-      EVERY_MEM, list_subset_def]);
+      EVERY_MEM, list_subset_def, list_set_eq_def, EXTENSION] >>
+  metis_tac []);
 
 val check_freevars_nub = Q.prove (
 `(!t x fvs.
