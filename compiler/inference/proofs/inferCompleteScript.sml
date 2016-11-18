@@ -833,7 +833,7 @@ val t_ind = t_induction
   |> CONJUNCT1
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`
+  |> Q.GEN`P`;
 
 val env_rel_binding_lemma = Q.store_thm ("env_rel_binding_lemma",
   `!t fvs fvs' subst.
@@ -1314,6 +1314,22 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp [extend_dec_ienv_def] >>
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])));
 
+(* TODO: I hope this is true *)
+val tscheme_approx_trans = Q.store_thm ("tscheme_approx_trans",
+  `tscheme_approx max_tvs s (tvs1,t1) (tvs2,t2) ∧
+   tscheme_approx max_tvs s (tvs2,t2) (tvs3,t3)
+   ⇒
+   tscheme_approx max_tvs s (tvs1,t1) (tvs3,t3)`,
+  cheat);
+
+(* TODO: I hope this is true *)
+val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
+  `!tvs t tvs' t' id.
+    tscheme_approx 0 FEMPTY (tvs,t) (tvs',t') ⇒ check_tscheme_inst id (tvs,t) (tvs',t')`,
+  rw [tscheme_approx_def, check_tscheme_inst_def] >>
+  fs [t_walkstar_FEMPTY] >>
+  cheat);
+
 val check_weak_ienv_complete = Q.store_thm ("check_weak_ienv_complete",
   `!tenv_impl tenv_spec ienv_impl ienv_spec.
     weak_tenv tenv_impl tenv_spec ∧
@@ -1322,7 +1338,20 @@ val check_weak_ienv_complete = Q.store_thm ("check_weak_ienv_complete",
     ⇒
     check_weak_ienv ienv_impl ienv_spec`,
   rw [weak_tenv_def, check_weak_ienv_def, GSYM nsSub_compute_thm]
-  >- cheat >>
+  >- (
+    fs [namespaceTheory.nsSub_def, env_rel_def, env_rel_sound_def,
+        lookup_var_def, env_rel_complete_def] >>
+    rw [] >>
+    rpt (first_x_assum drule) >>
+    rw [] >>
+    rpt (first_x_assum drule) >>
+    rw [] >>
+    fs [tscheme_inst2_def] >>
+    PairCases_on `v2` >>
+    rpt (first_x_assum drule) >>
+    rw [] >>
+    fs [] >>
+    metis_tac [tscheme_approx_trans, check_tscheme_inst_complete, tscheme_inst_to_approx]) >>
   fs [env_rel_def, env_rel_sound_def]);
 
 val check_weak_decls_complete = Q.store_thm ("check_weak_decls_complete",

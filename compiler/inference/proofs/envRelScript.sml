@@ -266,6 +266,44 @@ val tscheme_approx_refl = Q.store_thm ("tscheme_approx_refl",
   irule LIST_EQ >>
   rw [LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST]);
 
+val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`;
+
+val unconvert_db_subst = Q.store_thm ("unconvert_db_subst",
+  `!t subst fvs l.
+     check_freevars l [] t ⇒
+     unconvert_t (deBruijn_subst 0 subst t) =
+     infer_deBruijn_subst (MAP unconvert_t subst) (unconvert_t t)`,
+ ho_match_mp_tac t_ind >>
+ rw [deBruijn_subst_def, unconvert_t_def, infer_deBruijn_subst_def,
+     check_freevars_def, EL_MAP] >>
+ irule LIST_EQ >>
+ rw [EL_MAP] >>
+ fs [EVERY_MEM, MEM_EL] >>
+ metis_tac []);
+
+val tscheme_inst_to_approx = Q.store_thm ("tscheme_inst_to_approx",
+  `tscheme_inst (tvs,t) (tvs',t') ⇒
+   tscheme_approx 0 FEMPTY (tvs,unconvert_t t) (tvs',unconvert_t t')`,
+  rw [tscheme_inst_def, tscheme_approx_def, t_walkstar_FEMPTY] >>
+  qexists_tac `MAP unconvert_t subst` >>
+  rw [EVERY_MAP]
+  >- (
+    fs [EVERY_MEM] >>
+    metis_tac [check_freevars_to_check_t]) >>
+  rw [MAP_MAP_o, combinTheory.o_DEF] >>
+  drule unconvert_db_subst >>
+  rw [] >>
+  drule check_freevars_to_check_t >>
+  rw [] >>
+  `check_t (LENGTH (MAP unconvert_t subst)) {} (unconvert_t t')` by rw [] >>
+  rw [infer_deBruijn_subst_twice, MAP_MAP_o, combinTheory.o_DEF]);
+
 val env_rel_sound_def = Define `
   env_rel_sound s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
