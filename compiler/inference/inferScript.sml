@@ -14,6 +14,9 @@ val _ = computeLib.add_persistent_funs ["inf_type_to_string_def"];
 val list_subset_def = Define `
 list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
 
+val list_set_eq = Define `
+list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
+
 (*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
 (* 'a is the type of the state, 'b is the type of successful computations, and
@@ -688,7 +691,7 @@ val check_specs_def = Define `
 
 val check_weak_decls_def = Define `
 check_weak_decls decls_impl decls_spec ⇔
-  decls_spec.inf_defined_mods = decls_impl.inf_defined_mods ∧
+  list_set_eq decls_spec.inf_defined_mods decls_impl.inf_defined_mods ∧
   list_subset decls_spec.inf_defined_types decls_impl.inf_defined_types ∧
   list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
 

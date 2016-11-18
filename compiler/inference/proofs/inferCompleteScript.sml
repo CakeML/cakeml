@@ -1314,6 +1314,26 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp [extend_dec_ienv_def] >>
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])));
 
+val check_weak_ienv_complete = Q.store_thm ("check_weak_ienv_complete",
+  `!tenv_impl tenv_spec ienv_impl ienv_spec.
+    weak_tenv tenv_impl tenv_spec ∧
+    env_rel tenv_impl ienv_impl ∧
+    env_rel tenv_spec ienv_spec
+    ⇒
+    check_weak_ienv ienv_impl ienv_spec`,
+  rw [weak_tenv_def, check_weak_ienv_def, GSYM nsSub_compute_thm]
+  >- cheat >>
+  fs [env_rel_def, env_rel_sound_def]);
+
+val check_weak_decls_complete = Q.store_thm ("check_weak_decls_complete",
+  `!idecls1 idecls2.
+    weak_decls (convert_decls idecls1) (convert_decls idecls2)
+    ⇒
+    check_weak_decls idecls1 idecls2`,
+  rw [weak_decls_def, check_weak_decls_def, convert_decls_def, SUBSET_DEF,
+      list_subset_def, list_set_eq_def] >>
+  fs [EVERY_MEM]);
+
 val infer_top_complete = Q.store_thm ("infer_top_complete",
   `!decls tenv ienv top st1 decls' tenv' idecls.
     type_top T decls tenv top decls' tenv' ∧
@@ -1342,7 +1362,7 @@ val infer_top_complete = Q.store_thm ("infer_top_complete",
       success_eqns]
   >- (
     fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION] >>
-    cheat)
+    metis_tac [env_rel_lift])
   >- (
     drule (INST_TYPE [``:'a`` |-> ``:(num |-> infer_t) infer_st``] check_specs_complete) >>
     `ienv.inf_t = tenv.t` by fs [env_rel_def, ienv_ok_def, env_rel_sound_def] >>
@@ -1355,12 +1375,12 @@ val infer_top_complete = Q.store_thm ("infer_top_complete",
     >- simp [GSYM INSERT_SING_UNION, union_decls_def, convert_decls_def]
     >- (
       simp [extend_dec_ienv_empty] >>
-      cheat)
+      metis_tac [env_rel_lift])
     >- fs [convert_decls_def]
     >- (
       simp [extend_dec_ienv_empty] >>
-      cheat)
-    >- cheat));
+      metis_tac [check_weak_ienv_complete])
+    >- metis_tac [check_weak_decls_complete]));
 
 val infer_prog_complete = Q.store_thm ("infer_prog_complete",
   `!x decls tenv prog decls' tenv'.

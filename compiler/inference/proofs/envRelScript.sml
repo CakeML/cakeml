@@ -943,6 +943,38 @@ val env_rel_empty = Q.store_thm ("env_rel_empty[simp]",
   Cases_on `x` >>
   rw [namespaceTheory.nsLookupMod_def]);
 
+val env_rel_lift = Q.store_thm ("env_rel_lift",
+  `!tenv ienv mn. env_rel tenv ienv ⇒ env_rel (tenvLift mn tenv) (ienvLift mn ienv)`,
+  rw [env_rel_def]
+  >- metis_tac [ienv_ok_lift]
+  >- fs [typeSoundInvariantsTheory.tenv_ok_def, tenvLift_def,
+         typeSoundInvariantsTheory.tenv_abbrev_ok_def,
+         typeSoundInvariantsTheory.tenv_ctor_ok_def,
+         typeSoundInvariantsTheory.tenv_val_ok_def]
+  >- (
+    simp [ienvLift_def, tenvLift_def, nsLookupMod_nsLift] >>
+    every_case_tac)
+  >- (
+    fs [env_rel_sound_def, ienvLift_def, tenvLift_def, nsLookup_nsLift] >>
+    rw [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    first_x_assum drule >>
+    rw [] >>
+    qexists_tac `tvs'` >>
+    qexists_tac `t'` >>
+    fs [lookup_var_def, nsLookup_nsLift])
+  >- (
+    fs [env_rel_complete_def, ienvLift_def, tenvLift_def, nsLookup_nsLift] >>
+    rw [] >>
+    fs [lookup_var_def, nsLookup_nsLift] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    first_x_assum drule >>
+    rw []));
+
 val ienv_to_tenv_def = Define `
   ienv_to_tenv ienv =
     <| v := nsMap (\(tvs, t). (tvs, convert_t t)) ienv.inf_v;
@@ -1075,6 +1107,5 @@ val env_rel_tenv_to_ienv = Q.store_thm ("env_rel_tenv_to_ienv",
 val tenv_to_ienv_lift = Q.store_thm ("tenv_to_ienv_lift",
   `!mn tenv. tenv_to_ienv (tenvLift mn tenv) = ienvLift mn (tenv_to_ienv tenv)`,
   rw [tenv_to_ienv_def, ienvLift_def, tenvLift_def, namespacePropsTheory.nsLift_nsMap]);
-
 
 val _ = export_theory ();
