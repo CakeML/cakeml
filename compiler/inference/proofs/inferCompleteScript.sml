@@ -827,6 +827,117 @@ val t_to_freevars_type_name_subst = Q.store_thm ("t_to_freevars_type_name_subst"
 
     *)
 
+val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`
+
+val env_rel_binding_lemma = Q.store_thm ("env_rel_binding_lemma",
+  `!t fvs fvs' subst.
+    check_freevars 0 fvs' t ∧
+    set fvs' ⊆ set fvs ∧
+    ALL_DISTINCT fvs'
+    ⇒
+    infer_deBruijn_subst subst
+      (infer_type_subst (ZIP (fvs',MAP Infer_Tvar_db (COUNT_LIST (LENGTH (fvs'))))) t) =
+    infer_deBruijn_subst
+      (GENLIST (λn.
+           infer_deBruijn_subst subst
+             (case find_index (EL n fvs) fvs' 0 of
+                NONE => Infer_Tapp [] TC_int
+              | SOME t => Infer_Tvar_db t)) (LENGTH fvs))
+      (infer_type_subst (ZIP (fvs,GENLIST (λx. Infer_Tvar_db x) (LENGTH fvs))) t)`,
+  ho_match_mp_tac t_ind >>
+  rw [infer_type_subst_def, infer_deBruijn_subst_def, check_freevars_def]
+  >- (
+    qmatch_assum_abbrev_tac `MEM name _` >>
+    every_case_tac >>
+    fs [ALOOKUP_FAILS, SUBSET_DEF, MEM_MAP, MEM_ZIP, LENGTH_COUNT_LIST,
+        infer_deBruijn_subst_def]
+    >- (
+      every_case_tac >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      rw [] >>
+      metis_tac [])
+    >- (
+      every_case_tac >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      rw [] >>
+      metis_tac [])
+    >- (
+      every_case_tac >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      rw [] >>
+      metis_tac [])
+    >- (
+      imp_res_tac ALOOKUP_MEM >>
+      fs [MEM_ZIP, LENGTH_COUNT_LIST] >>
+      rw [] >>
+      fs [EL_MAP, LENGTH_COUNT_LIST, infer_deBruijn_subst_def, EL_COUNT_LIST] >>
+      drule find_index_ALL_DISTINCT_EL >>
+      disch_then drule >>
+      disch_then (qspec_then `0` mp_tac) >>
+      asm_simp_tac std_ss [] >>
+      rw [infer_deBruijn_subst_def]))
+  >- (
+    irule LIST_EQ >>
+    rw [EL_MAP] >>
+    fs [EVERY_EL]));
+
+val env_rel_binding_lemma2 = Q.store_thm ("env_rel_binding_lemma2",
+  `!t fvs fvs' subst.
+    check_freevars 0 fvs' t ∧
+    set fvs' ⊆ set fvs ∧
+    ALL_DISTINCT fvs'
+    ⇒
+    infer_deBruijn_subst subst
+      (infer_type_subst (ZIP (fvs,GENLIST (λx. Infer_Tvar_db x) (LENGTH fvs))) t) =
+    infer_deBruijn_subst
+      (GENLIST (λn.
+           infer_deBruijn_subst subst
+             (case find_index (EL n fvs') fvs 0 of
+                NONE => Infer_Tapp [] TC_int
+              | SOME t => Infer_Tvar_db t)) (LENGTH fvs'))
+      (infer_type_subst (ZIP (fvs',MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t)`,
+  ho_match_mp_tac t_ind >>
+  rw [infer_type_subst_def, infer_deBruijn_subst_def, check_freevars_def]
+  >- (
+    qmatch_assum_abbrev_tac `MEM name _` >>
+    every_case_tac >>
+    fs [ALOOKUP_FAILS, SUBSET_DEF, MEM_MAP, MEM_ZIP, LENGTH_COUNT_LIST,
+        infer_deBruijn_subst_def]
+    >- (
+      every_case_tac >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      rw [] >>
+      metis_tac [])
+    >- (
+      every_case_tac >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      rw [] >>
+      metis_tac [])
+    >- (
+      every_case_tac >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      rw [] >>
+      metis_tac [])
+    >- (
+      imp_res_tac ALOOKUP_MEM >>
+      fs [MEM_ZIP, LENGTH_COUNT_LIST] >>
+      rw [] >>
+      fs [EL_MAP, LENGTH_COUNT_LIST, infer_deBruijn_subst_def, EL_COUNT_LIST] >>
+      imp_res_tac ALOOKUP_find_index_SOME >>
+      fs [MAP_ZIP, EL_ZIP, LENGTH_GENLIST, LENGTH_ZIP] >>
+      rfs [MAP_ZIP, EL_ZIP, LENGTH_GENLIST, LENGTH_ZIP] >>
+      rw [infer_deBruijn_subst_def]))
+  >- (
+    irule LIST_EQ >>
+    rw [EL_MAP] >>
+    fs [EVERY_EL]));
+
 val unconvert_type_subst = Q.store_thm ("unconvert_type_subst",
   `(!t subst fvs.
      check_freevars 0 fvs t ∧ set fvs ⊆ set (MAP FST subst) ⇒
@@ -870,7 +981,6 @@ val env_rel_binding = Q.store_thm ("env_rel_binding",
              t);
       inf_c := nsEmpty;
       inf_t := nsEmpty|>`,
-
   rw [env_rel_def]
   >- (
     rw [ienv_ok_def, ienv_val_ok_def] >>
@@ -897,7 +1007,6 @@ val env_rel_binding = Q.store_thm ("env_rel_binding",
     irule check_freevars_more >>
     metis_tac [])
   >- (
-
     rw [env_rel_sound_def, lookup_var_def]
     >- (
       irule check_freevars_subst_single >>
@@ -908,32 +1017,32 @@ val env_rel_binding = Q.store_thm ("env_rel_binding",
       irule check_freevars_more >>
       metis_tac []) >>
     rw [tscheme_approx_def, t_walkstar_FEMPTY] >>
-    EXISTS_TAC ``GENLIST (\n. case INDEX_OF (EL n (fvs:tvarN list)) (nub fvs')
-                                of NONE => Infer_Tapp [] TC_int
-                                 | SOME t => Infer_Tvar_db t) (LENGTH fvs)`` >>
-    rw [EVERY_GENLIST]
-    >- (
-      every_case_tac >>
-      rw [check_t_def] >>
-      cheat) >>
-    rw [MAP_GENLIST, combinTheory.o_DEF] >>
-    qmatch_abbrev_tac `_ = _ _ (unconvert_t (type_subst (alist_to_fmap s) _))` >>
     drule (CONJUNCT1 unconvert_type_subst) >>
-    disch_then (qspec_then `s` mp_tac) >>
+    disch_then (qspec_then `ZIP (fvs,MAP Tvar_db (GENLIST (λx. x) (LENGTH fvs)))` mp_tac) >>
     impl_tac
     >- (
-      unabbrev_all_tac >>
       fs [SUBSET_DEF] >>
       rw [MEM_MAP, MEM_ZIP, LENGTH_GENLIST] >>
       fs [PULL_EXISTS] >>
       metis_tac [MEM_EL]) >>
     simp [] >>
     disch_then kall_tac >>
-    unabbrev_all_tac >>
     `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
       by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
     simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
-    cheat)
+    EXISTS_TAC ``GENLIST (\n. case find_index (EL n (fvs:tvarN list)) (nub fvs') 0
+                                of NONE => Infer_Tapp [] TC_int
+                                 | SOME t => Infer_Tvar_db t) (LENGTH fvs)`` >>
+    rw [EVERY_GENLIST]
+    >- (
+      every_case_tac >>
+      rw [check_t_def] >>
+      drule find_index_LESS_LENGTH >>
+      rw []) >>
+    rw [MAP_GENLIST, combinTheory.o_DEF] >>
+    irule env_rel_binding_lemma >>
+    rw [all_distinct_nub] >>
+    metis_tac [check_freevars_more, nub_set, SUBSET_DEF])
   >- (
    rw [env_rel_complete_def, lookup_var_def]
    >- (
@@ -945,10 +1054,33 @@ val env_rel_binding = Q.store_thm ("env_rel_binding",
      rw [] >>
      irule check_freevars_more >>
      metis_tac []) >>
-
-   cheat));
-
-
+    rw [tscheme_approx_def, t_walkstar_FEMPTY] >>
+    drule (CONJUNCT1 unconvert_type_subst) >>
+    disch_then (qspec_then `ZIP (fvs,MAP Tvar_db (GENLIST (λx. x) (LENGTH fvs)))` mp_tac) >>
+    impl_tac
+    >- (
+      fs [SUBSET_DEF] >>
+      rw [MEM_MAP, MEM_ZIP, LENGTH_GENLIST] >>
+      fs [PULL_EXISTS] >>
+      metis_tac [MEM_EL]) >>
+    simp [] >>
+    disch_then kall_tac >>
+    `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
+      by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
+    simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
+    EXISTS_TAC ``GENLIST (\n. case find_index (EL n (nub fvs':tvarN list)) fvs 0
+                                of NONE => Infer_Tapp [] TC_int
+                                 | SOME t => Infer_Tvar_db t) (LENGTH (nub fvs'))`` >>
+    rw [EVERY_GENLIST]
+    >- (
+      every_case_tac >>
+      rw [check_t_def] >>
+      drule find_index_LESS_LENGTH >>
+      rw []) >>
+    rw [MAP_GENLIST, combinTheory.o_DEF] >>
+    irule env_rel_binding_lemma2 >>
+    rw [all_distinct_nub] >>
+    metis_tac [check_freevars_more, nub_set, SUBSET_DEF]));
 
 val infer_d_complete = Q.store_thm ("infer_d_complete",
   `!mn decls tenv ienv d st1 decls' tenv' idecls.
@@ -1183,17 +1315,15 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])));
 
 val infer_top_complete = Q.store_thm ("infer_top_complete",
-  `!x decls tenv top decls' tenv'.
-    type_top x decls tenv top decls' tenv' ⇒
-    !idecls ienv st1.
-      env_rel tenv ienv ∧
-      decls = convert_decls idecls ∧
-      x = T
-      ⇒
-      ?idecls' st2.
-        decls' = convert_decls idecls' ∧
-        infer_top idecls ienv top st1 = (Success (idecls',tenv_to_ienv tenv'), st2)`,
-
+  `!decls tenv ienv top st1 decls' tenv' idecls.
+    type_top T decls tenv top decls' tenv' ∧
+    env_rel tenv ienv ∧
+    decls = convert_decls idecls
+    ⇒
+    ?idecls' ienv' st2.
+      decls' = convert_decls idecls' ∧
+      env_rel tenv' ienv' ∧
+      infer_top idecls ienv top st1 = (Success (idecls',ienv'), st2)`,
   rw [type_top_cases] >>
   rw [infer_top_def, success_eqns]
   >- (
@@ -1210,10 +1340,58 @@ val infer_top_complete = Q.store_thm ("infer_top_complete",
   rw [success_eqns] >>
   fs [check_signature_def, typeSystemTheory.check_signature_cases,
       success_eqns]
-  >- fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION, tenv_to_ienv_lift] >>
+  >- (
+    fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION] >>
+    cheat)
+  >- (
+    drule (INST_TYPE [``:'a`` |-> ``:(num |-> infer_t) infer_st``] check_specs_complete) >>
+    `ienv.inf_t = tenv.t` by fs [env_rel_def, ienv_ok_def, env_rel_sound_def] >>
+    simp [GSYM PULL_FORALL] >>
+    impl_tac
+    >- fs [env_rel_def, ienv_ok_def] >>
+    disch_then (qspecl_then [`st2`, `empty_inf_decls`, `<|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty|>`] mp_tac) >>
+    rw [] >>
+    rw [success_eqns]
+    >- simp [GSYM INSERT_SING_UNION, union_decls_def, convert_decls_def]
+    >- (
+      simp [extend_dec_ienv_empty] >>
+      cheat)
+    >- fs [convert_decls_def]
+    >- (
+      simp [extend_dec_ienv_empty] >>
+      cheat)
+    >- cheat));
+
+val infer_prog_complete = Q.store_thm ("infer_prog_complete",
+  `!x decls tenv prog decls' tenv'.
+    type_prog x decls tenv prog decls' tenv' ⇒
+    !st1 idecls ienv.
+    env_rel tenv ienv ∧
+    decls = convert_decls idecls ∧
+    x = T
+    ⇒
+    ?idecls' ienv' st2.
+      decls' = convert_decls idecls' ∧
+      env_rel tenv' ienv' ∧
+      infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2)`,
+  ho_match_mp_tac type_prog_ind >>
+  rw [infer_prog_def, success_eqns]
+  >- rw [convert_decls_def, empty_decls_def, empty_inf_decls_def] >>
+  drule infer_top_complete >>
+  disch_then drule >>
+  disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
+  rw [] >>
+  rw [success_eqns] >>
+  `env_rel (extend_dec_tenv tenv1 tenv) (extend_dec_ienv ienv' ienv)`
+    by metis_tac [env_rel_extend] >>
+  first_x_assum drule >>
+  simp [GSYM convert_append_decls] >>
+  disch_then (qspecl_then [`st2`, `append_decls idecls' idecls`] mp_tac) >>
+  rw [] >>
+  rw [success_eqns, convert_append_decls] >>
+  metis_tac [env_rel_extend]);
 
 
-  cheat);
 
 (*
 val infer_ds_complete = prove(``
@@ -1283,15 +1461,6 @@ val infer_ds_complete = prove(``
       metis_tac[tenv_alpha_bind_var_list2])>>
   rw[]>>
   fs[convert_append_decls,append_new_dec_tenv_def,tenv_alpha_bind_var_list2,check_env_def]);
-  *)
-
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`
 
 val rename_lemma = store_thm("rename_lemma",
   ``∀t fvs fvs'.
@@ -1872,5 +2041,6 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
   rw[]>>fs[convert_append_decls,append_new_top_tenv_def]>>
   fs[check_env_def]>>
   metis_tac[tenv_alpha_bind_var_list2,menv_alpha_def,fmap_rel_FUNION_rels])
+  *)
 
 val _ = export_theory ();

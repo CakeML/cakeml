@@ -78,6 +78,16 @@ val ienv_unchanged = Q.store_thm ("ienv_unchanged[simp]",
    (ienv with inf_t := ienv.inf_t) = ienv`,
  rw [inf_env_component_equality]);
 
+val append_decls_empty = Q.store_thm ("append_decls_empty[simp]",
+  `!d. append_decls d empty_inf_decls = d ∧ append_decls empty_inf_decls d = d`,
+  rw [append_decls_def, inf_decls_component_equality, empty_inf_decls_def]);
+
+val extend_dec_ienv_empty = Q.store_thm ("extend_dec_ienv_empty",
+  `!ienv.
+    extend_dec_ienv ienv <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |> = ienv ∧
+    extend_dec_ienv <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |> ienv = ienv`,
+  rw [extend_dec_ienv_def, inf_env_component_equality]);
+
 (* ---------- Facts about deBruijn increment ---------- *)
 
 val infer_deBruijn_inc0 = Q.store_thm ("infer_deBruijn_inc0",
