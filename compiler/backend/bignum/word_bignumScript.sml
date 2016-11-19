@@ -174,22 +174,23 @@ val Corr_Loop = prove(
   \\ Cases_on `q` \\ fs []
   \\ asm_exists_tac \\ fs []);
 
-val Corr_STRENGTHEN = prove(
-  ``Corr p f ==>
-    !f'.
-      (!s. FST (f' s) = FST (f s)) /\
-      (!s. SND (f' s) ==> SND (f s)) ==>
-      Corr p f'``,
-  fs [Corr_def] \\ metis_tac []);
-
 val Corr_STRENGTHEN_TERM = prove(
   ``Corr p (TERM f) ==>
     !f'.
-      (!s. FST (f' s) = FST (f s)) /\
-      (!s. SND (f' s) ==> SND (f s)) ==>
+      (!s. SND (f' s) ==> SND (f s) /\ (FST (f' s) = FST (f s))) ==>
       Corr p (TERM f')``,
   fs [Corr_def,TERM_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+
+val Corr_STRENGTHEN_TERM_NEW = prove(
+  ``Corr p (TERM f) ==>
+    !f'. (!s. SND (f' s) ==> f s = (FST (f' s),T)) ==> Corr p (TERM f')``,
+  fs [Corr_def,TERM_def]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+  \\ rpt strip_tac \\ res_tac
+  \\ Cases_on `f s` \\ fs []
+  \\ `SND (f s)` by fs []
+  \\ res_tac \\ metis_tac [FST]);
 
 (* examples *)
 
@@ -285,11 +286,6 @@ val tm = foo_def |> SPEC_ALL |> concl |> rand
 
 (* derive Corr thm from AST *)
 
-(*
-  val tm = foo_def |> SPEC_ALL |> concl |> rand
-  val tm = get_full_prog tm
-*)
-
 fun get_pat thm = thm |> SPEC_ALL |> UNDISCH_ALL |> concl |> rator |> rand;
 
 fun get_corr tm =
@@ -317,6 +313,8 @@ fun get_corr tm =
   get_corr tm
 *)
 
+val tm = foo_def |> SPEC_ALL |> concl |> rand
+val tm = get_full_prog tm
 val foo_corr = get_corr tm
 
 val foo_raw_def = Define `
@@ -326,24 +324,96 @@ val foo_corr = foo_corr |> REWRITE_RULE [GSYM foo_raw_def]
 
 val v = mk_var("foo_new",type_of (foo_raw_def |> concl |> rator |> rand))
 
+val MARKER_def = Define `MARKER x = x`
+
 val foo_new_def = Define `
   ^v = \s.
-    (let r8 = foo (s.regs ' 8, s.regs ' 10) in
-     let s1 = FST (foo_raw s) in
-       s with regs := (s.regs |++ [(8,r8); (10,s1.regs ' 10)]),
-     8 IN FDOM s.regs /\
-     10 IN FDOM s.regs /\
-     foo_pre (s.regs ' 8, s.regs ' 10))`
+    (MARKER (\s r1 r2. s with regs := (s.regs |++ [(8,r1); (10,r2.regs ' 10)]))
+       s (foo (s.regs ' 8, s.regs ' 10)) (FST (foo_raw s)),
+     foo_pre (s.regs ' 8, s.regs ' 10) /\
+     8 IN FDOM s.regs /\ 10 IN FDOM s.regs)`
 
 val foo_corr_lemma =
-  MATCH_MP Corr_STRENGTHEN_TERM foo_corr
+  MATCH_MP Corr_STRENGTHEN_TERM_NEW foo_corr
   |> SPEC (foo_new_def |> concl |> rator |> rand)
 
-val lemma = prove(``^(foo_corr_lemma |> concl |> dest_imp |> fst)``,
-  reverse conj_tac
-  \\ fs [foo_new_def,fetch "-" "foo_pre",foo_raw_def,LOOP_def]
-  \\ cheat);
+val SHORT_TAILREC_PRE_INDUCT = store_thm("SHORT_TAILREC_PRE_INDUCT",
+  ``∀P.
+     (!x. SHORT_TAILREC_PRE f x /\
+          SND (f x) /\ (!y. FST (f x) = INL y ==> P y) ==>
+          P x) ==>
+     (∀x. SHORT_TAILREC_PRE f x ⇒ P x)``,
+  rewrite_tac [SHORT_TAILREC_PRE_def] \\ ntac 2 strip_tac
+  \\ ho_match_mp_tac TAILREC_PRE_INDUCT \\ rw []
+  \\ res_tac \\ Cases_on `f x` \\ fs [] \\ Cases_on `q` \\ fs []);
 
-val corr_foo_new = MP foo_corr_lemma lemma |> REWRITE_RULE [foo_new_def];
+val SHORT_TAILREC_SIM = store_thm("SHORT_TAILREC_SIM",
+  ``!f g R P.
+      (!x s q r.
+         R x s /\ (f x = (q,T)) ==>
+         (!y. q = INL y ==> ?y1. g s = (INL y1,T) /\ R y y1) /\
+         (!y. q = INR y ==> ?y1. g s = (INR y1,T) /\ P y y1)) ==>
+      !x. SHORT_TAILREC_PRE f x ==>
+          !s. R x s ==>
+              P (SHORT_TAILREC f x) (SHORT_TAILREC g s) /\
+              SHORT_TAILREC_PRE g s``,
+  rpt gen_tac \\ strip_tac
+  \\ ho_match_mp_tac SHORT_TAILREC_PRE_INDUCT \\ rw []
+  \\ Cases_on `f x` \\ fs [] \\ rveq
+  \\ first_assum (qspecl_then [`x`,`s`,`q`] mp_tac)
+  \\ disch_then (strip_assume_tac o UNDISCH o UNDISCH o
+          REWRITE_RULE [GSYM AND_IMP_INTRO])
+   \\ rewrite_tac [SHORT_TAILREC_def]
+  \\ once_rewrite_tac [TAILREC_THM] \\ fs []
+  \\ Cases_on `q` \\ fs [SHORT_TAILREC_def,SHORT_TAILREC_PRE_def]
+  \\ once_rewrite_tac [TAILREC_PRE_THM] \\ fs []);
+
+val ggg =
+  foo_raw_def
+  |> REWRITE_RULE [LOOP_def]
+  |> concl |> rand |> dest_abs |> snd |> rator |> rand |> rator |> rand
+
+val foo_raw_step_def = Define `foo_raw_step = ^ggg`;
+
+val th = SHORT_TAILREC_SIM
+  |> ISPEC (fetch "-" "foo" |> concl |> rand |> rand)
+  |> REWRITE_RULE [GSYM (fetch "-" "foo_pre"),GSYM (fetch "-" "foo")]
+  |> ISPEC ggg
+  |> REWRITE_RULE [GSYM foo_raw_step_def]
+  |> Q.SPEC `\(r8,r10) s. s0 with regs := s0.regs |++ [(8,r8);(10,r10)] = s`
+  |> Q.SPEC `\x s. s0 with regs := s0.regs |++ [(8,x);(10,s.regs ' 10)] = s`
+  |> SIMP_RULE std_ss [FORALL_PROD]
+
+val lemma = prove(
+  ``^(th |> concl |> dest_imp |> fst)``,
+  rw [] \\ fs [foo_raw_step_def,COMB_def,TERM_def]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+  \\ fs [fmap_EXT,fetch "-" "state_component_equality"]
+  \\ rw [EXTENSION]
+  \\ TRY eq_tac \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs []);
+
+val foo_pre_imp = MP th lemma
+
+val lemma = prove(
+  ``^(foo_corr_lemma |> concl |> dest_imp |> fst)``,
+  fs [foo_new_def] \\ rw []
+  \\ `(s with regs := s.regs |++ [(8,s.regs ' 8); (10,s.regs ' 10)]) = s` by
+   (fs [fmap_EXT,fetch "-" "state_component_equality",FUPDATE_LIST]
+    \\ rw [EXTENSION] \\ TRY eq_tac \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
+    \\ rw [] \\ NO_TAC)
+  \\ first_assum (fn th =>
+       assume_tac (Q.INST [`s0`|->`s`] (MATCH_MP foo_pre_imp th)))
+  \\ fs [MARKER_def,foo_raw_def]
+  \\ fs [foo_raw_step_def,LOOP_def]
+  \\ rfs []);
+
+val foo_corr = MP foo_corr_lemma lemma
+  |> SIMP_RULE std_ss [foo_new_def,MARKER_def];
+
+(*
+  foo_corr |> SIMP_RULE std_ss [Corr_def,TERM_def,LET_THM]
+*)
 
 val _ = export_theory();
