@@ -4,6 +4,31 @@ val _ = new_theory "word_simpProof";
 
 val s = ``s:('a,'ffi) wordSem$state``
 
+(** common **)
+
+val labels_rel_def = Define `
+  labels_rel old_labs new_labs <=>
+    (ALL_DISTINCT old_labs ==> ALL_DISTINCT new_labs) /\
+    set new_labs SUBSET set old_labs`;
+
+val labels_rel_refl = Q.store_thm("labels_rel_refl[simp]",
+  `!xs. labels_rel xs xs`,
+  fs [labels_rel_def]);
+
+val labels_rel_APPEND = Q.store_thm("labels_rel_APPEND",
+  `labels_rel xs xs1 /\ labels_rel ys ys1 ==>
+   labels_rel (xs++ys) (xs1++ys1)`,
+  fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF] \\ metis_tac []);
+
+val PERM_IMP_labels_rel = Q.store_thm("PERM_IMP_labels_rel",
+  `PERM xs ys ==> labels_rel ys xs`,
+  fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
+  \\ metis_tac [ALL_DISTINCT_PERM,MEM_PERM]);
+
+val labels_rel_TRANS = prove(
+  ``labels_rel xs ys /\ labels_rel ys zs ==> labels_rel xs zs``,
+  fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]);
+
 (** verification of Seq_assoc **)
 
 val evaluate_SmartSeq = Q.store_thm("evaluate_SmartSeq",
@@ -884,8 +909,37 @@ val evaluate_const_fp = Q.store_thm("evaluate_const_fp",
   Cases_on `evaluate (p, s)` \\ res_tac)
 
 val extract_labels_const_fp = Q.store_thm("extract_labels_const_fp",
-  `extract_labels (const_fp p) = extract_labels p`,
-  cheat (* extract_labels *));
+  `labels_rel (extract_labels p) (extract_labels (const_fp p))`,
+  fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
+  \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`cs1`,`cs1`)
+  \\ qspec_tac (`p1`,`p1`)
+  \\ qspec_tac (`cs`,`cs`)
+  \\ qspec_tac (`p`,`p`)
+  \\ ho_match_mp_tac const_fp_loop_ind
+  \\ ntac 6 (conj_tac THEN1
+   (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def]
+    \\ every_case_tac
+    \\ fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def]
+    \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [extract_labels_def]
+    \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [extract_labels_def]
+    \\ match_mp_tac labels_rel_APPEND \\ fs []))
+  \\ reverse (rpt conj_tac)
+  \\ TRY (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def] \\ NO_TAC)
+  THEN1 (* Call *)
+   (rw [] \\ fs [const_fp_loop_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ fs [extract_labels_def]
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ match_mp_tac labels_rel_APPEND \\ fs [])
+  \\ (* If *) rw [] \\ fs [const_fp_loop_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ fs [extract_labels_def]
+  \\ TRY (match_mp_tac labels_rel_APPEND \\ fs [])
+  \\ fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF]);
 
 val every_inst_inst_ok_less_const_fp = Q.store_thm("every_inst_inst_ok_less_const_fp",
   `∀prog.
@@ -903,10 +957,11 @@ val compile_exp_thm = Q.store_thm("compile_exp_thm",
         evaluate_const_fp]);
 
 val extract_labels_compile_exp = Q.store_thm("extract_labels_compile_exp[simp]",
-  `!p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)`,
+  `!p. labels_rel (extract_labels p)
+                  (extract_labels (word_simp$compile_exp p))`,
   fs [word_simpTheory.compile_exp_def]>>
   metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS,
-            extract_labels_const_fp]);
+            extract_labels_const_fp,PERM_IMP_labels_rel,labels_rel_TRANS]);
 
 val dest_Seq_no_inst = Q.prove(`
   ∀prog.
