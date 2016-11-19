@@ -522,7 +522,6 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\ qexists_tac `new_f f conf heap`
   \\
 
-
   cheat);
   (* rpt strip_tac *)
   (* \\ mp_tac simulation *)
