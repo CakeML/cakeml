@@ -913,10 +913,8 @@ val extract_labels_const_fp = Q.store_thm("extract_labels_const_fp",
   fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
   \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
   \\ pop_assum mp_tac
-  \\ qspec_tac (`cs1`,`cs1`)
-  \\ qspec_tac (`p1`,`p1`)
-  \\ qspec_tac (`cs`,`cs`)
-  \\ qspec_tac (`p`,`p`)
+  \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
+  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
   \\ ho_match_mp_tac const_fp_loop_ind
   \\ ntac 6 (conj_tac THEN1
    (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def]
@@ -945,7 +943,17 @@ val every_inst_inst_ok_less_const_fp = Q.store_thm("every_inst_inst_ok_less_cons
   `∀prog.
     every_inst (inst_ok_less ac) prog ⇒
     every_inst (inst_ok_less ac) (const_fp prog)`,
-  cheat (* inst_ok_less *));
+  strip_tac
+  \\ fs [const_fp_def] \\ Cases_on `const_fp_loop prog LN`
+  \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
+  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
+  \\ ho_match_mp_tac const_fp_loop_ind \\ rw []
+  \\ fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
+  \\ every_case_tac \\ rw [] \\ fs [every_inst_def]
+  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
+  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]);
 
 (* putting it all together *)
 
