@@ -16,8 +16,8 @@ val do_app_with_code = Q.store_thm("do_app_with_code",
    domain s.code ⊆ domain c ⇒
    do_app op vs (s with code := c) = Rval (r,s' with code := c)`,
   srw_tac[][do_app_def] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[SUBSET_DEF] >> METIS_TAC[]);
 
@@ -26,8 +26,8 @@ val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
    (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e`,
   srw_tac[][do_app_def] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[SUBSET_DEF] >> METIS_TAC[]);
 

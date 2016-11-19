@@ -418,6 +418,7 @@ val assign_def = Define `
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
+(* TODO: needs to be reimplemented (assigned: Magnus)
     | Equal => (case args of
                | [v1;v2] =>
                  let retf = Assign (adjust_var dest) FALSE_CONST in
@@ -443,6 +444,7 @@ val assign_def = Define `
                                retf))))
                  ,l)
                 | _ => (Skip,l))
+*)
     | Less => (case args of
                | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))
                               (Assign (adjust_var dest) TRUE_CONST)
