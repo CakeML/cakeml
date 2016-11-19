@@ -125,6 +125,7 @@ val SmartOp_thm = Q.store_thm("SmartOp_thm",
   \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
   \\ rfs [] \\ fs [is_simple_thm] \\ rfs [] \\ rw []
   \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
+  \\ fs [isClos_def] \\ every_case_tac \\ fs []
   \\ eq_tac \\ rw []);
 
 val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
