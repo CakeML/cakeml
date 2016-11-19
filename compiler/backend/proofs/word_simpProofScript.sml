@@ -726,6 +726,7 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
    (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
    evaluate (p', s) = (res, s') /\
    (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))`,
+
   ho_match_mp_tac const_fp_loop_ind \\ (rpt conj_tac)
   >- (** Move **)
   (fs [const_fp_loop_def, evaluate_def] \\ rw [const_fp_move_cs_def] \\
@@ -743,7 +744,8 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
     (fs [inst_def, assign_def, word_exp_def] \\ metis_tac [cs_delete_if_set_thm])
     >- (* Arith *)
     (Cases_on `a` \\ fs [const_fp_inst_cs_def, inst_def, assign_def] \\
-    every_case_tac \\ fs [] \\
+    every_case_tac \\ fs [] \\ rveq \\
+    fs [get_var_def,set_var_def,lookup_insert,lookup_delete] \\
     metis_tac [cs_delete_if_set_thm, cs_delete_if_set_x2_thm])
     >- (* Mem *)
     (Cases_on `m` \\ fs [inst_def, const_fp_inst_cs_def]
@@ -816,24 +818,28 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
                    rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def]) \\
   reverse (Cases_on `handler`) \\ fs []
     >- (every_case_tac \\ rw [evaluate_def] \\ fs [lookup_def]) \\
-  pairarg_tac \\ fs [] \\ TOP_CASE_TAC \\ fs []
-    >-
-    (rveq \\ fs [add_ret_loc_def] \\
-    TOP_CASE_TAC >- rw [evaluate_def, add_ret_loc_def, find_code_def] \\
-    rewrite_tac [evaluate_def, add_ret_loc_def, find_code_def] \\
-    imp_res_tac evaluate_sf_gc_consts_thm \\ fs [call_env_def, dec_clock_def] \\
-    TOP_CASE_TAC >- rw [] \\
-    reverse TOP_CASE_TAC >- rw [] \\
-    DISCH_TAC \\ first_assum irule
-      >- (rw [get_var_set_var_thm, lookup_delete] \\
-         imp_res_tac lookup_filter_v_SOME_thm \\ imp_res_tac lookup_filter_v_SOME_imp_thm \\
-         fs [lookup_inter_EQ] \\ metis_tac [push_env_pop_env_locals_thm, is_gc_word_const_def])
-      >- (imp_res_tac evaluate_gc_fun_const \\ imp_res_tac pop_env_gc_fun_thm \\
-         fs [set_var_def, push_env_gc_fun_thm])
-      >- (rw []))
-
-    \\
-    rw [evaluate_def] \\ fs [add_ret_loc_def])
+  pairarg_tac \\ fs [] \\ TOP_CASE_TAC \\ fs [] \\
+  TRY (rw [evaluate_def] \\ fs [add_ret_loc_def] \\ NO_TAC) \\
+  rveq \\ fs [add_ret_loc_def] \\
+  TOP_CASE_TAC >- rw [evaluate_def, add_ret_loc_def, find_code_def] \\
+  rewrite_tac [evaluate_def, add_ret_loc_def, find_code_def] \\
+  imp_res_tac evaluate_sf_gc_consts_thm \\ fs [call_env_def, dec_clock_def] \\
+  TOP_CASE_TAC >- rw [] \\
+  reverse TOP_CASE_TAC >- rw [] \\
+  DISCH_TAC \\ first_assum irule
+    >- (rw [get_var_set_var_thm, lookup_delete] \\
+       imp_res_tac lookup_filter_v_SOME_thm \\
+       imp_res_tac lookup_filter_v_SOME_imp_thm \\
+       fs [lookup_inter_EQ] \\ rfs [] \\
+       qpat_x_assum `_ ==> _ /\ _` mp_tac \\
+       impl_tac THEN1 (fs [push_env_def] \\ pairarg_tac \\ fs []) \\
+       strip_tac \\
+       drule push_env_pop_env_locals_thm \\ fs [] \\
+       rpt (disch_then drule) \\ fs [AND_IMP_INTRO] \\
+       disch_then match_mp_tac \\ fs [is_gc_word_const_def])
+    >- (imp_res_tac evaluate_gc_fun_const \\ imp_res_tac pop_env_gc_fun_thm \\
+       fs [set_var_def, push_env_gc_fun_thm])
+    >- (rw []))
 
   >- (** FFI **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
@@ -868,8 +874,7 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
 
   \\ (** Remaining: Raise, Return and Tick **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def, dec_clock_def] \\
-  every_case_tac \\ fs [])
-);
+  every_case_tac \\ fs []));
 
 val evaluate_const_fp = Q.store_thm("evaluate_const_fp",
   `!p s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp p, s) = evaluate (p, s)`,
