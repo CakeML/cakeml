@@ -36,7 +36,8 @@ val binop_upd_def = Define `
   (binop_upd r Sub w1 w2 = upd_reg r (w1 - w2)) /\
   (binop_upd r And w1 w2 = upd_reg r (word_and w1 w2)) /\
   (binop_upd r Or w1 w2  = upd_reg r (word_or w1 w2)) /\
-  (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))`
+  (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2)) /\
+  (binop_upd r Not w1 w2 = upd_reg r (word_1comp w1))`
 
 val word_cmp_def = Define `
   (word_cmp Equal w1 w2 = (w1 = w2)) /\
@@ -79,7 +80,19 @@ val arith_upd_def = Define `
              (if read_reg r4 s = 0w then 0 else 1)
      in
        upd_reg r4 (if dimword (:'a) <= r then 1w else 0w)
-         (upd_reg r1 (n2w r) s))`
+         (upd_reg r1 (n2w r) s)) /\
+  (arith_upd (AddOverflow r1 r2 r3 r4) (s : 'a asm_state) =
+     let w2 = read_reg r2 s in
+     let w3 = read_reg r3 s
+     in
+       upd_reg r4 (if w2i (w2 + w3) <> w2i w2 + w2i w3 then 1w else 0w)
+         (upd_reg r1 (w2 + w3) s)) /\
+  (arith_upd (SubOverflow r1 r2 r3 r4) (s : 'a asm_state) =
+     let w2 = read_reg r2 s in
+     let w3 = read_reg r3 s
+     in
+       upd_reg r4 (if w2i (w2 - w3) <> w2i w2 - w2i w3 then 1w else 0w)
+         (upd_reg r1 (w2 - w3) s))`
 
 val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`
 

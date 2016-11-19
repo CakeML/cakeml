@@ -76,7 +76,7 @@ val () = Datatype `
   reg_imm = Reg reg | Imm ('a imm)`
 
 val () = Datatype `
-  binop = Add | Sub | And | Or | Xor`
+  binop = Add | Sub | And | Or | Xor | Not`
 
 val () = Datatype `
   cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest`
@@ -87,7 +87,9 @@ val () = Datatype `
         | Div reg reg reg
         | LongMul reg reg reg reg
         | LongDiv reg reg reg reg reg
-        | AddCarry reg reg reg reg`
+        | AddCarry reg reg reg reg
+        | AddOverflow reg reg reg reg
+        | SubOverflow reg reg reg reg`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
@@ -150,6 +152,8 @@ val arith_ok_def = Define `
      (* note: register to register moves can be implmented with
               "Or" on "two_reg_arith" architectures. *)
      (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
+     (* note: Not takes only one argument, we force ri to be Imm 0w *)
+     ((b = Not) ==> (ri = Imm 0w)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
@@ -167,6 +171,14 @@ val arith_ok_def = Define `
      (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\
      reg_ok r5 c) /\
   (arith_ok (AddCarry r1 r2 r3 r4) c <=>
+     (c.two_reg_arith ==> (r1 = r2)) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
+  (arith_ok (AddOverflow r1 r2 r3 r4) c <=>
+     (c.two_reg_arith ==> (r1 = r2)) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
+  (arith_ok (SubOverflow r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4))`
