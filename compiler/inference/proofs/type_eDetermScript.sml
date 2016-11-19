@@ -16,9 +16,19 @@ val sub_completion_empty = Q.prove (
  rw [sub_completion_def, pure_add_constraints_def] >>
  metis_tac []);
 
+val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
+`(∀tvs tenv p t new_bindings.
+  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
+ (∀tvs tenv ps ts new_bindings.
+  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])`,
+ ho_match_mp_tac type_p_ind >>
+ rw [pat_bindings_def] >>
+ metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]);
+
 val infer_pe_complete = Q.store_thm ("infer_pe_complete",
   `ienv_ok {} ienv ∧
     env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty) ∧
+    ALL_DISTINCT (pat_bindings p []) ∧
     type_p tvs tenv p t1 tenv1 ∧
     type_e tenv (bind_tvar tvs Empty) e t1
     ⇒
@@ -31,8 +41,9 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
       t1 = convert_t (t_walkstar s' t') ∧
       t1 = convert_t (t_walkstar s' t) ∧
       t_wfs s ∧
-      simp_tenv_invC s' tvs new_bindings tenv1`,
-
+      (* This might be implied by something above *)
+      EVERY (λ(n,t). check_t tvs {} (t_walkstar s' t)) new_bindings ∧
+      convert_env s' new_bindings = tenv1`,
   rw []
   >> drule (CONJUNCT1 infer_e_complete)
   >> drule (CONJUNCT1 infer_p_complete) >>
@@ -103,8 +114,34 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
   impl_tac >- simp[] >> strip_tac >> simp[] >>
   conj_tac >- (
     fs[SUBSET_DEF,EXTENSION] >> rw[] >> res_tac >> DECIDE_TAC ) >>
-  fs[simp_tenv_invC_def] >>
-  metis_tac[]);
+  fs[simp_tenv_invC_def,convert_env_def] >>
+  imp_res_tac type_p_pat_bindings>>fs[]>>
+  imp_res_tac infer_p_bindings>>
+  pop_assum(qspec_then`[]` assume_tac)>>fs[]>>
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]
+  >-
+    (`ALOOKUP new_bindings p_1 = SOME p_2` by
+      (match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
+      fs[])>>
+    res_tac>>res_tac>>fs[]>>
+    metis_tac[check_freevars_to_check_t])
+  >>
+    qpat_assum`MAP FST A = B` mp_tac>>
+    ONCE_REWRITE_TAC [LIST_EQ_REWRITE]>>
+    strip_tac>>rfs[EL_MAP]>>
+    rw[]>>
+    pairarg_tac>>fs[]>>
+    Cases_on`EL x tenv1`>>
+    first_x_assum(qspec_then`x` mp_tac)>>fs[LENGTH_MAP]>>rw[]>>
+    `ALOOKUP new_bindings q = SOME t` by
+      (match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
+      fs[]>>metis_tac[MEM_EL])>>
+    `ALOOKUP tenv1 q = SOME r` by
+      (match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
+      fs[]>>metis_tac[MEM_EL])>>
+    first_x_assum(qspecl_then[`q`,`r`] mp_tac)>>
+    rw[]>>
+    metis_tac[check_freevars_empty_convert_unconvert_id]);
 
 val unconvert_11 = Q.prove (
 `!t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
@@ -124,15 +161,6 @@ val unconvert_11 = Q.prove (
  rfs [EL_MAP] >>
  metis_tac [EL_MEM]);
 
-val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
-`(∀tvs tenv p t new_bindings.
-  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
- (∀tvs tenv ps ts new_bindings.
-  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])`,
- ho_match_mp_tac type_p_ind >>
- rw [pat_bindings_def] >>
- metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]);
-
 val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
 `!ienv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
@@ -146,29 +174,13 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
   type_pe_determ tenv Empty p e`,
  rw [type_pe_determ_def] >>
  mp_tac (Q.INST [`tvs`|->`0`] infer_pe_complete) >>
+ simp[]>>impl_keep_tac>-
+   (imp_res_tac infer_p_bindings>>fs[])>>
  rw [] >>
  mp_tac (Q.INST [`t1`|->`t2`, `tenv1` |-> `tenv2`,`tvs`|->`0`] infer_pe_complete) >>
- rw [] >>
- match_mp_tac LIST_EQ >>
- imp_res_tac type_p_pat_bindings >>
- imp_res_tac infer_p_bindings >>
- pop_assum (qspecl_then [`[]`] mp_tac) >>
- rw []
- >- metis_tac [LENGTH_MAP] >>
- fs [simp_tenv_invC_def] >>
- first_x_assum (qspecl_then [`FST (EL x tenv2)`, `SND (EL x tenv2)`] mp_tac) >>
- first_x_assum (qspecl_then [`FST (EL x tenv1)`, `SND (EL x tenv1)`] mp_tac) >>
- `ALL_DISTINCT (MAP FST tenv2) ∧ x < LENGTH tenv2` by metis_tac [LENGTH_MAP] >>
- rw [ALOOKUP_ALL_DISTINCT_EL, LENGTH_MAP] >>
- `?k1 t1 k2 t2. EL x tenv1 = (k1,t1) ∧ EL x tenv2 = (k2, t2)` by metis_tac [pair_CASES] >>
- fs [] >>
- conj_asm1_tac
- >- (`EL x (MAP FST tenv1) = EL x (MAP FST tenv2)` by metis_tac [] >>
-     rfs [EL_MAP]) >>
- rw [GSYM unconvert_11] >>
- fs [EVERY_MEM] >>
- imp_res_tac ALOOKUP_MEM >>
- res_tac >>
+ rw [] >>rfs[]>>
+ fs[convert_env_def]>>
+ fs[EVERY_MEM,MAP_EQ_f,FORALL_PROD]>>rw[]>>
  fs [sub_completion_def] >>
  imp_res_tac pure_add_constraints_success >>
  fs [t_compat_def] >>
