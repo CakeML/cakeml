@@ -266,6 +266,31 @@ val tscheme_approx_refl = Q.store_thm ("tscheme_approx_refl",
   irule LIST_EQ >>
   rw [LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST]);
 
+(* TODO: should be able to use max_tvs in place of 0 *)
+val tscheme_approx_trans = Q.store_thm ("tscheme_approx_trans",
+  `tscheme_approx max_tvs s (tvs1,t1) (tvs2,t2) ∧
+   tscheme_approx 0 s (tvs2,t2) (tvs3,t3)
+   ⇒
+   tscheme_approx max_tvs s (tvs1,t1) (tvs3,t3)`,
+  rw [tscheme_approx_def] >>
+  qexists_tac `MAP (infer_deBruijn_subst subst') subst''` >>
+  simp [] >>
+  conj_asm1_tac
+  >- (
+    fs [EVERY_MAP, EVERY_MEM] >>
+    rw [] >>
+    irule check_t_infer_deBruijn_subst >>
+    rw [EVERY_MEM] >>
+    first_x_assum drule >>
+    metis_tac [check_t_more2, ADD_ASSOC, ADD_COMM]) >>
+  rw [MAP_MAP_o] >>
+  AP_TERM_TAC >>
+  AP_THM_TAC >>
+  AP_TERM_TAC >>
+  irule (GSYM (CONJUNCT2 infer_deBruijn_subst_twice)) >>
+  qexists_tac `FDOM s` >>
+  metis_tac [check_t_more2, ADD_COMM, ADD_ASSOC]);
+
 val t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
@@ -302,7 +327,9 @@ val tscheme_inst_to_approx = Q.store_thm ("tscheme_inst_to_approx",
   drule check_freevars_to_check_t >>
   rw [] >>
   `check_t (LENGTH (MAP unconvert_t subst)) {} (unconvert_t t')` by rw [] >>
-  rw [infer_deBruijn_subst_twice, MAP_MAP_o, combinTheory.o_DEF]);
+  `check_t (LENGTH (MAP unconvert_t subst)) uvs (unconvert_t t')` by metis_tac [check_t_more] >>
+  drule (GEN_ALL (CONJUNCT1 infer_deBruijn_subst_twice)) >>
+  rw [MAP_MAP_o, combinTheory.o_DEF]);
 
 val env_rel_sound_def = Define `
   env_rel_sound s ienv tenv tenvE ⇔

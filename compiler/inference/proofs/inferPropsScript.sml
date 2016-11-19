@@ -903,11 +903,11 @@ rw []);
 
 val infer_deBruijn_subst_twice = Q.store_thm ("infer_deBruijn_subst_twice",
   `(∀t.
-    check_t (LENGTH subst2) {} t ⇒
+    check_t (LENGTH subst2) uvs t ⇒
     (infer_deBruijn_subst subst1 (infer_deBruijn_subst subst2 t) =
      infer_deBruijn_subst (MAP (infer_deBruijn_subst subst1) subst2) t)) ∧
    (∀ts.
-    EVERY (check_t (LENGTH subst2) {}) ts ⇒
+    EVERY (check_t (LENGTH subst2) uvs) ts ⇒
     MAP ((infer_deBruijn_subst subst1) o (infer_deBruijn_subst subst2)) ts =
     MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>

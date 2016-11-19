@@ -1315,14 +1315,6 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])));
 
 (* TODO: I hope this is true *)
-val tscheme_approx_trans = Q.store_thm ("tscheme_approx_trans",
-  `tscheme_approx max_tvs s (tvs1,t1) (tvs2,t2) ∧
-   tscheme_approx max_tvs s (tvs2,t2) (tvs3,t3)
-   ⇒
-   tscheme_approx max_tvs s (tvs1,t1) (tvs3,t3)`,
-  cheat);
-
-(* TODO: I hope this is true *)
 val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
   `!tvs t tvs' t' id.
     tscheme_approx 0 FEMPTY (tvs,t) (tvs',t') ⇒ check_tscheme_inst id (tvs,t) (tvs',t')`,
