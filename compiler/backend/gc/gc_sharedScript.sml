@@ -93,7 +93,7 @@ val heap_split_def = Define `
     | SOME (h1,h2) =>
       SOME (el::h1,h2))`;
 
-val heap_split_lemma = store_thm("heap_split_lemma",
+val heap_split_heap_length = store_thm("heap_split_heap_length",
   ``!heap a h1 h2.
       (heap_split a heap = SOME (h1,h2)) ==>
       (h1 ++ h2 = heap) /\
@@ -119,7 +119,7 @@ val heap_segment_def = Define `
       | NONE => NONE
       | SOME (h2,h3) => SOME (h1,h2,h3)`;
 
-val heap_segment_lemma = store_thm("heap_segment_lemma",
+val heap_segment_heap_length = store_thm("heap_segment_heap_length",
   ``!heap a b h1 h2 h3.
       (heap_segment (a,b) heap = SOME (h1,h2,h3)) ==>
       (h1 ++ h2 ++ h3 = heap) /\
@@ -128,6 +128,13 @@ val heap_segment_lemma = store_thm("heap_segment_lemma",
       (heap_length h3 = (heap_length heap - b))``,
   cheat);
 
+val heap_segment_heap_split = store_thm("heap_segment_heap_split",
+  ``!h1 h2 h3 a b heap.
+    (heap_segment (a,b) heap = SOME (h1,h2,h3)) ==>
+    (heap_split b heap = SOME (h1++h2, h3))``,
+  rpt strip_tac
+  \\ fs [heap_segment_def]
+  \\ cheat);
 
 val isDataElement_def = Define `
   isDataElement x = ?ys l d. x = DataElement ys l d`;
@@ -200,6 +207,23 @@ val ADDR_MAP_def = Define `
   (ADDR_MAP f [] = []) /\
   (ADDR_MAP f (Data x::xs) = Data x :: ADDR_MAP f xs) /\
   (ADDR_MAP f (Pointer a d::xs) = Pointer (f a) d :: ADDR_MAP f xs)`;
+
+val ADDR_MAP_EQ = store_thm("ADDR_MAP_EQ",
+  ``!xs. (!p d. MEM (Pointer p d) xs ==> (f p = g p)) ==>
+         (ADDR_MAP f xs = ADDR_MAP g xs)``,
+  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [ADDR_MAP_def]
+  \\ metis_tac []);
+
+val ADDR_MAP_LENGTH = store_thm("ADDR_MAP_LENGTH",
+  ``!xs f. LENGTH xs = LENGTH (ADDR_MAP f xs)``,
+  Induct \\ fs [ADDR_MAP_def]
+  \\ Cases \\ fs [ADDR_MAP_def]);
+
+val ADDR_MAP_APPEND = store_thm("ADDR_MAP_APPEND",
+  ``!h1 h2 f.
+    ADDR_MAP f (h1 ++ h2) = ADDR_MAP f h1 ++ ADDR_MAP f h2``,
+  Induct >- fs [ADDR_MAP_def]
+  \\ Cases \\ fs [ADDR_MAP_def]);
 
 val ADDR_APPLY_def = Define `
   (ADDR_APPLY f (Pointer x d) = Pointer (f x) d) /\

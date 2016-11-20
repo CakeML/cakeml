@@ -1562,12 +1562,6 @@ val gc_inv_init = prove(
 (*   \\ strip_tac *)
 (*   \\ decide_tac); *)
 
-val ADDR_MAP_EQ = prove(
-  ``!xs. (!p d. MEM (Pointer p d) xs ==> (f p = g p)) ==>
-         (ADDR_MAP f xs = ADDR_MAP g xs)``,
-  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [ADDR_MAP_def]
-  \\ metis_tac []);
-
 val basic_gc_thm = store_thm("basic_gc_thm",
   ``!conf roots heap.
     roots_ok roots heap /\ heap_ok heap conf.limit ==>
@@ -1726,7 +1720,6 @@ val FILTER_isForward_heap_expand_lemma = prove(
 (*       (* state.a + state.r <= conf.limit /\ *) *)
 (*       roots_ok roots' heap' /\ *)
 (*       heap_ok heap' conf.limit``, *)
-
 (*   rpt strip_tac *)
 (*   \\ drule basic_gc_thm *)
 (*   \\ disch_then drule *)

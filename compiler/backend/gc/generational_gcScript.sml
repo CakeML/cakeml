@@ -69,6 +69,7 @@ val gc_move_list_def = Define `
 val gc_move_list_consts = prove(
   ``!xs xs' state state'.
     (gc_move_list conf state xs = (xs',state')) ==>
+    (LENGTH xs = LENGTH xs') /\
     (state.h1 = state'.h1) /\
     (state.r3 = state'.r3) /\
     (state.r2 = state'.r2) /\
@@ -77,9 +78,9 @@ val gc_move_list_consts = prove(
   \\ fs [gc_move_list_def,LET_THM]
   \\ ntac 5 strip_tac
   \\ pairarg_tac
+  \\ Cases_on `xs'`
   \\ fs []
-  \\ pairarg_tac
-  \\ fs []
+  \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac
   \\ drule gc_move_consts
   \\ metis_tac []);
@@ -197,11 +198,6 @@ val to_gen_heap_address_def = Define `
   (to_gen_heap_address gen_start (Data (Real b)) = Data b) /\
   (to_gen_heap_address gen_start (Pointer ptr (Real a)) = Pointer (ptr + gen_start) a)`;
 
-(* val to_basic_isRef_def = Define ` *)
-(*   (to_basic_isRef isRef d = *)
-(*     isRef (DataElement (MAP (to_gen_heap_address 0) ptrs) n d)) /\ *)
-(*   (to_basic_isRef isRef _ = F)`; *)
-
 val to_basic_conf_def = Define `
   to_basic_conf (conf:'a gen_gc_conf) =
     <| limit := conf.limit
@@ -246,64 +242,64 @@ val to_basic_state_def = Define `
      ; heap0 := to_basic_heap conf state.heap0
      |>`;
 
-val roots_shift_def = Define `
-  (roots_shift gen_start (Data a) = Data (Real a)) /\
-  (roots_shift gen_start (Pointer ptr a) =
-    if ptr < gen_start then (Data (Protected (Pointer ptr a)))
-    else Pointer (ptr - gen_start) (Real a))`;
+(* val roots_shift_def = Define ` *)
+(*   (roots_shift gen_start (Data a) = Data (Real a)) /\ *)
+(*   (roots_shift gen_start (Pointer ptr a) = *)
+(*     if ptr < gen_start then (Data (Protected (Pointer ptr a))) *)
+(*     else Pointer (ptr - gen_start) (Real a))`; *)
 
 val to_basic_roots_def = Define `
-  to_basic_roots gen_start roots =
-    MAP (roots_shift gen_start) roots`;
+  to_basic_roots conf roots =
+    MAP (to_basic_heap_address conf) roots`;
 
 val r2r_filter_def = Define `
   (r2r_filter (Pointer _ _) = T) /\
   (r2r_filter _ = F)`;
 
 val refs_to_roots_def = Define `
-  (refs_to_roots [] = []) /\
-  (refs_to_roots (DataElement ptrs _ _::refs) =
-    (FILTER r2r_filter ptrs) ++ refs_to_roots refs) /\
-  (refs_to_roots (_::refs) = refs_to_roots refs)`;
+  (refs_to_roots conf [] = []) /\
+  (refs_to_roots conf (DataElement ptrs _ _::refs) =
+    MAP (to_basic_heap_address conf) ptrs ++ refs_to_roots conf refs) /\
+  (refs_to_roots conf (_::refs) = refs_to_roots conf refs)`;
 
-val (RootsRefs_def,RootsRefs_ind,RootsRefs_cases) = Hol_reln `
-  (RootsRefs [] []) /\
-  (!ptrs m b refs roots ptr a ptr' a'.
-     RootsRefs (DataElement ptrs m b::refs) roots ==>
-     RootsRefs (DataElement (Pointer ptr a::ptrs) m b::refs) (Pointer ptr' a'::roots)) /\
-  (!ptrs m b refs roots a.
-     RootsRefs (DataElement ptrs m b::refs) roots ==>
-     RootsRefs (DataElement (Data a::ptrs) m b::refs) roots) /\
-  (!refs roots m b.
-     RootsRefs refs roots ==>
-     RootsRefs (DataElement [] m b::refs) roots) /\
-  (!ptrs m b refs a.
-     RootsRefs (DataElement ptrs m b::refs) [] ==>
-     RootsRefs (DataElement (Data a::ptrs) m b::refs) []) /\
-  (!refs roots n.
-     RootsRefs refs roots ==>
-     RootsRefs (Unused n::refs) roots) /\
-  (!refs roots.
-     RootsRefs refs roots ==>
-     RootsRefs (ForwardPointer _ _ _::refs) roots)`;
+(* val (RootsRefs_def,RootsRefs_ind,RootsRefs_cases) = Hol_reln ` *)
+(*   (RootsRefs [] []) /\ *)
+(*   (!ptrs m b refs roots ptr a ptr' a'. *)
+(*      RootsRefs (DataElement ptrs m b::refs) roots ==> *)
+(*      RootsRefs (DataElement (Pointer ptr a::ptrs) m b::refs) (Pointer ptr' a'::roots)) /\ *)
+(*   (!ptrs m b refs roots a. *)
+(*      RootsRefs (DataElement ptrs m b::refs) roots ==> *)
+(*      RootsRefs (DataElement (Data a::ptrs) m b::refs) roots) /\ *)
+(*   (!refs roots m b. *)
+(*      RootsRefs refs roots ==> *)
+(*      RootsRefs (DataElement [] m b::refs) roots) /\ *)
+(*   (!ptrs m b refs a. *)
+(*      RootsRefs (DataElement ptrs m b::refs) [] ==> *)
+(*      RootsRefs (DataElement (Data a::ptrs) m b::refs) []) /\ *)
+(*   (!refs roots n. *)
+(*      RootsRefs refs roots ==> *)
+(*      RootsRefs (Unused n::refs) roots) /\ *)
+(*   (!refs roots. *)
+(*      RootsRefs refs roots ==> *)
+(*      RootsRefs (ForwardPointer _ _ _::refs) roots)`; *)
 
-val RootsRefs_related = prove(
-  ``!refs. RootsRefs refs (refs_to_roots refs)``,
-  Induct
-  >- (simp [refs_to_roots_def]
-     \\ metis_tac [RootsRefs_cases])
-  \\ Cases
-  \\ simp [refs_to_roots_def]
-  >- metis_tac [RootsRefs_cases]
-  >- metis_tac [RootsRefs_cases]
-  \\ Induct_on `l`
-  \\ simp []
-  >- metis_tac [RootsRefs_cases]
-  \\ Cases
-  >- (simp [r2r_filter_def]
-     \\ metis_tac [RootsRefs_cases])
-  \\ simp [r2r_filter_def]
-  \\ metis_tac [RootsRefs_cases]);
+(* val RootsRefs_related = prove( *)
+(*   ``!refs. RootsRefs refs (refs_to_roots refs)``, *)
+(*   Induct *)
+(*   >- (simp [refs_to_roots_def] *)
+(*      \\ metis_tac [RootsRefs_cases]) *)
+(*   \\ Cases *)
+(*   \\ simp [refs_to_roots_def] *)
+(*   >- metis_tac [RootsRefs_cases] *)
+(*   >- metis_tac [RootsRefs_cases] *)
+(*   \\ Induct_on `l` *)
+(*   \\ simp [] *)
+(*   >- metis_tac [RootsRefs_cases] *)
+(*   \\ Cases *)
+(*   >- (simp [r2r_filter_def] *)
+(*      \\ metis_tac [RootsRefs_cases]) *)
+(*   \\ simp [r2r_filter_def] *)
+(*   \\ metis_tac [RootsRefs_cases]); *)
 
 (*
 
@@ -342,13 +338,13 @@ val gen_inv_def = Define `
 (*   (*    \\ fs []) *) *)
 (*   (* cheat); *) *)
 
-val gc_move_heap_lookup_lemma = prove(
-  ``!heap n conf.
-    ¬(n < conf.gen_start) /\
-    ¬(conf.refs_start ≤ n) /\
-    (heap_lookup (n − conf.gen_start) (to_basic_state conf state).heap
-     = OPTION_MAP ()) ==>
-    (heap_lookup n state.heap = NONE)
+(* val gc_move_heap_lookup_lemma = prove( *)
+(*   ``!heap n conf. *)
+(*     ¬(n < conf.gen_start) /\ *)
+(*     ¬(conf.refs_start ≤ n) /\ *)
+(*     (heap_lookup (n − conf.gen_start) (to_basic_state conf state).heap *)
+(*      = OPTION_MAP ()) ==> *)
+(*     (heap_lookup n state.heap = NONE) *)
 
 val gc_move_simulation = prove(
   ``!ptr ptr' state state'.
@@ -360,7 +356,6 @@ val gc_move_simulation = prove(
          (to_basic_state conf state)
          (to_basic_heap_address conf ptr)
        = (to_basic_heap_address conf ptr', to_basic_state conf state'))``,
-
   reverse Cases
   \\ ntac 4 strip_tac
   \\ fs [to_basic_heap_address_def]
@@ -375,15 +370,18 @@ val gc_move_simulation = prove(
   >- (fs [gc_move_def,basic_gcTheory.gc_move_def,gen_inv_def]
      \\ qpat_x_assum `_ = ptr'` (assume_tac o GSYM) \\ fs []
      \\ fs [to_basic_heap_address_def])
-  \\ fs [gc_move_def,basic_gcTheory.gc_move_def,gen_inv_def]
+  \\ fs [gen_inv_def]
+  \\ qpat_x_assum `!h1. _` (assume_tac o SPEC_ALL)
+  \\ fs [gc_move_def,basic_gcTheory.gc_move_def]
   \\ strip_tac >- cheat
   \\ BasicProvers.TOP_CASE_TAC \\ fs []
   >- (`heap_lookup n state.heap = NONE` by all_tac
      >- (pop_assum mp_tac
-        \\ Induct_on
+        \\ fs [to_basic_state_def,to_basic_heap_def,restrict_heap_def]
         \\ fs [heap_lookup_def]
-        \\
+        \\ cheat
      )
+     \\ cheat
   )
   \\ cheat
   );
@@ -396,67 +394,35 @@ val gc_move_list_simulation = prove(
     = (MAP (to_basic_heap_address conf) xs', to_basic_state conf state'))``,
   cheat);
 
-val RootsRel = Hol_reln `
-  (!a b. RootsRel [Pointer 12 a] [Pointer 13 b])`;
+(* val fmap_fun_def = Define ` *)
+(*   fmap_fun (f:num |-> num) gen_start heap = *)
+(*     FUN_FMAP (\n. if n < gen_start then n else $FAPPLY f (n - gen_start) + gen_start) *)
+(*              ({n | n < gen_start /\ n IN heap_addresses 0 heap} *)
+(*               UNION IMAGE (\n. n + gen_start) (FDOM f))`; *)
 
-val StateRel = Hol_reln `
-  (!conf. StateRel (to_basic_state conf empty_state) empty_state)`;
+(* val fmap_fun_finite = store_thm("fmap_fun_finite[simp]", *)
+(*   ``FINITE ({n | n < gen_start ∧ n ∈ heap_addresses 0 heap} ∪ *)
+(*            IMAGE (λn'. gen_start + n') (FDOM f))``, *)
+(*   rewrite_tac [FINITE_UNION] *)
+(*   \\ fs [] *)
+(*   \\ Induct_on `gen_start` *)
+(*   \\ fs [] *)
+(*   \\ `{n | n < SUC gen_start ∧ n ∈ heap_addresses 0 heap} = *)
+(*       if gen_start IN heap_addresses 0 heap *)
+(*       then gen_start INSERT {n | n < gen_start ∧ n ∈ heap_addresses 0 heap} *)
+(*       else {n | n < gen_start ∧ n ∈ heap_addresses 0 heap}` by all_tac *)
+(*   >- (cheat)(* EXTENSION *) *)
+(*   \\ fs [] *)
+(*   \\ rw []); *)
 
-val simulation_thm = store_thm("simulation_thm",
-  ``!roots heap conf.
-      (SOME refs = OPTION_MAP (refs_to_roots o SND) (heap_split conf.refs_start state.heap)) /\
-      (basic_gc (to_basic_conf conf)
-                (to_basic_roots conf.gen_start roots ++ refs, to_basic_heap conf heap)
-       = (bRoots',bState')) ==>
-      ?roots' state'.
-        (partial_gc conf (roots,heap) = (roots',state')) /\
-        (StateRel bState' state') /\
-        (RootsRel bRoots' roots')``,
-  cheat);
-
-
-(* val simulation = prove( *)
-(*   ``!broots' bstate'. *)
-(*     let bheap = to_basic_heap conf heap in *)
-(*     let broots = to_basic_roots conf.gen_start roots ++ *)
-(*                  refs_to_roots (heap_drop conf.refs_start bheap) in *)
-(*     (basic_gc (to_basic_conf conf) (broots,bheap) = (broots',bstate')) ==> *)
-(*     ?roots' state'. *)
-(*       (partial_gc conf (roots, heap) = (roots',state')) /\ *)
-(*       (TAKE (LENGTH roots) broots' = to_basic_roots conf.gen_start roots') /\ *)
-(*       (bstate' = to_basic_state conf state')(*  /\ *) *)
-(*       (* (RootsRefs (heap_drop conf.refs_start state. (DROP (LENGTH roots) roots')) *)``, *)
-(*   cheat); *)
-
-val fmap_fun_def = Define `
-  fmap_fun (f:num |-> num) gen_start heap =
-    FUN_FMAP (\n. if n < gen_start then n else $FAPPLY f (n - gen_start) + gen_start)
-             ({n | n < gen_start /\ n IN heap_addresses 0 heap}
-              UNION IMAGE (\n. n + gen_start) (FDOM f))`;
-
-val fmap_fun_finite = store_thm("fmap_fun_finite[simp]",
-  ``FINITE ({n | n < gen_start ∧ n ∈ heap_addresses 0 heap} ∪
-           IMAGE (λn'. gen_start + n') (FDOM f))``,
-  rewrite_tac [FINITE_UNION]
-  \\ fs []
-  \\ Induct_on `gen_start`
-  \\ fs []
-  \\ `{n | n < SUC gen_start ∧ n ∈ heap_addresses 0 heap} =
-      if gen_start IN heap_addresses 0 heap
-      then gen_start INSERT {n | n < gen_start ∧ n ∈ heap_addresses 0 heap}
-      else {n | n < gen_start ∧ n ∈ heap_addresses 0 heap}` by all_tac
-  >- (cheat)(* EXTENSION *)
-  \\ fs []
-  \\ rw []);
-
-val addr_map_take = prove(
-  ``!n f xs. TAKE n (ADDR_MAP f xs) = ADDR_MAP f (TAKE n xs)``,
-  Induct
-  >- fs [TAKE_def,ADDR_MAP_def]
-  \\ Cases_on `xs`
-  \\ fs [TAKE_def,ADDR_MAP_def]
-  \\ Cases_on `h`
-  \\ fs [TAKE_def,ADDR_MAP_def]);
+(* val addr_map_take = prove( *)
+(*   ``!n f xs. TAKE n (ADDR_MAP f xs) = ADDR_MAP f (TAKE n xs)``, *)
+(*   Induct *)
+(*   >- fs [TAKE_def,ADDR_MAP_def] *)
+(*   \\ Cases_on `xs` *)
+(*   \\ fs [TAKE_def,ADDR_MAP_def] *)
+(*   \\ Cases_on `h` *)
+(*   \\ fs [TAKE_def,ADDR_MAP_def]); *)
 
 val roots_ok_TL = prove(
     ``roots_ok (h::roots) heap ==> roots_ok roots heap``, cheat);
@@ -466,29 +432,80 @@ val fmap_fun_LESS_gen_start = prove(
     (fmap_fun f gen_start heap ' n = n)``,
   fs [fmap_fun_def,FUN_FMAP_DEF]);
 
+val heap_element_is_ref_def = Define `
+  (heap_element_is_ref conf (DataElement xs l d) = conf.isRef d) /\
+  (heap_element_is_ref conf _ = F)`;
+
 val partial_gc_simulation = prove(
-  ``(partial_gc conf (roots,heap) = (roots1,state1)) /\
-    roots_ok roots (heap:('a,'b) heap_element list) /\
-    heap_ok heap conf.limit /\
-    heap_gen_ok heap conf /\
-    (SOME refs = OPTION_MAP (refs_to_roots o SND) (heap_split conf.refs_start heap)) ==>
+  ``!roots heap0 roots1 state1 heap0_old heap0_current heap0_refs.
+    (partial_gc conf (roots,heap0) = (roots1,state1)) /\
+    heap_gen_ok heap0 conf /\
+    (SOME (heap0_old,heap0_current,heap0_refs) = heap_segment (conf.gen_start,conf.refs_start) heap0) /\
+    EVERY (\e. ~(heap_element_is_ref conf e)) (heap0_old ++ heap0_start) /\
+    roots_ok roots heap0 /\
+    heap_ok heap0 conf.limit ==>
+    ?refs refs1.
+    (refs = refs_to_roots conf heap0_refs) /\
+    (refs1 = refs_to_roots conf state1.r1) /\
     (basic_gc (to_basic_conf conf)
-              (to_basic_roots conf.gen_start roots ++ MAP (to_basic_heap_address conf) refs,
-               MAP (to_basic_heap_element conf) (restrict_heap conf.gen_start conf.refs_start heap))
-     = (to_basic_roots conf.gen_start roots1, (* TODO: add refs roots *)
+              (to_basic_roots conf roots ++ refs,
+               MAP (to_basic_heap_element conf) heap0_current)
+     = (to_basic_roots conf roots1 ++ refs1,
        to_basic_state conf state1))``,
   rpt strip_tac
-  cheat);
+  \\ cheat);
 
 val f_old_ptrs_def = Define `
-  f_old_ptrs conf heap = {a | isSomeDataElement (heap_lookup a heap)
-                              /\ (a < conf.gen_start \/ conf.refs_start <= a)}`;
+  f_old_ptrs conf heap =
+    {a | isSomeDataElement (heap_lookup a heap)
+         /\ (a < conf.gen_start \/ conf.refs_start <= a)}`;
+
+val f_old_ptrs_finite = store_thm("f_old_ptrs_finite[simp]",
+  ``!heap. FINITE (f_old_ptrs conf heap)``,
+  fs [f_old_ptrs_def,FINITE_DEF]);
 
 val new_f_def = Define `
   new_f f conf heap =
     FUNION (FUN_FMAP I (f_old_ptrs conf heap))
            (FUN_FMAP (\a. conf.gen_start + f ' (a - conf.gen_start))
                      (IMAGE ((+) conf.gen_start) (FDOM f)))`;
+
+
+
+val APPEND_LENGTH_IMP = prove(
+  ``!a c b d.
+    ((a ++ b) = (c ++ d)) /\ (LENGTH a = LENGTH c) ==>
+    (a = c) /\ (b = d)``,
+  Induct >- (Cases \\ fs [])
+  \\ strip_tac
+  \\ Cases \\ fs []
+  \\ rpt strip_tac \\ res_tac);
+
+val roots_ok_CONS = prove(
+  ``!h t.
+    roots_ok (h::t) heap ==>
+    roots_ok t heap``,
+  fs [roots_ok_def] \\ rpt strip_tac \\ res_tac);
+
+val roots_ok_simulation = prove(
+  ``!heap roots heap_old heap_current heap_refs (conf :'b gen_gc_conf).
+    roots_ok roots (heap :('a,'b) heap_element list) /\
+    (heap_segment (conf.gen_start,conf.refs_start) heap = SOME (heap_old,heap_current,heap_refs))
+    ==>
+    roots_ok
+      (to_basic_roots conf roots ++ refs_to_roots conf heap_refs)
+      (MAP (to_basic_heap_element conf) heap_current)``,
+  cheat);
+
+val heap_ok_simulation = prove(
+  ``!heap roots heap_old heap_current heap_refs (conf :'b gen_gc_conf).
+    heap_ok (heap :('a,'b) heap_element list) conf.limit /\
+    (heap_segment (conf.gen_start,conf.refs_start) heap = SOME (heap_old,heap_current,heap_refs))
+    ==>
+    heap_ok
+      (MAP (to_basic_heap_element conf) heap_current)
+      (to_basic_conf conf).limit``,
+  cheat);
 
 val partial_gc_related = store_thm("partial_gc_related",
   ``roots_ok roots heap /\
@@ -523,61 +540,6 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\
 
   cheat);
-  (* rpt strip_tac *)
-  (* \\ mp_tac simulation *)
-  (* \\ fs [] *)
-  (* \\ strip_tac *)
-  (* \\ qabbrev_tac `broots = to_basic_roots conf.gen_start roots ++ refs_to_roots (heap_drop conf.refs_start (to_basic_heap conf heap))` *)
-  (* \\ qabbrev_tac `bheap = to_basic_heap conf heap` *)
-  (* \\ qabbrev_tac `bconf = to_basic_conf conf` *)
-
-  (* \\ `roots_ok broots bheap` by cheat *)
-  (* \\ drule basic_gc_related *)
-  (* \\ `heap_ok bheap bconf.limit` by cheat *)
-  (* \\ disch_then drule *)
-  (* \\ rpt strip_tac *)
-  (* \\ first_x_assum drule *)
-  (* \\ rpt strip_tac *)
-  (* \\ fs [] *)
-  (* \\ qexists_tac `fmap_fun f conf.gen_start heap` *)
-  (* \\ rpt strip_tac *)
-
-  (* >- (qunabbrev_tac `broots` *)
-  (*    \\ fs [addr_map_take] *)
-  (*    \\ qabbrev_tac `t = to_basic_roots conf.gen_start roots:('a heap_address, 'a) data_sort  heap_address list` *)
-  (*    \\ `LENGTH roots = LENGTH t` by cheat *)
-  (*    \\ fs [TAKE_LENGTH_APPEND] *)
-
-  (*    \\ qpat_assum `ADDR_MAP _ _ = _` mp_tac *)
-  (*    \\ qpat_assum `roots_ok _ _` kall_tac *)
-  (*    \\ qpat_assum `roots_ok _ _` mp_tac *)
-
-  (*    \\ qunabbrev_tac `t` *)
-  (*    \\ rpt (pop_assum kall_tac) *)
-  (*    \\ qspec_tac (`roots'`,`xs`) *)
-
-  (*    \\ Induct_on `roots` *)
-  (*    \\ fs [to_basic_roots_def] *)
-  (*    \\ fs [ADDR_MAP_def] *)
-  (*    \\ reverse Cases *)
-  (*    >- cheat *)
-  (*    \\ fs [ADDR_MAP_def] *)
-  (*    \\ fs [roots_shift_def] *)
-  (*    \\ Cases *)
-  (*    >- rw [ADDR_MAP_def] *)
-  (*    \\ IF_CASES_TAC *)
-  (*    >- (rw [ADDR_MAP_def] *)
-  (*       \\ Cases_on `h` *)
-  (*       \\ fs [roots_shift_def] *)
-  (*       \\ every_case_tac \\ fs [] *)
-  (*       \\ imp_res_tac roots_ok_TL \\ fs [] *)
-  (*       \\ rveq *)
-  (*       \\ `n IN heap_addresses 0 heap` by cheat *)
-  (*       \\ metis_tac [fmap_fun_LESS_gen_start] *)
-  (*       ) *)
-  (*       \\ fs [fmap_fun_def] *)
-
-  (*       \\ fs [FUN_FMAP_DEF] *)
 
 val full_gc_related = store_thm("full_gc_related",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
