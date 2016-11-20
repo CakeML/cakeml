@@ -1,5 +1,5 @@
-open preamble modLangTheory conLangTheory
-open backend_commonTheory
+open preamble modLangTheory conLangTheory;
+open backend_commonTheory;
 
 (* The translator to conLang keeps a mapping (tag_env) of each constructor to
  * its arity, tag, and type. Tags need only be unique for each arity-type pair,
@@ -11,34 +11,12 @@ open backend_commonTheory
  * includes the expression for extending the global store.
  *)
 
-val _ = new_theory"mod_to_con"
+val _ = new_theory "mod_to_con";
 val _ = set_grammar_ancestry ["backend_common", "modLang", "conLang",
-                              "semanticPrimitives" (* for TypeId *)]
+                              "semanticPrimitives" (* for TypeId *)];
 
 (* for each constructor, its arity, tag, and type *)
-val _ = type_abbrev( "flat_tag_env" , ``:conN |-> (num # num # tid_or_exn)``);
-val _ = type_abbrev( "tag_env" , ``:(modN, flat_tag_env) fmap # flat_tag_env``);
-
-val _ = Define `
-  lookup_tag_flat cn (ftagenv:flat_tag_env) =
-  (case FLOOKUP ftagenv cn of
-   | NONE => NONE
-   | SOME (a,n,t) => SOME (n,t))`;
-
-val lookup_tag_env_def = Define `
-  lookup_tag_env id ((mtagenv,tagenv):tag_env) =
-    case id of
-    | NONE => NONE
-    | SOME (Short x) => lookup_tag_flat x tagenv
-    | SOME (Long x y) =>
-      (case FLOOKUP mtagenv x of
-       | NONE => NONE
-       | SOME tagenv => lookup_tag_flat y tagenv)`;
-
-val lookup_tag_env_NONE = Q.store_thm("lookup_tag_env_NONE[simp]",
-  `lookup_tag_env NONE tagenv = NONE`,
-  PairCases_on `tagenv` >>
-  rw [lookup_tag_env_def]);
+val _ = type_abbrev( "tag_env" , ``:(modN, conN, num # num # tid_or_exn) namespace``);
 
 val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Pvar x) = (Pvar x))
@@ -46,7 +24,7 @@ val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Plit l) = (Plit l))
   ∧
   (compile_pat tagenv (Pcon con_id ps) =
-    (Pcon (lookup_tag_env con_id tagenv) (MAP (compile_pat tagenv) ps)))
+    (Pcon (OPTION_MAP SND (OPTION_JOIN (OPTION_MAP (nsLookup tagenv) con_id))) (MAP (compile_pat tagenv) ps)))
   ∧
   (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))
   ∧
@@ -68,7 +46,7 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp tagenv ((Lit l):modLang$exp) = (Lit l:conLang$exp))
   ∧
   (compile_exp tagenv (Con cn es) =
-   Con (lookup_tag_env cn tagenv) (compile_exps tagenv es))
+   Con (OPTION_MAP SND (OPTION_JOIN (OPTION_MAP (nsLookup tagenv) cn))) (compile_exps tagenv es))
   ∧
   (compile_exp tagenv (Var_local x) = Var_local x)
   ∧
@@ -132,7 +110,7 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
  * current exh_ctors_env,
  * accumulator (for use on module exit) *)
 val _ = type_abbrev( "tagenv_state", ``:num spt # tag_env # exh_ctors_env``);
-val _ = type_abbrev( "tagenv_state_acc", ``:tagenv_state # flat_tag_env``);
+val _ = type_abbrev( "tagenv_state_acc", ``:tagenv_state # tag_env``);
 
 val _ = Define `
   get_tagenv (((next,tagenv,exh),acc):tagenv_state_acc) = tagenv`;
@@ -141,8 +119,8 @@ val _ = Define `
   get_exh ((next,tagenv,exh):tagenv_state) = exh`;
 
 val _ = Define `
-  insert_tag_env cn tag ((mtagenv,ftagenv):tag_env) =
-    (mtagenv,ftagenv |+ (cn, tag))`;
+  insert_tag_env cn tag (tagenv:tag_env) =
+    nsBind cn tag tagenv`;
 
 val _ = Define `
   alloc_tag tn cn arity (((next,tagenv,exh),acc):tagenv_state_acc) =
@@ -155,7 +133,7 @@ val _ = Define `
        ((insert arity (tag+1) next,
          insert_tag_env cn (arity,tag,tn) tagenv,
          exh),
-        acc |+ (cn, (arity,tag,tn)))
+        nsBind cn (arity,tag,tn) acc)
    | TypeId tid =>
      let (tag,exh) =
        (case FLOOKUP exh tid of
@@ -167,7 +145,7 @@ val _ = Define `
        ((next,
          insert_tag_env cn (arity,tag,tn) tagenv,
          exh),
-        acc |+ (cn, (arity,tag,tn))))`;
+        nsBind cn (arity,tag,tn) acc))`;
 
 val _ = Define `
   (alloc_tags mn st [] = st)
@@ -198,16 +176,16 @@ val _ = Define `
         (st', ds')))`;
 
 val _ = Define `
-  mod_tagenv mn l ((mtagenv,tagenv):tag_env) =
+  mod_tagenv mn l (tagenv:tag_env) =
   (case mn of
-   | NONE =>    (mtagenv,            l ⊌ tagenv)
-   | SOME mn => (mtagenv |+ (mn, l), tagenv))`;
+   | NONE => nsAppend l tagenv
+   | SOME mn => nsAppend (nsLift mn l) tagenv)`;
 
 val _ = Define `
   compile_prompt tagenv_st prompt =
   (case prompt of
    Prompt mn ds =>
-     let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,FEMPTY) ds in
+     let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,nsEmpty) ds in
        ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
 
 val _ = Define `
@@ -226,7 +204,7 @@ val _ = Datatype`
 
 val empty_config_def = Define`
   empty_config = <| next_exception := LN
-                  ; tag_env := (FEMPTY,FEMPTY)
+                  ; tag_env := nsEmpty
                   ; exh_ctors_env := FEMPTY |>`;
 
 val compile_def = Define`
@@ -235,4 +213,4 @@ val compile_def = Define`
     compile_prog (c.next_exception, c.tag_env, c.exh_ctors_env) p in
   (<| next_exception := n; tag_env := t; exh_ctors_env := e|>, p)`;
 
-val _ = export_theory()
+val _ = export_theory ();

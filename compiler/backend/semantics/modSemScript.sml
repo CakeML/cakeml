@@ -1,6 +1,6 @@
 open preamble modLangTheory;
 
-val _ = new_theory "modSem"
+val _ = new_theory "modSem";
 
 (* The values of modLang differ in that the closures do not contain a module
  * environment.
@@ -45,12 +45,12 @@ val _ = Datatype`
 val _ = Define`
   Boolv b = Conv (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []`;
 
-val build_conv_def = Define`
+val build_conv_def = Define `
   build_conv (envC:env_ctor) cn vs =
   case cn of
   | NONE => SOME (Conv NONE vs)
   | SOME id =>
-    (case lookup_alist_mod_env id envC of
+    (case nsLookup envC id of
      | NONE => NONE
      | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs))`;
 
@@ -344,7 +344,7 @@ val pmatch_def = tDefine"pmatch"`
     Match_type_error))
 /\
 (pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =
-((case lookup_alist_mod_env n envC of
+((case nsLookup envC n of
       SOME (l, t)=>
         if same_tid t t' /\ (LENGTH ps = l) then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -700,4 +700,4 @@ val _ = map delete_const
    "pmatch_UNION_aux","pmatch_UNION",
    "evaluate_UNION_aux","evaluate_UNION"];
 
-val _ = export_theory()
+val _ = export_theory ();

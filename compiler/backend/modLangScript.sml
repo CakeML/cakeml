@@ -1,8 +1,8 @@
-open preamble astTheory
+open preamble astTheory;
 
-val _ = new_theory "modLang"
+val _ = new_theory "modLang";
 
-val _ = set_grammar_ancestry ["ast"]
+val _ = set_grammar_ancestry ["ast"];
 
 (* The first intermediate language modLang. Removes modules, and introduces
  * special variable references for referring to top-level bindings.  Also
@@ -24,7 +24,7 @@ val _ = Datatype`
     Raise exp
   | Handle exp ((pat # exp) list)
   | Lit lit
-  | Con ((conN id) option) (exp list)
+  | Con (((modN,conN) id) option) (exp list)
   | Var_local varN
   | Var_global num
   | Fun varN exp
@@ -50,17 +50,17 @@ val _ = Datatype`
     (* The num is how many top-level variables this declaration binds *)
     Dlet num exp
   | Dletrec ((varN # varN # exp) list)
-  | Dtype (modN option) type_def
-  | Dexn (modN option) conN (t list)`;
+  | Dtype (modN list) type_def
+  | Dexn (modN list) conN (t list)`;
 
 
 (* A prompt is a list of declarations that must execute `atomically'; it
  * corresponds to a module body in the source language. If any of the
  * declarations results in an exception reaching the prompt's top level, none
- * of the declaration binding are installed. The module name is book-keeping
+ * of the declaration binding are installed. The module path is book-keeping
  * for the constructors *)
 val _ = Datatype`
  prompt =
     Prompt (modN option) (dec list)`;
 
-val _ = export_theory()
+val _ = export_theory ();
