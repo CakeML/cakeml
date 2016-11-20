@@ -1092,7 +1092,36 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       decls' = convert_decls idecls' ∧
       env_rel tenv' ienv' ∧
       infer_d mn idecls ienv d st1 = (Success (idecls',ienv'), st2)`,
-  cheat);
+  rw [type_d_cases]
+  >- ( (* Let poly *)
+    cheat)
+  >- ( (* Let mono *)
+    cheat)
+  >- ( (* Letrec *)
+    cheat)
+  >- ( (* Dtype *)
+    rw [infer_d_def, success_eqns]
+    >- rw [convert_decls_def, empty_inf_decls_def]
+    >- cheat
+    >- fs [env_rel_def, env_rel_sound_def]
+    >- (
+      rw [EVERY_MAP, EVERY_MEM] >>
+      pairarg_tac >>
+      rw [] >>
+      fs [convert_decls_def, DISJOINT_DEF, EXTENSION] >>
+      first_x_assum (qspec_then `mk_id mn tn` mp_tac) >>
+      rw [MEM_MAP] >>
+      first_x_assum (qspec_then `(tvs,tn,ctors)` mp_tac) >>
+      rw []))
+  >- ( (* Abbrev *)
+    rw [infer_d_def, success_eqns, empty_decls_def, convert_decls_def, empty_inf_decls_def]
+    >- cheat
+    >- fs [env_rel_def, env_rel_sound_def])
+  >- ( (* Exn *)
+    rw [infer_d_def, success_eqns, empty_decls_def, convert_decls_def, empty_inf_decls_def]
+    >- cheat
+    >- fs [env_rel_def, env_rel_sound_def]
+    >- fs [convert_decls_def, DISJOINT_DEF, EXTENSION]));
 
 val infer_ds_complete = Q.store_thm ("infer_ds_complete",
   `!x mn decls tenv ds decls' tenv'.
@@ -1320,6 +1349,8 @@ val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
     tscheme_approx 0 FEMPTY (tvs,t) (tvs',t') ⇒ check_tscheme_inst id (tvs,t) (tvs',t')`,
   rw [tscheme_approx_def, check_tscheme_inst_def] >>
   fs [t_walkstar_FEMPTY] >>
+  simp [st_ex_bind_def, init_state_def, init_infer_state_def, st_ex_return_def,
+        add_constraint_def] >>
   cheat);
 
 val check_weak_ienv_complete = Q.store_thm ("check_weak_ienv_complete",
