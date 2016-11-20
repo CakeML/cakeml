@@ -209,7 +209,6 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     Cases_on `is_value e` >>
     fs [success_eqns, empty_decls_def, empty_inf_decls_def] >>
     rw [convert_decls_def, ienv_to_tenv_def]
-
     >- (
       qexists_tac `tvs` >>
       qexists_tac `convert_t (t_walkstar last_sub t)` >>
@@ -220,18 +219,119 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
         simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, convert_env_def])
       >- (imp_res_tac infer_p_bindings >> fs [])
       >- (
-        (* Need to prove that there is a substitution from*)
         drule (GEN_ALL env_rel_complete_bind) >>
         disch_then (qspec_then `tvs'` assume_tac) >>
         drule (GEN_ALL infer_pe_complete) >>
+        `ALL_DISTINCT (pat_bindings p [])` by
+          (imp_res_tac type_p_pat_bindings>>
+          `MAP FST bindings = pat_bindings p []` by
+            (pop_assum sym_sub_tac>>
+            simp[convert_env_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])>>
+          fs[])>>
         rpt (disch_then drule) >>
         strip_tac >>
         rfs [] >>
         fs[] >>
         rfs[] >>
         rpt var_eq_tac >>
-        cheat))
-
+        (* The "new" subcompletion s'' maps types in bindings to some type schemes with tvs' quantified variables *)
+        simp[LIST_REL_EL_EQN,EL_MAP,convert_env_def,tenv_add_tvs_def]>>rw[]>>
+        pairarg_tac>>fs[]>>
+        pairarg_tac>>fs[]>>
+        pairarg_tac>>fs[]>>
+        fs[tscheme_inst_def]>>
+        (* We need to instantiate the deB vars in t''', which are introduced under last_sub to the unification done in s'' *)
+        imp_res_tac generalise_subst>>
+        fs[]>>
+        (* Rewrite last_sub back into an infer_subst *)
+        `t_walkstar last_sub t'''' = infer_subst s2 (t_walkstar s t'''')` by
+           (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
+           pop_assum(qspec_then`n` assume_tac)>>rfs[])>>
+        fs[sub_completion_def]>>
+        Q.ISPECL_THEN [`tvs'`,`s''`] mp_tac (GEN_ALL generalise_subst_exist)>>
+        impl_tac>-
+          (fs[]>>
+          metis_tac[pure_add_constraints_success])>>
+        rw[]>>
+        (* This produces the appropriate substitution mentioned above *)
+        pop_assum (qspecl_then[`MAP (t_walkstar s) (MAP SND bindings)`,`[]`,`FEMPTY`,`tvs`,`s2`,`MAP (t_walkstar last_sub) (MAP SND bindings)`] mp_tac)>>
+        fs[]>>
+        impl_keep_tac
+        >-
+          (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+          fs[GSYM FORALL_AND_THM]>>fs[GSYM IMP_CONJ_THM]>>
+          ntac 2 strip_tac>>
+          CONJ_ASM2_TAC
+          >-
+            metis_tac[check_t_t_vars]
+          >>
+          match_mp_tac t_walkstar_check>> fs[]>>
+          last_x_assum (qspec_then `y'` assume_tac)>>rfs[]>>
+          fs[UNCURRY]>>
+          reverse CONJ_TAC>-
+           (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
+           HINT_EXISTS_TAC>>
+           fs[])>>
+          match_mp_tac (check_s_more3 |> MP_CANON)>>
+          qexists_tac `count st'.next_uvar`>>
+          fs[])
+       >>
+       rw[]>>
+       (* Pick the substitution, except turn it into deBruijn vars *)
+       qexists_tac`MAP convert_t subst'`>>fs[]>>
+       `check_t 0 (count st'.next_uvar) t''''` by
+         (fs[EVERY_EL]>>
+         last_x_assum(qspec_then`n` assume_tac)>>rfs[])>>
+       `check_t (LENGTH subst') {} (infer_subst s2 (t_walkstar s t''''))` by
+         (qpat_x_assum `A = infer_subst B C` sym_sub_tac>>
+         Q.SPECL_THEN [`count (st'.next_uvar)`,`last_sub`,`LENGTH subst'`,`t''''`] mp_tac (check_t_less |> CONJUNCT1 |>GEN_ALL)>>
+         simp[]>>
+         rw[]>>
+         `count st'.next_uvar ∩ COMPL(FDOM last_sub) = {}` by
+           (simp[EXTENSION]>>fs[SUBSET_DEF]>>
+           metis_tac[])>>
+         fs[])>>
+     CONJ_ASM1_TAC>-
+       metis_tac[check_t_to_check_freevars]>>
+     CONJ_TAC>-
+       (fs[EVERY_MAP,EVERY_MEM]>>
+       metis_tac[check_t_to_check_freevars])>>
+     imp_res_tac deBruijn_subst_convert>>
+     pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
+     AP_TERM_TAC>>
+     Q.ISPECL_THEN [`s''`,`s2`,`subst'`,`_`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
+     impl_tac>-
+       (fs[SUBSET_DEF]>>
+       rw[]>>
+       fs[IN_FRANGE]>>
+       metis_tac[pure_add_constraints_wfs])>>
+     rw[]>>
+     pop_assum kall_tac>>
+     pop_assum(qspec_then `t_walkstar s t''''` mp_tac)>>
+     impl_tac>-
+       (imp_res_tac infer_p_check_t>>
+       fs[EXTENSION,SUBSET_DEF]>>
+       fs[MEM_MAP,PULL_EXISTS]>>
+       imp_res_tac ALOOKUP_MEM>>
+       fs[FORALL_PROD,EXISTS_PROD]>>
+       CONJ_TAC>-
+         metis_tac[MEM_EL]>>
+       reverse CONJ_TAC>-
+         metis_tac[MEM_EL]
+       >>
+       fs[EVERY_MAP,MAP_MAP_o,EVERY_MEM,UNCURRY]>>
+       match_mp_tac t_walkstar_check>>fs[]>>
+       CONJ_TAC>-
+         (match_mp_tac check_s_more5>>
+         asm_exists_tac>>fs[])
+         >>
+         first_x_assum(qspec_then`(n',t'''')` mp_tac)>>
+         impl_tac>- metis_tac[MEM_EL]>>
+         imp_res_tac check_t_more5>>
+         fs[SUBSET_DEF,EXTENSION])
+       >>
+       rw[]>>
+       metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]))
    >- (
      qexists_tac `convert_t (t_walkstar last_sub t)`
      >> qexists_tac `convert_env last_sub bindings`
