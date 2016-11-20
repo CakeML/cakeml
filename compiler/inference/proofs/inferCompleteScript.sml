@@ -1092,9 +1092,26 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       decls' = convert_decls idecls' ∧
       env_rel tenv' ienv' ∧
       infer_d mn idecls ienv d st1 = (Success (idecls',ienv'), st2)`,
-  rw [type_d_cases]
+
+  rw [] >>
+  drule type_d_tenv_ok_helper >>
+  rw [] >>
+  fs [type_d_cases]
   >- ( (* Let poly *)
-    cheat)
+    rw [infer_d_def, success_eqns] >>
+    `ienv_ok {} ienv` by fs [env_rel_def] >>
+    `env_rel_complete FEMPTY ienv tenv Empty` by fs [env_rel_def] >>
+    `env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)` by cheat >>
+    drule (GEN_ALL infer_pe_complete) >>
+    rpt (disch_then drule) >>
+    rw [] >>
+    qexists_tac `empty_inf_decls` >>
+    simp [init_state_def, success_eqns] >>
+    pairarg_tac >>
+    rw [success_eqns]
+    >- simp [empty_decls_def, convert_decls_def, empty_inf_decls_def]
+    >- cheat
+    >- cheat)
   >- ( (* Let mono *)
     cheat)
   >- ( (* Letrec *)
@@ -1102,7 +1119,17 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
   >- ( (* Dtype *)
     rw [infer_d_def, success_eqns]
     >- rw [convert_decls_def, empty_inf_decls_def]
-    >- cheat
+    >- (
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `ienv' = tenv_to_ienv tenv'`
+        by (
+          unabbrev_all_tac >>
+          rw [tenv_to_ienv_def] >>
+          fs [env_rel_def, env_rel_complete_def]) >>
+      rw [] >>
+      irule env_rel_tenv_to_ienv >>
+      first_x_assum irule >>
+      fs [env_rel_def])
     >- fs [env_rel_def, env_rel_sound_def]
     >- (
       rw [EVERY_MAP, EVERY_MEM] >>
@@ -1115,11 +1142,32 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       rw []))
   >- ( (* Abbrev *)
     rw [infer_d_def, success_eqns, empty_decls_def, convert_decls_def, empty_inf_decls_def]
-    >- cheat
+    >- (
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `ienv' = tenv_to_ienv tenv'`
+        by (
+          unabbrev_all_tac >>
+          rw [tenv_to_ienv_def] >>
+          fs [env_rel_def, env_rel_complete_def]) >>
+      rw [] >>
+      irule env_rel_tenv_to_ienv >>
+      first_x_assum irule >>
+      fs [env_rel_def])
     >- fs [env_rel_def, env_rel_sound_def])
   >- ( (* Exn *)
     rw [infer_d_def, success_eqns, empty_decls_def, convert_decls_def, empty_inf_decls_def]
-    >- cheat
+    >- (
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `ienv' = tenv_to_ienv tenv'`
+        by (
+          unabbrev_all_tac >>
+          rw [tenv_to_ienv_def] >>
+          fs [env_rel_def, env_rel_complete_def] >>
+          metis_tac []) >>
+      rw [] >>
+      irule env_rel_tenv_to_ienv >>
+      first_x_assum irule >>
+      fs [env_rel_def])
     >- fs [env_rel_def, env_rel_sound_def]
     >- fs [convert_decls_def, DISJOINT_DEF, EXTENSION]));
 
