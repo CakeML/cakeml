@@ -4891,6 +4891,10 @@ val data_to_word_lab_pres_lem = Q.prove(`
 
 open match_goal
 
+val labels_rel_emp = Q.prove(`
+  labels_rel [] ls ⇒ ls = [] `,
+  fs[word_simpProofTheory.labels_rel_def]);
+
 val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",`
   let (c,p) = compile data_conf word_conf asm_conf prog in
     MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
@@ -4922,7 +4926,7 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
       \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
                Cases_on`^(t"n")`\\fs[]
                \\ imp_res_tac prim_recTheory.SUC_LESS)))>>
-      qpat_x_assum`PERM A B` mp_tac >>
+      qpat_x_assum`labels_rel _ _ ` mp_tac >>
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
            Make_ptr_bits_code_def,Maxout_bits_code_def,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
@@ -4930,7 +4934,9 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
       simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
            Make_ptr_bits_code_def,Maxout_bits_code_def,
            RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-           MakeBytes_def,SmallLsr_def])>>
+           MakeBytes_def,SmallLsr_def]>>
+      simp[labels_rel_emp])>>
+    fs[]>>
     qpat_x_assum`n < LENGTH _`assume_tac >>
     qpat_x_assum`LENGTH p = _`assume_tac >>
     fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
@@ -4938,15 +4944,14 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
     Q.SPECL_THEN [`data_conf`,`q`,`1n`,`r'`]assume_tac data_to_word_lab_pres_lem>>
     fs[compile_part_def]>>
     fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>
-    reverse CONJ_TAC>-
-      metis_tac[ALL_DISTINCT_PERM]>>
+    fs[word_simpProofTheory.labels_rel_def,MEM_EL,SUBSET_DEF]>>
     ntac 3 strip_tac>>
-    first_x_assum(qspec_then`p_1,p_2` mp_tac)>>
-    impl_tac>>simp[]>>
-    imp_res_tac PERM_MEM_EQ>>
-    ntac 2 (pop_assum kall_tac)>>
-    pop_assum (qspec_then `p_1,p_2` assume_tac)>>fs[MEM_EL,EQ_IMP_THM]>>
-    metis_tac[]);
+    last_x_assum(qspec_then`p_1,p_2` mp_tac)>>simp[]>>
+    impl_tac>- metis_tac[]>>
+    strip_tac>>
+    fs[PULL_EXISTS]>>
+    first_x_assum(qspec_then`n'''` assume_tac)>>rfs[]>>
+    qpat_assum`(A,B) = EL n''' _` (SUBST_ALL_TAC o SYM)>>fs[]);
 
 val StoreEach_no_inst = Q.prove(`
   ∀a ls off.
