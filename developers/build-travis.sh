@@ -1,4 +1,6 @@
 #!/bin/bash
+## A Travis selftest script. This file is probably obsolete, since
+## Travis is no longer supported.
 
 set -e
 

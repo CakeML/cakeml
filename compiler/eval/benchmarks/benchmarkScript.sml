@@ -46,11 +46,9 @@ val qsortimp =``
                (App Asub [Var (Short "arr"); Var (Short "i")])
                (Let (SOME "tj")
                   (App Asub [Var (Short "arr"); Var (Short "j")])
-                  (Let (SOME "d")
+                  (Let (SOME "u")
                      (App Aupdate [Var (Short "arr");Var (Short "i"); Var (Short "tj")])
-                     (Let (SOME "d")
-                        (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")])
-                        (Var (Short "arr"))))))))]);
+                     (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")]))))))]);
 Tdec
   (Dletrec
      [("part_loop","i",
@@ -69,7 +67,7 @@ Tdec
                                   App (Opn Plus) [Var (Short "i");Lit (IntLit 1)]];
                                Var (Short "j")]; Var (Short "k")];
                          Var (Short "arr")])
-                     (Let (SOME "arr")
+                     (Let (SOME "u")
                         (App Opapp
                            [App Opapp
                               [App Opapp
@@ -86,19 +84,15 @@ Tdec
                                   App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
                                Var (Short "k")];
                             Var (Short "arr")])))
-                  (Con NONE
-                     [Var (Short "i"); Var (Short "arr")])))))]);
+                  (Var (Short "i"))))))]);
 Tdec
   (Dletrec
      [("inplace_partition","b",
        Fun "e"
          (Fun "arr"
             (Let (SOME "k")
-               (App Opapp
-                  [App Opapp
-                     [Var (Long "Array" "sub");
-                      Var (Short "arr")]; Var (Short "b")])
-               (Let (SOME "res")
+               (App Asub [Var (Short "arr"); Var (Short "b")])
+               (Let (SOME "i")
                   (App Opapp
                      [App Opapp
                         [App Opapp
@@ -107,19 +101,15 @@ Tdec
                                App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]];
                             Var (Short "e")]; Var (Short "k")];
                       Var (Short "arr")])
-                  (Mat (Var (Short "res"))
-                     [(Pcon NONE [Pvar "i"; Pvar "arr"],
-                       Let (SOME "arr")
-                         (App Opapp
+                  (Let (SOME "u")
+                     (App Opapp
                             [App Opapp
                                [App Opapp
                                   [Var (Short "swap");
                                    Var (Short "b")];
                                 App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]];
                              Var (Short "arr")])
-                         (Con NONE
-                            [App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)];
-                             Var (Short "arr")]))])))))]);
+                     (App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]))))))]);
 Tdec
   (Dletrec
      [("inplace_qsort","b",
@@ -127,33 +117,29 @@ Tdec
          (Fun "arr"
             (If
                (App (Opb Lt) [App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]; Var (Short "e")])
-               (Let (SOME "res")
+               (Let (SOME "i")
                   (App Opapp
                      [App Opapp
                         [App Opapp
                            [Var (Short "inplace_partition");
                             Var (Short "b")]; Var (Short "e")];
                       Var (Short "arr")])
-                  (Mat (Var (Short "res"))
-                     [(Pcon NONE [Pvar "i"; Pvar "arr"],
-                       Let (SOME "arr")
-                         (App Opapp
+                  (Let (SOME "u")
+                     (App Opapp
                             [App Opapp
                                [App Opapp
                                   [Var (Short "inplace_qsort");
                                    Var (Short "b")];
                                 Var (Short "i")];
                              Var (Short "arr")])
-                         (Let (SOME "arr")
-                            (App Opapp
+                     (App Opapp
                                [App Opapp
                                   [App Opapp
                                      [Var (Short "inplace_qsort");
                                       App (Opn Plus) [Var (Short "i"); Lit (IntLit 1)]];
                                    Var (Short "e")];
                                 Var (Short "arr")])
-                            (Var (Short "arr"))))]))
-               (Var (Short "arr")))))]);
+                     )) (Con NONE []))))]);
 Tdec
   (Dletrec
      [("initarr","len",
@@ -173,7 +159,8 @@ Tdec
                               [Var (Short "initarr");
                                Var (Short "len")];
                             Var (Short "arr")];
-                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))))))]);
+                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))
+                  ))))]);
 Tdec
   (Dletrec
      [("mkarr","n",
@@ -183,13 +170,15 @@ Tdec
              App Aalloc [App (Opn Plus) [Var (Short "n"); Var (Short "n")]; Lit (IntLit 0)]];
           Lit (IntLit 0)])]);
 Tdec
+  (Dlet (Pvar "foo")
+     (App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]));
+Tdec
   (Dlet (Pvar "test")
      (App Opapp
         [App Opapp
            [App Opapp
               [Var (Short "inplace_qsort"); Lit (IntLit 0)];
-            Lit (IntLit 40000)];
-         App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]]))]``
+            Lit (IntLit 40000)]; Var (Short "foo")]))]``
 
 val btree = ``
 [Tdec
@@ -822,6 +811,114 @@ val nqueens =
            (Var (Short "x"))
            (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
   Tdec
+      (Dletrec
+         [("int_eq","x",
+           Fun "y"
+             (Log And
+                (App (Opb Leq) [Var (Short "x"); Var (Short "y")])
+                (App (Opb Leq) [Var (Short "y"); Var (Short "x")])))]);
+  Tdec
+    (Dletrec
+       [("curcheck","p",
+         Fun "ls"
+           (Mat (Var (Short "ls"))
+              [(Pcon (SOME (Short "nil")) [],Con NONE []);
+               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
+                Mat (Var (Short "p"))
+                  [(Pcon NONE [Pvar "x"; Pvar "y"],
+                    Mat (Var (Short "l"))
+                      [(Pcon NONE [Pvar "a"; Pvar "b"],
+                        If
+                          (Log Or
+                             (Log Or
+                                 (App Opapp
+                                       [App Opapp
+                                          [Var (Short "int_eq");
+                                           Var (Short "a")];
+                                        Var (Short "x")])
+                                (App Opapp
+                                       [App Opapp
+                                          [Var (Short "int_eq");
+                                           Var (Short "b")];
+                                        Var (Short "y")]))
+                             (App Opapp
+                                    [App Opapp
+                                       [Var (Short "int_eq");
+                                        App Opapp [Var (Short "abs");
+                                   App (Opn Minus)
+                                     [Var (Short "a");Var (Short "x")]]
+                                        ];
+                                   App Opapp [Var (Short "abs");
+                                    App (Opn Minus)
+                                       [Var (Short "b");Var (Short "y")]]])
+                            )
+                          (Raise (Con (SOME (Short "Fail")) []))
+                          (App Opapp
+                             [App Opapp
+                                [Var (Short "curcheck");
+                                 Con NONE
+                                   [Var (Short "x");
+                                    Var (Short "y")]];
+                              Var (Short "ls")]))])])]))]);
+  Tdec
+    (Dletrec
+       [("nqueens","n",
+         Fun "cur"
+           (Fun "ls"
+              (If
+                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
+                 (Var (Short "ls"))
+                 (Letrec
+                    [("find_queen","y",
+                      If
+                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
+                        (Raise (Con (SOME (Short "Fail")) []))
+                        (Handle
+                           (Let NONE
+                              (App Opapp
+                                 [App Opapp
+                                    [Var (Short "curcheck");
+                                     Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")]];
+                                  Var (Short "ls")])
+                              (App Opapp
+                                 [App Opapp
+                                    [App Opapp
+                                       [Var (Short "nqueens");
+                                        Var (Short "n")];
+                                     App (Opn Plus)[Var (Short "cur");
+                                        Lit (IntLit 1)]];
+                                  Con (SOME (Short "::"))
+                                    [Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")];
+                                     Var (Short "ls")]]))
+                           [(Pcon (SOME (Short "Fail")) [],
+                             App Opapp
+                               [Var (Short "find_queen");
+                                App (Opn Plus) [Var (Short "y");
+                                   Lit (IntLit 1)]])]))]
+                    (App Opapp
+                       [Var (Short "find_queen");
+                        Lit (IntLit 0)])))))]);
+  Tdec
+    (Dlet (Pvar "foo")
+       (App Opapp
+          [App Opapp
+             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
+              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
+(* With polymorphic equality
+val nqueens =
+``[Tdec (Dexn "Fail" []);
+  Tdec
+    (Dletrec
+       [("abs","x",
+         If
+           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
+           (Var (Short "x"))
+           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
+  Tdec
     (Dletrec
        [("curcheck","p",
          Fun "ls"
@@ -903,6 +1000,7 @@ val nqueens =
           [App Opapp
              [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
               Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
+              *)
 
 val hello = entire_program_def |> concl |> rand
 val benchmarks = [qsortimp,nqueens,hello,foldl,reverse,fib,btree,queue,qsort]

@@ -1,4 +1,5 @@
 #!/bin/bash
+## A script that runs the regression test.
 
 set -e
 
