@@ -1,7 +1,5 @@
 open preamble astTheory terminationTheory modLangTheory
 
-infix ||>
-
 val _ = numLib.prefer_num()
 
 val _ = new_theory"source_to_mod"

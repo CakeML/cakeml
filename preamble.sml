@@ -24,6 +24,8 @@ val has_pair_type = can dest_prod o type_of
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 
+infix ||>
+
 (* treat the given eq_tms (list of equations) as rewrite thereoms,
    return the resulting term, note we can't return a theorem because
    the equations might not be theorems -- indeed, in many cases they
