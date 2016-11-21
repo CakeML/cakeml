@@ -1138,16 +1138,38 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     imp_res_tac infer_p_bindings>>
     pop_assum(qspec_then`[]` assume_tac)>>
     fs[]>> imp_res_tac type_pe_determ_infer_e>>
-    rw[]
+    qmatch_asmsub_abbrev_tac`generalise_list 0 0 FEMPTY ls`>>
+    `EVERY (check_t 0 {}) ls` by
+      (fs[Abbr`ls`,EVERY_MEM,MAP_MAP_o,o_DEF]>>fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD]>>
+      metis_tac[])>>
+    drule (el 2 (CONJUNCTS generalise_no_uvars))>>
+    rw[Abbr`ls`]>>fs[]
     >- simp [empty_decls_def, convert_decls_def, empty_inf_decls_def]
-    >- cheat
     >-
-      (qmatch_asmsub_abbrev_tac`generalise_list 0 0 FEMPTY ls`>>
-      `EVERY (check_t 0 {}) ls` by
-        (fs[Abbr`ls`,EVERY_MEM,MAP_MAP_o,o_DEF]>>fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD]>>
-        metis_tac[])>>
-      drule (el 2 (CONJUNCTS generalise_no_uvars))>>
-      rw[]>>fs[]))
+      (simp[env_rel_def]>>rw[]
+      >-
+        (simp[ienv_ok_def,ienv_val_ok_def] >>
+        match_mp_tac nsAll_alist_to_ns>>
+        simp[ZIP_MAP,MAP_MAP_o,EVERY_MAP,LAMBDA_PROD])
+      >-
+        (* Probably proved somewhere already? *)
+        cheat
+      >-
+        (simp[env_rel_sound_def,tenv_add_tvs_def,lookup_var_def,ZIP_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,FORALL_PROD,convert_env_def]>>rw[]>>
+        fs[nsLookup_alist_to_ns_some,ALOOKUP_MAP,sub_completion_def]>>
+        imp_res_tac pure_add_constraints_success>>
+        imp_res_tac ALOOKUP_MEM>>fs[EVERY_MEM]>>
+        res_tac>>fs[]>>
+        imp_res_tac t_walkstar_SUBMAP >>
+        metis_tac[tscheme_approx_refl,t_walkstar_no_vars,check_t_empty_unconvert_convert_id,check_t_to_check_freevars])
+      >-
+        (simp[env_rel_complete_def,tenv_add_tvs_def,lookup_var_def,ZIP_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,FORALL_PROD,convert_env_def]>>rw[]>>
+        fs[nsLookup_alist_to_ns_some,ALOOKUP_MAP,sub_completion_def]>>
+        imp_res_tac pure_add_constraints_success>>
+        imp_res_tac ALOOKUP_MEM>>fs[EVERY_MEM]>>
+        res_tac>>fs[]>>
+        imp_res_tac t_walkstar_SUBMAP >>
+        metis_tac[tscheme_approx_refl,t_walkstar_no_vars,check_t_empty_unconvert_convert_id,check_t_to_check_freevars]))
   >- ( (* Letrec *)
     cheat)
   >- ( (* Dtype *)
