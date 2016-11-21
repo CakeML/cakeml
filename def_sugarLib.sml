@@ -303,7 +303,7 @@ fun reorder fo t =
 			       |> map mutrecs
 			       |> mlibUseful.setify
 			       |> List.concat
-			       |> concatMap TypeBase.constructors_of
+			       |> concatMap (fn t => TypeBase.constructors_of t |> map (specialise_cons t))
       in
 	  reorder' cls cons_order
 		   |> reorder'' fo
@@ -433,10 +433,10 @@ fun pat_unfold (PATTERN cv) cons =
 	     | _ => PATTERN ((c,ListPair.map (uncurry pat_unfold) (pv,tl cv'))::cv))
   end
 
-fun pat_complete (PATTERN []) = PATTERN []
-  | pat_complete (PATTERN ((c,p)::p')) =
+fun pat_complete tl (PATTERN []) = PATTERN []
+  | pat_complete tl (PATTERN ((c,p)::p')) =
     let
-	val (PATTERN p'') = pat_complete (PATTERN p')
+	val (PATTERN p'') = pat_complete ((c,p)::tl) (PATTERN p')
     in
 	if is_var c then
 	    PATTERN((c,p)::p'')
@@ -444,14 +444,29 @@ fun pat_complete (PATTERN []) = PATTERN []
 	    let
 		val rt = return_type(type_of c)
 		val conses = rt |> TypeBase.constructors_of |> map (specialise_cons rt)
-		val newconses = filter (fn c' => not (exists (term_eq c' o fst) ((c,p)::p'))) conses
+		val newconses = filter (fn c' => not (exists (term_eq c' o fst) ((c,p)::p''@tl))) conses
 				       |> map (saturate [])
 	    in
 		List.foldr (fn (c,p) =>  pat_unfold p c)
-			   (PATTERN((c,map pat_complete p) :: p''))
+			   (PATTERN((c,map (pat_complete []) p) :: p''))
 			   newconses
 	    end
     end
+
+fun pat_prune_vars tl (PATTERN []) = PATTERN tl
+  | pat_prune_vars tl (PATTERN((c,p)::p')) =
+    if is_var c then
+	let
+	    val rt = return_type(type_of c)
+	    val conses = rt |> TypeBase.constructors_of |> map (specialise_cons rt)
+	in
+	    if all (fn c => exists (term_eq c o fst) (p'@tl)) conses then
+		pat_prune_vars tl (PATTERN p')
+	    else
+		pat_prune_vars ((c,p)::tl) (PATTERN p')
+	end
+    else
+	pat_prune_vars ((c,map (pat_prune_vars []) p)::tl) (PATTERN(p'))
 
 fun pat_to_list (PATTERN []) = []
   | pat_to_list (PATTERN((c,[])::p')) =
@@ -479,7 +494,7 @@ fun unmatched' matched =
 			      matched_typs
       val fst_arg_cons = arg_cons needed_typs
       val satpats = List.foldr (fn (x,y) => pat_unfold y x) (PATTERN []) (matched@fst_arg_cons)
-			       |> pat_complete
+			       |> pat_complete []
 			       |> pat_to_list
 			       |> map (rename [])
   in
