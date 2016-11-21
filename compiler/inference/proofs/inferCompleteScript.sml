@@ -1082,6 +1082,13 @@ val env_rel_binding = Q.store_thm ("env_rel_binding",
     rw [all_distinct_nub] >>
     metis_tac [check_freevars_more, nub_set, SUBSET_DEF]));
 
+val env_rel_complete_bind = prove(``
+  env_rel_complete FEMPTY ienv tenv Empty ⇒
+  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)``,
+  fs[env_rel_complete_def,bind_tvar_def,lookup_var_def,lookup_varE_def,tveLookup_def]>>rw[]>>every_case_tac>>fs[]>>
+  res_tac>>fs[]>> TRY(metis_tac[])>>
+  match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]);
+
 val infer_d_complete = Q.store_thm ("infer_d_complete",
   `!mn decls tenv ienv d st1 decls' tenv' idecls.
     type_d T mn decls tenv d decls' tenv' ∧
@@ -1092,7 +1099,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       decls' = convert_decls idecls' ∧
       env_rel tenv' ienv' ∧
       infer_d mn idecls ienv d st1 = (Success (idecls',ienv'), st2)`,
-
   rw [] >>
   drule type_d_tenv_ok_helper >>
   rw [] >>
@@ -1101,7 +1107,8 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     rw [infer_d_def, success_eqns] >>
     `ienv_ok {} ienv` by fs [env_rel_def] >>
     `env_rel_complete FEMPTY ienv tenv Empty` by fs [env_rel_def] >>
-    `env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)` by cheat >>
+    imp_res_tac env_rel_complete_bind>>
+    pop_assum (qspec_then`tvs` assume_tac)>>
     drule (GEN_ALL infer_pe_complete) >>
     rpt (disch_then drule) >>
     rw [] >>
@@ -1111,9 +1118,36 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     rw [success_eqns]
     >- simp [empty_decls_def, convert_decls_def, empty_inf_decls_def]
     >- cheat
-    >- cheat)
+    >-
+      (imp_res_tac infer_p_bindings>>
+      pop_assum(qspec_then`[]` mp_tac)>>
+      fs[]>>metis_tac[]))
   >- ( (* Let mono *)
-    cheat)
+    rw [infer_d_def, success_eqns] >>
+    `ienv_ok {} ienv` by fs [env_rel_def] >>
+    qpat_x_assum`env_rel A B` mp_tac>>
+    simp[Once env_rel_def] >> strip_tac>>
+    drule (GEN_ALL infer_pe_complete) >>
+    disch_then (qspec_then`0` mp_tac)>>
+    fs[bind_tvar_def]>>
+    rpt (disch_then drule) >>
+    rw [] >>
+    qexists_tac `empty_inf_decls` >>
+    simp [init_state_def, success_eqns] >>
+    pairarg_tac >> fs[success_eqns]>>
+    imp_res_tac infer_p_bindings>>
+    pop_assum(qspec_then`[]` assume_tac)>>
+    fs[]>> imp_res_tac type_pe_determ_infer_e>>
+    rw[]
+    >- simp [empty_decls_def, convert_decls_def, empty_inf_decls_def]
+    >- cheat
+    >-
+      (qmatch_asmsub_abbrev_tac`generalise_list 0 0 FEMPTY ls`>>
+      `EVERY (check_t 0 {}) ls` by
+        (fs[Abbr`ls`,EVERY_MEM,MAP_MAP_o,o_DEF]>>fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD]>>
+        metis_tac[])>>
+      drule (el 2 (CONJUNCTS generalise_no_uvars))>>
+      rw[]>>fs[]))
   >- ( (* Letrec *)
     cheat)
   >- ( (* Dtype *)
