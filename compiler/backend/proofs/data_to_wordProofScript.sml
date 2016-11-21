@@ -3351,10 +3351,15 @@ val state_rel_get_var_Number_IMP_alt = prove(
   \\ fs [adjust_var_def] \\ rw []
   \\ imp_res_tac memory_rel_any_Number_IMP \\ fs []);
 
+val IMP_LESS_MustTerminate_limit = store_thm("IMP_LESS_MustTerminate_limit[simp]",
+  ``i < dimword (:α) ==>
+    i < MustTerminate_limit (:α) − 1``,
+  rewrite_tac [MustTerminate_def] \\ decide_tac);
+
 val RefArray_thm = store_thm("RefArray_thm",
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     get_vars [0;1] s.locals = SOME vals /\
-    t.clock = dimword (:'a) - 1 /\
+    t.clock = MustTerminate_limit (:'a) - 1 /\
     do_app RefArray vals s = Rval (v,s2) ==>
     ?q r new_c.
       evaluate (RefArray_code c,t) = (q,r) /\
@@ -3418,7 +3423,8 @@ val RefArray_thm = store_thm("RefArray_thm",
   \\ qabbrev_tac `limit = MIN (2 ** c.len_size) (dimword (:α) DIV 16)`
   \\ fs [get_var_set_var_thm]
   \\ Cases_on `evaluate
-       (AllocVar limit (fromList [(); ()]),set_var 1 (Word (n2w (4 * i))) t)` \\ fs []
+       (AllocVar limit (fromList [(); ()]),set_var 1 (Word (n2w (4 * i))) t)`
+  \\ fs []
   \\ disch_then drule
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
@@ -3530,7 +3536,8 @@ val RefArray_thm = store_thm("RefArray_thm",
   \\ SEP_I_TAC "evaluate"
   \\ fs [wordSemTheory.get_var_def,lookup_insert] \\ rfs []
   \\ pop_assum drule
-  \\ impl_tac THEN1 (fs [adjust_var_def] \\ fs [state_rel_def])
+  \\ impl_tac THEN1 (fs [adjust_var_def] \\ fs [state_rel_def]
+                     \\ `i < dimword (:'a)` by decide_tac \\ fs [])
   \\ strip_tac \\ fs []
   \\ pop_assum mp_tac \\ fs []
   \\ strip_tac \\ fs []
@@ -3586,7 +3593,7 @@ val w2w_shift_shift = Q.store_thm("w2w_shift_shift",
 val RefByte_thm = Q.store_thm("RefByte_thm",
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     get_vars [0;1] s.locals = SOME vals /\
-    t.clock = dimword (:'a) - 1 /\
+    t.clock = MustTerminate_limit (:'a) - 1 /\
     do_app RefByte vals s = Rval (v,s2) ==>
     ?q r new_c.
       evaluate (RefByte_code c,t) = (q,r) /\
@@ -3797,7 +3804,9 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ impl_tac THEN1
    (fs [WORD_MUL_LSL,word_mul_n2w,state_rel_def]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs []
-    \\ unabbrev_all_tac \\ fs [])
+    \\ unabbrev_all_tac \\ fs []
+    \\ `byte_len (:α) i < dimword (:'a)` by (fs [dimword_def])
+    \\ fs [IMP_LESS_MustTerminate_limit])
   \\ fs [] \\ strip_tac \\ fs [WORD_MUL_LSL,word_mul_n2w]
   \\ pop_assum kall_tac
   \\ simp [state_rel_thm]
@@ -3976,7 +3985,7 @@ val FromList_thm = Q.store_thm("FromList_thm",
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     encode_header c (4 * tag) 0 <> (NONE:'a word option) /\
     get_vars [0; 1; 2] s.locals = SOME [v1; v2; Number (&(4 * tag))] /\
-    t.clock = dimword (:'a) - 1 /\
+    t.clock = MustTerminate_limit (:'a) - 1 /\
     do_app (FromList tag) [v1; v2] s = Rval (v,s2) ==>
     ?q r new_c.
       evaluate (FromList_code c,t) = (q,r) /\
@@ -4442,6 +4451,10 @@ val th = Q.store_thm("assign_WordToInt",
   \\ simp[Abbr`w1`,Abbr`w2`]
   \\ simp[w2n_w2w]);
 
+val MustTerminate_limit_NOT_0 = Q.store_thm("MustTerminate_limit_NOT_0[simp]",
+  `MustTerminate_limit (:'a) <> 0`,
+  rewrite_tac [wordSemTheory.MustTerminate_limit_def] \\ fs [dimword_def]);
+
 val th = Q.store_thm("assign_FromList",
   `(?tag. op = FromList tag) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -4481,8 +4494,8 @@ val th = Q.store_thm("assign_FromList",
   \\ fs [wordSemTheory.dec_clock_def,EVAL ``(data_to_bvi s).refs``]
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (FromList_code _,t4)`
   \\ rveq
-  \\ `state_rel c l1 l2 (s1 with clock := dimword(:'a))
-        (t with <| clock := dimword(:'a); termdep := t.termdep - 1 |>)
+  \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
+        (t with <| clock := MustTerminate_limit(:'a); termdep := t.termdep - 1 |>)
           [] locs` by (fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `dataSem$get_vars [a1; a2] s.locals = SOME [Number (&LENGTH vs); v']` by
@@ -4598,8 +4611,8 @@ val th = Q.store_thm("assign_RefByte",
   \\ qpat_abbrev_tac `t4 = wordSem$call_env [Loc n l; _; _] _ with clock := _`
   \\ rename1 `get_vars [adjust_var a1; adjust_var a2] t = SOME [w1;w2]`
   \\ rename1 `get_vars [a1; a2] x = SOME [Number i; Number (&w2n w)]`
-  \\ `state_rel c l1 l2 (s1 with clock := dimword(:'a))
-        (t with <| clock := dimword(:'a); termdep := t.termdep - 1 |>)
+  \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
+        (t with <| clock := MustTerminate_limit(:'a); termdep := t.termdep - 1 |>)
           [] locs` by (fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `get_vars [a1; a2] s.locals = SOME [Number i; Number (&w2n w)]` by
@@ -4709,8 +4722,8 @@ val th = Q.store_thm("assign_RefArray",
   \\ qpat_abbrev_tac `t4 = wordSem$call_env [Loc n l; _; _] _ with clock := _`
   \\ rename1 `get_vars [adjust_var a1; adjust_var a2] t = SOME [w1;w2]`
   \\ rename1 `get_vars [a1; a2] x = SOME [Number i;v2]`
-  \\ `state_rel c l1 l2 (s1 with clock := dimword(:'a))
-        (t with <| clock := dimword(:'a); termdep := t.termdep - 1 |>)
+  \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
+        (t with <| clock := MustTerminate_limit(:'a); termdep := t.termdep - 1 |>)
           [] locs` by (fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `get_vars [a1; a2] s.locals = SOME [Number i; v2]` by

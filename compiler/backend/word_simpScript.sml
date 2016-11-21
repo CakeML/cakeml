@@ -13,8 +13,8 @@ val Seq_assoc_def = Define `
   (Seq_assoc p1 (Seq q1 q2) = Seq_assoc (Seq_assoc p1 q1) q2) /\
   (Seq_assoc p1 (If v n r q1 q2) =
      SmartSeq p1 (If v n r (Seq_assoc Skip q1) (Seq_assoc Skip q2))) /\
-  (Seq_assoc p1 (MustTerminate n q) =
-     SmartSeq p1 (MustTerminate n (Seq_assoc Skip q))) /\
+  (Seq_assoc p1 (MustTerminate q) =
+     SmartSeq p1 (MustTerminate (Seq_assoc Skip q))) /\
   (Seq_assoc p1 (Call ret_prog dest args handler) =
      SmartSeq p1 (Call (case ret_prog of
            | NONE => NONE
@@ -91,7 +91,7 @@ val simp_if_def = tDefine "simp_if" `
        | NONE => Seq y1 y2
        | SOME p => p) /\
   (simp_if (If v n r q1 q2) = If v n r (simp_if q1) (simp_if q2)) /\
-  (simp_if (MustTerminate n q) = MustTerminate n (simp_if q)) /\
+  (simp_if (MustTerminate q) = MustTerminate (simp_if q)) /\
   (simp_if (Call ret_prog dest args handler) =
      Call (case ret_prog of
            | NONE => NONE

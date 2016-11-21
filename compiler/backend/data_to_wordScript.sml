@@ -394,7 +394,7 @@ val assign_def = Define `
     | RefByte =>
       (case args of
        | [v1;v2] =>
-         (MustTerminate (dimword (:α))
+         (MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefByte_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
@@ -402,7 +402,7 @@ val assign_def = Define `
     | RefArray =>
       (case args of
        | [v1;v2] =>
-         (MustTerminate (dimword (:α))
+         (MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefArray_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
@@ -411,7 +411,7 @@ val assign_def = Define `
       (if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
        case args of
        | [v1;v2] =>
-         (MustTerminate (dimword (:α)) (list_Seq [
+         (MustTerminate (list_Seq [
             Assign 1 (Const (n2w (16 * tag)));
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME FromList_location)

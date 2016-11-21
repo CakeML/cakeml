@@ -37,7 +37,7 @@ val _ = Datatype `
        | Get num store_name
        | Set store_name ('a exp)
        | Store ('a exp) num
-       | MustTerminate num wordLang$prog
+       | MustTerminate wordLang$prog
        | Call ((num # num_set # wordLang$prog # num # num) option)
               (* return var, cut-set, return-handler code, labels l1,l2*)
               (num option) (* target of call *)
@@ -107,7 +107,7 @@ val every_var_def = Define `
   (every_var P (LocValue r _) = P r) ∧
   (every_var P (FFI ffi_index ptr len names) =
     (P ptr ∧ P len ∧ every_name P names)) ∧
-  (every_var P (MustTerminate n s1) = every_var P s1) ∧
+  (every_var P (MustTerminate s1) = every_var P s1) ∧
   (every_var P (Call ret dest args h) =
     ((EVERY P args) ∧
     (case ret of
@@ -147,7 +147,7 @@ val every_stack_var_def = Define `
       every_stack_var P prog))) ∧
   (every_stack_var P (Alloc num numset) =
     every_name P numset) ∧
-  (every_stack_var P (MustTerminate n s1) =
+  (every_stack_var P (MustTerminate s1) =
     every_stack_var P s1) ∧
   (every_stack_var P (Seq s1 s2) =
     (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
