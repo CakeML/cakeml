@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "lib"
 
+(*
+   Extensions to Lem's built-in library to target things we need in HOL.
+*)
 (*open import Pervasives*)
 (*import List_extra*)
 (*import String*)

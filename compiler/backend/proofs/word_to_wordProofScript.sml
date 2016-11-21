@@ -194,9 +194,6 @@ val compile_single_correct = Q.prove(`
     rw[] >> rw[])
 
   >- (*Call -- the hard case*)
-    cheat (* due to new gc_fun_const_ok assumption in goal *)
-
-(*
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM,get_vars_perm,get_vars_code_frame]>>
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
@@ -204,8 +201,8 @@ val compile_single_correct = Q.prove(`
     Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'`>>simp[]>>
     imp_res_tac find_code_thm>>
-    ntac 2 (pop_assum kall_tac)>>
-    full_simp_tac(srw_ss())[]
+    pop_assum(qspec_then`l` assume_tac)>>
+    rfs[]
     >- (*Tail calls*)
       (ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])
       >- simp[call_env_def,state_component_equality]>>
@@ -219,7 +216,7 @@ val compile_single_correct = Q.prove(`
       Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
       impl_tac>-
         (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def]>>
-        simp[domain_fromList2,word_allocTheory.even_list_def])>>
+        simp[domain_fromList2,word_allocTheory.even_list_def,dec_clock_def])>>
       qpat_abbrev_tac`A = compile_single t k a c B`>>
       PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
       pop_assum mp_tac>>
@@ -260,12 +257,12 @@ val compile_single_correct = Q.prove(`
       (full_simp_tac(srw_ss())[Abbr`stt`,push_env_code_frame,call_env_def,dec_clock_def]>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>simp[push_env_def,env_to_list_def])>>
     impl_tac>-
-      full_simp_tac(srw_ss())[Abbr`stt`,push_env_code_frame,call_env_def,dec_clock_def]>>
+      (full_simp_tac(srw_ss())[Abbr`stt`,push_env_code_frame,call_env_def,dec_clock_def,push_env_gc_fun])>>
     srw_tac[][]>>
     Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
     impl_tac>-
       (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def]>>
-      simp[domain_fromList2,word_allocTheory.even_list_def])>>
+      simp[domain_fromList2,word_allocTheory.even_list_def,push_env_gc_fun,dec_clock_def])>>
     qpat_abbrev_tac`A = compile_single t k a c B`>>
     PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
     pop_assum mp_tac >>
@@ -331,7 +328,10 @@ val compile_single_correct = Q.prove(`
           EVERY_CASE_TAC>>srw_tac[][state_component_equality]>>simp[])>>
         pairarg_tac>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
         full_simp_tac(srw_ss())[]>>
-        full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def,call_env_def,push_env_code_frame,dec_clock_def])>>
+        full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def,call_env_def,push_env_code_frame,dec_clock_def]>>
+        imp_res_tac pop_env_code_gc_fun_clock>>
+        imp_res_tac evaluate_gc_fun_const>>fs[]>>
+        metis_tac[push_env_gc_fun])>>
       srw_tac[][]>>
       qspecl_then[`r`,`call_env q(push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
@@ -397,7 +397,9 @@ val compile_single_correct = Q.prove(`
         (simp[set_var_def]>>
         pairarg_tac>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
         full_simp_tac(srw_ss())[]>>
-        full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def,call_env_def,push_env_code_frame,dec_clock_def])>>
+        full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def,call_env_def,push_env_code_frame,dec_clock_def]>>
+        imp_res_tac evaluate_gc_fun_const>>fs[]>>
+        metis_tac[push_env_gc_fun,evaluate_gc_fun_const])>>
       srw_tac[][]>>
       qspecl_then[`r`,`call_env q(push_env x' (SOME (x''0',x''1',x''2',x''3')) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
@@ -425,7 +427,6 @@ val compile_single_correct = Q.prove(`
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
-*)
 
   >- (*Seq, inductive*)
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM,AND_IMP_INTRO]>>
@@ -554,8 +555,8 @@ val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FOR
 val compile_conventions = Q.store_thm("compile_to_word_conventions",`
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
-  EVERY2 PERM (MAP (extract_labels o SND o SND) progs)
-              (MAP (extract_labels o SND o SND) p) ∧
+  EVERY2 labels_rel (MAP (extract_labels o SND o SND) p)
+                    (MAP (extract_labels o SND o SND) progs) ∧
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧

@@ -1,3 +1,6 @@
+(*
+   Build a basic compset for evaluation in the logic.
+*)
 structure basicComputeLib :> basicComputeLib =
 struct
 

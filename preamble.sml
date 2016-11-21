@@ -1,3 +1,6 @@
+(*
+   Proof tools (e.g. tactics) used throughout the development.
+*)
 structure preamble =
 struct
 local open intLib wordsLib in end;
