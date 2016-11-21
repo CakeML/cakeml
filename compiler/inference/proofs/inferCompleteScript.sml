@@ -1145,31 +1145,28 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     drule (el 2 (CONJUNCTS generalise_no_uvars))>>
     rw[Abbr`ls`]>>fs[]
     >- simp [empty_decls_def, convert_decls_def, empty_inf_decls_def]
-    >-
-      (simp[env_rel_def]>>rw[]
-      >-
-        (simp[ienv_ok_def,ienv_val_ok_def] >>
-        match_mp_tac nsAll_alist_to_ns>>
-        simp[ZIP_MAP,MAP_MAP_o,EVERY_MAP,LAMBDA_PROD])
-      >-
-        (* Probably proved somewhere already? *)
-        cheat
-      >-
-        (simp[env_rel_sound_def,tenv_add_tvs_def,lookup_var_def,ZIP_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,FORALL_PROD,convert_env_def]>>rw[]>>
-        fs[nsLookup_alist_to_ns_some,ALOOKUP_MAP,sub_completion_def]>>
-        imp_res_tac pure_add_constraints_success>>
-        imp_res_tac ALOOKUP_MEM>>fs[EVERY_MEM]>>
-        res_tac>>fs[]>>
-        imp_res_tac t_walkstar_SUBMAP >>
-        metis_tac[tscheme_approx_refl,t_walkstar_no_vars,check_t_empty_unconvert_convert_id,check_t_to_check_freevars])
-      >-
-        (simp[env_rel_complete_def,tenv_add_tvs_def,lookup_var_def,ZIP_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,FORALL_PROD,convert_env_def]>>rw[]>>
-        fs[nsLookup_alist_to_ns_some,ALOOKUP_MAP,sub_completion_def]>>
-        imp_res_tac pure_add_constraints_success>>
-        imp_res_tac ALOOKUP_MEM>>fs[EVERY_MEM]>>
-        res_tac>>fs[]>>
-        imp_res_tac t_walkstar_SUBMAP >>
-        metis_tac[tscheme_approx_refl,t_walkstar_no_vars,check_t_empty_unconvert_convert_id,check_t_to_check_freevars]))
+    >- (
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `ienv' = tenv_to_ienv tenv'`
+        by (
+          unabbrev_all_tac >>
+          rw [tenv_to_ienv_def, tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, convert_env_def, LAMBDA_PROD] >>
+          rw [namespaceTheory.alist_to_ns_def] >>
+          fs [ELIM_UNCURRY] >>
+          irule LIST_EQ >>
+          rw [EL_MAP, EL_ZIP] >>
+          fs [EVERY_MEM, MEM_EL] >>
+          `check_t 0 {} (t_walkstar s' (SND (EL x new_bindings)))` by metis_tac [] >>
+          drule check_t_empty_unconvert_convert_id >>
+          rw [] >>
+          fs [sub_completion_def] >>
+          imp_res_tac pure_add_constraints_success>>
+          imp_res_tac t_walkstar_SUBMAP >>
+          metis_tac [t_walkstar_no_vars]) >>
+      rw [] >>
+      irule env_rel_tenv_to_ienv >>
+      unabbrev_all_tac >>
+      rw [typeSoundInvariantsTheory.tenv_ok_def]))
   >- ( (* Letrec *)
     cheat)
   >- ( (* Dtype *)
