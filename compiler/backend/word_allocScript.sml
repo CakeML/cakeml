@@ -212,9 +212,9 @@ val ssa_cc_trans_def = Define`
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
     let (s2',ssa'',na'') = ssa_cc_trans s2 ssa' na' in
       (Seq s1' s2',ssa'',na'')) ∧
-  (ssa_cc_trans (MustTerminate n s1) ssa na =
+  (ssa_cc_trans (MustTerminate s1) ssa na =
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
-      (MustTerminate n s1',ssa',na')) ∧
+      (MustTerminate s1',ssa',na')) ∧
   (*Tricky case 1: we need to merge the ssa results from both branches by
     unSSA-ing the phi functions
   *)
@@ -383,7 +383,7 @@ val apply_colour_def = Define `
                      | SOME (v,prog,l1,l2) => SOME (f v, apply_colour f prog,l1,l2) in
       Call ret dest args h) ∧
   (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧
-  (apply_colour f (MustTerminate n s1) = MustTerminate n (apply_colour f s1)) ∧
+  (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (FFI ffi_index ptr len numset) =
@@ -484,7 +484,7 @@ val get_live_def = Define`
   (*Find liveset just before s2 which is the input liveset to s1*)
   (get_live (Seq s1 s2) live =
     get_live s1 (get_live s2 live)) ∧
-  (get_live (MustTerminate n s1) live =
+  (get_live (MustTerminate s1) live =
     get_live s1 live) ∧
   (*First case where branching appears:
     We get the livesets for e2 and e3, union them, add the if variable
@@ -567,12 +567,12 @@ val remove_dead_def = Define`
         if s2 = Skip then s1
         else Seq s1 s2
     in (prog,s1live)) ∧
-  (remove_dead (MustTerminate n s1) live =
+  (remove_dead (MustTerminate s1) live =
     (* This can technically be optimized away if it was a Skip,
        but we should never use MustTerminate to wrap completely dead code
     *)
     let (s1,s1live) = remove_dead s1 live in
-      (MustTerminate n s1,s1live)) ∧
+      (MustTerminate s1,s1live)) ∧
   (remove_dead (If cmp r1 ri e2 e3) live =
     let (e2,e2_live) = remove_dead e2 live in
     let (e3,e3_live) = remove_dead e3 live in
@@ -612,7 +612,7 @@ val get_clash_sets_def = Define`
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
       (hd',(ls' ++ ls))) ∧
-  (get_clash_sets (MustTerminate n s1) live =
+  (get_clash_sets (MustTerminate s1) live =
      get_clash_sets s1 live) ∧
   (get_clash_sets (If cmp r1 ri e2 e3) live =
     let (h2,ls2) = get_clash_sets e2 live in
@@ -687,7 +687,7 @@ val get_clash_tree_def = Define`
     case ri of
       Reg r2 => Seq (Delta [] [r1;r2]) (Branch NONE e2t e3t)
     | _      => Seq (Delta [] [r1]) (Branch NONE e2t e3t)) ∧
-  (get_clash_tree (MustTerminate n s) =
+  (get_clash_tree (MustTerminate s) =
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
@@ -718,7 +718,7 @@ val get_clash_tree_def = Define`
 (*Preference edges*)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
-  (get_prefs (MustTerminate n s1) acc =
+  (get_prefs (MustTerminate s1) acc =
     get_prefs s1 acc) ∧
   (get_prefs (Seq s1 s2) acc =
     get_prefs s1 (get_prefs s2 acc)) ∧
@@ -752,7 +752,7 @@ val get_forced_def = Define`
        else
          acc
     | _ => acc) ∧
-  (get_forced c (MustTerminate n s1) acc =
+  (get_forced c (MustTerminate s1) acc =
     get_forced c s1 acc) ∧
   (get_forced c (Seq s1 s2) acc =
     get_forced c s1 (get_forced c s2 acc)) ∧
@@ -875,7 +875,7 @@ val max_var_def = Define `
       | SOME (v,prog,l1,l2) =>
         max3 v ret_max (max_var prog))) ∧
   (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
-  (max_var (MustTerminate n s1) = max_var s1) ∧
+  (max_var (MustTerminate s1) = max_var s1) ∧
   (max_var (If cmp r1 ri e2 e3) =
     let r = case ri of Reg r => MAX r r1 | _ => r1 in
       max3 r (max_var e2) (max_var e3)) ∧

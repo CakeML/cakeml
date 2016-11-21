@@ -626,7 +626,7 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
 val memcpy_code_thm = Q.prove(
   `!n a b m dm b1 m1 s.

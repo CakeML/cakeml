@@ -1,3 +1,5 @@
+## The regression test runs through this list of directories.
+
 # semantics and metatheory
 semantics/ffi
 semantics

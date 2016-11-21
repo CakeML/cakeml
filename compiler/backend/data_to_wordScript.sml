@@ -394,7 +394,7 @@ val assign_def = Define `
     | RefByte =>
       (case args of
        | [v1;v2] =>
-         (MustTerminate (dimword (:α))
+         (MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefByte_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
@@ -402,7 +402,7 @@ val assign_def = Define `
     | RefArray =>
       (case args of
        | [v1;v2] =>
-         (MustTerminate (dimword (:α))
+         (MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefArray_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
@@ -411,13 +411,14 @@ val assign_def = Define `
       (if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
        case args of
        | [v1;v2] =>
-         (MustTerminate (dimword (:α)) (list_Seq [
+         (MustTerminate (list_Seq [
             Assign 1 (Const (n2w (16 * tag)));
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
+(* TODO: needs to be reimplemented (assigned: Magnus)
     | Equal => (case args of
                | [v1;v2] =>
                  let retf = Assign (adjust_var dest) FALSE_CONST in
@@ -443,6 +444,7 @@ val assign_def = Define `
                                retf))))
                  ,l)
                 | _ => (Skip,l))
+*)
     | Less => (case args of
                | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))
                               (Assign (adjust_var dest) TRUE_CONST)

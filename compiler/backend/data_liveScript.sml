@@ -24,6 +24,7 @@ val is_pure_def = Define `
   (is_pure (WordOp W64 _) = F) /\
   (is_pure (WordShift W64 _ _) = F) /\
   (is_pure WordFromInt = F) /\
+  (is_pure WordToInt = F) /\
   (is_pure _ = T)`
 
 val compile_def = Define `

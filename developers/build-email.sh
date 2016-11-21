@@ -1,4 +1,6 @@
 #!/bin/bash
+## This script produces a report on whether a regression test
+## succeeded, timed out or failed.
 
 cd $(dirname "$0")/..
 

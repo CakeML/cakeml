@@ -1,3 +1,8 @@
+(*
+    This script defines Eval and other core definitions used by the
+    translator. The theorems about Eval serve as an interface between
+    the source semantics and the translator's automation.
+*)
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
      determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory packLib;

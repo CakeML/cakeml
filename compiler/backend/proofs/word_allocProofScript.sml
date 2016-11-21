@@ -98,7 +98,7 @@ val colouring_ok_def = Define`
     | SOME(v,prog,l1,l2) =>
         INJ f (domain (insert v () cutset)) UNIV ∧
         colouring_ok f prog live)) ∧
-  (colouring_ok f (MustTerminate n p) live =
+  (colouring_ok f (MustTerminate p) live =
     colouring_ok f p live) ∧
   (colouring_ok f prog live =
     (*live before must be fine, and clash set must be fine*)
@@ -831,8 +831,8 @@ val evaluate_apply_colour = Q.store_thm("evaluate_apply_colour",
     full_simp_tac(srw_ss())[colouring_ok_def,evaluate_def,LET_THM,word_state_eq_rel_def]>>
     IF_CASES_TAC>>simp[]>>
     first_x_assum(qspecl_then[
-    `st with <|clock:=n;termdep:=st.termdep-1|>`,
-    `cst with <|clock:=n;termdep:=st.termdep-1|>`,`f`,`live`] mp_tac)>>
+    `st with <|clock:=MustTerminate_limit (:α);termdep:=st.termdep-1|>`,
+    `cst with <|clock:=MustTerminate_limit (:α);termdep:=st.termdep-1|>`,`f`,`live`] mp_tac)>>
     impl_tac>- size_tac>>
     impl_tac>- full_simp_tac(srw_ss())[strong_locals_rel_def,get_live_def]>>
     strip_tac>>
@@ -2434,7 +2434,7 @@ val evaluate_remove_dead = Q.store_thm("evaluate_remove_dead",
     (rpt (pairarg_tac>>fs[])>>
     qpat_x_assum`A=(res,rst)` mp_tac>>EVERY_CASE_TAC>>fs[]>>
     rpt var_eq_tac>>fs[evaluate_def]>>
-    first_x_assum (qspecl_then [`st with <|clock := n ; termdep := st.termdep -1|>` ] mp_tac)>>
+    first_x_assum (qspecl_then [`st with <|clock := MustTerminate_limit (:'a) ; termdep := st.termdep -1|>` ] mp_tac)>>
     fs[]>>disch_then drule>>rw[]>>fs[state_component_equality])
   >-
     (* if *)
@@ -2524,7 +2524,8 @@ val evaluate_remove_dead = Q.store_thm("evaluate_remove_dead",
   >- (* call NONE *)
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 4 (TOP_CASE_TAC>>fs[])>>
-    `get_vars (MAP I v18) (st with locals:=t) = SOME x` by
+    rename1 `¬bad_dest_args xs ys` >>
+    `get_vars (MAP I ys) (st with locals:=t) = SOME x` by
       (match_mp_tac strong_locals_rel_get_vars>>
       fs[]>>
       first_assum (match_exists_tac o concl)>>
@@ -2540,7 +2541,8 @@ val evaluate_remove_dead = Q.store_thm("evaluate_remove_dead",
     ntac 4 (TOP_CASE_TAC>>fs[])>>
     strip_tac>>
     imp_res_tac strong_locals_rel_I_get_var>>fs[]>>
-    `cut_env v28 t = SOME x` by
+    rename1 `cut_env names st.locals = SOME x` >>
+    `cut_env names t = SOME x` by
       (match_mp_tac (GEN_ALL strong_locals_rel_I_cut_env)>>fs[]>>
       qexists_tac`st`>>fs[]>>
       fs[strong_locals_rel_def])>>
@@ -2572,12 +2574,13 @@ val evaluate_remove_dead = Q.store_thm("evaluate_remove_dead",
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>fs[])>>
     imp_res_tac strong_locals_rel_I_get_var>>
-    first_x_assum(qspecl_then[`t`,`domain v37`] mp_tac)>>
+    rename1 `cut_env names st.locals = SOME x` >>
+    first_x_assum(qspecl_then[`t`,`domain names`] mp_tac)>>
     impl_tac>-
       (fs[strong_locals_rel_def]>>
       metis_tac[])>>
     fs[]>>
-    `cut_env v37 t = SOME x` by
+    `cut_env names t = SOME x` by
       (match_mp_tac (GEN_ALL strong_locals_rel_I_cut_env)>>fs[]>>
       qexists_tac`st`>>fs[]>>
       fs[strong_locals_rel_def])>>
@@ -4270,8 +4273,8 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     Cases_on`ssa_cc_trans p ssa na`>>simp[]>>
     Cases_on`r`>>full_simp_tac(srw_ss())[evaluate_def,LET_THM,word_state_eq_rel_def]>>
     first_x_assum(qspecl_then[
-    `p`,`st with <|clock:=n;termdep:=st.termdep-1|>`,
-    `cst with <|clock:=n;termdep:=st.termdep-1|>`,`ssa`,`na`] mp_tac)>>
+    `p`,`st with <|clock:=MustTerminate_limit (:'a);termdep:=st.termdep-1|>`,
+    `cst with <|clock:=MustTerminate_limit (:'a);termdep:=st.termdep-1|>`,`ssa`,`na`] mp_tac)>>
     size_tac>>
     impl_tac>-
      full_simp_tac(srw_ss())[every_var_def]>>
