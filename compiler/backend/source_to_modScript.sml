@@ -59,11 +59,6 @@ val compile_exp_def = tDefine"compile_exp" (`
          (Bool T)
          (compile_exp menv env e2))
   ∧
-  (compile_exp menv env (If e1 e2 e3) =
-    If (compile_exp menv env e1)
-       (compile_exp menv env e2)
-       (compile_exp menv env e3))
-  ∧
   (compile_exp menv env (Let (SOME x) e1 e2) =
     Let (SOME x) (compile_exp menv env e1) (compile_exp menv (env \\ x) e2))
   ∧
