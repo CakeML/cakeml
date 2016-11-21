@@ -31,18 +31,8 @@ val compile_pat_def = tDefine "compile_pat" (`
    res_tac >>
    decide_tac);
 
-val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp menv env (Raise e) =
-    Raise (compile_exp menv env e))
-  ∧
-  (compile_exp menv env (Handle e pes) =
-    Handle (compile_exp menv env e) (compile_pes menv env pes))
-  ∧
-  (compile_exp menv env (ast$Lit l) = modLang$Lit l)
-  ∧
-  (compile_exp menv env (Con cn es) = Con cn (compile_exps menv env es))
-  ∧
-  (compile_exp menv env (Var (Short x)) =
+val compile_exp_def = tDefine"compile_exp" (`
+  (compile_exp menv env (ast$Var (Short x)) =
     case FLOOKUP env x of
      | NONE => Var_local x
      | SOME n => Var_global n)
@@ -57,9 +47,6 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp menv env (Fun x e) =
     Fun x (compile_exp menv (env \\ x) e))
-  ∧
-  (compile_exp menv env (App op es) =
-    App op (compile_exps menv env es))
   ∧
   (compile_exp menv env (Log lop e1 e2) =
     case lop of
@@ -77,14 +64,8 @@ val compile_exp_def = tDefine"compile_exp"`
        (compile_exp menv env e2)
        (compile_exp menv env e3))
   ∧
-  (compile_exp menv env (Mat e pes) =
-    Mat (compile_exp menv env e) (compile_pes menv env pes))
-  ∧
   (compile_exp menv env (Let (SOME x) e1 e2) =
     Let (SOME x) (compile_exp menv env e1) (compile_exp menv (env \\ x) e2))
-  ∧
-  (compile_exp menv env (Let NONE e1 e2) =
-    Let NONE (compile_exp menv env e1) (compile_exp menv env e2))
   ∧
   (compile_exp menv env (Letrec funs e) =
     let fun_names = MAP FST funs in
@@ -93,21 +74,16 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp menv env (Tannot e t) = compile_exp menv env e)
   ∧
-  (compile_exps menv env [] = [])
-  ∧
   (compile_exps menv env (e::es) =
      compile_exp menv env e :: compile_exps menv env es)
-  ∧
-  (compile_pes menv env [] = [])
   ∧
   (compile_pes menv env ((p,e)::pes) =
     (compile_pat p, compile_exp menv (FOLDR (λk m. m \\ k) env (pat_bindings p [])) e)
     :: compile_pes menv env pes)
   ∧
-  (compile_funs menv env [] = [])
-  ∧
   (compile_funs menv env ((f,x,e)::funs) =
-    (f,x,compile_exp menv (env \\ x) e) :: compile_funs menv env funs)`
+   (f,x,compile_exp menv (env \\ x) e) :: compile_funs menv env funs)`
+  ||> otherwise_homomorphic)
   (WF_REL_TAC `inv_image $< (\x. case x of INL (x,y,e) => exp_size e
                                         | INR (INL (x,y,es)) => exps_size es
                                         | INR (INR (INL (x,y,pes))) => pes_size pes

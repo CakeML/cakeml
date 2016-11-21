@@ -24,6 +24,47 @@ fun replace_type redex residue typ =
   else
       typ
 
+local
+  val emptysubst:(term,term)Binarymap.dict = Binarymap.mkDict compare
+  open Binarymap
+  fun addb [] A = A
+    | addb ({redex,residue}::t) (A,b) =
+      addb t (insert(A,redex,residue), is_var redex andalso b)
+in
+
+fun all_constructors t =
+  case dest_term t of
+      COMB(rator,rand) => all_constructors rator @ all_constructors rand
+    | LAMB(x,body) => all_constructors x @ all_constructors body
+    | CONST _ => filter TypeBase.is_constructor [t]
+    | _ => []
+
+fun term_subst theta =
+  let
+      val (fmap,b) = addb theta (emptysubst, true)
+      val fv = concatMap (fn {redex,residue} => [redex,residue]) theta |>
+		   concatMap free_vars
+      fun subst tm =
+	case peek(fmap,tm) of
+	    SOME residue => residue
+	  | NONE =>
+	    (case dest_term tm of
+		 COMB(rator,rand) => mk_comb(subst rator, subst rand)
+	       | LAMB(x,body) =>
+		 let val x' = variant (fv @ (mlibUseful.subtract (free_vars body) [x])) x
+		 in
+		     if term_eq x x' then
+			 mk_abs(x,subst body)
+		     else
+			 mk_abs(x',subst (Term.subst [x |-> x'] body))
+		 end
+	       | _ => tm
+	    )
+  in
+      subst
+  end
+end
+
 (* nth_arg(t,n) returns the n:th argument type of the
    function type t, starting from 0.
    Fails if t is not a function type with at least (n+1)
@@ -64,40 +105,49 @@ fun replace_after e 0 (f::r) = e::r
   | replace_after _ _ [] = raise Domain
   | replace_after e n (f::r) =
     f::replace_after e (n-1) r
+
+fun return_type t = snd(strip_fun t)
 	  
 fun mk_homo_clause fts n cons =
   let
-      val (arg_types,ret_type) = type_of cons |> strip_fun
+      val ret_type = type_of cons |> return_type
       val (f,typ) =
 	  find_arg fts ret_type n
 		   |> valOf |> (fn (s,t) => (mk_var(s,t),t))
       val fts_vars = map mk_var fts
-      val consargs = map mk_var (zip (map (fst o dest_type) arg_types) arg_types)
-      val consargs = variants consargs fts_vars
+      val consargs = free_vars cons
+      val consargs' = variants consargs fts_vars
       val (tailtyps,rettyp) = strip_fun typ
       val argtyp = List.nth(tailtyps,n)
       val tailargs = map mk_var (zip (map type_name tailtyps) tailtyps)
       val tailargs = variants tailargs (fts_vars@consargs)
-      val rets = consargs
-		     |> map (fn v =>
-				case find_arg fts (type_of v) n of
-				    NONE => v
-				  | SOME(s,t) =>
-				    replace_after v n tailargs |>
-						  List.foldl (mk_comb o swap) (mk_var(s,t))
-				)
-      val ntharg = List.foldl (mk_comb o swap) cons consargs
-      val retconstyp = replace_type argtyp rettyp (type_of cons)
-      val retcons =
-	  if argtyp = rettyp then
-	      cons
-	  else
-	      case (dest_const cons,dest_thy_type rettyp) of
-		  ((s,_),t) => mk_thy_const {Name = s,Thy = (#Thy t), Ty = retconstyp}
+      val conssubst = ListPair.map (fn (v,v') =>
+				       case find_arg fts (type_of v) n of
+					   NONE => v|->v'
+					 | SOME(s,t) => v|->
+							 (replace_after v' n tailargs |>
+									List.foldl (mk_comb o swap) (mk_var(s,t))))
+				   (consargs,consargs')
+      val ntharg = Term.subst (ListPair.map (op |->) (consargs,consargs')) cons
+      val arg_types = map (fn (_,t) => nth_arg(t,n)) fts
+      val retconsubst =
+	  all_constructors cons |>
+			   concatMap
+			   (fn c =>
+			       let val ctyp = type_of c |> strip_fun |> snd
+			       in
+				   case List.find (curry op = ctyp o fst) (zip arg_types fts) of
+				       NONE => []
+				     | SOME(rettyp,(_,ft)) =>
+				       (case (dest_const c,dest_thy_type(return_type ft)) of
+					    ((s,_),t) => [c |-> mk_thy_const {Name = s,
+									      Thy = (#Thy t),
+									      Ty = replace_type ctyp (mk_thy_type t) (type_of c)}])
+			       end)
   in
-      mk_eq(	    
+      mk_eq(
 	  List.foldl (mk_comb o swap) f (replace_after ntharg n tailargs),
-	  List.foldl (mk_comb o swap) retcons rets
+	  term_subst (conssubst@retconsubst) cons
       )
   end
 
@@ -111,13 +161,8 @@ fun homomorphic_on fts n consvec =
 
 fun setify_terms s = foldr (fn (v,x) => v :: filter (not o term_eq v) x) [] s;
 
-fun mk_homomorphism fts n =
-  map (curry (nth_arg o swap) n o snd) fts
-  |> mlibUseful.setify
-  |> concatMap TypeBase.constructors_of
-  |> homomorphic_on fts n
-
 fun to_quote a = list_of_singleton(ANTIQUOTE a)
+(*fun to_quote a = term_to_string a |> QUOTE |> list_of_singleton*)
 
 fun ||> (tq,f) =
   to_quote(f(clause_concat(Defn.parse_quote tq))) : term quotation;
@@ -167,6 +212,20 @@ fun find_cons_pattern def =
     | [] => NONE
     | _ => raise ERR "find_cons_pattern"
 		 "Clauses with recursion over different arguments not supported"
+
+fun cons_of_var_pattern pat =
+  if is_comb pat then
+      case strip_comb pat of
+	  x::xs =>
+	  if is_const x andalso all is_var xs then
+	      true
+	  else
+	      false
+	| _ => false (*TODO: error messages *)
+  else if is_const c then
+      true
+  else
+      false
 
 fun clause_cons_of_var_pattern n t =
   let
@@ -227,17 +286,23 @@ fun mutrecs t =
   TypeBase.induction_of t |> dest_thm |> rpt strip_tac
   |> fst |> map snd |> map rand |> map type_of |> reinstantiate t
 
-(* rearrange the clauses so that constructors in the function definition
-   occur in the same order as in the datatype definition
+(* rearrange the clauses so that:
+   a) defined functions occur in the order of the argument fo
+   b) constructors in the function definition
+      occur in the same order as in the datatype definition (TODO: handle nested patterns)
  *)
-fun reorder t =
+fun reorder fo t =
   case find_cons_pattern t of
       SOME n =>
       let
 	  val cls = defn_clauses t
+	  fun reorder'' [] cls = cls
+	    | reorder'' (f::fos) cls =
+	      case List.partition (term_eq f o clause_fun) cls of
+		  (cs,ncs) => cs @ reorder'' fos ncs
 	  fun reorder' cls [] = cls
 	    | reorder' cls (c::cons) =
-	      case List.partition (curry op = (SOME c) o clause_cons_of_var_pattern n) cls of
+	      case List.partition (curry (getOpt o swap) false o Option.map (term_eq c) o clause_cons_of_var_pattern n) cls of
 		  (cs,ncs) => cs @ reorder' ncs cons
 	  val cons_order = map (clause_def_type n) cls
 			       |> map mutrecs
@@ -245,44 +310,191 @@ fun reorder t =
 			       |> List.concat
 			       |> concatMap TypeBase.constructors_of
       in
-	  reorder' cls cons_order |> clause_concat
+	  reorder' cls cons_order
+		   |> reorder'' fo
+		   |> clause_concat
       end
     | NONE => t
 
-fun find_needed_mutrecs dc n matched nt =
+fun find_needed_mutrecs matched nt =
   let
       val defined_cons = concatMap (fn ty => TypeBase.constructors_of ty |>
 								map (specialise_cons ty))
-			     matched_typs
+			     nt
 			     |> mlibUseful.setify
-      val unmatched_defined_cons = mlibUseful.subtract defined_cons matched
-      val unmatched_args = unmatched_defined_cons |> map type_of |> map strip_fun |> concatMap fst
-      val fst_arg_typs = map (clause_def_type n) dc |> mlibUseful.setify |> concatMap mutrecs |> mlibUseful.setify
-      val needed_typs = mlibUseful.intersect fst_arg_typs unmatched_args
+      val unmatched_defined_cons = mlibUseful.subtract defined_cons (map (hd o strip_comb) matched)
+      val unmatched_cons_typs = map (snd o strip_fun o type_of) unmatched_defined_cons
+      val unmatched_args = concatMap (fst o strip_fun o type_of) unmatched_defined_cons
+      val fst_arg_typs = map type_of matched |> mlibUseful.setify |> concatMap mutrecs |> mlibUseful.setify
+      val needed_typs = mlibUseful.intersect fst_arg_typs
+					     (mlibUseful.union unmatched_args unmatched_cons_typs)
   in
       if length needed_typs > length nt then
-	  find_needed_mutrecs dc n matched needed_typs
+	  find_needed_mutrecs matched needed_typs
       else
 	  needed_typs
   end
 
+fun comb_nth_arg n t =
+  List.nth(strip_comb t,n+1)
+
+fun clause_nth_arg n c =
+  comb_nth_arg n (fst(dest_eq c))
+
+fun saturate avoid cons =
+  case strip_fun(type_of cons) of
+      (args,c) =>
+      List.foldl (mk_comb o swap) cons (variants (map (fn t => mk_var(type_name t, t)) args) avoid)
+      | _ => raise Domain
+
+fun pat_eq p p' =
+  case (dest_term p,dest_term p') of
+      (COMB(p1,p2),COMB(p3,p4)) => pat_eq p1 p3 andalso pat_eq p2 p4
+    | (VAR _, VAR _) => true
+    | (CONST c, CONST c') => c = c'
+    | _ => false (* probably no need to handle abstractions *)
+
+fun pat_subpat p p' =
+  case (dest_term p,dest_term p') of
+      (COMB(p1,p2),COMB(p3,p4)) => pat_subpat p1 p3 andalso pat_subpat p2 p4
+    | (_, VAR _) => true
+    | (CONST c, CONST c') => c = c'
+    | _ => false (* probably no need to handle abstractions *)
+
+fun setify_pat s = foldr (fn (v,x) => v :: filter (not o pat_eq v) x) [] s;
+
+local
+fun put f (e,[]) = [[e]]
+  | put f (e,((e'::x)::xs)) =
+    if f e e' then
+	(e::e'::x)::xs
+    else
+	(e'::x)::(put f (e,xs))
+  | put _ (_,[]::xs) = raise Domain
+in
+fun buckets f =
+  foldr (put f) []
+end
+
+fun same_cons t t' =
+  term_eq (hd(strip_comb t)) (hd(strip_comb t'))
+
+fun transpose [] = []
+  | transpose (l) =
+    if exists null l then
+	[]
+    else
+	(map hd l) :: transpose(map tl l)
+
+fun combinations [] = [[]]
+  | combinations (f::r) =
+    concatMap (fn x => map (curry op :: x) (combinations r)) f
+
+(* (term * term list) list => (term * term list list) *)
+fun categorise' [] = raise Domain
+  | categorise' [(t,tl)] = (t,[tl])
+  | categorise' ((_,tl)::tll) =
+    let val (t,tll') = categorise' tll
+    in
+	(t,tl::tll')
+    end
+
+(* (term * term list) list list => (term * term list list) list *)
+fun categorise l = map categorise' l
+
+fun arg_cons t =
+  concatMap (fn ty => TypeBase.constructors_of ty |>
+					       map (specialise_cons ty))
+	    t
+	    |> mlibUseful.setify
+	    |> map (saturate []) (*fixme: avoid fun names *)
+
+fun pat_mem x = List.exists (pat_eq x);
+
+fun pat_subpat_mem x = List.exists (pat_subpat x);
+
+fun pat_subpat_rmem x y = List.exists (fn z => pat_subpat z x) y; 
+
+fun pat_subtract s t = foldl (fn (v,x) => if pat_mem v t then x else v::x) [] (rev s);
+
+fun pat_subpat_subtract s t = foldl (fn (v,x) => if pat_subpat_mem v t then x else v::x) [] (rev s);
+
+fun pat_subpat_setify s = foldl (fn (v,x) => if pat_subpat_rmem v x then x else v::x) [] s;
+
+datatype pattern = PATTERN of (term * pattern list) list
+
+fun pat_unfold (PATTERN cv) cons =
+  let val cv' = strip_comb cons
+  in
+      case partition (term_eq (hd cv') o fst) cv of
+	  ([],cv) =>
+	  (case dest_term cons of
+	       VAR _ => PATTERN((cons,[])::cv)
+	     | CONST _ => PATTERN ((hd cv',map (pat_unfold (PATTERN [])) (tl cv'))::cv)
+	     | COMB _ => PATTERN((hd cv', map (pat_unfold (PATTERN [])) (tl cv'))::cv))
+	| ([(c,pv)],cv) =>
+	  (case dest_term cons of
+	       VAR _ => PATTERN cv
+	     | _ => PATTERN ((c,ListPair.map (uncurry pat_unfold) (pv,tl cv'))::cv))
+  end
+
+fun pat_complete (PATTERN []) = PATTERN []
+  | pat_complete (PATTERN ((c,p)::p')) =
+    let
+	val (PATTERN p'') = pat_complete (PATTERN p')
+    in
+	if is_var c then
+	    PATTERN((c,p)::p'')
+	else
+	    let
+		val rt = return_type(type_of c)
+		val conses = rt |> TypeBase.constructors_of |> map (specialise_cons rt)
+		val newconses = filter (fn c' => not (exists (term_eq c' o fst) ((c,p)::p'))) conses
+				       |> map (saturate [])
+	    in
+		List.foldr (fn (c,p) =>  pat_unfold p c)
+			   (PATTERN((c,map pat_complete p) :: p''))
+			   newconses
+	    end
+    end
+
+fun pat_to_list (PATTERN []) = []
+  | pat_to_list (PATTERN((c,[])::p')) =
+    c :: pat_to_list(PATTERN p')
+  | pat_to_list (PATTERN((c,p)::p')) =
+    map (List.foldl (mk_comb o swap) c) (map pat_to_list p |> combinations)
+    @ pat_to_list(PATTERN p')
+
+fun rename avoid t =
+  case dest_term t of
+      COMB(rator,rand) =>
+      let
+	  val rr = rename avoid rator
+      in
+	  mk_comb(rr,rename (avoid @ free_vars rr) rand)
+      end
+    | VAR _ => variant avoid t
+    | _ => t
+
+fun unmatched' matched =
+  let
+      val matched_typs = map type_of matched |> mlibUseful.setify
+      val needed_typs =
+	  mlibUseful.subtract (find_needed_mutrecs matched matched_typs)
+			      matched_typs
+      val fst_arg_cons = arg_cons needed_typs
+      val satpats = List.foldr (fn (x,y) => pat_unfold y x) (PATTERN []) (matched@fst_arg_cons)
+			       |> pat_complete
+			       |> pat_to_list
+			       |> map (rename [])
+  in
+      pat_subpat_subtract satpats matched |> pat_subpat_setify
+  end
+	  
 fun unmatched t =
   case find_cons_pattern t of
       SOME n =>
-      let
-	  val dc = defn_clauses t
-	  val matched = List.mapPartial (clause_cons_of_var_pattern n) dc
-	  val needed_typs = find_needed_mutrecs dc n matched matched_typs
-	  val fst_arg_cons = concatMap (fn ty => TypeBase.constructors_of ty |>
-								    map (specialise_cons ty))
-				 needed_typs
-				 |> mlibUseful.setify
-      in
-	  if exists (clause_var_pattern n) dc then
-	      []
-	  else
-	      filter (fn c => exists (term_eq c) matched |> not) fst_arg_cons
-      end
+      unmatched' (map (clause_nth_arg n) (defn_clauses t))
       | NONE => [] (* TODO: mutrecs? *)
 
 fun invent_fun_names fts _ [] fvt = fts
@@ -307,14 +519,15 @@ fun invent_fun_names fts _ [] fvt = fts
     end
   | invent_fun_names [] _ _ _ = raise Domain
 
-
+fun fun_order t =
+  defn_clauses t |> map clause_fun |> setify_terms
 
 fun otherwise_homomorphic t =
   case find_cons_pattern t of
       SOME n =>
       (case unmatched t of
 	  [] => t
-	| l => reorder(mk_conj(t,
+	| l => reorder (fun_order t) (mk_conj(t,
 			       homomorphic_on (invent_fun_names (zip (def_names t)
 								     (def_types t))
 								n l (free_vars t))
@@ -341,38 +554,5 @@ fun def_to_term thm =
       Term.subst substs clauses
   end
 
-local
-  val emptysubst:(term,term)Binarymap.dict = Binarymap.mkDict compare
-  open Binarymap
-  fun addb [] A = A
-    | addb ({redex,residue}::t) (A,b) =
-      addb t (insert(A,redex,residue), is_var redex andalso b)
-in
-
-fun term_subst theta =
-  let
-      val (fmap,b) = addb theta (emptysubst, true)
-      val fv = concatMap (fn {redex,residue} => [redex,residue]) theta |>
-		   concatMap free_vars
-      fun subst tm =
-	case peek(fmap,tm) of
-	    SOME residue => residue
-	  | NONE =>
-	    (case dest_term tm of
-		 COMB(rator,rand) => mk_comb(subst rator, subst rand)
-	       | LAMB(x,body) =>
-		 let val x' = variant (fv @ (mlibUseful.subtract (free_vars body) [x])) x
-		 in
-		     if term_eq x x' then
-			 mk_abs(x,subst body)
-		     else
-			 mk_abs(x',subst (Term.subst [x |-> x'] body))
-		 end
-	       | _ => tm
-	    )
-  in
-      subst
-  end
-end
 
 end
