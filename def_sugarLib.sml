@@ -151,21 +151,16 @@ fun mk_homo_clause fts n cons =
       )
   end
 
-fun clause_concat [] = raise Domain
-  | clause_concat l =
-    List.foldr mk_conj (List.last l) (List.take(l,length l - 1))
-
 fun homomorphic_on fts n consvec =
   map (mk_homo_clause fts n) consvec
-  |> clause_concat
+  |> list_mk_conj
 
 fun setify_terms s = foldr (fn (v,x) => v :: filter (not o term_eq v) x) [] s;
 
-fun to_quote a = list_of_singleton(ANTIQUOTE a)
-(*fun to_quote a = term_to_string a |> QUOTE |> list_of_singleton*)
+fun to_quote a = [ANTIQUOTE a];
 
 fun ||> (tq,f) =
-  to_quote(f(clause_concat(Defn.parse_quote tq))) : term quotation;
+  to_quote(f(fst(Defn.parse_absyn(Parse.Absyn tq)))) : term quotation;
 
 fun defn_clauses t =
   if is_conj t then
@@ -222,7 +217,7 @@ fun cons_of_var_pattern pat =
 	  else
 	      false
 	| _ => false (*TODO: error messages *)
-  else if is_const c then
+  else if is_const pat then
       true
   else
       false
@@ -312,7 +307,7 @@ fun reorder fo t =
       in
 	  reorder' cls cons_order
 		   |> reorder'' fo
-		   |> clause_concat
+		   |> list_mk_conj
       end
     | NONE => t
 
@@ -543,7 +538,7 @@ fun def_to_term thm =
 		       |> rpt strip_tac
 		       |> fst
 		       |> map snd
-		       |> clause_concat
+		       |> list_mk_conj
       val vs = def_vars clauses
       val substs = List.mapPartial (fn v =>
 				       if is_const v then
