@@ -9,7 +9,7 @@ val ERR = Feedback.mk_HOL_ERR "arm8_targetLib"
 
 fun arm_type s = Type.mk_thy_type {Thy = "arm8", Tyop = s, Args = []}
 
-val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
+val arm8_enc = REWRITE_RULE [bop_enc_def, astTheory.shift_distinct] arm8_enc_def
 
 val es =
   computeLib.Extenders

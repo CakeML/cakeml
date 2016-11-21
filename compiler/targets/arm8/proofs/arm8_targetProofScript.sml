@@ -64,8 +64,8 @@ val valid_immediate_thm = Q.prove(
         if (b = INL Add) \/ (b = INL Sub) \/
            (b = INR Less) \/ (b = INR Lower) \/ (b = INR Equal) \/
            (b = INR NotLess) \/ (b = INR NotLower) \/ (b = INR NotEqual) then
-           (0xFFFw && c = 0w) /\ (0xFFFFFFFFFF000000w && c = 0w) \/
-           (0xFFFw && c) <> 0w /\ (0xFFFFFFFFFFFFF000w && c = 0w)
+           ((0xFFFw && c) = 0w) /\ ((0xFFFFFFFFFF000000w && c) = 0w) \/
+           (0xFFFw && c) <> 0w /\ ((0xFFFFFFFFFFFFF000w && c) = 0w)
         else
            ?N imms immr. EncodeBitMask c = SOME (N, imms, immr)`,
    Cases
@@ -184,13 +184,13 @@ val lem21 =
 val lem22 =
    blastLib.BBLAST_PROVE
      ``~(a < b: word64) ==>
-       (word_msb (a + -1w * b) = (word_msb (a) <=/=> word_msb (b)) /\
+       (word_msb (a + -1w * b) <=> (word_msb (a) <=/=> word_msb (b)) /\
        (word_msb (a + -1w * b) <=/=> word_msb (a)))``
 
 val lem23 =
    blastLib.BBLAST_PROVE
       ``!c: word64.
-         (4095w && c = 0w) /\ (0xFFFFFFFFFF000000w && c = 0w) ==>
+         ((4095w && c) = 0w) /\ ((0xFFFFFFFFFF000000w && c) = 0w) ==>
           ((-1w *
            w2w (v2w [c ' 23; c ' 22; c ' 21; c ' 20; c ' 19; c ' 18;
                      c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12))
@@ -202,14 +202,14 @@ val lem24 =
 val lem25 =
    blastLib.BBLAST_PROVE
       ``!c: word64.
-         (0xFFFFFFFFFFFFF000w && c = 0w) ==>
+         ((0xFFFFFFFFFFFFF000w && c) = 0w) ==>
          (w2w (v2w [c ' 11; c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5;
                     c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word12) = c)``
 
 val lem26 =
    blastLib.BBLAST_PROVE
       ``!c: word64.
-         (4095w && c = 0w) /\ (0xFFFFFFFFFF000000w && c = 0w) ==>
+         ((4095w && c) = 0w) /\ ((0xFFFFFFFFFF000000w && c) = 0w) ==>
           (w2w (v2w [c ' 23; c ' 22; c ' 21; c ' 20; c ' 19; c ' 18;
                      c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12)
             << 12 = c)``
@@ -236,7 +236,7 @@ val lem28 = metisLib.METIS_PROVE [wordsTheory.WORD_NOT_NOT]
 
 val lem29 = Q.prove( `!i. i < 31 ==> (i MOD 32 <> 31)`, rw [] )
 
-val lem30 = DECIDE ``!a. a < 32n /\ a <> 31 = a < 31``
+val lem30 = DECIDE ``!a. a < 32n /\ a <> 31 <=> a < 31``
 
 val ev = EVAL THENC DEPTH_CONV bitstringLib.v2w_n2w_CONV
 
@@ -301,7 +301,7 @@ val lsl = Q.prove(
        Abbrev (r = n2w ((64 - n) MOD 64)) /\
        Abbrev (q = r + 63w) /\
        (DecodeBitMasks (1w, q, r, F) = SOME (wmask, tmask)) ==>
-       ((tmask && wmask) && x #>> (w2n r) = x << n)`,
+       (((tmask && wmask) && x #>> (w2n r)) = x << n)`,
    lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.Replicate_def,
         arm8Theory.Ones_def, arm8Theory.HighestSetBit_def, word_log2_7,
         EVAL ``w2i (6w: word7)``,
@@ -365,7 +365,7 @@ val lsr = Q.prove(
    `!n x wmask: word64 tmask.
        n < 64n /\
        (DecodeBitMasks (1w, 63w, n2w n, F) = SOME (wmask, tmask)) ==>
-       ((tmask && wmask) && x #>> n = x >>> n)`,
+       (((tmask && wmask) && x #>> n) = x >>> n)`,
    lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.Replicate_def,
         arm8Theory.Ones_def, arm8Theory.HighestSetBit_def,
         EVAL ``w2i (6w: word7)``,
@@ -398,7 +398,7 @@ val asr2 = Q.prove(
        n < 64n /\
        (DecodeBitMasks (1w, 63w, n2w n, F) = SOME (wmask, tmask)) ==>
        (n2w (0x10000000000000000 - 2 ** (64 - MIN n 64)) =
-        0xFFFFFFFFFFFFFFFFw && ~tmask)`,
+        (0xFFFFFFFFFFFFFFFFw && ~tmask))`,
    lrw [arm8Theory.DecodeBitMasks_def, arm8Theory.Replicate_def,
         arm8Theory.Ones_def, arm8Theory.HighestSetBit_def,
         EVAL ``w2i (6w: word7)``,
@@ -433,7 +433,7 @@ val mul_long = Q.prove(
 
 (* some rewrites ----------------------------------------------------------- *)
 
-val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
+val arm8_enc = REWRITE_RULE [bop_enc_def, astTheory.shift_distinct] arm8_enc_def
 
 val encode_rwts =
    let
@@ -878,7 +878,7 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             cmp_case_tac `ms.REG (n2w n) = ms.REG (n2w n')`,
             cmp_case_tac `ms.REG (n2w n) <+ ms.REG (n2w n')`,
             cmp_case_tac `ms.REG (n2w n) < ms.REG (n2w n')`,
-            cmp_case_tac `ms.REG (n2w n) && ms.REG (n2w n') = 0w`,
+            cmp_case_tac `(ms.REG (n2w n) && ms.REG (n2w n')) = 0w`,
             cmp_case_tac `ms.REG (n2w n) <> ms.REG (n2w n')`,
             cmp_case_tac `~(ms.REG (n2w n) <+ ms.REG (n2w n'))`,
             cmp_case_tac `~(ms.REG (n2w n) < ms.REG (n2w n'))`,
@@ -898,7 +898,7 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             cmp_case_tac `ms.REG (n2w n) <+ c'`,
             cmp_case_tac `ms.REG (n2w n) < c'`,
             cmp_case_tac `ms.REG (n2w n) < c'`,
-            cmp_case_tac `ms.REG (n2w n) && c' = 0w`,
+            cmp_case_tac `(ms.REG (n2w n) && c') = 0w`,
             cmp_case_tac `ms.REG (n2w n) <> c'`,
             cmp_case_tac `ms.REG (n2w n) <> c'`,
             cmp_case_tac `~(ms.REG (n2w n) <+ c')`,

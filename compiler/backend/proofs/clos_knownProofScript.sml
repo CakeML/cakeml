@@ -1245,9 +1245,9 @@ val kvrel_do_eq0 = Q.prove(
       fs[] >> simp[do_eq_def] >> rw[] >> fs[LIST_REL_EL_EQN] >> metis_tac[])
   >- simp[]
   >- (simp[PULL_EXISTS] >> rpt gen_tac >> strip_tac >>
-      ONCE_REWRITE_TAC [do_eq_def] >> rename1 `do_eq uu1 vv1` >>
-      Cases_on `do_eq uu1 vv1` >> fs[] >> simp[bool_case_eq] >> dsimp[] >>
-      rename1 `do_eq uu1 vv1 = Eq_val b` >> Cases_on `b` >> simp[] >>
+      ONCE_REWRITE_TAC [do_eq_def] >>
+      Cases_on `do_eq u1 v1` >> fs[] >> simp[bool_case_eq] >> dsimp[] >>
+      rename1 `do_eq u1 v1 = Eq_val b` >> Cases_on `b` >> simp[] >>
       rpt strip_tac >> nailIHx strip_assume_tac >> simp[] >> metis_tac[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[]));

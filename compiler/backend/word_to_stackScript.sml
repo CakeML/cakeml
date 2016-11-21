@@ -210,7 +210,7 @@ val comp_def = Define `
        (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
   (comp (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
   (comp (Tick) bs kf = (Tick,bs)) /\
-  (comp (MustTerminate _ p1) gs kf = comp p1 gs kf) /\
+  (comp (MustTerminate p1) gs kf = comp p1 gs kf) /\
   (comp (Seq p1 p2) bs kf =
      let (q1,bs) = comp p1 bs kf in
      let (q2,bs) = comp p2 bs kf in

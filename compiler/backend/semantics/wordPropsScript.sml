@@ -2211,7 +2211,7 @@ val flat_exp_conventions_def = Define`
   (flat_exp_conventions (If cmp r1 ri e2 e3) =
     (flat_exp_conventions e2 ∧
     flat_exp_conventions e3)) ∧
-  (flat_exp_conventions (MustTerminate n p) =
+  (flat_exp_conventions (MustTerminate p) =
     flat_exp_conventions p) ∧
   (flat_exp_conventions (Call ret dest args h) =
     ((case ret of
@@ -2271,7 +2271,7 @@ val every_inst_def = Define`
   (every_inst P (Inst i) ⇔ P i) ∧
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
-  (every_inst P (MustTerminate n p) ⇔ every_inst P p) ∧
+  (every_inst P (MustTerminate p) ⇔ every_inst P p) ∧
   (every_inst P (Call ret dest args handler)
     ⇔ (case ret of
         NONE => T
@@ -2289,7 +2289,7 @@ val full_inst_ok_less_def = Define`
   (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
     ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
     full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
-  (full_inst_ok_less c (MustTerminate n p) ⇔ full_inst_ok_less c p) ∧
+  (full_inst_ok_less c (MustTerminate p) ⇔ full_inst_ok_less c p) ∧
   (full_inst_ok_less c (Call ret dest args handler)
     ⇔ (case ret of
         NONE => T
@@ -2313,7 +2313,7 @@ val wf_cutsets_def = Define`
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
   (wf_cutsets (FFI x y z args) = wf args) ∧
-  (wf_cutsets (MustTerminate _ s) = wf_cutsets s) ∧
+  (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
   (wf_cutsets (If cmp r1 ri e2 e3) =
@@ -2345,7 +2345,7 @@ val call_arg_convention_def = Define`
       NONE => T
     | SOME (v,prog,l1,l2) =>
       (v = 2) ∧ call_arg_convention prog))) ∧
-  (call_arg_convention (MustTerminate _ s1) =
+  (call_arg_convention (MustTerminate s1) =
     call_arg_convention s1) ∧
   (call_arg_convention (Seq s1 s2) =
     (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
@@ -2396,7 +2396,7 @@ val extract_labels_def = Define`
     | SOME (v,prog,l1',l2') =>
       let h_rest = extract_labels prog in
       [(l1,l2);(l1',l2')]++ret_rest++h_rest))) ∧
-  (extract_labels (MustTerminate _ s1) = extract_labels s1) ∧
+  (extract_labels (MustTerminate s1) = extract_labels s1) ∧
   (extract_labels (Seq s1 s2) =
     extract_labels s1 ++ extract_labels s2) ∧
   (extract_labels (If cmp r1 ri e2 e3) =
