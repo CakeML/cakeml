@@ -800,10 +800,10 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def] \\ pairarg_tac \\
   fs [] \\ qpat_x_assum `_ = p'` (assume_tac o GSYM) \\ fs [evaluate_def] \\
   TOP_CASE_TAC >- (rw []) \\ rpt (pairarg_tac \\ fs []) \\
-  `gc_fun_const_ok (s with <|clock := n; termdep := s.termdep − 1|>).gc_fun`
+  `gc_fun_const_ok (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>).gc_fun`
   by (rw []) \\
   `!v w. lookup v cs = SOME w ==>
-         get_var v (s with <|clock := n; termdep := s.termdep − 1|>) = SOME (Word w)`
+         get_var v (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>) = SOME (Word w)`
   by (fs [get_var_def]) \\
   res_tac \\ every_case_tac \\ fs [get_var_def] \\ rw [])
 

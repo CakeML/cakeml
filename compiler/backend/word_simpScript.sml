@@ -197,9 +197,9 @@ val const_fp_loop_def = Define `
          | Const c => (Assign v const_fp_e, insert v c cs)
          | _ => (Assign v const_fp_e, delete v cs)) /\
   (const_fp_loop (Get v name) cs = (Get v name, delete v cs)) /\
-  (const_fp_loop (MustTerminate n p) cs =
+  (const_fp_loop (MustTerminate p) cs =
     let (p', cs') = const_fp_loop p cs in
-      (MustTerminate n p', cs')) /\
+      (MustTerminate p', cs')) /\
   (const_fp_loop (Seq p1 p2) cs =
     let (p1', cs') = const_fp_loop p1 cs in
     let (p2', cs'') = const_fp_loop p2 cs' in
