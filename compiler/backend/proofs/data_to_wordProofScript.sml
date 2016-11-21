@@ -3353,7 +3353,7 @@ val state_rel_get_var_Number_IMP_alt = prove(
 val IMP_LESS_MustTerminate_limit = store_thm("IMP_LESS_MustTerminate_limit[simp]",
   ``i < dimword (:α) ==>
     i < MustTerminate_limit (:α) − 1``,
-  rewrite_tac [MustTerminate_def] \\ decide_tac);
+  rewrite_tac [wordSemTheory.MustTerminate_limit_def] \\ decide_tac);
 
 val RefArray_thm = store_thm("RefArray_thm",
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
