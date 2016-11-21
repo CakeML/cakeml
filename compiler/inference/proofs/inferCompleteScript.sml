@@ -1391,15 +1391,105 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp [extend_dec_ienv_def] >>
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc])));
 
+val n_fresh_uvar_rw = prove(``
+  ∀n st.n_fresh_uvar n st = (Success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)``,
+  Induct>>simp[Once n_fresh_uvar_def]
+  >-
+    (EVAL_TAC>>fs[infer_st_component_equality])
+  >>
+    rw[st_ex_bind_def,fresh_uvar_def,st_ex_return_def,ADD1]>>
+    simp[GENLIST_CONS,GSYM ADD1]>>
+    AP_THM_TAC>>AP_TERM_TAC>>fs[o_DEF]>>
+    fs[FUN_EQ_THM])
+
+val t_walkstar_infer_deBruijn_subst = Q.prove(`
+ t_wfs s ∧
+ LENGTH ls = tvs ∧
+ EVERY (check_t y {}) ls ∧
+ (∀n. n < tvs ⇒ t_walkstar s (Infer_Tuvar n) = EL n ls)
+ ⇒
+  ((∀t.
+  check_t tvs {} t
+  ⇒
+  t_walkstar s (infer_deBruijn_subst ls t) =
+  t_walkstar s (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs) t)) ∧
+  (∀ts.
+  EVERY (check_t tvs {}) ts
+  ⇒
+  MAP ((t_walkstar s) o (infer_deBruijn_subst ls)) ts =
+  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))`,
+  strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def,infer_deBruijn_subst_def]>>
+  fs[EVERY_MEM,MEM_EL]
+  >-
+    metis_tac[t_walkstar_no_vars]
+  >>
+    fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f]);
+
+val infer_deBruijn_subst_check_t = Q.prove(`
+  EVERY (check_t tvs {}) ls
+  ⇒
+  (∀t.
+  check_t (LENGTH ls) {} t
+  ⇒
+  check_t tvs {} (infer_deBruijn_subst ls t)) ∧
+  (∀ts.
+  EVERY (check_t (LENGTH ls) {}) ts
+  ⇒
+  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))`,
+  strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def,infer_deBruijn_subst_def]>>
+  fs[EVERY_MEM,MEM_EL]>>
+  metis_tac[]);
+
 (* TODO: I hope this is true *)
 val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
-  `!tvs t tvs' t' id.
-    tscheme_approx 0 FEMPTY (tvs,t) (tvs',t') ⇒ check_tscheme_inst id (tvs,t) (tvs',t')`,
+  `!tvs_spec t_spec tvs_impl t_impl id.
+    check_t tvs_impl {} t_impl ∧
+    check_t tvs_spec {} t_spec ∧
+    tscheme_approx 0 FEMPTY (tvs_spec,t_spec) (tvs_impl,t_impl) ⇒
+    check_tscheme_inst id (tvs_spec,t_spec) (tvs_impl,t_impl)`,
   rw [tscheme_approx_def, check_tscheme_inst_def] >>
   fs [t_walkstar_FEMPTY] >>
   simp [st_ex_bind_def, init_state_def, init_infer_state_def, st_ex_return_def,
         add_constraint_def] >>
-  cheat);
+  simp[n_fresh_uvar_rw]>>
+  imp_res_tac infer_deBruijn_subst_id2>>
+  ntac 2 (pop_assum kall_tac)>>
+  first_x_assum(qspec_then`GENLIST Infer_Tvar_db tvs_spec` mp_tac)>>
+  qpat_abbrev_tac`ls = MAP (infer_deBruijn_subst A) B`>>
+  rw[]>>fs[]>>rfs[]>>
+  `EVERY (check_t tvs_spec {}) ls` by
+    (fs[Abbr`ls`,EVERY_MAP,MAP_MAP_o,EVERY_MEM]>>
+    rw[]>>
+    match_mp_tac (infer_deBruijn_subst_check_t|>UNDISCH|>CONJUNCT1|>DISCH_ALL|>GEN_ALL|>(SIMP_RULE (srw_ss()) [PULL_FORALL,AND_IMP_INTRO]))>>
+    CONJ_TAC>-
+      fs[EVERY_GENLIST,check_t_def]>>
+    fs[LENGTH_GENLIST])>>
+  Q.ISPECL_THEN [`init_infer_state`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP convert_t ls`,`tvs_spec`] mp_tac extend_multi_props>>
+  impl_tac>-
+    (fs[init_infer_state_def,pure_add_constraints_def]>>
+    fs[t_wfs_def,EVERY_MAP,EVERY_MEM,Abbr`ls`]>>
+    metis_tac[check_t_to_check_freevars])>>
+  BasicProvers.LET_ELIM_TAC>>fs[init_infer_state_def]>>
+  `targs = ls` by
+    (fs[Abbr`targs`,MAP_MAP_o,MAP_EQ_ID]>>
+    metis_tac[check_t_empty_unconvert_convert_id,EVERY_MEM])>>fs[]>>
+  imp_res_tac (t_walkstar_infer_deBruijn_subst)>>
+  ntac 3 (pop_assum kall_tac)>>
+  pop_assum mp_tac>>
+  ntac 8 (pop_assum kall_tac)>>
+  simp[]>>
+  disch_then (qspec_then`t_impl`mp_tac)>>
+  qmatch_goalsub_abbrev_tac`t_unify A B C`>>
+  strip_tac>>
+  `∃D. t_unify A B C = SOME D` by
+    (match_mp_tac (GEN_ALL eqs_t_unify)>>
+    qexists_tac`s'`>>
+    fs[markerTheory.Abbrev_def]>>
+    rpt var_eq_tac>>
+    fs[t_walkstar_FEMPTY,ETA_AX,t_wfs_def])>>
+  fs[]);
 
 val check_weak_ienv_complete = Q.store_thm ("check_weak_ienv_complete",
   `!tenv_impl tenv_spec ienv_impl ienv_spec.
@@ -1422,7 +1512,11 @@ val check_weak_ienv_complete = Q.store_thm ("check_weak_ienv_complete",
     rpt (first_x_assum drule) >>
     rw [] >>
     fs [] >>
-    metis_tac [tscheme_approx_trans, check_tscheme_inst_complete, tscheme_inst_to_approx]) >>
+    match_mp_tac check_tscheme_inst_complete>>
+    fs[ienv_ok_def,ienv_val_ok_def]>>
+    imp_res_tac nsLookup_nsAll>>
+    rfs[]>>
+    metis_tac [tscheme_approx_trans, tscheme_inst_to_approx]) >>
   fs [env_rel_def, env_rel_sound_def]);
 
 val check_weak_decls_complete = Q.store_thm ("check_weak_decls_complete",
