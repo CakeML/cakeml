@@ -107,7 +107,22 @@ fun replace_after e 0 (f::r) = e::r
     f::replace_after e (n-1) r
 
 fun return_type t = snd(strip_fun t)
-	  
+
+fun specialise_cons typ cons =
+  let val cons_typ = type_of cons |> strip_fun |> snd
+  in
+      Term.inst (match_type cons_typ typ) cons
+  end
+
+fun get_constructor s t =
+  case List.find (curry op = s o fst o dest_const)
+		 (TypeBase.constructors_of t |> map (specialise_cons t)) of
+      NONE => raise ERR "get_constructor"
+		    (String.concat
+			 ["Type ",type_to_string t,
+			  " has no constructor ",s])
+    | SOME c => c
+
 fun mk_homo_clause fts n cons =
   let
       val ret_type = type_of cons |> return_type
@@ -139,10 +154,12 @@ fun mk_homo_clause fts n cons =
 				   case List.find (curry op = ctyp o fst) (zip arg_types fts) of
 				       NONE => []
 				     | SOME(rettyp,(_,ft)) =>
-				       (case (dest_const c,dest_thy_type(return_type ft)) of
-					    ((s,_),t) => [c |-> mk_thy_const {Name = s,
-									      Thy = (#Thy t),
-									      Ty = replace_type ctyp (mk_thy_type t) (type_of c)}])
+				       (case (dest_const c,return_type ft) of
+					    ((s,_),t) =>
+					    if ctyp = t then
+						[]
+					    else
+						[c |-> get_constructor s t])
 			       end)
   in
       mk_eq(
@@ -251,12 +268,6 @@ fun def_vars t =
 fun def_names t = def_vars t |> map (fst o dest_var)
 
 fun def_types t = def_vars t |> map (snd o dest_var)
-
-fun specialise_cons typ cons =
-  let val cons_typ = type_of cons |> strip_fun |> snd
-  in
-      Term.inst (match_type cons_typ typ) cons
-  end
 
 fun typ_same_cons t t' =
   case (dest_thy_type t, dest_thy_type t') of

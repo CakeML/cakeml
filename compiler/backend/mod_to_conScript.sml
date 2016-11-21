@@ -40,17 +40,12 @@ val lookup_tag_env_NONE = Q.store_thm("lookup_tag_env_NONE[simp]",
   PairCases_on `tagenv` >>
   rw [lookup_tag_env_def]);
 
-val compile_pat_def = tDefine"compile_pat"`
-  (compile_pat tagenv (Pvar x) = (Pvar x))
-  ∧
-  (compile_pat tagenv (Plit l) = (Plit l))
-  ∧
+val compile_pat_def = tDefine"compile_pat" (`
   (compile_pat tagenv (Pcon con_id ps) =
     (Pcon (lookup_tag_env con_id tagenv) (MAP (compile_pat tagenv) ps)))
   ∧
-  (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))
-  ∧
   (compile_pat tagenv (Ptannot p t) = compile_pat tagenv p)`
+  ||> otherwise_homomorphic)
   (WF_REL_TAC `inv_image $< (\(x,p). pat_size p)` >>
    srw_tac [ARITH_ss] [astTheory.pat_size_def] >>
    Induct_on `ps` >>
@@ -59,23 +54,9 @@ val compile_pat_def = tDefine"compile_pat"`
    res_tac >>
    decide_tac);
 
-val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp tagenv (Raise e) = Raise (compile_exp tagenv e))
-  ∧
-  (compile_exp tagenv (Handle e pes) =
-   Handle (compile_exp tagenv e) (compile_pes tagenv pes))
-  ∧
-  (compile_exp tagenv ((Lit l):modLang$exp) = (Lit l:conLang$exp))
-  ∧
-  (compile_exp tagenv (Con cn es) =
-   Con (lookup_tag_env cn tagenv) (compile_exps tagenv es))
-  ∧
-  (compile_exp tagenv (Var_local x) = Var_local x)
-  ∧
-  (compile_exp tagenv (Var_global n) = Var_global n)
-  ∧
-  (compile_exp tagenv (Fun x e) =
-   Fun x (compile_exp tagenv e))
+val compile_exp_def = tDefine"compile_exp" (`
+  (compile_exp tagenv ((Con cn es):modLang$exp) =
+   (Con (lookup_tag_env cn tagenv) (compile_exps tagenv es)):conLang$exp)
   ∧
   (compile_exp tagenv (App op es) =
    App (Op op) (compile_exps tagenv es))
@@ -85,29 +66,15 @@ val compile_exp_def = tDefine"compile_exp"`
      [(Pcon(SOME(true_tag,TypeId(Short"bool")))[],compile_exp tagenv e2);
       (Pcon(SOME(false_tag,TypeId(Short"bool")))[],compile_exp tagenv e3)])
   ∧
-  (compile_exp tagenv (Mat e pes) =
-   Mat (compile_exp tagenv e) (compile_pes tagenv pes))
-  ∧
-  (compile_exp tagenv (Let a e1 e2) =
-   Let a (compile_exp tagenv e1) (compile_exp tagenv e2))
-  ∧
-  (compile_exp tagenv (Letrec funs e) =
-   Letrec (compile_funs tagenv funs) (compile_exp tagenv e))
-  ∧
-  (compile_exps tagenv [] = [])
-  ∧
   (compile_exps tagenv (e::es) =
    compile_exp tagenv e :: compile_exps tagenv es)
-  ∧
-  (compile_pes tagenv [] = [])
   ∧
   (compile_pes tagenv ((p,e)::pes) =
    (compile_pat tagenv p, compile_exp tagenv e) :: compile_pes tagenv pes)
   ∧
-  (compile_funs tagenv [] = [])
-  ∧
-  (compile_funs tagenv ((f,x,e)::funs) =
+  (compile_funs tagenv ((f:tvarN,x:tvarN,e)::funs) =
    (f,x,compile_exp tagenv e) :: compile_funs tagenv funs)`
+  ||> otherwise_homomorphic)
   (WF_REL_TAC `inv_image $< (\x. case x of INL (x,e) => exp_size e
                                          | INR (INL (x,es)) => exp6_size es
                                          | INR (INR (INL (x,pes))) => exp3_size pes
