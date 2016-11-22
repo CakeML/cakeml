@@ -57,7 +57,7 @@ val init_conf_def = zDefine`
     source_conf := ^default_source_conf;
     mod_conf    := ^default_mod_conf;
     clos_conf   := clos_to_bvl$default_config;
-    bvl_conf    := bvl_to_bvi$default_config
+    bvl_conf    := bvl_to_bvi$default_config with inline_size_limit := 3
   |>`;
 
 val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, prog_x64_def]] cs;
