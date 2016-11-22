@@ -76,7 +76,7 @@ val () = Datatype `
   reg_imm = Reg reg | Imm ('a imm)`
 
 val () = Datatype `
-  binop = Add | Sub | And | Or | Xor | Not`
+  binop = Add | Sub | And | Or | Xor`
 
 val () = Datatype `
   cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest`
@@ -152,8 +152,6 @@ val arith_ok_def = Define `
      (* note: register to register moves can be implmented with
               "Or" on "two_reg_arith" architectures. *)
      (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
-     (* note: Not takes only one argument, we force ri to be Imm 0w *)
-     ((b = Not) ==> (ri = Imm 0w)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) <=>
      (c.two_reg_arith ==> (r1 = r2)) /\

@@ -36,8 +36,7 @@ val binop_upd_def = Define `
   (binop_upd r Sub w1 w2 = upd_reg r (w1 - w2)) /\
   (binop_upd r And w1 w2 = upd_reg r (word_and w1 w2)) /\
   (binop_upd r Or w1 w2  = upd_reg r (word_or w1 w2)) /\
-  (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2)) /\
-  (binop_upd r Not w1 w2 = upd_reg r (word_1comp w1))`
+  (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))`
 
 val word_cmp_def = Define `
   (word_cmp Equal w1 w2 = (w1 = w2)) /\
