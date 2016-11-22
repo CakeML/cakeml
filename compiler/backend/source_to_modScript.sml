@@ -189,10 +189,10 @@ val compile_top_def = Define `
    case top of
     | Tdec d =>
       let (next', new_env, d') = (compile_dec next [] env d) in
-        (next', FOLDL (λenv (k,v). nsBind k (Var_global v) env) env new_env, Prompt NONE [d'])
+        (next', FOLDL (λenv (k,v). nsBind k (Var_global v) env) env new_env, Prompt [d'])
     | Tmod mn specs ds =>
       let (next', new_env, ds') = (compile_decs next [mn] env ds) in
-        (next', nsAppend (nsLift mn (FOLDL (λenv (k,v). nsBind k (Var_global v) env) nsEmpty new_env)) env, Prompt (SOME mn) ds')`;
+        (next', nsAppend (nsLift mn (FOLDL (λenv (k,v). nsBind k (Var_global v) env) nsEmpty new_env)) env, Prompt ds')`;
 
 val compile_prog_def = Define `
   (compile_prog next env [] = (next, env, [])) ∧

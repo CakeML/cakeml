@@ -176,17 +176,11 @@ val _ = Define `
         (st', ds')))`;
 
 val _ = Define `
-  mod_tagenv mn l (tagenv:tag_env) =
-  (case mn of
-   | NONE => nsAppend l tagenv
-   | SOME mn => nsAppend (nsLift mn l) tagenv)`;
-
-val _ = Define `
   compile_prompt tagenv_st prompt =
   (case prompt of
-   Prompt mn ds =>
+   Prompt ds =>
      let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,nsEmpty) ds in
-       ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
+       ((next',nsAppend acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
 
 val _ = Define `
   (compile_prog st [] = (st, []))

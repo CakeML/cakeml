@@ -57,10 +57,9 @@ val _ = Datatype`
 (* A prompt is a list of declarations that must execute `atomically'; it
  * corresponds to a module body in the source language. If any of the
  * declarations results in an exception reaching the prompt's top level, none
- * of the declaration binding are installed. The module path is book-keeping
- * for the constructors *)
+ * of the declaration binding are installed. *)
 val _ = Datatype`
  prompt =
-    Prompt (modN option) (dec list)`;
+    Prompt (dec list)`;
 
 val _ = export_theory ();

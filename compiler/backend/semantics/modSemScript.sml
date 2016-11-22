@@ -482,9 +482,9 @@ val evaluate_def = tDefine"evaluate"`
    simp[check_clock_def,dec_clock_def,do_if_def] >>
    rw[] >> simp[]);
 
-val evaluate_ind = theorem"evaluate_ind"
+val evaluate_ind = theorem"evaluate_ind";
 
-val s = ``s1:'ffi modSem$state``
+val s = ``s1:'ffi modSem$state``;
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env ^s e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
@@ -493,13 +493,13 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   fs[check_clock_def,dec_clock_def] >> simp[] >>
   fs[do_app_def] >>
-  every_case_tac >> fs[] >> rw[])
+  every_case_tac >> fs[] >> rw[]);
 
 val s' = ``s':'ffi modSem$state``
 val clean_term =
   term_rewrite
   [``check_clock ^s' ^s = s'``,
-   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``];
 
 val evaluate_ind = let
   val goal = evaluate_ind |> concl |> clean_term
@@ -513,7 +513,7 @@ in prove(goal,
   imp_res_tac evaluate_clock >>
   fsrw_tac[ARITH_ss][check_clock_id])
 end
-|> curry save_thm "evaluate_ind"
+|> curry save_thm "evaluate_ind";
 
 val evaluate_def = let
   val goal = evaluate_def |> concl |> clean_term |> replace_term s' s
@@ -526,18 +526,18 @@ in prove(goal,
   fs[check_clock_id] >>
   `F` suffices_by rw[] >> decide_tac)
 end
-|> curry save_thm "evaluate_def"
+|> curry save_thm "evaluate_def";
 
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet n e) =
-   case evaluate (env with v := []) s [e] of
+   case evaluate (env with v := nsEmpty) s [e] of
    | (s, Rval [Conv NONE vs]) =>
-     (s, if LENGTH vs = n then Rval ([],vs)
+     (s, if LENGTH vs = n then Rval (nsEmpty,vs)
          else Rerr (Rabort Rtype_error))
    | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
    | (s, Rerr e) => (s, Rerr e)) ∧
   (evaluate_dec env s (Dletrec funs) =
-     (s, Rval ([], MAP (λ(f,x,e). Closure (env.c,[]) x e) funs))) ∧
+     (s, Rval (nsEmpty, MAP (λ(f,x,e). Closure (env.c,[]) x e) funs))) ∧
   (evaluate_dec env s (Dtype mn tds) =
    let new_tdecs = type_defs_to_new_tdecs mn tds in
    if check_dup_ctors tds ∧ DISJOINT new_tdecs s.defined_types ∧
@@ -549,7 +549,7 @@ val evaluate_dec_def = Define`
    if TypeExn (mk_id mn cn) ∈ s.defined_types
    then (s,Rerr (Rabort Rtype_error))
    else (s with defined_types updated_by ($INSERT (TypeExn (mk_id mn cn))),
-         Rval ([cn, (LENGTH ts, TypeExn (mk_id mn cn))],[])))`;
+         Rval (nsSing cn (LENGTH ts, TypeExn (mk_id mn cn)), [])))`;
 
 val evaluate_decs_def = Define`
   (evaluate_decs env s [] = (s, [], [], NONE)) ∧
