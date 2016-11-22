@@ -440,6 +440,10 @@ val assign_rw = Q.prove(`
    TODO: econv might be going too far with case simplification
 *)
 
+val _ = translate (LoadWord64_def |> inline_simp |> conv64)
+val _ = translate (WriteWord64_def |> inline_simp |> conv64)
+val _ = translate (LoadBignum_def |> inline_simp |> conv64)
+
 val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 (*
