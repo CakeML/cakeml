@@ -175,7 +175,7 @@ val compile_single_correct = Q.prove(`
   >-
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM,AND_IMP_INTRO]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    last_x_assum(qspecl_then[`st with <|clock:=n;termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
+    last_x_assum(qspecl_then[`st with <|clock:=MustTerminate_limit(:'a);termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
     impl_tac>-
       simp[]>>
     srw_tac[][]>>

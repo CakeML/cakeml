@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open wordsTheory alignmentTheory
+open wordsTheory alignmentTheory astTheory
 
 val () = new_theory "asm"
 
@@ -82,9 +82,6 @@ val () = Datatype `
   cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest`
 
 val () = Datatype `
-  shift = Lsl | Lsr | Asr`
-
-val () = Datatype `
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
         | Div reg reg reg
@@ -141,7 +138,7 @@ val () = Datatype `
      |>`
 
 val reg_ok_def = Define `
-  reg_ok r c = r < c.reg_count /\ ~MEM r c.avoid_regs`
+  reg_ok r c <=> r < c.reg_count /\ ~MEM r c.avoid_regs`
 
 val reg_imm_ok_def = Define `
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
@@ -149,33 +146,33 @@ val reg_imm_ok_def = Define `
 
 (* Requires register inequality for some architectures *)
 val arith_ok_def = Define `
-  (arith_ok (Binop b r1 r2 ri) c =
+  (arith_ok (Binop b r1 r2 ri) c <=>
      (* note: register to register moves can be implmented with
               "Or" on "two_reg_arith" architectures. *)
      (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
-  (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) =
+  (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
-  (arith_ok (Div r1 r2 r3) c =
+  (arith_ok (Div r1 r2 r3) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
      c.ISA IN {ARMv8; MIPS; RISC_V}) /\
-  (arith_ok (LongMul r1 r2 r3 r4) c =
+  (arith_ok (LongMul r1 r2 r3 r4) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
      ((c.ISA = ARMv6) ==> r1 <> r2) /\
      (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
-  (arith_ok (LongDiv r1 r2 r3 r4 r5) c =
+  (arith_ok (LongDiv r1 r2 r3 r4 r5) c <=>
      (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\
      reg_ok r5 c) /\
-  (arith_ok (AddCarry r1 r2 r3 r4) c =
+  (arith_ok (AddCarry r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4))`
 
 val cmp_ok_def = Define `
-  cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
+  cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
 
 val offset_ok_def = Define`
   offset_ok a offset w =
@@ -189,24 +186,22 @@ val () =
      ("loc_offset_ok",   ``\w c. offset_ok c.code_alignment c.loc_offset w``)]
 
 val addr_ok_def = Define `
-  addr_ok (Addr r w) c = reg_ok r c /\ addr_offset_ok w c`
+  addr_ok (Addr r w) c <=> reg_ok r c /\ addr_offset_ok w c`
 
 val inst_ok_def = Define `
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
-  (inst_ok (Mem m r a : 'a inst) c =
-     (* (((m = Load32) \/ (m = Store32)) ==> (dimindex(:'a) = 64)) /\ *)
-     reg_ok r c /\ addr_ok a c)`
+  (inst_ok (Mem m r a : 'a inst) c <=> reg_ok r c /\ addr_ok a c)`
 
 val asm_ok_def = Define `
-  (asm_ok (Inst i) c = inst_ok i c) /\
-  (asm_ok (Jump w) c = jump_offset_ok w c) /\
-  (asm_ok (JumpCmp cmp r ri w) c = cjump_offset_ok w c /\ cmp_ok cmp r ri c) /\
-  (asm_ok (Call w) c =
+  (asm_ok (Inst i) c <=> inst_ok i c) /\
+  (asm_ok (Jump w) c <=> jump_offset_ok w c) /\
+  (asm_ok (JumpCmp cmp r ri w) c <=> cjump_offset_ok w c /\ cmp_ok cmp r ri c) /\
+  (asm_ok (Call w) c <=>
      (case c.link_reg of SOME r => reg_ok r c | NONE => F) /\
      jump_offset_ok w c) /\
-  (asm_ok (JumpReg r) c = reg_ok r c) /\
-  (asm_ok (Loc r w) c = reg_ok r c /\ loc_offset_ok w c)`
+  (asm_ok (JumpReg r) c <=> reg_ok r c) /\
+  (asm_ok (Loc r w) c <=> reg_ok r c /\ loc_offset_ok w c)`
 
 val () = export_theory ()

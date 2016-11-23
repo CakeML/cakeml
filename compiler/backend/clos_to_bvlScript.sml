@@ -280,9 +280,10 @@ val compile_exps_def = tDefine "compile_exps" `
            (Call 0 (SOME (ToList_location max_app))
              [Var 0; Op(LengthBlock)[Var 0];
               Op(Cons nil_tag)[]])
-       else if op = Equal then
+       else (* if op = Equal then
+         TODO: remove everything related to the equality stubs
          Call 0 (SOME (equality_location max_app)) c1
-       else
+       else *)
          Op (compile_op op) c1]
      ,aux1)) /\
   (compile_exps max_app [App loc_opt x1 xs2] aux =

@@ -311,10 +311,11 @@ val evaluate_generic_app1 = Q.prove (
           dec_clock n st) =
     (Rval [Number (&total_args)], dec_clock n st)`
           by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
-              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2]) >>
+              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
   imp_res_tac evaluate_Jump >>
   rev_full_simp_tac(srw_ss())[] >>
   srw_tac [ARITH_ss] [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND] >>
+  fs [REVERSE_APPEND] >>
   srw_tac[][evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB, el_append2,
       TAKE_LENGTH_APPEND] >>
   decide_tac);
@@ -562,10 +563,10 @@ val evaluate_mk_cl_call = Q.prove (
                     | (Rval v,s2) => (Rval [HD v],s2)
                     | x => x)
             | x => x`,
-  srw_tac[][Once mk_cl_call_def, evaluate_def, do_app_def] >>
+  srw_tac[][Once mk_cl_call_def, evaluate_def, do_app_def, do_eq_def] >>
   full_simp_tac(srw_ss())[ADD1] >>
   Cases_on `n = &(LENGTH args − 1)` >>
-  srw_tac[][evaluate_APPEND, evaluate_def, do_app_def, find_code_def, FRONT_APPEND] >>
+  srw_tac[][evaluate_APPEND, evaluate_def, do_app_def, do_eq_def, find_code_def, FRONT_APPEND] >>
   simp [] >>
   imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
   rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
@@ -1012,6 +1013,67 @@ val v_to_list = Q.prove(
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   srw_tac[][bvlSemTheory.v_to_list_def] >> res_tac >> srw_tac[][]);
 
+val not_isClos = Q.store_thm("not_isClos[simp]",
+  `~isClos (if n < ^(closure_tag_def |> concl |> rand) then n else (n + 2)) ys`,
+  EVAL_TAC \\ rw []);
+
+val do_eq = Q.prove(
+  `INJ ($' f) (FDOM f) (FRANGE f) ⇒
+    (∀x y x1 y1.
+           v_rel max_app f r c x x1 ∧
+           v_rel max_app f r c y y1 ⇒
+           do_eq x y = do_eq x1 y1) ∧
+    (∀x y x1 y1.
+           LIST_REL (v_rel max_app f r c) x x1 ∧
+           LIST_REL (v_rel max_app f r c) y y1 ⇒
+           do_eq_list x y = do_eq_list x1 y1)`,
+   strip_tac >>
+   HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
+   srw_tac[][]
+   >- (srw_tac[][closSemTheory.do_eq_def] >>
+       Cases_on `x` >>
+       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
+       Cases_on `y` >>
+       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
+       rev_full_simp_tac(srw_ss())[] >>
+       imp_res_tac LIST_REL_LENGTH >>
+       full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
+       BasicProvers.EVERY_CASE_TAC >>
+       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+       full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
+       fs [isClos_def,closure_tag_def,partial_app_tag_def] >>
+       metis_tac [])
+  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
+  >- (res_tac >>
+      srw_tac[][closSemTheory.do_eq_def] >>
+      Cases_on `do_eq x y` >>
+      full_simp_tac(srw_ss())[] >>
+      qpat_x_assum `X = do_eq y'' y'''` (mp_tac o GSYM) >>
+      srw_tac[][])
+  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
+  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]);
+
+val do_eq_sym = Q.prove(
+  `(∀x y. do_eq x y = do_eq y x) ∧
+   (∀x y. do_eq_list x y = do_eq_list y x)`,
+  ho_match_mp_tac do_eq_ind >> simp[] >>
+  conj_tac >- ( gen_tac >> Cases >> srw_tac[][] ) >>
+  conj_tac >- METIS_TAC[] >>
+  conj_tac >- METIS_TAC[] >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[] ) >>
+  srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[])
+
+val do_eq_list_T_every = Q.store_thm("do_eq_list_T_every",
+  `∀vs1 vs2. do_eq_list vs1 vs2 = Eq_val T ⇔ LIST_REL (λv1 v2. do_eq v1 v2 = Eq_val T) vs1 vs2`,
+  Induct \\ simp[do_eq_def]
+  \\ Cases_on`vs2`\\ simp[do_eq_def]
+  \\ srw_tac[][]
+  \\ every_case_tac \\  full_simp_tac(srw_ss())[]);
+
 val do_app = Q.prove(
   `(do_app op xs s1 = Rval (v,s2)) /\
    state_rel f s1 t1 /\
@@ -1021,13 +1083,24 @@ val do_app = Q.prove(
    (op ≠ RefArray) ∧ (op ≠ RefByte) ∧ (op ≠ UpdateByte) ∧
    (∀n. op ≠ (FFI n)) ∧
    (* implemented in code table *)
-   (op ≠ Equal) ∧ (op ≠ ToList) ==>
+   op ≠ ToList ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
      v_rel s1.max_app f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
-  Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+  Cases_on `op = Equal` THEN1
+   (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
+                            bvlSemTheory.do_eq_def]
+    \\ `?x1 x2 y1 y2. xs = [x1;x2] /\ ys = [y1;y2]` by
+          (every_case_tac \\ fs [] \\ NO_TAC) \\ fs []
+    \\ Cases_on `do_eq x1 x2` \\ fs [] \\ rveq
+    \\ `INJ ($' f) (FDOM f) (FRANGE f)` by fs [state_rel_def]
+    \\ drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL)
+    \\ strip_tac
+    \\ `do_eq y1 y2 = Eq_val b` by metis_tac [] \\ fs [])
+  >> Cases_on`op`>>fs[]>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
+                            bvlSemTheory.do_eq_def]
   >- (
     imp_res_tac state_rel_globals >>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
@@ -1054,15 +1127,12 @@ val do_app = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] )
   >- (Cases_on`v` \\ every_case_tac \\ fs[v_rel_SIMP] \\ rw[])
-  >- (every_case_tac \\ full_simp_tac(srw_ss())[])
   >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][]>>
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[])
+    `?tt xx ii. xs = [Block tt xx; Number ii]` by
+        (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] \\ rveq \\ fs []
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[v_rel_SIMP]
+    \\ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rveq >>
+    rev_full_simp_tac(srw_ss())[v_rel_SIMP])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -1152,7 +1222,7 @@ val do_app_err = Q.prove(
    err ≠ Rabort Rtype_error ∧
    state_rel f s1 t1 ∧
    LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys ∧
-   op ≠ ToList ∧ op ≠ Equal
+   op ≠ ToList
    ⇒
    ∃e. do_app (compile_op op) ys t1 = Rerr e ∧
        exc_rel (v_rel s1.max_app f t1.refs t1.code) err e`,
@@ -1266,92 +1336,6 @@ val list_to_v = Q.prove(
      v_rel max_app f r c (list_to_v vs) (list_to_v ws)`,
   Induct >> simp[closSemTheory.list_to_v_def,list_to_v_def,v_rel_SIMP,PULL_EXISTS])
 
-val do_eq_def = tDefine"do_eq"`
-  (do_eq (CodePtr _) _ = Eq_type_error) ∧
-  (do_eq _ (CodePtr _) = Eq_type_error) ∧
-  (do_eq (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
-  (do_eq (Number _) _ = Eq_type_error) ∧
-  (do_eq _ (Number _) = Eq_type_error) ∧
-  (do_eq (Word64 w1) (Word64 w2) = (Eq_val (w1 = w2))) ∧
-  (do_eq (Word64 _) _ = Eq_type_error) ∧
-  (do_eq _ (Word64 _) = Eq_type_error) ∧
-  (do_eq (RefPtr n1) (RefPtr n2) = (Eq_val (n1 = n2))) ∧
-  (do_eq (RefPtr _) _ = Eq_type_error) ∧
-  (do_eq _ (RefPtr _) = Eq_type_error) ∧
-  (do_eq (Block t1 l1) (Block t2 l2) =
-   if (t1 = closure_tag) ∨ (t2 = closure_tag) ∨ (t1 = partial_app_tag) ∨ (t2 = partial_app_tag)
-   then Eq_val T
-   else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
-        then do_eq_list l1 l2
-        else Eq_val F) ∧
-  (do_eq_list [] [] = Eq_val T) ∧
-  (do_eq_list (v1::vs1) (v2::vs2) =
-   case do_eq v1 v2 of
-   | Eq_val T => do_eq_list vs1 vs2
-   | Eq_val F => Eq_val F
-   | bad => bad) ∧
-  (do_eq_list _ _ = Eq_val F)`
-  (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 | INR (vs1,vs2) => v1_size vs1)`);
-val _ = export_rewrites["do_eq_def"];
-
-val do_eq = Q.prove(
-  `INJ ($' f) (FDOM f) (FRANGE f) ⇒
-    (∀x y x1 y1.
-           v_rel max_app f r c x x1 ∧
-           v_rel max_app f r c y y1 ⇒
-           do_eq x y = do_eq x1 y1) ∧
-    (∀x y x1 y1.
-           LIST_REL (v_rel max_app f r c) x x1 ∧
-           LIST_REL (v_rel max_app f r c) y y1 ⇒
-           do_eq_list x y = do_eq_list x1 y1)`,
-   strip_tac >>
-   HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
-   srw_tac[][]
-   >- (srw_tac[][closSemTheory.do_eq_def] >>
-       Cases_on `x` >>
-       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-       Cases_on `y` >>
-       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-       rev_full_simp_tac(srw_ss())[] >>
-       imp_res_tac LIST_REL_LENGTH >>
-       full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
-       BasicProvers.EVERY_CASE_TAC >>
-       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
-       full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
-       metis_tac [])
-  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
-  >- (res_tac >>
-      srw_tac[][closSemTheory.do_eq_def] >>
-      Cases_on `do_eq x y` >>
-      full_simp_tac(srw_ss())[] >>
-      qpat_x_assum `X = do_eq y'' y'''` (mp_tac o GSYM) >>
-      srw_tac[][])
-  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
-  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]);
-
-val do_eq_ind = theorem"do_eq_ind";
-
-val do_eq_sym = Q.prove(
-  `(∀x y. do_eq x y = do_eq y x) ∧
-   (∀x y. do_eq_list x y = do_eq_list y x)`,
-  ho_match_mp_tac do_eq_ind >> simp[] >>
-  conj_tac >- ( gen_tac >> Cases >> srw_tac[][] ) >>
-  conj_tac >- METIS_TAC[] >>
-  conj_tac >- METIS_TAC[] >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] ) >>
-  srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[])
-
-val do_eq_list_T_every = Q.store_thm("do_eq_list_T_every",
-  `∀vs1 vs2. do_eq_list vs1 vs2 = Eq_val T ⇔ LIST_REL (λv1 v2. do_eq v1 v2 = Eq_val T) vs1 vs2`,
-  Induct \\ simp[do_eq_def]
-  \\ Cases_on`vs2`\\ simp[do_eq_def]
-  \\ srw_tac[][]
-  \\ every_case_tac \\  full_simp_tac(srw_ss())[]);
-
 (* correctness of implemented primitives *)
 
 val ToList = Q.prove(
@@ -1399,6 +1383,7 @@ val evaluate_check_closure = Q.prove(
 
 val s = ``s:'ffi bvlSem$state``
 
+(* TODO: delete
 val equality = Q.prove(
   `(∀v1 v2 ^s.
      lookup (equality_location max_app) s.code = SOME (equality_code max_app) ∧
@@ -1510,6 +1495,7 @@ val equality = Q.prove(
   `1 + &LENGTH vs = &(LENGTH vs + 1)` by ARITH_TAC >>
   fsrw_tac[ARITH_ss][integerTheory.INT_ADD] >>
   metis_tac[CONS_APPEND,APPEND_ASSOC])
+*)
 
 (* compiler correctness *)
 
@@ -2384,6 +2370,17 @@ val no_partial_args = Q.prove (
 
 val s1 = ``s1:'ffi closSem$state``;
 
+val bvl_do_app_Ref = Q.store_thm("bvl_do_app_Ref[simp]",
+  `bvlSem$do_app Ref vs s = Rval
+     (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
+      s with refs :=
+        s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`,
+  fs [bvlSemTheory.do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+
+val bvl_do_app_Cons = Q.store_thm("bvl_do_app_Cons[simp]",
+  `bvlSem$do_app (Cons tag) vs s = Rval (Block tag vs,s)`,
+  fs [bvlSemTheory.do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 t1 env' f1 res s2 ys aux2.
      (tmp = (xs,env,s1)) ∧
@@ -2675,46 +2672,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       imp_res_tac list_to_v >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       imp_res_tac LIST_REL_LENGTH >> simp[])
-    THEN1 ( (* Equal *)
-      first_x_assum(qspec_then`aux1`mp_tac) >> simp[] >>
-      `p0 ≠ Rerr (Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]) >>
-      disch_then(qspecl_then[`t1`,`env''`,`f1`]mp_tac) >>
-      simp[] >> strip_tac >>
-      full_simp_tac(srw_ss())[closSemTheory.do_app_def] >>
-      reverse(Cases_on`p0`)>>full_simp_tac(srw_ss())[]>>srw_tac[][]>-(
-        qexists_tac`ck`>>simp[bEval_def]>>
-        qexists_tac`f2`>>simp[]) >>
-      Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t'`>>full_simp_tac(srw_ss())[]>> srw_tac[][]>>
-      simp[bEval_def,find_code_def] >>
-      `lookup (equality_location s.max_app) t2.code = SOME (equality_code s.max_app) ∧
-       lookup (block_equality_location s.max_app) t2.code = SOME (block_equality_code s.max_app)`
-       by (
-         imp_res_tac evaluate_const >>
-         full_simp_tac(srw_ss())[state_rel_def] ) >>
-      qmatch_assum_rename_tac`REVERSE a = [v1; v2]` >>
-      Cases_on `do_eq v1 v2 = Eq_type_error` >>full_simp_tac(srw_ss())[] >>
-      Cases_on`a`>>full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-      `INJ ($' f2) (FDOM f2) (FRANGE f2)` by ( full_simp_tac(srw_ss())[state_rel_def] ) >>
-      qmatch_assum_rename_tac`do_eq v1 v2 ≠ Eq_type_error` >>
-      qmatch_assum_rename_tac`v_rel _ _ _ _ v1 w1` >>
-      qmatch_assum_rename_tac`v_rel _ _ _ _ v2 w2` >>
-      `do_eq w1 w2 = do_eq v1 v2` by (imp_res_tac do_eq >> simp[]) >>
-      `do_eq w2 w1 = do_eq w1 w2` by (METIS_TAC[do_eq_sym]) >>
-      qspecl_then[`w2`,`w1`,`t2`](mp_tac o Q.GEN`max_app`) (CONJUNCT1 equality) >>
-      disch_then(qspec_then`s.max_app`mp_tac) >>
-      impl_tac >- simp[] >> strip_tac >>
-      qexists_tac`ck+ck'+1` >>
-      imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
-      first_x_assum(qspec_then`ck'+1`mp_tac) >>
-      simp[inc_clock_def] >> disch_then kall_tac >>
-      `equality_code s.max_app = (2,SND (equality_code s.max_app))` by simp[equality_code_def] >>
-      pop_assum SUBST1_TAC >> simp[] >>
-      simp[dec_clock_def] >>
-      fsrw_tac[ARITH_ss][inc_clock_def] >>
-      Cases_on`do_eq v1 v2`>>full_simp_tac(srw_ss())[]>>srw_tac[][v_rel_SIMP] >>
-      METIS_TAC[])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_exps_IMP_code_installed \\ REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])

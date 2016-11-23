@@ -89,7 +89,7 @@ val bv_ok_def = tDefine "bv_ok" `
 val bv_ok_ind = theorem"bv_ok_ind";
 
 val bv_ok_SUBSET_IMP = Q.prove(
-  `!refs x refs2.
+  `!(refs:num|->'a) x (refs2:num|->'a).
       bv_ok refs x /\ FDOM refs SUBSET FDOM refs2 ==> bv_ok refs2 x`,
   HO_MATCH_MP_TAC bv_ok_ind \\ full_simp_tac(srw_ss())[bv_ok_def]
   \\ full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM]);
@@ -144,7 +144,9 @@ val do_app_ok_lemma = Q.prove(
   `state_ok r /\ EVERY (bv_ok r.refs) a /\
     (do_app op a r = Rval (q,t)) ==>
     state_ok t /\ bv_ok t.refs q`,
-  Cases_on `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+  `?f. f () = op` by (qexists_tac `K op` \\ fs [])
+  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ TRY (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [bv_ok_def]
     \\ full_simp_tac(srw_ss())[closSemTheory.get_global_def]
     \\ full_simp_tac(srw_ss())[state_ok_def,bv_ok_def] \\ NO_TAC)
@@ -182,19 +184,38 @@ val do_app_ok_lemma = Q.prove(
     simp[] >> res_tac >> full_simp_tac(srw_ss())[] >>
     simp[SUBSET_DEF])
   THEN1 (
-    simp[bv_ok_def] >>
+    rename1 `_ () = FromList n`
+    \\ simp[bv_ok_def] >>
     imp_res_tac v_to_list_ok >>
     full_simp_tac(srw_ss())[EVERY_MEM])
   THEN1
-   (full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
+   (rename1 `_ () = Ref`
+    \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
+    \\ SRW_TAC [] [bv_ok_def,FLOOKUP_DEF,EVERY_MEM]
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
+    THEN1 (match_mp_tac bv_ok_SUBSET_IMP
+           \\ asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
+    \\ rw [] \\ fs [] \\ fs [FAPPLY_FUPDATE_THM]
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+    \\ first_x_assum (qspec_then `k` mp_tac)
+    \\ fs [FLOOKUP_DEF] \\ rw [] \\ res_tac
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
+  THEN1
+   (rename1 `_ () = Ref`
+    \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
     \\ SRW_TAC [] [bv_ok_def,FLOOKUP_DEF,EVERY_MEM]
     \\ BasicProvers.EVERY_CASE_TAC
     \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ RES_TAC
     THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
            \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
-    THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
-           \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
+    THEN1
+     (`bv_ok r.refs e` by (rw [] \\ fs [])
+      \\ qpat_x_assum `_::_ = _` kall_tac
+      \\ match_mp_tac bv_ok_SUBSET_IMP \\ asm_exists_tac \\ fs [SUBSET_DEF])
     \\ Q.PAT_X_ASSUM `xx = ValueArray l` MP_TAC
     \\ SRW_TAC [] [FAPPLY_FUPDATE_THM] \\ RES_TAC
     THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
@@ -204,12 +225,14 @@ val do_app_ok_lemma = Q.prove(
     THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
            \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF]))
   THEN1
-   (full_simp_tac(srw_ss())[state_ok_def]
+   (rename1 `_ () = Deref`
+    \\ full_simp_tac(srw_ss())[state_ok_def]
     \\ Q.PAT_X_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[EVERY_EL] \\ REPEAT STRIP_TAC \\ RES_TAC
     \\ SRW_TAC [] [] \\ Cases_on `i` \\ full_simp_tac(srw_ss())[])
   THEN1
-   (full_simp_tac(srw_ss())[state_ok_def] \\ SRW_TAC [] [] THEN1
+   (rename1 `_ () = Update`
+    \\ full_simp_tac(srw_ss())[state_ok_def] \\ SRW_TAC [] [] THEN1
      (full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ BasicProvers.EVERY_CASE_TAC
       \\ RES_TAC \\ full_simp_tac(srw_ss())[]
@@ -592,6 +615,27 @@ val v_to_list_adjust = Q.prove(
   simp[v_to_list_def,adjust_bv_def] >> srw_tac[][] >>
   Cases_on`v_to_list x`>>full_simp_tac(srw_ss())[]);
 
+val do_eq_adjust_lemma = Q.prove(
+  `(!x1 x2 b. do_eq x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
+              bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
+              do_eq (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b) /\
+   (!x1 x2 b. do_eq_list x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
+              EVERY (bv_ok r.refs) x1 /\ EVERY (bv_ok r.refs) x2 ==>
+              do_eq_list (MAP (adjust_bv b2) x1) (MAP (adjust_bv b2) x2) = Eq_val b)`,
+  ho_match_mp_tac do_eq_ind \\ rw [] \\ fs [adjust_bv_def]
+  THEN1 (fs [state_rel_def,bv_ok_def,INJ_DEF] \\ metis_tac [])
+  \\ fs [isClos_def] \\ rfs []
+  \\ fs [bv_ok_def] \\ rfs []
+  \\ rpt (pop_assum mp_tac)
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ rw [] \\ every_case_tac \\ fs []);
+
+val do_eq_adjust = Q.prove(
+  `do_eq x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
+   bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
+   do_eq (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b`,
+  metis_tac [do_eq_adjust_lemma]);
+
 val do_app_adjust = Q.prove(
   `state_rel b2 s5 t2 /\
    (!i. op <> Const i) /\ (op <> Ref) /\ (op ≠ RefByte) ∧ (op ≠ RefArray) ∧
@@ -601,101 +645,48 @@ val do_app_adjust = Q.prove(
    ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
           Rval (adjust_bv b2 q,t3)) /\
         state_rel b2 r t3`,
-  SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
-  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
-  THEN1 (* Cons *)
-   (full_simp_tac(srw_ss())[bEvalOp_def]
-    \\ SRW_TAC [] [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id]
-    \\ SRW_TAC [] [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id])
-  THEN1 (* El *)
+  `?debug. debug () = op` by (qexists_tac `K op` \\ fs [])
+  \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
+  \\ Cases_on `op = El` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
     \\ every_case_tac >> full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
-  THEN1 (* LengthBlock *)
-   (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
-    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def,bvl_to_bvi_id])
-  THEN1 (* Length *) (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[bEvalOp_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[adjust_bv_def,bvl_to_bvi_id] >- (
+  \\ Cases_on `op = Length` \\ fs [] THEN1
+   (every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[bEvalOp_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[adjust_bv_def,bvl_to_bvi_id] >- (
       full_simp_tac(srw_ss())[state_rel_def,bvi_to_bvl_def] >> srw_tac[][] >>
       last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][]) >>
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bvi_to_bvl_def,state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][])
-  THEN1 (* LengthByte *) (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[bEvalOp_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[adjust_bv_def,bvl_to_bvi_id] >- (
+  \\ Cases_on `op = LengthByte` \\ fs [] THEN1
+   (every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[bEvalOp_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[adjust_bv_def,bvl_to_bvi_id] >- (
       full_simp_tac(srw_ss())[state_rel_def,bvi_to_bvl_def] >> srw_tac[][] >>
       last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][]) >>
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bvi_to_bvl_def,state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][])
-  THEN1 (* DerefByte *) (
-    Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
+  \\ Cases_on `op = DerefByte` \\ fs [] THEN1
+   (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
-    simp[bEvalOp_def,adjust_bv_def] >>
-    simp[] >> srw_tac[][] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >> srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
-    full_simp_tac(srw_ss())[state_rel_def] >>
-    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
-  THEN1 (* UpdateByte *) (
-    Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h''`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
     simp[] >> srw_tac[][] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
-    srw_tac[][adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
+    srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    TRY (
-      last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
-      spose_not_then strip_assume_tac >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-      NO_TAC) >>
-    simp[bvi_to_bvl_def] >>
-    conj_asm1_tac >- (
-      simp[INJ_INSERT] >>
-      conj_tac >- (
-        qhdtm_x_assum`INJ`mp_tac >>
-        simp[INJ_DEF] ) >>
-      `n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
-      metis_tac[INJ_DEF]) >>
-    simp[FLOOKUP_UPDATE] >>
-    srw_tac[][] >- (
-      last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
-    full_simp_tac(srw_ss())[bv_ok_def] >>
-    TRY (
-      qexists_tac`array_size`>>simp[]>>
-      srw_tac[][] >> full_simp_tac(srw_ss())[FLOOKUP_DEF] >> NO_TAC) >>
-    TRY (
-      BasicProvers.CASE_TAC >>
-      `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
-      metis_tac[INJ_DEF]) >>
-    METIS_TAC[])
-  THEN1 (* TagLenEq *) (
-    every_case_tac >> full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def] >>
-    srw_tac[][] >> srw_tac[][bvl_to_bvi_id])
-  THEN1 (* TagEq *)
-    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
-     \\ SRW_TAC [] []
-     \\ simp[bvl_to_bvi_id])
-  THEN1 (* BlockCmp *) (
-    every_case_tac >> full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def] >>
-    srw_tac[][] >> simp[bvl_to_bvi_id])
-  THEN1 (* IsBlock *)
-   (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
-    \\ SRW_TAC [] []
-    \\ simp[bvl_to_bvi_id])
-  THEN1 (* Deref *)
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
+  \\ Cases_on `op = Deref` \\ fs [] THEN1
    (Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `h'` \\ full_simp_tac(srw_ss())[]
@@ -714,7 +705,7 @@ val do_app_adjust = Q.prove(
     \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]
     \\ `Num i < LENGTH l` by METIS_TAC[integerTheory.INT_OF_NUM,integerTheory.INT_LT]
     \\ simp[EL_MAP,bvl_to_bvi_id])
-  THEN1 (* Update *)
+  \\ Cases_on `op = Update` \\ fs [] THEN1
    (Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `t'` \\ full_simp_tac(srw_ss())[]
@@ -742,7 +733,7 @@ val do_app_adjust = Q.prove(
       full_simp_tac(srw_ss())[FLOOKUP_DEF,INJ_DEF] >>
       METIS_TAC[] ) >>
     res_tac >> METIS_TAC[])
-  THEN1 (* Label *)
+  \\ Cases_on `?n. op = Label n` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def]
     \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
@@ -751,8 +742,8 @@ val do_app_adjust = Q.prove(
     \\ rename1 `lookup _ r.code = SOME vv`
     \\ PairCases_on `vv` \\ res_tac
     \\ rfs [] \\ pairarg_tac \\ fs [])
-  THEN1 (* FFI *) (
-    Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
+  \\ Cases_on `?n. op = FFI n` \\ fs [] THEN1
+   (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
@@ -779,28 +770,52 @@ val do_app_adjust = Q.prove(
     TRY BasicProvers.CASE_TAC >>
     full_simp_tac(srw_ss())[FLOOKUP_DEF,bvl_to_bvi_def] >>
     METIS_TAC[INJ_DEF])
-  THEN1 (* Equal *) (
-    simp[bEvalOp_def] >>
-    Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[] >>
-    Cases_on`t`>>full_simp_tac(srw_ss())[] >>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[] >>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[] >>
-    Cases_on`h`>>full_simp_tac(srw_ss())[] >>
-    strip_tac >> rpt var_eq_tac >>
-    simp[adjust_bv_def,bvl_to_bvi_id] >>
-    full_simp_tac(srw_ss())[state_rel_def,bv_ok_def] >>
-    METIS_TAC[INJ_DEF] )
-  \\ (* Add, Sub, Mult, Div, Mod, Less, ... *)
-   (REPEAT STRIP_TAC
-    \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
-    \\ TRY(Cases_on `t` \\ full_simp_tac(srw_ss())[])
-    \\ TRY (Cases_on`w` \\ fs[])
-    \\ TRY(Cases_on `h'` \\ full_simp_tac(srw_ss())[])
-    \\ TRY(Cases_on `h` \\ full_simp_tac(srw_ss())[])
-    \\ TRY(Cases_on `t'` \\ full_simp_tac(srw_ss())[]) \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def,bvl_to_bvi_id]
-    \\ every_case_tac >> full_simp_tac(srw_ss())[bvl_to_bvi_id] >> srw_tac[][]
-    \\ EVAL_TAC )) |> INST_TYPE[alpha|->``:'ffi``];
+  \\ Cases_on `op = UpdateByte` \\ fs [] THEN1
+   (strip_tac
+    \\ `?n i i'. REVERSE a = [RefPtr n; Number i; Number i']` by
+          (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] >>
+    simp[bEvalOp_def,adjust_bv_def] >>
+    simp[] >> srw_tac[][] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
+    srw_tac[][adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
+    TRY (
+      last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+      spose_not_then strip_assume_tac >> rpt var_eq_tac >>
+      full_simp_tac(srw_ss())[] >>
+      NO_TAC) >>
+    simp[bvi_to_bvl_def] >>
+    conj_asm1_tac >- (
+      simp[INJ_INSERT] >>
+      conj_tac >- (
+        qhdtm_x_assum`INJ`mp_tac >>
+        simp[INJ_DEF] ) >>
+      `n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+      metis_tac[INJ_DEF]) >>
+    simp[FLOOKUP_UPDATE] >>
+    srw_tac[][] >- (
+      last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
+    full_simp_tac(srw_ss())[bv_ok_def] >>
+    TRY (
+      qexists_tac`array_size`>>simp[]>>
+      srw_tac[][] >> full_simp_tac(srw_ss())[FLOOKUP_DEF] >> NO_TAC) >>
+    TRY (
+      BasicProvers.CASE_TAC >>
+      `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
+      metis_tac[INJ_DEF]) >>
+    METIS_TAC[])
+  \\ Cases_on `op = Equal` \\ fs [] THEN1
+   (strip_tac
+    \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ Cases_on `do_eq x1 x2` \\ fs [] \\ rw []
+    \\ fs [bvlSemTheory.do_app_def]
+    \\ drule do_eq_adjust \\ fs []
+    \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def])
+  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[bEvalOp_def]
+  \\ every_case_tac \\ fs [adjust_bv_def]
+  \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ rveq \\ rw []
+  \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id]);
 
 val eval_ind_alt = Q.store_thm("eval_ind_alt",
   `∀P.
@@ -876,6 +891,25 @@ val EVERY_isVar_evaluate_Rval_MEM = Q.store_thm("EVERY_isVar_evaluate_Rval_MEM",
   \\ Cases_on `l` \\ fs [bvlSemTheory.evaluate_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rveq
   \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []);
+
+val bvl_do_app_Ref = prove(
+  ``bvlSem$do_app Ref vs s = Rval
+       (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
+        s with refs :=
+          s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))``,
+  fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
+  \\ every_case_tac \\ fs []);
+
+val do_app_Ref = prove(
+  ``do_app Ref vs s =
+     Rval
+      (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
+       bvl_to_bvi
+        (bvi_to_bvl s with
+         refs :=
+           s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs)) s)``,
+  fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
+  \\ every_case_tac \\ fs []);
 
 val compile_exps_correct = Q.prove(
   `!xs env (s1:'ffi bvlSem$state) n res s2 t1 n2 ys aux b1.
@@ -1350,12 +1384,12 @@ val compile_exps_correct = Q.prove(
       \\ fs [] \\ fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
       \\ fs [adjust_bv_def] \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[] THEN1
-     (full_simp_tac(srw_ss())[compile_op_def,iEval_def]
+     (rw [] \\ full_simp_tac(srw_ss())[compile_op_def,iEval_def]
       \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
            (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b3`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
-      \\ full_simp_tac(srw_ss())[iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_DEF]
+      \\ full_simp_tac(srw_ss())[do_app_Ref]
       \\ Q.ABBREV_TAC `x = (LEAST ptr. ptr NOTIN FDOM s5.refs)`
       \\ Q.ABBREV_TAC `y = LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs`
       \\ `~(x IN FDOM s5.refs)` by ALL_TAC THEN1
@@ -1366,7 +1400,8 @@ val compile_exps_correct = Q.prove(
       \\ `~(y IN FDOM t2.refs)` by ALL_TAC THEN1
        (`?p. (\ptr. ptr NOTIN FDOM t2.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[bvi_to_bvl_def]
+        \\ IMP_RES_TAC whileTheory.LEAST_INTRO
+        \\ full_simp_tac(srw_ss())[bvi_to_bvl_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [bvi_to_bvl_def])
       \\ full_simp_tac(srw_ss())[]
       \\ SRW_TAC [] [adjust_bv_def]
@@ -1377,7 +1412,7 @@ val compile_exps_correct = Q.prove(
         \\ IMP_RES_TAC evaluate_refs_SUBSET
         \\ REPEAT STRIP_TAC THEN1 METIS_TAC [bv_ok_SUBSET_IMP]
         \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
-        \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
+        \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) \\ fs []
       \\ `MAP (adjust_bv b3) a = MAP (adjust_bv b2) a` by ALL_TAC THEN1
        (full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
@@ -1395,36 +1430,53 @@ val compile_exps_correct = Q.prove(
         \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
         \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[] \\ STRIP_TAC
-      THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM])
+      THEN1
+        (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
+         \\ fs [bvlSemTheory.do_app_def] \\ every_case_tac \\ fs []
+         \\ rveq \\ fs [adjust_bv_def,APPLY_UPDATE_THM])
       \\ reverse STRIP_TAC THEN1
-       (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
+       (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC
+        \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
         \\ SRW_TAC [] []
-        \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF] \\ RES_TAC)
+        \\ IMP_RES_TAC evaluate_refs_SUBSET
+        \\ full_simp_tac(srw_ss())[SUBSET_DEF] \\ RES_TAC)
       \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ full_simp_tac(srw_ss())[state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_UPDATE]
+      \\ full_simp_tac(srw_ss())[state_rel_def,bvl_to_bvi_def,
+            bvi_to_bvl_def,FLOOKUP_UPDATE]
       \\ STRIP_TAC
-      THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ full_simp_tac(srw_ss())[])
+      \\ fs [bvl_do_app_Ref] \\ rveq
+      THEN1 (Q.UNABBREV_TAC `b3` \\ fs []
+             \\ MATCH_MP_TAC INJ_EXTEND \\ full_simp_tac(srw_ss())[])
       \\ srw_tac[][MAP_REVERSE] \\ full_simp_tac(srw_ss())[]
-      \\ TRY ( full_simp_tac(srw_ss())[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
-      \\ TRY ( simp[Abbr`b3`,APPLY_UPDATE_THM] >> srw_tac[][] >> NO_TAC)
-      \\ TRY ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> NO_TAC)
       \\ TRY ( qexists_tac`z`>>simp[]>>
         simp[GSYM MAP_MAP_o] >> srw_tac[][] >>
         simp[Abbr`b3`,APPLY_UPDATE_THM] >> srw_tac[][] >> NO_TAC)
-      \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ full_simp_tac(srw_ss())[rich_listTheory.MAP_REVERSE]
-      \\ (`b3 k <> y` by ALL_TAC THEN1
-       (full_simp_tac(srw_ss())[] \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF]
-        \\ full_simp_tac(srw_ss())[INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]))
-      \\ (`b3 k = b2 k` by ALL_TAC
-           THEN1 (Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF]))
+      \\ TRY ( full_simp_tac(srw_ss())[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
+      \\ TRY ( simp[Abbr`b3`,APPLY_UPDATE_THM] >> srw_tac[][] >> NO_TAC)
+      \\ TRY ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> NO_TAC)
+      \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ fs [MAP_REVERSE]
+      \\ Cases_on `FLOOKUP s5.refs k = NONE`
+      \\ full_simp_tac(srw_ss())[rich_listTheory.MAP_REVERSE]
+      \\ (`b3 k <> y` by
+       (full_simp_tac(srw_ss())[] \\ Q.UNABBREV_TAC `b3`
+        \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF]
+        \\ full_simp_tac(srw_ss())[INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC
+        \\ full_simp_tac(srw_ss())[] \\ NO_TAC))
+      \\ TRY (Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
+           \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ rfs [] \\ NO_TAC)
+      \\ (`b3 k = b2 k` by
+           (Q.UNABBREV_TAC `b3`
+            \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF] \\ NO_TAC))
       THEN1 ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> METIS_TAC[INJ_DEF] )
-      \\ full_simp_tac(srw_ss())[] \\ Cases_on `FLOOKUP s5.refs k` \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `FLOOKUP s5.refs k` \\ full_simp_tac(srw_ss())[]
       \\ ntac 3 (Q.PAT_X_ASSUM `!k. bbb` MP_TAC)
       \\ Q.PAT_X_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
       \\ full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
-      \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss []
+      \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[state_ok_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`) \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
@@ -1739,7 +1791,9 @@ val compile_exps_correct = Q.prove(
     \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
     \\ `EVERY (bv_ok s5.refs) (REVERSE a)` by ALL_TAC
     THEN1 (IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[rich_listTheory.EVERY_REVERSE])
-    \\ MP_TAC do_app_adjust \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[rich_listTheory.MAP_REVERSE])
+    \\ drule (GEN_ALL do_app_adjust) \\ fs []
+    \\ disch_then (qspecl_then [`r`,`q`,`op`,`a`] mp_tac)
+    \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE])
   THEN1 (* Tick *)
    (`?c1 aux1 n1. compile_exps n [x] = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]

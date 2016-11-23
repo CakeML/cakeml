@@ -25,7 +25,7 @@ val mips_next_def = Define`
 (* --- Valid MIPS states --- *)
 
 val mips_ok_def = Define`
-   mips_ok ms =
+   mips_ok ms <=>
    ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\ ~ms.exceptionSignalled /\
    (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
    (ms.exception = NoException) /\ aligned 2 ms.PC`
