@@ -4835,7 +4835,7 @@ val th = Q.store_thm("assign_WordFromInt",
     \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Shift``)) o concl)]
     \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Var``)) o concl)]
     \\ fs[wordSemTheory.get_var_def]
-    \\ simp[wordSemTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
     \\ simp[wordSemTheory.set_var_def]
     \\ rpt_drule memory_rel_Number_IMP
     \\ strip_tac \\ clean_tac
