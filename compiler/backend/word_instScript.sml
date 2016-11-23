@@ -239,6 +239,10 @@ val three_to_two_reg_def = Define`
     Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))) ∧
   (three_to_two_reg (Inst (Arith (AddCarry r1 r2 r3 r4))) =
     Seq (Move 0 [r1,r2]) (Inst (Arith (AddCarry r1 r1 r3 r4)))) ∧
+  (three_to_two_reg (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))) ∧
+  (three_to_two_reg (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))) ∧
   (three_to_two_reg (Seq p1 p2) =
     Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧
   (three_to_two_reg (MustTerminate p1) =
