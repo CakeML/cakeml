@@ -127,21 +127,17 @@ val ssa_cc_trans_inst_def = Define`
   (ssa_cc_trans_inst (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
-    let r4' = option_lookup ssa r4 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
-    let mov_in = Move 0 [(0,r4')] in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move 0 [(r4'',0)] in
-      (Seq mov_in (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
+      (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
-    let r4' = option_lookup ssa r4 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
-    let mov_in = Move 0 [(0,r4')] in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move 0 [(r4'',0)] in
-      (Seq mov_in (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
+      (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in

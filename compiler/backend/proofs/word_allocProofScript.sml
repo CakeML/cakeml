@@ -1762,7 +1762,7 @@ val wf_numset_list_delete_eq = Q.prove(`
   ∀ls t live.
   wf t ⇒
   FOLDR delete t ls = numset_list_delete ls t`,
-  Induct>>fs[numset_list_delete_def,numset_list_delete_swap])
+  Induct>>fs[numset_list_delete_def,numset_list_delete_swap]);
 
 val wf_get_live_exp = Q.prove(`
   ∀exp. wf(get_live_exp exp)`,
@@ -1884,6 +1884,24 @@ val clash_tree_colouring_ok = Q.store_thm("clash_tree_colouring_ok",`
         fs[])
       >>
         DEP_REWRITE_TAC[spt_eq_thm]>>rw[wf_insert,wf_delete,lookup_insert,lookup_delete])
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF]) >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
+      fs[GSYM DIFF_UNION] >>
+      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
+      fs [AC UNION_COMM UNION_ASSOC])
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF]) >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
+      fs[GSYM DIFF_UNION] >>
+      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
+      fs [AC UNION_COMM UNION_ASSOC])
     >>
       Cases_on`m`>>fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_inst_def]>>
       start_tac>>
@@ -4214,6 +4232,8 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
       IF_CASES_TAC>>fs[is_phy_var_def]>>
       rw[]>>fs[])
+    >- cheat
+    >- cheat
     >-
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
