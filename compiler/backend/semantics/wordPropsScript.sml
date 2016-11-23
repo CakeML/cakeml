@@ -2240,6 +2240,10 @@ val inst_ok_less_def = Define`
     (c.ISA = x86_64)) ∧
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
      (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
+  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) =
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
+  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) =
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
@@ -2252,6 +2256,10 @@ val distinct_tar_reg_def = Define`
     ⇔ r1 ≠ r2) ∧
   (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
     ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg _ ⇔ T)`
 
 (*Instructions are 2 register code for arith ok
@@ -2263,6 +2271,10 @@ val two_reg_inst_def = Define`
   (two_reg_inst (Arith (Shift l r1 r2 n))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (AddCarry r1 r2 r3 r4))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (AddOverflow r1 r2 r3 r4))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst _ ⇔ T)`
 
@@ -2323,6 +2335,8 @@ val wf_cutsets_def = Define`
 
 val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (* Follows conventions for x86 *)
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 8 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 0 ∧ r4 = 8) ∧

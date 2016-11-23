@@ -491,6 +491,14 @@ val arith_name_def = Define`
   (arith_name (AddCarry r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
     reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
+  (arith_name (AddOverflow r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
+  (arith_name (SubOverflow r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
     (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))`
 
 val addr_name_def = Define`
