@@ -769,7 +769,7 @@ fun m_translate def = let
   val th = RW [GSYM ArrowM_def] th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-  val _ = add_v_thms (fname,th,pre)
+  val _ = add_v_thms (fname,fname,th,pre)
   val th = save_thm(fname ^ "_v_thm",th)
   in th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "
