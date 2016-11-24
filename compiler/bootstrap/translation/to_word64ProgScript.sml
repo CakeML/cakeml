@@ -155,7 +155,7 @@ val EqualityType_ASM_CMP_TYPE = find_equality_type_thm``ASM_CMP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_REG_IMM_TYPE = find_equality_type_thm``ASM_REG_IMM_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_ASM_SHIFT_TYPE = find_equality_type_thm``ASM_SHIFT_TYPE``
+val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
   |> SIMP_RULE std_ss []
@@ -164,7 +164,7 @@ val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
 val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_ASM_SHIFT_TYPE,
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
 val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
@@ -195,7 +195,7 @@ val WORDLANG_EXP_TYPE_no_closures = Q.prove(
   metis_tac[EqualityType_def,
             EqualityType_NUM,
             EqualityType_WORD,
-            EqualityType_ASM_SHIFT_TYPE,
+            EqualityType_AST_SHIFT_TYPE,
             EqualityType_ASM_BINOP_TYPE,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_WORDLANG_NUM_EXP_TYPE]);
@@ -222,7 +222,7 @@ val WORDLANG_EXP_TYPE_types_match = Q.prove(
   metis_tac[EqualityType_def,
             EqualityType_NUM,
             EqualityType_WORD,
-            EqualityType_ASM_SHIFT_TYPE,
+            EqualityType_AST_SHIFT_TYPE,
             EqualityType_ASM_BINOP_TYPE,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_WORDLANG_NUM_EXP_TYPE]);
@@ -255,7 +255,7 @@ val WORDLANG_EXP_TYPE_11 = Q.prove(
   metis_tac[EqualityType_def,
             EqualityType_NUM,
             EqualityType_WORD,
-            EqualityType_ASM_SHIFT_TYPE,
+            EqualityType_AST_SHIFT_TYPE,
             EqualityType_ASM_BINOP_TYPE,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_WORDLANG_NUM_EXP_TYPE])
@@ -456,6 +456,10 @@ val assign_rw = Q.prove(`
 (* TODO: word_mul should maybe target a real op ?
    TODO: econv might be going too far with case simplification
 *)
+
+val _ = translate (LoadWord64_def |> inline_simp |> conv64)
+val _ = translate (WriteWord64_def |> inline_simp |> conv64)
+val _ = translate (LoadBignum_def |> inline_simp |> conv64)
 
 val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 

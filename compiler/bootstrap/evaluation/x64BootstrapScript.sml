@@ -684,7 +684,7 @@ fun app_conv _ [] tm = raise UNCHANGED
     let
       val th = FORK_CONV(REWR_CONV dth, app_conv (n+1) dths) tm
       val def = mk_def ("all_bytes_"^(Int.toString n)) (rand(rconc th))
-      val () = Lib.say (str n)
+      (* val () = Lib.say (str n) *)
     in
       CONV_RULE(RAND_CONV
         (RAND_CONV(REWR_CONV(SYM def)) THENC listLib.APPEND_CONV))
