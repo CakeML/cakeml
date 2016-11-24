@@ -126,6 +126,18 @@ val RefArray_location_def = Define`
   RefArray_location = RefByte_location+1`;
 val Replicate_location_def = Define `
   Replicate_location = RefArray_location+1`;
+val AnyArith_location_def = Define `
+  AnyArith_location = Replicate_location+1`;
+val Add_location_def = Define `
+  Add_location = AnyArith_location+1`;
+val Sub_location_def = Define `
+  Sub_location = Add_location+1`;
+val Mul_location_def = Define `
+  Mul_location = Sub_location+1`;
+val Div_location_def = Define `
+  Div_location = Mul_location+1`;
+val Mod_location_def = Define `
+  Mod_location = Div_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -137,6 +149,18 @@ val RefArray_location_eq = save_thm("RefArray_location_eq",
   ``RefArray_location`` |> EVAL);
 val Replicate_location_eq = save_thm("Replicate_location_eq",
   ``Replicate_location`` |> EVAL);
+val AnyArith_location_eq = save_thm("AnyArith_location_eq",
+  ``AnyArith_location`` |> EVAL);
+val Add_location_eq = save_thm("Add_location_eq",
+  ``Add_location`` |> EVAL);
+val Sub_location_eq = save_thm("Sub_location_eq",
+  ``Sub_location`` |> EVAL);
+val Mul_location_eq = save_thm("Mul_location_eq",
+  ``Mul_location`` |> EVAL);
+val Div_location_eq = save_thm("Div_location_eq",
+  ``Div_location`` |> EVAL);
+val Mod_location_eq = save_thm("Mod_location_eq",
+  ``Mod_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -278,6 +302,29 @@ val Replicate_code_def = Define `
                  Store (Var 2) 4;
                  Assign 6 (Op Sub [Var 6; Const 4w]);
                  Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])`;
+
+val AnyArith_code_def = Define `
+  AnyArith_code = GiveUp`;
+
+val Add_code_def = Define `
+  Add_code = Seq (Assign 6 (Const 0w))
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+
+val Sub_code_def = Define `
+  Sub_code = Seq (Assign 6 (Const 1w))
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+
+val Mul_code_def = Define `
+  Mul_code = Seq (Assign 6 (Const 2w))
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+
+val Div_code_def = Define `
+  Div_code = Seq (Assign 6 (Const 3w))
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+
+val Mod_code_def = Define `
+  Mod_code = Seq (Assign 6 (Const 4w))
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
 
 val get_names_def = Define `
   (get_names NONE = LN) /\
@@ -549,24 +596,32 @@ val assign_def = Define `
                | _ => (Skip,l)
                     else (Assign (adjust_var dest) FALSE_CONST,l))
     | Add => (case args of
-              | [v1;v2] =>
-                  (Seq (Assign 1 (Op Or [Var (adjust_var v1);
-                                         Var (adjust_var v2)]))
-                       (If Test 1 (Imm (~0w << (dimindex (:'a) - 2)))
-                          (Assign (adjust_var dest)
-                             (Op Add [Var (adjust_var v1);
-                                      Var (adjust_var v2)]))
-                          GiveUp),l)
+              | [v1;v2] => (list_Seq
+                  [(* perform addition *)
+                   Inst (Arith (AddOverflow 1 (adjust_var v1)
+                                              (adjust_var v2) 3));
+                   (* or together bits of overflow flag, and the two inputs *)
+                   Assign 3 (Op Or [Var 3; Var (adjust_var v1); Var (adjust_var v2)]);
+                   (* if the least significant bit is set, then bignum is needed *)
+                   If Test 3 (Imm 1w) Skip
+                    (MustTerminate
+                      (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                        (SOME Add_location) [adjust_var v1; adjust_var v2] NONE));
+                   Move 2 [(adjust_var dest,1)]],l+1)
               | _ => (Skip,l))
     | Sub => (case args of
-              | [v1;v2] =>
-                  (Seq (Assign 1 (Op Or [Var (adjust_var v1);
-                                         Var (adjust_var v2)]))
-                       (If Test 1 (Imm (~0w << (dimindex (:'a) - 2)))
-                          (Assign (adjust_var dest)
-                             (Op Sub [Var (adjust_var v1);
-                                      Var (adjust_var v2)]))
-                          GiveUp),l)
+              | [v1;v2] => (list_Seq
+                  [(* perform subtraction *)
+                   Inst (Arith (SubOverflow 1 (adjust_var v1)
+                                              (adjust_var v2) 3));
+                   (* or together bits of overflow flag, and the two inputs *)
+                   Assign 3 (Op Or [Var 3; Var (adjust_var v1); Var (adjust_var v2)]);
+                   (* if the least significant bit is set, then bignum is needed *)
+                   If Test 3 (Imm 1w) Skip
+                    (MustTerminate
+                      (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                        (SOME Sub_location) [adjust_var v1; adjust_var v2] NONE));
+                   Move 2 [(adjust_var dest,1)]],l+1)
               | _ => (Skip,l))
     (* TODO: Mult *)
     (* TODO: Div *)
@@ -752,7 +807,13 @@ val stubs_def = Define`
     (FromList1_location,6n,FromList1_code data_conf);
     (RefByte_location,3n,RefByte_code data_conf);
     (RefArray_location,3n,RefArray_code data_conf);
-    (Replicate_location,5n,Replicate_code)
+    (Replicate_location,5n,Replicate_code);
+    (AnyArith_location,4n,AnyArith_code);
+    (Add_location,3n,Add_code);
+    (Sub_location,3n,Sub_code);
+    (Mul_location,3n,Mul_code);
+    (Div_location,3n,Div_code);
+    (Mod_location,3n,Mod_code)
   ]`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",

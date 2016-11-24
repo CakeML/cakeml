@@ -13,6 +13,40 @@ val ZIP_REPLICATE = Q.store_thm("ZIP_REPLICATE",
   `!n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)`,
   Induct \\ fs [REPLICATE]);
 
+val w2i_i2w_IMP = store_thm("w2i_i2w_IMP",
+  ``(w2i ((i2w i):'a word)) = i ==> INT_MIN (:α) ≤ i ∧ i ≤ INT_MAX (:α)``,
+  Cases_on `i`
+  \\ fs [integer_wordTheory.i2w_def,integer_wordTheory.w2i_def] \\ rw []
+  THEN1
+   (fs [word_msb_def,word_index,bitTheory.BIT_def,bitTheory.BITS_THM]
+    \\ `(n DIV 2 ** (dimindex (:α) − 1)) MOD 2 < 2` by fs []
+    \\ Cases_on `(n DIV 2 ** (dimindex (:α) − 1)) MOD 2` \\ fs []
+    \\ fs [DIV_MOD_MOD_DIV,GSYM EXP,ADD1]
+    \\ assume_tac DIMINDEX_GT_0
+    \\ `dimindex (:α) − 1 + 1 = dimindex (:α)` by decide_tac \\ fs []
+    \\ rfs [dimword_def] \\ fs [DIV_EQ_X]
+    \\ fs [wordsTheory.INT_MIN_def,integer_wordTheory.INT_MIN_def,
+           wordsTheory.INT_MAX_def,integer_wordTheory.INT_MAX_def])
+  \\ full_simp_tac std_ss [GSYM (``-(w:'a word)`` |> SIMP_CONV (srw_ss()) []),
+        WORD_NEG_NEG,w2n_n2w] \\ fs [X_MOD_Y_EQ_X]
+  \\ `dimindex (:α) − 1 < dimindex (:α)` by fs []
+  \\ full_simp_tac std_ss [word_msb_def,word_2comp_n2w,word_index]
+  \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
+  \\ fs [DIV_MOD_MOD_DIV,GSYM EXP,ADD1]
+  \\ assume_tac DIMINDEX_GT_0
+  \\ `dimindex (:α) − 1 + 1 = dimindex (:α)` by decide_tac \\ fs []
+  \\ fs [dimword_def]
+  \\ `(2 ** dimindex (:α) − n) < 2 ** dimindex (:α)` by decide_tac \\ fs []
+  \\ fs [DIV_EQ_X] \\ fs [GSYM EXP,ADD1]
+  \\ Cases_on `dimindex (:α)` \\ fs []
+  \\ fs [wordsTheory.INT_MIN_def,integer_wordTheory.INT_MIN_def,
+         wordsTheory.INT_MAX_def,integer_wordTheory.INT_MAX_def,EXP]);
+
+val word_i2w_sub = store_thm("word_i2w_sub",
+  ``!a b. i2w a - i2w b = i2w (a - b)``,
+  fs [integer_wordTheory.word_i2w_add,word_sub_def,integerTheory.int_sub,
+      integer_wordTheory.MULT_MINUS_ONE]);
+
 (* -- *)
 
 val get_lowerbits_def = Define `
@@ -4771,6 +4805,12 @@ val memory_rel_any_Number_IMP = store_thm("memory_rel_any_Number_IMP",
   \\ simp_tac std_ss [fcpTheory.FCP_BETA,DIMINDEX_GT_0,word_1comp_def]
   \\ EVAL_TAC);
 
+val Smallnum_i2w = store_thm("Smallnum_i2w",
+  ``Smallnum i = i2w (4 * i)``,
+  Cases_on `i` \\ fs [Smallnum_def,integer_wordTheory.i2w_def]
+  \\ reverse IF_CASES_TAC THEN1 (`F` by intLib.COOPER_TAC)
+  \\ ntac 2 AP_TERM_TAC \\ intLib.COOPER_TAC);
+
 val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   ``good_dimindex (:'a) /\ small_int (:'a) i /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
@@ -5084,71 +5124,65 @@ val Smallnum_test = Q.prove(
                bitTheory.BITSLT_THM2 |> Q.SPEC `59` |> numLib.REDUCE_RULE])
   )
 
+val small_int_w2i_i2w = prove(
+  ``small_int (:α) i /\ good_dimindex (:'a) ==>
+    w2i ((i2w (4 * i)):'a word) = 4 * i``,
+  strip_tac \\ match_mp_tac integer_wordTheory.w2i_i2w
+  \\ fs [small_int_def,dimword_def,labPropsTheory.good_dimindex_def,
+         INT_MIN_def,INT_MAX_def] \\ rfs [] \\ fs []
+  \\ intLib.COOPER_TAC);
+
 val memory_rel_Add = Q.store_thm("memory_rel_Add",
   `memory_rel c be refs sp st m dm
       ((Number i,Word wi)::(Number j,Word wj)::vars) /\
-    small_int (:'a) i /\ small_int (:'a) j /\
-    good_dimindex (:'a) /\
-    (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
+    ~word_bit 0 wi /\ ~word_bit 0 wj /\
+    good_dimindex (:'a) /\ (w2i (wi + wj) = w2i wi + w2i wj) ==>
     memory_rel c be refs sp st m dm
       ((Number (i + j),Word (wi + wj:'a word))::vars)`,
-  rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
-  \\ fs [WORD_LEFT_AND_OVER_OR]
+  strip_tac
+  \\ rpt_drule memory_rel_any_Number_IMP \\ fs [word_bit_def] \\ strip_tac
   \\ drule memory_rel_tail \\ strip_tac
-  \\ imp_res_tac memory_rel_Number_IMP \\ fs []
-  \\ rpt var_eq_tac \\ fs [word_or_eq_0]
-  \\ drule Smallnum_test \\ fs []
-  \\ qpat_x_assum `_ = 0w` kall_tac
-  \\ drule Smallnum_test \\ fs []
-  \\ qpat_x_assum `_ = 0w` kall_tac
-  \\ rpt strip_tac
-  \\ `Smallnum i + Smallnum j = (Smallnum (i + j)):'a word` by
-   (`~(i + j < 0)` by intLib.COOPER_TAC
-    \\ fs [Smallnum_def] \\ fs [word_add_n2w]
-    \\ AP_THM_TAC \\ AP_TERM_TAC \\ intLib.COOPER_TAC)
-  \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
-  \\ imp_res_tac memory_rel_tail \\ fs []
-  \\ fs [small_int_def]
-  \\ fs [labPropsTheory.good_dimindex_def]
-  \\ rfs [dimword_def]
+  \\ rpt_drule memory_rel_any_Number_IMP \\ fs [word_bit_def] \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs [] \\ rveq
+  \\ fs [Smallnum_i2w,integer_wordTheory.word_i2w_add]
+  \\ fs [GSYM integerTheory.INT_LDISTRIB,GSYM Smallnum_i2w]
+  \\ match_mp_tac IMP_memory_rel_Number
+  \\ drule memory_rel_tail \\ strip_tac \\ fs []
+  \\ fs [Smallnum_i2w,integerTheory.INT_LDISTRIB]
+  \\ qpat_x_assum `good_dimindex (:α)` assume_tac
+  \\ fs [small_int_w2i_i2w]
+  \\ imp_res_tac w2i_i2w_IMP
+  \\ fs [small_int_def,dimword_def,labPropsTheory.good_dimindex_def,
+         INT_MIN_def,INT_MAX_def] \\ rfs []
+  \\ intLib.COOPER_TAC);
+
+val memory_rel_Sub = Q.store_thm("memory_rel_Sub",
+  `memory_rel c be refs sp st m dm
+      ((Number i,Word wi)::(Number j,Word wj)::vars) /\
+    ~word_bit 0 wi /\ ~word_bit 0 wj /\
+    good_dimindex (:'a) /\ (w2i (wi - wj) = w2i wi - w2i wj) ==>
+    memory_rel c be refs sp st m dm
+      ((Number (i - j),Word (wi - wj:'a word))::vars)`,
+  strip_tac
+  \\ rpt_drule memory_rel_any_Number_IMP \\ fs [word_bit_def] \\ strip_tac
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ rpt_drule memory_rel_any_Number_IMP \\ fs [word_bit_def] \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs [] \\ rveq
+  \\ fs [Smallnum_i2w,word_i2w_sub |> SIMP_RULE (srw_ss())[]]
+  \\ fs [GSYM integerTheory.INT_SUB_LDISTRIB,GSYM Smallnum_i2w]
+  \\ match_mp_tac IMP_memory_rel_Number
+  \\ drule memory_rel_tail \\ strip_tac \\ fs []
+  \\ fs [Smallnum_i2w,integerTheory.INT_SUB_LDISTRIB]
+  \\ qpat_x_assum `good_dimindex (:α)` assume_tac
+  \\ fs [small_int_w2i_i2w]
+  \\ imp_res_tac w2i_i2w_IMP
+  \\ fs [small_int_def,dimword_def,labPropsTheory.good_dimindex_def,
+         INT_MIN_def,INT_MAX_def] \\ rfs []
   \\ intLib.COOPER_TAC);
 
 val exists_num = Q.prove(
   `~(i < 0i) <=> ?n. i = &n`,
   Cases_on `i` \\ fs []);
-
-val memory_rel_Sub = Q.store_thm("memory_rel_Sub",
-  `memory_rel c be refs sp st m dm
-       ((Number i,Word wi)::(Number j,Word wj)::vars) /\
-    small_int (:'a) i /\ small_int (:'a) j /\
-    good_dimindex (:'a) /\
-    (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
-    memory_rel c be refs sp st m dm
-       ((Number (i - j),Word (wi - wj:'a word))::vars)`,
-  rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
-  \\ fs [WORD_LEFT_AND_OVER_OR]
-  \\ drule memory_rel_tail \\ strip_tac
-  \\ imp_res_tac memory_rel_Number_IMP \\ fs []
-  \\ rpt var_eq_tac \\ fs [word_or_eq_0]
-  \\ drule Smallnum_test \\ fs []
-  \\ qpat_x_assum `_ = 0w` kall_tac
-  \\ drule Smallnum_test \\ fs []
-  \\ qpat_x_assum `_ = 0w` kall_tac
-  \\ rpt strip_tac
-  \\ `Smallnum i - Smallnum j = (Smallnum (i - j)):'a word` by
-   (`i − j < 0 <=> i < j` by intLib.COOPER_TAC \\ fs [Smallnum_def]
-    \\ fs [exists_num] \\ rpt var_eq_tac \\ fs []
-    \\ full_simp_tac std_ss [SIMP_CONV (srw_ss()) [] ``w - x:'a word`` |> GSYM,
-         addressTheory.word_arith_lemma2]
-    \\ IF_CASES_TAC \\ fs []
-    \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-    \\ intLib.COOPER_TAC)
-  \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
-  \\ imp_res_tac memory_rel_tail \\ fs []
-  \\ fs [small_int_def]
-  \\ fs [labPropsTheory.good_dimindex_def]
-  \\ rfs [dimword_def]
-  \\ intLib.COOPER_TAC);
 
 val small_int_w2n = store_thm("small_int_w2n[simp]",
   ``good_dimindex (:'a) ==> small_int (:'a) (& (w2n (w:word8)))``,
