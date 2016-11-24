@@ -480,18 +480,7 @@ open word_simpTheory word_allocTheory word_instTheory
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
-val _ = translate (spec64 compile_exp_def)
-
-val _ = translate (spec64 max_var_def)
-
-val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
-val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
-
-val _ = translate (wordLangTheory.num_exp_def |> conv64)
-val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
-val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
-
-val _ = translate (op_consts_def|>conv64|>econv)
+val _ = translate (INST_TYPE [beta|->``:64``]const_fp_inst_cs_def)
 
 val rws = Q.prove(`
   ($+ = λx y. x + y) ∧
@@ -500,7 +489,45 @@ val rws = Q.prove(`
   ($?? = λx y. x ?? y)`,
   fs[FUN_EQ_THM])
 
-val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws]|> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws,WORD_NOT_0] |> spec64 |> gconv)
+
+val word_msb_rw = Q.prove(
+  `word_msb (a:word64) ⇔ (a>>>63) <> 0w`,
+  rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
+  \\ rw[EQ_IMP_THM]
+  >- ( qexists_tac`0` \\ simp[] )
+  \\ `i = 0` by decide_tac \\ fs[]);
+
+val arith_shift_right_ind_orig = theorem"arith_shift_right_ind"
+
+val arith_shift_right_ind = (
+  arith_shift_right_ind_orig |> spec64
+  |> SIMP_RULE std_ss [word_msb_rw]
+  |> CONV_RULE (QUANT_CONV(LAND_CONV fcpLib.INDEX_CONV)) |> gconv)
+  |> curry save_thm "arith_shift_right_ind"
+
+val _ = translate (
+  arith_shift_right_def |> spec64
+  |> SIMP_RULE std_ss [word_msb_rw]
+  |> CONV_RULE fcpLib.INDEX_CONV |> gconv)
+
+val _ = translate (wordLangTheory.word_sh_def |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv64)
+
+val _ = translate (wordLangTheory.num_exp_def |> conv64)
+
+val _ = translate (asmSemTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec64 |> REWRITE_RULE[word_msb_rw])
+
+val _ = translate (spec64 compile_exp_def)
+
+val _ = translate (spec64 max_var_def)
+
+val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
+val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
+
+val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
+val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+
+val _ = translate (op_consts_def|>conv64|>econv)
 
 val _ = translate (convert_sub_def |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
 
