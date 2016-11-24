@@ -82,7 +82,7 @@ sig
     exception UnableToTranslate of term
 
     val find_const_name : string -> string
-    val add_v_thms : string * thm * thm -> unit
+    val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
 
 end
