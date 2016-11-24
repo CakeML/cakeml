@@ -7952,7 +7952,9 @@ val compile_semantics = save_thm("compile_semantics",let
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
 val assign_def_extras = LIST_CONJ
-  [LoadWord64_def,WriteWord64_def,BignumHalt_def,LoadBignum_def];
+  [LoadWord64_def,WriteWord64_def,BignumHalt_def,LoadBignum_def,
+   AnyArith_code_def,Add_code_def,Sub_code_def,Mul_code_def,
+   Div_code_def,Mod_code_def];
 
 val data_to_word_lab_pres_lem = Q.prove(`
   ∀c n l p.
