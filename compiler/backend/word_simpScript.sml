@@ -1,4 +1,4 @@
-open preamble wordLangTheory sptreeTheory asmSemTheory;
+open preamble wordLangTheory asmTheory sptreeTheory;
 
 val _ = new_theory "word_simp";
 

@@ -128,7 +128,7 @@ val evaluate_apply_if_opt = Q.store_thm("evaluate_apply_if_opt",
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs [] \\ IF_CASES_TAC \\ fs []
   \\ pairarg_tac \\ fs [] \\ fs []
   \\ Cases_on `res' = NONE` \\ fs [word_exp_def] \\ rveq
-  \\ fs [get_var_def,set_var_def,asmSemTheory.word_cmp_def]);
+  \\ fs [get_var_def,set_var_def,asmTheory.word_cmp_def]);
 
 val evaluate_simp_if = Q.store_thm("evaluate_simp_if",
   `!p s. evaluate (simp_if p,s) = evaluate (p,^s)`,

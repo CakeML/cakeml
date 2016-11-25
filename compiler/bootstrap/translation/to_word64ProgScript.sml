@@ -515,7 +515,7 @@ val _ = translate (wordLangTheory.word_sh_def |> RW[shift_left_rwt,shift_right_r
 
 val _ = translate (wordLangTheory.num_exp_def |> conv64)
 
-val _ = translate (asmSemTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec64 |> REWRITE_RULE[word_msb_rw])
+val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec64 |> REWRITE_RULE[word_msb_rw])
 
 val _ = translate (spec64 compile_exp_def)
 

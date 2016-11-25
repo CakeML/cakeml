@@ -5,7 +5,6 @@ val _ = new_theory"wordSem";
 val _ = set_grammar_ancestry [
   "wordLang", "alignment", "finite_map", "misc", "asm",
   "ffi", (* for call_FFI *)
-  "asmSem", (* for word_cmp *)
   "lprefix_lub" (* for build_lprefix_lub *)
 ]
 

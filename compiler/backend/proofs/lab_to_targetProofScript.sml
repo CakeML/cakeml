@@ -887,7 +887,7 @@ val word_cmp_lemma = Q.prove(
   \\ full_simp_tac(srw_ss())[asmSemTheory.read_reg_def]
   \\ Cases_on `s1.regs rr` \\ full_simp_tac(srw_ss())[]
   \\ TRY (Cases_on `s1.regs n`) \\ full_simp_tac(srw_ss())[] \\ Cases_on `cmp`
-  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
+  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ first_assum (assume_tac o Q.SPEC `rr:num`)
   \\ first_x_assum (assume_tac o Q.SPEC `n:num`)
@@ -1579,7 +1579,7 @@ val compile_correct = Q.prove(
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)`
     \\ `word_cmp cmp (read_reg rr s1) (labSem$reg_imm ri s1) =
-        SOME (asmSem$word_cmp cmp (read_reg rr t1) (reg_imm ri t1))` by
+        SOME (asm$word_cmp cmp (read_reg rr t1) (reg_imm ri t1))` by
      (Cases_on `word_cmp cmp (read_reg rr s1) (reg_imm ri s1)` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac word_cmp_lemma \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[]
