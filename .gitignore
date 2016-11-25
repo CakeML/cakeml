@@ -7,7 +7,6 @@
 *.o
 .HOLMK
 .hollogs
-README.md
 
 # README.md generator's executable
 developers/readme_gen
