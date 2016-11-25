@@ -16,6 +16,9 @@ val OUTPUT_FILENAME = "README.md"
 
 exception ReadmeExn of string;
 
+fun warn s =
+  (TextIO.output(TextIO.stdErr, s ^ "\n"); TextIO.flushOut TextIO.stdErr)
+
 fun fail str = raise ReadmeExn str;
 
 fun every p [] = true
@@ -193,8 +196,14 @@ fun read_comment_from_raw filename = let
 fun read_comment_from_dir path = let
   val _ = (OS.FileSys.isDir path handle OS.SysErr _ => false)
           orelse fail "this is not a directory"
-  val path = if String.isSuffix "/" path then path else path ^ "/"
-  in read_comment_from_raw (path ^ PREFIX_FILENAME) end
+  val dir_readme = OS.Path.concat(path, PREFIX_FILENAME)
+  in
+    read_comment_from_raw dir_readme
+    handle ReadmeExn _ =>
+           (warn ("Couldn't find file "^PREFIX_FILENAME^" in directory "^
+                  path);
+            ["Undocumented directory\n"])
+  end
 
 (* Read full header file from directory *)
 
