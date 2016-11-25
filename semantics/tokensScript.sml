@@ -22,6 +22,7 @@ val _ = Hol_datatype `
 | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
 | IntT of int
 | HexintT of string
+| WordT of int
 | RealT of string
 | StringT of string
 | CharT of char
