@@ -12,20 +12,6 @@ val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
 fun op by1 (q,tac) = q by (tac \\ NO_TAC)
 infix 8 by1
 
-val word_bit_or = Q.store_thm("word_bit_or",
-  `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`,
-  fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
-val word_bit_and = Q.store_thm("word_bit_and",
-  `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`,
-  fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
 val WORD_MUL_BIT0 = Q.store_thm("WORD_MUL_BIT0",
   `!a b. (a * b) ' 0 <=> a ' 0 /\ b ' 0`,
   fs [word_mul_def,word_index,bitTheory.BIT0_ODD,ODD_MULT]
