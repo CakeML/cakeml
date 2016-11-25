@@ -304,26 +304,26 @@ val Replicate_code_def = Define `
                  Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])`;
 
 val AnyArith_code_def = Define `
-  AnyArith_code = GiveUp`;
+  AnyArith_code c = GiveUp`;
 
 val Add_code_def = Define `
   Add_code = Seq (Assign 6 (Const 0w))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
 
 val Sub_code_def = Define `
-  Sub_code = Seq (Assign 6 (Const 1w))
+  Sub_code = Seq (Assign 6 (Const 4w))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
 
 val Mul_code_def = Define `
-  Mul_code = Seq (Assign 6 (Const 2w))
+  Mul_code = Seq (Assign 6 (Const 8w))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
 
 val Div_code_def = Define `
-  Div_code = Seq (Assign 6 (Const 3w))
+  Div_code = Seq (Assign 6 (Const 12w))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
 
 val Mod_code_def = Define `
-  Mod_code = Seq (Assign 6 (Const 4w))
+  Mod_code = Seq (Assign 6 (Const 16w))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
 
 val get_names_def = Define `
@@ -623,9 +623,27 @@ val assign_def = Define `
                         (SOME Sub_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
               | _ => (Skip,l))
-    (* TODO: Mult *)
-    (* TODO: Div *)
-    (* TODO: Mod *)
+    | Mult => (case args of
+              | [v1;v2] => (list_Seq
+                  [MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                      (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE);
+                   Move 2 [(adjust_var dest,1)]],l+1)
+              | _ => (Skip,l))
+    | Div => (case args of
+              | [v1;v2] => (list_Seq
+                  [MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                      (SOME Div_location) [adjust_var v1; adjust_var v2] NONE);
+                   Move 2 [(adjust_var dest,1)]],l+1)
+              | _ => (Skip,l))
+    | Mod => (case args of
+              | [v1;v2] => (list_Seq
+                  [MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                      (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
+                   Move 2 [(adjust_var dest,1)]],l+1)
+              | _ => (Skip,l))
     | WordOp W8 opw =>
       (case args of
         | [v1;v2] =>
@@ -808,7 +826,7 @@ val stubs_def = Define`
     (RefByte_location,3n,RefByte_code data_conf);
     (RefArray_location,3n,RefArray_code data_conf);
     (Replicate_location,5n,Replicate_code);
-    (AnyArith_location,4n,AnyArith_code);
+    (AnyArith_location,4n,AnyArith_code data_conf);
     (Add_location,3n,Add_code);
     (Sub_location,3n,Sub_code);
     (Mul_location,3n,Mul_code);
