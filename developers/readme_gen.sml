@@ -198,11 +198,11 @@ fun read_comment_from_dir path = let
           orelse fail "this is not a directory"
   val dir_readme = OS.Path.concat(path, PREFIX_FILENAME)
   in
-    read_comment_from_raw dir_readme
+    SOME (read_comment_from_raw dir_readme)
     handle ReadmeExn _ =>
            (warn ("Couldn't find file "^PREFIX_FILENAME^" in directory "^
                   path);
-            ["Undocumented directory\n"])
+            NONE)
   end
 
 (* Read full header file from directory *)
@@ -240,21 +240,23 @@ fun create_summary filenames_and_paths = let
   val filename = PREFIX_FILENAME
   val header = Prefix (read_readme_prefix filename)
                handle ReadmeExn msg => Error (filename, msg)
+  fun STAC p = SOME (TitleAndContent p)
+  fun TAC fnm c = TitleAndContent(fnm, c)
   (* process each filename *)
   fun do_filename filename =
     (if (OS.FileSys.isDir filename handle OS.SysErr _ => false) then
-       TitleAndContent (filename,read_comment_from_dir filename)
+       Option.map (TAC filename) (read_comment_from_dir filename)
      else if String.isSuffix ".sml" filename orelse
              String.isSuffix ".lem" filename then
-       TitleAndContent (filename,read_comment_from_sml filename)
+       STAC (filename,read_comment_from_sml filename)
      else if String.isSuffix ".sh" filename then
-       TitleAndContent (filename,read_comment_from_script filename)
+       STAC (filename,read_comment_from_script filename)
      else
-       (TitleAndContent (filename,read_comment_from_script filename)
+       (STAC (filename,read_comment_from_script filename)
         handle ReadmeExn msg =>
-        TitleAndContent (filename,read_comment_from_raw filename)))
-    handle ReadmeExn msg => Error (filename,msg)
-  val output = header :: map do_filename filenames
+        STAC (filename,read_comment_from_raw filename)))
+    handle ReadmeExn msg => SOME (Error (filename,msg))
+  val output = header :: List.mapPartial do_filename filenames
   (* check and report errors *)
   val _ = if exists isError output then let
             val _ = print ("ERROR! readme_gen.sml cannot produce " ^
