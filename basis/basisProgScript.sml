@@ -70,6 +70,411 @@ val _ = append_prog
      Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
      Tdec (Dtabbrev [] "char" (Tapp [] TC_char))]``
 
+val _ = Datatype `order = LESS | EQUAL | GREATER`;
+
+val _ = register_type ``:order``;
+
+val _ = register_type ``:'a list``;
+val _ = register_type ``:'a option``;
+
+(* new stuff *)
+(*################################################################################*)
+
+(* List module -- Translated *)
+
+(* TODO: move this module into its own theory and check the translator to allow
+names that save_thm can't handle, see if translation is being module specific
+and if next_ml_names is working as intended *)
+
+
+val _ = ml_prog_update (open_module "List");
+
+val _ = append_dec ``Dtabbrev ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))``;
+
+(*--------------------------------------------------------------------------------*)
+
+val result = translate NULL_DEF;
+
+(*--------------------------------------------------------------------------------*)
+
+val result = translate LENGTH;
+
+(*--------------------------------------------------------------------------------*)
+
+(*This could be needed to be changed to an infix @ if HOL doesn't do it *)
+val result = translate APPEND;
+
+(*--------------------------------------------------------------------------------*)
+
+show_assums := true;
+(*This has a precondition and I don't know what is wanted with pattern matching,
+  list empty exception*)
+val result = translate HD;
+val hd_side_def = definition"hd_side_def"
+
+(*--------------------------------------------------------------------------------*)
+
+(*This has a precondition and I don't know what is wanted with pattern matching, 
+  list empty exception*)
+val result = translate TL;
+
+(*--------------------------------------------------------------------------------*)
+
+(*Pre-conditions needs to raise an exception with the list is empty *)
+val result = translate LAST_DEF;
+
+(*--------------------------------------------------------------------------------*)
+
+val getItem_def = Define`
+  getItem l = case l of
+    [] => NONE
+    | (h::t) => SOME(h, t)`; 
+
+val result = translate getItem_def;
+
+(*--------------------------------------------------------------------------------*)
+
+val nth_def = Define`
+  nth (l, i) = EL i l`;
+(*EL has a precondition because TL and HD have preconditions, subscript exception *)
+val result = translate EL;
+val result = translate nth_def;
+
+(*--------------------------------------------------------------------------------*)
+
+(*subscript exception *)
+val take_def = Define`
+  take (l, i) = TAKE i l`;
+(*see if this is correct *)
+val result = next_ml_names := ["TAKE_HOL"];
+val result = translate TAKE_def;
+val result = translate take_def;
+
+(*--------------------------------------------------------------------------------*)
+
+val drop_def = Define`
+  drop (l, i) = DROP i l`;
+val result = next_ml_names := ["DROP_HOL"];
+val result = translate DROP_def;
+val result = translate drop_def;
+
+(*--------------------------------------------------------------------------------*)
+
+(*
+val rev_def = Define`
+  rev l = REVERSE l`;
+*)
+val result = next_ml_names := ["rev_def"];
+val result = translate REVERSE_DEF;
+(* val result = translate rev_def; *)
+
+(*--------------------------------------------------------------------------------*)
+
+val result = next_ml_names := ["concat_def"];
+val result = translate FLAT;
+
+(*--------------------------------------------------------------------------------*)
+
+val revAppend_def = Define`
+  revAppend (l1, l2) = REV l1 l2`;
+val result = translate REV_DEF;
+val result = translate revAppend_def;
+
+(*--------------------------------------------------------------------------------*)
+
+(*What do we do with app?? *)
+
+(*--------------------------------------------------------------------------------*)
+
+val result = translate MAP;
+
+(*--------------------------------------------------------------------------------*)
+
+val mapPartial_def = Define`
+  mapPartial f l = case l of
+    [] => []
+    | (h::t) => if f h = NONE then h::(mapPartial f t)
+      else mapPartial f t`;
+val result = translate mapPartial_def;   
+
+(*--------------------------------------------------------------------------------*)
+
+val find_def = Define`
+  find f l = case l of
+    [] => NONE
+    | (h::t) => if f h = NONE then find f t
+      else h`;
+val result = translate find_def;
+
+(*--------------------------------------------------------------------------------*)
+
+val filter_def = Define`
+  filter f l = case l of
+    [] => []
+    | (h::t) => if f h then h::(filter f t)
+      else filter f t`;
+val result = translate filter_def; 
+
+(*--------------------------------------------------------------------------------*)
+
+val partition_aux_def = Define`
+  partition_aux f l (pos, neg) = case l of
+    [] => (pos, neg)
+    | (h::t) => if f h then partition_aux f t ((h::pos), neg)
+      else partition_aux f t (pos, (h::neg))`;
+
+val partition_def = Define`
+  partition f l = partition_aux f l ([], [])`;
+
+val result = translate partition_aux_def;
+val result = translate partition_def;
+
+(*--------------------------------------------------------------------------------*)
+
+val result = translate FOLDL;
+
+(*--------------------------------------------------------------------------------*)
+
+val result = translate FOLDR;
+
+(*--------------------------------------------------------------------------------*)
+
+val result = translate EXISTS_DEF;
+
+(*--------------------------------------------------------------------------------*)
+
+val result = next_ml_names := ["all_def"];
+val result = translate EVERY_DEF;
+
+(*--------------------------------------------------------------------------------*)
+
+val tabulate_def = Define`
+  tabulate (n, f) = GENLIST f n`;
+val result = translate GENLIST_AUX;
+val result = translate GENLIST_GENLIST_AUX;
+val result = translate tabulate_def;
+
+(*--------------------------------------------------------------------------------*)
+
+(* TODO: Check the functionality of this function *)
+val collate_def = Define`
+  collate f (l1, l2) = case l1 of
+    [] => (case l2 of
+      [] => EQUAL
+      | (h2::t2) => GREATER)
+    | (h1::t1) => (case l2 of
+      [] => LESS
+      | (h2::t2) => if f h1 h2 = EQUAL then collate f (t1, t2)
+        else f h1 h2)`;
+val result = translate collate_def;
+
+(*--------------------------------------------------------------------------------*)
+val _ = ml_prog_update (close_module NONE);
+
+(* end new stuff *)
+(*################################################################################*)
+
+
+(* Vector module -- translated *)
+(* TODO: move this module into its own theory and check the translator to allow
+names that save_thm can't handle *)
+
+val _ = ml_prog_update (open_module "Vector");
+
+(* TODO: maxLen will probably need to be a CakeML primitive (if we want it at all) *)
+
+val _ = append_dec ``Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)``;
+val _ = trans "fromList" `Vector`
+val _ = trans "length" `length`
+val _ = trans "sub" `sub`
+
+(* new stuff *)
+
+(*--------------------------------------------------------------------------------*)
+
+
+val tabulate_def = Define`
+  tabulate n f = Vector (GENLIST f n)`;
+(* val result = translate GENLIST_AUX;
+val result = translate GENLIST_GENLIST_AUX; *)
+val result = translate tabulate_def;
+
+
+(*--------------------------------------------------------------------------------*)
+
+
+val toList_aux_def = tDefine "toList_aux"`
+  toList_aux vec n =  
+  if length(vec) <= n
+    then [] 
+  else sub vec n::toList_aux vec (n + 1)`
+(wf_rel_tac `measure (\(vec, n). length(vec) - n)`)
+
+val toList_aux_ind = theorem"toList_aux_ind";
+
+val toList_def = Define`toList vec = toList_aux vec 0`;
+
+val result = translate toList_aux_def;
+
+val toList_aux_side_def = theorem"tolist_aux_side_def"
+
+val toList_aux_side_thm = Q.prove(`∀vec n. tolist_aux_side vec n`,
+  ho_match_mp_tac toList_aux_ind
+  \\ metis_tac[GREATER_EQ,NOT_LESS_EQUAL,toList_aux_side_def])
+  |> update_precondition
+
+val result = translate toList_def; 
+
+val toList_aux_thm = Q.prove (
+  `!vec n. toList_aux vec n = case vec of Vector vs => DROP n vs`,
+  ho_match_mp_tac toList_aux_ind \\
+  rw [] \\
+  ONCE_REWRITE_TAC [toList_aux_def] \\
+  IF_CASES_TAC THEN1
+    (Cases_on `vec` \\
+    fs [length_def, DROP_NIL]) \\
+  fs [] \\
+  Cases_on `vec` \\ 
+  fs [sub_def, length_def, DROP_EL_CONS] 
+);
+
+val toList_thm = Q.store_thm (
+  "toList_thm",
+  `!ls. toList (Vector ls) = ls`,
+  rw [toList_def, toList_aux_thm]  
+)
+
+
+(*--------------------------------------------------------------------------------*)
+
+
+val update_def = Define`
+  update vec i x = Vector (LUPDATE x i (toList(vec)))`;
+val result = translate LUPDATE_def;
+val result = translate update_def;
+
+val update_thm = Q.store_thm (
+  "update_thm",
+  `!vec i x. sub (update vec i x) i = if i < length vec then x 
+    else sub vec i`,
+  Cases \\
+  rw [update_def, toList_thm, EL_LUPDATE, length_def, sub_def]
+); 
+
+
+(* Definition of update which would be more efficient if tabulate was efficient
+val update_aux_def = Define`
+  update_aux vec i x n = 
+    if n = i then x 
+    else sub vec n`;
+
+val update_def = Define`
+  update vec i x = tabulate (length vec) (update_aux vec i x)`;
+
+val result = translate update_aux_def;
+val update_aux_side_def = definition"update_aux_side_def"
+val result = translate update_def; 
+
+
+val update_side_def = definition"update_side_def"
+val update_aux_side_thm = Q.prove(`∀vec n i x. update_aux_side vec n i x`,
+  \\ metis_tac[update_aux_side_def]
+  |> update_precondition
+*)
+
+
+(*--------------------------------------------------------------------------------*)
+
+
+(*
+val concat_aux_def = tDefine "concat_aux"`
+  concat_aux l = 
+  if LENGTH l <= n
+    then []
+  else toList (EL n l)::concat_aux l (n + 1)`
+(wf_rel_tac `measure (\(l, n). LENGTH l - n)`)
+  
+
+val concat_def = Define`
+  concat l = Vector (FLAT (concat_aux l 0))`;
+*)
+
+(*TODO prove concat works *)
+val concat_def = Define`
+  concat l = Vector (FLAT (MAP toList l))`;
+
+(* 
+val result = translate APPEND;
+val next_ml_names = ["concat"];
+val result = translate FLAT; 
+val result = translate MAP;
+*)
+val result = translate concat_def;
+
+
+(*--------------------------------------------------------------------------------*)
+
+
+(*TODO deal with app/appi *)
+(*  
+  val app_aux_def = tDefine "app_aux"`
+  app_aux f vec n = if length vec <= n then ()
+      else app_aux f (update vec n (f (sub vec n))) (n + 1)`
+  (
+    wf_rel_tac `measure (\(f, vec, n). length(vec) - n)` \\
+    Cases_on `vec` \\
+    rw [length_def, update_def, sub_def, toList_thm]
+  )
+
+  val app_def = Define`
+    app f vec = app_aux f vec 0`; 
+
+
+
+  val appi_aux_def = xDefine "app_aux"`
+    appi_aux f vec n = if length vec <= n then vec
+      else appi_aux f (update vec n (f n (sub vec n))) (n + 1)`
+  (
+    wf_rel_tac `measure (\(f, vec, n). length(vec) - n)` \\
+    Cases_on `vec` \\
+    rw [length_def, update_def, sub_def, toList_thm]
+  )
+
+  val appi_def = Define`
+    appi f vec = appi_aux f vec 0`;
+
+*)
+
+
+(*--------------------------------------------------------------------------------*)
+
+
+val map_def = Define`
+  map vec f = tabulate (length vec) (\n. f (sub vec n))`; 
+
+val mapi_def = Define`
+  mapi vec f = tabulate (length vec) (\n. f n (sub vec n))`; 
+
+val map_proof_def = Define`
+  map_proof vec f = fromList (MAP f (toList vec))`;
+
+(*TODO find a way to implement mapi using the list MAP function *)
+
+show_assums := true;
+
+(* map is already defined in the translator for strings check if this still works *)
+(*TODO fix map side condition if need be*)
+val result = translate map_def;
+val map_1_side_def = definition"map_1_side_def";
+val result = translate mapi_def;
+
+
+(*--------------------------------------------------------------------------------*)
+
+val _ = ml_prog_update (close_module NONE);
+
+(*################################################################################*)
+(*end new stuff*)
 
 (* the parser targets the following for int arith ops -- translated *)
 
@@ -126,6 +531,7 @@ val _ = ml_prog_update (open_module "Word8");
 val _ = append_dec ``Dtabbrev [] "word" (Tapp [] TC_word8)``;
 val _ = trans "fromInt" `n2w:num->word8`
 val _ = trans "toInt" `w2n:word8->num`
+val _ = trans "andb" `word_and:word8->word8->word8`;
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -183,16 +589,6 @@ val w8array_update_spec = Q.store_thm ("w8array_update_spec",
        (W8ARRAY av a)
        (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))`,
   prove_array_spec "Word8Array.update");
-
-
-(* Vector module -- translated *)
-
-val _ = ml_prog_update (open_module "Vector");
-
-val _ = append_dec ``Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)``;
-val _ = trans "fromList" `Vector`
-val _ = trans "length" `length`
-val _ = trans "sub" `sub`
 
 val _ = ml_prog_update (close_module NONE);
 
