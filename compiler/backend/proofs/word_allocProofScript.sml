@@ -3928,9 +3928,9 @@ val ssa_cc_trans_exp_correct = Q.prove(
   full_simp_tac(srw_ss())[word_exp_def,ssa_cc_trans_exp_def]>>
   qpat_x_assum`A=SOME res` mp_tac
   >-
-    (TOP_CASE_TAC>>fs[ssa_locals_rel_def,word_state_eq_rel_def]>>rw[]>>
+    (fs[ssa_locals_rel_def,word_state_eq_rel_def]>>rw[]>>
     res_tac>>rpt(qpat_x_assum`!x.P` kall_tac)>>
-    fs[domain_lookup]>>
+    fs[domain_lookup,option_lookup_def]>>
     rfs[])
   >-
     full_simp_tac(srw_ss())[word_state_eq_rel_def]
@@ -5562,15 +5562,13 @@ val setup_ssa_props = Q.prove(`
     ssa_locals_rel na ssa st.locals cst.locals ∧
     is_alloc_var na ∧
     lim ≤ na`,
-  srw_tac[][setup_ssa_def,list_next_var_rename_move_def]>>
+  srw_tac[][setup_ssa_def]>>
   full_simp_tac(srw_ss())[word_state_eq_rel_def,evaluate_def]>>
   imp_res_tac list_next_var_rename_lemma_1>>
   full_simp_tac(srw_ss())[LET_THM,MAP_ZIP,LENGTH_COUNT_LIST]>>
   full_simp_tac(srw_ss())[ALL_DISTINCT_MAP]>>
   `set args ⊆ domain st.locals` by full_simp_tac(srw_ss())[]>>
   imp_res_tac get_vars_eq>>
-  `MAP (option_lookup LN) args = args` by
-    full_simp_tac(srw_ss())[MAP_EQ_ID,option_lookup_def,lookup_def]>>
   full_simp_tac(srw_ss())[set_vars_def,state_component_equality]
   >>
     TRY(`ssa_map_ok lim LN` by
