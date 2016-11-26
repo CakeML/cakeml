@@ -204,4 +204,14 @@ val asm_ok_def = Define `
   (asm_ok (JumpReg r) c <=> reg_ok r c) /\
   (asm_ok (Loc r w) c <=> reg_ok r c /\ loc_offset_ok w c)`
 
+val word_cmp_def = Define `
+  (word_cmp Equal w1 w2 = (w1 = w2)) /\
+  (word_cmp Less w1 w2  = (w1 < w2)) /\
+  (word_cmp Lower w1 w2 = (w1 <+ w2)) /\
+  (word_cmp Test w1 w2  = ((w1 && w2) = 0w)) /\
+  (word_cmp NotEqual w1 w2 = (w1 <> w2)) /\
+  (word_cmp NotLess w1 w2  = ~(w1 < w2)) /\
+  (word_cmp NotLower w1 w2 = ~(w1 <+ w2)) /\
+  (word_cmp NotTest w1 w2  = ((w1 && w2) <> 0w))`
+
 val () = export_theory ()

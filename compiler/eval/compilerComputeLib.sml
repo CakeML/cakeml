@@ -440,6 +440,14 @@ val add_compiler_compset = computeLib.extend_compset
     ,word_simpTheory.dest_Seq_Assign_Const_def
     ,word_simpTheory.apply_if_opt_def
     ,word_simpTheory.simp_if_def
+    ,word_simpTheory.strip_const_def
+    ,word_simpTheory.const_fp_exp_def
+    ,word_simpTheory.const_fp_move_cs_def
+    ,word_simpTheory.const_fp_inst_cs_def
+    ,word_simpTheory.get_var_imm_cs_def
+    ,word_simpTheory.is_gc_const_def
+    ,word_simpTheory.const_fp_loop_def
+    ,word_simpTheory.const_fp_def
     ,word_simpTheory.compile_exp_def
       (* ---- wordLang remove must terminate ---- *)
     ,word_removeTheory.remove_must_terminate_def

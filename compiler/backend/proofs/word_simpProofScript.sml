@@ -1,10 +1,35 @@
-open preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory;
+open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory;
 
 val _ = new_theory "word_simpProof";
 
 val s = ``s:('a,'ffi) wordSem$state``
 
-(* verification of Seq_assoc *)
+(** common **)
+
+val labels_rel_def = Define `
+  labels_rel old_labs new_labs <=>
+    (ALL_DISTINCT old_labs ==> ALL_DISTINCT new_labs) /\
+    set new_labs SUBSET set old_labs`;
+
+val labels_rel_refl = Q.store_thm("labels_rel_refl[simp]",
+  `!xs. labels_rel xs xs`,
+  fs [labels_rel_def]);
+
+val labels_rel_APPEND = Q.store_thm("labels_rel_APPEND",
+  `labels_rel xs xs1 /\ labels_rel ys ys1 ==>
+   labels_rel (xs++ys) (xs1++ys1)`,
+  fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF] \\ metis_tac []);
+
+val PERM_IMP_labels_rel = Q.store_thm("PERM_IMP_labels_rel",
+  `PERM xs ys ==> labels_rel ys xs`,
+  fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
+  \\ metis_tac [ALL_DISTINCT_PERM,MEM_PERM]);
+
+val labels_rel_TRANS = prove(
+  ``labels_rel xs ys /\ labels_rel ys zs ==> labels_rel xs zs``,
+  fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]);
+
+(** verification of Seq_assoc **)
 
 val evaluate_SmartSeq = Q.store_thm("evaluate_SmartSeq",
   `evaluate (SmartSeq p1 p2,s) = evaluate (Seq p1 p2,^s)`,
@@ -53,7 +78,7 @@ val extract_labels_Seq_assoc = Q.store_thm("extract_labels_Seq_assoc",
   `extract_labels (Seq_assoc Skip p) = extract_labels p`,
   fs [extract_labels_Seq_assoc_lemma,extract_labels_def]);
 
-(* verification of simp_if *)
+(** verification of simp_if **)
 
 val dest_If_Eq_Imm_thm = Q.store_thm("dest_If_Eq_Imm_thm",
   `dest_If_Eq_Imm x2 = SOME (n,w,p1,p2) <=>
@@ -103,7 +128,7 @@ val evaluate_apply_if_opt = Q.store_thm("evaluate_apply_if_opt",
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs [] \\ IF_CASES_TAC \\ fs []
   \\ pairarg_tac \\ fs [] \\ fs []
   \\ Cases_on `res' = NONE` \\ fs [word_exp_def] \\ rveq
-  \\ fs [get_var_def,set_var_def,asmSemTheory.word_cmp_def]);
+  \\ fs [get_var_def,set_var_def,asmTheory.word_cmp_def]);
 
 val evaluate_simp_if = Q.store_thm("evaluate_simp_if",
   `!p s. evaluate (simp_if p,s) = evaluate (p,^s)`,
@@ -144,17 +169,807 @@ val extract_labels_simp_if = Q.store_thm("extract_labels_simp_if",
   \\ imp_res_tac extract_labels_apply_if_opt
   \\ metis_tac[PERM_APPEND,PERM_TRANS,PERM_APPEND_IFF])
 
+(** verification of const_fp **)
+
+(* gc *)
+
+val is_gc_word_const_def = Define `
+  is_gc_word_const (Loc _ _) = T /\
+  is_gc_word_const (Word w) = is_gc_const w`;
+
+val gc_fun_const_ok_def = Define `
+  gc_fun_const_ok (f:'a gc_fun_type) =
+    !x y. f x = SOME y ==> EVERY2 (\a b. is_gc_word_const a ==> b = a) (FST x) (FST y)`;
+
+val sf_gc_consts_def = Define `
+  sf_gc_consts (StackFrame sv h) (StackFrame sw h') =
+  (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\ h = h')`;
+
+val sf_gc_consts_refl_thm = Q.store_thm("sf_gc_consts_refl",
+  `!x. sf_gc_consts x x`,
+  Cases_on `x` \\ rw [sf_gc_consts_def] \\ irule EVERY2_refl \\ Cases_on `x` \\ rw []);
+
+val sf_gc_consts_trans_thm = Q.store_thm("sf_gc_consts_trans",
+  `!a b c. sf_gc_consts a b /\ sf_gc_consts b c ==>
+           sf_gc_consts a c`,
+  Cases_on `a` \\ Cases_on `b` \\ Cases_on `c` \\ rw [sf_gc_consts_def] \\
+  irule EVERY2_trans
+    >- (Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [])
+    >- (asm_exists_tac \\ rw []));
+
+(* Assign *)
+
+val strip_const_thm = Q.store_thm("strip_const_thm",
+  `!xs x s. strip_const xs = SOME x ==> MAP (\a. word_exp s a) xs = MAP (SOME o Word) x`,
+  Induct \\ TRY (Cases_on `h`) \\ fs [strip_const_def, word_exp_def] \\ CASE_TAC \\ fs []);
+
+val the_words_thm = Q.store_thm("the_words_thm",
+  `!x. the_words (MAP (SOME o Word) x) = SOME x`,
+  Induct \\ rw [the_words_def]);
+
+val const_fp_exp_word_exp_thm = Q.store_thm("const_fp_exp_word_exp",
+  `!e cs s. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+            word_exp s (const_fp_exp e cs) = word_exp s e`,
+  ho_match_mp_tac const_fp_exp_ind \\ rw [const_fp_exp_def]
+  >-
+  (CASE_TAC \\ rw [word_exp_def] \\ fs [get_var_def])
+  >-
+  (CASE_TAC \\ rw [word_exp_def] \\
+  `(MAP (\a. word_exp s a) (MAP (\a. const_fp_exp a cs) args)) =
+   (MAP (\a. word_exp s a) args)` by (fs [] \\ fs [MAP_MAP_o, MAP_EQ_f]) \\ fs [] \\
+  `MAP (\a. word_exp s a) args = MAP (SOME o Word) x` by metis_tac [strip_const_thm] \\
+  fs [the_words_thm] \\ CASE_TAC \\ fs [word_exp_def] \\
+  rw [MAP_MAP_o, o_DEF, word_exp_def, SIMP_RULE std_ss [o_DEF] the_words_thm])
+  >-
+  (CASE_TAC \\ CASE_TAC \\ rw [word_exp_def] \\ every_case_tac \\
+  res_tac \\ qpat_x_assum `_ = word_exp s e` (assume_tac o GSYM) \\ fs [word_exp_def]));
+
+val const_fp_exp_word_exp_const_thm = Q.store_thm("const_fp_exp_word_exp_const",
+  `!e cs s c. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+              const_fp_exp e cs = Const c ==>
+              word_exp s e = SOME (Word c)`,
+  ho_match_mp_tac const_fp_exp_ind \\ rw [const_fp_exp_def]
+
+  >- (* Var *)
+  (every_case_tac \\ rw [word_exp_def] \\ fs [get_var_def])
+
+  >- (* Op *)
+  (every_case_tac \\ rw [word_exp_def] \\
+  `(MAP (\a. word_exp s a) args) =
+   (MAP (\a. word_exp s a) (MAP (\a. const_fp_exp a cs) args))`
+  by (fs [MAP_MAP_o, MAP_EQ_f, const_fp_exp_word_exp_thm]) \\
+  asm_rewrite_tac [] \\ imp_res_tac strip_const_thm \\
+  last_x_assum (qspec_then `s` assume_tac) \\ asm_rewrite_tac [] \\
+  rw [the_words_thm])
+
+  >- (* Shift *)
+  (every_case_tac \\ rw [word_exp_def] \\ res_tac \\
+  qpat_x_assum `!c. _` (qspec_then `c'` assume_tac) \\ fs [])
+
+  >- (* Others *)
+  (rw [word_exp_def]));
+
+(* Move *)
+
+val set_vars_move_NONE_thm = Q.store_thm("set_vars_move_NONE",
+  `!moves x s s' v.
+   set_vars (MAP FST moves) x s = s' /\
+   ALOOKUP moves v = NONE ==>
+   get_var v s' = get_var v s`,
+  Induct \\ Induct_on `x` \\ fs [set_vars_def, get_var_def, alist_insert_def] \\ rw [] \\
+  Cases_on `h'` \\ rw [] \\
+  Cases_on `q = v`\\ fs [] \\
+  rw [lookup_insert] \\ first_assum match_mp_tac \\ fs []);
+
+val set_vars_move_SOME_thm = Q.store_thm("set_vars_move_SOME",
+  `!moves x v w s s'.
+   set_vars (MAP FST moves) x s = s' /\
+   get_vars (MAP SND moves) s = SOME x /\
+   ALOOKUP moves v = SOME w ==>
+   get_var v s' = get_var w s`,
+  Induct \\ rw [] \\ Cases_on `h` \\
+  fs [get_var_def, get_vars_def, set_vars_def] \\
+  every_case_tac \\ fs [] \\ rw [alist_insert_def, lookup_insert]);
+
+val get_var_move_thm = Q.store_thm("get_var_move_thm",
+  `!s s' moves x v.
+   get_vars (MAP SND moves) s = SOME x /\
+   set_vars (MAP FST moves) x s = s' ==>
+   get_var v s' = case ALOOKUP moves v of
+     | SOME w => get_var w s
+     | NONE => get_var v s`,
+  rw [] \\ CASE_TAC \\ metis_tac [set_vars_move_SOME_thm, set_vars_move_NONE_thm]);
+
+val lookup_const_fp_move_cs_NONE_thm = Q.store_thm("lookup_const_fp_move_cs_NONE",
+  `!moves v cs cs'.
+   ALOOKUP moves v = NONE /\
+   lookup v cs = lookup v cs' ==>
+   lookup v (const_fp_move_cs moves cs cs') = lookup v cs'`,
+  Induct \\ rw [const_fp_move_cs_def] \\ fs [] \\
+  qsuff_tac `ALOOKUP moves v = NONE`
+    >-
+    (Cases_on `h` \\ rw [] \\ `q <> v` by (fs [ALOOKUP_def]) \\ every_case_tac \\ rw []
+      >-
+      (qsuff_tac `lookup v cs = lookup v (delete q cs')` \\ rw [lookup_delete])
+      >-
+      (qsuff_tac `lookup v cs = lookup v (insert q x cs')` \\ rw [lookup_insert]))
+
+    >-
+    (Cases_on `h` \\ fs [] \\ Cases_on `q = v` \\ fs []));
+
+val lookup_const_fp_move_cs_SOME_part_thm = Q.store_thm("lookup_const_fp_move_cs_SOME_part",
+  `!moves q cs cs' x.
+   ¬MEM q (MAP FST moves) /\
+   lookup q cs' = x ==>
+   lookup q (const_fp_move_cs moves cs cs') = x`,
+  Induct \\ rw [const_fp_move_cs_def] \\ CASE_TAC \\ rw [lookup_delete, lookup_insert]);
+
+(* TODO: In need of cleanup *)
+val lookup_const_fp_move_cs_SOME_thm = Q.store_thm("lookup_const_fp_move_cs_SOME",
+  `!moves v w cs cs'.
+   ALOOKUP moves v = SOME w /\
+   ALL_DISTINCT (MAP FST moves) /\
+   lookup v cs = lookup v cs' ==>
+   lookup v (const_fp_move_cs moves cs cs') = lookup w cs`,
+  Induct
+    >-
+    (rw [ALOOKUP_def])
+
+    >-
+    (rw [const_fp_move_cs_def] \\ Cases_on `h` \\ Cases_on `v = q`
+      >-
+      (fs [ALOOKUP_def] \\ every_case_tac \\ rw [] \\
+      match_mp_tac lookup_const_fp_move_cs_SOME_part_thm \\
+      rw [lookup_delete, lookup_insert])
+
+      >-
+      (every_case_tac \\ rw []
+        >-
+        (`lookup v cs = lookup v (delete q cs')` by (rw [lookup_delete]) \\
+        fs [ALOOKUP_def])
+
+        >-
+        (`lookup v cs = lookup v (insert q x cs')` by (rw [lookup_insert]) \\
+        fs []))));
+
+val lookup_const_fp_move_cs_thm = Q.store_thm("lookup_const_fp_move_cs",
+  `!v moves cs.
+   ALL_DISTINCT (MAP FST moves) ==>
+   lookup v (const_fp_move_cs moves cs cs) = case ALOOKUP moves v of
+     | SOME w => lookup w cs
+     | NONE => lookup v cs`,
+  rw [] \\ CASE_TAC \\ metis_tac [lookup_const_fp_move_cs_SOME_thm,
+                                  lookup_const_fp_move_cs_NONE_thm]);
+
+(* If *)
+
+val get_var_imm_cs_imp_get_var_imm_thm = Q.store_thm("get_var_imm_cs_imp_get_var_imm",
+  `!x y s cs. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+              get_var_imm_cs x cs = SOME y ==>
+              get_var_imm x s = SOME (Word y)`,
+  rw [] \\ Cases_on `x` \\ fs [get_var_imm_cs_def, get_var_imm_def]);
+
+(* Helpful lemmas about locals *)
+
+val get_var_set_var_thm = Q.store_thm("get_var_set_var_thm",
+  `!k1 k2 v s. get_var k1 (set_var k2 v s) =
+               if k1 = k2 then SOME v else get_var k1 s`,
+  rw [get_var_def, set_var_def, lookup_insert]);
+
+val get_var_set_store_thm = Q.store_thm("get_var_set_store_thm",
+  `!v w x s. get_var v (set_store w x s) = get_var v s`,
+  rw [get_var_def, set_store_def]);
+
+val get_var_mem_store_thm = Q.store_thm("get_var_mem_store_thm",
+  `!v addr x s. mem_store addr x s = SOME s' ==>
+                get_var v s' = get_var v s`,
+  rw [mem_store_def] \\ rw [get_var_def]);
+
+val cs_delete_if_set_thm = Q.store_thm("cs_delete_if_set",
+  `!x v1 v2 s cs w.
+   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+  lookup v2 (delete v1 cs) = SOME w ==>
+  get_var v2 (set_var v1 x s) = SOME (Word w)`,
+  rw [get_var_set_var_thm] \\ fs [lookup_delete]);
+
+val cs_delete_if_set_x2_thm = Q.store_thm("cs_delete_if_set_x2",
+  `!x1 x2 v1 v2 v3 s cs w.
+   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+  lookup v3 (delete v2 (delete v1 cs)) = SOME w ==>
+  get_var v3 (set_var v2 x2 (set_var v1 x1 s)) = SOME (Word w)`,
+  rw [] \\ irule cs_delete_if_set_thm \\ metis_tac [cs_delete_if_set_thm]);
+
+(* Lookup thms *)
+
+val lookup_inter_eq_some_thm = Q.store_thm("lookup_inter_eq_some",
+  `!m1 m2 k x. lookup k (inter_eq m1 m2) = SOME x ==>
+               lookup k m1 = SOME x /\ lookup k m2 = SOME x`,
+  rw [lookup_inter_eq] \\ every_case_tac \\ fs []);
+
+val lookup_filter_v_SOME_thm = Q.store_thm("lookup_filter_v_SOME",
+  `!t k v f. lookup k (filter_v f t) = SOME v ==> f v`,
+  rewrite_tac [lookup_filter_v] \\ rpt gen_tac \\ TOP_CASE_TAC \\ rw [] \\ rw []);
+
+val lookup_filter_v_SOME_imp_thm = Q.store_thm("lookup_filter_v_SOME_imp",
+  `!t k v f. lookup k (filter_v f t) = SOME v ==>
+             lookup k t = SOME v`,
+  rewrite_tac [lookup_filter_v] \\ rpt gen_tac \\ TOP_CASE_TAC \\ rw []);
+
+(* LIST_REL/EVERY2 thms *)
+
+val LIST_REL_prefix_thm = Q.store_thm("LIST_REL_prefix",
+  `!R l1 l2 l1' l2'. LIST_REL R (l1 ++ l2) (l1' ++ l2') /\
+                     LENGTH l1 = LENGTH l1' ==>
+                     LIST_REL R l1 l1'`,
+  Induct_on `l1` \\ Cases_on `l1'` \\ fs [] \\ rw [] \\ first_assum irule \\ rw [] \\ metis_tac []);
+
+val LIST_REL_append_left_thm = Q.store_thm("LIST_REL_append_left",
+  `!l0 l1 l2 R.
+   LIST_REL R (l0 ++ l1) l2 ==>
+   LIST_REL R l0 (TAKE (LENGTH l0) l2) /\
+   LIST_REL R l1 (DROP (LENGTH l0) l2)`,
+  rpt gen_tac \\ DISCH_TAC \\ imp_res_tac LIST_REL_LENGTH \\ irule LIST_REL_APPEND_IMP \\ fs []);
+
+(* Stack thms *)
+
+val push_env_set_store_stack_thm = Q.store_thm("push_env_set_store_stack",
+  `!x1 x2 x3 x4 s. (push_env x1 x2 (set_store x3 x4 s)).stack = (push_env x1 x2 s).stack`,
+  Cases_on `x2` \\ TRY (PairCases_on `x`) \\ rw [push_env_def, set_store_def] \\ pairarg_tac \\ fs []);
+
+val push_env_stack_gc_thm = Q.store_thm("push_env_stack_gc",
+  `!s ls h. (push_env ls h s).gc_fun = s.gc_fun`,
+  Cases_on `h` \\ TRY (PairCases_on `x`) \\
+  rw [push_env_def, env_to_list_def]);
+
+val pop_env_stack_gc_thm = Q.store_thm("pop_env_stack_gc",
+  `!s. pop_env s = SOME s' ==> s'.gc_fun = s.gc_fun`,
+  rw [pop_env_def] \\ every_case_tac \\ fs [] \\ rw []);
+
+val ALOOKUP_LIST_REL_sf_gc_consts_thm = Q.store_thm("ALOOKUP_LIST_REL_sf_gc_consts",
+  `!l1 l2 k v.
+   LIST_REL (\(ak, av) (bk, bv). ak = bk /\ (is_gc_word_const av ==> bv = av)) l1 l2 /\
+   is_gc_word_const v /\
+   ALOOKUP l1 k = SOME v ==>
+   ALOOKUP l2 k = SOME v`,
+  Induct_on `l2`
+    >- (rpt gen_tac \\ rpt strip_tac \\ fs [] \\ rveq \\ fs [ALOOKUP_def]) \\
+  rw [] \\ Cases_on `h` \\ Cases_on `x` \\ fs [ALOOKUP_def] \\ rveq \\ TOP_CASE_TAC \\ fs [] \\
+  first_assum irule \\ rw [] \\ asm_exists_tac \\ rw []);
+
+val ALL_DISTINCT_PERM_FST_thm = Q.store_thm("ALL_DISTINCT_PERM_FST",
+  `!l. ALL_DISTINCT (MAP FST l) /\ PERM l (f l) ==> ALL_DISTINCT (MAP FST (f l))`,
+  rw [] \\
+  `PERM (MAP FST l) (MAP FST (f l))` by (rw [PERM_MAP]) \\
+  drule ALL_DISTINCT_PERM \\
+  rw []);
+
+val ALOOKUP_LIST_REL_value_rel_thm = Q.store_thm("ALOOKUP_LIST_REL_value_rel",
+  `!f l' l k v. LIST_REL (\(ak, av) (bk, bv). (ak = bk) /\ (f av ==> bv = av)) l' l /\
+                ALOOKUP l' k = SOME v /\
+                f v ==>
+                ALOOKUP l k = SOME v`,
+  Induct_on `l` \\ Cases_on `l'` \\ rw [] \\
+  Cases_on `h'` \\ Cases_on `h` \\ fs [] \\ rw [] \\ fs [] \\ res_tac);
+
+val ALOOKUP_ALL_DISTINCT_FST_PERM_thm = Q.store_thm("ALOOKUP_ALL_DISTINCT_FST_PERM",
+  `!l1 l2. ALL_DISTINCT (MAP FST l1) /\ PERM l1 l2 ==> ALOOKUP l1 = ALOOKUP l2`,
+  rw [] \\ irule ALOOKUP_ALL_DISTINCT_PERM_same \\ rw [PERM_LIST_TO_SET, PERM_MAP]);
+
+val ALOOKUP_ALL_DISTINCT_FST_PERM_SOME_thm = Q.store_thm("ALOOKUP_ALL_DISTINCT_FST_PERM_SOME",
+  `!l1 f k v. ALL_DISTINCT (MAP FST l1) /\
+              PERM l1 (f l1) /\
+              ALOOKUP l1 k = SOME v ==>
+              ALOOKUP (f l1) k = SOME v`,
+  metis_tac [ALOOKUP_ALL_DISTINCT_FST_PERM_thm]);
+
+val push_env_gc_fun_thm = Q.store_thm("push_env_gc_fun",
+  `!s x h. (push_env x h s).gc_fun = s.gc_fun`,
+  Cases_on `h` \\ fs [] \\ TRY (PairCases_on `x`) \\ rw [push_env_def, env_to_list_def]);
+
+val pop_env_gc_fun_thm = Q.store_thm("pop_env_gc_fun",
+  `!s s'. pop_env s = SOME s' ==> s'.gc_fun = s.gc_fun`,
+  rw [pop_env_def] \\ every_case_tac \\ fs [] \\ rw []);
+
+val pop_env_gc_fun_const_ok_thm = Q.store_thm("pop_env_gc_fun_const_ok",
+  `!s s'. pop_env s = SOME s' /\ gc_fun_const_ok s.gc_fun ==>
+          gc_fun_const_ok s'.gc_fun`,
+  metis_tac [pop_env_gc_fun_thm]);
+
+(*val call_env_push_env_dec_clock_thm = Q.store_thm("call_env_push_env_dec_clock",
+  `!s s'. s' = (call_env x0 (push_env x1 x2 (dec_clock s))) ==> s'.gc_fun = s.gc_fun`,
+  rw [dec_clock_def, call_env_def] \\ metis_tac [push_env_gc_fun_thm]);*)
+
+val evaluate_gc_fun_const_ok_thm = Q.store_thm("evaluate_gc_fun_const_ok",
+  `!p s res s'. evaluate (p, s) = (res, s') /\ gc_fun_const_ok s.gc_fun ==>
+                gc_fun_const_ok s'.gc_fun`,
+  metis_tac [evaluate_gc_fun_const]);
+
+val get_above_handler_def = Define `
+  get_above_handler s = case EL (LENGTH s.stack - (s.handler + 1)) s.stack of
+                          | StackFrame _ (SOME (h,_,_)) => h`;
+
+val enc_stack_dec_stack_is_gc_word_const_thm = Q.store_thm("enc_stack_dec_stack_is_gc_word_const",
+  `!s s' s'l.
+   LIST_REL (\a b. is_gc_word_const a ==> b = a) (enc_stack s) s'l /\
+   dec_stack s'l s = SOME s' ==>
+   LIST_REL sf_gc_consts s s'`,
+  Induct >- (rw [enc_stack_def] \\ fs [dec_stack_def]) \\
+  Cases_on `h` \\ rw [enc_stack_def] \\ fs [dec_stack_def] \\ every_case_tac \\ fs [] \\ rw []
+  >-
+  (rw [sf_gc_consts_def] \\
+  `(\(ak:num, av) (bk, bv). ak = bk /\ (is_gc_word_const av ==> bv = av)) =
+   (\a b. (FST a) = (FST b) /\ (is_gc_word_const (SND a) ==> (SND b) = (SND a)))`
+  by (rpt (irule EQ_EXT \\ rw [] \\ Cases_on `x'`) \\ rw []) \\
+  simp [LIST_REL_CONJ] \\ conj_tac
+    >-
+    (`(\a:(num#'a word_loc) b:(num#'a word_loc). FST a = FST b) = (\a b. a = (FST b)) o FST`
+    by (rpt (irule EQ_EXT \\ rw [] \\ Cases_on `x'`) \\ rw []) \\
+    rw [GSYM LIST_REL_MAP1] \\ rw [Once (GSYM LIST_REL_MAP2)] \\ rw [MAP_ZIP] \\ rw [EVERY2_refl])
+    >-
+    (`(\a:(num#'a word_loc) b:(num#'a word_loc). is_gc_word_const (SND a) ==> SND b = SND a) =
+     (\a b. is_gc_word_const a ==> SND b = a) o SND`
+    by (rpt (irule EQ_EXT \\ rw [] \\ Cases_on `x'`) \\ rw []) \\
+    rw [GSYM LIST_REL_MAP1] \\
+
+    `(\a:('a word_loc) b:(num#'a word_loc). is_gc_word_const a ==> SND b = a) =
+     (\a b. (\x y. is_gc_word_const x ==> y = x) a (SND b))`
+    by (rpt (irule EQ_EXT \\ Cases_on `x`) \\ rw []) \\
+    asm_rewrite_tac [] \\ rewrite_tac [GSYM LIST_REL_MAP2] \\
+
+    rw [MAP_ZIP] \\ imp_res_tac LIST_REL_append_left_thm \\ fs []))
+  >-
+  (last_assum irule \\ asm_exists_tac \\ rw [] \\
+  imp_res_tac LIST_REL_append_left_thm \\ fs []));
+
+val gc_fun_sf_gc_consts_thm = Q.store_thm("gc_fun_sf_gc_consts",
+  `!s s'l s' gc_fun memory memory' mdomain store store'.
+   gc_fun_const_ok gc_fun /\
+   gc_fun (enc_stack s, memory, mdomain, store) = SOME (s'l, memory', store') /\
+   dec_stack s'l s = SOME s' ==>
+   LIST_REL sf_gc_consts s s'`,
+  rw [] \\ imp_res_tac gc_fun_const_ok_def \\ fs [] \\
+  metis_tac [enc_stack_dec_stack_is_gc_word_const_thm]);
+
+val gc_sf_gc_consts_thm = Q.store_thm("gc_sf_gc_consts",
+  `!s s'. gc_fun_const_ok s.gc_fun /\ gc s = SOME s' ==> LIST_REL sf_gc_consts s.stack s'.stack`,
+  rw [gc_def] \\ every_case_tac \\ fs [] \\ imp_res_tac gc_fun_sf_gc_consts_thm \\ rw []);
+
+val gc_handler_thm = Q.store_thm("gc_handler",
+  `!s s'. gc s = SOME s' ==> s'.handler = s.handler`,
+  rw [gc_def] \\ every_case_tac \\ rw [] \\ rw []);
+
+val sf_gc_consts_get_above_handler_thm = Q.store_thm("sf_gc_consts_get_above_handler",
+  `!s s'. LIST_REL sf_gc_consts s.stack s'.stack /\
+          s'.handler = s.handler /\
+          s.handler < LENGTH s.stack ==>
+          get_above_handler s' = get_above_handler s`,
+  rw [get_above_handler_def] \\ imp_res_tac EVERY2_LENGTH \\
+  `sf_gc_consts (EL (LENGTH s'.stack − (s.handler + 1)) s.stack)
+                (EL (LENGTH s'.stack − (s.handler + 1)) s'.stack)`
+  by (fs [LIST_REL_EL_EQN]) \\ every_case_tac \\ fs [sf_gc_consts_def]);
+
+val LIST_REL_call_Result_thm = Q.store_thm("LIST_REL_call_Result",
+  `!s s' s'' s''' env handler.
+   LIST_REL sf_gc_consts (push_env env handler s).stack s''.stack /\
+   pop_env s'' = SOME s''' /\
+   s''.handler = (push_env env handler s).handler ==>
+   LIST_REL sf_gc_consts s.stack s'''.stack /\ s'''.handler = s.handler`,
+  rpt gen_tac \\ strip_tac \\
+  Cases_on `handler` \\ TRY (PairCases_on `x`) \\ fs [push_env_def, pop_env_def] \\ pairarg_tac \\ fs [] \\
+  every_case_tac \\ fs [] \\ rw [] \\ rfs [] \\ qpat_x_assum `_ = x` (assume_tac o GSYM) \\ fs [sf_gc_consts_def]);
+
+val get_above_handler_call_env_push_env_dec_clock_thm = Q.store_thm("get_above_handler_call_env_push_env_dec_clock",
+  `!s s' s'' args env x0 x1 x2 x3.
+   s' = call_env args (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) /\
+   s''.handler = get_above_handler s' ==>
+   s''.handler = s.handler`,
+  rw [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [get_above_handler_def] \\
+  `SUC (LENGTH s.stack) − (LENGTH s.stack + 1) = 0` by (rw[]) \\ asm_rewrite_tac [] \\ rw []);
+
+val call_env_push_env_dec_clock_handler_length_thm = Q.store_thm("call_env_push_env_dec_clock_handler_length",
+  `!s s' args env x0 x1 x2 x3. s' = call_env args (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) ==>
+   s'.handler < LENGTH s'.stack`,
+  rw [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs []);
+
+val EVERY2_trans_LASTN_sf_gc_consts_thm = Q.store_thm("EVERY2_trans_LASTN_sf_gc_consts",
+  `!l l' l'' n R. n <= LENGTH l /\ LIST_REL sf_gc_consts l l' /\ LIST_REL sf_gc_consts (LASTN n l') l'' ==>
+             LIST_REL sf_gc_consts (LASTN n l) l''`,
+  rw [] \\ irule EVERY2_trans >- metis_tac [sf_gc_consts_trans_thm] \\
+  qexists_tac `LASTN n l'` \\ rw [list_rel_lastn]);
+
+val LIST_REL_push_env_thm = Q.store_thm("LIST_REL_push_env",
+  `!R s s' env h. LIST_REL R (push_env env h s).stack s'.stack ==> LIST_REL R s.stack (TL s'.stack)`,
+  Cases_on `h` \\ TRY (PairCases_on `x`) \\ rw [push_env_def] \\ pairarg_tac \\ fs []);
+
+val LASTN_LENGTH_CONS_thm = Q.store_thm("LASTN_LENGTH_CONS",
+  `!l h. LASTN (LENGTH l) (h::l) = l`,
+  rw [] \\ `h::l = [h] ++ l` by (rw[]) \\ asm_rewrite_tac [] \\ irule LASTN_LENGTH_APPEND);
+
+val LASTN_TL_res_thm = Q.store_thm("LASTN_TL_res",
+  `!l n h t. n < LENGTH l /\ LASTN (n + 1) l = (h::t) ==> t = LASTN n l`,
+  rw [] \\ `n + 1 <= LENGTH l` by (DECIDE_TAC) \\ fs [LASTN_DROP, DROP_EL_CONS]);
+
+val HD_LASTN_thm = Q.store_thm("HD_LASTN",
+  `!l n. 0 < n /\ n <= LENGTH l ==> HD (LASTN n l) = EL (LENGTH l - n) l`,
+  rw [] \\ imp_res_tac LASTN_DROP \\ ASSUME_TAC (Q.SPEC `0` EL_DROP) \\ fs []);
+
+val push_env_pop_env_locals_thm = Q.store_thm("push_env_pop_env_locals_thm",
+  `!(s:('a, 'ffi) wordSem$state) s' s'' s''' env names (handler:(num # 'a prog # num # num) option).
+  cut_env names s.locals = SOME env /\
+  push_env env handler s = s' /\
+  LIST_REL sf_gc_consts s'.stack s''.stack /\
+  pop_env s'' = SOME s''' ==>
+  (!v w. get_var v s = SOME w /\ is_gc_word_const w /\ lookup v names <> NONE ==> get_var v s''' = SOME w)`,
+  Cases_on `handler` \\ TRY (PairCases_on `x`) \\ rw [push_env_def, env_to_list_def] \\
+  fs [LIST_REL_def] \\ Cases_on `y` \\ fs [sf_gc_consts_def, pop_env_def] \\ rfs [] \\ rveq \\ fs [] \\
+  rw [get_var_def, lookup_fromAList] \\
+
+  irule ALOOKUP_LIST_REL_sf_gc_consts_thm \\ rw [Once CONJ_COMM] \\ asm_exists_tac \\ rw [] \\
+
+  `ALL_DISTINCT (MAP FST (toAList env))` by (rw [ALL_DISTINCT_MAP_FST_toAList]) \\
+
+  (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME_thm
+      >- (irule ALL_DISTINCT_PERM_FST_thm \\ fs [QSORT_PERM])
+      >- (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME_thm \\ fs [ALOOKUP_toAList, QSORT_PERM, ALOOKUP_toAList]
+          \\ fs [cut_env_def, get_var_def] \\ rw [lookup_inter_EQ])
+      >- (irule PERM_list_rearrange \\ metis_tac [ALL_DISTINCT_MAP, QSORT_PERM, ALL_DISTINCT_PERM])));
+
+val evaluate_sf_gc_consts_thm = Q.store_thm("evaluate_sf_gc_consts",
+  `!p s s' res.
+   evaluate (p, s) = (res, s') /\ gc_fun_const_ok s.gc_fun ==>
+   (case res of
+     | NONE =>
+       LIST_REL sf_gc_consts s.stack s'.stack /\
+       s'.handler = s.handler
+     | SOME (Result _ _) =>
+       LIST_REL sf_gc_consts s.stack s'.stack /\
+       s'.handler = s.handler
+     | SOME (Exception _ _) =>
+       s.handler < LENGTH s.stack ==>
+       LIST_REL sf_gc_consts (LASTN s.handler s.stack) s'.stack /\
+       s'.handler = get_above_handler s
+     | _ => T)`,
+  recInduct evaluate_ind \\ reverse (rpt conj_tac)
+
+  >- (** Call **)
+  (rpt gen_tac \\ rpt DISCH_TAC \\ rpt gen_tac \\ DISCH_TAC \\ fs [evaluate_def] \\
+  qpat_x_assum `_ = (res,s')` mp_tac \\
+  ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
+  PairCases_on `x'` \\ fs [] \\
+  TOP_CASE_TAC
+    >- (every_case_tac \\ rw [] \\ fs [call_env_def, dec_clock_def, get_above_handler_def]) \\
+
+  PairCases_on `x'` \\ fs [] \\
+  ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
+  TOP_CASE_TAC \\
+  TOP_CASE_TAC >- (rw [] \\ rw []) \\
+  TOP_CASE_TAC
+    >- (* Result from fun call *)
+    (ntac 2 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
+    reverse TOP_CASE_TAC >- (rw [] \\ rw []) \\
+    fs [call_env_def, dec_clock_def, set_var_def] \\
+
+    rfs [push_env_gc_fun_thm] \\
+    imp_res_tac evaluate_gc_fun_const_ok_thm \\
+    rfs [push_env_gc_fun_thm] \\
+    imp_res_tac pop_env_gc_fun_const_ok_thm \\
+
+    imp_res_tac LIST_REL_call_Result_thm \\
+    DISCH_TAC \\ TOP_CASE_TAC
+      >- (* NONE from ret_handler *)
+      (res_tac \\ fs [] \\ irule EVERY2_trans >- ACCEPT_TAC sf_gc_consts_trans_thm \\
+      asm_exists_tac \\ rw []) \\
+
+    TOP_CASE_TAC
+      >- (* Result from ret_handler *)
+      (res_tac \\ fs[] \\ irule EVERY2_trans >- ACCEPT_TAC sf_gc_consts_trans_thm \\
+      asm_exists_tac \\ rw [])
+
+      >- (* Exception from ret_handler *)
+      (DISCH_TAC \\ res_tac \\
+      `x''.handler < LENGTH x''.stack` by (metis_tac [LIST_REL_LENGTH]) \\ fs [] \\ conj_tac
+        >-
+        (irule EVERY2_trans_LASTN_sf_gc_consts_thm >- rw [] \\ rfs [] \\ asm_exists_tac \\ rw [])
+        >-
+        rw [sf_gc_consts_get_above_handler_thm]))
+
+    >- (* Exception from fun call *)
+    (TOP_CASE_TAC
+      >- (* NONE, no handler *)
+      (rw [] \\ fs [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [] \\
+      DISCH_TAC \\ res_tac \\ `s.handler < SUC (LENGTH s.stack)` by DECIDE_TAC \\ fs [] \\ conj_tac
+        >-
+        fs [LASTN_CONS]
+        >-
+        (rw [get_above_handler_def, ADD1] \\
+        `(LENGTH s.stack − s.handler) = SUC (LENGTH s.stack − (s.handler + 1))` by (fs[]) \\ fs []))
+
+      >- (* SOME, has handler *)
+      (PairCases_on `x''` \\ fs [] \\
+      TOP_CASE_TAC >- (rw [] \\ rw []) \\
+      reverse (TOP_CASE_TAC) >- (rw [] \\ rw []) \\
+
+      imp_res_tac evaluate_gc_fun_const_ok_thm \\
+      fs [call_env_def, push_env_def, dec_clock_def, set_var_def] \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\
+
+      fs [LASTN_LENGTH_CONS_thm] \\
+
+      DISCH_TAC \\ TOP_CASE_TAC \\ TRY (TOP_CASE_TAC)
+        \\ TRY ( (* NONE or Result from handler *)
+        res_tac \\ fs [] \\ rw []
+          >- (irule EVERY2_trans
+            >- ACCEPT_TAC sf_gc_consts_trans_thm
+            >- (asm_exists_tac \\ rw []))
+          >- (rw [get_above_handler_def] \\ rw [ADD1]))
+
+        >- (* Exception from handler *)
+        (DISCH_TAC \\ res_tac \\ fs [get_above_handler_def, ADD1] \\
+        `r.handler < LENGTH r.stack` by (metis_tac [LIST_REL_LENGTH]) \\
+        fs [] \\ conj_tac
+          >- (irule EVERY2_trans_LASTN_sf_gc_consts_thm >- rw [] \\ asm_exists_tac \\ rw [])
+          >- metis_tac [sf_gc_consts_get_above_handler_thm, get_above_handler_def])))
+
+    \\ (* Other cases *)
+    (rw [] \\ rw []))
+
+  \\ (** Easy cases **)
+  TRY (rw [evaluate_def] \\ every_case_tac \\
+  fs [call_env_def, dec_clock_def, mem_store_def, set_var_def, set_vars_def, set_store_def] \\
+  TRY (pairarg_tac \\ fs []) \\
+  imp_res_tac inst_const_full \\
+  rw [] \\
+  irule EVERY2_refl \\ rw [sf_gc_consts_refl_thm])
+
+  >- (** Raise **)
+  (rw [evaluate_def, jump_exc_def] \\ every_case_tac \\ fs [] \\
+  imp_res_tac LASTN_TL_res_thm \\ rw [get_above_handler_def]
+    >- (irule EVERY2_refl \\ rw [sf_gc_consts_refl_thm])
+    >- fs [GSYM HD_LASTN_thm])
+
+  >- (** Seq **)
+  (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\
+  imp_res_tac evaluate_gc_fun_const_ok_thm \\ res_tac \\
+  TRY (rw [] \\ irule EVERY2_trans >- ACCEPT_TAC sf_gc_consts_trans_thm >- (asm_exists_tac \\ rw [])) \\
+  DISCH_TAC \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ conj_tac
+    >- (irule EVERY2_trans_LASTN_sf_gc_consts_thm \\ rw [] \\ asm_exists_tac \\ rw [])
+    >- rw [sf_gc_consts_get_above_handler_thm])
+
+  >- (** MustTerminate **)
+  (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ rw [] \\ rw [get_above_handler_def])
+
+  >- (** Alloc **)
+  (rw [evaluate_def, alloc_def] \\ every_case_tac \\ fs [] \\
+  imp_res_tac gc_sf_gc_consts_thm \\ fs [push_env_def, set_store_def, pop_env_def] \\
+  pairarg_tac \\ fs [] \\ res_tac \\ Cases_on `y` \\ fs [sf_gc_consts_def] \\
+  rveq \\ fs [] \\ imp_res_tac gc_handler_thm \\ rw []));
+
+val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
+  `!p cs p' cs' s res s'.
+   evaluate (p, s) = (res, s') /\
+   const_fp_loop p cs = (p', cs') /\
+   gc_fun_const_ok s.gc_fun /\
+   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+   evaluate (p', s) = (res, s') /\
+   (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))`,
+
+  ho_match_mp_tac const_fp_loop_ind \\ (rpt conj_tac)
+  >- (** Move **)
+  (fs [const_fp_loop_def, evaluate_def] \\ rw [const_fp_move_cs_def] \\
+  every_case_tac \\ fs [] \\
+  imp_res_tac get_var_move_thm \\ asm_rewrite_tac [] \\
+  imp_res_tac (INST_TYPE [``:'a``|->``:'a word``] lookup_const_fp_move_cs_thm) \\
+  CASE_TAC \\ fs [])
+
+  >- (** Inst **)
+  (rw [] >- fs [const_fp_loop_def] \\
+  Cases_on `i` \\ fs [const_fp_loop_def, const_fp_inst_cs_def, evaluate_def]
+    >- (* Skip *)
+    (fs [inst_def] \\ rw [])
+    >- (* Const *)
+    (fs [inst_def, assign_def, word_exp_def] \\ metis_tac [cs_delete_if_set_thm])
+    >- (* Arith *)
+    (Cases_on `a` \\ fs [const_fp_inst_cs_def, inst_def, assign_def] \\
+    every_case_tac \\ fs [] \\ rveq \\
+    fs [get_var_def,set_var_def,lookup_insert,lookup_delete] \\
+    metis_tac [cs_delete_if_set_thm, cs_delete_if_set_x2_thm])
+    >- (* Mem *)
+    (Cases_on `m` \\ fs [inst_def, const_fp_inst_cs_def]
+      >- (* Load *)
+      (every_case_tac \\ fs [] \\ metis_tac [cs_delete_if_set_thm])
+      >- (* Load8 *)
+      (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
+      metis_tac [cs_delete_if_set_thm, cs_delete_if_set_thm])
+      \\ (* Otherwise *)
+      every_case_tac \\ fs [mem_store_def, get_var_def] \\ rw []))
+
+  >- (** Assign **)
+  (rpt gen_tac \\ strip_tac \\
+  fs [const_fp_loop_def] \\ FULL_CASE_TAC \\ fs [] \\
+  rveq \\ fs [evaluate_def] \\ (rw [] >- (metis_tac [const_fp_exp_word_exp_thm]))
+    >- (* Const *)
+    (imp_res_tac const_fp_exp_word_exp_const_thm \\
+    fs [lookup_insert] \\ every_case_tac \\ fs [] \\ rw [get_var_set_var_thm])
+    \\ (* Other cases *)
+    fs [lookup_delete] \\ every_case_tac \\ fs [] \\ rw [get_var_set_var_thm])
+
+  >- (** Get **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  every_case_tac \\ fs [] \\ metis_tac [cs_delete_if_set_thm])
+
+  >- (** MustTerminate **)
+  (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def] \\ pairarg_tac \\
+  fs [] \\ qpat_x_assum `_ = p'` (assume_tac o GSYM) \\ fs [evaluate_def] \\
+  TOP_CASE_TAC >- (rw []) \\ rpt (pairarg_tac \\ fs []) \\
+  `gc_fun_const_ok (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>).gc_fun`
+  by (rw []) \\
+  `!v w. lookup v cs = SOME w ==>
+         get_var v (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>) = SOME (Word w)`
+  by (fs [get_var_def]) \\
+  res_tac \\ every_case_tac \\ fs [get_var_def] \\ rw [])
+
+  >- (** Seq **)
+  (rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac \\
+  fs [evaluate_def, const_fp_loop_def] \\
+  rpt (pairarg_tac \\ fs []) \\
+  imp_res_tac evaluate_gc_fun_const \\
+  (* Does the first program evaluation fail? *)
+  Cases_on `res'` \\ fs [] \\ res_tac \\ fs [] \\ rw [evaluate_def])
+
+  >- (** If **)
+  (rpt gen_tac \\ strip_tac \\ rewrite_tac [evaluate_def, const_fp_loop_def] \\ rpt gen_tac \\
+  reverse (Cases_on `lookup lhs cs`) \\ reverse (Cases_on `get_var_imm_cs rhs cs`) \\
+  DISCH_TAC \\ fs []
+    >- (* Both SOME *)
+    (imp_res_tac get_var_imm_cs_imp_get_var_imm_thm \\ res_tac \\ fs [] \\
+    Cases_on `word_cmp cmp x x'` \\ fs [] \\ res_tac \\ rw [])
+
+    \\ (* Otherwise *)
+    (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
+    res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
+
+  >- (** Call **)
+  (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def, evaluate_def] \\
+  qpat_x_assum `_ = (res, s')` mp_tac \\
+  ntac 3 (TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
+                           rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def])) \\
+  TOP_CASE_TAC \\
+  TOP_CASE_TAC >- (every_case_tac \\ fs [] \\
+                   rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def]) \\
+  PairCases_on `x'` \\ fs [] \\
+  ntac 3 (TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
+                           rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def])) \\
+  TOP_CASE_TAC \\
+  TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
+                   rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def]) \\
+  reverse (Cases_on `handler`) \\ fs []
+    >- (every_case_tac \\ rw [evaluate_def] \\ fs [lookup_def]) \\
+  pairarg_tac \\ fs [] \\ TOP_CASE_TAC \\ fs [] \\
+  TRY (rw [evaluate_def] \\ fs [add_ret_loc_def] \\ NO_TAC) \\
+  rveq \\ fs [add_ret_loc_def] \\
+  TOP_CASE_TAC >- rw [evaluate_def, add_ret_loc_def, find_code_def] \\
+  rewrite_tac [evaluate_def, add_ret_loc_def, find_code_def] \\
+  imp_res_tac evaluate_sf_gc_consts_thm \\ fs [call_env_def, dec_clock_def] \\
+  TOP_CASE_TAC >- rw [] \\
+  reverse TOP_CASE_TAC >- rw [] \\
+  DISCH_TAC \\ first_assum irule
+    >- (rw [get_var_set_var_thm, lookup_delete] \\
+       imp_res_tac lookup_filter_v_SOME_thm \\
+       imp_res_tac lookup_filter_v_SOME_imp_thm \\
+       fs [lookup_inter_EQ] \\ rfs [] \\
+       qpat_x_assum `_ ==> _ /\ _` mp_tac \\
+       impl_tac THEN1 (fs [push_env_def] \\ pairarg_tac \\ fs []) \\
+       strip_tac \\
+       drule push_env_pop_env_locals_thm \\ fs [] \\
+       rpt (disch_then drule) \\ fs [AND_IMP_INTRO] \\
+       disch_then match_mp_tac \\ fs [is_gc_word_const_def])
+    >- (imp_res_tac evaluate_gc_fun_const \\ imp_res_tac pop_env_gc_fun_thm \\
+       fs [set_var_def, push_env_gc_fun_thm])
+    >- (rw []))
+
+  >- (** FFI **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  every_case_tac \\ fs [] \\ pairarg_tac \\
+  fs [cut_env_def, get_var_def, lookup_inter] \\
+  every_case_tac \\ fs [] \\ res_tac \\ rw [lookup_inter])
+
+  >- (** LocValue **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  metis_tac [cs_delete_if_set_thm])
+
+  >- (** Alloc **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def, alloc_def] \\ every_case_tac \\ fs [] \\
+  `gc_fun_const_ok (push_env x (NONE:(num # 'a prog # num # num) option) (set_store AllocSize (Word c) s)).gc_fun`
+  by (fs [set_store_def, push_env_gc_fun_thm]) \\
+  imp_res_tac gc_sf_gc_consts_thm \\
+  fs [push_env_set_store_stack_thm] \\
+  imp_res_tac lookup_filter_v_SOME_thm \\
+  imp_res_tac lookup_filter_v_SOME_imp_thm \\ fs [lookup_inter_EQ] \\
+  metis_tac [push_env_pop_env_locals_thm, is_gc_word_const_def])
+
+  >- (** Skip **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ fs [])
+
+  >- (** Set **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  res_tac \\ every_case_tac \\ rw [] \\ rw [get_var_set_store_thm])
+
+  >- (** Store **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  every_case_tac \\ rw [] \\ metis_tac [get_var_mem_store_thm])
+
+  \\ (** Remaining: Raise, Return and Tick **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def, dec_clock_def] \\
+  every_case_tac \\ fs []));
+
+val evaluate_const_fp = Q.store_thm("evaluate_const_fp",
+  `!p s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp p, s) = evaluate (p, s)`,
+  rw [const_fp_def] \\ imp_res_tac evaluate_const_fp_loop_thm \\
+  last_assum (qspec_then `LN` assume_tac) \\ fs [lookup_def] \\
+  Cases_on `const_fp_loop p LN` \\ simp [] \\ res_tac \\
+  Cases_on `evaluate (p, s)` \\ res_tac)
+
+val extract_labels_const_fp = Q.store_thm("extract_labels_const_fp",
+  `labels_rel (extract_labels p) (extract_labels (const_fp p))`,
+  fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
+  \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
+  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
+  \\ ho_match_mp_tac const_fp_loop_ind
+  \\ ntac 6 (conj_tac THEN1
+   (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def]
+    \\ every_case_tac
+    \\ fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def]
+    \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [extract_labels_def]
+    \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [extract_labels_def]
+    \\ match_mp_tac labels_rel_APPEND \\ fs []))
+  \\ reverse (rpt conj_tac)
+  \\ TRY (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def] \\ NO_TAC)
+  THEN1 (* Call *)
+   (rw [] \\ fs [const_fp_loop_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ fs [extract_labels_def]
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ match_mp_tac labels_rel_APPEND \\ fs [])
+  \\ (* If *) rw [] \\ fs [const_fp_loop_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ fs [extract_labels_def]
+  \\ TRY (match_mp_tac labels_rel_APPEND \\ fs [])
+  \\ fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF]);
+
+val every_inst_inst_ok_less_const_fp = Q.store_thm("every_inst_inst_ok_less_const_fp",
+  `∀prog.
+    every_inst (inst_ok_less ac) prog ⇒
+    every_inst (inst_ok_less ac) (const_fp prog)`,
+  strip_tac
+  \\ fs [const_fp_def] \\ Cases_on `const_fp_loop prog LN`
+  \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
+  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
+  \\ ho_match_mp_tac const_fp_loop_ind \\ rw []
+  \\ fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
+  \\ every_case_tac \\ rw [] \\ fs [every_inst_def]
+  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
+  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]);
+
 (* putting it all together *)
 
 val compile_exp_thm = Q.store_thm("compile_exp_thm",
-  `wordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error ==>
-    evaluate (word_simp$compile_exp prog,s) = (res,s2)`,
-  fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc]);
+  `wordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error /\
+   gc_fun_const_ok s.gc_fun ==>
+   evaluate (word_simp$compile_exp prog,s) = (res,s2)`,
+    fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc,
+        evaluate_const_fp]);
 
 val extract_labels_compile_exp = Q.store_thm("extract_labels_compile_exp[simp]",
-  `!p. PERM (extract_labels (word_simp$compile_exp p)) (extract_labels p)`,
+  `!p. labels_rel (extract_labels p)
+                  (extract_labels (word_simp$compile_exp p))`,
   fs [word_simpTheory.compile_exp_def]>>
-  metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS])
+  metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS,
+            extract_labels_const_fp,PERM_IMP_labels_rel,labels_rel_TRANS]);
 
 val dest_Seq_no_inst = Q.prove(`
   ∀prog.
@@ -192,6 +1007,7 @@ val compile_exp_no_inst = Q.store_thm("compile_exp_no_inst",`
   every_inst (inst_ok_less ac) prog ⇒
   every_inst (inst_ok_less ac) (compile_exp prog)`,
   fs[compile_exp_def]>>
-  metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def])
+  metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def,
+            every_inst_inst_ok_less_const_fp])
 
 val _ = export_theory();
