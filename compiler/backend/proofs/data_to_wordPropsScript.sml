@@ -5482,7 +5482,7 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
        i1 <> i2 /\
        ?a x2. get_real_addr c st w2 = SOME a /\
               m a = Word x2 /\ a IN dm /\
-              (i1 < i2 <=> ((x2 && 16w) = 0w))
+              word_cmp_res i1 i2 = if (x2 && 16w) = 0w then 0w else 2w:'a word
      else if word_bit 0 w1 /\ word_bit 0 w2 then
        ?a1 x1 a2 x2.
          get_real_addr c st w1 = SOME a1 /\ m a1 = Word x1 /\ a1 IN dm /\
@@ -5494,17 +5494,17 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
                (a2 + bytes_in_word * (decode_length c x2))
                  dm m = SOME (word_cmp_res i1 i2)
          else
-           i1 <> i2 /\
-           if (x1 && 16w) = 0w (* 0 <= i1 *) then
-             if (x2 && 16w) = 0w (* 0 <= i2 *) then
-               decode_length c x1 <+ decode_length c x2 <=> i1 < i2
-             else
-               i2 < i1
-           else
-             if (x2 && 16w) = 0w (* 0 <= i2 *) then
-               i1 < i2
-             else
-               decode_length c x1 <+ decode_length c x2 <=> i2 < i1
+           word_cmp_res i1 i2 =
+           (if (x1 && 16w) = 0w (* 0 <= i1 *) then
+              if (x2 && 16w) = 0w (* 0 <= i2 *) then
+                if decode_length c x1 <+ decode_length c x2 then 0w else 2w:'a word
+              else
+                2w
+            else
+              if (x2 && 16w) = 0w (* 0 <= i2 *) then
+                0w
+              else
+                if decode_length c x1 <+ decode_length c x2 then 2w else 0w)
      else T`,
   strip_tac
   \\ drule memory_rel_Number_IMP_Word_2 \\ strip_tac \\ rveq
@@ -5530,7 +5530,7 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
     \\ imp_res_tac memory_rel_tail
     \\ drule memory_rel_Number_bignum_IMP_ALT \\ fs []
     \\ strip_tac \\ fs []
-    \\ fs [small_int_def]
+    \\ fs [small_int_def,word_cmp_res_def] \\ rw []
     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
     \\ intLib.COOPER_TAC)
   \\ reverse (IF_CASES_TAC) THEN1 fs []
@@ -5560,6 +5560,7 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
   \\ fs [WORD_LO]
   \\ rveq \\ rfs [] \\ fs []
   \\ Cases_on `i1` \\ Cases_on `i2` \\ fs []
+  \\ fs [word_cmp_res_def]
   \\ fs [EVAL ``n2mw 0``,Num_ABS_lemmas]
   \\ Cases_on `n = n'` \\ fs []
   \\ Cases_on `n <= n'` \\ Cases_on `n' <= n`
