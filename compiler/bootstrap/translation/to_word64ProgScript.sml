@@ -557,7 +557,16 @@ val _ = translate (spec64 full_ssa_cc_trans_def)
 val word_alloc_full_ssa_cc_trans_side = Q.prove(`
   ∀x y. word_alloc_full_ssa_cc_trans_side x y`,
   simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
-  rw[]>>pop_assum kall_tac>>
+  rw[]>-
+    (simp[fetch "-" "word_alloc_setup_ssa_side_def"]>>
+    qmatch_goalsub_abbrev_tac `list_next_var_rename A B C`>>
+    map_every qid_spec_tac [`C`,`B`,`A`]>>
+    rpt (pop_assum kall_tac)>>
+    Induct>>EVAL_TAC>>fs[FORALL_PROD,LAMBDA_PROD]>>rw[]>>
+    pairarg_tac>>fs[]>>rveq>>
+    res_tac>>
+    fs[])>>
+  pop_assum kall_tac>>
   map_every qid_spec_tac [`v6`,`v7`,`y`]>>
   ho_match_mp_tac ssa_cc_trans_ind>>
   rw[]>>
