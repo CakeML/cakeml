@@ -163,8 +163,21 @@ val next_sym_alt_def = tDefine "next_sym_alt"`
      if isSpace c then (* skip blank space *)
        next_sym_alt str
      else if isDigit c then (* read number *)
-       let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (&(num_from_dec_string_alt (c::n))), rest)
+       if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
+         if TL str = "" then SOME (ErrorS, "")
+         else if isDigit (HD (TL str)) then
+           let (n,rest) = read_while isDigit (TL str) []
+           in
+             SOME (WordS (&toNum n), rest)
+         else if HD (TL str) = #"x" then
+           let (n,rest) = read_while isHexDigit (TL (TL str)) []
+           in
+             SOME (WordS (&num_from_hex_string n), rest)
+         else SOME (ErrorS, TL str)
+       else
+         let (n,rest) = read_while isDigit str []
+         in
+           SOME (NumberS (&(num_from_dec_string_alt (c::n))), rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string_alt n)), rest)
