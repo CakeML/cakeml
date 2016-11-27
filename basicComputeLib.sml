@@ -65,5 +65,6 @@ val add_basic_compset =
    ,sortingTheory.PARTITION_DEF
    ,sortingTheory.PART_DEF
    ,sortingTheory.QSORT_DEF
+   ,sptreeTheory.inter_eq_def
    ,sptreeTheory.filter_v_def] ]
 end
