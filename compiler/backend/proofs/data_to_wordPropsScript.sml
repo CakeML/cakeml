@@ -5566,4 +5566,33 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
   \\ Cases_on `n <= n'` \\ Cases_on `n' <= n`
   \\ imp_res_tac LENGTH_n2mw_LESS_LENGTH_n2mw \\ fs []);
 
+(*
+
+memory_rel_Number_cmp
+
+val Compare1_location_def =
+  Compare1_location = 78`;
+
+val Compare1_code_def = Define `
+  Compare1_code =
+    (* l is 2, a1 is 4, a2 is 6 *)
+    If Equal 2 (Imm 0w)
+      (Seq (Assign 2 (Const 1w)) (Return 0 2))
+      (list_Seq
+         [Assign 8 (Load (Var 4));
+          Assign 9 (Load (Var 6));
+          If Equal 8 (Reg 9)
+            (list_Seq
+               [Assign 2 (Op Sub [Var 2; Const 1w]);
+                Assign 4 (Op Sub [Var 4; Const bytes_in_word]);
+                Assign 6 (Op Sub [Var 6; Const bytes_in_word]);
+                Call NONE  [0;2;4;6] NONE])
+            (If Lower 8 (Reg 9)
+              (Seq (Assign 2 (Const 0w)) (Return 0 2))
+              (Seq (Assign 2 (Const 2w)) (Return 0 2)))])`
+
+word_cmp_loop_def
+
+*)
+
 val _ = export_theory();

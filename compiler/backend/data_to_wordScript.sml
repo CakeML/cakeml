@@ -138,6 +138,14 @@ val Div_location_def = Define `
   Div_location = Mul_location+1`;
 val Mod_location_def = Define `
   Mod_location = Div_location+1`;
+val Compare1_location_def = Define `
+  Compare1_location = Mod_location+1`;
+val Compare_location_def = Define `
+  Compare_location = Compare1_location+1`;
+val Equal1_location_def = Define `
+  Equal1_location = Compare_location+1`;
+val Equal_location_def = Define `
+  Equal_location = Equal1_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -161,6 +169,14 @@ val Div_location_eq = save_thm("Div_location_eq",
   ``Div_location`` |> EVAL);
 val Mod_location_eq = save_thm("Mod_location_eq",
   ``Mod_location`` |> EVAL);
+val Compare1_location_eq = save_thm("Compare1_location_eq",
+  ``Compare1_location`` |> EVAL);
+val Compare_location_eq = save_thm("Compare_location_eq",
+  ``Compare_location`` |> EVAL);
+val Equal1_location_eq = save_thm("Equal1_location_eq",
+  ``Equal1_location`` |> EVAL);
+val Equal_location_eq = save_thm("Equal_location_eq",
+  ``Equal_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -325,6 +341,70 @@ val Div_code_def = Define `
 val Mod_code_def = Define `
   Mod_code = Seq (Assign 6 (Const 16w))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+
+val Compare1_code_def = Define `
+  Compare1_code =
+    (* l is 2, a1 is 4, a2 is 6 *)
+    If Equal 2 (Imm 0w)
+      (Seq (Assign 2 (Const 1w)) (Return 0 2))
+      (list_Seq
+         [Assign 8 (Load (Var 4));
+          Assign 9 (Load (Var 6));
+          If Equal 8 (Reg 9)
+            (list_Seq
+               [Assign 2 (Op Sub [Var 2; Const 1w]);
+                Assign 4 (Op Sub [Var 4; Const bytes_in_word]);
+                Assign 6 (Op Sub [Var 6; Const bytes_in_word]);
+                Call NONE (SOME Compare1_location) [0;2;4;6] NONE])
+            (If Lower 8 (Reg 9)
+              (Seq (Assign 2 (Const 0w)) (Return 0 2))
+              (Seq (Assign 2 (Const 2w)) (Return 0 2)))])`
+
+val Compare_code_def = Define `
+  Compare_code c =
+    (* this code can assume that the arguments (2 and 4) are not both
+       small numbers *)
+    If Test 2 (Imm 1w) (* 1st arg is small number, means that 2nd must be bigum *)
+      (list_Seq [Assign 1 (Load (real_addr c 4)); (* loads header of 2nd arg *)
+                 If Test 1 (Imm 16w)
+                   (Seq (Assign 2 (Const 0w)) (Return 0 2))
+                   (Seq (Assign 2 (Const 2w)) (Return 0 2))])
+   (If Test 4 (Imm 1w) (* 2nd arg is small number: 1st must be bigum *)
+      (list_Seq [Assign 1 (Load (real_addr c 2)); (* loads header of 1st arg *)
+                 If Test 1 (Imm (16w:'a word))
+                   (Seq (Assign 2 (Const 2w)) (Return 0 2))
+                   (Seq (Assign 2 (Const 0w)) (Return 0 2))])
+      (list_Seq [Assign 11 (real_addr c 2);
+                 Assign 1 (Load (Var 11)); (* loads header of 1st arg *)
+                 Assign 13 (real_addr c 4);
+                 Assign 3 (Load (Var 13)); (* loads header of 2nd arg *)
+                 Assign 6 (Shift Lsr (Var 1) (Nat ((dimindex(:'a) − c.len_size))));
+                 Assign 8 (Shift Lsr (Var 3) (Nat ((dimindex(:'a) − c.len_size))));
+                 If Equal 1 (Reg 3) (* headers are the same *)
+                   (list_Seq
+                     [Assign 2 (Op Add [Var 11;Shift Lsl (Var 6)(Nat(shift (:'a)))]);
+                      Assign 4 (Op Add [Var 13;Shift Lsl (Var 6)(Nat(shift (:'a)))]);
+                      If Test 1 (Imm 16w)
+                       (Call NONE (SOME Compare1_location) [0;6;2;4] NONE)
+                       (Call NONE (SOME Compare1_location) [0;6;4;2] NONE)])
+                   (* headers are not the same *)
+                   (If Test 1 (Imm 16w)
+                      (If Test 3 (Imm 16w)
+                         (If Lower 6 (Reg 8)
+                            (Seq (Assign 2 (Const 0w)) (Return 0 2))
+                            (Seq (Assign 2 (Const 2w)) (Return 0 2)))
+                         (Seq (Assign 2 (Const 2w)) (Return 0 2)))
+                      (If Test 3 (Imm 16w)
+                         (Seq (Assign 2 (Const 0w)) (Return 0 2))
+                         (If Lower 6 (Reg 8)
+                            (Seq (Assign 2 (Const 2w)) (Return 0 2))
+                            (Seq (Assign 2 (Const 0w)) (Return 0 2)))))]))`;
+
+val Equal1_code_def = Define `
+  Equal1_code c = Skip`;
+
+val Equal_code_def = Define `
+  Equal_code c = Skip`;
 
 val get_names_def = Define `
   (get_names NONE = LN) /\
@@ -493,9 +573,18 @@ val assign_def = Define `
                 | _ => (Skip,l))
 *)
     | Less => (case args of
-               | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))
-                              (Assign (adjust_var dest) TRUE_CONST)
-                              (Assign (adjust_var dest) FALSE_CONST),l)
+               | [v1;v2] => (list_Seq [
+                   Assign 1 (Var (adjust_var v1));
+                   Assign 3 (Var (adjust_var v2));
+                   Assign 5 (Op Or [Var 1; Var 3]);
+                   If Test 5 (Imm 1w) Skip
+                     (Seq (MustTerminate
+                          (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                                (SOME Compare_location) [1;3] NONE))
+                          (Assign 3 (Const 1w)));
+                   (If Less 1 (Reg 3)
+                      (Assign (adjust_var dest) TRUE_CONST)
+                      (Assign (adjust_var dest) FALSE_CONST))],l+1)
                | _ => (Skip,l))
     | LessEq => (case args of
                | [v1;v2] => (If Less (adjust_var v2) (Reg (adjust_var v1))
@@ -831,7 +920,11 @@ val stubs_def = Define`
     (Sub_location,3n,Sub_code);
     (Mul_location,3n,Mul_code);
     (Div_location,3n,Div_code);
-    (Mod_location,3n,Mod_code)
+    (Mod_location,3n,Mod_code);
+    (Compare1_location,4n,Compare1_code);
+    (Compare_location,3n,Compare_code data_conf);
+    (Equal1_location,4n,Equal1_code data_conf);
+    (Equal_location,3n,Equal_code data_conf)
   ]`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
