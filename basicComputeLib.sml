@@ -64,5 +64,6 @@ val add_basic_compset =
    ,alistTheory.ALOOKUP_def
    ,sortingTheory.PARTITION_DEF
    ,sortingTheory.PART_DEF
-   ,sortingTheory.QSORT_DEF] ]
+   ,sortingTheory.QSORT_DEF
+   ,sptreeTheory.filter_v_def] ]
 end
