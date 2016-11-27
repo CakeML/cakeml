@@ -1,5 +1,3 @@
-.PHONY: README.md
-
 README_SOURCES = $(wildcard *.sml) $(wildcard *.sh) build-sequence
 
 README.md: $(README_SOURCES) readmePrefix readme_gen
