@@ -78,8 +78,8 @@ type op =
   | Chr
   | Chopb of opb
   (* String operations *)
-  | Explode
   | Implode
+  | Strsub
   | Strlen
   (* Vector operations *)
   | VfromList
