@@ -2187,6 +2187,10 @@ val inter_insert = Q.store_thm("inter_insert",
   srw_tac[][] \\ full_simp_tac(srw_ss())[spt_eq_thm,wf_inter,wf_insert,lookup_inter_alt,lookup_insert]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
+val lookup_0_adjust_set = Q.prove(
+  `lookup 0 (adjust_set l) = SOME ()`,
+  fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]);
+
 val lookup_1_adjust_set = Q.prove(
   `lookup 1 (adjust_set l) = NONE`,
   full_simp_tac(srw_ss())[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
@@ -2196,6 +2200,47 @@ val lookup_3_adjust_set = Q.prove(
   `lookup 3 (adjust_set l) = NONE`,
   full_simp_tac(srw_ss())[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
   \\ full_simp_tac(srw_ss())[adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+
+val lookup_ODD_adjust_set = Q.prove(
+  `ODD n ==> lookup n (adjust_set l) = NONE`,
+  fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ CCONTR_TAC \\ fs [] \\ rveq
+  \\ fs [EVEN_adjust_var,ODD_EVEN]);
+
+val wf_adjust_set = Q.store_thm("wf_adjust_set",
+  `wf (adjust_set s)`,
+  fs [adjust_set_def,wf_fromAList]);
+
+val lookup_adjust_set = Q.store_thm("lookup_adjust_set",
+  `lookup n (adjust_set s) =
+   if n = 0 then SOME () else
+   if ODD n then NONE else
+   if (n - 2) DIV 2 IN domain s then SOME () else NONE`,
+  fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ IF_CASES_TAC \\ fs [] \\ rw []
+  \\ fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [EVEN_adjust_var,ODD_EVEN]
+  \\ fs [domain_lookup,MEM_toAList,adjust_var_DIV_2]
+  \\ Cases_on `ALOOKUP (MAP (λ(n,k). (adjust_var n,())) (toAList s)) n`
+  \\ fs []
+  \\ fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ pop_assum mp_tac \\ fs []
+  \\ fs [domain_lookup,MEM_toAList,adjust_var_DIV_2]
+  \\ qexists_tac `(n − 2) DIV 2` \\ fs []
+  \\ fs [adjust_var_def]
+  \\ imp_res_tac EVEN_ODD_EXISTS \\ rveq
+  \\ Cases_on `m` \\ fs [MULT_CLAUSES]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+
+val adjust_set_inter = Q.store_thm("adjust_set_inter",
+  `adjust_set (inter t1 t2) = inter (adjust_set t1) (adjust_set t2)`,
+  fs [wf_adjust_set,wf_inter,spt_eq_thm,lookup_inter_alt,domain_lookup]
+  \\ strip_tac \\ Cases_on `ODD n` \\ fs [lookup_ODD_adjust_set]
+  \\ Cases_on `n = 0` \\ fs [lookup_0_adjust_set]
+  \\ fs [lookup_adjust_set]
+  \\ fs [domain_inter] \\ rw [] \\ fs []);
 
 val state_rel_insert_1 = Q.prove(
   `state_rel c l1 l2 s (t with locals := insert 1 x t.locals) v locs =
@@ -5778,7 +5823,9 @@ val word_exp_insert = store_thm("word_exp_insert",
     (~(m IN {n;n1}) ==>
      (word_exp (t with locals := insert n w (insert n1 w1 t.locals)) (real_addr c m) =
       word_exp t (real_addr c m)))``,
-  cheat);
+  fs [wordSemTheory.word_exp_def,real_addr_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [wordSemTheory.word_exp_def,real_addr_def] \\ fs [lookup_insert]);
 
 val Compare_code_thm = store_thm("Compare_code_thm",
   ``memory_rel c be refs sp st m dm
@@ -5834,7 +5881,8 @@ val Compare_code_thm = store_thm("Compare_code_thm",
     \\ eval_tac \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def,
          wordSemTheory.get_var_def,lookup_insert,wordSemTheory.call_env_def,
          fromList2_def,wordSemTheory.state_component_equality,word_bit_test])
-  \\ `shift (:'a) <> 0 /\ shift (:'a) < dimindex (:'a)` by cheat
+  \\ `shift (:'a) <> 0 /\ shift (:'a) < dimindex (:'a)` by
+          (fs [labPropsTheory.good_dimindex_def,shift_def] \\ NO_TAC)
   \\ strip_tac \\ fs []
   \\ Cases_on `x1 = x2` \\ fs [] \\ rveq
   THEN1
@@ -5895,12 +5943,17 @@ val env_to_list_cut_env_IMP = prove(
   \\ fs [lookup_fromAList]
   \\ fs [wordSemTheory.cut_env_def] \\ rveq \\ rw []);
 
+val dimword_LESS_MustTerminate_limit = prove(
+  ``good_dimindex (:'a) ==> dimword (:α) < MustTerminate_limit (:α) - 1``,
+  strip_tac \\ fs [wordSemTheory.MustTerminate_limit_def,dimword_def]
+  \\ match_mp_tac (DECIDE ``1 < n ==> n < (2 * n + k) - 1n``)
+  \\ fs [labPropsTheory.good_dimindex_def]);
+
 val th = Q.store_thm("assign_Less",
   `op = Less ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
-  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
@@ -5941,16 +5994,40 @@ val th = Q.store_thm("assign_Less",
   \\ strip_tac
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def]
-  \\ `lookup Compare_location t.code = SOME (3,Compare_code c)` by cheat
+  \\ `lookup Compare_location t.code = SOME (3,Compare_code c)` by
+       (fs [state_rel_def,code_rel_def,stubs_def] \\ NO_TAC)
   \\ fs [wordSemTheory.add_ret_loc_def]
-  \\ TOP_CASE_TAC THEN1 cheat \\ fs []
+  \\ fs [bvi_to_dataTheory.op_requires_names_def,
+         bvi_to_dataTheory.op_space_reset_def]
+  \\ TOP_CASE_TAC THEN1
+   (Cases_on `names_opt` \\ fs []
+    \\ fs [cut_state_opt_def,cut_state_def]
+    \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
+    \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+    \\ rpt_drule cut_env_IMP_cut_env
+    \\ CCONTR_TAC \\ fs [get_names_def]
+    \\ fs [wordSemTheory.cut_env_def,SUBSET_DEF])
+  \\ fs []
   \\ qpat_abbrev_tac `t1 = wordSem$call_env _ _`
   \\ first_x_assum (qspecl_then [`t1`,`l`,`n`] mp_tac)
-  \\ impl_tac THEN1 cheat
+  \\ impl_tac THEN1
+   (unabbrev_all_tac
+    \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+           wordSemTheory.dec_clock_def]
+    \\ pairarg_tac \\ fs []
+    \\ fs [fromList2_def,lookup_insert]
+    \\ fs [state_rel_def,code_rel_def,stubs_def]
+    \\ fs [memory_rel_def,word_ml_inv_def,heap_in_memory_store_def]
+    \\ fs [dimword_LESS_MustTerminate_limit]
+    \\ rpt strip_tac \\ simp [] \\ NO_TAC)
   \\ strip_tac \\ fs []
-  \\ `?t2. pop_env t1 = SOME t2` by cheat
+  \\ `?t2. pop_env t1 = SOME t2 /\ domain t2.locals = domain x'` by
+   (unabbrev_all_tac
+    \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+           wordSemTheory.pop_env_def] \\ pairarg_tac \\ fs []
+    \\ imp_res_tac env_to_list_lookup_equiv
+    \\ fs [domain_lookup,EXTENSION,lookup_fromAList] \\ NO_TAC)
   \\ fs []
-  \\ `domain t2.locals = domain x'` by cheat \\ fs []
   \\ fs [lookup_insert,word_cmp_Less_word_cmp_res]
   \\ rw [] \\ fs []
   \\ unabbrev_all_tac
@@ -5966,12 +6043,31 @@ val th = Q.store_thm("assign_Less",
   \\ fs [wordSemTheory.cut_env_def] \\ rveq
   \\ conj_tac
   \\ TRY (fs [lookup_inter,lookup_insert,adjust_set_def,fromAList_def] \\ NO_TAC)
-  \\ `domain (adjust_set (get_names names_opt)) SUBSET domain t.locals` by cheat
+  \\ `domain (adjust_set (get_names names_opt)) SUBSET domain t.locals` by
+   (Cases_on `names_opt` \\ fs [get_names_def]
+    \\ fs [SUBSET_DEF,domain_lookup]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ rveq \\ fs [lookup_ODD_adjust_set] \\ NO_TAC)
   \\ `domain (adjust_set x.locals) SUBSET
-      domain (inter t.locals (adjust_set (get_names names_opt)))` by cheat
+      domain (inter t.locals (adjust_set (get_names names_opt)))` by
+   (fs [SUBSET_DEF,domain_lookup,lookup_inter_alt] \\ rw []
+    \\ Cases_on `names_opt` \\ fs [get_names_def]
+    \\ fs [SUBSET_DEF,domain_lookup]
+    \\ fs [cut_state_opt_def,cut_state_def,cut_env_def]
+    \\ qpat_x_assum `_ = SOME x` mp_tac
+    \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs [adjust_set_inter]
+    \\ fs [lookup_inter_alt,domain_lookup] \\ NO_TAC)
   \\ `!n. IS_SOME (lookup n x.locals) ==>
           n ∈ domain (get_names names_opt) /\
-          IS_SOME (lookup (adjust_var n) t.locals)` by cheat
+          IS_SOME (lookup (adjust_var n) t.locals)` by
+   (qx_gen_tac `k` \\ disch_then assume_tac
+    \\ Cases_on `lookup k x.locals` \\ fs []
+    \\ Cases_on `names_opt` \\ fs [get_names_def]
+    \\ fs [SUBSET_DEF,domain_lookup]
+    \\ fs [cut_state_opt_def,cut_state_def,cut_env_def]
+    \\ qpat_x_assum `_ = SOME x` mp_tac
+    \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs [adjust_set_inter]
+    \\ fs [lookup_inter_alt,domain_lookup] \\ NO_TAC)
   \\ conj_tac
   \\ TRY (rw [] \\ once_rewrite_tac [lookup_inter_alt]
           \\ fs [lookup_insert,adjust_var_IN_adjust_set] \\ NO_TAC)
