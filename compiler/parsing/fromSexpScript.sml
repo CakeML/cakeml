@@ -515,8 +515,10 @@ val sexpop_def = Define`
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else NONE) ∧
+  (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
+     if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
+   ) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) =
-    if s = "FFI" then SOME (FFI n) else
     if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
     if s = "Shift8Lsr" then SOME (Shift W8 Lsr n) else
     if s = "Shift8Asr" then SOME (Shift W8 Asr n) else
@@ -840,7 +842,7 @@ val opsexp_def = Define`
   (opsexp Asub = SX_SYM "Asub") ∧
   (opsexp Alength = SX_SYM "Alength") ∧
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
-  (opsexp (FFI n) = SX_CONS (SX_SYM "FFI") (SX_NUM n))`;
+  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
 val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   `∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2`,
@@ -1138,7 +1140,7 @@ val sexpop_opsexp = Q.store_thm("sexpop_opsexp[simp]",
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(Cases_on`o'`>>rw[sexpop_def,opsexp_def]) >>
   TRY(Cases_on`w`>>rw[sexpop_def,opsexp_def]) >>
-  TRY(Cases_on`s`>>rw[sexpop_def,opsexp_def]));
+  TRY(Cases_on`s`>>rw[sexpop_def,opsexp_def,SEXSTR_def]));
 
 val sexplop_lopsexp = Q.store_thm("sexplop_lopsexp[simp]",
   `sexplop (lopsexp l) = SOME l`,
@@ -1341,7 +1343,7 @@ val opsexp_sexpop = Q.store_thm("opsexp_sexpop",
   \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
   \\ pop_assum mp_tac
   \\ rpt IF_CASES_TAC \\ rw[]
-  \\ rw[opsexp_def]);
+  \\ rw[opsexp_def, GSYM encode_decode_control]);
 
 val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
   `sexplop s = SOME z ⇒ lopsexp z = s`,
