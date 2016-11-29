@@ -486,7 +486,7 @@ val assign_def = Define `
           Assign 3 (Shift Lsr (Var (adjust_var v3)) (Nat 2));
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
-      | _ => (GiveUp,l))
+      | _ => (Skip,l))
     | Cons tag => if LENGTH args = 0 then
                     if tag < dimword (:'a) DIV 16 then
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
@@ -587,19 +587,18 @@ val assign_def = Define `
                       (Assign (adjust_var dest) FALSE_CONST))],l+1)
                | _ => (Skip,l))
     | LessEq => (case args of
-               | [v1;v2] => (If Less (adjust_var v2) (Reg (adjust_var v1))
-                              (Assign (adjust_var dest) FALSE_CONST)
-                              (Assign (adjust_var dest) TRUE_CONST),l)
-               | _ => (Skip,l))
-    | Greater => (case args of
-               | [v1;v2] => (If Less (adjust_var v2) (Reg (adjust_var v1))
-                              (Assign (adjust_var dest) TRUE_CONST)
-                              (Assign (adjust_var dest) FALSE_CONST),l)
-               | _ => (Skip,l))
-    | GreaterEq => (case args of
-               | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))
-                              (Assign (adjust_var dest) FALSE_CONST)
-                              (Assign (adjust_var dest) TRUE_CONST),l)
+               | [v1;v2] => (list_Seq [
+                   Assign 1 (Var (adjust_var v1));
+                   Assign 3 (Var (adjust_var v2));
+                   Assign 5 (Op Or [Var 1; Var 3]);
+                   If Test 5 (Imm 1w) Skip
+                     (Seq (MustTerminate
+                          (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                                (SOME Compare_location) [1;3] NONE))
+                          (Assign 3 (Const 1w)));
+                   (If NotLess 3 (Reg 1)
+                      (Assign (adjust_var dest) TRUE_CONST)
+                      (Assign (adjust_var dest) FALSE_CONST))],l+1)
                | _ => (Skip,l))
     | LengthBlock => (case args of
                | [v1] => (If Test (adjust_var v1) (Imm 1w)
@@ -802,7 +801,7 @@ val assign_def = Define `
                    (Nat (dimindex(:'a) - 8)))
                 (Nat 2))
         ,l)
-      | _ => (GiveUp,l))
+      | _ => (Skip,l))
     | WordShift W64 sh n => (case args of
        | [v1] =>
          let len = if dimindex(:'a) < 64 then 2 else 1 in
@@ -865,8 +864,8 @@ val assign_def = Define `
           FFI ffi_index 1 3 (adjust_set (case names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
-       | _ => (GiveUp,l))
-    | _ => (GiveUp:'a wordLang$prog,l)`;
+       | _ => (Skip,l))
+    | _ => (Skip:'a wordLang$prog,l)`;
 
 val comp_def = Define `
   comp c (secn:num) (l:num) (p:dataLang$prog) =

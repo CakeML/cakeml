@@ -32,7 +32,13 @@ val op_requires_names_eqn = Q.store_thm("op_requires_names_eqn",
 val iAssign_def = Define `
   iAssign n1 op vs live env =
     if op_requires_names op then
-      Assign n1 op vs (SOME (list_to_num_set (vs++live++env)))
+      let xs = SOME (list_to_num_set (vs++live++env)) in
+        if op = Greater then
+          Assign n1 Less (REVERSE vs) xs
+        else if op = GreaterEq then
+          Assign n1 LessEq (REVERSE vs) xs
+        else
+          Assign n1 op vs xs
     else
       let k = op_space_req op (LENGTH vs) in
         if k = 0 then Assign n1 op vs NONE
