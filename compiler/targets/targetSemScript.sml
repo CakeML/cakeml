@@ -12,6 +12,7 @@ val _ = Datatype `
    <| prog_addresses : ('a word) set
     (* FFI-specific configurations *)
     ; ffi_entry_pcs : ('a word) list
+    ; ffi_names : string list
     ; ptr_reg : num
     ; len_reg : num
     (* major interference by FFI calls *)
@@ -54,7 +55,7 @@ val evaluate_def = Define `
                       then SOME (config.target.get_byte ms a) else NONE) of
           | NONE => (Error,ms,ffi)
           | SOME bytes =>
-            let (new_ffi,new_bytes) = call_FFI ffi ffi_index bytes in
+            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index config.ffi_names) bytes in
             let (ms1,new_oracle) = apply_oracle config.ffi_interfer (ffi_index,new_bytes,ms) in
             let config = config with ffi_interfer := new_oracle in
               if new_ffi.final_event <> NONE

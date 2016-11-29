@@ -97,38 +97,42 @@ val get_label_def = Define `
   (* cannot happen *)
   (get_label _ = Lab 0 0)`;
 
+val get_ffi_index_def = Define `
+  get_ffi_index ffis s = 
+    THE(find_index s ffis 0)`
+
 val get_jump_offset_def = Define `
-  (get_jump_offset (CallFFI i) labs pos =
-     0w - n2w (pos + (3 + i) * ffi_offset)) /\
-  (get_jump_offset ClearCache labs pos =
+  (get_jump_offset (CallFFI s) ffis labs pos =
+     0w - n2w (pos + (3 + get_ffi_index ffis s) * ffi_offset)) /\
+  (get_jump_offset ClearCache ffis labs pos =
      0w - n2w (pos + 2 * ffi_offset)) /\
-  (get_jump_offset Halt labs pos =
+  (get_jump_offset Halt ffis labs pos =
      0w - n2w (pos + ffi_offset)) /\
-  (get_jump_offset a labs pos =
+  (get_jump_offset a ffis labs pos =
      n2w (find_pos (get_label a) labs) - n2w pos)`
 
 val enc_lines_again_def = Define `
-  (enc_lines_again labs pos enc [] (acc,ok) = (REVERSE acc,ok:bool)) /\
-  (enc_lines_again labs pos enc ((Label k1 k2 l)::xs) (acc,ok) =
-     enc_lines_again labs (pos+l) enc xs ((Label k1 k2 l)::acc,ok)) /\
-  (enc_lines_again labs pos enc ((Asm x1 x2 l)::xs) (acc,ok) =
-     enc_lines_again labs (pos+l) enc xs ((Asm x1 x2 l) :: acc,ok)) /\
-  (enc_lines_again labs pos enc ((LabAsm a w bytes l)::xs) (acc,ok) =
-     let w1 = get_jump_offset a labs pos in
+  (enc_lines_again labs ffis pos enc [] (acc,ok) = (REVERSE acc,ok:bool)) /\
+  (enc_lines_again labs ffis pos enc ((Label k1 k2 l)::xs) (acc,ok) =
+     enc_lines_again labs ffis (pos+l) enc xs ((Label k1 k2 l)::acc,ok)) /\
+  (enc_lines_again labs ffis pos enc ((Asm x1 x2 l)::xs) (acc,ok) =
+     enc_lines_again labs ffis (pos+l) enc xs ((Asm x1 x2 l) :: acc,ok)) /\
+  (enc_lines_again labs ffis pos enc ((LabAsm a w bytes l)::xs) (acc,ok) =
+     let w1 = get_jump_offset a ffis labs pos in
        if w = w1 then
-         enc_lines_again labs (pos + l) enc xs ((LabAsm a w bytes l)::acc,ok)
+         enc_lines_again labs ffis (pos + l) enc xs ((LabAsm a w bytes l)::acc,ok)
        else
          let bs = enc (lab_inst w1 a) in
          let l1 = MAX (LENGTH bs) l in
-           enc_lines_again labs (pos + l1) enc xs
+           enc_lines_again labs ffis (pos + l1) enc xs
              ((LabAsm a w1 bs l1)::acc, ok /\ (l1 = l)))`
 
 val enc_secs_again_def = Define `
-  (enc_secs_again pos labs enc [] = ([],T)) /\
-  (enc_secs_again pos labs enc ((Section s lines)::rest) =
-     let (lines1,ok) = enc_lines_again labs pos enc lines ([],T) in
+  (enc_secs_again pos labs ffis enc [] = ([],T)) /\
+  (enc_secs_again pos labs ffis enc ((Section s lines)::rest) =
+     let (lines1,ok) = enc_lines_again labs ffis pos enc lines ([],T) in
      let pos1 = pos + sec_length lines1 0 in
-     let (rest1,ok1) = enc_secs_again pos1 labs enc rest in
+     let (rest1,ok1) = enc_secs_again pos1 labs ffis enc rest in
        ((Section s lines1)::rest1,ok /\ ok1))`
 
 (* update labels *)
@@ -261,11 +265,11 @@ val sec_names_def = Define`
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
-  remove_labels_loop clock c sec_list =
+  remove_labels_loop clock c ffis sec_list =
     (* compute labels *)
     let labs = compute_labels_alt 0 sec_list in
     (* update encodings and lengths (but not label lengths) *)
-    let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
+    let (sec_list,done) = enc_secs_again 0 labs ffis c.encode sec_list in
       (* done ==> labs are still fine *)
       if done then
         (* adjust label lengths *)
@@ -273,7 +277,7 @@ val remove_labels_loop_def = Define `
         (* compute labels again *)
         let labs = compute_labels_alt 0 sec_list in
         (* update encodings *)
-        let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
+        let (sec_list,done) = enc_secs_again 0 labs ffis c.encode sec_list in
         (* move label padding into instructions *)
         let sec_list = pad_code (c.encode (Inst Skip)) sec_list in
         (* it ought to be impossible for done to be false here *)
@@ -283,17 +287,17 @@ val remove_labels_loop_def = Define `
       else
         (* repeat *)
         if clock = 0:num then NONE else
-          remove_labels_loop (clock-1) c sec_list`
+          remove_labels_loop (clock-1) c ffis sec_list`
 
 val remove_labels_def = Define `
-  remove_labels init_clock c sec_list =
+  remove_labels init_clock c ffis sec_list =
     (* Here init_clock puts an upper limit on the number of times the
        lengths can be adjusted. In many cases, clock = 0 should be
        enough. If this were to hit the clock limit for large values of
        init_clock, then something is badly wrong. Worth testing with
        the clock limit set to low values to see how many iterations
        are used. *)
-    remove_labels_loop init_clock c (enc_sec_list c.encode sec_list)`;
+    remove_labels_loop init_clock c ffis (enc_sec_list c.encode sec_list)`;
 
 (* code extraction *)
 
@@ -316,6 +320,20 @@ val _ = Datatype`
             ; init_clock : num
             |>`;
 
+val list_add_if_fresh_def = Define `
+  (list_add_if_fresh e [] = [e]) /\
+  (list_add_if_fresh e (f::r) =
+    if e = f then f::r else f::list_add_if_fresh e r)`
+
+val find_ffi_names_def = Define `
+  (find_ffi_names [] = []) /\
+  (find_ffi_names (Section k []::rest) =
+     find_ffi_names rest) /\
+  (find_ffi_names (Section k (x::xs)::rest) =
+   (case x of LabAsm (CallFFI s) _ _ _ =>
+       list_add_if_fresh s (find_ffi_names (Section k xs::rest))
+   | _ => find_ffi_names (Section k xs::rest)))`
+(*
 val find_ffi_index_limit_def = Define `
   (find_ffi_index_limit [] = 0) /\
   (find_ffi_index_limit (Section k []::rest) =
@@ -323,12 +341,12 @@ val find_ffi_index_limit_def = Define `
   (find_ffi_index_limit (Section k (x::xs)::rest) =
      MAX (find_ffi_index_limit (Section k xs::rest))
          (case x of LabAsm (CallFFI i) _ _ _ => i+1 | _ => 0n))`
-
+*)
 val compile_lab_def = Define `
   compile_lab c sec_list =
-    let limit = find_ffi_index_limit sec_list in
-      case remove_labels c.init_clock c.asm_conf sec_list of
-      | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,limit)
+    let ffis = find_ffi_names sec_list in
+      case remove_labels c.init_clock c.asm_conf ffis sec_list of
+      | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,LENGTH ffis)
       | NONE => NONE`;
 
 (* compile labLang *)
