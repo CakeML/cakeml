@@ -432,6 +432,13 @@ val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
                           (Nat (shift_length c − shift (:'a)));
                         Const 1w])]`;
 
+val ShiftVar_def = Define `
+  ShiftVar sh v n =
+    if n = 0 then Var v else
+    if dimindex (:'a) <= n then
+      if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
+    else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
+
 val assign_def = Define `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -812,8 +819,8 @@ val assign_def = Define `
                   list_Seq [
                     LoadWord64 c 3 (adjust_var v1);
                     Assign 3
-                     (Shift (case sh of Lsl => Lsl | Lsr => Lsr | Asr => Asr)
-                       (Var 3) (Nat n));
+                     (ShiftVar (case sh of Lsl => Lsl | Lsr => Lsr | Asr => Asr)
+                        3 n);
                     WriteWord64 c header dest 3]
                  else GiveUp (* TODO: 32bit *)), l)
        | _ => (Skip,l))

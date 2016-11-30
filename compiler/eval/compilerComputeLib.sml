@@ -424,6 +424,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.WriteWord64_def
+    ,data_to_wordTheory.ShiftVar_def
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.comp_def
     ,data_to_wordTheory.compile_part_def

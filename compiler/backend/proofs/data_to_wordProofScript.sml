@@ -12,6 +12,11 @@ val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
 fun op by1 (q,tac) = q by (tac \\ NO_TAC)
 infix 8 by1
 
+val word_asr_dimindex = store_thm("word_asr_dimindex",
+  ``!w:'a word n. dimindex (:'a) <= n ==> (w >> n = w >> (dimindex (:'a) - 1))``,
+  fs [word_asr_def,fcpTheory.CART_EQ,fcpTheory.FCP_BETA]
+  \\ rw [] \\ Cases_on `i` \\ fs [] \\ rw [] \\ fs [word_msb_def]);
+
 val WORD_MUL_BIT0 = Q.store_thm("WORD_MUL_BIT0",
   `!a b. (a * b) ' 0 <=> a ' 0 /\ b ' 0`,
   fs [word_mul_def,word_index,bitTheory.BIT0_ODD,ODD_MULT]
@@ -6972,6 +6977,21 @@ val th = Q.store_thm("assign_WordShiftW8",
     \\ drule memory_rel_tl
     \\ simp_tac std_ss [GSYM APPEND_ASSOC]));
 
+val word_exp_set_var_ShiftVar = store_thm("word_exp_set_var_ShiftVar",
+  ``word_exp (set_var v (Word w) t) (ShiftVar sow v n) =
+    lift Word (case sow of Lsl => SOME (w << n)
+                         | Lsr => SOME (w >>> n)
+                         | Asl => SOME (w >> n))``,
+  fs [ShiftVar_def]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (eval_tac \\ every_case_tac \\ fs [])
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (drule word_asr_dimindex
+    \\ IF_CASES_TAC \\ eval_tac
+    \\ every_case_tac \\ eval_tac)
+  \\ eval_tac \\ every_case_tac \\ fs [] \\ eval_tac);
+
 val th = Q.store_thm("assign_WordShiftW64",
   `(?sh n. op = WordShift W64 sh n) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -7003,10 +7023,8 @@ val th = Q.store_thm("assign_WordShiftW64",
   \\ disch_then kall_tac
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ qpat_abbrev_tac`sow = ast_shift_CASE sh _ _ _`
-  \\ simp[Once wordSemTheory.evaluate_def]
+  \\ simp[Once wordSemTheory.evaluate_def,word_exp_set_var_ShiftVar]
   \\ eval_tac
-  \\ IF_CASES_TAC >- cheat (* wordSem shift semantics too strong *)
-  \\ pop_assum kall_tac
   \\ qmatch_goalsub_abbrev_tac`OPTION_MAP Word opt`
   \\ `∃w. opt = SOME w`
   by ( simp[Abbr`opt`] \\ CASE_TAC \\ simp[] )
