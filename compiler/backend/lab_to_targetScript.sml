@@ -346,7 +346,7 @@ val compile_lab_def = Define `
   compile_lab c sec_list =
     let ffis = find_ffi_names sec_list in
       case remove_labels c.init_clock c.asm_conf ffis sec_list of
-      | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,LENGTH ffis)
+      | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,ffis)
       | NONE => NONE`;
 
 (* compile labLang *)

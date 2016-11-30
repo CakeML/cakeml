@@ -15,12 +15,12 @@ val _ = Datatype `
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = temp_type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list # ffi) option``);
+val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> ffi -> (word8 list # ffi) option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
             | FFI_split
-            | FFI_part ffi ffi_next (num list) (io_event list)
+            | FFI_part ffi ffi_next (string list) (io_event list)
             | FFI_full (final_event option) (io_event list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
@@ -31,8 +31,8 @@ val _ = Datatype `
       | Exn v`
 
 val _ = type_abbrev("ffi_proj",
-  ``: ('ffi -> (num |-> ffi)) #
-      ((num list # ffi_next) list)``)
+  ``: ('ffi -> (string |-> ffi)) #
+      ((string list # ffi_next) list)``)
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
