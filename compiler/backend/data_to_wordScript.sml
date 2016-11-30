@@ -102,9 +102,6 @@ val real_byte_offset_def = Define`
     Op Add [Const bytes_in_word;
             Shift Lsr (Var r) (Nat 2)]`;
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2)``)
-
 val _ = Datatype`
   word_op_type = Bitwise binop | Carried binop`;
 
@@ -439,6 +436,9 @@ val ShiftVar_def = Define `
       if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
     else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
 
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+
 val assign_def = Define `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -552,33 +552,21 @@ val assign_def = Define `
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
-(* TODO: needs to be reimplemented (assigned: Magnus)
     | Equal => (case args of
-               | [v1;v2] =>
-                 let retf = Assign (adjust_var dest) FALSE_CONST in
-                 let rett = Assign (adjust_var dest) TRUE_CONST in
-                 (If Equal (adjust_var v1) (Reg (adjust_var v2)) rett
-                    (If Test (adjust_var v1) (Imm 1w) retf
-                       (Seq (Assign 1 (Load (real_addr c (adjust_var v1))))
-                          (If Test 1 (Imm 4w) retf
-                             (If Test 1 (Imm 16w)
-                               (let a1 = real_addr c (adjust_var v1) in
-                                let a2 = real_addr c (adjust_var v2) in
-                                list_Seq [
-                                  Assign 1 (Load (Op Add [a1; Const bytes_in_word]));
-                                  Assign 3 (Load (Op Add [a2; Const bytes_in_word]));
-                                  If Equal 1 (Reg 3)
-                                    (if dimindex (:'a) < 64 then
-                                       list_Seq [
-                                         Assign 1 (Load (Op Add [a1; Const (bytes_in_word <<1)]));
-                                         Assign 3 (Load (Op Add [a2; Const (bytes_in_word <<1)]));
-                                         If Equal 1 (Reg 3) rett retf]
-                                     else rett)
-                                    retf])
-                               retf))))
-                 ,l)
-                | _ => (Skip,l))
-*)
+               | [v1;v2] => (list_Seq [
+                   Assign 1 (Var (adjust_var v1));
+                   Assign 3 (Var (adjust_var v2));
+                   Assign 5 (Op And [Var 1; Var 3]);
+                   If Test 5 (Imm 1w) Skip
+                     (If Equal 1 (Reg 3) Skip
+                       (Seq (MustTerminate
+                          (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                                (SOME Equal_location) [1;3] NONE))
+                          (Assign 3 (Const 1w))));
+                   (If Equal 1 (Reg 3)
+                      (Assign (adjust_var dest) TRUE_CONST)
+                      (Assign (adjust_var dest) FALSE_CONST))],l+1)
+               | _ => (Skip,l))
     | Less => (case args of
                | [v1;v2] => (list_Seq [
                    Assign 1 (Var (adjust_var v1));

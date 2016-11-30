@@ -5571,4 +5571,20 @@ val memory_rel_limit = Q.store_thm("memory_rel_limit",
    v_size v * dimword (:'a) < MustTerminate_limit (:'a)`,
   cheat);
 
+val memory_rel_simple_eq = Q.store_thm("memory_rel_simple_eq",
+  `memory_rel c be refs sp st m dm ((v1,x1)::(v2,x2)::vars) /\
+   do_eq v1 v2 = Eq_val b /\
+   good_dimindex (:'a) ==>
+   ?w1 w2:'a word.
+     x1 = Word w1 /\ x2 = Word w2 /\
+     (~word_bit 0 w1 \/ ~word_bit 0 w2 ==>
+     (w1 = w2) = b)`,
+  cheat);
+
+val memory_rel_ptr_eq = Q.store_thm("memory_rel_ptr_eq",
+  `memory_rel c be refs sp st m dm ((v1,x1)::(v2,x1)::vars) /\
+   do_eq v1 v2 = Eq_val b /\
+   good_dimindex (:'a) ==> b`,
+  cheat);
+
 val _ = export_theory();

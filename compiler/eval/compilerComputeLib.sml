@@ -411,6 +411,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.RefByte_location_eq
     ,data_to_wordTheory.RefArray_location_eq
     ,data_to_wordTheory.Replicate_location_eq
+    ,data_to_wordTheory.AnyArith_location_eq
+    ,data_to_wordTheory.Add_location_eq
+    ,data_to_wordTheory.Sub_location_eq
+    ,data_to_wordTheory.Mul_location_eq
+    ,data_to_wordTheory.Div_location_eq
+    ,data_to_wordTheory.Mod_location_eq
+    ,data_to_wordTheory.Compare1_location_eq
+    ,data_to_wordTheory.Compare_location_eq
+    ,data_to_wordTheory.Equal1_location_eq
+    ,data_to_wordTheory.Equal_location_eq
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.SmallLsr_def
@@ -421,6 +431,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.FromList1_code_def
     ,data_to_wordTheory.RefArray_code_def
     ,data_to_wordTheory.Replicate_code_def
+    ,data_to_wordTheory.AnyArith_code_def
+    ,data_to_wordTheory.Add_code_def
+    ,data_to_wordTheory.Sub_code_def
+    ,data_to_wordTheory.Mul_code_def
+    ,data_to_wordTheory.Div_code_def
+    ,data_to_wordTheory.Mod_code_def
+    ,data_to_wordTheory.Compare1_code_def
+    ,data_to_wordTheory.Compare_code_def
+    ,data_to_wordTheory.Equal1_code_def
+    ,data_to_wordTheory.Equal_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.WriteWord64_def
