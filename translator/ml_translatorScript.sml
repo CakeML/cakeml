@@ -3,11 +3,13 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory packLib;
-open mlstringTheory integerTheory;
-open terminationTheory ml_progTheory;
+open preamble integerTheory
+     astTheory libTheory semanticPrimitivesTheory bigStepTheory
+     semanticPrimitivesPropsTheory bigStepPropsTheory
+     bigClockTheory determTheory
+     mlstringTheory ml_progTheory packLib;
+open terminationTheory
+local open funBigStepEquivTheory evaluatePropsTheory in end
 
 val _ = new_theory "ml_translator";
 
@@ -1246,10 +1248,6 @@ val LIST_TYPE_CHAR_v_to_char_list = Q.store_thm("LIST_TYPE_CHAR_v_to_char_list",
   Induct >>
   simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def])
 
-val LIST_TYPE_CHAR_char_list_to_v = Q.store_thm("LIST_TYPE_CHAR_char_list_to_v",
-  `∀l. LIST_TYPE CHAR l (char_list_to_v l)`,
-  Induct >> simp[char_list_to_v_def,LIST_TYPE_def,CHAR_def])
-
 val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
@@ -1267,15 +1265,6 @@ val Eval_implode = Q.store_thm("Eval_implode",
             stringTheory.IMPLODE_EXPLODE_I,
             mlstringTheory.explode_implode])
 
-val Eval_explode = Q.store_thm("Eval_explode",
-  `!env x1 s.
-      Eval env x1 (STRING_TYPE s) ==>
-      Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))`,
-  tac >>
-  metis_tac[LIST_TYPE_CHAR_char_list_to_v,
-            stringTheory.IMPLODE_EXPLODE_I,
-            mlstringTheory.explode_implode])
-
 val Eval_strlen = Q.store_thm("Eval_strlen",
   `!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
@@ -1283,6 +1272,32 @@ val Eval_strlen = Q.store_thm("Eval_strlen",
   tac >>
   fs[NUM_def,INT_def,mlstringTheory.strlen_def] >>
   metis_tac[])
+
+(* TODO: this should be in mlstringTheory *)
+val strsub_def = Define`
+  strsub (strlit s) n = EL n s`;
+
+val Eval_strsub = Q.store_thm("Eval_strsub",
+  `!env x1 x2 s n.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env x2 (NUM n) ==>
+      n < strlen s ==>
+      Eval env (App Strsub [x1; x2]) (CHAR (strsub s n))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases)]
+  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
+  \\ srw_tac[DNF_ss][] \\ rpt disj2_tac
+  \\ rw[empty_state_with_ffi_elim]
+  \\ fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
+  \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
+  \\ metis_tac[mlstringTheory.explode_implode,strsub_def,
+               mlstringTheory.implode_def,APPEND_ASSOC,
+               mlstringTheory.mlstring_nchotomy]);
 
 (* vectors *)
 

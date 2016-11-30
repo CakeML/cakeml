@@ -2108,6 +2108,7 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_strsub,
    Eval_sub,
    Eval_And,
    Eval_Or,
@@ -2118,7 +2119,6 @@ val builtin_binops =
 
 val builtin_monops =
   [Eval_implode,
-   Eval_explode,
    Eval_strlen,
    Eval_Bool_Not,
    Eval_int_negate,
