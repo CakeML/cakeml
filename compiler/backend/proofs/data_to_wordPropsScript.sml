@@ -5701,6 +5701,15 @@ val Smallnum_1 = Q.store_thm("Smallnum_1",
   \\ imp_res_tac word_bit_thm
   \\ fs[word_bit_test,Smallnum_bits]);
 
+val vb_size_def = tDefine"vb_size"`
+  (vb_size (Block t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
+  (vb_size _ = 1n)`
+(WF_REL_TAC`measure v_size` \\
+ gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
+ \\ res_tac \\ rw[]);
+
+val vb_size_ind = theorem"vb_size_ind";
+
 val memory_rel_pointer_eq_size = Q.store_thm("memory_rel_pointer_eq_size",
   `∀v1 v2 w.
    good_dimindex (:'a) ∧
@@ -5880,15 +5889,6 @@ val memory_rel_pointer_eq = Q.store_thm("memory_rel_pointer_eq",
 val v1_size_map = Q.store_thm("v1_size_map",
   `∀ls. v1_size ls = SUM (MAP v_size ls) + LENGTH ls`,
   Induct \\ rw[v_size_def]);
-
-val vb_size_def = tDefine"vb_size"`
-  (vb_size (Block t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
-  (vb_size _ = 1n)`
-(WF_REL_TAC`measure v_size` \\
- gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]);
-
-val vb_size_ind = theorem"vb_size_ind";
 
 val v_depth_def = tDefine"v_depth"`
   (v_depth (Block _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
@@ -6170,7 +6170,7 @@ val memory_rel_simple_eq = Q.store_thm("memory_rel_simple_eq",
   cheat);
 
 val memory_rel_ptr_eq = Q.store_thm("memory_rel_ptr_eq",
-  `memory_rel c be refs sp st m dm ((v1,x1)::(v2,x1)::vars) /\
+  `memory_rel c be refs sp st m dm ((v1,x1)::(v2,x1:'a word_loc)::vars) /\
    do_eq v1 v2 = Eq_val b /\
    good_dimindex (:'a) ==> b`,
   cheat);
