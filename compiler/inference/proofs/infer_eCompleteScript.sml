@@ -897,11 +897,6 @@ t = convert_t (t_walkstar s' t')`,
      pac_tac)
   >-
     (unconversion_tac >>
-     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
-     simp[Tchar_def] >>
-     pac_tac)
-  >-
-    (unconversion_tac >>
      fs[Tchar_def] >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp X A)]`>>
      pure_add_constraints_ignore_tac `s`>-simp[unconvert_t_def]>>
@@ -909,6 +904,12 @@ t = convert_t (t_walkstar s' t')`,
      fs[pure_add_constraints_append]>>
      Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar |>` >>fs[]>>
      pure_add_constraints_rest_tac [`constraints`,`s`])
+  >-(unconversion_tac>>
+     qexists_tac`Infer_Tapp [] TC_char` >>
+     fs[pure_add_constraints_combine] >>
+     qpat_abbrev_tac`ls = [(h,_);_]` >>
+     fs[Tchar_def] >>
+     pac_tac)
   >-(fs[Tchar_def] >> unconversion_tac >>
      fs[pure_add_constraints_combine] >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
@@ -1410,7 +1411,7 @@ val infer_pes_complete = Q.prove(`
   qpat_abbrev_tac `ntenv = MAP bla tenv' ++ ienv.inf_v`>>
   first_x_assum(qspecl_then [`si`,`ienv with inf_v := ntenv`,`nst`,`constraints''`] mp_tac)>>
   impl_keep_tac
-  >- 
+  >-
     (fs[Abbr`nst`]>>rw[]
      >-  metis_tac[pure_add_constraints_wfs]
      >- (fs[Abbr`ntenv`,check_env_merge]>>
@@ -1436,12 +1437,12 @@ val infer_pes_complete = Q.prove(`
         (full_case_tac>>fs[]>>metis_tac[])
       >-
        (full_case_tac>>fs[Abbr`ntenv`]
-        >- 
+        >-
         (fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
          Cases_on`ALOOKUP new_bindings x`
          >- fs[num_tvs_bind_var_list]
          >- (first_x_assum(qspecl_then [`x`,`x'`] assume_tac)>>rfs[]))
-        >- 
+        >-
        (first_x_assum(qspecl_then [`x`,`t`] assume_tac)>>rfs[]>>
         qexists_tac`tvs`>>
         qexists_tac`t''`>>
