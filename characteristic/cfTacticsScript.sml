@@ -67,8 +67,8 @@ val CHAR_Litv = Q.store_thm ("CHAR_Litv[simp]",
 )
 
 val STRING_Litv = Q.store_thm ("STRING_Litv[simp]",
-  `STRING_TYPE s (Litv (StrLit s')) = (s' = explode s)`,
-  fs [STRING_TYPE_def] \\ eq_tac \\ fs []
+  `STRING_TYPE s (Litv (StrLit s')) = (s = strlit s')`,
+  Cases_on`s` \\ fs [STRING_TYPE_def] \\ eq_tac \\ fs []
 )
 
 val WORD8_Litv = Q.store_thm ("WORD8_Litv[simp]",
