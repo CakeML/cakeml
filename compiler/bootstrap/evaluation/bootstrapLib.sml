@@ -12,7 +12,9 @@ val rconc = rhs o concl;
 fun time_with_size size_fn name eval_fn x =
   let
     val () = Lib.say(String.concat["eval ",name,": "])
-    val r = time eval_fn x
+    val (timer,real_timer) = (start_time(), start_real_time())
+    val r = eval_fn x
+    val _ = (end_time timer; end_real_time real_timer)
     val z = size_fn r
     val () = Lib.say(String.concat["size ",name,": ",Int.toString z,"\n"])
   in r end
