@@ -341,12 +341,6 @@ val helper = Q.prove (
   `SND ((λ(n',x'). (n',[x'])) x) = [SND x]`,
   Cases_on `x` >> full_simp_tac(srw_ss())[]);
 
-val list_to_v = Q.prove(
-  `∀l1 l2. LIST_REL (v_rel max_app) l1 l2 ⇒
-    v_rel max_app (list_to_v l1) (list_to_v l2)`,
-  Induct >> simp[list_to_v_def,v_rel_simp] >>
-  srw_tac[][PULL_EXISTS,list_to_v_def])
-
 val v_rel_Boolv_mono = Q.prove(
   `(x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))`,
   Cases_on`x`>>simp[Boolv_def,v_rel_simp])
@@ -384,11 +378,13 @@ val do_app = Q.prove(
   Cases_on`op`>>simp[v_rel_simp]>>
   Cases_on`x1`>>full_simp_tac(srw_ss())[v_rel_simp] >>
   rpt BasicProvers.VAR_EQ_TAC
+  (* GetGlobal *)
   >- (
     simp[get_global_def] >>
     imp_res_tac state_rel_globals >>
     every_case_tac >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def] >>
     res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] )
+  (* SetGlobal *)
   >- (
     simp[get_global_def] >>
     imp_res_tac state_rel_globals >>
@@ -397,7 +393,9 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def] >>
     match_mp_tac EVERY2_LUPDATE_same >>
     simp[OPTREL_def])
+  (* AllocGlobal *)
   >- ( full_simp_tac(srw_ss())[state_rel_def] >> simp[OPTREL_def])
+  (* El *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -405,10 +403,12 @@ val do_app = Q.prove(
     Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     rpt var_eq_tac >>
     srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[] )
+  (* LengthBlock *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
+  (* LengthArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -417,6 +417,7 @@ val do_app = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
     simp[LIST_REL_EL_EQN] )
+  (* LengthByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -424,6 +425,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
+  (* AllocByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -435,6 +437,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
     full_simp_tac(srw_ss())[OPTREL_def,FLOOKUP_UPDATE] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] )
+  (* AllocArray *)
   >- (
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -446,6 +449,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[OPTREL_def,FLOOKUP_UPDATE] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     simp[LIST_REL_REPLICATE_same])
+  (* SubByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -457,6 +461,7 @@ val do_app = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
     metis_tac[])
+  (* UpdateByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -477,10 +482,6 @@ val do_app = Q.prove(
     imp_res_tac v_to_list >>
     every_case_tac >> full_simp_tac(srw_ss())[OPTREL_def] >>
     simp[v_rel_simp] )
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac list_to_v )
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
