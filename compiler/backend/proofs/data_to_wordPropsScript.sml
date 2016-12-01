@@ -2244,32 +2244,32 @@ val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 val make_byte_header_def = Define `
   make_byte_header conf len =
     (if dimindex (:'a) = 32
-     then n2w (len + 3) << (dimindex (:α) - 2 - conf.len_size) || 31w
-     else n2w (len + 7) << (dimindex (:α) - 3 - conf.len_size) || 31w):'a word`
+     then n2w (len + 3) << (dimindex (:α) - 2 - conf.len_size) || 0b10111w
+     else n2w (len + 7) << (dimindex (:α) - 3 - conf.len_size) || 0b10111w):'a word`
 
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
-     (* header: ...00[11] *)
+     (* header: ...00[11] here i in ...i[11] must be 0 for the GC *)
      (make_header conf (n2w n << 2) (LENGTH ys),
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l) /\
       encode_header conf (n * 4) (LENGTH ys) =
         SOME (make_header conf (n2w n << 2) (LENGTH ys):'a word))) /\
   (word_payload ys l (RefTag) qs conf =
-     (* header: ...010[11] *)
+     (* header: ...010[11] here i in ...i[11] must be 0 for the GC *)
      (make_header conf 2w (LENGTH ys),
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l Word64Tag qs conf =
-     (* header: ...011[11] *)
+     (* header: ...011[11] here i in ...i[11] must be 1 for the GC *)
      (make_header conf 3w l,
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (NumTag b) qs conf =
-     (* header: ...111[11] or ...011[11] *)
+     (* header: ...111[11] or ...011[11] here i in ...i[11] must be 1 for GC *)
      (make_header conf (b2w b << 2 || 3w) (LENGTH qs),
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
-     (* header: ...11111 *)
+     (* header: ...10111 here i in ...i[11] must be 1 for the GC *)
      ((make_byte_header conf n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
           let k = if dimindex(:'a) = 32 then 2 else 3 in
@@ -3613,13 +3613,16 @@ val memory_rel_RefByte = Q.store_thm("memory_rel_RefByte",
     \\ fs [labPropsTheory.good_dimindex_def,shift_def,byte_len_def,
            make_byte_header_def,decode_length_def] \\ rfs []
     \\ fs [DECIDE ``m + n < k <=> m < k - n:num``]
-    \\ qpat_abbrev_tac `www = 31w >>> _`
+    \\ qpat_abbrev_tac `www = 0b10111w >>> _`
     \\ `www = 0w` by
      (unabbrev_all_tac
       \\ match_mp_tac n2w_lsr_eq_0
       \\ fs [dimword_def]
       \\ match_mp_tac LESS_DIV_EQ_ZERO \\ fs []
-      \\ fs [LESS_EQ] \\ simp_tac bool_ss [GSYM (EVAL ``2n**5``)]
+      \\ fs [LESS_EQ]
+      \\ match_mp_tac LESS_EQ_TRANS
+      \\ qexists_tac `2n ** 5`
+      \\ conj_tac THEN1 fs []
       \\ match_mp_tac IMP_EXP_LESS \\ fs [] \\ NO_TAC) \\ fs []
     \\ match_mp_tac shift_shift_lemma \\ fs [shift_def]
     \\ fs [dimword_def,DIV_LT_X])
@@ -3696,7 +3699,7 @@ val memory_rel_Block_IMP = Q.store_thm("memory_rel_Block_IMP",
           w = n2w tag * 16w + 2w /\ ~(w ' 0) /\ tag < dimword (:'a) DIV 16
         else
           ?a x.
-            w ' 0 /\ ~(word_bit 3 x) /\
+            w ' 0 /\ ~(word_bit 3 x) /\ ~(word_bit 2 x) /\
             get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
             decode_length c x = n2w (LENGTH vals) /\
             LENGTH vals < 2 ** (dimindex (:'a) − 4) /\
@@ -4158,12 +4161,15 @@ val heap_length_Bytes = save_thm("heap_length_Bytes",
   |> SIMP_RULE std_ss [LENGTH_write_bytes]);
 
 val decode_length_make_byte_header = Q.store_thm("decode_length_make_byte_header",
-  `good_dimindex(:α) ∧ c.len_size + 7 < dimindex(:α) ∧ len + (2 ** shift(:α) - 1) < 2 ** (c.len_size + shift(:α)) ⇒
-   len ≤ w2n ((decode_length c (make_byte_header c len)):α word) * (dimindex(:α) DIV 8) ∧
-   w2n ((decode_length c (make_byte_header c len)):α word) ≤ len DIV (dimindex(:α) DIV 8) + 1`,
+  `good_dimindex(:α) ∧ c.len_size + 7 < dimindex(:α) ∧
+   len + (2 ** shift(:α) - 1) < 2 ** (c.len_size + shift(:α)) ⇒
+   len ≤ w2n ((decode_length c (make_byte_header c len)):α word) *
+       (dimindex(:α) DIV 8) ∧
+   w2n ((decode_length c (make_byte_header c len)):α word) ≤
+       len DIV (dimindex(:α) DIV 8) + 1`,
   simp[decode_length_def,make_byte_header_def,labPropsTheory.good_dimindex_def]
   \\ strip_tac \\ simp[]
-  \\ qpat_abbrev_tac`z = 31w >>> _`
+  \\ qpat_abbrev_tac`z = 0b10111w >>> _`
   \\ `z = 0w`
   by (
     fs[Abbr`z`]
@@ -4603,7 +4609,7 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
   `memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
    FLOOKUP refs p = SOME (ByteArray vals) /\ good_dimindex (:'a) ==>
    ?w a x l.
-     v = Word w /\ w ' 0 /\ word_bit 3 x /\ word_bit 4 x /\ word_bit 2 x /\
+     v = Word w /\ w ' 0 /\ ~(word_bit 3 x) /\ word_bit 4 x /\ word_bit 2 x /\
      get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
      (!i. i < LENGTH vals ==>
           mem_load_byte_aux m dm be (a + bytes_in_word + n2w i) =
@@ -4800,7 +4806,7 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
     \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
     \\ rename1 `4n <= k`
-    \\ `31w >>> k = 0w`
+    \\ `0b10111w >>> k = 0w`
     by (srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
         \\ Cases_on `i + k < 32`
         \\ simp [wordsTheory.word_index])
@@ -4824,7 +4830,7 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
     \\ `c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
     \\ rename1 `5n <= k` \\ fs []
-    \\ `31w >>> k = 0w`
+    \\ `0b10111w >>> k = 0w`
     by (
       match_mp_tac n2w_lsr_eq_0
       \\ simp[dimword_def]
@@ -4865,7 +4871,8 @@ val memory_rel_RefPtr_IMP = Q.store_thm("memory_rel_RefPtr_IMP",
   `memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
     good_dimindex (:'a) ==>
     ?w a x.
-      v = Word w /\ w ' 0 /\ word_bit 3 x /\ (word_bit 2 x <=> word_bit 4 x) /\
+      v = Word w /\ w ' 0 /\ (word_bit 2 x <=> word_bit 4 x) /\
+      (word_bit 3 x <=> ~word_bit 2 x) /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm`,
   strip_tac \\ drule memory_rel_RefPtr_IMP_lemma \\ strip_tac
   \\ Cases_on `res` \\ fs []
@@ -5807,7 +5814,7 @@ val memory_rel_pointer_eq_size = Q.store_thm("memory_rel_pointer_eq_size",
     \\ rpt_drule memory_rel_tail \\ strip_tac
     \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
     \\ strip_tac
-    \\ fs[] \\ rveq \\ fs[] ));
+    \\ fs[] \\ rveq \\ fs[] \\ rfs [] ));
 
 val memory_rel_pointer_eq = Q.store_thm("memory_rel_pointer_eq",
   `∀v1 v2 w.

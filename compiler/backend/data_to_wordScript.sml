@@ -217,7 +217,7 @@ val RefByte_code_def = Define`
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
            (* compute header *)
-           Assign 5 (Op Or [y; Const 31w]);
+           Assign 5 (Op Or [y; Const 0b10111w]);
            (* compute repeated byte *)
            MakeBytes 4;
            (* store header *)
