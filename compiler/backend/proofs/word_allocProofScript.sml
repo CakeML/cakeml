@@ -5603,7 +5603,7 @@ val setup_ssa_props = Q.prove(`
     use_ALOOKUP_ALL_DISTINCT_MEM >>
     full_simp_tac(srw_ss())[MAP_ZIP,LENGTH_COUNT_LIST]>>
     strip_tac>>
-    pop_assum(qspec_then `y` mp_tac)>>impl_tac
+    pop_assum(qspec_then `y'` mp_tac)>>impl_tac
     >-
       (full_simp_tac(srw_ss())[MEM_ZIP,LENGTH_COUNT_LIST]>>
       `x ∈ set args` by metis_tac[domain_lookup]>>
