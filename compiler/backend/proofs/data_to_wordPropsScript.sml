@@ -5673,7 +5673,8 @@ val memory_rel_swap = Q.store_thm("memory_rel_swap",
   match_mp_tac memory_rel_rearrange \\ rw[] \\ rw[]);
 
 val memory_rel_Block_MEM = Q.store_thm("memory_rel_Block_MEM",
-  `memory_rel c be refs sp st m dm ((Block n ls,(v:'a word_loc))::vars) ∧ i < LENGTH ls ∧
+  `memory_rel c be refs sp st m dm ((Block n ls,(v:'a word_loc))::vars) ∧
+   i < LENGTH ls ∧
    good_dimindex (:'a)
    ⇒
    ∃w a y.
@@ -6212,12 +6213,13 @@ val word_eq_def = tDefine "word_eq" `
      if ~(word_bit 0 w1 /\ word_bit 0 w2) then SOME (0w,l) else
        case (word_header c st w1 dm m, word_header c st w2 dm m) of
        | (SOME (a1,h1), SOME (a2,h2)) =>
-           if ~(h1 = h2) then SOME (0w,l) else
            if (h1 && 0b1100w) = 0w (* is Block *) then
-             if word_is_clos c h1 \/ word_is_clos c h2 then SOME (1w,l) else
+             if word_is_clos c h1 (* isClos *) then SOME (1w,l) else
+             if ~(h1 = h2) then SOME (0w,l) else
              if l = 0 then NONE else
                word_eq_list c st dm m (l-1) (decode_length c h1)
                  (a1+bytes_in_word) (a2+bytes_in_word) else
+           if ~(h1 = h2) then SOME (0w,l) else
            if ~(word_bit 2 h1) (* is array *) then SOME (0w,l) else
            if ~(word_bit 3 h1) (* is byte array *) then SOME (0w,l) else
              (* must be a bignum or word64 *)
@@ -6281,8 +6283,28 @@ val bit_pattern_1100 = store_thm("bit_pattern_1100[simp]",
 
 val memory_rel_Block_Block_small_eq = prove(
   ``memory_rel c be refs sp st m dm
-      ((Block t1 v1,Word w1)::(Block t2 v2,Word w2)::vars) /\
-    w1 <> w2 /\ ¬word_bit 0 w1 ==> LENGTH v1 <> LENGTH v2 \/ t1 <> t2``,
+      ((Block t1 v1,Word (w1:'a word))::(Block t2 v2,Word w2)::vars) /\
+    good_dimindex (:'a) /\ w1 <> w2 /\ ¬word_bit 0 w1 ==>
+    LENGTH v1 <> LENGTH v2 \/ t1 <> t2``,
+  rw [] \\ drule memory_rel_Block_IMP \\ fs []
+  \\ fs [word_bit] \\ strip_tac \\ rveq
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ CCONTR_TAC \\ fs [LENGTH_NIL] \\ rveq
+  \\ imp_res_tac memory_rel_tail
+  \\ drule memory_rel_Block_IMP \\ fs []);
+
+val memory_rel_isClos = prove(
+  ``memory_rel c be refs sp st m dm ((Block t1 v1,Word (w1:'a word))::vars) /\
+    get_real_addr c st w1 = SOME a' /\ m a' = Word x' /\ good_dimindex (:'a) ==>
+    (isClos t1 v1 <=> word_is_clos c x')``,
+  cheat);
+
+val memory_rel_Block_explode = store_thm("memory_rel_Block_explode",
+  ``memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
+    word_bit 0 w1 /\ get_real_addr c st w1 = SOME a ==>
+    memory_rel c be refs sp st m dm
+      (eq_explode (a + bytes_in_word) m dm v1 ++ vars) /\
+    eq_assum (a + bytes_in_word) m dm v1``,
   cheat);
 
 val eq_assum_def = Define `
@@ -6330,19 +6352,19 @@ val word_eq_thm = store_thm("word_eq_thm",
       \\ drule memory_rel_Number_cmp \\ fs [])
     \\ fs [] \\ strip_tac
     \\ fs [word_header_def]
-    \\ IF_CASES_TAC \\ fs [] \\ rveq
-    THEN1
-     (qpat_x_assum `word_cmp_res n1 n2 = _` mp_tac
-      \\ fs [word_cmp_res_def]
-      \\ Cases_on `n1 = n2` \\ fs []
-      \\ fs [good_dimindex_def] \\ rw [] \\ fs [dimword_def])
-    \\ fs [bit_pattern_1100]
     \\ `~(small_int (:'a) n1)` by
      (imp_res_tac memory_rel_any_Number_IMP
       \\ strip_tac \\ fs [] \\ rveq \\ fs [word_bit])
     \\ drule memory_rel_Number_bignum_IMP_ALT \\ fs []
     \\ Cases_on `word_bit 2 x1` \\ fs []
     \\ Cases_on `word_bit 3 x1` \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq
+    THEN1
+     (disch_then kall_tac
+      \\ qpat_x_assum `word_cmp_res n1 n2 = _` mp_tac
+      \\ fs [word_cmp_res_def]
+      \\ Cases_on `n1 = n2` \\ fs []
+      \\ fs [good_dimindex_def] \\ rw [] \\ fs [dimword_def])
     \\ strip_tac \\ fs []
     \\ Cases_on `0 ≤ n1` \\ fs [] THEN1
      (fs [word_cmp_res_def] \\ rw []
@@ -6382,7 +6404,50 @@ val word_eq_thm = store_thm("word_eq_thm",
       \\ drule memory_rel_Block_Block_small_eq \\ fs []
       \\ CCONTR_TAC \\ fs [] \\ fs [])
     \\ fs []
-    \\ cheat)
+    \\ drule memory_rel_Block_IMP \\ fs [word_bit]
+    \\ imp_res_tac memory_rel_tail
+    \\ drule memory_rel_Block_IMP \\ fs [word_bit]
+    \\ pop_assum kall_tac
+    \\ rpt strip_tac
+    \\ fs [word_header_def]
+    \\ drule memory_rel_isClos \\ fs [] \\ strip_tac
+    \\ IF_CASES_TAC
+    THEN1 (fs [] \\ every_case_tac \\ fs [])
+    \\ fs [] \\ rveq
+    \\ qpat_x_assum `_ = Eq_val b` mp_tac
+    \\ reverse IF_CASES_TAC THEN1
+     (`c.len_size + 2 < dimindex (:α)` by
+             fs [memory_rel_def,heap_in_memory_store_def]
+      \\ imp_res_tac encode_header_EQ \\ rveq  \\ fs [])
+    \\ fs [] \\ rveq \\ strip_tac \\ fs []
+    \\ rpt_drule memory_rel_Block_explode
+    \\ strip_tac
+    \\ `memory_rel c be refs sp st m dm
+         ((Block t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
+          vars))` by
+     (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+      \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
+    \\ rpt_drule memory_rel_Block_explode
+    \\ strip_tac
+    \\ `memory_rel c be refs sp st m dm
+         (eq_explode (a' + bytes_in_word) m dm v1 ++
+          eq_explode (a + bytes_in_word) m dm v2 ++ vars)` by
+     (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+      \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then (qspec_then `l-1` mp_tac)
+    \\ impl_tac THEN1
+     (fs [LEFT_ADD_DISTRIB,vb_size_def]
+      \\ qpat_x_assum `_ < l` mp_tac
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+      \\ Cases_on `l` \\ fs []
+      \\ `0 < dimword (:'a)` by fs []
+      \\ fs [encode_header_def]
+      \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+    \\ strip_tac \\ fs []
+    \\ fs [LEFT_ADD_DISTRIB,vb_size_def]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
   THEN1 (* do_eq_list nil case *)
    (once_rewrite_tac [word_eq_def] \\ fs [])
   (* do_eq_list cons case *)
