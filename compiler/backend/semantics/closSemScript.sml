@@ -53,10 +53,7 @@ val do_eq_def = tDefine "do_eq" `
           | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
                              do_eq_list xs ys
                            else Eq_val F
-          | Number _ => Eq_type_error
-          | Word64 _ => Eq_type_error
-          | RefPtr _ => Eq_type_error
-          | _ => Eq_val T)
+          | _ => Eq_type_error)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
@@ -65,6 +62,7 @@ val do_eq_def = tDefine "do_eq" `
          (case y of
           | Number _ => Eq_type_error
           | Word64 _ => Eq_type_error
+          | Block _ _ => Eq_type_error
           | RefPtr _ => Eq_type_error
           | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\

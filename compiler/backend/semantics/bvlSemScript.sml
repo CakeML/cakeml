@@ -59,7 +59,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (RefPtr _) = Eq_type_error) ∧
   (do_eq (Block t1 l1) (Block t2 l2) =
    if isClos t1 l1 \/ isClos t2 l2
-   then Eq_val T
+   then if isClos t1 l1 /\ isClos t2 l2 then Eq_val T else Eq_type_error
    else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
         then do_eq_list l1 l2
         else Eq_val F) ∧
