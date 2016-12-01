@@ -5684,7 +5684,7 @@ val memory_rel_Block_MEM = Q.store_thm("memory_rel_Block_MEM",
    ⇒
    ∃w a y.
    get_real_offset (Smallnum (&i)) = SOME y ∧
-   v = Word w ∧ get_real_addr c st w = SOME a ∧
+   v = Word w ∧ get_real_addr c st w = SOME a ∧ (a + y) IN dm /\
    memory_rel c be refs sp st m dm ((EL i ls,m (a + y))::(Block n ls,v)::vars)`,
   rw[]
   \\ rpt_drule memory_rel_Block_IMP
@@ -6317,20 +6317,78 @@ val memory_rel_isClos = prove(
 val eq_assum_def = Define `
   (eq_assum a m dm [] = T) /\
   (eq_assum a m dm (v::vs) <=>
-     a IN dm /\ isWord (m a) /\
-     eq_assum (a + bytes_in_word) m dm vs)`;
+     a IN dm /\ eq_assum (a + bytes_in_word) m dm vs)`;
 
 val eq_explode_def = Define `
   (eq_explode a m dm [] = []) /\
   (eq_explode a m dm (v::vs) = (v,m a) :: eq_explode (a + bytes_in_word) m dm vs)`;
 
+val eq_explode_APPEND = prove(
+  ``!xs ys a.
+      eq_explode a m dm (xs ++ ys) =
+      eq_explode a m dm xs ++
+      eq_explode (a + n2w (LENGTH xs) * bytes_in_word) m dm ys``,
+  Induct \\ fs [eq_explode_def,ADD1,bytes_in_word_def,word_mul_n2w]
+  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]);
+
+val eq_assum_APPEND = prove(
+  ``!xs ys a.
+      eq_assum a m dm (xs ++ ys) <=>
+      eq_assum a m dm xs /\
+      eq_assum (a + n2w (LENGTH xs) * bytes_in_word) m dm ys``,
+  Induct \\ fs [eq_assum_def,ADD1,bytes_in_word_def,word_mul_n2w]
+  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
+  \\ rw [] \\ eq_tac \\ rw []);
+
+val memory_rel_Block_explode_lemma = prove(
+  ``!n.
+      memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
+      word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
+      memory_rel c be refs sp st m dm
+        (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++
+         (Block t1 v1,Word (w1:'a word))::vars) /\
+      eq_assum (a + bytes_in_word) m dm (TAKE n v1)``,
+  Induct THEN1
+   (fs [TAKE_def,eq_explode_def,eq_assum_def] \\ rw []
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
+  \\ reverse (Cases_on `n < LENGTH v1`)
+  THEN1 (fs [TAKE_LENGTH_TOO_LONG])
+  \\ drule (GSYM SNOC_EL_TAKE)
+  \\ fs [] \\ ntac 2 strip_tac
+  \\ fs [eq_explode_APPEND,eq_explode_def,eq_assum_APPEND,eq_assum_def]
+  \\ `memory_rel c be refs sp st m dm
+        ((Block t1 v1,Word w1)::
+         (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++ vars))` by
+   (qpat_x_assum `memory_rel c be refs sp st m dm _` kall_tac
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
+  \\ rpt_drule memory_rel_Block_MEM \\ fs []
+  \\ fs [get_real_offset_def,Smallnum_def]
+  \\ fs [good_dimindex_def,WORD_MUL_LSL,word_mul_n2w,Smallnum_def]
+  \\ fs[bytes_in_word_def,word_mul_n2w]
+  \\ strip_tac
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ fs [] \\ rw [] \\ fs []);
+
 val memory_rel_Block_explode = store_thm("memory_rel_Block_explode",
   ``memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
-    word_bit 0 w1 /\ get_real_addr c st w1 = SOME a ==>
+    word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
     memory_rel c be refs sp st m dm
-      (eq_explode (a + bytes_in_word) m dm v1 ++ vars) /\
+      (eq_explode (a + bytes_in_word:'a word) m dm v1 ++ vars) /\
     eq_assum (a + bytes_in_word) m dm v1``,
-  cheat);
+  strip_tac
+  \\ rpt_drule (memory_rel_Block_explode_lemma |> Q.SPEC `LENGTH (v1:v list)`)
+  \\ strip_tac
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ fs [] \\ rw [] \\ fs []);
+
+val memory_rel_Loc = store_thm("memory_rel_Loc",
+  ``memory_rel c be refs sp st m dm ((v1,Loc n k)::vars) ==> v1 = CodePtr n``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+      bc_stack_ref_inv_def] \\ rw []
+  \\ Cases_on `v1` \\ fs [v_inv_def,word_addr_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [word_addr_def]);
 
 val word_eq_thm = store_thm("word_eq_thm",
   ``(!v1 v2 l b w1 w2.
@@ -6504,11 +6562,16 @@ val word_eq_thm = store_thm("word_eq_thm",
   \\ strip_tac
   \\ once_rewrite_tac [word_eq_def]
   \\ fs [ADD1,word_add_n2w]
-  \\ TOP_CASE_TAC \\ fs [isWord_def]
-  \\ TOP_CASE_TAC \\ fs [isWord_def]
-  \\ rename1 `m w1 = Word c1`
-  \\ rename1 `m w2 = Word c2`
   \\ Cases_on `do_eq v1 v2` \\ fs []
+  \\ `?c1. m w1 = Word c1` by
+   (Cases_on `m w1` \\ fs [] \\ imp_res_tac memory_rel_Loc
+    \\ rveq \\ fs [do_eq_def])
+  \\ `?c2. m w2 = Word c2` by
+   (`memory_rel c be refs sp st m dm [(v2,m w2)]` by
+     (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+      \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
+    \\ Cases_on `m w2` \\ fs [] \\ imp_res_tac memory_rel_Loc
+    \\ rveq \\ Cases_on `v1` \\ fs [do_eq_def])
   \\ `memory_rel c be refs sp st m dm ((v1,Word c1)::(v2,Word c2)::vars)` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
