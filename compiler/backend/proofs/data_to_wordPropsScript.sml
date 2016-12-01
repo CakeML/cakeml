@@ -6247,9 +6247,24 @@ val word_eq_def = tDefine "word_eq" `
 
 val word_eq_ind = theorem "word_eq_ind";
 
+val word_eq_LESS_EQ = prove(
+  ``(!c st dm m l w1 (w2:'a word) x0.
+       word_eq c st dm m l w1 w2 = SOME (x0,l1) ==> l1 <= l) /\
+    (!c st dm m l w a1 (a2:'a word) x0.
+       word_eq_list c st dm m l w a1 a2 = SOME (x0,l1) ==> l1 <= l)``,
+  ho_match_mp_tac word_eq_ind
+  \\ rw [] \\ pop_assum mp_tac
+  \\ once_rewrite_tac [word_eq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt strip_tac \\ res_tac \\ fs []
+  \\ rw [] \\ fs []
+  \\ imp_res_tac fix_clock_IMP \\ fs []);
+
 val fix_clock_word_eq = prove(
   ``fix_clock l (word_eq c st dm m l w1 w2) = word_eq c st dm m l w1 w2``,
-  cheat);
+  Cases_on `word_eq c st dm m l w1 w2` \\ fs [fix_clock_def]
+  \\ PairCases_on `x` \\ fs [] \\ fs [fix_clock_def] \\ rw []
+  \\ imp_res_tac word_eq_LESS_EQ \\ fs []);
 
 val word_eq_def = save_thm("word_eq_def",
   word_eq_def |> REWRITE_RULE [fix_clock_word_eq]);
