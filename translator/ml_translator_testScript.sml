@@ -25,15 +25,8 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
-val explode_aux_def = Define`
-  (explode_aux s n 0 = []) ∧
-  (explode_aux s n (SUC len) =
-    strsub s n :: (explode_aux s (n+1) len))`;
-val res = translate explode_aux_def;
-
-val explode_def = Define`
-  explode s = explode_aux s 0 (strlen s)`;
-val res = translate explode_def;
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
 
 val string_to_bytes_def = Define`
   string_to_bytes s = MAP char_to_byte (explode s)`;

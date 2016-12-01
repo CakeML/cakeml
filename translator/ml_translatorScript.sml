@@ -83,7 +83,7 @@ val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
 
 val STRING_TYPE_def = Define`
-  STRING_TYPE (s:mlstring) = \v:v. (v = Litv (StrLit (explode s)))`;
+  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -377,7 +377,9 @@ val EqualityType_NUM_BOOL = Q.store_thm("EqualityType_NUM_BOOL",
     types_match_def, lit_same_type_def,
     stringTheory.ORD_11,mlstringTheory.explode_11]
   \\ SRW_TAC [] [] \\ EVAL_TAC
-  \\ fs [w2w_def] \\ Cases_on `x1` \\ Cases_on `x2`
+  \\ fs [w2w_def] \\ Cases_on `x1`
+  \\ fs[STRING_TYPE_def] \\ EVAL_TAC
+  \\ Cases_on `x2` \\ fs[STRING_TYPE_def] \\ EVAL_TAC
   \\ fs [WORD_MUL_LSL,word_mul_n2w]
   \\ imp_res_tac Eq_lemma \\ fs []
   \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]);
@@ -1254,7 +1256,7 @@ val tac =
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
   rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim] >>
-  fs[STRING_TYPE_def]
+  fs[STRING_TYPE_def,mlstringTheory.implode_def]
 
 val Eval_implode = Q.store_thm("Eval_implode",
   `!env x1 l.
@@ -1262,20 +1264,15 @@ val Eval_implode = Q.store_thm("Eval_implode",
       Eval env (App Implode [x1]) (STRING_TYPE (implode l))`,
   tac >>
   metis_tac[LIST_TYPE_CHAR_v_to_char_list,
-            stringTheory.IMPLODE_EXPLODE_I,
-            mlstringTheory.explode_implode])
+            stringTheory.IMPLODE_EXPLODE_I])
 
 val Eval_strlen = Q.store_thm("Eval_strlen",
   `!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Strlen [x1]) (NUM (strlen s))`,
-  tac >>
+  Cases_on`s` >> tac >>
   fs[NUM_def,INT_def,mlstringTheory.strlen_def] >>
   metis_tac[])
-
-(* TODO: this should be in mlstringTheory *)
-val strsub_def = Define`
-  strsub (strlit s) n = EL n s`;
 
 val Eval_strsub = Q.store_thm("Eval_strsub",
   `!env x1 x2 s n.
@@ -1293,11 +1290,9 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
   \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
   \\ srw_tac[DNF_ss][] \\ rpt disj2_tac
   \\ rw[empty_state_with_ffi_elim]
-  \\ fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
+  \\ Cases_on`s` >> fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
   \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
-  \\ metis_tac[mlstringTheory.explode_implode,strsub_def,
-               mlstringTheory.implode_def,APPEND_ASSOC,
-               mlstringTheory.mlstring_nchotomy]);
+  \\ metis_tac[strsub_def,mlstringTheory.implode_def,APPEND_ASSOC]);
 
 (* vectors *)
 
