@@ -6388,10 +6388,19 @@ val word_eq_thm = store_thm("word_eq_thm",
   THEN1 (* do_eq Blocks *)
    (rpt gen_tac \\ strip_tac \\ rpt gen_tac
     \\ IF_CASES_TAC THEN1
-     (fs [] \\ strip_tac \\ fs []
+     (reverse IF_CASES_TAC THEN1 fs []
+      \\ pop_assum mp_tac \\ pop_assum kall_tac
+      \\ strip_tac \\ fs []
       \\ once_rewrite_tac [word_eq_def]
       \\ IF_CASES_TAC \\ fs []
-      \\ cheat (* semantics of closLang and BVL needs to change *))
+      \\ `v1 <> [] /\ v2 <> []` by fs [isClos_def]
+      \\ strip_tac
+      \\ drule memory_rel_Block_IMP \\ fs [word_bit]
+      \\ imp_res_tac memory_rel_tail
+      \\ drule memory_rel_Block_IMP \\ fs [word_bit]
+      \\ rpt strip_tac \\ fs [word_header_def]
+      \\ qpat_x_assum `memory_rel c be refs sp st m dm _` kall_tac
+      \\ rpt_drule memory_rel_isClos \\ fs [])
     \\ fs [] \\ strip_tac
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC \\ fs []
@@ -6421,6 +6430,7 @@ val word_eq_thm = store_thm("word_eq_thm",
       \\ imp_res_tac encode_header_EQ \\ rveq  \\ fs [])
     \\ fs [] \\ rveq \\ strip_tac \\ fs []
     \\ rpt_drule memory_rel_Block_explode
+(*
     \\ strip_tac
     \\ `memory_rel c be refs sp st m dm
          ((Block t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
@@ -6447,7 +6457,7 @@ val word_eq_thm = store_thm("word_eq_thm",
     \\ strip_tac \\ fs []
     \\ fs [LEFT_ADD_DISTRIB,vb_size_def]
     \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs [] *))
   THEN1 (* do_eq_list nil case *)
    (once_rewrite_tac [word_eq_def] \\ fs [])
   (* do_eq_list cons case *)
