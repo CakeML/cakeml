@@ -82,11 +82,6 @@ val do_eq = Q.store_thm("do_eq",
   rw[]>>fs[]>>
   BasicProvers.CASE_TAC>>fs[]);
 
-val list_to_v = Q.store_thm("list_to_v",
-  `∀ls. list_to_v (MAP (Number o $& o ORD) ls) =
-         compile_v (char_list_to_v ls)`,
-  Induct >> simp[list_to_v_def,char_list_to_v_def])
-
 val v_to_list_def = closSemTheory.v_to_list_def;
 
 val v_to_char_list = Q.store_thm("v_to_char_list",
@@ -469,10 +464,21 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def] >>
       simp[] >> rw[] >> COOPER_TAC )
-    >- ( (* Explode *)
-      fs[MAP_REVERSE] >>
+    >- ( (* Strsub *)
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
-      simp[list_to_v,IMPLODE_EXPLODE_I])
+      Cases_on`i < 0` >> fs[] >- (
+        fs[] >> arw[prim_exn_def] ) >>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      `0 ≤ i` by COOPER_TAC >>
+      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
+      `i < &LENGTH s'' ⇔ ¬(Num i ≥ LENGTH s'')` by COOPER_TAC >> simp[] >>
+      Cases_on`Num i ≥ LENGTH s''`>>fs[] >- (
+        arw[prim_exn_def] \\
+        `F` suffices_by rw[] \\
+        intLib.COOPER_TAC) >>
+      rpt strip_tac >> rpt var_eq_tac >>
+      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP] )
     >- ( (* Implode *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>

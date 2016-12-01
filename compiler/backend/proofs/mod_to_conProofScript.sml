@@ -845,13 +845,6 @@ val v_to_list = Q.prove (
   full_simp_tac(srw_ss())[] >>
   metis_tac [NOT_SOME_NONE, SOME_11]);
 
-val char_list_to_v = Q.prove(
-  `gtagenv_wf gtagenv ⇒
-    ∀ls. v_rel gtagenv (char_list_to_v ls) (char_list_to_v ls)`,
-  strip_tac >>
-  Induct >> simp[modSemTheory.char_list_to_v_def,conSemTheory.char_list_to_v_def,v_rel_eqns] >>
-  full_simp_tac(srw_ss())[gtagenv_wf_def,has_lists_def])
-
 val v_to_char_list = Q.prove (
   `!v1 v2 vs1.
     gtagenv_wf gtagenv ∧
@@ -959,9 +952,6 @@ val do_app = Q.prove (
   >- tac
   >- tac
   >- (
-    tac >>
-    simp[char_list_to_v] )
-  >- (
     full_simp_tac(srw_ss())[modSemTheory.do_app_def]>>
     Cases_on`vs`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
@@ -971,6 +961,7 @@ val do_app = Q.prove (
       imp_res_tac v_to_char_list >>
       full_simp_tac(srw_ss())[] >> srw_tac[][conSemTheory.do_app_def,result_rel_cases,v_rel_eqns]) >>
     every_case_tac >> full_simp_tac(srw_ss())[])
+  >- tac
   >- tac
   >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
