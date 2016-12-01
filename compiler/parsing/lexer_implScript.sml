@@ -153,9 +153,10 @@ val get_token_eqn = Q.store_thm ("get_token_eqn",
 val _ = computeLib.add_persistent_funs(["get_token_eqn"]);
 
 val unhex_alt_def = Define`
-  unhex_alt x = (if isDigit x then UNHEX x else 0n)`
+  unhex_alt x = (if isHexDigit x then UNHEX x else 0n)`
 
 val num_from_dec_string_alt_def = Define `num_from_dec_string_alt = s2n 10 unhex_alt`;
+val num_from_hex_string_alt_def = Define `num_from_hex_string_alt = s2n 16 unhex_alt`;
 
 val next_sym_alt_def = tDefine "next_sym_alt"`
   (next_sym_alt "" = NONE) /\
@@ -168,11 +169,11 @@ val next_sym_alt_def = tDefine "next_sym_alt"`
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) []
            in
-             SOME (WordS (&toNum n), rest)
+             SOME (WordS (&num_from_dec_string_alt n), rest)
          else if HD (TL str) = #"x" then
            let (n,rest) = read_while isHexDigit (TL (TL str)) []
            in
-             SOME (WordS (&num_from_hex_string n), rest)
+             SOME (WordS (&num_from_hex_string_alt n), rest)
          else SOME (ErrorS, TL str)
        else
          let (n,rest) = read_while isDigit str []
@@ -229,7 +230,7 @@ val next_sym_alt_def = tDefine "next_sym_alt"`
 val EVERY_isDigit_imp = Q.prove(`
   EVERY isDigit x ⇒
   MAP UNHEX x = MAP unhex_alt x`,
-  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def])
+  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def,isDigit_def,isHexDigit_def])
 
 val toNum_rw = Q.prove(`
   ∀x. EVERY isDigit x ⇒
@@ -237,6 +238,19 @@ val toNum_rw = Q.prove(`
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_dec_string_def,num_from_dec_string_alt_def]>>
   AP_TERM_TAC>>
   match_mp_tac EVERY_isDigit_imp>>
+  metis_tac[rich_listTheory.EVERY_REVERSE])
+
+val EVERY_isHexDigit_imp = Q.prove(`
+  EVERY isHexDigit x ⇒
+  MAP UNHEX x = MAP unhex_alt x`,
+  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def])
+
+val num_from_hex_string_rw = Q.prove(`
+  ∀x. EVERY isHexDigit x ⇒
+  num_from_hex_string x = num_from_hex_string_alt x`,
+  rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_hex_string_def,num_from_hex_string_alt_def]>>
+  AP_TERM_TAC>>
+  match_mp_tac EVERY_isHexDigit_imp>>
   metis_tac[rich_listTheory.EVERY_REVERSE])
 
 val EVERY_IMPLODE = Q.prove(`
@@ -267,7 +281,8 @@ val next_sym_eq = Q.store_thm("next_sym_eq",
   TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
   TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
   pairarg_tac>>fs[]>>
-  match_mp_tac toNum_rw>>
+  TRY(qmatch_goalsub_abbrev_tac`num_from_hex_string _ = _` >> match_mp_tac num_from_hex_string_rw)>>
+  TRY(qmatch_goalsub_abbrev_tac`toNum _ = _` >>match_mp_tac toNum_rw)>>
   fs[]>>
   ho_match_mp_tac read_while_P>>
   metis_tac[]);
