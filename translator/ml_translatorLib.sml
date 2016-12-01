@@ -2587,11 +2587,17 @@ fun hol2deep tm =
   (* n2w 'a word for known 'a*)
   if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
     val dim = wordsSyntax.dim_of tm
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
+    val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
+  (* i2w 'a word for known 'a*)
+  if integer_wordSyntax.is_i2w tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
+                           |> CONV_RULE wordsLib.WORD_CONV) th1
+    in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a*)
   if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
     val x1 = tm |> rand
