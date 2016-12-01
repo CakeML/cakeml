@@ -5825,83 +5825,6 @@ val memory_rel_pointer_eq_size = Q.store_thm("memory_rel_pointer_eq_size",
     \\ strip_tac
     \\ fs[] \\ rveq \\ fs[] \\ rfs [] ));
 
-val memory_rel_pointer_eq = Q.store_thm("memory_rel_pointer_eq",
-  `∀v1 v2 w.
-   good_dimindex (:'a) ∧
-   v_same_type v1 v2 ∧
-   memory_rel c be refs sp st m dm ((v1,(w:'a word_loc))::(v2,w)::vars) ==> v1 = v2`,
-  ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[]
-  >- (
-    rpt_drule memory_rel_Number_cmp \\ rw[]
-    \\ fs[WORD_LESS_REFL]
-    \\ pop_assum mp_tac \\ rw[]
-    \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ drule word_cmp_loop_refl
-    \\ simp[word_cmp_res_def] \\ rw[]
-    \\ fs[good_dimindex_def,dimword_def])
-  >- (
-    rpt_drule memory_rel_Word64_IMP
-    \\ rpt_drule memory_rel_tail \\ rw[]
-    \\ rpt_drule memory_rel_Word64_IMP \\ rw[]
-    \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ pop_assum mp_tac \\ rw[] \\ fs[]
-    \\ rfs[good_dimindex_def]
-    \\ fs[fcpTheory.CART_EQ,word_extract_def,word_bits_def,fcpTheory.FCP_BETA]
-    \\ rfs[] \\ rw[] \\
-    TRY (
-      rpt(first_x_assum(qspec_then`i`mp_tac))
-      \\ simp[fcpTheory.FCP_BETA,w2w] \\ NO_TAC)
-    \\ Cases_on`i < 32` \\ fs[]
-    >- (
-      rpt(first_x_assum(qspec_then`i`mp_tac))
-      \\ simp[fcpTheory.FCP_BETA,w2w] \\ NO_TAC)
-    \\ pop_assum mp_tac \\ rw[NOT_LESS,LESS_EQ_EXISTS]
-    \\ rpt(first_x_assum(qspec_then`p`mp_tac))
-    \\ simp[fcpTheory.FCP_BETA,w2w])
-  >- (
-    rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ imp_res_tac memory_rel_tail
-    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ clean_tac
-    \\ qmatch_asmsub_rename_tac`Word w`
-    \\ reverse(Cases_on`w ' 0` \\ fs[])
-    >- (
-      fs[word_mul_n2w]
-      \\ fs[X_LT_DIV] \\ rfs[] \\ fs[])
-    \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ imp_res_tac encode_header_tag_mask \\ fs[]
-    \\ fs[encode_header_def]
-    \\ fs[X_LT_DIV,LEFT_ADD_DISTRIB] \\ rfs[]
-    \\ simp[LIST_EQ_REWRITE]
-    \\ `LENGTH l < dimword(:'a) ∧ LENGTH l' < dimword(:'a)`
-    by (
-      metis_tac[dimword_def,bitTheory.EXP_SUB_LESS_EQ,LESS_LESS_EQ_TRANS] )
-    \\ fs[] \\ qx_gen_tac`i` \\ strip_tac
-    \\ clean_tac
-    \\ qhdtm_x_assum`memory_rel`kall_tac
-    \\ rpt_drule memory_rel_Block_MEM \\ rw[]
-    \\ qmatch_assum_abbrev_tac`memory_rel _ _ _ _ _ _ _ (e1::b1::b2::vars)`
-    \\ `memory_rel c be refs sp st m dm (b2::e1::vars)`
-    by (
-      qhdtm_x_assum`memory_rel`mp_tac
-      \\ match_mp_tac memory_rel_rearrange
-      \\ rw[] \\ rw[] )
-    \\ unabbrev_all_tac
-    \\ `i < LENGTH l'` by simp[]
-    \\ rpt_drule memory_rel_Block_MEM \\ strip_tac
-    \\ rpt_drule memory_rel_swap \\ strip_tac
-    \\ rpt_drule memory_rel_tail \\ strip_tac
-    \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,LIST_REL_EL_EQN]
-    \\ first_x_assum(match_mp_tac o MP_CANON) \\ simp[]
-    \\ rpt_drule memory_rel_swap \\ strip_tac
-    \\ asm_exists_tac \\ rw[] )
-  >- (
-    fs[memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def]
-    \\ fs[v_inv_def] \\ rveq
-    \\ fs[word_addr_def] )
-  >- (
-    rpt_drule memory_rel_RefPtr_EQ \\ rw[] ))
-
 val do_eq_list_F_IMP_MEM = prove(
   ``!l l'.
       do_eq_list l l' = Eq_val F /\ LENGTH l' = LENGTH l ==>
@@ -5920,7 +5843,7 @@ val memory_rel_rotate3 = prove(
 val memory_rel_pointer_eq = Q.store_thm("memory_rel_pointer_eq",
   `∀v1 v2 w b.
    good_dimindex (:'a) ∧
-   do_eq v1 v2 = Eq_val b ∧
+   do_eq v1 v2 = Eq_val b /\
    memory_rel c be refs sp st m dm ((v1,(w:'a word_loc))::(v2,w)::vars) ==> b`,
   ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[] \\ rveq
   \\ TRY (rpt_drule memory_rel_RefPtr_EQ \\ strip_tac \\ fs [] \\ rfs [] \\ NO_TAC)
@@ -5995,7 +5918,8 @@ val memory_rel_pointer_eq = Q.store_thm("memory_rel_pointer_eq",
     \\ strip_tac \\ qexists_tac `m (a + y)`
     \\ pop_assum mp_tac
     \\ match_mp_tac memory_rel_rearrange
-    \\ fs [] \\ rw [] \\ fs []));
+    \\ fs [] \\ rw [] \\ fs []))
+  |> REWRITE_RULE [CONJ_ASSOC] |> ONCE_REWRITE_RULE [CONJ_COMM];
 
 val v1_size_map = Q.store_thm("v1_size_map",
   `∀ls. v1_size ls = SUM (MAP v_size ls) + LENGTH ls`,
@@ -6229,7 +6153,7 @@ val memory_rel_limit = Q.store_thm("memory_rel_limit",
    memory_rel c be refs sp st m dm ((v,w:'a word_loc)::vars) ∧
    good_dimindex (:'a)
    ==>
-   vb_size v * dimword (:'a) < MustTerminate_limit (:'a)`,
+   vb_size v * dimword (:'a) < MustTerminate_limit (:'a) - dimword (:'a)`,
   rw[]
   \\ rpt_drule memory_rel_depth_size_limit \\ rw[]
   \\ `memory_rel c be refs sp st m dm [(v,w)]`
@@ -6547,7 +6471,9 @@ val word_eq_thm = store_thm("word_eq_thm",
    (rw [] \\ fs [vb_size_def]
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC
-    THEN1 (rveq \\ imp_res_tac memory_rel_pointer_eq \\ fs [v_same_type_def])
+    THEN1 (rveq
+           \\ drule memory_rel_pointer_eq
+           \\ fs [do_eq_def])
     \\ drule memory_rel_Number_cmp \\ fs []
     \\ reverse (Cases_on `word_bit 0 w1`) THEN1 (fs [] \\ rw []) \\ fs []
     \\ reverse (Cases_on `word_bit 0 w2`)
@@ -6581,7 +6507,9 @@ val word_eq_thm = store_thm("word_eq_thm",
    (rw [] \\ fs [vb_size_def]
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC
-    THEN1 (rveq \\ imp_res_tac memory_rel_pointer_eq \\ fs [v_same_type_def])
+    THEN1 (rveq
+           \\ drule memory_rel_pointer_eq
+           \\ fs [do_eq_def])
     \\ drule memory_rel_Word64_IMP \\ fs []
     \\ imp_res_tac memory_rel_tail
     \\ drule memory_rel_Word64_IMP \\ fs []
@@ -6724,5 +6652,20 @@ val word_eq_thm = store_thm("word_eq_thm",
   \\ disch_then (qspec_then `l1-1` mp_tac)
   \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
   \\ strip_tac \\ fs [] \\ fs [LEFT_ADD_DISTRIB]);
+
+val word_eq_thm = store_thm("word_eq_thm",
+  ``memory_rel c be refs sp st m dm
+      ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
+    do_eq v1 v2 = Eq_val b /\ good_dimindex (:'a) ==>
+    ?res l1.
+       word_eq c st dm m (MustTerminate_limit (:'a) - 1) w1 w2 = SOME (res,l1) /\
+       (b <=> (res = 1w))``,
+  rw [] \\ imp_res_tac memory_rel_limit
+  \\ drule (word_eq_thm |> CONJUNCT1)
+  \\ fs []
+  \\ `dimword (:α) * vb_size v1 < MustTerminate_limit (:α) − 1`
+           by (fs [good_dimindex_def,dimword_def] \\ rfs [])
+  \\ disch_then drule
+  \\ rw [] \\ fs []);
 
 val _ = export_theory();
