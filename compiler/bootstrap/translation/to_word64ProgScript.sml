@@ -521,7 +521,6 @@ val _ = translate (spec64 compile_exp_def)
 
 val _ = translate (spec64 max_var_def)
 
-val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)

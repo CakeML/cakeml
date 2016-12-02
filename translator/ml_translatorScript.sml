@@ -958,9 +958,39 @@ val Eval_w2n = Q.store_thm("Eval_w2n",
   \\ fs [do_app_def]
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
-val Eval_n2w = Q.store_thm("Eval_n2w",
+local
+  val lemma = prove(
+    ``(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
+                 (If (App (Opb Lt) [Var (Short "x"); Lit (IntLit (& k))])
+                    (Var (Short "x"))
+                    (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
+        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))``,
+    fs [] \\ rpt strip_tac
+    \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
+    \\ qexists_tac `~(w2n w < k)`
+    \\ qexists_tac `w2n w < k`
+    \\ qexists_tac `T`
+    \\ fs [CONTAINER_def]
+    \\ rw []
+    THEN1
+     (match_mp_tac (MP_CANON Eval_NUM_LESS)
+      \\ fs [Eval_Val_NUM] \\ fs [Eval_Var_SIMP])
+    THEN1 (fs [Eval_Var_SIMP,NUM_def])
+    \\ match_mp_tac (MP_CANON Eval_INT_SUB)
+    \\ fs [Eval_Val_INT] \\ fs [Eval_Var_SIMP,NUM_def])
+  val th1 = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Let) (UNDISCH Eval_w2n)
+  val th2 = MATCH_MP th1 lemma |> Q.INST [`k`|->`INT_MIN (:α)`,`d`|->`dimword (:'a)`]
+  val th3 = th2 |> SIMP_RULE std_ss [LET_THM,GSYM integer_wordTheory.w2i_eq_w2n]
+  val th4 = th3 |> DISCH_ALL |> SIMP_RULE std_ss [INT_MIN_def,dimword_def]
+  val _ = th4 |> concl |> rand |> rand |> rand
+              |> integer_wordSyntax.is_w2i orelse failwith "Eval_w2i failed"
+in
+  val Eval_w2i = save_thm("Eval_w2i",th4)
+end;
+
+val Eval_i2w = Q.store_thm("Eval_i2w",
   `dimindex (:'a) <= 64 ==>
-    Eval env x1 (NUM n) ==>
+    Eval env x1 (INT n) ==>
     Eval env
       (if dimindex (:'a) = 8 then
          App (WordFromInt W8) [x1]
@@ -970,7 +1000,7 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
          App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
        else
          App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
-      (WORD ((n2w n):'a word))`,
+      (WORD ((i2w n):'a word))`,
   rw[Eval_def,WORD_def] \\ fs [] \\ rfs []
   \\ TRY (* takes care of = 8 and = 64 cases *)
    (rw[Once evaluate_cases,PULL_EXISTS]
@@ -981,7 +1011,8 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
     \\ first_x_assum(qspec_then`refs`strip_assume_tac)
     \\ asm_exists_tac \\ fs[]
     \\ fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def]
-    \\ fs [dimword_def] \\ NO_TAC)
+    \\ rw [] \\ fs [dimword_def]
+    \\ fs [wordsTheory.word_2comp_n2w,dimword_def] \\ NO_TAC)
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
@@ -997,11 +1028,32 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   \\ fs [do_app_def,NUM_def,INT_def]
   \\ fs [shift8_lookup_def,shift64_lookup_def,
          w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ rw []
+  \\ fs [shift8_lookup_def,shift64_lookup_def,wordsTheory.word_2comp_n2w,
+         w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw [dimword_def] \\ TRY (drule (DECIDE ``n<m ==> n <= m:num``))
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw [] \\ fs []
   \\ full_simp_tac bool_ss
        [GSYM (EVAL ``2n ** 8``),GSYM (EVAL ``2n ** 64``),EXP_ADD]
-  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]
+  \\ Cases_on `n` \\ fs []
+  \\ match_mp_tac MOD_MINUS \\ fs []);
+
+val Eval_n2w = Q.store_thm("Eval_n2w",
+  `dimindex (:'a) <= 64 ==>
+    Eval env x1 (NUM n) ==>
+    Eval env
+      (if dimindex (:'a) = 8 then
+         App (WordFromInt W8) [x1]
+       else if dimindex (:'a) = 64 then
+         App (WordFromInt W64) [x1]
+       else if dimindex (:'a) < 8 then
+         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
+       else
+         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
+      (WORD ((n2w n):'a word))`,
+  qsuff_tac `n2w n = i2w (& n)` THEN1 fs [Eval_i2w,NUM_def]
+  \\ fs [integer_wordTheory.i2w_def]);
 
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.
