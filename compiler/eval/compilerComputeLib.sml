@@ -666,7 +666,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.remove_labels_def
     ,lab_to_targetTheory.line_bytes_def
     ,lab_to_targetTheory.prog_to_bytes_def
-    ,lab_to_targetTheory.find_ffi_index_limit_def
+    ,lab_to_targetTheory.find_ffi_names_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
       (* ---- Everything in backend theory ---- *)

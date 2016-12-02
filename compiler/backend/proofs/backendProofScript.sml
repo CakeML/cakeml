@@ -127,7 +127,7 @@ val machine_sem_implements_data_sem = save_thm("machine_sem_implements_data_sem"
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
            |> UNDISCH_ALL
            |> Q.INST [`c`|->`c1`,`start`|->`InitGlobals_location`]
-           |> DISCH ``from_data (c:'a backend$config) prog = SOME (bytes,ffi_limit)``
+           |> DISCH ``from_data (c:'a backend$config) prog = SOME (bytes,ffis)``
            |> DISCH_ALL
            |> INST_TYPE [``:'state``|->``:'a``]
            |> MATCH_MP lemma2
@@ -967,7 +967,7 @@ val conf_constraint_def = Define`
 
 local
 val lemma = Q.prove(
-  `(from_data c prog = SOME (bytes,ffi_limit) /\
+  `(from_data c prog = SOME (bytes,ffis) /\
      EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
@@ -976,7 +976,7 @@ val lemma = Q.prove(
      Abbrev (dm = { w | t.regs (find_name c.stack_conf.reg_names 2) <=+ w /\
                         w <+ t.regs (find_name c.stack_conf.reg_names 4) }) /\
      good_init_state mc_conf (t:'a asm_state)
-       m ms ffi ffi_limit bytes io_regs save_regs dm) /\
+       m ms ffi ffis bytes io_regs save_regs dm) /\
     (data_to_wordProof$conf_ok (:α) c.data_conf /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
@@ -1006,7 +1006,7 @@ val lemma = Q.prove(
     (* At least 11 register available*)
     LENGTH mc_conf.target.config.avoid_regs + 11 ≤
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
-    data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)`,
+    data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffis,mc_conf,ms,prog)`,
   strip_tac \\ fs [data_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
@@ -1104,7 +1104,7 @@ val lemma = Q.prove(
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
   \\ Cases_on`mc_conf.target.config.addr_offset`
-  \\ qexists_tac`q` \\ qexists_tac `r` \\ fs[]
+  \\ qexists_tac`ffis` \\ qexists_tac`q` \\ qexists_tac `r` \\ fs[]
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf - 1) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
@@ -1327,8 +1327,8 @@ val compile_correct = Q.store_thm("compile_correct",
    c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
    0 < c.clos_conf.max_app ∧ conf_ok c mc ∧
    ¬semantics_prog s env prog Fail ∧
-   compile c prog = SOME (bytes,ffi_limit) ∧
-   installed (bytes,c,ffi,ffi_limit,mc,ms) ⇒
+   compile c prog = SOME (bytes,ffis) ∧
+   installed (bytes,c,ffi,ffis,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
@@ -1553,7 +1553,7 @@ val compile_correct = Q.store_thm("compile_correct",
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ pairarg_tac \\ fs [])
   \\ rename1 `from_data c4 p4 = _`
-  \\ `installed (bytes,c4,ffi,ffi_limit,mc,ms)` by
+  \\ `installed (bytes,c4,ffi,ffis,mc,ms)` by
        (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
   \\ drule (GEN_ALL clean_data_to_target_thm)
   \\ disch_then drule
