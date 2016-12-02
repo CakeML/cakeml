@@ -99,6 +99,15 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wx3"
+          (SOME ``Tdec (Dlet (Pvar "w") (Lit (Word64 3w)))``)
+
+val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wxf"
+          (SOME ``Tdec (Dlet (Pvar "w") (Lit (Word64 15w)))``)
+
+val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0w3"
+          (SOME ``Tdec (Dlet (Pvar "w") (Lit (Word64 3w)))``)
+
 val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern`` "(x:int) :: _"
           (SOME ``Pcon (SOME (Short "::")) [
                      Ptannot (Pvar "x") (Tapp [] (TC_name (Short "int")));

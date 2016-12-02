@@ -236,14 +236,15 @@ fun fold_nullprove (t, a) =
 end
 
 val nullacc =
-    foldl fold_nullprove [] [``nE``, ``nType``, ``nTyvarN``, ``nSpecLine``,
-                             ``nPtuple``, ``nPbase``, ``nLetDec``,
-                             ``nTyVarList``, ``nDtypeDecl``, ``nDecl``, ``nE'``,
-                             ``nElist1``, ``nCompOps``, ``nListOps``,
-                             ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
-                             ``nAddOps``, ``nDconstructor``, ``nFDecl``,
-                             ``nPatternList``, ``nPbaseList1``,
-                             ``nEseq``, ``nEtuple``, ``nTopLevelDecs``, ``nTopLevelDec``]
+    foldl fold_nullprove []
+          [“nE”, “nType”, “nTyvarN”, “nSpecLine”,
+           “nPtuple”, “nPbase”, “nLetDec”,
+           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
+           “nElist1”, “nCompOps”, “nListOps”,
+           “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
+           “nAddOps”, “nDconstructor”, “nFDecl”,
+           “nPatternList”, “nPbaseList1”, “nElist2”,
+           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
 
 local
   fun appthis th = let
