@@ -6183,9 +6183,114 @@ val eq_eval =
              list_insert_def,wordSemTheory.dec_clock_def,wordSemTheory.the_words_def,
              wordLangTheory.word_op_def];
 
+val MemEqList_thm = prove(
+  ``!offset t xs dm m b a.
+      word_mem_eq (a + offset) xs dm m = SOME b /\
+      get_var 3 t = SOME (Word a) /\ dm = t.mdomain /\ m = t.memory ==>
+      ?x. evaluate (MemEqList offset xs,t) =
+            (NONE,t with locals := ((if b then insert 1 (Word 2w) else I) o
+                                    (if xs <> [] then insert 5 x else I)) t.locals)``,
+  Induct_on `xs`
+  THEN1 (fs [MemEqList_def,eq_eval,word_mem_eq_def])
+  \\ fs [word_mem_eq_def]
+  \\ rpt strip_tac
+  \\ Cases_on `t.memory (a + offset)` \\ fs [isWord_def]
+  \\ fs [MemEqList_def,eq_eval,word_mem_eq_def]
+  \\ reverse IF_CASES_TAC
+  THEN1 (fs [] \\ metis_tac [])
+  \\ fs [] \\ rveq
+  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC]
+  \\ qmatch_goalsub_abbrev_tac `(MemEqList _ _, t6)`
+  \\ first_x_assum (qspecl_then [`offset+bytes_in_word`,`t6`,`b`,`a`] mp_tac)
+  \\ fs [Abbr`t6`,eq_eval]
+  \\ strip_tac \\ fs []
+  \\ Cases_on `b`
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ rw [] \\ fs [insert_shadow]
+  \\ metis_tac [])
+  |> Q.SPEC `0w` |> SIMP_RULE std_ss [WORD_ADD_0];
+
 val th = Q.store_thm("assign_EqualInt",
   `(?i. op = EqualInt i) ==> ^assign_thm_goal`,
-  cheat);
+  rpt strip_tac \\ rveq \\ fs []
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [Boolv_def] \\ rveq \\ fs [GSYM Boolv_def]
+  \\ qpat_assum `state_rel c l1 l2 x t [] locs`
+           (assume_tac o REWRITE_RULE [state_rel_thm])
+  \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ qmatch_asmsub_rename_tac `(Number j,a7)`
+  \\ `?w. a7 = Word w` by
+        (imp_res_tac memory_rel_any_Number_IMP \\ fs [] \\ NO_TAC)
+  \\ rveq
+  \\ rpt_drule memory_rel_Number_const_test
+  \\ disch_then (qspec_then `i` mp_tac)
+  \\ fs [assign_def,GSYM small_int_def]
+  \\ IF_CASES_TAC THEN1
+   (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
+    \\ Cases_on `i = j` \\ fs [] \\ rveq \\ fs []
+    \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
+  \\ fs [] \\ TOP_CASE_TAC \\ fs []
+  THEN1
+   (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
+    \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
+  \\ fs [word_bit_test]
+  \\ IF_CASES_TAC
+  THEN1
+   (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
+    \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
+  \\ strip_tac
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ fs [list_Seq_def,eq_eval]
+  \\ rename1 `get_real_addr c t.store w = SOME a`
+  \\ qmatch_goalsub_abbrev_tac `word_exp t6`
+  \\ `get_real_addr c t6.store w = SOME a` by fs [Abbr`t6`]
+  \\ drule (get_real_addr_lemma |> REWRITE_RULE [CONJ_ASSOC]
+              |> ONCE_REWRITE_RULE [CONJ_COMM] |> GEN_ALL)
+  \\ disch_then (qspec_then `(adjust_var a1)` mp_tac)
+  \\ impl_tac THEN1 fs [Abbr `t6`,eq_eval]
+  \\ strip_tac \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `(MemEqList 0w ws,t9)`
+  \\ `word_mem_eq a ws t9.mdomain t9.memory = SOME (j = i)` by fs [Abbr`t9`,Abbr`ws`]
+  \\ rpt_drule MemEqList_thm
+  \\ impl_tac THEN1 fs [eq_eval,Abbr `t9`]
+  \\ strip_tac \\ fs []
+  \\ `ws <> []` by
+     (fs [bignum_words_def,multiwordTheory.i2mw_def]
+      \\ every_case_tac \\ fs [markerTheory.Abbrev_def] \\ fs [] \\ rveq \\ fs [])
+  \\ fs []
+  \\ IF_CASES_TAC \\ fs [] \\ rveq
+  \\ unabbrev_all_tac
+  \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []));
 
 val Equal_code_lemma = prove(
   ``(!c st dm m l v1 v2 t l1 l2 q1 q2 res l'.
@@ -8699,6 +8804,11 @@ val assign_def_extras = LIST_CONJ
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
    Equal1_code_def, Equal_code_def, ShiftVar_def];
 
+val extract_labels_MemEqList = store_thm("extract_labels_MemEqList[simp]",
+  ``!a x. extract_labels (MemEqList a x) = []``,
+  Induct_on `x`
+  \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]);
+
 val data_to_word_lab_pres_lem = Q.prove(`
   ∀c n l p.
   l ≠ 0 ⇒
@@ -8802,7 +8912,12 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
 val StoreEach_no_inst = Q.prove(`
   ∀a ls off.
   every_inst (inst_ok_less ac) (StoreEach a ls off)`,
-  Induct_on`ls`>>rw[StoreEach_def,every_inst_def])
+  Induct_on`ls`>>rw[StoreEach_def,every_inst_def]);
+
+val MemEqList_no_inst = Q.prove(`
+  ∀a x.
+  every_inst (inst_ok_less ac) (MemEqList a x)`,
+  Induct_on `x` \\ fs [MemEqList_def,every_inst_def]);
 
 val assign_no_inst = Q.prove(`
   addr_offset_ok 0w ac ⇒
@@ -8810,7 +8925,7 @@ val assign_no_inst = Q.prove(`
   fs[assign_def]>>Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
-    inst_ok_less_def,assign_def_extras]>>
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
   Cases_on`o'`>>fs[])
 
 val comp_no_inst = Q.prove(`

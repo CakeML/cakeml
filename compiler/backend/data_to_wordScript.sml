@@ -1,4 +1,4 @@
-open preamble wordLangTheory dataLangTheory word_to_wordTheory;
+open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory;
 local open bvl_to_bviTheory backend_commonTheory in end
 
 val _ = new_theory "data_to_word";
@@ -481,8 +481,25 @@ val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
                           (Nat (shift_length c − shift (:'a)));
                         Const 1w])]`;
 
+val bignum_words_def = Define `
+  bignum_words c i =
+    let (sign,payload) = i2mw i in
+      case encode_header c (if sign then 7 else 3) (LENGTH payload) of
+      | NONE => NONE
+      | SOME h => SOME (h :: payload)`
+
+val Smallnum_def = Define `
+  Smallnum i =
+    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
+
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+
+val MemEqList_def = Define `
+  (MemEqList a [] = Assign 1 TRUE_CONST) /\
+  (MemEqList a (w::ws) =
+     Seq (Assign 5 (Load (Op Add [Var 3; Const a])))
+         (If Equal 5 (Imm w) (MemEqList (a + bytes_in_word) ws) Skip))`;
 
 val assign_def = Define `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -882,6 +899,23 @@ val assign_def = Define `
           FFI ffi_index 1 3 (adjust_set (case names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
+       | _ => (Skip,l))
+    | EqualInt i => (case args of
+       | [v] =>
+           (if -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)
+            then (If Equal (adjust_var v) (Imm (Smallnum i))
+                    (Assign (adjust_var dest) TRUE_CONST)
+                    (Assign (adjust_var dest) FALSE_CONST),l)
+            else (case bignum_words c i of
+                 | NONE => (Assign (adjust_var dest) FALSE_CONST,l)
+                 | SOME words =>
+                     If Test (adjust_var v) (Imm 1w)
+                       (Assign (adjust_var dest) FALSE_CONST)
+                       (list_Seq
+                          [Assign 1 FALSE_CONST;
+                           Assign 3 (real_addr c (adjust_var v));
+                           MemEqList 0w words;
+                           Assign (adjust_var dest) (Var 1)]),l))
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
 

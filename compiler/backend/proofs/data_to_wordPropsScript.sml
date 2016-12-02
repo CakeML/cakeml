@@ -164,14 +164,6 @@ val Bignum_def = Define `
     let (sign,payload:'a word list) = i2mw i in
       DataElement [] (LENGTH payload) (NumTag sign, MAP Word payload)`;
 
-val Smallnum_def = Define `
-  Smallnum i =
-    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
-
-val small_int_def = Define `
-  small_int (:'a) i <=>
-    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
-
 val BlockNil_def = Define `
   BlockNil n = n2w n << 4 + 2w`;
 
@@ -190,6 +182,10 @@ val v_size_LEMMA = Q.prove(
   `!vs v. MEM v vs ==> v_size v <= v1_size vs`,
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC);
+
+val small_int_def = Define `
+  small_int (:'a) i <=>
+    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
 
 (*
   code pointers (i.e. Locs) will end in ...0
@@ -2266,8 +2262,10 @@ val word_payload_def = Define `
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (NumTag b) qs conf =
      (* header: ...111[11] or ...011[11] here i in ...i[11] must be 1 for GC *)
-     (make_header conf (b2w b << 2 || 3w) (LENGTH qs),
-      qs, (ys = []) /\ (LENGTH qs = l))) /\
+     (make_header conf (b2w b << 2 || 3w:'a word) (LENGTH qs),
+      qs, (ys = []) /\ (LENGTH qs = l) /\
+          IS_SOME ((encode_header conf (w2n (b2w b << 2 || 3w:'a word))
+                      (LENGTH qs)):'a word option))) /\
   (word_payload ys l (BytesTag n) qs conf =
      (* header: ...10111 here i in ...i[11] must be 1 for the GC *)
      ((make_byte_header conf n):'a word,
@@ -4976,6 +4974,8 @@ val memory_rel_Number_bignum_header = store_thm("memory_rel_Number_bignum_header
     ~small_int (:'a) i /\ good_dimindex (:'a) ==>
     ?ff w x a y.
       v = Word w /\ get_real_addr c st w = SOME a /\
+      IS_SOME ((encode_header c (w2n ((b2w (i < 0) ≪ 2 ‖ 3w):'a word))
+          (LENGTH (n2mw (Num (ABS i)):'a word list))):'a word option) /\
       m a = Word (make_header c (b2w (i < 0) ≪ 2 ‖ 3w)
               (LENGTH (n2mw (Num (ABS i)):'a word list)))``,
   fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
@@ -4987,7 +4987,8 @@ val memory_rel_Number_bignum_header = store_thm("memory_rel_Number_bignum_header
   \\ fs[word_heap_APPEND,word_heap_def,word_el_def,UNCURRY,word_list_def,
         Bignum_def,multiwordTheory.i2mw_def]
   \\ fs [word_payload_def,make_header_def]
-  \\ SEP_R_TAC \\ fs []);
+  \\ SEP_R_TAC \\ fs []
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]);
 
 val memory_rel_bignum_cmp = store_thm("memory_rel_bignum_cmp",
   ``memory_rel c be refs sp st m dm
@@ -6660,5 +6661,87 @@ val word_eq_thm = store_thm("word_eq_thm",
            by (fs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ disch_then drule
   \\ rw [] \\ fs []);
+
+val word_mem_eq_def = Define `
+  (word_mem_eq a [] dm m <=> SOME T) /\
+  (word_mem_eq a (x::xs) dm m <=>
+     if ~(a IN dm) then NONE else
+     if ~isWord (m a) then NONE else
+     if m a <> Word x then SOME F else
+       word_mem_eq (a + bytes_in_word) xs dm m)`;
+
+val word_mem_eq_thm = prove(
+  ``!xs ys a ff.
+     (word_list a (MAP Word xs) * ff) (fun2set (m,dm)) /\
+     LENGTH xs = LENGTH ys ==>
+     word_mem_eq a ys dm m = SOME (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs [word_mem_eq_def]
+  \\ fs [word_list_def] \\ rpt strip_tac
+  \\ SEP_R_TAC \\ fs [isWord_def]
+  \\ IF_CASES_TAC \\ fs [] \\ rveq
+  \\ first_x_assum match_mp_tac
+  \\ qexists_tac `one (a,Word h) * ff`
+  \\ fs [AC STAR_COMM STAR_ASSOC]);
+
+val memory_rel_Number_const_test = Q.store_thm("memory_rel_Number_const_test",
+  `memory_rel c be refs sp st m dm ((Number i,Word (w:'a word))::vars) /\
+    good_dimindex (:'a) ==>
+    if small_int (:'a) j then
+      (Smallnum j = w <=> i = j)
+    else
+      case bignum_words c j of
+      | NONE => i <> j
+      | SOME words =>
+        if ~(word_bit 0 w) then i <> j else
+          ?a. get_real_addr c st w = SOME a /\
+              word_mem_eq a words dm m = SOME (i = j)`,
+  strip_tac
+  \\ rpt_drule (memory_rel_any_Number_IMP |> ONCE_REWRITE_RULE [CONJ_COMM])
+  \\ fs [word_bit] \\ strip_tac
+  \\ IF_CASES_TAC THEN1
+   (rpt_drule (IMP_memory_rel_Number
+          |> REWRITE_RULE [CONJ_ASSOC] |> ONCE_REWRITE_RULE [CONJ_COMM])
+    \\ strip_tac
+    \\ rpt_drule memory_rel_Number_EQ \\ fs []
+    \\ Cases_on `i = j` \\ fs [])
+  \\ Cases_on `small_int (:α) i` \\ fs []
+  THEN1 (every_case_tac \\ fs [] \\ CCONTR_TAC \\ fs [])
+  \\ fs [bignum_words_def,i2mw_def]
+  \\ rpt_drule memory_rel_Number_bignum_header
+  \\ strip_tac \\ fs []
+  \\ `(w2n (b2w (i < 0) ≪ 2 ‖ 3w:'a word)) = if i < 0 then 7 else 3` by
+   (Cases_on `i < 0i` \\ fs [] \\ EVAL_TAC
+    \\ fs [good_dimindex_def,dimword_def] \\ NO_TAC)
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac`encode_header c sj lj`
+  \\ Cases_on `encode_header c sj lj` \\ fs []
+  THEN1 (CCONTR_TAC \\ fs [])
+  \\ pop_assum mp_tac
+  \\ qmatch_asmsub_abbrev_tac `encode_header c si li`
+  \\ Cases_on `encode_header c si li` \\ fs []
+  \\ `m a = Word x'` by all_tac
+  THEN1 (fs [encode_header_def] \\ rw [])
+  \\ qpat_x_assum `m a = Word (make_header _ _ _)` kall_tac
+  \\ rw []
+  \\ fs [word_mem_eq_def]
+  \\ rpt_drule memory_rel_Number_bignum_IMP_ALT
+  \\ strip_tac \\ fs [isWord_def]
+  \\ IF_CASES_TAC
+  THEN1 (fs [] \\ CCONTR_TAC \\ fs [] \\ unabbrev_all_tac \\ fs [])
+  \\ unabbrev_all_tac
+  \\ drule (encode_header_EQ |> GEN_ALL)
+  \\ qpat_x_assum `encode_header c _ _ = _` kall_tac
+  \\ disch_then drule
+  \\ impl_tac THEN1 fs [memory_rel_def,heap_in_memory_store_def]
+  \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ strip_tac
+  \\ `j < 0 <=> i < 0i` by
+        (Cases_on `j < 0` \\ Cases_on `i < 0` \\ fs [] \\ NO_TAC)
+  \\ rpt_drule word_mem_eq_thm
+  \\ fs [n2mw_11] \\ strip_tac
+  \\ Cases_on `i` \\ Cases_on `j` \\ fs []
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ intLib.COOPER_TAC);
 
 val _ = export_theory();
