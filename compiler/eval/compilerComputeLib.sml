@@ -229,9 +229,10 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [ (* ---- clos_to_bvl ---- *)
      backend_commonTheory.closure_tag_def
-    ,backend_commonTheory.partial_app_fn_location_def
     ,backend_commonTheory.clos_tag_shift_def
+    ,backend_commonTheory.partial_app_tag_def
     ,clos_to_bvlTheory.recc_Let0_def
+    ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
     ,clos_to_bvlTheory.compile_def
     ,clos_to_bvlTheory.compile_prog_def
@@ -258,7 +259,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_label_def
     ,clos_to_bvlTheory.compile_op_def
     ,clos_to_bvlTheory.mk_const_def
-    ,clos_to_bvlTheory.partial_app_tag_def
     ,bvlTheory.Bool_def
     ,backend_commonTheory.bool_to_tag_def
     ,clos_to_bvlTheory.compile_exps_def
