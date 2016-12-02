@@ -77,8 +77,6 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'f
 
 (* same as closSem$do_app, except:
     - ToList is removed
-    - IsBlock is added
-    - BlockCmp is added
     - Label is added *)
 
 val do_app_def = Define `
@@ -151,12 +149,6 @@ val do_app_def = Define `
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
-    | (BlockCmp,[Block t1 vs1;Block t2 vs2]) =>
-        Rval (Boolv (t1 = t2 ∧ LENGTH vs1 = LENGTH vs2), s)
-    | (IsBlock,[Number i]) => Rval (Boolv F, s)
-    | (IsBlock,[Word64 _]) => Rval (Boolv F, s)
-    | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
-    | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))

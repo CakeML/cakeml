@@ -1180,8 +1180,6 @@ val do_app = Q.prove(
     \\ Cases_on`h`\\fs[]
     \\ rw[] \\ fs[v_rel_SIMP]
     \\ metis_tac[clos_tag_shift_inj,LIST_REL_LENGTH])
-  >- ( every_case_tac >> fsrw_tac[][v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
-       metis_tac[clos_tag_shift_inj])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -1201,7 +1199,6 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>srw_tac[][]>>full_simp_tac(srw_ss())[] >>
     first_x_assum match_mp_tac >> intLib.COOPER_TAC)
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] )
   >> (
@@ -1298,7 +1295,6 @@ val do_app_err = Q.prove(
     Cases_on`t'`>>fsrw_tac[][]>>srw_tac[][]>>
     Cases_on`h'`>>fsrw_tac[][]>>srw_tac[][]>>
     every_case_tac >> fsrw_tac[][LET_THM])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[LET_THM] )
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>

@@ -307,20 +307,6 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
     \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[])
-  THEN1 (* IsBlock *)
-   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[v_rel_simp,LET_DEF] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[state_rel_def]
-    \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
-    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[])
-  THEN1 (* BlockCmp *)
-   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[v_rel_simp,LET_DEF] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[state_rel_def]
-    \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
-    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[])
   THEN1 (* TagEq *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]

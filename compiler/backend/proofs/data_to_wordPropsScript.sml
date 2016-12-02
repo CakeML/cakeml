@@ -5203,14 +5203,6 @@ val memory_rel_Boolv_F = Q.store_thm("memory_rel_Boolv_F",
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
 
-val IsBlock_word_lemma = store_thm("IsBlock_word_lemma",
-  ``good_dimindex (:'a) ==> (2w && 16w * n2w n' + 2w) <> 0w :'a word``,
-  `!a : 'a word. (a << 4 + 2w) = (a << 4 || 2w)`
-  by (strip_tac \\ match_mp_tac wordsTheory.WORD_ADD_OR
-      \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
-  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss] [labPropsTheory.good_dimindex_def]
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
-
 val word_ml_inv_SP_LIMIT = Q.store_thm("word_ml_inv_SP_LIMIT",
   `word_ml_inv (heap,be,a,sp) limit c refs stack ==> sp <= limit`,
   srw_tac[][] \\ Cases_on `sp = 0`

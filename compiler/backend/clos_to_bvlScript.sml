@@ -219,15 +219,7 @@ val check_closure_def = Define`
       (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)`;
 
 val equality_code_def = Define`
-  equality_code max_app = (2:num,
-    If (Op IsBlock [Var 0])
-       (check_closure 0
-         (check_closure 1
-           (If (Op BlockCmp [Var 0; Var 1])
-               (Call 0 (SOME (block_equality_location max_app))
-                 [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
-               (Bool F))))
-       (Op Equal [Var 0; Var 1]))`;
+  equality_code (max_app:num) = (2:num,Var 0)`;
 
 val block_equality_code_def = Define`
   (* 4 arguments: block1, block2, length, index to check*)

@@ -1395,7 +1395,7 @@ val do_app_thm = Q.prove(
     \\ fs [FEVERY_DEF,FAPPLY_FUPDATE_THM] \\ rw []
     \\ fs [MEM_REPLICATE_EQ,EVERY_REPLICATE,EXISTS_MEM])
   \\ Cases_on `?n1 n2. op = TagLenEq n1 n2 \/ op = TagEq n1 \/
-                       op = BlockCmp \/ op = IsBlock \/ op = Label n1` THEN1
+                       op = Label n1` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ CCONTR_TAC \\ fs []

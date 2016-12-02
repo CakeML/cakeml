@@ -27,8 +27,6 @@ val _ = Datatype `
      | ToList        (* convert packed Block to list *)
      | TagLenEq num num (* check Block's tag and length *)
      | TagEq num     (* check Block's tag *)
-     | BlockCmp      (* do two blocks have the same tag and length? *)
-     | IsBlock       (* is it a Block value? *)
      | Ref           (* makes a reference *)
      | Deref         (* loads a value from a reference *)
      | Update        (* updates a reference *)
