@@ -145,6 +145,10 @@ val do_app_def = Define `
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
+    | (EqualInt i,[x1]) =>
+        (case x1 of
+         | Number j => Rval (Boolv (i = j), s)
+         | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)

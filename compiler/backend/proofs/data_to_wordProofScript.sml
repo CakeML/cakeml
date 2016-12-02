@@ -6183,6 +6183,10 @@ val eq_eval =
              list_insert_def,wordSemTheory.dec_clock_def,wordSemTheory.the_words_def,
              wordLangTheory.word_op_def];
 
+val th = Q.store_thm("assign_EqualInt",
+  `(?i. op = EqualInt i) ==> ^assign_thm_goal`,
+  cheat);
+
 val Equal_code_lemma = prove(
   ``(!c st dm m l v1 v2 t l1 l2 q1 q2 res l'.
       word_eq c st dm m l v1 v2 = SOME (res,l') /\
