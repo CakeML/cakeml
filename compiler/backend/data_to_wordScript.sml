@@ -1,5 +1,5 @@
 open preamble wordLangTheory dataLangTheory word_to_wordTheory;
-local open bvl_to_bviTheory in end
+local open bvl_to_bviTheory backend_commonTheory in end
 
 val _ = new_theory "data_to_word";
 
@@ -397,11 +397,63 @@ val Compare_code_def = Define `
                             (Seq (Assign 2 (Const 2w)) (Return 0 2))
                             (Seq (Assign 2 (Const 0w)) (Return 0 2)))))]))`;
 
+val ShiftVar_def = Define `
+  ShiftVar sh v n =
+    if n = 0 then Var v else
+    if dimindex (:'a) <= n then
+      if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
+    else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
+
 val Equal1_code_def = Define `
-  Equal1_code c = Skip`;
+  Equal1_code =
+    list_Seq [
+      If Equal 2 (Imm 0w)
+        (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
+      Assign 1 (Load (Var 4));
+      Assign 3 (Load (Var 6));
+      Call (SOME (5,list_insert [0;2;4;6] LN,Skip,Equal1_location,1))
+        (SOME Equal_location) [1;3] NONE;
+      If Equal 5 (Imm 1w) Skip (Return 0 5);
+      Assign 2 (Op Sub [Var 2; Const 1w]);
+      Assign 4 (Op Add [Var 4; Const bytes_in_word]);
+      Assign 6 (Op Add [Var 6; Const bytes_in_word]);
+      Call NONE (SOME Equal1_location) [0;2;4;6] NONE]`;
 
 val Equal_code_def = Define `
-  Equal_code c = Skip`;
+  Equal_code c =
+    list_Seq [
+      If Equal 2 (Reg 4)
+        (Seq (Assign 2 (Const (1w:'a word))) (Return 0 2)) Skip;
+      Assign 1 (Op And [Var 2; Var 4]);
+      If Test 1 (Imm 1w)
+        (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
+      Assign 20 (real_addr c 2);
+      Assign 40 (real_addr c 4);
+      Assign 21 (Load (Var 20));
+      Assign 41 (Load (Var 40));
+      If Test 21 (Imm 0b1100w) (list_Seq
+          [Assign 1 (Op And [Var 21; Const (tag_mask c ‖ 2w)]);
+           If Equal 1 (Imm (n2w (16 * closure_tag + 2)))
+             (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
+           If Equal 1 (Imm (n2w (16 * partial_app_tag + 2)))
+             (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
+           If Equal 21 (Reg 41)
+             Skip (Seq (Assign 2 (Const 0w)) (Return 0 2));
+           Assign 6 (ShiftVar Lsr 21 ((dimindex(:'a) − c.len_size)));
+           Assign 20 (Op Add [Var 20; Const bytes_in_word]);
+           Assign 40 (Op Add [Var 40; Const bytes_in_word]);
+           Call NONE (SOME Equal1_location) [0;6;20;40] NONE])
+        Skip;
+      If Equal 21 (Reg 41) Skip
+        (Seq (Assign 2 (Const 0w)) (Return 0 2));
+      If Test 21 (Imm 4w)
+        (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
+      If Test 21 (Imm 8w)
+        (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
+      Assign 6 (ShiftVar Lsr 21 ((dimindex(:'a) − c.len_size)));
+      Assign 2 (Op Add [Var 20; ShiftVar Lsl 6 (shift (:'a))]);
+      Assign 4 (Op Add [Var 40; ShiftVar Lsl 6 (shift (:'a))]);
+      Call NONE (SOME Compare1_location) [0;6;2;4] NONE]`;
 
 val get_names_def = Define `
   (get_names NONE = LN) /\
@@ -428,13 +480,6 @@ val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
                 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                           (Nat (shift_length c − shift (:'a)));
                         Const 1w])]`;
-
-val ShiftVar_def = Define `
-  ShiftVar sh v n =
-    if n = 0 then Var v else
-    if dimindex (:'a) <= n then
-      if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
-    else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
 
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
@@ -895,7 +940,7 @@ val stubs_def = Define`
     (Mod_location,3n,Mod_code);
     (Compare1_location,4n,Compare1_code);
     (Compare_location,3n,Compare_code data_conf);
-    (Equal1_location,4n,Equal1_code data_conf);
+    (Equal1_location,4n,Equal1_code);
     (Equal_location,3n,Equal_code data_conf)
   ]`;
 

@@ -6287,12 +6287,12 @@ val word_eq_def = tDefine "word_eq" `
            if ~(word_bit 2 h1) (* is array *) then SOME (0w,l) else
            if ~(word_bit 3 h1) (* is byte array *) then SOME (0w,l) else
              (* must be a bignum or word64 *)
-            (if l < w2n (decode_length c h1) then NONE else
+            (if l <= w2n (decode_length c h1) then NONE else
              case word_cmp_loop (decode_length c h1)
                (a1 + bytes_in_word * (decode_length c h1))
                (a2 + bytes_in_word * (decode_length c h1)) dm m of
              | NONE => NONE
-             | SOME res => SOME (res,l - w2n (decode_length c h1)))
+             | SOME res => SOME (res,l - 1 - w2n (decode_length c h1)))
        | _ => NONE) /\
   (word_eq_list c st dm m l w a1 a2 =
      if w = 0w:'a word then SOME (1w,l) else
@@ -6359,7 +6359,8 @@ val memory_rel_isClos = prove(
   \\ `(16 * t1 + 2) < dimword (:α)` by
         (fs [good_dimindex_def,dimword_def] \\ rfs []) \\ fs []
   \\ fs [good_dimindex_def,dimword_def,
-         clos_to_bvlTheory.partial_app_tag_def,clos_to_bvlTheory.closure_tag_def]);
+         backend_commonTheory.partial_app_tag_def,
+         backend_commonTheory.closure_tag_def]);
 
 val eq_assum_def = Define `
   (eq_assum a m dm [] = T) /\

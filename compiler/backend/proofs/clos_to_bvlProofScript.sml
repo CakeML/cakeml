@@ -2,7 +2,8 @@ open preamble
      closLangTheory closSemTheory closPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_jumpProofTheory
-     clos_to_bvlTheory;
+     clos_to_bvlTheory
+     backend_commonTheory;
 local open
   clos_mtiProofTheory
   clos_numberProofTheory

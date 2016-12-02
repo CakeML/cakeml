@@ -17,9 +17,6 @@ val _ = set_grammar_ancestry [
   "bvl_jump"
 ]
 
-val closure_tag_def = Define`closure_tag = 30:num`
-val partial_app_tag_def = Define`partial_app_tag = 31:num`
-val clos_tag_shift_def = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
 val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
   |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
 val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM

@@ -228,7 +228,9 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [ (* ---- clos_to_bvl ---- *)
-     clos_to_bvlTheory.closure_tag_def
+     backend_commonTheory.closure_tag_def
+    ,backend_commonTheory.partial_app_fn_location_def
+    ,backend_commonTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.default_config_def
     ,clos_to_bvlTheory.compile_def
@@ -241,7 +243,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.generate_partial_app_closure_fn_def
     ,clos_to_bvlTheory.generate_generic_app_def
     ,bvlTheory.mk_tick_def
-    ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.mk_cl_call_def
     ,clos_to_bvlTheory.ToList_location_def
     ,clos_to_bvlTheory.block_equality_location_def
@@ -260,7 +261,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.partial_app_tag_def
     ,bvlTheory.Bool_def
     ,backend_commonTheory.bool_to_tag_def
-    ,clos_to_bvlTheory.clos_tag_shift_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
     ,clos_to_bvlTheory.code_split_def
