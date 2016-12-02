@@ -779,7 +779,7 @@ val ptree_Eliteral_def = Define`
       (do i <- destIntT t ; return (Lit (IntLit i)) od ++
        do c <- destCharT t ; return (Lit (Char c)) od ++
        do s <- destStringT t ; return (Lit (StrLit s)) od ++
-       do i <- destWordT t ; return (Lit (Word64 (i2w i))) od)
+       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od)
     od
 `
 

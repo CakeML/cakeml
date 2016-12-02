@@ -169,11 +169,11 @@ val next_sym_alt_def = tDefine "next_sym_alt"`
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) []
            in
-             SOME (WordS (&num_from_dec_string_alt n), rest)
+             SOME (WordS (num_from_dec_string_alt n), rest)
          else if HD (TL str) = #"x" then
            let (n,rest) = read_while isHexDigit (TL (TL str)) []
            in
-             SOME (WordS (&num_from_hex_string_alt n), rest)
+             SOME (WordS (num_from_hex_string_alt n), rest)
          else SOME (ErrorS, TL str)
        else
          let (n,rest) = read_while isDigit str []

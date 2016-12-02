@@ -16,7 +16,7 @@ open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 val _ = Datatype `symbol = StringS string
                          | CharS char
                          | NumberS int
-                         | WordS int
+                         | WordS num
                          | LongS string (* identifiers with a . in them *)
                          | OtherS string
                          | ErrorS `;
@@ -110,10 +110,10 @@ val next_sym_def = tDefine "next_sym" `
          if TL str = "" then SOME (ErrorS, [])
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) [] in
-             SOME (WordS (&(num_from_dec_string n)), rest)
+             SOME (WordS (num_from_dec_string n), rest)
          else if HD(TL str) = #"x" then
              let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
-               SOME (WordS (&(num_from_hex_string n)), rest)
+               SOME (WordS (num_from_hex_string n), rest)
          else SOME (ErrorS, TL str)
        else
          let (n,rest) = read_while isDigit str [] in
@@ -292,7 +292,7 @@ val token_of_sym_def = Define `
     | StringS s => StringT s
     | CharS c => CharT c
     | NumberS i => IntT i
-    | WordS i => WordT i
+    | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
     | OtherS s  => get_token s `;

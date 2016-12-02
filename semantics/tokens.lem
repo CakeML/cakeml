@@ -11,7 +11,7 @@ type token =
 | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
 | IntT of integer
 | HexintT of string
-| WordT of integer
+| WordT of nat
 | RealT of string
 | StringT of string
 | CharT of char
