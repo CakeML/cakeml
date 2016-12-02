@@ -2606,6 +2606,14 @@ fun hol2deep tm =
     (* th1 should have instantiated 'a already *)
     val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
+  (* w2i 'a word for known 'a*)
+  if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
+    val x1 = tm |> rand
+    val dim = wordsSyntax.dim_of x1
+    val th1 = hol2deep x1
+    (* th1 should have instantiated 'a already *)
+    val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "w2i" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
   if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
     val lemma = dest_word_binop tm

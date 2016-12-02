@@ -958,6 +958,36 @@ val Eval_w2n = Q.store_thm("Eval_w2n",
   \\ fs [do_app_def]
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
+local
+  val lemma = prove(
+    ``(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
+                 (If (App (Opb Lt) [Var (Short "x"); Lit (IntLit (& k))])
+                    (Var (Short "x"))
+                    (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
+        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))``,
+    fs [] \\ rpt strip_tac
+    \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
+    \\ qexists_tac `~(w2n w < k)`
+    \\ qexists_tac `w2n w < k`
+    \\ qexists_tac `T`
+    \\ fs [CONTAINER_def]
+    \\ rw []
+    THEN1
+     (match_mp_tac (MP_CANON Eval_NUM_LESS)
+      \\ fs [Eval_Val_NUM] \\ fs [Eval_Var_SIMP])
+    THEN1 (fs [Eval_Var_SIMP,NUM_def])
+    \\ match_mp_tac (MP_CANON Eval_INT_SUB)
+    \\ fs [Eval_Val_INT] \\ fs [Eval_Var_SIMP,NUM_def])
+  val th1 = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Let) (UNDISCH Eval_w2n)
+  val th2 = MATCH_MP th1 lemma |> Q.INST [`k`|->`INT_MIN (:α)`,`d`|->`dimword (:'a)`]
+  val th3 = th2 |> SIMP_RULE std_ss [LET_THM,GSYM integer_wordTheory.w2i_eq_w2n]
+  val th4 = th3 |> DISCH_ALL |> SIMP_RULE std_ss [INT_MIN_def,dimword_def]
+  val _ = th4 |> concl |> rand |> rand |> rand
+              |> integer_wordSyntax.is_w2i orelse failwith "Eval_w2i failed"
+in
+  val Eval_w2i = save_thm("Eval_w2i",th4)
+end;
+
 val Eval_i2w = Q.store_thm("Eval_i2w",
   `dimindex (:'a) <= 64 ==>
     Eval env x1 (INT n) ==>
