@@ -274,16 +274,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_inlineTheory.inline_all_def
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
+    ,bvl_constTheory.dest_simple_def
     ,bvl_constTheory.SmartOp_def
-    ,bvl_constTheory.compile_exp_def
-    ,bvl_constTheory.extract_list_def
-    ,bvl_constTheory.compile_def
-    ,bvl_constTheory.delete_var_def
-    ,bvl_constTheory.dest_Op_Const_def
     ,bvl_constTheory.extract_def
-    ,bvl_constTheory.getConst_def
-    ,bvl_constTheory.isConst_def
-    ,bvl_constTheory.is_simple_def
+    ,bvl_constTheory.extract_list_def
+    ,bvl_constTheory.delete_var_def
+    ,bvl_constTheory.compile_def
+    ,bvl_constTheory.compile_exp_def
       (* ---- bvl_handle ---- *)
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
