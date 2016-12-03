@@ -137,9 +137,9 @@ val compile_tm = ``compile``
       \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
              set_sepTheory.SEP_EXISTS_THM,set_sepTheory.SEP_CLAUSES,
              GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
-      \\ `FFI_part (Str []) stdin_fun [1; 2] events'' IN
+      \\ `FFI_part (Str []) stdin_fun ["isEof"; "getChar"] events'' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi) /\
-          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun [0] events''' IN
+          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun ["putChar"] events''' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi)` by
              cfHeapsBaseLib.SPLIT_TAC
       \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap]
@@ -153,6 +153,7 @@ val compile_tm = ``compile``
       \\ `^compile input = SND (st'.ffi.ffi_state)` by fs []
       \\ fs [MAP_CHR_w2n_11]
       \\ pop_assum (fn th => rewrite_tac[th])
+      >- (FIRST_X_ASSUM (fn thm => ASSUME_TAC(SPEC ``"isEof"`` thm)) >> rfs[])
       \\ match_mp_tac (RTC_call_FFI_rel_IMP_io_events |> MP_CANON |> SPEC_ALL
             |> Q.INST [`ys`|->`[]`]
             |> SIMP_RULE std_ss[APPEND] |> GEN_ALL)

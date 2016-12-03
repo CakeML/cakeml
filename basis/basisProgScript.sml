@@ -277,7 +277,7 @@ val _ = ml_prog_update (close_module NONE);
   val print = bytarray [0w];
   val print = fn c =>
     val _ = print[0] := (n2w (ord c))
-    in FFI 0 print end
+    in FFI "putChar" print end
 
 *)
 
@@ -312,7 +312,7 @@ val e =
   ``Let (SOME "c") (App Opapp [Var (Long "Char" "ord"); Var (Short "c")])
      (Let (SOME "c") (App Opapp [Var (Long "Word8" "fromInt"); Var (Short "c")])
        (Let (SOME "c") (Apps [Var (Long "Word8Array" "update"); Var (Short "print");  Lit (IntLit 0); Var (Short "c")])
-         (Let (SOME "_") (App (FFI "CharIO") [Var (Short "print")])
+         (Let (SOME "_") (App (FFI "putChar") [Var (Short "print")])
            (Var (Short "c")))))``
   |> EVAL |> concl |> rand
 
@@ -326,7 +326,7 @@ val stdout_fun_def = Define `
                     | _ => NONE)`
 
 val STDOUT_def = Define `
-  STDOUT output = IO (Str output) stdout_fun ["CharIO"]`
+  STDOUT output = IO (Str output) stdout_fun ["putChar"]`
 
 val CHAR_IO_def = Define `
   CHAR_IO = SEP_EXISTS w. W8ARRAY print_loc [w]`;
@@ -353,7 +353,7 @@ val print_spec = Q.store_thm ("print_spec",
   THEN1
    (xffi
     \\ fs [EVAL ``print_loc``, STDOUT_def]
-    \\ `MEM "CharIO" ["CharIO"]` by EVAL_TAC \\ instantiate \\ xsimpl
+    \\ `MEM "putChar" ["putChar"]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ EVAL_TAC \\ fs [ORD_BOUND, CHR_ORD])
   \\ xret \\ xsimpl);
 

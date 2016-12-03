@@ -1,10 +1,10 @@
 #include <stdio.h>
 
-void ffi0 (char* a) {
+void ffiputChar (char* a) {
   putchar(a[0]);
 }
 
-void ffi1 (char* a) {
+void ffiisEof (char* a) {
   int c = getchar();
   if(c == EOF) {
     a[0] = 0;
@@ -14,6 +14,6 @@ void ffi1 (char* a) {
   }
 }
 
-void ffi2 (char* a) {
+void ffigetChar (char* a) {
   a[0] = getchar();
 }

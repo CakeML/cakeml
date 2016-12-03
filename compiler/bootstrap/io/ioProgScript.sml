@@ -148,7 +148,7 @@ val char_of_byte_side = Q.store_thm("char_of_byte_side",
   val write = bytarray [0w];
   val write = fn c =>
     val _ = (write[0] := c)
-    in FFI 0 write end
+    in FFI "putChar" write end
 
 *)
 
@@ -183,7 +183,7 @@ val LetApps_def = Define `
   LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
 
 val e =
-  ``Let (SOME "_") (App (FFI 1) [Var (Short "write")])
+  ``Let (SOME "_") (App (FFI "isEof") [Var (Short "write")])
      (LetApps "c" (Long "Word8Array" "sub") [Var (Short "write");  Lit (IntLit 0)]
        (Apps [Var (Short "byte_is_nonzero");Var (Short "c")]))``
   |> EVAL |> concl |> rand
@@ -191,7 +191,7 @@ val e =
 val _ = ml_prog_update (add_Dlet_Fun ``"can_read"`` ``"c"`` e "can_read_v")
 
 val e =
-  ``Let (SOME "_") (App (FFI 2) [Var (Short "write")])
+  ``Let (SOME "_") (App (FFI "getChar") [Var (Short "write")])
      (LetApps "c" (Long "Word8Array" "sub") [Var (Short "write");  Lit (IntLit 0)]
        (Apps [Var (Short "char_of_byte");Var (Short "c")]))``
   |> EVAL |> concl |> rand
@@ -202,7 +202,7 @@ val e =
   ``Let (SOME "c") (Apps [Var (Long "Word8Array" "update");
                           Var (Short "write");
                           Lit (IntLit 0); Var (Short "c")])
-      (Let (SOME "_") (App (FFI 0) [Var (Short "write")]) (Var (Short "c")))``
+      (Let (SOME "_") (App (FFI "putChar") [Var (Short "write")]) (Var (Short "c")))``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
@@ -212,9 +212,9 @@ val _ = ml_prog_update (close_module NONE);
 val stdin_fun_def = Define `
   stdin_fun = (\i bytes s. case (bytes,s) of
                     | ([w],Str input) =>
-                         if i = 1n then (* can_read *)
+                         if i = "isEof" then (* can_read *)
                            SOME ([if input = "" then 0w else 1w],Str input)
-                         else (* i = 2 *) (* read *)
+                         else (* i = getChar *) (* read *)
                            if input = "" then NONE else
                              SOME ([n2w (ORD (HD input))],Str (TL input))
                     | _ => NONE)`
@@ -225,10 +225,10 @@ val stdout_fun_def = Define `
                     | _ => NONE)`
 
 val STDIN_def = Define `
-  STDIN input = IO (Str input) stdin_fun [1;2]`;
+  STDIN input = IO (Str input) stdin_fun ["isEof";"getChar"]`;
 
 val STDOUT_def = Define `
-  STDOUT (output:word8 list) = IO (Str (MAP (CHR o w2n) output)) stdout_fun [0]`
+  STDOUT (output:word8 list) = IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"]`
 
 val CHAR_IO_def = Define `
   CHAR_IO = SEP_EXISTS w. W8ARRAY write_loc [w]`;
@@ -245,7 +245,7 @@ val can_read_spec = Q.store_thm ("can_read_spec",
   \\ xlet `POSTv wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
   THEN1
    (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
-    \\ `MEM 1 [1n;2]` by EVAL_TAC \\ instantiate \\ xsimpl
+    \\ `MEM "isEof" ["isEof";"getChar"]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ fs [stdin_fun_def])
   \\ xlet `POSTv zv. STDIN input * W8ARRAY write_loc [if input = "" then 0w else 1w] *
                      & (WORD (if input = "" then 0w:word8 else 1w) zv)`
@@ -267,7 +267,7 @@ val read_spec = Q.store_thm ("read_spec",
   \\ xlet `POSTv wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
   THEN1
    (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
-    \\ `MEM 2 [1n;2]` by EVAL_TAC \\ instantiate \\ xsimpl
+    \\ `MEM "getChar" ["isEof";"getChar"]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ fs [stdin_fun_def])
   \\ xlet `POSTv zv. STDIN (TL input) * W8ARRAY write_loc [n2w (ORD (HD input))] *
                      & (WORD (n2w (ORD (HD input)):word8) zv)`
@@ -296,7 +296,7 @@ val write_spec = Q.store_thm ("write_spec",
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
-    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
+    \\ `MEM "putChar" ["putChar"]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
   \\ xret \\ xsimpl);
 
 val write_list = parse_topdecs
@@ -388,16 +388,16 @@ val read_all_spec = Q.store_thm ("read_all_spec",
 
 val io_ffi_oracle_def = Define `
   (io_ffi_oracle:(string # (word8 list)) oracle) =
-    \index (inp,out) bytes.
-       if index = 0 then
+    \name (inp,out) bytes.
+       if name = "putChar" then
          case bytes of
          | [b] => Oracle_return (inp,out ++ [b]) [b]
          | _ => Oracle_fail
-       else if index = 1 then
+       else if name = "isEof" then
          case bytes of
          | [b] => Oracle_return (inp,out) [if inp = "" then 0w else 1w]
          | _ => Oracle_fail
-       else if index = 2 then
+       else if name = "getChar" then
          case bytes of
          | [b] => if inp = "" then Oracle_fail else
                     Oracle_return (TL inp,out) [n2w (ORD (HD inp))]
@@ -413,18 +413,18 @@ val io_ffi_def = Define `
 
 val io_proj1_def = Define `
   io_proj1 = (\(inp,out:word8 list).
-    FEMPTY |++ [(0,Str (MAP (CHR o w2n) out));(1,Str inp);(2n,Str inp)])`;
+    FEMPTY |++ [("putChar",Str (MAP (CHR o w2n) out));("isEof",Str inp);("getChar",Str inp)])`;
 
 val io_proj2_def = Define `
-  io_proj2 = [([0n],stdout_fun);([1;2],stdin_fun)]`;
+  io_proj2 = [(["putChar"],stdout_fun);(["isEof";"getChar"],stdin_fun)]`;
 
 val extract_output_def = Define `
   (extract_output [] = SOME []) /\
-  (extract_output ((IO_event index bytes)::xs) =
+  (extract_output ((IO_event name bytes)::xs) =
      case extract_output xs of
      | NONE => NONE
      | SOME rest =>
-         if index <> 0 then SOME rest else
+         if name <> "putChar" then SOME rest else
          if LENGTH bytes <> 1 then NONE else
            SOME ((SND (HD bytes)) :: rest))`
 
@@ -467,7 +467,7 @@ val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
-  \\ reverse (Cases_on `n = 0`) \\ fs []
+  \\ reverse (Cases_on `n = "putChar"`) \\ fs []
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [extract_output_APPEND,extract_output_def] \\ rfs []
   THEN1
@@ -532,6 +532,6 @@ val parts_ok_io_ffi = Q.store_thm("parts_ok_io_ffi",
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw [] \\ fs []));
+    \\ rw [] \\ fs [] \\ metis_tac []));
 
 val _ = export_theory ()
