@@ -1280,6 +1280,8 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
+  \\ Cases_on `?i. op = EqualInt i` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = Equal` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
