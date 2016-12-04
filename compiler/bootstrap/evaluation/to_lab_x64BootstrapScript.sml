@@ -64,9 +64,11 @@ fun say_str s i n = ()
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
   *)
 
+val bootstrap_conf = ``x64_compiler_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>)``
+
 val to_data_thm0 =
   MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
-  |> Q.GEN`c2` |> Q.ISPEC`x64_compiler_config`
+  |> Q.GEN`c2` |> ISPEC bootstrap_conf
 
 val same_config = prove(to_data_thm0 |> concl |> rator |> rand,
   REWRITE_TAC[init_conf_def,x64_compiler_config_def]
@@ -79,7 +81,7 @@ val to_data_thm1 =
   MATCH_MP to_data_thm0 same_config
 
 val to_livesets_thm0 =
-  ``to_livesets x64_compiler_config prog_x64``
+  ``to_livesets ^bootstrap_conf prog_x64``
   |> (REWR_CONV to_livesets_def THENC
       RAND_CONV (REWR_CONV to_data_thm1) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
@@ -483,7 +485,7 @@ fun eval_fn i n p =
 val stack_prog_els =
   stack_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_alloc" (parlist num_threads chunk_size eval_fn) stack_prog_els;
+val ths = time_with_size thms_size "stack_alloc (par)" (parlist num_threads chunk_size eval_fn) stack_prog_els;
 
 val stack_alloc_thm =
   tm4 |>
@@ -533,7 +535,7 @@ fun eval_fn i n p =
 val stack_alloc_prog_els =
   stack_alloc_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_remove" (parlist num_threads chunk_size eval_fn) stack_alloc_prog_els;
+val ths = time_with_size thms_size "stack_remove (par)" (parlist num_threads chunk_size eval_fn) stack_alloc_prog_els;
 
 val stack_remove_thm =
   stack_remove_thm0
@@ -573,7 +575,7 @@ fun eval_fn i n p =
 val stack_remove_prog_els =
   stack_remove_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_names" (parlist num_threads chunk_size eval_fn) stack_remove_prog_els;
+val ths = time_with_size thms_size "stack_names (par)" (parlist num_threads chunk_size eval_fn) stack_remove_prog_els;
 
 val stack_names_thm0 =
   tm7
@@ -606,7 +608,7 @@ fun eval_fn i n p =
 val stack_names_prog_els =
   stack_names_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_to_lab" (parlist num_threads chunk_size eval_fn) stack_names_prog_els;
+val ths = time_with_size thms_size "stack_to_lab (par)" (parlist num_threads chunk_size eval_fn) stack_names_prog_els;
 
 val stack_to_lab_thm4 =
   stack_to_lab_thm3

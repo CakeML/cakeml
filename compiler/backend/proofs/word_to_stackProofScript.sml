@@ -4504,7 +4504,7 @@ val evaluate_PopHandler_seq = Q.prove(`
 val word_cmp_Word_Word = Q.prove(
   `word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')`,
   Cases_on `cmp`
-  \\ rw [labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]);
+  \\ rw [labSemTheory.word_cmp_def,asmTheory.word_cmp_def]);
 
 val ALL_DISTINCT_MEM_toAList_fromAList = Q.prove(`
   ALL_DISTINCT (MAP FST ls) ⇒

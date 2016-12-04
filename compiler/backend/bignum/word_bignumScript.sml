@@ -305,7 +305,7 @@ fun get_corr tm =
   val i = fst (match_term (get_pat Corr_If) tm)
   val p1 = get_corr (tm |> rator |> rand)
   val p2 = get_corr (tm |> rand)
-  val th = REWRITE_RULE [eval_exp_def,eval_exp_pre_def,asmSemTheory.word_cmp_def,
+  val th = REWRITE_RULE [eval_exp_def,eval_exp_pre_def,asmTheory.word_cmp_def,
              eval_ri_pre_def,eval_ri_def] (INST i Corr_If)
   in MATCH_MP th (CONJ p1 p2) end
 

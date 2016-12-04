@@ -115,6 +115,7 @@ fun remove_Eq_from_v_thm th = let
 
 local
   val v_thms = ref ([] : (string (* name *) *
+                          string (* ML name *) *
                           term (* HOL term *) *
                           thm (* certificate *) *
                           thm (* precond definition *) *
@@ -139,22 +140,22 @@ in
     in if optionSyntax.is_none tm then NONE else
          SOME (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring)
     end
-  fun add_v_thms (name,th,pre_def) = let
+  fun add_v_thms (name,ml_name,th,pre_def) = let
     val tm = th |> concl |> rator |> rand
     val module_name = get_curr_module_name ()
     val _ = if concl pre_def =T then () else
-            (print ("\nWARNING: " ^name^" has a precondition.\n\n"))
-    in (v_thms := (name,tm,th,pre_def,module_name) :: (!v_thms)) end;
+            (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
+    in (v_thms := (name,ml_name,tm,th,pre_def,module_name) :: (!v_thms)) end;
   fun add_user_proved_v_thm th = let
     val th = UNDISCH_ALL th
     val v = th |> concl |> rand
     val _ = (type_of v = v_ty) orelse failwith("add_user_proved_v_thm not a v thm")
     val tm = th |> concl |> rator |> rand
-    val (name,_,_,_,module_name) = first (fn (name,tm,th,_,_) =>
+    val (name,ml_name,_,_,_,module_name) = first (fn (name,ml_name,tm,th,_,_) =>
           (th |> concl |> rand) = v) (!v_thms)
-    in ((v_thms := (name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
+    in ((v_thms := (name,ml_name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
   fun lookup_v_thm const = let
-    val (name,c,th,pre,m) = (first (fn c => can (match_term (#2 c)) const) (!v_thms))
+    val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (#3 c)) const) (!v_thms))
     val th = th |> SPEC_ALL |> UNDISCH_ALL
     val th = (case m of
                 NONE => MATCH_MP Eval_Var_Short th
@@ -163,7 +164,7 @@ in
                   then MATCH_MP Eval_Var_Short th
                   else (MATCH_MP Eval_Var_Long th
                         |> SPEC (stringSyntax.fromMLstring mod_name)))
-    val th = SPEC (stringSyntax.fromMLstring name) th |> SPEC_ALL |> UNDISCH_ALL
+    val th = SPEC (stringSyntax.fromMLstring ml_name) th |> SPEC_ALL |> UNDISCH_ALL
     in th end
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
@@ -172,16 +173,16 @@ in
     get_thm (!prog_state)
     |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL);
   fun update_precondition new_pre = let
-    fun update_aux (name,tm,th,pre,module)= let
+    fun update_aux (name,ml_name,tm,th,pre,module)= let
       val th1 = D th
       val th2 = REWRITE_RULE [new_pre,PRECONDITION_T] th1
-      in if concl th1 = concl th2 then (name,tm,th,pre,module) else let
+      in if concl th1 = concl th2 then (name,ml_name,tm,th,pre,module) else let
            val th = remove_Eq_from_v_thm th2
            val _ = save_thm(name^"_v_thm",th)
            val new_pre = if T = (new_pre |> SPEC_ALL |> concl |> rand)
                          then TRUTH else new_pre
            val th = th |> UNDISCH_ALL
-           in (name,tm,th,new_pre,module) end end
+           in (name,ml_name,tm,th,new_pre,module) end end
     val _ = (v_thms := map update_aux (!v_thms))
     in new_pre end
   fun add_eval_thm th = let
@@ -191,13 +192,13 @@ in
     val _ = (eval_thms := (n,const,th)::(!eval_thms))
     in th end;
   fun pack_v_thms () = let
-    val pack_vs = pack_list (pack_5tuple pack_string pack_term
+    val pack_vs = pack_list (pack_6tuple pack_string pack_string pack_term
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
     in pack_triple pack_vs pack_evals pack_ml_prog_state
          (!v_thms,!eval_thms,ml_progLib.clean_state (!prog_state)) end
   fun unpack_v_thms th = let
-    val unpack_vs = unpack_list (unpack_5tuple unpack_string unpack_term
+    val unpack_vs = unpack_list (unpack_6tuple unpack_string unpack_string unpack_term
                                  unpack_thm unpack_thm (unpack_option unpack_string))
     val unpack_evals = unpack_list (unpack_triple
                           unpack_string unpack_term unpack_thm)
@@ -206,7 +207,7 @@ in
     val _ = eval_thms := x2
     val _ = prog_state := x3
     in () end
-  fun get_names() = map (#1) (!v_thms)
+  fun get_names() = map (#2) (!v_thms)
 end
 
 fun full_id n =
@@ -2586,11 +2587,17 @@ fun hol2deep tm =
   (* n2w 'a word for known 'a*)
   if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
     val dim = wordsSyntax.dim_of tm
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
+    val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
+  (* i2w 'a word for known 'a*)
+  if integer_wordSyntax.is_i2w tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
+                           |> CONV_RULE wordsLib.WORD_CONV) th1
+    in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a*)
   if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
     val x1 = tm |> rand
@@ -2599,6 +2606,14 @@ fun hol2deep tm =
     (* th1 should have instantiated 'a already *)
     val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
+  (* w2i 'a word for known 'a*)
+  if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
+    val x1 = tm |> rand
+    val dim = wordsSyntax.dim_of x1
+    val th1 = hol2deep x1
+    (* th1 should have instantiated 'a already *)
+    val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "w2i" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
   if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
     val lemma = dest_word_binop tm
@@ -3031,7 +3046,7 @@ val _ = (max_print_depth := 25)
       val v_def = hd (get_curr_v_defs ())
       val v_thm = lemma |> CONV_RULE (RAND_CONV (REWR_CONV (GSYM v_def)))
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-      val _ = add_v_thms (ml_fname,v_thm,pre_def)
+      val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
       val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
       in save_thm(fname ^ "_v_thm",v_thm) end else let
 
@@ -3066,7 +3081,7 @@ val _ = (max_print_depth := 25)
       val var_str = ml_fname
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
       val _ = ml_prog_update (add_Dlet eval_thm var_str [])
-      val _ = add_v_thms (var_str,v_thm,pre_def)
+      val _ = add_v_thms (fname,var_str,v_thm,pre_def)
       val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
       in save_thm(fname ^ "_v_thm",v_thm) end end
     else (* is_rec *) let
@@ -3227,7 +3242,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
                   |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
                   |> clean_assumptions |> UNDISCH_ALL
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-      val _ = add_v_thms (ml_fname,th,pre_def)
+      val _ = add_v_thms (fname,ml_fname,th,pre_def)
       in th end
     val thms = map inst_envs results
     (* clean up *)

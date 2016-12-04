@@ -38,16 +38,6 @@ val binop_upd_def = Define `
   (binop_upd r Or w1 w2  = upd_reg r (word_or w1 w2)) /\
   (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))`
 
-val word_cmp_def = Define `
-  (word_cmp Equal w1 w2 = (w1 = w2)) /\
-  (word_cmp Less w1 w2  = (w1 < w2)) /\
-  (word_cmp Lower w1 w2 = (w1 <+ w2)) /\
-  (word_cmp Test w1 w2  = ((w1 && w2) = 0w)) /\
-  (word_cmp NotEqual w1 w2 = (w1 <> w2)) /\
-  (word_cmp NotLess w1 w2  = ~(w1 < w2)) /\
-  (word_cmp NotLower w1 w2 = ~(w1 <+ w2)) /\
-  (word_cmp NotTest w1 w2  = ((w1 && w2) <> 0w))`
-
 val is_test_def = Define `is_test c <=> (c = Test) \/ (c = NotTest)`
 
 val word_shift_def = Define `

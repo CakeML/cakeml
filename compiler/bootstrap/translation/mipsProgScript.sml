@@ -46,7 +46,6 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 

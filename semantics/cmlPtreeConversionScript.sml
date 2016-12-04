@@ -769,6 +769,19 @@ val mkFun_def = Define`
   mkFun p b = UNCURRY Fun (dePat p b)
 `
 
+val ptree_Eliteral_def = Define`
+  ptree_Eliteral (Lf _) = NONE ∧
+  ptree_Eliteral (Nd nt subs) =
+    do
+      assert (LENGTH subs = 1 ∧ nt = mkNT nEliteral);
+      lf <- destLf (HD subs);
+      t <- destTOK lf;
+      (do i <- destIntT t ; return (Lit (IntLit i)) od ++
+       do c <- destCharT t ; return (Lit (Char c)) od ++
+       do s <- destStringT t ; return (Lit (StrLit s)) od ++
+       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od)
+    od
+`
 
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
@@ -790,13 +803,7 @@ val ptree_Expr_def = Define`
                          elist)
             od
           | [single] =>
-              do
-                lf <- destLf single;
-                t <- destTOK lf;
-                (do i <- destIntT t ; SOME (Lit (IntLit i)) od ++
-                 do c <- destCharT t ; SOME (Lit (Char c)) od ++
-                 do s <- destStringT t ; SOME (Lit (StrLit s)) od)
-              od ++
+              ptree_Eliteral single ++
               do
                 s <- ptree_FQV single;
                 SOME (Var s)

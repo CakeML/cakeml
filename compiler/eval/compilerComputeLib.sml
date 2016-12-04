@@ -369,6 +369,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [wordLangTheory.every_var_exp_def
     ,wordLangTheory.num_exp_def
+    ,wordLangTheory.word_sh_def
     ,wordLangTheory.word_op_def
     ,wordLangTheory.every_var_imm_def
     ,wordLangTheory.every_stack_var_def
@@ -436,6 +437,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Equal_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
+    ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.ShiftVar_def
     ,multiwordTheory.n2mw_def

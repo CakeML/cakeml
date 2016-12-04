@@ -390,7 +390,7 @@ val state_rel_def = Define `
          <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
            mem := asm_write_bytearray (t1.regs s1.ptr_reg) new_bytes t1.mem;
            pc := t1.regs s1.link_reg|>)
-        (mc_conf.ffi_interfer k index new_bytes ms2)) /\
+        (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
     (!l1 l2 x.
        (lab_lookup l1 l2 labs = SOME x) ==> (1w && (p + n2w x)) = 0w) /\
     (!index.
@@ -887,7 +887,7 @@ val word_cmp_lemma = Q.prove(
   \\ full_simp_tac(srw_ss())[asmSemTheory.read_reg_def]
   \\ Cases_on `s1.regs rr` \\ full_simp_tac(srw_ss())[]
   \\ TRY (Cases_on `s1.regs n`) \\ full_simp_tac(srw_ss())[] \\ Cases_on `cmp`
-  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
+  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ first_assum (assume_tac o Q.SPEC `rr:num`)
   \\ first_x_assum (assume_tac o Q.SPEC `n:num`)
@@ -1579,7 +1579,7 @@ val compile_correct = Q.prove(
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)`
     \\ `word_cmp cmp (read_reg rr s1) (labSem$reg_imm ri s1) =
-        SOME (asmSem$word_cmp cmp (read_reg rr t1) (reg_imm ri t1))` by
+        SOME (asm$word_cmp cmp (read_reg rr t1) (reg_imm ri t1))` by
      (Cases_on `word_cmp cmp (read_reg rr s1) (reg_imm ri s1)` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac word_cmp_lemma \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[]
@@ -1802,9 +1802,9 @@ val compile_correct = Q.prove(
       \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
       \\ once_rewrite_tac [targetSemTheory.evaluate_def]
       \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[shift_interfer_def,LET_DEF]
+      \\ full_simp_tac(srw_ss())[shift_interfer_def,LET_DEF,apply_oracle_def]
       \\ BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[])
-      \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
@@ -1812,7 +1812,7 @@ val compile_correct = Q.prove(
          `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a sec list)) ;
                      mem := asm_write_bytearray c1 new_bytes t1.mem ;
                      regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
-         `mc_conf.ffi_interfer 0 index new_bytes ms2`]mp_tac)
+         `mc_conf.ffi_interfer 0 (index,new_bytes,ms2)`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (rpt strip_tac
       THEN1 (full_simp_tac(srw_ss())[backend_correct_def,shift_interfer_def]
@@ -1868,7 +1868,7 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC]
     \\ rev_full_simp_tac(srw_ss())[LET_DEF]
     \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac
-    \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[apply_oracle_def])
   THEN1 (* Halt *)
    (srw_tac[][]
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
@@ -4795,7 +4795,7 @@ val good_init_state_def = Define `
            mem := asm_write_bytearray (t1.regs mc_conf.ptr_reg) new_bytes t1.mem;
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                   | SOME n => n)|>)
-        (mc_conf.ffi_interfer k index new_bytes ms2)) /\
+        (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
     !a labs.
       word_loc_val_byte (mc_conf.target.get_pc ms) labs m a
         mc_conf.target.config.big_endian = SOME (t.mem a)`

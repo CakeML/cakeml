@@ -9,12 +9,20 @@ fun op $ (f,x) = f x
 
 val rconc = rhs o concl;
 
+fun pad_to sz str =
+  CharVector.tabulate(Int.max(0,sz-String.size str),K #" ")^str
+val pad = pad_to 30
+
 fun time_with_size size_fn name eval_fn x =
   let
-    val () = Lib.say(String.concat["eval ",name,": "])
-    val r = time eval_fn x
+    val () = Lib.say(pad (name^" eval: "))
+    val (timer,real_timer) = (start_time(), start_real_time())
+    val r = eval_fn x
+    val () = end_time timer
+    val () = Lib.say(String.concat[pad (name^" real: "),
+               Lib.time_to_string(Timer.checkRealTimer real_timer),"\n"])
     val z = size_fn r
-    val () = Lib.say(String.concat["size ",name,": ",Int.toString z,"\n"])
+    val () = Lib.say(String.concat[pad (name^" size: "),Int.toString z,"\n"])
   in r end
 
 val sum = foldl (op+) 0
