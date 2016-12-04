@@ -62,7 +62,7 @@ val arith_upd_def = Define `
      upd_reg r1 (word_shift l (read_reg r2 s) n) s) /\
   (arith_upd (Div r1 r2 r3) s =
      let q = read_reg r3 s in
-       assert (q <> 0w) (upd_reg r1 (read_reg r2 s // q) s)) /\
+       assert (q <> 0w) (upd_reg r1 (read_reg r2 s / q) s)) /\
   (arith_upd (LongMul r1 r2 r3 r4) (s : 'a asm_state) =
      let r = w2n (read_reg r3 s) * w2n (read_reg r4 s)
      in

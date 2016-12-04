@@ -11,9 +11,9 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
-           "long mul", "long div", "add carry", "load", (* "load32", *) "load8",
-           "store", (* "store32", *) "store8", "jump", "cjump reg", "cjump imm",
-           "call", "jump reg", "loc"]
+           "long mul", "long div", "add carry", "add overflow", "sub overflow",
+           "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
+           "jump", "cjump reg", "cjump imm", "call", "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS arm6_enc_def)
   val thm =  Q.SPEC `f` boolTheory.LET_THM
   val bits30 =
@@ -38,10 +38,15 @@ val skip_rwt = enc_thm "skip"
 val const_rwt = enc_thm "const" [e_load_def, e_branch_def, e_data_def]
 val binop_rwt = enc_thm "binop reg"
   [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
-val binop_imm_rwt = enc_thm "binop imm" [e_data_def]
+val binop_imm_rwt = enc_thm "binop imm"
+  [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
 val shift_rwt = enc_thm "shift" [e_data_def]
 val long_mul_rwt = enc_thm "long mul" [e_multiply_def]
 val add_carry_rwt = enc_thm "add carry"
+  [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
+val add_overflow_rwt = enc_thm "add overflow"
+  [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
+val sub_overflow_rwt = enc_thm "sub overflow"
   [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
 
 val load_rwt = enc_thm "load" [e_load_def]
@@ -72,8 +77,8 @@ val loc_rwt = enc_thm "loc"
 val arm6_encode_rwts = Theory.save_thm("arm6_encode_rwts",
   Drule.LIST_CONJ
     [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_mul_rwt,
-     add_carry_rwt, load_rwt, (* load32_rwt, *) load8_rwt, store_rwt,
-     (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt,
-     call_rwt, jump_reg_rwt, loc_rwt])
+     add_carry_rwt, add_overflow_rwt, sub_overflow_rwt, load_rwt,
+     (* load32_rwt, *) load8_rwt, store_rwt, (* store32_rwt, *) store8_rwt,
+     jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
 
 val () = export_theory ()

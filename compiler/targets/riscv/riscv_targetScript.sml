@@ -92,7 +92,7 @@ val riscv_enc_def = Define`
    (riscv_enc (Inst (Arith (Shift sh r1 r2 n))) =
      riscv_encode (Shift (riscv_sh sh (n2w r1, n2w r2, n2w n)))) /\
    (riscv_enc (Inst (Arith (Div r1 r2 r3))) =
-     riscv_encode (MulDiv (DIVU (n2w r1, n2w r2, n2w r3)))) /\
+     riscv_encode (MulDiv (riscv$DIV (n2w r1, n2w r2, n2w r3)))) /\
    (riscv_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
      riscv_encode (MulDiv (MULHU (n2w r1, n2w r3, n2w r4))) ++
      riscv_encode (MulDiv (MUL (n2w r2, n2w r3, n2w r4)))) /\
@@ -104,6 +104,19 @@ val riscv_enc_def = Define`
      riscv_encode (ArithR (ADD (n2w r1, n2w r1, temp_reg))) ++
      riscv_encode (ArithR (SLTU (temp_reg, n2w r1, temp_reg))) ++
      riscv_encode (ArithR (OR (n2w r4, n2w r4, temp_reg)))) /\
+   (riscv_enc (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+     riscv_encode (ArithR (ADD (n2w r1, n2w r2, n2w r3))) ++
+     riscv_encode (ArithR (XOR (temp_reg, n2w r2, n2w r3))) ++
+     riscv_encode (ArithI (XORI (temp_reg, temp_reg, -1w))) ++
+     riscv_encode (ArithR (XOR (n2w r4, n2w r2, n2w r1))) ++
+     riscv_encode (ArithR (AND (n2w r4, temp_reg, n2w r4))) ++
+     riscv_encode (Shift (SRLI (n2w r4, n2w r4, 63w)))) /\
+   (riscv_enc (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+     riscv_encode (ArithR (SUB (n2w r1, n2w r2, n2w r3))) ++
+     riscv_encode (ArithR (XOR (temp_reg, n2w r2, n2w r3))) ++
+     riscv_encode (ArithR (XOR (n2w r4, n2w r2, n2w r1))) ++
+     riscv_encode (ArithR (AND (n2w r4, temp_reg, n2w r4))) ++
+     riscv_encode (Shift (SRLI (n2w r4, n2w r4, 63w)))) /\
    (riscv_enc (Inst (Mem mop r1 (Addr r2 a))) =
       case riscv_memop mop of
          INL f => riscv_encode (Load (f (n2w r1, n2w r2, w2w a)))

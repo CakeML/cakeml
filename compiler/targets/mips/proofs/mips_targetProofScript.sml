@@ -142,6 +142,22 @@ val mul_long2 = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val mips_overflow =
+  REWRITE_RULE
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x = word_msb y) /\ (word_msb x <> word_msb (x + y))) =
+         ((~(x ?? y) && (x ?? (x + y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.overflow)
+
+val mips_sub_overflow =
+  SIMP_RULE (srw_ss())
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x <> word_msb y) /\ (word_msb x <> word_msb (x - y))) =
+         (((x ?? y) && (x ?? (x - y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -264,7 +280,7 @@ fun state_tac asm =
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
          rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2,
-             GSYM wordsTheory.word_mul_def,
+             GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
              DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
          \\ (if asmLib.isMem asm then
               rw [boolTheory.FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM]
@@ -403,7 +419,10 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
               --------------*)
             print_tac "Binop"
             \\ Cases_on `r`
-            \\ Cases_on `b`
+            >| [Cases_on `b`,
+                Cases_on `(b = Xor) /\ (c = -1w)`
+                >| [all_tac,
+                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []]]
             \\ next_tac
             )
          >- (
@@ -436,14 +455,36 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
             print_tac "LongMul"
             \\ next_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ qabbrev_tac `r2 = ms.gpr (n2w n0)`
             \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
             \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
             \\ next_tac
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ qabbrev_tac `r2 = ms.gpr (n2w n0)`
+            \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
+            \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ qabbrev_tac `r2 = ms.gpr (n2w n0)`
+            \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
+            \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
+            \\ next_tac
+            )
          )
          (*--------------
              Mem

@@ -323,13 +323,13 @@ val cmp_lem2 =
 
 val cmp_lem3 = Thm.CONJ
   (blastLib.BBLAST_PROVE
-     ``!a b: word64.
-        ((-1w * b + a) ' 63 <=/=>
-         (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) <=> a < b``)
+    ``!a b: word64.
+       ((-1w * b + a) ' 63 <=/=>
+        (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) <=> a < b``)
   (blastLib.BBLAST_PROVE
-     ``!a b: word64.
-        ((a + -1w * b) ' 63 <=/=>
-         (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) <=> a < b``)
+    ``!a b: word64.
+       ((a + -1w * b) ' 63 <=/=>
+        (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) <=> a < b``)
 
 val cmp_lem4 = Q.prove(
    `!w: word64 a b.
@@ -418,14 +418,8 @@ val adc_lem1 =
 
 val adc_lem2 = blastLib.BBLAST_PROVE ``a <+ 1w : word64 <=> (a = 0w)``
 
-val dec_neq0 = blastLib.BBLAST_PROVE ``!x: word4. (x || 8w) <> 0w``
-
-val is_rax_Zreg2num = Q.prove(
-   `!n. n < 16 /\ is_rax (reg n) ==> (0 = n)`,
-   rw [x64Theory.is_rax_def, x64_targetTheory.total_num2Zreg_def]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ rfs []
-   )
+val overflow_lem =
+  blastLib.BBLAST_PROVE ``!a: word64. word_bit 63 a = word_msb a``
 
 val is_rax = Q.prove(
    `!n. n < 16 ==> ((RAX = num2Zreg n) = (n = 0))`,
@@ -599,6 +593,7 @@ local
     MAP_EVERY
       (fn (v, tm) => Q.UNABBREV_TAC `^(Term.mk_var (v, Term.type_of tm))`)
       (List.mapPartial (Lib.total markerSyntax.dest_abbrev) asl) (asl, g)
+  val sub_overflow = SIMP_RULE (srw_ss()) [] integer_wordTheory.sub_overflow
 in
   fun next_tac l =
     let
@@ -612,13 +607,15 @@ in
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ NO_STRIP_REV_FULL_SIMP_TAC
            (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
+      \\ NO_STRIP_FULL_SIMP_TAC std_ss []
+      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ qunabbrev_tac `instr`
       \\ abbreviate_n2w
       \\ MAP_EVERY asmLib.split_bytes_in_memory_tac l
       \\ NTAC (i + 1) next_state_tac
-      \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
-             asmPropsTheory.sym_target_state_rel, x64_target_def,
-             x64_config, set_sepTheory.fun2set_eq,
+      \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs, overflow_lem,
+             asmPropsTheory.sym_target_state_rel, x64_target_def, sub_overflow,
+             x64_config, set_sepTheory.fun2set_eq, integer_wordTheory.overflow,
              const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
              binop_lem6, binop_lem7, binop_lem8, jump_lem2, cmp_lem1, cmp_lem3]
       \\ unabbrev_all_tac
@@ -809,7 +806,10 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
                \\ next_tac []
                )
                (* Imm *)
+            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            >- next_tac []
             \\ Cases_on `b`
+            \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
             \\ (
                 Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
                 >- next_tac []
@@ -847,13 +847,47 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
             print_tac "LongDiv"
             \\ next_tac []
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ Cases_on `word_bit 3 (n2w n2 : word4)`
-            >- next_tac [4,1,3,6]
+            >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                \\ next_tac [4,1,3,6])
+            \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
+            by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ next_tac [4,1,3,5]
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ Cases_on `word_bit 3 (n2w n2 : word4)`
+            >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                \\ next_tac [3, 6]
+               )
+            \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
+            by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+            \\ next_tac [3, 5]
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ Cases_on `word_bit 3 (n2w n2 : word4)`
+            >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                \\ next_tac [3, 6]
+               )
+            \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
+            by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+            \\ next_tac [3, 5]
+            )
          )
          (*--------------
              Mem
