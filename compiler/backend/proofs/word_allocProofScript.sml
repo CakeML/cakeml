@@ -4232,8 +4232,51 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
       IF_CASES_TAC>>fs[is_phy_var_def]>>
       rw[]>>fs[])
-    >- cheat
-    >- cheat
+    >-
+      (* AddOverflow*)
+      (fs[get_vars_perm]>>
+      Cases_on`get_vars [n0;n1] st`>>fs[get_vars_def]>>
+      pop_assum mp_tac>>
+      ntac 2 FULL_CASE_TAC >>fs[]>>
+      disch_then sym_sub_tac>>fs[]>>
+      imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+      fs[]>>
+      Cases_on`x'`>>Cases_on`x''`>>fs[set_var_def,alist_insert_def]>>
+      qpat_abbrev_tac`w1 = if A then B else C`>>
+      fs[ssa_locals_rel_def,lookup_insert,every_var_def,every_var_inst_def,alist_insert_def]>>
+      CONJ_TAC>-
+        (rw[]>>metis_tac[])>>
+      ntac 2 strip_tac>>
+      IF_CASES_TAC>>fs[]>>
+      IF_CASES_TAC>>fs[ssa_map_ok_def]>>
+      strip_tac>>
+      first_x_assum (qspecl_then[`x`,`y`] assume_tac)>>rfs[]>>
+      fs[domain_lookup]>>
+      first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
+      IF_CASES_TAC>>fs[is_phy_var_def]>>
+      rw[]>>fs[])
+    >- (*SubOverflow*)
+      (fs[get_vars_perm]>>
+      Cases_on`get_vars [n0;n1] st`>>fs[get_vars_def]>>
+      pop_assum mp_tac>>
+      ntac 2 FULL_CASE_TAC >>fs[]>>
+      disch_then sym_sub_tac>>fs[]>>
+      imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+      fs[]>>
+      Cases_on`x'`>>Cases_on`x''`>>fs[set_var_def,alist_insert_def]>>
+      qpat_abbrev_tac`w1 = if A then B else C`>>
+      fs[ssa_locals_rel_def,lookup_insert,every_var_def,every_var_inst_def,alist_insert_def]>>
+      CONJ_TAC>-
+        (rw[]>>metis_tac[])>>
+      ntac 2 strip_tac>>
+      IF_CASES_TAC>>fs[]>>
+      IF_CASES_TAC>>fs[ssa_map_ok_def]>>
+      strip_tac>>
+      first_x_assum (qspecl_then[`x`,`y`] assume_tac)>>rfs[]>>
+      fs[domain_lookup]>>
+      first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
+      IF_CASES_TAC>>fs[is_phy_var_def]>>
+      rw[]>>fs[])
     >-
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
