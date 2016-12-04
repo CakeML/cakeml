@@ -334,7 +334,12 @@ val result = translate HD;
 
 (*--------------------------------------------------------------------------------*)
 
-(*This has a precondition, list empty exception*)
+val tl_def = Define`
+  (tl [] = []) /\ 
+  (tl (h::t) = t)`;
+
+val result = translate tl_def;
+val result = next_ml_names := ["tl_hol_def"];
 val result = translate TL;
 
 (*--------------------------------------------------------------------------------*)
@@ -342,15 +347,13 @@ val result = translate TL;
 (*Pre-conditions needs to raise an exception with the list is empty *)
 
 val result = translate LAST_DEF;
-val last_side_def = theorem"last_side_def"
 
 
 (*--------------------------------------------------------------------------------*)
 
 val getItem_def = Define`
-  getItem l = case l of
-    [] => NONE
-    | (h::t) => SOME(h, t)`; 
+  (getItem [] = NONE) /\ 
+  (getItem (h::t) = SOME(h, t))`; 
 
 val result = translate getItem_def;
 
@@ -363,7 +366,6 @@ val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
 
 (*--------------------------------------------------------------------------------*)
 
-(*subscript exception *)
 val take_def = Define`
   take l i = TAKE i l`;
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
@@ -396,71 +398,57 @@ val result = translate REV_DEF;
 
 val result = translate MAP;
 
+
+val list_mapi_def = Define `
+  (list_mapi f (n: num) [] = []) /\
+  (list_mapi f n (h::t) = (f n h)::(list_mapi f (n + 1) t))`
+
+
+val MAPI_thm_gen = Q.prove (
+  `!f l x. MAPi (\a. f (a + x)) l = list_mapi f x l`,
+  Induct_on `l` \\ rw [MAPi_def, list_mapi_def] \\
+  rw [o_DEF, ADD1] \\
+  fs [] \\
+  pop_assum (fn th => rw[GSYM th] ) \\
+  rw[AC ADD_ASSOC ADD_COMM] \\
+  match_mp_tac MAPi_CONG \\ rw[]
+);
+
+
+val MAPI_thm =
+  MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
+  |> SIMP_RULE (srw_ss()++ETA_ss) []
+
 (*--------------------------------------------------------------------------------*)
 
 val mapPartial_def = Define`
-  mapPartial f l = case l of
-    [] => []
-    | (h::t) => case (f h) of     
-      NONE => mapPartial f t
-      | (SOME x) => x::(mapPartial f t)`;
+  (mapPartial f [] = []) /\ 
+  (mapPartial f (h::t) = case (f h) of
+    NONE => mapPartial f t 
+    |(SOME x) => x::mapPartial f t)`;
 
 val result = translate mapPartial_def;   
 
 val mapPartial_thm = Q.store_thm (
   "mapPartial_thm",
   `!f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))`,
-  Induct_on `l` THEN1
-  rw [mapPartial_def] \\
-  rw [mapPartial_def] \\
-  Cases_on `f h` THEN1
-    fs [IS_SOME_DEF]\\
-    rw [THE_DEF] \\
-  Cases_on `f h` THEN1
-    rw [] \\
-    fs [IS_SOME_DEF]
+  Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
 )
-
-
 
 (*--------------------------------------------------------------------------------*)
 
-
-(*note that I didn't just translate find because it uses a method which stores indexes
- and values and then has to peel the value from a pair *)
-val find_def = Define`
-  find f l = case l of
-    [] => NONE
-    | (h::t) => if f h then SOME(h)
-      else find f t`;
-val result = translate find_def;
-
-
 val index_find_thm = Q.prove (
   `!x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)`,
-  Induct_on `l` THEN1
-  rw [INDEX_FIND_def] \\
-  Cases_on `f h` \\
-  EVAL_TAC \\
-  rw [] \\
-  EVAL_TAC \\
-  rw [] 
+  Induct_on`l` \\ rw[INDEX_FIND_def]
 );
 
+val FIND_thm = Q.store_thm(
+  "FIND_thm",
+  `(FIND f [] = NONE) ∧
+   (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)`,
+  rw[FIND_def,INDEX_FIND_def,index_find_thm]);
 
-"find_thm",
-  `!f l. find f l = FIND f l`,
-  Induct_on `l` \\
-  rw [find_def, FIND_def, INDEX_FIND_def] \\
-  rw [find_def, FIND_def] \\
-  rw [INDEX_FIND_def] \\
-  EVAL_TAC \\
-  rw [index_find_thm]
-)
-
-
-
-
+val res = translate FIND_thm;
 
 (*--------------------------------------------------------------------------------*)
 
@@ -468,15 +456,34 @@ val result = translate FILTER;
 
 (*--------------------------------------------------------------------------------*)
 
-(*check if pos and neg should be curried *)
 val partition_aux_def = Define`
-  partition_aux f l (pos, neg) = case l of
-    [] => (REVERSE pos, REVERSE neg)
-    | (h::t) => if f h then partition_aux f t ((h::pos), neg)
-      else partition_aux f t (pos, (h::neg))`;
+  (partition_aux f [] pos neg = 
+    (REVERSE pos, REVERSE neg)) /\
+    (partition_aux f (h::t) pos neg = if f h then partition_aux f t (h::pos) neg
+      else partition_aux f t pos (h::neg))`;
 
 val partition_def = Define`
-  partition f l = partition_aux f l ([], [])`;
+  partition (f : 'a -> bool) l = partition_aux f l [] []`;
+
+val partition_aux_thm = Q.prove(
+  `!f l l1 l2. partition_aux f l l1 l2 = (REVERSE l1++(FILTER f l), REVERSE l2++(FILTER ($~ o f) l))`,
+  Induct_on `l` \\
+  rw [partition_aux_def] \\
+  rw [partition_aux_def]
+); 
+
+val partition_pos_thm = Q.store_thm(
+  "partition_pos_thm",
+  `!f l. FST (partition f l) = FILTER f l`,
+  rw [partition_def, FILTER, partition_aux_thm]
+);
+
+val partition_neg_thm = Q.store_thm(
+  "partition_neg_thm",
+  `!f l. SND (partition f l) = FILTER ($~ o f) l`,
+  rw [partition_def, FILTER, partition_aux_thm]
+);
+
 
 val result = translate partition_aux_def;
 val result = translate partition_def;
@@ -489,6 +496,8 @@ val result = translate FOLDL;
 (*--------------------------------------------------------------------------------*)
 
 val result = translate FOLDR;
+val result = translate (FOLDRi_def |> REWRITE_RULE[o_DEF]);
+
 
 (*--------------------------------------------------------------------------------*)
 
@@ -511,59 +520,70 @@ val result = translate (GENLIST |> REWRITE_RULE[GSYM tabulate_def]);
 
 (*--------------------------------------------------------------------------------*)
 
-(*This function has been curried to be different to SML *)
 val collate_def = Define`
-  collate f l1 l2 = case l1 of
-    [] => (case l2 of
-      [] => EQUAL
-      | (h2::t2) => GREATER)
-    | (h1::t1) => (case l2 of
-      [] => LESS
-      | (h2::t2) => if f h1 h2 = EQUAL then collate f t1 t2
-        else f h1 h2)`;
-val result = translate collate_def;
+  (collate f [] [] = EQUAL) /\
+  (collate f [] (h::t) = LESS) /\
+  (collate f (h::t) [] = GREATER) /\
+  (collate f (h1::t1) (h2::t2) =
+    if f h1 h2 = EQUAL
+      then collate f t1 t2
+    else f h1 h2)`;
+
+val collate_ind = theorem"collate_ind";
+
+val collate_equal_thm = Q.store_thm (
+  "collate_equal_thm",
+  `!l. (!x. MEM x l ==> f x x = EQUAL) ==> collate f l l = EQUAL`,
+  Induct_on `l` \\ rw [collate_def] \\ rw [collate_def]
+);
+
+val collate_short_thm = Q.store_thm (
+  "collate_short_thm",
+  `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l1 ≼ l2) ==>
+        collate f l1 l2 = LESS`,
+  ho_match_mp_tac collate_ind
+  \\ rw[collate_def] \\ fs[]
+);
+
+val collate_long_thm = Q.store_thm (
+  "collate_long_thm",
+  `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l2 ≼ l1) ==>
+        collate f l1 l2 = GREATER`,
+  ho_match_mp_tac collate_ind
+  \\ rw[collate_def] \\ fs[]
+);
+
+(* RAMANA *)
+(*This function isn't working as intended *)
+val cpn_to_reln_def = Define`
+  cpn_to_reln f x1 x2 = (f x1 x2 ≠ GREATER)`;
+
+val collate_cpn_reln_thm = Q.store_thm (
+  "collate_cpn_reln_thm",
+  `!f l1 l2. (!x. f x x = EQUAL) ==> cpn_to_reln (collate f) l1 l2 = LLEX (cpn_to_reln f) l1 l2`
+  ho_match_mp_tac collate_ind
+  rw [collate_def, cpn_to_reln_def, LLEX_def]
+  fs []  
+
 
 
 (*--------------------------------------------------------------------------------*)
+
 val zip_def = Define`
-  zip l1 l2 = 
-    case l1 of
-      (h1::t1) => (case l2 of
-        [] => []
-        | (h2::t2) => (h1, h2)::(zip t1 t2))
-      | [] => []`; 
+  (zip [] [] = []) /\ 
+  (zip [] (h::t) = []) /\
+  (zip (h::t) [] = []) /\
+  (zip (h1::t1) (h2::t2) = (h1, h2)::(zip t1 t2))`; 
+
+val zip_ind = theorem"zip_ind";
+
+val zip_thm = Q.store_thm("zip_thm",
+  `!l1 l2. ((LENGTH l1) = (LENGTH l2)) ==> ((zip l1 l2) = (ZIP (l1, l2)))`,
+  ho_match_mp_tac zip_ind \\ rw[zip_def,ZIP]);
 
 val result = translate zip_def;
 
-(*--------------------------------------------------------------------------------*)
 
-val butLast_def = Define`
-  butLast  l = case l of
-      [] => [] (*this is to stop exceptions*)
-      | (h::t) => 
-        if t = [] 
-          then []
-        else h::(butLast t)`;
-
-val result = translate butLast_def;
-
-(*--------------------------------------------------------------------------------*)
-
-(*Haskell Functions*)
-val scanl_def = Define`
-  scanl f q l = q::(case l of
-      [] => []
-      | (h::t) => scanl f (f q h) t)`;
-
-val result = translate scanl_def;
-
-(*--------------------------------------------------------------------------------*)
-
-(*this is a reasonably poor implementation *)
-val scanr_def = Define`
-  scanr_def f q l = REVERSE (scanl f q (REVERSE l))`;
-
-val result = translate scanr_def;
 val _ = ml_prog_update (close_module NONE);
 
 (* end new stuff *)
@@ -590,8 +610,8 @@ val _ = trans "sub" `sub`
 
 val tabulate_def = Define`
   tabulate n f = Vector (GENLIST f n)`;
-(* val result = translate GENLIST_AUX;
-val result = translate GENLIST_GENLIST_AUX; *)
+val result = translate GENLIST_AUX;
+val result = translate GENLIST_GENLIST_AUX;
 val result = translate tabulate_def;
 
 
@@ -699,79 +719,108 @@ val concat_def = Define`
 
 val result = translate concat_def;
 
-
 (*--------------------------------------------------------------------------------*)
 
 
-(*TODO deal with app/appi *)
-(*  
-  val app_aux_def = tDefine "app_aux"`
-  app_aux f vec n = if length vec <= n then ()
-      else app_aux f (update vec n (f (sub vec n))) (n + 1)`
-  (
-    wf_rel_tac `measure (\(f, vec, n). length(vec) - n)` \\
-    Cases_on `vec` \\
-    rw [length_def, update_def, sub_def, toList_thm]
-  )
+(* These functions have preconditions that don't propagate through the translator to be solvable *)
+(* can make map more efficient by combining toList and map into one *)
 
-  val app_def = Define`
-    app f vec = app_aux f vec 0`; 
+val map_proof_def = Define`
+  map_proof vec f = tabulate (length vec) (\n. f (sub vec n))`; 
 
-
-
-  val appi_aux_def = xDefine "app_aux"`
-    appi_aux f vec n = if length vec <= n then vec
-      else appi_aux f (update vec n (f n (sub vec n))) (n + 1)`
-
-  (
-    wf_rel_tac `measure (\(f, vec, n). length(vec) - n)` \\
-    Cases_on `vec` \\
-    rw [length_def, update_def, sub_def, toList_thm]
-  )
-
-  val appi_def = Define`
-    appi f vec = appi_aux f vec 0`;
-
-*)
-
-
-(*--------------------------------------------------------------------------------*)
-
+val mapi_proof_def = Define`
+  mapi_proof vec f = tabulate (length vec) (\n. f n (sub vec n))`; 
 
 val map_def = Define`
-  map vec f = tabulate (length vec) (\n. f (sub vec n))`; 
+  map vec f = fromList (MAP f (toList vec))`;
 
 val mapi_def = Define`
-  mapi vec f = tabulate (length vec) (\n. f n (sub vec n))`; 
-
-val map_thm = Q.store_thm (
-  "map_thm",
-  `!vec f. map vec f = fromList (MAP f (toList vec))`,
-  Cases \\
-  rw [map_def, toList_thm, length_def, sub_def, tabulate_def, fromList_def, 
-    GENLIST_EL_MAP]
-);  
-
-show_assums := true;
+  mapi vec f = fromList (MAPi f (toList vec))`;
 
 val result = translate map_def;
-val map_1_side_def = definition"map_1_side_def";
 val result = translate mapi_def;
 
 (*--------------------------------------------------------------------------------*)
 
-val foldli_aux_def = tDefine "foldli_aux"`
-  foldli_aux f e vec (max: num) n = 
-    if max <= n 
-      then e
-    else foldli_aux f (f n e (sub vec n)) vec max (n + 1)`
-(wf_rel_tac `measure (\(f, e, vec, max, n). max - n)`);
+val foldli_aux_def = Define`
+  (foldli_aux f e vec n 0 = e) /\
+  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)`;
 
 val foldli_def = Define`
-  foldli f e vec = foldli_aux f e vec (length vec) 0`; 
+  foldli f e vec = foldli_aux f e vec 0 (length vec)`;
 
 val result = translate foldli_aux_def;
+val foldli_aux_side_def = theorem"foldli_aux_side_def"
 val result = translate foldli_def;
+val foldli_side_def = definition"foldli_side_def";
+
+val foldli_aux_side_thm = Q.prove(
+  
+  Induct_on`len` \\ rw[Once foldli_aux_side_def]);
+
+val foldli_side_thm = Q.prove(
+  `foldli_side f e vec`,
+  rw[foldli_side_def,foldli_aux_side_thm]) |> update_precondition;
+
+
+val foldl_aux_def = Define`
+  (foldl_aux f e vec n 0 = e) /\
+  (foldl_aux f e vec n (SUC len) = foldl_aux f (f e (sub vec n)) vec (n + 1) len)`; 
+
+val foldl_def = Define`
+  foldl f e vec = foldl_aux f e vec 0 (length vec)`;
+
+
+val less_than_length_thm = Q.prove (
+  `!xs n. n < LENGTH xs ==> ?ys z zs. xs = ys ++ z::zs /\ LENGTH ys = n`,
+  Induct \\ rw []
+  fs []
+  
+  `LENGTH xs + 1 = LENGTH (h::xs)` by fs[]
+  ASM_REWRITE_TAC[]
+  `n < LENGTH (h::xs)` by fs [LENGTH]
+  
+  
+);
+
+
+(*Ask Ramana*)
+val foldl_thm = Q.prove (
+  `!f e vec x len. (x + len = length vec) ==>
+    foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec))`
+  Induct_on `len` \\ Cases_on `vec` \\
+  rw [foldl_aux_def, DROP_LENGTH_TOO_LONG, length_def, toList_thm] \\ 
+  rw [length_def, sub_def, toList_thm] \\
+  `x < LENGTH l` by decide_tac \\
+  drule less_than_length_thm \\
+  rw [] \\
+  rw [] \\
+  `LENGTH ys + 1 = LENGTH (ys ++ [z])` by fs [] \\ ASM_REWRITE_TAC [DROP_LENGTH_APPEND]\\
+  simp_tac std_ss [GSYM APPEND_ASSOC, APPEND, EL_LENGTH_APPEND, NULL, HD,
+        FOLDL,  DROP_LENGTH_APPEND]
+);
+
+val foldl_def = Define`
+  foldl f e vec = FOLDL f e (toList vec)`;
+
+val result = translate foldl_aux_def;
+
+
+
+
+
+
+
+
+val foldr_def = Define`
+  foldr f e vec = FOLDR f e (toList vec)`;
+
+val foldri_def = Define`
+  foldri f e vec = FOLDRi f e (toList vec)`;  
+
+val result = translate foldl_def;
+
+
 
 
 val foldl_aux_def = tDefine "foldl_aux"`
@@ -796,10 +845,6 @@ val foldl_thm = Q.store_thm (
     GENLIST_EL_MAP]
 ); 
  
-`!f e vec. foldl f e vec = FOLDL f e (toList vec)`
-Cases \\
-rw [toList_def, toList_aux_thm]
-Cases
 
 
 
@@ -849,6 +894,7 @@ val findi_def = Define `
   findi f vec = findi_aux f vec (length vec) 0`;
 
 val result = translate findi_aux_def;
+val findi_aux_side_def = theorem"findi_aux_side_def"
 val result = translate findi_def;
 
 
@@ -900,6 +946,7 @@ val all_def = Define`
   all f vec = all_aux f vec (length vec) 0`;
 
 val result = translate all_aux_def;
+val all_aux_side_def = theorem"all_aux_side_def";
 val result = translate all_def;
 
 
@@ -1006,6 +1053,8 @@ val result = translate strcat_def;
 
 (*--------------------------------------------------------------------------------*)
 
+
+(*This is wrong - stringListToChars takes a list of lists *)
 (*at the moment the only way of putting strings together is turning them to lists *)
 val stringListToChars_def = Define`
   stringListToChars l = case l of 
@@ -1063,13 +1112,14 @@ fun concatWith_aux l s ss bool =
 val concatWith_def = Define`
     concatWith s l = implode (concatWith_aux l s s T)`; 
 
-
+val result = translate concatWith_aux_def;
+val result = translate concatWith_def;
 (*--------------------------------------------------------------------------------*)
 
 val str_def = Define`
   str (c: char) = [c]`; 
 
-translate str_def;
+val result = translate str_def;
 
 (*--------------------------------------------------------------------------------*)
 
@@ -1154,7 +1204,7 @@ val fields_def = Define`
 
 (*these have pre-conditions because sub has a precondition *)
 val result = translate fields_aux_def;
-val result = translate tokens_def;
+val result = translate fields_def;
 
 
 (*--------------------------------------------------------------------------------*)

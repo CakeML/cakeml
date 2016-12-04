@@ -2,19 +2,16 @@ open preamble
 
 val _ = new_theory"list"
 
-(*Data type line *)
 
 
 val tl_def = Define`
-  tl l = case l of
-    [] => [] 
-    | (h::t) => t`;
+  (tl [] = []) /\ 
+  (tl (h::t) = t)`;
 
 
 val getItem_def = Define`
-  getItem l = case l of
-    [] => NONE
-    | (h::t) => SOME(h, t)`;
+  (getItem [] = NONE) /\ 
+  (getItem (h::t) = SOME(h, t))`; 
 
 
 val nth_def = Define`
@@ -25,65 +22,34 @@ val take_def = Define`
   take l i = TAKE i l`;
 
 
-
 val drop_def = Define`
   drop l i = DROP i l`;
 
 
 val mapPartial_def = Define`
-  mapPartial f l = case l of
-    [] => []
-    | (h::t) => case (f h) of
-      NONE => mapPartial f t
-      | (SOME x) => x::(mapPartial f t)`;
+  (mapPartial f [] = []) /\ 
+  (mapPartial f (h::t) = case (f h) of
+    NONE => mapPartial f t 
+    |(SOME x) => x::mapPartial f t)`;
 
 val mapPartial_thm = Q.store_thm (
   "mapPartial_thm",
   `!f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))`,
-  Induct_on `l` THEN1
-  rw [mapPartial_def] \\
-  rw [mapPartial_def] \\
-  Cases_on `f h` THEN1
-    fs [IS_SOME_DEF]\\
-    rw [THE_DEF] \\
-  Cases_on `f h` THEN1
-    rw [] \\
-    fs [IS_SOME_DEF]
+  Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
 )
 
-
-
-val find_def = Define`
-  find f l = case l of
-    [] => NONE
-    | (h::t) => if f h then SOME(h)
-      else find f t`;
 
 val index_find_thm = Q.prove (
   `!x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)`,
-  Induct_on `l` THEN1
-  rw [INDEX_FIND_def] \\
-  Cases_on `f h` \\
-  EVAL_TAC \\
-  rw [] \\
-  EVAL_TAC \\
-  rw []
+  Induct_on`l` \\ rw[INDEX_FIND_def]
 );
 
 
-val find_thm = Q.store_thm (
-  "find_thm",
-  `!f l. find f l = FIND f l`,
-  Induct_on `l` \\
-  rw [find_def, FIND_def, INDEX_FIND_def] \\
-  rw [find_def, FIND_def] \\
-  rw [INDEX_FIND_def] \\
-  EVAL_TAC \\
-  rw [index_find_thm]
-)
-
-
-
+val FIND_thm = Q.store_thm(
+  "FIND_thm",
+  `(FIND f [] = NONE) ∧
+   (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)`,
+  rw[FIND_def,INDEX_FIND_def,index_find_thm]);
 
 
 val partition_aux_def = Define`
@@ -112,7 +78,6 @@ val partition_neg_thm = Q.store_thm(
 );
 
 
-
 val tabulate_def = Define`
   tabulate n f = GENLIST f n`;
 
@@ -126,13 +91,35 @@ val collate_def = Define`
       then collate f t1 t2
     else f h1 h2)`;
 
+val collate_ind = theorem"collate_ind";
+
 val collate_equal_thm = Q.store_thm (
   "collate_equal_thm",
   `!l. (!x. MEM x l ==> f x x = EQUAL) ==> collate f l l = EQUAL`,
-  Induct_on `l` \\
-  rw [collate_def] \\
-  rw [collate_def]
+  Induct_on `l` \\ rw [collate_def] \\ rw [collate_def]
 );
+
+val collate_short_thm = Q.store_thm (
+  "collate_short_thm",
+  `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l1 ≼ l2) ==>
+        collate f l1 l2 = LESS`,
+  ho_match_mp_tac collate_ind
+  \\ rw[collate_def] \\ fs[]
+);
+
+val collate_long_thm = Q.store_thm (
+  "collate_long_thm",
+  `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l2 ≼ l1) ==>
+        collate f l1 l2 = GREATER`,
+  ho_match_mp_tac collate_ind
+  \\ rw[collate_def] \\ fs[]
+);
+
+val zip_ind = theorem"zip_ind";
+
+val zip_thm = Q.store_thm("zip_thm",
+  `!l1 l2. ((LENGTH l1) = (LENGTH l2)) ==> ((zip l1 l2) = (ZIP (l1, l2)))`,
+  ho_match_mp_tac zip_ind \\ rw[zip_def,ZIP]);
 
 
 val zip_def = Define`
@@ -153,6 +140,5 @@ val LENGTH_AUX_THM = Q.prove(
   |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
 
 val SUC_LEMMA = Q.prove(`SUC = \x. x+1`,SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
-
 
 val _ = export_theory()

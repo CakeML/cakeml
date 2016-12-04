@@ -13,13 +13,13 @@ val result = translate getOpt_def;
 
 val result = translate IS_SOME_DEF;
 
-val result = next_ml_names := ["valOf_def"];
+val result = next_ml_names := ["valOf"];
 val result = translate THE_DEF;
 
-val result = next_ml_names := ["join_def"];
+val result = next_ml_names := ["join"];
 val result = translate OPTION_JOIN_DEF;
 
-val result = next_ml_names := ["map_def"];
+val result = next_ml_names := ["map"];
 val result = translate OPTION_MAP_DEF;
 
 val result = translate (OPTION_BIND_def |> REWRITE_RULE[GSYM mapPartial_def]);

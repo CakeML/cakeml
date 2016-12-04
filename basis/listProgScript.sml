@@ -22,7 +22,7 @@ val result = translate APPEND;
 val result = translate HD;
 
 val result = translate tl_def;
-val result = next_ml_names := ["tl_hol_def"];
+val result = next_ml_names := ["tl_hol"];
 val result = translate TL;
 
 
@@ -41,11 +41,11 @@ val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
 
 
-val result = next_ml_names := ["rev_def"];
+val result = next_ml_names := ["rev"];
 val result = translate REVERSE_DEF;
 
 
-val result = next_ml_names := ["concat_def"];
+val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
 
@@ -58,7 +58,7 @@ val result = translate MAP;
 val result = translate mapPartial_def;
 
 
-val result = translate find_def;
+val result = translate FIND_thm;
 
 
 val result = translate FILTER;
@@ -77,7 +77,7 @@ val result = translate FOLDR;
 val result = translate EXISTS_DEF;
 
 
-val result = next_ml_names := ["all_def"];
+val result = next_ml_names := ["all"];
 val result = translate EVERY_DEF;
 
 
@@ -89,11 +89,6 @@ val result = translate (GENLIST |> REWRITE_RULE[GSYM tabulate_def]);
 val result = translate collate_def;
 
 val result = translate zip_def;
-
-val result = translate scanl_def;
-
-val result = translate scanr_def;
-
 
 
 (*Extra translations from std_preludeLib.sml *)
