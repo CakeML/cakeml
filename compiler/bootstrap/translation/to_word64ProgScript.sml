@@ -461,6 +461,21 @@ val _ = translate (LoadWord64_def |> inline_simp |> conv64)
 val _ = translate (WriteWord64_def |> inline_simp |> conv64)
 val _ = translate (LoadBignum_def |> inline_simp |> conv64)
 
+val Smallnum_alt = prove(
+  ``Smallnum i =
+    if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
+             else n2w (Num (ABS (4 * i)))``,
+  fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]);
+
+val _ = translate (Smallnum_alt |> inline_simp |> conv64)
+val _ = translate (MemEqList_def |> inline_simp |> conv64)
+
+val _ = save_thm("n2mw_ind",multiwordTheory.n2mw_ind |> inline_simp |> conv64);
+val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv64);
+val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
+val _ = translate (bignum_words_def |> inline_simp |> conv64);
+val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+
 val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 (*
