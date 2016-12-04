@@ -252,6 +252,13 @@ val PbaseList1_OK = Q.store_thm(
                                 `toks` |-> `pbtoks`] |> n) >>
       simp[] >> fs[]))
 
+val Eliteral_OK = Q.store_thm(
+  "Eliteral_OK",
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ∧
+   ptree_head pt = NT (mkNT nEliteral) ⇒
+   ∃t. ptree_Eliteral pt = SOME t`,
+  start >> simp[ptree_Eliteral_def]);
+
 val _ = print "The E_OK proof takes a while\n"
 val E_OK0 = Q.store_thm(
   "E_OK0",
@@ -295,22 +302,22 @@ val E_OK0 = Q.store_thm(
   >- (erule strip_assume_tac (n Type_OK) >> simp[])
   >- (erule strip_assume_tac Eseq_encode_OK >> simp[])
   >- (asm_match `ptree_head pt' = NN nEtuple` >>
-      `destLf pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> rveq >> fs[MAP_EQ_CONS]) >>
-      `ptree_FQV pt' = NONE ∧ ptree_ConstructorName pt' = NONE`
+      `ptree_FQV pt' = NONE ∧ ptree_ConstructorName pt' = NONE ∧
+       ptree_Eliteral pt' = NONE`
         by (Cases_on `pt'` >> fs[] >>
-            simp[ptree_FQV_def, ptree_ConstructorName_def]) >>
+            simp[ptree_FQV_def, ptree_ConstructorName_def,
+                 ptree_Eliteral_def]) >>
       std)
   >- (asm_match `ptree_head pt' = NN nFQV` >>
-      `destLf pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> rveq >> fs[MAP_EQ_CONS]) >>
+      `ptree_Eliteral pt' = NONE`
+        by (Cases_on `pt'` >> fs[] >> simp[ptree_Eliteral_def]) >>
       erule strip_assume_tac (n FQV_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nConstructorName` >>
-      `destLf pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> rveq >> fs[MAP_EQ_CONS]) >>
-      `ptree_FQV pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> simp[ptree_FQV_def]) >>
+      `ptree_FQV pt' = NONE ∧ ptree_Eliteral pt' = NONE`
+        by (Cases_on `pt'` >> fs[] >>
+            simp[ptree_FQV_def, ptree_Eliteral_def]) >>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
+  >- (erule strip_assume_tac (n Eliteral_OK) >> simp[])
   >- (erule strip_assume_tac (n Eseq_encode_OK) >> simp[])
   >- (erule strip_assume_tac (n OpID_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nLetDec` >>

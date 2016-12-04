@@ -109,8 +109,10 @@ val cmlG_def = mk_grammar_def ginfo
        |  ^(``{SymbolT s | s ≠ ""}``)
        |  "*" | "=" ;
 
- Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
-        |  <CharT> | <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
+ Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> ;
+
+ Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
+        | "let" LetDecs "in" Eseq "end" | "[" "]"
         | "[" Elist1 "]" | "op" OpID ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
@@ -200,22 +202,23 @@ end
 
 val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 
-val ast = ``Nd (mkNT nEmult) [
+val ast =
+  ``let mkI = λn. Nd (mkNT nEbase) [Nd (mkNT nEliteral) [Lf (TK (IntT n))]]
+    in
+      Nd (mkNT nEmult) [
               Nd (mkNT nEmult) [
-                Nd (mkNT nEmult) [
-                  Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 3))]]
-                ];
+                Nd (mkNT nEmult) [Nd (mkNT nEapp) [mkI 3]];
                 Nd (mkNT nMultOps) [Lf (TK StarT)];
-                Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 4))]]
+                Nd (mkNT nEapp) [mkI 4]
               ];
               Nd (mkNT nMultOps) [Lf (TK (SymbolT "/"))];
-              Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 5))]]
+              Nd (mkNT nEapp) [mkI 5]
             ]``
 
 val check_results =
     time (SIMP_CONV (srw_ss())
               [valid_ptree_def, cmlG_def,DISJ_IMP_THM, FORALL_AND_THM,
-               finite_mapTheory.FAPPLY_FUPDATE_THM])
+               finite_mapTheory.FAPPLY_FUPDATE_THM, LET_THM])
  ``valid_ptree cmlG ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
