@@ -374,8 +374,6 @@ val do_app_ssgc = Q.store_thm(
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, eqs, PULL_EXISTS, PULL_FORALL])
-  >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `EVERY vsgc_free vs` >>
-      Induct_on `vs` >> simp[list_to_v_def])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
   >- (dsimp[ssgc_free_def] >>
       metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
@@ -1225,12 +1223,6 @@ val kvrel_v_to_list = Q.store_thm(
   Cases_on `vs2''` >> fs[v_to_list_def] >> rw[] >> fs[v_to_list_def] >>
   fs[eqs] >> rveq >> simp[PULL_EXISTS] >> metis_tac[MEM]);
 
-val kvrel_list_to_v = Q.store_thm(
-  "kvrel_list_to_v",
-  `∀vs1 vs2. LIST_REL (kvrel g) vs1 vs2 ⇒
-             kvrel g (list_to_v vs1) (list_to_v vs2)`,
-  Induct_on `LIST_REL` >> simp[list_to_v_def])
-
 val kvrel_do_eq0 = Q.prove(
   `(∀u1 v1 u2 v2 b g.
       kvrel g u1 u2 ∧ kvrel g v1 v2 ∧ do_eq u1 v1 = Eq_val b ⇒
@@ -1297,7 +1289,6 @@ val kvrel_op_correct_Rval = Q.store_thm(
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
-  >- (rw[] >> fs[] >> simp[kvrel_list_to_v])
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
       simp[fmap_rel_FUPDATE_same])

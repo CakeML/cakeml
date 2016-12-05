@@ -24,7 +24,6 @@ val _ = Datatype `
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | FromList num  (* convert list to packed Block *)
-     | ToList        (* convert packed Block to list *)
      | TagLenEq num num (* check Block's tag and length *)
      | TagEq num     (* check Block's tag *)
      | Ref           (* makes a reference *)

@@ -3,11 +3,13 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory packLib;
-open mlstringTheory integerTheory;
-open terminationTheory ml_progTheory;
+open preamble integerTheory
+     astTheory libTheory semanticPrimitivesTheory bigStepTheory
+     semanticPrimitivesPropsTheory bigStepPropsTheory
+     bigClockTheory determTheory
+     mlstringTheory ml_progTheory packLib;
+open terminationTheory
+local open funBigStepEquivTheory evaluatePropsTheory in end
 
 val _ = new_theory "ml_translator";
 
@@ -81,7 +83,7 @@ val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
 
 val STRING_TYPE_def = Define`
-  STRING_TYPE (s:mlstring) = \v:v. (v = Litv (StrLit (explode s)))`;
+  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -375,7 +377,9 @@ val EqualityType_NUM_BOOL = Q.store_thm("EqualityType_NUM_BOOL",
     types_match_def, lit_same_type_def,
     stringTheory.ORD_11,mlstringTheory.explode_11]
   \\ SRW_TAC [] [] \\ EVAL_TAC
-  \\ fs [w2w_def] \\ Cases_on `x1` \\ Cases_on `x2`
+  \\ fs [w2w_def] \\ Cases_on `x1`
+  \\ fs[STRING_TYPE_def] \\ EVAL_TAC
+  \\ Cases_on `x2` \\ fs[STRING_TYPE_def] \\ EVAL_TAC
   \\ fs [WORD_MUL_LSL,word_mul_n2w]
   \\ imp_res_tac Eq_lemma \\ fs []
   \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]);
@@ -1298,17 +1302,13 @@ val LIST_TYPE_CHAR_v_to_char_list = Q.store_thm("LIST_TYPE_CHAR_v_to_char_list",
   Induct >>
   simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def])
 
-val LIST_TYPE_CHAR_char_list_to_v = Q.store_thm("LIST_TYPE_CHAR_char_list_to_v",
-  `∀l. LIST_TYPE CHAR l (char_list_to_v l)`,
-  Induct >> simp[char_list_to_v_def,LIST_TYPE_def,CHAR_def])
-
 val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
   rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim] >>
-  fs[STRING_TYPE_def]
+  fs[STRING_TYPE_def,mlstringTheory.implode_def]
 
 val Eval_implode = Q.store_thm("Eval_implode",
   `!env x1 l.
@@ -1316,25 +1316,35 @@ val Eval_implode = Q.store_thm("Eval_implode",
       Eval env (App Implode [x1]) (STRING_TYPE (implode l))`,
   tac >>
   metis_tac[LIST_TYPE_CHAR_v_to_char_list,
-            stringTheory.IMPLODE_EXPLODE_I,
-            mlstringTheory.explode_implode])
-
-val Eval_explode = Q.store_thm("Eval_explode",
-  `!env x1 s.
-      Eval env x1 (STRING_TYPE s) ==>
-      Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))`,
-  tac >>
-  metis_tac[LIST_TYPE_CHAR_char_list_to_v,
-            stringTheory.IMPLODE_EXPLODE_I,
-            mlstringTheory.explode_implode])
+            stringTheory.IMPLODE_EXPLODE_I])
 
 val Eval_strlen = Q.store_thm("Eval_strlen",
   `!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Strlen [x1]) (NUM (strlen s))`,
-  tac >>
+  Cases_on`s` >> tac >>
   fs[NUM_def,INT_def,mlstringTheory.strlen_def] >>
   metis_tac[])
+
+val Eval_strsub = Q.store_thm("Eval_strsub",
+  `!env x1 x2 s n.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env x2 (NUM n) ==>
+      n < strlen s ==>
+      Eval env (App Strsub [x1; x2]) (CHAR (strsub s n))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases)]
+  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
+  \\ srw_tac[DNF_ss][] \\ rpt disj2_tac
+  \\ rw[empty_state_with_ffi_elim]
+  \\ Cases_on`s` >> fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
+  \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
+  \\ metis_tac[strsub_def,mlstringTheory.implode_def,APPEND_ASSOC]);
 
 (* vectors *)
 

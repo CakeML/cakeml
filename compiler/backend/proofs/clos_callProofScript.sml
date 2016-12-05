@@ -1252,16 +1252,6 @@ val v_to_list_wfv = Q.store_thm("v_to_list_wfv",
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw []);
 
-val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
-  `!l1 l2.
-      LIST_REL (v_rel g1 l) l1 l2 ==>
-      v_rel g1 l (list_to_v l1) (list_to_v l2)`,
-  Induct \\ fs [v_rel_def,list_to_v_def,PULL_EXISTS]);
-
-val wfv_list_to_v = Q.store_thm("wfv_list_to_v",
-  `!l. EVERY (wfv g1 l1) l ==> wfv g1 l1 (list_to_v l)`,
-  Induct \\ fs [wfv_def,list_to_v_def,PULL_EXISTS]);
-
 val wfv_Boolv = Q.store_thm("wfv_Boolv",
   `wfv g1 l1 (Boolv b) /\ wfv g1 l1 Unit`,
   Cases_on `b` \\ EVAL_TAC);
@@ -1297,13 +1287,6 @@ val do_app_thm = Q.prove(
     \\ CCONTR_TAC \\ fs []
     \\ imp_res_tac v_to_list_thm \\ fs [] \\ rw []
     \\ fs [Boolv_def,v_rel_def,LIST_REL_EL_EQN])
-  \\ Cases_on `op = ToList` THEN1
-   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
-    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
-    \\ every_case_tac \\ fs [v_rel_def] \\ rw []
-    \\ rpt (pop_assum mp_tac) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ rw []
-    \\ imp_res_tac wfv_list_to_v \\ fs []
-    \\ match_mp_tac v_rel_list_to_v \\ fs [LIST_REL_EL_EQN])
   \\ Cases_on `op = Add \/ op = Sub \/ op = Mult \/ op = Div \/ op = Mod \/
                op = Less \/ op = LessEq \/ op = Greater \/ op = GreaterEq` THEN1
    (fs [] \\ rw []

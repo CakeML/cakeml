@@ -2108,6 +2108,7 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_strsub,
    Eval_sub,
    Eval_And,
    Eval_Or,
@@ -2118,7 +2119,6 @@ val builtin_binops =
 
 val builtin_monops =
   [Eval_implode,
-   Eval_explode,
    Eval_strlen,
    Eval_Bool_Not,
    Eval_int_negate,
@@ -2417,17 +2417,8 @@ fun is_word_literal tm =
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 
-val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
-val int_negate_pat = Eval_int_negate |> concl |> funpow 3 rand
-
-val vec_vec_pat = Eval_vector |> SPEC_ALL |> RW [AND_IMP_INTRO]
-  |> concl |> dest_imp |> snd |> rand |> rand
-val vec_sub_pat = Eval_sub |> SPEC_ALL |> RW [AND_IMP_INTRO]
-  |> concl |> dest_imp |> snd |> rand |> rand
-val vec_len_pat = Eval_length |> SPEC_ALL |> RW [AND_IMP_INTRO]
-  |> concl |> dest_imp |> snd |> rand |> rand
 
 fun dest_word_binop tm =
   if wordsSyntax.is_word_and tm then Eval_word_and else

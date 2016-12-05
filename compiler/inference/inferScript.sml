@@ -344,9 +344,10 @@ constrain_op op ts =
           () <- add_constraint t2 (Infer_Tapp [] TC_char);
           return (Infer_Tapp [] (TC_name (Short "bool")))
        od
-   | (Explode, [t]) =>
-       do () <- add_constraint t (Infer_Tapp [] TC_string);
-          return (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))
+   | (Strsub, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_string);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_char)
        od
    | (Implode, [t]) =>
        do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")));

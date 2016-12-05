@@ -1042,15 +1042,6 @@ val v_to_list_val_rel = Q.store_thm ("v_to_list_val_rel",
  full_simp_tac(srw_ss())[OPTREL_def] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
-val list_to_v_val_rel = Q.store_thm ("list_to_v_val_rel",
-`!i w vs vs'.
-  LIST_REL (val_rel (:'ffi) i w) vs vs'
-  ⇒
-  val_rel (:'ffi) i w (list_to_v vs) (list_to_v vs')`,
- Induct_on `vs` >>
- srw_tac[][list_to_v_def, val_rel_rw] >>
- srw_tac[][list_to_v_def, val_rel_rw]);
-
 val res_rel_do_app = Q.store_thm ("res_rel_do_app",
 `!c w op vs vs' (s:'ffi closSem$state) s'.
   state_rel c w s s' ∧
@@ -1176,15 +1167,11 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        srw_tac[][] >>
        srw_tac[][val_rel_rw])
      >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         metis_tac [list_to_v_val_rel])
+         full_simp_tac(srw_ss())[val_rel_rw,Boolv_def,LIST_REL_EL_EQN])
      >- (Cases_on `y` >>
          full_simp_tac(srw_ss())[val_rel_rw] >>
          srw_tac[][val_rel_rw, Boolv_def] >>
          full_simp_tac(srw_ss())[LIST_REL_EL_EQN])
-     >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         srw_tac[][val_rel_rw, Boolv_def])
      >- (full_simp_tac(srw_ss())[LET_THM] >>
          srw_tac[][val_rel_rw] >>
          BasicProvers.CASE_TAC \\ fs[val_rel_rw] \\ rfs[] >>

@@ -1082,9 +1082,7 @@ val do_app = Q.prove(
    (* store updates need special treatment *)
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (op ≠ RefByte) ∧ (op ≠ UpdateByte) ∧
-   (∀n. op ≠ (FFI n)) ∧
-   (* implemented in code table *)
-   op ≠ ToList ==>
+   (∀n. op ≠ (FFI n)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
      v_rel s1.max_app f t1.refs t1.code v w /\
@@ -1221,8 +1219,7 @@ val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
    err ≠ Rabort Rtype_error ∧
    state_rel f s1 t1 ∧
-   LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys ∧
-   op ≠ ToList
+   LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys
    ⇒
    ∃e. do_app (compile_op op) ys t1 = Rerr e ∧
        exc_rel (v_rel s1.max_app f t1.refs t1.code) err e`,
@@ -1327,39 +1324,7 @@ val do_app_err = Q.prove(
     TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[])>>
     every_case_tac >> full_simp_tac(srw_ss())[] ));
 
-val list_to_v_def = Define`
-  list_to_v [] = bvlSem$Block nil_tag [] ∧
-  list_to_v (h::t) = Block cons_tag [h; list_to_v t]`;
-
-val list_to_v = Q.prove(
-  `∀vs ws.
-     LIST_REL (v_rel max_app f r c) vs ws ⇒
-     v_rel max_app f r c (list_to_v vs) (list_to_v ws)`,
-  Induct >> simp[closSemTheory.list_to_v_def,list_to_v_def,v_rel_SIMP,PULL_EXISTS])
-
 (* correctness of implemented primitives *)
-
-val ToList = Q.prove(
-  `∀vs ws s.
-     lookup (ToList_location max_app) s.code = SOME (ToList_code max_app) ∧
-     LENGTH vs ≤ s.clock ⇒
-   evaluate ([SND (ToList_code max_app)],
-             [Block t (vs++ws); Number &(LENGTH vs); list_to_v ws],
-              s)
-     = (Rval [list_to_v (vs++ws)], dec_clock (LENGTH vs) s)`,
-  ho_match_mp_tac SNOC_INDUCT >>
-  conj_tac >- (
-    simp[ToList_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] ) >>
-  srw_tac[][] >>
-  simp[ToList_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
-  `&SUC (LENGTH vs) - 1 = &LENGTH vs` by ARITH_TAC >> simp[] >>
-  simp[bvlSemTheory.find_code_def] >>
-  `ToList_code max_app = (3,SND (ToList_code max_app))` by simp[ToList_code_def] >>
-  pop_assum SUBST1_TAC >> simp[] >>
-  simp[SNOC_APPEND] >>
-  first_x_assum(qspecl_then[`[x] ++ ws`,`dec_clock 1 s`]mp_tac) >>
-  impl_tac >- simp[dec_clock_def] >>
-  simp[list_to_v_def,EL_APPEND1,EL_LENGTH_APPEND,dec_clock_def,ADD1]);
 
 val eq_res_def = Define`
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
@@ -2640,39 +2605,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
     \\ `?cc. compile_exps s.max_app xs aux1 = cc` by full_simp_tac(srw_ss())[] \\ PairCases_on `cc` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
-    THEN1 ( (* ToList *)
-      first_x_assum(qspec_then`aux1`mp_tac) >> simp[] >>
-      `p0 ≠ Rerr (Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]) >>
-      disch_then(qspecl_then[`t1`,`env''`,`f1`]mp_tac) >>
-      simp[] >> strip_tac >>
-      full_simp_tac(srw_ss())[closSemTheory.do_app_def] >>
-      reverse(Cases_on`p0`)>>full_simp_tac(srw_ss())[]>>srw_tac[][]>-(
-        qexists_tac`ck`>>simp[bEval_def]>>
-        qexists_tac`f2`>>simp[]) >>
-      Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>> srw_tac[][]>>
-      simp[PULL_EXISTS] >>
-      imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
-      pop_assum(qspec_then`LENGTH l+1`strip_assume_tac) >>
-      qexists_tac`ck+LENGTH l+1`>> simp[bEval_def] >>
-      fsrw_tac[ARITH_ss][inc_clock_def] >>
-      simp[bvlSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_SIMP] >> var_eq_tac >>
-      simp[bvlSemTheory.find_code_def] >>
-      `lookup (ToList_location s.max_app) t2.code = SOME (ToList_code s.max_app)`
-      by (
-        imp_res_tac evaluate_const >>
-        full_simp_tac(srw_ss())[state_rel_def] >> simp[] ) >> simp[] >>
-      `ToList_code s.max_app = (3,SND (ToList_code s.max_app))` by simp[ToList_code_def] >>
-      pop_assum SUBST1_TAC >> simp[] >>
-      qspecl_then[`clos_tag_shift n`,`s.max_app`,`ys`,`[]`](Q.ISPEC_THEN`t2 with clock := LENGTH l + t2.clock`mp_tac)(GEN_ALL ToList) >>
-      impl_tac >- (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
-      simp[list_to_v_def,dec_clock_def] >>
-      disch_then kall_tac >>
-      imp_res_tac list_to_v >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      imp_res_tac LIST_REL_LENGTH >> simp[])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_exps_IMP_code_installed \\ REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])

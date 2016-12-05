@@ -29,6 +29,7 @@ val _ = Define `
     (op <> Aw8alloc) ∧
     (op <> Aw8sub) ∧
     (op <> Vsub) ∧
+    (op <> Strsub) ∧
     (op <> Chr) ∧
     (op <> Aupdate) ∧
     (op <> Aalloc) ∧
@@ -130,6 +131,7 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | Aw8alloc => F
   | Aw8sub => F
   | Vsub => F
+  | Strsub => F
   | Chr => F
   | Aupdate => F
   | Aalloc => F
