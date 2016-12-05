@@ -105,16 +105,17 @@ val riscv_enc_def = Define`
      riscv_encode (ArithR (SLTU (temp_reg, n2w r1, temp_reg))) ++
      riscv_encode (ArithR (OR (n2w r4, n2w r4, temp_reg)))) /\
    (riscv_enc (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
-     riscv_encode (ArithR (ADD (n2w r1, n2w r2, n2w r3))) ++
      riscv_encode (ArithR (XOR (temp_reg, n2w r2, n2w r3))) ++
      riscv_encode (ArithI (XORI (temp_reg, temp_reg, -1w))) ++
-     riscv_encode (ArithR (XOR (n2w r4, n2w r2, n2w r1))) ++
+     riscv_encode (ArithR (ADD (n2w r1, n2w r2, n2w r3))) ++
+     riscv_encode (ArithR (XOR (n2w r4, n2w r3, n2w r1))) ++
      riscv_encode (ArithR (AND (n2w r4, temp_reg, n2w r4))) ++
      riscv_encode (Shift (SRLI (n2w r4, n2w r4, 63w)))) /\
    (riscv_enc (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
-     riscv_encode (ArithR (SUB (n2w r1, n2w r2, n2w r3))) ++
      riscv_encode (ArithR (XOR (temp_reg, n2w r2, n2w r3))) ++
-     riscv_encode (ArithR (XOR (n2w r4, n2w r2, n2w r1))) ++
+     riscv_encode (ArithR (SUB (n2w r1, n2w r2, n2w r3))) ++
+     riscv_encode (ArithR (XOR (n2w r4, n2w r3, n2w r1))) ++
+     riscv_encode (ArithI (XORI (n2w r4, n2w r4, -1w))) ++
      riscv_encode (ArithR (AND (n2w r4, temp_reg, n2w r4))) ++
      riscv_encode (Shift (SRLI (n2w r4, n2w r4, 63w)))) /\
    (riscv_enc (Inst (Mem mop r1 (Addr r2 a))) =

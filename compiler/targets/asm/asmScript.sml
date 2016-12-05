@@ -178,11 +178,11 @@ val arith_ok_def = Define `
   (arith_ok (AddOverflow r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r2 /\ r1 <> r3)) /\
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3)) /\
   (arith_ok (SubOverflow r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r2 /\ r1 <> r3))`
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3))`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c`

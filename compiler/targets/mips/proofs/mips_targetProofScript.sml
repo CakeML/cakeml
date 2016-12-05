@@ -147,7 +147,7 @@ val mips_overflow =
     [blastLib.BBLAST_PROVE
       ``!x y : word64.
          ((word_msb x = word_msb y) /\ (word_msb x <> word_msb (x + y))) =
-         ((~(x ?? y) && (x ?? (x + y))) >>> 63 = 1w)``]
+         ((~(x ?? y) && (y ?? (x + y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.overflow)
 
 val mips_sub_overflow =
@@ -155,7 +155,7 @@ val mips_sub_overflow =
     [blastLib.BBLAST_PROVE
       ``!x y : word64.
          ((word_msb x <> word_msb y) /\ (word_msb x <> word_msb (x - y))) =
-         (((x ?? y) && (x ?? (x - y))) >>> 63 = 1w)``]
+         (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
 (* some rewrites ---------------------------------------------------------- *)

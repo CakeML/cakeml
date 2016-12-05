@@ -230,8 +230,6 @@ open encodeLib
 val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
    [
     `Inst (Arith (LongMul 4 5 6 7))`,
-    `Inst (Arith (AddOverflow 6 7 8 9))`,
-    `Inst (Arith (SubOverflow 6 7 8 9))`
    ]
 
 val () = Count.apply (encodings [All])
