@@ -70,18 +70,18 @@ val section_labels_def = Define `
      if l2 = 0 then
        section_labels (pos+len) xs labs
      else
-       lab_insert l1 l2 (pos+len) (section_labels (pos+len) xs labs)) /\
+       section_labels (pos+len) xs (lab_insert l1 l2 (pos+len) labs)) /\
   (section_labels pos (Asm _ _ len :: xs) labs =
      section_labels (pos+len) xs labs) /\
   (section_labels pos (LabAsm _ _ _ len :: xs) labs =
      section_labels (pos+len) xs labs)`
 
 val compute_labels_alt_def = Define `
-  (compute_labels_alt pos [] = LN) /\
-  (compute_labels_alt pos (Section k lines::rest) =
+  (compute_labels_alt pos [] labs = labs) /\
+  (compute_labels_alt pos (Section k lines::rest) labs =
     let new_pos = sec_length lines 0 in
-    let labs = compute_labels_alt (pos+new_pos) rest in
-      lab_insert k 0 pos (section_labels pos lines labs))`
+    compute_labels_alt (pos+new_pos) rest
+      (lab_insert k 0 pos (section_labels pos lines labs)))`
 
 (* update code, but not label lengths *)
 
@@ -263,7 +263,7 @@ val sec_names_def = Define`
 val remove_labels_loop_def = Define `
   remove_labels_loop clock c sec_list =
     (* compute labels *)
-    let labs = compute_labels_alt 0 sec_list in
+    let labs = compute_labels_alt 0 sec_list LN in
     (* update encodings and lengths (but not label lengths) *)
     let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
       (* done ==> labs are still fine *)
@@ -271,7 +271,7 @@ val remove_labels_loop_def = Define `
         (* adjust label lengths *)
         let sec_list = upd_lab_len 0 sec_list in
         (* compute labels again *)
-        let labs = compute_labels_alt 0 sec_list in
+        let labs = compute_labels_alt 0 sec_list LN in
         (* update encodings *)
         let (sec_list,done) = enc_secs_again 0 labs c.encode sec_list in
         (* move label padding into instructions *)
