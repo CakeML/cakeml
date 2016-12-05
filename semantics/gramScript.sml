@@ -5,6 +5,7 @@ open tokensTheory grammarTheory
 open lcsymtacs grammarLib monadsyntax
 
 val _ = new_theory "gram"
+val _ = set_grammar_ancestry ["tokens", "grammar"]
 
 (* ----------------------------------------------------------------------
     Define the CakeML Context-Free Grammar
