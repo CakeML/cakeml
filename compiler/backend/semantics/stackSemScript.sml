@@ -258,7 +258,7 @@ val inst_def = Define `
        case vs of
        SOME [Word q;Word w2] =>
          if q ≠ 0w then
-           SOME (set_var r1 (Word (w2 // q)) s)
+           SOME (set_var r1 (Word (w2 / q)) s)
          else NONE
       | _ => NONE)
     | Arith (AddCarry r1 r2 r3 r4) =>
