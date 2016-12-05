@@ -87,10 +87,6 @@ val v_to_list_def = Define`
      else NONE) ∧
   (v_to_list _ = NONE)`
 
-val list_to_v_def = Define`
-  (list_to_v [] = Block nil_tag []) ∧
-  (list_to_v (h::t) = Block cons_tag [h;list_to_v t])`
-
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
@@ -158,8 +154,6 @@ val do_app_def = Define `
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
-    | (ToList,[Block tag xs]) =>
-        Rval (list_to_v xs, s)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
