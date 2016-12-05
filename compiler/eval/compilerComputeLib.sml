@@ -725,8 +725,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,backendTheory.prim_config_def
     ]
   ,computeLib.Tys
-    [ (*asm -- 'a should be 64*)
-     ``:'a asm_config``
+    [
+     ``:architecture``
+    ,``:'a asm_config``
     ,``:'a reg_imm``
     ,``:binop``
     ,``:cmp``
