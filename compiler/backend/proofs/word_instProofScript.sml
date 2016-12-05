@@ -892,11 +892,11 @@ val three_to_two_reg_wf_cutsets = Q.store_thm("three_to_two_reg_wf_cutsets",
 val three_to_two_reg_pre_alloc_conventions = Q.store_thm("three_to_two_reg_pre_alloc_conventions",
   `∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)`,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>> cheat (*
+  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>
-  PairCases_on`x`>>fs[]*));
+  PairCases_on`x`>>fs[]);
 
 val three_to_two_reg_flat_exp_conventions = Q.store_thm("three_to_two_reg_flat_exp_conventions",
   `∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)`,
@@ -913,9 +913,7 @@ val three_to_two_reg_full_inst_ok_less = Q.store_thm("three_to_two_reg_full_inst
   >-
     (Cases_on`n`>>fs[inst_ok_less_def])
   >>
-    TRY(metis_tac[inst_ok_less_def])
-  (* Broken because MIPS and ARM are not two reg*)
-  >> cheat);
+    metis_tac[inst_ok_less_def]);
 
 (* label preservation stuff *)
 val inst_select_exp_no_lab = Q.prove(`

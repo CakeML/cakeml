@@ -3608,15 +3608,22 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       simp[wInst_def,TWOxDIV2]>>
       pairarg_tac >> fs[]>>
+      pairarg_tac >> fs[]>>
       fs[wStackLoad_append]>>
       strip_tac>> rpt var_eq_tac>>
-      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont n3),t) = (NONE,t') ∧ _ t'`>>fs[]>>
-      match_mp_tac (GEN_ALL wStackLoad_thm2)>>
+      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont n2'),t) = (NONE,t') ∧ _ t'`>>fs[]>>
+      match_mp_tac (GEN_ALL wStackLoad_thm1)>>
       asm_exists_tac >> simp[]>>
       asm_exists_tac >> simp[]
       \\ simp[Abbr`kont`]
       \\ CONJ_TAC \\ strip_tac
-      \\ `get_var (2 * 1) s = SOME (Word c) ∧ 1 < k` by fs[state_rel_def]
+      \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l' (kont n3),tt) = (NONE,t') ∧ _ t'`
+      \\ simp[]
+      \\ match_mp_tac (GEN_ALL wStackLoad_thm2)
+      \\ asm_exists_tac \\ simp[Abbr`tt`]
+      \\ asm_exists_tac \\ simp[]
+      \\ simp[Abbr`kont`]
+      \\ conj_tac \\ strip_tac
       \\ drule (GEN_ALL state_rel_get_var_imp)
       \\ simp[] \\ disch_then imp_res_tac
       \\ drule (GEN_ALL state_rel_get_var_imp2)
@@ -3633,15 +3640,22 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       simp[wInst_def,TWOxDIV2]>>
       pairarg_tac >> fs[]>>
+      pairarg_tac >> fs[]>>
       fs[wStackLoad_append]>>
       strip_tac>> rpt var_eq_tac>>
-      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont n3),t) = (NONE,t') ∧ _ t'`>>fs[]>>
-      match_mp_tac (GEN_ALL wStackLoad_thm2)>>
+      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont n2'),t) = (NONE,t') ∧ _ t'`>>fs[]>>
+      match_mp_tac (GEN_ALL wStackLoad_thm1)>>
       asm_exists_tac >> simp[]>>
       asm_exists_tac >> simp[]
       \\ simp[Abbr`kont`]
       \\ CONJ_TAC \\ strip_tac
-       \\ `get_var (2 * 1) s = SOME (Word c) ∧ 1 < k` by fs[state_rel_def]
+      \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l' (kont n3),tt) = (NONE,t') ∧ _ t'`
+      \\ simp[]
+      \\ match_mp_tac (GEN_ALL wStackLoad_thm2)
+      \\ asm_exists_tac \\ simp[Abbr`tt`]
+      \\ asm_exists_tac \\ simp[]
+      \\ simp[Abbr`kont`]
+      \\ conj_tac \\ strip_tac
       \\ drule (GEN_ALL state_rel_get_var_imp)
       \\ simp[] \\ disch_then imp_res_tac
       \\ drule (GEN_ALL state_rel_get_var_imp2)
@@ -6863,13 +6877,7 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
     EVAL_TAC>>fs[]>>
     rw[]>>
     TRY(metis_tac[EVEN_DIV_2_props])>>
-    TRY(qpat_assum`addr_offset_ok c' c` mp_tac>>EVAL_TAC>>fs[])>>
-    (*Add and SubOverflow*)
-    TRY(res_tac>>fs[]>>
-      ntac 2 (Cases_on`n`>>fs[ADD1]>> Cases_on`n'`>>fs[ADD1])>>
-      fs[GSYM EVEN_MOD2,EVEN_EXISTS]>>
-      FULL_SIMP_TAC std_ss [Once MULT_SYM]>>
-      fs[ADD_DIV_ADD_DIV]>>NO_TAC))
+    qpat_assum`addr_offset_ok c' c` mp_tac>>EVAL_TAC>>fs[])
   >-
     (PairCases_on`kf'`>>
     ntac 3 (EVAL_TAC>>rw[])>>

@@ -4241,17 +4241,6 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       disch_then sym_sub_tac>>fs[]>>
       imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
       fs[]>>
-      `option_lookup ssa n1 ≠ 2` by
-        (fs[ssa_locals_rel_def]>>
-        first_x_assum (qspecl_then[`n1`,`x'`] assume_tac)>>
-        rfs[domain_lookup,ssa_map_ok_def]>>
-        first_x_assum(qspecl_then[`n1`,`v'`] assume_tac)>>
-        rfs[]>>
-        fs[is_phy_var_def,option_lookup_def]>>
-        CCONTR_TAC>>
-        fs[]>>
-        pop_assum SUBST_ALL_TAC>>fs[])>>
-      fs[]>>
       Cases_on`x'`>>Cases_on`x''`>>fs[set_var_def,alist_insert_def]>>
       qpat_abbrev_tac`w1 = if A then B else C`>>
       fs[ssa_locals_rel_def,lookup_insert,every_var_def,every_var_inst_def,alist_insert_def]>>
@@ -4273,17 +4262,6 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       ntac 2 FULL_CASE_TAC >>fs[]>>
       disch_then sym_sub_tac>>fs[]>>
       imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
-      fs[]>>
-      `option_lookup ssa n1 ≠ 2` by
-        (fs[ssa_locals_rel_def]>>
-        first_x_assum (qspecl_then[`n1`,`x'`] assume_tac)>>
-        rfs[domain_lookup,ssa_map_ok_def]>>
-        first_x_assum(qspecl_then[`n1`,`v'`] assume_tac)>>
-        rfs[]>>
-        fs[is_phy_var_def,option_lookup_def]>>
-        CCONTR_TAC>>
-        fs[]>>
-        pop_assum SUBST_ALL_TAC>>fs[])>>
       fs[]>>
       Cases_on`x'`>>Cases_on`x''`>>fs[set_var_def,alist_insert_def]>>
       qpat_abbrev_tac`w1 = if A then B else C`>>
