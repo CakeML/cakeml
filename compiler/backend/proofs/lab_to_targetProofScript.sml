@@ -950,6 +950,7 @@ val arith_upd_lemma = Q.prove(
     qmatch_assum_rename_tac`read_reg r _ = _` >>
     first_x_assum(qspec_then`r`mp_tac) >>
     simp[] >> EVAL_TAC >> srw_tac[][] )
+  >- cheat
   >> (
     unabbrev_all_tac
     \\ first_assum(qspec_then`n0`mp_tac)

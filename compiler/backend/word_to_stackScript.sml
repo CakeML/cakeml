@@ -90,15 +90,13 @@ val wInst_def = Define `
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (AddCarry n1 n2 n3 n4))) n1 kf)) /\
   (wInst (Arith (AddOverflow n1 n2 n3 n4)) kf =
-    let (l,n2) = wReg1 n2 kf in
-    let (l',n3) = wReg2 n3 kf in
-    wStackLoad (l++l')
-      (wRegWrite1 (\n1. Inst (Arith (AddOverflow n1 n2 n3 n4))) n1 kf)) /\
+    let (l,n3) = wReg2 n3 kf in
+    wStackLoad l
+      (wRegWrite1 (\n1. Inst (Arith (AddOverflow n1 1 n3 n4))) n1 kf)) /\
   (wInst (Arith (SubOverflow n1 n2 n3 n4)) kf =
-    let (l,n2) = wReg1 n2 kf in
-    let (l',n3) = wReg2 n3 kf in
-    wStackLoad (l++l')
-      (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
+    let (l,n3) = wReg2 n3 kf in
+    wStackLoad l
+      (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 1 n3 n4))) n1 kf)) /\
   (wInst (Arith (LongMul n1 n2 n3 n4)) kf =
     (*n1 = 4, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
       (Inst (Arith (LongMul 4 0 0 2)))) /\

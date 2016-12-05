@@ -2336,8 +2336,8 @@ val wf_cutsets_def = Define`
 val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (* Note: these are not necessary *)
-  (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
-  (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r2 = 2 ∧ r4 = 0) ∧
+  (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r2 = 2 ∧ r4 = 0) ∧
   (* Follows conventions for x86 *)
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 8 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 0 ∧ r4 = 8) ∧
