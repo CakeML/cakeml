@@ -17,13 +17,6 @@ val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
 val _ = hide"pos"
 
-val compute_labels_alt_Section = Q.store_thm("compute_labels_alt_Section",
-  `compute_labels_alt pos (sec::rest) =
-   (let new_pos = sec_length (Section_lines sec) 0 in
-    let labs = compute_labels_alt (pos + new_pos) rest in
-    lab_insert (Section_num sec) 0 pos (section_labels pos (Section_lines sec) labs))`,
-  Cases_on`sec` \\ rw[lab_to_targetTheory.compute_labels_alt_def]);
-
 val pad_code_MAP = Q.store_thm("pad_code_MAP",
   `pad_code nop = MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))`,
   simp[FUN_EQ_THM] \\ Induct
