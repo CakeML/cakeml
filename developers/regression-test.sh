@@ -5,6 +5,10 @@ set -e
 
 echo "Running regression test on $(git log -1 --oneline --no-color)"
 HOLDIR=$(heapname | xargs dirname) || exit $?
+if [ -n "$bamboo_planRepository_branch" -a "$bamboo_planRepository_branch" != "master" ]
+then
+  echo "Merged with ${bamboo_planRepository_branch}: $(git log -1 --oneline --no-color ${bamboo_planRepository_revision})"
+fi
 echo "HOL revision: $(cd $HOLDIR; git log -1 --oneline --no-color)"
 echo "Machine: $(uname -nmo)"
 
