@@ -2108,6 +2108,7 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_strsub,
    Eval_sub,
    Eval_And,
    Eval_Or,
@@ -2118,7 +2119,6 @@ val builtin_binops =
 
 val builtin_monops =
   [Eval_implode,
-   Eval_explode,
    Eval_strlen,
    Eval_Bool_Not,
    Eval_int_negate,
@@ -2417,17 +2417,8 @@ fun is_word_literal tm =
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 
-val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
-val int_negate_pat = Eval_int_negate |> concl |> funpow 3 rand
-
-val vec_vec_pat = Eval_vector |> SPEC_ALL |> RW [AND_IMP_INTRO]
-  |> concl |> dest_imp |> snd |> rand |> rand
-val vec_sub_pat = Eval_sub |> SPEC_ALL |> RW [AND_IMP_INTRO]
-  |> concl |> dest_imp |> snd |> rand |> rand
-val vec_len_pat = Eval_length |> SPEC_ALL |> RW [AND_IMP_INTRO]
-  |> concl |> dest_imp |> snd |> rand |> rand
 
 fun dest_word_binop tm =
   if wordsSyntax.is_word_and tm then Eval_word_and else
@@ -2587,11 +2578,17 @@ fun hol2deep tm =
   (* n2w 'a word for known 'a*)
   if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
     val dim = wordsSyntax.dim_of tm
-    val x1 = tm |> rand
-    val th1 = hol2deep x1
+    val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
+  (* i2w 'a word for known 'a*)
+  if integer_wordSyntax.is_i2w tm andalso word_ty_ok (type_of tm) then let
+    val dim = wordsSyntax.dim_of tm
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
+                           |> CONV_RULE wordsLib.WORD_CONV) th1
+    in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a*)
   if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
     val x1 = tm |> rand
@@ -2600,6 +2597,14 @@ fun hol2deep tm =
     (* th1 should have instantiated 'a already *)
     val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
+  (* w2i 'a word for known 'a*)
+  if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
+    val x1 = tm |> rand
+    val dim = wordsSyntax.dim_of x1
+    val th1 = hol2deep x1
+    (* th1 should have instantiated 'a already *)
+    val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "w2i" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
   if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
     val lemma = dest_word_binop tm

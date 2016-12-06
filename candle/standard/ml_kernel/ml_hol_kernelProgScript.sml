@@ -791,6 +791,15 @@ val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
 (* TODO: want builtin support for these *)
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
+val explode_aux_side_thm = Q.prove(
+  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+val explode_side_thm = Q.prove(
+  `explode_side x`,
+  rw[definition"explode_side_def",explode_aux_side_thm])
+  |> update_precondition
 val res = translate mlstringTheory.strcat_def;
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def

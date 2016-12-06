@@ -485,7 +485,7 @@ fun eval_fn i n p =
 val stack_prog_els =
   stack_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_alloc" (parlist num_threads chunk_size eval_fn) stack_prog_els;
+val ths = time_with_size thms_size "stack_alloc (par)" (parlist num_threads chunk_size eval_fn) stack_prog_els;
 
 val stack_alloc_thm =
   tm4 |>
@@ -535,7 +535,7 @@ fun eval_fn i n p =
 val stack_alloc_prog_els =
   stack_alloc_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_remove" (parlist num_threads chunk_size eval_fn) stack_alloc_prog_els;
+val ths = time_with_size thms_size "stack_remove (par)" (parlist num_threads chunk_size eval_fn) stack_alloc_prog_els;
 
 val stack_remove_thm =
   stack_remove_thm0
@@ -575,7 +575,7 @@ fun eval_fn i n p =
 val stack_remove_prog_els =
   stack_remove_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_names" (parlist num_threads chunk_size eval_fn) stack_remove_prog_els;
+val ths = time_with_size thms_size "stack_names (par)" (parlist num_threads chunk_size eval_fn) stack_remove_prog_els;
 
 val stack_names_thm0 =
   tm7
@@ -608,7 +608,7 @@ fun eval_fn i n p =
 val stack_names_prog_els =
   stack_names_prog_def |> rconc |> listSyntax.dest_list |> #1
 
-val ths = time_with_size thms_size "stack_to_lab" (parlist num_threads chunk_size eval_fn) stack_names_prog_els;
+val ths = time_with_size thms_size "stack_to_lab (par)" (parlist num_threads chunk_size eval_fn) stack_names_prog_els;
 
 val stack_to_lab_thm4 =
   stack_to_lab_thm3

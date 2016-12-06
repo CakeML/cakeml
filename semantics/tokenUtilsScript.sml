@@ -51,6 +51,12 @@ val isCharT_def = Define`
 `;
 val _ = export_rewrites ["isCharT_def"]
 
+val isWordT_def = Define`
+  (isWordT (WordT _) ⇔ T) ∧
+  (isWordT _ ⇔ F)
+`;
+val _ = export_rewrites ["isWordT_def"]
+
 val isLongidT_def = Define`
   (isLongidT (LongidT _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
@@ -118,5 +124,11 @@ val destStringT_def = Define`
   (destStringT _ = NONE)
 `;
 val _ = export_rewrites ["destStringT_def"]
+
+val destWordT_def = Define`
+  (destWordT (WordT w) = SOME w) ∧
+  (destWordT _ = NONE)
+`;
+val _ = export_rewrites ["destWordT_def"]
 
 val _ = export_theory()

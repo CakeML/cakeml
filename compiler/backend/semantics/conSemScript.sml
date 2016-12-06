@@ -161,12 +161,6 @@ val _ = Define `
   ∧
   (v_to_char_list _ = NONE)`;
 
-val _ = Define`
-  (char_list_to_v [] = (Conv (SOME (nil_tag, (TypeId (Short "list")))) []))
-  ∧
-  (char_list_to_v (c::cs) =
-   Conv (SOME (cons_tag, (TypeId (Short "list")))) [Litv (Char c); char_list_to_v cs])`;
-
 val _ = Define `
   Boolv b = (Conv (SOME ((if b then true_tag else false_tag), TypeId(Short"bool"))) [])`;
 
@@ -266,8 +260,15 @@ val do_app_def = Define `
      | SOME ls =>
        SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
      | NONE => NONE)
-  | (Explode, [Litv (StrLit str)]) =>
-    SOME ((s,t), Rval (char_list_to_v (EXPLODE str)))
+  | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+    if i < 0 then
+      SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+    else
+      let n = (Num (ABS i)) in
+        if n >= LENGTH str then
+          SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        else
+          SOME ((s,t), Rval (Litv(Char(EL n str))))
   | (Strlen, [Litv (StrLit str)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
   | (VfromList, [v]) =>

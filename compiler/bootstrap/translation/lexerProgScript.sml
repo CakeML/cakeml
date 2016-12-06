@@ -64,14 +64,21 @@ val num_from_dec_string_alt_side = Q.prove(`
   >-
     simp[Once (fetch"-""s2n_side_def"),l2n_side]
   >>
-    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def]>>Cases>>
+    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
+    fs[ORD_CHR]>>
     strip_tac>>
-    `48 ≤ n ∧ n ≤ 57` by
-      fs[ORD_CHR]>>
-    `n = 48 ∨ n = 49 ∨ n = 50 ∨
-     n = 51 ∨ n = 52 ∨ n = 53 ∨
-     n = 54 ∨ n = 55 ∨ n = 56 ∨ n = 57` by
-       DECIDE_TAC>>
+    fs[]);
+
+val num_from_hex_string_alt_side = Q.prove(`
+  ∀x. num_from_hex_string_alt_side x ⇔ T`,
+  simp[Once (fetch"-""num_from_hex_string_alt_side_def")]>>
+  strip_tac>>CONJ_TAC
+  >-
+    simp[Once (fetch"-""s2n_side_def"),l2n_side]
+  >>
+    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
+    fs[ORD_CHR]>>
+    strip_tac>>
     fs[]);
 
 val read_string_side = Q.prove(`
@@ -84,8 +91,9 @@ val read_string_side = Q.prove(`
 val next_sym_alt_side = Q.prove(`
   ∀x. next_sym_alt_side x ⇔ T`,
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>
-  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,read_string_side]>>
-  rw[]>>metis_tac[]);
+  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,read_string_side,num_from_hex_string_alt_side]>>
+  rw[]>>
+  fs[FALSE_def]);
 
 val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,

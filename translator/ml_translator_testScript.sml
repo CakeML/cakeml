@@ -25,8 +25,11 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
+
 val string_to_bytes_def = Define`
-  string_to_bytes s = MAP char_to_byte (mlstring$explode s)`;
+  string_to_bytes s = MAP char_to_byte (explode s)`;
 
 val res = translate string_to_bytes_def;
 

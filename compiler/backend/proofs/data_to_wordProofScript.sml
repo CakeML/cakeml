@@ -7146,9 +7146,7 @@ val th = Q.store_thm("assign_FFI",
 
 val assign_thm = Q.store_thm("assign_thm",
   `^assign_thm_goal`,
-  Cases_on `op = ToList` \\ fs []
-  THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ Cases_on `op = AllocGlobal` \\ fs []
+  Cases_on `op = AllocGlobal` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
   \\ Cases_on `?i. op = Global i` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])

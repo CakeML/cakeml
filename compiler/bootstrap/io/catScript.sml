@@ -167,9 +167,27 @@ val _ = ml_prog_update (close_module NONE);
 val _ = ml_prog_update (open_module "String");
 
 val _ = append_dec ``Dtabbrev [] "string" (Tapp [] TC_string)``;
-val _ = trans "explode" `explode`
+val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
 val _ = trans "size" `strlen`
+
+(* TODO: these are duplicated in ml_hol_kernelProgTheory; there should be a
+single place where this translation happens *)
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
+val explode_aux_side_thm = Q.prove(
+  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+val explode_side_thm = Q.prove(
+  `explode_side x`,
+  rw[definition"explode_side_def",explode_aux_side_thm])
+(* TODO: doing this breaks things. What is going on?
+  |> update_precondition *)
+
+(* TODO: move? *)
+val LENGTH_explode = Q.store_thm("LENGTH_explode",
+  `LENGTH (explode s) = strlen s`,
+  Cases_on`s` \\ simp[]);
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -352,7 +370,7 @@ val str_to_w8array_spec = Q.store_thm(
           W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 a))`,
   rpt strip_tac >> xcf "str_to_w8array" (basis_st()) >>
   xlet `POSTv csv. &(LIST_TYPE CHAR (explode s) csv) * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
+  >- (xapp >> xsimpl >> metis_tac[explode_side_thm]) >>
   xapp >> simp[])
 
 (* ML implementation of write function, with parameter "c" (type char) *)
@@ -551,7 +569,8 @@ val openIn_spec = Q.store_thm(
                          (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0) *
                  CATFS fs`
   >- (xapp >> xsimpl >> instantiate >>
-      simp[definition "filename_loc_def"] >> xsimpl) >>
+      simp[definition "filename_loc_def"] >> xsimpl >>
+      Cases_on`s` \\ fs[]) >>
   qabbrev_tac `fnm = insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0` >>
   Cases_on `inFS_fname s fs`
   >- (
@@ -566,7 +585,7 @@ val openIn_spec = Q.store_thm(
         simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
              getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
-             implode_explode] >>
+             implode_explode, LENGTH_explode] >>
         `∃content. ALOOKUP fs.files s = SOME content`
           by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
               metis_tac[]) >>
@@ -577,14 +596,14 @@ val openIn_spec = Q.store_thm(
                      CATFS (openFileFS s fs)`
     >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
         csimp[HD_LUPDATE] >>
-        simp[Abbr`fnm`, LENGTH_insertNTS_atI]) >>
+        simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]) >>
     xlet `POSTv eqn1v. &BOOL F eqn1v * CHAR_IO_char1 *
                        W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
                        CATFS (openFileFS s fs)`
     >- (xapp >> xsimpl >> qexists_tac `n2w (nextFD fs)` >>
         simp[WORD_def, BOOL_def]) >>
     xif >> instantiate >> xret >> xsimpl >>
-    simp[Abbr`fnm`, LENGTH_insertNTS_atI]
+    simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]
   )
   >- (
     xlet `POSTv u2.
@@ -596,13 +615,13 @@ val openIn_spec = Q.store_thm(
         simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
              getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
-             implode_explode] >>
+             implode_explode, LENGTH_explode] >>
         simp[not_inFS_fname_openFile]) >>
     xlet `POSTv fdv. &WORD (255w: word8) fdv *
                      CHAR_IO_char1 * CATFS fs *
                      W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
     >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
-        csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insertNTS_atI]) >>
+        csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]) >>
     xlet `POSTv eqn1v.
             &BOOL T eqn1v *
             CHAR_IO_char1 * CATFS fs *
@@ -614,7 +633,7 @@ val openIn_spec = Q.store_thm(
             CHAR_IO_char1 * CATFS fs *
             W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
     >- (xret >> xsimpl >> simp[BadFileName_exn_def]) >>
-    xraise >> xsimpl >> simp[Abbr`fnm`, LENGTH_insertNTS_atI]
+    xraise >> xsimpl >> simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]
   )
 );
 

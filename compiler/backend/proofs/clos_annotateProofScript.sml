@@ -150,11 +150,6 @@ val state_rel_max_app = Q.store_thm("state_rel_max_app",
 
 (* semantic functions respect relation *)
 
-val list_to_v = Q.prove(
-  `!l' l. LIST_REL v_rel l' l ==>
-           v_rel (list_to_v l') (list_to_v l)`,
-  Induct \\ Cases_on `l` \\ full_simp_tac(srw_ss())[list_to_v_def,v_rel_simp]);
-
 val v_to_list = Q.prove(
   `!h h'.
       v_rel h h' ==>
@@ -329,11 +324,6 @@ val do_app_thm = Q.prove(
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
-  THEN1 (* ToList *)
-   (full_simp_tac(srw_ss())[do_app_def]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs[v_rel_simp]
-    \\ imp_res_tac list_to_v \\ rfs[v_rel_simp]
-    \\ METIS_TAC[])
   THEN1 (* FromList *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
