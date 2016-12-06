@@ -627,6 +627,19 @@ val _ = translate(MakeBytes_def |> conv64)
 val _ = translate(RefByte_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss[SmallLsr_def])
 val _ = translate(RefArray_code_def |> inline_simp |> conv64|>econv)
 val _ = translate(Replicate_code_def|> inline_simp |> conv64)
+val _ = translate(Replicate_code_def|> inline_simp |> conv64)
+val _ = translate(AnyArith_code_def|> conv64)
+val _ = translate(Add_code_def|> conv64)
+val _ = translate(Sub_code_def|> conv64)
+val _ = translate(Mul_code_def|> conv64)
+val _ = translate(Div_code_def|> conv64)
+val _ = translate(Mod_code_def|> conv64)
+
+val _ = translate(Compare1_code_def|> inline_simp |> conv64)
+val _ = translate(Compare_code_def|> inline_simp |> conv64)
+
+val _ = translate(Equal1_code_def|> inline_simp |> conv64)
+val _ = translate(Equal_code_def|> inline_simp |> SIMP_RULE std_ss [backend_commonTheory.closure_tag_def,backend_commonTheory.partial_app_tag_def] |> conv64)
 
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
