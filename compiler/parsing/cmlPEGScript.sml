@@ -1,12 +1,12 @@
 open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
-local open monadsyntax in end
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
 val _ = new_theory "cmlPEG"
 
 val _ = new_storage_attribute "cakeml/parsing"
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``

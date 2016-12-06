@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 
 open gramTheory tokenUtilsTheory astTheory
 
-open monadsyntax lcsymtacs
+open lcsymtacs
 
 val _ = new_theory "cmlPtreeConversion"
 
@@ -15,6 +15,7 @@ val _ = new_theory "cmlPtreeConversion"
 
    This is a disgusting failing of our theory mechanism.  *)
 val _ = hide "nt"
+val _ = monadsyntax.temp_add_monadsyntax()
 
 (* handling constructor arities gets very complicated when "open" is
    implemented *)
