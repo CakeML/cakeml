@@ -321,7 +321,6 @@ val assign_def = Define `
       then (Skip,l)
       else (Seq (Set Globals (Var (adjust_var (HD args))))
                             (Assign (adjust_var dest) Unit),l)
-    | ToList => (Skip,l)
     | Global _ => (Skip,l)
     | SetGlobal _ => (Skip,l)
     | AllocGlobal => (Skip,l)

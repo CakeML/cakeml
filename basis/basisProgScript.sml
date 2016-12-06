@@ -263,7 +263,7 @@ val _ = ml_prog_update (close_module NONE);
 val _ = ml_prog_update (open_module "String");
 
 val _ = append_dec ``Dtabbrev [] "string" (Tapp [] TC_string)``;
-val _ = trans "explode" `explode`
+val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
 val _ = trans "size" `strlen`
 

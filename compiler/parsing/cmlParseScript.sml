@@ -1,7 +1,8 @@
-open HolKernel Parse boolLib bossLib monadsyntax
+open HolKernel Parse boolLib bossLib
      cmlPEGTheory cmlPtreeConversionTheory
 
 val _ = new_theory "cmlParse"
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = overload_on ("cmlpegexec",
                      ``λn t. peg_exec cmlPEG (pnt n) t [] done failed``)

@@ -491,10 +491,6 @@ val v_to_list_compile = Q.store_thm("v_to_list_compile[simp]",
   ho_match_mp_tac v_to_list_ind \\ rw[v_to_list_def]
   \\ every_case_tac \\ fs[]);
 
-val char_list_to_v_compile = Q.store_thm("char_list_to_v_compile[simp]",
-  `∀ls. compile_v (char_list_to_v ls) = char_list_to_v ls`,
-  Induct \\ EVAL_TAC \\ rw[]);
-
 val do_app_compile = Q.store_thm("do_app_compile[simp]",
   `do_app (compile_state s) op (MAP compile_v as) =
    OPTION_MAP (λ(s,r). (compile_state s, map_result compile_v compile_v r)) (do_app s op as)`,
