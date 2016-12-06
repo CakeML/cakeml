@@ -414,6 +414,13 @@ val do_app_thm = Q.prove(
     \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM IMP_RES_TAC
     \\ rev_full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def]));
 
+val v_rel_Number = prove(
+  ``(v_rel x (Number i) <=> (x = Number i)) /\
+    (v_rel (Number i) x <=> (x = Number i)) /\
+    (v_rel x (Word64 w) <=> (x = Word64 w)) /\
+    (v_rel (Word64 w) x <=> (x = Word64 w))``,
+  once_rewrite_tac [v_rel_cases] \\ fs []);
+
 val do_app_err_thm = Q.prove(
   `state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    do_app op xs s1 = Rerr err /\ (err <> Rabort Rtype_error) ==>
@@ -423,68 +430,27 @@ val do_app_err_thm = Q.prove(
   imp_res_tac do_app_err >> fsrw_tac[][] >>
   Cases_on `?i. op = EqualInt i`
   THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
+  \\ Cases_on `op = UpdateByte \/ op = Update` THEN1
+   (fs [do_app_def]
+    \\ rpt (TOP_CASE_TAC \\ fs [])
+    \\ every_case_tac \\ fs[])
+  \\ Cases_on `op = DerefByte \/ op = Deref` THEN1
+   (fs [do_app_def]
+    \\ rpt (TOP_CASE_TAC \\ fs [v_rel_Number])
+    \\ every_case_tac \\ fs[])
+  \\ Cases_on `op = Add \/ op = Sub \/ op = Mult \/ op = Div \/
+               op = Mod \/ op = Less \/ op = LessEq \/
+               op = Greater \/ op = GreaterEq` THEN1
+   (fs [] \\ fs [do_app_def]
+    \\ Cases_on `ys` \\ fs [v_rel_Number] \\ rveq \\ fs []
+    \\ Cases_on `t` \\ fs [v_rel_Number] \\ rveq \\ fs []
+    \\ Cases_on `h` \\ fs [v_rel_Number] \\ rveq \\ fs []
+    \\ Cases_on `t'` \\ fs [v_rel_Number] \\ rveq \\ fs []
+    \\ Cases_on `h'` \\ fs [v_rel_Number] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs[])
+  \\ `?f. f op = ARB` by (qexists_tac `K ARB` \\ fs [])
   \\ Cases_on`op`>>fsrw_tac[][do_app_def]
-  >- (every_case_tac >> fs[])
-  >- (every_case_tac >> fs[])
-  >- (every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (
-    Cases_on`xs`\\fs[]
-    \\ Cases_on`t`\\fs[]
-    \\ Cases_on`h`\\fs[]
-    \\ Cases_on`t'`\\fs[]
-    \\ Cases_on`h'`\\fs[]
-    \\ Cases_on`t`\\fs[]
-    \\ Cases_on`h`\\fs[]
-    \\ every_case_tac \\ fs[] )
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[v_rel_simp] >>
-      rw[] >> fs[state_rel_def] >> res_tac >> fs[] >>
-      rw[] >> rfs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[] >>
-      rw[] >> imp_res_tac do_eq >> fs[v_rel_simp])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[] >>
-      rw[] >> imp_res_tac do_eq >> fs[v_rel_simp])
-  >> (TRY(Cases_on`w`>>fs[])>>
-      Cases_on`xs`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      TRY(Cases_on`h`)>>fs[]>>
-      TRY(Cases_on`t'`)>>fs[] >>
-      every_case_tac >> fs[]));
+  \\ every_case_tac >> fs[]);
 
 (* compiler correctness *)
 
