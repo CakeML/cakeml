@@ -195,7 +195,9 @@ val do_app_thm = Q.prove(
    (do_app op xs s1 = Rval (v,s2)) ==>
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
           v_rel v w /\ state_rel s2 t2`,
-  reverse (Cases_on `op`) \\ rpt STRIP_TAC
+  Cases_on `?i. op = EqualInt i`
+  THEN1 (fs [] \\ fs [do_app_def] \\ every_case_tac \\ fs [])
+  \\ reverse (Cases_on `op`) \\ rpt STRIP_TAC
   \\ TRY (full_simp_tac(srw_ss())[do_app_def] >> NO_TAC)
   THEN1 (* WordToInt *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -239,12 +241,6 @@ val do_app_thm = Q.prove(
   THEN1 (* Const *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[v_rel_simp])
-  THEN1 (* EqualInt *)
-   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC do_eq \\ full_simp_tac(srw_ss())[]
-    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
-    \\ TRY (Cases_on `b`) \\ EVAL_TAC \\ full_simp_tac(srw_ss())[v_rel_simp])
   THEN1 (* Equal *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
