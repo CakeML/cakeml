@@ -481,7 +481,7 @@ val op_case_expand = Q.prove (
      | Ord => f12
      | Chr => f13
      | Chopb opb => f14
-     | Explode => f15
+     | Strsub => f15
      | Implode => f16
      | Strlen => f17
      | VfromList => f18
@@ -516,7 +516,7 @@ val op_case_expand = Q.prove (
    ((?wz. op = WordFromInt wz) ∧ (f26 st = (Success v, st'))) ∨
    ((?wz. op = WordToInt wz) ∧ (f27 st = (Success v, st'))) ∨
    (?opb. (op = Chopb opb)) ∧ (f14 st = (Success v, st')) ∨
-   ((op = Explode) ∧ (f15 st = (Success v, st'))) ∨
+   ((op = Strsub) ∧ (f15 st = (Success v, st'))) ∨
    ((op = Implode) ∧ (f16 st = (Success v, st'))) ∨
    ((op = Strlen) ∧ (f17 st = (Success v, st'))) ∨
    ((op = VfromList) ∧ (f18 st = (Success v, st'))) ∨
@@ -1545,12 +1545,12 @@ val constrain_op_check_s = Q.prove (
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
      metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``t_unify`` o fst o strip_comb o lhs))) >>
-     first_assum(match_exists_tac o concl) >>
-     metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
- >- (match_mp_tac t_unify_check_s >>
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))` by rw [check_t_def] >>
      metis_tac[check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
+     CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     first_assum(match_exists_tac o concl) >> fs[] >>
+     metis_tac[t_unify_wfs,check_t_more2,arithmeticTheory.ADD_0,t_unify_check_s])
  >- (match_mp_tac t_unify_check_s >>
      metis_tac[check_t_more2, arithmeticTheory.ADD_0])
  >- (`check_t 0 (count (st.next_uvar + 1)) h`

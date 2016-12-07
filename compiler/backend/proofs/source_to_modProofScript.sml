@@ -444,12 +444,6 @@ val do_con_check = Q.prove (
   induct_on `es` >>
   srw_tac[][compile_exp_def]);
 
-val char_list_to_v = Q.prove(
-  `∀ls. v_rel genv (char_list_to_v ls) (char_list_to_v ls)`,
-  Induct >> simp[semanticPrimitivesTheory.char_list_to_v_def,
-                 modSemTheory.char_list_to_v_def,
-                 v_rel_eqns])
-
 val v_to_char_list = Q.prove (
   `!v1 v2 vs1.
     v_rel genv v1 v2 ∧
@@ -600,15 +594,17 @@ val do_app = Q.prove (
   >- ((* Chopb *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
-  >- ((* Explode *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
-      simp[char_list_to_v])
   >- ((* Implode *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][])
+  >- ((* Strsub *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      srw_tac[][markerTheory.Abbrev_def] >>
+      srw_tac[][markerTheory.Abbrev_def] >>
+      full_simp_tac(srw_ss())[vs_rel_list_rel,stringTheory.IMPLODE_EXPLODE_I])
   >- ((* Strlen *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
