@@ -268,6 +268,11 @@ val EqualityType_WORDLANG_EXP_TYPE = Q.prove(
 val WORDLANG_PROG_TYPE_def = theorem"WORDLANG_PROG_TYPE_def";
 val WORDLANG_PROG_TYPE_ind = theorem"WORDLANG_PROG_TYPE_ind";
 
+val EqualityType_CHAR = find_equality_type_thm``CHAR``
+
+val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
+  |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
+
 val WORDLANG_PROG_TYPE_no_closures = Q.prove(
   `∀a b. WORDLANG_PROG_TYPE a b ⇒ no_closures b`,
   ho_match_mp_tac WORDLANG_PROG_TYPE_ind
@@ -312,6 +317,7 @@ val WORDLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_ASM_REG_IMM_TYPE,
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_LIST_TYPE_NUM,
+            EqualityType_LIST_TYPE_CHAR,            
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
             EqualityType_ASM_CMP_TYPE]);
@@ -354,6 +360,7 @@ val WORDLANG_PROG_TYPE_types_match = Q.prove(
             EqualityType_ASM_REG_IMM_TYPE,
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_LIST_TYPE_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
             EqualityType_ASM_CMP_TYPE])
@@ -419,6 +426,7 @@ val WORDLANG_PROG_TYPE_11 = Q.prove(
             EqualityType_ASM_REG_IMM_TYPE,
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_LIST_TYPE_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
             EqualityType_ASM_CMP_TYPE]);

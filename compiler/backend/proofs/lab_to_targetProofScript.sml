@@ -1520,12 +1520,12 @@ val get_ffi_index_roundtrip = Q.prove(
 (EL (get_ffi_index (find_ffi_names l) s) (find_ffi_names l)) = s`,
 ho_match_mp_tac find_ffi_names_ind
 >> rpt strip_tac
->> fs [has_io_name_def,get_ffi_index_def,find_ffi_names_def,find_index_def,list_add_if_fresh_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append,EL_APPEND_EQN]
+>> fs [has_io_name_def,get_ffi_index_def,find_ffi_names_def,find_index_def,list_add_if_fresh_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append,EL_APPEND_EQN,fetch "lib" "the_def"]
 >> every_case_tac
->> fs [has_io_name_def,get_ffi_index_def,find_ffi_names_def,find_index_def,list_add_if_fresh_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append,EL_APPEND_EQN]
+>> fs [has_io_name_def,get_ffi_index_def,find_ffi_names_def,find_index_def,list_add_if_fresh_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append,EL_APPEND_EQN,fetch "lib" "the_def"]
 >> every_case_tac
 >> FIRST_X_ASSUM (fn thm => TRY(ASSUME_TAC(Q.SPEC `s` thm)))
->> rfs [has_io_name_def,get_ffi_index_def,find_ffi_names_def,find_index_def,list_add_if_fresh_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append,EL_APPEND_EQN]
+>> rfs [has_io_name_def,get_ffi_index_def,find_ffi_names_def,find_index_def,list_add_if_fresh_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append,EL_APPEND_EQN,fetch "lib" "the_def"]
 >- metis_tac [has_io_name_find_index,NOT_NONE_SOME]
 >- metis_tac [has_io_name_find_index,NOT_NONE_SOME,find_index_in_range0]
 >- (Cases_on `find_index s (find_ffi_names (Section k xs::rest)) 0`
@@ -4959,7 +4959,7 @@ val IMP_state_rel_make_init = Q.prove(
       by(metis_tac [has_io_name_find_index])
     \\ `index < LENGTH (find_ffi_names code)`
       by(metis_tac [find_index_in_range0])
-    \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[fetch "lib" "the_def"]
     \\ metis_tac []
    )
   >- (res_tac \\ fs [SUBSET_DEF]));

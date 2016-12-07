@@ -97,9 +97,13 @@ val get_label_def = Define `
   (* cannot happen *)
   (get_label _ = Lab 0 0)`;
 
+(* It should never happen that get_ffi_index returns the default 0 ---
+   nonetheless, having a default prevents the translator from generating
+   painful side conditions.
+ *)
 val get_ffi_index_def = Define `
   get_ffi_index ffis s = 
-    THE(find_index s ffis 0)`
+    the 0 (find_index s ffis 0)`
 
 val get_jump_offset_def = Define `
   (get_jump_offset (CallFFI s) ffis labs pos =
