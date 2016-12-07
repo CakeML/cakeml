@@ -43,34 +43,14 @@ val enc_sec_list_def = Define `
 
 (* compute labels *)
 
-val asm_line_labs_def = Define `
-  (asm_line_labs pos [] acc = (acc,pos)) /\
-  (asm_line_labs pos ((Label k1 k2 l)::xs) acc =
-     asm_line_labs (pos+l) xs (union acc (insert k2 (pos+l) LN))) /\
-  (asm_line_labs pos ((Asm _ _ l)::xs) acc =
-     asm_line_labs (pos+l) xs acc) /\
-  (asm_line_labs pos ((LabAsm _ _ _ l)::xs) acc =
-     asm_line_labs (pos+l) xs acc)`
-
-val sec_labs_def = Define `
-  sec_labs pos lines =
-    asm_line_labs pos lines (insert 0 pos LN)`;
-
-val lab_insert_def = Define `
-  lab_insert l1 l2 pos labs =
-    insert l1 (insert l2 pos
-      (case lookup l1 labs of
-       | NONE => LN
-       | SOME t => t)) labs`
-
 val section_labels_def = Define `
-  (section_labels pos [] labs = labs) /\
-  (section_labels pos (Label l1 l2 len :: xs) labs =
+  (section_labels pos [] labs = (pos,labs)) /\
+  (section_labels pos (Label _ l2 len :: xs) labs =
      (*Ignore 0 labels*)
      if l2 = 0 then
        section_labels (pos+len) xs labs
      else
-       section_labels (pos+len) xs (lab_insert l1 l2 (pos+len) labs)) /\
+       section_labels (pos+len) xs ((l2,pos+len)::labs)) /\
   (section_labels pos (Asm _ _ len :: xs) labs =
      section_labels (pos+len) xs labs) /\
   (section_labels pos (LabAsm _ _ _ len :: xs) labs =
@@ -79,9 +59,9 @@ val section_labels_def = Define `
 val compute_labels_alt_def = Define `
   (compute_labels_alt pos [] labs = labs) /\
   (compute_labels_alt pos (Section k lines::rest) labs =
-    let new_pos = sec_length lines 0 in
-    compute_labels_alt (pos+new_pos) rest
-      (lab_insert k 0 pos (section_labels pos lines labs)))`
+    let (new_pos,sec_labs) = section_labels pos lines [] in
+    compute_labels_alt new_pos rest
+      (insert k (fromAList ((0,pos)::sec_labs)) labs))`
 
 (* update code, but not label lengths *)
 
@@ -222,41 +202,6 @@ val pad_code_def = Define `
 (pad_code nop [] = []) /\
 (pad_code nop ((Section n xs)::ys) =
   Section n (pad_section nop xs []) :: pad_code nop ys)`
-
-(* some final checks on the result *)
-
-val loc_to_pc_comp_def = Define `
-  loc_to_pc_comp n1 n2 [] = NONE /\
-  loc_to_pc_comp n1 n2 (Section k xs::ys) =
-    if k = n1 ∧ n2 = 0 then SOME 0n
-    else
-      case xs of
-        [] => loc_to_pc_comp n1 n2 ys
-      | z::zs =>
-        case z of
-        | Label k1 k2 _ =>
-            if k1 = n1 /\ k2 = n2 /\ n2 <> 0 then SOME 0
-            else loc_to_pc_comp n1 n2 (Section k zs::ys)
-        | _ => case loc_to_pc_comp n1 n2 (Section k zs::ys) of
-                 NONE => NONE
-               | SOME pos => SOME (pos + 1)`
-
-val is_Label_def = Define `
-  (is_Label (Label _ _ _) = T) /\
-  (is_Label _ = F)`;
-val _ = export_rewrites["is_Label_def"];
-
-val check_lab_def = Define `
-  check_lab sec_list (l1,l2,pos) <=>
-    EVEN pos`
-
-val all_labels_def = Define `
-  all_labels labs =
-    FLAT (MAP (\(n,t). MAP (\x. (n, x)) (toAList t)) (toAList labs))`
-
-val sec_names_def = Define`
-  (sec_names [] = []) ∧
-  (sec_names ((Section k _)::xs) = k::sec_names xs)`
 
 (* top-level assembler function *)
 

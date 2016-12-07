@@ -2,8 +2,6 @@ open preamble labSemTheory labPropsTheory lab_filterTheory;
 
 val _ = new_theory "lab_filterProof";
 
-val is_Label_def = lab_to_targetTheory.is_Label_def;
-
 val adjust_pc_def = Define `
   adjust_pc p xs =
     if p = 0n then 0n else
