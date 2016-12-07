@@ -82,22 +82,22 @@ val lem7 = Q.prove(
 
 val lem8 =
    blastLib.BBLAST_PROVE
-     ``w2w (b7: word8) ||
+    ``(w2w (b7: word8) ||
        w2w (b0: word8) << 56 ||
        w2w (b1: word8) << 48 ||
        w2w (b3: word8) << 32 ||
        w2w (b5: word8) << 16 ||
        w2w (b2: word8) << 40 ||
        w2w (b4: word8) << 24 ||
-       w2w (b6: word8) << 8 =
+       w2w (b6: word8) << 8) =
        b0 @@ b1 @@ b2 @@ b3 @@ b4 @@ b5 @@ b6 @@ b7``
 
 val lem9 =
    blastLib.BBLAST_PROVE
-     ``w2w (b3: word8) ||
+    ``(w2w (b3: word8) ||
        w2w (b0: word8) << 24 ||
        w2w (b1: word8) << 16 ||
-       w2w (b2: word8) << 8 =
+       w2w (b2: word8) << 8) =
        w2w (b0 @@ b1 @@ b2 @@ b3) : word64``
 
 val lem10 =
@@ -112,14 +112,14 @@ val lem10 =
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
 
 val adc_lem1 = Q.prove(
-  `((if b then 1w else 0w) = v2w [x] || v2w [y] : word64) = (b = x \/ y)`,
+  `((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))`,
   rw [] \\ blastLib.BBLAST_TAC)
 
 val adc_lem2 = Q.prove(
   `!r2 : word64 r3 : word64.
-    (18446744073709551616 <= w2n r2 + w2n r3 + 1 =
+    (18446744073709551616 <= w2n r2 + w2n r3 + 1 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
-    (18446744073709551616 <= w2n r2 + w2n r3 =
+    (18446744073709551616 <= w2n r2 + w2n r3 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
    Cases
    \\ Cases
@@ -471,7 +471,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
          Cases_on `ms.gpr (n2w n) = ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) < ms.gpr (n2w n')`,
-         Cases_on `ms.gpr (n2w n) && ms.gpr (n2w n') = 0w`,
+         Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) = 0w`,
          Cases_on `ms.gpr (n2w n) <> ms.gpr (n2w n')`,
          Cases_on `~(ms.gpr (n2w n) <+ ms.gpr (n2w n'))`,
          Cases_on `~(ms.gpr (n2w n) < ms.gpr (n2w n'))`,
@@ -479,7 +479,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
          Cases_on `ms.gpr (n2w n) = c'`,
          Cases_on `ms.gpr (n2w n) <+ c'`,
          Cases_on `ms.gpr (n2w n) < c'`,
-         Cases_on `ms.gpr (n2w n) && c' = 0w`,
+         Cases_on `(ms.gpr (n2w n) && c') = 0w`,
          Cases_on `ms.gpr (n2w n) <> c'`,
          Cases_on `~(ms.gpr (n2w n) <+ c')`,
          Cases_on `~(ms.gpr (n2w n) < c')`,

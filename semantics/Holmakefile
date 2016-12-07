@@ -21,8 +21,10 @@ $(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
 	else touch $(GENS); fi
 
 astScript.sml: ast.lem ../lib.lem ffi/ffi.lem addancs
-	if type lem; then $(LEM_CMD) ast.lem ; else touch astScript.sml ; fi
-	./addancs astScript.sml integer words string
+	if type lem; then \
+          $(LEM_CMD) ast.lem ;  ./addancs astScript.sml integer words string ; \
+        else touch astScript.sml ; fi
+
 
 ifdef POLY
 HOLHEAP = heap

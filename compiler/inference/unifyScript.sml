@@ -3,12 +3,12 @@ open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
 open infer_tTheory;
 
-val option_map_case = prove (
-  ``!f opt.
+val option_map_case = Q.prove (
+  `!f opt.
     OPTION_MAP f opt =
     case opt of
          NONE => NONE
-       | SOME a => SOME (f a)``,
+       | SOME a => SOME (f a)`,
   simp[FUN_EQ_THM] >>
   gen_tac >> Cases >>
   rw[OPTION_MAP_DEF])
@@ -233,9 +233,9 @@ val ts_unify_def = Define `
    | SOME s' => ts_unify s' ts1 ts2) ∧
 (ts_unify s _ _ = NONE)`;
 
-val encode_walk = prove(
-  ``∀s. t_wfs s ⇒
-      ∀t. walk (encode_infer_t o_f s) (encode_infer_t t) = encode_infer_t (t_walk s t)``,
+val encode_walk = Q.prove(
+  `∀s. t_wfs s ⇒
+      ∀t. walk (encode_infer_t o_f s) (encode_infer_t t) = encode_infer_t (t_walk s t)`,
   rw[walk_def] >>
   imp_res_tac encode_vwalk >>
   fs[] >>
@@ -243,11 +243,11 @@ val encode_walk = prove(
   rw[t_walk_def,decode_left_inverse] >>
   metis_tac[decode_left_inverse])
 
-val encode_pair_cases = prove(
-  ``(∀t t1 t2.
+val encode_pair_cases = Q.prove(
+  `(∀t t1 t2.
     (encode_infer_t t = Pair t1 t2) ⇒
       ((t1 = Const Tapp_tag) ∧
-       (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))``,
+       (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))`,
   Cases >> rw[encode_infer_t_def] >>
   PROVE_TAC[])
 
@@ -546,8 +546,8 @@ val encode_infer_t_inj_rwt = Q.prove(
  (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇔ (t1s = t2s))`,
  metis_tac[encode_infer_t_inj])
 
-val t_unify_ind = store_thm("t_unify_ind",
-  ``!P0 P1.
+val t_unify_ind = Q.store_thm("t_unify_ind",
+  `!P0 P1.
       (!s t1 t2.
          (!ts1 ts2 tc2.
             t_walk s t1 = Infer_Tapp ts1 tc2 /\
@@ -563,7 +563,7 @@ val t_unify_ind = store_thm("t_unify_ind",
             ts1 = t1::ts1' /\ ts2 = t2::ts2' ==> P0 s t1 t2) ==>
          P1 s ts1 ts2) ==>
       (!s t1 t2. t_wfs s ==> P0 s t1 t2) /\
-      (!s ts1 ts2. t_wfs s ==> P1 s ts1 ts2)``,
+      (!s ts1 ts2. t_wfs s ==> P1 s ts1 ts2)`,
   rpt gen_tac >> strip_tac >>
   Q.ISPEC_THEN`λs t1 t2.
     (∀us u1 u2. wfs s ∧ (s = encode_infer_t o_f us) ∧ (t1 = encode_infer_t u1) ∧ (t2 = encode_infer_t u2) ⇒ P0 us u1 u2) ∧
@@ -729,8 +729,8 @@ val t_collapse_eqn = Q.store_thm ("t_collapse_eqn",
 rw [collapse_def, t_collapse_def, t_walkstar_def, encode_infer_t_def, walkstar_def] >>
 rw [GSYM fmap_EQ_THM, FUN_FMAP_DEF]);
 
-val t_unify_unifier = store_thm("t_unify_unifier",
-  ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ⇒ t_wfs sx ∧ s ⊑ sx ∧ (t_walkstar sx t1 = t_walkstar sx t2)``,
+val t_unify_unifier = Q.store_thm("t_unify_unifier",
+  `t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ⇒ t_wfs sx ∧ s ⊑ sx ∧ (t_walkstar sx t1 = t_walkstar sx t2)`,
   simp[t_unify_def] >> strip_tac >>
   qmatch_assum_abbrev_tac`unify us ut1 ut2 = SOME uz` >>
   qspecl_then[`us`,`ut1`,`ut2`,`s`,`t1`,`t2`]mp_tac encode_unify >>
@@ -1037,9 +1037,9 @@ metis_tac [no_vars_lem, MAP_MAP_o, combinTheory.o_DEF]);
 
 (*Theorems about unification for completeness proof*)
 
-val t_walk_vwalk_id = store_thm ("t_walk_vwalk_id",
-``t_wfs s ⇒
-  !n. t_walk s (t_vwalk s n) = t_vwalk s n``,
+val t_walk_vwalk_id = Q.store_thm ("t_walk_vwalk_id",
+`t_wfs s ⇒
+  !n. t_walk s (t_vwalk s n) = t_vwalk s n`,
   strip_tac>>
   ho_match_mp_tac (Q.INST[`s`|->`s`]t_vwalk_ind)>>
   rw[]>>
@@ -1054,17 +1054,17 @@ val t_walk_vwalk_id = store_thm ("t_walk_vwalk_id",
   >>
     fs[])
 
-val t_walk_walk_id = store_thm("t_walk_walk_id",
-``t_wfs s ⇒
-  t_walk s (t_walk s h) = t_walk s h``,
+val t_walk_walk_id = Q.store_thm("t_walk_walk_id",
+`t_wfs s ⇒
+  t_walk s (t_walk s h) = t_walk s h`,
   Cases_on`h`>>
   fs[t_walk_eqn,t_walk_vwalk_id])
 
-val eqs_t_unify = store_thm( "eqs_t_unify",
-``t_wfs s ∧ t_wfs s2 ∧
+val eqs_t_unify = Q.store_thm( "eqs_t_unify",
+`t_wfs s ∧ t_wfs s2 ∧
   t_walkstar s2 (t_walkstar s t1) = t_walkstar s2 (t_walkstar s t2)
   ⇒
-  ?sx. t_unify s t1 t2 = SOME sx``,
+  ?sx. t_unify s t1 t2 = SOME sx`,
   rw[t_unify_def] >>
   match_mp_tac (GEN_ALL eqs_unify) >>
   qexists_tac`encode_infer_t o_f s2` >>
@@ -1077,12 +1077,12 @@ val encode_walkstar_reverse = encode_walkstar |>
 			      SPEC_ALL|>UNDISCH|>SYM |>
 			      DISCH_ALL |> GEN_ALL;
 
-val t_unify_mgu = store_thm ("t_unify_mgu",
-``!s t1 t2 sx s2.
+val t_unify_mgu = Q.store_thm ("t_unify_mgu",
+`!s t1 t2 sx s2.
   t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ∧ t_wfs s2 ∧
   (t_walkstar s2 (t_walkstar s t1)) = t_walkstar s2 (t_walkstar s t2)
   ⇒
-  ∀t. t_walkstar s2 (t_walkstar sx t) = t_walkstar s2 (t_walkstar s t)``,
+  ∀t. t_walkstar s2 (t_walkstar sx t) = t_walkstar s2 (t_walkstar s t)`,
   rw[]>>
   `t_wfs sx` by metis_tac[t_unify_wfs]>>
   rfs[t_walkstar_def,encode_walkstar_reverse]>>
@@ -1100,10 +1100,10 @@ val t_unify_mgu = store_thm ("t_unify_mgu",
   qpat_x_assum `decode_infer_t A = B` mp_tac>>
   fs[encode_walkstar,decode_left_inverse])
 
-val t_walkstar_tuvar_props = store_thm("t_walkstar_tuvar_props",
-``t_wfs s
+val t_walkstar_tuvar_props = Q.store_thm("t_walkstar_tuvar_props",
+`t_wfs s
   ⇒
-  (uv ∉ FDOM s ⇔  t_walkstar s (Infer_Tuvar uv) = Infer_Tuvar uv)``,
+  (uv ∉ FDOM s ⇔  t_walkstar s (Infer_Tuvar uv) = Infer_Tuvar uv)`,
   rw[EQ_IMP_THM]
   >-
     (fs[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
@@ -1119,16 +1119,16 @@ val t_compat_def = Define`
   t_wfs s ∧ t_wfs s' ∧
   !t. t_walkstar s' (t_walkstar s t) = t_walkstar s' t`
 
-val t_compat_refl = store_thm("t_compat_refl",
-``t_wfs s ⇒ t_compat s s``,
+val t_compat_refl = Q.store_thm("t_compat_refl",
+`t_wfs s ⇒ t_compat s s`,
   rw[t_compat_def]>>fs[t_walkstar_SUBMAP])
 
-val t_compat_trans = store_thm("t_compat_trans",
-``t_compat a b ∧ t_compat b c ⇒ t_compat a c``,
+val t_compat_trans = Q.store_thm("t_compat_trans",
+`t_compat a b ∧ t_compat b c ⇒ t_compat a c`,
   rw[t_compat_def]>>metis_tac[])
 
-val SUBMAP_t_compat = store_thm("SUBMAP_t_compat",
-``t_wfs s' ∧ s SUBMAP s' ⇒ t_compat s s'``,
+val SUBMAP_t_compat = Q.store_thm("SUBMAP_t_compat",
+`t_wfs s' ∧ s SUBMAP s' ⇒ t_compat s s'`,
   rw[t_compat_def]
   >-
     metis_tac[t_wfs_SUBMAP]>>
@@ -1136,11 +1136,11 @@ val SUBMAP_t_compat = store_thm("SUBMAP_t_compat",
 
 (*t_compat is preserved under certain types of unification
   Proof basically from HOL*)
-val t_compat_eqs_t_unify = store_thm("t_compat_eqs_t_unify",
-``!s t1 t2 sx.
+val t_compat_eqs_t_unify = Q.store_thm("t_compat_eqs_t_unify",
+`!s t1 t2 sx.
     t_compat s sx ∧ (t_walkstar sx t1 = t_walkstar sx t2)
     ⇒
-    ?si. (t_unify s t1 t2 = SOME si) ∧ t_compat si sx``,
+    ?si. (t_unify s t1 t2 = SOME si) ∧ t_compat si sx`,
   rw[t_compat_def]>>
   Q.ISPECL_THEN [`t2`,`t1`,`sx`,`s`] assume_tac (GEN_ALL eqs_t_unify)>>
   rfs[]>>

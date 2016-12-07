@@ -8,10 +8,10 @@ val _ = new_theory "cmlPtreeConversionProps";
 
 val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
-val ptree_head_TOK = store_thm(
+val ptree_head_TOK = Q.store_thm(
   "ptree_head_TOK",
-  ``(ptree_head pt = TOK sym ⇔ pt = Lf (TOK sym)) ∧
-    (TOK sym = ptree_head pt ⇔ pt = Lf (TOK sym))``,
+  `(ptree_head pt = TOK sym ⇔ pt = Lf (TOK sym)) ∧
+    (TOK sym = ptree_head pt ⇔ pt = Lf (TOK sym))`,
   Cases_on `pt` >> simp[] >> metis_tac[]);
 val _ = export_rewrites ["ptree_head_TOK"]
 
@@ -21,18 +21,18 @@ val start =
   strip_tac >> rveq >> fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
   rveq >> fs[MAP_EQ_CONS] >> rveq
 
-val UQTyOp_OK = store_thm(
+val UQTyOp_OK = Q.store_thm(
   "UQTyOp_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQTyOp) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃utyop. ptree_UQTyop pt = SOME utyop``,
+    ∃utyop. ptree_UQTyop pt = SOME utyop`,
   start >> simp[ptree_UQTyop_def]);
 
-val TyOp_OK = store_thm(
+val TyOp_OK = Q.store_thm(
   "TyOp_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃tyop. ptree_Tyop pt = SOME tyop``,
+    ∃tyop. ptree_Tyop pt = SOME tyop`,
   start >> simp[ptree_Tyop_def] >>
   asm_match `valid_ptree cmlG pt'` >>
   `destLf pt' = NONE`
@@ -40,18 +40,18 @@ val TyOp_OK = store_thm(
         rveq >> fs[]) >>
   simp[] >> metis_tac [UQTyOp_OK]);
 
-val TyvarN_OK = store_thm(
+val TyvarN_OK = Q.store_thm(
   "TyvarN_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyvarN) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyvarN) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃tyvn. ptree_TyvarN pt = SOME tyvn``,
+    ∃tyvn. ptree_TyvarN pt = SOME tyvn`,
   start >> simp[ptree_TyvarN_def]);
 
-val TyVarList_OK = store_thm(
+val TyVarList_OK = Q.store_thm(
   "TyVarList_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyVarList) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyVarList) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃tyvnms. ptree_linfix nTyVarList CommaT ptree_TyvarN pt = SOME tyvnms``,
+    ∃tyvnms. ptree_linfix nTyVarList CommaT ptree_TyvarN pt = SOME tyvnms`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
@@ -62,11 +62,11 @@ val TyVarList_OK = store_thm(
   fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >>
   metis_tac [TyvarN_OK]);
 
-val TypeName_OK = store_thm(
+val TypeName_OK = Q.store_thm(
   "TypeName_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTypeName) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTypeName) ∧
     MAP TOK toks = ptree_fringe pt ⇒
-    ∃tn. ptree_TypeName pt = SOME tn``,
+    ∃tn. ptree_TypeName pt = SOME tn`,
   start >> simp[ptree_TypeName_def] >| [
     metis_tac[UQTyOp_OK],
     full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_CONS, MAP_EQ_APPEND] >>
@@ -74,17 +74,17 @@ val TypeName_OK = store_thm(
     metis_tac[UQTyOp_OK]
   ]);
 
-val tuplify_OK = store_thm(
+val tuplify_OK = Q.store_thm(
   "tuplify_OK",
-  ``tl <> [] ⇒ ∃t. tuplify tl = SOME t``,
+  `tl <> [] ⇒ ∃t. tuplify tl = SOME t`,
   strip_tac >>
   `∃h tl0. tl = h::tl0` by (Cases_on `tl` >> fs[]) >>
   Cases_on `tl0` >> simp[tuplify_def]);
 
 
-val Type_OK0 = store_thm(
+val Type_OK0 = Q.store_thm(
   "Type_OK0",
-  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (N ∈ {nType; nDType; nTbase} ∧
      ptree_head pt = NT (mkNT N)
        ⇒
@@ -94,7 +94,7 @@ val Type_OK0 = store_thm(
     (ptree_head pt = NT (mkNT nTypeList1) ⇒
      ∃tl. ptree_TypeList1 pt = SOME tl) ∧
     (ptree_head pt = NT (mkNT nTypeList2) ⇒
-     ∃tl. ptree_Typelist2 pt = SOME tl)``,
+     ∃tl. ptree_Typelist2 pt = SOME tl)`,
   map_every qid_spec_tac [`N`, `toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
@@ -124,64 +124,64 @@ fun okify c q th =
 
 val Type_OK = save_thm("Type_OK", okify CONJUNCT1 `nType` Type_OK0);
 
-val V_OK = store_thm(
+val V_OK = Q.store_thm(
   "V_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nV) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nV) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃i. ptree_V pt = SOME i``,
+    ∃i. ptree_V pt = SOME i`,
   start >> simp[ptree_V_def]);
 
-val FQV_OK = store_thm(
+val FQV_OK = Q.store_thm(
   "FQV_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nFQV) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nFQV) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃i. ptree_FQV pt = SOME i``,
+    ∃i. ptree_FQV pt = SOME i`,
   start >> simp[ptree_FQV_def]
   >- metis_tac[V_OK, optionTheory.OPTION_MAP_DEF,
                optionTheory.OPTION_CHOICE_def] >>
   simp[ptree_V_def]);
 
-val UQConstructorName_OK = store_thm(
+val UQConstructorName_OK = Q.store_thm(
   "UQConstructorName_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQConstructorName) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQConstructorName) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃i. ptree_UQConstructorName pt = SOME i``,
+    ∃i. ptree_UQConstructorName pt = SOME i`,
   start >> simp[ptree_UQConstructorName_def]);
 
 val n = SIMP_RULE bool_ss [GSYM AND_IMP_INTRO]
-val ConstructorName_OK = store_thm(
+val ConstructorName_OK = Q.store_thm(
   "ConstructorName_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nConstructorName) ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nConstructorName) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃i. ptree_ConstructorName pt = SOME i``,
+    ∃i. ptree_ConstructorName pt = SOME i`,
   start >> simp[ptree_ConstructorName_def]
   >- (erule strip_assume_tac (n UQConstructorName_OK) >>
       simp[]) >>
   simp[ptree_UQConstructorName_def]);
 
-val Ops_OK0 = store_thm(
+val Ops_OK0 = Q.store_thm(
   "Ops_OK0",
-  ``N ∈ {nMultOps; nAddOps; nListOps; nRelOps; nCompOps} ∧ valid_ptree cmlG pt ∧
+  `N ∈ {nMultOps; nAddOps; nListOps; nRelOps; nCompOps} ∧ valid_ptree cmlG pt ∧
     MAP TK toks = ptree_fringe pt ∧ ptree_head pt = NT (mkNT N) ⇒
-    ∃opv. ptree_Op pt = SOME opv``,
+    ∃opv. ptree_Op pt = SOME opv`,
   start >> simp[ptree_Op_def]);
 
-val MAP_TK11 = prove(
-  ``∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2``,
+val MAP_TK11 = Q.prove(
+  `∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2`,
   Induct_on `l1` >> simp[] >- metis_tac[] >> rpt gen_tac >>
   Cases_on `l2` >> simp[]);
 val _ = augment_srw_ss [rewrites [MAP_TK11]]
 
 val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
           simp[]
-val Pattern_OK0 = store_thm(
+val Pattern_OK0 = Q.store_thm(
   "Pattern_OK0",
-  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons} ∧
     ptree_head pt = NT (mkNT N) ⇒
      ∃p. ptree_Pattern N pt = SOME p) ∧
     (ptree_head pt = NN nPatternList ⇒
-     ∃pl. ptree_Plist pt = SOME pl ∧ pl <> [])``,
+     ∃pl. ptree_Plist pt = SOME pl ∧ pl <> [])`,
   map_every qid_spec_tac [`N`, `toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
@@ -212,17 +212,17 @@ val Pattern_OK0 = store_thm(
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 
-val Eseq_encode_OK = store_thm(
+val Eseq_encode_OK = Q.store_thm(
   "Eseq_encode_OK",
-  ``∀l. l <> [] ⇒ ∃e. Eseq_encode l = SOME e``,
+  `∀l. l <> [] ⇒ ∃e. Eseq_encode l = SOME e`,
   Induct >> simp[] >>
   Cases_on `l` >> simp[Eseq_encode_def]);
 
-val OpID_OK = store_thm(
+val OpID_OK = Q.store_thm(
   "OpID_OK",
-  ``ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
+  `ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
     valid_ptree cmlG pt ⇒
-    ∃astv. ptree_OpID pt = SOME astv``,
+    ∃astv. ptree_OpID pt = SOME astv`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
@@ -231,11 +231,11 @@ val OpID_OK = store_thm(
   simp[ptree_OpID_def, isConstructor_def, isSymbolicConstructor_def, ifM_def] >>
   rw[] >> Cases_on `s` >> fs[oHD_def] >> rw[]);
 
-val PbaseList1_OK = store_thm(
+val PbaseList1_OK = Q.store_thm(
   "PbaseList1_OK",
-  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ∧
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ∧
     ptree_head pt = NT (mkNT nPbaseList1) ⇒
-    ∃pl. ptree_PbaseList1 pt = SOME pl ∧ 0 < LENGTH pl``,
+    ∃pl. ptree_PbaseList1 pt = SOME pl ∧ 0 < LENGTH pl`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
@@ -252,10 +252,17 @@ val PbaseList1_OK = store_thm(
                                 `toks` |-> `pbtoks`] |> n) >>
       simp[] >> fs[]))
 
+val Eliteral_OK = Q.store_thm(
+  "Eliteral_OK",
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ∧
+   ptree_head pt = NT (mkNT nEliteral) ⇒
+   ∃t. ptree_Eliteral pt = SOME t`,
+  start >> simp[ptree_Eliteral_def]);
+
 val _ = print "The E_OK proof takes a while\n"
-val E_OK0 = store_thm(
+val E_OK0 = Q.store_thm(
   "E_OK0",
-  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (N ∈ {nE; nE'; nEhandle; nElogicOR; nElogicAND; nEtuple; nEmult;
           nEadd; nElistop; nErel; nEcomp; nEbefore; nEtyped; nEapp;
           nEbase} ∧
@@ -275,7 +282,7 @@ val E_OK0 = store_thm(
     (ptree_head pt = NT (mkNT nLetDec) ⇒ ∃ld. ptree_LetDec pt = SOME ld) ∧
     (ptree_head pt = NT (mkNT nAndFDecls) ⇒
      ∃fds. ptree_AndFDecls pt = SOME fds) ∧
-    (ptree_head pt = NT (mkNT nFDecl) ⇒ ∃fd. ptree_FDecl pt = SOME fd)``,
+    (ptree_head pt = NT (mkNT nFDecl) ⇒ ∃fd. ptree_FDecl pt = SOME fd)`,
   map_every qid_spec_tac [`N`, `toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
@@ -295,22 +302,22 @@ val E_OK0 = store_thm(
   >- (erule strip_assume_tac (n Type_OK) >> simp[])
   >- (erule strip_assume_tac Eseq_encode_OK >> simp[])
   >- (asm_match `ptree_head pt' = NN nEtuple` >>
-      `destLf pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> rveq >> fs[MAP_EQ_CONS]) >>
-      `ptree_FQV pt' = NONE ∧ ptree_ConstructorName pt' = NONE`
+      `ptree_FQV pt' = NONE ∧ ptree_ConstructorName pt' = NONE ∧
+       ptree_Eliteral pt' = NONE`
         by (Cases_on `pt'` >> fs[] >>
-            simp[ptree_FQV_def, ptree_ConstructorName_def]) >>
+            simp[ptree_FQV_def, ptree_ConstructorName_def,
+                 ptree_Eliteral_def]) >>
       std)
   >- (asm_match `ptree_head pt' = NN nFQV` >>
-      `destLf pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> rveq >> fs[MAP_EQ_CONS]) >>
+      `ptree_Eliteral pt' = NONE`
+        by (Cases_on `pt'` >> fs[] >> simp[ptree_Eliteral_def]) >>
       erule strip_assume_tac (n FQV_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nConstructorName` >>
-      `destLf pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> rveq >> fs[MAP_EQ_CONS]) >>
-      `ptree_FQV pt' = NONE`
-        by (Cases_on `pt'` >> fs[] >> simp[ptree_FQV_def]) >>
+      `ptree_FQV pt' = NONE ∧ ptree_Eliteral pt' = NONE`
+        by (Cases_on `pt'` >> fs[] >>
+            simp[ptree_FQV_def, ptree_Eliteral_def]) >>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
+  >- (erule strip_assume_tac (n Eliteral_OK) >> simp[])
   >- (erule strip_assume_tac (n Eseq_encode_OK) >> simp[])
   >- (erule strip_assume_tac (n OpID_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nLetDec` >>
@@ -328,11 +335,11 @@ val AndFDecls_OK = save_thm(
   "AndFDecls_OK",
   okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0)
 
-val Dconstructor_OK = store_thm(
+val Dconstructor_OK = Q.store_thm(
   "Dconstructor_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃dc. ptree_Dconstructor pt = SOME dc``,
+    ∃dc. ptree_Dconstructor pt = SOME dc`,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_Dconstructor_def]
   >- (map_every (erule strip_assume_tac o n)
@@ -340,11 +347,11 @@ val Dconstructor_OK = store_thm(
       simp[]) >>
   erule strip_assume_tac (n UQConstructorName_OK) >> simp[])
 
-val DtypeCons_OK = store_thm(
+val DtypeCons_OK = Q.store_thm(
   "DtypeCons_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeCons ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeCons ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃dtc. ptree_linfix nDtypeCons BarT ptree_Dconstructor pt = SOME dtc``,
+    ∃dtc. ptree_linfix nDtypeCons BarT ptree_Dconstructor pt = SOME dtc`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
@@ -352,21 +359,21 @@ val DtypeCons_OK = store_thm(
   simp[Once ptree_linfix_def] >>
   erule strip_assume_tac (n Dconstructor_OK) >> simp[]);
 
-val DtypeDecl_OK = store_thm(
+val DtypeDecl_OK = Q.store_thm(
   "DtypeDecl_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeDecl ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeDecl ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃dtd. ptree_DtypeDecl pt = SOME dtd``,
+    ∃dtd. ptree_DtypeDecl pt = SOME dtd`,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_DtypeDecl_def] >>
   map_every (erule strip_assume_tac o n) [DtypeCons_OK, TypeName_OK] >>
   simp[]);
 
-val DtypeDecls_OK = store_thm(
+val DtypeDecls_OK = Q.store_thm(
   "DtypeDecls_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeDecls ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeDecls ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃td. ptree_linfix nDtypeDecls AndT ptree_DtypeDecl pt = SOME td``,
+    ∃td. ptree_linfix nDtypeDecls AndT ptree_DtypeDecl pt = SOME td`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
@@ -374,21 +381,21 @@ val DtypeDecls_OK = store_thm(
   simp[Once ptree_linfix_def] >>
   erule strip_assume_tac (n DtypeDecl_OK) >> simp[]);
 
-val TypeDec_OK = store_thm(
+val TypeDec_OK = Q.store_thm(
   "TypeDec_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTypeDec ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nTypeDec ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃td. ptree_TypeDec pt = SOME td``,
+    ∃td. ptree_TypeDec pt = SOME td`,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> fs[MAP_EQ_CONS] >>
   simp[ptree_TypeDec_def] >>
   erule strip_assume_tac (n DtypeDecls_OK) >> simp[]);
 
-val TypeAbbrevDec_OK = store_thm(
+val TypeAbbrevDec_OK = Q.store_thm(
   "TypeAbbrevDec_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTypeAbbrevDec ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nTypeAbbrevDec ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃td. ptree_TypeAbbrevDec pt = SOME td``,
+    ∃td. ptree_TypeAbbrevDec pt = SOME td`,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> fs[MAP_EQ_CONS] >> rveq >>
   simp[ptree_TypeAbbrevDec_def, pairTheory.EXISTS_PROD,
@@ -396,11 +403,11 @@ val TypeAbbrevDec_OK = store_thm(
   metis_tac[SIMP_RULE (srw_ss()) [pairTheory.EXISTS_PROD] TypeName_OK,
             Type_OK]);
 
-val Decl_OK = store_thm(
+val Decl_OK = Q.store_thm(
   "Decl_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDecl ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDecl ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃d. ptree_Decl pt = SOME d``,
+    ∃d. ptree_Decl pt = SOME d`,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> fs[MAP_EQ_CONS] >>
   simp[ptree_Decl_def]
@@ -415,11 +422,11 @@ val Decl_OK = store_thm(
       qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
       Cases_on `foo` >> simp[]));
 
-val Decls_OK = store_thm(
+val Decls_OK = Q.store_thm(
   "Decls_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDecls ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDecls ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃ds. ptree_Decls pt = SOME ds``,
+    ∃ds. ptree_Decls pt = SOME ds`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
@@ -432,29 +439,29 @@ val Decls_OK = store_thm(
       erule strip_assume_tac (n Decl_OK) >> simp[]) >>
   metis_tac[]);
 
-val OptTypEqn_OK = store_thm(
+val OptTypEqn_OK = Q.store_thm(
   "OptTypEqn_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nOptTypEqn ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nOptTypEqn ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃typopt. ptree_OptTypEqn pt = SOME typopt``,
+    ∃typopt. ptree_OptTypEqn pt = SOME typopt`,
   start >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_OptTypEqn_def] >> metis_tac[Type_OK]);
 
-val SpecLine_OK = store_thm(
+val SpecLine_OK = Q.store_thm(
   "SpecLine_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_SpecLine pt = SOME sl``,
+    ∃sl. ptree_SpecLine pt = SOME sl`,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_SpecLine_def, pairTheory.EXISTS_PROD, PULL_EXISTS] >>
   metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK, Dconstructor_OK,
             pairTheory.pair_CASES, OptTypEqn_OK]);
 
-val SpecLineList_OK = store_thm(
+val SpecLineList_OK = Q.store_thm(
   "SpecLineList_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLineList ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLineList ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_SpeclineList pt = SOME sl``,
+    ∃sl. ptree_SpeclineList pt = SOME sl`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
@@ -466,28 +473,28 @@ val SpecLineList_OK = store_thm(
       Cases_on `pt'` >> fs[MAP_EQ_CONS]) >>
   metis_tac[]);
 
-val StructName_OK = store_thm(
+val StructName_OK = Q.store_thm(
   "StructName_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_StructName pt = SOME sl``,
+    ∃sl. ptree_StructName pt = SOME sl`,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_StructName_def]);
 
-val SignatureValue_OK = store_thm(
+val SignatureValue_OK = Q.store_thm(
   "SignatureValue_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃sv. ptree_SignatureValue pt = SOME sv``,
+    ∃sv. ptree_SignatureValue pt = SOME sv`,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_SignatureValue_def] >>
   metis_tac[SpecLineList_OK]);
 
-val Structure_OK = store_thm(
+val Structure_OK = Q.store_thm(
   "Structure_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nStructure ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nStructure ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃s. ptree_Structure pt = SOME s``,
+    ∃s. ptree_Structure pt = SOME s`,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_Structure_def] >>
   rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
@@ -498,23 +505,23 @@ val Structure_OK = store_thm(
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
   metis_tac[SignatureValue_OK]);
 
-val TopLevelDec_OK = store_thm(
+val TopLevelDec_OK = Q.store_thm(
   "TopLevelDec_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTopLevelDec ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nTopLevelDec ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃t. ptree_TopLevelDec pt = SOME t``,
+    ∃t. ptree_TopLevelDec pt = SOME t`,
   start
   >- (erule strip_assume_tac (n Structure_OK) >> simp[ptree_TopLevelDec_def]) >>
   erule strip_assume_tac (n Decl_OK) >> simp[ptree_TopLevelDec_def] >>
   rename1 `ptree_Structure pt` >>
   Cases_on `ptree_Structure pt` >> simp[]);
 
-val TopLevelDecs_OK = store_thm(
+val TopLevelDecs_OK = Q.store_thm(
   "TopLevelDecs_OK",
-  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (ptree_head pt = NN nTopLevelDecs ⇒ ∃ts. ptree_TopLevelDecs pt = SOME ts) ∧
     (ptree_head pt = NN nNonETopLevelDecs ⇒
-     ∃ts. ptree_NonETopLevelDecs pt = SOME ts)``,
+     ∃ts. ptree_NonETopLevelDecs pt = SOME ts)`,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >> fs[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
@@ -527,11 +534,11 @@ val TopLevelDecs_OK = store_thm(
   >- (rw[] >> fs[] >> metis_tac[TopLevelDec_OK]))
 
 (*
-val REPLTop_OK = store_thm(
+val REPLTop_OK = Q.store_thm(
   "REPLTop_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLTop ∧
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLTop ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃r. ptree_REPLTop pt = SOME r``,
+    ∃r. ptree_REPLTop pt = SOME r`,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_REPLTop_def]
   >- (erule strip_assume_tac (n TopLevelDec_OK) >> simp[]) >>

@@ -11,7 +11,7 @@ val riscv_next_def = Define `riscv_next s = THE (NextRISCV s)`
 
 (* We assume virtual memory is turned off and a 64-bit architecture (RV64I) *)
 val riscv_ok_def = Define`
-   riscv_ok ms =
+   riscv_ok ms <=>
    ((ms.c_MCSR ms.procID).mstatus.VM = 0w) /\
    ((ms.c_MCSR ms.procID).mcpuid.ArchBase = 2w) /\
    (ms.c_NextFetch ms.procID = NONE) /\

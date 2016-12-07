@@ -62,11 +62,11 @@ val from_word = let
     |> INST_TYPE [``:'b``|->``:'a``]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_stack end
 
-val full_make_init_ffi = prove(
-  ``(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,regs,
+val full_make_init_ffi = Q.prove(
+  `(full_make_init
+         (bitmaps,c1,code,f,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
-          save_regs)).ffi = ffi``,
+          save_regs)).ffi = ffi`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
 
@@ -145,35 +145,35 @@ val machine_sem_implements_data_sem = save_thm("machine_sem_implements_data_sem"
 
 val data_to_word_precond_def = fetch "-" "data_to_word_precond_def" |> SPEC_ALL
 
-val full_make_init_gc_fun = prove(
-  ``(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,regs, xx,
-          save_regs)).gc_fun = word_gc_fun c1``,
+val full_make_init_gc_fun = Q.prove(
+  `(full_make_init
+         (bitmaps,c1,code,f,k,max_heap,off,regs, xx,
+          save_regs)).gc_fun = word_gc_fun c1`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]);
 
-val full_make_init_bitmaps = prove(
-  ``full_init_pre
-         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
+val full_make_init_bitmaps = Q.prove(
+  `full_init_pre
+         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs) ==>
     (full_make_init
-         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,regs,
+         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
-          save_regs)).bitmaps = bitmaps``,
+          save_regs)).bitmaps = bitmaps`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_bitmaps]
   \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
 
-val full_init_pre_IMP_init_store_ok = prove(
-  ``max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
+val full_init_pre_IMP_init_store_ok = Q.prove(
+  `max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
     init_store_ok c1
       ((full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,(s:('a,'ffi)labSem$state),
+          (bitmaps,c1,code3,f,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
              save_regs)).store \\ Handler)
        (full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).memory
+          (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).memory
        (full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,regs,s,save_regs)).mdomain``,
+          (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).mdomain`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def]
   \\ CASE_TAC \\ fs [] THEN1
@@ -191,14 +191,14 @@ val full_init_pre_IMP_init_store_ok = prove(
   \\ qexists_tac`len`
   \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]);
 
-val full_init_pre_IMP_init_state_ok = prove(
-  ``2 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
+val full_init_pre_IMP_init_state_ok = Q.prove(
+  `4 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
     (case bitmaps of [] => F | h::_ => 4w = h) /\
     good_dimindex (:α) ==>
     init_state_ok
       (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
       (full_make_init
-        (bitmaps:'a word list,c1,code3,f,k,max_heap,regs,s,save_regs))``,
+        (bitmaps:'a word list,c1,code3,f,k,max_heap,off,regs,s,save_regs))`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ CASE_TAC \\ fs [] THEN1
@@ -233,15 +233,15 @@ val code_and_locs = [
   wordLangTheory.raise_stub_location_def
   ]
 
-val stack_move_sa_gs = prove(``
+val stack_move_sa_gs = Q.prove(`
   ∀n st off i p.
   good_syntax p ⇒
-  good_syntax (stack_move n st off i p)``,
+  good_syntax (stack_move n st off i p)`,
   Induct>>rw[stack_move_def,sa_gs_def])
 
-val word_to_stack_sa_gs = prove(``
+val word_to_stack_sa_gs = Q.prove(`
   ∀p n args.
-  good_syntax (FST(word_to_stack$comp p n args))``,
+  good_syntax (FST(word_to_stack$comp p n args))`,
   recInduct comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
   >-
     (fs[wMove_def]>>qpat_abbrev_tac`ls = MAP f A`>>
@@ -278,18 +278,18 @@ val word_to_stack_sa_gs = prove(``
   >>
     rpt(pairarg_tac>>fs[sa_gs_def])>>rveq>>fs[sa_gs_def]);
 
-val stack_move_sr_gs = prove(``
+val stack_move_sr_gs = Q.prove(`
   ∀n st off i p k.
   i < k ∧
   good_syntax p k ⇒
-  good_syntax (stack_move n st off i p) k``,
+  good_syntax (stack_move n st off i p) k`,
   Induct>>rw[stack_move_def,sr_gs_def])
 
-val word_to_stack_sr_gs = prove(``
+val word_to_stack_sr_gs = Q.prove(`
   ∀p n args.
   post_alloc_conventions (FST args) p ∧
-  1 ≤ FST args ⇒
-  good_syntax (FST(word_to_stack$comp p n args)) (FST args+2)``,
+  4 ≤ FST args ⇒
+  good_syntax (FST(word_to_stack$comp p n args)) (FST args+2)`,
   recInduct comp_ind >>fs[comp_def,sa_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>> fs convs
   >-
     (fs[wMove_def]>>
@@ -329,16 +329,16 @@ val word_to_stack_sr_gs = prove(``
     match_mp_tac stack_move_sr_gs>>fs convs))
   >- (rpt(pairarg_tac>>fs[sr_gs_def])>>rveq>>fs[sr_gs_def]))
 
-val stack_move_sl_gs = prove(``
+val stack_move_sl_gs = Q.prove(`
   ∀n st off i p.
   good_syntax p 1 2 0 ⇒
-  good_syntax (stack_move n st off i p) 1 2 0``,
+  good_syntax (stack_move n st off i p) 1 2 0`,
   Induct>>rw[stack_move_def,sl_gs_def])
 
-val word_to_stack_sl_gs = prove(``
+val word_to_stack_sl_gs = Q.prove(`
   ∀p n args.
   post_alloc_conventions (FST args) p ⇒
-  good_syntax (FST(word_to_stack$comp p n args)) 1 2 0``,
+  good_syntax (FST(word_to_stack$comp p n args)) 1 2 0`,
   ho_match_mp_tac comp_ind >>fs[comp_def,sl_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
   >-
     (fs[wMove_def]>>
@@ -375,8 +375,8 @@ val word_to_stack_sl_gs = prove(``
     match_mp_tac stack_move_sl_gs>>fs convs))
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def]));
 
-val data_to_word_compile_imp = prove(
-  ``(LENGTH mc_conf.target.config.avoid_regs + 5) < mc_conf.target.config.reg_count ∧
+val data_to_word_compile_imp = Q.prove(
+  `LENGTH mc_conf.target.config.avoid_regs + 9 ≤ mc_conf.target.config.reg_count ∧
     EVERY (λn. data_num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
         (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
@@ -387,16 +387,19 @@ val data_to_word_compile_imp = prove(
       (fromAList (stubs(:α) c.data_conf ++ MAP ((compile_part c.data_conf) :
          num # num # dataLang$prog -> num # num # 'a wordLang$prog) prog),fromAList p) /\
     EVERY
-    (λ(n,m,prog).
-       flat_exp_conventions prog ∧
+    (λ(n,m,prog').
+       flat_exp_conventions prog' ∧
        post_alloc_conventions
          (mc_conf.target.config.reg_count −
-          (LENGTH mc_conf.target.config.avoid_regs + 5)) prog) p /\
+          (LENGTH mc_conf.target.config.avoid_regs + 5)) prog' ∧
+       (addr_offset_ok 0w mc_conf.target.config ⇒
+        full_inst_ok_less mc_conf.target.config prog') ∧
+       (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
      EVERY (\p. stack_to_labProof$good_syntax p 1 2 0) (MAP SND prog1) /\
      EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
      EVERY (\p. stack_removeProof$good_syntax p (mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)))
-       (MAP SND prog1))``,
+       (MAP SND prog1))`,
   fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
   CONJ_TAC>-
     (fs[lookup_fromAList]
@@ -472,8 +475,9 @@ val data_to_word_compile_imp = prove(
     \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] ) >>
     *)
   CONJ_ASM1_TAC>-
-    (assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-    pop_assum (qspecl_then [`c.word_to_word_conf`,`stubs(:α)c.data_conf++(MAP (compile_part c.data_conf) prog)`,`mc_conf.target.config`] assume_tac)>>rfs[])>>
+    (assume_tac(GEN_ALL data_to_wordProofTheory.data_to_word_compile_conventions)>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
+    rfs[data_to_wordTheory.compile_def])>>
   qpat_x_assum`EVERY _ (MAP FST _)`kall_tac >>
   qmatch_assum_rename_tac`_ pprog = _` >>
   rw[]>>fs[word_to_stackTheory.compile_def]>>pairarg_tac>>fs[]>>rveq>>
@@ -489,7 +493,7 @@ val data_to_word_compile_imp = prove(
   pairarg_tac>>fs[]>>
   rveq>>fs[]>>
   (reverse CONJ_TAC>-metis_tac[])>>
-  qpat_x_assum`A=(prog,bitmaps')` mp_tac>>
+  qpat_x_assum`A=(prog',bitmaps')` mp_tac>>
   FULL_SIMP_TAC std_ss [compile_prog_def,LET_THM]>>
   qpat_abbrev_tac`m = MAX A B`>>
   pairarg_tac>>fs[]>>strip_tac>>
@@ -510,14 +514,14 @@ val data_to_word_compile_imp = prove(
     fs convs>>
     unabbrev_all_tac>>fs[]);
 
-val stack_alloc_syntax = prove(
-  ``10 ≤ sp ∧ (* I think 10 has to do with the number of vars used by the gc implementation *)
+val stack_alloc_syntax = Q.prove(
+  `10 ≤ sp ∧ (* I think 10 has to do with the number of vars used by the gc implementation *)
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog1) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND prog1) ==>
     EVERY (λp. good_syntax p 1 2 0) (MAP SND (compile c.data_conf prog1)) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
-       (MAP SND (compile c.data_conf prog1))``,
+       (MAP SND (compile c.data_conf prog1))`,
   fs[stack_allocTheory.compile_def]>>
   EVAL_TAC>>fs[]>>
   qid_spec_tac`prog1`>>Induct>>
@@ -537,31 +541,31 @@ val stack_alloc_syntax = prove(
     BasicProvers.EVERY_CASE_TAC)>>
   rpt(pairarg_tac>>fs convs));
 
-val word_to_stack_compile_imp = prove(
-  ``word_to_stack$compile c p = (c2,prog1) ==>
-    (case c2.bitmaps of [] => F | h::v1 => 4w = h)``,
+val word_to_stack_compile_imp = Q.prove(
+  `word_to_stack$compile c p = (c2,prog1) ==>
+    (case c2.bitmaps of [] => F | h::v1 => 4w = h)`,
   fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
   \\ imp_res_tac compile_word_to_stack_isPREFIX
   \\ Cases_on `bitmaps` \\ fs []);
 
-val make_init_opt_imp_bitmaps_limit = prove(
-  ``make_init_opt max_heap bitmaps k code s = SOME x ==>
-    LENGTH (bitmaps:'a word list) < dimword (:'a) − 1``,
+val make_init_opt_imp_bitmaps_limit = Q.prove(
+  `make_init_opt max_heap bitmaps k code s = SOME x ==>
+    LENGTH (bitmaps:'a word list) < dimword (:'a) − 1`,
   fs [stack_removeProofTheory.make_init_opt_def]
   \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [stack_removeProofTheory.init_prop_def,
          stack_removeProofTheory.init_reduce_def]);
 
-val data_to_word_names = prove(
-  ``word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
-    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog``,
+val data_to_word_names = Q.prove(
+  `word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog`,
   rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
   pop_assum (qspecl_then [`c1`,`stubs(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
   fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,data_to_wordTheory.compile_part_def]);
 
-val word_to_stack_names = prove(
-  ``word_to_stack$compile c1 p = (c2,prog1) ==>
-    MAP FST prog1 = raise_stub_location::MAP FST p``,
+val word_to_stack_names = Q.prove(
+  `word_to_stack$compile c1 p = (c2,prog1) ==>
+    MAP FST prog1 = raise_stub_location::MAP FST p`,
   fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs []
   \\ rw [] \\ fs []>>
   pop_assum mp_tac>>
@@ -572,9 +576,9 @@ val word_to_stack_names = prove(
   rveq>>fs[]>>
   metis_tac[]);
 
-val stack_alloc_names = prove(
-  ``stack_alloc$compile c1 p = prog1 ==>
-    MAP FST prog1 = gc_stub_location::MAP FST p``,
+val stack_alloc_names = Q.prove(
+  `stack_alloc$compile c1 p = prog1 ==>
+    MAP FST prog1 = gc_stub_location::MAP FST p`,
   fs [stack_allocTheory.compile_def,stack_allocTheory.stubs_def] \\ rw []
   \\ fs [MAP_MAP_o,MAP_EQ_f,FORALL_PROD,stack_allocTheory.prog_comp_def]);
 
@@ -584,45 +588,45 @@ val code_installed'_def = Define `
      if is_Label x then code_installed' n xs code
      else asm_fetch_aux n code = SOME x ∧ code_installed' (n + 1) xs code)`
 
-val code_installed'_cons_label = prove(
-  ``!lines pos.
+val code_installed'_cons_label = Q.prove(
+  `!lines pos.
       is_Label h ==>
       code_installed' pos lines (Section n (h::xs)::other) =
-      code_installed' pos lines (Section n xs::other)``,
+      code_installed' pos lines (Section n xs::other)`,
   Induct \\ fs [code_installed'_def]
   \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def]);
 
-val code_installed'_cons_non_label = prove(
-  ``!lines pos.
+val code_installed'_cons_non_label = Q.prove(
+  `!lines pos.
       ~is_Label h ==>
       code_installed' (pos+1) lines (Section n (h::xs)::other) =
-      code_installed' pos lines (Section n xs::other)``,
+      code_installed' pos lines (Section n xs::other)`,
   Induct \\ fs [code_installed'_def]
   \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def])
   |> Q.SPECL [`lines`,`0`] |> SIMP_RULE std_ss [];
 
-val code_installed'_simp = store_thm("code_installed'_simp",
-  ``!lines. code_installed' 0 lines (Section n (lines ++ rest)::other)``,
+val code_installed'_simp = Q.store_thm("code_installed'_simp",
+  `!lines. code_installed' 0 lines (Section n (lines ++ rest)::other)`,
   Induct \\ fs [code_installed'_def]
   \\ fs [labSemTheory.asm_fetch_aux_def]
   \\ rpt strip_tac \\ IF_CASES_TAC
   \\ fs [code_installed'_cons_label,code_installed'_cons_non_label]);
 
-val loc_to_pc_skip_section = prove(
-  ``!lines.
+val loc_to_pc_skip_section = Q.prove(
+  `!lines.
       n <> p ==>
       loc_to_pc n 0 (Section p lines :: xs) =
       case loc_to_pc n 0 xs of
       | NONE => NONE
-      | SOME k => SOME (k + LENGTH (FILTER (\x. ~(is_Label x)) lines))``,
+      | SOME k => SOME (k + LENGTH (FILTER (\x. ~(is_Label x)) lines))`,
   Induct \\ once_rewrite_tac [labSemTheory.loc_to_pc_def] \\ fs []
   THEN1 (every_case_tac \\ fs [])
   \\ strip_tac \\ IF_CASES_TAC \\ fs [] \\ CASE_TAC \\ fs []);
 
-val asm_fetch_aux_add = prove(
-  ``!ys pc rest.
+val asm_fetch_aux_add = Q.prove(
+  `!ys pc rest.
       asm_fetch_aux (pc + LENGTH (FILTER (λx. ¬is_Label x) ys))
-        (Section pos ys::rest) = asm_fetch_aux pc rest``,
+        (Section pos ys::rest) = asm_fetch_aux pc rest`,
   Induct \\ fs [labSemTheory.asm_fetch_aux_def,ADD1]);
 
 val labs_correct_def = Define `
@@ -634,10 +638,10 @@ val labs_correct_def = Define `
         | _ => T)
      else labs_correct (n + 1) xs code)`
 
-val code_installed_eq = prove(
-  ``!pc xs code.
+val code_installed_eq = Q.prove(
+  `!pc xs code.
       code_installed pc xs code <=>
-      code_installed' pc xs code /\ labs_correct pc xs code``,
+      code_installed' pc xs code /\ labs_correct pc xs code`,
   Induct_on `xs`
   \\ fs [code_installed_def,code_installed'_def,labs_correct_def]
   \\ ntac 3 strip_tac \\ fs []
@@ -645,22 +649,22 @@ val code_installed_eq = prove(
   \\ Cases_on `h` \\ fs [lab_to_targetTheory.is_Label_def]
   \\ rw [] \\ eq_tac \\ fs []);
 
-val code_installed_cons = prove(
-  ``!xs ys pos pc.
+val code_installed_cons = Q.prove(
+  `!xs ys pos pc.
       code_installed' pc xs rest ==>
       code_installed' (pc + LENGTH (FILTER (λx. ¬is_Label x) ys)) xs
-        (Section pos ys :: rest)``,
+        (Section pos ys :: rest)`,
   Induct \\ fs [] \\ fs [code_installed'_def]
   \\ ntac 4 strip_tac \\ IF_CASES_TAC \\ fs []
   \\ rw [] \\ res_tac \\ fs [asm_fetch_aux_add]);
 
-val code_installed_prog_to_section_lemma = prove(
-  ``!prog4 n prog3.
+val code_installed_prog_to_section_lemma = Q.prove(
+  `!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
         code_installed' pc (append (FST (flatten prog3 n (next_lab prog3))))
           (MAP prog_to_section prog4) /\
-        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
+        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
   Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
   THEN1
    (fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac \\ fs []
@@ -669,11 +673,11 @@ val code_installed_prog_to_section_lemma = prove(
   \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
   \\ fs [loc_to_pc_skip_section,code_installed_cons]);
 
-val labs_correct_hd = prove(``
+val labs_correct_hd = Q.prove(`
   ∀extra l.
   ALL_DISTINCT (extract_labels (extra++l)) ∧
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (extra++l)) ⇒
-  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) ::code)``,
+  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) ::code)`,
   Induct_on`l`>>fs[labs_correct_def]>>rw[]
   >-
     (first_x_assum(qspec_then `extra++[h]` mp_tac)>>
@@ -698,13 +702,13 @@ val labs_correct_hd = prove(``
     Cases_on`h`>>fs[extract_labels_def,FILTER_APPEND]>>
     metis_tac[APPEND_ASSOC,APPEND])
 
-val labels_ok_labs_correct = prove(``
+val labels_ok_labs_correct = Q.prove(`
   ∀code.
   labels_ok code ⇒
   EVERY ( λs. case s of Section n lines =>
       case loc_to_pc n 0 code of
        SOME pc => labs_correct pc lines code
-      | _ => T) code``,
+      | _ => T) code`,
   Induct>>fs[labels_ok_def]>>Cases_on`h`>>fs[]>>
   rw[]
   >-
@@ -766,20 +770,20 @@ val labels_ok_labs_correct = prove(``
       >>
        fs[]);
 
-val labs_correct_append = prove(``
+val labs_correct_append = Q.prove(`
   ∀ls pc.
   labs_correct pc (ls ++ rest) code ⇒
-  labs_correct pc ls code``,
+  labs_correct pc ls code`,
   Induct>>fs[labs_correct_def]>>rw[]);
 
-val code_installed_prog_to_section = prove(
-  ``!prog4 n prog3.
+val code_installed_prog_to_section = Q.prove(
+  `!prog4 n prog3.
       labels_ok (MAP prog_to_section prog4) ∧
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
         code_installed pc (append (FST (flatten prog3 n (next_lab prog3))))
           (MAP prog_to_section prog4) /\
-        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc``,
+        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
   rpt strip_tac \\ fs [code_installed_eq]
   \\ drule code_installed_prog_to_section_lemma \\ strip_tac
   \\ asm_exists_tac \\ fs []
@@ -792,10 +796,17 @@ val code_installed_prog_to_section = prove(
   \\ pairarg_tac>>fs[]>>rveq>>fs[]
   \\ metis_tac[labs_correct_append]);
 
-val stack_remove_syntax_pres = prove(
-  ``Abbrev (prog3 = compile n bitmaps k pos prog2) /\
+val upshift_downshift_syntax = Q.prove(`
+  ∀n n0.
+  good_syntax (upshift n n0) 1 2 0 ∧
+  good_syntax (downshift n n0) 1 2 0`,
+  completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>strip_tac>>IF_CASES_TAC>>simp[sl_gs_def]>>
+  first_assum match_mp_tac>>EVAL_TAC>>fs[])
+
+val stack_remove_syntax_pres = Q.prove(
+  `Abbrev (prog3 = compile off n bitmaps k pos prog2) /\
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog2) ==>
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3)``,
+    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3)`,
   rw[]>>
   unabbrev_all_tac>>fs[]>>
   EVAL_TAC>>
@@ -806,7 +817,7 @@ val stack_remove_syntax_pres = prove(
     (Induct_on`bitmaps`>>fs[stack_removeTheory.store_list_code_def]>>
     EVAL_TAC>>fs[]))>>
   (rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
-  map_every qid_spec_tac[`p_2`,`k`]>>
+  map_every qid_spec_tac[`p_2`,`k`,`off`]>>
   ho_match_mp_tac stack_removeTheory.comp_ind>>
   Cases_on`p_2`>>rw[]>>
   ONCE_REWRITE_TAC [stack_removeTheory.comp_def]>>
@@ -814,19 +825,22 @@ val stack_remove_syntax_pres = prove(
   TRY(IF_CASES_TAC>>fs convs)
   >-
     (BasicProvers.EVERY_CASE_TAC>>fs[])
-  >-
-    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def]>>
+  >>
+  TRY (* stack_alloc and stack_free *)
+    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def,Once stack_removeTheory.stack_free_def,stack_removeTheory.single_stack_free_def]>>
     rpt (IF_CASES_TAC>>fs convs)>>
     first_assum match_mp_tac>>
-    EVAL_TAC>>fs[])
+    EVAL_TAC>>fs[]>>NO_TAC)
+  >- simp[stack_removeTheory.stack_store_def,stack_removeTheory.stack_load_def,sl_gs_def,upshift_downshift_syntax]
+  >- simp[stack_removeTheory.stack_store_def,stack_removeTheory.stack_load_def,sl_gs_def,upshift_downshift_syntax]
   >- EVAL_TAC));
 
-val stack_names_syntax_pres = prove(
-  ``Abbrev (prog4 = stack_names$compile f prog3) /\
+val stack_names_syntax_pres = Q.prove(
+  `Abbrev (prog4 = stack_names$compile f prog3) /\
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3) ==>
     EVERY (λp. good_syntax p (find_name f 1)
                              (find_name f 2)
-                             (find_name f 0)) (MAP SND prog4)``,
+                             (find_name f 0)) (MAP SND prog4)`,
   rw[]>>
   unabbrev_all_tac>>fs[stack_namesTheory.compile_def]>>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,stack_namesTheory.prog_comp_def]>>
@@ -838,22 +852,22 @@ val stack_names_syntax_pres = prove(
   fs convs>>
   BasicProvers.EVERY_CASE_TAC>>fs[]);
 
-val MEM_pair_IMP = prove(
-  ``!xs. MEM (x,y) xs ==> MEM x (MAP FST xs) /\ MEM y (MAP SND xs)``,
+val MEM_pair_IMP = Q.prove(
+  `!xs. MEM (x,y) xs ==> MEM x (MAP FST xs) /\ MEM y (MAP SND xs)`,
   Induct \\ fs [FORALL_PROD] \\ metis_tac []);
 
-val IS_SOME_EQ_CASE = prove(
-  ``IS_SOME x <=> case x of NONE => F | SOME _ => T``,
+val IS_SOME_EQ_CASE = Q.prove(
+  `IS_SOME x <=> case x of NONE => F | SOME _ => T`,
   Cases_on `x` \\ fs []);
 
-val compile_eq_imp = prove(
-  ``x = x' /\ y = y' ==>
-    lab_to_target$compile x y = lab_to_target$compile x' y'``,
+val compile_eq_imp = Q.prove(
+  `x = x' /\ y = y' ==>
+    lab_to_target$compile x y = lab_to_target$compile x' y'`,
   fs []);
 
-val BIJ_FLOOKUP_MAPKEYS = prove(
-  ``BIJ bij UNIV UNIV ==>
-    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)``,
+val BIJ_FLOOKUP_MAPKEYS = Q.prove(
+  `BIJ bij UNIV UNIV ==>
+    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
   fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
   \\ match_mp_tac (METIS_PROVE []
       ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
@@ -863,14 +877,14 @@ val BIJ_FLOOKUP_MAPKEYS = prove(
   \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
   \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
-val word_list_exists_imp = prove(
-  ``dm = addresses a n /\
+val word_list_exists_imp = Q.prove(
+  `dm = addresses a n /\
     dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
-    word_list_exists a n (fun2set (m1,dm:'a word set))``,
+    word_list_exists a n (fun2set (m1,dm:'a word set))`,
   metis_tac [stack_removeProofTheory.word_list_exists_addresses]);
 
-val addresses_thm = store_thm("addresses_thm",
-  ``!n a. addresses a n = { a + n2w i * bytes_in_word | i < n }``,
+val addresses_thm = Q.store_thm("addresses_thm",
+  `!n a. addresses a n = { a + n2w i * bytes_in_word | i < n }`,
   Induct \\ fs [stack_removeProofTheory.addresses_def]
   \\ rw [EXTENSION] \\ eq_tac \\ rw []
   THEN1 (qexists_tac `0` \\ fs [])
@@ -881,18 +895,18 @@ val addresses_thm = store_thm("addresses_thm",
   \\ asm_exists_tac \\ fs []
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
-val IMP_MULT_DIV_LESS = prove(
-  ``m <> 0 /\ d < k ==> m * (d DIV m) < k``,
+val IMP_MULT_DIV_LESS = Q.prove(
+  `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
   strip_tac \\ `0 < m` by decide_tac
   \\ drule DIVISION
   \\ disch_then (qspec_then `d` assume_tac)
   \\ decide_tac);
 
-val WORD_LS_IMP = prove(
-  ``a <=+ b ==>
+val WORD_LS_IMP = Q.prove(
+  `a <=+ b ==>
     ?k. Abbrev (b = a + n2w k) /\
         w2n (b - a) = k /\
-        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)``,
+        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`,
   Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
   \\ fs [markerTheory.Abbrev_def]
   \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
@@ -904,40 +918,56 @@ val WORD_LS_IMP = prove(
   \\ eq_tac \\ rw [] \\ fs []
   \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
 
-val byte_aligned_mult = prove(
-  ``good_dimindex (:'a) ==>
-    byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)``,
+val byte_aligned_mult = Q.prove(
+  `good_dimindex (:'a) ==>
+    byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)`,
   fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
         data_to_wordPropsTheory.aligned_add_pow]);
 
-val DIV_LESS_DIV = prove(
-  ``n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k``,
+val DIV_LESS_DIV = Q.prove(
+  `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
   strip_tac
   \\ drule DIVISION \\ disch_then (qspec_then `n` (strip_assume_tac o GSYM))
   \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
   \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]);
 
-val MOD_SUB_LEMMA = prove(
-  ``n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0``,
+val MOD_SUB_LEMMA = Q.prove(
+  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`,
   Cases_on `m <= n` \\ fs []
   \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
   \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
   \\ drule MOD_PLUS
   \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
 
-val LESS_MULT_LEMMA = prove(
-  ``n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num``,
+val LESS_MULT_LEMMA = Q.prove(
+  `n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num`,
   Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
   \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
   \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
   \\ fs []);
 
+(* asm config's syntactic constraints needed for asm_ok to hold *)
+val conf_constraint_def = Define`
+  conf_constraint (conf:'a asm_config) ⇔
+  addr_offset_ok 0w conf ∧
+  (∀n.
+     n ≤ max_stack_alloc ⇒
+     conf.valid_imm (INL Sub)
+       (n2w (n * (dimindex (:α) DIV 8))) ∧
+     conf.valid_imm (INL Add)
+       (n2w (n * (dimindex (:α) DIV 8)))) ∧
+  conf.valid_imm (INL Add) 1w ∧
+  conf.valid_imm (INL Sub) 1w ∧
+  conf.valid_imm (INL Add) 4w ∧
+  conf.valid_imm (INL Add) 8w ∧
+  ∀s. addr_offset_ok (store_offset s) conf`
+
 local
-val lemma = prove(
-  ``(from_data c prog = SOME (bytes,ffi_limit) /\
+val lemma = Q.prove(
+  `(from_data c prog = SOME (bytes,ffi_limit) /\
      EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
@@ -957,6 +987,11 @@ val lemma = prove(
     find_name c.stack_conf.reg_names 1 = mc_conf.ptr_reg /\
     (find_name c.stack_conf.reg_names 0 =
        case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) /\
+    (* Syntactic constraints on asm_config*)
+    conf_constraint mc_conf.target.config ∧
+    (* Specific to register renamings*)
+    names_ok c.stack_conf.reg_names mc_conf.target.config.reg_count mc_conf.target.config.avoid_regs ∧
+    fixed_names c.stack_conf.reg_names mc_conf.target.config ∧
     Abbrev (ra_regs = (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5))) /\
     2 < ra_regs ∧
@@ -968,9 +1003,10 @@ val lemma = prove(
     MEM (find_name c.stack_conf.reg_names (ra_regs+4))
       mc_conf.callee_saved_regs /\
     10 ≤ ra_regs +2 /\
-    (LENGTH mc_conf.target.config.avoid_regs + 5) <
+    (* At least 11 register available*)
+    LENGTH mc_conf.target.config.avoid_regs + 11 ≤
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
-    data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)``,
+    data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)`,
   strip_tac \\ fs [data_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
@@ -985,7 +1021,7 @@ val lemma = prove(
   \\ fs [from_stack_def]
   \\ fs [from_lab_def]
   \\ last_x_assum mp_tac
-  \\ qpat_abbrev_tac `tp = compile _ _ _ _ p'`
+  \\ qpat_abbrev_tac `tp = compile _ _ _ _ _ p'`
   (*Parts of this proof can be re-used...*)
   \\ `labels_ok tp` by
     (fs[Abbr`tp`]>>match_mp_tac stack_to_lab_compile_lab_pres>>
@@ -999,13 +1035,25 @@ val lemma = prove(
     CCONTR_TAC>>
     fs[]>>res_tac>>fs[] >>
     ntac 3 (pop_assum mp_tac) >> EVAL_TAC)
+  \\ `all_enc_ok_pre mc_conf.target.config tp` by
+    (fs[Abbr`tp`]>> match_mp_tac stack_to_lab_compile_all_enc_ok>>
+    fs[stackPropsTheory.reg_name_def,conf_constraint_def]>>
+    simp[GSYM EVERY_CONJ,LAMBDA_PROD]>>
+    `p' = SND (compile mc_conf.target.config p)` by fs[]>>
+    pop_assum SUBST1_TAC>>
+    match_mp_tac word_to_stack_stack_asm_convs>>
+    simp[]>>
+    assume_tac(GEN_ALL data_to_wordProofTheory.data_to_word_compile_conventions)>>
+    pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
+    rfs[data_to_wordTheory.compile_def,EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])
   \\ strip_tac
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []
   \\ rename1 `_ = (c2,prog1)`
   \\ qabbrev_tac `prog2 = compile c.data_conf prog1`
   \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ qpat_abbrev_tac `prog3 = compile _ c2.bitmaps _ _ prog2`
+  \\ qpat_abbrev_tac `prog3 = compile _ _ c2.bitmaps _ _ prog2`
   \\ qabbrev_tac `prog4 = compile c.stack_conf.reg_names prog3`
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
@@ -1014,6 +1062,7 @@ val lemma = prove(
   \\ fs [data_to_wordTheory.compile_def]
   \\ GEN_EXISTS_TAC "asm_conf" `c.lab_conf.asm_conf` \\ fs []
   \\ GEN_EXISTS_TAC "max_heap" `2 * max_heap_limit (:α) c.data_conf - 1` \\ fs []
+  \\ `LENGTH mc_conf.target.config.avoid_regs + 9 ≤ mc_conf.target.config.reg_count` by fs[]
   \\ drule data_to_word_compile_imp \\ strip_tac
   \\ GEN_EXISTS_TAC "x1" `fromAList (stubs(:α)c.data_conf ++ MAP (compile_part c.data_conf) prog)` \\ fs []
   \\ GEN_EXISTS_TAC "code3" `p` \\ fs []
@@ -1054,6 +1103,8 @@ val lemma = prove(
     \\ qabbrev_tac `n1 = l DIV k`
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
+  \\ Cases_on`mc_conf.target.config.addr_offset`
+  \\ qexists_tac`q` \\ qexists_tac `r` \\ fs[]
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf - 1) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
@@ -1147,7 +1198,9 @@ val lemma = prove(
     >- (
       EVAL_TAC \\ fs[EVERY_MEM] \\ strip_tac \\ res_tac \\ fs[]
       \\ pop_assum mp_tac \\ EVAL_TAC ))
-  \\ TRY (conj_tac >- ( EVAL_TAC \\ fs[EVERY_MEM] \\ rw[] \\ strip_tac \\ res_tac \\ fs[] \\ pop_assum mp_tac \\ EVAL_TAC))
+  \\ TRY (conj_tac >-
+    (fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[]))
   \\ TRY (conj_tac >- (
     ntac 3 strip_tac \\ rename1 `ALOOKUP prog1 k = SOME _`
     \\ imp_res_tac ALOOKUP_MEM
@@ -1240,17 +1293,17 @@ val COND_eq_SOME = Q.store_thm("COND_eq_SOME",
   `((if t then SOME a else b) = SOME x) ⇔ ((t ∧ (a = x)) ∨ (¬t ∧ b = SOME x))`,
   rw[]);
 
-val from_data_ignore = prove(
-  ``from_data (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
-    from_data c prog``,
+val from_data_ignore = Q.prove(
+  `from_data (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
+    from_data c prog`,
   fs [from_data_def,from_word_def,from_stack_def,from_lab_def]
   \\ rpt (pairarg_tac \\ fs []));
 
-val clos_to_data_names = store_thm("clos_to_data_names",
-  ``clos_to_bvl$compile c e4 = (c2,p2) /\
+val clos_to_data_names = Q.store_thm("clos_to_data_names",
+  `clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
     EVERY (λn. data_num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
-    ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))``,
+    ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))`,
   fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
   fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
   strip_tac>>
@@ -1346,7 +1399,7 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[] >> EVAL_TAC >>
     srw_tac[QUANT_INST_ss[std_qp]][]) >>
   disch_then drule >> strip_tac >>
-  rator_x_assum`from_mod`mp_tac >>
+  qhdtm_x_assum`from_mod`mp_tac >>
   srw_tac[][from_mod_def,Abbr`c''`,mod_to_conTheory.compile_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_assum_abbrev_tac`semantics_prog s env prog sem2` >>
@@ -1369,7 +1422,7 @@ val compile_correct = Q.store_thm("compile_correct",
   impl_tac >- (
     rw[Abbr`s`,prim_config_eq] >>
     fs[prim_config_eq] >>
-    rator_x_assum`next_inv`mp_tac >>
+    qhdtm_x_assum`next_inv`mp_tac >>
     rpt(pop_assum kall_tac) >>
     REWRITE_TAC[FRANGE_FUPDATE,DRESTRICT_FUPDATE,DOMSUB_FUPDATE_THM] >>
     EVAL_TAC >> rw[SUBSET_DEF] >> fs[PULL_EXISTS] >>
@@ -1380,14 +1433,14 @@ val compile_correct = Q.store_thm("compile_correct",
   strip_tac >>
   pop_assum(assume_tac o SYM) >> simp[] >>
   qunabbrev_tac`c'''`>>
-  rator_x_assum`from_con`mp_tac >>
+  qhdtm_x_assum`from_con`mp_tac >>
   srw_tac[][from_con_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   rfs[] >> fs[] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP (REWRITE_RULE[GSYM AND_IMP_INTRO]con_to_decProofTheory.compile_semantics))) >>
   simp[] >>
   impl_tac >- (
-    rator_x_assum`mod_to_con$compile_prog`mp_tac >>
+    qhdtm_x_assum`mod_to_con$compile_prog`mp_tac >>
     simp[prim_config_eq] >> EVAL_TAC >>
     `semantics env2 s2 p ≠ Fail` by simp[] >>
     pop_assum mp_tac >>
@@ -1406,9 +1459,9 @@ val compile_correct = Q.store_thm("compile_correct",
     qexists_tac`st`>>simp[Abbr`st`,mod_to_conTheory.get_exh_def] >>
     simp[FLOOKUP_UPDATE]) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
+  qhdtm_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  rator_x_assum`con_to_dec$compile`mp_tac >>
+  qhdtm_x_assum`con_to_dec$compile`mp_tac >>
   `c'.next_global = 0` by (
     fs[source_to_modTheory.compile_def,LET_THM] >>
     pairarg_tac >> fs[] >>
@@ -1416,18 +1469,18 @@ val compile_correct = Q.store_thm("compile_correct",
     rveq >> simp[prim_config_eq] ) >> fs[] >>
   strip_tac >> fs[] >>
   qunabbrev_tac`c''`>>fs[] >>
-  qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 es3 }` >>
-  (dec_to_exhProofTheory.compile_exp_semantics
-    |> Q.GENL[`sth`,`envh`,`es`,`st`,`env`]
-    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
+  qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 [e3] }` >>
+  (dec_to_exhProofTheory.compile_semantics
+    |> Q.GENL[`sth`,`envh`,`e`,`st`,`env`]
+    |> qispl_then[`env3`,`st3`,`e3`]mp_tac) >>
   simp[Abbr`env3`] >>
   simp[Once dec_to_exhProofTheory.v_rel_cases] >>
   simp[dec_to_exhProofTheory.state_rel_def] >>
   fs[Abbr`st3`,con_to_decProofTheory.compile_state_def] >>
   CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
-  simp[Abbr`es3`,dec_to_exhTheory.compile_exp_def] >>
+  simp[Abbr`e3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_exh`mp_tac >>
+  qhdtm_x_assum`from_exh`mp_tac >>
   srw_tac[][from_exh_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   fs[exh_to_patTheory.compile_def] >>
@@ -1438,7 +1491,7 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`es3`,Abbr`env3`] >>
   fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_pat`mp_tac >>
+  qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
@@ -1449,7 +1502,7 @@ val compile_correct = Q.store_thm("compile_correct",
   first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
   fs[pat_to_closProofTheory.compile_state_def,Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_clos`mp_tac >>
+  qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics [] st3 [e3] }` >>
@@ -1472,7 +1525,7 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`e3`] >>
   fs[Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  rator_x_assum`from_bvl`mp_tac >>
+  qhdtm_x_assum`from_bvl`mp_tac >>
   srw_tac[][from_bvl_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
@@ -1486,7 +1539,7 @@ val compile_correct = Q.store_thm("compile_correct",
     EVAL_TAC >>
     simp[EVEN_ADD,EVEN_EXP_IFF])>>
   disch_then(SUBST_ALL_TAC o SYM) >>
-  rator_x_assum`from_bvi`mp_tac >>
+  qhdtm_x_assum`from_bvi`mp_tac >>
   srw_tac[][from_bvi_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) s3 }` >>

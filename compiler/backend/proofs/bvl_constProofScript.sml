@@ -17,45 +17,45 @@ val env_rel_def = Define `
      v_rel (:'a) a x y (x::e1) (y::e2) /\ env_rel (:'a) rest e1 e2) /\
   (env_rel _ _ _ _ = F)`
 
-val env_rel_length = store_thm("env_rel_length",
-  ``!ax env env2. env_rel (:α) ax env env2 ==> LENGTH env2 = LENGTH env``,
+val env_rel_length = Q.store_thm("env_rel_length",
+  `!ax env env2. env_rel (:α) ax env env2 ==> LENGTH env2 = LENGTH env`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def]);
 
-val env_rel_LLOOKUP_NONE = prove(
-  ``!ax env env2 n.
+val env_rel_LLOOKUP_NONE = Q.prove(
+  `!ax env env2 n.
       env_rel (:α) ax env env2 /\
       (LLOOKUP ax n = NONE \/ LLOOKUP ax n = SOME NONE) ==>
-      EL n env2 = EL n env``,
+      EL n env2 = EL n env`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [] \\ Cases_on `n` \\ fs [EL]);
 
-val env_rel_LOOKUP_SOME = prove(
-  ``!env env2 ax x n.
+val env_rel_LOOKUP_SOME = Q.prove(
+  `!env env2 ax x n.
       env_rel (:α) ax env env2 /\
       LLOOKUP ax n = SOME (SOME x) ==>
-      v_rel (:'a) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)``,
+      v_rel (:'a) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
   Induct \\ Cases_on `env2` \\ Cases_on `ax` \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [env_rel_def] \\ res_tac \\ fs []
   \\ Cases_on `n` \\ fs [env_rel_def]
   \\ first_x_assum match_mp_tac
   \\ Cases_on `h'` \\ fs [env_rel_def]);
 
-val evaluate_delete_var_Rerr_SING = store_thm("evaluate_delete_var_Rerr_SING",
-  ``!x s r e env2.
+val evaluate_delete_var_Rerr_SING = Q.store_thm("evaluate_delete_var_Rerr_SING",
+  `!x s r e env2.
       evaluate ([x],env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate ([bvl_const$delete_var x],env2,s) = (Rerr e,r)``,
+      evaluate ([bvl_const$delete_var x],env2,s) = (Rerr e,r)`,
   Cases \\ fs [delete_var_def]
   \\ fs [evaluate_def,do_app_def] \\ rw []
   \\ CCONTR_TAC \\ fs [] \\ rw []);
 
-val evaluate_delete_var_Rerr = prove(
-  ``!xs s r e env2.
+val evaluate_delete_var_Rerr = Q.prove(
+  `!xs s r e env2.
       evaluate (xs,env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate (MAP bvl_const$delete_var xs,env2,s) = (Rerr e,r)``,
+      evaluate (MAP bvl_const$delete_var xs,env2,s) = (Rerr e,r)`,
   Induct \\ fs [] \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
   \\ TRY (drule evaluate_delete_var_Rerr_SING \\ fs [])
@@ -65,12 +65,12 @@ val evaluate_delete_var_Rerr = prove(
   \\ fs [evaluate_def,do_app_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rw []);
 
-val evaluate_delete_var_Rval = prove(
-  ``!xs env2 s a r ax env.
+val evaluate_delete_var_Rval = Q.prove(
+  `!xs env2 s a r ax env.
       evaluate (xs,env2,s:'a bvlSem$state) = (Rval a,r) /\
       env_rel (:'a) ax env env2 ==>
       ?b. evaluate (MAP delete_var xs,env2,s) = (Rval b,r) /\
-          env_rel (:'a) (extract_list xs ++ ax) (a ++ env) (b ++ env2)``,
+          env_rel (:'a) (extract_list xs ++ ax) (a ++ env) (b ++ env2)`,
   Induct \\ fs [env_rel_def,extract_list_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ Cases_on `evaluate ([h],env2,s)` \\ fs []
@@ -96,28 +96,28 @@ val evaluate_delete_var_Rval = prove(
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []);
 
-val IS_SOME_dest_Op_Const = store_thm("IS_SOME_dest_Op_Const[simp]",
-  ``IS_SOME (dest_Op_Const h) = ?i. h = Op (Const i) []``,
+val IS_SOME_dest_Op_Const = Q.store_thm("IS_SOME_dest_Op_Const[simp]",
+  `IS_SOME (dest_Op_Const h) = ?i. h = Op (Const i) []`,
   Cases_on `h` \\ fs [dest_Op_Const_def]
   \\ Cases_on `o'` \\ fs [dest_Op_Const_def]
   \\ rw [] \\ fs [NULL_EQ]);
 
-val evaluate_EQ_NIL = store_thm("evaluate_EQ_NIL",
-  ``bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t``,
+val evaluate_EQ_NIL = Q.store_thm("evaluate_EQ_NIL",
+  `bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t`,
   mp_tac (Q.SPECL [`xs`,`env`,`s`] evaluate_LENGTH)
   \\ every_case_tac \\ fs []
   \\ rw [] \\ TRY eq_tac \\ fs [] \\ rw [] \\ fs [LENGTH_NIL]
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]);
 
-val is_simple_thm = store_thm("is_simple_thm",
-  ``is_simple v <=> (?t. v = Op (Cons t) []) \/ (?i. v = Op (Const i) [])``,
+val is_simple_thm = Q.store_thm("is_simple_thm",
+  `is_simple v <=> (?t. v = Op (Cons t) []) \/ (?i. v = Op (Const i) [])`,
   Cases_on `v` \\ fs [is_simple_def]
   \\ Cases_on `o'` \\ fs [is_simple_def,NULL_EQ]);
 
-val SmartOp_thm = store_thm("SmartOp_thm",
-  ``evaluate ([Op op xs],env,s) = (res,s2) /\
+val SmartOp_thm = Q.store_thm("SmartOp_thm",
+  `evaluate ([Op op xs],env,s) = (res,s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([SmartOp op xs],env,s) = (res,s2)``,
+    evaluate ([SmartOp op xs],env,s) = (res,s2)`,
   full_simp_tac std_ss [SmartOp_def]
   \\ reverse (Cases_on `op`) \\ fs [] \\ every_case_tac \\ fs []
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_7] \\ rw []
@@ -125,14 +125,15 @@ val SmartOp_thm = store_thm("SmartOp_thm",
   \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
   \\ rfs [] \\ fs [is_simple_thm] \\ rfs [] \\ rw []
   \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
+  \\ fs [isClos_def] \\ every_case_tac \\ fs []
   \\ eq_tac \\ rw []);
 
-val evaluate_env_rel = store_thm("evaluate_env_rel",
-  ``!xs env1 (s1:'a bvlSem$state) ax env2 res s2 ys.
+val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
+  `!xs env1 (s1:'a bvlSem$state) ax env2 res s2 ys.
       (evaluate (xs,env1,s1) = (res,s2)) /\
       env_rel (:'a) ax env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
-      (evaluate (compile ax xs,env2,s1) = (res,s2))``,
+      (evaluate (compile ax xs,env2,s1) = (res,s2))`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [compile_def,evaluate_def,compile_HD_SING]
   THEN1
@@ -195,10 +196,10 @@ val compile_thm = save_thm("compile_thm",
   |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`] |> GEN_ALL
   |> SIMP_RULE std_ss [env_rel_def])
 
-val evaluate_compile_exp = store_thm("evaluate_compile_exp",
-  ``evaluate ([d],env,s) = (r,t) /\
+val evaluate_compile_exp = Q.store_thm("evaluate_compile_exp",
+  `evaluate ([d],env,s) = (r,t) /\
     r <> Rerr (Rabort Rtype_error) ==>
-    evaluate ([bvl_const$compile_exp d],env,s) = (r,t)``,
+    evaluate ([bvl_const$compile_exp d],env,s) = (r,t)`,
   fs [compile_exp_def]
   \\ `LENGTH (compile [] [d]) = LENGTH [d]` by fs [compile_length]
   \\ Cases_on `compile [] [d]` \\ fs [LENGTH_NIL] \\ rw []

@@ -10,7 +10,7 @@ val asm_deterministic = Q.store_thm("asm_deterministic",
 
 val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
   `!l1 l2 pc mem mem_domain.
-      bytes_in_memory pc (l1 ++ l2) mem mem_domain =
+      bytes_in_memory pc (l1 ++ l2) mem mem_domain <=>
       bytes_in_memory pc l1 mem mem_domain /\
       bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
   Induct
@@ -23,13 +23,13 @@ val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
 (* -- well-formedness of encoding -- *)
 
 val offset_monotonic_def = Define `
-  offset_monotonic enc c a1 a2 i1 i2 =
+  offset_monotonic enc c a1 a2 i1 i2 <=>
   asm_ok i1 c /\ asm_ok i2 c ==>
   (0w <= a1 /\ 0w <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
   (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
 
 val enc_ok_def = Define `
-  enc_ok (c : 'a asm_config) =
+  enc_ok (c : 'a asm_config) <=>
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
     (!w. (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
@@ -56,14 +56,14 @@ val () = Datatype `
      |>`
 
 val target_state_rel_def = Define`
-  target_state_rel t s ms =
+  target_state_rel t s ms <=>
   t.state_ok ms /\ (t.get_pc ms = s.pc) /\
   (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
   (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
        (t.get_reg ms i = s.regs i))`
 
 val target_ok_def = Define`
-  target_ok t =
+  target_ok t <=>
   enc_ok t.config /\
   !ms1 ms2 s.
     (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
@@ -98,7 +98,7 @@ val backend_correct_def = Define `
 
 val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
   `!t s ms.
-     target_state_rel t s ms =
+     target_state_rel t s ms <=>
      t.state_ok ms /\ (s.pc = t.get_pc ms) /\
      (!a. a IN s.mem_domain ==> (s.mem a = t.get_byte ms a)) /\
      (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
@@ -137,30 +137,30 @@ val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
    ((asmSem$upd_pc x s).pc = x)`,
   EVAL_TAC);
 
-val asm_failed_ignore_new_pc = store_thm("asm_failed_ignore_new_pc",
-  ``!i v w s. (asm i w s).failed <=> (asm i v s).failed``,
+val asm_failed_ignore_new_pc = Q.store_thm("asm_failed_ignore_new_pc",
+  `!i v w s. (asm i w s).failed <=> (asm i v s).failed`,
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
-  ``!i v w s. (asm i w s).mem = (asm i v s).mem``,
+val asm_mem_ignore_new_pc = Q.store_thm("asm_mem_ignore_new_pc",
+  `!i v w s. (asm i w s).mem = (asm i v s).mem`,
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-val SND_read_mem_word_consts = prove(
-  ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+val SND_read_mem_word_consts = Q.prove(
+  `!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
             ((SND (read_mem_word a n s)).lr = s.lr) /\
             ((SND (read_mem_word a n s)).align = s.align) /\
-            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)`,
   Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ full_simp_tac(srw_ss())[assert_def])
 
-val write_mem_word_consts = prove(
-  ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
+val write_mem_word_consts = Q.prove(
+  `!n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
               ((write_mem_word a n w s).align = s.align) /\
-              ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)`,
   Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
 
 val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
@@ -180,11 +180,11 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    ((arith_upd a x).be = x.be)`,
   Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
 
-val asm_consts = store_thm("asm_consts[simp]",
-  ``!i w s. ((asm i w s).be = s.be) /\
+val asm_consts = Q.store_thm("asm_consts[simp]",
+  `!i w s. ((asm i w s).be = s.be) /\
             ((asm i w s).lr = s.lr) /\
             ((asm i w s).align = s.align) /\
-            ((asm i w s).mem_domain = s.mem_domain)``,
+            ((asm i w s).mem_domain = s.mem_domain)`,
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
   \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]

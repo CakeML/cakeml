@@ -1,3 +1,6 @@
+(*
+   Build a basic compset for evaluation in the logic.
+*)
 structure basicComputeLib :> basicComputeLib =
 struct
 
@@ -61,5 +64,7 @@ val add_basic_compset =
    ,alistTheory.ALOOKUP_def
    ,sortingTheory.PARTITION_DEF
    ,sortingTheory.PART_DEF
-   ,sortingTheory.QSORT_DEF] ]
+   ,sortingTheory.QSORT_DEF
+   ,sptreeTheory.inter_eq_def
+   ,sptreeTheory.filter_v_def] ]
 end

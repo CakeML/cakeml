@@ -83,8 +83,8 @@ val _ = Hol_datatype `
   | Chr
   | Chopb of opb
   (* String operations *)
-  | Explode
   | Implode
+  | Strsub
   | Strlen
   (* Vector operations *)
   | VfromList

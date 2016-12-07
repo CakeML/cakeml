@@ -109,8 +109,8 @@ val compile_length = Q.store_thm("compile_length[simp]",
   \\ fs [compile_def,ADD1,LET_DEF]
   \\ rpt (pairarg_tac \\ fs []) \\ rw [OptionalLetLet_def]);
 
-val compile_sing = store_thm("compile_sing",
-  ``compile l n [x] = (dx,lx,s) ==> ?y. dx = [y]``,
+val compile_sing = Q.store_thm("compile_sing",
+  `compile l n [x] = (dx,lx,s) ==> ?y. dx = [y]`,
   `LENGTH (FST (compile l n [x])) = LENGTH [x]` by fs []
   \\ rpt strip_tac \\ full_simp_tac std_ss [LENGTH]
   \\ Cases_on `dx` \\ fs [LENGTH_NIL]);

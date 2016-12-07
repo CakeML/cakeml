@@ -23,8 +23,8 @@ val _ = translation_extends "mini_prelude";
 
 val res = translate EVEN_MOD2;
 
-val UNIT_thm = prove(
-  ``UNIT x s = (x,s)``,
+val UNIT_thm = Q.prove(
+  `UNIT x s = (x,s)`,
   FULL_SIMP_TAC std_ss [state_transformerTheory.UNIT_DEF]);
 
 val _ = translate UNIT_thm;
@@ -32,8 +32,8 @@ val _ = translate UNIT_thm;
 val def = find_def ``BIND``;
 val _ = translate (SIMP_RULE std_ss [FUN_EQ_THM] def);
 
-val lemma = prove(
-  ``prob_while_cut c b n = \x. prob_while_cut c b n x``,
+val lemma = Q.prove(
+  `prob_while_cut c b n = \x. prob_while_cut c b n x`,
   SIMP_TAC std_ss [FUN_EQ_THM]);
 
 val def = find_def ``prob_while_cut``

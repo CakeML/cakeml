@@ -1,4 +1,4 @@
-open preamble
+open preamble bootstrapLib
      backendTheory
      to_lab_x64BootstrapTheory
      x64_configTheory
@@ -21,8 +21,6 @@ val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
 val () = Globals.max_print_depth := 10;
 val () = ml_translatorLib.reset_translation();
 
-val rconc = rhs o concl;
-
 val cs = wordsLib.words_compset()
 val () =
   computeLib.extend_compset [
@@ -39,18 +37,6 @@ val bare_cs = wordsLib.words_compset()
 val () =
   computeLib.extend_compset[computeLib.Extenders[compilerComputeLib.add_compiler_compset]] bare_cs
 val bare_eval = computeLib.CBV_CONV bare_cs
-
-fun mk_def_name s = String.concat[s,"_def"];
-fun mk_def s tm = new_definition(mk_def_name s,mk_eq(mk_var(s,type_of tm),tm))
-
-fun make_abbrevs str n [] acc = acc
-  | make_abbrevs str n (t::ts) acc =
-    make_abbrevs str (n-1) ts
-      (mk_def (str^(Int.toString n)) t :: acc)
-
-fun intro_abbrev [] tm = raise UNCHANGED
-  | intro_abbrev (ab::abbs) tm =
-      FORK_CONV(REWR_CONV(SYM ab),intro_abbrev abbs) tm
 
 val chunk_size = 50
 val num_threads = 8
@@ -82,8 +68,7 @@ fun eval_fn i n p =
     val tm = mk_comb(filter_skip_fn,p)
   in (*time*) eval tm end
 
-val () = Lib.say "filter_skip: "
-val ths = time (parlist num_threads chunk_size eval_fn) lab_prog_els;
+val ths = time_with_size thms_size "filter_skip (par)" (parlist num_threads chunk_size eval_fn) lab_prog_els;
 
 val filter_skip_thm =
   tm9 |> (
@@ -98,11 +83,10 @@ val skip_prog_def = mk_def"skip_prog" (filter_skip_thm |> rconc |> rand);
 val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
 
-val () = Lib.say "ffi_limit: "
 (* could parallelise? *)
 val ffi_limit_thm =
   ``find_ffi_index_limit skip_prog``
-  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC time eval)
+  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC timez "ffi_limit" eval)
 
 val lab_to_target_thm1 =
   lab_to_target_thm0
@@ -138,8 +122,7 @@ fun eval_fn i n p =
 
 (* evaluate encoder (can be slow?) *)
 
-val () = Lib.say "enc_sec: "
-val ths = time (parlist num_threads chunk_size eval_fn) skip_prog_els;
+val ths = time_with_size thms_size "enc_sec (par)" (parlist num_threads chunk_size eval_fn) skip_prog_els;
 
 val remove_labels_thm1 =
   remove_labels_thm0
@@ -203,8 +186,7 @@ fun eval_fn i n th =
     conv tm
   end
 
-val () = Lib.say "sec_length: "
-val sec_lengths = time (parlist num_threads chunk_size eval_fn) encoded_prog_defs
+val sec_lengths = time_with_size thms_size "sec_length (par)" (parlist num_threads chunk_size eval_fn) encoded_prog_defs
 
 val () = PolyML.fullGC();
 
@@ -239,9 +221,8 @@ fun compute_labels_alt_conv _ [] [] tm = REWR_CONV cln tm
      RAND_CONV (compute_labels_alt_conv (n+1) dths sths) THENC
      BETA_CONV THENC eval_fn n)
 
-val () = Lib.say "compute_labels: "
 val compute_labels_thm =
-  tm12 |> time (
+  tm12 |> timez "compute_labels" (
     RAND_CONV(REWR_CONV encoded_prog_thm) THENC
     compute_labels_alt_conv 0 (List.rev encoded_prog_defs) sec_lengths)
 
@@ -302,9 +283,8 @@ fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
         REWR_CONV LET_THM THENC PAIRED_BETA_CONV))
     end
 
-val () = Lib.say "enc_secs_again: "
 val enc_secs_again_thm =
-  tm13 |> time (
+  tm13 |> timez "enc_secs_again" (
     RAND_CONV(REWR_CONV encoded_prog_thm) THENC
     enc_secs_again_conv 0 (List.rev encoded_prog_defs))
 
@@ -363,9 +343,8 @@ fun upd_lab_len_conv _ [] tm = REWR_CONV uln tm
         BETA_CONV))
     end
 
-val () = Lib.say "upd_lab_len: "
 val upd_lab_len_thm =
-  tm14 |> time (upd_lab_len_conv 0 enc_again_defs)
+  tm14 |> timez "upd_lab_len" (upd_lab_len_conv 0 enc_again_defs)
 
 val lab_to_target_thm5 =
   lab_to_target_thm4
@@ -388,8 +367,7 @@ fun eval_fn i n dth =
   in (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
       (*time*) eval) tm end
 
-val () = Lib.say "sec_length2: "
-val sec_lengths2 = time (parlist num_threads chunk_size eval_fn) upd_lab_defs;
+val sec_lengths2 = time_with_size thms_size "sec_length2 (par)" (parlist num_threads chunk_size eval_fn) upd_lab_defs;
 
 (* TODO:
   the previous compute_labels_alt thing could be this instead, if encoded_progs
@@ -422,9 +400,8 @@ val (dth::_) = upd_lab_defs
 val (sth::_) = List.rev sec_lengths2
 *)
 
-val () = Lib.say"compute_labels2: "
 val compute_labels_thm2 =
-  tm15 |> time (compute_labels_alt_conv "compute_labels2" 0 upd_lab_defs (List.rev sec_lengths2))
+  tm15 |> timez "compute_labels2" (compute_labels_alt_conv "compute_labels2" 0 upd_lab_defs (List.rev sec_lengths2))
 
 val computed_labs2_def = mk_def"computed_labs2"(compute_labels_thm2 |> rconc)
 val compute_labels_thm2' =
@@ -476,9 +453,8 @@ fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
 val tm16 =
   lab_to_target_thm6 |> rconc |> funpow 2 rator |> funpow 2 rand
 
-val () = Lib.say"enc_secs_again2: "
 val enc_secs_again_thm2 =
-  tm16 |> time (enc_secs_again_conv 0 upd_lab_defs)
+  tm16 |> timez "enc_secs_again2" (enc_secs_again_conv 0 upd_lab_defs)
 
 val lab_to_target_thm7 =
   lab_to_target_thm6 |> CONV_RULE(RAND_CONV(
@@ -527,9 +503,8 @@ fun eval_fn i n (dth, p) =
 val enc_again2_els =
   tm17 |> rand |> listSyntax.dest_list |> #1
 
-val () = Lib.say"pad_section: "
 val pad_code_thms =
-  time (parlist num_threads chunk_size eval_fn)
+  time_with_size thms_size "pad_section" (parlist num_threads chunk_size eval_fn)
     (zip enc_again2_defs enc_again2_els);
 
 val pad_code_defs =
@@ -624,12 +599,10 @@ fun eval_fn i n (p,d) =
 
 val pad_code_els_defs = zip padded_code_els pad_code_defs;
 
-val () = Lib.say"sec_ok: "
-val secs_ok = time (parlist num_threads chunk_size eval_fn) pad_code_els_defs;
+val secs_ok = time_with_size thms_size "sec_ok (par)" (parlist num_threads chunk_size eval_fn) pad_code_els_defs;
 
-val () = Lib.say"all_secs_ok: "
 val all_secs_ok =
-  time (listLib.join_EVERY sec_ok_light_tm)
+  time_with_size (term_size o concl) "all_secs_ok" (listLib.join_EVERY sec_ok_light_tm)
     (rev_itlist (cons o EQT_ELIM) secs_ok [])
 
 (*
@@ -688,9 +661,8 @@ fun eval_fn i n (p,dth) =
        (*time*) eval)
     in conv tm end
 
-val () = Lib.say"prog_to_bytes: "
 val line_bytes =
-  time (parlist num_threads chunk_size eval_fn) (zip padded_code_els pad_code_defs);
+  time_with_size thms_size "prog_to_bytes (par)" (parlist num_threads chunk_size eval_fn) (zip padded_code_els pad_code_defs);
 
 val map_line_bytes =
   tm19 |>
@@ -712,7 +684,7 @@ fun app_conv _ [] tm = raise UNCHANGED
     let
       val th = FORK_CONV(REWR_CONV dth, app_conv (n+1) dths) tm
       val def = mk_def ("all_bytes_"^(Int.toString n)) (rand(rconc th))
-      val () = Lib.say (str n)
+      (* val () = Lib.say (str n) *)
     in
       CONV_RULE(RAND_CONV
         (RAND_CONV(REWR_CONV(SYM def)) THENC listLib.APPEND_CONV))
@@ -722,13 +694,11 @@ end
 
 (* 36 minutes. is there a faster way? *)
 
-val () = Lib.say"flat_bytes: "
-
 val flat_bytes =
   listSyntax.mk_flat(rconc map_line_bytes')
   |> (REWR_CONV FLAT_FOLDR
       THENC listLib.FOLDR_CONV (QCONV ALL_CONV) THENC
-      time (app_conv 0 (List.rev bytes_defs)));
+      timez "flat_bytes" (app_conv 0 (List.rev bytes_defs)));
 
 fun expand_defs_conv [] tm = raise UNCHANGED
   | expand_defs_conv (dth::dths) tm =
@@ -741,9 +711,8 @@ val all_bytes_defs =
 
 (* also quite slow, 32 mins *)
 
-val () = Lib.say"expand_defs: "
 val flat_bytes' =
-  flat_bytes |> time (CONV_RULE(RAND_CONV(expand_defs_conv all_bytes_defs)));
+  flat_bytes |> timez "expand_defs" (CONV_RULE(RAND_CONV(expand_defs_conv all_bytes_defs)));
 
 val bootstrap_thm = save_thm("bootstrap_thm",
   lab_to_target_thm

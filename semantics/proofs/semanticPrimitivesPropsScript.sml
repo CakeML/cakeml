@@ -22,7 +22,7 @@ val with_same_clock = Q.store_thm("with_same_clock",
   `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
   rw[semanticPrimitivesTheory.state_component_equality])
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,srw_tac[][Boolv_def]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`Boolv b1 = Boolv b2 ⇔ (b1 = b2)`,srw_tac[][Boolv_def]);
 
 val extend_dec_env_assoc = Q.store_thm ("extend_dec_env_assoc[simp]",
   `!env1 env2 env3.
@@ -94,13 +94,13 @@ val do_word_from_int_def = Define`
   (do_word_from_int W64 i = Word64 (i2w i))`;
 val _ = export_rewrites["do_word_from_int_def"];
 
-val lit_same_type_refl = store_thm("lit_same_type_refl",
-  ``∀l. lit_same_type l l``,
+val lit_same_type_refl = Q.store_thm("lit_same_type_refl",
+  `∀l. lit_same_type l l`,
   Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
 val _ = export_rewrites["lit_same_type_refl"]
 
-val lit_same_type_sym = store_thm("lit_same_type_sym",
-  ``∀l1 l2. lit_same_type l1 l2 ⇒ lit_same_type l2 l1``,
+val lit_same_type_sym = Q.store_thm("lit_same_type_sym",
+  `∀l1 l2. lit_same_type l1 l2 ⇒ lit_same_type l2 l1`,
   Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
 
 val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
@@ -345,8 +345,8 @@ val do_app_cases = Q.store_thm ("do_app_cases",
  srw_tac[][] >>
  metis_tac []);
 
-val do_opapp_cases = store_thm("do_opapp_cases",
-  ``∀env' vs v.
+val do_opapp_cases = Q.store_thm("do_opapp_cases",
+  `∀env' vs v.
     (do_opapp vs = SOME (env',v))
     =
   ((∃v2 env'' n e.
@@ -356,11 +356,31 @@ val do_opapp_cases = store_thm("do_opapp_cases",
     (vs = [Recclosure env'' funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))``,
+    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))`,
   srw_tac[][do_opapp_def] >>
   cases_on `vs` >> srw_tac[][] >>
   every_case_tac >> metis_tac []);
  *)
+
+val do_app_NONE_ffi = Q.store_thm("do_app_NONE_ffi",
+  `do_app (refs,ffi) op args = NONE ⇒
+   do_app (refs,ffi') op args = NONE`,
+  rw[do_app_def]
+  \\ every_case_tac \\ fs[]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ fs[store_assign_def,store_v_same_type_def]
+  \\ every_case_tac \\ fs[]);
+
+val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
+  `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ∧ ffi.final_event = NONE ⇒
+   do_app (refs,ffi') op args = SOME ((refs',ffi'),r)`,
+  rw[]
+  \\ fs[do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ every_case_tac \\ fs[]
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
+  \\ rfs[]);
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
@@ -395,8 +415,8 @@ val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
  cases_on `tn2` >>
  full_simp_tac(srw_ss())[same_tid_def, same_ctor_def]);
 
-val same_tid_refl = store_thm("same_tid_refl[simp]",
-  ``same_tid t t``,
+val same_tid_refl = Q.store_thm("same_tid_refl[simp]",
+  `same_tid t t`,
   Cases_on`t`>>EVAL_TAC);
 
 val same_tid_sym = Q.store_thm ("same_tid_sym",
@@ -460,8 +480,8 @@ val map_error_result_def = Define`
   (map_error_result f (Rabort a) = Rabort a)`
 val _ = export_rewrites["map_error_result_def"]
 
-val map_error_result_Rtype_error = store_thm("map_error_result_Rtype_error",
-  ``map_error_result f e = (Rabort a) ⇔ e = Rabort a``,
+val map_error_result_Rtype_error = Q.store_thm("map_error_result_Rtype_error",
+  `map_error_result f e = (Rabort a) ⇔ e = Rabort a`,
   Cases_on`e`>>simp[])
 val _ = export_rewrites["map_error_result_Rtype_error"]
 
@@ -478,8 +498,8 @@ val map_result_Rval = Q.store_thm("map_result_Rval[simp]",
   `map_result f1 f2 e = Rval x ⇔ ∃y. e = Rval y ∧ x = f1 y`,
   Cases_on`e`>>simp[EQ_IMP_THM])
 
-val map_result_Rerr = store_thm("map_result_Rerr",
-  ``map_result f1 f2 e = Rerr e' ⇔ ∃a. e = Rerr a ∧ map_error_result f2 a = e'``,
+val map_result_Rerr = Q.store_thm("map_result_Rerr",
+  `map_result f1 f2 e = Rerr e' ⇔ ∃a. e = Rerr a ∧ map_error_result f2 a = e'`,
   Cases_on`e`>>simp[EQ_IMP_THM])
 val _ = export_rewrites["map_result_Rerr"]
 
@@ -489,29 +509,29 @@ val exc_rel_def = Define`
   (exc_rel _ _ _ = F)`
 val _ = export_rewrites["exc_rel_def"]
 
-val exc_rel_raise1 = store_thm("exc_rel_raise1",
-  ``exc_rel R (Rraise v) e = ∃v'. (e = Rraise v') ∧ R v v'``,
+val exc_rel_raise1 = Q.store_thm("exc_rel_raise1",
+  `exc_rel R (Rraise v) e = ∃v'. (e = Rraise v') ∧ R v v'`,
   Cases_on`e`>>srw_tac[][])
-val exc_rel_raise2 = store_thm("exc_rel_raise2",
-  ``exc_rel R e (Rraise v) = ∃v'. (e = Rraise v') ∧ R v' v``,
+val exc_rel_raise2 = Q.store_thm("exc_rel_raise2",
+  `exc_rel R e (Rraise v) = ∃v'. (e = Rraise v') ∧ R v' v`,
   Cases_on`e`>>srw_tac[][])
-val exc_rel_type_error1 = store_thm("exc_rel_type_error1",
-  ``(exc_rel R (Rabort a) e = (e = Rabort a))``,
+val exc_rel_type_error1 = Q.store_thm("exc_rel_type_error1",
+  `(exc_rel R (Rabort a) e = (e = Rabort a))`,
   Cases_on`e`>>srw_tac[][]>>metis_tac [])
-val exc_rel_type_error2 = store_thm("exc_rel_type_error2",
-  ``(exc_rel R e (Rabort a) = (e = Rabort a))``,
+val exc_rel_type_error2 = Q.store_thm("exc_rel_type_error2",
+  `(exc_rel R e (Rabort a) = (e = Rabort a))`,
   Cases_on`e`>>srw_tac[][]>>metis_tac [])
 val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error1","exc_rel_type_error2"]
 
-val exc_rel_refl = store_thm(
+val exc_rel_refl = Q.store_thm(
 "exc_rel_refl",
-  ``(∀x. R x x) ⇒ ∀x. exc_rel R x x``,
+  `(∀x. R x x) ⇒ ∀x. exc_rel R x x`,
 strip_tac >> Cases >> srw_tac[][])
 val _ = export_rewrites["exc_rel_refl"];
 
-val exc_rel_trans = store_thm(
+val exc_rel_trans = Q.store_thm(
 "exc_rel_trans",
-``(∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ (∀x y z. exc_rel R x y ∧ exc_rel R y z ⇒ exc_rel R x z)``,
+`(∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ (∀x y z. exc_rel R x y ∧ exc_rel R y z ⇒ exc_rel R x z)`,
 srw_tac[][] >>
 Cases_on `x` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> PROVE_TAC[])
 
@@ -521,29 +541,29 @@ val result_rel_def = Define`
 (result_rel _ _ _ _ = F)`
 val _ = export_rewrites["result_rel_def"]
 
-val result_rel_Rval = store_thm(
+val result_rel_Rval = Q.store_thm(
 "result_rel_Rval",
-``result_rel R1 R2 (Rval v) r = ∃v'. (r = Rval v') ∧ R1 v v'``,
+`result_rel R1 R2 (Rval v) r = ∃v'. (r = Rval v') ∧ R1 v v'`,
 Cases_on `r` >> srw_tac[][])
-val result_rel_Rerr1 = store_thm(
+val result_rel_Rerr1 = Q.store_thm(
 "result_rel_Rerr1",
-``result_rel R1 R2 (Rerr e) r = ∃e'. (r = Rerr e') ∧ exc_rel R2 e e'``,
+`result_rel R1 R2 (Rerr e) r = ∃e'. (r = Rerr e') ∧ exc_rel R2 e e'`,
 Cases_on `r` >> srw_tac[][EQ_IMP_THM])
-val result_rel_Rerr2 = store_thm(
+val result_rel_Rerr2 = Q.store_thm(
 "result_rel_Rerr2",
-``result_rel R1 R2 r (Rerr e) = ∃e'. (r = Rerr e') ∧ exc_rel R2 e' e``,
+`result_rel R1 R2 r (Rerr e) = ∃e'. (r = Rerr e') ∧ exc_rel R2 e' e`,
 Cases_on `r` >> srw_tac[][EQ_IMP_THM])
 val _ = export_rewrites["result_rel_Rval","result_rel_Rerr1","result_rel_Rerr2"]
 
-val result_rel_refl = store_thm(
+val result_rel_refl = Q.store_thm(
 "result_rel_refl",
-``(∀x. R1 x x) ∧ (∀x. R2 x x) ⇒ ∀x. result_rel R1 R2 x x``,
+`(∀x. R1 x x) ∧ (∀x. R2 x x) ⇒ ∀x. result_rel R1 R2 x x`,
 strip_tac >> Cases >> srw_tac[][])
 val _ = export_rewrites["result_rel_refl"]
 
-val result_rel_trans = store_thm(
+val result_rel_trans = Q.store_thm(
 "result_rel_trans",
-``(∀x y z. R1 x y ∧ R1 y z ⇒ R1 x z) ∧ (∀x y z. R2 x y ∧ R2 y z ⇒ R2 x z) ⇒ (∀x y z. result_rel R1 R2 x y ∧ result_rel R1 R2 y z ⇒ result_rel R1 R2 x z)``,
+`(∀x y z. R1 x y ∧ R1 y z ⇒ R1 x z) ∧ (∀x y z. R2 x y ∧ R2 y z ⇒ R2 x z) ⇒ (∀x y z. result_rel R1 R2 x y ∧ result_rel R1 R2 y z ⇒ result_rel R1 R2 x z)`,
 srw_tac[][] >>
 Cases_on `x` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> PROVE_TAC[exc_rel_trans])
 
@@ -583,32 +603,32 @@ val sv_rel_def = Define`
   sv_rel R _ _ = F`
 val _ = export_rewrites["sv_rel_def"]
 
-val sv_rel_refl = store_thm("sv_rel_refl",
-  ``∀R x. (∀x. R x x) ⇒ sv_rel R x x``,
+val sv_rel_refl = Q.store_thm("sv_rel_refl",
+  `∀R x. (∀x. R x x) ⇒ sv_rel R x x`,
   gen_tac >> Cases >> srw_tac[][sv_rel_def] >>
   induct_on `l` >>
   srw_tac[][])
 val _ = export_rewrites["sv_rel_refl"]
 
-val sv_rel_trans = store_thm("sv_rel_trans",
-  ``∀R. (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. sv_rel R x y ∧ sv_rel R y z ⇒ sv_rel R x z``,
+val sv_rel_trans = Q.store_thm("sv_rel_trans",
+  `∀R. (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. sv_rel R x y ∧ sv_rel R y z ⇒ sv_rel R x z`,
   gen_tac >> strip_tac >> Cases >> Cases >> Cases >> srw_tac[][] >> full_simp_tac(srw_ss())[sv_rel_def] >> metis_tac[LIST_REL_trans]);
 
-val sv_rel_cases = store_thm("sv_rel_cases",
-  ``∀x y.
+val sv_rel_cases = Q.store_thm("sv_rel_cases",
+  `∀x y.
     sv_rel R x y ⇔
     (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
     (∃w. x = W8array w ∧ y = W8array w) ∨
-    (?vs1 vs2. x = Varray vs1 ∧ y = Varray vs2 ∧ LIST_REL R vs1 vs2)``,
+    (?vs1 vs2. x = Varray vs1 ∧ y = Varray vs2 ∧ LIST_REL R vs1 vs2)`,
   Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM])
 
-val sv_rel_O = store_thm("sv_rel_O",
-  ``∀R1 R2. sv_rel (R1 O R2) = sv_rel R1 O sv_rel R2``,
+val sv_rel_O = Q.store_thm("sv_rel_O",
+  `∀R1 R2. sv_rel (R1 O R2) = sv_rel R1 O sv_rel R2`,
   srw_tac[][FUN_EQ_THM,sv_rel_cases,O_DEF,EQ_IMP_THM] >>
   metis_tac[miscTheory.LIST_REL_O])
 
-val sv_rel_mono = store_thm("sv_rel_mono",
-  ``(∀x y. P x y ⇒ Q x y) ⇒ sv_rel P x y ⇒ sv_rel Q x y``,
+val sv_rel_mono = Q.store_thm("sv_rel_mono",
+  `(∀x y. P x y ⇒ Q x y) ⇒ sv_rel P x y ⇒ sv_rel Q x y`,
   srw_tac[][sv_rel_cases] >> metis_tac [LIST_REL_mono])
 
 val store_v_vs_def = Define`
@@ -620,35 +640,35 @@ val _ = export_rewrites["store_v_vs_def"]
 val store_vs_def = Define`
   store_vs s = FLAT (MAP store_v_vs s)`
 
-val EVERY_sv_every_MAP_map_sv = store_thm("EVERY_sv_every_MAP_map_sv",
-  ``∀P f ls. EVERY P (MAP f (store_vs ls)) ⇒ EVERY (sv_every P) (MAP (map_sv f) ls)``,
+val EVERY_sv_every_MAP_map_sv = Q.store_thm("EVERY_sv_every_MAP_map_sv",
+  `∀P f ls. EVERY P (MAP f (store_vs ls)) ⇒ EVERY (sv_every P) (MAP (map_sv f) ls)`,
   rpt gen_tac >>
   simp[EVERY_MAP,EVERY_MEM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
   strip_tac >> Cases >> simp[] >> srw_tac[][] >> res_tac >> full_simp_tac(srw_ss())[EVERY_MEM,MEM_MAP,PULL_EXISTS])
 
-val LIST_REL_store_vs_intro = store_thm("LIST_REL_store_vs_intro",
-  ``∀P l1 l2. LIST_REL (sv_rel P) l1 l2 ⇒ LIST_REL P (store_vs l1) (store_vs l2)``,
+val LIST_REL_store_vs_intro = Q.store_thm("LIST_REL_store_vs_intro",
+  `∀P l1 l2. LIST_REL (sv_rel P) l1 l2 ⇒ LIST_REL P (store_vs l1) (store_vs l2)`,
   gen_tac >>
   Induct >- simp[store_vs_def] >>
   Cases >> simp[PULL_EXISTS,sv_rel_cases] >>
   full_simp_tac(srw_ss())[store_vs_def] >> srw_tac[][] >>
   match_mp_tac rich_listTheory.EVERY2_APPEND_suff >> simp[])
 
-val EVERY_sv_every_EVERY_store_vs = store_thm("EVERY_sv_every_EVERY_store_vs",
-  ``∀P ls. EVERY (sv_every P ) ls ⇔ EVERY P (store_vs ls)``,
+val EVERY_sv_every_EVERY_store_vs = Q.store_thm("EVERY_sv_every_EVERY_store_vs",
+  `∀P ls. EVERY (sv_every P ) ls ⇔ EVERY P (store_vs ls)`,
   srw_tac[][EVERY_MEM,EQ_IMP_THM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
   res_tac >> TRY(Cases_on`e`) >> TRY(Cases_on`y`) >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[EVERY_MEM])
 
-val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
-  ``∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)``,
+val EVERY_store_vs_intro = Q.store_thm("EVERY_store_vs_intro",
+  `∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)`,
   srw_tac[][EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
   res_tac >>
   qmatch_assum_rename_tac`sv_every P x` >>
   Cases_on`x`>>full_simp_tac(srw_ss())[EVERY_MEM]);
 
-val map_sv_compose = store_thm("map_sv_compose",
-  ``map_sv f (map_sv g x) = map_sv (f o g) x``,
+val map_sv_compose = Q.store_thm("map_sv_compose",
+  `map_sv f (map_sv g x) = map_sv (f o g) x`,
   Cases_on`x`>>simp[MAP_MAP_o])
 
 val map_match_def = Define`
@@ -656,9 +676,9 @@ val map_match_def = Define`
   (map_match f x = x)`
 val _ = export_rewrites["map_match_def"]
 
-val find_recfun_ALOOKUP = store_thm(
+val find_recfun_ALOOKUP = Q.store_thm(
 "find_recfun_ALOOKUP",
-``∀funs n. find_recfun n funs = ALOOKUP funs n``,
+`∀funs n. find_recfun n funs = ALOOKUP funs n`,
 Induct >- srw_tac[][semanticPrimitivesTheory.find_recfun_def] >>
 qx_gen_tac `d` >>
 PairCases_on `d` >>
@@ -726,13 +746,13 @@ val _ = export_rewrites["FV_def"]
 
 val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
 
-val FV_pes_MAP = store_thm("FV_pes_MAP",
-  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
+val FV_pes_MAP = Q.store_thm("FV_pes_MAP",
+  `FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))`,
   Induct_on`pes`>>simp[]>>
   qx_gen_tac`p`>>PairCases_on`p`>>srw_tac[][])
 
-val FV_defs_MAP = store_thm("FV_defs_MAP",
-  ``∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))``,
+val FV_defs_MAP = Q.store_thm("FV_defs_MAP",
+  `∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))`,
   Induct_on`ls`>>simp[FORALL_PROD])
 
 val FV_dec_def = Define`

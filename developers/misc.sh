@@ -1,3 +1,5 @@
+## Functions for displaying time and memory usage.
+
 pad=$(printf '%0.1s' "."{1..40})
 
 function displaytime() {

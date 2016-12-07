@@ -3,9 +3,9 @@ open preamble word_removeTheory wordSemTheory wordPropsTheory;
 val _ = new_theory "word_removeProof";
 
 (* semantics *)
-val alloc_termdep_code_frame = prove(``
+val alloc_termdep_code_frame = Q.prove(`
   alloc c names (s with <|termdep:=d;code:=l|>) =
-  (FST (alloc c names s),SND(alloc c names s) with <|termdep:=d;code:=l|>)``,
+  (FST (alloc c names s),SND(alloc c names s) with <|termdep:=d;code:=l|>)`,
   full_simp_tac(srw_ss())[alloc_def]>>TOP_CASE_TAC>>
   full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,gc_def,set_store_def]>>
   ntac 3(FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -16,14 +16,14 @@ val alloc_termdep_code_frame = prove(``
   FULL_CASE_TAC>>full_simp_tac(srw_ss())[has_space_def]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])|>INST_TYPE[beta|->alpha,gamma|->beta,delta|->alpha]
 
-val get_vars_termdep_code_frame = prove(``
+val get_vars_termdep_code_frame = Q.prove(`
   ∀ls.
-  get_vars ls s = get_vars ls (s with <|termdep:=0;code:=l|>)``,
+  get_vars ls s = get_vars ls (s with <|termdep:=0;code:=l|>)`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_def])
 
-val word_exp_termdep_code_frame = prove(``
+val word_exp_termdep_code_frame = Q.prove(`
   ∀s exp.
-  word_exp s exp = word_exp (s with <|termdep:=0;code:=l|>) exp``,
+  word_exp s exp = word_exp (s with <|termdep:=0;code:=l|>) exp`,
   ho_match_mp_tac word_exp_ind>>
   full_simp_tac(srw_ss())[word_exp_def,LET_THM,mem_load_def]>>
   full_simp_tac(srw_ss())[EVERY_MAP,EVERY_MEM]>>srw_tac[][]>>
@@ -33,23 +33,23 @@ val word_exp_termdep_code_frame = prove(``
 
 val tac = (full_simp_tac(srw_ss())[GSYM word_exp_termdep_code_frame]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality,set_store_def,mem_store_def])
 
-val push_env_code = prove(``
-  (push_env x handler s).code = s.code``,
+val push_env_code = Q.prove(`
+  (push_env x handler s).code = s.code`,
   Cases_on`handler`>>TRY(PairCases_on`x'`)>>full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def])
 
-val pop_env_termdep_code_frame = prove(``
+val pop_env_termdep_code_frame = Q.prove(`
   pop_env (r' with <|termdep:=0; code:=l|>) =
-  lift (λs. s with <|termdep:=0;code:=l|>) (pop_env r')``,
+  lift (λs. s with <|termdep:=0;code:=l|>) (pop_env r')`,
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
 
-val word_remove_correct = store_thm("word_remove_correct",``
+val word_remove_correct = Q.store_thm("word_remove_correct",`
   ∀prog st res rst.
   (!n v p. lookup n st.code = SOME (v,p) ==>
          lookup n l = SOME (v,remove_must_terminate p)) ∧
   evaluate(prog,st) = (res,rst) ∧
   res ≠ SOME Error ⇒
   ∃clk.
-  evaluate(remove_must_terminate prog,st with <|clock:=st.clock+clk;termdep:=0;code:=l|>) = (res,rst with <|termdep:=0;code:=l|>)``,
+  evaluate(remove_must_terminate prog,st with <|clock:=st.clock+clk;termdep:=0;code:=l|>) = (res,rst with <|termdep:=0;code:=l|>)`,
   recInduct evaluate_ind>>
   full_simp_tac(srw_ss())[evaluate_def,remove_must_terminate_def,state_component_equality,call_env_def,get_var_def,set_var_def,dec_clock_def]>>srw_tac[][]
   >-
@@ -145,7 +145,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
       (ntac 3 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       Cases_on`handler`>>TRY(PairCases_on`x'''`)>>full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,dec_clock_def,call_env_def]>>rev_full_simp_tac(srw_ss())[]>>srw_tac[][]>>
       imp_res_tac evaluate_code_const>>
-      imp_res_tac pop_env_code_clock>>
+      imp_res_tac pop_env_code_gc_fun_clock>>
       full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       qexists_tac`clk+clk'`>>
       imp_res_tac evaluate_add_clock>>
@@ -163,7 +163,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
       >>
         ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
         imp_res_tac evaluate_code_const>>
-        imp_res_tac pop_env_code_clock>>
+        imp_res_tac pop_env_code_gc_fun_clock>>
         full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
         qexists_tac`clk+clk'`>>
         imp_res_tac evaluate_add_clock>>
@@ -180,14 +180,14 @@ val word_remove_correct = store_thm("word_remove_correct",``
 (* syntactic preservation all in one go *)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,post_alloc_conventions_def,call_arg_convention_def,wordLangTheory.every_stack_var_def,wordLangTheory.every_var_def,extract_labels_def]
 
-val remove_must_terminate_conventions = store_thm("remove_must_terminate_conventions",``
+val remove_must_terminate_conventions = Q.store_thm("remove_must_terminate_conventions",`
   ∀p c k.
   let comp = remove_must_terminate p in
   (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
   (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
   (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
   (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp) ∧
-  (extract_labels p = extract_labels comp)``,
+  (extract_labels p = extract_labels comp)`,
   ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
   fs[remove_must_terminate_def]>>fs convs>>
   TRY

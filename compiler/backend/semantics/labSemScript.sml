@@ -94,8 +94,8 @@ val arith_upd_def = Define `
      case (read_reg r3 s, read_reg r4 s) of
      | (Word w3, Word w4) =>
        let r = w2n w3 * w2n w4 in
-       upd_reg r1 (Word (n2w (r DIV dimword(:'a))))
-         (upd_reg r2 (Word (n2w r)) s)
+      upd_reg r2 (Word (n2w r))
+       (upd_reg r1 (Word (n2w (r DIV dimword(:'a)))) s)
      | _ => assert F s)
      /\
   (arith_upd (LongDiv r1 r2 r3 r4 r5) s =
@@ -181,9 +181,9 @@ val asm_code_length_def = Define `
   (asm_code_length ((Section k (y::ys))::xs) =
      asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)`
 
-val asm_fetch_IMP = prove(
-  ``(asm_fetch s = SOME x) ==>
-    s.pc < asm_code_length s.code``,
+val asm_fetch_IMP = Q.prove(
+  `(asm_fetch s = SOME x) ==>
+    s.pc < asm_code_length s.code`,
   fs [asm_fetch_def,asm_code_length_def]
   \\ Q.SPEC_TAC (`s.pc`,`pc`)
   \\ Q.SPEC_TAC (`s.code`,`xs`)
@@ -210,14 +210,14 @@ val loc_to_pc_def = Define `
              | NONE => NONE
              | SOME pos => SOME (pos + 1))`;
 
-val asm_inst_consts = store_thm("asm_inst_consts",
-  ``((asm_inst i s).pc = s.pc) /\
+val asm_inst_consts = Q.store_thm("asm_inst_consts",
+  `((asm_inst i s).pc = s.pc) /\
     ((asm_inst i s).code = s.code) /\
     ((asm_inst i s).clock = s.clock) /\
     ((asm_inst i s).ffi = s.ffi) ∧
     ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
     ((asm_inst i s).len_reg = s.len_reg) ∧
-    ((asm_inst i s).link_reg = s.link_reg)``,
+    ((asm_inst i s).link_reg = s.link_reg)`,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
   \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]

@@ -6,16 +6,16 @@ val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
 
-val IMP_sptree_eq = prove(
-  ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
+val IMP_sptree_eq = Q.prove(
+  `wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)`,
   METIS_TAC [spt_eq_thm]);
 
-val mk_wf_inter = prove(
-  ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
+val mk_wf_inter = Q.prove(
+  `!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)`,
   full_simp_tac(srw_ss())[]);
 
-val get_vars_IMP_LENGTH = store_thm("get_vars_IMP_LENGTH",
-  ``!xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)``,
+val get_vars_IMP_LENGTH = Q.store_thm("get_vars_IMP_LENGTH",
+  `!xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)`,
   Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
   \\ rw [] \\ fs [] \\ res_tac \\ fs []);
 
@@ -342,11 +342,11 @@ val evaluate_compile = Q.prove(
            dec_clock_def] \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
-val compile_correct = store_thm("compile_correct",
-  ``!c s.
+val compile_correct = Q.store_thm("compile_correct",
+  `!c s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (evaluate (compile c, s) = evaluate (c,s))``,
+      (evaluate (compile c, s) = evaluate (c,s))`,
   REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
   \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_compile)
   \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC

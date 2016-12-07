@@ -1,4 +1,4 @@
-open preamble
+open preamble bootstrapLib
      ml_translatorLib ml_progLib
      backendTheory compilerComputeLib
      compiler_x64ProgTheory
@@ -27,8 +27,6 @@ val _ = new_theory"to_dataBootstrap";
 *)
 
 val _ = Globals.max_print_depth := 20;
-
-val rconc = rhs o concl;
 
 val _ = translation_extends"compiler_x64Prog";
 
@@ -59,13 +57,12 @@ val init_conf_def = zDefine`
     source_conf := ^default_source_conf;
     mod_conf    := ^default_mod_conf;
     clos_conf   := clos_to_bvl$default_config;
-    bvl_conf    := bvl_to_bvi$default_config
+    bvl_conf    := bvl_to_bvi$default_config with <| inline_size_limit := 3; exp_cut := 200 |>
   |>`;
 
 val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, prog_x64_def]] cs;
 
-val _ = Lib.say "eval to_mod: ";
-val to_mod_thm0 = time eval ``to_mod init_conf prog_x64``;
+val to_mod_thm0 = timez "to_mod" eval ``to_mod init_conf prog_x64``;
 val (c,p) = to_mod_thm0 |> rconc |> dest_pair
 val mod_conf_def = zDefine`mod_conf = ^c`;
 val mod_prog_def = zDefine`mod_prog = ^p`;
@@ -91,7 +88,6 @@ val mod_conf_bvl_conf =
   ``mod_conf.bvl_conf``
   |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
 
-val _ = Lib.say "eval to_con: ";
 val to_con_thm0 =
   ``to_con init_conf prog_x64``
   |> (REWR_CONV to_con_def THENC
@@ -99,7 +95,7 @@ val to_con_thm0 =
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV THENC
       PATH_CONV"rlr"(REWR_CONV mod_conf_mod_conf))
-  |> time (CONV_RULE(RAND_CONV eval))
+  |> timez "to_con" (CONV_RULE(RAND_CONV eval))
 val (c,p) = to_con_thm0 |> rconc |> dest_pair
 val con_conf_def = zDefine`con_conf = ^c`;
 val con_prog_def = zDefine`con_prog = ^p`;
@@ -128,7 +124,6 @@ val con_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV con_conf_def) THENC eval
       THENC REWR_CONV mod_conf_bvl_conf)
 
-val _ = Lib.say "eval to_dec: ";
 val to_dec_thm0 =
   ``to_dec init_conf prog_x64``
   |> (REWR_CONV to_dec_def THENC
@@ -136,7 +131,7 @@ val to_dec_thm0 =
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV THENC
       PATH_CONV"rlr"(REWR_CONV con_conf_source_conf_next_global))
-  |> time (CONV_RULE(RAND_CONV eval))
+  |> timez "to_dec" (CONV_RULE(RAND_CONV eval))
 val (c,p) = to_dec_thm0 |> rconc |> dest_pair
 val dec_conf_def = zDefine`dec_conf = ^c`;
 val dec_prog_def = zDefine`dec_prog = ^p`;
@@ -161,7 +156,6 @@ val dec_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV dec_conf_def) THENC eval
       THENC REWR_CONV con_conf_bvl_conf)
 
-val _ = Lib.say "eval to_exh: ";
 val to_exh_thm0 =
   ``to_exh init_conf prog_x64``
   |> (REWR_CONV to_exh_def THENC
@@ -169,7 +163,7 @@ val to_exh_thm0 =
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV THENC
       PATH_CONV"rlr"(REWR_CONV dec_conf_mod_conf_exh_ctors_env))
-  |> time (CONV_RULE(RAND_CONV eval))
+  |> timez "to_exh" (CONV_RULE(RAND_CONV eval))
 val (_,p) = to_exh_thm0 |> rconc |> dest_pair
 val exh_prog_def = zDefine`exh_prog = ^p`;
 val to_exh_thm =
@@ -177,14 +171,13 @@ val to_exh_thm =
     RAND_CONV(REWR_CONV(SYM exh_prog_def))));
 val () = computeLib.extend_compset [computeLib.Defs [exh_prog_def]] cs;
 
-val _ = Lib.say "eval to_pat: ";
 val to_pat_thm0 =
   ``to_pat init_conf prog_x64``
   |> (REWR_CONV to_pat_def THENC
       RAND_CONV (REWR_CONV to_exh_thm) THENC
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV)
-  |> time (CONV_RULE(RAND_CONV(RAND_CONV eval)))
+  |> timez "to_pat" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
   |> CONV_RULE(RAND_CONV(REWR_CONV LET_THM THENC BETA_CONV))
 val (_,p) = to_pat_thm0 |> rconc |> dest_pair
 val pat_prog_def = zDefine`pat_prog = ^p`;
@@ -193,14 +186,13 @@ val to_pat_thm =
     RAND_CONV(REWR_CONV(SYM pat_prog_def))));
 val () = computeLib.extend_compset [computeLib.Defs [pat_prog_def]] cs;
 
-val _ = Lib.say "eval to_clos: ";
 val to_clos_thm0 =
   ``to_clos init_conf prog_x64``
   |> (REWR_CONV to_clos_def THENC
       RAND_CONV (REWR_CONV to_pat_thm) THENC
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV)
-  |> time (CONV_RULE(RAND_CONV(RAND_CONV eval)))
+  |> timez "to_clos" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
   |> CONV_RULE(RAND_CONV(REWR_CONV LET_THM THENC BETA_CONV))
 val (_,p) = to_clos_thm0 |> rconc |> dest_pair
 val clos_prog_def = zDefine`clos_prog = ^p`;
@@ -209,7 +201,6 @@ val to_clos_thm =
     RAND_CONV(REWR_CONV(SYM clos_prog_def))));
 val () = computeLib.extend_compset [computeLib.Defs [clos_prog_def]] cs;
 
-val _ = Lib.say "eval to_bvl: ";
 val to_bvl_thm0 =
   ``to_bvl init_conf prog_x64``
   |> (REWR_CONV to_bvl_def THENC
@@ -217,7 +208,7 @@ val to_bvl_thm0 =
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV THENC
       PATH_CONV"rlr"(REWR_CONV dec_conf_clos_conf))
-  |> time (CONV_RULE(RAND_CONV eval))
+  |> timez "to_bvl" (CONV_RULE(RAND_CONV eval))
 val (c,p) = to_bvl_thm0 |> rconc |> dest_pair
 val bvl_conf_def = zDefine`bvl_conf = ^c`;
 val bvl_prog_def = zDefine`bvl_prog = ^p`;
@@ -240,7 +231,6 @@ val bvl_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV bvl_conf_def) THENC eval
       THENC REWR_CONV dec_conf_bvl_conf)
 
-val _ = Lib.say "eval to_bvi: ";
 val to_bvi_thm0 =
   ``to_bvi init_conf prog_x64``
   |> (REWR_CONV to_bvi_def THENC
@@ -251,7 +241,6 @@ val to_bvi_thm0 =
       PATH_CONV"rlllr"(REWR_CONV bvl_conf_clos_conf_start) THENC
       PATH_CONV"rlr"(REWR_CONV bvl_conf_bvl_conf))
 
-val _ = Lib.say "... inline: "
 val th1 =
   to_bvi_thm0 |> rconc |> rand |>
   (REWR_CONV bvl_to_bviTheory.compile_def THENC
@@ -259,12 +248,11 @@ val th1 =
      RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
      RATOR_CONV(RAND_CONV eval) THENC
      REWR_CONV bvl_to_bviTheory.optimise_def THENC
-     RAND_CONV (time eval)))
+     RAND_CONV (timez "bvl inline" eval)))
 
 val mapfn = th1 |> rconc |> rand |> rator |> rand
-fun eval_fn i n t = eval(mk_comb(mapfn,t)) before Lib.say(String.concat[Int.toString i,".",Int.toString n,"\n"])
+fun eval_fn i n t = eval(mk_comb(mapfn,t)) (* before Lib.say(String.concat[Int.toString i,".",Int.toString n,"\n"]) *)
 val els = th1 |> rconc |> rand |> rand |> listSyntax.dest_list |> #1
-val _ = Lib.say "... optimise: "
 
 (*
 val tm1 =
@@ -274,12 +262,11 @@ mk_comb(mapfn,el 24 els)
 val res = time eval tm1
 *)
 
-val mapths = time (parlist 8 40 eval_fn) els;
+val mapths = time_with_size thms_size "bvl optimise (par)" (parlist 8 40 eval_fn) els;
 
-val _ = Lib.say "... compile: "
 val th2 = th1 |> CONV_RULE(RAND_CONV(
   RAND_CONV(map_ths_conv mapths) THENC
-  time eval))
+  timez "bvl compile" eval))
 
 val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
   RAND_CONV(REWR_CONV th2) THENC
@@ -295,7 +282,6 @@ val to_bvi_thm =
               REWR_CONV(SYM bvi_prog_def))));
 val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
 
-val _ = Lib.say "eval to_data: ";
 val to_data_thm0 =
   ``to_data init_conf prog_x64``
   |> (REWR_CONV to_data_def THENC
@@ -303,7 +289,7 @@ val to_data_thm0 =
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV THENC
       REWR_CONV LET_THM THENC BETA_CONV)
-  |> time (CONV_RULE(RAND_CONV(RAND_CONV eval)))
+  |> timez "to_data" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
 val (_,p) = to_data_thm0 |> rconc |> dest_pair
 val data_prog_x64_def = zDefine`data_prog_x64 = ^p`;
 val to_data_x64_thm = save_thm("to_data_x64_thm",

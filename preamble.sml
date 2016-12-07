@@ -1,8 +1,11 @@
+(*
+   Proof tools (e.g. tactics) used throughout the development.
+*)
 structure preamble =
 struct
 local open intLib wordsLib in end;
 open set_relationTheory;
-open BasicProvers Defn HolKernel Parse Tactic
+open BasicProvers Defn HolKernel Parse Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory
@@ -32,34 +35,6 @@ val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"go
 fun term_rewrite eq_tms tm =
   tm |> QCONV (PURE_REWRITE_CONV (map (curry mk_thm []) eq_tms))
      |> concl |> rhs
-
-(* replace (syntactically equal) subterms of one term by another *)
-(* TODO: can Term.subst be used instead always? If so, delete. *)
-fun replace_term from to =
-  let
-    fun f tm =
-      if tm = from then to else
-        case dest_term tm of
-          COMB(t1,t2) => mk_comb(f t1, f t2)
-        | LAMB(t1,t2) => mk_abs(f t1, f t2)
-        | _ => tm
-  in
-    f
-  end
-
-(* TODO: replace these with qhdtm_assum etc. *)
-local
-  fun find t asl =
-    case total (first (can (match_term t) o fst o strip_comb)) asl of SOME x => x
-    | NONE => first (can (match_term t o fst o strip_comb o lhs)) asl
-in
-  fun RATOR_X_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (find t asl) ttac g
-  fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
-
-  fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (find t asl)) g
-  fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
-end
-(* -- *)
 
 (* TODO: move to Lib (or Portable)? *)
 fun itlist3 f L1 L2 L3 base_value =
@@ -212,8 +187,7 @@ fun any_match_mp impth th =
 
 val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
-(* TODO: this doesn't prove the hyps if there's more than one *)
-fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
+fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));
 
 (* if the first conjunct under the goal's existential prefix matches the term
    except for some places where it has structure and the term just has variables,

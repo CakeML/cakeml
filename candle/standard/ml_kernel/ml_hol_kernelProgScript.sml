@@ -1,20 +1,14 @@
-open HolKernel Parse boolLib bossLib lcsymtacs;
+open preamble
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory
+     ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib
+     ml_pmatchTheory holKernelTheory ml_monadProgTheory
+open terminationTheory
+local open holKernelPmatchTheory in end
 
 val _ = new_theory "ml_hol_kernelProg";
 
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
-open terminationTheory;
-open ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib;
-open arithmeticTheory listTheory combinTheory pairTheory pairLib;
-open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
-
-infix \\ val op \\ = op THEN;
-
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
-
-open holKernelTheory;
-open ml_monadProgTheory;
 
 val _ = (print_asts := true);
 
@@ -64,12 +58,12 @@ fun smart_get_type_inv ty =
 (* support for datatypes... *)
 
 (*
-val ty = ``:'b # 'c``; val _ = derive_case_of ty;
-val ty = ``:'a list``; val _ = derive_case_of ty;
-val ty = ``:hol_type``; val _ = derive_case_of ty;
-val ty = ``:hol_term``; val _ = derive_case_of ty;
-val ty = ``:thm``; val _ = derive_case_of ty;
-val ty = ``:def``; val _ = derive_case_of ty;
+val ty = ``:'b # 'c``; val th = derive_case_of ty;
+val ty = ``:'a list``; val th = derive_case_of ty;
+val ty = ``:hol_type``; val th = derive_case_of ty;
+val ty = ``:hol_term``; val th = derive_case_of ty;
+val ty = ``:thm``; val th = derive_case_of ty;
+val ty = ``:def``; val th = derive_case_of ty;
 *)
 
 fun derive_case_of ty = let
@@ -108,8 +102,6 @@ fun derive_case_of ty = let
   val z3 = map_tl Eval_to_EvalM hyps |> list_mk_conj
   val z4 = Eval_to_EvalM x4
   val goal = mk_imp(x1,mk_imp(x2,mk_imp(z3,z4)))
-  fun nums [] = [] | nums (x::xs) = 1 + length xs :: nums xs
-  val ts = nums (tl hyps) |> rev
   val evaluate_Mat =
     ``evaluate c x env (Mat e pats) (xx,res)``
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])
@@ -118,45 +110,39 @@ fun derive_case_of ty = let
          ((Pcon xx pats,exp2)::pats2) errv (yyy,y)``
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
         SIMP_CONV (srw_ss()) [pmatch_def])
-  val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
-  val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+  val IF_T = Q.prove(`(if T then x else y) = x:'a`,SIMP_TAC std_ss []);
+  val IF_F = Q.prove(`(if F then x else y) = y:'a`,SIMP_TAC std_ss []);
   val init_tac =
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
-  fun case_tac n =
+  val case_tac =
         Q.PAT_X_ASSUM `b0 ==> Eval env exp something`
            (MP_TAC o REWRITE_RULE [TAG_def,inv_def,Eval_def])
-        \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-        \\ NTAC 3 (POP_ASSUM MP_TAC)
+        \\ FULL_SIMP_TAC (srw_ss()) []
+        \\ REPEAT STRIP_TAC
+        \\ NTAC 2 (POP_ASSUM MP_TAC)
         \\ POP_ASSUM (STRIP_ASSUME_TAC o remove_primes o
              SPEC_ALL o REWRITE_RULE [TAG_def,inv_def,EvalM_def])
         \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
-        \\ REPEAT (Q.PAT_X_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o SPEC_ALL))
-        \\ REPEAT (Q.PAT_X_ASSUM `bb ==> bbb` (fn th =>
-             if mem ("b" ^ int_to_string n)
-                (free_vars (concl th) |> map (fst o dest_var))
-             then ASSUME_TAC (UNDISCH_ALL (RW [GSYM AND_IMP_INTRO] th))
-             else ALL_TAC))
         \\ FULL_SIMP_TAC std_ss [EvalM_def,PULL_FORALL] \\ REPEAT STRIP_TAC
-        \\ Q.PAT_X_ASSUM `!xx. bb` (MP_TAC o SPEC_ALL)
-        \\ ASM_SIMP_TAC std_ss [] \\ STRIP_TAC
-        \\ Q.LIST_EXISTS_TAC [`s2`,`res'`,`refs2`]
-        \\ FULL_SIMP_TAC std_ss [] \\ ASM_SIMP_TAC (srw_ss()) []
         \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-        \\ DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`res`,`s`] \\ STRIP_TAC
-        THEN1 (match_mp_tac (MP_CANON evaluate_empty_state_IMP) \\ fs [])
-        \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
-        \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
-              lookup_alist_mod_env_def,lookup_cons_thm,same_tid_def,id_to_n_def,
-              same_ctor_def,write_def]
+        \\ SIMP_TAC (std_ss ++ DNF_ss) [] \\ disj1_tac
+        \\ first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac)
+        \\ drule evaluate_empty_state_IMP
+        \\ strip_tac \\ asm_exists_tac
+        \\ ASM_SIMP_TAC std_ss []
+        \\ REWRITE_TAC[evaluate_match_Conv,pmatch_def,LENGTH]
+        \\ fs[pmatch_def,pat_bindings_def,write_def,lookup_alist_mod_env_def,
+              lookup_cons_thm,same_tid_def,id_to_n_def,same_ctor_def]
+        \\ ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+        \\ first_x_assum (match_mp_tac o MP_CANON)
+        \\ fs[]
 (*
   val _ = set_goal([],goal)
-  val n = 1
-  val n = 2
 *)
-  val tac = init_tac THENL (map case_tac ts)
+  val tac = init_tac THEN case_tac
   val case_lemma = prove(goal,tac)
   val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
   in case_lemma end;
@@ -272,7 +258,7 @@ fun inst_case_thm tm m2deep = let
 
 (* PMATCH *)
 
-val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
+val IMP_EQ_T = Q.prove(`a ==> (a <=> T)`,fs [])
 
 val prove_EvalMPatBind_fail = ref T;
 val goal = !prove_EvalMPatBind_fail;
@@ -783,7 +769,7 @@ fun m_translate def = let
   val th = RW [GSYM ArrowM_def] th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-  val _ = add_v_thms (fname,th,pre)
+  val _ = add_v_thms (fname,fname,th,pre)
   val th = save_thm(fname ^ "_v_thm",th)
   in th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "
@@ -805,10 +791,19 @@ val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
 (* TODO: want builtin support for these *)
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
+val explode_aux_side_thm = Q.prove(
+  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+val explode_side_thm = Q.prove(
+  `explode_side x`,
+  rw[definition"explode_side_def",explode_aux_side_thm])
+  |> update_precondition
 val res = translate mlstringTheory.strcat_def;
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
-val res = prove(``mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)``,
+val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
                 Cases_on`x1`>>Cases_on`x2`>>rw[mlstringTheory.mlstring_lt_def])
           |> translate
 val res = translate totoTheory.TO_of_LinearOrder
@@ -874,9 +869,9 @@ val type_compare_def = tDefine "type_compare" `
                   INR (x,_) => type1_size x
                 | INL (x,_) => type_size x)`)
 
-val type_cmp_thm = prove(
-  ``(type_cmp = type_compare) /\
-    (list_cmp type_cmp = type_list_compare)``,
+val type_cmp_thm = Q.prove(
+  `(type_cmp = type_compare) /\
+    (list_cmp type_cmp = type_list_compare)`,
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "type_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
@@ -927,8 +922,8 @@ val term_compare_def = Define `
          | Equal => term_compare t1' t2'
          | Greater => Greater`;
 
-val term_cmp_thm = prove(
-  ``term_cmp = term_compare``,
+val term_cmp_thm = Q.prove(
+  `term_cmp = term_compare`,
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []

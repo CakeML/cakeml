@@ -16,6 +16,7 @@ open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 val _ = Datatype `symbol = StringS string
                          | CharS char
                          | NumberS int
+                         | WordS num
                          | LongS string (* identifiers with a . in them *)
                          | OtherS string
                          | ErrorS `;
@@ -33,9 +34,9 @@ val read_while_def = Define `
      if P c then read_while P cs (c :: s)
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
-val read_while_thm = store_thm("read_while_thm",
-  ``!cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
+val read_while_thm = Q.store_thm("read_while_thm",
+  `!cs s cs' s'.
+       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs`,
   Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
@@ -60,9 +61,9 @@ val read_string_def = tDefine "read_string" `
   (WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
    THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC)
 
-val read_string_thm = store_thm("read_string_thm",
-  ``!s t x1 x2. (read_string s t = (x1,x2)) ==>
-                (LENGTH x2 <= LENGTH s + LENGTH t)``,
+val read_string_thm = Q.store_thm("read_string_thm",
+  `!s t x1 x2. (read_string s t = (x1,x2)) ==>
+                (LENGTH x2 <= LENGTH s + LENGTH t)`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "read_string_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
@@ -85,8 +86,8 @@ val skip_comment_def = Define `
      if [x;y] = "*)" then (if d = 0 then SOME xs else skip_comment xs (d-1))
      else skip_comment (y::xs) d)`
 
-val skip_comment_thm = store_thm("skip_comment_thm",
-  ``!xs d str. (skip_comment xs d = SOME str) ==> LENGTH str <= LENGTH xs``,
+val skip_comment_thm = Q.store_thm("skip_comment_thm",
+  `!xs d str. (skip_comment xs d = SOME str) ==> LENGTH str <= LENGTH xs`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [skip_comment_def]
@@ -105,8 +106,18 @@ val next_sym_def = tDefine "next_sym" `
      if isSpace c then (* skip blank space *)
        next_sym str
      else if isDigit c then (* read number *)
-       let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (&(num_from_dec_string (c::n))), rest)
+       if str <> "" /\ c = #"0" /\ HD str = #"w" then
+         if TL str = "" then SOME (ErrorS, [])
+         else if isDigit (HD (TL str)) then
+           let (n,rest) = read_while isDigit (TL str) [] in
+             SOME (WordS (num_from_dec_string n), rest)
+         else if HD(TL str) = #"x" then
+             let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
+               SOME (WordS (num_from_hex_string n), rest)
+         else SOME (ErrorS, TL str)
+       else
+         let (n,rest) = read_while isDigit str [] in
+           SOME (NumberS (&(num_from_dec_string (c::n))), rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string n)), rest)
@@ -169,47 +180,39 @@ val lem2 = Q.prove (
   Cases_on `z a` THEN
   FULL_SIMP_TAC std_ss []);
 
-val next_sym_LESS = store_thm("next_sym_LESS",
-  ``!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input``,
-  HO_MATCH_MP_TAC (fetch "-" "next_sym_ind") THEN REPEAT STRIP_TAC
-  THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [next_sym_def]
-  THEN SIMP_TAC (srw_ss()) [METIS_PROVE [] ``(b ==> c) <=> ~b \/ c``]
-  THEN SRW_TAC [] [] THEN IMP_RES_TAC read_while_thm
-  THEN IMP_RES_TAC read_string_thm
-  THEN Cases_on `input` THEN FULL_SIMP_TAC (srw_ss()) []
-  THEN SIMP_TAC pure_ss [METIS_PROVE [] ``~b \/ ~c <=> ~(b /\ c:bool)``]
-  THEN SIMP_TAC pure_ss [METIS_PROVE [] ``~b \/ c <=> (b ==> c)``]
-  THEN REPEAT STRIP_TAC
-  THEN TRY (POP_ASSUM MP_TAC THEN Q.PAT_ABBREV_TAC `pat = skip_comment ttt 0`
-    THEN Cases_on `pat` THEN FULL_SIMP_TAC std_ss [markerTheory.Abbrev_def])
-  THEN REPEAT STRIP_TAC THEN IMP_RES_TAC (GSYM skip_comment_thm)
-  THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]
-  THEN TRY (Q.PAT_X_ASSUM `xx = rest` (ASSUME_TAC o GSYM))
-  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]
-  THEN Cases_on `rest'`
-  THEN FULL_SIMP_TAC (srw_ss()) []
-  THEN SRW_TAC [] []
-  THEN Cases_on `h' = #"."`
-  THEN SRW_TAC [] []
-  THEN FULL_SIMP_TAC (srw_ss()) []
-  THEN SRW_TAC [] []
-  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) []
-  THEN Cases_on `t'`
-  THEN FULL_SIMP_TAC (srw_ss()++ARITH_ss) []
-  THEN SRW_TAC [] []
-  THEN FULL_SIMP_TAC (srw_ss()++ARITH_ss) [lem1]
-  THEN POP_ASSUM MP_TAC
-  THEN SRW_TAC [] [lem2]
-  THEN IMP_RES_TAC read_while_thm
-  THEN BasicProvers.EVERY_CASE_TAC
-  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]
-  THEN SRW_TAC [] []
-  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]);
+val read_while_EMPTY = save_thm(
+  "read_while_EMPTY[simp]", CONJUNCT1 read_while_def);
 
+val NOT_NIL_EXISTS_CONS = Q.prove(
+  `(n ≠ [] ⇔ ∃h t. n = h :: t) ∧
+   (list_CASE n F P ⇔ ∃h t. n = h :: t ∧ P h t)`,
+  Cases_on `n` >> simp[]);
+
+val listeq = prove_case_eq_thm {case_def = listTheory.list_case_def,
+                                nchotomy = listTheory.list_CASES}
+val optioneq = prove_case_eq_thm { nchotomy = option_nchotomy,
+                                   case_def = option_case_def}
+
+
+val next_sym_LESS = Q.store_thm("next_sym_LESS",
+  `!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input`,
+  ho_match_mp_tac (fetch "-" "next_sym_ind") >>
+  simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
+  rveq >> fs[] >> rveq >> fs[] >>
+  MAP_EVERY imp_res_tac [read_while_thm,read_string_thm] >>
+  fs[listeq, optioneq, bool_case_eq] >> rveq >> fs[] >>
+  TRY (rename1 `skip_comment` >>
+       res_tac >> imp_res_tac skip_comment_thm >> simp[] >> NO_TAC) >>
+  TRY (rename1 `UNCURRY` >>
+       rpt (pairarg_tac>> fs[]) >> rveq >>
+       imp_res_tac read_while_thm >> simp[] >> NO_TAC))
 (*
 
   EVAL ``next_sym "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
   EVAL ``next_sym " (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
+  EVAL ``next_sym "0w10 +"``;
+  EVAL ``next_sym "0wx1A +"``;
 
 *)
 
@@ -289,6 +292,7 @@ val token_of_sym_def = Define `
     | StringS s => StringT s
     | CharS c => CharT c
     | NumberS i => IntT i
+    | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
     | OtherS s  => get_token s `;
@@ -299,9 +303,9 @@ val next_token_def = Define `
     | NONE => NONE
     | SOME (sym, rest_of_input) => SOME (token_of_sym sym, rest_of_input)`;
 
-val next_token_LESS = store_thm("next_token_LESS",
-  ``!s rest input. (next_token input = SOME (s,rest)) ==>
-                   LENGTH rest < LENGTH input``,
+val next_token_LESS = Q.store_thm("next_token_LESS",
+  `!s rest input. (next_token input = SOME (s,rest)) ==>
+                   LENGTH rest < LENGTH input`,
   NTAC 3 STRIP_TAC THEN Cases_on `next_sym input`
   THEN ASM_SIMP_TAC (srw_ss()) [next_token_def]
   THEN Cases_on `x` THEN ASM_SIMP_TAC (srw_ss()) []
@@ -325,7 +329,9 @@ val lexer_fun_def = tDefine "lexer_fun" `
     EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``;
     EVAL ``lexer_fun "a b cd c2 c3'"``;
     EVAL ``lexer_fun "'a 'b '2"``;
-    EVAL ``lexer_fun "'"``
+    EVAL ``lexer_fun "'"``;
+    EVAL ``lexer_fun "0w10 + 0wxAa3F"``;
+    EVAL ``lexer_fun "0w"``;
 
 *)
 

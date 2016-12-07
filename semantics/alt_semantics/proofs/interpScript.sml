@@ -1,10 +1,10 @@
 open preamble;
-open monadsyntax;
 open semanticPrimitivesTheory bigStepTheory;
 open terminationTheory;
 open determTheory bigClockTheory;
 
 val _ = new_theory "interp";
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val st = ``st:'ffi state``;
 

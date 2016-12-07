@@ -115,8 +115,8 @@ val compile_length = Q.store_thm("compile_length[simp]",
   \\ FULL_SIMP_TAC (srw_ss()) [compile_def,ADD1,LET_DEF]
   \\ every_case_tac \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_HD_SING = store_thm("compile_HD_SING",
-  ``[HD (compile n [x])] = compile n [x]``,
+val compile_HD_SING = Q.store_thm("compile_HD_SING",
+  `[HD (compile n [x])] = compile n [x]`,
   MP_TAC (Q.SPECL [`n`,`[x]`] compile_length)
   \\ Cases_on `compile n [x]` \\ fs [LENGTH_NIL]);
 

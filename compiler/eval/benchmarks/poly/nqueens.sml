@@ -4,13 +4,25 @@ fun main() =
 
   fun abs x = if x < 0 then x else 0-x;
 
+  (* equality version
+  fun curcheck p ls =
+        case ls of
+          [] => ()
+        | (l::ls) =>
+        case p of (x,y) =>
+        case l of (a,b) =>
+        if a = x orelse b = y orelse abs(a-x)=abs(b-y) then raise Fail else curcheck (x,y) ls;
+  *)
+
+  fun int_eq x y = (x <= y) andalso  (y <= x);
+
   fun curcheck p ls =
       case ls of
         [] => ()
       | (l::ls) =>
       case p of (x,y) =>
       case l of (a,b) =>
-      if a = x orelse b = y orelse abs(a-x)=abs(b-y) then raise Fail else curcheck (x,y) ls;
+      if int_eq a x orelse int_eq b y orelse int_eq (abs(a-x)) (abs(b-y)) then raise Fail else curcheck (x,y) ls;
 
   fun nqueens n cur ls =
     if cur >= n then ls

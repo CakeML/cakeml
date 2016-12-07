@@ -1,3 +1,2 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../../.. $(HOLDIR)/examples/l3-machine-code/common $(HOLDIR)/examples/fun-op-sem/lprefix_lub
-
+INCLUDES = ../../.. $(HOLDIR)/examples/l3-machine-code/common $(HOLDIR)/examples/fun-op-sem/lprefix_lub ../../../semantics

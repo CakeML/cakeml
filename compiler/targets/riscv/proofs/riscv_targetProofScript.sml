@@ -73,14 +73,14 @@ val lem7 = CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
                 (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
 val lem8 = Q.prove(
-  `((if b then 1w else 0w : word64) = v2w [x] || v2w [y]) = (b = x \/ y)`,
+  `((if b then 1w else 0w : word64) = (v2w [x] || v2w [y])) = (b = (x \/ y))`,
   rw [] \\ blastLib.BBLAST_TAC)
 
 val lem9 = Q.prove(
   `!r2 : word64 r3 : word64.
-    (18446744073709551616 <= w2n r2 + (w2n r3 + 1) =
+    (18446744073709551616 <= w2n r2 + (w2n r3 + 1) <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
-    (18446744073709551616 <= w2n r2 + w2n r3 =
+    (18446744073709551616 <= w2n r2 + w2n r3 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
    Cases
    \\ Cases
@@ -452,8 +452,8 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
         jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) &&
-                     ms.c_gpr ms.procID (n2w n') = 0w`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
+                      ms.c_gpr ms.procID (n2w n')) = 0w`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+
                        ms.c_gpr ms.procID (n2w n'))`,
@@ -464,7 +464,7 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
         jc_next_tac `ms.c_gpr ms.procID (n2w n) = c'`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ c'`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) < c'`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) && c' = 0w`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') = 0w`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <> c'`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,

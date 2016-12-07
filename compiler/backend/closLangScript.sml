@@ -24,7 +24,6 @@ val _ = Datatype `
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | FromList num  (* convert list to packed Block *)
-     | ToList        (* convert packed Block to list *)
      | TagLenEq num num (* check Block's tag and length *)
      | TagEq num     (* check Block's tag *)
      | BlockCmp      (* do two blocks have the same tag and length? *)
@@ -65,8 +64,8 @@ val _ = Datatype `
 
 val exp_size_def = definition"exp_size_def";
 
-val exp1_size_lemma = store_thm("exp1_size_lemma",
-  ``!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns``,
+val exp1_size_lemma = Q.store_thm("exp1_size_lemma",
+  `!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns`,
   Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
 

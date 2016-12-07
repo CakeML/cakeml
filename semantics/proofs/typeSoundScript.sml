@@ -309,19 +309,6 @@ val v_to_list_type = Q.prove (
  FIRST_X_ASSUM (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  srw_tac[][]);
 
-val char_list_to_v_type = Q.prove (
-  `ctMap_has_lists ctMap
-   ⇒
-   type_v tvs ctMap tenvS (char_list_to_v (EXPLODE str)) (Tapp [Tchar] (TC_name (Short "list")))`,
-    Induct_on`str` >> srw_tac[][char_list_to_v_def] >>
-    simp[Once type_v_cases,tid_exn_to_tc_def,Tchar_def] >>
-    full_simp_tac(srw_ss())[ctMap_has_lists_def,check_freevars_def] >>
-    simp[Once type_v_cases] >>
-    conj_tac >- (
-      simp[Once type_v_cases] >>
-      simp[type_subst_def,flookup_fupdate_list,Tchar_def] ) >>
-    fs [type_subst_def, flookup_fupdate_list, Tchar_def]);
-
 val v_to_char_list_type = Q.prove (
 `!v vs.
   ctMap_has_lists ctMap ∧
@@ -702,14 +689,23 @@ val op_type_sound = Q.store_thm ("op_type_sound",
  >- ( (* char boolean op *)
    simp [type_v_Boolv]
    >> metis_tac [store_type_extension_refl])
- >- ( (* string to list *)
-   simp [char_list_to_v_type]
-   >> metis_tac [store_type_extension_refl])
  >- ( (* list to string *)
    simp []
    >> drule (GEN_ALL v_to_char_list_type)
    >> rpt (disch_then drule)
    >> rw []
+   >> metis_tac [store_type_extension_refl])
+ >- ( (* string lookup *)
+   rename1 `type_v _ _ _ (Litv (IntLit n)) _`
+   >> Cases_on `n < 0`
+   >> rw [type_v_exn, prim_exn_def]
+   >- metis_tac [store_type_extension_refl]
+   >> Cases_on `Num (ABS n) ≥ LENGTH s`
+   >> rw [type_v_exn]
+   >- metis_tac [store_type_extension_refl]
+   >> qpat_x_assum `type_v _ _ _ (Litv (StrLit _)) _` mp_tac
+   >> simp [Once type_v_cases, EVERY_EL]
+   >> simp[Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
  >- ( (* string length *)
    simp [Once type_v_cases]

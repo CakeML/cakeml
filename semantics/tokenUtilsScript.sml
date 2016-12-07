@@ -51,6 +51,12 @@ val isCharT_def = Define`
 `;
 val _ = export_rewrites ["isCharT_def"]
 
+val isWordT_def = Define`
+  (isWordT (WordT _) ⇔ T) ∧
+  (isWordT _ ⇔ F)
+`;
+val _ = export_rewrites ["isWordT_def"]
+
 val isLongidT_def = Define`
   (isLongidT (LongidT _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
@@ -63,9 +69,9 @@ val destLongidT_def = Define`
 `
 val _ = export_rewrites ["destLongidT_def"]
 
-val destLongidT_EQ_SOME = store_thm(
+val destLongidT_EQ_SOME = Q.store_thm(
   "destLongidT_EQ_SOME[simp]",
-  ``destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)``,
+  `destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)`,
   Cases_on `t` >> simp[] >> metis_tac[]);
 
 val destTyvarPT_def = Define`
@@ -85,9 +91,9 @@ val destAlphaT_def = Define`
 `;
 val _ = export_rewrites ["destAlphaT_def"]
 
-val destAlphaT_EQ_SOME = store_thm(
+val destAlphaT_EQ_SOME = Q.store_thm(
   "destAlphaT_EQ_SOME[simp]",
-  ``destAlphaT t = SOME s ⇔ t = AlphaT s``,
+  `destAlphaT t = SOME s ⇔ t = AlphaT s`,
   Cases_on `t` >> simp[]);
 
 val destSymbolT_def = Define`
@@ -96,9 +102,9 @@ val destSymbolT_def = Define`
 `;
 val _ = export_rewrites ["destSymbolT_def"]
 
-val destSymbolT_EQ_SOME = store_thm(
+val destSymbolT_EQ_SOME = Q.store_thm(
   "destSymbolT_EQ_SOME[simp]",
-  ``destSymbolT t = SOME s ⇔ t = SymbolT s``,
+  `destSymbolT t = SOME s ⇔ t = SymbolT s`,
   Cases_on `t` >> simp[]);
 
 val destIntT_def = Define`
@@ -118,5 +124,11 @@ val destStringT_def = Define`
   (destStringT _ = NONE)
 `;
 val _ = export_rewrites ["destStringT_def"]
+
+val destWordT_def = Define`
+  (destWordT (WordT w) = SOME w) ∧
+  (destWordT _ = NONE)
+`;
+val _ = export_rewrites ["destWordT_def"]
 
 val _ = export_theory()

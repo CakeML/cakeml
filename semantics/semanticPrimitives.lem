@@ -353,11 +353,6 @@ and v_to_char_list (Conv (Just (cn,TypeId (Short tn))) [Litv (Char c);v]) =
     Nothing
 and v_to_char_list _ = Nothing
 
-val char_list_to_v : list char -> v
-let rec char_list_to_v [] = Conv (Just ("nil", TypeId (Short "list"))) []
-and char_list_to_v (c::cs) =
-  Conv (Just ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs]
-
 val opn_lookup : opn -> integer -> integer -> integer
 let opn_lookup n : integer -> integer -> integer = match n with
   | Plus -> (+)
@@ -521,8 +516,15 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               Just ((s,t), Rval (Litv (StrLit (toString ls))))
           | Nothing -> Nothing
           end
-    | (Explode, [Litv (StrLit str)]) ->
-        Just ((s,t), Rval (char_list_to_v (toCharList str)))
+    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) ->
+        if i < 0 then
+          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let n = natFromInteger i in
+            if n >= stringLength str then
+              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+            else
+              Just ((s,t), Rval (Litv (Char (List_extra.nth (toCharList str) n))))
     | (Strlen, [Litv (StrLit str)]) ->
         Just ((s,t), Rval (Litv(IntLit(integerFromNat(stringLength str)))))
     | (VfromList, [v]) ->

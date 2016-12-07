@@ -1,12 +1,12 @@
 open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
-local open monadsyntax in end
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
 val _ = new_theory "cmlPEG"
 
 val _ = new_storage_attribute "cakeml/parsing"
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``
@@ -216,10 +216,13 @@ val cmlPEG_def = zDefine`
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         pegf (tokeq StarT) (bindNT nOpID);
                         pegf (tokeq EqualsT) (bindNT nOpID)]);
+              (mkNT nEliteral,
+               choicel [tok isInt (bindNT nEliteral o mktokLf);
+                        tok isString (bindNT nEliteral o mktokLf);
+                        tok isCharT (bindNT nEliteral o mktokLf);
+                        tok isWordT (bindNT nEliteral o mktokLf)]);
               (mkNT nEbase,
-               choicel [tok isInt (bindNT nEbase o mktokLf);
-                        tok isString (bindNT nEbase o mktokLf);
-                        tok isCharT (bindNT nEbase o mktokLf);
+               choicel [pegf (pnt nEliteral) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         peg_EbaseParen;
                         seql [tokeq LbrackT; try (pnt nElist1); tokeq RbrackT]
@@ -510,8 +513,8 @@ val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
 val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
-val frange_image = prove(
-  ``FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)``,
+val frange_image = Q.prove(
+  `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]);
 
 val peg_range =
@@ -569,7 +572,7 @@ val pegnt_case_ths = peg0_cases
 
 fun pegnt(t,acc) = let
   val th =
-      prove(``¬peg0 cmlPEG (pnt ^t)``,
+      Q.prove(`¬peg0 cmlPEG (pnt ^t)`,
             simp(pegnt_case_ths @ cmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
                   peg_StructName_def,
@@ -596,7 +599,8 @@ val npeg0_rwts =
                 ``nPcons``, ``nPattern``,
                 ``nPatternList``, ``nPbaseList1``,
                 ``nLetDec``, ``nMultOps``, ``nListOps``,
-                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEliteral``,
+                ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
                 ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
@@ -657,7 +661,7 @@ val peg0_tokeq = Store_thm(
 
 fun wfnt(t,acc) = let
   val th =
-    prove(``wfpeg cmlPEG (pnt ^t)``,
+    Q.prove(`wfpeg cmlPEG (pnt ^t)`,
           SIMP_TAC (srw_ss())
                    (cmlpeg_rules_applied @
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
@@ -680,7 +684,7 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nOpID``,
-                ``nEbase``, ``nEapp``,
+                ``nEliteral``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
                 ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
@@ -702,8 +706,8 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
                       ``nDtypeCons``])
 *)
 
-val subexprs_pnt = prove(
-  ``subexprs (pnt n) = {pnt n}``,
+val subexprs_pnt = Q.prove(
+  `subexprs (pnt n) = {pnt n}`,
   simp[subexprs_def, pnt_def]);
 
 val PEG_exprs = save_thm(
@@ -718,9 +722,9 @@ val PEG_exprs = save_thm(
           pred_setTheory.INSERT_UNION_EQ
          ])
 
-val PEG_wellformed = store_thm(
+val PEG_wellformed = Q.store_thm(
   "PEG_wellformed",
-  ``wfG cmlPEG``,
+  `wfG cmlPEG`,
   simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
@@ -754,7 +758,7 @@ local
   val nts = recurse [] r
 in
 val FDOM_cmlPEG_nts = let
-  fun p t = prove(``^t ∈ FDOM cmlPEG.rules``, simp[FDOM_cmlPEG])
+  fun p t = Q.prove(`^t ∈ FDOM cmlPEG.rules`, simp[FDOM_cmlPEG])
 in
   save_thm("FDOM_cmlPEG_nts", LIST_CONJ (map p nts)) before
   export_rewrites ["FDOM_cmlPEG_nts"]

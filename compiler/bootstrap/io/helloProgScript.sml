@@ -82,33 +82,33 @@ fun prove_array_spec op_name =
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
-val w8array_alloc_spec = store_thm ("w8array_alloc_spec",
-  ``!n nv w wv.
+val w8array_alloc_spec = Q.store_thm ("w8array_alloc_spec",
+  `!n nv w wv.
      NUM n nv /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (POSTv v. W8ARRAY v (REPLICATE n w))``,
+       emp (POSTv v. W8ARRAY v (REPLICATE n w))`,
   prove_array_spec "Word8Array.array");
 
-val w8array_sub_spec = store_thm ("w8array_sub_spec",
-  ``!a av n nv.
+val w8array_sub_spec = Q.store_thm ("w8array_sub_spec",
+  `!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)`,
   prove_array_spec "Word8Array.sub");
 
-val w8array_length_spec = store_thm ("w8array_length_spec",
-  ``!a av.
+val w8array_length_spec = Q.store_thm ("w8array_length_spec",
+  `!a av.
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)``,
+       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)`,
   prove_array_spec "Word8Array.length");
 
-val w8array_update_spec = store_thm ("w8array_update_spec",
-  ``!a av n nv w wv.
+val w8array_update_spec = Q.store_thm ("w8array_update_spec",
+  `!a av n nv w wv.
      NUM n nv /\ n < LENGTH a /\ WORD w wv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
        [av; nv; wv]
        (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))``,
+       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))`,
   prove_array_spec "Word8Array.update");
 
 
@@ -165,13 +165,13 @@ val STDOUT_def = Define `
 val CHAR_IO_def = Define `
   CHAR_IO = SEP_EXISTS w. W8ARRAY write_loc [w]`;
 
-val write_spec = store_thm ("write_spec",
-  ``!a av n nv v.
+val write_spec = Q.store_thm ("write_spec",
+  `!a av n nv v.
      WORD (c:word8) cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (CHAR_IO * STDOUT output)
-       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [CHR (w2n c)]))``,
+       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [CHR (w2n c)]))`,
   xcf "CharIO.write" (basis_st())
   \\ fs [CHAR_IO_def] \\ xpull
   \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
@@ -194,12 +194,12 @@ val e =
 
 val _ = ml_prog_update (add_Dlet_Fun ``"main"`` ``"c"`` e "main_v")
 
-val main_spec = store_thm ("main",
-  ``!cv input output.
+val main_spec = Q.store_thm ("main",
+  `!cv input output.
       app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
         [cv]
         (CHAR_IO * STDOUT "")
-        (POSTv uv. CHAR_IO * STDOUT "Hi")``,
+        (POSTv uv. CHAR_IO * STDOUT "Hi")`,
   xcf "main" (basis_st())
   \\ xlet `POSTv v. CHAR_IO * STDOUT "H"` THEN1
    (xapp \\ qexists_tac `emp` \\ qexists_tac `""` \\ qexists_tac `n2w (ORD #"H")`

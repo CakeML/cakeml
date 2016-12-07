@@ -55,8 +55,8 @@ val delete_var_def = Define `
   (delete_var ((Var n):bvi$exp) = Op (Const 0) []) /\
   (delete_var x = x)`;
 
-val exp2_size_APPEND = store_thm("exp2_size_APPEND",
-  ``!xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys``,
+val exp2_size_APPEND = Q.store_thm("exp2_size_APPEND",
+  `!xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys`,
   Induct \\ fs [exp_size_def]);
 
 val compile_def = tDefine "compile" `
@@ -104,8 +104,8 @@ val compile_length = Q.store_thm("compile_length[simp]",
   \\ FULL_SIMP_TAC (srw_ss()) [compile_def,ADD1,LET_DEF]
   \\ every_case_tac \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_HD_SING = store_thm("compile_HD_SING",
-  ``[HD (compile n d [x])] = compile n d [x]``,
+val compile_HD_SING = Q.store_thm("compile_HD_SING",
+  `[HD (compile n d [x])] = compile n d [x]`,
   MP_TAC (Q.SPECL [`n`,`d`,`[x]`] compile_length)
   \\ Cases_on `compile n d [x]` \\ fs [LENGTH_NIL]);
 

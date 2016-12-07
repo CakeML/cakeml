@@ -5,12 +5,12 @@ open bigStepTheory;
 val _ = new_theory "bigStepProps";
 
 (* TODO see if this is actually needed
-val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_prog_MAP_Tdec",
-  ``∀ck env cs tids ds res.
+val evaluate_decs_evaluate_prog_MAP_Tdec = Q.store_thm("evaluate_decs_evaluate_prog_MAP_Tdec",
+  `∀ck env cs tids ds res.
       evaluate_decs ck NONE env (cs,tids) ds res
       ⇔
       case res of ((s,tids'),envC,r) =>
-      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. ([],envE))(I)r)``,
+      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. ([],envE))(I)r)`,
   Induct_on`ds`>>simp[Once evaluate_decs_cases,Once evaluate_prog_cases] >- (
     rpt gen_tac >> BasicProvers.EVERY_CASE_TAC >> simp[] >>
     Cases_on`r'`>>simp[] ) >>
@@ -51,11 +51,11 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
   >- (
     Cases_on`a`>>full_simp_tac(srw_ss())[]))
 
-val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
-  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+val evaluate_decs_ctors_in = Q.store_thm("evaluate_decs_ctors_in",
+  `∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
       ∀cn.
         IS_SOME (ALOOKUP (FST(SND res)) cn) ⇒
-        MEM cn (FLAT (MAP ctors_of_dec decs))``,
+        MEM cn (FLAT (MAP ctors_of_dec decs))`,
   HO_MATCH_MP_TAC evaluate_decs_ind >>
   simp[] >>
   srw_tac[][Once evaluate_dec_cases] >> simp[] >>
@@ -128,8 +128,8 @@ val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
 (* REPL bootstrap lemmas *)
 
 (* TODO
-val evaluate_decs_last3 = prove(
-  ``∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
+val evaluate_decs_last3 = Q.prove(
+  `∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
       evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
       decs = decs0 ++ [Dlet (Pvar x) (App Opref [Con i []]);Dlet(Pvar y)(App Opref [Con j []]);Dlet (Pvar p) (Fun q r)]
       ⇒
@@ -140,7 +140,7 @@ val evaluate_decs_last3 = prove(
       build_conv (merge_alist_mod_env([],b)(FST(SND env))) i [] = SOME iv ∧
       build_conv (merge_alist_mod_env([],b)(FST(SND env))) j [] = SOME jv ∧
       (EL n s1 = Refv iv) ∧
-      (EL (n+1) s1 = Refv jv)``,
+      (EL (n+1) s1 = Refv jv)`,
   Induct_on`decs0` >>
   srw_tac[][Once bigStepTheory.evaluate_decs_cases] >- (
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
@@ -156,7 +156,7 @@ val evaluate_decs_last3 = prove(
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
     full_simp_tac(srw_ss())[semanticPrimitivesTheory.combine_dec_result_def] >>
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_dec_cases] >>
-    rator_x_assum`evaluate`mp_tac >>
+    qhdtm_x_assum`evaluate`mp_tac >>
     simp[Once bigStepTheory.evaluate_cases] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases]>>
     srw_tac[][] >>
@@ -173,8 +173,8 @@ val evaluate_decs_last3 = prove(
   PairCases_on`cenv` >>
   full_simp_tac(srw_ss())[semanticPrimitivesTheory.merge_alist_mod_env_def, FUNION_ASSOC])
 
-val evaluate_Tmod_last3 = store_thm("evaluate_Tmod_last3",
-  ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
+val evaluate_Tmod_last3 = Q.store_thm("evaluate_Tmod_last3",
+  `evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
     decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
   ⇒
     ∃n ls1 ls iv jv.
@@ -184,18 +184,18 @@ val evaluate_Tmod_last3 = store_thm("evaluate_Tmod_last3",
     build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) i [] = SOME iv ∧
     build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) j [] = SOME jv ∧
     (EL n (SND cs) = Refv iv) ∧
-    (EL (n+1) (SND cs) = Refv jv)``,
+    (EL (n+1) (SND cs) = Refv jv)`,
   Cases_on`cs`>>srw_tac[][bigStepTheory.evaluate_top_cases]>>
   imp_res_tac evaluate_decs_last3 >> full_simp_tac(srw_ss())[]) |> GEN_ALL
 
-val evaluate_decs_tys = prove(
-  ``∀decs0 decs1 decs ck mn env s s' tys c tds tvs tn cts cn as.
+val evaluate_decs_tys = Q.prove(
+  `∀decs0 decs1 decs ck mn env s s' tys c tds tvs tn cts cn as.
     evaluate_decs ck (SOME mn) env s decs (s',tys,Rval c) ∧
     decs = decs0 ++ [Dtype tds] ++ decs1 ∧
     MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
     ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
     ⇒
-    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
+    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))`,
   Induct >> srw_tac[][Once evaluate_decs_cases] >- (
     full_simp_tac(srw_ss())[Once evaluate_dec_cases] >> srw_tac[][] >>
     simp[ALOOKUP_APPEND] >>
@@ -227,13 +227,13 @@ val evaluate_decs_tys = prove(
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
   simp[])
 
-val evaluate_Tmod_tys = store_thm("evaluate_Tmod_tys",
-  ``evaluate_top F env s (Tmod mn NONE decs) (s',([(m,tys)],e),Rval r) ⇒
+val evaluate_Tmod_tys = Q.store_thm("evaluate_Tmod_tys",
+  `evaluate_top F env s (Tmod mn NONE decs) (s',([(m,tys)],e),Rval r) ⇒
     decs = decs0 ++ [Dtype tds] ++ decs1 ⇒
     MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
     ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
     ⇒
-    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
+    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))`,
   srw_tac[][evaluate_top_cases,miscTheory.FEMPTY_FUPDATE_EQ] >>
   METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
   *)

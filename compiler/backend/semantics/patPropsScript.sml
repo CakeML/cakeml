@@ -5,7 +5,7 @@ val _ = new_theory"patProps"
 val evaluate_lit = save_thm("evaluate_lit[simp]",
       EVAL``patSem$evaluate env s [Lit l]``)
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",`patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``patSem$Boolv T = Boolv F``);
 
@@ -25,18 +25,18 @@ val no_closures_def = tDefine"no_closures"`
  simp[v_size_def]>>srw_tac[][]>>res_tac>>simp[])
 val _ = export_rewrites["no_closures_def"];
 
-val no_closures_Boolv = store_thm("no_closures_Boolv[simp]",
-  ``no_closures (Boolv b)``,
+val no_closures_Boolv = Q.store_thm("no_closures_Boolv[simp]",
+  `no_closures (Boolv b)`,
   EVAL_TAC);
 
-val evaluate_raise_rval = store_thm("evaluate_raise_rval",
-  ``∀env s e s' v. patSem$evaluate env s [Raise e] ≠ (s', Rval v)``,
+val evaluate_raise_rval = Q.store_thm("evaluate_raise_rval",
+  `∀env s e s' v. patSem$evaluate env s [Raise e] ≠ (s', Rval v)`,
   EVAL_TAC >> srw_tac[][] >> every_case_tac >> simp[])
 val _ = export_rewrites["evaluate_raise_rval"]
 
-val evaluate_length = store_thm("evaluate_length",
-  ``∀env s ls s' vs.
-      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls``,
+val evaluate_length = Q.store_thm("evaluate_length",
+  `∀env s ls s' vs.
+      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls`,
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -66,23 +66,23 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
   `evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]`,
   srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
-val evaluate_append_Rval = store_thm("evaluate_append_Rval",
-  ``∀l1 env s l2 s' vs.
+val evaluate_append_Rval = Q.store_thm("evaluate_append_Rval",
+  `∀l1 env s l2 s' vs.
     evaluate env s (l1 ++ l2) = (s',Rval vs) ⇒
     ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
                evaluate env s1 l2 = (s',Rval v2) ∧
-               vs = v1++v2``,
+               vs = v1++v2`,
   Induct >> simp[evaluate_def,Once evaluate_cons] >>
   srw_tac[][] >> simp[Once evaluate_cons] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> res_tac >>
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
-val evaluate_append_Rval_iff = store_thm("evaluate_append_Rval_iff",
-  ``∀l1 env s l2 s' vs.
+val evaluate_append_Rval_iff = Q.store_thm("evaluate_append_Rval_iff",
+  `∀l1 env s l2 s' vs.
     evaluate env s (l1 ++ l2) = (s',Rval vs) ⇔
     ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
                evaluate env s1 l2 = (s',Rval v2) ∧
-               vs = v1++v2``,
+               vs = v1++v2`,
   srw_tac[][] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_append_Rval >>
   map_every qid_spec_tac[`vs`,`s`] >>
   Induct_on`l1`>>srw_tac[][evaluate_def,Once evaluate_cons] >> srw_tac[][] >>
@@ -91,13 +91,13 @@ val evaluate_append_Rval_iff = store_thm("evaluate_append_Rval_iff",
   full_simp_tac(srw_ss())[PULL_EXISTS] >>
   res_tac >> full_simp_tac(srw_ss())[]);
 
-val evaluate_append_Rerr = store_thm("evaluate_append_Rerr",
-  ``∀l1 env s l2 s' e.
+val evaluate_append_Rerr = Q.store_thm("evaluate_append_Rerr",
+  `∀l1 env s l2 s' e.
     evaluate env s (l1 ++ l2) = (s',Rerr e) ⇔
     (evaluate env s l1 = (s', Rerr e) ∨
        ∃s1 v1.
          evaluate env s l1 = (s1, Rval v1) ∧
-         evaluate env s1 l2 = (s', Rerr e))``,
+         evaluate env s1 l2 = (s', Rerr e))`,
   Induct >> srw_tac[][evaluate_def] >>
   srw_tac[][Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
   srw_tac[][Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
@@ -199,13 +199,13 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,IS_PREFIX_TRANS,lemma])
 
 (*
-val not_evaluate_list_append = store_thm("not_evaluate_list_append",
-  ``∀l1 ck env s l2 res.
+val not_evaluate_list_append = Q.store_thm("not_evaluate_list_append",
+  `∀l1 ck env s l2 res.
     (∀res. ¬evaluate_list ck env s (l1 ++ l2) res) ⇔
     ((∀res. ¬evaluate_list ck env s l1 res) ∨
        ∃s1 v1.
          evaluate_list ck env s l1 (s1, Rval v1) ∧
-         (∀res. ¬evaluate_list ck env s1 l2 res))``,
+         (∀res. ¬evaluate_list ck env s1 l2 res))`,
   Induct >- (
     srw_tac[][EQ_IMP_THM] >- (
       full_simp_tac(srw_ss())[Once(CONJUNCT2(evaluate_cases))] >>

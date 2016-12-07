@@ -325,11 +325,11 @@ val cmp_lem3 = Thm.CONJ
   (blastLib.BBLAST_PROVE
      ``!a b: word64.
         ((-1w * b + a) ' 63 <=/=>
-         (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) = a < b``)
+         (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) <=> a < b``)
   (blastLib.BBLAST_PROVE
      ``!a b: word64.
         ((a + -1w * b) ' 63 <=/=>
-         (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) = a < b``)
+         (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) <=> a < b``)
 
 val cmp_lem4 = Q.prove(
    `!w: word64 a b.
@@ -339,8 +339,8 @@ val cmp_lem4 = Q.prove(
 val cmp_lem5 = Q.prove(
    `!c: word64.
        0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7Fw ==>
-       ((if (7 >< 7) c = 1w: word8 then 0xFFFFFFFFFFFFFF00w else 0w) ||
-         (7 >< 0) c = c)`,
+       (((if (7 >< 7) c = 1w: word8 then 0xFFFFFFFFFFFFFF00w else 0w) ||
+         ((7 >< 0) c)) = c)`,
    rw []
    \\ blastLib.FULL_BBLAST_TAC
    )
@@ -348,8 +348,8 @@ val cmp_lem5 = Q.prove(
 val cmp_lem6 = Q.prove(
    `!c: word64.
        0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
-       ((if (31 >< 31) c = 1w: word32 then 0xFFFFFFFF00000000w else 0w) ||
-         (31 >< 0) c = c)`,
+       (((if (31 >< 31) c = 1w: word32 then 0xFFFFFFFF00000000w else 0w) ||
+         (31 >< 0) c) = c)`,
    rw []
    \\ blastLib.FULL_BBLAST_TAC
    )
@@ -416,7 +416,7 @@ val adc_lem1 =
   Thm.CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
            (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
-val adc_lem2 = blastLib.BBLAST_PROVE ``a <+ 1w : word64 = (a = 0w)``
+val adc_lem2 = blastLib.BBLAST_PROVE ``a <+ 1w : word64 <=> (a = 0w)``
 
 val dec_neq0 = blastLib.BBLAST_PROVE ``!x: word4. (x || 8w) <> 0w``
 

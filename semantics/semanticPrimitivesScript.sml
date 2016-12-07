@@ -427,14 +427,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_char_list_defn;
 
-(*val char_list_to_v : list char -> v*)
- val char_list_to_v_defn = Hol_defn "char_list_to_v" `
- (char_list_to_v [] = (Conv (SOME ("nil", TypeId (Short "list"))) []))
-/\ (char_list_to_v (c::cs) =  
-(Conv (SOME ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs]))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_defn;
-
 (*val opn_lookup : opn -> integer -> integer -> integer*)
 val _ = Define `
  (opn_lookup n : int -> int -> int = ((case n of
@@ -615,8 +607,15 @@ val _ = Define `
               SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
           | NONE => NONE
           )
-    | (Explode, [Litv (StrLit str)]) =>
-        SOME ((s,t), Rval (char_list_to_v (EXPLODE str)))
+    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= STRLEN str then
+              SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+            else
+              SOME ((s,t), Rval (Litv (Char (EL n (EXPLODE str)))))
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
     | (VfromList, [v]) =>

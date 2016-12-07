@@ -38,17 +38,7 @@ val binop_upd_def = Define `
   (binop_upd r Or w1 w2  = upd_reg r (word_or w1 w2)) /\
   (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))`
 
-val word_cmp_def = Define `
-  (word_cmp Equal w1 w2 = (w1 = w2)) /\
-  (word_cmp Less w1 w2  = (w1 < w2)) /\
-  (word_cmp Lower w1 w2 = (w1 <+ w2)) /\
-  (word_cmp Test w1 w2  = (w1 && w2 = 0w)) /\
-  (word_cmp NotEqual w1 w2 = (w1 <> w2)) /\
-  (word_cmp NotLess w1 w2  = ~(w1 < w2)) /\
-  (word_cmp NotLower w1 w2 = ~(w1 <+ w2)) /\
-  (word_cmp NotTest w1 w2  = ((w1 && w2) <> 0w))`
-
-val is_test_def = Define `is_test c = (c = Test) \/ (c = NotTest)`
+val is_test_def = Define `is_test c <=> (c = Test) \/ (c = NotTest)`
 
 val word_shift_def = Define `
   (word_shift Lsl w n = w << n) /\
@@ -139,12 +129,12 @@ val asm_def = Define `
   (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))`
 
 val bytes_in_memory_def = Define `
-  (bytes_in_memory a [] m dm = T) /\
-  (bytes_in_memory a ((x:word8)::xs) m dm =
+  (bytes_in_memory a [] m dm <=> T) /\
+  (bytes_in_memory a ((x:word8)::xs) m dm <=>
      (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
 
 val asm_step_def = Define `
-  asm_step c s1 i s2 =
+  asm_step c s1 i s2 <=>
     bytes_in_memory s1.pc (c.encode i) s1.mem s1.mem_domain /\
     (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
     (s1.be = c.big_endian) /\
