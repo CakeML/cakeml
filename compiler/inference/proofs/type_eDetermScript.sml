@@ -232,9 +232,9 @@ val t_walkstar_diff = Q.prove(`
   imp_res_tac MAP_EQ_f>>
   metis_tac[]);
 
-val env_rel_sound_weaken = prove(``
+val env_rel_sound_weaken = Q.prove(`
   env_rel_sound FEMPTY ienv tenv tenvE ∧ t_wfs s ⇒
-  env_rel_sound s ienv tenv tenvE``,
+  env_rel_sound s ienv tenv tenvE`,
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>

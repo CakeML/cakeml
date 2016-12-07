@@ -450,9 +450,9 @@ val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
  srw_tac[][build_tdefs_def, REVERSE_APPEND]);
 
  (*
-val MAP_FST_build_tdefs = store_thm("MAP_FST_build_tdefs",
-  ``set (MAP FST (build_tdefs mn ls)) =
-    set (MAP FST (FLAT (MAP (SND o SND) ls)))``,
+val MAP_FST_build_tdefs = Q.store_thm("MAP_FST_build_tdefs",
+  `set (MAP FST (build_tdefs mn ls)) =
+    set (MAP FST (FLAT (MAP (SND o SND) ls)))`,
   Induct_on`ls`>>simp[build_tdefs_cons] >>
   qx_gen_tac`p`>>PairCases_on`p`>>simp[build_tdefs_cons,MAP_REVERSE] >>
   simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>

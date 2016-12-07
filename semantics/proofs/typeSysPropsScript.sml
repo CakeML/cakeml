@@ -2368,15 +2368,15 @@ val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
 (* TODO: This theorem can't be stated like this after the env-refactoring. It is
  * used in inferencer completeness. *)
 (*
-val type_top_tenv_val_ok = store_thm("type_top_tenv_val_ok",
-  ``∀ch decls tenv top decls' env.
+val type_top_tenv_val_ok = Q.store_thm("type_top_tenv_val_ok",
+  `∀ch decls tenv top decls' env.
     type_top ch decls tenv top decls' env ⇒
     ∀tenvT' menv' cenv' tenv'.
     env = (tenvT',menv',cenv',tenv') ⇒
       num_tvs tenv.v = 0 ⇒
       tenv_tabbrev_ok tenv.t ⇒
       tenv_val_ok (bind_var_list2 tenv' Empty) ∧
-      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'``,
+      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'`,
   ho_match_mp_tac type_top_ind >>
   srw_tac[][FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
      typeSoundInvariantsTheory.tenv_val_ok_def] >>
@@ -2564,28 +2564,28 @@ val tenv_names_def = Define`
   (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)`
 val _ = export_rewrites["tenv_names_def"]
 
-val lookup_tenv_names = store_thm("lookup_tenv_names",
-  ``∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv``,
+val lookup_tenv_names = Q.store_thm("lookup_tenv_names",
+  `∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv`,
   Induct >> simp[lookup_tenv_val_def] >> metis_tac[])
 
-val tenv_names_bind_var_list = store_thm("tenv_names_bind_var_list",
-  ``∀n l1 l2. tenv_names (bind_var_list n l1 l2) = set (MAP FST l1) ∪ tenv_names l2``,
+val tenv_names_bind_var_list = Q.store_thm("tenv_names_bind_var_list",
+  `∀n l1 l2. tenv_names (bind_var_list n l1 l2) = set (MAP FST l1) ∪ tenv_names l2`,
   ho_match_mp_tac bind_var_list_ind >>
   simp[bind_var_list_def,EXTENSION] >>
   metis_tac[])
 
-val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
-  ``∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv``,
+val tenv_names_bind_var_list2 = Q.store_thm("tenv_names_bind_var_list2",
+  `∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv`,
   Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def] >>
   simp[EXTENSION] >> metis_tac[])
 
-val type_p_closed = prove(
-  ``(∀tvs tcenv p t tenv.
+val type_p_closed = Q.prove(
+  `(∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
        pat_bindings p [] = MAP FST tenv) ∧
     (∀tvs cenv ps ts tenv.
       type_ps tvs cenv ps ts tenv ⇒
-      pats_bindings ps [] = MAP FST tenv)``,
+      pats_bindings ps [] = MAP FST tenv)`,
   ho_match_mp_tac type_p_ind >>
   simp[astTheory.pat_bindings_def] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
@@ -2601,8 +2601,8 @@ val type_funs_dom = Q.prove (
    srw_tac[][] >>
    metis_tac []);
 
-val type_e_closed = prove(
-  ``(∀tenv e t.
+val type_e_closed = Q.prove(
+  `(∀tenv e t.
       type_e tenv e t
       ⇒
       FV e ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)) ∧
@@ -2612,7 +2612,7 @@ val type_e_closed = prove(
       FV_list es ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)) ∧
     (∀tenv funs ts.
       type_funs tenv funs ts ⇒
-      FV_defs funs ⊆ (IMAGE Short (tenv_names tenv.v)) ∪ tmenv_dom tenv.m)``,
+      FV_defs funs ⊆ (IMAGE Short (tenv_names tenv.v)) ∪ tmenv_dom tenv.m)`,
   ho_match_mp_tac type_e_strongind >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
@@ -2714,10 +2714,10 @@ val type_e_closed = prove(
   srw_tac[][] >>
   metis_tac []);
 
-val type_d_closed = prove(
-  ``∀uniq mno decls tenv d w x.
+val type_d_closed = Q.prove(
+  `∀uniq mno decls tenv d w x.
       type_d uniq mno decls tenv d w x ⇒
-        FV_dec d ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)``,
+        FV_dec d ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)`,
   ho_match_mp_tac type_d_ind >>
   strip_tac >- (
     simp[bind_tvar_def] >>
@@ -2761,10 +2761,10 @@ val type_d_new_dec_vs = Q.prove (
    *)
 
    (*
-val type_ds_closed = prove(
-  ``∀uniq mn decls tenv ds w x. type_ds uniq mn decls tenv ds w x ⇒
+val type_ds_closed = Q.prove(
+  `∀uniq mn decls tenv ds w x. type_ds uniq mn decls tenv ds w x ⇒
      !mn'. mn = SOME mn' ⇒
-      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)``,
+      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)`,
   ho_match_mp_tac type_ds_ind >>
   srw_tac[][FV_decs_def] >>
   imp_res_tac type_d_closed >>
@@ -2779,11 +2779,11 @@ val type_ds_closed = prove(
   *)
 
   (*
-val type_top_closed = store_thm("type_top_closed",
-  ``∀uniq decls tenv top decls' new_tenv.
+val type_top_closed = Q.store_thm("type_top_closed",
+  `∀uniq decls tenv top decls' new_tenv.
       type_top uniq decls tenv top decls' new_tenv
       ⇒
-      FV_top top ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)``,
+      FV_top top ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)`,
   ho_match_mp_tac type_top_ind >>
   strip_tac >- (
     simp[] >>

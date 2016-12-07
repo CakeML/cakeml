@@ -4752,17 +4752,17 @@ val memory_rel_RefPtr_IMP = Q.store_thm("memory_rel_RefPtr_IMP",
   THEN1 (rpt_drule memory_rel_ValueArray_IMP \\ rw [] \\ fs [])
   THEN1 (rpt_drule memory_rel_ByteArray_IMP \\ rw [] \\ fs []));
 
-val Smallnum_bits = store_thm("Smallnum_bits",
-  ``(1w && Smallnum i) = 0w /\ (2w && Smallnum i) = 0w``,
+val Smallnum_bits = Q.store_thm("Smallnum_bits",
+  `(1w && Smallnum i) = 0w /\ (2w && Smallnum i) = 0w`,
   Cases_on `i`
   \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
              [Smallnum_def, GSYM wordsTheory.word_mul_n2w]
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
-val memory_rel_any_Number_IMP = store_thm("memory_rel_any_Number_IMP",
-  ``good_dimindex (:'a) /\
+val memory_rel_any_Number_IMP = Q.store_thm("memory_rel_any_Number_IMP",
+  `good_dimindex (:'a) /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
-    ?w. v = Word w /\ (w ' 0 <=> ~small_int (:'a) i)``,
+    ?w. v = Word w /\ (w ' 0 <=> ~small_int (:'a) i)`,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def] \\ rw []
   \\ fs [word_addr_def,get_addr_0]
@@ -4771,18 +4771,18 @@ val memory_rel_any_Number_IMP = store_thm("memory_rel_any_Number_IMP",
   \\ simp_tac std_ss [fcpTheory.FCP_BETA,DIMINDEX_GT_0,word_1comp_def]
   \\ EVAL_TAC);
 
-val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
-  ``good_dimindex (:'a) /\ small_int (:'a) i /\
+val memory_rel_Number_IMP = Q.store_thm("memory_rel_Number_IMP",
+  `good_dimindex (:'a) /\ small_int (:'a) i /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
-    v = Word (Smallnum i)``,
+    v = Word (Smallnum i)`,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def] \\ rw []
   \\ fs [word_addr_def,Smallnum_def,integer_wordTheory.i2w_def]
   \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
 
-val memory_rel_Number_bignum_IMP = store_thm("memory_rel_Number_bignum_IMP",
-  ``memory_rel c be refs sp st m dm ((Number i,v)::vars) /\
+val memory_rel_Number_bignum_IMP = Q.store_thm("memory_rel_Number_bignum_IMP",
+  `memory_rel c be refs sp st m dm ((Number i,v)::vars) /\
     ~small_int (:'a) i /\ good_dimindex (:'a) ==>
     ?w x a y.
       v = Word w /\ (w && 1w) <> (0w:'a word) /\
@@ -4790,7 +4790,7 @@ val memory_rel_Number_bignum_IMP = store_thm("memory_rel_Number_bignum_IMP",
       a IN dm /\ m a = Word x /\ ((x && 8w) <> 0w) /\
       a + bytes_in_word IN dm /\
       m (a + bytes_in_word) = Word (n2w (Num (ABS i))) /\
-      ((x && 16w) = 0w <=> 0 <= i)``,
+      ((x && 16w) = 0w <=> 0 <= i)`,
   fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
      bc_stack_ref_inv_def,v_inv_def] \\ rw[] \\ fs[word_addr_def]
   \\ fs[heap_in_memory_store_def]
@@ -4874,12 +4874,12 @@ val IMP_memory_rel_Number_num = Q.store_thm("IMP_memory_rel_Number_num",
   \\ fs [small_int_def,dimword_def]
   \\ fs [labPropsTheory.good_dimindex_def] \\ rfs [])
 
-val memory_rel_Number_EQ = store_thm("memory_rel_Number_EQ",
-  ``memory_rel c be refs sp st m dm
+val memory_rel_Number_EQ = Q.store_thm("memory_rel_Number_EQ",
+  `memory_rel c be refs sp st m dm
       ((Number i1,w1)::(Number i2,w2)::vars) /\
     (small_int (:'a) i1 \/ small_int (:'a) i2) /\
     good_dimindex (:'a) ==>
-      ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)``,
+      ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)`,
   Cases_on `small_int (:'a) i1` \\ Cases_on `small_int (:'a) i2` \\ fs []
   THEN1
    (strip_tac
@@ -4896,26 +4896,26 @@ val memory_rel_Number_EQ = store_thm("memory_rel_Number_EQ",
   \\ Cases_on `w = w'` \\ fs []
   \\ CCONTR_TAC \\ fs []);
 
-val memory_rel_Number_LESS = store_thm("memory_rel_Number_LESS",
-  ``memory_rel c be refs sp st m dm
+val memory_rel_Number_LESS = Q.store_thm("memory_rel_Number_LESS",
+  `memory_rel c be refs sp st m dm
       ((Number i1,w1)::(Number i2,w2)::vars) /\
     small_int (:'a) i1 /\
     small_int (:'a) i2 /\
     good_dimindex (:'a) ==>
-      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 < (v2:'a word) <=> i1 < i2)``,
+      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 < (v2:'a word) <=> i1 < i2)`,
   strip_tac
   \\ imp_res_tac memory_rel_Number_IMP
   \\ drule memory_rel_tail \\ strip_tac
   \\ imp_res_tac memory_rel_Number_IMP
   \\ fs [] \\ fs [memory_rel_def] \\ rw [] \\ fs [num_less_thm]);
 
-val memory_rel_Number_LESS_EQ = store_thm("memory_rel_Number_LESS_EQ",
-  ``memory_rel c be refs sp st m dm
+val memory_rel_Number_LESS_EQ = Q.store_thm("memory_rel_Number_LESS_EQ",
+  `memory_rel c be refs sp st m dm
       ((Number i1,w1)::(Number i2,w2)::vars) /\
     small_int (:'a) i1 /\
     small_int (:'a) i2 /\
     good_dimindex (:'a) ==>
-      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 <= (v2:'a word) <=> i1 <= i2)``,
+      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 <= (v2:'a word) <=> i1 <= i2)`,
   rw [] \\ drule memory_rel_Number_LESS \\ fs [] \\ rw [] \\ fs []
   \\ drule memory_rel_Number_EQ \\ fs [] \\ rw [] \\ fs []
   \\ fs [WORD_LESS_OR_EQ,integerTheory.INT_LE_LT]);
@@ -4988,8 +4988,8 @@ val memory_rel_Boolv_F = Q.store_thm("memory_rel_Boolv_F",
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
 
-val IsBlock_word_lemma = store_thm("IsBlock_word_lemma",
-  ``good_dimindex (:'a) ==> (2w && 16w * n2w n' + 2w) <> 0w :'a word``,
+val IsBlock_word_lemma = Q.store_thm("IsBlock_word_lemma",
+  `good_dimindex (:'a) ==> (2w && 16w * n2w n' + 2w) <> 0w :'a word`,
   `!a : 'a word. (a << 4 + 2w) = (a << 4 || 2w)`
   by (strip_tac \\ match_mp_tac wordsTheory.WORD_ADD_OR
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
@@ -5150,18 +5150,18 @@ val memory_rel_Sub = Q.store_thm("memory_rel_Sub",
   \\ rfs [dimword_def]
   \\ intLib.COOPER_TAC);
 
-val small_int_w2n = store_thm("small_int_w2n[simp]",
-  ``good_dimindex (:'a) ==> small_int (:'a) (& (w2n (w:word8)))``,
+val small_int_w2n = Q.store_thm("small_int_w2n[simp]",
+  `good_dimindex (:'a) ==> small_int (:'a) (& (w2n (w:word8)))`,
   rw [labPropsTheory.good_dimindex_def,small_int_def] \\ fs [dimword_def]
   \\ assume_tac (w2n_lt |> INST_TYPE [``:'a``|->``:8``])
   \\ fs [dimword_def] \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []);
 
-val memory_rel_And = store_thm("memory_rel_And",
-  ``memory_rel c be refs sp st m dm
+val memory_rel_And = Q.store_thm("memory_rel_And",
+  `memory_rel c be refs sp st m dm
       ((Number (&(w2n (i:word8))),Word wi)::(Number (&(w2n j)),Word wj)::vars) /\
     good_dimindex (:'a) ==>
     memory_rel c be refs sp st m dm
-      ((Number (&w2n(i && j)),Word (wi && wj:'a word))::vars)``,
+      ((Number (&w2n(i && j)),Word (wi && wj:'a word))::vars)`,
   rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
   \\ rfs [small_int_w2n]
   \\ fs [WORD_LEFT_AND_OVER_OR]

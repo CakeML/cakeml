@@ -25,8 +25,8 @@ val PERM_IMP_labels_rel = Q.store_thm("PERM_IMP_labels_rel",
   fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
   \\ metis_tac [ALL_DISTINCT_PERM,MEM_PERM]);
 
-val labels_rel_TRANS = prove(
-  ``labels_rel xs ys /\ labels_rel ys zs ==> labels_rel xs zs``,
+val labels_rel_TRANS = Q.prove(
+  `labels_rel xs ys /\ labels_rel ys zs ==> labels_rel xs zs`,
   fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]);
 
 (** verification of Seq_assoc **)

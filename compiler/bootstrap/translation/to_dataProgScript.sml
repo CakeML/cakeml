@@ -61,8 +61,8 @@ val _ = translate (con_to_decTheory.compile_def);
 val _ = translate (exh_reorderTheory.compile_def);
 
 val exh_reorder_compile_side_def = theorem"exh_reorder_compile_side_def"
-val exh_reorder_compile_side = prove(``
-  ∀x. exh_reorder_compile_side x ⇔ T``,
+val exh_reorder_compile_side = Q.prove(`
+  ∀x. exh_reorder_compile_side x ⇔ T`,
   recInduct exh_reorderTheory.compile_ind>>
   rw[]>>
   rw[Once exh_reorder_compile_side_def]>>

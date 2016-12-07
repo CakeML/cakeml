@@ -2076,8 +2076,8 @@ val any_el_ALT = Q.store_thm(
   Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
   fs[]);
 
-val MOD_MINUS = store_thm("MOD_MINUS",
-  ``0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k``,
+val MOD_MINUS = Q.store_thm("MOD_MINUS",
+  `0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k`,
   strip_tac
   \\ mp_tac (wordsTheory.MOD_COMPLEMENT |> Q.SPECL [`k`,`p`,`n MOD (p * k)`])
   \\ impl_tac THEN1 (fs [MOD_LESS,ZERO_LESS_MULT])

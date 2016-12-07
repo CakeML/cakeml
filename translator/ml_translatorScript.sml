@@ -963,12 +963,12 @@ val Eval_w2n = Q.store_thm("Eval_w2n",
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
 local
-  val lemma = prove(
-    ``(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
+  val lemma = Q.prove(
+    `(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
                  (If (App (Opb Lt) [Var (Short "x"); Lit (IntLit (& k))])
                     (Var (Short "x"))
                     (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
-        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))``,
+        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))`,
     fs [] \\ rpt strip_tac
     \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
     \\ qexists_tac `~(w2n w < k)`

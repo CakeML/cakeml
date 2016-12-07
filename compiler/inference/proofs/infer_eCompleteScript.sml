@@ -297,9 +297,9 @@ val deBruijn_subst_id = Q.prove(
   (!ts. MAP (deBruijn_subst 0 []) ts = ts)`,
   Induct>>rw[]>>fs[deBruijn_subst_def,MAP_EQ_ID])
 
-val tscheme_approx_weakening2 = prove(``
+val tscheme_approx_weakening2 = Q.prove(`
   tscheme_approx tvs s t1 t2 ∧ t_compat s s' ∧ FDOM s ⊆ FDOM s' ⇒
-  tscheme_approx tvs s' t1 t2``,
+  tscheme_approx tvs s' t1 t2`,
   Cases_on`t1`>>Cases_on`t2`>>rw[tscheme_approx_def]>>
   qexists_tac`subst'`>>fs[]>>
   rw[]
@@ -310,12 +310,12 @@ val tscheme_approx_weakening2 = prove(``
   first_x_assum(qspec_then`subst` assume_tac)>>rfs[]>>
   fs[t_compat_def]>>metis_tac[])
 
-val env_rel_complete_t_compat = prove(
-``t_compat s s' ∧
+val env_rel_complete_t_compat = Q.prove(
+`t_compat s s' ∧
   FDOM s ⊆ FDOM s' ∧
   t_wfs s' ∧
   env_rel_complete s ienv tenv tenvE ⇒
-  env_rel_complete s' ienv tenv tenvE``,
+  env_rel_complete s' ienv tenv tenvE`,
   rw[env_rel_complete_def]
   >-
     metis_tac[]
@@ -1324,15 +1324,15 @@ val sub_completion_completes = Q.store_thm("sub_completion_completes",
   first_x_assum(qspecl_then[`count n`,`s`,`tvs`,`t`] mp_tac)>>
   impl_tac>>fs[]);
 
-val lookup_var_bind_var_list = prove(
-``!bindings.
+val lookup_var_bind_var_list = Q.prove(
+`!bindings.
   lookup_var x (bind_var_list 0 bindings tenvE) tenv =
   case x of
   Short id =>
     (case ALOOKUP bindings id of
       SOME t => SOME (0,t)
     | NONE => lookup_var x tenvE tenv)
-  | _ => lookup_var x tenvE tenv``,
+  | _ => lookup_var x tenvE tenv`,
   Induct>>rw[bind_var_list_def]>>Cases_on`x`>>
   fs[lookup_var_def,lookup_varE_def]>>
   fs[tveLookup_bvl,deBruijn_inc0]>>
@@ -1558,7 +1558,7 @@ val convert_infer_deBruijn_subst = Q.prove(`
   first_assum (match_mp_tac o MP_CANON)>>
   fs[EVERY_MEM]);
 
-val t_walkstar_infer_db_subst = prove(``
+val t_walkstar_infer_db_subst = Q.prove(`
   ∀s s' uvars subst tvs.
   s SUBMAP s' ∧ t_wfs s' ∧
   FDOM s = count uvars ∧
@@ -1572,7 +1572,7 @@ val t_walkstar_infer_db_subst = prove(``
   ∀ts.
   EVERY (check_t (LENGTH subst) (count uvars)) ts ⇒
   MAP (t_walkstar s o infer_deBruijn_subst subst) ts =
-  MAP (t_walkstar s' o infer_deBruijn_subst (MAP (λn. Infer_Tuvar (n + uvars)) (COUNT_LIST (LENGTH subst)))) ts``,
+  MAP (t_walkstar s' o infer_deBruijn_subst (MAP (λn. Infer_Tuvar (n + uvars)) (COUNT_LIST (LENGTH subst)))) ts`,
   ntac 6 strip_tac>>
   imp_res_tac t_wfs_SUBMAP>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
@@ -1588,20 +1588,20 @@ val t_walkstar_infer_db_subst = prove(``
     imp_res_tac t_walkstar_no_vars>>
     metis_tac[t_walkstar_SUBMAP])
 
-val ienv_val_ok_more = prove(``
+val ienv_val_ok_more = Q.prove(`
   (ienv_val_ok cuvs env ∧ cuvs ⊆ cuvs' ⇒
   ienv_val_ok cuvs' env) ∧
   (ienv_val_ok (count uvs) env ∧ uvs ≤ uvs' ⇒
-  ienv_val_ok (count uvs') env)``,
+  ienv_val_ok (count uvs') env)`,
   rw[ienv_val_ok_def,FORALL_PROD,nsAll_def]>>
   res_tac>>fs[]>>
   metis_tac[check_t_more4,check_t_more5])
 
 (* TODO: move to typeSysProps*)
-val type_funs_MAP_FST = store_thm("type_funs_MAP_FST",
-``!funs tenv tenvE env.
+val type_funs_MAP_FST = Q.store_thm("type_funs_MAP_FST",
+`!funs tenv tenvE env.
   type_funs tenv tenvE funs env ⇒
-  MAP FST funs = MAP FST env``,
+  MAP FST funs = MAP FST env`,
   Induct>>srw_tac[][]>>
   pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
   full_simp_tac(srw_ss())[]>>metis_tac[])

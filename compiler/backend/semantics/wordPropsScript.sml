@@ -2179,8 +2179,8 @@ val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
   |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
   |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
 
-val PERM_list_rearrange = store_thm("PERM_list_rearrange",
-  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
+val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
+  `!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)`,
   srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
   \\ full_simp_tac(srw_ss())[mem_list_rearrange]
   \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]

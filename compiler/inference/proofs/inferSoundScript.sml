@@ -73,7 +73,7 @@ val check_s_more5 = Q.prove (
  rw [check_s_def] >>
  metis_tac [check_t_more5]);
 
-val deBruijn_subst_convert = prove(``
+val deBruijn_subst_convert = Q.prove(`
   (∀t.
   check_t n {} t ⇒
   deBruijn_subst 0 (MAP convert_t subst) (convert_t t) =
@@ -82,7 +82,7 @@ val deBruijn_subst_convert = prove(``
   EVERY (check_t n {}) ts ⇒
   MAP ((deBruijn_subst 0 (MAP convert_t subst)) o convert_t) ts
   =
-  MAP (convert_t o (infer_deBruijn_subst subst)) ts)``,
+  MAP (convert_t o (infer_deBruijn_subst subst)) ts)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def]>>
   fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_def]
@@ -91,16 +91,16 @@ val deBruijn_subst_convert = prove(``
   >>
     fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f]);
 
-val lookup_var_empty = prove(``
+val lookup_var_empty = Q.prove(`
   lookup_var x (bind_tvar tvs Empty) tenv =
-  lookup_var x Empty tenv``,
+  lookup_var x Empty tenv`,
   rw[bind_tvar_def,lookup_var_def,lookup_varE_def]>>
   EVERY_CASE_TAC>>fs[tveLookup_def])
 
 (* TODO: This should be generalized eventually *)
-val env_rel_complete_bind = store_thm("env_rel_complete_bind",``
+val env_rel_complete_bind = Q.store_thm("env_rel_complete_bind",`
   env_rel_complete FEMPTY ienv tenv Empty ⇒
-  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)``,
+  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)`,
   rw[env_rel_complete_def,lookup_var_empty]>>res_tac>>fs[]
   >-
     metis_tac[]

@@ -2333,8 +2333,8 @@ val word_gc_IMP_EVERY2 = Q.prove(
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_move_roots_IMP_EVERY2);
 
-val gc_fun_const_ok_word_gc_fun = prove(
-  ``gc_fun_const_ok (word_gc_fun c)``,
+val gc_fun_const_ok_word_gc_fun = Q.prove(
+  `gc_fun_const_ok (word_gc_fun c)`,
   fs [word_simpProofTheory.gc_fun_const_ok_def] \\ rw []
   \\ PairCases_on `x` \\ fs [] \\ PairCases_on `y` \\ fs []
   \\ imp_res_tac word_gc_IMP_EVERY2
@@ -3112,26 +3112,26 @@ val get_vars_SOME_IFF_data = Q.prove(
      get_vars xs t = SOME ys)`,
   fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
-val get_vars_SOME_IFF_data_eq = prove(
-  ``((get_vars [] t = SOME z) <=> (z = [])) /\
+val get_vars_SOME_IFF_data_eq = Q.prove(
+  `((get_vars [] t = SOME z) <=> (z = [])) /\
     (get_vars (x::xs) t = SOME z <=>
     ?y ys. z = y::ys /\ dataSem$get_var x t = SOME y /\
-           get_vars xs t = SOME ys)``,
+           get_vars xs t = SOME ys)`,
   Cases_on `z` \\ fs [get_vars_SOME_IFF_data]
   \\ fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
-val get_vars_SOME_IFF = prove(
-  ``(get_vars [] t = SOME [] <=> T) /\
+val get_vars_SOME_IFF = Q.prove(
+  `(get_vars [] t = SOME [] <=> T) /\
     (get_vars (x::xs) t = SOME (y::ys) <=>
      get_var x t = SOME y /\
-     wordSem$get_vars xs t = SOME ys)``,
+     wordSem$get_vars xs t = SOME ys)`,
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
-val get_vars_SOME_IFF_eq = prove(
-  ``((get_vars [] t = SOME z) <=> (z = [])) /\
+val get_vars_SOME_IFF_eq = Q.prove(
+  `((get_vars [] t = SOME z) <=> (z = [])) /\
     (get_vars (x::xs) t = SOME z <=>
     ?y ys. z = y::ys /\ wordSem$get_var x t = SOME y /\
-           get_vars xs t = SOME ys)``,
+           get_vars xs t = SOME ys)`,
   Cases_on `z` \\ fs [get_vars_SOME_IFF]
   \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
@@ -3140,8 +3140,8 @@ val memory_rel_get_var_IMP =
     |> SIMP_RULE std_ss [MAP,get_vars_SOME_IFF_eq,get_vars_SOME_IFF_data_eq,
          PULL_EXISTS,ZIP,APPEND]
 
-val get_vars_sing = store_thm("get_vars_sing",
-  ``get_vars [n] t = SOME x <=> ?x1. get_vars [n] t = SOME [x1] /\ x = [x1]``,
+val get_vars_sing = Q.store_thm("get_vars_sing",
+  `get_vars [n] t = SOME x <=> ?x1. get_vars [n] t = SOME [x1] /\ x = [x1]`,
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs [] \\ EQ_TAC \\ fs []);
 
 val word_ml_inv_get_var_IMP = save_thm("word_ml_inv_get_var_IMP",
@@ -3327,36 +3327,36 @@ val FOUR_MUL_LSL = Q.store_thm("FOUR_MUL_LSL",
   `n2w (4 * i) << k = n2w i << (k + 2)`,
   fs [WORD_MUL_LSL,EXP_ADD,word_mul_n2w]);
 
-val evaluate_BignumHalt = store_thm("evaluate_BignumHalt",
-  ``state_rel c l1 l2 s t [] locs /\
+val evaluate_BignumHalt = Q.store_thm("evaluate_BignumHalt",
+  `state_rel c l1 l2 s t [] locs /\
     get_var reg t = SOME (Word w) ==>
     ∃r. (evaluate (BignumHalt reg,t) =
           if w ' 0 then (SOME NotEnoughSpace,r)
-          else (NONE,t)) ∧ r.ffi = s.ffi ∧ t.ffi = s.ffi``,
+          else (NONE,t)) ∧ r.ffi = s.ffi ∧ t.ffi = s.ffi`,
   fs [BignumHalt_def,wordSemTheory.evaluate_def,word_exp_rw,
       asmTheory.word_cmp_def,word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
   \\ IF_CASES_TAC \\ fs []
   THEN1 (rw [] \\ qexists_tac `t` \\ fs [state_rel_def])
   \\ rw [] \\ match_mp_tac evaluate_GiveUp \\ fs []);
 
-val state_rel_get_var_Number_IMP_alt = prove(
-  ``!k i. state_rel c l1 l2 s t [] locs /\
+val state_rel_get_var_Number_IMP_alt = Q.prove(
+  `!k i. state_rel c l1 l2 s t [] locs /\
           get_var k s.locals = SOME (Number i) /\
           get_var (2 * k + 2) t = SOME a1 ==>
-          ?w:'a word. a1 = Word w /\ w ' 0 = ~small_int (:'a) i``,
+          ?w:'a word. a1 = Word w /\ w ' 0 = ~small_int (:'a) i`,
   fs [state_rel_thm] \\ rw []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule memory_rel_get_var_IMP
   \\ fs [adjust_var_def] \\ rw []
   \\ imp_res_tac memory_rel_any_Number_IMP \\ fs []);
 
-val IMP_LESS_MustTerminate_limit = store_thm("IMP_LESS_MustTerminate_limit[simp]",
-  ``i < dimword (:α) ==>
-    i < MustTerminate_limit (:α) − 1``,
+val IMP_LESS_MustTerminate_limit = Q.store_thm("IMP_LESS_MustTerminate_limit[simp]",
+  `i < dimword (:α) ==>
+    i < MustTerminate_limit (:α) − 1`,
   rewrite_tac [wordSemTheory.MustTerminate_limit_def] \\ decide_tac);
 
-val RefArray_thm = store_thm("RefArray_thm",
-  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+val RefArray_thm = Q.store_thm("RefArray_thm",
+  `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     get_vars [0;1] s.locals = SOME vals /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
     do_app RefArray vals s = Rval (v,s2) ==>
@@ -3367,7 +3367,7 @@ val RefArray_thm = store_thm("RefArray_thm",
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
-                r [(v,rv)] locs``,
+                r [(v,rv)] locs`,
   fs [RefArray_code_def]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -6361,8 +6361,8 @@ val th = Q.store_thm("assign_Label",
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ match_mp_tac memory_rel_CodePtr \\ fs []);
 
-val do_app_Ref = store_thm("do_app_Ref",
-  ``do_app Ref vals x =
+val do_app_Ref = Q.store_thm("do_app_Ref",
+  `do_app Ref vals x =
     case consume_space (LENGTH vals + 1) x of
       NONE => Rerr (Rabort Rtype_error)
     | SOME s1 =>
@@ -6374,7 +6374,7 @@ val do_app_Ref = store_thm("do_app_Ref",
              refs :=
                (data_to_bvi s1).refs |+
                ((LEAST ptr. ptr ∉ FDOM (data_to_bvi s1).refs),
-                ValueArray vals)) (data_to_bvi s1)) s1)``,
+                ValueArray vals)) (data_to_bvi s1)) s1)`,
   fs [do_app] \\ Cases_on `vals` \\ fs [LET_THM]);
 
 val th = Q.store_thm("assign_Ref",

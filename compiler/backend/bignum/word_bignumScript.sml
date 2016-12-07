@@ -121,47 +121,47 @@ val Corr_def = Define `
 
 val TERM_def = Define `TERM f = \s. let (s1,b) = f s in (INR s1,b)`;
 
-val Corr_Skip = prove(
-  ``Corr Skip (TERM (\s. (s,T)))``,
+val Corr_Skip = Q.prove(
+  `Corr Skip (TERM (\s. (s,T)))`,
   fs [Corr_def,TERM_def,eval_cases]);
 
 val COMB_def = Define `
   COMB g f = \s. let (s1,b2) = g s in
                  let (s2,b3) = f s1 in (s2,b2 /\ b3)`;
 
-val Corr_Seq = prove(
-  ``Corr p1 (TERM g) ==> Corr p2 f ==>
-    Corr (Seq p1 p2) (COMB g f)``,
+val Corr_Seq = Q.prove(
+  `Corr p1 (TERM g) ==> Corr p2 f ==>
+    Corr (Seq p1 p2) (COMB g f)`,
   fs [Corr_def,TERM_def,COMB_def,eval_cases] \\ rw []
   \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ Cases_on `g s` \\ fs [] \\ Cases_on `f q` \\ fs []
   \\ metis_tac [SND,FST,PAIR]);
 
-val Corr_Continue = prove(
-  ``Corr Continue (\s. (INL s,T))``,
+val Corr_Continue = Q.prove(
+  `Corr Continue (\s. (INL s,T))`,
   fs [Corr_def,eval_cases]);
 
-val Corr_Assign = prove(
-  ``Corr (Assign n x)
+val Corr_Assign = Q.prove(
+  `Corr (Assign n x)
       (TERM (\s. (s with regs := s.regs |+ (n,eval_exp s x),
-                  eval_exp_pre s x)))``,
+                  eval_exp_pre s x)))`,
   fs [Corr_def,eval_cases,TERM_def]);
 
-val Corr_If = prove(
-  ``Corr p1 f1 /\ Corr p2 f2 ==>
+val Corr_If = Q.prove(
+  `Corr p1 f1 /\ Corr p2 f2 ==>
     Corr (If c r ri p1 p2)
          (\s. (I ## (\b. b /\ r IN FDOM s.regs /\ eval_ri_pre s ri))
               (if word_cmp c (eval_exp s (Var r)) (eval_ri s ri)
-               then f1 s else f2 s))``,
+               then f1 s else f2 s))`,
   fs [Corr_def,eval_cases] \\ rw [] \\ fs []
   \\ asm_exists_tac \\ fs [] \\ rw [] \\ fs []);
 
 val LOOP_def = Define `
   LOOP f = \s. (SHORT_TAILREC f s, SHORT_TAILREC_PRE f s)`;
 
-val Corr_Loop = prove(
-  ``Corr p f ==> Corr (Loop p) (TERM (LOOP f))``,
+val Corr_Loop = Q.prove(
+  `Corr p f ==> Corr (Loop p) (TERM (LOOP f))`,
   fs [Corr_def,TERM_def]
   \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
@@ -174,17 +174,17 @@ val Corr_Loop = prove(
   \\ Cases_on `q` \\ fs []
   \\ asm_exists_tac \\ fs []);
 
-val Corr_STRENGTHEN_TERM = prove(
-  ``Corr p (TERM f) ==>
+val Corr_STRENGTHEN_TERM = Q.prove(
+  `Corr p (TERM f) ==>
     !f'.
       (!s. SND (f' s) ==> SND (f s) /\ (FST (f' s) = FST (f s))) ==>
-      Corr p (TERM f')``,
+      Corr p (TERM f')`,
   fs [Corr_def,TERM_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
 
-val Corr_STRENGTHEN_TERM_NEW = prove(
-  ``Corr p (TERM f) ==>
-    !f'. (!s. SND (f' s) ==> f s = (FST (f' s),T)) ==> Corr p (TERM f')``,
+val Corr_STRENGTHEN_TERM_NEW = Q.prove(
+  `Corr p (TERM f) ==>
+    !f'. (!s. SND (f' s) ==> f s = (FST (f' s),T)) ==> Corr p (TERM f')`,
   fs [Corr_def,TERM_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ rpt strip_tac \\ res_tac
@@ -353,8 +353,8 @@ val th = SHORT_TAILREC_SIM
   |> Q.SPEC `\x s. s0 with regs := s0.regs |++ [(8,x);(10,s.regs ' 10)] = s`
   |> SIMP_RULE std_ss [FORALL_PROD]
 
-val lemma = prove(
-  ``^(th |> concl |> dest_imp |> fst)``,
+val lemma = Q.prove(
+  `^(th |> concl |> dest_imp |> fst)`,
   rw [] \\ fs [foo_raw_step_def,COMB_def,TERM_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
@@ -365,8 +365,8 @@ val lemma = prove(
 
 val foo_pre_imp = MP th lemma
 
-val lemma = prove(
-  ``^(foo_corr_lemma |> concl |> dest_imp |> fst)``,
+val lemma = Q.prove(
+  `^(foo_corr_lemma |> concl |> dest_imp |> fst)`,
   fs [foo_new_def] \\ rw []
   \\ `(s with regs := s.regs |++ [(8,s.regs ' 8); (10,s.regs ' 10)]) = s` by
    (fs [fmap_EXT,fetch "-" "state_component_equality",FUPDATE_LIST]
