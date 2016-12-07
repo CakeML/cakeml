@@ -78,6 +78,28 @@ val partition_neg_thm = Q.store_thm(
 );
 
 
+val foldli_aux_def = Define`
+  (foldli_aux f e n [] = e) /\
+  (foldli_aux f e n (h::t) = foldli_aux f (f n e h) (SUC n) t)`;
+
+val foldli_def = Define`
+  foldli f e l = foldli_aux f e 0 l`;
+
+val foldli_aux_thm = Q.prove (
+  `!l f e n.  foldli_aux f e n l = FOLDRi (\n' e h. f (LENGTH l + n - (SUC n')) h e) e (REVERSE l)`,
+  Induct_on `l` \\
+  rw [foldli_aux_def] \\
+  rw [FOLDRi_APPEND] \\
+  rw [ADD1]
+);
+
+val foldli_thm = Q.store_thm (
+  "foldli_thm",
+  `!f e l. foldli f e l = FOLDRi (\n e h. f (LENGTH l - (SUC n)) h e) e (REVERSE l)`,
+  rw [foldli_def, foldli_aux_thm]
+);
+
+
 val tabulate_def = Define`
   tabulate n f = GENLIST f n`;
 

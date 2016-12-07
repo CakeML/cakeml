@@ -417,7 +417,10 @@ val MAPI_thm_gen = Q.prove (
 
 val MAPI_thm =
   MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
-  |> SIMP_RULE (srw_ss()++ETA_ss) []
+  |> SIMP_RULE (srw_ss()++ETA_ss) [] ;
+
+val result = translate list_mapi_def;
+val result = translate MAPI_thm;
 
 (*--------------------------------------------------------------------------------*)
 
@@ -446,7 +449,8 @@ val FIND_thm = Q.store_thm(
   "FIND_thm",
   `(FIND f [] = NONE) ∧
    (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)`,
-  rw[FIND_def,INDEX_FIND_def,index_find_thm]);
+  rw[FIND_def,INDEX_FIND_def,index_find_thm]
+);
 
 val res = translate FIND_thm;
 
@@ -493,6 +497,31 @@ val result = translate partition_def;
 
 val result = translate FOLDL;
 
+val foldli_aux_def = Define`
+  (foldli_aux f e n [] = e) /\
+  (foldli_aux f e n (h::t) = foldli_aux f (f n e h) (SUC n) t)`;
+
+val foldli_def = Define`
+  foldli f e l = foldli_aux f e 0 l`;
+
+val foldli_aux_thm = Q.prove (
+  `!l f e n.  foldli_aux f e n l = FOLDRi (\n' e h. f (LENGTH l + n - (SUC n')) h e) e (REVERSE l)`,
+  Induct_on `l` \\
+  rw [foldli_aux_def] \\
+  rw [FOLDRi_APPEND] \\
+  rw [ADD1]
+);
+
+val foldli_thm = Q.store_thm (
+  "foldli_thm",
+  `!f e l. foldli f e l = FOLDRi (\n e h. f (LENGTH l - (SUC n)) h e) e (REVERSE l)`,
+  rw [foldli_def, foldli_aux_thm]
+);
+
+
+val result = translate foldli_aux_def;
+val result = translate foldli_def;
+
 (*--------------------------------------------------------------------------------*)
 
 val result = translate FOLDR;
@@ -510,7 +539,6 @@ val result = translate EVERY_DEF;
 
 (*--------------------------------------------------------------------------------*)
 
-(* raise exception for n < 0 *)
 val tabulate_def = Define`
   tabulate n f = GENLIST f n`;
 val result = translate SNOC;
@@ -553,20 +581,27 @@ val collate_long_thm = Q.store_thm (
   \\ rw[collate_def] \\ fs[]
 );
 
-(* RAMANA *)
-(*This function isn't working as intended *)
-val cpn_to_reln_def = Define`
-  cpn_to_reln f x1 x2 = (f x1 x2 ≠ GREATER)`;
 
+val cpn_to_reln_def = Define`
+  cpn_to_reln f x1 x2 = (f x1 x2 = LESS)`; 
+  
+
+    
+
+(* this statement isn't true - collate f l1 l2 has no bearing on the values of h1 and h2*)
 val collate_cpn_reln_thm = Q.store_thm (
   "collate_cpn_reln_thm",
-  `!f l1 l2. (!x. f x x = EQUAL) ==> cpn_to_reln (collate f) l1 l2 = LLEX (cpn_to_reln f) l1 l2`
-  ho_match_mp_tac collate_ind
-  rw [collate_def, cpn_to_reln_def, LLEX_def]
-  fs []  
-
-
-
+  `!f l1 l2. (!x1 x2. f x1 x2 = EQUAL <=> 
+    (x1 = x2)) ==> cpn_to_reln (collate f) l1 l2 = LLEX (cpn_to_reln f) l1 l2`, 
+  ho_match_mp_tac collate_ind \\ 
+  rw [collate_def, cpn_to_reln_def, LLEX_def] \\
+  `EQUAL ≠ LESS` by fs[] \\
+  first_assum (qspecl_then [`h1`, `h1`] (fn th => assume_tac (GSYM th))) \\
+  `(h1 = h1) = T` by DECIDE_TAC \\
+  rw[]
+);
+ 
+ 
 (*--------------------------------------------------------------------------------*)
 
 val zip_def = Define`
@@ -586,7 +621,6 @@ val result = translate zip_def;
 
 val _ = ml_prog_update (close_module NONE);
 
-(* end new stuff *)
 (*################################################################################*)
 
 
@@ -603,7 +637,6 @@ val _ = trans "fromList" `Vector`
 val _ = trans "length" `length`
 val _ = trans "sub" `sub`
 
-(* new stuff *)
 
 (*--------------------------------------------------------------------------------*)
 
@@ -691,9 +724,9 @@ val update_aux_side_def = definition"update_aux_side_def"
 val result = translate update_def; 
 
 
-val update_side_def = definition"update_side_def"
+val update_side_def = definition "update_side_def"
 val update_aux_side_thm = Q.prove(`∀vec n i x. update_aux_side vec n i x`,
-  \\ metis_tac[update_aux_side_def]
+  \\ metis_tac[update_aux_side_def])
   |> update_precondition
 *)
 
@@ -740,27 +773,53 @@ val mapi_def = Define`
 val result = translate map_def;
 val result = translate mapi_def;
 
+
 (*--------------------------------------------------------------------------------*)
 
+
+val less_than_length_thm = Q.prove (
+  `!xs n. n < LENGTH xs ==> ?ys z zs. xs = ys ++ z::zs /\ LENGTH ys = n`,
+  rw[] \\
+  qexists_tac`TAKE n xs` \\
+  rw[] \\
+  qexists_tac`HD (DROP n xs)` \\
+  qexists_tac`TL (DROP n xs)` \\
+  Cases_on`DROP n xs` \\ fs[]
+  >- fs[DROP_NIL] \\
+  metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
+); 
+
+
+(*--------------------------------------------------------------------------------*)
+
+
+(*This needs to be proven once the modules are separated *)
 val foldli_aux_def = Define`
   (foldli_aux f e vec n 0 = e) /\
-  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)`;
+  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n e (sub vec n)) vec (n + 1) len)`;
 
 val foldli_def = Define`
   foldli f e vec = foldli_aux f e vec 0 (length vec)`;
+
+
+val foldli_aux_def = Define`
+  `!f e vec n len. foldli_aux f e vec n len = list$foldli_aux f e vec n len`
 
 val result = translate foldli_aux_def;
 val foldli_aux_side_def = theorem"foldli_aux_side_def"
 val result = translate foldli_def;
 val foldli_side_def = definition"foldli_side_def";
 
-val foldli_aux_side_thm = Q.prove(
-  
-  Induct_on`len` \\ rw[Once foldli_aux_side_def]);
+val foldli_aux_side_thm = Q.prove(  
+  `!f e vec n len. n + len = length (vec) ==> foldli_aux_side f e vec n len`, 
+  Induct_on`len` \\ rw[Once foldli_aux_side_def]
+);
 
 val foldli_side_thm = Q.prove(
   `foldli_side f e vec`,
   rw[foldli_side_def,foldli_aux_side_thm]) |> update_precondition;
+
+(*----------------------------------------------------------------------------------*)
 
 
 val foldl_aux_def = Define`
@@ -770,24 +829,9 @@ val foldl_aux_def = Define`
 val foldl_def = Define`
   foldl f e vec = foldl_aux f e vec 0 (length vec)`;
 
-
-val less_than_length_thm = Q.prove (
-  `!xs n. n < LENGTH xs ==> ?ys z zs. xs = ys ++ z::zs /\ LENGTH ys = n`,
-  Induct \\ rw []
-  fs []
-  
-  `LENGTH xs + 1 = LENGTH (h::xs)` by fs[]
-  ASM_REWRITE_TAC[]
-  `n < LENGTH (h::xs)` by fs [LENGTH]
-  
-  
-);
-
-
-(*Ask Ramana*)
-val foldl_thm = Q.prove (
+val foldl_aux_thm = Q.prove (
   `!f e vec x len. (x + len = length vec) ==>
-    foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec))`
+    foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec))`,
   Induct_on `len` \\ Cases_on `vec` \\
   rw [foldl_aux_def, DROP_LENGTH_TOO_LONG, length_def, toList_thm] \\ 
   rw [length_def, sub_def, toList_thm] \\
@@ -795,184 +839,308 @@ val foldl_thm = Q.prove (
   drule less_than_length_thm \\
   rw [] \\
   rw [] \\
-  `LENGTH ys + 1 = LENGTH (ys ++ [z])` by fs [] \\ ASM_REWRITE_TAC [DROP_LENGTH_APPEND]\\
+  `LENGTH ys + 1 = LENGTH (ys ++ [z])` by (fs [] \\ NO_TAC) \\ ASM_REWRITE_TAC [DROP_LENGTH_APPEND]\\
   simp_tac std_ss [GSYM APPEND_ASSOC, APPEND, EL_LENGTH_APPEND, NULL, HD,
         FOLDL,  DROP_LENGTH_APPEND]
 );
 
-val foldl_def = Define`
-  foldl f e vec = FOLDL f e (toList vec)`;
-
-val result = translate foldl_aux_def;
-
-
-
-
-
-
-
-
-val foldr_def = Define`
-  foldr f e vec = FOLDR f e (toList vec)`;
-
-val foldri_def = Define`
-  foldri f e vec = FOLDRi f e (toList vec)`;  
-
-val result = translate foldl_def;
-
-
-
-
-val foldl_aux_def = tDefine "foldl_aux"`
-  foldl_aux f e vec (max: num) n = 
-    if max <= n
-      then e
-    else foldl_aux f (f e (sub vec n)) vec max (n + 1)`
-(wf_rel_tac `measure (\(f, e, vec, max, n). max - n)`);
-
-val foldl_def = Define`
-  foldl f e vec = foldl_aux f e vec (length vec) 0`;
-
-val result = translate foldl_aux_def;
-val result = translate foldl_def;
-
-
 val foldl_thm = Q.store_thm (
   "foldl_thm",
-  `!f e vec. foldl f e vec = fromList (FOLDL f e (toList vec))`,
-  Cases \\
-  rw [map_def, toList_thm, length_def, sub_def, tabulate_def, fromList_def, 
-    GENLIST_EL_MAP]
-); 
- 
+  `!f e vec. foldl f e vec = FOLDL f e (toList vec)`,
+  rw [foldl_aux_thm, foldl_def]
+);
 
+val result = translate foldl_aux_def;
+val foldl_aux_side_def = theorem"foldl_aux_side_def"
+val result = translate foldl_def;
+val foldl_side_def = definition"foldl_side_def";
 
+val foldl_aux_side_thm = Q.prove(
+  `!f e vec n len. n + len = length vec ==> foldl_aux_side f e vec n len`,
+  Induct_on `len` \\ rw [Once foldl_aux_side_def]
+);
 
+val foldl_side_thm = Q.prove(
+  `!f e vec. foldl_side f e vec`,
+  rw [foldl_side_def, foldl_aux_side_thm]) |> update_precondition;
 
-(*--------------------------------------------------------------------------------*)
+(*----------------------------------------------------------------------------------*)
 
-val foldri_aux_def = tDefine "foldri_aux"`
-  foldri_aux f e vec (n: num) = 
-    if n = 0 
-      then f e 0
-    else foldri_aux f (f n e (sub vec n)) vec (n - 1)`
-(wf_rel_tac `measure (\(f, e, vec, n). n)`);
+val foldri_aux_def = Define`
+  (foldri_aux f e vec 0 = e) /\
+  (foldri_aux f e vec (SUC len) = foldri_aux f (f len (sub vec len) e) vec len)`;
 
 val foldri_def = Define`
-  foldri f e vec = foldri_aux f e vec ((length vec) - 1)`; 
+  foldri f e vec = foldri_aux f e vec (length vec)`;
+
+val take_el_thm = Q.prove(
+  `!n l. n < LENGTH l ==> TAKE 1 (DROP n l) = [EL n l]`,
+  Induct_on `l` \\ rw[] \\
+  Cases_on `n` \\ rw[EL_restricted]
+);
+
+val foldri_aux_thm = Q.prove (
+  `!f e vec len. len <= length vec ==>
+    foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec))`,
+  Induct_on `len` \\ rw[foldri_aux_def] \\
+  Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
+  rw [ADD1, TAKE_SUM, take_el_thm, FOLDRi_APPEND] 
+);
+
+val foldri_thm = Q.store_thm (
+  "foldri_thm",
+  `!f e vec. foldri f e vec = FOLDRi f e (toList vec)`, 
+  Cases_on `vec` \\
+  rw [foldri_aux_thm, foldri_def, toList_thm, length_def]
+);
 
 val result = translate foldri_aux_def;
+val foldri_aux_side_def = theorem"foldri_aux_side_def";
 val result = translate foldri_def;
+val foldri_side_def = definition"foldri_side_def";
+
+val foldri_aux_side_thm = Q.prove(
+  `!f e vec len. len <= length vec ==> foldri_aux_side f e vec len`,
+  Induct_on `len` \\ rw [Once foldri_aux_side_def]
+);
+
+val foldri_side_thm = Q.prove(
+  `!f e vec. foldri_side f e vec`,
+  rw [foldri_side_def, foldri_aux_side_thm] ) |> update_precondition
 
 
-val foldr_aux_def = tDefine "foldr_aux"`
-  foldr_aux f e vec (n: num) = 
-    if n = 0
-      then e
-    else foldr_aux f (f e (sub vec n)) vec (n - 1)`
-(wf_rel_tac `measure (\(f, e, vec, n). n)`);
+(*----------------------------------------------------------------------------------*)
+
+val foldr_aux_def = Define`
+  (foldr_aux f e vec 0 = e) /\
+  (foldr_aux f e vec (SUC len) = foldr_aux f (f (sub vec len) e) vec len)`;
 
 val foldr_def = Define`
-  foldl f e vec = foldr_aux f e vec ((length vec) - 1)`;
+  foldr f e vec = foldr_aux f e vec (length vec)`;
+
+val foldr_aux_thm = Q.prove (
+  `!f e vec len. len <= length vec ==>
+    foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec))`,
+  Induct_on `len` \\ rw[foldr_aux_def] \\
+  Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
+  rw [ADD1, TAKE_SUM, take_el_thm, FOLDR_APPEND]
+);
+
+val foldr_thm = Q.store_thm (
+  "foldr_thm",
+  `!f e vec. foldr f e vec = FOLDR f e (toList vec)`,
+  Cases_on `vec` \\
+  rw[foldr_def, foldr_aux_thm, length_def, toList_thm]
+);
 
 val result = translate foldr_aux_def;
+val foldr_aux_side_def = theorem"foldr_aux_side_def";
 val result = translate foldr_def;
+val foldr_side_def = definition"foldr_side_def";
 
+val foldr_aux_side_thm = Q.prove(
+  `!f e vec len. len <= length vec ==> foldr_aux_side f e vec len`,
+  Induct_on `len` \\ rw[Once foldr_aux_side_def]
+);
+
+val foldr_side_thm = Q.prove(
+  `!f e vec. foldr_side f e vec`,
+  rw [foldr_side_def, foldr_aux_side_thm] ) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
 
-val findi_aux_def = tDefine "findi_aux"`
-  findi_aux f vec max n =
-    if max <= n 
-      then NONE
-    else if f n (sub vec n)
-      then SOME(sub vec n)
-    else findi_aux f vec max (n + 1)`
-(wf_rel_tac `measure (\(f, vec, max, n). max - n)`);
 
-val findi_def = Define `
-  findi f vec = findi_aux f vec (length vec) 0`;
+(*Think of a good function to mimic findi functionality *)
+
+val findi_aux_def = Define`
+  (findi_aux f vec n 0 = NONE) /\
+  (findi_aux f vec n (SUC len) = 
+  if f n (sub vec n) 
+    then SOME(n, (sub vec n))
+  else findi_aux f vec (n + 1) len)`;
+
+val findi_def = Define`
+  findi f vec = findi_aux f vec 0 (length vec)`;
+
+
+val findi_aux_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> (?x. ((MEM x (toList vec) ) /\ 
+    (f (THE (INDEX_OF x (toList vec))) x ) /\ (SND (THE (findi_aux f vec n len)) = x))) \/ 
+    (!y. (MEM y (toList vec)) ==> ~(f (THE (INDEX_OF y (toList vec))) y))`
+    Cases_on `vec` \\ rw [toList_thm, length_def, sub_def, findi_aux_def, INDEX_OF_def]
+    rw [] 
+);
 
 val result = translate findi_aux_def;
 val findi_aux_side_def = theorem"findi_aux_side_def"
 val result = translate findi_def;
+val findi_side_def = definition"findi_side_def"
 
+val findi_aux_side_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> findi_aux_side f vec n len`,
+  Induct_on `len` \\ rw [Once findi_aux_side_def]
+);
 
-val find_aux_def = tDefine "find_aux"`
-  find_aux f vec max n =
-    if max <= n 
-      then NONE
-    else if f (sub vec n)
-      then SOME(sub vec n)
-    else find_aux f vec max (n + 1)`
-(wf_rel_tac `measure (\(f, vec, max, n). max - n)`);
+val findi_side_thm = Q.prove (
+  `!f vec. findi_side f vec`,
+  rw [findi_side_def, findi_aux_side_thm] ) |> update_precondition
+
+(*--------------------------------------------------------------------------------*)
+
+val find_aux_def = Define`
+  (find_aux f vec n 0 = NONE) /\
+  (find_aux f vec n (SUC len) = 
+  if f (sub vec n) 
+    then SOME(sub vec n)
+  else find_aux f vec (n + 1) len)`;
 
 val find_def = Define `
-  find f vec = find_aux f vec (length vec) 0`;
+  find f vec = find_aux f vec 0 (length vec)`;
+
+
+val find_aux_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> find_aux f vec n len = FIND f (DROP n (toList vec))`,
+  Induct_on `len` \\ Cases_on `vec` \\ rw [find_aux_def, sub_def, length_def, 
+  toList_thm, FIND_def, INDEX_FIND_def] \\
+  rw[DROP_LENGTH_NIL, INDEX_FIND_def] THEN1
+  (qexists_tac`(0, EL n l)` \\ rw [DROP_EL_CONS, INDEX_FIND_def]) \\
+  rw [DROP_EL_CONS, INDEX_FIND_def, index_find_thm]
+);
+ 
+val find_thm = Q.store_thm (
+  "find_thm",
+  `!f vec. find f vec = FIND f (toList vec)`,
+  rw [find_aux_thm, find_def] 
+);
 
 val result = translate find_aux_def;
+val find_aux_side_def = theorem"find_aux_side_def"
 val result = translate find_def;
+val find_side_def = definition"find_side_def"
 
+val find_aux_side_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> find_aux_side f vec n len`,
+  Induct_on `len` \\ rw [Once find_aux_side_def]
+);
+
+val find_side_thm = Q.prove (
+  `!f vec. find_side f vec`,
+  rw [find_side_def, find_aux_side_thm]) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
 
-val exists_aux_def = tDefine "exists_aux"`
-  exists_aux f vec max n =
-    if max <= n
-      then F
-    else if f (sub vec n)
+val exists_aux_def = Define`
+  (exists_aux f vec n 0 = F) /\
+  (exists_aux f vec n (SUC len) = 
+    if f (sub vec n)
       then T
-    else exists_aux f vec max (n + 1)`
-(wf_rel_tac `measure (\(f, vec, max, n). max - n)`);
+    else exists_aux f vec (n + 1) len)`;
 
 val exists_def = Define`
-  exists f vec = exists_aux f vec (length vec) 0`;
+  exists f vec = exists_aux f vec 0 (length vec)`;
+
+val exists_aux_thm = Q.prove(
+  `!f vec n len. n + len = length (vec) ==> exists_aux f vec n len = EXISTS f (DROP n (toList vec))`,
+  Induct_on `len` \\ Cases_on `vec` \\ rw[toList_thm, length_def, sub_def, exists_aux_def] THEN1
+  rw [DROP_LENGTH_NIL, EVERY_DEF] \\
+  rw [DROP_EL_CONS]
+);
+
+val exists_thm = Q.store_thm (
+  "exists_thm",
+  `!f vec. exists f vec = EXISTS f (toList vec)`,
+  Cases_on `vec` \\
+  rw [exists_def, exists_aux_thm]
+);
 
 val result = translate exists_aux_def;
+val exists_aux_side_def = theorem"exists_aux_side_def";
 val result = translate exists_def;
+val exists_side_def = definition"exists_side_def";
+
+val exists_aux_side_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> exists_aux_side f vec n len`,
+  Induct_on `len` \\ rw [Once exists_aux_side_def]
+);
+
+val exists_side_thm = Q.prove (
+  `!f vec. exists_side f vec`,
+  rw [exists_side_def, exists_aux_side_thm]) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
 
-val all_aux_def = tDefine "all_aux"`
-  all_aux f vec max n =
-    if max <= n
-      then T
-    else if f (sub vec n)
-      then all_aux f vec max (n + 1)
-    else F`
-(wf_rel_tac `measure (\(f, vec, max, n). max - n)`);
+val all_aux_def = Define`
+  (all_aux f vec n 0 = T) /\
+  (all_aux f vec n (SUC len) = 
+    if f (sub vec n) 
+      then all_aux f vec (n + 1) len
+    else F)`;
 
 val all_def = Define`
-  all f vec = all_aux f vec (length vec) 0`;
+  all f vec = all_aux f vec 0 (length vec)`;      
+
+val all_aux_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> all_aux f vec n len = EVERY f (DROP n (toList vec))`,
+  Induct_on `len` \\ Cases_on `vec` \\ rw[toList_thm, length_def, sub_def, all_aux_def] THEN1
+  rw [DROP_LENGTH_NIL] \\
+  rw [DROP_EL_CONS] 
+);
+
+val all_thm = Q.store_thm (
+  "all_thm",
+  `!f vec. all f vec = EVERY f (toList vec)`,
+  Cases_on `vec` \\ rw[all_def, all_aux_thm]
+);
 
 val result = translate all_aux_def;
 val all_aux_side_def = theorem"all_aux_side_def";
 val result = translate all_def;
+val all_side_def = definition"all_side_def";
 
+val all_aux_side_thm = Q.prove (
+  `!f vec n len. n + len = length vec ==> all_aux_side f vec n len`,
+  Induct_on `len` \\ rw[Once all_aux_side_def]
+);
+
+val all_side_thm = Q.prove (
+  `!f vec. all_side f vec`,
+  rw [all_side_def, all_aux_side_thm]) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
 
-val collate_aux_def = tDefine "collate_aux"`
-  collate_aux f vec1 vec2 max ord n =
-    if max <= n
-      then ord
-    else if f (sub vec1 n) (sub vec2 n) = EQUAL
-      then collate_aux f vec1 vec2 max ord (n + 1)
-    else
-      f (sub vec1 n) (sub vec2 n)`
-(wf_rel_tac `measure (\(f, vec1, vec2, max, ord, n). max - n)`);
+(*collate needs to be proven in a different file so it can use the list collate *)
+val collate_aux_def = Define`
+  (collate_aux f vec1 vec2 n ord 0 = ord) /\
+  (collate_aux f vec1 vec2 n ord (SUC len) = 
+    if f (sub vec1 n) (sub vec2 n) = EQUAL
+      then collate_aux f vec1 vec2 (n + 1) ord len
+    else f (sub vec1 n) (sub vec2 n))`;
 
 val collate_def = Define`
   collate f vec1 vec2 =
   if (length vec1) < (length vec2)
-    then collate_aux f vec1 vec2 (length vec1) GREATER 0
+    then collate_aux f vec1 vec2 0 GREATER (length vec1)
   else if (length vec2) < (length vec1)
-    then collate_aux f vec1 vec2 (length vec2) LESS 0
-  else collate_aux f vec1 vec2 (length vec2) EQUAL 0`;
+    then collate_aux f vec1 vec2 0 LESS (length vec2)
+  else collate_aux f vec1 vec2 0 EQUAL (length vec2)`;
 
 val result = translate collate_aux_def;
+val collate_aux_side_def = theorem"collate_aux_side_def";
 val result = translate collate_def;
+val collate_side_def = definition"collate_side_def";
 
+val collate_aux_side_thm = Q.prove (
+  `!f vec1 vec2 n ord len. n + len = 
+    (if length vec1 < length vec2 
+      then length vec1
+    else length vec2) ==>
+        collate_aux_side f vec1 vec2 n ord len`,
+  Induct_on `len` \\ rw[Once collate_aux_side_def]
+);
+
+val collate_side_thm = Q.prove (
+  `!f vec1 vec2. collate_side f vec1 vec2`,
+  rw[collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -1007,34 +1175,57 @@ val _ = trans "explode" `explode`
 val _ = trans "implode" `implode`
 val _ = trans "size" `strlen`
 
-(*new stuff*)
+clear_overloads_on"STRING";
+clear_overloads_on"STRCAT";
+clear_overloads_on"STRLEN";
 (*--------------------------------------------------------------------------------*)
+
 val sub_def = Define`
   sub s n =  EL n (explode s)`;
-
 (*EL is not translated in list - its translation is moved to nth *)
 val result = translate EL;
 val result = translate sub_def;
 
 (*--------------------------------------------------------------------------------*)
 
-val extract_aux_def = tDefine "extract_aux"`
-    extract_aux s n max =
-    if max <= n
-      then []
-    else (sub s n)::(extract_aux s (n + 1) max)`
-(wf_rel_tac `measure (\(s, n, max). max - n)`)
+val extract_aux_def = Define`
+  (extract_aux s n 0 = []) /\
+  (extract_aux s n (SUC len) = (sub s n):: extract_aux s (n + 1) len)`;
 
-(*should raise subscript exceptions, THE means there is an option dependency*)
 val extract_def = Define`
-  extract s i opt = case opt of
-    (SOME x) => implode (extract_aux s i (THE opt))
-    | NONE => implode (extract_aux s i (strlen s))`;
+  extract s i opt = 
+    if strlen s <= i
+      then implode []
+    else case opt of
+      (SOME x) => implode (extract_aux s i (MIN (strlen s - i) x))
+      | NONE => implode (extract_aux s i ((strlen s) - i))`;
+
 
 val substring_def = Define`
   substring s i j = implode (extract_aux s i j)`;
 
-(*extract_aux has a pre-condition because sub has a precondition *)
+val extract_aux_thm = Q.prove (
+  `!s n len. n + len <= strlen s ==> extract_aux s n len = SEG len n (explode s)`,
+  Cases_on `s` \\ Induct_on `len` >-
+  rw[extract_aux_def, SEG] \\
+  fs [extract_aux_def, sub_def, strlen_def, explode_def] \\ 
+  rw [EL_SEG, SEG_TAKE_BUTFISTN] \\
+  rw [TAKE_SUM, take_el_thm, DROP_DROP, DROP_EL_CONS]
+); 
+
+(*This proves that the functions are the same for values where SEG is defined*)
+val extract_thm = Q.store_thm (
+  "extract_thm",
+  `!s i opt. i < strlen s ==> extract s i opt = (case opt of 
+    (SOME x) => implode (SEG (MIN (strlen s - i) x) i (explode s))
+    | NONE => implode (SEG ((strlen s) - i) i (explode s)))`,
+    Cases_on `opt` >- rw [extract_def, extract_aux_thm, implode_def, strlen_def, MIN_DEF] \\
+    rw [extract_def] \\ AP_TERM_TAC ORELSE AP_THM_TAC \\ rw[MIN_DEF] \\ rw [extract_aux_thm]
+);
+    
+ 
+(*extract_aux has a pre-condition because it can call sub on indexes out of the range*)
+val result = translate MIN_DEF;
 val result = translate extract_aux_def;
 val result = translate extract_def;
 val result = translate substring_def;
@@ -1048,90 +1239,67 @@ val strcat_def = Define`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
 
-
 val result = translate strcat_def;
 
 (*--------------------------------------------------------------------------------*)
 
-
-(*This is wrong - stringListToChars takes a list of lists *)
-(*at the moment the only way of putting strings together is turning them to lists *)
-val stringListToChars_def = Define`
-  stringListToChars l = case l of 
-    [] => []
-    | ([]::t) => stringListToChars t
-    | ((hh::ht)::t) => hh::stringListToChars(ht::t)`;
-
-fun stringListToChars l = case l of
-    [] => []
-    | ([]::t) => stringListToChars t
-    | ((hh::ht)::t) => hh::stringListToChars(ht::t);
-
-
-(*a more memory efficient implementation *)
+(*this is inefficient while strcat is inefficient *)
 val concat_def = Define`
-  concat l = implode (stringListToChars l)` ;
-(*
-val concat_def = Define`
-  concat l = implode (FLAT (MAP explode l))`;
-*)
-val result = translate stringListToChars_def;
+  (concat [] = implode []) /\
+  (concat (h::t) = strcat h (concat t))`;
+
+val concat_thm = Q.store_thm (
+  "concat_thm",
+  `!l. concat l = implode (FLAT (MAP explode l))`,
+  Induct_on `l` \\ rw [concat_def] \\ Cases_on `h` \\
+  rw [strcat_def, implode_def, explode_def]
+); 
+  
 val result = translate concat_def;
  
 (*--------------------------------------------------------------------------------*)
 
-(*NEED TO PROVE TERMINATION*)
-(*may be a bit complex to attempt to save memory (passing around a lot)*)
+(*This is inefficient while strcat is inefficient *)
 val concatWith_aux_def = Define`
-  concatWith_aux l s ss bool =  
-  if bool then
-    case l of
-      [] => []
-      | []::[] => []
-      | ([]::t) => concatWith_aux t s s F
-      | ((hh::ht)::t) => hh::(concatWith_aux (ht::t) s ss T)
-  else 
-    case ss of
-      [] => concatWith_aux l s ss T
-      | (h::t) => h::(concatWith_aux l s t F) `;
-(wf_rel_tac `measure (\(l, s, ss, bool). (LENGTH l) + (LENGTH ss) + (LENGTH (EL 0 l))`)
-
-
-fun concatWith_aux l s ss bool =  
-  if bool then
-    case l of
-         [] => []
-      |  []::[] => []
-      | ([]::t) => concatWith_aux t s ss false
-      | ((hh::ht)::t) => hh::(concatWith_aux (ht::t) s ss true)
-  else 
-    case ss of
-      [] => concatWith_aux l s s true
-      | (h::t) => h::(concatWith_aux l s t false);
+  (concatWith_aux s [] bool = implode []) /\
+  (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
+  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s t T))`;
 
 val concatWith_def = Define`
-    concatWith s l = implode (concatWith_aux l s s T)`; 
-
+  concatWith s l = concatWith_aux s l T`;
+ 
 val result = translate concatWith_aux_def;
+
 val result = translate concatWith_def;
 (*--------------------------------------------------------------------------------*)
 
 val str_def = Define`
-  str (c: char) = [c]`; 
+  str (c: char) = implode [c]`; 
 
 val result = translate str_def;
 
 (*--------------------------------------------------------------------------------*)
 
-(*not transferred accross because explode is currently a primitive *)
-val explode_aux_def = tDefine "explode_aux"`
-  explode_aux s max n = 
-    if max <= n then []
-    else (sub s n)::(explode_aux s max (n + 1))`
-(wf_rel_tac `measure (\(s, max, n). max - n)`);
+val explode_aux_def = Define`
+  (explode_aux s n 0 = []) ∧
+  (explode_aux s n (SUC len) =
+    strsub s n :: (explode_aux s (n+1) len))`;
+val _ = export_rewrites["explode_aux_def"];
+
+val explode_aux_thm = Q.store_thm("explode_aux_thm",
+  `∀max n ls.
+    n + max = LENGTH ls ⇒
+    explode_aux (strlit ls) n max = DROP n ls`,
+  Induct \\ rw[] \\ fs[LENGTH_NIL_SYM,DROP_LENGTH_TOO_LONG]
+  \\ match_mp_tac (GSYM rich_listTheory.DROP_EL_CONS)
+  \\ simp[]);
 
 val explode_def = Define`
-  explode s = explode_aux s (strlen s) 0`;
+  explode s = explode_aux s 0 (strlen s)`;
+
+val explode_thm = Q.store_thm("explode_thm[simp]",
+  `explode (strlit ls) = ls`,
+  rw[explode_def,SIMP_RULE std_ss [] explode_aux_thm]);
 
 translate explode_aux_def;
 translate explode_def;
@@ -1139,158 +1307,250 @@ translate explode_def;
 
 (*--------------------------------------------------------------------------------*)
 
-(*NOTE: MAP for strings is like APP for other types *)
-  
-val translate_aux_def = tDefine "translate_aux"`
-  translate_aux f s max n = 
-    if max <= n then []
-    else f (sub s n)::(translate_aux f s max (n + 1))`
-(wf_rel_tac `measure (\(f, s, max, n). max - n)`);
-
+val translate_aux_def = Define`
+  (translate_aux f s n 0 = []) /\
+  (translate_aux f s n (SUC len) = f (sub s n)::translate_aux f s (n + 1) len)`;
 
 val translate_def = Define`
-  translate f s = implode (translate_aux f s (strlen s) 0)`;
+  translate f s = implode (translate_aux f s 0 (strlen s))`;
+
+val translate_aux_thm = Q.prove (
+  `!f s n len. n + len = strlen s ==> translate_aux f s n len = MAP f (DROP n (explode s))`,
+  Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] >-
+  rw [DROP_LENGTH_NIL] \\
+  rw [sub_def, DROP_EL_CONS]
+);
+
+val translate_thm = Q.store_thm (
+  "translate_thm",
+  `!f s. translate f s = implode (MAP f (explode s))`,
+  rw [translate_def, translate_aux_thm]
+);
 
 (*these have pre-conditions because sub has a precondition *)
 val result = translate translate_aux_def;
+val translate_aux_side_def = theorem"translate_aux_side_def";
 val result = translate translate_def;
+val translate_side_def = definition"translate_side_def";
+
+val translate_aux_side_thm = Q.prove (
+  `!f s n len. n + len = strlen s ==> translate_aux_side f s n len`,
+  Induct_on `len` \\ rw[Once translate_aux_side_def]
+);
+
+val translate_side_thm = Q.prove (
+  `!f s. translate_side f s`,
+  rw [translate_side_def, translate_aux_side_thm] ) |> update_precondition  
 
 (*--------------------------------------------------------------------------------*)
 
-
-(*Check the functionality *)
-val tokens_aux_def = tDefine "tokens_aux"`
-  tokens_aux f s ss max n = 
-  if max <= n 
-    then []
-  else if (f (sub s n) /\ ~(ss = []))
-    then ss::(tokens_aux f s [] max (n + 1))
-  else if f (sub s n) 
-    then tokens_aux f s ss max (n + 1)
-  else tokens_aux f s ((sub s n)::ss) max (n + 1)`
-(wf_rel_tac `measure (\(f, s, ss, max, n). max - n)`);
+val tokens_aux_def = Define`
+  (tokens_aux f s ss n 0 = []) /\
+  (tokens_aux f s [] n (SUC len) = 
+    if f (sub s n) 
+      then tokens_aux f s [] (n + 1) len
+    else tokens_aux f s [sub s n] (n + 1) len) /\
+  (tokens_aux f s (h::t) n (SUC len) = 
+    if f (sub s n)
+      then (implode (h::t))::(tokens_aux f s [] (n + 1) len)
+    else tokens_aux f s (sub s n::(h::t)) (n + 1) len)`;
 
 val tokens_def = Define `
-  tokens f s = tokens_aux f s [] (strlen s) 0`;
+  tokens f s = tokens_aux f s [] 0 (strlen s)`;
 
-fun tokens_aux (f : char -> bool) s ss max n = 
-  if max <= n 
-    then []
-  else if (f (String.sub s n)) andalso not(ss = [])
-    then ss::(tokens_aux f s [] max (n + 1))
-  else if f (String.sub s n) 
-    then tokens_aux f s ss max (n + 1)
-  else tokens_aux f s ((String.sub s n)::ss) max (n + 1)
+(*Number of tokens, members of the flat of the tokens list *)
 
-
-
-(*these have pre-conditions because sub has a precondition *)
 val result = translate tokens_aux_def;
+val tokens_aux_side_def = theorem"tokens_aux_side_def";
 val result = translate tokens_def;
+val tokens_side_def = definition"tokens_side_def";
+
+val tokens_aux_side_thm = Q.prove (
+  `!f s ss n len. n + len = strlen s ==> tokens_aux_side f s ss n len`,
+  Induct_on `len` \\ rw [Once tokens_aux_side_def]
+);
+
+val tokens_side_thm = Q.prove (
+  `!f s. tokens_side f s`,
+  rw [tokens_side_def, tokens_aux_side_thm] ) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
 
-val fields_aux_def = tDefine "fields_aux"`
-  fields_aux f s ss max n = 
-  if max <= n 
-    then []
-  else if f (sub s n)
-    then ss::(fields_aux f s [] max (n + 1))
-  else fields_aux f s ((sub s n)::ss) max (n + 1)`
-(wf_rel_tac `measure (\(f, s, ss, max, n). max - n)`);
+val fields_aux_def = Define`
+  (fields_aux f s ss n 0 = []) /\
+  (fields_aux f s ss n (SUC len) = 
+    if f (sub s n)
+      then implode ss::(fields_aux f s [] (n + 1) len)
+    else fields_aux f s (sub s n::ss) (n + 1) len)`;
 
 val fields_def = Define`
-  fields f s = fields_aux f s [] (strlen s) 0`;
+  fields f s = fields_aux f s [] 0 (strlen s)`;
 
-(*these have pre-conditions because sub has a precondition *)
+val fields_aux_thm = Q.prove (
+  `!f s ss n len. n + len = strlen s ==>
+    ?c. f c ==> (concatWith (str c) (fields_aux f s ss n len) = implode (DROP n (explode s)))`
+  Induct_on `len` \\  Cases_on `s`
+  rw [fields_aux_def, concatWith_def, concatWith_aux_def, strlen_def, DROP_LENGTH_NIL]
+  
+
+val fields_thm = Q.store_thm (
+  "fields_thm",
+  `!f s. ?c. (f c) /\ concatWith (str c) (fields f s) = s`
+  rw [concatWith_def, fields_def] 
+
 val result = translate fields_aux_def;
+val fields_aux_side_def = theorem"fields_aux_side_def";
 val result = translate fields_def;
+val fields_side_def = definition"fields_side_def";
 
+val fields_aux_side_thm = Q.prove (
+  `!f s ss n len. n + len = strlen s ==> fields_aux_side f s ss n len`,
+  Induct_on `len` \\ rw [Once fields_aux_side_def]
+);
+
+val fields_side_thm = Q.prove (
+  `!f s. fields_side f s`,
+  rw [fields_side_def, fields_aux_side_thm] ) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
 
-(*this could be one less iteration if the check is for n + 1 *)
-val isStringThere_aux_def = tDefine "isPrefix_aux"`
-  isStringThere_aux s1 s2 max n = 
-  if max <= n 
-    then T
-  else if (sub s1 n) = (sub s2 n)
-    then isStringThere_aux s1 s2 max (n + 1)
-  else F`
-(wf_rel_tac `measure (\(s1, s2, max, n). max - n)`);
+val isStringThere_aux_def = Define`
+  (isStringThere_aux s1 s2 n 0 = T) /\
+  (isStringThere_aux s1 s2 n (SUC len) = 
+    if sub s1 n = sub s2 n
+      then isStringThere_aux s1 s2 (n + 1) len
+    else F)`;
 
 val isPrefix_def = Define`
-  isPrefix s1 s2 = isStringThere_aux s1 s2 (strlen s1) 0`;
+  isPrefix s1 s2 = 
+    if strlen s1 <= strlen s2 
+      then isStringThere_aux s1 s2 (strlen s1) 0
+    else F`;
 
 val isSuffix_def = Define`
-  isSuffix s1 s2 = isStringThere_aux s1 s2 (strlen s2) ((strlen s2) - (strlen s1))`;
+  isSuffix s1 s2 = 
+    if strlen s1 <= strlen s2
+      then isStringThere_aux s1 s2 (strlen s2 - strlen s1) (strlen s1)
+    else F`;
 
-val isSubstring_aux_def = tDefine "isSubstring_aux"`
-  isSubstring_aux s1 s2 len1 max n = 
-    if max <= n
-      then F
-    else if isStringThere_aux s1 s2 (n + len1) n
+val isSubstring_aux_def = Define`
+  (isSubstring_aux s1 s2 lens1 n 0 = F) /\
+  (isSubstring_aux s1 s2 lens1 n (SUC len) =
+    if (isStringThere_aux s1 s2 n lens1) 
       then T
-    else isSubstring_aux s1 s2 len1 max (n + 1)` 
-(wf_rel_tac `measure (\(s1, s2, len1, max, n). max - n)`);
+    else isSubstring_aux s1 s2 lens1 (n + 1) len)`;
 
 val isSubstring_def = Define`
-  isSubstring s1 s2 = isSubstring_aux s1 s2 (strlen s1) ((strlen s2) - (strlen s1)) 0`;
+  isSubstring s1 s2 = 
+  if strlen s1 <= strlen s2
+    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1))
+  else F`;
 
-(* what is going on with is string there *) 
 val result = translate isStringThere_aux_def;
- 
+val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
+
+val isStringThere_aux_side_thm = Q.prove (
+  `!s1 s2 n len. n + len <= strlen s2 ==> isstringthere_aux_side s1 s2 n len`,
+  Induct_on `len` \\ rw [Once isStringThere_aux_side_def]
+);
+
+val result = translate isPrefix_def;
+val isPrefix_side_def = definition"isprefix_side_def";
+val isPrefix_thm = Q.prove (
+  `!s1 s2. isprefix_side s1 s2`,
+  rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
+
+val result = translate isSuffix_def;
+val isSuffix_side_def = definition"issuffix_side_def";
+val isSuffix_thm = Q.prove (
+  `!s1 s2. issuffix_side s1 s2`,
+  rw[isSuffix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
+
+val result = translate isSubstring_aux_def;
+val isSubstring_aux_side_def = theorem"issubstring_aux_side_def";
+val isSubstring_aux_side_thm = Q.prove (
+  `!s1 s2 lens1 n len. (n + len = strlen s2 - strlen s1) /\ (lens1 = strlen s1) ==> 
+    issubstring_aux_side s1 s2 lens1 n len`,
+  Induct_on `len` \\ rw [Once isSubstring_aux_side_def, isStringThere_aux_side_thm]
+);
+val result = translate isSubstring_def;
+val isSubstring_side_def = definition"issubstring_side_def";
+val isSubstring_side_thm = Q.prove (
+  `!s1 s2. issubstring_side s1 s2`,
+  rw [isSubstring_side_def, isSubstring_aux_side_thm] ) |> update_precondition
+
 (*--------------------------------------------------------------------------------*)
 
-val compare_aux_def = tDefine "compare_aux"`
-  compare_aux (s1 : mlstring) s2 max ord n = 
-    if max <= n
-      then ord
-    else if (sub s1 n) > (sub s2 n) 
+val compare_aux_def = Define`
+  (compare_aux (s1: mlstring) s2 ord n 0 = ord) /\
+  (compare_aux s1 s2 ord n (SUC len) = 
+    if sub s2 n < sub s1 n
       then GREATER
-    else if (sub s1 n) < (sub s2 n)
+    else if sub s1 n < sub s2 n
       then LESS
-    else compare_aux s1 s2 max ord (n + 1)` 
-(wf_rel_tac `measure (\(s1, s2, max, ord, n). max - n)`);
+    else compare_aux s1 s2 ord (n + 1) len)`;
 
 val compare_def = Define`
   compare_def s1 s2 = if (strlen s1) < (strlen s2)
-    then compare_aux s1 s2 (strlen s1) GREATER 0
+    then compare_aux s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
-    then compare_aux s1 s2 (strlen s2) LESS 0
-  else compare_aux s1 s2 (strlen s2) EQUAL 0`; 
+    then compare_aux s1 s2 GREATER 0 (strlen s2)
+  else compare_aux s1 s2 EQUAL 0 (strlen s2)`; 
 
 (*Pre conditions from sub *)
 val result = translate compare_aux_def;
+val compare_aux_side_def = theorem"compare_aux_side_def";
 val result = translate compare_def;
+val compare_side_def = definition"compare_side_def";
 
+val compare_aux_side_thm = Q.prove (
+  `!s1 s2 ord n len. (n + len = 
+    if strlen s1 < strlen s2
+      then strlen s1
+    else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
+  cheat );
+  Induct_on `len` \\ rw [Once compare_aux_side_def]
+);
+
+val compare_side_thm = Q.prove (
+  `!s1 s2. compare_side s1 s2`,
+  rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
 (*--------------------------------------------------------------------------------*)
 
-val collate_aux_def = tDefine "collate_aux"`
-  collate_aux f (s1 : mlstring) s2 max ord n = 
-    if max <= n 
-      then ord
-    else if f (sub s1 n) (sub s2 n) = EQUAL
-      then collate_aux f s1 s2 max ord (n + 1)
-    else
-      f (sub s1 n) (sub s2 n)`
-(wf_rel_tac `measure (\(f, s1, s2, max, ord, n). max - n)`);
+val collate_aux_def = Define`
+  (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
+  (collate_aux f s1 s2 ord n (SUC len) = 
+    if f (sub s1 n) (sub s2 n) = EQUAL
+      then collate_aux f s1 s2 ord (n + 1) len
+    else f (sub s1 n) (sub s2 n))`;
 
 val collate_def = Define`
   collate f s1 s2 = 
   if (strlen s1) < (strlen s2)
-    then collate_aux f s1 s2 (strlen s1) GREATER 0
+    then collate_aux f s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
-    then collate_aux f s1 s2 (strlen s2) LESS 0
-  else collate_aux f s1 s2 (strlen s2) EQUAL 0`;
+    then collate_aux f s1 s2 GREATER 0 (strlen s2)
+  else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
 
-(*Pre conditions from sub *) 
+(*Pre conditions from sub*) 
 val result = translate collate_aux_def;
+val collate_aux_side_def = theorem"collate_aux_side_def";
 val result = translate collate_def;
+val collate_side_def = definition"collate_side_def";
+
+val collate_aux_side_thm = Q.prove (
+  `!f s1 s2 ord n len. (n + len = 
+    if strlen s1 < strlen s2
+      then strlen s1
+    else strlen s2) ==> collate_aux_side f s1 s2 ord n len`,
+  Induct_on `len` \\ rw [Once collate_aux_side_def]
+);
+
+val collate_side_thm = Q.prove (
+  `!f s1 s2. collate_side f s1 s2`,
+  rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 (*--------------------------------------------------------------------------------*)
-
-
 
 val _ = ml_prog_update (close_module NONE);
 

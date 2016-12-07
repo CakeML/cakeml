@@ -69,9 +69,12 @@ val result = translate partition_def;
 
 
 val result = translate FOLDL;
+val result = translate foldli_aux_def;
+val result = translate foldli_def;
 
 
 val result = translate FOLDR;
+val result = translate (FOLDRi_def |> REWRITE_RULE[o_DEF]);
 
 
 val result = translate EXISTS_DEF;
