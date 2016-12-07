@@ -1,12 +1,12 @@
 open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
-local open monadsyntax in end
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
 val _ = new_theory "cmlPEG"
 
 val _ = new_storage_attribute "cakeml/parsing"
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``
@@ -216,10 +216,13 @@ val cmlPEG_def = zDefine`
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         pegf (tokeq StarT) (bindNT nOpID);
                         pegf (tokeq EqualsT) (bindNT nOpID)]);
+              (mkNT nEliteral,
+               choicel [tok isInt (bindNT nEliteral o mktokLf);
+                        tok isString (bindNT nEliteral o mktokLf);
+                        tok isCharT (bindNT nEliteral o mktokLf);
+                        tok isWordT (bindNT nEliteral o mktokLf)]);
               (mkNT nEbase,
-               choicel [tok isInt (bindNT nEbase o mktokLf);
-                        tok isString (bindNT nEbase o mktokLf);
-                        tok isCharT (bindNT nEbase o mktokLf);
+               choicel [pegf (pnt nEliteral) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         peg_EbaseParen;
                         seql [tokeq LbrackT; try (pnt nElist1); tokeq RbrackT]
@@ -596,7 +599,8 @@ val npeg0_rwts =
                 ``nPcons``, ``nPattern``,
                 ``nPatternList``, ``nPbaseList1``,
                 ``nLetDec``, ``nMultOps``, ``nListOps``,
-                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEliteral``,
+                ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
                 ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
@@ -680,7 +684,7 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nOpID``,
-                ``nEbase``, ``nEapp``,
+                ``nEliteral``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
                 ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,

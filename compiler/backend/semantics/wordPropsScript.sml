@@ -134,11 +134,19 @@ val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
   `mem_load x (y with clock := k) = mem_load x y`,
   EVAL_TAC);
 
+val mem_store_const_full = Q.store_thm("mem_store_const_full",
+  `mem_store x y z = SOME a ⇒
+   a.clock = z.clock ∧
+   a.ffi = z.ffi ∧
+   a.handler = z.handler ∧
+   a.stack = z.stack`,
+  EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
+
 val mem_store_const = Q.store_thm("mem_store_const",
   `mem_store x y z = SOME a ⇒
    a.clock = z.clock ∧
    a.ffi = z.ffi`,
-  EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
+  metis_tac [mem_store_const_full]);
 
 val mem_store_with_const = Q.store_thm("mem_store_with_const[simp]",
   `mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y)`,
@@ -156,11 +164,19 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
     unabbrev_all_tac>>fs[MAP_EQ_f]>>
   rw[])
 
+val assign_const_full = Q.store_thm("assign_const_full",
+  `assign x y z = SOME a ⇒
+   a.clock = z.clock ∧
+   a.ffi = z.ffi ∧
+   a.handler = z.handler ∧
+   a.stack = z.stack`,
+  EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
+
 val assign_const = Q.store_thm("assign_const",
   `assign x y z = SOME a ⇒
    a.clock = z.clock ∧
    a.ffi = z.ffi`,
-  EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
+  metis_tac [assign_const_full]);
 
 val assign_with_const = Q.store_thm("assign_with_const[simp]",
   `assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z)`,
@@ -170,14 +186,22 @@ val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
   rw[inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
+val inst_const_full = Q.store_thm("inst_const_full",
+  `inst i s = SOME s' ⇒
+   s'.clock = s.clock ∧
+   s'.ffi = s.ffi ∧
+   s'.handler = s.handler ∧
+   s'.stack = s.stack`,
+  rw[inst_def, set_var_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac mem_store_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME s' ⇒
    s'.clock = s.clock ∧
    s'.ffi = s.ffi`,
-  rw[inst_def] >>
-  every_case_tac >>full_simp_tac(srw_ss())[] >>
-  imp_res_tac assign_const >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  metis_tac [inst_const_full]);
 
 val jump_exc_const = Q.store_thm("jump_exc_const",
   `jump_exc s = SOME (x,y) ⇒
@@ -496,27 +520,28 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
-(*code is unchanged across eval*)
-val pop_env_code_clock = Q.store_thm("pop_env_code_clock",`
+(*code and gc_fun are unchanged across eval*)
+val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   pop_env r = SOME x ⇒
   r.code = x.code ∧
+  r.gc_fun = x.gc_fun ∧
   r.clock = x.clock`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
-val alloc_code_const = Q.store_thm("alloc_code_const",`
+val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code`,
+  t.code = s.code /\ t.gc_fun = s.gc_fun`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
-  imp_res_tac pop_env_code_clock>>fs[])
+  imp_res_tac pop_env_code_gc_fun_clock>>fs[])
 
-val inst_code_const = Q.prove(`
-  inst i s = SOME t ⇒ s.code = t.code`,
+val inst_code_gc_fun_const = Q.prove(`
+  inst i s = SOME t ⇒ s.code = t.code /\ s.gc_fun = t.gc_fun`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
 
-val evaluate_code_const = Q.store_thm("evaluate_code_const",`
-  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code`,
-  recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
+val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code /\ s1.gc_fun = s2.gc_fun`,
+  recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
   >-
     (rename1 `bad_dest_args _ _`>>
     pop_assum mp_tac>>
@@ -528,13 +553,21 @@ val evaluate_code_const = Q.store_thm("evaluate_code_const",`
       Cases_on`handler`>>TRY(PairCases_on`x''`)>>fs[state_component_equality,call_env_def,push_env_def,LET_THM,env_to_list_def,dec_clock_def]>>
       TOP_CASE_TAC>>fs[state_component_equality]>>
       ntac 6 (TOP_CASE_TAC>>fs[set_var_def])>>
-      imp_res_tac pop_env_code_clock>>fs[])
+      imp_res_tac pop_env_code_gc_fun_clock>>fs[])
   >>
     fs[jump_exc_def]>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
     TRY(pairarg_tac>>fs[state_component_equality])>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
-    metis_tac[alloc_code_const,inst_code_const])
+    metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const])
+
+val evaluate_code_const = Q.store_thm("evaluate_code_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_gc_fun_const = Q.store_thm("evaluate_gc_fun_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.gc_fun = s2.gc_fun`,
+  metis_tac [evaluate_code_gc_fun_const]);
 
 (* -- *)
 
@@ -2137,6 +2170,23 @@ val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
   srw_tac[][EQ_IMP_THM]>>full_simp_tac(srw_ss())[EL_GENLIST]
   >- metis_tac[]>>
   qexists_tac `g n`>>full_simp_tac(srw_ss())[])
+
+val GENLIST_I =
+  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
+    |> SIMP_RULE std_ss []
+
+val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
+  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
+  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
+
+val PERM_list_rearrange = store_thm("PERM_list_rearrange",
+  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
+  srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
+  \\ full_simp_tac(srw_ss())[mem_list_rearrange]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
 
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =

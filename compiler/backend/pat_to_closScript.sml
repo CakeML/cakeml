@@ -122,8 +122,13 @@ val compile_def = tDefine"compile"`
               (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
                  (Op (Cons tuple_tag) []))
               (Raise (Op (Cons subscript_tag) []))))) ∧
-  (compile (App (Op (Op Explode)) es) =
-    Op ToList (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op Strsub)) es) =
+    Let (REVERSE (MAP compile es))
+      (If (Op Less [Op (Const 0) []; Var 0])
+          (Raise (Op (Cons subscript_tag) []))
+          (If (Op Less [Op LengthBlock [Var 1]; Var 0])
+              (Op El [Var 0; Var 1])
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op Implode)) es) =
     Op (FromList string_tag) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strlen)) es) =

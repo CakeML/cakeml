@@ -78,7 +78,7 @@ val CHAR_IMP_no_closures = Q.prove(
 
 val STRING_IMP_no_closures = Q.prove(
   `STRING_TYPE x v ==> no_closures v`,
-  SIMP_TAC std_ss [STRING_TYPE_def,no_closures_def]);
+  Cases_on`x` \\ SIMP_TAC std_ss [STRING_TYPE_def,no_closures_def]);
 
 val EqualityType_thm = Q.prove(
   `EqualityType abs <=>

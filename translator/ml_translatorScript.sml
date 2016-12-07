@@ -3,11 +3,13 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory packLib;
-open mlstringTheory integerTheory;
-open terminationTheory ml_progTheory;
+open preamble integerTheory
+     astTheory libTheory semanticPrimitivesTheory bigStepTheory
+     semanticPrimitivesPropsTheory bigStepPropsTheory
+     bigClockTheory determTheory
+     mlstringTheory ml_progTheory packLib;
+open terminationTheory
+local open funBigStepEquivTheory evaluatePropsTheory in end
 
 val _ = new_theory "ml_translator";
 
@@ -81,7 +83,7 @@ val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
 
 val STRING_TYPE_def = Define`
-  STRING_TYPE (s:mlstring) = \v:v. (v = Litv (StrLit (explode s)))`;
+  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -375,7 +377,9 @@ val EqualityType_NUM_BOOL = Q.store_thm("EqualityType_NUM_BOOL",
     types_match_def, lit_same_type_def,
     stringTheory.ORD_11,mlstringTheory.explode_11]
   \\ SRW_TAC [] [] \\ EVAL_TAC
-  \\ fs [w2w_def] \\ Cases_on `x1` \\ Cases_on `x2`
+  \\ fs [w2w_def] \\ Cases_on `x1`
+  \\ fs[STRING_TYPE_def] \\ EVAL_TAC
+  \\ Cases_on `x2` \\ fs[STRING_TYPE_def] \\ EVAL_TAC
   \\ fs [WORD_MUL_LSL,word_mul_n2w]
   \\ imp_res_tac Eq_lemma \\ fs []
   \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]);
@@ -958,9 +962,39 @@ val Eval_w2n = Q.store_thm("Eval_w2n",
   \\ fs [do_app_def]
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
-val Eval_n2w = Q.store_thm("Eval_n2w",
+local
+  val lemma = prove(
+    ``(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
+                 (If (App (Opb Lt) [Var (Short "x"); Lit (IntLit (& k))])
+                    (Var (Short "x"))
+                    (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
+        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))``,
+    fs [] \\ rpt strip_tac
+    \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
+    \\ qexists_tac `~(w2n w < k)`
+    \\ qexists_tac `w2n w < k`
+    \\ qexists_tac `T`
+    \\ fs [CONTAINER_def]
+    \\ rw []
+    THEN1
+     (match_mp_tac (MP_CANON Eval_NUM_LESS)
+      \\ fs [Eval_Val_NUM] \\ fs [Eval_Var_SIMP])
+    THEN1 (fs [Eval_Var_SIMP,NUM_def])
+    \\ match_mp_tac (MP_CANON Eval_INT_SUB)
+    \\ fs [Eval_Val_INT] \\ fs [Eval_Var_SIMP,NUM_def])
+  val th1 = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Let) (UNDISCH Eval_w2n)
+  val th2 = MATCH_MP th1 lemma |> Q.INST [`k`|->`INT_MIN (:α)`,`d`|->`dimword (:'a)`]
+  val th3 = th2 |> SIMP_RULE std_ss [LET_THM,GSYM integer_wordTheory.w2i_eq_w2n]
+  val th4 = th3 |> DISCH_ALL |> SIMP_RULE std_ss [INT_MIN_def,dimword_def]
+  val _ = th4 |> concl |> rand |> rand |> rand
+              |> integer_wordSyntax.is_w2i orelse failwith "Eval_w2i failed"
+in
+  val Eval_w2i = save_thm("Eval_w2i",th4)
+end;
+
+val Eval_i2w = Q.store_thm("Eval_i2w",
   `dimindex (:'a) <= 64 ==>
-    Eval env x1 (NUM n) ==>
+    Eval env x1 (INT n) ==>
     Eval env
       (if dimindex (:'a) = 8 then
          App (WordFromInt W8) [x1]
@@ -970,7 +1004,7 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
          App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
        else
          App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
-      (WORD ((n2w n):'a word))`,
+      (WORD ((i2w n):'a word))`,
   rw[Eval_def,WORD_def] \\ fs [] \\ rfs []
   \\ TRY (* takes care of = 8 and = 64 cases *)
    (rw[Once evaluate_cases,PULL_EXISTS]
@@ -981,7 +1015,8 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
     \\ first_x_assum(qspec_then`refs`strip_assume_tac)
     \\ asm_exists_tac \\ fs[]
     \\ fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def]
-    \\ fs [dimword_def] \\ NO_TAC)
+    \\ rw [] \\ fs [dimword_def]
+    \\ fs [wordsTheory.word_2comp_n2w,dimword_def] \\ NO_TAC)
   \\ rw[Once evaluate_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
@@ -997,11 +1032,32 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   \\ fs [do_app_def,NUM_def,INT_def]
   \\ fs [shift8_lookup_def,shift64_lookup_def,
          w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ rw []
+  \\ fs [shift8_lookup_def,shift64_lookup_def,wordsTheory.word_2comp_n2w,
+         w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw [dimword_def] \\ TRY (drule (DECIDE ``n<m ==> n <= m:num``))
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw [] \\ fs []
   \\ full_simp_tac bool_ss
        [GSYM (EVAL ``2n ** 8``),GSYM (EVAL ``2n ** 64``),EXP_ADD]
-  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]
+  \\ Cases_on `n` \\ fs []
+  \\ match_mp_tac MOD_MINUS \\ fs []);
+
+val Eval_n2w = Q.store_thm("Eval_n2w",
+  `dimindex (:'a) <= 64 ==>
+    Eval env x1 (NUM n) ==>
+    Eval env
+      (if dimindex (:'a) = 8 then
+         App (WordFromInt W8) [x1]
+       else if dimindex (:'a) = 64 then
+         App (WordFromInt W64) [x1]
+       else if dimindex (:'a) < 8 then
+         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
+       else
+         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
+      (WORD ((n2w n):'a word))`,
+  qsuff_tac `n2w n = i2w (& n)` THEN1 fs [Eval_i2w,NUM_def]
+  \\ fs [integer_wordTheory.i2w_def]);
 
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.
@@ -1246,17 +1302,13 @@ val LIST_TYPE_CHAR_v_to_char_list = Q.store_thm("LIST_TYPE_CHAR_v_to_char_list",
   Induct >>
   simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def])
 
-val LIST_TYPE_CHAR_char_list_to_v = Q.store_thm("LIST_TYPE_CHAR_char_list_to_v",
-  `∀l. LIST_TYPE CHAR l (char_list_to_v l)`,
-  Induct >> simp[char_list_to_v_def,LIST_TYPE_def,CHAR_def])
-
 val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
   rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim] >>
-  fs[STRING_TYPE_def]
+  fs[STRING_TYPE_def,mlstringTheory.implode_def]
 
 val Eval_implode = Q.store_thm("Eval_implode",
   `!env x1 l.
@@ -1264,25 +1316,35 @@ val Eval_implode = Q.store_thm("Eval_implode",
       Eval env (App Implode [x1]) (STRING_TYPE (implode l))`,
   tac >>
   metis_tac[LIST_TYPE_CHAR_v_to_char_list,
-            stringTheory.IMPLODE_EXPLODE_I,
-            mlstringTheory.explode_implode])
-
-val Eval_explode = Q.store_thm("Eval_explode",
-  `!env x1 s.
-      Eval env x1 (STRING_TYPE s) ==>
-      Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))`,
-  tac >>
-  metis_tac[LIST_TYPE_CHAR_char_list_to_v,
-            stringTheory.IMPLODE_EXPLODE_I,
-            mlstringTheory.explode_implode])
+            stringTheory.IMPLODE_EXPLODE_I])
 
 val Eval_strlen = Q.store_thm("Eval_strlen",
   `!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Strlen [x1]) (NUM (strlen s))`,
-  tac >>
+  Cases_on`s` >> tac >>
   fs[NUM_def,INT_def,mlstringTheory.strlen_def] >>
   metis_tac[])
+
+val Eval_strsub = Q.store_thm("Eval_strsub",
+  `!env x1 x2 s n.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env x2 (NUM n) ==>
+      n < strlen s ==>
+      Eval env (App Strsub [x1; x2]) (CHAR (strsub s n))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases)]
+  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
+  \\ srw_tac[DNF_ss][] \\ rpt disj2_tac
+  \\ rw[empty_state_with_ffi_elim]
+  \\ Cases_on`s` >> fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
+  \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
+  \\ metis_tac[strsub_def,mlstringTheory.implode_def,APPEND_ASSOC]);
 
 (* vectors *)
 

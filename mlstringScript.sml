@@ -24,9 +24,34 @@ val _ = Datatype`mlstring = strlit string`
 val implode_def = Define`
   implode = strlit`
 
+val strlen_def = Define`
+  strlen (strlit s) = LENGTH s`
+
+val strsub_def = Define`
+  strsub (strlit s) n = EL n s`;
+
+val _ = export_rewrites["strlen_def","strsub_def"];
+
+val explode_aux_def = Define`
+  (explode_aux s n 0 = []) ∧
+  (explode_aux s n (SUC len) =
+    strsub s n :: (explode_aux s (n+1) len))`;
+val _ = export_rewrites["explode_aux_def"];
+
+val explode_aux_thm = Q.store_thm("explode_aux_thm",
+  `∀max n ls.
+    n + max = LENGTH ls ⇒
+    explode_aux (strlit ls) n max = DROP n ls`,
+  Induct \\ rw[] \\ fs[LENGTH_NIL_SYM,DROP_LENGTH_TOO_LONG]
+  \\ match_mp_tac (GSYM rich_listTheory.DROP_EL_CONS)
+  \\ simp[]);
+
 val explode_def = Define`
-  explode (strlit ls) = ls`
-val _ = export_rewrites["explode_def"]
+  explode s = explode_aux s 0 (strlen s)`;
+
+val explode_thm = Q.store_thm("explode_thm[simp]",
+  `explode (strlit ls) = ls`,
+  rw[explode_def,SIMP_RULE std_ss [] explode_aux_thm]);
 
 val explode_implode = Q.store_thm("explode_implode",
   `∀x. explode (implode x) = x`,
@@ -59,9 +84,6 @@ val strcat_def = Define`
   strcat s1 s2 = implode(explode s1 ++ explode s2)`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
-
-val strlen_def = Define`
-  strlen s = LENGTH (explode s)`
 
 val mlstring_lt_def = Define`
   mlstring_lt (strlit s1) (strlit s2) ⇔

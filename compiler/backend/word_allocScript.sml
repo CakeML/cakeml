@@ -20,7 +20,7 @@ val apply_nummap_key_def = Define`
   fromAList (MAP (λx,y.f x,y) (toAList names))`
 
 val option_lookup_def = Define`
-  option_lookup t v = case lookup v t of NONE => v | SOME x => x`
+  option_lookup t v = case lookup v t of NONE => 0n | SOME x => x`
 
 val even_list_def = Define `
   (even_list = GENLIST (\x.2*x))`
@@ -164,7 +164,7 @@ val ssa_cc_trans_inst_def = Define`
   so it doesn't need the other parts *)
 val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
   (ssa_cc_trans_exp t (Var num) =
-    Var (case lookup num t of NONE => num | SOME x => x)) ∧
+    Var (option_lookup t num)) ∧
   (ssa_cc_trans_exp t (Load exp) = Load (ssa_cc_trans_exp t exp)) ∧
   (ssa_cc_trans_exp t (Op wop ls) =
     Op wop (MAP (ssa_cc_trans_exp t) ls)) ∧
@@ -819,7 +819,8 @@ val word_alloc_def = Define`
 val setup_ssa_def = Define`
   setup_ssa n lim (prog:'a wordLang$prog) =
   let args = even_list n in
-    list_next_var_rename_move LN lim (even_list n)`
+  let (new_ls,ssa',n') = list_next_var_rename args LN lim in
+    (Move 1 (ZIP(new_ls,args)),ssa',n')`
 
 val max3_def = Define`
   max3 (x:num) y z = if x > y then (if z > x then z else x)

@@ -5,7 +5,6 @@ val _ = new_theory"wordSem";
 val _ = set_grammar_ancestry [
   "wordLang", "alignment", "finite_map", "misc", "asm",
   "ffi", (* for call_FFI *)
-  "asmSem", (* for word_cmp *)
   "lprefix_lub" (* for build_lprefix_lub *)
 ]
 
@@ -127,14 +126,6 @@ val mem_load_def = Define `
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
-
-val word_sh_def = Define `
-  word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
-      case sh of
-      | Lsl => SOME (w << n)
-      | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)`;
 
 val the_words_def = Define `
   (the_words [] = SOME []) /\

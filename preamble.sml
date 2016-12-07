@@ -5,7 +5,7 @@ structure preamble =
 struct
 local open intLib wordsLib in end;
 open set_relationTheory;
-open BasicProvers Defn HolKernel Parse Tactic
+open BasicProvers Defn HolKernel Parse Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory

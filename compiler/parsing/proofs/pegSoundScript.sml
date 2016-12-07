@@ -9,6 +9,9 @@ in
 end
 val i = TypeBase.one_one_of ``:(α,β,γ)pegsym``
 
+infix >*
+fun t1 >* t2 = (t1 >> conj_tac) >- t2
+
 val peg_eval_choicel_NIL = Q.store_thm(
   "peg_eval_choicel_NIL[simp]",
   `peg_eval G (i0, choicel []) x = (x = NONE)`,
@@ -1011,9 +1014,10 @@ val peg_sound = Q.store_thm(
       simp[cmlG_FDOM, cmlG_applied] >>
       fs[peg_eval_nConstructor_wrongtok, peg_eval_nFQV_wrongtok] >>
       rpt (qpat_x_assum `peg_eval G X NONE` (K ALL_TAC))
-      >- (asm_match `isInt h` >> Cases_on `h` >> fs[])
-      >- (asm_match `isString h` >> Cases_on `h` >> fs[])
-      >- (rename1 `isCharT h` >> Cases_on `h` >> fs[])
+      >- (`NT_rank (mkNT nEliteral) < NT_rank (mkNT nEbase)`
+            by simp[NT_rank_def] >>
+          first_x_assum (pop_assum o mp_then.mp_then mp_then.Any mp_tac) >>
+          disch_then (IMP_RES_THEN strip_assume_tac) >> rveq >> simp[])
       >- (* () *) dsimp[]
       >- ((* peg_EbaseParen 1 *)
           IMP_RES_THEN match_mp_tac peg_EbaseParen_sound >> simp[])
@@ -1036,6 +1040,9 @@ val peg_sound = Q.store_thm(
           rpt (loseC ``NT_rank``) >> lrresolve X (free_in ``nOpID``) mp_tac >>
           simp[] >> strip_tac >> rveq >> dsimp[]) >>
       IMP_RES_THEN mp_tac peg_EbaseParen_sound >> simp[])
+  >- (print_tac "nEliteral" >> strip_tac >> rveq >>
+      simp[cmlG_applied, cmlG_FDOM] >> rename [`tk = StringT _`] >>
+      Cases_on `tk` >> fs[])
   >- (print_tac "nOpID" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
       fs[] >> rveq >> fs[])
   >- (print_tac "nCompOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])

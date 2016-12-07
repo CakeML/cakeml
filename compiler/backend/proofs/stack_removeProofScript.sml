@@ -455,7 +455,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
   \\ simp[]
   \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
   \\ simp[]
-  \\ simp[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
+  \\ simp[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ qpat_abbrev_tac`cc = c + _ + _`
   \\ `cc <+ c ⇔ s.stack_space < n`
   by (
@@ -881,7 +881,7 @@ val evaluate_single_stack_free = Q.store_thm("evaluate_single_stack_free",
   \\ simp[]
   \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
   \\ simp[]
-  \\ simp[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
+  \\ simp[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ simp[FLOOKUP_UPDATE]
   \\ rw[] >> TRY (metis_tac[])
@@ -1530,7 +1530,7 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
-    \\ simp[wordSemTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
     \\ IF_CASES_TAC \\ simp[]
     >- (
       full_simp_tac(srw_ss())[word_shift_def]
@@ -1575,7 +1575,7 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
-    \\ simp[wordSemTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
     \\ IF_CASES_TAC \\ simp[]
     >- (
       full_simp_tac(srw_ss())[word_shift_def]
@@ -1614,7 +1614,7 @@ val comp_correct = Q.prove(
            word_exp_def,set_var_def,FLOOKUP_UPDATE,get_var_def]
     \\ `FLOOKUP t1.regs v = SOME (Word c)` by metis_tac [state_rel_def] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,FLOOKUP_UPDATE,wordLangTheory.num_exp_def,
-           wordSemTheory.word_sh_def]
+           wordLangTheory.word_sh_def]
     \\ `mem_load (c << word_shift (:'a) + ww << word_shift (:'a)) t1 =
         SOME (Word (EL (w2n c) s.bitmaps))` by
      (full_simp_tac(srw_ss())[state_rel_def] \\ ntac 2 (qpat_x_assum `xx = SOME yy` kall_tac)
@@ -1877,9 +1877,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
-       asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
+       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordSemTheory.word_sh_def,halt_inst_def]
+       wordLangTheory.word_sh_def,halt_inst_def]
 
 val mem_val_def = Define `
   (mem_val regs (INL w) = Word w) /\

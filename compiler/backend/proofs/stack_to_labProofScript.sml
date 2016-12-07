@@ -44,7 +44,7 @@ val good_syntax_def = Define `
 val word_cmp_word_cmp = Q.store_thm("word_cmp_word_cmp",
   `(word_cmp cmp (Word w1) (Word w2) = SOME T) ⇔ word_cmp cmp w1 w2`,
   Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]>>
-  srw_tac[][asmSemTheory.word_cmp_def]);
+  srw_tac[][asmTheory.word_cmp_def]);
 
 val asm_fetch_aux_no_label = Q.store_thm("asm_fetch_aux_no_label",
   `∀pc code.
@@ -76,7 +76,7 @@ val word_cmp_not_NONE = Q.store_thm("word_cmp_not_NONE[simp]",
   Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]);
 
 val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
-  `asmSem$word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2`,
+  `asm$word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2`,
   Cases_on`cmp`>>EVAL_TAC);
 
 val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
