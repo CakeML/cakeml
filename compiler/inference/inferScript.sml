@@ -1,8 +1,9 @@
 open preamble miscTheory astTheory typeSystemTheory;
 open infer_tTheory unifyTheory;
-open stringTheory monadsyntax;
+open stringTheory ;
 
 val _ = new_theory "infer";
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val (inf_type_to_string_def,inf_type_to_string_ind) = Defn.tprove_no_defn((inf_type_to_string_def,inf_type_to_string_ind),
 (WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`));

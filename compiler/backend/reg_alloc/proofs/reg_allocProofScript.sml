@@ -1,11 +1,12 @@
 open preamble
-open monadsyntax state_transformerTheory
+open state_transformerTheory
 open reg_allocTheory
 open BasicProvers
 
 val _ = ParseExtras.temp_tight_equality ();
 
 val _ = new_theory "reg_allocProof";
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val convention_partitions = Q.store_thm("convention_partitions",`
   ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧

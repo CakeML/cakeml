@@ -1,8 +1,8 @@
 open preamble match_goal
 open simpleSexpTheory astTheory
-open monadsyntax
 
 val _ = new_theory "fromSexp";
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("return", ``SOME``)
 val _ = temp_overload_on ("fail", ``NONE``)

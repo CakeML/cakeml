@@ -1,11 +1,12 @@
-open preamble holKernelTheory monadsyntax
+open preamble holKernelTheory
+
+val _ = new_theory"reader"
 
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``ex_return``);
-
-val _ = new_theory"reader"
+val _ = temp_add_monadsyntax()
 
 (* We just represent names in the string (dotted) format.
    To make the namespace more explicit, the following functions could
