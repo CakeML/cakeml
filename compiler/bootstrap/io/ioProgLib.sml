@@ -120,6 +120,7 @@ val compile_tm = ``compile``
      \\ simp [set_sepTheory.one_def]
      \\ TRY(qexists_tac`0w`) \\ fs[cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
      \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
+     \\ TRY (EVAL_TAC \\ qexists_tac`0w` \\ rw[] \\ NO_TAC)
      \\ fs [EXTENSION] \\ rpt strip_tac \\ EQ_TAC \\ rw [] \\ rw []
      \\ TRY (EVAL_TAC \\ NO_TAC)
      \\ fs [io_proj2_def] \\ rw [] \\ fs []
