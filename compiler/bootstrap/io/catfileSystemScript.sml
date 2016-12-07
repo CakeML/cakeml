@@ -1,8 +1,7 @@
 open preamble
 
-open monadsyntax
-
 val _ = new_theory "catfileSystem";
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = overload_on ("return", ``SOME``)
 val _ = overload_on ("fail", ``NONE``)

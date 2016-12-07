@@ -1,7 +1,8 @@
-open preamble monadsyntax state_transformerTheory
+open preamble state_transformerTheory
 
 val _ = new_theory "reg_alloc";
 val _ = ParseExtras.tight_equality ();
+val _ = monadsyntax.temp_add_monadsyntax()
 
 (*--Start Initial Definitions--*)
 

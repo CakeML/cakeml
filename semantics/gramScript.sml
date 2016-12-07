@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 
 open tokensTheory grammarTheory
 
-open lcsymtacs grammarLib monadsyntax
+open lcsymtacs grammarLib
 
 val _ = new_theory "gram"
 
