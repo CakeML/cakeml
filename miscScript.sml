@@ -987,10 +987,18 @@ val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
   Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> full_simp_tac(srw_ss())[INJ_IFF] >>
   metis_tac[] )
 
-
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+
+val find_index_INDEX_FIND = Q.store_thm("find_index_INDEX_FIND",
+  `∀y xs n. find_index y xs n = OPTION_MAP FST (INDEX_FIND n ($= y) xs)`,
+  Induct_on`xs` \\ rw[find_index_def]
+  \\ rw[Once INDEX_FIND_def,ADD1]);
+
+val find_index_INDEX_OF = Q.store_thm("find_index_INDEX_OF",
+  `find_index y xs 0 = INDEX_OF y xs`,
+  rw[INDEX_OF_def,find_index_INDEX_FIND])
 
 val find_index_NOT_MEM = Q.store_thm("find_index_NOT_MEM",
   `∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)`,
