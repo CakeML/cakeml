@@ -1,4 +1,5 @@
-open preamble conLangTheory
+open preamble conLangTheory backend_commonTheory
+open semanticPrimitivesPropsTheory (* for do_shift and others *)
 
 val _ = new_theory"conSem"
 

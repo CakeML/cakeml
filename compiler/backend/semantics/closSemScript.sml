@@ -1,4 +1,4 @@
-open preamble closLangTheory conLangTheory
+open preamble closLangTheory conLangTheory backend_commonTheory
 
 val _ = new_theory"closSem"
 
