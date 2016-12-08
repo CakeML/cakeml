@@ -33,6 +33,7 @@ val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 
 val _ = new_theory "gramProps"
+val _ = set_grammar_ancestry ["gram", "NTproperties"]
 
 val NT_rank_def = Define`
   NT_rank N =
