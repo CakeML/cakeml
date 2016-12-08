@@ -4914,14 +4914,6 @@ val good_init_state_def = Define `
       word_loc_val_byte (mc_conf.target.get_pc ms) labs m a
         mc_conf.target.config.big_endian = SOME (t.mem a)`
 
-(*
-val LESS_find_ffi_index_limit = Q.store_thm("LESS_find_ffi_index_limit",
-  `!code i. has_io_name i code ==> i < find_ffi_index_limit code`,
-  recInduct find_ffi_index_limit_ind
-  \\ fs [find_ffi_index_limit_def,has_io_name_def]
-  \\ rpt strip_tac \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []);
-*)
-
 val aligned_1_intro = Q.prove(
   `((1w && w) = 0w) <=> aligned 1 w`,
   fs [alignmentTheory.aligned_bitwise_and]);

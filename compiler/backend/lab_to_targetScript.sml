@@ -337,15 +337,7 @@ val find_ffi_names_def = Define `
    (case x of LabAsm (CallFFI s) _ _ _ =>
        list_add_if_fresh s (find_ffi_names (Section k xs::rest))
    | _ => find_ffi_names (Section k xs::rest)))`
-(*
-val find_ffi_index_limit_def = Define `
-  (find_ffi_index_limit [] = 0) /\
-  (find_ffi_index_limit (Section k []::rest) =
-     find_ffi_index_limit rest) /\
-  (find_ffi_index_limit (Section k (x::xs)::rest) =
-     MAX (find_ffi_index_limit (Section k xs::rest))
-         (case x of LabAsm (CallFFI i) _ _ _ => i+1 | _ => 0n))`
-*)
+
 val compile_lab_def = Define `
   compile_lab c sec_list =
     let ffis = find_ffi_names sec_list in

@@ -84,16 +84,16 @@ val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
 
 (* could parallelise? *)
-val ffi_limit_thm =
-  ``find_ffi_index_limit skip_prog``
-  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC timez "ffi_limit" eval)
+val ffi_names_thm =
+  ``find_ffi_names skip_prog``
+  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC timez "ffi_names" eval)
 
 val lab_to_target_thm1 =
   lab_to_target_thm0
   |> CONV_RULE (RAND_CONV(
      REWR_CONV filter_skip_thm' THENC
      REWR_CONV lab_to_targetTheory.compile_lab_def THENC
-     RAND_CONV(REWR_CONV ffi_limit_thm) THENC
+     RAND_CONV(REWR_CONV ffi_names_thm) THENC
      REWR_CONV LET_THM THENC BETA_CONV))
 
 val tm10 = lab_to_target_thm1 |> rconc |> rator |> rator |> rand
@@ -729,7 +729,7 @@ val stack_mb = 1000
 val heap_mb = 1000
 val filename = "cake.S"
 
-val (bytes_tm,ffi_limit_tm) =
+val (bytes_tm,ffi_names_tm) =
   bootstrap_thm |> rconc
   |> optionSyntax.dest_some
   |> pairSyntax.dest_pair
@@ -738,7 +738,7 @@ val () = Lib.say"Writing output: "
 
 val () = time (
   x64_exportLib.write_cake_S stack_mb heap_mb
-    (numSyntax.int_of_term ffi_limit_tm)
+    (numSyntax.int_of_term ffi_names_tm)
     bytes_tm ) filename
 
 val _ = export_theory();
