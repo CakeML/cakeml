@@ -178,7 +178,7 @@ val _ = Define `
 val _ = Define `
   compile_prompt tagenv_st prompt =
   (case prompt of
-   Prompt ds =>
+   Prompt _ ds =>
      let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,nsEmpty) ds in
        ((next',nsAppend acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
 

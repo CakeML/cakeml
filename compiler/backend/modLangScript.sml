@@ -60,6 +60,6 @@ val _ = Datatype`
  * of the declaration binding are installed. *)
 val _ = Datatype`
  prompt =
-    Prompt (dec list)`;
+    Prompt (modN list) (dec list)`;
 
 val _ = export_theory ();

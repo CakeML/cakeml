@@ -50,7 +50,7 @@ val build_conv_def = Define`
   case cn of
   | NONE => SOME (Conv NONE vs)
   | SOME id =>
-    (case lookup_alist_mod_env id envC of
+    (case nsLookup envC id of
      | NONE => NONE
      | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs))`;
 
@@ -351,7 +351,7 @@ val pmatch_def = tDefine"pmatch"`
     Match_type_error))
 /\
 (pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =
-((case lookup_alist_mod_env n envC of
+((case nsLookup envC n of
       SOME (l, t)=>
         if same_tid t t' /\ (LENGTH ps = l) then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -395,7 +395,7 @@ val dec_clock_def = Define`
 dec_clock s = s with clock := s.clock -1`;
 
 val fix_clock_def = Define `
-  fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`
+  fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`;
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
@@ -498,7 +498,7 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
    (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
-  imp_res_tac fix_clock_IMP >> fs[])
+  imp_res_tac fix_clock_IMP >> fs[]);
 
 val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
   `fix_clock s (evaluate env s e) = evaluate env s e`,
@@ -516,12 +516,12 @@ val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet n e) =
    case evaluate (env with v := []) s [e] of
    | (s, Rval [Conv NONE vs]) =>
-     (s, if LENGTH vs = n then Rval ([],vs)
+     (s, if LENGTH vs = n then Rval (nsEmpty,vs)
          else Rerr (Rabort Rtype_error))
    | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
    | (s, Rerr e) => (s, Rerr e)) ∧
   (evaluate_dec env s (Dletrec funs) =
-     (s, Rval ([], MAP (λ(f,x,e). Closure (env.c,[]) x e) funs))) ∧
+     (s, Rval (nsEmpty, MAP (λ(f,x,e). Closure (env.c,[]) x e) funs))) ∧
   (evaluate_dec env s (Dtype mn tds) =
    let new_tdecs = type_defs_to_new_tdecs mn tds in
    if check_dup_ctors tds ∧ DISJOINT new_tdecs s.defined_types ∧
@@ -533,125 +533,100 @@ val evaluate_dec_def = Define`
    if TypeExn (mk_id mn cn) ∈ s.defined_types
    then (s,Rerr (Rabort Rtype_error))
    else (s with defined_types updated_by ($INSERT (TypeExn (mk_id mn cn))),
-         Rval ([cn, (LENGTH ts, TypeExn (mk_id mn cn))],[])))`;
+         Rval (nsSing cn (LENGTH ts, TypeExn (mk_id mn cn)),[])))`;
 
 val evaluate_decs_def = Define`
-  (evaluate_decs env s [] = (s, [], [], NONE)) ∧
+  (evaluate_decs env s [] = (s, nsEmpty, [], NONE)) ∧
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
    | (s, Rval (new_tds,new_env)) =>
      (case evaluate_decs
-             (env with c updated_by merge_alist_mod_env ([],new_tds))
+             (env with c updated_by nsAppend new_tds)
              (s with globals updated_by (λg. g ++ MAP SOME new_env))
              ds of
-      | (s, new_tds', new_env', r) => (s, new_tds' ++ new_tds, new_env ++ new_env', r))
-   | (s, Rerr e) => (s, [], [], SOME e))`;
-
-val mod_cenv_def = Define `
- (mod_cenv (mn:modN option) (cenv:flat_env_ctor) =
-((case mn of
-      NONE => ([],cenv)
-    | SOME mn => ([(mn,cenv)], [])
-  )))`;
+      | (s, new_tds', new_env', r) => (s, nsAppend new_tds' new_tds, new_env ++ new_env', r))
+   | (s, Rerr e) => (s, nsEmpty, [], SOME e))`;
 
 val update_mod_state_def = Define `
- (update_mod_state (mn:modN option) mods =
-((case mn of
-      NONE => mods
-    | SOME mn => {mn} UNION mods
-  )))`;
-
+  update_mod_state (mn:modN list) mods =
+    case mn of
+      [] => mods
+    | mn :: _ => {mn} UNION mods`;
 
 val dec_to_dummy_env_def = Define `
-
-(dec_to_dummy_env (modLang$Dlet n e) = n)
-/\
-(dec_to_dummy_env (Dletrec funs) = (LENGTH funs))
-/\
-(dec_to_dummy_env _ = 0)`;
+  (dec_to_dummy_env (modLang$Dlet n e) = n) ∧
+  (dec_to_dummy_env (Dletrec funs) = (LENGTH funs)) ∧
+  (dec_to_dummy_env _ = 0)`;
 
 val decs_to_dummy_env_def = Define `
-(decs_to_dummy_env [] = 0)
-/\
-(decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
+  (decs_to_dummy_env [] = 0) ∧
+  (decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
 
 val decs_to_types_def = Define `
- (decs_to_types ds =
-(FLAT (MAP (λd.
+  decs_to_types ds =
+    FLAT (MAP (λd.
         (case d of
             Dtype mn tds => MAP (λ(tvs,tn,ctors). tn) tds
           | _ => [] ))
-     ds)))`;
+     ds)`;
 
 val no_dup_types_def = Define `
- (no_dup_types ds =
-(ALL_DISTINCT (decs_to_types ds)))`;
+  no_dup_types ds = ALL_DISTINCT (decs_to_types ds)`;
 
 val prompt_mods_ok_def = Define `
- (prompt_mods_ok mn ds =
-(((case mn of
-       NONE => LENGTH ds < 2
-     | SOME mn => T
-   ))
-  /\
-  (EVERY (λd.
+  (prompt_mods_ok mn ds ⇔
+    (case mn of
+       [] => LENGTH ds < 2
+     | _ => T) ∧
+    EVERY (λd.
       (case d of
           Dtype mn' _ => mn' = mn
         | Dexn mn' _ _ => mn' = mn
-        | _ => T
-      ))
-    ds)))`;
+        | _ => T))
+    ds)`;
 
 val evaluate_prompt_def = Define`
   evaluate_prompt env s (Prompt mn ds) =
   if no_dup_types ds ∧
      prompt_mods_ok mn ds ∧
-     (∀name. mn = SOME name ⇒ name ∉ s.defined_mods)
+     (∀n ns. mn = n::ns ⇒ n ∉ s.defined_mods)
   then
   let (s, cenv, genv, r) = evaluate_decs env s ds in
     (s with defined_mods updated_by update_mod_state mn,
-     mod_cenv mn cenv,
+     FOLDR nsLift cenv mn,
      MAP SOME genv ++ (if r = NONE then [] else GENLIST (K NONE) (decs_to_dummy_env ds - LENGTH genv)),
      r)
-  else (s, mod_cenv mn [], [], SOME (Rabort Rtype_error))`;
+  else (s, FOLDR nsLift nsEmpty mn, [], SOME (Rabort Rtype_error))`;
 
 val evaluate_prompts_def = Define`
-  (evaluate_prompts env s [] = (s, ([],[]), [], NONE)) ∧
+  (evaluate_prompts env s [] = (s, nsEmpty, [], NONE)) ∧
   (evaluate_prompts env s (prompt::prompts) =
    case evaluate_prompt env s prompt of
    | (s', cenv, genv, NONE) =>
      (case evaluate_prompts
-           (env with c updated_by merge_alist_mod_env cenv)
+           (env with c updated_by nsAppend cenv)
            (s' with globals := s.globals ++ genv)
            prompts of
-      | (s, cenv', genv', r) => (s, merge_alist_mod_env cenv' cenv, genv ++ genv', r))
+      | (s, cenv', genv', r) => (s, nsAppend cenv' cenv, genv ++ genv', r))
    | res => res)`;
 
 val prog_to_mods_def = Define `
- (prog_to_mods prompts =
-(FLAT (MAP (λprompt.
-        (case prompt of
-            Prompt (SOME mn) ds => [mn]
-          | _ => [] ))
-     prompts)))`;
+  prog_to_mods prompts =
+   FLAT (MAP (λprompt. (case prompt of Prompt mn ds => mn)) prompts)`;
 
 val no_dup_mods_def = Define `
- (no_dup_mods prompts mods =
-(ALL_DISTINCT (prog_to_mods prompts) /\
-  DISJOINT (LIST_TO_SET (prog_to_mods prompts)) mods))`;
+  no_dup_mods prompts mods ⇔
+    ALL_DISTINCT (prog_to_mods prompts) /\
+    DISJOINT (LIST_TO_SET (prog_to_mods prompts)) mods`;
 
 val prog_to_top_types_def = Define `
- (prog_to_top_types prompts =
-(FLAT (MAP (λprompt.
-        (case prompt of
-            Prompt NONE ds => decs_to_types ds
-          | _ => [] ))
-     prompts)))`;
+  prog_to_top_types prompts =
+    FLAT (MAP (λprompt. case prompt of Prompt [] ds => decs_to_types ds | _ => []) prompts)`;
 
 val no_dup_top_types_def = Define `
- (no_dup_top_types prompts tids =
-(ALL_DISTINCT (prog_to_top_types prompts) /\
-  DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types prompts))) tids))`;
+  no_dup_top_types prompts tids ⇔
+    ALL_DISTINCT (prog_to_top_types prompts) ∧
+    DISJOINT (LIST_TO_SET (MAP (\tn. TypeId (Short tn)) (prog_to_top_types prompts))) tids`;
 
 val evaluate_prog_def = Define `
  (evaluate_prog env s prompts =

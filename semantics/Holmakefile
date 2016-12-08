@@ -22,8 +22,13 @@ $(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
 
 astScript.sml: ast.lem ../lib.lem ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) ast.lem ;  ./addancs astScript.sml integer words string ; \
+          $(LEM_CMD) $< ;  ./addancs $@ integer words string ; \
         else touch astScript.sml ; fi
+
+tokensScript.sml: tokens.lem ../lib.lem ffi/ffi.lem addancs
+	if type lem; then \
+          $(LEM_CMD) $< ;  ./addancs $@ integer string ; \
+        else touch $@ ; fi
 
 
 ifdef POLY
