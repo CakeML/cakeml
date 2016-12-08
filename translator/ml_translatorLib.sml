@@ -178,8 +178,8 @@ in
       val th2 = PURE_REWRITE_RULE [new_pre,PRECONDITION_T] th1
       in if aconv (concl th1) (concl th2)
          then (name,ml_name,tm,th,pre,module) else let
+           val th2 = REWRITE_RULE [] th2
            val th = remove_Eq_from_v_thm th2
-           val th = th |> REWRITE_RULE []
            val thm_name = name ^ "_v_thm"
            val _ = print ("Updating " ^ thm_name ^ "\n")
            val _ = save_thm(thm_name,th)
