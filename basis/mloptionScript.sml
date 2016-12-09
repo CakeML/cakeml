@@ -1,17 +1,18 @@
 open preamble 
 
-val _ = new_theory"option"
+val _ = new_theory"mloption"
 
 (*val _ = Datatype `option = *)
 
-
 val getOpt_def = Define`
-  getOpt opt a = case opt of
-    (SOME v) => v
-    | NONE => a`;
+  (getOpt (SOME v) a = v) /\
+  (getOpt NONE a = a)`;
 
 val filter_def  = Define`
   filter f a = if f a then SOME(a) else NONE`;
+
+val mapPartial_def = Define`
+  mapPartial f opt = OPTION_BIND opt f`;
 
 val compose_def = Define`
   compose f g a = case g a of

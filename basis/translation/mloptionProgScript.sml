@@ -1,11 +1,11 @@
 open preamble ml_translatorLib ml_progLib
-open optionTheory
+     mloptionTheory
 
 (*this library depends on nothing *)
-val _ = new_theory"optionProg"
+val _ = new_theory"mloptionProg"
 val _ = ml_prog_update (open_module "Option");
 
-val _ = append_dec ``Dtabbrev ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))``;
+val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
 
 val result = translate IS_SOME_DEF;
 
@@ -29,9 +29,6 @@ val result = translate compose_def;
 val result = translate composePartial_def;
 
 (*Functions declared in std_preludeLib *)
-val result = translate IS_NONE_DEF;
-val result = translate IS_OPTION_MAP2_DEF;
-
 val res = translate THE_DEF;
 val res = translate IS_NONE_DEF;
 val res = translate IS_SOME_DEF;
@@ -52,6 +49,6 @@ val option_map2_side_def = Q.prove(
 
 
 
-val ml_prog_update (close_module NONE);
-val _ = export_theory() 
+val _ = ml_prog_update (close_module NONE);
+val _ = export_theory(); 
 

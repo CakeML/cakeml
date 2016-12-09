@@ -1,6 +1,6 @@
 open preamble
 
-val _ = new_theory"list"
+val _ = new_theory"mllist"
 
 
 
@@ -26,6 +26,28 @@ val drop_def = Define`
   drop l i = DROP i l`;
 
 
+val mapi_def = Define `
+  (mapi f (n: num) [] = []) /\
+  (mapi f n (h::t) = (f n h)::(mapi f (n + 1) t))`
+
+val MAPI_thm_gen = Q.prove (
+  `!f l x. MAPi (\a. f (a + x)) l = mapi f x l`,
+  Induct_on `l` \\ rw [MAPi_def, mapi_def] \\
+  rw [o_DEF, ADD1] \\
+  fs [] \\
+  pop_assum (fn th => rw[GSYM th] ) \\
+  rw[AC ADD_ASSOC ADD_COMM] \\
+  match_mp_tac MAPi_CONG \\ rw[]
+);
+
+val MAPI_thm = Q.store_thm (
+  "MAPI_thm",
+  `!f l. MAPi f l = mapi f 0 l`, 
+  rw [(MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
+  |> SIMP_RULE (srw_ss()++ETA_ss) [])] 
+);
+
+
 val mapPartial_def = Define`
   (mapPartial f [] = []) /\ 
   (mapPartial f (h::t) = case (f h) of
@@ -36,10 +58,11 @@ val mapPartial_thm = Q.store_thm (
   "mapPartial_thm",
   `!f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))`,
   Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
-)
+);
 
 
-val index_find_thm = Q.prove (
+val index_find_thm = Q.store_thm (
+  "index_find_thm",
   `!x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)`,
   Induct_on`l` \\ rw[INDEX_FIND_def]
 );
@@ -49,21 +72,24 @@ val FIND_thm = Q.store_thm(
   "FIND_thm",
   `(FIND f [] = NONE) ∧
    (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)`,
-  rw[FIND_def,INDEX_FIND_def,index_find_thm]);
-
+  rw[FIND_def,INDEX_FIND_def,index_find_thm]
+);
 
 val partition_aux_def = Define`
-  partition_aux f l (pos, neg) = case l of
-    [] => (REVERSE pos, REVERSE neg)
-    | (h::t) => if f h then partition_aux f t ((h::pos), neg)
-      else partition_aux f t (pos, (h::neg))`;
+  (partition_aux f [] pos neg =
+    (REVERSE pos, REVERSE neg)) /\
+    (partition_aux f (h::t) pos neg = if f h then partition_aux f t (h::pos) neg
+      else partition_aux f t pos (h::neg))`;
+
+val partition_def = Define`
+  partition (f : 'a -> bool) l = partition_aux f l [] []`;
 
 val partition_aux_thm = Q.prove(
   `!f l l1 l2. partition_aux f l l1 l2 = (REVERSE l1++(FILTER f l), REVERSE l2++(FILTER ($~ o f) l))`,
   Induct_on `l` \\
   rw [partition_aux_def] \\
   rw [partition_aux_def]
-); 
+);
 
 val partition_pos_thm = Q.store_thm(
   "partition_pos_thm",
@@ -117,14 +143,14 @@ val collate_ind = theorem"collate_ind";
 
 val collate_equal_thm = Q.store_thm (
   "collate_equal_thm",
-  `!l. (!x. MEM x l ==> f x x = EQUAL) ==> collate f l l = EQUAL`,
+  `!l. (!x. MEM x l ==> (f x x = EQUAL)) ==> (collate f l l = EQUAL)`,
   Induct_on `l` \\ rw [collate_def] \\ rw [collate_def]
 );
 
 val collate_short_thm = Q.store_thm (
   "collate_short_thm",
   `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l1 ≼ l2) ==>
-        collate f l1 l2 = LESS`,
+        (collate f l1 l2 = LESS)`,
   ho_match_mp_tac collate_ind
   \\ rw[collate_def] \\ fs[]
 );
@@ -132,17 +158,22 @@ val collate_short_thm = Q.store_thm (
 val collate_long_thm = Q.store_thm (
   "collate_long_thm",
   `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l2 ≼ l1) ==>
-        collate f l1 l2 = GREATER`,
+        (collate f l1 l2 = GREATER)`,
   ho_match_mp_tac collate_ind
   \\ rw[collate_def] \\ fs[]
 );
 
-val zip_ind = theorem"zip_ind";
+val cpn_to_reln_def = Define`
+  cpn_to_reln f x1 x2 = (f x1 x2 = LESS)`;
 
-val zip_thm = Q.store_thm("zip_thm",
-  `!l1 l2. ((LENGTH l1) = (LENGTH l2)) ==> ((zip l1 l2) = (ZIP (l1, l2)))`,
-  ho_match_mp_tac zip_ind \\ rw[zip_def,ZIP]);
-
+val collate_cpn_reln_thm = Q.store_thm (
+  "collate_cpn_reln_thm",
+  `!f l1 l2. (!x1 x2. (f x1 x2 = EQUAL) <=>
+    (x1 = x2)) ==> (cpn_to_reln (collate f) l1 l2 = LLEX (cpn_to_reln f) l1 l2)`,
+  ho_match_mp_tac collate_ind \\ rw [collate_def, cpn_to_reln_def, LLEX_def] \\
+  first_assum (qspecl_then [`h1`, `h1`] (fn th => assume_tac (GSYM th))) \\
+  `(h1 = h1) = T` by DECIDE_TAC \\ rw[] \\`EQUAL ≠ LESS` by fs[] \\ rw[]
+);
 
 val zip_def = Define`
   (zip [] [] = []) /\
@@ -150,6 +181,11 @@ val zip_def = Define`
   (zip (h::t) [] = []) /\
   (zip (h1::t1) (h2::t2) = (h1, h2)::(zip t1 t2))`;
 
+val zip_ind = theorem"zip_ind";
+
+val zip_thm = Q.store_thm("zip_thm",
+  `!l1 l2. ((LENGTH l1) = (LENGTH l2)) ==> ((zip l1 l2) = (ZIP (l1, l2)))`,
+  ho_match_mp_tac zip_ind \\ rw[zip_def,ZIP]);
 
 (* from std_preludeLib *)
 val LENGTH_AUX_def = Define `

@@ -3,6 +3,7 @@
    them from char lists and can target CakeML strings directly.
 *)
 open preamble
+    mllistTheory miscTheory totoTheory
 
 val _ = new_theory"mlstring"
 
@@ -21,35 +22,37 @@ val trichotomous_inv_image = Q.store_thm("trichotomous_inv_image",
 
 val _ = Datatype`mlstring = strlit string`
 
-(*
-It should be like this when the primitives change in CakeML:
-
-(* assume these are primitive... *)
-val length_def = Define`
-  length (strlit s) = LENGTH s`;
-val sub_def = Define`
-  sub (strlit s) n = EL n s`;
 val implode_def = Define`
   implode = strlit`
+
+val strlen_def = Define`
+  strlen (strlit s) = LENGTH s`
+
+val strsub_def = Define`
+  strsub (strlit s) n = EL n s`;
+
+val _ = export_rewrites["strlen_def","strsub_def"];
 
 val explode_aux_def = Define`
-  explode_aux s n = if n < length s then sub s n :: (explode_aux s (n+1)) else []`;
+  (explode_aux s n 0 = []) ∧
+  (explode_aux s n (SUC len) =
+    strsub s n :: (explode_aux s (n + 1) len))`;
+val _ = export_rewrites["explode_aux_def"];
+
+val explode_aux_thm = Q.store_thm("explode_aux_thm",
+  `∀max n ls.
+    (n + max = LENGTH ls) ⇒
+    (explode_aux (strlit ls) n max = DROP n ls)`,
+  Induct \\ rw[] \\ fs[LENGTH_NIL_SYM,DROP_LENGTH_TOO_LONG]
+  \\ match_mp_tac (GSYM rich_listTheory.DROP_EL_CONS)
+  \\ simp[]);
+
 val explode_def = Define`
-  explode s = explode_aux s 0`;
-val explode_aux_thm = Q.prove(
-  `explode_aux (strlit s) n = DROP n s`,
+  explode s = explode_aux s 0 (strlen s)`;
 
-val explode_thm = Q.store_thm("explode_thm",
-  `explode (strlit s) = s`,
-  ...);
-*)
-
-val implode_def = Define`
-  implode = strlit`
-
-val explode_def = Define`
-  explode (strlit ls) = ls`
-val _ = export_rewrites["explode_def"]
+val explode_thm = Q.store_thm("explode_thm[simp]",
+  `explode (strlit ls) = ls`,
+  rw[explode_def,SIMP_RULE std_ss [] explode_aux_thm]);
 
 val explode_implode = Q.store_thm("explode_implode",
   `∀x. explode (implode x) = x`,
@@ -60,7 +63,7 @@ val implode_explode = Q.store_thm("implode_explode",
   Cases >> rw[implode_def])
 
 val explode_11 = Q.store_thm("explode_11",
-  `∀s1 s2. explode s1 = explode s2 ⇔ s1 = s2`,
+  `∀s1 s2. (explode s1 = explode s2) ⇔ (s1 = s2)`,
   Cases >> Cases >> simp[])
 
 val implode_BIJ = Q.store_thm("implode_BIJ",
@@ -77,31 +80,39 @@ val explode_BIJ = Q.store_thm("explode_BIJ",
   rw[implode_explode,
      explode_implode])
 
-val strlen_def = Define`
-  strlen s = LENGTH (explode s)`;
-
-val sub_def = Define`
-  sub s n =  EL n (explode s)`;
-
-(* TODO: write a bunch of string functions in terms of strlen and sub *)
-(* TODO: strlen should be called size ? or length ? *)
-
-
-val extract_aux_def = tDefine "extract_aux"`
-    extract_aux s n max =
-    if max <= n
-      then []
-    else (sub s n)::(extract_aux s (n + 1) max)`
-(wf_rel_tac `measure (\(s, n, max). max - n)`)
-
+val extract_aux_def = Define`
+  (extract_aux s n 0 = []) /\
+  (extract_aux s n (SUC len) = strsub s n:: extract_aux s (n + 1) len)`;
 
 val extract_def = Define`
-  extract s i opt = case opt of
-    (SOME x) => implode (extract_aux s i (THE opt))
-    | NONE => implode (extract_aux s i (strlen s))`;
+  extract s i opt =
+    if strlen s <= i
+      then implode []
+    else case opt of
+      (SOME x) => implode (extract_aux s i (MIN (strlen s - i) x))
+      | NONE => implode (extract_aux s i ((strlen s) - i))`;
 
 val substring_def = Define`
   substring s i j = implode (extract_aux s i j)`;
+
+val extract_aux_thm = Q.prove (
+  `!s n len. (n + len <= strlen s) ==> (extract_aux s n len = SEG len n (explode s))`,
+  Cases_on `s` \\ Induct_on `len` >-
+  rw[extract_aux_def, SEG] \\
+  fs [extract_aux_def, strsub_def, strlen_def, explode_def] \\
+  rw [EL_SEG, SEG_TAKE_BUTFISTN] \\
+  rw [TAKE_SUM, take1_drop, DROP_DROP, DROP_EL_CONS]
+);
+
+(*This proves that the functions are the same for values where SEG is defined*)
+val extract_thm = Q.store_thm (
+  "extract_thm",
+  `!s i opt. (i < strlen s) ==> (extract s i opt = (case opt of
+    (SOME x) => implode (SEG (MIN (strlen s - i) x) i (explode s))
+    | NONE => implode (SEG ((strlen s) - i) i (explode s))))`,
+    Cases_on `opt` >- rw [extract_def, extract_aux_thm, implode_def, strlen_def, MIN_DEF] \\
+    rw [extract_def] \\ AP_TERM_TAC ORELSE AP_THM_TAC \\ rw[MIN_DEF] \\ rw [extract_aux_thm]
+);
 
 
 (* TODO: don't explode/implode once CakeML supports string append *)
@@ -110,188 +121,196 @@ val strcat_def = Define`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
 
-val stringListToChars_def = Define`
-  stringListToChars l = case l of 
-    [] => []
-    | ([]::t) => stringListToChars t
-    | ((hh::ht)::t) => hh::stringListToChars(ht::t)`;
 
 val concat_def = Define`
-  concat l = implode (stringListToChars l)`;
+  (concat [] = implode []) /\
+  (concat (h::t) = strcat h (concat t))`;
 
-(*NEED TO PROVE TERMINATION*)
-(*may be a bit complex to attempt to save memory (passing around a lot)*)
-val concatWith_aux_def = Define`
-  concatWith_aux l s ss bool =
-  if bool then
-    case l of
-      [] => []
-      | []::[] => []
-      | ([]::t) => concatWith_aux t s s F
-      | ((hh::ht)::t) => hh::(concatWith_aux (ht::t) s ss T)
-  else
-    case ss of
-      [] => concatWith_aux l s ss T
-      | (h::t) => h::(concatWith_aux l s t F) `;
+val concat_thm = Q.store_thm (
+  "concat_thm",
+  `!l. concat l = implode (FLAT (MAP explode l))`,
+  Induct_on `l` \\ rw [concat_def] \\ Cases_on `h` \\
+  rw [strcat_def, implode_def, explode_thm]
+);
+
+
+
+val concatWith_aux_def = tDefine "concatWith_aux_def"`
+  (concatWith_aux s [] bool = implode []) /\
+  (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
+  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))`
+  (wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
+  rw[]);
 
 val concatWith_def = Define`
-    concatWith s l = implode (concatWith_aux l s s T)`;
+  concatWith s l = concatWith_aux s l T`;
+
+
 
 val str_def = Define`
   str (c: char) = [c]`;
 
-val explode_aux_def = tDefine "explode_aux"`
-  explode_aux s max n =
-    if max <= n then []
-    else (sub s n)::(explode_aux s max (n + 1))`
-(wf_rel_tac `measure (\(s, max, n). max - n)`);
-
-val explode_def = Define`
-  explode s = explode_aux s (strlen s) 0`;
-
-val translate_aux_def = tDefine "translate_aux"`
-  translate_aux f s max n = 
-    if max <= n then []
-    else f (sub s n)::(translate_aux f s max (n + 1))`
-(wf_rel_tac `measure (\(f, s, max, n). max - n)`);
-
+val translate_aux_def = Define`
+  (translate_aux f s n 0 = []) /\
+  (translate_aux f s n (SUC len) = f (strsub s n)::translate_aux f s (n + 1) len)`;
 
 val translate_def = Define`
-  translate f s = implode (translate_aux f s (strlen s) 0)`;
-(*TODO: Check the functionality *)
-val tokens_aux_def = tDefine "tokens_aux"`
-  tokens_aux f s ss max n =
-  if max <= n
-    then []
-  else if (f (sub s n) /\ ~(ss = []))
-    then ss::(tokens_aux f s [] max (n + 1))
-  else if f (sub s n)
-    then tokens_aux f s ss max (n + 1)
-  else tokens_aux f s ((sub s n)::ss) max (n + 1)`
-(wf_rel_tac `measure (\(f, s, ss, max, n). max - n)`);
+  translate f s = implode (translate_aux f s 0 (strlen s))`;
+
+val translate_aux_thm = Q.prove (
+  `!f s n len. (n + len = strlen s) ==> (translate_aux f s n len = MAP f (DROP n (explode s)))`,
+  Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] >-
+  rw [DROP_LENGTH_NIL] \\
+  rw [strsub_def, DROP_EL_CONS]
+);
+
+val translate_thm = Q.store_thm (
+  "translate_thm",
+  `!f s. translate f s = implode (MAP f (explode s))`,
+  rw [translate_def, translate_aux_thm]
+);
 
 
+
+val tokens_aux_def = Define`
+  (tokens_aux f s ss n 0 = [implode (REVERSE ss)]) /\
+  (tokens_aux f s [] n (SUC len) =
+    if f (strsub s n)
+      then tokens_aux f s [] (n + 1) len
+    else tokens_aux f s [strsub s n] (n + 1) len) /\
+  (tokens_aux f s (h::t) n (SUC len) =
+    if f (strsub s n)
+      then (implode (REVERSE (h::t)))::(tokens_aux f s [] (n + 1) len)
+    else tokens_aux f s (strsub s n::(h::t)) (n + 1) len)`;
 
 val tokens_def = Define `
-  tokens f s = tokens_aux f s [] (strlen s) 0`;
-
-fun tokens_aux (f : char -> bool) s ss max n =
-  if max <= n
-    then []
-  else if (f (String.sub s n)) andalso not(ss = [])
-    then ss::(tokens_aux f s [] max (n + 1))
-  else if f (String.sub s n)
-    then tokens_aux f s ss max (n + 1)
-  else tokens_aux f s ((String.sub s n)::ss) max (n + 1)
+ tokens f s = tokens_aux f s [] 0 (strlen s)`;
 
 
-(*TODO: Check the functionality *)
-val fields_aux_def = tDefine "fields_aux"`
-  fields_aux f s ss max n =
-  if max <= n
-    then []
-  else if f (sub s n)
-    then ss::(fields_aux f s [] max (n + 1))
-  else fields_aux f s ((sub s n)::ss) max (n + 1)`
-(wf_rel_tac `measure (\(f, s, ss, max, n). max - n)`);
+val tokens_aux_filter = Q.prove (
+  `!f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) = 
+      implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
+  Cases_on `s` \\ Induct_on `len` \\ 
+  rw [strlen_def, tokens_aux_def, concat_def, DROP_LENGTH_NIL, strcat_def, implode_def] \\
+  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_def, strcat_def, implode_def]
+);  
+
+val tokens_filter = Q.store_thm (
+  "tokens_filter",
+  `!f s. concat (tokens f s) = implode (FILTER ($~ o f) (explode s))`,
+  rw [tokens_def, tokens_aux_filter]
+);
+
+  
+
+val fields_aux_def = Define `
+  (fields_aux f s ss n 0 = [implode (REVERSE ss)]) /\
+  (fields_aux f s ss n (SUC len) =
+    if f (strsub s n)
+      then implode (REVERSE ss)::(fields_aux f s [] (n + 1) len)
+    else fields_aux f s (strsub s n::ss) (n + 1) len)`;
 
 val fields_def = Define`
-  fields f s = fields_aux f s [] (strlen s) 0`;
+  fields f s = fields_aux f s [] 0 (strlen s)`;
 
 
 
-(*this could be one less iteration if the check is for n + 1 *)
-val isStringThere_aux_def = tDefine "isPrefix_aux"`
-  isStringThere_aux s1 s2 max n =
-  if max <= n
-    then T
-  else if (sub s1 n) = (sub s2 n)
-    then isStringThere_aux s1 s2 max (n + 1)
-  else F`
-(wf_rel_tac `measure (\(s1, s2, max, n). max - n)`);
+val fields_aux_filter = Q.prove (
+  `!f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) = 
+      implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
+  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_def, 
+    implode_def, explode_thm, DROP_LENGTH_NIL, strcat_def] \\
+  rw [DROP_EL_CONS]
+);  
+
+val fields_filter = Q.store_thm (
+  "fields_filter",
+  `!f s. concat (fields f s) = implode (FILTER ($~ o f) (explode s))`,
+  rw [fields_def, fields_aux_filter]
+);
+
+val fields_aux_length = Q.prove (
+  `!f s ss n len. (n + len = strlen s) ==> 
+    (LENGTH (fields_aux f s ss n len) = LENGTH (FILTER f (DROP n (explode s))) + 1)`,
+  Cases_on `s` \\ Induct_on `len` \\ 
+  rw [strlen_def, fields_aux_def, explode_thm, DROP_LENGTH_NIL, ADD1, DROP_EL_CONS]
+);
+
+
+val fields_length = Q.store_thm (
+  "fields_length",
+  `!f s. LENGTH (fields f s) = (LENGTH (FILTER f (explode s)) + 1)`,
+  rw [fields_def, fields_aux_length]
+)
+
+val isStringThere_aux_def = Define`
+  (isStringThere_aux s1 s2 lens1 n 0 = T) /\
+  (isStringThere_aux s1 s2 lens1 n (SUC len) =
+    if strsub s1 (lens1 - len) = strsub s2 n
+      then isStringThere_aux s1 s2 lens1 (n + 1) len
+    else F)`;
 
 val isPrefix_def = Define`
-  isPrefix s1 s2 = isStringThere_aux s1 s2 (strlen s1) 0`;
+  isPrefix s1 s2 =
+    if strlen s1 <= strlen s2
+      then isStringThere_aux s1 s2 (strlen s1 - 1) 0 (strlen s1)
+    else F`;
 
 val isSuffix_def = Define`
-  isSuffix s1 s2 = isStringThere_aux s1 s2 (strlen s2) ((strlen s2) - (strlen s1))`;
-
-val isSubstring_aux_def = tDefine "isSubstring_aux"`
-  isSubstring_aux s1 s2 len1 max n =
-    if max <= n
-      then F
-    else if isStringThere_aux s1 s2 (n + len1) n
+  isSuffix s1 s2 =
+    if strlen s1 <= strlen s2
+      then isStringThere_aux s1 s2 (strlen s1 - 1) (strlen s2 - strlen s1) (strlen s1)
+    else if strlen s1 = 0 
       then T
-    else isSubstring_aux s1 s2 len1 max (n + 1)`
-(wf_rel_tac `measure (\(s1, s2, len1, max, n). max - n)`);
+    else F`;
+
+val isSubstring_aux_def = Define`
+  (isSubstring_aux s1 s2 lens1 n 0 = F) /\
+  (isSubstring_aux s1 s2 lens1 n (SUC len) =
+    if (isStringThere_aux s1 s2 (lens1 - 1) n lens1)
+      then T
+    else isSubstring_aux s1 s2 lens1 (n + 1) len)`;
 
 val isSubstring_def = Define`
-  isSubstring s1 s2 = isSubstring_aux s1 s2 (strlen s1) ((strlen s2) - (strlen s1)) 0`;
+  isSubstring s1 s2 =
+  if strlen s1 <= strlen s2
+    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1))
+  else if strlen s1 = 0
+    then T
+  else F`;
 
 
-
-val compare_aux_def = tDefine "compare_aux"`
-  compare_aux (s1 : mlstring) s2 max ord n =
-    if max <= n
-      then ord
-    else if (sub s1 n) > (sub s2 n)
+val compare_aux_def = Define`
+  (compare_aux (s1: mlstring) s2 ord n 0 = ord) /\
+  (compare_aux s1 s2 ord n (SUC len) =
+    if strsub s2 n < strsub s1 n
       then GREATER
-    else if (sub s1 n) < (sub s2 n)
+    else if strsub s1 n < strsub s2 n
       then LESS
-    else compare_aux s1 s2 max ord (n + 1)`
-(wf_rel_tac `measure (\(s1, s2, max, ord, n). max - n)`);
+    else compare_aux s1 s2 ord (n + 1) len)`;
 
 val compare_def = Define`
   compare_def s1 s2 = if (strlen s1) < (strlen s2)
-    then compare_aux s1 s2 (strlen s1) GREATER 0
+    then compare_aux s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
-    then compare_aux s1 s2 (strlen s2) LESS 0
-  else compare_aux s1 s2 (strlen s2) EQUAL 0`;
+    then compare_aux s1 s2 GREATER 0 (strlen s2)
+  else compare_aux s1 s2 EQUAL 0 (strlen s2)`;
 
 
-
-val collate_aux_def = tDefine "collate_aux"`
-  collate_aux f (s1 : mlstring) s2 max ord n =
-    if max <= n
-      then ord
-    else if f (sub s1 n) (sub s2 n) = EQUAL
-      then collate_aux f s1 s2 max ord (n + 1)
-    else
-      f (sub s1 n) (sub s2 n)`
-(wf_rel_tac `measure (\(f, s1, s2, max, ord, n). max - n)`);
+val collate_aux_def = Define`
+  (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
+  (collate_aux f s1 s2 ord n (SUC len) =
+    if f (strsub s1 n) (strsub s2 n) = EQUAL
+      then collate_aux f s1 s2 ord (n + 1) len
+    else f (strsub s1 n) (strsub s2 n))`;
 
 val collate_def = Define`
   collate f s1 s2 =
   if (strlen s1) < (strlen s2)
-    then collate_aux f s1 s2 (strlen s1) GREATER 0
+    then collate_aux f s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
-    then collate_aux f s1 s2 (strlen s2) LESS 0
-  else collate_aux f s1 s2 (strlen s2) EQUAL 0`;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    then collate_aux f s1 s2 GREATER 0 (strlen s2)
+  else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
 
 
 

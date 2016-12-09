@@ -7,7 +7,7 @@ open preamble integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
-     mlstringTheory ml_progTheory packLib;
+     mlvectorTheory mlstringTheory ml_progTheory packLib;
 open terminationTheory
 local open funBigStepEquivTheory evaluatePropsTheory in end
 
@@ -1348,18 +1348,6 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
 
 (* vectors *)
 
-val _ = Datatype `
-  vector = Vector ('a list)`;
-
-val fromList_def = Define `
-  fromList l = Vector l`;
-
-val sub_def = Define `
-  sub (Vector l) n = EL n l`;
-
-val length_def = Define `
-  length (Vector l) = LENGTH l`;
-
 val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
@@ -1380,7 +1368,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
   asm_exists_tac >> fs[] >>
   rw [do_app_cases,PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
   qexists_tac`EL n l'` >>
@@ -1423,7 +1411,7 @@ val Eval_length = Q.store_thm("Eval_length",
   asm_exists_tac >> fs[] >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 

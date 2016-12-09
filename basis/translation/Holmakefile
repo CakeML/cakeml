@@ -1,0 +1,2 @@
+INCLUDES = .. ../../translator ../..
+OPTIONS = QUIT_ON_FAILURE

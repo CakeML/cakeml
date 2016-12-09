@@ -8,7 +8,7 @@ open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
-open mlstringLib mlstringSyntax packLib ml_progTheory ml_progLib
+open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
 
 infix \\ val op \\ = op THEN;
 
