@@ -6888,7 +6888,7 @@ val wLive_stack_asm_remove = Q.prove(`
   rveq>>EVAL_TAC>>fs[])
 
 val word_to_stack_stack_asm_remove_lem = Q.prove(`
-  ∀(p:'a prog) bs kf (c:'a asm_config).
+  ∀(p:'a wordLang$prog) bs kf (c:'a asm_config).
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
   stack_asm_remove c (FST (comp p bs kf))`,
   ho_match_mp_tac comp_ind>>rw[]>>fs[comp_def,stack_asm_remove_def]
