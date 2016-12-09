@@ -263,19 +263,19 @@ fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
        (RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV dth))) THENC
         REWR_CONV esc THENC
         RAND_CONV(
-          PATH_CONV"llllr"(REWR_CONV computed_labs_def) THENC
+          PATH_CONV"lllllr"(REWR_CONV computed_labs_def) THENC
           eval_fn n))
       val def = mk_def("enc_again_"^Int.toString n)
                   (th1 |> rconc |> rand |> rator |> rand)
       val rec_conv = enc_secs_again_conv (n+1) dths
     in
-      th1 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
+      th1 |> CONV_RULE(RAND_CONV(RAND_CONV(
+        RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
         REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
         RAND_CONV(
           RAND_CONV (
-            RATOR_CONV(RAND_CONV(REWR_CONV def)) THENC
-            eval) THENC
+            RATOR_CONV(RAND_CONV(REWR_CONV def) THENC
+            eval)) THENC
           numLib.REDUCE_CONV) THENC
         REWR_CONV LET_THM THENC BETA_CONV THENC
         PATH_CONV"lrraar"(REWR_CONV T_AND) THENC
@@ -429,7 +429,7 @@ fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
       val th1 = tm |>
        (REWR_CONV esc THENC
         RAND_CONV(
-          PATH_CONV"llllr"(REWR_CONV computed_labs2_def) THENC
+          PATH_CONV"lllllr"(REWR_CONV computed_labs2_def) THENC
           PATH_CONV"lr"(REWR_CONV dth) THENC
           eval_fn n))
       val def = mk_def("enc_again2_"^Int.toString n)
