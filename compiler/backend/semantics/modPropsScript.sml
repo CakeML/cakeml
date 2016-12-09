@@ -1,5 +1,8 @@
 open preamble modSemTheory
-local open astTheory semanticPrimitivesPropsTheory terminationTheory in end
+local
+  open astTheory semanticPrimitivesPropsTheory terminationTheory
+       evaluatePropsTheory
+in end
 
 val _ = new_theory"modProps"
 

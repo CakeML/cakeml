@@ -1,4 +1,4 @@
-open preamble stackSemTheory
+open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
 
