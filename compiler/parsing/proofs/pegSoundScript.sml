@@ -1,6 +1,7 @@
 open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
 
 val _ = new_theory "pegSound";
+val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
 
 val d = let
   val d0 = TypeBase.distinct_of ``:(α,β,γ)pegsym``
