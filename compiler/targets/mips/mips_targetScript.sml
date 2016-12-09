@@ -85,6 +85,8 @@ val nop = ``Shift (SLL (0w, 0w, 0w))``
 val mips_encode_fail_def = Define`
   mips_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
 
+val () = Parse.temp_overload_on ("temp_reg", ``1w : word5``)
+
 val mips_enc_def = Define`
    (mips_enc (Inst Skip) = mips_encode ^nop) /\
    (mips_enc (Inst (Const r (i: word64))) =
@@ -111,12 +113,15 @@ val mips_enc_def = Define`
    (mips_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
        mips_encode (ArithI (DADDIU (n2w r2, n2w r1, -(w2w i))))) /\
    (mips_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-       mips_encode (ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i)))) /\
+       if (bop = Xor) /\ (i = -1w) then
+         mips_encode (ArithR (NOR (n2w r2, 0w, n2w r1)))
+       else
+         mips_encode (ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i)))) /\
    (mips_enc (Inst (Arith (Shift sh r1 r2 n))) =
        let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
          mips_encode (Shift (f sh (n2w r2, n2w r1, n2w n)))) /\
    (mips_enc (Inst (Arith (Div r1 r2 r3))) =
-       encs [MultDiv (DDIVU (n2w r2, n2w r3));
+       encs [MultDiv (DDIV (n2w r2, n2w r3));
              MultDiv (MFLO (n2w r1))]) /\
    (mips_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
        encs [MultDiv (DMULTU (n2w r3, n2w r4));
@@ -124,12 +129,26 @@ val mips_enc_def = Define`
              MultDiv (MFLO (n2w r2))]) /\
    (mips_enc (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
    (mips_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
-       encs [ArithR (SLTU (0w, n2w r4, 1w));
+       encs [ArithR (SLTU (0w, n2w r4, temp_reg));
              ArithR (DADDU (n2w r2, n2w r3, n2w r1));
              ArithR (SLTU (n2w r1, n2w r3, n2w r4));
-             ArithR (DADDU (n2w r1, 1w, n2w r1));
-             ArithR (SLTU (n2w r1, 1w, 1w));
-             ArithR (OR (n2w r4, 1w, n2w r4))]) /\
+             ArithR (DADDU (n2w r1, temp_reg, n2w r1));
+             ArithR (SLTU (n2w r1, temp_reg, temp_reg));
+             ArithR (OR (n2w r4, temp_reg, n2w r4))]) /\
+   (mips_enc (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+       encs [ArithR (XOR (n2w r2, n2w r3, temp_reg));
+             ArithR (NOR (temp_reg, 0w, temp_reg));
+             ArithR (DADDU (n2w r2, n2w r3, n2w r1));
+             ArithR (XOR (n2w r3, n2w r1, n2w r4));
+             ArithR (AND (temp_reg, n2w r4, n2w r4));
+             Shift (DSRL32 (n2w r4, n2w r4, 31w))]) /\
+   (mips_enc (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+       encs [ArithR (XOR (n2w r2, n2w r3, temp_reg));
+             ArithR (DSUBU (n2w r2, n2w r3, n2w r1));
+             ArithR (XOR (n2w r3, n2w r1, n2w r4));
+             ArithR (NOR (n2w r4, 0w, n2w r4));
+             ArithR (AND (temp_reg, n2w r4, n2w r4));
+             Shift (DSRL32 (n2w r4, n2w r4, 31w))]) /\
    (mips_enc (Inst (Mem mop r1 (Addr r2 a))) =
        case mips_memop mop of
           INL f => mips_encode (Load (f (n2w r2, n2w r1, w2w a)))
@@ -140,7 +159,8 @@ val mips_enc_def = Define`
        let (f1, f2) = mips_cmp c and b = w2w (a >>> 2) - 2w in
        let l = case f1 of
                   SOME (f, _) =>
-                   [ArithR (f (n2w r1, n2w r2, 1w)); Branch (f2 (1w, 0w, b))]
+                   [ArithR (f (n2w r1, n2w r2, temp_reg));
+                    Branch (f2 (temp_reg, 0w, b))]
                 | NONE =>
                    [Branch (f2 (n2w r1, n2w r2, b + 1w))]
        in
@@ -149,9 +169,11 @@ val mips_enc_def = Define`
        let (f1, f2) = mips_cmp c and b = w2w (a >>> 2) - 2w in
        let l = case f1 of
                   SOME (_, f) =>
-                   [ArithI (f (n2w r, 1w, w2w i)); Branch (f2 (1w, 0w, b))]
+                   [ArithI (f (n2w r, temp_reg, w2w i));
+                    Branch (f2 (temp_reg, 0w, b))]
                 | NONE =>
-                   [ArithI (DADDIU (0w, 1w, w2w i)); Branch (f2 (n2w r, 1w, b))]
+                   [ArithI (DADDIU (0w, temp_reg, w2w i));
+                    Branch (f2 (n2w r, temp_reg, b))]
        in
          encs (l ++ [^nop])) /\
    (mips_enc (Call a) =
@@ -163,10 +185,10 @@ val mips_enc_def = Define`
            [Branch (BLTZAL (0w, 0w));                    (* LR := pc + 8     *)
             ArithI (DADDIU (31w, n2w r, w2w (i - 8w)))]  (* r := LR - 8 + i  *)
         else
-           [ArithI (ORI (31w, 1w, 0w));                  (* $1 := LR         *)
+           [ArithI (ORI (31w, temp_reg, 0w));            (* temp := LR       *)
             Branch (BLTZAL (0w, 0w));                    (* LR := pc + 12    *)
             ArithI (DADDIU (31w, n2w r, w2w (i - 12w))); (* r := LR - 12 + i *)
-            ArithI (ORI (1w, 31w, 0w))]))`               (* LR := $1         *)
+            ArithI (ORI (temp_reg, 31w, 0w))]))`         (* LR := temp       *)
 
 (* --- Configuration for MIPS --- *)
 

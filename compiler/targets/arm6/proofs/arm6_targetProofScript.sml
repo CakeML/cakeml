@@ -623,7 +623,9 @@ in
          [asmPropsTheory.sym_target_state_rel, arm6_target_def,
           asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq]
+          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
+          integer_wordTheory.overflow_add,
+          SIMP_RULE (srw_ss()) [] integer_wordTheory.overflow_sub]
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
@@ -820,6 +822,9 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
               --------------*)
             print_tac "Binop"
             \\ Cases_on `r`
+            >- (Cases_on `b` \\ next_tac)
+            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            >- next_tac
             \\ Cases_on `b`
             \\ next_tac
             )
@@ -852,10 +857,11 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
             print_tac "LongDiv"
             \\ next_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ qabbrev_tac `r1 = ms.REG (R_mode ms.CPSR.M (n2w n))`
             \\ qabbrev_tac `r2 = ms.REG (R_mode ms.CPSR.M (n2w n0))`
             \\ qabbrev_tac `r3 = ms.REG (R_mode ms.CPSR.M (n2w n1))`
@@ -866,6 +872,31 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
                Cases_on `CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T)`
             ]
             \\ next_tac
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ qabbrev_tac `r1 = ms.REG (R_mode ms.CPSR.M (n2w n))`
+            \\ qabbrev_tac `r2 = ms.REG (R_mode ms.CPSR.M (n2w n0))`
+            \\ qabbrev_tac `r3 = ms.REG (R_mode ms.CPSR.M (n2w n1))`
+            \\ qabbrev_tac `r4 = ms.REG (R_mode ms.CPSR.M (n2w n2))`
+            \\ Cases_on `OVERFLOW r2 r3 F`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ qabbrev_tac `r1 = ms.REG (R_mode ms.CPSR.M (n2w n))`
+            \\ qabbrev_tac `r2 = ms.REG (R_mode ms.CPSR.M (n2w n0))`
+            \\ qabbrev_tac `r3 = ms.REG (R_mode ms.CPSR.M (n2w n1))`
+            \\ qabbrev_tac `r4 = ms.REG (R_mode ms.CPSR.M (n2w n2))`
+            \\ Cases_on `OVERFLOW r2 (~r3) T`
+            \\ next_tac
+            )
          )
          (*--------------
              Mem

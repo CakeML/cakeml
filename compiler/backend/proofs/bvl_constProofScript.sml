@@ -96,12 +96,6 @@ val evaluate_delete_var_Rval = Q.prove(
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []);
 
-val IS_SOME_dest_Op_Const = Q.store_thm("IS_SOME_dest_Op_Const[simp]",
-  `IS_SOME (dest_Op_Const h) = ?i. h = Op (Const i) []`,
-  Cases_on `h` \\ fs [dest_Op_Const_def]
-  \\ Cases_on `o'` \\ fs [dest_Op_Const_def]
-  \\ rw [] \\ fs [NULL_EQ]);
-
 val evaluate_EQ_NIL = Q.store_thm("evaluate_EQ_NIL",
   `bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t`,
   mp_tac (Q.SPECL [`xs`,`env`,`s`] evaluate_LENGTH)
@@ -109,24 +103,36 @@ val evaluate_EQ_NIL = Q.store_thm("evaluate_EQ_NIL",
   \\ rw [] \\ TRY eq_tac \\ fs [] \\ rw [] \\ fs [LENGTH_NIL]
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]);
 
-val is_simple_thm = Q.store_thm("is_simple_thm",
-  `is_simple v <=> (?t. v = Op (Cons t) []) \/ (?i. v = Op (Const i) [])`,
-  Cases_on `v` \\ fs [is_simple_def]
-  \\ Cases_on `o'` \\ fs [is_simple_def,NULL_EQ]);
+val dest_simple_eq = prove(
+  ``dest_simple h = SOME y <=> (h = Op (Const y) [])``,
+  Cases_on `h` \\ fs [dest_simple_def]
+  \\ Cases_on `o'` \\ fs [dest_simple_def,NULL_EQ]
+  \\ eq_tac \\ rw [] \\ rw []);
 
 val SmartOp_thm = Q.store_thm("SmartOp_thm",
   `evaluate ([Op op xs],env,s) = (res,s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
     evaluate ([SmartOp op xs],env,s) = (res,s2)`,
   full_simp_tac std_ss [SmartOp_def]
-  \\ reverse (Cases_on `op`) \\ fs [] \\ every_case_tac \\ fs []
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_7] \\ rw []
-  \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
-  \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
-  \\ rfs [] \\ fs [is_simple_thm] \\ rfs [] \\ rw []
-  \\ fs [dest_Op_Const_def,evaluate_def,do_app_def] \\ rw []
-  \\ fs [isClos_def] \\ every_case_tac \\ fs []
-  \\ eq_tac \\ rw []);
+  \\ reverse (Cases_on `op = Equal`)
+  THEN1
+   (reverse (Cases_on `op`) \\ fs [] \\ every_case_tac \\ fs []
+    \\ fs [dest_simple_eq]
+    \\ fs [evaluate_def,do_app_def] \\ rw [])
+  \\ reverse (Cases_on `?x1 x2. xs = [x2;x1]`)
+  THEN1
+   (Cases_on `xs` \\ fs [] \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs [])
+  \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ fs [dest_simple_eq] \\ rveq
+  \\ fs [evaluate_def,do_app_def] \\ rw []
+  \\ qpat_x_assum `_ = (res,_)` mp_tac
+  \\ CASE_TAC \\ fs []
+  \\ Cases_on `q`
+  \\ imp_res_tac evaluate_SING \\ fs [do_eq_def]
+  \\ TRY (Cases_on `d1`) \\ fs [do_eq_def]
+  \\ rw [] \\ fs []
+  \\ eq_tac \\ fs []);
 
 val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
   `!xs env1 (s1:'a bvlSem$state) ax env2 res s2 ys.

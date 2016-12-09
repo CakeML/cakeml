@@ -1762,7 +1762,7 @@ val wf_numset_list_delete_eq = Q.prove(`
   ∀ls t live.
   wf t ⇒
   FOLDR delete t ls = numset_list_delete ls t`,
-  Induct>>fs[numset_list_delete_def,numset_list_delete_swap])
+  Induct>>fs[numset_list_delete_def,numset_list_delete_swap]);
 
 val wf_get_live_exp = Q.prove(`
   ∀exp. wf(get_live_exp exp)`,
@@ -1884,6 +1884,24 @@ val clash_tree_colouring_ok = Q.store_thm("clash_tree_colouring_ok",`
         fs[])
       >>
         DEP_REWRITE_TAC[spt_eq_thm]>>rw[wf_insert,wf_delete,lookup_insert,lookup_delete])
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF]) >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
+      fs[GSYM DIFF_UNION] >>
+      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
+      fs [AC UNION_COMM UNION_ASSOC])
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF]) >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
+      fs[GSYM DIFF_UNION] >>
+      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
+      fs [AC UNION_COMM UNION_ASSOC])
     >>
       Cases_on`m`>>fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_inst_def]>>
       start_tac>>
@@ -4215,6 +4233,51 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       IF_CASES_TAC>>fs[is_phy_var_def]>>
       rw[]>>fs[])
     >-
+      (* AddOverflow*)
+      (fs[get_vars_perm]>>
+      Cases_on`get_vars [n0;n1] st`>>fs[get_vars_def]>>
+      pop_assum mp_tac>>
+      ntac 2 FULL_CASE_TAC >>fs[]>>
+      disch_then sym_sub_tac>>fs[]>>
+      imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+      fs[]>>
+      Cases_on`x'`>>Cases_on`x''`>>fs[set_var_def,alist_insert_def]>>
+      qpat_abbrev_tac`w1 = if A then B else C`>>
+      fs[ssa_locals_rel_def,lookup_insert,every_var_def,every_var_inst_def,alist_insert_def]>>
+      CONJ_TAC>-
+        (rw[]>>metis_tac[])>>
+      ntac 2 strip_tac>>
+      IF_CASES_TAC>>fs[]>>
+      IF_CASES_TAC>>fs[ssa_map_ok_def]>>
+      strip_tac>>
+      first_x_assum (qspecl_then[`x`,`y`] assume_tac)>>rfs[]>>
+      fs[domain_lookup]>>
+      first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
+      IF_CASES_TAC>>fs[is_phy_var_def]>>
+      rw[]>>fs[])
+    >- (*SubOverflow*)
+      (fs[get_vars_perm]>>
+      Cases_on`get_vars [n0;n1] st`>>fs[get_vars_def]>>
+      pop_assum mp_tac>>
+      ntac 2 FULL_CASE_TAC >>fs[]>>
+      disch_then sym_sub_tac>>fs[]>>
+      imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+      fs[]>>
+      Cases_on`x'`>>Cases_on`x''`>>fs[set_var_def,alist_insert_def]>>
+      qpat_abbrev_tac`w1 = if A then B else C`>>
+      fs[ssa_locals_rel_def,lookup_insert,every_var_def,every_var_inst_def,alist_insert_def]>>
+      CONJ_TAC>-
+        (rw[]>>metis_tac[])>>
+      ntac 2 strip_tac>>
+      IF_CASES_TAC>>fs[]>>
+      IF_CASES_TAC>>fs[ssa_map_ok_def]>>
+      strip_tac>>
+      first_x_assum (qspecl_then[`x`,`y`] assume_tac)>>rfs[]>>
+      fs[domain_lookup]>>
+      first_x_assum (qspecl_then[`x`,`v'`] assume_tac)>>rfs[]>>
+      IF_CASES_TAC>>fs[is_phy_var_def]>>
+      rw[]>>fs[])
+    >-
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
       Cases_on`x`>>
@@ -6055,7 +6118,7 @@ val ssa_cc_trans_distinct_tar_reg = Q.prove(`
     fs[every_var_def,every_var_inst_def,every_var_imm_def,every_inst_def]>>
     full_simp_tac(srw_ss())[distinct_tar_reg_def,ssa_map_ok_def,option_lookup_def]>>
     EVERY_CASE_TAC>>srw_tac[][]>>res_tac>>full_simp_tac(srw_ss())[]>>
-    DECIDE_TAC)
+    fs[is_alloc_var_def]>>CCONTR_TAC>>fs[])
   >-
     (full_simp_tac(srw_ss())[every_var_def]>>
     first_x_assum match_mp_tac>>
@@ -6243,7 +6306,8 @@ val ssa_cc_trans_full_inst_ok_less = Q.prove(`
     full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
     rw[]>>
     fs[option_lookup_def]>>every_case_tac>>rw[]>>
-    pop_assum (assume_tac o SYM)>>res_tac>>fs[])
+    pop_assum (assume_tac o SYM)>>res_tac>>
+    fs[is_alloc_var_def]>>CCONTR_TAC>>fs[])
   >>TRY
     (rw[]>>first_x_assum match_mp_tac>>fs[every_var_def]>>
     imp_res_tac ssa_cc_trans_props>>
