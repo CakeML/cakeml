@@ -159,7 +159,6 @@ val compile_tm = ``compile``
       \\ `^compile input = SND (st'.ffi.ffi_state)` by fs []
       \\ fs [MAP_CHR_w2n_11]
       \\ pop_assum (fn th => rewrite_tac[th])
-      >- (FIRST_X_ASSUM (fn thm => ASSUME_TAC(SPEC ``"isEof"`` thm)) >> rfs[])
       \\ match_mp_tac (RTC_call_FFI_rel_IMP_io_events |> MP_CANON |> SPEC_ALL
             |> Q.INST [`ys`|->`[]`]
             |> SIMP_RULE std_ss[APPEND] |> GEN_ALL)

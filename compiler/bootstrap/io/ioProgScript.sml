@@ -269,7 +269,7 @@ val read_spec = Q.store_thm ("read_spec",
     \\ xapp \\ xsimpl \\ instantiate
     \\ simp[w2n_lt_256] )
   \\ fs[STDIN_def] \\ xpull
-  \\ xlet `POSTv x. IO (Str (TL input)) stdin_fun [1] *
+  \\ xlet `POSTv x. IO (Str (TL input)) stdin_fun ["getChar"] *
                     W8ARRAY read_state_loc [n2w (ORD (HD input)); 0w]`
   >- (
     xffi
@@ -312,12 +312,12 @@ val write_spec = Q.store_thm ("write_spec",
        (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ [c]))`,
   xcf "CharIO.write" (basis_st())
   \\ fs [STDOUT_def] \\ xpull
-  \\ xlet `POSTv zv. IO (Str (MAP (CHR o w2n) output)) stdout_fun [0] * W8ARRAY write_state_loc [c] *
+  \\ xlet `POSTv zv. IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c] *
                      & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [EVAL ``write_state_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `POSTv _. IO (Str (MAP (CHR o w2n) (output ++ [c]))) stdout_fun [0] * W8ARRAY write_state_loc [c]`
+  \\ xlet `POSTv _. IO (Str (MAP (CHR o w2n) (output ++ [c]))) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_state_loc``, STDOUT_def]
@@ -574,6 +574,6 @@ val parts_ok_io_ffi = Q.store_thm("parts_ok_io_ffi",
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw [] \\ fs [] \\ rfs[]));
+    \\ rw [] \\ fs [] \\ rfs[] \\ metis_tac[]));
 
 val _ = export_theory ()
