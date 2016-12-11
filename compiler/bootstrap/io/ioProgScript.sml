@@ -1,6 +1,7 @@
 open preamble
 open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory evaluatePropsTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
+local open std_preludeTheory in end
 
 val _ = new_theory "ioProg"
 
@@ -134,7 +135,7 @@ val _ = trans "chr" `CHR`
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = trans "byte_is_nonzero" `\(w:word8). w <> 0w`
+val _ = trans "bool_of_byte" `\(w:word8). w <> 0w`
 val _ = trans "char_of_byte" `\(w:word8). CHR (w2n w)`
 
 val char_of_byte_side = Q.store_thm("char_of_byte_side",
@@ -169,9 +170,13 @@ fun derive_eval_thm v_name e = let
   val v_def = define_abbrev true v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 
+val e = ``(App Aw8alloc [Lit (IntLit 2); Lit (Word8 0w)])``
+
+val _ = ml_prog_update (add_Dlet (derive_eval_thm "read_state_loc" e) "read_state" [])
+
 val e = ``(App Aw8alloc [Lit (IntLit 1); Lit (Word8 0w)])``
 
-val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_loc" e) "write" [])
+val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_state_loc" e) "write_state" [])
 
 val Apps_def = tDefine "Apps" `
   (Apps [x;y] = App Opapp [x;y]) /\
@@ -183,26 +188,25 @@ val LetApps_def = Define `
   LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
 
 val e =
-  ``Let (SOME "_") (App (FFI "isEof") [Var (Short "write")])
-     (LetApps "c" (Long "Word8Array" "sub") [Var (Short "write");  Lit (IntLit 0)]
-       (Apps [Var (Short "byte_is_nonzero");Var (Short "c")]))``
+  ``Let NONE (App (FFI "getChar") [Var (Short "read_state")])
+     (LetApps "c" (Long "Word8Array" "sub") [Var (Short "read_state");  Lit (IntLit 0)]
+       (Apps [Var (Short "char_of_byte"); Var (Short "c")]))``
   |> EVAL |> concl |> rand
 
-val _ = ml_prog_update (add_Dlet_Fun ``"can_read"`` ``"c"`` e "can_read_v")
+val _ = ml_prog_update (add_Dlet_Fun ``"read"`` ``"u"`` e "read_v")
 
 val e =
-  ``Let (SOME "_") (App (FFI "getChar") [Var (Short "write")])
-     (LetApps "c" (Long "Word8Array" "sub") [Var (Short "write");  Lit (IntLit 0)]
-       (Apps [Var (Short "char_of_byte");Var (Short "c")]))``
+  ``LetApps "f" (Long "Word8Array" "sub") [Var (Short "read_state"); Lit (IntLit 1)]
+      (Apps [Var (Short "bool_of_byte"); Var (Short "f")])``
   |> EVAL |> concl |> rand
 
-val _ = ml_prog_update (add_Dlet_Fun ``"read"`` ``"c"`` e "read_v")
+val _ = ml_prog_update (add_Dlet_Fun ``"read_failed"`` ``"u"`` e "read_failed_v")
 
 val e =
   ``Let (SOME "c") (Apps [Var (Long "Word8Array" "update");
-                          Var (Short "write");
+                          Var (Short "write_state");
                           Lit (IntLit 0); Var (Short "c")])
-      (Let (SOME "_") (App (FFI "putChar") [Var (Short "write")]) (Var (Short "c")))``
+      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "c")))``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
@@ -211,12 +215,13 @@ val _ = ml_prog_update (close_module NONE);
 
 val stdin_fun_def = Define `
   stdin_fun = (\i bytes s. case (bytes,s) of
-                    | ([w],Str input) =>
-                         if i = "isEof" then (* can_read *)
-                           SOME ([if input = "" then 0w else 1w],Str input)
-                         else (* i = getChar *) (* read *)
-                           if input = "" then NONE else
-                             SOME ([n2w (ORD (HD input))],Str (TL input))
+                    | ([b;f],Str input) =>
+                         if i = "getChar" then (* read *)
+                           if input = "" then
+                             SOME ([b;1w],Str input)
+                           else (* i = "putChar" *)
+                             SOME ([n2w (ORD (HD input)); 0w],Str (TL input))
+                         else NONE
                     | _ => NONE)`
 
 val stdout_fun_def = Define `
@@ -225,77 +230,97 @@ val stdout_fun_def = Define `
                     | _ => NONE)`
 
 val STDIN_def = Define `
-  STDIN input = IO (Str input) stdin_fun ["isEof";"getChar"]`;
+  STDIN input read_failed =
+    IO (Str input) stdin_fun ["getChar"] *
+    SEP_EXISTS w. W8ARRAY read_state_loc [w;if read_failed then 1w else 0w]`;
 
 val STDOUT_def = Define `
-  STDOUT (output:word8 list) = IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"]`
+  STDOUT (output:word8 list) =
+    IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"] *
+    SEP_EXISTS w. W8ARRAY write_state_loc [w]`;
 
-val CHAR_IO_def = Define `
-  CHAR_IO = SEP_EXISTS w. W8ARRAY write_loc [w]`;
-
-val can_read_spec = Q.store_thm ("can_read_spec",
-  `!a av n nv v.
-     UNIT_TYPE c cv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.can_read" (basis_st()))
-       [cv]
-       (CHAR_IO * STDIN input)
-       (POSTv uv. cond (BOOL (input <> "") uv) * CHAR_IO * STDIN input)`,
-  xcf "CharIO.can_read" (basis_st())
-  \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `POSTv wv. W8ARRAY write_loc [if input = "" then 0w else 1w] * STDIN input`
-  THEN1
-   (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
-    \\ `MEM "isEof" ["isEof";"getChar"]` by EVAL_TAC \\ instantiate \\ xsimpl
-    \\ fs [stdin_fun_def])
-  \\ xlet `POSTv zv. STDIN input * W8ARRAY write_loc [if input = "" then 0w else 1w] *
-                     & (WORD (if input = "" then 0w:word8 else 1w) zv)`
-  THEN1
-   (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
-    \\ xsimpl \\ fs [])
-  \\ xapp \\ xsimpl
-  \\ instantiate \\ rw []);
+val w2n_lt_256 =
+  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
+         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
 
 val read_spec = Q.store_thm ("read_spec",
-  `!a av n nv v.
-     UNIT_TYPE c cv /\ input <> "" ==>
+  `UNIT_TYPE u uv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.read" (basis_st()))
-       [cv]
-       (CHAR_IO * STDIN input)
-       (POSTv uv. cond (CHAR (HD input) uv) * CHAR_IO * STDIN (TL input))`,
+       [uv]
+       (STDIN input read_failed)
+       (POSTv cv. if input = "" then STDIN input T else
+                  cond (CHAR (HD input) cv) * STDIN (TL input) F)`,
   xcf "CharIO.read" (basis_st())
-  \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `POSTv wv. W8ARRAY write_loc [n2w (ORD (HD input))] * STDIN (TL input)`
-  THEN1
-   (xffi \\ fs [EVAL ``write_loc``, STDIN_def]
-    \\ `MEM "getChar" ["isEof";"getChar"]` by EVAL_TAC \\ instantiate \\ xsimpl
-    \\ fs [stdin_fun_def])
-  \\ xlet `POSTv zv. STDIN (TL input) * W8ARRAY write_loc [n2w (ORD (HD input))] *
-                     & (WORD (n2w (ORD (HD input)):word8) zv)`
-  THEN1
-   (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
-    \\ xsimpl \\ fs [])
-  \\ xapp \\ xsimpl
-  \\ instantiate \\ rw []
-  \\ fs [ORD_BOUND,CHR_ORD]);
+  \\ Cases_on`input = ""` \\ fs[]
+  >- (
+    fs[STDIN_def] \\ xpull
+    \\ xlet `POSTv x. STDIN "" T * cond (UNIT_TYPE () x)`
+    >- (
+      xffi
+      \\ fs[STDIN_def, EVAL ``read_state_loc``]
+      \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
+      \\ fs[stdin_fun_def] )
+    \\ fs[STDIN_def] \\ xpull
+    \\ xlet `POSTv x. STDIN "" T * cond (WORD (w:word8) x)`
+    >- (
+      xapp \\ xsimpl \\ fs[STDIN_def]
+      \\ fs[EVAL``read_state_loc``] \\ xsimpl)
+    \\ rw[STDIN_def] \\ xpull
+    \\ xapp \\ xsimpl \\ instantiate
+    \\ simp[w2n_lt_256] )
+  \\ fs[STDIN_def] \\ xpull
+  \\ xlet `POSTv x. IO (Str (TL input)) stdin_fun [1] *
+                    W8ARRAY read_state_loc [n2w (ORD (HD input)); 0w]`
+  >- (
+    xffi
+    \\ fs[STDIN_def, EVAL ``read_state_loc``]
+    \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
+    \\ fs[stdin_fun_def] )
+  \\ xlet `POSTv x. STDIN (TL input) F * cond (WORD ((n2w(ORD(HD input))):word8) x)`
+  >- (
+    xapp \\ xsimpl \\ fs[STDIN_def]
+    \\ fs[EVAL``read_state_loc``] \\ xsimpl)
+  \\ rw[STDIN_def] \\ xpull
+  \\ xapp \\ xsimpl \\ instantiate
+  \\ simp[CHR_ORD,ORD_BOUND])
+
+val read_failed_spec = Q.store_thm("read_failed_spec",
+  `UNIT_TYPE u uv ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "CharIO.read_failed" (basis_st()))
+      [uv]
+      (STDIN input read_failed)
+      (POSTv bv. STDIN input read_failed * cond (BOOL read_failed bv))`,
+  xcf "CharIO.read_failed" (basis_st())
+  \\ fs[STDIN_def] \\ xpull
+  \\ xlet `POSTv x. STDIN input read_failed * cond (WORD (if read_failed then 1w else (0w:word8)) x)`
+  >- (
+    xapp
+    \\ fs[STDIN_def]
+    \\ fs[EVAL``read_state_loc``]
+    \\ xsimpl)
+  \\ fs[STDIN_def] \\ xpull
+  \\ xapp
+  \\ instantiate
+  \\ xsimpl
+  \\ rw[]);
 
 val write_spec = Q.store_thm ("write_spec",
-  `!a av n nv v.
-     WORD c cv ==>
+  `WORD c cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
-       (CHAR_IO * STDOUT output)
-       (POSTv uv. cond (UNIT_TYPE () uv) * CHAR_IO * STDOUT (output ++ [c]))`,
+       (STDOUT output)
+       (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ [c]))`,
   xcf "CharIO.write" (basis_st())
-  \\ fs [CHAR_IO_def] \\ xpull
-  \\ xlet `POSTv zv. STDOUT output * W8ARRAY write_loc [c] *
+  \\ fs [STDOUT_def] \\ xpull
+  \\ xlet `POSTv zv. IO (Str (MAP (CHR o w2n) output)) stdout_fun [0] * W8ARRAY write_state_loc [c] *
                      & (UNIT_TYPE () zv)`
   THEN1
-   (xapp \\ xsimpl \\ fs [CHAR_IO_def,EVAL ``write_loc``]
+   (xapp \\ xsimpl \\ fs [EVAL ``write_state_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `POSTv _. STDOUT (output ++ [c]) * W8ARRAY write_loc [c]`
+  \\ xlet `POSTv _. IO (Str (MAP (CHR o w2n) (output ++ [c]))) stdout_fun [0] * W8ARRAY write_state_loc [c]`
   THEN1
    (xffi
-    \\ fs [EVAL ``write_loc``, STDOUT_def]
+    \\ fs [EVAL ``write_state_loc``, STDOUT_def]
     \\ `MEM "putChar" ["putChar"]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
   \\ xret \\ xsimpl);
 
@@ -307,25 +332,13 @@ val write_list = parse_topdecs
 
 val _ = ml_prog_update (ml_progLib.add_prog write_list pick_name);
 
-val read_all = parse_topdecs
-  `fun read_all xs =
-     let val u = ()
-         val t = CharIO.can_read u in
-         if t then
-             let val c = CharIO.read u
-                 val xs = c :: xs
-             in read_all xs end
-         else reverse xs end`;
-
-val _ = ml_prog_update (ml_progLib.add_prog read_all pick_name);
-
 val write_list_spec = Q.store_thm ("write_list_spec",
   `!xs cv output.
      LIST_TYPE WORD xs cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
-       (CHAR_IO * STDOUT output)
-       (POSTv uv. CHAR_IO * STDOUT (output ++ xs))`,
+       (STDOUT output)
+       (POSTv uv. STDOUT (output ++ xs))`,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -333,7 +346,7 @@ val write_list_spec = Q.store_thm ("write_list_spec",
   \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
-  \\ xlet `POSTv uv. CHAR_IO * STDOUT (output ++ [h])`
+  \\ xlet `POSTv uv. STDOUT (output ++ [h])`
   THEN1
    (xapp \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
@@ -343,46 +356,80 @@ val write_list_spec = Q.store_thm ("write_list_spec",
   \\ xsimpl \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ xsimpl);
 
+fun apply_normalise tm =
+  if type_of tm = astSyntax.exp_ty
+  then rhs(concl(EVAL``full_normalise [] ^tm``))
+  else
+  (let val (a,d) = dest_comb tm in
+     mk_comb(apply_normalise a, apply_normalise d)
+   end handle HOL_ERR _ => tm)
+
+val normalise_topdecs = apply_normalise o parse_topdecs
+
+val read_all = normalise_topdecs
+  `fun read_all cs =
+    let
+      val u = ()
+      val c = CharIO.read u
+    in
+      if CharIO.read_failed u then
+        reverse cs
+      else
+        read_all (c::cs)
+      end`;
+
+val _ = ml_prog_update (ml_progLib.add_prog read_all pick_name);
+
 val char_reverse_v_thm = save_thm("char_reverse_v_thm",
   std_preludeTheory.reverse_v_thm
   |> GEN_ALL |> ISPEC ``CHAR``);
 
 val read_all_spec = Q.store_thm ("read_all_spec",
-  `!xs cv input.
+  `!xs cv input read_failed.
      LIST_TYPE CHAR xs cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "read_all" (basis_st()))
        [cv]
-       (CHAR_IO * STDIN input)
-       (POSTv uv. CHAR_IO * STDIN "" * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))`,
+       (STDIN input read_failed)
+       (POSTv uv. STDIN "" T * &(LIST_TYPE CHAR (REVERSE xs ++ input) uv))`,
   Induct_on `input`
   THEN1
    (xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
-    \\ xlet `POSTv v. CHAR_IO * STDIN "" * &(UNIT_TYPE () v)`
+    \\ xlet `POSTv uv. STDIN "" read_failed * &(UNIT_TYPE () uv)`
     THEN1 (xcon \\ fs [] \\ xsimpl)
-    \\ xlet `POSTv bv. CHAR_IO * STDIN "" * &(BOOL F bv)`
+    \\ xlet `POSTv xv. STDIN "" T` (* TODO: change xv to _ and it breaks the xapp below. what is this bug!? *)
     THEN1
-     (xapp \\ fs [PULL_EXISTS]
-      \\ qexists_tac `emp` \\ qexists_tac `""` \\ xsimpl)
+     (xapp \\ fs [PULL_EXISTS] \\ xsimpl
+      \\ qexists_tac `emp`
+      \\ qexists_tac`read_failed`
+      \\ qexists_tac `""` \\ xsimpl)
+    \\ xlet `POSTv bv. STDIN "" T * cond (BOOL T bv)`
+    >- ( xapp \\ fs[] )
     \\ xif \\ instantiate
-    \\ xapp \\ instantiate \\ xsimpl)
+    \\ xapp
+    \\ xsimpl
+    \\ instantiate)
   \\ xcf "read_all" (basis_st()) \\ fs [LIST_TYPE_def]
-  \\ xlet `POSTv v. CHAR_IO * STDIN (h::input) * &(UNIT_TYPE () v)`
-  THEN1 (xcon \\ fs [] \\ xsimpl)
-  \\ xlet `POSTv bv. CHAR_IO * STDIN (h::input) * &(BOOL T bv)`
-  THEN1
-   (xapp \\ fs [PULL_EXISTS]
-    \\ qexists_tac `emp` \\ qexists_tac `h::input` \\ xsimpl)
-  \\ xif \\ instantiate \\ fs []
-  \\ xlet `POSTv cv. CHAR_IO * STDIN input * &(CHAR h cv)`
-  THEN1
-   (xapp \\ qexists_tac `emp` \\ fs []
-    \\ qexists_tac `h::input` \\ fs [] \\ xsimpl)
-  \\ xlet `POSTv x. CHAR_IO * STDIN input * &(LIST_TYPE CHAR (h::xs) x)`
-  THEN1 (xcon \\ fs [] \\ xsimpl \\ fs [LIST_TYPE_def])
+  \\ xlet `POSTv v. STDIN (STRING h input) read_failed * &(UNIT_TYPE () v)`
+  >- (xcon \\ xsimpl )
+  \\ xlet `POSTv v. STDIN input F * &(CHAR h v)`
+  >- (
+    xapp
+    \\ fs[PULL_EXISTS]
+    \\ qexists_tac`emp`
+    \\ qexists_tac`read_failed`
+    \\ qexists_tac`h::input`
+    \\ xsimpl )
+  \\ xlet `POSTv v. STDIN input F * &(BOOL F v)`
+  >- ( xapp \\ fs[] )
+  \\ xif \\ instantiate
+  \\ xlet `POSTv x. STDIN input F * &(LIST_TYPE CHAR (h::xs) x)`
+  THEN1 (xcon \\ xsimpl \\ fs [LIST_TYPE_def])
   \\ xapp
   \\ instantiate \\ xsimpl
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]);
-
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ qexists_tac`emp`
+  \\ qexists_tac`F`
+  \\ xsimpl);
 
 (* --- the following are defs and lemmas used by ioProgLib --- *)
 
@@ -393,14 +440,13 @@ val io_ffi_oracle_def = Define `
          case bytes of
          | [b] => Oracle_return (inp,out ++ [b]) [b]
          | _ => Oracle_fail
-       else if name = "isEof" then
-         case bytes of
-         | [b] => Oracle_return (inp,out) [if inp = "" then 0w else 1w]
-         | _ => Oracle_fail
        else if name = "getChar" then
          case bytes of
-         | [b] => if inp = "" then Oracle_fail else
-                    Oracle_return (TL inp,out) [n2w (ORD (HD inp))]
+         | [b;f] =>
+           if inp = "" then
+             Oracle_return (inp,out) [b; 1w]
+           else
+             Oracle_return (TL inp,out) [n2w(ORD(HD inp)); 0w]
          | _ => Oracle_fail
        else Oracle_fail`
 
@@ -413,10 +459,10 @@ val io_ffi_def = Define `
 
 val io_proj1_def = Define `
   io_proj1 = (\(inp,out:word8 list).
-    FEMPTY |++ [("putChar",Str (MAP (CHR o w2n) out));("isEof",Str inp);("getChar",Str inp)])`;
+    FEMPTY |++ [("putChar",Str (MAP (CHR o w2n) out));("getChar",Str inp)])`;
 
 val io_proj2_def = Define `
-  io_proj2 = [(["putChar"],stdout_fun);(["isEof";"getChar"],stdin_fun)]`;
+  io_proj2 = [(["putChar"],stdout_fun);(["getChar"],stdin_fun)]`;
 
 val extract_output_def = Define `
   (extract_output [] = SOME []) /\
@@ -484,10 +530,6 @@ val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events
   \\ fs [io_ffi_oracle_def]
   \\ Cases_on `st.ffi_state` \\ fs [] \\ rw []);
 
-val w2n_lt_256 =
-  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
-         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
-
 val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
   `!ws1 ws2:word8 list.
       MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
@@ -532,6 +574,6 @@ val parts_ok_io_ffi = Q.store_thm("parts_ok_io_ffi",
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw [] \\ fs [] \\ metis_tac []));
+    \\ rw [] \\ fs [] \\ rfs[]));
 
 val _ = export_theory ()

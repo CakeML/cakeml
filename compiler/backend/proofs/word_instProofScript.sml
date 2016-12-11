@@ -8,12 +8,12 @@ val _ = new_theory "word_instProof";
 val PERM_SWAP_SIMP = Q.prove(`
   PERM (A ++ (B::C)) (B::(A++C))`,
   match_mp_tac APPEND_PERM_SYM>>full_simp_tac(srw_ss())[]>>
-  metis_tac[PERM_APPEND])
+  metis_tac[PERM_APPEND]);
 
 val EL_FILTER = Q.prove(`
   ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))`,
   Induct>>srw_tac[][]>>
-  Cases_on`x`>>full_simp_tac(srw_ss())[EL])
+  Cases_on`x`>>full_simp_tac(srw_ss())[EL]);
 
 val PERM_SWAP = Q.prove(`
   PERM (A ++ B ++ C) (B++(A++C))`,
@@ -26,7 +26,7 @@ val PERM_SWAP = Q.prove(`
   imp_res_tac EL_FILTER>>
   last_x_assum SUBST_ALL_TAC>>
   imp_res_tac EL_FILTER>>
-  metis_tac[])
+  metis_tac[]);
 
 (* Instruction selection and assorted optimisation correctness
 0) pull_exp correctness -- this does pull_ops and optimize_consts
@@ -46,7 +46,7 @@ val convert_sub_ok = Q.prove(`
   ho_match_mp_tac convert_sub_ind>>srw_tac[][convert_sub_def,word_exp_def]>>unabbrev_all_tac>>
   full_simp_tac(srw_ss())[word_op_def,the_words_def]>>
   EVERY_CASE_TAC>>
-  simp[])
+  simp[]);
 
 (*In general, any permutation works*)
 val word_exp_op_permute_lem = Q.prove(`
@@ -68,7 +68,7 @@ val word_exp_op_permute_lem = Q.prove(`
   Cases_on`the_words A`>>
   Cases_on`the_words B`>>
   fs[word_op_def]>>
-  Cases_on`op`>>fs[])
+  Cases_on`op`>>fs[]);
 
 (*Remove tail recursion to make proof easier...*)
 val pull_ops_simp_def = Define`
@@ -76,7 +76,7 @@ val pull_ops_simp_def = Define`
   (pull_ops_simp op (x::xs) =
     case x of
     |  (Op op' ls) => if op = op' then ls ++ (pull_ops_simp op xs) else x::(pull_ops_simp op xs)
-    |  _  => x::(pull_ops_simp op xs))`
+    |  _  => x::(pull_ops_simp op xs))`;
 
 val pull_ops_simp_pull_ops_perm = Q.prove(`
   ∀ls x.
@@ -85,7 +85,7 @@ val pull_ops_simp_pull_ops_perm = Q.prove(`
   TRY(qpat_abbrev_tac`A = B::x`>>
   first_x_assum(qspec_then`A` assume_tac)>>full_simp_tac(srw_ss())[Abbr`A`])>>
   TRY(first_x_assum(qspec_then`l++x` assume_tac))>>
-  metis_tac[PERM_SWAP,PERM_TRANS,PERM_SWAP_SIMP,PERM_SYM])
+  metis_tac[PERM_SWAP,PERM_TRANS,PERM_SWAP_SIMP,PERM_SYM]);
 
 val pull_ops_simp_pull_ops_word_exp = Q.prove(`
   op ≠ Sub ⇒
@@ -93,7 +93,7 @@ val pull_ops_simp_pull_ops_word_exp = Q.prove(`
   strip_tac>> imp_res_tac word_exp_op_permute_lem>>
   pop_assum match_mp_tac>>
   assume_tac pull_ops_simp_pull_ops_perm>>
-  pop_assum (qspecl_then [`ls`,`[]`] assume_tac)>>full_simp_tac(srw_ss())[])
+  pop_assum (qspecl_then [`ls`,`[]`] assume_tac)>>full_simp_tac(srw_ss())[]);
 
 (* TODO: Maybe move to props, if these are needed elsewhere *)
 
@@ -106,7 +106,7 @@ val word_exp_op_mono = Q.prove(`
   fs[the_words_def]>>Cases_on`word_exp s x`>>fs[]>>
   Cases_on`x'`>>fs[]>>
   rpt(qpat_x_assum`A=B` mp_tac)>>ntac 2 (TOP_CASE_TAC>>fs[])>>
-  Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def])
+  Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def]);
 
 val the_words_append = Q.prove(`
   ∀ls ls'.
@@ -121,7 +121,7 @@ val the_words_append = Q.prove(`
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   Cases_on`the_words ls`>>fs[]>>
-  Cases_on`the_words ls'`>>fs[])
+  Cases_on`the_words ls'`>>fs[]);
 
 val word_exp_op_op = Q.prove(`
   op ≠ Sub ⇒
@@ -138,7 +138,7 @@ val word_exp_op_op = Q.prove(`
   Cases_on`op`>> fs[word_op_def,FOLDR_APPEND]>>
   rw[Abbr`C'`]>>
   rpt(pop_assum kall_tac)>>
-  Induct_on`x`>>fs[])
+  Induct_on`x`>>fs[]);
 
 val pull_ops_ok = Q.prove(`
   op ≠ Sub ⇒
@@ -151,7 +151,7 @@ val pull_ops_ok = Q.prove(`
   IF_CASES_TAC>>full_simp_tac(srw_ss())[word_exp_op_mono]>>
   `b ≠ Sub` by srw_tac[][]>>
   imp_res_tac word_exp_op_op>>
-  pop_assum (qspec_then`l` assume_tac)>>full_simp_tac(srw_ss())[])
+  pop_assum (qspec_then`l` assume_tac)>>full_simp_tac(srw_ss())[]);
 
 (* Done with pull_ops, next is optimize_consts *)
 
@@ -165,12 +165,12 @@ val word_exp_swap_head = Q.prove(`
   FULL_CASE_TAC>>fs[word_op_def]>>
   Cases_on`op`>>fs[FOLDR_APPEND]>>
   rpt(pop_assum kall_tac)>>
-  Induct_on`x'`>>full_simp_tac(srw_ss())[])
+  Induct_on`x'`>>full_simp_tac(srw_ss())[]);
 
 val EVERY_is_const_word_exp = Q.prove(`
   ∀ls. EVERY is_const ls ⇒
   EVERY IS_SOME (MAP (λa. word_exp s a) ls)`,
-  Induct>>srw_tac[][]>>Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def])
+  Induct>>srw_tac[][]>>Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def]);
 
 val all_consts_simp = Q.prove(`
   op ≠ Sub ⇒
@@ -186,7 +186,7 @@ val all_consts_simp = Q.prove(`
   ntac 2 strip_tac>>
   Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def]>>
   FULL_CASE_TAC>>fs[EVERY_is_const_word_exp]>>
-  Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def,rm_const_def])
+  Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def,rm_const_def]);
 
 val optimize_consts_ok = Q.prove(`
   op ≠ Sub ⇒
@@ -220,7 +220,7 @@ val optimize_consts_ok = Q.prove(`
     qpat_abbrev_tac`A = h'::t'`>>
     qpat_abbrev_tac`B = h::t`>>
     `h:: (t ++A) = B ++A` by full_simp_tac(srw_ss())[]>>pop_assum SUBST_ALL_TAC>>
-    metis_tac[PERM_APPEND])
+    metis_tac[PERM_APPEND]);
 
 val pull_exp_ok = Q.prove(`
   ∀exp s x.
@@ -266,7 +266,7 @@ val pull_exp_ok = Q.prove(`
     fs[])>>
   EVERY_CASE_TAC>>fs[]>>
   res_tac>>fs[]>>
-  rfs[])
+  rfs[]);
 
 (* pull_exp syntax *)
 val convert_sub_every_var_exp = Q.prove(`
@@ -274,7 +274,7 @@ val convert_sub_every_var_exp = Q.prove(`
   (∀x. MEM x ls ⇒ every_var_exp P x) ⇒
   every_var_exp P (convert_sub ls)`,
   ho_match_mp_tac convert_sub_ind>>srw_tac[][convert_sub_def]>>
-  full_simp_tac(srw_ss())[every_var_exp_def,EVERY_MEM])
+  full_simp_tac(srw_ss())[every_var_exp_def,EVERY_MEM]);
 
 val optimize_consts_every_var_exp = Q.prove(`
   ∀ls.
@@ -283,14 +283,14 @@ val optimize_consts_every_var_exp = Q.prove(`
   srw_tac[][optimize_consts_def]>>
   `PERM ls (const_ls++nconst_ls)` by metis_tac[PERM_PARTITION]>>full_simp_tac(srw_ss())[]>>
   imp_res_tac PERM_MEM_EQ>>
-  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_exp_def,LET_THM,EVERY_MEM])
+  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_exp_def,LET_THM,EVERY_MEM]);
 
 val pull_ops_every_var_exp = Q.prove(`
   ∀ls acc.
   EVERY (every_var_exp P) acc ∧ EVERY (every_var_exp P) ls ⇒
   EVERY (every_var_exp P) (pull_ops op ls acc)`,
   Induct>>full_simp_tac(srw_ss())[pull_ops_def]>>srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_exp_def]>>
-  metis_tac[ETA_AX,EVERY_APPEND,every_var_exp_def]) |> REWRITE_RULE[EVERY_MEM]
+  metis_tac[ETA_AX,EVERY_APPEND,every_var_exp_def]) |> REWRITE_RULE[EVERY_MEM];
 
 val pull_exp_every_var_exp = Q.prove(`
   ∀exp.
@@ -302,7 +302,7 @@ val pull_exp_every_var_exp = Q.prove(`
   >>
     match_mp_tac optimize_consts_every_var_exp>>
     match_mp_tac pull_ops_every_var_exp>>srw_tac[][]>>
-    metis_tac[MEM_MAP])
+    metis_tac[MEM_MAP]);
 
 (* flatten_exp correctness *)
 val flatten_exp_ok = Q.prove(`
@@ -334,7 +334,7 @@ val flatten_exp_ok = Q.prove(`
     FULL_CASE_TAC>>fs[]>>
     first_x_assum(qspec_then`s` assume_tac)>>rfs[]>>
     first_x_assum(qspec_then`s` assume_tac)>>rfs[])>>
-    res_tac>>fs[])
+    res_tac>>fs[]);
 
 (*All ops are 2 args. Technically, we should probably check that Sub has 2 args. However, the semantics already checks that and it will get removed later*)
 val binary_branch_exp_def = tDefine "binary_branch_exp" `
@@ -347,19 +347,19 @@ val binary_branch_exp_def = tDefine "binary_branch_exp" `
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ full_simp_tac(srw_ss())[exp_size_def]
-   \\ TRY (DECIDE_TAC))
+   \\ TRY (DECIDE_TAC));
 
 (* flatten_exp syntax *)
 val flatten_exp_binary_branch_exp = Q.prove(`
   ∀exp.
   binary_branch_exp (flatten_exp exp)`,
-  ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,binary_branch_exp_def,EVERY_MEM,EVERY_MAP])
+  ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,binary_branch_exp_def,EVERY_MEM,EVERY_MAP]);
 
 val flatten_exp_every_var_exp = Q.prove(`
   ∀exp.
   every_var_exp P exp ⇒
   every_var_exp P (flatten_exp exp)`,
-  ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP])
+  ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP]);
 
 (* inst_select correctness
   Main difficulty: Dealing with multiple choice of optimizations, depending on whether we are allowed to use them w.r.t. to the asm configuration
@@ -559,11 +559,11 @@ val inst_select_exp_thm = Q.prove(`
       metis_tac[])
     >-
       (`num_exp n ≥ dimindex(:'a)` by DECIDE_TAC>>
-      full_simp_tac(srw_ss())[word_sh_def])))
+      full_simp_tac(srw_ss())[word_sh_def])));
 
 val locals_rm = Q.prove(`
   D with locals := D.locals = D`,
-  full_simp_tac(srw_ss())[state_component_equality])
+  full_simp_tac(srw_ss())[state_component_equality]);
 
 (*  Main semantics theorem for inst selection:
     The inst-selected program gives same result but
@@ -794,14 +794,14 @@ val inst_select_thm = Q.store_thm("inst_select_thm",`
         Cases_on`res`>>full_simp_tac(srw_ss())[]>>
         qexists_tac`loc''`>>metis_tac[])
       >>
-        full_simp_tac(srw_ss())[state_component_equality])
+        full_simp_tac(srw_ss())[state_component_equality]);
 
 (* inst_select syntax *)
 val inst_select_exp_flat_exp_conventions = Q.prove(`
   ∀c tar temp exp.
   flat_exp_conventions (inst_select_exp c tar temp exp)`,
   ho_match_mp_tac inst_select_exp_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
-  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM])
+  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM]);
 
 val inst_select_flat_exp_conventions = Q.store_thm("inst_select_flat_exp_conventions",`
   ∀c temp prog.
@@ -810,7 +810,7 @@ val inst_select_flat_exp_conventions = Q.store_thm("inst_select_flat_exp_convent
   full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_def,LET_THM]>>
   EVERY_CASE_TAC>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
-  metis_tac[inst_select_exp_flat_exp_conventions])
+  metis_tac[inst_select_exp_flat_exp_conventions]);
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
 val inst_select_exp_full_inst_ok_less = Q.prove(`
@@ -819,7 +819,7 @@ val inst_select_exp_full_inst_ok_less = Q.prove(`
   full_inst_ok_less c (inst_select_exp c tar temp exp)`,
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def,LET_THM,inst_ok_less_def,full_inst_ok_less_def]>>
-  every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM])
+  every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM]);
 
 val inst_select_full_inst_ok_less = Q.store_thm("inst_select_full_inst_ok_less",`
   ∀c temp prog.
@@ -831,7 +831,7 @@ val inst_select_full_inst_ok_less = Q.store_thm("inst_select_full_inst_ok_less",
   rw[inst_select_def,full_inst_ok_less_def,every_inst_def]>>
   EVERY_CASE_TAC>>
   fs[inst_select_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def]>>
-  metis_tac[inst_select_exp_full_inst_ok_less])
+  metis_tac[inst_select_exp_full_inst_ok_less]);
 
 (* three_to_two_reg semantics *)
 
@@ -877,17 +877,17 @@ val three_to_two_reg_correct = Q.store_thm("three_to_two_reg_correct",`
       full_simp_tac(srw_ss())[push_env_def,LET_THM]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       res_tac>>full_simp_tac(srw_ss())[]>>
-      rev_full_simp_tac(srw_ss())[])
+      rev_full_simp_tac(srw_ss())[]);
 
 (* Syntactic three_to_two_reg *)
 val three_to_two_reg_two_reg_inst = Q.store_thm("three_to_two_reg_two_reg_inst",`
   ∀prog. every_inst two_reg_inst (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
 val three_to_two_reg_wf_cutsets = Q.store_thm("three_to_two_reg_wf_cutsets",
   `∀prog. wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg prog)`,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[wf_cutsets_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[wf_cutsets_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
 val three_to_two_reg_pre_alloc_conventions = Q.store_thm("three_to_two_reg_pre_alloc_conventions",
   `∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)`,
@@ -896,12 +896,12 @@ val three_to_two_reg_pre_alloc_conventions = Q.store_thm("three_to_two_reg_pre_a
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>
-  PairCases_on`x`>>fs[])
+  PairCases_on`x`>>fs[]);
 
 val three_to_two_reg_flat_exp_conventions = Q.store_thm("three_to_two_reg_flat_exp_conventions",
   `∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)`,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
 val three_to_two_reg_full_inst_ok_less = Q.store_thm("three_to_two_reg_full_inst_ok_less",
   `∀prog. full_inst_ok_less c prog ⇒
@@ -913,7 +913,7 @@ val three_to_two_reg_full_inst_ok_less = Q.store_thm("three_to_two_reg_full_inst
   >-
     (Cases_on`n`>>fs[inst_ok_less_def])
   >>
-    metis_tac[inst_ok_less_def])
+    metis_tac[inst_ok_less_def]);
 
 (* label preservation stuff *)
 val inst_select_exp_no_lab = Q.prove(`
@@ -928,11 +928,11 @@ val inst_select_lab_pres = Q.store_thm("inst_select_lab_pres",`
   ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
   TRY(metis_tac[inst_select_exp_no_lab])>>
   EVERY_CASE_TAC>>fs[extract_labels_def]>>
-  TRY(metis_tac[inst_select_exp_no_lab]))
+  TRY(metis_tac[inst_select_exp_no_lab]));
 
 val three_to_two_reg_lab_pres = Q.store_thm ("three_to_two_reg_lab_pres",`
   ∀prog.
   extract_labels prog = extract_labels (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[])
+  ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]);
 
 val _ = export_theory ();

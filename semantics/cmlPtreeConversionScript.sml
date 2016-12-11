@@ -10,11 +10,7 @@ val _ = new_theory "cmlPtreeConversion"
     Parse trees to abstract syntax
    ---------------------------------------------------------------------- *)
 
-(* Use of parsing-heap means that this theory is secretly a descendent of
-   pegexecTheory, where 'nt' is a constructor name.
-
-   This is a disgusting failing of our theory mechanism.  *)
-val _ = hide "nt"
+val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
 (* handling constructor arities gets very complicated when "open" is
@@ -720,7 +716,7 @@ val isConstructor_def = Define`
     do
       ifM (isSymbolicConstructor structopt s)
         (return T)
-        (return (case oHD s of
+        (return (case misc$oHD s of
                      NONE => F
                    | SOME c => isAlpha c ∧ isUpper c))
     od
@@ -1064,9 +1060,9 @@ val ptree_Expr_def = Define`
                 assert(eqt = Lf (TOK EqualsT));
                 fname <- ptree_V fname_pt;
                 ps <- ptree_PbaseList1 pats_pt;
-                p1 <- oHD ps;
+                p1 <- misc$oHD ps;
                 body0 <- ptree_Expr nE body_pt;
-                SOME(fname,dePat p1 (FOLDR mkFun body0 (safeTL ps)))
+                SOME(fname,dePat p1 (FOLDR mkFun body0 (misc$safeTL ps)))
               od
             | _ => NONE
         else NONE) ∧

@@ -469,15 +469,6 @@ val evaluate_genlist_vars_rev = Q.store_thm ("evaluate_genlist_vars_rev",
   full_simp_tac(srw_ss())[] >>
   metis_tac [evaluate_var_reverse]);
 
-val evaluate_isConst = Q.store_thm("evaluate_isConst",
-  `!xs. EVERY isConst xs ==>
-        (evaluate (xs,env,s) = (Rval (MAP (Number o getConst) xs),s))`,
-  Induct \\ full_simp_tac(srw_ss())[evaluate_def]
-  \\ ONCE_REWRITE_TAC [evaluate_CONS]
-  \\ Cases \\ full_simp_tac(srw_ss())[isConst_def]
-  \\ Cases_on `o'` \\ full_simp_tac(srw_ss())[isConst_def]
-  \\ Cases_on `l` \\ full_simp_tac(srw_ss())[isConst_def,evaluate_def,do_app_def,getConst_def]);
-
 val do_app_refs_SUBSET = Q.store_thm("do_app_refs_SUBSET",
   `(do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs`,
   full_simp_tac(srw_ss())[do_app_def]

@@ -2,6 +2,7 @@ open preamble match_goal
 open simpleSexpTheory astTheory
 
 val _ = new_theory "fromSexp";
+val _ = set_grammar_ancestry ["simpleSexp", "ast"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("return", ``SOME``)

@@ -4,16 +4,12 @@ void ffiputChar (char* a) {
   putchar(a[0]);
 }
 
-void ffiisEof (char* a) {
+void ffigetChar (char* a) {
   int c = getchar();
   if(c == EOF) {
-    a[0] = 0;
+    a[1] = 1;
   } else {
-    a[0] = 1;
-    ungetc(c, stdin);
+    a[0] = c;
+    a[1] = 0;
   }
-}
-
-void ffigetChar (char* a) {
-  a[0] = getchar();
 }

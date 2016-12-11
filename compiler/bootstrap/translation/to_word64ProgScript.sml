@@ -469,6 +469,21 @@ val _ = translate (LoadWord64_def |> inline_simp |> conv64)
 val _ = translate (WriteWord64_def |> inline_simp |> conv64)
 val _ = translate (LoadBignum_def |> inline_simp |> conv64)
 
+val Smallnum_alt = prove(
+  ``Smallnum i =
+    if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
+             else n2w (Num (ABS (4 * i)))``,
+  fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]);
+
+val _ = translate (Smallnum_alt |> inline_simp |> conv64)
+val _ = translate (MemEqList_def |> inline_simp |> conv64)
+
+val _ = save_thm("n2mw_ind",multiwordTheory.n2mw_ind |> inline_simp |> conv64);
+val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv64);
+val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
+val _ = translate (bignum_words_def |> inline_simp |> conv64);
+val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+
 val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 (*
@@ -620,6 +635,19 @@ val _ = translate(MakeBytes_def |> conv64)
 val _ = translate(RefByte_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss[SmallLsr_def])
 val _ = translate(RefArray_code_def |> inline_simp |> conv64|>econv)
 val _ = translate(Replicate_code_def|> inline_simp |> conv64)
+val _ = translate(Replicate_code_def|> inline_simp |> conv64)
+val _ = translate(AnyArith_code_def|> conv64)
+val _ = translate(Add_code_def|> conv64)
+val _ = translate(Sub_code_def|> conv64)
+val _ = translate(Mul_code_def|> conv64)
+val _ = translate(Div_code_def|> conv64)
+val _ = translate(Mod_code_def|> conv64)
+
+val _ = translate(Compare1_code_def|> inline_simp |> conv64)
+val _ = translate(Compare_code_def|> inline_simp |> conv64)
+
+val _ = translate(Equal1_code_def|> inline_simp |> conv64)
+val _ = translate(Equal_code_def|> inline_simp |> SIMP_RULE std_ss [backend_commonTheory.closure_tag_def,backend_commonTheory.partial_app_tag_def] |> conv64)
 
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 

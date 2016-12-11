@@ -59,7 +59,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (RefPtr _) = Eq_type_error) ∧
   (do_eq (Block t1 l1) (Block t2 l2) =
    if isClos t1 l1 \/ isClos t2 l2
-   then Eq_val T
+   then if isClos t1 l1 /\ isClos t2 l2 then Eq_val T else Eq_type_error
    else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
         then do_eq_list l1 l2
         else Eq_val F) ∧
@@ -77,8 +77,6 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'f
 
 (* same as closSem$do_app, except:
     - ToList is removed
-    - IsBlock is added
-    - BlockCmp is added
     - Label is added *)
 
 val do_app_def = Define `
@@ -147,16 +145,14 @@ val do_app_def = Define `
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
+    | (EqualInt i,[x1]) =>
+        (case x1 of
+         | Number j => Rval (Boolv (i = j), s)
+         | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
-    | (BlockCmp,[Block t1 vs1;Block t2 vs2]) =>
-        Rval (Boolv (t1 = t2 ∧ LENGTH vs1 = LENGTH vs2), s)
-    | (IsBlock,[Number i]) => Rval (Boolv F, s)
-    | (IsBlock,[Word64 _]) => Rval (Boolv F, s)
-    | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
-    | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
