@@ -30,6 +30,7 @@ fun trans ml_name q = let
   val v_thm = v_thm |> DISCH_ALL
                     |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
                     |> UNDISCH_ALL
+  val _ = add_user_proved_v_thm v_thm
   val _ = save_thm(v_name ^ "_thm",v_thm)
   in v_thm end
 

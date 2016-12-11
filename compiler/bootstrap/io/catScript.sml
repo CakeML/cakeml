@@ -59,6 +59,7 @@ fun trans ml_name q = let
   val v_thm = v_thm |> DISCH_ALL
                     |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
                     |> UNDISCH_ALL
+  val _ = add_user_proved_v_thm v_thm
   val _ = save_thm(v_name ^ "_thm",v_thm)
   in v_thm end
 
@@ -181,8 +182,7 @@ val explode_aux_side_thm = Q.prove(
 val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm])
-(* TODO: doing this breaks things. What is going on?
-  |> update_precondition *)
+  |> update_precondition
 
 (* TODO: move? *)
 val LENGTH_explode = Q.store_thm("LENGTH_explode",
@@ -333,7 +333,6 @@ val copyi_spec = Q.store_thm(
       >- (xapp >> xsimpl) >>
       xapp >> xsimpl >> simp[insertNTS_atI_NIL] >> xsimpl >>
       metis_tac[DECIDE ``(x:num) + 1 < y ⇒ x < y``]) >>
-
   xcf "copyi" (basis_st()) >> xmatch >>
   rename [`LIST_TYPE CHAR ctail ctailv`, `CHAR chd chdv`] >>
   xlet `POSTv oc. &(NUM (ORD chd)) oc * W8ARRAY av a`
