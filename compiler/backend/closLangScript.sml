@@ -30,7 +30,7 @@ val _ = Datatype `
      | Deref         (* loads a value from a reference *)
      | Update        (* updates a reference *)
      | Label num     (* constructs a CodePtr *)
-     | FFI num       (* calls the FFI *)
+     | FFI string    (* calls the FFI *)
      | Equal         (* structural equality *)
      | EqualInt int  (* equal to integer constant *)
      | Const int     (* integer *)

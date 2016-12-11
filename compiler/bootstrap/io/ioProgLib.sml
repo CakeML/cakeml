@@ -143,9 +143,9 @@ val compile_tm = ``compile``
       \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
       \\ fs[Once set_sepTheory.STAR_COMM]
       \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
-      \\ `FFI_part (Str []) stdin_fun [1] events'' IN
+      \\ `FFI_part (Str []) stdin_fun ["getChar"] events'' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi) /\
-          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun [0] events''' IN
+          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun ["putChar"] events''' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi)` by
              cfHeapsBaseLib.SPLIT_TAC
       \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap]

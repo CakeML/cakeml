@@ -1284,18 +1284,18 @@ val evaluate_apply_colour = Q.store_thm("evaluate_apply_colour",
         simp[])>>
       fs[])
     >> (* FFI *)
-      (exists_tac>>Cases_on`get_var n0 st`>>Cases_on`get_var n1 st`>>
+      (exists_tac>>Cases_on`get_var n st`>>Cases_on`get_var n0 st`>>
       full_simp_tac(srw_ss())[get_writes_def,LET_THM,get_var_perm]>>
       Cases_on`x`>>full_simp_tac(srw_ss())[]>>Cases_on`x'`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac strong_locals_rel_get_var>>full_simp_tac(srw_ss())[]>>
-      Cases_on`cut_env s st.locals`>>full_simp_tac(srw_ss())[]>>
-      `domain s ⊆ (n0 INSERT n1 INSERT domain s)` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
+      Cases_on`cut_env s0 st.locals`>>full_simp_tac(srw_ss())[]>>
+      `domain s0 ⊆ (n INSERT n0 INSERT domain s0)` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
       imp_res_tac strong_locals_rel_subset>>
       imp_res_tac cut_env_lemma>>
       pop_assum mp_tac >> impl_tac>-
         (match_mp_tac (GEN_ALL INJ_less)>>metis_tac[])>>
       srw_tac[][]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-      Cases_on`call_FFI st.ffi n x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
+      Cases_on`call_FFI st.ffi s x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
       srw_tac[][]>>
       metis_tac[domain_lookup]));
 
@@ -1594,7 +1594,7 @@ val every_var_in_get_clash_set = Q.store_thm("every_var_in_get_clash_set",
     (qexists_tac`union (insert n () LN) live`>>fs[domain_union]))
   >-
     (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
-    qexists_tac`insert n0 () (insert n1 () s)`>>full_simp_tac(srw_ss())[]));
+    qexists_tac`insert n () (insert n0 () s0)`>>full_simp_tac(srw_ss())[]));
 
 (* Proofs for check_clash_tree *)
 val check_col_INJ = Q.store_thm("check_col_INJ",
@@ -5482,18 +5482,18 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     (*FFI*)
     exists_tac>>
     last_x_assum kall_tac>>
-    qabbrev_tac`A = ssa_cc_trans (FFI n n0 n1 s) ssa na`>>
+    qabbrev_tac`A = ssa_cc_trans (FFI s n n0 s0) ssa na`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[evaluate_def,get_var_perm]>>
-    Cases_on`get_var n1 st`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`get_var n0 st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`cut_env s st.locals`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`cut_env s0 st.locals`>>full_simp_tac(srw_ss())[]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-    Cases_on`call_FFI st.ffi n x'`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`call_FFI st.ffi s x'`>>full_simp_tac(srw_ss())[]>>
     Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`] mp_tac list_next_var_rename_move_preserve>>
     impl_keep_tac>-
       (srw_tac[][word_state_eq_rel_def]
@@ -5525,7 +5525,7 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
      lookup 2 rcstlocs = SOME (Word c')` by
       full_simp_tac(srw_ss())[Abbr`rcstlocs`,lookup_insert]>>
     full_simp_tac(srw_ss())[]>>
-    Q.ISPECL_THEN [`s`,`st.locals`,`rcstlocs`,`x`
+    Q.ISPECL_THEN [`s0`,`st.locals`,`rcstlocs`,`x`
                   ,`f` ] mp_tac cut_env_lemma>>
     impl_tac>-
       (rev_full_simp_tac(srw_ss())[Abbr`f`]>>
@@ -5560,7 +5560,7 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       metis_tac[domain_lookup])>>
     `∀x y. lookup x ssa_cut = SOME y ⇒ lookup x ssa' = SOME y` by
       (srw_tac[][]>>full_simp_tac(srw_ss())[Abbr`ssa_cut`,lookup_inter]>>
-      Cases_on`lookup x'' ssa'`>>Cases_on`lookup x'' s`>>full_simp_tac(srw_ss())[])>>
+      Cases_on`lookup x'' ssa'`>>Cases_on`lookup x'' s0`>>full_simp_tac(srw_ss())[])>>
    `domain rst.locals = domain x` by
      full_simp_tac(srw_ss())[Abbr`rst`]>>
    `ssa_locals_rel na' ssa_cut rst.locals rcstt.locals ∧
@@ -5583,10 +5583,10 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
         full_simp_tac(srw_ss())[strong_locals_rel_def]>>
         metis_tac[domain_lookup])
       >-
-        (`x'' ∈ domain s` by metis_tac[domain_lookup]>>
+        (`x'' ∈ domain s0` by metis_tac[domain_lookup]>>
         full_simp_tac(srw_ss())[every_var_def,every_name_def,EVERY_MEM,toAList_domain]>>res_tac>>
         DECIDE_TAC))>>
-    Q.SPECL_THEN [`rst`,`inter ssa' s`,`na'+2`,`(MAP FST (toAList s))`
+    Q.SPECL_THEN [`rst`,`inter ssa' s0`,`na'+2`,`(MAP FST (toAList s0))`
                    ,`rcstt`] mp_tac list_next_var_rename_move_preserve>>
       impl_tac>-
       (srw_tac[][]
@@ -5862,7 +5862,7 @@ val fix_inconsistencies_conventions = Q.prove(`
   full_simp_tac(srw_ss())[every_stack_var_def,call_arg_convention_def]>>
   qabbrev_tac `ls = MAP FST (toAList (union ssaL ssaR))` >>
   Q.SPECL_THEN [`ls`,`ssa_L'`,`ssa_R'`,`na'`]
-    assume_tac fake_moves_conventions>>rev_full_simp_tac(srw_ss())[LET_THM]);
+  assume_tac fake_moves_conventions>>rev_full_simp_tac(srw_ss())[LET_THM]);
 
 (*Prove that the transform sets up arbitrary programs with
   the appropriate conventions*)
@@ -5998,7 +5998,9 @@ val ssa_cc_trans_pre_alloc_conventions = Q.store_thm("ssa_cc_trans_pre_alloc_con
   imp_res_tac list_next_var_rename_lemma_2>>
   pop_assum(qspecl_then[`ssa`,`na+2`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   qabbrev_tac `lss = MAP (λx. THE(lookup x ssa')) ls`>>
-  qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s)`>>
+  (qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s)`  
+   ORELSE
+   qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s0)`)>>
   `∀x. MEM x lss' ⇒ MEM x lss` by
     (unabbrev_all_tac>>
     full_simp_tac(srw_ss())[MEM_MAP,EXISTS_PROD]>>srw_tac[][]>>

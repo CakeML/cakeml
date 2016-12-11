@@ -76,6 +76,7 @@ in
 end
 
 val EqualityType_NUM = find_equality_type_thm``NUM``
+val EqualityType_CHAR = find_equality_type_thm``CHAR``
 val EqualityType_WORD = find_equality_type_thm``WORD``
 
 val EqualityType_SUM_TYPE_NUM_NUM = find_equality_type_thm``SUM_TYPE NUM NUM``
@@ -92,6 +93,9 @@ val EqualityType_PAIR_TYPE_NUM_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _`
   |> Q.GENL[`c`,`b`]
   |> Q.ISPECL[`NUM`,`PAIR_TYPE NUM NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
+
+val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
+  |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
 
 val EqualityType_ASM_CMP_TYPE = find_equality_type_thm``ASM_CMP_TYPE``
   |> SIMP_RULE std_ss []
@@ -134,10 +138,12 @@ val STACKLANG_PROG_TYPE_no_closures = Q.prove(
     metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
   metis_tac[EqualityType_def,
             EqualityType_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_SUM_TYPE_NUM_NUM,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
+            
             EqualityType_ASM_INST_TYPE]);
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
@@ -162,6 +168,7 @@ val STACKLANG_PROG_TYPE_types_match = Q.prove(
     metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
   metis_tac[EqualityType_def,
             EqualityType_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_SUM_TYPE_NUM_NUM,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
@@ -196,6 +203,7 @@ val STACKLANG_PROG_TYPE_11 = Q.prove(
     metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
   metis_tac[EqualityType_def,
             EqualityType_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_SUM_TYPE_NUM_NUM,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
@@ -301,6 +309,7 @@ val _ = translate (conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMP
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
 val _ = translate (spec64 compile_def)
+
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

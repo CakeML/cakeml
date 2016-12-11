@@ -524,7 +524,7 @@ val do_app = Q.prove(
     \\ rveq
     \\ imp_res_tac state_rel_refs
     \\ fs[fmap_rel_OPTREL_FLOOKUP]
-    \\ first_x_assum(qspec_then`n'`mp_tac)>>srw_tac[][v_rel_simp]
+    \\ first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]
     \\ every_case_tac \\ fs[OPTREL_def]
     \\ rveq\\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE]
     \\ rw[] \\ rfs[])

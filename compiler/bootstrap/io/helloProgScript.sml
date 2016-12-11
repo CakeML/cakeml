@@ -146,7 +146,7 @@ val LetApps_def = Define `
 
 val e =
   ``Let (SOME "c") (Apps [Var (Long "Word8Array" "update"); Var (Short "write");  Lit (IntLit 0); Var (Short "c")])
-     (Let (SOME "_") (App (FFI 0) [Var (Short "write")])
+     (Let (SOME "_") (App (FFI "write") [Var (Short "write")])
         (Var (Short "c")))``
   |> EVAL |> concl |> rand
 
@@ -160,7 +160,7 @@ val stdout_fun_def = Define `
                     | _ => NONE)`
 
 val STDOUT_def = Define `
-  STDOUT output = IO (Str output) stdout_fun [0]`
+  STDOUT output = IO (Str output) stdout_fun ["write"]`
 
 val CHAR_IO_def = Define `
   CHAR_IO = SEP_EXISTS w. W8ARRAY write_loc [w]`;
@@ -183,7 +183,7 @@ val write_spec = Q.store_thm ("write_spec",
   THEN1
    (xffi
     \\ fs [EVAL ``write_loc``, STDOUT_def]
-    \\ `MEM 0 [0n]` by EVAL_TAC \\ instantiate \\ xsimpl
+    \\ `MEM "write" ["write"]` by EVAL_TAC \\ instantiate \\ xsimpl
     \\ EVAL_TAC \\ fs [ORD_BOUND, CHR_ORD])
   \\ xret \\ xsimpl);
 

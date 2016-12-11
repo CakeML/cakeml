@@ -37,24 +37,29 @@ cdecl(main):
 
         .align	8, 0x90
 
-cake_ffi3:
+cake_ffiisEof:
 	pushq	%r15
-	jmp	cdecl(ffi3)
+	jmp	cdecl(ffiisEof)
 	.align	8, 0x90
 
-cake_ffi2:
+cake_fficlose:
 	pushq	%r15
-	jmp	cdecl(ffi2)
+	jmp	cdecl(fficlose)
 	.align	8, 0x90
 
-cake_ffi1:
+cake_ffifgetc:
 	pushq	%r15
-	jmp	cdecl(ffi1)
+	jmp	cdecl(ffifgetc)
+	.align	8, 0x90        
+
+cake_ffiiopen:
+	pushq	%r15
+	jmp	cdecl(ffiopen)
 	.align	8, 0x90
 
-cake_ffi0:
+cake_ffiwrite:
 	pushq	%r15
-	jmp	cdecl(ffi0)
+	jmp	cdecl(ffiwrite)
 	.align	8, 0x90
 
 cake_clear:
