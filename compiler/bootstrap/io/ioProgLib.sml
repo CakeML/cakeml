@@ -6,7 +6,9 @@ local
 open preamble;
 open ioProgTheory ml_translatorLib ml_progLib;
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
-open stringLib Boolconv ListConv1 pred_setLib semanticsLib;
+open semanticsLib;
+
+val state_accessors = fetch "semanticPrimitives" "state_accessors"
 
 in
 

@@ -20,7 +20,6 @@ val no_dup_top_types_def = fetch "semanticPrimitives" "no_dup_top_types_def"
 val dec_case_def = fetch "ast" "dec_case_def" |> CONJUNCTS
 val top_case_def = fetch "ast" "top_case_def" |> CONJUNCTS
 val [set_nil,set_cons] = LIST_TO_SET |> CONJUNCTS
-val state_accessors = fetch "semanticPrimitives" "state_accessors"
 
 (* TODO: move to listLib, consolidate with IS_EL_CONV *)
 fun mem_conv eq_conv tm =
