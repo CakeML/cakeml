@@ -646,7 +646,7 @@ val code_installed_eq = Q.prove(
   \\ fs [code_installed_def,code_installed'_def,labs_correct_def]
   \\ ntac 3 strip_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
-  \\ Cases_on `h` \\ fs [lab_to_targetTheory.is_Label_def]
+  \\ Cases_on `h` \\ fs [is_Label_def]
   \\ rw [] \\ eq_tac \\ fs []);
 
 val code_installed_cons = Q.prove(
@@ -673,6 +673,10 @@ val code_installed_prog_to_section_lemma = Q.prove(
   \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
   \\ fs [loc_to_pc_skip_section,code_installed_cons]);
 
+val is_Label_def = labSemTheory.is_Label_def
+val extract_labels_def = labPropsTheory.extract_labels_def
+val extract_labels_append = labPropsTheory.extract_labels_append
+
 val labs_correct_hd = Q.prove(`
   ∀extra l.
   ALL_DISTINCT (extract_labels (extra++l)) ∧
@@ -681,7 +685,7 @@ val labs_correct_hd = Q.prove(`
   Induct_on`l`>>fs[labs_correct_def]>>rw[]
   >-
     (first_x_assum(qspec_then `extra++[h]` mp_tac)>>
-    Cases_on`h`>>fs[extract_labels_def,lab_to_targetTheory.is_Label_def,FILTER_APPEND]>>
+    Cases_on`h`>>fs[extract_labels_def,labSemTheory.is_Label_def,FILTER_APPEND]>>
     metis_tac[APPEND_ASSOC,APPEND])
   >-
     (Cases_on`h`>>fs[]>>
@@ -701,6 +705,25 @@ val labs_correct_hd = Q.prove(`
     first_x_assum(qspec_then `extra++[h]` mp_tac)>>
     Cases_on`h`>>fs[extract_labels_def,FILTER_APPEND]>>
     metis_tac[APPEND_ASSOC,APPEND])
+
+val labels_ok_imp = Q.store_thm("labels_ok_imp",
+  `∀code.
+   labels_ok code ⇒
+   EVERY sec_labels_ok code ∧
+   ALL_DISTINCT (MAP Section_num code) ∧
+   EVERY (ALL_DISTINCT o extract_labels o Section_lines) code`,
+  Induct_on`code` \\ simp[]
+  \\ Cases \\ simp[]
+  \\ fs[labels_ok_def]
+  \\ strip_tac \\ fs[]
+  \\ reverse conj_tac
+  >- (
+    strip_tac \\ fs[MEM_MAP,EXISTS_PROD] \\ fs[]
+    \\ qmatch_assum_rename_tac`MEM sec code`
+    \\ first_x_assum(qspec_then`sec`mp_tac) \\ simp[]
+    \\ CASE_TAC \\ fs[] )
+  \\ Induct_on`l` \\ fs[]
+  \\ Cases \\ fs[]);
 
 val labels_ok_labs_correct = Q.prove(`
   ∀code.
@@ -742,6 +765,7 @@ val labels_ok_labs_correct = Q.prove(`
       `n'' ≠ n` by
         (fs[extract_labels_def]>>
         first_x_assum(qspec_then`n'',n0` mp_tac)>>fs[])>>
+      cheat (*
       pop_assum mp_tac>>
       pop_assum mp_tac>>
       ntac 4 (pop_assum kall_tac)>>
@@ -749,7 +773,7 @@ val labels_ok_labs_correct = Q.prove(`
       rpt (pop_assum kall_tac)>>
       map_every qid_spec_tac [`n''`,`n0`,`l`]>>
       Induct>> once_rewrite_tac [labSemTheory.loc_to_pc_def]>>fs[]>>
-      rw[]>>fs[lab_to_targetTheory.is_Label_def,extract_labels_def,AND_IMP_INTRO]
+      rw[]>>fs[is_Label_def,extract_labels_def,AND_IMP_INTRO]
       >-
         (fs[FORALL_PROD]>>metis_tac[])
       >-
@@ -761,7 +785,7 @@ val labels_ok_labs_correct = Q.prove(`
         rveq>>fs[loc_to_pc_skip_section]>>
         first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
         impl_tac>- (Cases_on`h`>>fs[extract_labels_def])>>
-        fs[])
+        fs[]*))
     >>
       first_x_assum (qspec_then`x+1` mp_tac)>>
       impl_tac
@@ -1047,6 +1071,7 @@ val lemma = Q.prove(
     pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
     rfs[data_to_wordTheory.compile_def,EVERY_MEM,FORALL_PROD]>>
     metis_tac[])
+  \\ imp_res_tac labels_ok_imp
   \\ strip_tac
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []

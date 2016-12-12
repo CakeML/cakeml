@@ -7897,6 +7897,8 @@ val compile_semantics = save_thm("compile_semantics",let
 val assign_def_extras = LIST_CONJ
   [LoadWord64_def,WriteWord64_def,BignumHalt_def,LoadBignum_def];
 
+val extract_labels_def = wordPropsTheory.extract_labels_def;
+
 val data_to_word_lab_pres_lem = Q.prove(`
   ∀c n l p.
   l ≠ 0 ⇒
