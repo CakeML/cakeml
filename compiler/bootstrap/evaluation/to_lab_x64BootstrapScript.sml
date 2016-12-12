@@ -9,12 +9,6 @@ val _ = new_theory "to_lab_x64Bootstrap";
 
 (* TODO: move? *)
 
-val Section_num_def = Define`
-  Section_num (Section k _) = k`;
-val Section_lines_def = Define`
-  Section_lines (Section _ lines) = lines`;
-val _ = export_rewrites["Section_num_def","Section_lines_def"];
-
 val _ = hide"pos"
 
 val pad_code_MAP = Q.store_thm("pad_code_MAP",
