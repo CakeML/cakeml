@@ -1,17 +1,123 @@
 structure ioProgLib =
 struct
 
+local
+open preamble;
+open ioProgTheory ml_translatorLib ml_progLib;
+open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
+open stringLib Boolconv ListConv1 pred_setLib;
+
+val [ALL_DISTINCT_NIL,ALL_DISTINCT_CONS] = ALL_DISTINCT |> CONJUNCTS
+val [MEM_NIL,MEM_CONS] = MEM |> CONJUNCTS
+val [FLAT_NIL,FLAT_CONS] = FLAT |> CONJUNCTS
+val [MAP_NIL,MAP_CONS] = MAP |> CONJUNCTS
+val [APPEND_NIL_LEFT,APPEND_CONS] = APPEND |> CONJUNCTS
+val APPEND_NIL_RIGHT = APPEND_NIL |> CONJUNCTS |> hd
+val decs_to_types_def = fetch "semanticPrimitives" "decs_to_types_def"
+val prog_to_top_types_def = fetch "semanticPrimitives" "prog_to_top_types_def"
+val no_dup_types_def = fetch "semanticPrimitives" "no_dup_types_def"
+val prog_to_mods_def = fetch "semanticPrimitives" "prog_to_mods_def"
+val no_dup_mods_def = fetch "semanticPrimitives" "no_dup_mods_def"
+val no_dup_top_types_def = fetch "semanticPrimitives" "no_dup_top_types_def"
+val dec_case_def = fetch "ast" "dec_case_def" |> CONJUNCTS
+val top_case_def = fetch "ast" "top_case_def" |> CONJUNCTS
+val [set_nil,set_cons] = LIST_TO_SET |> CONJUNCTS
+val state_accessors = fetch "semanticPrimitives" "state_accessors"
+
+fun mem_conv eq_conv tm =
+  tm |> (
+    REWR_CONV MEM_NIL
+    ORELSEC
+   (REWR_CONV MEM_CONS
+     THENC RATOR_CONV(RAND_CONV(eq_conv))
+     THENC OR_CONV
+     THENC (fn tm => if tm = ``T`` then ALL_CONV tm else mem_conv eq_conv tm))
+   )
+    
+fun all_distinct_conv eq_conv tm =
+  tm |> (
+     REWR_CONV ALL_DISTINCT_NIL
+     ORELSEC
+     (REWR_CONV ALL_DISTINCT_CONS
+      THENC RATOR_CONV(RAND_CONV(RAND_CONV(mem_conv eq_conv)))
+      THENC RATOR_CONV(RAND_CONV(NOT_CONV))
+      THENC AND_CONV
+      THENC (fn tm => if tm = ``F`` then ALL_CONV tm else all_distinct_conv eq_conv tm)
+     )
+  )
+
+val all_distinct_string_conv = all_distinct_conv string_EQ_CONV
+       
+val decs_to_types_conv =
+  REWR_CONV decs_to_types_def
+  THENC RAND_CONV (MAP_CONV EVAL) THENC FLAT_CONV
+
+fun set_conv tm =
+  tm |>
+  (
+    REWR_CONV set_nil
+    ORELSEC
+    (REWR_CONV set_cons THENC RAND_CONV set_conv)
+  )
+
+val prog_to_top_types_conv =
+  REWR_CONV prog_to_top_types_def
+            THENC RAND_CONV (MAP_CONV (BETA_CONV
+                                       THENC FIRST_CONV (map REWR_CONV top_case_def)
+                                       THENC LIST_BETA_CONV
+                                       THENC TRY_CONV decs_to_types_conv
+                                      )
+                            ) THENC FLAT_CONV
+
+val prog_to_mods_conv =
+  REWR_CONV prog_to_mods_def
+            THENC RAND_CONV (MAP_CONV (BETA_CONV
+                                       THENC FIRST_CONV (map REWR_CONV top_case_def)
+                                       THENC LIST_BETA_CONV
+                                      )
+                            ) THENC FLAT_CONV
+
+val no_dup_types_conv =
+  REWR_CONV no_dup_types_def
+  THENC RAND_CONV decs_to_types_conv THENC all_distinct_string_conv
+
+fun no_dup_top_types_conv tm =
+  let
+    val tops = rand(rator tm)
+    val thm1 = prog_to_top_types_conv(mk_comb(``prog_to_top_types``,tops))
+  in
+    REWR_CONV no_dup_top_types_def
+    THENC RATOR_CONV(RAND_CONV(RAND_CONV (REWR_CONV thm1) THENC all_distinct_string_conv))
+    THENC AND_CONV
+    THENC RATOR_CONV(RAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV thm1) THENC MAP_CONV BETA_CONV)))
+    THENC REWRITE_CONV [ml_progTheory.DISJOINT_set_simp]
+    THENC EVERY_CONJ_CONV (RAND_CONV(IN_CONV EVAL) THENC NOT_CONV)
+    THENC REPEATC AND_CONV
+  end tm
+
+fun no_dup_mods_conv tm =
+  let
+    val tops = rand(rator tm)
+    val thm1 = prog_to_mods_conv(mk_comb(``prog_to_mods``,tops))
+  in
+    REWR_CONV no_dup_mods_def
+    THENC RATOR_CONV(RAND_CONV(RAND_CONV (REWR_CONV thm1) THENC all_distinct_string_conv))
+    THENC AND_CONV
+    THENC RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV thm1)))
+    THENC REWRITE_CONV [ml_progTheory.DISJOINT_set_simp]
+    THENC EVERY_CONJ_CONV (RAND_CONV(IN_CONV EVAL) THENC NOT_CONV)
+    THENC REPEATC AND_CONV
+  end tm
+
+in
+
 fun append_main_call compile_str compile_tm = let
 
 (*
 val compile_str  = "compile"
 val compile_tm = ``compile``
 *)
-
-  open preamble;
-  open ioProgTheory ml_translatorLib ml_progLib;
-  open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
-
+  
   val compile = compile_tm
 
   val main = parse_topdecs
@@ -94,6 +200,8 @@ val compile_tm = ``compile``
 
   (* next we instantiate the ffi and projection to remove the separation logic *)
 
+  val init_state_eq = EVAL ``(init_state (io_ffi input))``
+
   val evaluate_prog = let
     val th = raw_evaluate_prog |> Q.GEN `ffi` |> ISPEC ``io_ffi input``
                |> Q.GEN`read_failed` |> SPEC ``F``
@@ -163,7 +271,7 @@ val compile_tm = ``compile``
             |> Q.INST [`ys`|->`[]`]
             |> SIMP_RULE std_ss[APPEND] |> GEN_ALL)
       \\ asm_exists_tac \\ fs []
-      \\ fs [EVAL ``(init_state (io_ffi input))``] \\ EVAL_TAC
+      \\ fs [init_state_eq] \\ EVAL_TAC
       \\ rw[])
     val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
                (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[GEN_ALL lemma])) (DISCH T th)
@@ -182,7 +290,10 @@ val compile_tm = ``compile``
     \\ `evaluate_whole_prog F init_env inp prog res`
     by (
       simp[bigStepTheory.evaluate_whole_prog_def,Abbr`res`]
-      \\ simp[Abbr`inp`,Abbr`prog`]
+      \\ simp[Abbr`inp`,Abbr`prog`,init_state_eq,state_accessors]
+      \\ CONV_TAC(REDEPTH_CONV(REWR_CONV (definition "entire_program_def")))
+      \\ PURE_REWRITE_TAC [SNOC]
+      \\ CONV_TAC(FORK_CONV(no_dup_mods_conv,no_dup_top_types_conv))
       \\ EVAL_TAC )
     \\ unabbrev_all_tac
     \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
@@ -194,5 +305,5 @@ val compile_tm = ``compile``
     \\ fs[] \\ rpt (CASE_TAC \\ fs[]));
 
   in semantics_prog_entire_program end;
-
+end;
 end
