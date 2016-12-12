@@ -184,39 +184,17 @@ val spec64 = INST_TYPE[alpha |-> fcpSyntax.mk_int_numeric_type 64]
 val (cln,clc) =
   lab_to_targetTheory.compute_labels_alt_def |> spec64 |> CONJ_PAIR
 
-val (sec_length_tm,args) =
-  clc |> SPEC_ALL |> rconc |> rand |> strip_comb
-
-val targs = tl args
-
-(*
-val th = el 1 encoded_prog_defs
-val (enc_tm,enc_prog) = dest_eq (concl th)
-*)
-
-fun eval_fn i n th =
-  let
-    val () = say_str "sec_length" i n
-    val (enc_tm,enc_prog) = dest_eq (concl th)
-    val tm = list_mk_comb(sec_length_tm,enc_tm::targs)
-    val conv =
-      RATOR_CONV(RAND_CONV(REWR_CONV th)) THENC
-      (*time*) eval
-  in
-    conv tm
-  end
-
-val sec_lengths = time_with_size thms_size "sec_length (par)" (parlist num_threads chunk_size eval_fn) encoded_prog_defs
-
-val () = PolyML.fullGC();
-
-(*
-val tm = tm12 |> RATOR_CONV(RAND_CONV(REWR_CONV encoded_prog_thm)) |> rconc
-
-val (sth::sths) = sec_lengths
-val (dth::dths) = List.rev encoded_prog_defs
-val n = 0
-*)
+fun compute_labels_alt_rule [] th = th |> CONV_RULE (RAND_CONV (REWR_CONV cln))
+  | compute_labels_alt_rule (dth::dths) th =
+    let
+      val th1 = th |> CONV_RULE (
+        RAND_CONV (
+          REWR_CONV clc THENC
+          RAND_CONV (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC eval) THENC
+          REWR_CONV LET_THM THENC
+          PAIRED_BETA_CONV THENC
+          RAND_CONV eval))
+    in compute_labels_alt_rule dths th1 end
 
 fun compute_labels_alt_conv [] [] tm = REWR_CONV cln tm
   | compute_labels_alt_conv (dth::dths) (sth::sths) tm =
@@ -230,10 +208,13 @@ fun compute_labels_alt_conv [] [] tm = REWR_CONV cln tm
      RAND_CONV eval THENC
      compute_labels_alt_conv dths sths)
 
+val (dth::dths) = List.rev encoded_prog_defs
+
 val compute_labels_thm =
-  tm12 |> timez "compute_labels" (
-    RATOR_CONV(RAND_CONV(REWR_CONV encoded_prog_thm)) THENC
-    compute_labels_alt_conv (List.rev encoded_prog_defs) sec_lengths)
+  tm12 |> timez "compute_labels" (fn tm =>
+    let
+      val th = RATOR_CONV(RAND_CONV(REWR_CONV encoded_prog_thm)) tm
+    in compute_labels_alt_rule (List.rev encoded_prog_defs) th end)
 
 val computed_labs_def = mk_def"computed_labs"(compute_labels_thm |> rconc)
 val compute_labels_thm' =
@@ -376,8 +357,6 @@ fun eval_fn i n dth =
   in (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
       (*time*) eval) tm end
 
-val sec_lengths2 = time_with_size thms_size "sec_length2 (par)" (parlist num_threads chunk_size eval_fn) upd_lab_defs;
-
 (*
 val tm = tm15
 val (dth::_) = upd_lab_defs
@@ -385,7 +364,7 @@ val (sth::_) = List.rev sec_lengths2
 *)
 
 val compute_labels_thm2 =
-  tm15 |> timez "compute_labels2" (compute_labels_alt_conv upd_lab_defs (List.rev sec_lengths2))
+  tm15 |> timez "compute_labels2" (compute_labels_alt_rule upd_lab_defs o REFL)
 
 val computed_labs2_def = mk_def"computed_labs2"(compute_labels_thm2 |> rconc)
 val compute_labels_thm2' =
@@ -475,10 +454,10 @@ fun eval_fn i n (dth, p) =
     val tm = mk_comb(pad_section_tm,p)
     val conv =
       BETA_CONV THENC
-      RATOR_CONV(RAND_CONV(REWR_CONV Section_num_def)) THENC
+      RATOR_CONV(RAND_CONV(REWR_CONV labLangTheory.Section_num_def)) THENC
       RAND_CONV(
         RATOR_CONV(RAND_CONV(
-          REWR_CONV Section_lines_def THENC
+          REWR_CONV labLangTheory.Section_lines_def THENC
           REWR_CONV dth)) THENC
         (*time*) eval)
   in conv tm end
@@ -639,7 +618,7 @@ fun eval_fn i n (p,dth) =
     val conv =
       (REWR_CONV o_THM THENC
        RAND_CONV(REWR_CONV o_THM) THENC
-       RAND_CONV(RAND_CONV(REWR_CONV Section_lines_def)) THENC
+       RAND_CONV(RAND_CONV(REWR_CONV labLangTheory.Section_lines_def)) THENC
        RAND_CONV(RAND_CONV(REWR_CONV dth)) THENC
        (*time*) eval)
     in conv tm end
