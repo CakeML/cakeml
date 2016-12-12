@@ -291,8 +291,7 @@ val compile_tm = ``compile``
     by (
       simp[bigStepTheory.evaluate_whole_prog_def,Abbr`res`]
       \\ simp[Abbr`inp`,Abbr`prog`,init_state_eq,state_accessors]
-      \\ CONV_TAC(REDEPTH_CONV(REWR_CONV (definition "entire_program_def")))
-      \\ PURE_REWRITE_TAC [SNOC]
+      \\ PURE_REWRITE_TAC [definition "entire_program_def",SNOC]
       \\ CONV_TAC(FORK_CONV(no_dup_mods_conv,no_dup_top_types_conv))
       \\ EVAL_TAC )
     \\ unabbrev_all_tac
