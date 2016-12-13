@@ -1,15 +1,15 @@
 open preamble ml_translatorLib ml_progLib
 open mllistTheory
 
+
+
 (*this library depends on nothing*)
 val _ = new_theory"mllistProg"
+val result = register_type ``:cpn``
 val _ = ml_prog_update (open_module "List");
 
 
 val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
-
-
-val result = translate NULL_DEF;
 
 
 val result = translate LENGTH;

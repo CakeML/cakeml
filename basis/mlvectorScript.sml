@@ -6,9 +6,6 @@ val _ = new_theory"mlvector"
 val _ = Datatype `
   vector = Vector ('a list)`;
 
-val fromList_def = Define `
-  fromList l = Vector l`;
-
 val sub_def = Define `
   sub (Vector l) n = EL n l`;
 
@@ -48,7 +45,6 @@ val toList_thm = Q.store_thm (
   rw [toList_def, toList_aux_thm]
 );
 
-
 val update_def = Define`
   update vec i x = Vector (LUPDATE x i (toList(vec)))`;
 
@@ -66,10 +62,10 @@ val concat_def = Define`
   concat l = Vector (FLAT (MAP toList l))`;
 
 val map_def = Define`
-  map vec f = fromList (MAP f (toList vec))`;
+  map vec f = Vector (MAP f (toList vec))`;
 
 val mapi_def = Define`
-  mapi vec f = fromList (mllist$mapi f 0 (toList vec))`;
+  mapi vec f = Vector (mllist$mapi f 0 (toList vec))`;
 
 
 val less_than_length_thm = Q.prove (
@@ -91,6 +87,20 @@ val foldli_aux_def = Define`
 val foldli_def = Define`
   foldli f e vec = foldli_aux f e vec 0 (length vec)`;
 
+val foldli_aux_thm = Q.prove (
+  `!f e vec n len. (n + len = length vec) ==> 
+    (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))`,
+  Cases_on `vec` \\ Induct_on `len` \\
+  rw [foldli_aux_def, toList_thm, length_def, sub_def]
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.foldli_aux_def]
+  \\ rw [DROP_EL_CONS, mllistTheory.foldli_aux_def, ADD1]
+);
+
+val foldli_thm = Q.store_thm (
+  "foldli_thm",
+  `!f e vec. foldli f e vec = mllist$foldli f e (toList vec)`,
+  rw [foldli_def, mllistTheory.foldli_def, foldli_aux_thm]
+);
 
 val foldl_aux_def = Define`
   (foldl_aux f e vec n 0 = e) /\
@@ -271,11 +281,42 @@ val collate_aux_def = Define`
 val collate_def = Define`
   collate f vec1 vec2 =
   if (length vec1) < (length vec2)
-    then collate_aux f vec1 vec2 0 GREATER (length vec1)
+    then collate_aux f vec1 vec2 0 LESS (length vec1)
   else if (length vec2) < (length vec1)
-    then collate_aux f vec1 vec2 0 LESS (length vec2)
+    then collate_aux f vec1 vec2 0 GREATER (length vec2)
   else collate_aux f vec1 vec2 0 EQUAL (length vec2)`;
 
+val collate_aux_less_thm = Q.prove (
+  `!f vec1 vec2 n len. (n + len = length vec1) /\ (length vec1 < length vec2) ==> 
+    (collate_aux f vec1 vec2 n Less len = mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
+      Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
+      rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def, DROP_EL_CONS]
+      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] 
+);
 
+val collate_aux_equal_thm = Q.prove (
+  `!f vec1 vec2 n len. (n + len = length vec2) /\ (length vec1 = length vec2) ==>
+    (collate_aux f vec1 vec2 n Equal len = 
+      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
+  Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def]
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
+  fs [DROP_EL_CONS, mllistTheory.collate_def] 
+);
+
+val collate_aux_greater_thm = Q.prove (
+  `!f vec1 vec2 n len. (n + len = length vec2) /\ (length vec2 < length vec1) ==>
+    (collate_aux f vec1 vec2 n Greater len = 
+      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
+  Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def, DROP_EL_CONS]
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] 
+);
+
+val collate_thm = Q.store_thm (
+  "collate_thm",
+  `!f vec1 vec2. collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)`,
+  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
+);   
 
 val _ = export_theory()

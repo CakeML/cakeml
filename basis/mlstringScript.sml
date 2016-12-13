@@ -3,7 +3,7 @@
    them from char lists and can target CakeML strings directly.
 *)
 open preamble
-    mllistTheory miscTheory totoTheory
+    mllistTheory miscTheory totoTheory 
 
 val _ = new_theory"mlstring"
 
@@ -93,7 +93,10 @@ val extract_def = Define`
       | NONE => implode (extract_aux s i ((strlen s) - i))`;
 
 val substring_def = Define`
-  substring s i j = implode (extract_aux s i j)`;
+  substring s i j = 
+    if strlen s <= i
+      then implode []
+    else implode (extract_aux s i (MIN (strlen s - i) j))`;
 
 val extract_aux_thm = Q.prove (
   `!s n len. (n + len <= strlen s) ==> (extract_aux s n len = SEG len n (explode s))`,
@@ -111,8 +114,15 @@ val extract_thm = Q.store_thm (
     (SOME x) => implode (SEG (MIN (strlen s - i) x) i (explode s))
     | NONE => implode (SEG ((strlen s) - i) i (explode s))))`,
     Cases_on `opt` >- rw [extract_def, extract_aux_thm, implode_def, strlen_def, MIN_DEF] \\
-    rw [extract_def] \\ AP_TERM_TAC ORELSE AP_THM_TAC \\ rw[MIN_DEF] \\ rw [extract_aux_thm]
+    rw [extract_def] \\ AP_TERM_TAC ORELSE AP_THM_TAC \\ rw[MIN_DEF, extract_aux_thm]
 );
+
+val substring_thm = Q.store_thm (
+  "substring_thm",
+  `!s i j. (i < strlen s) ==> (substring s i j = implode (SEG (MIN (strlen s - i) j) i (explode s)))`,
+  rw [substring_def] \\ AP_TERM_TAC \\ rw [MIN_DEF, extract_aux_thm] 
+);
+
 
 
 (* TODO: don't explode/implode once CakeML supports string append *)
@@ -135,7 +145,7 @@ val concat_thm = Q.store_thm (
 
 
 
-val concatWith_aux_def = tDefine "concatWith_aux_def"`
+val concatWith_aux_def = tDefine "concatWith_aux"`
   (concatWith_aux s [] bool = implode []) /\
   (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
   (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))`
@@ -244,30 +254,41 @@ val fields_length = Q.store_thm (
 )
 
 val isStringThere_aux_def = Define`
-  (isStringThere_aux s1 s2 lens1 n 0 = T) /\
-  (isStringThere_aux s1 s2 lens1 n (SUC len) =
-    if strsub s1 (lens1 - len) = strsub s2 n
-      then isStringThere_aux s1 s2 lens1 (n + 1) len
+  (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
+  (isStringThere_aux s1 s2 s1i s2i (SUC len) = 
+    if strsub s1 s1i = strsub s2 s2i
+      then isStringThere_aux s1 s2 (s1i + 1) (s2i + 1) len
     else F)`;
+
+
+(*
+
+val isStringThere_thm = Q.prove (
+  `!s1 s2 s1i s2i len. (s2i + len <= strlen s2) /\ (s1i + len = strlen s1) /\
+  (strlen s1 <= strlen s2) /\ (s1i <= s2i) /\ (isStringThere_aux s1 s2 0 s2i (strlen s1)) ==>
+  (SEG len s2i (explode s2) = TAKE len (explode s1))`
+  Cases_on `s1` \\ Cases_on `s2` \\
+  rw [strlen_def, explode_thm, SEG, SEG_TAKE_BUTFISTN] \\
+  Cases_on `len` \\ rw [SEG] \\ `s2i < STRLEN s'` by DECIDE_TAC \\ 
+);
+*)
 
 val isPrefix_def = Define`
   isPrefix s1 s2 =
     if strlen s1 <= strlen s2
-      then isStringThere_aux s1 s2 (strlen s1 - 1) 0 (strlen s1)
+      then isStringThere_aux s1 s2 0 0 (strlen s1)
     else F`;
 
 val isSuffix_def = Define`
   isSuffix s1 s2 =
     if strlen s1 <= strlen s2
-      then isStringThere_aux s1 s2 (strlen s1 - 1) (strlen s2 - strlen s1) (strlen s1)
-    else if strlen s1 = 0 
-      then T
+      then isStringThere_aux s1 s2 0 (strlen s2 - strlen s1) (strlen s1)
     else F`;
 
 val isSubstring_aux_def = Define`
   (isSubstring_aux s1 s2 lens1 n 0 = F) /\
   (isSubstring_aux s1 s2 lens1 n (SUC len) =
-    if (isStringThere_aux s1 s2 (lens1 - 1) n lens1)
+    if (isStringThere_aux s1 s2 0 n lens1)
       then T
     else isSubstring_aux s1 s2 lens1 (n + 1) len)`;
 
@@ -275,8 +296,6 @@ val isSubstring_def = Define`
   isSubstring s1 s2 =
   if strlen s1 <= strlen s2
     then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1))
-  else if strlen s1 = 0
-    then T
   else F`;
 
 
@@ -290,7 +309,7 @@ val compare_aux_def = Define`
     else compare_aux s1 s2 ord (n + 1) len)`;
 
 val compare_def = Define`
-  compare_def s1 s2 = if (strlen s1) < (strlen s2)
+  compare s1 s2 = if (strlen s1) < (strlen s2)
     then compare_aux s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
     then compare_aux s1 s2 GREATER 0 (strlen s2)
@@ -312,6 +331,39 @@ val collate_def = Define`
     then collate_aux f s1 s2 GREATER 0 (strlen s2)
   else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
 
+
+val collate_aux_less_thm = Q.prove (
+  `!f s1 s2 n len. (n + len = strlen s1) /\ (strlen s1 < strlen s2) ==> 
+    (collate_aux f s1 s2 Less n len = mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+      Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
+      rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
+      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] 
+);
+
+val collate_aux_equal_thm = Q.prove (
+  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s1 = strlen s2) ==>
+    (collate_aux f s1 s2 Equal n len = 
+      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+  Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def]
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
+  fs [DROP_EL_CONS, mllistTheory.collate_def] 
+);
+
+val collate_aux_greater_thm = Q.prove (
+  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s2 < strlen s1) ==>
+    (collate_aux f s1 s2 Greater n len = 
+      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+  Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] 
+);
+
+val collate_thm = Q.store_thm (
+  "collate_thm",
+  `!f s1 s2. collate f s1 s2 = mllist$collate f (explode s1) (explode s2)`,
+  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
+);   
 
 
 

@@ -53,9 +53,23 @@ val explode_side_thm = Q.prove(
 
 val result = translate MIN_DEF;
 val result = translate extract_aux_def;
+val extract_aux_side_def = theorem"extract_aux_side_def";
+val extract_aux_side_thm = Q.prove (
+  `!s n len. (n + len <= strlen s) ==> extract_aux_side s n len`,
+  Induct_on `len` \\ rw [Once extract_aux_side_def]
+);
+ 
 val result = translate extract_def;
-val result = translate substring_def;
+val extract_side_def = definition"extract_side_def"; 
+val extract_side_thm = Q.prove(
+  `!s i opt. extract_side s i opt`,
+  rw [extract_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
 
+val result = translate substring_def;
+val substring_side_def = definition"substring_side_def";
+val substring_side_thm = Q.prove (
+  `!s i j. substring_side s i j`, 
+  rw [substring_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
 
 val result = translate strcat_def;
 
@@ -119,9 +133,9 @@ val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
 
 val isStringThere_aux_side_thm = Q.prove (
-  `!s1 s2 lens1 n len. (lens1 = strlen s1 - 1) /\ (len <= strlen s1)
-       /\ (strlen s1 <= strlen s2) /\ (n + len <= strlen s2) 
-        ==> (isstringthere_aux_side s1 s2 lens1 n len)`,
+  `!s1 s2 s1i s2i len. (s1i + len = strlen s1)  /\ (s2i + len <= strlen s2) /\
+        (strlen s1 <= strlen s2)
+        ==> (isstringthere_aux_side s1 s2 s1i s2i len)`,
   Induct_on `len` \\ rw [Once isStringThere_aux_side_def]
 );
 
@@ -145,6 +159,7 @@ val isSubstring_aux_side_thm = Q.prove (
     issubstring_aux_side s1 s2 lens1 n len`,
   Induct_on `len` \\ rw [Once isSubstring_aux_side_def, isStringThere_aux_side_thm]
 );
+
 val result = translate isSubstring_def;
 val isSubstring_side_def = definition"issubstring_side_def";
 val isSubstring_side_thm = Q.prove (
@@ -152,18 +167,17 @@ val isSubstring_side_thm = Q.prove (
   rw [isSubstring_side_def, isSubstring_aux_side_thm] ) |> update_precondition
 
 
-
 val result = translate compare_aux_def;
 val compare_aux_side_def = theorem"compare_aux_side_def";
 val result = translate compare_def;
 val compare_side_def = definition"compare_side_def";
+
 
 val compare_aux_side_thm = Q.prove (
   `!s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
     else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
-  cheat );
   Induct_on `len` \\ rw [Once compare_aux_side_def]
 );
 
@@ -175,7 +189,7 @@ val compare_side_thm = Q.prove (
 val result = translate collate_aux_def;
 val collate_aux_side_def = theorem"collate_aux_side_def";
 val result = translate collate_def;
-val collate_side_def = definition"collate_side_def";
+val collate_side_def = definition"collate_1_side_def";
 
 val collate_aux_side_thm = Q.prove (
   `!f s1 s2 ord n len. (n + len =
@@ -186,7 +200,7 @@ val collate_aux_side_thm = Q.prove (
 );
 
 val collate_side_thm = Q.prove (
-  `!f s1 s2. collate_side f s1 s2`,
+  `!f s1 s2. collate_1_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 
