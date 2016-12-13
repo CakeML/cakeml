@@ -1,4 +1,4 @@
-open preamble
+open preamble mlstringTheory
 
 open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib

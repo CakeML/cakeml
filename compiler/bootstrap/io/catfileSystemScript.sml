@@ -1,4 +1,4 @@
-open preamble
+open preamble mlstringTheory
 
 val _ = new_theory "catfileSystem";
 val _ = monadsyntax.temp_add_monadsyntax()
