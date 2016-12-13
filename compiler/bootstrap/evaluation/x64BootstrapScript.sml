@@ -196,19 +196,9 @@ fun compute_labels_alt_rule [] th = th |> CONV_RULE (RAND_CONV (REWR_CONV cln))
           RAND_CONV eval))
     in compute_labels_alt_rule dths th1 end
 
-fun compute_labels_alt_conv [] [] tm = REWR_CONV cln tm
-  | compute_labels_alt_conv (dth::dths) (sth::sths) tm =
-    tm |>
-    (REWR_CONV clc THENC
-     REWR_CONV LET_THM THENC
-     RAND_CONV (REWR_CONV sth) THENC
-     BETA_CONV THENC
-     PATH_CONV"llr"(numLib.REDUCE_CONV) THENC
-     PATH_CONV"rrlr"(REWR_CONV dth) THENC
-     RAND_CONV eval THENC
-     compute_labels_alt_conv dths sths)
-
+(*
 val (dth::dths) = List.rev encoded_prog_defs
+*)
 
 val compute_labels_thm =
   tm12 |> timez "compute_labels" (fn tm =>
@@ -348,20 +338,6 @@ val tm15 =
 
 val upd_lab_defs =
   for 0 (num_enc-1) (fn i => definition(mk_def_name("upd_lab_"^(Int.toString i))))
-
-fun eval_fn i n dth =
-  let
-    val () = say_str "sec_length2" i n
-    val ltm = dth |> concl |> lhs
-    val tm = list_mk_comb(sec_length_tm,ltm::targs)
-  in (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
-      (*time*) eval) tm end
-
-(*
-val tm = tm15
-val (dth::_) = upd_lab_defs
-val (sth::_) = List.rev sec_lengths2
-*)
 
 val compute_labels_thm2 =
   tm15 |> timez "compute_labels2" (compute_labels_alt_rule upd_lab_defs o REFL)
