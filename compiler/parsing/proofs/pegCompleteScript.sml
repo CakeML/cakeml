@@ -9,6 +9,7 @@ open mp_then
 open pegSoundTheory
 
 val _ = new_theory "pegComplete"
+val _ = set_grammar_ancestry ["pegSound"]
 
 val _ = set_trace "Goalstack.print_goal_at_top" 0
 

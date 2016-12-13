@@ -51,7 +51,7 @@ val _ = Datatype `
        | Return num num
        | Tick
        | LocValue num num        (* assign v1 := Loc v2 0 *)
-       | FFI num num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
+       | FFI string num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
   raise_stub_location = word_num_stubs - 1`;
@@ -85,6 +85,8 @@ val every_var_inst_def = Define`
   (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
   (every_var_inst P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
   (every_var_inst P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst P (Arith (SubOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (LongMul r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧

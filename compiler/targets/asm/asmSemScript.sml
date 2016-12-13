@@ -52,7 +52,7 @@ val arith_upd_def = Define `
      upd_reg r1 (word_shift l (read_reg r2 s) n) s) /\
   (arith_upd (Div r1 r2 r3) s =
      let q = read_reg r3 s in
-       assert (q <> 0w) (upd_reg r1 (read_reg r2 s // q) s)) /\
+       assert (q <> 0w) (upd_reg r1 (read_reg r2 s / q) s)) /\
   (arith_upd (LongMul r1 r2 r3 r4) (s : 'a asm_state) =
      let r = w2n (read_reg r3 s) * w2n (read_reg r4 s)
      in
@@ -69,7 +69,19 @@ val arith_upd_def = Define `
              (if read_reg r4 s = 0w then 0 else 1)
      in
        upd_reg r4 (if dimword (:'a) <= r then 1w else 0w)
-         (upd_reg r1 (n2w r) s))`
+         (upd_reg r1 (n2w r) s)) /\
+  (arith_upd (AddOverflow r1 r2 r3 r4) (s : 'a asm_state) =
+     let w2 = read_reg r2 s in
+     let w3 = read_reg r3 s
+     in
+       upd_reg r4 (if w2i (w2 + w3) <> w2i w2 + w2i w3 then 1w else 0w)
+         (upd_reg r1 (w2 + w3) s)) /\
+  (arith_upd (SubOverflow r1 r2 r3 r4) (s : 'a asm_state) =
+     let w2 = read_reg r2 s in
+     let w3 = read_reg r3 s
+     in
+       upd_reg r4 (if w2i (w2 - w3) <> w2i w2 - w2i w3 then 1w else 0w)
+         (upd_reg r1 (w2 - w3) s))`
 
 val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`
 

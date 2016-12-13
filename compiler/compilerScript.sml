@@ -36,6 +36,6 @@ val compile_to_bytes_def = Define`
   compile_to_bytes c input =
     case compile c basis input of
     | Failure err => [encode_error err]
-    | Success (bytes,limit) => (n2w limit)::bytes`;
+    | Success (bytes,ffis) => (n2w(LENGTH ffis))::bytes`;
 
 val _ = export_theory();

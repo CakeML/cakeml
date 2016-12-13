@@ -110,7 +110,8 @@ val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE`` |> SI
 val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,
                        EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
-                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE]
+                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
+                       EqualityType_LIST_TYPE_CHAR]
 
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
@@ -438,7 +439,8 @@ val EqualityType_CLOSLANG_OP_TYPE = find_equality_type_thm``CLOSLANG_OP_TYPE``
       EqualityType_NUM,EqualityType_INT,
       EqualityType_AST_SHIFT_TYPE,
       EqualityType_AST_OPW_TYPE,
-      EqualityType_AST_WORD_SIZE_TYPE]
+      EqualityType_AST_WORD_SIZE_TYPE,
+      EqualityType_LIST_TYPE_CHAR]
 
 val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]

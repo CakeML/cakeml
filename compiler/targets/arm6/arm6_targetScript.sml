@@ -72,9 +72,12 @@ val arm6_enc_def = Define`
               (Register
                  (arm6_bop bop, F, n2w r1, n2w r2, n2w r3, SRType_LSL, 0)))) /\
    (arm6_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-       enc (Data (ArithLogicImmediate
-                     (arm6_bop bop, F, n2w r1, n2w r2,
-                      THE (EncodeARMImmediate i))))) /\
+       if (bop = Xor) /\ (i = -1w) then
+         enc (Data (ShiftImmediate (T, F, n2w r1, n2w r2, SRType_LSL, 0)))
+       else
+         enc (Data (ArithLogicImmediate
+                       (arm6_bop bop, F, n2w r1, n2w r2,
+                        THE (EncodeARMImmediate i))))) /\
    (arm6_enc (Inst (Arith (Shift sh r1 r2 n))) =
        enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm6_sh sh, n)))) /\
    (arm6_enc (Inst (Arith (Div _ _ _))) = arm6_encode_fail) /\
@@ -88,6 +91,14 @@ val arm6_enc_def = Define`
        enc (Data (Register (5w, T, n2w r1, n2w r2, n2w r3, SRType_LSL, 0))) ++
        arm6_encode 3w (Data (Move (F, F, n2w r4, 0w))) ++
        arm6_encode 2w (Data (Move (F, F, n2w r4, 1w)))) /\
+   (arm6_enc (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+       enc (Data (Register (4w, T, n2w r1, n2w r2, n2w r3, SRType_LSL, 0))) ++
+       arm6_encode 7w (Data (Move (F, F, n2w r4, 0w))) ++
+       arm6_encode 6w (Data (Move (F, F, n2w r4, 1w)))) /\
+   (arm6_enc (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+       enc (Data (Register (2w, T, n2w r1, n2w r2, n2w r3, SRType_LSL, 0))) ++
+       arm6_encode 7w (Data (Move (F, F, n2w r4, 0w))) ++
+       arm6_encode 6w (Data (Move (F, F, n2w r4, 1w)))) /\
    (arm6_enc (Inst (Mem Load r1 (Addr r2 a))) =
        let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
          enc

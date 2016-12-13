@@ -491,7 +491,7 @@ val compile_single_correct = Q.prove(`
     \\ fs[domain_lookup]
     \\ metis_tac[] )
   >- (tac>>
-     Cases_on`call_FFI st.ffi n x'`>>simp[]));
+     Cases_on`call_FFI st.ffi s x'`>>simp[]));
 
 val compile_word_to_word_thm = Q.store_thm("compile_word_to_word_thm",
   `(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
