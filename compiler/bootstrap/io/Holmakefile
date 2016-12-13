@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../semantics/alt_semantics/proofs ../../../translator ../../../characteristic
+INCLUDES = ../../.. ../../../semantics ../../../semantics/alt_semantics/proofs ../../../translator ../../../characteristic
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -14,7 +14,8 @@ all: $(TARGETS) $(HOLHEAP)
 BARE_THYS = ../../../translator/ml_translatorLib \
 	../../../translator/std_preludeLib \
 	../../../characteristic/cfTheory \
-	../../../semantics/alt_semantics/proofs/funBigStepEquivTheory
+	../../../semantics/alt_semantics/proofs/funBigStepEquivTheory \
+	../../../semantics/semanticsLib
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

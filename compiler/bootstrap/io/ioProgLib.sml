@@ -1,17 +1,24 @@
 structure ioProgLib =
 struct
 
+local
+
+open preamble;
+open ioProgTheory ml_translatorLib ml_progLib;
+open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
+open semanticsLib;
+
+val state_accessors = fetch "semanticPrimitives" "state_accessors"
+
+in
+
 fun append_main_call compile_str compile_tm = let
 
 (*
 val compile_str  = "compile"
 val compile_tm = ``compile``
 *)
-
-  open preamble;
-  open ioProgTheory ml_translatorLib ml_progLib;
-  open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
-
+  
   val compile = compile_tm
 
   val main = parse_topdecs
@@ -94,6 +101,8 @@ val compile_tm = ``compile``
 
   (* next we instantiate the ffi and projection to remove the separation logic *)
 
+  val init_state_eq = EVAL ``(init_state (io_ffi input))``
+
   val evaluate_prog = let
     val th = raw_evaluate_prog |> Q.GEN `ffi` |> ISPEC ``io_ffi input``
                |> Q.GEN`read_failed` |> SPEC ``F``
@@ -163,7 +172,7 @@ val compile_tm = ``compile``
             |> Q.INST [`ys`|->`[]`]
             |> SIMP_RULE std_ss[APPEND] |> GEN_ALL)
       \\ asm_exists_tac \\ fs []
-      \\ fs [EVAL ``(init_state (io_ffi input))``] \\ EVAL_TAC
+      \\ fs [init_state_eq] \\ EVAL_TAC
       \\ rw[])
     val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
                (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[GEN_ALL lemma])) (DISCH T th)
@@ -182,7 +191,9 @@ val compile_tm = ``compile``
     \\ `evaluate_whole_prog F init_env inp prog res`
     by (
       simp[bigStepTheory.evaluate_whole_prog_def,Abbr`res`]
-      \\ simp[Abbr`inp`,Abbr`prog`]
+      \\ simp[Abbr`inp`,Abbr`prog`,init_state_eq,state_accessors]
+      \\ PURE_REWRITE_TAC [definition "entire_program_def",SNOC]
+      \\ CONV_TAC(FORK_CONV(no_dup_mods_conv,no_dup_top_types_conv))
       \\ EVAL_TAC )
     \\ unabbrev_all_tac
     \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
@@ -194,5 +205,5 @@ val compile_tm = ``compile``
     \\ fs[] \\ rpt (CASE_TAC \\ fs[]));
 
   in semantics_prog_entire_program end;
-
+end;
 end
