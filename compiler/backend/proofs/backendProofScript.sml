@@ -638,6 +638,8 @@ val labs_correct_def = Define `
         | _ => T)
      else labs_correct (n + 1) xs code)`
 
+val is_Label_def = labSemTheory.is_Label_def
+
 val code_installed_eq = Q.prove(
   `!pc xs code.
       code_installed pc xs code <=>
@@ -673,7 +675,6 @@ val code_installed_prog_to_section_lemma = Q.prove(
   \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
   \\ fs [loc_to_pc_skip_section,code_installed_cons]);
 
-val is_Label_def = labSemTheory.is_Label_def
 val extract_labels_def = labPropsTheory.extract_labels_def
 val extract_labels_append = labPropsTheory.extract_labels_append
 
@@ -765,10 +766,9 @@ val labels_ok_labs_correct = Q.prove(`
       `n'' ≠ n` by
         (fs[extract_labels_def]>>
         first_x_assum(qspec_then`n'',n0` mp_tac)>>fs[])>>
-      cheat (*
       pop_assum mp_tac>>
       pop_assum mp_tac>>
-      ntac 4 (pop_assum kall_tac)>>
+      ntac 5 (pop_assum kall_tac)>>
       ntac 2 (pop_assum mp_tac)>>
       rpt (pop_assum kall_tac)>>
       map_every qid_spec_tac [`n''`,`n0`,`l`]>>
@@ -783,9 +783,9 @@ val labels_ok_labs_correct = Q.prove(`
         Cases_on`h`>>fs[extract_labels_def])
       >>
         rveq>>fs[loc_to_pc_skip_section]>>
-        first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
+        (first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
         impl_tac>- (Cases_on`h`>>fs[extract_labels_def])>>
-        fs[]*))
+        fs[]))
     >>
       first_x_assum (qspec_then`x+1` mp_tac)>>
       impl_tac
