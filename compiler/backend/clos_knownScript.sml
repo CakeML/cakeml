@@ -4,6 +4,8 @@ val _ = new_theory "clos_known";
 
 val _ = set_grammar_ancestry ["closLang", "sptree", "misc"]
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();                             
+
 (* -----------------------------------------------------------------
 
   This compiler transformation turns App NONEs into APP SOMEs.
@@ -76,21 +78,21 @@ val merge_alt = Q.store_thm("merge_alt",`
 val known_op_def = Define `
   (known_op (Global n) as g =
    if NULL as then
-     case lookup n g of
+     dtcase lookup n g of
        | NONE => (Other,g)
        | SOME x => (x,g)
    else (Other,g)) /\
   (known_op (SetGlobal n) as g =
-     case as of
+     dtcase as of
      | [] => (Other,g)
      | (a::xs) =>
-       case lookup n g of
+       dtcase lookup n g of
        | NONE => (Other,insert n a g)
        | SOME other => (Other,insert n (merge other a) g)) /\
   (known_op (Cons tg) as g = (Tuple tg as,g)) /\
   (known_op (Const i) as g = (Int i,g)) /\
   (known_op El as g =
-     case as of
+     dtcase as of
      | [Tuple _ xs; Int i] =>
          if 0 <= i /\ i < &LENGTH xs
          then (EL (Num i) xs,g)
@@ -98,8 +100,41 @@ val known_op_def = Define `
      | Impossible::xs => (Impossible,g)
      | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g)) /\
-  (known_op op as g = (Other,g))`
+(known_op op as g = (Other,g))`
 
+val known_op_pmatch = Q.store_thm("known_op_pmatch",`
+known_op op as g =
+  case op of
+    Global n =>
+     if NULL as then
+       case lookup n g of
+         | NONE => (Other,g)
+         | SOME x => (x,g)
+     else (Other,g)
+  | SetGlobal n =>
+    (case as of
+     | [] => (Other,g)
+     | (a::xs) =>
+       case lookup n g of
+       | NONE => (Other,insert n a g)
+       | SOME other => (Other,insert n (merge other a) g))
+  | Cons tg => (Tuple tg as,g)
+  | Const i => (Int i,g)
+  | El =>
+    (case as of
+     | [Tuple _ xs; Int i] =>
+         if 0 <= i /\ i < &LENGTH xs
+         then (EL (Num i) xs,g)
+         else (Other,g)
+     | Impossible::xs => (Impossible,g)
+     | _ :: Impossible :: xs => (Impossible,g)
+     | _ => (Other,g))
+  | _ => (Other,g)`,
+  Induct_on `op` >>
+  rpt strip_tac >>
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV) >>
+  fs[known_op_def] >> every_case_tac >> fs[])
+                                 
 val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
@@ -170,7 +205,7 @@ val known_def = tDefine "known" `
      let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
      let e =
          if isGlobal op then
-           case gO_destApx a of
+           dtcase gO_destApx a of
                gO_None => Op op (MAP FST e1)
              | gO_Int i => Op (Const i) []
              | gO_NullTuple tag => Op (Cons tag) []
@@ -182,9 +217,9 @@ val known_def = tDefine "known" `
      let (e1,g) = known [x] vs g in
      let (e1,a1) = HD e1 in
      let new_loc_opt =
-         case loc_opt of
+         dtcase loc_opt of
            | SOME _ => loc_opt
-           | _ => case dest_Clos a1 of
+           | _ => dtcase dest_Clos a1 of
                     | NONE => NONE
                     | SOME (loc,arity) => if arity = LENGTH xs
                                           then SOME loc else NONE
@@ -194,11 +229,11 @@ val known_def = tDefine "known" `
      let (e1,g) = known [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD e1 in
        ([(Fn loc_opt NONE num_args body,
-          case loc_opt of
+          dtcase loc_opt of
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
   (known [Letrec loc_opt _ fns x1] vs g =
-     let clos = case loc_opt of
+     let clos = dtcase loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
                 |  SOME n => clos_gen n 0 fns in
      (* The following ignores SetGlobal within fns, but it shouldn't
