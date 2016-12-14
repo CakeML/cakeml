@@ -1579,6 +1579,27 @@ fun prove_EvalPatRel goal hol2deep = let
   (*
     set_goal(asms,goal)
   *)
+  (* TODO: something less horrible *)
+  fun tac2 (asms,concl) =
+    let
+        val pmatch_asm = can (match_term ``pmatch _ _ _ _ _ = Match_type_error``)
+        val v = List.find pmatch_asm asms |> valOf |> lhs |> rator |> rand
+        val asm = List.find
+                      (fn asm =>
+                          (asm |> free_vars |> List.exists (term_eq v))
+                          andalso
+                          not(is_eq asm)
+                      )
+                      asms |> valOf
+        val vname = asm |> rator |> rand |> dest_var |> fst
+        val {Name,Thy,Ty} = asm |> strip_comb |> fst |> dest_thy_const
+        val thm = fetch Thy (Name^"_def")
+    in
+        Cases_on [QUOTE vname]
+                 >> rfs [thm]
+                 >> rfs []
+                 >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
+    end (asms,concl)
   val th = TAC_PROOF((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -1593,7 +1614,9 @@ fun prove_EvalPatRel goal hol2deep = let
          pat_bindings_def,lit_same_type_def] >>
     fs[Once evaluate_cases] >>
     rw[] >> simp[Once evaluate_cases] >>
-    fs [build_conv_def,do_con_check_def])
+    fs [build_conv_def,do_con_check_def] >>
+    fs [Once evaluate_cases] >> every_case_tac >>
+    rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");

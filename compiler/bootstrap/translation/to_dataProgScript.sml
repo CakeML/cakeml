@@ -333,7 +333,16 @@ val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
   rw[]>>intLib.COOPER_TAC);
 
-val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
+(*val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);*)
+
+(* TODO: 
+   This is uglier than previously, to prevent SIMP_RULE from rewriting guards
+   OF PMATCH_ROWs to K T *)
+val lemma = ``(if 0 <= i /\ q
+            then (EL (Num i) xs,g)
+            else x)`` |> (ONCE_REWRITE_CONV [num_abs_intro] THENC SIMP_CONV std_ss [])
+
+val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
 
 val _ = translate (clos_knownTheory.known_def)
 
