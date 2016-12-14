@@ -1031,7 +1031,7 @@ val lemma = Q.prove(
     LENGTH mc_conf.target.config.avoid_regs + 11 ≤
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
     data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffi_limit,mc_conf,ms,prog)`,
-  strip_tac \\ fs [data_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
+  strip_tac \\ fs [data_to_word_precond_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
