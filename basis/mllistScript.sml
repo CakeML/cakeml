@@ -192,11 +192,11 @@ val LENGTH_AUX_def = Define `
   (LENGTH_AUX [] n = (n:num)) /\
   (LENGTH_AUX (x::xs) n = LENGTH_AUX xs (n+1))`;
 
-val LENGTH_AUX_THM = Q.prove(
+val LENGTH_AUX_THM = Q.store_thm(
+  "LENGTH_AUX_THM",
   `!xs n. LENGTH_AUX xs n = LENGTH xs + n`,
   Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
 
-val SUC_LEMMA = Q.prove(`SUC = \x. x+1`,SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
 
 val _ = export_theory()

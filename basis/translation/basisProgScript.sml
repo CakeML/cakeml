@@ -61,21 +61,13 @@ val _ = Define `
 
 val _ = append_prog
   ``[Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
-     Tdec (Dtabbrev [] "string" (Tapp [] TC_string));
      Tdec (Dtabbrev [] "unit" (Tapp [] TC_tup));
      Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
      Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
      Tdec (Dtabbrev [] "word" (Tapp [] TC_word8));
-     Tdec (Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector));
      Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
      Tdec (Dtabbrev [] "char" (Tapp [] TC_char))]``
 
-val _ = Datatype `order = LESS | EQUAL | GREATER`;
-
-val _ = register_type ``:order``;
-
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
 
 (* the parser targets the following for int arith ops -- translated *)
 
@@ -206,7 +198,9 @@ val _ = append_decs
        (Fun "x" (Fun "y" (Fun "z"
          (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``
 
+    
 val _ = ml_prog_update (close_module NONE);
+
 
 val array_alloc_spec = Q.store_thm ("array_alloc_spec",
   `!n nv v.
@@ -237,7 +231,6 @@ val array_update_spec = Q.store_thm ("array_update_spec",
        (ARRAY av a)
        (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))`,
   prove_array_spec "Array.update");
-
 
 
 

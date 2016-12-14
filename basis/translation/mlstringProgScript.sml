@@ -51,7 +51,6 @@ val explode_side_thm = Q.prove(
   rw[definition"explode_side_def",explode_aux_side_thm]) |> update_precondition
 
 
-val result = translate MIN_DEF;
 val result = translate extract_aux_def;
 val extract_aux_side_def = theorem"extract_aux_side_def";
 val extract_aux_side_thm = Q.prove (
@@ -141,9 +140,9 @@ val isStringThere_aux_side_thm = Q.prove (
 
 
 val result = translate isPrefix_def;
-val isPrefix_side_def = definition"isprefix_side_def";
+val isPrefix_side_def = definition"isprefix_1_side_def";
 val isPrefix_thm = Q.prove (
-  `!s1 s2. isprefix_side s1 s2`,
+  `!s1 s2. isprefix_1_side s1 s2`,
   rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
 
 val result = translate isSuffix_def;

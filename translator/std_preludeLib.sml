@@ -9,11 +9,20 @@ open finite_mapTheory pred_setTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory alistTheory;
 
-open ml_translatorLib ml_translatorTheory mini_preludeLib;
+open ml_translatorLib ml_translatorTheory;
 
 fun std_prelude () = let
 
-val _ = mini_preludeLib.mini_prelude ();
+(*val _ = mini_preludeLib.mini_prelude (); *)
+
+(* type registration *)
+val _ = Datatype `order = LESS | EQUAL | GREATER`;
+val _ = register_type ``:order``;
+val _ = register_type ``:'a list``;
+val _ = register_type ``:'a option``;
+val _ = register_type ``:'a # 'b``;
+val _ = register_type ``:cpn``;
+
 
 (* pair *)
 
@@ -23,7 +32,6 @@ val res = translate CURRY_DEF;
 val res = translate UNCURRY;
 
 (* combin *)
-
 val res = translate o_DEF;
 val res = translate I_THM;
 val res = translate C_DEF;
@@ -32,24 +40,14 @@ val res = translate S_DEF;
 val res = translate UPDATE_def;
 val res = translate W_DEF;
 
-(* option *)
+(* list *)
+val result = next_ml_names := ["revAppend"]
+val res = translate REV_DEF;
+val result = next_ml_names := ["rev"];
+val res = translate REVERSE_REV;
+val append_v_thm = translate APPEND;
+val _ = save_thm("append_v_thm",append_v_thm);
 
-val res = translate THE_DEF;
-val res = translate IS_NONE_DEF;
-val res = translate IS_SOME_DEF;
-val res = translate OPTION_MAP_DEF;
-val res = translate OPTION_MAP2_DEF;
-
-val the_side_def = Q.prove(
-  `the_side = IS_SOME`,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "the_side_def"])
-  |> update_precondition;
-
-val option_map2_side_def = Q.prove(
-  `!f x y. option_map2_side f x y = T`,
-  FULL_SIMP_TAC (srw_ss()) [fetch "-" "option_map2_side_def",the_side_def])
-  |> update_precondition;
 
 (* sum *)
 
@@ -71,69 +69,6 @@ val outr_side_def = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outr_side_def"])
   |> update_precondition;
 
-(* list *)
-
-val LENGTH_AUX_def = Define `
-  (LENGTH_AUX [] n = (n:num)) /\
-  (LENGTH_AUX (x::xs) n = LENGTH_AUX xs (n+1))`;
-
-val LENGTH_AUX_THM = Q.prove(
-  `!xs n. LENGTH_AUX xs n = LENGTH xs + n`,
-  Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
-  |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
-
-val SUC_LEMMA = Q.prove(`SUC = \x. x+1`,SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
-
-val res = translate LENGTH_AUX_def;
-val res = translate LENGTH_AUX_THM;
-val res = translate MAP;
-val res = translate FILTER;
-val res = translate FOLDR;
-val res = translate FOLDL;
-val res = translate SUM;
-val res = translate UNZIP;
-val res = translate FLAT;
-val res = translate TAKE_def;
-val res = translate DROP_def;
-val res = translate SNOC;
-val res = translate EVERY_DEF;
-val res = translate EXISTS_DEF;
-val res = translate GENLIST;
-val res = translate PAD_RIGHT;
-val res = translate PAD_LEFT;
-val res = translate MEMBER_def;
-val res = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
-val res = translate isPREFIX;
-val res = translate FRONT_DEF;
-val res = translate ZIP;
-val res = translate EL;
-val res = translate LAST_DEF;
-val res = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
-
-val front_side_def = Q.prove(
-  `!xs. front_side xs = ~(xs = [])`,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-
-val zip_side_def = Q.prove(
-  `!x. zip_side x = (LENGTH (FST x) = LENGTH (SND x))`,
-  Cases THEN Q.SPEC_TAC (`r`,`r`) THEN Induct_on `q` THEN Cases_on `r`
-  THEN ONCE_REWRITE_TAC [fetch "-" "zip_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [])
-  |> update_precondition;
-
-val el_side_def = Q.prove(
-  `!n xs. el_side n xs = (n < LENGTH xs)`,
-  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-
-val last_side_def = Q.prove(
-  `!xs. last_side xs = ~(xs = [])`,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
 
 (* sorting *)
 
@@ -262,6 +197,8 @@ val Eval_FEMPTY = Q.prove(
          finite_mapTheory.FLOOKUP_DEF])
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
   |> add_eval_thm;
+
+val result = translate MEMBER_def;
 
 val AEVERY_AUX_def = Define `
   (AEVERY_AUX aux P [] = T) /\
@@ -421,6 +358,8 @@ val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
 
 val _ = translate WHILE;
 val _ = translate OWHILE_THM;
+
+val SUC_LEMMA = Q.store_thm("SUC_LEMMA",`SUC = \x. x+1`,SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
 
 val LEAST_LEMMA = Q.prove(
   `$LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0`,
