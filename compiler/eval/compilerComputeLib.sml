@@ -634,7 +634,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
-    ,lab_to_targetTheory.sec_length_def
     ,lab_to_targetTheory.lab_inst_def
     ,lab_to_targetTheory.enc_line_def
     ,lab_to_targetTheory.enc_sec_def

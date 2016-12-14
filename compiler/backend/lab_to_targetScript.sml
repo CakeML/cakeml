@@ -5,14 +5,6 @@ val _ = new_theory"lab_to_target";
 val ffi_offset_def = Define `
   ffi_offset = 8:num`;
 
-(* length of a section *)
-
-val sec_length_def = Define `
-  (sec_length [] k = k) /\
-  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
-
 (* basic assemble function *)
 
 val lab_inst_def = Define `
@@ -88,7 +80,7 @@ val get_jump_offset_def = Define `
      n2w (find_pos (get_label a) labs) - n2w pos)`
 
 val enc_lines_again_def = Define `
-  (enc_lines_again labs pos enc [] (acc,ok) = (REVERSE acc,ok:bool)) /\
+  (enc_lines_again labs pos enc [] (acc,ok) = (REVERSE acc,pos,ok:bool)) /\
   (enc_lines_again labs pos enc ((Label k1 k2 l)::xs) (acc,ok) =
      enc_lines_again labs (pos+l) enc xs ((Label k1 k2 l)::acc,ok)) /\
   (enc_lines_again labs pos enc ((Asm x1 x2 l)::xs) (acc,ok) =
@@ -106,15 +98,14 @@ val enc_lines_again_def = Define `
 val enc_secs_again_def = Define `
   (enc_secs_again pos labs enc [] = ([],T)) /\
   (enc_secs_again pos labs enc ((Section s lines)::rest) =
-     let (lines1,ok) = enc_lines_again labs pos enc lines ([],T) in
-     let pos1 = pos + sec_length lines1 0 in
+     let (lines1,pos1,ok) = enc_lines_again labs pos enc lines ([],T) in
      let (rest1,ok1) = enc_secs_again pos1 labs enc rest in
        ((Section s lines1)::rest1,ok /\ ok1))`
 
 (* update labels *)
 
 val lines_upd_lab_len_def = Define `
-  (lines_upd_lab_len pos [] acc = REVERSE acc) /\
+  (lines_upd_lab_len pos [] acc = (REVERSE acc,pos)) /\
   (lines_upd_lab_len pos ((Label k1 k2 l)::xs) acc =
      let l1 = if EVEN pos then 0 else 1 in
        lines_upd_lab_len (pos+l1) xs ((Label k1 k2 l1::acc))) /\
@@ -126,28 +117,11 @@ val lines_upd_lab_len_def = Define `
 val upd_lab_len_def = Define `
   (upd_lab_len pos [] = []) /\
   (upd_lab_len pos ((Section s lines)::rest) =
-     let lines1 = lines_upd_lab_len pos lines [] in
-     let pos1 = pos + sec_length lines1 0 in
+     let (lines1,pos1) = lines_upd_lab_len pos lines [] in
      let rest1 = upd_lab_len pos1 rest in
        (Section s lines1)::rest1)`
 
 (* checking that all labelled asm instructions are asm_ok *)
-
-(*
-
-val sec_asm_ok_def = Define `
-  (sec_asm_ok c [] <=> T) /\
-  (sec_asm_ok c ((Label _ _ l)::xs) <=> sec_asm_ok c xs) /\
-  (sec_asm_ok c ((Asm x1 x2 l)::xs) <=> sec_asm_ok c xs) /\
-  (sec_asm_ok c ((LabAsm a w bytes l)::xs) <=>
-     if asm_ok (lab_inst w a) c then sec_asm_ok c xs else F)`
-
-val all_asm_ok_def = Define `
-  (all_asm_ok c [] = T) /\
-  (all_asm_ok c ((Section s lines)::rest) =
-     if sec_asm_ok c lines then all_asm_ok c rest else F)`
-
-*)
 
 val line_ok_light_def = Define `
   (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
