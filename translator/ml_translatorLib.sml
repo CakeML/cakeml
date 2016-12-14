@@ -1647,25 +1647,31 @@ fun prove_EvalPatBind goal hol2deep = let
   val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs'
   val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
+  fun tac (asms,goal) = let
+    fun is_TYPE tm = let
+      val (args,ret) = strip_fun(type_of tm)
+    in not(null args) andalso ret = ``:bool`` andalso last args = ``:v`` end
+    val relevant_asms = List.filter (is_TYPE o fst o strip_comb) asms
+    val consts = map (fn asm => asm |> strip_comb |> fst |> dest_thy_const) relevant_asms
+    val thms = map (fn {Name,Thy,Ty} => [fetch Thy (Name^"_def")] handle _ => []) consts |> List.concat
+  in
+    REPEAT (POP_ASSUM MP_TAC)
+    \\ NTAC (length vs) STRIP_TAC
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+    \\ STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+  end (asms,goal)
   (*
     set_goal([],new_goal)
   *)
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
     \\ fsrw_tac[][FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (D res) \\ fsrw_tac[][]
+    \\ (MATCH_MP_TAC (D res) ORELSE MATCH_MP_TAC(D(res |> SIMP_RULE std_ss [FORALL_PROD])))
+    \\ fsrw_tac[][]
     \\ fsrw_tac[][EvalPatBind_def,Pmatch_def]
-    \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ NTAC (length vs) STRIP_TAC
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
-    \\ STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
-    (*
-    \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
-      \\ SRW_TAC [] [Eval_Var_SIMP]
-      \\ EVAL_TAC \\ NO_TAC)
-    *)
+    \\ tac
     \\ BasicProvers.EVERY_CASE_TAC \\ fsrw_tac[][]
     \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
              lookup_cons_write,lookup_var_write]))
