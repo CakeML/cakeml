@@ -5,16 +5,16 @@ OPTIONS = QUIT_ON_FAILURE
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 
+all: $(TARGETS)
 .PHONY: all
 
-# ifdef POLY
-# HOLHEAP = heap
-# EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-# all: $(HOLHEAP)
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-# BARE_THYS = wordsTheory
-# DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+BARE_THYS = ../../../preamble
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
-# $(HOLHEAP): $(DEPS)
-# 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
-# endif
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif

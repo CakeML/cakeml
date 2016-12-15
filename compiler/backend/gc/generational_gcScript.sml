@@ -121,18 +121,18 @@ val gc_move_refs_def = tDefine "gc_move_refs" `
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ decide_tac);
 
-(* The main gc loop *)
-val gc_move_loop_def = Define `
-  gc_move_loop conf state (clock : num) =
-    if clock = 0 then state with <| ok := F |> else
-      case (state.h2,state.r4) of
-      | ([],[]) => state
-      | (h2,[]) =>
-        let state = gc_move_data conf state in
-          gc_move_loop conf state (clock-1)
-      | (h2,r4) =>
-        let state = gc_move_refs conf (state with <| r2 := r4; r4 := [] |>) in
-          gc_move_loop conf state (clock-1)`
+(* (* The main gc loop *) *)
+(* val gc_move_loop_def = Define ` *)
+(*   gc_move_loop conf state (clock : num) = *)
+(*     if clock = 0 then state with <| ok := F |> else *)
+(*       case (state.h2,state.r4) of *)
+(*       | ([],[]) => state *)
+(*       | (h2,[]) => *)
+(*         let state = gc_move_data conf state in *)
+(*           gc_move_loop conf state (clock-1) *)
+(*       | (h2,r4) => *)
+(*         let state = gc_move_refs conf (state with <| r2 := r4; r4 := [] |>) in *)
+(*           gc_move_loop conf state (clock-1)` *)
 
 val partial_gc_def = Define `
   partial_gc conf (roots,heap) =

@@ -136,7 +136,6 @@ val gc_move_refs_def = tDefine "gc_move_refs" `
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ decide_tac);
 
-
 (* The main gc loop *)
 (* Runs a clock to simplify the termination argument *)
 val gc_move_loop_def = Define `
