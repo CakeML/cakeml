@@ -1,3 +1,20 @@
 INCLUDES = ../../..
 
 OPTIONS = QUIT_ON_FAILURE
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+
+.PHONY: all
+
+# ifdef POLY
+# HOLHEAP = heap
+# EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+# all: $(HOLHEAP)
+
+# BARE_THYS = wordsTheory
+# DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+# $(HOLHEAP): $(DEPS)
+# 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+# endif
