@@ -61,27 +61,23 @@ val el_length_GT_0 = store_thm("el_length_GT_0",
 val heap_length_def = Define `
   heap_length heap = SUM (MAP el_length heap)`;
 
+val heap_length_NIL = store_thm("heap_length_NIL[simp]",
+  ``heap_length [] = 0``,
+  fs [heap_length_def]);
+
+val heap_length_GTE = store_thm("heap_length_GTE",
+  ``!heap. 0 <= heap_length heap``,
+  fs [heap_length_def])
+
+val heap_length_APPEND = store_thm("heap_length_APPEND",
+  ``heap_length (xs ++ ys) = heap_length xs + heap_length ys``,
+  SRW_TAC [] [heap_length_def,SUM_APPEND]);
+
 val heap_lookup_def = Define `
   (heap_lookup a [] = NONE) /\
   (heap_lookup a (x::xs) =
      if a = 0 then SOME x else
      if a < el_length x then NONE else heap_lookup (a - el_length x) xs)`;
-
-val heap_take_def = Define `
-  (heap_take a [] = NONE) /\
-  (heap_take a (el::heap) =
-    if a = 0 then SOME [] else
-    if a < el_length el then NONE else
-    case heap_take (a - el_length el) heap of
-    | NONE => NONE
-    | SOME h => SOME (el::h))`;
-
-val heap_drop_def = Define `
-  (heap_drop a [] = if a = 0 then [] else ARB) /\
-  (heap_drop a (x::xs) =
-    if a = 0 then x::xs else
-    if a < el_length x then ARB else
-    heap_drop (a - el_length x) xs)`;
 
 val heap_split_def = Define `
   (heap_split a [] = NONE) /\
@@ -93,20 +89,41 @@ val heap_split_def = Define `
     | SOME (h1,h2) =>
       SOME (el::h1,h2))`;
 
+val heap_drop_def = Define `
+  heap_drop n (heap:('a,'b) heap_element list) =
+    case heap_split n heap of
+    | NONE => ARB
+    | SOME (h1,h2) => h2`
+
+val heap_take_def = Define `
+  heap_take n (heap:('a,'b) heap_element list) =
+    case heap_split n heap of
+    | NONE => ARB
+    | SOME (h1,h2) => h1`
+
 val heap_split_heap_length = store_thm("heap_split_heap_length",
-  ``!heap a h1 h2.
-      (heap_split a heap = SOME (h1,h2)) ==>
-      (h1 ++ h2 = heap) /\
-      (heap_length h1 = a)``,
+  ``!heap h1 h2 a.
+    (heap_split a heap = SOME (h1,h2))
+    ==>
+    (heap_length h1 = a) /\
+    (heap_length h2 = heap_length heap - a) /\
+    (h1 ++ h2 = heap)``,
   Induct
   \\ fs [heap_split_def]
-  \\ rw []
-  >- fs [heap_length_def]
-  \\ Cases_on `heap_split (a − el_length h) heap` \\ fs []
-  \\ Cases_on `x`
-  \\ qpat_x_assum `!a h1 h2. _` drule
+  \\ rpt gen_tac
+  \\ IF_CASES_TAC
+  >- (strip_tac
+     \\ fs []
+     \\ rveq
+     \\ fs [heap_length_def,el_length_def])
+  \\ IF_CASES_TAC
   \\ fs []
-  \\ qpat_x_assum `_ = h1` (assume_tac o GSYM) \\ fs []
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ strip_tac
+  \\ rveq \\ fs []
+  \\ first_x_assum drule
+  \\ fs []
   \\ strip_tac
   \\ fs [heap_length_def]);
 
@@ -119,28 +136,48 @@ val heap_segment_def = Define `
       | NONE => NONE
       | SOME (h2,h3) => SOME (h1,h2,h3)`;
 
-val heap_segment_heap_length = store_thm("heap_segment_heap_length",
+val heap_segment_IMP = store_thm("heap_segment_IMP",
   ``!heap a b h1 h2 h3.
-      (heap_segment (a,b) heap = SOME (h1,h2,h3)) ==>
-      (h1 ++ h2 ++ h3 = heap) /\
-      (heap_length h1 = a) /\
-      (heap_length h2 = (b - a)) /\
-      (heap_length h3 = (heap_length heap - b))``,
-  cheat);
-
-val heap_segment_heap_split = store_thm("heap_segment_heap_split",
-  ``!h1 h2 h3 a b heap.
-    (heap_segment (a,b) heap = SOME (h1,h2,h3)) ==>
-    (heap_split b heap = SOME (h1++h2, h3))``,
-  rpt strip_tac
+    (heap_segment (a,b) heap = SOME (h1,h2,h3)) /\
+    a <= b ==>
+    (h1 ++ h2 ++ h3 = heap) /\
+    (heap_length h1 = a) /\
+    (heap_length h2 = (b - a)) /\
+    (heap_length h3 = (heap_length heap - b))``,
+  rpt gen_tac
   \\ fs [heap_segment_def]
-  \\ cheat);
+  \\ Cases_on `heap_split a heap` \\ fs []
+  \\ Cases_on `x` \\ fs []
+  \\ Cases_on `heap_split (b − heap_length q) r` \\ fs []
+  \\ Cases_on `x` \\ fs []
+  \\ strip_tac
+  \\ rveq \\ fs []
+  \\ drule heap_split_heap_length
+  \\ qpat_x_assum `heap_split _ _ = _` kall_tac
+  \\ drule heap_split_heap_length
+  \\ fs []
+  \\ strip_tac \\ strip_tac
+  \\ fs []
+  \\ rveq
+  \\ fs []);
+
+val heap_restrict_def = Define `
+  heap_restrict start end (heap:('a,'b) heap_element list) =
+     case heap_segment (start,end) heap of
+     | NONE => ARB
+     | SOME (h1,h2,h3) => h2`;
 
 val isDataElement_def = Define `
   isDataElement x = ?ys l d. x = DataElement ys l d`;
 
 val isSomeDataElement_def = Define `
   isSomeDataElement x = ?ys l d. x = SOME (DataElement ys l d)`;
+
+val isSomeForwardPointer_def = Define `
+  isSomeForwardPointer x = ?ptr d l. x = SOME (ForwardPointer ptr d l)`;
+
+val isSomeDataOrForward_def = Define `
+  isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x`;
 
 val roots_ok_def = Define `
   roots_ok roots heap =
@@ -228,12 +265,6 @@ val ADDR_MAP_APPEND = store_thm("ADDR_MAP_APPEND",
 val ADDR_APPLY_def = Define `
   (ADDR_APPLY f (Pointer x d) = Pointer (f x) d) /\
   (ADDR_APPLY f (Data y) = Data y)`;
-
-val isSomeForwardPointer_def = Define `
-  isSomeForwardPointer x = ?ptr d l. x = SOME (ForwardPointer ptr d l)`;
-
-val isSomeDataOrForward_def = Define `
-  isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x`;
 
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
