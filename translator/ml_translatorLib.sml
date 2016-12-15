@@ -1645,14 +1645,21 @@ fun prove_EvalPatBind goal hol2deep = let
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
   val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs'
-  val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
+  val new_goal = goal |> subst [mk_var("e",astSyntax.exp_ty)|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
   fun tac (asms,goal) = let
     fun is_TYPE tm = let
       val (args,ret) = strip_fun(type_of tm)
     in not(null args) andalso ret = ``:bool`` andalso last args = ``:v`` end
+    fun types tm = let
+      val (rator,rands) = strip_comb tm
+    in
+      if is_TYPE rator then
+          rator :: List.concat(map types rands)
+      else []
+    end
     val relevant_asms = List.filter (is_TYPE o fst o strip_comb) asms
-    val consts = map (fn asm => asm |> strip_comb |> fst |> dest_thy_const) relevant_asms
+    val consts = map types relevant_asms |> List.concat |> filter is_const |> map dest_thy_const
     val thms = map (fn {Name,Thy,Ty} => [fetch Thy (Name^"_def")] handle _ => []) consts |> List.concat
   in
     REPEAT (POP_ASSUM MP_TAC)
