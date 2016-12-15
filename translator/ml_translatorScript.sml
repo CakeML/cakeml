@@ -94,6 +94,8 @@ val PRECONDITION_def = Define `PRECONDITION b = (b:bool)`;
 val PreImp_def = Define `
   PreImp b1 b2 = (PRECONDITION b1 ==> b2)`;
 
+val PreImpEval_def = Define`
+  PreImpEval b env code P = PreImp b (Eval env code P)`;
 
 (* Theorems *)
 
@@ -1685,6 +1687,30 @@ val Eval_Var = Q.store_thm("Eval_Var",
   rw[Eval_def,evaluate_Var,EQ_IMP_THM]
   >- METIS_TAC[]
   \\ rw[state_component_equality]);
+
+(*
+val LookupEval_def = Define`
+  LookupEval name v P =
+    !env. lookup_var_id name env = SOME v ==>
+          Eval env (Var name) P`;
+    LOOKUP_VAR_def
+    lookup_var_def
+    type_of``semanticPrimitives$lookup``
+    f"lookup_alist"
+*)
+
+val Eval_Fun_Var_intro = Q.store_thm("Eval_Fun_Var_intro",
+  `Eval cl_env (Fun n exp) P ==>
+   ∀name. LOOKUP_VAR name env (Closure cl_env n exp) ==>
+   Eval env (Var (Short name)) P`,
+  rw[Eval_Fun_rw,Eval_Var,LOOKUP_VAR_def]);
+
+val Eval_Var_LOOKUP_VAR_elim = Q.store_thm("Eval_Var_LOOKUP_VAR_elim",
+  `(!env. LOOKUP_VAR name env v ==> Eval env (Var (Short name)) P) ==> P v`,
+  rw[Eval_Var,LOOKUP_VAR_def]
+  \\ first_x_assum match_mp_tac
+  \\ qexists_tac`<| v := [(name,v)] |>`
+  \\ EVAL_TAC);
 
 val lookup_var_eq_lookup_var_id = Q.store_thm("lookup_var_eq_lookup_var_id",
   `lookup_var n = lookup_var_id (Short n)`,

@@ -6,6 +6,7 @@ sig
     (* main functionality *)
 
     val translate  : thm -> thm    (* e.g. try translate listTheory.MAP *)
+    val abs_translate : thm -> thm
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
 
