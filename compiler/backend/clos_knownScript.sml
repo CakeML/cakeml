@@ -4,7 +4,7 @@ val _ = new_theory "clos_known";
 
 val _ = set_grammar_ancestry ["closLang", "sptree", "misc"]
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();                             
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* -----------------------------------------------------------------
 
