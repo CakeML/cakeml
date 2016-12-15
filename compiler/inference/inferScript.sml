@@ -4,9 +4,10 @@ open stringTheory ;
 
 val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val (inf_type_to_string_def,inf_type_to_string_ind) = Defn.tprove_no_defn((inf_type_to_string_def,inf_type_to_string_ind),
-(WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`));
+(WF_REL_TAC `measure (\x. dtcase x of INL x => infer_t_size x | INR x => infer_t1_size x)`));
 val _ = save_thm("inf_type_to_string_def",inf_type_to_string_def);
 val _ = save_thm("inf_type_to_string_ind",inf_type_to_string_ind);
 val _ = computeLib.add_persistent_funs ["inf_type_to_string_def"];
@@ -27,7 +28,7 @@ val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 val st_ex_bind_def = Define `
 (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
   λs.
-    case x s of
+    dtcase x s of
       (Success y,s) => f y s
     | (Failure e,s) => (Failure e,s)`;
 
@@ -68,7 +69,7 @@ val lookup_st_ex_def = Define `
 
 val flookup_st_ex = Define `
 flookup_st_ex pr x m =
-  case FLOOKUP m x of
+  dtcase FLOOKUP m x of
      | NONE => failwith ("failed lookup: " ++ pr x)
      | SOME v => return v`;
 
@@ -101,7 +102,7 @@ init_state =
 val add_constraint_def = Define `
 add_constraint t1 t2 =
   \st.
-    case t_unify st.subst t1 t2 of
+    dtcase t_unify st.subst t1 t2 of
       | NONE =>
           (Failure "Type mismatch", st)
       | SOME s =>
@@ -154,7 +155,7 @@ val generalise_def = Define `
   let (num_gen, s', ts') = generalise_list m n s ts in
     (num_gen, s', Infer_Tapp ts' tc)) ∧
 (generalise m n s (Infer_Tuvar uv) =
-  case FLOOKUP s uv of
+  dtcase FLOOKUP s uv of
     | SOME n => (0, s, Infer_Tvar_db n)
     | NONE =>
         if m ≤ uv then
@@ -172,7 +173,7 @@ val generalise_def = Define `
 
 val infer_type_subst_def = tDefine "infer_type_subst" `
 (infer_type_subst s (Tvar tv) =
-  case ALOOKUP s tv of
+  dtcase ALOOKUP s tv of
    | SOME t => t
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
@@ -228,7 +229,7 @@ val infer_p_def = tDefine "infer_p" `
 (infer_p type_env (Plit (Word64 w)) =
   return (Infer_Tapp [] TC_word64, [])) ∧
 (infer_p type_env (Pcon cn_opt ps) =
-  case cn_opt of
+  dtcase cn_opt of
     | NONE =>
         do (ts,tenv) <- infer_ps type_env ps;
            return (Infer_Tapp ts TC_tup, tenv)
@@ -257,15 +258,15 @@ val infer_p_def = tDefine "infer_p" `
      (ts, tenv') <- infer_ps type_env ps;
      return (t::ts, tenv'++tenv)
   od)`
-(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p
+(WF_REL_TAC `measure (\x. dtcase x of INL (_,p) => pat_size p
                                   | INR (_,ps) => pat1_size ps)` >>
  rw []);
 
 val infer_p_ind = fetch "-" "infer_p_ind"
 
-val constrain_op_def = Define `
+val constrain_op_quotation = `
 constrain_op op ts =
-  case (op,ts) of
+  dtcase (op,ts) of
    | (Opn opn, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_int);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
@@ -400,6 +401,18 @@ constrain_op op ts =
        od
    | _ => failwith "Wrong number of arguments to primitive"`;
 
+val constrain_op_def = Define constrain_op_quotation
+
+val constrain_op_pmatch = Q.prove(`∀op ts.` @
+  (constrain_op_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+      rpt strip_tac
+      >> PURE_ONCE_REWRITE_TAC [constrain_op_def]
+      >> REPEAT CASE_TAC
+      >> CONV_TAC(RAND_CONV (patternMatchesLib.PMATCH_SIMP_CONV))
+      >> REFL_TAC)
+
 val infer_e_def = tDefine "infer_e" `
 (infer_e ienv (Raise e) =
   do t2 <- infer_e ienv e;
@@ -437,7 +450,7 @@ val infer_e_def = tDefine "infer_e" `
      return (infer_deBruijn_subst uvs t)
   od) ∧
 (infer_e ienv (Con cn_opt es) =
-  case cn_opt of
+  dtcase cn_opt of
       NONE =>
        do ts <- infer_es ienv es;
           return (Infer_Tapp ts TC_tup)
@@ -554,7 +567,7 @@ val infer_e_def = tDefine "infer_e" `
      ts <- infer_funs ienv funs;
      return (Infer_Tapp [uvar;t] TC_fn::ts)
   od)`
-(WF_REL_TAC `measure (\x. case x of | INL (_,e) => exp_size e
+(WF_REL_TAC `measure (\x. dtcase x of | INL (_,e) => exp_size e
                                     | INR (INL (_,es)) => exp6_size es
                                     | INR (INR (INL (_,pes,_,_))) => exp3_size pes
                                     | INR (INR (INR (_,funs))) => exp1_size funs)` >>
@@ -684,7 +697,7 @@ val check_specs_def = Define `
 val check_flat_weakC_def = Define `
 (check_flat_weakC cenv_impl cenv_spec =
   EVERY (\(cn, (tvs_spec, ts_spec, tn_spec)).
-            case ALOOKUP cenv_impl cn of
+            dtcase ALOOKUP cenv_impl cn of
               | NONE => F
               | SOME (tvs_impl,ts_impl,tn_impl) =>
                   (tn_spec = tn_impl) ∧
@@ -695,7 +708,7 @@ val check_flat_weakC_def = Define `
 val check_flat_weakT_def = Define `
 (check_flat_weakT mn tenvT_impl tenvT_spec =
   FEVERY (\(tn, (tvs_spec, t_spec)).
-            case FLOOKUP tenvT_impl tn of
+            dtcase FLOOKUP tenvT_impl tn of
               | NONE => F
               | SOME (tvs_impl,t_impl) =>
                   (tvs_spec = tvs_impl) ∧
@@ -706,7 +719,7 @@ val check_flat_weakT_def = Define `
 val check_weakE_def = Define `
 (check_weakE env_impl [] = return ()) ∧
 (check_weakE env_impl ((n, (tvs_spec, t_spec)) :: env_spec) =
-  case ALOOKUP env_impl n of
+  dtcase ALOOKUP env_impl n of
     | NONE => failwith "Signature mismatch"
     | SOME (tvs_impl,t_impl) =>
         do () <- init_state;
@@ -786,7 +799,7 @@ val init_config_def = Define`
 
 val infertype_prog_def = Define`
   infertype_prog c prog =
-    case FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
+    dtcase FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
     | Success (new_decls, new_t, new_m, new_c, new_v) =>
         SOME ( <| inf_decls := append_decls new_decls c.inf_decls
                 ; inf_env :=
@@ -833,7 +846,7 @@ val infer_subst_def = tDefine "infer_subst" `
 (infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
 (infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
 (infer_subst s (Infer_Tuvar n) =
-  case FLOOKUP s n of
+  dtcase FLOOKUP s n of
       NONE => Infer_Tuvar n
     | SOME m => Infer_Tvar_db m)`
 (wf_rel_tac `measure (infer_t_size o SND)` >>
