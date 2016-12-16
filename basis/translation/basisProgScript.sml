@@ -184,7 +184,6 @@ val w8array_update_spec = Q.store_thm ("w8array_update_spec",
   prove_array_spec "Word8Array.update");
 
 
-
 (* Array module -- CF verified *)
 
 val _ = ml_prog_update (open_module "Array");
@@ -198,9 +197,7 @@ val _ = append_decs
        (Fun "x" (Fun "y" (Fun "z"
          (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``
 
-    
 val _ = ml_prog_update (close_module NONE);
-
 
 val array_alloc_spec = Q.store_thm ("array_alloc_spec",
   `!n nv v.
@@ -231,7 +228,6 @@ val array_update_spec = Q.store_thm ("array_update_spec",
        (ARRAY av a)
        (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))`,
   prove_array_spec "Array.update");
-
 
 
 (* Char module -- translated *)
