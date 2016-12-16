@@ -94,7 +94,7 @@ val get_var_imm_case = Q.prove(
   Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]);
 
 val prog_comp_lemma = Q.prove(
-  `prog_comp = \(n,p). (n,FST (comp n (next_lab p) p))`,
+  `prog_comp = \(n,p). (n,FST (comp n (next_lab p 1) p))`,
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
 val lookup_IMP_lookup_compile = Q.prove(
@@ -2334,20 +2334,61 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
   \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
+val next_lab_EQ_MAX = store_thm("next_lab_EQ_MAX",
+  ``!q (n:num) aux. next_lab q aux = MAX aux (next_lab q 0)``,
+  ho_match_mp_tac next_lab_ind>>Cases_on`q`>>rw[]>>
+  once_rewrite_tac [next_lab_def]>>
+  simp_tac (srw_ss()) [] >>
+  every_case_tac >>
+  simp_tac (srw_ss()) [] >>
+  rpt (qpat_x_assum `!x. _` (mp_tac o SIMP_RULE std_ss [])) >>
+  rpt strip_tac >>
+  rpt (pop_assum (fn th => once_rewrite_tac [th])) >>
+  fs [AC MAX_ASSOC MAX_COMM]) |> SIMP_RULE std_ss [];
+
+val MAX_SIMP = prove(
+  ``MAX n (MAX n m) = MAX n m``,
+  fs [MAX_DEF]);
+
+val next_lab_thm = store_thm("next_lab_thm",
+  ``!p.
+      next_lab (p:'a stackLang$prog) 1 =
+      case p of
+      | Seq p1 p2 => MAX (next_lab p1 1) (next_lab p2 1)
+      | If _ _ _ p1 p2 => MAX (next_lab p1 1) (next_lab p2 1)
+      | While _ _ _ p => next_lab p 1
+      | Call NONE _ NONE => 1
+      | Call NONE _ (SOME (_,_,l2)) => l2 + 1
+      | Call (SOME (p,_,_,l2)) _ NONE => MAX (next_lab p 1) (l2 + 1)
+      | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
+           MAX (MAX (next_lab p 1) (next_lab p' 1)) (MAX l2 l3 + 1)
+      | _ => 1``,
+  Induct \\ simp [Once next_lab_def] \\ fs []
+  \\ once_rewrite_tac [next_lab_EQ_MAX]
+  \\ once_rewrite_tac [next_lab_EQ_MAX]
+  \\ once_rewrite_tac [next_lab_EQ_MAX]
+  \\ fs [AC MAX_ASSOC MAX_COMM,MAX_SIMP]
+  \\ every_case_tac \\ fs []
+  \\ once_rewrite_tac [next_lab_EQ_MAX]
+  \\ once_rewrite_tac [next_lab_EQ_MAX]
+  \\ once_rewrite_tac [next_lab_EQ_MAX]
+  \\ fs [AC MAX_ASSOC MAX_COMM,MAX_SIMP]
+  \\ fs [MAX_DEF]);
+
 val extract_labels_next_lab = Q.store_thm("extract_labels_next_lab",`
-  ∀p e.
-  MEM e (extract_labels p) ⇒
-  SND e < next_lab p`,
+  ∀p (aux:num) e.
+    MEM e (extract_labels p) ⇒
+    SND e < next_lab p 1`,
   ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
-  once_rewrite_tac [next_lab_def]>>fs[extract_labels_def]>>
+  once_rewrite_tac [next_lab_thm]>>fs[extract_labels_def]>>
   fs[extract_labels_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[MAX_DEF]);
+  BasicProvers.EVERY_CASE_TAC>>fs []>>fs[MAX_DEF])
 
 val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
-  ∀n nl p.
+  ∀n nl p aux.
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
-  next_lab p ≤ nl ⇒
+  next_lab p 1 ≤ nl ⇒
   let (cp,nl') = comp n nl p in
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels cp) ∧
   ALL_DISTINCT (extract_labels cp) ∧
@@ -2359,14 +2400,14 @@ val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
     (BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
     rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
     qpat_x_assum`A<=nl` mp_tac>>
-    simp[Once next_lab_def]>>
+    simp[Once next_lab_thm]>>
     strip_tac>>
     fs[ALL_DISTINCT_APPEND]
     >-
       (CCONTR_TAC>>fs[]>>
       res_tac>>fs[])
     >>
-      `next_lab q ≤ m'` by fs[]>>
+      `next_lab q 1 ≤ m'` by fs[]>>
       fs[]>>rfs[]>>
       `r < nl ∧ r' < nl` by
         fs[MAX_DEF]>>
@@ -2380,7 +2421,7 @@ val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
   TRY
   (rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
   qpat_x_assum`A<=nl` mp_tac>>
-  simp[Once next_lab_def])>>
+  simp[Once next_lab_thm])>>
   (strip_tac>>
   fs[ALL_DISTINCT_APPEND]>>rw[]
   >-
@@ -2433,7 +2474,7 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   rw[]>>res_tac>>
   drule sa_comp_stack_asm_name>>fs[]>>
-  disch_then(qspecl_then[`p_1`,`next_lab p_2`] assume_tac)>>
+  disch_then(qspecl_then[`p_1`,`next_lab p_2 1`] assume_tac)>>
   pairarg_tac>>fs[])
 
 val _ = export_theory();
