@@ -1683,8 +1683,8 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
              lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
-    \\ fsrw_tac[][GSYM FORALL_PROD]
-    \\ EVAL_TAC)
+    \\ fsrw_tac[][GSYM FORALL_PROD,lookup_var_id_def,lookup_cons_def]
+    \\ EVAL_TAC \\ metis_tac [])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");

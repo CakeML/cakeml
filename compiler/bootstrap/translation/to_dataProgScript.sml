@@ -357,9 +357,13 @@ val clos_known_merge_side = Q.prove(`
 
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
+  rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
-  rw[clos_known_merge_side]>>
-  intLib.COOPER_TAC)
+  fs[clos_known_merge_side]>-
+  metis_tac[option_nchotomy]>-
+  (rpt strip_tac >-
+  metis_tac[option_nchotomy] >-
+  intLib.COOPER_TAC))
 
 val clos_known_known_side = Q.prove(`
   ∀a b c. clos_known_known_side a b c ⇔ T`,
