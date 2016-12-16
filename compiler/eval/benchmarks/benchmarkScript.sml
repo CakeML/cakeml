@@ -1008,9 +1008,11 @@ val names = ["qsortimp","nqueens","hello","foldl","reverse","fib","btree","queue
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
+val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+                                                                        
 fun write_asm [] = ()
-  | write_asm ((name,(bytes,ffi_count))::xs) =
-    (write_cake_S 1000 1000 (numSyntax.int_of_term ffi_count)
+  | write_asm ((name,(bytes,ffi_names))::xs) =
+    (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
        bytes ("cakeml/" ^ name ^ ".S") ;
     write_asm xs)
 

@@ -4,9 +4,13 @@ open HolKernel Parse boolLib bossLib
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
 val _ = new_theory "cmlPEG"
+val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
 
 val _ = new_storage_attribute "cakeml/parsing"
 val _ = monadsyntax.temp_add_monadsyntax()
+
+val _ = overload_on ("monad_bind", “OPTION_BIND”)
+val _ = overload_on ("assert", “OPTION_GUARD”)
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``

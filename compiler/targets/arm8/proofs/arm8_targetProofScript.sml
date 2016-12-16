@@ -431,6 +431,14 @@ val mul_long = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val ConditionTest_not_overflow =
+  arm8_stepTheory.ConditionTest
+  |> CONJUNCTS
+  |> (fn l => List.nth (l, 7))
+  |> Q.INST [`c` |-> `FST (SND (add_with_carry (a, b, F)))`,
+             `v` |-> `SND (SND (add_with_carry (a, b, F)))`]
+  |> REWRITE_RULE [pairTheory.PAIR]
+
 (* some rewrites ----------------------------------------------------------- *)
 
 val arm8_enc = REWRITE_RULE [bop_enc_def, astTheory.shift_distinct] arm8_enc_def
@@ -556,7 +564,7 @@ fun next_state_tac0 imp_res pick fltr q =
            lem26, comm lem21, comm lem22, lem29, combinTheory.UPDATE_APPLY,
            ShiftValue0, alignmentTheory.aligned_numeric,
            arm8_stepTheory.ConditionTest, wordsTheory.ADD_WITH_CARRY_SUB,
-           wordsTheory.WORD_NOT_LOWER_EQUAL]
+           ConditionTest_not_overflow, wordsTheory.WORD_NOT_LOWER_EQUAL]
 
 val next_state_tac01 = next_state_tac0 true List.last filter_reg_31 `ms`
 
@@ -743,14 +751,18 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             print_tac "Binop"
             \\ next_tac `0`
             \\ Cases_on `r`
-            \\ Cases_on `b`
+            >| [Cases_on `b`,
+                Cases_on `(b = Xor) /\ (c = -1w)`
+                >| [all_tac,
+                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+                   ]
+               ]
             \\ enc_rwts_tac
             \\ fs []
             \\ imp_res_tac Decode_EncodeBitMask
             \\ fs []
             \\ next_state_tac01
             \\ state_tac []
-            \\ blastLib.FULL_BBLAST_TAC
             )
          >- (
             (*--------------
@@ -800,10 +812,11 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             print_tac "LongDiv"
             \\ enc_rwts_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ next_tac `4`
             \\ enc_rwts_tac
             \\ asmLib.split_bytes_in_memory_tac 4
@@ -820,6 +833,33 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             \\ rw [wordsTheory.add_with_carry_def]
             \\ Cases_on `ms.REG (n2w i) = 0w`
             \\ full_simp_tac arith_ss []
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ next_tac `1`
+            \\ enc_rwts_tac
+            \\ asmLib.split_bytes_in_memory_tac 4
+            \\ next_state_tac01
+            \\ next_state_tacN (`4w`, 0) filter_reg_31
+            \\ state_tac [integer_wordTheory.overflow_add]
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ next_tac `1`
+            \\ enc_rwts_tac
+            \\ asmLib.split_bytes_in_memory_tac 4
+            \\ next_state_tac01
+            \\ next_state_tacN (`4w`, 0) filter_reg_31
+            \\ state_tac
+                 [SIMP_RULE (srw_ss()) [] integer_wordTheory.sub_overflow]
+            \\ fs []
+            )
          )
          (*--------------
              Mem

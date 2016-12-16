@@ -73,7 +73,7 @@ type op =
   | Alength
   | Aupdate
   (* Call a given foreign function *)
-  | FFI of nat
+  | FFI of string
 
 (* Logical operations *)
 type lop =

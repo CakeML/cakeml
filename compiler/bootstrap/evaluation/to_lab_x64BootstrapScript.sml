@@ -30,14 +30,6 @@ val pad_code_MAP = Q.store_thm("pad_code_MAP",
   \\ simp[lab_to_targetTheory.pad_code_def]
   \\ Cases \\ simp[lab_to_targetTheory.pad_code_def]);
 
-(*
-val find_ffi_index_def = Define`
-  find_ffi_index x =
-  ^(lab_to_targetTheory.find_ffi_index_limit_def
-    |> CONJUNCTS |> el 3 |> SPEC_ALL
-    |> concl |> rhs |> rand)`;
-*)
-
 (* -- *)
 
 val _ = Globals.max_print_depth := 10;

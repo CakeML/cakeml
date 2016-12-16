@@ -98,6 +98,22 @@ val mul_long = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val riscv_overflow =
+  REWRITE_RULE
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x = word_msb y) /\ (word_msb x <> word_msb (x + y))) =
+         ((~(x ?? y) && (y ?? (x + y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.overflow)
+
+val riscv_sub_overflow =
+  SIMP_RULE (srw_ss())
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x <> word_msb y) /\ (word_msb x <> word_msb (x - y))) =
+         (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -240,7 +256,8 @@ in
            else
              srw_tac []
                 [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-                 GSYM wordsTheory.word_mul_def, mul_long, thm]
+                 GSYM wordsTheory.word_mul_def, mul_long, riscv_overflow,
+                 riscv_sub_overflow, thm]
              \\ (if asmLib.isMem asm then
                    full_simp_tac
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++
@@ -416,11 +433,27 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
             print_tac "LongDiv"
             \\ next_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ next_tac
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ next_tac
+            )
          )
          (*--------------
              Mem

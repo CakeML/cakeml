@@ -1,17 +1,24 @@
 structure ioProgLib =
 struct
 
+local
+
+open preamble;
+open ioProgTheory ml_translatorLib ml_progLib;
+open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
+open semanticsLib;
+
+val state_accessors = fetch "semanticPrimitives" "state_accessors"
+
+in
+
 fun append_main_call compile_str compile_tm = let
 
 (*
 val compile_str  = "compile"
 val compile_tm = ``compile``
 *)
-
-  open preamble;
-  open ioProgTheory ml_translatorLib ml_progLib;
-  open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
-
+  
   val compile = compile_tm
 
   val main = parse_topdecs
@@ -29,21 +36,21 @@ val compile_tm = ``compile``
     `!cv input output.
         app (p:'ffi ffi_proj) ^(fetch_v "main" (basis_st()))
           [cv]
-          (CHAR_IO * one FFI_split * STDIN input * STDOUT [] * frame)
-          (POSTv uv. CHAR_IO * one FFI_split * STDIN "" * STDOUT (^compile input) * frame)`,
+          (one FFI_split * STDIN input read_failed * STDOUT [] * frame)
+          (POSTv uv. one FFI_split * STDIN "" T * STDOUT (^compile input) * frame)`,
     xcf "main" (basis_st())
-    \\ xlet `POSTv v. CHAR_IO * one FFI_split * STDIN input * STDOUT [] * &(LIST_TYPE CHAR "" v) * frame`
+    \\ xlet `POSTv v. one FFI_split * STDIN input read_failed * STDOUT [] * &(LIST_TYPE CHAR "" v) * frame`
     THEN1 (xcon \\ fs [] \\ xsimpl \\ EVAL_TAC)
-    \\ xlet `POSTv x. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] * &(LIST_TYPE CHAR input x) * frame`
+    \\ xlet `POSTv x. one FFI_split * STDIN "" T * STDOUT [] * &(LIST_TYPE CHAR input x) * frame`
     THEN1
      (xapp \\ instantiate \\ xsimpl
       \\ qexists_tac `one FFI_split * STDOUT [] * frame`
-      \\ xsimpl \\ qexists_tac `input` \\ xsimpl)
-    \\ xlet `POSTv y. CHAR_IO * one FFI_split * STDIN "" * STDOUT [] *
+      \\ xsimpl \\ qexists_tac`read_failed` \\ qexists_tac `input` \\ xsimpl)
+    \\ xlet `POSTv y. one FFI_split * STDIN "" T * STDOUT [] *
                  &(LIST_TYPE WORD (^compile input) y) * frame`
     THEN1 (xapp \\ instantiate \\ xsimpl)
     \\ xapp \\ instantiate \\ fs []
-    \\ xsimpl \\ qexists_tac `one FFI_split * STDIN "" * frame`
+    \\ xsimpl \\ qexists_tac `one FFI_split * STDIN "" T * frame`
     \\ qexists_tac `[]` \\ xsimpl);
 
   (* prove final eval thm *)
@@ -94,8 +101,11 @@ val compile_tm = ``compile``
 
   (* next we instantiate the ffi and projection to remove the separation logic *)
 
+  val init_state_eq = EVAL ``(init_state (io_ffi input))``
+
   val evaluate_prog = let
     val th = raw_evaluate_prog |> Q.GEN `ffi` |> ISPEC ``io_ffi input``
+               |> Q.GEN`read_failed` |> SPEC ``F``
                |> Q.INST [`p`|->`(io_proj1,io_proj2)`]
                |> REWRITE_RULE [cfStoreTheory.st2heap_def]
                |> SIMP_RULE std_ss [Once cfStoreTheory.ffi2heap_def]
@@ -108,15 +118,18 @@ val compile_tm = ``compile``
     val goal = th |> concl |> dest_imp |> fst
     val lemma = prove(goal,
      fs [cfStoreTheory.st2heap_def,parts_ok_io_ffi]
-     \\ fs [CHAR_IO_def,STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
+     \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
             set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
-            EVAL ``write_loc``,cfHeapsBaseTheory.W8ARRAY_def,
+            EVAL ``read_state_loc``,
+            EVAL ``write_state_loc``,
+            cfHeapsBaseTheory.W8ARRAY_def,
             cfHeapsBaseTheory.cell_def]
      \\ rewrite_tac [GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.cond_STAR]
-     \\ fs [set_sepTheory.one_STAR]
+     \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
      \\ simp [set_sepTheory.one_def]
      \\ TRY(qexists_tac`0w`) \\ fs[cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
      \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
+     \\ TRY (EVAL_TAC \\ qexists_tac`0w` \\ rw[] \\ NO_TAC)
      \\ fs [EXTENSION] \\ rpt strip_tac \\ EQ_TAC \\ rw [] \\ rw []
      \\ TRY (EVAL_TAC \\ NO_TAC)
      \\ fs [io_proj2_def] \\ rw [] \\ fs []
@@ -131,15 +144,17 @@ val compile_tm = ``compile``
     val goal = mk_imp(lhs,rhs)
     val lemma = prove(goal,
       strip_tac
-      \\ rename1 `(CHAR_IO * one FFI_split * STDIN _ * STDOUT _ * _) h_f`
-      \\ `(STDIN [] * one FFI_split * STDOUT (^compile input) * CHAR_IO * K T) h_f` by
+      \\ rename1 `(one FFI_split * STDIN _ _ * STDOUT _ * _) h_f`
+      \\ `(STDIN [] T * one FFI_split * STDOUT (^compile input) * K T) h_f` by
              (fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] \\ NO_TAC)
-      \\ fs [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
-             set_sepTheory.SEP_EXISTS_THM,set_sepTheory.SEP_CLAUSES,
-             GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
-      \\ `FFI_part (Str []) stdin_fun [1; 2] events'' IN
+      \\ fs[STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,
+            set_sepTheory.SEP_EXISTS_THM,set_sepTheory.SEP_CLAUSES]
+      \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
+      \\ fs[Once set_sepTheory.STAR_COMM]
+      \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
+      \\ `FFI_part (Str []) stdin_fun ["getChar"] events'' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi) /\
-          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun [0] events''' IN
+          FFI_part (Str (MAP (CHR o w2n) (^compile input))) stdout_fun ["putChar"] events''' IN
             (store2heap st'.refs ∪ ffi2heap (io_proj1,io_proj2) st'.ffi)` by
              cfHeapsBaseLib.SPLIT_TAC
       \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap]
@@ -157,7 +172,8 @@ val compile_tm = ``compile``
             |> Q.INST [`ys`|->`[]`]
             |> SIMP_RULE std_ss[APPEND] |> GEN_ALL)
       \\ asm_exists_tac \\ fs []
-      \\ fs [EVAL ``(init_state (io_ffi input))``] \\ EVAL_TAC)
+      \\ fs [init_state_eq] \\ EVAL_TAC
+      \\ rw[])
     val th = ConseqConv.WEAKEN_CONSEQ_CONV_RULE
                (ConseqConv.CONSEQ_REWRITE_CONV ([],[],[GEN_ALL lemma])) (DISCH T th)
              |> REWRITE_RULE []
@@ -175,7 +191,9 @@ val compile_tm = ``compile``
     \\ `evaluate_whole_prog F init_env inp prog res`
     by (
       simp[bigStepTheory.evaluate_whole_prog_def,Abbr`res`]
-      \\ simp[Abbr`inp`,Abbr`prog`]
+      \\ simp[Abbr`inp`,Abbr`prog`,init_state_eq,state_accessors]
+      \\ PURE_REWRITE_TAC [definition "entire_program_def",SNOC]
+      \\ CONV_TAC(FORK_CONV(no_dup_mods_conv,no_dup_top_types_conv))
       \\ EVAL_TAC )
     \\ unabbrev_all_tac
     \\ drule evaluate_prog_rel_IMP_evaluate_prog_fun
@@ -187,5 +205,5 @@ val compile_tm = ``compile``
     \\ fs[] \\ rpt (CASE_TAC \\ fs[]));
 
   in semantics_prog_entire_program end;
-
+end;
 end

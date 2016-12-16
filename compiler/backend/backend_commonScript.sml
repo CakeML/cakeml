@@ -22,6 +22,10 @@ val _ = Define `some_tag  = 0`;
 
 val _ = Define `tuple_tag = 0`;
 
+val _ = Define`closure_tag = 30:num`
+val _ = Define`partial_app_tag = 31:num`
+val _ = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
+
 val bool_to_tag_def = Define`
   bool_to_tag b = if b then true_tag else false_tag`
 
@@ -33,7 +37,7 @@ val word_num_stubs_def = Define`
   word_num_stubs = stack_num_stubs + 1 (* raise *)`;
 
 val data_num_stubs_def = Define`
-  data_num_stubs = word_num_stubs + 5`;
+  data_num_stubs = word_num_stubs + 15`;
 
 val bvl_num_stubs_def = Define`
   bvl_num_stubs = data_num_stubs + 4

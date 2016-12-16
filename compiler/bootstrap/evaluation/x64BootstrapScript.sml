@@ -84,16 +84,16 @@ val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
 
 (* could parallelise? *)
-val ffi_limit_thm =
-  ``find_ffi_index_limit skip_prog``
-  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC timez "ffi_limit" eval)
+val ffi_names_thm =
+  ``find_ffi_names skip_prog``
+  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC timez "ffi_names" eval)
 
 val lab_to_target_thm1 =
   lab_to_target_thm0
   |> CONV_RULE (RAND_CONV(
      REWR_CONV filter_skip_thm' THENC
      REWR_CONV lab_to_targetTheory.compile_lab_def THENC
-     RAND_CONV(REWR_CONV ffi_limit_thm) THENC
+     RAND_CONV(REWR_CONV ffi_names_thm) THENC
      REWR_CONV LET_THM THENC BETA_CONV))
 
 val tm10 = lab_to_target_thm1 |> rconc |> rator |> rator |> rand
@@ -263,19 +263,19 @@ fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
        (RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV dth))) THENC
         REWR_CONV esc THENC
         RAND_CONV(
-          PATH_CONV"llllr"(REWR_CONV computed_labs_def) THENC
+          PATH_CONV"lllllr"(REWR_CONV computed_labs_def) THENC
           eval_fn n))
       val def = mk_def("enc_again_"^Int.toString n)
                   (th1 |> rconc |> rand |> rator |> rand)
       val rec_conv = enc_secs_again_conv (n+1) dths
     in
-      th1 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
+      th1 |> CONV_RULE(RAND_CONV(RAND_CONV(
+        RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
         REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
         RAND_CONV(
           RAND_CONV (
-            RATOR_CONV(RAND_CONV(REWR_CONV def)) THENC
-            eval) THENC
+            RATOR_CONV(RAND_CONV(REWR_CONV def) THENC
+            eval)) THENC
           numLib.REDUCE_CONV) THENC
         REWR_CONV LET_THM THENC BETA_CONV THENC
         PATH_CONV"lrraar"(REWR_CONV T_AND) THENC
@@ -429,7 +429,7 @@ fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
       val th1 = tm |>
        (REWR_CONV esc THENC
         RAND_CONV(
-          PATH_CONV"llllr"(REWR_CONV computed_labs2_def) THENC
+          PATH_CONV"lllllr"(REWR_CONV computed_labs2_def) THENC
           PATH_CONV"lr"(REWR_CONV dth) THENC
           eval_fn n))
       val def = mk_def("enc_again2_"^Int.toString n)
@@ -729,7 +729,7 @@ val stack_mb = 1000
 val heap_mb = 1000
 val filename = "cake.S"
 
-val (bytes_tm,ffi_limit_tm) =
+val (bytes_tm,ffi_names_tm) =
   bootstrap_thm |> rconc
   |> optionSyntax.dest_some
   |> pairSyntax.dest_pair
@@ -738,7 +738,7 @@ val () = Lib.say"Writing output: "
 
 val () = time (
   x64_exportLib.write_cake_S stack_mb heap_mb
-    (numSyntax.int_of_term ffi_limit_tm)
+    (numSyntax.int_of_term ffi_names_tm)
     bytes_tm ) filename
 
 val _ = export_theory();

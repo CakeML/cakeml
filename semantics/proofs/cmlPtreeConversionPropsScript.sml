@@ -5,6 +5,7 @@ open cmlPtreeConversionTheory
 open gramPropsTheory
 
 val _ = new_theory "cmlPtreeConversionProps";
+val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
 
 val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
