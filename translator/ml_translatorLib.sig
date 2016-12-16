@@ -30,8 +30,10 @@ sig
 
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
+    val abs_register_type : hol_type -> unit
 
     val register_exn_type   : hol_type -> unit
+    val abs_register_exn_type : hol_type -> unit
     val full_name_of_type   : hol_type -> string
     val case_of             : hol_type -> thm
     val eq_lemmas           : unit -> thm list

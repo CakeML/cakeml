@@ -306,6 +306,7 @@ fun word_ty_ok ty =
   val other_types = ref ([]:(hol_type * term) list)
   val preprocessor_rws = ref ([]:thm list)
   val type_memory = ref ([]:(hol_type * thm * (term * thm) list * thm) list)
+  val deferred_dprogs = ref ([]:term list)
   val all_eq_lemmas = ref (CONJUNCTS EqualityType_NUM_BOOL)
 local
 in
@@ -314,6 +315,7 @@ in
      other_types := [];
      preprocessor_rws := [];
      type_memory := [];
+     deferred_dprogs := [];
      all_eq_lemmas := (CONJUNCTS EqualityType_NUM_BOOL))
   fun dest_fun_type ty = let
     val (name,args) = dest_type ty
@@ -399,6 +401,7 @@ in
     val ty = fst (dest_fun_type (type_of tm))
     val _ = add_new_type_mapping ty target_ty
     in new_type_inv ty tm end
+  fun add_deferred_dprog dprog = deferred_dprogs := dprog::(!deferred_dprogs)
   fun get_user_supplied_types () = map fst (!other_types)
   fun add_eq_lemma eq_lemma =
     if concl eq_lemma = T then () else
@@ -413,26 +416,29 @@ in
   fun get_preprocessor_rws () = (!preprocessor_rws)
   (* store/load to/from a single thm *)
   fun pack_types () =
-    pack_5tuple
+    pack_6tuple
       (pack_list (pack_pair pack_type pack_type))
       (pack_list (pack_pair pack_type pack_term))
       (pack_list pack_thm)
       (pack_list (pack_4tuple pack_type pack_thm (pack_list (pack_pair pack_term pack_thm)) pack_thm))
+      (pack_list pack_term)
       (pack_list pack_thm)
         ((!type_mappings), (!other_types), (!preprocessor_rws),
-         (!type_memory), (!all_eq_lemmas))
+         (!type_memory), (!deferred_dprogs), (!all_eq_lemmas))
   fun unpack_types th = let
-    val (t1,t2,t3,t4,t5) = unpack_5tuple
+    val (t1,t2,t3,t4,t5,t6) = unpack_6tuple
       (unpack_list (unpack_pair unpack_type unpack_type))
       (unpack_list (unpack_pair unpack_type unpack_term))
       (unpack_list unpack_thm)
       (unpack_list (unpack_4tuple unpack_type unpack_thm (unpack_list (unpack_pair unpack_term unpack_thm)) unpack_thm))
+      (unpack_list unpack_term)
       (unpack_list unpack_thm) th
     val _ = (type_mappings := t1)
     val _ = (other_types := t2)
     val _ = (preprocessor_rws := t3)
     val _ = (type_memory := t4)
-    val _ = (all_eq_lemmas := t5)
+    val _ = (deferred_dprogs := t5)
+    val _ = (all_eq_lemmas := t6)
     in () end
 end
 
@@ -1343,42 +1349,52 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
 (*
   val dexn = hd dexn_list
 *)
-  val _ = if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"]
-          then ()
-          else if not is_exn_type
-               then ml_prog_update (add_Dtype (rand dtype))
-               else let
-                 val exn_tops = map mk_Tdec dexn_list
-                 val exn_prog = listSyntax.mk_list(exn_tops,type_of (hd exn_tops))
-                 in ml_prog_update (add_prog exn_prog I) end
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
-  in (rws1,rws2,res) end;
+  val dprog =
+    let
+      val tops = map mk_Tdec
+        (if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"] then []
+         else if is_exn_type then dexn_list
+         else [dtype])
+    in
+      listSyntax.mk_list(tops,top_ty)
+    end
+
+  in (rws1,rws2,res,dprog) end;
 
 local
   val translator = ref (fn th => I (th:thm))
   fun do_translate th = (!translator) th
-  fun add_type ty = let
+  fun store_dprog abstract_mode dprog =
+    if abstract_mode then add_deferred_dprog dprog else ml_prog_update (add_prog dprog I)
+  fun add_type abstract_mode ty = let
     val fcps = ((filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
-    val (rws1,rws2,res) = derive_thms_for_type false ty
+    val (rws1,rws2,res,dprog) = derive_thms_for_type false ty
     val (rws1,rws2) =
       if length fcps > 0 then
         let val insts = INST_TYPE [alpha|-> hd fcps,beta |-> hd fcps] in
           (map insts rws1,map insts rws2)
         end
       else (rws1,rws2)
+    val _ = store_dprog abstract_mode dprog
     val _ = add_type_thms (rws1,rws2,res)
     val _ = map do_translate rws1
     in res end
-  fun lookup_add_type ty = lookup_type_thms ty handle HOL_ERR _ => (add_type ty; lookup_type_thms ty)
+  fun lookup_add_type abstract_mode ty =
+    lookup_type_thms ty handle HOL_ERR _ => (add_type abstract_mode ty; lookup_type_thms ty)
   fun conses_of ty = let
     val (ty,inv_def,conses,case_lemma) = lookup_type_thms ty
     in conses end
 in
   fun set_translator t = (translator := t)
-  fun register_type ty =
-    (lookup_add_type ty; ())
-    handle UnsupportedType ty1 => (register_type ty1; register_type ty)
+  fun register_type_main abstract_mode ty =
+    (lookup_add_type abstract_mode ty; ())
+    handle UnsupportedType ty1 =>
+      (register_type_main abstract_mode ty1;
+       register_type_main abstract_mode ty)
+  val register_type = register_type_main false
+  val abs_register_type = register_type_main true
   fun cons_for tm = let
     val ty = type_of tm
     val conses = conses_of ty
@@ -1392,14 +1408,17 @@ in
     val (ty,inv_def,conses,case_lemma) = lookup_type_thms ty
     in (case_lemma) end
   fun store_eq_thm th = (add_eq_lemma th; th)
-  fun register_exn_type ty = let
-    val (rws1,rws2,res) = derive_thms_for_type true ty
+  fun register_exn_type_main abstract_mode ty = let
+    val (rws1,rws2,res,dprog) = derive_thms_for_type true ty
+    val _ = store_dprog abstract_mode dprog
     val _ = add_type_thms (rws1,rws2,res)
     val _ = map do_translate rws1
     in () end
+  val register_exn_type = register_exn_type_main false
+  val abs_register_exn_type = register_exn_type_main true
 end
 
-fun register_term_types tm = let
+fun register_term_types register_type tm = let
   fun every_term f tm =
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
@@ -2993,14 +3012,15 @@ val def = listTheory.APPEND;
 
 *)
 
-fun translate_main translate def = (let
+fun translate_main translate register_type def = (let
 
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
-  val _ = register_term_types (concl def)
+  val _ = register_term_types register_type (concl def)
   val (is_rec,defs,ind) = preprocess_def def
-  val _ = register_term_types (concl (LIST_CONJ defs))
+  (* this is usually a no-op, but preprocess_def might have introduced pairs *)
+  val _ = register_term_types register_type (concl (LIST_CONJ defs))
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_,_) => fname) info)
   (* derive deep embedding *)
@@ -3244,7 +3264,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
 
 fun translate def =
   let
-    val (is_rec,is_fun,results) = translate_main translate def
+    val (is_rec,is_fun,results) = translate_main translate register_type def
   in
     if is_rec then
     let
@@ -3330,7 +3350,7 @@ fun translate def =
 
 fun abs_translate def =
   let
-    val (is_rec,is_fun,results) = translate_main abs_translate def
+    val (is_rec,is_fun,results) = translate_main abs_translate abs_register_type def
     (*
       val (fname,ml_fname,def,th,preopt) = hd results
     *)
@@ -3347,7 +3367,14 @@ fun abs_translate def =
 
 val _ = set_translator translate;
 
+
 (*
+val _ = Datatype`foo = NF | CO num foo`
+val res = abs_register_type``:foo``
+val lenfoo_def = Define`lenfoo NF = 0 /\ lenfoo (CO _ ls) = 1 + lenfoo ls`
+val res = abs_translate lenfoo_def
+get_thm (!prog_state)
+
 val res = abs_translate sortingTheory.PART_DEF
 val res = abs_translate sortingTheory.PARTITION_DEF
 val res = abs_translate APPEND
@@ -3357,10 +3384,13 @@ val res = abs_translate test_def;
 val test2_def= Define`test2 = test + test`;
 val res = abs_translate test2_def;
 
+n.b.
+  The concrete mode (translate, register_type, register_exn_type) is only here
+  temporarily for backwards compatibility.
+  It should be replaced by the abstract mode (abs_translate, abs_register_type,
+  abs_register_exn_type) plus the linearisation phase.
+
 TODO:
-  - add support for datatype definitions
-    - in particular, need to remember which declarations need to be made during
-      concretisation
   - test support for modules
   - write the concretisation phase
 *)
