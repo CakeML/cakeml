@@ -29,12 +29,9 @@ val dest_simple_pmatch = Q.store_thm("dest_simple_pmatch",`
     case op of
       bvl$Op (Const i) [] => SOME i
     | _ => NONE`
-  ho_match_mp_tac (theorem "dest_simple_ind")
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [dest_simple_def]
-  >- (Cases_on `xs` >> fs[])
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> REFL_TAC)
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[dest_simple_def]);
 
 val SmartOp_quotation = `
   SmartOp op (xs:bvl$exp list) =
@@ -71,20 +68,11 @@ val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",
   SmartOp_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq),
-      rpt strip_tac
-      >> PURE_ONCE_REWRITE_TAC [SmartOp_def]
-      >> PURE_REWRITE_TAC [LET_DEF]
-      >> BETA_TAC
-      >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
-      >> PURE_TOP_CASE_TAC
-      >> CONV_TAC(RATOR_CONV(RAND_CONV(CASE_SIMP_CONV)))
-      >> RW_TAC std_ss[MEM]
-      >> TRY (CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-      >> PURE_TOP_CASE_TAC
-      >> CONV_TAC(RATOR_CONV(RAND_CONV(CASE_SIMP_CONV)))
-      >> SIMP_TAC std_ss[]
-      >> every_case_tac
-      >> FULL_SIMP_TAC std_ss[fetch "patternMatches" "PMATCH_INCOMPLETE_def"])
+  rpt strip_tac
+  >> PURE_REWRITE_TAC [LET_DEF]
+  >> BETA_TAC
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[SmartOp_def]);
 
 val extract_def = Define `
   (extract ((Var n):bvl$exp) ys = SOME ((Var (n + LENGTH ys + 1)):bvl$exp)) /\
@@ -100,14 +88,9 @@ val extract_pmatch = Q.store_thm("extract_pmatch",`
     | Op (Const i) xs => SOME (Op (Const i) [])
     | Op (Cons t) [] => SOME (Op (Cons t) [])
     | _ => NONE`,
-  ho_match_mp_tac (theorem "extract_ind")
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [extract_def]
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> TRY REFL_TAC
-  >> PURE_ONCE_REWRITE_TAC [NULL_EQ]
-  >> Cases_on `xs`
-  >> fs[])
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[extract_def]);
 
 val extract_list_def = Define `
   (extract_list [] = []) /\
@@ -122,11 +105,9 @@ val delete_var_pmatch = Q.store_thm("delete_var_pmatch",`!op.
     case op of
       Var n => Op (Const 0) []
     | x => x`,
-  ho_match_mp_tac (theorem "delete_var_ind")
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [delete_var_def]
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> REFL_TAC)
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[delete_var_def])
 
 val compile_def = tDefine "compile" `
   (compile env [] = []) /\

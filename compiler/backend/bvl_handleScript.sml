@@ -88,11 +88,9 @@ val dest_Seq_pmatch = Q.store_thm("dest_Seq_pmatch",`∀exp.
     case exp of
       Let [e1;e2] (Var 1) => SOME (e1,e2)
      | _ => NONE`,
-  ho_match_mp_tac (theorem "dest_Seq_ind")
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [dest_Seq_def]
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> TRY REFL_TAC >> every_case_tac >> fs[])
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[dest_Seq_def])
 
 val compile_seqs_def = tDefine "compile_seqs" `
   compile_seqs cut_size e acc =

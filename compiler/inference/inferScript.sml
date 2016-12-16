@@ -28,11 +28,9 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",`
       [] => ""
     | [t] => inf_type_to_string t
     | t::ts => STRCAT(inf_type_to_string t)  (STRCAT", " (inf_types_to_string ts)))`,
-  ho_match_mp_tac inf_type_to_string_ind
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [inf_type_to_string_def]
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> REFL_TAC);
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[inf_type_to_string_def]);
 
 val list_subset_def = Define `
 list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
@@ -429,11 +427,9 @@ val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
   (constrain_op_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
-      rpt strip_tac
-      >> PURE_ONCE_REWRITE_TAC [constrain_op_def]
-      >> REPEAT CASE_TAC
-      >> CONV_TAC(RAND_CONV (patternMatchesLib.PMATCH_SIMP_CONV))
-      >> REFL_TAC)
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[constrain_op_def])
 
 val infer_e_def = tDefine "infer_e" `
 (infer_e ienv (Raise e) =

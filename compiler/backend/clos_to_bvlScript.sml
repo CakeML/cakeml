@@ -45,11 +45,9 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
       | TagLenEq tag a => TagLenEq (clos_tag_shift tag) a
       | FromList tag => FromList (clos_tag_shift tag)
       | x => x`,
-  ho_match_mp_tac (theorem "compile_op_ind")
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [compile_op_def]
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> REFL_TAC)
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[compile_op_def]);
 
 val mk_const_def = Define `
   mk_const n : bvl$exp = Op (Const (&n)) []`;

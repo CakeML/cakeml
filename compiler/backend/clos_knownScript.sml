@@ -185,6 +185,14 @@ val isGlobal_def = Define`
   (isGlobal (Global _) ⇔ T) ∧
   (isGlobal _ ⇔ F)
 `
+val isGlobal_pmatch = Q.store_thm("isGlobal_pmatch",`!op.
+  isGlobal op =
+  case op of
+    Global _ => T
+    | _ => F`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[isGlobal_def])
 
 val gO_destApx_def = Define`
   (gO_destApx (Int i) = gO_Int i) ∧

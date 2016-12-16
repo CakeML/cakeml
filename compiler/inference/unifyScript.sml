@@ -76,11 +76,9 @@ val decode_infer_t_pmatch = Q.store_thm("decode_infer_t_pmatch",`
     | Const Null_tag => []
     | Pair s1 s2 => decode_infer_t s1 :: decode_infer_ts s2
     | _ => [])`,
-  ho_match_mp_tac (theorem "decode_infer_t_ind")
-  >> rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [decode_infer_t_def]
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> REFL_TAC)
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> TRY (Cases_on `a`) >> fs[decode_infer_t_def]);
 
 val decode_left_inverse = Q.prove (
 `(!t. decode_infer_t (encode_infer_t t) = t) ∧

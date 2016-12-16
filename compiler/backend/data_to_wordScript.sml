@@ -922,24 +922,102 @@ val assign_quotation = `
 
 val assign_def = Define assign_quotation
 
-(* TODO: surely there is a faster way to prove this *)
-val assign_pmatch = Q.store_Thm("assign_pmatch",`∀c secn l dest op args names.` @
+local
+val assign_pmatch_lemmas = [
+  Q.prove(`
+   (case args of
+       [v1;v2] => y v1 v2
+     | _ => z) = (dtcase args of
+       [v1;v2] => y v1 v2
+     | _ => z)`,
+   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+   >> fs[]),
+  Q.prove(`
+   (case args of
+      [v1;v2;v3] => y v1 v2 v3
+    | _ => z) = (dtcase args of
+      [v1;v2;v3] => y v1 v2 v3
+    | _ => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case opt of
+      NONE => y
+    | SOME x => z x) = (dtcase opt of
+      NONE => y
+    | SOME x => z x)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case args of
+      [v1] => y v1
+    | _ => z) = (dtcase args of
+      [v1] => y v1
+    | _ => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case op of
+      Bitwise op => y op
+    | Carried op => z op) = (dtcase op of
+      Bitwise op => y op
+    | Carried op => z op)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case op of
+      Bitwise op => y op
+    | Carried Add => z
+    | Carried Sub => x) = (dtcase op of
+      Bitwise op => y op
+    | Carried Add => z
+    | Carried Sub => x)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case a of
+      Lsl => x
+    | Lsr => y
+    | Asr => z) = (dtcase a of
+      Lsl => x
+    | Lsr => y
+    | Asr => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case opw of
+      Andw => And
+    | Orw => Or
+    | Xor => Xor
+    | Add => Add
+    | Sub => Sub) = (dtcase opw of
+      Andw => And
+    | Orw => Or
+    | Xor => Xor
+    | Add => Add
+    | Sub => Sub)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
+   (case opt of
+        SOME x => y x
+      | NONE => z) = (dtcase opt of
+        SOME x => y x
+      | NONE => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[])]
+in val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args names.` @
   (assign_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
-      rpt strip_tac
-      >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
-      >> PURE_ONCE_REWRITE_TAC [assign_def]
-      >> PURE_TOP_CASE_TAC
-      >> CONV_TAC(RATOR_CONV(RAND_CONV(CASE_SIMP_CONV)))
-      >> RW_TAC std_ss[WORD_SUB_LZERO,integerTheory.INT_SUB_LZERO]
-      >> TRY (CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-      >> PURE_TOP_CASE_TAC
-      >> CONV_TAC(RATOR_CONV(RAND_CONV(CASE_SIMP_CONV)))
-      >> SIMP_TAC std_ss[Once WORD_OR_COMM]
-      >> every_case_tac
-      >> FULL_SIMP_TAC std_ss[LET_DEF,NOT_CONS_NIL,word_sub_def,
-                              fetch "patternMatches" "PMATCH_INCOMPLETE_def"])
+  rpt strip_tac
+  >> Ho_Rewrite.PURE_REWRITE_TAC assign_pmatch_lemmas
+  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
+  >> ASSUME_TAC(Q.SPEC `op` (fetch "closLang" "op_nchotomy") )
+  >> ASSUME_TAC(fetch "ast" "word_size_nchotomy")
+  >> fs[assign_def]
+  >> metis_tac[])
+end
 
 val comp_def = Define `
   comp c (secn:num) (l:num) (p:dataLang$prog) =
