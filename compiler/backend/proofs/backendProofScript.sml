@@ -542,7 +542,7 @@ val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
   qid_spec_tac`prog1`>>Induct>>
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
-  qpat_abbrev_tac`l = next_lab A` >> pop_assum kall_tac>>
+  qpat_abbrev_tac`l = next_lab A 1` >> pop_assum kall_tac>>
   qpat_x_assum`good_syntax p_2 1 2 0` mp_tac>>
   qpat_x_assum`good_syntax p_2 sp` mp_tac>>
   qpat_x_assum`10 ≤ sp` mp_tac>>
@@ -677,7 +677,7 @@ val code_installed_prog_to_section_lemma = Q.prove(
   `!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed' pc (append (FST (flatten prog3 n (next_lab prog3))))
+        code_installed' pc (append (FST (flatten prog3 n (next_lab prog3 1))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
   Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
@@ -796,7 +796,7 @@ val code_installed_prog_to_section = Q.store_thm("code_installed_prog_to_section
       labels_ok (MAP prog_to_section prog4) ∧
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed pc (append (FST (flatten prog3 n (next_lab prog3))))
+        code_installed pc (append (FST (flatten prog3 n (next_lab prog3 1))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
   rpt strip_tac \\ fs [code_installed_eq]
