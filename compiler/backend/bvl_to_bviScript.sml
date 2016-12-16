@@ -4,9 +4,22 @@ local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataL
 
 val _ = new_theory "bvl_to_bvi";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
+
+val destLet_pmatch = Q.store_thm("destLet_pmatch",`∀exp.
+  destLet exp =
+    case exp of
+      Let xs b => (xs,b)
+    | _ => ([],Var 0)`;
+  ho_match_mp_tac (theorem "destLet_ind")
+  >> rpt strip_tac
+  >> PURE_ONCE_REWRITE_TAC [destLet_def]
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
+  >> REFL_TAC)
 
 val large_int = ``268435457:int`` (* 2**28-1 *)
 
@@ -115,21 +128,34 @@ val stubs_def = Define `
 
 val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
-val compile_op_def = Define `
+val compile_op_quotation = `
   compile_op op c1 =
-    case op of
-    | Const i => (case c1 of [] => compile_int i
+    dtcase op of
+    | Const i => (dtcase c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
     | Global n => Op Deref (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | SetGlobal n => Op Update (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | AllocGlobal =>
-        (case c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
+        (dtcase c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | (FromList n) => Let (if NULL c1 then [Op (Const 0) []] else c1)
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
     | _ => Op op c1`
+
+val compile_op_def = Define compile_op_quotation
+
+val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
+  (compile_op_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+      rpt strip_tac
+      >> PURE_ONCE_REWRITE_TAC [compile_op_def]
+      >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+      >> Cases_on `op` >> fs[]
+      >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+      >> fs[])
 
 val _ = temp_overload_on("++",``SmartAppend``);
 
@@ -182,7 +208,7 @@ val compile_exps_def = tDefine "compile_exps" `
   (compile_exps n [Call ticks dest xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([Call ticks
-              (case dest of
+              (dtcase dest of
                | NONE => NONE
                | SOME n => SOME (num_stubs + 2 * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (exp1_size o SND)`

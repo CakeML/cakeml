@@ -923,7 +923,7 @@ val assign_quotation = `
 val assign_def = Define assign_quotation
 
 (* TODO: surely there is a faster way to prove this *)
-val assign_pmatch = Q.prove(`∀c secn l dest op args names.` @
+val assign_pmatch = Q.store_Thm("assign_pmatch",`∀c secn l dest op args names.` @
   (assign_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),

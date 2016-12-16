@@ -17,6 +17,8 @@ val _ = set_grammar_ancestry [
   "bvl_jump"
 ]
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
   |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
 val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
@@ -34,6 +36,20 @@ val compile_op_def = Define`
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
+
+val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
+  compile_op op =
+    case op of
+      Cons tag => Cons (clos_tag_shift tag)
+      | TagEq tag => TagEq (clos_tag_shift tag)
+      | TagLenEq tag a => TagLenEq (clos_tag_shift tag) a
+      | FromList tag => FromList (clos_tag_shift tag)
+      | x => x`,
+  ho_match_mp_tac (theorem "compile_op_ind")
+  >> rpt strip_tac
+  >> PURE_ONCE_REWRITE_TAC [compile_op_def]
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
+  >> REFL_TAC)
 
 val mk_const_def = Define `
   mk_const n : bvl$exp = Op (Const (&n)) []`;
@@ -274,15 +290,15 @@ val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [App loc_opt x1 xs2] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app xs2 aux1 in
-       ([case loc_opt of
+       ([dtcase loc_opt of
          | NONE =>
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + (num_stubs max_app))) (c2 ++ c1))],
         aux2)) /\
   (compile_exps max_app [Fn loc_opt vs_opt num_args x1] aux =
-     let loc = case loc_opt of NONE => 0 | SOME n => n in
-     let vs = case vs_opt of NONE => [] | SOME vs => vs in
+     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
+     let vs = dtcase vs_opt of NONE => [] | SOME vs => vs in
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
@@ -292,9 +308,9 @@ val compile_exps_def = tDefine "compile_exps" `
             (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
   (compile_exps max_app [Letrec loc_opt vsopt fns x1] aux =
-     let loc = case loc_opt of NONE => 0 | SOME n => n in
-     let vs = case vsopt of NONE => [] | SOME x => x in
-     case fns of
+     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
+     let vs = dtcase vsopt of NONE => [] | SOME x => x in
+     dtcase fns of
      | [] => compile_exps max_app [x1] aux
      | [(num_args, exp)] =>
          let (c1,aux1) = compile_exps max_app [exp] aux in
@@ -428,7 +444,7 @@ val code_split_def = Define `
 
 val code_merge_def = tDefine "code_merge" `
   code_merge xs ys =
-    case (xs,ys) of
+    dtcase (xs,ys) of
     | ([],[]) => []
     | ([],_) => ys
     | (_,[]) => xs

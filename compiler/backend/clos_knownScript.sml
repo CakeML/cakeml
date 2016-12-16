@@ -49,6 +49,22 @@ val merge_def = tDefine "merge" `
 val merge_def =
     save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
+val merge_pmatch = Q.store_thm("merge_pmatch",`!x y.
+  merge x y =
+    case (x,y) of
+      (Impossible,y) => y
+    | (x,Impossible) => x
+    | (Tuple tg1 xs,Tuple tg2 ys) => 
+      if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (MAP2 merge xs ys)
+      else Other
+    | (Clos m1 n1,Clos m2 n2) => if m1 = m2 ∧ n1 = n2 then Clos m1 n1
+                                 else Other
+    | (Int i,Int j) => if i = j then Int i else Other
+    | _ => Other`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[merge_def]);
+
 (* Avoid MAP2 *)
 val merge_tup_def = tDefine "merge_tup" `
   (merge_tup (Impossible,y) = y) ∧
@@ -68,6 +84,22 @@ val merge_tup_def = tDefine "merge_tup" `
    first_x_assum (first_assum o mp_then.mp_then (mp_then.Pos (el 2)) mp_tac) >>
    simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
    disch_then (qspec_then `tag` mp_tac) >> simp[])
+
+val merge_tup_pmatch = Q.store_thm("merge_tup_pmatch",`!tup.
+  merge_tup tup =
+    case tup of
+      (Impossible,y) => y
+    | (x,Impossible) => x
+    | (Tuple tg1 xs,Tuple tg2 ys) => 
+      if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (MAP merge_tup (ZIP(xs,ys)))
+      else Other
+    | (Clos m1 n1,Clos m2 n2) => if m1 = m2 ∧ n1 = n2 then Clos m1 n1
+                                 else Other
+    | (Int i,Int j) => if i = j then Int i else Other
+    | _ => Other`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[merge_tup_def] >> metis_tac []);
 
 val merge_alt = Q.store_thm("merge_alt",`
   ∀x y.merge x y = merge_tup (x,y)`,
@@ -102,7 +134,7 @@ val known_op_def = Define `
      | _ => (Other,g)) /\
 (known_op op as g = (Other,g))`
 
-val known_op_pmatch = Q.store_thm("known_op_pmatch",`
+val known_op_pmatch = Q.store_thm("known_op_pmatch",`!op as g.
 known_op op as g =
   case op of
     Global n =>
@@ -130,11 +162,10 @@ known_op op as g =
      | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g))
   | _ => (Other,g)`,
-  Induct_on `op` >>
-  rpt strip_tac >>
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV) >>
-  fs[known_op_def] >> every_case_tac >> fs[])
-                                 
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[known_op_def])
+                               
 val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
