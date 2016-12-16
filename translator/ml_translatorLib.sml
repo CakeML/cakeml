@@ -112,6 +112,8 @@ fun remove_Eq_from_v_thm th = let
     in th end
   in try_each foo vs th end
 
+fun normalise_assums th =
+  th |> DISCH_ALL |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO] |> UNDISCH_ALL
 
 (* new state *)
 
@@ -132,6 +134,9 @@ fun remove_Eq_from_v_thm th = let
   val prog_state = ref ml_progLib.init_state;
 local
 in
+  fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
+  fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
+  fun get_cert (_:string,_:string,_:term,th:thm,_:thm,_:string option) = th
   fun v_thms_reset () =
     (v_thms := [];
      eval_thms := [];
@@ -149,10 +154,11 @@ in
     end
   fun add_v_thms (name,ml_name,th,pre_def) = let
     val thc = th |> concl
-    val tm =
+    val (tm,th) =
       if is_Eval thc then
-        thc |> rand |> rand
-      else thc |> rator |> rand
+        (thc |> rand |> rand,
+         normalise_assums th)
+      else (thc |> rator |> rand,th)
     val module_name = get_curr_module_name ()
     val _ = if concl pre_def =T then () else
             (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
@@ -166,7 +172,7 @@ in
           (th |> concl |> rand) = v) (!v_thms)
     in ((v_thms := (name,ml_name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
   fun lookup_v_thm const = let
-    val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (#3 c)) const) (!v_thms))
+    val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (get_const c)) const) (!v_thms))
     val th = th |> SPEC_ALL |> UNDISCH_ALL
     val th = (case m of
                 NONE => MATCH_MP Eval_Var_Short th
@@ -179,7 +185,7 @@ in
     in th end
   fun lookup_abs_v_thm const =
     let
-      val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (#3 c)) const) (!v_thms))
+      val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (get_const c)) const) (!v_thms))
       val _ = is_Eval (concl th) orelse raise NotFoundVThm const
       val tm =
         let
@@ -401,7 +407,9 @@ in
     val ty = fst (dest_fun_type (type_of tm))
     val _ = add_new_type_mapping ty target_ty
     in new_type_inv ty tm end
-  fun add_deferred_dprog dprog = deferred_dprogs := dprog::(!deferred_dprogs)
+  fun add_deferred_dprog dprog =
+    if listSyntax.is_nil dprog then ()
+    else deferred_dprogs := dprog::(!deferred_dprogs)
   fun get_user_supplied_types () = map fst (!other_types)
   fun add_eq_lemma eq_lemma =
     if concl eq_lemma = T then () else
@@ -3367,22 +3375,116 @@ fun abs_translate def =
 
 val _ = set_translator translate;
 
-
 (*
+(* TODO: make desired a more efficient datastructure *)
+fun get_desired_v_thms desired [] acc = acc
+  | get_desired_v_thms desired (vth::vths) acc =
+    let
+      val (found,desired) = List.partition (same_const (get_const vth)) desired
+    in
+      if List.null found
+      then get_desired_v_thms desired vths acc
+      else
+      let
+        val deps =
+          map (rand o rand)
+            (List.filter is_Eval (hyp (get_cert vth)))
+      in
+        get_desired_v_thms (desired @ deps) vths (vth::acc)
+      end
+    end
+
+val vth = el 5 desired_v_thms
+
+val LOOKUP_VAR_pat = LOOKUP_VAR_def |> SPEC_ALL |> concl |> lhs
+
+fun add_dec_for_v_thm vth =
+  let
+    val cert = get_cert vth
+    val lookup_var_hyp = first (can (match_term LOOKUP_VAR_pat)) (hyp cert)
+    val v = rand lookup_var_hyp
+  in
+    if is_Recclosure v
+    then
+      ml_progLib.add_dec (mk_Dletrec (rand (rator v))) I
+    else if is_Closure v
+    then
+      let
+        val ls = #2 (strip_comb v)
+      in ml_progLib.add_dec (mk_Dlet (mk_Fun (el 2 ls) (el 3 ls))) end
+    else failwith "bad v_thm"
+  end
+  handle HOL_ERR {origin_function="first",...} =>
+  let
+    val fname = #1 vth
+    val ml_name = get_ml_name vth
+    val code = concl cert |> rator |> rand
+  in
+    (* TODO: consolidate with the constant case of (concrete-mode) translate *)
+    fn state =>
+      let
+        val curr_state = get_state state
+        val curr_env = get_env state
+        val curr_refs =
+            mk_icomb(prim_mk_const{Name="state_refs",Thy="semanticPrimitives"},curr_state)
+        val env_v = mk_var("env",venvironment)
+        val th = cert |> INST [env_v |-> curr_env]
+        val curr_refs_eq = EVAL curr_refs
+        val lemma =
+          Eval_constant
+          |> ISPEC curr_refs
+          |> PURE_REWRITE_RULE[curr_refs_eq]
+          |> C MATCH_MP th
+          |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+        val v_name = find_const_name (fname ^ "_v")
+        val refs_name = find_const_name (fname  ^ "_refs")
+        val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma)
+                    |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+        val _ = delete_binding "temp"
+        val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
+                    |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
+        val eval_thm =
+          v_thm_temp
+          |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
+          |> MATCH_MP evaluate_empty_state_IMP
+        val var_str = ml_fname
+        val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
+        val _ = ml_prog_update (add_Dlet eval_thm var_str [])
+        val _ = add_v_thms (fname,var_str,v_thm,pre_def)
+
+    cert
+    Eval_def
+
+    val dec = mk_Dlet
+  in
+
+val state = get_ml_prog_state()
+
+
+val _ = show_assums := true
+val res = abs_translate sortingTheory.PART_DEF
+val res = abs_translate sortingTheory.PARTITION_DEF
+val res = abs_translate APPEND
+val res = abs_translate MAP
+val res = abs_translate LENGTH
+val res = abs_translate sortingTheory.QSORT_DEF
+val qsort_test_def = Define`qsort_test = QSORT (\x y. x <= y) [1n;3;2]`
+val res = abs_translate qsort_test_def;
+val desired_v_thms = get_desired_v_thms [``qsort_test``] (!v_thms) []
+
+1. put in deferred_dprogs (after filtering? in reverse order?)
+2. do add_dec_for_v_thm for each desired_v_thms
+
+val test_def = Define`test = 3n`;
+val res = abs_translate test_def;
+val test2_def= Define`test2 = test + test`;
+val res = abs_translate test2_def;
+
 val _ = Datatype`foo = NF | CO num foo`
 val res = abs_register_type``:foo``
 val lenfoo_def = Define`lenfoo NF = 0 /\ lenfoo (CO _ ls) = 1 + lenfoo ls`
 val res = abs_translate lenfoo_def
 get_thm (!prog_state)
-
-val res = abs_translate sortingTheory.PART_DEF
-val res = abs_translate sortingTheory.PARTITION_DEF
-val res = abs_translate APPEND
-val res = abs_translate sortingTheory.QSORT_DEF
-val test_def = Define`test = 3n`;
-val res = abs_translate test_def;
-val test2_def= Define`test2 = test + test`;
-val res = abs_translate test2_def;
 
 n.b.
   The concrete mode (translate, register_type, register_exn_type) is only here
@@ -3391,8 +3493,8 @@ n.b.
   abs_register_exn_type) plus the linearisation phase.
 
 TODO:
-  - test support for modules
   - write the concretisation phase
+  - add support for modules
 *)
 
 fun mlDefine q = let
