@@ -8802,12 +8802,12 @@ val assign_def_extras = LIST_CONJ
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
    Equal1_code_def, Equal_code_def, ShiftVar_def];
 
+val extract_labels_def = wordPropsTheory.extract_labels_def;
+
 val extract_labels_MemEqList = store_thm("extract_labels_MemEqList[simp]",
   ``!a x. extract_labels (MemEqList a x) = []``,
   Induct_on `x`
   \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]);
-
-val extract_labels_def = wordPropsTheory.extract_labels_def;
 
 val data_to_word_lab_pres_lem = Q.prove(`
   ∀c n l p.
