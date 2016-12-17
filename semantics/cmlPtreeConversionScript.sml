@@ -10,7 +10,7 @@ val _ = new_theory "cmlPtreeConversion"
     Parse trees to abstract syntax
    ---------------------------------------------------------------------- *)
 
-val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast"]
+val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast", "namespace"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
 (* handling constructor arities gets very complicated when "open" is
