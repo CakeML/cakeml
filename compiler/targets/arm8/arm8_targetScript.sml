@@ -102,6 +102,13 @@ val arm8_enc_def = Define`
         (case bop of
             Add => AddSubImmediate@64 (1w, F, F, i, n2w r2, n2w r1)
           | Sub => AddSubImmediate@64 (1w, T, F, i, n2w r2, n2w r1)
+          | Xor => if i = -1w then
+                     LogicalShiftedRegister@64
+                       (1w, LogicalOp_ORR, T, F, ShiftType_LSL, 0, n2w r2, 31w,
+                        n2w r1)
+                   else
+                     LogicalImmediate@64
+                       (1w, LogicalOp_EOR, F, i, n2w r2, n2w r1)
           | x => LogicalImmediate@64 (1w, bop_enc x, F, i, n2w r2, n2w r1)))) /\
    (arm8_enc (Inst (Arith (Shift sh r1 r2 n))) =
       case sh of
@@ -121,7 +128,7 @@ val arm8_enc_def = Define`
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1)))
                 | NONE => arm8_encode_fail)) /\
    (arm8_enc (Inst (Arith (Div r1 r2 r3))) =
-      arm8_encode (Data (Division@64 (1w, T, n2w r3, n2w r2, n2w r1)))) /\
+      arm8_encode (Data (Division@64 (1w, F, n2w r3, n2w r2, n2w r1)))) /\
    (arm8_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
       arm8_encode (Data (MultiplyHigh (F, n2w r4, n2w r3, n2w r1))) ++
       arm8_encode
@@ -134,6 +141,18 @@ val arm8_enc_def = Define`
       arm8_encode (Data (AddSubCarry@64 (1w, F, T, n2w r3, n2w r2, n2w r1))) ++
       arm8_encode (Data (MoveWide@64 (1w, MoveWideOp_Z, 0w, 0w, n2w r4))) ++
       arm8_encode (Data (AddSubCarry@64 (1w, F, F, 31w, n2w r4, n2w r4)))) /\
+   (arm8_enc (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+      arm8_encode
+        (Data (AddSubShiftedRegister@64
+                 (1w, F, T, ShiftType_LSL, n2w r3, 0w, n2w r2, n2w r1))) ++
+      arm8_encode
+        (Data (ConditionalSelect@64 (1w, F, T, 7w, 31w, 31w, n2w r4)))) /\
+   (arm8_enc (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+      arm8_encode
+        (Data (AddSubShiftedRegister@64
+                 (1w, T, T, ShiftType_LSL, n2w r3, 0w, n2w r2, n2w r1))) ++
+      arm8_encode
+        (Data (ConditionalSelect@64 (1w, F, T, 7w, 31w, 31w, n2w r4)))) /\
    (arm8_enc (Inst (Mem Load r1 (Addr r2 a))) =
       arm8_encode
         (LoadStore

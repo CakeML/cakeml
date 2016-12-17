@@ -117,7 +117,7 @@ val state_rel_def = Define`
     (∀n prog. lookup n s.code = SOME prog ⇒
       good_syntax prog t.ptr_reg t.len_reg t.link_reg ∧
       ∃pc. code_installed pc
-             (append (FST (flatten prog n (next_lab prog)))) t.code ∧
+             (append (FST (flatten prog n (next_lab prog 1)))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
     t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
@@ -496,7 +496,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[Once flatten_def] >>
     simp[UNCURRY] >> strip_tac >>
     imp_res_tac code_installed_append_imp >>
-    full_simp_tac(srw_ss())[Q.SPEC`Seq _ _`next_lab_def] >>
+    full_simp_tac(srw_ss())[Q.SPEC`Seq _ _`next_lab_thm] >>
     full_simp_tac(srw_ss())[good_syntax_def] >>
     reverse (Cases_on`res`)>>full_simp_tac(srw_ss())[]>-(
       rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
@@ -622,12 +622,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
         first_x_assum drule >>
-        simp[good_syntax_def,next_lab_def] >>
+        simp[good_syntax_def,next_lab_thm] >>
         simp[upd_pc_def] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
-      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_thm] >>
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
@@ -675,12 +675,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
         first_x_assum drule >>
-        simp[good_syntax_def,next_lab_def] >>
+        simp[good_syntax_def,next_lab_thm] >>
         simp[upd_pc_def] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
-      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_thm] >>
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
@@ -745,7 +745,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       rfs[] >>
       first_x_assum drule >>
       full_simp_tac(srw_ss())[good_syntax_def] >>
-      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
       strip_tac >>
       fs[upd_pc_def,ADD1] >>
@@ -797,7 +797,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       rfs[] >>
       first_x_assum drule >>
       full_simp_tac(srw_ss())[good_syntax_def] >>
-      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
       fs[upd_pc_def,ADD1] >>
@@ -1822,7 +1822,7 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
      lookup n code = SOME (prog) ⇒
      good_syntax prog s.ptr_reg s.len_reg s.link_reg ∧
      ∃pc.
-       code_installed pc (append (FST (flatten prog n (next_lab prog)))) s.code ∧
+       code_installed pc (append (FST (flatten prog n (next_lab prog 1)))) s.code ∧
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
     s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
     s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
@@ -1898,16 +1898,14 @@ val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
 val next_lab_non_zero = Q.store_thm("next_lab_non_zero",`
-  ∀p. 1 ≤ next_lab p`,
-  ho_match_mp_tac next_lab_ind>>Cases_on`p`>>
-  rw[]>>once_rewrite_tac[next_lab_def]>>fs[]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]);
+  ∀p. 1 ≤ next_lab p 1`,
+  once_rewrite_tac [next_lab_EQ_MAX] \\ fs [MAX_DEF]);
 
 val stack_to_lab_lab_pres = Q.store_thm("stack_to_lab_lab_pres",`
   ∀p n nl.
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
-  next_lab p ≤ nl ⇒
+  next_lab p 1 ≤ nl ⇒
   let (cp,nr,nl') = flatten p n nl in
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (append cp)) ∧
   ALL_DISTINCT (extract_labels (append cp)) ∧
@@ -1919,7 +1917,7 @@ val stack_to_lab_lab_pres = Q.store_thm("stack_to_lab_lab_pres",`
     (Cases_on`s`>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def,sextract_labels_def,compile_jump_def]>>
     rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def,sextract_labels_def]>>
     qpat_x_assum`A<=nl` mp_tac>>
-    simp[Once next_lab_def]>>
+    simp[Once next_lab_thm]>>
     strip_tac>>
     TRY
       (fs[ALL_DISTINCT_APPEND,extract_labels_append]>>rw[]>>
@@ -1927,7 +1925,7 @@ val stack_to_lab_lab_pres = Q.store_thm("stack_to_lab_lab_pres",`
     >>
     `1 ≤ nl` by metis_tac[LESS_EQ_TRANS,next_lab_non_zero]>>
     fs[extract_labels_append,ALL_DISTINCT_APPEND,extract_labels_def]>>
-    `next_lab q ≤ m'` by fs[]>>
+    `next_lab q 1 ≤ m'` by fs[]>>
     fs[]>>rfs[]>>
     `r < nl ∧ r' < nl` by
       fs[MAX_DEF]>>
@@ -1939,7 +1937,7 @@ val stack_to_lab_lab_pres = Q.store_thm("stack_to_lab_lab_pres",`
   >>
     (rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def,sextract_labels_def]>>
     qpat_x_assum`A<=nl` mp_tac>>
-    simp[Once next_lab_def]>>
+    simp[Once next_lab_thm]>>
     strip_tac>>
     `1 ≤ nl` by
       metis_tac[LESS_EQ_TRANS,next_lab_non_zero]>>
@@ -1986,11 +1984,10 @@ val stack_to_lab_compile_lab_pres = Q.store_thm("stack_to_lab_compile_lab_pres",
   >-
     (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>
     fs[EVERY_MEM]>>CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
-    pop_assum mp_tac >> EVAL_TAC)
-  >>
+    pop_assum mp_tac >> EVAL_TAC) >>
     fs[EVERY_MAP,prog_to_section_def,EVERY_MEM,FORALL_PROD]>>
     rw[]>>pairarg_tac>>fs[extract_labels_def,extract_labels_append]>>
-    Q.ISPECL_THEN [`p_2`,`p_1`,`next_lab p_2`] mp_tac stack_to_lab_lab_pres>>
+    Q.ISPECL_THEN [`p_2`,`p_1`,`next_lab p_2 1`] mp_tac stack_to_lab_lab_pres>>
     impl_tac>-
       (*stack_names*)
       (fs[stack_namesTheory.compile_def,MEM_MAP]>>Cases_on`y`>>fs[stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres]>>
@@ -2000,7 +1997,8 @@ val stack_to_lab_compile_lab_pres = Q.store_thm("stack_to_lab_compile_lab_pres",
       (*stack_alloc*)
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def,MEM_MAP]>>
       EVAL_TAC>>Cases_on`y`>>fs[stack_allocTheory.prog_comp_def]>>
-      Q.SPECL_THEN [`q''`,`next_lab r''`,`r''`] mp_tac stack_alloc_lab_pres>>
+      Q.SPECL_THEN [`q''`,`next_lab r'' 1`,`r''`] mp_tac stack_alloc_lab_pres>>
+      fs [] >>
       impl_tac>-
         (res_tac>>fs[EVERY_MEM,FORALL_PROD]>>
         metis_tac[])>>

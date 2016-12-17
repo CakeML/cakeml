@@ -79,7 +79,7 @@ val flatten_def = Define `
 
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    let (lines,_,m) = (flatten p n (next_lab p)) in
+    let (lines,_,m) = (flatten p n (next_lab p 1)) in
       Section n (append (Append lines (List [Label n m 0])))`
 
 val _ = Datatype`config =

@@ -19,7 +19,7 @@ val () = Datatype `
                | Call lab
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
-               | CallFFI num
+               | CallFFI string
                | ClearCache
                | Halt`;
 

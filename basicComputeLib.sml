@@ -58,6 +58,7 @@ val add_basic_compset =
    , miscTheory.append_def
    , miscTheory.SmartAppend_thm
    , listTheory.LIST_REL_def
+   , libTheory.the_def
    (* TODO: should be in HOL *)
    ,optionTheory.OPTION_MAP2_DEF
    ,alistTheory.alist_to_fmap_def

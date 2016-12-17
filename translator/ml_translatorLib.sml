@@ -175,12 +175,16 @@ in
   fun update_precondition new_pre = let
     fun update_aux (name,ml_name,tm,th,pre,module)= let
       val th1 = D th
-      val th2 = REWRITE_RULE [new_pre,PRECONDITION_T] th1
-      in if concl th1 = concl th2 then (name,ml_name,tm,th,pre,module) else let
+      val th2 = PURE_REWRITE_RULE [new_pre,PRECONDITION_T] th1
+      in if aconv (concl th1) (concl th2)
+         then (name,ml_name,tm,th,pre,module) else let
+           val th2 = REWRITE_RULE [] th2
            val th = remove_Eq_from_v_thm th2
-           val _ = save_thm(name^"_v_thm",th)
-           val new_pre = if T = (new_pre |> SPEC_ALL |> concl |> rand)
-                         then TRUTH else new_pre
+           val thm_name = name ^ "_v_thm"
+           val _ = print ("Updating " ^ thm_name ^ "\n")
+           val _ = save_thm(thm_name,th)
+           val new_pre = if can (find_term is_PRECONDITION) (concl (SPEC_ALL th))
+                         then new_pre else TRUTH
            val th = th |> UNDISCH_ALL
            in (name,ml_name,tm,th,new_pre,module) end end
     val _ = (v_thms := map update_aux (!v_thms))

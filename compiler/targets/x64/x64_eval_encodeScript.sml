@@ -10,15 +10,31 @@ val () = new_theory "x64_eval_encode"
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
-  val n = ["skip", "const", "binop reg", "binop imm", "shift", "div", "long mul",
-           "long div", "add carry", "load", (* "load32", *) "load8", "store",
-           (* "store32", *) "store8", "jump", "cjump reg", "cjump imm", "call",
+  val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
+           "long mul", "long div", "add carry", "add overflow", "sub overflow",
+           "load", (* "load32", *) "load8", "store", (* "store32", *)
+           "store8", "jump", "cjump reg", "cjump imm", "call",
            "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS x64_enc0_def)
   val thm =  Q.SPEC `f` boolTheory.LET_THM
+  val rex_prefix_conv =
+     Conv.REWR_CONV rex_prefix_def
+     THENC Conv.PATH_CONV "llr"
+             (blastLib.BBLAST_CONV
+              THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
+                                ALL_CONV t
+                             else
+                                NO_CONV t))
+  val rex_prefix_ss =
+    simpLib.std_conv_ss
+       {name = "rex_prefix", conv = rex_prefix_conv, pats = [``rex_prefix _``]}
 in
+  val rex_prefix_rule =
+    RIGHT_CONV_RULE
+      (Conv.DEPTH_CONV rex_prefix_conv THENC SIMP_CONV (srw_ss()) [])
   val enc_rwts = [encode_def, e_rm_reg_def, e_gen_rm_reg_def, e_ModRM_def]
-  fun enc_thm s rwts = SIMP_RULE (srw_ss()) (enc_rwts @ rwts) (Lib.assoc s l)
+  fun enc_thm s rwts =
+    SIMP_RULE (srw_ss()++rex_prefix_ss) (enc_rwts @ rwts) (Lib.assoc s l)
   fun mk_let_thm q = Q.ISPEC q thm
 end
 
@@ -53,14 +69,16 @@ in
           mk_let_thm `n2w (Zreg2num (total_num2Zreg r1)) : word4`,
           e_opsize_def, th] @ enc_rwts)
         (List.nth (Drule.CONJUNCTS x64_enc0_def, 2))
+     |> rex_prefix_rule
+  val binop_imm_rwt =
+    enc_thm "binop imm"
+      [mk_let_thm `(_, 1w : word8)`, th, not_byte_def, e_opsize_def]
 end
-
-val binop_imm_rwt = enc_thm "binop imm" [not_byte_def, e_opsize_def]
 
 val shift_rwt =
   enc_thm "shift"
-   [e_rax_imm_def, e_opsize_imm_def, e_opsize_def, rex_prefix_def, not_byte_def,
-    mk_let_thm `([72w: word8], (1w: word8))`,
+   [e_rax_imm_def, e_opsize_imm_def, e_opsize_def, not_byte_def,
+    mk_let_thm `(_, 1w: word8)`,
     mk_let_thm `n2w (Zreg2num (total_num2Zreg r1))`]
 
 val long_div_rwt =
@@ -71,10 +89,18 @@ val long_mul_rwt =
 
 val add_carry_rwt =
   enc_thm "add carry"
-   [mk_let_thm `2w : word4`,
-    mk_let_thm `7w : word4`,
-    mk_let_thm `(rex_prefix (v || 8w),1w: word8)`,
-    not_byte_def, e_opsize_def, e_imm8_def, e_rm_imm8_def, e_opsize_imm_def]
+   [boolTheory.LET_THM, not_byte_def, e_opsize_def, e_imm8_def, e_rm_imm8_def,
+    e_opsize_imm_def, e_imm32_def]
+
+val add_overflow_rwt =
+  enc_thm "add overflow"
+   [boolTheory.LET_DEF, not_byte_def, e_opsize_def, e_imm8_def, e_rm_imm8_def,
+    e_opsize_imm_def, e_imm32_def]
+
+val sub_overflow_rwt =
+  enc_thm "sub overflow"
+   [boolTheory.LET_DEF, not_byte_def, e_opsize_def, e_imm8_def, e_rm_imm8_def,
+    e_opsize_imm_def, e_imm32_def]
 
 local
   val thms =
@@ -112,9 +138,10 @@ val loc_rwt = enc_thm "loc" [e_opsize_def, boolTheory.LET_DEF]
 
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
-    [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_div_rwt,
-     long_mul_rwt, add_carry_rwt, load_rwt, (* load32_rwt, *) load8_rwt,
-     store_rwt, (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
+    [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt,
+     long_div_rwt, long_mul_rwt, add_carry_rwt, add_overflow_rwt,
+     sub_overflow_rwt, load_rwt, (* load32_rwt, *) load8_rwt, store_rwt,
+     (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt, x64_enc_def])
 
 val () = export_theory ()
