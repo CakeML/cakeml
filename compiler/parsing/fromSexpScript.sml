@@ -353,19 +353,24 @@ val sexplist_CONG = Q.store_thm(
       Cases_on `p2 s2` >> simp[] >> fs[] >> metis_tac[]) >>
   simp[sexplist_def]);
 
-val _ = temp_overload_on ("guard", ``λb m. monad_unitbind (assert b) m``)
+val _ = temp_overload_on ("guard", ``λb m. monad_unitbind (assert b) m``);
 
 
-val sexpid_def = Define`
+val sexpid_def = tDefine "sexpid" `
   sexpid p s =
     do
        (nm, args) <- dstrip_sexp s;
        (guard (nm = "Short" ∧ LENGTH args = 1)
               (lift Short (p (EL 0 args))) ++
         guard (nm = "Long" ∧ LENGTH args = 2)
-              (lift2 Long (odestSEXSTR (EL 0 args)) (p (EL 1 args))))
+              (lift2 Long (odestSEXSTR (EL 0 args)) (sexpid p (EL 1 args))))
     od
-`;
+`
+ (simp [] >>
+  wf_rel_tac `measure (sexp_size o SND)` >>
+  rw [] >>
+  irule dstrip_sexp_size >>
+  rw [EL_MEM]);
 
 val sexptctor_def = Define`
   sexptctor s =
@@ -695,7 +700,7 @@ val optsexp_11 = Q.store_thm("optsexp_11[simp]",
 
 val idsexp_def = Define`
   (idsexp (Short n) = listsexp [SX_SYM"Short"; SEXSTR n]) ∧
-  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SEXSTR ns; SEXSTR n])`;
+  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SEXSTR ns; idsexp n])`;
 
 val idsexp_11 = Q.store_thm("idsexp_11[simp]",
   `∀ i1 i2. idsexp i1 = idsexp i2 ⇔ i1 = i2`,
@@ -1050,16 +1055,17 @@ val sexplist_listsexp_imp = Q.store_thm("sexplist_listsexp_imp",
   qid_spec_tac`l2`>>
   Induct_on`l1`>>simp[listsexp_def]>>simp[GSYM listsexp_def] >>
   simp[Once sexplist_def,PULL_EXISTS] >> rw[] >>
-  Cases_on`n`>>simp[])
+  Cases_on`n`>>simp[]);
 
 val sexpopt_optsexp = Q.store_thm("sexpopt_optsexp[simp]",
   `(∀y. (x = SOME y) ⇒ (f (g y) = x)) ⇒
    (sexpopt f (optsexp (OPTION_MAP g x)) = SOME x)`,
-  Cases_on`x`>>EVAL_TAC >> simp[])
+  Cases_on`x`>>EVAL_TAC >> simp[]);
 
 val sexpid_odestSEXSTR_idsexp = Q.store_thm("sexpid_odestSEXSTR_idsexp[simp]",
   `sexpid odestSEXSTR (idsexp i) = SOME i`,
-  Cases_on`i` >> simp[sexpid_def,idsexp_def]);
+  Induct_on `i` >> simp[idsexp_def] >>
+  rw [Once sexpid_def]);
 
 val sexptctor_tctorsexp = Q.store_thm("sexptctor_tctorsexp[simp]",
   `sexptctor (tctorsexp t) = SOME t`,
@@ -1242,7 +1248,7 @@ val litsexp_sexplit = Q.store_thm("litsexp_sexplit",
 
 val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
   `sexpid odestSEXSTR x = SOME y ⇒ x = idsexp y`,
-  rw[sexpid_def]
+  rw[Once sexpid_def]
   \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[]
   \\ fs[OPTION_CHOICE_EQ_SOME]
@@ -1250,7 +1256,8 @@ val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
   \\ fs[]
   \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[] >>
+  cheat);
 
 val strip_sxcons_NIL = Q.store_thm(
   "strip_sxcons_NIL[simp]",
@@ -1515,7 +1522,8 @@ val listsexp_valid = Q.store_thm("listsexp_valid",
 
 val idsexp_valid = Q.store_thm("idsexp_valid[simp]",
   `∀i. valid_sexp (idsexp i)`,
-  Cases \\ simp[idsexp_def]
+  Induct \\ simp[idsexp_def] >>
+  rw []
   \\ match_mp_tac listsexp_valid
   \\ simp[]
   \\ EVAL_TAC);
