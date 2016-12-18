@@ -1583,18 +1583,6 @@ val pos_val_MOD_0 = Q.prove(
 
 val IMP_IMP2 = METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``
 
-val IMP_has_io_index = Q.prove(
-  `(asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
-    has_io_index index s1.code`,
-  full_simp_tac(srw_ss())[asm_fetch_def]
-  \\ Q.SPEC_TAC (`s1.pc`,`pc`)
-  \\ Q.SPEC_TAC (`s1.code`,`code`)
-  \\ HO_MATCH_MP_TAC asm_code_length_ind \\ rpt strip_tac
-  \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,has_io_index_def] \\ res_tac
-  \\ Cases_on `is_Label y` \\ full_simp_tac(srw_ss())[]
-  THEN1 (Cases_on `y` \\ full_simp_tac(srw_ss())[is_Label_def] \\ res_tac)
-  \\ Cases_on `pc = 0` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[]);
-
 val word_cmp_lemma = Q.prove(
   `state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
     (word_cmp cmp (read_reg rr s1) (reg_imm ri s1) = SOME x) ==>
@@ -2701,8 +2689,8 @@ val enc_sec_list_sec_labels_ok = Q.store_thm("enc_sec_list_sec_labels_ok",
   \\ strip_tac \\ res_tac \\ fs[]);
 
 val enc_lines_again_sec_labels_ok = Q.prove(`
-  ∀labs pos enc lines acc ok res ok' k.
-    enc_lines_again labs pos enc lines (acc,ok) = (res,ok') ∧
+  ∀labs ffis pos enc lines acc ok res ok' k.
+    enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
     EVERY (sec_label_ok k) acc ∧
     EVERY (sec_label_ok k) lines ⇒
     EVERY (sec_label_ok k) res`,
@@ -2710,8 +2698,8 @@ val enc_lines_again_sec_labels_ok = Q.prove(`
   \\ rw[EVERY_REVERSE]);
 
 val enc_secs_again_sec_labels_ok = Q.store_thm("enc_secs_again_sec_labels_ok",
-  `∀pos labs enc ls res ok k.
-    enc_secs_again pos labs enc ls = (res,ok) ∧ EVERY sec_labels_ok ls ⇒
+  `∀pos ffis labs enc ls res ok k.
+    enc_secs_again pos ffis labs enc ls = (res,ok) ∧ EVERY sec_labels_ok ls ⇒
     EVERY sec_labels_ok res`,
   recInduct enc_secs_again_ind
   \\ rw[enc_secs_again_def] \\ rw[]
@@ -3475,8 +3463,8 @@ val line_enc_with_nop_label_zero = Q.store_thm("line_enc_with_nop_label_zero",
   \\ rw[line_enc_with_nop_def]);
 
 val lines_enc_with_nop_label_zero = Q.store_thm("lines_enc_with_nop_label_zero",
-  `∀enc labs pos lines.
-     lines_enc_with_nop enc labs pos lines ⇒ EVERY label_zero lines`,
+  `∀enc labs ffis pos lines.
+     lines_enc_with_nop enc labs ffis pos lines ⇒ EVERY label_zero lines`,
   Induct_on`lines`
   \\ rw[lines_enc_with_nop_def]
   \\ metis_tac[line_enc_with_nop_label_zero]);
@@ -3492,16 +3480,16 @@ val all_enc_with_nop_label_zero = Q.store_thm("all_enc_with_nop_label_zero",
 (* line_ok implies enc_with_nop *)
 
 val line_ok_line_enc_with_nop = Q.store_thm("line_ok_line_enc_with_nop",
-  `∀c labs pos line.
-    line_ok c labs pos line ⇒
-    line_enc_with_nop c.encode labs pos line`,
+  `∀c labs ffis pos line.
+    line_ok c labs ffis pos line ⇒
+    line_enc_with_nop c.encode labs ffis pos line`,
   recInduct line_ok_ind
   \\ rw[line_ok_def,line_enc_with_nop_def,get_label_def,lab_inst_def]);
 
 val lines_ok_lines_enc_with_nop = Q.store_thm("lines_ok_lines_enc_with_nop",
-  `∀c labs pos lines.
-    lines_ok c labs pos lines ⇒
-    lines_enc_with_nop c.encode labs pos lines`,
+  `∀c labs ffis pos lines.
+    lines_ok c labs ffis pos lines ⇒
+    lines_enc_with_nop c.encode labs ffis pos lines`,
   Induct_on`lines` \\ rw[lines_ok_def,lines_enc_with_nop_def]
   \\ metis_tac[line_ok_line_enc_with_nop]);
 
@@ -4036,7 +4024,7 @@ val ALOOKUP_section_labels_ignore = Q.store_thm("ALOOKUP_section_labels_ignore",
 
 val lines_ok_section_lab_lookup_even = Q.store_thm("lines_ok_section_lab_lookup_even",
   `∀pos lines acc.
-   lines_ok c labs pos lines ∧
+   lines_ok c labs ffis pos lines ∧
    (∀l2 x. ALOOKUP acc l2 = SOME x ⇒ EVEN x) ∧
    ALOOKUP (SND (section_labels pos lines acc)) l2 = SOME x
    ⇒
@@ -5037,7 +5025,7 @@ val semantics_compile_lemma = Q.store_thm("semantics_compile_lemma",
   \\ qexists_tac `c.init_clock`
   \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def]
   \\ full_simp_tac(srw_ss())[find_ffi_names_filter_skip]
-  \\ fs [make_init_filter_skip,sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]
+  \\ fs [make_init_filter_skip,sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip,good_init_state_def]
   \\ fs [GSYM ALL_EL_MAP])
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
