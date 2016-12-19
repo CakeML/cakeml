@@ -14,6 +14,7 @@ structure semanticPrimitivesSyntax = struct
   end
   local val s = HolKernel.syntax_fns3 "semanticPrimitives" in
   val (Recclosure_tm,mk_Recclosure,dest_Recclosure,is_Recclosure) = s "Recclosure"
+  val (Closure_tm,mk_Closure,dest_Closure,is_Closure) = s "Closure"
   end
   end
 end
