@@ -1,40 +1,11 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-    mlvectorTheory mllistProgTheory
+    mlvectorTheory mllistProgTheory basisFunctionsLib
 
 val _ = new_theory"mlvectorProg"
 
 val _ = translation_extends "mllistProg";
 
 val _ = ml_prog_update (open_module "Vector");
-
-fun get_module_prefix () = let
-  val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())
-               |> concl |> rator |> rator |> rand
-  in if optionSyntax.is_none mod_tm then "" else
-       stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
-  end
-
-fun trans ml_name q = let
-  val rhs = Term q
-  val prefix = get_module_prefix ()
-  val tm = mk_eq(mk_var(prefix ^ ml_name,type_of rhs),rhs)
-  val def = Define `^tm`
-  val _ = (next_ml_names := [ml_name])
-  val v_thm = translate (def |> SIMP_RULE std_ss [FUN_EQ_THM])
-  val v_thm = v_thm |> REWRITE_RULE [def]
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV)
-  val v_name = v_thm |> concl |> rand |> dest_const |> fst
-  (* evaluate precondition *)
-  val pat = PRECONDITION_def |> SPEC_ALL |> GSYM |> concl |> rand
-  fun PRECOND_CONV c tm =
-    if can (match_term pat) tm then RAND_CONV c tm else NO_CONV tm
-  val v_thm = v_thm |> DISCH_ALL
-                    |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
-                    |> UNDISCH_ALL
-  val _ = save_thm(v_name ^ "_thm",v_thm)
-  in v_thm end
-
-
 
 val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)`` I);
 

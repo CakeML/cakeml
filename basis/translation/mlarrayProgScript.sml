@@ -1,23 +1,10 @@
 open preamble
-     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory 
+     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib 
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib mlvectorProgTheory
 
 val _ = new_theory"mlarrayProg"
 
 val _ = translation_extends"mlvectorProg"
-
-fun append_prog tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  in ml_prog_update (ml_progLib.add_prog tm pick_name) end
-
-fun append_dec tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  in ml_prog_update (ml_progLib.add_dec tm pick_name) end
-
-fun append_decs tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  val tms = fst (listSyntax.dest_list tm)
-  in (map append_dec tms; ()) end
 
 fun array_st () = get_ml_prog_state ()
 
@@ -52,19 +39,20 @@ val array_fromList = process_topdecs
     in f l 0 end`;
 
 
-val fromList_st = ml_progLib.add_prog array_fromList pick_name (array_st())
+val fromList_st = ml_progLib.add_prog array_fromList pick_name (array_st());
 (* val () = append_decs array_fromList; *)
 
 val array_tabulate = process_topdecs
   `fun tabulate n f =
     let val arr = array n 0
-      fun u x f =
-        if x = 0 then
-          update arr x (f x)
-        else (update arr x (f x); u (x - 1) f)
-    in u (n - 1) f end`
+      fun u x =
+        if x = n then arr 
+        else (update arr x (f x); u (x + 1))
+    in 
+      u 0
+    end`;
 
-val tabulate_st = ml_progLib.add_prog array_tabulate pick_name (array_st ())
+val tabulate_st = ml_progLib.add_prog array_tabulate pick_name (array_st ());
 (* val () = append_decs array_tabulate; *)
 
 
@@ -72,25 +60,25 @@ val tabulate_st = ml_progLib.add_prog array_tabulate pick_name (array_st ())
   `fun vector arr = Vector.tabulate (length arr) (fn i => sub arr i)`*)
 
 val array_copy = process_topdecs
-  `fun copy_aux src dst di n =
-    if n = 0
-      then update dst (di + n) (sub src n)
-    else (update dst (di + n) (sub src n); copy_aux src dst di (n - 1))
+  `fun copy_aux src dst di max n =
+    if n = max
+      then ()
+    else (update dst (di + n) (sub src n); copy_aux src dst di (n + 1))
 
   fun copy src dst di =
-    copy_aux src dst di ((length src) - 1`
+    copy_aux src dst di (length src) 0`
 
 val copy_st = ml_progLib.add_prog array_copy pick_name (array_st ())
 (* val () = append_decs array_copy; *)
 
 val array_copyVec = process_topdecs
-  `fun copyVec_aux src dst di n =
-    if n = 0
-        then update dst (di + n) (Vector.sub src n)
-    else (update dst (di + n) (Vector.sub src n); copy_aux src dst di n - 1)
+  `fun copyVec_aux src dst di max n =
+    if n = max
+        then ()
+    else (update dst (di + n) (Vector.sub src n); copy_aux src dst di max (n + 1))
 
   fun copy src dst di =
-    copyVec_aux src dst di ((Vector.length src) - 1)`
+    copyVec_aux src dst di (Vector.length src) 0`
 
 val copyVec_st = ml_progLib.add_prog array_copyVec pick_name (array_st())
 (*val () = append_decs array_copyVec; *)
@@ -98,11 +86,11 @@ val copyVec_st = ml_progLib.add_prog array_copyVec pick_name (array_st())
 val array_app = process_topdecs
   `fun app_aux f arr max n =
     if n = max
-      then f (sub (arr, max))
+      then ()
     else (f (sub arr n); app_aux f arr max (n + 1))
 
   fun app f arr =
-    app_aux f arr ((length arr) - 1) 0`
+    app_aux f arr (length arr) 0`
 
 val app_st = ml_progLib.add_prog array_app pick_name (array_st ())
 (*val () = append_decs array_app; *)
@@ -110,11 +98,11 @@ val app_st = ml_progLib.add_prog array_app pick_name (array_st ())
 val array_appi = process_topdecs
   `fun appi_aux f arr max n =
     if n = max
-      then f n (sub (arr, max))
+      then ()
     else (f n (sub arr n); app_aux f arr max (n + 1))
 
   fun appi f arr =
-    appi_aux f arr ((length arr) - 1) 0`
+    appi_aux f arr (length arr) 0`
 
 val appi_st = ml_progLib.add_prog array_appi pick_name (array_st ())
 (*val () = append_decs array_appi;*)
@@ -122,11 +110,11 @@ val appi_st = ml_progLib.add_prog array_appi pick_name (array_st ())
 val array_modify = process_topdecs
   `fun modify_aux f arr max n =
     if n = max
-      then update arr n (f (sub arr n))
+      then ()
     else (update arr n (f (sub arr n)); modify_aux f arr max (n + 1))
 
   fun modify f arr =
-    modify_aux f arr ((length arr) - 1) 0`
+    modify_aux f arr (length arr) 0`
 
 val modify_st = ml_progLib.add_prog array_modify pick_name (array_st ())
 (*val () = append_decs array_modify; *)
@@ -134,11 +122,11 @@ val modify_st = ml_progLib.add_prog array_modify pick_name (array_st ())
 val array_modifyi = process_topdecs
   `fun modifyi_aux f arr max n =
     if n = max
-      then update arr n (f (sub arr n))
+      then ()
     else (update arr n (f (sub arr n)); modify_aux f arr max (n + 1))
 
   fun modifyi f arr =
-    modifyi_aux f arr ((length arr) - 1) 0`
+    modifyi_aux f arr (length arr) 0`
 
 val modifyi_st = ml_progLib.add_prog array_modify pick_name (array_st ())
 (*val () = append_decs array_modify;*)
@@ -147,11 +135,11 @@ val modifyi_st = ml_progLib.add_prog array_modify pick_name (array_st ())
 val array_foldli = process_topdecs
   `fun foldli_aux f init arr max n =
     if n = max 
-      then f n init (sub arr n)
+      then init
     else foldli_aux f (f n init (sub arr n)) arr max (n + 1)
 
   fun foldli f init arr =
-    foldli_aux f init arr ((length arr) - 1) 0`
+    foldli_aux f init arr (length arr) 0`
 
 val foldli_st = ml_progLib.add_prog array_foldli pick_name (array_st ())
 (*val () = append_decs array_foldli; *)
@@ -159,11 +147,11 @@ val foldli_st = ml_progLib.add_prog array_foldli pick_name (array_st ())
 val array_foldl = process_topdecs
   `fun foldl_aux f init arr max n =
     if n = max 
-      then f init (sub arr n)
+      then init
     else foldl_aux f (f init (sub arr n)) arr max (n + 1)
 
   fun foldl f init arr =
-    foldl_aux f init arr ((length arr) - 1) 0`
+    foldl_aux f init arr (length arr) 0`
 
 val foldl_st = ml_progLib.add_prog array_foldl pick_name (array_st ())
 (* val () = append_decs array_foldl; *)
@@ -171,11 +159,11 @@ val foldl_st = ml_progLib.add_prog array_foldl pick_name (array_st ())
 val array_foldri = process_topdecs
   `fun foldri_aux f init arr n =
     if n = 0
-      then f n init (sub arr n)
-    else foldri_aux f (f n init (sub arr n)) arr (n - 1)
+      then init
+    else foldri_aux f (f (n - 1) init (sub arr (n - 1))) arr (n - 1)
 
   fun foldri f init arr = 
-    foldri_aux f init arr ((length arr) - 1)`
+    foldri_aux f init arr (length arr)`
 
 val foldri_st = ml_progLib.add_prog array_foldri pick_name (array_st ())
 (*val () = append_decs array_foldri;*)
@@ -184,11 +172,11 @@ val foldri_st = ml_progLib.add_prog array_foldri pick_name (array_st ())
 val array_foldr = process_topdecs
   `fun foldr_aux f init arr n =
     if n = 0
-      then f init (sub arr n)
-    else foldr_aux f (f init (sub arr n)) arr (n - 1)
+      then init
+    else foldr_aux f (f init (sub arr (n - 1))) arr (n - 1)
 
   fun foldr f init arr = 
-    foldr_aux f init arr ((length arr) - 1)`
+    foldr_aux f init arr (length arr)`
 
 val foldr_st = ml_progLib.add_prog array_foldr pick_name (array_st ())
 (*val () = append_decs array_foldr;*)
@@ -283,7 +271,8 @@ fun prove_array_spec op_name =
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
-val array = "array"
+val prefix = "";
+val array = prefix ^ "array";
 val array_alloc_spec = Q.store_thm ("array_alloc_spec",
   `!n nv v.
      NUM n nv ==>
@@ -291,21 +280,22 @@ val array_alloc_spec = Q.store_thm ("array_alloc_spec",
        emp (POSTv av. ARRAY av (REPLICATE n v))`,
   prove_array_spec array);
 
+val sub = prefix ^ "sub";
 val array_sub_spec = Q.store_thm ("array_sub_spec",
   `!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "Array.sub" (array_st())) [av; nv]
+     app (p:'ffi ffi_proj) ^(fetch_v sub (array_st())) [av; nv]
        (ARRAY av a) (POSTv v. cond (v = EL n a) * ARRAY av a)`,
-  prove_array_spec "Array.sub");
+  prove_array_spec sub);
 
 val array_length_spec = Q.store_thm ("array_length_spec",
   `!a av.
-     app (p:'ffi ffi_proj) ^(fetch_v "Array.length" (array_st())) [av]
+     app (p:'ffi ffi_proj) ^(fetch_v "length" (array_st())) [av]
        (ARRAY av a)
        (POSTv v. cond (NUM (LENGTH a) v) * ARRAY av a)`,
-  prove_array_spec "Array.length");
+  prove_array_spec "length");
 
-val update = "update";
+val update = prefix ^ "update";
 val array_update_spec = Q.store_thm ("array_update_spec",
   `!a av n nv v.
      NUM n nv /\ n < LENGTH a ==>
@@ -315,20 +305,23 @@ val array_update_spec = Q.store_thm ("array_update_spec",
        (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))`,
   prove_array_spec update);
 
+
+val fromList = prefix ^"fromList";
 val array_fromList_spec = Q.store_thm("array_fromList_spec",
   `!l lv a A.
-    LIST_TYPE A l lv /\ LIST_REL A l a ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "fromList" fromList_st) [lv]
+    LIST_TYPE A l lv /\ v_to_list lv = SOME a ==>
+    app (p:'ffi ffi_proj) ^(fetch_v fromList fromList_st) [lv]
       emp (POSTv av. ARRAY av a)`,
-    xcf "fromList" fromList_st \\ 
+    xcf fromList fromList_st \\ 
     xlet `POSTv v. & NUM (LENGTH l) v` >- 
     (xapp \\ metis_tac[]) \\
     xlet `POSTv ar. ARRAY ar (REPLICATE (LENGTH l) (Litv(IntLit 0)))` >- 
     (xapp \\ xsimpl) \\
     xfun_spec `f`
       `!ls lsv i iv a l_pre rest.
-      LIST_TYPE A ls lsv /\ NUM i iv /\ LIST_REL A ls a /\ LENGTH ls = LENGTH rest
-      /\ LENGTH l_pre = i ==> 
+        NUM i iv /\ LENGTH l_pre = i /\
+        LIST_TYPE A ls lsv /\ v_to_list lsv = SOME a /\ LENGTH ls = LENGTH rest
+      ==> 
       app p f [lsv; iv]
       (ARRAY ar (l_pre ++ rest)) 
       (POSTv ret. & (ret = ar) * ARRAY ar (l_pre ++ a))` >- (
@@ -336,17 +329,53 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
           rw[LIST_TYPE_def] \\ 
           first_x_assum match_mp_tac \\ 
           xmatch \\ xret \\
-          fs [LENGTH_NIL_SYM] \\ xsimpl) \\
-        rw[LIST_TYPE_def] \\ last_x_assum match_mp_tac \\
+          fs [LENGTH_NIL_SYM] \\
+          fs [terminationTheory.v_to_list_def] \\
+          xsimpl) \\
+        rw[LIST_TYPE_def] \\
+        fs[terminationTheory.v_to_list_def] \\
+        qpat_x_assum`_ = SOME _`mp_tac \\ CASE_TAC \\ rw[] \\
+        last_x_assum match_mp_tac \\
         xmatch \\ 
         Cases_on `rest` \\ fs[] \\
-        xlet `POSTv u. ARRAY ar (l_pre ++ y::t)` >- (
+        qmatch_assum_rename_tac`A h hv` \\
+        xlet `POSTv u. ARRAY ar (l_pre ++ hv::t)` >- (
           xapp \\
-          instantiate \\
-          
+          instantiate \\ 
+          xsimpl ) \\
+        xlet `POSTv iv. ARRAY ar (l_pre ++ hv::t) * & NUM (LENGTH l_pre + 1) iv`
+        >- (
+          xapp \\ 
+          xsimpl \\
+          qexists_tac `&(LENGTH l_pre)` \\
+          fs [NUM_def, std_preludeTheory.plus_def, integerTheory.INT_ADD]
+          ) \\
+        once_rewrite_tac[CONS_APPEND] \\
+        rewrite_tac[APPEND_ASSOC] \\
+        xapp \\ xsimpl ) \\
+      xapp \\
+      instantiate \\
+      simp[LENGTH_NIL_SYM,PULL_EXISTS] \\
+      instantiate \\
+      xsimpl \\
+      simp[LENGTH_REPLICATE]);
 
-(*val _ = hide_environments true
-val _ = max_print_depth  := 20
+
+(*
+val tabulate = prefix ^"tabulate";
+val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
+  `!n nv f.
+    NUM n nv ==>
+    app (p:'ffi ffi_proj) ^(fetch_v tabulate tabulate_st) [nv]
+    emp (POSTv av. ARRAY av (GENLIST f n))`,
+    xcf tabulate tabulate_st \\  
+
+val copy = prefix ^"copy";
+val array_copy_aux_spec = Q.store_thm("array_copy_aux_spec",
+  `!src srcv dst dstv di div n nv max maxv.
+      NUM di div /\ NUM n nv /\ NUM max maxv /\ length src + di <= length dst /\ n < max ==>
+      app (p:'ffi ffi_proj) ^(fetch_v copy copy_st) [srcv; dstv; div; maxv; nv]
+      (ARRAY srcv src * ARRAY dstv dst) (POSTv u. ARRAY dstv (pre ++ src))` 
+
 *)
-
 val _ = export_theory ()

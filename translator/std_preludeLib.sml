@@ -8,12 +8,13 @@ open optionTheory oneTheory bitTheory stringTheory whileTheory;
 open finite_mapTheory pred_setTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory alistTheory;
+open basisFunctionsLib cfTacticsBaseLib;
 
-open ml_translatorLib ml_translatorTheory;
+open ml_translatorLib ml_translatorTheory ml_progLib;
 
 fun std_prelude () = let
 
-(*val _ = mini_preludeLib.mini_prelude (); *)
+
 
 (* type registration *)
 val _ = Datatype `order = LESS | EQUAL | GREATER`;
@@ -22,6 +23,71 @@ val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:cpn``;
+
+
+val _ = Define `
+  mk_binop name prim = Dlet (Pvar name)
+    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))`;
+
+val _ = Define `
+  mk_unop name prim = Dlet (Pvar name)
+    (Fun "x" (App prim [Var (Short "x")]))`;
+
+
+(* basic type abbreviations *)
+
+val _ = append_prog
+  ``[Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
+     Tdec (Dtabbrev [] "unit" (Tapp [] TC_tup));
+     Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
+     Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
+     Tdec (Dtabbrev [] "word" (Tapp [] TC_word8));
+     Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
+     Tdec (Dtabbrev [] "char" (Tapp [] TC_char))]``
+
+
+(* the parser targets the following for int arith ops -- translated *)
+
+val _ = trans "+" `(+):int->int->int`
+val _ = trans "-" `(-):int->int->int`
+val _ = trans "*" `int_mul`
+val _ = trans "div" `(/):int->int->int`
+val _ = trans "mod" `(%):int->int->int`
+val _ = trans "<" `(<):int->int->bool`
+val _ = trans ">" `(>):int->int->bool`
+val _ = trans "<=" `(<=):int->int->bool`
+val _ = trans ">=" `(>=):int->int->bool`
+val _ = trans "~" `\i. - (i:int)`
+
+
+(* other basics that parser targets -- CF verified *)
+
+val _ = trans "=" `\x1 x2. x1 = x2:'a`
+val _ = trans "not" `\x. ~x:bool`
+val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
+
+val _ = append_prog
+  ``[Tdec (mk_binop ":=" Opassign);
+     Tdec (mk_unop "!" Opderef);
+     Tdec (mk_unop "ref" Opref)]``
+
+
+val ref_spec = Q.store_thm ("ref_spec",
+  `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (get_ml_prog_state ())) [xv]
+          emp (POSTv rv. rv ~~> xv)`,
+  prove_ref_spec "op ref");
+
+val deref_spec = Q.store_thm ("deref_spec",
+  `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op !" (get_ml_prog_state ())) [rv]
+          (rv ~~> xv) (POSTv yv. cond (xv = yv) * rv ~~> xv)`,
+  prove_ref_spec "op !");
+
+val assign_spec = Q.store_thm ("assign_spec",
+  `!rv xv yv.
+     app (p:'ffi ffi_proj) ^(fetch_v "op :=" (get_ml_prog_state ())) [rv; yv]
+       (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`,
+  prove_ref_spec "op :=");
+
 
 
 (* pair *)
