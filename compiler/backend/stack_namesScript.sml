@@ -2,11 +2,13 @@ open preamble stackLangTheory;
 
 val _ = new_theory "stack_names";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 (* Rename the registers to fit with the target architecture *)
 
 val find_name_def = Define `
   find_name f n =
-    case lookup n f of
+    dtcase lookup n f of
     | NONE => n
     | SOME k => k`
 
@@ -16,7 +18,7 @@ val ri_find_name_def = Define `
 
 val inst_find_name_def = Define `
   inst_find_name f i =
-    case i of
+    dtcase i of
     | Skip => Skip
     | Const r w => Const (find_name f r) w
     | Arith (Binop bop d r ri) =>
@@ -41,9 +43,9 @@ val dest_find_name_def = Define`
   dest_find_name f (INR r) = INR (find_name f r) ∧
   dest_find_name f x = x`;
 
-val comp_def = Define `
+local val comp_quotation = `
   comp f p =
-    case p of
+    dtcase p of
     | Halt r => Halt (find_name f r)
     | Raise r => Raise (find_name f r)
     | Return r1 r2 => Return (find_name f r1) (find_name f r2)
@@ -55,16 +57,28 @@ val comp_def = Define `
     | While c r ri p1 =>
         While c (find_name f r) (ri_find_name f ri) (comp f p1)
     | Call ret dest exc =>
-        Call (case ret of
+        Call (dtcase ret of
               | NONE => NONE
               | SOME (p1,lr,l1,l2) => SOME (comp f p1,find_name f lr,l1,l2))
              (dest_find_name f dest)
-             (case exc of
+             (dtcase exc of
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | FFI i r1 r2 r3 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
     | JumpLower r1 r2 dest => JumpLower (find_name f r1) (find_name f r2) dest
     | p => p`
+in
+val comp_def = Define comp_quotation
+
+val comp_pmatch = Q.store_thm("comp_pmatch",`∀f p.` @
+  (comp_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+  rpt strip_tac
+  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
+  >> rpt strip_tac
+  >> fs[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+end
 
 val prog_comp_def = Define `
   prog_comp f (n,p) = (n,comp f p)`

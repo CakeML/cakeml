@@ -3,6 +3,7 @@ open preamble wordLangTheory stackLangTheory sortingTheory;
 val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
 
 (*Scheme:
@@ -17,7 +18,7 @@ val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
 val pull_ops_def = Define`
   (pull_ops op [] acc = acc) ∧
   (pull_ops op (x::xs) acc =
-    case x of
+    dtcase x of
     |  (Op op' ls) => if op = op' then pull_ops op xs (ls ++ acc) else pull_ops op xs (x::acc)
     |  _  => pull_ops op xs (x::acc))`
 
@@ -35,18 +36,39 @@ val convert_sub_def = Define`
   (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
   (convert_sub ls = Op Sub ls)`
 
+val convert_sub_pmatch = Q.store_thm("convert_sub_pmatch",`!l. 
+  convert_sub l =
+  case l of
+    [Const w1;Const w2] => Const (w1 -w2)
+  | [x;Const w] => Op Add [x;Const (-w)]
+  | ls => Op Sub ls`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[convert_sub_def])
+
 val op_consts_def = Define`
   (op_consts And = Const (~0w)) ∧
   (op_consts _ = Const 0w)`
 
+val op_consts_pmatch = Q.store_thm("op_consts_pmatch",`!op. 
+  op_consts op =
+  case op of
+    And => Const (~0w)
+  | _ => Const 0w`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[op_consts_def]);
+
 val optimize_consts_def = Define`
   optimize_consts op ls =
   let (const_ls,nconst_ls) = PARTITION is_const ls in
-    case const_ls of
+    dtcase const_ls of
       [] => Op op nconst_ls
     | _ =>
       let w = THE (word_op op (MAP rm_const const_ls)) in
-      case nconst_ls of
+      dtcase nconst_ls of
         [] => Const w
       | _ => Op op (Const w::nconst_ls)`
 
@@ -71,6 +93,26 @@ val pull_exp_def = tDefine "pull_exp"`
    \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
    \\ TRY (DECIDE_TAC))
 
+val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!exp.
+  pull_exp exp =
+  case exp of
+   Op Sub ls => (
+    let new_ls = MAP pull_exp ls in
+    convert_sub new_ls)
+  | Op op [] => op_consts op
+  | Op op [x] => pull_exp x
+  | Op op ls => (
+    let new_ls = MAP pull_exp ls in
+    let pull_ls = pull_ops op new_ls [] in
+      optimize_consts op pull_ls)
+  | Load exp => Load (pull_exp exp)
+  | Shift shift exp nexp => Shift shift (pull_exp exp) nexp
+  | exp => exp`
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[pull_exp_def,ETA_THM])
+
 (*Flatten list expressions to trees -- of the form:
       +
      /\
@@ -94,6 +136,20 @@ val flatten_exp_def = tDefine "flatten_exp" `
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC))
 
+val flatten_exp_pmatch = Q.store_thm("flatten_exp_pmatch",`!exp.
+  flatten_exp exp =
+  case exp of
+    (Op Sub exps) => Op Sub (MAP flatten_exp exps)
+  | (Op op []) => op_consts op
+  | (Op op [x]) => flatten_exp x
+  | (Op op (x::xs)) => Op op [flatten_exp (Op op xs);flatten_exp x]
+  | (Load exp) => Load (flatten_exp exp)
+  | (Shift shift exp nexp) => Shift shift (flatten_exp exp) nexp
+  | exp => exp`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[flatten_exp_def, ETA_THM])
 (*
 val test = EVAL ``flatten_exp (pull_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
 
@@ -117,7 +173,7 @@ val test = EVAL ``flatten_exp (pull_exp (Op Sub [Const 1w; Op Sub[Const 2w;Const
 
 val inst_select_exp_def = tDefine "inst_select_exp" `
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
-    case exp of
+    dtcase exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok w c then
         let prog = inst_select_exp c temp temp exp' in
@@ -136,7 +192,7 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
   (*All ops are binary branching*)
   (inst_select_exp c tar temp (Op op [e1;e2]) =
     let p1 = inst_select_exp c temp temp e1 in
-    case e2 of
+    dtcase e2 of
     | Const w =>
       (*t = r op const*)
       if c.valid_imm (INL op) w then
@@ -169,6 +225,58 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)) ;
 
+val inst_select_exp_pmatch = Q.store_thm("inst_select_exp",`!c tar temp exp.
+  inst_select_exp (c:'a asm_config) tar temp exp =
+  case exp of
+    Load(Op Add [exp';Const w]) =>
+      if addr_offset_ok w c then
+        let prog = inst_select_exp c temp temp exp' in
+          Seq prog (Inst (Mem Load tar (Addr temp w)))
+      else
+        (let prog = inst_select_exp c temp temp (Op Add [exp'; Const w]) in
+          Seq prog (Inst (Mem Load tar (Addr temp (0w)))))
+  | Load exp =>
+      (let prog = inst_select_exp c temp temp exp in
+      Seq prog (Inst (Mem Load tar (Addr temp (0w)))))
+  | Const w => Inst (Const tar w)
+  | Var v =>
+    Move 0 [tar,v]
+  | Lookup store_name =>
+    Get tar store_name
+  (*All ops are binary branching*)
+  | Op op [e1;e2] =>
+    (let p1 = inst_select_exp c temp temp e1 in
+    case e2 of
+      Const w =>
+      (*t = r op const*)
+      if c.valid_imm (INL op) w then
+        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
+      (*t = r + const --> t = r - const*)
+      else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
+        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
+      else
+      (*no immediates*)
+        let p2 = Inst (Const (temp+1) w) in
+        Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
+    | _ =>
+      let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
+      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
+  | Shift sh exp nexp =>
+    (let n = num_exp nexp in
+    if (n < dimindex(:'a)) then
+      let prog = inst_select_exp c temp temp exp in
+      if n = 0 then
+        Seq prog (Move 0 [tar,temp])
+      else
+        Seq prog (Inst (Arith (Shift sh tar temp n)))
+    else
+      Inst (Const tar 0w))
+  (*Make it total*)
+  | _ => Skip`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+  >> fs[inst_select_exp_def])
 (*
 
 First munch
@@ -190,7 +298,7 @@ val inst_select_def = Define`
     Seq prog (Set store (Var temp))) ∧
   (inst_select c temp (Store exp var) =
     let exp = (flatten_exp o pull_exp) exp in
-    case exp of
+    dtcase exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok w c then
         let prog = inst_select_exp c temp temp exp' in
@@ -206,7 +314,7 @@ val inst_select_def = Define`
   (inst_select c temp (MustTerminate p1) =
     MustTerminate (inst_select c temp p1)) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
-    case ri of
+    dtcase ri of
       Imm w =>
       if c.valid_imm (INR cmp) w
       then
@@ -218,6 +326,55 @@ val inst_select_def = Define`
       If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2)) ∧
   (inst_select c temp (Call ret dest args handler) =
     let retsel =
+      dtcase ret of
+        NONE => NONE
+      | SOME (n,names,ret_handler,l1,l2) =>
+        SOME (n,names,inst_select c temp ret_handler,l1,l2) in
+    let handlersel =
+      dtcase handler of
+        NONE => NONE
+      | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
+    Call retsel dest args handlersel) ∧
+  (inst_select c temp prog = prog)`
+
+val inst_select_pmatch = Q.store_thm("inst_select_pmatch",`!c temp prog.
+  inst_select c temp prog =
+  case prog of
+  | Assign v exp =>
+    (inst_select_exp c v temp o flatten_exp o pull_exp) exp
+  | Set store exp =>
+    (let prog = (inst_select_exp c temp temp o flatten_exp o pull_exp) exp in
+    Seq prog (Set store (Var temp)))
+  | Store exp var =>
+    (let exp = (flatten_exp o pull_exp) exp in
+    case exp of
+    | Op Add [exp';Const w] =>
+      if addr_offset_ok w c then
+        let prog = inst_select_exp c temp temp exp' in
+          Seq prog (Inst (Mem Store var (Addr temp w)))
+      else
+        let prog = inst_select_exp c temp temp exp in
+          Seq prog (Inst (Mem Store var (Addr temp (0w))))
+    | _ =>
+      let prog = inst_select_exp c temp temp exp in
+      Seq prog (Inst (Mem Store var (Addr temp (0w)))))
+  | Seq p1 p2 =>
+    Seq (inst_select c temp p1) (inst_select c temp p2)
+  | MustTerminate p1 =>
+    MustTerminate (inst_select c temp p1)
+  | (If cmp r1 ri c1 c2) =>
+    (case ri of
+      Imm w =>
+      if c.valid_imm (INR cmp) w
+      then
+        If cmp r1 (Imm w) (inst_select c temp c1) (inst_select c temp c2)
+      else
+        Seq (Inst (Const temp w))
+        (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
+    | Reg r =>
+      If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2))
+  | (Call ret dest args handler) =>
+    (let retsel =
       case ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
@@ -226,8 +383,13 @@ val inst_select_def = Define`
       case handler of
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
-    Call retsel dest args handlersel) ∧
-  (inst_select c temp prog = prog)`
+    Call retsel dest args handlersel)
+  | prog => prog`,
+  rpt(
+    rpt strip_tac
+    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> fs[inst_select_def]));
 
 (*
   Convert all 3 register instructions to 2 register instructions
@@ -251,6 +413,38 @@ val three_to_two_reg_def = Define`
     If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧
   (three_to_two_reg (Call ret dest args handler) =
     let retsel =
+      dtcase ret of
+        NONE => NONE
+      | SOME (n,names,ret_handler,l1,l2) =>
+        SOME (n,names,three_to_two_reg ret_handler,l1,l2) in
+    let handlersel =
+      dtcase handler of
+        NONE => NONE
+      | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
+    Call retsel dest args handlersel) ∧
+  (three_to_two_reg prog = prog)`
+
+val three_to_two_reg_pmatch = Q.store_thm("three_to_two_reg_pmatch",`!prog.
+  three_to_two_reg prog =
+  case prog of
+  | (Inst (Arith (Binop bop r1 r2 ri))) =>
+    Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))
+  | (Inst (Arith (Shift l r1 r2 n))) =>
+    Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))
+  | (Inst (Arith (AddCarry r1 r2 r3 r4))) =>
+    Seq (Move 0 [r1,r2]) (Inst (Arith (AddCarry r1 r1 r3 r4)))
+  | (Inst (Arith (AddOverflow r1 r2 r3 r4))) =>
+    Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))
+  | (Inst (Arith (SubOverflow r1 r2 r3 r4))) =>
+    Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))
+  | (Seq p1 p2) =>
+    Seq (three_to_two_reg p1) (three_to_two_reg p2)
+  | (MustTerminate p1) =>
+    MustTerminate (three_to_two_reg p1)
+  | (If cmp r1 ri c1 c2) =>
+    If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)
+  | (Call ret dest args handler) =>
+    (let retsel =
       case ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
@@ -259,7 +453,12 @@ val three_to_two_reg_def = Define`
       case handler of
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
-    Call retsel dest args handlersel) ∧
-  (three_to_two_reg prog = prog)`
+    Call retsel dest args handlersel)
+  | prog => prog`,
+  rpt(
+    rpt strip_tac
+    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> fs[three_to_two_reg_def]));
 
 val _ = export_theory();

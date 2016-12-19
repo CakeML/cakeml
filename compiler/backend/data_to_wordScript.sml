@@ -503,7 +503,7 @@ val MemEqList_def = Define `
      Seq (Assign 5 (Load (Op Add [Var 3; Const a])))
          (If Equal 5 (Imm w) (MemEqList (a + bytes_in_word) ws) Skip))`;
 
-val assign_quotation = `
+local val assign_quotation = `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
     dtcase op of
@@ -1017,6 +1017,7 @@ in val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args nam
   >> ASSUME_TAC(fetch "ast" "word_size_nchotomy")
   >> fs[assign_def]
   >> metis_tac[])
+end
 end
 
 val comp_def = Define `

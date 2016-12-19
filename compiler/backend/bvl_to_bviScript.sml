@@ -126,7 +126,7 @@ val stubs_def = Define `
 
 val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
-val compile_op_quotation = `
+local val compile_op_quotation = `
   compile_op op c1 =
     dtcase op of
     | Const i => (dtcase c1 of [] => compile_int i
@@ -141,7 +141,7 @@ val compile_op_quotation = `
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
     | _ => Op op c1`
-
+in
 val compile_op_def = Define compile_op_quotation
 
 val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
@@ -151,6 +151,7 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[compile_op_def])
+end
 
 val _ = temp_overload_on("++",``SmartAppend``);
 

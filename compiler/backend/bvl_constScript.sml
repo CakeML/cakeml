@@ -33,7 +33,7 @@ val dest_simple_pmatch = Q.store_thm("dest_simple_pmatch",`
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[dest_simple_def]);
 
-val SmartOp_quotation = `
+local val SmartOp_quotation = `
   SmartOp op (xs:bvl$exp list) =
     let default = Op op xs in
       dtcase xs of
@@ -61,7 +61,7 @@ val SmartOp_quotation = `
           | _ => default
         else default
       | _ => default`
-
+in
 val SmartOp_def = Define SmartOp_quotation
 
 val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",
@@ -73,6 +73,7 @@ val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",
   >> BETA_TAC
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[SmartOp_def]);
+end
 
 val extract_def = Define `
   (extract ((Var n):bvl$exp) ys = SOME ((Var (n + LENGTH ys + 1)):bvl$exp)) /\

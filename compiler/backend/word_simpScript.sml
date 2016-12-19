@@ -2,6 +2,8 @@ open preamble wordLangTheory asmTheory sptreeTheory;
 
 val _ = new_theory "word_simp";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 (* function that makes all Seq associate to the left *)
 
 val SmartSeq_def = Define `
@@ -16,14 +18,38 @@ val Seq_assoc_def = Define `
   (Seq_assoc p1 (MustTerminate q) =
      SmartSeq p1 (MustTerminate (Seq_assoc Skip q))) /\
   (Seq_assoc p1 (Call ret_prog dest args handler) =
+     SmartSeq p1 (Call (dtcase ret_prog of
+           | NONE => NONE
+           | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,Seq_assoc Skip q1,x3,x4))
+       dest args
+          (dtcase handler of
+           | NONE => NONE
+           | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))) /\
+  (Seq_assoc p1 other = SmartSeq p1 other)`;
+
+val Seq_assoc_pmatch = Q.store_thm("Seq_assoc_pmatch",`!p1 prog.
+  Seq_assoc p1 prog =
+  case prog of
+  | Skip => p1
+  | (Seq q1 q2) => Seq_assoc (Seq_assoc p1 q1) q2
+  | (If v n r q1 q2) =>
+     SmartSeq p1 (If v n r (Seq_assoc Skip q1) (Seq_assoc Skip q2))
+  | (MustTerminate q) =>
+     SmartSeq p1 (MustTerminate (Seq_assoc Skip q))
+  | (Call ret_prog dest args handler) =>
      SmartSeq p1 (Call (case ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,Seq_assoc Skip q1,x3,x4))
        dest args
           (case handler of
            | NONE => NONE
-           | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))) /\
-  (Seq_assoc p1 other = SmartSeq p1 other)`;
+           | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))
+  | other => SmartSeq p1 other`,
+  rpt(
+    rpt strip_tac
+    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> fs[Seq_assoc_def]));
 
 val Seq_assoc_ind = fetch "-" "Seq_assoc_ind";
 
@@ -44,36 +70,80 @@ val dest_Seq_def = Define `
   (dest_Seq (Seq p1 p2) = (p1,p2:'a wordLang$prog)) /\
   (dest_Seq p = (Skip,p))`
 
+val dest_Seq_pmatch = Q.store_thm("dest_Seq_pmatch",`!p.
+  dest_Seq p =
+  case p of
+    Seq p1 p2 => (p1,p2:'a wordLang$prog)
+   | p => (Skip,p)`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[dest_Seq_def]);
+
 val dest_If_def = Define `
   (dest_If (If x1 x2 x3 p1 p2) = SOME (x1,x2,x3,p1,p2:'a wordLang$prog)) /\
   (dest_If _ = NONE)`
 
+val dest_If_pmatch = Q.store_thm("dest_If_pmatch",`!p.
+  dest_If p =
+  case p of
+    If x1 x2 x3 p1 p2 => SOME (x1,x2,x3,p1,p2:'a wordLang$prog)
+   | _ => NONE`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[dest_If_def]);
+
 val dest_If_Eq_Imm_def = Define `
+  dest_If_Eq_Imm p =
+    dtcase dest_If p of
+    | SOME (Equal,n,Imm w,p1,p2) => SOME (n,w,p1,p2)
+    | _ => NONE`
+
+val dest_If_Eq_Imm_pmatch = Q.store_thm("dest_If_Eq_Imm_pmatch",`!p.
   dest_If_Eq_Imm p =
     case dest_If p of
     | SOME (Equal,n,Imm w,p1,p2) => SOME (n,w,p1,p2)
-    | _ => NONE`
+    | _ => NONE`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[dest_If_Eq_Imm_def]);
 
 val dest_Seq_Assign_Const_def = Define `
   dest_Seq_Assign_Const n p =
     let (p1,p2) = dest_Seq p in
-      case p2 of
+      dtcase p2 of
       | Assign m (Const w) => if m = n then SOME (p1,w) else NONE
       | _ => NONE`
 
+val dest_Seq_Assign_Const_pmatch = Q.store_thm("dest_Seq_Assign_Const_pmatch",`!n p.
+  dest_Seq_Assign_Const n p =
+    let (p1,p2) = dest_Seq p in
+      case p2 of
+      | Assign m (Const w) => if m = n then SOME (p1,w) else NONE
+      | _ => NONE`,
+  rpt strip_tac
+  >> Cases_on `dest_Seq p`
+  >> PURE_REWRITE_TAC [LET_THM,pairTheory.UNCURRY_DEF]
+  >> BETA_TAC
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac
+  >> fs[dest_Seq_Assign_Const_def]);
+
 val apply_if_opt_def = Define `
   apply_if_opt x1 x2 =
-    case dest_If_Eq_Imm x2 of
+    dtcase dest_If_Eq_Imm x2 of
     | NONE => NONE
     | SOME (v,w,p1,p2) =>
        let (x0,x1) = dest_Seq x1 in
-         case dest_If x1 of
+         dtcase dest_If x1 of
          | NONE => NONE
          | SOME (x1,x2,x3,q1,q2) =>
-         case dest_Seq_Assign_Const v q1 of
+         dtcase dest_Seq_Assign_Const v q1 of
          | NONE => NONE
          | SOME (_,w1) =>
-         case dest_Seq_Assign_Const v q2 of
+         dtcase dest_Seq_Assign_Const v q2 of
          | NONE => NONE
          | SOME (_,w2) =>
             if w1 = w2 then NONE
@@ -87,21 +157,47 @@ val simp_if_def = tDefine "simp_if" `
   (simp_if (Seq x1 x2) =
      let y1 = simp_if x1 in
      let y2 = simp_if x2 in
-       case apply_if_opt y1 y2 of
+       dtcase apply_if_opt y1 y2 of
        | NONE => Seq y1 y2
        | SOME p => p) /\
   (simp_if (If v n r q1 q2) = If v n r (simp_if q1) (simp_if q2)) /\
   (simp_if (MustTerminate q) = MustTerminate (simp_if q)) /\
   (simp_if (Call ret_prog dest args handler) =
+     Call (dtcase ret_prog of
+           | NONE => NONE
+           | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,simp_if q1,x3,x4))
+       dest args
+          (dtcase handler of
+           | NONE => NONE
+           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))) /\
+  (simp_if x = x)`
+  (WF_REL_TAC `measure (wordLang$prog_size (K 0))` \\ rw [])
+
+val simp_if_pmatch = Q.store_thm("simp_if_pmatch",`!prog.
+  simp_if prog =
+  case prog of
+  | (Seq x1 x2) =>
+    (let y1 = simp_if x1 in
+     let y2 = simp_if x2 in
+       case apply_if_opt y1 y2 of
+       | NONE => Seq y1 y2
+       | SOME p => p)
+  | (If v n r q1 q2) => If v n r (simp_if q1) (simp_if q2)
+  | (MustTerminate q) => MustTerminate (simp_if q)
+  | (Call ret_prog dest args handler) =>
      Call (case ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,simp_if q1,x3,x4))
        dest args
           (case handler of
            | NONE => NONE
-           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))) /\
-  (simp_if x = x)`
-  (WF_REL_TAC `measure (wordLang$prog_size (K 0))` \\ rw [])
+           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))
+  | x => x`,
+  rpt(
+    rpt strip_tac
+    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> fs[simp_if_def]));
 
 val simp_if_ind = fetch "-" "simp_if_ind"
 
@@ -128,27 +224,27 @@ val simp_if_ind = fetch "-" "simp_if_ind"
 val strip_const_def = Define `
   (strip_const [] = SOME []) /\
   (strip_const (Const w::cs) =
-     case strip_const cs of
+     dtcase strip_const cs of
        | SOME ws => SOME (w::ws)
        | _ => NONE) /\
   (strip_const _ = NONE)`;
 
 val const_fp_exp_def = tDefine "const_fp_exp" `
   (const_fp_exp (Var v) cs =
-     case lookup v cs of
+     dtcase lookup v cs of
        | SOME x => Const x
        | NONE => Var v) /\
   (const_fp_exp (Op op args) cs =
      let const_fp_args = MAP (\a. const_fp_exp a cs) args in
-       case strip_const const_fp_args of
-         | SOME ws => (case word_op op ws of
+       dtcase strip_const const_fp_args of
+         | SOME ws => (dtcase word_op op ws of
 			| SOME w => Const w
 		        | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
   (const_fp_exp (Shift sh e ne) cs =
      let const_fp_exp_e = const_fp_exp e cs in
-       case const_fp_exp_e of
-         | Const c => (case word_sh sh c (num_exp ne) of
+       dtcase const_fp_exp_e of
+         | Const c => (dtcase word_sh sh c (num_exp ne) of
                         | SOME w => Const w
                         | _ => Shift sh (Const c) ne)
          | _ => Shift sh e ne) /\
@@ -165,7 +261,7 @@ val const_fp_move_cs_def = Define `
   (const_fp_move_cs (m::ms) ocs ncs =
     let v = FST m in
     let nncs =
-      (case lookup (SND m) ocs of
+      (dtcase lookup (SND m) ocs of
         | SOME c => insert v c ncs
         | _ => delete v ncs) in
         const_fp_move_cs ms ocs nncs)`;
@@ -195,7 +291,7 @@ val const_fp_loop_def = Define `
   (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs i cs)) /\
   (const_fp_loop (Assign v e) cs =
      let const_fp_e = const_fp_exp e cs in
-       case const_fp_e of
+       dtcase const_fp_e of
          | Const c => (Assign v const_fp_e, insert v c cs)
          | _ => (Assign v const_fp_e, delete v cs)) /\
   (const_fp_loop (Get v name) cs = (Get v name, delete v cs)) /\
@@ -207,14 +303,14 @@ val const_fp_loop_def = Define `
     let (p2', cs'') = const_fp_loop p2 cs' in
       (Seq p1' p2', cs'')) /\
   (const_fp_loop (wordLang$If cmp lhs rhs p1 p2) cs =
-    case (lookup lhs cs, get_var_imm_cs rhs cs) of
+    dtcase (lookup lhs cs, get_var_imm_cs rhs cs) of
       | (SOME clhs, SOME crhs) =>
         (if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in
               (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
   (const_fp_loop (Call ret dest args handler) cs =
-    case ret of
+    dtcase ret of
       | NONE => (Call ret dest args handler, filter_v is_gc_const cs)
       | SOME (n, names, ret_handler, l1, l2) =>
         (if handler = NONE then
@@ -224,9 +320,66 @@ val const_fp_loop_def = Define `
          else
            (Call ret dest args handler, LN))) /\
   (const_fp_loop (FFI x0 x1 x2 names) cs = (FFI x0 x1 x2 names, inter cs names)) /\
-  (const_fp_loop (LocValue v x0) cs = (LocValue v x0, delete v cs)) /\
+  (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop p cs = (p, cs))`;
+
+val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
+  const_fp_loop p cs =
+  case p of 
+  | (Move pri moves) => (Move pri moves, const_fp_move_cs moves cs cs)
+  | (Inst i) => (Inst i, const_fp_inst_cs i cs)
+  | (Assign v e) =>
+    (let const_fp_e = const_fp_exp e cs in
+       dtcase const_fp_e of
+         | Const c => (Assign v const_fp_e, insert v c cs)
+         | _ => (Assign v const_fp_e, delete v cs))
+  | (Get v name) => (Get v name, delete v cs)
+  | (MustTerminate p) =>
+    (let (p', cs') = const_fp_loop p cs in
+      (MustTerminate p', cs'))
+  | (Seq p1 p2) =>
+   (let (p1', cs') = const_fp_loop p1 cs in
+    let (p2', cs'') = const_fp_loop p2 cs' in
+      (Seq p1' p2', cs''))
+  | (wordLang$If cmp lhs rhs p1 p2) =>
+    (case (lookup lhs cs, get_var_imm_cs rhs cs) of
+      | (SOME clhs, SOME crhs) =>
+        if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs
+      | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
+              let (p2', p2cs) = const_fp_loop p2 cs in
+              (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs)))
+  | (Call ret dest args handler) =>
+    (case ret of
+      | NONE => (Call ret dest args handler, filter_v is_gc_const cs)
+      | SOME (n, names, ret_handler, l1, l2) =>
+        (if handler = NONE then
+           (let cs' = delete n (filter_v is_gc_const (inter cs names)) in
+            let (ret_handler', cs'') = const_fp_loop ret_handler cs' in
+            (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
+         else
+           (Call ret dest args handler, LN)))
+  | (FFI x0 x1 x2 names) => (FFI x0 x1 x2 names, inter cs names)
+  | (LocValue v x3) => (LocValue v x3, delete v cs)
+  | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
+  | p => (p, cs)`,
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+  >> rpt strip_tac
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+     >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
+  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+     >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- Cases_on `p` >> fs[const_fp_loop_def]);
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";
 
