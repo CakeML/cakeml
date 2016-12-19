@@ -229,7 +229,7 @@ open encodeLib
 
 val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
    [
-    `Inst (Arith (LongMul 4 5 6 7))`
+    `Inst (Arith (LongMul 4 5 6 7))`,
    ]
 
 val () = Count.apply (encodings [All])
@@ -243,12 +243,15 @@ val () = Count.apply (encodings [All])
     `Inst (Arith (Binop Add 6 6 (Imm 0x10000w)))`,
     `Inst (Arith (Binop Add 6 6 (Reg 7)))`,
     `Inst (Arith (Binop Or 6 6 (Imm 0xFFw)))`,
+    `Inst (Arith (Binop Xor 6 6 (Imm (-1w))))`,
     `Inst (Arith (Shift Lsr 6 6 1))`,
     `Inst (Arith (Shift Asr 6 6 1))`,
     `Inst (Arith (Div 6 7 8))`,
     `Inst (Arith (LongDiv 0 2 0 2 3))`,
     `Inst (Arith (LongMul 2 0 0 3))`,
     `Inst (Arith (AddCarry 6 7 8 9))`,
+    `Inst (Arith (AddOverflow 7 7 8 9))`,
+    `Inst (Arith (SubOverflow 7 7 8 9))`,
     `Inst (Mem Load 6 (Addr 7 0w))`,
     `Inst (Mem Load 6 (Addr 7 0x10w))`,
     `Inst (Mem Load8 6 (Addr 7 0x10w))`,

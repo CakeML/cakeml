@@ -57,7 +57,7 @@ val x64_encode_jcc_def = Define`
      else
         [0x0Fw; 0x80w || n2w (Zcond2num cond)] ++ e_imm32 a`;
 
-val x64_enc_def = Define`
+val x64_enc0_def = Define`
    (x64_enc0 (Inst Skip) = x64$encode Znop) /\
    (x64_enc0 (Inst (Const r i)) =
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64 in
@@ -67,10 +67,13 @@ val x64_enc_def = Define`
         x64$encode
           (if (bop = Or) /\ (r2 = r3) then Zmov (Z_ALWAYS, a)
            else Zbinop (x64_bop bop, a))) /\
-   (x64_enc0 (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-       x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
-   (x64_enc0 (Inst (Arith (Shift sh r1 r2 n))) =
-       x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r1, n2w n)))) /\
+   (x64_enc0 (Inst (Arith (Binop bop r _ (Imm i)))) =
+       if (bop = Xor) /\ (i = -1w) then
+         x64$encode (Zmonop (Znot, Z64, reg r))
+       else
+         x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r, i)))) /\
+   (x64_enc0 (Inst (Arith (Shift sh r _ n))) =
+       x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r, n2w n)))) /\
    (x64_enc0 (Inst (Arith (Div _ _ _))) = []) /\
    (x64_enc0 (Inst (Arith (LongMul _ _ _ r))) =
        x64$encode (Zmul (Z64, reg r))) /\
@@ -81,7 +84,15 @@ val x64_enc_def = Define`
        x64$encode Zcmc ++
        x64$encode (Zbinop (Zadc, Z64, Zrm_r (reg r1, total_num2Zreg r3))) ++
        x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r4, 0w))) ++
-       x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
+       x64$encode (Zset (Z_B, T, reg r4))) /\
+   (x64_enc0 (Inst (Arith (AddOverflow r1 _ r2 r3))) =
+       x64$encode (Zbinop (Zadd, Z64, Zrm_r (reg r1, total_num2Zreg r2))) ++
+       x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r3, 0w))) ++
+       x64$encode (Zset (Z_O, T, reg r3))) /\
+   (x64_enc0 (Inst (Arith (SubOverflow r1 _ r2 r3))) =
+       x64$encode (Zbinop (Zsub, Z64, Zrm_r (reg r1, total_num2Zreg r2))) ++
+       x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r3, 0w))) ++
+       x64$encode (Zset (Z_O, T, reg r3))) /\
    (x64_enc0 (Inst (Mem Load r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z64, ld r1 r2 a))) /\
    (*

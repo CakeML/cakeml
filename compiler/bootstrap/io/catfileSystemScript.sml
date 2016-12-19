@@ -342,12 +342,6 @@ val encode_11 = Q.store_thm(
     3. read char from file descriptor
     4. close file
 
-    The existing example that handles stdout and the write operation
-    labels that operation with 0; we might as well keep that, and then
-    number the others above 1, 2 and 3. There should probably be a
-    better way of developing this numbering methodically (and
-    compositionally?).
-
    ---------------------------------------------------------------------- *)
 
 val getNullTermStr_def = Define`
@@ -360,36 +354,36 @@ val getNullTermStr_def = Define`
 
 
 val fs_ffi_next_def = Define`
-  fs_ffi_next (n:num) bytes fs_ffi =
+  fs_ffi_next name bytes fs_ffi =
     do
       fs <- decode fs_ffi ;
-      case n of
-        0 => do (* write *)
+      case name of
+        "write" => do
                assert(LENGTH bytes = 1);
                fs' <- writeStdOut (CHR (w2n (HD bytes))) fs;
                return (bytes, encode fs')
              od
-      | 1 => do (* open file *)
+      | "open" => do
                fname <- getNullTermStr bytes;
                (fd, fs') <- openFile (implode fname) fs;
                assert(fd < 255);
                return (LUPDATE (n2w fd) 0 bytes, encode fs')
              od ++ return (LUPDATE 255w 0 bytes, encode fs)
-      | 2 => do (* fgetc *)
+      | "fgetc" => do
                assert(LENGTH bytes = 1);
                (copt, fs') <- fgetc (w2n (HD bytes)) fs;
                case copt of
                    NONE => return ([255w], encode fs')
                  | SOME c => return ([n2w (ORD c)], encode fs')
              od
-      | 3 => do (* close *)
+      | "close" => do
                assert(LENGTH bytes = 1);
                do
                  (_, fs') <- closeFD (w2n (HD bytes)) fs;
                  return (LUPDATE 1w 0 bytes, encode fs')
                od ++ return (LUPDATE 0w 0 bytes, encode fs)
              od
-      | 4 => do (* eof check *)
+      | "isEof" => do
                assert(LENGTH bytes = 1);
                do
                  b <- eof (w2n (HD bytes)) fs ;
@@ -404,7 +398,7 @@ val closeFD_lemma = Q.store_thm(
   "closeFD_lemma",
   `validFD fd fs ∧ wfFS fs
      ⇒
-   fs_ffi_next 3 [n2w fd] (encode fs) =
+   fs_ffi_next "close" [n2w fd] (encode fs) =
      SOME ([1w], encode (fs with infds updated_by A_DELKEY fd))`,
   simp[fs_ffi_next_def, decode_encode_FS, closeFD_def, PULL_EXISTS,
        MEM_MAP, FORALL_PROD, ALOOKUP_EXISTS_IFF, validFD_def, wfFS_def,
@@ -414,7 +408,7 @@ val closeFD_lemma = Q.store_thm(
 
 val write_lemma = Q.store_thm(
   "write_lemma",
-  `fs_ffi_next 0 [c] (encode fs) =
+  `fs_ffi_next "write" [c] (encode fs) =
      SOME ([c], encode (fs with stdout := fs.stdout ++ [CHR (w2n c)]))`,
   simp[fs_ffi_next_def, decode_encode_FS, writeStdOut_def]);
 

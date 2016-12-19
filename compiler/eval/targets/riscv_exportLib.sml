@@ -2,18 +2,17 @@ structure riscv_exportLib =
 struct
 local open HolKernel boolLib bossLib lcsymtacs in
 
-fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
+fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
   val heap_line  = "    .space  " ^ (Int.toString heap_mb) ^
                    " * 1024 * 1024   # heap size in bytes"
   val stack_line = "    .space  " ^ Int.toString stack_mb ^
                    " * 1024 * 1024   # stack size in bytes"
-  fun ffi_asm 0 = []
-    | ffi_asm n = let
-    val n = n - 1
-    in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
-       "     j     cdecl(ffi" ^ (Int.toString n) ^ ")"::
+  fun ffi_asm [] = []
+    | ffi_asm (ffi::ffis) = 
+       ("cake_ffi" ^ ffi ^ ":") ::
+       "     j     cdecl(ffi" ^ ffi ^ ")"::
        "     .p2align 3"::
-       "":: ffi_asm n end
+       "":: ffi_asm ffis
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
    "",
@@ -52,7 +51,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "",
    "     .p2align 3",
    ""] @
-   ffi_asm ffi_count @
+   ffi_asm ffi_names @
   ["cake_clear:",
    "     j   cdecl(exit)",
    "     .p2align 3",
@@ -91,12 +90,12 @@ fun byte_list_to_asm_lines bytes = let
            bytes_to_strings zs end
   in bytes_to_strings xs end;
 
-fun cake_lines stack_mb heap_mb ffi_count bytes_tm =
-  cake_boilerplate_lines stack_mb heap_mb ffi_count @
+fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
+  cake_boilerplate_lines stack_mb heap_mb ffi_names @
   byte_list_to_asm_lines bytes_tm;
 
-fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_count bytes_tm
+fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
+  val lines = cake_lines stack_mb heap_mb ffi_names bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)

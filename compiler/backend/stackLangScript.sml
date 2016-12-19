@@ -25,7 +25,7 @@ val _ = Datatype `
        | Alloc num
        | Raise num
        | Return num num
-       | FFI num num num num (* FFI index, array_ptr, array_len, ret_addr *)
+       | FFI string num num num (* FFI index, array_ptr, array_len, ret_addr *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
        (* new in stackLang, compared to wordLang, below *)

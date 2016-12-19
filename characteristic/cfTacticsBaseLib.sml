@@ -10,6 +10,7 @@ struct
   open Parse
   val (Type,Term) = parse_from_grammars
                       (merge_grammars ["cmlPtreeConversion", "cmlPEG",
+                                       "pegexec",
                                        "semanticPrimitives", "lexer_fun"])
 end
 open Parse

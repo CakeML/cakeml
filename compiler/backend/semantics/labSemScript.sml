@@ -80,7 +80,7 @@ val arith_upd_def = Define `
   (arith_upd (Div r1 r2 r3) s =
      case (read_reg r3 s,read_reg r2 s) of
      | (Word q,Word w2) =>
-       assert (q <> 0w) (upd_reg r1 (Word (w2 // q)) s)
+       assert (q <> 0w) (upd_reg r1 (Word (w2 / q)) s)
      | _ => assert F s) /\
   (arith_upd (AddCarry r1 r2 r3 r4) s =
      case (read_reg r2 s, read_reg r3 s, read_reg r4 s) of
@@ -106,6 +106,19 @@ val arith_upd_def = Define `
        let q = n DIV d in
        assert (d ≠ 0 ∧ q < dimword(:'a))
          (upd_reg r1 (Word (n2w q)) (upd_reg r2 (Word (n2w (n MOD d))) s))
+     | _ => assert F s)
+      /\
+  (arith_upd (AddOverflow r1 r2 r3 r4) s =
+     case (read_reg r2 s, read_reg r3 s) of
+     | (Word w2, Word w3) =>
+         upd_reg r4 (Word (if w2i (w2 + w3) ≠ w2i w2 + w2i w3 then 1w else 0w))
+            (upd_reg r1 (Word (w2 + w3)) s)
+     | _ => assert F s) /\
+  (arith_upd (SubOverflow r1 r2 r3 r4) s =
+     case (read_reg r2 s, read_reg r3 s) of
+     | (Word w2, Word w3) =>
+         upd_reg r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
+            (upd_reg r1 (Word (w2 - w3)) s)
      | _ => assert F s)`
 
 val addr_def = Define `

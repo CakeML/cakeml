@@ -9,7 +9,7 @@ all: $(TARGETS) addancs
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
 LEM_OPT = -wl_unused_vars ign
 
-SRC = tokens semanticPrimitives evaluate typeSystem primTypes
+SRC = semanticPrimitives evaluate typeSystem primTypes
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
@@ -22,8 +22,13 @@ $(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
 
 astScript.sml: ast.lem ../lib.lem ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) ast.lem ;  ./addancs astScript.sml integer words string ; \
+          $(LEM_CMD) $< ;  ./addancs $@ integer words string ; \
         else touch astScript.sml ; fi
+
+tokensScript.sml: tokens.lem ../lib.lem ffi/ffi.lem addancs
+	if type lem; then \
+          $(LEM_CMD) $< ;  ./addancs $@ integer string ; \
+        else touch $@ ; fi
 
 
 ifdef POLY

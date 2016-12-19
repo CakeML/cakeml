@@ -87,7 +87,9 @@ val () = Datatype `
         | Div reg reg reg
         | LongMul reg reg reg reg
         | LongDiv reg reg reg reg reg
-        | AddCarry reg reg reg reg`
+        | AddCarry reg reg reg reg
+        | AddOverflow reg reg reg reg
+        | SubOverflow reg reg reg reg`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
@@ -142,7 +144,10 @@ val reg_ok_def = Define `
 
 val reg_imm_ok_def = Define `
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
-  (reg_imm_ok b (Imm w) c = c.valid_imm b w)`
+  (reg_imm_ok b (Imm w) c =
+     (* Always permit Xor by -1 in order to provide 1's complement *)
+     ((b = INL Xor) /\ (w = -1w) \/ c.valid_imm b w))`
+
 
 (* Requires register inequality for some architectures *)
 val arith_ok_def = Define `
@@ -169,7 +174,15 @@ val arith_ok_def = Define `
   (arith_ok (AddCarry r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4))`
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
+  (arith_ok (AddOverflow r1 r2 r3 r4) c <=>
+     (c.two_reg_arith ==> (r1 = r2)) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3)) /\
+  (arith_ok (SubOverflow r1 r2 r3 r4) c <=>
+     (c.two_reg_arith ==> (r1 = r2)) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3))`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c`

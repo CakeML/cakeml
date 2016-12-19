@@ -151,16 +151,17 @@ val stubs_def = Define `
 (* compiler *)
 
 val next_lab_def = Define `
-  next_lab (p:'a stackLang$prog) =
+  next_lab (p:'a stackLang$prog) aux =
     case p of
-    | Seq p1 p2 => MAX (next_lab p1) (next_lab p2)
-    | If _ _ _ p1 p2 => MAX (next_lab p1) (next_lab p2)
-    | While _ _ _ p => next_lab p
-    | Call NONE _ NONE => 1
-    | Call NONE _ (SOME (_,_,l2)) => l2 + 1
-    | Call (SOME (p,_,_,l2)) _ NONE => MAX (next_lab p) (l2 + 1)
-    | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) => MAX (MAX (next_lab p) (next_lab p')) (MAX l2 l3 + 1)
-    | _ => 1`
+    | Seq p1 p2 => next_lab p1 (next_lab p2 aux)
+    | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
+    | While _ _ _ p => next_lab p aux
+    | Call NONE _ NONE => aux
+    | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 1)
+    | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 1))
+    | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
+          next_lab p (next_lab p' ((MAX (MAX l2 l3 + 1) aux)))
+    | _ => aux`
 
 val comp_def = Define `
   comp n m p =
@@ -188,7 +189,7 @@ val comp_def = Define `
     | _ => (p,m) `
 
 val prog_comp_def = Define `
-  prog_comp (n,p) = (n,FST (comp n (next_lab p) p))`
+  prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`
 
 val compile_def = Define `
   compile c prog = stubs c ++ MAP prog_comp prog`;
