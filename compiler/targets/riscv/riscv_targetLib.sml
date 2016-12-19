@@ -12,6 +12,9 @@ val riscv_tys =
   List.map riscv_type
      ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store"]
 
+val riscv_enc =
+  SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM riscv_enc_def `x`)
+
 local
   fun dst tm = case Lib.total boolSyntax.dest_strip_comb tm of
                   SOME ("riscv_target$riscv_enc", [t]) => SOME t
@@ -22,9 +25,10 @@ in
      (ERR "riscv_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
-       [riscv_enc_def, riscv_encode_def, riscv_const32_def, riscv_bop_r_def,
-        riscv_bop_i_def, riscv_sh_def, riscv_memop_def, Encode_def, opc_def,
-        Itype_def, Rtype_def, Stype_def, SBtype_def, Utype_def, UJtype_def],
+       [riscv_enc, riscv_ast_def, riscv_encode_def, riscv_const32_def,
+        riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_memop_def,
+        Encode_def, opc_def, Itype_def, Rtype_def, Stype_def, SBtype_def,
+        Utype_def, UJtype_def],
        computeLib.Tys ([``:('a, 'b) sum``, ``:asm$cmp``] @ riscv_tys),
        computeLib.Convs
          [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
