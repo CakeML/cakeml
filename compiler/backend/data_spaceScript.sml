@@ -2,6 +2,7 @@ open preamble dataLangTheory;
 
 val _ = new_theory "data_space";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* dataLang optimisation that lumps together MakeSpace operations. *)
 
 val op_space_req_def = Define `
@@ -13,13 +14,56 @@ val op_space_req_def = Define `
   (op_space_req WordToInt _ = 3) /\
   (op_space_req _ _ = 0)`;
 
+val op_space_req_pmatch = Q.store_thm("op_space_req_pmatch",`!op l.
+  op_space_req op l =
+    case op of
+      Cons _ => if l = 0n then 0 else l+1
+    | Ref => l + 1
+    | WordOp W64 _ => 3
+    | WordShift W64 _ _ => 3
+    | WordFromInt => 3
+    | WordToInt => 3
+    | _ => 0`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac >> fs[op_space_req_def]);
+
 val pMakeSpace_def = Define `
   (pMakeSpace (INL c) = c) /\
   (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)`;
 
-val space_def = Define `
+val space_def = `
   (space (MakeSpace k names) = INR (k,names,Skip)) /\
   (space (Seq c1 c2) =
+     let d1 = pMakeSpace (space c1) in
+     let x2 = space c2 in
+       dtcase x2 of
+       | INL c4 =>
+          (dtcase c1 of
+           | MakeSpace k names => INR (k,names,c4)
+           | Skip => INL c4
+           | _ => INL (Seq d1 c4))
+       | INR (k2,names2,c4) =>
+          (dtcase c1 of
+           | Skip => INR (k2,names2,c4)
+           | MakeSpace k1 names1 => INR (k2,inter names1 names2,c4)
+           | Move dest src =>
+               INR (k2,insert src () (delete dest names2),
+                    Seq (Move dest src) c4)
+           | Assign dest op args NONE =>
+               INR (op_space_req op (LENGTH args) + k2,
+                    list_insert args (delete dest names2),
+                    Seq (Assign dest op args NONE) c4)
+           | _ => INL (Seq d1 (pMakeSpace x2)))) /\
+  (space (If n c2 c3) =
+     INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
+  (space c = INL c)`;
+
+val space_pmatch = Q.store_thm("space_pmatch",`∀c.
+  space c =
+    case c of
+    | MakeSpace k names => INR (k,names,Skip)
+    | Seq c1 c2 => (
      let d1 = pMakeSpace (space c1) in
      let x2 = space c2 in
        case x2 of
@@ -39,10 +83,14 @@ val space_def = Define `
                INR (op_space_req op (LENGTH args) + k2,
                     list_insert args (delete dest names2),
                     Seq (Assign dest op args NONE) c4)
-           | _ => INL (Seq d1 (pMakeSpace x2)))) /\
-  (space (If n c2 c3) =
-     INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
-  (space c = INL c)`;
+           | _ => INL (Seq d1 (pMakeSpace x2))))
+    | If n c2 c3 =>
+      INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))
+    | c => INL c`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac >> TRY(PURE_REWRITE_TAC [LET_DEF] >> BETA_TAC))
+  >> fs[space_def]);
 
 val compile_def = Define `
   compile c = pMakeSpace (space c)`;
