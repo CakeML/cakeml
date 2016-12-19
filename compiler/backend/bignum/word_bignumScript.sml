@@ -291,10 +291,12 @@ fun to_deep def = let
   val f = def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
   val tm = def |> SPEC_ALL |> concl |> rand
   val is_rec = can (find_term (fn tm => (tm = f))) tm
-  val deep = get_prog tm
-             handle UnableToTranslate str =>
-               (to_deep (find (str ^ "_def") |> hd |> snd |> fst);
-                get_prog tm)
+  fun loop () =
+    get_prog tm
+    handle UnableToTranslate str =>
+      (to_deep (find (str ^ "_def") |> hd |> snd |> fst);
+       loop ())
+  val deep = loop ()
   val deep = if is_rec then mk_Loop deep else deep
   (* store deep embedding *)
   val name = mk_var((f |> dest_const |> fst) ^ "_code", type_of deep)
@@ -314,46 +316,10 @@ val tm = def |> SPEC_ALL |> concl |> rand
 
 val def = mc_cmp_def |> to_deep
 val def = mc_compare_def |> to_deep
-val def = mc_iadd1_def |> to_deep
-val def = mc_iadd2_def |> to_deep
-val def = mc_iadd3_def |> to_deep
-val def = mc_add_loop2_def |> to_deep
-val def = mc_add_loop1_def |> to_deep
-val def = mc_add_loop_def |> to_deep
-val def = mc_add_def |> to_deep
-val def = mc_sub_loop2_def |> to_deep
-val def = mc_sub_loop1_def |> to_deep
-val def = mc_sub_loop_def |> to_deep
-val def = mc_fix_def |> to_deep
-val def = mc_sub_def |> to_deep
 val def = mc_iadd_def |> to_deep
-val def = mc_mul_zero_def |> to_deep
-val def = mc_single_mul_add_def |> to_deep
-val def = mc_mul_pass_def |> to_deep
-val def = mc_mul_def |> to_deep
-val def = mc_imul1_def |> to_deep
 val def = mc_imul_def |> to_deep
-val def = mc_isub_flip_def |> to_deep
-val def = mc_div_r1_def |> to_deep
-val def = mc_sub1_def |> to_deep
-val def = mc_cmp2_def |> to_deep
-val def = mc_cmp3_def |> to_deep
-val def = mc_div_guess_def |> to_deep
-val def = mc_single_div_def |> to_deep
-val def = mc_simple_div_def |> to_deep
-val def = mc_mul_by_single_def |> to_deep
-val def = mc_div_adjust_def |> to_deep
-val def = mc_calc_d_def |> to_deep
-val def = mc_top_two_def |> to_deep
-val def = mc_div_loop_def |> to_deep
-val def = mc_copy_down_def |> to_deep
-val def = mc_simple_div1_def |> to_deep
-val def = mc_add1_call_def |> to_deep
-val def = mc_idiv_mod_header_def |> to_deep
-val def = mc_div_sub_call_def |> to_deep
 val def = mc_idiv_def |> to_deep
 val def = mc_iop_def |> to_deep
-
 
 
 (* ---- This part will go into word_bignumProofScript.sml file ---- *)
