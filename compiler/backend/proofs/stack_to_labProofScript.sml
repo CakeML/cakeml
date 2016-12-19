@@ -1895,17 +1895,6 @@ val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
   val pre = define_abbrev "full_init_pre_fail" (th |> concl |> dest_imp |> fst)
   in th |> REWRITE_RULE [GSYM pre] end);
 
-(*TODO: Probably move to labProps ...*)
-val extract_labels_def = Define`
-  (extract_labels [] = []) ∧
-  (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
-  (extract_labels (x::xs) = extract_labels xs)`
-
-val extract_labels_append = Q.store_thm("extract_labels_append",`
-  ∀A B.
-  extract_labels (A++B) = extract_labels A ++ extract_labels B`,
-  Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
-
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
 val next_lab_non_zero = Q.store_thm("next_lab_non_zero",`

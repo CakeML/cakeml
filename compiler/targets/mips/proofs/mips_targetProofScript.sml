@@ -164,8 +164,8 @@ val encode_rwts =
    let
       open mipsTheory
    in
-      [mips_enc_def, encs_def, mips_encode_def, mips_bop_r_def, mips_bop_i_def,
-       mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
+      [mips_enc_def, mips_ast_def, mips_encode_def, mips_bop_r_def,
+       mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
        Encode_def, form1_def, form2_def, form3_def, form4_def, form5_def]
    end
 
@@ -341,19 +341,23 @@ end
 
 val length_mips_encode = Q.prove(
   `!i. LENGTH (mips_encode i) = 4`,
-  rw [mips_encode_def]
+  rw [mips_encode_def])
+
+val length_mips_enc = Q.prove(
+  `!l. LENGTH (LIST_BIND l mips_encode) = 4 * LENGTH l`,
+  Induct \\ rw [length_mips_encode]
   )
 
 val mips_encoding = Q.prove (
    `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [encs_def, mips_enc_def, mips_cmp_def, mips_encode_fail_def,
-            length_mips_encode]
+   \\ simp [mips_enc_def, mips_cmp_def, mips_encode_fail_def,
+            length_mips_encode, length_mips_enc, mips_ast_def]
    \\ REPEAT CASE_TAC
    \\ rw [length_mips_encode]
    )
-   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
+   |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [mips_enc_def]
 
 val mips_target_ok = Q.prove (
    `target_ok mips_target`,
