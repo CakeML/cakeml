@@ -20,7 +20,7 @@ val remove_must_terminate_def = Define`
       Call ret dest args h) ∧
   (remove_must_terminate prog = prog)`
 
-val remove_must_terminate_def = Q.store_thm("remove_must_terminate_def",`!prog.
+val remove_must_terminate_pmatch = Q.store_thm("remove_must_terminate_pmatch",`!prog.
   remove_must_terminate prog =
   case prog of
   | (Seq p0 p1) => Seq (remove_must_terminate p0) (remove_must_terminate p1)
@@ -34,7 +34,7 @@ val remove_must_terminate_def = Q.store_thm("remove_must_terminate_def",`!prog.
     let h = case h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h)
-  | prog => prog`
+  | prog => prog`,
   rpt(
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>

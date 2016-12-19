@@ -107,7 +107,7 @@ val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!exp.
       optimize_consts op pull_ls)
   | Load exp => Load (pull_exp exp)
   | Shift shift exp nexp => Shift shift (pull_exp exp) nexp
-  | exp => exp`
+  | exp => exp`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac

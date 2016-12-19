@@ -32,7 +32,7 @@ val pMakeSpace_def = Define `
   (pMakeSpace (INL c) = c) /\
   (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)`;
 
-val space_def = `
+val space_def = Define `
   (space (MakeSpace k names) = INR (k,names,Skip)) /\
   (space (Seq c1 c2) =
      let d1 = pMakeSpace (space c1) in

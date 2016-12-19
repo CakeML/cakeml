@@ -45,11 +45,11 @@ val Seq_assoc_pmatch = Q.store_thm("Seq_assoc_pmatch",`!p1 prog.
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))
   | other => SmartSeq p1 other`,
-  rpt(
-    rpt strip_tac
-    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
-         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[Seq_assoc_def]));
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac
+  >> fs[Seq_assoc_def]
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+  >> fs[Seq_assoc_def] >> every_case_tac >> fs[]);
 
 val Seq_assoc_ind = fetch "-" "Seq_assoc_ind";
 
@@ -379,7 +379,7 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- Cases_on `p` >> fs[const_fp_loop_def]);
+  >> Cases_on `p` >> fs[const_fp_loop_def]);
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";
 

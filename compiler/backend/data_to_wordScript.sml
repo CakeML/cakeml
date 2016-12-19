@@ -920,9 +920,6 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
 
-val assign_def = Define assign_quotation
-
-local
 val assign_pmatch_lemmas = [
   Q.prove(`
    (case args of
@@ -1006,7 +1003,10 @@ val assign_pmatch_lemmas = [
       | NONE => z)`,
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[])]
-in val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args names.` @
+in
+val assign_def = Define assign_quotation
+
+val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args names.` @
   (assign_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
@@ -1017,7 +1017,6 @@ in val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args nam
   >> ASSUME_TAC(fetch "ast" "word_size_nchotomy")
   >> fs[assign_def]
   >> metis_tac[])
-end
 end
 
 val comp_def = Define `

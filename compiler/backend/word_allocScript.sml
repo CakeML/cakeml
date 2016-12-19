@@ -688,7 +688,7 @@ val get_clash_sets_def = Define`
     let i_set = union (get_writes prog) live in
       (get_live prog live,[i_set]))`
 
-val get_clash_sets_pmatch = Q.store_thm(`!prog live.
+val get_clash_sets_pmatch = Q.store_thm("get_clash_sets_pmatch",`!prog live.
   get_clash_sets prog live =
   case prog of
     Seq s1 s2 => (
@@ -845,7 +845,7 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
   >> ho_match_mp_tac (theorem "get_prefs_ind")
   >> rpt strip_tac
   >> fs[get_prefs_def]
-  >> Cases_on `h` ORELSE Cases_on `x` ORELSE Cases_on `r` ORELSE Cases_on `r'`
+  >> rpt(Cases_on `h` ORELSE Cases_on `x` ORELSE Cases_on `r` ORELSE Cases_on `r'`)
   >> fs[]);
 
 (* Forced edges for certain instructions

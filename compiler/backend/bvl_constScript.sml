@@ -28,7 +28,7 @@ val dest_simple_pmatch = Q.store_thm("dest_simple_pmatch",`
   ∀op. dest_simple op =
     case op of
       bvl$Op (Const i) [] => SOME i
-    | _ => NONE`
+    | _ => NONE`,
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[dest_simple_def]);
