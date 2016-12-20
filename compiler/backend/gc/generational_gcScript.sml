@@ -130,34 +130,13 @@ val gc_move_data_consts = prove(
   (* \\ res_tac *)
 
 
-val gc_move_refs_def = tDefine "gc_move_refs" `
-  (* maybe more refs (r4 could have more) *)
-  gc_move_refs conf state =
-    case state.r2 of
-    | [] => state with <| r3 := []; r1 := state.r3 ++ state.r1 |>
-    | ref :: r2 =>
-      case ref of
-      | DataElement xs l d =>
-        let (xs,state) = gc_move_list conf state xs in
-        let r3 = state.r3 ++ [DataElement xs l d] in
-          gc_move_refs conf (state with <| r2 := r2; r3 := r3 |>)
-      | _ => state with <| ok := F |>`
-  (WF_REL_TAC `measure (\(conf,state). heap_length state.r2)`
-  \\ rw [heap_length_def,el_length_def,SUM_APPEND]
-  \\ decide_tac);
-
-(* (* The main gc loop *) *)
-(* val gc_move_loop_def = Define ` *)
-(*   gc_move_loop conf state (clock : num) = *)
-(*     if clock = 0 then state with <| ok := F |> else *)
-(*       case (state.h2,state.r4) of *)
-(*       | ([],[]) => state *)
-(*       | (h2,[]) => *)
-(*         let state = gc_move_data conf state in *)
-(*           gc_move_loop conf state (clock-1) *)
-(*       | (h2,r4) => *)
-(*         let state = gc_move_refs conf (state with <| r2 := r4; r4 := [] |>) in *)
-(*           gc_move_loop conf state (clock-1)` *)
+val gc_move_ref_list_def = Define `
+  (gc_move_ref_list conf state [] = ([], state)) /\
+  (gc_move_ref_list conf state (DataElement ptrs l d::xs) =
+    let (ptrs', state) = gc_move_list conf state ptrs in
+    let (xs,state) = gc_move_ref_list conf state xs in
+      (DataElement ptrs' l d::xs,state)) /\
+  (gc_move_ref_list conf state (x::xs) = (x::xs,state with ok := F))`;
 
 val partial_gc_def = Define `
   partial_gc conf (roots,heap) =
@@ -174,9 +153,9 @@ val partial_gc_def = Define `
         (* process roots: *)
       let (roots,state) = gc_move_list conf state roots in
         (* process references: *)
-      let state = gc_move_refs conf state in
+      let (refs',state) = gc_move_ref_list conf state refs in
         (* process rest: *)
-      let state = gc_move_data conf state in
+      let state = gc_move_data conf (state with r1 := refs') in
       (* let ok = ok0 /\ state.ok /\ *)
       (*          (state.a = conf.gen_start + heap_length state.h1) /\ *)
       (*          (state.r = heap_length state.r1) /\ *)
@@ -184,12 +163,6 @@ val partial_gc_def = Define `
       (*          (state.a + state.n + state.r = conf.limit) /\ *)
       (*          state.a + state.r <= conf.limit in *)
       (roots,state)`;
-
-(* val full_gc_def = Define ` *)
-(*   full_gc conf (roots,heap) = *)
-(*     partial_gc *)
-(*       (conf with <| gen_start := 0; gen_end := conf.limit; refs_start := conf.limit |>) *)
-(*       (roots,state)`; *)
 
 (* Pointers between current and old generations are correct *)
 val heap_gen_ok_def = Define `
