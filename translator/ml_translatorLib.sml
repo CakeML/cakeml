@@ -86,6 +86,9 @@ val refs_ty = listSyntax.mk_list_type v_store_v
 val refs = mk_var("refs",refs_ty)
 val refs' = mk_var("refs'",refs_ty)
 val v = mk_var("v",v_ty)
+val env_tm = mk_var("env",venvironment)
+val cl_env_tm = mk_var("cl_env",venvironment)
+val state_refs_tm = prim_mk_const{Name="state_refs",Thy="semanticPrimitives"}
 
 fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
@@ -138,6 +141,7 @@ in
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
   fun get_cert (_:string,_:string,_:term,th:thm,_:thm,_:string option) = th
   fun get_pre (_:string,_:string,_:term,_:thm,th:thm,_:string option) = th
+  fun get_v_thms () = !v_thms
   fun v_thms_reset () =
     (v_thms := [];
      eval_thms := [];
@@ -164,6 +168,18 @@ in
     val _ = if concl pre_def =T then () else
             (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
     in (v_thms := (name,ml_name,tm,th,pre_def,module_name) :: (!v_thms)) end;
+  (* if the order didn't matter...
+  fun replace_v_thm c th = let
+    val (found_v_thms,left_v_thms) = partition (same_const c o get_const) (!v_thms)
+    val (name,ml_name,_,_,pre,m) = hd found_v_thms
+  in v_thms := (name,ml_name,c,th,pre,m) :: left_v_thms end
+  *)
+  fun replace_v_thm c th = let
+    fun f [] = failwith "replace_v_thm: not found"
+      | f ((name,ml_name,c',th',pre,m)::vths) =
+        if same_const c c' then ((name,ml_name,c,th,pre,m)::vths)
+        else (name,ml_name,c',th',pre,m)::f vths
+    in v_thms := f (!v_thms) end
   fun add_user_proved_v_thm th = let
     val th = UNDISCH_ALL th
     val v = th |> concl |> rand
@@ -172,8 +188,9 @@ in
     val (name,ml_name,_,_,_,module_name) = first (fn (name,ml_name,tm,th,_,_) =>
           (th |> concl |> rand) = v) (!v_thms)
     in ((v_thms := (name,ml_name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
+  fun get_bare_v_thm const = first (same_const const o get_const) (!v_thms)
   fun lookup_v_thm const = let
-    val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (get_const c)) const) (!v_thms))
+    val (name,ml_name,c,th,pre,m) = get_bare_v_thm const
     val th = th |> SPEC_ALL |> UNDISCH_ALL
     val th = (case m of
                 NONE => MATCH_MP Eval_Var_Short th
@@ -186,7 +203,7 @@ in
     in th end
   fun lookup_abs_v_thm const =
     let
-      val (name,ml_name,c,th,pre,m) = (first (fn c => can (match_term (get_const c)) const) (!v_thms))
+      val (name,ml_name,c,th,pre,m) = get_bare_v_thm const
       val cth = concl th
       val _ = is_Eval cth orelse raise NotFoundVThm const
       val tm =
@@ -3398,84 +3415,41 @@ fun get_desired_v_thms desired [] acc = acc
       then get_desired_v_thms desired vths acc
       else
       let
+        val hyps = hyp (get_cert vth)
         val deps =
-          map (rand o rand)
-            (List.filter is_Eval (hyp (get_cert vth)))
+          List.mapPartial (total (rand o rand o assert is_Eval)) hyps
+        val deps2 =
+          List.mapPartial (total (rand o rand o assert is_Eval o rand o #2 o strip_forall)) hyps
       in
-        get_desired_v_thms (desired @ deps) vths (vth::acc)
+        get_desired_v_thms (desired @ deps @ deps2) vths (vth::acc)
       end
     end
 
-(*
-val () = reset_translation()
+fun prove_Eval_assumptions th =
+  let
+    val eval_assums = filter (can (find_term is_Eval)) (hyp th)
+    (* val tm = el 1 eval_assums *)
+    fun prove_Eval_assum tm =
+      let
+        val th1 =
+          (ONCE_DEPTH_CONV(
+            REWR_CONV Eval_Var THENC
+            PURE_REWRITE_CONV[lookup_var_eq_lookup_var_id] THENC
+            QUANT_CONV(LAND_CONV EVAL) THENC REWR_CONV UNWIND_THM1)) tm
+        val const =
+          th1 |> concl |> rand |> strip_forall |> #2 |> repeat (#2 o dest_imp) |> rator |> rand
+        val cert = get_cert (get_bare_v_thm const)
+        val cert' = D cert |> MATCH_MP EQ_COND_INTRO
+      in ONCE_REWRITE_RULE[cert'] th1 |> SIMP_RULE bool_ss [] end
+    fun foldthis (tm,th) = PROVE_HYP (prove_Eval_assum tm) th
+  in
+    foldl foldthis th eval_assums
+  end
 
-val _ = show_assums := true
-val even_def = Define`
-  (even 0n = T) /\ (even (SUC n) = odd n) /\
-  (odd 0 = F) /\ (odd (SUC n) = even n)`;
-val res = abs_translate even_def;
-val res = abs_translate sortingTheory.PART_DEF
-val res = abs_translate sortingTheory.PARTITION_DEF
-val res = abs_translate APPEND
-val res = abs_translate MAP
-val res = abs_translate LENGTH
-val res = abs_translate sortingTheory.QSORT_DEF
-(* TODO: better support for preconditions with mutual recursion: the
-   preconditions should only apply to the function they are about *)
-(*
-val even_def = Define`
-  (even 0n = T) /\ (even (SUC n) = odd n) /\
-  (odd 0 = ARB) /\ (odd (SUC n) = even n)`;
-val res = abs_translate even_def;
-*)
-(*
-val even_def = Define`
-  (even n = case n of 0 => T | SUC n => odd n) /\
-  (odd n = case n of SUC n => even n)`;
-val res = abs_translate even_def;
-*)
-(*
-val even_def = Define`
-  (even n = case n of 0 => T | SUC n => odd n) /\
-  (odd n = case n of 0 => 0 = n DIV n | SUC n => even n)`;
-val res = abs_translate even_def;
-*)
-val res = abs_translate HD;
-val qsort_test_def = Define`qsort_test = (even (HD (QSORT (\x y. x <= y) [1n;3;2])) ∧ odd 1n)`
-val res = abs_translate qsort_test_def;
-
-1. put in deferred_dprogs (after filtering? in reverse order?)
-2. do add_dec_for_v_thm for each desired_v_thms
-
-val test_def = Define`test = 3n`;
-val res = abs_translate test_def;
-val test2_def= Define`test2 = test + test`;
-val res = abs_translate test2_def;
-
-val _ = Datatype`foo = NF | CO num foo`
-val res = abs_register_type``:foo``
-val lenfoo_def = Define`lenfoo NF = 0 /\ lenfoo (CO _ ls) = 1 + lenfoo ls`
-val res = abs_translate lenfoo_def
-get_thm (!prog_state)
-
-n.b.
-  The concrete mode (translate, register_type, register_exn_type) is only here
-  temporarily for backwards compatibility.
-  It should be replaced by the abstract mode (abs_translate, abs_register_type,
-  abs_register_exn_type) plus the linearisation phase.
-
-TODO:
-  - write the concretisation phase
-  - add support for modules
-
-val desired_v_thms = get_desired_v_thms [``qsort_test``] (!v_thms) []
-
-val state = get_ml_prog_state()
-val (fname,ml_fname,tm,cert,pre,mn) = el 1 desired_v_thms
-
+(* TODO: consolidate with concrete-mode translate? *)
 fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
   let
-    val vname = cert |> concl |> rator |> rand |> rand |> rand
+    val vname = assert is_Var (cert |> concl |> rator |> rand) |> rand |> rand
     val LOOKUP_VAR_pat = LOOKUP_VAR_def |> SPEC vname |> SPEC_ALL |> concl |> lhs
     val lookup_var_hyp = first (can (match_term LOOKUP_VAR_pat)) (hyp cert)
     val v = rand lookup_var_hyp
@@ -3500,7 +3474,6 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                 (get_v_defs state)
               |> concl |> rhs |> funpow 2 rator |> rand
           else get_env state
-        val ii = INST [mk_var("cl_env",venvironment) |-> cl_env]
         val state' =
           if already_defined then state else
           let
@@ -3508,73 +3481,148 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
               map (fn x => find_const_name (stringSyntax.fromHOLstring x ^ "_v"))
                   recc_names
           in add_Dletrec recc v_names state end
-        val jj = INST [mk_var("env",venvironment) |-> get_env state']
         val lemmas = LOOKUP_VAR_def :: map GSYM (get_v_defs state')
-        val th = cert |> ii |> jj |> D |> REWRITE_RULE lemmas
-                    |> SIMP_RULE std_ss [Eval_Var]
-                    |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
-                    |> clean_assumptions |> UNDISCH_ALL
-        val _ = add_v_thms (fname,ml_fname,th,pre)
+        val th = cert
+                  |> INST[cl_env_tm |-> cl_env, env_tm |-> get_env state']
+                  |> prove_Eval_assumptions
+                  |> D |> REWRITE_RULE lemmas
+                  |> SIMP_RULE std_ss [Eval_Var]
+                  |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                  |> clean_assumptions |> UNDISCH_ALL
+        val _ = replace_v_thm tm th
       in state' end
     else if is_Closure v
     then
       let
         val cl_env = get_env state
-        val ii = INST [mk_var("cl_env",venvironment) |-> cl_env]
         val th = cert |> DISCH lookup_var_hyp
-                 |> GEN (mk_var("env",venvironment))
+                 |> GEN env_tm
                  |> MATCH_MP Eval_Var_LOOKUP_VAR_elim
         val v_name = find_const_name (fname ^ "_v")
         val (_,x,exp) = dest_Closure v
         val state' = add_Dlet_Fun (stringSyntax.fromMLstring ml_fname) x exp v_name state
-        val jj = INST [mk_var("env",venvironment) |-> get_env state']
         val lemmas = LOOKUP_VAR_def :: map GSYM (get_v_defs state')
-
-        val th = cert |> ii |> jj |> D |> REWRITE_RULE lemmas
-                    |> SIMP_RULE std_ss [Eval_Var]
-                    |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
-                    |> clean_assumptions |> UNDISCH_ALL
-
-        val th = th |> INST [mk_var("env",venvironment) |->
-
-        val ls = #2 (strip_comb v)
-      in ml_progLib.add_dec (mk_Dlet (mk_Fun (el 2 ls, el 3 ls))) end
+        val th = cert
+                  |> INST[cl_env_tm |-> cl_env, env_tm |-> get_env state']
+                  |> prove_Eval_assumptions
+                  |> D |> REWRITE_RULE lemmas
+                  |> SIMP_RULE std_ss [Eval_Var]
+                  |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                  |> clean_assumptions |> UNDISCH_ALL
+        val _ = replace_v_thm tm th
+      in state' end
     else failwith "bad v_thm"
   end
-  handle HOL_ERR {origin_function="first",...} =>
+  handle HOL_ERR _ =>
   let
     val code = concl cert |> rator |> rand
+    val curr_state = get_state state
+    val curr_env = get_env state
+    val curr_refs = mk_icomb(state_refs_tm,curr_state)
+    val curr_refs_eq = EVAL curr_refs
+    val th = cert |> INST[env_tm |-> curr_env]
+             |> prove_Eval_assumptions
+             |> D |> clean_assumptions
+             |> UNDISCH_ALL
+    val lemma =
+      Eval_constant
+      |> ISPEC curr_refs
+      |> PURE_REWRITE_RULE[curr_refs_eq]
+      |> C MATCH_MP th
+      |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+    val v_name = find_const_name (fname ^ "_v")
+    val refs_name = find_const_name (fname  ^ "_refs")
+    val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma) |> UNDISCH_ALL
+    val _ = delete_binding "temp"
+    val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
+                |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
+    val eval_thm =
+      v_thm_temp
+      |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
+      |> MATCH_MP evaluate_empty_state_IMP
+    val state' = add_Dlet eval_thm ml_fname [] state
+    val _ = replace_v_thm tm v_thm
+  in state' end
+
+fun concretise_main desired_tms = let
+  val desired_v_thms =
+    case desired_tms of
+      NONE => List.rev (get_v_thms())
+    | SOME tms => get_desired_v_thms tms (get_v_thms()) []
   in
-    (* TODO: consolidate with the constant case of (concrete-mode) translate *)
-    let
-      val curr_state = get_state state
-      val curr_env = get_env state
-      val curr_refs =
-          mk_icomb(prim_mk_const{Name="state_refs",Thy="semanticPrimitives"},curr_state)
-      val env_v = mk_var("env",venvironment)
-      val th = cert |> INST [env_v |-> curr_env]
-      val curr_refs_eq = EVAL curr_refs
-      val lemma =
-        Eval_constant
-        |> ISPEC curr_refs
-        |> PURE_REWRITE_RULE[curr_refs_eq]
-        |> C MATCH_MP th
-        |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-      val v_name = find_const_name (fname ^ "_v")
-      val refs_name = find_const_name (fname  ^ "_refs")
-      val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma)
-                  |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-      val _ = delete_binding "temp"
-      val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
-                  |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
-      val eval_thm =
-        v_thm_temp
-        |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
-        |> MATCH_MP evaluate_empty_state_IMP
-      val _ = ml_prog_update (add_Dlet eval_thm var_str [])
-      val _ = add_v_thms (fname,var_str,v_thm,pre)
-    in save_thm(fname ^ "_v_thm",v_thm) end
+    ml_prog_update (C (foldl add_dec_for_v_thm) desired_v_thms)
   end
+
+fun concretise tms = concretise_main (SOME tms)
+fun concretise_all () = concretise_main NONE
+
+(*
+val _ = show_assums := true
+
+val () = reset_translation();
+val even_def = Define`
+  (even 0n = T) /\ (even (SUC n) = odd n) /\
+  (odd 0 = F) /\ (odd (SUC n) = even n)`;
+val res = abs_translate even_def;
+val res = abs_translate sortingTheory.PART_DEF
+val res = abs_translate sortingTheory.PARTITION_DEF
+val res = abs_translate APPEND
+val res = abs_translate MAP
+val res = abs_translate LENGTH
+val res = abs_translate sortingTheory.QSORT_DEF
+val res = abs_translate HD;
+val qsort_test_def = Define`qsort_test = (even (HD (QSORT (\x y. x <= y) [1n;3;2])) ∧ odd 1n)`
+val res = abs_translate qsort_test_def;
+
+(* TODO: better support for preconditions with mutual recursion: the
+   preconditions should only apply to the function they are about *)
+(*
+val even_def = Define`
+  (even 0n = T) /\ (even (SUC n) = odd n) /\
+  (odd 0 = ARB) /\ (odd (SUC n) = even n)`;
+val res = abs_translate even_def;
+*)
+(*
+val even_def = Define`
+  (even n = case n of 0 => T | SUC n => odd n) /\
+  (odd n = case n of SUC n => even n)`;
+val res = abs_translate even_def;
+*)
+(*
+val even_def = Define`
+  (even n = case n of 0 => T | SUC n => odd n) /\
+  (odd n = case n of 0 => 0 = n DIV n | SUC n => even n)`;
+val res = abs_translate even_def;
+*)
+
+1. put in deferred_dprogs (after filtering? in reverse order?)
+2. do add_dec_for_v_thm for each desired_v_thms
+
+val test_def = Define`test = 3n`;
+val res = abs_translate test_def;
+val test2_def= Define`test2 = test + test`;
+val res = abs_translate test2_def;
+
+val _ = Datatype`foo = NF | CO num foo`
+val res = abs_register_type``:foo``
+val lenfoo_def = Define`lenfoo NF = 0 /\ lenfoo (CO _ ls) = 1 + lenfoo ls`
+val res = abs_translate lenfoo_def
+get_thm (!prog_state)
+
+n.b.
+  The concrete mode (translate, register_type, register_exn_type) is only here
+  temporarily for backwards compatibility.
+  It should be replaced by the abstract mode (abs_translate, abs_register_type,
+  abs_register_exn_type) plus the linearisation phase.
+
+TODO:
+  - add support for modules
+
+val state = get_ml_prog_state()
+val (fname,ml_fname,tm,cert,pre,mn) = el 8 desired_v_thms
+val state' = add_dec_for_v_thm (el 8 desired_v_thms,state)
+val state = state'
+
 *)
 
 fun mlDefine q = let

@@ -10,6 +10,9 @@ sig
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
 
+    val concretise : term list -> unit
+    val concretise_all : unit -> unit
+
     val ml_prog_update : (ml_progLib.ml_prog_state ->
                           ml_progLib.ml_prog_state) -> unit
 

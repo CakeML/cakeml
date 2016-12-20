@@ -1753,6 +1753,9 @@ val IF_TAKEN = Q.store_thm("IF_TAKEN",
   `!b x y. b ==> ((if b then x else y) = x:'unlikely)`,
   SIMP_TAC std_ss []);
 
+val EQ_COND_INTRO = save_thm("EQ_COND_INTRO",
+  METIS_PROVE[]``(b ==> c) ==> (c = if b then T else c)``);
+
 val LIST_TYPE_And = Q.store_thm("LIST_TYPE_And",
   `LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))`,
   SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
