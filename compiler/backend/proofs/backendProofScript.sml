@@ -653,6 +653,8 @@ val labs_correct_def = Define `
         | _ => T)
      else labs_correct (n + 1) xs code)`
 
+val is_Label_def = labSemTheory.is_Label_def
+
 val code_installed_eq = Q.store_thm("code_installed_eq",
   `!pc xs code.
       code_installed pc xs code <=>
@@ -661,7 +663,7 @@ val code_installed_eq = Q.store_thm("code_installed_eq",
   \\ fs [code_installed_def,code_installed'_def,labs_correct_def]
   \\ ntac 3 strip_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
-  \\ Cases_on `h` \\ fs [lab_to_targetTheory.is_Label_def]
+  \\ Cases_on `h` \\ fs [is_Label_def]
   \\ rw [] \\ eq_tac \\ fs []);
 
 val code_installed_cons = Q.store_thm("code_installed_cons",
@@ -688,6 +690,9 @@ val code_installed_prog_to_section_lemma = Q.prove(
   \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
   \\ fs [loc_to_pc_skip_section,code_installed_cons]);
 
+val extract_labels_def = labPropsTheory.extract_labels_def
+val extract_labels_append = labPropsTheory.extract_labels_append
+
 val labs_correct_hd = Q.store_thm("labs_correct_hd",`
   ∀extra l.
   ALL_DISTINCT (extract_labels (extra++l)) ∧
@@ -696,7 +701,7 @@ val labs_correct_hd = Q.store_thm("labs_correct_hd",`
   Induct_on`l`>>fs[labs_correct_def]>>rw[]
   >-
     (first_x_assum(qspec_then `extra++[h]` mp_tac)>>
-    Cases_on`h`>>fs[extract_labels_def,lab_to_targetTheory.is_Label_def,FILTER_APPEND]>>
+    Cases_on`h`>>fs[extract_labels_def,labSemTheory.is_Label_def,FILTER_APPEND]>>
     metis_tac[APPEND_ASSOC,APPEND])
   >-
     (Cases_on`h`>>fs[]>>
@@ -716,6 +721,25 @@ val labs_correct_hd = Q.store_thm("labs_correct_hd",`
     first_x_assum(qspec_then `extra++[h]` mp_tac)>>
     Cases_on`h`>>fs[extract_labels_def,FILTER_APPEND]>>
     metis_tac[APPEND_ASSOC,APPEND]);
+
+val labels_ok_imp = Q.store_thm("labels_ok_imp",
+  `∀code.
+   labels_ok code ⇒
+   EVERY sec_labels_ok code ∧
+   ALL_DISTINCT (MAP Section_num code) ∧
+   EVERY (ALL_DISTINCT o extract_labels o Section_lines) code`,
+  Induct_on`code` \\ simp[]
+  \\ Cases \\ simp[]
+  \\ fs[labels_ok_def]
+  \\ strip_tac \\ fs[]
+  \\ reverse conj_tac
+  >- (
+    strip_tac \\ fs[MEM_MAP,EXISTS_PROD] \\ fs[]
+    \\ qmatch_assum_rename_tac`MEM sec code`
+    \\ first_x_assum(qspec_then`sec`mp_tac) \\ simp[]
+    \\ CASE_TAC \\ fs[] )
+  \\ Induct_on`l` \\ fs[]
+  \\ Cases \\ fs[]);
 
 val labels_ok_labs_correct = Q.store_thm("labels_ok_labs_correct",`
   ∀code.
@@ -759,12 +783,12 @@ val labels_ok_labs_correct = Q.store_thm("labels_ok_labs_correct",`
         first_x_assum(qspec_then`n'',n0` mp_tac)>>fs[])>>
       pop_assum mp_tac>>
       pop_assum mp_tac>>
-      ntac 4 (pop_assum kall_tac)>>
+      ntac 5 (pop_assum kall_tac)>>
       ntac 2 (pop_assum mp_tac)>>
       rpt (pop_assum kall_tac)>>
       map_every qid_spec_tac [`n''`,`n0`,`l`]>>
       Induct>> once_rewrite_tac [labSemTheory.loc_to_pc_def]>>fs[]>>
-      rw[]>>fs[lab_to_targetTheory.is_Label_def,extract_labels_def,AND_IMP_INTRO]
+      rw[]>>fs[is_Label_def,extract_labels_def,AND_IMP_INTRO]
       >-
         (fs[FORALL_PROD]>>metis_tac[])
       >-
@@ -774,9 +798,9 @@ val labels_ok_labs_correct = Q.store_thm("labels_ok_labs_correct",`
         Cases_on`h`>>fs[extract_labels_def])
       >>
         rveq>>fs[loc_to_pc_skip_section]>>
-        first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
+        (first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
         impl_tac>- (Cases_on`h`>>fs[extract_labels_def])>>
-        fs[])
+        fs[]))
     >>
       first_x_assum (qspec_then`x+1` mp_tac)>>
       impl_tac
@@ -1022,7 +1046,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
     LENGTH mc_conf.target.config.avoid_regs + 11 ≤
       (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
     data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffis,mc_conf,ms,prog)`,
-  strip_tac \\ fs [data_to_word_precond_def,lab_to_targetProofTheory.good_syntax_def]
+  strip_tac \\ fs [data_to_word_precond_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
@@ -1062,6 +1086,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
     pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
     rfs[data_to_wordTheory.compile_def,EVERY_MEM,FORALL_PROD]>>
     metis_tac[])
+  \\ imp_res_tac labels_ok_imp
   \\ strip_tac
   \\ fs[Abbr`tp`,stack_to_labTheory.compile_def]
   \\ asm_exists_tac \\ fs []

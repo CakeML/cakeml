@@ -21,7 +21,7 @@ local
       ``BITS 3 0 n``
 in
   val enc_rwts =
-    [encode_def, arm6_encode_def, arm_stepTheory.Aligned,
+    [encode_def, arm6_encode_def, arm6_encode1_def, arm_stepTheory.Aligned,
      alignmentTheory.aligned_numeric, alignmentTheory.aligned_0]
   fun enc_thm s rwts =
    (SIMP_RULE (srw_ss())
