@@ -32,6 +32,7 @@ val _ = Datatype `
 (* syntax helper funs *)
 
 val Skip_tm = ``Skip:'a word_bignum$prog``
+val Swap_tm = ``Swap:'a word_bignum$prog``
 val Continue_tm = ``Continue:'a word_bignum$prog``
 
 local val s = HolKernel.syntax_fns1 "word_bignum" in
@@ -385,6 +386,9 @@ val (eval_rules,eval_ind,raw_eval_cases) = Hol_reln `
      w2n w < LENGTH (s.arrays Out) ==>
      Eval s (Store r i) (INR (s with arrays :=
        (Out =+ LUPDATE wr (w2n w) (s.arrays Out)) s.arrays))) /\
+  (!s.
+     Eval s1 Swap (INR (s with arrays :=
+       (In1 =+ s.arrays In2) ((In2 =+ s.arrays In1) s.arrays)))) /\
   (!s1 p s2.
      Eval (dec_clock s1) (LoopBody p) s2 /\ s1.clock <> 0 ==>
      Eval s1 (Loop p) s2) /\
@@ -405,6 +409,7 @@ val eval_cases =
      ``Eval s1 (If c r ri p1 p2) s2``,
      ``Eval s1 (Load r i a) s2``,
      ``Eval s1 (Store r i) s2``,
+     ``Eval s1 Swap s2``,
      ``Eval s1 (Loop p) s2``,
      ``Eval s1 (LoopBody p) s2``] |> LIST_CONJ;
 
@@ -461,6 +466,15 @@ val Corr_Store = prove(
                    w2n (s.regs ' i) < LENGTH (s.arrays Out)))``,
   fs [Corr_def,eval_cases,TERM_def,FLOOKUP_DEF]);
 
+val Corr_Swap = prove(
+  ``Corr Swap
+      (TERM (\s. (s with arrays :=
+                   (In1 =+ s.arrays In2) ((In2 =+ s.arrays In1) s.arrays)),
+                 T))``,
+  fs [Corr_def,eval_cases,TERM_def,FLOOKUP_DEF]
+  \\ fs [fetch "-" "state_component_equality"]
+  \\ rw [] \\ qexists_tac `s` \\ fs []);
+
 val Corr_If = prove(
   ``Corr p1 f1 /\ Corr p2 f2 ==>
     Corr (If c r ri p1 p2)
@@ -516,16 +530,8 @@ val Corr_Loop = prove(
   \\ imp_res_tac Corr_Loop_lemma);
 
 val Corr_STRENGTHEN_TERM = prove(
-  ``Corr p (TERM f) ==>
-    !f'.
-      (!s. SND (f' s) ==> SND (f s) /\ (FST (f' s) = FST (f s))) ==>
-      Corr p (TERM f')``,
-  fs [Corr_def,TERM_def]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
-
-val Corr_STRENGTHEN_TERM_NEW = prove(
-  ``Corr p (TERM f) ==>
-    !f'. (!s. SND (f' s) ==> f s = (FST (f' s),T)) ==> Corr p (TERM f')``,
+  ``Corr p f ==>
+    !f'. (!s. SND (f' s) ==> f s = (INR (FST (f' s)),T)) ==> Corr p (TERM f')``,
   fs [Corr_def,TERM_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ rpt strip_tac \\ res_tac
@@ -538,9 +544,14 @@ val Corr_STRENGTHEN_TERM_NEW = prove(
 
 fun get_pat thm = thm |> SPEC_ALL |> UNDISCH_ALL |> concl |> rator |> rand;
 
+val get_corr_fail = ref T;
+val tm = !get_corr_fail;
+
 fun get_corr tm =
   if tm = Skip_tm then Corr_Skip else
-  if tm = Continue_tm then Corr_Continue else let
+  if tm = Continue_tm then Corr_Continue else
+  if tm = Swap_tm then Corr_Swap else
+  if is_const tm then DB.match [] ``Corr ^tm`` |> hd |> snd |> fst else let
   val i = fst (match_term (get_pat Corr_Assign) tm)
   in REWRITE_RULE [eval_exp_def,eval_exp_pre_def] (INST i Corr_Assign) end
   handle HOL_ERR _ => let
@@ -561,24 +572,160 @@ fun get_corr tm =
              eval_ri_pre_def,eval_ri_def] (INST i Corr_If)
   in MATCH_MP th (CONJ p1 p2) end
   handle HOL_ERR _ =>
-    (print_term tm ; print "\n\n" ; fail())
-
-(*
-  get_corr tm
-
-
-val tm = mc_cmp_def |> SPEC_ALL |> concl |> rand
-val tm = (mk_Loop (get_prog tm))
-val foo_corr = get_corr tm
-
-val foo_raw_def = Define `
-  foo_raw = ^(foo_corr |> concl |> rand |> rand)`
-
-val foo_corr = foo_corr |> REWRITE_RULE [GSYM foo_raw_def]
-
-val v = mk_var("foo_new",type_of (foo_raw_def |> concl |> rator |> rand))
+    ((if (!get_corr_fail) = T then get_corr_fail := tm else ());
+     print_term tm ; print "\n\n" ; fail())
 
 val MARKER_def = Define `MARKER x = x`
+
+val reg_write_def = Define `
+  reg_write n v s = s with regs := s.regs |+ (n,v)`;
+
+val array_write_def = Define `
+  array_write n v s = s with arrays := (n =+ v) s.arrays`;
+
+fun find_ret_tuple tm =
+  if is_var tm then
+    tm
+  else if pairSyntax.is_pair tm then
+    tm
+  else if is_let tm then
+    pairSyntax.dest_anylet tm |> snd |> find_ret_tuple
+  else if is_cond tm then let
+    val (_,x1,x2) = dest_cond tm
+    in find_ret_tuple x1 handle HOL_ERR _ =>
+       find_ret_tuple x2 end
+  else fail()
+
+fun get_array_name a = let
+  val a = a |> dest_var |> fst
+  val a = if a = "xs" then ``In1`` else
+          if a = "ys" then ``In2`` else
+          if a = "zs" then ``Out`` else fail()
+  in a end
+
+val copy_reg_def = Define `
+  (copy_reg n (INL s,b:bool) t =
+    if n IN FDOM s.regs then reg_write n (s.regs ' n) t else t) /\
+  (copy_reg n (INR s,b:bool) t =
+    if n IN FDOM s.regs then reg_write n (s.regs ' n) t else t)`;
+
+(*
+
+val const_def = (* simple *)
+  (!code_defs) |> REWRITE_RULE [] |> CONJUNCTS |> rev |> el 1
+
+val const_def = (* simple *)
+  (!code_defs) |> REWRITE_RULE [] |> CONJUNCTS |> rev |> el 9
+
+val const_def = (* loop *)
+  (!code_defs) |> REWRITE_RULE [] |> CONJUNCTS |> rev |> el 1
+
+derive_corr_thm const_def
+
+*)
+
+fun derive_corr_thm const_def = let
+  val (r,l) = const_def |> concl |> dest_eq
+  val name = r |> dest_const |> fst
+  val name = String.substring(name,0,size(name)-5)
+  val def = fetch "mc_multiword" (name ^ "_def")
+  (* -- *)
+  val raw_thm = get_corr l |> REWRITE_RULE [GSYM const_def]
+  val r = raw_thm |> concl |> rand
+  val v = mk_var(name ^ "_raw", type_of r)
+  val raw_def = new_definition(dest_var v |> fst, mk_eq(v,r))
+  val corr = raw_thm |> REWRITE_RULE [GSYM raw_def]
+  val _ = save_thm(name ^ "_corr_thm", corr)
+  val pre_def = fetch "mc_multiword" (name ^ "_pre_def")
+  (* -- *)
+  val s_var = ``s:'a state``
+  val inp = def |> concl |> lhs |> rand
+  val out = find_ret_tuple (def |> concl |> rhs)
+  val is = helperLib.list_dest pairSyntax.dest_pair inp
+  val os = helperLib.list_dest pairSyntax.dest_pair out
+  fun add_pres [] tm = tm
+    | add_pres (v::vs) tm = let
+          val n = dest_reg v
+          in add_pres vs (mk_conj(``^n IN FDOM ^(s_var).regs``,tm)) end
+        handle HOL_ERR _ => add_pres vs tm
+  val pre_tm = add_pres (rev is) (pre_def |> concl |> lhs)
+  val num_pair_pat = ``(n:num,w:'a word)``
+  val copy_reg_pat = ``copy_reg n _ (s:'a state)`` |> rator
+  val reg_write_pat = ``reg_write n (w:'a word)``
+  fun all_distinct [] = []
+    | all_distinct (x::xs) = x :: all_distinct (filter (fn y => x <> y) xs)
+  val vs = map (fn v => dest_reg v handle HOL_ERR _ => s_var) os
+  val extra_writes =
+    find_terms (fn tm =>
+              can (match_term num_pair_pat) tm orelse
+              can (match_term copy_reg_pat) tm orelse
+              can (match_term reg_write_pat) tm) (raw_def |> concl |> rand)
+         |> map (rand o rator) |> all_distinct
+         |> filter (fn v => not (mem v vs))
+  val raw_tm = raw_def |> concl |> lhs
+  fun add_extra_writes [] tm = tm
+    | add_extra_writes (v::vs) tm = let
+          val r = ``copy_reg ^v (^raw_tm ^s_var)``
+          in add_extra_writes vs (mk_comb(r,tm)) end
+  fun add_writes [] tm = tm
+    | add_writes (v::vs) tm = let
+          val n = dest_reg v
+          in add_writes vs (mk_comb(``reg_write ^n ^v``,tm)) end
+        handle HOL_ERR _ => let
+          val n = get_array_name v
+          in add_writes vs (mk_comb(``array_write ^n ^v``,tm)) end
+        handle HOL_ERR _ => failwith("Iik")
+  val new_state =
+    pairSyntax.mk_anylet ([(out,def |> concl |> lhs)],
+      add_writes (rev os) (add_extra_writes extra_writes s_var))
+  val tm = pairSyntax.mk_pair(new_state,pre_tm)
+  fun let_inp [] tm = tm
+    | let_inp (v::vs) tm = let
+          val n = dest_reg v
+          val tm = ``let ^v = s.regs ' ^n in ^tm``
+          in let_inp vs tm end
+        handle HOL_ERR _ => let
+          val n = get_array_name v
+          val tm = ``let ^v = s.arrays ^n in ^tm``
+          in let_inp vs tm end
+        handle HOL_ERR _ => failwith("Iik")
+  val new_post = mk_abs(s_var,let_inp (rev is) tm)
+  (* -- *)
+  val th = MATCH_MP Corr_STRENGTHEN_TERM corr |> SPEC new_post
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(``^goal``,
+    fs [def,pre_def,raw_def]
+    \\ fs [TERM_def,COMB_def]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,reg_write_def,array_write_def]
+    \\ rw []
+    \\ fs [fmap_EXT,fetch "-" "state_component_equality"]
+    \\ rw [EXTENSION,FUN_EQ_THM,APPLY_UPDATE_THM]
+    \\ TRY eq_tac \\ rw [] \\ fs []
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,copy_reg_def]
+    \\ rw [] \\ fs [reg_write_def,FAPPLY_FUPDATE_THM]
+    \\ every_case_tac \\ fs [FAPPLY_FUPDATE_THM])
+  val th = MP th lemma
+  val _ = save_thm(name ^ "_corr_thm", corr)
+  in (def,th) end
+
+
+(*
+
+
+
+val foo_corr_lemma =
+  MATCH_MP Corr_STRENGTHEN_TERM_NEW corr
+  |> SPEC (foo_new_def |> concl |> rator |> rand)
+
+val ggg =
+  foo_raw_def
+  |> REWRITE_RULE [LOOP_def]
+  |> concl |> rand |> dest_abs |> snd |> rator |> rand |> rator |> rand
+
+val foo_raw_step_def = Define `foo_raw_step = ^ggg`;
+
+
 
 val foo_new_def = Define `
   ^v = \s.
