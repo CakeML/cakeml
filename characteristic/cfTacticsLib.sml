@@ -396,6 +396,13 @@ fun xapply H =
 
 (* [xspec] *)
 
+datatype spec_kind =
+    CF_spec
+  | Translator_spec
+
+fun spec_kind_toString CF_spec = "CF"
+  | spec_kind_toString Translator_spec = "translator"
+
 fun concl_tm tm =
   let
     val thm' = Drule.IRULE_CANON (ASSUME tm)
@@ -411,7 +418,7 @@ fun app_f_tm tm =
   let val (_, f_tm, _, _, _) = cfAppSyntax.dest_app tm
   in f_tm end
 
-fun is_spec_for f tm =
+fun is_cf_spec_for f tm =
   (concl_tm tm |> app_f_tm) = f
   handle HOL_ERR _ => false
 
@@ -420,40 +427,52 @@ fun is_arrow_spec_for f tm =
   (rand tm) = f
   handle HOL_ERR _ => false
 
-fun xspec_in_asl f asl =
-  List.find (is_spec_for f) asl
+fun spec_kind_for f tm : spec_kind option =
+  if is_cf_spec_for f tm then SOME CF_spec
+  else if is_arrow_spec_for f tm then SOME Translator_spec
+  else NONE
 
-fun xspec_in_db f =
+fun is_spec_for f tm : bool =
+  spec_kind_for f tm <> NONE
+
+fun xspec_in_asl f asl : (spec_kind * term) option =
+  find_map (fn tm =>
+    case spec_kind_for f tm of
+        SOME k => SOME (k, tm)
+      | NONE => NONE)
+  asl
+
+fun xspec_in_db f : (string * string * spec_kind * thm) option =
   case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
-      data :: _ => SOME data
+      ((thy, name), (thm, _)) :: _ =>
+      (case spec_kind_for f (concl thm) of
+           SOME k => SOME (thy, name, k, thm)
+         | NONE => fail())
     | _ => NONE
 
-fun xspec_from_translator f =
-  case DB.matchp (fn thm => is_arrow_spec_for f (concl thm)) [] of
-      data :: _ => SOME data
-    | _ => NONE
+fun cf_spec (kind : spec_kind) (spec : thm) : thm =
+  case kind of
+      CF_spec => spec
+    | Translator_spec => app_of_Arrow_rule spec
 
 (* todo: variants *)
 fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
   case xspec_in_asl f asl of
-      SOME a =>
-      (print "Using a specification from the assumptions\n";
-       ttac (ASSUME a) g)
+      SOME (k, a) =>
+      (print
+         ("Using a " ^ (spec_kind_toString k) ^
+          " specification from the assumptions\n");
+       ttac (cf_spec k (ASSUME a)) g)
     | NONE =>
       case xspec_in_db f of
-          SOME ((thy, name), (thm, _)) =>
-          (print ("Using specification " ^ name ^
+          SOME (thy, name, k, thm) =>
+          (print ("Using " ^ (spec_kind_toString k) ^
+                  " specification " ^ name ^
                   " from theory " ^ thy ^ "\n");
-           ttac thm g)
+           ttac (cf_spec k thm) g)
         | NONE =>
-          case xspec_from_translator f of
-              SOME ((thy, name), (thm, _)) =>
-              (print ("Using translator specification " ^
-                      name ^ " from theory " ^ thy ^ "\n");
-               ttac (app_of_Arrow_rule thm) g)
-           | NONE =>
-             raise ERR "xspec" ("Could not find a specification for " ^
-                                fst (dest_const f))
+          raise ERR "xspec" ("Could not find a specification for " ^
+                             fst (dest_const f))
 
 (* [xapp] *)
 
@@ -476,11 +495,15 @@ fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
   app_f_tac (fn f =>
     case spec of
-        SOME thm => do_xapp thm
+        SOME thm =>
+        (case spec_kind_for f (concl thm) of
+             SOME k => do_xapp (cf_spec k thm)
+           | NONE => failwith "Invalid specification")
       | NONE => xspec f do_xapp)
 
 fun xapp_xapply_no_simpl K =
-  FIRST [irule K, xapply_core K all_tac all_tac]
+  FIRST [irule K, xapply_core K all_tac all_tac] ORELSE
+  FAIL_TAC "Could not apply specification"
 
 fun xapp_core spec =
   xapp_common spec xapp_xapply_no_simpl
