@@ -121,6 +121,9 @@ val reduce_conv =
 
 val reduce_tac = CONV_TAC reduce_conv
 
+fun err_tac orig msg : tactic =
+  fn _ => raise ERR orig msg
+
 (* [xpull] *)
 
 (* xx have a proper cfSyntax? *)
@@ -377,8 +380,6 @@ fun xfun_spec qname qspec =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-  (* todo: ask Arthur *)
-  (* try_progress_then (fn H => *)
   irule local_frame_gc THENL [
     xlocal,
     CONSEQ_CONV_TAC (K (
@@ -388,11 +389,11 @@ fun xapply_core H cont1 cont2 =
     )) \\
     CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
   ]
-  (* ) H *)
 
 fun xapply H =
   xpull_check_not_needed \\
   xapply_core H all_tac all_tac
+  ORELSE err_tac "xapply" "Failed to apply the given theorem"
 
 (* [xspec] *)
 
@@ -490,7 +491,12 @@ val xapp_prepare_goal =
   ]
 
 fun app_f_tac tmtac (g as (_, w)) =
-  tmtac (goal_app_infos w) g
+  tmtac (
+    goal_app_infos w
+    handle HOL_ERR _ =>
+      raise ERR "xapp"
+        "Goal is not of the right form (must be a cf_app or app)."
+  ) g
 
 fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
@@ -504,7 +510,7 @@ fun xapp_common spec do_xapp =
 
 fun xapp_xapply_no_simpl K =
   FIRST [irule K, xapply_core K all_tac all_tac] ORELSE
-  FAIL_TAC "Could not apply specification"
+  err_tac "xapp" "Could not apply specification"
 
 fun xapp_core spec =
   xapp_common spec xapp_xapply_no_simpl
