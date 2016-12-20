@@ -13,11 +13,6 @@ val _ = Datatype `
      ; isRef : 'a -> bool
      |>`;
 
-val basic_gc_conf_default_def = Define `
-  basic_gc_conf_default =
-    <| limit := 0
-     ; isRef := \x. T |>`;
-
 val gc_move_def = Define `
   (gc_move conf state (Data d) = (Data d, state)) /\
   (gc_move conf state (Pointer ptr d) =
@@ -113,13 +108,6 @@ val gc_move_data_def = tDefine "gc_move_data"  `
   \\ fs []
   \\ decide_tac)
 
-(* val gc_move_data_consts = prove( *)
-(*   ``!state state'. *)
-(*     (state' = gc_move_data conf state) ==> *)
-(*     (state'.h2 = state.h2) /\ *)
-(*     (state'.r2 = state.r2)`` *)
-(*   cheat); *)
-
 val gc_move_refs_def = tDefine "gc_move_refs" `
   (* maybe more refs (r4 could have more) *)
   gc_move_refs conf state =
@@ -151,17 +139,7 @@ val gc_move_loop_def = Define `
     | (h::r4) =>
       let state = gc_move_refs conf (state with <| r2 := state.r4; r4 := [] |>) in
       if clock = 0 then state with <| ok := F |>
-      else gc_move_loop conf state (clock-1)`
-      (* case (state.h2,state.r4) of *)
-      (* | ([],[]) => state *)
-      (* | (h2,[]) => *)
-      (*   let state = gc_move_data conf state in *)
-      (*     if clock = 0 then state with <| ok := F |> *)
-      (*     else gc_move_loop conf state (clock-1) *)
-      (* | (h2,r4) => *)
-      (*   let state = gc_move_refs conf (state with <| r2 := r4; r4 := [] |>) in *)
-      (*     if clock = 0 then state with <| ok := F |> *)
-      (*     else gc_move_loop conf state (clock-1)` *)
+      else gc_move_loop conf state (clock-1)`;
 
 val basic_gc_def = Define `
   basic_gc conf (roots,heap) =
@@ -1540,12 +1518,10 @@ val gc_inv_init = store_thm("gc_inv_init",
     gc_inv conf (empty_state with <| heap := heap; n := conf.limit |>) heap``,
   fs [heap_ok_def,gc_inv_def,empty_state_def,LET_THM]
   \\ rw []
-  THEN1 (fs [heap_length_def])
-  THEN1 (fs [heap_length_def])
-  THEN1 fs [FILTER_LEMMA]
-  THEN1 res_tac
-  THEN1 fs [heaps_similar_REFL]
-  THEN1 rw [heap_addresses_def,heap_map_EMPTY]
+  >- fs [FILTER_LEMMA]
+  >- res_tac
+  >- fs [heaps_similar_REFL]
+  >- rw [heap_addresses_def,heap_map_EMPTY]
   \\ fs [heap_expand_def]
   \\ rw [heap_lookup_def]
   \\ imp_res_tac heap_map_EMPTY

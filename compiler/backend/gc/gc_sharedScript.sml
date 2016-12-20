@@ -16,7 +16,8 @@ val _ = Datatype `
 
 val _ = Datatype `
   gc_state =
-    <| h1 : ('a, 'b) heap_element list (* final left heap *)
+    <| old : ('a, 'b) heap_element list (* old generations *)
+     ; h1 : ('a, 'b) heap_element list (* final left heap *)
      ; h2 : ('a, 'b) heap_element list (* not updated left heap *)
      ; r4 : ('a, 'b) heap_element list (* not updated right heap *)
      ; r3 : ('a, 'b) heap_element list (* temp. final right heap *)
@@ -31,7 +32,8 @@ val _ = Datatype `
 
 val empty_state_def = Define `
   empty_state =
-    <| h1 := []
+    <| old := []
+     ; h1 := []
      ; h2 := []
      ; r4 := []
      ; r3 := []
@@ -164,7 +166,7 @@ val heap_segment_IMP = store_thm("heap_segment_IMP",
 val heap_restrict_def = Define `
   heap_restrict start end (heap:('a,'b) heap_element list) =
      case heap_segment (start,end) heap of
-     | NONE => ARB
+     | NONE => []
      | SOME (h1,h2,h3) => h2`;
 
 val isDataElement_def = Define `

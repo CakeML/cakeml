@@ -11,8 +11,9 @@ all: $(TARGETS)
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
 
-BARE_THYS = ../../../preamble integer_wordTheory
+BARE_THYS = ../../../preamble
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
