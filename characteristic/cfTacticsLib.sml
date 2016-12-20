@@ -414,12 +414,13 @@ fun concl_tm tm =
       body
   end
 
-fun app_f_tm tm =
-  let val (_, f_tm, _, _, _) = cfAppSyntax.dest_app tm
-  in f_tm end
+fun goal_app_infos tm : hol_type * term =
+  let val (p, f_tm, _, _, _) = cfAppSyntax.dest_app tm
+      val ffi_ty = cfHeapsBaseSyntax.dest_ffi_proj (type_of p)
+  in (ffi_ty, f_tm) end
 
 fun is_cf_spec_for f tm =
-  (concl_tm tm |> app_f_tm) = f
+  (concl_tm tm |> goal_app_infos |> snd) = f
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
@@ -450,26 +451,26 @@ fun xspec_in_db f : (string * string * spec_kind * thm) option =
          | NONE => fail())
     | _ => NONE
 
-fun cf_spec (kind : spec_kind) (spec : thm) : thm =
+fun cf_spec (ffi_ty : hol_type) (kind : spec_kind) (spec : thm) : thm =
   case kind of
       CF_spec => spec
-    | Translator_spec => app_of_Arrow_rule spec
+    | Translator_spec => app_of_Arrow_rule ffi_ty spec
 
 (* todo: variants *)
-fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
+fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) =
   case xspec_in_asl f asl of
       SOME (k, a) =>
       (print
          ("Using a " ^ (spec_kind_toString k) ^
           " specification from the assumptions\n");
-       ttac (cf_spec k (ASSUME a)) g)
+       ttac (cf_spec ffi_ty k (ASSUME a)) g)
     | NONE =>
       case xspec_in_db f of
           SOME (thy, name, k, thm) =>
           (print ("Using " ^ (spec_kind_toString k) ^
                   " specification " ^ name ^
                   " from theory " ^ thy ^ "\n");
-           ttac (cf_spec k thm) g)
+           ttac (cf_spec ffi_ty k thm) g)
         | NONE =>
           raise ERR "xspec" ("Could not find a specification for " ^
                              fst (dest_const f))
@@ -489,17 +490,17 @@ val xapp_prepare_goal =
   ]
 
 fun app_f_tac tmtac (g as (_, w)) =
-  tmtac (app_f_tm w) g
+  tmtac (goal_app_infos w) g
 
 fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
-  app_f_tac (fn f =>
+  app_f_tac (fn (ffi_ty, f) =>
     case spec of
         SOME thm =>
         (case spec_kind_for f (concl thm) of
-             SOME k => do_xapp (cf_spec k thm)
+             SOME k => do_xapp (cf_spec ffi_ty k thm)
            | NONE => failwith "Invalid specification")
-      | NONE => xspec f do_xapp)
+      | NONE => xspec ffi_ty f do_xapp)
 
 fun xapp_xapply_no_simpl K =
   FIRST [irule K, xapply_core K all_tac all_tac] ORELSE
