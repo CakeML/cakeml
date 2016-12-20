@@ -11,24 +11,25 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!genv lit.
     v_rel genv ((Litv lit):semanticPrimitives$v) ((Litv lit):modSem$v)) ∧
   (!genv cn vs vs'.
-    vs_rel genv vs vs'
+    LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Conv cn vs) (Conv cn vs')) ∧
-  (!genv mods tops env x e env' env_i1.
-    env_rel genv env.v env_i1 ∧
-    set (MAP FST env') DIFF set (MAP FST env.v) ⊆ FDOM tops ∧
-    global_env_inv genv mods tops env.m (set (MAP FST env_i1)) env'
+  (!genv var_map env_c env_v_top env_v_local x e env_v_local'.
+    env_rel genv env_v_local env_v_local' ∧
+    global_env_inv genv var_map (set (MAP FST env_v_local')) env_v_top
     ⇒
-    v_rel genv (Closure (env with v := env.v ++ env') x e)
-                 (Closure (env.c, env_i1) x (compile_exp mods (DRESTRICT tops (COMPL (set (MAP FST env_i1))) \\ x) e))) ∧
+    v_rel genv (Closure <| c := env_c; v := nsAppend env_v_local env_v_top |> x e)
+               (Closure (env_c, env_v_local') x (compile_exp (nsBind x (Var_local x) var_map) e))) ∧
   (* For expression level let recs *)
-  (!genv mods tops env funs x env' env_i1.
-    env_rel genv env.v env_i1 ∧
-    set (MAP FST env') DIFF set (MAP FST env.v) ⊆ FDOM tops ∧
-    global_env_inv genv mods tops env.m (set (MAP FST env_i1)) env'
+  (!genv var_map env_c env_v_top env_v_local funs x env_v_local'.
+    env_rel genv env_v_local env_v_local' ∧
+    global_env_inv genv var_map (set (MAP FST env_v_local')) env_v_top
     ⇒
-    v_rel genv (Recclosure (env with v := env.v ++ env') funs x)
-                 (Recclosure (env.c,env_i1) (compile_funs mods (DRESTRICT tops (COMPL (set (MAP FST env_i1) ∪ set (MAP FST funs)))) funs) x)) ∧
+    v_rel genv (Recclosure <| c := env_c; v := nsAppend env_v_local env_v_top |> funs x)
+               (Recclosure (env_c, env_v_local')
+                 (compile_funs (nsBindList (MAP (λ(x,_). (x, Var_local x)) funs) var_map) funs)
+                 x)) ∧
+               (*
   (* For top-level let recs *)
   (!genv mods tops env funs x y e tops'.
     set (MAP FST env.v) ⊆ FDOM tops ∧
@@ -47,48 +48,32 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
     ⇒
     v_rel genv (Recclosure env funs x)
                  (Closure (env.c,[]) y (compile_exp mods ((tops |++ tops') \\ y) e))) ∧
+                 *)
   (!genv loc.
     v_rel genv (Loc loc) (Loc loc)) ∧
-  (!vs.
-    vs_rel genv vs vs_i1
+  (!genv vs vs'.
+    LIST_REL (v_rel genv) vs vs'
     ⇒
-    v_rel genv (Vectorv vs) (Vectorv vs_i1)) ∧
+    v_rel genv (Vectorv vs) (Vectorv vs')) ∧
   (!genv.
-    vs_rel genv [] []) ∧
-  (!genv v vs v' vs'.
-    v_rel genv v v' ∧
-    vs_rel genv vs vs'
-    ⇒
-    vs_rel genv (v::vs) (v'::vs')) ∧
-  (!genv.
-    env_rel genv [] []) ∧
+    env_rel genv nsEmpty []) ∧
   (!genv x v env env' v'.
     env_rel genv env env' ∧
     v_rel genv v v'
     ⇒
-    env_rel genv ((x,v)::env) ((x,v')::env')) ∧
-  (!genv map shadowers env.
+    env_rel genv (nsBind x v env) ((x,v')::env')) ∧
+  (!genv var_map shadowers env.
     (!x v.
-       x ∉ shadowers ∧
-       ALOOKUP env x = SOME v
+       x ∉ IMAGE Short shadowers ∧
+       nsLookup env x = SOME v
        ⇒
-       ?n v_i1.
-         FLOOKUP map x = SOME n ∧
+       ?n v'.
+         nsLookup var_map x = SOME (Var_global n) ∧
          n < LENGTH genv ∧
-         EL n genv = SOME v_i1 ∧
-         v_rel genv v v_i1)
+         EL n genv = SOME v' ∧
+         v_rel genv v v')
     ⇒
-    global_env_inv_flat genv map shadowers env) ∧
-  (!genv mods tops menv shadowers env.
-    global_env_inv_flat genv tops shadowers env ∧
-    (!mn env'.
-      ALOOKUP menv mn = SOME env'
-      ⇒
-      ?map.
-        FLOOKUP mods mn = SOME map ∧
-        global_env_inv_flat genv map {} env')
-    ⇒
-    global_env_inv genv mods tops menv shadowers env)`;
+    global_env_inv genv var_map shadowers env)`;
 
 val v_rel_eqns = Q.store_thm ("v_rel_eqns",
   `(!genv l v.
@@ -97,76 +82,34 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
    (!genv b v. v_rel genv (Boolv b) v ⇔ (v = Boolv b)) ∧
    (!genv cn vs v.
     v_rel genv (Conv cn vs) v ⇔
-      ?vs'. vs_rel genv vs vs' ∧ (v = Conv cn vs')) ∧
+      ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Conv cn vs')) ∧
    (!genv l v.
     v_rel genv (Loc l) v ⇔
       (v = Loc l)) ∧
    (!genv vs v.
     v_rel genv (Vectorv vs) v ⇔
-      ?vs'. vs_rel genv vs vs' ∧ (v = Vectorv vs')) ∧
-   (!genv vs.
-    vs_rel genv [] vs ⇔
-      (vs = [])) ∧
-   (!genv v vs vs'.
-    vs_rel genv (v::vs) vs' ⇔
-      ?v' vs''. v_rel genv v v' ∧ vs_rel genv vs vs'' ∧ vs' = v'::vs'') ∧
+      ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
    (!genv env'.
     env_rel genv [] env' ⇔
       env' = []) ∧
    (!genv x v env env'.
-    env_rel genv ((x,v)::env) env' ⇔
+    env_rel genv (nsBind x v env) env' ⇔
       ?v' env''. v_rel genv v v' ∧ env_rel genv env env'' ∧ env' = ((x,v')::env'')) ∧
-   (!genv map shadowers env.
-    global_env_inv_flat genv map shadowers env ⇔
+   (!genv var_map shadowers env.
+    global_env_inv genv var_map shadowers env ⇔
       (!x v.
-        x ∉ shadowers ∧
-        ALOOKUP env x = SOME v
-        ⇒
-        ?n v_i1.
-          FLOOKUP map x = SOME n ∧
-          n < LENGTH genv ∧
-          EL n genv = SOME v_i1 ∧
-          v_rel genv v v_i1)) ∧
-  (!genv mods tops menv shadowers env.
-    global_env_inv genv mods tops menv shadowers env ⇔
-      global_env_inv_flat genv tops shadowers env ∧
-      (!mn env'.
-        ALOOKUP menv mn = SOME env'
-        ⇒
-        ?map.
-          FLOOKUP mods mn = SOME map ∧
-          global_env_inv_flat genv map {} env'))`,
+       x ∉ IMAGE Short shadowers ∧
+       nsLookup env x = SOME v
+       ⇒
+       ?n v'.
+         nsLookup var_map x = SOME (Var_global n) ∧
+         n < LENGTH genv ∧
+         EL n genv = SOME v' ∧
+         v_rel genv v v'))`,
   srw_tac[][semanticPrimitivesTheory.Boolv_def,modSemTheory.Boolv_def] >>
   srw_tac[][Once v_rel_cases] >>
   srw_tac[][Q.SPECL[`genv`,`[]`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
   metis_tac []);
-
-val vs_rel_list_rel = Q.prove (
-  `!genv vs vs'. vs_rel genv vs vs' = LIST_REL (v_rel genv) vs vs'`,
-   induct_on `vs` >>
-   srw_tac[][v_rel_eqns] >>
-   metis_tac []);
-
-val vs_rel_append1 = Q.prove (
-  `!genv vs v vs' v'.
-    vs_rel genv (vs++[v]) (vs'++[v'])
-    ⇔
-    vs_rel genv vs vs' ∧
-    v_rel genv v v'`,
-  induct_on `vs` >>
-  srw_tac[][] >>
-  cases_on `vs'` >>
-  srw_tac[][v_rel_eqns]
-  >- (cases_on `vs` >>
-      srw_tac[][v_rel_eqns]) >>
-  metis_tac []);
-
-val length_vs_rel = Q.prove (
-  `!vs genv vs'.
-    vs_rel genv vs vs'
-    ⇒
-    LENGTH vs = LENGTH vs'`,
-  metis_tac[vs_rel_list_rel,LIST_REL_LENGTH])
 
 val env_rel_dom = Q.prove (
   `!genv env env_i1.
@@ -277,10 +220,6 @@ val v_rel_weakening = Q.prove (
     v_rel genv v v_i1
     ⇒
     ∀l. v_rel (genv++l) v v_i1) ∧
-   (!genv vs vs_i1.
-    vs_rel genv vs vs_i1
-    ⇒
-    !l. vs_rel (genv++l) vs vs_i1) ∧
    (!genv env env_i1.
     env_rel genv env env_i1
     ⇒
@@ -345,7 +284,7 @@ val (sv_rel_rules, sv_rel_ind, sv_rel_cases) = Hol_reln `
   (!genv w.
     sv_rel genv (W8array w) (W8array w)) ∧
   (!genv vs vs'.
-    vs_rel genv vs vs'
+    LIST_REL (v_rel genv) vs vs'
     ⇒
     sv_rel genv (Varray vs) (Varray vs'))`;
 
@@ -405,8 +344,8 @@ val do_eq = Q.prove (
     do_eq v1_i1 v2_i1 = r) ∧
    (!vs1 vs2 genv r vs1_i1 vs2_i1.
     do_eq_list vs1 vs2 = r ∧
-    vs_rel genv vs1 vs1_i1 ∧
-    vs_rel genv vs2 vs2_i1
+    LIST_REL (v_rel genv) vs1 vs1_i1 ∧
+    LIST_REL (v_rel genv) vs2 vs2_i1
     ⇒
     do_eq_list vs1_i1 vs2_i1 = r)`,
   ho_match_mp_tac terminationTheory.do_eq_ind >>
