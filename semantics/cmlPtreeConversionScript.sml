@@ -6,6 +6,7 @@ open lcsymtacs
 
 val _ = new_theory "cmlPtreeConversion"
 
+(*val _ = patternMatchesLib.ENABLE_PMATCH_CASES();*)
 (* ----------------------------------------------------------------------
     Parse trees to abstract syntax
    ---------------------------------------------------------------------- *)

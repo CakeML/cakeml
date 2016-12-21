@@ -27,14 +27,12 @@ val sIf_pmatch = Q.store_thm("sIf_pmatch",`!e1 e2 e3.
     then e1
   else
     (case e1 of
-     | Con true_tag [] => e2
-     | Con _ [] => e3
-     | _ => If e1 e2 e3)`,
+     | Con t [] => if t = true_tag then e2 else e3
+     | _ => If e1 e2 e3)`, 
   rpt strip_tac
-  >> PURE_ONCE_REWRITE_TAC [sIf_def]
   >> every_case_tac
-  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_SIMP_CONV)
-  >> TRY REFL_TAC >> fs[])
+  >- fs[sIf_def]
+  >- (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >> fs[sIf_def]));
 
 val _ = Define `
   pure_op_op op ⇔

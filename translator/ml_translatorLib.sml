@@ -1581,7 +1581,7 @@ fun prove_EvalPatRel goal hol2deep = let
   *)
   (* TODO: something less horrible *)
   fun tac2 (asms,concl) =
-    let
+    (let
         val pmatch_asm = can (match_term ``pmatch _ _ _ _ _ = Match_type_error``)
         val v = List.find pmatch_asm asms |> valOf |> lhs |> rator |> rand
         val asm = List.find
@@ -1599,7 +1599,7 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs [thm]
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
-    end (asms,concl)
+    end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
   val th = TAC_PROOF((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -1669,6 +1669,11 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
     \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
   end (asms,goal)
+  fun tac2 (asms,concl) =
+    if can (match_term ``PRECONDITION _``) concl then
+      METIS_TAC [] (asms,concl)
+    else
+      ALL_TAC (asms,concl)
   (*
     set_goal([],new_goal)
   *)
@@ -1684,7 +1689,7 @@ fun prove_EvalPatBind goal hol2deep = let
              lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
     \\ fsrw_tac[][GSYM FORALL_PROD,lookup_var_id_def,lookup_cons_def]
-    \\ EVAL_TAC \\ metis_tac [])
+    \\ TRY(tac2) \\ EVAL_TAC \\ metis_tac [])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");

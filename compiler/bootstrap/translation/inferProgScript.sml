@@ -309,12 +309,66 @@ val list_apply = Q.prove(
          (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
   Cases THEN SRW_TAC [] []);
 
+(* TODO: duplicated from ml_translatorLib, should go elsewhere*)
+fun list_conv c tm =
+  if listSyntax.is_cons tm then
+    ((RATOR_CONV o RAND_CONV) c THENC
+     RAND_CONV (list_conv c)) tm
+  else if listSyntax.is_nil tm then ALL_CONV tm
+  else NO_CONV tm
+
+(* Attempts to convert (pmatch) expressions of the form
+
+     (case x of
+       p1 => λ v1. b1 v1
+     | p2 => λ v2. b2 v2
+     | ....) a
+
+into
+
+     case x of
+       p1 => b1 a
+     | p2 => b2 a
+     | ....
+ *)
+fun pmatch_app_distrib_conv tm =
+  let
+    fun mk_pmatch_beta tm =
+    let
+      val (pm_exp,arg) = dest_comb tm
+      val (pmatch,pml) = dest_comb pm_exp
+      val (rows,row_type) = listSyntax.dest_list pml
+      fun gify arg row =
+        let
+          val (pmatch_row,[pat,guard,body]) = strip_comb row          
+          val (binders,term) = dest_pabs body
+        in
+          Term(`PMATCH_ROW ` @ map ANTIQUOTE [pat,guard,mk_pabs(binders,beta_conv(mk_comb(term,arg)))])
+        end
+      val new_rows = map (gify arg) rows
+      val new_row_type = type_of(hd new_rows)
+      val new_list = listSyntax.mk_list(map (gify arg) rows, new_row_type)
+    in
+      mk_eq(tm,
+            Term(`PMATCH` @ [ANTIQUOTE(rand pmatch),ANTIQUOTE(new_list)]))
+    end
+    val g = mk_pmatch_beta tm
+  in
+    prove(g,
+      CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+      >> rpt strip_tac
+      >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+      >> rpt strip_tac
+      >> fs []
+      >> metis_tac[])
+  end
+
 fun full_infer_def aggressive const = let
   val def = if aggressive then
               def_of_const const
               |> RW1 [FUN_EQ_THM]
               |> RW [op_apply,if_apply,option_case_apply,pr_CASE]
-              |> SIMP_RULE std_ss [op_apply,if_apply,
+              |> SIMP_RULE (std_ss) [op_apply,if_apply,
                    option_case_apply,list_apply]
             else
               def_of_const const
@@ -351,8 +405,11 @@ val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   \\ fs[add_constraint_def]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ metis_tac[unifyTheory.t_unify_wfs]);
-
-val _ = translate (aggr_infer_def ``constrain_op``);
+    
+(* TODO: pmatch_app_distrib_conv takes 5 minutes; write a better conversion
+   or write constrain_op_pmatch so that the conversion is not needed *)
+val _ = translate (infer_def ``constrain_op``
+                   |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
 
 val _ = translate (infer_def ``t_to_freevars``);
 
@@ -691,7 +748,7 @@ val apply_subst_list_side_def = definition"apply_subst_list_side_def";
 val apply_subst_side_def = definition"apply_subst_side_def";
 val constrain_op_side_def = definition"constrain_op_side_def";
 val infer_e_side_def = theorem"infer_e_side_def";
-
+    
 val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
   `(!menv e st. t_wfs st.subst ⇒ infer_e_side menv e st) /\
    (!menv es st. t_wfs st.subst ⇒ infer_es_side menv es st) /\

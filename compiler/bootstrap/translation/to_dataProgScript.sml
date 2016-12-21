@@ -79,7 +79,7 @@ val dec_to_exh_compile_side = Q.prove(
   rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
   |> update_precondition;
 
-val _ = translate (exh_to_patTheory.pure_op_op_eqn);
+val _ = translate (exh_to_patTheory.pure_op_op_pmatch);
 val _ = translate (exh_to_patTheory.compile_def);
 
 local
@@ -854,7 +854,7 @@ val bvl_handle_compile_exp_side = Q.prove(`
 
 val _ = translate(bvl_to_bviTheory.compile_def)
 
-val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
+val _ = translate (bvi_to_dataTheory.op_requires_names_pmatch)
 val _ = translate (COUNT_LIST_compute)
 
 (* TODO: For some reason, the following def on sptrees fails to translate in a standalone manner (when the rest of this file's translation isn't loaded). Needs investigation. *)
