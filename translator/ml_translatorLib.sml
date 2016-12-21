@@ -430,6 +430,8 @@ in
   fun add_deferred_dprog dprog =
     if listSyntax.is_nil dprog then ()
     else deferred_dprogs := dprog::(!deferred_dprogs)
+  fun pop_deferred_dprogs () =
+    List.rev (!deferred_dprogs) before deferred_dprogs := []
   fun get_user_supplied_types () = map fst (!other_types)
   fun add_eq_lemma eq_lemma =
     if concl eq_lemma = T then () else
@@ -3549,7 +3551,9 @@ fun concretise_main desired_tms = let
     case desired_tms of
       NONE => List.rev (get_v_thms())
     | SOME tms => get_desired_v_thms tms (get_v_thms()) []
+  val dprogs = pop_deferred_dprogs ()
   in
+    ml_prog_update (C (foldl (uncurry (C ml_progLib.add_prog I))) dprogs);
     ml_prog_update (C (foldl add_dec_for_v_thm) desired_v_thms)
   end
 
@@ -3558,6 +3562,19 @@ fun concretise_all () = concretise_main NONE
 
 (*
 val _ = show_assums := true
+
+val () = reset_translation();
+val _ = Datatype`num_or_list = Num num | List ('a list)`;
+val len_def = Define`len (Num n) = n ∧ len (List ls) = LENGTH ls`;
+val res = abs_register_type``:'a num_or_list``;
+val res = abs_translate LENGTH;
+val res = abs_translate APPEND;
+val res = abs_translate len_def;
+val test_def = Define`test = len (List [3n])`;
+val res = abs_translate test_def;
+
+val res = concretise [``test``]
+val thm = get_thm (get_ml_prog_state())
 
 val () = reset_translation();
 val even_def = Define`
