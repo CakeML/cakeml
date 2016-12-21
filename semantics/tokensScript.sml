@@ -7,6 +7,7 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "tokens"
+val _ = set_grammar_ancestry ["integer", "string"];
 
 (*open import Pervasives_extra*)
 (* Tokens for Standard ML.  NB, not all of them are used in CakeML *)
@@ -22,6 +23,7 @@ val _ = Hol_datatype `
 | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
 | IntT of int
 | HexintT of string
+| WordT of num
 | RealT of string
 | StringT of string
 | CharT of char

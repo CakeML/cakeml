@@ -29,6 +29,7 @@ val _ = Define `
     (op <> Aw8alloc) ∧
     (op <> Aw8sub) ∧
     (op <> Vsub) ∧
+    (op <> Strsub) ∧
     (op <> Chr) ∧
     (op <> Aupdate) ∧
     (op <> Aalloc) ∧
@@ -77,8 +78,8 @@ val pure_def = Define `
   ∧
   (pure_list (e::es) ⇔ pure e ∧ pure_list es)`;
 
-val pure_list_EVERY = store_thm("pure_list_EVERY",
-  ``∀ls. pure_list ls ⇔ EVERY pure ls``,
+val pure_list_EVERY = Q.store_thm("pure_list_EVERY",
+  `∀ls. pure_list ls ⇔ EVERY pure ls`,
   Induct >> simp[pure_def])
 val _ = export_rewrites["pure_list_EVERY"]
 
@@ -115,12 +116,12 @@ val ground_def = Define `
 
 val _ = export_rewrites["pure_op_op_def","pure_op_def","pure_def","ground_def"];
 
-val ground_list_EVERY = store_thm("ground_list_EVERY",
-  ``∀n ls. ground_list n ls ⇔ EVERY (ground n) ls``,
+val ground_list_EVERY = Q.store_thm("ground_list_EVERY",
+  `∀n ls. ground_list n ls ⇔ EVERY (ground n) ls`,
   gen_tac >> Induct >> simp[])
 val _ = export_rewrites["ground_list_EVERY"]
 
-val pure_op_op_eqn = store_thm("pure_op_op_eqn",``
+val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   pure_op_op op =
   case op of
     Opref => F
@@ -130,6 +131,7 @@ val pure_op_op_eqn = store_thm("pure_op_op_eqn",``
   | Aw8alloc => F
   | Aw8sub => F
   | Vsub => F
+  | Strsub => F
   | Chr => F
   | Aupdate => F
   | Aalloc => F
@@ -137,7 +139,7 @@ val pure_op_op_eqn = store_thm("pure_op_op_eqn",``
   | Opn Divide => F
   | Opn Modulo => F
   | FFI _ => F
-  | _ => T``,
+  | _ => T`,
   Cases_on`op`>>fs[]>>
   Cases_on`o'`>>fs[])
 
@@ -168,7 +170,7 @@ val _ = tDefine"compile_pat"`
    App (Op (Op Equality)) [Var_local 0; Lit l])
   ∧
   (compile_pat (Pcon tag []) =
-   App (Op (Op Equality)) [Var_local( 0); Con tag []])
+   App (Tag_eq tag 0) [Var_local 0])
   ∧
   (compile_pat (Pcon tag ps) =
    sIf (App (Tag_eq tag (LENGTH ps)) [Var_local 0])
@@ -289,12 +291,12 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
   `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,
   Induct>>simp[pairTheory.FORALL_PROD])
 
-val compile_exps_map = store_thm("compile_exps_map",
-  ``∀es. compile_exps a es = MAP (compile_exp a) es``,
+val compile_exps_map = Q.store_thm("compile_exps_map",
+  `∀es. compile_exps a es = MAP (compile_exp a) es`,
   Induct >> simp[compile_exp_def])
 
-val compile_exps_reverse = store_thm("compile_exps_reverse",
-  ``compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)``,
+val compile_exps_reverse = Q.store_thm("compile_exps_reverse",
+  `compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)`,
   rw[compile_exps_map,rich_listTheory.MAP_REVERSE])
 
 val _ = export_theory()

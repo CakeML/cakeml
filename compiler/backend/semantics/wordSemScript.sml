@@ -5,7 +5,6 @@ val _ = new_theory"wordSem";
 val _ = set_grammar_ancestry [
   "wordLang", "alignment", "finite_map", "misc", "asm",
   "ffi", (* for call_FFI *)
-  "asmSem", (* for word_cmp *)
   "lprefix_lub" (* for build_lprefix_lub *)
 ]
 
@@ -127,14 +126,6 @@ val mem_load_def = Define `
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
-
-val word_sh_def = Define `
-  word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
-      case sh of
-      | Lsl => SOME (w << n)
-      | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)`;
 
 val the_words_def = Define `
   (the_words [] = SOME []) /\
@@ -382,6 +373,14 @@ val inst_def = Define `
     | Arith (Shift sh r1 r2 n) =>
         assign r1
           (Shift sh (Var r2) (Nat n)) s
+    | Arith (Div r1 r2 r3) =>
+       (let vs = get_vars[r3;r2] s in
+       case vs of
+       SOME [Word q;Word w2] =>
+         if q ≠ 0w then
+           SOME (set_var r1 (Word (w2 / q)) s)
+         else NONE
+      | _ => NONE)
     | Arith (AddCarry r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3;r4] s in
         case vs of
@@ -391,12 +390,26 @@ val inst_def = Define `
                  (set_var r1 (Word (n2w res)) s))
 
         | _ => NONE)
+    | Arith (AddOverflow r1 r2 r3 r4) =>
+        (let vs = get_vars [r2;r3] s in
+        case vs of
+        SOME [Word w2;Word w3] =>
+          SOME (set_var r4 (Word (if w2i (w2 + w3) ≠ w2i w2 + w2i w3 then 1w else 0w))
+                 (set_var r1 (Word (w2 + w3)) s))
+        | _ => NONE)
+    | Arith (SubOverflow r1 r2 r3 r4) =>
+        (let vs = get_vars [r2;r3] s in
+        case vs of
+        SOME [Word w2;Word w3] =>
+          SOME (set_var r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
+                 (set_var r1 (Word (w2 - w3)) s))
+        | _ => NONE)
     | Arith (LongMul r1 r2 r3 r4) =>
         (let vs = get_vars [r3;r4] s in
         case vs of
         SOME [Word w3;Word w4] =>
          let r = w2n w3 * w2n w4 in
-           SOME (set_var r1 (Word (n2w (r DIV dimword(:'a)))) (set_var r2 (Word (n2w r)) s))
+           SOME (set_var r2 (Word (n2w r)) (set_var r1 (Word (n2w (r DIV dimword(:'a)))) s))
         | _ => NONE)
     | Arith (LongDiv r1 r2 r3 r4 r5) =>
        (let vs = get_vars [r3;r4;r5] s in
@@ -451,15 +464,24 @@ val add_ret_loc_def = Define `
 val bad_dest_args_def = Define`
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
 
-val termdep_rw = prove(
-  ``((call_env p_1 s).termdep = s.termdep) /\
+val termdep_rw = Q.prove(
+  `((call_env p_1 s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
-    ((set_var n v s).termdep = s.termdep)``,
+    ((set_var n v s).termdep = s.termdep)`,
   EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-val fix_clock_IMP_LESS_EQ = prove(
-  ``!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep``,
+val fix_clock_IMP_LESS_EQ = Q.prove(
+  `!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+
+val MustTerminate_limit_def = zDefine `
+  MustTerminate_limit (:'a) =
+    (* This is just a number that's large enough for our purposes.
+       It stated in a way that makes proofs easy. *)
+    2 * dimword (:'a) +
+    dimword (:'a) * dimword (:'a) +
+    dimword (:'a) ** dimword (:'a) +
+    dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
@@ -501,9 +523,11 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
                     else (NONE,dec_clock s)) /\
-  (evaluate (MustTerminate n p,s) =
+  (evaluate (MustTerminate p,s) =
      if s.termdep = 0 then (SOME Error, s) else
-       let (res,s1) = evaluate (p,s with <| clock := n; termdep := s.termdep-1 |>) in
+       let (res,s1) = evaluate (p,s with
+                                  <| clock := MustTerminate_limit (:'a);
+                                     termdep := s.termdep-1 |>) in
          if res = SOME TimeOut then (SOME Error, s)
          else (res,s1 with <| clock := s.clock; termdep := s.termdep |>)) /\
   (evaluate (Seq c1 c2,s) =
@@ -607,15 +631,15 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
-val gc_clock = store_thm("gc_clock",
-  ``!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep``,
+val gc_clock = Q.store_thm("gc_clock",
+  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
   full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val alloc_clock = store_thm("alloc_clock",
-  ``!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
-                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep``,
+val alloc_clock = Q.store_thm("alloc_clock",
+  `!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
+                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
   SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
   \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac gc_clock
@@ -626,8 +650,8 @@ val alloc_clock = store_thm("alloc_clock",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]);
 
-val inst_clock = prove(
-  ``inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep``,
+val inst_clock = Q.prove(
+  `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
@@ -662,8 +686,8 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ decide_tac);
 
-val fix_clock_evaluate = prove(
-  ``fix_clock s (evaluate (c1,s)) = evaluate (c1,s)``,
+val fix_clock_evaluate = Q.prove(
+  `fix_clock s (evaluate (c1,s)) = evaluate (c1,s)`,
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
   \\ imp_res_tac evaluate_clock \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
   \\ full_simp_tac(srw_ss())[state_component_equality]);

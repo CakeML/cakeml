@@ -11,8 +11,8 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -76,6 +76,7 @@ in
 end
 
 val EqualityType_NUM = find_equality_type_thm``NUM``
+val EqualityType_CHAR = find_equality_type_thm``CHAR``
 val EqualityType_WORD = find_equality_type_thm``WORD``
 
 val EqualityType_SUM_TYPE_NUM_NUM = find_equality_type_thm``SUM_TYPE NUM NUM``
@@ -93,11 +94,14 @@ val EqualityType_PAIR_TYPE_NUM_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _`
   |> Q.ISPECL[`NUM`,`PAIR_TYPE NUM NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
 
+val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
+  |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
+
 val EqualityType_ASM_CMP_TYPE = find_equality_type_thm``ASM_CMP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_REG_IMM_TYPE = find_equality_type_thm``ASM_REG_IMM_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_ASM_SHIFT_TYPE = find_equality_type_thm``ASM_SHIFT_TYPE``
+val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
   |> SIMP_RULE std_ss []
@@ -106,7 +110,7 @@ val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
 val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_ASM_SHIFT_TYPE,
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
 val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
@@ -134,10 +138,12 @@ val STACKLANG_PROG_TYPE_no_closures = Q.prove(
     metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
   metis_tac[EqualityType_def,
             EqualityType_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_SUM_TYPE_NUM_NUM,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
+            
             EqualityType_ASM_INST_TYPE]);
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
@@ -162,6 +168,7 @@ val STACKLANG_PROG_TYPE_types_match = Q.prove(
     metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
   metis_tac[EqualityType_def,
             EqualityType_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_SUM_TYPE_NUM_NUM,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
@@ -196,6 +203,7 @@ val STACKLANG_PROG_TYPE_11 = Q.prove(
     metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
   metis_tac[EqualityType_def,
             EqualityType_NUM,
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_SUM_TYPE_NUM_NUM,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
@@ -212,16 +220,16 @@ val _ = translate PAIR_MAP
 
 val _ = translate parmoveTheory.fstep_def
 
-val parmove_fstep_side = prove(``
-  ∀x. parmove_fstep_side x ⇔ T``,
+val parmove_fstep_side = Q.prove(`
+  ∀x. parmove_fstep_side x ⇔ T`,
   EVAL_TAC>>rw[]>>Cases_on`v18`>>fs[]) |> update_precondition
 
 val _ = translate (spec64 word_to_stackTheory.wMove_def)
 
 val _ = translate (spec64 call_dest_def)
 
-val word_to_stack_call_dest_side = prove(``
-  ∀a b c. word_to_stack_call_dest_side a b c ⇔ T``,
+val word_to_stack_call_dest_side = Q.prove(`
+  ∀a b c. word_to_stack_call_dest_side a b c ⇔ T`,
   EVAL_TAC>>Cases_on`b`>>fs[]) |> update_precondition
 
 val _ = translate (spec64 comp_def)
@@ -287,13 +295,21 @@ val _ = translate (spec64 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:64``,beta |-> ``:64``])
 
-val _ = translate(conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+val word_2compl_eq = prove(
+  ``!w:'a word. -w = 0w - w``,
+  fs []);
+
+val _ = translate (conv64 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,
+                                               word_2compl_eq])
+
+val _ = translate (conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
 val _ = translate (spec64 compile_def)
+
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

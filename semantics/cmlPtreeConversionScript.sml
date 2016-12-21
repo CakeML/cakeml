@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 
 open gramTheory tokenUtilsTheory astTheory
 
-open monadsyntax lcsymtacs
+open lcsymtacs
 
 val _ = new_theory "cmlPtreeConversion"
 
@@ -10,11 +10,8 @@ val _ = new_theory "cmlPtreeConversion"
     Parse trees to abstract syntax
    ---------------------------------------------------------------------- *)
 
-(* Use of parsing-heap means that this theory is secretly a descendent of
-   pegexecTheory, where 'nt' is a constructor name.
-
-   This is a disgusting failing of our theory mechanism.  *)
-val _ = hide "nt"
+val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast"]
+val _ = monadsyntax.temp_add_monadsyntax()
 
 (* handling constructor arities gets very complicated when "open" is
    implemented *)
@@ -719,7 +716,7 @@ val isConstructor_def = Define`
     do
       ifM (isSymbolicConstructor structopt s)
         (return T)
-        (return (case oHD s of
+        (return (case misc$oHD s of
                      NONE => F
                    | SOME c => isAlpha c ∧ isUpper c))
     od
@@ -769,6 +766,19 @@ val mkFun_def = Define`
   mkFun p b = UNCURRY Fun (dePat p b)
 `
 
+val ptree_Eliteral_def = Define`
+  ptree_Eliteral (Lf _) = NONE ∧
+  ptree_Eliteral (Nd nt subs) =
+    do
+      assert (LENGTH subs = 1 ∧ nt = mkNT nEliteral);
+      lf <- destLf (HD subs);
+      t <- destTOK lf;
+      (do i <- destIntT t ; return (Lit (IntLit i)) od ++
+       do c <- destCharT t ; return (Lit (Char c)) od ++
+       do s <- destStringT t ; return (Lit (StrLit s)) od ++
+       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od)
+    od
+`
 
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
@@ -790,13 +800,7 @@ val ptree_Expr_def = Define`
                          elist)
             od
           | [single] =>
-              do
-                lf <- destLf single;
-                t <- destTOK lf;
-                (do i <- destIntT t ; SOME (Lit (IntLit i)) od ++
-                 do c <- destCharT t ; SOME (Lit (Char c)) od ++
-                 do s <- destStringT t ; SOME (Lit (StrLit s)) od)
-              od ++
+              ptree_Eliteral single ++
               do
                 s <- ptree_FQV single;
                 SOME (Var s)
@@ -1056,9 +1060,9 @@ val ptree_Expr_def = Define`
                 assert(eqt = Lf (TOK EqualsT));
                 fname <- ptree_V fname_pt;
                 ps <- ptree_PbaseList1 pats_pt;
-                p1 <- oHD ps;
+                p1 <- misc$oHD ps;
                 body0 <- ptree_Expr nE body_pt;
-                SOME(fname,dePat p1 (FOLDR mkFun body0 (safeTL ps)))
+                SOME(fname,dePat p1 (FOLDR mkFun body0 (misc$safeTL ps)))
               od
             | _ => NONE
         else NONE) ∧

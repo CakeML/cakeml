@@ -20,7 +20,7 @@ val _ = Hol_datatype `
 (*val isEof : oracle_function simpleIO*)
 val _ = Define `
  (isEof st input =  
-((case input of
+ ((case input of
     [] => Oracle_fail
   | x::xs => Oracle_return st ((if st.input = LNIL then n2w ( 1) else n2w ( 0))::xs)
   )))`;
@@ -28,8 +28,8 @@ val _ = Define `
 
 (*val getChar : oracle_function simpleIO*)
 val _ = Define `
- (getChar st input =  
-((case input of
+ (getChar st input = 
+ ((case input of
     [] => Oracle_fail
   | x::xs =>
       (case LHD st.input of
@@ -41,8 +41,8 @@ val _ = Define `
 
 (*val putChar : oracle_function simpleIO*)
 val _ = Define `
- (putChar st input =  
-((case input of
+ (putChar st input = 
+ ((case input of
     [] => Oracle_fail
   | x::_ => Oracle_return (( st with<| output := LCONS x st.output |>)) input
   )))`;
@@ -55,14 +55,14 @@ val _ = Define `
 
 (*val simpleIO_oracle : oracle simpleIO*)
 val _ = Define `
- (simpleIO_oracle n st input =  
-(if n = 0 then
+ (simpleIO_oracle s st input = 
+ (if s = "isEof" then
     isEof st input
-  else if n = 1 then
+  else if s = "getChar" then
     getChar st input
-  else if n = 2 then
+  else if s = "putChar" then
     putChar st input
-  else if n = 3 then
+  else if s = "exit" then
     exit st input
   else
     Oracle_fail))`;

@@ -24,8 +24,8 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = store_thm("NOT_NIL_AND_LEMMA",
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.store_thm("NOT_NIL_AND_LEMMA",
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -78,8 +78,8 @@ val EqualityType_GRAM_MMLNONT_TYPE = find_equality_type_thm``GRAM_MMLNONT_TYPE``
 
 val GRAMMAR_SYMBOL_TYPE_def = theorem"GRAMMAR_SYMBOL_TYPE_def";
 
-val EqualityType_GRAMMAR_SYMBOL_TYPE = prove(
-  ``∀a b. EqualityType a ∧ EqualityType b ⇒ EqualityType (GRAMMAR_SYMBOL_TYPE a b)``,
+val EqualityType_GRAMMAR_SYMBOL_TYPE = Q.prove(
+  `∀a b. EqualityType a ∧ EqualityType b ⇒ EqualityType (GRAMMAR_SYMBOL_TYPE a b)`,
   rw[EqualityType_def] >- (
     Cases_on`x1`>>fs[GRAMMAR_SYMBOL_TYPE_def]>>rw[]>>
     rw[no_closures_def] >- METIS_TAC[] >>
@@ -96,8 +96,8 @@ val EqualityType_GRAMMAR_SYMBOL_TYPE = prove(
 val GRAMMAR_PARSETREE_TYPE_def = theorem"GRAMMAR_PARSETREE_TYPE_def";
 val GRAMMAR_PARSETREE_TYPE_ind = theorem"GRAMMAR_PARSETREE_TYPE_ind";
 
-val GRAMMAR_PARSETREE_TYPE_no_closures = prove(
-  ``∀a b c d. EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ⇒ no_closures d``,
+val GRAMMAR_PARSETREE_TYPE_no_closures = Q.prove(
+  `∀a b c d. EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ⇒ no_closures d`,
   ho_match_mp_tac GRAMMAR_PARSETREE_TYPE_ind >>
   simp[GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,no_closures_def] >>
   rw[] >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def]
@@ -108,16 +108,16 @@ val GRAMMAR_PARSETREE_TYPE_no_closures = prove(
     rw[] >> METIS_TAC[]) >>
   METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def])
 
-val GRAMMAR_PARSETREE_TYPE_types_match = prove(
-  ``∀a b c d e f.
+val GRAMMAR_PARSETREE_TYPE_types_match = Q.prove(
+  `∀a b c d e f.
       EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ∧
-      GRAMMAR_PARSETREE_TYPE a b e f ⇒ types_match d f``,
+      GRAMMAR_PARSETREE_TYPE a b e f ⇒ types_match d f`,
   ho_match_mp_tac GRAMMAR_PARSETREE_TYPE_ind >>
   simp[GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,types_match_def] >>
   rw[] >- (
     Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def,types_match_def,ctor_same_type_def] >>
     conj_tac >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def] >>
-    rw[] >> rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    rw[] >> rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
@@ -126,16 +126,16 @@ val GRAMMAR_PARSETREE_TYPE_types_match = prove(
   Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def,types_match_def,ctor_same_type_def] >>
   METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def])
 
-val GRAMMAR_PARSETREE_TYPE_11 = prove(
-  ``∀a b c d e f.
+val GRAMMAR_PARSETREE_TYPE_11 = Q.prove(
+  `∀a b c d e f.
       EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ∧
-      GRAMMAR_PARSETREE_TYPE a b e f ⇒ (c = e ⇔ d = f)``,
+      GRAMMAR_PARSETREE_TYPE a b e f ⇒ (c = e ⇔ d = f)`,
   ho_match_mp_tac GRAMMAR_PARSETREE_TYPE_ind >>
   simp[GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS] >>
   rw[] >- (
     Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def] >>
     `x_3 = s ⇔ v2_1 = v2_1'` by METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def] >>
-    rw[] >> rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    rw[] >> rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
@@ -144,8 +144,8 @@ val GRAMMAR_PARSETREE_TYPE_11 = prove(
   Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def] >>
   METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def])
 
-val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = prove(
-  ``EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)``,
+val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = Q.prove(
+  `EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)`,
   simp[EqualityType_def] >>
   assume_tac EqualityType_TOKENS_TOKEN_TYPE >>
   assume_tac EqualityType_GRAM_MMLNONT_TYPE >>
@@ -155,13 +155,13 @@ val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = pr
 
 val _ = translate (def_of_const ``cmlPEG``);
 
-val INTRO_FLOOKUP = store_thm("INTRO_FLOOKUP",
-  ``(if n IN FDOM G.rules
+val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
+  `(if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
      else Result NONE) =
     (case FLOOKUP G.rules n of
        NONE => Result NONE
-     | SOME x => EV x i r y fk)``,
+     | SOME x => EV x i r y fk)`,
   SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
 
 val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
@@ -171,16 +171,16 @@ val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: cmlvalid *)
 
-val monad_unitbind_assert = prove(
-  ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
+val monad_unitbind_assert = Q.prove(
+  `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
 val _ = translate grammarTheory.ptree_head_def
 
 (* parsing: ptree converstion *)
 
-val OPTION_BIND_THM = store_thm("OPTION_BIND_THM",
-  ``!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i``,
+val OPTION_BIND_THM = Q.store_thm("OPTION_BIND_THM",
+  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`,
   Cases THEN SRW_TAC [] []);
 
 val _ = (extra_preprocessing :=
@@ -196,8 +196,8 @@ val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
 
 val _ = ParseExtras.temp_tight_equality()
 
-val parse_prog_side_lemma = store_thm("parse_prog_side_lemma",
-  ``!x. parse_prog_side x = T``,
+val parse_prog_side_lemma = Q.store_thm("parse_prog_side_lemma",
+  `!x. parse_prog_side x = T`,
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
   THEN REPEAT STRIP_TAC

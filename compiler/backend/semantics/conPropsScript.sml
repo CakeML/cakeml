@@ -25,8 +25,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
     (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
     (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
-    (∃s. op = (Op Explode) ∧ vs = [Litv (StrLit s)]) ∨
     (∃v ls. op = (Op Implode) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
+    (∃s i. op = (Op Strsub) ∧ vs = [Litv (StrLit s); Litv (IntLit i)]) ∨
     (∃s. op = (Op Strlen) ∧ vs = [Litv (StrLit s)]) ∨
     (∃v vs'. op = (Op VfromList) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨
     (∃vs' i. op = (Op Vsub) ∧ vs = [Vectorv vs'; Litv (IntLit i)]) ∨
@@ -99,8 +99,8 @@ val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
   >- srw_tac[][pat_bindings_def]
   >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
 
-val Boolv_11 = store_thm("Boolv_11[simp]",
-  ``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``, EVAL_TAC >> srw_tac[][])
+val Boolv_11 = Q.store_thm("Boolv_11[simp]",
+  `Boolv b1 = Boolv b2 ⇔ (b1 = b2)`, EVAL_TAC >> srw_tac[][])
 
 val evaluate_length = Q.store_thm("evaluate_length",
   `(∀env (s:'ffi conSem$state) ls s' vs.
@@ -261,7 +261,7 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
   simp[] >> strip_tac >>
   imp_res_tac evaluate_dec_add_to_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_decs_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[rator_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
+  rveq >|[qhdtm_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
   qmatch_assum_abbrev_tac`evaluate_decs ee sss prog = _` >>
   last_x_assum(qspecl_then[`ee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
   fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -312,7 +312,7 @@ val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_t
   simp[] >> srw_tac[][] >>
   imp_res_tac evaluate_prompt_add_to_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_prog_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[rator_x_assum`evaluate_prog`mp_tac,ALL_TAC,ALL_TAC]>>
+  rveq >|[qhdtm_x_assum`evaluate_prog`mp_tac,ALL_TAC,ALL_TAC]>>
   qmatch_assum_abbrev_tac`evaluate_prog ee sss prog = _` >>
   last_x_assum(qspecl_then[`ee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
   fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -329,11 +329,11 @@ val pats_bindings_MAP_Pvar = Q.store_thm("pats_bindings_MAP_Pvar",
   `∀ws ls. pats_bindings (MAP Pvar ws) ls = (REVERSE ws) ++ ls`,
   Induct >> simp[pat_bindings_def]);
 
-val pmatch_any_match = store_thm("pmatch_any_match",
-  ``(∀(exh:exh_ctors_env) s p v env env'. pmatch exh s p v env = Match env' ⇒
+val pmatch_any_match = Q.store_thm("pmatch_any_match",
+  `(∀(exh:exh_ctors_env) s p v env env'. pmatch exh s p v env = Match env' ⇒
        ∀env. ∃env'. pmatch exh s p v env = Match env') ∧
     (∀(exh:exh_ctors_env) s ps vs env env'. pmatch_list exh s ps vs env = Match env' ⇒
-       ∀env. ∃env'. pmatch_list exh s ps vs env = Match env')``,
+       ∀env. ∃env'. pmatch_list exh s ps vs env = Match env')`,
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][pmatch_def] >>
   pop_assum mp_tac >>
@@ -343,11 +343,11 @@ val pmatch_any_match = store_thm("pmatch_any_match",
   TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
-val pmatch_any_no_match = store_thm("pmatch_any_no_match",
-  ``(∀(exh:exh_ctors_env) s p v env. pmatch exh s p v env = No_match ⇒
+val pmatch_any_no_match = Q.store_thm("pmatch_any_no_match",
+  `(∀(exh:exh_ctors_env) s p v env. pmatch exh s p v env = No_match ⇒
        ∀env. pmatch exh s p v env = No_match) ∧
     (∀(exh:exh_ctors_env) s ps vs env. pmatch_list exh s ps vs env = No_match ⇒
-       ∀env. pmatch_list exh s ps vs env = No_match)``,
+       ∀env. pmatch_list exh s ps vs env = No_match)`,
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][pmatch_def] >>
   pop_assum mp_tac >>

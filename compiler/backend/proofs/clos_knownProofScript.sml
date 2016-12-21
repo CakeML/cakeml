@@ -374,8 +374,6 @@ val do_app_ssgc = Q.store_thm(
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, eqs, PULL_EXISTS, PULL_FORALL])
-  >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `EVERY vsgc_free vs` >>
-      Induct_on `vs` >> simp[list_to_v_def])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
   >- (dsimp[ssgc_free_def] >>
       metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
@@ -678,23 +676,23 @@ val known_op_correct_approx = Q.store_thm(
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
 
-val LENGTH_clos_gen = prove(``
+val LENGTH_clos_gen = Q.prove(`
   ∀ls x c.
-  LENGTH (clos_gen x c ls) = LENGTH ls``,
+  LENGTH (clos_gen x c ls) = LENGTH ls`,
   Induct>>fs[FORALL_PROD,clos_gen_def])
 
-val clos_gen_eq = prove(``
+val clos_gen_eq = Q.prove(`
   ∀n c fns.
   clos_gen n c fns =
-  GENLIST (λi. Clos (2* (i+c) +n ) (FST (EL i fns))) (LENGTH fns)``,
+  GENLIST (λi. Clos (2* (i+c) +n ) (FST (EL i fns))) (LENGTH fns)`,
   Induct_on`fns`>>fs[FORALL_PROD,clos_gen_def,GENLIST_CONS]>>rw[]>>
   simp[o_DEF,ADD1])
 
-val letrec_case_eq = prove(``
+val letrec_case_eq = Q.prove(`
   (case loc of
     NONE => REPLICATE (LENGTH fns) Other
   | SOME n => clos_gen n 0 fns) =
-  GENLIST (case loc of NONE => K Other | SOME n => λi. Clos (n+ 2*i) (FST (EL i fns))) (LENGTH fns)``,
+  GENLIST (case loc of NONE => K Other | SOME n => λi. Clos (n+ 2*i) (FST (EL i fns))) (LENGTH fns)`,
   Cases_on`loc`>>fs[clos_gen_eq,REPLICATE_GENLIST])
 
 val say = say0 "known_correct_approx"
@@ -1225,12 +1223,6 @@ val kvrel_v_to_list = Q.store_thm(
   Cases_on `vs2''` >> fs[v_to_list_def] >> rw[] >> fs[v_to_list_def] >>
   fs[eqs] >> rveq >> simp[PULL_EXISTS] >> metis_tac[MEM]);
 
-val kvrel_list_to_v = Q.store_thm(
-  "kvrel_list_to_v",
-  `∀vs1 vs2. LIST_REL (kvrel g) vs1 vs2 ⇒
-             kvrel g (list_to_v vs1) (list_to_v vs2)`,
-  Induct_on `LIST_REL` >> simp[list_to_v_def])
-
 val kvrel_do_eq0 = Q.prove(
   `(∀u1 v1 u2 v2 b g.
       kvrel g u1 u2 ∧ kvrel g v1 v2 ∧ do_eq u1 v1 = Eq_val b ⇒
@@ -1245,9 +1237,9 @@ val kvrel_do_eq0 = Q.prove(
       fs[] >> simp[do_eq_def] >> rw[] >> fs[LIST_REL_EL_EQN] >> metis_tac[])
   >- simp[]
   >- (simp[PULL_EXISTS] >> rpt gen_tac >> strip_tac >>
-      ONCE_REWRITE_TAC [do_eq_def] >> rename1 `do_eq uu1 vv1` >>
-      Cases_on `do_eq uu1 vv1` >> fs[] >> simp[bool_case_eq] >> dsimp[] >>
-      rename1 `do_eq uu1 vv1 = Eq_val b` >> Cases_on `b` >> simp[] >>
+      ONCE_REWRITE_TAC [do_eq_def] >>
+      Cases_on `do_eq u1 v1` >> fs[] >> simp[bool_case_eq] >> dsimp[] >>
+      rename1 `do_eq u1 v1 = Eq_val b` >> Cases_on `b` >> simp[] >>
       rpt strip_tac >> nailIHx strip_assume_tac >> simp[] >> metis_tac[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[]));
@@ -1297,7 +1289,6 @@ val kvrel_op_correct_Rval = Q.store_thm(
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
-  >- (rw[] >> fs[] >> simp[kvrel_list_to_v])
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
       simp[fmap_rel_FUPDATE_same])

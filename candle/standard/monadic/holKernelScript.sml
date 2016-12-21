@@ -100,7 +100,7 @@ val ex_return_def = Define `
 
 (* setup fancy syntax *)
 
-open monadsyntax;
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. ex_bind x (\z. y)``);
@@ -571,16 +571,16 @@ val _ = Define `
   this a non-failing function to make it pure.
 *)
 
-val EXISTS_IMP = prove(
-  ``!xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x``,
+val EXISTS_IMP = Q.prove(
+  `!xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x`,
   Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []);
 
-val MEM_subtract = prove(
-  ``!y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)``,
+val MEM_subtract = Q.prove(
+  `!y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)`,
   FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER] THEN METIS_TAC []);
 
-val vfree_in_IMP = prove(
-  ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
+val vfree_in_IMP = Q.prove(
+  `!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)`,
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (vfree_in_ind))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [vfree_in_def,frees_def]
@@ -670,25 +670,25 @@ val my_term_size_def = Define `
   (my_term_size (Comb s1 s2) = 1 + my_term_size s1 + my_term_size s2) /\
   (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)`;
 
-val my_term_size_variant = prove(
-  ``!avoid t. my_term_size (variant avoid t) = my_term_size t``,
+val my_term_size_variant = Q.prove(
+  `!avoid t. my_term_size (variant avoid t) = my_term_size t`,
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
   THEN ONCE_REWRITE_TAC [variant_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] [] THEN RES_TAC
   THEN FULL_SIMP_TAC std_ss [my_term_size_def]);
 
-val is_var_variant = prove(
-  ``!avoid t. is_var (variant avoid t) = is_var t``,
+val is_var_variant = Q.prove(
+  `!avoid t. is_var (variant avoid t) = is_var t`,
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
   THEN ONCE_REWRITE_TAC [variant_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] [] THEN RES_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [my_term_size_def,fetch "-" "is_var_def"]);
 
-val my_term_size_vsubst_aux = prove(
-  ``!t xs. EVERY (\x. is_var (FST x)) xs ==>
-           (my_term_size (vsubst_aux xs t) = my_term_size t)``,
+val my_term_size_vsubst_aux = Q.prove(
+  `!t xs. EVERY (\x. is_var (FST x)) xs ==>
+           (my_term_size (vsubst_aux xs t) = my_term_size t)`,
   Induct THEN1
    (FULL_SIMP_TAC (srw_ss()) [my_term_size_def,Once (fetch "-" "vsubst_aux_def")]
     THEN Induct_on `xs` THEN1 (EVAL_TAC THEN SRW_TAC [] [my_term_size_def])
@@ -708,8 +708,8 @@ val my_term_size_vsubst_aux = prove(
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
 
-val ZERO_LT_term_size = prove(
-  ``!t. 0 < my_term_size t``,
+val ZERO_LT_term_size = Q.prove(
+  `!t. 0 < my_term_size t`,
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `

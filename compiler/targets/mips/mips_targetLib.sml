@@ -11,6 +11,9 @@ fun mips_type s = Type.mk_thy_type {Thy = "mips", Tyop = s, Args = []}
 val mips_tys = List.map mips_type
   ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store"]
 
+val mips_enc =
+  SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM mips_enc_def `x`)
+
 local
   fun dst tm = case Lib.total boolSyntax.dest_strip_comb tm of
                   SOME ("mips_target$mips_enc", [t]) => SOME t
@@ -21,7 +24,7 @@ in
       (ERR "mips_encode_conv" "")
       (computeLib.compset_conv (wordsLib.words_compset())
         [computeLib.Defs
-           [mips_enc_def, encs_def, mips_encode_def, Encode_def, mips_bop_r_def,
+           [mips_enc, mips_ast_def, mips_encode_def, Encode_def, mips_bop_r_def,
             mips_bop_i_def, mips_sh_def, mips_cmp_def, mips_sh32_def,
             mips_memop_def, form1_def, form2_def, form3_def, form4_def,
             form5_def],

@@ -11,7 +11,7 @@ val riscv_next_def = Define `riscv_next s = THE (NextRISCV s)`
 
 (* We assume virtual memory is turned off and a 64-bit architecture (RV64I) *)
 val riscv_ok_def = Define`
-   riscv_ok ms =
+   riscv_ok ms <=>
    ((ms.c_MCSR ms.procID).mstatus.VM = 0w) /\
    ((ms.c_MCSR ms.procID).mcpuid.ArchBase = 2w) /\
    (ms.c_NextFetch ms.procID = NONE) /\
@@ -19,10 +19,13 @@ val riscv_ok_def = Define`
 
 (* --- Encode ASM instructions to RISC-V bytes. --- *)
 
+val riscv_encode_fail_def = Define`
+  riscv_encode_fail = [ArithI (ADDI (0w, 0w, 0w))]`
+
 val riscv_encode_def = Define`
    riscv_encode i =
    let w = riscv$Encode i in
-      [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list`
+     [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list`
 
 val riscv_bop_r_def = Define`
    (riscv_bop_r Add = ADD) /\
@@ -53,150 +56,164 @@ val riscv_memop_def = Define`
 val riscv_const32_def = Define`
   riscv_const32 r (i: word32) =
   if i ' 11 then
-    riscv_encode (ArithI (LUI (r, ~((31 >< 12) i)))) ++
-    riscv_encode (ArithI (XORI (r, r, (11 >< 0) i)))
+    [ArithI (LUI (r, ~((31 >< 12) i)));
+     ArithI (XORI (r, r, (11 >< 0) i))]
   else
-    riscv_encode (ArithI (LUI (r, (31 >< 12) i))) ++
-    riscv_encode (ArithI (ADDI (r, r, (11 >< 0) i)))`
-
-val riscv_encode_fail_def = Define`
-  riscv_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
+    [ArithI (LUI (r, (31 >< 12) i));
+     ArithI (ADDI (r, r, (11 >< 0) i))]`
 
 val () = Parse.temp_overload_on ("temp_reg", ``31w : word5``)
 
-val riscv_enc_def = Define`
-   (riscv_enc (Inst Skip) = riscv_encode (ArithI (ADDI (0w, 0w, 0w)))) /\
-   (riscv_enc (Inst (Const r (i: word64))) =
+val riscv_ast_def = Define`
+   (riscv_ast (Inst Skip) = [ArithI (ADDI (0w, 0w, 0w))]) /\
+   (riscv_ast (Inst (Const r (i: word64))) =
       let imm12 = (11 >< 0) i in
       if i = sw2sw imm12 then
-        riscv_encode (ArithI (ORI (n2w r, 0w, imm12)))
+        [ArithI (ORI (n2w r, 0w, imm12))]
       else if ((63 >< 32) i = 0w: word32) /\ ~i ' 31 \/
               ((63 >< 32) i = -1w: word32) /\ i ' 31 then
         riscv_const32 (n2w r) ((31 >< 0) i)
       else if i ' 31 then
         riscv_const32 temp_reg ((31 >< 0) i) ++
         riscv_const32 (n2w r) (~((63 >< 32) i)) ++
-        riscv_encode (Shift (SLLI (n2w r, n2w r, 32w))) ++
-        riscv_encode (ArithR (XOR (n2w r, n2w r, temp_reg)))
+        [Shift (SLLI (n2w r, n2w r, 32w));
+         ArithR (XOR (n2w r, n2w r, temp_reg))]
       else
         riscv_const32 temp_reg ((31 >< 0) i) ++
         riscv_const32 (n2w r) ((63 >< 32) i) ++
-        riscv_encode (Shift (SLLI (n2w r, n2w r, 32w))) ++
-        riscv_encode (ArithR (OR (n2w r, n2w r, temp_reg)))) /\
-   (riscv_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
-     riscv_encode (ArithR (riscv_bop_r bop (n2w r1, n2w r2, n2w r3)))) /\
-   (riscv_enc (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
-     riscv_encode (ArithI (ADDI (n2w r1, n2w r2, -(w2w i))))) /\
-   (riscv_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-     riscv_encode (ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i)))) /\
-   (riscv_enc (Inst (Arith (Shift sh r1 r2 n))) =
-     riscv_encode (Shift (riscv_sh sh (n2w r1, n2w r2, n2w n)))) /\
-   (riscv_enc (Inst (Arith (Div r1 r2 r3))) =
-     riscv_encode (MulDiv (DIVU (n2w r1, n2w r2, n2w r3)))) /\
-   (riscv_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
-     riscv_encode (MulDiv (MULHU (n2w r1, n2w r3, n2w r4))) ++
-     riscv_encode (MulDiv (MUL (n2w r2, n2w r3, n2w r4)))) /\
-   (riscv_enc (Inst (Arith (LongDiv _ _ _ _ _))) = riscv_encode_fail) /\
-   (riscv_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
-     riscv_encode (ArithR (SLTU (temp_reg, 0w, n2w r4))) ++
-     riscv_encode (ArithR (ADD (n2w r1, n2w r2, n2w r3))) ++
-     riscv_encode (ArithR (SLTU (n2w r4, n2w r1, n2w r3))) ++
-     riscv_encode (ArithR (ADD (n2w r1, n2w r1, temp_reg))) ++
-     riscv_encode (ArithR (SLTU (temp_reg, n2w r1, temp_reg))) ++
-     riscv_encode (ArithR (OR (n2w r4, n2w r4, temp_reg)))) /\
-   (riscv_enc (Inst (Mem mop r1 (Addr r2 a))) =
+        [Shift (SLLI (n2w r, n2w r, 32w));
+         ArithR (OR (n2w r, n2w r, temp_reg))]) /\
+   (riscv_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
+     [ArithR (riscv_bop_r bop (n2w r1, n2w r2, n2w r3))]) /\
+   (riscv_ast (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
+     [ArithI (ADDI (n2w r1, n2w r2, -(w2w i)))]) /\
+   (riscv_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
+     [ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i))]) /\
+   (riscv_ast (Inst (Arith (Shift sh r1 r2 n))) =
+     [Shift (riscv_sh sh (n2w r1, n2w r2, n2w n))]) /\
+   (riscv_ast (Inst (Arith (Div r1 r2 r3))) =
+     [MulDiv (riscv$DIV (n2w r1, n2w r2, n2w r3))]) /\
+   (riscv_ast (Inst (Arith (LongMul r1 r2 r3 r4))) =
+     [MulDiv (MULHU (n2w r1, n2w r3, n2w r4));
+      MulDiv (MUL (n2w r2, n2w r3, n2w r4))]) /\
+   (riscv_ast (Inst (Arith (LongDiv _ _ _ _ _))) = riscv_encode_fail) /\
+   (riscv_ast (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+     [ArithR (SLTU (temp_reg, 0w, n2w r4));
+      ArithR (ADD (n2w r1, n2w r2, n2w r3));
+      ArithR (SLTU (n2w r4, n2w r1, n2w r3));
+      ArithR (ADD (n2w r1, n2w r1, temp_reg));
+      ArithR (SLTU (temp_reg, n2w r1, temp_reg));
+      ArithR (OR (n2w r4, n2w r4, temp_reg))]) /\
+   (riscv_ast (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+     [ArithR (XOR (temp_reg, n2w r2, n2w r3));
+      ArithI (XORI (temp_reg, temp_reg, -1w));
+      ArithR (ADD (n2w r1, n2w r2, n2w r3));
+      ArithR (XOR (n2w r4, n2w r3, n2w r1));
+      ArithR (AND (n2w r4, temp_reg, n2w r4));
+      Shift (SRLI (n2w r4, n2w r4, 63w))]) /\
+   (riscv_ast (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+     [ArithR (XOR (temp_reg, n2w r2, n2w r3));
+      ArithR (SUB (n2w r1, n2w r2, n2w r3));
+      ArithR (XOR (n2w r4, n2w r3, n2w r1));
+      ArithI (XORI (n2w r4, n2w r4, -1w));
+      ArithR (AND (n2w r4, temp_reg, n2w r4));
+      Shift (SRLI (n2w r4, n2w r4, 63w))]) /\
+   (riscv_ast (Inst (Mem mop r1 (Addr r2 a))) =
       case riscv_memop mop of
-         INL f => riscv_encode (Load (f (n2w r1, n2w r2, w2w a)))
-       | INR f => riscv_encode (Store (f (n2w r2, n2w r1, w2w a)))) /\
-   (riscv_enc (Jump a) = riscv_encode (Branch (JAL (0w, w2w (a >>> 1))))) /\
-   (riscv_enc (JumpCmp c r1 (Reg r2) a) =
+         INL f => [Load (f (n2w r1, n2w r2, w2w a))]
+       | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
+   (riscv_ast (Jump a) = [Branch (JAL (0w, w2w (a >>> 1)))]) /\
+   (riscv_ast (JumpCmp c r1 (Reg r2) a) =
       if -0xFFCw <= a /\ a <= 0xFFFw then
         let off12 = w2w (a >>> 1) in
         case c of
-           Equal => riscv_encode (Branch (BEQ (n2w r1, n2w r2, off12)))
-         | Less  => riscv_encode (Branch (BLT (n2w r1, n2w r2, off12)))
-         | Lower => riscv_encode (Branch (BLTU (n2w r1, n2w r2, off12)))
-         | Test  => riscv_encode (ArithR (AND (temp_reg, n2w r1, n2w r2))) ++
-                    riscv_encode (Branch (BEQ (temp_reg, 0w, off12 - 2w)))
-         | NotEqual => riscv_encode (Branch (BNE (n2w r1, n2w r2, off12)))
-         | NotLess  => riscv_encode (Branch (BGE (n2w r1, n2w r2, off12)))
-         | NotLower => riscv_encode (Branch (BGEU (n2w r1, n2w r2, off12)))
-         | NotTest  => riscv_encode (ArithR (AND (temp_reg, n2w r1, n2w r2))) ++
-                       riscv_encode (Branch (BNE (temp_reg, 0w, off12 - 2w)))
+           Equal => [Branch (BEQ (n2w r1, n2w r2, off12))]
+         | Less  => [Branch (BLT (n2w r1, n2w r2, off12))]
+         | Lower => [Branch (BLTU (n2w r1, n2w r2, off12))]
+         | Test  => [ArithR (AND (temp_reg, n2w r1, n2w r2));
+                     Branch (BEQ (temp_reg, 0w, off12 - 2w))]
+         | NotEqual => [Branch (BNE (n2w r1, n2w r2, off12))]
+         | NotLess  => [Branch (BGE (n2w r1, n2w r2, off12))]
+         | NotLower => [Branch (BGEU (n2w r1, n2w r2, off12))]
+         | NotTest  => [ArithR (AND (temp_reg, n2w r1, n2w r2));
+                        Branch (BNE (temp_reg, 0w, off12 - 2w))]
       else
         let off20 = w2w (a >>> 1) - 2w in
         case c of
-           Equal => riscv_encode (Branch (BNE (n2w r1, n2w r2, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | Less  => riscv_encode (Branch (BGE (n2w r1, n2w r2, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | Lower => riscv_encode (Branch (BGEU (n2w r1, n2w r2, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | Test  => riscv_encode (ArithR (AND (temp_reg, n2w r1, n2w r2))) ++
-                    riscv_encode (Branch (BNE (temp_reg, 0w, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20 - 2w)))
-         | NotEqual => riscv_encode (Branch (BEQ (n2w r1, n2w r2, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))
-         | NotLess  => riscv_encode (Branch (BLT (n2w r1, n2w r2, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))
-         | NotLower => riscv_encode (Branch (BLTU (n2w r1, n2w r2, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))
-         | NotTest  => riscv_encode (ArithR (AND (temp_reg, n2w r1, n2w r2))) ++
-                       riscv_encode (Branch (BEQ (temp_reg, 0w, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20 - 2w)))) /\
-   (riscv_enc (JumpCmp c r (Imm i) a) =
+           Equal => [Branch (BNE (n2w r1, n2w r2, 4w));
+                     Branch (JAL (0w, off20))]
+         | Less  => [Branch (BGE (n2w r1, n2w r2, 4w));
+                     Branch (JAL (0w, off20))]
+         | Lower => [Branch (BGEU (n2w r1, n2w r2, 4w));
+                     Branch (JAL (0w, off20))]
+         | Test  => [ArithR (AND (temp_reg, n2w r1, n2w r2));
+                     Branch (BNE (temp_reg, 0w, 4w));
+                     Branch (JAL (0w, off20 - 2w))]
+         | NotEqual => [Branch (BEQ (n2w r1, n2w r2, 4w));
+                        Branch (JAL (0w, off20))]
+         | NotLess  => [Branch (BLT (n2w r1, n2w r2, 4w));
+                        Branch (JAL (0w, off20))]
+         | NotLower => [Branch (BLTU (n2w r1, n2w r2, 4w));
+                        Branch (JAL (0w, off20))]
+         | NotTest  => [ArithR (AND (temp_reg, n2w r1, n2w r2));
+                        Branch (BEQ (temp_reg, 0w, 4w));
+                        Branch (JAL (0w, off20 - 2w))]) /\
+   (riscv_ast (JumpCmp c r (Imm i) a) =
       if -0xFFCw <= a /\ a <= 0xFFFw then
         let off12 = w2w (a >>> 1) - 2w in
         case c of
-           Equal => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                    riscv_encode (Branch (BEQ (n2w r, temp_reg, off12)))
-         | Less  => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                    riscv_encode (Branch (BLT (n2w r, temp_reg, off12)))
-         | Lower => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                    riscv_encode (Branch (BLTU (n2w r, temp_reg, off12)))
-         | Test  => riscv_encode (ArithI (ANDI (temp_reg, n2w r, w2w i))) ++
-                    riscv_encode (Branch (BEQ (temp_reg, 0w, off12)))
-         | NotEqual => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                       riscv_encode (Branch (BNE (n2w r, temp_reg, off12)))
-         | NotLess  => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                       riscv_encode (Branch (BGE (n2w r, temp_reg, off12)))
-         | NotLower => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                       riscv_encode (Branch (BGEU (n2w r, temp_reg, off12)))
-         | NotTest  => riscv_encode (ArithI (ANDI (temp_reg, n2w r, w2w i))) ++
-                       riscv_encode (Branch (BNE (temp_reg, 0w, off12)))
+           Equal => [ArithI (ORI (temp_reg, 0w, w2w i));
+                     Branch (BEQ (n2w r, temp_reg, off12))]
+         | Less  => [ArithI (ORI (temp_reg, 0w, w2w i));
+                     Branch (BLT (n2w r, temp_reg, off12))]
+         | Lower => [ArithI (ORI (temp_reg, 0w, w2w i));
+                     Branch (BLTU (n2w r, temp_reg, off12))]
+         | Test  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+                     Branch (BEQ (temp_reg, 0w, off12))]
+         | NotEqual => [ArithI (ORI (temp_reg, 0w, w2w i));
+                        Branch (BNE (n2w r, temp_reg, off12))]
+         | NotLess  => [ArithI (ORI (temp_reg, 0w, w2w i));
+                        Branch (BGE (n2w r, temp_reg, off12))]
+         | NotLower => [ArithI (ORI (temp_reg, 0w, w2w i));
+                        Branch (BGEU (n2w r, temp_reg, off12))]
+         | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+                        Branch (BNE (temp_reg, 0w, off12))]
       else
         let off20 = w2w (a >>> 1) - 4w in
         case c of
-           Equal => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                    riscv_encode (Branch (BNE (n2w r, temp_reg, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | Less  => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                    riscv_encode (Branch (BGE (n2w r, temp_reg, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | Lower => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                    riscv_encode (Branch (BGEU (n2w r, temp_reg, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | Test  => riscv_encode (ArithI (ANDI (temp_reg, n2w r, w2w i))) ++
-                    riscv_encode (Branch (BNE (temp_reg, 0w, 4w))) ++
-                    riscv_encode (Branch (JAL (0w, off20)))
-         | NotEqual => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                       riscv_encode (Branch (BEQ (n2w r, temp_reg, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))
-         | NotLess  => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                       riscv_encode (Branch (BLT (n2w r, temp_reg, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))
-         | NotLower => riscv_encode (ArithI (ORI (temp_reg, 0w, w2w i))) ++
-                       riscv_encode (Branch (BLTU (n2w r, temp_reg, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))
-         | NotTest  => riscv_encode (ArithI (ANDI (temp_reg, n2w r, w2w i))) ++
-                       riscv_encode (Branch (BEQ (temp_reg, 0w, 4w))) ++
-                       riscv_encode (Branch (JAL (0w, off20)))) /\
-   (riscv_enc (Call a) = riscv_encode (Branch (JAL (1w, w2w (a >>> 1))))) /\
-   (riscv_enc (JumpReg r) = riscv_encode (Branch (JALR (0w, n2w r, 0w)))) /\
-   (riscv_enc (Loc r i) =
+           Equal => [ArithI (ORI (temp_reg, 0w, w2w i));
+                     Branch (BNE (n2w r, temp_reg, 4w));
+                     Branch (JAL (0w, off20))]
+         | Less  => [ArithI (ORI (temp_reg, 0w, w2w i));
+                     Branch (BGE (n2w r, temp_reg, 4w));
+                     Branch (JAL (0w, off20))]
+         | Lower => [ArithI (ORI (temp_reg, 0w, w2w i));
+                     Branch (BGEU (n2w r, temp_reg, 4w));
+                     Branch (JAL (0w, off20))]
+         | Test  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+                     Branch (BNE (temp_reg, 0w, 4w));
+                     Branch (JAL (0w, off20))]
+         | NotEqual => [ArithI (ORI (temp_reg, 0w, w2w i));
+                        Branch (BEQ (n2w r, temp_reg, 4w));
+                        Branch (JAL (0w, off20))]
+         | NotLess  => [ArithI (ORI (temp_reg, 0w, w2w i));
+                        Branch (BLT (n2w r, temp_reg, 4w));
+                        Branch (JAL (0w, off20))]
+         | NotLower => [ArithI (ORI (temp_reg, 0w, w2w i));
+                        Branch (BLTU (n2w r, temp_reg, 4w));
+                        Branch (JAL (0w, off20))]
+         | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+                        Branch (BEQ (temp_reg, 0w, 4w));
+                        Branch (JAL (0w, off20))]) /\
+   (riscv_ast (Call a) = [Branch (JAL (1w, w2w (a >>> 1)))]) /\
+   (riscv_ast (JumpReg r) = [Branch (JALR (0w, n2w r, 0w))]) /\
+   (riscv_ast (Loc r i) =
       let imm12 = (11 >< 0) i in
-      riscv_encode (ArithI (AUIPC (n2w r, (31 >< 12) (i - sw2sw imm12)))) ++
-      riscv_encode (ArithI (ADDI (n2w r, n2w r, imm12))))`
+      [ArithI (AUIPC (n2w r, (31 >< 12) (i - sw2sw imm12)));
+       ArithI (ADDI (n2w r, n2w r, imm12))])`
+
+val riscv_enc_def = zDefine`
+  riscv_enc = combin$C LIST_BIND riscv_encode o riscv_ast`
 
 (* --- Configuration for RISC-V --- *)
 

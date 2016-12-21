@@ -79,7 +79,7 @@ val flatten_def = Define `
 
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    let (lines,_,m) = (flatten p n (next_lab p)) in
+    let (lines,_,m) = (flatten p n (next_lab p 1)) in
       Section n (append (Append lines (List [Label n m 0])))`
 
 val _ = Datatype`config =
@@ -88,9 +88,9 @@ val _ = Datatype`config =
    |>`;
 
 val compile_def = Define `
-  compile c c2 c3 sp prog =
+  compile c c2 c3 sp offset prog =
     let prog = stack_alloc$compile c2 prog in
-    let prog = stack_remove$compile c.max_heap c3.bitmaps sp InitGlobals_location prog in
+    let prog = stack_remove$compile offset c.max_heap c3.bitmaps sp InitGlobals_location prog in
     let prog = stack_names$compile c.reg_names prog in
       MAP prog_to_section prog`;
 

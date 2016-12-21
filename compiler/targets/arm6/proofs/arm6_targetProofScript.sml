@@ -323,12 +323,12 @@ val decode_imm8_thm6 =
          (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
 
 val word_lo_not_carry = Q.prove(
-   `!a b. a <+ b = ~CARRY_OUT a (~b) T`,
+   `!a b. (a <+ b) = ~CARRY_OUT a (~b) T`,
    simp [wordsTheory.ADD_WITH_CARRY_SUB, wordsTheory.WORD_NOT_LOWER_EQUAL]
    )
 
 val word_lt_n_eq_v = Q.prove(
-   `!a b: word32. a < b = (word_bit 31 (a + -1w * b) <> OVERFLOW a (~b) T)`,
+   `!a b: word32. (a < b) = ((word_bit 31 (a + -1w * b) <> OVERFLOW a (~b) T))`,
    simp [wordsTheory.ADD_WITH_CARRY_SUB, GSYM wordsTheory.WORD_LO]
    \\ blastLib.BBLAST_TAC
    )
@@ -373,7 +373,7 @@ end
 
 val reg_mode_eq = Q.prove(
    `!m ms1 ms2.
-       (ms1.REG o R_mode m = ms2.REG o R_mode m) =
+       (ms1.REG o R_mode m = ms2.REG o R_mode m) <=>
        (!i. ms1.REG (R_mode m (n2w i)) = ms2.REG (R_mode m (n2w i))) /\
        (ms1.REG RName_PC = ms2.REG RName_PC)`,
    rw [FUN_EQ_THM]
@@ -393,7 +393,7 @@ val _ = diminish_srw_ss ["MOD_ss"]
 
 val adc_lem1 = Q.prove(
   `!r2 r3 : word32 r4 : word32.
-      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) =
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
       4294967296 <= w2n r2 + (w2n r3 + 1)`,
   rw [wordsTheory.add_with_carry_def]
 )
@@ -406,7 +406,7 @@ val adc_lem2 = Q.prove(
 )
 
 val adc_lem3 = Q.prove(
-  `!r2 r3 : word32. CARRY_OUT r2 r3 F = 4294967296 <= w2n r2 + w2n r3`,
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3`,
   rw [wordsTheory.add_with_carry_def]
 )
 
@@ -436,10 +436,11 @@ val encode_rwts =
    let
       open armTheory
    in
-      [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
-       encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
-       e_multiply_def, EncodeImmShift_def
-       ]
+      [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def,
+       arm6_encode_def, arm6_encode1_def, encode_def,
+       e_branch_def, e_data_def, e_load_def, e_store_def,
+       e_multiply_def, EncodeImmShift_def, EncodeImmShift_def
+      ]
    end
 
 val enc_rwts =
@@ -575,6 +576,30 @@ in
      ORELSE next_state_tac0 [false, true]
 end
 
+val adc_lem1 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
+      4294967296 <= w2n r2 + (w2n r3 + 1)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem2 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
+      n2w (w2n r2 + (w2n r3 + 1))`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem3 = Q.prove(
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem4 = Q.prove(
+  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
 local
    val i_tm = ``R_mode ms.CPSR.M (n2w i)``
    val reg_tac =
@@ -599,18 +624,20 @@ in
          [asmPropsTheory.sym_target_state_rel, arm6_target_def,
           asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq]
+          alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
+          integer_wordTheory.overflow_add,
+          SIMP_RULE (srw_ss()) [] integer_wordTheory.overflow_sub]
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
              lem1, lem2, lem3, adc_lem2, adc_lem4,
-             mul_long_lem1, mul_long_lem2,
-             GSYM wordsTheory.word_mul_def, alignmentTheory.align_aligned]
+             mul_long_lem1, mul_long_lem2, GSYM wordsTheory.word_mul_def,
+             alignmentTheory.align_aligned]
       \\ srw_tac []
-           [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-            updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-            decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
+            [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+             updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
+             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
       \\ fs [adc_lem1, adc_lem3]
 end
 
@@ -680,7 +707,9 @@ local
          (* Less *)
          Cases_on `word_bit 31 q = SND (SND p)`,
          (* Test *)
-         (if imm then Cases_on `^n && c' = 0w` else Cases_on `^n && ^n' = 0w`)
+         (if imm
+            then Cases_on `(^n && c') = 0w`
+          else Cases_on `(^n && ^n') = 0w`)
         ]
     in
       l @ l
@@ -695,10 +724,10 @@ in
     Cases_on `c`
     \\ (if imm then
           qabbrev_tac `p = add_with_carry (^n, ~c',T)`
-          \\ qabbrev_tac `q = -1w * c' + ^n`
+          \\ qabbrev_tac `q = (-1w * c' + ^n)`
         else
           qabbrev_tac `p = add_with_carry (^n, ~^n',T)`
-          \\ qabbrev_tac `q = ^n + -1w * ^n'`)
+          \\ qabbrev_tac `q = (^n + -1w * ^n')`)
     >| tacs imm
     \\ next_tac
     \\ TRY (qunabbrev_tac `p`)
@@ -715,11 +744,20 @@ end
    arm6 target_ok
    ------------------------------------------------------------------------- *)
 
-val length_arm6_encode = Q.prove(
-  `!c i. LENGTH (arm6_encode c i) = 4`,
-  rw [arm6_encode_def, arm6_encode_fail_def]
+val length_arm6_encode1 = Q.prove(
+  `!c i. LENGTH (arm6_encode1 c i) = 4`,
+  Cases
+  \\ rw [arm6_encode_def, arm6_encode1_def, arm6_encode_fail_def]
   \\ CASE_TAC
   \\ simp []
+  )
+
+val length_arm6_encode = Q.prove(
+  `!l. LENGTH (arm6_encode l) = 4 * LENGTH l`,
+  Induct >- rw [arm6_encode_def]
+  \\ Cases
+  \\ rw [arm6_encode_def, length_arm6_encode1]
+  \\ fs [arm6_encode_def]
   )
 
 val arm6_encoding = Q.prove (
@@ -727,9 +765,9 @@ val arm6_encoding = Q.prove (
    strip_tac
    \\ asmLib.asm_cases_tac `i`
    \\ simp [arm6_enc_def, arm6_cmp_def, arm6_encode_fail_def,
-            length_arm6_encode]
+            length_arm6_encode1, length_arm6_encode]
    \\ REPEAT CASE_TAC
-   \\ rw [length_arm6_encode]
+   \\ rw [length_arm6_encode, length_arm6_encode1]
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
@@ -794,6 +832,9 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
               --------------*)
             print_tac "Binop"
             \\ Cases_on `r`
+            >- (Cases_on `b` \\ next_tac)
+            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            >- next_tac
             \\ Cases_on `b`
             \\ next_tac
             )
@@ -809,7 +850,7 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
             (*--------------
                 Div
               --------------*)
-            print_tac "LongDiv"
+            print_tac "Div"
             \\ next_tac
             )
          >- (
@@ -826,10 +867,11 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
             print_tac "LongDiv"
             \\ next_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ qabbrev_tac `r1 = ms.REG (R_mode ms.CPSR.M (n2w n))`
             \\ qabbrev_tac `r2 = ms.REG (R_mode ms.CPSR.M (n2w n0))`
             \\ qabbrev_tac `r3 = ms.REG (R_mode ms.CPSR.M (n2w n1))`
@@ -840,6 +882,31 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
                Cases_on `CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T)`
             ]
             \\ next_tac
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ qabbrev_tac `r1 = ms.REG (R_mode ms.CPSR.M (n2w n))`
+            \\ qabbrev_tac `r2 = ms.REG (R_mode ms.CPSR.M (n2w n0))`
+            \\ qabbrev_tac `r3 = ms.REG (R_mode ms.CPSR.M (n2w n1))`
+            \\ qabbrev_tac `r4 = ms.REG (R_mode ms.CPSR.M (n2w n2))`
+            \\ Cases_on `OVERFLOW r2 r3 F`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ qabbrev_tac `r1 = ms.REG (R_mode ms.CPSR.M (n2w n))`
+            \\ qabbrev_tac `r2 = ms.REG (R_mode ms.CPSR.M (n2w n0))`
+            \\ qabbrev_tac `r3 = ms.REG (R_mode ms.CPSR.M (n2w n1))`
+            \\ qabbrev_tac `r4 = ms.REG (R_mode ms.CPSR.M (n2w n2))`
+            \\ Cases_on `OVERFLOW r2 (~r3) T`
+            \\ next_tac
+            )
          )
          (*--------------
              Mem

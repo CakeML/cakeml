@@ -79,21 +79,34 @@ val wInst_def = Define `
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 a))) n1 kf)) /\
+  (wInst (Arith (Div n1 n2 n3)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (Div n1 n2 n3))) n1 kf)) ∧
   (wInst (Arith (AddCarry n1 n2 n3 n4)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (AddCarry n1 n2 n3 n4))) n1 kf)) /\
+  (wInst (Arith (AddOverflow n1 n2 n3 n4)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (AddOverflow n1 n2 n3 n4))) n1 kf)) /\
+  (wInst (Arith (SubOverflow n1 n2 n3 n4)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
   (wInst (Arith (LongMul n1 n2 n3 n4)) kf =
-    (*n1 = 2, n2 = 0, n3 = 0 no spills necessary*)
-    let (l,n4) = wReg1 n4 kf in
-    wStackLoad l
-      (Inst (Arith (LongMul 1 0 0 n4)))) /\
+    (*n1 = 4, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
+      (Inst (Arith (LongMul 4 0 0 2)))) /\
   (wInst (Arith (LongDiv n1 n2 n3 n4 n5)) kf =
     (*n1 = 0, n2 = 2, n3 = 0, n4 = 2 no spills necessary*)
     let (l,n5) = wReg1 n5 kf in
     wStackLoad l
-      (Inst (Arith (LongDiv 0 1 0 1 n5)))) /\
+      (Inst (Arith (LongDiv 0 4 0 4 n5)))) /\
   (wInst (Mem Load n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
@@ -207,7 +220,7 @@ val comp_def = Define `
        (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
   (comp (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
   (comp (Tick) bs kf = (Tick,bs)) /\
-  (comp (MustTerminate _ p1) gs kf = comp p1 gs kf) /\
+  (comp (MustTerminate p1) gs kf = comp p1 gs kf) /\
   (comp (Seq p1 p2) bs kf =
      let (q1,bs) = comp p1 bs kf in
      let (q2,bs) = comp p2 bs kf in

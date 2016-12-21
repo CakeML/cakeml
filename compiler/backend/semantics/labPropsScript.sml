@@ -3,6 +3,17 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
+val extract_labels_def = Define`
+  (extract_labels [] = []) ∧
+  (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
+  (extract_labels (x::xs) = extract_labels xs)`
+val _ = export_rewrites["extract_labels_def"];
+
+val extract_labels_append = Q.store_thm("extract_labels_append",`
+  ∀A B.
+  extract_labels (A++B) = extract_labels A ++ extract_labels B`,
+  Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
+
 val sec_ends_with_label_def = Define`
   sec_ends_with_label (Section _ ls) ⇔
     ¬NULL ls ∧ is_Label (LAST ls)`;
@@ -35,8 +46,8 @@ val inc_pc_dec_clock = Q.store_thm("inc_pc_dec_clock",
   `inc_pc (dec_clock x) = dec_clock (inc_pc x)`,
   EVAL_TAC);
 
-val update_simps = store_thm("update_simps[simp]",
-  ``((labSem$upd_pc x s).ffi = s.ffi) /\
+val update_simps = Q.store_thm("update_simps[simp]",
+  `((labSem$upd_pc x s).ffi = s.ffi) /\
     ((labSem$dec_clock s).ffi = s.ffi) /\
     ((labSem$upd_pc x s).pc = x) /\
     ((labSem$dec_clock s).pc = s.pc) /\
@@ -68,7 +79,7 @@ val update_simps = store_thm("update_simps[simp]",
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
     ((labSem$inc_pc s).mem = s.mem) ∧
     ((labSem$inc_pc s).pc = s.pc + 1) ∧
-    ((labSem$inc_pc s).ffi = s.ffi)``,
+    ((labSem$inc_pc s).ffi = s.ffi)`,
   EVAL_TAC);
 
 val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
@@ -110,9 +121,9 @@ val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
 val good_dimindex_def = Define `
   good_dimindex (:'a) <=> dimindex (:'a) = 32 \/ dimindex (:'a) = 64`;
 
-val get_byte_set_byte = store_thm("get_byte_set_byte",
-  ``good_dimindex (:'a) ==>
-    (get_byte a (set_byte (a:'a word) b w be) be = b)``,
+val get_byte_set_byte = Q.store_thm("get_byte_set_byte",
+  `good_dimindex (:'a) ==>
+    (get_byte a (set_byte (a:'a word) b w be) be = b)`,
   fs [get_byte_def,set_byte_def,LET_DEF]
   \\ fs [fcpTheory.CART_EQ,w2w,good_dimindex_def] \\ rpt strip_tac
   \\ `i < dimindex (:'a)` by decide_tac
@@ -128,13 +139,13 @@ val get_byte_set_byte = store_thm("get_byte_set_byte",
   \\ `~(byte_index a be + 8 <= i + byte_index a be)` by decide_tac
   \\ fs [])
 
-val byte_index_LESS_IMP = prove(
-  ``(dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
+val byte_index_LESS_IMP = Q.prove(
+  `(dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
     byte_index (a:'a word) be < byte_index (a':'a word) be /\ i < 8 ==>
     byte_index a be + i < byte_index a' be /\
     byte_index a be <= i + byte_index a' be /\
     byte_index a be + 8 <= i + byte_index a' be /\
-    i + byte_index a' be < byte_index a be + dimindex (:α)``,
+    i + byte_index a' be < byte_index a be + dimindex (:α)`,
   fs [byte_index_def,LET_DEF] \\ Cases_on `be` \\ fs []
   \\ rpt strip_tac \\ rfs [] \\ fs []
   \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
@@ -143,24 +154,24 @@ val byte_index_LESS_IMP = prove(
   \\ `w2n a' MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
   \\ decide_tac);
 
-val NOT_w2w_bit = prove(
-  ``8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)``,
+val NOT_w2w_bit = Q.prove(
+  `8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)`,
   rpt strip_tac \\ rfs [w2w] \\ decide_tac);
 
 val LESS4 = DECIDE ``n < 4 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``
 val LESS8 = DECIDE ``n < 8 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
                                (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``
 
-val DIV_EQ_DIV_IMP = prove(
-  ``0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d``,
+val DIV_EQ_DIV_IMP = Q.prove(
+  `0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d`,
   rpt strip_tac \\ Q.PAT_X_ASSUM `n <> n'` mp_tac \\ fs []
   \\ MP_TAC (Q.SPEC `d` DIVISION) \\ fs []
   \\ rpt strip_tac \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs []);
 
-val get_byte_set_byte_diff = store_thm("get_byte_set_byte_diff",
-  ``good_dimindex (:'a) /\ a <> a' /\ (byte_align a = byte_align a') ==>
-    (get_byte a (set_byte (a':'a word) b w be) be = get_byte a w be)``,
+val get_byte_set_byte_diff = Q.store_thm("get_byte_set_byte_diff",
+  `good_dimindex (:'a) /\ a <> a' /\ (byte_align a = byte_align a') ==>
+    (get_byte a (set_byte (a':'a word) b w be) be = get_byte a w be)`,
   fs [get_byte_def,set_byte_def,LET_DEF] \\ rpt strip_tac
   \\ `byte_index a be <> byte_index a' be` by
    (fs [good_dimindex_def]
@@ -205,9 +216,9 @@ val get_byte_set_byte_diff = store_thm("get_byte_set_byte_diff",
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac)
 
-val evaluate_pres_final_event = store_thm("evaluate_pres_final_event",
-  ``!s1.
-      (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi``,
+val evaluate_pres_final_event = Q.store_thm("evaluate_pres_final_event",
+  `!s1.
+      (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi`,
   completeInduct_on `s1.clock`
   \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
   \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
@@ -222,7 +233,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> rw[] >>
   Cases_on`s1.clock=0`>-fs[Once evaluate_def]>>fs[]>>
-  rator_x_assum`evaluate`mp_tac >>
+  qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
   Cases_on`asm_fetch s1`>>fs[] >>
   Cases_on`x`>>fs[] >- (
@@ -237,12 +248,12 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   rpt var_eq_tac >> fs[] >>
   fs[IS_PREFIX_APPEND]);
 
-val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
-  ``!s res r k.
+val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
+  `!s res r k.
       evaluate s = (res,r) /\ res <> TimeOut ==>
-      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)``,
+      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)`,
   ho_match_mp_tac evaluate_ind >> rw[] >>
-  rator_x_assum`evaluate`mp_tac >>
+  qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> fs[] >> strip_tac >>
   simp[Once evaluate_def] >>
@@ -582,5 +593,18 @@ val implements_align_dm = Q.store_thm("implements_align_dm",
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM]
   \\ METIS_TAC[]);
+
+(* asm_ok checks coming into lab_to_target *)
+val line_ok_pre_def = Define`
+  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok b c) ∧
+  (line_ok_pre c _ ⇔ T)`
+
+val sec_ok_pre_def = Define`
+  sec_ok_pre c (Section k ls) ⇔
+    EVERY (line_ok_pre c) ls`;
+val _ = export_rewrites["sec_ok_pre_def"];
+
+val _ = overload_on("all_enc_ok_pre",``λc ls.
+  EVERY (sec_ok_pre c) ls``);
 
 val _ = export_theory();

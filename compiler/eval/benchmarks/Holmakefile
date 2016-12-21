@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../x64 ../../bootstrap/io
+INCLUDES = .. ../targets ../../bootstrap/io
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -8,7 +8,7 @@ all: $(TARGETS)
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../x64/heap
+PARENT_HOLHEAP = ../targets/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 

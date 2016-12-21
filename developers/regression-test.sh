@@ -1,8 +1,15 @@
 #!/bin/bash
+## A script that runs the regression test.
 
 set -e
 
-echo "Running regression test on $(git log -1 --oneline --no-color)"
+if [ -n "$bamboo_planRepository_integrationBranch_revision" ]
+then
+  echo "Running regression test on $(git log -1 --oneline --no-color ${bamboo_planRepository_revision})"
+  echo "Merged ${bamboo_planRepository_branch} with $(git log -1 --oneline --no-color ${bamboo_planRepository_integrationBranch_revision})"
+else
+  echo "Running regression test on $(git log -1 --oneline --no-color)"
+fi
 HOLDIR=$(heapname | xargs dirname) || exit $?
 echo "HOL revision: $(cd $HOLDIR; git log -1 --oneline --no-color)"
 echo "Machine: $(uname -nmo)"

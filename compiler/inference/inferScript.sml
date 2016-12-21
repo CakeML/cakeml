@@ -1,8 +1,9 @@
 open preamble miscTheory astTheory typeSystemTheory;
 open infer_tTheory unifyTheory;
-open stringTheory monadsyntax;
+open stringTheory ;
 
 val _ = new_theory "infer";
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val (inf_type_to_string_def,inf_type_to_string_ind) = Defn.tprove_no_defn((inf_type_to_string_def,inf_type_to_string_ind),
 (WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`));
@@ -344,9 +345,10 @@ constrain_op op ts =
           () <- add_constraint t2 (Infer_Tapp [] TC_char);
           return (Infer_Tapp [] (TC_name (Short "bool")))
        od
-   | (Explode, [t]) =>
-       do () <- add_constraint t (Infer_Tapp [] TC_string);
-          return (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))
+   | (Strsub, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_string);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_char)
        od
    | (Implode, [t]) =>
        do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")));

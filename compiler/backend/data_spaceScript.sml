@@ -10,6 +10,7 @@ val op_space_req_def = Define `
   (op_space_req (WordOp W64 _) _ = 3) /\
   (op_space_req (WordShift W64 _ _) _ = 3) /\
   (op_space_req WordFromInt _ = 3) /\
+  (op_space_req WordToInt _ = 3) /\
   (op_space_req _ _ = 0)`;
 
 val pMakeSpace_def = Define `

@@ -42,25 +42,25 @@ val queue_inv_def = Define `
     (q = f ++ REVERSE r) /\ (lenr = LENGTH r) /\ (lenf = LENGTH f) /\
     lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f`;
 
-val empty_thm = prove(
-  ``!xs. queue_inv xs empty = (xs = [])``,
+val empty_thm = Q.prove(
+  `!xs. queue_inv xs empty = (xs = [])`,
   EVAL_TAC THEN SIMP_TAC std_ss []);
 
-val is_empty_thm = prove(
-  ``!q xs. queue_inv xs q ==> (is_empty q = (xs = []))``,
+val is_empty_thm = Q.prove(
+  `!q xs. queue_inv xs q ==> (is_empty q = (xs = []))`,
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [APPEND_eq_NIL,LENGTH_NIL]);
 
-val isPREFIX_APPEND = prove(
-  ``!xs ys. isPREFIX xs (xs ++ ys)``,
+val isPREFIX_APPEND = Q.prove(
+  `!xs ys. isPREFIX xs (xs ++ ys)`,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]);
 
-val isPREFIX_REFL = prove(
-  ``!xs ys. isPREFIX xs xs``,
+val isPREFIX_REFL = Q.prove(
+  `!xs ys. isPREFIX xs xs`,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]);
 
-val snoc_thm = prove(
-  ``!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)``,
+val snoc_thm = Q.prove(
+  `!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)`,
   Cases THEN Cases_on `l`
   THEN FULL_SIMP_TAC (srw_ss()) [queue_inv_def,snoc_def,check_def,checkw_def]
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC (srw_ss())
@@ -70,13 +70,13 @@ val snoc_thm = prove(
   THEN FULL_SIMP_TAC std_ss [isPREFIX_APPEND,GSYM APPEND_ASSOC]
   THEN DECIDE_TAC);
 
-val head_thm = prove(
-  ``!q x xs. queue_inv (x::xs) q ==> (head q = x)``,
+val head_thm = Q.prove(
+  `!q x xs. queue_inv (x::xs) q ==> (head q = x)`,
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,LENGTH_NIL]);
 
-val tail_thm = prove(
-  ``!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)``,
+val tail_thm = Q.prove(
+  `!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)`,
   Cases THEN Cases_on `l`
   THEN FULL_SIMP_TAC (srw_ss()) [queue_inv_def,tail_def,check_def,checkw_def]
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC (srw_ss())

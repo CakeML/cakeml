@@ -58,11 +58,11 @@ val compile_env_exh = Q.store_thm("compile_env_exh[simp]",
 
 (* semantic functions are equivalent *)
 
-val do_app = prove(
-  ``∀st op vs res.
+val do_app = Q.prove(
+  `∀st op vs res.
       conSem$do_app st op vs = SOME res ⇒
       ∀s. s.refs = FST st ∧ s.ffi = SND st ⇒
-        decSem$do_app s op vs = SOME (s with <|refs := FST(FST res); ffi := SND(FST res)|>,SND res)``,
+        decSem$do_app s op vs = SOME (s with <|refs := FST(FST res); ffi := SND(FST res)|>,SND res)`,
   Cases >> rw[conSemTheory.do_app_def,decSemTheory.do_app_def] >>
   Cases_on`op`>>fs[] >>
   rpt(BasicProvers.CASE_TAC >> fs[LET_THM,store_alloc_def]))
@@ -275,7 +275,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     rw[] >>
     simp[decSemTheory.semantics_def] >>
     IF_CASES_TAC >> fs[] >- (
-      rator_x_assum`conSem$evaluate_prog`kall_tac >>
+      qhdtm_x_assum`conSem$evaluate_prog`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       pop_assum mp_tac >>
@@ -309,7 +309,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
           simp[RIGHT_FORALL_IMP_THM] >>
           impl_tac >- (strip_tac >> fs[dec_result_rel_cases]) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          rator_x_assum`decSem$evaluate`mp_tac >>
+          qhdtm_x_assum`decSem$evaluate`mp_tac >>
           drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
@@ -326,7 +326,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         impl_tac >- fs[] >>
         (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
         strip_tac >> fs[] >>
-        rator_x_assum`conSem$evaluate_prog`mp_tac >>
+        qhdtm_x_assum`conSem$evaluate_prog`mp_tac >>
         drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
         impl_tac >- (strip_tac >> fs[]) >>
@@ -348,7 +348,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       strip_tac >> fs[] >> rveq >>
       reverse(Cases_on`s''.ffi.final_event`)>>fs[]>>rfs[]>- (
         fsrw_tac[ARITH_ss][] >> rfs[compile_state_def,dec_result_rel_cases] >> fs[] >> rfs[]) >>
-      rator_x_assum`decSem$evaluate`mp_tac >>
+      qhdtm_x_assum`decSem$evaluate`mp_tac >>
       drule (GEN_ALL(CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
       impl_tac >- fs[] >>
@@ -413,9 +413,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
   rpt var_eq_tac >>
   fs[dec_result_rel_cases,compile_state_def]);
 
-val set_globals_esgc = prove(``
+val set_globals_esgc = Q.prove(`
   (∀e. set_globals e = {||} ⇒ conProps$esgc_free e) ∧
-  (∀es. elist_globals es = {||} ⇒ EVERY conProps$esgc_free es)``,
+  (∀es. elist_globals es = {||} ⇒ EVERY conProps$esgc_free es)`,
   ho_match_mp_tac set_globals_ind>>rw[])
 
 val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",

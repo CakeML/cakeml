@@ -71,9 +71,9 @@ val generalise_no_uvars = Q.prove (
 
 (* this might be totally wrong
 
-val generalise_uvars = prove(
-  ``(∀t m n s u d. FINITE u ∧ check_t d u t ⇒ FST(generalise m n s t) ≤ n + CARD (u DIFF (FDOM s))) ∧
-    (∀ts m n s u d. FINITE u ∧ EVERY (check_t d u) ts ⇒ FST(generalise_list m n s ts) ≤ CARD (u DIFF (FDOM s)))``,
+val generalise_uvars = Q.prove(
+  `(∀t m n s u d. FINITE u ∧ check_t d u t ⇒ FST(generalise m n s t) ≤ n + CARD (u DIFF (FDOM s))) ∧
+    (∀ts m n s u d. FINITE u ∧ EVERY (check_t d u) ts ⇒ FST(generalise_list m n s ts) ≤ CARD (u DIFF (FDOM s)))`,
   ho_match_mp_tac infer_tTheory.infer_t_induction >>
   rw[generalise_def,check_t_def] >> rw[] >>
   TRY BasicProvers.CASE_TAC >> simp[] >>
@@ -98,7 +98,7 @@ val generalise_uvars = prove(
   metis_tac[FST,arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_COMM]
 *)
 
-val tenv_inv_letrec_merge2 = prove(``
+val tenv_inv_letrec_merge2 = Q.prove(`
   ∀funs:(tvarN,tvarN #exp)alist tenv' env tenv s tenv'' tenv'''.
     tenv''' = (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs
           (MAP (λn. Infer_Tuvar n)
@@ -111,7 +111,7 @@ val tenv_inv_letrec_merge2 = prove(``
                      (t_walkstar s (Infer_Tuvar n)))
                 (COUNT_LIST (LENGTH funs)))) tenv) ∧
      t_wfs s ∧ tenv_inv s env tenv ⇒
-     tenv_inv s tenv''' tenv''``,
+     tenv_inv s tenv''' tenv''`,
     rw[]>>
     imp_res_tac (INST_TYPE [alpha|->``:tvarN``,beta|->``:exp``,delta|->``:num|->infer_t``] tenv_inv_letrec_merge)>>
     pop_assum(qspecl_then [`<|subst:=FEMPTY;next_uvar:=0|>`,`funs`] assume_tac)>>
@@ -600,7 +600,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     ntac 2 (pop_assum mp_tac) >>
     simp[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,EXISTS_PROD,tenv_add_tvs_def] >>
     qunabbrev_tac`funs_ls1` >>
-    rator_x_assum`Abbrev`mp_tac >>
+    qhdtm_x_assum`Abbrev`mp_tac >>
     simp[markerTheory.Abbrev_def] >>
     simp[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
     simp[Once LIST_EQ_REWRITE] >>
@@ -808,7 +808,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
  >- metis_tac []
  >- fs[tenv_alpha_empty]);
 
-val infer_ds_complete = prove(``
+val infer_ds_complete = Q.prove(`
 !ds mn decls decls' tenvT' cenv' tenv tenv' st ienv idecls.
   type_ds T mn decls tenv ds decls' (tenvT',cenv',tenv') ∧
   env_rel tenv ienv ∧
@@ -822,7 +822,7 @@ val infer_ds_complete = prove(``
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
     MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
-    check_env ∅ itenv'``,
+    check_env ∅ itenv'`,
   fs[env_rel_def,GSYM check_cenv_tenvC_ok,tenv_bvl_def]>>rfs[]>>
   Induct>-
   (rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def,convert_decls_def,empty_inf_decls_def]>>
@@ -884,8 +884,8 @@ val t_ind = t_induction
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`
 
-val rename_lemma = store_thm("rename_lemma",
-  ``∀t fvs fvs'.
+val rename_lemma = Q.store_thm("rename_lemma",
+  `∀t fvs fvs'.
     check_freevars 0 fvs' t ∧
     set fvs' ⊆ set fvs ∧
     ALL_DISTINCT fvs'
@@ -894,7 +894,7 @@ val rename_lemma = store_thm("rename_lemma",
       (type_subst (alist_to_fmap (ZIP (fvs, MAP Tvar_db (GENLIST I (LENGTH fvs))))) t) =
     convert_t
       (infer_type_subst
-        (ZIP (fvs', MAP Infer_Tvar_db (GENLIST I (LENGTH fvs')))) t)``,
+        (ZIP (fvs', MAP Infer_Tvar_db (GENLIST I (LENGTH fvs')))) t)`,
   ho_match_mp_tac t_ind >>
   conj_tac >- (
     simp[check_freevars_def,infer_type_subst_def,type_subst_def] >>
@@ -923,8 +923,8 @@ val rename_lemma = store_thm("rename_lemma",
   simp[MAP_EQ_f] >>
   fs[EVERY_MEM,check_freevars_def])
 
-val rename_lemma2 = store_thm("rename_lemma2",
-  ``∀t fvs fvs'.
+val rename_lemma2 = Q.store_thm("rename_lemma2",
+  `∀t fvs fvs'.
     check_freevars 0 fvs' t ∧
     set fvs' ⊆ set fvs ∧
     ALL_DISTINCT fvs'
@@ -933,7 +933,7 @@ val rename_lemma2 = store_thm("rename_lemma2",
       (infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (GENLIST I (LENGTH fvs')))) t) =
     unconvert_t
       (type_subst
-        (alist_to_fmap (ZIP (fvs, MAP Tvar_db (GENLIST I (LENGTH fvs))))) t)``,
+        (alist_to_fmap (ZIP (fvs, MAP Tvar_db (GENLIST I (LENGTH fvs))))) t)`,
   ho_match_mp_tac t_ind >>
   conj_tac >- (
     simp[check_freevars_def,infer_type_subst_def,type_subst_def] >>
@@ -967,8 +967,8 @@ val rename_lemma2 = store_thm("rename_lemma2",
   simp[MAP_EQ_f] >>
   fs[EVERY_MEM,check_freevars_def])
 
-val check_specs_complete = store_thm("check_specs_complete",
-  ``∀mn tenvT specs decls new_tenv.
+val check_specs_complete = Q.store_thm("check_specs_complete",
+  `∀mn tenvT specs decls new_tenv.
     type_specs mn tenvT specs decls new_tenv ⇒
     tenv_tabbrev_ok tenvT ⇒
     ∀tenv cenv venv.
@@ -979,7 +979,7 @@ val check_specs_complete = store_thm("check_specs_complete",
       (Success (idecls',tenv ⊌ itenvT,cenv ++ icenv,env'++env),st') ∧
     tenv_alpha env' (bind_var_list2 venv Empty) ∧
     set(MAP FST env') = set(MAP FST venv) ∧
-    convert_decls idecls' = union_decls decls (convert_decls idecls)``,
+    convert_decls idecls' = union_decls decls (convert_decls idecls)`,
   ho_match_mp_tac type_specs_strongind >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,tenv_alpha_empty,empty_decls_def,union_decls_def,convert_decls_def] ) >>
@@ -1135,28 +1135,28 @@ val check_specs_complete = store_thm("check_specs_complete",
   simp[EXTENSION]>>
   metis_tac[FUPDATE_EQ_FUNION,FUNION_ASSOC])
 
-val check_flat_weakT_complete = store_thm("check_flat_weakT_complete",
-  ``∀mn tenvT1 tenvT2.
+val check_flat_weakT_complete = Q.store_thm("check_flat_weakT_complete",
+  `∀mn tenvT1 tenvT2.
     flat_weakT mn tenvT1 tenvT2 ⇒
-    check_flat_weakT mn tenvT1 tenvT2``,
+    check_flat_weakT mn tenvT1 tenvT2`,
   simp[flat_weakT_def,check_flat_weakT_def,FEVERY_ALL_FLOOKUP,FORALL_PROD] >>
   rw[] >> first_x_assum(qspec_then`k`strip_assume_tac) >> rfs[])
 
-val check_flat_weakC_complete = store_thm("check_flat_weakC_complete",
-  ``∀tenvC1 tenvC2.
+val check_flat_weakC_complete = Q.store_thm("check_flat_weakC_complete",
+  `∀tenvC1 tenvC2.
     flat_weakC tenvC1 tenvC2 ⇒
-    check_flat_weakC tenvC1 (anub tenvC2 [])``,
+    check_flat_weakC tenvC1 (anub tenvC2 [])`,
   simp[flat_weakC_def,check_flat_weakC_def] >> rw[] >>
   match_mp_tac EVERY_anub_suff >> rw[] >>
   first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
   BasicProvers.EVERY_CASE_TAC  >> fs[])
 
-val weakE_anub_rev = store_thm("weakE_anub_rev",
-  ``∀env1 env2. weakE env1 env2 ⇒ weakE env1 (anub env2 [])``,
+val weakE_anub_rev = Q.store_thm("weakE_anub_rev",
+  `∀env1 env2. weakE env1 env2 ⇒ weakE env1 (anub env2 [])`,
   rw[weakE_def] >>
   fs[Once ALOOKUP_anub])
 
-val deBruijn_subst_unconvert = prove(``
+val deBruijn_subst_unconvert = Q.prove(`
   (∀t.
   check_freevars n [] t ⇒
   unconvert_t (deBruijn_subst 0 subst t) =
@@ -1165,7 +1165,7 @@ val deBruijn_subst_unconvert = prove(``
   EVERY (check_freevars n []) ts ⇒
   MAP (unconvert_t o (deBruijn_subst 0 subst)) ts
   =
-  MAP ((infer_deBruijn_subst (MAP unconvert_t subst)) o unconvert_t) ts)``,
+  MAP ((infer_deBruijn_subst (MAP unconvert_t subst)) o unconvert_t) ts)`,
   Induct>>fs[check_freevars_def]>>rw[]>>
   fs[deBruijn_subst_def,unconvert_t_def,infer_deBruijn_subst_def]
   >-
@@ -1174,7 +1174,7 @@ val deBruijn_subst_unconvert = prove(``
     fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f])
 
 (*This might have been proven elsewhere...*)
-val infer_deBruijn_subst_twice = prove(``
+val infer_deBruijn_subst_twice = Q.prove(`
   (∀t.
   check_t (LENGTH subst2) {} t ⇒
   (infer_deBruijn_subst subst1 (infer_deBruijn_subst subst2 t) =
@@ -1182,13 +1182,13 @@ val infer_deBruijn_subst_twice = prove(``
   (∀ts.
   EVERY (check_t (LENGTH subst2) {}) ts ⇒
   MAP ((infer_deBruijn_subst subst1) o (infer_deBruijn_subst subst2)) ts =
-  MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)``,
+  MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)`,
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_def]>>
   simp[EL_MAP]>>
   fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f])
 
-val t_walkstar_infer_deBruijn_subst = prove(``
+val t_walkstar_infer_deBruijn_subst = Q.prove(`
  t_wfs s ∧
  LENGTH ls = tvs ∧
  EVERY (check_t y {}) ls ∧
@@ -1203,7 +1203,7 @@ val t_walkstar_infer_deBruijn_subst = prove(``
   EVERY (check_t tvs {}) ts
   ⇒
   MAP ((t_walkstar s) o (infer_deBruijn_subst ls)) ts =
-  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))``,
+  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))`,
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_def]>>
   fs[EVERY_MEM,MEM_EL]
@@ -1213,7 +1213,7 @@ val t_walkstar_infer_deBruijn_subst = prove(``
     fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f])
 
 (*Definitely proved before somewhere*)
-val infer_deBruijn_subst_check_t = prove(``
+val infer_deBruijn_subst_check_t = Q.prove(`
   EVERY (check_t tvs {}) ls
   ⇒
   (∀t.
@@ -1223,14 +1223,14 @@ val infer_deBruijn_subst_check_t = prove(``
   (∀ts.
   EVERY (check_t (LENGTH ls) {}) ts
   ⇒
-  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))``,
+  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))`,
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_def]>>
   fs[EVERY_MEM,MEM_EL]>>
   metis_tac[])
 
-val check_weakE_complete = store_thm("check_weakE_complete",
-  ``∀itenv1 itenv2 st tenv1 tenv2.
+val check_weakE_complete = Q.store_thm("check_weakE_complete",
+  `∀itenv1 itenv2 st tenv1 tenv2.
     weakE tenv1 tenv2 ∧
     check_env {} itenv1 ∧
     check_env {} itenv2 ∧
@@ -1238,7 +1238,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
     tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
   ⇒
     ∃st'.
-    check_weakE itenv1 (anub itenv2 []) st = (Success(),st')``,
+    check_weakE itenv1 (anub itenv2 []) st = (Success(),st')`,
   rw[check_weakE_EVERY]>>
   imp_res_tac weakE_anub_rev>>
   last_x_assum kall_tac>>
@@ -1314,10 +1314,10 @@ val check_weakE_complete = store_thm("check_weakE_complete",
    strip_tac>>
    metis_tac[IS_SOME_EXISTS,SUBMAP_t_compat,t_compat_eqs_t_unify])
 
-val check_weak_decls_complete = store_thm("check_weak_decls_complete",
-  ``decls1.inf_defined_mods = decls2.inf_defined_mods ∧
+val check_weak_decls_complete = Q.store_thm("check_weak_decls_complete",
+  `decls1.inf_defined_mods = decls2.inf_defined_mods ∧
     weak_decls (convert_decls decls1) (convert_decls decls2) ⇒
-    check_weak_decls decls1 decls2``,
+    check_weak_decls decls1 decls2`,
   rw[weak_decls_def,convert_decls_def,check_weak_decls_def,list_subset_def] >>
   fs[EXTENSION,SUBSET_DEF,EVERY_MEM]);
 

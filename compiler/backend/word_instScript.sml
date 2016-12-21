@@ -68,7 +68,7 @@ val pull_exp_def = tDefine "pull_exp"`
   (WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ fs[exp_size_def,asmTheory.binop_size_def,asmTheory.shift_size_def,store_name_size_def]
+   \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
    \\ TRY (DECIDE_TAC))
 
 (*Flatten list expressions to trees -- of the form:
@@ -203,8 +203,8 @@ val inst_select_def = Define`
       Seq prog (Inst (Mem Store var (Addr temp (0w))))) ∧
   (inst_select c temp (Seq p1 p2) =
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
-  (inst_select c temp (MustTerminate n p1) =
-    MustTerminate n (inst_select c temp p1)) ∧
+  (inst_select c temp (MustTerminate p1) =
+    MustTerminate (inst_select c temp p1)) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
     case ri of
       Imm w =>
@@ -239,10 +239,14 @@ val three_to_two_reg_def = Define`
     Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))) ∧
   (three_to_two_reg (Inst (Arith (AddCarry r1 r2 r3 r4))) =
     Seq (Move 0 [r1,r2]) (Inst (Arith (AddCarry r1 r1 r3 r4)))) ∧
+  (three_to_two_reg (Inst (Arith (AddOverflow r1 r2 r3 r4))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))) ∧
+  (three_to_two_reg (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))) ∧
   (three_to_two_reg (Seq p1 p2) =
     Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧
-  (three_to_two_reg (MustTerminate n p1) =
-    MustTerminate n (three_to_two_reg p1)) ∧
+  (three_to_two_reg (MustTerminate p1) =
+    MustTerminate (three_to_two_reg p1)) ∧
   (three_to_two_reg (If cmp r1 ri c1 c2) =
     If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧
   (three_to_two_reg (Call ret dest args handler) =

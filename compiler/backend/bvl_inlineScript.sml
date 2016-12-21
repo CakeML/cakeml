@@ -108,13 +108,13 @@ val compile_prog_def = Define `
   compile_prog limit prog =
     if limit = 0 then prog else inline_all limit LN prog []`
 
-val LENGTH_inline = store_thm("LENGTH_inline",
-  ``!cs xs. LENGTH (inline cs xs) = LENGTH xs``,
+val LENGTH_inline = Q.store_thm("LENGTH_inline",
+  `!cs xs. LENGTH (inline cs xs) = LENGTH xs`,
   recInduct inline_ind \\ REPEAT STRIP_TAC
   \\ fs [Once inline_def,LET_DEF] \\ rw [] \\ every_case_tac \\ fs []);
 
-val HD_inline = store_thm("HD_inline[simp]",
-  ``[HD (inline cs [x])] = inline cs [x]``,
+val HD_inline = Q.store_thm("HD_inline[simp]",
+  `[HD (inline cs [x])] = inline cs [x]`,
   `LENGTH (inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_inline]
   \\ Cases_on `inline cs [x]` \\ FULL_SIMP_TAC std_ss [LENGTH]
   \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);

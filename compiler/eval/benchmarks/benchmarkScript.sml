@@ -10,9 +10,6 @@ val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20;
 val _ = PolyML.print_depth 5;
 
-(*Compilation of basis_prog is very slow, so we avoid it for now*)
-(*val initial_prog = rconc (EVAL``prim_types_program``)*)
-
 fun println s = print (strcat s "\n");
 
 fun to_bytes alg conf prog =
@@ -38,6 +35,150 @@ fun to_bytes alg conf prog =
   in
     compile_thm
   end
+
+val qsortimp =``
+[Tdec
+  (Dletrec
+     [("swap","i",
+       Fun "j"
+         (Fun "arr"
+            (Let (SOME "ti")
+               (App Asub [Var (Short "arr"); Var (Short "i")])
+               (Let (SOME "tj")
+                  (App Asub [Var (Short "arr"); Var (Short "j")])
+                  (Let (SOME "u")
+                     (App Aupdate [Var (Short "arr");Var (Short "i"); Var (Short "tj")])
+                     (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")]))))))]);
+Tdec
+  (Dletrec
+     [("part_loop","i",
+       Fun "j"
+         (Fun "k"
+            (Fun "arr"
+               (If
+                  (App (Opb Lt) [Var (Short "i"); Var (Short "j")])
+                  (If
+                     (App (Opb Leq) [App Asub [Var (Short "arr"); Var (Short "i")]; Var (Short "k")])
+                     (App Opapp
+                        [App Opapp
+                           [App Opapp
+                              [App Opapp
+                                 [Var (Short "part_loop");
+                                  App (Opn Plus) [Var (Short "i");Lit (IntLit 1)]];
+                               Var (Short "j")]; Var (Short "k")];
+                         Var (Short "arr")])
+                     (Let (SOME "u")
+                        (App Opapp
+                           [App Opapp
+                              [App Opapp
+                                 [Var (Short "swap");
+                                  Var (Short "i")];
+                               App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
+                            Var (Short "arr")])
+                        (App Opapp
+                           [App Opapp
+                              [App Opapp
+                                 [App Opapp
+                                    [Var (Short "part_loop");
+                                     Var (Short "i")];
+                                  App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
+                               Var (Short "k")];
+                            Var (Short "arr")])))
+                  (Var (Short "i"))))))]);
+Tdec
+  (Dletrec
+     [("inplace_partition","b",
+       Fun "e"
+         (Fun "arr"
+            (Let (SOME "k")
+               (App Asub [Var (Short "arr"); Var (Short "b")])
+               (Let (SOME "i")
+                  (App Opapp
+                     [App Opapp
+                        [App Opapp
+                           [App Opapp
+                              [Var (Short "part_loop");
+                               App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]];
+                            Var (Short "e")]; Var (Short "k")];
+                      Var (Short "arr")])
+                  (Let (SOME "u")
+                     (App Opapp
+                            [App Opapp
+                               [App Opapp
+                                  [Var (Short "swap");
+                                   Var (Short "b")];
+                                App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]];
+                             Var (Short "arr")])
+                     (App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]))))))]);
+Tdec
+  (Dletrec
+     [("inplace_qsort","b",
+       Fun "e"
+         (Fun "arr"
+            (If
+               (App (Opb Lt) [App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]; Var (Short "e")])
+               (Let (SOME "i")
+                  (App Opapp
+                     [App Opapp
+                        [App Opapp
+                           [Var (Short "inplace_partition");
+                            Var (Short "b")]; Var (Short "e")];
+                      Var (Short "arr")])
+                  (Let (SOME "u")
+                     (App Opapp
+                            [App Opapp
+                               [App Opapp
+                                  [Var (Short "inplace_qsort");
+                                   Var (Short "b")];
+                                Var (Short "i")];
+                             Var (Short "arr")])
+                     (App Opapp
+                               [App Opapp
+                                  [App Opapp
+                                     [Var (Short "inplace_qsort");
+                                      App (Opn Plus) [Var (Short "i"); Lit (IntLit 1)]];
+                                   Var (Short "e")];
+                                Var (Short "arr")])
+                     )) (Con NONE []))))]);
+Tdec
+  (Dletrec
+     [("initarr","len",
+       Fun "arr"
+         (Fun "n"
+            (If
+               (App Equality [Var (Short "n"); Var (Short "len")])
+               (Var (Short "arr"))
+               (Let (SOME "u")
+                  (App Aupdate [Var (Short "arr"); Var (Short "n");
+                      App (Opn Minus) [Var (Short "len"); Var (Short "n")]])
+                  (Let (SOME "u")
+                     (App Aupdate [Var (Short "arr"); App (Opn Plus) [Var (Short "n"); Var (Short "len")];App (Opn Minus) [Var (Short "len"); Var (Short "n")]])
+                     (App Opapp
+                        [App Opapp
+                           [App Opapp
+                              [Var (Short "initarr");
+                               Var (Short "len")];
+                            Var (Short "arr")];
+                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))
+                  ))))]);
+Tdec
+  (Dletrec
+     [("mkarr","n",
+       App Opapp
+         [App Opapp
+            [App Opapp [Var (Short "initarr"); Var (Short "n")];
+             App Aalloc [App (Opn Plus) [Var (Short "n"); Var (Short "n")]; Lit (IntLit 0)]];
+          Lit (IntLit 0)])]);
+Tdec
+  (Dlet (Pvar "foo")
+     (App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]));
+Tdec
+  (Dlet (Pvar "test")
+     (App Opapp
+        [App Opapp
+           [App Opapp
+              [Var (Short "inplace_qsort"); Lit (IntLit 0)];
+            Lit (IntLit 40000)]; Var (Short "foo")]))]``
 
 val btree = ``
 [Tdec
@@ -670,6 +811,114 @@ val nqueens =
            (Var (Short "x"))
            (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
   Tdec
+      (Dletrec
+         [("int_eq","x",
+           Fun "y"
+             (Log And
+                (App (Opb Leq) [Var (Short "x"); Var (Short "y")])
+                (App (Opb Leq) [Var (Short "y"); Var (Short "x")])))]);
+  Tdec
+    (Dletrec
+       [("curcheck","p",
+         Fun "ls"
+           (Mat (Var (Short "ls"))
+              [(Pcon (SOME (Short "nil")) [],Con NONE []);
+               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
+                Mat (Var (Short "p"))
+                  [(Pcon NONE [Pvar "x"; Pvar "y"],
+                    Mat (Var (Short "l"))
+                      [(Pcon NONE [Pvar "a"; Pvar "b"],
+                        If
+                          (Log Or
+                             (Log Or
+                                 (App Opapp
+                                       [App Opapp
+                                          [Var (Short "int_eq");
+                                           Var (Short "a")];
+                                        Var (Short "x")])
+                                (App Opapp
+                                       [App Opapp
+                                          [Var (Short "int_eq");
+                                           Var (Short "b")];
+                                        Var (Short "y")]))
+                             (App Opapp
+                                    [App Opapp
+                                       [Var (Short "int_eq");
+                                        App Opapp [Var (Short "abs");
+                                   App (Opn Minus)
+                                     [Var (Short "a");Var (Short "x")]]
+                                        ];
+                                   App Opapp [Var (Short "abs");
+                                    App (Opn Minus)
+                                       [Var (Short "b");Var (Short "y")]]])
+                            )
+                          (Raise (Con (SOME (Short "Fail")) []))
+                          (App Opapp
+                             [App Opapp
+                                [Var (Short "curcheck");
+                                 Con NONE
+                                   [Var (Short "x");
+                                    Var (Short "y")]];
+                              Var (Short "ls")]))])])]))]);
+  Tdec
+    (Dletrec
+       [("nqueens","n",
+         Fun "cur"
+           (Fun "ls"
+              (If
+                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
+                 (Var (Short "ls"))
+                 (Letrec
+                    [("find_queen","y",
+                      If
+                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
+                        (Raise (Con (SOME (Short "Fail")) []))
+                        (Handle
+                           (Let NONE
+                              (App Opapp
+                                 [App Opapp
+                                    [Var (Short "curcheck");
+                                     Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")]];
+                                  Var (Short "ls")])
+                              (App Opapp
+                                 [App Opapp
+                                    [App Opapp
+                                       [Var (Short "nqueens");
+                                        Var (Short "n")];
+                                     App (Opn Plus)[Var (Short "cur");
+                                        Lit (IntLit 1)]];
+                                  Con (SOME (Short "::"))
+                                    [Con NONE
+                                       [Var (Short "cur");
+                                        Var (Short "y")];
+                                     Var (Short "ls")]]))
+                           [(Pcon (SOME (Short "Fail")) [],
+                             App Opapp
+                               [Var (Short "find_queen");
+                                App (Opn Plus) [Var (Short "y");
+                                   Lit (IntLit 1)]])]))]
+                    (App Opapp
+                       [Var (Short "find_queen");
+                        Lit (IntLit 0)])))))]);
+  Tdec
+    (Dlet (Pvar "foo")
+       (App Opapp
+          [App Opapp
+             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
+              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
+(* With polymorphic equality
+val nqueens =
+``[Tdec (Dexn "Fail" []);
+  Tdec
+    (Dletrec
+       [("abs","x",
+         If
+           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
+           (Var (Short "x"))
+           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
+  Tdec
     (Dletrec
        [("curcheck","p",
          Fun "ls"
@@ -751,20 +1000,23 @@ val nqueens =
           [App Opapp
              [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
               Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
+              *)
 
 val hello = entire_program_def |> concl |> rand
-val benchmarks = [nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
-val names = ["nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
-
-val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
+val benchmarks = [qsortimp,nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
+val names = ["qsortimp","nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
+val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+                                                                        
 fun write_asm [] = ()
-  | write_asm ((name,(bytes,ffi_count))::xs) =
-    (write_cake_S 1000 1000 (numSyntax.int_of_term ffi_count)
+  | write_asm ((name,(bytes,ffi_names))::xs) =
+    (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
        bytes ("cakeml/" ^ name ^ ".S") ;
     write_asm xs)
+
+val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
 
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
 val _ = write_asm (zip names benchmarks_bytes);
@@ -790,18 +1042,18 @@ val benchmarks_bytes4 = map extract_bytes benchmarks_compiled4
 val _ = write_asm (zip names benchmarks_bytes4);
 *)
 
-(*val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+(*
+val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
 val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
 val clos_o3 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
 val clos_o4 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``
 
-val benchmarks_o0 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
-val benchmarks_o1 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
-val benchmarks_o2 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
-val benchmarks_o3 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
-val benchmarks_o4 = map (to_bytes ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
-
+val benchmarks_o0 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_o1 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
+val benchmarks_o2 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
+val benchmarks_o3 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
+val benchmarks_o4 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
 
 val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
 val benchmarks_o1_bytes = map extract_bytes benchmarks_o1

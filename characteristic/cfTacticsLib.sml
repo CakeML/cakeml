@@ -121,6 +121,9 @@ val reduce_conv =
 
 val reduce_tac = CONV_TAC reduce_conv
 
+fun err_tac orig msg : tactic =
+  fn _ => raise ERR orig msg
+
 (* [xpull] *)
 
 (* xx have a proper cfSyntax? *)
@@ -377,8 +380,6 @@ fun xfun_spec qname qspec =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-  (* todo: ask Arthur *)
-  (* try_progress_then (fn H => *)
   irule local_frame_gc THENL [
     xlocal,
     CONSEQ_CONV_TAC (K (
@@ -388,13 +389,20 @@ fun xapply_core H cont1 cont2 =
     )) \\
     CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
   ]
-  (* ) H *)
 
 fun xapply H =
   xpull_check_not_needed \\
   xapply_core H all_tac all_tac
+  ORELSE err_tac "xapply" "Failed to apply the given theorem"
 
 (* [xspec] *)
+
+datatype spec_kind =
+    CF_spec
+  | Translator_spec
+
+fun spec_kind_toString CF_spec = "CF"
+  | spec_kind_toString Translator_spec = "translator"
 
 fun concl_tm tm =
   let
@@ -407,12 +415,13 @@ fun concl_tm tm =
       body
   end
 
-fun app_f_tm tm =
-  let val (_, f_tm, _, _, _) = cfAppSyntax.dest_app tm
-  in f_tm end
+fun goal_app_infos tm : hol_type * term =
+  let val (p, f_tm, _, _, _) = cfAppSyntax.dest_app tm
+      val ffi_ty = cfHeapsBaseSyntax.dest_ffi_proj (type_of p)
+  in (ffi_ty, f_tm) end
 
-fun is_spec_for f tm =
-  (concl_tm tm |> app_f_tm) = f
+fun is_cf_spec_for f tm =
+  (concl_tm tm |> goal_app_infos |> snd) = f
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
@@ -420,40 +429,52 @@ fun is_arrow_spec_for f tm =
   (rand tm) = f
   handle HOL_ERR _ => false
 
-fun xspec_in_asl f asl =
-  List.find (is_spec_for f) asl
+fun spec_kind_for f tm : spec_kind option =
+  if is_cf_spec_for f tm then SOME CF_spec
+  else if is_arrow_spec_for f tm then SOME Translator_spec
+  else NONE
 
-fun xspec_in_db f =
+fun is_spec_for f tm : bool =
+  spec_kind_for f tm <> NONE
+
+fun xspec_in_asl f asl : (spec_kind * term) option =
+  find_map (fn tm =>
+    case spec_kind_for f tm of
+        SOME k => SOME (k, tm)
+      | NONE => NONE)
+  asl
+
+fun xspec_in_db f : (string * string * spec_kind * thm) option =
   case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
-      data :: _ => SOME data
+      ((thy, name), (thm, _)) :: _ =>
+      (case spec_kind_for f (concl thm) of
+           SOME k => SOME (thy, name, k, thm)
+         | NONE => fail())
     | _ => NONE
 
-fun xspec_from_translator f =
-  case DB.matchp (fn thm => is_arrow_spec_for f (concl thm)) [] of
-      data :: _ => SOME data
-    | _ => NONE
+fun cf_spec (ffi_ty : hol_type) (kind : spec_kind) (spec : thm) : thm =
+  case kind of
+      CF_spec => spec
+    | Translator_spec => app_of_Arrow_rule ffi_ty spec
 
 (* todo: variants *)
-fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
+fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) =
   case xspec_in_asl f asl of
-      SOME a =>
-      (print "Using a specification from the assumptions\n";
-       ttac (ASSUME a) g)
+      SOME (k, a) =>
+      (print
+         ("Using a " ^ (spec_kind_toString k) ^
+          " specification from the assumptions\n");
+       ttac (cf_spec ffi_ty k (ASSUME a)) g)
     | NONE =>
       case xspec_in_db f of
-          SOME ((thy, name), (thm, _)) =>
-          (print ("Using specification " ^ name ^
+          SOME (thy, name, k, thm) =>
+          (print ("Using " ^ (spec_kind_toString k) ^
+                  " specification " ^ name ^
                   " from theory " ^ thy ^ "\n");
-           ttac thm g)
+           ttac (cf_spec ffi_ty k thm) g)
         | NONE =>
-          case xspec_from_translator f of
-              SOME ((thy, name), (thm, _)) =>
-              (print ("Using translator specification " ^
-                      name ^ " from theory " ^ thy ^ "\n");
-               ttac (app_of_Arrow_rule thm) g)
-           | NONE =>
-             raise ERR "xspec" ("Could not find a specification for " ^
-                                fst (dest_const f))
+          raise ERR "xspec" ("Could not find a specification for " ^
+                             fst (dest_const f))
 
 (* [xapp] *)
 
@@ -470,17 +491,26 @@ val xapp_prepare_goal =
   ]
 
 fun app_f_tac tmtac (g as (_, w)) =
-  tmtac (app_f_tm w) g
+  tmtac (
+    goal_app_infos w
+    handle HOL_ERR _ =>
+      raise ERR "xapp"
+        "Goal is not of the right form (must be a cf_app or app)."
+  ) g
 
 fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
-  app_f_tac (fn f =>
+  app_f_tac (fn (ffi_ty, f) =>
     case spec of
-        SOME thm => do_xapp thm
-      | NONE => xspec f do_xapp)
+        SOME thm =>
+        (case spec_kind_for f (concl thm) of
+             SOME k => do_xapp (cf_spec ffi_ty k thm)
+           | NONE => failwith "Invalid specification")
+      | NONE => xspec ffi_ty f do_xapp)
 
 fun xapp_xapply_no_simpl K =
-  FIRST [irule K, xapply_core K all_tac all_tac]
+  FIRST [irule K, xapply_core K all_tac all_tac] ORELSE
+  err_tac "xapp" "Could not apply specification"
 
 fun xapp_core spec =
   xapp_common spec xapp_xapply_no_simpl

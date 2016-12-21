@@ -161,12 +161,12 @@ end
   val P_def = Define `P (x : num) (y : bool) = T`
   val Q_def = Define `Q (x : num) (y : num) = T`
 
-  val dummy_imp = prove (``
-    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)``,
+  val dummy_imp = Q.prove (`
+    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)`,
   REWRITE_TAC[P_def]);
 
-  val dummy_imp2 = prove (``
-    !x y z. P (z + x) (y > x)``,
+  val dummy_imp2 = Q.prove (`
+    !x y z. P (z + x) (y > x)`,
   REWRITE_TAC[P_def]);
 
   val t = ``?(a:'a) x c y. P (5 + (x + 2)) ((c:num) > y)``
@@ -227,12 +227,12 @@ fun (ecc1 then_ecc ecc2) {term, evars} =
   val Q_def = Define `Q (x : num) (y : num) = T`
   val R_def = Define `R (x : num) (y : num) (z: num) (z': num) = T`
 
-  val imp1 = prove (``
-    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)``,
+  val imp1 = Q.prove (`
+    !x y z (z' : num). Q x (z + y + z') ==> P (z + x) (y > x)`,
   REWRITE_TAC[P_def]);
 
-  val imp2 = prove (``
-    !(x:num) y z z'. R x y z z' ==> Q (x + y) (z + z')``,
+  val imp2 = Q.prove (`
+    !(x:num) y z z'. R x y z z' ==> Q (x + y) (z + z')`,
   REWRITE_TAC[Q_def]);
 
   val t = ``?(a:'a) x (c:num) y. P (5 + (x + 2)) (c > y)``

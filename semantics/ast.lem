@@ -78,8 +78,8 @@ type op =
   | Chr
   | Chopb of opb
   (* String operations *)
-  | Explode
   | Implode
+  | Strsub
   | Strlen
   (* Vector operations *)
   | VfromList
@@ -91,7 +91,7 @@ type op =
   | Alength
   | Aupdate
   (* Call a given foreign function *)
-  | FFI of nat
+  | FFI of string
 
 (* Logical operations *)
 type lop =

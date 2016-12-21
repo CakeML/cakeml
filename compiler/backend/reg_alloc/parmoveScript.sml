@@ -258,7 +258,7 @@ val parsem_MAP_INJ = Q.store_thm("parsem_MAP_INJ",
   by (
     simp[MAP_MAP_o,o_PAIR_MAP] \\ fs[MEM_MAP]
     \\ spose_not_then strip_assume_tac
-    \\ rator_x_assum`INJ`mp_tac
+    \\ qhdtm_x_assum`INJ`mp_tac
     \\ simp[INJ_DEF]
     \\ simp[MEM_MAP]
     \\ metis_tac[] )
@@ -268,13 +268,13 @@ val parsem_MAP_INJ = Q.store_thm("parsem_MAP_INJ",
   \\ strip_tac \\ rveq \\ simp[]
   \\ `f x =  f y ⇒ x = y`
   by  (
-    rator_x_assum`INJ`mp_tac
+    qhdtm_x_assum`INJ`mp_tac
     \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNION]
     \\ metis_tac[] )
   \\ rw[] \\ fs[]
   \\ first_x_assum(match_mp_tac o MP_CANON)
   \\ simp[]
-  \\ rator_x_assum`INJ`mp_tac
+  \\ qhdtm_x_assum`INJ`mp_tac
   \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNION]
   \\ metis_tac[]);
 
@@ -1091,7 +1091,7 @@ val fstep_MAP_INJ = Q.store_thm("fstep_MAP_INJ",
   \\ `splitAtPki P2 k2 p0 = splitAtPki P1 k2 p0`
   by (
     match_mp_tac splitAtPki_change_predicate
-    \\ rator_x_assum`inj_on_state`mp_tac
+    \\ qhdtm_x_assum`inj_on_state`mp_tac
     \\ simp[Abbr`P1`,Abbr`P2`]
     \\ simp[inj_on_state_def]
     \\ rw[EQ_IMP_THM]
@@ -1118,7 +1118,7 @@ val fstep_MAP_INJ = Q.store_thm("fstep_MAP_INJ",
   \\ REWRITE_TAC[GSYM MAP]
   \\ simp[LAST_MAP]
   \\ simp[MAP_FRONT]
-  \\ rator_x_assum`inj_on_state`mp_tac
+  \\ qhdtm_x_assum`inj_on_state`mp_tac
   \\ simp[inj_on_state_def]
   \\ rw[EQ_IMP_THM]
   \\ first_x_assum match_mp_tac

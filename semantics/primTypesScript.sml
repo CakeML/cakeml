@@ -17,8 +17,8 @@ val _ = new_theory "primTypes"
 
 (*val prim_types_program : prog*)
 val _ = Define `
- (prim_types_program =  
-([Tdec (Dexn "Bind" []);
+ (prim_types_program=  
+ ([Tdec (Dexn "Bind" []);
    Tdec (Dexn "Chr" []);
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Subscript" []);
@@ -29,8 +29,8 @@ val _ = Define `
 
 (*val add_to_sem_env : forall 'ffi. Eq 'ffi => (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (add_to_sem_env (st, env) prog =  
-((case evaluate_prog st env prog of
+ (add_to_sem_env (st, env) prog=  
+ ((case evaluate_prog st env prog of
     (st', new_ctors, Rval (new_mods, new_vals)) =>
     SOME (st', extend_top_env new_mods new_vals new_ctors env)
   | _ => NONE
@@ -39,10 +39,10 @@ val _ = Define `
 
 (*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (prim_sem_env ffi =  
-(add_to_sem_env
-    (<| clock :=( 0); ffi := ffi; refs := []; defined_mods := {}; defined_types := {} |>,
-     <| m := []; c := ([],[]); v := [] |>)
+ (prim_sem_env ffi=  
+ (add_to_sem_env
+    (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); defined_mods := ({}); defined_types := ({}) |>,
+     <| m := ([]); c := ([],[]); v := ([]) |>)
         prim_types_program))`;
 
 val _ = export_theory()

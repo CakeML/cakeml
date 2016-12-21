@@ -6,16 +6,16 @@ val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
 
-val IMP_sptree_eq = prove(
-  ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
+val IMP_sptree_eq = Q.prove(
+  `wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)`,
   METIS_TAC [spt_eq_thm]);
 
-val mk_wf_inter = prove(
-  ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
+val mk_wf_inter = Q.prove(
+  `!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)`,
   full_simp_tac(srw_ss())[]);
 
-val get_vars_IMP_LENGTH = store_thm("get_vars_IMP_LENGTH",
-  ``!xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)``,
+val get_vars_IMP_LENGTH = Q.store_thm("get_vars_IMP_LENGTH",
+  `!xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)`,
   Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
   \\ rw [] \\ fs [] \\ res_tac \\ fs []);
 
@@ -40,8 +40,8 @@ val evaluate_compile = Q.prove(
     \\ METIS_TAC [])
   THEN1 (* Assign *)
    (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
-    \\ BasicProvers.CASE_TAC \\ fs[] THEN1
-     (Cases_on `get_vars args s.locals`
+    \\ BasicProvers.CASE_TAC \\ fs[]
+    THEN1 (Cases_on `get_vars args s.locals`
       \\ full_simp_tac(srw_ss())[cut_state_opt_def]
       \\ `get_vars args l =
           get_vars args s.locals` by
@@ -194,24 +194,31 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
       \\ reverse (Cases_on `do_app o' x s`) \\ full_simp_tac(srw_ss())[] THEN1
-       (IMP_RES_TAC do_app_err \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+       (IMP_RES_TAC do_app_err \\ full_simp_tac(srw_ss())[]
+        \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
       \\ Cases_on `a`
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ NTAC 2 (Q.PAT_X_ASSUM `!xx.bbb` (K ALL_TAC))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `cut_env y1 w` \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,set_var_def]
+      \\ Cases_on `cut_env y1 w`
+      \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,set_var_def]
       \\ POP_ASSUM MP_TAC
-      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[Once cut_env_def] \\ REPEAT STRIP_TAC
+      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[Once cut_env_def]
+      \\ REPEAT STRIP_TAC
       \\ `domain (list_insert l' (delete n y1)) SUBSET domain l` by
-       (full_simp_tac(srw_ss())[dataSemTheory.state_component_equality] \\ SRW_TAC [] []
+       (full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
+        \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_IMP
         \\ IMP_RES_TAC get_vars_IMP_domain \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[domain_list_insert,SUBSET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC)
+        \\ full_simp_tac(srw_ss())[domain_list_insert,SUBSET_DEF]
+        \\ REPEAT STRIP_TAC \\ RES_TAC \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[]
       \\ `get_vars l' (inter l (list_insert l' (delete n y1))) = get_vars l' l`
            by (MATCH_MP_TAC EVERY_get_vars
-               \\ full_simp_tac(srw_ss())[EVERY_MEM,lookup_inter_alt,domain_list_insert] \\ NO_TAC)
+               \\ full_simp_tac(srw_ss())[EVERY_MEM,lookup_inter_alt,
+                     domain_list_insert] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[do_app_def,do_space_alt]
+      \\ IF_CASES_TAC THEN1 fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
       \\ `¬op_space_reset o'` by fs[bvi_to_dataTheory.op_requires_names_def] \\ fs[]
@@ -342,11 +349,11 @@ val evaluate_compile = Q.prove(
            dec_clock_def] \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
-val compile_correct = store_thm("compile_correct",
-  ``!c s.
+val compile_correct = Q.store_thm("compile_correct",
+  `!c s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (evaluate (compile c, s) = evaluate (c,s))``,
+      (evaluate (compile c, s) = evaluate (c,s))`,
   REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
   \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_compile)
   \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC

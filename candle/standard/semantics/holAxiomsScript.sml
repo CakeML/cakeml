@@ -19,11 +19,11 @@ val _ = Parse.temp_overload_on("FAy",``Forall (strlit "y") B``)
 
 val mem = ``mem:'U->'U->bool``
 
-val eta_has_model = store_thm("eta_has_model",
-  ``is_set_theory ^mem ⇒
+val eta_has_model = Q.store_thm("eta_has_model",
+  `is_set_theory ^mem ⇒
     ∀ctxt. is_std_sig (sigof ctxt) ⇒
       ∀i. i models (thyof ctxt) ⇒
-        i models (thyof (mk_eta_ctxt ctxt))``,
+        i models (thyof (mk_eta_ctxt ctxt))`,
   rw[models_def,mk_eta_ctxt_def,conexts_of_upd_def] >> res_tac >>
   rw[satisfies_def] >>
   `is_structure (sigof ctxt) i v` by simp[is_structure_def] >>
@@ -60,8 +60,8 @@ val good_select_def = xDefine"good_select"`
   good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))`
 val _ = Parse.overload_on("good_select",``good_select0 ^mem``)
 
-val select_has_model_gen = store_thm("select_has_model_gen",
-  ``is_set_theory ^mem ⇒
+val select_has_model_gen = Q.store_thm("select_has_model_gen",
+  `is_set_theory ^mem ⇒
     ∀ctxt.
       (strlit "@") ∉ FDOM (tmsof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
@@ -75,7 +75,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
              i' models (thyof (mk_select_ctxt ctxt)) ∧
              (tmaof i' (strlit "@") =
                 (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
-                        (λp. select (HD ls) (Holds p))))``,
+                        (λp. select (HD ls) (Holds p))))`,
   rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def,is_implies_sig_def,is_implies_interpretation_def] >>
   qexists_tac`(tyaof i, (strlit "@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
                                       (λp. select (HD l) (Holds p))) (tmaof i))` >>
@@ -184,9 +184,9 @@ val base_select_def = xDefine "base_select"`
     else ARB`
 val _ = Parse.overload_on("base_select",``base_select0 ^mem``)
 
-val good_select_base_select = store_thm("good_select_base_select",
-  ``is_set_theory ^mem ⇒
-    good_select base_select``,
+val good_select_base_select = Q.store_thm("good_select_base_select",
+  `is_set_theory ^mem ⇒
+    good_select base_select`,
   rw[good_select_def,base_select_def] >>
   rw[]>> TRY(metis_tac[]) >>
   TRY (
@@ -201,8 +201,8 @@ val good_select_base_select = store_thm("good_select_base_select",
   simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
   metis_tac[] )
 
-val select_has_model = store_thm("select_has_model",
-  ``is_set_theory ^mem ⇒
+val select_has_model = Q.store_thm("select_has_model",
+  `is_set_theory ^mem ⇒
     ∀ctxt.
       (strlit "@") ∉ FDOM (tmsof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
@@ -212,7 +212,7 @@ val select_has_model = store_thm("select_has_model",
         i models (thyof ctxt) ∧
         is_implies_interpretation (tmaof i)
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
-             i' models (thyof (mk_select_ctxt ctxt))``,
+             i' models (thyof (mk_select_ctxt ctxt))`,
   rw[] >>
   qspec_then`ctxt`mp_tac(UNDISCH select_has_model_gen) >>
   simp[] >>
@@ -261,8 +261,8 @@ val apply_abstract_tac = rpt ( (
     `tmsof sctx = tmsof (sigof sctx)` by simp[] >> pop_assum SUBST1_TAC >>
     rw[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset]
 
-val infinity_has_model_gen = store_thm("infinity_has_model_gen",
-  ``is_set_theory ^mem  ⇒
+val infinity_has_model_gen = Q.store_thm("infinity_has_model_gen",
+  `is_set_theory ^mem  ⇒
     ∀ctxt.
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {strlit "ONE_ONE";strlit "ONTO"} ∧
@@ -283,7 +283,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
           is_infinite ^mem inf
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt)) ∧
-             (tyaof i' (strlit "ind") [] = inf)``,
+             (tyaof i' (strlit "ind") [] = inf)`,
   rw[models_def,is_implies_sig_def,is_and_sig_def,is_forall_sig_def,is_exists_sig_def,is_not_sig_def,
      is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,is_exists_interpretation_def,is_not_interpretation_def] >>
   `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType (strlit "ind") 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
@@ -662,8 +662,8 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     metis_tac[]) >>
   simp[combinTheory.APPLY_UPDATE_THM])
 
-val infinity_has_model = store_thm("infinity_has_model",
-  ``is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
+val infinity_has_model = Q.store_thm("infinity_has_model",
+  `is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
     ∀ctxt.
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {strlit"ONE_ONE";strlit"ONTO"} ∧
@@ -682,7 +682,7 @@ val infinity_has_model = store_thm("infinity_has_model",
           is_exists_interpretation (tmaof i) ∧
           is_not_interpretation (tmaof i)
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
-             i' models (thyof (mk_infinity_ctxt ctxt))``,
+             i' models (thyof (mk_infinity_ctxt ctxt))`,
   metis_tac[infinity_has_model_gen])
 
 val _ = export_theory()

@@ -27,6 +27,10 @@ val inst_find_name_def = Define `
         Arith (Div (find_name f r1) (find_name f r2) (find_name f r3))
     | Arith (AddCarry r1 r2 r3 r4) =>
         Arith (AddCarry (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (AddOverflow r1 r2 r3 r4) =>
+        Arith (AddOverflow (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
+    | Arith (SubOverflow r1 r2 r3 r4) =>
+        Arith (SubOverflow (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
     | Arith (LongMul r1 r2 r3 r4) =>
         Arith (LongMul (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
     | Arith (LongDiv r1 r2 r3 r4 r5) =>

@@ -48,83 +48,96 @@ val x64_cmp_def = Define`
    (x64_cmp NotEqual = Z_NE) /\
    (x64_cmp NotTest  = Z_NE)`
 
+val x64_ast_def = Define`
+   (x64_ast (Inst Skip) = [Znop]) /\
+   (x64_ast (Inst (Const r i)) =
+      let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64
+      in
+        [Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i))]) /\
+   (x64_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
+      let a = (Z64, Zrm_r (reg r1, total_num2Zreg r3))
+      in
+        [if (bop = Or) /\ (r2 = r3) then
+           Zmov (Z_ALWAYS, a)
+         else
+           Zbinop (x64_bop bop, a)]) /\
+   (x64_ast (Inst (Arith (Binop bop r _ (Imm i)))) =
+      [if (bop = Xor) /\ (i = -1w) then
+         Zmonop (Znot, Z64, reg r)
+       else
+         Zbinop (x64_bop bop, Z64, Zrm_i (reg r, i))]) /\
+   (x64_ast (Inst (Arith (Shift sh r _ n))) =
+      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, n2w n))]) /\
+   (x64_ast (Inst (Arith (Div _ _ _))) = []) /\
+   (x64_ast (Inst (Arith (LongMul _ _ _ r))) = [Zmul (Z64, reg r)]) /\
+   (x64_ast (Inst (Arith (LongDiv _ _ _ _ r))) = [Zdiv (Z64, reg r)]) /\
+   (x64_ast (Inst (Arith (AddCarry r1 r2 r3 r4))) =
+      [Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w));
+       Zcmc;
+       Zbinop (Zadc, Z64, Zrm_r (reg r1, total_num2Zreg r3));
+       Zmov (Z_ALWAYS, Z32, Zrm_i (reg r4, 0w));
+       Zset (Z_B, T, reg r4)]) /\
+   (x64_ast (Inst (Arith (AddOverflow r1 _ r2 r3))) =
+      [Zbinop (Zadd, Z64, Zrm_r (reg r1, total_num2Zreg r2));
+       Zmov (Z_ALWAYS, Z32, Zrm_i (reg r3, 0w));
+       Zset (Z_O, T, reg r3)]) /\
+   (x64_ast (Inst (Arith (SubOverflow r1 _ r2 r3))) =
+      [Zbinop (Zsub, Z64, Zrm_r (reg r1, total_num2Zreg r2));
+       Zmov (Z_ALWAYS, Z32, Zrm_i (reg r3, 0w));
+       Zset (Z_O, T, reg r3)]) /\
+   (x64_ast (Inst (Mem Load r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z64, ld r1 r2 a)]) /\
+   (*
+   (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
+   *)
+   (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
+      [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
+   (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z64, st r1 r2 a)]) /\
+   (*
+   (x64_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z32, st r1 r2 a)]) /\
+   *)
+   (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
+   (x64_ast (Jump a) = [Zjcc (Z_ALWAYS, a - 5w)]) /\
+   (x64_ast (JumpCmp cmp r1 (Reg r2) a) =
+      [Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
+               Zrm_r (reg r1, total_num2Zreg r2));
+       Zjcc (x64_cmp cmp, a - 9w)]) /\
+   (x64_ast (JumpCmp cmp r (Imm i) a) =
+      let width =
+        if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
+           10w
+        else if r = 0 then
+           12w
+        else
+           13w
+      in
+        [Zbinop (if is_test cmp then Ztest else Zcmp, Z64, Zrm_i (reg r, i));
+         Zjcc (x64_cmp cmp, a - width)]) /\
+   (x64_ast (Call _) = []) /\
+   (x64_ast (JumpReg r) = [Zjmp (reg r)]) /\
+   (x64_ast (Loc r i) =
+      [Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))])`
+
 (* Avoid x64$encode when encoding jcc because it can produce short jumps. *)
-
-val x64_encode_jcc_def = Define`
-   x64_encode_jcc cond a =
+val x64_encode_def = Define`
+  (x64_encode (Zjcc (cond, imm)) =
      if cond = Z_ALWAYS then
-        0xE9w :: e_imm32 a
+        0xE9w :: e_imm32 imm
      else
-        [0x0Fw; 0x80w || n2w (Zcond2num cond)] ++ e_imm32 a`;
+        [0x0Fw; 0x80w || n2w (Zcond2num cond)] ++ e_imm32 imm) /\
+  (x64_encode i = x64$encode i)`;
+
+val x64_dec_fail_def = zDefine `x64_dec_fail = [0w] : word8 list`
 
 val x64_enc_def = Define`
-   (x64_enc0 (Inst Skip) = x64$encode Znop) /\
-   (x64_enc0 (Inst (Const r i)) =
-      let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64 in
-      x64$encode (Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i)))) /\
-   (x64_enc0 (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
-      let a = (Z64, Zrm_r (reg r1, total_num2Zreg r3)) in
-        x64$encode
-          (if (bop = Or) /\ (r2 = r3) then Zmov (Z_ALWAYS, a)
-           else Zbinop (x64_bop bop, a))) /\
-   (x64_enc0 (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-       x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
-   (x64_enc0 (Inst (Arith (Shift sh r1 r2 n))) =
-       x64$encode (Zbinop (x64_sh sh, Z64, Zrm_i (reg r1, n2w n)))) /\
-   (x64_enc0 (Inst (Arith (Div _ _ _))) = []) /\
-   (x64_enc0 (Inst (Arith (LongMul _ _ _ r))) =
-       x64$encode (Zmul (Z64, reg r))) /\
-   (x64_enc0 (Inst (Arith (LongDiv _ _ _ _ r))) =
-       x64$encode (Zdiv (Z64, reg r))) /\
-   (x64_enc0 (Inst (Arith (AddCarry r1 r2 r3 r4))) =
-       x64$encode (Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w))) ++
-       x64$encode Zcmc ++
-       x64$encode (Zbinop (Zadc, Z64, Zrm_r (reg r1, total_num2Zreg r3))) ++
-       x64$encode (Zmov (Z_ALWAYS, Z32, Zrm_i (reg r4, 0w))) ++
-       x64$encode (Zbinop (Zadc, Z64, Zrm_i (reg r4, 0w)))) /\
-   (x64_enc0 (Inst (Mem Load r1 (Addr r2 a))) =
-       x64$encode (Zmov (Z_ALWAYS, Z64, ld r1 r2 a))) /\
-   (*
-   (x64_enc0 (Inst (Mem Load32 r1 (Addr r2 a))) =
-       x64$encode (Zmov (Z_ALWAYS, Z32, ld r1 r2 a))) /\
-   *)
-   (x64_enc0 (Inst (Mem Load8 r1 (Addr r2 a))) =
-       x64$encode (Zmovzx (Z8 T, ld r1 r2 a, Z64))) /\
-   (x64_enc0 (Inst (Mem Store r1 (Addr r2 a))) =
-       x64$encode (Zmov (Z_ALWAYS, Z64, st r1 r2 a))) /\
-   (*
-   (x64_enc0 (Inst (Mem Store32 r1 (Addr r2 a))) =
-       x64$encode (Zmov (Z_ALWAYS, Z32, st r1 r2 a))) /\
-   *)
-   (x64_enc0 (Inst (Mem Store8 r1 (Addr r2 a))) =
-       x64$encode (Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a))) /\
-   (x64_enc0 (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
-   (x64_enc0 (JumpCmp cmp r1 (Reg r2) a) =
-       x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
-                           Zrm_r (reg r1, total_num2Zreg r2))) ++
-       x64_encode_jcc (x64_cmp cmp) (a - 9w)) /\
-   (x64_enc0 (JumpCmp cmp r (Imm i) a) =
-       let width =
-          if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
-             10w
-          else if r = 0 then
-             12w
-          else
-             13w
-       in
-          x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
-                              Zrm_i (reg r, i))) ++
-          x64_encode_jcc (x64_cmp cmp) (a - width)) /\
-   (x64_enc0 (Call _) = []) /\
-   (x64_enc0 (JumpReg r) = x64$encode (Zjmp (reg r))) /\
-   (x64_enc0 (Loc r i) =
-      x64$encode
-        (Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))))`
-
-val x64_dec_fail_def = zDefine `x64_dec_fail = [0w: word8]`
-
-val x64_enc_def = Define`
-  x64_enc i = case x64_enc0 i of [] => x64_dec_fail | l => l`
+  x64_enc i =
+  case LIST_BIND (x64_ast i) x64_encode of
+     [] => x64_dec_fail
+   | l => l`
 
 (* --- Configuration for x86-64 --- *)
 

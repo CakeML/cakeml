@@ -55,6 +55,8 @@ local
      `Inst (Arith (LongMul r1 r2 r3 r4)) : 'a asm`,
      `Inst (Arith (LongDiv r1 r2 r3 r4 r5)) : 'a asm`,
      `Inst (Arith (AddCarry r1 r2 r3 r4)) : 'a asm`,
+     `Inst (Arith (AddOverflow r1 r2 r3 r4)) : 'a asm`,
+     `Inst (Arith (SubOverflow r1 r2 r3 r4)) : 'a asm`,
      `Inst (Mem Load r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Load8 r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Load32 r1 (Addr r2 w)) : 'a asm`,
@@ -100,6 +102,9 @@ in
       (not o is_asm_ok) (ERR "asm_ok_conv" "") (fn t => !cnv t)
 end
 
+fun ast_type a s = Type.mk_thy_type {Thy = "ast", Tyop = s, Args = a}
+val ast_type0 = ast_type []
+
 fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
 val asm_type0 = asm_type []
 val asm_type = asm_type [``:64``]
@@ -114,7 +119,8 @@ val add_asm_compset = computeLib.extend_compset
    computeLib.Convs
      [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
-     (List.map asm_type0 ["cmp", "memop", "binop", "shift"] @
+     (List.map ast_type0 ["shift"] @
+      List.map asm_type0 ["cmp", "memop", "binop"] @
       List.map asm_type  ["asm_config", "asm", "inst"])]
 
 (* some custom tools/tactics ---------------------------------------------- *)
@@ -297,7 +303,9 @@ fun asm_cases_tac i =
         all_tac, (* Div *)
         all_tac, (* LongMul *)
         all_tac, (* LongDiv *)
-        all_tac  (* AddCarry *)
+        all_tac, (* AddCarry *)
+        all_tac, (* AddOverflow *)
+        all_tac  (* SubOverflow *)
       ],
       Q.MATCH_GOALSUB_RENAME_TAC `Mem m _ a`
       \\ Cases_on `a`
@@ -333,6 +341,8 @@ in
   val isBinop = can_match `asm$Inst (asm$Arith (asm$Binop _ _ _ _))`
   val isShift = can_match `asm$Inst (asm$Arith (asm$Shift _ _ _ _))`
   val isAddCarry = can_match `asm$Inst (asm$Arith (asm$AddCarry _ _ _ _))`
+  val isAddOverflow = can_match `asm$Inst (asm$Arith (asm$AddOverflow _ _ _ _))`
+  val isSubOverflow = can_match `asm$Inst (asm$Arith (asm$SubOverflow _ _ _ _))`
 end
 
 end

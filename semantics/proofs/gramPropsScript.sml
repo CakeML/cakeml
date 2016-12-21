@@ -33,6 +33,7 @@ val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 
 val _ = new_theory "gramProps"
+val _ = set_grammar_ancestry ["gram", "NTproperties"]
 
 val NT_rank_def = Define`
   NT_rank N =
@@ -133,21 +134,21 @@ end
 val cmlG_FDOM = save_thm("cmlG_FDOM",
   SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
 
-val paireq = prove(
-  ``(x,y) = z ⇔ x = FST z ∧ y = SND z``, Cases_on `z` >> simp[])
+val paireq = Q.prove(
+  `(x,y) = z ⇔ x = FST z ∧ y = SND z`, Cases_on `z` >> simp[])
 
-val GSPEC_INTER = prove(
-  ``GSPEC f ∩ Q =
-    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))``,
+val GSPEC_INTER = Q.prove(
+  `GSPEC f ∩ Q =
+    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))`,
   simp[GSPECIFICATION, EXTENSION, SPECIFICATION] >> qx_gen_tac `e` >>
   simp[paireq] >> metis_tac[])
 
-val RIGHT_INTER_OVER_UNION = prove(
-  ``(a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)``,
+val RIGHT_INTER_OVER_UNION = Q.prove(
+  `(a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)`,
   simp[EXTENSION] >> metis_tac[]);
 
-val GSPEC_applied = prove(
-  ``GSPEC f x ⇔ x IN GSPEC f``,
+val GSPEC_applied = Q.prove(
+  `GSPEC f x ⇔ x IN GSPEC f`,
   simp[SPECIFICATION])
 
 val c1 = Cong (DECIDE ``(p = p') ==> ((p /\ q) = (p' /\ q))``)
@@ -169,14 +170,14 @@ val safenml = LIST_CONJ (List.take(CONJUNCTS nullableML_def, 2))
 
 val nullML_t = prim_mk_const {Thy = "NTproperties", Name = "nullableML"}
 
-val nullloop_th = prove(
-  ``nullableML G (N INSERT sn) (NT N :: rest) = F``,
+val nullloop_th = Q.prove(
+  `nullableML G (N INSERT sn) (NT N :: rest) = F`,
   simp[Once nullableML_def]);
 
-val null2 = prove(
-  ``nullableML G sn (x :: y :: z) <=>
+val null2 = Q.prove(
+  `nullableML G sn (x :: y :: z) <=>
       nullableML G sn [x] ∧ nullableML G sn [y] ∧
-      nullableML G sn z``,
+      nullableML G sn z`,
   simp[Once nullableML_by_singletons, SimpLHS] >>
   dsimp[] >> simp[GSYM nullableML_by_singletons]);
 
@@ -236,14 +237,15 @@ fun fold_nullprove (t, a) =
 end
 
 val nullacc =
-    foldl fold_nullprove [] [``nE``, ``nType``, ``nTyvarN``, ``nSpecLine``,
-                             ``nPtuple``, ``nPbase``, ``nLetDec``,
-                             ``nTyVarList``, ``nDtypeDecl``, ``nDecl``, ``nE'``,
-                             ``nElist1``, ``nCompOps``, ``nListOps``,
-                             ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
-                             ``nAddOps``, ``nDconstructor``, ``nFDecl``,
-                             ``nPatternList``, ``nPbaseList1``,
-                             ``nEseq``, ``nEtuple``, ``nTopLevelDecs``, ``nTopLevelDec``]
+    foldl fold_nullprove []
+          [“nE”, “nType”, “nTyvarN”, “nSpecLine”,
+           “nPtuple”, “nPbase”, “nLetDec”,
+           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
+           “nElist1”, “nCompOps”, “nListOps”,
+           “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
+           “nAddOps”, “nDconstructor”, “nFDecl”,
+           “nPatternList”, “nPbaseList1”, “nElist2”,
+           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
 
 local
   fun appthis th = let
@@ -276,10 +278,10 @@ val fringe_lengths_def = Define`
 `
 
 val RTC_R_I = relationTheory.RTC_RULES |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL
-val fringe_length_ptree = store_thm(
+val fringe_length_ptree = Q.store_thm(
   "fringe_length_ptree",
-  ``∀G i pt. ptree_fringe pt = MAP TOK i ∧ valid_ptree G pt ⇒
-           LENGTH i ∈ fringe_lengths G [ptree_head pt]``,
+  `∀G i pt. ptree_fringe pt = MAP TOK i ∧ valid_ptree G pt ⇒
+           LENGTH i ∈ fringe_lengths G [ptree_head pt]`,
   ntac 2 gen_tac >>
   HO_MATCH_MP_TAC grammarTheory.ptree_ind >> dsimp[MAP_EQ_SING] >>
   conj_tac
@@ -292,27 +294,27 @@ val fringe_length_ptree = store_thm(
   `MAP TOK i = ptree_fringe pt` by simp[Abbr`pt`] >> simp[] >>
   match_mp_tac grammarTheory.valid_ptree_derive >> simp[Abbr`pt`]);
 
-val fringe_length_not_nullable = store_thm(
+val fringe_length_not_nullable = Q.store_thm(
   "fringe_length_not_nullable",
-  ``∀G s. ¬nullable G [s] ⇒
+  `∀G s. ¬nullable G [s] ⇒
           ∀pt. ptree_head pt = s ⇒ valid_ptree G pt ⇒
-               0 < LENGTH (ptree_fringe pt)``,
+               0 < LENGTH (ptree_fringe pt)`,
   spose_not_then strip_assume_tac >>
   `LENGTH (ptree_fringe pt) = 0` by decide_tac >>
   fs[listTheory.LENGTH_NIL] >>
   erule mp_tac grammarTheory.valid_ptree_derive >>
   fs[NTpropertiesTheory.nullable_def]);
 
-val derives_singleTOK = store_thm(
+val derives_singleTOK = Q.store_thm(
   "derives_singleTOK",
-  ``derives G [TOK t] l ⇔ (l = [TOK t])``,
+  `derives G [TOK t] l ⇔ (l = [TOK t])`,
   simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
   metis_tac[]);
 val _ = export_rewrites ["derives_singleTOK"]
 
-val fringe_lengths_V = store_thm(
+val fringe_lengths_V = Q.store_thm(
   "fringe_lengths_V",
-  ``fringe_lengths cmlG [NT (mkNT nV)] = {1}``,
+  `fringe_lengths cmlG [NT (mkNT nV)] = {1}`,
   simp[fringe_lengths_def] >>
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>

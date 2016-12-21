@@ -1,21 +1,20 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory
+open compiler64ProgTheory
 open mips_targetTheory mipsTheory;
 
 val _ = new_theory "mipsProg"
 
-(* this should be compiler64Prog, once it exists *)
-val _ = translation_extends "std_prelude";
+val _ = translation_extends "compiler64Prog";
 
 val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = prove(
-  ``(b <> [] /\ x) = if b = [] then F else x``,
+val NOT_NIL_AND_LEMMA = Q.prove(
+  `(b <> [] /\ x) = if b = [] then F else x`,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
@@ -46,7 +45,6 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 
@@ -89,12 +87,14 @@ val _ = translate (mips_encode_def |> we_simp |> econv)
 
 val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
 
-val _ = translate (mips_enc_def |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> SIMP_RULE std_ss[spec_word_bit,word_mul_def]|> econv)
+val _ = translate (mips_ast_def |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> SIMP_RULE std_ss[spec_word_bit,word_mul_def]|> econv)
 
-val mips_enc_side = prove(``
-  ∀x. mips_enc_side x ⇔ T``,
-  simp[fetch "-" "mips_enc_side_def"]>>rw[]>>
+val mips_ast_side = Q.prove(`
+  ∀x. mips_ast_side x ⇔ T`,
+  simp[fetch "-" "mips_ast_side_def"]>>rw[]>>
   EVAL_TAC) |> update_precondition
+
+val _ = translate (mips_enc_def |> SIMP_RULE std_ss [o_DEF,FUN_EQ_THM])
 
 val _ = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 

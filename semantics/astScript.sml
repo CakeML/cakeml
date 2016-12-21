@@ -60,8 +60,8 @@ val _ = type_abbrev( "tvarN" , ``: string``);
 
 (*val mk_id : forall 'a. maybe modN -> 'a -> id 'a*)
 val _ = Define `
- (mk_id mn_opt n =  
-((case mn_opt of
+ (mk_id mn_opt n=  
+ ((case mn_opt of
       NONE => Short n
     | SOME mn => Long mn n
   )))`;
@@ -69,8 +69,8 @@ val _ = Define `
 
 (*val id_to_n : forall 'a. id 'a -> 'a*)
 val _ = Define `
- (id_to_n id =  
-((case id of
+ (id_to_n id=  
+ ((case id of
       Short n => n
     | Long _ n => n
   )))`;
@@ -108,8 +108,8 @@ val _ = Hol_datatype `
   | Chr
   | Chopb of opb
   (* String operations *)
-  | Explode
   | Implode
+  | Strsub
   | Strlen
   (* Vector operations *)
   | VfromList
@@ -121,7 +121,7 @@ val _ = Hol_datatype `
   | Alength
   | Aupdate
   (* Call a given foreign function *)
-  | FFI of num`;
+  | FFI of string`;
 
 
 (* Logical operations *)
@@ -166,38 +166,38 @@ val _ = Hol_datatype `
 
 (* Some abbreviations *)
 val _ = Define `
- (Tint = (Tapp [] TC_int))`;
+ (Tint=  (Tapp [] TC_int))`;
 
 val _ = Define `
- (Tchar = (Tapp [] TC_char))`;
+ (Tchar=  (Tapp [] TC_char))`;
 
 val _ = Define `
- (Tstring = (Tapp [] TC_string))`;
+ (Tstring=  (Tapp [] TC_string))`;
 
 val _ = Define `
- (Tref t = (Tapp [t] TC_ref))`;
+ (Tref t=  (Tapp [t] TC_ref))`;
 
  val _ = Define `
- (TC_word W8 = TC_word8)
-/\     (TC_word W64 = TC_word64)`;
+ (TC_word W8=  TC_word8)
+/\     (TC_word W64=  TC_word64)`;
 
 val _ = Define `
- (Tword wz = (Tapp [] (TC_word wz)))`;
+ (Tword wz=  (Tapp [] (TC_word wz)))`;
 
 val _ = Define `
- (Tword8 = (Tword W8))`;
+ (Tword8=  (Tword W8))`;
 
 val _ = Define `
- (Tword64 = (Tword W64))`;
+ (Tword64=  (Tword W64))`;
 
 val _ = Define `
- (Tword8array = (Tapp [] TC_word8array))`;
+ (Tword8array=  (Tapp [] TC_word8array))`;
 
 val _ = Define `
- (Tfn t1 t2 = (Tapp [t1;t2] TC_fn))`;
+ (Tfn t1 t2=  (Tapp [t1;t2] TC_fn))`;
 
 val _ = Define `
- (Texn = (Tapp [] TC_exn))`;
+ (Texn=  (Tapp [] TC_exn))`;
 
 
 (* Patterns *)
@@ -289,29 +289,29 @@ val _ = type_abbrev( "prog" , ``: top list``);
 
 (* Accumulates the bindings of a pattern *)
 (*val pat_bindings : pat -> list varN -> list varN*)
- val pat_bindings_defn = Hol_defn "pat_bindings" `
+ val pat_bindings_defn = Defn.Hol_multi_defns `
 
-(pat_bindings (Pvar n) already_bound =  
-(n::already_bound))
+(pat_bindings (Pvar n) already_bound=  
+ (n::already_bound))
 /\
-(pat_bindings (Plit l) already_bound =
+(pat_bindings (Plit l) already_bound= 
   already_bound)
 /\
-(pat_bindings (Pcon _ ps) already_bound =  
-(pats_bindings ps already_bound))
+(pat_bindings (Pcon _ ps) already_bound=  
+ (pats_bindings ps already_bound))
 /\
-(pat_bindings (Pref p) already_bound =  
-(pat_bindings p already_bound))
+(pat_bindings (Pref p) already_bound=  
+ (pat_bindings p already_bound))
 /\
-(pat_bindings (Ptannot p _) already_bound =  
-(pat_bindings p already_bound))
+(pat_bindings (Ptannot p _) already_bound=  
+ (pat_bindings p already_bound))
 /\
-(pats_bindings [] already_bound =
+(pats_bindings [] already_bound= 
   already_bound)
 /\
-(pats_bindings (p::ps) already_bound =  
-(pats_bindings ps (pat_bindings p already_bound)))`;
+(pats_bindings (p::ps) already_bound=  
+ (pats_bindings ps (pat_bindings p already_bound)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) pat_bindings_defn;
 val _ = export_theory()
 

@@ -124,7 +124,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ drule (GEN_ALL infertype_prog_correct)
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
-  \\ rator_assum`type_sound_invariant`(strip_assume_tac o SIMP_RULE std_ss [typeSoundTheory.type_sound_invariant_def])
+  \\ qhdtm_assum`type_sound_invariant`(strip_assume_tac o SIMP_RULE std_ss [typeSoundTheory.type_sound_invariant_def])
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]

@@ -65,12 +65,12 @@ val has_var_def = Define `
   (has_var n (Union d1 d2) <=> has_var n d1 \/ has_var n d2)`;
 val _ = export_rewrites["has_var_def"];
 
-val has_var_mk_Union = store_thm("has_var_mk_Union[simp]",
-  ``has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2``,
+val has_var_mk_Union = Q.store_thm("has_var_mk_Union[simp]",
+  `has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2`,
   SRW_TAC [] [mk_Union_def,has_var_def]);
 
-val has_var_list_mk_Union = store_thm("has_var_list_mk_Union[simp]",
-  ``!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls``,
+val has_var_list_mk_Union = Q.store_thm("has_var_list_mk_Union[simp]",
+  `!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls`,
   Induct \\ fs [list_mk_Union_def,has_var_mk_Union,has_var_def]);
 
 val lookup_db_to_set_acc = Q.store_thm("lookup_db_to_set_acc",
@@ -90,26 +90,26 @@ val lookup_db_to_set_Shift = Q.store_thm("lookup_db_to_set_Shift",
   rw[db_to_set_def,db_to_set_acc_def]
   \\ rw[lookup_db_to_set_acc,lookup_def]);
 
-val MEM_vars_to_list = store_thm("MEM_vars_to_list",
-  ``MEM n (vars_to_list d) = has_var n d``,
+val MEM_vars_to_list = Q.store_thm("MEM_vars_to_list",
+  `MEM n (vars_to_list d) = has_var n d`,
   fs [vars_to_list_def,MEM_MAP,EXISTS_PROD,MEM_toAList]
   \\ fs [lookup_db_to_set]);
 
-val has_var_FOLDL_Union = prove(
-  ``!vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
-             MEM n vs \/ has_var n s``,
+val has_var_FOLDL_Union = Q.prove(
+  `!vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
+             MEM n vs \/ has_var n s`,
   Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
 
-val MEM_vars_from_list = store_thm("MEM_vars_from_list",
-  ``!vs n. has_var n (vars_from_list vs) <=> MEM n vs``,
+val MEM_vars_from_list = Q.store_thm("MEM_vars_from_list",
+  `!vs n. has_var n (vars_from_list vs) <=> MEM n vs`,
   fs [vars_from_list_def,has_var_FOLDL_Union]);
 
-val has_var_vars_flatten = store_thm("has_var_vars_flatten[simp]",
-  ``has_var n (vars_flatten d) = has_var n d``,
+val has_var_vars_flatten = Q.store_thm("has_var_vars_flatten[simp]",
+  `has_var n (vars_flatten d) = has_var n d`,
   fs [vars_flatten_def,MEM_vars_from_list,MEM_vars_to_list]);
 
-val ALL_DISTINCT_vars_to_list = store_thm("ALL_DISTINCT_vars_to_list",
-  ``ALL_DISTINCT (vars_to_list d)``,
+val ALL_DISTINCT_vars_to_list = Q.store_thm("ALL_DISTINCT_vars_to_list",
+  `ALL_DISTINCT (vars_to_list d)`,
   fs [vars_to_list_def,ALL_DISTINCT_MAP_FST_toAList]);
 
 val _ = export_theory();

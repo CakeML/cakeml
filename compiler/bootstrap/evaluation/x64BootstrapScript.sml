@@ -1,4 +1,4 @@
-open preamble
+open preamble bootstrapLib
      backendTheory
      to_lab_x64BootstrapTheory
      x64_configTheory
@@ -21,8 +21,6 @@ val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
 val () = Globals.max_print_depth := 10;
 val () = ml_translatorLib.reset_translation();
 
-val rconc = rhs o concl;
-
 val cs = wordsLib.words_compset()
 val () =
   computeLib.extend_compset [
@@ -40,23 +38,19 @@ val () =
   computeLib.extend_compset[computeLib.Extenders[compilerComputeLib.add_compiler_compset]] bare_cs
 val bare_eval = computeLib.CBV_CONV bare_cs
 
-fun mk_def_name s = String.concat[s,"_def"];
-fun mk_def s tm = new_definition(mk_def_name s,mk_eq(mk_var(s,type_of tm),tm))
-
-fun make_abbrevs str n [] acc = acc
-  | make_abbrevs str n (t::ts) acc =
-    make_abbrevs str (n-1) ts
-      (mk_def (str^(Int.toString n)) t :: acc)
-
-fun intro_abbrev [] tm = raise UNCHANGED
-  | intro_abbrev (ab::abbs) tm =
-      FORK_CONV(REWR_CONV(SYM ab),intro_abbrev abbs) tm
-
 val chunk_size = 50
 val num_threads = 8
 fun say_str s i n = ()
 (*
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
+*)
+
+(*
+  val lab_prog_def =
+    let
+      val (ls,ty) = to_lab_x64BootstrapTheory.lab_prog_def |> rconc |> listSyntax.dest_list
+      val ls' = listSyntax.mk_list(List.take(List.drop(ls,2000),40),ty)
+    in mk_thm([],``lab_prog = ^ls'``) end
 *)
 
 val lab_to_target_thm0 =
@@ -82,8 +76,7 @@ fun eval_fn i n p =
     val tm = mk_comb(filter_skip_fn,p)
   in (*time*) eval tm end
 
-val () = Lib.say "filter_skip: "
-val ths = time (parlist num_threads chunk_size eval_fn) lab_prog_els;
+val ths = time_with_size thms_size "filter_skip (par)" (parlist num_threads chunk_size eval_fn) lab_prog_els;
 
 val filter_skip_thm =
   tm9 |> (
@@ -98,18 +91,17 @@ val skip_prog_def = mk_def"skip_prog" (filter_skip_thm |> rconc |> rand);
 val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
 
-val () = Lib.say "ffi_limit: "
 (* could parallelise? *)
-val ffi_limit_thm =
-  ``find_ffi_index_limit skip_prog``
-  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC time eval)
+val ffi_names_thm =
+  ``find_ffi_names skip_prog``
+  |> (RAND_CONV(REWR_CONV skip_prog_def) THENC timez "ffi_names" eval)
 
 val lab_to_target_thm1 =
   lab_to_target_thm0
   |> CONV_RULE (RAND_CONV(
      REWR_CONV filter_skip_thm' THENC
      REWR_CONV lab_to_targetTheory.compile_lab_def THENC
-     RAND_CONV(REWR_CONV ffi_limit_thm) THENC
+     RAND_CONV(REWR_CONV ffi_names_thm) THENC
      REWR_CONV LET_THM THENC BETA_CONV))
 
 val tm10 = lab_to_target_thm1 |> rconc |> rator |> rator |> rand
@@ -138,8 +130,7 @@ fun eval_fn i n p =
 
 (* evaluate encoder (can be slow?) *)
 
-val () = Lib.say "enc_sec: "
-val ths = time (parlist num_threads chunk_size eval_fn) skip_prog_els;
+val ths = time_with_size thms_size "enc_sec (par)" (parlist num_threads chunk_size eval_fn) skip_prog_els;
 
 val remove_labels_thm1 =
   remove_labels_thm0
@@ -170,80 +161,50 @@ val tm12 =
 val encoded_prog_els =
   encoded_prog_def |> rconc |> listSyntax.dest_list |> #1
 
+val encoded_prog_lines = encoded_prog_els |> map rand
+
 val num_enc = length encoded_prog_els
-val encoded_prog_defs = make_abbrevs "encoded_prog_el" num_enc encoded_prog_els []
+val encoded_prog_defs = make_abbrevs "encoded_prog_el" num_enc encoded_prog_lines []
+
+val Section_encoded_prog_defs =
+  map2 AP_TERM (map rator encoded_prog_els) (List.rev encoded_prog_defs)
 
 val encoded_prog_thm =
-  encoded_prog_def |> CONV_RULE(RAND_CONV(intro_abbrev (List.rev encoded_prog_defs)))
+  encoded_prog_def |>
+      CONV_RULE(RAND_CONV(intro_abbrev Section_encoded_prog_defs))
+
+(*
+val ls = encoded_prog_def |> rconc |> listSyntax.dest_list |> #1
+fun test n = (rconc (el n Section_encoded_prog_defs)) = (el n ls)
+val fails = List.filter (not o test) (List.tabulate(3292,fn i => i+1))
+*)
 
 val spec64 = INST_TYPE[alpha |-> fcpSyntax.mk_int_numeric_type 64]
 
-val clc = compute_labels_alt_Section |> spec64
+val (cln,clc) =
+  lab_to_targetTheory.compute_labels_alt_def |> spec64 |> CONJ_PAIR
 
-val cln = CONJUNCT1 lab_to_targetTheory.compute_labels_alt_def |> spec64
-
-val (sec_length_tm,args) =
-  clc |> SPEC_ALL |> rconc |> rand |> strip_comb
-
-val Section_lines_tm = args |> hd |> dest_comb |> #1
-
-val targs = tl args
-
-fun eval_fn i n th =
-  let
-    val () = say_str "sec_length" i n
-    val (enc_tm,enc_prog) = dest_eq (concl th)
-    val tm = list_mk_comb(sec_length_tm,mk_comb(Section_lines_tm,enc_tm)::targs)
-    val conv =
-      RATOR_CONV(RAND_CONV(
-        RAND_CONV(REWR_CONV th) THENC
-        REWR_CONV Section_lines_def)) THENC
-      (*time*) eval
-  in
-    conv tm
-  end
-
-val () = Lib.say "sec_length: "
-val sec_lengths = time (parlist num_threads chunk_size eval_fn) encoded_prog_defs
-
-val () = PolyML.fullGC();
+fun compute_labels_alt_rule [] th = th |> CONV_RULE (RAND_CONV (REWR_CONV cln))
+  | compute_labels_alt_rule (dth::dths) th =
+    let
+      val th1 = th |> CONV_RULE (
+        RAND_CONV (
+          REWR_CONV clc THENC
+          RAND_CONV (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC eval) THENC
+          REWR_CONV LET_THM THENC
+          PAIRED_BETA_CONV THENC
+          RAND_CONV eval))
+    in compute_labels_alt_rule dths th1 end
 
 (*
-val tm = tm12 |> RAND_CONV(REWR_CONV encoded_prog_thm) |> rconc
-
-val (sth::sths) = sec_lengths
 val (dth::dths) = List.rev encoded_prog_defs
 *)
 
-fun eval_fn n tm =
-  let
-    (*val () = Lib.say(String.concat["compute_labels ",Int.toString n,": "])*)
-  in (*time*) eval tm end
-
-fun compute_labels_alt_conv _ [] [] tm = REWR_CONV cln tm
-  | compute_labels_alt_conv n (dth::dths) (sth::sths) tm =
-    tm |>
-    (REWR_CONV clc THENC
-     REWR_CONV LET_THM THENC
-     RAND_CONV (REWR_CONV sth) THENC
-     BETA_CONV THENC
-     RAND_CONV(RATOR_CONV(RAND_CONV numLib.REDUCE_CONV)) THENC
-     PATH_CONV"lra"(
-       PATH_CONV"lllr"(
-         RAND_CONV(REWR_CONV dth) THENC
-         REWR_CONV Section_num_def) THENC
-       PATH_CONV"rlr"(
-         RAND_CONV(REWR_CONV dth) THENC
-         REWR_CONV Section_lines_def)) THENC
-     REWR_CONV LET_THM THENC
-     RAND_CONV (compute_labels_alt_conv (n+1) dths sths) THENC
-     BETA_CONV THENC eval_fn n)
-
-val () = Lib.say "compute_labels: "
 val compute_labels_thm =
-  tm12 |> time (
-    RAND_CONV(REWR_CONV encoded_prog_thm) THENC
-    compute_labels_alt_conv 0 (List.rev encoded_prog_defs) sec_lengths)
+  tm12 |> timez "compute_labels" (fn tm =>
+    let
+      val th = RATOR_CONV(RAND_CONV(REWR_CONV encoded_prog_thm)) tm
+    in compute_labels_alt_rule (List.rev encoded_prog_defs) th end)
 
 val computed_labs_def = mk_def"computed_labs"(compute_labels_thm |> rconc)
 val compute_labels_thm' =
@@ -266,49 +227,317 @@ val (esn,esc) = lab_to_targetTheory.enc_secs_again_def |> spec64 |> CONJ_PAIR
 val tm = tm13 |> RAND_CONV(REWR_CONV encoded_prog_thm) |> rconc
 val (dth::dths) = List.rev encoded_prog_defs
 val n = 0
+
+val (dth::dths) = dths
+val n = n+1
+val tm = rand (rconc it)
 *)
 
-fun eval_fn n tm =
-  let
-    (*val () = Lib.say(String.concat["enc_secs_again ",Int.toString n,": "])*)
-  in (*time*) eval tm end
+val (COND_T,COND_F) = COND_CLAUSES |> SPEC_ALL |> CONJ_PAIR;
 
-val T_AND = AND_CLAUSES |> SPEC_ALL |> CONJUNCT1
+val (T_AND::AND_T::_) = AND_CLAUSES |> SPEC_ALL |> CONJUNCTS;
 
-fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
-  | enc_secs_again_conv n (dth::dths) tm =
+val [ela1,ela2,ela3,ela4] = CONJUNCTS lab_to_targetTheory.enc_lines_again_def;
+
+val add_pos_conv = PATH_CONV "lllr" numLib.REDUCE_CONV;
+
+(*
+val Label_tm  = ela2 |> SPEC_ALL |> concl |> lhs |> rator |> rand |> rator |> rand |> repeat rator;
+val Asm_tm    = ela3 |> SPEC_ALL |> concl |> lhs |> rator |> rand |> rator |> rand |> repeat rator;
+val LabAsm_tm = ela4 |> SPEC_ALL |> concl |> lhs |> rator |> rand |> rator |> rand |> repeat rator;
+
+fun enc_lines_again_rule labs_def =
+let
+  fun f th = let
+    val ls = th |> rconc |> rator |> rand
+  in if listSyntax.is_nil ls then
+    CONV_RULE(RAND_CONV (REWR_CONV ela1 THENC RATOR_CONV(RAND_CONV eval))) th
+  else let
+    val tm = listSyntax.dest_cons ls |> #1 |> repeat rator
+    val th =
+      if same_const Label_tm tm then
+        CONV_RULE(RAND_CONV (REWR_CONV ela2 THENC add_pos_conv)) th
+      else if same_const Asm_tm tm then
+        CONV_RULE(RAND_CONV (REWR_CONV ela3 THENC add_pos_conv)) th
+      else
+      let
+        val _ = assert (same_const LabAsm_tm) tm
+        val th = CONV_RULE(RAND_CONV (
+          REWR_CONV ela4 THENC
+          RAND_CONV (RATOR_CONV(RAND_CONV(REWR_CONV labs_def)) THENC eval) THENC
+          REWR_CONV LET_THM THENC BETA_CONV THENC
+          RATOR_CONV(RATOR_CONV(RAND_CONV eval)))) th
+        val tm = th |> rconc |> rator |> rator |> rand
+      in
+        if same_const T tm then
+        CONV_RULE(RAND_CONV (REWR_CONV COND_T THENC add_pos_conv)) th
+        else (assert (same_const F) tm;
+        CONV_RULE(RAND_CONV (REWR_CONV COND_F THENC
+         RAND_CONV eval THENC REWR_CONV LET_THM THENC BETA_CONV THENC
+         RAND_CONV eval THENC REWR_CONV LET_THM THENC BETA_CONV THENC
+         add_pos_conv THENC
+         RAND_CONV(RAND_CONV(RAND_CONV eval THENC REWR_CONV AND_T)))) th)
+      end
+    in
+      f th
+    end
+  end
+in f end
+*)
+
+(*
+fun enc_lines_again_rule labs_def =
+let
+  fun f th =
+    let
+      val (th,b) =
+        (* Asm *)
+        (CONV_RULE(RAND_CONV (REWR_CONV ela3 THENC add_pos_conv)) th,true)
+        handle HOL_ERR _ =>
+        (* Label *)
+        (CONV_RULE(RAND_CONV (REWR_CONV ela2 THENC add_pos_conv)) th,true)
+        handle HOL_ERR _ =>
+        (* LabAsm *)
+        let
+          val th = CONV_RULE(RAND_CONV (
+            REWR_CONV ela4 THENC
+            RAND_CONV (RATOR_CONV(RAND_CONV(REWR_CONV labs_def)) THENC eval) THENC
+            let_CONV THENC
+            RATOR_CONV(RATOR_CONV(RAND_CONV eval)))) th
+        in
+          (* no offset update *)
+          (CONV_RULE(RAND_CONV (REWR_CONV COND_T THENC add_pos_conv)) th,true)
+          handle HOL_ERR _ =>
+          (* offset update *)
+          (CONV_RULE(RAND_CONV (REWR_CONV COND_F THENC
+           RAND_CONV eval THENC let_CONV THENC
+           RAND_CONV eval THENC let_CONV THENC
+           add_pos_conv THENC
+           RAND_CONV(RAND_CONV(RAND_CONV eval THENC REWR_CONV AND_T)))) th,true)
+        end
+        handle HOL_ERR _ =>
+        (* nil *)
+        (CONV_RULE(RAND_CONV (REWR_CONV ela1 THENC RATOR_CONV(RAND_CONV eval))) th,false)
+    in if b then f th else th end
+in f end
+
+fun enc_lines_again_conv labs_def = enc_lines_again_rule labs_def o REFL
+*)
+
+(*
+fun enc_lines_again_conv labs_def tm = tm |> (
+  IFC
+  ((REWR_CONV ela3 THENC add_pos_conv) ORELSEC
+   (REWR_CONV ela2 THENC add_pos_conv) ORELSEC
+   (REWR_CONV ela4 THENC
+    RAND_CONV (RATOR_CONV(RAND_CONV(REWR_CONV labs_def)) THENC eval) THENC
+    let_CONV THENC
+    RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
+    ((REWR_CONV COND_T THENC add_pos_conv) ORELSEC
+     (REWR_CONV COND_F THENC
+      RAND_CONV eval THENC let_CONV THENC
+      RAND_CONV eval THENC let_CONV THENC
+      add_pos_conv THENC
+      RAND_CONV(RAND_CONV(RAND_CONV eval THENC REWR_CONV AND_T))))))
+  (enc_lines_again_conv labs_def)
+  (REWR_CONV ela1 THENC RATOR_CONV(RAND_CONV eval)))
+*)
+
+(*
+fun enc_lines_again_conv labs_def tm = tm |> (
+  IFC
+  ((REWR_CONV ela3) ORELSEC
+   (REWR_CONV ela2) ORELSEC
+   (REWR_CONV ela4 THENC
+    RAND_CONV (RATOR_CONV(RAND_CONV(REWR_CONV labs_def)) THENC eval) THENC
+    let_CONV THENC
+    RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
+    ((REWR_CONV COND_T) ORELSEC
+     (REWR_CONV COND_F THENC
+      RAND_CONV eval THENC let_CONV THENC
+      RAND_CONV eval THENC let_CONV))))
+  (enc_lines_again_conv labs_def)
+  (REWR_CONV ela1 THENC eval))
+*)
+
+(*
+fun enc_lines_again_conv tm = tm |> (
+  IFC
+  ((REWR_CONV ela3) ORELSEC
+   (REWR_CONV ela2) ORELSEC
+   (REWR_CONV ela4 THENC
+    RAND_CONV eval THENC let_CONV THENC
+    RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
+    ((REWR_CONV COND_T) ORELSEC
+     (REWR_CONV COND_F THENC
+      RAND_CONV eval THENC let_CONV THENC
+      RAND_CONV eval THENC let_CONV))))
+  (enc_lines_again_conv)
+  (REWR_CONV ela1 THENC eval))
+*)
+
+(*
+fun enc_lines_again_conv tm = tm |> (
+  IFC
+  ((REWR_CONV ela3) ORELSEC
+   (REWR_CONV ela2) ORELSEC
+   (REWR_CONV ela4 THENC
+    RAND_CONV eval THENC let_CONV THENC
+    RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
+    COND_CONV THENC
+    TRY_CONV
+    (RAND_CONV eval THENC let_CONV THENC
+     RAND_CONV eval THENC let_CONV)))
+  (enc_lines_again_conv)
+  (REWR_CONV ela1 THENC eval))
+*)
+
+(*
+fun enc_lines_again_conv tm = tm |> (
+  IFC
+  ((REWR_CONV ela3) ORELSEC
+   (REWR_CONV ela2) ORELSEC
+   (REWR_CONV ela4 THENC
+    RAND_CONV eval THENC let_CONV THENC
+    RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
+    COND_CONV THENC REPEATC let_CONV))
+  (enc_lines_again_conv)
+  (REWR_CONV ela1 THENC eval))
+*)
+
+fun enc_secs_again_conv str ela_conv n [] tm = REWR_CONV esn tm
+  | enc_secs_again_conv str ela_conv n (dth::dths) tm =
     let
       val th1 = tm |>
-       (RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV dth))) THENC
-        REWR_CONV esc THENC
+       (REWR_CONV esc THENC
         RAND_CONV(
-          PATH_CONV"llllr"(REWR_CONV computed_labs_def) THENC
-          eval_fn n))
-      val def = mk_def("enc_again_"^Int.toString n)
+          RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
+          ela_conv))
+      val def = mk_def(str^Int.toString n)
                   (th1 |> rconc |> rand |> rator |> rand)
-      val rec_conv = enc_secs_again_conv (n+1) dths
+      val () = print (String.concat[Int.toString n," "])
+      val rec_conv = enc_secs_again_conv str ela_conv (n+1) dths
     in
       th1 |> CONV_RULE(RAND_CONV(
         RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
-        REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
-        RAND_CONV(
-          RAND_CONV (
-            RATOR_CONV(RAND_CONV(REWR_CONV def)) THENC
-            eval) THENC
-          numLib.REDUCE_CONV) THENC
-        REWR_CONV LET_THM THENC BETA_CONV THENC
-        PATH_CONV"lrraar"(REWR_CONV T_AND) THENC
+        let_CONV THENC
         RAND_CONV rec_conv THENC
-        REWR_CONV LET_THM THENC PAIRED_BETA_CONV))
+        let_CONV THENC
+        RAND_CONV(REWR_CONV T_AND)))
     end
 
-val () = Lib.say "enc_secs_again: "
 val enc_secs_again_thm =
-  tm13 |> time (
+  tm13 |> timez "enc_secs_again" (
     RAND_CONV(REWR_CONV encoded_prog_thm) THENC
-    enc_secs_again_conv 0 (List.rev encoded_prog_defs))
+    enc_secs_again_conv
+      "enc_again_"
+      (* (enc_lines_again_conv computed_labs_def) *)
+      (PATH_CONV "lllllr" (REWR_CONV computed_labs_def) THENC eval)
+      0
+      (List.rev encoded_prog_defs))
 
-val COND_T = COND_CLAUSES |> SPEC_ALL |> CONJUNCT1
+(*
+val encoded_prog_thm_prefix =
+  let
+    val (car,cdr) = dest_comb (concl encoded_prog_thm)
+    val (ls,ty) = listSyntax.dest_list cdr
+    val ls' = List.take(ls,10)
+  in mk_thm([],mk_comb(car,listSyntax.mk_list(ls',ty))) end
+val encoded_prog_defs_prefix =
+  List.take(List.rev encoded_prog_defs,10)
+
+(* rule using exceptions *)
+val enc_secs_again_thm =
+  tm13 |> timez "enc_secs_again" (
+    RAND_CONV(REWR_CONV encoded_prog_thm_prefix) THENC
+    enc_secs_again_conv
+      "enc_again_" (enc_lines_again_conv computed_labs_def) 0
+      encoded_prog_defs_prefix)
+2m15s
+
+(* custom conv *)
+val enc_secs_again_thm =
+  tm13 |> timez "enc_secs_again" (
+    RAND_CONV(REWR_CONV encoded_prog_thm_prefix) THENC
+    enc_secs_again_conv
+      "enc_again_" (enc_lines_again_conv computed_labs_def) 0
+      encoded_prog_defs_prefix)
+2m17s
+
+(* custom conv with IFC *)
+val enc_secs_again_thm =
+  tm13 |> timez "enc_secs_again" (
+    RAND_CONV(REWR_CONV encoded_prog_thm_prefix) THENC
+    enc_secs_again_conv
+      "enc_again_" (enc_lines_again_conv computed_labs_def) 0
+      encoded_prog_defs_prefix)
+2m18s
+
+val enc_secs_again_thm =
+  tm13 |> timez "enc_secs_again" (
+    RAND_CONV(REWR_CONV encoded_prog_thm_prefix) THENC
+    enc_secs_again_conv
+      "enc_again_"
+      (PATH_CONV "llllr" (REWR_CONV computed_labs_def) THENC eval)
+      0
+      encoded_prog_defs_prefix)
+14.4s
+
+val (dth::dths) = encoded_prog_defs_prefix
+val tm = tm13 |> RAND_CONV(REWR_CONV encoded_prog_thm_prefix) |> rconc
+val th1 = tm |> (REWR_CONV esc THENC (RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV dth)))))
+val tm = th1 |> rconc |> rand
+
+val test1 =
+  time (PATH_CONV "llllr" (REWR_CONV computed_labs_def) THENC eval) tm
+1.1s
+
+val th = REFL tm
+
+(* rule with exceptions *)
+val test2 =
+  time (enc_lines_again_conv computed_labs_def) tm
+17.1s
+val check = rconc test1 = rconc test2
+
+(* custom conv with IFC *)
+val test3 =
+  time (enc_lines_again_conv computed_labs_def) tm
+30.6s
+val check = rconc test1 = rconc test3
+
+(* custom conv with IFC and delayed leaves *)
+val test4 =
+  time (enc_lines_again_conv computed_labs_def) tm
+31.3s
+val check = rconc test1 = rconc test4
+
+(* custom conv with labs expanded *)
+val test5 =
+  time (PATH_CONV "llllr" (REWR_CONV computed_labs_def) THENC enc_lines_again_conv) tm
+21.2s
+val check = rconc test1 = rconc test5
+
+(* custom conv with labs expanded using COND_CONV *)
+val test6 =
+  time (PATH_CONV "llllr" (REWR_CONV computed_labs_def) THENC enc_lines_again_conv) tm
+19.4s
+val check = rconc test1 = rconc test6
+
+(* custom conv with labs expanded using COND_CONV and deferring all computations *)
+val test7 =
+  time (PATH_CONV "llllr" (REWR_CONV computed_labs_def) THENC enc_lines_again_conv) tm
+19.6s
+val check = rconc test1 = rconc test7
+
+*)
+
+(*
+  drop 2000 take 5 = 3.8s
+  drop 2000 take 10 = 3.9s
+  drop 2000 take 20 = 4.5s
+  drop 2000 take 40 = 8.0s
+*)
 
 val lab_to_target_thm4 =
   lab_to_target_thm3
@@ -327,16 +556,31 @@ val enc_again_defs =
 
 val (uln,ulc) = lab_to_targetTheory.upd_lab_len_def |> spec64 |> CONJ_PAIR
 
+val [lul1,lul2,lul3,lul4] = CONJUNCTS lab_to_targetTheory.lines_upd_lab_len_def;
+
+val add_pos_conv = PATH_CONV "llr" numLib.REDUCE_CONV
+
+fun lines_upd_lab_len_rule th =
+  CONV_RULE(RAND_CONV (REWR_CONV lul1 THENC RATOR_CONV(RAND_CONV eval))) th
+  handle HOL_ERR _ =>
+  let
+    val th =
+    CONV_RULE(RAND_CONV (REWR_CONV lul2 THENC
+      RAND_CONV eval THENC REWR_CONV LET_THM THENC BETA_CONV THENC
+      add_pos_conv)) th
+    handle HOL_ERR _ =>
+    CONV_RULE(RAND_CONV (REWR_CONV lul3 THENC add_pos_conv)) th
+    handle HOL_ERR _ =>
+    CONV_RULE(RAND_CONV (REWR_CONV lul4 THENC add_pos_conv)) th
+  in lines_upd_lab_len_rule th end
+
+val lines_upd_lab_len_conv = lines_upd_lab_len_rule o REFL
+
 (*
 val tm = tm14
 val (dth::_) = enc_again_defs
 val n = 0
 *)
-
-fun eval_fn n tm =
-  let
-    (*val () = Lib.say(String.concat["upd_lab_len ",Int.toString n,": "])*)
-  in (*time*) eval tm end
 
 fun upd_lab_len_conv _ [] tm = REWR_CONV uln tm
   | upd_lab_len_conv n (dth::dths) tm =
@@ -346,26 +590,19 @@ fun upd_lab_len_conv _ [] tm = REWR_CONV uln tm
           REWR_CONV ulc THENC
           RAND_CONV(
             RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
-            eval_fn n))
-      val def = mk_def ("upd_lab_"^(Int.toString n)) (rand(rconc th1))
+            lines_upd_lab_len_conv))
+      val def = mk_def ("upd_lab_"^(Int.toString n)) (rand(rator(rand(rconc th1))))
     in
       th1 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(REWR_CONV(SYM def)) THENC
-        REWR_CONV LET_THM THENC BETA_CONV THENC
-        RAND_CONV(
-          RAND_CONV(
-            RATOR_CONV(RAND_CONV(REWR_CONV def)) THENC
-            eval) THENC
-          numLib.REDUCE_CONV) THENC
-        REWR_CONV LET_THM THENC BETA_CONV THENC
+        RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
+        REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
         REWR_CONV LET_THM THENC
         RAND_CONV(upd_lab_len_conv (n+1) dths) THENC
         BETA_CONV))
     end
 
-val () = Lib.say "upd_lab_len: "
 val upd_lab_len_thm =
-  tm14 |> time (upd_lab_len_conv 0 enc_again_defs)
+  tm14 |> timez "upd_lab_len" (upd_lab_len_conv 0 enc_again_defs)
 
 val lab_to_target_thm5 =
   lab_to_target_thm4
@@ -380,51 +617,8 @@ val tm15 =
 val upd_lab_defs =
   for 0 (num_enc-1) (fn i => definition(mk_def_name("upd_lab_"^(Int.toString i))))
 
-fun eval_fn i n dth =
-  let
-    val () = say_str "sec_length2" i n
-    val ltm = dth |> concl |> lhs
-    val tm = list_mk_comb(sec_length_tm,ltm::targs)
-  in (RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
-      (*time*) eval) tm end
-
-val () = Lib.say "sec_length2: "
-val sec_lengths2 = time (parlist num_threads chunk_size eval_fn) upd_lab_defs;
-
-(* TODO:
-  the previous compute_labels_alt thing could be this instead, if encoded_progs
-  were defined differently (define the lines rather than the whole Sections *)
-
-val (cln,clc) =
-  lab_to_targetTheory.compute_labels_alt_def |> spec64 |> CONJ_PAIR
-
-fun eval_fn str n tm =
-  let
-    (*val () = Lib.say(String.concat[str," ",Int.toString n,": "])*)
-  in (*time*) eval tm end
-
-fun compute_labels_alt_conv _ _ [] [] tm = REWR_CONV cln tm
-  | compute_labels_alt_conv str n (dth::dths) (sth::sths) tm =
-    tm |>
-    (REWR_CONV clc THENC
-     REWR_CONV LET_THM THENC
-     RAND_CONV (REWR_CONV sth) THENC
-     BETA_CONV THENC
-     RAND_CONV(RATOR_CONV(RAND_CONV numLib.REDUCE_CONV)) THENC
-     PATH_CONV"lrarlr"(REWR_CONV dth) THENC
-     REWR_CONV LET_THM THENC
-     RAND_CONV (compute_labels_alt_conv str (n+1) dths sths) THENC
-     BETA_CONV THENC eval_fn str n)
-
-(*
-val tm = tm15
-val (dth::_) = upd_lab_defs
-val (sth::_) = List.rev sec_lengths2
-*)
-
-val () = Lib.say"compute_labels2: "
 val compute_labels_thm2 =
-  tm15 |> time (compute_labels_alt_conv "compute_labels2" 0 upd_lab_defs (List.rev sec_lengths2))
+  tm15 |> timez "compute_labels2" (compute_labels_alt_rule upd_lab_defs o REFL)
 
 val computed_labs2_def = mk_def"computed_labs2"(compute_labels_thm2 |> rconc)
 val compute_labels_thm2' =
@@ -438,47 +632,16 @@ val lab_to_target_thm6 =
          RAND_CONV (REWR_CONV compute_labels_thm2') THENC
          REWR_CONV LET_THM THENC BETA_CONV)))
 
-(* similar to compute_labels_alt_conv, could be reused if encoded_progs were
-   abbreviated differently *)
-
-fun eval_fn n tm =
-  let
-    (*val () = Lib.say(String.concat["enc_secs_again2 ",Int.toString n,": "])*)
-  in (*time*) eval tm end
-
-fun enc_secs_again_conv n [] tm = REWR_CONV esn tm
-  | enc_secs_again_conv n (dth::dths) tm =
-    let
-      val th1 = tm |>
-       (REWR_CONV esc THENC
-        RAND_CONV(
-          PATH_CONV"llllr"(REWR_CONV computed_labs2_def) THENC
-          PATH_CONV"lr"(REWR_CONV dth) THENC
-          eval_fn n))
-      val def = mk_def("enc_again2_"^Int.toString n)
-                  (th1 |> rconc |> rand |> rator |> rand)
-      val rec_conv = enc_secs_again_conv (n+1) dths
-    in
-      th1 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
-        REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
-        RAND_CONV(
-          RAND_CONV (
-            RATOR_CONV(RAND_CONV(REWR_CONV def)) THENC
-            eval) THENC
-          numLib.REDUCE_CONV) THENC
-        REWR_CONV LET_THM THENC BETA_CONV THENC
-        PATH_CONV"lrraar"(REWR_CONV T_AND) THENC
-        RAND_CONV rec_conv THENC
-        REWR_CONV LET_THM THENC PAIRED_BETA_CONV))
-    end
-
 val tm16 =
   lab_to_target_thm6 |> rconc |> funpow 2 rator |> funpow 2 rand
 
-val () = Lib.say"enc_secs_again2: "
 val enc_secs_again_thm2 =
-  tm16 |> time (enc_secs_again_conv 0 upd_lab_defs)
+  tm16 |> timez "enc_secs_again2" (enc_secs_again_conv
+    "enc_again2_"
+    (*(enc_lines_again_conv computed_labs2_def)*)
+    (PATH_CONV "lllllr" (REWR_CONV computed_labs2_def) THENC eval)
+    0
+    upd_lab_defs)
 
 val lab_to_target_thm7 =
   lab_to_target_thm6 |> CONV_RULE(RAND_CONV(
@@ -516,10 +679,10 @@ fun eval_fn i n (dth, p) =
     val tm = mk_comb(pad_section_tm,p)
     val conv =
       BETA_CONV THENC
-      RATOR_CONV(RAND_CONV(REWR_CONV Section_num_def)) THENC
+      RATOR_CONV(RAND_CONV(REWR_CONV labLangTheory.Section_num_def)) THENC
       RAND_CONV(
         RATOR_CONV(RAND_CONV(
-          REWR_CONV Section_lines_def THENC
+          REWR_CONV labLangTheory.Section_lines_def THENC
           REWR_CONV dth)) THENC
         (*time*) eval)
   in conv tm end
@@ -527,9 +690,8 @@ fun eval_fn i n (dth, p) =
 val enc_again2_els =
   tm17 |> rand |> listSyntax.dest_list |> #1
 
-val () = Lib.say"pad_section: "
 val pad_code_thms =
-  time (parlist num_threads chunk_size eval_fn)
+  time_with_size thms_size "pad_section" (parlist num_threads chunk_size eval_fn)
     (zip enc_again2_defs enc_again2_els);
 
 val pad_code_defs =
@@ -624,12 +786,10 @@ fun eval_fn i n (p,d) =
 
 val pad_code_els_defs = zip padded_code_els pad_code_defs;
 
-val () = Lib.say"sec_ok: "
-val secs_ok = time (parlist num_threads chunk_size eval_fn) pad_code_els_defs;
+val secs_ok = time_with_size thms_size "sec_ok (par)" (parlist num_threads chunk_size eval_fn) pad_code_els_defs;
 
-val () = Lib.say"all_secs_ok: "
 val all_secs_ok =
-  time (listLib.join_EVERY sec_ok_light_tm)
+  time_with_size (term_size o concl) "all_secs_ok" (listLib.join_EVERY sec_ok_light_tm)
     (rev_itlist (cons o EQT_ELIM) secs_ok [])
 
 (*
@@ -683,14 +843,13 @@ fun eval_fn i n (p,dth) =
     val conv =
       (REWR_CONV o_THM THENC
        RAND_CONV(REWR_CONV o_THM) THENC
-       RAND_CONV(RAND_CONV(REWR_CONV Section_lines_def)) THENC
+       RAND_CONV(RAND_CONV(REWR_CONV labLangTheory.Section_lines_def)) THENC
        RAND_CONV(RAND_CONV(REWR_CONV dth)) THENC
        (*time*) eval)
     in conv tm end
 
-val () = Lib.say"prog_to_bytes: "
 val line_bytes =
-  time (parlist num_threads chunk_size eval_fn) (zip padded_code_els pad_code_defs);
+  time_with_size thms_size "prog_to_bytes (par)" (parlist num_threads chunk_size eval_fn) (zip padded_code_els pad_code_defs);
 
 val map_line_bytes =
   tm19 |>
@@ -712,7 +871,7 @@ fun app_conv _ [] tm = raise UNCHANGED
     let
       val th = FORK_CONV(REWR_CONV dth, app_conv (n+1) dths) tm
       val def = mk_def ("all_bytes_"^(Int.toString n)) (rand(rconc th))
-      val () = Lib.say (str n)
+      (* val () = Lib.say (str n) *)
     in
       CONV_RULE(RAND_CONV
         (RAND_CONV(REWR_CONV(SYM def)) THENC listLib.APPEND_CONV))
@@ -722,13 +881,11 @@ end
 
 (* 36 minutes. is there a faster way? *)
 
-val () = Lib.say"flat_bytes: "
-
 val flat_bytes =
   listSyntax.mk_flat(rconc map_line_bytes')
   |> (REWR_CONV FLAT_FOLDR
       THENC listLib.FOLDR_CONV (QCONV ALL_CONV) THENC
-      time (app_conv 0 (List.rev bytes_defs)));
+      timez "flat_bytes" (app_conv 0 (List.rev bytes_defs)));
 
 fun expand_defs_conv [] tm = raise UNCHANGED
   | expand_defs_conv (dth::dths) tm =
@@ -741,9 +898,8 @@ val all_bytes_defs =
 
 (* also quite slow, 32 mins *)
 
-val () = Lib.say"expand_defs: "
 val flat_bytes' =
-  flat_bytes |> time (CONV_RULE(RAND_CONV(expand_defs_conv all_bytes_defs)));
+  flat_bytes |> timez "expand_defs" (CONV_RULE(RAND_CONV(expand_defs_conv all_bytes_defs)));
 
 val bootstrap_thm = save_thm("bootstrap_thm",
   lab_to_target_thm
@@ -760,7 +916,7 @@ val stack_mb = 1000
 val heap_mb = 1000
 val filename = "cake.S"
 
-val (bytes_tm,ffi_limit_tm) =
+val (bytes_tm,ffi_names_tm) =
   bootstrap_thm |> rconc
   |> optionSyntax.dest_some
   |> pairSyntax.dest_pair
@@ -769,7 +925,7 @@ val () = Lib.say"Writing output: "
 
 val () = time (
   x64_exportLib.write_cake_S stack_mb heap_mb
-    (numSyntax.int_of_term ffi_limit_tm)
+    (map stringSyntax.fromHOLstring (#1 (listSyntax.dest_list ffi_names_tm)))
     bytes_tm ) filename
 
 val _ = export_theory();

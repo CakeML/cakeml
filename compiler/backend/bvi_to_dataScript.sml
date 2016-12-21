@@ -11,6 +11,11 @@ val op_space_reset_def = Define `
   (op_space_reset Mult = T) /\
   (op_space_reset Div = T) /\
   (op_space_reset Mod = T) /\
+  (op_space_reset Less = T) /\
+  (op_space_reset LessEq = T) /\
+  (op_space_reset Greater = T) /\
+  (op_space_reset GreaterEq = T) /\
+  (op_space_reset Equal = T) /\
   (op_space_reset (FromList _) = T) /\
   (op_space_reset RefArray = T) /\
   (op_space_reset RefByte = T) /\
@@ -19,15 +24,21 @@ val op_space_reset_def = Define `
 val op_requires_names_def = Define`
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n))`;
 
-val op_requires_names_eqn = store_thm("op_requires_names_eqn",
-  ``∀op. op_requires_names op =
-    (op_space_reset op ∨ (case op of FFI n => T | _ => F))``,
+val op_requires_names_eqn = Q.store_thm("op_requires_names_eqn",
+  `∀op. op_requires_names op =
+    (op_space_reset op ∨ (case op of FFI n => T | _ => F))`,
     Cases>>fs[op_requires_names_def])
 
 val iAssign_def = Define `
   iAssign n1 op vs live env =
     if op_requires_names op then
-      Assign n1 op vs (SOME (list_to_num_set (vs++live++env)))
+      let xs = SOME (list_to_num_set (vs++live++env)) in
+        if op = Greater then
+          Assign n1 Less (REVERSE vs) xs
+        else if op = GreaterEq then
+          Assign n1 LessEq (REVERSE vs) xs
+        else
+          Assign n1 op vs xs
     else
       let k = op_space_req op (LENGTH vs) in
         if k = 0 then Assign n1 op vs NONE
@@ -84,34 +95,34 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-val compile_LESS_EQ_lemma = prove(
-  ``!n env tail live xs.
-      n <= SND (SND (compile n env tail live xs))``,
+val compile_LESS_EQ_lemma = Q.prove(
+  `!n env tail live xs.
+      n <= SND (SND (compile n env tail live xs))`,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_LESS_EQ = store_thm("compile_LESS_EQ",
-  ``!n env tail live xs c vs new_var.
-      (compile n env tail live xs = (c,vs,new_var)) ==> n <= new_var``,
+val compile_LESS_EQ = Q.store_thm("compile_LESS_EQ",
+  `!n env tail live xs c vs new_var.
+      (compile n env tail live xs = (c,vs,new_var)) ==> n <= new_var`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LESS_EQ_lemma)
   \\ FULL_SIMP_TAC std_ss []);
 
-val compile_LENGTH_lemma = prove(
-  ``!n env tail live xs.
-      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)``,
+val compile_LENGTH_lemma = Q.prove(
+  `!n env tail live xs.
+      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)`,
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []);
 
-val compile_LENGTH = store_thm("compile_LENGTH",
-  ``!n env tail live xs c vs new_var.
-      (compile n env tail live xs = (c,vs,new_var)) ==> (LENGTH vs = LENGTH xs)``,
+val compile_LENGTH = Q.store_thm("compile_LENGTH",
+  `!n env tail live xs c vs new_var.
+      (compile n env tail live xs = (c,vs,new_var)) ==> (LENGTH vs = LENGTH xs)`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LENGTH_lemma)
   \\ FULL_SIMP_TAC std_ss []);
 
-val compile_SING_IMP = store_thm("compile_SING_IMP",
-  ``(compile n env tail live [x] = (c,vs,new_var)) ==> ?t. vs = [t]``,
+val compile_SING_IMP = Q.store_thm("compile_SING_IMP",
+  `(compile n env tail live [x] = (c,vs,new_var)) ==> ?t. vs = [t]`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);

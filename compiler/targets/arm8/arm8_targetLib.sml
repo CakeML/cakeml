@@ -9,7 +9,9 @@ val ERR = Feedback.mk_HOL_ERR "arm8_targetLib"
 
 fun arm_type s = Type.mk_thy_type {Thy = "arm8", Tyop = s, Args = []}
 
-val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
+val arm8_ast = REWRITE_RULE [bop_enc_def, astTheory.shift_distinct] arm8_ast_def
+val arm8_enc =
+  SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM arm8_enc_def `x`)
 
 val es =
   computeLib.Extenders
@@ -27,7 +29,7 @@ in
      (ERR "arm8_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
-       [arm8_enc, arm8_encode_def, bop_enc_def, cmp_cond_def,
+       [arm8_enc, arm8_ast, arm8_encode_def, bop_enc_def, cmp_cond_def,
         arm8_enc_mov_imm_def, CountTrailing_def, EncodeBitMaskAux_def,
         EncodeBitMask_def, Encode_def, e_data_def, e_branch_def,
         e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,

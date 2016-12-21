@@ -82,22 +82,22 @@ val lem7 = Q.prove(
 
 val lem8 =
    blastLib.BBLAST_PROVE
-     ``w2w (b7: word8) ||
+    ``(w2w (b7: word8) ||
        w2w (b0: word8) << 56 ||
        w2w (b1: word8) << 48 ||
        w2w (b3: word8) << 32 ||
        w2w (b5: word8) << 16 ||
        w2w (b2: word8) << 40 ||
        w2w (b4: word8) << 24 ||
-       w2w (b6: word8) << 8 =
+       w2w (b6: word8) << 8) =
        b0 @@ b1 @@ b2 @@ b3 @@ b4 @@ b5 @@ b6 @@ b7``
 
 val lem9 =
    blastLib.BBLAST_PROVE
-     ``w2w (b3: word8) ||
+    ``(w2w (b3: word8) ||
        w2w (b0: word8) << 24 ||
        w2w (b1: word8) << 16 ||
-       w2w (b2: word8) << 8 =
+       w2w (b2: word8) << 8) =
        w2w (b0 @@ b1 @@ b2 @@ b3) : word64``
 
 val lem10 =
@@ -112,14 +112,14 @@ val lem10 =
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
 
 val adc_lem1 = Q.prove(
-  `((if b then 1w else 0w) = v2w [x] || v2w [y] : word64) = (b = x \/ y)`,
+  `((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))`,
   rw [] \\ blastLib.BBLAST_TAC)
 
 val adc_lem2 = Q.prove(
   `!r2 : word64 r3 : word64.
-    (18446744073709551616 <= w2n r2 + w2n r3 + 1 =
+    (18446744073709551616 <= w2n r2 + w2n r3 + 1 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
-    (18446744073709551616 <= w2n r2 + w2n r3 =
+    (18446744073709551616 <= w2n r2 + w2n r3 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
    Cases
    \\ Cases
@@ -142,14 +142,30 @@ val mul_long2 = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val mips_overflow =
+  REWRITE_RULE
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x = word_msb y) /\ (word_msb x <> word_msb (x + y))) =
+         ((~(x ?? y) && (y ?? (x + y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.overflow)
+
+val mips_sub_overflow =
+  SIMP_RULE (srw_ss())
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x <> word_msb y) /\ (word_msb x <> word_msb (x - y))) =
+         (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
    let
       open mipsTheory
    in
-      [mips_enc_def, encs_def, mips_encode_def, mips_bop_r_def, mips_bop_i_def,
-       mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
+      [mips_enc_def, mips_ast_def, mips_encode_def, mips_bop_r_def,
+       mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
        Encode_def, form1_def, form2_def, form3_def, form4_def, form5_def]
    end
 
@@ -264,7 +280,7 @@ fun state_tac asm =
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
          rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2,
-             GSYM wordsTheory.word_mul_def,
+             GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
              DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
          \\ (if asmLib.isMem asm then
               rw [boolTheory.FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM]
@@ -325,19 +341,23 @@ end
 
 val length_mips_encode = Q.prove(
   `!i. LENGTH (mips_encode i) = 4`,
-  rw [mips_encode_def]
+  rw [mips_encode_def])
+
+val length_mips_enc = Q.prove(
+  `!l. LENGTH (LIST_BIND l mips_encode) = 4 * LENGTH l`,
+  Induct \\ rw [length_mips_encode]
   )
 
 val mips_encoding = Q.prove (
    `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [encs_def, mips_enc_def, mips_cmp_def, mips_encode_fail_def,
-            length_mips_encode]
+   \\ simp [mips_enc_def, mips_cmp_def, mips_encode_fail_def,
+            length_mips_encode, length_mips_enc, mips_ast_def]
    \\ REPEAT CASE_TAC
    \\ rw [length_mips_encode]
    )
-   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
+   |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [mips_enc_def]
 
 val mips_target_ok = Q.prove (
    `target_ok mips_target`,
@@ -403,7 +423,10 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
               --------------*)
             print_tac "Binop"
             \\ Cases_on `r`
-            \\ Cases_on `b`
+            >| [Cases_on `b`,
+                Cases_on `(b = Xor) /\ (c = -1w)`
+                >| [all_tac,
+                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []]]
             \\ next_tac
             )
          >- (
@@ -436,14 +459,36 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
             print_tac "LongMul"
             \\ next_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ qabbrev_tac `r2 = ms.gpr (n2w n0)`
             \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
             \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
             \\ next_tac
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ qabbrev_tac `r2 = ms.gpr (n2w n0)`
+            \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
+            \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ qabbrev_tac `r2 = ms.gpr (n2w n0)`
+            \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
+            \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
+            \\ next_tac
+            )
          )
          (*--------------
              Mem
@@ -471,7 +516,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
          Cases_on `ms.gpr (n2w n) = ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) < ms.gpr (n2w n')`,
-         Cases_on `ms.gpr (n2w n) && ms.gpr (n2w n') = 0w`,
+         Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) = 0w`,
          Cases_on `ms.gpr (n2w n) <> ms.gpr (n2w n')`,
          Cases_on `~(ms.gpr (n2w n) <+ ms.gpr (n2w n'))`,
          Cases_on `~(ms.gpr (n2w n) < ms.gpr (n2w n'))`,
@@ -479,7 +524,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
          Cases_on `ms.gpr (n2w n) = c'`,
          Cases_on `ms.gpr (n2w n) <+ c'`,
          Cases_on `ms.gpr (n2w n) < c'`,
-         Cases_on `ms.gpr (n2w n) && c' = 0w`,
+         Cases_on `(ms.gpr (n2w n) && c') = 0w`,
          Cases_on `ms.gpr (n2w n) <> c'`,
          Cases_on `~(ms.gpr (n2w n) <+ c')`,
          Cases_on `~(ms.gpr (n2w n) < c')`,

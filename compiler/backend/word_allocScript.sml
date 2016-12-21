@@ -20,7 +20,7 @@ val apply_nummap_key_def = Define`
   fromAList (MAP (λx,y.f x,y) (toAList names))`
 
 val option_lookup_def = Define`
-  option_lookup t v = case lookup v t of NONE => v | SOME x => x`
+  option_lookup t v = case lookup v t of NONE => 0n | SOME x => x`
 
 val even_list_def = Define `
   (even_list = GENLIST (\x.2*x))`
@@ -110,6 +110,11 @@ val ssa_cc_trans_inst_def = Define`
     let r2' = option_lookup ssa r2 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
       (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    (Inst (Arith (Div r1' r2' r3')),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
@@ -119,23 +124,42 @@ val ssa_cc_trans_inst_def = Define`
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move 0 [(r4'',0)] in
       (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
+  (* Note: for AddOverflow and SubOverflow, setting r4 to 0 is not necessary
+     However, this helps with word_to_stack which currently only spills
+     one register on writes
+  *)
+  (ssa_cc_trans_inst (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    (* TODO: This might need to be made a strong preference *)
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
+    let mov_out = Move 0 [(r4'',0)] in
+      (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
+    let mov_out = Move 0 [(r4'',0)] in
+      (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
-    let mov_in = Move 0 [(0,r3')] in
-    let (r2',ssa',na') = next_var_rename r2 ssa na in
-    let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',2)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 2 0 0 r4'))) mov_out),ssa'',na'')) ∧
+    let mov_in = Move 0 [(0,r3');(4,r4')] in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
+    let mov_out = Move 0 [(r2',0);(r1',8)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 8 0 0 4))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(0,r3');(2,r4')] in
+    let mov_in = Move 0 [(0,r3');(8,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',2);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 2 0 2 r5'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',8);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 0 8 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -159,7 +183,7 @@ val ssa_cc_trans_inst_def = Define`
   so it doesn't need the other parts *)
 val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
   (ssa_cc_trans_exp t (Var num) =
-    Var (case lookup num t of NONE => num | SOME x => x)) ∧
+    Var (option_lookup t num)) ∧
   (ssa_cc_trans_exp t (Load exp) = Load (ssa_cc_trans_exp t exp)) ∧
   (ssa_cc_trans_exp t (Op wop ls) =
     Op wop (MAP (ssa_cc_trans_exp t) ls)) ∧
@@ -207,9 +231,9 @@ val ssa_cc_trans_def = Define`
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
     let (s2',ssa'',na'') = ssa_cc_trans s2 ssa' na' in
       (Seq s1' s2',ssa'',na'')) ∧
-  (ssa_cc_trans (MustTerminate n s1) ssa na =
+  (ssa_cc_trans (MustTerminate s1) ssa na =
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
-      (MustTerminate n s1',ssa',na')) ∧
+      (MustTerminate s1',ssa',na')) ∧
   (*Tricky case 1: we need to merge the ssa results from both branches by
     unSSA-ing the phi functions
   *)
@@ -283,7 +307,7 @@ val ssa_cc_trans_def = Define`
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
-    let names = MAP (option_lookup ssa') args in
+    let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*(x+1)) (LENGTH names) in
     let move_args = (Move 0 (ZIP (conv_args,names))) in
     let ssa_cut = inter ssa' numset in
@@ -343,8 +367,14 @@ val apply_colour_inst_def = Define`
     Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧
   (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
     Arith (Shift shift (f r1) (f r2) n)) ∧
+  (apply_colour_inst f (Arith (Div r1 r2 r3)) =
+    Arith (Div (f r1) (f r2) (f r3))) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
     Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (AddOverflow r1 r2 r3 r4)) =
+    Arith (AddOverflow (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (SubOverflow r1 r2 r3 r4)) =
+    Arith (SubOverflow (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
     Arith (LongMul (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongDiv r1 r2 r3 r4 r5)) =
@@ -376,7 +406,7 @@ val apply_colour_def = Define `
                      | SOME (v,prog,l1,l2) => SOME (f v, apply_colour f prog,l1,l2) in
       Call ret dest args h) ∧
   (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧
-  (apply_colour f (MustTerminate n s1) = MustTerminate n (apply_colour f s1)) ∧
+  (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (FFI ffi_index ptr len numset) =
@@ -402,7 +432,10 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
+  (get_writes_inst (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (SubOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
@@ -419,9 +452,15 @@ val get_live_inst_def = Define`
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 n)) live =
     insert r2 () (delete r1 live)) ∧
+  (get_live_inst (Arith (Div r1 r2 r3)) live =
+    (insert r3 () (insert r2 () (delete r1 live)))) ∧
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
+  (get_live_inst (Arith (AddOverflow r1 r2 r3 r4)) live =
+    insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
+  (get_live_inst (Arith (SubOverflow r1 r2 r3 r4)) live =
+    insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
   (get_live_inst (Arith (LongMul r1 r2 r3 r4)) live =
     insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
   (get_live_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
@@ -474,7 +513,7 @@ val get_live_def = Define`
   (*Find liveset just before s2 which is the input liveset to s1*)
   (get_live (Seq s1 s2) live =
     get_live s1 (get_live s2 live)) ∧
-  (get_live (MustTerminate n s1) live =
+  (get_live (MustTerminate s1) live =
     get_live s1 live) ∧
   (*First case where branching appears:
     We get the livesets for e2 and e3, union them, add the if variable
@@ -509,7 +548,12 @@ val remove_dead_inst_def = Define`
   (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
   (remove_dead_inst (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst (Arith (Div r1 r2 r3)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst (Arith (AddOverflow r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst (Arith (SubOverflow r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst (Arith (LongMul r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
@@ -556,12 +600,12 @@ val remove_dead_def = Define`
         if s2 = Skip then s1
         else Seq s1 s2
     in (prog,s1live)) ∧
-  (remove_dead (MustTerminate n s1) live =
+  (remove_dead (MustTerminate s1) live =
     (* This can technically be optimized away if it was a Skip,
        but we should never use MustTerminate to wrap completely dead code
     *)
     let (s1,s1live) = remove_dead s1 live in
-      (MustTerminate n s1,s1live)) ∧
+      (MustTerminate s1,s1live)) ∧
   (remove_dead (If cmp r1 ri e2 e3) live =
     let (e2,e2_live) = remove_dead e2 live in
     let (e3,e3_live) = remove_dead e3 live in
@@ -601,7 +645,7 @@ val get_clash_sets_def = Define`
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
       (hd',(ls' ++ ls))) ∧
-  (get_clash_sets (MustTerminate n s1) live =
+  (get_clash_sets (MustTerminate s1) live =
      get_clash_sets s1 live) ∧
   (get_clash_sets (If cmp r1 ri e2 e3) live =
     let (h2,ls2) = get_clash_sets e2 live in
@@ -638,7 +682,10 @@ val get_delta_inst_def = Define`
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
+  (get_delta_inst (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
+  (get_delta_inst (Arith (SubOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
   (get_delta_inst (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
   (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
@@ -675,7 +722,7 @@ val get_clash_tree_def = Define`
     case ri of
       Reg r2 => Seq (Delta [] [r1;r2]) (Branch NONE e2t e3t)
     | _      => Seq (Delta [] [r1]) (Branch NONE e2t e3t)) ∧
-  (get_clash_tree (MustTerminate n s) =
+  (get_clash_tree (MustTerminate s) =
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
@@ -706,7 +753,7 @@ val get_clash_tree_def = Define`
 (*Preference edges*)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
-  (get_prefs (MustTerminate n s1) acc =
+  (get_prefs (MustTerminate s1) acc =
     get_prefs s1 acc) ∧
   (get_prefs (Seq s1 s2) acc =
     get_prefs s1 (get_prefs s2 acc)) ∧
@@ -717,6 +764,50 @@ val get_prefs_def = Define`
       NONE => get_prefs ret_handler acc
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
+
+(* Forced edges for certain instructions
+  At the moment this really only ever occurs for AddCarry, AddOverflow, SubOverflow
+*)
+val get_forced_def = Define`
+  (get_forced c (Inst i) acc =
+    case i of
+      Arith (AddCarry r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          (if r1=r4 then [] else [(r1,r4)]) ++
+          acc
+       else acc
+    | Arith (AddOverflow r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          acc
+       else acc
+    | Arith (SubOverflow r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          acc
+       else acc
+    | Arith (LongMul r1 r2 r3 r4) =>
+       if (c.ISA = ARMv6) then
+         (if (r1=r2) then [] else [(r1,r2)]) ++ acc
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+         (if r1=r3 then [] else [(r1,r3)]) ++
+         (if r1=r4 then [] else [(r1,r4)]) ++
+         acc
+       else
+         acc
+    | _ => acc) ∧
+  (get_forced c (MustTerminate s1) acc =
+    get_forced c s1 acc) ∧
+  (get_forced c (Seq s1 s2) acc =
+    get_forced c s1 (get_forced c s2 acc)) ∧
+  (get_forced c (If cmp num rimm e2 e3) acc =
+    get_forced c e2 (get_forced c e3 acc)) ∧
+  (get_forced c (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
+    case h of
+      NONE => get_forced c ret_handler acc
+    | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
+  (get_forced c prog acc = acc)`
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`
@@ -731,7 +822,7 @@ val every_even_colour_def = Define`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
-  oracle_colour_ok k col_opt tree prog ⇔
+  oracle_colour_ok k col_opt tree prog ls ⇔
   case col_opt of
     NONE => NONE
   | SOME col =>
@@ -743,7 +834,8 @@ val oracle_colour_ok_def = Define`
        if
          (* Note: possibly avoid these checks and instead check the oracle domain directly *)
          every_var is_phy_var prog ∧
-         every_stack_var (λx. x ≥ 2*k) prog
+         every_stack_var (λx. x ≥ 2*k) prog ∧
+         EVERY (λ(x,y). (tcol x) ≠ (tcol y)) ls
        then
          SOME prog
        else
@@ -755,13 +847,15 @@ val oracle_colour_ok_def = Define`
   prog is the program to be colored
   col_opt is an optional oracle colour*)
 val word_alloc_def = Define`
-  word_alloc alg k prog col_opt =
+  word_alloc c alg k prog col_opt =
   let tree = get_clash_tree prog in
   let moves = get_prefs prog [] in
-  case oracle_colour_ok k col_opt tree prog of
+  let forced = get_forced c prog [] in
+  case oracle_colour_ok k col_opt tree prog forced of
     NONE =>
     let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-    let col = reg_alloc alg clash_graph k moves in
+    let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
+    let col = reg_alloc alg ext_graph k moves in
       apply_colour (total_colour col) prog
   | SOME col_prog =>
       col_prog`
@@ -770,7 +864,8 @@ val word_alloc_def = Define`
 val setup_ssa_def = Define`
   setup_ssa n lim (prog:'a wordLang$prog) =
   let args = even_list n in
-    list_next_var_rename_move LN lim (even_list n)`
+  let (new_ls,ssa',n') = list_next_var_rename args LN lim in
+    (Move 1 (ZIP(new_ls,args)),ssa',n')`
 
 val max3_def = Define`
   max3 (x:num) y z = if x > y then (if z > x then z else x)
@@ -796,7 +891,10 @@ val max_var_inst_def = Define`
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (SubOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
@@ -825,7 +923,7 @@ val max_var_def = Define `
       | SOME (v,prog,l1,l2) =>
         max3 v ret_max (max_var prog))) ∧
   (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
-  (max_var (MustTerminate n s1) = max_var s1) ∧
+  (max_var (MustTerminate s1) = max_var s1) ∧
   (max_var (If cmp r1 ri e2 e3) =
     let r = case ri of Reg r => MAX r r1 | _ => r1 in
       max3 r (max_var e2) (max_var e3)) ∧

@@ -141,8 +141,8 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    (dec_clock z).bitmaps = z.bitmaps`,
   EVAL_TAC);
 
-val evaluate_consts = store_thm("evaluate_consts",
-  ``!c s r s1.
+val evaluate_consts = Q.store_thm("evaluate_consts",
+  `!c s r s1.
       evaluate (c,s) = (r,s1) ==>
       s1.use_alloc = s.use_alloc /\
       s1.use_store = s.use_store /\
@@ -151,7 +151,7 @@ val evaluate_consts = store_thm("evaluate_consts",
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
       s1.mdomain = s.mdomain /\
-      s1.bitmaps = s.bitmaps``,
+      s1.bitmaps = s.bitmaps`,
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
@@ -310,9 +310,9 @@ val clock_neutral_def = Define `
   (clock_neutral (If _ _ _ p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
   (clock_neutral r <=> F)`
 
-val inst_clock_neutral = prove(
-  ``(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
-    (inst i s = NONE ==> inst i (s with clock := k) = NONE)``,
+val inst_clock_neutral = Q.prove(
+  `(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
+    (inst i s = NONE ==> inst i (s with clock := k) = NONE)`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
   \\ srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
@@ -320,9 +320,9 @@ val inst_clock_neutral = prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
   \\ srw_tac[][state_component_equality]);
 
-val inst_clock_neutral_ffi = prove(
-  ``(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
-    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)``,
+val inst_clock_neutral_ffi = Q.prove(
+  `(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
+    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality]>>
   reverse full_case_tac>>fs[]>>
   TRY
@@ -335,10 +335,10 @@ val inst_clock_neutral_ffi = prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
   \\ srw_tac[][state_component_equality]));
 
-val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
-  ``!prog s res t.
+val evaluate_clock_neutral = Q.store_thm("evaluate_clock_neutral",
+  `!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with clock := c) = (res,t with clock := c)``,
+      evaluate (prog,s with clock := c) = (res,t with clock := c)`,
   recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
@@ -348,10 +348,10 @@ val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
-val evaluate_ffi_neutral = store_thm("evaluate_ffi_neutral",
-  ``!prog s res t.
+val evaluate_ffi_neutral = Q.store_thm("evaluate_ffi_neutral",
+  `!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with ffi := c) = (res,t with ffi := c)``,
+      evaluate (prog,s with ffi := c) = (res,t with ffi := c)`,
   recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def])
@@ -361,8 +361,8 @@ val evaluate_ffi_neutral = store_thm("evaluate_ffi_neutral",
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
-val semantics_Terminate_IMP_PREFIX = store_thm("semantics_Terminate_IMP_PREFIX",
-  ``semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l``,
+val semantics_Terminate_IMP_PREFIX = Q.store_thm("semantics_Terminate_IMP_PREFIX",
+  `semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l`,
   full_simp_tac(srw_ss())[semantics_def,LET_DEF] \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]);
@@ -388,11 +388,11 @@ val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
             EVAL``(s with clock := k).clock``,
             EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
 
-val map_bitmap_length = store_thm("map_bitmap_length",``
+val map_bitmap_length = Q.store_thm("map_bitmap_length",`
   ∀a b c x y z.
   map_bitmap a b c = SOME(x,y,z) ⇒
   LENGTH c = LENGTH x + LENGTH z ∧
-  LENGTH x = LENGTH a``,
+  LENGTH x = LENGTH a`,
   Induct>>rw[]>>
   Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
   fs[map_bitmap_def]>>
@@ -402,10 +402,10 @@ val map_bitmap_length = store_thm("map_bitmap_length",``
   pop_assum mp_tac>>every_case_tac>>rw[]>>res_tac>>
   fs[]>>DECIDE_TAC);
 
-val dec_stack_length = store_thm("dec_stack_length",``
+val dec_stack_length = Q.store_thm("dec_stack_length",`
   ∀bs enc orig_stack new_stack.
   dec_stack bs enc orig_stack = SOME new_stack ⇒
-  LENGTH orig_stack = LENGTH new_stack``,
+  LENGTH orig_stack = LENGTH new_stack`,
   ho_match_mp_tac stackSemTheory.dec_stack_ind>>
   fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
   pop_assum mp_tac>>
@@ -433,13 +433,127 @@ val extract_labels_def = Define`
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
 
-val find_code_IMP_get_labels = store_thm("find_code_IMP_get_labels",
-  ``find_code d r code = SOME e ==>
-    get_labels e SUBSET loc_check code``,
+val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
+  `find_code d r code = SOME e ==>
+    get_labels e SUBSET loc_check code`,
   Cases_on `d`
   \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
          loc_check_def,FORALL_PROD]
   \\ every_case_tac \\ fs []
   \\ metis_tac []);
+
+(* asm_ok out of stack_names *)
+val stack_asm_ok_def = Define`
+  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
+  (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
+  (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
+  (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Call r tar h) ⇔
+    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_ok c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_ok c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_ok c _ ⇔  T)`
+
+val reg_name_def = Define`
+  reg_name r c ⇔
+  r < c.reg_count - LENGTH (c.avoid_regs)`
+
+(* inst requirements just before stack_names *)
+
+val reg_imm_name_def = Define`
+  (reg_imm_name b (Reg r) c ⇔ reg_name r c) ∧
+  (reg_imm_name b (Imm w) c ⇔ c.valid_imm b w)`
+
+val arith_name_def = Define`
+  (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
+    (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
+    reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
+  (arith_name (Shift l r1 r2 n) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
+  (arith_name (Div r1 r2 r3) c ⇔
+    (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
+    c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
+  (arith_name (LongMul r1 r2 r3 r4) c ⇔
+    reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = x86_64 ⇒ r1 = 4 ∧ r2 = 0 ∧ r3 = 0) ∧
+    (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
+  (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
+    reg_name r5 c) ∧
+  (arith_name (AddCarry r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
+  (arith_name (AddOverflow r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3)) ∧
+  (arith_name (SubOverflow r1 r2 r3 r4) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
+    reg_name r3 c ∧ reg_name r4 c ∧
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))`
+
+val addr_name_def = Define`
+  addr_name (Addr r w) c ⇔ reg_name r c ∧ addr_offset_ok w c`
+
+val inst_name_def = Define`
+  (inst_name c (Const r w) ⇔ reg_name r c) ∧
+  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name a c) ∧
+  (inst_name c (Arith x) ⇔ arith_name x c) ∧
+  (inst_name _ _ = T)`
+
+val stack_asm_name_def = Define`
+  (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
+  (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
+  (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
+  (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Call r tar h) ⇔
+    (case tar of INR r => reg_name r c | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_name c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_name c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_name c _ ⇔  T)`
+
+val fixed_names_def = Define`
+  fixed_names names c =
+  if c.ISA = x86_64 then
+    find_name names 4 = 2 ∧
+    find_name names 0 = 0
+  else T`
+
+val stack_asm_remove_def = Define`
+  (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StackLoad n n0) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackLoadAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
+  (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
+  (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
+  (stack_asm_remove c (Call r tar h) ⇔
+    (case r of
+      (SOME (p,_,_,_) => stack_asm_remove c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_remove c p'
+      | _ => T)
+    | _ => T)) ∧
+  (stack_asm_remove c _ ⇔  T)`
 
 val _ = export_theory();
