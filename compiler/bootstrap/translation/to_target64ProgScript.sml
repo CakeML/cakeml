@@ -143,7 +143,7 @@ val STACKLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
-            
+
             EqualityType_ASM_INST_TYPE]);
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
@@ -312,5 +312,7 @@ val _ = translate (spec64 compile_def)
 
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

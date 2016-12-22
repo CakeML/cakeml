@@ -113,6 +113,8 @@ fun remove_Eq_from_v_thm th = let
 
 (* new state *)
 
+val clean_on_exit = ref false;
+
 local
   val v_thms = ref ([] : (string (* name *) *
                           string (* ML name *) *
@@ -199,8 +201,9 @@ in
     val pack_vs = pack_list (pack_6tuple pack_string pack_string pack_term
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
+    val cleaner = if !clean_on_exit then ml_progLib.clean_state else I
     in pack_triple pack_vs pack_evals pack_ml_prog_state
-         (!v_thms,!eval_thms,ml_progLib.clean_state (!prog_state)) end
+         (!v_thms,!eval_thms, cleaner (!prog_state)) end
   fun unpack_v_thms th = let
     val unpack_vs = unpack_list (unpack_6tuple unpack_string unpack_string unpack_term
                                  unpack_thm unpack_thm (unpack_option unpack_string))

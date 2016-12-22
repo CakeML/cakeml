@@ -54,6 +54,7 @@ sig
     val use_full_type_names  : bool ref
     val add_preferred_thy    : string -> unit
     val find_def_for_const   : (term -> thm) ref
+    val clean_on_exit        : bool ref
 
     (* internals, for ml_hol_kernel *)
 
