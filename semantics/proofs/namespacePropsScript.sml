@@ -109,6 +109,12 @@ val nsMap_nsEmpty = Q.store_thm ("nsMap_nsEmpty[simp]",
   `!f. nsMap f nsEmpty = nsEmpty`,
  rw [nsMap_def, nsEmpty_def]);
 
+val nsBind_nsEmpty = Q.store_thm ("nsBind_nsEmpty[simp]",
+  `!x y env. nsBind x y env ≠ nsEmpty`,
+  rw [] >>
+  Cases_on `env` >>
+  rw [nsBind_def, nsEmpty_def]);
+
 (* ------------- Other simple automatic theorems --------- *)
 
 val alist_to_ns_cons = Q.store_thm ("alist_to_ns_cons[simp]",
@@ -177,6 +183,26 @@ val nsLookupMod_nsSing = Q.store_thm ("nsLookupMod_nsSing[simp]",
   rw [nsSing_def, nsLookupMod_def] >>
   Cases_on `n1` >>
   rw [nsLookupMod_def]);
+
+val nsBind_11 = Q.store_thm ("nsBind_11[simp]",
+  `!x y n x' y' n'. nsBind x y n = nsBind x' y' n' ⇔ x = x' ∧ y = y' ∧ n = n'`,
+  rw [] >>
+  Cases_on `n` >>
+  Cases_on `n'` >>
+  fs [nsBind_def] >>
+  metis_tac []);
+
+val nsDom_nsBind = Q.store_thm ("nsDom_nsBind[simp]",
+  `!x y n. nsDom (nsBind x y n) = Short x INSERT nsDom n`,
+  rw [] >>
+  Cases_on `n` >>
+  rw [nsBind_def, nsDom_def, EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+  eq_tac >>
+  rw [nsLookup_def] >>
+  rw [nsLookup_def] >>
+  Cases_on `x'` >>
+  fs [nsLookup_def] >>
+  metis_tac []);
 
 (* -------------- nsLookup ------------------ *)
 

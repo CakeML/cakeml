@@ -1,5 +1,5 @@
 open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
+open namespacePropsTheory semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
@@ -29,26 +29,24 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
                (Recclosure (env_c, env_v_local')
                  (compile_funs (nsBindList (MAP (λ(x,_). (x, Var_local x)) funs) var_map) funs)
                  x)) ∧
-               (*
   (* For top-level let recs *)
-  (!genv mods tops env funs x y e tops'.
-    set (MAP FST env.v) ⊆ FDOM tops ∧
-    global_env_inv genv mods tops env.m {} env.v ∧
-    MAP FST (REVERSE tops') = MAP FST funs ∧
-    find_recfun x funs = SOME (y,e) ∧
+  (!genv var_map env funs x y e new_vars.
+    global_env_inv genv var_map {} env.v ∧
+    find_recfun x funs = SOME (y, e) ∧
     (* A syntactic way of relating the recursive function environment, rather
      * than saying that they build v_rel related environments, which looks to
      * require step-indexing *)
     (!x. x ∈ set (MAP FST funs) ⇒
          ?n y e.
-           FLOOKUP (FEMPTY |++ tops') x = SOME n ∧
+           ALOOKUP new_vars x = SOME (Var_global n) ∧
            n < LENGTH genv ∧
            find_recfun x funs = SOME (y,e) ∧
-           EL n genv = SOME (Closure (env.c,[]) y (compile_exp mods ((tops |++ tops') \\ y) e)))
+           EL n genv = SOME (Closure (env.c,[]) y (compile_exp (nsBindList ((y, Var_local y)::new_vars) var_map) e)))
     ⇒
     v_rel genv (Recclosure env funs x)
-                 (Closure (env.c,[]) y (compile_exp mods ((tops |++ tops') \\ y) e))) ∧
-                 *)
+               (Closure (env.c, [])
+                        y
+                        (compile_exp (nsBindList ((y, Var_local y)::new_vars) var_map) e))) ∧
   (!genv loc.
     v_rel genv (Loc loc) (Loc loc)) ∧
   (!genv vs vs'.
@@ -90,7 +88,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
     v_rel genv (Vectorv vs) v ⇔
       ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
    (!genv env'.
-    env_rel genv [] env' ⇔
+    env_rel genv nsEmpty env' ⇔
       env' = []) ∧
    (!genv x v env env'.
     env_rel genv (nsBind x v env) env' ⇔
@@ -108,55 +106,64 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
          v_rel genv v v'))`,
   srw_tac[][semanticPrimitivesTheory.Boolv_def,modSemTheory.Boolv_def] >>
   srw_tac[][Once v_rel_cases] >>
-  srw_tac[][Q.SPECL[`genv`,`[]`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
+  srw_tac[][Q.SPECL[`genv`,`nsEmpty`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
   metis_tac []);
 
 val env_rel_dom = Q.prove (
-  `!genv env env_i1.
-    env_rel genv env env_i1
+  `!genv env env'.
+    env_rel genv env env'
     ⇒
-    MAP FST env = MAP FST env_i1`,
-  induct_on `env` >>
-  srw_tac[][v_rel_eqns] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[v_rel_eqns] >>
-  srw_tac[][] >>
-  metis_tac []);
+    nsDom env = set (MAP (Short o FST) env')`,
+  induct_on `env'` >>
+  simp [] >>
+  simp [Once v_rel_cases] >>
+  rw [] >>
+  rw [nsDom_nsBind] >>
+  first_x_assum drule >>
+  rw []);
 
 val env_rel_lookup = Q.prove (
-  `!genv menv env genv x v env'.
-    ALOOKUP env x = SOME v ∧
+  `!genv env x v env'.
+    nsLookup env (Short x) = SOME v ∧
     env_rel genv env env'
     ⇒
     ?v'.
       v_rel genv v v' ∧
       ALOOKUP env' x = SOME v'`,
-  induct_on `env` >>
-  srw_tac[][] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[] >>
-  cases_on `h0 = x` >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[v_rel_eqns]);
+  induct_on `env'` >>
+  simp [] >>
+  simp [Once v_rel_cases] >>
+  rw [] >>
+  rw [] >>
+  fs [] >>
+  rw [] >>
+  first_x_assum irule >>
+  metis_tac []);
 
 val env_rel_append = Q.prove (
   `!genv env1 env2 env1' env2'.
     env_rel genv env1 env1' ∧
     env_rel genv env2 env2'
     ⇒
-    env_rel genv (env1++env2) (env1'++env2')`,
-   induct_on `env1` >>
-   srw_tac[][v_rel_eqns] >>
-   PairCases_on `h` >>
-   full_simp_tac(srw_ss())[v_rel_eqns]);
+    env_rel genv (nsAppend env1 env2) (env1'++env2')`,
+  induct_on `env1'` >>
+  rw []
+  >- (
+    `env1 = nsEmpty` by fs [Once v_rel_cases] >>
+    rw []) >>
+  qpat_x_assum `env_rel _ _ (_::_)` mp_tac >>
+  simp [Once v_rel_cases] >>
+  rw [] >>
+  rw [] >>
+  simp [Once v_rel_cases]);
 
+  (*
 val env_rel_reverse = Q.prove (
   `!genv env1 env2.
     env_rel genv env1 env2
     ⇒
     env_rel genv (REVERSE env1) (REVERSE env2)`,
-   induct_on `env1` >>
+   induct_on `env2` >>
    srw_tac[][v_rel_eqns] >>
    PairCases_on `h` >>
    full_simp_tac(srw_ss())[v_rel_eqns] >>
@@ -201,6 +208,7 @@ val env_rel_el = Q.prove (
       FIRST_X_ASSUM (qspecl_then [`SUC n`] mp_tac) >>
       srw_tac[][]));
 
+
 val env_rel_list_rel = Q.prove (
 `!genv env env'.
   env_rel genv env env'
@@ -214,42 +222,40 @@ val env_rel_list_rel = Q.prove (
  PairCases_on `h'` >>
  fs [] >>
  metis_tac []);
+ *)
 
 val v_rel_weakening = Q.prove (
-  `(!genv v v_i1.
-    v_rel genv v v_i1
+  `(!genv v v'.
+    v_rel genv v v'
     ⇒
-    ∀l. v_rel (genv++l) v v_i1) ∧
-   (!genv env env_i1.
-    env_rel genv env env_i1
+    ∀l. v_rel (genv++l) v v') ∧
+   (!genv env env'.
+    env_rel genv env env'
     ⇒
-    !l. env_rel (genv++l) env env_i1) ∧
-   (!genv map shadowers env.
-    global_env_inv_flat genv map shadowers env
+    !l. env_rel (genv++l) env env') ∧
+   (!genv var_map shadowers env.
+    global_env_inv genv var_map shadowers env
     ⇒
-    !l. global_env_inv_flat (genv++l) map shadowers env) ∧
-   (!genv mods tops menv shadowers env.
-    global_env_inv genv mods tops menv shadowers env
-    ⇒
-    !l.global_env_inv (genv++l) mods tops menv shadowers env)`,
+    !l.global_env_inv (genv++l) var_map shadowers env)`,
   ho_match_mp_tac v_rel_ind >>
   srw_tac[][v_rel_eqns]
+  >- fs [LIST_REL_EL_EQN]
   >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`mods`, `tops`, `env`, `env'`] >>
+      MAP_EVERY qexists_tac [`var_map`, `env`, `env'`] >>
       full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
   >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`mods`, `tops`, `env`, `env'`] >>
+      MAP_EVERY qexists_tac [`var_map`, `env`, `env'`] >>
       full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
   >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`mods`, `tops`, `tops'`] >>
+      MAP_EVERY qexists_tac [`var_map`, `new_vars`] >>
       full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns, EL_APPEND1] >>
       srw_tac[][] >>
       res_tac >>
       qexists_tac `n` >>
       srw_tac[][EL_APPEND1] >>
       decide_tac)
-  >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]
-  >- metis_tac []);
+  >- fs [LIST_REL_EL_EQN]
+  >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]);
 
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀genv v v'.
@@ -294,7 +300,7 @@ val sv_rel_weakening = Q.prove (
     ⇒
     ∀l. sv_rel (genv++l) sv sv_i1)`,
    srw_tac[][sv_rel_cases] >>
-   metis_tac [v_rel_weakening]);
+   metis_tac [v_rel_weakening, LIST_REL_EL_EQN]);
 
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!s s'.
