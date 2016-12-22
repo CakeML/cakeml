@@ -1,10 +1,10 @@
 open preamble 
-  ml_translatorLib ml_translatorTheory ml_progLib mllistProgTheory mlstringTheory
+  ml_translatorLib ml_translatorTheory ml_progLib mlvectorProgTheory mlstringTheory
   basisFunctionsLib
 
 val _ = new_theory"mlstringProg"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "mlvectorProg";
 
 val _ = ml_prog_update (open_module "String");
 
@@ -161,20 +161,20 @@ val compare_side_thm = Q.prove (
 
 
 val result = translate collate_aux_def;
-val collate_aux_side_def = theorem"collate_aux_side_def";
+val collate_aux_side_def = theorem"collate_aux_1_side_def";
 val result = translate collate_def;
-val collate_side_def = definition"collate_1_side_def";
+val collate_side_def = definition"collate_2_side_def";
 
 val collate_aux_side_thm = Q.prove (
   `!f s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
-    else strlen s2) ==> collate_aux_side f s1 s2 ord n len`,
+    else strlen s2) ==> collate_aux_1_side f s1 s2 ord n len`,
   Induct_on `len` \\ rw [Once collate_aux_side_def]
 );
 
 val collate_side_thm = Q.prove (
-  `!f s1 s2. collate_1_side f s1 s2`,
+  `!f s1 s2. collate_2_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 

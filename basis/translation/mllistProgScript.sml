@@ -1,20 +1,20 @@
 open preamble ml_translatorLib ml_progLib std_preludeTheory 
-open mllistTheory ml_translatorTheory 
+open mllistTheory ml_translatorTheory mloptionProgTheory 
 
 
 
 (*this library depends on nothing*)
 val _ = new_theory"mllistProg"
 
-val _ = translation_extends "std_prelude"
+val _ = translation_extends "mloptionProg"
 
 val _ = ml_prog_update (open_module "List");
 
 
 val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
 
-
 val result = translate LENGTH;
+(* val result = save_thm("length_v_thm",translate LENGTH); *)
 
 val result = translate HD;
 val hd_side_def = Q.prove(
@@ -97,7 +97,7 @@ val result = translate zip_def;
 
 (*Extra translations from std_preludeLib.sml *)
 val res = translate LENGTH_AUX_def;
-val res = translate LENGTH_AUX_THM;
+(*val res = translate LENGTH_AUX_THM;*)
 val result = translate SUM;
 val result = translate UNZIP;
 val result = translate PAD_RIGHT;

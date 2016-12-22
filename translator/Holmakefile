@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../semantics/proofs ../semantics/alt_semantics ../semantics/alt_semantics/proofs ../lem_lib_stub ../explorer/pp/astPP ../basis ../characteristic
+INCLUDES = .. ../semantics ../semantics/proofs ../semantics/alt_semantics ../semantics/alt_semantics/proofs ../lem_lib_stub ../explorer/pp/astPP ../basis
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

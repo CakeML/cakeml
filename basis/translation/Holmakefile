@@ -1,2 +1,2 @@
-INCLUDES = .. ../../translator ../.. ../../characteristic
+INCLUDES = .. ../../translator ../../characteristic ../..
 OPTIONS = QUIT_ON_FAILURE

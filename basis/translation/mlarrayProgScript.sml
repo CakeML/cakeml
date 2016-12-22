@@ -1,24 +1,15 @@
 open preamble
      ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib 
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib mlvectorProgTheory
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib mlbasicsProgTheory
 
 val _ = new_theory"mlarrayProg"
 
-val _ = translation_extends"mlvectorProg"
+val _ = translation_extends"mlbasicsProg"
 
 fun array_st () = get_ml_prog_state ()
 
-val mk_binop_def = Define `
-  mk_binop name prim = Dlet (Pvar name)
-    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))`;
 
-val mk_unop_def = Define `
-  mk_unop name prim = Dlet (Pvar name)
-    (Fun "x" (App prim [Var (Short "x")]))`;
-
-
-(* val () = ml_prog_update (open_module "Array"); *)
-
+val () = ml_prog_update (open_module "Array");
 
 val () = append_decs
    ``[Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
@@ -258,7 +249,7 @@ val collate_st = ml_progLib.add_prog array_collate pick_name (array_st ())
 (* val () = append_decs array_collate; *)
 
 
-(* val _ = ml_prog_update (close_module NONE); *)
+val _ = ml_prog_update (close_module NONE);
 
 fun prove_array_spec op_name =
   xcf op_name (array_st()) \\ TRY xpull \\
@@ -270,50 +261,46 @@ fun prove_array_spec op_name =
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
-val prefix = "";
-val array = prefix ^ "array";
 val array_alloc_spec = Q.store_thm ("array_alloc_spec",
   `!n nv v.
      NUM n nv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v array (array_st())) [nv; v]
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.array" (array_st())) [nv; v]
        emp (POSTv av. ARRAY av (REPLICATE n v))`,
-  prove_array_spec array);
+  prove_array_spec "Array.array");
 
-val sub = prefix ^ "sub";
 val array_sub_spec = Q.store_thm ("array_sub_spec",
   `!a av n nv.
      NUM n nv /\ n < LENGTH a ==>
-     app (p:'ffi ffi_proj) ^(fetch_v sub (array_st())) [av; nv]
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.sub" (array_st())) [av; nv]
        (ARRAY av a) (POSTv v. cond (v = EL n a) * ARRAY av a)`,
-  prove_array_spec sub);
+  prove_array_spec "Array.sub");
 
 val array_length_spec = Q.store_thm ("array_length_spec",
   `!a av.
-     app (p:'ffi ffi_proj) ^(fetch_v "length" (array_st())) [av]
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.length" (array_st())) [av]
        (ARRAY av a)
        (POSTv v. cond (NUM (LENGTH a) v) * ARRAY av a)`,
-  prove_array_spec "length");
+  prove_array_spec "Array.length");
 
-val update = prefix ^ "update";
 val array_update_spec = Q.store_thm ("array_update_spec",
   `!a av n nv v.
      NUM n nv /\ n < LENGTH a ==>
-     app (p:'ffi ffi_proj) ^(fetch_v update (array_st()))
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.update" (array_st()))
        [av; nv; v]
        (ARRAY av a)
        (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))`,
-  prove_array_spec update);
+  prove_array_spec "Array.update");
 
 
-val fromList = prefix ^"fromList";
+
 val array_fromList_spec = Q.store_thm("array_fromList_spec",
   `!l lv a A.
     LIST_TYPE A l lv /\ v_to_list lv = SOME a ==>
-    app (p:'ffi ffi_proj) ^(fetch_v fromList fromList_st) [lv]
+    app (p:'ffi ffi_proj) ^(fetch_v "fromList" fromList_st) [lv]
       emp (POSTv av. ARRAY av a)`,
-    xcf fromList fromList_st \\ 
+    xcf "fromList" fromList_st \\ 
     xlet `POSTv v. & NUM (LENGTH l) v` >- 
-    (xapp \\ metis_tac[]) \\
+    (xapp \\ metis_tac[]) \\  
     xlet `POSTv ar. ARRAY ar (REPLICATE (LENGTH l) (Litv(IntLit 0)))` >- 
     (xapp \\ xsimpl) \\
     xfun_spec `f`
@@ -347,7 +334,7 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
           xapp \\ 
           xsimpl \\
           qexists_tac `&(LENGTH l_pre)` \\
-          fs [NUM_def, std_preludeTheory.plus_def, integerTheory.INT_ADD]
+          fs [NUM_def, plus_def, integerTheory.INT_ADD]
           ) \\
         once_rewrite_tac[CONS_APPEND] \\
         rewrite_tac[APPEND_ASSOC] \\
@@ -359,6 +346,10 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
       xsimpl \\
       simp[LENGTH_REPLICATE]);
 
+(*
+val eq_v_thm = fetch "-" "eq_v_thm"
+val eq_num_v_thm = save_thm("eq_num_v_thm",
+        MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1))
 
 val tabulate = prefix ^"tabulate";
 val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
@@ -374,23 +365,35 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
         NUM x xv /\ LENGTH l_pre = x /\ LENGTH l_pre + LENGTH rest = n ==>
           app p u [xv]
         (ARRAY av (l_pre ++ rest)) 
-        (POSTv ret. & (ret = av) * ARRAY av (l_pre ++ (GENLIST (\i. f (x + i)) (n - x))))` >- (cheat    
-     (* Induct >- (
+        (POSTv ret. & (ret = av) * ARRAY av (l_pre ++ (GENLIST (\i. f (x + i)) (n - x))))`
+    >- ( 
+     Induct >- (
         rw []  \\ first_x_assum match_mp_tac \\
-        xlet `POSTv bv. & BOOL (x:num = n) bv` \\
-        xapp \\ rw[BOOL_def] \\
-        xsimpl \\
-        x1 should b 0, x0 should be LENGTH rest and a should be NUM
-        rw [EqualityType_def] 
-      )
-      rw [] \\ first_x_assum match_mp_tac *) ) \\
+        fsrw_tac[ETA_ss][LENGTH_NIL] \\
+        xlet `POSTv bv. & BOOL (xv=nv) bv * ARRAY av rest`
+        >- (
+          xapp \\ rw[BOOL_def] \\ xsimpl \\
+          instantiate \\
+          metis_tac[EqualityType_NUM_BOOL,EqualityType_def])
+        \\ xif
+        >- (xret \\ xsimpl \\ fs[NUM_def,INT_def,LENGTH_NIL_SYM] )
+        \\ xlet `POSTv v. ARRAY av rest * & A (f 0) v`
+        >- (
+          xapp \\ xsimpl  \\ instantiate)
+        \\ xlet `POSTv u. ARRAY av (LUPDATE v 0 rest)` 
+        >- (xapp \\ xsimpl \\ instantiate \\ 
+        `!a b. NUM a nv /\ NUM b xv /\ xv <> nv ==> a <> b` by fs[] 
+           
+DB.find "NUM _ _ ="
+    fs [GSYM NUM_def, INT_def, LENGTH_NIL_SYM, ] 
+      rw [] \\ first_x_assum match_mp_tac ) \\
       xapp \\ 
       rw [LENGTH_NIL_SYM] \\
       xsimpl \\ 
       rw [LENGTH_REPLICATE, ETA_AX]
 );
- 
-(*
+
+
 val copy_aux = prefix ^"copy_aux";
 val array_copy_aux_spec = Q.store_thm("array_copy_aux_spec",
   `!src srcv bfr afr mid dstv di div n nv max maxv.
@@ -433,9 +436,9 @@ val array_copy_aux_spec = Q.store_thm("array_copy_aux_spec",
           rw [std_preludeTheory.plus_def, integerTheory.INT_ADD])
         xapp
         
-*)        
+        
 
-(*
+
 val modify_aux = prefix ^"modify_aux"
 val array_modify_aux_spec = Q.store_thm("array_modify_aux_spec",
   `!f fv a av max maxv n nv A A'.
