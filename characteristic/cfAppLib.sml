@@ -1,10 +1,11 @@
 structure cfAppLib :> cfAppLib = struct
 
 open preamble
-open ml_translatorSyntax helperLib cfAppSyntax semanticPrimitivesSyntax
+open ml_translatorSyntax helperLib semanticPrimitivesSyntax
+open cfHeapsBaseSyntax cfAppSyntax
 open set_sepTheory cfHeapsBaseLib cfAppTheory ml_translatorTheory
 
-fun mk_app_of_Arrow_goal t = let
+fun mk_app_of_Arrow_goal ffi_ty t = let
   val (t_hyps, t_concl) = strip_imp t
   val (args_pred, ret_pred) = t_concl |> rator |> rator |> strip_Arrow
   val f = t_concl |> rator |> rand
@@ -23,7 +24,7 @@ fun mk_app_of_Arrow_goal t = let
   val hyps_tm_opt =
     SOME (list_mk_conj (args_hyps @ (map strip_conj t_hyps |> flatten)))
     handle HOL_ERR _ => NONE
-  val proj_tm = variant fvs (mk_var ("p", ``:'ffi ffi_proj``))
+  val proj_tm = variant fvs (mk_var ("p", mk_ffi_proj_ty ffi_ty))
   val post_v = variant fvs (mk_var ("v", v_ty))
   val post_body =
     mk_cond (
@@ -115,7 +116,7 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-fun app_of_Arrow_rule thm = let
+fun app_of_Arrow_rule ffi_ty thm = let
   val thm' = DISCH_ALL thm
   val proof_tac =
     rpt strip_tac \\
@@ -126,7 +127,7 @@ fun app_of_Arrow_rule thm = let
       (assume_tac asm)) \\
     ASSUM_LIST (fn assums =>
       foldr (fn (asm, tac_acc) =>
-        drule Arrow_IMP_app_basic \\
+        drule (INST_TYPE [ffi_varty |-> ffi_ty] Arrow_IMP_app_basic) \\
         disch_then (fn th => mp_tac (MATCH_MP th asm)) \\
         match_mp_tac app_basic_weaken \\
         Cases THEN_LT REVERSE_LT THEN1 (simp [cfHeapsBaseTheory.POSTv_def]) \\
@@ -135,7 +136,7 @@ fun app_of_Arrow_rule thm = let
       ) all_tac (rev assums)
     )
   val rule_thm = auto_prove "app_of_Arrow_rule"
-    (mk_app_of_Arrow_goal (concl thm'), proof_tac)
+    (mk_app_of_Arrow_goal ffi_ty (concl thm'), proof_tac)
 in MATCH_MP rule_thm thm' |> SIMP_RULE std_ss [PRECONDITION_def, Eq_def] end
 
 end
