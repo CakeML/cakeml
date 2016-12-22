@@ -3241,7 +3241,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
                   |> clean_assumptions |> UNDISCH_ALL
       val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
       val _ = add_v_thms (fname,ml_fname,th,pre_def)
-      in th end
+      in save_thm(fname ^"_v_thm", th) end
     val thms = map inst_envs results
     (* clean up *)
     val _ = map (delete_const o fst o dest_const o fst o dest_eq o concl) code_defs
