@@ -3,6 +3,14 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
+(* TODO: move (to misc?) *)
+val plus_0_I = Q.store_thm("plus_0_I[simp]",
+  `$+ 0n = I`, rw[FUN_EQ_THM]);
+val OPTION_MAP_I = Q.store_thm("OPTION_MAP_I[simp]",
+  `OPTION_MAP I x = x`,
+  Cases_on`x` \\ rw[]);
+(* -- *)
+
 val extract_labels_def = Define`
   (extract_labels [] = []) ∧
   (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
@@ -14,9 +22,86 @@ val extract_labels_append = Q.store_thm("extract_labels_append",`
   extract_labels (A++B) = extract_labels A ++ extract_labels B`,
   Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
 
+val extract_labels_not_Label = Q.store_thm("extract_labels_not_Label",
+  `¬is_Label x ⇒ extract_labels (x::xs) = extract_labels xs`,
+  Cases_on`x` \\ rw[]);
+
+val ALL_DISTINCT_extract_labels_cons = Q.store_thm("ALL_DISTINCT_extract_labels_cons",
+  `ALL_DISTINCT (extract_labels (x::xs)) ⇔
+   ALL_DISTINCT (extract_labels xs) ∧
+   (∀n1 n2 k. x = Label n1 n2 k ⇒ ¬MEM(n1,n2) (extract_labels xs))`,
+  Cases_on`x` \\ rw[EQ_IMP_THM]);
+
 val sec_ends_with_label_def = Define`
   sec_ends_with_label (Section _ ls) ⇔
     ¬NULL ls ∧ is_Label (LAST ls)`;
+
+val sec_label_ok_def = Define`
+  (sec_label_ok k (Label l1 l2 len) ⇔ l1 = k ∧ l2 ≠ 0) ∧
+  (sec_label_ok _ _ = T)`;
+val _ = export_rewrites["sec_label_ok_def"];
+
+val sec_labels_ok_def = Define`
+  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
+val _ = export_rewrites["sec_labels_ok_def"];
+
+val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
+  `EVERY (sec_label_ok n1) lines ∧
+   MEM (n1',n2) (extract_labels lines) ⇒
+   n1' = n1 ∧ n2 ≠ 0`,
+  Induct_on`lines` \\ simp[]
+  \\ Cases \\ rw[] \\ fs[]);
+
+val sec_loc_to_pc_def = Define`
+  (sec_loc_to_pc n2 xs =
+   if n2 = 0 then SOME 0
+   else case xs of [] => NONE
+   | (z::zs) =>
+     if (?n1 k. z = Label n1 n2 k) then SOME 0
+     else if is_Label z then sec_loc_to_pc n2 zs
+     else OPTION_MAP SUC (sec_loc_to_pc n2 zs))`;
+
+val sec_loc_to_pc_ind = theorem"sec_loc_to_pc_ind"
+
+val sec_loc_to_pc_cons = Q.store_thm("sec_loc_to_pc_cons",
+  `sec_loc_to_pc n2 (l::lines) =
+   if n2 = 0 ∨ (∃n1 k. l = Label n1 n2 k)then SOME 0
+   else OPTION_MAP (if is_Label l then I else SUC) (sec_loc_to_pc n2 lines)`,
+  rw[Once sec_loc_to_pc_def] \\ fs[]);
+
+val loc_to_pc_thm = Q.store_thm("loc_to_pc_thm",
+  `∀n1 n2 ls.
+     EVERY sec_labels_ok ls ⇒
+     loc_to_pc n1 n2 ls =
+       case ls of [] => NONE
+       | (Section k xs::ys) =>
+         if n1 = k then
+           case sec_loc_to_pc n2 xs of
+           | NONE => OPTION_MAP ($+ (LENGTH (FILTER ($~ o is_Label) xs))) (loc_to_pc n1 n2 ys)
+           | x => x
+         else OPTION_MAP ($+ (LENGTH (FILTER ($~ o is_Label) xs))) (loc_to_pc n1 n2 ys)`,
+  ho_match_mp_tac loc_to_pc_ind
+  \\ rw[]
+  >- rw[Once loc_to_pc_def]
+  >- (
+    rw[Once loc_to_pc_def]
+    >- ( rw[Once sec_loc_to_pc_def] )
+    \\ rw[Once sec_loc_to_pc_def]
+    \\ TOP_CASE_TAC \\ fs[plus_0_I]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    >- ( Cases_on`h` \\ fs[] \\ fs[] )
+    \\ IF_CASES_TAC \\ fs[] \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ CASE_TAC \\ fs[] )
+  \\ rw[Once loc_to_pc_def]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ Cases_on`is_Label h`
+  >- ( Cases_on`h` \\ fs[] )
+  \\ simp[]
+  \\ `¬(∃k. h = Label n1 n2 k)` by (CCONTR_TAC \\ fs[] \\ fs[])
+  \\ simp[] \\ rfs[]
+  \\ Cases_on`loc_to_pc n1 n2 ls` \\ fs[]);
 
 val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
   `reg_imm r (s with clock := z) = reg_imm r s`,
@@ -24,6 +109,18 @@ val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
 
 val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
   `asm_inst i (s with clock := z) = asm_inst i s with clock := z`,
+  Cases_on`i`>>EVAL_TAC >- (
+    Cases_on`a`>>EVAL_TAC >>
+    every_case_tac >> fs[] >>
+    Cases_on`b`>>EVAL_TAC>>
+    fs[state_component_equality] >>
+    Cases_on`r`>>fs[reg_imm_def]) >>
+  Cases_on`m`>>EVAL_TAC>>
+  Cases_on`a`>>EVAL_TAC>>
+  every_case_tac >> fs[]);
+
+val asm_inst_with_code = Q.store_thm("asm_inst_with_code[simp]",
+  `asm_inst i (s with code := z) = asm_inst i s with code := z`,
   Cases_on`i`>>EVAL_TAC >- (
     Cases_on`a`>>EVAL_TAC >>
     every_case_tac >> fs[] >>
