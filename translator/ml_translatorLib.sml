@@ -188,7 +188,7 @@ in
     val (name,ml_name,_,_,_,module_name) = first (fn (name,ml_name,tm,th,_,_) =>
           (th |> concl |> rand) = v) (!v_thms)
     in ((v_thms := (name,ml_name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
-  fun get_bare_v_thm const = first (same_const const o get_const) (!v_thms)
+  fun get_bare_v_thm const = first (can (C match_term const) o get_const) (!v_thms)
   fun lookup_v_thm const = let
     val (name,ml_name,c,th,pre,m) = get_bare_v_thm const
     val th = th |> SPEC_ALL |> UNDISCH_ALL
