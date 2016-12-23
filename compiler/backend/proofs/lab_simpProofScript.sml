@@ -306,110 +306,91 @@ val asm_fetch_aux_MAP_lab_simp_sec = Q.store_thm("asm_fetch_aux_MAP_lab_simp_sec
   TOP_CASE_TAC \\ fs[] \\ rw[] \\
   imp_res_tac sec_loc_to_pc_NONE_not_MEM);
 
-val lab_simp_sec_rel_def = Define `
-  lab_simp_sec_rel (s1:('a,'ffi) labSem$state) t1 ⇔
-          (t1 = s1 with <| code := MAP lab_simp_sec s1.code |>) ∧
-          ¬s1.failed`
-
 val MAP_lab_simp_sec_correct = Q.store_thm("MAP_lab_simp_sec_correct",
-  `!(s1:('a,'ffi) labSem$state) t1 res s2.
-     (evaluate s1 = (res,s2)) /\ lab_simp_sec_rel s1 t1 ∧
+  `!(s1:('a,'ffi) labSem$state) res s2.
+     (evaluate s1 = (res,s2)) /\ ¬s1.failed ∧
       EVERY sec_labels_ok s1.code ∧
       ALL_DISTINCT (MAP Section_num s1.code) ∧
       EVERY (ALL_DISTINCT o extract_labels o Section_lines) s1.code ∧
       EVERY ($~ o NULL o Section_lines) s1.code
       ==>
-       ?t2. (evaluate t1 = (res,t2)) /\ lab_simp_sec_rel s2 t2`,
-  ho_match_mp_tac evaluate_ind \\
-  rw [] \\
+       (evaluate (s1 with code := MAP lab_simp_sec s1.code) = (res,s2 with code := MAP lab_simp_sec s2.code))`,
+  ho_match_mp_tac evaluate_ind \\ rw [] \\
   qhdtm_x_assum `evaluate` mp_tac \\
   simp [Once evaluate_def] \\
-  IF_CASES_TAC >-
-    (rw[] \\
-     first_assum (part_match_exists_tac (el 2 o strip_conj) o concl) \\
-     simp [] \\ simp [Once evaluate_def] \\ fs [lab_simp_sec_rel_def] \\ rw [] \\ fs []) \\
+  IF_CASES_TAC >- (rw[] \\ simp [Once evaluate_def]) \\
   strip_tac \\
-  qhdtm_x_assum`lab_simp_sec_rel`mp_tac \\
-  rw[Once lab_simp_sec_rel_def] \\
   once_rewrite_tac [evaluate_def] \\
   fs[asm_fetch_def] \\
   qspecl_then[`s1.pc`,`s1.code`]mp_tac asm_fetch_aux_MAP_lab_simp_sec \\
   impl_tac >- fs[] \\ rw[] \\ fs[]
   >- (
-    top_case_tac \\ fs []
-    >- ( rw[lab_simp_sec_rel_def] ) \\
+    top_case_tac \\ fs [] \\
     top_case_tac \\ fs[]
-    >- ( rw[lab_simp_sec_rel_def] )
     >- (
       top_case_tac \\ fs[]
-      \\ TRY( rw[lab_simp_sec_rel_def] \\ NO_TAC)
       >- (
         top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def]
         \\ rfs[asm_inst_consts]
-        \\ first_x_assum match_mp_tac
-        \\ rw[lab_simp_sec_rel_def]
-        \\ fs[state_component_equality,dec_clock_def,inc_pc_def,asm_inst_consts] )
+        \\ fs[dec_clock_def,inc_pc_def,asm_inst_consts] )
       \\ top_case_tac \\ fs[]
-      >- rw[lab_simp_sec_rel_def]
       \\ top_case_tac \\ fs[]
-      >- rw[lab_simp_sec_rel_def]
-      \\ first_x_assum match_mp_tac
-      \\ rw[lab_simp_sec_rel_def]
-      \\ EVAL_TAC \\ fs[] )
+      \\ fs[upd_pc_def,dec_clock_def])
     >- (
       fs[get_pc_value_def,dec_clock_def,upd_pc_def,upd_reg_def,inc_pc_def,get_ret_Loc_def] \\
       top_case_tac \\ fs[]
       >- (
         case_tac \\ fs[] \\
-        case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        first_x_assum match_mp_tac \\
-        rw[lab_simp_sec_rel_def] )
+        case_tac \\ fs[])
       >- (
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        case_tac \\ fs[] \\
-        case_tac \\ fs[] \\ rw[] \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        first_x_assum match_mp_tac \\
-        rw[lab_simp_sec_rel_def] )
-      >- (
-        case_tac \\ fs[] \\
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        first_x_assum match_mp_tac \\
-        rw[lab_simp_sec_rel_def] )
-      >- (
-        case_tac \\ fs[] \\
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        first_x_assum match_mp_tac \\
-        rw[lab_simp_sec_rel_def] )
-      >- (
-        reverse top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        reverse top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
-        pairarg_tac \\ fs[] \\
-        first_x_assum match_mp_tac \\
-        rw[lab_simp_sec_rel_def] )
-      >- rw[lab_simp_sec_rel_def]
-      >- (
-        reverse top_case_tac \\ fs[]
-        >- rw[lab_simp_sec_rel_def] \\
         top_case_tac \\ fs[] \\
-        rw[lab_simp_sec_rel_def] )))
-  \\ fs[dec_clock_def,get_pc_value_def,inc_pc_def,upd_pc_def]
-  \\ first_x_assum match_mp_tac
-  \\ rw[lab_simp_sec_rel_def,ADD1]);
+        case_tac \\ fs[] \\
+        case_tac \\ fs[] \\ rw[] \\ fs[])
+      >- (
+        case_tac \\ fs[] \\
+        top_case_tac \\ fs[] \\
+        top_case_tac \\ fs[])
+      >- (
+        case_tac \\ fs[] \\
+        top_case_tac \\ fs[])
+      >- (
+        top_case_tac \\ fs[] \\
+        top_case_tac \\ fs[] \\
+        top_case_tac \\ fs[] \\
+        top_case_tac \\ fs[] \\
+        top_case_tac \\ fs[] \\
+        pairarg_tac \\ fs[] )
+      >- (
+        top_case_tac \\ fs[] \\
+        top_case_tac \\ fs[] )))
+  \\ fs[dec_clock_def,get_pc_value_def,inc_pc_def,upd_pc_def,ADD1]);
+
+val remove_tail_jumps_correct = Q.store_thm("remove_tail_jumps_correct",
+  `∀(s1:('a,'ffi)labSem$state) res s2.
+   evaluate s1 = (res,s2) ∧ ¬s1.failed
+   ⇒
+   evaluate (s1 with code := remove_tail_jumps s1.code) =
+     (res,s2 with code := remove_tail_jumps s2.code)`,
+  ho_match_mp_tac evaluate_ind \\ rw[] \\
+  qhdtm_x_assum`evaluate`mp_tac \\
+  once_rewrite_tac[evaluate_def] \\ simp[] \\
+  IF_CASES_TAC \\ rw[] \\
+  fs[asm_fetch_def] \\
+  cheat);
+
+val lab_simp_correct = Q.store_thm("lab_simp_correct",
+  `∀(s1:('a,'ffi)labSem$state) res s2.
+    evaluate s1 = (res,s2) ∧ ¬s1.failed ∧
+    EVERY sec_labels_ok s1.code ∧
+    ALL_DISTINCT (MAP Section_num s1.code) ∧
+    EVERY (ALL_DISTINCT o extract_labels o Section_lines) s1.code ∧
+    EVERY ($~ o NULL o Section_lines) s1.code
+    ==>
+     (evaluate (s1 with code := lab_simp s1.code) = (res,s2 with code := lab_simp s2.code))`,
+  rw[lab_simp_def]
+  \\ drule MAP_lab_simp_sec_correct
+  \\ impl_tac >- simp[] \\ strip_tac
+  \\ drule remove_tail_jumps_correct
+  \\ impl_tac >- simp[] \\ rw[]);
 
 val _ = export_theory ();
