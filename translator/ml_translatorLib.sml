@@ -3343,6 +3343,7 @@ fun translate def =
         val lemma = th |> DISCH lookup_var_assum
                        |> GEN (mk_var("env",venvironment))
                        |> MATCH_MP Eval_Var_LOOKUP_VAR_elim
+                       |> D |> clean_assumptions |> UNDISCH_ALL
         val v = lemma |> concl |> rand |> rator |> rand
         val exp = lemma |> concl |> rand |> rand
         val v_name = find_const_name (fname ^ "_v")
@@ -3355,6 +3356,7 @@ fun translate def =
       else let
         val env_v = mk_var("env",venvironment)
         val th = th |> INST [env_v |-> get_curr_env()]
+        val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
         val curr_refs =
           mk_icomb(prim_mk_const{Name="state_refs",Thy="semanticPrimitives"},curr_state)
