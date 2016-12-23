@@ -37,6 +37,16 @@ val Section_num_def = Define`Section_num (Section k _) = k`;
 val Section_lines_def = Define`Section_lines (Section _ lines) = lines`;
 val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
+val is_Label_def = Define `
+  (is_Label (Label _ _ _) = T) /\
+  (is_Label _ = F)`;
+val _ = export_rewrites["is_Label_def"];
+
+val is_Skip_def = Define`
+  (is_Skip (Asm (Inst Skip) _ _) = T) ∧
+  (is_Skip _ = F)`;
+val _ = export_rewrites["is_Skip_def"];
+
 (* A full assembly program consists of a list of sections. *)
 
 val () = Parse.type_abbrev ("prog", ``:('a sec) list``);

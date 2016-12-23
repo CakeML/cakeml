@@ -65,48 +65,52 @@ val evaluate_def = labSemTheory.evaluate_def
 
 val () = bring_to_front_overload "evaluate" {Name = "evaluate", Thy = "labSem"};
 
-val lab_simp_sec_length = Q.store_thm("lab_simp_sec_length[simp]",
-  `!s. LENGTH (lab_simp_sec s) = LENGTH s`,
-  ho_match_mp_tac lab_simp_sec_ind \\
-  rw [lab_simp_sec_def] \\
+val lab_simp_lines_length = Q.store_thm("lab_simp_lines_length[simp]",
+  `!s. LENGTH (lab_simp_lines s) = LENGTH s`,
+  ho_match_mp_tac lab_simp_lines_ind \\
+  rw [lab_simp_lines_def] \\
   every_case_tac \\ fs []);
 
-val null_lab_simp_sec_cons = Q.store_thm("null_lab_simp_sec_cons[simp]",
-  `NULL (lab_simp_sec ls) = NULL ls`,
+val null_lab_simp_lines_cons = Q.store_thm("null_lab_simp_lines_cons[simp]",
+  `NULL (lab_simp_lines ls) = NULL ls`,
   rw[NULL_EQ, GSYM LENGTH_NIL]);
 
-val last_lab_simp_sec = Q.store_thm("last_lab_simp_sec[simp]",
-  `!xs. LAST (lab_simp_sec xs) = LAST xs`,
-  ho_match_mp_tac lab_simp_sec_ind \\
-  rw[lab_simp_sec_def] \\
+val last_lab_simp_lines = Q.store_thm("last_lab_simp_lines[simp]",
+  `!xs. LAST (lab_simp_lines xs) = LAST xs`,
+  ho_match_mp_tac lab_simp_lines_ind \\
+  rw[lab_simp_lines_def] \\
   every_case_tac \\ fs[LAST_CONS_cond] \\ rw[GSYM NULL_EQ]);
 
-val sec_label_ok_lab_simp_sec = Q.store_thm("sec_label_ok_lab_simp_sec[simp]",
-  `∀ls. EVERY (sec_label_ok k) (lab_simp_sec ls) ⇔ EVERY (sec_label_ok k) ls`,
-  recInduct lab_simp_sec_ind
-  \\ rw[lab_simp_sec_def]
+val sec_label_ok_lab_simp_lines = Q.store_thm("sec_label_ok_lab_simp_lines[simp]",
+  `∀ls. EVERY (sec_label_ok k) (lab_simp_lines ls) ⇔ EVERY (sec_label_ok k) ls`,
+  recInduct lab_simp_lines_ind
+  \\ rw[lab_simp_lines_def]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]);
 
-val sec_labels_ok_lab_simp = Q.store_thm("sec_labels_ok_lab_simp[simp]",
-  `∀ls. EVERY sec_labels_ok (lab_simp ls) ⇔ EVERY sec_labels_ok ls`,
-  recInduct lab_simp_ind \\ rw[lab_simp_def,NULL_EQ]);
+val sec_labels_ok_lab_simp_sec = Q.store_thm("sec_labels_ok_lab_simp_sec[simp]",
+  `sec_labels_ok (lab_simp_sec s) ⇔ sec_labels_ok s`,
+  Cases_on`s` \\ simp[]);
 
-val asm_fetch_sec_lab_simp_sec = Q.store_thm("asm_fetch_sec_lab_simp_sec",
+val EVERY_sec_labels_ok_MAP_lab_simp_sec = Q.store_thm("EVERY_sec_labels_ok_MAP_lab_simp_sec[simp]",
+  `∀ls. EVERY sec_labels_ok (MAP lab_simp_sec ls) ⇔ EVERY sec_labels_ok ls`,
+  srw_tac[ETA_ss][EVERY_MAP]);
+
+val asm_fetch_sec_lab_simp_lines = Q.store_thm("asm_fetch_sec_lab_simp_lines",
   `∀ls pos.
    EVERY (sec_label_ok k) ls ∧
    ALL_DISTINCT (extract_labels ls) ⇒
-   asm_fetch_sec pos (lab_simp_sec ls) = asm_fetch_sec pos ls ∨
+   asm_fetch_sec pos (lab_simp_lines ls) = asm_fetch_sec pos ls ∨
    ∃n2 w wl n.
      asm_fetch_sec pos ls = INL (LabAsm (Jump (Lab k n2)) w wl n) ∧ MEM (k,n2) (extract_labels ls) ∧
-     asm_fetch_sec pos (lab_simp_sec ls) = INL (Asm (Inst Skip) wl n) ∧
-     sec_loc_to_pc n2 (lab_simp_sec ls) = sec_loc_to_pc n2 ls ∧
+     asm_fetch_sec pos (lab_simp_lines ls) = INL (Asm (Inst Skip) wl n) ∧
+     sec_loc_to_pc n2 (lab_simp_lines ls) = sec_loc_to_pc n2 ls ∧
      (∀p. sec_loc_to_pc n2 ls = SOME p ⇒ p = SUC pos)`,
-  recInduct lab_simp_sec_ind
-  \\ rw[lab_simp_sec_def]
+  recInduct lab_simp_lines_ind
+  \\ rw[lab_simp_lines_def]
   \\ TOP_CASE_TAC \\ fs[sec_loc_to_pc_cons]
   >- (
     TOP_CASE_TAC \\ fs[]
@@ -168,29 +172,24 @@ val asm_fetch_sec_lab_simp_sec = Q.store_thm("asm_fetch_sec_lab_simp_sec",
     IF_CASES_TAC \\ fs[] \\
     rpt strip_tac \\ fs[]))
 
-val LENGTH_FILTER_not_Label_lab_simp_sec = Q.store_thm("LENGTH_FILTER_not_Label_lab_simp_sec[simp]",
-  `∀ls. LENGTH (FILTER ($~ o is_Label) (lab_simp_sec ls)) = LENGTH (FILTER ($~ o is_Label) ls)`,
-  recInduct lab_simp_sec_ind
-  \\ rw[lab_simp_sec_def]
+val LENGTH_FILTER_not_Label_lab_simp_lines = Q.store_thm("LENGTH_FILTER_not_Label_lab_simp_lines[simp]",
+  `∀ls. LENGTH (FILTER ($~ o is_Label) (lab_simp_lines ls)) = LENGTH (FILTER ($~ o is_Label) ls)`,
+  recInduct lab_simp_lines_ind
+  \\ rw[lab_simp_lines_def]
   \\ every_case_tac \\ fs[]);
 
-val sec_loc_to_pc_lab_simp_sec = Q.store_thm("sec_loc_to_pc_lab_simp_sec[simp]",
-  `∀ls n2. sec_loc_to_pc n2 (lab_simp_sec ls) = sec_loc_to_pc n2 ls`,
-  recInduct lab_simp_sec_ind
-  \\ rw[lab_simp_sec_def]
+val sec_loc_to_pc_lab_simp_lines = Q.store_thm("sec_loc_to_pc_lab_simp_lines[simp]",
+  `∀ls n2. sec_loc_to_pc n2 (lab_simp_lines ls) = sec_loc_to_pc n2 ls`,
+  recInduct lab_simp_lines_ind
+  \\ rw[lab_simp_lines_def]
   \\ every_case_tac \\ fs[sec_loc_to_pc_cons]);
 
-val loc_to_pc_lab_simp_non_zero = Q.store_thm("loc_to_pc_lab_simp_non_zero[simp]",
-  `∀n1 n2 ls. n2 ≠ 0 ∧ EVERY sec_labels_ok ls ⇒ loc_to_pc n1 n2 (lab_simp ls) = loc_to_pc n1 n2 ls`,
-  Induct_on`ls` \\ rw[lab_simp_def] \\
+val loc_to_pc_MAP_lab_simp_sec_non_zero = Q.store_thm("loc_to_pc_MAP_lab_simp_sec_non_zero[simp]",
+  `∀n1 n2 ls. n2 ≠ 0 ∧ EVERY sec_labels_ok ls ⇒ loc_to_pc n1 n2 (MAP lab_simp_sec ls) = loc_to_pc n1 n2 ls`,
+  Induct_on`ls` \\ rw[] \\
   first_x_assum drule \\ rw[] \\
   first_x_assum(qspec_then`n1`strip_assume_tac) \\
-  Cases_on`h` \\ simp[lab_simp_def] \\ rw[]
-  >- (
-    fs[NULL_EQ] \\
-    simp[Once loc_to_pc_thm,SimpRHS] \\
-    simp[Once sec_loc_to_pc_def] \\
-    rw[] ) \\
+  Cases_on`h` \\ simp[] \\ rw[] \\
   qmatch_goalsub_abbrev_tac`loc_to_pc _ _ code1 = _` \\
   `EVERY sec_labels_ok code1` by fs[Abbr`code1`] \\
   qmatch_goalsub_abbrev_tac`_ = loc_to_pc _ _ code2` \\
@@ -198,8 +197,10 @@ val loc_to_pc_lab_simp_non_zero = Q.store_thm("loc_to_pc_lab_simp_non_zero[simp]
   simp[Abbr`code1`,Once loc_to_pc_thm] \\
   simp[Abbr`code2`,Once loc_to_pc_thm,SimpRHS]);
 
-val loc_to_pc_lab_simp = Q.store_thm("loc_to_pc_lab_simp[simp]",
-  `∀n1 n2 ls. EVERY ($~ o NULL o Section_lines) ls ∧ EVERY sec_labels_ok ls ⇒ loc_to_pc n1 n2 (lab_simp ls) = loc_to_pc n1 n2 ls`,
+val loc_to_pc_MAP_lab_simp_sec = Q.store_thm("loc_to_pc_MAP_lab_simp_sec[simp]",
+  `∀n1 n2 ls.
+    EVERY ($~ o NULL o Section_lines) ls ∧ EVERY sec_labels_ok ls ⇒
+    loc_to_pc n1 n2 (MAP lab_simp_sec ls) = loc_to_pc n1 n2 ls`,
   Induct_on`ls` \\ rw[lab_simp_def] \\
   first_x_assum drule \\ rw[] \\
   first_x_assum(qspec_then`n1`strip_assume_tac) \\
@@ -211,10 +212,10 @@ val loc_to_pc_lab_simp = Q.store_thm("loc_to_pc_lab_simp[simp]",
   simp[Abbr`code1`,Once loc_to_pc_thm] \\
   simp[Abbr`code2`,Once loc_to_pc_thm,SimpRHS]);
 
-val next_label_lab_simp_sec = Q.store_thm("next_label_lab_simp_sec[simp]",
-  `∀ls. next_label ((Section k (lab_simp_sec ls))::ss) = next_label ((Section k ls)::ss)`,
-  recInduct lab_simp_sec_ind
-  \\ rw[next_label_def,lab_simp_sec_def]
+val next_label_lab_simp_lines = Q.store_thm("next_label_lab_simp_lines[simp]",
+  `∀ls. next_label ((Section k (lab_simp_lines ls))::ss) = next_label ((Section k ls)::ss)`,
+  recInduct lab_simp_lines_ind
+  \\ rw[next_label_def,lab_simp_lines_def]
   \\ top_case_tac \\ fs[next_label_def]
   >- ( Cases_on`b` \\ fs[next_label_def] )
   >- (
@@ -224,16 +225,16 @@ val next_label_lab_simp_sec = Q.store_thm("next_label_lab_simp_sec[simp]",
     \\ top_case_tac \\ fs[next_label_def]
     \\ top_case_tac \\ fs[next_label_def] ));
 
-val next_label_lab_simp = Q.store_thm("next_label_lab_simp[simp]",
-  `∀ls. next_label (lab_simp ls) = next_label ls`,
+val next_label_MAP_lab_simp_sec = Q.store_thm("next_label_MAP_lab_simp_sec[simp]",
+  `∀ls. next_label (MAP lab_simp_sec ls) = next_label ls`,
   recInduct next_label_ind
-  \\ rw[lab_simp_def,next_label_def,lab_simp_sec_def,NULL_EQ]);
+  \\ rw[next_label_def,lab_simp_lines_def]);
 
-val get_lab_after_lab_simp_sec = Q.store_thm("get_lab_after_lab_simp_sec[simp]",
-  `∀ls pc. get_lab_after pc ((Section k (lab_simp_sec ls))::ss) =
+val get_lab_after_lab_simp_lines = Q.store_thm("get_lab_after_lab_simp_lines[simp]",
+  `∀ls pc. get_lab_after pc ((Section k (lab_simp_lines ls))::ss) =
            get_lab_after pc ((Section k ls)::ss)`,
-  recInduct lab_simp_sec_ind
-  \\ rw[lab_simp_sec_def]
+  recInduct lab_simp_lines_ind
+  \\ rw[lab_simp_lines_def]
   \\ top_case_tac \\ fs[]
   >- ( fs[get_lab_after_def] )
   >- (
@@ -245,34 +246,33 @@ val get_lab_after_lab_simp_sec = Q.store_thm("get_lab_after_lab_simp_sec[simp]",
   \\ top_case_tac \\ fs[get_lab_after_def,next_label_def]
   \\ top_case_tac \\ fs[get_lab_after_def,next_label_def]);
 
-val get_lab_after_lab_simp = Q.store_thm("get_lab_after_lab_simp[simp]",
-  `∀pc code. get_lab_after pc (lab_simp code) = get_lab_after pc code`,
+val get_lab_after_MAP_lab_simp_sec = Q.store_thm("get_lab_after_MAP_lab_simp_sec[simp]",
+  `∀pc code. get_lab_after pc (MAP lab_simp_sec code) = get_lab_after pc code`,
   recInduct get_lab_after_ind
   \\ conj_tac >- (EVAL_TAC \\ rw[])
-  \\ conj_tac >- ( simp[lab_simp_def,get_lab_after_def] )
-  \\ rw[lab_simp_def,get_lab_after_def,NULL_EQ,next_label_def]
+  \\ conj_tac >- ( simp[get_lab_after_def] )
+  \\ rw[get_lab_after_def,next_label_def]
   \\ rpt(pop_assum kall_tac)
   \\ Induct_on`ys`
   \\ rw[next_label_def]
   \\ Cases_on`h` \\ fs[next_label_def]);
 
-val asm_fetch_aux_lab_simp = Q.store_thm("asm_fetch_aux_lab_simp",
+val asm_fetch_aux_MAP_lab_simp_sec = Q.store_thm("asm_fetch_aux_MAP_lab_simp_sec",
   `∀pos ls.
    EVERY sec_labels_ok ls ∧ ALL_DISTINCT (MAP Section_num ls) ∧
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) ls ∧
    EVERY ($~ o NULL o Section_lines) ls
    ⇒
-   asm_fetch_aux pos (lab_simp ls) = asm_fetch_aux pos ls ∨
+   asm_fetch_aux pos (MAP lab_simp_sec ls) = asm_fetch_aux pos ls ∨
    ∃n1 n2 w wl n.
      asm_fetch_aux pos ls = SOME (LabAsm (Jump (Lab n1 n2)) w wl n) ∧
-     asm_fetch_aux pos (lab_simp ls) = SOME (Asm (Inst Skip) wl n) ∧
-     loc_to_pc n1 n2 (lab_simp ls) = loc_to_pc n1 n2 ls ∧
+     asm_fetch_aux pos (MAP lab_simp_sec ls) = SOME (Asm (Inst Skip) wl n) ∧
+     loc_to_pc n1 n2 (MAP lab_simp_sec ls) = loc_to_pc n1 n2 ls ∧
      loc_to_pc n1 n2 ls = SOME (SUC pos)`,
-  Induct_on`ls` \\ rw[lab_simp_def]
+  Induct_on`ls` \\ rw[]
   \\ Cases_on`h` \\ fs[]
-  \\ fs[lab_simp_def]
   \\ fs[asm_fetch_aux_alt_intro]
-  \\ qspecl_then[`n`,`l`,`pos`]mp_tac (Q.GEN`k`asm_fetch_sec_lab_simp_sec)
+  \\ qspecl_then[`n`,`l`,`pos`]mp_tac (Q.GEN`k`asm_fetch_sec_lab_simp_lines)
   \\ fs[]
   \\ strip_tac \\ fs[]
   >- (
@@ -306,20 +306,20 @@ val asm_fetch_aux_lab_simp = Q.store_thm("asm_fetch_aux_lab_simp",
   TOP_CASE_TAC \\ fs[] \\ rw[] \\
   imp_res_tac sec_loc_to_pc_NONE_not_MEM);
 
-val state_rel_def = Define `
-state_rel (s1:('a,'ffi) labSem$state) t1 ⇔
-          (t1 = s1 with <| code := lab_simp s1.code |>) ∧
+val lab_simp_sec_rel_def = Define `
+  lab_simp_sec_rel (s1:('a,'ffi) labSem$state) t1 ⇔
+          (t1 = s1 with <| code := MAP lab_simp_sec s1.code |>) ∧
           ¬s1.failed`
 
-val lab_simp_correct = Q.store_thm("lab_simp_correct",
-`!(s1:('a,'ffi) labSem$state) t1 res s2.
-   (evaluate s1 = (res,s2)) /\ state_rel s1 t1 ∧
-    EVERY sec_labels_ok s1.code ∧
-    ALL_DISTINCT (MAP Section_num s1.code) ∧
-    EVERY (ALL_DISTINCT o extract_labels o Section_lines) s1.code ∧
-    EVERY ($~ o NULL o Section_lines) s1.code
-    ==>
-     ?t2. (evaluate t1 = (res,t2)) /\ state_rel s2 t2`,
+val MAP_lab_simp_sec_correct = Q.store_thm("MAP_lab_simp_sec_correct",
+  `!(s1:('a,'ffi) labSem$state) t1 res s2.
+     (evaluate s1 = (res,s2)) /\ lab_simp_sec_rel s1 t1 ∧
+      EVERY sec_labels_ok s1.code ∧
+      ALL_DISTINCT (MAP Section_num s1.code) ∧
+      EVERY (ALL_DISTINCT o extract_labels o Section_lines) s1.code ∧
+      EVERY ($~ o NULL o Section_lines) s1.code
+      ==>
+       ?t2. (evaluate t1 = (res,t2)) /\ lab_simp_sec_rel s2 t2`,
   ho_match_mp_tac evaluate_ind \\
   rw [] \\
   qhdtm_x_assum `evaluate` mp_tac \\
@@ -327,35 +327,35 @@ val lab_simp_correct = Q.store_thm("lab_simp_correct",
   IF_CASES_TAC >-
     (rw[] \\
      first_assum (part_match_exists_tac (el 2 o strip_conj) o concl) \\
-     simp [] \\ simp [Once evaluate_def] \\ fs [state_rel_def] \\ rw [] \\ fs []) \\
+     simp [] \\ simp [Once evaluate_def] \\ fs [lab_simp_sec_rel_def] \\ rw [] \\ fs []) \\
   strip_tac \\
-  qhdtm_x_assum`state_rel`mp_tac \\
-  rw[Once state_rel_def] \\
+  qhdtm_x_assum`lab_simp_sec_rel`mp_tac \\
+  rw[Once lab_simp_sec_rel_def] \\
   once_rewrite_tac [evaluate_def] \\
   fs[asm_fetch_def] \\
-  qspecl_then[`s1.pc`,`s1.code`]mp_tac asm_fetch_aux_lab_simp \\
+  qspecl_then[`s1.pc`,`s1.code`]mp_tac asm_fetch_aux_MAP_lab_simp_sec \\
   impl_tac >- fs[] \\ rw[] \\ fs[]
   >- (
     top_case_tac \\ fs []
-    >- ( rw[state_rel_def] ) \\
+    >- ( rw[lab_simp_sec_rel_def] ) \\
     top_case_tac \\ fs[]
-    >- ( rw[state_rel_def] )
+    >- ( rw[lab_simp_sec_rel_def] )
     >- (
       top_case_tac \\ fs[]
-      \\ TRY( rw[state_rel_def] \\ NO_TAC)
+      \\ TRY( rw[lab_simp_sec_rel_def] \\ NO_TAC)
       >- (
         top_case_tac \\ fs[]
-        >- rw[state_rel_def]
+        >- rw[lab_simp_sec_rel_def]
         \\ rfs[asm_inst_consts]
         \\ first_x_assum match_mp_tac
-        \\ rw[state_rel_def]
+        \\ rw[lab_simp_sec_rel_def]
         \\ fs[state_component_equality,dec_clock_def,inc_pc_def,asm_inst_consts] )
       \\ top_case_tac \\ fs[]
-      >- rw[state_rel_def]
+      >- rw[lab_simp_sec_rel_def]
       \\ top_case_tac \\ fs[]
-      >- rw[state_rel_def]
+      >- rw[lab_simp_sec_rel_def]
       \\ first_x_assum match_mp_tac
-      \\ rw[state_rel_def]
+      \\ rw[lab_simp_sec_rel_def]
       \\ EVAL_TAC \\ fs[] )
     >- (
       fs[get_pc_value_def,dec_clock_def,upd_pc_def,upd_reg_def,inc_pc_def,get_ret_Loc_def] \\
@@ -363,53 +363,53 @@ val lab_simp_correct = Q.store_thm("lab_simp_correct",
       >- (
         case_tac \\ fs[] \\
         case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         first_x_assum match_mp_tac \\
-        rw[state_rel_def] )
+        rw[lab_simp_sec_rel_def] )
       >- (
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         case_tac \\ fs[] \\
         case_tac \\ fs[] \\ rw[] \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         first_x_assum match_mp_tac \\
-        rw[state_rel_def] )
+        rw[lab_simp_sec_rel_def] )
       >- (
         case_tac \\ fs[] \\
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         first_x_assum match_mp_tac \\
-        rw[state_rel_def] )
+        rw[lab_simp_sec_rel_def] )
       >- (
         case_tac \\ fs[] \\
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         first_x_assum match_mp_tac \\
-        rw[state_rel_def] )
+        rw[lab_simp_sec_rel_def] )
       >- (
         reverse top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         reverse top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         pairarg_tac \\ fs[] \\
         first_x_assum match_mp_tac \\
-        rw[state_rel_def] )
-      >- rw[state_rel_def]
+        rw[lab_simp_sec_rel_def] )
+      >- rw[lab_simp_sec_rel_def]
       >- (
         reverse top_case_tac \\ fs[]
-        >- rw[state_rel_def] \\
+        >- rw[lab_simp_sec_rel_def] \\
         top_case_tac \\ fs[] \\
-        rw[state_rel_def] )))
+        rw[lab_simp_sec_rel_def] )))
   \\ fs[dec_clock_def,get_pc_value_def,inc_pc_def,upd_pc_def]
   \\ first_x_assum match_mp_tac
-  \\ rw[state_rel_def,ADD1]);
+  \\ rw[lab_simp_sec_rel_def,ADD1]);
 
 val _ = export_theory ();

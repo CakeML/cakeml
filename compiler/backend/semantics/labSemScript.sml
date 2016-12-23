@@ -23,11 +23,6 @@ val _ = Datatype `
      ; link_reg   : num
      |>`
 
-val is_Label_def = Define `
-  (is_Label (Label _ _ _) = T) /\
-  (is_Label _ = F)`;
-val _ = export_rewrites["is_Label_def"];
-
 val asm_fetch_aux_def = Define `
   (asm_fetch_aux pos [] = NONE) /\
   (asm_fetch_aux pos ((Section k [])::xs) = asm_fetch_aux pos xs) /\

@@ -653,7 +653,7 @@ val labs_correct_def = Define `
         | _ => T)
      else labs_correct (n + 1) xs code)`
 
-val is_Label_def = labSemTheory.is_Label_def
+val is_Label_def = labLangTheory.is_Label_def
 
 val code_installed_eq = Q.store_thm("code_installed_eq",
   `!pc xs code.
