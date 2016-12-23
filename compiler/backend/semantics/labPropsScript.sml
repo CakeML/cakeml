@@ -107,6 +107,10 @@ val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
   `reg_imm r (s with clock := z) = reg_imm r s`,
   Cases_on`r`>>EVAL_TAC);
 
+val reg_imm_with_code = Q.store_thm("reg_imm_with_code[simp]",
+  `reg_imm r (s with code := z) = reg_imm r s`,
+  Cases_on`r`>>EVAL_TAC);
+
 val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
   `asm_inst i (s with clock := z) = asm_inst i s with clock := z`,
   Cases_on`i`>>EVAL_TAC >- (
