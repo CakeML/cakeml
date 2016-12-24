@@ -6,8 +6,12 @@ sig
     (* main functionality *)
 
     val translate  : thm -> thm    (* e.g. try translate listTheory.MAP *)
+    val abs_translate : thm -> thm
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
+
+    val concretise : term list -> unit
+    val concretise_all : unit -> unit
 
     val ml_prog_update : (ml_progLib.ml_prog_state ->
                           ml_progLib.ml_prog_state) -> unit
@@ -29,8 +33,10 @@ sig
 
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
+    val abs_register_type : hol_type -> unit
 
     val register_exn_type   : hol_type -> unit
+    val abs_register_exn_type : hol_type -> unit
     val full_name_of_type   : hol_type -> string
     val case_of             : hol_type -> thm
     val eq_lemmas           : unit -> thm list
