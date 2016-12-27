@@ -7,13 +7,14 @@ semantics/proofs
 
 # translator
 explorer/pp/astPP
+basis/pure
 translator
 
 # characteristic formulae
 compiler/parsing
 characteristic
 
-# basis program
+# basis library
 basis
 
 # compiler

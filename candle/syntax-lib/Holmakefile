@@ -1,1 +1,1 @@
-INCLUDES = ../.. $(HOLDIR)/examples/fun-op-sem/lprefix_lub ../../basis
+INCLUDES = ../.. $(HOLDIR)/examples/fun-op-sem/lprefix_lub ../../basis/pure

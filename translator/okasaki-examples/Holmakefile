@@ -1,4 +1,4 @@
-INCLUDES = .. ../.. ../../basis/translation
+INCLUDES = .. ../.. ../../basis
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

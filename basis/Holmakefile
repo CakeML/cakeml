@@ -1,2 +1,2 @@
-INCLUDES = .. $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+INCLUDES = .. pure ../translator ../characteristic
 OPTIONS = QUIT_ON_FAILURE

@@ -1,5 +1,5 @@
 INCLUDES= ..\
-../../basis/translation\
+../../basis\
 auxiliary\
 $(HOLDIR)/examples/Crypto/AES\
 $(HOLDIR)/examples/Crypto/RC6\
