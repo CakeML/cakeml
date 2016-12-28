@@ -344,6 +344,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
  every_case_tac >>
  srw_tac[][] >>
  metis_tac []);
+ *)
 
 val do_opapp_cases = Q.store_thm("do_opapp_cases",
   `∀env' vs v.
@@ -351,16 +352,15 @@ val do_opapp_cases = Q.store_thm("do_opapp_cases",
     =
   ((∃v2 env'' n e.
     (vs = [Closure env'' n e; v2]) ∧
-    (env' = env'' with <| v := (n,v2)::env''.v |>) ∧ (v = e)) ∨
+    (env' = env'' with <| v := nsBind n v2 env''.v |>) ∧ (v = e)) ∨
   (?v2 env'' funs n' n'' e.
     (vs = [Recclosure env'' funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))`,
+    (env' = env'' with <| v :=  nsBind n'' v2 (build_rec_env funs env'' env''.v) |> ∧ (v = e))))`,
   srw_tac[][do_opapp_def] >>
   cases_on `vs` >> srw_tac[][] >>
   every_case_tac >> metis_tac []);
- *)
 
 val do_app_NONE_ffi = Q.store_thm("do_app_NONE_ffi",
   `do_app (refs,ffi) op args = NONE ⇒

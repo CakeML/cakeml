@@ -204,6 +204,10 @@ val nsDom_nsBind = Q.store_thm ("nsDom_nsBind[simp]",
   fs [nsLookup_def] >>
   metis_tac []);
 
+val nsDom_nsSing = Q.store_thm ("nsDom_nsSing[simp]",
+  `!x y. nsDom (nsSing x y) = {Short x}`,
+  rw [nsSing_def, nsDom_def, EXTENSION, GSPECIFICATION, LAMBDA_PROD, EXISTS_PROD]);
+
 (* -------------- nsLookup ------------------ *)
 
 val nsLookup_to_nsLookupMod = Q.store_thm ("nsLookup_to_nsLookupMod",
@@ -367,6 +371,35 @@ val nsLookupMod_nsAppend_none = Q.store_thm ("nsLookupMod_nsAppend_none",
  >> qexists_tac `[h]`
  >> simp [nsLookupMod_def]);
 
+val nsDom_nsAppend = Q.store_thm ("nsDom_nsAppend[simp]",
+  `!x y. nsDom (nsAppend (alist_to_ns x) y) = set (MAP (Short o FST) x) ∪ nsDom y`,
+  rw [nsDom_def, EXTENSION, GSPECIFICATION, LAMBDA_PROD, EXISTS_PROD, MAP_o] >>
+  eq_tac >>
+  rw [nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, nsLookup_alist_to_ns_none] >>
+  fs [MEM_MAP] >>
+  rw [] >>
+  imp_res_tac ALOOKUP_MEM
+  >- metis_tac [PAIR_EQ, FST]
+  >- (
+    PairCases_on `y''` >>
+    simp [METIS_PROVE [] ``(?x. P x ∨ Q x) ⇔ (?x. P x) ∨ (?x. Q x)``] >>
+    disj1_tac >>
+    Induct_on `x` >>
+    rw [] >>
+    rw [] >>
+    PairCases_on `h` >>
+    rw [])
+  >- (
+    Cases_on `x'` >>
+    fs []
+    >- (
+      Cases_on `ALOOKUP x n` >>
+      fs [ALOOKUP_NONE] >>
+      rw [id_to_mods_def])
+    >- (
+      rw [id_to_mods_def, alist_to_ns_def] >>
+      Cases_on `p1` >>
+      fs [nsLookupMod_def])));
 
 (* -------------- nsAll ---------------- *)
 
