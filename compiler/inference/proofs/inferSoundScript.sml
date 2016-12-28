@@ -68,29 +68,6 @@ val generalise_none = Q.prove (
  rw [] >>
  metis_tac []);
 
-val check_s_more5 = Q.prove (
-`!s uvs tvs uvs'. check_s tvs uvs s ∧ uvs ⊆ uvs' ⇒ check_s tvs uvs' s`,
- rw [check_s_def] >>
- metis_tac [check_t_more5]);
-
-val deBruijn_subst_convert = Q.prove(`
-  (∀t.
-  check_t n {} t ⇒
-  deBruijn_subst 0 (MAP convert_t subst) (convert_t t) =
-  convert_t (infer_deBruijn_subst subst t) ) ∧
-  (∀ts.
-  EVERY (check_t n {}) ts ⇒
-  MAP ((deBruijn_subst 0 (MAP convert_t subst)) o convert_t) ts
-  =
-  MAP (convert_t o (infer_deBruijn_subst subst)) ts)`,
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
-  rw[check_t_def]>>
-  fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_def]
-  >-
-    (IF_CASES_TAC>>fs[EL_MAP,convert_t_def])
-  >>
-    fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f]);
-
 val lookup_var_empty = Q.prove(`
   lookup_var x (bind_tvar tvs Empty) tenv =
   lookup_var x Empty tenv`,

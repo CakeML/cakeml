@@ -6,6 +6,7 @@ open inferPropsTheory;
 open infer_eSoundTheory;
 open infer_eCompleteTheory;
 open envRelTheory namespacePropsTheory;
+open namespaceTheory
 
 val _ = new_theory "type_eDeterm";
 
@@ -507,8 +508,69 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     >-
       metis_tac[LENGTH_MAP]
     >>
-      (* May need more assumptions, see env_rel_sound_merge0 *)
-      cheat)>>
+      fs[env_rel_complete_def,lookup_var_def,lookup_varE_def]>>
+      Cases>>fs[]
+      >-
+        (qpat_abbrev_tac`ls = MAP2 A funs C `>>
+        `MAP FST ls = MAP FST funs` by
+          (fs[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o]>>
+          rpt(qpat_x_assum`A=B` sym_sub_tac)>>
+          qpat_abbrev_tac`ls = MAP A (COUNT_LIST B)`>>
+          `LENGTH ls = LENGTH funs` by fs[Abbr`ls`,LENGTH_COUNT_LIST]>>
+          pop_assum mp_tac>>
+          rpt(pop_assum kall_tac)>>
+          qid_spec_tac`ls`>>
+          Induct_on`funs`>>
+          fs[COUNT_LIST_def,FORALL_PROD,LENGTH_NIL]>>
+          rw[]>>
+          Cases_on`ls`>>fs[])>>
+        fs[tveLookup_bvl]>>
+        FULL_CASE_TAC>>fs[]
+        >-
+          (fs[tveLookup_def]>>
+          fs[nsLookup_nsAppend_some,nsLookup_alist_to_ns_some,nsLookup_alist_to_ns_none]>>
+          fs[id_to_mods_def]>>
+          ntac 3 strip_tac>>res_tac>>fs[]>>
+          rw[] >- metis_tac[]>>
+          qexists_tac`tvs''`>>qexists_tac`t'`>>rw[]
+          >-
+            metis_tac[ALOOKUP_NONE]
+          >>
+            match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[])
+        >>
+          res_tac>>fs[]>>
+          fs[deBruijn_inc0]>>
+          rw[] >- metis_tac[]>>
+          fs[nsLookup_nsAppend_some,nsLookup_alist_to_ns_some,nsLookup_alist_to_ns_none]>>
+          fs[id_to_mods_def]>>
+          imp_res_tac ALOOKUP_MEM>>fs[MEM_EL]>>
+          `EL n' ls = (n,0,Infer_Tuvar n') ∧ n' < LENGTH ls` by
+            (fs[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST]>>
+            `n = EL n' (MAP FST funs) ∧ n' < LENGTH funs` by
+               metis_tac[EL_MAP,FST,LENGTH_MAP]>>
+            ntac 2 (pop_assum mp_tac)>>
+            rpt(pop_assum kall_tac)>>
+            simp[EL_MAP,LENGTH_COUNT_LIST,EL_ZIP,EL_COUNT_LIST]>>
+            pairarg_tac>>fs[])>>
+          qexists_tac`0`>>
+          qexists_tac`Infer_Tuvar n'`>>
+          rw[]
+          >-
+            metis_tac[ALOOKUP_ALL_DISTINCT_EL,FST,SND]
+          >>
+            fs[tscheme_approx_def,LENGTH_NIL,infer_deBruijn_subst_id,EL_MAP]>>
+            qpat_assum`A = EL n' B` sym_sub_tac>>fs[]>>
+            imp_res_tac check_freevars_to_check_t>>
+            metis_tac[t_walkstar_no_vars])
+      >>
+        fs[nsLookup_nsAppend_some,nsLookup_alist_to_ns_some,nsLookup_alist_to_ns_none]>>
+        ntac 3 strip_tac>>res_tac>>rw[]
+        >-
+          metis_tac[]
+        >-
+          (fs[alist_to_ns_def]>>Cases_on`p1`>>fs[nsLookupMod_def])
+        >>
+          match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[])>>
   rw[]>> fs[]>>
   (*
   Note: This is the standard trick to swap the order of unification with subcompletion in the completeness proofs *)

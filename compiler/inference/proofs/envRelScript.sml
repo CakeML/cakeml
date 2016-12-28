@@ -141,6 +141,24 @@ rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_def] >|
      metis_tac [optionTheory.SOME_11],
  metis_tac []]);
 
+val deBruijn_subst_convert = Q.store_thm("deBruijn_subst_convert",`
+  (∀t.
+  check_t n {} t ⇒
+  deBruijn_subst 0 (MAP convert_t subst) (convert_t t) =
+  convert_t (infer_deBruijn_subst subst t) ) ∧
+  (∀ts.
+  EVERY (check_t n {}) ts ⇒
+  MAP ((deBruijn_subst 0 (MAP convert_t subst)) o convert_t) ts
+  =
+  MAP (convert_t o (infer_deBruijn_subst subst)) ts)`,
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def]>>
+  fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_def]
+  >-
+    (IF_CASES_TAC>>fs[EL_MAP,convert_t_def])
+  >>
+    fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f]);
+
 val unconvert_t_def = tDefine "unconvert_t" `
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
 (unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc)`
