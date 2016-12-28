@@ -1,63 +1,16 @@
 open preamble
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
+     semanticPrimitivesTheory
+     ml_translatorTheory ml_translatorLib ml_progLib
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
+     mlbasicsProgTheory basisFunctionsLib
 
 val _ = new_theory "helloProg"
 
-
-(* setup *)
-
-fun get_module_prefix () = let
-  val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())
-               |> concl |> rator |> rator |> rand
-  in if optionSyntax.is_none mod_tm then "" else
-       stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
-  end
-
-fun trans ml_name q = let
-  val rhs = Term q
-  val prefix = get_module_prefix ()
-  val tm = mk_eq(mk_var(prefix ^ pick_name ml_name,type_of rhs),rhs)
-  val def = Define `^tm`
-  val _ = (next_ml_names := [ml_name])
-  val v_thm = translate (def |> SIMP_RULE std_ss [FUN_EQ_THM])
-  val v_thm = v_thm |> REWRITE_RULE [def]
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV)
-  val v_name = v_thm |> concl |> rand |> dest_const |> fst
-  (* evaluate precondition *)
-  val pat = PRECONDITION_def |> SPEC_ALL |> GSYM |> concl |> rand
-  fun PRECOND_CONV c tm =
-    if can (match_term pat) tm then RAND_CONV c tm else NO_CONV tm
-  val v_thm = v_thm |> DISCH_ALL
-                    |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
-                    |> UNDISCH_ALL
-  val _ = save_thm(v_name ^ "_thm",v_thm)
-  in v_thm end
-
-fun append_prog tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  in ml_prog_update (ml_progLib.add_prog tm pick_name) end
-
-fun append_dec tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  in ml_prog_update (ml_progLib.add_dec tm pick_name) end
-
-fun append_decs tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  val tms = fst (listSyntax.dest_list tm)
-  in (map append_dec tms; ()) end
+val _ = translation_extends"mlbasicsProg";
 
 fun basis_st () = get_ml_prog_state ()
 
-val _ = Define `
-  mk_binop name prim = Dlet (Pvar name)
-    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))`;
-
-val _ = Define `
-  mk_unop name prim = Dlet (Pvar name)
-    (Fun "x" (App prim [Var (Short "x")]))`;
-
-
+(* TODO: these modules should be inherited rather than re-verified here *)
 
 (* Word8Array module -- CF verified *)
 
