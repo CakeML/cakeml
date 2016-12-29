@@ -1,11 +1,11 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     mlbasicsProgTheory
+     mlword8ProgTheory
 
 val _ = new_theory "mlw8arrayProg";
 
-val _ = translation_extends "mlbasicsProg";
+val _ = translation_extends "mlword8Prog";
 
 val _ = ml_prog_update (open_module "Word8Array");
 

@@ -8,9 +8,11 @@ translations). Eventually, when we have an abstract mode translator, the
 different modules can be made more independent and different combinations can
 be selected than simple prefixes of the current ordering.
 
-Note, for example, that TextIO probably needs to inherit Array eventually, so
-the ordering below is inadequate. Only minimal functionality is currently
-provided (to support existing examples like hello and cat).
+Note: CharIO is not in the SML basis, but is used for our
+current examples (hello, cat, compiler bootstrap). We should
+add a TextIO like the basis instead. Once we have an abstract
+translator, we could eiher keep CharIO as "more basic" I/O
+primitives, or replace with TextIO.
 *)
 
 std_prelude
@@ -19,6 +21,8 @@ list
 vector
 string
 basics
+char
+word8
 w8array
-(* textio - to be added *)
+| \_ chario
 array
