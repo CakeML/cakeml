@@ -1,10 +1,11 @@
 open preamble
-     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib 
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib mlbasicsProgTheory
+     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
+     mlbasicsProgTheory mlw8arrayProgTheory
 
 val _ = new_theory"mlarrayProg"
 
-val _ = translation_extends"mlbasicsProg"
+val _ = translation_extends"mlw8arrayProg"
 
 fun array_st () = get_ml_prog_state ()
 
