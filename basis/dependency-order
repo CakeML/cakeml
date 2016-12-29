@@ -1,0 +1,24 @@
+(*
+This file records the current, linear dependency order between the
+translation/CF theories making up the basis library verification.
+
+This unnatural linear dependency graph is required by the concrete mode
+translator (which provides only translation_extends as a method for joining two
+translations). Eventually, when we have an abstract mode translator, the
+different modules can be made more independent and different combinations can
+be selected than simple prefixes of the current ordering.
+
+Note, for example, that TextIO probably needs to inherit Array eventually, so
+the ordering below is inadequate. Only minimal functionality is currently
+provided (to support existing examples like hello and cat).
+*)
+
+std_prelude
+option
+list
+vector
+string
+basics
+w8array
+(* textio - to be added *)
+array
