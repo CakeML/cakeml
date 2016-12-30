@@ -66,4 +66,14 @@ fun derive_eval_thm v_name e = let
   val v_def = define_abbrev true v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 
+fun apply_normalise tm =
+  if type_of tm = astSyntax.exp_ty
+  then rhs(concl(EVAL``full_normalise [] ^tm``))
+  else
+  (let val (a,d) = dest_comb tm in
+     mk_comb(apply_normalise a, apply_normalise d)
+   end handle HOL_ERR _ => tm)
+
+val normalise_topdecs = apply_normalise o parse_topdecs
+
 end
