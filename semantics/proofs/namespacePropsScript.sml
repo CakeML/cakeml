@@ -208,6 +208,10 @@ val nsDom_nsSing = Q.store_thm ("nsDom_nsSing[simp]",
   `!x y. nsDom (nsSing x y) = {Short x}`,
   rw [nsSing_def, nsDom_def, EXTENSION, GSPECIFICATION, LAMBDA_PROD, EXISTS_PROD]);
 
+val nsLookupMod_alist_to_ns = Q.store_thm ("nsLookupMod_alist_to_ns[simp]",
+  `!l x y. nsLookupMod (alist_to_ns l) (x::y) = NONE`,
+  rw [alist_to_ns_def, nsLookupMod_def]);
+
 (* -------------- nsLookup ------------------ *)
 
 val nsLookup_to_nsLookupMod = Q.store_thm ("nsLookup_to_nsLookupMod",
@@ -237,6 +241,18 @@ val nsLookup_alist_to_ns_none = Q.store_thm ("nsLookup_alist_to_ns_none",
  >> rw []
  >> Cases_on `id`
  >> fs [nsLookup_def]);
+
+val nsDom_alist_to_ns = Q.store_thm ("nsDom_alist_to_ns[simp]",
+  `!l. nsDom (alist_to_ns l) = set (MAP (Short o FST) l)`,
+  rw [nsDom_def, GSPECIFICATION, EXTENSION, EXISTS_PROD, MEM_MAP] >>
+  eq_tac >>
+  rw [nsLookup_alist_to_ns_some]
+  >- metis_tac [ALOOKUP_MEM] >>
+  Induct_on `l` >>
+  rw [] >>
+  rw [] >>
+  PairCases_on `h` >>
+  rw []);
 
 (* -------------- nsLift --------------- *)
 
@@ -898,5 +914,10 @@ val nsSub_nsMap = Q.store_thm ("nsSub_nsMap",
   eq_tac >>
   rw [] >>
   metis_tac []);
+
+(* --------------- nsDom --------------- *)
+val nsLookup_nsDom = Q.store_thm ("nsLookup_nsDom",
+  `!x n. x ∈ nsDom n ⇔ ?v. nsLookup n x = SOME v`,
+  rw [nsDom_def, GSPECIFICATION, EXISTS_PROD]);
 
 val _ = export_theory ();

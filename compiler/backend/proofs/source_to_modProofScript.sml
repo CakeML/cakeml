@@ -328,6 +328,7 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
       <| c := env_c; v := env' |>
       locals)`;
 
+(*
 val match_result_rel_def = Define
   `(match_result_rel genv env' (Match env) (Match env_i1) =
      ?env''. env = env'' ++ env' ∧ env_rel genv env'' env_i1) ∧
@@ -345,6 +346,7 @@ val invariant_change_clock = Q.store_thm("invariant_change_clock",
   `invariant menv env envm envv st1 st2 mods ⇒
    invariant menv env envm envv (st1 with clock := k) (st2 with clock := k) mods`,
   srw_tac[][invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases])
+*)
 
 (* semantic functions respect relation *)
 
@@ -708,26 +710,34 @@ val global_env_inv_add_locals = Q.prove (
   metis_tac []);
 
 val global_env_inv_extend2 = Q.prove (
-  `!genv mods tops menv env tops' env' locals.
-    MAP FST env' = REVERSE (MAP FST tops') ∧
-    global_env_inv genv mods tops menv locals env ∧
-    global_env_inv genv FEMPTY (FEMPTY |++ tops') [] locals env'
+  `!genv var_map env new_vars env' locals.
+    set (MAP (Short o FST) new_vars) = nsDom env' ∧
+    global_env_inv genv var_map locals env ∧
+    global_env_inv genv (alist_to_ns new_vars) locals env'
     ⇒
-    global_env_inv genv mods (tops |++ tops') menv locals (env'++env)`,
-  srw_tac[][v_rel_eqns, flookup_fupdate_list] >>
-  full_case_tac >>
-  full_simp_tac(srw_ss())[ALOOKUP_APPEND] >>
-  full_case_tac >>
-  full_simp_tac(srw_ss())[] >>
+    global_env_inv genv (nsBindList new_vars var_map) locals (nsAppend env' env)`,
+  srw_tac[][v_rel_eqns, GSYM nsAppend_to_nsBindList] >>
+  fs [nsLookup_nsAppend_some, nsLookup_alist_to_ns_none, nsLookup_alist_to_ns_some] >>
   res_tac >>
-  full_simp_tac(srw_ss())[] >>
-  rpt (pop_assum mp_tac) >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[ALOOKUP_FAILS] >>
-  imp_res_tac ALOOKUP_MEM >>
-  `set (MAP FST env') = set (REVERSE (MAP FST tops'))` by metis_tac [] >>
-  full_simp_tac(srw_ss())[EXTENSION] >>
-  metis_tac [pair_CASES, MEM_MAP, FST]);
+  fs [] >>
+  rw [] >>
+  qexists_tac `n` >>
+  rw [] >>
+  Cases_on `x` >>
+  fs [] >>
+  rw []
+  >- (
+    `Short n' ∉ nsDom env'` by metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
+    disj2_tac >>
+    rw [ALOOKUP_NONE] >>
+    qpat_x_assum `_ = nsDom _` (assume_tac o GSYM) >>
+    fs [MEM_MAP] >>
+    fs [namespaceTheory.id_to_mods_def])
+  >- (
+    fs [namespaceTheory.id_to_mods_def] >>
+    Cases_on `p1` >>
+    fs [] >>
+    rw []));
 
 val lookup_build_rec_env_lem = Q.prove (
   `!x cl_env funs' funs.
@@ -749,7 +759,6 @@ val do_opapp = Q.prove (
      ∃var_map env_i1 locals.
        env_all_rel genv var_map env env_i1 (set locals) ∧
        do_opapp vs_i1 = SOME (env_i1, compile_exp (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) e)`,
-
    srw_tac[][do_opapp_cases, modSemTheory.do_opapp_def] >>
    full_simp_tac(srw_ss())[LIST_REL_CONS1] >>
    srw_tac[][]
@@ -766,7 +775,6 @@ val do_opapp = Q.prove (
          rw [LIST_TO_SET_MAP]) >>
        full_simp_tac(srw_ss())[v_rel_eqns] >>
        metis_tac [])
-
    >- (qpat_x_assum `v_rel genv (Recclosure _ _ _) _` mp_tac >>
        srw_tac[][Once v_rel_cases] >>
        srw_tac[][] >>
@@ -789,17 +797,27 @@ val do_opapp = Q.prove (
            >- (
             simp[compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
             full_simp_tac(srw_ss())[FST_triple]))
-
        >- (MAP_EVERY qexists_tac [`nsBindList new_vars var_map`, `[n'']`] >>
            srw_tac[][env_all_rel_cases, namespaceTheory.nsBindList_def] >>
+           rw [GSYM namespaceTheory.nsBindList_def] >>
            MAP_EVERY qexists_tac [`nsSing n'' v2`, `build_rec_env funs env'' env''.v`] >>
            srw_tac[][semanticPrimitivesTheory.sem_env_component_equality, semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION]
-
-           >- (match_mp_tac global_env_inv_extend2 >>
-               srw_tac[][MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_triple, GSYM MAP_REVERSE]
-               >- metis_tac [global_env_inv_add_locals, UNION_EMPTY] >>
+           >- (
+             match_mp_tac global_env_inv_extend2 >>
+             rw [EXTENSION, MEM_MAP]
+             >- (
+(*
+               eq_tac >>
+               rw [PULL_EXISTS] >>
+               fs [find_recfun_ALOOKUP, LAMBDA_PROD, EXISTS_PROD]
+               *)
+               cheat)
+             >- metis_tac [global_env_inv_add_locals, UNION_EMPTY]
+             >- (
                srw_tac[][v_rel_eqns] >>
-               `MEM x (MAP FST funs)`
+               fs [nsLookup_alist_to_ns_some] >>
+               rw [] >>
+               `MEM x' (MAP FST funs)`
                          by (imp_res_tac ALOOKUP_MEM >>
                              full_simp_tac(srw_ss())[MEM_MAP] >>
                              PairCases_on `y` >>
@@ -809,11 +827,17 @@ val do_opapp = Q.prove (
                res_tac >>
                qexists_tac `n` >>
                srw_tac[][] >>
-               `v = Recclosure env'' funs x` by metis_tac [lookup_build_rec_env_lem] >>
+               drule lookup_build_rec_env_lem >>
                srw_tac[][Once v_rel_cases] >>
-               MAP_EVERY qexists_tac [`mods`, `tops`, `tops'`] >>
-               srw_tac[][find_recfun_ALOOKUP])
-           >- full_simp_tac(srw_ss())[v_rel_eqns, modPropsTheory.build_rec_env_merge])));
+               MAP_EVERY qexists_tac [`var_map`, `new_vars`] >>
+               srw_tac[][find_recfun_ALOOKUP]))
+           >- (
+             simp [Once v_rel_cases] >>
+             qexists_tac `v2` >>
+             qexists_tac `nsEmpty` >>
+             rw [namespaceTheory.nsSing_def, namespaceTheory.nsEmpty_def,
+                 namespaceTheory.nsBind_def] >>
+             simp [Once v_rel_cases, namespaceTheory.nsEmpty_def]))));
 
 val build_conv = Q.prove (
   `!genv mods tops env cn vs v vs' env_i1 locals.
