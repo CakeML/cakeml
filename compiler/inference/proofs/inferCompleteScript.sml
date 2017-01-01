@@ -122,7 +122,7 @@ val env_rel_binding_lemma = Q.store_thm ("env_rel_binding_lemma",
       drule find_index_ALL_DISTINCT_EL >>
       disch_then drule >>
       disch_then (qspec_then `0` mp_tac) >>
-      asm_simp_tac std_ss [] >>
+      >>asm_simp_tac std_ss [] >>
       rw [infer_deBruijn_subst_def]))
   >- (
     irule LIST_EQ >>
@@ -692,7 +692,133 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     >-
       (EVAL_TAC>>fs[])
     >-
-      cheat
+      (drule generalise_complete>>
+      disch_then(qspec_then`st'.next_uvar` mp_tac)>>fs[]>>
+      `t_wfs init_infer_state.subst` by (EVAL_TAC>>fs[t_wfs_def])>>
+      `t_wfs st.subst` by
+        (imp_res_tac infer_e_wfs>>
+        fs[])>>
+      impl_keep_tac>-
+        (rfs[]>>rw[]
+        >-
+          metis_tac[pure_add_constraints_success]
+        >>
+          imp_res_tac infer_e_next_uvar_mono>>fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST,check_t_def])>>
+      fs[env_rel_def]>> strip_tac>>
+      `LENGTH funs_ts = LENGTH funs` by metis_tac[LENGTH_MAP]>>
+      `MAP (t_walkstar last_sub) funs_ts = ts'` by
+        (simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_COUNT_LIST]>>rw[]>>
+        match_mp_tac sub_completion_apply>>
+        qpat_assum`t_wfs st'.subst` (match_exists_tac o concl)>>fs[]>>
+        rw[GSYM PULL_EXISTS]
+        >-
+          (imp_res_tac pure_add_constraints_apply>>
+          pop_assum kall_tac>>
+          pop_assum mp_tac>>
+          simp[Once LIST_EQ_REWRITE]>>
+          disch_then(qspec_then`x` assume_tac)>>rfs[LENGTH_COUNT_LIST,EL_MAP,EL_ZIP,EL_COUNT_LIST])
+        >>
+          metis_tac[])>>
+      rw[]
+      >-
+        (*Recover the check_t property directly from infer_d_check*)
+        (imp_res_tac infer_d_check >>
+        pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
+        disch_then(qspec_then`Dletrec funs` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
+        rfs[guard_def,LENGTH_COUNT_LIST]>>
+        pop_assum match_mp_tac>>
+        CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>
+        qexists_tac`st'`>>fs[success_eqns]>>
+        metis_tac[LENGTH_MAP])
+      >-
+        (fs[namespaceTheory.alist_to_ns_def]>>
+        Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
+      >-
+        (* Soundness direction:
+           Because the type system chooses a MGU (assumption 4),
+           we show that the inferred (and generalised) type is sound, and so the type system
+           must generalise it
+        *)
+        (
+        rw[env_rel_sound_def]>>
+        simp[lookup_var_def]>>
+        fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP]>>
+        imp_res_tac generalise_list_length>>fs[]>>
+        imp_res_tac ALOOKUP_MEM>>
+        rfs[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP]>>
+        rw[]>>pairarg_tac>>fs[]>>rw[]>>
+        `n < LENGTH bindings ∧ f = FST (EL n bindings) ` by
+          (qpat_x_assum`MAP FST A = B` mp_tac>>
+          simp[Once LIST_EQ_REWRITE,EL_MAP]>>
+          metis_tac[EL_MAP,LENGTH_MAP,FST])>>
+        pop_assum SUBST1_TAC>>
+        simp[ALOOKUP_ALL_DISTINCT_EL]>>
+        drule (infer_e_sound |> CONJUNCTS |> el 4)>>
+        disch_then(qspecl_then[`tenv`,`bind_var_list 0 (MAP2 (λ(x,y,z) t. (x,(convert_t ∘ t_walkstar last_sub) t)) funs funs_ts) (bind_tvar num_gen Empty)`] mp_tac)>>
+        qmatch_asmsub_abbrev_tac`pure_add_constraints st.subst c1 st'.subst`>>
+        disch_then(qspecl_then[`c1++ec1`,`last_sub`] mp_tac)>>
+        impl_tac>-
+          (fs[sub_completion_def]>>rw[]
+          >-
+            (fs[ienv_ok_def,ienv_val_ok_def]>>
+            match_mp_tac nsAll_nsAppend>>
+            rw[]
+            >-
+             (match_mp_tac nsAll_alist_to_ns>>
+             fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_ZIP,LENGTH_COUNT_LIST]>>rw[]>>
+             simp[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST,check_t_def])
+            >>
+              irule nsAll_mono>>
+              HINT_EXISTS_TAC>>
+              simp[FORALL_PROD]>>
+              metis_tac[check_t_more])
+          >-
+            (drule (env_rel_e_sound_letrec_merge0|>INST_TYPE [alpha|->``:tvarN``,beta|->``:exp``])>>
+            simp[MAP2_MAP,LENGTH_COUNT_LIST]>>
+            disch_then(qspecl_then[`funs`,`ienv`,`tenv`,`bind_tvar num_gen Empty`,`0n`] mp_tac)>>
+            fs[sub_completion_def,SUBSET_DEF]>>impl_tac
+            >-
+              (rw[]
+              >-
+                (imp_res_tac infer_e_next_uvar_mono>>fs[])
+              >>
+                match_mp_tac env_rel_sound_extend_tvs>>fs[]>>
+                match_mp_tac env_rel_e_sound_empty_to>>fs[])
+            >>
+            qpat_abbrev_tac `A = MAP _ _`>>
+            qpat_abbrev_tac `ls1 = MAP _ _`>>
+            qpat_abbrev_tac `ls2 = MAP _ _`>>
+            `ls1=ls2` by
+              (unabbrev_all_tac>>
+              fs[LIST_EQ_REWRITE,LENGTH_ZIP,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>rw[]>>
+              pairarg_tac>>fs[EL_COUNT_LIST])>>
+            fs[])
+          >>
+            metis_tac[pure_add_constraints_append])>>
+        strip_tac>>fs[LIST_REL_EL_EQN]>>
+        res_tac>> pop_assum kall_tac>>
+        pop_assum (qspec_then`n` assume_tac)>>
+        fs[MAP2_MAP]>>
+        rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+        pairarg_tac>>fs[]>>
+        pairarg_tac>>fs[]>>
+        `t_walkstar last_sub (Infer_Tuvar n) = t_walkstar last_sub t'` by
+          (fs[Once LIST_EQ_REWRITE]>>
+          first_x_assum(qspec_then`n` kall_tac)>>
+          first_x_assum(qspec_then`n` assume_tac)>>
+          rfs[EL_MAP,EL_COUNT_LIST,EL_ZIP]>>fs[])>>
+        imp_res_tac ALOOKUP_ALL_DISTINCT_EL >>res_tac>>fs[]>>
+        Cases_on`EL n bindings`>>fs[]>>
+        imp_res_tac tscheme_inst_to_approx>>
+        rveq>>fs[]>>
+        `check_t num_gen {} (t_walkstar last_sub t')` by
+          (imp_res_tac infer_e_next_uvar_mono>>
+          rpt (qpat_x_assum`A=B` sym_sub_tac)>>
+          fs[sub_completion_def]>>
+          fs[SUBSET_DEF])>>
+        metis_tac[check_t_to_check_freevars,check_t_empty_unconvert_convert_id])
+      >-
+        cheat)
     >-
       metis_tac[LENGTH_MAP])
   >- ( (* Dtype *)
