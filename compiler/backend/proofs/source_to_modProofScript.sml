@@ -36,7 +36,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
                  x)) ∧
   (* For top-level let recs *)
   (!genv var_map env funs x y e new_vars.
-    set (MAP FST new_vars) = set (MAP FST funs) ∧
+    MAP FST new_vars = MAP FST funs ∧
     global_env_inv genv var_map {} env.v ∧
     find_recfun x funs = SOME (y, e) ∧
     (* A syntactic way of relating the recursive function environment, rather
@@ -320,8 +320,8 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
 
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!genv var_map env_c env_v_local env_v_top env' locals.
-    nsDom env_v_local = IMAGE Short locals ∧
-    global_env_inv genv var_map locals env_v_top ∧
+    (?l. env_v_local = alist_to_ns l ∧ MAP FST l = locals) ∧
+    global_env_inv genv var_map (set locals) env_v_top ∧
     env_rel genv env_v_local env'
     ⇒
     env_all_rel genv var_map
@@ -386,7 +386,7 @@ val do_eq = Q.prove (
  val do_con_check = Q.prove (
   `!genv var_map env cn es env_i1 locals.
     do_con_check env.c cn (LENGTH es) ∧
-    env_all_rel genv var_map env env_i1 (set locals)
+    env_all_rel genv var_map env env_i1 locals
     ⇒
     do_con_check env_i1.c cn (LENGTH (compile_exps (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) es))`,
   srw_tac[][do_con_check_def] >>
@@ -756,7 +756,7 @@ val do_opapp = Q.prove (
     LIST_REL (v_rel genv) vs vs_i1
     ⇒
      ∃var_map env_i1 locals.
-       env_all_rel genv var_map env env_i1 (set locals) ∧
+       env_all_rel genv var_map env env_i1 locals ∧
        do_opapp vs_i1 = SOME (env_i1, compile_exp (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) e)`,
    srw_tac[][do_opapp_cases, modSemTheory.do_opapp_def] >>
    full_simp_tac(srw_ss())[LIST_REL_CONS1] >>
@@ -805,14 +805,8 @@ val do_opapp = Q.prove (
              match_mp_tac global_env_inv_extend2 >>
              rw []
              >- (
-               simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-               fs [EXTENSION, MEM_MAP] >>
-               rw [] >>
-               eq_tac >>
-               rw [PULL_EXISTS] >>
-               pairarg_tac >>
-               fs [EXISTS_PROD] >>
-               metis_tac [])
+               `MAP (Short:tvarN -> (tvarN, tvarN) id) (MAP FST new_vars) = MAP Short (MAP FST funs)` by metis_tac [] >>
+               fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
              >- metis_tac [global_env_inv_add_locals, UNION_EMPTY]
              >- (
                srw_tac[][v_rel_eqns] >>
@@ -862,6 +856,7 @@ val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
   rw [] >>
   fs [astTheory.pat_bindings_def, PULL_FORALL]);
 
+  (*
 val pmatch = Q.prove (
   `(!cenv s p v env r env' env'' genv env_i1 s_i1 v_i1.
     pmatch cenv s p v env = r ∧
@@ -924,66 +919,9 @@ val pmatch = Q.prove (
       CCONTR_TAC >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       metis_tac [match_result_rel_def, match_result_distinct])) ;
+      *)
 
 (* compiler correctness *)
-
-val global_env_inv_lookup_top = Q.prove (
-  `!genv var_map shadowers env x v n.
-    global_env_inv genv var_map shadowers env ∧
-    nsLookup env (Short x) = SOME v ∧
-    x ∉ shadowers ∧
-    nsLookup var_map (Short x) = SOME (Var_global n)
-    ⇒
-    ?v_i1. LENGTH genv > n ∧ EL n genv = SOME v_i1 ∧ v_rel genv v v_i1`,
-  rw [v_rel_eqns] >>
-  fs [] >>
-  first_x_assum (qspec_then `Short x` mp_tac) >>
-  simp [] >>
-  metis_tac [GREATER_DEF]);
-
-val global_env_inv_lookup_mod1 = Q.prove (
-  `!genv mods tops menv shadowers env genv mn n env'.
-    global_env_inv genv mods tops menv shadowers env ∧
-    ALOOKUP menv mn = SOME env'
-    ⇒
-    ?n. FLOOKUP mods mn = SOME n`,
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[v_rel_eqns] >>
-  metis_tac []);
-
-val global_env_inv_lookup_mod2 = Q.prove (
-  `!genv mods tops menv shadowers env genv mn n env' x v map.
-    global_env_inv genv mods tops menv shadowers env ∧
-    ALOOKUP menv mn = SOME env' ∧
-    ALOOKUP env' x = SOME v ∧
-    FLOOKUP mods mn = SOME map
-    ⇒
-    ?n. FLOOKUP map x = SOME n`,
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[v_rel_eqns] >>
-  res_tac >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  res_tac >>
-  full_simp_tac(srw_ss())[]);
-
-val global_env_inv_lookup_mod3 = Q.prove (
-  `!genv mods tops menv shadowers env genv mn n env' x v map n.
-    global_env_inv genv mods tops menv shadowers env ∧
-    ALOOKUP menv mn = SOME env' ∧
-    ALOOKUP env' x = SOME v ∧
-    FLOOKUP mods mn = SOME map ∧
-    FLOOKUP map x = SOME n
-    ⇒
-    LENGTH genv > n ∧ ?v_i1. EL n genv = SOME v_i1 ∧ v_rel genv v v_i1`,
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[v_rel_eqns] >>
-  res_tac >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  res_tac >>
-  full_simp_tac (srw_ss()++ARITH_ss) [] >>
-  metis_tac []);
 
 val s = mk_var("s",
   ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
@@ -1085,47 +1023,51 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [NOT_SOME_NONE, build_conv, EVERY2_REVERSE] >>
     simp []
     >- metis_tac [SOME_11, build_conv, EVERY2_REVERSE])
-
-  >- (* Variable lookup *)
-     (full_simp_tac(srw_ss())[env_all_rel_cases] >>
-      cases_on `n` >>
-      srw_tac[][compile_exp_def] >>
-      full_simp_tac(srw_ss())[lookup_var_id_def] >>
+  >- ((* Variable lookup *)
+    Cases_on `nsLookup env.v n` >>
+    fs [env_all_rel_cases] >>
+    rw [] >>
+    fs [nsLookup_nsAppend_some]
+    >- ((* Local variable *)
+      `n ∈ IMAGE Short (set locals)` by metis_tac [nsLookup_nsDom] >>
+      fs [] >>
+      rw [] >>
+      drule env_rel_lookup >>
+      disch_then drule >>
+      rw [GSYM nsAppend_to_nsBindList] >>
       every_case_tac >>
-      full_simp_tac(srw_ss())[ALOOKUP_APPEND] >>
-      srw_tac[][]
-      >- (every_case_tac >>
-          full_simp_tac(srw_ss())[] >>
-          simp [evaluate_def, result_rel_cases] >>
-          srw_tac[][]
-          >- (full_simp_tac(srw_ss())[v_rel_eqns, FLOOKUP_DRESTRICT] >>
-              every_case_tac >>
-              full_simp_tac(srw_ss())[ALOOKUP_FAILS] >>
-              res_tac >>
-              full_simp_tac(srw_ss())[MEM_MAP, FORALL_PROD] >>
-              metis_tac [pair_CASES, FST, NOT_SOME_NONE])
-          >- (imp_res_tac env_rel_lookup >>
-              full_simp_tac(srw_ss())[]))
-      >- (every_case_tac >>
-          full_simp_tac(srw_ss())[FLOOKUP_DRESTRICT] >>
-          simp [evaluate_def, result_rel_cases] >>
-          imp_res_tac global_env_inv_lookup_top >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          imp_res_tac ALOOKUP_MEM >>
-          full_simp_tac (srw_ss()++ARITH_ss) [MEM_MAP] >>
-          metis_tac [pair_CASES, FST, NOT_SOME_NONE])
-      >- metis_tac [NOT_SOME_NONE, global_env_inv_lookup_mod1]
-      >- metis_tac [NOT_SOME_NONE, global_env_inv_lookup_mod2]
-      >- (imp_res_tac global_env_inv_lookup_mod3 >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          simp [result_rel_cases, evaluate_def] >>
-          srw_tac[][]))
+      fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, nsLookup_alist_to_ns_some,
+          nsLookup_alist_to_ns_none, ALOOKUP_NONE, MEM_MAP]
+      >- metis_tac [pair_CASES, FST, NOT_SOME_NONE]
+      >- metis_tac [pair_CASES, FST, NOT_SOME_NONE]
+      >- (
+        rfs [ALOOKUP_TABULATE] >>
+        rw [] >>
+        simp [evaluate_def, result_rel_cases])
+      >- metis_tac [pair_CASES, FST, NOT_SOME_NONE])
+    >- ( (* top-level variable *)
+      `n ∉ IMAGE Short (set locals)` by metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
+      fs [] >>
+      rw [GSYM nsAppend_to_nsBindList] >>
+      fs [v_rel_eqns] >>
+      first_x_assum drule >>
+      rw [] >>
+      every_case_tac >>
+      fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, nsLookup_alist_to_ns_some,
+          nsLookup_alist_to_ns_none, ALOOKUP_NONE, MEM_MAP] >>
+      rw []
+      >- metis_tac [pair_CASES, FST, NOT_SOME_NONE]
+      >- (
+        Cases_on `p1` >>
+        fs [nsLookupMod_alist_to_ns])
+      >- (
+        drule ALOOKUP_MEM >>
+        simp [MEM_MAP])
+      >- (
+        rfs [ALOOKUP_TABULATE] >>
+        rw [] >>
+        simp [evaluate_def, result_rel_cases])))
+
   >- (* Closure creation *)
      (srw_tac[][Once v_rel_cases] >>
       full_simp_tac(srw_ss())[env_all_rel_cases] >>
@@ -1133,6 +1075,18 @@ val compile_exp_correct' = Q.prove (
       MAP_EVERY qexists_tac [`var_map`, `env_v_top`, `env_v_local`] >>
       imp_res_tac env_rel_dom >>
       srw_tac[][]
+      >- (
+        simp [bind_locals_def, namespaceTheory.nsBindList_def]
+        >- (
+          `MAP FST env' = locals` suffices_by rw [] >>
+          fs [EXTENSION, MEM_MAP] >>
+          metis_tac [namespaceTheory.id_11])
+
+      >- (
+        `set (MAP FST env') = set locals` suffices_by rw [] >>
+        fs [EXTENSION, MEM_MAP] >>
+        metis_tac [namespaceTheory.id_11])
+
       >- (full_simp_tac(srw_ss())[SUBSET_DEF, v_rel_eqns] >>
           srw_tac[][] >>
           `¬(ALOOKUP env x = NONE)` by metis_tac [ALOOKUP_FAILS, MEM_MAP, FST, pair_CASES] >>
