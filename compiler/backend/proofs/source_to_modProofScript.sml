@@ -36,6 +36,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
                  x)) ∧
   (* For top-level let recs *)
   (!genv var_map env funs x y e new_vars.
+    set (MAP FST new_vars) = set (MAP FST funs) ∧
     global_env_inv genv var_map {} env.v ∧
     find_recfun x funs = SOME (y, e) ∧
     (* A syntactic way of relating the recursive function environment, rather
@@ -382,7 +383,6 @@ val do_eq = Q.prove (
     full_simp_tac(srw_ss())[] >>
     metis_tac []));
 
-    (*
  val do_con_check = Q.prove (
   `!genv var_map env cn es env_i1 locals.
     do_con_check env.c cn (LENGTH es) ∧
@@ -396,7 +396,6 @@ val do_eq = Q.prove (
   ntac 3 (pop_assum (fn _ => all_tac)) >>
   induct_on `es` >>
   srw_tac[][compile_exp_def]);
-  *)
 
 val v_to_char_list = Q.prove (
   `!v1 v2 vs1.
@@ -804,14 +803,16 @@ val do_opapp = Q.prove (
            srw_tac[][semanticPrimitivesTheory.sem_env_component_equality, semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION]
            >- (
              match_mp_tac global_env_inv_extend2 >>
-             rw [EXTENSION, MEM_MAP]
+             rw []
              >- (
-(*
+               simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+               fs [EXTENSION, MEM_MAP] >>
+               rw [] >>
                eq_tac >>
                rw [PULL_EXISTS] >>
-               fs [find_recfun_ALOOKUP, LAMBDA_PROD, EXISTS_PROD]
-               *)
-               cheat)
+               pairarg_tac >>
+               fs [EXISTS_PROD] >>
+               metis_tac [])
              >- metis_tac [global_env_inv_add_locals, UNION_EMPTY]
              >- (
                srw_tac[][v_rel_eqns] >>
@@ -840,9 +841,9 @@ val do_opapp = Q.prove (
              simp [Once v_rel_cases, namespaceTheory.nsEmpty_def]))));
 
 val build_conv = Q.prove (
-  `!genv mods tops env cn vs v vs' env_i1 locals.
-    (build_conv env.c cn vs = SOME v) ∧
-    env_all_rel genv mods tops env env_i1 locals ∧
+  `!genv var_map env cn vs v vs' env_i1 locals.
+    build_conv env.c cn vs = SOME v ∧
+    env_all_rel genv var_map env env_i1 locals ∧
     LIST_REL (v_rel genv) vs vs'
     ⇒
     ∃v'.
@@ -927,17 +928,18 @@ val pmatch = Q.prove (
 (* compiler correctness *)
 
 val global_env_inv_lookup_top = Q.prove (
-  `!genv mods tops menv shadowers env x v n.
-    global_env_inv genv mods tops menv shadowers env ∧
-    ALOOKUP env x = SOME v ∧
+  `!genv var_map shadowers env x v n.
+    global_env_inv genv var_map shadowers env ∧
+    nsLookup env (Short x) = SOME v ∧
     x ∉ shadowers ∧
-    FLOOKUP tops x = SOME n
+    nsLookup var_map (Short x) = SOME (Var_global n)
     ⇒
     ?v_i1. LENGTH genv > n ∧ EL n genv = SOME v_i1 ∧ v_rel genv v v_i1`,
-  srw_tac[][v_rel_eqns] >>
-  res_tac >>
-  full_simp_tac (srw_ss()++ARITH_ss) [] >>
-  metis_tac []);
+  rw [v_rel_eqns] >>
+  fs [] >>
+  first_x_assum (qspec_then `Short x` mp_tac) >>
+  simp [] >>
+  metis_tac [GREATER_DEF]);
 
 val global_env_inv_lookup_mod1 = Q.prove (
   `!genv mods tops menv shadowers env genv mn n env'.
@@ -994,7 +996,7 @@ val compile_exp_correct' = Q.prove (
      SND res ≠ Rerr (Rabort Rtype_error) ⇒
      !var_map s' r env_i1 s_i1 es_i1 locals.
        res = (s',r) ∧
-       env_all_rel s_i1.globals var_map env env_i1 locals ∧
+       env_all_rel s_i1.globals var_map env env_i1 (set locals) ∧
        s_rel s s_i1 ∧
        es_i1 = compile_exps (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) es
        ⇒
@@ -1007,7 +1009,7 @@ val compile_exp_correct' = Q.prove (
      SND res ≠ Rerr (Rabort Rtype_error) ⇒
      !var_map s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals.
        (res = (s',r)) ∧
-       env_all_rel s_i1.globals var_map env env_i1 locals ∧
+       env_all_rel s_i1.globals var_map env env_i1 (set locals) ∧
        s_rel s s_i1 ∧
        v_rel s_i1.globals v v_i1 ∧
        pes_i1 = compile_pes (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) pes ∧
@@ -1083,6 +1085,7 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [NOT_SOME_NONE, build_conv, EVERY2_REVERSE] >>
     simp []
     >- metis_tac [SOME_11, build_conv, EVERY2_REVERSE])
+
   >- (* Variable lookup *)
      (full_simp_tac(srw_ss())[env_all_rel_cases] >>
       cases_on `n` >>
@@ -1127,12 +1130,12 @@ val compile_exp_correct' = Q.prove (
      (srw_tac[][Once v_rel_cases] >>
       full_simp_tac(srw_ss())[env_all_rel_cases] >>
       srw_tac[][] >>
-      MAP_EVERY qexists_tac [`mods`, `tops`, `env'`, `env''`] >>
+      MAP_EVERY qexists_tac [`var_map`, `env_v_top`, `env_v_local`] >>
       imp_res_tac env_rel_dom >>
       srw_tac[][]
       >- (full_simp_tac(srw_ss())[SUBSET_DEF, v_rel_eqns] >>
           srw_tac[][] >>
-          `¬(ALOOKUP env'' x = NONE)` by metis_tac [ALOOKUP_FAILS, MEM_MAP, FST, pair_CASES] >>
+          `¬(ALOOKUP env x = NONE)` by metis_tac [ALOOKUP_FAILS, MEM_MAP, FST, pair_CASES] >>
           cases_on `ALOOKUP env'' x` >>
           full_simp_tac(srw_ss())[] >>
           res_tac >>
