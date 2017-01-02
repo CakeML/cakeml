@@ -212,6 +212,10 @@ val nsLookupMod_alist_to_ns = Q.store_thm ("nsLookupMod_alist_to_ns[simp]",
   `!l x y. nsLookupMod (alist_to_ns l) (x::y) = NONE`,
   rw [alist_to_ns_def, nsLookupMod_def]);
 
+val alist_to_ns_11 = Q.store_thm ("alist_to_ns_11[simp]",
+  `!l1 l2. alist_to_ns l1 = alist_to_ns l2 ⇔ l1 = l2`,
+  rw [alist_to_ns_def]);
+
 (* -------------- nsLookup ------------------ *)
 
 val nsLookup_to_nsLookupMod = Q.store_thm ("nsLookup_to_nsLookupMod",
