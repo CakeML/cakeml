@@ -2,14 +2,6 @@ open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
-(*
-local open semanticPrimitivesPropsTheory typeSoundInvariantsTheory in
-val check_dup_ctors_cons = check_dup_ctors_cons;
-val tenv_tabbrev_ok_def = tenv_tabbrev_ok_def;
-val flat_tenv_tabbrev_ok_def = flat_tenv_tabbrev_ok_def;
-end;
-*)
-
 val every_zip_split = Q.prove (
   `!l1 l2 P Q.
     LENGTH l1 = LENGTH l2 ⇒
