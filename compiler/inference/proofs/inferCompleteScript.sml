@@ -122,7 +122,7 @@ val env_rel_binding_lemma = Q.store_thm ("env_rel_binding_lemma",
       drule find_index_ALL_DISTINCT_EL >>
       disch_then drule >>
       disch_then (qspec_then `0` mp_tac) >>
-      >>asm_simp_tac std_ss [] >>
+      asm_simp_tac std_ss [] >>
       rw [infer_deBruijn_subst_def]))
   >- (
     irule LIST_EQ >>
@@ -818,7 +818,127 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           fs[SUBSET_DEF])>>
         metis_tac[check_t_to_check_freevars,check_t_empty_unconvert_convert_id])
       >-
-        cheat)
+        (simp[env_rel_complete_def,lookup_var_def]>>
+        ntac 4 strip_tac>>
+        fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP,convert_env_def,MAP2_MAP,LENGTH_COUNT_LIST]>>
+        imp_res_tac ALOOKUP_MEM>>
+        fs[MEM_EL]>>
+        pop_assum (assume_tac o SYM)>>
+        qpat_abbrev_tac`lss = MAP f (ZIP(A,B))`>>
+        `MAP FST lss = MAP FST funs` by
+          (fs[Abbr`lss`]>>simp[Once LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>rw[]
+          >-
+            metis_tac[LENGTH_MAP]
+          >>
+            qpat_x_assum`A = MAP FST bindings` sym_sub_tac>>
+            fs[EL_MAP,LENGTH_COUNT_LIST,EL_ZIP,EL_COUNT_LIST]>>pairarg_tac>>fs[])>>
+        `x' = FST (EL n lss) ∧ ALL_DISTINCT (MAP FST lss) ∧ n < LENGTH lss` by
+          (
+          CONJ_ASM2_TAC>>rw[Abbr`lss`]
+          >-
+            (fs[EL_MAP,LENGTH_ZIP,LENGTH_COUNT_LIST,EL_ZIP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+            pairarg_tac>>fs[]>>
+            qpat_x_assum`MAP FST funs = A` mp_tac>>
+            simp[Once LIST_EQ_REWRITE]>>rw[]>>rfs[EL_MAP,LENGTH_MAP]>>
+            metis_tac[FST])
+          >>
+            simp[LENGTH_COUNT_LIST]>>metis_tac[LENGTH_MAP])>>
+        simp[ALOOKUP_ALL_DISTINCT_EL]>>
+        fs[Abbr`lss`,EL_ZIP,EL_MAP,LENGTH_COUNT_LIST]>>
+        rw[]
+        >-
+          (fs[EVERY_EL]>>
+          first_x_assum(qspec_then`n` kall_tac)>>
+          first_x_assum(qspec_then`n` assume_tac)>>
+          rfs[]>>
+          metis_tac[check_t_to_check_freevars])
+        >>
+          simp[EL_COUNT_LIST]>>
+          pairarg_tac>>fs[]>>
+          `check_t num_gen {} (t_walkstar last_sub (Infer_Tuvar n))` by
+            (fs[sub_completion_def]>>
+            imp_res_tac infer_e_next_uvar_mono>>fs[SUBSET_DEF])>>
+          imp_res_tac check_t_empty_unconvert_convert_id>>
+          pop_assum (SUBST1_TAC o SYM)>>
+          match_mp_tac tscheme_inst_to_approx>>
+          fs[tscheme_inst_def]>>
+          (* rest of this follows the same proof as infer_d_sound *)
+          imp_res_tac generalise_subst>>
+          fs[]>>
+          (* Rewrite last_sub back into an infer_subst *)
+          `t_walkstar last_sub (Infer_Tuvar n) = infer_subst s' (t_walkstar st'.subst (Infer_Tuvar n))` by
+             (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
+             pop_assum(qspec_then`n` assume_tac)>>
+             rfs[EL_COUNT_LIST])>>
+          fs[sub_completion_def]>>
+          qmatch_asmsub_abbrev_tac`generalise_list _ _ _ (MAP _ uvars)`>>
+          Q.ISPECL_THEN [`tvs`,`s`] mp_tac (GEN_ALL generalise_subst_exist)>>
+          impl_tac>-
+            (fs[]>>
+            metis_tac[pure_add_constraints_success])>>
+          rw[]>>
+          (* This produces the appropriate substitution mentioned above *)
+          pop_assum (qspecl_then[`MAP (t_walkstar st'.subst) uvars`,`[]`,`FEMPTY`,`num_gen`,`s'`,`MAP (t_walkstar last_sub) uvars`] mp_tac)>>
+          fs[]>>
+          impl_keep_tac
+          >-
+            (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+            fs[GSYM FORALL_AND_THM]>>fs[GSYM IMP_CONJ_THM]>>
+            ntac 2 strip_tac>>
+            CONJ_ASM2_TAC
+            >-
+              metis_tac[check_t_t_vars]
+            >>
+            match_mp_tac t_walkstar_check>> fs[]>>
+            last_x_assum (qspec_then `y` assume_tac)>>rfs[]>>
+            reverse CONJ_TAC>-
+             (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
+             HINT_EXISTS_TAC>>
+             fs[])>>
+            match_mp_tac (check_s_more3 |> MP_CANON)>>
+            qexists_tac `count st'.next_uvar`>>
+            fs[])
+          >>
+          rw[]>>
+          (* Pick the substitution, except turn it into deBruijn vars *)
+          qexists_tac`MAP convert_t subst'`>>fs[]>>
+          CONJ_ASM1_TAC>-
+            metis_tac[check_t_to_check_freevars]>>
+          CONJ_TAC>-
+            (fs[EVERY_MAP,EVERY_MEM]>>
+            metis_tac[check_t_to_check_freevars])>>
+          imp_res_tac deBruijn_subst_convert>>
+          pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
+          `t = convert_t (t_walkstar s (Infer_Tuvar n))` by
+            (qpat_x_assum`MAP SND A = B` mp_tac>>
+            simp[Once LIST_EQ_REWRITE]>>
+            rw[]>>
+            pop_assum (qspec_then`n` assume_tac)>>rfs[EL_MAP]>>
+            AP_TERM_TAC>>
+            `pure_add_constraints st.subst ((ZIP(uvars,funs_ts))++constr) s` by
+              metis_tac[pure_add_constraints_append,pure_add_constraints_success]>>
+            imp_res_tac pure_add_constraints_apply>>
+            fs[Abbr`uvars`,MAP_APPEND,MAP_ZIP,Once LIST_EQ_REWRITE]>>
+            first_x_assum(qspec_then`n` kall_tac)>>
+            first_x_assum(qspec_then`n` assume_tac)>>
+            rfs[EL_APPEND1,EL_MAP,EL_ZIP,EL_COUNT_LIST])>>
+          pop_assum SUBST_ALL_TAC>>
+          AP_TERM_TAC>>
+          Q.ISPECL_THEN [`s`,`s'`,`subst'`,`_`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
+          impl_tac>-
+            (fs[SUBSET_DEF]>>
+            rw[]>>
+            fs[IN_FRANGE]>>
+            metis_tac[pure_add_constraints_wfs])>>
+          rw[]>>
+          pop_assum kall_tac>>
+          pop_assum(qspec_then `t_walkstar st'.subst (Infer_Tuvar n)` mp_tac)>>
+          impl_tac>-
+            (fs[Abbr`uvars`,EVERY_MEM,MEM_MAP,MEM_COUNT_LIST,PULL_EXISTS,SUBSET_DEF]>>
+            metis_tac[])
+          >>
+          rw[]>>
+          metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]))
     >-
       metis_tac[LENGTH_MAP])
   >- ( (* Dtype *)
