@@ -477,8 +477,8 @@ val evaluate_def = tDefine"evaluate"`
   (evaluate_match env s v [] err_v = (s, Rerr(Rraise err_v))) ∧
   (evaluate_match env s v ((p,e)::pes) err_v =
    if ALL_DISTINCT (pat_bindings p []) then
-     case pmatch env.c s.refs p v env.v of
-     | Match env' => evaluate (env with v := env') s [e]
+     case pmatch env.c s.refs p v [] of
+     | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
      | No_match => evaluate_match env s v pes err_v
      | _ => (s, Rerr(Rabort Rtype_error))
    else (s, Rerr(Rabort Rtype_error)))`
