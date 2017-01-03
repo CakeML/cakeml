@@ -1,10 +1,7 @@
-open HolKernel Parse boolLib bossLib
-
-open lcsymtacs boolSimps
-open gramTheory
-open NTpropertiesTheory
-open pred_setTheory
 open preamble
+
+open simple_grammarTheory gramTheory
+open NTpropertiesTheory
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
@@ -33,7 +30,7 @@ val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 
 val _ = new_theory "gramProps"
-val _ = set_grammar_ancestry ["gram", "NTproperties"]
+val _ = set_grammar_ancestry ["gram", "NTproperties", "simple_grammar"]
 
 val NT_rank_def = Define`
   NT_rank N =
@@ -102,37 +99,45 @@ val NT_rank_def = Define`
         else                                 0
 `
 
-val rules_t = ``cmlG.rules``
 fun ty2frag ty = let
   open simpLib
   val {convs,rewrs} = TypeBase.simpls_of ty
 in
   merge_ss (rewrites rewrs :: map conv_ss convs)
 end
-val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β)grammar``)
-                      [cmlG_def, combinTheory.K_DEF,
+val GRAM_ss = ty2frag ``:(α,β)grammar``
+
+fun grammar_applied gnm G_def rules_t nt_ty = let
+  val rules = SIMP_CONV (bool_ss ++ GRAM_ss)
+                      [G_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
-val cmlG_applied = let
   val app0 = finite_mapSyntax.fapply_t
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
   val app_rules = AP_TERM app rules
-  val sset = bool_ss ++ ty2frag ``:'a + 'b`` ++ ty2frag ``:MMLnonT``
+  val sset = bool_ss ++ ty2frag ``:'a + 'b`` ++ ty2frag nt_ty
   fun mkrule t =
-      (print ("cmlG_applied: " ^ term_to_string t ^"\n");
-       AP_THM app_rules ``mkNT ^t``
+      (print (gnm ^ "_applied: " ^ term_to_string t ^"\n");
+       AP_THM app_rules ``INL ^t : ^(ty_antiq nt_ty) inf``
               |> SIMP_RULE sset
                   [finite_mapTheory.FAPPLY_FUPDATE_THM,
                    pred_setTheory.INSERT_UNION_EQ,
                    pred_setTheory.UNION_EMPTY])
-  val ths = TypeBase.constructors_of ``:MMLnonT`` |> map mkrule
+  val ths = TypeBase.constructors_of nt_ty |> map mkrule
 in
-    save_thm("cmlG_applied", LIST_CONJ ths)
+    save_thm(gnm ^ "_applied", LIST_CONJ ths)
 end
+
+val cmlG_applied = grammar_applied "cmlG" cmlG_def ``cmlG.rules`` ``:MMLnonT``
+val scmlG_applied =
+    grammar_applied "scmlG" scmlG_def ``scmlG.rules`` ``:SCMLnonT``
 
 val cmlG_FDOM = save_thm("cmlG_FDOM",
   SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
+
+val scmlG_FDOM = save_thm("scmlG_FDOM",
+  SIMP_CONV (srw_ss()) [scmlG_def] ``FDOM scmlG.rules``)
 
 val paireq = Q.prove(
   `(x,y) = z ⇔ x = FST z ∧ y = SND z`, Cases_on `z` >> simp[])
@@ -333,5 +338,160 @@ val parsing_ind = save_thm(
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]);
+
+val gen_valid_ptree_ind = Q.store_thm(
+  "gen_valid_ptree_ind",
+  ‘∀G P.
+     (∀t. P (Lf t)) ∧
+     (∀N children.
+       (∀cpt. MEM cpt children ⇒ P cpt) ∧
+       (∀cpt. MEM cpt children ⇒ valid_ptree G cpt) ∧
+       N ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' N ⇒
+       P (Nd N children)) ⇒
+     ∀pt. valid_ptree G pt ⇒ P pt’,
+  rpt gen_tac >> strip_tac >>
+  `(∀pt. valid_ptree G pt ⇒ P pt) ∧
+   (∀ptl. EVERY (valid_ptree G) ptl ⇒ EVERY P ptl)` suffices_by simp[] >>
+  ho_match_mp_tac (TypeBase.induction_of “:(α,β) parsetree”) >>
+  simp[grammarTheory.valid_ptree_def, EVERY_MEM]);
+
+val correspondingNT_def = Define `
+  correspondingNT nAddOps = SOME snAddOps ∧
+  correspondingNT nE = SOME snExpr ∧
+  correspondingNT nTypeList1 = SOME snTypeList1 ∧
+  correspondingNT nTypeList2 = SOME snTypeList2 ∧
+  correspondingNT nTypeName = SOME snTypeName ∧
+  correspondingNT nTyvarN = SOME snTyvarN ∧
+  correspondingNT nTyVarList = SOME snTyVarList ∧
+  correspondingNT nUQConstructorName = SOME snUQConstructorName ∧
+  correspondingNT nUQTyOp = SOME snUQTyOp ∧
+  correspondingNT nV = SOME snV ∧
+  correspondingNT nType = SOME snType ∧
+  correspondingNT nTbase = SOME snType ∧
+  correspondingNT nDType = SOME snType ∧
+  correspondingNT nPType = SOME snType ∧
+  correspondingNT _ = NONE
+`
+val _ = export_rewrites ["correspondingNT_def"]
+
+val corresponding_EQ0 = Q.prove(
+  ‘(correspondingNT n = SOME snV ⇔ n = nV) ∧
+   (correspondingNT n = SOME snUQTyOp ⇔ n = nUQTyOp) ∧
+   (correspondingNT n = SOME snUQConstructorName ⇔ n = nUQConstructorName) ∧
+   (correspondingNT n = SOME snTypeList1 ⇔ n = nTypeList1) ∧
+   (correspondingNT n = SOME snTypeList2 ⇔ n = nTypeList2) ∧
+   (correspondingNT n = SOME snTypeName ⇔ n = nTypeName) ∧
+   (correspondingNT n = SOME snTyVarList ⇔ n = nTyVarList) ∧
+   (correspondingNT n = SOME snTyvarN ⇔ n = nTyvarN)’,
+  Cases_on `n` >> simp[])
+
+val corresponding_EQ = save_thm(
+  "corresponding_EQ[simp]",
+  LIST_CONJ (map (fn th => CONJ th (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ))
+                                              th))
+                 (CONJUNCTS corresponding_EQ0)))
+
+val ptree_head_EQ_TOK = Q.store_thm(
+  "ptree_head_EQ_TOK[simp]",
+  ‘((ptree_head pt = TOK t) ⇔ (pt = Lf (TOK t))) ∧
+   ((TOK t = ptree_head pt) ⇔ (pt = Lf (TOK t)))’,
+  Cases_on `pt` >> simp[] >> metis_tac[])
+
+val ptree_head_EQ_NT = Q.prove(
+  ‘ptree_head pt = NT n ⇔ (∃cpts. pt = Nd n cpts) ∨ pt = Lf (NT n)’,
+  Cases_on ‘pt’ >> simp[]);
+
+fun flipeq_conv t = let
+  val (l,r) = dest_eq t
+in
+  if null (free_vars l) andalso not (null (free_vars r)) then
+    REWR_CONV EQ_SYM_EQ t
+  else NO_CONV t
+end
+val FLIPEQ_ss =
+  simpLib.SSFRAG { ac = [], congs = [], filter = NONE,
+                   name = SOME "FLIPEQ", dprocs = [],
+                   rewrs = [],
+                   convs = [{conv = K (K flipeq_conv),
+                             key = SOME ([], “x:α = y”),
+                             name = "flipeq_conv", trace = 2}]}
+val _ = augment_srw_ss [FLIPEQ_ss]
+
+val MAP_TOK_11 = Q.store_thm(
+  "MAP_TOK_11[simp]",
+  ‘MAP TOK s1 = MAP TOK s2 ⇔ s1 = s2’,
+  simp[INJ_MAP_EQ_IFF, INJ_DEF]);
+
+val inject_nType = prove(
+  “correspondingNT N = SOME snType ∧ ptree_head pt = NN N ∧
+   valid_ptree cmlG pt ⇒
+   ∃pt'. valid_ptree cmlG pt' ∧ ptree_head pt' = NN nType ∧
+         ptree_fringe pt' = ptree_fringe pt”,
+  Cases_on ‘N’ >> simp[]
+  >- metis_tac[]
+  >- (rename1 ‘nTbase’ >> strip_tac >>
+      qexists_tac
+        ‘Nd (mkNT nType) [Nd (mkNT nPType) [Nd (mkNT nDType) [pt]]]’ >>
+      simp[cmlG_applied, cmlG_FDOM])
+  >- (rename1 ‘nPType’ >> strip_tac >>
+      qexists_tac ‘Nd (mkNT nType) [pt]’ >> simp[cmlG_FDOM, cmlG_applied])
+  >- (rename1 ‘nDType’ >> strip_tac >>
+      qexists_tac ‘Nd (mkNT nType) [Nd (mkNT nPType) [pt]]’ >>
+      simp[cmlG_FDOM, cmlG_applied]))
+
+fun check0 pfx s g = (print (pfx ^ s ^ "\n"); rename1 [QUOTE s] g)
+
+val check = check0 "simple_SUBSET_actual: "
+
+val simple_SUBSET_actual = Q.store_thm(
+  "simple_SUBSET_actual",
+  ‘∀pt.
+     valid_ptree scmlG pt ⇒
+     ∀N s. ptree_head pt = NT (INL N) ∧ ptree_fringe pt = MAP TOK s ⇒
+           ∃pt' M.
+             valid_ptree cmlG pt' ∧ ptree_head pt' = NT (mkNT M) ∧
+             correspondingNT M = SOME N ∧ ptree_fringe pt' = MAP TOK s’,
+  ho_match_mp_tac gen_valid_ptree_ind >> conj_tac >> simp[] >>
+  rpt strip_tac >> rveq >>
+  rename [`correspondingNT _ = SOME N`] >> Cases_on `N` >>
+  fs[scmlG_applied, scmlG_FDOM] >> rveq >> fs[] >> rveq
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
+  >- (check "nTypeName" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied] >>
+      metis_tac[])
+  >- (check "nTypeName" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied] >>
+      fs[MAP_EQ_CONS] >> rveq >> dsimp[] >> fs[MAP_EQ_CONS] >>
+      fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >> rveq >> dsimp[] >>
+      metis_tac[])
+  >- (check "nTypeName" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied] >>
+      fs[MAP_EQ_CONS] >> rveq >> dsimp[] >>
+      fs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> metis_tac[])
+  >- (check "nTypeList2" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM] >>
+      fs[MAP_EQ_CONS] >> rveq >> dsimp[] >>
+      fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+      rveq >> fs[MAP_EQ_CONS] >> rveq >> fs[] >>
+      metis_tac[inject_nType])
+  >- (check "nTypeList1" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM] >>
+      fs[MAP_EQ_CONS] >> rveq >> dsimp[] >> metis_tac[inject_nType])
+  >- (check "nTypeList1" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM] >>
+      fs[MAP_EQ_CONS] >> rveq >> dsimp[] >>
+      fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND, PULL_EXISTS,
+         MAP_EQ_CONS] >> fs[] >>
+      metis_tac[inject_nType]) >>
+  cheat)
 
 val _ = export_theory()
