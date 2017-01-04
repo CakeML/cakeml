@@ -373,6 +373,128 @@ val def = mc_iop_def |> to_deep
 val all_code_defs = save_thm("all_code_defs", REWRITE_RULE [] (!code_defs));
 
 
+(* compiler into wordLang *)
+
+val has_compiled_def = Define `
+  has_compiled code (n,code_list) =
+    case ALOOKUP code_list code of
+    | NONE => INR (n:num)
+    | SOME (index,word_code) => INL (index:num)`;
+
+val next_def = Define `
+  next (n,code_list) = (n+1n,code_list)`
+
+val install_def = Define `
+  install c (n,code_list) = (n,c::code_list)`
+
+val ShiftVar_def = Define `
+  ShiftVar sh v n =
+    if n = 0 then v else
+    if dimindex (:'a) <= n then
+      if sh = Asr then Shift sh v (Nat (dimindex (:'a) - 1)) else Const 0w
+    else (Shift sh v (Nat n)):'a wordLang$exp`
+
+val compile_exp_def = Define `
+  compile_exp (Op b [x1;x2]) = Op b [compile_exp x1; compile_exp x2] /\
+  compile_exp (Var n) = Lookup (Temp (n2w n)) /\
+  compile_exp (Const w) = Const w /\
+  compile_exp (Shift sh x (Nat na)) = ShiftVar sh (compile_exp x) na /\
+  compile_exp _ = Const 0w`
+
+val TempIn1_def = Define `TempIn1 = Temp 31w`
+val TempIn2_def = Define `TempIn2 = Temp 30w`
+val TempOut_def = Define `TempOut = Temp 29w`
+
+val SeqTemp_def = Define `
+  SeqTemp i r p = Seq (wordLang$Assign i (Lookup (Temp (n2w r)))) p`;
+
+val SeqTempImm_def = Define `
+  SeqTempImm i (Reg r) p = SeqTemp i r p /\
+  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const w)) p`;
+
+val SeqTempImmNot_def = Define `
+  SeqTempImmNot i (Reg r) p =
+    SeqTemp i r (Seq (Assign i (Op Xor [Var i; Const (~0w)])) p) /\
+  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (~w))) p`;
+
+val SeqIndex_def = Define `
+  SeqIndex i r arr p =
+    let t = (case arr of Out => TempOut | In2 => TempIn2 | In1 => TempIn1) in
+      Seq (Assign i (Op Add [Lookup t;
+           Shift Lsl (Lookup (Temp (n2w r))) (Nat (shift (:'a)))])) p
+              :'a wordLang$prog`
+
+val compile_def = Define `
+  (compile n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
+  (compile n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
+  (compile n l i cs (Loop vs body) =
+     case has_compiled body cs of
+     | INL existing_index =>
+         (Call (SOME (i,LS (),Skip,n,l)) (SOME existing_index) [] NONE,l+1,i+1,cs)
+     | INR new_index =>
+         let (new_code,_,_,cs) = compile new_index 1 1 (next cs) body in
+           (Call (SOME (i,LS (),Skip,n,l)) (SOME new_index) [] NONE,l+1,i+1,
+            install (body,new_index,Seq new_code (Return 0 0)) cs)) /\
+  (compile n l i cs (LoopBody b) = compile n l i cs b) /\
+  (compile n l i cs (Seq p1 p2) =
+     let (p1,l,i,cs) = compile n l i cs p1 in
+     let (p2,l,i,cs) = compile n l i cs p2 in
+       (Seq p1 p2,l,i,cs)) /\
+  (compile n l i cs (If t r ri p1 p2) =
+     let (p1,l,i,cs) = compile n l i cs p1 in
+     let (p2,l,i,cs) = compile n l i cs p2 in
+       case ri of
+       | Reg r2 => (SeqTemp i r (SeqTemp (i+1) r2 (If t i (Reg (i+1)) p1 p2)),
+                    l,i+2,cs)
+       | Imm im => (SeqTemp i r (If t i ri p1 p2),l,i+1,cs)) /\
+  (compile n l i cs (Assign j e) =
+     (Seq (Assign i (compile_exp e)) (Set (Temp (n2w j)) (Var i)),l,i+1,cs)) /\
+  (compile n l i cs (Delete _) = (Skip:'a wordLang$prog,l,i,cs)) /\
+  (compile n l i cs Swap =
+     (Seq (Assign i (Lookup (TempIn1)))
+     (Seq (Set (TempIn1) (Lookup (TempIn2)))
+          (Set (TempIn2) (Var i))),l,i+1,cs)) /\
+  (compile n l i cs (Store r1 r2) =
+     (SeqTemp i r2
+     (SeqIndex (i+1) r1 Out
+        (Store (Var i) (i+1))),l,i+2,cs)) /\
+  (compile n l i cs (Load r1 r2 arr) =
+     (SeqIndex i r2 arr
+     (Seq (Assign (i+1) (Load (Var i)))
+          (Set (Temp (n2w r1)) (Var (i+1)))),l,i+2,cs)) /\
+  (compile n l i cs (Add r0 r1 r2 r3 r4) =
+     (SeqTempImm (i+4) r4 (SeqTempImm (i+3) r3 (SeqTemp (i+2) r2
+     (Seq (Inst (Arith (AddCarry (i+1) (i+2) (i+3) (i+4))))
+     (Seq (Set (Temp (n2w r0)) (Var (i+1)))
+          (Set (Temp (n2w r1)) (Var (i+4))))))),l,i+5,cs)) /\
+  (compile n l i cs (Sub r0 r1 r2 r3 r4) =
+     (SeqTempImm (i+4) r4 (SeqTempImmNot (i+3) r3 (SeqTemp (i+2) r2
+     (Seq (Inst (Arith (AddCarry (i+1) (i+2) (i+3) (i+4))))
+     (Seq (Set (Temp (n2w r0)) (Var (i+1)))
+          (Set (Temp (n2w r1)) (Var (i+4))))))),l,i+5,cs)) /\
+  (compile n l i cs (Mul r0 r1 r2 r3) =
+     (SeqTemp (i+3) r3 (SeqTemp (i+2) r2
+     (Seq (Inst (Arith (LongMul (i+0) (i+1) (i+2) (i+3))))
+     (Seq (Set (Temp (n2w r0)) (Var (i+0)))
+          (Set (Temp (n2w r1)) (Var (i+1)))))),l,i+4,cs)) /\
+  (compile n l i cs (Div r0 r1 r2 r3 r4) =
+     (SeqTemp (i+4) r4 (SeqTemp (i+3) r3 (SeqTemp (i+2) r2
+     (Seq (Inst (Arith (LongDiv (i+0) (i+1) (i+2) (i+3) (i+4))))
+     (Seq (Set (Temp (n2w r0)) (Var (i+0)))
+          (Set (Temp (n2w r1)) (Var (i+1))))))),l,i+5,cs)) /\
+  (compile n l i cs _ = (Skip,l,i,cs))`
+
+val _ = (max_print_depth := 20);
+
+val mc_iop_compile_def = Define `
+  mc_iop_compile n =
+    let (x1,_,_,(_,cs)) = compile n 1 1 (n+1,[]) mc_iop_code in
+      (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,z)) cs`
+
+val mc_iop_compile_eq = save_thm("mc_iop_compile_eq",
+  EVAL ``mc_iop_compile n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);
+
+
 (* ---- This part will go into word_bignumProofScript.sml file ---- *)
 
 val all_corrs = ref (tl [TRUTH]);
