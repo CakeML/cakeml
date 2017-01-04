@@ -43,5 +43,4 @@ val bvl_num_stubs_def = Define`
   bvl_num_stubs = data_num_stubs + 4
 `;
 
-
 val _ = export_theory();

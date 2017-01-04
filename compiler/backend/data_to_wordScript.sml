@@ -49,9 +49,6 @@ val list_Seq_def = Define `
   (list_Seq [x] = x) /\
   (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`
 
-val shift_def = Define `
-  shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;
-
 val StoreEach_def = Define `
   (StoreEach v [] offset = Skip) /\
   (StoreEach v (x::xs) (offset:'a word) =
