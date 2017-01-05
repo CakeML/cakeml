@@ -1,4 +1,5 @@
 open preamble
+open mp_then
 
 open simple_grammarTheory gramTheory
 open NTpropertiesTheory
@@ -357,7 +358,11 @@ val gen_valid_ptree_ind = Q.store_thm(
 
 val correspondingNT_def = Define `
   correspondingNT nAddOps = SOME snAddOps ∧
+  correspondingNT nDtypeDecls = SOME snDtypeDecls ∧
   correspondingNT nE = SOME snExpr ∧
+  correspondingNT nTyOp = SOME snTyOp ∧
+  correspondingNT nTypeAbbrevDec = SOME snTypeAbbrevDec ∧
+  correspondingNT nTypeDec = SOME snTypeDec ∧
   correspondingNT nTypeList1 = SOME snTypeList1 ∧
   correspondingNT nTypeList2 = SOME snTypeList2 ∧
   correspondingNT nTypeName = SOME snTypeName ∧
@@ -376,6 +381,10 @@ val _ = export_rewrites ["correspondingNT_def"]
 
 val corresponding_EQ0 = Q.prove(
   ‘(correspondingNT n = SOME snV ⇔ n = nV) ∧
+   (correspondingNT n = SOME snTypeAbbrevDec ⇔ n = nTypeAbbrevDec) ∧
+   (correspondingNT n = SOME snDtypeDecls ⇔ n = nDtypeDecls) ∧
+   (correspondingNT n = SOME snTypeDec ⇔ n = nTypeDec) ∧
+   (correspondingNT n = SOME snTyOp ⇔ n = nTyOp) ∧
    (correspondingNT n = SOME snUQTyOp ⇔ n = nUQTyOp) ∧
    (correspondingNT n = SOME snUQConstructorName ⇔ n = nUQConstructorName) ∧
    (correspondingNT n = SOME snTypeList1 ⇔ n = nTypeList1) ∧
@@ -443,6 +452,47 @@ fun check0 pfx s g = (print (pfx ^ s ^ "\n"); rename1 [QUOTE s] g)
 
 val check = check0 "simple_SUBSET_actual: "
 
+fun nailIHx k =
+  first_x_assum
+    (REPEAT_GTCL
+       (fn ttcl => fn th => first_assum (mp_then (Pos hd) ttcl th))
+       (k o assert (not o is_imp o #2 o strip_forall o concl)) o
+     assert (is_imp o #2 o strip_forall o concl))
+
+val type_nTyOp_parses_to_nType = Q.store_thm(
+  "type_nTyOp_parses_to_nType",
+  ‘∀pt1. valid_ptree cmlG pt1 ⇒
+         ∀pf1 pt2.
+           ptree_fringe pt1 = MAP TK pf1 ∧
+           ptree_head pt1 ∈ {NN nType; NN nPType} ∧
+           valid_ptree cmlG pt2 ∧ ptree_head pt2 = NN nTyOp ⇒
+           ∃pt. valid_ptree cmlG pt ∧ ptree_head pt = ptree_head pt1 ∧
+                ptree_fringe pt = ptree_fringe pt1 ++ ptree_fringe pt2’,
+  ho_match_mp_tac gen_valid_ptree_ind >> rw[] >>
+  fs[cmlG_applied, cmlG_FDOM] >> rveq >>
+  fs[MAP_EQ_CONS] >> rveq >>
+  fs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >> rveq
+  >- (nailIHx (Q.X_CHOOSE_THEN ‘pt’ strip_assume_tac) >>
+      qexists_tac ‘Nd (mkNT nType) [pt]’ >>
+      simp[cmlG_FDOM, cmlG_applied])
+  >- (rename [‘ptree_head pt1 = NN nPType’,
+              ‘ptree_head pt2 = NN nType’,
+              ‘ptree_head pt3 = NN nTyOp’,
+              ‘ptree_fringe pt1 = MAP TK pf1’,
+              ‘ptree_fringe pt2 = MAP TK pf2’] >> fs[] >>
+      ‘∃pt. valid_ptree cmlG pt ∧ ptree_head pt = NN nType ∧
+            ptree_fringe pt = MAP TK pf2 ++ ptree_fringe pt3’ by metis_tac[] >>
+      qexists_tac ‘Nd (mkNT nType) [pt1; Lf (TK ArrowT); pt]’ >>
+      simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM])
+  >- (nailIHx (Q.X_CHOOSE_THEN ‘pt’ strip_assume_tac) >>
+      rename [‘ptree_head pt1 = NN nDType’] >>
+      qexists_tac ‘Nd (mkNT nPType) [pt1; Lf (TK StarT); pt]’ >>
+      simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM])
+  >- (rename [‘ptree_head pt1 = NN nDType’, ‘ptree_head pt2 = NN nTyOp’] >>
+      qexists_tac ‘Nd (mkNT nPType) [Nd (mkNT nDType) [pt1; pt2]]’ >>
+      simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM]));
+
+(*
 val simple_SUBSET_actual = Q.store_thm(
   "simple_SUBSET_actual",
   ‘∀pt.
@@ -454,20 +504,12 @@ val simple_SUBSET_actual = Q.store_thm(
   ho_match_mp_tac gen_valid_ptree_ind >> conj_tac >> simp[] >>
   rpt strip_tac >> rveq >>
   rename [`correspondingNT _ = SOME N`] >> Cases_on `N` >>
-  fs[scmlG_applied, scmlG_FDOM] >> rveq >> fs[] >> rveq
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- dsimp[ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied]
-  >- (check "nTypeName" >>
-      dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied] >>
-      metis_tac[])
+  fs[scmlG_applied, scmlG_FDOM] >> rveq >> fs[] >> rveq >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
+  (rename1 `$!` ORELSE
+   dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied])
+  >- metis_tac[]
   >- (check "nTypeName" >>
       dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied] >>
       fs[MAP_EQ_CONS] >> rveq >> dsimp[] >> fs[MAP_EQ_CONS] >>
@@ -483,15 +525,44 @@ val simple_SUBSET_actual = Q.store_thm(
       fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
       rveq >> fs[MAP_EQ_CONS] >> rveq >> fs[] >>
       metis_tac[inject_nType])
-  >- (check "nTypeList1" >>
-      dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM] >>
-      fs[MAP_EQ_CONS] >> rveq >> dsimp[] >> metis_tac[inject_nType])
+  >- metis_tac[inject_nType]
   >- (check "nTypeList1" >>
       dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM] >>
       fs[MAP_EQ_CONS] >> rveq >> dsimp[] >>
       fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND, PULL_EXISTS,
          MAP_EQ_CONS] >> fs[] >>
-      metis_tac[inject_nType]) >>
+      metis_tac[inject_nType])
+  >- (check "nTypeDec" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM, MAP_EQ_CONS] >>
+      fs[] >> metis_tac[])
+  >- (check "nTypeAbbrevDec" >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_applied, cmlG_FDOM, MAP_EQ_CONS] >>
+      rveq >> metis_tac[inject_nType])
+  >- metis_tac[]
+  >- (rveq >> CONV_TAC SWAP_VARS_CONV >>
+      qexists_tac `nTbase` >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
+      metis_tac[])
+  >- (check "snType" >> rveq >> CONV_TAC SWAP_VARS_CONV >>
+      qexists_tac `nTbase` >>
+      dsimp[Once ptree_head_EQ_NT, cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
+      metis_tac[inject_nType])
+  >- (check "snType" >> rveq >> fs[] >>
+      rename [‘correspondingNT NT1 = SOME snType’,
+              ‘ptree_head pt1 = NN NT1’] >>
+      Cases_on ‘NT1’ >> fs[]
+      >- (rename [‘ptree_head _ = NN nType’] >>
+          metis_tac[correspondingNT_def, type_nTyOp_parses_to_nType, IN_INSERT])
+      >- (rename [‘ptree_head pt1 = NN nTbase’,
+                  ‘ptree_head pt2 = NN nTyOp’] >>
+          qexists_tac ‘Nd (mkNT nDType) [Nd (mkNT nDType) [pt1]; pt2]’ >>
+          simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM])
+      >- (rename [‘ptree_head _ = NN nPType’] >>
+          metis_tac[correspondingNT_def, type_nTyOp_parses_to_nType, IN_INSERT])
+      >- (rename [‘ptree_head pt1 = NN nDType’,
+                  ‘ptree_head pt2 = NN nTyOp’] >>
+          qexists_tac ‘Nd (mkNT nDType) [pt1; pt2]’ >>
+          simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM])) >>
   cheat)
-
+*)
 val _ = export_theory()
