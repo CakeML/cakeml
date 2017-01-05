@@ -428,6 +428,15 @@ val SeqIndex_def = Define `
            Shift Lsl (Lookup (Temp (n2w r))) (Nat (shift (:'a)))])) p
               :'a wordLang$prog`
 
+val div_location_def = Define `
+  div_location = 45n`;
+
+val DivCode_def = Define `
+  DivCode l1 l2 n1 n2 n3 n4 n5 =
+    MustTerminate
+      (Seq (Call (SOME (n1,LS (),Skip,l1,l2)) (SOME div_location) [n3;n4;n5] NONE)
+           (Assign n2 (Lookup (Temp 28w))))`
+
 val compile_def = Define `
   (compile n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
   (compile n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
@@ -483,9 +492,9 @@ val compile_def = Define `
           (Set (Temp (n2w r0)) (Var (i+1)))))),l,i+4,cs)) /\
   (compile n l i cs (Div r0 r1 r2 r3 r4) =
      (SeqTemp (i+4) r4 (SeqTemp (i+3) r3 (SeqTemp (i+2) r2
-     (Seq (Inst (Arith (LongDiv (i+0) (i+1) (i+2) (i+3) (i+4))))
+     (Seq (DivCode n l (i+0) (i+1) (i+2) (i+3) (i+4))
      (Seq (Set (Temp (n2w r0)) (Var (i+0)))
-          (Set (Temp (n2w r1)) (Var (i+1))))))),l,i+5,cs)) /\
+          (Set (Temp (n2w r1)) (Var (i+1))))))),l+1,i+5,cs)) /\
   (compile n l i cs _ = (Skip,l,i,cs))`
 
 val _ = (max_print_depth := 25);
@@ -659,10 +668,25 @@ val code_rel_def = Define `
          lookup n code = SOME (1n,Seq p2 (Return 0 0)) /\
          code_subset cs2 cs`
 
+val div_code_assum_def = Define `
+  div_code_assum (:'ffi) code =
+    !(t1:('a,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
+      0 < i0 /\ 0 < i1 /\ i0 <> i1 /\ t1.code = code /\ t1.termdep <> 0 /\
+      get_var 0 t1 = SOME ret_val /\ single_div_pre w3 w4 w5 ==>
+      evaluate
+        (DivCode n l i0 i1 i2 i3 i4,
+         t1 with locals :=
+              insert i2 (Word w3) (insert i3 (Word w4) (insert i4 (Word w5)
+                t1.locals))) =
+      (NONE,
+        let (w1,w2) = single_div w3 w4 w5 in
+          (set_var 0 ret_val o set_var i1 (Word w2) o
+           set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) t1)`
+
 val _ = temp_overload_on("max_var_name",``25n``);
 
 val state_rel_def = Define `
-  state_rel s t cs t0 frame <=>
+  state_rel s (t:('a,'ffi) wordSem$state) cs t0 frame <=>
     (* clock related *)
     s.clock = t.clock /\
     (* array related *)
@@ -676,6 +700,8 @@ val state_rel_def = Define `
        FLOOKUP t.store (Temp (n2w a)) = SOME (Word v)) /\
     (* code assumption *)
     code_rel cs t.code /\
+    div_code_assum (:'ffi) t.code /\
+    t.termdep <> 0 /\
     (* rest same as original *)
     t0.gc_fun = t.gc_fun /\
     t0.handler = t.handler /\
@@ -1166,9 +1192,19 @@ val compile_thm = store_thm("compile_thm",
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [set_var_def]
     \\ fs [evaluate_def,inst_def,get_vars_def,get_var_def,lookup_insert,
            set_var_def,word_exp_def,set_store_def,single_div_pre_def]
+    \\ `div_code_assum (:'c) t1.code` by fs [state_rel_def]
+    \\ pop_assum mp_tac
+    \\ fs [div_code_assum_def]
+    \\ disch_then (qspecl_then [`t1`,`n`,`l`,`i+0`,`i+1`,`i+2`,`i+3`,`i+4`,
+         `s1.regs ' n3`,`s1.regs ' n4`,`s1.regs ' n5`,`ret_val`]
+            (mp_tac o CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)))
+    \\ impl_tac
+    THEN1 fs [get_var_def,mc_multiwordTheory.single_div_pre_def,state_rel_def]
+    \\ strip_tac \\ fs []
+    \\ fs [evaluate_def,inst_def,get_vars_def,get_var_def,lookup_insert,
+           set_var_def,word_exp_def,set_store_def,single_div_pre_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
-    \\ fs [lookup_insert]
     \\ fs [evaluate_def,word_exp_def,state_rel_def,reg_write_def,
            TempIn1_def,TempIn2_def,TempOut_def,set_var_def,set_store_def,
            FLOOKUP_UPDATE,APPLY_UPDATE_THM,get_var_def,lookup_insert]
@@ -1176,9 +1212,7 @@ val compile_thm = store_thm("compile_thm",
     \\ res_tac \\ fs [syntax_ok_def,syntax_ok_aux_def]
     \\ strip_tac
     \\ Cases_on `a = n1` \\ fs []
-    THEN1 (fs [multiwordTheory.single_div_def,GSYM word_mul_n2w])
     \\ Cases_on `a = n2` \\ fs []
-    THEN1 (fs [multiwordTheory.single_div_def,GSYM word_mul_n2w])
     \\ strip_tac \\ res_tac \\ fs [])
   THEN1 (* Loop *)
    (fs [compile_def]
