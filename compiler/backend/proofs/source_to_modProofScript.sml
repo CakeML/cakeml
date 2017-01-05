@@ -1381,7 +1381,9 @@ val compile_exp_correct =
   compile_exp_correct'
     |> CONJUNCTS
     |> hd
-    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL]
+    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL];
+
+(*
 
 val global_env_inv_flat_extend_lem = Q.prove (
   `!genv genv' env env_i1 x n v.
@@ -1639,6 +1641,36 @@ val compile_decs_num_bindings = Q.prove(
   imp_res_tac compile_dec_num_bindings >>
   srw_tac[][] >>
   decide_tac);
+  *)
+
+val global_env_inv_append = Q.prove (
+  `!genv var_map1 var_map2 env1 env2.
+    nsDom var_map1 = nsDom env1 ∧
+    global_env_inv genv var_map1 {} env1 ∧
+    global_env_inv genv var_map2 {} env2
+    ⇒
+    global_env_inv genv (nsAppend var_map1 var_map2) {} (nsAppend env1 env2)`,
+
+  rw [v_rel_eqns, nsLookup_nsAppend_some] >>
+  first_x_assum drule >>
+  rw []
+  >- (
+    qexists_tac `n` >>
+    qexists_tac `v'` >>
+    rw [])
+  >- (
+    qexists_tac `n` >>
+    qexists_tac `v'` >>
+    rw [] >>
+    disj2_tac >>
+    rw []
+    >- (
+      fs [EXTENSION, namespaceTheory.nsDom_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
+      metis_tac [NOT_SOME_NONE, option_nchotomy])
+
+    )
+
+
 
 val pmatch_lem =
   pmatch
@@ -1653,25 +1685,25 @@ val pmatch_evaluate_vars_lem =
   |> SIMP_RULE (srw_ss()) []
 
 val compile_decs_correct = Q.prove (
-  `!mn s env ds mods tops env_i1 s' r s_i1 next' tops' ds_i1 cenv'.
+  `!mn s env ds var_map s' r s_i1 next' var_map' ds_i1.
+    evaluate$evaluate_decs mn s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate$evaluate_decs mn s env ds = (s',cenv',r) ∧
-    global_env_inv s_i1.globals mods tops env.m {} env.v ∧
-    env_all_rel s_i1.globals mods tops env env_i1 {} ∧
+    global_env_inv s_i1.globals var_map {} env.v ∧
     s_rel s s_i1 ∧
-    compile_decs (LENGTH s_i1.globals) mn mods tops ds = (next',tops',ds_i1)
+    source_to_mod$compile_decs (LENGTH s_i1.globals) mn var_map ds = (next', var_map', ds_i1)
     ⇒
-    ?(s'_i1:'a modSem$state) env'_i1 r_i1.
-      evaluate_decs env_i1 s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
+    ?(s'_i1:'a modSem$state) cenv' env'_i1 r_i1.
+      modSem$evaluate_decs <| c := env.c; v := [] |> s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
       (!env'.
         r = Rval env'
         ⇒
         r_i1 = NONE ∧
+        cenv' = env'.c ∧
         next' = LENGTH (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) ∧
-        env_rel (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) env' (REVERSE env'_i1) ∧
+        env_rel (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) env'.v (REVERSE env'_i1) ∧
         s_rel s' s'_i1 ∧
-        MAP FST env' = REVERSE (MAP FST tops') ∧
-        global_env_inv (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) FEMPTY (FEMPTY |++ tops') [] {} env') ∧
+        nsDom env'.v = nsDom var_map' ∧
+        global_env_inv (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) var_map' {} env'.v) ∧
       (!err.
         r = Rerr err
         ⇒
@@ -1680,20 +1712,21 @@ val compile_decs_correct = Q.prove (
           result_rel (\a b (c:'a). T) (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) (Rerr err) (Rerr err_i1) ∧
           s_rel s' s'_i1)`,
 
+
   ho_match_mp_tac evaluateTheory.evaluate_decs_ind >>
   simp [evaluateTheory.evaluate_decs_def] >>
   conj_tac
   >- ntac 2 (rw [compile_dec_def, compile_decs_def, evaluate_decs_def, v_rel_eqns]) >>
   conj_tac
   >- (
+
     rpt gen_tac >>
     qspec_tac (`d2::ds`, `ds`) >>
-    rw [compile_decs_def, compile_dec_def] >>
+    rw [compile_decs_def]  >>
     ntac 2 (pairarg_tac \\ fs[])
     \\ rveq
     \\ simp[evaluate_decs_def]
-    \\ qpat_x_assum`_ = (_,_,r)`mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ qpat_x_assum`_ = (_,r)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
@@ -1719,9 +1752,8 @@ val compile_decs_correct = Q.prove (
     \\ strip_tac \\ rveq \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ qmatch_asmsub_rename_tac`res ≠ Rerr (Rabort Rtype_error)`
-    \\ qmatch_asmsub_rename_tac `_ _ _ (ds) = (new_s, new_cenv, _)`
+    \\ qmatch_asmsub_rename_tac `_ _ _ (ds) = (new_s, new_env, _)`
     \\ qmatch_asmsub_rename_tac `_ _ _ (ds') = (new_s', new_cenv', new_env', res')`
     \\ Cases_on`res = Rerr (Rabort Rtype_error)`
     >- fs[combine_dec_result_def]
@@ -1733,10 +1765,21 @@ val compile_decs_correct = Q.prove (
     \\ simp[]
     \\ disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(
          move_conj_left(equal "compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
+    >>
+    impl_tac
+    >- (
+      simp_tac list_ss [REVERSE_APPEND, nsAppend_to_nsBindList, GSYM nsAppend_alist_to_ns] >>
+      match_mp_tac (GEN_ALL global_env_inv_extend2) >>
+
+
+    >- cheat >>
+
+(*
     \\ fs[Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST |> SIMP_RULE(srw_ss())[LAMBDA_PROD]]
     \\ fs[Q.ISPEC`I:α#β -> α#β`LAMBDA_PROD |> GSYM |> SIMP_RULE (srw_ss())[]]
     \\ simp[env_all_rel_cases,PULL_EXISTS]
-    \\ simp[semanticPrimitivesTheory.environment_component_equality]
+    \\ simp[semanticPrimitivesTheory.sem_env_component_equality]
+
     \\ qmatch_goalsub_abbrev_tac`merge_alist_mod_env cx env.c`
     \\ disch_then(qspec_then`<|v := []; m := env.m; c := merge_alist_mod_env cx env.c|>`mp_tac o CONV_RULE SWAP_FORALL_CONV)
     \\ simp[Once env_rel_list_rel]
@@ -1759,7 +1802,9 @@ val compile_decs_correct = Q.prove (
       \\ simp[]
       \\ rfs[env_rel_list_rel] )
     \\ fs[Abbr`cc2`,Abbr`cc1`]
-    \\ strip_tac \\ rveq \\ fs[]
+    *)
+    strip_tac \\ rveq \\ fs[] >>
+    rw []
     \\ full_simp_tac std_ss [GSYM MAP_APPEND]
     \\ qmatch_goalsub_abbrev_tac`MAP SND www`
     \\ qexists_tac`www` \\ fs[Abbr`www`]
@@ -1769,11 +1814,16 @@ val compile_decs_correct = Q.prove (
       simp[REVERSE_APPEND]
       \\ match_mp_tac env_rel_append
       \\ simp[]
-      \\ metis_tac[v_rel_weakening] )
-    \\ simp[FUPDATE_LIST_APPEND]
-    \\ match_mp_tac (GEN_ALL global_env_inv_extend2)
-    \\ simp[]
-    \\ metis_tac[v_rel_weakening]) >>
+      \\ metis_tac[v_rel_weakening] ) >>
+    conj_tac
+    >- cheat (* Need to track that there are no empty modules hiding things *)
+
+    simp_tac list_ss [REVERSE_APPEND, nsAppend_to_nsBindList, GSYM nsAppend_alist_to_ns] >>
+    match_mp_tac (GEN_ALL global_env_inv_extend2) >>
+    rw []
+    >- fs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+    >- metis_tac[v_rel_weakening]) >>
+
   rw [compile_dec_def, compile_decs_def]
   >- (
     every_case_tac >>

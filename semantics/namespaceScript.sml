@@ -145,6 +145,11 @@ val _ = Define `
  (nsDom env = ({ n |  v, n | nsLookup env n = SOME v }))`;
 
 
+(*val nsDomMod : forall 'v 'm 'n. SetType 'm, Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (list 'm)*)
+val _ = Define `
+ (nsDomMod env = ({ n |  v, n | nsLookupMod env n = SOME v }))`;
+
+
 (*val nsMap : forall 'v 'w 'm 'n. ('v -> 'w) -> namespace 'm 'n 'v -> namespace 'm 'n 'w*)
  val nsMap_defn = Hol_defn "nsMap" `
  (nsMap f (Bind v m) =  

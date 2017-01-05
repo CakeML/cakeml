@@ -140,7 +140,7 @@ val compile_funs_dom = Q.store_thm("compile_funs_dom",
 val alloc_defs_def = Define `
   (alloc_defs next [] = []) ∧
   (alloc_defs next (x::xs) =
-    (x,next) :: alloc_defs (next + 1) xs)`;
+    (x, Var_global next) :: alloc_defs (next + 1) xs)`;
 
 val fst_alloc_defs = Q.store_thm("fst_alloc_defs",
   `!next l. MAP FST (alloc_defs next l) = l`,
@@ -157,42 +157,42 @@ val compile_dec_def = Define `
   case d of
    | Dlet p e =>
        let e' = compile_exp env e in
-       let xs = REVERSE (pat_bindings p []) in
+       let xs = pat_bindings p [] in
        let l = LENGTH xs in
          (next + l,
-          alloc_defs next xs,
-          Dlet l (Mat e' [(compile_pat p, Con NONE (MAP Var_local xs))]))
+          alist_to_ns (alloc_defs next xs),
+          Dlet l (Mat e' [(compile_pat p, Con NONE (MAP Var_local (REVERSE xs)))]))
    | Dletrec funs =>
-       let fun_names = REVERSE (MAP FST funs) in
-       let env' = alloc_defs next fun_names in
+       let fun_names = MAP FST funs in
+       let env' = alist_to_ns (alloc_defs next fun_names) in
          (next + LENGTH fun_names,
           env',
-          Dletrec (compile_funs (FOLDL (λenv (k,v). nsBind k (Var_global v) env) env env') (REVERSE funs)))
+          Dletrec (compile_funs (nsAppend env' env) (REVERSE funs)))
    | Dtype type_def =>
-       (next, [], Dtype mn type_def)
+       (next, nsEmpty, Dtype mn type_def)
    | Dtabbrev tvs tn t =>
-       (next, [], Dtype mn [])
+       (next, nsEmpty, Dtype mn [])
    | Dexn cn ts =>
-       (next, [], Dexn mn cn ts))`;
+       (next, nsEmpty, Dexn mn cn ts))`;
 
 val compile_decs_def = Define`
-  (compile_decs next mn env [] = (next, [], [])) ∧
+  (compile_decs next mn env [] = (next, nsEmpty, [])) ∧
   (compile_decs next mn env (d::ds) =
    let (next1, new_env1, d') = compile_dec next mn env d in
    let (next2, new_env2, ds') =
-     compile_decs next1 mn (FOLDL (λenv (k,v). nsBind k (Var_global v) env) env new_env1) ds
+     compile_decs next1 mn (nsAppend new_env1 env) ds
    in
-     (next2, (new_env1 ++ new_env2), (d'::ds')))`;
+     (next2, nsAppend new_env2 new_env1, d'::ds'))`;
 
 val compile_top_def = Define `
   compile_top next env top =
    case top of
     | Tdec d =>
       let (next', new_env, d') = (compile_dec next [] env d) in
-        (next', FOLDL (λenv (k,v). nsBind k (Var_global v) env) env new_env, Prompt [] [d'])
+        (next', nsAppend new_env env, Prompt [] [d'])
     | Tmod mn specs ds =>
       let (next', new_env, ds') = (compile_decs next [mn] env ds) in
-        (next', nsAppend (nsLift mn (FOLDL (λenv (k,v). nsBind k (Var_global v) env) nsEmpty new_env)) env, Prompt [mn] ds')`;
+        (next', nsAppend (nsLift mn new_env) env, Prompt [mn] ds')`;
 
 val compile_prog_def = Define `
   (compile_prog next env [] = (next, env, [])) ∧
