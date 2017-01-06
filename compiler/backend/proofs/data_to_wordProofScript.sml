@@ -8858,8 +8858,10 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
       ALL_DISTINCT labs) p`,
+
   cheat); (* the following proof has become too slow *)
 (*
+
   fs[data_to_wordTheory.compile_def]>>
   qpat_abbrev_tac`datap = _ ++ MAP (A B) prog`>>
   mp_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
@@ -8868,36 +8870,16 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
   fs[EVERY_MEM]>>rw[]
   >-
     (match_mp_tac LIST_EQ>>rw[EL_MAP]>>
-    Cases_on`EL x prog`>>Cases_on`r`>>fs[compile_part_def])
-  >>
-    qmatch_assum_abbrev_tac`MAP FST p = MAP FST p1 ++ MAP FST p2`>>
-    full_simp_tac std_ss [GSYM MAP_APPEND]>>
-    qabbrev_tac`pp = p1 ++ p2` >>
-    qpat_x_assum`MAP A B = _` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
-    fs[EL_MAP,MEM_EL,FORALL_PROD]>>
-    rw[]>>pop_assum(qspec_then`n` assume_tac)>>
-    fs[LIST_REL_EL_EQN,EL_MAP]>>res_tac>>
-    pairarg_tac>>fs[]>>
-    Cases_on`n < LENGTH p1` >- (
-      fs[Abbr`pp`,EL_APPEND1,Abbr`p1`]
-      \\ fs[stubs_def,extract_labels_def]
-      \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
-               Cases_on`^(t"n")`\\fs[]
-               \\ imp_res_tac prim_recTheory.SUC_LESS)))>>
-      qpat_x_assum`labels_rel _ _ ` mp_tac >>
-      simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
-           Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
-           RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-           MakeBytes_def,SmallLsr_def,GiveUp_def] >> rpt IF_CASES_TAC >>
-      simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
-           Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
-           RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-           MakeBytes_def,SmallLsr_def]>>
-      simp[labels_rel_emp] >>
-      fs [word_simpProofTheory.labels_rel_def,SUBSET_DEF] >>
-      rw [] >>
-      drule EL_MEM >>
-      metis_tac [FST,SND,DECIDE ``0 <> 1n``])>>
+    Cases_on`EL x prog`>>Cases_on`r`>>fs[compile_part_def]) >>
+  qmatch_assum_abbrev_tac`MAP FST p = MAP FST p1 ++ MAP FST p2`>>
+  full_simp_tac std_ss [GSYM MAP_APPEND]>>
+  qabbrev_tac`pp = p1 ++ p2` >>
+  qpat_x_assum`MAP A B = _` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
+  fs[EL_MAP,MEM_EL,FORALL_PROD]>>
+  rw[]>>pop_assum(qspec_then`n` assume_tac)>>
+  fs[LIST_REL_EL_EQN,EL_MAP]>>res_tac>>
+  pairarg_tac>>fs[]>>
+  reverse (Cases_on`n < LENGTH p1`) >- (
     fs[]>>
     qpat_x_assum`n < LENGTH _`assume_tac >>
     qpat_x_assum`LENGTH p = _`assume_tac >>
@@ -8913,7 +8895,32 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
     strip_tac>>
     fs[PULL_EXISTS]>>
     first_x_assum(qspec_then`n'''` assume_tac)>>rfs[]>>
-    qpat_assum`(A,B) = EL n''' _` (SUBST_ALL_TAC o SYM)>>fs[]);
+    qpat_assum`(A,B) = EL n''' _` (SUBST_ALL_TAC o SYM)>>fs[])
+  \\ fs[Abbr`pp`,EL_APPEND1,Abbr`p1`]
+  \\ full_simp_tac bool_ss [``LENGTH (data_to_word$stubs (:'a) c)``
+         |> SIMP_CONV std_ss [data_to_wordTheory.stubs_def,
+              generated_bignum_stubs_eq,APPEND,LENGTH]]
+  \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
+           Cases_on`^(t"n")`\\fs[]))
+         \\ fs [ADD1,DECIDE ``n+1 < k <=> n < k-1n``])>>
+  ntac 4 (pop_assum mp_tac) >>
+  simp[stubs_def,extract_labels_def,generated_bignum_stubs_eq] >>
+
+  simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
+       Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
+       RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
+       MakeBytes_def,SmallLsr_def,GiveUp_def] >> rpt IF_CASES_TAC >>
+  simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
+       Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
+       RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
+       MakeBytes_def,SmallLsr_def]>>
+  simp[labels_rel_emp] >>
+  fs [word_simpProofTheory.labels_rel_def,SUBSET_DEF] >>
+  rw [] >>
+  drule EL_MEM >>
+  metis_tac [FST,SND,DECIDE ``0 <> 1n``]
+
+);
 *)
 
 val StoreEach_no_inst = Q.prove(`

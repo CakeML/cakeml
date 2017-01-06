@@ -381,8 +381,8 @@ val has_compiled_def = Define `
     | NONE => INR (n:num)
     | SOME (index,word_code) => INL (index:num)`;
 
-val next_def = Define `
-  next (n,code_list) = (n+1n,code_list)`
+val code_acc_next_def = Define `
+  code_acc_next (n,code_list) = (n+1n,code_list)`
 
 val install_def = Define `
   install c (n,code_list) = (n,c::code_list)`
@@ -434,7 +434,7 @@ val compile_def = Define `
      | INL existing_index =>
          (Call (SOME (i,LS (),Skip,n,l)) (SOME existing_index) [] NONE,l+1,i+1,cs)
      | INR new_index =>
-         let (new_code,a,b,cs) = compile new_index 1 1 (next cs) body in
+         let (new_code,a,b,cs) = compile new_index 1 1 (code_acc_next cs) body in
            (Call (SOME (i,LS (),Skip,n,l)) (SOME new_index) [] NONE,l+1,i+1,
             install (body,new_index,Seq new_code (Return 0 0)) cs)) /\
   (compile n l i cs (LoopBody b) = compile n l i cs b) /\

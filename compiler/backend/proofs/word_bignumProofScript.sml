@@ -300,7 +300,7 @@ val compile_IMP_code_subset = prove(
   \\ Cases_on `cs`
   \\ fs [has_compiled_def]
   \\ every_case_tac \\ fs []
-  \\ res_tac \\ fs [next_def] \\ rveq
+  \\ res_tac \\ fs [code_acc_next_def] \\ rveq
   \\ Cases_on `cs'` \\ fs [code_subset_def,install_def]
   \\ rw [] \\ fs []);
 
