@@ -105,6 +105,18 @@ val nsDom_nsEmpty = Q.store_thm ("nsDom_nsEmpty[simp]",
  >> pairarg_tac
  >> rw []);
 
+val nsDomMod_nsEmpty = Q.store_thm ("nsDomMod_nsEmpty[simp]",
+  `nsDomMod nsEmpty = {[]}`,
+  rw [nsDomMod_def, nsEmpty_def, EXTENSION, GSPECIFICATION] >>
+  eq_tac
+  >- (
+    rw [] >>
+    pairarg_tac >>
+    fs [] >>
+    Cases_on `n` >>
+    fs [nsLookupMod_def])
+  >- rw [EXISTS_PROD, nsLookupMod_def]);
+
 val nsMap_nsEmpty = Q.store_thm ("nsMap_nsEmpty[simp]",
   `!f. nsMap f nsEmpty = nsEmpty`,
  rw [nsMap_def, nsEmpty_def]);
@@ -207,6 +219,21 @@ val nsDom_nsBind = Q.store_thm ("nsDom_nsBind[simp]",
 val nsDom_nsSing = Q.store_thm ("nsDom_nsSing[simp]",
   `!x y. nsDom (nsSing x y) = {Short x}`,
   rw [nsSing_def, nsDom_def, EXTENSION, GSPECIFICATION, LAMBDA_PROD, EXISTS_PROD]);
+
+val nsDomMod_nsBind = Q.store_thm ("nsDomMod_nsBind[simp]",
+  `!x y n. nsDomMod (nsBind x y n) = nsDomMod n`,
+  rw [] >>
+  Cases_on `n` >>
+  rw [nsBind_def, nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+  eq_tac >>
+  rw [nsLookupMod_def] >>
+  Cases_on `x'` >>
+  fs [nsLookupMod_def] >>
+  metis_tac []);
+
+val nsDomMod_nsSing = Q.store_thm ("nsDomMod_nsSing[simp]",
+  `!x y. nsDomMod (nsSing x y) = {[]}`,
+  rw [nsSing_def, nsDomMod_def, EXTENSION, GSPECIFICATION, LAMBDA_PROD, EXISTS_PROD]);
 
 val nsLookupMod_alist_to_ns = Q.store_thm ("nsLookupMod_alist_to_ns[simp]",
   `!l x y. nsLookupMod (alist_to_ns l) (x::y) = NONE`,
@@ -923,5 +950,10 @@ val nsSub_nsMap = Q.store_thm ("nsSub_nsMap",
 val nsLookup_nsDom = Q.store_thm ("nsLookup_nsDom",
   `!x n. x ∈ nsDom n ⇔ ?v. nsLookup n x = SOME v`,
   rw [nsDom_def, GSPECIFICATION, EXISTS_PROD]);
+
+val lemma = Q.prove (
+  `(!x. y ≠ SOME x) ⇔ y = NONE`,
+  Cases_on `y` >>
+  rw []);
 
 val _ = export_theory ();
