@@ -229,7 +229,7 @@ open encodeLib
 
 val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
    [
-    `Inst (Arith (LongMul 4 5 6 7))`,
+    `Inst (Arith (LongMul 4 5 6 7))`
    ]
 
 val () = Count.apply (encodings [All])
@@ -249,7 +249,7 @@ val () = Count.apply (encodings [All])
     `Inst (Arith (Div 6 7 8))`,
     `Inst (Arith (LongDiv 0 2 0 2 3))`,
     `Inst (Arith (LongMul 2 0 0 3))`,
-    `Inst (Arith (AddCarry 6 7 8 9))`,
+    `Inst (Arith (AddCarry 7 7 8 9))`,
     `Inst (Arith (AddOverflow 7 7 8 9))`,
     `Inst (Arith (SubOverflow 7 7 8 9))`,
     `Inst (Mem Load 6 (Addr 7 0w))`,

@@ -8806,6 +8806,8 @@ val assign_def_extras = LIST_CONJ
    Equal1_code_def, Equal_code_def, LongDiv1_code_def, LongDiv_code_def,
    ShiftVar_def, generated_bignum_stubs_eq, DivCode_def];
 
+val extract_labels_def = wordPropsTheory.extract_labels_def;
+
 val extract_labels_MemEqList = store_thm("extract_labels_MemEqList[simp]",
   ``!a x. extract_labels (MemEqList a x) = []``,
   Induct_on `x`

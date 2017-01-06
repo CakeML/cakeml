@@ -657,14 +657,10 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
-    ,lab_to_targetTheory.sec_length_def
     ,lab_to_targetTheory.lab_inst_def
     ,lab_to_targetTheory.enc_line_def
     ,lab_to_targetTheory.enc_sec_def
     ,lab_to_targetTheory.enc_sec_list_def
-    ,lab_to_targetTheory.asm_line_labs_def
-    ,lab_to_targetTheory.sec_labs_def
-    ,lab_to_targetTheory.lab_insert_def
     ,lab_to_targetTheory.section_labels_def
     ,lab_to_targetTheory.compute_labels_alt_def
     ,lab_to_targetTheory.find_pos_def
@@ -680,11 +676,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.add_nop_def
     ,lab_to_targetTheory.pad_section_def
     ,lab_to_targetTheory.pad_code_def
-    ,lab_to_targetTheory.loc_to_pc_comp_def
-    ,lab_to_targetTheory.is_Label_def
-    ,lab_to_targetTheory.check_lab_def
-    ,lab_to_targetTheory.all_labels_def
-    ,lab_to_targetTheory.sec_names_def
     ,lab_to_targetTheory.remove_labels_loop_def
     ,lab_to_targetTheory.remove_labels_def
     ,lab_to_targetTheory.line_bytes_def
