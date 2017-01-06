@@ -37,7 +37,7 @@ val word_num_stubs_def = Define`
   word_num_stubs = stack_num_stubs + 1 (* raise *)`;
 
 val data_num_stubs_def = Define`
-  data_num_stubs = word_num_stubs + 15`;
+  data_num_stubs = word_num_stubs + (* general: *) 17 + (* bignum: *) 23 `;
 
 val bvl_num_stubs_def = Define`
   bvl_num_stubs = data_num_stubs + 4

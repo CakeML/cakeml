@@ -9,29 +9,29 @@ val _ = Datatype `
   address = In1 | In2 | Out`
 
 val _ = Datatype `
-  prog = Skip
+  mini = Skip
        | Assign num ('a wordLang$exp)
        | Delete (num list)
-       | Seq prog prog
+       | Seq mini mini
        | Load num num address
        | Store num num
-       | If cmp num ('a reg_imm) prog prog
+       | If cmp num ('a reg_imm) mini mini
        | Swap
        | Add num num num ('a reg_imm) ('a reg_imm)
        | Sub num num num ('a reg_imm) ('a reg_imm)
        | Mul num num num num
        | Div num num num num num
-       | Loop (num list) prog
+       | Loop (num list) mini
        | Continue
        (* the following is only used by the semantics *)
-       | LoopBody prog `
+       | LoopBody mini `
 
 
 (* syntax helper funs *)
 
-val Skip_tm = ``Skip:'a word_bignum$prog``
-val Swap_tm = ``Swap:'a word_bignum$prog``
-val Continue_tm = ``Continue:'a word_bignum$prog``
+val Skip_tm = ``Skip:'a word_bignum$mini``
+val Swap_tm = ``Swap:'a word_bignum$mini``
+val Continue_tm = ``Continue:'a word_bignum$mini``
 
 local val s = HolKernel.syntax_fns1 "word_bignum" in
   val (Delete_tm,mk_Delete,dest_Delete,is_Delete) = s "Delete"
@@ -309,14 +309,14 @@ fun get_full_prog inp tm = let
                                  handle HOL_ERR _ => true)
              |> LIST_CONJ |> CONJ (REFL init_prog) |> concl
   fun is_delete tm =
-    can (match_term ``(Delete n):'a prog``) tm
-  val Add_tm = ``(Add n1 n2):num -> α reg_imm -> α reg_imm -> α prog``
-  val Sub_tm = ``(Sub n1 n2):num -> α reg_imm -> α reg_imm -> α prog``
-  val Mul_tm = ``(Mul n1 n2):num -> num -> α prog``
-  val Div_tm = ``(Div n1 n2):num -> num -> num -> α prog``
+    can (match_term ``(Delete n):'a mini``) tm
+  val Add_tm = ``(Add n1 n2):num -> α reg_imm -> α reg_imm -> α mini``
+  val Sub_tm = ``(Sub n1 n2):num -> α reg_imm -> α reg_imm -> α mini``
+  val Mul_tm = ``(Mul n1 n2):num -> num -> α mini``
+  val Div_tm = ``(Div n1 n2):num -> num -> num -> α mini``
   fun is_assign tm =
-    can (match_term ``(Assign n):α wordLang$exp -> α prog``) tm orelse
-    can (match_term ``(Load n):num -> address -> α prog``) tm orelse
+    can (match_term ``(Assign n):α wordLang$exp -> α mini``) tm orelse
+    can (match_term ``(Load n):num -> address -> α mini``) tm orelse
     can (match_term Add_tm) tm orelse can (match_term (rator Add_tm)) tm orelse
     can (match_term Sub_tm) tm orelse can (match_term (rator Sub_tm)) tm orelse
     can (match_term Mul_tm) tm orelse can (match_term (rator Mul_tm)) tm orelse
@@ -418,7 +418,7 @@ val SeqIndex_def = Define `
               :'a wordLang$prog`
 
 val div_location_def = Define `
-  div_location = 45n`;
+  div_location = 21n`;
 
 val DivCode_def = Define `
   DivCode l1 l2 n1 n2 n3 n4 n5 =
@@ -488,13 +488,13 @@ val compile_def = Define `
 
 val _ = (max_print_depth := 25);
 
-val mc_iop_compile_def = Define `
-  mc_iop_compile n =
+val generated_bignum_stubs_def = Define `
+  generated_bignum_stubs n =
     let (x1,_,_,(_,cs)) = compile n 1 1 (n+1,[]) mc_iop_code in
       (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,z)) cs`
 
-val mc_iop_compile_eq = save_thm("mc_iop_compile_eq",
-  EVAL ``mc_iop_compile n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);
+val generated_bignum_stubs_eq = save_thm("generated_bignum_stubs_eq",
+  EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);
 
 
 val _ = export_theory();

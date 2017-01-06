@@ -1,4 +1,5 @@
-open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory;
+open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
+     word_bignumTheory;
 local open bvl_to_bviTheory backend_commonTheory in end
 
 val _ = new_theory "data_to_word";
@@ -140,6 +141,12 @@ val Equal1_location_def = Define `
   Equal1_location = Compare_location+1`;
 val Equal_location_def = Define `
   Equal_location = Equal1_location+1`;
+val LongDiv1_location_def = Define `
+  LongDiv1_location = Equal_location+1`;
+val LongDiv_location_def = Define `
+  LongDiv_location = LongDiv1_location+1`;
+val Bignum_location_def = Define `
+  Bignum_location = LongDiv_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -171,6 +178,12 @@ val Equal1_location_eq = save_thm("Equal1_location_eq",
   ``Equal1_location`` |> EVAL);
 val Equal_location_eq = save_thm("Equal_location_eq",
   ``Equal_location`` |> EVAL);
+val LongDiv1_location_eq = save_thm("LongDiv1_location_eq",
+  ``LongDiv1_location`` |> EVAL);
+val LongDiv_location_eq = save_thm("LongDiv_location_eq",
+  ``LongDiv_location`` |> EVAL);
+val Bignum_location_eq = save_thm("Bignum_eq",
+  ``Bignum_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -221,13 +234,14 @@ val RefByte_code_def = Define`
            Store (Var 1) 5;
            Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;6;3] NONE]`;
+              [0;1;4;6;3] NONE]:'a wordLang$prog`;
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
     If Lower n (Imm (n2w (2 ** rep_len)))
       (Assign dest (Op Or [Var dest; Shift Lsl (Var n) (Nat k)]))
-      (Assign dest (Op Or [Var dest; Const (all_ones (k + rep_len) k)]))`
+      (Assign dest (Op Or [Var dest; Const (all_ones (k + rep_len) k)]))
+         :'a wordLang$prog`
 
 val Make_ptr_bits_code_def = Define `
   Make_ptr_bits_code c tag len dest =
@@ -252,7 +266,7 @@ val FromList_code_def = Define `
            Assign 7 (Shift Lsr (Var 2) (Nat 2));
            Assign 9 (Shift Lsr (Var 6) (Nat 4));
            Make_ptr_bits_code c 9 7 3;
-           Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE])`;
+           Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE]):'a wordLang$prog`;
 
 val FromList1_code_def = Define `
   FromList1_code c =
@@ -274,7 +288,8 @@ val FromList1_code_def = Define `
              Assign 10 (Load (Op Add [Var 4; Const bytes_in_word]));
              Assign 4 (Load (Op Add [Var 4; Const (2w * bytes_in_word)]));
              Assign 6 (Op Sub [Var 6; Const 4w]);
-             Call NONE (SOME FromList1_location) [0;2;4;6;8;10] NONE])]`;
+             Call NONE (SOME FromList1_location) [0;2;4;6;8;10] NONE])]
+      :'a wordLang$prog`;
 
 val RefArray_code_def = Define `
   RefArray_code c =
@@ -298,7 +313,8 @@ val RefArray_code_def = Define `
            Store (Var 1) 5;
            Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;2;3] NONE]`;
+              [0;1;4;2;3] NONE]
+        :'a wordLang$prog`;
 
 val Replicate_code_def = Define `
   Replicate_code =
@@ -311,30 +327,36 @@ val Replicate_code_def = Define `
       (list_Seq [Assign 2 (Op Add [Var 2; Const (bytes_in_word)]);
                  Store (Var 2) 4;
                  Assign 6 (Op Sub [Var 6; Const 4w]);
-                 Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])`;
+                 Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])
+      :'a wordLang$prog`;
 
 val AnyArith_code_def = Define `
-  AnyArith_code c = GiveUp`;
+  AnyArith_code c = GiveUp:'a wordLang$prog`;
 
 val Add_code_def = Define `
   Add_code = Seq (Assign 6 (Const 0w))
-                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
+             :'a wordLang$prog`;
 
 val Sub_code_def = Define `
   Sub_code = Seq (Assign 6 (Const 4w))
-                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
+             :'a wordLang$prog`;
 
 val Mul_code_def = Define `
   Mul_code = Seq (Assign 6 (Const 8w))
-                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
+             :'a wordLang$prog`;
 
 val Div_code_def = Define `
   Div_code = Seq (Assign 6 (Const 12w))
-                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
+             :'a wordLang$prog`;
 
 val Mod_code_def = Define `
   Mod_code = Seq (Assign 6 (Const 16w))
-                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)`;
+                 (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
+             :'a wordLang$prog`;
 
 val Compare1_code_def = Define `
   Compare1_code =
@@ -452,19 +474,26 @@ val Equal_code_def = Define `
       Assign 4 (Op Add [Var 40; ShiftVar Lsl 6 (shift (:'a))]);
       Call NONE (SOME Compare1_location) [0;6;2;4] NONE]`;
 
+val LongDiv_code_def = Define `
+  LongDiv_code c = Skip:'a wordLang$prog`;
+
+val LongDiv1_code_def = Define `
+  LongDiv1_code c = Skip:'a wordLang$prog`;
+
 val get_names_def = Define `
   (get_names NONE = LN) /\
   (get_names (SOME x) = x)`;
 
 val LoadWord64_def = Define `
   LoadWord64 c i j =
-    Assign i (Load (Op Add [real_addr c j; Const bytes_in_word]))`;
+    Assign i (Load (Op Add [real_addr c j; Const bytes_in_word])):'a wordLang$prog`;
 
 val LoadBignum_def = Define`
   LoadBignum c header word1 k = list_Seq [
     Assign word1 (real_addr c k);
     Assign header (Load (Var word1));
-    Assign word1 (Load (Op Add [Var word1; Const bytes_in_word]))]`;
+    Assign word1 (Load (Op Add [Var word1; Const bytes_in_word]))]
+      :'a wordLang$prog`;
 
 val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
   WriteWord64 c (header:'a word) dest i =
@@ -476,7 +505,7 @@ val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
               Assign (adjust_var dest)
                 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                           (Nat (shift_length c − shift (:'a)));
-                        Const 1w])]`;
+                        Const 1w])]:'a wordLang$prog`;
 
 val bignum_words_def = Define `
   bignum_words c i =
@@ -493,7 +522,7 @@ val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
 
 val MemEqList_def = Define `
-  (MemEqList a [] = Assign 1 TRUE_CONST) /\
+  (MemEqList a [] = Assign 1 TRUE_CONST :'a wordLang$prog) /\
   (MemEqList a (w::ws) =
      Seq (Assign 5 (Load (Op Add [Var 3; Const a])))
          (If Equal 5 (Imm w) (MemEqList (a + bytes_in_word) ws) Skip))`;
@@ -971,11 +1000,17 @@ val stubs_def = Define`
     (Compare1_location,4n,Compare1_code);
     (Compare_location,3n,Compare_code data_conf);
     (Equal1_location,4n,Equal1_code);
-    (Equal_location,3n,Equal_code data_conf)
-  ]`;
+    (Equal_location,3n,Equal_code data_conf);
+    (LongDiv1_location,4n,LongDiv1_code data_conf);
+    (LongDiv_location,4n,LongDiv_code data_conf)
+  ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
   `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`,
+  EVAL_TAC);
+
+val check_LongDiv_location = Q.store_thm("check_LongDiv_location",
+  `LongDiv_location = word_bignum$div_location`,
   EVAL_TAC);
 
 val compile_def = Define `
