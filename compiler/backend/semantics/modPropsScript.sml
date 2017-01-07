@@ -25,6 +25,31 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
   srw_tac[][] >>
   metis_tac [pat_bindings_accum]);
 
+val pmatch_bindings = Q.store_thm ("pmatch_bindings",
+  `(∀cenv s p v env r.
+      modSem$pmatch cenv s p v env = Match r
+      ⇒
+      MAP FST r = pat_bindings p [] ++ MAP FST env) ∧
+   ∀cenv s ps vs env r.
+     modSem$pmatch_list cenv s ps vs env = Match r
+     ⇒
+     MAP FST r = pats_bindings ps [] ++ MAP FST env`,
+  ho_match_mp_tac modSemTheory.pmatch_ind >>
+  rw [pmatch_def, astTheory.pat_bindings_def] >>
+  rw [] >>
+  every_case_tac >>
+  fs [] >>
+  prove_tac [pat_bindings_accum]);
+
+val pmatch_length = Q.store_thm ("pmatch_length",
+  `∀cenv s p v env r.
+      modSem$pmatch cenv s p v env = Match r
+      ⇒
+      LENGTH r = LENGTH (pat_bindings p []) + LENGTH env`,
+  rw [] >>
+  imp_res_tac pmatch_bindings >>
+  metis_tac [LENGTH_APPEND, LENGTH_MAP]);
+
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
   FOLDR (λ(f,x,e) env'. (f, Recclosure env funs' f)::env') env' funs =
@@ -412,6 +437,18 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
     fsrw_tac[QUANT_INST_ss[record_default_qp]][] >> rev_full_simp_tac(srw_ss())[] >>
     `env with v := env' = <| c := env.c; v := env' |>` by (
       srw_tac[][environment_component_equality]) >> metis_tac[]));
+
+val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
+  `∀p v env env_c s.
+    pmatch env_c s.refs p v [] = Match env ∧
+    ALL_DISTINCT (pat_bindings p [])
+    ⇒
+    evaluate <| c := env_c; v := env |> s (MAP Var_local (pat_bindings p [])) = (s,Rval (MAP SND env))`,
+  rw [] >>
+  `pmatch <|c := env_c; v := []|>.c s.refs p v <|c := env_c; v := []|>.v = Match env` by rw [] >>
+  imp_res_tac pmatch_evaluate_vars >>
+  fs [] >>
+  rfs []);
 
 val evaluate_append = Q.store_thm("evaluate_append",
   `∀env s s1 s2 e1 e2 v1 v2.

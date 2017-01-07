@@ -951,9 +951,30 @@ val nsLookup_nsDom = Q.store_thm ("nsLookup_nsDom",
   `!x n. x ∈ nsDom n ⇔ ?v. nsLookup n x = SOME v`,
   rw [nsDom_def, GSPECIFICATION, EXISTS_PROD]);
 
+val nsDomMod_alist_to_ns = Q.store_thm ("nsDomMod_alist_to_ns[simp]",
+  `!l. nsDomMod (alist_to_ns l) = {[]}`,
+  rw [nsDomMod_def, alist_to_ns_def, EXTENSION, GSPECIFICATION, EXISTS_PROD, UNCURRY] >>
+  Cases_on `x` >>
+  rw [nsLookupMod_def]);
+
 val lemma = Q.prove (
-  `(!x. y ≠ SOME x) ⇔ y = NONE`,
+  `(?x. y = SOME x) ⇔ y ≠ NONE`,
   Cases_on `y` >>
   rw []);
+
+val nsDom_nsAppend_equal = Q.store_thm ("nsDom_nsAppend_equal",
+  `!n1 n2 n3 n4.
+    nsDom n1 = nsDom n3 ∧
+    nsDom n2 = nsDom n4 ∧
+    nsDomMod n1 = nsDomMod n3 ∧
+    nsDomMod n2 = nsDomMod n4
+    ⇒
+    nsDom (nsAppend n1 n2) = nsDom (nsAppend n3 n4) ∧
+    nsDomMod (nsAppend n1 n2) = nsDomMod (nsAppend n3 n4)`,
+  rw [namespaceTheory.nsDom_def, namespaceTheory.nsDomMod_def,
+      EXTENSION, GSPECIFICATION, EXISTS_PROD, nsLookup_nsAppend_some]
+  >- metis_tac [NOT_SOME_NONE, option_nchotomy] >>
+  fs [lemma, nsLookupMod_nsAppend_none]
+  >- metis_tac [NOT_SOME_NONE, option_nchotomy]);
 
 val _ = export_theory ();

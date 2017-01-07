@@ -157,13 +157,13 @@ val compile_dec_def = Define `
   case d of
    | Dlet p e =>
        let e' = compile_exp env e in
-       let xs = pat_bindings p [] in
+       let xs = REVERSE (pat_bindings p []) in
        let l = LENGTH xs in
          (next + l,
           alist_to_ns (alloc_defs next xs),
-          Dlet l (Mat e' [(compile_pat p, Con NONE (MAP Var_local (REVERSE xs)))]))
+          Dlet l (Mat e' [(compile_pat p, Con NONE (MAP Var_local xs))]))
    | Dletrec funs =>
-       let fun_names = MAP FST funs in
+       let fun_names = REVERSE (MAP FST funs) in
        let env' = alist_to_ns (alloc_defs next fun_names) in
          (next + LENGTH fun_names,
           env',

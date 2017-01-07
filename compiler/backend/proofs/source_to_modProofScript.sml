@@ -1430,75 +1430,7 @@ val alookup_alloc_defs_bounds = Q.prove(
   srw_tac[][alloc_defs_def]  >>
   res_tac >>
   DECIDE_TAC);
-  *)
 
-val alookup_alloc_defs = Q.prove (
-  `!l e x v.
-    ALOOKUP e x = SOME v
-    ⇒
-    ?n. ALOOKUP (alloc_defs l (MAP FST e)) = SOME (Var_global n)`,
-
-val global_env_inv_extend = Q.prove (
-  `!genv env bind_i1.
-    env_rel genv env bind_i1
-    ⇒
-    global_env_inv (genv++REVERSE (MAP SOME (MAP SND bind_i1))) (alist_to_ns (alloc_defs (LENGTH genv) (MAP FST bind_i1))) ∅ env`,
-
-  Induct_on `bind_i1` >>
-  rw [v_rel_eqns] >>
-  fs [nsLookup_alist_to_ns_some] >>
-  qpat_x_assum `env_rel _ _ _` mp_tac >>
-  simp [Once v_rel_cases] >>
-  rw [] >>
-  fs [] >>
-  first_x_assum drule >>
-  rw [v_rel_eqns] >>
-  Cases_on `x = Short x'` >>
-  rw [] >>
-  fs [] >>
-  rw [alloc_defs_def]
-
-  nsLookup_nsBind
-
-
-
-  rw [] >>
-  PairCases_on `h` >>
-  fs [alloc_defs_def] >>
-  rw [] >>
-  fs [] >>
-  qpat_x_assum `env_rel _ _ _` mp_tac >>
-  simp [v_rel_eqns] >>
-  rw [] >>
-  rw []
-  >- cheat >>
-  first_x_assum drule >>
-  rw [v_rel_eqns, nsLookup_alist_to_ns_some] >>
-  first_x_assum (qspecl_then [`Short x'`, `v`] mp_tac) >>
-  rw [] >>
-  qexists_tac `n+1` >>
-  qexists_tac `v'''` >>
-  rw []
-
-
-  full_simp_tac(srw_ss())[flookup_fupdate_list, ALOOKUP_APPEND] >>
-  every_case_tac >>
-  srw_tac[][RIGHT_EXISTS_AND_THM]
-  >- (imp_res_tac ALOOKUP_NONE >>
-      full_simp_tac(srw_ss())[MAP_REVERSE, fst_alloc_defs] >>
-      imp_res_tac ALOOKUP_MEM >>
-      full_simp_tac(srw_ss())[MEM_MAP] >>
-      metis_tac [pair_CASES, FST])
-  >- metis_tac [ALL_DISTINCT_REVERSE, LENGTH_REVERSE, fst_alloc_defs, alookup_distinct_reverse,
-                LENGTH_MAP, length_env_rel, alookup_alloc_defs_bounds]
-  >- (match_mp_tac global_env_inv_flat_extend_lem >>
-      MAP_EVERY qexists_tac [`(REVERSE env')`, `x`] >>
-      srw_tac[][]
-      >- metis_tac [env_rel_reverse, v_rel_weakening]
-      >- metis_tac [alookup_distinct_reverse]
-      >- metis_tac [alookup_distinct_reverse, MAP_REVERSE, fst_alloc_defs, ALL_DISTINCT_REVERSE]));
-
-      (*
 val letrec_global_env_lem2 = Q.prove (
   `!funs x genv n.
     ALL_DISTINCT (MAP FST funs) ∧
@@ -1732,61 +1664,43 @@ val pmatch_lem =
   pmatch
   |> CONJUNCTS
   |> hd
-  |> SIMP_RULE (srw_ss()) []
+  |> SIMP_RULE (srw_ss()) [];
 
-val pmatch_evaluate_vars_lem = Q.prove (
-  `∀p v env env_c s.
-    pmatch env_c s.refs p v [] = Match env ∧
-    ALL_DISTINCT (pat_bindings p [])
+val ALOOKUP_alloc_defs = Q.prove (
+  `!env x v genv.
+    ALOOKUP (REVERSE env) x = SOME v
     ⇒
-    evaluate <| c := env_c; v := env |> s (MAP Var_local (pat_bindings p [])) = (s,Rval (MAP SND env))`,
-  rw [] >>
-  `pmatch <|c := env_c; v := []|>.c s.refs p v <|c := env_c; v := []|>.v = Match env` by rw [] >>
-  imp_res_tac pmatch_evaluate_vars >>
-  fs [] >>
-  rfs []);
-
-val lemma = Q.prove (
-  `(?x. y = SOME x) ⇔ y ≠ NONE`,
-  Cases_on `y` >>
-  rw []);
-
-val nsDom_nsAppend_equal = Q.prove (
-  `!n1 n2 n3 n4.
-    nsDom n1 = nsDom n3 ∧
-    nsDom n2 = nsDom n4 ∧
-    nsDomMod n1 = nsDomMod n3 ∧
-    nsDomMod n2 = nsDomMod n4
-    ⇒
-    nsDom (nsAppend n1 n2) = nsDom (nsAppend n3 n4) ∧
-    nsDomMod (nsAppend n1 n2) = nsDomMod (nsAppend n3 n4)`,
-  rw [namespaceTheory.nsDom_def, namespaceTheory.nsDomMod_def,
-      EXTENSION, GSPECIFICATION, EXISTS_PROD, nsLookup_nsAppend_some]
-  >- metis_tac [NOT_SOME_NONE, option_nchotomy] >>
-  fs [lemma, nsLookupMod_nsAppend_none]
-  >- metis_tac [NOT_SOME_NONE, option_nchotomy]);
-
-val pmatch_length = Q.prove (
-  `(∀cenv s p v env r.
-      modSem$pmatch cenv s p v env = Match r
-      ⇒
-      LENGTH r = LENGTH (pat_bindings p []) + LENGTH env) ∧
-   ∀cenv s ps vs env r.
-     modSem$pmatch_list cenv s ps vs env = Match r
-     ⇒
-     LENGTH r = LENGTH (pats_bindings ps []) + LENGTH env`,
-  ho_match_mp_tac modSemTheory.pmatch_ind >>
-  rw [pmatch_def, astTheory.pat_bindings_def] >>
-  rw [] >>
+    ∃n.
+      ALOOKUP (alloc_defs (LENGTH genv) (MAP FST (REVERSE env))) x = SOME (Var_global n) ∧
+      n < LENGTH genv + LENGTH (MAP FST env) ∧
+      EL n (genv ++ REVERSE (MAP SOME (MAP SND env))) = SOME v`,
+  Induct_on `env` >>
+  rw [ALOOKUP_APPEND, alloc_defs_append] >>
   every_case_tac >>
-  fs [] >>
-  prove_tac [pat_bindings_accum, LENGTH_APPEND, ADD_ASSOC, ADD_COMM, LENGTH_NIL]);
-
-val nsDomMod_alist_to_ns = Q.store_thm ("nsDomMod_alist_to_ns[simp]",
-  `!l. nsDomMod (alist_to_ns l) = {[]}`,
-  rw [nsDomMod_def, alist_to_ns_def, EXTENSION, GSPECIFICATION, EXISTS_PROD, UNCURRY] >>
-  Cases_on `x` >>
-  rw [nsLookupMod_def]);
+  fs [alloc_defs_def]
+  >- (
+    PairCases_on `h` >>
+    fs [EL_APPEND_EQN])
+  >- (
+    PairCases_on `h` >>
+    fs [] >>
+    first_x_assum drule >>
+    disch_then (qspec_then `genv` mp_tac) >>
+    rw [])
+  >- (
+    PairCases_on `h` >>
+    fs [] >>
+    rw [] >>
+    fs [ALOOKUP_NONE, MAP_REVERSE] >>
+    drule ALOOKUP_MEM >>
+    rw [] >>
+    `MEM h0 (MAP FST (alloc_defs (LENGTH genv) (REVERSE (MAP FST env))))`
+      by (rw [MEM_MAP] >> metis_tac [FST]) >>
+    fs [fst_alloc_defs])
+  >- (
+    first_x_assum drule >>
+    disch_then (qspec_then `genv` mp_tac) >>
+    rw [EL_APPEND_EQN]));
 
 val compile_decs_correct = Q.prove (
   `!mn s env ds var_map s' r s_i1 next' var_map' ds_i1.
@@ -1895,9 +1809,7 @@ val compile_decs_correct = Q.prove (
     rw [] >>
     metis_tac[v_rel_weakening]) >>
   rw [compile_dec_def, compile_decs_def]
-
   >- (
-
     split_pair_case_tac >>
     fs [] >>
     qmatch_assum_rename_tac `evaluate _ _ _ = (st', res)` >>
@@ -1936,7 +1848,7 @@ val compile_decs_correct = Q.prove (
     drule pmatch_evaluate_vars_lem >>
     simp [pat_bindings_compile_pat, MAP_REVERSE] >>
     simp [build_conv_def] >>
-    drule (CONJUNCT1 pmatch_length) >>
+    drule pmatch_length >>
     rw [] >>
     qexists_tac `REVERSE bind_i1` >>
     simp [MAP_REVERSE] >>
@@ -1951,27 +1863,21 @@ val compile_decs_correct = Q.prove (
       drule (CONJUNCT1 pmatch_extend) >>
       rw [] >>
       drule env_rel_dom >>
-      rw [])
-
-
-
-      
-
-    , fst_alloc_defs] >>
-    imp_res_tac pmatch_extend >>
-    fs [] >>
-    qmatch_assum_abbrev_tac `LIST_REL _ bind env'''` >>
-    `MAP FST bind = MAP FST bind_i1` by (
-      metis_tac [env_rel_dom, env_rel_list_rel]) >>
-    rw []
-    >- metis_tac [v_rel_weakening, env_rel_list_rel]
-    >- metis_tac [sv_rel_weakening, LIST_REL_mono] >>
-    pop_assum (mp_tac o GSYM) >>
-    pop_assum mp_tac >>
-    pop_assum (mp_tac o GSYM) >>
+      rw [MAP_REVERSE]) >>
+    drule env_rel_dom >>
     rw [] >>
-    match_mp_tac (SIMP_RULE (srw_ss()) [ MAP_REVERSE] global_env_inv_extend) >>
-    metis_tac [env_rel_list_rel])
+    simp [v_rel_eqns] >>
+    rw [nsLookup_alist_to_ns_some] >>
+    drule env_rel_lookup >>
+    disch_then drule >>
+    rw [] >>
+    `pat_bindings p [] = MAP FST bind_i1`
+      by metis_tac [pmatch_bindings, pat_bindings_compile_pat, APPEND_NIL, MAP] >>
+    full_simp_tac std_ss [] >>
+    `ALOOKUP (REVERSE bind_i1) x' = SOME v'` by metis_tac [alookup_distinct_reverse] >>
+    drule ALOOKUP_alloc_defs >>
+    metis_tac [MAP_REVERSE, v_rel_weakening])
+
   >- (
     simp [evaluate_decs_def, evaluate_dec_def, fupdate_list_foldl] >>
     qpat_abbrev_tac `tops' = (tops |++ X)` >>
