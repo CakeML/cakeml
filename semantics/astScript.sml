@@ -265,7 +265,7 @@ val _ = type_abbrev( "prog" , ``: top list``);
 
 (* Accumulates the bindings of a pattern *)
 (*val pat_bindings : pat -> list varN -> list varN*)
- val pat_bindings_defn = Defn.Hol_multi_defns `
+ val pat_bindings_defn = Hol_defn "pat_bindings" `
 
 (pat_bindings (Pvar n) already_bound =  
 (n::already_bound))
@@ -288,6 +288,6 @@ val _ = type_abbrev( "prog" , ``: top list``);
 (pats_bindings (p::ps) already_bound =  
 (pats_bindings ps (pat_bindings p already_bound)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) pat_bindings_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_defn;
 val _ = export_theory()
 
