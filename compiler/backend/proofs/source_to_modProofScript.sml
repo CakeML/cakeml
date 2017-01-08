@@ -166,31 +166,6 @@ val env_rel_append = Q.prove (
   rw [] >>
   simp [Once v_rel_cases]);
 
-  (*
-val env_rel_reverse = Q.prove (
-  `!genv env1 env2.
-    env_rel genv env1 env2
-    ⇒
-    env_rel genv (REVERSE env1) (REVERSE env2)`,
-   induct_on `env2` >>
-   srw_tac[][v_rel_eqns] >>
-   PairCases_on `h` >>
-   full_simp_tac(srw_ss())[v_rel_eqns] >>
-   match_mp_tac env_rel_append >>
-   srw_tac[][v_rel_eqns]);
-
-val length_env_rel = Q.prove (
-  `!env genv env'.
-    env_rel genv env env'
-    ⇒
-    LENGTH env = LENGTH env'`,
-  induct_on `env` >>
-  srw_tac[][v_rel_eqns] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[v_rel_eqns] >>
-  metis_tac []);
-  *)
-
 val env_rel_el = Q.prove (
   `!genv env env_i1.
     env_rel genv (alist_to_ns env) env_i1 ⇔
@@ -217,23 +192,6 @@ val env_rel_el = Q.prove (
       srw_tac[][] >>
       FIRST_X_ASSUM (qspecl_then [`SUC n`] mp_tac) >>
       srw_tac[][]));
-
-      (*
-
-val env_rel_list_rel = Q.prove (
-`!genv env env'.
-  env_rel genv env env'
-  ⇔
-  LIST_REL (λ(x,y) (x',y'). x = x' ∧ v_rel genv y y') env env'`,
- Induct_on `env` >>
- rw [Once v_rel_cases] >>
- Cases_on `env'` >>
- fs [] >>
- PairCases_on `h` >>
- PairCases_on `h'` >>
- fs [] >>
- metis_tac []);
- *)
 
 val v_rel_weakening = Q.prove (
   `(!genv v v'.
@@ -1396,67 +1354,45 @@ val compile_exp_correct = Q.prove (
   >- simp [v_rel_eqns] >>
   simp [namespaceTheory.nsBindList_def]);
 
-(*
-
-val global_env_inv_flat_extend_lem = Q.prove (
-  `!genv genv' env env_i1 x n v.
-    env_rel genv' env env_i1 ∧
-    ALOOKUP env x = SOME v ∧
-    ALOOKUP (alloc_defs (LENGTH genv) (MAP FST env)) x = SOME n
+val ALOOKUP_alloc_defs_EL = Q.prove (
+  `!funs l n.
+    ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ∧
+    n < LENGTH funs
     ⇒
-    ?v_i1.
-      EL n (genv ++ MAP SOME (MAP SND env_i1)) = SOME v_i1 ∧
-      v_rel genv' v v_i1`,
-  induct_on `env` >>
-  srw_tac[][v_rel_eqns] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[alloc_defs_def] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[v_rel_eqns] >>
-  srw_tac[][]
-  >- metis_tac [EL_LENGTH_APPEND, NULL, HD]
-  >- (FIRST_X_ASSUM (qspecl_then [`genv++[SOME v']`] mp_tac) >>
-      srw_tac[][] >>
-      metis_tac [APPEND, APPEND_ASSOC]));
-
-val alookup_alloc_defs_bounds = Q.prove(
-  `!next l x n.
-    ALOOKUP (alloc_defs next l) x = SOME n
-    ⇒
-    next <= n ∧ n < next + LENGTH l`,
-  induct_on `l` >>
-  srw_tac[][alloc_defs_def]  >>
-  res_tac >>
-  DECIDE_TAC);
-
-val letrec_global_env_lem2 = Q.prove (
-  `!funs x genv n.
-    ALL_DISTINCT (MAP FST funs) ∧
-    n < LENGTH funs ∧
-    ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) (EL n (MAP FST funs)) = SOME x
-    ⇒
-    x = LENGTH funs + LENGTH genv - (n + 1)`,
-  induct_on `funs` >>
-  srw_tac[][alloc_defs_def] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[alloc_defs_append, ALOOKUP_APPEND, REVERSE_APPEND] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[alloc_defs_def] >>
-  srw_tac[][] >>
-  cases_on `n = 0` >>
-  full_simp_tac (srw_ss()++ARITH_ss) [] >>
-  `0 < n` by decide_tac >>
-  full_simp_tac(srw_ss())[EL_CONS] >>
-  `PRE n < LENGTH funs` by decide_tac >>
-  res_tac >>
-  srw_tac [ARITH_ss] [] >>
-  full_simp_tac(srw_ss())[MEM_MAP, EL_MAP] >>
-  LAST_X_ASSUM (qspecl_then [`EL (PRE n) funs`] mp_tac) >>
-  srw_tac[][MEM_EL] >>
-  metis_tac []);
-  *)
+    ALOOKUP (alloc_defs l (MAP FST (REVERSE funs))) (EL n (MAP FST funs)) =
+      SOME (Var_global (LENGTH funs + l − (n + 1)))`,
+  gen_tac >>
+  Induct_on `LENGTH funs` >>
+  rw [] >>
+  Cases_on `REVERSE funs` >>
+  fs [alloc_defs_def] >>
+  rw []
+  >- (
+    `LENGTH funs = n + 1` suffices_by decide_tac >>
+    rfs [EL_MAP] >>
+    `funs = REVERSE (h::t)` by metis_tac [REVERSE_REVERSE] >>
+    fs [] >>
+    rw [] >>
+    CCONTR_TAC >>
+    fs [] >>
+    `n < LENGTH t` by decide_tac >>
+    fs [EL_APPEND1, FST_triple] >>
+    fs [ALL_DISTINCT_APPEND, MEM_MAP, FORALL_PROD] >>
+    fs [MEM_EL, EL_REVERSE] >>
+    `PRE (LENGTH t - n) < LENGTH t` by decide_tac >>
+    fs [METIS_PROVE [] ``~x ∨ y ⇔ x ⇒ y``] >>
+    metis_tac [FST, pair_CASES, PAIR_EQ])
+  >- (
+    `funs = REVERSE (h::t)` by metis_tac [REVERSE_REVERSE] >>
+    fs [] >>
+    rw [] >>
+    Cases_on `n = LENGTH t` >>
+    fs [EL_APPEND2] >>
+    `n < LENGTH t` by decide_tac >>
+    fs [EL_APPEND1, ADD1] >>
+    first_x_assum (qspec_then `REVERSE t` mp_tac) >>
+    simp [] >>
+    fs [ALL_DISTINCT_APPEND, ALL_DISTINCT_REVERSE, MAP_REVERSE]));
 
 val letrec_global_env_lem3 = Q.prove (
   `!funs x genv cenv var_map.
@@ -1474,7 +1410,7 @@ val letrec_global_env_lem3 = Q.prove (
   srw_tac[][] >>
   MAP_EVERY qexists_tac [`LENGTH genv + LENGTH funs - (n + 1)`, `FST (SND (EL n funs))`, `SND (SND (EL n funs))`] >>
   srw_tac [ARITH_ss] [EL_APPEND2]
-  >- cheat
+  >- metis_tac [ALOOKUP_alloc_defs_EL]
   >- (srw_tac[][find_recfun_ALOOKUP] >>
       rpt (pop_assum mp_tac) >>
       Q.SPEC_TAC (`n`, `n`) >>
@@ -1502,97 +1438,6 @@ val letrec_global_env_lem3 = Q.prove (
       simp [namespaceTheory.nsBindList_def, MAP_REVERSE]));
 
       (*
-val alookup_alloc_defs_bounds_rev = Q.prove(
-  `!next l x n.
-    ALOOKUP (REVERSE (alloc_defs next l)) x = SOME n
-    ⇒
-    next <= n ∧ n < next + LENGTH l`,
-  induct_on `l` >>
-  srw_tac[][alloc_defs_def]  >>
-  full_simp_tac(srw_ss())[ALOOKUP_APPEND] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  res_tac >>
-  DECIDE_TAC);
-
-val letrec_global_env_lem = Q.prove (
-  `!funs funs' env v x.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,semanticPrimitives$Recclosure env funs' fn)) funs) x = SOME v ∧
-    ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
-    ⇒
-    v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs))`,
-  induct_on `funs` >>
-  srw_tac[][alloc_defs_append] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[REVERSE_APPEND, alloc_defs_def, ALOOKUP_APPEND] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac [ARITH_ss] [arithmeticTheory.ADD1] >>
-  res_tac >>
-  srw_tac[][arithmeticTheory.ADD1] >>
-  imp_res_tac alookup_alloc_defs_bounds_rev >>
-  full_simp_tac(srw_ss())[] >>
-  `LENGTH funs + LENGTH genv − x' = SUC (LENGTH funs + LENGTH genv − (x'+1))` by decide_tac >>
-  srw_tac[][]);
-
-val letrec_global_env = Q.prove (
-  `!genv.
-    ALL_DISTINCT (MAP (\(x,y,z). x) funs) ∧
-    global_env_inv genv mods tops env.m {} env.v
-    ⇒
-    global_env_inv (genv ++ (MAP (λ(p1,p1',p2). SOME (Closure (env.c,[]) p1' p2))
-                                 (compile_funs mods (tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))
-                                                  (REVERSE funs))))
-                 FEMPTY
-                 (FEMPTY |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))
-                 []
-                 ∅
-                 (build_rec_env funs env [])`,
-  srw_tac[][semanticPrimitivesPropsTheory.build_rec_env_merge] >>
-  srw_tac[][v_rel_eqns, flookup_fupdate_list] >>
-  every_case_tac >>
-  srw_tac[][compile_funs_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, RIGHT_EXISTS_AND_THM]
-  >- (imp_res_tac ALOOKUP_NONE >>
-      full_simp_tac(srw_ss())[MAP_REVERSE, fst_alloc_defs] >>
-      imp_res_tac ALOOKUP_MEM >>
-      full_simp_tac(srw_ss())[MEM_MAP] >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[LAMBDA_PROD, FORALL_PROD] >>
-      PairCases_on `y` >>
-      full_simp_tac(srw_ss())[] >>
-      metis_tac [])
-  >- (imp_res_tac alookup_alloc_defs_bounds_rev >>
-      full_simp_tac(srw_ss())[])
-  >- (imp_res_tac letrec_global_env_lem >>
-      imp_res_tac alookup_alloc_defs_bounds_rev >>
-      srw_tac[][EL_APPEND2] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac [ARITH_ss] [EL_MAP, EL_REVERSE] >>
-      `(PRE (LENGTH funs + LENGTH genv − x')) = (LENGTH funs + LENGTH genv − SUC x')` by decide_tac >>
-      srw_tac[][] >>
-      `?f x e. EL (LENGTH funs + LENGTH genv − SUC x') funs = (f,x,e)` by metis_tac [pair_CASES] >>
-      srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`mods`,
-                             `tops`,
-                             `e`,
-                             `alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs))`] >>
-      srw_tac[][]
-      >- (full_simp_tac(srw_ss())[v_rel_eqns, SUBSET_DEF] >>
-          srw_tac[][] >>
-          `¬(ALOOKUP env.v x''' = NONE)` by metis_tac [ALOOKUP_NONE] >>
-          cases_on `ALOOKUP env.v x'''` >>
-          full_simp_tac(srw_ss())[] >>
-          res_tac >>
-          full_simp_tac(srw_ss())[FLOOKUP_DEF])
-      >- metis_tac [v_rel_weakening]
-      >- srw_tac[][MAP_REVERSE, fst_alloc_defs, FST_triple]
-      >- (`LENGTH funs + LENGTH genv − SUC x' < LENGTH funs` by decide_tac >>
-          metis_tac [find_recfun_el])
-      >- metis_tac [letrec_global_env_lem3,FST_triple]))
-  |> SIMP_RULE(srw_ss())[FUPDATE_LIST,FST_triple,compile_funs_map,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,
-                         semanticPrimitivesPropsTheory.build_rec_env_merge,MAP_REVERSE]
-
 val compile_dec_num_bindings = Q.prove(
   `!next mn mods tops d next' tops' d_i1.
     compile_dec next mn mods tops d = (next',tops',d_i1)
@@ -1722,7 +1567,6 @@ val compile_decs_correct = Q.prove (
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) (Rerr err) (Rerr err_i1) ∧
           s_rel s' s'_i1)`,
-
   ho_match_mp_tac evaluateTheory.evaluate_decs_ind >>
   simp [evaluateTheory.evaluate_decs_def] >>
   conj_tac
@@ -1869,7 +1713,6 @@ val compile_decs_correct = Q.prove (
     `ALOOKUP (REVERSE bind_i1) x' = SOME v'` by metis_tac [alookup_distinct_reverse] >>
     drule ALOOKUP_alloc_defs >>
     metis_tac [MAP_REVERSE, v_rel_weakening])
-
   >- (
     simp [evaluate_decs_def, evaluate_dec_def] >>
     qmatch_goalsub_abbrev_tac `compile_funs var_map' (REVERSE funs)` >>
@@ -1907,11 +1750,38 @@ val compile_decs_correct = Q.prove (
       simp [MAP_MAP_o, MAP_REVERSE, combinTheory.o_DEF, LAMBDA_PROD]) >>
     simp [v_rel_eqns] >>
     rw [nsLookup_alist_to_ns_some] >>
-      simp [MAP_MAP_o, combinTheory.o_DEF, UNCURRY, LAMBDA_PROD, GSYM MAP_REVERSE] >>
-
-
-    unabbrev_all_tac >>
-    metis_tac [FST_triple, FUPDATE_LIST, letrec_global_env])
+    simp [MAP_MAP_o, combinTheory.o_DEF, UNCURRY, LAMBDA_PROD, GSYM MAP_REVERSE] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [] >>
+    drule letrec_global_env_lem3 >>
+    `MEM x' (MAP FST funs)`
+      by (
+        fs [MEM_MAP] >>
+        PairCases_on `y` >>
+        fs [EXISTS_PROD] >>
+        metis_tac []) >>
+    disch_then drule >>
+    disch_then (qspecl_then [`s_i1.globals`, `env.c`, `var_map`] mp_tac) >>
+    rw [Abbr `var_map'`, MAP_REVERSE] >>
+    rw [] >>
+    simp [Once v_rel_cases] >>
+    disj2_tac >>
+    qexists_tac `var_map` >>
+    qexists_tac `env` >>
+    qexists_tac `funs` >>
+    qexists_tac `x'` >>
+    qexists_tac `e'` >>
+    qexists_tac `alloc_defs (LENGTH s_i1.globals) (REVERSE (MAP FST funs))` >>
+    rw [fst_alloc_defs, MAP_REVERSE]
+    >- (
+      fs [MEM_MAP] >>
+      PairCases_on `y'` >>
+      fs [])
+    >- metis_tac [v_rel_weakening] >>
+    drule letrec_global_env_lem3 >>
+    disch_then drule >>
+    disch_then (qspecl_then [`s_i1.globals`, `env.c`, `var_map`] mp_tac) >>
+    rw [MAP_REVERSE])
   >- (
     simp [evaluate_decs_def, evaluate_dec_def, fupdate_list_foldl] >>
     rw []
