@@ -1492,7 +1492,7 @@ val state_rel_call_env = Q.prove(
     state_rel c l1 l2 (call_env q (dec_clock s))
       (call_env (Loc l1 l2::ws) (dec_clock t)) [] locs`,
   full_simp_tac(srw_ss())[state_rel_def,call_env_def,wordSemTheory.call_env_def,
-      dec_clock_def,wordSemTheory.dec_clock_def,lookup_adjust_var_fromList2]
+      dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def,lookup_adjust_var_fromList2]
   \\ srw_tac[][lookup_fromList2,lookup_fromList] \\ srw_tac[][]
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[]
@@ -1681,7 +1681,7 @@ val state_rel_call_env_push_env = Q.prove(
        (call_env (Loc q l::ws) (push_env y opt (dec_clock t))) []
        ((l1,l2)::locs)`,
   Cases \\ TRY (PairCases_on `x'`) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[state_rel_def,call_env_def,push_env_def,dec_clock_def,
+  \\ full_simp_tac(srw_ss())[state_rel_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def,
          wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.dec_clock_def]
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,stack_rel_def]
@@ -2114,7 +2114,7 @@ val eval_push_env_T_Raise_IMP_stack_length = Q.prove(
   qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`]
     mp_tac dataPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dec_clock_def,LASTN_ADD1]
+  \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dataSemTheory.dec_clock_def,LASTN_ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val eval_push_env_SOME_exc_IMP_s_key_eq = Q.prove(
@@ -2137,7 +2137,7 @@ val eval_exc_stack_shorter = Q.prove(
   srw_tac[][] \\ qspecl_then [`c`,`call_env ys (push_env x F (dec_clock s))`]
              mp_tac dataPropsTheory.evaluate_stack_swap
   \\ full_simp_tac(srw_ss())[] \\ once_rewrite_tac [EQ_SYM_EQ] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[dataSemTheory.jump_exc_def,call_env_def,push_env_def,dec_clock_def]
+  \\ full_simp_tac(srw_ss())[dataSemTheory.jump_exc_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def]
   \\ qpat_x_assum `xx = SOME s2` mp_tac
   \\ rpt (pop_assum (K all_tac))
   \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[ADD1]
@@ -4603,7 +4603,7 @@ val th = Q.store_thm("assign_FromList",
        wordSemTheory.push_env_def] \\ pairarg_tac \\ fs [] \\ NO_TAC)
   \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dec_clock_def,
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
        Once dataSemTheory.bvi_to_data_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
@@ -4716,7 +4716,7 @@ val th = Q.store_thm("assign_RefByte",
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dec_clock_def,
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
        Once dataSemTheory.bvi_to_data_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
@@ -4827,7 +4827,7 @@ val th = Q.store_thm("assign_RefArray",
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dec_clock_def,
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
        Once dataSemTheory.bvi_to_data_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
@@ -5315,7 +5315,7 @@ val eval_Call_Arith = prove(
     \\ pairarg_tac \\ fs [] \\ NO_TAC)
   \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dec_clock_def,
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
        Once dataSemTheory.bvi_to_data_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
@@ -8851,6 +8851,14 @@ val labels_rel_emp = Q.prove(`
   labels_rel [] ls ⇒ ls = [] `,
   fs[word_simpProofTheory.labels_rel_def]);
 
+val stub_labels = Q.prove(`
+  EVERY (λ(n,m,p).
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p))
+    (stubs (:'a) data_conf)`,
+  simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
+  EVAL_TAC>>
+  rw[]>>EVAL_TAC)
+
 val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",`
   let (c,p) = compile data_conf word_conf asm_conf prog in
     MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
@@ -8858,10 +8866,6 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
       ALL_DISTINCT labs) p`,
-
-  cheat); (* the following proof has become too slow *)
-(*
-
   fs[data_to_wordTheory.compile_def]>>
   qpat_abbrev_tac`datap = _ ++ MAP (A B) prog`>>
   mp_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
@@ -8874,54 +8878,30 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
   qmatch_assum_abbrev_tac`MAP FST p = MAP FST p1 ++ MAP FST p2`>>
   full_simp_tac std_ss [GSYM MAP_APPEND]>>
   qabbrev_tac`pp = p1 ++ p2` >>
-  qpat_x_assum`MAP A B = _` mp_tac>>simp[Once LIST_EQ_REWRITE]>>
   fs[EL_MAP,MEM_EL,FORALL_PROD]>>
-  rw[]>>pop_assum(qspec_then`n` assume_tac)>>
-  fs[LIST_REL_EL_EQN,EL_MAP]>>res_tac>>
+  `EVERY (λ(n,m,p).
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p)) pp` by
+    (unabbrev_all_tac>>fs[EVERY_MEM]>>CONJ_TAC
+    >-
+      (assume_tac stub_labels>>
+      fs[EVERY_MEM])
+    >>
+      fs[MEM_MAP,MEM_EL,EXISTS_PROD]>>rw[]>>fs[compile_part_def]>>
+      Q.SPECL_THEN [`data_conf`,`p_1`,`1n`,`p_2`]assume_tac data_to_word_lab_pres_lem>>
+      fs[]>>pairarg_tac>>fs[EVERY_EL,PULL_EXISTS]>>
+      rw[]>>res_tac>>
+      pairarg_tac>>fs[])>>
+  fs[LIST_REL_EL_EQN,EVERY_EL]>>
+  rpt (first_x_assum(qspec_then`n` assume_tac))>>rfs[]>>
+  rfs[EL_MAP]>>
   pairarg_tac>>fs[]>>
-  reverse (Cases_on`n < LENGTH p1`) >- (
-    fs[]>>
-    qpat_x_assum`n < LENGTH _`assume_tac >>
-    qpat_x_assum`LENGTH p = _`assume_tac >>
-    fs[Abbr`pp`,Abbr`p2`,EL_APPEND2,EL_MAP] >>
-    Cases_on`EL (n - LENGTH p1) prog`>>Cases_on`r`>>
-    Q.SPECL_THEN [`data_conf`,`q`,`1n`,`r'`]assume_tac data_to_word_lab_pres_lem>>
-    fs[compile_part_def]>>
-    fs[]>>pairarg_tac>>fs[EVERY_MEM,MEM_EL]>>
-    fs[word_simpProofTheory.labels_rel_def,MEM_EL,SUBSET_DEF]>>
-    ntac 3 strip_tac>>
-    last_x_assum(qspec_then`p_1,p_2` mp_tac)>>simp[]>>
-    impl_tac>- metis_tac[]>>
-    strip_tac>>
-    fs[PULL_EXISTS]>>
-    first_x_assum(qspec_then`n'''` assume_tac)>>rfs[]>>
-    qpat_assum`(A,B) = EL n''' _` (SUBST_ALL_TAC o SYM)>>fs[])
-  \\ fs[Abbr`pp`,EL_APPEND1,Abbr`p1`]
-  \\ full_simp_tac bool_ss [``LENGTH (data_to_word$stubs (:'a) c)``
-         |> SIMP_CONV std_ss [data_to_wordTheory.stubs_def,
-              generated_bignum_stubs_eq,APPEND,LENGTH]]
-  \\ rpt(match1_tac(mg.au`(n_:num) < _`,(fn(a,t)=>
-           Cases_on`^(t"n")`\\fs[]))
-         \\ fs [ADD1,DECIDE ``n+1 < k <=> n < k-1n``])>>
-  ntac 4 (pop_assum mp_tac) >>
-  simp[stubs_def,extract_labels_def,generated_bignum_stubs_eq] >>
-
-  simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
-       Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
-       RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-       MakeBytes_def,SmallLsr_def,GiveUp_def] >> rpt IF_CASES_TAC >>
-  simp[extract_labels_def,RefByte_code_def,FromList_code_def,FromList1_code_def,
-       Make_ptr_bits_code_def,Maxout_bits_code_def,assign_def_extras,
-       RefArray_code_def,Replicate_code_def,list_Seq_def,AllocVar_def,
-       MakeBytes_def,SmallLsr_def]>>
-  simp[labels_rel_emp] >>
-  fs [word_simpProofTheory.labels_rel_def,SUBSET_DEF] >>
-  rw [] >>
-  drule EL_MEM >>
-  metis_tac [FST,SND,DECIDE ``0 <> 1n``]
-
-);
-*)
+  pairarg_tac>>fs[]>>
+  rw[] >>fs[word_simpProofTheory.labels_rel_def,SUBSET_DEF,MEM_EL,PULL_EXISTS]>>
+  first_x_assum(qspec_then`n'''` assume_tac)>>rfs[]>>
+  res_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  qpat_x_assum`A=MAP FST pp` mp_tac>>simp[Once LIST_EQ_REWRITE,EL_MAP]>>
+  disch_then(qspec_then`n` assume_tac)>>rfs[]);
 
 val StoreEach_no_inst = Q.prove(`
   ∀a ls off.
