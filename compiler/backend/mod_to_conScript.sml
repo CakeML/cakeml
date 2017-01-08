@@ -18,13 +18,17 @@ val _ = set_grammar_ancestry ["backend_common", "modLang", "conLang",
 (* for each constructor, its arity, tag, and type *)
 val _ = type_abbrev( "tag_env" , ``:(modN, conN, num # num # tid_or_exn) namespace``);
 
+val lookup_tag_env_def = Define`
+  lookup_tag_env cn (tagenv:(tvarN,tvarN,'a#num#tid_or_exn) namespace) =
+  OPTION_MAP SND (OPTION_JOIN (OPTION_MAP (nsLookup tagenv) cn))`
+
 val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Pvar x) = (Pvar x))
   ∧
   (compile_pat tagenv (Plit l) = (Plit l))
   ∧
   (compile_pat tagenv (Pcon con_id ps) =
-    (Pcon (OPTION_MAP SND (OPTION_JOIN (OPTION_MAP (nsLookup tagenv) con_id))) (MAP (compile_pat tagenv) ps)))
+    (Pcon (lookup_tag_env con_id tagenv) (MAP (compile_pat tagenv) ps)))
   ∧
   (compile_pat tagenv (Pref p) = (Pref (compile_pat tagenv p)))
   ∧
@@ -46,7 +50,7 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp tagenv ((Lit l):modLang$exp) = (Lit l:conLang$exp))
   ∧
   (compile_exp tagenv (Con cn es) =
-   Con (OPTION_MAP SND (OPTION_JOIN (OPTION_MAP (nsLookup tagenv) cn))) (compile_exps tagenv es))
+   Con (lookup_tag_env cn tagenv) (compile_exps tagenv es))
   ∧
   (compile_exp tagenv (Var_local x) = Var_local x)
   ∧
