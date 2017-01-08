@@ -145,8 +145,10 @@ val LongDiv1_location_def = Define `
   LongDiv1_location = Equal_location+1`;
 val LongDiv_location_def = Define `
   LongDiv_location = LongDiv1_location+1`;
+val Dummy_location_def = Define `
+  Dummy_location = LongDiv_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = LongDiv_location+1`;
+  Bignum_location = Dummy_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -182,6 +184,8 @@ val LongDiv1_location_eq = save_thm("LongDiv1_location_eq",
   ``LongDiv1_location`` |> EVAL);
 val LongDiv_location_eq = save_thm("LongDiv_location_eq",
   ``LongDiv_location`` |> EVAL);
+val Dummy_location_eq = save_thm("Dummy_location_eq",
+  ``Dummy_location`` |> EVAL);
 val Bignum_location_eq = save_thm("Bignum_eq",
   ``Bignum_location`` |> EVAL);
 
@@ -984,6 +988,9 @@ val comp_def = Define `
 val compile_part_def = Define `
   compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
 
+val Dummy_code_def = Define `
+  Dummy_code = Skip:'a wordLang$prog`;
+
 val stubs_def = Define`
   stubs (:α) data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
@@ -1002,7 +1009,8 @@ val stubs_def = Define`
     (Equal1_location,4n,Equal1_code);
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,4n,LongDiv1_code data_conf);
-    (LongDiv_location,4n,LongDiv_code data_conf)
+    (LongDiv_location,4n,LongDiv_code data_conf);
+    (Dummy_location,0n,Dummy_code)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
