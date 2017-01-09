@@ -347,17 +347,19 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
       xsimpl \\
       simp[LENGTH_REPLICATE]);
 
-(*
-val eq_v_thm = fetch "-" "eq_v_thm"
+val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = save_thm("eq_num_v_thm",
         MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1))
 
-val tabulate = prefix ^"tabulate";
+val num_eq_thm = Q.prove(
+  `!n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)`,
+  metis_tac[EqualityType_NUM_BOOL, EqualityType_def]);
+
 val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
-  `!n nv f fv A.
+  `!n nv f fv (A: 'a -> v -> bool).
     NUM n nv /\ (NUM --> A) f fv ==>
-    app (p:'ffi ffi_proj) ^(fetch_v tabulate tabulate_st) [nv; fv]
-    emp (POSTv av. ARRAY av (GENLIST f n))`,
+    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" tabulate_st) [nv; fv]
+    emp (POSTv av. SEP_EXISTS vs. ARRAY av vs * cond (EVERY2 A (GENLIST f n) vs))`,
     xcf "tabulate" tabulate_st \\
     xlet `POSTv av. ARRAY av (REPLICATE n (Litv(IntLit 0)))` >- (
       xapp \\ rw []) \\
@@ -366,93 +368,92 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
         NUM x xv /\ LENGTH l_pre = x /\ LENGTH l_pre + LENGTH rest = n ==>
           app p u [xv]
         (ARRAY av (l_pre ++ rest))
-        (POSTv ret. & (ret = av) * ARRAY av (l_pre ++ (GENLIST (\i. f (x + i)) (n - x))))`
+        (POSTv ret. SEP_EXISTS vs. & (ret = av) * ARRAY av (l_pre ++ vs) * cond (EVERY2 A (GENLIST (\i. f (x + i)) (n - x)) vs))`
     >- (
-     Induct >- (
+      Induct_on `n - x` >- (
         rw []  \\ first_x_assum match_mp_tac \\
-        fsrw_tac[ETA_ss][LENGTH_NIL] \\
-        xlet `POSTv bv. & BOOL (xv=nv) bv * ARRAY av rest`
-        >- (
-          xapp \\ rw[BOOL_def] \\ xsimpl \\
-          instantiate \\
-          metis_tac[EqualityType_NUM_BOOL,EqualityType_def])
+        xlet `POSTv bv. & BOOL (xv=nv) bv * ARRAY av l_pre`
+          >- (xapp \\ rw[BOOL_def] \\ xsimpl \\`LENGTH rest = 0 /\ xv = nv` by fs [NUM_def, INT_def] 
+          \\ instantiate \\ fs [LENGTH_NIL])
         \\ xif
-        >- (xret \\ xsimpl \\ fs[NUM_def,INT_def,LENGTH_NIL_SYM] )
-        \\ xlet `POSTv v. ARRAY av rest * & A (f 0) v`
-        >- (
-          xapp \\ xsimpl  \\ instantiate)
-        \\ xlet `POSTv u. ARRAY av (LUPDATE v 0 rest)`
-        >- (xapp \\ xsimpl \\ instantiate \\
-        `!a b. NUM a nv /\ NUM b xv /\ xv <> nv ==> a <> b` by fs[]
-
-DB.find "NUM _ _ ="
-    fs [GSYM NUM_def, INT_def, LENGTH_NIL_SYM, ]
-      rw [] \\ first_x_assum match_mp_tac ) \\
-      xapp \\
-      rw [LENGTH_NIL_SYM] \\
-      xsimpl \\
-      rw [LENGTH_REPLICATE, ETA_AX]
+          >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def] \\ fs[LENGTH_NIL] )
+        \\ fs [NUM_def, INT_def] \\ rfs[])  
+      \\ rw[] \\ first_assum match_mp_tac 
+      \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
+        >- (xapp \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
+      \\ xif
+        >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def]
+          \\ fs [GENLIST, LENGTH_NIL])
+      \\ xlet `POSTv val. ARRAY av (l_pre ++ rest) * & A (f (LENGTH l_pre)) val`
+        >- (xapp \\ xsimpl \\ instantiate)
+      \\ xlet `POSTv u. ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
+        >- (xapp \\ xsimpl \\ instantiate \\ `LENGTH l_pre + LENGTH rest <> LENGTH l_pre` by metis_tac[num_eq_thm] \\ fs[])
+      \\ xlet `POSTv vp. & NUM ((LENGTH l_pre) + 1) vp * ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
+        >- (xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate  \\ rw[integerTheory.INT_ADD])
+      \\ xapp \\ xsimpl \\ cases_on `rest`
+        >- (`xv = nv` by fs [NUM_def, INT_def])
+      \\ qexists_tac `t` \\ qexists_tac `l_pre ++ [val]`
+      \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1])
+   \\ xapp \\ xsimpl \\ qexists_tac `REPLICATE n (Litv (IntLit 0))` \\ qexists_tac `[]` 
+   \\ rw [LENGTH, LENGTH_REPLICATE] \\ metis_tac [BETA_THM]
 );
 
+(*
+show_types := false
+val _ = hide_environments false
 
-val copy_aux = prefix ^"copy_aux";
 val array_copy_aux_spec = Q.store_thm("array_copy_aux_spec",
-  `!src srcv bfr afr mid dstv di div n nv max maxv.
+  `!src srcv bfr mid afr dstv di div n nv max maxv.
       NUM di div /\ NUM n nv /\ NUM max maxv /\ LENGTH src = LENGTH mid
        /\  di = LENGTH bfr /\ n <= max /\ max = LENGTH src
-      ==> app (p:'ffi ffi_proj) ^(fetch_v copy_aux copy_st) [srcv; dstv; div; maxv; nv]
+      ==> app (p:'ffi ffi_proj) ^(fetch_v "copy_aux" copy_st) [srcv; dstv; div; maxv; nv]
       (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
     (POSTv uv. ARRAY srcv src * ARRAY dstv (bfr ++ TAKE n mid ++ DROP n src ++ afr))`,
-      xcf copy_aux copy_st \\
-      Induct_on `n` \\ rw[] >- (
-        xlet `POSTv bool. & BOOL (n = max) bool * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)` >- (
-          cheat )
-        xif >- (
-          cheat
-          (*xcon \\
-          `n = 0` by fs[NUM_def, INT_def]
-          `LENGTH mid = LENGTH src` by DECIDE_TAC \\
-          `DROP (LENGTH mid) src = []` by fs [DROP_LENGTH_NIL] \\
-          xsimpl *))
-        xlet `POSTv v. &(v = EL n src) * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)` >- (
-          xapp \\
-          xsimpl \\
-          qexists_tac `n` \\
-          rw[] )
-        xlet `POSTv v. & NUM (di + n) v * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)` >- (
-          xapp \\
-          xsimpl \\
-          fs [NUM_def] \\
-          instantiate \\
-          rw [std_preludeTheory.plus_def, integerTheory.INT_ADD])
-        xlet `POSTv u. ARRAY srcv src * ARRAY dstv (LUPDATE (EL n src) (di + n) (bfr ++ mid ++ afr))` >- (
-          xapp \\
-          xsimpl \\
-          instantiate)
-        xlet `POSTv v. & NUM (n + 1) v * ARRAY srcv src * ARRAY dstv (LUPDATE (EL n src) (di + n) (bfr ++ mid ++ afr))` >- (
-          xapp \\
-          xsimpl \\
-          fs [NUM_def] \\
-          instantiate \\
-          rw [std_preludeTheory.plus_def, integerTheory.INT_ADD])
-        xapp
+      xcf "copy_aux" copy_st \\
+      Induct_on `max - n` \\ rw[] 
+        >- (
+        xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)` 
+          >- (xapp \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
+        \\ xif 
+          >- (xcon \\ xsimpl \\ fs [NUM_def, INT_def] \\ rw[TAKE_LENGTH_ID] \\ metis_tac [DROP_LENGTH_NIL])
+        \\ fs [NUM_def, INT_def] \\ rfs[])
+      \\ rw[] \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
+        >- (xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
+      \\ xif
+        >-(fs[NUM_def, INT_def, numTheory.NOT_SUC])
+      \\ xlet `POSTv vsub. & (vsub = EL n src) * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
+        >- (xapp \\ xsimpl \\ instantiate)
+      \\ xlet `POSTv din. & NUM (LENGTH bfr + n) din * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
+        >- (xapp \\ xsimpl \\ qexists_tac `&n` \\ qexists_tac `&(LENGTH bfr)` \\ fs [NUM_def, integerTheory.INT_ADD])
+      \\ xlet `POSTv u. ARRAY srcv src * ARRAY dstv (LUPDATE vsub (LENGTH bfr + n) (bfr ++ mid ++ afr))`
+        >- (xapp \\ xsimpl \\ instantiate)
+      \\ xlet `POSTv n1. & NUM (n + 1) n1 * ARRAY srcv src * ARRAY dstv (LUPDATE vsub (LENGTH bfr + n) (bfr ++ mid ++ afr))`
+        >- (xapp \\ xsimpl \\ qexists_tac `&n` \\ fs [NUM_def, integerTheory.INT_ADD])
+      \\ cheat (*xapp *);
 
+val array_copy_spec  = Q.store_thm("array_copy_spec",
+  `!src srcv bfr mid afr dstv di div.
+      NUM di div /\ LENGTH src = LENGTH mid /\  di = LENGTH bfr
+      ==> app (p:'ffi ffi_proj) ^(fetch_v "copy" copy_st) [srcv; dstv; div]
+      (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
+    (POSTv uv. ARRAY srcv src * ARRAY dstv (bfr ++ src ++ afr))`,
+    xcf "copy" copy_st \\
+    xlet `POSTv len. & NUM (LENGTH src) len * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
+      >- (xapp \\ xsimpl)
+    \\ xapp \\ xsimpl \\ qexists_tac `mid` \\ qexists_tac `bfr` \\ qexists_tac `afr` \\ fs[NUM_def, INT_def] 
+);
 
-
-
-val modify_aux = prefix ^"modify_aux"
 val array_modify_aux_spec = Q.store_thm("array_modify_aux_spec",
   `!f fv a av max maxv n nv A A'.
-    NUM max maxv /\ max = LENGTH a /\ NUM n nv /\ (A --> A') f fv /\ n <= max
-    ==> app (p:'ffi ffi_proj) ^(fetch_v modify_aux modify_st) [fv; av; maxv; nv]
+    NUM max maxv /\ max = LENGTH a /\ NUM n nv /\ (A --> A') f fv /\ n <= max  
+    ==> app (p:'ffi ffi_proj) ^(fetch_v "modify_aux" modify_st) [fv; av; maxv; nv]
     (ARRAY av a) (POSTv uv. ARRAY av (TAKE n a ++ MAP f (DROP n a)))`
-    xcf modify_aux modify_st \\
-    xlet `POSTv bool. & (BOOL (n = max) bool) * ARRAY av a` >- (
-      cheat
-    )
-    xif >- (
-      xcon \\ rw [DROP_LENGTH_NIL] \\
-      xsimpl
-    rw [cfHeapsBaseTheory.ARRAY_def]
+    xcf "modify_aux" modify_st
+    \\ xlet `POSTv bool. & (BOOL (n = max) bool) * ARRAY av a` 
+      >- (xapp \\ xsimpl \\ instantiate) 
+    \\ xif 
+      >- (xcon \\ rw [DROP_LENGTH_NIL] \\ xsimpl)
+    \\ xlet `POSTv res. & A' (f b) res * ARRAY av a`
+      >-(xapp 
 *)
 val _ = export_theory ()
