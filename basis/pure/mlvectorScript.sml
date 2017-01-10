@@ -82,7 +82,7 @@ val less_than_length_thm = Q.prove (
 
 val foldli_aux_def = Define`
   (foldli_aux f e vec n 0 = e) /\
-  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n e (sub vec n)) vec (n + 1) len)`;
+  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)`;
 
 val foldli_def = Define`
   foldli f e vec = foldli_aux f e vec 0 (length vec)`;
@@ -92,7 +92,7 @@ val foldli_aux_thm = Q.prove (
     (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))`,
   Cases_on `vec` \\ Induct_on `len` \\
   rw [foldli_aux_def, toList_thm, length_def, sub_def]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.foldli_aux_def]
+  >-(rw [DROP_LENGTH_TOO_LONG, mllistTheory.foldli_aux_def])
   \\ rw [DROP_EL_CONS, mllistTheory.foldli_aux_def, ADD1]
 );
 
