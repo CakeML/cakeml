@@ -57,6 +57,7 @@ explorer
 compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
+characteristic/examples
 
 # compiler bootstrap
 compiler/bootstrap/translation
