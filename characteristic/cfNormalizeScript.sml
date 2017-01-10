@@ -188,7 +188,7 @@ val wrap_if_needed_def = Define `
   wrap_if_needed needs_wrapping ns e b =
     if needs_wrapping then (
       let x = get_name ns in
-      (Var (Short x), x::ns, (x,e)::b)
+      (Var (Short x), x::ns, SNOC (x,e) b)
     ) else (
       (e, ns, b)
     )`;

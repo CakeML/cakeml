@@ -258,6 +258,22 @@ val example_handle2_spec = Q.prove (
   fs [Foo_exn_def] \\ xcases \\ xret \\ xsimpl \\ intLib.ARITH_TAC
 );
 
+val example_nested_apps = process_topdecs
+  `fun f i = ~ (~ (~ i))`;
+
+val st = ml_progLib.add_prog example_nested_apps pick_name basis_st
+
+val example_nested_apps_spec = Q.prove (
+  `!x xv.
+     INT x xv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "f" st) [xv]
+       emp (POSTv v. & INT (~ x) v)`,
+  xcf "f" st \\
+  xlet `POSTv v. & INT (~ x) v` THEN1 (xapp \\ fs []) \\
+  xlet `POSTv v. & INT x v` THEN1 (xapp \\ xsimpl \\ instantiate) \\
+  xapp \\ fs []
+);
+
 val bytearray_fromlist = process_topdecs
   `fun length l =
      case l of
