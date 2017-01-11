@@ -418,7 +418,40 @@ val nsLookupMod_nsAppend_none = Q.store_thm ("nsLookupMod_nsAppend_none",
  >> qexists_tac `[h]`
  >> simp [nsLookupMod_def]);
 
-val nsDom_nsAppend = Q.store_thm ("nsDom_nsAppend[simp]",
+val nsLookupMod_nsAppend_some = Q.store_thm ("nsLookupMod_nsAppend_some",
+  `!e1 e2 path.
+    (nsLookupMod (nsAppend e1 e2) path = SOME x
+     ⇔
+     if path = [] then x = nsAppend e1 e2 else
+     nsLookupMod e1 path = SOME x ∨
+      (nsLookupMod e2 path = SOME x ∧
+      !p1 p2. p1 ≠ [] ∧ path = p1++p2 ⇒ nsLookupMod e1 p1 = NONE))`,
+ Induct_on `path`
+ >> rw []
+ >> Cases_on `e2`
+ >> Cases_on `e1`
+ >> fs [nsAppend_def, nsLookupMod_def, ALOOKUP_APPEND]
+ >> every_case_tac
+ >> fs []
+ >> eq_tac
+ >> rw []
+ >- (
+   Cases_on `p1`
+   >> fs [nsLookupMod_def]
+   >> rfs [])
+ >- (
+   Cases_on `p1`
+   >> fs [nsLookupMod_def]
+   >> rfs []) >>
+ fs [nsLookupMod_def]
+ >- (
+   first_x_assum (qspecl_then [`[h]`, `[]`] mp_tac) >>
+   rw [nsLookupMod_def])
+ >- (
+   first_x_assum (qspecl_then [`[h]`, `path`] mp_tac) >>
+   rw [nsLookupMod_def]));
+
+val nsDom_nsAppend_alist = Q.store_thm ("nsDom_nsAppend_alist[simp]",
   `!x y. nsDom (nsAppend (alist_to_ns x) y) = set (MAP (Short o FST) x) ∪ nsDom y`,
   rw [nsDom_def, EXTENSION, GSPECIFICATION, LAMBDA_PROD, EXISTS_PROD, MAP_o] >>
   eq_tac >>
@@ -990,5 +1023,41 @@ val nsDomMod_nsLift = Q.store_thm ("nsDomMod_nsLift",
   Cases_on `x` >>
   rw [] >>
   metis_tac []);
+
+val nsDom_nsAppend_flat = Q.store_thm ("nsDom_nsAppend_flat",
+  `!n1 n2.nsDomMod n1 = {[]} ⇒ nsDom (nsAppend n1 n2) = nsDom n1 ∪ nsDom n2`,
+  rw [nsDom_def, nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD,
+      nsLookup_nsAppend_some] >>
+  eq_tac >>
+  rw []
+  >- metis_tac []
+  >- metis_tac []
+  >- metis_tac [] >>
+  Cases_on `nsLookup n1 x` >>
+  rw [] >>
+  Cases_on `x` >>
+  fs [id_to_mods_def] >>
+  Cases_on `p1` >>
+  fs [] >>
+  rw [] >>
+  metis_tac [NOT_NIL_CONS, option_nchotomy]);
+
+val nsDomMod_nsAppend_flat = Q.store_thm ("nsDomMod_nsAppend_flat",
+  `!n1 n2.nsDomMod n1 = {[]} ⇒ nsDomMod (nsAppend n1 n2) = nsDomMod n2`,
+  rw [nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+  eq_tac >>
+  rw []
+  >- (
+    fs [nsLookupMod_nsAppend_some] >>
+    Cases_on `x = []` >>
+    fs [nsLookupMod_def] >>
+    metis_tac [])
+  >- (
+    CCONTR_TAC >>
+    fs [] >>
+    `nsLookupMod (nsAppend n1 n2) x = NONE` by metis_tac [option_nchotomy] >>
+    fs [nsLookupMod_nsAppend_none] >>
+    fs [] >>
+    metis_tac [option_nchotomy]));
 
 val _ = export_theory ();

@@ -1410,6 +1410,7 @@ val alloc_tag_accumulates = Q.prove(
   `∀tn cn arity ta.
     ∃acc. SND (alloc_tag tn cn arity ta) = nsAppend acc (SND ta) ∧
          nsDom acc = {Short(cn)} ∧
+         nsDomMod acc = {[]} ∧
          OPTION_MAP SND (nsLookup acc (Short cn)) = lookup_tag_env (SOME (Short cn))(get_tagenv (alloc_tag tn cn arity ta)) `,
   rpt gen_tac >>
   PairCases_on`ta` >>
@@ -1471,8 +1472,8 @@ val FOLDL_alloc_tag_accumulates = Q.prove(
   first_x_assum(qspec_then`st`strip_assume_tac) >> srw_tac[][] >>
   qexists_tac`nsAppend acc acc'` >>
   simp[MAP_SNOC,LIST_TO_SET_SNOC,GSYM INSERT_SING_UNION] >>
-  CONJ_TAC>-
-    cheat>>
+  CONJ_TAC>- (
+    simp [namespacePropsTheory.nsDom_nsAppend_flat, EXTENSION]) >>
   rw[]>>
   qmatch_goalsub_abbrev_tac`alloc_tag _ _ _ D`>>
   PairCases_on`D`>>
@@ -1488,7 +1489,7 @@ val FOLDL_alloc_tag_accumulates = Q.prove(
     res_tac>>fs[]>>
     Cases_on`lift SND (nsLookup D1 (Short cn))`>>
     fs[namespacePropsTheory.nsLookup_nsAppend_some,namespacePropsTheory.nsLookup_nsAppend_none,namespaceTheory.id_to_mods_def]>>
-    rfs[])
+    rfs[]);
 
 val alloc_tags_accumulates = Q.prove(
   `∀ls mn ta.
@@ -1550,7 +1551,8 @@ val alloc_tag_exh_weak = Q.store_thm("alloc_tag_exh_weak",
   simp[alloc_tag_def]>>
   every_case_tac >> simp[UNCURRY,get_exh_def,exh_weak_def] >> srw_tac[][] >>
   simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
-  srw_tac[][sptreeTheory.lookup_insert] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
+  srw_tac[][sptreeTheory.lookup_insert] >> full_simp_tac(srw_ss())[] >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[]);
 
 val alloc_tags_exh_weak = Q.store_thm("alloc_tags_exh_weak",
   `∀ls mn ta. exh_weak (get_exh (FST ta)) (get_exh (FST (alloc_tags mn ta ls)))`,
@@ -1567,7 +1569,7 @@ val alloc_tags_exh_weak = Q.store_thm("alloc_tags_exh_weak",
   qpat_abbrev_tac`ta' = alloc_tag X Y Z ta` >>
   first_x_assum(qspec_then`ta'`mp_tac) >> srw_tac[][] >>
   srw_tac[][Abbr`ta'`] >>
-  metis_tac[alloc_tag_exh_weak,exh_weak_trans])
+  metis_tac[alloc_tag_exh_weak,exh_weak_trans]);
 
 val compile_decs_exh_weak = Q.store_thm("compile_decs_exh_weak",
   `∀ds (st:tagenv_state_acc).
@@ -2886,7 +2888,7 @@ val compile_exp_no_set_globals = Q.prove(`
   (∀(c:(tvarN, tvarN, α # num # tid_or_exn) namespace) pes. elist_globals (MAP SND (mod_to_con$compile_pes c pes)) = {||}) ∧
   (∀(c:(tvarN, tvarN, α # num # tid_or_exn) namespace) funs. elist_globals (MAP (SND o SND) (mod_to_con$compile_funs c funs)) = {||})`,
   ho_match_mp_tac compile_exp_ind>>rw[compile_exp_def]>>
-  Cases_on`op`>>fs[op_gbag_def])
+  Cases_on`op`>>fs[op_gbag_def]);
 
 val compile_decs_no_set_globals = Q.prove(`
   ∀ds c.
@@ -2896,7 +2898,7 @@ val compile_decs_no_set_globals = Q.prove(`
   rw[]>>
   pairarg_tac>>fs[dec_set_globals_def]>>
   rw[]>>TRY(metis_tac[SND])>>
-  fs[compile_exp_no_set_globals])
+  fs[compile_exp_no_set_globals]);
 
 val compile_no_set_globals = Q.store_thm("compile_no_set_globals",
   `∀st p.
@@ -2911,6 +2913,6 @@ val compile_no_set_globals = Q.store_thm("compile_no_set_globals",
   pop_assum kall_tac>>
   Cases_on`h`>>fs[compile_prompt_def]>>
   pairarg_tac>>fs[]>>rw[]>>
-  metis_tac[compile_decs_no_set_globals,SND])
+  metis_tac[compile_decs_no_set_globals,SND]);
 
 val _ = export_theory ();
