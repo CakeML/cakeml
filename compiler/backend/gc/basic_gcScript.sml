@@ -37,7 +37,7 @@ val gc_move_def = Define `
      | _ => (Pointer ptr d, state with <| ok := F |>))`;
 
 
-val gc_move_consts = prove(
+val gc_move_IMP = prove(
   ``!x x' state state'.
     (gc_move conf state x = (x',state')) ==>
     (state.h1 = state'.h1) /\
@@ -66,7 +66,7 @@ val gc_move_list_def = Define `
     let (xs,state) = gc_move_list conf state xs in
       (x::xs,state))`;
 
-val gc_move_list_consts = prove(
+val gc_move_list_IMP = prove(
   ``!xs xs' state state'.
     (gc_move_list conf state xs = (xs',state')) ==>
     (state.h1 = state'.h1) /\
@@ -74,7 +74,8 @@ val gc_move_list_consts = prove(
     (state.r2 = state'.r2) /\
     (state.r1 = state'.r1) /\
     (IS_PREFIX state'.h2 state.h2) /\
-    (IS_SUFFIX state'.r4 state.r4)``,
+    (IS_SUFFIX state'.r4 state.r4)
+  ``,
   Induct
   \\ fs [gc_move_list_def,LET_THM]
   \\ ntac 5 strip_tac
@@ -83,7 +84,7 @@ val gc_move_list_consts = prove(
   \\ pairarg_tac
   \\ fs []
   \\ rpt var_eq_tac
-  \\ drule gc_move_consts
+  \\ drule gc_move_IMP
   \\ strip_tac
   \\ fs [IS_SUFFIX_compute]
   \\ metis_tac [IS_PREFIX_TRANS]);
@@ -104,7 +105,7 @@ val gc_move_data_def = tDefine "gc_move_data"  `
        | _ => state with <| ok := F |>)`
   (WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
-  \\ imp_res_tac (GSYM gc_move_list_consts)
+  \\ imp_res_tac (GSYM gc_move_list_IMP)
   \\ fs []
   \\ decide_tac)
 
@@ -1055,7 +1056,7 @@ val gc_move_data_thm = store_thm("gc_move_data_thm",
   \\ impl_tac \\ fs []
   \\ strip_tac
   \\ qpat_x_assum `gc_inv conf state heap0` kall_tac
-  \\ drule gc_move_list_consts
+  \\ drule gc_move_list_IMP
   \\ strip_tac
   \\ fs [gc_inv_def]
   \\ `?t'. state'.h2 = DataElement l n b::t'` by all_tac
@@ -1142,7 +1143,7 @@ val gc_move_refs_lemma = store_thm("gc_move_refs_lemma",
   \\ impl_tac \\ fs []
   \\ strip_tac
   \\ qpat_x_assum `gc_inv conf state heap0` kall_tac
-  \\ drule gc_move_list_consts
+  \\ drule gc_move_list_IMP
   \\ strip_tac
   \\ fs []
   \\ fs [gc_inv_def]
@@ -1268,7 +1269,7 @@ val gc_move_refs_thm = store_thm("gc_move_refs_thm",
         \\ strip_tac \\ fs [])
      \\ reverse strip_tac
      >- (strip_tac
-        \\ drule gc_move_list_consts
+        \\ drule gc_move_list_IMP
         \\ strip_tac \\ fs [])
      \\ drule gc_move_list_thm
      \\ disch_then (qspec_then `l` mp_tac)
@@ -1285,7 +1286,7 @@ val gc_move_list_heap_length = prove(
   (heap_length state.h1 <= heap_length state'.h1) /\
   (heap_length state.r1 <= heap_length state'.r1)``,
   ntac 6 strip_tac
-  \\ drule gc_move_list_consts
+  \\ drule gc_move_list_IMP
   \\ fs []);
 
 val gc_move_data_heap_length = prove(
@@ -1301,7 +1302,7 @@ val gc_move_data_heap_length = prove(
   \\ IF_CASES_TAC \\ fs []
   \\ Cases_on `h` \\ fs []
   \\ pairarg_tac \\ fs []
-  \\ drule gc_move_list_consts
+  \\ drule gc_move_list_IMP
   \\ strip_tac \\ strip_tac
   \\ fs []
   \\ qsuff_tac `heap_length state''.h1 <= heap_length (state''.h1 ++ [DataElement xs' n b])`
@@ -1320,7 +1321,7 @@ val gc_move_refs_heap_length = prove(
   \\ Cases_on `state.r2` \\ fs [heap_length_APPEND]
   \\ Cases_on `h` \\ fs []
   \\ pairarg_tac \\ fs []
-  \\ drule gc_move_list_consts
+  \\ drule gc_move_list_IMP
   \\ strip_tac \\ strip_tac
   \\ fs []);
 
@@ -1451,7 +1452,7 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   \\ strip_tac
   \\ qabbrev_tac `state1 = state'' with <|r3 := state''.r3 ++ [DataElement xs' n b]; r2 := t|>`
   \\ qsuff_tac `heap_length state1.r1 < heap_length state'.r1`
-  >- (drule gc_move_list_consts
+  >- (drule gc_move_list_IMP
      \\ strip_tac
      \\ unabbrev_all_tac
      \\ fs [gc_state_component_equality])
@@ -1473,7 +1474,7 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   \\ fs []
   \\ strip_tac
   \\ qpat_x_assum `gc_inv _ _ _` kall_tac
-  \\ drule (gc_move_list_consts)
+  \\ drule (gc_move_list_IMP)
   \\ disch_then (mp_tac o GSYM)
   \\ unabbrev_all_tac
   \\ strip_tac
@@ -1558,7 +1559,7 @@ val basic_gc_thm = store_thm("basic_gc_thm",
   \\ strip_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ qispl_then [`conf`,`state`,`conf.limit`] mp_tac gc_move_loop_thm
-  \\ drule gc_move_list_consts
+  \\ drule gc_move_list_IMP
   \\ simp [empty_state_def,gc_state_component_equality]
   \\ disch_then (mp_tac o GSYM)
   \\ strip_tac
@@ -1804,6 +1805,7 @@ val basic_gc_ok = store_thm("basic_gc_ok",
 val gc_related_def = Define `
   gc_related (f:num|->num) heap1 heap2 =
     INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap2) } /\
+    (!i. i IN FDOM f ==> isSomeDataElement (heap_lookup i heap1)) /\
     !i xs l d.
       i IN FDOM f /\ (heap_lookup i heap1 = SOME (DataElement xs l d)) ==>
       (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\
@@ -1835,7 +1837,7 @@ val basic_gc_related = store_thm("basic_gc_related",
   rpt strip_tac
   \\ drule basic_gc_thm
   \\ disch_then drule
-  \\ rpt strip_tac \\ fs []
+  \\ strip_tac \\ fs []
   \\ qexists_tac `heap_map 0 state.heap`
   \\ `(FAPPLY (heap_map 0 state.heap)) = heap_map1 state.heap` by all_tac
   >- fs [heap_map1_def,FUN_EQ_THM]
@@ -1849,6 +1851,10 @@ val basic_gc_related = store_thm("basic_gc_related",
     \\ `(FLOOKUP (heap_map 0 state.heap) x = SOME (heap_map1 state.heap x))` by all_tac
     >- fs [FLOOKUP_DEF,heap_map1_def]
     \\ res_tac \\ fs [isSomeDataElement_def])
+  >- (`(FLOOKUP (heap_map 0 state.heap) i = SOME (heap_map1 state.heap i))` by all_tac
+    >- fs [FLOOKUP_DEF]
+    \\ res_tac \\ fs []
+    \\ fs [isSomeDataElement_def])
   >-
     (`(FLOOKUP (heap_map 0 state.heap) i = SOME (heap_map1 state.heap i))` by all_tac
     >- fs [FLOOKUP_DEF]
