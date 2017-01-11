@@ -300,16 +300,14 @@ val match_result_rel_def = Define
    (match_result_rel genv env' _ _ = F)`;
 
 val invariant_def = Define `
-  invariant var_map env s s_i1 mod_names ⇔
+  invariant var_map env s s_i1 ⇔
     global_env_inv s_i1.globals var_map {} env ∧
     s_rel s s_i1`;
 
-    (*
 val invariant_change_clock = Q.store_thm("invariant_change_clock",
-  `invariant menv env envm envv st1 st2 mods ⇒
-   invariant menv env envm envv (st1 with clock := k) (st2 with clock := k) mods`,
+  `invariant menv env st1 st2 ⇒
+   invariant menv env (st1 with clock := k) (st2 with clock := k)`,
   srw_tac[][invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases])
-  *)
 
 (* semantic functions respect relation *)
 
@@ -1845,6 +1843,17 @@ val global_env_inv_extend_mod_err = Q.prove (
 
   *)
 
+val prompt_mods_ok_dec = Q.prove (
+  `!l mn var_map d l' var_map' d_i1.
+    compile_dec l [] var_map d = (l',var_map',d_i1)
+    ⇒
+    prompt_mods_ok [] [d_i1]`,
+  srw_tac[][LET_THM, prompt_mods_ok_def] >>
+  every_case_tac >>
+  full_simp_tac(srw_ss())[compile_dec_def] >>
+  every_case_tac >>
+  full_simp_tac(srw_ss())[LET_THM]);
+
 val prompt_mods_ok = Q.prove (
   `!l mn var_map ds l' var_map' ds_i1.
     compile_decs l [mn] var_map ds = (l',var_map',ds_i1)
@@ -1909,12 +1918,28 @@ val no_dup_types = Q.prove(
   srw_tac[][] >>
   metis_tac [no_dup_types_helper]);
 
+val no_dup_types_dec = Q.prove (
+  `!next mn env d next' env' d_i1.
+    compile_dec next mn env d = (next',env',d_i1) ∧
+    no_dup_types [d]
+    ⇒
+    no_dup_types [d_i1]`,
+  rw [] >>
+  irule no_dup_types >>
+  qexists_tac `[d]` >>
+  rw [compile_decs_def] >>
+  qexists_tac `env` >>
+  qexists_tac `env'` >>
+  qexists_tac `mn` >>
+  qexists_tac `next` >>
+  simp []);
+
 val invariant_defined_mods = Q.prove(
-  `invariant c d e f g ⇒ e.defined_mods = IMAGE (\x. [x]) f.defined_mods`,
+  `invariant c d e f ⇒ e.defined_mods = IMAGE (\x. [x]) f.defined_mods`,
   rw[invariant_def,s_rel_cases]);
 
 val invariant_defined_types = Q.prove(
-  `invariant c d e f g ⇒ e.defined_types = f.defined_types`,
+  `invariant c d e f ⇒ e.defined_types = f.defined_types`,
   rw[invariant_def,s_rel_cases]);
 
 val compile_decs_dec = Q.prove(
@@ -1935,67 +1960,21 @@ val compile_top_decs = Q.store_thm("compile_top_decs",
   \\ fs[Q.ISPEC`I:α#β -> α#β`LAMBDA_PROD |> GSYM |> SIMP_RULE (srw_ss())[]]
   \\ imp_res_tac compile_decs_dec \\ fs[]);
 
-  (*
-
-val evaluate_tops_decs = Q.store_thm("evaluate_tops_decs",
-  `evaluate_tops st env (top::prog) =
-   let (mno,ds) = case top of Tmod mn _ ds => (SOME mn,ds) | Tdec d => (NONE,[d]) in
-   let (st',new_ctors,r) = evaluate$evaluate_decs mno st env ds in
-   let (st',new_ctors,r) =
-     case mno of SOME mn =>
-       if mn ∉ st.defined_mods ∧ no_dup_types ds
-       then (st' with defined_mods := {mn} ∪ st'.defined_mods, ([(mn,new_ctors)],[]),r)
-       else (st,([],[]),Rerr (Rabort Rtype_error))
-     | _ => (st',([],new_ctors),r) in
-   case r of
-   | Rerr err => (st',new_ctors,Rerr err)
-   | Rval new_vals =>
-       let (new_mods,new_vals) = case mno of SOME mn => ([(mn,new_vals)],[]) | _ => ([],new_vals) in
-       let (st'',new_ctors',r) = evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) prog in
-         (st'',merge_alist_mod_env new_ctors' new_ctors,combine_mod_result new_mods new_vals r)`,
-  Cases_on`prog` \\ simp[evaluateTheory.evaluate_tops_def]
-  \\ rpt (pairarg_tac \\ fs[])
-  >- (
-    every_case_tac \\ fs[]
-    \\ rw[evaluateTheory.evaluate_tops_def,combine_mod_result_def]
-    \\ Cases_on`d` \\ fs[evaluateTheory.evaluate_decs_def]
-    \\ every_case_tac \\ fs[] )
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ Cases_on`top`\\fs[]\\rw[]\\fs[]\\rw[]
-  \\ fs[evaluateTheory.evaluate_tops_def]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ Cases_on`d` \\ fs[evaluateTheory.evaluate_decs_def]
-  \\ every_case_tac \\ fs[] );
-
-val evaluate_decs_to_dummy_env = Q.store_thm("evaluate_decs_to_dummy_env",
-  `∀ds env s s' cenv env' r.
-    modSem$evaluate_decs env s ds = (s',cenv,env',r) ∧
-    r ≠ SOME (Rabort Rtype_error) ⇒
-   if r = NONE then LENGTH env' = decs_to_dummy_env ds else LENGTH env' ≤ decs_to_dummy_env ds`,
-  Induct \\ simp[evaluate_decs_def,decs_to_dummy_env_def]
-  \\ rpt gen_tac
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ strip_tac \\ rveq \\ fs[]
-  \\ res_tac
-  \\ rw[] \\ fs[]
-  \\ last_x_assum kall_tac
-  \\ Cases_on`h` \\ fs[evaluate_dec_def,dec_to_dummy_env_def]
-  \\ rw[] \\ fs[]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-  *)
+val global_env_inv_lift = Q.prove (
+  `!mn var_map env.
+    global_env_inv genv var_map {} env
+    ⇒
+    global_env_inv genv (nsLift mn var_map) {} (nsLift mn env)`,
+  rw [v_rel_eqns, nsLookup_nsLift] >>
+  every_case_tac >>
+  fs []);
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
-  `!var_map env s prog s' r s_i1 next' var_map' prog_i1.
+  `!s env prog var_map  s' r s_i1 next' var_map' prog_i1.
     evaluate$evaluate_tops s env prog = (s',r) ∧
-    source_to_mod$compile_prog (LENGTH s_i1.globals) var_map prog = (next',var_map',prog_i1) ∧
-    invariant var_map env.v s s_i1 s.defined_mods ∧
-    r ≠ Rerr (Rabort Rtype_error)
+    invariant var_map env.v s s_i1 ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    source_to_mod$compile_prog (LENGTH s_i1.globals) var_map prog = (next',var_map',prog_i1)
     ⇒
     ∃(s'_i1:'a modSem$state) new_genv cenv' r_i1.
      modSem$evaluate_prompts <|c := env.c; v := []|> s_i1 prog_i1 =
@@ -2006,273 +1985,235 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
        next' = LENGTH (s_i1.globals ++ new_genv) ∧
        r_i1 = NONE ∧
        cenv' = new_env.c ∧
-       invariant var_map' (nsAppend new_env.v env.v) s' s'_i1 s'.defined_mods) ∧
+       invariant var_map' (nsAppend new_env.v env.v) s' s'_i1) ∧
      (!err.
        r = Rerr err
        ⇒
        ?err_i1.
          r_i1 = SOME err_i1 ∧ s_rel s' s'_i1 ∧
          result_rel (\a b (c:'a). T) (s_i1.globals ++ new_genv) r (Rerr err_i1))`,
-
-  Induct_on`prog`
-  \\ fs[compile_prog_def]
-  >- ( rw[evaluateTheory.evaluate_tops_def,evaluate_prompts_def] \\ fs[] )
-  \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ rw[]
-  \\ simp[evaluate_prompts_def]
-  \\ split_pair_case_tac \\ fs[]
-  \\ fs[compile_top_decs]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ rw[]
-  \\ fs[evaluate_prompt_def]
-  \\ qhdtm_x_assum`COND`mp_tac
-  \\ imp_res_tac no_dup_types
-  \\ reverse IF_CASES_TAC
-
+  ho_match_mp_tac evaluateTheory.evaluate_tops_ind >>
+  conj_tac
+  (* Empty prog *)
+  >- rw [compile_prog_def, evaluate_prompts_def] >>
+  conj_tac
+  (* Cons case *)
   >- (
-    simp[] \\ strip_tac \\ rveq
-    \\ simp[]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ fs[]
-    \\ imp_res_tac prompt_mods_ok \\ fs[]
-    \\ imp_res_tac invariant_defined_mods \\ fs[]
-    \\ rveq \\ fs[]
-    \\ TRY (
-      qpat_x_assum`¬prompt_mods_ok NONE _`mp_tac
-      \\ simp[prompt_mods_ok_def]
-      \\ fs[compile_decs_def]
-      \\ pairarg_tac \\ fs[]
-      \\ rveq \\ fs[]
-      \\ Cases_on`d` \\ fs[compile_dec_def] \\ rveq \\ fs[]
-      \\ NO_TAC)
-    \\ TRY (
-      Cases_on`prog` \\ fs[evaluateTheory.evaluate_tops_def,compile_prog_def]
-      \\ rveq \\ fs[]
-      \\ every_case_tac \\ fs[] \\ rw[] \\ fs[] \\ NO_TAC)
-    \\ fs[semanticPrimitivesTheory.no_dup_types_def,semanticPrimitivesTheory.decs_to_types_def]
-    \\ every_case_tac \\ fs[evaluateTheory.evaluate_decs_def]
-    \\ fs[compile_decs_def,compile_dec_def] \\ rveq
-    \\ fs[no_dup_types_def,decs_to_types_def]
-    \\ Cases_on`prog`\\fs[evaluateTheory.evaluate_tops_def,evaluateTheory.evaluate_decs_def]
-    \\ every_case_tac \\ fs[] )
-  \\ pairarg_tac \\ fs[]
-  \\ strip_tac
-  \\ fs[evaluate_tops_decs]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ drule(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_decs_correct))
-  \\ simp[AND_IMP_INTRO]
-  \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(
-       equal"compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
-  \\ disch_then drule
-  \\ disch_then(qspec_then`<|c := env.c; v := []|>`mp_tac)
-  \\ impl_tac
-  >- (
-    fs[invariant_def]
-    \\ simp[env_all_rel_cases,env_rel_list_rel]
-    \\ srw_tac[QI_ss][]
-    \\ simp[semanticPrimitivesTheory.environment_component_equality]
-    \\ spose_not_then strip_assume_tac \\ rw[]
-    \\ Cases_on`mno`\\fs[]\\rw[]\\fs[]
-    \\ pop_assum mp_tac \\ rw[]
-    \\ spose_not_then strip_assume_tac \\ fs[]
-    \\ rw[] \\ fs[])
-  \\ strip_tac \\ fs[]
-  \\ rveq
-  \\ qpat_x_assum`_ = (_,_,r)`mp_tac
-  \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
-  >- (
-    strip_tac \\ rveq \\ fs[]
-    \\ last_x_assum kall_tac
-    \\ every_case_tac \\ fs[] \\ rw[mod_cenv_def]
-    \\ fs[s_rel_cases,update_mod_state_def]
-    \\ fs[result_rel_cases]
-    \\ metis_tac[v_rel_weakening] )
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ strip_tac \\ rveq \\ fs[]
-  \\ first_x_assum drule
-  \\ qmatch_goalsub_abbrev_tac`evaluate_prompts _ s2 _`
-  \\ `next = LENGTH s2.globals`
-  by (
-    simp[Abbr`s2`]
-    \\ imp_res_tac compile_decs_num_bindings
-    \\ simp[]
-    \\ imp_res_tac evaluate_decs_to_dummy_env
-    \\ rw[] \\ fs[]
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac
+    rpt gen_tac >>
+    qspec_tac (`top2::tops`, `tops`) >>
+    rw [] >>
+    qpat_x_assum `evaluate_tops _ _ (_::_) = _` mp_tac >>
+    simp [Once evaluatePropsTheory.evaluate_tops_cons] >>
+    fs [compile_prog_def] >>
+    pairarg_tac >>
+    fs [] >>
+    pairarg_tac >>
+    fs [] >>
+    rveq >>
+    split_pair_case_tac >>
+    fs [] >>
+    reverse CASE_TAC
+    (* Error case *)
     >- (
-      strip_tac \\ fs[]
-      \\ fs[result_rel_cases]
-      \\ Cases_on`r''`\\fs[] \\ rw[]
-      \\ every_case_tac \\ fs[] )
-    \\ simp[] )
-  \\ rveq
-  \\ disch_then drule
-  \\ impl_tac
+      rw [] >>
+      res_tac >>
+      pairarg_tac >>
+      fs [] >>
+      rw [] >>
+      qpat_x_assum `evaluate_prompts _ _ [_] = _` mp_tac >>
+      simp [evaluate_prompts_def] >>
+      split_pair_case_tac >>
+      simp [] >>
+      CASE_TAC >>
+      rw []) >>
+    rfs [] >>
+    first_x_assum drule >>
+    rw [] >>
+    split_pair_case_tac >>
+    fs [] >>
+    rveq >>
+    fs [extend_dec_env_def] >>
+    qpat_x_assum `evaluate_prompts _ _ [_] = _` mp_tac >>
+    simp [evaluate_prompts_def] >>
+    split_pair_case_tac >>
+    simp [] >>
+    CASE_TAC >>
+    rw [] >>
+    first_x_assum drule >>
+    simp [] >>
+    qmatch_assum_rename_tac `combine_dec_result _ final_res ≠ _` >>
+    `final_res ≠ Rerr (Rabort Rtype_error)`
+      by (
+        Cases_on `final_res` >>
+        fs [combine_dec_result_def]) >>
+    rw [] >>
+    Cases_on `final_res` >>
+    fs [combine_dec_result_def] >>
+    fs [result_rel_cases]) >>
+  conj_tac
+  (* Declarations case *)
   >- (
-    reverse conj_tac
+    rw [compile_prog_def, evaluateTheory.evaluate_tops_def] >>
+    pairarg_tac >>
+    fs [compile_top_def] >>
+    pairarg_tac >>
+    fs [compile_decs_def] >>
+    rw [] >>
+    drule compile_decs_correct >>
+    fs [invariant_def] >>
+    disch_then drule >>
+    simp [compile_decs_def, evaluate_prompts_def, evaluate_prompt_def] >>
+    strip_tac >>
+    drule prompt_mods_ok_dec >>
+    drule no_dup_types_dec >>
+    impl_tac
     >- (
-      strip_tac \\ fs[]
-      \\ every_case_tac \\ fs[]
-      \\ rw[] \\ fs[combine_mod_result_def] )
-    \\ qhdtm_x_assum`invariant`mp_tac
-    \\ simp[extend_top_env_def,invariant_def]
-    \\ fs[Abbr`s2`]
-    \\ imp_res_tac evaluatePropsTheory.evaluate_decs_state_unchanged \\ fs[]
-    \\ Cases_on`mno`\\fs[]\\rveq\\fs[] \\ strip_tac
-    \\ Cases_on`h` \\ fs[] \\ rveq
+      Cases_on `d` >>
+      fs [evaluate_decs_def, semanticPrimitivesTheory.no_dup_types_def,
+          semanticPrimitivesTheory.decs_to_types_def] >>
+      fs [evaluateTheory.evaluate_decs_def] >>
+      every_case_tac >>
+      fs []) >>
+    simp [] >>
+    rename1 `evaluate_decs [] _ _ [_] = (s', final_result)` >>
+    Cases_on `final_result` >>
+    fs []
     >- (
-      conj_tac
+      rw []
       >- (
-        match_mp_tac (GEN_ALL global_env_inv_extend2)
-        \\ fs[]
-        \\ metis_tac[v_rel_weakening] )
-      \\ fs[s_rel_cases,update_mod_state_def]
-      \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
-      \\ ONCE_REWRITE_TAC[CONJ_COMM]
-      \\ asm_exists_tac \\ rw[]
-      \\ imp_res_tac evaluate_decs_globals
-      \\ fs[] )
-    \\ qpat_x_assum`_ = (_,_,Rval _)`mp_tac
-    \\ IF_CASES_TAC \\ fs[]
-    \\ strip_tac \\ rveq \\ fs[]
-    \\ conj_tac >- fs[SUBSET_DEF]
-    \\ conj_tac
-    >- ( match_mp_tac global_env_inv_extend_mod \\ fs[] )
-    \\ fs[s_rel_cases,update_mod_state_def]
-    \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
-    \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ asm_exists_tac \\ rw[]
-    \\ imp_res_tac evaluate_decs_globals
-    \\ fs[] )
-  \\ strip_tac
-  \\ fs[extend_top_env_def]
-  \\ `new_ctors' = mod_cenv mno cenv''`
-  by (
-    Cases_on`mno`\\fs[mod_cenv_def] \\ rveq \\ fs[]
-    \\ every_case_tac \\ fs[] )
-  \\ rveq \\ fs[]
-  \\ reverse(Cases_on`r''`)\\fs[]
-  >- ( every_case_tac \\ fs[] )
-  \\ rveq \\ fs[]
-  \\ fs[combine_mod_result_def]
-  \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+        irule global_env_inv_append >>
+        rw [] >>
+        metis_tac [v_rel_weakening])
+      >- (
+        fs [s_rel_cases, update_mod_state_def] >>
+        drule evaluate_decs_globals >>
+        rw [] >>
+        fs []))
+    >- (
+      fs [s_rel_cases, update_mod_state_def, result_rel_cases] >>
+      metis_tac [v_rel_weakening]))
+  (* Module case *)
   >- (
-    fs[result_rel_cases]
-    \\ rveq \\ fs[Abbr`s2`] )
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]);
+    rw [compile_prog_def, evaluateTheory.evaluate_tops_def] >>
+    pairarg_tac >>
+    fs [compile_top_def] >>
+    pairarg_tac >>
+    fs [] >>
+    rw [] >>
+    split_pair_case_tac >>
+    fs [] >>
+    rename1 `evaluate_decs [_] _ _ _ = (st1, result)` >>
+    `result ≠ Rerr (Rabort Rtype_error)`
+      by (
+        every_case_tac >> rw []) >>
+    drule compile_decs_correct >>
+    fs [invariant_def] >>
+    disch_then drule >>
+    simp [evaluate_prompts_def, evaluate_prompt_def] >>
+    strip_tac >>
+    drule prompt_mods_ok >>
+    drule no_dup_types >>
+    `mn ∉ s_i1.defined_mods`
+      by (
+        fs [s_rel_cases] >>
+        `[mn] ∉ IMAGE (\x. [x]) s_i1.defined_mods` by metis_tac [] >>
+        fs []) >>
+    simp [] >>
+    Cases_on `result` >>
+    fs [] >>
+    rw [] >>
+    rw []
+    >- (
+      irule global_env_inv_append >>
+      rw [nsDom_nsLift, nsDomMod_nsLift]
+      >- metis_tac [global_env_inv_lift]
+      >- metis_tac [v_rel_weakening])
+    >- (
+      fs [s_rel_cases, update_mod_state_def] >>
+      drule evaluate_decs_globals >>
+      rw [] >>
+      fs [])
+    >- fs [s_rel_cases, update_mod_state_def]
+    >- (
+      fs [s_rel_cases, update_mod_state_def, result_rel_cases] >>
+      metis_tac [v_rel_weakening])));
 
 val compile_prog_mods = Q.prove (
-  `!l mods tops prog l' mods' tops' prog_i1.
-    compile_prog l mods tops prog = (l',mods', tops',prog_i1)
+  `!l var_map prog l' prog_i1.
+    source_to_mod$compile_prog l var_map prog = (l',var_map',prog_i1)
     ⇒
-    prog_to_mods prog
+    semanticPrimitives$prog_to_mods prog
     =
-    prog_to_mods prog_i1`,
+    MAP (\x. [x]) (modSem$prog_to_mods prog_i1)`,
   induct_on `prog` >>
   srw_tac[][compile_prog_def, LET_THM, modSemTheory.prog_to_mods_def, semanticPrimitivesTheory.prog_to_mods_def] >>
   srw_tac[][] >>
-  `?w x y z. compile_top l mods tops h = (w,x,y,z)` by metis_tac [pair_CASES] >>
-  full_simp_tac(srw_ss())[] >>
-  `?w' x' y' z'. compile_prog w x y prog = (w',x',y',z')` by metis_tac [pair_CASES] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[compile_top_def] >>
+  pairarg_tac >>
+  fs [] >>
+  pairarg_tac >>
+  fs [compile_top_def] >>
   every_case_tac >>
   srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM]
-  >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[])
-  >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[])
-  >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def] >>
-      metis_tac [])
-  >- (full_simp_tac(srw_ss())[semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def] >>
-      metis_tac [])
-  >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[]));
+  full_simp_tac(srw_ss())[LET_THM] >>
+  pairarg_tac >>
+  fs [] >>
+  first_x_assum drule >>
+  rw [] >>
+  fs [semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def]);
 
 val compile_prog_top_types = Q.prove (
-  `!l mods tops prog l' mods' tops' prog_i1.
-    compile_prog l mods tops prog = (l',mods', tops',prog_i1)
+  `!l var_map prog l' var_map' prog_i1.
+    compile_prog l var_map prog = (l',var_map',prog_i1)
     ⇒
     prog_to_top_types prog
     =
     prog_to_top_types prog_i1`,
   induct_on `prog` >>
   srw_tac[][compile_prog_def, LET_THM] >>
-  srw_tac[][] >>
-  `?w x y z. compile_top l mods tops h = (w,x,y,z)` by metis_tac [pair_CASES] >>
-  full_simp_tac(srw_ss())[semanticPrimitivesTheory.prog_to_top_types_def, modSemTheory.prog_to_top_types_def] >>
-  `?w' x' y' z'. compile_prog w x y prog = (w',x',y',z')` by metis_tac [pair_CASES] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[compile_top_def] >>
+  fs [semanticPrimitivesTheory.prog_to_top_types_def, modSemTheory.prog_to_top_types_def] >>
+  pairarg_tac >>
+  fs [] >>
+  pairarg_tac >>
+  fs [] >>
+  first_x_assum drule >>
+  rw [] >>
   every_case_tac >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM]
-  >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[])
-  >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      metis_tac [])
-  >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      res_tac >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[compile_dec_def] >>
-      every_case_tac >>
-      full_simp_tac(srw_ss())[LET_THM] >>
-      srw_tac[][semanticPrimitivesTheory.decs_to_types_def, modSemTheory.decs_to_types_def])
-  >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][]));
+  fs [] >>
+  fs [compile_top_def] >>
+  pairarg_tac >>
+  fs [] >>
+  rw [] >>
+  full_simp_tac(srw_ss())[compile_dec_def] >>
+  every_case_tac >>
+  full_simp_tac(srw_ss())[LET_THM] >>
+  srw_tac[][semanticPrimitivesTheory.decs_to_types_def, modSemTheory.decs_to_types_def]);
 
 val compile_prog_mods_ok = Q.prove (
-  `!l mods tops prog l' mods' tops' prog_i1.
-    compile_prog l mods tops prog = (l',mods', tops',prog_i1)
+  `!l var_map prog l' var_map' prog_i1.
+    compile_prog l var_map prog = (l',var_map',prog_i1)
     ⇒
     EVERY (λp. case p of Prompt mn ds => prompt_mods_ok mn ds) prog_i1`,
   induct_on `prog` >>
   srw_tac[][compile_prog_def, LET_THM] >>
   srw_tac[][] >>
-  `?w x y z. compile_top l mods tops h = (w,x,y,z)` by metis_tac [pair_CASES] >>
-  full_simp_tac(srw_ss())[] >>
-  `?w' x' y' z'. compile_prog w x y prog = (w',x',y',z')` by metis_tac [pair_CASES] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[compile_top_def] >>
+  pairarg_tac >>
+  fs [] >>
+  pairarg_tac >>
+  fs [] >>
+  first_x_assum drule >>
+  rw [] >>
   every_case_tac >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM]
-  >- (`?a b c. compile_decs l (SOME s) mods tops l''' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      metis_tac [prompt_mods_ok])
-  >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][prompt_mods_ok_def] >>
-      full_simp_tac(srw_ss())[compile_dec_def] >>
-      every_case_tac >>
-      full_simp_tac(srw_ss())[LET_THM])
-  >- (`?a b c. compile_decs l (SOME s) mods tops l''' = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      metis_tac [prompt_mods_ok])
-  >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      metis_tac []));
+  fs [compile_top_def] >>
+  every_case_tac >>
+  pairarg_tac >>
+  fs [] >>
+  rw [] >>
+  metis_tac [prompt_mods_ok_dec, prompt_mods_ok]);
 
 val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
-  `evaluate_prog s env prog = (s',cenv',r) ∧
-   invariant mods tops env.m env.v s s_i1 s.defined_mods ∧
-   compile_prog (LENGTH s_i1.globals) mods tops prog = (next',mods',tops',prog_i1) ∧
+  `evaluate_prog s env prog = (s',r) ∧
+   invariant var_map env.v s s_i1 ∧
+   compile_prog (LENGTH s_i1.globals) var_map prog = (next',var_map',prog_i1) ∧
    r ≠ Rerr (Rabort Rtype_error)
    ⇒
     ∃(s'_i1:'a modSem$state) r_i1.
@@ -2294,22 +2235,21 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
   \\ res_tac
   \\ drule compile_prog_correct
   \\ disch_then drule
-  \\ rw[] \\ fs[]
-  \\ Cases_on`r`\\fs[invariant_def]
-  \\ metis_tac[PAIR]);
+  \\ rw[] \\ fs[LIST_TO_SET_MAP]
+  \\ TRY (Cases_on`r`\\fs[invariant_def])
+  \\ rw []
+  \\ metis_tac[PAIR, ALL_DISTINCT_MAP, typeSoundTheory.disjoint_image]);
 
 open semanticsTheory
 
 val precondition_def = Define`
-  precondition s1 env1 c s2 env2 ⇔
-    invariant (FST c.mod_env) (SND c.mod_env)
-      env1.m env1.v s1 s2
-      s1.defined_mods ∧
-    s2.defined_mods = s1.defined_mods ∧
+  precondition s1 env1 conf s2 env2 ⇔
+    invariant conf.mod_env env1.v s1 s2 ∧
+    IMAGE (\x. [x]) s2.defined_mods = s1.defined_mods ∧
     s2.defined_types = s1.defined_types ∧
     env2.c = env1.c ∧
     env2.v = [] ∧
-    c.next_global = LENGTH s2.globals`;
+    conf.next_global = LENGTH s2.globals`;
 
 val SND_eq = Q.prove(
   `SND x = y ⇔ ∃a. x = (a,y)`,
@@ -2320,7 +2260,6 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog (semantics env2 s2 (SND (compile c prog)))`,
   rw[semantics_prog_def,SND_eq,precondition_def,compile_def]
-  \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ simp[modSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[SND_eq]

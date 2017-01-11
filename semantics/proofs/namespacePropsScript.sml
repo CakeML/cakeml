@@ -977,4 +977,18 @@ val nsDom_nsAppend_equal = Q.store_thm ("nsDom_nsAppend_equal",
   fs [lemma, nsLookupMod_nsAppend_none]
   >- metis_tac [NOT_SOME_NONE, option_nchotomy]);
 
+val nsDom_nsLift = Q.store_thm ("nsDom_nsLift",
+  `!mn n. nsDom (nsLift mn n) = IMAGE (Long mn) (nsDom n)`,
+  rw [nsDom_def, EXTENSION, GSPECIFICATION, EXISTS_PROD, nsLookup_nsLift] >>
+  Cases_on `x` >>
+  rw [] >>
+  metis_tac []);
+
+val nsDomMod_nsLift = Q.store_thm ("nsDomMod_nsLift",
+  `!mn n. nsDomMod (nsLift mn n) = [] INSERT IMAGE (CONS mn) (nsDomMod n)`,
+  rw [nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD, nsLookupMod_nsLift] >>
+  Cases_on `x` >>
+  rw [] >>
+  metis_tac []);
+
 val _ = export_theory ();
