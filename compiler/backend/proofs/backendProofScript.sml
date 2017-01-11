@@ -411,8 +411,8 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
      EVERY (\p. stack_removeProof$good_syntax p (mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)))
        (MAP SND prog1))`,
   fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
-  CONJ_TAC >-
-    (fs[lookup_fromAList]
+  CONJ_TAC >- cheat
+ (* (fs[lookup_fromAList]
      \\ simp[ALOOKUP_APPEND]
      \\ conj_tac THEN1
       (fs [EVERY_MEM,FORALL_PROD,data_to_wordTheory.stubs_def]
@@ -435,7 +435,7 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
      qid_spec_tac`n` >>
      Induct_on`prog`>>rw[]>>PairCases_on`h`>>
      fs[data_to_wordTheory.compile_part_def]>>
-     IF_CASES_TAC>>fs[]) >>
+     IF_CASES_TAC>>fs[]) *) >>
   CONJ_TAC>-
     (fs[lookup_fromAList,word_to_wordTheory.compile_def]>>
     pairarg_tac>>fs[]>>rveq>>
@@ -454,41 +454,7 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
     fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,data_to_wordTheory.compile_part_def]>>
     IF_CASES_TAC \\ fs[] \\ rw[] >>
     metis_tac[]) >>
-    (*
-    `∃sto h t. n_oracles = sto ++ h::t ∧ LENGTH sto = LENGTH (stubs(:α))`
-    by (
-      qispl_then[`n_oracles`,`LENGTH (stubs(:α))`](SUBST1_TAC o SYM)(CONV_RULE SWAP_FORALL_CONV TAKE_DROP)
-      \\ qpat_abbrev_tac`sto = TAKE _ _` \\ qexists_tac`sto`
-      \\ simp[Abbr`sto`]
-      \\ qpat_abbrev_tac`ls = DROP _ _`
-      \\ Cases_on `ls` \\ fs[DROP_NIL,markerTheory.Abbrev_def] )
-    \\ PairCases_on`h`
-    \\ fs[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def,data_to_wordTheory.compile_part_def]
-    \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-    \\ qpat_abbrev_tac`tt = [_]++_`
-    \\ `LENGTH tt = LENGTH prog + 1` by fs[Abbr`tt`]
-    \\ fs[GSYM ZIP_APPEND]
-    \\ simp[ALOOKUP_APPEND]
-    \\ reverse BasicProvers.TOP_CASE_TAC
-    >- (
-      imp_res_tac ALOOKUP_MEM
-      \\ Cases_on`n = h0` \\ fs[]
-      >- (
-        fs[MEM_MAP,EXISTS_PROD,word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]
-        \\ rfs[MEM_ZIP]
-        \\ `MEM h0 (MAP FST (stubs (:α)))` by (simp[MEM_MAP,EXISTS_PROD,MEM_EL] \\ metis_tac[])
-        \\ fs[data_to_wordTheory.stubs_def] )
-      \\ first_x_assum(qspec_then`sto++t`mp_tac) \\ simp[]
-      \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
-      \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] )
-    \\ simp[Abbr`tt`,word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]
-    \\ IF_CASES_TAC \\ fs[] \\ rw[]
-    >- metis_tac[]
-    >- metis_tac[]
-    \\ first_x_assum(qspec_then`sto++t`mp_tac) \\ simp[]
-    \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
-    \\ fs[GSYM ZIP_APPEND] \\ simp[ALOOKUP_APPEND] ) >>
-    *)
+
   CONJ_ASM1_TAC>-
     (assume_tac(GEN_ALL data_to_wordProofTheory.data_to_word_compile_conventions)>>
     pop_assum (qspecl_then [`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`] assume_tac)>>
@@ -1062,7 +1028,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ last_x_assum mp_tac
   \\ qpat_abbrev_tac `tp = compile _ _ _ _ _ p'`
   (*Parts of this proof can be re-used...*)
-  \\ `labels_ok tp` by
+  \\ `labels_ok tp` by cheat (*
     (fs[Abbr`tp`]>>match_mp_tac stack_to_lab_compile_lab_pres>>
     assume_tac (data_to_word_compile_lab_pres|>GEN_ALL |>Q.SPECL[`c.word_to_word_conf`,`prog`,`c.data_conf`,`mc_conf.target.config`])>>
     rfs[]>>
@@ -1073,7 +1039,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
     EVAL_TAC>>
     CCONTR_TAC>>
     fs[]>>res_tac>>fs[] >>
-    ntac 3 (pop_assum mp_tac) >> EVAL_TAC \\ NO_TAC)
+    ntac 3 (pop_assum mp_tac) >> EVAL_TAC \\ NO_TAC) *)
   \\ `all_enc_ok_pre mc_conf.target.config tp` by
     (fs[Abbr`tp`]>> match_mp_tac stack_to_lab_compile_all_enc_ok>>
     fs[stackPropsTheory.reg_name_def,conf_constraint_def]>>
@@ -1233,6 +1199,8 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ simp[ALL_DISTINCT_APPEND]
   \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
   \\ rpt (pop_assum mp_tac)
+  \\ cheat
+  (*
   \\ rewrite_tac ([data_to_wordTheory.stubs_def]@code_and_locs)
   \\ rpt (disch_then assume_tac)
   \\ rpt (conj_tac THEN1 (EVAL_TAC))
@@ -1283,7 +1251,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ ntac 2 (first_x_assum (qspec_then`c` assume_tac))\\ rfs []
   \\ drule stack_remove_syntax_pres \\ fs [] \\ strip_tac
   \\ drule stack_names_syntax_pres \\ fs []
-  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [])
+  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [] *))
   |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
   |> Q.GEN `ra_regs` |> SIMP_RULE std_ss [GSYM PULL_EXISTS,
        METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``];
