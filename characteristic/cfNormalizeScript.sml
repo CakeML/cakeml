@@ -116,7 +116,11 @@ val evaluate_normalise = Q.store_thm("evaluate_normalise",
 
 
 (*------------------------------------------------------------------*)
-(* [full_normalise] *)
+(* [full_normalise]
+
+   The implementation follows the structure of the CFML one, in
+   generator/normalize.ml in the CFML sources.
+*)
 
 (* [dest_opapp]: destruct an n-ary application. *)
 val dest_opapp_def = Define `
@@ -184,7 +188,7 @@ val wrap_if_needed_def = Define `
   wrap_if_needed needs_wrapping ns e b =
     if needs_wrapping then (
       let x = get_name ns in
-      (Var (Short x), x::ns, (x,e)::b)
+      (Var (Short x), x::ns, SNOC (x,e) b)
     ) else (
       (e, ns, b)
     )`;
@@ -269,28 +273,28 @@ val norm_def = tDefine "norm" `
      wrap_if_needed as_value ns (Letrec rs' e') []) /\
   norm_list is_named as_value ns ([]: exp list) = ([], ns, []) /\
   norm_list is_named as_value ns (e::es) =
-    (let (e', ns', b) = norm is_named as_value ns e in
-     let (es', ns'', bs) = norm_list is_named as_value ns' es in
-     (e' :: es', ns'', b::bs)) /\
+    (let (e', ns, b) = norm is_named as_value ns e in
+     let (es', ns, bs) = norm_list is_named as_value ns es in
+     (e' :: es', ns, b::bs)) /\
   norm_rows ns ([]: (pat, exp) alist) = ([], ns) /\
   norm_rows ns (row :: rows) =
-    (let (row', ns') = protect_row F ns row in
-     let (rows', ns'') = norm_rows ns' rows in
-     (row' :: rows', ns'')) /\
+    (let (row', ns) = protect_row F ns row in
+     let (rows', ns) = norm_rows ns rows in
+     (row' :: rows', ns)) /\
   norm_letrec_branches ns ([]: (string, string # exp) alist) = ([], ns) /\
   norm_letrec_branches ns (branch :: branches) =
-    (let (branch', ns') = protect_letrec_branch T ns branch in
-     let (branches', ns'') = norm_letrec_branches ns' branches in
-     (branch' :: branches', ns'')) /\
+    (let (branch', ns) = protect_letrec_branch T ns branch in
+     let (branches', ns) = norm_letrec_branches ns branches in
+     (branch' :: branches', ns)) /\
   protect is_named ns e =
-    (let (e',ns',b) = norm is_named F ns e in
-     (Lets b e', ns')) /\
+    (let (e',ns,b) = norm is_named F ns e in
+     (Lets b e', ns)) /\
   protect_row is_named ns row =
-    (let (row_e', ns') = protect is_named ns (SND row) in
-     ((FST row, row_e'), ns')) /\
+    (let (row_e', ns) = protect is_named ns (SND row) in
+     ((FST row, row_e'), ns)) /\
   protect_letrec_branch is_named ns branch =
-    (let (branch_e', ns') = protect is_named ns (SND (SND branch)) in
-     ((FST branch, FST (SND branch), branch_e'), ns'))`
+    (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
+     ((FST branch, FST (SND branch), branch_e'), ns))`
  cheat;
 
 val full_normalise_def = Define `
