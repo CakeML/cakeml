@@ -122,6 +122,12 @@ val names_tac =
 val x64_machine_config_def = Define`
   x64_machine_config = <|target:= x64_target; len_reg:=6 ; ptr_reg := 7 ; callee_saved_regs := [12;13;14]|>`
 
+val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
+  ``(INDEX_FIND n f (x::xs) = SOME y) <=>
+    (f x /\ (y = (n,x))) \/
+    (~f x /\ (INDEX_FIND (n+1) f xs = SOME y))``,
+  fs [INDEX_FIND_def] \\ rw [] \\ Cases_on `y` \\ fs [ADD1] \\ metis_tac []);
+
 val x64_conf_ok = Q.prove(`
   conf_ok x64_compiler_config x64_machine_config`,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
@@ -140,7 +146,12 @@ val x64_conf_ok = Q.prove(`
       match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>
       fs[])
     >>
-    Cases_on`s`>>EVAL_TAC)
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
@@ -182,7 +193,12 @@ val arm6_conf_ok = Q.prove(`
       >>
       fs[ADD1])
     >>
-    Cases_on`s`>>EVAL_TAC)
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>fs[]);
@@ -224,7 +240,12 @@ val arm8_conf_ok = Q.prove(`
       pop_assum mp_tac>>EVAL_TAC>>
       blastLib.BBLAST_PROVE_TAC)
     >>
-    Cases_on`s`>>EVAL_TAC)
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC \\ cheat (* false *))
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -267,7 +288,12 @@ val riscv_conf_ok = Q.prove(`
       pop_assum mp_tac>>EVAL_TAC>>
       blastLib.BBLAST_PROVE_TAC)
     >>
-    Cases_on`s`>>EVAL_TAC)
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
@@ -310,7 +336,12 @@ val mips_conf_ok = Q.prove(`
       pop_assum mp_tac>>EVAL_TAC>>
       blastLib.BBLAST_PROVE_TAC)
     >>
-    Cases_on`s`>>EVAL_TAC)
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
