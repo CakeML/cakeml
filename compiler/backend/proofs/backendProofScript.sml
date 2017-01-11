@@ -1199,29 +1199,24 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ simp[ALL_DISTINCT_APPEND]
   \\ fs [AC CONJ_ASSOC CONJ_COMM] \\ rfs []
   \\ rpt (pop_assum mp_tac)
-  \\ cheat
-  (*
-  \\ rewrite_tac ([data_to_wordTheory.stubs_def]@code_and_locs)
-  \\ rpt (disch_then assume_tac)
-  \\ rpt (conj_tac THEN1 (EVAL_TAC))
-  \\ rpt (conj_tac THEN1 (fs [EVERY_MEM,data_to_wordTheory.stubs_def] \\ strip_tac \\ res_tac \\ fs [] \\ EVAL_TAC))
-  \\ rpt (conj_tac
-    >- (
-      EVAL_TAC \\ fs[EVERY_MEM] \\ strip_tac \\ res_tac \\ fs[]
-      \\ pop_assum mp_tac \\ EVAL_TAC ))
-  \\ TRY (conj_tac >-
-    (fs[EVERY_MEM,FORALL_PROD]>>
-    metis_tac[]))
-  \\ TRY (conj_tac >- (
-    ntac 3 strip_tac \\ rename1 `ALOOKUP prog1 k = SOME _`
+  \\ fs [EVAL ``ALL_DISTINCT (MAP FST (stubs (:α) c.data_conf))``]
+  \\ simp_tac std_ss [EVAL ``MEM n (MAP FST (stubs (:α) c.data_conf))``,
+                      EVAL ``gc_stub_location``,
+                      EVAL ``raise_stub_location``,PULL_EXISTS,
+                      EVAL ``data_num_stubs``,MEM_MAP,FORALL_PROD]
+  \\ rpt strip_tac \\ rveq
+  \\ TRY (qpat_x_assum `EVERY (λn. kk ≤ n) (MAP FST prog)`
+            (drule o SIMP_RULE std_ss [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD])
+          \\ simp_tac std_ss [] \\ NO_TAC)
+  \\ TRY
+   (rename1 `ALOOKUP prog1 _ = SOME _`
     \\ imp_res_tac ALOOKUP_MEM
     \\ imp_res_tac MEM_pair_IMP
     \\ rfs [EVERY_MEM]
-    \\ EVAL_TAC
-    \\ res_tac \\ fs []
-    \\ strip_tac \\ rw[]
-    \\ pop_assum mp_tac \\ EVAL_TAC))
-  \\ rpt (conj_tac THEN1
+    \\ TRY (qpat_assum `MEM _ (MAP FST (stubs (:α) c.data_conf))` mp_tac
+            \\ EVAL_TAC \\ NO_TAC)
+    \\ res_tac \\ fs [] \\ NO_TAC)
+  \\ TRY
    (imp_res_tac (INST_TYPE[beta|->alpha]stack_alloc_syntax)
     \\ pop_assum(qspec_then`c`assume_tac) \\ rfs[]
     \\ fs [EVERY_MEM,FORALL_PROD]
@@ -1230,12 +1225,11 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
      (fs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
       \\ rpt (asm_exists_tac \\ fs [])) \\ fs []
     \\ ntac 2 (pop_assum mp_tac)
-    \\ simp[]
-    \\ EVAL_TAC
-    \\ rw[] \\ rw[]
-    \\ res_tac
-    \\ pop_assum mp_tac
-    \\ EVAL_TAC \\ rw[]))
+    \\ asm_rewrite_tac [EVAL ``MAP FST (stubs (:α) c.data_conf)``,APPEND,
+         EVAL ``stack_num_stubs``,MEM] \\ strip_tac \\ rveq \\ simp_tac std_ss []
+    \\ res_tac \\ fs [] \\ NO_TAC)
+  \\ TRY
+    (fs [EVERY_MEM,FORALL_PROD] \\ rpt strip_tac \\ res_tac \\ fs [] \\ NO_TAC)
   \\ fs [state_rel_make_init,lab_to_targetProofTheory.make_init_def]
   \\ fs [PULL_EXISTS] \\ rpt strip_tac
   \\ TRY
@@ -1251,7 +1245,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ ntac 2 (first_x_assum (qspec_then`c` assume_tac))\\ rfs []
   \\ drule stack_remove_syntax_pres \\ fs [] \\ strip_tac
   \\ drule stack_names_syntax_pres \\ fs []
-  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [] *))
+  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [])
   |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
   |> Q.GEN `ra_regs` |> SIMP_RULE std_ss [GSYM PULL_EXISTS,
        METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``];
