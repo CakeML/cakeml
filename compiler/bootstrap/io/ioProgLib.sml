@@ -4,7 +4,7 @@ struct
 local
 
 open preamble;
-open ioProgTheory ml_translatorLib ml_progLib;
+open mlcharioProgTheory ioProgTheory ml_translatorLib ml_progLib;
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
 open semanticsLib;
 
@@ -18,7 +18,7 @@ fun append_main_call compile_str compile_tm = let
 val compile_str  = "compile"
 val compile_tm = ``compile``
 *)
-  
+
   val compile = compile_tm
 
   val main = parse_topdecs
