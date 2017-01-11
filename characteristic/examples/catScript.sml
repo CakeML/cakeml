@@ -1,11 +1,33 @@
-open preamble mlstringTheory
-
-open ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
-
-open catfileSystemTheory
+open preamble
+     semanticPrimitivesTheory
+     ml_translatorTheory ml_translatorLib ml_progLib
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
+     catfileSystemTheory mlcharioProgTheory basisFunctionsLib
 
 val _ = new_theory "cat"
+
+(* TODO: move *)
+val ORD_eq_0 = Q.store_thm(
+  "ORD_eq_0",
+  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
+  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
+
+val HD_LUPDATE = Q.store_thm(
+  "HD_LUPDATE",
+  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
+  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
+
+val ALIST_FUPDKEY_unchanged = Q.store_thm(
+  "ALIST_FUPDKEY_unchanged",
+  `ALOOKUP alist k = SOME v ∧ f v = v ⇒ ALIST_FUPDKEY k f alist = alist`,
+  Induct_on `alist`>> simp[FORALL_PROD, ALIST_FUPDKEY_def] >> rw[]);
+
+val ALIST_FUPDKEY_o = Q.store_thm(
+  "ALIST_FUPDKEY_o",
+  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
+  rw[ALIST_FUPDKEY_def]);
+(* -- *)
 
 (* ----------------------------------------------------------------------
 
@@ -30,189 +52,24 @@ val _ = new_theory "cat"
 
    ---------------------------------------------------------------------- *)
 
-(* first copy the Word8Array and CHAR_IO set up from helloProg, adding an
-   extra array for filenames, of length FILENAME_MAX
-*)
-(* setup *)
-
-fun get_module_prefix () = let
-  val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())
-               |> concl |> rator |> rator |> rand
-  in if optionSyntax.is_none mod_tm then "" else
-       stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
-  end
-
-fun trans ml_name q = let
-  val rhs = Term q
-  val prefix = get_module_prefix ()
-  val tm = mk_eq(mk_var(prefix ^ pick_name ml_name,type_of rhs),rhs)
-  val def = Define `^tm`
-  val _ = (next_ml_names := [ml_name])
-  val v_thm = translate (def |> SIMP_RULE std_ss [FUN_EQ_THM])
-  val v_thm = v_thm |> REWRITE_RULE [def]
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV)
-  val v_name = v_thm |> concl |> rand |> dest_const |> fst
-  (* evaluate precondition *)
-  val pat = PRECONDITION_def |> SPEC_ALL |> GSYM |> concl |> rand
-  fun PRECOND_CONV c tm =
-    if can (match_term pat) tm then RAND_CONV c tm else NO_CONV tm
-  val v_thm = v_thm |> DISCH_ALL
-                    |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
-                    |> UNDISCH_ALL
-  val _ = add_user_proved_v_thm v_thm
-  val _ = save_thm(v_name ^ "_thm",v_thm)
-  in v_thm end
-
-fun append_prog tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  in ml_prog_update (ml_progLib.add_prog tm pick_name) end
-
-fun append_dec tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  in ml_prog_update (ml_progLib.add_dec tm pick_name) end
-
-fun append_decs tm = let
-  val tm = QCONV EVAL tm |> concl |> rand
-  val tms = fst (listSyntax.dest_list tm)
-  in (map append_dec tms; ()) end
+val _ = translation_extends"mlcharioProg";
 
 fun basis_st () = get_ml_prog_state ()
-
-val _ = Define `
-  mk_binop name prim = Dlet (Pvar name)
-    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))`;
-
-val _ = Define `
-  mk_unop name prim = Dlet (Pvar name)
-    (Fun "x" (App prim [Var (Short "x")]))`;
-
-(* Word8 module -- translated *)
-
-val _ = ml_prog_update (open_module "Word8");
-
-val _ = append_dec ``Dtabbrev [] "word" (Tapp [] TC_word8)``;
-val _ = trans "fromInt" `n2w:num->word8`
-val _ = trans "toInt" `w2n:word8->num`
-
-val _ = ml_prog_update (close_module NONE);
-
-(* Word8Array module -- CF verified *)
-
-val _ = ml_prog_update (open_module "Word8Array");
-
-val _ = append_decs
-   ``[mk_binop "array" Aw8alloc;
-      mk_binop "sub" Aw8sub;
-      mk_unop "length" Aw8length;
-      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z"
-        (App Aw8update [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``
-
-val _ = ml_prog_update (close_module NONE);
-
-fun prove_array_spec op_name =
-  xcf op_name (basis_st()) \\ TRY xpull \\
-  fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-      cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def] \\
-  irule local_elim \\ reduce_tac \\
-  fs [app_aw8alloc_def, app_aw8sub_def, app_aw8length_def, app_aw8update_def,
-      app_aalloc_def, app_asub_def, app_alength_def, app_aupdate_def] \\
-  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
-  TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
-
-val w8array_alloc_spec = Q.store_thm ("w8array_alloc_spec",
-  `!n nv w wv.
-     NUM n nv /\ WORD w wv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.array" (basis_st())) [nv; wv]
-       emp (POSTv v. W8ARRAY v (REPLICATE n w))`,
-  prove_array_spec "Word8Array.array");
-
-val w8array_sub_spec = Q.store_thm ("w8array_sub_spec",
-  `!a av n nv.
-     NUM n nv /\ n < LENGTH a ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.sub" (basis_st())) [av; nv]
-       (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)`,
-  prove_array_spec "Word8Array.sub");
-
-val w8array_length_spec = Q.store_thm ("w8array_length_spec",
-  `!a av.
-     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.length" (basis_st())) [av]
-       (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)`,
-  prove_array_spec "Word8Array.length");
-
-val w8array_update_spec = Q.store_thm ("w8array_update_spec",
-  `!a av n nv w wv.
-     NUM n nv /\ n < LENGTH a /\ WORD w wv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.update" (basis_st()))
-       [av; nv; wv]
-       (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))`,
-  prove_array_spec "Word8Array.update");
-
-(* Char module -- translated *)
-
-val _ = ml_prog_update (open_module "Char");
-
-val _ = append_dec ``Dtabbrev [] "char" (Tapp [] TC_char)``;
-val _ = trans "ord" `ORD`
-val _ = trans "chr" `CHR`
-val _ = trans "<" `string$char_lt`
-val _ = trans ">" `string$char_gt`
-val _ = trans "<=" `string$char_le`
-val _ = trans ">=" `string$char_ge`
-
-val _ = ml_prog_update (close_module NONE);
-
-
-(* String module -- translated *)
-
-val _ = ml_prog_update (open_module "String");
-
-val _ = append_dec ``Dtabbrev [] "string" (Tapp [] TC_string)``;
-val _ = trans "sub" `strsub`
-val _ = trans "implode" `implode`
-val _ = trans "size" `strlen`
-
-(* TODO: these are duplicated in ml_hol_kernelProgTheory; there should be a
-single place where this translation happens *)
-val res = translate mlstringTheory.explode_aux_def;
-val res = translate mlstringTheory.explode_def;
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
-val explode_side_thm = Q.prove(
-  `explode_side x`,
-  rw[definition"explode_side_def",explode_aux_side_thm])
-  |> update_precondition
 
 (* TODO: move? *)
 val LENGTH_explode = Q.store_thm("LENGTH_explode",
   `LENGTH (explode s) = strlen s`,
   Cases_on`s` \\ simp[]);
 
-val _ = ml_prog_update (close_module NONE);
+val parse_t =
+  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (lexer_fun s) [] done failed of
+          Result (SOME(_,[x])) => ptree_Decl x``
+fun ParseDecl [QUOTE s] =
+  EVAL (mk_comb(parse_t, stringSyntax.fromMLstring s))
+       |> concl |> rhs |> rand
+(* -- *)
 
-(* toplevel "primitive" operations *)
-val _ = trans "+" `(+):int->int->int`
-val _ = trans "=" `\x1 x2. x1 = x2:'a`
-
-(* CharIO -- CF verified *)
-
-val _ = ml_prog_update (open_module "CharIO");
-
-fun derive_eval_thm v_name e = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
-  val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
-  val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
-            PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
-  val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),fs [lemma])
-                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev true v_name v_tm
-  in v_thm |> REWRITE_RULE [GSYM v_def] end
+val _ = ml_prog_update (open_module "FileIO");
 
 val onechar_e = ``(App Aw8alloc [Lit (IntLit 1); Lit (Word8 0w)])``
 val filename_e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
@@ -235,23 +92,6 @@ val _ = ml_prog_update
              "filename_array"
              [])
 
-
-(* TODO: these two can definitely move somewhere else *)
-val Apps_def = tDefine "Apps" `
-  (Apps [x;y] = App Opapp [x;y]) /\
-  (Apps [] = ARB) /\
-  (Apps xs = App Opapp [Apps (FRONT xs); LAST xs])`
-  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_FRONT]);
-
-val LetApps_def = Define `
-  LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
-
-val parse_t =
-  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (lexer_fun s) [] done failed of
-          Result (SOME(_,[x])) => ptree_Decl x``
-fun ParseDecl [QUOTE s] =
-  EVAL (mk_comb(parse_t, stringSyntax.fromMLstring s))
-       |> concl |> rhs |> rand
 
 val word_eq1_d =
   ``Dletrec [("word_eq1", "w",
@@ -369,9 +209,10 @@ val str_to_w8array_spec = Q.store_thm(
           W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 a))`,
   rpt strip_tac >> xcf "str_to_w8array" (basis_st()) >>
   xlet `POSTv csv. &(LIST_TYPE CHAR (explode s) csv) * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[explode_side_thm]) >>
+  >- (xapp >> xsimpl >> metis_tac[]) >>
   xapp >> simp[])
 
+(* not used - using CharIO.write directly (which takes a byte)
 (* ML implementation of write function, with parameter "c" (type char) *)
 val write_e =
   ``LetApps "ci" (Long "Char" "ord") [Var (Short "c")] (
@@ -382,6 +223,7 @@ val write_e =
         (Con NONE []))))``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` write_e "write_v")
+*)
 
 val _ = process_topdecs `
   exception BadFileName;
@@ -391,11 +233,11 @@ val _ = process_topdecs `
 (* Predicates for exceptions BadFileName and InvalidFD *)
 val BadFileName_exn_def = Define `
   BadFileName_exn v =
-    (v = Conv (SOME ("BadFileName", TypeExn (Long "CharIO" "BadFileName"))) [])`
+    (v = Conv (SOME ("BadFileName", TypeExn (Long "FileIO" "BadFileName"))) [])`
 
 val InvalidFD_exn_def = Define `
   InvalidFD_exn v =
-    (v = Conv (SOME ("InvalidFD", TypeExn (Long "CharIO" "InvalidFD"))) [])`
+    (v = Conv (SOME ("InvalidFD", TypeExn (Long "FileIO" "InvalidFD"))) [])`
 
 (* ML implementation of open function, with parameter name "fname" *)
 val openIn_e =
@@ -447,9 +289,7 @@ val fgetc_e =
         Let (SOME "u2") (App (FFI "fgetc") [Var (Short "onechar")]) (
         Let (SOME "cw") (Apps [Var (Long "Word8Array" "sub");
                                Var (Short "onechar"); Lit (IntLit 0)]) (
-        Let (SOME "ci") (Apps [Var (Long "Word8" "toInt"); Var (Short "cw")]) (
-        Let (SOME "c") (Apps [Var (Long "Char" "chr"); Var (Short "ci")]) (
-          Con (SOME (Short "SOME")) [Var (Short "c")])))))))``
+          Con (SOME (Short "SOME")) [Var (Short "cw")])))))``
    |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"fgetc"`` ``"fd"`` fgetc_e "fgetc_v")
 val fgetc_v_def = definition "fgetc_v_def"
@@ -471,12 +311,6 @@ val close_e =
     |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"close"`` ``"w8"`` close_e "close_v")
 
-val _ = ml_prog_update (close_module NONE);
-
-val CATFS_def = Define `
-  CATFS fs = IO (encode fs) fs_ffi_next ["write";"open";"fgetc";"close";"isEof"] * &(wfFS fs)
-`
-
 val CHAR_IO_char1_def = Define `
   CHAR_IO_char1 = SEP_EXISTS w. W8ARRAY onechar_loc [w]`;
 
@@ -485,9 +319,10 @@ val CHAR_IO_fname_def = Define`
     SEP_EXISTS v. W8ARRAY filename_loc v * cond (LENGTH v = 256)
 `;
 
-val CHAR_IO_def = Define`
-  CHAR_IO = CHAR_IO_char1 * CHAR_IO_fname
-`;
+val CATFS_def = Define `
+  CATFS fs =
+    IO (encode fs) fs_ffi_next ["open";"fgetc";"close";"isEof"] * &(wfFS fs) *
+    CHAR_IO_char1 * CHAR_IO_fname`
 
 val FILENAME_def = Define `
   FILENAME s sv =
@@ -495,37 +330,6 @@ val FILENAME_def = Define `
      ¬MEM (CHR 0) (explode s) ∧
      strlen s < 256)
 `;
-
-val write_spec = Q.store_thm ("write_spec",
-  `!c cv.
-     CHAR (c:char) cv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
-       [cv]
-       (CHAR_IO * CATFS fs)
-       (POSTv uv.
-         cond (UNIT_TYPE () uv) * CHAR_IO *
-         CATFS (fs with stdout := fs.stdout ++ [c]))`,
-  xcf "CharIO.write" (basis_st()) >>
-  xlet `POSTv civ. &NUM (ORD c) civ * CHAR_IO * CATFS fs`
-  >- (xapp >> xsimpl >> instantiate) >>
-  xlet `POSTv cwv. &WORD (n2w (ORD c) : word8) cwv * CHAR_IO * CATFS fs`
-  >- (xapp >> xsimpl >> instantiate) >>
-  simp[CHAR_IO_def, CHAR_IO_char1_def] >> xpull >>
-  xlet `POSTv uv. & UNIT_TYPE () uv * CATFS fs *
-                  W8ARRAY onechar_loc [n2w (ORD c)] * CHAR_IO_fname`
-  >- (xapp >> xsimpl >> simp[onechar_loc_def] >> instantiate >> xsimpl >>
-      simp[LUPDATE_def]) >>
-  xlet `POSTv _. CATFS (fs with stdout := fs.stdout ++ [c]) *
-                 W8ARRAY onechar_loc [n2w (ORD c)] * CHAR_IO_fname`
-  >- (simp [onechar_loc_def, CATFS_def] >> xpull >> xffi >>
-      `MEM "write" ["write";"open";"fgetc";"close";"isEof"]` by simp[] \\ instantiate >> xsimpl >>
-      fs[write_lemma, wfFS_def, ORD_BOUND, CHR_ORD]) >>
-  xret >> xsimpl);
-
-val ORD_eq_0 = Q.store_thm(
-  "ORD_eq_0",
-  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
-  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
 
 val nextFD_ltX = Q.store_thm(
   "nextFD_ltX",
@@ -541,36 +345,33 @@ val nextFD_ltX = Q.store_thm(
      by metis_tac[CARD_COUNT, CARD_SUBSET, FINITE_LIST_TO_SET] >>
   fs[]);
 
-val HD_LUPDATE = Q.store_thm(
-  "HD_LUPDATE",
-  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
-  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
-
 val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
      FILENAME s sv ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.openIn" (basis_st()))
+     app (p:'ffi ffi_proj) ^(fetch_v "openIn" (basis_st()))
        [sv]
-       (CHAR_IO * CATFS fs)
+       (CATFS fs)
        (POST
           (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
                   validFD (nextFD fs) (openFileFS s fs) ∧
                   inFS_fname s fs) *
-                CATFS (openFileFS s fs) * CHAR_IO)
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname s fs) * CATFS fs * CHAR_IO))`,
-  xcf "CharIO.openIn" (basis_st()) >>
-  fs[FILENAME_def, strlen_def, CHAR_IO_def, CHAR_IO_fname_def] >> xpull >>
+                CATFS (openFileFS s fs))
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname s fs) * CATFS fs))`,
+  xcf "openIn" (basis_st()) >>
+  fs[FILENAME_def, mlstringTheory.strlen_def, CATFS_def, CHAR_IO_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
+  qmatch_goalsub_abbrev_tac`CATIO * _ * _` >>
   xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_char1 *
                  W8ARRAY filename_loc
                          (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0) *
-                 CATFS fs`
+                 CATIO`
   >- (xapp >> xsimpl >> instantiate >>
       simp[definition "filename_loc_def"] >> xsimpl >>
       Cases_on`s` \\ fs[]) >>
   qabbrev_tac `fnm = insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0` >>
+  qmatch_goalsub_abbrev_tac`CATIOO * _ * _ * _` >>
   Cases_on `inFS_fname s fs`
   >- (
     xlet `POSTv u2.
@@ -578,13 +379,14 @@ val openIn_spec = Q.store_thm(
               validFD (nextFD fs) (openFileFS s fs)) *
             CHAR_IO_char1 *
             W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
-            CATFS (openFileFS s fs)`
-    >- (simp[CATFS_def] >> xpull >> xffi >> simp[definition "filename_loc_def"] >>
-        `MEM "open" ["write";"open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
+            CATIOO`
+    >- (simp[Abbr`CATIO`,Abbr`CATIOO`] >>
+        xffi >> simp[definition "filename_loc_def"] >>
+        `MEM "open" ["open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
         simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
              getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
-             implode_explode, LENGTH_explode] >>
+             mlstringTheory.implode_explode, LENGTH_explode] >>
         `∃content. ALOOKUP fs.files s = SOME content`
           by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
               metis_tac[]) >>
@@ -592,44 +394,43 @@ val openIn_spec = Q.store_thm(
     xlet `POSTv fdv. &WORD (n2w (nextFD fs) : word8) fdv *
                      CHAR_IO_char1 *
                      W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
-                     CATFS (openFileFS s fs)`
+                     CATIOO`
     >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
         csimp[HD_LUPDATE] >>
         simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]) >>
     xlet `POSTv eqn1v. &BOOL F eqn1v * CHAR_IO_char1 *
                        W8ARRAY filename_loc (LUPDATE (n2w (nextFD fs)) 0 fnm) *
-                       CATFS (openFileFS s fs)`
+                       CATIOO`
     >- (xapp >> xsimpl >> qexists_tac `n2w (nextFD fs)` >>
         simp[WORD_def, BOOL_def]) >>
-    xif >> instantiate >> xret >> xsimpl >>
-    simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]
+    xif >> instantiate >> xret >> simp[Abbr`CATIOO`] >> xsimpl >>
+    simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode, wfFS_openFile]
   )
   >- (
     xlet `POSTv u2.
-            &UNIT_TYPE () u2 * CHAR_IO_char1 * CATFS fs *
+            &UNIT_TYPE () u2 * CHAR_IO_char1 * CATIO *
             W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
-
-    >- (simp[CATFS_def] >> xpull >> xffi >> simp[definition "filename_loc_def"] >>
-        `MEM "open" ["write";"open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
+    >- (simp[Abbr`CATIO`,Abbr`CATIOO`] >> xffi >> simp[definition "filename_loc_def"] >>
+        `MEM "open" ["open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
         simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
              getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
-             implode_explode, LENGTH_explode] >>
+             mlstringTheory.implode_explode, LENGTH_explode] >>
         simp[not_inFS_fname_openFile]) >>
     xlet `POSTv fdv. &WORD (255w: word8) fdv *
-                     CHAR_IO_char1 * CATFS fs *
+                     CHAR_IO_char1 * CATIO *
                      W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
     >- (xapp >> xsimpl >> simp[definition "filename_loc_def"] >> xsimpl >>
         csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]) >>
     xlet `POSTv eqn1v.
             &BOOL T eqn1v *
-            CHAR_IO_char1 * CATFS fs *
+            CHAR_IO_char1 * CATIO *
             W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
     >- (xapp >> xsimpl >> fs[WORD_def, BOOL_def]) >>
     xif >> instantiate >>
     xlet `POSTv ev.
             &BadFileName_exn ev *
-            CHAR_IO_char1 * CATFS fs *
+            CHAR_IO_char1 * CATIO *
             W8ARRAY filename_loc (LUPDATE 255w 0 fnm)`
     >- (xret >> xsimpl >> simp[BadFileName_exn_def]) >>
     xraise >> xsimpl >> simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]
@@ -640,22 +441,23 @@ val eof_spec = Q.store_thm(
   "eof_spec",
   `∀(w:word8) wv fs.
      WORD w wv ∧ validFD (w2n w) fs  ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.eof" (basis_st()))
+     app (p:'ffi ffi_proj) ^(fetch_v "eof" (basis_st()))
        [wv]
-       (CHAR_IO * CATFS fs)
+       (CATFS fs)
        (POSTv bv.
-          &(BOOL (THE (eof (w2n w) fs)) bv) * CHAR_IO * CATFS fs)`,
-  xcf "CharIO.eof" (basis_st()) >>
-  simp[CHAR_IO_def, CHAR_IO_char1_def] >> xpull >>
+          &(BOOL (THE (eof (w2n w) fs)) bv) * CATFS fs)`,
+  xcf "eof" (basis_st()) >>
+  simp[CATFS_def, CHAR_IO_char1_def] >> xpull >>
   rename [`W8ARRAY onechar_loc [byte]`] >>
-  xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_fname * CATFS fs *
+  qmatch_goalsub_abbrev_tac`CATIO * _ * _` >>
+  xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_fname * CATIO *
                  W8ARRAY onechar_loc [w]`
   >- (xapp >> xsimpl >> simp[onechar_loc_def] >> xsimpl >>
       simp[LUPDATE_def]) >>
-  xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_fname * CATFS fs *
+  xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_fname * CATIO *
                  W8ARRAY onechar_loc [if THE (eof (w2n w) fs) then 1w else 0w]`
-  >- (simp[CATFS_def] >> xpull >> xffi >> simp[onechar_loc_def] >>
-      `MEM "isEof" ["write";"open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
+  >- (simp[Abbr`CATIO`] >> xffi >> simp[onechar_loc_def] >>
+      `MEM "isEof" ["open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
       csimp[fs_ffi_next_def, LUPDATE_def] >>
       simp[eof_def, EXISTS_PROD, PULL_EXISTS] >>
       `∃fnm pos. ALOOKUP fs.infds (w2n w) = SOME (fnm,pos)`
@@ -666,7 +468,7 @@ val eof_spec = Q.store_thm(
         by (fs[wfFS_def, validFD_def] >> res_tac >> fs[MEM_MAP, EXISTS_PROD] >>
             rw[] >> metis_tac[ALOOKUP_EXISTS_IFF]) >> simp[]) >>
   xlet `POSTv bw. &(WORD (if THE (eof (w2n w) fs) then 1w else 0w:word8) bw) *
-                  CATFS fs * CHAR_IO_fname *
+                  CATIO * CHAR_IO_fname *
                   W8ARRAY onechar_loc [if THE (eof (w2n w) fs) then 1w else 0w]`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl) >>
   xmatch >>
@@ -685,89 +487,84 @@ val fgetc_spec = Q.store_thm(
   "fgetc_spec",
   `∀(fdw:word8) fdv fs.
      WORD fdw fdv ∧ validFD (w2n fdw) fs ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.fgetc" (basis_st())) [fdv]
-       (CHAR_IO * CATFS fs)
+     app (p:'ffi ffi_proj) ^(fetch_v "fgetc" (basis_st())) [fdv]
+       (CATFS fs)
        (POSTv coptv.
-          &(OPTION_TYPE CHAR (FDchar (w2n fdw) fs) coptv) * CHAR_IO *
+          &(OPTION_TYPE WORD (FDchar (w2n fdw) fs) coptv) *
           CATFS (bumpFD (w2n fdw) fs))`,
-  rpt strip_tac >> xcf "CharIO.fgetc" (basis_st()) >>
+  rpt strip_tac >> xcf "fgetc" (basis_st()) >>
   simp[CATFS_def] >> xpull >>
-  qabbrev_tac `catfs = λfs. IO (encode fs) fs_ffi_next ["write";"open";"fgetc";"close";"isEof"]` >> simp[] >>
+  qabbrev_tac `catfs = λfs. IO (encode fs) fs_ffi_next ["open";"fgetc";"close";"isEof"]` >> simp[] >>
   `∃eofb. eof (w2n fdw) fs = SOME eofb` by metis_tac[wfFS_eof_EQ_SOME] >>
-  xlet `POSTv bv. &(BOOL eofb bv) * catfs fs * CHAR_IO`
+  xlet `POSTv bv. &(BOOL eofb bv) * catfs fs * CHAR_IO_char1 * CHAR_IO_fname`
   >- (xapp >> simp[onechar_loc_def, CATFS_def] >> xsimpl >> instantiate >>
       xsimpl) >>
   xif >- (xret >> fs[eof_FDchar, eof_bumpFD, OPTION_TYPE_def] >> xsimpl) >>
   fs[] >>
-  simp[CHAR_IO_def, CHAR_IO_char1_def] >> xpull >>
+  simp[CHAR_IO_char1_def] >> xpull >>
   xlet `POSTv u1. W8ARRAY onechar_loc [fdw] * catfs fs * CHAR_IO_fname`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
       simp[LUPDATE_def]) >>
   `∃c. FDchar (w2n fdw) fs = SOME c` by metis_tac[neof_FDchar] >> simp[] >>
   xlet `POSTv u2. &UNIT_TYPE () u2 * catfs (bumpFD (w2n fdw) fs) *
-                  CHAR_IO_fname * W8ARRAY onechar_loc [n2w (ORD c)]`
+                  CHAR_IO_fname * W8ARRAY onechar_loc [c]`
   >- (xffi >> simp[onechar_loc_def, Abbr`catfs`] >> xsimpl >>
-      `MEM "fgetc" ["write";"open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
+      `MEM "fgetc" ["open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
       simp[fs_ffi_next_def, EXISTS_PROD, fgetc_def]) >>
   xlet `POSTv cwv.
-         &(WORD (n2w (ORD c) : word8) cwv) * CHAR_IO_fname *
-         W8ARRAY onechar_loc [n2w (ORD c)] * catfs (bumpFD (w2n fdw) fs)`
+         &(WORD c cwv) * CHAR_IO_fname *
+         W8ARRAY onechar_loc [c] * catfs (bumpFD (w2n fdw) fs)`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl) >>
-  xlet `POSTv civ. &NUM (ORD c) civ * CHAR_IO_fname *
-                   W8ARRAY onechar_loc [n2w (ORD c)] *
-                   catfs (bumpFD (w2n fdw) fs)`
-  >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
-      instantiate >> simp[ORD_BOUND]) >>
-  xlet `POSTv cv. &CHAR c cv * catfs (bumpFD (w2n fdw) fs) * CHAR_IO_fname *
-                  W8ARRAY onechar_loc [n2w (ORD c)]`
-  >- (xapp >> simp[onechar_loc_def] >> xsimpl >>
-      instantiate >> simp[ORD_BOUND, CHR_ORD]) >>
   xret >> xsimpl >> simp[OPTION_TYPE_def])
 
 val close_spec = Q.store_thm(
   "close_spec",
   `∀(fdw:word8) fdv fs.
      WORD fdw fdv ∧ validFD (w2n fdw) fs ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.close" (basis_st())) [fdv]
-       (CHAR_IO * CATFS fs)
-       (POSTv u. &UNIT_TYPE () u * CHAR_IO *
+     app (p:'ffi ffi_proj) ^(fetch_v "close" (basis_st())) [fdv]
+       (CATFS fs)
+       (POSTv u. &UNIT_TYPE () u *
                  CATFS (fs with infds updated_by A_DELKEY (w2n fdw)))`,
   rpt strip_tac >>
-  xcf "CharIO.close" (basis_st()) >> simp[CHAR_IO_def, CHAR_IO_char1_def] >>
+  xcf "close" (basis_st()) >> simp[CATFS_def, CHAR_IO_char1_def] >>
   xpull >>
+  qabbrev_tac `catfs = λfs. IO (encode fs) fs_ffi_next ["open";"fgetc";"close";"isEof"]` >> simp[] >>
   xlet `POSTv u.
-         &UNIT_TYPE () u * W8ARRAY onechar_loc [fdw] * CHAR_IO_fname * CATFS fs`
+         &UNIT_TYPE () u * W8ARRAY onechar_loc [fdw] * CHAR_IO_fname * catfs fs`
   >- (xapp >> simp[onechar_loc_def] >> xsimpl >> simp[LUPDATE_def]) >>
   xlet `POSTv u2.
           &UNIT_TYPE () u2 * W8ARRAY onechar_loc [1w] * CHAR_IO_fname *
-          CATFS (fs with infds updated_by A_DELKEY (w2n fdw))`
-  >- (simp[CATFS_def] >> xpull >> xffi >> simp[onechar_loc_def] >> xsimpl >>
-      `MEM "close" ["write";"open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
+          catfs (fs with infds updated_by A_DELKEY (w2n fdw))`
+  >- (simp[Abbr`catfs`] >> xffi >> simp[onechar_loc_def] >> xsimpl >>
+      `MEM "close" ["open";"fgetc";"close";"isEof"]` by simp[] >> instantiate >> xsimpl >>
       simp[fs_ffi_next_def, wfFS_DELKEY, closeFD_def, EXISTS_PROD] >>
       `∃p. ALOOKUP fs.infds (w2n fdw) = SOME p`
         by (fs[validFD_def, MEM_MAP, EXISTS_PROD] >>
             metis_tac[PAIR,EXISTS_PROD, ALOOKUP_EXISTS_IFF]) >>
       simp[LUPDATE_def, RO_fs_component_equality]) >>
   qabbrev_tac `fs' = fs with infds updated_by A_DELKEY (w2n fdw)` >>
-  xlet `POSTv okwv. &WORD (1w:word8) okwv * CHAR_IO * CATFS fs'`
-  >- (simp[CHAR_IO_def, CHAR_IO_char1_def] >> xapp >> simp[onechar_loc_def] >>
-      xsimpl) >>
-  simp[GSYM CHAR_IO_char1_def, GSYM CHAR_IO_def] >>
-  xlet `POSTv okbv. &BOOL T okbv * CHAR_IO * CATFS fs'`
+  xlet `POSTv okwv. &WORD (1w:word8) okwv * CATFS fs'`
+  >- (simp[CATFS_def,Abbr`catfs`,CHAR_IO_char1_def] >> xapp >> simp[onechar_loc_def] >>
+      xsimpl >> simp[Abbr`fs'`]) >>
+  simp[GSYM CHAR_IO_char1_def] >>
+  xlet `POSTv okbv. &BOOL T okbv * CATFS fs'`
   >- (xapp >> xsimpl >> qexists_tac `1w` >> simp[]) >>
-  xif >> qexists_tac `T` >> simp[] >> xret >> xsimpl);
+  xif >> qexists_tac `T` >> simp[Abbr`catfs`,CATFS_def] >>
+  xpull >> xret >> xsimpl);
+
+val _ = ml_prog_update (close_module NONE);
 
 val _ = process_topdecs `
   fun do_onefile fname =
     let
-      val fd = CharIO.openIn fname
+      val fd = FileIO.openIn fname
       fun recurse () =
-        case CharIO.fgetc fd of
+        case FileIO.fgetc fd of
             NONE => ()
           | SOME c => (CharIO.write c; recurse ())
     in
       recurse () ;
-      CharIO.close fd
+      FileIO.close fd
     end
 
   fun cat fnames =
@@ -775,17 +572,6 @@ val _ = process_topdecs `
       [] => ()
     | f::fs => (do_onefile f ; cat fs)
 ` |> append_prog
-
-val ALIST_FUPDKEY_unchanged = Q.store_thm(
-  "ALIST_FUPDKEY_unchanged",
-  `ALOOKUP alist k = SOME v ∧ f v = v ⇒ ALIST_FUPDKEY k f alist = alist`,
-  Induct_on `alist`>> simp[FORALL_PROD, ALIST_FUPDKEY_def] >> rw[]);
-
-val ALIST_FUPDKEY_o = Q.store_thm(
-  "ALIST_FUPDKEY_o",
-  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
-  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
-  rw[ALIST_FUPDKEY_def]);
 
 val nextFD_NOT_MEM = Q.store_thm(
   "nextFD_NOT_MEM",
@@ -799,31 +585,30 @@ val nextFD_NOT_MEM = Q.store_thm(
 
 val do_onefile_spec = Q.store_thm(
   "do_onefile_spec",
-  `∀fnm fnv fs.
+  `∀fnm fnv fs out.
       FILENAME fnm fnv ∧
       CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (basis_st())) [fnv]
-       (CHAR_IO * CATFS fs)
+       (CATFS fs * STDOUT out)
        (POST
          (\u. SEP_EXISTS content.
               &UNIT_TYPE () u *
               &(ALOOKUP fs.files fnm = SOME content) *
-              CHAR_IO *
-              CATFS (fs with stdout updated_by (λout. out ++ content)))
+              CATFS fs * STDOUT (out ++ content))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fnm fs) *
-              CHAR_IO * CATFS fs))`,
+              CATFS fs * STDOUT out))`,
   rpt strip_tac >> xcf "do_onefile" (basis_st()) >>
   xlet `POST
           (\fdv.
             &(WORD (n2w (nextFD fs) : word8) fdv ∧
               validFD (nextFD fs) (openFileFS fnm fs) ∧
               inFS_fname fnm fs) *
-            CHAR_IO * CATFS (openFileFS fnm fs))
+            CATFS (openFileFS fnm fs) * STDOUT out)
           (\e.
             &(BadFileName_exn e ∧ ~inFS_fname fnm fs) *
-            CHAR_IO * CATFS fs)`
+            CATFS fs * STDOUT out)`
   >- (xapp >> fs[] >> instantiate >> xsimpl)
   >- xsimpl >>
   qabbrev_tac `fd = nextFD fs` >>
@@ -835,29 +620,28 @@ val do_onefile_spec = Q.store_thm(
      rfs[nextFD_ltX] >> NO_TAC) >>
   progress inFS_fname_ALOOKUP_EXISTS >>
   xfun_spec `recurse`
-    `!m n fs00 uv.
+    `!m n fs00 out00 uv.
        UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
        fs00.files = fs.files ∧
        ALOOKUP fs00.infds fd = SOME (fnm, n)
          ==>
        app p recurse [uv]
-         (CHAR_IO * CATFS fs00)
+         (CATFS fs00 * STDOUT out00)
          (POSTv u.
-            &UNIT_TYPE () u * CHAR_IO *
+            &UNIT_TYPE () u *
             CATFS (fs00 with <|
-                     stdout updated_by (λout. out ++ DROP n content) ;
                      infds updated_by
                            ALIST_FUPDKEY fd (I ## K (LENGTH content))
-                   |>))`
+                   |>) * STDOUT (out00 ++ DROP n content))`
   >- (Induct
       >- ((* base case *)
-          rpt strip_tac >> `n = STRLEN content` by simp[] >> fs[] >> rveq >>
+          rpt strip_tac >> `n = LENGTH content` by simp[] >> fs[] >> rveq >>
           xapp >> fs[UNIT_TYPE_def] >> xmatch >>
           xlet `POSTv av.
-                  &OPTION_TYPE CHAR NONE av * CHAR_IO * CATFS fs00`
+                  &OPTION_TYPE (WORD:word8->v->bool) NONE av * CATFS fs00 * STDOUT out00`
           >- (rveq >> xapp >> xsimpl >> instantiate >>
               `fd < 256` by simp[Abbr`fd`, nextFD_ltX] >> simp[] >>
-              xsimpl >> map_every qexists_tac [`emp`, `fs00`] >> xsimpl >>
+              xsimpl >> map_every qexists_tac [`STDOUT out00`, `fs00`] >> xsimpl >>
               conj_tac
               >- (simp[validFD_def, EXISTS_PROD, MEM_MAP] >>
                   metis_tac[EXISTS_PROD, PAIR, ALOOKUP_EXISTS_IFF]) >>
@@ -867,39 +651,33 @@ val do_onefile_spec = Q.store_thm(
           fs[OPTION_TYPE_def] >> xmatch >> xret >>
           simp[DROP_LENGTH_NIL] >>
           `fs00 with <| infds updated_by
-                              ALIST_FUPDKEY fd (I ## K (LENGTH content));
-                        stdout updated_by (λout. out) |> = fs00`
+                              ALIST_FUPDKEY fd (I ## K (LENGTH content)) |> = fs00`
             by (simp[RO_fs_component_equality] >>
                 irule ALIST_FUPDKEY_unchanged >> simp[]) >> simp[] >>
           xsimpl) >>
       rpt strip_tac >> fs[] >> last_assum xapp_spec >>
       qpat_x_assum `UNIT_TYPE () _` mp_tac >> simp[UNIT_TYPE_def] >>
       strip_tac >> xmatch >>
-      xlet `POSTv av. &OPTION_TYPE CHAR (FDchar fd fs00) av * CHAR_IO *
-                      CATFS (bumpFD fd fs00)`
+      xlet `POSTv av. &OPTION_TYPE (WORD:word8->v->bool) (FDchar fd fs00) av *
+                      CATFS (bumpFD fd fs00) * STDOUT out00`
       >- (xapp >> xsimpl >> instantiate >>
           `fd < 256` by simp[Abbr`fd`, nextFD_ltX] >> simp[] >>
-          xsimpl >> map_every qexists_tac [`emp`, `fs00`] >> xsimpl >>
+          xsimpl >> map_every qexists_tac [`STDOUT out00`, `fs00`] >> xsimpl >>
           simp[validFD_def, MEM_MAP, EXISTS_PROD] >>
           metis_tac[EXISTS_PROD, PAIR, ALOOKUP_EXISTS_IFF]) >>
       `∃c. FDchar fd fs00 = SOME c` by (irule neof_FDchar >> simp[eof_def] >> NO_TAC) >>
       fs[OPTION_TYPE_def] >> rveq >> xmatch >>
-      qabbrev_tac `fs01 = bumpFD fd fs00
-                            with stdout updated_by (λout. out ++ [c])` >>
-      xlet `POSTv u. &UNIT_TYPE () u * CHAR_IO * CATFS fs01`
+      qabbrev_tac `fs01 = bumpFD fd fs00` >>
+      xlet `POSTv u. &UNIT_TYPE () u * CATFS fs01 * STDOUT (out00 ++ [c])`
       >- (xapp >> xsimpl >> instantiate >> xsimpl >>
-          map_every qexists_tac [`emp`, `bumpFD fd fs00`] >> xsimpl >>
-          qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
-          `fs2 = fs1` suffices_by (simp[] >> xsimpl) >>
-          UNABBREV_ALL_TAC >>
-          simp[RO_fs_component_equality]) >>
-      xlet `POSTv bv. &UNIT_TYPE () bv * CHAR_IO * CATFS fs01`
+          map_every qexists_tac [`CATFS fs01`,`out00`] >> xsimpl) >>
+      xlet `POSTv bv. &UNIT_TYPE () bv * CATFS fs01 * STDOUT (out00 ++ [c])`
       >- (xret >> xsimpl) >>
       first_x_assum xapp_spec >>
-      map_every qexists_tac [`emp`, `n + 1`, `fs01`] >> simp[] >> xsimpl >>
+      map_every qexists_tac [`emp`, `out00 ++ [c]`, `n + 1`, `fs01`] >> simp[] >> xsimpl >>
       simp[UNIT_TYPE_def] >> reverse conj_tac
-      >- (qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
-          `fs2 = fs1` suffices_by xsimpl >>
+      >- (qmatch_abbrev_tac `CATFS fs1 * STDOUT s1 ==>> CATFS fs2 * STDOUT s2 * GC` >>
+          `fs2 = fs1 ∧ s1 = s2` suffices_by xsimpl >>
           UNABBREV_ALL_TAC >> simp[RO_fs_component_equality, bumpFD_def] >>
           conj_tac
           >- (simp[ALIST_FUPDKEY_o, combinTheory.o_DEF] >>
@@ -910,25 +688,23 @@ val do_onefile_spec = Q.store_thm(
           fs[FDchar_def] >> rfs[] >> rveq >> fs[]>> rfs[]) >> conj_tac
       >- simp[Abbr`fs01`, bumpFD_def]
       >- simp[Abbr`fs01`, bumpFD_def, ALIST_FUPDKEY_ALOOKUP]) >>
-  xlet `POSTv u2. &UNIT_TYPE () u2 * CHAR_IO * CATFS fs0`
+  xlet `POSTv u2. &UNIT_TYPE () u2 * CATFS fs0 * STDOUT out`
   >- (xret >> xsimpl) >>
   (* calling recurse *)
-  xlet `POSTv u3. &UNIT_TYPE () u3 * CHAR_IO *
+  xlet `POSTv u3. &UNIT_TYPE () u3 *
                   CATFS (fs0 with <|
-                           stdout updated_by (λout. out ++ content);
                            infds updated_by
                               ALIST_FUPDKEY fd (I ## K (LENGTH content))
-                         |>)`
-  >- (xapp >> map_every qexists_tac [`emp`, `0`, `fs0`] >> simp[] >>
+                         |>) * STDOUT (out ++ content)`
+  >- (xapp >> map_every qexists_tac [`emp`, `out`, `0`, `fs0`] >> simp[] >>
       xsimpl >>
       fs[] >>
       simp[Abbr`fs0`, openFileFS_def, openFile_def, Abbr`fd`, nextFD_ltX]) >>
   (* calling close *)
   xapp >> xsimpl >> instantiate >>
   `fd < 256` by (fs[] >> simp[Abbr`fd`, nextFD_ltX] >> NO_TAC) >> simp[] >>
-  map_every qexists_tac [`emp`,
-    `fs0 with <| infds updated_by ALIST_FUPDKEY fd (I ## K (LENGTH content)) ;
-                 stdout updated_by (λout. out ++ content) |>`
+  map_every qexists_tac [`STDOUT (out ++ content)`,
+    `fs0 with <| infds updated_by ALIST_FUPDKEY fd (I ## K (LENGTH content)) |>`
   ] >> simp[] >> xsimpl >> conj_tac
   >- (simp[validFD_def, EXISTS_PROD, MEM_MAP] >>
       metis_tac[EXISTS_PROD, ALOOKUP_EXISTS_IFF, PAIR]) >>
@@ -949,17 +725,17 @@ val catfiles_string_def = Define`
 `;
 
 val cat_spec0 = Q.prove(
-  `∀fns fnsv fs.
+  `∀fns fnsv fs out.
      LIST_TYPE FILENAME fns fnsv ∧
      EVERY (\fnm. inFS_fname fnm fs) fns ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "cat" (basis_st())) [fnsv]
-       (CHAR_IO * CATFS fs)
+       (CATFS fs * STDOUT out)
        (POSTv u.
-          &UNIT_TYPE () u * CHAR_IO *
-          CATFS (fs with stdout updated_by
-                   (λout. out ++ catfiles_string fs fns)))`,
+          &UNIT_TYPE () u *
+          CATFS fs *
+          STDOUT (out ++ catfiles_string fs fns))`,
   Induct >>
   rpt strip_tac >> xcf "cat" (basis_st()) >>
   fs[LIST_TYPE_def]
@@ -971,31 +747,31 @@ val cat_spec0 = Q.prove(
   progress inFS_fname_ALOOKUP_EXISTS >>
   rename1 `ALOOKUP fs.files _ = SOME cnts` >>
   xlet `POSTv uv.
-         &UNIT_TYPE () uv * CHAR_IO *
-         CATFS (fs with stdout updated_by (λout. out ++ cnts))`
-  >- (xapp >> xsimpl >> instantiate >> xsimpl) >>
+         &UNIT_TYPE () uv * CATFS fs *
+         STDOUT (out ++ cnts)`
+  >- (xapp >> xsimpl >> instantiate >> map_every qexists_tac[`emp`,`out`] >> xsimpl) >>
   xapp >>
   map_every qexists_tac
-    [`emp`, `fs with stdout updated_by (λout. out ++ cnts)`] >>
-  simp[] >> xsimpl >> rpt strip_tac >- fs[inFS_fname_def] >>
-  qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+    [`emp`, `out ++ cnts`, `fs`] >>
+  simp[] >> xsimpl >>
+  qmatch_abbrev_tac `STDOUT fs1 ==>> STDOUT fs2 * GC` >>
   `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
-  simp[RO_fs_component_equality, catfiles_string_def, file_contents_def])
+  simp[catfiles_string_def, file_contents_def])
 
 val cat_spec = save_thm(
   "cat_spec",
-  cat_spec0 |> SIMP_RULE (srw_ss()) [GSYM strlen_def])
+  cat_spec0 |> SIMP_RULE (srw_ss()) [])
 
 val _ = process_topdecs `
   fun cat1 f =
     (do_onefile f)
-    handle CharIO.BadFileName => ()
+    handle FileIO.BadFileName => ()
 ` |> append_prog
 
 val catfile_string_def = Define `
   catfile_string fs fnm =
     if inFS_fname fnm fs then file_contents fnm fs
-    else ""`
+    else []`
 
 val cat1_spec = Q.store_thm (
   "cat1_spec",
@@ -1003,28 +779,28 @@ val cat1_spec = Q.store_thm (
      FILENAME fnm fnmv /\
      CARD (FDOM (alist_to_fmap fs.infds)) < 255 ==>
      app (p:'ffi ffi_proj) ^(fetch_v "cat1" (basis_st())) [fnmv]
-       (CHAR_IO * CATFS fs)
+       (CATFS fs * STDOUT out)
        (POSTv u.
-          &UNIT_TYPE () u * CHAR_IO *
-          CATFS (fs with stdout updated_by (\out. out ++ catfile_string fs fnm)))`,
+          &UNIT_TYPE () u * CATFS fs *
+          STDOUT (out ++ catfile_string fs fnm))`,
   xcf "cat1" (basis_st()) >>
   xhandle `POST
              (\u. SEP_EXISTS content. &UNIT_TYPE () u *
                &(ALOOKUP fs.files fnm = SOME content) *
-               CHAR_IO *
-               CATFS (fs with stdout updated_by (\out. out ++ content)))
+               CATFS fs *
+               STDOUT (out ++ content))
              (\e. &BadFileName_exn e * &(~inFS_fname fnm fs) *
-                  CHAR_IO * CATFS fs)` >> fs[]
+                  CATFS fs * STDOUT out)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
-      qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2` >>
+      qmatch_abbrev_tac `STDOUT fs1 ==>> STDOUT fs2` >>
       `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
-      simp[RO_fs_component_equality, catfile_string_def, file_contents_def] >>
+      simp[ catfile_string_def, file_contents_def] >>
       progress ALOOKUP_SOME_inFS_fname >> fs []) >>
   fs [BadFileName_exn_def] >> xcases >> xret >> xsimpl >>
-      qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+      qmatch_abbrev_tac `STDOUT fs1 ==>> STDOUT fs2 * GC` >>
       `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
-      simp[RO_fs_component_equality, catfile_string_def, file_contents_def]
+      simp[catfile_string_def, file_contents_def]
 );
 
 val _ = overload_on ("noNullBytes", ``λs. ¬MEM (CHR 0) (explode s)``)
