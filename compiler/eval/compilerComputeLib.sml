@@ -388,7 +388,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.tag_mask_def
     ,data_to_wordTheory.encode_header_def
     ,data_to_wordTheory.list_Seq_def
-    ,data_to_wordTheory.shift_def
+    ,wordLangTheory.shift_def
     ,data_to_wordTheory.StoreEach_def
     ,data_to_wordTheory.small_shift_length_def
     ,data_to_wordTheory.shift_length_def
@@ -682,7 +682,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.prog_to_bytes_def
     ,lab_to_targetTheory.find_ffi_names_def
     ,lab_to_targetTheory.list_add_if_fresh_def
-    ,lab_to_targetTheory.get_ffi_index_def         
+    ,lab_to_targetTheory.get_ffi_index_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
       (* ---- Everything in backend theory ---- *)
