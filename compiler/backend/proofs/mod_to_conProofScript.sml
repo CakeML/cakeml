@@ -1501,7 +1501,7 @@ val alloc_tags_accumulates = Q.prove(
           nsDom acc = nsDom (build_tdefs mn ls) ∧
     (∀cn. cn ∈ nsDom (build_tdefs mn ls) ⇒
       OPTION_MAP SND (nsLookup acc cn) =
-           lookup_tag_env (SOME ( cn))
+           lookup_tag_env (SOME cn)
              (get_tagenv (alloc_tags mn ta ls)))`,
   Induct >> srw_tac[][alloc_tags_def] >- (
     simp[build_tdefs_def]>>
@@ -1545,23 +1545,26 @@ val alloc_tags_accumulates = Q.prove(
   fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, namespaceTheory.id_to_mods_def]
   >- metis_tac [nsLookup_nsDom, NOT_SOME_NONE]
   >- metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
-  cheat);
-
-  (*qmatch_goalsub_abbrev_tac`alloc_tags _ _ D`>>
-  PairCases_on`D`>>
-  fs[alloc_tag_def]>>pairarg_tac>>fs[get_tagenv_def,insert_tag_env_def,lookup_tag_env_def]>>
-  simp[namespacePropsTheory.nsLookup_nsAppend_some]>>
-  fs[]>>
-  Cases_on`FST x = cn`>>fs[]
-  >-
-    simp[namespacePropsTheory.nsLookup_nsAppend_some]
-  >>
-    Cases_on`nsLookup acc (Short cn)`>>
-    imp_res_tac namespacePropsTheory.nsLookup_nsDom>>fs[EXTENSION]>>
-    res_tac>>fs[]>>
-    Cases_on`lift SND (nsLookup D1 (Short cn))`>>
-    fs[namespacePropsTheory.nsLookup_nsAppend_some,namespacePropsTheory.nsLookup_nsAppend_none,namespaceTheory.id_to_mods_def]>>
-    rfs[]*)
+  fs [build_tdefs_def] >>
+  `Short x' ∉ nsDom acc'` by metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
+  `~MEM x' (MAP FST (FLAT (MAP (SND ∘ SND) ls)))`
+    by (
+      rfs [MAP_REVERSE] >>
+      pop_assum mp_tac >>
+      rpt (pop_assum kall_tac) >>
+      Induct_on `ls` >>
+      rw [] >>
+      fs [MEM_MAP] >>
+      PairCases_on `h` >>
+      fs [MEM_MAP, FORALL_PROD]) >>
+  drule (GEN_ALL lookup_tag_env_Short_alloc_tags_notin) >>
+  rw [] >>
+  `MEM  x' (MAP FST h2)`
+    by (
+      rw [MEM_MAP, EXISTS_PROD] >>
+      metis_tac []) >>
+  first_x_assum drule >>
+  rw []);
 
 val tagacc_accumulates = Q.prove (
   `!(tagenv_st:tagenv_state_acc) ds tagenv_st' ds_i2'.
@@ -1574,8 +1577,9 @@ val tagacc_accumulates = Q.prove (
   srw_tac[][] >>
   full_simp_tac(srw_ss())[LET_THM] >>
   first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  res_tac >> srw_tac[][]>>
-  metis_tac[alloc_tag_accumulates,alloc_tags_accumulates,namespacePropsTheory.nsAppend_assoc])
+  res_tac >> srw_tac[][]
+  >- metis_tac[alloc_tags_accumulates,nsAppend_assoc]
+  >- metis_tac[alloc_tag_accumulates,nsAppend_assoc]);
 
 val alloc_tag_exh_weak = Q.store_thm("alloc_tag_exh_weak",
   `exh_weak (get_exh (FST st)) (get_exh (FST (alloc_tag a b c st)))`,
@@ -2001,6 +2005,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
            res = SOME err ∧ res_i2 = SOME err_i2 ∧
            s_rel gtagenv' s' s'_i2 ∧
            result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2)))`,
+
   Induct_on`ds` >- (
     simp[modSemTheory.evaluate_decs_def,compile_decs_def,conSemTheory.evaluate_decs_def] >>
     rw[]>>simp[FDOM_EQ_EMPTY,vs_rel_list_rel] >>
@@ -2024,7 +2029,6 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     first_assum(mp_tac o MATCH_MP(CONJUNCT1 compile_exp_correct)) >>
     simp[] >>
     simp[env_all_rel_cases] >>
-    imp_res_tac tagacc_accumulates >>
     qpat_abbrev_tac`env_i2:conSem$environment = _` >>
     disch_then(qspec_then`env_i2`mp_tac o (CONV_RULE(RESORT_FORALL_CONV(sort_vars["env_i2"])))) >>
     simp[env_rel_el,LENGTH_NIL_SYM] >>
@@ -2048,6 +2052,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     simp[GSYM PULL_EXISTS] >>
     conj_tac >- metis_tac[gtagenv_weak_refl] >>
     reverse conj_tac >- (
+      imp_res_tac tagacc_accumulates >>
       full_simp_tac(srw_ss())[result_rel_cases] >>
       metis_tac[] ) >>
     imp_res_tac modPropsTheory.evaluate_state_const >> simp[] >>
@@ -2144,6 +2149,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     full_simp_tac(srw_ss())[cenv_inv_def] >>
     full_simp_tac(srw_ss())[envC_tagged_def] >>
     PROVE_TAC[gtagenv_weak_def,FLOOKUP_SUBMAP])
+
   >- (
     first_x_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tags_cenv_inv)) >>
     qmatch_assum_rename_tac`compile_decs (alloc_tags mn tagenv_st ls) ds = _` >>
