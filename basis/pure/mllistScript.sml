@@ -103,6 +103,13 @@ val partition_neg_thm = Q.store_thm(
   rw [partition_def, FILTER, partition_aux_thm]
 );
 
+val foldl_aux_def = Define`
+  (foldl_aux f e n [] = e) /\
+  (foldl_aux f e n (h::t) = foldl_aux f (f h e) (SUC n) t)`;
+
+val foldl_def = Define`
+  foldl f e l = foldl_aux f e 0 l`;
+
 
 val foldli_aux_def = Define`
   (foldli_aux f e n [] = e) /\
