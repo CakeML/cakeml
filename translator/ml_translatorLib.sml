@@ -8,7 +8,7 @@ open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
-open mlstringLib mlstringSyntax packLib ml_progTheory ml_progLib
+open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
 local open integer_wordSyntax in end
 
 infix \\ val op \\ = op THEN;
@@ -120,6 +120,9 @@ fun normalise_assums th =
 
 (* new state *)
 
+val clean_on_exit = ref false;
+
+local
   val v_thms = ref ([] : (string (* name: "name" *) *
                           string (* ML name: "mlname" *) *
                           term (* HOL term: name *) *
@@ -135,7 +138,6 @@ fun normalise_assums th =
                             term (* HOL term *) *
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
-local
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
@@ -254,8 +256,9 @@ in
     val pack_vs = pack_list (pack_6tuple pack_string pack_string pack_term
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
+    val cleaner = if !clean_on_exit then ml_progLib.clean_state else I
     in pack_triple pack_vs pack_evals pack_ml_prog_state
-         (!v_thms,!eval_thms,ml_progLib.clean_state (!prog_state)) end
+         (!v_thms,!eval_thms, cleaner (!prog_state)) end
   fun unpack_v_thms th = let
     val unpack_vs = unpack_list (unpack_6tuple unpack_string unpack_string unpack_term
                                  unpack_thm unpack_thm (unpack_option unpack_string))
@@ -3327,7 +3330,7 @@ fun translate def =
                     |> clean_assumptions |> UNDISCH_ALL
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)
-        in th end
+        in save_thm(fname ^ "_v_thm", th) end
       val thms = map inst_envs results
       in LIST_CONJ thms end
     else (* not is_rec *)

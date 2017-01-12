@@ -315,4 +315,6 @@ val _ = translate (spec64 compile_def)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+val _ = (ml_translatorLib.clean_on_exit := true);
+
 val _ = export_theory();

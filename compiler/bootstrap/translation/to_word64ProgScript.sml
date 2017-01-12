@@ -317,7 +317,7 @@ val WORDLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_ASM_REG_IMM_TYPE,
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_LIST_TYPE_NUM,
-            EqualityType_LIST_TYPE_CHAR,            
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
             EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
@@ -662,5 +662,7 @@ val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |>
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

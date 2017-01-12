@@ -100,4 +100,6 @@ val _ = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+val _ = (ml_translatorLib.clean_on_exit := true);
+
 val _ = export_theory();
