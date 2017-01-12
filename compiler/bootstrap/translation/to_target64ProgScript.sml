@@ -143,7 +143,7 @@ val STACKLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
-            
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_INST_TYPE]);
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
@@ -173,6 +173,7 @@ val STACKLANG_PROG_TYPE_types_match = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_INST_TYPE]);
 
 val STACKLANG_PROG_TYPE_11 = Q.prove(
@@ -208,6 +209,7 @@ val STACKLANG_PROG_TYPE_11 = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_INST_TYPE]);
 
 val EqualityType_STACKLANG_PROG_TYPE = Q.prove(
