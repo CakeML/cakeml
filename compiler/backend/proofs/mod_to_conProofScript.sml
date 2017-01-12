@@ -1,5 +1,5 @@
 open preamble
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory namespacePropsTheory
      mod_to_conTheory conPropsTheory;
 
 val _ = new_theory "mod_to_conProof";
@@ -1457,6 +1457,7 @@ val FOLDL_alloc_tag_accumulates = Q.prove(
   `∀ls (st:tagenv_state_acc).
     ∃acc. SND (FOLDL (λst' (cn,ts). alloc_tag (TypeId (mk_id mn tn)) cn (LENGTH ts) st') st ls) =
          nsAppend acc (SND st) ∧
+         nsDomMod acc = {[]} ∧
          nsDom acc = set(MAP (Short o FST) ls) ∧
          (∀cn. MEM cn (MAP FST ls) ⇒
            OPTION_MAP SND (nsLookup acc (Short cn)) =
@@ -1472,28 +1473,31 @@ val FOLDL_alloc_tag_accumulates = Q.prove(
   first_x_assum(qspec_then`st`strip_assume_tac) >> srw_tac[][] >>
   qexists_tac`nsAppend acc acc'` >>
   simp[MAP_SNOC,LIST_TO_SET_SNOC,GSYM INSERT_SING_UNION] >>
-  CONJ_TAC>- (
-    simp [namespacePropsTheory.nsDom_nsAppend_flat, EXTENSION]) >>
+  conj_tac
+  >- simp [nsDomMod_nsAppend_flat] >>
+  CONJ_TAC
+  >- simp [nsDom_nsAppend_flat, EXTENSION] >>
   rw[]>>
   qmatch_goalsub_abbrev_tac`alloc_tag _ _ _ D`>>
   PairCases_on`D`>>
   fs[alloc_tag_def]>>pairarg_tac>>fs[get_tagenv_def,insert_tag_env_def,lookup_tag_env_def]>>
-  simp[namespacePropsTheory.nsLookup_nsAppend_some]>>
+  simp[nsLookup_nsAppend_some]>>
   fs[]>>
   Cases_on`FST x = cn`>>fs[]
   >-
-    simp[namespacePropsTheory.nsLookup_nsAppend_some]
+    simp[nsLookup_nsAppend_some]
   >>
     Cases_on`nsLookup acc (Short cn)`>>
-    imp_res_tac namespacePropsTheory.nsLookup_nsDom>>fs[EXTENSION]>>
+    imp_res_tac nsLookup_nsDom>>fs[EXTENSION]>>
     res_tac>>fs[]>>
     Cases_on`lift SND (nsLookup D1 (Short cn))`>>
-    fs[namespacePropsTheory.nsLookup_nsAppend_some,namespacePropsTheory.nsLookup_nsAppend_none,namespaceTheory.id_to_mods_def]>>
+    fs[nsLookup_nsAppend_some,nsLookup_nsAppend_none,namespaceTheory.id_to_mods_def]>>
     rfs[]);
 
 val alloc_tags_accumulates = Q.prove(
   `∀ls mn ta.
     ∃acc. SND (alloc_tags mn (ta:tagenv_state_acc) (ls:type_def)) = nsAppend acc (SND ta) ∧
+          nsDomMod acc = {[]} ∧
           nsDom acc = nsDom (build_tdefs mn ls) ∧
     (∀cn. cn ∈ nsDom (build_tdefs mn ls) ⇒
       OPTION_MAP SND (nsLookup acc cn) =
@@ -1509,12 +1513,40 @@ val alloc_tags_accumulates = Q.prove(
   first_x_assum(qspecl_then[`mn`,`ta'`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
   rev_full_simp_tac(srw_ss())[] >>
   qexists_tac`nsAppend acc' acc` >>
-  simp[]>>CONJ_TAC>-
-    (* something about modules, proably *)
-    cheat>>
+  simp[]>>CONJ_TAC
+  >- simp [nsDomMod_nsAppend_flat] >>
+  conj_tac
+  >- (
+    fs [build_tdefs_def, nsDom_nsAppend_flat] >>
+    rw [EXTENSION] >>
+    eq_tac >>
+    rw [] >>
+    rw [] >>
+    fs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]) >>
   rw[]>>
-  fs[namespacePropsTheory.nsLookup_nsDom,namespacePropsTheory.nsLookup_nsAppend_some]>>res_tac>>
-  cheat)
+  fs[nsLookup_nsDom, nsLookup_nsAppend_some]
+  >- (
+    res_tac >>
+    Cases_on `nsLookup (nsAppend acc' acc) cn` >>
+    fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none]
+    >- (
+      PairCases_on `x` >>
+      fs []) >>
+    metis_tac [nsLookup_nsDom, NOT_SOME_NONE]) >>
+  fs [nsLookup_alist_to_ns_some] >>
+  drule ALOOKUP_MEM >>
+  simp [MEM_MAP, EXISTS_PROD] >>
+  rw [] >>
+  `Short x' ∈ nsDom acc`
+    by (
+      rw [MEM_MAP] >>
+      metis_tac [FST]) >>
+  Cases_on `nsLookup (nsAppend acc' acc) (Short x')` >>
+  fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, namespaceTheory.id_to_mods_def]
+  >- metis_tac [nsLookup_nsDom, NOT_SOME_NONE]
+  >- metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
+  cheat);
+
   (*qmatch_goalsub_abbrev_tac`alloc_tags _ _ D`>>
   PairCases_on`D`>>
   fs[alloc_tag_def]>>pairarg_tac>>fs[get_tagenv_def,insert_tag_env_def,lookup_tag_env_def]>>
