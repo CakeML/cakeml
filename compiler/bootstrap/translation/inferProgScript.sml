@@ -51,6 +51,29 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+(* TODO:
+   these things are a discrepancy between HOL's standard libraries and
+   mllist. probably the compiler should be using the mllist versions? *)
+
+val res = translate ZIP;
+val res = translate EL;
+
+val zip_1_side_def = theorem"zip_1_side_def";
+
+val zip_1_side_thm = Q.prove(
+  `∀p. zip_1_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
+  gen_tac \\ PairCases_on`p`
+  \\ qid_spec_tac`p1` \\ Induct_on`p0`
+  \\ rw[Once zip_1_side_def,LENGTH_NIL_SYM]
+  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
+
+val el_side_def = Q.prove(
+  `!n xs. el_side n xs = (n < LENGTH xs)`,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  |> update_precondition;
+(* -- *)
+
 (* type inference: t_walkstar and t_unify *)
 
 val PRECONDITION_INTRO = Q.prove(
