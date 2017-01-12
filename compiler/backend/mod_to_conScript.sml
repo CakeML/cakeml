@@ -182,9 +182,9 @@ val _ = Define `
 val _ = Define `
   compile_prompt tagenv_st prompt =
   (case prompt of
-   Prompt _ ds =>
+   Prompt mn ds =>
      let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,nsEmpty) ds in
-       ((next',nsAppend acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
+       ((next',nsAppend (FOLDR nsLift acc' mn) (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
 
 val _ = Define `
   (compile_prog st [] = (st, []))
