@@ -37,19 +37,17 @@ val Seq_assoc_pmatch = Q.store_thm("Seq_assoc_pmatch",`!p1 prog.
   | (MustTerminate q) =>
      SmartSeq p1 (MustTerminate (Seq_assoc Skip q))
   | (Call ret_prog dest args handler) =>
-     SmartSeq p1 (Call (case ret_prog of
+     SmartSeq p1 (Call (dtcase ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,Seq_assoc Skip q1,x3,x4))
        dest args
-          (case handler of
+          (dtcase handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))
   | other => SmartSeq p1 other`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac
-  >> fs[Seq_assoc_def]
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> fs[Seq_assoc_def] >> every_case_tac >> fs[]);
+  >> fs[Seq_assoc_def]);
 
 val Seq_assoc_ind = fetch "-" "Seq_assoc_ind";
 
@@ -179,19 +177,19 @@ val simp_if_pmatch = Q.store_thm("simp_if_pmatch",`!prog.
   | (Seq x1 x2) =>
     (let y1 = simp_if x1 in
      let y2 = simp_if x2 in
-       case apply_if_opt y1 y2 of
+       dtcase apply_if_opt y1 y2 of
        | NONE => Seq y1 y2
        | SOME p => p)
   | (If v n r q1 q2) => If v n r (simp_if q1) (simp_if q2)
   | (MustTerminate q) => MustTerminate (simp_if q)
   | (Call ret_prog dest args handler) =>
-     Call (case ret_prog of
+     Call (dtcase ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,simp_if q1,x3,x4))
        dest args
-          (case handler of
+          (dtcase handler of
            | NONE => NONE
-           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))
+           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))    
   | x => x`,
   rpt(
     rpt strip_tac
@@ -330,10 +328,9 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   | (Move pri moves) => (Move pri moves, const_fp_move_cs moves cs cs)
   | (Inst i) => (Inst i, const_fp_inst_cs i cs)
   | (Assign v e) =>
-    (let const_fp_e = const_fp_exp e cs in
-       dtcase const_fp_e of
-         | Const c => (Assign v const_fp_e, insert v c cs)
-         | _ => (Assign v const_fp_e, delete v cs))
+    (case const_fp_exp e cs of
+       | Const c => (Assign v (Const c), insert v c cs)
+       | const_fp_e => (Assign v const_fp_e, delete v cs))
   | (Get v name) => (Get v name, delete v cs)
   | (MustTerminate p) =>
     (let (p', cs') = const_fp_loop p cs in
@@ -368,9 +365,10 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   >> rpt strip_tac
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+     >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]  
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
      >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])

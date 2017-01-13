@@ -327,6 +327,8 @@ val clos_number_renumber_code_locs_list_side = Q.prove(`
   metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
 
 (* known *)
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val _ = translate clos_knownTheory.merge_alt
 
 val num_abs_intro = Q.prove(`

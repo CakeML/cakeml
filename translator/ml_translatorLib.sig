@@ -94,5 +94,6 @@ sig
 
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
+    exception IndLemma of {goal : term, ind_thm : thm, fst_snd_goals : thm list}
 
 end

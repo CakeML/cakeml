@@ -136,6 +136,8 @@ val flatten_exp_def = tDefine "flatten_exp" `
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC))
 
+
+  (*
 val flatten_exp_pmatch = Q.store_thm("flatten_exp_pmatch",`!exp.
   flatten_exp exp =
   case exp of
@@ -149,7 +151,7 @@ val flatten_exp_pmatch = Q.store_thm("flatten_exp_pmatch",`!exp.
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac
-  >> fs[flatten_exp_def, ETA_THM])
+  >> fs[flatten_exp_def, ETA_THM])*)
 (*
 val test = EVAL ``flatten_exp (pull_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
 
@@ -225,7 +227,7 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)) ;
 
-val inst_select_exp_pmatch = Q.store_thm("inst_select_exp",`!c tar temp exp.
+val inst_select_exp_pmatch = Q.store_thm("inst_select_exp_pmatch",`!c tar temp exp.
   inst_select_exp (c:'a asm_config) tar temp exp =
   case exp of
     Load(Op Add [exp';Const w]) =>
@@ -245,22 +247,21 @@ val inst_select_exp_pmatch = Q.store_thm("inst_select_exp",`!c tar temp exp.
     Get tar store_name
   (*All ops are binary branching*)
   | Op op [e1;e2] =>
-    (let p1 = inst_select_exp c temp temp e1 in
-    case e2 of
+    (case e2 of
       Const w =>
       (*t = r op const*)
       if c.valid_imm (INL op) w then
-        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
+        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop op tar temp (Imm w))))
       (*t = r + const --> t = r - const*)
       else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
-        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
+        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
       else
       (*no immediates*)
         let p2 = Inst (Const (temp+1) w) in
-        Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
+        Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
-      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
+      Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
   | Shift sh exp nexp =>
     (let n = num_exp nexp in
     if (n < dimindex(:'a)) then
@@ -276,7 +277,7 @@ val inst_select_exp_pmatch = Q.store_thm("inst_select_exp",`!c tar temp exp.
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-  >> fs[inst_select_exp_def])
+  >> fs[inst_select_exp_def]);
 (*
 
 First munch

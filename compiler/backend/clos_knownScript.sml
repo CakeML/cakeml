@@ -49,22 +49,6 @@ val merge_def = tDefine "merge" `
 val merge_def =
     save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
-val merge_pmatch = Q.store_thm("merge_pmatch",`!x y.
-  merge x y =
-    case (x,y) of
-      (Impossible,y) => y
-    | (x,Impossible) => x
-    | (Tuple tg1 xs,Tuple tg2 ys) => 
-      if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (MAP2 merge xs ys)
-      else Other
-    | (Clos m1 n1,Clos m2 n2) => if m1 = m2 ∧ n1 = n2 then Clos m1 n1
-                                 else Other
-    | (Int i,Int j) => if i = j then Int i else Other
-    | _ => Other`,
-  rpt strip_tac
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[merge_def]);
-
 (* Avoid MAP2 *)
 val merge_tup_def = tDefine "merge_tup" `
   (merge_tup (Impossible,y) = y) ∧
@@ -85,6 +69,7 @@ val merge_tup_def = tDefine "merge_tup" `
    simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
    disch_then (qspec_then `tag` mp_tac) >> simp[])
 
+(* TODO: this function seems to throw the translator into an infinite loop
 val merge_tup_pmatch = Q.store_thm("merge_tup_pmatch",`!tup.
   merge_tup tup =
     case tup of
@@ -100,6 +85,7 @@ val merge_tup_pmatch = Q.store_thm("merge_tup_pmatch",`!tup.
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[merge_tup_def] >> metis_tac []);
+ *)
 
 val merge_alt = Q.store_thm("merge_alt",`
   ∀x y.merge x y = merge_tup (x,y)`,
