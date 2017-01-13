@@ -30,15 +30,6 @@ val (TAG,mk_TAG,dest_TAG,is_TAG) = binop "TAG";
 val (PreImp,mk_PreImp,dest_PreImp,is_PreImp) = binop "PreImp";
 val (lookup_cons,mk_lookup_cons,dest_lookup_cons,is_lookup_cons) = binop "lookup_cons";
 
-fun mk_vector_type ty = mk_thy_type{Thy="ml_translator",Tyop="vector",Args=[ty]};
-
-fun dest_vector_type ty =
-  case total dest_thy_type ty
-  of SOME {Thy="ml_translator", Tyop="vector", Args=[ty]} => ty
-   | _ => raise ERR "dest_vector_type" ""
-
-val is_vector_type = can dest_vector_type;
-
 val (Eval,mk_Eval,dest_Eval,is_Eval) = HolKernel.syntax_fns3 "ml_translator" "Eval";
 
 fun mk_Eq(t1,t2) = let

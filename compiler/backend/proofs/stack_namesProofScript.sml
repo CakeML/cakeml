@@ -40,7 +40,7 @@ val mem_load_rename_state = Q.store_thm("mem_load_rename_state[simp]",
 
 val mem_store_rename_state = Q.store_thm("mem_store_rename_state[simp]",
   `mem_store x y (rename_state f s) = OPTION_MAP (rename_state f) (mem_store x y s)`,
-  EVAL_TAC >> rw[] >> EVAL_TAC);
+  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]);
 
 val get_var_find_name = Q.store_thm("get_var_find_name[simp]",
   `BIJ (find_name f) UNIV UNIV ==>

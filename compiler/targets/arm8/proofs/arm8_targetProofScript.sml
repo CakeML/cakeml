@@ -441,14 +441,16 @@ val ConditionTest_not_overflow =
 
 (* some rewrites ----------------------------------------------------------- *)
 
-val arm8_enc = REWRITE_RULE [bop_enc_def, astTheory.shift_distinct] arm8_enc_def
+val arm8_ast = REWRITE_RULE [bop_enc_def, astTheory.shift_distinct] arm8_ast_def
+val arm8_enc =
+  SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM arm8_enc_def `x`)
 
 val encode_rwts =
    let
       open arm8Theory
    in
-      [arm8_enc, arm8_encode_def, Encode_def, e_data_def, e_branch_def,
-       e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
+      [arm8_enc, arm8_ast, arm8_encode_def, Encode_def, e_data_def,
+       e_branch_def, e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
        EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
        SystemHintOp2num_thm, ShiftType2num_thm, asmSemTheory.is_test_def
       ]
@@ -601,16 +603,16 @@ val shift_cases_tac =
        \\ qabbrev_tac `r: word6 = n2w ((64 - n1) MOD 64)`
        \\ qabbrev_tac `q = r + 63w`
        \\ `~((w2n q = 63) /\ r <> 0w)`
-         by (Cases_on `r = 0w`
-             \\ simp []
-             \\ MATCH_MP_TAC
-                  (wordsLib.WORD_DECIDE
-                     ``a <> 63w ==> w2n (a: word6) <> 63``)
-             \\ qunabbrev_tac `q`
-             \\ blastLib.FULL_BBLAST_TAC),
+       by (Cases_on `r = 0w`
+           \\ simp []
+           \\ MATCH_MP_TAC
+                (wordsLib.WORD_DECIDE ``a <> 63w ==> w2n (a: word6) <> 63``)
+           \\ qunabbrev_tac `q`
+           \\ blastLib.FULL_BBLAST_TAC),
        Q.SPECL_THEN [`n2w n1`, `63w`] STRIP_ASSUME_TAC DecodeBitMasks_SOME,
        Q.SPECL_THEN [`n2w n1`, `63w`] STRIP_ASSUME_TAC DecodeBitMasks_SOME
    ]
+   \\ qpat_x_assum `Abbrev (instr = arm8_enc xx)` assume_tac
 
 fun cmp_case_tac q =
    Cases_on q
@@ -641,20 +643,28 @@ val enc_rwts_tac =
 
 val length_arm8_encode = Q.prove(
   `!i. LENGTH (arm8_encode i) = 4`,
-  rw [arm8_encode_def, arm8_encode_fail_def]
+  Cases
+  \\ rw [arm8_encode_def]
   \\ CASE_TAC
   \\ simp []
+  )
+
+val length_arm8_enc = Q.prove(
+  `!l. LENGTH (LIST_BIND l arm8_encode) = 4 * LENGTH l`,
+  Induct \\ rw [length_arm8_encode]
   )
 
 val arm8_encoding = Q.prove (
   `!i. let n = LENGTH (arm8_enc i) in (n MOD 4 = 0) /\ n <> 0`,
   strip_tac
   \\ asmLib.asm_cases_tac `i`
-  \\ simp [arm8_enc_def, arm8_encode_fail_def, length_arm8_encode]
+  \\ simp [arm8_enc_def, length_arm8_enc, length_arm8_encode,
+           arm8_encode_fail_def, arm8_ast]
   \\ REPEAT CASE_TAC
   \\ rw [length_arm8_encode]
   )
-  |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
+  |> SIMP_RULE (srw_ss()++boolSimps.LET_ss)
+       [arm8_enc_def, listTheory.LIST_BIND_def]
 
 val arm8_target_ok = Q.prove (
    `target_ok arm8_target`,
@@ -848,9 +858,9 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             )
          >- (
             (*--------------
-                AddOverflow
+                SubOverflow
               --------------*)
-            print_tac "AddOverflow"
+            print_tac "SubOverflow"
             \\ next_tac `1`
             \\ enc_rwts_tac
             \\ asmLib.split_bytes_in_memory_tac 4

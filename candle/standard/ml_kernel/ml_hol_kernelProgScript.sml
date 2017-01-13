@@ -478,7 +478,7 @@ fun m2deep tm =
     val result = MATCH_MP Eval_IMP_PURE result |> RW [GSYM ArrowM_def]
     in check_inv "var" tm result end else
   (* failwith *)
-  if can (match_term ``(failwith str):'a M``) tm then let
+  if can (match_term ``(failwith s):'a M``) tm then let
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv ty
     val th = hol2deep (rand tm)

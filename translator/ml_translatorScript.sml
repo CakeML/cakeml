@@ -7,7 +7,7 @@ open preamble integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
-     mlstringTheory ml_progTheory packLib;
+     mlvectorTheory mlstringTheory ml_progTheory packLib;
 open terminationTheory
 local open funBigStepEquivTheory evaluatePropsTheory in end
 
@@ -94,6 +94,8 @@ val PRECONDITION_def = Define `PRECONDITION b = (b:bool)`;
 val PreImp_def = Define `
   PreImp b1 b2 = (PRECONDITION b1 ==> b2)`;
 
+val PreImpEval_def = Define`
+  PreImpEval b env code P = PreImp b (Eval env code P)`;
 
 (* Theorems *)
 
@@ -1348,18 +1350,6 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
 
 (* vectors *)
 
-val _ = Datatype `
-  vector = Vector ('a list)`;
-
-val fromList_def = Define `
-  fromList l = Vector l`;
-
-val sub_def = Define `
-  sub (Vector l) n = EL n l`;
-
-val length_def = Define `
-  length (Vector l) = LENGTH l`;
-
 val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
@@ -1380,7 +1370,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
   asm_exists_tac >> fs[] >>
   rw [do_app_cases,PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
   qexists_tac`EL n l'` >>
@@ -1423,7 +1413,7 @@ val Eval_length = Q.store_thm("Eval_length",
   asm_exists_tac >> fs[] >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
@@ -1686,6 +1676,30 @@ val Eval_Var = Q.store_thm("Eval_Var",
   >- METIS_TAC[]
   \\ rw[state_component_equality]);
 
+(*
+val LookupEval_def = Define`
+  LookupEval name v P =
+    !env. lookup_var_id name env = SOME v ==>
+          Eval env (Var name) P`;
+    LOOKUP_VAR_def
+    lookup_var_def
+    type_of``semanticPrimitives$lookup``
+    f"lookup_alist"
+*)
+
+val Eval_Fun_Var_intro = Q.store_thm("Eval_Fun_Var_intro",
+  `Eval cl_env (Fun n exp) P ==>
+   ∀name. LOOKUP_VAR name env (Closure cl_env n exp) ==>
+   Eval env (Var (Short name)) P`,
+  rw[Eval_Fun_rw,Eval_Var,LOOKUP_VAR_def]);
+
+val Eval_Var_LOOKUP_VAR_elim = Q.store_thm("Eval_Var_LOOKUP_VAR_elim",
+  `(!env. LOOKUP_VAR name env v ==> Eval env (Var (Short name)) P) ==> P v`,
+  rw[Eval_Var,LOOKUP_VAR_def]
+  \\ first_x_assum match_mp_tac
+  \\ qexists_tac`<| v := [(name,v)] |>`
+  \\ EVAL_TAC);
+
 val lookup_var_eq_lookup_var_id = Q.store_thm("lookup_var_eq_lookup_var_id",
   `lookup_var n = lookup_var_id (Short n)`,
   fs [FUN_EQ_THM] \\ EVAL_TAC \\ fs []);
@@ -1726,6 +1740,9 @@ val IMP_EQ_T = Q.store_thm("IMP_EQ_T",`b ==> (b = T)`,REWRITE_TAC [])
 val IF_TAKEN = Q.store_thm("IF_TAKEN",
   `!b x y. b ==> ((if b then x else y) = x:'unlikely)`,
   SIMP_TAC std_ss []);
+
+val EQ_COND_INTRO = save_thm("EQ_COND_INTRO",
+  METIS_PROVE[]``(b ==> c) ==> (c = if b then T else c)``);
 
 val LIST_TYPE_And = Q.store_thm("LIST_TYPE_And",
   `LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))`,

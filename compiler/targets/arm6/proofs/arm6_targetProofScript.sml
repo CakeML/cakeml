@@ -436,8 +436,9 @@ val encode_rwts =
    let
       open armTheory
    in
-      [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
-       encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
+      [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def,
+       arm6_encode_def, arm6_encode1_def, encode_def,
+       e_branch_def, e_data_def, e_load_def, e_store_def,
        e_multiply_def, EncodeImmShift_def, EncodeImmShift_def
       ]
    end
@@ -743,11 +744,20 @@ end
    arm6 target_ok
    ------------------------------------------------------------------------- *)
 
-val length_arm6_encode = Q.prove(
-  `!c i. LENGTH (arm6_encode c i) = 4`,
-  rw [arm6_encode_def, arm6_encode_fail_def]
+val length_arm6_encode1 = Q.prove(
+  `!c i. LENGTH (arm6_encode1 c i) = 4`,
+  Cases
+  \\ rw [arm6_encode_def, arm6_encode1_def, arm6_encode_fail_def]
   \\ CASE_TAC
   \\ simp []
+  )
+
+val length_arm6_encode = Q.prove(
+  `!l. LENGTH (arm6_encode l) = 4 * LENGTH l`,
+  Induct >- rw [arm6_encode_def]
+  \\ Cases
+  \\ rw [arm6_encode_def, length_arm6_encode1]
+  \\ fs [arm6_encode_def]
   )
 
 val arm6_encoding = Q.prove (
@@ -755,9 +765,9 @@ val arm6_encoding = Q.prove (
    strip_tac
    \\ asmLib.asm_cases_tac `i`
    \\ simp [arm6_enc_def, arm6_cmp_def, arm6_encode_fail_def,
-            length_arm6_encode]
+            length_arm6_encode1, length_arm6_encode]
    \\ REPEAT CASE_TAC
-   \\ rw [length_arm6_encode]
+   \\ rw [length_arm6_encode, length_arm6_encode1]
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 

@@ -162,6 +162,7 @@ fun deftypePrint typestr sys d t pg str brk blk=
 
 (*Fix these names*)
 val _=add_astPP("inttypeprint",``TC_int``,genPrint (deftypePrint "int"));
+val _=add_astPP("chartypeprint",``TC_char``,genPrint (deftypePrint "char"));
 val _=add_astPP("stringtypeprint",``TC_string``,genPrint (deftypePrint "string"));
 val _=add_astPP("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
 val _=add_astPP("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));

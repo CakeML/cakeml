@@ -3,6 +3,8 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
 local open blastLib in end;
 
+val shift_def = wordLangTheory.shift_def;
+
 val _ = new_theory "data_to_wordProps";
 
 (* TODO: move? *)

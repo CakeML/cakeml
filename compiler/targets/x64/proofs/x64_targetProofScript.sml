@@ -121,14 +121,6 @@ val binop_lem7 =
           0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
           (sw2sw (w2w c: word32) = c)``
 
-val binop_lem8 = Q.prove(
-   `!i. is_rax (reg i) = (RAX = total_num2Zreg i)`,
-   strip_tac
-   \\ simp [x64_targetTheory.total_num2Zreg_def]
-   \\ wordsLib.Cases_on_word_value `num2Zreg i`
-   \\ rw [x64Theory.is_rax_def]
-   )
-
 val binop_lem9b = Q.prove(
    `!n. n < 64 ==>
         (0xFFFFFFFFFFFFFF80w: word64) <= n2w n /\ n2w n <= (0x7Fw: word64)`,
@@ -355,9 +347,10 @@ val cmp_lem6 = Q.prove(
    )
 
 val cmp_lem7 = Q.prove(
-   `!n. n < 16 ==> (is_rax (reg n) = (n = 0))`,
-   rw [x64Theory.is_rax_def, x64_targetTheory.total_num2Zreg_def]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM, x64Theory.num2Zreg_thm]
+   `!rm. is_rax rm = (Zr RAX = rm)`,
+   Cases \\ rw [x64Theory.is_rax_def]
+   \\ CASE_TAC
+   \\ simp []
    )
 
 val cmp_lem8 =
@@ -437,8 +430,8 @@ val encode_rwts =
    let
       open x64Theory
    in
-      [x64_enc_def, x64_enc0_def, x64_bop_def, x64_cmp_def, x64_sh_def,
-       x64_encode_jcc_def, encode_def, e_rm_reg_def, e_gen_rm_reg_def,
+      [x64_enc_def, x64_ast_def, x64_bop_def, x64_cmp_def, x64_sh_def,
+       x64_encode_def, encode_def, e_rm_reg_def, e_gen_rm_reg_def,
        e_ModRM_def, e_opsize_def, rex_prefix_def, e_opc_def, e_rm_imm8_def,
        e_opsize_imm_def, not_byte_def, e_rax_imm_def, e_rm_imm_def,
        e_imm_8_32_def, e_imm_def, e_imm8_def, e_imm16_def, e_imm32_def,
@@ -450,7 +443,7 @@ val encode_rwts =
 val enc_rwts =
   [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
    const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
-   jump_lem5, jump_lem6, cmp_lem7, x64_asm_ok,
+   jump_lem5, jump_lem6, cmp_lem7, is_rax, x64_asm_ok,
    utilsLib.mk_cond_rand_thms [``asmSem$asm_state_failed``]] @
   encode_rwts @ asmLib.asm_rwts
 
@@ -617,7 +610,7 @@ in
              asmPropsTheory.sym_target_state_rel, x64_target_def, sub_overflow,
              x64_config, set_sepTheory.fun2set_eq, integer_wordTheory.overflow,
              const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
-             binop_lem6, binop_lem7, binop_lem8, jump_lem2, cmp_lem1, cmp_lem3]
+             binop_lem6, binop_lem7, jump_lem2, cmp_lem1, cmp_lem3]
       \\ unabbrev_all_tac
       \\ rw [combinTheory.APPLY_UPDATE_THM, x64Theory.num2Zreg_11,
              binop_lem10b, adc_lem2, wordsTheory.w2w_n2w,
@@ -729,7 +722,7 @@ end
 val x64_encoding = Q.prove (
    `!i. LENGTH (x64_enc i) <> 0`,
    strip_tac
-   \\ Cases_on `x64_enc0 i`
+   \\ Cases_on `LIST_BIND (x64_ast i) x64_encode`
    \\ simp [x64_enc_def, x64_dec_fail_def]
    )
 

@@ -10,6 +10,7 @@ structure astSyntax = struct
   val pat_exp_ty = pairSyntax.mk_prod(pat_ty,exp_ty);
   val dec_ty = mk_thy_type{Thy="ast",Tyop="dec",Args=[]};
   val decs_ty = listSyntax.mk_list_type dec_ty;
+  val top_ty = mk_thy_type{Thy="ast",Tyop="top",Args=[]};
   val t_ty = mk_thy_type{Thy="ast",Tyop="t",Args=[]};
   val TC_int = prim_mk_const{Thy="ast",Name="TC_int"};
   val TC_char = prim_mk_const{Thy="ast",Name="TC_char"};
