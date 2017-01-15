@@ -1,10 +1,10 @@
 structure semanticPrimitivesSyntax = struct
   local
-  open HolKernel boolLib bossLib semanticPrimitivesTheory;
+  open HolKernel boolLib bossLib semanticPrimitivesTheory namespaceTheory;
   in
   val v_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="v",Args=[]};
   val tid_or_exn_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="tid_or_exn",Args=[]};
-  fun mk_environment ty = mk_thy_type{Thy="semanticPrimitives",Tyop="environment",Args=[ty]};
+  fun mk_environment ty = mk_thy_type{Thy="semanticPrimitives",Tyop="sem_env",Args=[ty]};
   local val s = HolKernel.syntax_fns1 "semanticPrimitives" in
   val (TypeId_tm,mk_TypeId,dest_TypeId,is_TypeId) = s "TypeId"
   val (TypeExn_tm,mk_TypeExn,dest_TypeExn,is_TypeExn) = s "TypeExn"

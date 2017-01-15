@@ -3,8 +3,8 @@ structure astSyntax = struct
   open HolKernel boolLib bossLib;
   open semanticPrimitivesSyntax astTheory;
   in
-  fun id_ty ty = mk_thy_type{Thy="ast",Tyop="id",Args=[ty]};
-  val str_id_ty = id_ty stringSyntax.string_ty;
+  fun id_ty tyM tyV = mk_thy_type{Thy="namespace",Tyop="id",Args=[tyM,tyV]};
+  val str_id_ty = id_ty stringSyntax.string_ty stringSyntax.string_ty;
   val pat_ty = mk_thy_type{Thy="ast",Tyop="pat",Args=[]};
   val exp_ty = mk_thy_type{Thy="ast",Tyop="exp",Args=[]};
   val pat_exp_ty = pairSyntax.mk_prod(pat_ty,exp_ty);
@@ -24,8 +24,14 @@ structure astSyntax = struct
   val TC_exn = prim_mk_const{Thy="ast",Name="TC_exn"};
   val TC_vector = prim_mk_const{Thy="ast",Name="TC_vector"};
   val TC_array = prim_mk_const{Thy="ast",Name="TC_array"};
+  local
+    val s1 = HolKernel.syntax_fns1 "namespace"
+    val s2 = HolKernel.syntax_fns2 "namespace" in
+    val (Short_tm,mk_Short,dest_Short,is_Short) = s1 "Short"
+    val mk_Short = (inst [``:'m`` |-> ``:tvarN``]) o mk_Short
+    val (Long_tm,mk_Long,dest_Long,is_Long) = s2 "Long"
+  end
   local val s = HolKernel.syntax_fns1 "ast" in
-  val (Short_tm,mk_Short,dest_Short,is_Short) = s "Short"
   val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
   val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
   val (Tvar_tm,mk_Tvar,dest_Tvar,is_Tvar) = s "Tvar"
@@ -38,7 +44,6 @@ structure astSyntax = struct
   val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
-  val (Long_tm,mk_Long,dest_Long,is_Long) = s "Long"
   val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
   val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon"

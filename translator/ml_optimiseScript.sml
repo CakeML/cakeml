@@ -179,7 +179,7 @@ val abs2let_thm = Q.prove(
   \\ Q.PAT_X_ASSUM `evaluate F env _ (Fun s' e) _` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def, SWAP_REVERSE_SYM]
+  \\ FULL_SIMP_TAC (srw_ss()) [namespaceTheory.nsOptBind_def, SWAP_REVERSE_SYM]
   \\ METIS_TAC []);
 
 (* rewrite optimisation: let x = y in x --> y *)
@@ -198,7 +198,7 @@ val let_id_thm = Q.prove(
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def,opt_bind_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [namespaceTheory.nsOptBind_def]);
 
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)

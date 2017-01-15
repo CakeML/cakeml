@@ -32,7 +32,7 @@ val Pmatch_def = tDefine"Pmatch"`
   (Pmatch env refs [Plit l] [Litv l'] =
      if l = l' then SOME env else NONE) ∧
   (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (n',t')) vs] =
-     case lookup_alist_mod_env n env.c of
+     case nsLookup env.c n of
       | NONE => NONE
      | SOME (l,t) =>
        if same_tid t t' ∧ LENGTH ps = l ∧
@@ -72,11 +72,13 @@ val Pmatch_cons = Q.store_thm("Pmatch_cons",
 val Pmatch_SOME_const = Q.store_thm("Pmatch_SOME_const",
   `∀env refs ps vs env'.
       Pmatch env refs ps vs = SOME env' ⇒
-      env'.m = env.m ∧
+      (*env'.m = env.m ∧*)
       env'.c = env.c`,
   ho_match_mp_tac Pmatch_ind >> simp[Pmatch_def] >>
   rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[write_def])
+
+(* TODO: needs relooking at, Pmatch maybe ought to be switched over to pmatch style using namespaces?
 
 val pmatch_imp_Pmatch = Q.prove(
   `(∀envC s p v env aenv.
@@ -232,4 +234,5 @@ val PMATCH_option_case_rwt = Q.store_thm("PMATCH_option_case_rwt",
     ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)`,
   Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
 
+*)
 val _ = export_theory()

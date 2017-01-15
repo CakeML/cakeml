@@ -3,7 +3,7 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory namespaceTheory;
 open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
@@ -879,7 +879,7 @@ fun define_ref_inv is_exn_type tys = let
                        stringSyntax.string_ty, tid_or_exn_ty))
                    else if is_list_type orelse is_option_type then
                      optionSyntax.mk_some(pairSyntax.mk_pair(str,
-                       mk_TypeId(astSyntax.mk_Short str_ty_name)))
+                       mk_TypeId((astSyntax.mk_Short str_ty_name) )))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
       val tm = mk_conj(mk_eq(mk_var("v", v_ty),
                             mk_Conv(tag_tm, vs)),tm)
@@ -922,7 +922,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val tac =
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
      \\ REPEAT STRIP_TAC
-     \\ IMP_RES_TAC v_size_lemmas \\ TRY DECIDE_TAC
+     (*TODO: \\ IMP_RES_TAC v_size_lemmas*)
+     \\ TRY DECIDE_TAC
      \\ TRY (PAT_X_ASSUM MEM_pat (fn th =>
               ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
      \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC
@@ -1131,7 +1132,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val name = if is_exn_type then full_id x1 else smart_full_id tyname
     val env = mk_var("env",venvironment)
     val pr = pairSyntax.mk_pair(l,tyi name)
-    in mk_eq (mk_lookup_cons (x1,env), optionSyntax.mk_some (pr)) end
+    in mk_eq (mk_lookup_cons (full_id x1,env), optionSyntax.mk_some (pr)) end
   val type_assum =
       dtype_list
       |> listSyntax.dest_list |> fst
@@ -1280,7 +1281,7 @@ fun derive_thms_for_type is_exn_type ty = let
           \\ SIMP_TAC bool_ss [PULL_EXISTS]
           \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl)
           \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
-                  lookup_cons_thm,same_tid_def,id_to_n_def,
+                  lookup_cons_def,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
@@ -1331,7 +1332,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val cons_assum = type_assum
                      |> list_dest dest_conj
                      |> filter (fn tm => aconv
-                           (tm |> rator |> rand |> rator |> rand) str)
+                           (tm |> rator |> rand |> rator |> rand |> rand ) str)
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
@@ -1351,13 +1352,14 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
           o SPEC rprev) THEN
         mk_witness (n+1) (listSyntax.mk_append(rprev,rnext)) (rnext::rs) (vnext::acc)
       end
+    (*set_goal([],goal)*)
     val lemma = prove(goal,
       SIMP_TAC std_ss [Eval_def]
       \\ rpt (disch_then strip_assume_tac)
       \\ X_GEN_TAC refs
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
-           (*all_env_to_cenv_def,*)lookup_cons_thm,build_conv_def,id_to_n_def,
+           (*all_env_to_cenv_def,*)lookup_cons_def,build_conv_def,id_to_n_def,
            state_component_equality]
       \\ (if List.null xs then ALL_TAC else mk_witness 1 refs [] [])
       \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
@@ -1476,8 +1478,10 @@ fun register_term_types register_type tm = let
 (* tests:
 register_type ``:'a list``;
 register_type ``:'a # 'b``;
-register_type ``:'a + num``;
 register_type ``:num option``;
+
+Failing:
+register_type ``:'a + num``;
 register_type ``:unit``;
 *)
 

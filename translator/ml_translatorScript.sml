@@ -1578,13 +1578,14 @@ val v7_size = Q.prove(
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ RES_TAC \\ DECIDE_TAC);
 
+(* TODO: what are the correct size lemmas? One of them should be replacin lists with namespaces
+
 val v3_size = Q.prove(
-  `!env x v. (MEM (x,v) env ==> v_size v < v3_size env)`,
+  `!env x v. (MEM (x,v) env ==> v_size v < v5_size env)`,
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ RES_TAC \\ DECIDE_TAC);
 
-(*
 val v2_size = Q.prove(
   `!xs a. MEM a xs ==> v3_size a < v1_size xs`,
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
