@@ -1479,8 +1479,6 @@ fun register_term_types register_type tm = let
 register_type ``:'a list``;
 register_type ``:'a # 'b``;
 register_type ``:num option``;
-
-Failing:
 register_type ``:'a + num``;
 register_type ``:unit``;
 *)
