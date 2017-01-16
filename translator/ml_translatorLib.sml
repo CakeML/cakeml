@@ -1711,7 +1711,8 @@ fun prove_EvalPatBind goal hol2deep = let
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
     \\ fsrw_tac[][FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (D res) \\ fsrw_tac[][]
+    \\ ((MATCH_MP_TAC (SIMP_RULE(srw_ss())[FORALL_PROD](D res)) handle HOL_ERR _ => NO_TAC)
+        ORELSE (MATCH_MP_TAC (D res))) \\ fsrw_tac[][]
     \\ fsrw_tac[][EvalPatBind_def,Pmatch_def]
     \\ REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
