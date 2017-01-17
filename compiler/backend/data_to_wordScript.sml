@@ -186,7 +186,7 @@ val LongDiv_location_eq = save_thm("LongDiv_location_eq",
   ``LongDiv_location`` |> EVAL);
 val Dummy_location_eq = save_thm("Dummy_location_eq",
   ``Dummy_location`` |> EVAL);
-val Bignum_location_eq = save_thm("Bignum_eq",
+val Bignum_location_eq = save_thm("Bignum_location_eq",
   ``Bignum_location`` |> EVAL);
 
 val AllocVar_def = Define `
