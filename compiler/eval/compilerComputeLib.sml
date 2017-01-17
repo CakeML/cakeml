@@ -365,6 +365,9 @@ val add_compiler_compset = computeLib.extend_compset
      ``:'a wordLang$num_exp``
     ,``:'a wordLang$exp``
     ,``:'a wordLang$prog``
+      (* word_bignum *)
+    ,``:word_bignum$address``
+    ,``:'a word_bignum$mini``
     ]
   ,computeLib.Defs
     [wordLangTheory.every_var_exp_def
