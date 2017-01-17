@@ -415,6 +415,10 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Compare_location_eq
     ,data_to_wordTheory.Equal1_location_eq
     ,data_to_wordTheory.Equal_location_eq
+    ,data_to_wordTheory.LongDiv1_location_eq
+    ,data_to_wordTheory.LongDiv_location_eq
+    ,data_to_wordTheory.Dummy_location_eq
+    ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.SmallLsr_def
@@ -435,6 +439,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def
     ,data_to_wordTheory.Equal_code_def
+    ,data_to_wordTheory.LongDiv1_code_def
+    ,data_to_wordTheory.LongDiv_code_def
+    ,data_to_wordTheory.Dummy_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
@@ -450,6 +457,82 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.compile_part_def
     ,data_to_wordTheory.stubs_def
     ,data_to_wordTheory.compile_def
+      (* word_bignum *)
+    ,word_bignumTheory.mc_cmp_code_def
+    ,word_bignumTheory.mc_sub_loop2_code_def
+    ,word_bignumTheory.generated_bignum_stubs_def
+    ,word_bignumTheory.compile_def
+    ,word_bignumTheory.DivCode_def
+    ,word_bignumTheory.div_location_def
+    ,word_bignumTheory.SeqIndex_def
+    ,word_bignumTheory.SeqTempImmNot_def
+    ,word_bignumTheory.SeqTempImm_def
+    ,word_bignumTheory.SeqTemp_def
+    ,word_bignumTheory.TempOut_def
+    ,word_bignumTheory.TempIn2_def
+    ,word_bignumTheory.TempIn1_def
+    ,word_bignumTheory.compile_exp_def
+    ,word_bignumTheory.install_def
+    ,word_bignumTheory.code_acc_next_def
+    ,word_bignumTheory.has_compiled_def
+    ,word_bignumTheory.mc_iop_code_def
+    ,word_bignumTheory.mc_isub_flip_code_def
+    ,word_bignumTheory.mc_imul_code_def
+    ,word_bignumTheory.mc_mul_code_def
+    ,word_bignumTheory.mc_mul_pass_code_def
+    ,word_bignumTheory.mc_imul1_code_def
+    ,word_bignumTheory.mc_iadd_code_def
+    ,word_bignumTheory.mc_sub_code_def
+    ,word_bignumTheory.mc_sub_loop_code_def
+    ,word_bignumTheory.mc_sub1_code_def
+    ,word_bignumTheory.mc_sub_loop1_code_def
+    ,word_bignumTheory.mc_iadd2_code_def
+    ,word_bignumTheory.mc_iadd3_code_def
+    ,word_bignumTheory.mc_add_code_def
+    ,word_bignumTheory.mc_add_loop_code_def
+    ,word_bignumTheory.mc_add_loop2_code_def
+    ,word_bignumTheory.mc_add_loop1_code_def
+    ,word_bignumTheory.mc_iadd1_code_def
+    ,word_bignumTheory.mc_idiv_code_def
+    ,word_bignumTheory.mc_idiv0_code_def
+    ,word_bignumTheory.mc_idiv_mod_header_code_def
+    ,word_bignumTheory.mc_div_sub_call_code_def
+    ,word_bignumTheory.mc_div_sub1_code_def
+    ,word_bignumTheory.mc_div_sub_aux_code_def
+    ,word_bignumTheory.mc_div_sub_aux1_code_def
+    ,word_bignumTheory.mc_add1_call_code_def
+    ,word_bignumTheory.mc_add1_code_def
+    ,word_bignumTheory.mc_div_code_def
+    ,word_bignumTheory.mc_div3_code_def
+    ,word_bignumTheory.mc_div2_code_def
+    ,word_bignumTheory.mc_copy_down_code_def
+    ,word_bignumTheory.mc_fix_code_def
+    ,word_bignumTheory.mc_simple_div1_code_def
+    ,word_bignumTheory.mc_div_loop_code_def
+    ,word_bignumTheory.mc_div_sub_loop_code_def
+    ,word_bignumTheory.mc_div_sub_code_def
+    ,word_bignumTheory.mc_div_adjust_code_def
+    ,word_bignumTheory.mc_adjust_aux_code_def
+    ,word_bignumTheory.mc_adj_cmp_code_def
+    ,word_bignumTheory.mc_div_guess_code_def
+    ,word_bignumTheory.mc_div_test_code_def
+    ,word_bignumTheory.mc_cmp2_code_def
+    ,word_bignumTheory.mc_top_two_code_def
+    ,word_bignumTheory.mc_cmp_mul2_code_def
+    ,word_bignumTheory.mc_cmp3_code_def
+    ,word_bignumTheory.mc_mul_by_single2_code_def
+    ,word_bignumTheory.mc_div_r1_code_def
+    ,word_bignumTheory.mc_single_mul_add_code_def
+    ,word_bignumTheory.mc_single_mul_code_def
+    ,word_bignumTheory.mc_mul_by_single_code_def
+    ,word_bignumTheory.mc_simple_div_code_def
+    ,word_bignumTheory.mc_calc_d_code_def
+    ,word_bignumTheory.mc_div1_code_def
+    ,word_bignumTheory.mc_single_div_code_def
+    ,word_bignumTheory.mc_div0_code_def
+    ,word_bignumTheory.mc_compare_code_def
+    ,word_bignumTheory.mc_copy_over_code_def
+    ,word_bignumTheory.mc_mul_zero_code_def
       (* ---- wordLang word_to_word ---- *)
     ,word_to_wordTheory.compile_single_def
     ,word_to_wordTheory.full_compile_single_def
