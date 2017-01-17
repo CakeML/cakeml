@@ -425,9 +425,10 @@ fun is_cf_spec_for f tm =
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
-  ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
-  (rand tm) = f
-  handle HOL_ERR _ => false
+  let val tm = tm |> strip_imp |> #2 in
+    ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
+    (rand tm) = f
+  end handle HOL_ERR _ => false
 
 fun spec_kind_for f tm : spec_kind option =
   if is_cf_spec_for f tm then SOME CF_spec
