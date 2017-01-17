@@ -1646,7 +1646,7 @@ val _ = (concl const_def = T) orelse failwith "derive_corr_thm failed";
 
 (*
 
-val th = fetch "-" "mc_iop_corr_thm"
+val th = mc_iop_corr_thm
   |> REWRITE_RULE [Corr_def] |> UNDISCH_ALL
   |> MATCH_MP compile_thm
   |> SIMP_RULE (srw_ss()) [SIMP_RULE std_ss [] (EVAL ``syntax_ok mc_iop_code``)]
