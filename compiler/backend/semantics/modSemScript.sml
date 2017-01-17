@@ -32,7 +32,7 @@ val _ = Datatype`
     refs    : modSem$v store;
     ffi     : 'ffi ffi_state;
     defined_types : tid_or_exn set;
-    defined_mods : modN set;
+    defined_mods : modN list set;
     globals : (modSem$v option) list
   |>`;
 
@@ -551,7 +551,7 @@ val update_mod_state_def = Define `
   update_mod_state (mn:modN list) mods =
     case mn of
       [] => mods
-    | mn :: _ => {mn} UNION mods`;
+    | mn => mn INSERT mods`;
 
 val dec_to_dummy_env_def = Define `
   (dec_to_dummy_env (modLang$Dlet n e) = n) ∧
@@ -587,10 +587,7 @@ val prompt_mods_ok_def = Define `
 
 val evaluate_prompt_def = Define`
   evaluate_prompt env s (Prompt mn ds) =
-  if no_dup_types ds ∧
-     prompt_mods_ok mn ds ∧
-     (∀n ns. mn = n::ns ⇒ n ∉ s.defined_mods)
-  then
+  if no_dup_types ds ∧ prompt_mods_ok mn ds ∧ mn ∉ s.defined_mods then
   let (s, cenv, genv, r) = evaluate_decs env s ds in
     (s with defined_mods updated_by update_mod_state mn,
      FOLDR nsLift cenv mn,
@@ -612,7 +609,7 @@ val evaluate_prompts_def = Define`
 
 val prog_to_mods_def = Define `
   prog_to_mods prompts =
-   FLAT (MAP (λprompt. (case prompt of Prompt mn ds => mn)) prompts)`;
+   FILTER ((<>) []) (MAP (λprompt. (case prompt of Prompt mn ds => mn)) prompts)`;
 
 val no_dup_mods_def = Define `
   no_dup_mods prompts mods ⇔

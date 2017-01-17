@@ -478,22 +478,18 @@ val no_dup_types_cons_imp = Q.store_thm("no_dup_types_cons_imp",
   `no_dup_types (d::ds) ⇒ no_dup_types ds`,
   srw_tac[][decs_to_types_def,no_dup_types_def,ALL_DISTINCT_APPEND]);
 
-  (*
-
 val no_dup_mods_eqn = Q.store_thm ("no_dup_mods_eqn",
   `!p ps.
     (no_dup_mods [] mods ⇔ T) ∧
     (no_dup_mods (p::ps) mods ⇔
        (case p of
-         | Prompt (SOME mn) ds =>
-             ~MEM mn (prog_to_mods ps) ∧ mn ∉ mods
-         | Prompt NONE _ => T) ∧
+         | Prompt mns ds =>
+           mns ≠ [] ⇒ ~MEM mns (prog_to_mods ps) ∧ mns ∉ mods) ∧
       no_dup_mods ps mods)`,
   srw_tac[][modSemTheory.no_dup_mods_def, modSemTheory.prog_to_mods_def] >>
   every_case_tac >>
-  srw_tac[][] >>
+  srw_tac[][ALL_DISTINCT_FILTER, MEM_FILTER] >>
   metis_tac []);
-  *)
 
 val no_dup_top_types_eqn = Q.store_thm ("no_dup_top_types_eqn",
   `!p ps.
