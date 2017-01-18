@@ -40,10 +40,6 @@ exception NotFoundVThm of term;
 
 (* code for managing state of certificate theorems *)
 
-fun take 0 xs = []
-  | take n [] = []
-  | take n (x::xs) = x :: take (n-1) xs
-
 fun MY_MP name th1 th2 =
   MP th1 th2 handle e =>
     let
@@ -1129,9 +1125,8 @@ fun derive_thms_for_type is_exn_type ty = let
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
     val tyi = if is_exn_type then mk_TypeExn else mk_TypeId
     val name = if is_exn_type then full_id x1 else smart_full_id tyname
-    val env = mk_var("env",venvironment)
     val pr = pairSyntax.mk_pair(l,tyi name)
-    in mk_eq (mk_lookup_cons (x1,env), optionSyntax.mk_some (pr)) end
+    in mk_eq (mk_lookup_cons (x1,env_tm), optionSyntax.mk_some (pr)) end
   val type_assum =
       dtype_list
       |> listSyntax.dest_list |> fst
@@ -1204,7 +1199,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val patterns = listSyntax.mk_list(patterns,astSyntax.pat_exp_ty)
     val ret_inv = get_type_inv ret_ty
     val exp_var = mk_var("exp", astSyntax.exp_ty)
-    val result = mk_Eval(mk_var("env", venvironment),
+    val result = mk_Eval(env_tm,
                          astSyntax.mk_Mat(exp_var, patterns),
                          mk_comb(ret_inv,exp))
     (* assums *)
@@ -1219,8 +1214,7 @@ fun derive_thms_for_type is_exn_type ty = let
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
     fun mk_hyp (n,f,fxs,pxs,tm,exp,xs) = let
-      val env = mk_var("env",venvironment)
-      val env = foldr (fn ((x,n,v),y) => mk_write(n,v,y)) env (rev xs)
+      val env = foldr (fn ((x,n,v),y) => mk_write(n,v,y)) env_tm (rev xs)
       val tm = map (fn (x,n,v) => mk_comb(find_inv x,v)) xs @ [pxs]
       val tm = if tm = [] then T else list_mk_conj tm
       val tm = mk_imp(tm,mk_Eval (env, exp, mk_comb(ret_inv,fxs)))
@@ -1238,7 +1232,7 @@ fun derive_thms_for_type is_exn_type ty = let
     (* goal *)
     val hyps = map mk_hyp ts
     val x = mk_comb(rator (rator inv_lhs),input_var)
-    val ev = mk_Eval(mk_var("env", venvironment),exp_var,x)
+    val ev = mk_Eval(env_tm,exp_var,x)
     val hyp0 = mk_TAG(numSyntax.zero_tm, mk_imp(b0, ev))
     val hyps = list_mk_conj(hyp0::hyps)
     val goal = mk_imp(type_assum,mk_imp(tt,mk_imp(hyps,result)))
@@ -1318,13 +1312,13 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
                    then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
                 (* else optionSyntax.mk_some(full_id str) *)
-    val result = mk_Eval(mk_var("env", venvironment),
+    val result = mk_Eval(env_tm,
                          astSyntax.mk_Con(the_tag_name, exps_tm),
                          mk_comb(inv,tm))
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
-    val tms = map (fn (x,exp) => mk_Eval(mk_var("env", venvironment),
+    val tms = map (fn (x,exp) => mk_Eval(env_tm,
                                          exp,
                                          find_inv x)) exps
     val tm = if tms = [] then T else list_mk_conj tms
@@ -1549,7 +1543,6 @@ fun inst_case_thm tm hol2deep = let
     val (v,tm) = dest_forall tm
     val (vs,tm) = list_dest_forall tm
     in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
-  fun take 0 xs = [] | take n xs = hd xs :: take (n-1) (tl xs)
   fun sat_hyp tm = let
     val (vs,x) = list_dest_forall tm
     val (x,y) = dest_imp x
@@ -1557,8 +1550,7 @@ fun inst_case_thm tm hol2deep = let
     val lemma = hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",venvironment)
-    val lemma = INST [env|->new_env] lemma
+    val lemma = INST [env_tm|->new_env] lemma
                 |> PURE_REWRITE_RULE [lookup_cons_write]
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
@@ -1568,7 +1560,7 @@ fun inst_case_thm tm hol2deep = let
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
-    val bs = take (length vs div 2) vs
+    val bs = List.take(vs, length vs div 2)
     fun LIST_UNBETA_CONV [] = ALL_CONV
       | LIST_UNBETA_CONV (x::xs) =
           UNBETA_CONV x THENC RATOR_CONV (LIST_UNBETA_CONV xs)
@@ -2304,10 +2296,10 @@ fun inst_Eval_env v th = let
   val name = fst (dest_var v)
   val str = stringLib.fromMLstring name
   val inv = get_type_inv (type_of v)
-  val assum = mk_Eval(mk_var("env", venvironment),
+  val assum = mk_Eval(env_tm,
                       astSyntax.mk_Var(astSyntax.mk_Short(str)),
                         mk_comb(inv, v))
-  val new_env = mk_write(str,mk_var("v",v_ty),mk_var("env",venvironment))
+  val new_env = mk_write(str,mk_var("v",v_ty),env_tm)
   val old_env = new_env |> rand
   val c = SIMP_CONV bool_ss [Eval_Var_SIMP,lookup_var_write]
           THENC DEPTH_CONV stringLib.string_EQ_CONV
@@ -2364,14 +2356,13 @@ fun apply_Eval_Recclosure recc fname v th = let
   val pat = Eval_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator |> rator
   val pat = lemma |> concl |> find_term (can (match_term pat))
   val new_env = pat |> rand
-  val old_env = mk_var("env",venvironment)
-  val assum_eval = mk_Eval(mk_var("env", venvironment),
+  val assum_eval = mk_Eval(env_tm,
                            astSyntax.mk_Var(astSyntax.mk_Short(vname_str)),
                            mk_comb(inv, v))
-  val assum = subst [old_env|->new_env] assum_eval
+  val assum = subst [env_tm|->new_env] assum_eval
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum (* |> SIMP_RULE bool_ss [] *)
-               |> INST [old_env|->new_env]
+               |> INST [env_tm|->new_env]
                |> PURE_REWRITE_RULE [Eval_Var_SIMP,
                                      lookup_var_write,lookup_cons_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
@@ -2381,9 +2372,7 @@ fun apply_Eval_Recclosure recc fname v th = let
                 |> UNDISCH_ALL
                 |> CONV_RULE ((RAND_CONV o RAND_CONV) (UNBETA_CONV v))
                 |> DISCH new_assum
-  val env = mk_var("env",venvironment)
-  val cl_env = mk_var("cl_env",venvironment)
-  val th2 = MATCH_MP lemma (INST [env|->cl_env] (GEN (mk_var("v",v_ty)) th1))
+  val th2 = MATCH_MP lemma (INST [env_tm|->cl_env_tm] (GEN (mk_var("v",v_ty)) th1))
   val assum = ASSUME (fst (dest_imp (concl th2)))
   val th3 = D th2 |> REWRITE_RULE [assum]
                   |> REWRITE_RULE [Eval_Var_SIMP,
@@ -2547,7 +2536,7 @@ fun hol2deep tm =
     val (name,ty) = dest_var tm
     val inv = get_type_inv ty
     val str = stringSyntax.fromMLstring name
-    val result = ASSUME (mk_Eval(mk_var("env", venvironment),
+    val result = ASSUME (mk_Eval(env_tm,
                        astSyntax.mk_Var(astSyntax.mk_Short(str)),
                        mk_comb(inv,tm)))
     in check_inv "var" tm result end else
@@ -2589,7 +2578,7 @@ fun hol2deep tm =
     val inv = mk_inv xs (get_type_inv (type_of tm))
     val ss = fst (match_term lhs tm)
     val pre = subst ss pre_var
-    val pre_imp = mk_PreImp(pre, mk_Eval(mk_var("env", venvironment),
+    val pre_imp = mk_PreImp(pre, mk_Eval(env_tm,
                                          astSyntax.mk_Var(astSyntax.mk_Short(str)),
                                          mk_comb(inv,f)))
     val h = ASSUME pre_imp
@@ -2803,7 +2792,7 @@ fun hol2deep tm =
   if is_arb tm then let
     val inv = get_type_inv (type_of tm)
     val goal = mk_imp(mk_PRECONDITION F,
-                      mk_Eval(mk_var("env", venvironment),
+                      mk_Eval(env_tm,
                               astSyntax.mk_Raise(get_term "bind"),
                               mk_comb(inv,tm)))
     val result = prove(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
@@ -3138,7 +3127,7 @@ val _ = (max_print_depth := 25)
     val th =
       if is_fun then
         th
-        |> INST [mk_var("env",venvironment) |-> mk_var("cl_env",venvironment)]
+        |> INST [env_tm |-> cl_env_tm]
         |> MATCH_MP Eval_Fun_Var_intro
         |> SPEC (stringSyntax.fromMLstring ml_fname)
         |> UNDISCH
@@ -3163,13 +3152,12 @@ val _ = (max_print_depth := 25)
 val (fname,ml_fname,def,th,v) = hd thms
 *)
     val env2 = mk_var("env2", venvironment)
-    val cl_env = mk_var("cl_env", venvironment)
     val shadow_env = mk_var("shadow_env", venvironment)
     fun apply_recc (fname,ml_fname,def,th,v) = let
       val th = apply_Eval_Recclosure recc ml_fname v th
       val th = clean_assumptions th
       val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
-      val th = INST [env2|->cl_env,shadow_env|->cl_env] th |> RW []
+      val th = INST [env2|->cl_env_tm,shadow_env|->cl_env_tm] th |> RW []
                |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss [EVAL_T_F]))
       val th = clean_assumptions th
       in (fname,ml_fname,def,th) end
@@ -3315,11 +3303,11 @@ fun translate def =
       val recc = results |> map (fn (fname,_,def,th,pre) => th) |> hd |> hyp
         |> first (can (find_term (fn tm => tm = Recclosure_tm)))
         |> rand |> rator |> rand
-      val ii = INST [mk_var("cl_env",venvironment) |-> get_curr_env()]
+      val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = map (fn x => find_const_name (#1 x ^ "_v")) results
       val _ = ml_prog_update (add_Dletrec recc v_names)
-      val v_defs = take (length v_names) (get_curr_v_defs ())
-      val jj = INST [mk_var("env",venvironment) |-> get_curr_env()]
+      val v_defs = List.take(get_curr_v_defs (), length v_names)
+      val jj = INST [env_tm |-> get_curr_env()]
   (*
       val (fname,ml_fname,def,th,pre) = hd results
   *)
@@ -3339,13 +3327,12 @@ fun translate def =
       val (fname,ml_fname,def,th,pre) = hd results
     in
       if is_fun then let
-        val env_v = mk_var("cl_env",venvironment)
-        val th = th |> INST [env_v |-> get_curr_env()]
+        val th = th |> INST [cl_env_tm |-> get_curr_env()]
         val n = ml_fname |> stringSyntax.fromMLstring
         val lookup_var_assum = th |> hyp
           |> first (can (match_term(LOOKUP_VAR_def |> SPEC n |> SPEC_ALL |> concl |> lhs)))
         val lemma = th |> DISCH lookup_var_assum
-                       |> GEN (mk_var("env",venvironment))
+                       |> GEN env_tm
                        |> MATCH_MP Eval_Var_LOOKUP_VAR_elim
                        |> D |> clean_assumptions |> UNDISCH_ALL
         val v = lemma |> concl |> rand |> rator |> rand
@@ -3358,8 +3345,7 @@ fun translate def =
         val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
         in save_thm(fname ^ "_v_thm",v_thm) end
       else let
-        val env_v = mk_var("env",venvironment)
-        val th = th |> INST [env_v |-> get_curr_env()]
+        val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
         val curr_refs =
