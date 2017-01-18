@@ -481,6 +481,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     ALL_DISTINCT (MAP FST funs)
     ⇒
     type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))`,
+
   ho_match_mp_tac infer_e_ind >>
   rw [infer_e_def, success_eqns, remove_pair_lem] >>
   rw [check_t_def] >>
@@ -994,6 +995,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      first_x_assum irule >> rw [] >>
      imp_res_tac sub_completion_unify2 >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
+ >- metis_tac [sub_completion_infer_es]
  >- metis_tac [sub_completion_infer_es]
  >- metis_tac [infer_e_wfs, infer_e_next_uvar_mono, ienv_ok_more]
  >- rw [type_pes_def, RES_FORALL]

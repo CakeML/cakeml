@@ -510,6 +510,8 @@ val infer_e_def = tDefine "infer_e" `
      () <- add_constraint t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
      return t'
    od) ∧
+(infer_e ienv (Lannot e l) =
+  infer_e ienv e) ∧
 (infer_es ienv [] =
   return []) ∧
 (infer_es ienv (e::es) =
