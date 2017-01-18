@@ -14,6 +14,7 @@ val _ = Datatype `
     Number int
   | Word64 word64
   | Block num (v list)
+  | ByteVector (word8 list)
   | RefPtr num
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
@@ -54,6 +55,10 @@ val do_eq_def = tDefine "do_eq" `
                              do_eq_list xs ys
                            else Eq_val F
           | _ => Eq_type_error)
+     | ByteVector cs =>
+         (case y of
+          | ByteVector ds => Eq_val (cs = ds)
+          | _ => Eq_type_error)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
@@ -63,6 +68,7 @@ val do_eq_def = tDefine "do_eq" `
           | Number _ => Eq_type_error
           | Word64 _ => Eq_type_error
           | Block _ _ => Eq_type_error
+          | ByteVector _ => Eq_type_error
           | RefPtr _ => Eq_type_error
           | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\
@@ -152,6 +158,16 @@ val do_app_def = Define `
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
+    | (FromListByte,[lv]) =>
+        (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) of
+         | SOME ns => Rval (ByteVector (MAP n2w ns), s)
+         | NONE => Error)
+    | (LengthByteVec,[ByteVector bs]) =>
+        (Rval (Number (& LENGTH bs), s))
+    | (DerefByteVec,[ByteVector bs; Number i]) =>
+        (if 0 ≤ i ∧ i < &LENGTH bs then
+           Rval (Number (&(w2n(EL (Num i) bs))), s)
+         else Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
