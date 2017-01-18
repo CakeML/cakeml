@@ -340,6 +340,34 @@ fun list_conv c tm =
   else if listSyntax.is_nil tm then ALL_CONV tm
   else NO_CONV tm
 
+(* TODO: is it really necessary to prove this four times? *)
+val pmatch_row_lemmas =
+    map
+      (fn goal =>
+          Q.prove(goal,
+                  Cases_on `(∃v. f v = t ∧ g v)`
+                  >> rw[patternMatchesTheory.PMATCH_def,
+                        patternMatchesTheory.PMATCH_ROW_def,
+                        patternMatchesTheory.PMATCH_ROW_COND_def,
+                        some_def,pairTheory.ELIM_UNCURRY]))
+      [`PMATCH t ((PMATCH_ROW f g (λt x. h t x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λt. h t x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t') x. h t t' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t'). h t t' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'') x. h t t' t'' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t''). h t t' t'' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''') x. h t t' t'' t''' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t'''). h t t' t'' t''' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`
+      ]
+
 (* Attempts to convert (pmatch) expressions of the form
 
      (case x of
@@ -378,12 +406,7 @@ fun pmatch_app_distrib_conv tm =
     val g = mk_pmatch_beta tm
   in
     prove(g,
-      CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-      >> rpt strip_tac
-      >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-      >> rpt strip_tac
-      >> fs []
-      >> metis_tac[])
+      CONV_TAC(Ho_Rewrite.PURE_REWRITE_CONV pmatch_row_lemmas) >> rw[pairTheory.ELIM_UNCURRY])
   end
 
 fun full_infer_def aggressive const = let
@@ -429,8 +452,6 @@ val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ metis_tac[unifyTheory.t_unify_wfs]);
     
-(* TODO: pmatch_app_distrib_conv takes 5 minutes; write a better conversion
-   or write constrain_op_pmatch so that the conversion is not needed *)
 val _ = translate (infer_def ``constrain_op``
                    |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
 
